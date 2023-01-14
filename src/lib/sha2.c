@@ -257,6 +257,9 @@ void sha256_loop(struct sha256_ctx *ctx, const void *data,
 	size_t block_nb;
 	size_t new_len, rem_len, tmp_len;
 
+	if (len == 0)
+		return;
+
 	tmp_len = SHA256_BLOCK_SIZE - ctx->len;
 	rem_len = len < tmp_len ? len : tmp_len;
 
@@ -384,6 +387,9 @@ void sha384_loop(struct sha384_ctx *ctx, const void *data,
 	size_t block_nb;
 	size_t new_len, rem_len, tmp_len;
 
+	if (len == 0)
+		return;
+
 	tmp_len = SHA384_BLOCK_SIZE - ctx->len;
 	rem_len = len < tmp_len ? len : tmp_len;
 
@@ -510,6 +516,9 @@ void sha512_loop(struct sha512_ctx *ctx, const void *data,
 	const unsigned char *shifted_message;
 	size_t block_nb;
 	size_t new_len, rem_len, tmp_len;
+
+	if (len == 0)
+		return;
 
 	tmp_len = SHA512_BLOCK_SIZE - ctx->len;
 	rem_len = len < tmp_len ? len : tmp_len;

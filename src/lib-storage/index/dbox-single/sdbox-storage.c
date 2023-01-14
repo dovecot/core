@@ -164,7 +164,8 @@ int sdbox_read_header(struct sdbox_mailbox *mbox,
 		ret = -1;
 	} else {
 		i_zero(hdr);
-		memcpy(hdr, data, I_MIN(data_size, sizeof(*hdr)));
+		if (data_size > 0)
+			memcpy(hdr, data, I_MIN(data_size, sizeof(*hdr)));
 		if (guid_128_is_empty(hdr->mailbox_guid))
 			ret = -1;
 		else {

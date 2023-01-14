@@ -475,7 +475,8 @@ static void *pool_alloconly_realloc(pool_t pool, void *mem,
 	if (!pool_alloconly_try_grow(apool, mem, new_size)) {
 		/* slow way - allocate + copy */
 		new_mem = pool_alloconly_malloc(pool, new_size);
-		memcpy(new_mem, mem, old_size);
+		if (old_size > 0)
+			memcpy(new_mem, mem, old_size);
 		mem = new_mem;
 	}
 

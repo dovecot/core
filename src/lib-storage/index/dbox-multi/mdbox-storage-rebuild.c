@@ -495,7 +495,8 @@ mdbox_rebuild_get_header(struct mail_index_view *view, uint32_t hdr_ext_id,
 
 	mail_index_get_header_ext(view, hdr_ext_id, &data, &data_size);
 	i_zero(hdr_r);
-	memcpy(hdr_r, data, I_MIN(data_size, sizeof(*hdr_r)));
+	if (data_size > 0)
+		memcpy(hdr_r, data, I_MIN(data_size, sizeof(*hdr_r)));
 	*need_resize_r = data_size < sizeof(*hdr_r);
 }
 
@@ -928,8 +929,10 @@ mdbox_storage_rebuild_scan_prepare(struct mdbox_storage_rebuild_context *ctx)
 				  ctx->storage->map->map_ext_id,
 				  &data, &data_size);
 	i_zero(&ctx->orig_map_hdr);
-	memcpy(&ctx->orig_map_hdr, data,
-	       I_MIN(data_size, sizeof(ctx->orig_map_hdr)));
+	if (data_size > 0) {
+		memcpy(&ctx->orig_map_hdr, data,
+		       I_MIN(data_size, sizeof(ctx->orig_map_hdr)));
+	}
 	ctx->highest_file_id = ctx->orig_map_hdr.highest_file_id;
 
 	/* get storage rebuild counter after locking */

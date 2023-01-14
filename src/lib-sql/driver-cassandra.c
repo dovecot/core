@@ -1752,7 +1752,8 @@ driver_cassandra_get_value(struct cassandra_result *result,
 		return -1;
 	}
 	output_dup = p_malloc(result->row_pool, output_size + 1);
-	memcpy(output_dup, output, output_size);
+	if (output_size > 0)
+		memcpy(output_dup, output, output_size);
 	*str_r = output_dup;
 	*len_r = output_size;
 	return 0;

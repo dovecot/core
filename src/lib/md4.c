@@ -181,6 +181,9 @@ void md4_update(struct md4_context *ctx, const void *data, size_t size)
 	uint_fast32_t saved_lo;
 	unsigned long used, free;
 
+	if (size == 0)
+		return;
+
 	saved_lo = ctx->lo;
 	if ((ctx->lo = (saved_lo + size) & 0x1fffffff) < saved_lo)
 		ctx->hi++;

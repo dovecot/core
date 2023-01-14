@@ -253,7 +253,7 @@ void buffer_insert(buffer_t *_buf, size_t pos,
 
 	if (pos >= buf->used)
 		buffer_write(_buf, pos, data, data_size);
-	else {
+	else if (data_size > 0) {
 		buffer_copy(_buf, pos + data_size, _buf, pos, SIZE_MAX);
 		memcpy(buf->w_buffer + pos, data, data_size);
 	}

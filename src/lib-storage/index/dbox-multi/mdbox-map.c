@@ -264,7 +264,8 @@ mdbox_map_get_ext_hdr(struct mdbox_map *map, struct mail_index_view *view,
 
 	mail_index_get_header_ext(view, map->map_ext_id, &data, &data_size);
 	i_zero(hdr_r);
-	memcpy(hdr_r, data, I_MIN(data_size, sizeof(*hdr_r)));
+	if (data_size > 0)
+		memcpy(hdr_r, data, I_MIN(data_size, sizeof(*hdr_r)));
 }
 
 uint32_t mdbox_map_get_rebuild_count(struct mdbox_map *map)

@@ -689,7 +689,8 @@ ssize_t fs_read_via_stream(struct fs_file *file, void *buf, size_t size)
 			     i_stream_get_error(file->pending_read_input));
 	} else {
 		ret = I_MIN(size, data_size);
-		memcpy(buf, data, ret);
+		if (ret > 0)
+			memcpy(buf, data, ret);
 	}
 	i_stream_unref(&file->pending_read_input);
 	return ret;

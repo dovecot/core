@@ -987,6 +987,8 @@ bool i_stream_add_data(struct istream *_stream, const unsigned char *data,
 	struct istream_private *stream = _stream->real_stream;
 	size_t size2;
 
+	if (size == 0)
+		return TRUE;
 	(void)i_stream_try_alloc(stream, size, &size2);
 	if (size > size2)
 		return FALSE;

@@ -35,7 +35,8 @@ void hmac_init(struct hmac_context *_ctx, const unsigned char *key,
 		key_len = meth->digest_size;
 	}
 
-	memcpy(k_ipad, key, key_len);
+	if (key_len > 0)
+		memcpy(k_ipad, key, key_len);
 	memset(k_ipad + key_len, 0, meth->block_size - key_len);
 	memcpy(k_opad, k_ipad, meth->block_size);
 

@@ -171,7 +171,8 @@ static void *pool_data_stack_realloc(pool_t pool, void *mem,
 
 	if (!t_try_realloc(mem, new_size)) {
 		new_mem = t_malloc_no0(new_size);
-		memcpy(new_mem, mem, old_size);
+		if (old_size > 0)
+			memcpy(new_mem, mem, old_size);
 		mem = new_mem;
 	}
 
