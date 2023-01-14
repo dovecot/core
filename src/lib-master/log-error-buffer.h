@@ -5,7 +5,7 @@ struct log_error_buffer;
 
 struct log_error {
 	enum log_type type;
-	time_t timestamp;
+	struct timeval timestamp;
 	const char *prefix;
 	const char *text;
 };

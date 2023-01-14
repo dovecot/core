@@ -9,7 +9,7 @@ struct log_error_data {
 	struct log_error_data *next;
 
 	enum log_type type;
-	time_t timestamp;
+	struct timeval timestamp;
 	unsigned char prefix_text[FLEXIBLE_ARRAY_MEMBER];
 };
 

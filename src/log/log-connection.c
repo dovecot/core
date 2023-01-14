@@ -146,7 +146,7 @@ client_log_ctx(struct log_connection *log,
 	case LOG_TYPE_PANIC:
 		i_zero(&err);
 		err.type = ctx->type;
-		err.timestamp = log_time->tv_sec;
+		err.timestamp = *log_time;
 		err.prefix = ctx->log_prefix != NULL ? ctx->log_prefix : prefix;
 		err.text = text;
 		log_error_buffer_add(log->errorbuf, &err);

@@ -304,7 +304,7 @@ static void cmd_log_error_write(const char *const *args, time_t min_timestamp,
 	/* <type> <timestamp> <prefix> <text> */
 	const char *type_prefix = "?";
 	unsigned int type;
-	time_t t;
+	struct timeval tv;
 
 	/* find type's prefix */
 	for (type = 0; type < LOG_TYPE_COUNT; type++) {
@@ -314,12 +314,15 @@ static void cmd_log_error_write(const char *const *args, time_t min_timestamp,
 		}
 	}
 
-	if (str_to_time(args[1], &t) < 0) {
+	if (str_to_timeval(args[1], &tv) < 0) {
 		e_error(event, "Invalid timestamp: %s", args[1]);
-		t = 0;
+		i_zero(&tv);
 	}
-	if (t >= min_timestamp) {
-		doveadm_print(t_strflocaltime(LOG_TIMESTAMP_FORMAT, t));
+	if (tv.tv_sec >= min_timestamp) {
+		const char *ts_secs =
+			t_strflocaltime(LOG_TIMESTAMP_FORMAT, tv.tv_sec);
+		doveadm_print(t_strdup_printf("%s.%06u", ts_secs,
+					      (unsigned int)tv.tv_usec));
 		doveadm_print(t_cmd_log_error_trim(args[2]));
 		doveadm_print(t_cmd_log_error_trim(type_prefix));
 		doveadm_print(args[3]);
