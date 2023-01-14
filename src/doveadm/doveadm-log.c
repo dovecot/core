@@ -9,6 +9,7 @@
 #include "time-util.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
+#include "log-error-buffer.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
 
@@ -298,41 +299,86 @@ static const char *t_cmd_log_error_trim(const char *orig)
 	return orig[pos] == '\0' ? orig : t_strndup(orig, pos);
 }
 
-static void cmd_log_error_write(const char *const *args, time_t min_timestamp,
-				struct event *event)
+static bool
+cmd_log_error_next(struct event *event, struct istream *input,
+		   struct log_error *error_r)
 {
+	if (error_r->text != NULL) {
+		/* already set */
+		return TRUE;
+	}
+
+	i_zero(error_r);
+	if (input == NULL || input->closed) {
+		/* already logged failure */
+		return FALSE;
+	}
+
+	const char *line = i_stream_read_next_line(input);
+	if (line == NULL) {
+		if (input->stream_errno != 0) {
+			e_error(event, "read() failed: %s",
+				i_stream_get_error(input));
+		}
+		return FALSE;
+	}
+
+	if (line[0] == '\0') {
+		/* end of lines reply from master */
+		return FALSE;
+	}
+
 	/* <type> <timestamp> <prefix> <text> */
-	const char *type_prefix = "?";
-	unsigned int type;
-	struct timeval tv;
+	const char *const *args = t_strsplit_tabescaped(line);
+
+	if (str_array_length(args) != 4) {
+		e_error(event, "Invalid input from log: %s", line);
+		doveadm_exit_code = EX_PROTOCOL;
+		i_stream_close(input);
+		return FALSE;
+	}
 
 	/* find type's prefix */
+	enum log_type type;
 	for (type = 0; type < LOG_TYPE_COUNT; type++) {
 		if (strcmp(args[0], failure_log_type_names[type]) == 0) {
-			type_prefix = failure_log_type_prefixes[type];
+			error_r->type = type;
 			break;
 		}
 	}
+	if (type == LOG_TYPE_COUNT) {
+		e_error(event, "Invalid log type: %s", args[0]);
+		error_r->type = LOG_TYPE_ERROR;
+	}
 
-	if (str_to_timeval(args[1], &tv) < 0) {
+	if (str_to_timeval(args[1], &error_r->timestamp) < 0)
 		e_error(event, "Invalid timestamp: %s", args[1]);
-		i_zero(&tv);
+	error_r->prefix = args[2];
+	error_r->text = args[3];
+	return TRUE;
+}
+
+static void cmd_log_error_write(const struct log_error *error)
+{
+	const char *ts_secs =
+		t_strflocaltime(LOG_TIMESTAMP_FORMAT, error->timestamp.tv_sec);
+	doveadm_print(t_strdup_printf("%s.%06u", ts_secs,
+				      (unsigned int)error->timestamp.tv_usec));
+	if (error->prefix[0] == '\0')
+		doveadm_print("");
+	else {
+		const char *prefix = t_strconcat(
+			t_cmd_log_error_trim(error->prefix), ": ", NULL);
+		doveadm_print(prefix);
 	}
-	if (tv.tv_sec >= min_timestamp) {
-		const char *ts_secs =
-			t_strflocaltime(LOG_TIMESTAMP_FORMAT, tv.tv_sec);
-		doveadm_print(t_strdup_printf("%s.%06u", ts_secs,
-					      (unsigned int)tv.tv_usec));
-		doveadm_print(t_cmd_log_error_trim(args[2]));
-		doveadm_print(t_cmd_log_error_trim(type_prefix));
-		doveadm_print(args[3]);
-	}
+	doveadm_print(t_cmd_log_error_trim(failure_log_type_prefixes[error->type]));
+	doveadm_print(error->text);
 }
 
 static void cmd_log_errors(struct doveadm_cmd_context *cctx)
 {
-	struct istream *input;
-	const char *path, *line, *const *args;
+	struct istream *input1 = NULL, *input2 = NULL;
+	const char *error, *path1;
 	time_t min_timestamp = 0;
 	int64_t since_int64;
 	int fd;
@@ -340,33 +386,51 @@ static void cmd_log_errors(struct doveadm_cmd_context *cctx)
 	if (doveadm_cmd_param_int64(cctx, "since", &since_int64))
 		min_timestamp = since_int64;
 
-	path = t_strconcat(doveadm_settings->base_dir,
-			   "/"LOG_ERRORS_FNAME, NULL);
-	fd = net_connect_unix(path);
+	path1 = t_strconcat(doveadm_settings->base_dir,
+			    "/"LOG_ERRORS_FNAME, NULL);
+	fd = net_connect_unix(path1);
 	if (fd == -1)
-		i_fatal("net_connect_unix(%s) failed: %m", path);
-	net_set_nonblock(fd, FALSE);
+		e_error(cctx->event, "net_connect_unix(%s) failed: %m", path1);
+	else {
+		net_set_nonblock(fd, FALSE);
+		input1 = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
+	}
 
-	input = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
+	if (master_service_send_cmd("ERROR-LOG", &input2, &error) < 0) {
+		e_error(cctx->event, "%s", error);
+		input2 = NULL;
+	}
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
-	doveadm_print_formatted_set_format("%{timestamp} %{type}: %{prefix}: %{text}\n");
+	doveadm_print_formatted_set_format("%{timestamp} %{type}: %{prefix}%{text}\n");
 
 	doveadm_print_header_simple("timestamp");
 	doveadm_print_header_simple("prefix");
 	doveadm_print_header_simple("type");
 	doveadm_print_header_simple("text");
 
-	while ((line = i_stream_read_next_line(input)) != NULL) T_BEGIN {
-		args = t_strsplit_tabescaped(line);
-		if (str_array_length(args) == 4)
-			cmd_log_error_write(args, min_timestamp, cctx->event);
-		else {
-			e_error(cctx->event, "Invalid input from log: %s", line);
-			doveadm_exit_code = EX_PROTOCOL;
+	struct log_error error1, error2;
+	i_zero(&error1);
+	i_zero(&error2);
+	while (cmd_log_error_next(cctx->event, input1, &error1) ||
+	       cmd_log_error_next(cctx->event, input2, &error2)) T_BEGIN {
+		struct log_error *error;
+		if (error2.text == NULL ||
+		    (error1.text != NULL &&
+		     timeval_cmp(&error1.timestamp, &error2.timestamp) < 0)) {
+			i_assert(error1.text != NULL);
+			error = &error1;
+		} else {
+			if (error2.prefix[0] == '\0')
+				error2.prefix = "master: ";
+			error = &error2;
 		}
+		if (error->timestamp.tv_sec >= min_timestamp)
+			cmd_log_error_write(error);
+		i_zero(error);
 	} T_END;
-	i_stream_destroy(&input);
+	i_stream_destroy(&input1);
+	i_stream_destroy(&input2);
 }
 
 struct doveadm_cmd_ver2 doveadm_cmd_log[] = {
