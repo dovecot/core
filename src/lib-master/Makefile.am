@@ -16,6 +16,7 @@ AM_CPPFLAGS = \
 
 libmaster_la_SOURCES = \
 	anvil-client.c \
+	log-error-buffer.c \
 	master-admin-client.c \
 	master-instance.c \
 	master-service.c \
@@ -29,6 +30,7 @@ libmaster_la_SOURCES = \
 
 headers = \
 	anvil-client.h \
+	log-error-buffer.h \
 	master-admin-client.h \
 	master-instance.h \
 	master-interface.h \
