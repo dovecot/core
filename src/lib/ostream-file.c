@@ -880,7 +880,7 @@ io_stream_copy_backwards(struct ostream_private *outstream,
 		out_offset -= read_size;
 
 		for (;;) {
-			i_assert(in_offset <= in_limit);
+			i_assert(in_offset < in_limit);
 
 			i_stream_seek(instream, in_offset);
 			read_size = in_limit - in_offset;
