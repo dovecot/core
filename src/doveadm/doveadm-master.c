@@ -92,7 +92,8 @@ static void cmd_reload(struct doveadm_cmd_context *cctx)
 	doveadm_master_send_signal(SIGHUP, cctx->event);
 }
 
-static struct istream *master_service_send_cmd(const char *cmd)
+int master_service_send_cmd(const char *cmd, struct istream **input_r,
+			    const char **error_r)
 {
 	const char *path =
 		t_strconcat(doveadm_settings->base_dir, "/master", NULL);
@@ -104,13 +105,26 @@ static struct istream *master_service_send_cmd(const char *cmd)
 	};
 	struct istream *input;
 	struct ostream *output;
-	const char *error;
-	if (doveadm_blocking_connect(path, &set, &input, &output, &error) < 0)
-		i_fatal("%s", error);
+
+	if (doveadm_blocking_connect(path, &set, &input, &output, error_r) < 0)
+		return -1;
 	o_stream_nsend_str(output, t_strconcat(cmd, "\n", NULL));
-	if (o_stream_flush(output) < 0)
-		i_fatal("%s", o_stream_get_error(output));
+	if (o_stream_flush(output) < 0) {
+		*error_r = t_strdup(o_stream_get_error(output));
+		i_stream_unref(&input);
+	}
 	o_stream_unref(&output);
+	*input_r = input;
+	return input == NULL ? -1 : 0;
+}
+
+static struct istream *master_service_send_cmd_or_fatal(const char *cmd)
+{
+	struct istream *input;
+	const char *error;
+
+	if (master_service_send_cmd(cmd, &input, &error) < 0)
+		i_fatal("%s", error);
 	return input;
 }
 
@@ -126,7 +140,7 @@ master_service_send_cmd_with_args(const char *cmd, const char *const *args)
 			str_append_tabescaped(str, args[i]);
 		}
 	}
-	return master_service_send_cmd(str_c(str));
+	return master_service_send_cmd_or_fatal(str_c(str));
 }
 
 static void cmd_service_stop(struct doveadm_cmd_context *cctx)
@@ -164,7 +178,8 @@ static void cmd_service_status(struct doveadm_cmd_context *cctx)
 	if (!doveadm_cmd_param_array(cctx, "service", &services))
 		services = NULL;
 
-	struct istream *input = master_service_send_cmd("SERVICE-STATUS");
+	struct istream *input =
+		master_service_send_cmd_or_fatal("SERVICE-STATUS");
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_PAGER);
 	doveadm_print_header_simple("name");

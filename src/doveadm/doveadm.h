@@ -22,5 +22,7 @@ extern int doveadm_exit_code;
 void usage(void) ATTR_NORETURN;
 void help_ver2(const struct doveadm_cmd_ver2 *cmd) ATTR_NORETURN;
 void doveadm_master_send_signal(int signo, struct event *event);
+int master_service_send_cmd(const char *cmd, struct istream **input_r,
+			    const char **error_r);
 
 #endif
