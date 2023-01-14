@@ -16,6 +16,7 @@
 #include "master-instance.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
+#include "log-error-buffer.h"
 #include "askpass.h"
 #include "capabilities.h"
 #include "master-client.h"
@@ -60,6 +61,7 @@ bool have_proc_fs_suid_dumpable;
 bool have_proc_sys_kernel_core_pattern;
 const char *ssl_manual_key_password;
 int global_master_dead_pipe_fd[2];
+struct log_error_buffer *log_error_buffer;
 struct service_list *services;
 bool startup_finished = FALSE;
 
@@ -141,6 +143,25 @@ int get_gid(const char *group, gid_t *gid_r, const char **error_r)
 		*gid_r = gr.gr_gid;
 		return 0;
 	}
+}
+
+static void ATTR_FORMAT(2, 0)
+master_error_handler(const struct failure_context *ctx,
+		     const char *fmt, va_list args)
+{
+	va_list args2;
+
+	VA_COPY(args2, args);
+	struct log_error error = {
+		.type = ctx->type,
+		.timestamp = ioloop_timeval,
+		.prefix = ctx->log_prefix != NULL ? ctx->log_prefix : "",
+		.text = t_strdup_vprintf(fmt, args2),
+	};
+	log_error_buffer_add(log_error_buffer, &error);
+	va_end(args2);
+
+	orig_error_callback(ctx, fmt, args);
 }
 
 static void ATTR_NORETURN ATTR_FORMAT(2, 0)
@@ -594,6 +615,9 @@ static void main_deinit(void)
 	service_pids_deinit();
 	/* notify systemd that we are done */
 	i_sd_notify(0, "STATUS=Dovecot stopped");
+
+	i_set_error_handler(orig_error_callback);
+	log_error_buffer_deinit(&log_error_buffer);
 }
 
 static const char *get_full_config_path(struct service_list *list)
@@ -909,8 +933,9 @@ int main(int argc, char *argv[])
 	if (chdir(set->base_dir) < 0)
 		i_fatal("chdir(%s) failed: %m", set->base_dir);
 
+	log_error_buffer = log_error_buffer_init();
 	i_set_fatal_handler(master_fatal_callback);
-	i_set_error_handler(orig_error_callback);
+	i_set_error_handler(master_error_handler);
 
 	if (!foreground)
 		daemonize();

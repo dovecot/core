@@ -15,6 +15,7 @@ extern bool have_proc_fs_suid_dumpable;
 extern bool have_proc_sys_kernel_core_pattern;
 extern const char *ssl_manual_key_password;
 extern int global_master_dead_pipe_fd[2];
+extern struct log_error_buffer *log_error_buffer;
 extern struct service_list *services;
 extern bool startup_finished;
 

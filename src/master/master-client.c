@@ -6,6 +6,7 @@
 #include "strescape.h"
 #include "ostream.h"
 #include "connection.h"
+#include "log-error-buffer.h"
 #include "service.h"
 #include "service-process.h"
 #include "service-monitor.h"
@@ -83,6 +84,35 @@ master_client_process_status(struct master_client *client,
 	return 1;
 }
 
+static int master_client_send_errors(struct master_client *client)
+{
+	struct log_error_buffer_iter *iter;
+	const struct log_error *error;
+	string_t *str = t_str_new(256);
+	int ret = 0;
+
+	iter = log_error_buffer_iter_init(log_error_buffer);
+	while ((error = log_error_buffer_iter_next(iter)) != NULL) {
+		str_truncate(str, 0);
+		str_printfa(str, "%s\t%"PRIdTIME_T".%06u\t",
+			    failure_log_type_names[error->type],
+			    error->timestamp.tv_sec,
+			    (unsigned int)error->timestamp.tv_usec);
+		str_append_tabescaped(str, error->prefix);
+		str_append_c(str, '\t');
+		str_append_tabescaped(str, error->text);
+		str_append_c(str, '\n');
+		if (o_stream_send(client->conn.output,
+				  str_data(str), str_len(str)) < 0) {
+			ret = -1;
+			break;
+		}
+	}
+	log_error_buffer_iter_deinit(&iter);
+	o_stream_nsend_str(client->conn.output, "\n");
+	return ret;
+}
+
 static int
 master_client_stop(struct master_client *client, const char *const *args)
 {
@@ -118,6 +148,8 @@ master_client_input_args(struct connection *conn, const char *const *args)
 		return master_client_service_status(client);
 	if (strcmp(cmd, "PROCESS-STATUS") == 0)
 		return master_client_process_status(client, args);
+	if (strcmp(cmd, "ERROR-LOG") == 0)
+		return master_client_send_errors(client);
 	if (strcmp(cmd, "STOP") == 0)
 		return master_client_stop(client, args);
 	e_error(conn->event, "Unknown command: %s", cmd);
