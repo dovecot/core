@@ -238,6 +238,7 @@ void mail_index_set_ext_init_data(struct mail_index *index, uint32_t ext_id,
 
 	i_assert(index->set.ext_hdr_init_data == NULL ||
 		 index->set.ext_hdr_init_id == ext_id);
+	i_assert(size > 0);
 
 	rext = array_idx(&index->extensions, ext_id);
 	i_assert(rext->hdr_size == size);

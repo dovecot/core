@@ -715,6 +715,7 @@ void mail_index_update_header(struct mail_index_transaction *t,
 {
 	i_assert(offset < sizeof(t->pre_hdr_change));
 	i_assert(size <= sizeof(t->pre_hdr_change) - offset);
+	i_assert(size > 0);
 
 	t->log_updates = TRUE;
 
@@ -991,6 +992,7 @@ void mail_index_update_header_ext(struct mail_index_transaction *t,
 	struct mail_index_transaction_ext_hdr_update *hdr;
 	size_t new_size;
 
+	i_assert(size > 0);
 	i_assert(offset <= (uint32_t)-1 && size <= (uint32_t)-1 &&
 		 offset + size <= (uint32_t)-1);
 

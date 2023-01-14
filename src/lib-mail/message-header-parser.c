@@ -435,6 +435,8 @@ void message_header_line_write(buffer_t *output,
 const char *
 message_header_strdup(pool_t pool, const unsigned char *data, size_t size)
 {
+	i_assert(data != NULL);
+
 	if (memchr(data, '\0', size) == NULL) {
 		/* fast path */
 		char *dest = p_malloc(pool, size+1);

@@ -240,6 +240,7 @@ void file_cache_write(struct file_cache *cache, const void *data, size_t size,
 	unsigned char *bits;
 	unsigned int first_page, last_page;
 
+	i_assert(size > 0);
 	i_assert(page_size > 0);
 	i_assert(UOFF_T_MAX - offset > size);
 

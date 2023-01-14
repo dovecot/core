@@ -253,6 +253,8 @@ replicator_connection_create_inet(const struct ip_addr *ips,
 {
 	struct replicator_connection *conn;
 
+	i_assert(ips_count > 0);
+
 	conn = replicator_connection_create();
 	conn->callback = callback;
 	conn->ips = i_new(struct ip_addr, ips_count);
