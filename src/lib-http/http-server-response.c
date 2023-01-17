@@ -357,7 +357,8 @@ int http_server_response_finish_payload_out(struct http_server_response *resp)
 		o_stream_unref(&resp->payload_output);
 		resp->payload_output = NULL;
 	}
-	if (o_stream_get_buffer_used_size(conn->conn.output) > 0) {
+	if (conn->conn.output != NULL &&
+	    o_stream_get_buffer_used_size(conn->conn.output) > 0) {
 		e_debug(resp->event,
 			"Not quite finished sending response");
 		conn->output_locked = TRUE;
