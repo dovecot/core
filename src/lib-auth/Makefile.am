@@ -40,7 +40,8 @@ pkginc_lib_HEADERS = $(headers)
 noinst_HEADERS = crypt-blowfish.h
 
 test_programs = \
-	test-password-scheme
+	test-password-scheme \
+	test-auth-scram
 
 noinst_PROGRAMS = $(test_programs)
 
@@ -64,6 +65,15 @@ test_password_scheme_LDADD = \
         $(CRYPT_LIBS) \
         $(LIBSODIUM_LIBS)
 test_password_scheme_DEPENDENCIES = \
+	$(test_deps)
+
+test_auth_scram_SOURCES = \
+	test-auth-scram.c
+test_auth_scram_LDFLAGS = -export-dynamic
+test_auth_scram_LDADD = \
+	$(test_libs) \
+        ../lib-otp/libotp.la
+test_auth_scram_DEPENDENCIES = \
 	$(test_deps)
 
 check-local:
