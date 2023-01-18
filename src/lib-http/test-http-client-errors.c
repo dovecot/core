@@ -3847,7 +3847,6 @@ test_run_client_server(const struct http_client_settings *client_set,
 {
 	unsigned int i;
 
-	test_subprocess_notify_signal_reset(SIGHUP);
 	test_server_init = NULL;
 	test_server_deinit = NULL;
 	test_server_input = NULL;
@@ -3868,10 +3867,10 @@ test_run_client_server(const struct http_client_settings *client_set,
 
 			/* Fork server */
 			fd_listen = fds[i];
-			test_subprocess_fork(test_run_server, &data, FALSE);
-			i_close_fd(&fd_listen);
-			test_subprocess_notify_signal_wait(SIGHUP, 10000);
 			test_subprocess_notify_signal_reset(SIGHUP);
+			test_subprocess_fork(test_run_server, &data, FALSE);
+			test_subprocess_notify_signal_wait(SIGHUP, 10000);
+			i_close_fd(&fd_listen);
 		}
 	}
 
