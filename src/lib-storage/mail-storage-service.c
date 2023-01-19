@@ -89,15 +89,13 @@ struct mail_storage_service_user {
 	bool home_from_userdb:1;
 };
 
-struct module *mail_storage_service_modules = NULL;
+struct mail_storage_service_init_var_expand_ctx {
+	struct mail_storage_service_ctx *ctx;
+	const struct mail_storage_service_input *input;
+	struct mail_storage_service_user *user;
+};
 
-static int
-mail_storage_service_var_expand(struct mail_storage_service_ctx *ctx,
-				string_t *str, const char *format,
-				struct mail_storage_service_user *user,
-				const struct mail_storage_service_input *input,
-				const struct mail_storage_service_privileges *priv,
-				const char **error_r);
+struct module *mail_storage_service_modules = NULL;
 
 static void set_keyval(struct mail_storage_service_ctx *ctx,
 		       struct mail_storage_service_user *user,
@@ -447,39 +445,14 @@ mail_storage_service_get_var_expand_table(struct mail_storage_service_ctx *ctx,
 	return get_var_expand_table(ctx->service, NULL, input, &priv);
 }
 
-static bool
-user_expand_varstr(struct mail_storage_service_ctx *ctx,
-		   struct mail_storage_service_user *user,
-		   struct mail_storage_service_privileges *priv,
-		   const char *str, const char **value_r, const char **error_r)
-{
-	string_t *value;
-	int ret;
-
-	if (*str == SETTING_STRVAR_EXPANDED[0]) {
-		*value_r = str + 1;
-		return TRUE;
-	}
-
-	i_assert(*str == SETTING_STRVAR_UNEXPANDED[0]);
-
-	value = t_str_new(256);
-	ret = mail_storage_service_var_expand(ctx, value, str + 1, user,
-					      &user->input, priv, error_r);
-	*value_r = str_c(value);
-	return ret > 0;
-}
-
 static int
-service_parse_privileges(struct mail_storage_service_ctx *ctx,
-			 struct mail_storage_service_user *user,
+service_parse_privileges(struct mail_storage_service_user *user,
 			 struct mail_storage_service_privileges *priv_r,
 			 const char **error_r)
 {
 	const struct mail_user_settings *set = user->user_set;
 	uid_t uid = (uid_t)-1;
 	gid_t gid = (gid_t)-1;
-	const char *error;
 
 	i_zero(priv_r);
 	if (*set->mail_uid != '\0') {
@@ -519,23 +492,8 @@ service_parse_privileges(struct mail_storage_service_ctx *ctx,
 	}
 	priv_r->gid = gid;
 	priv_r->gid_source = user->gid_source;
-
-	/* variable strings are expanded in mail_user_init(),
-	   but we need the home and chroot sooner so do them separately here. */
-	if (!user_expand_varstr(ctx, user, priv_r, user->user_set->mail_home,
-				&priv_r->home, &error)) {
-		*error_r = t_strdup_printf(
-			"Failed to expand mail_home '%s': %s",
-			user->user_set->mail_home, error);
-		return -1;
-	}
-	if (!user_expand_varstr(ctx, user, priv_r, user->user_set->mail_chroot,
-				&priv_r->chroot, &error)) {
-		*error_r = t_strdup_printf(
-			"Failed to expand mail_chroot '%s': %s",
-			user->user_set->mail_chroot, error);
-		return -1;
-	}
+	priv_r->home = user->user_set->mail_home;
+	priv_r->chroot = user->user_set->mail_chroot;
 	return 0;
 }
 
@@ -835,12 +793,18 @@ mail_storage_service_input_var_userdb(const char *data, void *context,
 				      const char **value_r,
 				      const char **error_r ATTR_UNUSED)
 {
-	struct mail_storage_service_user *user = context;
+	struct mail_storage_service_init_var_expand_ctx *var_expand_ctx = context;
 
 	*value_r = mail_storage_service_fields_var_expand(data,
-			user == NULL ? NULL : user->input.userdb_fields);
+			var_expand_ctx->input->userdb_fields);
 	return 1;
 }
+
+static const struct var_expand_func_table
+mail_storage_service_var_expand_func_table[] = {
+	{ "userdb", mail_storage_service_input_var_userdb },
+	{ NULL, NULL }
+};
 
 static int
 mail_storage_service_var_expand(struct mail_storage_service_ctx *ctx,
@@ -850,13 +814,24 @@ mail_storage_service_var_expand(struct mail_storage_service_ctx *ctx,
 				const struct mail_storage_service_privileges *priv,
 				const char **error_r)
 {
-	static const struct var_expand_func_table func_table[] = {
-		{ "userdb", mail_storage_service_input_var_userdb },
-		{ NULL, NULL }
-	};
 	return var_expand_with_funcs(str, format,
 		   get_var_expand_table(ctx->service, user, input, priv),
-		   func_table, user, error_r);
+		   mail_storage_service_var_expand_func_table, user, error_r);
+}
+
+static void
+mail_storage_service_var_expand_callback(struct event *event,
+					 const struct var_expand_table **tab_r,
+					 const struct var_expand_func_table **func_tab_r)
+{
+	struct mail_storage_service_init_var_expand_ctx *var_expand_ctx =
+		event_get_ptr(event, MASTER_SERVICE_VAR_EXPAND_FUNC_CONTEXT);
+	i_assert(var_expand_ctx != NULL);
+
+	*tab_r = get_var_expand_table(var_expand_ctx->ctx->service,
+				      var_expand_ctx->user,
+				      var_expand_ctx->input, NULL);
+	*func_tab_r = mail_storage_service_var_expand_func_table;
 }
 
 const char *
@@ -1259,10 +1234,21 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	   will be used for that. */
 	struct event *event = event_create(input->event_parent);
 
+	struct mail_storage_service_init_var_expand_ctx var_expand_ctx = {
+		.ctx = ctx,
+		.input = input,
+	};
+	/* Set callback to get %variable expansion table for settings expansion.
+	   This is used only for settings lookups while inside this function,
+	   and it is cleared before we exit this function. Afterwards any
+	   settings lookups are expected to be using mail_user.event. */
+	event_set_ptr(event, MASTER_SERVICE_VAR_EXPAND_CALLBACK,
+		      mail_storage_service_var_expand_callback);
+	event_set_ptr(event, MASTER_SERVICE_VAR_EXPAND_FUNC_CONTEXT,
+		      &var_expand_ctx);
 	if (master_service_settings_parser_get(event, set_parser,
 					       &mail_user_setting_parser_info,
-					       MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
-					       &user_set, error_r) < 0) {
+					       0, &user_set, error_r) < 0) {
 		event_unref(&event);
 		return -1;
 	}
@@ -1337,6 +1323,9 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	user->gid_source = "mail_gid setting";
 	user->uid_source = "mail_uid setting";
 
+	var_expand_ctx.input = &user->input;
+	var_expand_ctx.user = user;
+
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0)
 		(void)settings_parse_line(user->set_parser, "mail_debug=yes");
 
@@ -1371,8 +1360,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		/* Settings may have changed in the parser */
 		if (master_service_settings_parser_get(event, user->set_parser,
 				&mail_user_setting_parser_info,
-				MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
-				&user_set, &error) < 0) {
+				0, &user_set, &error) < 0) {
 			*error_r = t_strdup_printf(
 				"%s (probably caused by userdb)", error);
 			ret = -2;
@@ -1393,6 +1381,12 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 
 	if (ret < 0)
 		mail_storage_service_user_unref(&user);
+	else {
+		/* The context points to a variable in stack, so it can't be
+		   used anymore. */
+		event_set_ptr(event, MASTER_SERVICE_VAR_EXPAND_CALLBACK, NULL);
+		event_set_ptr(event, MASTER_SERVICE_VAR_EXPAND_FUNC_CONTEXT, NULL);
+	}
 	*user_r = user;
 	return ret;
 }
@@ -1456,7 +1450,7 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 
 	*mail_user_r = NULL;
 
-	if (service_parse_privileges(ctx, user, &priv, error_r) < 0)
+	if (service_parse_privileges(user, &priv, error_r) < 0)
 		return -2;
 
 	if (*priv.home != '/' && *priv.home != '\0') {
@@ -1584,7 +1578,7 @@ void mail_storage_service_restrict_setenv(struct mail_storage_service_user *user
 	struct mail_storage_service_privileges priv;
 	const char *error;
 
-	if (service_parse_privileges(user->service_ctx, user, &priv, &error) < 0)
+	if (service_parse_privileges(user, &priv, &error) < 0)
 		i_fatal("user %s: %s", user->input.username, error);
 	if (service_drop_privileges(user, &priv,
 				    TRUE, FALSE, TRUE, &error) < 0)
