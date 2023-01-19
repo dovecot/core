@@ -76,7 +76,7 @@ void test_mail_storage_init_user(struct test_mail_storage_ctx *ctx,
 		"namespace=inbox",
 		"namespace/inbox/prefix=",
 		"namespace/inbox/inbox=yes",
-		t_strdup_printf("home=%s/%s", home, username),
+		t_strdup_printf("home=%s", home),
 	};
 
 	if (unlink_directory(home, UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0)
