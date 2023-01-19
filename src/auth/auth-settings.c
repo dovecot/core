@@ -569,7 +569,7 @@ auth_settings_read(const char *service, pool_t pool,
 	input.service = service;
 	if (master_service_settings_read(master_service, &input,
 					 output_r, &error) < 0)
-		i_fatal("Error reading configuration: %s", error);
+		i_fatal("%s", error);
 
 	pool_ref(pool);
 	set_parser = settings_parser_dup(master_service->set_parser, pool);

@@ -1107,8 +1107,6 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 
 	if (master_service_settings_read(ctx->service, &set_input,
 					 &set_output, error_r) < 0) {
-		*error_r = t_strdup_printf("Error reading configuration: %s",
-					   *error_r);
 		ctx->config_permission_denied = set_output.permission_denied;
 		return -1;
 	}

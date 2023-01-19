@@ -424,7 +424,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	input.return_config_fd = TRUE;
 	if (master_service_settings_read(master_service, &input,
 					 &output, &error) < 0) {
-		i_error("Error reading configuration: %s", error);
+		i_error("%s", error);
 		i_sd_notify(0, "READY=1");
 		return;
 	}
@@ -510,7 +510,7 @@ static struct master_settings *master_settings_read(void)
 	input.return_config_fd = TRUE;
 	if (master_service_settings_read(master_service, &input, &output,
 					 &error) < 0)
-		i_fatal("Error reading configuration: %s", error);
+		i_fatal("%s", error);
 	global_config_fd = output.config_fd;
 	fd_close_on_exec(global_config_fd, TRUE);
 	return master_service_settings_get_root_set(master_service,

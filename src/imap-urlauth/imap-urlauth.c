@@ -257,7 +257,7 @@ int main(int argc, char *argv[])
 	input.service = "imap-urlauth";
 	if (master_service_settings_read(master_service, &input, &output,
 						&error) < 0)
-		i_fatal("Error reading configuration: %s", error);
+		i_fatal("%s", error);
 
 	imap_urlauth_settings = 
 		master_service_settings_get_root_set(master_service,

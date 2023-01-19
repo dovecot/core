@@ -182,7 +182,7 @@ login_settings_read_real(
 
 	if (master_service_settings_read(master_service, &input,
 					 &output, &error) < 0)
-		i_fatal("Error reading configuration: %s", error);
+		i_fatal("%s", error);
 	parser = master_service_get_settings_parser(master_service);
 
 	for (count = 0; input.roots[count] != NULL; count++) ;

@@ -71,7 +71,7 @@ static void drop_privileges(void)
 	input.service = "lmtp";
 	if (master_service_settings_read(master_service,
 					 &input, &output, &error) < 0)
-		i_fatal("Error reading configuration: %s", error);
+		i_fatal("%s", error);
 	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 }
 

@@ -260,7 +260,7 @@ void doveadm_read_settings(void)
 	input.return_config_fd = TRUE; /* for doveadm exec */
 	if (master_service_settings_read(master_service, &input,
 					 &output, &error) < 0)
-		i_fatal("Error reading configuration: %s", error);
+		i_fatal("%s", error);
 	i_assert(global_config_fd == -1);
 	global_config_fd = output.config_fd;
 	fd_close_on_exec(output.config_fd, TRUE);

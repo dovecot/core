@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
 
 	if (master_service_settings_read_simple(master_service,
 						NULL, &error) < 0)
-		i_fatal("Error reading configuration: %s", error);
+		i_fatal("%s", error);
 	master_service_init_log_with_prefix(master_service, global_log_prefix);
 
 	verbose_proctitle = master_service_get_service_settings(master_service)->verbose_proctitle;
