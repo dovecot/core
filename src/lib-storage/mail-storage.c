@@ -428,6 +428,10 @@ mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
 	storage->user = ns->user;
 	storage->set = ns->mail_set;
 	storage->flags = flags;
+	/* Set to UINT32_MAX manually to denote 'unset', as the default 0 is
+	   used for mails currently being saved. */
+	storage->last_internal_error_mail_uid = UINT32_MAX;
+
 	storage->event = event_create(ns->user->event);
 	if (storage_class->event_category != NULL)
 		event_add_category(storage->event, storage_class->event_category);
@@ -560,6 +564,7 @@ void mail_storage_clear_error(struct mail_storage *storage)
 	i_free(storage->last_internal_error_mailbox);
 	storage->last_error_is_internal = FALSE;
 	storage->error = MAIL_ERROR_NONE;
+	storage->last_internal_error_mail_uid = UINT32_MAX;
 }
 
 void mail_storage_set_error(struct mail_storage *storage,
@@ -571,6 +576,7 @@ void mail_storage_set_error(struct mail_storage *storage,
 	}
 	storage->last_error_is_internal = FALSE;
 	storage->error = error;
+	storage->last_internal_error_mail_uid = UINT32_MAX;
 }
 
 void mail_storage_set_internal_error(struct mail_storage *storage)
@@ -588,11 +594,12 @@ void mail_storage_set_internal_error(struct mail_storage *storage)
 	storage->last_error_is_internal = FALSE;
 	i_free(storage->last_internal_error);
 	i_free(storage->last_internal_error_mailbox);
+	storage->last_internal_error_mail_uid = UINT32_MAX;
 }
 
 static void
 mail_storage_set_critical_error(struct mail_storage *storage, const char *str,
-				const char *mailbox_vname)
+				const char *mailbox_vname, uint32_t mail_uid)
 {
 	char *old_error = storage->error_string;
 	char *old_internal_error = storage->last_internal_error;
@@ -608,6 +615,7 @@ mail_storage_set_critical_error(struct mail_storage *storage, const char *str,
 
 	storage->last_internal_error = i_strdup(str);
 	storage->last_internal_error_mailbox = i_strdup(mailbox_vname);
+	storage->last_internal_error_mail_uid = mail_uid;
 	storage->last_error_is_internal = TRUE;
 
 	/* free the old_error and old_internal_error only after the new error
@@ -625,7 +633,7 @@ void mail_storage_set_critical(struct mail_storage *storage,
 	va_start(va, fmt);
 	T_BEGIN {
 		const char *str = t_strdup_vprintf(fmt, va);
-		mail_storage_set_critical_error(storage, str, NULL);
+		mail_storage_set_critical_error(storage, str, NULL, UINT32_MAX);
 		e_error(storage->event, "%s", str);
 	} T_END;
 	va_end(va);
@@ -638,7 +646,8 @@ void mailbox_set_critical(struct mailbox *box, const char *fmt, ...)
 	va_start(va, fmt);
 	T_BEGIN {
 		const char *str = t_strdup_vprintf(fmt, va);
-		mail_storage_set_critical_error(box->storage, str, box->vname);
+		mail_storage_set_critical_error(box->storage, str, box->vname,
+						UINT32_MAX);
 		e_error(box->event, "%s", str);
 	} T_END;
 	va_end(va);
@@ -650,20 +659,17 @@ void mail_set_critical(struct mail *mail, const char *fmt, ...)
 
 	va_start(va, fmt);
 	T_BEGIN {
-		if (mail->saving) {
-			mailbox_set_critical(mail->box, "Saving mail: %s",
-				t_strdup_vprintf(fmt, va));
-		} else {
-			mailbox_set_critical(mail->box, "UID=%u: %s",
-				mail->uid, t_strdup_vprintf(fmt, va));
-		}
+		const char *formatted_msg = t_strdup_vprintf(fmt, va);
+		mail_storage_set_critical_error(mail->box->storage, formatted_msg,
+						mail->box->vname, mail->uid);
+		e_error(mail_event(mail), "%s", formatted_msg);
 	} T_END;
 	va_end(va);
 }
 
 /* Note: mail_storage_get_last_internal_error() will always include
-         the mailbox prefix, while mailbox_get_last_internal_error()
-	 usually will not. */
+	 the mailbox prefix, while mailbox_get_last_internal_error() and
+	 mail_get_last_internal_error() usually will not. */
 const char *mail_storage_get_last_internal_error(struct mail_storage *storage,
 						 enum mail_error *error_r)
 {
@@ -671,14 +677,26 @@ const char *mail_storage_get_last_internal_error(struct mail_storage *storage,
 		*error_r = storage->error;
 	if (storage->last_error_is_internal) {
 		i_assert(storage->last_internal_error != NULL);
-		if (storage->last_internal_error_mailbox == NULL)
-			return storage->last_internal_error;
-		else {
+
+		bool is_mailbox_error_set = storage->last_internal_error_mailbox != NULL;
+		bool is_mail_error_set =
+			storage->last_internal_error_mail_uid != UINT32_MAX;
+
+		if (is_mail_error_set) {
+			i_assert(is_mailbox_error_set);
+			return t_strdup_printf(
+				"Mailbox %s: UID %u: %s",
+				mailbox_name_sanitize(storage->last_internal_error_mailbox),
+				storage->last_internal_error_mail_uid,
+				storage->last_internal_error);
+		}
+		if (is_mailbox_error_set)
 			return t_strdup_printf(
 				"Mailbox %s: %s",
 				mailbox_name_sanitize(storage->last_internal_error_mailbox),
 				storage->last_internal_error);
-		}
+
+		return storage->last_internal_error;
 	}
 	return mail_storage_get_last_error(storage, error_r);
 }
@@ -695,6 +713,35 @@ const char *mailbox_get_last_internal_error(struct mailbox *box,
 	if (last_mailbox != NULL &&
 	    strcmp(last_mailbox, box->vname) != 0)
 		return mail_storage_get_last_internal_error(storage, error_r);
+
+	if (error_r != NULL)
+		*error_r = storage->error;
+	if (storage->last_error_is_internal) {
+		i_assert(storage->last_internal_error != NULL);
+		if (storage->last_internal_error_mail_uid != UINT32_MAX)
+			return t_strdup_printf("UID %u: %s",
+					       storage->last_internal_error_mail_uid,
+					       storage->last_internal_error);
+		return storage->last_internal_error;
+	}
+	return mail_storage_get_last_error(storage, error_r);
+}
+
+/* Note: mail_get_last_internal_error() will include the mail prefix only when
+	 mail->uid does not match last_internal_error_mail_uid, while
+	 mail_storage_get_last_internal_error() always does. */
+const char *
+mail_get_last_internal_error(struct mail *mail, enum mail_error *error_r)
+{
+	struct mail_storage *storage = mailbox_get_storage(mail->box);
+	const char *last_mailbox = storage->last_internal_error_mailbox;
+	if (last_mailbox != NULL &&
+	    strcmp(last_mailbox, mail->box->vname) != 0)
+		return mail_storage_get_last_internal_error(storage, error_r);
+
+	uint32_t last_mail_uid = storage->last_internal_error_mail_uid;
+	if (last_mail_uid == UINT32_MAX || last_mail_uid != mail->uid)
+		return mailbox_get_last_internal_error(mail->box, error_r);
 
 	if (error_r != NULL)
 		*error_r = storage->error;
@@ -835,10 +882,16 @@ void mail_storage_last_error_push(struct mail_storage *storage)
 	err->error_string = i_strdup(storage->error_string);
 	err->error = storage->error;
 	err->last_error_is_internal = storage->last_error_is_internal;
+	/* Initially set to UINT32_MAX manually to denote 'unset', as the
+	   default 0 is used for mails currently being saved. If there is no
+	   internal error, the attribute would not be set otherwise. */
+	err->last_internal_error_mail_uid = UINT32_MAX;
 	if (err->last_error_is_internal) {
 		err->last_internal_error = i_strdup(storage->last_internal_error);
 		err->last_internal_error_mailbox =
 			i_strdup(storage->last_internal_error_mailbox);
+		err->last_internal_error_mail_uid =
+			storage->last_internal_error_mail_uid;
 	}
 }
 
@@ -856,6 +909,7 @@ void mail_storage_last_error_pop(struct mail_storage *storage)
 	storage->last_error_is_internal = err->last_error_is_internal;
 	storage->last_internal_error = err->last_internal_error;
 	storage->last_internal_error_mailbox = err->last_internal_error_mailbox;
+	storage->last_internal_error_mail_uid = err->last_internal_error_mail_uid;
 	array_delete(&storage->error_stack, count-1, 1);
 }
 

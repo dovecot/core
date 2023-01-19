@@ -505,6 +505,10 @@ mail_storage_get_last_internal_error(struct mail_storage *storage,
 const char * ATTR_NOWARN_UNUSED_RESULT
 mailbox_get_last_internal_error(struct mailbox *box,
 				enum mail_error *error_r) ATTR_NULL(2);
+/* Wrapper for mail_storage_get_last_internal_error(); */
+const char * ATTR_NOWARN_UNUSED_RESULT
+mail_get_last_internal_error(struct mail *mail,
+			     enum mail_error *error_r) ATTR_NULL(2);
 
 /* Save the last error until it's popped. This is useful for cases where the
    storage has already failed, but the cleanup code path changes the error to

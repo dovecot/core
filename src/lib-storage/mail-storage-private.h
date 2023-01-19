@@ -130,6 +130,10 @@ struct mail_storage_error {
 	enum mail_error error;
 	char *last_internal_error;
 	char *last_internal_error_mailbox;
+	/* Note: This is the uid of the mail that triggered the error. Use
+		 UINT32_MAX to denote 'unset', as 0 is used for mails currently
+		 being saved. */
+	uint32_t last_internal_error_mail_uid;
 	bool last_error_is_internal;
 };
 
@@ -166,6 +170,7 @@ struct mail_storage {
 	/* Last error set in mail_storage_set_critical(). */
 	char *last_internal_error;
 	char *last_internal_error_mailbox;
+	uint32_t last_internal_error_mail_uid;
 
 	char *error_string;
 	enum mail_error error;
