@@ -118,7 +118,7 @@ static void client_connected(struct master_service_connection *conn)
 		service_ctx = mail_storage_service_init(master_service, NULL, flags);
 		if (mail_storage_service_lookup(service_ctx, &input, &user, &error) <= 0)
 			i_fatal("%s", error);
-		mail_storage_service_restrict_setenv(service_ctx, user);
+		mail_storage_service_restrict_setenv(user);
 		/* we can't exec anything in a chroot */
 		env_remove("RESTRICT_CHROOT");
 		restrict_access_by_env(0, getenv("HOME"));

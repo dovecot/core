@@ -117,8 +117,7 @@ int mail_storage_service_next_with_session_suffix(struct mail_storage_service_ct
 						  const char *session_id_postfix,
 						  struct mail_user **mail_user_r,
 						   const char **error_r);
-void mail_storage_service_restrict_setenv(struct mail_storage_service_ctx *ctx,
-					  struct mail_storage_service_user *user);
+void mail_storage_service_restrict_setenv(struct mail_storage_service_user *user);
 /* Combine lookup() and next() into one call. */
 int mail_storage_service_lookup_next(struct mail_storage_service_ctx *ctx,
 				     const struct mail_storage_service_input *input,

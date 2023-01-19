@@ -1579,13 +1579,12 @@ int mail_storage_service_next_with_session_suffix(struct mail_storage_service_ct
 	return ret;
 }
 
-void mail_storage_service_restrict_setenv(struct mail_storage_service_ctx *ctx,
-					  struct mail_storage_service_user *user)
+void mail_storage_service_restrict_setenv(struct mail_storage_service_user *user)
 {
 	struct mail_storage_service_privileges priv;
 	const char *error;
 
-	if (service_parse_privileges(ctx, user, &priv, &error) < 0)
+	if (service_parse_privileges(user->service_ctx, user, &priv, &error) < 0)
 		i_fatal("user %s: %s", user->input.username, error);
 	if (service_drop_privileges(user, &priv,
 				    TRUE, FALSE, TRUE, &error) < 0)
