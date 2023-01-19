@@ -381,6 +381,7 @@ master_service_apply_config_overrides(struct master_service *service,
 	for (i = 0; i < count; i++) {
 		if (settings_parse_line(parser, overrides[i]) < 0) {
 			*error_r = t_strdup_printf(
+				"Failed to override configuration: "
 				"Invalid -o parameter %s: %s", overrides[i],
 				settings_parser_get_error(parser));
 			return -1;
@@ -571,11 +572,13 @@ int master_service_settings_read(struct master_service *service,
 		   execute doveconf -F. */
 		T_BEGIN {
 			fd = master_service_open_config(service, input, &path,
-							error_r);
-		} T_END_PASS_STR_IF(fd == -1, error_r);
+							&error);
+		} T_END_PASS_STR_IF(fd == -1, &error);
 		if (fd == -1) {
 			if (errno == EACCES)
 				output_r->permission_denied = TRUE;
+			*error_r = t_strdup_printf(
+				"Failed to read configuration: %s", error);
 			return -1;
 		}
 	}
@@ -641,13 +644,14 @@ int master_service_settings_read(struct master_service *service,
 	if (service->config_mmap_base != NULL) {
 		ret = master_service_settings_read_mmap(parser, event,
 			service->config_mmap_base, service->config_mmap_size,
-			output_r, error_r);
-
+			output_r, &error);
 		if (ret < 0) {
 			if (getenv(DOVECOT_CONFIG_FD_ENV) != NULL) {
 				i_fatal("Failed to parse config from fd %d: %s",
 					fd, *error_r);
 			}
+			*error_r = t_strdup_printf(
+				"Failed to parse configuration: %s", error);
 			settings_parser_unref(&parser);
 			event_unref(&event);
 			return -1;
