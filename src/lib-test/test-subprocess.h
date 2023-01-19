@@ -1,6 +1,8 @@
 #ifndef TEST_SUBPROCESS_H
 #define TEST_SUBPROCESS_H
 
+#define TEST_SIGNALS_DEFAULT_TIMEOUT_MS 10000
+
 struct test_subprocess;
 
 /* Fork a sub-process for this test. The func is the main function for the
