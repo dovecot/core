@@ -1255,6 +1255,12 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 						    ctx->default_log_prefix);
 		update_log_prefix = TRUE;
 	}
+
+	/* Create an event that will be used as the default event for logging.
+	   This event won't be a parent to any other events - mail_user.event
+	   will be used for that. */
+	struct event *event = event_create(input->event_parent);
+
 	user_set = settings_parser_get_root_set(set_parser,
 						&mail_user_setting_parser_info);
 
@@ -1266,15 +1272,13 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	/* load global plugins */
 	if (mail_storage_service_load_modules(ctx, user_set, error_r) < 0) {
 		pool_unref(&user_pool);
+		event_unref(&event);
 		return -1;
 	}
 
 	temp_pool = pool_alloconly_create("userdb lookup", 2048);
-
-	/* Create an event that will be used as the default event for logging.
-	   This event won't be a parent to any other events - mail_user.event
-	   will be used for that. */
-	struct event *event = event_create(input->event_parent);
+	/* NOTE: ctx->debug gets set by mail_storage_service_first_init() above,
+	   so this can't be before. */
 	event_set_forced_debug(event,
 		ctx->debug || (flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0);
 
