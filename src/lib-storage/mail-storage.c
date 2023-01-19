@@ -684,8 +684,8 @@ const char *mail_storage_get_last_internal_error(struct mail_storage *storage,
 }
 
 /* Note: mailbox_get_last_internal_error() will include the mailbox prefix only
-	 when when mailbox->vname does not match last_internal_error_mailbox,
-	 which might happen with e.g. virtual mailboxes logging about physical
+	 when mailbox->vname does not match last_internal_error_mailbox, which
+	 might happen with e.g. virtual mailboxes logging about physical
 	 mailboxes, while mail_storage_get_last_internal_error() always does. */
 const char *mailbox_get_last_internal_error(struct mailbox *box,
 					    enum mail_error *error_r)
