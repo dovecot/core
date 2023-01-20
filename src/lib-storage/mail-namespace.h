@@ -70,12 +70,6 @@ struct mail_namespace {
 	struct mail_storage *storage; /* default storage */
 	ARRAY(struct mail_storage *) all_storages;
 
-	/* This may point to user->set, but it may also point to
-	   namespace-specific settings. When accessing namespace-specific
-	   settings it should be done through here instead of through the
-	   mail_user. */
-	struct mail_user_settings *user_set;
-
 	const struct mail_namespace_settings *set;
 	const struct mail_storage_settings *mail_set;
 
@@ -92,15 +86,8 @@ static inline bool mail_namespace_is_removable(const struct mail_namespace *ns)
 
 /* Allocate a new namespace, and fill it based on the passed in settings.
    This is the most low-level namespace creation function. The storage isn't
-   initialized for the namespace.
-
-   user_all_settings normally points to user->set. If you want to override
-   settings for the created namespace, you can duplicate the user's settings
-   and provide a pointer to it here. Note that the pointer must contain
-   ALL the settings, including the dynamic driver-specific settings, so it
-   needs to created via settings-parser API. */
+   initialized for the namespace. */
 int mail_namespace_alloc(struct mail_user *user,
-			 void *user_all_settings,
 			 struct mail_namespace_settings *ns_set,
 			 struct mail_namespace **ns_r,
 			 const char **error_r);

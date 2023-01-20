@@ -83,7 +83,6 @@ namespace_has_special_use_mailboxes(struct mail_namespace_settings *ns_set)
 }
 
 int mail_namespace_alloc(struct mail_user *user,
-			 void *user_all_settings,
 			 struct mail_namespace_settings *ns_set,
 			 struct mail_namespace **ns_r,
 			 const char **error_r)
@@ -95,7 +94,6 @@ int mail_namespace_alloc(struct mail_user *user,
 	ns->user = user;
 	ns->prefix = i_strdup(ns_set->prefix);
 	ns->set = ns_set;
-	ns->user_set = user_all_settings;
 	ns->mail_set = settings_parser_get_root_set(user->set_parser,
 						    &mail_storage_setting_parser_info);
 	i_array_init(&ns->all_storages, 2);
@@ -162,8 +160,7 @@ int mail_namespaces_init_add(struct mail_user *user,
 		ns_set->list,
 		ns_set->subscriptions ? "yes" : "no", ns_set->location);
 
-	if ((ret = mail_namespace_alloc(user, user->set,
-					ns_set, &ns, error_r)) < 0)
+	if ((ret = mail_namespace_alloc(user, ns_set, &ns, error_r)) < 0)
 		return ret;
 
 	if (ns_set == &prefixless_ns_set) {
@@ -531,8 +528,7 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 				    inbox_set->location, NULL);
 	}
 
-	if ((ret = mail_namespace_alloc(user, user->set,
-					inbox_set, &ns, error_r)) < 0)
+	if ((ret = mail_namespace_alloc(user, inbox_set, &ns, error_r)) < 0)
 		return ret;
 
 	if (mail_storage_create(ns, driver, 0, &error) < 0) {
@@ -561,7 +557,6 @@ struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user)
 	ns->prefix = i_strdup("");
 	ns->flags = NAMESPACE_FLAG_INBOX_USER | NAMESPACE_FLAG_INBOX_ANY |
 		NAMESPACE_FLAG_LIST_PREFIX | NAMESPACE_FLAG_SUBSCRIPTIONS;
-	ns->user_set = user->set;
 	ns->mail_set = mail_user_set_get_storage_set(user);
 	i_array_init(&ns->all_storages, 2);
 	return ns;
