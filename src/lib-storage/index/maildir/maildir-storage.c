@@ -371,11 +371,23 @@ static bool maildir_has_any_subdir(const char *box_path,
 	return FALSE;
 }
 
+static bool maildir_is_selectable(const char *box_path,
+				  const char *root_dir,
+				  const char **error_path_r)
+{
+	struct stat st;
+
+	*error_path_r = box_path;
+	if (strcmp(box_path, root_dir) == 0)
+		return maildir_has_any_subdir(box_path, error_path_r);
+	else
+		return stat(box_path, &st) == 0;
+}
+
 static int maildir_mailbox_open(struct mailbox *box)
 {
 	const char *box_path = mailbox_get_path(box);
 	const char *root_dir;
-	struct stat st;
 	int ret;
 
 	/* begin by checking if tmp/ directory exists and if it should be
@@ -411,10 +423,8 @@ static int maildir_mailbox_open(struct mailbox *box)
 	   exists. Instead, we return that mailbox doesn't exist, so the
 	   caller goes to the INBOX autocreation code path similarly as with
 	   other mailboxes. This is needed e.g. for welcome plugin to work. */
-	const char *error_path = box_path;
-	if ((strcmp(box_path, root_dir) == 0 &&
-	     maildir_has_any_subdir(box_path, &error_path)) ||
-	    (stat(box_path, &st) == 0)) {
+	const char *error_path;
+	if (maildir_is_selectable(box_path, root_dir, &error_path)) {
 		/* yes, we'll need to create the missing dirs */
 		if (create_maildir_subdirs(box, TRUE) < 0)
 			return -1;
