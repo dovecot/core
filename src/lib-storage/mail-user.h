@@ -90,10 +90,6 @@ struct mail_user {
 	/* The initial namespaces have been created and
 	   hook_mail_namespaces_created() has been called. */
 	bool namespaces_created:1;
-	/* SET_STR_VARS in user's all settings have been expanded.
-	   This happens near the beginning of the user initialization,
-	   so this is rarely needed to be checked. */
-	bool settings_expanded:1;
 	/* If INBOX can't be opened, log an error, but only once. */
 	bool inbox_open_error_logged:1;
 	/* Fuzzy search works for this user (FTS enabled) */

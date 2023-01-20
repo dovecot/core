@@ -84,8 +84,7 @@ mail_user_alloc(struct mail_storage_service_user *service_user)
 	user->unexpanded_set =
 		settings_parser_get_root_set(service_user_set_parser,
 					     &mail_user_setting_parser_info);
-	user->set = settings_parser_get_root_set(user->set_parser,
-						 &mail_user_setting_parser_info);
+	user->set = mail_storage_service_user_get_set(service_user);
 	user->service = master_service_get_name(master_service);
 	user->default_normalizer = uni_utf8_to_decomposed_titlecase;
 	user->session_create_time = ioloop_time;
@@ -178,7 +177,6 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 	struct mail_storage_settings *mail_set =
 		settings_parser_get_root_set(user->set_parser,
 			&mail_storage_setting_parser_info);
-	user->settings_expanded = TRUE;
 	mail_user_expand_plugins_envs(user, mail_set);
 
 	user->ssl_set = p_new(user->pool, struct ssl_iostream_settings, 1);
@@ -469,35 +467,6 @@ static int mail_user_userdb_lookup_home(struct mail_user *user)
 	return ret;
 }
 
-static bool mail_user_get_mail_home(struct mail_user *user)
-{
-	const char *error, *home = user->set->mail_home;
-	string_t *str;
-
-	if (user->settings_expanded) {
-		user->_home = home[0] != '\0' ? home : NULL;
-		return TRUE;
-	}
-	home = user->unexpanded_set->mail_home;
-	/* we're still initializing user. need to do the expansion ourself. */
-	i_assert(home[0] == SETTING_STRVAR_UNEXPANDED[0]);
-	home++;
-	if (home[0] == '\0')
-		return TRUE;
-
-	str = t_str_new(128);
-	if (var_expand_with_funcs(str, home,
-				  mail_user_var_expand_table(user),
-				  mail_user_var_expand_func_table, user,
-				  &error) <= 0) {
-		e_error(user->event, "Failed to expand mail_home=%s: %s",
-			home, error);
-		return FALSE;
-	}
-	user->_home = p_strdup(user->pool, str_c(str));
-	return TRUE;
-}
-
 int mail_user_get_home(struct mail_user *user, const char **home_r)
 {
 	int ret;
@@ -509,8 +478,8 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 
 	if (mail_user_auth_master_conn == NULL) {
 		/* no userdb connection. we can only use mail_home setting. */
-		if (!mail_user_get_mail_home(user))
-			return -1;
+		if (user->set->mail_home[0] != '\0')
+			user->_home = user->set->mail_home;
 	} else if ((ret = mail_user_userdb_lookup_home(user)) < 0) {
 		/* userdb lookup failed */
 		return -1;
@@ -520,8 +489,8 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 	} else if (user->_home == NULL) {
 		/* no home returned by userdb lookup, fallback to
 		   mail_home setting. */
-		if (!mail_user_get_mail_home(user))
-			return -1;
+		if (user->set->mail_home[0] != '\0')
+			user->_home = user->set->mail_home;
 	}
 	user->home_looked_up = TRUE;
 
