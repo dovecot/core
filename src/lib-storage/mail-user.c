@@ -99,7 +99,7 @@ static void
 mail_user_expand_plugins_envs(struct mail_user *user,
 			      struct mail_storage_settings *set)
 {
-	const char **envs, *home, *error;
+	const char **envs, *error;
 	string_t *str;
 	unsigned int i, count;
 
@@ -110,15 +110,6 @@ mail_user_expand_plugins_envs(struct mail_user *user,
 	envs = array_get_modifiable(&set->plugin_envs, &count);
 	i_assert((count % 2) == 0);
 	for (i = 0; i < count; i += 2) {
-		if (user->_home == NULL &&
-		    var_has_key(envs[i+1], 'h', "home") &&
-		    mail_user_get_home(user, &home) <= 0) {
-			user->error = p_strdup_printf(user->pool,
-				"userdb didn't return a home directory, "
-				"but plugin setting %s used it (%%h): %s",
-				envs[i], envs[i+1]);
-			return;
-		}
 		str_truncate(str, 0);
 		if (var_expand_with_funcs(str, envs[i+1],
 					  mail_user_var_expand_table(user),
