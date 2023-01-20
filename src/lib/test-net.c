@@ -32,6 +32,7 @@ static void test_net_is_in_network(void)
 		{ "::ffff:1.2.3.4", "1.2.3.4", 32, TRUE },
 		{ "::ffff:1.2.3.4", "1.2.3.3", 32, FALSE },
 		{ "::ffff:1.2.3.4", "::ffff:1.2.3.4", 0, FALSE },
+		{ "fe80::1%lo", "fe80::%lo", 8, TRUE },
 		{ "fe80::1%lo", "fe80::", 8, TRUE },
 	};
 	struct ip_addr ip, net_ip;
@@ -55,6 +56,13 @@ static void test_net_is_in_network(void)
 	net_ip.family = 0;
 	test_assert(!net_is_in_network(&ip, &net_ip, 0));
 	test_assert(!net_is_in_network(&net_ip, &ip, 0));
+
+	/* make sure a changed scope_id won't match */
+	test_assert(net_addr2ip("fe80::1%lo", &ip) == 0);
+	test_assert(net_addr2ip("fe80::1%lo", &net_ip) == 0);
+	test_assert(net_is_in_network(&ip, &net_ip, 1));
+	net_ip.scope_id++;
+	test_assert(!net_is_in_network(&ip, &net_ip, 1));
 	test_end();
 }
 

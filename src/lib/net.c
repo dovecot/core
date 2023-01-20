@@ -1228,6 +1228,12 @@ bool net_is_in_network(const struct ip_addr *ip,
 	} else {
 		ip1 = (const void *)&ip->u.ip6;
 		ip2 = (const void *)&net_ip->u.ip6;
+		if (ip->scope_id != net_ip->scope_id &&
+		    net_ip->scope_id != 0) {
+			/* %iface1 != %iface2 never matches, but allow
+			   missing interface on the net_ip */
+			return FALSE;
+		}
 	}
 
 	/* check first the full 32bit ints */
