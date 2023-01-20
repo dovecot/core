@@ -1140,8 +1140,7 @@ mail_storage_service_generate_session_id(pool_t pool, const char *prefix)
 }
 
 static void
-mail_storage_service_update_chroot(struct mail_storage_service_user *user,
-				   struct mail_storage_service_privileges *priv)
+mail_storage_service_update_chroot(struct mail_storage_service_user *user)
 {
 	bool temp_priv_drop =
 		(user->flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0;
@@ -1152,29 +1151,31 @@ mail_storage_service_update_chroot(struct mail_storage_service_user *user,
 	bool use_chroot = !temp_priv_drop ||
 		restrict_access_get_current_chroot() != NULL;
 
-	size_t len = strlen(priv->chroot);
-	if (len > 2 && strcmp(priv->chroot + len - 2, "/.") == 0 &&
-	    strncmp(priv->home, priv->chroot, len - 2) == 0) {
+	const char *chroot = user->user_set->mail_chroot;
+	const char *home = user->user_set->mail_home;
+	size_t len = strlen(chroot);
+	if (len > 2 && strcmp(chroot + len - 2, "/.") == 0 &&
+	    strncmp(home, chroot, len - 2) == 0) {
 		/* mail_chroot = /chroot/. means that the home dir already
 		   contains the chroot dir. remove it from home. */
 		if (use_chroot) {
-			priv->home += len - 2;
-			if (*priv->home == '\0')
-				priv->home = "/";
-			priv->chroot = t_strndup(priv->chroot, len - 2);
+			home += len - 2;
+			if (*home == '\0')
+				home = "/";
+			chroot = t_strndup(chroot, len - 2);
 
-			set_keyval(user, "mail_home", priv->home);
-			set_keyval(user, "mail_chroot", priv->chroot);
+			set_keyval(user, "mail_home", home);
+			set_keyval(user, "mail_chroot", chroot);
 		}
 	} else if (len > 0 && !use_chroot) {
 		/* we're not going to chroot. fix home directory so we can
 		   access it. */
-		if (*priv->home == '\0' || strcmp(priv->home, "/") == 0)
-			priv->home = priv->chroot;
+		if (*home == '\0' || strcmp(home, "/") == 0)
+			home = chroot;
 		else
-			priv->home = t_strconcat(priv->chroot, priv->home, NULL);
-		priv->chroot = "";
-		set_keyval(user, "mail_home", priv->home);
+			home = t_strconcat(chroot, home, NULL);
+		set_keyval(user, "mail_home", home);
+		set_keyval(user, "mail_chroot", "");
 	}
 }
 
@@ -1355,6 +1356,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		(void)settings_parse_line(user->set_parser, "mail_plugins=");
 	}
 	if (ret > 0) {
+		mail_storage_service_update_chroot(user);
 		/* Settings may have changed in the parser */
 		if (master_service_settings_parser_get(event, user->set_parser,
 				&mail_user_setting_parser_info,
@@ -1456,7 +1458,6 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 		return -2;
 	}
 
-	mail_storage_service_update_chroot(user, &priv);
 	mail_storage_service_init_log(ctx, user);
 
 	/* create ioloop context regardless of logging. it's also used by
