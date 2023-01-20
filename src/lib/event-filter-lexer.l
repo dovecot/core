@@ -64,7 +64,7 @@ static size_t event_filter_parser_input_proc(char *buf, size_t size, yyscan_t sc
 [Oo][Rr]			{ return OR; }
 [Nn][Oo][Tt]			{ return NOT; }
 [<>=()]				{ return *yytext; }
-[A-Za-z0-9:.*?_-]+		{ yylval->str = t_strdup(yytext); return TOKEN; }
+[A-Za-z0-9:.*?/%_-]+		{ yylval->str = t_strdup(yytext); return TOKEN; }
 [ \t\n\r]			{ /* ignore */ }
 .				{
 					/*

@@ -751,7 +751,7 @@ static void test_event_filter_ips(void)
 	event_filter_unref(&filter);
 
 	filter = event_filter_create();
-	test_assert(event_filter_parse("ip = \"127.0.0.0/16\"", filter, &error) == 0);
+	test_assert(event_filter_parse("ip = 127.0.0.0/16", filter, &error) == 0);
 	/* network mask match */
 	test_assert(net_addr2ip("127.0.255.255", &ip) == 0);
 	event_add_ip(e, "ip", &ip);
@@ -785,14 +785,14 @@ static void test_event_filter_ips(void)
 		{ "ip = ::1", test_addr2ip("::1"), TRUE },
 		{ "ip = ::2", test_addr2ip("::1"), FALSE },
 
-		{ "ip = \"::1/128\"", test_addr2ip("::1"), TRUE },
-		{ "ip = \"::1/126\"", test_addr2ip("::2"), TRUE },
+		{ "ip = ::1/128", test_addr2ip("::1"), TRUE },
+		{ "ip = ::1/126", test_addr2ip("::2"), TRUE },
 		{ "ip = \"::1/126\"", test_addr2ip("::3"), TRUE },
-		{ "ip = \"::1/126\"", test_addr2ip("::4"), FALSE },
+		{ "ip = ::1/126", test_addr2ip("::4"), FALSE },
 
-		{ "ip = \"2001::/8\"", test_addr2ip("2001::1"), TRUE },
-		{ "ip = \"2001::/8\"", test_addr2ip("20ff:ffff::1"), TRUE },
-		{ "ip = \"2001::/8\"", test_addr2ip("2100::1"), FALSE },
+		{ "ip = 2001::/8", test_addr2ip("2001::1"), TRUE },
+		{ "ip = 2001::/8", test_addr2ip("20ff:ffff::1"), TRUE },
+		{ "ip = 2001::/8", test_addr2ip("2100::1"), FALSE },
 
 		{ "ip = 2001::1", test_addr2ip("2001::1"), TRUE },
 		{ "ip = \"2001::1\"", test_addr2ip("2001::1"), TRUE },
@@ -804,7 +804,7 @@ static void test_event_filter_ips(void)
 		{ "ip = 2001:1190:c02a:130:a87a:ad7:5b76:3310",
 		  test_addr2ip("2000:1190:c02a:130:a87a:ad7:5b76:3310"), FALSE },
 
-		{ "ip = \"fe80::1%lo\"", test_addr2ip("fe80::1%lo"), TRUE },
+		{ "ip = fe80::1%lo", test_addr2ip("fe80::1%lo"), TRUE },
 	};
 	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
 		filter = event_filter_create();
