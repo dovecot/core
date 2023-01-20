@@ -59,6 +59,7 @@ struct mail_user {
 
 	struct setting_parser_context *set_parser;
 	const struct mail_user_settings *set;
+	struct mail_storage_settings *_mail_set;
 	struct ssl_iostream_settings *ssl_set;
 	struct mail_namespace *namespaces;
 	struct mail_storage *storages;

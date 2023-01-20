@@ -19,6 +19,7 @@
 #include "fs-api.h"
 #include "auth-master.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "master-service-ssl-settings.h"
 #include "dict.h"
 #include "mail-storage-settings.h"
@@ -61,6 +62,19 @@ void mail_user_add_event_fields(struct mail_user *user)
 	}
 }
 
+static void
+mail_user_var_expand_callback(struct event *event,
+			      const struct var_expand_table **tab_r,
+			      const struct var_expand_func_table **func_tab_r)
+{
+	struct mail_user *user =
+		event_get_ptr(event, MASTER_SERVICE_VAR_EXPAND_FUNC_CONTEXT);
+	i_assert(user != NULL);
+
+	*tab_r = mail_user_var_expand_table(user);
+	*func_tab_r = mail_user_var_expand_func_table;
+}
+
 struct mail_user *
 mail_user_alloc(struct mail_storage_service_user *service_user)
 {
@@ -88,6 +102,12 @@ mail_user_alloc(struct mail_storage_service_user *service_user)
 	user->event = event_create(parent_event);
 	event_add_category(user->event, &event_category_storage);
 	event_add_str(user->event, "user", username);
+
+	/* Register %variable expansion callback function for settings
+	   lookups. */
+	event_set_ptr(user->event, MASTER_SERVICE_VAR_EXPAND_CALLBACK,
+		      mail_user_var_expand_callback);
+	event_set_ptr(user->event, MASTER_SERVICE_VAR_EXPAND_FUNC_CONTEXT, user);
 
 	user->v.deinit = mail_user_deinit_base;
 	user->v.deinit_pre = mail_user_deinit_pre_base;
@@ -139,6 +159,11 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 
 	i_assert(!user->initialized);
 
+	if (master_service_settings_parser_get(user->event, user->set_parser,
+			&mail_storage_setting_parser_info, 0,
+			&user->_mail_set, &error) < 0)
+		user->error = p_strdup(user->pool, error);
+
 	struct mail_storage_service_ctx *service_ctx =
 		mail_storage_service_user_get_service_ctx(user->service_user);
 	const struct setting_parser_info *const *set_roots =
@@ -162,10 +187,8 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 		}
 	}
 
-	struct mail_storage_settings *mail_set =
-		settings_parser_get_root_set(user->set_parser,
-			&mail_storage_setting_parser_info);
-	mail_user_expand_plugins_envs(user, mail_set);
+	if (user->error == NULL)
+		mail_user_expand_plugins_envs(user, user->_mail_set);
 
 	user->ssl_set = p_new(user->pool, struct ssl_iostream_settings, 1);
 	if (user->error == NULL &&
@@ -243,6 +266,7 @@ void mail_user_unref(struct mail_user **_user)
 		user->v.deinit(user);
 	} T_END;
 	settings_parser_unref(&user->set_parser);
+	master_service_settings_free(user->_mail_set);
 	event_unref(&user->event);
 	i_assert(user->refcount == 1);
 	pool_unref(&user->pool);

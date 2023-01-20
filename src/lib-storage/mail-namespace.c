@@ -94,8 +94,7 @@ int mail_namespace_alloc(struct mail_user *user,
 	ns->user = user;
 	ns->prefix = i_strdup(ns_set->prefix);
 	ns->set = ns_set;
-	ns->mail_set = settings_parser_get_root_set(user->set_parser,
-						    &mail_storage_setting_parser_info);
+	ns->mail_set = mail_user_set_get_storage_set(user);
 	i_array_init(&ns->all_storages, 2);
 
 	if (strcmp(ns_set->type, "private") == 0) {
