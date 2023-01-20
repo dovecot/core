@@ -344,6 +344,29 @@ maildir_mailbox_exists(struct mailbox *box, bool auto_boxes,
 	return index_storage_mailbox_exists_full(box, "cur", existence_r);
 }
 
+static bool maildir_has_any_subdir(const char *box_path,
+				   const char **error_path)
+{
+	const char *path;
+	unsigned int i;
+	struct stat st;
+
+	for (i = 0; i < N_ELEMENTS(maildir_subdirs); i++) {
+		path = t_strconcat(box_path, "/", maildir_subdirs[i], NULL);
+		if (stat(path, &st) == 0) {
+			/* Return if there is any subdir */
+			return TRUE;
+		} else if (errno == ENOENT || errno == ENAMETOOLONG) {
+			/* Some subdirs may not exist. */
+		} else {
+			*error_path = path;
+			return FALSE;
+		}
+	}
+
+	return FALSE;
+}
+
 static int maildir_mailbox_open(struct mailbox *box)
 {
 	const char *box_path = mailbox_get_path(box);
@@ -384,10 +407,10 @@ static int maildir_mailbox_open(struct mailbox *box)
 	   exists. Instead, we return that mailbox doesn't exist, so the
 	   caller goes to the INBOX autocreation code path similarly as with
 	   other mailboxes. This is needed e.g. for welcome plugin to work. */
-	if (strcmp(box_path, root_dir) == 0) {
-		/* root directory. either INBOX or some other namespace root */
-		errno = ENOENT;
-	} else if (stat(box_path, &st) == 0) {
+	const char *error_path = box_path;
+	if ((strcmp(box_path, root_dir) == 0 &&
+	     maildir_has_any_subdir(box_path, &error_path)) ||
+	    (stat(box_path, &st) == 0)) {
 		/* yes, we'll need to create the missing dirs */
 		if (create_maildir_subdirs(box, TRUE) < 0)
 			return -1;
@@ -400,7 +423,7 @@ static int maildir_mailbox_open(struct mailbox *box)
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
 		return -1;
 	} else {
-		mailbox_set_critical(box, "stat(%s) failed: %m", box_path);
+		mailbox_set_critical(box, "stat(%s) failed: %m", error_path);
 		return -1;
 	}
 }
