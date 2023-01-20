@@ -539,7 +539,7 @@ LIBDOVECOT_LA_LIBS='\
 	$(top_builddir)/src/lib-imap/libimap.la \
 	$(top_builddir)/src/lib-mail/libmail.la \
 	$(top_builddir)/src/lib-sasl/libsasl.la \
-	$(top_builddir)/src/lib-auth/libauth.la \
+	$(top_builddir)/src/lib-auth-client/libauth-client.la \
 	$(top_builddir)/src/lib-charset/libcharset.la \
 	$(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la \
 	$(top_builddir)/src/lib-dcrypt/libdcrypt.la \
@@ -734,7 +734,7 @@ doc/example-config/conf.d/Makefile
 src/Makefile
 src/lib/Makefile
 src/lib-sql/Makefile
-src/lib-auth/Makefile
+src/lib-auth-client/Makefile
 src/lib-charset/Makefile
 src/lib-compression/Makefile
 src/lib-dcrypt/Makefile

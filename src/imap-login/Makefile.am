@@ -5,7 +5,7 @@ pkglibexec_PROGRAMS = imap-login
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
-	-I$(top_srcdir)/src/lib-auth \
+	-I$(top_srcdir)/src/lib-auth-client \
 	-I$(top_srcdir)/src/lib-sasl \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-master \

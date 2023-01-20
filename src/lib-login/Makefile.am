@@ -5,7 +5,7 @@ noinst_LTLIBRARIES = liblogin.la
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
-	-I$(top_srcdir)/src/lib-auth \
+	-I$(top_srcdir)/src/lib-auth-client \
 	-I$(top_srcdir)/src/lib-master
 
 liblogin_la_SOURCES = \
@@ -30,7 +30,7 @@ noinst_PROGRAMS = $(test_programs)
 test_libs = \
 	liblogin.la \
 	../lib-master/libmaster.la \
-	../lib-auth/libauth.la \
+	../lib-auth-client/libauth-client.la \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-settings/libsettings.la \
@@ -41,7 +41,7 @@ test_libs = \
 test_deps = \
 	liblogin.la \
 	../lib-master/libmaster.la \
-	../lib-auth/libauth.la \
+	../lib-auth-client/libauth-client.la \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-settings/libsettings.la \

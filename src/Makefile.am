@@ -9,7 +9,7 @@ LIBDOVECOT_SUBDIRS = \
 	lib-test \
 	lib \
 	lib-settings \
-	lib-auth \
+	lib-auth-client \
 	lib-dns \
 	lib-ssl-iostream \
 	lib-master \

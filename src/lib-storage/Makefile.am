@@ -5,7 +5,7 @@ noinst_LTLIBRARIES = libstorage.la
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
-	-I$(top_srcdir)/src/lib-auth \
+	-I$(top_srcdir)/src/lib-auth-client \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-sasl \
 	-I$(top_srcdir)/src/lib-ssl-iostream \

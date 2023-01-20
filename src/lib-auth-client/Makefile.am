@@ -1,4 +1,4 @@
-noinst_LTLIBRARIES = libauth.la
+noinst_LTLIBRARIES = libauth-client.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -6,7 +6,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-test
 
-libauth_la_SOURCES = \
+libauth_client_la_SOURCES = \
 	auth-client.c \
 	auth-client-request.c \
 	auth-client-connection.c \

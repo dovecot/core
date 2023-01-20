@@ -34,7 +34,7 @@ test_libs = \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-master/libmaster.la \
-	../lib-auth/libauth.la \
+	../lib-auth-client/libauth-client.la \
 	../lib-dict/libdict.la \
 	../lib-settings/libsettings.la \
 	../lib-test/libtest.la \
@@ -47,7 +47,7 @@ test_deps = \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-master/libmaster.la \
-	../lib-auth/libauth.la \
+	../lib-auth-client/libauth-client.la \
 	../lib-dict/libdict.la \
 	../lib-settings/libsettings.la \
 	../lib-test/libtest.la \
