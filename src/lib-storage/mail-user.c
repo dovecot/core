@@ -81,9 +81,6 @@ mail_user_alloc(struct mail_storage_service_user *service_user)
 	mail_storage_service_user_ref(service_user);
 	user->username = p_strdup(pool, username);
 	user->set_parser = settings_parser_dup(service_user_set_parser, pool);
-	user->unexpanded_set =
-		settings_parser_get_root_set(service_user_set_parser,
-					     &mail_user_setting_parser_info);
 	user->set = mail_storage_service_user_get_set(service_user);
 	user->service = master_service_get_name(master_service);
 	user->default_normalizer = uni_utf8_to_decomposed_titlecase;
