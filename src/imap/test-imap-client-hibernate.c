@@ -153,6 +153,8 @@ static void test_imap_client_hibernate(void)
 	const char *const input_userdb[] = {
 		"mailbox_list_index=no",
 		t_strdup_printf("mail=mbox:%s/mbox", tmpdir),
+		t_strdup_printf("base_dir=%s", tmpdir),
+		"mail_log_prefix="EVILSTR"%u",
 		NULL
 	};
 	struct mail_storage_service_input input = {
@@ -160,14 +162,12 @@ static void test_imap_client_hibernate(void)
 		.local_port = 1234,
 		.remote_port = 5678,
 		.userdb_fields = input_userdb,
+		.session_id = EVILSTR"session",
 	};
 	test_assert(net_addr2ip("127.0.0.1", &input.local_ip) == 0);
 	test_assert(net_addr2ip("127.0.0.2", &input.remote_ip) == 0);
 	test_assert(mail_storage_service_lookup_next(storage_service, &input,
 						     &mail_user, &error) == 1);
-	mail_user->set->base_dir = tmpdir;
-	mail_user->set->mail_log_prefix = EVILSTR"%u";
-	mail_user->session_id = EVILSTR"session";
 	i_zero(&smtp_set);
 	i_zero(&ctx);
 
