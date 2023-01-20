@@ -6,8 +6,6 @@
  * This software is released under the MIT license.
  */
 
-#include <limits.h>
-
 #include "auth-common.h"
 #include "base64.h"
 #include "buffer.h"
