@@ -144,15 +144,6 @@ mail_user_expand_plugins_envs(struct mail_user *user,
 	}
 }
 
-int mail_user_var_expand(struct mail_user *user,
-			 const struct setting_parser_info *info, void *set,
-			 const char **error_r)
-{
-	return settings_var_expand_with_funcs(info, set,
-			user->pool, mail_user_var_expand_table(user),
-			mail_user_var_expand_func_table, user, error_r);
-}
-
 int mail_user_init(struct mail_user *user, const char **error_r)
 {
 	const char *error;
