@@ -163,31 +163,7 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 			&mail_storage_setting_parser_info, 0,
 			&user->_mail_set, &error) < 0)
 		user->error = p_strdup(user->pool, error);
-
-	struct mail_storage_service_ctx *service_ctx =
-		mail_storage_service_user_get_service_ctx(user->service_user);
-	const struct setting_parser_info *const *set_roots =
-		mail_storage_service_get_set_roots(service_ctx);
-	for (unsigned int i = 0; set_roots[i] != NULL; i++) {
-		if (user->error != NULL)
-			break;
-
-		void *set = settings_parser_get_root_set(user->set_parser, set_roots[i]);
-		/* check settings so that the duplicated structure will again
-		   contain the parsed fields */
-		if (!settings_check(set_roots[i], user->pool, set, &error)) {
-			user->error = p_strdup_printf(user->pool,
-				"Settings check unexpectedly failed: %s", error);
-			break;
-		}
-		if (mail_user_var_expand(user, set_roots[i], set, &error) <= 0) {
-			user->error = p_strdup_printf(user->pool,
-				"Failed to expand settings: %s", error);
-			break;
-		}
-	}
-
-	if (user->error == NULL)
+	else
 		mail_user_expand_plugins_envs(user, user->_mail_set);
 
 	user->ssl_set = p_new(user->pool, struct ssl_iostream_settings, 1);

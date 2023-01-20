@@ -49,8 +49,7 @@ int mdbox_storage_create(struct mail_storage *_storage,
 
 	if (master_service_settings_parser_get(_storage->event,
 			_storage->user->set_parser,
-			mdbox_get_setting_parser_info(),
-			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			mdbox_get_setting_parser_info(), 0,
 			&storage->set, error_r) < 0)
 		return -1;
 

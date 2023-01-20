@@ -498,8 +498,8 @@ lmtp_local_deliver(struct lmtp_local *local,
 
 	lldctx.rcpt_user = rcpt_user;
 	if (master_service_settings_parser_get(rcpt_user->event,
-			rcpt_user->set_parser, &smtp_submit_setting_parser_info,
-			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			rcpt_user->set_parser,
+			&smtp_submit_setting_parser_info, 0,
 			&lldctx.smtp_set, &error) < 0) {
 		e_error(rcpt->event, "%s", error);
 		smtp_server_recipient_reply(rcpt, 451, "4.3.0",

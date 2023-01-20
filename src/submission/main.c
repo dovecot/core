@@ -193,8 +193,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 
 	if (master_service_settings_parser_get(mail_user->event,
 			mail_user->set_parser, &submission_setting_parser_info,
-			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
-			&set, error_r) < 0) {
+			0, &set, error_r) < 0) {
 		send_error(fd_out, event, my_hostname,
 			"4.7.0", MAIL_ERRSTR_CRITICAL_MSG);
 		mail_user_deinit(&mail_user);

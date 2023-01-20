@@ -561,8 +561,7 @@ client_handle_user_command(struct client *client, const char *cmd,
 
 	if (master_service_settings_parser_get(client->event,
 			mail_user->set_parser,
-			&imap_urlauth_worker_setting_parser_info,
-			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			&imap_urlauth_worker_setting_parser_info, 0,
 			&set, &error) < 0) {
 		e_error(client->event, "user %s: %s", input.username, error);
 		client_abort(client, "Session aborted: Failed to get settings");

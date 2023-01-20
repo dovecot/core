@@ -291,13 +291,12 @@ lda_deliver(struct mail_deliver_input *dinput,
 	int ret;
 
 	if (master_service_settings_parser_get(dinput->rcpt_user->event,
-			dinput->rcpt_user->set_parser, &lda_setting_parser_info,
-			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			dinput->rcpt_user->set_parser,
+			&lda_setting_parser_info, 0,
 			&dinput->set, &error) < 0 ||
 	    master_service_settings_parser_get(dinput->rcpt_user->event,
 			dinput->rcpt_user->set_parser,
-			&smtp_submit_setting_parser_info,
-			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			&smtp_submit_setting_parser_info, 0,
 			&dinput->smtp_set, &error) < 0)
 		i_fatal("%s", error);
 
