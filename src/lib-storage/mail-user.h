@@ -161,9 +161,9 @@ int mail_user_var_expand(struct mail_user *user,
 			 const struct setting_parser_info *info, void *set,
 			 const char **error_r);
 
-/* Specify the user's home directory. This should be called also when it's
-   known that the user doesn't have a home directory to avoid the internal
-   lookup. */
+/* Specify the user's home directory. This should be called also with home=NULL
+   when it's known that the user doesn't have a home directory to avoid the
+   internal lookup. */
 void mail_user_set_home(struct mail_user *user, const char *home);
 /* Get the home directory for the user. Returns 1 if home directory looked up
    successfully, 0 if there is no home directory (either user doesn't exist or

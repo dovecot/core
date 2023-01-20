@@ -93,6 +93,7 @@ struct mail_storage_service_user {
 	bool anonymous:1;
 	bool admin:1;
 	bool master_service_user_set:1;
+	bool home_from_userdb:1;
 };
 
 struct module *mail_storage_service_modules = NULL;
@@ -254,8 +255,10 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 		home = p + 2;
 	}
 
-	if (home != NULL)
+	if (home != NULL) {
 		set_keyval(ctx, user, "mail_home", home);
+		user->home_from_userdb = TRUE;
+	}
 
 	if (chroot != NULL) {
 		if (!validate_chroot(user->user_set, chroot)) {
@@ -690,7 +693,11 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	if (user->input.autocreated)
 		mail_user->autocreated = TRUE;
 	mail_storage_service_user_ref(user);
-	mail_user_set_home(mail_user, *home == '\0' ? NULL : home);
+	if (!user->input.no_userdb_lookup || user->home_from_userdb) {
+		/* userdb lookup is done. The (lack of) home directory is now
+		   known. */
+		mail_user_set_home(mail_user, *home == '\0' ? NULL : home);
+	}
 	mail_user_set_vars(mail_user, service_name, &conn_data);
 	mail_user->uid = priv->uid == (uid_t)-1 ? geteuid() : priv->uid;
 	mail_user->gid = priv->gid == (gid_t)-1 ? getegid() : priv->gid;
