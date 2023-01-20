@@ -43,9 +43,6 @@ struct mail_storage_service_privileges {
 	uid_t uid;
 	gid_t gid;
 	const char *uid_source, *gid_source;
-
-	const char *home;
-	const char *chroot;
 };
 
 struct mail_storage_service_ctx {
@@ -491,8 +488,6 @@ service_parse_privileges(struct mail_storage_service_user *user,
 	}
 	priv_r->gid = gid;
 	priv_r->gid_source = user->gid_source;
-	priv_r->home = user->user_set->mail_home;
-	priv_r->chroot = user->user_set->mail_chroot;
 	return 0;
 }
 
@@ -551,7 +546,7 @@ service_drop_privileges(struct mail_storage_service_user *user,
 
 	rset.first_valid_gid = set->first_valid_gid;
 	rset.last_valid_gid = set->last_valid_gid;
-	rset.chroot_dir = *priv->chroot == '\0' ? NULL : priv->chroot;
+	rset.chroot_dir = *set->mail_chroot == '\0' ? NULL : set->mail_chroot;
 	rset.system_groups_user = user->system_groups_user;
 
 	cur_chroot = restrict_access_get_current_chroot();
@@ -565,7 +560,7 @@ service_drop_privileges(struct mail_storage_service_user *user,
 		if (strcmp(rset.chroot_dir, cur_chroot) != 0) {
 			*error_r = t_strdup_printf(
 				"Process is already chrooted to %s, "
-				"can't chroot to %s", cur_chroot, priv->chroot);
+				"can't chroot to %s", cur_chroot, set->mail_chroot);
 			return -1;
 		}
 		/* chrooting to same directory where we're already chrooted */
@@ -592,7 +587,7 @@ service_drop_privileges(struct mail_storage_service_user *user,
 	}
 	if (!setenv_only) {
 		restrict_access(&rset, allow_root ? RESTRICT_ACCESS_FLAG_ALLOW_ROOT : 0,
-				*priv->home == '\0' ? NULL : priv->home);
+				*set->mail_home == '\0' ? NULL : set->mail_home);
 	} else {
 		restrict_access_set_env(&rset);
 	}
@@ -612,7 +607,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 			       struct mail_user **mail_user_r,
 			       const char **error_r)
 {
-	const char *home = priv->home;
+	const char *home = user->user_set->mail_home;
 	struct mail_user_connection_data conn_data;
 	struct mail_user *mail_user;
 	int ret;
@@ -679,8 +674,8 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 
 	str_printfa(str, "Effective uid=%s, gid=%s, home=%s",
 		    dec2str(geteuid()), dec2str(getegid()), home);
-	if (*priv->chroot != '\0')
-		str_printfa(str, ", chroot=%s", priv->chroot);
+	if (*user->user_set->mail_chroot != '\0')
+		str_printfa(str, ", chroot=%s", user->user_set->mail_chroot);
 	e_debug(mail_user->event, "%s", str_c(str));
 
 	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0 &&
@@ -1451,10 +1446,11 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 	if (service_parse_privileges(user, &priv, error_r) < 0)
 		return -2;
 
-	if (*priv.home != '/' && *priv.home != '\0') {
+	if (*user->user_set->mail_home != '/' &&
+	    *user->user_set->mail_home != '\0') {
 		*error_r = t_strdup_printf(
 			"Relative home directory paths not supported: %s",
-			priv.home);
+			user->user_set->mail_home);
 		return -2;
 	}
 
