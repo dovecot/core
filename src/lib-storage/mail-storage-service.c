@@ -97,13 +97,12 @@ struct mail_storage_service_init_var_expand_ctx {
 
 struct module *mail_storage_service_modules = NULL;
 
-static void set_keyval(struct mail_storage_service_ctx *ctx,
-		       struct mail_storage_service_user *user,
+static void set_keyval(struct mail_storage_service_user *user,
 		       const char *key, const char *value)
 {
 	struct setting_parser_context *set_parser = user->set_parser;
 
-	if (master_service_set_has_config_override(ctx->service, key)) {
+	if (master_service_set_has_config_override(user->service_ctx->service, key)) {
 		/* this setting was already overridden with -o parameter */
 		e_debug(user->event,
 			"Ignoring overridden (-o) userdb setting: %s",
@@ -222,11 +221,11 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 			return -1;
 		}
 		user->uid_source = "userdb lookup";
-		set_keyval(ctx, user, "mail_uid", dec2str(reply->uid));
+		set_keyval(user, "mail_uid", dec2str(reply->uid));
 	}
 	if (reply->gid != (uid_t)-1) {
 		user->gid_source = "userdb lookup";
-		set_keyval(ctx, user, "mail_gid", dec2str(reply->gid));
+		set_keyval(user, "mail_gid", dec2str(reply->gid));
 	}
 
 	if (home != NULL && chroot == NULL &&
@@ -239,7 +238,7 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 	}
 
 	if (home != NULL) {
-		set_keyval(ctx, user, "mail_home", home);
+		set_keyval(user, "mail_home", home);
 		user->home_from_userdb = TRUE;
 	}
 
@@ -250,7 +249,7 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 				"(see valid_chroot_dirs setting)", chroot);
 			return -1;
 		}
-		set_keyval(ctx, user, "mail_chroot", chroot);
+		set_keyval(user, "mail_chroot", chroot);
 	}
 
 	user->anonymous = reply->anonymous;
@@ -1438,8 +1437,8 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 				priv.home = "/";
 			priv.chroot = t_strndup(priv.chroot, len - 2);
 
-			set_keyval(ctx, user, "mail_home", priv.home);
-			set_keyval(ctx, user, "mail_chroot", priv.chroot);
+			set_keyval(user, "mail_home", priv.home);
+			set_keyval(user, "mail_chroot", priv.chroot);
 		}
 	} else if (len > 0 && !use_chroot) {
 		/* we're not going to chroot. fix home directory so we can
@@ -1449,7 +1448,7 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 		else
 			priv.home = t_strconcat(priv.chroot, priv.home, NULL);
 		priv.chroot = "";
-		set_keyval(ctx, user, "mail_home", priv.home);
+		set_keyval(user, "mail_home", priv.home);
 	}
 
 	mail_storage_service_init_log(ctx, user);
