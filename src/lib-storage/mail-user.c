@@ -100,17 +100,18 @@ mail_user_alloc(struct mail_storage_service_user *service_user)
 }
 
 static void
-mail_user_expand_plugins_envs(struct mail_user *user)
+mail_user_expand_plugins_envs(struct mail_user *user,
+			      struct mail_storage_settings *set)
 {
 	const char **envs, *home, *error;
 	string_t *str;
 	unsigned int i, count;
 
-	if (!array_is_created(&user->set->plugin_envs))
+	if (!array_is_created(&set->plugin_envs))
 		return;
 
 	str = t_str_new(256);
-	envs = array_get_modifiable(&user->set->plugin_envs, &count);
+	envs = array_get_modifiable(&set->plugin_envs, &count);
 	i_assert((count % 2) == 0);
 	for (i = 0; i < count; i += 2) {
 		if (user->_home == NULL &&
@@ -174,8 +175,11 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 		}
 	}
 
+	struct mail_storage_settings *mail_set =
+		settings_parser_get_root_set(user->set_parser,
+			&mail_storage_setting_parser_info);
 	user->settings_expanded = TRUE;
-	mail_user_expand_plugins_envs(user);
+	mail_user_expand_plugins_envs(user, mail_set);
 
 	user->ssl_set = p_new(user->pool, struct ssl_iostream_settings, 1);
 	if (user->error == NULL &&
@@ -539,10 +543,12 @@ bool mail_user_is_plugin_loaded(struct mail_user *user, struct module *module)
 
 bool mail_user_plugin_getenv_bool(struct mail_user *user, const char *name)
 {
-	return mail_user_set_plugin_getenv_bool(user->set, name);
+	const struct mail_storage_settings *mail_set =
+		mail_user_set_get_storage_set(user);
+	return mail_user_set_plugin_getenv_bool(mail_set, name);
 }
 
-bool mail_user_set_plugin_getenv_bool(const struct mail_user_settings *set,
+bool mail_user_set_plugin_getenv_bool(const struct mail_storage_settings *set,
 				      const char *name)
 {
 	const char *env = mail_user_set_plugin_getenv(set, name);
@@ -564,10 +570,12 @@ bool mail_user_set_plugin_getenv_bool(const struct mail_user_settings *set,
 
 const char *mail_user_plugin_getenv(struct mail_user *user, const char *name)
 {
-	return mail_user_set_plugin_getenv(user->set, name);
+	const struct mail_storage_settings *mail_set =
+		mail_user_set_get_storage_set(user);
+	return mail_user_set_plugin_getenv(mail_set, name);
 }
 
-const char *mail_user_set_plugin_getenv(const struct mail_user_settings *set,
+const char *mail_user_set_plugin_getenv(const struct mail_storage_settings *set,
 					const char *name)
 {
 	const char *const *envs;

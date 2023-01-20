@@ -290,7 +290,7 @@ static void main_init(void)
 	};
 	struct mail_storage_service_input input;
 	struct setting_parser_context *set_parser;
-	const struct mail_user_settings *user_set;
+	const struct mail_storage_settings *mail_set;
 	const char *value, *error;
 
 	clients = connection_list_init(&client_set, &client_vfuncs);
@@ -311,16 +311,16 @@ static void main_init(void)
 		i_fatal("%s", error);
 
 	if (master_service_settings_parser_get(NULL, set_parser,
-			&mail_user_setting_parser_info,
+			&mail_storage_setting_parser_info,
 			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
-			&user_set, &error) < 0)
+			&mail_set, &error) < 0)
 		i_fatal("%s", error);
 	quota_status_settings = master_service_settings_get_or_fatal(NULL,
 		&quota_status_setting_parser_info);
 
-	value = mail_user_set_plugin_getenv(user_set, "quota_status_nouser");
+	value = mail_user_set_plugin_getenv(mail_set, "quota_status_nouser");
 	nouser_reply = i_strdup(value != NULL ? value : "REJECT Unknown user");
-	master_service_settings_free(user_set);
+	master_service_settings_free(mail_set);
 }
 
 static void main_deinit(void)

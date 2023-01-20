@@ -179,9 +179,9 @@ bool mail_user_is_plugin_loaded(struct mail_user *user, struct module *module);
 /* If name exists in plugin_envs, return its value. */
 const char *mail_user_plugin_getenv(struct mail_user *user, const char *name);
 bool mail_user_plugin_getenv_bool(struct mail_user *user, const char *name);
-const char *mail_user_set_plugin_getenv(const struct mail_user_settings *set,
+const char *mail_user_set_plugin_getenv(const struct mail_storage_settings *set,
 					const char *name);
-bool mail_user_set_plugin_getenv_bool(const struct mail_user_settings *set,
+bool mail_user_set_plugin_getenv_bool(const struct mail_storage_settings *set,
 				      const char *name);
 
 /* Add more namespaces to user's namespaces. The ->next pointers may be

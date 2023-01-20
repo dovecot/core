@@ -26,8 +26,13 @@ static bool mail_user_settings_check(void *_set, pool_t pool, const char **error
 static bool mail_user_settings_expand_check(void *_set, pool_t pool ATTR_UNUSED, const char **error_r);
 
 #undef DEF
+#undef DEFLIST_UNIQUE
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct mail_storage_settings)
+#define DEFLIST_UNIQUE(field, name, defines) \
+	{ .type = SET_DEFLIST_UNIQUE, .key = name, \
+	  .offset = offsetof(struct mail_storage_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(STR_VARS, mail_location),
@@ -82,6 +87,10 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(STR, pop3_uidl_format),
 
 	DEF(STR, recipient_delimiter),
+
+	DEFLIST_UNIQUE(namespaces, "namespace", &mail_namespace_setting_parser_info),
+	{ .type = SET_STRLIST, .key = "plugin",
+	  .offset = offsetof(struct mail_storage_settings, plugin_envs) },
 
 	SETTING_DEFINE_LIST_END
 };
@@ -138,6 +147,9 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.pop3_uidl_format = "%08Xu%08Xv",
 
 	.recipient_delimiter = "+",
+
+	.namespaces = ARRAY_INIT,
+	.plugin_envs = ARRAY_INIT,
 };
 
 const struct setting_parser_info mail_storage_setting_parser_info = {
@@ -249,20 +261,15 @@ const struct setting_parser_info mail_namespace_setting_parser_info = {
 	.type_offset1 = 1 + offsetof(struct mail_namespace_settings, name),
 	.struct_size = sizeof(struct mail_namespace_settings),
 
-	.parent_offset1 = 1 + offsetof(struct mail_namespace_settings, user_set),
-	.parent = &mail_user_setting_parser_info,
+	.parent_offset1 = 1 + offsetof(struct mail_namespace_settings, mail_set),
+	.parent = &mail_storage_setting_parser_info,
 
 	.check_func = namespace_settings_check
 };
 
 #undef DEF
-#undef DEFLIST_UNIQUE
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct mail_user_settings)
-#define DEFLIST_UNIQUE(field, name, defines) \
-	{ .type = SET_DEFLIST_UNIQUE, .key = name, \
-	  .offset = offsetof(struct mail_user_settings, field), \
-	  .list_info = defines }
 
 static const struct setting_define mail_user_setting_defines[] = {
 	DEF(STR, base_dir),
@@ -290,10 +297,6 @@ static const struct setting_define mail_user_setting_defines[] = {
 
 	DEF(STR, hostname),
 	DEF(STR_VARS, postmaster_address),
-
-	DEFLIST_UNIQUE(namespaces, "namespace", &mail_namespace_setting_parser_info),
-	{ .type = SET_STRLIST, .key = "plugin",
-	  .offset = offsetof(struct mail_user_settings, plugin_envs) },
 
 	SETTING_DEFINE_LIST_END
 };
@@ -324,9 +327,6 @@ static const struct mail_user_settings mail_user_default_settings = {
 
 	.hostname = "",
 	.postmaster_address = "postmaster@%{if;%d;ne;;%d;%{hostname}}",
-
-	.namespaces = ARRAY_INIT,
-	.plugin_envs = ARRAY_INIT
 };
 
 const struct setting_parser_info mail_user_setting_parser_info = {
@@ -555,8 +555,8 @@ static bool namespace_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	}
 
 	if (ns->alias_for != NULL && !ns->disabled) {
-		if (array_is_created(&ns->user_set->namespaces)) {
-			namespaces = array_get(&ns->user_set->namespaces,
+		if (array_is_created(&ns->mail_set->namespaces)) {
+			namespaces = array_get(&ns->mail_set->namespaces,
 					       &count);
 		} else {
 			namespaces = NULL;

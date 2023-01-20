@@ -95,10 +95,12 @@ static bool user_has_special_use_mailboxes(struct mail_user *user)
 	 */
 
 	/* no namespaces => no special use flags */
-	if (!array_is_created(&user->set->namespaces))
+	const struct mail_storage_settings *mail_set =
+		mail_user_set_get_storage_set(user);
+	if (!array_is_created(&mail_set->namespaces))
 		return FALSE;
 
-	array_foreach_elem(&user->set->namespaces, ns_set) {
+	array_foreach_elem(&mail_set->namespaces, ns_set) {
 		struct mailbox_settings *box_set;
 
 		/* no mailboxes => no special use flags */

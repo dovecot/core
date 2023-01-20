@@ -1014,6 +1014,26 @@ parse_location(struct dsync_cmd_context *ctx,
 	return 0;
 }
 
+static int
+get_default_replica_location(struct dsync_cmd_context *ctx,
+			     struct mail_storage_service_user *service_user,
+			     const char **error_r)
+{
+	struct setting_parser_context *set_parser =
+		mail_storage_service_user_get_settings_parser(service_user);
+	const struct mail_storage_settings *mail_set;
+	if (master_service_settings_parser_get(NULL, set_parser,
+			&mail_storage_setting_parser_info,
+			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_CHECK |
+			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			&mail_set, error_r) < 0)
+		return -1;
+	ctx->local_location = p_strdup(ctx->ctx.pool,
+		mail_user_set_plugin_getenv(mail_set, "mail_replica"));
+	master_service_settings_free(mail_set);
+	return 0;
+}
+
 static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 			    struct mail_storage_service_user *service_user,
 			    const char **error_r)
@@ -1023,10 +1043,7 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 		container_of(_ctx, struct dsync_cmd_context, ctx);
 
 	const char *const *remote_cmd_args = NULL;
-	const struct mail_user_settings *user_set;
 	const char *username = "";
-
-	user_set = mail_storage_service_user_get_set(service_user);
 
 	ctx->fd_in = -1;
 	ctx->fd_out = -1;
@@ -1035,8 +1052,9 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 	ctx->remote_name = "remote";
 
 	if (ctx->default_replica_location) {
-		ctx->local_location =
-			mail_user_set_plugin_getenv(user_set, "mail_replica");
+		if (get_default_replica_location(ctx, service_user, error_r) < 0)
+			return -1;
+
 		if (ctx->local_location == NULL ||
 		    *ctx->local_location == '\0') {
 			*error_r = "User has no mail_replica in userdb";

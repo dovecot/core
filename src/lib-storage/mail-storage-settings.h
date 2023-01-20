@@ -66,6 +66,9 @@ struct mail_storage_settings {
 
 	const char *mail_attachment_detection_options;
 
+	ARRAY(struct mail_namespace_settings *) namespaces;
+	ARRAY(const char *) plugin_envs;
+
 	enum file_lock_method parsed_lock_method;
 	enum fsync_mode parsed_fsync_mode;
 	const char *unexpanded_mail_location;
@@ -93,7 +96,7 @@ struct mail_namespace_settings {
 	unsigned int order;
 
 	ARRAY(struct mailbox_settings *) mailboxes;
-	struct mail_user_settings *user_set;
+	struct mail_storage_settings *mail_set;
 	const char *unexpanded_location;
 };
 
@@ -137,9 +140,6 @@ struct mail_user_settings {
 
 	const char *hostname;
 	const char *postmaster_address;
-
-	ARRAY(struct mail_namespace_settings *) namespaces;
-	ARRAY(const char *) plugin_envs;
 
 	/* May be NULL - use mail_storage_get_postmaster_address() instead of
 	   directly accessing this. */
