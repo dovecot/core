@@ -375,8 +375,21 @@ static int maildir_mailbox_open(struct mailbox *box)
 	}
 	root_dir = mailbox_list_get_root_forced(box->list,
 						MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (strcmp(box_path, root_dir) == 0 && !box->inbox_any) {
-		/* root directory for some namespace. */
+
+	/* This code path is executed only for Maildir++ and imapdir layouts,
+	   which don't support \Noselect mailboxes. If the mailbox root
+	   directory exists, automatically create any missing cur/new/tmp
+	   directories. Otherwise the mailbox would show up as selectable
+	   in the mailbox list, but not actually be selectable.
+
+	   As a special case we don't do this when the mailbox root directory
+	   is the same as the namespace root directory. This especially means
+	   that we don't autocreate Maildir INBOX when ~/Maildir directory
+	   exists. Instead, we return that mailbox doesn't exist, so the
+	   caller goes to the INBOX autocreation code path similarly as with
+	   other mailboxes. This is needed e.g. for welcome plugin to work. */
+	if (strcmp(box_path, root_dir) == 0) {
+		/* root directory. either INBOX or some other namespace root */
 		errno = ENOENT;
 	} else if (stat(box_path, &st) == 0) {
 		/* yes, we'll need to create the missing dirs */
