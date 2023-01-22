@@ -1201,8 +1201,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		mail_storage_service_seteuid_root();
 	}
 
-	if (input->unexpanded_set_parser != NULL)
-		set_parser = input->unexpanded_set_parser;
+	if (input->set_parser != NULL)
+		set_parser = input->set_parser;
 	else if (mail_storage_service_read_settings(ctx, input,
 						    &set_parser, error_r) < 0) {
 		if (ctx->config_permission_denied) {

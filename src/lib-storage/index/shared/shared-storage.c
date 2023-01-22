@@ -263,7 +263,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	const struct mail_storage_service_input input = {
 		.event_parent = event_get_parent(service_user_event),
 		.username = userdomain,
-		.unexpanded_set_parser = service_user_set_parser,
+		.set_parser = service_user_set_parser,
 		.session_id = user->session_id,
 		.autocreated = TRUE,
 		.no_userdb_lookup = TRUE,

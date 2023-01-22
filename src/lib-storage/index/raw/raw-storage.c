@@ -17,7 +17,7 @@ extern struct mailbox raw_mailbox;
 
 struct mail_user *
 raw_storage_create_from_set(struct mail_storage_service_ctx *ctx,
-			    struct setting_parser_context *unexpanded_set_parser)
+			    struct setting_parser_context *set_parser)
 {
 	struct mail_user *user;
 	struct mail_namespace *ns;
@@ -45,7 +45,7 @@ raw_storage_create_from_set(struct mail_storage_service_ctx *ctx,
 	struct mail_storage_service_input input = {
 		.event_parent = event,
 		.username = "raw-mail-user",
-		.unexpanded_set_parser = unexpanded_set_parser,
+		.set_parser = set_parser,
 		.autocreated = TRUE,
 		.no_userdb_lookup = TRUE,
 		.userdb_fields = userdb_fields,
