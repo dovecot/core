@@ -126,9 +126,8 @@ static void client_read_settings(struct client *client, bool ssl)
 	struct event *event = event_create(client->event);
 	event_set_ptr(event, MASTER_SERVICE_VAR_EXPAND_TABLE, (void *)tab);
 	if (master_service_settings_parser_get(event, set_parser,
-			&lda_setting_parser_info,
-			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
-			&client->unexpanded_lda_set, &error) < 0 ||
+			&lda_setting_parser_info, 0,
+			&client->lda_set, &error) < 0 ||
 	    master_service_settings_parser_get(event, set_parser,
 			&lmtp_setting_parser_info, 0,
 			&client->lmtp_set, &error) < 0)
@@ -168,8 +167,7 @@ struct client *client_create(int fd_in, int fd_out,
 
 	client_read_settings(client, conn_tls);
 	client_load_modules(client);
-	client->my_domain = p_strdup(client->pool,
-				     client->unexpanded_lda_set->hostname);
+	client->my_domain = p_strdup(client->pool, client->lda_set->hostname);
 
 	if (master_service_get_service_settings(master_service)->verbose_proctitle)
 		verbose_proctitle = TRUE;
@@ -186,7 +184,7 @@ struct client *client_create(int fd_in, int fd_out,
 		SMTP_CAPABILITY__ORCPT;
 	if (!conn_tls && master_service_ssl_is_enabled(master_service))
 		lmtp_set.capabilities |= SMTP_CAPABILITY_STARTTLS;
-	lmtp_set.hostname = client->unexpanded_lda_set->hostname;
+	lmtp_set.hostname = client->lda_set->hostname;
 	lmtp_set.login_greeting = client->lmtp_set->login_greeting;
 	lmtp_set.max_message_size = UOFF_T_MAX;
 	lmtp_set.rcpt_param_extensions = rcpt_param_extensions;
@@ -269,7 +267,7 @@ client_default_destroy(struct client *client)
 
 	client_state_reset(client);
 
-	master_service_settings_free(client->unexpanded_lda_set);
+	master_service_settings_free(client->lda_set);
 	master_service_settings_free(client->lmtp_set);
 	event_unref(&client->event);
 	pool_unref(&client->state_pool);

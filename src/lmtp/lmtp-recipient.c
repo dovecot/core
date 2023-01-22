@@ -24,8 +24,7 @@ lmtp_recipient_create(struct client *client,
 	lrcpt->rcpt = rcpt;
 	lrcpt->client = client;
 
-	smtp_address_detail_parse_temp(
-		client->unexpanded_lda_set->recipient_delimiter,
+	smtp_address_detail_parse_temp(client->lda_set->recipient_delimiter,
 		rcpt->path, &username, &delim, &detail);
 	i_assert(*username != '\0');
 

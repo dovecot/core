@@ -72,7 +72,7 @@ struct client {
 	struct lmtp_client_vfuncs v;
 	struct event *event;
 
-	const struct lda_settings *unexpanded_lda_set;
+	const struct lda_settings *lda_set;
 	const struct lmtp_settings *lmtp_set;
 
 	struct smtp_server_connection *conn;
