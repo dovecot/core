@@ -104,6 +104,49 @@ static void test_p_strarray_dup(void)
 	test_end();
 }
 
+static void test_t_split_key_value(void)
+{
+	const char *key, *value;
+
+	struct {
+		const char *input;
+		bool found;
+		const char *key;
+		const char *value;
+	} tests[] = {
+		{ NULL, 	FALSE, 	NULL, 	"" },
+		{ "", 		FALSE, 	"", 	"" },
+		{ "=", 		TRUE,  	"", 	""},
+		{ "====", 	TRUE,  	"", 	"==="},
+
+		{ "key", 	FALSE, 	"key", 	"" },
+		{ "key=", 	TRUE, 	"key", 	"" },
+		{ "key=value", 	TRUE, 	"key", 	"value" },
+		{ "key=value=",	TRUE, 	"key", 	"value=" },
+		{ "key=v=w=x",	TRUE, 	"key", 	"v=w=x" },
+		{ "key=v=w=x=",	TRUE, 	"key", 	"v=w=x=" },
+
+		{ "=value",	TRUE, 	"", 	"value" },
+		{ "=v=w=x",	TRUE, 	"", 	"v=w=x" },
+		{ "=v=w=x=",	TRUE, 	"", 	"v=w=x=" },
+		{ "==v=w=x=",	TRUE, 	"", 	"=v=w=x=" },
+	};
+
+	test_begin("t_split_key_value");
+	{
+		test_assert(t_split_key_value("k:v", ':', &key, &value));
+		test_assert_strcmp("k", key);
+		test_assert_strcmp("v", value);
+	}
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		bool found = t_split_key_value_eq(tests[i].input, &key, &value);
+		test_assert_idx(tests[i].found == found, i);
+		test_assert_idx(null_strcmp(tests[i].key, key) == 0, i);
+		test_assert_idx(null_strcmp(tests[i].value, value) == 0, i);
+	}
+	test_end();
+}
+
 static void test_t_strsplit(void)
 {
 	struct {
@@ -685,6 +728,7 @@ void test_strfuncs(void)
 	test_p_strdup_empty();
 	test_p_strdup_until();
 	test_p_strarray_dup();
+	test_t_split_key_value();
 	test_t_strsplit();
 	test_t_strsplit_spaces();
 	test_t_str_replace();

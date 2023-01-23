@@ -709,6 +709,19 @@ size_t i_memcspn(const void *data, size_t data_len,
 	return ptr - start;
 }
 
+bool t_split_key_value(const char *arg, char separator,
+		       const char **key_r, const char **value_r)
+{
+	*value_r = arg == NULL ? NULL : strchr(arg, separator);
+	if (*value_r != NULL) {
+		*key_r = t_strdup_until(arg, (*value_r)++);
+		return TRUE;
+	}
+	*value_r = "";
+	*key_r = arg;
+	return FALSE;
+}
+
 static char **
 split_str_slow(pool_t pool, const char *data, const char *separators, bool spaces)
 {
