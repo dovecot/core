@@ -179,9 +179,9 @@ log_add_flag_update(struct dsync_transaction_log_scan *ctx, const void *data,
 					DSYNC_MAIL_CHANGE_TYPE_FLAG_CHANGE,
 					&change)) {
 				change->add_flags |= rec->add_flags;
-				change->remove_flags &= ENUM_NEGATE(rec->add_flags);
+				change->remove_flags &= ~rec->add_flags;
 				change->remove_flags |= rec->remove_flags;
-				change->add_flags &= ENUM_NEGATE(rec->remove_flags);
+				change->add_flags &= ~rec->remove_flags;
 			}
 		}
 	}

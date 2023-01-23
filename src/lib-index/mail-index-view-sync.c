@@ -369,7 +369,7 @@ static int view_sync_apply_lost_changes(struct mail_index_view_sync_ctx *ctx,
 		i_zero(&flag_update);
 		flag_update.uid1 = flag_update.uid2 = new_rec->uid;
 		flag_update.add_flags = new_rec->flags;
-		flag_update.remove_flags = ENUM_NEGATE(new_rec->flags) & 0xff;
+		flag_update.remove_flags = ~new_rec->flags & 0xff;
 		if (mail_index_sync_record(&ctx->sync_map_ctx, &thdr,
 					   &flag_update) < 0)
 			return -1;

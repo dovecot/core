@@ -500,10 +500,10 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 
 		updates[idx].add_flags =
 			(updates[idx].add_flags | u.add_flags) &
-			ENUM_NEGATE(u.remove_flags);
+			~u.remove_flags;
 		updates[idx].remove_flags =
 			(updates[idx].remove_flags | u.remove_flags) &
-			ENUM_NEGATE(u.add_flags);
+			~u.add_flags;
 		u.uid1 = updates[idx].uid2 + 1;
 
 		if (updates[idx].add_flags == 0 &&

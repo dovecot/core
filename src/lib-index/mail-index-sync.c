@@ -998,7 +998,7 @@ void mail_index_sync_flags_apply(const struct mail_index_sync_rec *sync_rec,
 {
 	i_assert(sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS);
 
-	*flags = (*flags & ENUM_NEGATE(sync_rec->remove_flags)) | sync_rec->add_flags;
+	*flags = (*flags & ~sync_rec->remove_flags) | sync_rec->add_flags;
 }
 
 bool mail_index_sync_keywords_apply(const struct mail_index_sync_rec *sync_rec,
