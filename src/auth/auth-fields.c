@@ -192,17 +192,6 @@ bool auth_fields_is_empty(struct auth_fields *fields)
 		array_count(&fields->fields) == 0;
 }
 
-void auth_fields_booleanize(struct auth_fields *fields, const char *key)
-{
-	struct auth_field *field;
-	unsigned int idx;
-
-	if (auth_fields_find_idx(fields, key, &idx)) {
-		field = array_idx_modifiable(&fields->fields, idx);
-		field->value = "yes";
-	}
-}
-
 void auth_fields_snapshot(struct auth_fields *fields)
 {
 	struct auth_field *field;

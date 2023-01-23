@@ -37,9 +37,6 @@ void auth_fields_append(struct auth_fields *fields, string_t *dest,
 			enum auth_field_flags flags_mask,
 			enum auth_field_flags flags_result);
 bool auth_fields_is_empty(struct auth_fields *fields);
-/* If the field exists, set its value to "yes",
-   so the exported string will be "key=yes" */
-void auth_fields_booleanize(struct auth_fields *fields, const char *key);
 
 /* Remember the current fields. */
 void auth_fields_snapshot(struct auth_fields *fields);

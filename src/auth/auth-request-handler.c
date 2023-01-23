@@ -273,11 +273,6 @@ auth_request_handler_reply_success_finish(struct auth_request *request)
 		auth_penalty_update(auth_penalty, request, 0);
 	}
 
-	/* sanitize these fields, since the login code currently assumes they
-	   are exactly in this format. */
-	auth_fields_booleanize(request->fields.extra_fields, "nologin");
-	auth_fields_booleanize(request->fields.extra_fields, "proxy");
-
 	str_printfa(str, "OK\t%u\tuser=", request->id);
 	str_append_tabescaped(str, request->fields.user);
 	auth_str_append_extra_fields(request, str);
