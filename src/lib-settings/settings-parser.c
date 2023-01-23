@@ -50,7 +50,7 @@ struct setting_parser_context {
 	HASH_TABLE(char *, struct setting_link *) links;
 
 	unsigned int linenum;
-	const char *error;
+	char *error;
 	const struct setting_parser_info *prev_info;
 };
 
@@ -249,6 +249,7 @@ void settings_parser_unref(struct setting_parser_context **_ctx)
 	if (--ctx->refcount > 0)
 		return;
 	hash_table_destroy(&ctx->links);
+	i_free(ctx->error);
 	pool_unref(&ctx->set_pool);
 	pool_unref(&ctx->parser_pool);
 }
@@ -282,6 +283,13 @@ settings_parser_get_roots(const struct setting_parser_context *ctx)
 	return infos;
 }
 
+static void settings_parser_set_error(struct setting_parser_context *ctx,
+				      const char *error)
+{
+	i_free(ctx->error);
+	ctx->error = i_strdup(error);
+}
+
 const char *settings_parser_get_error(struct setting_parser_context *ctx)
 {
 	return ctx->error;
@@ -302,9 +310,10 @@ setting_define_find(const struct setting_parser_info *info, const char *key)
 static int
 get_bool(struct setting_parser_context *ctx, const char *value, bool *result_r)
 {
+	const char *error;
 	int ret;
-	if ((ret = str_parse_get_bool(value, result_r, &ctx->error)) < 0)
-		ctx->error = p_strdup(ctx->parser_pool, ctx->error);
+	if ((ret = str_parse_get_bool(value, result_r, &error)) < 0)
+		settings_parser_set_error(ctx, error);
 	return ret;
 }
 
@@ -313,9 +322,9 @@ get_uint(struct setting_parser_context *ctx, const char *value,
 	 unsigned int *result_r)
 {
 	if (str_to_uint(value, result_r) < 0) {
-		ctx->error = p_strdup_printf(ctx->parser_pool,
+		settings_parser_set_error(ctx, t_strdup_printf(
 			"Invalid number %s: %s", value,
-			str_num_error(value));
+			str_num_error(value)));
 		return -1;
 	}
 	return 0;
@@ -331,8 +340,8 @@ get_octal(struct setting_parser_context *ctx, const char *value,
 		return get_uint(ctx, value, result_r);
 
 	if (str_to_ullong_oct(value, &octal) < 0) {
-		ctx->error = p_strconcat(ctx->parser_pool, "Invalid number: ",
-					 value, NULL);
+		settings_parser_set_error(ctx,
+			t_strconcat("Invalid number: ", value, NULL));
 		return -1;
 	}
 	*result_r = (unsigned int)octal;
@@ -350,9 +359,8 @@ static int get_enum(struct setting_parser_context *ctx, const char *value,
 			if (strcmp(allowed_values, value) == 0)
 				break;
 
-			ctx->error = p_strconcat(ctx->parser_pool,
-						 "Invalid value: ",
-						 value, NULL);
+			settings_parser_set_error(ctx,
+				t_strconcat("Invalid value: ", value, NULL));
 			return -1;
 		}
 
@@ -403,8 +411,8 @@ setting_link_add(struct setting_parser_context *ctx,
 		    link->info == link_copy->info &&
 		    (def == NULL || def->type == SET_DEFLIST_UNIQUE))
 			return 0;
-		ctx->error = p_strconcat(ctx->parser_pool, key,
-					 " already exists", NULL);
+		settings_parser_set_error(ctx,
+			t_strconcat(key, " already exists", NULL));
 		return -1;
 	}
 
@@ -469,8 +477,8 @@ get_in_port_zero(struct setting_parser_context *ctx, const char *value,
 	 in_port_t *result_r)
 {
 	if (net_str2port_zero(value, result_r) < 0) {
-		ctx->error = p_strdup_printf(ctx->parser_pool,
-			"Invalid port number %s", value);
+		settings_parser_set_error(ctx, t_strdup_printf(
+			"Invalid port number %s", value));
 		return -1;
 	}
 	return 0;
@@ -514,19 +522,19 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 		break;
 	case SET_TIME:
 		if (str_parse_get_interval(value, (unsigned int *)ptr, &error) < 0) {
-			ctx->error = p_strdup(ctx->parser_pool, error);
+			settings_parser_set_error(ctx, error);
 			return -1;
 		}
 		break;
 	case SET_TIME_MSECS:
 		if (str_parse_get_interval_msecs(value, (unsigned int *)ptr, &error) < 0) {
-			ctx->error = p_strdup(ctx->parser_pool, error);
+			settings_parser_set_error(ctx, error);
 			return -1;
 		}
 		break;
 	case SET_SIZE:
 		if (str_parse_get_size(value, (uoff_t *)ptr, &error) < 0) {
-			ctx->error = p_strdup(ctx->parser_pool, error);
+			settings_parser_set_error(ctx, error);
 			return -1;
 		}
 		break;
@@ -686,12 +694,12 @@ int settings_parse_keyvalue(struct setting_parser_context *ctx,
 	struct setting_link *link;
 	unsigned int n = 0;
 
-	ctx->error = NULL;
+	i_free(ctx->error);
 	ctx->prev_info = NULL;
 
 	if (!settings_find_key_nth(ctx, key, &n, &def, &link)) {
-		ctx->error = p_strconcat(ctx->parser_pool,
-					 "Unknown setting: ", key, NULL);
+		settings_parser_set_error(ctx,
+			t_strconcat("Unknown setting: ", key, NULL));
 		return 0;
 	}
 
@@ -779,12 +787,13 @@ int settings_parse_line(struct setting_parser_context *ctx, const char *line)
 	key = line;
 	value = strchr(line, '=');
 	if (value == NULL) {
-		ctx->error = "Missing '='";
+		settings_parser_set_error(ctx, "Missing '='");
 		return -1;
 	}
 
 	if (key == value) {
-		ctx->error = "Missing key name ('=' at the beginning of line)";
+		settings_parser_set_error(ctx,
+			"Missing key name ('=' at the beginning of line)");
 		return -1;
 	}
 
@@ -1298,7 +1307,7 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 	new_ctx->flags = old_ctx->flags;
 	new_ctx->str_vars_are_expanded = old_ctx->str_vars_are_expanded;
 	new_ctx->linenum = old_ctx->linenum;
-	new_ctx->error = p_strdup(new_ctx->parser_pool, old_ctx->error);
+	new_ctx->error = i_strdup(old_ctx->error);
 	new_ctx->prev_info = old_ctx->prev_info;
 
 	hash_table_create_direct(&links, new_ctx->parser_pool, 0);
