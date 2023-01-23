@@ -6,7 +6,7 @@ dnl This file is free software; the authors give
 dnl unlimited permission to copy and/or distribute it, with or without
 dnl modifications, as long as this notice is preserved.
 
-# serial 37
+# serial 38
 
 dnl
 dnl Check for support for D_FORTIFY_SOURCE=2
@@ -419,7 +419,7 @@ AC_DEFUN([DC_CC_WRAPPER],[
 	cat > cc-wrapper.sh <<_DC_EOF
 #!/bin/sh
 
-if echo "\$[*]" | grep -- -ldl > /dev/null; then
+if echo "\$[*]" | grep -- -export-dynamic > /dev/null; then
   # the binary uses plugins. make sure we include everything from .a libs
   exec $CC -Wl,--whole-archive \$[*] -Wl,--no-whole-archive
 else
