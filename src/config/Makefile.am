@@ -24,6 +24,8 @@ AM_CPPFLAGS = \
 
 noinst_LTLIBRARIES = libconfig.la
 
+config_LDFLAGS = -export-dynamic \
+	$(BINARY_LDFLAGS)
 config_LDADD = \
 	$(noinst_LTLIBRARIES) \
 	$(LIBDOVECOT) \
@@ -33,6 +35,8 @@ config_LDADD = \
 
 config_DEPENDENCIES = $(LIBDOVECOT_DEPS) $(noinst_LTLIBRARIES)
 
+doveconf_LDFLAGS = -export-dynamic \
+	$(BINARY_LDFLAGS)
 doveconf_LDADD = \
 	$(noinst_LTLIBRARIES) \
 	$(LIBDOVECOT) \
