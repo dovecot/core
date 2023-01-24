@@ -1019,8 +1019,8 @@ void client_command_free(struct client_command_context **_cmd)
 			  &cmd->stats.last_run_timeval);
 	event_add_int(cmd->event, "running_usecs", cmd->stats.running_usecs);
 	event_add_int(cmd->event, "lock_wait_usecs", cmd->stats.lock_wait_usecs);
-	event_add_int(cmd->event, "bytes_in", cmd->stats.bytes_in);
-	event_add_int(cmd->event, "bytes_out", cmd->stats.bytes_out);
+	event_add_int(cmd->event, "net_in_bytes", cmd->stats.bytes_in);
+	event_add_int(cmd->event, "net_out_bytes", cmd->stats.bytes_out);
 
 	e_debug(cmd->event, "Command finished: %s %s", cmd->name,
 		cmd->human_args != NULL ? cmd->human_args : "");
