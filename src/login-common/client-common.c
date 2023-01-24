@@ -318,6 +318,29 @@ static void client_disconnected_log(struct event *event, const char *reason,
 		e_info(event, "%s", reason);
 }
 
+static void login_aborted_event(struct client *client, const char *reason,
+				bool add_disconnected_prefix)
+{
+	struct event *event = client->login_proxy == NULL ?
+		client->event :
+		login_proxy_get_event(client->login_proxy);
+	struct event_passthrough *e = event_create_passthrough(event)->
+		set_name("login_aborted");
+	const char *human_reason, *event_reason;
+
+	i_assert(reason != NULL);
+	if (!client->no_extra_disconnect_reason &&
+	    client_get_extra_disconnect_reason(client, &human_reason, &event_reason))
+		reason = t_strdup_printf("%s (%s)", reason, human_reason);
+	else
+		event_reason = reason;
+
+	e->add_str("reason", event_reason);
+
+	client_disconnected_log(e->event(), reason,
+			        add_disconnected_prefix);
+}
+
 void client_disconnect(struct client *client, const char *reason,
 		       bool add_disconnected_prefix)
 {
@@ -325,13 +348,9 @@ void client_disconnect(struct client *client, const char *reason,
 		return;
 	client->disconnected = TRUE;
 
-	if (!client->login_success &&
-	    !client->no_extra_disconnect_reason && reason != NULL) {
-		const char *human_reason, *event_reason;
-		if (client_get_extra_disconnect_reason(client, &human_reason, &event_reason))
-			reason = t_strdup_printf("%s (%s)", reason, human_reason);
-	}
-	if (reason != NULL) {
+	if (!client->login_success && reason != NULL) {
+		login_aborted_event(client, reason, add_disconnected_prefix);
+	} else if (reason != NULL) {
 		client_disconnected_log(client->login_proxy == NULL ?
 					client->event :
 					login_proxy_get_event(client->login_proxy),
