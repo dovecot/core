@@ -39,6 +39,11 @@ enum smtp_server_state {
 };
 extern const char *const smtp_server_state_names[];
 
+struct smtp_server_stats {
+	unsigned int command_count, reply_count;
+	uoff_t input, output;
+};
+
 struct smtp_server_helo_data {
 	const char *domain;
 
@@ -397,11 +402,6 @@ struct smtp_server_settings {
 	/* Don't send a greeting or login success message to the client upon
 	   connection start. */
 	bool no_greeting:1;
-};
-
-struct smtp_server_stats {
-	unsigned int command_count, reply_count;
-	uoff_t input, output;
 };
 
 /*
