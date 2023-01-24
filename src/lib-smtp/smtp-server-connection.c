@@ -50,6 +50,7 @@ smtp_server_connection_update_stats(struct smtp_server_connection *conn)
 		conn->stats.input = conn->conn.input->v_offset;
 	if (conn->conn.output != NULL)
 		conn->stats.output = conn->conn.output->offset;
+	connection_update_counters(&conn->conn);
 }
 
 const struct smtp_server_stats *
