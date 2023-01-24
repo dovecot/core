@@ -562,6 +562,10 @@ static const char *client_stats(struct client *client)
 			"Failed to expand pop3_logout_format=%s: %s",
 			client->set->pop3_logout_format, error);
 	}
+
+	event_add_int(client->event, "net_in_bytes", i_stream_get_absolute_offset(client->input));
+	event_add_int(client->event, "net_out_bytes", client->output->offset);
+
 	return str_c(str);
 }
 
