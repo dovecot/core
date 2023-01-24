@@ -293,7 +293,7 @@ static void
 client_connection_trans_free(void *context,
 			     struct smtp_server_transaction *trans)
 {
-	struct client *client = (struct client *)context;
+	struct client *client = context;
 
 	client->v.trans_free(client, trans);
 }
@@ -310,7 +310,7 @@ client_connection_state_changed(void *context,
 				enum smtp_server_state new_state,
 				const char *new_args)
 {
-	struct client *client = (struct client *)context;
+	struct client *client = context;
 
 	i_free(client->state.args);
 
@@ -335,7 +335,7 @@ static void
 client_connection_proxy_data_updated(void *context,
 				     const struct smtp_proxy_data *data)
 {
-	struct client *client = (struct client *)context;
+	struct client *client = context;
 
 	client->remote_ip = data->source_ip;
 	client->remote_port = data->source_port;
@@ -352,7 +352,7 @@ client_connection_proxy_data_updated(void *context,
 
 static void client_connection_disconnect(void *context, const char *reason)
 {
-	struct client *client = (struct client *)context;
+	struct client *client = context;
 
 	if (client->disconnected)
 		return;
@@ -366,14 +366,14 @@ static void client_connection_disconnect(void *context, const char *reason)
 
 static void client_connection_free(void *context)
 {
-	struct client *client = (struct client *)context;
+	struct client *client = context;
 
 	client->v.destroy(client);
 }
 
 static bool client_connection_is_trusted(void *context)
 {
-	struct client *client = (struct client *)context;
+	struct client *client = context;
 	const char *const *net;
 	struct ip_addr net_ip;
 	unsigned int bits;
