@@ -419,6 +419,10 @@ static const char *client_stats(struct client *client)
 			"Failed to expand submission_logout_format=%s: %s",
 			client->set->submission_logout_format, error);
 	}
+
+	event_add_int(client->event, "net_in_bytes", stats->input);
+	event_add_int(client->event, "net_out_bytes", stats->output);
+
 	return str_c(str);
 }
 
