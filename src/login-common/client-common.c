@@ -336,6 +336,12 @@ static void login_aborted_event(struct client *client, const char *reason,
 		event_reason = reason;
 
 	e->add_str("reason", event_reason);
+	e->add_int("auth_successes", client->auth_successes);
+	e->add_int("auth_attempts", client->auth_attempts);
+	e->add_int("auth_usecs", timeval_diff_usecs(&ioloop_timeval,
+						    &client->auth_first_started));
+	e->add_int("connected_usecs", timeval_diff_usecs(&ioloop_timeval,
+							 &client->created));
 
 	client_disconnected_log(e->event(), reason,
 			        add_disconnected_prefix);
