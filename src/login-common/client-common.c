@@ -309,6 +309,15 @@ void client_init(struct client *client, void **other_sets)
 	login_refresh_proctitle();
 }
 
+static void client_disconnected_log(struct event *event, const char *reason,
+				    bool add_disconnected_prefix)
+{
+	if (add_disconnected_prefix)
+		e_info(event, "Disconnected: %s", reason);
+	else
+		e_info(event, "%s", reason);
+}
+
 void client_disconnect(struct client *client, const char *reason,
 		       bool add_disconnected_prefix)
 {
@@ -323,13 +332,10 @@ void client_disconnect(struct client *client, const char *reason,
 			reason = t_strdup_printf("%s (%s)", reason, human_reason);
 	}
 	if (reason != NULL) {
-		struct event *event = client->login_proxy == NULL ?
-			client->event :
-			login_proxy_get_event(client->login_proxy);
-		if (add_disconnected_prefix)
-			e_info(event, "Disconnected: %s", reason);
-		else
-			e_info(event, "%s", reason);
+		client_disconnected_log(client->login_proxy == NULL ?
+					client->event :
+					login_proxy_get_event(client->login_proxy),
+					reason, add_disconnected_prefix);
 	}
 
 	if (client->output != NULL)
