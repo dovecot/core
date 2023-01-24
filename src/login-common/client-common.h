@@ -204,7 +204,7 @@ struct client {
 	struct auth_client_request *auth_request;
 	struct auth_client_request *reauth_request;
 	string_t *auth_response;
-	time_t auth_first_started, auth_finished;
+	struct timeval auth_first_started, auth_finished;
 	const char *sasl_final_resp;
 	const char *const *auth_passdb_args;
 	struct anvil_query *anvil_query;

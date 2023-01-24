@@ -127,7 +127,7 @@ static void client_idle_disconnect_timeout(struct client *client)
 	unsigned int secs;
 
 	if (client->master_tag != 0) {
-		secs = ioloop_time - client->auth_finished;
+		secs = ioloop_time - client->auth_finished.tv_sec;
 		user_reason = "Timeout while finishing login.";
 		destroy_reason = t_strdup_printf(
 			"Timeout while finishing login (waited %u secs)", secs);
@@ -1162,8 +1162,8 @@ bool client_get_extra_disconnect_reason(struct client *client,
 					const char **human_reason_r,
 					const char **event_reason_r)
 {
-	unsigned int auth_secs = client->auth_first_started == 0 ? 0 :
-		ioloop_time - client->auth_first_started;
+	unsigned int auth_secs = client->auth_first_started.tv_sec == 0 ? 0 :
+		ioloop_time - client->auth_first_started.tv_sec;
 
 	*event_reason_r = NULL;
 

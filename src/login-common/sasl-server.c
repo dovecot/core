@@ -200,7 +200,7 @@ static int master_send_request(struct anvil_request *anvil_request)
 	req.data_size = buf->used;
 	i_stream_skip(client->input, size);
 
-	client->auth_finished = ioloop_time;
+	client->auth_finished = ioloop_timeval;
 
 	i_zero(&params);
 	params.client_fd = fd;
@@ -514,8 +514,8 @@ void sasl_server_auth_begin(struct client *client, const char *mech_name,
 	client->auth_aborted_by_client = FALSE;
 	client->authenticating = TRUE;
 	client->master_auth_id = 0;
-	if (client->auth_first_started == 0)
-		client->auth_first_started = ioloop_time;
+	if (client->auth_first_started.tv_sec == 0)
+		client->auth_first_started = ioloop_timeval;
 	i_free(client->auth_mech_name);
 	client->auth_mech_name = str_ucase(i_strdup(mech_name));
 	client->auth_anonymous = FALSE;
