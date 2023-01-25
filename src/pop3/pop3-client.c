@@ -539,7 +539,8 @@ static const char *client_stats(struct client *client)
 		       dec2str(client->deleted_count), "deleted_count" },
 		{ 'm', dec2str(client->messages_count), "message_count" },
 		{ 's', dec2str(client->total_size), "message_bytes" },
-		{ 'i', dec2str(client->input->v_offset), "input" },
+		{ 'i', dec2str(i_stream_get_absolute_offset(client->input)),
+		  "input" },
 		{ 'o', dec2str(client->output->offset), "output" },
 		{ 'u', uidl_change, "uidl_change" },
 		{ '\0', !client->delete_success ? "0" :
