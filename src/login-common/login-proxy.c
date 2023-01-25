@@ -657,8 +657,8 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
 		intmax_t idle_usecs = timeval_diff_usecs(&ioloop_timeval, &proxy_tv);
 		i_assert(proxy->connected);
 		e->add_int("idle_usecs", idle_usecs);
-		e->add_int("bytes_in", proxy->server_output->offset);
-		e->add_int("bytes_out", proxy->client_output->offset);
+		e->add_int("net_in_bytes", proxy->server_output->offset);
+		e->add_int("net_out_bytes", proxy->client_output->offset);
 	}
 
 	/* we'll disconnect server side in any case. */
