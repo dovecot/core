@@ -3338,7 +3338,7 @@ dcrypt_openssl_key_load_private_raw(struct dcrypt_private_key **key_r,
 		ASN1_OBJECT_free(obj);
 
 		item = array_idx(keys, 1);
-		BIGNUM *point = BN_new();
+		BIGNUM *point = BN_secure_new();
 		if (BN_bin2bn(item->parameter, item->len, point) == NULL) {
 			BN_free(point);
 			return dcrypt_openssl_error(error_r);
