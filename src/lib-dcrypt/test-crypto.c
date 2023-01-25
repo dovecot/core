@@ -127,6 +127,7 @@ static void test_cipher_aead_test_vectors(void)
 				   &ctx, &error)) {
 		test_assert_failed("dcrypt_ctx_sym_create",
 				   __FILE__, __LINE__-1);
+		test_end();
 		return;
 	}
 
