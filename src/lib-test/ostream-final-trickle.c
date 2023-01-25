@@ -44,9 +44,12 @@ o_stream_final_trickle_flush_buffer(struct final_trickle_ostream *dstream)
 static void
 o_stream_final_trickle_timeout(struct final_trickle_ostream *dstream)
 {
+	struct ostream *ostream = &dstream->ostream.ostream;
+
 	i_assert(dstream->buffer_used);
 
 	(void)o_stream_final_trickle_flush_buffer(dstream);
+	o_stream_set_flush_pending(ostream, TRUE);
 }
 
 static int o_stream_final_trickle_flush(struct ostream_private *stream)
