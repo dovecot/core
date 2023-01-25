@@ -1040,14 +1040,14 @@ static int http_client_request_flush_payload(struct http_client_request *req)
 	struct http_client_connection *conn = req->conn;
 	int ret;
 
-	if (req->payload_output != conn->conn.output &&
-	    (ret = o_stream_finish(req->payload_output)) <= 0) {
-		if (ret < 0)
-			http_client_connection_handle_output_error(conn);
-		return ret;
-	}
+	if (req->payload_output == conn->conn.output)
+		ret = o_stream_flush(req->payload_output);
+	else
+		ret = o_stream_finish(req->payload_output);
 
-	return 1;
+	if (ret < 0)
+		http_client_connection_handle_output_error(conn);
+	return ret;
 }
 
 static int
@@ -1067,6 +1067,7 @@ http_client_request_finish_payload_out(struct http_client_request *req)
 		if (ret == 0) {
 			e_debug(req->event,
 				"Not quite finished sending payload");
+			conn->output_locked = TRUE;
 			return 0;
 		}
 		o_stream_unref(&req->payload_output);
