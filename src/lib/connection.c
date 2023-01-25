@@ -794,9 +794,9 @@ int connection_client_connect_async(struct connection *conn)
 void connection_update_counters(struct connection *conn)
 {
 	if (conn->input != NULL)
-		event_add_int(conn->event, "bytes_in", conn->input->v_offset);
+		event_add_int(conn->event, "net_in_bytes", conn->input->v_offset);
 	if (conn->output != NULL)
-		event_add_int(conn->event, "bytes_out", conn->output->offset);
+		event_add_int(conn->event, "net_out_bytes", conn->output->offset);
 }
 
 void connection_disconnect(struct connection *conn)
