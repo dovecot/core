@@ -433,8 +433,8 @@ void http_server_request_finished(struct http_server_request *req)
 			   req->output_start_offset;
 	struct event_passthrough *e = event_create_passthrough(req->event)->
 		set_name("http_server_request_finished")->
-		add_int("bytes_in", bytes_in)->
-		add_int("bytes_out", bytes_out);
+		add_int("net_in_bytes", bytes_in)->
+		add_int("net_out_bytes", bytes_out);
 	e_debug(e->event(), "Finished request");
 
 	if (tunnel_callback == NULL) {

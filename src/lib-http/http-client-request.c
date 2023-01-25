@@ -96,8 +96,8 @@ http_client_request_result_event(struct http_client_request *req)
 	return e->add_int("status_code", req->last_status)->
 		add_int("attempts", req->attempts)->
 		add_int("redirects", req->redirects)->
-		add_int("bytes_in", req->bytes_in)->
-		add_int("bytes_out", req->bytes_out);
+		add_int("net_in_bytes", req->bytes_in)->
+		add_int("net_out_bytes", req->bytes_out);
 }
 
 static struct http_client_request *
