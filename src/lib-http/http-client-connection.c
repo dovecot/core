@@ -1445,6 +1445,7 @@ static void http_client_connection_ready(struct http_client_connection *conn)
 			struct http_response response;
 
 			conn->tunneling = TRUE;
+			req->state = HTTP_REQUEST_STATE_WAITING;
 
 			i_zero(&response);
 			response.status = 200;

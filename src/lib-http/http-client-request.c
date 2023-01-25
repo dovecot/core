@@ -1524,6 +1524,10 @@ bool http_client_request_callback(struct http_client_request *req,
 	http_client_request_callback_t *callback = req->callback;
 	unsigned int orig_attempts = req->attempts;
 
+	i_assert(req->state >= HTTP_REQUEST_STATE_PAYLOAD_OUT);
+	i_assert(req->conn != NULL);
+	if (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT)
+		req->conn->output_locked = FALSE;
 	req->state = HTTP_REQUEST_STATE_GOT_RESPONSE;
 	req->last_status = response->status;
 
