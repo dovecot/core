@@ -1,6 +1,7 @@
 /* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "lmtp-common.h"
+#include "smtp-server.h"
 #include "str.h"
 #include "istream.h"
 #include "strescape.h"
@@ -44,6 +45,8 @@ struct lmtp_local {
 
 	struct mail *raw_mail, *first_saved_mail;
 	struct mail_user *rcpt_user;
+
+	struct smtp_server_stats stats;
 };
 
 /*
@@ -58,7 +61,9 @@ lmtp_local_init(struct client *client)
 	local = i_new(struct lmtp_local, 1);
 	local->client = client;
 	i_array_init(&local->rcpt_to, 8);
-
+	const struct smtp_server_stats *stats =
+	        smtp_server_connection_get_stats(local->client->conn);
+	local->stats = *stats;
 	return local;
 }
 
@@ -587,8 +592,22 @@ int lmtp_local_default_deliver(struct client *client,
 	dinput.delivery_time_started = lldctx->delivery_time_started;
 
 	mail_deliver_init(&dctx, &dinput);
+
+	/* Copy statistics to mail user session event here */
+	const struct smtp_server_stats *stats =
+		smtp_server_connection_get_stats(local->client->conn);
+	event_add_int(event, "net_in_bytes",
+		      stats->input - local->stats.input);
+	event_add_int(event, "net_out_bytes",
+		      stats->output - local->stats.output);
+	event_add_int(lrcpt->rcpt->event, "net_in_bytes",
+		      stats->input - local->stats.input);
+	event_add_int(lrcpt->rcpt->event, "net_out_bytes",
+		      stats->output - local->stats.output);
+	local->stats = *stats;
 	ret = lmtp_local_default_do_deliver(local, llrcpt, lldctx, &dctx);
 	mail_deliver_deinit(&dctx);
+
 	event_unref(&event);
 
 	return ret;
