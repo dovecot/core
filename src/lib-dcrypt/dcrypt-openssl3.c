@@ -1432,6 +1432,7 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 			BN_free(point);
 			return FALSE;
 		}
+		BN_free(point);
 		*key_r = i_new(struct dcrypt_private_key, 1);
 		(*key_r)->key = pkey;
 		(*key_r)->ref++;
@@ -3349,6 +3350,7 @@ dcrypt_openssl_key_load_private_raw(struct dcrypt_private_key **key_r,
 			return FALSE;
 		}
 
+		BN_free(point);
 		*key_r = i_new(struct dcrypt_private_key, 1);
 		(*key_r)->key = pkey;
 		(*key_r)->ref++;
