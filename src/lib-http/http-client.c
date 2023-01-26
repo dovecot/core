@@ -726,8 +726,11 @@ http_client_global_context_ioloop_switched(
 	}
 }
 
-static void http_client_global_context_free(void)
+void http_client_global_context_free(void)
 {
+	if (http_client_global_context == NULL)
+		return;
+
 	/* Drop ioloop switch callback to make absolutely sure there is no
 	   recursion. */
 	io_loop_remove_switch_callback(

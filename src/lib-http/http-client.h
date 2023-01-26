@@ -497,4 +497,8 @@ void http_client_context_unref(struct http_client_context **_cctx);
    returned context. */
 struct http_client_context *http_client_get_global_context(void);
 
+/* Explicitly free the global context. This function is only useful for testing:
+   the global context is cleaned up implicitly. */
+void http_client_global_context_free(void);
+
 #endif
