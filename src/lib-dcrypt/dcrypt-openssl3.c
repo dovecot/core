@@ -2440,6 +2440,7 @@ dcrypt_openssl_load_public_key(struct dcrypt_public_key **key_r,
 		T_BEGIN {
 			ret = dcrypt_openssl_load_public_key_jwk(key_r, data, error_r);
 		} T_END_PASS_STR_IF(!ret, error_r);
+		return ret;
 	}
 	if (format == DCRYPT_FORMAT_DOVECOT) {
 		bool ret;
