@@ -508,8 +508,8 @@ int login_binary_run(struct login_binary *binary,
 
 	if (argv[optind] != NULL)
 		login_socket = argv[optind];
-	else if (global_login_settings->login_auth_socket_path[0] != '\0')
-		login_socket = global_login_settings->login_auth_socket_path;
+	else if (global_login_settings->login_socket_path[0] != '\0')
+		login_socket = global_login_settings->login_socket_path;
 
 	main_preinit();
 	main_init(login_socket);
