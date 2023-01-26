@@ -28,6 +28,7 @@
 enum openmetrics_metric_type {
 	OPENMETRICS_METRIC_TYPE_COUNT,
 	OPENMETRICS_METRIC_TYPE_DURATION,
+	OPENMETRICS_METRIC_TYPE_FIELD,
 	OPENMETRICS_METRIC_TYPE_HISTOGRAM,
 };
 
@@ -55,6 +56,7 @@ struct openmetrics_request {
 	enum openmetrics_metric_type metric_type;
 	string_t *labels;
 	size_t labels_pos;
+	unsigned int field_pos;
 	ARRAY(struct openmetrics_request_sub_metric) sub_metric_stack;
 
 	bool has_submetric:1;
@@ -118,6 +120,7 @@ static void
 openmetrics_export_metric_value(struct openmetrics_request *req, string_t *out,
 				const struct metric *metric)
 {
+	const struct metric_field *field;
 	/* Metric name */
 	str_append(out, "dovecot_");
 	str_append(out, req->metric->name);
@@ -133,6 +136,13 @@ openmetrics_export_metric_value(struct openmetrics_request *req, string_t *out,
 			str_append(out, "_duration_seconds_sum");
 		else
 			str_append(out, "_duration_seconds_total");
+		break;
+	case OPENMETRICS_METRIC_TYPE_FIELD:
+		field = &metric->fields[req->field_pos];
+		if (req->metric->group_by != NULL && str_len(req->labels) == 0)
+			str_printfa(out, "_%s_sum", field->field_key);
+		else
+			str_printfa(out, "_%s_total", field->field_key);
 		break;
 	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
 		i_unreached();
@@ -153,6 +163,10 @@ openmetrics_export_metric_value(struct openmetrics_request *req, string_t *out,
 		/* Convert from microseconds to seconds */
 		str_printfa(out, " %.6f\n",
 			    stats_dist_get_sum(metric->duration_stats)/1e6F);
+		break;
+	case OPENMETRICS_METRIC_TYPE_FIELD:
+		str_printfa(out, " %"PRIu64"\n",
+			    stats_dist_get_sum(field->stats));
 		break;
 	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
 		i_unreached();
@@ -222,8 +236,7 @@ openmetrics_export_histogram(struct openmetrics_request *req, string_t *out,
 
 		if (sub_metric != NULL) {
 			sum += stats_dist_get_sum(sub_metric->duration_stats);
-			count += stats_dist_get_count(
-				sub_metric->duration_stats);
+			count += stats_dist_get_count(sub_metric->duration_stats);
 		}
 
 		openmetrics_export_histogram_bucket(req, out, metric,
@@ -270,6 +283,7 @@ static void
 openmetrics_export_metric_header(struct openmetrics_request *req, string_t *out)
 {
 	const struct metric *metric = req->metric;
+	const struct metric_field *field;
 
 	/* Description */
 	str_append(out, "# HELP dovecot_");
@@ -280,6 +294,11 @@ openmetrics_export_metric_header(struct openmetrics_request *req, string_t *out)
 		break;
 	case OPENMETRICS_METRIC_TYPE_DURATION:
 		str_append(out, "_duration_seconds Total duration of all events of this kind");
+		break;
+	case OPENMETRICS_METRIC_TYPE_FIELD:
+		field = &metric->fields[req->field_pos];
+		str_printfa(out, "_%s Total of field value for events of this kind",
+			    field->field_key);
 		break;
 	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
 		str_append(out, " Histogram");
@@ -299,6 +318,9 @@ openmetrics_export_metric_header(struct openmetrics_request *req, string_t *out)
 		break;
 	case OPENMETRICS_METRIC_TYPE_DURATION:
 		str_append(out, "_duration_seconds counter\n");
+		break;
+	case OPENMETRICS_METRIC_TYPE_FIELD:
+		str_printfa(out, "_%s counter\n", field->field_key);
 		break;
 	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
 		str_append(out, " histogram\n");
@@ -540,14 +562,35 @@ static void openmetrics_export_next(struct openmetrics_request *req)
 			/* Continue with histogram output for this metric. */
 			req->metric_type = OPENMETRICS_METRIC_TYPE_HISTOGRAM;
 			req->state = OPENMETRICS_REQUEST_STATE_METRIC_HEADER;
+		} else if (req->metric->fields_count > 0) {
+			req->field_pos = 0;
+			req->metric_type = OPENMETRICS_METRIC_TYPE_FIELD;
+			req->state = OPENMETRICS_REQUEST_STATE_METRIC_HEADER;
 		} else {
 			/* No histogram; continue with next metric */
 			req->state = OPENMETRICS_REQUEST_STATE_METRIC;
 		}
 		break;
+	case OPENMETRICS_METRIC_TYPE_FIELD:
+		req->field_pos++;
+		if (req->field_pos < req->metric->fields_count) {
+			req->metric_type = OPENMETRICS_METRIC_TYPE_FIELD;
+			req->state = OPENMETRICS_REQUEST_STATE_METRIC_HEADER;
+		} else {
+			/* all fields consumed */
+			req->state = OPENMETRICS_REQUEST_STATE_METRIC;
+		}
+		break;
 	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
-		/* Continue with next metric */
-		req->state = OPENMETRICS_REQUEST_STATE_METRIC;
+		if (req->metric->fields_count > 0) {
+			/* Continue with fields */
+			req->field_pos = 0;
+			req->metric_type = OPENMETRICS_METRIC_TYPE_FIELD;
+			req->state = OPENMETRICS_REQUEST_STATE_METRIC_HEADER;
+		} else {
+			/* Continue with next metric */
+			req->state = OPENMETRICS_REQUEST_STATE_METRIC;
+		}
 		break;
 	}
 }
