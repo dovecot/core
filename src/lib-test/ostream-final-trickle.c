@@ -89,6 +89,7 @@ o_stream_final_trickle_sendv(struct ostream_private *stream,
 	if (last_iov->iov_len == 0)
 		iov_count--;
 
+	ret = 0;
 	if (iov_count > 0) {
 		size_t full_size = 0;
 		for (unsigned int i = 0; i < iov_count; i++)
