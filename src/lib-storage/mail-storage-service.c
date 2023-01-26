@@ -1268,7 +1268,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	flags = mail_storage_service_input_get_flags(ctx, input);
 
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0 &&
-	    geteuid() != 0) {
+	    geteuid() != 0 &&
+	    (flags & MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS) == 0) {
 		/* we dropped privileges only temporarily. switch back to root
 		   before reading settings, so we'll definitely have enough
 		   permissions to connect to the config socket. */
