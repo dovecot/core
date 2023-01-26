@@ -1008,6 +1008,8 @@ static void test_client_deinit(void)
 
 	timeout_remove(&to_continue);
 	timeout_remove(&to_client_progress);
+
+	http_client_global_context_free();
 }
 
 static void
@@ -1028,7 +1030,7 @@ test_client_create_clients(const struct http_client_settings *client_set)
 				   http_client_init_shared(http_context, NULL));
 	}
 
-	if (!tset.parallel_clients_global)
+	if (http_context != NULL)
 		http_client_context_unref(&http_context);
 }
 
