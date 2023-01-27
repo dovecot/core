@@ -240,7 +240,7 @@ static void driver_sqlite_result_log(const struct sql_result *result, const char
 					 db->rc);
 		i_fatal_status(FATAL_OUTOFMEM, SQL_QUERY_FINISHED_FMT"%s", query,
 			       duration, suffix);
-	} else if (db->rc == SQLITE_READONLY) {
+	} else if (db->rc == SQLITE_READONLY || db->rc == SQLITE_CANTOPEN) {
 		const char *eacces_err = eacces_error_get("write", db->dbfile);
 		suffix = t_strconcat(": ", eacces_err, NULL);
 		e->add_str("error", eacces_err);
@@ -465,10 +465,19 @@ static const char *driver_sqlite_result_get_error(struct sql_result *_result)
 
 	if (db->connected) {
 		const char *err = sqlite3_errmsg(db->sqlite);
-		if (db->rc == SQLITE_READONLY)
+		if (db->rc == SQLITE_READONLY || db->rc == SQLITE_CANTOPEN)
 			err = t_strconcat(err, ": ",
 					  eacces_error_get("write", db->dbfile), NULL);
 		return err;
+	} else if (db->rc == SQLITE_CANTOPEN) {
+		struct stat st;
+		const char *err;
+		if (stat(db->dbfile, &st) == -1 && errno == ENOENT) {
+			err = eacces_error_get_creating("creat", db->dbfile);
+		} else {
+			err = eacces_error_get("open", db->dbfile);
+		}
+		return t_strconcat("Cannot connect to database: ", err, NULL);
 	} else {
 		return "Cannot connect to database";
 	}
