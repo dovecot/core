@@ -2012,6 +2012,17 @@ static void test_echo_server_nonblocking(void)
 	test_end();
 
 	test_begin("http payload echo "
+		   "(server non-blocking; size unknown; server trickle)");
+	test_init_defaults();
+	tset.unknown_size = TRUE;
+	tset.server_payload_handling = PAYLOAD_HANDLING_FORWARD;
+	tset.server_trickle_final_byte = TRUE;
+	test_run_sequential(test_client_echo);
+	test_run_pipeline(test_client_echo);
+	test_run_parallel(test_client_echo);
+	test_end();
+
+	test_begin("http payload echo "
 		   "(server non-blocking; ostream)");
 	test_init_defaults();
 	tset.server_ostream = TRUE;
@@ -2362,6 +2373,16 @@ static void test_echo_ssl(void)
 	test_init_defaults();
 	tset.unknown_size = TRUE;
 	tset.ssl = TRUE;
+	test_run_sequential(test_client_echo);
+	test_run_pipeline(test_client_echo);
+	test_run_parallel(test_client_echo);
+	test_end();
+
+	test_begin("http payload echo (ssl; unknown size; server trickle)");
+	test_init_defaults();
+	tset.unknown_size = TRUE;
+	tset.ssl = TRUE;
+	tset.server_trickle_final_byte = TRUE;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
