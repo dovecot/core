@@ -75,7 +75,7 @@ void auth_fields_add(struct auth_fields *fields,
 		auth_fields_snapshot_preserve(fields);
 		field = array_idx_modifiable(&fields->fields, idx);
 	}
-	field->value = p_strdup_empty(fields->pool, value);
+	field->value = value == NULL ? "yes" : p_strdup(fields->pool, value);
 	field->flags = flags | AUTH_FIELD_FLAG_CHANGED;
 }
 
@@ -98,7 +98,8 @@ const char *auth_fields_find(struct auth_fields *fields, const char *key)
 		return NULL;
 
 	field = array_idx(&fields->fields, idx);
-	return field->value == NULL ? "" : field->value;
+	i_assert(field->value != NULL);
+	return field->value;
 }
 
 bool auth_fields_exists(struct auth_fields *fields, const char *key)
@@ -180,10 +181,8 @@ void auth_fields_append(struct auth_fields *fields, string_t *dest,
 		else
 			str_append_c(dest, '\t');
 		str_append(dest, f[i].key);
-		if (f[i].value != NULL) {
-			str_append_c(dest, '=');
-			str_append_tabescaped(dest, f[i].value);
-		}
+		str_append_c(dest, '=');
+		str_append_tabescaped(dest, f[i].value);
 	}
 }
 
@@ -200,7 +199,7 @@ void auth_fields_booleanize(struct auth_fields *fields, const char *key)
 
 	if (auth_fields_find_idx(fields, key, &idx)) {
 		field = array_idx_modifiable(&fields->fields, idx);
-		field->value = NULL;
+		field->value = "yes";
 	}
 }
 
