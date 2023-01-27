@@ -63,7 +63,6 @@ auth_LDFLAGS = -export-dynamic
 
 auth_libs = \
 	libauth.la \
-	../lib-otp/libotp.la \
 	$(AUTH_LUA_LIBS) \
 	$(LIBDOVECOT_SQL)
 

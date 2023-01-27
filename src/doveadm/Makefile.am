@@ -38,9 +38,6 @@ AM_CPPFLAGS = \
 	-DMANDIR=\""$(mandir)"\" \
 	$(BINARY_CFLAGS)
 
-cmd_pw_libs = \
-	../lib-auth/libauth.la \
-	../lib-otp/libotp.la
 
 libs = \
 	dsync/libdsync.la \
@@ -48,7 +45,6 @@ libs = \
 
 doveadm_LDADD = \
 	$(libs) \
-	$(cmd_pw_libs) \
 	$(CRYPT_LIBS) \
 	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT) \
@@ -58,7 +54,6 @@ doveadm_LDADD = \
 
 doveadm_DEPENDENCIES = \
 	$(libs) \
-	$(cmd_pw_libs) \
 	$(LIBDOVECOT_STORAGE_DEPS) \
 	$(LIBDOVECOT_DEPS)
 

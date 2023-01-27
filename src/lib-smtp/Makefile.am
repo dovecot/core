@@ -112,6 +112,7 @@ test_libs = \
 	../lib-settings/libsettings.la \
 	../lib-sasl/libsasl.la \
 	../lib-auth/libauth.la \
+	../lib-otp/libotp.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la \
 	$(MODULE_LIBS)
