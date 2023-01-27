@@ -299,20 +299,19 @@ sasl_server_check_login(struct client *client)
 	return TRUE;
 }
 
-static bool args_parse_user(struct client *client, const char *arg)
+static bool
+args_parse_user(struct client *client, const char *key, const char *value)
 {
-	const char *value;
-
-	if (str_begins(arg, "user=", &value)) {
+	if (strcmp(key, "user") == 0) {
 		i_free(client->virtual_user);
 		i_free_and_null(client->virtual_user_orig);
 		i_free_and_null(client->virtual_auth_user);
 		client->virtual_user = i_strdup(value);
 		event_add_str(client->event, "user", client->virtual_user);
-	} else if (str_begins(arg, "original_user=", &value)) {
+	} else if (strcmp(key, "original_user") == 0) {
 		i_free(client->virtual_user_orig);
 		client->virtual_user_orig = i_strdup(value);
-	} else if (str_begins(arg, "auth_user=", &value)) {
+	} else if (strcmp(key, "auth_user") == 0) {
 		i_free(client->virtual_auth_user);
 		client->virtual_auth_user = i_strdup(value);
 	} else {
@@ -327,7 +326,6 @@ authenticate_callback(struct auth_client_request *request,
 		      const char *const *args, void *context)
 {
 	struct client *client = context;
-	const char *value;
 	unsigned int i;
 	bool nologin;
 
@@ -354,9 +352,13 @@ authenticate_callback(struct auth_client_request *request,
 
 		nologin = FALSE;
 		for (i = 0; args[i] != NULL; i++) {
-			if (args_parse_user(client, args[i]))
-				;
-			else if (str_begins(args[i], "postlogin_socket=", &value)) {
+			const char *key, *value;
+			t_split_key_value_eq(args[i], &key, &value);
+
+			if (args_parse_user(client, key, value))
+				continue;
+
+			if (strcmp(key, "postlogin_socket") == 0) {
 				client->postlogin_socket_path =
 					p_strdup(client->pool, value);
 			} else if (strcmp(args[i], "nologin") == 0 ||
@@ -365,8 +367,8 @@ authenticate_callback(struct auth_client_request *request,
 				nologin = TRUE;
 			} else if (strcmp(args[i], "anonymous") == 0 ) {
 				client->auth_anonymous = TRUE;
-			} else if (str_begins(args[i], "resp=", &value) &&
-				   login_binary->sasl_support_final_reply) {
+			} else if (login_binary->sasl_support_final_reply &&
+				   strcmp(key, "resp") == 0) {
 				client->sasl_final_resp =
 					p_strdup(client->pool, value);
 			}
@@ -391,8 +393,11 @@ authenticate_callback(struct auth_client_request *request,
 
 		if (args != NULL) {
 			/* parse our username if it's there */
-			for (i = 0; args[i] != NULL; i++)
-				(void)args_parse_user(client, args[i]);
+			for (i = 0; args[i] != NULL; i++) {
+				const char *key, *value;
+				t_split_key_value_eq(args[i], &key, &value);
+				args_parse_user(client, key, value);
+			}
 		}
 
 		client->authenticating = FALSE;
