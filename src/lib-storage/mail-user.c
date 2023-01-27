@@ -693,7 +693,7 @@ const char *const *mail_user_get_alt_usernames(struct mail_user *user)
 	for (unsigned int i = 0; user->userdb_fields[i] != NULL; i++) {
 		const char *key, *value;
 		if (t_split_key_value_eq(user->userdb_fields[i], &key, &value) &&
-		    str_begins_with(key, "user_")) {
+		    *value != '\0' && str_begins_with(key, "user_")) {
 			array_append(&alt_usernames, &key, 1);
 			array_append(&alt_usernames, &value, 1);
 		}
