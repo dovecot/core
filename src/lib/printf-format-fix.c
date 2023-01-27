@@ -3,6 +3,10 @@
 #include "lib.h"
 #include "printf-format-fix.h"
 
+/* Disable our memcpy() safety wrapper. This file is very performance sensitive
+   and it's been checked to work correctly with memcpy(). */
+#undef memcpy
+
 static const char *
 fix_format_real(const char *fmt, const char *p, size_t *len_r)
 {

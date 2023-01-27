@@ -12,6 +12,10 @@
 #include <limits.h>
 #include <ctype.h>
 
+/* Disable our memcpy() safety wrapper. This file is very performance sensitive
+   and it's been checked to work correctly with memcpy(). */
+#undef memcpy
+
 #define STRCONCAT_BUFSIZE 512
 
 enum _str_trim_sides {

@@ -6,6 +6,10 @@
 #include "safe-memset.h"
 #include "buffer.h"
 
+/* Disable our memcpy() safety wrapper. This file is very performance sensitive
+   and it's been checked to work correctly with memcpy(). */
+#undef memcpy
+
 struct real_buffer {
 	union {
 		struct buffer buf;
