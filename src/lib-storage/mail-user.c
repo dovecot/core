@@ -691,14 +691,9 @@ const char *const *mail_user_get_alt_usernames(struct mail_user *user)
 	ARRAY_TYPE(const_string) alt_usernames;
 	t_array_init(&alt_usernames, 4);
 	for (unsigned int i = 0; user->userdb_fields[i] != NULL; i++) {
-		const char *field = user->userdb_fields[i];
-		if (strncmp(field, "user_", 5) != 0)
-			continue;
-
-		const char *value = strchr(field, '=');
-		if (value != NULL) {
-			const char *key =
-				p_strdup_until(user->pool, field, value++);
+		const char *key, *value;
+		if (t_split_key_value_eq(user->userdb_fields[i], &key, &value) &&
+		    str_begins_with(key, "user_")) {
 			array_append(&alt_usernames, &key, 1);
 			array_append(&alt_usernames, &value, 1);
 		}

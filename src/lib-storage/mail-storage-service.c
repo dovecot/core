@@ -225,7 +225,7 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 {
 	const char *home = reply->home;
 	const char *chroot = reply->chroot;
-	const char *const *str, *line, *p, *value;
+	const char *const *str, *p;
 	unsigned int i, count;
 	int ret = 0;
 
@@ -270,13 +270,14 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 
 	str = array_get(&reply->extra_fields, &count);
 	for (i = 0; i < count; i++) {
-		line = str[i];
-		if (str_begins(line, "system_groups_user=", &value)) {
-			user->system_groups_user =
-				p_strdup(user->pool, value);
-		} else if (str_begins(line, "chdir=", &value)) {
+		const char *key, *value, *line = str[i];
+		t_split_key_value_eq(line, &key, &value);
+
+		if (strcmp(key, "system_groups_user") == 0) {
+			user->system_groups_user = p_strdup(user->pool, value);
+		} else if (strcmp(key, "chdir") == 0) {
 			user->chdir_path = p_strdup(user->pool, value);
-		} else if (str_begins(line, "nice=", &value)) {
+		} else if (strcmp(key, "nice") == 0) {
 #ifdef HAVE_SETPRIORITY
 			int n;
 			if (str_to_int(value, &n) < 0) {
@@ -289,15 +290,14 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 						"setpriority(%d) failed: %m", n);
 			}
 #endif
-		} else if (str_begins(line, "auth_mech=", &value)) {
+		} else if (strcmp(key, "auth_mech") == 0) {
 			user->auth_mech = p_strdup(user->pool, value);
-		} else if (str_begins(line, "auth_token=", &value)) {
+		} else if (strcmp(key, "auth_token") == 0) {
 			user->auth_token = p_strdup(user->pool, value);
-		} else if (str_begins(line, "auth_user=", &value)) {
+		} else if (strcmp(key, "auth_user") == 0) {
 			user->auth_user = p_strdup(user->pool, value);
-		} else if (str_begins(line, "admin=", &value)) {
-			user->admin = value[0] == 'y' || value[0] == 'Y' ||
-				value[0] == '1';
+		} else if (strcmp(key, "admin") == 0) {
+			user->admin = strchr("1Yy", value[0]) != NULL;
 		} else T_BEGIN {
 			ret = set_line(ctx, user, line);
 		} T_END;
