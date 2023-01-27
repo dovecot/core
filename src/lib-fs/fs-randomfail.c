@@ -237,13 +237,14 @@ static void fs_randomfail_file_deinit(struct fs_file *_file)
 }
 
 static bool fs_random_fail(struct fs *_fs, struct event *event,
-			   int divider, enum fs_op op)
+			   int divider, enum fs_op op, bool post_op)
 {
 	struct randomfail_fs *fs = RANDOMFAIL_FS(_fs);
 
 	if (fs->op_probability[op] == 0)
 		return FALSE;
-	if ((unsigned int)i_rand_limit(100 * divider) <= fs->op_probability[op]) {
+	if ((post_op && fs->op_probability[op] == 100) ||
+	    (unsigned int)i_rand_limit(100 * divider) <= fs->op_probability[op]) {
 		fs_set_error(event, EIO, RANDOMFAIL_ERROR);
 		return TRUE;
 	}
@@ -254,7 +255,7 @@ static bool
 fs_file_random_fail_begin(struct randomfail_fs_file *file, enum fs_op op)
 {
 	if (!file->op_pending[op]) {
-		if (fs_random_fail(file->file.fs, file->file.event, 2, op))
+		if (fs_random_fail(file->file.fs, file->file.event, 2, op, FALSE))
 			return TRUE;
 	}
 	file->op_pending[op] = TRUE;
@@ -266,7 +267,7 @@ fs_file_random_fail_end(struct randomfail_fs_file *file,
 			int ret, enum fs_op op)
 {
 	if (ret == 0 || errno != EAGAIN) {
-		if (fs_random_fail(file->file.fs, file->file.event, 2, op))
+		if (fs_random_fail(file->file.fs, file->file.event, 2, op, TRUE))
 			return -1;
 		file->op_pending[op] = FALSE;
 	}
@@ -275,11 +276,11 @@ fs_file_random_fail_end(struct randomfail_fs_file *file,
 
 static bool
 fs_random_fail_range(struct fs *_fs, struct event *event,
-		     enum fs_op op, uoff_t *offset_r)
+		     enum fs_op op, bool post_op, uoff_t *offset_r)
 {
 	struct randomfail_fs *fs = RANDOMFAIL_FS(_fs);
 
-	if (!fs_random_fail(_fs, event, 1, op))
+	if (!fs_random_fail(_fs, event, 1, op, post_op))
 		return FALSE;
 	*offset_r = i_rand_minmax(fs->range_start[op], fs->range_end[op]);
 	return TRUE;
@@ -301,7 +302,7 @@ fs_randomfail_get_metadata(struct fs_file *_file,
 
 static bool fs_randomfail_prefetch(struct fs_file *_file, uoff_t length)
 {
-	if (fs_random_fail(_file->fs, _file->event, 1, FS_OP_PREFETCH))
+	if (fs_random_fail(_file->fs, _file->event, 1, FS_OP_PREFETCH, TRUE))
 		return TRUE;
 	return fs_prefetch(_file->parent, length);
 }
@@ -326,7 +327,7 @@ fs_randomfail_read_stream(struct fs_file *_file, size_t max_buffer_size)
 	uoff_t offset;
 
 	input = fs_read_stream(_file->parent, max_buffer_size);
-	if (!fs_random_fail_range(_file->fs, _file->event, FS_OP_READ, &offset))
+	if (!fs_random_fail_range(_file->fs, _file->event, FS_OP_READ, TRUE, &offset))
 		return input;
 	input2 = i_stream_create_failure_at(input, offset, EIO, RANDOMFAIL_ERROR);
 	i_stream_unref(&input);
@@ -352,7 +353,7 @@ static void fs_randomfail_write_stream(struct fs_file *_file)
 	i_assert(_file->output == NULL);
 
 	file->super_output = fs_write_stream(_file->parent);
-	if (!fs_random_fail_range(_file->fs, _file->event, FS_OP_WRITE, &offset))
+	if (!fs_random_fail_range(_file->fs, _file->event, FS_OP_WRITE, FALSE, &offset))
 		_file->output = file->super_output;
 	else {
 		_file->output = o_stream_create_failure_at(file->super_output, offset,
@@ -373,7 +374,7 @@ static int fs_randomfail_write_stream_finish(struct fs_file *_file, bool success
 			fs_write_stream_abort_parent(_file, &file->super_output);
 			return -1;
 		}
-		if (fs_random_fail(_file->fs, _file->event, 1, FS_OP_WRITE)) {
+		if (fs_random_fail(_file->fs, _file->event, 1, FS_OP_WRITE, TRUE)) {
 			fs_write_stream_abort_error(_file->parent, &file->super_output, RANDOMFAIL_ERROR);
 			return -1;
 		}
@@ -384,7 +385,7 @@ static int fs_randomfail_write_stream_finish(struct fs_file *_file, bool success
 static int
 fs_randomfail_lock(struct fs_file *_file, unsigned int secs, struct fs_lock **lock_r)
 {
-	if (fs_random_fail(_file->fs, _file->event, 1, FS_OP_LOCK))
+	if (fs_random_fail(_file->fs, _file->event, 1, FS_OP_LOCK, TRUE))
 		return -1;
 	return fs_lock(_file->parent, secs, lock_r);
 }
@@ -478,7 +479,7 @@ fs_randomfail_iter_init(struct fs_iter *_iter, const char *path,
 	uoff_t pos;
 
 	iter->super = fs_iter_init_parent(_iter, path, flags);
-	if (fs_random_fail_range(_iter->fs, _iter->event, FS_OP_ITER, &pos))
+	if (fs_random_fail_range(_iter->fs, _iter->event, FS_OP_ITER, TRUE, &pos))
 		iter->fail_pos = pos + 1;
 }
 
