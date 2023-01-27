@@ -361,11 +361,11 @@ authenticate_callback(struct auth_client_request *request,
 			if (strcmp(key, "postlogin_socket") == 0) {
 				client->postlogin_socket_path =
 					p_strdup(client->pool, value);
-			} else if (strcmp(args[i], "nologin") == 0 ||
-				   strcmp(args[i], "proxy") == 0) {
+			} else if (strcmp(key, "nologin") == 0 ||
+				   strcmp(key, "proxy") == 0) {
 				/* user can't login */
 				nologin = TRUE;
-			} else if (strcmp(args[i], "anonymous") == 0 ) {
+			} else if (strcmp(key, "anonymous") == 0) {
 				client->auth_anonymous = TRUE;
 			} else if (login_binary->sasl_support_final_reply &&
 				   strcmp(key, "resp") == 0) {
