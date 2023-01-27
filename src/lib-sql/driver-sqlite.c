@@ -231,8 +231,10 @@ static void driver_sqlite_result_log(const struct sql_result *result, const char
 	io_loop_time_refresh();
 
 	if (!db->connected) {
-		suffix = ": Cannot connect to database";
+		suffix = t_strdup_printf(": Cannot connect to database (%d)",
+					 db->rc);
 		e->add_str("error", "Cannot connect to database");
+		e->add_int("error_code", db->rc);
 	} else if (db->rc == SQLITE_NOMEM) {
 		suffix = t_strdup_printf(": %s (%d)", sqlite3_errmsg(db->sqlite),
 					 db->rc);
