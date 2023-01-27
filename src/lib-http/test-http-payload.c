@@ -1953,7 +1953,7 @@ static void test_download_server_nonblocking(void)
 	test_run_parallel(test_client_download);
 	test_end();
 
-	test_begin("http payload download (server non-blocking; trickle final byte)");
+	test_begin("http payload download (server non-blocking; server trickle)");
 	test_init_defaults();
 	tset.server_trickle_final_byte = TRUE;
 	test_run_sequential(test_client_download);
