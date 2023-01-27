@@ -61,7 +61,7 @@ static struct test_settings {
 	enum payload_handling server_payload_handling;
 	size_t read_server_partial;
 	bool server_cork;
-	bool trickle_final_byte;
+	bool server_trickle_final_byte;
 
 	bool ssl;
 } tset;
@@ -329,7 +329,7 @@ client_handle_download_request(struct client_request *creq,
 		o_stream_destroy(&output);
 	} else {
 		http_server_response_set_payload(resp, fstream);
-		if (!tset.trickle_final_byte)
+		if (!tset.server_trickle_final_byte)
 			http_server_response_submit(resp);
 		else {
 			/* close connection immediately, so ostream-delay can
@@ -869,7 +869,7 @@ static void client_accept(void *context ATTR_UNUSED)
 
 static void test_http_server_connection_init(struct connection *conn)
 {
-	if (!tset.trickle_final_byte)
+	if (!tset.server_trickle_final_byte)
 		return;
 	struct ostream *output = o_stream_create_final_trickle(conn->output);
 	o_stream_unref(&conn->output);
@@ -1955,7 +1955,7 @@ static void test_download_server_nonblocking(void)
 
 	test_begin("http payload download (server non-blocking; trickle final byte)");
 	test_init_defaults();
-	tset.trickle_final_byte = TRUE;
+	tset.server_trickle_final_byte = TRUE;
 	test_run_sequential(test_client_download);
 	test_run_pipeline(test_client_download);
 	test_run_parallel(test_client_download);
