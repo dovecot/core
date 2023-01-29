@@ -1,6 +1,7 @@
 /* Copyright (c) 2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
+#include "hash.h"
 #include "stats-dist.h"
 #include "randgen.h"
 #include <math.h>
@@ -43,10 +44,36 @@ static void test_random_limits(void)
 	test_end();
 }
 
+static void test_random_fill(void)
+{
+	test_begin("random_fill()");
+	unsigned int hash = 0;
+	for (unsigned int i = 0; i <= (2*RANDOM_READ_BUFFER_SIZE)+1; i++) {
+		/* Rely on valgrind to verify that there are no uninitialized
+		   bytes, so don't use i_malloc(). */
+		unsigned char *buf = malloc(i);
+		random_fill(buf, i);
+		hash ^= mem_hash(buf, i);
+		free(buf);
+	}
+	/* Try also with some random small numbers */
+	for (unsigned int i = 0; i < 100; i++) {
+		/* 32 = RANDOM_READ_BUFFER_SIZE */
+		unsigned int size = i_rand_minmax(1, RANDOM_READ_BUFFER_SIZE);
+		unsigned char *buf = malloc(size);
+		random_fill(buf, size);
+		hash ^= mem_hash(buf, size);
+		free(buf);
+	}
+	test_out_reason("hash", TRUE, dec2str(hash));
+	test_end();
+}
+
 void test_random(void)
 {
 	test_random_median();
 	test_random_limits();
+	test_random_fill();
 }
 
 enum fatal_test_state fatal_random(unsigned int stage)

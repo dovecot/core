@@ -61,14 +61,6 @@ static int init_refcount = 0;
 static int urandom_fd = -1;
 
 #if defined(USE_GETRANDOM) || defined(USE_RANDOM_DEV)
-/* Use a small buffer when reading randomness. This is mainly to make small
-   random reads more efficient, such as i_rand*(). When reading larger amount
-   of randomness this buffer is bypassed.
-
-   There doesn't seem to be a big difference in Linux system CPU usage when
-   buffer size is above 16 bytes. Double it just to be safe. Avoid it being
-   too large anyway so we don't unnecessarily waste CPU and memory. */
-#define RANDOM_READ_BUFFER_SIZE 32
 static unsigned char random_next[RANDOM_READ_BUFFER_SIZE];
 static size_t random_next_pos = 0;
 static size_t random_next_size = 0;
