@@ -27,7 +27,6 @@ lib20_fts_plugin_la_LIBADD = ../../lib-fts/libfts.la
 lib20_fts_plugin_la_SOURCES = \
 	fts-api.c \
 	fts-build-mail.c \
-	fts-expunge-log.c \
 	fts-indexer.c \
 	fts-parser.c \
 	fts-parser-html.c \
@@ -44,7 +43,6 @@ pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = \
 	fts-api.h \
 	fts-api-private.h \
-	fts-expunge-log.h \
 	fts-indexer.h \
 	fts-parser.h \
 	fts-storage.h \
@@ -71,5 +69,4 @@ doveadm_module_LTLIBRARIES = \
 	lib20_doveadm_fts_plugin.la
 
 lib20_doveadm_fts_plugin_la_SOURCES = \
-	doveadm-fts.c \
-	doveadm-dump-fts-expunge-log.c
+	doveadm-fts.c

@@ -476,7 +476,6 @@ void doveadm_fts_plugin_init(struct module *module ATTR_UNUSED)
 
 	for (i = 0; i < N_ELEMENTS(fts_commands); i++)
 		doveadm_cmd_register_ver2(&fts_commands[i]);
-	doveadm_dump_fts_expunge_log_init();
 }
 
 void doveadm_fts_plugin_deinit(void)
