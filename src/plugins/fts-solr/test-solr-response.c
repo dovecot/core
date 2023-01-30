@@ -139,7 +139,7 @@ static const struct solr_response_test tests[] = {
 	},
 };
 
-static const unsigned tests_count = N_ELEMENTS(tests);
+static const unsigned int tests_count = N_ELEMENTS(tests);
 
 static void
 test_solr_result(const struct solr_response_test_result *test_results,

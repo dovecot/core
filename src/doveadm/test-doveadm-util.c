@@ -10,7 +10,7 @@ struct doveadm_settings *doveadm_settings; /* just to avoid linker error */
 
 bool version_string_verify(const char *line ATTR_UNUSED,
 			   const char *service_name ATTR_UNUSED,
-			   unsigned major_version ATTR_UNUSED)
+			   unsigned int major_version ATTR_UNUSED)
 {
 	return FALSE;
 }

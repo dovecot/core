@@ -54,7 +54,7 @@ static int lua_dict_iterate_step(lua_State *L)
 {
 	struct lua_dict_iter *iter;
 	const int *refs;
-	unsigned nrefs;
+	unsigned int nrefs;
 
 	DLUA_REQUIRE_ARGS(L, 2);
 

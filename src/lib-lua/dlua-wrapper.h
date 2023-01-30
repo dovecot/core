@@ -158,7 +158,7 @@ static void xlua_push##typename(lua_State *state, type *ptr, bool ro)	\
 									\
 		index = NULL;						\
 		if (extra_fxns != NULL) {				\
-			unsigned i;					\
+			unsigned int i;					\
 									\
 			luaL_setfuncs(state, extra_fxns, 0);		\
 									\

@@ -988,7 +988,7 @@ static void ldap_input(struct ldap_connection *conn)
 
 #ifdef HAVE_LDAP_SASL
 static int
-sasl_interact(LDAP *ld ATTR_UNUSED, unsigned flags ATTR_UNUSED,
+sasl_interact(LDAP *ld ATTR_UNUSED, unsigned int flags ATTR_UNUSED,
 	      void *defaults, void *interact)
 {
 	struct db_ldap_sasl_bind_context *context = defaults;

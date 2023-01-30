@@ -1951,7 +1951,7 @@ void master_status_update(struct master_service *service)
 }
 
 bool version_string_verify(const char *line, const char *service_name,
-			   unsigned major_version)
+			   unsigned int major_version)
 {
 	unsigned int minor_version;
 
@@ -1960,7 +1960,7 @@ bool version_string_verify(const char *line, const char *service_name,
 }
 
 bool version_string_verify_full(const char *line, const char *service_name,
-				unsigned major_version,
+				unsigned int major_version,
 				unsigned int *minor_version_r)
 {
 	size_t service_name_len = strlen(service_name);

@@ -5,7 +5,7 @@
 #include "mail-index-sync-private.h"
 
 struct mail_cache_sync_context {
-	unsigned expunge_count;
+	unsigned int expunge_count;
 };
 
 void mail_cache_expunge_count(struct mail_cache *cache, unsigned int count)

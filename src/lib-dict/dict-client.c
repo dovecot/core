@@ -74,7 +74,7 @@ struct client_dict {
 
 	char *uri;
 	enum dict_data_type value_type;
-	unsigned warn_slow_msecs;
+	unsigned int warn_slow_msecs;
 
 	time_t last_failed_connect;
 	char *last_connect_error;

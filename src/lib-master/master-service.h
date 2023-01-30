@@ -277,10 +277,10 @@ void master_service_deinit_forked(struct master_service **_service);
    The line is expected to be in format:
    VERSION <tab> service_name <tab> major version <tab> minor version */
 bool version_string_verify(const char *line, const char *service_name,
-			   unsigned major_version);
+			   unsigned int major_version);
 /* Same as version_string_verify(), but return the minor version. */
 bool version_string_verify_full(const char *line, const char *service_name,
-				unsigned major_version,
+				unsigned int major_version,
 				unsigned int *minor_version_r);
 
 /* Sets process shutdown filter */

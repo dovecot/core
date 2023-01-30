@@ -91,7 +91,7 @@ static int ssl_protocols_to_min_protocol(const char *ssl_protocols,
 			enable = FALSE;
 			++p;
 		}
-		for (unsigned i = 0; i < N_ELEMENTS(protocol_versions); i++) {
+		for (unsigned int i = 0; i < N_ELEMENTS(protocol_versions); i++) {
 			if (strcmp(p, protocol_versions[i]) == 0) {
 				if (enable) {
 					protos[i] = 1;
@@ -108,8 +108,8 @@ static int ssl_protocols_to_min_protocol(const char *ssl_protocols,
 		found:;
 	}
 
-	unsigned min = N_ELEMENTS(protocol_versions);
-	for (unsigned i = 0; i < N_ELEMENTS(protocol_versions); i++) {
+	unsigned int min = N_ELEMENTS(protocol_versions);
+	for (unsigned int i = 0; i < N_ELEMENTS(protocol_versions); i++) {
 		if (explicit_enable) {
 			if (protos[i] > 0)
 				min = I_MIN(min, i);

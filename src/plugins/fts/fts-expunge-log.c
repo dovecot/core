@@ -41,7 +41,7 @@ struct fts_expunge_log {
 struct fts_expunge_log_mailbox {
 	guid_128_t guid;
 	ARRAY_TYPE(seq_range) uids;
-	unsigned uids_count;
+	unsigned int uids_count;
 };
 
 struct fts_expunge_log_append_ctx {

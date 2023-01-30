@@ -23,7 +23,7 @@ static void response_fxn(const struct http_response *response,
 			 void *context ATTR_UNUSED)
 {
 	static time_t last_log;
-	static unsigned suppressed;
+	static unsigned int suppressed;
 
 	if (http_response_is_success(response))
 		return;

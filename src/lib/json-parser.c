@@ -436,7 +436,7 @@ static int json_parse_atom(struct json_parser *parser, const char *atom)
 static int json_parse_denest(struct json_parser *parser)
 {
 	const enum json_state *nested_states;
-	unsigned count;
+	unsigned int count;
 
 	parser->data++;
 	json_parser_update_input_pos(parser);

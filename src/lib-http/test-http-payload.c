@@ -71,9 +71,9 @@ static struct ip_addr bind_ip;
 static in_port_t bind_port = 0;
 static int fd_listen = -1;
 static struct ioloop *ioloop_nested = NULL;
-static unsigned ioloop_nested_first = 0;
-static unsigned ioloop_nested_last = 0;
-static unsigned ioloop_nested_depth = 0;
+static unsigned int ioloop_nested_first = 0;
+static unsigned int ioloop_nested_last = 0;
+static unsigned int ioloop_nested_depth = 0;
 
 static void main_deinit(void);
 

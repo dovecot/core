@@ -539,7 +539,7 @@ map_read_hdr_hashes(struct mailbox *box, struct array *msg_map, uint32_t seq1)
 
 static int
 pop3_map_read_hdr_hashes(struct mail_storage *storage, struct mailbox *pop3_box,
-			 unsigned first_seq)
+			 unsigned int first_seq)
 {
 	struct pop3_migration_mail_storage *mstorage =
 		POP3_MIGRATION_CONTEXT_REQUIRE(storage);

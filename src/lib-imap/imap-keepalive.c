@@ -14,7 +14,7 @@ static bool imap_remote_ip_is_usable(const struct ip_addr *ip)
 	if (ip->family == 0)
 		return FALSE;
 	if (ip->family == AF_INET) {
-#define IP4(a,b,c,d) ((unsigned)(a)<<24|(unsigned)(b)<<16|(unsigned)(c)<<8|(unsigned)(d))
+#define IP4(a,b,c,d) ((unsigned int)(a)<<24|(unsigned int)(b)<<16|(unsigned int)(c)<<8|(unsigned int)(d))
 		addr = ip->u.ip4.s_addr;
 		if (addr >= IP4(10,0,0,0) && addr <= IP4(10,255,255,255))
 			return FALSE; /* 10/8 */

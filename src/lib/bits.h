@@ -139,7 +139,7 @@ bits_rotr32(uint32_t num, unsigned int count)
 static inline unsigned int ATTR_CONST
 bits_fraclog(unsigned int val, unsigned int fracbits)
 {
-	unsigned bits = bits_required32(val);
+	unsigned int bits = bits_required32(val);
 	if (bits <= fracbits + 1)
 		return val;
 

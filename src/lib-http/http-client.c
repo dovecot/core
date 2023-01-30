@@ -597,7 +597,7 @@ http_client_context_update_settings(struct http_client_context *cctx)
 	/* Override with available client settings */
 	for (client = cctx->clients_list; client != NULL;
 	     client = client->next) {
-		unsigned dns_lookup_timeout_msecs =
+		unsigned int dns_lookup_timeout_msecs =
 			http_client_get_dns_lookup_timeout_msecs(&client->set);
 
 		if (cctx->dns_client == NULL)

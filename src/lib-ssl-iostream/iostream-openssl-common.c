@@ -54,7 +54,7 @@ static const struct {
 int openssl_min_protocol_to_options(const char *min_protocol, long *opt_r,
 				    int *version_r)
 {
-	unsigned i = 0;
+	unsigned int i = 0;
 	for (; i < N_ELEMENTS(protocol_versions); i++) {
 		if (strcasecmp(protocol_versions[i].name, min_protocol) == 0)
 			break;

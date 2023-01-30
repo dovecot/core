@@ -262,7 +262,7 @@ static void test_time_to_local_day_start(void)
 	time_t t;
 
 	test_begin("time_to_local_day_start()");
-	for (unsigned i = 0; i < N_ELEMENTS(tests); i++) {
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
 		tm_copy = tests[i];
 		tm_copy.tm_isdst = -1;
 		t = mktime(&tm_copy);
@@ -283,12 +283,12 @@ static void test_timestamp(const char *ts, int idx)
 {
 	/* %G:%H:%M:%S */
 	const char **t = t_strsplit(ts, ":");
-	unsigned len = str_array_length(t);
+	unsigned int len = str_array_length(t);
 	test_assert_idx(len == 4, idx);
 
 	/* %G - ISO 8601 year */
 	test_assert_idx(strlen(t[0]) == 4, idx);
-	unsigned v = 0;
+	unsigned int v = 0;
 	test_assert_idx(str_to_uint(t[0], &v) == 0, idx);
 	test_assert_idx(1000 <= v, idx);
 	test_assert_idx(v <= 3000, idx);
