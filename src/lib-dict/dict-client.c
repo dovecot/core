@@ -5,6 +5,7 @@
 #include "llist.h"
 #include "str.h"
 #include "strescape.h"
+#include "str-parse.h"
 #include "file-lock.h"
 #include "time-util.h"
 #include "connection.h"
@@ -708,6 +709,7 @@ client_dict_init(struct dict *driver, const char *uri,
 	struct ioloop *old_ioloop = current_ioloop;
 	struct client_dict *dict;
 	const char *p, *dest_uri, *value, *path;
+	const char *error;
 	unsigned int idle_timeout_msecs = DICT_CLIENT_DEFAULT_TIMEOUT_MSECS;
 	unsigned int slow_warn_msecs = DICT_CLIENT_DEFAULT_WARN_SLOW_MSECS;
 
@@ -719,8 +721,11 @@ client_dict_init(struct dict *driver, const char *uri,
 				*error_r = t_strdup_printf("Invalid URI: %s", uri);
 				return -1;
 			}
-			if (str_to_uint(t_strdup_until(value, p), &idle_timeout_msecs) < 0) {
-				*error_r = "Invalid idle_timeout";
+			const char *value_str = t_strdup_until(value, p);
+			if (str_parse_get_interval_msecs(value_str, &idle_timeout_msecs,
+							 &error) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid idle_timeout: %s", error);
 				return -1;
 			}
 			uri = p+1;
@@ -730,8 +735,11 @@ client_dict_init(struct dict *driver, const char *uri,
 				*error_r = t_strdup_printf("Invalid URI: %s", uri);
 				return -1;
 			}
-			if (str_to_uint(t_strdup_until(value, p), &slow_warn_msecs) < 0) {
-				*error_r = "Invalid slow_warn_msecs";
+			const char *value_str = t_strdup_until(value, p);
+			if (str_parse_get_interval_msecs(value_str, &slow_warn_msecs,
+							 &error) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid slow_warn: %s", error);
 				return -1;
 			}
 			uri = p+1;
