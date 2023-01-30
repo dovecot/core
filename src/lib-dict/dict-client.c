@@ -23,7 +23,7 @@
    that the socket is disconnected immediately after returning to ioloop. */
 #define DICT_CLIENT_DEFAULT_TIMEOUT_MSECS 0
 
-/* Abort dict lookup after this many seconds. */
+/* Abort dict lookup after this many milliseconds. */
 #define DICT_CLIENT_REQUEST_TIMEOUT_MSECS 30000
 /* When dict lookup timeout is reached, wait a bit longer if the last dict
    ioloop wait was shorter than this. */
