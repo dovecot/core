@@ -1160,6 +1160,7 @@ static void driver_cassandra_log_result(struct cassandra_result *result,
 {
 	struct cassandra_db *db = container_of(result->api.db, struct cassandra_db, api);
 	struct timeval now;
+	int duration ATTR_UNUSED;
 	unsigned int row_count;
 
 	i_gettimeofday(&now);
@@ -1184,7 +1185,7 @@ static void driver_cassandra_log_result(struct cassandra_result *result,
 	struct event_passthrough *e =
 		sql_query_finished_event(&db->api, result->api.event,
 					 result->log_query, result->error == NULL,
-					 NULL);
+					 &duration);
 	if (result->error != NULL)
 		e->add_str("error", result->error);
 

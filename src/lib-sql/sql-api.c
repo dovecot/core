@@ -826,9 +826,7 @@ sql_query_finished_event(struct sql_db *db, struct event *event, const char *que
 		e->add_str("slow_query", "y");
 		db->slow_queries++;
 	}
-
-	if (duration_r != NULL)
-		*duration_r = diff;
+	*duration_r = diff;
 
 	return e;
 }
