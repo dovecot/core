@@ -6,6 +6,7 @@
 #include "ostream.h"
 #include "hash.h"
 #include "str.h"
+#include "strfuncs.h"
 #include "var-expand.h"
 #include "message-size.h"
 #include "mail-storage.h"
@@ -25,95 +26,95 @@ static uint32_t msgnum_to_seq(struct client *client, uint32_t msgnum)
 		client->msgnum_to_seq_map[msgnum] : msgnum+1;
 }
 
-static const char *get_msgnum(struct client *client, const char *args,
+static const char *get_msgnum(struct pop3_command_context *cctx,
 			      unsigned int *msgnum, bool thenspace)
 {
 	unsigned int num;
 
-	if (*args < '0' || *args > '9') {
-		client_send_line(client,
-				 "-ERR Invalid message number: %s", args);
+	if (*cctx->args < '0' || *cctx->args > '9') {
+		client_send_line(cctx->client,
+				 "-ERR Invalid message number: %s", cctx->args);
 		return NULL;
 	}
-	if (str_parse_uint(args, &num, &args) < 0) {
-		client_send_line(client,
-				 "-ERR Message number too large: %s", args);
+	if (str_parse_uint(cctx->args, &num, &cctx->args) < 0) {
+		client_send_line(cctx->client,
+				 "-ERR Message number too large: %s", cctx->args);
 		return NULL;
 	}
-	if (*args != (thenspace ? ' ' : '\0')) {
-		client_send_line(client,
-				 "-ERR Noise after message number: %s", args);
+	if (*cctx->args != (thenspace ? ' ' : '\0')) {
+		client_send_line(cctx->client,
+				 "-ERR Noise after message number: %s", cctx->args);
 		return NULL;
 	}
-	if (num == 0 || num > client->messages_count) {
-		client_send_line(client,
+	if (num == 0 || num > cctx->client->messages_count) {
+		client_send_line(cctx->client,
 				 "-ERR There's no message %u.", num);
 		return NULL;
 	}
 	num--;
 
-	if (client->deleted) {
-		if ((client->deleted_bitmask[num / CHAR_BIT] &
+	if (cctx->client->deleted) {
+		if ((cctx->client->deleted_bitmask[num / CHAR_BIT] &
 		     (1 << (num % CHAR_BIT))) != 0) {
-			client_send_line(client, "-ERR Message is deleted.");
+			client_send_line(cctx->client, "-ERR Message is deleted.");
 			return NULL;
 		}
 	}
 
-	while (*args == ' ') args++;
+	while (*cctx->args == ' ') cctx->args++;
 
 	*msgnum = num;
-	return args;
+	return cctx->args;
 }
 
-static const char *get_size(struct client *client, const char *args,
+static const char *get_size(struct pop3_command_context *cctx,
 			    uoff_t *size, bool thenspace)
 {
 	uoff_t num;
 
-	if (*args < '0' || *args > '9') {
-		client_send_line(client, "-ERR Invalid size: %s",
-				 args);
+	if (*cctx->args < '0' || *cctx->args > '9') {
+		client_send_line(cctx->client, "-ERR Invalid size: %s",
+				 cctx->args);
 		return NULL;
 	}
-	if (str_parse_uoff(args, &num, &args) < 0) {
-		client_send_line(client, "-ERR Size too large: %s",
-				 args);
+	if (str_parse_uoff(cctx->args, &num, &cctx->args) < 0) {
+		client_send_line(cctx->client, "-ERR Size too large: %s",
+				 cctx->args);
 		return NULL;
 	}
-	if (*args != (thenspace ? ' ' : '\0')) {
-		client_send_line(client, "-ERR Noise after size: %s", args);
+	if (*cctx->args != (thenspace ? ' ' : '\0')) {
+		client_send_line(cctx->client, "-ERR Noise after size: %s", cctx->args);
 		return NULL;
 	}
 
-	while (*args == ' ') args++;
+	while (*cctx->args == ' ') cctx->args++;
 
 	*size = num;
-	return args;
+	return cctx->args;
 }
 
-static int cmd_capa(struct client *client, const char *args ATTR_UNUSED)
+static int cmd_capa(struct pop3_command_context *cctx)
 {
-	client_send_line(client, "+OK\r\n"POP3_CAPABILITY_REPLY".");
+	client_send_line(cctx->client, "+OK\r\n"POP3_CAPABILITY_REPLY".");
 	return 1;
 }
 
-static int cmd_dele(struct client *client, const char *args)
+static int cmd_dele(struct pop3_command_context *cctx)
 {
 	unsigned int msgnum;
 
-	if (get_msgnum(client, args, &msgnum, FALSE) == NULL)
+	if (get_msgnum(cctx, &msgnum, FALSE) == NULL)
 		return -1;
 
-	if (!client->deleted) {
-		client->deleted_bitmask = i_malloc(MSGS_BITMASK_SIZE(client));
-		client->deleted = TRUE;
+	if (!cctx->client->deleted) {
+		cctx->client->deleted_bitmask = i_malloc(MSGS_BITMASK_SIZE(cctx->client));
+		cctx->client->deleted = TRUE;
 	}
 
-	client->deleted_bitmask[msgnum / CHAR_BIT] |= 1 << (msgnum % CHAR_BIT);
-	client->deleted_count++;
-	client->deleted_size += client->message_sizes[msgnum];
-	client_send_line(client, "+OK Marked to be deleted.");
+	cctx->client->deleted_bitmask[msgnum / CHAR_BIT] |= 1 << (msgnum % CHAR_BIT);
+	cctx->client->deleted_count++;
+	cctx->client->deleted_size += cctx->client->message_sizes[msgnum];
+	client_send_line(cctx->client, "+OK Marked to be deleted.");
 	return 1;
 }
 
@@ -149,43 +150,43 @@ static void cmd_list_callback(struct client *client)
 	client->cmd = NULL;
 }
 
-static int cmd_list(struct client *client, const char *args)
+static int cmd_list(struct pop3_command_context *cctx)
 {
         struct cmd_list_context *ctx;
 
-	if (*args == '\0') {
+	if (*cctx->args == '\0') {
 		ctx = i_new(struct cmd_list_context, 1);
-		client_send_line(client, "+OK %u messages:",
-				 client->messages_count - client->deleted_count);
+		client_send_line(cctx->client, "+OK %u messages:",
+				 cctx->client->messages_count - cctx->client->deleted_count);
 
-		client->cmd = cmd_list_callback;
-		client->cmd_context = ctx;
-		cmd_list_callback(client);
+		cctx->client->cmd = cmd_list_callback;
+		cctx->client->cmd_context = ctx;
+		cmd_list_callback(cctx->client);
 	} else {
 		unsigned int msgnum;
 
-		if (get_msgnum(client, args, &msgnum, FALSE) == NULL)
+		if (get_msgnum(cctx, &msgnum, FALSE) == NULL)
 			return -1;
 
-		client_send_line(client, "+OK %u %"PRIuUOFF_T, msgnum+1,
-				 client->message_sizes[msgnum]);
+		client_send_line(cctx->client, "+OK %u %"PRIuUOFF_T, msgnum+1,
+				 cctx->client->message_sizes[msgnum]);
 	}
 
 	return 1;
 }
 
-static int cmd_last(struct client *client, const char *args ATTR_UNUSED)
+static int cmd_last(struct pop3_command_context *cctx)
 {
-	if (client->set->pop3_enable_last)
-		client_send_line(client, "+OK %u", client->last_seen_pop3_msn);
+	if (cctx->client->set->pop3_enable_last)
+		client_send_line(cctx->client, "+OK %u", cctx->client->last_seen_pop3_msn);
 	else
-		client_send_line(client, "-ERR LAST command not enabled");
+		client_send_line(cctx->client, "-ERR LAST command not enabled");
 	return 1;
 }
 
-static int cmd_noop(struct client *client, const char *args ATTR_UNUSED)
+static int cmd_noop(struct pop3_command_context *cctx)
 {
-	client_send_line(client, "+OK");
+	client_send_line(cctx->client, "+OK");
 	return 1;
 }
 
@@ -307,33 +308,33 @@ bool client_update_mails(struct client *client)
 	return ret;
 }
 
-static int cmd_quit(struct client *client, const char *args ATTR_UNUSED)
+static int cmd_quit(struct pop3_command_context *cctx)
 {
-	client->quit_seen = TRUE;
-	if (client->deleted || client->seen_bitmask != NULL) {
-		if (!client_update_mails(client)) {
-			client_send_storage_error(client);
-			client_disconnect(client,
+	cctx->client->quit_seen = TRUE;
+	if (cctx->client->deleted || cctx->client->seen_bitmask != NULL) {
+		if (!client_update_mails(cctx->client)) {
+			client_send_storage_error(cctx->client);
+			client_disconnect(cctx->client,
 				"Storage error during logout.");
 			return 1;
 		}
 	}
 
-	if (mailbox_transaction_commit(&client->trans) < 0 ||
-	    mailbox_sync(client->mailbox, MAILBOX_SYNC_FLAG_FULL_WRITE) < 0) {
-		client_send_storage_error(client);
-		client_disconnect(client, "Storage error during logout.");
+	if (mailbox_transaction_commit(&cctx->client->trans) < 0 ||
+	    mailbox_sync(cctx->client->mailbox, MAILBOX_SYNC_FLAG_FULL_WRITE) < 0) {
+		client_send_storage_error(cctx->client);
+		client_disconnect(cctx->client, "Storage error during logout.");
 		return 1;
 	} else {
-		client->delete_success = TRUE;
+		cctx->client->delete_success = TRUE;
 	}
 
-	if (!client->deleted)
-		client_send_line(client, "+OK Logging out.");
+	if (!cctx->client->deleted)
+		client_send_line(cctx->client, "+OK Logging out.");
 	else
-		client_send_line(client, "+OK Logging out, messages deleted.");
+		client_send_line(cctx->client, "+OK Logging out, messages deleted.");
 
-	client_disconnect(client, "Logged out");
+	client_disconnect(cctx->client, "Logged out");
 	return 1;
 }
 
@@ -509,46 +510,47 @@ static int fetch(struct client *client, unsigned int msgnum, uoff_t body_lines,
 	return 1;
 }
 
-static int cmd_retr(struct client *client, const char *args)
+static int cmd_retr(struct pop3_command_context *cctx)
 {
 	unsigned int msgnum;
 
-	if (get_msgnum(client, args, &msgnum, FALSE) == NULL)
+	if (get_msgnum(cctx, &msgnum, FALSE) == NULL)
 		return -1;
 
-	if (client->lowest_retr_pop3_msn > msgnum+1 ||
-	    client->lowest_retr_pop3_msn == 0)
-		client->lowest_retr_pop3_msn = msgnum+1;
-	if (client->last_seen_pop3_msn < msgnum+1)
-		client->last_seen_pop3_msn = msgnum+1;
+	if (cctx->client->lowest_retr_pop3_msn > msgnum+1 ||
+	    cctx->client->lowest_retr_pop3_msn == 0)
+		cctx->client->lowest_retr_pop3_msn = msgnum+1;
+	if (cctx->client->last_seen_pop3_msn < msgnum+1)
+		cctx->client->last_seen_pop3_msn = msgnum+1;
 
-	client->retr_count++;
-	return fetch(client, msgnum, UOFF_T_MAX, "RETR", &client->retr_bytes);
+	cctx->client->retr_count++;
+	return fetch(cctx->client, msgnum, UOFF_T_MAX, "RETR",
+		     &cctx->client->retr_bytes);
 }
 
-static int cmd_rset(struct client *client, const char *args ATTR_UNUSED)
+static int cmd_rset(struct pop3_command_context *cctx)
 {
 	struct mail_search_context *search_ctx;
 	struct mail *mail;
 	struct mail_search_args *search_args;
 
-	client->last_seen_pop3_msn = 0;
+	cctx->client->last_seen_pop3_msn = 0;
 
-	if (client->deleted) {
-		client->deleted = FALSE;
-		memset(client->deleted_bitmask, 0, MSGS_BITMASK_SIZE(client));
-		client->deleted_count = 0;
-		client->deleted_size = 0;
+	if (cctx->client->deleted) {
+		cctx->client->deleted = FALSE;
+		memset(cctx->client->deleted_bitmask, 0, MSGS_BITMASK_SIZE(cctx->client));
+		cctx->client->deleted_count = 0;
+		cctx->client->deleted_size = 0;
 	}
-	if (client->seen_change_count > 0) {
-		memset(client->seen_bitmask, 0, MSGS_BITMASK_SIZE(client));
-		client->seen_change_count = 0;
+	if (cctx->client->seen_change_count > 0) {
+		memset(cctx->client->seen_bitmask, 0, MSGS_BITMASK_SIZE(cctx->client));
+		cctx->client->seen_change_count = 0;
 	}
 
-	if (client->set->pop3_enable_last) {
+	if (cctx->client->set->pop3_enable_last) {
 		/* remove all \Seen flags (as specified by RFC 1460) */
-		search_args = pop3_search_build(client, 0);
-		search_ctx = mailbox_search_init(client->trans,
+		search_args = pop3_search_build(cctx->client, 0);
+		search_ctx = mailbox_search_init(cctx->client->trans,
 						 search_args, NULL, 0, NULL);
 		mail_search_args_unref(&search_args);
 
@@ -556,36 +558,36 @@ static int cmd_rset(struct client *client, const char *args ATTR_UNUSED)
 			mail_update_flags(mail, MODIFY_REMOVE, MAIL_SEEN);
 		(void)mailbox_search_deinit(&search_ctx);
 
-		(void)mailbox_transaction_commit(&client->trans);
-		client->trans = mailbox_transaction_begin(client->mailbox, 0,
+		(void)mailbox_transaction_commit(&cctx->client->trans);
+		cctx->client->trans = mailbox_transaction_begin(cctx->client->mailbox, 0,
 							  __func__);
 	}
 
-	client_send_line(client, "+OK");
+	client_send_line(cctx->client, "+OK");
 	return 1;
 }
 
-static int cmd_stat(struct client *client, const char *args ATTR_UNUSED)
+static int cmd_stat(struct pop3_command_context *cctx)
 {
-	client_send_line(client, "+OK %u %"PRIuUOFF_T,
-			 client->messages_count - client->deleted_count,
-			 client->total_size - client->deleted_size);
+	client_send_line(cctx->client, "+OK %u %"PRIuUOFF_T,
+			 cctx->client->messages_count - cctx->client->deleted_count,
+			 cctx->client->total_size - cctx->client->deleted_size);
 	return 1;
 }
 
-static int cmd_top(struct client *client, const char *args)
+static int cmd_top(struct pop3_command_context *cctx)
 {
 	unsigned int msgnum;
 	uoff_t max_lines;
 
-	args = get_msgnum(client, args, &msgnum, TRUE);
-	if (args == NULL)
+	cctx->args = get_msgnum(cctx, &msgnum, TRUE);
+	if (cctx->args == NULL)
 		return -1;
-	if (get_size(client, args, &max_lines, FALSE) == NULL)
+	if (get_size(cctx, &max_lines, FALSE) == NULL)
 		return -1;
 
-	client->top_count++;
-	return fetch(client, msgnum, max_lines, "TOP", &client->top_bytes);
+	cctx->client->top_count++;
+	return fetch(cctx->client, msgnum, max_lines, "TOP", &cctx->client->top_bytes);
 }
 
 struct cmd_uidl_context {
@@ -907,26 +909,26 @@ cmd_uidl_init(struct client *client, uint32_t seq)
 	return ctx;
 }
 
-static int cmd_uidl(struct client *client, const char *args)
+static int cmd_uidl(struct pop3_command_context *cctx)
 {
         struct cmd_uidl_context *ctx;
 	uint32_t seq;
 
-	if (*args == '\0') {
-		client_send_line(client, "+OK");
-		ctx = cmd_uidl_init(client, 0);
-		(void)list_uids_iter(client, ctx);
+	if (*cctx->args == '\0') {
+		client_send_line(cctx->client, "+OK");
+		ctx = cmd_uidl_init(cctx->client, 0);
+		(void)list_uids_iter(cctx->client, ctx);
 	} else {
 		unsigned int msgnum;
 
-		if (get_msgnum(client, args, &msgnum, FALSE) == NULL)
+		if (get_msgnum(cctx, &msgnum, FALSE) == NULL)
 			return -1;
 
-		seq = msgnum_to_seq(client, msgnum);
-		ctx = cmd_uidl_init(client, seq);
+		seq = msgnum_to_seq(cctx->client, msgnum);
+		ctx = cmd_uidl_init(cctx->client, seq);
 		ctx->msgnum = msgnum;
-		if (!list_uids_iter(client, ctx))
-			return client_reply_msg_expunged(client, msgnum);
+		if (!list_uids_iter(cctx->client, ctx))
+			return client_reply_msg_expunged(cctx->client, msgnum);
 	}
 
 	return 1;
@@ -955,10 +957,9 @@ const struct pop3_command *pop3_command_find(const char *name)
 	return NULL;
 }
 
-int client_command_execute(struct client *client,
-			   const struct pop3_command *cmd, const char *args)
+int client_command_execute(struct pop3_command_context *cctx)
 {
-	while (*args == ' ') args++;
+	while (*cctx->args == ' ') cctx->args++;
 
-	return cmd->func(client, args);
+	return cctx->command->func(cctx);
 }

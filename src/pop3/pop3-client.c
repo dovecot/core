@@ -744,30 +744,34 @@ void client_send_storage_error(struct client *client)
 bool client_handle_input(struct client *client)
 {
 	char *line, *args;
-	int ret;
 
 	o_stream_cork(client->output);
 	while (!client->output->closed &&
 	       (line = i_stream_next_line(client->input)) != NULL) {
+		struct pop3_command_context cctx = {
+			.client = client,
+		};
+		int result;
 		args = strchr(line, ' ');
 		if (args != NULL)
 			*args++ = '\0';
 
-		const struct pop3_command *cmd = pop3_command_find(line);
-		if (cmd == NULL) {
+		cctx.command = pop3_command_find(line);
+		cctx.args = args != NULL ? args : "";
+		if (cctx.command == NULL) {
 			client_send_line(client, "-ERR Unknown command: %s", line);
-			ret = -1;
+			result = -1;
 		} else T_BEGIN {
 			const char *reason_code =
 				event_reason_code_prefix("pop3", "cmd_",
-							 cmd->name);
+							 cctx.command->name);
 			struct event_reason *reason =
 				event_reason_begin(reason_code);
-			ret = client_command_execute(client, cmd,
-						     args != NULL ? args : "");
+			result = client_command_execute(&cctx);
 			event_reason_end(&reason);
 		} T_END;
-		if (ret >= 0) {
+		/* send event */
+		if (result >= 0) {
 			client->bad_counter = 0;
 			if (client->cmd != NULL) {
 				o_stream_set_flush_pending(client->output,
