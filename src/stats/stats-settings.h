@@ -78,6 +78,16 @@ enum stats_metric_group_by_func {
 	STATS_METRIC_GROUPBY_QUANTIZED,
 };
 
+/* A modifier for discrete group by.
+ *
+ * Implemented as bit field, as we allow multiple modifiers.
+ */
+enum stats_metric_group_by_modifier {
+	/* extract domain from user@domain */
+	STATS_METRICS_GROUPBY_DOMAIN     = BIT(0),
+	STATS_METRICS_GROUPBY_UPPERCASE  = BIT(1),
+	STATS_METRICS_GROUPBY_LOWERCASE  = BIT(2),
+};
 /*
  * A range covering a stats bucket.  The the interval is half closed - the
  * minimum is excluded and the maximum is included.  In other words: (min, max].
@@ -92,6 +102,7 @@ struct stats_metric_settings_bucket_range {
 struct stats_metric_settings_group_by {
 	const char *field;
 	enum stats_metric_group_by_func func;
+	enum stats_metric_group_by_modifier mod;
 	unsigned int num_ranges;
 	struct stats_metric_settings_bucket_range *ranges;
 };

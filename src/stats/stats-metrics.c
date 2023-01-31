@@ -496,6 +496,25 @@ stats_metric_group_by_get_label(const struct event_field *field,
 	i_panic("unknown group-by function %d", group_by->func);
 }
 
+/* Handle string modifiers */
+static inline const char *
+label_by_mod_str(const struct stats_metric_settings_group_by *group_by,
+		 const char *value)
+{
+	if ((group_by->mod & STATS_METRICS_GROUPBY_DOMAIN) != 0) {
+		const char *domain = strrchr(value, '@');
+		if (domain != NULL)
+			value = domain+1;
+		else
+			value = "";
+	}
+	if ((group_by->mod & STATS_METRICS_GROUPBY_UPPERCASE) != 0)
+		value = t_str_ucase(value);
+	if ((group_by->mod & STATS_METRICS_GROUPBY_LOWERCASE) != 0)
+		value = t_str_lcase(value);
+	return value;
+}
+
 static const char *
 stats_metric_group_by_value_label(const struct event_field *field,
 				  const struct stats_metric_settings_group_by *group_by,
@@ -503,7 +522,7 @@ stats_metric_group_by_value_label(const struct event_field *field,
 {
 	switch (value->type) {
 	case METRIC_VALUE_TYPE_STR:
-		return field->value.str;
+		return label_by_mod_str(group_by, field->value.str);
 	case METRIC_VALUE_TYPE_INT:
 		return dec2str(field->value.intmax);
 	case METRIC_VALUE_TYPE_IP:

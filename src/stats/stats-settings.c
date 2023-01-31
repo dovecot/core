@@ -440,6 +440,27 @@ static bool parse_metric_group_by_lin(pool_t pool, struct stats_metric_settings_
 	return TRUE;
 }
 
+static bool
+parse_metric_group_by_mod(pool_t pool ATTR_UNUSED,
+			  struct stats_metric_settings_group_by *group_by,
+			  const char *const *params, const char **error_r)
+{
+	for (; *params != NULL; params++) {
+		if (strcmp(*params, "domain") == 0)
+			group_by->mod |= STATS_METRICS_GROUPBY_DOMAIN;
+		else if (strcmp(*params, "uppercase") == 0)
+			group_by->mod |= STATS_METRICS_GROUPBY_UPPERCASE;
+		else if (strcmp(*params, "lowercase") == 0)
+			group_by->mod |= STATS_METRICS_GROUPBY_LOWERCASE;
+		else {
+			*error_r = t_strdup_printf("Unknown modifier '%s' for '%s'",
+						   *params, group_by->field);
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
 static bool parse_metric_group_by(struct stats_metric_settings *set,
 				  pool_t pool, const char **error_r)
 {
@@ -467,11 +488,8 @@ static bool parse_metric_group_by(struct stats_metric_settings *set,
 		} else if (strcmp(params[1], "discrete") == 0) {
 			/* <field>:discrete */
 			group_by.func = STATS_METRIC_GROUPBY_DISCRETE;
-			if (params[2] != NULL) {
-				*error_r = "group_by 'discrete' aggregate function "
-					   "does not take any args";
+			if (!parse_metric_group_by_mod(pool, &group_by, &params[2], error_r))
 				return FALSE;
-			}
 		} else if (strcmp(params[1], "exponential") == 0) {
 			/* <field>:exponential:<min mag>:<max mag>:<base> */
 			if (!parse_metric_group_by_exp(pool, &group_by, &params[2], error_r))
