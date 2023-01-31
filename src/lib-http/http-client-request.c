@@ -1073,8 +1073,7 @@ http_client_request_finish_payload_out(struct http_client_request *req)
 		o_stream_unref(&req->payload_output);
 		req->payload_output = NULL;
 	}
-	if (conn->conn.output != NULL &&
-	    o_stream_get_buffer_used_size(conn->conn.output) > 0) {
+	if (o_stream_get_buffer_used_size(conn->conn.output) > 0) {
 		e_debug(req->event,
 			"Not quite finished sending request");
 		conn->output_locked = TRUE;
