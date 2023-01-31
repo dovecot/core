@@ -459,6 +459,7 @@ static bool parse_metric_group_by(struct stats_metric_settings *set,
 
 		/* <field name>:<aggregation func>... */
 		params = t_strsplit(*tmp, ":");
+		group_by.field = p_strdup(pool, params[0]);
 
 		if (params[1] == NULL) {
 			/* <field name> - alias for <field>:discrete */
@@ -484,8 +485,6 @@ static bool parse_metric_group_by(struct stats_metric_settings *set,
 						   "'%s' on field '%s'", params[1], params[0]);
 			return FALSE;
 		}
-
-		group_by.field = p_strdup(pool, params[0]);
 
 		array_push_back(&set->parsed_group_by, &group_by);
 	}
