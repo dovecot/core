@@ -213,6 +213,9 @@ const char *const *mail_user_get_alt_usernames(struct mail_user *user);
 struct mail_storage *
 mail_user_get_storage_class(struct mail_user *user, const char *name);
 
+/* Import any event_ fields from userdb fields to mail user event. */
+void mail_user_add_event_fields(struct mail_user *user);
+
 /* Initialize SSL client settings from mail_user settings. */
 void mail_user_init_ssl_client_settings(struct mail_user *user,
 	struct ssl_iostream_settings *ssl_set_r);

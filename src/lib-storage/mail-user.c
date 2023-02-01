@@ -12,6 +12,7 @@
 #include "safe-mkstemp.h"
 #include "str.h"
 #include "strescape.h"
+#include "strfuncs.h"
 #include "var-expand.h"
 #include "settings-parser.h"
 #include "iostream-ssl.h"
@@ -45,6 +46,19 @@ static void mail_user_deinit_base(struct mail_user *user)
 
 static void mail_user_deinit_pre_base(struct mail_user *user ATTR_UNUSED)
 {
+}
+
+void mail_user_add_event_fields(struct mail_user *user)
+{
+	if (user->userdb_fields == NULL)
+		return;
+	for (unsigned int i = 0; user->userdb_fields[i] != NULL; i++) {
+		const char *field = user->userdb_fields[i];
+		const char *key, *value;
+		t_split_key_value_eq(field, &key, &value);
+		if (str_begins(key, "event_", &key))
+			event_add_str(user->event, key, value);
+	}
 }
 
 static struct mail_user *
