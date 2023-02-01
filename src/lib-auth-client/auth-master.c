@@ -720,27 +720,28 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 int auth_user_fields_parse(const char *const *fields, pool_t pool,
 			   struct auth_user_reply *reply_r, const char **error_r)
 {
-	const char *value;
-
 	i_zero(reply_r);
 	reply_r->uid = (uid_t)-1;
 	reply_r->gid = (gid_t)-1;
 	p_array_init(&reply_r->extra_fields, pool, 64);
 
 	for (; *fields != NULL; fields++) {
-		if (str_begins(*fields, "uid=", &value)) {
+		const char *key, *value;
+		t_split_key_value_eq(*fields, &key, &value);
+
+		if (strcmp(key, "uid") == 0) {
 			if (str_to_uid(value, &reply_r->uid) < 0) {
 				*error_r = "Invalid uid in reply";
 				return -1;
 			}
-		} else if (str_begins(*fields, "gid=", &value)) {
+		} else if (strcmp(key, "gid") == 0) {
 			if (str_to_gid(value, &reply_r->gid) < 0) {
 				*error_r = "Invalid gid in reply";
 				return -1;
 			}
-		} else if (str_begins(*fields, "home=", &value))
+		} else if (strcmp(key, "home") == 0)
 			reply_r->home = p_strdup(pool, value);
-		else if (str_begins(*fields, "chroot=", &value))
+		else if (strcmp(key, "chroot") == 0)
 			reply_r->chroot = p_strdup(pool, value);
 		else if (strcmp(*fields, "anonymous") == 0)
 			reply_r->anonymous = TRUE;
