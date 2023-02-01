@@ -53,6 +53,23 @@ static void mail_user_stats_fill_base(struct mail_user *user ATTR_UNUSED,
 {
 }
 
+void mail_user_add_event_fields(struct mail_user *user)
+{
+	if (user->userdb_fields == NULL)
+		return;
+	for (unsigned int i = 0; user->userdb_fields[i] != NULL; i++) {
+		const char *field = user->userdb_fields[i];
+		if (!str_begins(field, "event_"))
+			continue;
+		const char *key = field + 6;
+		const char *value = strchr(key, '=');
+		if (value != NULL) {
+			event_add_str(user->event, t_strdup_until(key, value),
+				      value+1);
+		}
+	}
+}
+
 static struct mail_user *
 mail_user_alloc_int(struct event *parent_event,
 		    const char *username,
