@@ -960,6 +960,7 @@ const struct pop3_command *pop3_command_find(const char *name)
 int client_command_execute(struct pop3_command_context *cctx)
 {
 	while (*cctx->args == ' ') cctx->args++;
+	cctx->orig_args = cctx->args;
 
 	return cctx->command->func(cctx);
 }

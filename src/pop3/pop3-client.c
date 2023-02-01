@@ -8,6 +8,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "iostream-rawlog.h"
+#include "str-sanitize.h"
 #include "crc32.h"
 #include "str.h"
 #include "llist.h"
@@ -25,7 +26,8 @@
 #include <unistd.h>
 
 /* max. length of input command line (spec says 512) */
-#define MAX_INBUF_SIZE 2048
+#define POP3_RFC_MAX_LINE_LEN 512
+#define MAX_INBUF_SIZE (POP3_RFC_MAX_LINE_LEN*4)
 
 /* Disconnect client when it sends too many bad commands in a row */
 #define CLIENT_MAX_BAD_COMMANDS 20
@@ -741,15 +743,52 @@ void client_send_storage_error(struct client *client)
 	}
 }
 
+static void pop3_cmd_event_finished(struct pop3_command_context *cctx, int result)
+{
+	const char *human_args =
+		str_sanitize(cctx->orig_args, POP3_RFC_MAX_LINE_LEN);
+	const char *cmd_name;
+
+	event_set_name(cctx->event, "pop3_command_finished");
+	if (cctx->command != NULL)
+		cmd_name = t_str_ucase(cctx->command->name);
+	else
+		cmd_name = "unknown";
+	event_add_str(cctx->event, "cmd_name", cmd_name);
+	event_add_str(cctx->event, "cmd_args", human_args);
+	event_add_str(cctx->event, "cmd_input_name",
+		      str_sanitize(cctx->orig_command, POP3_RFC_MAX_LINE_LEN));
+	if (result > 0)
+		event_add_str(cctx->event, "reply_state", "OK");
+	else
+		event_add_str(cctx->event, "reply_state", "ERR");
+
+	uint64_t in = i_stream_get_absolute_offset(cctx->client->input) -
+		cctx->stats.bytes_in;
+	uint64_t out = cctx->client->output->offset - cctx->stats.bytes_out;
+
+	event_add_int(cctx->event, "net_in_bytes", in);
+	event_add_int(cctx->event, "net_out_bytes", out);
+
+	e_debug(cctx->event, "Command finished: %s %s", cmd_name, human_args);
+	event_unref(&cctx->event);
+}
+
 bool client_handle_input(struct client *client)
 {
 	char *line, *args;
+	uint64_t in_pos = i_stream_get_absolute_offset(client->input);
 
 	o_stream_cork(client->output);
 	while (!client->output->closed &&
 	       (line = i_stream_next_line(client->input)) != NULL) {
 		struct pop3_command_context cctx = {
 			.client = client,
+			.event = event_create(client->event),
+			.stats = {
+				.bytes_in = in_pos,
+				.bytes_out = client->output->offset,
+			},
 		};
 		int result;
 		args = strchr(line, ' ');
@@ -757,7 +796,9 @@ bool client_handle_input(struct client *client)
 			*args++ = '\0';
 
 		cctx.command = pop3_command_find(line);
+		cctx.orig_command = line;
 		cctx.args = args != NULL ? args : "";
+		cctx.orig_args = cctx.args;
 		if (cctx.command == NULL) {
 			client_send_line(client, "-ERR Unknown command: %s", line);
 			result = -1;
@@ -771,6 +812,7 @@ bool client_handle_input(struct client *client)
 			event_reason_end(&reason);
 		} T_END;
 		/* send event */
+		pop3_cmd_event_finished(&cctx, result);
 		if (result >= 0) {
 			client->bad_counter = 0;
 			if (client->cmd != NULL) {
@@ -783,6 +825,7 @@ bool client_handle_input(struct client *client)
 			client_send_line(client, "-ERR Too many bad commands.");
 			client_disconnect(client, "Too many bad commands.");
 		}
+		in_pos = i_stream_get_absolute_offset(client->input);
 	}
 	o_stream_uncork(client->output);
 
