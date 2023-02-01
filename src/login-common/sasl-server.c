@@ -367,6 +367,8 @@ authenticate_callback(struct auth_client_request *request,
 				nologin = TRUE;
 			} else if (strcmp(key, "anonymous") == 0) {
 				client->auth_anonymous = TRUE;
+			} else if (str_begins(args[i], "event_", &key)) {
+				event_add_str(client->event_auth, key, value);
 			} else if (login_binary->sasl_support_final_reply &&
 				   strcmp(key, "resp") == 0) {
 				client->sasl_final_resp =

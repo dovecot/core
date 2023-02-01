@@ -206,6 +206,9 @@ static bool client_auth_parse_args(const struct client *client, bool success,
 			}
 		} else if (str_begins_with(key, "forward_")) {
 			/* these are passed to upstream */
+		} else if (str_begins(key, "event_", &key)) {
+			/* add key to event */
+			event_add_str(client->event_auth, key, value);
 		} else
 			e_debug(client->event_auth,
 				"Ignoring unknown passdb extra field: %s", key);

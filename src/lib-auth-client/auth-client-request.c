@@ -6,6 +6,7 @@
 #include "strescape.h"
 #include "ostream.h"
 #include "auth-client-private.h"
+#include "strfuncs.h"
 
 static void auth_server_send_new_request(struct auth_client_connection *conn,
 					 struct auth_client_request *request,
@@ -328,8 +329,16 @@ void auth_client_request_server_input(struct auth_client_request *request,
 	}
 
 	for (tmp = args; *tmp != NULL; tmp++) {
-		(void)str_begins(*tmp, "resp=", &base64_data);
-		args_parse_user(request, *tmp);
+		const char *key;
+		const char *value;
+		t_split_key_value_eq(*tmp, &key, &value);
+		if (str_begins(key, "event_", &key)) {
+			event_add_str(request->event, key, value);
+		} else if (strcmp(key, "resp") == 0) {
+			base64_data = value;
+		} else {
+			args_parse_user(request, *tmp);
+		}
 	}
 
 	switch (status) {
