@@ -790,8 +790,10 @@ int main(int argc, char *argv[])
 	int i, c;
 
 #ifdef DEBUG
-	if (getenv("GDB") == NULL)
-		fd_debug_verify_leaks(3, 1024);
+	if (getenv("GDB") == NULL) {
+		fd_debug_verify_leaks(3, MASTER_CONFIG_FD - 1);
+		fd_debug_verify_leaks(MASTER_CONFIG_FD + 1, 1024);
+	}
 #endif
 	/* drop -- prefix from all --args. ugly, but the only way that it
 	   works with standard getopt() in all OSes.. */
