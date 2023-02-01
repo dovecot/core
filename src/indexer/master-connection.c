@@ -120,7 +120,7 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 		if (mail_precache(mail) < 0) {
 			e_error(index_event, "Precache for UID=%u failed: %s%s",
 				mail->uid,
-				mailbox_get_last_internal_error(box, NULL),
+				mail_get_last_internal_error(mail, NULL),
 				get_attempt_error(counter, first_uid, last_uid));
 			ret = -1;
 			break;

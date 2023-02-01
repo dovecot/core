@@ -83,7 +83,7 @@ static int cmd_index_box_precache(struct doveadm_mail_cmd_context *dctx,
 			e_error(event,
 				"Mailbox %s: Precache for UID=%u failed: %s",
 				mailbox_get_vname(box), mail->uid,
-				mailbox_get_last_internal_error(box, NULL));
+				mail_get_last_internal_error(mail, NULL));
 			ret = -1;
 			break;
 		}

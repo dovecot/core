@@ -1351,7 +1351,7 @@ enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
 
 	if (quota_get_mail_size(ctx, mail, &size) < 0) {
 		enum mail_error err;
-		error = mailbox_get_last_internal_error(mail->box, &err);
+		error = mail_get_last_internal_error(mail, &err);
 
 		if (err == MAIL_ERROR_EXPUNGED) {
 			/* mail being copied was already expunged. it'll fail,

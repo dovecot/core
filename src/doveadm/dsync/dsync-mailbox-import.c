@@ -1930,7 +1930,7 @@ dsync_mailbox_import_local_uid(struct dsync_mailbox_importer *importer,
 	/* NOTE: Errors are logged, but they don't cause the entire import
 	   to fail. */
 	if (dsync_mail_fill(mail, TRUE, dmail_r, &error_field) < 0) {
-		errstr = mailbox_get_last_internal_error(mail->box, &error);
+		errstr = mail_get_last_internal_error(mail, &error);
 		if (error == MAIL_ERROR_EXPUNGED)
 			return 0;
 

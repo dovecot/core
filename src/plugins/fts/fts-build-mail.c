@@ -591,7 +591,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 		if (mail->expunged)
 			return 0;
 		mail_set_critical(mail, "Failed to read stream: %s",
-			mailbox_get_last_internal_error(mail->box, NULL));
+			mail_get_last_internal_error(mail, NULL));
 		return -1;
 	}
 

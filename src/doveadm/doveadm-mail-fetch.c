@@ -638,7 +638,7 @@ static int cmd_fetch_mail(struct fetch_cmd_context *ctx)
 				field->name, mailbox_get_vname(mail->box),
 				mail->uid,
 				ctx->print_error != NULL ? ctx->print_error :
-				mailbox_get_last_internal_error(mail->box, NULL));
+				mail_get_last_internal_error(mail, NULL));
 			doveadm_mail_failed_mailbox(&ctx->ctx, mail->box);
 			ctx->print_error = NULL;
 			ret = -1;

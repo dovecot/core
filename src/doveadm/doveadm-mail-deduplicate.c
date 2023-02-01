@@ -39,7 +39,7 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 	while (doveadm_mail_iter_next(iter, &mail)) {
 		if (ctx->by_msgid) {
 			if (mail_get_first_header(mail, "Message-ID", &key) < 0) {
-				errstr = mailbox_get_last_internal_error(mail->box, &error);
+				errstr = mail_get_last_internal_error(mail, &error);
 				if (error == MAIL_ERROR_NOTFOUND)
 					continue;
 				e_error(ctx->ctx.cctx->event,
@@ -51,7 +51,7 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 			}
 		} else {
 			if (mail_get_special(mail, MAIL_FETCH_GUID, &key) < 0) {
-				errstr = mailbox_get_last_internal_error(mail->box, &error);
+				errstr = mail_get_last_internal_error(mail, &error);
 				if (error == MAIL_ERROR_NOTFOUND)
 					continue;
 				e_error(ctx->ctx.cctx->event,
