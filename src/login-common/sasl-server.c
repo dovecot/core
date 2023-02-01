@@ -360,6 +360,14 @@ authenticate_callback(struct auth_client_request *request,
 				nologin = TRUE;
 			} else if (strcmp(args[i], "anonymous") == 0 ) {
 				client->auth_anonymous = TRUE;
+			} else if (str_begins(args[i], "event_")) {
+				const char *key = args[i] + 6;
+				const char *value = strchr(key, '=');
+				if (value != NULL) {
+					event_add_str(client->event,
+						      t_strdup_until(key, value),
+						      value+1);
+				}
 			} else if (str_begins(args[i], "resp=") &&
 				   login_binary->sasl_support_final_reply) {
 				client->sasl_final_resp =

@@ -318,6 +318,13 @@ void auth_client_request_server_input(struct auth_client_request *request,
 	for (tmp = args; *tmp != NULL; tmp++) {
 		if (str_begins(*tmp, "resp=")) {
 			base64_data = *tmp + 5;
+		} else if (str_begins(*tmp, "event_")) {
+			const char *key = *tmp + 6;
+			const char *value = strchr(key, '=');
+			if (value != NULL) {
+				event_add_str(request->event,
+					      t_strdup_until(key, value), value+1);
+			}
 		}
 		args_parse_user(request, *tmp);
 	}
