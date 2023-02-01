@@ -45,6 +45,14 @@
    fun:module_dir_init
 }
 {
+   <openssl_jammy_v3_0_2_EVP_DecryptFinal_ex>
+   Memcheck:Cond
+   obj:*libcrypto.so*
+   ...
+   fun:EVP_DecryptFinal_ex
+   ...
+}
+{
    <libunwind_backtrace>
    Memcheck:Param
    msync(start)
