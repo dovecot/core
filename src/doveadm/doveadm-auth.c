@@ -441,16 +441,20 @@ login_server_auth_callback(const char *const *auth_args,
 			   const char *errormsg, void *context)
 {
 	struct authtest_input *input = context;
-	unsigned int i;
 
 	io_loop_stop(current_ioloop);
 	if (errormsg != NULL) {
 		e_error(input->event, "userdb lookup failed: %s", errormsg);
 		return;
 	}
-	printf("userdb extra fields:\n");
-	for (i = 0; auth_args[i] != NULL; i++)
-		printf("  %s\n", auth_args[i]);
+
+	if (*auth_args != NULL) {
+		printf("userdb user: %s\n", *auth_args++);
+		printf("userdb extra fields:\n");
+		while (*auth_args != NULL)
+			printf("  %s\n", *auth_args++);
+	}
+
 	input->success = TRUE;
 }
 
