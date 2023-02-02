@@ -171,11 +171,8 @@ auth_str_append_extra_fields(struct auth_request *request, string_t *dest)
 {
 	const struct auth_request_fields *fields = &request->fields;
 
-	if (!auth_fields_is_empty(fields->extra_fields)) {
-		str_append_c(dest, '\t');
-		auth_fields_append(fields->extra_fields, dest,
-				   AUTH_FIELD_FLAG_HIDDEN, 0);
-	}
+	auth_fields_append(fields->extra_fields, dest,
+			   AUTH_FIELD_FLAG_HIDDEN, 0, TRUE);
 
 	if (fields->original_username != NULL &&
 	    null_strcmp(fields->original_username, fields->user) != 0 &&
@@ -732,9 +729,8 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 static void auth_str_append_userdb_extra_fields(struct auth_request *request,
 						string_t *dest)
 {
-	str_append_c(dest, '\t');
 	auth_fields_append(request->fields.userdb_reply, dest,
-			   AUTH_FIELD_FLAG_HIDDEN, 0);
+			   AUTH_FIELD_FLAG_HIDDEN, 0, TRUE);
 
 	if (request->fields.master_user != NULL &&
 	    !auth_fields_exists(request->fields.userdb_reply, "master_user")) {

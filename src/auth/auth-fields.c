@@ -162,11 +162,11 @@ const ARRAY_TYPE(auth_field) *auth_fields_export(struct auth_fields *fields)
 
 void auth_fields_append(struct auth_fields *fields, string_t *dest,
 			enum auth_field_flags flags_mask,
-			enum auth_field_flags flags_result)
+			enum auth_field_flags flags_result,
+			bool prefix_with_tab)
 {
 	const struct auth_field *f;
 	unsigned int i, count;
-	bool first = TRUE;
 
 	if (!array_is_created(&fields->fields))
 		return;
@@ -176,10 +176,10 @@ void auth_fields_append(struct auth_fields *fields, string_t *dest,
 		if ((f[i].flags & flags_mask) != flags_result)
 			continue;
 
-		if (first)
-			first = FALSE;
-		else
+		if (prefix_with_tab)
 			str_append_c(dest, '\t');
+		else
+			prefix_with_tab = TRUE;
 		str_append(dest, f[i].key);
 		str_append_c(dest, '=');
 		str_append_tabescaped(dest, f[i].value);

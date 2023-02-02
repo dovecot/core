@@ -297,9 +297,8 @@ user_callback(enum userdb_result result,
 	case USERDB_RESULT_OK:
 		str_printfa(str, "USER\t%u\t", auth_request->id);
 		str_append_tabescaped(str, auth_request->fields.user);
-		str_append_c(str, '\t');
 		auth_fields_append(auth_request->fields.userdb_reply, str,
-				   AUTH_FIELD_FLAG_HIDDEN, 0);
+				   AUTH_FIELD_FLAG_HIDDEN, 0, TRUE);
 		break;
 	}
 
@@ -349,11 +348,8 @@ static void pass_callback_finish(struct auth_request *auth_request,
 		}
 		str_printfa(str, "PASS\t%u\tuser=", auth_request->id);
 		str_append_tabescaped(str, auth_request->fields.user);
-		if (!auth_fields_is_empty(auth_request->fields.extra_fields)) {
-			str_append_c(str, '\t');
-			auth_fields_append(auth_request->fields.extra_fields,
-					   str, AUTH_FIELD_FLAG_HIDDEN, 0);
-		}
+		auth_fields_append(auth_request->fields.extra_fields, str,
+				   AUTH_FIELD_FLAG_HIDDEN, 0, TRUE);
 		break;
 	case PASSDB_RESULT_USER_UNKNOWN:
 	case PASSDB_RESULT_USER_DISABLED:

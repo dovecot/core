@@ -471,16 +471,12 @@ static void auth_request_save_cache(struct auth_request *request,
 		str_append_tabescaped(str, request->passdb_password);
 	}
 
-	if (!auth_fields_is_empty(request->fields.extra_fields)) {
-		str_append_c(str, '\t');
-		/* add only those extra fields to cache that were set by this
-		   passdb lookup. the CHANGED flag does this, because we
-		   snapshotted the extra_fields before the current passdb
-		   lookup. */
-		auth_fields_append(request->fields.extra_fields, str,
-				   AUTH_FIELD_FLAG_CHANGED,
-				   AUTH_FIELD_FLAG_CHANGED);
-	}
+	/* add only those extra fields to cache that were set by this passdb
+	   lookup. the CHANGED flag does this, because we snapshotted the
+	   extra_fields before the current passdb lookup. */
+	auth_fields_append(request->fields.extra_fields, str,
+			   AUTH_FIELD_FLAG_CHANGED, AUTH_FIELD_FLAG_CHANGED,
+			   TRUE);
 	auth_cache_insert(passdb_cache, request, passdb->cache_key, str_c(str),
 			  result == PASSDB_RESULT_OK);
 }
@@ -1332,8 +1328,8 @@ static void auth_request_userdb_save_cache(struct auth_request *request,
 	else {
 		str = t_str_new(128);
 		auth_fields_append(request->fields.userdb_reply, str,
-				   AUTH_FIELD_FLAG_CHANGED,
-				   AUTH_FIELD_FLAG_CHANGED);
+				   AUTH_FIELD_FLAG_CHANGED, AUTH_FIELD_FLAG_CHANGED,
+				   FALSE);
 		if (request->user_changed_by_lookup) {
 			/* username was changed by passdb or userdb */
 			if (str_len(str) > 0)

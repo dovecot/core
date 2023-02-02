@@ -192,15 +192,11 @@ static void auth_worker_send_reply(struct auth_worker_server *server,
 static void
 reply_append_extra_fields(string_t *str, struct auth_request *request)
 {
-	if (!auth_fields_is_empty(request->fields.extra_fields)) {
-		str_append_c(str, '\t');
-		/* export only the fields changed by this lookup, so the
-		   changed-flag gets preserved correctly on the master side as
-		   well. */
-		auth_fields_append(request->fields.extra_fields, str,
-				   AUTH_FIELD_FLAG_CHANGED,
-				   AUTH_FIELD_FLAG_CHANGED);
-	}
+	/* export only the fields changed by this lookup, so the changed-flag
+	   gets preserved correctly on the master side as well. */
+	auth_fields_append(request->fields.extra_fields, str,
+			   AUTH_FIELD_FLAG_CHANGED, AUTH_FIELD_FLAG_CHANGED,
+			   TRUE);
 	if (request->fields.userdb_reply != NULL &&
 	    auth_fields_is_empty(request->fields.userdb_reply)) {
 		/* all userdb_* fields had NULL values. we'll still
@@ -513,11 +509,10 @@ lookup_user_callback(enum userdb_result result,
 		str_append(str, "OK\t");
 		if (auth_request->user_changed_by_lookup)
 			str_append_tabescaped(str, auth_request->fields.user);
-		str_append_c(str, '\t');
 		/* export only the fields changed by this lookup */
 		auth_fields_append(auth_request->fields.userdb_reply, str,
-				   AUTH_FIELD_FLAG_CHANGED,
-				   AUTH_FIELD_FLAG_CHANGED);
+				   AUTH_FIELD_FLAG_CHANGED, AUTH_FIELD_FLAG_CHANGED,
+				   TRUE);
 		if (auth_request->userdb_lookup_tempfailed)
 			str_append(str, "\ttempfail");
 		break;
