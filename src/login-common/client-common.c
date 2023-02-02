@@ -354,9 +354,11 @@ void client_disconnect(struct client *client, const char *reason,
 		return;
 	client->disconnected = TRUE;
 
-	if (!client->login_success && reason != NULL) {
+	if (reason == NULL) {
+		/* proxying started */
+	} else if (!client->login_success) {
 		login_aborted_event(client, reason, add_disconnected_prefix);
-	} else if (reason != NULL) {
+	} else {
 		client_disconnected_log(client->login_proxy == NULL ?
 					client->event :
 					login_proxy_get_event(client->login_proxy),
