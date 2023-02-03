@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "safe-mkstemp.h"
-#include "fs-api.h"
 #include "istream.h"
 #include "ostream.h"
 #include "base64.h"
