@@ -142,9 +142,12 @@ static int set_line(struct mail_storage_service_ctx *ctx,
 	size_t len;
 	int ret;
 
-	if (strchr(line, '=') == NULL)
-		line = t_strconcat(line, "=yes", NULL);
 	orig_key = key = t_strcut(line, '=');
+
+	/* Ignore empty keys (and lines) rather than prepend 'plugin/=' to them.
+	   Also, prevent emtpy lines from crashing later in settings_parse_line() */
+	if (*key == '\0')
+		return 1;
 
 	len = strlen(key);
 	if (len > 0 && key[len-1] == '+') {
