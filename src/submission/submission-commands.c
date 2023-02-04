@@ -338,6 +338,12 @@ cmd_burl_fetch_cb(struct imap_urlauth_fetch_reply *reply,
 	struct smtp_server_cmd_ctx *cmd = burl_cmd->cmd;
 	int ret;
 
+	if (burl_cmd->chunk_added) {
+		/* We returned 0 in earlier callback. This is just
+		   the abort of the pending request. */
+		return 1;
+	}
+
 	i_assert(last);
 
 	if (reply == NULL) {
