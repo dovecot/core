@@ -670,6 +670,8 @@ imap_urlauth_connection_read_literal(struct imap_urlauth_connection *conn)
 	if (callback != NULL) T_BEGIN {
 		ret = callback(&reply, urlreq->context);
 	} T_END;
+	if (ret == 0)
+		urlreq->callback = callback;
 
 	if (reply.input != NULL)
 		i_stream_unref(&reply.input);
