@@ -316,6 +316,7 @@ struct cmd_burl_context {
 	struct imap_urlauth_fetch *urlauth_fetch;
 	struct imap_msgpart_url *url_fetch;
 
+	bool chunk_added:1;
 	bool chunk_last:1;
 };
 
@@ -364,6 +365,7 @@ cmd_burl_fetch_cb(struct imap_urlauth_fetch_reply *reply,
 		reply->input, reply->size, burl_cmd->chunk_last, FALSE);
 	if (ret < 0)
 		return -1;
+	burl_cmd->chunk_added = TRUE;
 
 	/* Command is likely not yet complete at this point, so return 0 */
 	return 0;
@@ -379,6 +381,7 @@ cmd_burl_fetch_trusted(struct cmd_burl_context *burl_cmd,
 	in_port_t host_port = client->set->imap_urlauth_port;
 	struct imap_msgpart_open_result result;
 	const char *error;
+	int ret;
 
 	/* validate host */
 	if (imap_url->host.name == NULL ||
@@ -413,8 +416,13 @@ cmd_burl_fetch_trusted(struct cmd_burl_context *burl_cmd,
 		return -1;
 	}
 
-	return smtp_server_connection_data_chunk_add(cmd,
+	ret = smtp_server_connection_data_chunk_add(cmd,
 		result.input, result.size, burl_cmd->chunk_last, FALSE);
+	if (ret < 0)
+		return -1;
+	burl_cmd->chunk_added = TRUE;
+
+	return 0;
 }
 
 static int
