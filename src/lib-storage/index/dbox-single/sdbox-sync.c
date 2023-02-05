@@ -279,8 +279,8 @@ int sdbox_sync_finish(struct sdbox_sync_context **_ctx, bool success)
 			ret = -1;
 		} else {
 			dbox_sync_expunge_files(ctx);
-			mail_index_view_close(&ctx->sync_view);
 		}
+		mail_index_view_close(&ctx->sync_view);
 	} else {
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
