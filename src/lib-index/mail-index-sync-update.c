@@ -1048,7 +1048,8 @@ int mail_index_sync_map(struct mail_index_map **_map,
 	   over following external transactions to avoid extra unneeded log
 	   reading. */
 	i_assert(map->hdr.log_file_seq == index->log->head->hdr.file_seq);
-	if (map->hdr.log_file_tail_offset < index->log->head->max_tail_offset) {
+	if (ret == 0 &&
+	    map->hdr.log_file_tail_offset < index->log->head->max_tail_offset) {
 		map->hdr.log_file_tail_offset =
 			index->log->head->max_tail_offset;
 	}
