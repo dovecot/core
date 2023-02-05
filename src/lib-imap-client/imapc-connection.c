@@ -1727,8 +1727,10 @@ static int imapc_connection_connected(struct imapc_connection *conn)
 				    conn);
 
 	if (conn->client->set.ssl_mode == IMAPC_CLIENT_SSL_MODE_IMMEDIATE) {
-		if (imapc_connection_ssl_init(conn) < 0)
+		if (imapc_connection_ssl_init(conn) < 0) {
 			imapc_connection_disconnect(conn);
+			return -1;
+		}
 	}
 	return imapc_connection_output(conn);
 }
