@@ -84,10 +84,6 @@ static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
 		return log_buffer_move_to_memory(ctx);
 	}
 
-	i_assert(!ctx->sync_includes_this ||
-		 file->sync_offset + ctx->output->used ==
-		 file->max_tail_offset);
-
 	if ((ctx->want_fsync &&
 	     file->log->index->set.fsync_mode != FSYNC_MODE_NEVER) ||
 	    file->log->index->set.fsync_mode == FSYNC_MODE_ALWAYS) {
@@ -110,6 +106,8 @@ static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
 			      ctx->output->used);
 	}
 	file->sync_offset += ctx->output->used;
+	if (ctx->sync_includes_this)
+		file->max_tail_offset = file->sync_offset;
 	return 0;
 }
 
@@ -123,6 +121,7 @@ log_append_sync_offset_if_needed(struct mail_transaction_log_append_ctx *ctx)
 	buffer_t buf;
 	unsigned char update_data[sizeof(*u) + sizeof(offset)];
 
+	offset = file->max_tail_offset;
 	if (!ctx->index_sync_transaction) {
 		/* this is a non-syncing transaction. update the tail offset
 		   only if we're already writing something else to transaction
@@ -148,7 +147,7 @@ log_append_sync_offset_if_needed(struct mail_transaction_log_append_ctx *ctx)
 		   can't rely on this. then write non-changed offset + check
 		   real offset + rewrite the new offset if other transactions
 		   weren't written in the middle */
-		file->max_tail_offset += ctx->output->used +
+		offset = file->max_tail_offset + ctx->output->used +
 			sizeof(*hdr) + sizeof(*u) + sizeof(offset);
 		ctx->sync_includes_this = TRUE;
 	} else {
@@ -156,7 +155,6 @@ log_append_sync_offset_if_needed(struct mail_transaction_log_append_ctx *ctx)
 		   we may need to update the tail offset even if we don't have
 		   anything else to do. */
 	}
-	offset = file->max_tail_offset;
 
 	if (file->last_read_hdr_tail_offset == offset)
 		return;
