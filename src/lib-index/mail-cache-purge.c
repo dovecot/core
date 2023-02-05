@@ -392,17 +392,21 @@ mail_cache_purge_write(struct mail_cache *cache,
 
 	if (mail_cache_copy(cache, trans, event, fd, reason,
 			    &file_seq, &file_size, &max_uid,
-			    &ext_first_seq, &ext_offsets) < 0)
+			    &ext_first_seq, &ext_offsets) < 0) {
+		event_unref(&event);
 		return -1;
+	}
 
 	if (fstat(fd, &st) < 0) {
 		mail_cache_set_syscall_error(cache, "fstat()");
 		array_free(&ext_offsets);
+		event_unref(&event);
 		return -1;
 	}
 	if (rename(temp_path, cache->filepath) < 0) {
 		mail_cache_set_syscall_error(cache, "rename()");
 		array_free(&ext_offsets);
+		event_unref(&event);
 		return -1;
 	}
 
