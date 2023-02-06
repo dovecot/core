@@ -8,6 +8,7 @@
 #include "array.h"
 #include "sha1.h"
 #include "hex-binary.h"
+#include "strescape.h"
 #include "auth.h"
 #include "passdb.h"
 #include "userdb.h"
@@ -472,6 +473,19 @@ static void auth_lua_export_table(lua_State *L, struct auth_request *req,
 	lua_pushnil(L);
 	while (lua_next(L, -2) != 0) {
 		const char *key = t_strdup(lua_tostring(L, -2));
+		if (*key == '\0') {
+			e_warning(authdb_event(req),
+				  "db-lua: Field key cannot be empty - ignoring");
+			lua_pop(L, 1);
+			continue;
+		}
+		if (strpbrk(key, "\t\n\r") != NULL) {
+			e_warning(authdb_event(req),
+				  "db-lua: Field key cannot contain <CR>, <LF> or <TAB> - ignoring");
+			lua_pop(L, 1);
+			continue;
+		}
+
 		const char *value;
 		int type = lua_type(L, -1);
 		switch(type) {
@@ -491,10 +505,12 @@ static void auth_lua_export_table(lua_State *L, struct auth_request *req,
 			e_warning(authdb_event(req),
 				  "db-lua: '%s' has invalid value type %s - ignoring",
 				  key, lua_typename(L, -1));
-			value = "";
+			value = NULL;
 		}
 
-		if (password_r != NULL && strcmp(key, "password") == 0) {
+		if (value == NULL) {
+			/* do not add */
+		} else if (password_r != NULL && strcmp(key, "password") == 0) {
 			*scheme_r = password_get_scheme(&value);
 			*password_r = value;
 		} else if (req->userdb_lookup) {
