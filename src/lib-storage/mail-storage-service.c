@@ -97,7 +97,7 @@ struct module *mail_storage_service_modules = NULL;
 static void set_keyval(struct mail_storage_service_user *user,
 		       const char *key, const char *value)
 {
-	struct setting_parser_context *set_parser = user->set_parser;
+	const char *error;
 
 	if (master_service_set_has_config_override(user->service_ctx->service, key)) {
 		/* this setting was already overridden with -o parameter */
@@ -107,10 +107,8 @@ static void set_keyval(struct mail_storage_service_user *user,
 		return;
 	}
 
-	if (settings_parse_keyvalue(set_parser, key, value) < 0) {
-		i_fatal("Invalid userdb input %s=%s: %s", key, value,
-			settings_parser_get_error(set_parser));
-	}
+	if (mail_storage_service_user_set_setting(user, key, value, &error) < 0)
+		i_fatal("Invalid userdb input %s=%s: %s", key, value, error);
 }
 
 static int set_keyvalue(struct mail_storage_service_ctx *ctx,
@@ -158,11 +156,9 @@ static int set_keyvalue(struct mail_storage_service_ctx *ctx,
 		value = t_strconcat(*strp, append_value, NULL);
 	}
 
-	ret = settings_parse_keyvalue(set_parser, key, value);
-	if (ret < 0) {
-		*error_r = settings_parser_get_error(set_parser);
+	ret = mail_storage_service_user_set_setting(user, key, value, error_r);
+	if (ret < 0)
 		return -1;
-	}
 	if (strstr(key, "pass") != NULL) {
 		/* possibly a password field (e.g. imapc_password).
 		   hide the value. */
@@ -1317,8 +1313,10 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	var_expand_ctx.input = &user->input;
 	var_expand_ctx.user = user;
 
-	if ((flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0)
-		(void)settings_parse_line(user->set_parser, "mail_debug=yes");
+	if ((flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0) {
+		if (mail_storage_service_user_set_setting(user, "mail_debug", "yes", &error) <= 0)
+			i_unreached();
+	}
 
 	if (userdb_fields != NULL) {
 		int ret2 = auth_user_fields_parse(userdb_fields, temp_pool,
@@ -1345,7 +1343,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		   fine that extra plugins are loaded - we'll just need to
 		   prevent any of their hooks from being called. One easy way
 		   to do this is just to clear out the mail_plugins setting: */
-		(void)settings_parse_line(user->set_parser, "mail_plugins=");
+		if (mail_storage_service_user_set_setting(user, "mail_plugins", "", &error) <= 0)
+			i_unreached();
 	}
 	if (ret > 0) {
 		mail_storage_service_update_chroot(user);
