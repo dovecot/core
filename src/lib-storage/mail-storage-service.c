@@ -1037,7 +1037,9 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 		return -1;
 	}
 	ctx->settings_looked_up = TRUE;
-	*parser_r = ctx->service->set_parser;
+	pool_t pool = pool_alloconly_create("mail storage service settings pool", 1024);
+	*parser_r = settings_parser_dup(ctx->service->set_parser, pool);
+	pool_unref(&pool);
 	return 0;
 }
 
@@ -1194,15 +1196,17 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		mail_storage_service_seteuid_root();
 	}
 
-	if (input->set_parser != NULL)
-		set_parser = input->set_parser;
-	else if (mail_storage_service_read_settings(ctx, input,
+	pool_t user_pool = pool_alloconly_create(MEMPOOL_GROWING"mail storage service user", 1024*6);
+	if (input->set_parser != NULL) {
+		set_parser = settings_parser_dup(input->set_parser, user_pool);
+	} else if (mail_storage_service_read_settings(ctx, input,
 						    &set_parser, error_r) < 0) {
 		if (ctx->config_permission_denied) {
 			/* just restart and maybe next time we will open the
 			   config socket before dropping privileges */
 			i_fatal("%s", *error_r);
 		}
+		pool_unref(&user_pool);
 		return -1;
 	}
 
@@ -1236,7 +1240,9 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	if (master_service_settings_parser_get(event, set_parser,
 					       &mail_user_setting_parser_info,
 					       0, &user_set, error_r) < 0) {
+		pool_unref(&user_pool);
 		event_unref(&event);
+		settings_parser_unref(&set_parser);
 		return -1;
 	}
 
@@ -1248,7 +1254,9 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	/* load global plugins */
 	if (mail_storage_service_load_modules(ctx, user_set, error_r) < 0) {
 		master_service_settings_free(user_set);
+		pool_unref(&user_pool);
 		event_unref(&event);
+		settings_parser_unref(&set_parser);
 		return -1;
 	}
 
@@ -1258,7 +1266,6 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	event_set_forced_debug(event,
 		ctx->debug || (flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0);
 
-	pool_t user_pool = pool_alloconly_create(MEMPOOL_GROWING"mail storage service user", 1024*6);
 	const char *session_id = input->session_id != NULL ?
 		p_strdup(user_pool, input->session_id) :
 		mail_storage_service_generate_session_id(
@@ -1283,6 +1290,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 			event_unref(&event);
 			pool_unref(&temp_pool);
 			pool_unref(&user_pool);
+			settings_parser_unref(&set_parser);
 			return ret;
 		}
 		event_add_str(event, "user", username);
@@ -1305,7 +1313,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	user->input.session_create_time = input->session_create_time;
 	user->flags = flags;
 
-	user->set_parser = settings_parser_dup(set_parser, user_pool);
+	user->set_parser = set_parser;
 	user->user_set = user_set;
 	user->gid_source = "mail_gid setting";
 	user->uid_source = "mail_uid setting";
@@ -1618,6 +1626,7 @@ void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
 			&user_set, &error) < 0)
 		i_fatal("%s", error);
+	settings_parser_unref(&set_parser);
 
 	mail_storage_service_first_init(ctx, user_set, ctx->flags);
 	master_service_settings_free(user_set);

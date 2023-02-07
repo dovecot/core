@@ -321,6 +321,7 @@ static void main_init(void)
 	value = mail_user_set_plugin_getenv(mail_set, "quota_status_nouser");
 	nouser_reply = i_strdup(value != NULL ? value : "REJECT Unknown user");
 	master_service_settings_free(mail_set);
+	settings_parser_unref(&set_parser);
 }
 
 static void main_deinit(void)
