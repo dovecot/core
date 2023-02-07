@@ -151,9 +151,6 @@ const char *settings_parser_get_error(struct setting_parser_context *ctx);
 const struct setting_parser_info *
 settings_parse_get_prev_info(struct setting_parser_context *ctx);
 
-/* Returns TRUE if the given key is a valid setting. */
-bool settings_parse_is_valid_key(struct setting_parser_context *ctx,
-				 const char *key);
 /* If key is an alias, return the primary key name. If key exists, return key
    itself. If key doesn't exist, return NULL. */
 const char *settings_parse_unalias(struct setting_parser_context *ctx,

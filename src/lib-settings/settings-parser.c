@@ -717,15 +717,6 @@ int settings_parse_keyvalue(struct setting_parser_context *ctx,
 	return 1;
 }
 
-bool settings_parse_is_valid_key(struct setting_parser_context *ctx,
-				 const char *key)
-{
-	const struct setting_define *def;
-	struct setting_link *link;
-
-	return settings_find_key(ctx, key, &def, &link);
-}
-
 const char *settings_parse_unalias(struct setting_parser_context *ctx,
 				   const char *key)
 {
