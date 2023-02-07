@@ -95,7 +95,6 @@ mail_user_alloc(struct mail_storage_service_user *service_user)
 	mail_storage_service_user_ref(service_user);
 	user->username = p_strdup(pool, username);
 	user->set_parser = service_user_set_parser;
-	settings_parser_ref(user->set_parser);
 	user->set = mail_storage_service_user_get_set(service_user);
 	user->service = master_service_get_name(master_service);
 	user->default_normalizer = uni_utf8_to_decomposed_titlecase;
@@ -233,7 +232,6 @@ void mail_user_unref(struct mail_user **_user)
 		user->v.deinit_pre(user);
 		user->v.deinit(user);
 	} T_END;
-	settings_parser_unref(&user->set_parser);
 	master_service_settings_free(user->_mail_set);
 	event_unref(&user->event);
 	i_assert(user->refcount == 1);
