@@ -528,17 +528,16 @@ master_service_init(const char *name, enum master_service_flags flags,
 	if ((flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
 		service->version_string = getenv(MASTER_DOVECOT_VERSION_ENV);
 		service->socket_count = 1;
+		/* listener configuration */
+		value = getenv("SOCKET_COUNT");
+		if (value != NULL && str_to_uint(value, &service->socket_count) < 0)
+			i_fatal("Invalid SOCKET_COUNT environment");
+		T_BEGIN {
+			master_service_init_socket_listeners(service);
+		} T_END;
 	} else {
 		service->version_string = PACKAGE_VERSION;
 	}
-
-	/* listener configuration */
-	value = getenv("SOCKET_COUNT");
-	if (value != NULL && str_to_uint(value, &service->socket_count) < 0)
-		i_fatal("Invalid SOCKET_COUNT environment");
-	T_BEGIN {
-		master_service_init_socket_listeners(service);
-	} T_END;
 
 	/* Load the SSL module if we already know it is necessary. It can also
 	   get loaded later on-demand. */
