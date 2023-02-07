@@ -118,6 +118,8 @@ static int set_keyvalue(struct mail_storage_service_ctx *ctx,
 {
 	struct setting_parser_context *set_parser = user->set_parser;
 	const char *append_value = NULL;
+	const void *old_value;
+	enum setting_type type;
 	size_t len;
 	int ret;
 
@@ -131,9 +133,11 @@ static int set_keyvalue(struct mail_storage_service_ctx *ctx,
 	if (*key == '\0')
 		return 1;
 
-	if (!settings_parse_is_valid_key(set_parser, key)) {
+	old_value = settings_parse_get_value(set_parser, key, &type);
+	if (old_value == NULL && !str_begins_with(key, "plugin/")) {
 		/* assume it's a plugin setting */
 		key = t_strconcat("plugin/", key, NULL);
+		old_value = settings_parse_get_value(set_parser, key, &type);
 	}
 
 	if (master_service_set_has_config_override(ctx->service, key)) {
@@ -144,10 +148,6 @@ static int set_keyvalue(struct mail_storage_service_ctx *ctx,
 	}
 
 	if (append_value != NULL) {
-		const void *old_value;
-		enum setting_type type;
-
-		old_value = settings_parse_get_value(set_parser, key, &type);
 		if (old_value == NULL || type != SET_STR) {
 			*error_r = "'+' can only be used for strings";
 			return -1;
