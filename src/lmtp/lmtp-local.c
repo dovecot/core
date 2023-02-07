@@ -438,7 +438,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 	struct smtp_proxy_data proxy_data;
 	struct mail_namespace *ns;
 	struct setting_parser_context *set_parser;
-	const char *line, *error, *username;
+	const char *error, *username;
 	int ret;
 
 	input = mail_storage_service_user_get_input(service_user);
@@ -464,10 +464,11 @@ lmtp_local_deliver(struct lmtp_local *local,
 		   advertised that it's going to timeout the connection.
 		   this avoids duplicate deliveries in case the delivery
 		   succeeds after the proxy has already disconnected from us. */
-		line = t_strdup_printf("mail_max_lock_timeout=%us",
+		const char *value = t_strdup_printf("%us",
 				       proxy_data.timeout_secs <= 1 ? 1 :
 				       proxy_data.timeout_secs-1);
-		if (settings_parse_line(set_parser, line) < 0)
+		if (mail_storage_service_user_set_setting(service_user,
+				"mail_max_lock_timeout", value, &error) <= 0)
 			i_unreached();
 	}
 	master_service_settings_free(mail_set);
