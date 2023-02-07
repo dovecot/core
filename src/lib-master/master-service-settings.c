@@ -962,9 +962,16 @@ master_service_settings_get_or_fatal(struct event *event,
 	return set;
 }
 
-int master_service_set(struct master_service *service, const char *line)
+int master_service_set(struct setting_parser_context *set_parser,
+		       const char *key, const char *value,
+		       const char **error_r)
 {
-	return settings_parse_line(service->set_parser, line);
+	int ret;
+
+	ret = settings_parse_keyvalue(set_parser, key, value);
+	if (ret <= 0)
+		*error_r = settings_parser_get_error(set_parser);
+	return ret;
 }
 
 bool master_service_set_has_config_override(struct master_service *service,

@@ -191,7 +191,11 @@ master_service_settings_get_or_fatal(struct event *event,
 		} \
 	} STMT_END
 
-int master_service_set(struct master_service *service, const char *line);
+/* Set key=value to settings parser. Returns 1 on success, 0 if key is unknown,
+   -1 on error. The error string is returned on <= 0. */
+int master_service_set(struct setting_parser_context *set_parser,
+		       const char *key, const char *value,
+		       const char **error_r);
 
 /* Returns TRUE if -o key=value parameter was used. Setting keys in overrides
    and parameter are unaliased before comparing. */
