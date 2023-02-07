@@ -187,6 +187,7 @@ client_create(int fd_in, int fd_out, struct event *event,
 		set->parsed_workarounds;
 	const struct mail_storage_settings *mail_set;
 	struct smtp_server_settings smtp_set;
+	struct smtp_server_connection *conn;
 	struct client *client;
 	pool_t pool;
 
@@ -231,11 +232,11 @@ client_create(int fd_in, int fd_out, struct event *event,
 
 	p_array_init(&client->module_contexts, client->pool, 5);
 
-	client->conn = smtp_server_connection_create(smtp_server,
+	conn = client->conn = smtp_server_connection_create(smtp_server,
 		fd_in, fd_out, user->conn.remote_ip, user->conn.remote_port,
 		FALSE, &smtp_set, &smtp_callbacks, client);
-	smtp_server_connection_set_proxy_data(client->conn, proxy_data);
-	smtp_server_connection_login(client->conn, client->user->username, helo,
+	smtp_server_connection_set_proxy_data(conn, proxy_data);
+	smtp_server_connection_login(conn, client->user->username, helo,
 				     pdata, pdata_len,
 				     user->conn.end_client_tls_secured);
 
@@ -263,14 +264,15 @@ client_create(int fd_in, int fd_out, struct event *event,
 
 	if (user->anonymous) {
 		smtp_server_connection_abort(
-			&client->conn, 534, "5.7.9",
+			&conn, 534, "5.7.9",
 			"Anonymous login is not allowed for submission");
+		client = NULL;
 	} else if (client->backend_capabilities_configured) {
 		client_apply_backend_capabilities(client);
-		smtp_server_connection_start(client->conn);
+		smtp_server_connection_start(conn);
 	} else {
 		submission_backend_start(client->backend_default);
-		smtp_server_connection_start_pending(client->conn);
+		smtp_server_connection_start_pending(conn);
 	}
 
 	submission_refresh_proctitle();
