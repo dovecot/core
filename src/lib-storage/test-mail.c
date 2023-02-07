@@ -495,14 +495,15 @@ static void test_mail_set_critical(void)
 		       "\n"
 		       "test body\n");
 
-	struct mailbox_transaction_context *trans =
-		mailbox_transaction_begin(box, 0, __func__);
-	struct mail *mail = mail_alloc(trans, 0, NULL);
-	mail_set_seq(mail, 1);
+	struct mail_private *pmail;
 	enum mail_error mail_error;
 	const char *last_internal_error;
 
 	test_begin("mail_set_critical (UID)");
+	struct mailbox_transaction_context *trans =
+		mailbox_transaction_begin(box, 0, __func__);
+	struct mail *mail = mail_alloc(trans, 0, NULL);
+	mail_set_seq(mail, 1);
 	mail->saving = FALSE;
 	test_expect_error_string("Mailbox INBOX: UID 1: Mail Error: uid=1, "
 				 "saving=false");
@@ -513,15 +514,38 @@ static void test_mail_set_critical(void)
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert_strcmp(last_internal_error,
 			   "Mail Error: uid=1, saving=false");
+	mail_free(&mail);
+	test_assert(mailbox_transaction_commit(&trans) == 0);
 	test_end();
 
-	test_begin("mail_set_critical (saving)");
-	mail->saving = TRUE;
-	struct mail_private *pmail =
-		container_of(mail, struct mail_private, mail);
+	test_begin("mail_set_critical (saving-prefix: no uid)");
+	trans = mailbox_transaction_begin(box, 0, __func__);
+	mail = mail_alloc(trans, 0, NULL);
+	pmail = container_of(mail, struct mail_private, mail);
 	event_unref(&pmail->_event);
-	test_expect_error_string("Mailbox INBOX: saving UID 1: Mail Error: "
-				 "uid=1, saving=true");
+	mail->saving = TRUE;
+	test_expect_error_string("Mailbox INBOX: Saving mail: Mail Error: "
+				 "uid=0, saving=true");
+	mail_set_critical(mail, "Mail Error: uid=%u, saving=%s", mail->uid,
+			  "true");
+	test_expect_no_more_errors();
+	last_internal_error = mail_get_last_internal_error(mail, &mail_error);
+	test_assert(mail_error == MAIL_ERROR_TEMP);
+	test_assert_strcmp(last_internal_error,
+			   "Mail Error: uid=0, saving=true");
+	mail_free(&mail);
+	test_assert(mailbox_transaction_commit(&trans) == 0);
+	test_end();
+
+	test_begin("mail_set_critical (saving-prefix: UID)");
+	trans = mailbox_transaction_begin(box, 0, __func__);
+	mail = mail_alloc(trans, 0, NULL);
+	mail_set_seq(mail, 1);
+	pmail = container_of(mail, struct mail_private, mail);
+	event_unref(&pmail->_event);
+	mail->saving = TRUE;
+	test_expect_error_string("Mailbox INBOX: Saving mail UID 1: "
+				 "Mail Error: uid=1, saving=true");
 	mail_set_critical(mail, "Mail Error: uid=%u, saving=%s", mail->uid,
 			  "true");
 	test_expect_no_more_errors();

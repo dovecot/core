@@ -139,9 +139,17 @@ void mail_event_create(struct mail *mail)
 
 	T_BEGIN {
 		char uid_buf[MAX_INT_STRLEN];
-		const char *prefix = t_strconcat(
-			p->mail.saving ? "saving UID " : "UID ",
-			dec2str_buf(uid_buf, p->mail.uid), ": ", NULL);
+		const char *prefix;
+		if (p->mail.uid == 0) {
+			i_assert(p->mail.saving);
+			prefix = "Saving mail: ";
+		} else {
+			prefix = t_strconcat(
+				p->mail.saving ? "Saving mail UID " : "UID ",
+				dec2str_buf(uid_buf, p->mail.uid),
+				": ",
+				NULL);
+		}
 		event_set_append_log_prefix(p->_event, prefix);
 	} T_END;
 }
