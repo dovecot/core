@@ -133,11 +133,11 @@ static int set_keyvalue(struct mail_storage_service_ctx *ctx,
 	if (*key == '\0')
 		return 1;
 
-	old_value = settings_parse_get_value(set_parser, key, &type);
+	old_value = master_service_settings_find(set_parser, key, &type);
 	if (old_value == NULL && !str_begins_with(key, "plugin/")) {
 		/* assume it's a plugin setting */
 		key = t_strconcat("plugin/", key, NULL);
-		old_value = settings_parse_get_value(set_parser, key, &type);
+		old_value = master_service_settings_find(set_parser, key, &type);
 	}
 
 	if (master_service_set_has_config_override(ctx->service, key)) {
@@ -1736,9 +1736,7 @@ int mail_storage_service_user_set_setting(struct mail_storage_service_user *user
 					  const char *value,
 					  const char **error_r)
 {
-	int ret = settings_parse_keyvalue(user->set_parser, key, value);
-	*error_r = settings_parser_get_error(user->set_parser);
-	return ret;
+	return master_service_set(user->set_parser, key, value, error_r);
 }
 
 const char *
