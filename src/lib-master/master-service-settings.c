@@ -36,6 +36,10 @@ struct master_settings_mmap {
 	size_t mmap_size;
 };
 
+struct master_service_settings_instance {
+	struct setting_parser_context *parser;
+};
+
 static pool_t master_settings_pool_create(struct master_settings_mmap *mmap);
 
 #undef DEF
@@ -889,19 +893,19 @@ master_service_var_expand_init(struct event *event,
 		event_get_ptr(event, MASTER_SERVICE_VAR_EXPAND_FUNC_CONTEXT);
 }
 
-#undef master_service_settings_parser_get
-int master_service_settings_parser_get(struct event *event,
-				       struct setting_parser_context *set_parser,
-				       const struct setting_parser_info *info,
-				       enum master_service_settings_get_flags flags,
-				       const void **set_r, const char **error_r)
+#undef master_service_settings_instance_get
+int master_service_settings_instance_get(struct event *event,
+					 struct master_service_settings_instance *instance,
+					 const struct setting_parser_info *info,
+					 enum master_service_settings_get_flags flags,
+					 const void **set_r, const char **error_r)
 {
 	int ret;
 
 	i_assert(info->pool_offset1 != 0);
 
 	pool_t set_pool = pool_alloconly_create("master service settings parser", 1024);
-	void *set = settings_parser_get_root_set(set_parser, info);
+	void *set = settings_parser_get_root_set(instance->parser, info);
 	set = settings_dup_with_pointers(info, set, set_pool);
 
 	pool_t *pool_p = PTR_OFFSET(set, info->pool_offset1 - 1);
@@ -946,8 +950,11 @@ int master_service_settings_get(struct event *event,
 				enum master_service_settings_get_flags flags,
 				const void **set_r, const char **error_r)
 {
-	return master_service_settings_parser_get(event,
-		master_service->set_parser, info, flags, set_r, error_r);
+	struct master_service_settings_instance instance = {
+		.parser = master_service->set_parser,
+	};
+	return master_service_settings_instance_get(event,
+		&instance, info, flags, set_r, error_r);
 }
 
 const void *
@@ -962,23 +969,23 @@ master_service_settings_get_or_fatal(struct event *event,
 	return set;
 }
 
-int master_service_set(struct setting_parser_context *set_parser,
+int master_service_set(struct master_service_settings_instance *instance,
 		       const char *key, const char *value,
 		       const char **error_r)
 {
 	int ret;
 
-	ret = settings_parse_keyvalue(set_parser, key, value);
+	ret = settings_parse_keyvalue(instance->parser, key, value);
 	if (ret <= 0)
-		*error_r = settings_parser_get_error(set_parser);
+		*error_r = settings_parser_get_error(instance->parser);
 	return ret;
 }
 
 const void *
-master_service_settings_find(struct setting_parser_context *set_parser,
+master_service_settings_find(struct master_service_settings_instance *instance,
 			     const char *key, enum setting_type *type_r)
 {
-	return settings_parse_get_value(set_parser, key, type_r);
+	return settings_parse_get_value(instance->parser, key, type_r);
 }
 
 bool master_service_set_has_config_override(struct master_service *service,
@@ -1010,4 +1017,38 @@ bool master_service_set_has_config_override(struct master_service *service,
 			return TRUE;
 	}
 	return FALSE;
+}
+
+static struct master_service_settings_instance *
+master_service_settings_instance_from(struct setting_parser_context *parser)
+{
+	struct master_service_settings_instance *new_instance =
+		i_new(struct master_service_settings_instance, 1);
+	pool_t pool = pool_alloconly_create("master service settings instance", 1024);
+	new_instance->parser = settings_parser_dup(parser, pool);
+	pool_unref(&pool);
+	return new_instance;
+}
+
+struct master_service_settings_instance *
+master_service_settings_instance_new(struct master_service *service)
+{
+	return master_service_settings_instance_from(service->set_parser);
+}
+
+struct master_service_settings_instance *
+master_service_settings_instance_dup(struct master_service_settings_instance *instance)
+{
+	return master_service_settings_instance_from(instance->parser);
+}
+
+void master_service_settings_instance_free(
+	struct master_service_settings_instance **_instance)
+{
+	struct master_service_settings_instance *instance = *_instance;
+
+	*_instance = NULL;
+
+	settings_parser_unref(&instance->parser);
+	i_free(instance);
 }

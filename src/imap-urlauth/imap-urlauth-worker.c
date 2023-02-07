@@ -559,8 +559,8 @@ client_handle_user_command(struct client *client, const char *cmd,
 		return 1;
 	}
 
-	if (master_service_settings_parser_get(client->event,
-			mail_user->set_parser,
+	if (master_service_settings_instance_get(client->event,
+			mail_user->set_instance,
 			&imap_urlauth_worker_setting_parser_info, 0,
 			&set, &error) < 0) {
 		e_error(client->event, "user %s: %s", input.username, error);

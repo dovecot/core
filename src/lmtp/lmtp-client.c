@@ -112,22 +112,21 @@ static void client_read_settings(struct client *client, bool ssl)
 	input.username = "";
 
 	if (mail_storage_service_read_settings(storage_service, &input,
-					       &client->set_parser, &error) < 0)
+					       &client->set_instance, &error) < 0)
 		i_fatal("%s", error);
 
-	/* create raw user before duplicating the settings parser */
 	client->raw_mail_user =
-		raw_storage_create_from_set(storage_service, client->set_parser);
+		raw_storage_create_from_set(storage_service, client->set_instance);
 
 	const struct var_expand_table *tab =
 		mail_storage_service_get_var_expand_table(storage_service, &input);
 
 	struct event *event = event_create(client->event);
 	event_set_ptr(event, MASTER_SERVICE_VAR_EXPAND_TABLE, (void *)tab);
-	if (master_service_settings_parser_get(event, client->set_parser,
+	if (master_service_settings_instance_get(event, client->set_instance,
 			&lda_setting_parser_info, 0,
 			&client->lda_set, &error) < 0 ||
-	    master_service_settings_parser_get(event, client->set_parser,
+	    master_service_settings_instance_get(event, client->set_instance,
 			&lmtp_setting_parser_info, 0,
 			&client->lmtp_set, &error) < 0)
 		i_fatal("%s", error);
@@ -266,7 +265,7 @@ client_default_destroy(struct client *client)
 
 	client_state_reset(client);
 
-	settings_parser_unref(&client->set_parser);
+	master_service_settings_instance_free(&client->set_instance);
 	master_service_settings_free(client->lda_set);
 	master_service_settings_free(client->lmtp_set);
 	event_unref(&client->event);

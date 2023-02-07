@@ -8,6 +8,7 @@ struct var_expand_table;
 struct var_expand_func_table;
 struct master_service;
 struct master_settings_mmap;
+struct master_service_settings_instance;
 
 enum master_service_settings_get_flags {
 	/* Don't call check_func()s */
@@ -156,23 +157,23 @@ int master_service_settings_get(struct event *event,
 #endif
 
 /* Like master_service_settings_get(), but get settings from the specified
-   parser. */
-int master_service_settings_parser_get(struct event *event,
-				       struct setting_parser_context *set_parser,
-				       const struct setting_parser_info *info,
-				       enum master_service_settings_get_flags flags,
-				       const void **set_r, const char **error_r);
+   instance. */
+int master_service_settings_instance_get(struct event *event,
+					 struct master_service_settings_instance *instance,
+					 const struct setting_parser_info *info,
+					 enum master_service_settings_get_flags flags,
+					 const void **set_r, const char **error_r);
 #ifdef HAVE_TYPE_CHECKS
-#  define master_service_settings_parser_get(event, set_parser, \
+#  define master_service_settings_instance_get(event, instance, \
 		info, flags, set_r, error_r) \
-	master_service_settings_parser_get(event, set_parser, \
+	master_service_settings_instance_get(event, instance, \
 		info, flags, (void *)set_r, 1 ? (error_r) : \
 	COMPILE_ERROR_IF_TRUE( \
 		!__builtin_types_compatible_p(typeof((*set_r)->pool), pool_t)))
 #else
-#  define master_service_settings_parser_get(event, set_parser, \
+#  define master_service_settings_instance_get(event, instance, \
 		info, flags, set_r, error_r) \
-	master_service_settings_parser_get(event, set_parser, \
+	master_service_settings_instance_get(event, instance, \
 		info, flags, (void *)set_r, error_r)
 #endif
 
@@ -192,17 +193,27 @@ master_service_settings_get_or_fatal(struct event *event,
 
 /* Set key=value to settings parser. Returns 1 on success, 0 if key is unknown,
    -1 on error. The error string is returned on <= 0. */
-int master_service_set(struct setting_parser_context *set_parser,
+int master_service_set(struct master_service_settings_instance *instance,
 		       const char *key, const char *value,
 		       const char **error_r);
 /* Wrapper to settings_parse_get_value(). */
 const void *
-master_service_settings_find(struct setting_parser_context *set_parser,
+master_service_settings_find(struct master_service_settings_instance *instance,
 			     const char *key, enum setting_type *type_r);
 
 /* Returns TRUE if -o key=value parameter was used. Setting keys in overrides
    and parameter are unaliased before comparing. */
 bool master_service_set_has_config_override(struct master_service *service,
 					    const char *key);
+
+/* Return a new instance for settings. */
+struct master_service_settings_instance *
+master_service_settings_instance_new(struct master_service *service);
+/* Return a new instance based on an existing instance. */
+struct master_service_settings_instance *
+master_service_settings_instance_dup(struct master_service_settings_instance *instance);
+/* Free a settings instance. */
+void master_service_settings_instance_free(
+	struct master_service_settings_instance **instance);
 
 #endif

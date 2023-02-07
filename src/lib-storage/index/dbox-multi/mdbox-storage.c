@@ -47,8 +47,8 @@ int mdbox_storage_create(struct mail_storage *_storage,
 	struct mdbox_storage *storage = MDBOX_STORAGE(_storage);
 	const char *dir;
 
-	if (master_service_settings_parser_get(_storage->event,
-			_storage->user->set_parser,
+	if (master_service_settings_instance_get(_storage->event,
+			_storage->user->set_instance,
 			mdbox_get_setting_parser_info(), 0,
 			&storage->set, error_r) < 0)
 		return -1;

@@ -466,9 +466,9 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 
 	/* update mail_location and create another user for the
 	   second location. */
-	struct setting_parser_context *set_parser =
-		mail_storage_service_user_get_settings_parser(ctx->ctx.cur_service_user);
-	if (master_service_set(set_parser, "mail_location", location, &error) <= 0)
+	struct master_service_settings_instance *set_instance =
+		mail_storage_service_user_get_settings_instance(ctx->ctx.cur_service_user);
+	if (master_service_set(set_instance, "mail_location", location, &error) <= 0)
 		i_unreached();
 	ret = mail_storage_service_next(ctx->ctx.storage_service,
 					ctx->ctx.cur_service_user,
@@ -1019,10 +1019,10 @@ get_default_replica_location(struct dsync_cmd_context *ctx,
 			     struct mail_storage_service_user *service_user,
 			     const char **error_r)
 {
-	struct setting_parser_context *set_parser =
-		mail_storage_service_user_get_settings_parser(service_user);
+	struct master_service_settings_instance *set_instance =
+		mail_storage_service_user_get_settings_instance(service_user);
 	const struct mail_storage_settings *mail_set;
-	if (master_service_settings_parser_get(NULL, set_parser,
+	if (master_service_settings_instance_get(NULL, set_instance,
 			&mail_storage_setting_parser_info,
 			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_CHECK |
 			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,

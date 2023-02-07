@@ -344,9 +344,9 @@ int lmtp_local_rcpt(struct client *client,
 	lrcpt->type = LMTP_RECIPIENT_TYPE_LOCAL;
 	lrcpt->backend_context = llrcpt;
 
-	struct setting_parser_context *set_parser =
-		mail_storage_service_user_get_settings_parser(service_user);
-	if (master_service_settings_parser_get(rcpt->event, set_parser,
+	struct master_service_settings_instance *set_instance =
+		mail_storage_service_user_get_settings_instance(service_user);
+	if (master_service_settings_instance_get(rcpt->event, set_instance,
 			&lda_setting_parser_info,
 			0, &llrcpt->lda_set, &error) < 0) {
 		e_error(rcpt->event, "%s", error);
@@ -437,15 +437,15 @@ lmtp_local_deliver(struct lmtp_local *local,
 	const struct mail_storage_settings *mail_set;
 	struct smtp_proxy_data proxy_data;
 	struct mail_namespace *ns;
-	struct setting_parser_context *set_parser;
+	struct master_service_settings_instance *set_instance;
 	const char *error, *username;
 	int ret;
 
 	input = mail_storage_service_user_get_input(service_user);
 	username = t_strdup(input->username);
 
-	set_parser = mail_storage_service_user_get_settings_parser(service_user);
-	if (master_service_settings_parser_get(rcpt->event, set_parser,
+	set_instance = mail_storage_service_user_get_settings_instance(service_user);
+	if (master_service_settings_instance_get(rcpt->event, set_instance,
 			&mail_storage_setting_parser_info,
 			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
 			&mail_set, &error) < 0) {
@@ -464,12 +464,12 @@ lmtp_local_deliver(struct lmtp_local *local,
 		   advertised that it's going to timeout the connection.
 		   this avoids duplicate deliveries in case the delivery
 		   succeeds after the proxy has already disconnected from us. */
-		struct setting_parser_context *set_parser =
-			mail_storage_service_user_get_settings_parser(service_user);
+		struct master_service_settings_instance *set_instance =
+			mail_storage_service_user_get_settings_instance(service_user);
 		const char *value = t_strdup_printf("%us",
 				       proxy_data.timeout_secs <= 1 ? 1 :
 				       proxy_data.timeout_secs-1);
-		if (master_service_set(set_parser, "mail_max_lock_timeout",
+		if (master_service_set(set_instance, "mail_max_lock_timeout",
 				       value, &error) <= 0)
 			i_unreached();
 	}
@@ -500,8 +500,8 @@ lmtp_local_deliver(struct lmtp_local *local,
 		mail_storage_service_user_get_log_prefix(service_user));
 
 	lldctx.rcpt_user = rcpt_user;
-	if (master_service_settings_parser_get(rcpt_user->event,
-			rcpt_user->set_parser,
+	if (master_service_settings_instance_get(rcpt_user->event,
+			rcpt_user->set_instance,
 			&smtp_submit_setting_parser_info, 0,
 			&lldctx.smtp_set, &error) < 0) {
 		e_error(rcpt->event, "%s", error);

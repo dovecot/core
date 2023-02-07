@@ -58,8 +58,8 @@ struct mail_storage_service_input {
 
 	const char *const *forward_fields;
 
-	/* Use this settings parser instead of looking it up. */
-	struct setting_parser_context *set_parser;
+	/* Use this settings instance instead of looking it up. */
+	struct master_service_settings_instance *set_instance;
 
 	/* Override specified global flags */
 	enum mail_storage_service_flags flags_override_add;
@@ -92,7 +92,7 @@ void mail_storage_service_set_auth_conn(struct mail_storage_service_ctx *ctx,
 					struct auth_master_connection *conn);
 int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 				       const struct mail_storage_service_input *input,
-				       struct setting_parser_context **parser_r,
+				       struct master_service_settings_instance **instance_r,
 				       const char **error_r) ATTR_NULL(2);
 /* Read settings and initialize context to use them. Do nothing if service is
    already initialized. This is mainly necessary when calling _get_auth_conn()
@@ -155,8 +155,8 @@ const struct mail_user_settings *
 mail_storage_service_user_get_set(struct mail_storage_service_user *user);
 const struct mail_storage_service_input *
 mail_storage_service_user_get_input(struct mail_storage_service_user *user);
-struct setting_parser_context *
-mail_storage_service_user_get_settings_parser(struct mail_storage_service_user *user);
+struct master_service_settings_instance *
+mail_storage_service_user_get_settings_instance(struct mail_storage_service_user *user);
 int mail_storage_service_user_init_ssl_client_settings(
 	struct mail_storage_service_user *user, pool_t pool,
 	struct ssl_iostream_settings *ssl_set_r, const char **error_r);

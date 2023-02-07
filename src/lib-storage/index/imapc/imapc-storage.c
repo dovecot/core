@@ -316,8 +316,8 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	struct imapc_client_settings set;
 	string_t *str;
 
-	if (master_service_settings_parser_get(ns->user->event,
-			ns->user->set_parser, imapc_get_setting_parser_info(),
+	if (master_service_settings_instance_get(ns->user->event,
+			ns->user->set_instance, imapc_get_setting_parser_info(),
 			0, &imapc_set, error_r) < 0)
 		return -1;
 

@@ -57,8 +57,8 @@ struct mail_user {
 	   This could be set by plugins that need to fail the initialization. */
 	const char *error;
 
-	/* Points to service_user->set_parser */
-	struct setting_parser_context *set_parser;
+	/* Points to service_user->set_instance */
+	struct master_service_settings_instance *set_instance;
 	const struct mail_user_settings *set;
 	struct mail_storage_settings *_mail_set;
 	struct ssl_iostream_settings *ssl_set;

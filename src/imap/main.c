@@ -281,12 +281,13 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 
 	restrict_access_allow_coredumps(TRUE);
 
-	if (master_service_settings_parser_get(mail_user->event,
-			mail_user->set_parser, &smtp_submit_setting_parser_info,
-			0, &smtp_set, error_r) < 0 ||
-	   master_service_settings_parser_get(mail_user->event,
-			mail_user->set_parser, &imap_setting_parser_info,
-			0, &imap_set, error_r) < 0) {
+	if (master_service_settings_instance_get(mail_user->event,
+			mail_user->set_instance,
+			&smtp_submit_setting_parser_info, 0,
+			&smtp_set, error_r) < 0 ||
+	   master_service_settings_instance_get(mail_user->event,
+			mail_user->set_instance, &imap_setting_parser_info, 0,
+			&imap_set, error_r) < 0) {
 		master_service_settings_free(smtp_set);
 		mail_user_deinit(&mail_user);
 		event_unref(&event);

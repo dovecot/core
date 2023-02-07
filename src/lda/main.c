@@ -155,9 +155,9 @@ lda_raw_mail_open(struct mail_deliver_input *dinput, const char *path)
 
 	struct mail_storage_service_ctx *storage_service =
 		mail_storage_service_user_get_service_ctx(dinput->rcpt_user->service_user);
-	struct setting_parser_context *set_parser =
-		mail_storage_service_user_get_settings_parser(dinput->rcpt_user->service_user);
-	raw_mail_user = raw_storage_create_from_set(storage_service, set_parser);
+	struct master_service_settings_instance *set_instance =
+		mail_storage_service_user_get_settings_instance(dinput->rcpt_user->service_user);
+	raw_mail_user = raw_storage_create_from_set(storage_service, set_instance);
 
 	mail_from = (dinput->mail_from != NULL ?
 		     dinput->mail_from : &default_envelope_sender);
@@ -290,12 +290,12 @@ lda_deliver(struct mail_deliver_input *dinput,
 	const char *error;
 	int ret;
 
-	if (master_service_settings_parser_get(dinput->rcpt_user->event,
-			dinput->rcpt_user->set_parser,
+	if (master_service_settings_instance_get(dinput->rcpt_user->event,
+			dinput->rcpt_user->set_instance,
 			&lda_setting_parser_info, 0,
 			&dinput->set, &error) < 0 ||
-	    master_service_settings_parser_get(dinput->rcpt_user->event,
-			dinput->rcpt_user->set_parser,
+	    master_service_settings_instance_get(dinput->rcpt_user->event,
+			dinput->rcpt_user->set_instance,
 			&smtp_submit_setting_parser_info, 0,
 			&dinput->smtp_set, &error) < 0)
 		i_fatal("%s", error);

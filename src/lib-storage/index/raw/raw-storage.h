@@ -32,7 +32,7 @@ extern struct mail_vfuncs raw_mail_vfuncs;
 
 struct mail_user *
 raw_storage_create_from_set(struct mail_storage_service_ctx *ctx,
-			    struct setting_parser_context *set_parser);
+			    struct master_service_settings_instance *set_instance);
 
 int raw_mailbox_alloc_stream(struct mail_user *user, struct istream *input,
 			     time_t received_time, const char *envelope_sender,
