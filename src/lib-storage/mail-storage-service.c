@@ -113,33 +113,30 @@ static void set_keyval(struct mail_storage_service_user *user,
 	}
 }
 
-static int set_line(struct mail_storage_service_ctx *ctx,
-		    struct mail_storage_service_user *user,
-		    const char *line)
+static int set_keyvalue(struct mail_storage_service_ctx *ctx,
+			struct mail_storage_service_user *user,
+			const char *key, const char *value)
 {
 	struct setting_parser_context *set_parser = user->set_parser;
-	const char *key, *orig_key, *append_value = NULL;
+	const char *orig_key, *append_value = NULL;
 	size_t len;
 	int ret;
 
-	orig_key = key = t_strcut(line, '=');
-
-	/* Ignore empty keys (and lines) rather than prepend 'plugin/=' to them.
-	   Also, prevent emtpy lines from crashing later in settings_parse_line() */
-	if (*key == '\0')
-		return 1;
+	orig_key = key;
 
 	len = strlen(key);
 	if (len > 0 && key[len-1] == '+') {
 		/* key+=value */
-		append_value = line + len + 1;
+		append_value = value;
 		key = t_strndup(key, len-1);
 	}
+	/* Ignore empty keys rather than prepend 'plugin/=' to them. */
+	if (*key == '\0')
+		return 1;
 
 	if (!settings_parse_is_valid_key(set_parser, key)) {
 		/* assume it's a plugin setting */
 		key = t_strconcat("plugin/", key, NULL);
-		line = t_strconcat("plugin/", line, NULL);
 	}
 
 	if (master_service_set_has_config_override(ctx->service, key)) {
@@ -150,31 +147,33 @@ static int set_line(struct mail_storage_service_ctx *ctx,
 	}
 
 	if (append_value != NULL) {
-		const void *value;
+		const void *old_value;
 		enum setting_type type;
 
-		value = settings_parse_get_value(set_parser, key, &type);
-		if (value != NULL && type == SET_STR) {
-			const char *const *strp = value;
+		old_value = settings_parse_get_value(set_parser, key, &type);
+		if (old_value != NULL && type == SET_STR) {
+			const char *const *strp = old_value;
 
-			line = t_strdup_printf("%s=%s%s",
-					       key, *strp, append_value);
+			value = t_strconcat(*strp, append_value, NULL);
 		} else {
 			e_error(user->event, "Ignoring %s userdb setting. "
 				"'+' can only be used for strings.", orig_key);
 		}
 	}
 
-	ret = settings_parse_line(set_parser, line);
+	ret = settings_parse_keyvalue(set_parser, key, value);
 	if (ret >= 0) {
 		if (strstr(key, "pass") != NULL) {
 			/* possibly a password field (e.g. imapc_password).
 			   hide the value. */
-			line = t_strconcat(key, "=<hidden>", NULL);
+			value = "<hidden>";
 		}
-		e_debug(user->event, ret == 0 ?
-			"Unknown userdb setting: %s" :
-			"Added userdb setting: %s", line);
+		if (ret == 0)
+			e_debug(user->event, "Unknown userdb setting: %s", key);
+		else {
+			e_debug(user->event, "Added userdb setting: %s=%s",
+				key, value);
+		}
 	}
 	return ret;
 }
@@ -282,7 +281,7 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 		} else if (strcmp(key, "admin") == 0) {
 			user->admin = strchr("1Yy", value[0]) != NULL;
 		} else T_BEGIN {
-			ret = set_line(ctx, user, line);
+			ret = set_keyvalue(ctx, user, key, value);
 		} T_END;
 		if (ret < 0)
 			break;
