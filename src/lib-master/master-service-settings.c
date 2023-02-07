@@ -974,6 +974,13 @@ int master_service_set(struct setting_parser_context *set_parser,
 	return ret;
 }
 
+const void *
+master_service_settings_find(struct setting_parser_context *set_parser,
+			     const char *key, enum setting_type *type_r)
+{
+	return settings_parse_get_value(set_parser, key, type_r);
+}
+
 bool master_service_set_has_config_override(struct master_service *service,
 					    const char *key)
 {

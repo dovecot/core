@@ -2,11 +2,10 @@
 #define MASTER_SERVICE_SETTINGS_H
 
 #include "net.h"
+#include "settings-parser.h"
 
 struct var_expand_table;
 struct var_expand_func_table;
-struct setting_parser_info;
-struct setting_parser_context;
 struct master_service;
 struct master_settings_mmap;
 
@@ -196,6 +195,10 @@ master_service_settings_get_or_fatal(struct event *event,
 int master_service_set(struct setting_parser_context *set_parser,
 		       const char *key, const char *value,
 		       const char **error_r);
+/* Wrapper to settings_parse_get_value(). */
+const void *
+master_service_settings_find(struct setting_parser_context *set_parser,
+			     const char *key, enum setting_type *type_r);
 
 /* Returns TRUE if -o key=value parameter was used. Setting keys in overrides
    and parameter are unaliased before comparing. */
