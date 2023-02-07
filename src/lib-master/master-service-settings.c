@@ -962,12 +962,6 @@ master_service_settings_get_or_fatal(struct event *event,
 	return set;
 }
 
-struct setting_parser_context *
-master_service_get_settings_parser(struct master_service *service)
-{
-	return service->set_parser;
-}
-
 int master_service_set(struct master_service *service, const char *line)
 {
 	return settings_parse_line(service->set_parser, line);

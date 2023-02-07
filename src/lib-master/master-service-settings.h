@@ -190,8 +190,6 @@ master_service_settings_get_or_fatal(struct event *event,
 			(set) = NULL; \
 		} \
 	} STMT_END
-struct setting_parser_context *
-master_service_get_settings_parser(struct master_service *service);
 
 int master_service_set(struct master_service *service, const char *line);
 
