@@ -119,11 +119,9 @@ static int set_keyvalue(struct mail_storage_service_ctx *ctx,
 			const char **error_r)
 {
 	struct setting_parser_context *set_parser = user->set_parser;
-	const char *orig_key, *append_value = NULL;
+	const char *append_value = NULL;
 	size_t len;
 	int ret;
-
-	orig_key = key;
 
 	len = strlen(key);
 	if (len > 0 && key[len-1] == '+') {
@@ -152,14 +150,12 @@ static int set_keyvalue(struct mail_storage_service_ctx *ctx,
 		enum setting_type type;
 
 		old_value = settings_parse_get_value(set_parser, key, &type);
-		if (old_value != NULL && type == SET_STR) {
-			const char *const *strp = old_value;
-
-			value = t_strconcat(*strp, append_value, NULL);
-		} else {
-			e_error(user->event, "Ignoring %s userdb setting. "
-				"'+' can only be used for strings.", orig_key);
+		if (old_value == NULL || type != SET_STR) {
+			*error_r = "'+' can only be used for strings";
+			return -1;
 		}
+		const char *const *strp = old_value;
+		value = t_strconcat(*strp, append_value, NULL);
 	}
 
 	ret = settings_parse_keyvalue(set_parser, key, value);
