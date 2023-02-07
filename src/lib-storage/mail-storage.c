@@ -3387,9 +3387,7 @@ void mail_set_mail_cache_corrupted(struct mail *mail, const char *fmt, ...)
 
 	T_BEGIN {
 		mail_cache_set_seq_corrupted_reason(cache_view, mail->seq,
-			t_strdup_printf("UID %u: %s",
-					mail->uid,
-					t_strdup_vprintf(fmt, va)));
+						    t_strdup_vprintf(fmt, va));
 	} T_END;
 
 	/* update also the storage's internal error */

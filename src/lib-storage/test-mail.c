@@ -464,7 +464,7 @@ static void test_bodystructure_corruption_reparsing(void)
 	mail_set_seq(mail, 1);
 
 	test_assert(mail_get_special(mail, MAIL_FETCH_IMAP_BODY, &value) == 0);
-	test_expect_error_string("Mailbox INBOX: Deleting corrupted cache record uid=1: UID 1: Broken MIME parts in mailbox INBOX: test");
+	test_expect_error_string("Mailbox INBOX: UID 1: Deleting corrupted cache record: Broken MIME parts in mailbox INBOX: test");
 	mail_set_cache_corrupted(mail, MAIL_FETCH_MESSAGE_PARTS, "test");
 	test_expect_no_more_errors();
 	test_assert(mail_get_special(mail, MAIL_FETCH_IMAP_BODYSTRUCTURE, &value) == 0);
