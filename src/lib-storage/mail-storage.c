@@ -2531,6 +2531,33 @@ int mailbox_search_deinit(struct mail_search_context **_ctx)
 	return ret;
 }
 
+static void mailbox_search_notify(struct mailbox *box,
+				  struct mail_search_context *ctx)
+{
+	if (ctx->last_notify.tv_sec == 0) {
+		/* set the search time in here, in case a plugin
+		   already spent some time indexing the mailbox */
+		ctx->search_start_time = ioloop_timeval;
+	} else if (box->storage->callbacks.notify_ok != NULL &&
+		   !ctx->progress_hidden) {
+		float percentage = ctx->progress_cur * 100.0 /
+			ctx->progress_max;
+		unsigned int msecs = timeval_diff_msecs(&ioloop_timeval,
+							&ctx->search_start_time);
+		unsigned int secs = (msecs / (percentage / 100.0) - msecs) / 1000;
+
+		T_BEGIN {
+			const char *text = t_strdup_printf(
+				"Searched %d%% of the mailbox, ETA %d:%02d",
+				(int)percentage, secs/60, secs%60);
+			box->storage->callbacks.
+				notify_ok(box, text,
+					  box->storage->callback_context);
+		} T_END;
+	}
+	ctx->last_notify = ioloop_timeval;
+}
+
 bool mailbox_search_next(struct mail_search_context *ctx, struct mail **mail_r)
 {
 	bool tryagain;
@@ -2552,6 +2579,10 @@ bool mailbox_search_next_nonblock(struct mail_search_context *ctx,
 	*tryagain_r = FALSE;
 
 	T_BEGIN {
+		time_t elapsed = ioloop_time - ctx->last_notify.tv_sec;
+		if (elapsed >= MAIL_STORAGE_NOTIFY_INTERVAL_SECS)
+			mailbox_search_notify(box, ctx);
+
 		ret = box->v.search_next_nonblock(ctx, mail_r, tryagain_r);
 	} T_END;
 	if (!ret)

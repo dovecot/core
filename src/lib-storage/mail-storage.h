@@ -15,6 +15,8 @@ struct message_size;
 
 /* If some operation is taking long, call notify_ok every n seconds. */
 #define MAIL_STORAGE_STAYALIVE_SECS 15
+#define MAIL_STORAGE_NOTIFY_INTERVAL_SECS 10
+
 /* Expunge transactions are to be commited after
    every MAIL_EXPUNGE_BATCH_SIZE mails */
 #define MAIL_EXPUNGE_BATCH_SIZE 1000

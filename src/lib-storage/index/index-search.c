@@ -25,8 +25,6 @@
 
 #include <ctype.h>
 
-#define SEARCH_NOTIFY_INTERVAL_SECS 10
-
 #define SEARCH_COST_DENTRY 3ULL
 #define SEARCH_COST_ATTR 1ULL
 #define SEARCH_COST_FILES_READ 25ULL
@@ -1554,38 +1552,6 @@ static int search_match_next(struct index_search_context *ctx)
 	return ret;
 }
 
-static void index_storage_search_notify(struct mailbox *box,
-					struct index_search_context *ctx)
-{
-	float percentage;
-	unsigned int msecs, secs;
-
-	if (ctx->last_notify.tv_sec == 0) {
-		/* set the search time in here, in case a plugin
-		   already spent some time indexing the mailbox */
-		ctx->search_start_time = ioloop_timeval;
-	} else if (box->storage->callbacks.notify_ok != NULL &&
-		   !ctx->mail_ctx.progress_hidden) {
-		percentage = ctx->mail_ctx.progress_cur * 100.0 /
-			ctx->mail_ctx.progress_max;
-		msecs = timeval_diff_msecs(&ioloop_timeval,
-					   &ctx->search_start_time);
-		secs = (msecs / (percentage / 100.0) - msecs) / 1000;
-
-		T_BEGIN {
-			const char *text;
-
-			text = t_strdup_printf("Searched %d%% of the mailbox, "
-					       "ETA %d:%02d", (int)percentage,
-					       secs/60, secs%60);
-			box->storage->callbacks.
-				notify_ok(box, text,
-					  box->storage->callback_context);
-		} T_END;
-	}
-	ctx->last_notify = ioloop_timeval;
-}
-
 static bool search_would_block(struct index_search_context *ctx)
 {
 	struct timeval now;
@@ -1691,10 +1657,6 @@ static int search_more_with_mail(struct index_search_context *ctx,
 		   messages match */
 		return 0;
 	}
-
-	if (ioloop_time - ctx->last_notify.tv_sec >=
-	    SEARCH_NOTIFY_INTERVAL_SECS)
-		index_storage_search_notify(box, ctx);
 
 	mail_search_args_reset(_ctx->args->args, FALSE);
 

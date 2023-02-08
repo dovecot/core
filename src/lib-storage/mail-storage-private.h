@@ -690,6 +690,8 @@ struct mail_search_context {
 	struct mailbox_header_lookup_ctx *wanted_headers;
 	normalizer_func_t *normalizer;
 
+	struct timeval search_start_time, last_notify;
+
 	/* if non-NULL, specifies that a search resulting is being updated.
 	   this can be used as a search optimization: if searched message
 	   already exists in search result, it's not necessary to check if

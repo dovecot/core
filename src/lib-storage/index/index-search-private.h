@@ -24,7 +24,6 @@ struct index_search_context {
 	struct mail_thread_context *thread_ctx;
 	pool_t temp_pool;
 
-	struct timeval search_start_time, last_notify;
 	struct timeval last_nonblock_timeval;
 	struct timeval interrupt_start_time;
 	unsigned long long cost, next_time_check_cost;
