@@ -115,6 +115,7 @@ static void test_db_lua_auth_lookup(void)
 		test_assert(auth_lua_script_init(script, &error) == 0);
 		test_assert(auth_lua_call_passdb_lookup(script, req, &scheme, &pass, &error) == 1);
 		dlua_script_unref(&script);
+		test_assert_strcmp(pass, "pass");
 	}
 	if (error != NULL) {
 		i_error("Test failed: %s", error);
