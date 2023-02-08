@@ -344,7 +344,7 @@ search_update_mail(struct imap_search_context *ctx, struct mail *mail)
 		seq_range_array_add(&ctx->cmd->client->search_saved_uidset,
 				    mail->uid);
 	}
-	if ((ctx->return_options & SEARCH_RETURN_RELEVANCY) != 0) {
+	if ((ctx->return_options & SEARCH_RETURN_RELEVANCY) != 0) T_BEGIN {
 		const char *str;
 		float score;
 
@@ -357,7 +357,7 @@ search_update_mail(struct imap_search_context *ctx, struct mail *mail)
 			ctx->min_relevancy = score;
 		if (ctx->max_relevancy < score)
 			ctx->max_relevancy = score;
-	}
+	} T_END;
 }
 
 static void search_add_result_id(struct imap_search_context *ctx, uint32_t id)
