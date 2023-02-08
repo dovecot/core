@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "auth-settings.h"
 #include "auth-request.h"
+#include "auth-fields.h"
 #include "db-lua.h"
 
 static struct auth_settings test_lua_auth_set = {
@@ -125,6 +126,48 @@ static void test_db_lua_auth_lookup(void)
 	test_end();
 }
 
+static void test_db_lua_auth_lookup_bad_keyname(void)
+{
+	const char *scheme,*pass;
+
+	struct auth_request *req = test_db_lua_auth_request_new();
+
+	static const char *luascript =
+"function auth_passdb_lookup(req)\n"
+"  req:log_debug(\"user \" .. req.user)\n"
+"  return dovecot.auth.PASSDB_RESULT_OK, {"
+"[\"\"]=\"1\","
+"[\"\\t\"]=\"2\","
+"[\"\\n\"]=\"3\","
+"[\"password\"]=\"pass\""
+"}\n"
+"end\n";
+	const char *error = NULL;
+	struct dlua_script *script = NULL;
+
+	test_begin("auth db lua bad keyname");
+
+	test_assert(dlua_script_create_string(luascript, &script, NULL, &error) == 0);
+	if (script != NULL) {
+		test_assert(auth_lua_script_init(script, &error) == 0);
+		test_expect_error_string_n_times("db-lua: Field key", 3);
+		test_assert(auth_lua_call_passdb_lookup(script, req, &scheme, &pass, &error) == 1);
+		dlua_script_unref(&script);
+		test_assert_strcmp(pass, "pass");
+		const ARRAY_TYPE(auth_field) *fields =
+			auth_fields_export(req->fields.extra_fields);
+		test_assert(array_count(fields) == 0);
+	}
+	if (error != NULL) {
+		i_error("Test failed: %s", error);
+	}
+	i_free(req->passdb);
+	auth_request_passdb_lookup_end(req, PASSDB_RESULT_OK);
+	auth_request_unref(&req);
+
+	test_end();
+}
+
 void test_db_lua(void) {
 	memset(test_lua_auth_set.username_chars_map, 0xff,
 	       sizeof(test_lua_auth_set.username_chars_map));
@@ -132,6 +175,7 @@ void test_db_lua(void) {
 	test_db_lua_auth_lookup();
 	test_db_lua_auth_lookup_numberish_value();
 	test_db_lua_auth_verify();
+	test_db_lua_auth_lookup_bad_keyname();
 }
 
 #endif
