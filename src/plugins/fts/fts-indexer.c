@@ -15,7 +15,6 @@
 #include "fts-storage.h"
 #include "fts-indexer.h"
 
-#define INDEXER_NOTIFY_INTERVAL_SECS 10
 #define INDEXER_SOCKET_NAME "indexer"
 #define INDEXER_WAIT_MSECS 250
 
@@ -38,33 +37,32 @@ static void fts_indexer_idle_timeout(struct connection *conn);
 
 static void fts_indexer_notify(struct fts_indexer_context *ctx)
 {
-	unsigned long long elapsed_msecs, est_total_msecs;
-	unsigned int eta_secs;
+	struct mail_storage *storage = ctx->box->storage;
 
-	if (ioloop_time - ctx->last_notify.tv_sec < INDEXER_NOTIFY_INTERVAL_SECS)
+	if (ctx->search_start_time.tv_sec == 0) {
+		ctx->search_start_time = ioloop_timeval;
 		return;
+	}
+
+	if (ctx->last_notify.tv_sec == 0)
+		ctx->last_notify = ctx->search_start_time;
+
+	if (storage->callbacks.notify_progress == NULL ||
+	    ioloop_time - ctx->last_notify.tv_sec < MAIL_STORAGE_NOTIFY_INTERVAL_SECS)
+		return;
+
 	ctx->last_notify = ioloop_timeval;
 
-	if (ctx->box->storage->callbacks.notify_ok == NULL ||
-	    ctx->percentage == 0)
-		return;
-
-	elapsed_msecs = timeval_diff_msecs(&ioloop_timeval,
-					   &ctx->search_start_time);
-	est_total_msecs = elapsed_msecs * 100 / ctx->percentage;
-	eta_secs = (est_total_msecs - elapsed_msecs) / 1000;
-
-	T_BEGIN {
-		const char *text;
-
-		text = t_strdup_printf("Indexed %d%% of the mailbox, "
-				       "ETA %d:%02d", ctx->percentage,
-				       eta_secs/60, eta_secs%60);
-		ctx->box->storage->callbacks.
-			notify_ok(ctx->box, text,
-				  ctx->box->storage->callback_context);
-		ctx->notified = TRUE;
-	} T_END;
+	struct mail_storage_progress_details dtl = {
+		.verb = "Indexed",
+		.total = 100,
+		.processed = ctx->percentage,
+		.start_time = ctx->search_start_time,
+		.now = ioloop_timeval,
+	};
+	storage->callbacks.notify_progress(ctx->box, &dtl,
+					   storage->callback_context);
+	ctx->notified = TRUE;
 }
 
 static int fts_indexer_more_int(struct fts_indexer_context *ctx)

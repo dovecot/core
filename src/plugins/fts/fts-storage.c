@@ -283,6 +283,7 @@ static bool fts_mailbox_build_continue(struct mail_search_context *ctx)
 
 	/* indexing finished */
 	mailbox_search_set_progress_hidden(ctx, FALSE);
+	mailbox_search_reset_progress_start(ctx);
 	if (fts_indexer_deinit(&fctx->indexer_ctx) < 0)
 		ret = -1;
 	if (ret > 0)
