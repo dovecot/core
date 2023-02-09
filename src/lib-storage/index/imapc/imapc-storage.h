@@ -39,6 +39,12 @@ struct imapc_mailbox_event_callback {
 #define IMAPC_BOX_HAS_FEATURE(mbox, feature) \
 	(((mbox)->storage->set->parsed_features & feature) != 0)
 
+/* Returns TRUE if we can assume from now on that untagged EXPUNGE, FETCH, etc.
+   replies belong to this mailbox instead of to the previously selected
+   mailbox. */
+#define IMAPC_MAILBOX_IS_FULLY_SELECTED(mbox) \
+	((mbox)->sync_uid_validity != 0)
+
 struct imapc_namespace {
 	const char *prefix;
 	char separator;
