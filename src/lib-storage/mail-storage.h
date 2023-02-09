@@ -14,7 +14,6 @@ struct message_size;
 #include "mailbox-attribute.h"
 
 /* If some operation is taking long, call notify_ok every n seconds. */
-#define MAIL_STORAGE_STAYALIVE_SECS 15
 #define MAIL_STORAGE_NOTIFY_INTERVAL_SECS 10
 
 /* Expunge transactions are to be commited after

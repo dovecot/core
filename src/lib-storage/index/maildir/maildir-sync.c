@@ -249,14 +249,14 @@ void maildir_sync_notify(struct maildir_sync_context *ctx)
 		(void)maildir_uidlist_lock_touch(ctx->mbox->uidlist);
 		ctx->last_touch = now;
 	}
-	if (now - ctx->last_notify > MAIL_STORAGE_STAYALIVE_SECS) {
+	if (now - ctx->last_notify > MAIL_STORAGE_NOTIFY_INTERVAL_SECS) {
 		struct mailbox *box = &ctx->mbox->box;
 
-		if (box->storage->callbacks.notify_ok != NULL) {
-			box->storage->callbacks.
-				notify_ok(box, "Hang in there..",
-					  box->storage->callback_context);
-		}
+		if (box->storage->callbacks.notify_progress != NULL) T_BEGIN {
+			struct mail_storage_progress_details dtl = {};
+			box->storage->callbacks.notify_progress(
+				box, &dtl, box->storage->callback_context);
+		} T_END;
 		ctx->last_notify = now;
 	}
 }
