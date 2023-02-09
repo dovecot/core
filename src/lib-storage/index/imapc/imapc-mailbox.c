@@ -242,6 +242,9 @@ void imap_mailbox_select_finish(struct imapc_mailbox *mbox)
 		mbox->sync_next_lseq = 1;
 		imapc_mailbox_init_delayed_trans(mbox);
 		imapc_mailbox_fetch_state_finish(mbox);
+	} else {
+		/* We don't know the latest flags, refresh them. */
+		(void)imapc_mailbox_fetch_state(mbox, 1);
 	}
 	mbox->selected = TRUE;
 }
@@ -310,7 +313,7 @@ imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 
 	if (mbox == NULL)
 		return;
-	if (mbox->exists_received &&
+	if (IMAPC_MAILBOX_IS_FULLY_SELECTED(mbox) &&
 	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES)) {
 		/* ignore all except the first EXISTS reply (returned by
 		   SELECT) */
@@ -324,10 +327,7 @@ imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 	if (view == NULL)
 		view = imapc_mailbox_get_sync_view(mbox);
 
-	if (mbox->selecting) {
-		/* We don't know the latest flags, refresh them. */
-		(void)imapc_mailbox_fetch_state(mbox, 1);
-	} else if (mbox->sync_fetch_first_uid != 1) {
+	if (!mbox->selecting && mbox->sync_fetch_first_uid != 1) {
 		const struct mail_index_header *hdr;
 		hdr = mail_index_get_header(view);
 		mbox->sync_fetch_first_uid = hdr->next_uid;
