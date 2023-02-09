@@ -791,7 +791,7 @@ int connection_client_connect_async(struct connection *conn)
 	return 0;
 }
 
-static void connection_update_counters(struct connection *conn)
+void connection_update_counters(struct connection *conn)
 {
 	if (conn->input != NULL)
 		event_add_int(conn->event, "bytes_in", conn->input->v_offset);
