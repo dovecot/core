@@ -48,7 +48,8 @@ imapc_connection_cmd(struct imapc_connection *conn,
 		     imapc_command_callback_t *callback, void *context)
 	ATTR_NULL(3);
 
-void imapc_connection_unselect(struct imapc_client_mailbox *box);
+void imapc_connection_unselect(struct imapc_client_mailbox *box,
+			       bool via_tagged_reply);
 
 enum imapc_connection_state
 imapc_connection_get_state(struct imapc_connection *conn);
