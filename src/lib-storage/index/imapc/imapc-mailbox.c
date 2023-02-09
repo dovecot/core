@@ -696,6 +696,11 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 
 	if (mbox == NULL || reply->num == 0 || !imap_arg_get_list(reply->args, &list))
 		return;
+	if (!IMAPC_MAILBOX_IS_FULLY_SELECTED(mbox)) {
+		/* SELECTing another mailbox - this FETCH is still for the
+		   previous selected mailbox. */
+		return;
+	}
 
 	struct imapc_untagged_fetch_ctx *ctx =
 		imapc_untagged_fetch_ctx_create();
@@ -737,6 +742,11 @@ static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
 	if (mbox == NULL || rseq == 0 ||
 	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES))
 		return;
+	if (!IMAPC_MAILBOX_IS_FULLY_SELECTED(mbox)) {
+		/* SELECTing another mailbox - this EXPUNGE is still for the
+		   previous selected mailbox. */
+		return;
+	}
 
 	mbox->prev_skipped_rseq = 0;
 	mbox->prev_skipped_uid = 0;
@@ -820,8 +830,14 @@ imapc_untagged_esearch_gmail_pop3(const struct imap_arg *args,
 static void imapc_untagged_search(const struct imapc_untagged_reply *reply,
 				  struct imapc_mailbox *mbox)
 {
-	if (mbox != NULL)
-		imapc_search_reply_search(reply->args, mbox);
+	if (mbox == NULL)
+		return;
+	if (!IMAPC_MAILBOX_IS_FULLY_SELECTED(mbox)) {
+		/* SELECTing another mailbox - this SEARCH is still for the
+		   previous selected mailbox. */
+		return;
+	}
+	imapc_search_reply_search(reply->args, mbox);
 }
 
 static void imapc_untagged_esearch(const struct imapc_untagged_reply *reply,
@@ -832,6 +848,11 @@ static void imapc_untagged_esearch(const struct imapc_untagged_reply *reply,
 
 	if (mbox == NULL || !imap_arg_get_list(reply->args, &tag_list))
 		return;
+	if (!IMAPC_MAILBOX_IS_FULLY_SELECTED(mbox)) {
+		/* SELECTing another mailbox - this ESEARCH is still for the
+		   previous selected mailbox. */
+		return;
+	}
 
 	/* ESEARCH begins with (TAG <tag>) */
 	if (!imap_arg_atom_equals(&tag_list[0], "TAG") ||
