@@ -102,7 +102,7 @@ struct imapc_connection {
 	struct timeval last_connect;
 	unsigned int reconnect_count;
 
-	struct imapc_client_mailbox *selecting_box, *selected_box;
+	struct imapc_client_mailbox *qresync_selecting_box, *selected_box;
 	enum imapc_connection_state state;
 	char *disconnect_reason;
 
@@ -399,7 +399,7 @@ static void imapc_connection_set_state(struct imapc_connection *conn,
 		conn->idle_stopping = FALSE;
 
 		conn->select_waiting_reply = FALSE;
-		conn->selecting_box = NULL;
+		conn->qresync_selecting_box = NULL;
 		conn->selected_box = NULL;
 		/* fall through */
 	case IMAPC_CONNECTION_STATE_DONE:
@@ -776,9 +776,9 @@ imapc_connection_handle_resp_text_code(struct imapc_connection *conn,
 	}
 	if (strcasecmp(key, "CLOSED") == 0) {
 		/* QRESYNC: SELECTing another mailbox */
-		if (conn->selecting_box != NULL) {
-			conn->selected_box = conn->selecting_box;
-			conn->selecting_box = NULL;
+		if (conn->qresync_selecting_box != NULL) {
+			conn->selected_box = conn->qresync_selecting_box;
+			conn->qresync_selecting_box = NULL;
 		}
 	}
 	return 0;
@@ -2091,13 +2091,13 @@ static void imapc_connection_set_selecting(struct imapc_client_mailbox *box)
 {
 	struct imapc_connection *conn = box->conn;
 
-	i_assert(conn->selecting_box == NULL);
+	i_assert(conn->qresync_selecting_box == NULL);
 
 	if (conn->selected_box != NULL &&
 	    (conn->capabilities & IMAPC_CAPABILITY_QRESYNC) != 0) {
 		/* server will send a [CLOSED] once selected mailbox is
 		   closed */
-		conn->selecting_box = box;
+		conn->qresync_selecting_box = box;
 	} else {
 		/* we'll have to assume that all the future untagged messages
 		   are for the mailbox we're selecting */
@@ -2344,7 +2344,7 @@ void imapc_command_set_mailbox(struct imapc_command *cmd,
 bool imapc_command_connection_is_selected(struct imapc_command *cmd)
 {
 	return cmd->conn->selected_box != NULL ||
-		cmd->conn->selecting_box != NULL;
+		cmd->conn->qresync_selecting_box != NULL;
 }
 
 void imapc_command_send(struct imapc_command *cmd, const char *cmd_str)
@@ -2452,12 +2452,12 @@ void imapc_connection_unselect(struct imapc_client_mailbox *box)
 {
 	struct imapc_connection *conn = box->conn;
 
-	if (conn->selected_box != NULL || conn->selecting_box != NULL) {
+	if (conn->selected_box != NULL || conn->qresync_selecting_box != NULL) {
 		i_assert(conn->selected_box == box ||
-			 conn->selecting_box == box);
+			 conn->qresync_selecting_box == box);
 
 		conn->selected_box = NULL;
-		conn->selecting_box = NULL;
+		conn->qresync_selecting_box = NULL;
 	}
 	imapc_connection_send_idle_done(conn);
 	imapc_connection_abort_commands(conn, box, FALSE);
@@ -2466,8 +2466,8 @@ void imapc_connection_unselect(struct imapc_client_mailbox *box)
 struct imapc_client_mailbox *
 imapc_connection_get_mailbox(struct imapc_connection *conn)
 {
-	if (conn->selecting_box != NULL)
-		return conn->selecting_box;
+	if (conn->qresync_selecting_box != NULL)
+		return conn->qresync_selecting_box;
 	return conn->selected_box;
 }
 
