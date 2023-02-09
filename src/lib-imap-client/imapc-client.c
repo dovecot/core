@@ -416,7 +416,7 @@ void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)
 	box->closing = TRUE;
 
 	/* cancel any pending commands */
-	imapc_connection_unselect(box);
+	imapc_connection_unselect(box, FALSE);
 
 	if (box->reconnecting) {
 		/* need to abort the reconnection so it won't try to access
