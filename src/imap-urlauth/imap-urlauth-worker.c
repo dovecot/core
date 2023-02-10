@@ -258,6 +258,7 @@ static void client_destroy(struct client *client)
 	array_foreach_elem(&client->access_apps, app)
 		i_free(app);
 	array_free(&client->access_apps);
+	event_unref(&client->event);
 	i_free(client);
 
 	imap_urlauth_worker_refresh_proctitle();
