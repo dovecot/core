@@ -306,7 +306,7 @@ int imap_urlauth_generate(struct imap_urlauth_context *uctx,
 		*client_error_r = t_strdup_printf("Invalid URL: %s", error);
 		if (mpurl != NULL)
 			imap_msgpart_url_free(&mpurl);
-		return -1;
+		return 0;
 	}
 	box = imap_msgpart_url_get_mailbox(mpurl);
 
