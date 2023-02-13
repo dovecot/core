@@ -2534,22 +2534,29 @@ int mailbox_search_deinit(struct mail_search_context **_ctx)
 static void mailbox_search_notify(struct mailbox *box,
 				  struct mail_search_context *ctx)
 {
-	if (ctx->last_notify.tv_sec == 0) {
-		/* set the search time in here, in case a plugin
-		   already spent some time indexing the mailbox */
+	if (ctx->search_start_time.tv_sec == 0) {
 		ctx->search_start_time = ioloop_timeval;
-	} else if (box->storage->callbacks.notify_progress != NULL &&
-		   !ctx->progress_hidden) {
-		struct mail_storage_progress_details dtl = {
-			.total = ctx->progress_max,
-			.processed = ctx->progress_cur,
-			.start_time = ctx->search_start_time,
-			.now = ioloop_timeval,
-		};
-
-		box->storage->callbacks.notify_progress(
-			box, &dtl, box->storage->callback_context);
+		return;
 	}
+
+	if (ctx->last_notify.tv_sec == 0)
+		ctx->last_notify = ctx->search_start_time;
+
+	if (box->storage->callbacks.notify_progress == NULL ||
+	    ctx->progress_hidden ||
+	    ioloop_time - ctx->last_notify.tv_sec < MAIL_STORAGE_NOTIFY_INTERVAL_SECS)
+	    	return;
+
+	struct mail_storage_progress_details dtl = {
+		.total = ctx->progress_max,
+		.processed = ctx->progress_cur,
+		.start_time = ctx->search_start_time,
+		.now = ioloop_timeval,
+	};
+
+	box->storage->callbacks.notify_progress(box, &dtl,
+						box->storage->callback_context);
+
 	ctx->last_notify = ioloop_timeval;
 }
 
