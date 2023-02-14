@@ -539,8 +539,8 @@ LIBDOVECOT_LA_LIBS='\
 	$(top_builddir)/src/lib-imap/libimap.la \
 	$(top_builddir)/src/lib-mail/libmail.la \
 	$(top_builddir)/src/lib-sasl/libsasl.la \
-	$(top_builddir)/src/lib-otp/libotp.la \
 	$(top_builddir)/src/lib-auth/libauth.la \
+	$(top_builddir)/src/lib-otp/libotp.la \
 	$(top_builddir)/src/lib-auth-client/libauth-client.la \
 	$(top_builddir)/src/lib-charset/libcharset.la \
 	$(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la \
