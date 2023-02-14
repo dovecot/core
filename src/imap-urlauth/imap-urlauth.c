@@ -81,16 +81,18 @@ void imap_urlauth_refresh_proctitle(void)
 		return;
 
 	str_append_c(title, '[');
-	switch (imap_urlauth_client_count) {
+	switch (imap_urlauth_clist->connections_count) {
 	case 0:
 		str_append(title, "idling");
 		break;
 	case 1:
-		client = imap_urlauth_clients;
+		client = container_of(imap_urlauth_clist->connections,
+				      struct client, conn);
 		str_append(title, client->username);
 		break;
 	default:
-		str_printfa(title, "%u connections", imap_urlauth_client_count);
+		str_printfa(title, "%u connections",
+			    imap_urlauth_clist->connections_count);
 		break;
 	}
 	str_append_c(title, ']');
@@ -270,6 +272,7 @@ int main(int argc, char *argv[])
 	login_set.callback = login_request_finished;
 	login_set.failure_callback = login_request_failed;
 
+	clients_init();
 	master_service_init_finish(master_service);
 	master_service_set_die_callback(master_service, imap_urlauth_die);
 
@@ -288,7 +291,7 @@ int main(int argc, char *argv[])
 
 	if (io_loop_is_running(current_ioloop))
 		master_service_run(master_service, client_connected);
-	clients_destroy_all();
+	clients_deinit();
 
 	if (login_server != NULL)
 		login_server_deinit(&login_server);

@@ -122,15 +122,15 @@ imap_urlauth_worker_client_connected(struct connection *_conn, bool success)
 
 	/* transfer one or two fds */
 	ret = (o_stream_unix_write_fd(wclient->conn.output,
-				      client->fd_in) ? 1 : 0);
+				      client->conn.fd_in) ? 1 : 0);
 	if (ret > 0) {
-		data = (client->fd_in == client->fd_out ? '0' : '1');
+		data = (client->conn.fd_in == client->conn.fd_out ? '0' : '1');
 		ret = o_stream_send(wclient->conn.output, &data, sizeof(data));
 	}
-	if (client->fd_in != client->fd_out) {
+	if (client->conn.fd_in != client->conn.fd_out) {
 		if (ret > 0) {
 			ret = (o_stream_unix_write_fd(wclient->conn.output,
-						      client->fd_out) ?
+						      client->conn.fd_out) ?
 			       1 : 0);
 		}
 		if (ret > 0) {

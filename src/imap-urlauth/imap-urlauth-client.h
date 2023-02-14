@@ -1,14 +1,16 @@
 #ifndef IMAP_URLAUTH_CLIENT_H
 #define IMAP_URLAUTH_CLIENT_H
 
+#include "connection.h"
+
 struct client;
 struct mail_storage;
 
 struct client {
+	struct connection conn;
+
 	struct client *prev, *next;
 
-	int fd_in, fd_out;
-	struct ostream *output;
 	struct timeout *to_destroy;
 	struct event *event;
 
@@ -23,8 +25,7 @@ struct client {
 	bool disconnected:1;
 };
 
-extern struct client *imap_urlauth_clients;
-extern unsigned int imap_urlauth_client_count;
+extern struct connection_list *imap_urlauth_clist;
 
 int client_create(const char *service, const char *username,
 		  int fd_in, int fd_out,
@@ -37,6 +38,7 @@ void client_send_line(struct client *client, const char *fmt, ...)
 
 void client_disconnect(struct client *client, const char *reason);
 
-void clients_destroy_all(void);
+void clients_init(void);
+void clients_deinit(void);
 
 #endif

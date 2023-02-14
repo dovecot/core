@@ -9,7 +9,6 @@
 #include "str.h"
 #include "strescape.h"
 #include "eacces-error.h"
-#include "llist.h"
 #include "hostpid.h"
 #include "execv-const.h"
 #include "env-util.h"
@@ -33,8 +32,7 @@ static struct event_category event_category_urlauth = {
 	.name = "imap-urlauth",
 };
 
-struct client *imap_urlauth_clients;
-unsigned int imap_urlauth_client_count;
+struct connection_list *imap_urlauth_clist;
 
 int client_create(const char *service, const char *username,
 		  int fd_in, int fd_out,
@@ -49,8 +47,6 @@ int client_create(const char *service, const char *username,
 	net_set_nonblock(fd_out, TRUE);
 
 	client = i_new(struct client, 1);
-	client->fd_in = fd_in;
-	client->fd_out = fd_out;
 	client->set = set;
 
 	client->event = event_create(NULL);
@@ -81,10 +77,10 @@ int client_create(const char *service, const char *username,
 	client->username = i_strdup(username);
 	client->service = i_strdup(service);
 
-	client->output = o_stream_create_fd(fd_out, SIZE_MAX);
-
-	imap_urlauth_client_count++;
-	DLLIST_PREPEND(&imap_urlauth_clients, client);
+	client->conn.event_parent = client->event;
+	connection_init_server(imap_urlauth_clist, &client->conn, NULL,
+			       fd_in, fd_out);
+	connection_input_halt(&client->conn); /* No input handler */
 
 	client->worker_client = imap_urlauth_worker_client_init(client);
 	if (imap_urlauth_worker_client_connect(client->worker_client) < 0) {
@@ -102,7 +98,7 @@ void client_send_line(struct client *client, const char *fmt, ...)
 	va_list va;
 	ssize_t ret;
 
-	if (client->output->closed)
+	if (client->conn.output->closed)
 		return;
 
 	va_start(va, fmt);
@@ -114,7 +110,7 @@ void client_send_line(struct client *client, const char *fmt, ...)
 		str_vprintfa(str, fmt, va);
 		str_append(str, "\n");
 
-		ret = o_stream_send(client->output,
+		ret = o_stream_send(client->conn.output,
 				    str_data(str), str_len(str));
 		i_assert(ret < 0 || (size_t)ret == str_len(str));
 	} T_END;
@@ -129,17 +125,11 @@ void client_destroy(struct client *client, const char *reason)
 	if (!client->disconnected)
 		e_info(client->event, "Disconnected: %s", reason);
 
-	imap_urlauth_client_count--;
-	DLLIST_REMOVE(&imap_urlauth_clients, client);
-
 	timeout_remove(&client->to_destroy);
 
 	imap_urlauth_worker_client_deinit(&client->worker_client);
 
-	o_stream_destroy(&client->output);
-
-	fd_close_maybe_stdio(&client->fd_in, &client->fd_out);
-
+	connection_deinit(&client->conn);
 	event_unref(&client->event);
 
 	i_free(client->username);
@@ -167,10 +157,45 @@ void client_disconnect(struct client *client, const char *reason)
 	client->to_destroy = timeout_add(0, client_destroy_timeout, client);
 }
 
-void clients_destroy_all(void)
+static void client_connection_destroy(struct connection *conn)
 {
-	while (imap_urlauth_clients != NULL) {
-		client_destroy(imap_urlauth_clients,
-			       MASTER_SERVICE_SHUTTING_DOWN_MSG);
+	struct client *client = container_of(conn, struct client, conn);
+
+	switch (conn->disconnect_reason) {
+	case CONNECTION_DISCONNECT_HANDSHAKE_FAILED:
+	case CONNECTION_DISCONNECT_BUFFER_FULL:
+		i_unreached();
+	default:
+		/* Disconnected */
+		client_disconnect(client, "Client disconnected");
 	}
+}
+
+static const struct connection_vfuncs client_connection_vfuncs = {
+       .destroy = client_connection_destroy,
+};
+
+static const struct connection_settings client_connection_set = {
+       .unix_client_connect_msecs = 1000,
+       .input_max_size = SIZE_MAX,
+       .output_max_size = SIZE_MAX,
+};
+
+void clients_init(void)
+{
+	imap_urlauth_clist = connection_list_init(&client_connection_set,
+						  &client_connection_vfuncs);
+}
+
+void clients_deinit(void)
+{
+	struct connection *conn;
+
+	for (conn = imap_urlauth_clist->connections;
+	     conn != NULL; conn = conn->next) {
+		struct client *client = container_of(conn, struct client, conn);
+
+		client_destroy(client, MASTER_SERVICE_SHUTTING_DOWN_MSG);
+	}
+	connection_list_deinit(&imap_urlauth_clist);
 }
