@@ -11,6 +11,8 @@
 #include "eacces-error.h"
 
 #include "imap-urlauth-common.h"
+#include "imap-urlauth-settings.h"
+#include "imap-urlauth-client.h"
 #include "imap-urlauth-worker-client.h"
 
 /* max. length of input lines (URLs) */

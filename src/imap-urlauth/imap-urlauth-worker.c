@@ -26,6 +26,7 @@
 #include "imap-msgpart-url.h"
 #include "imap-urlauth.h"
 #include "imap-urlauth-fetch.h"
+#include "imap-urlauth-worker-common.h"
 #include "imap-urlauth-worker-settings.h"
 
 #include <unistd.h>
@@ -39,9 +40,6 @@
 
 #define IS_STANDALONE() \
         (getenv(MASTER_IS_PARENT_ENV) == NULL)
-
-#define IMAP_URLAUTH_WORKER_PROTOCOL_MAJOR_VERSION 2
-#define IMAP_URLAUTH_WORKER_PROTOCOL_MINOR_VERSION 0
 
 struct client {
 	struct client *prev, *next;
