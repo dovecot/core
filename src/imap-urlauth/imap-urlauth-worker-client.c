@@ -72,7 +72,6 @@ int imap_urlauth_worker_client_connect(
 	struct imap_urlauth_worker_client *wclient)
 {
 	struct client *client = wclient->client;
-	static const char handshake[] = "VERSION\timap-urlauth-worker\t2\t0\n";
 	const char *socket_path;
 	ssize_t ret;
 	unsigned char data;
@@ -122,6 +121,10 @@ int imap_urlauth_worker_client_connect(
 	wclient->ctrl_output = o_stream_create_fd(wclient->fd_ctrl, SIZE_MAX);
 
 	/* send protocol version handshake */
+	const char *handshake = t_strdup_printf(
+		"VERSION\timap-urlauth-worker\t%u\t%u\n",
+		IMAP_URLAUTH_WORKER_PROTOCOL_MAJOR_VERSION,
+		IMAP_URLAUTH_WORKER_PROTOCOL_MINOR_VERSION);
 	if (o_stream_send_str(wclient->ctrl_output, handshake) < 0) {
 		e_error(wclient->event,
 			"Error sending handshake to imap-urlauth worker: %m");
