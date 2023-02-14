@@ -59,13 +59,6 @@ int client_create(const char *service, const char *username,
 	event_set_append_log_prefix(client->event, t_strdup_printf(
 		"user %s: ", username));
 
-	client->worker_client = imap_urlauth_worker_client_init(client);
-	if (imap_urlauth_worker_client_connect(client->worker_client) < 0) {
-		event_unref(&client->event);
-		i_free(client);
-		return -1;
-	}
-
 	/* determine user's special privileges */
 	i_array_init(&client->access_apps, 4);
 	if (username != NULL) {
@@ -92,6 +85,12 @@ int client_create(const char *service, const char *username,
 
 	imap_urlauth_client_count++;
 	DLLIST_PREPEND(&imap_urlauth_clients, client);
+
+	client->worker_client = imap_urlauth_worker_client_init(client);
+	if (imap_urlauth_worker_client_connect(client->worker_client) < 0) {
+		client_destroy(client, "Failed to connect to worker");
+		return -1;
+	}
 
 	imap_urlauth_refresh_proctitle();
 	*client_r = client;
