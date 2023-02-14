@@ -23,9 +23,6 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-#define IMAP_URLAUTH_PROTOCOL_MAJOR_VERSION 1
-#define IMAP_URLAUTH_PROTOCOL_MINOR_VERSION 0
-
 /* Disconnect client after idling this many milliseconds */
 #define CLIENT_IDLE_TIMEOUT_MSECS (10*60*1000)
 
