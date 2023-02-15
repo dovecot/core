@@ -6,6 +6,7 @@
 #include "net.h"
 #include "fdpass.h"
 #include "istream.h"
+#include "istream-unix.h"
 #include "ostream.h"
 #include "str.h"
 #include "str-sanitize.h"
@@ -17,6 +18,7 @@
 #include "randgen.h"
 #include "restrict-access.h"
 #include "settings-parser.h"
+#include "connection.h"
 #include "master-service.h"
 #include "master-interface.h"
 #include "mail-storage.h"
@@ -42,14 +44,12 @@
         (getenv(MASTER_IS_PARENT_ENV) == NULL)
 
 struct client {
+	struct connection conn;
+	struct connection conn_ctrl;
+
 	struct client *prev, *next;
 	struct event *event;
 
-	int fd_in, fd_out, fd_ctrl;
-
-	struct io *io, *ctrl_io;
-	struct istream *input, *ctrl_input;
-	struct ostream *output, *ctrl_output;
 	struct timeout *to_idle;
 
 	char *access_user, *access_service;
@@ -77,21 +77,18 @@ struct client {
 static bool verbose_proctitle = FALSE;
 static struct mail_storage_service_ctx *storage_service;
 
-struct client *imap_urlauth_worker_clients;
-unsigned int imap_urlauth_worker_client_count;
+static struct connection_list *clist;
+static struct connection_list *clist_ctrl;
 
 static void client_destroy(struct client *client);
 static void client_abort(struct client *client, const char *reason);
 static int client_run_url(struct client *client);
-static void client_input(struct client *client);
 static bool client_handle_input(struct client *client);
 static int client_output(struct client *client);
 
-static void client_ctrl_input(struct client *client);
-
 static void imap_urlauth_worker_refresh_proctitle(void)
 {
-	struct client *client = imap_urlauth_worker_clients;
+	struct client *client;
 	string_t *title;
 
 	if (!verbose_proctitle)
@@ -99,11 +96,12 @@ static void imap_urlauth_worker_refresh_proctitle(void)
 
 	title = t_str_new(128);
 	str_append_c(title, '[');
-	switch (imap_urlauth_worker_client_count) {
+	switch (clist_ctrl->connections_count) {
 	case 0:
 		str_append(title, "idling");
 		break;
 	case 1:
+		client = container_of(clist->connections, struct client, conn);
 		if (client->mail_user == NULL)
 			str_append(title, client->access_user);
 		else {
@@ -114,7 +112,7 @@ static void imap_urlauth_worker_refresh_proctitle(void)
 		break;
 	default:
 		str_printfa(title, "%u connections",
-			    imap_urlauth_worker_client_count);
+			    clist_ctrl->connections_count);
 		break;
 	}
 	str_append_c(title, ']');
@@ -140,19 +138,20 @@ static struct client *client_create(int fd)
 
 	client = i_new(struct client, 1);
 	i_array_init(&client->access_apps, 16);
-	client->fd_in = -1;
-	client->fd_out = -1;
-	client->fd_ctrl = fd;
 	client->access_anonymous = TRUE; /* default until overridden */
 
 	client->event = event_create(NULL);
 
-	client->ctrl_io = io_add(fd, IO_READ, client_ctrl_input, client);
+	client->conn_ctrl.event_parent = client->event;
+	client->conn_ctrl.unix_socket = TRUE;
+	connection_init_server(clist_ctrl, &client->conn_ctrl, NULL, fd, fd);
+	i_stream_unix_set_read_fd(client->conn_ctrl.input);
+
+	client->conn.event_parent = client->event;
+	connection_init(clist, &client->conn, NULL);
+
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
 				      client_idle_timeout, client);
-
-	imap_urlauth_worker_client_count++;
-	DLLIST_PREPEND(&imap_urlauth_worker_clients, client);
 
 	imap_urlauth_worker_refresh_proctitle();
 	return client;
@@ -171,9 +170,6 @@ client_create_standalone(const char *access_user,
 
 	client = i_new(struct client, 1);
 	i_array_init(&client->access_apps, 16);
-	client->fd_in = fd_in;
-	client->fd_out = fd_out;
-	client->fd_ctrl = -1;
 
 	if (access_user != NULL && *access_user != '\0')
 		client->access_user = i_strdup(access_user);
@@ -191,16 +187,14 @@ client_create_standalone(const char *access_user,
 	client->event = event_create(NULL);
 	event_set_forced_debug(client->event, debug);
 
-	client->input = i_stream_create_fd(fd_in, MAX_INBUF_SIZE);
-	client->output = o_stream_create_fd(fd_out, SIZE_MAX);
-	client->io = io_add(fd_in, IO_READ, client_input, client);
+	client->conn_ctrl.event_parent = client->event;
+	connection_init(clist_ctrl, &client->conn_ctrl, NULL);
+
+	client->conn.event_parent = client->event;
+	connection_init_server(clist, &client->conn, NULL, fd_in, fd_out);
+
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
 				      client_idle_timeout, client);
-	o_stream_set_no_error_handling(client->output, TRUE);
-	o_stream_set_flush_callback(client->output, client_output, client);
-
-	imap_urlauth_worker_client_count++;
-	DLLIST_PREPEND(&imap_urlauth_worker_clients, client);
 
 	i_set_failure_prefix("imap-urlauth[%s](%s): ",
 			     my_pid, client->access_user);
@@ -220,16 +214,12 @@ static void client_destroy(struct client *client)
 	i_set_failure_prefix("imap-urlauth[%s](%s): ",
 			     my_pid, client->access_user);
 
+	connection_disconnect(&client->conn);
 	if (client->url != NULL) {
 		/* deinitialize url */
-		i_stream_close(client->input);
-		o_stream_close(client->output);
 		(void)client_run_url(client);
 		i_assert(client->url == NULL);
 	}
-
-	imap_urlauth_worker_client_count--;
-	DLLIST_REMOVE(&imap_urlauth_worker_clients, client);
 
 	if (client->urlauth_ctx != NULL)
 		imap_urlauth_deinit(&client->urlauth_ctx);
@@ -237,25 +227,17 @@ static void client_destroy(struct client *client)
 	if (client->mail_user != NULL)
 		mail_user_deinit(&client->mail_user);
 
-	io_remove(&client->io);
-	io_remove(&client->ctrl_io);
 	timeout_remove(&client->to_idle);
 
-	i_stream_destroy(&client->input);
-	o_stream_destroy(&client->output);
-
-	i_stream_destroy(&client->ctrl_input);
-	o_stream_destroy(&client->ctrl_output);
-
-	fd_close_maybe_stdio(&client->fd_in, &client->fd_out);
-	if (client->fd_ctrl >= 0)
-		net_disconnect(client->fd_ctrl);
+	connection_disconnect(&client->conn_ctrl);
 
 	i_free(client->access_user);
 	i_free(client->access_service);
 	array_foreach_elem(&client->access_apps, app)
 		i_free(app);
 	array_free(&client->access_apps);
+	connection_deinit(&client->conn_ctrl);
+	connection_deinit(&client->conn);
 	event_unref(&client->event);
 	i_free(client);
 
@@ -270,35 +252,31 @@ static int client_run_url(struct client *client)
 	ssize_t ret = 0;
 
 	while (i_stream_read_more(client->msg_part_input, &data, &size) > 0) {
-		if ((ret = o_stream_send(client->output, data, size)) < 0)
+		if (client->conn.output == NULL ||
+		    (ret = o_stream_send(client->conn.output, data, size)) < 0)
 			break;
 		i_stream_skip(client->msg_part_input, ret);
 
-		if (o_stream_get_buffer_used_size(client->output) >= 4096) {
-			if ((ret = o_stream_flush(client->output)) < 0)
+		if (o_stream_get_buffer_used_size(client->conn.output) >= 4096) {
+			if ((ret = o_stream_flush(client->conn.output)) < 0)
 				break;
 			if (ret == 0)
 				return 0;
 		}
 	}
 
-	if (client->output->closed || ret < 0) {
+	if (client->conn.output == NULL || client->conn. output->closed ||
+	    ret < 0) {
 		imap_msgpart_url_free(&client->url);
 		return -1;
 	}
 
 	if (client->msg_part_input->eof) {
-		o_stream_nsend(client->output, "\n", 1);
+		o_stream_nsend(client->conn.output, "\n", 1);
 		imap_msgpart_url_free(&client->url);
 		return 1;
 	}
 	return 0;
-}
-
-static void clients_destroy_all(void)
-{
-	while (imap_urlauth_worker_clients != NULL)
-		client_destroy(imap_urlauth_worker_clients);
 }
 
 static void ATTR_FORMAT(2, 3)
@@ -306,7 +284,7 @@ client_send_line(struct client *client, const char *fmt, ...)
 {
 	va_list va;
 
-	if (client->output->closed)
+	if (client->conn.output == NULL || client->conn.output->closed)
 		return;
 
 	va_start(va, fmt);
@@ -318,7 +296,8 @@ client_send_line(struct client *client, const char *fmt, ...)
 		str_vprintfa(str, fmt, va);
 		str_append(str, "\n");
 
-		o_stream_nsend(client->output, str_data(str), str_len(str));
+		o_stream_nsend(client->conn.output,
+			       str_data(str), str_len(str));
 	} T_END;
 
 	va_end(va);
@@ -434,7 +413,7 @@ static int client_fetch_url(struct client *client, const char *url,
 	}
 
 	/* return content */
-	o_stream_cork(client->output);
+	o_stream_cork(client->conn.output);
 	if (client->msg_part_size == 0 || client->msg_part_input == NULL) {
 		/* empty */
 		str_append(response, "\t0");
@@ -462,10 +441,10 @@ static int client_fetch_url(struct client *client, const char *url,
 
 	if (client->url != NULL) {
 		/* URL not finished */
-		o_stream_set_flush_pending(client->output, TRUE);
+		o_stream_set_flush_pending(client->conn.output, TRUE);
 		client->waiting_input = TRUE;
 	}
-	o_stream_uncork(client->output);
+	o_stream_uncork(client->conn.output);
 	return client->url != NULL ? 0 : 1;
 }
 
@@ -519,8 +498,10 @@ client_handle_command(struct client *client, const char *cmd,
 		}
 
 		client->finished = TRUE;
-		if (client->ctrl_output != NULL)
-			o_stream_nsend_str(client->ctrl_output, "FINISHED\n");
+		if (client->conn_ctrl.output != NULL) {
+			o_stream_nsend_str(client->conn_ctrl.output,
+					   "FINISHED\n");
+		}
 		client_destroy(client);
 		return 0;
 	}
@@ -635,33 +616,19 @@ static bool client_handle_input(struct client *client)
 	if (client->url != NULL) {
 		/* we're still processing a URL. wait until it's
 		   finished. */
-		io_remove(&client->io);
-		client->io = NULL;
+		connection_input_halt(&client->conn);
 		client->waiting_input = TRUE;
 		return TRUE;
 	}
 
-	if (client->io == NULL) {
-		client->io = io_add(client->fd_in, IO_READ,
-				    client_input, client);
-	}
+	connection_input_resume(&client->conn);
 	client->waiting_input = FALSE;
 	timeout_reset(client->to_idle);
 
-	switch (i_stream_read(client->input)) {
-	case -1:
-		/* disconnected */
-		if (client->ctrl_output != NULL)
-			o_stream_nsend_str(client->ctrl_output, "DISCONNECTED\n");
-		client_destroy(client);
+	if (connection_input_read(&client->conn) < 0)
 		return FALSE;
-	case -2:
-		/* line too long, kill it */
-		client_abort(client, "Session aborted: Input line too long");
-		return FALSE;
-	}
 
-	while ((line = i_stream_next_line(client->input)) != NULL) {
+	while ((line = i_stream_next_line(client->conn.input)) != NULL) {
 		const char *const *args = t_strsplit_tabescaped(line);
 
 		if (args[0] == NULL)
@@ -685,16 +652,20 @@ static bool client_handle_input(struct client *client)
 	return TRUE;
 }
 
-static void client_input(struct client *client)
+static void client_input(struct connection *_conn)
 {
+	struct client *client = container_of(_conn, struct client, conn);
+
 	(void)client_handle_input(client);
 }
 
 static int client_output(struct client *client)
 {
-	if (o_stream_flush(client->output) < 0) {
-		if (client->ctrl_output != NULL)
-			o_stream_nsend_str(client->ctrl_output, "DISCONNECTED\n");
+	if (o_stream_flush(client->conn.output) < 0) {
+		if (client->conn_ctrl.output != NULL) {
+			o_stream_nsend_str(client->conn_ctrl.output,
+					   "DISCONNECTED\n");
+		}
 		client_destroy(client);
 		return 1;
 	}
@@ -717,7 +688,7 @@ static int client_output(struct client *client)
 	if (client->url != NULL) {
 		/* url not finished yet */
 		return 0;
-	} else if (client->io == NULL) {
+	} else if (client->conn.io == NULL) {
 		/* data still in output buffer, get back here to add IO */
 		return 0;
 	} else {
@@ -726,25 +697,39 @@ static int client_output(struct client *client)
 }
 
 static int
-client_ctrl_read_fds(struct client *client)
+client_ctrl_read_fd(struct client *client, unsigned char *data_r, int *fd_r)
+{
+	const unsigned char *data;
+	size_t size;
+	int ret;
+
+	ret = i_stream_read_more(client->conn_ctrl.input, &data, &size);
+	if (ret <= 0)
+		return ret;
+	i_stream_skip(client->conn_ctrl.input, 1);
+
+	*data_r = data[0];
+	*fd_r = i_stream_unix_get_read_fd(client->conn_ctrl.input);
+	return 1;
+}
+
+static int client_ctrl_read_fds(struct client *client)
 {
 	unsigned char data = 0;
-	ssize_t ret = 1;
+	int ret = 1;
 
-	if (client->fd_in == -1) {
-		ret = fd_read(client->fd_ctrl, &data,
-			      sizeof(data), &client->fd_in);
+	if (client->conn.fd_in == -1) {
+		ret = client_ctrl_read_fd(client, &data, &client->conn.fd_in);
 		if (ret > 0 && data == '0')
-			client->fd_out = client->fd_in;
+			client->conn.fd_out = client->conn.fd_in;
+		else
+			i_stream_unix_set_read_fd(client->conn_ctrl.input);
 	}
-	if (ret > 0 && client->fd_out == -1) {
-		ret = fd_read(client->fd_ctrl, &data,
-			      sizeof(data), &client->fd_out);
+	if (ret > 0 && client->conn.fd_out == -1) {
+		ret = client_ctrl_read_fd(client, &data, &client->conn.fd_out);
 	}
 
 	if (ret == 0) {
-		/* unexpectedly disconnected */
-		client_destroy(client);
 		return 0;
 	} else if (ret < 0) {
 		if (errno == EAGAIN)
@@ -758,28 +743,29 @@ client_ctrl_read_fds(struct client *client)
 		return -1;
 	}
 
-	if (client->fd_in == -1 || client->fd_out == -1) {
+	if (client->conn.fd_in == -1 || client->conn.fd_out == -1) {
 		e_error(client->event,
 			"Handshake is missing a file descriptor");
 		return -1;
 	}
 
-	client->ctrl_input =
-		i_stream_create_fd(client->fd_ctrl, MAX_INBUF_SIZE);
-	client->ctrl_output = o_stream_create_fd(client->fd_ctrl, SIZE_MAX);
-	o_stream_set_no_error_handling(client->ctrl_output, TRUE);
+	connection_init_server(clist, &client->conn, NULL,
+			       client->conn.fd_in, client->conn.fd_out);
+	connection_input_halt(&client->conn);
+
 	return 1;
 }
 
-static void client_ctrl_input(struct client *client)
+static void client_ctrl_input(struct connection *_conn)
 {
+	struct client *client = container_of(_conn, struct client, conn_ctrl);
 	const char *const *args;
 	const char *line, *value;
 	int ret;
 
 	timeout_reset(client->to_idle);
 
-	if (client->fd_in == -1 || client->fd_out == -1) {
+	if (client->conn.fd_in == -1 || client->conn.fd_out == -1) {
 		if ((ret = client_ctrl_read_fds(client)) <= 0) {
 			if (ret < 0)
 				client_abort(client, "FD Transfer failed");
@@ -787,20 +773,12 @@ static void client_ctrl_input(struct client *client)
 		}
 	}
 
-	switch (i_stream_read(client->ctrl_input)) {
-	case -1:
-		/* disconnected */
-		client_destroy(client);
+	if (connection_input_read(&client->conn_ctrl) < 0)
 		return;
-	case -2:
-		/* line too long, kill it */
-		client_abort(client,
-			     "Control session aborted: Input line too long");
-		return;
-	}
 
 	if (!client->version_received) {
-		if ((line = i_stream_next_line(client->ctrl_input)) == NULL)
+		line = i_stream_next_line(client->conn_ctrl.input);
+		if (line == NULL)
 			return;
 
 		if (!version_string_verify(line, "imap-urlauth-worker",
@@ -813,7 +791,7 @@ static void client_ctrl_input(struct client *client)
 		}
 
 		client->version_received = TRUE;
-		if (o_stream_send_str(client->ctrl_output, "OK\n") < 0) {
+		if (o_stream_send_str(client->conn_ctrl.output, "OK\n") < 0) {
 			client_destroy(client);
 			return;
 		}
@@ -824,7 +802,7 @@ static void client_ctrl_input(struct client *client)
 		return;
 	}
 
-	if ((line = i_stream_next_line(client->ctrl_input)) == NULL)
+	if ((line = i_stream_next_line(client->conn_ctrl.input)) == NULL)
 		return;
 
 	args = t_strsplit_tabescaped(line);
@@ -888,21 +866,74 @@ static void client_ctrl_input(struct client *client)
 
 	client->access_received = TRUE;
 
-	if (o_stream_send_str(client->ctrl_output, "OK\n") < 0) {
+	if (o_stream_send_str(client->conn_ctrl.output, "OK\n") < 0) {
 		client_destroy(client);
 		return;
 	}
 
-	client->input = i_stream_create_fd(client->fd_in, MAX_INBUF_SIZE);
-	client->output = o_stream_create_fd(client->fd_out, SIZE_MAX);
-	client->io = io_add(client->fd_in, IO_READ, client_input, client);
-	o_stream_set_no_error_handling(client->output, TRUE);
-	o_stream_set_flush_callback(client->output, client_output, client);
+	connection_input_resume(&client->conn);
+	o_stream_set_flush_callback(client->conn.output, client_output, client);
 
 	e_debug(client->event,
 		"Worker activated for access by user `%s' using service `%s'",
 		client->access_user, client->access_service);
 }
+
+static void client_ctrl_connection_destroy(struct connection *conn)
+{
+	struct client *client = container_of(conn, struct client, conn_ctrl);
+
+	switch (conn->disconnect_reason) {
+	case CONNECTION_DISCONNECT_NOT:
+	case CONNECTION_DISCONNECT_HANDSHAKE_FAILED:
+	case CONNECTION_DISCONNECT_BUFFER_FULL:
+		i_unreached();
+	default:
+		break;
+	}
+
+	client_destroy(client);
+}
+
+static void client_connection_destroy(struct connection *conn)
+{
+	struct client *client = container_of(conn, struct client, conn);
+
+	switch (conn->disconnect_reason) {
+	case CONNECTION_DISCONNECT_NOT:
+	case CONNECTION_DISCONNECT_HANDSHAKE_FAILED:
+	case CONNECTION_DISCONNECT_BUFFER_FULL:
+		i_unreached();
+	default:
+		break;
+	}
+
+	client_destroy(client);
+}
+
+static const struct connection_vfuncs client_ctrl_connection_vfuncs = {
+	.input = client_ctrl_input,
+	.destroy = client_ctrl_connection_destroy,
+};
+
+static const struct connection_settings client_ctrl_connection_set = {
+	.service_name_in = IMAP_URLAUTH_WORKER_SOCKET,
+	.service_name_out = IMAP_URLAUTH_WORKER_SOCKET,
+	.unix_client_connect_msecs = 1000,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
+};
+
+static const struct connection_vfuncs client_connection_vfuncs = {
+	.input = client_input,
+	.destroy = client_connection_destroy,
+};
+
+static const struct connection_settings client_connection_set = {
+	.unix_client_connect_msecs = 1000,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
+};
 
 static void imap_urlauth_worker_die(void)
 {
@@ -987,6 +1018,11 @@ int main(int argc, char *argv[])
 	   while handling its initial input */
 	io_loop_set_running(current_ioloop);
 
+	clist = connection_list_init(&client_connection_set,
+				     &client_connection_vfuncs);
+	clist_ctrl = connection_list_init(&client_ctrl_connection_set,
+					  &client_ctrl_connection_vfuncs);
+
 	if (IS_STANDALONE()) {
 		T_BEGIN {
 			if (array_count(&access_apps) > 0) {
@@ -1003,7 +1039,9 @@ int main(int argc, char *argv[])
 
 	if (io_loop_is_running(current_ioloop))
 		master_service_run(master_service, client_connected);
-	clients_destroy_all();
+
+	connection_list_deinit(&clist);
+	connection_list_deinit(&clist_ctrl);
 
 	mail_storage_service_deinit(&storage_service);
 	master_service_deinit(&master_service);
