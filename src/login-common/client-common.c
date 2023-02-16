@@ -329,8 +329,7 @@ static void login_aborted_event(struct client *client, const char *reason,
 	const char *human_reason, *event_reason;
 
 	i_assert(reason != NULL);
-	if (!client->no_extra_disconnect_reason &&
-	    client_get_extra_disconnect_reason(client, &human_reason, &event_reason))
+	if (client_get_extra_disconnect_reason(client, &human_reason, &event_reason))
 		reason = t_strdup_printf("%s (%s)", reason, human_reason);
 	else
 		event_reason = reason;
