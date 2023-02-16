@@ -129,6 +129,10 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 	i_array_init(&src_uids, 64);
 	ret = 1;
 	while (mailbox_search_next(search_ctx, &mail) && ret > 0) {
+		/* RFCs require to rollback a COPY if any mails is expunged.
+		   MOVE also needs to abort (but not rollback) to prevent
+		   multiple parallel moves from trying to move the same
+		   mails when it’s trying to move a huge number of mails. */
 		if (mail->expunged) {
 			ret = 0;
 			break;
