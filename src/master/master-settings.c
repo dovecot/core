@@ -738,11 +738,8 @@ mkdir_login_dir(const struct master_settings *set, const char *login_dir)
 	mode_t mode;
 	gid_t gid;
 
-	/* we are not using external authentication, so make sure the
-	   login directory exists with correct permissions and it's
-	   empty. with external auth we wouldn't want to delete
-	   existing sockets or break the permissions required by the
-	   auth server. */
+	/* Make sure the login directory exists with correct permissions and it's
+	   empty. */
 	mode = login_want_core_dumps(set, &gid) ? 0770 : 0750;
 	if (safe_mkdir(login_dir, mode, master_uid, gid) == 0) {
 		i_warning("Corrected permissions for login directory "
