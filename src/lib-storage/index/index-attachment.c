@@ -423,6 +423,16 @@ int index_attachment_stream_get(struct fs *fs, const char *attachment_dir,
 				       extref->path, path_suffix);
 		file = fs_file_init(fs, path, FS_OPEN_MODE_READONLY |
 				    FS_OPEN_FLAG_SEEKABLE);
+		uoff_t raw_size;
+		if (extref->base64_blocks_per_line > 0) {
+			/* extref->size is base64 encoded size, convert into raw size */
+			uoff_t nl_count = (extref->size - 1)/(extref->base64_blocks_per_line * 4);
+			uoff_t nl_bytes = extref->base64_have_crlf ? 2 * nl_count : nl_count;
+			raw_size = MAX_BASE64_DECODED_SIZE(extref->size - nl_bytes);
+		} else {
+			raw_size = extref->size;
+		}
+		fs_set_metadata(file, FS_METADATA_FILE_SIZE, t_strdup_printf("%"PRIuUOFF_T, raw_size));
 		input = i_stream_create_fs_file(&file, IO_BLOCK_SIZE);
 
 		ret = istream_attachment_connector_add(conn, input,
