@@ -639,7 +639,7 @@ static bool old_auth_section(struct config_parser_context *ctx,
 	}
 	if (strcmp(key, "socket") == 0 && ctx->old->auth_section == 2) {
 		if (strcmp(value, "connect") == 0) {
-			obsolete(ctx, "socket connect {} is no longer supported, configure external auth server separately");
+			obsolete(ctx, "socket connect {} is no longer supported");
 			return FALSE;
 		}
 		if (strcmp(value, "listen") != 0)
