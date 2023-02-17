@@ -680,26 +680,6 @@ login_want_core_dumps(const struct master_settings *set, gid_t *gid_r)
 	return cores;
 }
 
-static bool
-settings_have_auth_unix_listeners_in(const struct master_settings *set,
-				     const char *dir)
-{
-	struct service_settings *service;
-	struct file_listener_settings *u;
-	size_t dir_len = strlen(dir);
-
-	array_foreach_elem(&set->services, service) {
-		if (array_is_created(&service->unix_listeners)) {
-			array_foreach_elem(&service->unix_listeners, u) {
-				if (strncmp(u->path, dir, dir_len) == 0 &&
-				    u->path[dir_len] == '/')
-					return TRUE;
-			}
-		}
-	}
-	return FALSE;
-}
-
 static void unlink_sockets(const char *path, const char *prefix)
 {
 	DIR *dirp;
@@ -758,24 +738,18 @@ mkdir_login_dir(const struct master_settings *set, const char *login_dir)
 	mode_t mode;
 	gid_t gid;
 
-	if (settings_have_auth_unix_listeners_in(set, login_dir)) {
-		/* we are not using external authentication, so make sure the
-		   login directory exists with correct permissions and it's
-		   empty. with external auth we wouldn't want to delete
-		   existing sockets or break the permissions required by the
-		   auth server. */
-		mode = login_want_core_dumps(set, &gid) ? 0770 : 0750;
-		if (safe_mkdir(login_dir, mode, master_uid, gid) == 0) {
-			i_warning("Corrected permissions for login directory "
-				  "%s", login_dir);
-		}
-
-		unlink_sockets(login_dir, "");
-	} else {
-		/* still make sure that login directory exists */
-		if (mkdir(login_dir, 0755) < 0 && errno != EEXIST)
-			i_fatal("mkdir(%s) failed: %m", login_dir);
+	/* we are not using external authentication, so make sure the
+	   login directory exists with correct permissions and it's
+	   empty. with external auth we wouldn't want to delete
+	   existing sockets or break the permissions required by the
+	   auth server. */
+	mode = login_want_core_dumps(set, &gid) ? 0770 : 0750;
+	if (safe_mkdir(login_dir, mode, master_uid, gid) == 0) {
+		i_warning("Corrected permissions for login directory "
+			  "%s", login_dir);
 	}
+
+	unlink_sockets(login_dir, "");
 }
 
 static void mkdir_listener(const struct file_listener_settings *set,
