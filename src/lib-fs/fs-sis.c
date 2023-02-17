@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "istream.h"
+#include "istream-nonuls.h"
 #include "ostream.h"
 #include "ostream-cmp.h"
 #include "fs-sis-common.h"
@@ -178,6 +179,28 @@ static bool fs_sis_try_link(struct sis_fs_file *file)
 	return TRUE;
 }
 
+static struct istream *
+fs_sis_read_stream(struct fs_file *_file, size_t max_buffer_size)
+{
+	struct istream *result = fs_read_stream(_file->parent, max_buffer_size);
+	if (result->stream_errno == ENOENT) {
+		const char *file_size_str;
+		uoff_t file_size;
+		if (fs_lookup_metadata(_file, FS_METADATA_FILE_SIZE, &file_size_str) <= 0)
+			return result;
+		if (str_to_uoff(file_size_str, &file_size) < 0)
+			return result;
+		i_stream_unref(&result);
+		e_warning(_file->event, "File %s is missing, replacing with spaces", _file->path);
+		struct istream *zeroes_stream = i_stream_create_file("/dev/zero", max_buffer_size);
+		struct istream *space_stream = i_stream_create_nonuls(zeroes_stream, ' ');
+		result = i_stream_create_limit(space_stream, file_size);
+		i_stream_unref(&space_stream);
+		i_stream_unref(&zeroes_stream);
+	}
+	return result;
+}
+
 static int fs_sis_write(struct fs_file *_file, const void *data, size_t size)
 {
 	struct sis_fs_file *file = SIS_FILE(_file);
@@ -246,7 +269,7 @@ const struct fs fs_class_sis = {
 		.get_metadata = fs_wrapper_get_metadata,
 		.prefetch = fs_wrapper_prefetch,
 		.read = fs_wrapper_read,
-		.read_stream = fs_wrapper_read_stream,
+		.read_stream = fs_sis_read_stream,
 		.write = fs_sis_write,
 		.write_stream = fs_sis_write_stream,
 		.write_stream_finish = fs_sis_write_stream_finish,
