@@ -57,7 +57,6 @@ static const struct connection_settings client_worker_connection_set = {
 	.unix_client_connect_msecs = 1000,
 	.input_max_size = SIZE_MAX,
 	.output_max_size = SIZE_MAX,
-	.dont_send_version = TRUE,
 	.client = TRUE,
 };
 
@@ -149,18 +148,6 @@ imap_urlauth_worker_client_connected(struct connection *_conn, bool success)
 				"write(%s) failed: failed to send byte",
 				wclient->path);
 		}
-		imap_urlauth_worker_client_disconnect(wclient);
-		return;
-	}
-
-	/* send protocol version handshake */
-	const char *handshake = t_strdup_printf(
-		"VERSION\timap-urlauth-worker\t%u\t%u\n",
-		IMAP_URLAUTH_WORKER_PROTOCOL_MAJOR_VERSION,
-		IMAP_URLAUTH_WORKER_PROTOCOL_MINOR_VERSION);
-	if (o_stream_send_str(wclient->conn.output, handshake) < 0) {
-		e_error(wclient->event,
-			"Error sending handshake to imap-urlauth worker: %m");
 		imap_urlauth_worker_client_disconnect(wclient);
 		return;
 	}

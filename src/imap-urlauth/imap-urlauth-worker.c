@@ -765,14 +765,6 @@ static void client_ctrl_input(struct connection *_conn)
 
 	timeout_reset(client->to_idle);
 
-	if (client->conn.fd_in == -1 || client->conn.fd_out == -1) {
-		if ((ret = client_ctrl_read_fds(client)) <= 0) {
-			if (ret < 0)
-				client_abort(client, "FD Transfer failed");
-			return;
-		}
-	}
-
 	if (connection_input_read(&client->conn_ctrl) < 0)
 		return;
 
@@ -791,6 +783,14 @@ static void client_ctrl_input(struct connection *_conn)
 		}
 
 		client->version_received = TRUE;
+	}
+
+	if (client->conn.fd_in == -1 || client->conn.fd_out == -1) {
+		if ((ret = client_ctrl_read_fds(client)) <= 0) {
+			if (ret < 0)
+				client_abort(client, "FD Transfer failed");
+			return;
+		}
 		if (o_stream_send_str(client->conn_ctrl.output, "OK\n") < 0) {
 			client_destroy(client);
 			return;
