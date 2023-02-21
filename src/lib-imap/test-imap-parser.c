@@ -110,6 +110,8 @@ static void test_imap_parser_read_tag_cmd(void)
 		{ "tag*", NULL, -1, BOTH },
 		{ "tag\"", NULL, -1, BOTH },
 		{ "tag\\", NULL, -1, BOTH },
+		{ "tag] ", "tag]", 1, TAG },
+		{ "tag]", NULL, -1, COMMAND},
 		{ "tag+", NULL, -1, TAG },
 		{ "tag+ ", "tag+", 1, COMMAND },
 	};
