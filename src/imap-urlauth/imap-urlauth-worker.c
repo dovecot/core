@@ -756,6 +756,30 @@ static int client_ctrl_read_fds(struct client *client)
 	return 1;
 }
 
+static int client_ctrl_handshake(struct client *client)
+{
+	if (client->version_received)
+		return 1;
+
+	const char *line;
+
+	line = i_stream_next_line(client->conn_ctrl.input);
+	if (line == NULL)
+		return 0;
+
+	if (!version_string_verify(line, "imap-urlauth-worker",
+			IMAP_URLAUTH_WORKER_PROTOCOL_MAJOR_VERSION)) {
+		e_error(client->event,
+			"imap-urlauth-worker client not compatible with this server "
+			"(mixed old and new binaries?) %s", line);
+		client_abort(client, "Control session aborted: Version mismatch");
+		return -1;
+	}
+
+	client->version_received = TRUE;
+	return 1;
+}
+
 static void client_ctrl_input(struct connection *_conn)
 {
 	struct client *client = container_of(_conn, struct client, conn_ctrl);
@@ -767,23 +791,8 @@ static void client_ctrl_input(struct connection *_conn)
 
 	if (connection_input_read(&client->conn_ctrl) < 0)
 		return;
-
-	if (!client->version_received) {
-		line = i_stream_next_line(client->conn_ctrl.input);
-		if (line == NULL)
-			return;
-
-		if (!version_string_verify(line, "imap-urlauth-worker",
-				IMAP_URLAUTH_WORKER_PROTOCOL_MAJOR_VERSION)) {
-			e_error(client->event,
-				"imap-urlauth-worker client not compatible with this server "
-				"(mixed old and new binaries?) %s", line);
-			client_abort(client, "Control session aborted: Version mismatch");
-			return;
-		}
-
-		client->version_received = TRUE;
-	}
+	if (client_ctrl_handshake(client) <= 0)
+		return;
 
 	if (client->conn.fd_in == -1 || client->conn.fd_out == -1) {
 		if ((ret = client_ctrl_read_fds(client)) <= 0) {
