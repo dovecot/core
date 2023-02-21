@@ -1001,7 +1001,7 @@ imap_parser_read_next_atom(struct imap_parser *parser, bool parsing_tag,
 			break;
 		default:
 			if ((unsigned char)data[i] < ' ' ||
-			    (unsigned char)data[i] >= 0x80)
+			    (unsigned char)data[i] >= 0x7F)
 				return -1;
 		}
 	}
