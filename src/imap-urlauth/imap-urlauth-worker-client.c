@@ -40,12 +40,14 @@ static struct connection_list *imap_urlauth_worker_connections = NULL;
 
 static void
 imap_urlauth_worker_client_connected(struct connection *_conn, bool success);
-static void imap_urlauth_worker_connection_input(struct connection *_conn);
 static void imap_urlauth_worker_connection_destroy(struct connection *_conn);
+static int
+imap_urlauth_worker_connection_input_line(struct connection *conn,
+					  const char *response);
 
 static const struct connection_vfuncs client_worker_connection_vfuncs = {
 	.destroy = imap_urlauth_worker_connection_destroy,
-	.input = imap_urlauth_worker_connection_input,
+	.input_line = imap_urlauth_worker_connection_input_line,
 	.client_connected = imap_urlauth_worker_client_connected,
 };
 
@@ -212,9 +214,11 @@ static void imap_urlauth_worker_connection_destroy(struct connection *_conn)
 }
 
 static int
-client_worker_input_line(struct imap_urlauth_worker_client *wclient,
-			 const char *response)
+imap_urlauth_worker_connection_input_line(struct connection *conn,
+					  const char *response)
 {
+	struct imap_urlauth_worker_client *wclient =
+		container_of(conn, struct imap_urlauth_worker_client, conn);
 	struct client *client = wclient->client;
 	const char *const *apps;
 	unsigned int count, i;
@@ -310,37 +314,4 @@ client_worker_input_line(struct imap_urlauth_worker_client *wclient,
 		i_unreached();
 	}
 	return 0;
-}
-
-static void imap_urlauth_worker_connection_input(struct connection *_conn)
-{
-	struct imap_urlauth_worker_client *wclient =
-		container_of(_conn, struct imap_urlauth_worker_client, conn);
-	struct istream *input = wclient->conn.input;
-	const char *line;
-
-	if (input->closed) {
-		/* disconnected */
-		imap_urlauth_worker_client_error(
-			wclient, "Worker disconnected unexpectedly");
-		return;
-	}
-
-	switch (i_stream_read(input)) {
-	case -1:
-		/* disconnected */
-		imap_urlauth_worker_client_error(
-			wclient, "Worker disconnected unexpectedly");
-		return;
-	case -2:
-		/* input buffer full */
-		imap_urlauth_worker_client_error(
-			wclient, "Worker sent too large input");
-		return;
-	}
-
-	while ((line = i_stream_next_line(input)) != NULL) {
-		if (client_worker_input_line(wclient, line) < 0)
-			return;
-	}
 }
