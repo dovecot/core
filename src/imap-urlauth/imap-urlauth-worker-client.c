@@ -222,6 +222,13 @@ client_worker_input_line(struct imap_urlauth_worker_client *wclient,
 	string_t *str;
 	int ret;
 
+	if (!wclient->conn.version_received) {
+		if (connection_handshake_args_default(
+			&wclient->conn, t_strsplit_tabescaped(response)) < 0)
+			return -1;
+		return 1;
+	}
+
 	switch (wclient->worker_state) {
 	case IMAP_URLAUTH_WORKER_STATE_INACTIVE:
 		if (strcasecmp(response, "OK") != 0) {
