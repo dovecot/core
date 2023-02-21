@@ -69,7 +69,6 @@ struct client {
 
 	bool finished:1;
 	bool waiting_input:1;
-	bool version_received:1;
 	bool access_received:1;
 	bool access_anonymous:1;
 };
@@ -758,7 +757,7 @@ static int client_ctrl_read_fds(struct client *client)
 
 static int client_ctrl_handshake(struct client *client)
 {
-	if (client->version_received)
+	if (client->conn_ctrl.version_received)
 		return 1;
 
 	const char *line;
@@ -767,16 +766,12 @@ static int client_ctrl_handshake(struct client *client)
 	if (line == NULL)
 		return 0;
 
-	if (!version_string_verify(line, "imap-urlauth-worker",
-			IMAP_URLAUTH_WORKER_PROTOCOL_MAJOR_VERSION)) {
-		e_error(client->event,
-			"imap-urlauth-worker client not compatible with this server "
-			"(mixed old and new binaries?) %s", line);
-		client_abort(client, "Control session aborted: Version mismatch");
+	if (connection_handshake_args_default(
+		&client->conn_ctrl, t_strsplit_tabescaped(line)) < 0) {
+		client_abort(client, "Control session aborted: "
+			     "Received bad VERSION line");
 		return -1;
 	}
-
-	client->version_received = TRUE;
 	return 1;
 }
 
