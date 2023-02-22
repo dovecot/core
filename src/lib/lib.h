@@ -72,7 +72,9 @@ static inline void *i_memcpy(void *dest, const void *src, size_t n) {
 	i_assert(dest != NULL && src != NULL);
 	return memcpy(dest, src, n);
 }
-#define memcpy(dest, src, n) i_memcpy(dest, src, n)
+#ifndef __cplusplus
+#  define memcpy(dest, src, n) i_memcpy(dest, src, n)
+#endif
 
 /* /dev/null opened as O_WRONLY. Opened at lib_init(), so it can be accessed
    also inside chroots. */
