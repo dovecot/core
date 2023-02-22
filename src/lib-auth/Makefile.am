@@ -23,9 +23,6 @@ libauth_la_SOURCES = \
 libauth_la_LIBADD = \
 	$(LIBSODIUM_LIBS) \
 	$(CRYPT_LIBS)
-libauth_la_DEPENDENCIES = \
-	$(LIBSODIUM_LIBS) \
-	$(CRYPT_LIBS)
 
 headers = \
 	mycrypt.h \
@@ -65,6 +62,7 @@ test_password_scheme_LDADD = \
         $(CRYPT_LIBS) \
         $(LIBSODIUM_LIBS)
 test_password_scheme_DEPENDENCIES = \
+	../lib-otp/libotp.la \
 	$(test_deps)
 
 test_auth_scram_SOURCES = \
