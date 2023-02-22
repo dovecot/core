@@ -773,6 +773,29 @@ static int imap_urlauth_input_pending(struct imap_urlauth_connection *conn)
 	return imap_urlauth_connection_read_literal(conn);
 }
 
+static int imap_urlauth_authenticate(struct imap_urlauth_connection *conn)
+{
+	string_t *str;
+
+	str = t_str_new(128);
+	str_printfa(str, IMAP_URLAUTH_HANDSHAKE"AUTH\t%s\t%s\t",
+		conn->service, my_pid);
+	str_append_tabescaped(str, conn->user->username);
+	str_append_c(str, '\t');
+	if (conn->session_id != NULL)
+		str_append_tabescaped(str, conn->session_id);
+	str_append_c(str, '\t');
+	str_append_tabescaped(str, conn->user->auth_token);
+	str_append_c(str, '\n');
+	if (o_stream_send(conn->output, str_data(str), str_len(str)) < 0) {
+		e_warning(conn->event,
+			  "Error sending handshake to imap-urlauth server: %m");
+		imap_urlauth_connection_abort(conn, NULL);
+		return -1;
+	}
+	return 0;
+}
+
 static int imap_urlauth_input_next(struct imap_urlauth_connection *conn)
 {
 	const char *response;
@@ -898,7 +921,6 @@ static void imap_urlauth_input(struct imap_urlauth_connection *conn)
 static int
 imap_urlauth_connection_do_connect(struct imap_urlauth_connection *conn)
 {
-	string_t *str;
 	int fd;
 
 	if (conn->state != IMAP_URLAUTH_STATE_DISCONNECTED) {
@@ -933,22 +955,8 @@ imap_urlauth_connection_do_connect(struct imap_urlauth_connection *conn)
 	conn->io = io_add(fd, IO_READ, imap_urlauth_input, conn);
 	conn->state = IMAP_URLAUTH_STATE_AUTHENTICATING;
 
-	str = t_str_new(128);
-	str_printfa(str, IMAP_URLAUTH_HANDSHAKE"AUTH\t%s\t%s\t",
-		conn->service, my_pid);
-	str_append_tabescaped(str, conn->user->username);
-	str_append_c(str, '\t');
-	if (conn->session_id != NULL)
-		str_append_tabescaped(str, conn->session_id);
-	str_append_c(str, '\t');
-	str_append_tabescaped(str, conn->user->auth_token);
-	str_append_c(str, '\n');
-	if (o_stream_send(conn->output, str_data(str), str_len(str)) < 0) {
-		e_warning(conn->event,
-			  "Error sending handshake to imap-urlauth server: %m");
-		imap_urlauth_connection_abort(conn, NULL);
+	if (imap_urlauth_authenticate(conn) < 0)
 		return -1;
-	}
 
 	imap_urlauth_start_response_timeout(conn);
 	return 0;
