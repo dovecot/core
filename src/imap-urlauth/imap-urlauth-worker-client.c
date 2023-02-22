@@ -42,12 +42,12 @@ static void
 imap_urlauth_worker_client_connected(struct connection *_conn, bool success);
 static void imap_urlauth_worker_connection_destroy(struct connection *_conn);
 static int
-imap_urlauth_worker_connection_input_line(struct connection *conn,
-					  const char *response);
+imap_urlauth_worker_connection_input_args(struct connection *conn,
+					  const char *const *args);
 
 static const struct connection_vfuncs client_worker_connection_vfuncs = {
 	.destroy = imap_urlauth_worker_connection_destroy,
-	.input_line = imap_urlauth_worker_connection_input_line,
+	.input_args = imap_urlauth_worker_connection_input_args,
 	.client_connected = imap_urlauth_worker_client_connected,
 };
 
@@ -214,24 +214,18 @@ static void imap_urlauth_worker_connection_destroy(struct connection *_conn)
 }
 
 static int
-imap_urlauth_worker_connection_input_line(struct connection *conn,
-					  const char *response)
+imap_urlauth_worker_connection_input_args(struct connection *conn,
+					  const char *const *args)
 {
 	struct imap_urlauth_worker_client *wclient =
 		container_of(conn, struct imap_urlauth_worker_client, conn);
 	struct client *client = wclient->client;
+	const char *response = args[0];
 	const char *const *apps;
 	unsigned int count, i;
 	bool restart;
 	string_t *str;
 	int ret;
-
-	if (!wclient->conn.version_received) {
-		if (connection_handshake_args_default(
-			&wclient->conn, t_strsplit_tabescaped(response)) < 0)
-			return -1;
-		return 1;
-	}
 
 	switch (wclient->worker_state) {
 	case IMAP_URLAUTH_WORKER_STATE_INACTIVE:
