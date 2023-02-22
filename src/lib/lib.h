@@ -2,9 +2,9 @@
 #define LIB_H
 
 #if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
-#  define __BSD_VISIBLE
+#  define __BSD_VISIBLE 1
 #elif defined(__APPLE__)
-#  define _DARWIN_C_SOURCE
+#  define _DARWIN_C_SOURCE 1
 #endif
 #define _BSD_SOURCE 1
 #define _DEFAULT_SOURCE 1
