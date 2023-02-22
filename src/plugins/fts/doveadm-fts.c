@@ -148,6 +148,7 @@ cmd_fts_expand_run(struct doveadm_mail_cmd_context *ctx,
 		i_fatal("Couldn't expand search args");
 	mail_search_args_to_cmdline(str, ctx->search_args->args);
 	printf("%s\n", str_c(str));
+	mail_search_args_deinit(ctx->search_args);
 	mailbox_free(&box);
 	return 0;
 }
