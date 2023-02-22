@@ -852,6 +852,20 @@ static int imap_urlauth_input_next(struct imap_urlauth_connection *conn)
 	const char *response;
 	int ret;
 
+	if (!conn->conn.version_received) {
+		if ((response = i_stream_next_line(conn->conn.input)) == NULL)
+			return 0;
+
+		if (connection_handshake_args_default(
+			&conn->conn, t_strsplit_tabescaped(response)) < 0) {
+			imap_urlauth_connection_fail(conn);
+			return -1;
+		}
+		if (imap_urlauth_authenticate(conn) < 0)
+			return -1;
+		return 1;
+	}
+
 	switch (conn->state) {
 	case IMAP_URLAUTH_STATE_CONNECTING:
 		break;
@@ -982,9 +996,6 @@ imap_urlauth_connection_connected(struct connection *_conn, bool success)
 
 	/* Cannot get here unless UNIX socket connect() was successful */
 	i_assert(success);
-
-	if (imap_urlauth_authenticate(conn) < 0)
-		return;
 
 	imap_urlauth_start_response_timeout(conn);
 }

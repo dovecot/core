@@ -153,6 +153,21 @@ static void imap_urlauth_client_create
 	client->io = io_add_istream(client->input, client_input, client);
 }
 
+static void imap_urlauth_client_notify_auth_ready(struct client *client)
+{
+	string_t *version;
+
+	version = t_str_new(128);
+	str_append(version, "VERSION\timap-urlauth");
+	str_printfa(version, "\t%u", IMAP_URLAUTH_PROTOCOL_MAJOR_VERSION);
+	str_printfa(version, "\t%u", IMAP_URLAUTH_PROTOCOL_MINOR_VERSION);
+	str_append(version, "\n");
+
+	client_send_raw(client, str_c(version));
+
+	client->banner_sent = TRUE;
+}
+
 static void imap_urlauth_login_preinit(void)
 {
 	login_set_roots = imap_urlauth_login_setting_roots;
@@ -170,6 +185,7 @@ static void imap_urlauth_login_deinit(void)
 static struct client_vfuncs imap_urlauth_vfuncs = {
 	.alloc = imap_urlauth_client_alloc,
 	.create = imap_urlauth_client_create,
+	.notify_auth_ready = imap_urlauth_client_notify_auth_ready,
 	.input = imap_urlauth_client_input,
 	.auth_result = imap_urlauth_client_auth_result,
 	.send_raw_data = client_common_send_raw_data,
