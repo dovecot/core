@@ -16,7 +16,6 @@ libmail_la_SOURCES = \
 	istream-qp-decoder.c \
 	istream-qp-encoder.c \
 	mail-html2text.c \
-	mail-user-hash.c \
 	mbox-from.c \
 	message-address.c \
 	message-binary-part.c \
@@ -54,7 +53,6 @@ headers = \
 	istream-header-filter.h \
 	istream-nonuls.h \
 	istream-qp.h \
-	mail-user-hash.h \
 	mbox-from.h \
 	mail-html2text.h \
 	mail-types.h \
@@ -92,7 +90,6 @@ test_programs = \
 	test-istream-qp-decoder \
 	test-istream-qp-encoder \
 	test-mail-html2text \
-	test-mail-user-hash \
 	test-mbox-from \
 	test-message-address \
 	test-message-date \
@@ -247,10 +244,6 @@ test_rfc2231_parser_DEPENDENCIES = $(test_deps)
 test_rfc822_parser_SOURCES = test-rfc822-parser.c
 test_rfc822_parser_LDADD = $(test_libs)
 test_rfc822_parser_DEPENDENCIES = $(test_deps)
-
-test_mail_user_hash_SOURCES = test-mail-user-hash.c
-test_mail_user_hash_LDADD = $(test_libs)
-test_mail_user_hash_DEPENDENCIES = $(test_deps)
 
 test_message_part_serialize_SOURCES = test-message-part-serialize.c
 test_message_part_serialize_LDADD = $(test_libs)
