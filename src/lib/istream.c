@@ -291,13 +291,14 @@ ssize_t i_stream_read(struct istream *stream)
 	bool invalid = i_stream_is_buffer_invalid(_stream);
 
 	i_assert(prev_skip <= prev_pos);
+	size_t prev_size = prev_pos - prev_skip;
 	if (invalid)
 		;
-	else if (prev_pos - prev_skip <= 4)
-		memcpy(prev_buf, prev_data + prev_skip, prev_pos - prev_skip);
-	else {
+	else if (prev_size > 4) {
 		memcpy(prev_buf, prev_data + prev_skip, 2);
 		memcpy(prev_buf+2, prev_data + prev_pos - 2, 2);
+	} else if (prev_size > 0) {
+		memcpy(prev_buf, prev_data + prev_skip, prev_size);
 	}
 #endif
 
