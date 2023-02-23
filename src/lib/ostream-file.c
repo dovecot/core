@@ -153,9 +153,11 @@ static int o_stream_lseek(struct file_ostream *fstream)
 }
 
 ssize_t o_stream_file_writev(struct file_ostream *fstream,
-				   const struct const_iovec *iov,
-				   unsigned int iov_count)
+			     const struct const_iovec *iov,
+			     unsigned int iov_count,
+			     const char **error_r)
 {
+	const char *syscall = NULL;
 	ssize_t ret;
 	size_t size, sent;
 	unsigned int i;
@@ -165,17 +167,22 @@ ssize_t o_stream_file_writev(struct file_ostream *fstream,
 
 		if (!fstream->file ||
 		    fstream->real_offset == fstream->buffer_offset) {
+			syscall = "write";
 			ret = write(fstream->fd, iov->iov_base, iov->iov_len);
 			if (ret > 0)
 				fstream->real_offset += ret;
 		} else {
+			syscall = "pwrite";
 			ret = pwrite(fstream->fd, iov->iov_base, iov->iov_len,
 				     fstream->buffer_offset);
 		}
 	} else {
-		if (o_stream_lseek(fstream) < 0)
+		if (o_stream_lseek(fstream) < 0) {
+			*error_r = t_strdup(o_stream_get_error(&fstream->ostream.ostream));
 			return -1;
+		}
 
+		syscall = "writev";
 		sent = 0;
 		while (iov_count > IOV_MAX) {
 			size = 0;
@@ -211,6 +218,10 @@ ssize_t o_stream_file_writev(struct file_ostream *fstream,
 			ret = sent;
 		}
 	}
+	if (ret < 0) {
+		i_assert(syscall != NULL);
+		*error_r = t_strdup_printf("%s() failed: %m", syscall);
+	}
 	return ret;
 }
 
@@ -219,6 +230,7 @@ o_stream_file_writev_full(struct file_ostream *fstream,
 				   const struct const_iovec *iov,
 				   unsigned int iov_count)
 {
+	const char *error = NULL;
 	ssize_t ret, ret2;
 	size_t size, total_size;
 	bool partial;
@@ -228,10 +240,11 @@ o_stream_file_writev_full(struct file_ostream *fstream,
 		total_size += iov[i].iov_len;
 
 	o_stream_socket_cork(fstream);
-	ret = fstream->writev(fstream, iov, iov_count);
+	ret = fstream->writev(fstream, iov, iov_count, &error);
 	partial = ret != (ssize_t)total_size;
 
 	if (ret < 0) {
+		i_assert(error != NULL);
 		if (fstream->file) {
 			if (errno == EINTR) {
 				/* automatically retry */
@@ -241,6 +254,7 @@ o_stream_file_writev_full(struct file_ostream *fstream,
 			/* try again later */
 			return 0;
 		}
+		io_stream_set_error(&fstream->ostream.iostream, "%s", error);
 		fstream->ostream.ostream.stream_errno = errno;
 		stream_closed(fstream);
 		return -1;

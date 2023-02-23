@@ -8,7 +8,7 @@ struct file_ostream {
 
 	ssize_t (*writev)(struct file_ostream *fstream,
 		 const struct const_iovec *iov,
-		 unsigned int iov_count);
+		 unsigned int iov_count, const char **error_r);
 
 	int fd;
 	struct io *io;
@@ -34,8 +34,8 @@ struct ostream *
 o_stream_create_file_common(struct file_ostream *fstream,
 	int fd, size_t max_buffer_size, bool autoclose_fd);
 ssize_t o_stream_file_writev(struct file_ostream *fstream,
-				   const struct const_iovec *iov,
-				   unsigned int iov_size);
+			     const struct const_iovec *iov,
+			     unsigned int iov_size, const char **error_r);
 ssize_t o_stream_file_sendv(struct ostream_private *stream,
 				   const struct const_iovec *iov,
 				   unsigned int iov_count);
