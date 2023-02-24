@@ -626,6 +626,11 @@ doveadm_mail_cmd_init(const struct doveadm_mail_cmd *cmd,
 		ctx->v.get_next_user = doveadm_mail_cmd_get_next_user;
 	if (ctx->v.deinit == NULL)
 		ctx->v.deinit = doveadm_mail_cmd_deinit_noop;
+	if (!doveadm_print_is_initialized()) {
+		/* alloc() should call doveadm_print_init(). It's too late
+		   afterwards. */
+		doveadm_print_init_disallow(TRUE);
+	}
 
 	p_array_init(&ctx->module_contexts, ctx->pool, 5);
 	return ctx;
