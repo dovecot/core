@@ -509,6 +509,7 @@ int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 	T_BEGIN {
 		ctx->v.init(ctx);
 	} T_END;
+	doveadm_print_header_disallow(TRUE);
 	if (hook_doveadm_mail_init != NULL)
 		hook_doveadm_mail_init(ctx);
 
@@ -533,6 +534,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 	T_BEGIN {
 		ctx->v.init(ctx);
 	} T_END;
+	doveadm_print_header_disallow(TRUE);
 
 	if (wildcard_user != NULL) {
 		mail_storage_service_all_init_mask(ctx->storage_service,

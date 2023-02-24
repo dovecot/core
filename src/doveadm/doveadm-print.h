@@ -47,6 +47,9 @@ void doveadm_print_deinit(void);
 /* Panic if doveadm_print_init() is attempted to be called. This is reset also
    by doveadm_print_deinit(). */
 void doveadm_print_init_disallow(bool disallow);
+/* Panic is doveadm_print_header*() is attempted to be called. This is reset
+   also by doveadm_print_deinit(). */
+void doveadm_print_header_disallow(bool disallow);
 
 void doveadm_print_formatted_set_format(const char *format);
 

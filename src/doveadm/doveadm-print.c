@@ -26,6 +26,7 @@ struct ostream *doveadm_print_ostream = NULL;
 
 static struct doveadm_print_context *ctx;
 static bool doveadm_print_init_disallowed = FALSE;
+static bool doveadm_print_header_disallowed = FALSE;
 
 bool doveadm_print_is_initialized(void)
 {
@@ -39,6 +40,9 @@ void doveadm_print_header(const char *key, const char *title,
 	struct doveadm_print_header_context *hdr_ctx;
 
 	i_assert(title != NULL);
+
+	if (doveadm_print_header_disallowed)
+		i_panic("doveadm_print_header() is called in wrong place");
 
 	i_zero(&hdr);
 	hdr.key = key;
@@ -203,9 +207,15 @@ void doveadm_print_deinit(void)
 	ctx = NULL;
 
 	doveadm_print_init_disallowed = FALSE;
+	doveadm_print_header_disallowed = FALSE;
 }
 
 void doveadm_print_init_disallow(bool disallow)
 {
 	doveadm_print_init_disallowed = disallow;
+}
+
+void doveadm_print_header_disallow(bool disallow)
+{
+	doveadm_print_header_disallowed = disallow;
 }
