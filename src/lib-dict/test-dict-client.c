@@ -43,7 +43,6 @@ int main(int argc, char *argv[])
 	struct dict_op_settings opset;
 	struct ioloop *ioloop;
 	const char *error;
-	unsigned int i;
 	char key[1000], value[100];
 
 	lib_init();
@@ -65,7 +64,7 @@ int main(int argc, char *argv[])
 	if (dict_init(uri, &set, &dict, &error) < 0)
 		i_fatal("dict_init(%s) failed: %s", argv[1], error);
 
-	for (i = 0; !stop; i++) {
+	while (!stop) {
 		i_snprintf(key, sizeof(key), "%s/%02x", prefix,
 			   i_rand_limit(0xff));
 		i_snprintf(value, sizeof(value), "%04x", i_rand_limit(0xffff));

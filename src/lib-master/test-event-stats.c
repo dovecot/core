@@ -248,7 +248,7 @@ static bool compare_test_stats_data_lines(const char *actual, const char *refere
 {
 	const char *const *lines_ref = t_strsplit(reference, "\n");
 	const char *const *lines_act = t_strsplit(actual, "\n");
-	for(size_t i = 0; *lines_ref != NULL && *lines_act != NULL; i++, lines_ref++, lines_act++) {
+	for(; *lines_ref != NULL && *lines_act != NULL; lines_ref++, lines_act++) {
 		if (!compare_test_stats_data_line(*lines_ref, *lines_act))
 			return FALSE;
 	}
