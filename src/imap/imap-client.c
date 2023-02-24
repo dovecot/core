@@ -952,7 +952,7 @@ struct client_command_context *client_command_alloc(struct client *client)
 
 void client_command_init_finished(struct client_command_context *cmd)
 {
-	event_add_str(cmd->event, "cmd_tag", cmd->tag);
+	event_add_str(cmd->global_event, "cmd_tag", cmd->tag);
 	/* use "unknown" until we checked that the command name is known/valid */
 	event_add_str(cmd->event, "cmd_name", "unknown");
 	/* the actual command name received from client - as-is */

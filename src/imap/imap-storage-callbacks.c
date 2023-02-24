@@ -42,6 +42,14 @@ static void notify_no(struct mailbox *mailbox ATTR_UNUSED,
 	} T_END;
 }
 
+static const char *find_cmd_tag(struct event *event)
+{
+	const struct event_field *field =
+		event_find_field_recursive(event, "cmd_tag");
+	return field != NULL && field->value_type == EVENT_FIELD_VALUE_TYPE_STR ?
+	       field->value.str : NULL;
+}
+
 const char *
 imap_storage_callback_line(const struct mail_storage_progress_details *dtl,
 			   const char *tag)
@@ -112,7 +120,8 @@ int imap_notify_progress(const struct mail_storage_progress_details *dtl,
 	int ret;
 	T_BEGIN {
 		bool corked = o_stream_is_corked(client->output);
-		const char *line = imap_storage_callback_line(dtl, NULL/*tag*/);
+		const char *tag = find_cmd_tag(event_get_global());
+		const char *line = imap_storage_callback_line(dtl, tag);
 
 		client_send_line(client, line);
 		ret = o_stream_uncork_flush(client->output);
