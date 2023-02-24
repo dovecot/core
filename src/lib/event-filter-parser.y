@@ -218,6 +218,8 @@ key_value : key op value	{
 					$$ = key_value(state, $1, $3, $2);
 					if ($$ == NULL) {
 						yyerror(state, state->error);
+						/* avoid compiler warning about yynerrs being set, but not used */
+						(void)yynerrs;
 						YYERROR;
 					}
 				}
