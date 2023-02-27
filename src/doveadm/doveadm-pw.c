@@ -82,6 +82,8 @@ static void cmd_pw(struct doveadm_cmd_context *cctx)
 		}
 	}
 
+	password_schemes_allow_weak(TRUE);
+
 	if (!password_generate_encoded(plaintext, &gen_params, scheme, &hash))
 		i_fatal("Unknown scheme: %s", scheme);
 	if (reverse_verify) {
