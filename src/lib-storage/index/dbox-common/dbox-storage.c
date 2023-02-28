@@ -192,7 +192,6 @@ dbox_cleanup_temp_files(struct mailbox_list *list, const char *path,
 	if (last_change_time == (time_t)-1) {
 		/* Don't know the ctime yet - look it up. */
 		struct stat st;
-
 		if (stat(path, &st) < 0) {
 			if (errno != ENOENT)
 				i_error("stat(%s) failed: %m", path);
@@ -201,6 +200,7 @@ dbox_cleanup_temp_files(struct mailbox_list *list, const char *path,
 		last_change_time = st.st_ctime;
 		stated = TRUE;
 	}
+
 	if (last_scan_time > last_change_time + DBOX_TMP_DELETE_SECS) {
 		/* there haven't been any changes to this directory
 		   since we last checked it. If we did an extra stat(),
@@ -208,10 +208,9 @@ dbox_cleanup_temp_files(struct mailbox_list *list, const char *path,
 		   stat()ing the next time. */
 		return stated;
 	}
-	const char *prefix =
-		mailbox_list_get_global_temp_prefix(list);
-	(void)unlink_old_files(path, prefix,
-				ioloop_time - DBOX_TMP_DELETE_SECS);
+
+	const char *prefix = mailbox_list_get_global_temp_prefix(list);
+	(void)unlink_old_files(path, prefix, ioloop_time - DBOX_TMP_DELETE_SECS);
 	return TRUE;
 }
 
