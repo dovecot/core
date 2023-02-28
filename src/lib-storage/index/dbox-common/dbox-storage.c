@@ -261,31 +261,56 @@ int dbox_mailbox_check_existence(struct mailbox *box, time_t *path_ctime_r)
 	}
 }
 
-int dbox_mailbox_open(struct mailbox *box, time_t path_ctime)
+int dbox_mailbox_open(struct mailbox *box, time_t path_ctime ATTR_UNUSED)
 {
-	const char *box_path = mailbox_get_path(box);
-
 	if (index_storage_mailbox_open(box, FALSE) < 0)
 		return -1;
 	mail_index_set_fsync_mode(box->index,
 				  box->storage->set->parsed_fsync_mode,
 				  MAIL_INDEX_FSYNC_MASK_APPENDS |
 				  MAIL_INDEX_FSYNC_MASK_EXPUNGES);
+	return 0;
+}
 
-	const struct mail_index_header *hdr = mail_index_get_header(box->view);
-	uint32_t last_temp_file_scan = hdr->last_temp_file_scan;
-	if (last_temp_file_scan == 0) {
+static void dbox_mailbox_close_cleanup(struct mailbox *box)
+{
+	if (box->view == NULL)
+		return;
+
+	const struct mail_index_header *hdr =
+		mail_index_get_header(box->view);
+
+	const char *box_path = mailbox_get_path(box);
+	time_t scan_time = hdr->last_temp_file_scan;
+	time_t change_time = -1;
+
+	if (scan_time == 0) {
+		/* Try to fetch the scan time from dhe directory's atime
+		   if the directory exists. In case, get also the ctime */
 		struct stat stats;
-		if (stat(box_path, &stats) == 0)
-			last_temp_file_scan = stats.st_atim.tv_sec;
+		if (stat(box_path, &stats) == 0) {
+			scan_time = stats.st_atim.tv_sec;
+			change_time = stats.st_ctim.tv_sec;
+		} else {
+			if (errno != ENOENT) {
+				e_error(box->event,
+					"stat(%s) failed: %m", box_path);
+			}
+			return;
+		}
 	}
 
-	if (dbox_cleanup_temp_files(box->list, box_path,
-				    last_temp_file_scan, path_ctime)) {
+	if (dbox_cleanup_temp_files(box->list, box_path, scan_time, change_time) ||
+		hdr->last_temp_file_scan == 0) {
 		/* temp files were scanned. update the last scan timestamp. */
 		index_mailbox_update_last_temp_file_scan(box);
 	}
-	return 0;
+}
+
+void dbox_mailbox_close(struct mailbox *box)
+{
+	dbox_mailbox_close_cleanup(box);
+	index_storage_mailbox_close(box);
 }
 
 static int dir_is_empty(struct mail_storage *storage, const char *path)
