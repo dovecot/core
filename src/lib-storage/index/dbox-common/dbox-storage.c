@@ -1,6 +1,7 @@
 /* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "crc32.h"
 #include "path-util.h"
 #include "ioloop.h"
 #include "fs-api.h"
@@ -171,19 +172,32 @@ void dbox_notify_changes(struct mailbox *box)
 	}
 }
 
+static time_t cleanup_interval(struct mailbox_list *list)
+{
+	time_t interval = list->mail_set->mail_temp_scan_interval;
+
+	const char *username = list->ns->storage->user->username;
+	/* No need for a cryptographic-quality hash here. */
+	unsigned int hash = crc32_str(username);
+
+	/* spread from 0.00 to to 30.00% more than the base interval */
+	unsigned int spread_factor = 100000 + hash % 30001;
+	return (interval * spread_factor) / 100000;
+}
+
 static bool
 dbox_cleanup_temp_files(struct mailbox_list *list, const char *path,
 			time_t last_scan_time, time_t last_change_time)
 {
-	unsigned int interval = list->mail_set->mail_temp_scan_interval;
-
 	/* check once in a while if there are temp files to clean up */
+	time_t interval = cleanup_interval(list);
 	if (interval == 0) {
 		/* disabled */
 		return FALSE;
 	}
 
-	if (last_scan_time >= ioloop_time - (time_t)interval) {
+	time_t deadline = ioloop_time - interval;
+	if (last_scan_time >= deadline) {
 		/* not the time to scan it yet */
 		return FALSE;
 	}
