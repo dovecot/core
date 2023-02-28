@@ -350,7 +350,9 @@ int dbox_mailbox_create(struct mailbox *box,
 		}
 		/* dir is empty, ignore it */
 	}
-	return dbox_mailbox_create_indexes(box, update);
+	if (dbox_mailbox_create_indexes(box, update) < 0)
+		return -1;
+	return index_mailbox_update_last_temp_file_scan(box);
 }
 
 int dbox_mailbox_create_indexes(struct mailbox *box,
