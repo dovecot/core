@@ -205,7 +205,7 @@ static void mdbox_mailbox_close(struct mailbox *box)
 	if (mstorage->corrupted && !mstorage->rebuilding_storage)
 		(void)mdbox_storage_rebuild(mstorage);
 
-	index_storage_mailbox_close(box);
+	dbox_mailbox_close(box);
 }
 
 int mdbox_read_header(struct mdbox_mailbox *mbox,
