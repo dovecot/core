@@ -183,38 +183,39 @@ dbox_cleanup_temp_files(struct mailbox *box, const char *path,
 	if (interval == 0) {
 		/* disabled */
 		return FALSE;
-	} else if (last_scan_time >= ioloop_time - (time_t)interval) {
+	}
+
+	if (last_scan_time >= ioloop_time - (time_t)interval) {
 		/* not the time to scan it yet */
 		return FALSE;
-	} else {
-		bool stated = FALSE;
-		if (last_change_time == (time_t)-1) {
-			/* Don't know the ctime yet - look it up. */
-			struct stat st;
-
-			if (stat(path, &st) < 0) {
-				if (errno != ENOENT)
-					e_error(box->event,
-						"stat(%s) failed: %m", path);
-				return FALSE;
-			}
-			last_change_time = st.st_ctime;
-			stated = TRUE;
-		}
-		if (last_scan_time > last_change_time + DBOX_TMP_DELETE_SECS) {
-			/* there haven't been any changes to this directory
-			   since we last checked it. If we did an extra stat(),
-			   we need to update the last_scan_time to avoid
-			   stat()ing the next time. */
-			return stated;
-		}
-		const char *prefix =
-			mailbox_list_get_global_temp_prefix(box->list);
-		(void)unlink_old_files(path, prefix,
-				       ioloop_time - DBOX_TMP_DELETE_SECS);
-		return TRUE;
 	}
-	return FALSE;
+
+	bool stated = FALSE;
+	if (last_change_time == (time_t)-1) {
+		/* Don't know the ctime yet - look it up. */
+		struct stat st;
+
+		if (stat(path, &st) < 0) {
+			if (errno != ENOENT)
+				e_error(box->event,
+					"stat(%s) failed: %m", path);
+			return FALSE;
+		}
+		last_change_time = st.st_ctime;
+		stated = TRUE;
+	}
+	if (last_scan_time > last_change_time + DBOX_TMP_DELETE_SECS) {
+		/* there haven't been any changes to this directory
+		   since we last checked it. If we did an extra stat(),
+		   we need to update the last_scan_time to avoid
+		   stat()ing the next time. */
+		return stated;
+	}
+	const char *prefix =
+		mailbox_list_get_global_temp_prefix(box->list);
+	(void)unlink_old_files(path, prefix,
+				ioloop_time - DBOX_TMP_DELETE_SECS);
+	return TRUE;
 }
 
 int dbox_mailbox_check_existence(struct mailbox *box)
