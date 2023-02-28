@@ -273,8 +273,15 @@ int dbox_mailbox_open(struct mailbox *box, time_t path_ctime)
 				  MAIL_INDEX_FSYNC_MASK_EXPUNGES);
 
 	const struct mail_index_header *hdr = mail_index_get_header(box->view);
+	uint32_t last_temp_file_scan = hdr->last_temp_file_scan;
+	if (last_temp_file_scan == 0) {
+		struct stat stats;
+		if (stat(box_path, &stats) == 0)
+			last_temp_file_scan = stats.st_atim.tv_sec;
+	}
+
 	if (dbox_cleanup_temp_files(box->list, box_path,
-				    hdr->last_temp_file_scan, path_ctime)) {
+				    last_temp_file_scan, path_ctime)) {
 		/* temp files were scanned. update the last scan timestamp. */
 		index_mailbox_update_last_temp_file_scan(box);
 	}
