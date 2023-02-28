@@ -71,8 +71,8 @@ int dbox_storage_create(struct mail_storage *storage,
 void dbox_storage_destroy(struct mail_storage *storage);
 uint32_t dbox_get_uidvalidity_next(struct mailbox_list *list);
 void dbox_notify_changes(struct mailbox *box);
-int dbox_mailbox_check_existence(struct mailbox *box, time_t *path_ctime_r);
-int dbox_mailbox_open(struct mailbox *box, time_t path_ctime);
+int dbox_mailbox_check_existence(struct mailbox *box);
+int dbox_mailbox_open(struct mailbox *box);
 void dbox_mailbox_close(struct mailbox *box);
 int dbox_mailbox_create(struct mailbox *box,
 			const struct mailbox_update *update, bool directory);

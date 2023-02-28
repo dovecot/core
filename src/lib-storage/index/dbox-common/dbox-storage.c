@@ -217,13 +217,11 @@ dbox_cleanup_temp_files(struct mailbox *box, const char *path,
 	return FALSE;
 }
 
-int dbox_mailbox_check_existence(struct mailbox *box, time_t *path_ctime_r)
+int dbox_mailbox_check_existence(struct mailbox *box)
 {
 	const char *index_path, *box_path = mailbox_get_path(box);
 	struct stat st;
 	int ret = -1;
-
-	*path_ctime_r = (time_t)-1;
 
 	if (box->list->set.iter_from_index_dir) {
 		/* Just because the index directory exists, it doesn't mean
@@ -244,8 +242,6 @@ int dbox_mailbox_check_existence(struct mailbox *box, time_t *path_ctime_r)
 	}
 	if (ret < 0) {
 		ret = stat(box_path, &st);
-		if (ret == 0)
-			*path_ctime_r = st.st_ctime;
 	}
 
 	if (ret == 0) {
@@ -264,7 +260,7 @@ int dbox_mailbox_check_existence(struct mailbox *box, time_t *path_ctime_r)
 	}
 }
 
-int dbox_mailbox_open(struct mailbox *box, time_t path_ctime ATTR_UNUSED)
+int dbox_mailbox_open(struct mailbox *box)
 {
 	if (index_storage_mailbox_open(box, FALSE) < 0)
 		return -1;
