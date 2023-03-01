@@ -6,7 +6,7 @@
 #include "strescape.h"
 #include "write-full.h"
 #include "mail-search-build.h"
-#include "mail-storage-private.h"
+#include "mail-storage.h"
 #include "mailbox-list-private.h"
 #include "fts-api-private.h"
 #include "fts-tokenizer.h"
@@ -154,7 +154,7 @@ static void fts_try_build_init(struct mail_search_context *ctx,
 		fts_search_lookup(fctx);
 	} else {
 		/* hide "searching" notifications while building index */
-		ctx->progress_hidden = TRUE;
+		mailbox_search_set_progress_hidden(ctx, TRUE);
 	}
 }
 
@@ -282,7 +282,7 @@ static bool fts_mailbox_build_continue(struct mail_search_context *ctx)
 		return FALSE;
 
 	/* indexing finished */
-	ctx->progress_hidden = FALSE;
+	mailbox_search_set_progress_hidden(ctx, FALSE);
 	if (fts_indexer_deinit(&fctx->indexer_ctx) < 0)
 		ret = -1;
 	if (ret > 0)

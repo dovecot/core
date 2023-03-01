@@ -751,6 +751,8 @@ mailbox_search_init(struct mailbox_transaction_context *t,
 		    struct mailbox_header_lookup_ctx *wanted_headers);
 /* Deinitialize search request. */
 int mailbox_search_deinit(struct mail_search_context **ctx);
+void
+mailbox_search_set_progress_hidden(struct mail_search_context *ctx, bool hidden);
 /* Search the next message. Returns TRUE if found, FALSE if not. */
 bool mailbox_search_next(struct mail_search_context *ctx, struct mail **mail_r);
 /* Like mailbox_search_next(), but don't spend too much time searching.

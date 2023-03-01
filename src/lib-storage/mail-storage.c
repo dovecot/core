@@ -2531,6 +2531,12 @@ int mailbox_search_deinit(struct mail_search_context **_ctx)
 	return ret;
 }
 
+void
+mailbox_search_set_progress_hidden(struct mail_search_context *ctx, bool hidden)
+{
+	ctx->progress_hidden = hidden;
+}
+
 static void mailbox_search_notify(struct mailbox *box,
 				  struct mail_search_context *ctx)
 {
