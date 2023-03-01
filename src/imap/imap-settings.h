@@ -30,7 +30,6 @@ struct imap_settings {
 	const char *imap_client_workarounds;
 	const char *imap_logout_format;
 	const char *imap_id_send;
-	const char *imap_id_log;
 	const char *imap_fetch_failure;
 	bool imap_metadata;
 	bool imap_literal_minus;

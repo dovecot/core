@@ -94,7 +94,6 @@ static const struct setting_define imap_setting_defines[] = {
 	DEF(STR, imap_client_workarounds),
 	DEF(STR, imap_logout_format),
 	DEF(STR, imap_id_send),
-	DEF(STR, imap_id_log),
 	DEF(ENUM, imap_fetch_failure),
 	DEF(BOOL, imap_metadata),
 	DEF(BOOL, imap_literal_minus),
@@ -122,7 +121,6 @@ static const struct imap_settings imap_default_settings = {
 		"hdr_count=%{fetch_hdr_count} hdr_bytes=%{fetch_hdr_bytes} "
 		"body_count=%{fetch_body_count} body_bytes=%{fetch_body_bytes}",
 	.imap_id_send = "name *",
-	.imap_id_log = "",
 	.imap_fetch_failure = "disconnect-immediately:disconnect-after:no-after",
 	.imap_metadata = FALSE,
 	.imap_literal_minus = FALSE,
