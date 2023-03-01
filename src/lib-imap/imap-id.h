@@ -18,13 +18,6 @@ struct imap_id_log_entry {
 
 /* Return ID reply based on given settings. */
 const char *imap_id_reply_generate(const char *settings);
-/* Return a line that should be logged based on given args and settings.
-   Returns NULL if nothing should be logged. */
-const char *imap_id_args_get_log_reply(const struct imap_arg *args,
-				       const char *settings);
-/* Append [, ]key=value to the reply sanitized. */
-void imap_id_log_reply_append(string_t *reply, const char *key,
-			      const char *value);
 /* Format the IMAP ID parameters into string-fields of the given event, and
    into a printable log message. */
 void imap_id_add_log_entry(struct imap_id_log_entry *log_entry,

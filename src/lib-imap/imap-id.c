@@ -121,56 +121,6 @@ const char *imap_id_reply_generate(const char *settings)
 	return ret;
 }
 
-void imap_id_log_reply_append(string_t *reply, const char *key,
-			      const char *value)
-{
-	if (str_len(reply) > 0)
-		str_append(reply, ", ");
-	str_append(reply, str_sanitize(key, IMAP_ID_KEY_MAX_LEN));
-	str_append_c(reply, '=');
-	str_append(reply, value == NULL ? "NIL" : str_sanitize(value, 80));
-}
-
-const char *imap_id_args_get_log_reply(const struct imap_arg *args,
-				       const char *settings)
-{
-	const char *const *keys, *key, *value;
-	string_t *reply;
-	bool log_all;
-
-	if (settings == NULL || *settings == '\0')
-		return NULL;
-	if (!imap_arg_get_list(args, &args))
-		return NULL;
-
-	log_all = strcmp(settings, "*") == 0;
-	reply = t_str_new(256);
-	keys = t_strsplit_spaces(settings, " ");
-	while (!IMAP_ARG_IS_EOL(&args[0]) &&
-	       !IMAP_ARG_IS_EOL(&args[1])) {
-		if (!imap_arg_get_string(args, &key)) {
-			/* broken input */
-			args += 2;
-			continue;
-		}
-		args++;
-		if (strlen(key) > 30) {
-			/* broken: ID spec requires fields to be max. 30
-			   octets */
-			args++;
-			continue;
-		}
-
-		if (log_all || str_array_icase_find(keys, key)) {
-			if (!imap_arg_get_nstring(args, &value))
-				value = "";
-			imap_id_log_reply_append(reply, key, value);
-		}
-		args++;
-	}
-	return str_len(reply) == 0 ? NULL : str_c(reply);
-}
-
 void
 imap_id_add_log_entry(struct imap_id_log_entry *log_entry, const char *key,
 		      const char *value)
