@@ -13,6 +13,9 @@
 #  include <sys/utsname.h>
 #endif
 
+/* Limit the allowed characters that an IMAP ID parameter might have. */
+#define IMAP_ID_KEY_ACCEPT_CHARS "abcdefghijklmnopqrstuvwxyz0123456789_-"
+
 static struct utsname utsname_result;
 static bool utsname_set = FALSE;
 
@@ -166,4 +169,28 @@ const char *imap_id_args_get_log_reply(const struct imap_arg *args,
 		args++;
 	}
 	return str_len(reply) == 0 ? NULL : str_c(reply);
+}
+
+void
+imap_id_add_log_entry(struct imap_id_log_entry *log_entry, const char *key,
+		      const char *value)
+{
+	if (str_len(log_entry->reply) > 0)
+		str_append(log_entry->reply, ", ");
+	str_append(log_entry->reply, key);
+	str_append_c(log_entry->reply, '=');
+	str_append(log_entry->reply, value == NULL ? "NIL" : value);
+
+	const char *l_key = t_str_lcase(key);
+	const char *prefixed_key;
+	const char *val_str = value == NULL ? "NIL" : value;
+	if (strspn(l_key, IMAP_ID_KEY_ACCEPT_CHARS) == strlen(l_key)) {
+		prefixed_key = t_strconcat("id_param_", l_key, NULL);
+		event_add_str(log_entry->event, prefixed_key, val_str);
+	} else {
+		prefixed_key = t_strdup_printf("id_invalid%u",
+					       ++log_entry->invalid_key_id_counter);
+		const char *key_val = t_strconcat(key, " ", val_str, NULL);
+		event_add_str(log_entry->event, prefixed_key, key_val);
+	}
 }
