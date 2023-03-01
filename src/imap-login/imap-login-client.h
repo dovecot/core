@@ -46,8 +46,7 @@ struct imap_client_cmd_id {
 
 	enum imap_client_id_state state;
 	char key[IMAP_ID_KEY_MAX_LEN+1];
-
-	char **log_keys;
+	struct event *params_event;
 	string_t *log_reply;
 };
 

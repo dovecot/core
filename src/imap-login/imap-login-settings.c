@@ -82,7 +82,6 @@ struct service_settings imap_login_service_settings = {
 static const struct setting_define imap_login_setting_defines[] = {
 	DEF(STR, imap_capability),
 	DEF(STR, imap_id_send),
-	DEF(STR, imap_id_log),
 	DEF(BOOL, imap_literal_minus),
 	DEF(BOOL, imap_id_retain),
 
@@ -92,7 +91,6 @@ static const struct setting_define imap_login_setting_defines[] = {
 static const struct imap_login_settings imap_login_default_settings = {
 	.imap_capability = "",
 	.imap_id_send = "name *",
-	.imap_id_log = "",
 	.imap_literal_minus = FALSE,
 	.imap_id_retain = FALSE,
 };
