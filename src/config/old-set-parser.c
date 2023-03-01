@@ -356,6 +356,12 @@ old_settings_handle_root(struct config_parser_context *ctx,
 					 value);
 		return TRUE;
 	}
+	if (strcmp(key, "imap_id_log") == 0) {
+		obsolete(ctx,
+			 "'imap_id_log' has been removed. Use event exporter "
+			 "for the 'imap_id_received' event instead.");
+		return TRUE;
+	}
 
 	return FALSE;
 }
