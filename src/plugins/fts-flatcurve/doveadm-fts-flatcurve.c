@@ -157,25 +157,6 @@ cmd_fts_flatcurve_mailbox_run(struct doveadm_mail_cmd_context *_ctx,
 		return -1;
 	}
 
-	doveadm_print_header("mailbox", "mailbox",
-				DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
-	doveadm_print_header_simple("guid");
-
-	switch (ctx->cmd_type) {
-	case FTS_FLATCURVE_CMD_CHECK:
-		doveadm_print_header_simple("errors");
-		doveadm_print_header_simple("shards");
-		break;
-	case FTS_FLATCURVE_CMD_STATS:
-		doveadm_print_header_simple("last_uid");
-		doveadm_print_header_simple("messages");
-		doveadm_print_header_simple("shards");
-		doveadm_print_header_simple("version");
-		break;
-	default:
-		break;
-	}
-
 	struct flatcurve_fts_backend *backend = fuser->backend;
 	int ret = cmd_fts_flatcurve_mailbox_run_do(backend, user, ctx);
 	if (ret < 0)
@@ -211,6 +192,25 @@ cmd_fts_flatcurve_mailbox_init(struct doveadm_mail_cmd_context *_ctx)
 	}
 
 	_ctx->search_args = doveadm_mail_mailbox_search_args_build(args);
+
+	doveadm_print_header("mailbox", "mailbox",
+			     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+	doveadm_print_header_simple("guid");
+
+	switch (ctx->cmd_type) {
+	case FTS_FLATCURVE_CMD_CHECK:
+		doveadm_print_header_simple("errors");
+		doveadm_print_header_simple("shards");
+		break;
+	case FTS_FLATCURVE_CMD_STATS:
+		doveadm_print_header_simple("last_uid");
+		doveadm_print_header_simple("messages");
+		doveadm_print_header_simple("shards");
+		doveadm_print_header_simple("version");
+		break;
+	default:
+		break;
+	}
 }
 
 static void
