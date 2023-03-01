@@ -34,6 +34,8 @@ struct fts_indexer_context {
 	bool completed:1;
 };
 
+static void fts_indexer_idle_timeout(struct connection *conn);
+
 static void fts_indexer_notify(struct fts_indexer_context *ctx)
 {
 	unsigned long long elapsed_msecs, est_total_msecs;
@@ -167,8 +169,14 @@ fts_indexer_input_args(struct connection *conn, const char *const *args)
 		return -1;
 	}
 	ctx->percentage = percentage;
+	time_t elapsed = ioloop_time - ctx->search_start_time.tv_sec;
 	if (ctx->percentage == 100)
 		ctx->completed = TRUE;
+	else if (ctx->conn.input_idle_timeout_secs > 0 &&
+		 elapsed > ctx->conn.input_idle_timeout_secs) {
+		fts_indexer_idle_timeout(&ctx->conn);
+		return -1;
+	}
 	return 1;
 }
 
