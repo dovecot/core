@@ -3,6 +3,7 @@
 #include "imap-common.h"
 #include "imap-id.h"
 #include "str.h"
+#include "str-sanitize.h"
 
 static void
 cmd_id_log_params(const struct imap_arg *args, struct event *event,
@@ -55,7 +56,9 @@ bool cmd_id(struct client_command_context *cmd)
 		string_t *log_reply = str_new(default_pool, 64);
 		cmd_id_log_params(args, event, log_reply);
 		if (str_len(log_reply) > 0)
-			e_debug(event, "ID sent: %s", str_c(log_reply)));
+			e_debug(event, "ID sent: %s",
+				str_sanitize(str_c(log_reply),
+					     IMAP_ID_PARAMS_LOG_MAX_LEN));
 		event_unref(&event);
 		str_free(&log_reply);
 	}

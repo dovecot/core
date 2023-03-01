@@ -2,6 +2,7 @@
 
 #include "login-common.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "imap-parser.h"
 #include "imap-quote.h"
 #include "imap-login-settings.h"
@@ -206,7 +207,8 @@ static void cmd_id_finish(struct imap_client *client)
 		    str_len(client->cmd_id->log_reply) > 0) {
 			e_debug(client->cmd_id->params_event,
 				"Pre-login ID sent: %s",
-				str_c(client->cmd_id->log_reply));
+				str_sanitize(str_c(client->cmd_id->log_reply),
+					     IMAP_ID_PARAMS_LOG_MAX_LEN));
 		}
 	}
 

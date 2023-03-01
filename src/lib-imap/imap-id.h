@@ -15,6 +15,8 @@ struct imap_id_log_entry {
 
 /* RFC 2971 says keys are max. 30 octets */
 #define IMAP_ID_KEY_MAX_LEN 30
+/* Truncate excessively large IMAP ID parameters in log lines. */
+#define IMAP_ID_PARAMS_LOG_MAX_LEN 1024
 
 /* Return ID reply based on given settings. */
 const char *imap_id_reply_generate(const char *settings);
