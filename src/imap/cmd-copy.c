@@ -8,6 +8,9 @@
 #include "imap-util.h"
 #include "imap-commands.h"
 #include "imap-search-args.h"
+#include "imap-storage-callbacks.h"
+#include "mail-storage.h"
+#include "time-util.h"
 
 #include <time.h>
 
@@ -21,6 +24,8 @@ struct cmd_copy_context {
 	bool move;
 
 	unsigned int copy_count;
+	unsigned int copy_goal;
+	struct timeval copy_start;
 
 	uint32_t uid_validity;
 	ARRAY_TYPE(seq_range) src_uids;
@@ -31,25 +36,26 @@ struct cmd_copy_context {
 	enum mail_error mail_error;
 };
 
-static int client_send_sendalive_if_needed(struct client *client)
+static int client_send_sendalive_if_needed(struct client *client,
+					   struct cmd_copy_context *ctx)
 {
-	time_t now, last_io;
-	int ret = 0;
+	io_loop_time_refresh();
+	if (ctx->copy_start.tv_sec == 0)
+		ctx->copy_start = ioloop_timeval;
 
-	if (o_stream_get_buffer_used_size(client->output) != 0)
+	time_t silent_secs = ioloop_time - I_MAX(client->last_input,
+						 client->last_output);
+	if (silent_secs < MAIL_STORAGE_NOTIFY_INTERVAL_SECS)
 		return 0;
 
-	now = time(NULL);
-	last_io = I_MAX(client->last_input, client->last_output);
-	if (now - last_io > MAIL_STORAGE_STAYALIVE_SECS) {
-		o_stream_nsend_str(client->output, "* OK Hang in there..\r\n");
-		/* make sure it doesn't get stuck on the corked stream */
-		if (o_stream_uncork_flush(client->output) < 0)
-			ret = -1;
-		o_stream_cork(client->output);
-		client->last_output = now;
-	}
-	return ret;
+	struct mail_storage_progress_details dtl = {
+		.verb = ctx->move ? "Moved" : "Copied",
+		.total = ctx->copy_goal,
+		.processed = ctx->copy_count,
+		.start_time = ctx->copy_start,
+		.now = ioloop_timeval,
+	};
+	return imap_notify_progress(&dtl, client);
 }
 
 static void copy_update_trashed(struct client *client, struct mailbox *box,
@@ -128,6 +134,16 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 
 	i_array_init(&src_uids, 64);
 	ret = 1;
+
+	/* mailbox_search_next() could already take care of the progress
+	   notifications, but in case of MOVE we are batching the moves
+	   in transactions. As each one performs a separate search, the
+	   progress would "jump back" for each transaction (and the total
+	   would be wrong also). COPY *could* still use the original
+	   implementation, but it is simpler to reuse the code that MOVE
+	   requires anyway. */
+	mailbox_search_set_progress_hidden(search_ctx, TRUE);
+
 	while (mailbox_search_next(search_ctx, &mail) && ret > 0) {
 		/* RFCs require to rollback a COPY if any mails is expunged.
 		   MOVE also needs to abort (but not rollback) to prevent
@@ -144,7 +160,7 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 			   avoid client duplicating the COPY again later.
 			   We can detect this as long as the client doesn't
 			   fill the input buffer full. */
-			if (client_send_sendalive_if_needed(client) < 0 ||
+			if (client_send_sendalive_if_needed(client, copy_ctx) < 0 ||
 			    (!copy_ctx->move &&
 			     client_is_disconnected(client))) {
 				/* Client disconnected. Use the same failure
@@ -321,6 +337,9 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 	copy_ctx.move = move;
 	i_array_init(&copy_ctx.src_uids, 8);
 	i_array_init(&copy_ctx.saved_uids, 8);
+
+	i_assert(search_args->args->type == SEARCH_UIDSET);
+	copy_ctx.copy_goal = seq_range_count(&search_args->args->value.seqset);
 
 	if (move) {
 		/* When moving mails, perform the work in batches of
