@@ -112,14 +112,22 @@ headers = \
 	imap-status.h \
 	imap-state.h \
 	imap-sync.h \
-	imap-sync-private.h
+	imap-sync-private.h \
+	imap-storage-callbacks.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
+	test-imap-storage-callbacks \
 	test-imap-client-hibernate
 noinst_PROGRAMS = $(test_programs)
+
+test_imap_storage_callbacks_SOURCES = \
+	test-imap-storage-callbacks.c \
+	imap-storage-callbacks.c
+test_imap_storage_callbacks_LDADD = $(imap_LDADD)
+test_imap_storage_callbacks_DEPENDENCIES = $(imap_DEPENDENCIES)
 
 test_imap_client_hibernate_SOURCES = \
 	test-imap-client-hibernate.c $(common_sources)

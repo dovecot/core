@@ -427,6 +427,21 @@ struct mail {
 	enum mail_lookup_abort lookup_abort;
 };
 
+struct mail_storage_progress_details {
+	const char *verb;
+	unsigned int total;
+	unsigned int processed;
+
+	/* "now" could be inferred directly by the callback, but that
+	   would create mismatches in the concept of 'now' between caller
+	   and callback, given that the structure allows for microseconds
+	   precision.
+	   Also, this way the caller can capture 'now' in the most
+	   representative point along the execution. */
+	struct timeval now;
+	struct timeval start_time;
+};
+
 struct mail_storage_callbacks {
 	/* "* OK <text>" */
 	void (*notify_ok)(struct mailbox *mailbox, const char *text,
@@ -434,7 +449,10 @@ struct mail_storage_callbacks {
 	/* "* NO <text>" */
 	void (*notify_no)(struct mailbox *mailbox, const char *text,
 			  void *context);
-
+	/* "* OK [INPROGRESS (...)] <text>" */
+	void (*notify_progress)(struct mailbox *mailbox,
+				const struct mail_storage_progress_details *dtl,
+				void *context);
 };
 
 struct mailbox_virtual_pattern {
