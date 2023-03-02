@@ -89,7 +89,7 @@ common_sources = \
 	imap-status.c \
 	imap-state.c \
 	imap-sync.c \
-	mail-storage-callbacks.c
+	imap-storage-callbacks.c
 
 imap_SOURCES = \
 	$(common_sources) \
