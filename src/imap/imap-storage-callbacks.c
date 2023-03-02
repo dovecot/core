@@ -39,7 +39,7 @@ static void notify_no(struct mailbox *mailbox ATTR_UNUSED,
 	} T_END;
 }
 
-struct mail_storage_callbacks mail_storage_callbacks = {
+struct mail_storage_callbacks imap_storage_callbacks = {
 	notify_ok,
 	notify_no
 };

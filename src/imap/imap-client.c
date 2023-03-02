@@ -33,7 +33,7 @@
    where the time was spent. */
 #define IMAP_CLIENT_DISCONNECT_LOG_STATS_CMD_MIN_RUNNING_MSECS 1000
 
-extern struct mail_storage_callbacks mail_storage_callbacks;
+extern struct mail_storage_callbacks imap_storage_callbacks;
 extern struct imap_client_vfuncs imap_client_vfuncs;
 
 struct imap_module_register imap_module_register = { 0 };
@@ -244,7 +244,7 @@ int client_create_finish(struct client *client, const char **error_r)
 	if (mail_namespaces_init(client->user, error_r) < 0)
 		return -1;
 	mail_namespaces_set_storage_callbacks(client->user->namespaces,
-					      &mail_storage_callbacks, client);
+					      &imap_storage_callbacks, client);
 	client->v.init(client);
 	return 0;
 }
