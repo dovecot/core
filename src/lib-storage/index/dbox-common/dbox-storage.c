@@ -191,7 +191,7 @@ dbox_cleanup_temp_files(struct mailbox_list *list, const char *path,
 			struct stat st;
 
 			if (stat(path, &st) < 0) {
-				if (errno == ENOENT)
+				if (errno != ENOENT)
 					i_error("stat(%s) failed: %m", path);
 				return FALSE;
 			}
