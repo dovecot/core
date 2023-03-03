@@ -177,7 +177,6 @@ static bool
 dbox_cleanup_temp_files(struct mailbox *box, const char *path,
 			time_t last_scan_time, time_t last_change_time)
 {
-	struct event *event = box->event;
 	unsigned int interval = box->list->mail_set->mail_temp_scan_interval;
 
 	/* check once in a while if there are temp files to clean up */
@@ -194,8 +193,9 @@ dbox_cleanup_temp_files(struct mailbox *box, const char *path,
 			struct stat st;
 
 			if (stat(path, &st) < 0) {
-				if (errno == ENOENT)
-					e_error(event, "stat(%s) failed: %m", path);
+				if (errno != ENOENT)
+					e_error(box->event,
+						"stat(%s) failed: %m", path);
 				return FALSE;
 			}
 			last_change_time = st.st_ctime;
