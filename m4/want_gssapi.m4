@@ -40,11 +40,6 @@ AC_DEFUN([DOVECOT_WANT_GSSAPI], [
           ])
           AC_DEFINE(HAVE_GSSAPI,, [Build with GSSAPI support])
           AC_CHECK_HEADERS(gssapi/gssapi_ext.h gssapi_krb5.h gssapi/gssapi_krb5.h)
-          AC_CHECK_LIB(gss, __gss_userok, [
-            AC_DEFINE(HAVE___GSS_USEROK,,
-              [Define if you have __gss_userok()])
-            KRB5_LIBS="$KRB5_LIBS -lgss"
-          ],, $KRB5_LIBS)
 
           # MIT has a #define for Heimdal acceptor_identity, but it's way too
           # difficult to test for it..
