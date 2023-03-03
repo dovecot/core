@@ -32,13 +32,13 @@ static struct auth_request *mech_anonymous_auth_new(void)
 }
 
 const struct mech_module mech_anonymous = {
-	"ANONYMOUS",
+	.mech_name = "ANONYMOUS",
 
 	.flags = MECH_SEC_ANONYMOUS | MECH_SEC_ALLOW_NULS,
 	.passdb_need = MECH_PASSDB_NEED_NOTHING,
 
-	mech_anonymous_auth_new,
-	mech_generic_auth_initial,
-	mech_anonymous_auth_continue,
-	mech_generic_auth_free
+	.auth_new = mech_anonymous_auth_new,
+	.auth_initial = mech_generic_auth_initial,
+	.auth_continue = mech_anonymous_auth_continue,
+	.auth_free = mech_generic_auth_free,
 };

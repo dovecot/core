@@ -225,49 +225,49 @@ static void mech_scram_auth_free(struct auth_request *auth_request)
 }
 
 const struct mech_module mech_scram_sha1 = {
-	"SCRAM-SHA-1",
+	.mech_name = "SCRAM-SHA-1",
 
 	.flags = MECH_SEC_MUTUAL_AUTH,
 	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
-	mech_scram_sha1_auth_new,
-	mech_generic_auth_initial,
-	mech_scram_auth_continue,
-	mech_scram_auth_free,
+	.auth_new = mech_scram_sha1_auth_new,
+	.auth_initial = mech_generic_auth_initial,
+	.auth_continue = mech_scram_auth_continue,
+	.auth_free = mech_scram_auth_free,
 };
 
 const struct mech_module mech_scram_sha1_plus = {
-	"SCRAM-SHA-1-PLUS",
+	.mech_name = "SCRAM-SHA-1-PLUS",
 
 	.flags = MECH_SEC_MUTUAL_AUTH | MECH_SEC_CHANNEL_BINDING,
 	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
-	mech_scram_sha1_auth_new,
-	mech_generic_auth_initial,
-	mech_scram_auth_continue,
-	mech_scram_auth_free
+	.auth_new = mech_scram_sha1_auth_new,
+	.auth_initial = mech_generic_auth_initial,
+	.auth_continue = mech_scram_auth_continue,
+	.auth_free = mech_scram_auth_free,
 };
 
 const struct mech_module mech_scram_sha256 = {
-	"SCRAM-SHA-256",
+	.mech_name = "SCRAM-SHA-256",
 
 	.flags = MECH_SEC_MUTUAL_AUTH,
 	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
-	mech_scram_sha256_auth_new,
-	mech_generic_auth_initial,
-	mech_scram_auth_continue,
-	mech_scram_auth_free,
+	.auth_new = mech_scram_sha256_auth_new,
+	.auth_initial = mech_generic_auth_initial,
+	.auth_continue = mech_scram_auth_continue,
+	.auth_free = mech_scram_auth_free,
 };
 
 const struct mech_module mech_scram_sha256_plus = {
-	"SCRAM-SHA-256-PLUS",
+	.mech_name = "SCRAM-SHA-256-PLUS",
 
 	.flags = MECH_SEC_MUTUAL_AUTH | MECH_SEC_CHANNEL_BINDING,
 	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
-	mech_scram_sha256_auth_new,
-	mech_generic_auth_initial,
-	mech_scram_auth_continue,
-	mech_scram_auth_free
+	.auth_new = mech_scram_sha256_auth_new,
+	.auth_initial = mech_generic_auth_initial,
+	.auth_continue = mech_scram_auth_continue,
+	.auth_free = mech_scram_auth_free,
 };

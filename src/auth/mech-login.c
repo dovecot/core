@@ -64,13 +64,13 @@ static struct auth_request *mech_login_auth_new(void)
 }
 
 const struct mech_module mech_login = {
-	"LOGIN",
+	.mech_name = "LOGIN",
 
 	.flags = MECH_SEC_PLAINTEXT,
 	.passdb_need = MECH_PASSDB_NEED_VERIFY_PLAIN,
 
-	mech_login_auth_new,
-	mech_login_auth_initial,
-	mech_login_auth_continue,
-	mech_generic_auth_free
+	.auth_new = mech_login_auth_new,
+	.auth_initial = mech_login_auth_initial,
+	.auth_continue = mech_login_auth_continue,
+	.auth_free = mech_generic_auth_free,
 };

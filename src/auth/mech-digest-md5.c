@@ -618,16 +618,16 @@ static struct auth_request *mech_digest_md5_auth_new(void)
 }
 
 const struct mech_module mech_digest_md5 = {
-	"DIGEST-MD5",
+	.mech_name = "DIGEST-MD5",
 
 	.flags = MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE |
 		MECH_SEC_MUTUAL_AUTH,
 	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
-	mech_digest_md5_auth_new,
-	mech_digest_md5_auth_initial,
-	mech_digest_md5_auth_continue,
-	mech_generic_auth_free
+	.auth_new = mech_digest_md5_auth_new,
+	.auth_initial = mech_digest_md5_auth_initial,
+	.auth_continue = mech_digest_md5_auth_continue,
+	.auth_free = mech_generic_auth_free,
 };
 
 void mech_digest_test_set_nonce(struct auth_request *auth_request,

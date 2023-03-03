@@ -80,13 +80,13 @@ static struct auth_request *mech_dovecot_token_auth_new(void)
 }
 
 const struct mech_module mech_dovecot_token = {
-	"DOVECOT-TOKEN",
+	.mech_name = "DOVECOT-TOKEN",
 
 	.flags = MECH_SEC_PRIVATE | MECH_SEC_ALLOW_NULS,
 	.passdb_need = MECH_PASSDB_NEED_NOTHING,
 
-	mech_dovecot_token_auth_new,
-	mech_generic_auth_initial,
-	mech_dovecot_token_auth_continue,
-	mech_generic_auth_free
+	.auth_new = mech_dovecot_token_auth_new,
+	.auth_initial = mech_generic_auth_initial,
+	.auth_continue = mech_dovecot_token_auth_continue,
+	.auth_free = mech_generic_auth_free
 };

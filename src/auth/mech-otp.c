@@ -319,15 +319,15 @@ static void mech_otp_auth_free(struct auth_request *auth_request)
  */
 
 const struct mech_module mech_otp = {
-	"OTP",
+	.mech_name = "OTP",
 
 	.flags = MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE | MECH_SEC_ALLOW_NULS,
 	.passdb_need = MECH_PASSDB_NEED_SET_CREDENTIALS,
 
-	mech_otp_auth_new,
-	mech_generic_auth_initial,
-	mech_otp_auth_continue,
-	mech_otp_auth_free
+	.auth_new = mech_otp_auth_new,
+	.auth_initial = mech_generic_auth_initial,
+	.auth_continue = mech_otp_auth_continue,
+	.auth_free = mech_otp_auth_free,
 };
 
 void mech_otp_deinit(void)

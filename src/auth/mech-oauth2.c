@@ -392,29 +392,29 @@ static struct auth_request *mech_oauth2_auth_new(void)
 }
 
 const struct mech_module mech_oauthbearer = {
-	"OAUTHBEARER",
+	.mech_name = "OAUTHBEARER",
 
 	/* while this does not transfer plaintext password,
 	   the token is still considered as password */
 	.flags = MECH_SEC_PLAINTEXT,
 	.passdb_need = 0,
 
-	mech_oauth2_auth_new,
-	mech_generic_auth_initial,
-	mech_oauthbearer_auth_continue,
-	mech_generic_auth_free
+	.auth_new = mech_oauth2_auth_new,
+	.auth_initial = mech_generic_auth_initial,
+	.auth_continue = mech_oauthbearer_auth_continue,
+	.auth_free = mech_generic_auth_free,
 };
 
 const struct mech_module mech_xoauth2 = {
-	"XOAUTH2",
+	.mech_name = "XOAUTH2",
 
 	.flags = MECH_SEC_PLAINTEXT,
 	.passdb_need = 0,
 
-	mech_oauth2_auth_new,
-	mech_generic_auth_initial,
-	mech_xoauth2_auth_continue,
-	mech_generic_auth_free
+	.auth_new = mech_oauth2_auth_new,
+	.auth_initial = mech_generic_auth_initial,
+	.auth_continue = mech_xoauth2_auth_continue,
+	.auth_free = mech_generic_auth_free,
 };
 
 void mech_oauth2_initialize(void)
