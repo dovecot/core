@@ -78,13 +78,29 @@ auth_SOURCES = main.c $(auth_common_sources)
 ldap_sources = db-ldap.c db-ldap-sasl.c db-ldap-settings.c passdb-ldap.c userdb-ldap.c
 lua_sources = db-lua.c passdb-lua.c userdb-lua.c
 
+sasl_server_mechanisms = \
+	sasl-server-mech-anonymous.c \
+	sasl-server-mech-cram-md5.c \
+	sasl-server-mech-digest-md5.c \
+	sasl-server-mech-external.c \
+	sasl-server-mech-gssapi.c \
+	sasl-server-mech-login.c \
+	sasl-server-mech-oauth2.c \
+	sasl-server-mech-otp.c \
+	sasl-server-mech-plain.c \
+	sasl-server-mech-plain-common.c \
+	sasl-server-mech-scram.c \
+	sasl-server-mech-winbind.c
+
+sasl_sources = \
+	${sasl_server_mechanisms}
+
 auth_common_sources = \
 	auth.c \
 	auth-cache.c \
 	auth-client-connection.c \
 	auth-master-connection.c \
 	auth-policy.c \
-	mech-plain-common.c \
 	auth-penalty.c \
 	auth-request.c \
 	auth-request-fields.c \
@@ -100,19 +116,9 @@ auth_common_sources = \
 	db-sql.c \
 	db-passwd-file.c \
 	mech.c \
-	mech-anonymous.c \
-	mech-plain.c \
-	mech-login.c \
-	mech-cram-md5.c \
-	mech-digest-md5.c \
-	mech-external.c \
-	mech-gssapi.c \
-	mech-otp.c \
-	mech-scram.c \
 	mech-apop.c \
-	mech-winbind.c \
 	mech-dovecot-token.c \
-	mech-oauth2.c \
+	${sasl_sources} \
 	passdb.c \
 	passdb-blocking.c \
 	passdb-bsdauth.c \
@@ -139,10 +145,6 @@ headers = \
 	auth-client-connection.h \
 	auth-common.h \
 	auth-master-connection.h \
-	mech-otp.h \
-	mech-plain-common.h \
-	mech-digest-md5-private.h \
-	mech-scram.h \
 	auth-penalty.h \
 	auth-policy.h \
 	auth-request.h \
@@ -162,6 +164,10 @@ headers = \
 	db-passwd-file.h \
 	db-oauth2.h \
 	mech.h \
+	mech-otp.h \
+	mech-digest-md5-private.h \
+	sasl-server-mech-plain-common.h \
+	sasl-server-mech-scram.h \
 	passdb.h \
 	passdb-blocking.h \
 	passdb-cache.h \
@@ -172,7 +178,7 @@ if GSSAPI_PLUGIN
 libmech_gssapi_la_LDFLAGS = -module -avoid-version
 libmech_gssapi_la_LIBADD = $(KRB5_LIBS)
 libmech_gssapi_la_CPPFLAGS = $(AM_CPPFLAGS) $(KRB5_CFLAGS) -DPLUGIN_BUILD
-libmech_gssapi_la_SOURCES = mech-gssapi.c
+libmech_gssapi_la_SOURCES = sasl-server-mech-gssapi.c
 endif
 
 if HAVE_LDAP

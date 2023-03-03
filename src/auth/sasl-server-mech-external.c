@@ -3,7 +3,7 @@
 #include "auth-common.h"
 #include "passdb.h"
 #include "mech.h"
-#include "mech-plain-common.h"
+#include "sasl-server-mech-plain-common.h"
 
 static void
 mech_external_auth_continue(struct auth_request *request,

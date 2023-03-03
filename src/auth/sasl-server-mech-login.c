@@ -10,7 +10,7 @@
 #include "mech.h"
 #include "passdb.h"
 #include "safe-memset.h"
-#include "mech-plain-common.h"
+#include "sasl-server-mech-plain-common.h"
 
 
 static void

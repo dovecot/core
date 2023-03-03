@@ -5,7 +5,7 @@
 #include "sha2.h"
 #include "auth-scram-server.h"
 #include "mech.h"
-#include "mech-scram.h"
+#include "sasl-server-mech-scram.h"
 
 struct scram_auth_request {
 	struct auth_request auth_request;

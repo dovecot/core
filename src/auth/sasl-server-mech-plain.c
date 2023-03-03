@@ -4,7 +4,7 @@
 #include "safe-memset.h"
 #include "mech.h"
 #include "passdb.h"
-#include "mech-plain-common.h"
+#include "sasl-server-mech-plain-common.h"
 
 static void
 mech_plain_auth_continue(struct auth_request *request,
