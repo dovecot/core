@@ -122,7 +122,7 @@ otp_credentials_callback(enum passdb_result result,
 		otp_send_challenge(request, credentials, size);
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
-		auth_request_internal_failure(auth_request);
+		sasl_server_request_internal_failure(auth_request);
 		break;
 	default:
 		sasl_server_request_failure(auth_request);
@@ -176,7 +176,7 @@ otp_set_credentials_callback(bool success, struct auth_request *auth_request)
 	if (success)
 		sasl_server_request_success(auth_request, "", 0);
 	else {
-		auth_request_internal_failure(auth_request);
+		sasl_server_request_internal_failure(auth_request);
 		otp_unlock(request);
 	}
 

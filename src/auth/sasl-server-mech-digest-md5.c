@@ -538,7 +538,7 @@ credentials_callback(enum passdb_result result,
 		verify_credentials(auth_request, credentials, size);
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
-		auth_request_internal_failure(auth_request);
+		sasl_server_request_internal_failure(auth_request);
 		break;
 	default:
 		sasl_server_request_failure(auth_request);

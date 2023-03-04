@@ -33,7 +33,7 @@ oauth2_fail(struct oauth2_auth_request *oauth2_req,
 	struct auth_request *request = &oauth2_req->request;
 
 	if (failure == NULL) {
-		auth_request_internal_failure(request);
+		sasl_server_request_internal_failure(request);
 		return;
 	}
 

@@ -52,7 +52,7 @@ credentials_callback(enum passdb_result result,
 		sasl_server_request_output(auth_request, output, output_len);
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
-		auth_request_internal_failure(auth_request);
+		sasl_server_request_internal_failure(auth_request);
 		break;
 	default:
 		sasl_server_request_failure(auth_request);

@@ -508,12 +508,12 @@ gssapi_credentials_callback(enum passdb_result result,
 	   now the k5principals field will have been filled in. */
 	switch (result) {
 	case PASSDB_RESULT_INTERNAL_FAILURE:
-		auth_request_internal_failure(auth_request);
+		sasl_server_request_internal_failure(auth_request);
 		return;
 	case PASSDB_RESULT_USER_DISABLED:
 	case PASSDB_RESULT_PASS_EXPIRED:
 		/* User is explicitly disabled, don't allow it to log in */
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		return;
 	case PASSDB_RESULT_NEXT:
 	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
@@ -526,7 +526,7 @@ gssapi_credentials_callback(enum passdb_result result,
 	if (mech_gssapi_userok(request, auth_request->fields.user) == 0)
 		sasl_server_request_success(auth_request, NULL, 0);
 	else
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 }
 
 static int
@@ -635,7 +635,7 @@ mech_gssapi_auth_continue(struct auth_request *auth_request,
 		i_unreached();
 	}
 	if (ret < 0)
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 }
 
 static void
@@ -651,7 +651,7 @@ mech_gssapi_auth_initial(struct auth_request *auth_request,
 		obtain_service_credentials(request, &request->service_cred);
 
 	if (GSS_ERROR(major_status) != 0) {
-		auth_request_internal_failure(auth_request);
+		sasl_server_request_internal_failure(auth_request);
 		return;
 	}
 	request->authn_name = GSS_C_NO_NAME;
