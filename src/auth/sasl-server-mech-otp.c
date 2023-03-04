@@ -319,7 +319,8 @@ static void mech_otp_auth_free(struct auth_request *auth_request)
 const struct mech_module mech_otp = {
 	.mech_name = "OTP",
 
-	.flags = MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE | MECH_SEC_ALLOW_NULS,
+	.flags = SASL_MECH_SEC_DICTIONARY | SASL_MECH_SEC_ACTIVE |
+		 SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = MECH_PASSDB_NEED_SET_CREDENTIALS,
 
 	.auth_new = mech_otp_auth_new,

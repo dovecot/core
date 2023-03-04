@@ -341,8 +341,8 @@ static struct auth_request *mech_winbind_spnego_auth_new(void)
 const struct mech_module mech_winbind_ntlm = {
 	.mech_name = "NTLM",
 
-	.flags = MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE |
-		 MECH_SEC_ALLOW_NULS,
+	.flags = SASL_MECH_SEC_DICTIONARY | SASL_MECH_SEC_ACTIVE |
+		 SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = MECH_PASSDB_NEED_NOTHING,
 
 	.auth_new = mech_winbind_ntlm_auth_new,
@@ -354,7 +354,7 @@ const struct mech_module mech_winbind_ntlm = {
 const struct mech_module mech_winbind_spnego = {
 	.mech_name = "GSS-SPNEGO",
 
-	.flags = MECH_SEC_ALLOW_NULS,
+	.flags = SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = MECH_PASSDB_NEED_NOTHING,
 
 	.auth_new = mech_winbind_spnego_auth_new,

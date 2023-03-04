@@ -310,7 +310,7 @@ const struct mech_module mech_oauthbearer = {
 
 	/* while this does not transfer plaintext password,
 	   the token is still considered as password */
-	.flags = MECH_SEC_PLAINTEXT,
+	.flags = SASL_MECH_SEC_PLAINTEXT,
 	.passdb_need = 0,
 
 	.auth_new = mech_oauth2_auth_new,
@@ -322,7 +322,7 @@ const struct mech_module mech_oauthbearer = {
 const struct mech_module mech_xoauth2 = {
 	.mech_name = "XOAUTH2",
 
-	.flags = MECH_SEC_PLAINTEXT,
+	.flags = SASL_MECH_SEC_PLAINTEXT,
 	.passdb_need = 0,
 
 	.auth_new = mech_oauth2_auth_new,

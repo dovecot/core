@@ -78,21 +78,21 @@ auth_server_input_mech(struct auth_client_connection *conn,
 
 	for (args++; *args != NULL; args++) {
 		if (strcmp(*args, "private") == 0)
-			mech_desc.flags |= MECH_SEC_PRIVATE;
+			mech_desc.flags |= SASL_MECH_SEC_PRIVATE;
 		else if (strcmp(*args, "anonymous") == 0)
-			mech_desc.flags |= MECH_SEC_ANONYMOUS;
+			mech_desc.flags |= SASL_MECH_SEC_ANONYMOUS;
 		else if (strcmp(*args, "plaintext") == 0)
-			mech_desc.flags |= MECH_SEC_PLAINTEXT;
+			mech_desc.flags |= SASL_MECH_SEC_PLAINTEXT;
 		else if (strcmp(*args, "dictionary") == 0)
-			mech_desc.flags |= MECH_SEC_DICTIONARY;
+			mech_desc.flags |= SASL_MECH_SEC_DICTIONARY;
 		else if (strcmp(*args, "active") == 0)
-			mech_desc.flags |= MECH_SEC_ACTIVE;
+			mech_desc.flags |= SASL_MECH_SEC_ACTIVE;
 		else if (strcmp(*args, "forward-secrecy") == 0)
-			mech_desc.flags |= MECH_SEC_FORWARD_SECRECY;
+			mech_desc.flags |= SASL_MECH_SEC_FORWARD_SECRECY;
 		else if (strcmp(*args, "mutual-auth") == 0)
-			mech_desc.flags |= MECH_SEC_MUTUAL_AUTH;
+			mech_desc.flags |= SASL_MECH_SEC_MUTUAL_AUTH;
 		else if (strcmp(*args, "channel-binding") == 0)
-			mech_desc.flags |= MECH_SEC_CHANNEL_BINDING;
+			mech_desc.flags |= SASL_MECH_SEC_CHANNEL_BINDING;
 	}
 	array_push_back(&conn->available_auth_mechs, &mech_desc);
 	return 0;

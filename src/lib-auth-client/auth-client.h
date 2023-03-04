@@ -35,7 +35,7 @@ enum auth_request_status {
 
 struct auth_mech_desc {
 	char *name;
-        enum mech_security_flags flags;
+        enum sasl_mech_security_flags flags;
 };
 
 struct auth_connect_id {

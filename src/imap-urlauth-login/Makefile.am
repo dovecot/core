@@ -8,6 +8,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-auth-client \
 	-I$(top_srcdir)/src/lib-master \
+	-I$(top_srcdir)/src/lib-sasl \
 	-I$(top_srcdir)/src/lib-login \
 	-I$(top_srcdir)/src/lib-var-expand \
 	$(BINARY_CFLAGS)

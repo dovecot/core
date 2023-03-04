@@ -227,7 +227,7 @@ static void mech_scram_auth_free(struct auth_request *auth_request)
 const struct mech_module mech_scram_sha1 = {
 	.mech_name = "SCRAM-SHA-1",
 
-	.flags = MECH_SEC_MUTUAL_AUTH,
+	.flags = SASL_MECH_SEC_MUTUAL_AUTH,
 	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
 	.auth_new = mech_scram_sha1_auth_new,
@@ -239,7 +239,7 @@ const struct mech_module mech_scram_sha1 = {
 const struct mech_module mech_scram_sha1_plus = {
 	.mech_name = "SCRAM-SHA-1-PLUS",
 
-	.flags = MECH_SEC_MUTUAL_AUTH | MECH_SEC_CHANNEL_BINDING,
+	.flags = SASL_MECH_SEC_MUTUAL_AUTH | SASL_MECH_SEC_CHANNEL_BINDING,
 	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
 	.auth_new = mech_scram_sha1_auth_new,
@@ -251,7 +251,7 @@ const struct mech_module mech_scram_sha1_plus = {
 const struct mech_module mech_scram_sha256 = {
 	.mech_name = "SCRAM-SHA-256",
 
-	.flags = MECH_SEC_MUTUAL_AUTH,
+	.flags = SASL_MECH_SEC_MUTUAL_AUTH,
 	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
 	.auth_new = mech_scram_sha256_auth_new,
@@ -263,7 +263,7 @@ const struct mech_module mech_scram_sha256 = {
 const struct mech_module mech_scram_sha256_plus = {
 	.mech_name = "SCRAM-SHA-256-PLUS",
 
-	.flags = MECH_SEC_MUTUAL_AUTH | MECH_SEC_CHANNEL_BINDING,
+	.flags = SASL_MECH_SEC_MUTUAL_AUTH | SASL_MECH_SEC_CHANNEL_BINDING,
 	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
 	.auth_new = mech_scram_sha256_auth_new,

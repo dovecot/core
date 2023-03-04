@@ -692,7 +692,7 @@ mech_gssapi_auth_free(struct auth_request *auth_request)
 const struct mech_module mech_gssapi = {
 	.mech_name = "GSSAPI",
 
-	.flags = MECH_SEC_ALLOW_NULS,
+	.flags = SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = MECH_PASSDB_NEED_NOTHING,
 
 	.auth_new = mech_gssapi_auth_new,
@@ -707,7 +707,7 @@ const struct mech_module mech_gssapi = {
 const struct mech_module mech_gssapi_spnego = {
 	.mech_name = "GSS-SPNEGO",
 
-	.flags = MECH_SEC_ALLOW_NULS,
+	.flags = SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = MECH_PASSDB_NEED_NOTHING,
 
 	.auth_new = mech_gssapi_auth_new,

@@ -21,6 +21,7 @@ libsasl_la_DEPENDENCIES = \
 	../lib-json/libjson.la
 
 headers = \
+	sasl-common.h \
 	dsasl-client.h \
 	dsasl-client-private.h
 

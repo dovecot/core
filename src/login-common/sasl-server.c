@@ -41,11 +41,11 @@ sasl_server_filter_mech(struct client *client, struct auth_mech_desc *mech,
 		return FALSE;
 	/* Disable anonymous mechanisms unless the protocol explicitly
 	   allows anonymous login when configured. */
-	if ((mech->flags & MECH_SEC_ANONYMOUS) != 0 &&
+	if ((mech->flags & SASL_MECH_SEC_ANONYMOUS) != 0 &&
 	    !login_binary->anonymous_login_acceptable)
 		return FALSE;
 	/* Don't advertize private mechanisms. */
-	if (advertize && (mech->flags & MECH_SEC_PRIVATE) != 0)
+	if (advertize && (mech->flags & SASL_MECH_SEC_PRIVATE) != 0)
 		return FALSE;
 	/* Only advertize this mechanism if either:
 	   a) transport is secured
@@ -58,12 +58,12 @@ sasl_server_filter_mech(struct client *client, struct auth_mech_desc *mech,
 	*/
 	if (advertize && !client->connection_secured &&
 	    !client->set->auth_allow_cleartext &&
-	    (mech->flags & MECH_SEC_PLAINTEXT) != 0)
+	    (mech->flags & SASL_MECH_SEC_PLAINTEXT) != 0)
 		return FALSE;
 	/* Disable mechanisms that require channel binding when there is no TLS
 	   layer (yet). */
 	if (client->ssl_iostream == NULL &&
-	    (mech->flags & MECH_SEC_CHANNEL_BINDING) != 0)
+	    (mech->flags & SASL_MECH_SEC_CHANNEL_BINDING) != 0)
 		return FALSE;
 
 	return TRUE;
@@ -591,17 +591,17 @@ void sasl_server_auth_begin(struct client *client, const char *mech_name,
 
 	mech = sasl_server_find_available_mech(client, mech_name);
 	if (mech == NULL ||
-	    ((mech->flags & MECH_SEC_PRIVATE) != 0 && !private)) {
+	    ((mech->flags & SASL_MECH_SEC_PRIVATE) != 0 && !private)) {
 		sasl_server_auth_failed(client,
 			"Unsupported authentication mechanism.",
 			AUTH_CLIENT_FAIL_CODE_MECH_INVALID);
 		return;
 	}
 
-	i_assert(!private || (mech->flags & MECH_SEC_PRIVATE) != 0);
+	i_assert(!private || (mech->flags & SASL_MECH_SEC_PRIVATE) != 0);
 
 	if (!client->connection_secured && !client->set->auth_allow_cleartext &&
-	    (mech->flags & MECH_SEC_PLAINTEXT) != 0) {
+	    (mech->flags & SASL_MECH_SEC_PLAINTEXT) != 0) {
 		client_notify_status(client, TRUE,
 			 "cleartext authentication not allowed "
 			 "without SSL/TLS, but your client did it anyway. "

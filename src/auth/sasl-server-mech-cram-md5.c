@@ -180,7 +180,7 @@ static struct auth_request *mech_cram_md5_auth_new(void)
 const struct mech_module mech_cram_md5 = {
 	.mech_name = "CRAM-MD5",
 
-	.flags = MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE,
+	.flags = SASL_MECH_SEC_DICTIONARY | SASL_MECH_SEC_ACTIVE,
 	.passdb_need = MECH_PASSDB_NEED_VERIFY_RESPONSE,
 
 	.auth_new = mech_cram_md5_auth_new,
