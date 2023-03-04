@@ -174,7 +174,7 @@ otp_set_credentials_callback(bool success, struct auth_request *auth_request)
 			     auth_request);
 
 	if (success)
-		auth_request_success(auth_request, "", 0);
+		sasl_server_request_success(auth_request, "", 0);
 	else {
 		auth_request_internal_failure(auth_request);
 		otp_unlock(request);

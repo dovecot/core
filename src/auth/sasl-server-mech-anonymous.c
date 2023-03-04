@@ -18,7 +18,7 @@ mech_anonymous_auth_continue(struct auth_request *request,
 					 request->set->anonymous_username);
 
 	request->passdb_success = TRUE;
-	auth_request_success(request, "", 0);
+	sasl_server_request_success(request, "", 0);
 }
 
 static struct auth_request *mech_anonymous_auth_new(void)

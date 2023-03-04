@@ -266,10 +266,11 @@ do_auth_continue(struct winbind_auth_request *request,
 			buffer_t *buf;
 
 			buf = t_base64_decode_str(token[1]);
-			auth_request_success(&request->auth_request,
-					     buf->data, buf->used);
+			sasl_server_request_success(&request->auth_request,
+						    buf->data, buf->used);
 		} else {
-			auth_request_success(&request->auth_request, "", 0);
+			sasl_server_request_success(&request->auth_request,
+						    "", 0);
 		}
 		return HR_OK;
 	} else if (strcmp(token[0], "BH") == 0) {

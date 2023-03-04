@@ -226,8 +226,8 @@ verify_credentials(struct auth_request *auth_request,
 		}
 	}
 
-	auth_request_success(auth_request, request->rspauth,
-			     strlen(request->rspauth));
+	sasl_server_request_success(auth_request, request->rspauth,
+				    strlen(request->rspauth));
 }
 
 static bool parse_next(char **data, char **key, char **value)

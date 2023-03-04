@@ -76,7 +76,7 @@ verify_credentials(struct auth_request *auth_request,
 		return;
 	}
 
-	auth_request_success(auth_request, "", 0);
+	sasl_server_request_success(auth_request, "", 0);
 }
 
 static bool

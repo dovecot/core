@@ -524,7 +524,7 @@ gssapi_credentials_callback(enum passdb_result result,
 	}
 
 	if (mech_gssapi_userok(request, auth_request->fields.user) == 0)
-		auth_request_success(auth_request, NULL, 0);
+		sasl_server_request_success(auth_request, NULL, 0);
 	else
 		auth_request_fail(auth_request);
 }

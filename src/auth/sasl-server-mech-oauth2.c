@@ -100,7 +100,7 @@ void sasl_server_oauth2_request_succeed(struct auth_request *request)
 		container_of(request, struct oauth2_auth_request, request);
 
 	i_assert(oauth2_req->verifying_token);
-	auth_request_success(request, "", 0);
+	sasl_server_request_success(request, "", 0);
 }
 
 void sasl_server_oauth2_request_fail(

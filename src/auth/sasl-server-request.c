@@ -19,3 +19,14 @@ void sasl_server_request_output(struct auth_request *request,
 	};
 	auth_sasl_request_output(request, &output);
 }
+
+void sasl_server_request_success(struct auth_request *request,
+				 const void *data, size_t data_size)
+{
+	const struct sasl_server_output output = {
+		.status = SASL_SERVER_OUTPUT_SUCCESS,
+		.data = data,
+		.data_size = data_size,
+	};
+	auth_sasl_request_output(request, &output);
+}

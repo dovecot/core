@@ -162,7 +162,7 @@ void mech_scram_auth_continue(struct auth_request *auth_request,
 		return;
 	}
 
-	auth_request_success(auth_request, output, output_len);
+	sasl_server_request_success(auth_request, output, output_len);
 }
 
 struct auth_request *

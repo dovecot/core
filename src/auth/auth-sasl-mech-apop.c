@@ -53,7 +53,7 @@ apop_credentials_callback(enum passdb_result result,
 	switch (result) {
 	case PASSDB_RESULT_OK:
 		if (verify_credentials(request, credentials, size))
-			auth_request_success(auth_request, "", 0);
+			sasl_server_request_success(auth_request, "", 0);
 		else
 			auth_request_fail(auth_request);
 		break;

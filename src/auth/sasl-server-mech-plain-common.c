@@ -10,7 +10,7 @@ void sasl_server_mech_plain_verify_callback(enum passdb_result result,
 {
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		auth_request_success(request, "", 0);
+		sasl_server_request_success(request, "", 0);
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		auth_request_internal_failure(request);
