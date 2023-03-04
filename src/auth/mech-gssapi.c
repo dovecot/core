@@ -73,6 +73,7 @@ static gss_OID_desc mech_gssapi_krb5_oid =
 
 static int
 mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf);
+static void mech_gssapi_initialize(const struct auth_settings *set);
 
 static void
 mech_gssapi_log_error(struct auth_request *request,
@@ -94,21 +95,6 @@ mech_gssapi_log_error(struct auth_request *request,
 
 		(void)gss_release_buffer(&minor_status, &status_string);
 	} while (message_context != 0);
-}
-
-static void mech_gssapi_initialize(const struct auth_settings *set)
-{
-	const char *path = set->krb5_keytab;
-
-	if (*path != '\0') {
-		/* Environment may be used by Kerberos 5 library directly */
-		env_put("KRB5_KTNAME", path);
-#ifdef HAVE_GSSKRB5_REGISTER_ACCEPTOR_IDENTITY
-		gsskrb5_register_acceptor_identity(path);
-#elif defined (HAVE_KRB5_GSS_REGISTER_ACCEPTOR_IDENTITY)
-		krb5_gss_register_acceptor_identity(path);
-#endif
-	}
 }
 
 static struct auth_request *mech_gssapi_auth_new(void)
@@ -735,6 +721,21 @@ const struct mech_module mech_gssapi_spnego = {
         mech_gssapi_auth_continue,
         mech_gssapi_auth_free
 };
+
+static void mech_gssapi_initialize(const struct auth_settings *set)
+{
+	const char *path = set->krb5_keytab;
+
+	if (*path != '\0') {
+		/* Environment may be used by Kerberos 5 library directly */
+		env_put("KRB5_KTNAME", path);
+#ifdef HAVE_GSSKRB5_REGISTER_ACCEPTOR_IDENTITY
+		gsskrb5_register_acceptor_identity(path);
+#elif defined (HAVE_KRB5_GSS_REGISTER_ACCEPTOR_IDENTITY)
+		krb5_gss_register_acceptor_identity(path);
+#endif
+	}
+}
 
 #ifndef BUILTIN_GSSAPI
 void mech_gssapi_init(void);
