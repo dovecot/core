@@ -43,17 +43,17 @@ mech_plain_auth_continue(struct auth_request *request,
 	if (count != 2) {
 		/* invalid input */
 		e_info(request->mech_event, "invalid input");
-		auth_request_fail(request);
+		sasl_server_request_failure(request);
 	} else if (!auth_request_set_username(request, authenid, &error)) {
 		/* invalid username */
 		e_info(request->mech_event, "%s", error);
-		auth_request_fail(request);
+		sasl_server_request_failure(request);
 	} else if (*authid != '\0' &&
 		   !auth_request_set_login_username(request, authid, &error)) {
 		/* invalid login username */
 		e_info(request->mech_event,
 		       "login user: %s", error);
-		auth_request_fail(request);
+		sasl_server_request_failure(request);
 	} else {
 		auth_request_verify_plain(
 			request, pass, sasl_server_mech_plain_verify_callback);

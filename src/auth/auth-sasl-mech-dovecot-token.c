@@ -43,11 +43,11 @@ mech_dovecot_token_auth_continue(struct auth_request *request,
 	if (count != 4) {
 		/* invalid input */
 		e_info(request->mech_event, "invalid input");
-		auth_request_fail(request);
+		sasl_server_request_failure(request);
 	} else if (!auth_request_set_username(request, username, &error)) {
 		/* invalid username */
 		e_info(request->mech_event, "%s", error);
-		auth_request_fail(request);
+		sasl_server_request_failure(request);
 	} else {
 		const char *valid_token =
 			auth_token_get(service, pid, request->fields.user,
@@ -59,7 +59,7 @@ mech_dovecot_token_auth_continue(struct auth_request *request,
 			auth_request_set_field(request, "userdb_client_service", service, "");
 			sasl_server_request_success(request, NULL, 0);
 		} else {
-			auth_request_fail(request);
+			sasl_server_request_failure(request);
 		}
 	}
 

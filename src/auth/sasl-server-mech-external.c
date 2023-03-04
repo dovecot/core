@@ -15,7 +15,7 @@ mech_external_auth_continue(struct auth_request *request,
 	if (request->fields.user == NULL) {
 		e_info(request->mech_event,
 		       "username not known");
-		auth_request_fail(request);
+		sasl_server_request_failure(request);
 		return;
 	}
 
@@ -24,7 +24,7 @@ mech_external_auth_continue(struct auth_request *request,
 	if (!auth_request_set_username(request, "", &error)) {
 		e_info(request->mech_event,
 		       "Invalid username");
-		auth_request_fail(request);
+		sasl_server_request_failure(request);
 		return;
 	}
 
@@ -33,7 +33,7 @@ mech_external_auth_continue(struct auth_request *request,
 		/* invalid login username */
 		e_info(request->mech_event,
 		       "login user: %s", error);
-		auth_request_fail(request);
+		sasl_server_request_failure(request);
 	} else {
 		auth_request_verify_plain(
 			request, "", sasl_server_mech_plain_verify_callback);

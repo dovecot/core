@@ -126,7 +126,7 @@ verify_credentials(struct auth_request *auth_request,
 	if (size != MD5_RESULTLEN) {
 		e_error(auth_request->mech_event,
 			"invalid credentials length");
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		return;
 	}
 
@@ -216,7 +216,7 @@ verify_credentials(struct auth_request *auth_request,
 						    request->response, 32)) {
 				e_info(auth_request->mech_event,
 				       AUTH_LOG_MSG_PASSWORD_MISMATCH);
-				auth_request_fail(auth_request);
+				sasl_server_request_failure(auth_request);
 				return;
 			}
 		} else {
@@ -541,7 +541,7 @@ credentials_callback(enum passdb_result result,
 		auth_request_internal_failure(auth_request);
 		break;
 	default:
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		break;
 	}
 }
@@ -557,7 +557,7 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 
 	if (!parse_digest_response(request, data, data_size, &error)) {
 		e_info(auth_request->mech_event, "%s", error);
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		return;
 	}
 
@@ -571,14 +571,14 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 	}
 	if (!auth_request_set_username(auth_request, username, &error)) {
 		e_info(auth_request->mech_event, "%s", error);
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		return;
 	}
 	if (request->authzid != NULL &&
 	    !auth_request_set_login_username(auth_request, request->authzid,
 					     &error)) {
 		e_info(auth_request->mech_event, "login user: %s", error);
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		return;
 	}
 

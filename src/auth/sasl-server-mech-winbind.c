@@ -311,7 +311,7 @@ mech_winbind_auth_continue(struct auth_request *auth_request,
 	if (res != HR_OK) {
 		if (res == HR_RESTART)
 			winbind_helper_disconnect(request->winbind);
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 	}
 }
 

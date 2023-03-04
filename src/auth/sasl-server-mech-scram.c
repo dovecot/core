@@ -42,7 +42,7 @@ credentials_callback(enum passdb_result result,
 						 key_data->server_key,
 						 &error) < 0) {
 			e_info(auth_request->mech_event, "%s", error);
-			auth_request_fail(auth_request);
+			sasl_server_request_failure(auth_request);
 			break;
 		}
 
@@ -55,7 +55,7 @@ credentials_callback(enum passdb_result result,
 		auth_request_internal_failure(auth_request);
 		break;
 	default:
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		break;
 	}
 }
@@ -150,7 +150,7 @@ void mech_scram_auth_continue(struct auth_request *auth_request,
 		} else {
 			e_info(auth_request->mech_event, "%s", error);
 		}
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		return;
 	}
 	if (ret == 0)

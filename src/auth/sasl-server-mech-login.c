@@ -24,7 +24,7 @@ mech_login_auth_continue(struct auth_request *request,
 
 		if (!auth_request_set_username(request, username, &error)) {
                         e_info(request->mech_event, "%s", error);
-			auth_request_fail(request);
+			sasl_server_request_failure(request);
 			return;
 		}
 

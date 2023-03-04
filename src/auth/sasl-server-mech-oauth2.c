@@ -68,7 +68,8 @@ oauth2_fail(struct oauth2_auth_request *oauth2_req,
 	json_ostream_nfinish_destroy(&joutput);
 
 	oauth2_req->failed = TRUE;
-	auth_request_fail_with_reply(request, str_data(reply), str_len(reply));
+	sasl_server_request_failure_with_reply(request,
+					       str_data(reply), str_len(reply));
 }
 
 static void

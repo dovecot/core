@@ -16,7 +16,7 @@ void sasl_server_mech_plain_verify_callback(enum passdb_result result,
 		auth_request_internal_failure(request);
 		break;
 	default:
-		auth_request_fail(request);
+		sasl_server_request_failure(request);
 		break;
 	}
 }

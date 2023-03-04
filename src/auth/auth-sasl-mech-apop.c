@@ -55,13 +55,13 @@ apop_credentials_callback(enum passdb_result result,
 		if (verify_credentials(request, credentials, size))
 			sasl_server_request_success(auth_request, "", 0);
 		else
-			auth_request_fail(auth_request);
+			sasl_server_request_failure(auth_request);
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		auth_request_internal_failure(auth_request);
 		break;
 	default:
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		break;
 	}
 }
@@ -84,7 +84,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 		/* Should never happen */
 		e_info(auth_request->mech_event,
 		       "no initial response");
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		return;
 	}
 
@@ -105,7 +105,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 		/* should never happen */
 		e_info(auth_request->mech_event,
 		       "malformed data");
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		return;
 	}
 
@@ -113,7 +113,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 		/* Should never happen */
 		e_info(auth_request->mech_event,
 		       "malformed data");
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		return;
 	}
 	memcpy(request->response_digest, tmp + 1,
@@ -131,14 +131,14 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 	    (time_t)timestamp < process_start_time) {
 		e_info(auth_request->mech_event,
 		       "invalid challenge");
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		return;
 	}
 
 	if (!auth_request_set_username(auth_request, (const char *)username,
 				       &error)) {
 		e_info(auth_request->mech_event, "%s", error);
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		return;
 	}
 

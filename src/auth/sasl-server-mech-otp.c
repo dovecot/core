@@ -83,21 +83,21 @@ otp_send_challenge(struct otp_auth_request *request,
 			      &request->state) != 0) {
 		e_error(auth_request->mech_event,
 			"invalid OTP data in passdb");
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		return;
 	}
 
 	if (--request->state.seq < 1) {
 		e_error(auth_request->mech_event,
 			"sequence number < 1");
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		return;
 	}
 
 	if (!otp_try_lock(request)) {
 		e_error(auth_request->mech_event,
 			"user is locked, race attack?");
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		return;
 	}
 
@@ -125,7 +125,7 @@ otp_credentials_callback(enum passdb_result result,
 		auth_request_internal_failure(auth_request);
 		break;
 	default:
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		break;
 	}
 }
@@ -152,13 +152,13 @@ mech_otp_auth_phase1(struct otp_auth_request *request,
 
 	if (count != 1) {
 		e_info(auth_request->mech_event, "invalid input");
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		return;
 	}
 
 	if (!auth_request_set_username(auth_request, authenid, &error)) {
 		e_info(auth_request->mech_event, "%s", error);
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		return;
 	}
 
@@ -194,7 +194,7 @@ mech_otp_verify(struct otp_auth_request *request, const char *data, bool hex)
 	ret = otp_parse_response(data, hash, hex);
 	if (ret < 0) {
 		e_info(auth_request->mech_event, "invalid response");
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		otp_unlock(request);
 		return;
 	}
@@ -203,7 +203,7 @@ mech_otp_verify(struct otp_auth_request *request, const char *data, bool hex)
 
 	ret = memcmp(cur_hash, state->hash, OTP_HASH_SIZE);
 	if (ret != 0) {
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		otp_unlock(request);
 		return;
 	}
@@ -229,7 +229,7 @@ mech_otp_verify_init(struct otp_auth_request *request, const char *data,
 	if (ret < 0) {
 		e_info(auth_request->mech_event,
 		       "invalid init response, %s", error);
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		otp_unlock(request);
 		return;
 	}
@@ -238,7 +238,7 @@ mech_otp_verify_init(struct otp_auth_request *request, const char *data,
 
 	ret = memcmp(hash, request->state.hash, OTP_HASH_SIZE);
 	if (ret != 0) {
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		otp_unlock(request);
 		return;
 	}
@@ -266,7 +266,7 @@ mech_otp_auth_phase2(struct otp_auth_request *request,
 	else {
 		e_info(auth_request->mech_event,
 		       "unsupported response type");
-		auth_request_fail(auth_request);
+		sasl_server_request_failure(auth_request);
 		otp_unlock(request);
 	}
 }

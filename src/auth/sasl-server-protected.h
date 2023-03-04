@@ -71,5 +71,8 @@ void sasl_server_request_output(struct auth_request *request,
 				const void *data, size_t data_size);
 void sasl_server_request_success(struct auth_request *request,
 				 const void *data, size_t data_size);
+void sasl_server_request_failure_with_reply(struct auth_request *request,
+					    const void *data, size_t data_size);
+void sasl_server_request_failure(struct auth_request *request);
 
 #endif
