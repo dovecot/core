@@ -599,8 +599,8 @@ mech_digest_md5_auth_initial(struct auth_request *auth_request,
 	/* FIXME: there's no support for subsequent authentication */
 
 	challenge = get_digest_challenge(request);
-	auth_request_handler_reply_continue(auth_request, str_data(challenge),
-					    str_len(challenge));
+	sasl_server_request_output(auth_request, str_data(challenge),
+				   str_len(challenge));
 }
 
 static struct auth_request *mech_digest_md5_auth_new(void)

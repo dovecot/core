@@ -11,6 +11,7 @@
 #include "sasl-server-protected.h" // FIXME: Use public API only
 #include "userdb.h"
 #include "passdb.h"
+#include "auth-sasl.h"
 #include "auth-request-var-expand.h"
 #include "password-scheme.h"
 

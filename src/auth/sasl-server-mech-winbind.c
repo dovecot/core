@@ -232,8 +232,7 @@ do_auth_continue(struct winbind_auth_request *request,
 
 		i_assert(token[1] != NULL);
 		buf = t_base64_decode_str(token[1]);
-		auth_request_handler_reply_continue(auth_request, buf->data,
-						    buf->used);
+		sasl_server_request_output(auth_request, buf->data, buf->used);
 		request->continued = TRUE;
 		return HR_OK;
 	} else if (strcmp(token[0], "NA") == 0) {

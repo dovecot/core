@@ -328,9 +328,9 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 
 	if (ret == 0) {
 		if (output_token.length > 0) {
-			auth_request_handler_reply_continue(auth_request,
-							    output_token.value,
-							    output_token.length);
+			sasl_server_request_output(auth_request,
+						   output_token.value,
+						   output_token.length);
 		} else {
 			/* If there is no output token, go straight to wrap,
 			   which is expecting an empty input token. */
@@ -375,8 +375,7 @@ mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 
 	e_debug(auth_request->mech_event, "Negotiated security layer");
 
-	auth_request_handler_reply_continue(auth_request, outbuf.value,
-					    outbuf.length);
+	sasl_server_request_output(auth_request, outbuf.value, outbuf.length);
 
 	(void)gss_release_buffer(&minor_status, &outbuf);
 	request->sasl_gssapi_state = GSS_STATE_UNWRAP;
@@ -662,8 +661,7 @@ mech_gssapi_auth_initial(struct auth_request *auth_request,
 
 	if (data_size == 0) {
 		/* The client should go first */
-		auth_request_handler_reply_continue(auth_request,
-						    uchar_empty_ptr, 0);
+		sasl_server_request_output(auth_request, uchar_empty_ptr, 0);
 	} else {
 		mech_gssapi_auth_continue(auth_request, data, data_size);
 	}

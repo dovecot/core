@@ -49,8 +49,7 @@ credentials_callback(enum passdb_result result,
 		end = auth_scram_server_output(&request->scram_server,
 					       &output, &output_len);
 		i_assert(!end);
-		auth_request_handler_reply_continue(auth_request,
-						    output, output_len);
+		sasl_server_request_output(auth_request, output, output_len);
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		auth_request_internal_failure(auth_request);
@@ -159,8 +158,7 @@ void mech_scram_auth_continue(struct auth_request *auth_request,
 
 	if (!auth_scram_server_output(&request->scram_server,
 				      &output, &output_len)) {
-		auth_request_handler_reply_continue(auth_request,
-						    output, output_len);
+		sasl_server_request_output(auth_request, output, output_len);
 		return;
 	}
 

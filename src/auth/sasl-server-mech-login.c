@@ -28,8 +28,7 @@ mech_login_auth_continue(struct auth_request *request,
 			return;
 		}
 
-		auth_request_handler_reply_continue(request, prompt2,
-						    strlen(prompt2));
+		sasl_server_request_output(request, prompt2, strlen(prompt2));
 	} else {
 		char *pass = p_strndup(unsafe_data_stack_pool, data, data_size);
 		auth_request_verify_plain(
@@ -45,8 +44,7 @@ mech_login_auth_initial(struct auth_request *request,
 	static const char prompt1[] = "Username:";
 
 	if (data_size == 0) {
-		auth_request_handler_reply_continue(request, prompt1,
-						    strlen(prompt1));
+		sasl_server_request_output(request, prompt1, strlen(prompt1));
 	} else {
 		mech_login_auth_continue(request, data, data_size);
 	}

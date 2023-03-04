@@ -63,4 +63,11 @@ void mech_deinit(const struct auth_settings *set);
 
 void mech_oauth2_initialize(void);
 
+/*
+ * Request
+ */
+
+void sasl_server_request_output(struct auth_request *request,
+				const void *data, size_t data_size);
+
 #endif

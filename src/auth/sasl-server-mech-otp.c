@@ -105,8 +105,7 @@ otp_send_challenge(struct otp_auth_request *request,
 				 digest_name(request->state.algo),
 				 request->state.seq, request->state.seed);
 
-	auth_request_handler_reply_continue(auth_request, answer,
-					    strlen(answer));
+	sasl_server_request_output(auth_request, answer, strlen(answer));
 }
 
 static void

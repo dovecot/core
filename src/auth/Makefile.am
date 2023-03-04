@@ -94,6 +94,7 @@ sasl_server_mechanisms = \
 
 sasl_sources = \
 	${sasl_server_mechanisms} \
+	sasl-server-request.c \
 	sasl-server-mech.c
 
 auth_common_sources = \
