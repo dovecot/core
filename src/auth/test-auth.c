@@ -8,7 +8,7 @@
 #include "auth-penalty.h"
 #include "mech.h"
 #include "otp.h"
-#include "mech-otp-common.h"
+#include "mech-otp.h"
 #include "db-oauth2.h"
 #include "passdb.h"
 #include "userdb.h"

@@ -13,7 +13,65 @@
 #include "passdb.h"
 #include "hex-binary.h"
 #include "otp.h"
-#include "mech-otp-common.h"
+
+#include "mech-otp.h"
+
+struct otp_auth_request {
+	struct auth_request auth_request;
+
+	pool_t pool;
+
+	bool lock;
+
+	struct otp_state state;
+};
+
+static HASH_TABLE(char *, struct auth_request *) otp_lock_table;
+
+/*
+ * Locking
+ */
+
+static void otp_lock_init(void)
+{
+	if (hash_table_is_created(otp_lock_table))
+		return;
+
+	hash_table_create(&otp_lock_table, default_pool, 128,
+			  strcase_hash, strcasecmp);
+}
+
+static void otp_lock_deinit(void)
+{
+	hash_table_destroy(&otp_lock_table);
+}
+
+static bool otp_try_lock(struct auth_request *auth_request)
+{
+	if (hash_table_lookup(otp_lock_table,
+			      auth_request->fields.user) != NULL)
+		return FALSE;
+
+	hash_table_insert(otp_lock_table, auth_request->fields.user,
+			  auth_request);
+	return TRUE;
+}
+
+static void otp_unlock(struct auth_request *auth_request)
+{
+	struct otp_auth_request *request =
+		(struct otp_auth_request *)auth_request;
+
+	if (!request->lock)
+		return;
+
+	hash_table_remove(otp_lock_table, auth_request->fields.user);
+	request->lock = FALSE;
+}
+
+/*
+ * Authentication
+ */
 
 static void
 otp_send_challenge(struct auth_request *auth_request,
@@ -108,6 +166,19 @@ mech_otp_auth_phase1(struct auth_request *auth_request,
 
 	auth_request_lookup_credentials(auth_request, "OTP",
 					otp_credentials_callback);
+}
+
+static void
+otp_set_credentials_callback(bool success, struct auth_request *auth_request)
+{
+	if (success)
+		auth_request_success(auth_request, "", 0);
+	else {
+		auth_request_internal_failure(auth_request);
+		otp_unlock(auth_request);
+	}
+
+	otp_unlock(auth_request);
 }
 
 static void
@@ -227,6 +298,17 @@ static struct auth_request *mech_otp_auth_new(void)
 	return &request->auth_request;
 }
 
+static void mech_otp_auth_free(struct auth_request *auth_request)
+{
+	otp_unlock(auth_request);
+
+	pool_unref(&auth_request->pool);
+}
+
+/*
+ * Mechanism
+ */
+
 const struct mech_module mech_otp = {
 	"OTP",
 
@@ -238,3 +320,8 @@ const struct mech_module mech_otp = {
 	mech_otp_auth_continue,
 	mech_otp_auth_free
 };
+
+void mech_otp_deinit(void)
+{
+	otp_lock_deinit();
+}

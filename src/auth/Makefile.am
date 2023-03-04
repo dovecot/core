@@ -84,7 +84,6 @@ auth_common_sources = \
 	auth-client-connection.c \
 	auth-master-connection.c \
 	auth-policy.c \
-	mech-otp-common.c \
 	mech-plain-common.c \
 	auth-penalty.c \
 	auth-request.c \
@@ -139,7 +138,7 @@ headers = \
 	auth-client-connection.h \
 	auth-common.h \
 	auth-master-connection.h \
-	mech-otp-common.h \
+	mech-otp.h \
 	mech-plain-common.h \
 	mech-digest-md5-private.h \
 	mech-scram.h \

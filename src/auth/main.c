@@ -21,7 +21,7 @@
 #include "passdb-cache.h"
 #include "mech.h"
 #include "otp.h"
-#include "mech-otp-common.h"
+#include "mech-otp.h"
 #include "auth.h"
 #include "auth-penalty.h"
 #include "auth-token.h"
