@@ -35,7 +35,7 @@ mech_external_auth_continue(struct auth_request *request,
 		       "login user: %s", error);
 		sasl_server_request_failure(request);
 	} else {
-		auth_request_verify_plain(
+		sasl_server_request_verify_plain(
 			request, "", sasl_server_mech_plain_verify_callback);
 	}
 }

@@ -76,4 +76,8 @@ void sasl_server_request_failure_with_reply(struct auth_request *request,
 void sasl_server_request_failure(struct auth_request *request);
 void sasl_server_request_internal_failure(struct auth_request *request);
 
+void sasl_server_request_verify_plain(
+	struct auth_request *request, const char *password,
+	sasl_server_verify_plain_callback_t *callback);
+
 #endif

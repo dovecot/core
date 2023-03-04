@@ -29,6 +29,8 @@ enum sasl_server_output_status {
 	SASL_SERVER_OUTPUT_SUCCESS = 1,
 };
 
+typedef verify_plain_callback_t sasl_server_verify_plain_callback_t;
+
 struct sasl_server_output {
 	enum sasl_server_output_status status;
 

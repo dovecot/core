@@ -63,3 +63,10 @@ void sasl_server_request_internal_failure(struct auth_request *request)
 					   SASL_SERVER_OUTPUT_INTERNAL_FAILURE,
 					   "", 0);
 }
+
+void sasl_server_request_verify_plain(
+	struct auth_request *request, const char *password,
+	sasl_server_verify_plain_callback_t *callback)
+{
+	auth_sasl_request_verify_plain(request, password, callback);
+}
