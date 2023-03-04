@@ -32,7 +32,7 @@ credentials_callback(enum passdb_result result,
 	bool end;
 
 	switch (result) {
-	case PASSDB_RESULT_OK:
+	case SASL_PASSDB_RESULT_OK:
 		if (auth_scram_credentials_parse(key_data->hmethod,
 						 request->password_scheme,
 						 credentials, size,
@@ -51,7 +51,7 @@ credentials_callback(enum passdb_result result,
 		i_assert(!end);
 		sasl_server_request_output(auth_request, output, output_len);
 		break;
-	case PASSDB_RESULT_INTERNAL_FAILURE:
+	case SASL_PASSDB_RESULT_INTERNAL_FAILURE:
 		sasl_server_request_internal_failure(auth_request);
 		break;
 	default:

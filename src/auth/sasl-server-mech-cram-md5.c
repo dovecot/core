@@ -115,10 +115,10 @@ credentials_callback(enum passdb_result result,
 		     struct auth_request *auth_request)
 {
 	switch (result) {
-	case PASSDB_RESULT_OK:
+	case SASL_PASSDB_RESULT_OK:
 		verify_credentials(auth_request, credentials, size);
 		break;
-	case PASSDB_RESULT_INTERNAL_FAILURE:
+	case SASL_PASSDB_RESULT_INTERNAL_FAILURE:
 		sasl_server_request_internal_failure(auth_request);
 		break;
 	default:

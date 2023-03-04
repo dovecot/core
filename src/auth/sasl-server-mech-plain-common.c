@@ -9,10 +9,10 @@ void sasl_server_mech_plain_verify_callback(enum passdb_result result,
 					    struct auth_request *request)
 {
 	switch (result) {
-	case PASSDB_RESULT_OK:
+	case SASL_PASSDB_RESULT_OK:
 		sasl_server_request_success(request, "", 0);
 		break;
-	case PASSDB_RESULT_INTERNAL_FAILURE:
+	case SASL_PASSDB_RESULT_INTERNAL_FAILURE:
 		sasl_server_request_internal_failure(request);
 		break;
 	default:

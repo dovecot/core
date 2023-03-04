@@ -507,19 +507,19 @@ gssapi_credentials_callback(enum passdb_result result,
 	   does not strictly require a passdb. But if a passdb is configured,
 	   now the k5principals field will have been filled in. */
 	switch (result) {
-	case PASSDB_RESULT_INTERNAL_FAILURE:
+	case SASL_PASSDB_RESULT_INTERNAL_FAILURE:
 		sasl_server_request_internal_failure(auth_request);
 		return;
-	case PASSDB_RESULT_USER_DISABLED:
-	case PASSDB_RESULT_PASS_EXPIRED:
+	case SASL_PASSDB_RESULT_USER_DISABLED:
+	case SASL_PASSDB_RESULT_PASS_EXPIRED:
 		/* User is explicitly disabled, don't allow it to log in */
 		sasl_server_request_failure(auth_request);
 		return;
-	case PASSDB_RESULT_NEXT:
-	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
-	case PASSDB_RESULT_USER_UNKNOWN:
-	case PASSDB_RESULT_PASSWORD_MISMATCH:
-	case PASSDB_RESULT_OK:
+	case PASSDB_RESULT_NEXT: /* FIXME: To be removed */
+	case SASL_PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
+	case SASL_PASSDB_RESULT_USER_UNKNOWN:
+	case SASL_PASSDB_RESULT_PASSWORD_MISMATCH:
+	case SASL_PASSDB_RESULT_OK:
 		break;
 	}
 
