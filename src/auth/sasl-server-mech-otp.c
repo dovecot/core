@@ -210,9 +210,9 @@ mech_otp_verify(struct otp_auth_request *request, const char *data, bool hex)
 
 	memcpy(state->hash, hash, sizeof(state->hash));
 
-	auth_request_set_credentials(auth_request, "OTP",
-				     otp_print_dbentry(state),
-				     otp_set_credentials_callback);
+	sasl_server_request_set_credentials(auth_request, "OTP",
+					    otp_print_dbentry(state),
+					    otp_set_credentials_callback);
 }
 
 static void
@@ -243,9 +243,9 @@ mech_otp_verify_init(struct otp_auth_request *request, const char *data,
 		return;
 	}
 
-	auth_request_set_credentials(auth_request, "OTP",
-				     otp_print_dbentry(&new_state),
-				     otp_set_credentials_callback);
+	sasl_server_request_set_credentials(auth_request, "OTP",
+					    otp_print_dbentry(&new_state),
+					    otp_set_credentials_callback);
 }
 
 static void

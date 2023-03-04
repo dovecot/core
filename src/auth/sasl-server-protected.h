@@ -82,5 +82,8 @@ void sasl_server_request_verify_plain(
 void sasl_server_request_lookup_credentials(
 	struct auth_request *request, const char *scheme,
 	sasl_server_lookup_credentials_callback_t *callback);
+void sasl_server_request_set_credentials(
+	struct auth_request *request, const char *scheme, const char *data,
+	sasl_server_set_credentials_callback_t *callback);
 
 #endif

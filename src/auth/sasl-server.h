@@ -31,6 +31,7 @@ enum sasl_server_output_status {
 
 typedef verify_plain_callback_t sasl_server_verify_plain_callback_t;
 typedef lookup_credentials_callback_t sasl_server_lookup_credentials_callback_t;
+typedef set_credentials_callback_t sasl_server_set_credentials_callback_t;
 
 struct sasl_server_output {
 	enum sasl_server_output_status status;
