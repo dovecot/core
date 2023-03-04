@@ -162,8 +162,8 @@ mech_otp_auth_phase1(struct otp_auth_request *request,
 		return;
 	}
 
-	auth_request_lookup_credentials(auth_request, "OTP",
-					otp_credentials_callback);
+	sasl_server_request_lookup_credentials(auth_request, "OTP",
+					       otp_credentials_callback);
 }
 
 static void

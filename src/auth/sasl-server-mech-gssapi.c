@@ -602,8 +602,8 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	/* Continue in callback once auth_request is populated with passdb
 	   information. */
 	auth_request->passdb_success = TRUE; /* default to success */
-	auth_request_lookup_credentials(auth_request, "",
-					gssapi_credentials_callback);
+	sasl_server_request_lookup_credentials(auth_request, "",
+					       gssapi_credentials_callback);
 	(void)gss_release_buffer(&minor_status, &outbuf);
 	return 0;
 }

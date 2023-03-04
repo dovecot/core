@@ -142,8 +142,8 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 		return;
 	}
 
-	auth_request_lookup_credentials(auth_request, "PLAIN",
-					apop_credentials_callback);
+	sasl_server_request_lookup_credentials(auth_request, "PLAIN",
+					       apop_credentials_callback);
 }
 
 static struct auth_request *mech_apop_auth_new(void)

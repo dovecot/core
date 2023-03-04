@@ -113,8 +113,9 @@ mech_scram_credentials_lookup(struct auth_scram_server *asserver,
 	struct auth_request *auth_request = &request->auth_request;
 
 	request->key_data = key_data;
-	auth_request_lookup_credentials(auth_request, request->password_scheme,
-					credentials_callback);
+	sasl_server_request_lookup_credentials(auth_request,
+					       request->password_scheme,
+					       credentials_callback);
 	return 0;
 }
 

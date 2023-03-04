@@ -582,8 +582,8 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 		return;
 	}
 
-	auth_request_lookup_credentials(auth_request, "DIGEST-MD5",
-					credentials_callback);
+	sasl_server_request_lookup_credentials(auth_request, "DIGEST-MD5",
+					       credentials_callback);
 }
 
 static void
