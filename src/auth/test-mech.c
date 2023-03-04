@@ -143,9 +143,7 @@ test_mech_handle_challenge(struct auth_request *request,
 		str_truncate(out, 0);
 		str_append(out, "testuser b913a602c7eda7a495b4e6e7334d3890");
 	} else if (request->mech == &mech_digest_md5) {
-		struct digest_auth_request *digest_request =
-			(struct digest_auth_request *) request;
-		digest_request->nonce = "OA6MG9tEQGm2hh";
+		mech_digest_test_set_nonce(request, "OA6MG9tEQGm2hh");
 	}
 	auth_request_continue(request, out->data, out->used);
 }
