@@ -76,10 +76,11 @@ mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf);
 static void mech_gssapi_initialize(const struct auth_settings *set);
 
 static void
-mech_gssapi_log_error(struct auth_request *request,
+mech_gssapi_log_error(struct gssapi_auth_request *request,
 		      OM_uint32 status_value, int status_type,
 		      const char *description)
 {
+	struct auth_request *auth_request = &request->auth_request;
 	OM_uint32 message_context = 0;
 	OM_uint32 minor_status;
 	gss_buffer_desc status_string;
@@ -89,7 +90,7 @@ mech_gssapi_log_error(struct auth_request *request,
 					 status_type, GSS_C_NO_OID,
 					 &message_context, &status_string);
 
-		e_info(request->mech_event,
+		e_info(auth_request->mech_event,
 		       "While %s: %s", description,
 		       str_sanitize(status_string.value, SIZE_MAX));
 
@@ -114,8 +115,10 @@ static struct auth_request *mech_gssapi_auth_new(void)
 }
 
 static OM_uint32
-obtain_service_credentials(struct auth_request *request, gss_cred_id_t *ret_r)
+obtain_service_credentials(struct gssapi_auth_request *request,
+			   gss_cred_id_t *ret_r)
 {
+	struct auth_request *auth_request = &request->auth_request;
 	OM_uint32 major_status, minor_status;
 	string_t *principal_name;
 	gss_buffer_desc inbuf;
@@ -124,30 +127,30 @@ obtain_service_credentials(struct auth_request *request, gss_cred_id_t *ret_r)
 
 	if (!gssapi_initialized) {
 		gssapi_initialized = TRUE;
-		mech_gssapi_initialize(request->set);
+		mech_gssapi_initialize(auth_request->set);
 	}
 
-	if (strcmp(request->set->gssapi_hostname, "$ALL") == 0) {
-		e_debug(request->mech_event,
+	if (strcmp(auth_request->set->gssapi_hostname, "$ALL") == 0) {
+		e_debug(auth_request->mech_event,
 			"Using all keytab entries");
 		*ret_r = GSS_C_NO_CREDENTIAL;
 		return GSS_S_COMPLETE;
 	}
 
-	if (strcasecmp(request->fields.protocol, "POP3") == 0) {
+	if (strcasecmp(auth_request->fields.protocol, "POP3") == 0) {
 		/* The standard POP3 service name with GSSAPI is called
 		   just "pop". */
 		service_name = "pop";
 	} else {
-		service_name = t_str_lcase(request->fields.protocol);
+		service_name = t_str_lcase(auth_request->fields.protocol);
 	}
 
 	principal_name = t_str_new(128);
 	str_append(principal_name, service_name);
 	str_append_c(principal_name, '@');
-	str_append(principal_name, request->set->gssapi_hostname);
+	str_append(principal_name, auth_request->set->gssapi_hostname);
 
-	e_debug(request->mech_event,
+	e_debug(auth_request->mech_event,
 		"Obtaining credentials for %s", str_c(principal_name));
 
 	inbuf.length = str_len(principal_name);
@@ -180,7 +183,7 @@ obtain_service_credentials(struct auth_request *request, gss_cred_id_t *ret_r)
 }
 
 static gss_name_t
-import_name(struct auth_request *request, void *str, size_t len)
+import_name(struct gssapi_auth_request *request, void *str, size_t len)
 {
 	OM_uint32 major_status, minor_status;
 	gss_buffer_desc name_buf;
@@ -199,7 +202,7 @@ import_name(struct auth_request *request, void *str, size_t len)
 }
 
 static gss_name_t
-duplicate_name(struct auth_request *request, gss_name_t old)
+duplicate_name(struct gssapi_auth_request *request, gss_name_t old)
 {
 	OM_uint32 major_status, minor_status;
 	gss_name_t new;
@@ -230,17 +233,18 @@ static bool data_has_nuls(const void *data, size_t len)
 }
 
 static int
-get_display_name(struct auth_request *auth_request, gss_name_t name,
+get_display_name(struct gssapi_auth_request *request, gss_name_t name,
 		 gss_OID *name_type_r, const char **display_name_r)
 {
+	struct auth_request *auth_request = &request->auth_request;
 	OM_uint32 major_status, minor_status;
 	gss_buffer_desc buf;
 
 	major_status = gss_display_name(&minor_status, name,
 					&buf, name_type_r);
 	if (major_status != GSS_S_COMPLETE) {
-		mech_gssapi_log_error(auth_request, major_status,
-				      GSS_C_GSS_CODE, "gss_display_name");
+		mech_gssapi_log_error(request, major_status, GSS_C_GSS_CODE,
+				      "gss_display_name");
 		return -1;
 	}
 	if (data_has_nuls(buf.value, buf.length)) {
@@ -287,11 +291,9 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 	);
 
 	if (GSS_ERROR(major_status) != 0) {
-		mech_gssapi_log_error(auth_request, major_status,
-				      GSS_C_GSS_CODE,
+		mech_gssapi_log_error(request, major_status, GSS_C_GSS_CODE,
 				      "processing incoming data");
-		mech_gssapi_log_error(auth_request, minor_status,
-				      GSS_C_MECH_CODE,
+		mech_gssapi_log_error(request, minor_status, GSS_C_MECH_CODE,
 				      "processing incoming data");
 		return -1;
 	}
@@ -302,7 +304,7 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 			e_info(auth_request->mech_event,
 			       "GSSAPI mechanism not Kerberos5");
 			ret = -1;
-		} else if (get_display_name(auth_request, request->authn_name,
+		} else if (get_display_name(request, request->authn_name,
 					    &name_type, &username) < 0)
 			ret = -1;
 		else if (!auth_request_set_username(auth_request, username,
@@ -366,10 +368,10 @@ mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 				GSS_C_QOP_DEFAULT, &inbuf, NULL, &outbuf);
 
 	if (GSS_ERROR(major_status) != 0) {
-		mech_gssapi_log_error(&request->auth_request, major_status,
-			GSS_C_GSS_CODE, "sending security layer negotiation");
-		mech_gssapi_log_error(&request->auth_request, minor_status,
-			GSS_C_MECH_CODE, "sending security layer negotiation");
+		mech_gssapi_log_error(request, major_status, GSS_C_GSS_CODE,
+				      "sending security layer negotiation");
+		mech_gssapi_log_error(request, minor_status, GSS_C_MECH_CODE,
+				      "sending security layer negotiation");
 		return -1;
 	}
 
@@ -385,18 +387,20 @@ mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 }
 
 static bool
-k5_principal_is_authorized(struct auth_request *request, const char *name)
+k5_principal_is_authorized(struct gssapi_auth_request *request, const char *name)
 {
+	struct auth_request *auth_request = &request->auth_request;
 	const char *value, *const *authorized_names, *const *tmp;
 
-	value = auth_fields_find(request->fields.extra_fields, "k5principals");
+	value = auth_fields_find(auth_request->fields.extra_fields,
+				 "k5principals");
 	if (value == NULL)
 		return FALSE;
 
 	authorized_names = t_strsplit_spaces(value, ",");
 	for (tmp = authorized_names; *tmp != NULL; tmp++) {
 		if (strcmp(*tmp, name) == 0) {
-			e_debug(request->mech_event,
+			e_debug(auth_request->mech_event,
 				"authorized by k5principals field: %s", name);
 			return TRUE;
 		}
@@ -409,6 +413,7 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 			gss_name_t name, const char *login_user,
 			bool check_name_type)
 {
+	struct auth_request *auth_request = &request->auth_request;
 	krb5_context ctx;
 	krb5_principal princ;
 	krb5_error_code krb5_err;
@@ -417,13 +422,13 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 	bool authorized = FALSE;
 
 	/* Parse out the principal's username */
-	if (get_display_name(&request->auth_request, name, &name_type,
+	if (get_display_name(request, name, &name_type,
 			     &princ_display_name) < 0)
 		return FALSE;
 
 	if (!mech_gssapi_oid_cmp(name_type, GSS_KRB5_NT_PRINCIPAL_NAME) &&
 	    check_name_type) {
-		e_info(request->auth_request.mech_event,
+		e_info(auth_request->mech_event,
 		       "OID not kerberos principal name");
 		return FALSE;
 	}
@@ -431,7 +436,7 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 	/* Init a krb5 context and parse the principal username */
 	krb5_err = krb5_init_context(&ctx);
 	if (krb5_err != 0) {
-		e_error(request->auth_request.mech_event,
+		e_error(auth_request->mech_event,
 			"krb5_init_context() failed: %d", (int)krb5_err);
 		return FALSE;
 	}
@@ -440,13 +445,12 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 		/* writing the error string would be better, but we probably
 		   rarely get here and there doesn't seem to be a standard
 		   way of getting it */
-		e_info(request->auth_request.mech_event,
-		       "krb5_parse_name() failed: %d",
-		       (int)krb5_err);
+		e_info(auth_request->mech_event,
+		       "krb5_parse_name() failed: %d", (int)krb5_err);
 	} else {
 		/* See if the principal is in the list of authorized principals
 		   for the user */
-		authorized = k5_principal_is_authorized(&request->auth_request,
+		authorized = k5_principal_is_authorized(request,
 							princ_display_name);
 
 		/* See if the principal is authorized to act as the specified
@@ -475,8 +479,7 @@ mech_gssapi_userok(struct gssapi_auth_request *request, const char *login_user)
 					request->authz_name,
 					&equal_authn_authz);
 	if (GSS_ERROR(major_status) != 0) {
-		mech_gssapi_log_error(auth_request, major_status,
-				      GSS_C_GSS_CODE,
+		mech_gssapi_log_error(request, major_status, GSS_C_GSS_CODE,
 				      "gss_compare_name failed");
 		return -1;
 	}
@@ -498,22 +501,23 @@ static void
 gssapi_credentials_callback(enum passdb_result result,
 			    const unsigned char *credentials ATTR_UNUSED,
 			    size_t size ATTR_UNUSED,
-			    struct auth_request *request)
+			    struct auth_request *auth_request)
 {
-	struct gssapi_auth_request *gssapi_request =
-		(struct gssapi_auth_request *)request;
+	struct gssapi_auth_request *request =
+		container_of(auth_request, struct gssapi_auth_request,
+			     auth_request);
 
 	/* We don't care much whether the lookup succeeded or not because GSSAPI
 	   does not strictly require a passdb. But if a passdb is configured,
 	   now the k5principals field will have been filled in. */
 	switch (result) {
 	case PASSDB_RESULT_INTERNAL_FAILURE:
-		auth_request_internal_failure(request);
+		auth_request_internal_failure(auth_request);
 		return;
 	case PASSDB_RESULT_USER_DISABLED:
 	case PASSDB_RESULT_PASS_EXPIRED:
 		/* User is explicitly disabled, don't allow it to log in */
-		auth_request_fail(request);
+		auth_request_fail(auth_request);
 		return;
 	case PASSDB_RESULT_NEXT:
 	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
@@ -523,10 +527,10 @@ gssapi_credentials_callback(enum passdb_result result,
 		break;
 	}
 
-	if (mech_gssapi_userok(gssapi_request, request->fields.user) == 0)
-		auth_request_success(request, NULL, 0);
+	if (mech_gssapi_userok(request, auth_request->fields.user) == 0)
+		auth_request_success(auth_request, NULL, 0);
 	else
-		auth_request_fail(request);
+		auth_request_fail(auth_request);
 }
 
 static int
@@ -543,8 +547,7 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 				  &inbuf, &outbuf, NULL, NULL);
 
 	if (GSS_ERROR(major_status) != 0) {
-		mech_gssapi_log_error(auth_request, major_status,
-				      GSS_C_GSS_CODE,
+		mech_gssapi_log_error(request, major_status, GSS_C_GSS_CODE,
 				      "final negotiation: gss_unwrap");
 		return -1;
 	}
@@ -570,11 +573,11 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 		}
 
 		login_user = p_strndup(auth_request->pool, name, name_len);
-		request->authz_name = import_name(auth_request, name, name_len);
+		request->authz_name = import_name(request, name, name_len);
 	} else {
-		request->authz_name = duplicate_name(auth_request,
+		request->authz_name = duplicate_name(request,
 						     request->authn_name);
-		if (get_display_name(auth_request, request->authz_name,
+		if (get_display_name(request, request->authz_name,
 				     NULL, &login_user) < 0) {
 			(void)gss_release_buffer(&minor_status, &outbuf);
 			return -1;
@@ -603,95 +606,91 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	/* Continue in callback once auth_request is populated with passdb
 	   information. */
 	auth_request->passdb_success = TRUE; /* default to success */
-	auth_request_lookup_credentials(&request->auth_request, "",
+	auth_request_lookup_credentials(auth_request, "",
 					gssapi_credentials_callback);
 	(void)gss_release_buffer(&minor_status, &outbuf);
 	return 0;
 }
 
 static void
-mech_gssapi_auth_continue(struct auth_request *request,
+mech_gssapi_auth_continue(struct auth_request *auth_request,
 			  const unsigned char *data, size_t data_size)
 {
-	struct gssapi_auth_request *gssapi_request =
-		(struct gssapi_auth_request *)request;
+	struct gssapi_auth_request *request =
+		container_of(auth_request, struct gssapi_auth_request,
+			     auth_request);
 	gss_buffer_desc inbuf;
 	int ret = -1;
 
 	inbuf.value = (void *)data;
 	inbuf.length = data_size;
 
-	switch (gssapi_request->sasl_gssapi_state) {
+	switch (request->sasl_gssapi_state) {
 	case GSS_STATE_SEC_CONTEXT:
-		ret = mech_gssapi_sec_context(gssapi_request, inbuf);
+		ret = mech_gssapi_sec_context(request, inbuf);
 		break;
 	case GSS_STATE_WRAP:
-		ret = mech_gssapi_wrap(gssapi_request, inbuf);
+		ret = mech_gssapi_wrap(request, inbuf);
 		break;
 	case GSS_STATE_UNWRAP:
-		ret = mech_gssapi_unwrap(gssapi_request, inbuf);
+		ret = mech_gssapi_unwrap(request, inbuf);
 		break;
 	default:
 		i_unreached();
 	}
 	if (ret < 0)
-		auth_request_fail(request);
+		auth_request_fail(auth_request);
 }
 
 static void
-mech_gssapi_auth_initial(struct auth_request *request,
+mech_gssapi_auth_initial(struct auth_request *auth_request,
 			 const unsigned char *data, size_t data_size)
 {
-	struct gssapi_auth_request *gssapi_request =
-		(struct gssapi_auth_request *)request;
+	struct gssapi_auth_request *request =
+		container_of(auth_request, struct gssapi_auth_request,
+			     auth_request);
 	OM_uint32 major_status;
 
 	major_status =
-		obtain_service_credentials(request,
-					   &gssapi_request->service_cred);
+		obtain_service_credentials(request, &request->service_cred);
 
 	if (GSS_ERROR(major_status) != 0) {
-		auth_request_internal_failure(request);
+		auth_request_internal_failure(auth_request);
 		return;
 	}
-	gssapi_request->authn_name = GSS_C_NO_NAME;
-	gssapi_request->authz_name = GSS_C_NO_NAME;
+	request->authn_name = GSS_C_NO_NAME;
+	request->authz_name = GSS_C_NO_NAME;
 
-	gssapi_request->sasl_gssapi_state = GSS_STATE_SEC_CONTEXT;
+	request->sasl_gssapi_state = GSS_STATE_SEC_CONTEXT;
 
 	if (data_size == 0) {
 		/* The client should go first */
-		auth_request_handler_reply_continue(request, uchar_empty_ptr, 0);
+		auth_request_handler_reply_continue(auth_request,
+						    uchar_empty_ptr, 0);
 	} else {
-		mech_gssapi_auth_continue(request, data, data_size);
+		mech_gssapi_auth_continue(auth_request, data, data_size);
 	}
 }
 
 static void
-mech_gssapi_auth_free(struct auth_request *request)
+mech_gssapi_auth_free(struct auth_request *auth_request)
 {
-	struct gssapi_auth_request *gssapi_request =
-		(struct gssapi_auth_request *)request;
+	struct gssapi_auth_request *request =
+		container_of(auth_request, struct gssapi_auth_request,
+			     auth_request);
 	OM_uint32 minor_status;
 
-	if (gssapi_request->gss_ctx != GSS_C_NO_CONTEXT) {
-		(void)gss_delete_sec_context(&minor_status,
-					     &gssapi_request->gss_ctx,
+	if (request->gss_ctx != GSS_C_NO_CONTEXT) {
+		(void)gss_delete_sec_context(&minor_status, &request->gss_ctx,
 					     GSS_C_NO_BUFFER);
 	}
 
-	if (gssapi_request->service_cred != GSS_C_NO_CREDENTIAL) {
-		(void)gss_release_cred(&minor_status,
-				       &gssapi_request->service_cred);
-	}
-	if (gssapi_request->authn_name != GSS_C_NO_NAME) {
-		(void)gss_release_name(&minor_status,
-				       &gssapi_request->authn_name);
-	}
-	if (gssapi_request->authz_name != GSS_C_NO_NAME) {
-		(void)gss_release_name(&minor_status,
-				       &gssapi_request->authz_name);
-	}
+	if (request->service_cred != GSS_C_NO_CREDENTIAL)
+		(void)gss_release_cred(&minor_status, &request->service_cred);
+	if (request->authn_name != GSS_C_NO_NAME)
+		(void)gss_release_name(&minor_status, &request->authn_name);
+	if (request->authz_name != GSS_C_NO_NAME)
+		(void)gss_release_name(&minor_status, &request->authz_name);
 	pool_unref(&request->pool);
 }
 
