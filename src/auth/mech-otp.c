@@ -46,8 +46,10 @@ static void otp_lock_deinit(void)
 	hash_table_destroy(&otp_lock_table);
 }
 
-static bool otp_try_lock(struct auth_request *auth_request)
+static bool otp_try_lock(struct otp_auth_request *request)
 {
+	struct auth_request *auth_request = &request->auth_request;
+
 	if (hash_table_lookup(otp_lock_table,
 			      auth_request->fields.user) != NULL)
 		return FALSE;
@@ -57,10 +59,9 @@ static bool otp_try_lock(struct auth_request *auth_request)
 	return TRUE;
 }
 
-static void otp_unlock(struct auth_request *auth_request)
+static void otp_unlock(struct otp_auth_request *request)
 {
-	struct otp_auth_request *request =
-		(struct otp_auth_request *)auth_request;
+	struct auth_request *auth_request = &request->auth_request;
 
 	if (!request->lock)
 		return;
@@ -74,31 +75,30 @@ static void otp_unlock(struct auth_request *auth_request)
  */
 
 static void
-otp_send_challenge(struct auth_request *auth_request,
+otp_send_challenge(struct otp_auth_request *request,
 		   const unsigned char *credentials, size_t size)
 {
-	struct otp_auth_request *request =
-		(struct otp_auth_request *)auth_request;
+	struct auth_request *auth_request = &request->auth_request;
 	const char *answer;
 
 	if (otp_parse_dbentry(t_strndup(credentials, size),
 			      &request->state) != 0) {
-		e_error(request->auth_request.mech_event,
+		e_error(auth_request->mech_event,
 			"invalid OTP data in passdb");
 		auth_request_fail(auth_request);
 		return;
 	}
 
 	if (--request->state.seq < 1) {
-		e_error(request->auth_request.mech_event,
+		e_error(auth_request->mech_event,
 			"sequence number < 1");
 		auth_request_fail(auth_request);
 		return;
 	}
 
-	request->lock = otp_try_lock(auth_request);
+	request->lock = otp_try_lock(request);
 	if (!request->lock) {
-		e_error(request->auth_request.mech_event,
+		e_error(auth_request->mech_event,
 			"user is locked, race attack?");
 		auth_request_fail(auth_request);
 		return;
@@ -117,9 +117,13 @@ otp_credentials_callback(enum passdb_result result,
 			 const unsigned char *credentials, size_t size,
 			 struct auth_request *auth_request)
 {
+	struct otp_auth_request *request =
+		container_of(auth_request, struct otp_auth_request,
+			     auth_request);
+
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		otp_send_challenge(auth_request, credentials, size);
+		otp_send_challenge(request, credentials, size);
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		auth_request_internal_failure(auth_request);
@@ -131,11 +135,10 @@ otp_credentials_callback(enum passdb_result result,
 }
 
 static void
-mech_otp_auth_phase1(struct auth_request *auth_request,
+mech_otp_auth_phase1(struct otp_auth_request *request,
 		     const unsigned char *data, size_t data_size)
 {
-	struct otp_auth_request *request =
-		(struct otp_auth_request *)auth_request;
+	struct auth_request *auth_request = &request->auth_request;
 	const char *authenid, *error;
 	size_t i, count;
 
@@ -152,8 +155,7 @@ mech_otp_auth_phase1(struct auth_request *auth_request,
 	}
 
 	if (count != 1) {
-		e_error(request->auth_request.mech_event,
-			"invalid input");
+		e_error(auth_request->mech_event, "invalid input");
 		auth_request_fail(auth_request);
 		return;
 	}
@@ -171,31 +173,33 @@ mech_otp_auth_phase1(struct auth_request *auth_request,
 static void
 otp_set_credentials_callback(bool success, struct auth_request *auth_request)
 {
+	struct otp_auth_request *request =
+		container_of(auth_request, struct otp_auth_request,
+			     auth_request);
+
 	if (success)
 		auth_request_success(auth_request, "", 0);
 	else {
 		auth_request_internal_failure(auth_request);
-		otp_unlock(auth_request);
+		otp_unlock(request);
 	}
 
-	otp_unlock(auth_request);
+	otp_unlock(request);
 }
 
 static void
-mech_otp_verify(struct auth_request *auth_request, const char *data, bool hex)
+mech_otp_verify(struct otp_auth_request *request, const char *data, bool hex)
 {
-	struct otp_auth_request *request =
-		(struct otp_auth_request *)auth_request;
+	struct auth_request *auth_request = &request->auth_request;
 	struct otp_state *state = &request->state;
 	unsigned char hash[OTP_HASH_SIZE], cur_hash[OTP_HASH_SIZE];
 	int ret;
 
 	ret = otp_parse_response(data, hash, hex);
 	if (ret < 0) {
-		e_error(request->auth_request.mech_event,
-			"invalid response");
+		e_error(auth_request->mech_event, "invalid response");
 		auth_request_fail(auth_request);
-		otp_unlock(auth_request);
+		otp_unlock(request);
 		return;
 	}
 
@@ -204,7 +208,7 @@ mech_otp_verify(struct auth_request *auth_request, const char *data, bool hex)
 	ret = memcmp(cur_hash, state->hash, OTP_HASH_SIZE);
 	if (ret != 0) {
 		auth_request_fail(auth_request);
-		otp_unlock(auth_request);
+		otp_unlock(request);
 		return;
 	}
 
@@ -216,11 +220,10 @@ mech_otp_verify(struct auth_request *auth_request, const char *data, bool hex)
 }
 
 static void
-mech_otp_verify_init(struct auth_request *auth_request, const char *data,
+mech_otp_verify_init(struct otp_auth_request *request, const char *data,
 		     bool hex)
 {
-	struct otp_auth_request *request =
-		(struct otp_auth_request *)auth_request;
+	struct auth_request *auth_request = &request->auth_request;
 	struct otp_state new_state;
 	unsigned char hash[OTP_HASH_SIZE], cur_hash[OTP_HASH_SIZE];
 	const char *error;
@@ -228,10 +231,10 @@ mech_otp_verify_init(struct auth_request *auth_request, const char *data,
 
 	ret = otp_parse_init_response(data, &new_state, cur_hash, hex, &error);
 	if (ret < 0) {
-		e_error(request->auth_request.mech_event,
+		e_error(auth_request->mech_event,
 			"invalid init response, %s", error);
 		auth_request_fail(auth_request);
-		otp_unlock(auth_request);
+		otp_unlock(request);
 		return;
 	}
 
@@ -240,7 +243,7 @@ mech_otp_verify_init(struct auth_request *auth_request, const char *data,
 	ret = memcmp(hash, request->state.hash, OTP_HASH_SIZE);
 	if (ret != 0) {
 		auth_request_fail(auth_request);
-		otp_unlock(auth_request);
+		otp_unlock(request);
 		return;
 	}
 
@@ -250,24 +253,25 @@ mech_otp_verify_init(struct auth_request *auth_request, const char *data,
 }
 
 static void
-mech_otp_auth_phase2(struct auth_request *auth_request,
+mech_otp_auth_phase2(struct otp_auth_request *request,
 		     const unsigned char *data, size_t data_size)
 {
+	struct auth_request *auth_request = &request->auth_request;
 	const char *value, *str = t_strndup(data, data_size);
 
 	if (str_begins(str, "hex:", &value))
-		mech_otp_verify(auth_request, value, TRUE);
+		mech_otp_verify(request, value, TRUE);
 	else if (str_begins(str, "word:", &value))
-		mech_otp_verify(auth_request, value, FALSE);
+		mech_otp_verify(request, value, FALSE);
 	else if (str_begins(str, "init-hex:", &value))
-		mech_otp_verify_init(auth_request, value, TRUE);
+		mech_otp_verify_init(request, value, TRUE);
 	else if (str_begins(str, "init-word:", &value))
-		mech_otp_verify_init(auth_request, value, FALSE);
+		mech_otp_verify_init(request, value, FALSE);
 	else {
 		e_error(auth_request->mech_event,
 			"unsupported response type");
 		auth_request_fail(auth_request);
-		otp_unlock(auth_request);
+		otp_unlock(request);
 	}
 }
 
@@ -275,10 +279,14 @@ static void
 mech_otp_auth_continue(struct auth_request *auth_request,
 		       const unsigned char *data, size_t data_size)
 {
+	struct otp_auth_request *request =
+		container_of(auth_request, struct otp_auth_request,
+			     auth_request);
+
 	if (auth_request->fields.user == NULL)
-		mech_otp_auth_phase1(auth_request, data, data_size);
+		mech_otp_auth_phase1(request, data, data_size);
 	else
-		mech_otp_auth_phase2(auth_request, data, data_size);
+		mech_otp_auth_phase2(request, data, data_size);
 }
 
 static struct auth_request *mech_otp_auth_new(void)
@@ -300,7 +308,11 @@ static struct auth_request *mech_otp_auth_new(void)
 
 static void mech_otp_auth_free(struct auth_request *auth_request)
 {
-	otp_unlock(auth_request);
+	struct otp_auth_request *request =
+		container_of(auth_request, struct otp_auth_request,
+			     auth_request);
+
+	otp_unlock(request);
 
 	pool_unref(&auth_request->pool);
 }
