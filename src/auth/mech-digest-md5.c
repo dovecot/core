@@ -29,8 +29,6 @@ enum qop_option {
 struct digest_auth_request {
 	struct auth_request auth_request;
 
-	pool_t pool;
-
 	/* requested: */
 	char *nonce;
 	enum qop_option qop;
@@ -81,7 +79,7 @@ static string_t *get_digest_challenge(struct digest_auth_request *request)
 	buffer_create_from_data(&buf, nonce_base64, sizeof(nonce_base64));
 	base64_encode(nonce, sizeof(nonce), &buf);
 	buffer_append_c(&buf, '\0');
-	request->nonce = p_strdup(request->pool, buf.data);
+	request->nonce = p_strdup(auth_request->pool, buf.data);
 
 	str = t_str_new(256);
 	if (array_is_empty(&set->realms)) {
@@ -219,7 +217,7 @@ verify_credentials(struct digest_auth_request *request,
 			}
 		} else {
 			request->rspauth =
-				p_strconcat(request->pool, "rspauth=",
+				p_strconcat(auth_request->pool, "rspauth=",
 					    response_hex, NULL);
 		}
 	}
@@ -309,7 +307,7 @@ auth_handle_response(struct digest_auth_request *request,
 			return FALSE;
 		}
 
-		request->username = p_strdup(request->pool, value);
+		request->username = p_strdup(auth_request->pool, value);
 		return TRUE;
 	}
 
@@ -335,7 +333,7 @@ auth_handle_response(struct digest_auth_request *request,
 			return FALSE;
 		}
 
-		request->cnonce = p_strdup(request->pool, value);
+		request->cnonce = p_strdup(auth_request->pool, value);
 		return TRUE;
 	}
 
@@ -357,7 +355,7 @@ auth_handle_response(struct digest_auth_request *request,
 			return FALSE;
 		}
 
-		request->nonce_count = p_strdup(request->pool, value);
+		request->nonce_count = p_strdup(auth_request->pool, value);
 		return TRUE;
 	}
 
@@ -379,7 +377,7 @@ auth_handle_response(struct digest_auth_request *request,
 			return FALSE;
 		}
 
-		request->qop_value = p_strdup(request->pool, value);
+		request->qop_value = p_strdup(auth_request->pool, value);
 		return TRUE;
 	}
 
@@ -396,7 +394,7 @@ auth_handle_response(struct digest_auth_request *request,
 		   But isn't the realm enough already? That'd be just extra
 		   configuration.. Maybe optionally list valid hosts in
 		   config file? */
-		request->digest_uri = p_strdup(request->pool, value);
+		request->digest_uri = p_strdup(auth_request->pool, value);
 		return TRUE;
 	}
 
@@ -449,7 +447,7 @@ auth_handle_response(struct digest_auth_request *request,
 		    return FALSE;
 		}
 
-		request->authzid = p_strdup(request->pool, value);
+		request->authzid = p_strdup(auth_request->pool, value);
 		return TRUE;
 	}
 
@@ -462,6 +460,7 @@ parse_digest_response(struct digest_auth_request *request,
 		      const unsigned char *data, size_t size,
 		      const char **error)
 {
+	struct auth_request *auth_request = &request->auth_request;
 	char *copy, *key, *value;
 	bool failed;
 
@@ -517,9 +516,9 @@ parse_digest_response(struct digest_auth_request *request,
 	}
 
 	if (request->nonce_count == NULL)
-		request->nonce_count = p_strdup(request->pool, "00000001");
+		request->nonce_count = p_strdup(auth_request->pool, "00000001");
 	if (request->qop_value == NULL)
-		request->qop_value = p_strdup(request->pool, "auth");
+		request->qop_value = p_strdup(auth_request->pool, "auth");
 
 	return !failed;
 }
@@ -614,7 +613,6 @@ static struct auth_request *mech_digest_md5_auth_new(void)
 	pool = pool_alloconly_create(
 		MEMPOOL_GROWING"digest_md5_auth_request", 2048);
 	request = p_new(pool, struct digest_auth_request, 1);
-	request->pool = pool;
 	request->qop = QOP_AUTH;
 
 	request->auth_request.pool = pool;
@@ -642,5 +640,5 @@ void mech_digest_test_set_nonce(struct auth_request *auth_request,
 			     auth_request);
 
 	i_assert(auth_request->mech == &mech_digest_md5);
-	request->nonce = p_strdup(request->pool, nonce);
+	request->nonce = p_strdup(auth_request->pool, nonce);
 }
