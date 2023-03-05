@@ -55,7 +55,7 @@ const struct mech_module mech_external = {
 	.mech_name = "EXTERNAL",
 
 	.flags = 0,
-	.passdb_need = MECH_PASSDB_NEED_VERIFY_PLAIN,
+	.passdb_need = SASL_MECH_PASSDB_NEED_VERIFY_PLAIN,
 
 	.auth_new = mech_external_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,

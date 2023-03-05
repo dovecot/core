@@ -65,7 +65,7 @@ const struct mech_module mech_login = {
 	.mech_name = "LOGIN",
 
 	.flags = SASL_MECH_SEC_PLAINTEXT,
-	.passdb_need = MECH_PASSDB_NEED_VERIFY_PLAIN,
+	.passdb_need = SASL_MECH_PASSDB_NEED_VERIFY_PLAIN,
 
 	.auth_new = mech_login_auth_new,
 	.auth_initial = mech_login_auth_initial,

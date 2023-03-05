@@ -79,7 +79,7 @@ const struct mech_module mech_plain = {
 	.mech_name = "PLAIN",
 
 	.flags = SASL_MECH_SEC_PLAINTEXT | SASL_MECH_SEC_ALLOW_NULS,
-	.passdb_need = MECH_PASSDB_NEED_VERIFY_PLAIN,
+	.passdb_need = SASL_MECH_PASSDB_NEED_VERIFY_PLAIN,
 
 	.auth_new = mech_plain_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,

@@ -622,7 +622,7 @@ const struct mech_module mech_digest_md5 = {
 
 	.flags = SASL_MECH_SEC_DICTIONARY | SASL_MECH_SEC_ACTIVE |
 		 SASL_MECH_SEC_MUTUAL_AUTH,
-	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
+	.passdb_need = SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
 	.auth_new = mech_digest_md5_auth_new,
 	.auth_initial = mech_digest_md5_auth_initial,

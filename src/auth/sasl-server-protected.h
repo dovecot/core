@@ -12,7 +12,7 @@ struct mech_module {
 	const char *mech_name;
 
 	enum sasl_mech_security_flags flags;
-	enum mech_passdb_need passdb_need;
+	enum sasl_mech_passdb_need passdb_need;
 
 	struct auth_request *(*auth_new)(void);
 	void (*auth_initial)(struct auth_request *request,

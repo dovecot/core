@@ -83,7 +83,7 @@ const struct mech_module mech_dovecot_token = {
 	.mech_name = "DOVECOT-TOKEN",
 
 	.flags = SASL_MECH_SEC_PRIVATE | SASL_MECH_SEC_ALLOW_NULS,
-	.passdb_need = MECH_PASSDB_NEED_NOTHING,
+	.passdb_need = SASL_MECH_PASSDB_NEED_NOTHING,
 
 	.auth_new = mech_dovecot_token_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,

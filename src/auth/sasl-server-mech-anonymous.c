@@ -36,7 +36,7 @@ const struct mech_module mech_anonymous = {
 	.mech_name = "ANONYMOUS",
 
 	.flags = SASL_MECH_SEC_ANONYMOUS | SASL_MECH_SEC_ALLOW_NULS,
-	.passdb_need = MECH_PASSDB_NEED_NOTHING,
+	.passdb_need = SASL_MECH_PASSDB_NEED_NOTHING,
 
 	.auth_new = mech_anonymous_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,

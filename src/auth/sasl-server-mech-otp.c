@@ -321,7 +321,7 @@ const struct mech_module mech_otp = {
 
 	.flags = SASL_MECH_SEC_DICTIONARY | SASL_MECH_SEC_ACTIVE |
 		 SASL_MECH_SEC_ALLOW_NULS,
-	.passdb_need = MECH_PASSDB_NEED_SET_CREDENTIALS,
+	.passdb_need = SASL_MECH_PASSDB_NEED_SET_CREDENTIALS,
 
 	.auth_new = mech_otp_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,

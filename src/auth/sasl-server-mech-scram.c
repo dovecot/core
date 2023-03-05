@@ -228,7 +228,7 @@ const struct mech_module mech_scram_sha1 = {
 	.mech_name = "SCRAM-SHA-1",
 
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH,
-	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
+	.passdb_need = SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
 	.auth_new = mech_scram_sha1_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,
@@ -240,7 +240,7 @@ const struct mech_module mech_scram_sha1_plus = {
 	.mech_name = "SCRAM-SHA-1-PLUS",
 
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH | SASL_MECH_SEC_CHANNEL_BINDING,
-	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
+	.passdb_need = SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
 	.auth_new = mech_scram_sha1_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,
@@ -252,7 +252,7 @@ const struct mech_module mech_scram_sha256 = {
 	.mech_name = "SCRAM-SHA-256",
 
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH,
-	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
+	.passdb_need = SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
 	.auth_new = mech_scram_sha256_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,
@@ -264,7 +264,7 @@ const struct mech_module mech_scram_sha256_plus = {
 	.mech_name = "SCRAM-SHA-256-PLUS",
 
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH | SASL_MECH_SEC_CHANNEL_BINDING,
-	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
+	.passdb_need = SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
 	.auth_new = mech_scram_sha256_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,

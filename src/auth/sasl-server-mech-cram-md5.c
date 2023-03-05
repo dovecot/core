@@ -181,7 +181,7 @@ const struct mech_module mech_cram_md5 = {
 	.mech_name = "CRAM-MD5",
 
 	.flags = SASL_MECH_SEC_DICTIONARY | SASL_MECH_SEC_ACTIVE,
-	.passdb_need = MECH_PASSDB_NEED_VERIFY_RESPONSE,
+	.passdb_need = SASL_MECH_PASSDB_NEED_VERIFY_RESPONSE,
 
 	.auth_new = mech_cram_md5_auth_new,
 	.auth_initial = mech_cram_md5_auth_initial,

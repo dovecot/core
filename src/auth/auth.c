@@ -244,18 +244,18 @@ static bool
 auth_mech_verify_passdb(const struct auth *auth, const struct mech_module_list *list)
 {
 	switch (list->module.passdb_need) {
-	case MECH_PASSDB_NEED_NOTHING:
+	case SASL_MECH_PASSDB_NEED_NOTHING:
 		break;
-	case MECH_PASSDB_NEED_VERIFY_PLAIN:
+	case SASL_MECH_PASSDB_NEED_VERIFY_PLAIN:
 		if (!auth_passdb_list_have_verify_plain(auth))
 			return FALSE;
 		break;
-	case MECH_PASSDB_NEED_VERIFY_RESPONSE:
-	case MECH_PASSDB_NEED_LOOKUP_CREDENTIALS:
+	case SASL_MECH_PASSDB_NEED_VERIFY_RESPONSE:
+	case SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS:
 		if (!auth_passdb_list_have_lookup_credentials(auth))
 			return FALSE;
 		break;
-	case MECH_PASSDB_NEED_SET_CREDENTIALS:
+	case SASL_MECH_PASSDB_NEED_SET_CREDENTIALS:
 		if (!auth_passdb_list_have_lookup_credentials(auth))
 			return FALSE;
 		if (!auth_passdb_list_have_set_credentials(auth))

@@ -163,7 +163,7 @@ const struct mech_module mech_apop = {
 
 	.flags = SASL_MECH_SEC_PRIVATE | SASL_MECH_SEC_DICTIONARY |
 		 SASL_MECH_SEC_ACTIVE | SASL_MECH_SEC_ALLOW_NULS,
-	.passdb_need = MECH_PASSDB_NEED_VERIFY_RESPONSE,
+	.passdb_need = SASL_MECH_PASSDB_NEED_VERIFY_RESPONSE,
 
 	.auth_new = mech_apop_auth_new,
 	.auth_initial = mech_apop_auth_initial,
