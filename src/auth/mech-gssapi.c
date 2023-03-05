@@ -62,8 +62,6 @@ struct gssapi_auth_request {
 
 	gss_name_t authn_name;
 	gss_name_t authz_name;
-
-	pool_t pool;
 };
 
 static bool gssapi_initialized = FALSE;
@@ -106,7 +104,6 @@ static struct auth_request *mech_gssapi_auth_new(void)
 	pool = pool_alloconly_create(
 		MEMPOOL_GROWING"gssapi_auth_request", 2048);
 	request = p_new(pool, struct gssapi_auth_request, 1);
-	request->pool = pool;
 
 	request->gss_ctx = GSS_C_NO_CONTEXT;
 
@@ -691,7 +688,7 @@ mech_gssapi_auth_free(struct auth_request *auth_request)
 		(void)gss_release_name(&minor_status, &request->authn_name);
 	if (request->authz_name != GSS_C_NO_NAME)
 		(void)gss_release_name(&minor_status, &request->authz_name);
-	pool_unref(&request->pool);
+	pool_unref(&auth_request->pool);
 }
 
 const struct mech_module mech_gssapi = {
