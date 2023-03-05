@@ -56,6 +56,7 @@ static bool otp_try_lock(struct otp_auth_request *request)
 
 	hash_table_insert(otp_lock_table, auth_request->fields.user,
 			  auth_request);
+	request->lock = TRUE;
 	return TRUE;
 }
 
@@ -96,8 +97,7 @@ otp_send_challenge(struct otp_auth_request *request,
 		return;
 	}
 
-	request->lock = otp_try_lock(request);
-	if (!request->lock) {
+	if (!otp_try_lock(request)) {
 		e_error(auth_request->mech_event,
 			"user is locked, race attack?");
 		auth_request_fail(auth_request);
