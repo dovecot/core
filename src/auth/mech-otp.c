@@ -19,8 +19,6 @@
 struct otp_auth_request {
 	struct auth_request auth_request;
 
-	pool_t pool;
-
 	bool lock;
 
 	struct otp_state state;
@@ -104,7 +102,7 @@ otp_send_challenge(struct otp_auth_request *request,
 		return;
 	}
 
-	answer = p_strdup_printf(request->pool, "otp-%s %u %s ext",
+	answer = p_strdup_printf(auth_request->pool, "otp-%s %u %s ext",
 				 digest_name(request->state.algo),
 				 request->state.seq, request->state.seed);
 
@@ -298,7 +296,6 @@ static struct auth_request *mech_otp_auth_new(void)
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"otp_auth_request", 2048);
 	request = p_new(pool, struct otp_auth_request, 1);
-	request->pool = pool;
 	request->lock = FALSE;
 
 	request->auth_request.refcount = 1;
