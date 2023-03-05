@@ -20,8 +20,6 @@
 struct cram_auth_request {
 	struct auth_request auth_request;
 
-	pool_t pool;
-
 	/* requested: */
 	char *challenge;
 
@@ -82,6 +80,7 @@ parse_cram_response(struct cram_auth_request *request,
 		    const unsigned char *data, size_t size,
 		    const char **error_r)
 {
+	struct auth_request *auth_request = &request->auth_request;
 	size_t i, space;
 
 	*error_r = NULL;
@@ -102,10 +101,10 @@ parse_cram_response(struct cram_auth_request *request,
 		return FALSE;
 	}
 
-	request->username = p_strndup(request->pool, data, space);
+	request->username = p_strndup(auth_request->pool, data, space);
 	space++;
 	request->response =
-		p_strndup(request->pool, data + space, size - space);
+		p_strndup(auth_request->pool, data + space, size - space);
 	return TRUE;
 }
 
@@ -168,7 +167,7 @@ mech_cram_md5_auth_initial(struct auth_request *auth_request,
 		container_of(auth_request, struct cram_auth_request,
 			     auth_request);
 
-	request->challenge = p_strdup(request->pool, get_cram_challenge());
+	request->challenge = p_strdup(auth_request->pool, get_cram_challenge());
 	auth_request_handler_reply_continue(auth_request,  request->challenge,
 					    strlen(request->challenge));
 }
@@ -180,7 +179,6 @@ static struct auth_request *mech_cram_md5_auth_new(void)
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"cram_md5_auth_request", 2048);
 	request = p_new(pool, struct cram_auth_request, 1);
-	request->pool = pool;
 
 	request->auth_request.pool = pool;
 	return &request->auth_request;
