@@ -10,7 +10,6 @@
 struct scram_auth_request {
 	struct auth_request auth_request;
 
-	pool_t pool;
 	const char *password_scheme;
 
 	struct auth_scram_server scram_server;
@@ -176,7 +175,6 @@ mech_scram_auth_new(const struct hash_method *hash_method,
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"scram_auth_request", 2048);
 	request = p_new(pool, struct scram_auth_request, 1);
-	request->pool = pool;
 	request->password_scheme = password_scheme;
 
 	struct auth *auth = auth_default_protocol();
