@@ -30,10 +30,20 @@
 #define CONFIG_READ_TIMEOUT_SECS 10
 #define CONFIG_HANDSHAKE "VERSION\tconfig\t3\t0\n"
 
+struct master_service_mmap_filter {
+	struct event_filter *filter;
+	bool empty_filter;
+
+	size_t start_offset, end_offset;
+};
+
 struct master_settings_mmap {
 	int refcount;
 	void *mmap_base;
 	size_t mmap_size;
+
+	size_t set_start_offset, set_end_offset;
+	ARRAY(struct master_service_mmap_filter) filters;
 };
 
 struct master_service_settings_instance {
@@ -418,10 +428,9 @@ filter_string_parse_protocol(const char *filter_string,
 }
 
 static int
-master_service_settings_read_mmap(struct setting_parser_context *parser,
+master_service_settings_read_mmap(struct master_settings_mmap *config_mmap,
+				  struct setting_parser_context *parser,
 				  struct event *event,
-				  const unsigned char *mmap_base,
-				  size_t mmap_size,
 				  struct master_service_settings_output *output_r,
 				  const char **error_r)
 {
@@ -442,6 +451,8 @@ master_service_settings_read_mmap(struct setting_parser_context *parser,
 	   (if we can't trust the config, what can we trust?), so for
 	   performance and simplicity we trust the mmaped data to be properly
 	   NUL-terminated. If it's not, it can cause a segfault. */
+	const unsigned char *mmap_base = config_mmap->mmap_base;
+	size_t mmap_size = config_mmap->mmap_size;
 	ARRAY_TYPE(const_string) protocols;
 
 	t_array_init(&protocols, 8);
@@ -466,8 +477,14 @@ master_service_settings_read_mmap(struct setting_parser_context *parser,
 		return -1;
 	}
 
+	struct master_service_mmap_filter *config_filter;
+	array_foreach_modifiable(&config_mmap->filters, config_filter)
+		event_filter_unref(&config_filter->filter);
+	array_clear(&config_mmap->filters);
+
 	size_t start_offset = eol - mmap_base + 1;
 	uoff_t offset = start_offset;
+	config_mmap->set_start_offset = start_offset;
 	do {
 		/* <blob size> */
 		uint64_t blob_size;
@@ -488,8 +505,11 @@ master_service_settings_read_mmap(struct setting_parser_context *parser,
 		size_t end_offset = offset + blob_size;
 		offset += sizeof(blob_size);
 
-		/* <filter> */
-		if (offset > start_offset + sizeof(blob_size)) {
+		if (offset <= start_offset + sizeof(blob_size)) {
+			/* base settings */
+			config_mmap->set_end_offset = end_offset;
+		} else {
+			/* <filter> */
 			const char *filter_string =
 				(const char *)mmap_base + offset;
 			offset += strlen(filter_string) + 1;
@@ -501,20 +521,24 @@ master_service_settings_read_mmap(struct setting_parser_context *parser,
 				return -1;
 			}
 
-			struct event_filter *filter = event_filter_create();
+			config_filter = array_append_space(&config_mmap->filters);
+			config_filter->filter = event_filter_create();
+			config_filter->empty_filter = filter_string[0] == '\0';
+			config_filter->start_offset = offset;
+			config_filter->end_offset = end_offset;
+
 			const char *error;
 			filter_string_parse_protocol(filter_string, &protocols);
-			if (event_filter_parse(filter_string, filter, &error) < 0) {
+			if (event_filter_parse(filter_string,
+					       config_filter->filter, &error) < 0) {
 				*error_r = t_strdup_printf(
 					"Received invalid filter '%s': %s",
 					filter_string, error);
-				event_filter_unref(&filter);
 				return -1;
 			}
-			bool match = filter_string[0] == '\0' ||
-				event_filter_match(filter, event,
+			bool match = config_filter->empty_filter ||
+				event_filter_match(config_filter->filter, event,
 						   &failure_ctx);
-			event_filter_unref(&filter);
 			if (!match) {
 				/* Filter didn't match. Jump to the next one. */
 				offset = end_offset;
@@ -570,6 +594,12 @@ void master_settings_mmap_unref(struct master_settings_mmap **_mmap)
 	*_mmap = NULL;
 	if (--mmap->refcount > 0)
 		return;
+
+	struct master_service_mmap_filter *config_filter;
+	array_foreach_modifiable(&mmap->filters, config_filter)
+		event_filter_unref(&config_filter->filter);
+	array_free(&mmap->filters);
+
 	if (munmap(mmap->mmap_base, mmap->mmap_size) < 0)
 		i_error("munmap(<config>) failed: %m");
 	i_free(mmap);
@@ -624,6 +654,7 @@ int master_service_settings_read(struct master_service *service,
 			i_fatal("Failed to read config: mmap(%s) failed: %m", path);
 		if (config_mmap->mmap_size == 0)
 			i_fatal("Failed to read config: %s file size is empty", path);
+		i_array_init(&config_mmap->filters, 32);
 
 		service->config_mmap = config_mmap;
 		master_settings_mmap_ref(config_mmap);
@@ -672,9 +703,8 @@ int master_service_settings_read(struct master_service *service,
 	/* config_mmap is NULL only if MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS
 	   is used */
 	if (config_mmap != NULL) {
-		ret = master_service_settings_read_mmap(parser, event,
-			config_mmap->mmap_base, config_mmap->mmap_size,
-			output_r, &error);
+		ret = master_service_settings_read_mmap(config_mmap, parser,
+			event, output_r, &error);
 		if (ret < 0) {
 			if (getenv(DOVECOT_CONFIG_FD_ENV) != NULL) {
 				i_fatal("Failed to parse config from fd %d: %s",
