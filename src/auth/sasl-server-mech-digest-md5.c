@@ -297,7 +297,7 @@ auth_handle_response(struct digest_auth_request *request,
 
 	if (strcmp(key, "realm") == 0) {
 		if (auth_request->fields.realm == NULL && *value != '\0')
-			auth_request_set_realm(auth_request, value);
+			sasl_server_request_set_realm(auth_request, value);
 		return TRUE;
 	}
 

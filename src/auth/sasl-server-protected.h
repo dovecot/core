@@ -72,6 +72,8 @@ bool sasl_server_request_set_authid(struct auth_request *request,
 				    const char *authid);
 bool sasl_server_request_set_authzid(struct auth_request *request,
 				     const char *authzid);
+void sasl_server_request_set_realm(struct auth_request *request,
+				   const char *realm);
 
 void sasl_server_request_output(struct auth_request *request,
 				const void *data, size_t data_size);
