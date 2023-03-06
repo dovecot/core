@@ -348,7 +348,7 @@ const struct mech_module mech_winbind_ntlm = {
 	.auth_new = mech_winbind_ntlm_auth_new,
 	.auth_initial = mech_winbind_auth_initial,
 	.auth_continue = mech_winbind_auth_continue,
-	.auth_free = mech_generic_auth_free,
+	.auth_free = sasl_server_mech_generic_auth_free,
 };
 
 const struct mech_module mech_winbind_spnego = {
@@ -360,5 +360,5 @@ const struct mech_module mech_winbind_spnego = {
 	.auth_new = mech_winbind_spnego_auth_new,
 	.auth_initial = mech_winbind_auth_initial,
 	.auth_continue = mech_winbind_auth_continue,
-	.auth_free = mech_generic_auth_free,
+	.auth_free = sasl_server_mech_generic_auth_free,
 };

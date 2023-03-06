@@ -15,7 +15,7 @@ void mech_generic_auth_initial(struct auth_request *request,
 	}
 }
 
-void mech_generic_auth_free(struct auth_request *request)
+void sasl_server_mech_generic_auth_free(struct auth_request *request)
 {
 	pool_unref(&request->pool);
 }
