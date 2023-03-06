@@ -156,7 +156,8 @@ static void cmd_id_handle_keyvalue(struct imap_client *client,
 			imap_append_quoted(client->common.client_id, value);
 	}
 
-	imap_id_add_log_entry(log_entry, key, value);
+	if (!is_login_id_param)
+		imap_id_add_log_entry(log_entry, key, value);
 }
 
 static int cmd_id_handle_args(struct imap_client *client,
