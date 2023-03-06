@@ -110,6 +110,9 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 				  metadata.precache_fields, NULL);
 	mail_search_args_unref(&search_args);
 
+	/* otherwise the client doesn't receive the updates timely */
+	o_stream_uncork(conn->conn.output);
+
 	max = status.messages + 1 - seq;
 	while (mailbox_search_next(ctx, &mail)) {
 		if (first_uid == 0)
