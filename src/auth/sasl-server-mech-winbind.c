@@ -38,7 +38,7 @@ struct winbind_helper {
 };
 
 struct winbind_auth_request {
-	struct auth_request auth_request;
+	struct sasl_server_mech_request auth_request;
 
 	struct winbind_helper *winbind;
 	bool continued;
@@ -160,7 +160,7 @@ static enum helper_result
 do_auth_continue(struct winbind_auth_request *request,
 		 const unsigned char *data, size_t data_size)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	struct istream *in_pipe = request->winbind->in_pipe;
 	string_t *str;
 	char *answer;
@@ -262,7 +262,7 @@ do_auth_continue(struct winbind_auth_request *request,
 				user))
 			return HR_FAIL;
 
-		request->auth_request.passdb_success = TRUE;
+		request->auth_request.request->passdb_success = TRUE;
 		if (gss_spnego && strcmp(token[1], "*") != 0) {
 			buffer_t *buf;
 
@@ -287,20 +287,20 @@ do_auth_continue(struct winbind_auth_request *request,
 }
 
 static void
-mech_winbind_auth_initial(struct auth_request *auth_request,
+mech_winbind_auth_initial(struct sasl_server_mech_request *auth_request,
 			  const unsigned char *data, size_t data_size)
 {
 	struct winbind_auth_request *request =
 		container_of(auth_request,
 			     struct winbind_auth_request, auth_request);
 
-	winbind_helper_connect(auth_request->set, request->winbind,
-			       auth_request->event);
+	winbind_helper_connect(auth_request->request->set, request->winbind,
+			       auth_request->mech_event);
 	sasl_server_mech_generic_auth_initial(auth_request, data, data_size);
 }
 
 static void
-mech_winbind_auth_continue(struct auth_request *auth_request,
+mech_winbind_auth_continue(struct sasl_server_mech_request *auth_request,
 			   const unsigned char *data, size_t data_size)
 {
 	struct winbind_auth_request *request =
@@ -316,27 +316,27 @@ mech_winbind_auth_continue(struct auth_request *auth_request,
 	}
 }
 
-static struct auth_request *do_auth_new(struct winbind_helper *winbind)
+static struct sasl_server_mech_request *
+do_auth_new(pool_t pool, struct winbind_helper *winbind)
 {
 	struct winbind_auth_request *request;
-	pool_t pool;
 
-	pool = pool_alloconly_create(MEMPOOL_GROWING"winbind_auth_request", 2048);
 	request = p_new(pool, struct winbind_auth_request, 1);
-	request->auth_request.pool = pool;
-
 	request->winbind = winbind;
+
 	return &request->auth_request;
 }
 
-static struct auth_request *mech_winbind_ntlm_auth_new(void)
+static struct sasl_server_mech_request *
+mech_winbind_ntlm_auth_new(pool_t pool)
 {
-	return do_auth_new(&winbind_ntlm_context);
+	return do_auth_new(pool, &winbind_ntlm_context);
 }
 
-static struct auth_request *mech_winbind_spnego_auth_new(void)
+static struct sasl_server_mech_request *
+mech_winbind_spnego_auth_new(pool_t pool)
 {
-	return do_auth_new(&winbind_spnego_context);
+	return do_auth_new(pool, &winbind_spnego_context);
 }
 
 const struct sasl_server_mech_def mech_winbind_ntlm = {

@@ -27,7 +27,7 @@ enum qop_option {
 };
 
 struct digest_auth_request {
-	struct auth_request auth_request;
+	struct sasl_server_mech_request auth_request;
 
 	/* requested: */
 	char *nonce;
@@ -53,8 +53,8 @@ static_assert_array_size(qop_names, QOP_COUNT);
 
 static string_t *get_digest_challenge(struct digest_auth_request *request)
 {
-	struct auth_request *auth_request = &request->auth_request;
-	const struct auth_settings *set = auth_request->set;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
+	const struct auth_settings *set = auth_request->request->set;
 	buffer_t buf;
 	string_t *str;
 	const char *const *tmp;
@@ -111,7 +111,7 @@ static string_t *get_digest_challenge(struct digest_auth_request *request)
 }
 
 static void
-verify_credentials(struct auth_request *auth_request,
+verify_credentials(struct sasl_server_mech_request *auth_request,
 		   const unsigned char *credentials, size_t size)
 {
 	struct digest_auth_request *request =
@@ -290,13 +290,13 @@ static bool
 auth_handle_response(struct digest_auth_request *request,
 		     char *key, char *value, const char **error)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	unsigned int i;
 
 	(void)str_lcase(key);
 
 	if (strcmp(key, "realm") == 0) {
-		if (auth_request->fields.realm == NULL && *value != '\0')
+		if (auth_request->request->fields.realm == NULL && *value != '\0')
 			sasl_server_request_set_realm(auth_request, value);
 		return TRUE;
 	}
@@ -465,7 +465,7 @@ parse_digest_response(struct digest_auth_request *request,
 		      const unsigned char *data, size_t size,
 		      const char **error)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	char *copy, *key, *value;
 	bool failed;
 
@@ -531,7 +531,7 @@ parse_digest_response(struct digest_auth_request *request,
 static void
 credentials_callback(enum passdb_result result,
 		     const unsigned char *credentials, size_t size,
-		     struct auth_request *auth_request)
+		     struct sasl_server_mech_request *auth_request)
 {
 	switch (result) {
 	case SASL_PASSDB_RESULT_OK:
@@ -547,7 +547,7 @@ credentials_callback(enum passdb_result result,
 }
 
 static void
-mech_digest_md5_auth_continue(struct auth_request *auth_request,
+mech_digest_md5_auth_continue(struct sasl_server_mech_request *auth_request,
 			      const unsigned char *data, size_t data_size)
 {
 	struct digest_auth_request *request =
@@ -578,7 +578,7 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 }
 
 static void
-mech_digest_md5_auth_initial(struct auth_request *auth_request,
+mech_digest_md5_auth_initial(struct sasl_server_mech_request *auth_request,
 			     const unsigned char *data ATTR_UNUSED,
 			     size_t data_size ATTR_UNUSED)
 {
@@ -594,17 +594,13 @@ mech_digest_md5_auth_initial(struct auth_request *auth_request,
 				   str_len(challenge));
 }
 
-static struct auth_request *mech_digest_md5_auth_new(void)
+static struct sasl_server_mech_request *mech_digest_md5_auth_new(pool_t pool)
 {
 	struct digest_auth_request *request;
-	pool_t pool;
 
-	pool = pool_alloconly_create(
-		MEMPOOL_GROWING"digest_md5_auth_request", 2048);
 	request = p_new(pool, struct digest_auth_request, 1);
 	request->qop = QOP_AUTH;
 
-	request->auth_request.pool = pool;
 	return &request->auth_request;
 }
 
@@ -625,7 +621,7 @@ void mech_digest_test_set_nonce(struct auth_request *auth_request,
 				const char *nonce)
 {
 	struct digest_auth_request *request =
-		container_of(auth_request, struct digest_auth_request,
+		container_of(auth_request->sasl, struct digest_auth_request,
 			     auth_request);
 
 	i_assert(auth_request->mech == &mech_digest_md5);

@@ -16,14 +16,14 @@
 #include "mech-otp.h"
 
 struct otp_auth_request {
-	struct auth_request auth_request;
+	struct sasl_server_mech_request auth_request;
 
 	bool lock;
 
 	struct otp_state state;
 };
 
-static HASH_TABLE(char *, struct auth_request *) otp_lock_table;
+static HASH_TABLE(char *, struct sasl_server_mech_request *) otp_lock_table;
 
 /*
  * Locking
@@ -45,13 +45,13 @@ static void otp_lock_deinit(void)
 
 static bool otp_try_lock(struct otp_auth_request *request)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 
 	if (hash_table_lookup(otp_lock_table,
-			      auth_request->fields.user) != NULL)
+			      auth_request->request->fields.user) != NULL)
 		return FALSE;
 
-	hash_table_insert(otp_lock_table, auth_request->fields.user,
+	hash_table_insert(otp_lock_table, auth_request->request->fields.user,
 			  auth_request);
 	request->lock = TRUE;
 	return TRUE;
@@ -59,12 +59,12 @@ static bool otp_try_lock(struct otp_auth_request *request)
 
 static void otp_unlock(struct otp_auth_request *request)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 
 	if (!request->lock)
 		return;
 
-	hash_table_remove(otp_lock_table, auth_request->fields.user);
+	hash_table_remove(otp_lock_table, auth_request->request->fields.user);
 	request->lock = FALSE;
 }
 
@@ -76,7 +76,7 @@ static void
 otp_send_challenge(struct otp_auth_request *request,
 		   const unsigned char *credentials, size_t size)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	const char *answer;
 
 	if (otp_parse_dbentry(t_strndup(credentials, size),
@@ -111,7 +111,7 @@ otp_send_challenge(struct otp_auth_request *request,
 static void
 otp_credentials_callback(enum passdb_result result,
 			 const unsigned char *credentials, size_t size,
-			 struct auth_request *auth_request)
+			 struct sasl_server_mech_request *auth_request)
 {
 	struct otp_auth_request *request =
 		container_of(auth_request, struct otp_auth_request,
@@ -134,7 +134,7 @@ static void
 mech_otp_auth_phase1(struct otp_auth_request *request,
 		     const unsigned char *data, size_t data_size)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	const char *authenid;
 	size_t i, count;
 
@@ -168,7 +168,8 @@ mech_otp_auth_phase1(struct otp_auth_request *request,
 }
 
 static void
-otp_set_credentials_callback(bool success, struct auth_request *auth_request)
+otp_set_credentials_callback(bool success,
+			     struct sasl_server_mech_request *auth_request)
 {
 	struct otp_auth_request *request =
 		container_of(auth_request, struct otp_auth_request,
@@ -187,7 +188,7 @@ otp_set_credentials_callback(bool success, struct auth_request *auth_request)
 static void
 mech_otp_verify(struct otp_auth_request *request, const char *data, bool hex)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	struct otp_state *state = &request->state;
 	unsigned char hash[OTP_HASH_SIZE], cur_hash[OTP_HASH_SIZE];
 	int ret;
@@ -220,7 +221,7 @@ static void
 mech_otp_verify_init(struct otp_auth_request *request, const char *data,
 		     bool hex)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	struct otp_state new_state;
 	unsigned char hash[OTP_HASH_SIZE], cur_hash[OTP_HASH_SIZE];
 	const char *error;
@@ -253,7 +254,7 @@ static void
 mech_otp_auth_phase2(struct otp_auth_request *request,
 		     const unsigned char *data, size_t data_size)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	const char *value, *str = t_strndup(data, data_size);
 
 	if (str_begins(str, "hex:", &value))
@@ -273,44 +274,38 @@ mech_otp_auth_phase2(struct otp_auth_request *request,
 }
 
 static void
-mech_otp_auth_continue(struct auth_request *auth_request,
+mech_otp_auth_continue(struct sasl_server_mech_request *auth_request,
 		       const unsigned char *data, size_t data_size)
 {
 	struct otp_auth_request *request =
 		container_of(auth_request, struct otp_auth_request,
 			     auth_request);
 
-	if (auth_request->fields.user == NULL)
+	if (auth_request->request->fields.user == NULL)
 		mech_otp_auth_phase1(request, data, data_size);
 	else
 		mech_otp_auth_phase2(request, data, data_size);
 }
 
-static struct auth_request *mech_otp_auth_new(void)
+static struct sasl_server_mech_request *mech_otp_auth_new(pool_t pool)
 {
 	struct otp_auth_request *request;
-	pool_t pool;
 
 	otp_lock_init();
 
-	pool = pool_alloconly_create(MEMPOOL_GROWING"otp_auth_request", 2048);
 	request = p_new(pool, struct otp_auth_request, 1);
 	request->lock = FALSE;
 
-	request->auth_request.refcount = 1;
-	request->auth_request.pool = pool;
 	return &request->auth_request;
 }
 
-static void mech_otp_auth_free(struct auth_request *auth_request)
+static void mech_otp_auth_free(struct sasl_server_mech_request *auth_request)
 {
 	struct otp_auth_request *request =
 		container_of(auth_request, struct otp_auth_request,
 			     auth_request);
 
 	otp_unlock(request);
-
-	pool_unref(&auth_request->pool);
 }
 
 /*

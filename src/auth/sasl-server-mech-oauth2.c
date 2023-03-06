@@ -15,7 +15,7 @@
 #include "sasl-server-oauth2.h"
 
 struct oauth2_auth_request {
-	struct auth_request request;
+	struct sasl_server_mech_request request;
 	struct db_oauth2 *db;
 	struct db_oauth2_request db_req;
 	lookup_credentials_callback_t *callback;
@@ -33,7 +33,7 @@ static void
 oauth2_fail(struct oauth2_auth_request *oauth2_req,
 	    const struct sasl_server_oauth2_failure *failure)
 {
-	struct auth_request *request = &oauth2_req->request;
+	struct sasl_server_mech_request *request = &oauth2_req->request;
 
 	if (failure == NULL) {
 		sasl_server_request_internal_failure(request);
@@ -95,10 +95,12 @@ static void oauth2_fail_invalid_token(struct oauth2_auth_request *oauth2_req)
 	oauth2_fail_status(oauth2_req, "invalid_token");
 }
 
-void sasl_server_oauth2_request_succeed(struct auth_request *request)
+void sasl_server_oauth2_request_succeed(struct auth_request *auth_request)
 {
-	i_assert(strcmp(request->mech->mech_name, "OAUTHBEARER") == 0 ||
-		 strcmp(request->mech->mech_name, "XOAUTH2") == 0);
+	struct sasl_server_mech_request *request = auth_request->sasl;
+
+	i_assert(request->mech == &mech_oauthbearer ||
+		 request->mech == &mech_xoauth2);
 
 	struct oauth2_auth_request *oauth2_req =
 		container_of(request, struct oauth2_auth_request, request);
@@ -108,11 +110,13 @@ void sasl_server_oauth2_request_succeed(struct auth_request *request)
 }
 
 void sasl_server_oauth2_request_fail(
-	struct auth_request *request,
+	struct auth_request *auth_request,
 	const struct sasl_server_oauth2_failure *failure)
 {
-	i_assert(strcmp(request->mech->mech_name, "OAUTHBEARER") == 0 ||
-		 strcmp(request->mech->mech_name, "XOAUTH2") == 0);
+	struct sasl_server_mech_request *request = auth_request->sasl;
+
+	i_assert(request->mech == &mech_oauthbearer ||
+		 request->mech == &mech_xoauth2);
 
 	struct oauth2_auth_request *oauth2_req =
 		container_of(request, struct oauth2_auth_request, request);
@@ -136,7 +140,7 @@ mech_oauth2_verify_token(struct oauth2_auth_request *oauth2_req,
  gs2flag,a=username,^Afield=...^Afield=...^Aauth=Bearer token^A^A
 */
 static void
-mech_oauthbearer_auth_continue(struct auth_request *request,
+mech_oauthbearer_auth_continue(struct sasl_server_mech_request *request,
 			       const unsigned char *data,
 			       size_t data_size)
 {
@@ -144,8 +148,8 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 		container_of(request, struct oauth2_auth_request, request);
 
 	if (oauth2_req->db == NULL) {
-		e_error(request->event, "BUG: oauth2 database missing");
-		auth_request_internal_failure(request);
+		e_error(request->mech_event, "BUG: oauth2 database missing");
+		sasl_server_request_internal_failure(request);
 		return;
 	}
 	if (data_size == 0) {
@@ -232,7 +236,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
  user=Username^Aauth=Bearer token^A^A
 */
 static void
-mech_xoauth2_auth_continue(struct auth_request *request,
+mech_xoauth2_auth_continue(struct sasl_server_mech_request *request,
 			   const unsigned char *data,
 			   size_t data_size)
 {
@@ -240,8 +244,8 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 		container_of(request, struct oauth2_auth_request, request);
 
 	if (oauth2_req->db == NULL) {
-		e_error(request->event, "BUG: oauth2 database missing");
-		auth_request_internal_failure(request);
+		e_error(request->mech_event, "BUG: oauth2 database missing");
+		sasl_server_request_internal_failure(request);
 		return;
 	}
 	if (data_size == 0) {
@@ -296,16 +300,14 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 	}
 }
 
-static struct auth_request *mech_oauth2_auth_new(void)
+static struct sasl_server_mech_request *mech_oauth2_auth_new(pool_t pool)
 {
 	struct oauth2_auth_request *request;
 
-	pool_t pool = pool_alloconly_create_clean(MEMPOOL_GROWING
-						  "oauth2_auth_request", 2048);
 	request = p_new(pool, struct oauth2_auth_request, 1);
-	request->request.pool = pool;
 	request->db_req.pool = pool;
 	request->db = db_oauth2;
+
 	return &request->request;
 }
 

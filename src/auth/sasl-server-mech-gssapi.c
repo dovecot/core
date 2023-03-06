@@ -50,7 +50,7 @@ enum sasl_gssapi_qop {
 };
 
 struct gssapi_auth_request {
-	struct auth_request auth_request;
+	struct sasl_server_mech_request auth_request;
 	gss_ctx_id_t gss_ctx;
 	gss_cred_id_t service_cred;
 
@@ -78,7 +78,7 @@ mech_gssapi_log_error(struct gssapi_auth_request *request,
 		      OM_uint32 status_value, int status_type,
 		      const char *description)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	OM_uint32 message_context = 0;
 	OM_uint32 minor_status;
 	gss_buffer_desc status_string;
@@ -96,18 +96,14 @@ mech_gssapi_log_error(struct gssapi_auth_request *request,
 	} while (message_context != 0);
 }
 
-static struct auth_request *mech_gssapi_auth_new(void)
+static struct sasl_server_mech_request *mech_gssapi_auth_new(pool_t pool)
 {
 	struct gssapi_auth_request *request;
-	pool_t pool;
 
-	pool = pool_alloconly_create(
-		MEMPOOL_GROWING"gssapi_auth_request", 2048);
 	request = p_new(pool, struct gssapi_auth_request, 1);
 
 	request->gss_ctx = GSS_C_NO_CONTEXT;
 
-	request->auth_request.pool = pool;
 	return &request->auth_request;
 }
 
@@ -115,7 +111,7 @@ static OM_uint32
 obtain_service_credentials(struct gssapi_auth_request *request,
 			   gss_cred_id_t *ret_r)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	OM_uint32 major_status, minor_status;
 	string_t *principal_name;
 	gss_buffer_desc inbuf;
@@ -124,28 +120,28 @@ obtain_service_credentials(struct gssapi_auth_request *request,
 
 	if (!gssapi_initialized) {
 		gssapi_initialized = TRUE;
-		mech_gssapi_initialize(auth_request->set);
+		mech_gssapi_initialize(auth_request->request->set);
 	}
 
-	if (strcmp(auth_request->set->gssapi_hostname, "$ALL") == 0) {
+	if (strcmp(auth_request->request->set->gssapi_hostname, "$ALL") == 0) {
 		e_debug(auth_request->mech_event,
 			"Using all keytab entries");
 		*ret_r = GSS_C_NO_CREDENTIAL;
 		return GSS_S_COMPLETE;
 	}
 
-	if (strcasecmp(auth_request->fields.protocol, "POP3") == 0) {
+	if (strcasecmp(auth_request->request->fields.protocol, "POP3") == 0) {
 		/* The standard POP3 service name with GSSAPI is called
 		   just "pop". */
 		service_name = "pop";
 	} else {
-		service_name = t_str_lcase(auth_request->fields.protocol);
+		service_name = t_str_lcase(auth_request->request->fields.protocol);
 	}
 
 	principal_name = t_str_new(128);
 	str_append(principal_name, service_name);
 	str_append_c(principal_name, '@');
-	str_append(principal_name, auth_request->set->gssapi_hostname);
+	str_append(principal_name, auth_request->request->set->gssapi_hostname);
 
 	e_debug(auth_request->mech_event,
 		"Obtaining credentials for %s", str_c(principal_name));
@@ -233,7 +229,7 @@ static int
 get_display_name(struct gssapi_auth_request *request, gss_name_t name,
 		 gss_OID *name_type_r, const char **display_name_r)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	OM_uint32 major_status, minor_status;
 	gss_buffer_desc buf;
 
@@ -265,7 +261,7 @@ static int
 mech_gssapi_sec_context(struct gssapi_auth_request *request,
 			gss_buffer_desc inbuf)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	OM_uint32 major_status, minor_status;
 	gss_buffer_desc output_token;
 	gss_OID name_type;
@@ -343,7 +339,7 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 static int
 mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	OM_uint32 major_status, minor_status;
 	gss_buffer_desc outbuf;
 	unsigned char ret[4];
@@ -384,7 +380,7 @@ mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 static bool
 k5_principal_is_authorized(struct gssapi_auth_request *request, const char *name)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	const char *value, *const *authorized_names, *const *tmp;
 
 	if (!sasl_server_request_get_extra_field(auth_request, "k5principals",
@@ -407,7 +403,7 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 			gss_name_t name, const char *login_user,
 			bool check_name_type)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	krb5_context ctx;
 	krb5_principal princ;
 	krb5_error_code krb5_err;
@@ -463,7 +459,7 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 static int
 mech_gssapi_userok(struct gssapi_auth_request *request, const char *login_user)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	OM_uint32 major_status, minor_status;
 	int equal_authn_authz;
 
@@ -495,7 +491,7 @@ static void
 gssapi_credentials_callback(enum passdb_result result,
 			    const unsigned char *credentials ATTR_UNUSED,
 			    size_t size ATTR_UNUSED,
-			    struct auth_request *auth_request)
+			    struct sasl_server_mech_request *auth_request)
 {
 	struct gssapi_auth_request *request =
 		container_of(auth_request, struct gssapi_auth_request,
@@ -521,7 +517,7 @@ gssapi_credentials_callback(enum passdb_result result,
 		break;
 	}
 
-	if (mech_gssapi_userok(request, auth_request->fields.user) == 0)
+	if (mech_gssapi_userok(request, auth_request->request->fields.user) == 0)
 		sasl_server_request_success(auth_request, NULL, 0);
 	else
 		sasl_server_request_failure(auth_request);
@@ -530,7 +526,7 @@ gssapi_credentials_callback(enum passdb_result result,
 static int
 mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 {
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	OM_uint32 major_status, minor_status;
 	gss_buffer_desc outbuf;
 	const char *login_user, *error;
@@ -601,7 +597,7 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 
 	/* Continue in callback once auth_request is populated with passdb
 	   information. */
-	auth_request->passdb_success = TRUE; /* default to success */
+	auth_request->request->passdb_success = TRUE; /* default to success */
 	sasl_server_request_lookup_credentials(auth_request, "",
 					       gssapi_credentials_callback);
 	(void)gss_release_buffer(&minor_status, &outbuf);
@@ -609,7 +605,7 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 }
 
 static void
-mech_gssapi_auth_continue(struct auth_request *auth_request,
+mech_gssapi_auth_continue(struct sasl_server_mech_request *auth_request,
 			  const unsigned char *data, size_t data_size)
 {
 	struct gssapi_auth_request *request =
@@ -639,7 +635,7 @@ mech_gssapi_auth_continue(struct auth_request *auth_request,
 }
 
 static void
-mech_gssapi_auth_initial(struct auth_request *auth_request,
+mech_gssapi_auth_initial(struct sasl_server_mech_request *auth_request,
 			 const unsigned char *data, size_t data_size)
 {
 	struct gssapi_auth_request *request =
@@ -668,7 +664,7 @@ mech_gssapi_auth_initial(struct auth_request *auth_request,
 }
 
 static void
-mech_gssapi_auth_free(struct auth_request *auth_request)
+mech_gssapi_auth_free(struct sasl_server_mech_request *auth_request)
 {
 	struct gssapi_auth_request *request =
 		container_of(auth_request, struct gssapi_auth_request,
@@ -686,7 +682,6 @@ mech_gssapi_auth_free(struct auth_request *auth_request)
 		(void)gss_release_name(&minor_status, &request->authn_name);
 	if (request->authz_name != GSS_C_NO_NAME)
 		(void)gss_release_name(&minor_status, &request->authz_name);
-	pool_unref(&auth_request->pool);
 }
 
 const struct sasl_server_mech_def mech_gssapi = {

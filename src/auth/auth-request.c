@@ -15,6 +15,7 @@
 #include "hostpid.h"
 #include "settings.h"
 #include "master-service.h"
+#include "sasl-server-protected.h" // FIXME: remove
 #include "auth-cache.h"
 #include "auth-request.h"
 #include "auth-request-handler.h"
@@ -154,8 +155,11 @@ auth_request_new(const struct sasl_server_mech_def *mech,
 		 struct event *parent_event)
 {
 	struct auth_request *request;
+	pool_t pool;
 
-	request = mech->auth_new();
+	pool = pool_alloconly_create(MEMPOOL_GROWING"auth_request", 1024);
+	request = p_new(pool, struct auth_request, 1);
+	request->pool = pool;
 	request->mech = mech;
 	auth_request_post_alloc_init(request, parent_event);
 
@@ -167,6 +171,8 @@ auth_request_new(const struct sasl_server_mech_def *mech,
 	request->mech_event = event_create(request->event);
 	event_set_min_log_level(request->mech_event, level);
 	event_set_append_log_prefix(request->mech_event, prefix);
+
+	auth_sasl_request_init(request, mech);
 
 	return request;
 }
@@ -396,10 +402,8 @@ void auth_request_unref(struct auth_request **_request)
 	timeout_remove(&request->to_abort);
 	timeout_remove(&request->to_penalty);
 
-	if (request->mech != NULL)
-		request->mech->auth_free(request);
-	else
-		pool_unref(&request->pool);
+	auth_sasl_request_deinit(request);
+	pool_unref(&request->pool);
 }
 
 bool auth_request_import_master(struct auth_request *request,
@@ -444,8 +448,7 @@ void auth_request_initial(struct auth_request *request)
 				      request->initial_response_len))
 		return;
 
-	request->mech->auth_initial(request, request->initial_response,
-				    request->initial_response_len);
+	auth_sasl_request_initial(request);
 }
 
 void auth_request_continue(struct auth_request *request,
@@ -466,7 +469,7 @@ void auth_request_continue(struct auth_request *request,
 		return;
 
 	auth_request_refresh_last_access(request);
-	request->mech->auth_continue(request, data, data_size);
+	auth_sasl_request_continue(request, data, data_size);
 }
 
 static void

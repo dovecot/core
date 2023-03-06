@@ -3,6 +3,8 @@
 
 #include "sasl-common.h"
 
+struct sasl_server_mech_def;
+
 enum sasl_passdb_result_status {
 	SASL_PASSDB_RESULT_INTERNAL_FAILURE = PASSDB_RESULT_INTERNAL_FAILURE,
 	SASL_PASSDB_RESULT_SCHEME_NOT_AVAILABLE = PASSDB_RESULT_SCHEME_NOT_AVAILABLE,
@@ -41,10 +43,6 @@ enum sasl_server_output_status {
 	SASL_SERVER_OUTPUT_SUCCESS = 1,
 };
 
-typedef verify_plain_callback_t sasl_server_verify_plain_callback_t;
-typedef lookup_credentials_callback_t sasl_server_lookup_credentials_callback_t;
-typedef set_credentials_callback_t sasl_server_set_credentials_callback_t;
-
 struct sasl_server_output {
 	enum sasl_server_output_status status;
 
@@ -64,5 +62,10 @@ enum sasl_server_authid_type {
 	/* The authentication ID is set and verified by an external source. */
 	SASL_SERVER_AUTHID_TYPE_EXTERNAL,
 };
+
+void sasl_server_request_create(struct auth_request *request,
+				const struct sasl_server_mech_def *mech,
+				struct event *event_parent);
+void sasl_server_request_destroy(struct auth_request *request);
 
 #endif

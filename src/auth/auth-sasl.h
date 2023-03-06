@@ -1,11 +1,12 @@
 #ifndef AUTH_SASL_H
 #define AUTH_SASL_H
 
-#include "auth-request.h" // FIXME: remove
 #include "sasl-server.h"
 
 /* Used only for string sanitization. */
 #define AUTH_SASL_MAX_MECH_NAME_LEN 64
+
+struct auth_request;
 
 struct auth_sasl_mech_module {
 	const char *mech_name;
@@ -57,6 +58,14 @@ void
 auth_sasl_request_set_credentials(struct auth_request *request,
 				  const char *scheme, const char *data,
 				  set_credentials_callback_t  *set_credentials_callback);
+
+void auth_sasl_request_init(struct auth_request *request,
+			    const struct sasl_server_mech_def *mech);
+void auth_sasl_request_deinit(struct auth_request *request);
+
+void auth_sasl_request_initial(struct auth_request *request);
+void auth_sasl_request_continue(struct auth_request *request,
+				const unsigned char *data, size_t data_size);
 
 /*
  * Mechanisms

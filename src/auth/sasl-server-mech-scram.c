@@ -9,7 +9,7 @@
 #include "sasl-server-mech-scram.h"
 
 struct scram_auth_request {
-	struct auth_request auth_request;
+	struct sasl_server_mech_request auth_request;
 
 	const char *password_scheme;
 
@@ -20,7 +20,7 @@ struct scram_auth_request {
 static void
 credentials_callback(enum passdb_result result,
 		     const unsigned char *credentials, size_t size,
-		     struct auth_request *auth_request)
+		     struct sasl_server_mech_request *auth_request)
 {
 	struct scram_auth_request *request =
 		container_of(auth_request, struct scram_auth_request,
@@ -66,7 +66,7 @@ mech_scram_set_username(struct auth_scram_server *asserver,
 {
 	struct scram_auth_request *request =
 		container_of(asserver, struct scram_auth_request, scram_server);
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 
 	return sasl_server_request_set_authid(auth_request,
 					      SASL_SERVER_AUTHID_TYPE_USERNAME,
@@ -79,7 +79,7 @@ mech_scram_set_login_username(struct auth_scram_server *asserver,
 {
 	struct scram_auth_request *request =
 		container_of(asserver, struct scram_auth_request, scram_server);
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 
 	return sasl_server_request_set_authzid(auth_request, username);
 }
@@ -90,7 +90,7 @@ mech_scram_start_channel_binding(struct auth_scram_server *asserver,
 {
 	struct scram_auth_request *request =
 		container_of(asserver, struct scram_auth_request, scram_server);
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 
 	sasl_server_request_start_channel_binding(auth_request, type);
 }
@@ -101,7 +101,7 @@ mech_scram_accept_channel_binding(struct auth_scram_server *asserver,
 {
 	struct scram_auth_request *request =
 		container_of(asserver, struct scram_auth_request, scram_server);
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 
 	return sasl_server_request_accept_channel_binding(auth_request, data_r);
 }
@@ -112,7 +112,7 @@ mech_scram_credentials_lookup(struct auth_scram_server *asserver,
 {
 	struct scram_auth_request *request =
 		container_of(asserver, struct scram_auth_request, scram_server);
-	struct auth_request *auth_request = &request->auth_request;
+	struct sasl_server_mech_request *auth_request = &request->auth_request;
 
 	request->key_data = key_data;
 	sasl_server_request_lookup_credentials(auth_request,
@@ -131,7 +131,7 @@ static const struct auth_scram_server_backend scram_server_backend = {
 	.credentials_lookup = mech_scram_credentials_lookup,
 };
 
-void mech_scram_auth_continue(struct auth_request *auth_request,
+void mech_scram_auth_continue(struct sasl_server_mech_request *auth_request,
 			      const unsigned char *input, size_t input_len)
 {
 	struct scram_auth_request *request =
@@ -177,14 +177,12 @@ void mech_scram_auth_continue(struct auth_request *auth_request,
 	sasl_server_request_success(auth_request, output, output_len);
 }
 
-struct auth_request *
-mech_scram_auth_new(const struct hash_method *hash_method,
+struct sasl_server_mech_request *
+mech_scram_auth_new(pool_t pool, const struct hash_method *hash_method,
 		    const char *password_scheme)
 {
 	struct scram_auth_request *request;
-	pool_t pool;
 
-	pool = pool_alloconly_create(MEMPOOL_GROWING"scram_auth_request", 2048);
 	request = p_new(pool, struct scram_auth_request, 1);
 	request->password_scheme = password_scheme;
 
@@ -211,28 +209,26 @@ mech_scram_auth_new(const struct hash_method *hash_method,
 	auth_scram_server_init(&request->scram_server, pool,
 			       &scram_set, &scram_server_backend);
 
-	request->auth_request.pool = pool;
 	return &request->auth_request;
 }
 
-static struct auth_request *mech_scram_sha1_auth_new(void)
+static struct sasl_server_mech_request *mech_scram_sha1_auth_new(pool_t pool)
 {
-	return mech_scram_auth_new(&hash_method_sha1, "SCRAM-SHA-1");
+	return mech_scram_auth_new(pool, &hash_method_sha1, "SCRAM-SHA-1");
 }
 
-static struct auth_request *mech_scram_sha256_auth_new(void)
+static struct sasl_server_mech_request *mech_scram_sha256_auth_new(pool_t pool)
 {
-	return mech_scram_auth_new(&hash_method_sha256, "SCRAM-SHA-256");
+	return mech_scram_auth_new(pool, &hash_method_sha256, "SCRAM-SHA-256");
 }
 
-static void mech_scram_auth_free(struct auth_request *auth_request)
+static void mech_scram_auth_free(struct sasl_server_mech_request *auth_request)
 {
 	struct scram_auth_request *request =
 		container_of(auth_request, struct scram_auth_request,
 			     auth_request);
 
 	auth_scram_server_deinit(&request->scram_server);
-	pool_unref(&auth_request->pool);
 }
 
 const struct sasl_server_mech_def mech_scram_sha1 = {

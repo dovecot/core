@@ -9,8 +9,8 @@
 #include "auth-token.h"
 
 static void
-mech_dovecot_token_auth_continue(struct auth_request *request,
-			     const unsigned char *data, size_t data_size)
+mech_dovecot_token_auth_continue(struct sasl_server_mech_request *request,
+				 const unsigned char *data, size_t data_size)
 {
 	const char *session_id, *username, *pid, *service;
 	char *auth_token;
@@ -50,13 +50,13 @@ mech_dovecot_token_auth_continue(struct auth_request *request,
 		sasl_server_request_failure(request);
 	} else {
 		const char *valid_token =
-			auth_token_get(service, pid, request->fields.user,
+			auth_token_get(service, pid, request->request->fields.user,
 				       session_id);
 
 		if (auth_token != NULL &&
 		    str_equals_timing_almost_safe(auth_token, valid_token)) {
-			request->passdb_success = TRUE;
-			auth_request_set_field(request, "userdb_client_service", service, "");
+			request->request->passdb_success = TRUE;
+			auth_request_set_field(request->request, "userdb_client_service", service, "");
 			sasl_server_request_success(request, NULL, 0);
 		} else {
 			sasl_server_request_failure(request);
@@ -68,14 +68,12 @@ mech_dovecot_token_auth_continue(struct auth_request *request,
 		safe_memset(auth_token, 0, strlen(auth_token));
 }
 
-static struct auth_request *mech_dovecot_token_auth_new(void)
+static struct sasl_server_mech_request *mech_dovecot_token_auth_new(pool_t pool)
 {
-	struct auth_request *request;
-	pool_t pool;
+	struct sasl_server_mech_request *request;
 
-	pool = pool_alloconly_create(MEMPOOL_GROWING"dovecot_token_auth_request", 512);
-	request = p_new(pool, struct auth_request, 1);
-	request->pool = pool;
+	request = p_new(pool, struct sasl_server_mech_request, 1);
+
 	return request;
 }
 

@@ -8,7 +8,8 @@ static void
 oauth2_verify_finish(enum passdb_result result, struct auth_request *request)
 {
 	struct oauth2_auth_request *oauth2_req =
-		container_of(request, struct oauth2_auth_request, request);
+		container_of(request->sasl,
+			     struct oauth2_auth_request, request);
 	struct sasl_server_oauth2_failure failure;
 
 	i_zero(&failure);
@@ -57,7 +58,7 @@ static void
 mech_oauth2_verify_token_continue(struct oauth2_auth_request *oauth2_req,
 				  const char *const *args)
 {
-	struct auth_request *request = &oauth2_req->request;
+	struct auth_request *request = oauth2_req->request.request;
 	int parsed;
 	enum passdb_result result;
 
@@ -111,7 +112,7 @@ mech_oauth2_verify_token_local_continue(struct db_oauth2_request *db_req,
 					const char *error,
 					struct oauth2_auth_request *oauth2_req)
 {
-	struct auth_request *request = &oauth2_req->request;
+	struct auth_request *request = oauth2_req->request.request;
 
 	if (result == PASSDB_RESULT_OK) {
 		auth_request_set_password_verified(request);
@@ -133,9 +134,9 @@ mech_oauth2_verify_token_local_continue(struct db_oauth2_request *db_req,
 
 static void
 auth_sasl_oauth2_verify_token(struct oauth2_auth_request *oauth2_req,
-			     const char *token)
+			      const char *token)
 {
-	struct auth_request *auth_request = &oauth2_req->request;
+	struct auth_request *auth_request = oauth2_req->request.request;
 
 	auth_request_ref(auth_request);
 	if (!db_oauth2_use_worker(oauth2_req->db)) {

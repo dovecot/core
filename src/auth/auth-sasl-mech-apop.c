@@ -18,7 +18,7 @@
 #include <unistd.h>
 
 struct apop_auth_request {
-	struct auth_request auth_request;
+	struct sasl_server_mech_request auth_request;
 
 	/* requested: */
 	char *challenge;
@@ -44,7 +44,7 @@ static bool verify_credentials(struct apop_auth_request *request,
 static void
 apop_credentials_callback(enum passdb_result result,
 			  const unsigned char *credentials, size_t size,
-			  struct auth_request *auth_request)
+			  struct sasl_server_mech_request *auth_request)
 {
 	struct apop_auth_request *request =
 		container_of(auth_request, struct apop_auth_request,
@@ -67,7 +67,7 @@ apop_credentials_callback(enum passdb_result result,
 }
 
 static void
-mech_apop_auth_initial(struct auth_request *auth_request,
+mech_apop_auth_initial(struct sasl_server_mech_request *auth_request,
 		       const unsigned char *data, size_t data_size)
 {
 	struct apop_auth_request *request =
@@ -125,7 +125,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 
 	if (sscanf(request->challenge, "<%lx.%lx.%lx.",
 		   &pid, &connect_uid, &timestamp) != 3 ||
-	    connect_uid != auth_request->connect_uid ||
+	    connect_uid != auth_request->request->connect_uid ||
             pid != (unsigned long)getpid() ||
 	    (time_t)timestamp < process_start_time) {
 		e_info(auth_request->mech_event,
@@ -145,15 +145,12 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 					       apop_credentials_callback);
 }
 
-static struct auth_request *mech_apop_auth_new(void)
+static struct sasl_server_mech_request *mech_apop_auth_new(pool_t pool)
 {
 	struct apop_auth_request *request;
-	pool_t pool;
 
-	pool = pool_alloconly_create(MEMPOOL_GROWING"apop_auth_request", 2048);
 	request = p_new(pool, struct apop_auth_request, 1);
 
-	request->auth_request.pool = pool;
 	return &request->auth_request;
 }
 

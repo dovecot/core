@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "sasl-server-protected.h" // FIXME: Use public API only
+#include "sasl-server.h"
 #include "auth.h"
 #include "auth-common.h"
 #include "auth-sasl.h"
@@ -152,6 +153,29 @@ auth_sasl_request_set_credentials(struct auth_request *request,
 {
 	auth_request_set_credentials(request, scheme, data,
 				     set_credentials_callback);
+}
+
+void auth_sasl_request_init(struct auth_request *request,
+			    const struct sasl_server_mech_def *mech)
+{
+	sasl_server_request_create(request, mech, request->mech_event);
+}
+
+void auth_sasl_request_deinit(struct auth_request *request)
+{
+	sasl_server_request_destroy(request);
+}
+
+void auth_sasl_request_initial(struct auth_request *request)
+{
+	request->mech->auth_initial(request->sasl, request->initial_response,
+				    request->initial_response_len);
+}
+
+void auth_sasl_request_continue(struct auth_request *request,
+				const unsigned char *data, size_t data_size)
+{
+       request->mech->auth_continue(request->sasl, data, data_size);
 }
 
 /*

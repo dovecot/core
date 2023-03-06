@@ -5,8 +5,8 @@
 #include "sasl-server-protected.h"
 #include "sasl-server-mech-plain-common.h"
 
-void sasl_server_mech_plain_verify_callback(enum passdb_result result,
-					    struct auth_request *request)
+void sasl_server_mech_plain_verify_callback(
+	enum passdb_result result, struct sasl_server_mech_request *request)
 {
 	switch (result) {
 	case SASL_PASSDB_RESULT_OK:

@@ -7,7 +7,7 @@
 #include "sasl-server-mech-plain-common.h"
 
 static void
-mech_plain_auth_continue(struct auth_request *request,
+mech_plain_auth_continue(struct sasl_server_mech_request *request,
 			 const unsigned char *data, size_t data_size)
 {
 	const char *authid, *authenid;
@@ -62,14 +62,12 @@ mech_plain_auth_continue(struct auth_request *request,
 		safe_memset(pass, 0, strlen(pass));
 }
 
-static struct auth_request *mech_plain_auth_new(void)
+static struct sasl_server_mech_request *mech_plain_auth_new(pool_t pool)
 {
-	struct auth_request *request;
-	pool_t pool;
+	struct sasl_server_mech_request *request;
 
-	pool = pool_alloconly_create(MEMPOOL_GROWING"plain_auth_request", 2048);
-	request = p_new(pool, struct auth_request, 1);
-	request->pool = pool;
+	request = p_new(pool, struct sasl_server_mech_request, 1);
+
 	return request;
 }
 

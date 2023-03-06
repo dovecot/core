@@ -7,6 +7,7 @@
 #include "strescape.h"
 #include "str-sanitize.h"
 #include "base64.h"
+#include "sasl-server-protected.h" // FIXME: remove
 #include "auth-request.h"
 
 void auth_request_fields_init(struct auth_request *request)

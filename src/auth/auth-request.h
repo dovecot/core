@@ -17,6 +17,9 @@
 
 #define AUTH_REQUEST_USER_KEY_IGNORE " "
 
+struct sasl_server_mech_def;
+struct sasl_server_mech_request;
+
 struct auth_client_connection;
 
 enum auth_request_state {
@@ -136,6 +139,7 @@ struct auth_request {
 	enum passdb_result passdb_result;
 
 	const struct sasl_server_mech_def *mech;
+	struct sasl_server_mech_request *sasl;
 	/* Protocol-specific settings */
 	const struct auth_settings *protocol_set;
 	/* Currently active settings. May be the same as protocol_set, but

@@ -13,13 +13,13 @@
 #include "sasl-server-mech-plain-common.h"
 
 static void
-mech_login_auth_continue(struct auth_request *request,
+mech_login_auth_continue(struct sasl_server_mech_request *request,
 			 const unsigned char *data, size_t data_size)
 {
 	static const char prompt2[] = "Password:";
 	const char *username;
 
-	if (request->fields.user == NULL) {
+	if (request->request->fields.user == NULL) {
 		username = t_strndup(data, data_size);
 
 		if (!sasl_server_request_set_authid(
@@ -39,7 +39,7 @@ mech_login_auth_continue(struct auth_request *request,
 }
 
 static void
-mech_login_auth_initial(struct auth_request *request,
+mech_login_auth_initial(struct sasl_server_mech_request *request,
 			const unsigned char *data, size_t data_size)
 {
 	static const char prompt1[] = "Username:";
@@ -51,14 +51,12 @@ mech_login_auth_initial(struct auth_request *request,
 	}
 }
 
-static struct auth_request *mech_login_auth_new(void)
+static struct sasl_server_mech_request *mech_login_auth_new(pool_t pool)
 {
-	struct auth_request *request;
-	pool_t pool;
+	struct sasl_server_mech_request *request;
 
-	pool = pool_alloconly_create(MEMPOOL_GROWING"login_auth_request", 2048);
-	request = p_new(pool, struct auth_request, 1);
-	request->pool = pool;
+	request = p_new(pool, struct sasl_server_mech_request, 1);
+
 	return request;
 }
 
