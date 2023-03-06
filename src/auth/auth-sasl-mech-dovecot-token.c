@@ -86,7 +86,7 @@ const struct mech_module mech_dovecot_token = {
 	.passdb_need = MECH_PASSDB_NEED_NOTHING,
 
 	.auth_new = mech_dovecot_token_auth_new,
-	.auth_initial = mech_generic_auth_initial,
+	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_dovecot_token_auth_continue,
 	.auth_free = sasl_server_mech_generic_auth_free,
 };

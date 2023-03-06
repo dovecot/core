@@ -4,8 +4,9 @@
 
 #include "sasl-server-private.h"
 
-void mech_generic_auth_initial(struct auth_request *request,
-			       const unsigned char *data, size_t data_size)
+void sasl_server_mech_generic_auth_initial(struct auth_request *request,
+					   const unsigned char *data,
+					   size_t data_size)
 {
 	if (data == NULL) {
 		auth_request_handler_reply_continue(request, uchar_empty_ptr, 0);

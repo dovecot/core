@@ -232,7 +232,7 @@ const struct mech_module mech_scram_sha1 = {
 	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
 	.auth_new = mech_scram_sha1_auth_new,
-	.auth_initial = mech_generic_auth_initial,
+	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_scram_auth_continue,
 	.auth_free = mech_scram_auth_free,
 };
@@ -244,7 +244,7 @@ const struct mech_module mech_scram_sha1_plus = {
 	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
 	.auth_new = mech_scram_sha1_auth_new,
-	.auth_initial = mech_generic_auth_initial,
+	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_scram_auth_continue,
 	.auth_free = mech_scram_auth_free,
 };
@@ -256,7 +256,7 @@ const struct mech_module mech_scram_sha256 = {
 	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
 	.auth_new = mech_scram_sha256_auth_new,
-	.auth_initial = mech_generic_auth_initial,
+	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_scram_auth_continue,
 	.auth_free = mech_scram_auth_free,
 };
@@ -268,7 +268,7 @@ const struct mech_module mech_scram_sha256_plus = {
 	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
 	.auth_new = mech_scram_sha256_auth_new,
-	.auth_initial = mech_generic_auth_initial,
+	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_scram_auth_continue,
 	.auth_free = mech_scram_auth_free,
 };

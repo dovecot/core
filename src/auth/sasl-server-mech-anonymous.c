@@ -39,7 +39,7 @@ const struct mech_module mech_anonymous = {
 	.passdb_need = MECH_PASSDB_NEED_NOTHING,
 
 	.auth_new = mech_anonymous_auth_new,
-	.auth_initial = mech_generic_auth_initial,
+	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_anonymous_auth_continue,
 	.auth_free = sasl_server_mech_generic_auth_free,
 };

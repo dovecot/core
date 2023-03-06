@@ -295,7 +295,7 @@ mech_winbind_auth_initial(struct auth_request *auth_request,
 
 	winbind_helper_connect(auth_request->set, request->winbind,
 			       auth_request->event);
-	mech_generic_auth_initial(auth_request, data, data_size);
+	sasl_server_mech_generic_auth_initial(auth_request, data, data_size);
 }
 
 static void

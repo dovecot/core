@@ -324,7 +324,7 @@ const struct mech_module mech_otp = {
 	.passdb_need = MECH_PASSDB_NEED_SET_CREDENTIALS,
 
 	.auth_new = mech_otp_auth_new,
-	.auth_initial = mech_generic_auth_initial,
+	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_otp_auth_continue,
 	.auth_free = mech_otp_auth_free,
 };
