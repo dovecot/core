@@ -134,15 +134,13 @@ static void cmd_id_handle_keyvalue(struct imap_client *client,
 				   struct imap_id_log_entry *log_entry,
 				   const char *key, const char *value)
 {
-	bool client_id_str;
 	/* length of key + length of value (NIL for NULL) and two set of
 	   quotes and space */
 	size_t kvlen = strlen(key) + 2 + 1 +
 		       (value == NULL ? 3 : strlen(value)) + 2;
+	bool is_login_id_param = client_try_update_info(client, key, value);
 
-	client_id_str = !client_try_update_info(client, key, value);
-
-	if (client->set->imap_id_retain && client_id_str &&
+	if (client->set->imap_id_retain && !is_login_id_param &&
 	    (client->common.client_id == NULL ||
 	     str_len(client->common.client_id) + kvlen < LOGIN_MAX_CLIENT_ID_LEN)) {
 		if (client->common.client_id == NULL) {
