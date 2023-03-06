@@ -339,7 +339,7 @@ static struct auth_request *mech_winbind_spnego_auth_new(void)
 	return do_auth_new(&winbind_spnego_context);
 }
 
-const struct mech_module mech_winbind_ntlm = {
+const struct sasl_server_mech_def mech_winbind_ntlm = {
 	.mech_name = "NTLM",
 
 	.flags = SASL_MECH_SEC_DICTIONARY | SASL_MECH_SEC_ACTIVE |
@@ -352,7 +352,7 @@ const struct mech_module mech_winbind_ntlm = {
 	.auth_free = sasl_server_mech_generic_auth_free,
 };
 
-const struct mech_module mech_winbind_spnego = {
+const struct sasl_server_mech_def mech_winbind_spnego = {
 	.mech_name = "GSS-SPNEGO",
 
 	.flags = SASL_MECH_SEC_ALLOW_NULS,

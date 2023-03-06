@@ -241,7 +241,8 @@ static bool auth_passdb_list_have_set_credentials(const struct auth *auth)
 }
 
 static bool
-auth_mech_verify_passdb(const struct auth *auth, const struct mech_module *mech)
+auth_mech_verify_passdb(const struct auth *auth,
+			const struct sasl_server_mech_def *mech)
 {
 	switch (mech->passdb_need) {
 	case SASL_MECH_PASSDB_NEED_NOTHING:

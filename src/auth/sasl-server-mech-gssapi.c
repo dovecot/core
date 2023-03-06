@@ -689,7 +689,7 @@ mech_gssapi_auth_free(struct auth_request *auth_request)
 	pool_unref(&auth_request->pool);
 }
 
-const struct mech_module mech_gssapi = {
+const struct sasl_server_mech_def mech_gssapi = {
 	.mech_name = "GSSAPI",
 
 	.flags = SASL_MECH_SEC_ALLOW_NULS,
@@ -704,7 +704,7 @@ const struct mech_module mech_gssapi = {
 /* MIT Kerberos v1.5+ and Heimdal v0.7+ support SPNEGO for Kerberos tickets
    internally. Nothing else needs to be done here. Note, however, that this does
    not support SPNEGO when the only available credential is NTLM. */
-const struct mech_module mech_gssapi_spnego = {
+const struct sasl_server_mech_def mech_gssapi_spnego = {
 	.mech_name = "GSS-SPNEGO",
 
 	.flags = SASL_MECH_SEC_ALLOW_NULS,
@@ -748,7 +748,7 @@ void mech_gssapi_init(void)
 void mech_gssapi_deinit(void)
 {
 #ifdef HAVE_GSSAPI_SPNEGO
-	const struct mech_module *mech;
+	const struct sasl_server_mech_def *mech;
 
 	mech = mech_module_find(mech_gssapi_spnego.mech_name);
 	if (mech != NULL && mech->auth_new == mech_gssapi_auth_new)

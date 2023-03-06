@@ -176,7 +176,7 @@ static struct auth_request *mech_cram_md5_auth_new(void)
 	return &request->auth_request;
 }
 
-const struct mech_module mech_cram_md5 = {
+const struct sasl_server_mech_def mech_cram_md5 = {
 	.mech_name = "CRAM-MD5",
 
 	.flags = SASL_MECH_SEC_DICTIONARY | SASL_MECH_SEC_ACTIVE,

@@ -45,7 +45,7 @@ static const struct test_auth_request_field auth_request_field_names[] = {
 };
 
 static struct auth_request *
-test_auth_request_init(const struct mech_module *mech)
+test_auth_request_init(const struct sasl_server_mech_def *mech)
 {
 	struct auth_request *request;
 	pool_t pool = pool_alloconly_create("test auth request", 1024);

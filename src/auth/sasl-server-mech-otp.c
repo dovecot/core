@@ -317,7 +317,7 @@ static void mech_otp_auth_free(struct auth_request *auth_request)
  * Mechanism
  */
 
-const struct mech_module mech_otp = {
+const struct sasl_server_mech_def mech_otp = {
 	.mech_name = "OTP",
 
 	.flags = SASL_MECH_SEC_DICTIONARY | SASL_MECH_SEC_ACTIVE |

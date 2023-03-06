@@ -12,7 +12,7 @@
 
 static struct mech_module_list *mech_modules;
 
-void mech_register_module(const struct mech_module *module)
+void mech_register_module(const struct sasl_server_mech_def *module)
 {
 	struct mech_module_list *list;
 	i_assert(strcmp(module->mech_name, t_str_ucase(module->mech_name)) == 0);
@@ -24,7 +24,7 @@ void mech_register_module(const struct mech_module *module)
 	mech_modules = list;
 }
 
-void mech_unregister_module(const struct mech_module *module)
+void mech_unregister_module(const struct sasl_server_mech_def *module)
 {
 	struct mech_module_list **pos, *list;
 
@@ -38,7 +38,7 @@ void mech_unregister_module(const struct mech_module *module)
 	}
 }
 
-const struct mech_module *mech_module_find(const char *name)
+const struct sasl_server_mech_def *mech_module_find(const char *name)
 {
 	struct mech_module_list *list;
 	name = t_str_ucase(name);
@@ -50,31 +50,31 @@ const struct mech_module *mech_module_find(const char *name)
 	return NULL;
 }
 
-extern const struct mech_module mech_plain;
-extern const struct mech_module mech_login;
-extern const struct mech_module mech_apop;
-extern const struct mech_module mech_cram_md5;
-extern const struct mech_module mech_digest_md5;
-extern const struct mech_module mech_external;
-extern const struct mech_module mech_otp;
-extern const struct mech_module mech_scram_sha1;
-extern const struct mech_module mech_scram_sha1_plus;
-extern const struct mech_module mech_scram_sha256;
-extern const struct mech_module mech_scram_sha256_plus;
-extern const struct mech_module mech_anonymous;
+extern const struct sasl_server_mech_def mech_plain;
+extern const struct sasl_server_mech_def mech_login;
+extern const struct sasl_server_mech_def mech_apop;
+extern const struct sasl_server_mech_def mech_cram_md5;
+extern const struct sasl_server_mech_def mech_digest_md5;
+extern const struct sasl_server_mech_def mech_external;
+extern const struct sasl_server_mech_def mech_otp;
+extern const struct sasl_server_mech_def mech_scram_sha1;
+extern const struct sasl_server_mech_def mech_scram_sha1_plus;
+extern const struct sasl_server_mech_def mech_scram_sha256;
+extern const struct sasl_server_mech_def mech_scram_sha256_plus;
+extern const struct sasl_server_mech_def mech_anonymous;
 #ifdef HAVE_GSSAPI
-extern const struct mech_module mech_gssapi;
+extern const struct sasl_server_mech_def mech_gssapi;
 #endif
 #ifdef HAVE_GSSAPI_SPNEGO
-extern const struct mech_module mech_gssapi_spnego;
+extern const struct sasl_server_mech_def mech_gssapi_spnego;
 #endif
-extern const struct mech_module mech_winbind_ntlm;
-extern const struct mech_module mech_winbind_spnego;
-extern const struct mech_module mech_oauthbearer;
-extern const struct mech_module mech_xoauth2;
+extern const struct sasl_server_mech_def mech_winbind_ntlm;
+extern const struct sasl_server_mech_def mech_winbind_spnego;
+extern const struct sasl_server_mech_def mech_oauthbearer;
+extern const struct sasl_server_mech_def mech_xoauth2;
 
 static void mech_register_add(struct mechanisms_register *reg,
-			      const struct mech_module *mech)
+			      const struct sasl_server_mech_def *mech)
 {
 	struct mech_module_list *list;
 	string_t *handshake;
@@ -128,7 +128,7 @@ struct mechanisms_register *
 mech_register_init(const struct auth_settings *set)
 {
 	struct mechanisms_register *reg;
-	const struct mech_module *mech;
+	const struct sasl_server_mech_def *mech;
 	const char *name;
 	pool_t pool;
 
@@ -173,7 +173,7 @@ void mech_register_deinit(struct mechanisms_register **_reg)
 	pool_unref(&reg->pool);
 }
 
-const struct mech_module *
+const struct sasl_server_mech_def *
 mech_register_find(const struct mechanisms_register *reg, const char *name)
 {
 	const struct mech_module_list *list;

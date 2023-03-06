@@ -608,7 +608,7 @@ static struct auth_request *mech_digest_md5_auth_new(void)
 	return &request->auth_request;
 }
 
-const struct mech_module mech_digest_md5 = {
+const struct sasl_server_mech_def mech_digest_md5 = {
 	.mech_name = "DIGEST-MD5",
 
 	.flags = SASL_MECH_SEC_DICTIONARY | SASL_MECH_SEC_ACTIVE |

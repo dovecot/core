@@ -157,7 +157,7 @@ static struct auth_request *mech_apop_auth_new(void)
 	return &request->auth_request;
 }
 
-const struct mech_module mech_apop = {
+const struct sasl_server_mech_def mech_apop = {
 	.mech_name = "APOP",
 
 	.flags = SASL_MECH_SEC_PRIVATE | SASL_MECH_SEC_DICTIONARY |

@@ -24,8 +24,8 @@ struct oauth2_auth_request {
 	bool verifying_token:1;
 };
 
-const struct mech_module mech_oauthbearer;
-const struct mech_module mech_xoauth2;
+const struct sasl_server_mech_def mech_oauthbearer;
+const struct sasl_server_mech_def mech_xoauth2;
 
 static struct db_oauth2 *db_oauth2 = NULL;
 
@@ -309,7 +309,7 @@ static struct auth_request *mech_oauth2_auth_new(void)
 	return &request->request;
 }
 
-const struct mech_module mech_oauthbearer = {
+const struct sasl_server_mech_def mech_oauthbearer = {
 	.mech_name = "OAUTHBEARER",
 
 	/* while this does not transfer plaintext password,
@@ -323,7 +323,7 @@ const struct mech_module mech_oauthbearer = {
 	.auth_free = sasl_server_mech_generic_auth_free,
 };
 
-const struct mech_module mech_xoauth2 = {
+const struct sasl_server_mech_def mech_xoauth2 = {
 	.mech_name = "XOAUTH2",
 
 	.flags = SASL_MECH_SEC_PLAINTEXT,

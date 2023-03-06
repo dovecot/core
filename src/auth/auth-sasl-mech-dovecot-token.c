@@ -79,7 +79,7 @@ static struct auth_request *mech_dovecot_token_auth_new(void)
 	return request;
 }
 
-const struct mech_module mech_dovecot_token = {
+const struct sasl_server_mech_def mech_dovecot_token = {
 	.mech_name = "DOVECOT-TOKEN",
 
 	.flags = SASL_MECH_SEC_PRIVATE | SASL_MECH_SEC_ALLOW_NULS,

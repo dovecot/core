@@ -17,21 +17,21 @@
 
 #define UCHAR_LEN(str) (const unsigned char *)(str), sizeof(str)-1
 
-extern const struct mech_module mech_anonymous;
-extern const struct mech_module mech_apop;
-extern const struct mech_module mech_cram_md5;
-extern const struct mech_module mech_digest_md5;
-extern const struct mech_module mech_external;
-extern const struct mech_module mech_login;
-extern const struct mech_module mech_oauthbearer;
-extern const struct mech_module mech_otp;
-extern const struct mech_module mech_plain;
-extern const struct mech_module mech_scram_sha1;
-extern const struct mech_module mech_scram_sha256;
-extern const struct mech_module mech_xoauth2;
+extern const struct sasl_server_mech_def mech_anonymous;
+extern const struct sasl_server_mech_def mech_apop;
+extern const struct sasl_server_mech_def mech_cram_md5;
+extern const struct sasl_server_mech_def mech_digest_md5;
+extern const struct sasl_server_mech_def mech_external;
+extern const struct sasl_server_mech_def mech_login;
+extern const struct sasl_server_mech_def mech_oauthbearer;
+extern const struct sasl_server_mech_def mech_otp;
+extern const struct sasl_server_mech_def mech_plain;
+extern const struct sasl_server_mech_def mech_scram_sha1;
+extern const struct sasl_server_mech_def mech_scram_sha256;
+extern const struct sasl_server_mech_def mech_xoauth2;
 
 struct test_case {
-	const struct mech_module *mech;
+	const struct sasl_server_mech_def *mech;
 	const unsigned char *in;
 	size_t len;
 	const char *username;
@@ -83,7 +83,7 @@ auth_client_request_mock_callback(
 }
 
 static void test_mech_prepare_request(struct auth_request **request_r,
-				      const struct mech_module *mech,
+				      const struct sasl_server_mech_def *mech,
 				      struct auth_request_handler *handler,
 				      unsigned int running_test,
 				      const struct test_case *test_case)
@@ -284,7 +284,7 @@ static void test_mechs(void)
 	for (unsigned int running_test = 0; running_test < N_ELEMENTS(tests);
 	     running_test++) T_BEGIN {
 		struct test_case *test_case = &tests[running_test];
-		const struct mech_module *mech = test_case->mech;
+		const struct sasl_server_mech_def *mech = test_case->mech;
 		struct auth_request *request;
 		const char *testname = t_strdup_printf("auth mech %s %d/%zu",
 						       mech->mech_name,

@@ -150,7 +150,8 @@ auth_request_post_alloc_init(struct auth_request *request,
 }
 
 struct auth_request *
-auth_request_new(const struct mech_module *mech, struct event *parent_event)
+auth_request_new(const struct sasl_server_mech_def *mech,
+		 struct event *parent_event)
 {
 	struct auth_request *request;
 
@@ -553,7 +554,7 @@ auth_request_save_cache(struct auth_request *request,
 
 static bool
 auth_request_mechanism_accepted(const char *const *mechs,
-				const struct mech_module *mech)
+				const struct sasl_server_mech_def *mech)
 {
 	/* no filter specified, anything goes */
 	if (mechs == NULL) return TRUE;

@@ -39,7 +39,7 @@ static struct auth_request *mech_external_auth_new(void)
 	return request;
 }
 
-const struct mech_module mech_external = {
+const struct sasl_server_mech_def mech_external = {
 	.mech_name = "EXTERNAL",
 
 	.flags = 0,

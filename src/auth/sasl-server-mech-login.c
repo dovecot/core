@@ -62,7 +62,7 @@ static struct auth_request *mech_login_auth_new(void)
 	return request;
 }
 
-const struct mech_module mech_login = {
+const struct sasl_server_mech_def mech_login = {
 	.mech_name = "LOGIN",
 
 	.flags = SASL_MECH_SEC_PLAINTEXT,

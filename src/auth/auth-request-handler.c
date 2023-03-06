@@ -569,7 +569,7 @@ auth_penalty_callback(unsigned int penalty, struct auth_request *request)
 int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 				    const char *const *args)
 {
-	const struct mech_module *mech;
+	const struct sasl_server_mech_def *mech;
 	struct auth_request *request;
 	const char *name, *arg, *initial_resp;
 	void *initial_resp_data;

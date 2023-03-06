@@ -235,7 +235,7 @@ static void mech_scram_auth_free(struct auth_request *auth_request)
 	pool_unref(&auth_request->pool);
 }
 
-const struct mech_module mech_scram_sha1 = {
+const struct sasl_server_mech_def mech_scram_sha1 = {
 	.mech_name = "SCRAM-SHA-1",
 
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH,
@@ -247,7 +247,7 @@ const struct mech_module mech_scram_sha1 = {
 	.auth_free = mech_scram_auth_free,
 };
 
-const struct mech_module mech_scram_sha1_plus = {
+const struct sasl_server_mech_def mech_scram_sha1_plus = {
 	.mech_name = "SCRAM-SHA-1-PLUS",
 
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH | SASL_MECH_SEC_CHANNEL_BINDING,
@@ -259,7 +259,7 @@ const struct mech_module mech_scram_sha1_plus = {
 	.auth_free = mech_scram_auth_free,
 };
 
-const struct mech_module mech_scram_sha256 = {
+const struct sasl_server_mech_def mech_scram_sha256 = {
 	.mech_name = "SCRAM-SHA-256",
 
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH,
@@ -271,7 +271,7 @@ const struct mech_module mech_scram_sha256 = {
 	.auth_free = mech_scram_auth_free,
 };
 
-const struct mech_module mech_scram_sha256_plus = {
+const struct sasl_server_mech_def mech_scram_sha256_plus = {
 	.mech_name = "SCRAM-SHA-256-PLUS",
 
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH | SASL_MECH_SEC_CHANNEL_BINDING,

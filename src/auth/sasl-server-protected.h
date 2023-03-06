@@ -8,7 +8,7 @@
 
 struct auth_request;
 
-struct mech_module {
+struct sasl_server_mech_def {
 	const char *mech_name;
 
 	enum sasl_mech_security_flags flags;
@@ -25,7 +25,7 @@ struct mech_module {
 struct mech_module_list {
 	struct mech_module_list *next;
 
-	const struct mech_module *module;
+	const struct sasl_server_mech_def *module;
 };
 
 struct mechanisms_register {
@@ -41,11 +41,11 @@ struct mechanisms_register {
  * Mechanism
  */
 
-extern const struct mech_module mech_dovecot_token;
+extern const struct sasl_server_mech_def mech_dovecot_token;
 
-void mech_register_module(const struct mech_module *module);
-void mech_unregister_module(const struct mech_module *module);
-const struct mech_module *mech_module_find(const char *name);
+void mech_register_module(const struct sasl_server_mech_def *module);
+void mech_unregister_module(const struct sasl_server_mech_def *module);
+const struct sasl_server_mech_def *mech_module_find(const char *name);
 
 void sasl_server_mech_generic_auth_initial(struct auth_request *request,
 					   const unsigned char *data,
@@ -55,7 +55,7 @@ void sasl_server_mech_generic_auth_free(struct auth_request *request);
 struct mechanisms_register *
 mech_register_init(const struct auth_settings *set);
 void mech_register_deinit(struct mechanisms_register **reg);
-const struct mech_module *
+const struct sasl_server_mech_def *
 mech_register_find(const struct mechanisms_register *reg, const char *name);
 
 void mech_init(const struct auth_settings *set);

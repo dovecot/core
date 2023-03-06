@@ -135,7 +135,7 @@ struct auth_request {
 	   proxy DNS lookups) */
 	enum passdb_result passdb_result;
 
-	const struct mech_module *mech;
+	const struct sasl_server_mech_def *mech;
 	/* Protocol-specific settings */
 	const struct auth_settings *protocol_set;
 	/* Currently active settings. May be the same as protocol_set, but
@@ -253,7 +253,8 @@ typedef void auth_request_proxy_cb_t(bool success, struct auth_request *);
 extern unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
 
 struct auth_request *
-auth_request_new(const struct mech_module *mech, struct event *parent_event);
+auth_request_new(const struct sasl_server_mech_def *mech,
+		 struct event *parent_event);
 struct auth_request *auth_request_new_dummy(struct event *parent_event);
 void auth_request_init(struct auth_request *request);
 struct auth *auth_request_get_auth(struct auth_request *request);
