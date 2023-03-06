@@ -428,11 +428,9 @@ filter_string_parse_protocol(const char *filter_string,
 }
 
 static int
-master_service_settings_read_mmap(struct master_settings_mmap *config_mmap,
-				  struct setting_parser_context *parser,
-				  struct event *event,
-				  struct master_service_settings_output *output_r,
-				  const char **error_r)
+master_service_settings_mmap_parse(struct master_settings_mmap *config_mmap,
+				   struct master_service_settings_output *output_r,
+				   const char **error_r)
 {
 	/*
 	   DOVECOT-CONFIG <TAB> 1.0 <LF>
@@ -456,9 +454,6 @@ master_service_settings_read_mmap(struct master_settings_mmap *config_mmap,
 	ARRAY_TYPE(const_string) protocols;
 
 	t_array_init(&protocols, 8);
-	const struct failure_context failure_ctx = {
-		.type = LOG_TYPE_DEBUG,
-	};
 
 	const char *magic_prefix = "DOVECOT-CONFIG\t";
 	const unsigned int magic_prefix_len = strlen(magic_prefix);
@@ -484,7 +479,6 @@ master_service_settings_read_mmap(struct master_settings_mmap *config_mmap,
 
 	size_t start_offset = eol - mmap_base + 1;
 	uoff_t offset = start_offset;
-	config_mmap->set_start_offset = start_offset;
 	do {
 		/* <blob size> */
 		uint64_t blob_size;
@@ -507,6 +501,7 @@ master_service_settings_read_mmap(struct master_settings_mmap *config_mmap,
 
 		if (offset <= start_offset + sizeof(blob_size)) {
 			/* base settings */
+			config_mmap->set_start_offset = offset;
 			config_mmap->set_end_offset = end_offset;
 		} else {
 			/* <filter> */
@@ -536,38 +531,10 @@ master_service_settings_read_mmap(struct master_settings_mmap *config_mmap,
 					filter_string, error);
 				return -1;
 			}
-			bool match = config_filter->empty_filter ||
-				event_filter_match(config_filter->filter, event,
-						   &failure_ctx);
-			if (!match) {
-				/* Filter didn't match. Jump to the next one. */
-				offset = end_offset;
-				continue;
-			}
 		}
 
-		/* list of settings: key, value, ... */
-		while (offset < end_offset) {
-			const char *key = (const char *)mmap_base + offset;
-			offset += strlen(key)+1;
-			const char *value = (const char *)mmap_base + offset;
-			offset += strlen(value)+1;
-			if (offset > end_offset) {
-				*error_r = t_strdup_printf(
-					"Settings key/value points outside blob "
-					"(offset=%zu, end_offset=%zu, file_size=%zu)",
-					offset, end_offset, mmap_size);
-				return -1;
-			}
-			int ret;
-			T_BEGIN {
-				ret = settings_parse_keyvalue(parser, key, value);
-				if (ret < 0)
-					*error_r = t_strdup(settings_parser_get_error(parser));
-			} T_END_PASS_STR_IF(ret < 0, error_r);
-			if (ret < 0)
-				return -1;
-		}
+		/* skip the actual settings here */
+		offset = end_offset;
 	} while (offset < mmap_size);
 
 	if (array_count(&protocols) > 0) {
@@ -575,6 +542,72 @@ master_service_settings_read_mmap(struct master_settings_mmap *config_mmap,
 		output_r->specific_services = array_front(&protocols);
 	}
 	return 0;
+}
+
+static int
+master_service_settings_mmap_apply_blob(struct master_settings_mmap *config_mmap,
+					struct setting_parser_context *parser,
+					size_t start_offset, size_t end_offset,
+					const char **error_r)
+{
+	size_t offset = start_offset;
+
+	/* list of settings: key, value, ... */
+	while (offset < end_offset) {
+		const char *key = (const char *)config_mmap->mmap_base + offset;
+		offset += strlen(key)+1;
+		const char *value = (const char *)config_mmap->mmap_base + offset;
+		offset += strlen(value)+1;
+		if (offset > end_offset) {
+			*error_r = t_strdup_printf(
+				"Settings key/value points outside blob "
+				"(offset=%zu, end_offset=%zu, file_size=%zu)",
+				offset, end_offset, config_mmap->mmap_size);
+			return -1;
+		}
+		int ret;
+		T_BEGIN {
+			ret = settings_parse_keyvalue(parser, key, value);
+			if (ret < 0)
+				*error_r = t_strdup(settings_parser_get_error(parser));
+		} T_END_PASS_STR_IF(ret < 0, error_r);
+		if (ret < 0)
+			return -1;
+	}
+	return 0;
+}
+
+static int
+master_service_settings_mmap_apply(struct master_settings_mmap *config_mmap,
+				   struct event *event,
+				   struct setting_parser_context *parser,
+				   const char **error_r)
+{
+	if (master_service_settings_mmap_apply_blob(config_mmap, parser,
+						    config_mmap->set_start_offset,
+						    config_mmap->set_end_offset,
+						    error_r) < 0)
+		return -1;
+
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG,
+	};
+
+	const struct master_service_mmap_filter *config_filter;
+	array_foreach(&config_mmap->filters, config_filter) {
+		if (config_filter->empty_filter ||
+		    event_filter_match(config_filter->filter, event,
+				       &failure_ctx)) {
+			if (master_service_settings_mmap_apply_blob(
+					config_mmap, parser,
+					config_filter->start_offset,
+					config_filter->end_offset,
+					error_r) < 0)
+				return -1;
+		}
+	}
+	return 0;
+
 }
 
 void master_settings_mmap_ref(struct master_settings_mmap *mmap)
@@ -703,8 +736,12 @@ int master_service_settings_read(struct master_service *service,
 	/* config_mmap is NULL only if MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS
 	   is used */
 	if (config_mmap != NULL) {
-		ret = master_service_settings_read_mmap(config_mmap, parser,
-			event, output_r, &error);
+		ret = master_service_settings_mmap_parse(config_mmap,
+			output_r, &error);
+		if (ret == 0) {
+			ret = master_service_settings_mmap_apply(config_mmap,
+					event, parser, error_r);
+		}
 		if (ret < 0) {
 			if (getenv(DOVECOT_CONFIG_FD_ENV) != NULL) {
 				i_fatal("Failed to parse config from fd %d: %s",
