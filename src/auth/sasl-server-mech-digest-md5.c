@@ -553,7 +553,7 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 	struct digest_auth_request *request =
 		container_of(auth_request, struct digest_auth_request,
 			     auth_request);
-	const char *username, *error;
+	const char *error;
 
 	if (!parse_digest_response(request, data, data_size, &error)) {
 		e_info(auth_request->mech_event, "%s", error);
@@ -561,17 +561,9 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 		return;
 	}
 
-	if (auth_request->fields.realm != NULL &&
-	    strchr(request->username, '@') == NULL) {
-		username = t_strconcat(request->username, "@",
-				       auth_request->fields.realm, NULL);
-		auth_request->domain_is_realm = TRUE;
-	} else {
-		username = request->username;
-	}
 	if (!sasl_server_request_set_authid(auth_request,
 					    SASL_SERVER_AUTHID_TYPE_USERNAME,
-					    username)) {
+					    request->username)) {
 		sasl_server_request_failure(auth_request);
 		return;
 	}

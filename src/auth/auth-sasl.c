@@ -20,6 +20,12 @@ auth_sasl_request_set_authid(struct auth_request *request,
 
 	switch (authid_type) {
 	case SASL_SERVER_AUTHID_TYPE_USERNAME:
+		if (request->fields.realm != NULL &&
+		    strchr(authid, '@') == NULL) {
+			authid = t_strconcat(
+				authid, "@", request->fields.realm, NULL);
+			request->domain_is_realm = TRUE;
+		}
 		if (!auth_request_set_username(request, authid, &error)) {
 			e_info(request->event, "%s", error);
 			return FALSE;
