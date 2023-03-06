@@ -10,6 +10,17 @@ struct master_service;
 struct master_settings_mmap;
 struct master_service_settings_instance;
 
+enum master_service_set_type {
+	/* Setting is from userdb. */
+	MASTER_SERVICE_SET_TYPE_USERDB,
+	/* Setting is from -o command line parameters. */
+	MASTER_SERVICE_SET_TYPE_CLI_PARAM,
+	/* Setting is hardcoded to be overridden in the code. */
+	MASTER_SERVICE_SET_TYPE_CODE,
+
+	MASTER_SERVICE_SET_TYPE_COUNT,
+};
+
 enum master_service_settings_get_flags {
 	/* Don't call check_func()s */
 	MASTER_SERVICE_SETTINGS_GET_FLAG_NO_CHECK = BIT(0),
@@ -195,7 +206,7 @@ master_service_settings_get_or_fatal(struct event *event,
    -1 on error. The error string is returned on <= 0. */
 int master_service_set(struct master_service_settings_instance *instance,
 		       const char *key, const char *value,
-		       const char **error_r);
+		       enum master_service_set_type type, const char **error_r);
 /* Wrapper to settings_parse_get_value(). */
 const void *
 master_service_settings_find(struct master_service_settings_instance *instance,

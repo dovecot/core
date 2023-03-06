@@ -971,6 +971,7 @@ master_service_settings_get_or_fatal(struct event *event,
 
 int master_service_set(struct master_service_settings_instance *instance,
 		       const char *key, const char *value,
+		       enum master_service_set_type type ATTR_UNUSED,
 		       const char **error_r)
 {
 	int ret;

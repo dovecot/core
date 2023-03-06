@@ -333,8 +333,9 @@ static int cmd_force_resync_prerun(struct doveadm_mail_cmd_context *ctx ATTR_UNU
 {
 	struct master_service_settings_instance *set_instance =
 		mail_storage_service_user_get_settings_instance(service_user);
-	if (master_service_set(set_instance, "mailbox_list_index_very_dirty_syncs",
-			       "no", error_r) <= 0)
+	if (master_service_set(set_instance,
+			       "mailbox_list_index_very_dirty_syncs", "no",
+			       MASTER_SERVICE_SET_TYPE_CODE, error_r) <= 0)
 		i_unreached();
 	return 0;
 }
