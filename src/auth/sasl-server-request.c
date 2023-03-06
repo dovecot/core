@@ -28,6 +28,13 @@ void sasl_server_request_set_realm(struct auth_request *request,
 	auth_sasl_request_set_realm(request, realm);
 }
 
+bool sasl_server_request_get_extra_field(struct auth_request *request,
+					 const char *name,
+					 const char **field_r)
+{
+	return auth_sasl_request_get_extra_field(request, name, field_r);
+}
+
 void sasl_server_request_output(struct auth_request *request,
 				const void *data, size_t data_size)
 {

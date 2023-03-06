@@ -75,6 +75,10 @@ bool sasl_server_request_set_authzid(struct auth_request *request,
 void sasl_server_request_set_realm(struct auth_request *request,
 				   const char *realm);
 
+bool sasl_server_request_get_extra_field(struct auth_request *request,
+					 const char *name,
+					 const char **field_r);
+
 void sasl_server_request_output(struct auth_request *request,
 				const void *data, size_t data_size);
 void sasl_server_request_success(struct auth_request *request,

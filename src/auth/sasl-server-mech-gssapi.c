@@ -387,9 +387,8 @@ k5_principal_is_authorized(struct gssapi_auth_request *request, const char *name
 	struct auth_request *auth_request = &request->auth_request;
 	const char *value, *const *authorized_names, *const *tmp;
 
-	value = auth_fields_find(auth_request->fields.extra_fields,
-				 "k5principals");
-	if (value == NULL)
+	if (!sasl_server_request_get_extra_field(auth_request, "k5principals",
+						 &value))
 		return FALSE;
 
 	authorized_names = t_strsplit_spaces(value, ",");
