@@ -61,6 +61,7 @@ static const struct {
 	{ .key = "ssl_dh_parameters_length", },
 	{ .key = "login_access_sockets", .fail_if_set = TRUE, },
 	{ .key = "imap_id_log", .details = "Use event exporter for the 'imap_id_received' event instead.", },
+	{ .key = "config_cache_size", },
 };
 
 static void ATTR_FORMAT(2, 3)
