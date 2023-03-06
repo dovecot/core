@@ -35,6 +35,18 @@ bool sasl_server_request_get_extra_field(struct auth_request *request,
 	return auth_sasl_request_get_extra_field(request, name, field_r);
 }
 
+void sasl_server_request_start_channel_binding(
+	struct auth_request *request, const char *type)
+{
+	auth_sasl_request_start_channel_binding(request, type);
+}
+
+int sasl_server_request_accept_channel_binding(
+	struct auth_request *request, buffer_t **data_r)
+{
+	return auth_sasl_request_accept_channel_binding(request, data_r);
+}
+
 void sasl_server_request_output(struct auth_request *request,
 				const void *data, size_t data_size)
 {

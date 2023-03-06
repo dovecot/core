@@ -92,7 +92,7 @@ mech_scram_start_channel_binding(struct auth_scram_server *asserver,
 		container_of(asserver, struct scram_auth_request, scram_server);
 	struct auth_request *auth_request = &request->auth_request;
 
-	auth_request_start_channel_binding(auth_request, type);
+	sasl_server_request_start_channel_binding(auth_request, type);
 }
 
 static int
@@ -103,7 +103,7 @@ mech_scram_accept_channel_binding(struct auth_scram_server *asserver,
 		container_of(asserver, struct scram_auth_request, scram_server);
 	struct auth_request *auth_request = &request->auth_request;
 
-	return auth_request_accept_channel_binding(auth_request, data_r);
+	return sasl_server_request_accept_channel_binding(auth_request, data_r);
 }
 
 static int
