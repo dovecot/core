@@ -576,9 +576,7 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 		return;
 	}
 	if (request->authzid != NULL &&
-	     !auth_request_set_login_username(auth_request, request->authzid,
-					      &error)) {
-		e_info(auth_request->mech_event, "login user: %s", error);
+	    !sasl_server_request_set_authzid(auth_request, request->authzid)) {
 		sasl_server_request_failure(auth_request);
 		return;
 	}

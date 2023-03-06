@@ -10,7 +10,7 @@ static void
 mech_plain_auth_continue(struct auth_request *request,
 			 const unsigned char *data, size_t data_size)
 {
-	const char *authid, *authenid, *error;
+	const char *authid, *authenid;
 	char *pass;
 	size_t i, len;
 	int count;
@@ -49,10 +49,8 @@ mech_plain_auth_continue(struct auth_request *request,
 		/* invalid username */
 		sasl_server_request_failure(request);
 	} else if (*authid != '\0' &&
-		   !auth_request_set_login_username(request, authid, &error)) {
+		   !sasl_server_request_set_authzid(request, authid)) {
 		/* invalid login username */
-		e_info(request->mech_event,
-		       "login user: %s", error);
 		sasl_server_request_failure(request);
 	} else {
 		sasl_server_request_verify_plain(

@@ -80,13 +80,8 @@ mech_scram_set_login_username(struct auth_scram_server *asserver,
 	struct scram_auth_request *request =
 		container_of(asserver, struct scram_auth_request, scram_server);
 	struct auth_request *auth_request = &request->auth_request;
-	const char *error;
 
-	if (!auth_request_set_login_username(auth_request, username, &error)) {
-		e_info(auth_request->event, "%s", error);
-		return FALSE;
-	}
-	return TRUE;
+	return sasl_server_request_set_authzid(auth_request, username);
 }
 
 static void

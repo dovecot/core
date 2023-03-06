@@ -16,6 +16,12 @@ bool sasl_server_request_set_authid(struct auth_request *request,
 	return auth_sasl_request_set_authid(request, authid_type, authid);
 }
 
+bool sasl_server_request_set_authzid(struct auth_request *request,
+				     const char *authzid)
+{
+	return auth_sasl_request_set_authzid(request, authzid);
+}
+
 void sasl_server_request_output(struct auth_request *request,
 				const void *data, size_t data_size)
 {

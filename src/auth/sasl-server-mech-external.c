@@ -9,7 +9,7 @@ static void
 mech_external_auth_continue(struct auth_request *request,
 			    const unsigned char *data, size_t data_size)
 {
-	const char *authzid, *error;
+	const char *authzid;
 
 	authzid = t_strndup(data, data_size);
 
@@ -20,9 +20,7 @@ mech_external_auth_continue(struct auth_request *request,
 		return;
 	}
 	if (*authzid != '\0' &&
-	    !auth_request_set_login_username(request, authzid, &error)) {
-		e_info(request->mech_event,
-		       "login user: %s", error);
+	    !sasl_server_request_set_authzid(request, authzid)) {
 		sasl_server_request_failure(request);
 		return;
 	}
