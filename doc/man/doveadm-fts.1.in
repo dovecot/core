@@ -67,6 +67,94 @@ makes sure that the next
 will index all the missing mails (if any). Note that currently most FTS
 backends do not implement this properly, but instead they delete all the
 FTS indexes. This may change in the future versions.
+.\"-------------------------------------
+.SS fts check fast
+.B doveadm fts check fast
+[\fB\-u\fP \fIuser\fP|\fB\-A\fP|\fB\-F\fP \fIfile\fP]
+[\fB\-S\fP \fIsocket_path\fP]
+.RI [ \--refresh ]
+.RI [ \--print-mismatches-only ]
+.RI [ namespace ]
+.PP
+This command exists only when the fts_dovecot plugin (Dovecot Pro FTS) is
+loaded.
+.PP
+This command can be used to check FTS indexes for consistency. It performs
+a fast check using only information in local caches (fts.S, metacache).
+.PP
+.\"-------------------------------------
+.TP
+.B \--refresh
+Refresh any necessary local caches for the command to run successfully.
+This can be used if the command otherwise fails with exit code 68.
+.\"-------------------------------------
+.TP
+.B \--print-mismatches-only
+Print only mailboxes that have inconsistencies.
+.\"-------------------------------------
+.RE
+.PP
+Exit codes:
+.PP
+.\"-------------------------------------
+.TP
+.B 0
+The mailbox is fully consistent
+.\"-------------------------------------
+.TP
+.B 2
+The mailbox is not fully consistent
+.\"-------------------------------------
+.TP
+.B 68
+There is not enough information in local metacache to know whether the
+mailbox is fully consistent. Use either the
+.B \--refresh
+parameter or the "full" check.
+.\"-------------------------------------
+.RE
+.PP
+.\"-------------------------------------
+.SS fts check full
+.B doveadm fts check full
+[\fB\-u\fP \fIuser\fP|\fB\-A\fP|\fB\-F\fP \fIfile\fP]
+[\fB\-S\fP \fIsocket_path\fP]
+.RI [ \--print-details ]
+.RI [ \--print-mismatches-only ]
+.RI [ namespace ]
+.PP
+This command exists only when the fts_dovecot plugin (Dovecot Pro FTS) is
+loaded.
+.PP
+This command can be used to check FTS indexes for consistency. It performs
+a full check to give detailed output of inconsistencies.
+.PP
+.\"-------------------------------------
+.TP
+.B \--print-details
+Print also IMAP UID numbers and FTS triplet names for each email.
+.\"-------------------------------------
+.TP
+.B \--print-mismatches-only
+Print only mailboxes (or emails, with
+.B \--print-details
+that have inconsistencies.
+.\"-------------------------------------
+.RE
+.PP
+Exit codes:
+.PP
+.\"-------------------------------------
+.TP
+.B 0
+The mailbox is fully consistent
+.\"-------------------------------------
+.TP
+.B 2
+The mailbox is not fully consistent
+.\"-------------------------------------
+.RE
+.PP
 .\"------------------------------------------------------------------------
 @INCLUDE:reporting-bugs@
 .\"------------------------------------------------------------------------
