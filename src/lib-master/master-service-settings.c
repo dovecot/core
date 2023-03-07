@@ -1053,6 +1053,31 @@ int master_service_set(struct master_service_settings_instance *instance,
 		return 1;
 	}
 
+	const char *append_value = NULL;
+	size_t len = strlen(key);
+	if (len > 0 && key[len-1] == '+') {
+		/* key+=value */
+		append_value = value;
+		key = t_strndup(key, len-1);
+	}
+
+	enum setting_type value_type;
+	const void *old_value =
+		master_service_settings_find(instance, key, &value_type);
+	if (old_value == NULL && !str_begins_with(key, "plugin/")) {
+		/* assume it's a plugin setting */
+		key = t_strconcat("plugin/", key, NULL);
+		old_value = master_service_settings_find(instance, key, &value_type);
+	}
+
+	if (append_value != NULL) {
+		if (old_value == NULL || value_type != SET_STR) {
+			*error_r = "'+' can only be used for strings";
+			return -1;
+		}
+		const char *const *strp = old_value;
+		value = t_strconcat(*strp, append_value, NULL);
+	}
 
 	ret = settings_parse_keyvalue(instance->parser, key, value);
 	if (ret <= 0)

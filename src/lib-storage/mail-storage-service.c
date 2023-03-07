@@ -108,37 +108,11 @@ static int set_keyvalue(struct mail_storage_service_user *user,
 			const char *key, const char *value,
 			const char **error_r)
 {
-	const char *append_value = NULL;
-	const void *old_value;
-	enum setting_type type;
-	size_t len;
 	int ret;
 
-	len = strlen(key);
-	if (len > 0 && key[len-1] == '+') {
-		/* key+=value */
-		append_value = value;
-		key = t_strndup(key, len-1);
-	}
 	/* Ignore empty keys rather than prepend 'plugin/=' to them. */
 	if (*key == '\0')
 		return 1;
-
-	old_value = master_service_settings_find(user->set_instance, key, &type);
-	if (old_value == NULL && !str_begins_with(key, "plugin/")) {
-		/* assume it's a plugin setting */
-		key = t_strconcat("plugin/", key, NULL);
-		old_value = master_service_settings_find(user->set_instance, key, &type);
-	}
-
-	if (append_value != NULL) {
-		if (old_value == NULL || type != SET_STR) {
-			*error_r = "'+' can only be used for strings";
-			return -1;
-		}
-		const char *const *strp = old_value;
-		value = t_strconcat(*strp, append_value, NULL);
-	}
 
 	ret = master_service_set(user->set_instance, key, value,
 				 MASTER_SERVICE_SET_TYPE_USERDB, error_r);
