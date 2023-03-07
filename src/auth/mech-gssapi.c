@@ -21,7 +21,6 @@
 #include "mech.h"
 #include "passdb.h"
 
-
 #if defined(BUILTIN_GSSAPI) || defined(PLUGIN_BUILD)
 
 #ifdef HAVE_GSSAPI_GSSAPI_H
@@ -75,9 +74,10 @@ static gss_OID_desc mech_gssapi_krb5_oid =
 static int
 mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf);
 
-static void mech_gssapi_log_error(struct auth_request *request,
-				  OM_uint32 status_value, int status_type,
-				  const char *description)
+static void
+mech_gssapi_log_error(struct auth_request *request,
+		      OM_uint32 status_value, int status_type,
+		      const char *description)
 {
 	OM_uint32 message_context = 0;
 	OM_uint32 minor_status;
@@ -101,7 +101,7 @@ static void mech_gssapi_initialize(const struct auth_settings *set)
 	const char *path = set->krb5_keytab;
 
 	if (*path != '\0') {
-		/* environment may be used by Kerberos 5 library directly */
+		/* Environment may be used by Kerberos 5 library directly */
 		env_put("KRB5_KTNAME", path);
 #ifdef HAVE_GSSKRB5_REGISTER_ACCEPTOR_IDENTITY
 		gsskrb5_register_acceptor_identity(path);
@@ -116,7 +116,8 @@ static struct auth_request *mech_gssapi_auth_new(void)
 	struct gssapi_auth_request *request;
 	pool_t pool;
 
-	pool = pool_alloconly_create(MEMPOOL_GROWING"gssapi_auth_request", 2048);
+	pool = pool_alloconly_create(
+		MEMPOOL_GROWING"gssapi_auth_request", 2048);
 	request = p_new(pool, struct gssapi_auth_request, 1);
 	request->pool = pool;
 
@@ -242,8 +243,9 @@ static bool data_has_nuls(const void *data, size_t len)
 	return FALSE;
 }
 
-static int get_display_name(struct auth_request *auth_request, gss_name_t name,
-			    gss_OID *name_type_r, const char **display_name_r)
+static int
+get_display_name(struct auth_request *auth_request, gss_name_t name,
+		 gss_OID *name_type_r, const char **display_name_r)
 {
 	OM_uint32 major_status, minor_status;
 	gss_buffer_desc buf;
@@ -256,8 +258,7 @@ static int get_display_name(struct auth_request *auth_request, gss_name_t name,
 		return -1;
 	}
 	if (data_has_nuls(buf.value, buf.length)) {
-		e_info(auth_request->mech_event,
-		       "authn_name has NULs");
+		e_info(auth_request->mech_event, "authn_name has NULs");
 		return -1;
 	}
 	*display_name_r = t_strndup(buf.value, buf.length);
@@ -265,11 +266,12 @@ static int get_display_name(struct auth_request *auth_request, gss_name_t name,
 	return 0;
 }
 
-static bool mech_gssapi_oid_cmp(const gss_OID_desc *oid1,
-				const gss_OID_desc *oid2)
+static bool
+mech_gssapi_oid_cmp(const gss_OID_desc *oid1, const gss_OID_desc *oid2)
 {
-	return oid1->length == oid2->length &&
-		mem_equals_timing_safe(oid1->elements, oid2->elements, oid1->length);
+	return (oid1->length == oid2->length &&
+		mem_equals_timing_safe(oid1->elements, oid2->elements,
+				       oid1->length));
 }
 
 static int
@@ -363,8 +365,8 @@ mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 
 	/* The client's return data should be empty here */
 
-	/* Only authentication, no integrity or confidentiality
-	   protection (yet?) */
+	/* Only authentication, no integrity or confidentiality protection
+	   (yet?) */
 	ret[0] = (SASL_GSSAPI_QOP_UNSPECIFIED |
                   SASL_GSSAPI_QOP_AUTH_ONLY);
 	ret[1] = 0xFF;
@@ -456,15 +458,16 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 		       "krb5_parse_name() failed: %d",
 		       (int)krb5_err);
 	} else {
-		/* See if the principal is in the list of authorized
-		 * principals for the user */
+		/* See if the principal is in the list of authorized principals
+		   for the user */
 		authorized = k5_principal_is_authorized(&request->auth_request,
 							princ_display_name);
 
-		/* See if the principal is authorized to act as the
-		   specified (UNIX) user */
+		/* See if the principal is authorized to act as the specified
+		   (UNIX) user */
 		if (!authorized) {
-			authorized = krb5_boolean2bool(krb5_kuserok(ctx, princ, login_user));
+			authorized = krb5_boolean2bool(
+				krb5_kuserok(ctx, princ, login_user));
 		}
 
 		krb5_free_principal(ctx, princ);
@@ -480,7 +483,7 @@ mech_gssapi_userok(struct gssapi_auth_request *request, const char *login_user)
 	OM_uint32 major_status, minor_status;
 	int equal_authn_authz;
 
-	/* if authn and authz names equal, don't bother checking further. */
+	/* If authn and authz names equal, don't bother checking further. */
 	major_status = gss_compare_name(&minor_status,
 					request->authn_name,
 					request->authz_name,
@@ -515,15 +518,15 @@ gssapi_credentials_callback(enum passdb_result result,
 		(struct gssapi_auth_request *)request;
 
 	/* We don't care much whether the lookup succeeded or not because GSSAPI
-	 * does not strictly require a passdb. But if a passdb is configured,
-	 * now the k5principals field will have been filled in. */
+	   does not strictly require a passdb. But if a passdb is configured,
+	   now the k5principals field will have been filled in. */
 	switch (result) {
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		auth_request_internal_failure(request);
 		return;
 	case PASSDB_RESULT_USER_DISABLED:
 	case PASSDB_RESULT_PASS_EXPIRED:
-		/* user is explicitly disabled, don't allow it to log in */
+		/* User is explicitly disabled, don't allow it to log in */
 		auth_request_fail(request);
 		return;
 	case PASSDB_RESULT_NEXT:
@@ -600,10 +603,10 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	}
 
 	/* Set username early, so that the credential lookup is for the
-	 * authorizing user. This means the username in subsequent log
-	 * messages will be the authorization name, not the authentication
-	 * name, which may mean that future log messages should be adjusted
-	 * to log the right thing. */
+	   authorizing user. This means the username in subsequent log messages
+	   will be the authorization name, not the authentication name, which
+	   may mean that future log messages should be adjusted to log the right
+	   thing. */
 	if (!auth_request_set_username(auth_request, login_user, &error)) {
 		e_info(auth_request->mech_event,
 		       "authz_name: %s", error);
@@ -718,9 +721,9 @@ const struct mech_module mech_gssapi = {
 	mech_gssapi_auth_free
 };
 
-/* MTI Kerberos v1.5+ and Heimdal v0.7+ supports SPNEGO for Kerberos tickets
-   internally. Nothing else needs to be done here. Note however that this does
-   not support SPNEGO when the only available credential is NTLM.. */
+/* MIT Kerberos v1.5+ and Heimdal v0.7+ support SPNEGO for Kerberos tickets
+   internally. Nothing else needs to be done here. Note, however, that this does
+   not support SPNEGO when the only available credential is NTLM. */
 const struct mech_module mech_gssapi_spnego = {
 	"GSS-SPNEGO",
 
