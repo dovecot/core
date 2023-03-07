@@ -530,7 +530,8 @@ credentials_callback(enum passdb_result result,
 		     struct auth_request *auth_request)
 {
 	struct digest_auth_request *request =
-		(struct digest_auth_request *)auth_request;
+		container_of(auth_request, struct digest_auth_request,
+			     auth_request);
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
@@ -556,7 +557,8 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 			      const unsigned char *data, size_t data_size)
 {
 	struct digest_auth_request *request =
-		(struct digest_auth_request *)auth_request;
+		container_of(auth_request, struct digest_auth_request,
+			     auth_request);
 	const char *username, *error;
 
 	if (parse_digest_response(request, data, data_size, &error)) {
@@ -593,7 +595,8 @@ mech_digest_md5_auth_initial(struct auth_request *auth_request,
 			     size_t data_size ATTR_UNUSED)
 {
 	struct digest_auth_request *request =
-		(struct digest_auth_request *)auth_request;
+		container_of(auth_request, struct digest_auth_request,
+			     auth_request);
 	string_t *challenge;
 
 	/* FIXME: there's no support for subsequent authentication */
