@@ -211,11 +211,6 @@ const void *
 master_service_settings_find(struct master_service_settings_instance *instance,
 			     const char *key, enum setting_type *type_r);
 
-/* Returns TRUE if -o key=value parameter was used. Setting keys in overrides
-   and parameter are unaliased before comparing. */
-bool master_service_set_has_config_override(struct master_service *service,
-					    const char *key);
-
 /* Return a new instance for settings. */
 struct master_service_settings_instance *
 master_service_settings_instance_new(struct master_service *service);

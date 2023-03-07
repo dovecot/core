@@ -153,6 +153,10 @@ setting_filter_parse(const char *set_name, const char *set_value,
 	return TRUE;
 }
 
+static bool
+master_service_set_has_config_override(struct master_service *service,
+				       const char *key);
+
 static void
 master_service_set_process_shutdown_filter_wrapper(struct event_filter *filter)
 {
@@ -1036,10 +1040,19 @@ master_service_settings_get_or_fatal(struct event *event,
 
 int master_service_set(struct master_service_settings_instance *instance,
 		       const char *key, const char *value,
-		       enum master_service_set_type type ATTR_UNUSED,
-		       const char **error_r)
+		       enum master_service_set_type type, const char **error_r)
 {
 	int ret;
+
+	if (type == MASTER_SERVICE_SET_TYPE_USERDB &&
+	    master_service_set_has_config_override(master_service, key)) {
+		/* this setting was already overridden with -o parameter */
+		e_debug(master_service->event,
+			"Ignoring overridden (-o) userdb setting: %s",
+			key);
+		return 1;
+	}
+
 
 	ret = settings_parse_keyvalue(instance->parser, key, value);
 	if (ret <= 0)
@@ -1054,8 +1067,9 @@ master_service_settings_find(struct master_service_settings_instance *instance,
 	return settings_parse_get_value(instance->parser, key, type_r);
 }
 
-bool master_service_set_has_config_override(struct master_service *service,
-					    const char *key)
+static bool
+master_service_set_has_config_override(struct master_service *service,
+				       const char *key)
 {
 	const char *override, *key_root;
 	bool ret;

@@ -99,21 +99,12 @@ static void set_keyval(struct mail_storage_service_user *user,
 {
 	const char *error;
 
-	if (master_service_set_has_config_override(user->service_ctx->service, key)) {
-		/* this setting was already overridden with -o parameter */
-		e_debug(user->event,
-			"Ignoring overridden (-o) userdb setting: %s",
-			key);
-		return;
-	}
-
 	if (master_service_set(user->set_instance, key, value,
 			       MASTER_SERVICE_SET_TYPE_USERDB, &error) < 0)
 		i_fatal("Invalid userdb input %s=%s: %s", key, value, error);
 }
 
-static int set_keyvalue(struct mail_storage_service_ctx *ctx,
-			struct mail_storage_service_user *user,
+static int set_keyvalue(struct mail_storage_service_user *user,
 			const char *key, const char *value,
 			const char **error_r)
 {
@@ -138,13 +129,6 @@ static int set_keyvalue(struct mail_storage_service_ctx *ctx,
 		/* assume it's a plugin setting */
 		key = t_strconcat("plugin/", key, NULL);
 		old_value = master_service_settings_find(user->set_instance, key, &type);
-	}
-
-	if (master_service_set_has_config_override(ctx->service, key)) {
-		/* this setting was already overridden with -o parameter */
-		e_debug(user->event, "Ignoring overridden (-o) userdb setting: %s",
-			key);
-		return 1;
 	}
 
 	if (append_value != NULL) {
@@ -194,8 +178,7 @@ static bool validate_chroot(const struct mail_user_settings *user_set,
 }
 
 static int
-user_reply_handle(struct mail_storage_service_ctx *ctx,
-		  struct mail_storage_service_user *user,
+user_reply_handle(struct mail_storage_service_user *user,
 		  const struct auth_user_reply *reply,
 		  const char **error_r)
 {
@@ -275,7 +258,7 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 		} else if (strcmp(key, "admin") == 0) {
 			user->admin = strchr("1Yy", value[0]) != NULL;
 		} else T_BEGIN {
-			ret = set_keyvalue(ctx, user, key, value, &error);
+			ret = set_keyvalue(user, key, value, &error);
 		} T_END_PASS_STR_IF(ret < 0, &error);
 		if (ret < 0)
 			break;
@@ -1331,7 +1314,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 						  &reply, &error);
 		if (ret2 == 0) {
 			array_sort(&reply.extra_fields, extra_field_key_cmp_p);
-			ret2 = user_reply_handle(ctx, user, &reply, &error);
+			ret2 = user_reply_handle(user, &reply, &error);
 		}
 
 		if (ret2 < 0) {
