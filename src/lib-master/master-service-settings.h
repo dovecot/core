@@ -18,6 +18,7 @@ enum master_service_settings_get_flags {
 };
 
 struct master_service_settings {
+	pool_t pool;
 	const char *base_dir;
 	const char *state_dir;
 	const char *instance_name;
