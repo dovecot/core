@@ -347,6 +347,7 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 static int
 mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 {
+	struct auth_request *auth_request = &request->auth_request;
 	OM_uint32 major_status, minor_status;
 	gss_buffer_desc outbuf;
 	unsigned char ret[4];
@@ -375,11 +376,10 @@ mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 		return -1;
 	}
 
-	e_debug(request->auth_request.mech_event,
-		"Negotiated security layer");
+	e_debug(auth_request->mech_event, "Negotiated security layer");
 
-	auth_request_handler_reply_continue(&request->auth_request,
-					    outbuf.value, outbuf.length);
+	auth_request_handler_reply_continue(auth_request, outbuf.value,
+					    outbuf.length);
 
 	(void)gss_release_buffer(&minor_status, &outbuf);
 	request->sasl_gssapi_state = GSS_STATE_UNWRAP;
