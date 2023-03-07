@@ -26,6 +26,7 @@ static struct db_oauth2 *db_oauth2 = NULL;
 static bool oauth2_unescape_username(const char *in, const char **username_r)
 {
 	string_t *out;
+
 	out = t_str_new(64);
 	for (; *in != '\0'; in++) {
 		if (in[0] == ',')
@@ -51,13 +52,12 @@ oauth2_send_failure(struct oauth2_auth_request *oauth2_req, int code,
 		    const char *status)
 {
 	struct auth_request *request = &oauth2_req->auth;
-	const char *oidc_url = "";
-	if (oauth2_req->db != NULL)
-		oidc_url = db_oauth2_get_openid_configuration_url(oauth2_req->db);
+	const char *oidc_url = (oauth2_req->db == NULL ? "" :
+		db_oauth2_get_openid_configuration_url(oauth2_req->db));
 	string_t *str = t_str_new(256);
 	struct json_ostream *gen = json_ostream_create_str(str, 0);
-	json_ostream_ndescend_object(gen, NULL);
 
+	json_ostream_ndescend_object(gen, NULL);
 	if (strcmp(request->mech->mech_name, "XOAUTH2") == 0) {
 		status = dec2str(code);
 		json_ostream_nwrite_string(gen, "schemes", "bearer");
@@ -122,13 +122,18 @@ mech_oauth2_verify_token_continue(struct oauth2_auth_request *oauth2_req,
 	/* OK result user fields */
 	if (args[0] == NULL || args[1] == NULL) {
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
-		e_error(request->mech_event, "BUG: Invalid auth worker response: empty");
+		e_error(request->mech_event,
+			"BUG: Invalid auth worker response: empty");
 	} else if (str_to_int(args[1], &parsed) < 0) {
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
-		e_error(request->mech_event, "BUG: Invalid auth worker response: cannot parse '%s'", args[1]);
+		e_error(request->mech_event,
+			"BUG: Invalid auth worker response: cannot parse '%s'",
+			args[1]);
 	} else if (args[2] == NULL) {
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
-		e_error(request->mech_event, "BUG: Invalid auth worker response: cannot parse '%s'", args[1]);
+		e_error(request->mech_event,
+			"BUG: Invalid auth worker response: cannot parse '%s'",
+			args[1]);
 	} else {
 		result = parsed;
 	}
@@ -137,7 +142,8 @@ mech_oauth2_verify_token_continue(struct oauth2_auth_request *oauth2_req,
 		request->passdb_success = TRUE;
 		auth_request_set_password_verified(request);
 		auth_request_set_fields(request, args + 3, NULL);
-		auth_request_lookup_credentials(request, "", oauth2_verify_callback);
+		auth_request_lookup_credentials(request, "",
+						oauth2_verify_callback);
 		auth_request_unref(&request);
 		return;
 	}
@@ -147,10 +153,12 @@ mech_oauth2_verify_token_continue(struct oauth2_auth_request *oauth2_req,
 }
 
 static bool
-mech_oauth2_verify_token_input_args(struct auth_worker_connection *conn ATTR_UNUSED,
-				     const char *const *args, void *context)
+mech_oauth2_verify_token_input_args(
+	struct auth_worker_connection *conn ATTR_UNUSED,
+	const char *const *args, void *context)
 {
 	struct oauth2_auth_request *oauth2_req = context;
+
 	mech_oauth2_verify_token_continue(oauth2_req, args);
 	return TRUE;
 }
@@ -162,10 +170,12 @@ mech_oauth2_verify_token_local_continue(struct db_oauth2_request *db_req,
 					struct oauth2_auth_request *oauth2_req)
 {
 	struct auth_request *request = &oauth2_req->auth;
+
 	if (result == PASSDB_RESULT_OK) {
 		auth_request_set_password_verified(request);
 		auth_request_set_field(request, "token", db_req->token, NULL);
-		auth_request_lookup_credentials(request, "", oauth2_verify_callback);
+		auth_request_lookup_credentials(request, "",
+						oauth2_verify_callback);
 		auth_request_unref(&request);
 		pool_unref(&db_req->pool);
 		return;
@@ -180,27 +190,32 @@ mech_oauth2_verify_token_local_continue(struct db_oauth2_request *db_req,
 }
 
 static void
-mech_oauth2_verify_token(struct oauth2_auth_request *oauth2_req, const char *token)
+mech_oauth2_verify_token(struct oauth2_auth_request *oauth2_req,
+			 const char *token)
 {
 	struct auth_request *auth_request = &oauth2_req->auth;
-	auth_request_ref(auth_request);
 
+	auth_request_ref(auth_request);
 	if (!db_oauth2_use_worker(oauth2_req->db)) {
-		pool_t pool = pool_alloconly_create(MEMPOOL_GROWING"oauth2 request", 256);
+		pool_t pool = pool_alloconly_create(
+			MEMPOOL_GROWING"oauth2 request", 256);
 		struct db_oauth2_request *db_req =
 			p_new(pool, struct db_oauth2_request, 1);
 		db_req->pool = pool;
 		db_req->auth_request = auth_request;
-		db_oauth2_lookup(oauth2_req->db, db_req, token, db_req->auth_request,
-				 mech_oauth2_verify_token_local_continue, oauth2_req);
+		db_oauth2_lookup(
+			oauth2_req->db, db_req, token,	db_req->auth_request,
+			mech_oauth2_verify_token_local_continue, oauth2_req);
 	} else {
 		string_t *str = t_str_new(128);
 		str_append(str, "TOKEN\tOAUTH2\t");
 		str_append_tabescaped(str, token);
 		str_append_c(str, '\t');
 		auth_request_export(auth_request, str);
-		auth_worker_call(oauth2_req->db_req.pool, auth_request->fields.user,
-				 str_c(str), mech_oauth2_verify_token_input_args, oauth2_req);
+		auth_worker_call(
+			oauth2_req->db_req.pool,
+			auth_request->fields.user, str_c(str),
+			mech_oauth2_verify_token_input_args, oauth2_req);
 	}
 }
 
@@ -214,15 +229,15 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 {
 	struct oauth2_auth_request *oauth2_req =
 		container_of(request, struct oauth2_auth_request, auth);
+
 	if (oauth2_req->db == NULL) {
 		e_error(request->event, "BUG: oauth2 database missing");
 		oauth2_send_failure(oauth2_req, 500, "internal_failure");
 		return;
 	}
-
 	if (data_size == 0) {
-		 oauth2_send_failure(oauth2_req, 401, "invalid_token");
-		 return;
+		oauth2_send_failure(oauth2_req, 401, "invalid_token");
+		return;
 	}
 
 	/* split the data from ^A */
@@ -234,7 +249,8 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 	const char *username;
 	const char *const *fields =
 		t_strsplit(t_strndup(data, data_size), "\x01");
-	for(ptr = fields; *ptr != NULL; ptr++) {
+
+	for (ptr = fields; *ptr != NULL; ptr++) {
 		if (str_begins(*ptr, "user=", &value)) {
 			/* xoauth2 does not require unescaping because the data
 			   format does not contain anything to escape */
@@ -255,9 +271,9 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 		/* do not fail on unexpected fields */
 	}
 
-	if (user_given && !auth_request_set_username(request, username, &error)) {
-		e_info(request->mech_event,
-		       "%s", error);
+	if (user_given &&
+	    !auth_request_set_username(request, username, &error)) {
+		e_info(request->mech_event, "%s", error);
 		oauth2_send_failure(oauth2_req, 400, "invalid_request");
 		return;
 	}
@@ -282,15 +298,15 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 {
 	struct oauth2_auth_request *oauth2_req =
 		container_of(request, struct oauth2_auth_request, auth);
+
 	if (oauth2_req->db == NULL) {
 		e_error(request->event, "BUG: oauth2 database missing");
 		oauth2_send_failure(oauth2_req, 500, "internal_failure");
 		return;
 	}
-
 	if (data_size == 0) {
-		 oauth2_send_failure(oauth2_req, 401, "invalid_token");
-		 return;
+		oauth2_send_failure(oauth2_req, 401, "invalid_token");
+		return;
 	}
 
 	bool user_given = FALSE;
@@ -303,14 +319,13 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 	const char *token = NULL;
 	/* ensure initial field is OK */
 	if (*fields == NULL || *(fields[0]) == '\0') {
-		e_info(request->mech_event,
-		       "Invalid continued data");
+		e_info(request->mech_event, "Invalid continued data");
 		oauth2_send_failure(oauth2_req, 401, "invalid_token");
 		return;
 	}
 
 	/* the first field is specified by RFC5801 as gs2-header */
-	for(ptr = t_strsplit_spaces(fields[0], ","); *ptr != NULL; ptr++) {
+	for (ptr = t_strsplit_spaces(fields[0], ","); *ptr != NULL; ptr++) {
 		switch(*ptr[0]) {
 		case 'f':
 			e_info(request->mech_event,
@@ -332,11 +347,11 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 		case 'a': /* authzid */
 			if ((*ptr)[1] != '=' ||
 			    !oauth2_unescape_username((*ptr)+2, &username)) {
-				 e_info(request->mech_event,
-					"Invalid username escaping");
-				 oauth2_send_failure(oauth2_req, 400,
-						     "invalid_request");
-				 return;
+				e_info(request->mech_event,
+				       "Invalid username escaping");
+				oauth2_send_failure(oauth2_req, 400,
+						    "invalid_request");
+				return;
 			} else {
 				user_given = TRUE;
 			}
@@ -349,7 +364,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 		}
 	}
 
-	for(ptr = fields; *ptr != NULL; ptr++) {
+	for (ptr = fields; *ptr != NULL; ptr++) {
 		if (str_begins(*ptr, "auth=", &value)) {
 			if (str_begins_icase(value, "bearer ", &value) &&
 			    oauth2_valid_token(value)) {
@@ -364,9 +379,9 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 		}
 		/* do not fail on unexpected fields */
 	}
-	if (user_given && !auth_request_set_username(request, username, &error)) {
-		e_info(request->mech_event,
-		       "%s", error);
+	if (user_given &&
+	    !auth_request_set_username(request, username, &error)) {
+		e_info(request->mech_event, "%s", error);
 		oauth2_send_failure(oauth2_req, 400, "invalid_request");
 		return;
 	}
@@ -384,6 +399,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 static struct auth_request *mech_oauth2_auth_new(void)
 {
 	struct oauth2_auth_request *request;
+
 	pool_t pool = pool_alloconly_create_clean(MEMPOOL_GROWING
 						  "oauth2_auth_request", 2048);
 	request = p_new(pool, struct oauth2_auth_request, 1);
@@ -425,7 +441,8 @@ void mech_oauth2_initialize(void)
 	array_foreach_elem(&global_auth_settings->mechanisms, mech) {
 		if (strcasecmp(mech, mech_xoauth2.mech_name) == 0 ||
 		    strcasecmp(mech, mech_oauthbearer.mech_name) == 0) {
-			if (db_oauth2_init(auth_event, FALSE, &db_oauth2, &error) < 0)
+			if (db_oauth2_init(auth_event, FALSE,
+					   &db_oauth2, &error) < 0)
 				i_fatal("Cannot initialize oauth2: %s", error);
 		}
 	}
