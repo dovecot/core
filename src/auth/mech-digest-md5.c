@@ -22,7 +22,8 @@ static_assert_array_size(qop_names, QOP_COUNT);
 
 static string_t *get_digest_challenge(struct digest_auth_request *request)
 {
-	const struct auth_settings *set = request->auth_request.set;
+	struct auth_request *auth_request = &request->auth_request;
+	const struct auth_settings *set = auth_request->set;
 	buffer_t buf;
 	string_t *str;
 	const char *const *tmp;
@@ -82,6 +83,7 @@ static bool
 verify_credentials(struct digest_auth_request *request,
 		   const unsigned char *credentials, size_t size)
 {
+	struct auth_request *auth_request = &request->auth_request;
 	struct md5_context ctx;
 	unsigned char digest[MD5_RESULTLEN];
 	const char *a1_hex, *a2_hex, *response_hex;
@@ -89,7 +91,7 @@ verify_credentials(struct digest_auth_request *request,
 
 	/* get the MD5 password */
 	if (size != MD5_RESULTLEN) {
-                e_error(request->auth_request.mech_event,
+                e_error(auth_request->mech_event,
 			"invalid credentials length");
 		return FALSE;
 	}
@@ -179,8 +181,7 @@ verify_credentials(struct digest_auth_request *request,
 			if (!mem_equals_timing_safe(response_hex,
 						    request->response, 32)) {
 				auth_request_log_info(
-					&request->auth_request,
-					AUTH_SUBSYS_MECH,
+					auth_request, AUTH_SUBSYS_MECH,
 					AUTH_LOG_MSG_PASSWORD_MISMATCH);
 				return FALSE;
 			}
@@ -254,14 +255,14 @@ static bool
 auth_handle_response(struct digest_auth_request *request,
 		     char *key, char *value, const char **error)
 {
+	struct auth_request *auth_request = &request->auth_request;
 	unsigned int i;
 
 	(void)str_lcase(key);
 
 	if (strcmp(key, "realm") == 0) {
-		if (request->auth_request.fields.realm == NULL &&
-		    *value != '\0')
-			auth_request_set_realm(&request->auth_request, value);
+		if (auth_request->fields.realm == NULL && *value != '\0')
+			auth_request_set_realm(auth_request, value);
 		return TRUE;
 	}
 
