@@ -46,16 +46,17 @@ static const char *get_cram_challenge(void)
 			       dec2str(ioloop_time), my_hostname);
 }
 
-static bool verify_credentials(struct cram_auth_request *request,
-			       const unsigned char *credentials, size_t size)
+static bool
+verify_credentials(struct cram_auth_request *request,
+		   const unsigned char *credentials, size_t size)
 {
 	unsigned char digest[MD5_RESULTLEN];
         struct hmac_context ctx;
 	const char *response_hex;
 
 	if (size != CRAM_MD5_CONTEXTLEN) {
-                e_error(request->auth_request.mech_event,
-		        "invalid credentials length");
+		e_error(request->auth_request.mech_event,
+			"invalid credentials length");
 		return FALSE;
 	}
 
@@ -66,7 +67,8 @@ static bool verify_credentials(struct cram_auth_request *request,
 
 	response_hex = binary_to_hex(digest, sizeof(digest));
 
-	if (!mem_equals_timing_safe(response_hex, request->response, sizeof(digest)*2)) {
+	if (!mem_equals_timing_safe(response_hex, request->response,
+				    sizeof(digest) * 2)) {
 		e_info(request->auth_request.mech_event,
 		       AUTH_LOG_MSG_PASSWORD_MISMATCH);
 		return FALSE;
@@ -75,9 +77,10 @@ static bool verify_credentials(struct cram_auth_request *request,
 	return TRUE;
 }
 
-static bool parse_cram_response(struct cram_auth_request *request,
-				const unsigned char *data, size_t size,
-				const char **error_r)
+static bool
+parse_cram_response(struct cram_auth_request *request,
+		    const unsigned char *data, size_t size,
+		    const char **error_r)
 {
 	size_t i, space;
 
@@ -106,9 +109,10 @@ static bool parse_cram_response(struct cram_auth_request *request,
 	return TRUE;
 }
 
-static void credentials_callback(enum passdb_result result,
-				 const unsigned char *credentials, size_t size,
-				 struct auth_request *auth_request)
+static void
+credentials_callback(enum passdb_result result,
+		     const unsigned char *credentials, size_t size,
+		     struct auth_request *auth_request)
 {
 	struct cram_auth_request *request =
 		(struct cram_auth_request *)auth_request;
