@@ -17,8 +17,3 @@ void sasl_server_mech_generic_auth_initial(
 		request->mech->auth_continue(mreq, data, data_size);
 	}
 }
-
-void sasl_server_mech_generic_auth_free(struct sasl_server_mech_request *mreq)
-{
-	(void)mreq;
-}

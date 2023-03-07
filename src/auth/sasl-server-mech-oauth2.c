@@ -322,7 +322,6 @@ const struct sasl_server_mech_def mech_oauthbearer = {
 	.auth_new = mech_oauth2_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_oauthbearer_auth_continue,
-	.auth_free = sasl_server_mech_generic_auth_free,
 };
 
 const struct sasl_server_mech_def mech_xoauth2 = {
@@ -334,7 +333,6 @@ const struct sasl_server_mech_def mech_xoauth2 = {
 	.auth_new = mech_oauth2_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_xoauth2_auth_continue,
-	.auth_free = sasl_server_mech_generic_auth_free,
 };
 
 void mech_oauth2_initialize(void)

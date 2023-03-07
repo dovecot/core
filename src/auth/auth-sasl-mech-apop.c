@@ -163,5 +163,4 @@ const struct sasl_server_mech_def mech_apop = {
 
 	.auth_new = mech_apop_auth_new,
 	.auth_initial = mech_apop_auth_initial,
-	.auth_free = sasl_server_mech_generic_auth_free,
 };

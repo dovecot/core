@@ -182,5 +182,4 @@ const struct sasl_server_mech_def mech_cram_md5 = {
 	.auth_new = mech_cram_md5_auth_new,
 	.auth_initial = mech_cram_md5_auth_initial,
 	.auth_continue = mech_cram_md5_auth_continue,
-        .auth_free = sasl_server_mech_generic_auth_free,
 };

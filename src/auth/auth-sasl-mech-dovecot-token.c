@@ -86,5 +86,4 @@ const struct sasl_server_mech_def mech_dovecot_token = {
 	.auth_new = mech_dovecot_token_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_dovecot_token_auth_continue,
-	.auth_free = sasl_server_mech_generic_auth_free,
 };

@@ -69,5 +69,4 @@ const struct sasl_server_mech_def mech_login = {
 	.auth_new = mech_login_auth_new,
 	.auth_initial = mech_login_auth_initial,
 	.auth_continue = mech_login_auth_continue,
-	.auth_free = sasl_server_mech_generic_auth_free,
 };

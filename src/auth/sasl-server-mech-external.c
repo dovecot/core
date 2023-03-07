@@ -46,5 +46,4 @@ const struct sasl_server_mech_def mech_external = {
 	.auth_new = mech_external_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_external_auth_continue,
-	.auth_free = sasl_server_mech_generic_auth_free,
 };
