@@ -28,22 +28,12 @@ mech_external_auth_continue(struct sasl_server_mech_request *request,
 		request, "", sasl_server_mech_plain_verify_callback);
 }
 
-static struct sasl_server_mech_request *mech_external_auth_new(pool_t pool)
-{
-	struct sasl_server_mech_request *request;
-
-	request = p_new(pool, struct sasl_server_mech_request, 1);
-
-	return request;
-}
-
 const struct sasl_server_mech_def mech_external = {
 	.mech_name = "EXTERNAL",
 
 	.flags = 0,
 	.passdb_need = SASL_MECH_PASSDB_NEED_VERIFY_PLAIN,
 
-	.auth_new = mech_external_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_external_auth_continue,
 };

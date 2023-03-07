@@ -19,22 +19,12 @@ mech_anonymous_auth_continue(struct sasl_server_mech_request *request,
 	sasl_server_request_success(request, "", 0);
 }
 
-static struct sasl_server_mech_request *mech_anonymous_auth_new(pool_t pool)
-{
-        struct sasl_server_mech_request *request;
-
-	request = p_new(pool, struct sasl_server_mech_request, 1);
-	request->pool = pool;
-	return request;
-}
-
 const struct sasl_server_mech_def mech_anonymous = {
 	.mech_name = "ANONYMOUS",
 
 	.flags = SASL_MECH_SEC_ANONYMOUS | SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_NOTHING,
 
-	.auth_new = mech_anonymous_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_anonymous_auth_continue,
 };
