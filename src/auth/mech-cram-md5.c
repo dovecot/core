@@ -115,7 +115,8 @@ credentials_callback(enum passdb_result result,
 		     struct auth_request *auth_request)
 {
 	struct cram_auth_request *request =
-		(struct cram_auth_request *)auth_request;
+		container_of(auth_request, struct cram_auth_request,
+			     auth_request);
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
@@ -138,7 +139,8 @@ mech_cram_md5_auth_continue(struct auth_request *auth_request,
 			    const unsigned char *data, size_t data_size)
 {
 	struct cram_auth_request *request =
-		(struct cram_auth_request *)auth_request;
+		container_of(auth_request, struct cram_auth_request,
+			     auth_request);
 	const char *error;
 
 	if (parse_cram_response(request, data, data_size, &error)) {
@@ -163,7 +165,8 @@ mech_cram_md5_auth_initial(struct auth_request *auth_request,
 			   size_t data_size ATTR_UNUSED)
 {
 	struct cram_auth_request *request =
-		(struct cram_auth_request *)auth_request;
+		container_of(auth_request, struct cram_auth_request,
+			     auth_request);
 
 	request->challenge = p_strdup(request->pool, get_cram_challenge());
 	auth_request_handler_reply_continue(auth_request,  request->challenge,
