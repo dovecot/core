@@ -1186,6 +1186,9 @@ bool client_get_extra_disconnect_reason(struct client *client,
 	if (client->auth_process_comm_fail) {
 		*event_reason_r = "auth_process_comm_fail";
 		last_reason = "auth process communication failure";
+	} else if (client->auth_aborted_by_client) {
+		*event_reason_r = "auth_aborted_by_client";
+		last_reason = "auth aborted by client";
 	} else if (client->auth_client_continue_pending) {
 		*event_reason_r = "auth_waiting_client";
 		last_reason = "client didn't finish SASL auth";
@@ -1196,9 +1199,6 @@ bool client_get_extra_disconnect_reason(struct client *client,
 		i_assert(client->master_tag != 0);
 		*event_reason_r = "auth_waiting_server_finish";
 		last_reason = "disconnected while finishing login";
-	} else if (client->auth_aborted_by_client) {
-		*event_reason_r = "auth_aborted_by_client";
-		last_reason = "auth aborted by client";
 	} else if (client->auth_nologin_referral) {
 		/* Referral was sent to the connecting client, which is
 		   expected to be a trusted Dovecot proxy. There should be no
