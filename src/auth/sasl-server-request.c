@@ -203,42 +203,85 @@ void sasl_server_request_internal_failure(
 		mreq, SASL_SERVER_OUTPUT_INTERNAL_FAILURE, "", 0);
 }
 
+static enum sasl_passdb_result_status
+translate_result_status(enum passdb_result result)
+{
+	switch (result) {
+	case PASSDB_RESULT_INTERNAL_FAILURE:;
+		return SASL_PASSDB_RESULT_INTERNAL_FAILURE;
+	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
+		return SASL_PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
+	case PASSDB_RESULT_USER_UNKNOWN:
+		return SASL_PASSDB_RESULT_USER_UNKNOWN;
+	case PASSDB_RESULT_USER_DISABLED:
+		return SASL_PASSDB_RESULT_USER_DISABLED;
+	case PASSDB_RESULT_PASS_EXPIRED:
+		return SASL_PASSDB_RESULT_PASS_EXPIRED;
+	case PASSDB_RESULT_PASSWORD_MISMATCH:
+		return SASL_PASSDB_RESULT_PASSWORD_MISMATCH;
+	case PASSDB_RESULT_NEXT:
+	case PASSDB_RESULT_OK:
+		return SASL_PASSDB_RESULT_OK;
+	}
+	i_unreached();
+}
+
 static void
-verify_plain_callback(enum passdb_result result, struct auth_request *request)
+verify_plain_callback(enum passdb_result status, struct auth_request *request)
 {
 	struct sasl_server_mech_request *mreq = request->sasl;
+	struct sasl_server_request *req = mreq->req;
 
-	mreq->private_callback.verify_plain(result, request->sasl);
+	i_assert(req->passdb_type == SASL_SERVER_PASSDB_TYPE_VERIFY_PLAIN);
+
+	const struct sasl_passdb_result result = {
+		.status = translate_result_status(status),
+	};
+	req->passdb_callback(mreq, &result);
 }
 
 void sasl_server_request_verify_plain(
 	struct sasl_server_mech_request *mreq, const char *password,
-	sasl_server_verify_plain_callback_t *callback)
+	sasl_server_mech_passdb_callback_t *callback)
 {
 	struct auth_request *request = mreq->request;
+	struct sasl_server_request *req = mreq->req;
 
-	mreq->private_callback.verify_plain = callback;
+	req->passdb_type = SASL_SERVER_PASSDB_TYPE_VERIFY_PLAIN;
+	req->passdb_callback = callback;
 	auth_sasl_request_verify_plain(request, password, verify_plain_callback);
 }
 
 static void
-lookup_credentials_callback(enum passdb_result result,
+lookup_credentials_callback(enum passdb_result status,
 			    const unsigned char *credentials,
 			    size_t size, struct auth_request *request)
 {
 	struct sasl_server_mech_request *mreq = request->sasl;
+	struct sasl_server_request *req = mreq->req;
 
-	mreq->private_callback.lookup_credentials(result, credentials, size,
-						  mreq);
+	i_assert(req->passdb_type ==
+		 SASL_SERVER_PASSDB_TYPE_LOOKUP_CREDENTIALS);
+
+	const struct sasl_passdb_result result = {
+		.status = translate_result_status(status),
+		.credentials = {
+			.data = credentials,
+			.size = size,
+		},
+	};
+	req->passdb_callback(mreq, &result);
 }
 
 void sasl_server_request_lookup_credentials(
 	struct sasl_server_mech_request *mreq, const char *scheme,
-	sasl_server_lookup_credentials_callback_t *callback)
+	sasl_server_mech_passdb_callback_t *callback)
 {
 	struct auth_request *request = mreq->request;
+	struct sasl_server_request *req = mreq->req;
 
-	mreq->private_callback.lookup_credentials = callback;
+	req->passdb_type = SASL_SERVER_PASSDB_TYPE_LOOKUP_CREDENTIALS;
+	req->passdb_callback = callback;
 	auth_sasl_request_lookup_credentials(request, scheme, 
 					     lookup_credentials_callback);
 }
@@ -247,18 +290,28 @@ static void
 set_credentials_callback(bool success, struct auth_request *request)
 {
 	struct sasl_server_mech_request *mreq = request->sasl;
+	struct sasl_server_request *req = mreq->req;
 
-	mreq->private_callback.set_credentials(success, mreq);
+	i_assert(req->passdb_type == SASL_SERVER_PASSDB_TYPE_SET_CREDENTIALS);
+
+	const struct sasl_passdb_result result = {
+		.status = (success ?
+			   SASL_PASSDB_RESULT_OK :
+			   SASL_PASSDB_RESULT_INTERNAL_FAILURE),
+	};
+	req->passdb_callback(mreq, &result);
 }
 
 void sasl_server_request_set_credentials(
 	struct sasl_server_mech_request *mreq,
 	const char *scheme, const char *data,
-	sasl_server_set_credentials_callback_t *callback)
+	sasl_server_mech_passdb_callback_t *callback)
 {
 	struct auth_request *request = mreq->request;
+	struct sasl_server_request *req = mreq->req;
 
-	mreq->private_callback.set_credentials = callback;
+	req->passdb_type = SASL_SERVER_PASSDB_TYPE_SET_CREDENTIALS;
+	req->passdb_callback = callback;
 	auth_sasl_request_set_credentials(request, scheme, data,
 					  set_credentials_callback);
 }

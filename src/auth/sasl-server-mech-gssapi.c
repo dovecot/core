@@ -488,10 +488,8 @@ mech_gssapi_userok(struct gssapi_auth_request *request, const char *login_user)
 }
 
 static void
-gssapi_credentials_callback(enum passdb_result result,
-			    const unsigned char *credentials ATTR_UNUSED,
-			    size_t size ATTR_UNUSED,
-			    struct sasl_server_mech_request *auth_request)
+gssapi_credentials_callback(struct sasl_server_mech_request *auth_request,
+			    const struct sasl_passdb_result *result)
 {
 	struct gssapi_auth_request *request =
 		container_of(auth_request, struct gssapi_auth_request,
@@ -500,7 +498,7 @@ gssapi_credentials_callback(enum passdb_result result,
 	/* We don't care much whether the lookup succeeded or not because GSSAPI
 	   does not strictly require a passdb. But if a passdb is configured,
 	   now the k5principals field will have been filled in. */
-	switch (result) {
+	switch (result->status) {
 	case SASL_PASSDB_RESULT_INTERNAL_FAILURE:
 		sasl_server_request_internal_failure(auth_request);
 		return;
@@ -509,7 +507,6 @@ gssapi_credentials_callback(enum passdb_result result,
 		/* User is explicitly disabled, don't allow it to log in */
 		sasl_server_request_failure(auth_request);
 		return;
-	case PASSDB_RESULT_NEXT: /* FIXME: To be removed */
 	case SASL_PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
 	case SASL_PASSDB_RESULT_USER_UNKNOWN:
 	case SASL_PASSDB_RESULT_PASSWORD_MISMATCH:

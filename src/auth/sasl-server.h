@@ -5,18 +5,19 @@
 
 struct sasl_server_mech_def;
 struct sasl_server_mech_request;
+struct sasl_server_request;
 struct sasl_server_req_ctx;
 
 enum sasl_passdb_result_status {
-	SASL_PASSDB_RESULT_INTERNAL_FAILURE = PASSDB_RESULT_INTERNAL_FAILURE,
-	SASL_PASSDB_RESULT_SCHEME_NOT_AVAILABLE = PASSDB_RESULT_SCHEME_NOT_AVAILABLE,
+	SASL_PASSDB_RESULT_INTERNAL_FAILURE = -1,
+	SASL_PASSDB_RESULT_SCHEME_NOT_AVAILABLE = -2,
 
-	SASL_PASSDB_RESULT_USER_UNKNOWN = PASSDB_RESULT_USER_UNKNOWN,
-	SASL_PASSDB_RESULT_USER_DISABLED = PASSDB_RESULT_USER_DISABLED,
-	SASL_PASSDB_RESULT_PASS_EXPIRED = PASSDB_RESULT_PASS_EXPIRED,
+	SASL_PASSDB_RESULT_USER_UNKNOWN = -3,
+	SASL_PASSDB_RESULT_USER_DISABLED = -4,
+	SASL_PASSDB_RESULT_PASS_EXPIRED = -5,
 
-	SASL_PASSDB_RESULT_PASSWORD_MISMATCH = PASSDB_RESULT_PASSWORD_MISMATCH,
-	SASL_PASSDB_RESULT_OK = PASSDB_RESULT_OK,
+	SASL_PASSDB_RESULT_PASSWORD_MISMATCH = 0,
+	SASL_PASSDB_RESULT_OK = 1,
 };
 
 enum sasl_mech_passdb_need {
@@ -50,6 +51,15 @@ struct sasl_server_output {
 
 	const void *data;
 	size_t data_size;
+};
+
+struct sasl_passdb_result {
+	enum sasl_passdb_result_status status;
+
+	struct {
+		const unsigned char *data;
+		size_t size;
+	} credentials;
 };
 
 /*

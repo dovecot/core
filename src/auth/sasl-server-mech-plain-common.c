@@ -6,9 +6,10 @@
 #include "sasl-server-mech-plain-common.h"
 
 void sasl_server_mech_plain_verify_callback(
-	enum passdb_result result, struct sasl_server_mech_request *request)
+	struct sasl_server_mech_request *request,
+	const struct sasl_passdb_result *result)
 {
-	switch (result) {
+	switch (result->status) {
 	case SASL_PASSDB_RESULT_OK:
 		sasl_server_request_success(request, "", 0);
 		break;

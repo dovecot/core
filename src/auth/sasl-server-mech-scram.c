@@ -18,9 +18,8 @@ struct scram_auth_request {
 };
 
 static void
-credentials_callback(enum passdb_result result,
-		     const unsigned char *credentials, size_t size,
-		     struct sasl_server_mech_request *auth_request)
+credentials_callback(struct sasl_server_mech_request *auth_request,
+		     const struct sasl_passdb_result *result)
 {
 	struct scram_auth_request *request =
 		container_of(auth_request, struct scram_auth_request,
@@ -31,11 +30,12 @@ credentials_callback(enum passdb_result result,
 	size_t output_len;
 	bool end;
 
-	switch (result) {
+	switch (result->status) {
 	case SASL_PASSDB_RESULT_OK:
 		if (auth_scram_credentials_parse(key_data->hmethod,
 						 request->password_scheme,
-						 credentials, size,
+						 result->credentials.data,
+						 result->credentials.size,
 						 &key_data->iter_count,
 						 &key_data->salt,
 						 key_data->stored_key,

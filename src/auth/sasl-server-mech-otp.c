@@ -109,17 +109,17 @@ otp_send_challenge(struct otp_auth_request *request,
 }
 
 static void
-otp_credentials_callback(enum passdb_result result,
-			 const unsigned char *credentials, size_t size,
-			 struct sasl_server_mech_request *auth_request)
+otp_credentials_callback(struct sasl_server_mech_request *auth_request,
+			 const struct sasl_passdb_result *result)
 {
 	struct otp_auth_request *request =
 		container_of(auth_request, struct otp_auth_request,
 			     auth_request);
 
-	switch (result) {
+	switch (result->status) {
 	case SASL_PASSDB_RESULT_OK:
-		otp_send_challenge(request, credentials, size);
+		otp_send_challenge(request, result->credentials.data,
+				   result->credentials.size);
 		break;
 	case SASL_PASSDB_RESULT_INTERNAL_FAILURE:
 		sasl_server_request_internal_failure(auth_request);
@@ -168,14 +168,14 @@ mech_otp_auth_phase1(struct otp_auth_request *request,
 }
 
 static void
-otp_set_credentials_callback(bool success,
-			     struct sasl_server_mech_request *auth_request)
+otp_set_credentials_callback(struct sasl_server_mech_request *auth_request,
+			     const struct sasl_passdb_result *result)
 {
 	struct otp_auth_request *request =
 		container_of(auth_request, struct otp_auth_request,
 			     auth_request);
 
-	if (success)
+	if (result->status == SASL_PASSDB_RESULT_OK)
 		sasl_server_request_success(auth_request, "", 0);
 	else {
 		sasl_server_request_internal_failure(auth_request);

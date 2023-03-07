@@ -10,16 +10,8 @@ struct auth_request;
 struct sasl_server_mech_request;
 
 typedef void
-sasl_server_verify_plain_callback_t(enum passdb_result result,
-				    struct sasl_server_mech_request *req);
-typedef void
-sasl_server_lookup_credentials_callback_t(enum passdb_result result,
-					  const unsigned char *credentials,
-					  size_t size,
-					  struct sasl_server_mech_request *req);
-typedef void
-sasl_server_set_credentials_callback_t(bool success,
-				       struct sasl_server_mech_request *req);
+sasl_server_mech_passdb_callback_t(struct sasl_server_mech_request *req,
+				   const struct sasl_passdb_result *result);
 
 struct sasl_server_mech_def {
 	const char *mech_name;
@@ -58,11 +50,6 @@ struct sasl_server_mech_request {
 
 	// FIXME: To be removed
 	struct auth_request *request;
-	union {
-		sasl_server_verify_plain_callback_t *verify_plain;
-		sasl_server_lookup_credentials_callback_t *lookup_credentials;
-		sasl_server_set_credentials_callback_t *set_credentials;
-	} private_callback;
 };
 
 /*
@@ -124,13 +111,13 @@ void sasl_server_request_internal_failure(
 
 void sasl_server_request_verify_plain(
 	struct sasl_server_mech_request *mreq, const char *password,
-	sasl_server_verify_plain_callback_t *callback);
+	sasl_server_mech_passdb_callback_t *callback);
 void sasl_server_request_lookup_credentials(
 	struct sasl_server_mech_request *mreq, const char *scheme,
-	sasl_server_lookup_credentials_callback_t *callback);
+	sasl_server_mech_passdb_callback_t *callback);
 void sasl_server_request_set_credentials(
 	struct sasl_server_mech_request *mreq,
 	const char *scheme, const char *data,
-	sasl_server_set_credentials_callback_t *callback);
+	sasl_server_mech_passdb_callback_t *callback);
 
 #endif

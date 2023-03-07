@@ -42,22 +42,22 @@ static bool verify_credentials(struct apop_auth_request *request,
 }
 
 static void
-apop_credentials_callback(enum passdb_result result,
-			  const unsigned char *credentials, size_t size,
-			  struct sasl_server_mech_request *auth_request)
+apop_credentials_callback(struct sasl_server_mech_request *auth_request,
+			  const struct sasl_passdb_result *result)
 {
 	struct apop_auth_request *request =
 		container_of(auth_request, struct apop_auth_request,
 			     auth_request);
 
-	switch (result) {
-	case PASSDB_RESULT_OK:
-		if (verify_credentials(request, credentials, size))
+	switch (result->status) {
+	case SASL_PASSDB_RESULT_OK:
+		if (verify_credentials(request, result->credentials.data,
+				       result->credentials.size))
 			sasl_server_request_success(auth_request, "", 0);
 		else
 			sasl_server_request_failure(auth_request);
 		break;
-	case PASSDB_RESULT_INTERNAL_FAILURE:
+	case SASL_PASSDB_RESULT_INTERNAL_FAILURE:
 		sasl_server_request_internal_failure(auth_request);
 		break;
 	default:

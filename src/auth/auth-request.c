@@ -15,7 +15,7 @@
 #include "hostpid.h"
 #include "settings.h"
 #include "master-service.h"
-#include "sasl-server-protected.h" // FIXME: remove
+#include "sasl-server-private.h" // FIXME: remove
 #include "auth-cache.h"
 #include "auth-request.h"
 #include "auth-request-handler.h"

@@ -529,13 +529,13 @@ parse_digest_response(struct digest_auth_request *request,
 }
 
 static void
-credentials_callback(enum passdb_result result,
-		     const unsigned char *credentials, size_t size,
-		     struct sasl_server_mech_request *auth_request)
+credentials_callback(struct sasl_server_mech_request *auth_request,
+		     const struct sasl_passdb_result *result)
 {
-	switch (result) {
+	switch (result->status) {
 	case SASL_PASSDB_RESULT_OK:
-		verify_credentials(auth_request, credentials, size);
+		verify_credentials(auth_request, result->credentials.data,
+				   result->credentials.size);
 		break;
 	case SASL_PASSDB_RESULT_INTERNAL_FAILURE:
 		sasl_server_request_internal_failure(auth_request);
