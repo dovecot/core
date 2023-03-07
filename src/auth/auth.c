@@ -241,9 +241,9 @@ static bool auth_passdb_list_have_set_credentials(const struct auth *auth)
 }
 
 static bool
-auth_mech_verify_passdb(const struct auth *auth, const struct mech_module_list *list)
+auth_mech_verify_passdb(const struct auth *auth, const struct mech_module *mech)
 {
-	switch (list->module.passdb_need) {
+	switch (mech->passdb_need) {
 	case SASL_MECH_PASSDB_NEED_NOTHING:
 		break;
 	case SASL_MECH_PASSDB_NEED_VERIFY_PLAIN:
@@ -270,7 +270,7 @@ static void auth_mech_list_verify_passdb(const struct auth *auth)
 	const struct mech_module_list *list;
 
 	for (list = auth->reg->modules; list != NULL; list = list->next) {
-		if (!auth_mech_verify_passdb(auth, list))
+		if (!auth_mech_verify_passdb(auth, list->module))
 			break;
 	}
 
@@ -278,10 +278,10 @@ static void auth_mech_list_verify_passdb(const struct auth *auth)
 		if (auth->passdbs == NULL) {
 			i_fatal("No passdbs specified in configuration file. "
 				"%s mechanism needs one",
-				list->module.mech_name);
+				list->module->mech_name);
 		}
 		i_fatal("%s mechanism can't be supported with given passdbs",
-			list->module.mech_name);
+			list->module->mech_name);
 	}
 }
 

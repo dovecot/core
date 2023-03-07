@@ -24,6 +24,9 @@ struct oauth2_auth_request {
 	bool verifying_token:1;
 };
 
+const struct mech_module mech_oauthbearer;
+const struct mech_module mech_xoauth2;
+
 static struct db_oauth2 *db_oauth2 = NULL;
 
 static void
@@ -42,7 +45,7 @@ oauth2_fail(struct oauth2_auth_request *oauth2_req,
 
 	i_assert(failure->status != NULL);
 	json_ostream_ndescend_object(joutput, NULL);
-	if (strcmp(request->mech->mech_name, "XOAUTH2") == 0) {
+	if (request->mech == &mech_xoauth2) {
 		if (strcmp(failure->status, "invalid_token") == 0)
 			json_ostream_nwrite_string(joutput, "status", "401");
 		else if (strcmp(failure->status, "insufficient_scope") == 0)
@@ -51,7 +54,7 @@ oauth2_fail(struct oauth2_auth_request *oauth2_req,
 			json_ostream_nwrite_string(joutput, "status", "400");
 		json_ostream_nwrite_string(joutput, "schemes", "bearer");
 	} else {
-		i_assert(strcmp(request->mech->mech_name, "OAUTHBEARER") == 0);
+		i_assert(request->mech == &mech_oauthbearer);
 		json_ostream_nwrite_string(joutput, "status", failure->status);
 	}
 	if (failure->scope == NULL)

@@ -18,7 +18,7 @@ void mech_register_module(const struct mech_module *module)
 	i_assert(strcmp(module->mech_name, t_str_ucase(module->mech_name)) == 0);
 
 	list = i_new(struct mech_module_list, 1);
-	list->module = *module;
+	list->module = module;
 
 	list->next = mech_modules;
 	mech_modules = list;
@@ -29,7 +29,7 @@ void mech_unregister_module(const struct mech_module *module)
 	struct mech_module_list **pos, *list;
 
 	for (pos = &mech_modules; *pos != NULL; pos = &(*pos)->next) {
-		if (strcmp((*pos)->module.mech_name, module->mech_name) == 0) {
+		if (strcmp((*pos)->module->mech_name, module->mech_name) == 0) {
 			list = *pos;
 			*pos = (*pos)->next;
 			i_free(list);
@@ -44,8 +44,8 @@ const struct mech_module *mech_module_find(const char *name)
 	name = t_str_ucase(name);
 
 	for (list = mech_modules; list != NULL; list = list->next) {
-		if (strcmp(list->module.mech_name, name) == 0)
-			return &list->module;
+		if (strcmp(list->module->mech_name, name) == 0)
+			return list->module;
 	}
 	return NULL;
 }
@@ -80,7 +80,7 @@ static void mech_register_add(struct mechanisms_register *reg,
 	string_t *handshake;
 
 	list = p_new(reg->pool, struct mech_module_list, 1);
-	list->module = *mech;
+	list->module = mech;
 
 	if ((mech->flags & SASL_MECH_SEC_CHANNEL_BINDING) != 0)
 		handshake = reg->handshake_cbind;
@@ -180,8 +180,8 @@ mech_register_find(const struct mechanisms_register *reg, const char *name)
 	name = t_str_ucase(name);
 
 	for (list = reg->modules; list != NULL; list = list->next) {
-		if (strcmp(list->module.mech_name, name) == 0)
-			return &list->module;
+		if (strcmp(list->module->mech_name, name) == 0)
+			return list->module;
 	}
 	return NULL;
 }

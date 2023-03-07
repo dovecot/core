@@ -25,7 +25,7 @@ struct mech_module {
 struct mech_module_list {
 	struct mech_module_list *next;
 
-	struct mech_module module;
+	const struct mech_module *module;
 };
 
 struct mechanisms_register {
