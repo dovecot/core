@@ -52,6 +52,10 @@ struct master_service_settings_instance {
 
 static pool_t master_settings_pool_create(struct master_settings_mmap *mmap);
 
+static const void *
+master_service_settings_find(struct master_service_settings_instance *instance,
+			     const char *key, enum setting_type *type_r);
+
 #undef DEF
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct master_service_settings)
@@ -1085,7 +1089,7 @@ int master_service_set(struct master_service_settings_instance *instance,
 	return ret;
 }
 
-const void *
+static const void *
 master_service_settings_find(struct master_service_settings_instance *instance,
 			     const char *key, enum setting_type *type_r)
 {

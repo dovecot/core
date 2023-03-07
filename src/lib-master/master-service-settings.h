@@ -206,10 +206,6 @@ master_service_settings_get_or_fatal(struct event *event,
 int master_service_set(struct master_service_settings_instance *instance,
 		       const char *key, const char *value,
 		       enum master_service_set_type type, const char **error_r);
-/* Wrapper to settings_parse_get_value(). */
-const void *
-master_service_settings_find(struct master_service_settings_instance *instance,
-			     const char *key, enum setting_type *type_r);
 
 /* Return a new instance for settings. */
 struct master_service_settings_instance *
