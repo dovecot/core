@@ -212,7 +212,7 @@ struct master_service_settings_instance *
 master_service_settings_instance_new(struct master_service *service);
 /* Return a new instance based on an existing instance. */
 struct master_service_settings_instance *
-master_service_settings_instance_dup(struct master_service_settings_instance *instance);
+master_service_settings_instance_dup(const struct master_service_settings_instance *src);
 /* Free a settings instance. */
 void master_service_settings_instance_free(
 	struct master_service_settings_instance **instance);

@@ -1587,9 +1587,8 @@ static void master_service_deinit_real(struct master_service **_service)
 	if (array_is_created(&service->config_overrides))
 		array_free(&service->config_overrides);
 
-	if (service->set_parser != NULL)
-		settings_parser_unref(&service->set_parser);
-	pool_unref(&service->set_pool); /* frees service->config_mmap */
+	master_service_settings_free(service->set);
+	master_settings_mmap_unref(&service->config_mmap);
 	i_free(master_service_category_name);
 	master_service_category.name = NULL;
 	event_unregister_callback(master_service_event_callback);
@@ -1611,6 +1610,7 @@ static void master_service_free(struct master_service *service)
 	i_free(service->config_path);
 	i_free(service->current_user);
 	i_free(service->last_kick_signal_user);
+	i_free(service->set_protocol_name);
 	event_unref(&service->event);
 	i_free(service);
 }

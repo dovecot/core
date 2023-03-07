@@ -46,15 +46,24 @@ struct master_settings_mmap {
 	ARRAY(struct master_service_mmap_filter) filters;
 };
 
+struct master_service_set {
+	int type;
+	bool append;
+	const char *key, *value;
+};
+ARRAY_DEFINE_TYPE(master_service_set, struct master_service_set);
+
 struct master_service_settings_instance {
-	struct setting_parser_context *parser;
+	pool_t pool;
+	struct master_service *service;
+	ARRAY_TYPE(master_service_set) settings;
 };
 
-static pool_t master_settings_pool_create(struct master_settings_mmap *mmap);
-
-static const void *
-master_service_settings_find(struct master_service_settings_instance *instance,
-			     const char *key, enum setting_type *type_r);
+static const char *master_service_set_type_names[] = {
+	"userdb", "-o parameter", "hardcoded"
+};
+static_assert_array_size(master_service_set_type_names,
+			 MASTER_SERVICE_SET_TYPE_COUNT);
 
 #undef DEF
 #define DEF(type, name) \
@@ -156,10 +165,6 @@ setting_filter_parse(const char *set_name, const char *set_value,
 	event_filter_unref(&filter);
 	return TRUE;
 }
-
-static bool
-master_service_set_has_config_override(struct master_service *service,
-				       const char *key);
 
 static void
 master_service_set_process_shutdown_filter_wrapper(struct event_filter *filter)
@@ -396,27 +401,25 @@ master_service_open_config(struct master_service *service,
 	return config_fd;
 }
 
-static int
-master_service_apply_config_overrides(struct master_service *service,
-				      struct setting_parser_context *parser,
-				      const char **error_r)
+static void
+master_service_append_config_overrides(struct master_service *service,
+				       ARRAY_TYPE(master_service_set) *settings)
 {
 	const char *const *overrides;
 	unsigned int i, count;
 
+	if (!array_is_created(&service->config_overrides))
+		return;
+
 	overrides = array_get(&service->config_overrides, &count);
 	for (i = 0; i < count; i++) {
-		if (settings_parse_line(parser, overrides[i]) < 0) {
-			*error_r = t_strdup_printf(
-				"Failed to override configuration: "
-				"Invalid -o parameter %s: %s", overrides[i],
-				settings_parser_get_error(parser));
-			return -1;
-		}
-		settings_parse_set_key_expanded(parser, service->set_pool,
-						t_strcut(overrides[i], '='));
+		const char *key, *value;
+		t_split_key_value_eq(overrides[i], &key, &value);
+		struct master_service_set *set = array_append_space(settings);
+		set->type = MASTER_SERVICE_SET_TYPE_CLI_PARAM;
+		set->key = key;
+		set->value = value;
 	}
-	return 0;
 }
 
 static void
@@ -651,12 +654,7 @@ int master_service_settings_read(struct master_service *service,
 				 struct master_service_settings_output *output_r,
 				 const char **error_r)
 {
-	ARRAY(const struct setting_parser_info *) all_roots;
-	const struct setting_parser_info *tmp_root;
-	struct setting_parser_context *parser;
-	struct master_settings_mmap *config_mmap = NULL;
 	const char *path = NULL, *value, *error;
-	unsigned int i;
 	int ret, fd = -1;
 
 	i_zero(output_r);
@@ -686,6 +684,7 @@ int master_service_settings_read(struct master_service *service,
 		}
 	}
 	if (fd != -1) {
+		struct master_settings_mmap *config_mmap;
 		master_settings_mmap_unref(&service->config_mmap);
 		config_mmap = i_new(struct master_settings_mmap, 1);
 		config_mmap->refcount = 1;
@@ -698,22 +697,17 @@ int master_service_settings_read(struct master_service *service,
 		i_array_init(&config_mmap->filters, 32);
 
 		service->config_mmap = config_mmap;
-		master_settings_mmap_ref(config_mmap);
 
 		if (input->return_config_fd)
 			output_r->config_fd = fd;
 		else
 			i_close_fd(&fd);
 		env_remove(DOVECOT_CONFIG_FD_ENV);
-	} else if (service->config_mmap != NULL) {
-		config_mmap = service->config_mmap;
-		master_settings_mmap_ref(config_mmap);
 	}
 
-	pool_unref(&service->set_pool);
-	if (service->set_parser != NULL)
-		settings_parser_unref(&service->set_parser);
-	service->set_pool = master_settings_pool_create(config_mmap);
+	/* Remember the protocol for following settings instance lookups */
+	i_free(service->set_protocol_name);
+	service->set_protocol_name = i_strdup(input->service);
 
 	/* Create event for matching config filters */
 	struct event *event = event_create(NULL);
@@ -723,33 +717,11 @@ int master_service_settings_read(struct master_service *service,
 	event_add_ip(event, "local_ip", &input->local_ip);
 	event_add_ip(event, "remote_ip", &input->remote_ip);
 
-	p_array_init(&all_roots, service->set_pool, 8);
-	tmp_root = &master_service_setting_parser_info;
-	array_push_back(&all_roots, &tmp_root);
-	tmp_root = &master_service_ssl_setting_parser_info;
-	array_push_back(&all_roots, &tmp_root);
-	if (service->want_ssl_server) {
-		tmp_root = &master_service_ssl_server_setting_parser_info;
-		array_push_back(&all_roots, &tmp_root);
-	}
-	if (input->roots != NULL) {
-		for (i = 0; input->roots[i] != NULL; i++)
-			array_push_back(&all_roots, &input->roots[i]);
-	}
-
-	parser = settings_parser_init_list(service->set_pool,
-			array_front(&all_roots), array_count(&all_roots),
-			SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
-
 	/* config_mmap is NULL only if MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS
 	   is used */
-	if (config_mmap != NULL) {
-		ret = master_service_settings_mmap_parse(config_mmap,
+	if (service->config_mmap != NULL) {
+		ret = master_service_settings_mmap_parse(service->config_mmap,
 			output_r, &error);
-		if (ret == 0) {
-			ret = master_service_settings_mmap_apply(config_mmap,
-					event, parser, error_r);
-		}
 		if (ret < 0) {
 			if (getenv(DOVECOT_CONFIG_FD_ENV) != NULL) {
 				i_fatal("Failed to parse config from fd %d: %s",
@@ -757,34 +729,18 @@ int master_service_settings_read(struct master_service *service,
 			}
 			*error_r = t_strdup_printf(
 				"Failed to parse configuration: %s", error);
-			settings_parser_unref(&parser);
-			master_settings_mmap_unref(&config_mmap);
 			event_unref(&event);
 			return -1;
 		}
 	}
-	master_settings_mmap_unref(&config_mmap);
+
+	master_service_settings_free(service->set);
+	ret = master_service_settings_get(event,
+			&master_service_setting_parser_info, 0,
+			&service->set, error_r);
 	event_unref(&event);
-
-	if (array_is_created(&service->config_overrides)) {
-		if (master_service_apply_config_overrides(service, parser,
-							  error_r) < 0) {
-			settings_parser_unref(&parser);
-			return -1;
-		}
-	}
-
-	if (!input->disable_check_settings) {
-		if (!settings_parser_check(parser, service->set_pool, &error)) {
-			*error_r = t_strdup_printf("Invalid settings: %s", error);
-			settings_parser_unref(&parser);
-			return -1;
-		}
-	}
-
-	service->set = settings_parser_get_root_set(parser,
-				&master_service_setting_parser_info);
-	service->set_parser = parser;
+	if (ret < 0)
+		return -1;
 
 	if (service->set->version_ignore &&
 	    (service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0) {
@@ -802,10 +758,6 @@ int master_service_settings_read(struct master_service *service,
 
 	if (service->set->shutdown_clients)
 		master_service_set_die_with_master(master_service, TRUE);
-
-	/* if we change any settings afterwards, they're in expanded form.
-	   especially all settings from userdb are already expanded. */
-	settings_parse_set_expanded(service->set_parser, TRUE);
 	return 0;
 }
 
@@ -824,8 +776,7 @@ int master_service_settings_read_simple(struct master_service *service,
 const struct master_service_settings *
 master_service_get_service_settings(struct master_service *service)
 {
-	return settings_parser_get_root_set(service->set_parser,
-		&master_service_setting_parser_info);
+	return service->set;
 }
 
 struct master_settings_pool {
@@ -966,6 +917,85 @@ master_service_var_expand_init(struct event *event,
 		event_get_ptr(event, MASTER_SERVICE_VAR_EXPAND_FUNC_CONTEXT);
 }
 
+static int master_service_set_cmp(const struct master_service_set *set1,
+				  const struct master_service_set *set2)
+{
+	return set1->type - set2->type;
+}
+
+static int
+master_service_set_get_value(struct setting_parser_context *parser,
+			     const struct master_service_set *set,
+			     const char **key_r, const char **value_r,
+			     const char **error_r)
+{
+	const char *key = set->key;
+	enum setting_type value_type;
+	/* FIXME: Do this lookup only with set->append once plugin/ check is
+	   no longer needed. */
+	const void *old_value = settings_parse_get_value(parser, key, &value_type);
+	if (old_value == NULL && !str_begins_with(key, "plugin/") &&
+	    set->type == MASTER_SERVICE_SET_TYPE_USERDB) {
+		/* FIXME: Setting is unknown in this parser. Since the parser
+		   doesn't know all settings, we can't be sure if it's because
+		   it should simply be ignored or because it's a plugin setting.
+		   Just assume it's a plugin setting for now. This code will get
+		   removed eventually once all plugin settings have been
+		   converted away. */
+		key = t_strconcat("plugin/", key, NULL);
+		old_value = settings_parse_get_value(parser, key, &value_type);
+	}
+	if (!set->append || old_value == NULL) {
+		*key_r = key;
+		*value_r = set->value;
+		return 1;
+	}
+
+	if (value_type != SET_STR) {
+		*error_r = t_strdup_printf(
+			"%s setting is not a string - can't use '+'", key);
+		return -1;
+	}
+	const char *const *strp = old_value;
+	*key_r = key;
+	*value_r = t_strconcat(*strp, set->value, NULL);
+	return 1;
+}
+
+static int
+master_service_settings_instance_override(
+	struct master_service_settings_instance *instance,
+	struct setting_parser_context *parser,
+	const char **error_r)
+{
+	ARRAY_TYPE(master_service_set) settings;
+
+	t_array_init(&settings, 64);
+	if (array_is_created(&instance->settings))
+		array_append_array(&settings, &instance->settings);
+	master_service_append_config_overrides(instance->service, &settings);
+	array_sort(&settings, master_service_set_cmp);
+
+	const struct master_service_set *set;
+	array_foreach(&settings, set) {
+		const char *key, *value;
+		int ret = master_service_set_get_value(parser, set, &key,
+						       &value, error_r);
+		if (ret < 0)
+			return -1;
+		if (ret > 0 &&
+		    settings_parse_keyvalue(parser, key, value) < 0) {
+			*error_r = t_strdup_printf(
+				"Failed to override configuration from %s: "
+				"Invalid %s=%s: %s",
+				master_service_set_type_names[set->type],
+				key, value, settings_parser_get_error(parser));
+			return -1;
+		}
+	}
+	return 0;
+}
+
 #undef master_service_settings_instance_get
 int master_service_settings_instance_get(struct event *event,
 					 struct master_service_settings_instance *instance,
@@ -973,22 +1003,65 @@ int master_service_settings_instance_get(struct event *event,
 					 enum master_service_settings_get_flags flags,
 					 const void **set_r, const char **error_r)
 {
+	struct master_service *service = instance->service;
+	const char *error;
 	int ret;
 
 	i_assert(info->pool_offset1 != 0);
 
-	pool_t set_pool = pool_alloconly_create("master service settings parser", 1024);
-	void *set = settings_parser_get_root_set(instance->parser, info);
-	set = settings_dup_with_pointers(info, set, set_pool);
+	event = event_create(event);
+	if (event_find_field_recursive(event, "protocol") == NULL) {
+		event_add_str(event, "protocol",
+			      instance->service->set_protocol_name);
+	}
+
+	pool_t set_pool = master_settings_pool_create(master_service->config_mmap);
+	struct setting_parser_context *parser =
+		settings_parser_init(set_pool, info,
+				     SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
+
+	if (service->config_mmap != NULL) {
+		ret = master_service_settings_mmap_apply(service->config_mmap,
+				event, parser, &error);
+		if (ret < 0) {
+			*error_r = t_strdup_printf(
+				"Failed to parse configuration: %s", error);
+			settings_parser_unref(&parser);
+			pool_unref(&set_pool);
+			event_unref(&event);
+			return -1;
+		}
+	}
+
+	/* if we change any settings afterwards, they're in expanded form.
+	   especially all settings from userdb are already expanded. */
+	settings_parse_set_expanded(parser, TRUE);
+
+	T_BEGIN {
+		ret = master_service_settings_instance_override(
+			instance, parser, error_r);
+	} T_END_PASS_STR_IF(ret < 0, error_r);
+	if (ret < 0) {
+		settings_parser_unref(&parser);
+		pool_unref(&set_pool);
+		event_unref(&event);
+		return -1;
+	}
+
+	void *set = settings_parser_get_root_set(parser, info);
 
 	pool_t *pool_p = PTR_OFFSET(set, info->pool_offset1 - 1);
 	*pool_p = set_pool;
-	pool_ref(*pool_p);
+
+	/* settings are now referenced, but the parser is no longer needed */
+	settings_parser_unref(&parser);
 
 	if ((flags & MASTER_SERVICE_SETTINGS_GET_FLAG_NO_CHECK) == 0) {
 		if (!settings_check(info, *pool_p, set, error_r)) {
 			*error_r = t_strdup_printf("Invalid %s settings: %s",
 						   info->module_name, *error_r);
+			pool_unref(&set_pool);
+			event_unref(&event);
 			return -1;
 		}
 	}
@@ -1010,10 +1083,13 @@ int master_service_settings_instance_get(struct event *event,
 		*error_r = t_strdup_printf(
 			"Failed to expand %s setting variables: %s",
 			info->module_name, *error_r);
+		pool_unref(&set_pool);
+		event_unref(&event);
 		return -1;
 	}
 
 	*set_r = set;
+	event_unref(&event);
 	return 0;
 }
 
@@ -1023,11 +1099,13 @@ int master_service_settings_get(struct event *event,
 				enum master_service_settings_get_flags flags,
 				const void **set_r, const char **error_r)
 {
+	/* no instance-specific settings */
 	struct master_service_settings_instance instance = {
-		.parser = master_service->set_parser,
+		.service = master_service,
 	};
-	return master_service_settings_instance_get(event,
-		&instance, info, flags, set_r, error_r);
+
+	return master_service_settings_instance_get(event, &instance,
+		info, flags, set_r, error_r);
 }
 
 const void *
@@ -1044,111 +1122,57 @@ master_service_settings_get_or_fatal(struct event *event,
 
 int master_service_set(struct master_service_settings_instance *instance,
 		       const char *key, const char *value,
-		       enum master_service_set_type type, const char **error_r)
+		       enum master_service_set_type type,
+		       const char **error_r ATTR_UNUSED)
 {
-	int ret;
-
-	if (type == MASTER_SERVICE_SET_TYPE_USERDB &&
-	    master_service_set_has_config_override(master_service, key)) {
-		/* this setting was already overridden with -o parameter */
-		e_debug(master_service->event,
-			"Ignoring overridden (-o) userdb setting: %s",
-			key);
-		return 1;
-	}
-
-	const char *append_value = NULL;
+	if (!array_is_created(&instance->settings))
+		p_array_init(&instance->settings, instance->pool, 16);
+	struct master_service_set *set =
+		array_append_space(&instance->settings);
+	set->type = type;
 	size_t len = strlen(key);
 	if (len > 0 && key[len-1] == '+') {
 		/* key+=value */
-		append_value = value;
-		key = t_strndup(key, len-1);
+		set->append = TRUE;
+		set->key = p_strndup(instance->pool, key, len-1);
+	} else {
+		set->key = p_strdup(instance->pool, key);
 	}
-
-	enum setting_type value_type;
-	const void *old_value =
-		master_service_settings_find(instance, key, &value_type);
-	if (old_value == NULL && !str_begins_with(key, "plugin/")) {
-		/* assume it's a plugin setting */
-		key = t_strconcat("plugin/", key, NULL);
-		old_value = master_service_settings_find(instance, key, &value_type);
-	}
-
-	if (append_value != NULL) {
-		if (old_value == NULL || value_type != SET_STR) {
-			*error_r = "'+' can only be used for strings";
-			return -1;
-		}
-		const char *const *strp = old_value;
-		value = t_strconcat(*strp, append_value, NULL);
-	}
-
-	ret = settings_parse_keyvalue(instance->parser, key, value);
-	if (ret <= 0)
-		*error_r = settings_parser_get_error(instance->parser);
-	return ret;
-}
-
-static const void *
-master_service_settings_find(struct master_service_settings_instance *instance,
-			     const char *key, enum setting_type *type_r)
-{
-	return settings_parse_get_value(instance->parser, key, type_r);
-}
-
-static bool
-master_service_set_has_config_override(struct master_service *service,
-				       const char *key)
-{
-	const char *override, *key_root;
-	bool ret;
-
-	if (!array_is_created(&service->config_overrides))
-		return FALSE;
-
-	key_root = settings_parse_unalias(service->set_parser, key);
-	if (key_root == NULL)
-		key_root = key;
-
-	array_foreach_elem(&service->config_overrides, override) {
-		T_BEGIN {
-			const char *okey, *okey_root;
-
-			okey = t_strcut(override, '=');
-			okey_root = settings_parse_unalias(service->set_parser,
-							   okey);
-			if (okey_root == NULL)
-				okey_root = okey;
-			ret = strcmp(okey_root, key_root) == 0;
-		} T_END;
-
-		if (ret)
-			return TRUE;
-	}
-	return FALSE;
-}
-
-static struct master_service_settings_instance *
-master_service_settings_instance_from(struct setting_parser_context *parser)
-{
-	struct master_service_settings_instance *new_instance =
-		i_new(struct master_service_settings_instance, 1);
-	pool_t pool = pool_alloconly_create("master service settings instance", 1024);
-	new_instance->parser = settings_parser_dup(parser, pool);
-	pool_unref(&pool);
-	return new_instance;
+	set->value = p_strdup(instance->pool, value);
+	return 1;
 }
 
 struct master_service_settings_instance *
 master_service_settings_instance_new(struct master_service *service)
 {
-	return master_service_settings_instance_from(service->set_parser);
+	pool_t pool = pool_alloconly_create("master service settings instance", 1024);
+	struct master_service_settings_instance *instance =
+		p_new(pool, struct master_service_settings_instance, 1);
+	instance->pool = pool;
+	instance->service = service;
+	return instance;
 }
 
 struct master_service_settings_instance *
-master_service_settings_instance_dup(struct master_service_settings_instance *instance)
+master_service_settings_instance_dup(const struct master_service_settings_instance *src)
 {
-	return master_service_settings_instance_from(instance->parser);
+	struct master_service_settings_instance *dest =
+		master_service_settings_instance_new(src->service);
+	if (!array_is_created(&src->settings))
+		return dest;
+
+	p_array_init(&dest->settings, dest->pool,
+		     array_count(&src->settings) + 8);
+	const struct master_service_set *src_set;
+	array_foreach(&src->settings, src_set) {
+		struct master_service_set *dest_set =
+			array_append_space(&dest->settings);
+		dest_set->type = src_set->type;
+		dest_set->append = src_set->append;
+		dest_set->key = p_strdup(dest->pool, src_set->key);
+		dest_set->value = p_strdup(dest->pool, src_set->value);
+	}
+	return dest;
 }
 
 void master_service_settings_instance_free(
@@ -1158,6 +1182,5 @@ void master_service_settings_instance_free(
 
 	*_instance = NULL;
 
-	settings_parser_unref(&instance->parser);
-	i_free(instance);
+	pool_unref(&instance->pool);
 }

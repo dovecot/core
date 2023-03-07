@@ -73,9 +73,8 @@ struct master_service {
 
 	master_service_connection_callback_t *callback;
 
-	pool_t set_pool;
+	char *set_protocol_name;
 	const struct master_service_settings *set;
-	struct setting_parser_context *set_parser;
 
 	struct ssl_iostream_context *ssl_ctx;
 	time_t ssl_params_last_refresh;
