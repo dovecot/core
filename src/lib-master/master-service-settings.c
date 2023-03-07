@@ -744,15 +744,6 @@ int master_service_settings_read_simple(struct master_service *service,
 	return master_service_settings_read(service, &input, &output, error_r);
 }
 
-pool_t master_service_settings_detach(struct master_service *service)
-{
-	pool_t pool = service->set_pool;
-
-	settings_parser_unref(&service->set_parser);
-	service->set_pool = NULL;
-	return pool;
-}
-
 const struct master_service_settings *
 master_service_get_service_settings(struct master_service *service)
 {

@@ -128,10 +128,6 @@ int master_service_settings_read(struct master_service *service,
 int master_service_settings_read_simple(struct master_service *service,
 					const struct setting_parser_info **roots,
 					const char **error_r) ATTR_NULL(2);
-/* destroy settings parser and clear service's set_pool, so that
-   master_service_settings_read*() can be called without freeing memory used
-   by existing settings structures. */
-pool_t master_service_settings_detach(struct master_service *service);
 
 const struct master_service_settings *
 master_service_get_service_settings(struct master_service *service);
