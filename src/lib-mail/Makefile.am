@@ -12,7 +12,6 @@ libmail_la_SOURCES = \
 	istream-binary-converter.c \
 	istream-dot.c \
 	istream-header-filter.c \
-	istream-nonuls.c \
 	istream-qp-decoder.c \
 	istream-qp-encoder.c \
 	mail-html2text.c \
@@ -51,7 +50,6 @@ headers = \
 	istream-binary-converter.h \
 	istream-dot.h \
 	istream-header-filter.h \
-	istream-nonuls.h \
 	istream-qp.h \
 	mbox-from.h \
 	mail-html2text.h \

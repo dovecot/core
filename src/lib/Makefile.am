@@ -104,6 +104,7 @@ liblib_la_SOURCES = \
 	istream-jsonstr.c \
 	istream-limit.c \
 	istream-multiplex.c \
+	istream-nonuls.c \
 	istream-noop.c \
 	istream-rawlog.c \
 	istream-seekable.c \
@@ -271,6 +272,7 @@ headers = \
 	istream-hash.h \
 	istream-jsonstr.h \
 	istream-multiplex.h \
+	istream-nonuls.h \
 	istream-private.h \
 	istream-rawlog.h \
 	istream-seekable.h \
