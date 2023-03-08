@@ -114,12 +114,6 @@ static void main_deinit(void)
 
 int main(int argc, char *argv[])
 {
-	const struct setting_parser_info *set_roots[] = {
-		&smtp_submit_setting_parser_info,
-		&lda_setting_parser_info,
-		&lmtp_setting_parser_info,
-		NULL
-	};
 	enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_HAVE_STARTTLS;
 	enum mail_storage_service_flags storage_service_flags =
@@ -155,7 +149,7 @@ int main(int argc, char *argv[])
 	drop_privileges();
 	master_service_init_log_with_pid(master_service);
 
-	storage_service = mail_storage_service_init(master_service, set_roots,
+	storage_service = mail_storage_service_init(master_service,
 						    storage_service_flags);
 	restrict_access_allow_coredumps(TRUE);
 

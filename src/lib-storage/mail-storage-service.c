@@ -52,7 +52,6 @@ struct mail_storage_service_ctx {
 
 	struct auth_master_connection *conn, *iter_conn;
 	struct auth_master_user_list_ctx *auth_list;
-	ARRAY(const struct setting_parser_info *) set_roots;
 	enum mail_storage_service_flags flags;
 
 	bool debug:1;
@@ -833,13 +832,11 @@ mail_storage_service_time_moved(const struct timeval *old_time,
 
 struct mail_storage_service_ctx *
 mail_storage_service_init(struct master_service *service,
-			  const struct setting_parser_info *set_roots[],
 			  enum mail_storage_service_flags flags)
 {
 	struct mail_storage_service_ctx *ctx;
 	const char *version;
 	pool_t pool;
-	unsigned int count;
 
 	version = master_service_get_version_string(service);
 	if (version != NULL && strcmp(version, PACKAGE_VERSION) != 0) {
@@ -866,18 +863,6 @@ mail_storage_service_init(struct master_service *service,
 	ctx->pool = pool;
 	ctx->service = service;
 	ctx->flags = flags;
-
-	/* @UNSAFE */
-	if (set_roots == NULL)
-		count = 0;
-	else
-		for (count = 0; set_roots[count] != NULL; count++) ;
-	p_array_init(&ctx->set_roots, pool, count + 16);
-	const struct setting_parser_info *info = &mail_user_setting_parser_info;
-	array_push_back(&ctx->set_roots, &info);
-	info = &mail_storage_setting_parser_info;
-	array_push_back(&ctx->set_roots, &info);
-	array_append(&ctx->set_roots, set_roots, count);
 
 	/* note: we may not have read any settings yet, so this logging
 	   may still be going to wrong location */
@@ -916,41 +901,6 @@ mail_storage_service_input_get_flags(struct mail_storage_service_ctx *ctx,
 	return flags;
 }
 
-const struct setting_parser_info *const *
-mail_storage_service_get_set_roots(struct mail_storage_service_ctx *ctx)
-{
-	/* Make sure the array is NULL-terminated */
-	array_append_zero(&ctx->set_roots);
-	array_pop_back(&ctx->set_roots);
-	return array_front(&ctx->set_roots);
-}
-
-static void
-mail_storage_service_add_set_info(struct mail_storage_service_ctx *ctx,
-				  const struct setting_parser_info *info)
-{
-	const struct setting_parser_info *old_info;
-
-	array_foreach_elem(&ctx->set_roots, old_info) {
-		if (old_info == info)
-			return;
-	}
-	array_push_back(&ctx->set_roots, &info);
-}
-
-static void
-mail_storage_service_add_storage_set_roots(struct mail_storage_service_ctx *ctx)
-{
-	struct mail_storage *storage;
-
-	array_foreach_elem(&mail_storage_classes, storage) {
-		if (storage->v.get_setting_parser_info != NULL) {
-			mail_storage_service_add_set_info(ctx,
-				storage->v.get_setting_parser_info());
-		}
-	}
-}
-
 int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 				       const struct mail_storage_service_input *input,
 				       struct master_service_settings_instance **instance_r,
@@ -965,7 +915,6 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 	flags = input == NULL ? ctx->flags :
 		mail_storage_service_input_get_flags(ctx, input);
 
-	mail_storage_service_add_storage_set_roots(ctx);
 	i_zero(&set_input);
 	set_input.preserve_user = TRUE;
 	/* settings reader may exec doveconf, which is going to clear

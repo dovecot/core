@@ -483,11 +483,6 @@ static void client_connected(struct master_service_connection *conn)
 
 int main(int argc, char *argv[])
 {
-	static const struct setting_parser_info *set_roots[] = {
-		&smtp_submit_setting_parser_info,
-		&imap_setting_parser_info,
-		NULL
-	};
 	struct login_server_settings login_set;
 	enum master_service_flags service_flags = 0;
 	enum mail_storage_service_flags storage_service_flags =
@@ -575,7 +570,7 @@ int main(int argc, char *argv[])
 
 	storage_service =
 		mail_storage_service_init(master_service,
-					  set_roots, storage_service_flags);
+					  storage_service_flags);
 	master_service_init_finish(master_service);
 	/* NOTE: login_set.*_socket_path are now invalid due to data stack
 	   having been freed */

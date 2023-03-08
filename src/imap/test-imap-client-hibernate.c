@@ -144,7 +144,7 @@ static void test_imap_client_hibernate(void)
 	struct test_imap_client_hibernate ctx;
 	const char *error;
 
-	storage_service = mail_storage_service_init(master_service, NULL,
+	storage_service = mail_storage_service_init(master_service,
 		MAIL_STORAGE_SERVICE_FLAG_ALLOW_ROOT |
 		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
 		MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR |

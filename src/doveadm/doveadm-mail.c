@@ -506,7 +506,7 @@ int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 	i_assert(cctx->username != NULL);
 
 	doveadm_mail_ctx_to_storage_service_input(ctx, &ctx->storage_service_input);
-	ctx->storage_service = mail_storage_service_init(master_service, NULL,
+	ctx->storage_service = mail_storage_service_init(master_service,
 							 ctx->service_flags);
 	T_BEGIN {
 		ctx->v.init(ctx);
@@ -530,7 +530,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 	ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 
 	doveadm_mail_ctx_to_storage_service_input(ctx, &ctx->storage_service_input);
-	ctx->storage_service = mail_storage_service_init(master_service, NULL,
+	ctx->storage_service = mail_storage_service_init(master_service,
 							 ctx->service_flags);
 
 	T_BEGIN {

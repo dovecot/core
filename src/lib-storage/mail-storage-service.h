@@ -83,8 +83,7 @@ extern struct module *mail_storage_service_modules;
 
 struct mail_storage_service_ctx *
 mail_storage_service_init(struct master_service *service,
-			  const struct setting_parser_info *set_roots[],
-			  enum mail_storage_service_flags flags) ATTR_NULL(2);
+			  enum mail_storage_service_flags flags);
 struct auth_master_connection *
 mail_storage_service_get_auth_conn(struct mail_storage_service_ctx *ctx);
 /* Set auth connection (instead of creating a new one automatically). */
@@ -170,11 +169,6 @@ mail_storage_service_user_get_event(const struct mail_storage_service_user *user
 const char *
 mail_storage_service_user_get_username(const struct mail_storage_service_user *user);
 
-/* Return all service settings roots. This includes the roots given to
-   mail_storage_service_init() as well as all dynamically created
-   mail_storage_classes. */
-const struct setting_parser_info *const *
-mail_storage_service_get_set_roots(struct mail_storage_service_ctx *ctx);
 const char *
 mail_storage_service_get_log_prefix(struct mail_storage_service_ctx *ctx);
 const struct var_expand_table *

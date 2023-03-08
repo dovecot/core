@@ -376,7 +376,7 @@ static void cmd_user_ver2(struct doveadm_cmd_context *cctx)
 	}
 
 	if (!userdb_only) {
-		storage_service = mail_storage_service_init(master_service, NULL,
+		storage_service = mail_storage_service_init(master_service,
 			MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP |
 			MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR |
 			MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |

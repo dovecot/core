@@ -344,10 +344,6 @@ static void client_connected(struct master_service_connection *conn)
 
 int main(int argc, char *argv[])
 {
-	static const struct setting_parser_info *set_roots[] = {
-		&submission_setting_parser_info,
-		NULL
-	};
 	struct login_server_settings login_set;
 	enum master_service_flags service_flags = 0;
 	enum mail_storage_service_flags storage_service_flags = 0;
@@ -424,7 +420,7 @@ int main(int argc, char *argv[])
 
 	storage_service =
 		mail_storage_service_init(master_service,
-					  set_roots, storage_service_flags);
+					  storage_service_flags);
 
 	/* initialize SMTP server */
 	i_zero(&smtp_server_set);

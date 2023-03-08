@@ -30,7 +30,7 @@ struct test_mail_storage_ctx *test_mail_storage_init(void)
 
 	ctx->ioloop = io_loop_create();
 
-	ctx->storage_service = mail_storage_service_init(master_service, NULL,
+	ctx->storage_service = mail_storage_service_init(master_service,
 		MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS |
 		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
 		MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS);

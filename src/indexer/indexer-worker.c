@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
 	drop_privileges();
 	master_service_init_log_with_pid(master_service);
 
-	storage_service = mail_storage_service_init(master_service, NULL,
+	storage_service = mail_storage_service_init(master_service,
 						    storage_service_flags);
 	restrict_access_allow_coredumps(TRUE);
 	master_service_init_finish(master_service);

@@ -346,11 +346,6 @@ static void print_help(void)
 
 int main(int argc, char *argv[])
 {
-	const struct setting_parser_info *set_roots[] = {
-		&smtp_submit_setting_parser_info,
-		&lda_setting_parser_info,
-		NULL
-	};
 	struct mail_deliver_input dinput;
 	enum mail_storage_service_flags service_flags = 0;
 	const char *user, *errstr, *path;
@@ -531,7 +526,7 @@ int main(int argc, char *argv[])
 	service_input.event_parent = event;
 
 	service_flags |= MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS;
-	storage_service = mail_storage_service_init(master_service, set_roots,
+	storage_service = mail_storage_service_init(master_service,
 						    service_flags);
 	mail_deliver_hooks_init();
 	/* set before looking up the user (or ideally we'd do this between
