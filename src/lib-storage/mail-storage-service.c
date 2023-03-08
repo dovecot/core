@@ -93,13 +93,6 @@ struct mail_storage_service_init_var_expand_ctx {
 
 struct module *mail_storage_service_modules = NULL;
 
-static void set_keyval(struct mail_storage_service_user *user,
-		       const char *key, const char *value)
-{
-	master_service_set(user->set_instance, key, value,
-			   MASTER_SERVICE_SET_TYPE_USERDB);
-}
-
 static void set_keyvalue(struct mail_storage_service_user *user,
 			 const char *key, const char *value)
 {
@@ -154,11 +147,15 @@ user_reply_handle(struct mail_storage_service_user *user,
 			return -1;
 		}
 		user->uid_source = "userdb lookup";
-		set_keyval(user, "mail_uid", dec2str(reply->uid));
+		master_service_set(user->set_instance,
+				   "mail_uid", dec2str(reply->uid),
+				   MASTER_SERVICE_SET_TYPE_USERDB);
 	}
 	if (reply->gid != (uid_t)-1) {
 		user->gid_source = "userdb lookup";
-		set_keyval(user, "mail_gid", dec2str(reply->gid));
+		master_service_set(user->set_instance,
+				   "mail_gid", dec2str(reply->gid),
+				   MASTER_SERVICE_SET_TYPE_USERDB);
 	}
 
 	if (home != NULL && chroot == NULL &&
@@ -171,7 +168,8 @@ user_reply_handle(struct mail_storage_service_user *user,
 	}
 
 	if (home != NULL) {
-		set_keyval(user, "mail_home", home);
+		master_service_set(user->set_instance, "mail_home", home,
+				   MASTER_SERVICE_SET_TYPE_USERDB);
 		user->home_from_userdb = TRUE;
 	}
 
@@ -182,7 +180,8 @@ user_reply_handle(struct mail_storage_service_user *user,
 				"(see valid_chroot_dirs setting)", chroot);
 			return -1;
 		}
-		set_keyval(user, "mail_chroot", chroot);
+		master_service_set(user->set_instance, "mail_chroot", chroot,
+				   MASTER_SERVICE_SET_TYPE_USERDB);
 	}
 
 	user->anonymous = reply->anonymous;
@@ -1033,8 +1032,12 @@ mail_storage_service_update_chroot(struct mail_storage_service_user *user)
 				home = "/";
 			chroot = t_strndup(chroot, len - 2);
 
-			set_keyval(user, "mail_home", home);
-			set_keyval(user, "mail_chroot", chroot);
+			master_service_set(user->set_instance,
+					   "mail_home", home,
+					   MASTER_SERVICE_SET_TYPE_USERDB);
+			master_service_set(user->set_instance,
+					   "mail_chroot", chroot,
+					   MASTER_SERVICE_SET_TYPE_USERDB);
 		}
 	} else if (len > 0 && !use_chroot) {
 		/* we're not going to chroot. fix home directory so we can
@@ -1043,8 +1046,10 @@ mail_storage_service_update_chroot(struct mail_storage_service_user *user)
 			home = chroot;
 		else
 			home = t_strconcat(chroot, home, NULL);
-		set_keyval(user, "mail_home", home);
-		set_keyval(user, "mail_chroot", "");
+		master_service_set(user->set_instance, "mail_home", home,
+				   MASTER_SERVICE_SET_TYPE_USERDB);
+		master_service_set(user->set_instance, "mail_chroot", "",
+				   MASTER_SERVICE_SET_TYPE_USERDB);
 	}
 }
 
