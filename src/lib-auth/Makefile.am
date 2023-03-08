@@ -7,6 +7,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-otp
 
 libauth_la_SOURCES = \
+	auth-gs2.c \
 	auth-scram.c \
 	auth-scram-client.c \
 	auth-scram-server.c \
@@ -28,6 +29,7 @@ libauth_crypt_la_LIBADD = \
 
 headers = \
 	mycrypt.h \
+	auth-gs2.h \
 	auth-scram.h \
 	auth-scram-client.h \
 	auth-scram-server.h \
@@ -41,6 +43,7 @@ noinst_HEADERS = crypt-blowfish.h \
 
 test_programs = \
 	test-password-scheme \
+	test-auth-gs2 \
 	test-auth-scram
 
 noinst_PROGRAMS = $(test_programs)
@@ -66,6 +69,14 @@ test_password_scheme_LDADD = \
         $(LIBSODIUM_LIBS)
 test_password_scheme_DEPENDENCIES = \
 	../lib-otp/libotp.la \
+	$(test_deps)
+
+test_auth_gs2_SOURCES = \
+	test-auth-gs2.c
+test_auth_gs2_LDFLAGS = -export-dynamic
+test_auth_gs2_LDADD = \
+	$(test_libs)
+test_auth_gs2_DEPENDENCIES = \
 	$(test_deps)
 
 test_auth_scram_SOURCES = \
