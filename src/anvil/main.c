@@ -161,8 +161,7 @@ int main(int argc, char *argv[])
 					     &argc, &argv, "");
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
-	if (master_service_settings_read_simple(master_service,
-						NULL, &error) < 0)
+	if (master_service_settings_read_simple(master_service, &error) < 0)
 		i_fatal("%s", error);
 	master_service_init_log(master_service);
 

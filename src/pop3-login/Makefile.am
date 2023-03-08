@@ -32,5 +32,4 @@ pop3_login_SOURCES = \
 noinst_HEADERS = \
 	client.h \
 	client-authenticate.h \
-	pop3-login-settings.h \
 	pop3-proxy.h

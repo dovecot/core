@@ -523,7 +523,6 @@ imap_client_notify_disconnect(struct client *client,
 
 static void imap_login_preinit(void)
 {
-	login_set_roots = imap_login_setting_roots;
 }
 
 static const struct imap_login_command imap_login_commands[] = {

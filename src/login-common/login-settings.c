@@ -86,13 +86,6 @@ const struct setting_parser_info login_setting_parser_info = {
 	.check_func = login_settings_check
 };
 
-static const struct setting_parser_info *default_login_set_roots[] = {
-	&login_setting_parser_info,
-	NULL
-};
-
-const struct setting_parser_info **login_set_roots = default_login_set_roots;
-
 /* <settings checks> */
 static bool login_settings_check(void *_set, pool_t pool,
 				 const char **error_r)
@@ -119,7 +112,6 @@ int login_settings_read(const struct ip_addr *local_ip,
 	struct master_service_settings_output output;
 
 	i_zero(&input);
-	input.roots = login_set_roots;
 	input.service = login_binary->protocol;
 	input.local_name = local_name;
 	input.disable_check_settings = TRUE;

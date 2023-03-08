@@ -36,7 +36,6 @@ struct login_settings {
 	char *const *log_format_elements_split;
 };
 
-extern const struct setting_parser_info **login_set_roots;
 extern const struct setting_parser_info login_setting_parser_info;
 
 int login_settings_read(const struct ip_addr *local_ip,

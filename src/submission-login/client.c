@@ -252,7 +252,6 @@ static void submission_login_die(void)
 
 static void submission_login_preinit(void)
 {
-	login_set_roots = submission_login_setting_roots;
 }
 
 static void submission_login_init(void)

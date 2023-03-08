@@ -211,10 +211,6 @@ static void client_connected(struct master_service_connection *conn)
 
 int main(int argc, char *argv[])
 {
-	static const struct setting_parser_info *set_roots[] = {
-		&imap_urlauth_setting_parser_info,
-		NULL
-	};
 	struct login_server_settings login_set;
 	struct master_service_settings_input input;
 	struct master_service_settings_output output;
@@ -253,7 +249,6 @@ int main(int argc, char *argv[])
 	master_service_init_log(master_service);
 
 	i_zero(&input);
-	input.roots = set_roots;
 	input.service = "imap-urlauth";
 	input.disable_check_settings = TRUE;
 	if (master_service_settings_read(master_service, &input, &output,

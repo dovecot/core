@@ -74,10 +74,6 @@ static void main_deinit(void)
 
 int main(int argc, char *argv[])
 {
-	const struct setting_parser_info *set_roots[] = {
-		&stats_setting_parser_info,
-		NULL
-	};
 	const enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_NO_SSL_INIT |
 		MASTER_SERVICE_FLAG_DONT_SEND_STATS |
@@ -91,7 +87,6 @@ int main(int argc, char *argv[])
 		return FATAL_DEFAULT;
 
 	const struct master_service_settings_input set_input = {
-		.roots = set_roots,
 		.disable_check_settings = TRUE,
 	};
 	struct master_service_settings_output output;

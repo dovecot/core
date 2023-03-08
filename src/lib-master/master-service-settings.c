@@ -762,14 +762,12 @@ int master_service_settings_read(struct master_service *service,
 }
 
 int master_service_settings_read_simple(struct master_service *service,
-					const struct setting_parser_info **roots,
 					const char **error_r)
 {
 	struct master_service_settings_input input;
 	struct master_service_settings_output output;
 
 	i_zero(&input);
-	input.roots = roots;
 	return master_service_settings_read(service, &input, &output, error_r);
 }
 

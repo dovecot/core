@@ -75,11 +75,6 @@ static pool_t delayed_errors_pool;
 static failure_callback_t *orig_fatal_callback;
 static failure_callback_t *orig_error_callback;
 
-static const struct setting_parser_info *set_roots[] = {
-	&master_setting_parser_info,
-	NULL
-};
-
 void process_exec(const char *cmd)
 {
 	const char *executable, *p, **argv;
@@ -417,7 +412,6 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	}
 
 	i_zero(&input);
-	input.roots = set_roots;
 	input.config_path = services_get_config_socket_path(services);
 	input.never_exec = TRUE;
 	input.reload_config = TRUE;
@@ -512,7 +506,6 @@ static const struct master_settings *master_settings_read(void)
 	const char *error;
 
 	i_zero(&input);
-	input.roots = set_roots;
 	input.preserve_environment = TRUE;
 	input.always_exec = TRUE;
 	input.return_config_fd = TRUE;

@@ -12,16 +12,11 @@
 static const struct fs_crypt_settings *
 fs_crypt_load_settings(void)
 {
-	static const struct setting_parser_info *set_roots[] = {
-		&fs_crypt_setting_parser_info,
-		NULL
-	};
 	struct master_service_settings_input input;
 	struct master_service_settings_output output;
 	const char *error;
 
 	i_zero(&input);
-	input.roots = set_roots;
 	input.service = "fs-crypt";
 	input.disable_check_settings = TRUE;
 	if (master_service_settings_read(master_service, &input,

@@ -5,7 +5,6 @@
 #include "settings-parser.h"
 #include "service-settings.h"
 #include "login-settings.h"
-#include "imap-urlauth-login-settings.h"
 
 #include <stddef.h>
 
@@ -68,10 +67,4 @@ const struct setting_parser_info imap_urlauth_login_setting_parser_info = {
 	.defines = imap_urlauth_login_setting_defines,
 
 	.dependencies = imap_urlauth_login_setting_dependencies
-};
-
-const struct setting_parser_info *imap_urlauth_login_setting_roots[] = {
-	&login_setting_parser_info,
-	&imap_urlauth_login_setting_parser_info,
-	NULL
 };

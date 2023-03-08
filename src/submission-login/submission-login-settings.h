@@ -20,7 +20,6 @@ struct submission_login_settings {
 	enum submission_login_client_workarounds parsed_workarounds;
 };
 
-extern const struct setting_parser_info *submission_login_setting_roots[];
 extern const struct setting_parser_info submission_login_setting_parser_info;
 
 #endif

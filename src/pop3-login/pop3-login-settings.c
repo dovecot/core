@@ -6,7 +6,6 @@
 #include "service-settings.h"
 #include "login-settings.h"
 #include "pop3-protocol.h"
-#include "pop3-login-settings.h"
 
 #include <stddef.h>
 
@@ -90,10 +89,4 @@ const struct setting_parser_info pop3_login_setting_parser_info = {
 	.defines = pop3_login_setting_defines,
 
 	.dependencies = pop3_login_setting_dependencies
-};
-
-const struct setting_parser_info *pop3_login_setting_roots[] = {
-	&login_setting_parser_info,
-	&pop3_login_setting_parser_info,
-	NULL
 };

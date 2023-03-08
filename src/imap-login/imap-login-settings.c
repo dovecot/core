@@ -109,9 +109,3 @@ const struct setting_parser_info imap_login_setting_parser_info = {
 	.pool_offset1 = 1 + offsetof(struct imap_login_settings, pool),
 	.dependencies = imap_login_setting_dependencies
 };
-
-const struct setting_parser_info *imap_login_setting_roots[] = {
-	&login_setting_parser_info,
-	&imap_login_setting_parser_info,
-	NULL
-};

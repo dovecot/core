@@ -9,7 +9,6 @@ struct imap_login_settings {
 	bool imap_id_retain;
 };
 
-extern const struct setting_parser_info *imap_login_setting_roots[];
 extern const struct setting_parser_info imap_login_setting_parser_info;
 
 #endif

@@ -967,7 +967,6 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 
 	mail_storage_service_add_storage_set_roots(ctx);
 	i_zero(&set_input);
-	set_input.roots = mail_storage_service_get_set_roots(ctx);
 	set_input.preserve_user = TRUE;
 	/* settings reader may exec doveconf, which is going to clear
 	   environment, and if we're not doing a userdb lookup we want to

@@ -28,6 +28,3 @@ imap_urlauth_login_DEPENDENCIES = \
 imap_urlauth_login_SOURCES = \
 	imap-urlauth-login.c \
 	imap-urlauth-login-settings.c
-
-noinst_HEADERS = \
-	imap-urlauth-login-settings.h

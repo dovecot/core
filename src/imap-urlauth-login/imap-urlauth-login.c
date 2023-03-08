@@ -11,7 +11,6 @@
 #include "master-service.h"
 #include "auth-client.h"
 #include "client-common.h"
-#include "imap-urlauth-login-settings.h"
 
 #define IMAP_URLAUTH_PROTOCOL_MAJOR_VERSION 2
 #define IMAP_URLAUTH_PROTOCOL_MINOR_VERSION 0
@@ -164,7 +163,6 @@ static void imap_urlauth_client_notify_auth_ready(struct client *client)
 
 static void imap_urlauth_login_preinit(void)
 {
-	login_set_roots = imap_urlauth_login_setting_roots;
 }
 
 static void imap_urlauth_login_init(void)

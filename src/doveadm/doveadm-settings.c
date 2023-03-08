@@ -219,17 +219,11 @@ void doveadm_get_ssl_settings(struct ssl_iostream_settings *set_r, pool_t pool)
 
 void doveadm_read_settings(void)
 {
-	static const struct setting_parser_info *set_roots[] = {
-		&master_service_ssl_setting_parser_info,
-		&doveadm_setting_parser_info,
-		NULL
-	};
 	struct master_service_settings_input input;
 	struct master_service_settings_output output;
 	const char *error;
 
 	i_zero(&input);
-	input.roots = set_roots;
 	input.service = "doveadm";
 	input.preserve_user = TRUE;
 	input.preserve_home = TRUE;

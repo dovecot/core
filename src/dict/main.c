@@ -143,10 +143,6 @@ static void main_deinit(void)
 int main(int argc, char *argv[])
 {
 	const enum master_service_flags service_flags = 0;
-	const struct setting_parser_info *set_roots[] = {
-		&dict_setting_parser_info,
-		NULL
-	};
 	const char *error;
 
 	master_service = master_service_init("dict", service_flags,
@@ -155,7 +151,6 @@ int main(int argc, char *argv[])
 		return FATAL_DEFAULT;
 
 	const struct master_service_settings_input set_input = {
-		.roots = set_roots,
 		.disable_check_settings = TRUE,
 	};
 	struct master_service_settings_output output;

@@ -548,15 +548,10 @@ const struct auth_settings *
 auth_settings_read(const char *service,
 		   struct master_service_settings_output *output_r)
 {
-	static const struct setting_parser_info *set_roots[] = {
-		&auth_setting_parser_info,
-		NULL
-	};
 	struct master_service_settings_input input;
 	const char *error;
 
 	i_zero(&input);
-	input.roots = set_roots;
 	input.service = service;
 	input.disable_check_settings = TRUE;
 	if (master_service_settings_read(master_service, &input,

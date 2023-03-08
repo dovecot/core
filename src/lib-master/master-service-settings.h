@@ -52,7 +52,6 @@ struct master_service_settings {
 };
 
 struct master_service_settings_input {
-	const struct setting_parser_info *const *roots;
 	const char *config_path;
 	bool preserve_environment;
 	bool preserve_user;
@@ -136,8 +135,7 @@ int master_service_settings_read(struct master_service *service,
 				 struct master_service_settings_output *output_r,
 				 const char **error_r);
 int master_service_settings_read_simple(struct master_service *service,
-					const struct setting_parser_info **roots,
-					const char **error_r) ATTR_NULL(2);
+					const char **error_r);
 
 const struct master_service_settings *
 master_service_get_service_settings(struct master_service *service);

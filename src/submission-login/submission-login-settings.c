@@ -118,12 +118,6 @@ const struct setting_parser_info submission_login_setting_parser_info = {
 	.dependencies = submission_login_setting_dependencies
 };
 
-const struct setting_parser_info *submission_login_setting_roots[] = {
-	&login_setting_parser_info,
-	&submission_login_setting_parser_info,
-	NULL
-};
-
 /* <settings checks> */
 struct submission_login_client_workaround_list {
 	const char *name;

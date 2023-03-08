@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (master_service_settings_read_simple(master_service, NULL, &error) < 0)
+	if (master_service_settings_read_simple(master_service, &error) < 0)
 		i_fatal("%s", error);
 
 	master_service_init_log(master_service);

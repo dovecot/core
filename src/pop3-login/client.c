@@ -17,7 +17,6 @@
 #include "client-authenticate.h"
 #include "auth-client.h"
 #include "pop3-proxy.h"
-#include "pop3-login-settings.h"
 
 #include <ctype.h>
 
@@ -335,7 +334,6 @@ static void pop3_login_die(void)
 
 static void pop3_login_preinit(void)
 {
-	login_set_roots = pop3_login_setting_roots;
 }
 
 static void pop3_login_init(void)
