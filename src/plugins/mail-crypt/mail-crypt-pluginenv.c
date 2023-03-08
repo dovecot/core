@@ -9,24 +9,6 @@
 #include "mail-crypt-key.h"
 #include "fs-crypt-settings.h"
 
-static const struct fs_crypt_settings *
-fs_crypt_load_settings(void)
-{
-	struct master_service_settings_input input;
-	struct master_service_settings_output output;
-	const char *error;
-
-	i_zero(&input);
-	input.service = "fs-crypt";
-	input.disable_check_settings = TRUE;
-	if (master_service_settings_read(master_service, &input,
-					 &output, &error) < 0)
-		i_fatal("%s", error);
-
-	return master_service_settings_get_or_fatal(NULL,
-				&fs_crypt_setting_parser_info);
-}
-
 static
 const char *mail_crypt_plugin_getenv(const struct fs_crypt_settings *set,
 				     const char *name)
@@ -79,7 +61,9 @@ int mail_crypt_global_keys_load_pluginenv(const char *set_prefix,
 				struct mail_crypt_global_keys *global_keys_r,
 				const char **error_r)
 {
-	const struct fs_crypt_settings *set = fs_crypt_load_settings();
+	const struct fs_crypt_settings *set =
+		master_service_settings_get_or_fatal(NULL,
+			&fs_crypt_setting_parser_info);
 
 	const char *set_key = t_strconcat(set_prefix, "_public_key", NULL);
 	const char *key_data = mail_crypt_plugin_getenv(set, set_key);
