@@ -1740,14 +1740,6 @@ pool_t mail_storage_service_user_get_pool(struct mail_storage_service_user *user
 	return user->pool;
 }
 
-int mail_storage_service_user_set_setting(struct mail_storage_service_user *user,
-					  const char *key,
-					  const char *value,
-					  const char **error_r)
-{
-	return master_service_set(user->set_parser, key, value, error_r);
-}
-
 const char *
 mail_storage_service_get_log_prefix(struct mail_storage_service_ctx *ctx)
 {
