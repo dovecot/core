@@ -32,18 +32,9 @@ bool doveadm_client_is_allowed_command(const struct doveadm_settings *set,
 
 static int client_connection_read_settings(struct client_connection *conn)
 {
-	struct master_service_settings_input input;
-	struct master_service_settings_output output;
 	const char *error;
 
-	i_zero(&input);
-	input.service = "doveadm";
-	input.local_ip = conn->local_ip;
-	input.remote_ip = conn->remote_ip;
-
-	if (master_service_settings_read(master_service, &input,
-					 &output, &error) < 0 ||
-	    master_service_settings_get(conn->event,
+	if (master_service_settings_get(conn->event,
 					&doveadm_setting_parser_info, 0,
 					&conn->set, &error) < 0) {
 		e_error(conn->event, "%s", error);
