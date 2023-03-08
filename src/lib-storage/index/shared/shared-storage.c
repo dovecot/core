@@ -411,7 +411,6 @@ struct mail_storage shared_storage = {
 	.class_flags = 0, /* unknown at this point */
 
 	.v = {
-		NULL,
 		shared_storage_alloc,
 		shared_storage_create,
 		index_storage_destroy,

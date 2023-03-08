@@ -27,7 +27,7 @@ static const struct maildir_settings maildir_default_settings = {
 	.maildir_empty_new = FALSE
 };
 
-static const struct setting_parser_info maildir_setting_parser_info = {
+const struct setting_parser_info maildir_setting_parser_info = {
 	.module_name = "maildir",
 	.defines = maildir_setting_defines,
 	.defaults = &maildir_default_settings,
@@ -36,9 +36,3 @@ static const struct setting_parser_info maildir_setting_parser_info = {
 	.pool_offset1 = 1 + offsetof(struct maildir_settings, pool),
 	.parent = &mail_user_setting_parser_info
 };
-
-const struct setting_parser_info *maildir_get_setting_parser_info(void)
-{
-	return &maildir_setting_parser_info;
-}
-

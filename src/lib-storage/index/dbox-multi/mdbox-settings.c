@@ -25,7 +25,7 @@ static const struct mdbox_settings mdbox_default_settings = {
 	.mdbox_rotate_interval = 0
 };
 
-static const struct setting_parser_info mdbox_setting_parser_info = {
+const struct setting_parser_info mdbox_setting_parser_info = {
 	.module_name = "mdbox",
 	.defines = mdbox_setting_defines,
 	.defaults = &mdbox_default_settings,
@@ -34,8 +34,3 @@ static const struct setting_parser_info mdbox_setting_parser_info = {
 	.pool_offset1 = 1 + offsetof(struct mdbox_settings, pool),
 	.parent = &mail_user_setting_parser_info
 };
-
-const struct setting_parser_info *mdbox_get_setting_parser_info(void)
-{
-	return &mdbox_setting_parser_info;
-}

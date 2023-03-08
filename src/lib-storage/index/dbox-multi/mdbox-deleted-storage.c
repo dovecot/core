@@ -245,7 +245,6 @@ struct mail_storage mdbox_deleted_storage = {
 		MAIL_STORAGE_CLASS_FLAG_BINARY_DATA,
 
 	.v = {
-                mdbox_get_setting_parser_info,
 		mdbox_deleted_storage_alloc,
 		mdbox_storage_create,
 		mdbox_storage_destroy,

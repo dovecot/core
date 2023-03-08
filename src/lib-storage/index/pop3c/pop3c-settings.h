@@ -29,6 +29,6 @@ struct pop3c_settings {
 	enum pop3c_features parsed_features;
 };
 
-const struct setting_parser_info *pop3c_get_setting_parser_info(void);
+extern const struct setting_parser_info pop3c_setting_parser_info;
 
 #endif

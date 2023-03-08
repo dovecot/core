@@ -9,6 +9,6 @@ struct maildir_settings {
 	bool maildir_empty_new;
 };
 
-const struct setting_parser_info *maildir_get_setting_parser_info(void);
+extern const struct setting_parser_info maildir_setting_parser_info;
 
 #endif

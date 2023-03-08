@@ -44,7 +44,7 @@ pop3c_storage_create(struct mail_storage *_storage,
 
 	if (master_service_settings_instance_get(_storage->event,
 			_storage->user->set_instance,
-			pop3c_get_setting_parser_info(), 0,
+			&pop3c_setting_parser_info, 0,
 			&storage->set, error_r) < 0)
 		return -1;
 
@@ -323,7 +323,6 @@ struct mail_storage pop3c_storage = {
 	.event_category = &event_category_pop3c,
 
 	.v = {
-		pop3c_get_setting_parser_info,
 		pop3c_storage_alloc,
 		pop3c_storage_create,
 		pop3c_storage_destroy,

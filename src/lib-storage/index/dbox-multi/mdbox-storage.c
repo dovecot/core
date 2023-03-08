@@ -49,7 +49,7 @@ int mdbox_storage_create(struct mail_storage *_storage,
 
 	if (master_service_settings_instance_get(_storage->event,
 			_storage->user->set_instance,
-			mdbox_get_setting_parser_info(), 0,
+			&mdbox_setting_parser_info, 0,
 			&storage->set, error_r) < 0)
 		return -1;
 
@@ -477,7 +477,6 @@ struct mail_storage mdbox_storage = {
 	.event_category = &event_category_mdbox,
 
 	.v = {
-                mdbox_get_setting_parser_info,
 		mdbox_storage_alloc,
 		mdbox_storage_create,
 		mdbox_storage_destroy,

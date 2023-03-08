@@ -238,7 +238,6 @@ struct mail_storage raw_storage = {
 		MAIL_STORAGE_CLASS_FLAG_BINARY_DATA,
 
 	.v = {
-		NULL,
 		raw_storage_alloc,
 		NULL,
 		index_storage_destroy,

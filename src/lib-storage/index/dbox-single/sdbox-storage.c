@@ -450,7 +450,6 @@ struct mail_storage sdbox_storage = {
 	.event_category = &event_category_sdbox,
 
 	.v = {
-                NULL,
 		sdbox_storage_alloc,
 		sdbox_storage_create,
 		dbox_storage_destroy,
@@ -469,7 +468,6 @@ struct mail_storage dbox_storage = {
 	.event_category = &event_category_sdbox,
 
 	.v = {
-		NULL,
 		sdbox_storage_alloc,
 		sdbox_storage_create,
 		dbox_storage_destroy,

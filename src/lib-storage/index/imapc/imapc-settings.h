@@ -59,6 +59,6 @@ struct imapc_settings {
 	unsigned int throttle_shrink_min_msecs;
 };
 
-const struct setting_parser_info *imapc_get_setting_parser_info(void);
+extern const struct setting_parser_info imapc_setting_parser_info;
 
 #endif

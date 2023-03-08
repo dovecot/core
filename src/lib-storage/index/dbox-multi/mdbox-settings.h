@@ -8,6 +8,6 @@ struct mdbox_settings {
 	unsigned int mdbox_rotate_interval;
 };
 
-const struct setting_parser_info *mdbox_get_setting_parser_info(void);
+extern const struct setting_parser_info mdbox_setting_parser_info;
 
 #endif

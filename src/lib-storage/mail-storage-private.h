@@ -51,8 +51,6 @@ struct mail_module_register {
 };
 
 struct mail_storage_vfuncs {
-	const struct setting_parser_info *(*get_setting_parser_info)(void);
-
 	struct mail_storage *(*alloc)(void);
 	int (*create)(struct mail_storage *storage, struct mail_namespace *ns,
 		      const char **error_r);

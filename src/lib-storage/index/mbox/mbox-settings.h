@@ -14,6 +14,6 @@ struct mbox_settings {
 	const char *mbox_md5;
 };
 
-const struct setting_parser_info *mbox_get_setting_parser_info(void);
+extern const struct setting_parser_info mbox_setting_parser_info;
 
 #endif

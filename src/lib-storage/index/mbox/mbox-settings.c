@@ -37,7 +37,7 @@ static const struct mbox_settings mbox_default_settings = {
 	.mbox_md5 = "apop3d:all"
 };
 
-static const struct setting_parser_info mbox_setting_parser_info = {
+const struct setting_parser_info mbox_setting_parser_info = {
 	.module_name = "mbox",
 	.defines = mbox_setting_defines,
 	.defaults = &mbox_default_settings,
@@ -46,8 +46,3 @@ static const struct setting_parser_info mbox_setting_parser_info = {
 	.pool_offset1 = 1 + offsetof(struct mbox_settings, pool),
 	.parent = &mail_user_setting_parser_info
 };
-
-const struct setting_parser_info *mbox_get_setting_parser_info(void)
-{
-	return &mbox_setting_parser_info;
-}

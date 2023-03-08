@@ -187,7 +187,7 @@ mbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 
 	if (master_service_settings_instance_get(_storage->event,
 			_storage->user->set_instance,
-			mbox_get_setting_parser_info(), 0,
+			&mbox_setting_parser_info, 0,
 			&storage->set, error_r) < 0)
 		return -1;
 
@@ -835,7 +835,6 @@ struct mail_storage mbox_storage = {
 	.event_category = &event_category_mbox,
 
 	.v = {
-                mbox_get_setting_parser_info,
 		mbox_storage_alloc,
 		mbox_storage_create,
 		mbox_storage_destroy,

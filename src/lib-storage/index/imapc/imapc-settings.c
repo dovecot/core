@@ -63,7 +63,7 @@ static const struct imapc_settings imapc_default_settings = {
 	.pop3_deleted_flag = ""
 };
 
-static const struct setting_parser_info imapc_setting_parser_info = {
+const struct setting_parser_info imapc_setting_parser_info = {
 	.module_name = "imapc",
 	.defines = imapc_setting_defines,
 	.defaults = &imapc_default_settings,
@@ -74,11 +74,6 @@ static const struct setting_parser_info imapc_setting_parser_info = {
 
 	.check_func = imapc_settings_check
 };
-
-const struct setting_parser_info *imapc_get_setting_parser_info(void)
-{
-	return &imapc_setting_parser_info;
-}
 
 /* <settings checks> */
 struct imapc_feature_list {

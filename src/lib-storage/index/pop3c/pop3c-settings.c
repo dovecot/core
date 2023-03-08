@@ -96,7 +96,7 @@ static bool pop3c_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 }
 /* </settings checks> */
 
-static const struct setting_parser_info pop3c_setting_parser_info = {
+const struct setting_parser_info pop3c_setting_parser_info = {
 	.module_name = "pop3c",
 	.defines = pop3c_setting_defines,
 	.defaults = &pop3c_default_settings,
@@ -107,8 +107,3 @@ static const struct setting_parser_info pop3c_setting_parser_info = {
 
         .check_func = pop3c_settings_check
 };
-
-const struct setting_parser_info *pop3c_get_setting_parser_info(void)
-{
-	return &pop3c_setting_parser_info;
-}
