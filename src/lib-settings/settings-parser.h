@@ -127,10 +127,6 @@ struct setting_parser_context;
 struct setting_parser_context *
 settings_parser_init(pool_t set_pool, const struct setting_parser_info *root,
 		     enum settings_parser_flags flags);
-struct setting_parser_context *
-settings_parser_init_list(pool_t set_pool,
-			  const struct setting_parser_info *const *roots,
-			  unsigned int count, enum settings_parser_flags flags);
 void settings_parser_ref(struct setting_parser_context *ctx);
 void settings_parser_unref(struct setting_parser_context **ctx);
 
@@ -141,9 +137,6 @@ void *settings_parser_get_root_set(const struct setting_parser_context *ctx,
 				   const struct setting_parser_info *root);
 /* Return pointer to changes in the root setting structure. */
 void *settings_parser_get_changes(struct setting_parser_context *ctx);
-/* Returns the setting parser's roots (same as given to init()). */
-const struct setting_parser_info *const *
-settings_parser_get_roots(const struct setting_parser_context *ctx);
 
 /* Return the last error. */
 const char *settings_parser_get_error(struct setting_parser_context *ctx);

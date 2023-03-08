@@ -74,13 +74,6 @@ settings_apply(struct setting_link *dest_link,
 	       const struct setting_link *src_link,
 	       pool_t pool, const char **conflict_key_r);
 
-struct setting_parser_context *
-settings_parser_init(pool_t set_pool, const struct setting_parser_info *root,
-		     enum settings_parser_flags flags)
-{
-        return settings_parser_init_list(set_pool, &root, 1, flags);
-}
-
 static void
 copy_unique_defaults(struct setting_parser_context *ctx,
 		     const struct setting_define *def,
@@ -188,15 +181,12 @@ setting_parser_copy_defaults(struct setting_parser_context *ctx,
 }
 
 struct setting_parser_context *
-settings_parser_init_list(pool_t set_pool,
-			  const struct setting_parser_info *const *roots,
-			  unsigned int count, enum settings_parser_flags flags)
+settings_parser_init(pool_t set_pool, const struct setting_parser_info *root,
+		     enum settings_parser_flags flags)
 {
 	struct setting_parser_context *ctx;
 	unsigned int i;
 	pool_t parser_pool;
-
-	i_assert(count > 0);
 
 	parser_pool = pool_alloconly_create(MEMPOOL_GROWING"settings parser",
 					    1024);
@@ -213,9 +203,10 @@ settings_parser_init_list(pool_t set_pool,
 	hash_table_create(&ctx->links, ctx->parser_pool, 0,
 			  strcase_hash, strcasecmp);
 
-	ctx->root_count = count;
-	ctx->roots = p_new(ctx->parser_pool, struct setting_link, count);
-	for (i = 0; i < count; i++) {
+	ctx->root_count = 1;
+	ctx->roots = p_new(ctx->parser_pool, struct setting_link, 1);
+	const struct setting_parser_info *const *roots = &root;
+	for (i = 0; i < 1; i++) {
 		ctx->roots[i].info = roots[i];
 		if (roots[i]->struct_size == 0)
 			continue;
@@ -269,18 +260,6 @@ void *settings_parser_get_changes(struct setting_parser_context *ctx)
 	i_assert(ctx->root_count == 1);
 
 	return ctx->roots[0].change_struct;
-}
-
-const struct setting_parser_info *const *
-settings_parser_get_roots(const struct setting_parser_context *ctx)
-{
-	const struct setting_parser_info **infos;
-	unsigned int i;
-
-	infos = t_new(const struct setting_parser_info *, ctx->root_count + 1);
-	for (i = 0; i < ctx->root_count; i++)
-		infos[i] = ctx->roots[i].info;
-	return infos;
 }
 
 static void settings_parser_set_error(struct setting_parser_context *ctx,
