@@ -13,6 +13,7 @@
 #include "module-dir.h"
 #include "wildcard-match.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
@@ -330,10 +331,10 @@ static int cmd_force_resync_prerun(struct doveadm_mail_cmd_context *ctx ATTR_UNU
 				   struct mail_storage_service_user *service_user,
 				   const char **error_r)
 {
-	if (mail_storage_service_user_set_setting(service_user,
-						  "mailbox_list_index_very_dirty_syncs",
-						  "no",
-						  error_r) <= 0)
+	struct setting_parser_context *set_parser =
+		mail_storage_service_user_get_settings_parser(service_user);
+	if (master_service_set(set_parser, "mailbox_list_index_very_dirty_syncs",
+			       "no", error_r) <= 0)
 		i_unreached();
 	return 0;
 }

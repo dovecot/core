@@ -107,7 +107,7 @@ static void set_keyval(struct mail_storage_service_user *user,
 		return;
 	}
 
-	if (mail_storage_service_user_set_setting(user, key, value, &error) < 0)
+	if (master_service_set(user->set_parser, key, value, &error) < 0)
 		i_fatal("Invalid userdb input %s=%s: %s", key, value, error);
 }
 
@@ -156,7 +156,7 @@ static int set_keyvalue(struct mail_storage_service_ctx *ctx,
 		value = t_strconcat(*strp, append_value, NULL);
 	}
 
-	ret = mail_storage_service_user_set_setting(user, key, value, error_r);
+	ret = master_service_set(user->set_parser, key, value, error_r);
 	if (ret < 0)
 		return -1;
 	if (strstr(key, "pass") != NULL) {
@@ -1322,7 +1322,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	var_expand_ctx.user = user;
 
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0) {
-		if (mail_storage_service_user_set_setting(user, "mail_debug", "yes", &error) <= 0)
+		if (master_service_set(user->set_parser, "mail_debug", "yes", &error) <= 0)
 			i_unreached();
 	}
 
@@ -1351,7 +1351,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		   fine that extra plugins are loaded - we'll just need to
 		   prevent any of their hooks from being called. One easy way
 		   to do this is just to clear out the mail_plugins setting: */
-		if (mail_storage_service_user_set_setting(user, "mail_plugins", "", &error) <= 0)
+		if (master_service_set(user->set_parser, "mail_plugins", "", &error) <= 0)
 			i_unreached();
 	}
 	if (ret > 0) {

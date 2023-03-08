@@ -466,9 +466,9 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 
 	/* update mail_location and create another user for the
 	   second location. */
-	if (mail_storage_service_user_set_setting(ctx->ctx.cur_service_user,
-						  "mail_location", location,
-						  &error) <= 0)
+	struct setting_parser_context *set_parser =
+		mail_storage_service_user_get_settings_parser(ctx->ctx.cur_service_user);
+	if (master_service_set(set_parser, "mail_location", location, &error) <= 0)
 		i_unreached();
 	ret = mail_storage_service_next(ctx->ctx.storage_service,
 					ctx->ctx.cur_service_user,
