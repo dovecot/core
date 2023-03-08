@@ -62,8 +62,10 @@ int client_connection_init(struct client_connection *conn,
 	conn->type = type;
 	conn->pool = pool;
 
-	(void)net_getsockname(fd, &conn->local_ip, &conn->local_port);
-	(void)net_getpeername(fd, &conn->remote_ip, &conn->remote_port);
+	if (net_getsockname(fd, &conn->local_ip, &conn->local_port) == 0)
+		event_add_ip(conn->event, "local_ip", &conn->local_ip);
+	if (net_getpeername(fd, &conn->remote_ip, &conn->remote_port) == 0)
+		event_add_ip(conn->event, "remote_ip", &conn->local_ip);
 
 	ip = net_ip2addr(&conn->remote_ip);
 	if (ip[0] != '\0')
