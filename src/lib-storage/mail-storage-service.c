@@ -96,37 +96,25 @@ struct module *mail_storage_service_modules = NULL;
 static void set_keyval(struct mail_storage_service_user *user,
 		       const char *key, const char *value)
 {
-	const char *error;
-
-	if (master_service_set(user->set_instance, key, value,
-			       MASTER_SERVICE_SET_TYPE_USERDB, &error) < 0)
-		i_fatal("Invalid userdb input %s=%s: %s", key, value, error);
+	master_service_set(user->set_instance, key, value,
+			   MASTER_SERVICE_SET_TYPE_USERDB);
 }
 
-static int set_keyvalue(struct mail_storage_service_user *user,
-			const char *key, const char *value,
-			const char **error_r)
+static void set_keyvalue(struct mail_storage_service_user *user,
+			 const char *key, const char *value)
 {
-	int ret;
-
 	/* Ignore empty keys rather than prepend 'plugin/=' to them. */
 	if (*key == '\0')
-		return 1;
+		return;
 
-	ret = master_service_set(user->set_instance, key, value,
-				 MASTER_SERVICE_SET_TYPE_USERDB, error_r);
-	if (ret < 0)
-		return -1;
+	master_service_set(user->set_instance, key, value,
+			   MASTER_SERVICE_SET_TYPE_USERDB);
 	if (strstr(key, "pass") != NULL) {
 		/* possibly a password field (e.g. imapc_password).
 		   hide the value. */
 		value = "<hidden>";
 	}
-	if (ret == 0)
-		e_debug(user->event, "Unknown userdb setting: %s", key);
-	else
-		e_debug(user->event, "Added userdb setting: %s=%s", key, value);
-	return ret;
+	e_debug(user->event, "Added userdb setting: %s=%s", key, value);
 }
 
 static bool validate_chroot(const struct mail_user_settings *user_set,
@@ -157,9 +145,8 @@ user_reply_handle(struct mail_storage_service_user *user,
 {
 	const char *home = reply->home;
 	const char *chroot = reply->chroot;
-	const char *const *str, *p, *error = NULL;
+	const char *const *str, *p;
 	unsigned int i, count;
-	int ret = 0;
 
 	if (reply->uid != (uid_t)-1) {
 		if (reply->uid == 0) {
@@ -230,19 +217,11 @@ user_reply_handle(struct mail_storage_service_user *user,
 			user->auth_user = p_strdup(user->pool, value);
 		} else if (strcmp(key, "admin") == 0) {
 			user->admin = strchr("1Yy", value[0]) != NULL;
-		} else T_BEGIN {
-			ret = set_keyvalue(user, key, value, &error);
-		} T_END_PASS_STR_IF(ret < 0, &error);
-		if (ret < 0)
-			break;
+		} else {
+			set_keyvalue(user, key, value);
+		}
 	}
-
-	if (ret < 0) {
-		i_assert(error != NULL);
-		*error_r = t_strdup_printf("Invalid userdb input '%s': %s",
-					   str[i], error);
-	}
-	return ret;
+	return 0;
 }
 
 static int
@@ -1222,9 +1201,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	var_expand_ctx.user = user;
 
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0) {
-		if (master_service_set(user->set_instance, "mail_debug", "yes",
-				       MASTER_SERVICE_SET_TYPE_CODE, &error) <= 0)
-			i_unreached();
+		master_service_set(user->set_instance, "mail_debug", "yes",
+				   MASTER_SERVICE_SET_TYPE_CODE);
 	}
 
 	if (userdb_fields != NULL) {
@@ -1252,9 +1230,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		   fine that extra plugins are loaded - we'll just need to
 		   prevent any of their hooks from being called. One easy way
 		   to do this is just to clear out the mail_plugins setting: */
-		if (master_service_set(user->set_instance, "mail_plugins", "",
-				       MASTER_SERVICE_SET_TYPE_CODE, &error) <= 0)
-			i_unreached();
+		master_service_set(user->set_instance, "mail_plugins", "",
+				   MASTER_SERVICE_SET_TYPE_CODE);
 	}
 	if (ret > 0) {
 		mail_storage_service_update_chroot(user);

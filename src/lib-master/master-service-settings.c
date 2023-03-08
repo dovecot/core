@@ -1114,10 +1114,9 @@ master_service_settings_get_or_fatal(struct event *event,
 	return set;
 }
 
-int master_service_set(struct master_service_settings_instance *instance,
-		       const char *key, const char *value,
-		       enum master_service_set_type type,
-		       const char **error_r ATTR_UNUSED)
+void master_service_set(struct master_service_settings_instance *instance,
+			const char *key, const char *value,
+			enum master_service_set_type type)
 {
 	if (!array_is_created(&instance->settings))
 		p_array_init(&instance->settings, instance->pool, 16);
@@ -1133,7 +1132,6 @@ int master_service_set(struct master_service_settings_instance *instance,
 		set->key = p_strdup(instance->pool, key);
 	}
 	set->value = p_strdup(instance->pool, value);
-	return 1;
 }
 
 struct master_service_settings_instance *
