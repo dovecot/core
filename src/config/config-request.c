@@ -488,7 +488,7 @@ int config_export_finish(struct config_export_context **_ctx,
 		parser = &ctx->parsers[i];
 
 		T_BEGIN {
-			void *set = settings_parser_get_root_set(parser->parser, parser->root);
+			void *set = settings_parser_get_set(parser->parser);
 			settings_export(ctx, parser->root, FALSE, set,
 					settings_parser_get_changes(parser->parser));
 		} T_END;

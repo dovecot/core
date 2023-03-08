@@ -95,8 +95,7 @@ static void test_settings_parser(void)
 	test_assert(settings_parser_check(ctx, pool, NULL));
 
 	/* check what we got */
-	struct test_settings *settings =
-		settings_parser_get_root_set(ctx, &root);
+	struct test_settings *settings = settings_parser_get_set(ctx);
 	test_assert(settings != NULL);
 
 	test_assert(settings->bool_true == TRUE);

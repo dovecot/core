@@ -1042,7 +1042,7 @@ int master_service_settings_instance_get(struct event *event,
 		return -1;
 	}
 
-	void *set = settings_parser_get_root_set(parser, info);
+	void *set = settings_parser_get_set(parser);
 
 	pool_t *pool_p = PTR_OFFSET(set, info->pool_offset1 - 1);
 	*pool_p = set_pool;

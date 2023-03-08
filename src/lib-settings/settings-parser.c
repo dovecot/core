@@ -245,14 +245,11 @@ void settings_parser_unref(struct setting_parser_context **_ctx)
 	pool_unref(&ctx->parser_pool);
 }
 
-void *settings_parser_get_root_set(const struct setting_parser_context *ctx,
-				   const struct setting_parser_info *root)
+void *settings_parser_get_set(const struct setting_parser_context *ctx)
 {
-	for (unsigned int i = 0; i < ctx->root_count; i++) {
-		if (ctx->roots[i].info == root)
-			return ctx->roots[i].set_struct;
-	}
-	i_panic("Couldn't find settings for root %s", root->module_name);
+	i_assert(ctx->root_count == 1);
+
+	return ctx->roots[0].set_struct;
 }
 
 void *settings_parser_get_changes(struct setting_parser_context *ctx)
