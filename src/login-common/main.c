@@ -499,7 +499,13 @@ int login_binary_run(struct login_binary *binary,
 
 	login_binary->preinit();
 
-	if (login_settings_read(NULL, NULL, NULL, &error) < 0 ||
+	struct master_service_settings_input input = {
+		.service = login_binary->protocol,
+		.disable_check_settings = TRUE,
+	};
+	struct master_service_settings_output output;
+	if (master_service_settings_read(master_service, &input,
+					 &output, &error) < 0 ||
 	    master_service_settings_get(NULL, &login_setting_parser_info,
 					MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
 					&global_login_settings, &error) < 0)

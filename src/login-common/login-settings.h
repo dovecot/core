@@ -38,9 +38,4 @@ struct login_settings {
 
 extern const struct setting_parser_info login_setting_parser_info;
 
-int login_settings_read(const struct ip_addr *local_ip,
-			const struct ip_addr *remote_ip,
-			const char *local_name, const char **error_r)
-	ATTR_NULL(1, 2, 3);
-
 #endif

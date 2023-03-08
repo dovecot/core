@@ -103,24 +103,3 @@ static bool login_settings_check(void *_set, pool_t pool,
 	return TRUE;
 }
 /* </settings checks> */
-
-int login_settings_read(const struct ip_addr *local_ip,
-			const struct ip_addr *remote_ip,
-			const char *local_name, const char **error_r)
-{
-	struct master_service_settings_input input;
-	struct master_service_settings_output output;
-
-	i_zero(&input);
-	input.service = login_binary->protocol;
-	input.local_name = local_name;
-	input.disable_check_settings = TRUE;
-
-	if (local_ip != NULL)
-		input.local_ip = *local_ip;
-	if (remote_ip != NULL)
-		input.remote_ip = *remote_ip;
-
-	return master_service_settings_read(master_service, &input,
-					    &output, error_r);
-}

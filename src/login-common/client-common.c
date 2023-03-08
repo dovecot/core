@@ -210,13 +210,11 @@ client_var_expand_callback(struct event *event,
 	*tab_r = get_var_expand_table(client);
 }
 
-static int client_settings_read(struct client *client, const char **error_r)
+static int client_settings_get(struct client *client, const char **error_r)
 {
 	i_assert(client->set == NULL);
 
-	if (login_settings_read(&client->local_ip, &client->ip,
-				client->local_name, error_r) < 0 ||
-	    master_service_settings_get(client->event,
+	if (master_service_settings_get(client->event,
 					&login_setting_parser_info,
 					0, &client->set, error_r) < 0 ||
 	    master_service_settings_get(client->event,
@@ -278,7 +276,7 @@ int client_alloc(int fd, const struct master_service_connection *conn,
 	event_set_ptr(client->event, MASTER_SERVICE_VAR_EXPAND_CALLBACK,
 		      client_var_expand_callback);
 	event_set_ptr(client->event, "client", client);
-	if (client_settings_read(client, &error) < 0) {
+	if (client_settings_get(client, &error) < 0) {
 		e_error(client->event, "%s", error);
 		event_unref(&client->event);
 		pool_unref(&client->pool);
@@ -681,8 +679,12 @@ static int client_sni_callback(const char *name, const char **error_r,
 	client->ssl_set = NULL;
 	client->ssl_server_set = NULL;
 
+	/* Add local_name also to event. This is especially important to get
+	   local_name { .. } config filters to work when looking up the settings
+	   again. */
+	event_add_str(client->event, "local_name", name);
 	client->local_name = p_strdup(client->pool, name);
-	if (client_settings_read(client, error_r) < 0) {
+	if (client_settings_get(client, error_r) < 0) {
 		client->set = old_set;
 		client->ssl_set = old_ssl_set;
 		client->ssl_server_set = old_ssl_server_set;
