@@ -64,9 +64,6 @@ struct master_service_settings_input {
 	bool disable_check_settings;
 
 	const char *service;
-	const char *username;
-	struct ip_addr local_ip, remote_ip;
-	const char *local_name;
 };
 
 struct master_service_settings_output {

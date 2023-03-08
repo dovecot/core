@@ -925,12 +925,8 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 	set_input.use_sysexits =
 		(flags & MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS) != 0;
 
-	if (input != NULL) {
+	if (input != NULL)
 		set_input.service = input->service;
-		set_input.username = input->username;
-		set_input.local_ip = input->local_ip;
-		set_input.remote_ip = input->remote_ip;
-	}
 	if (ctx->settings_looked_up) {
 		/* already looked up settings at least once.
 		   we really shouldn't be execing anymore. */

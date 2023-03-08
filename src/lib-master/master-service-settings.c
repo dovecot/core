@@ -712,10 +712,6 @@ int master_service_settings_read(struct master_service *service,
 	/* Create event for matching config filters */
 	struct event *event = event_create(NULL);
 	event_add_str(event, "protocol", input->service);
-	event_add_str(event, "user", input->username);
-	event_add_str(event, "local_name", input->local_name);
-	event_add_ip(event, "local_ip", &input->local_ip);
-	event_add_ip(event, "remote_ip", &input->remote_ip);
 
 	/* config_mmap is NULL only if MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS
 	   is used */
