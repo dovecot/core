@@ -1272,6 +1272,13 @@ void client_notify_disconnect(struct client *client,
 	if (!client->notified_disconnect) {
 		if (client->v.notify_disconnect != NULL)
 			client->v.notify_disconnect(client, reason, text);
+		if (reason == CLIENT_DISCONNECT_SYSTEM_SHUTDOWN) {
+			client->shutting_down = TRUE;
+		}
+		if (reason == CLIENT_DISCONNECT_RESOURCE_CONSTRAINT) {
+			client->shutting_down = TRUE;
+			client->resource_constraint = TRUE;
+		}
 		client->notified_disconnect = TRUE;
 	}
 }

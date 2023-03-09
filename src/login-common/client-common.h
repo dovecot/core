@@ -285,6 +285,8 @@ struct client {
 	bool notified_auth_ready:1;
 	bool notified_disconnect:1;
 	bool fd_proxying:1;
+	bool shutting_down:1;
+	bool resource_constraint:1;
 	/* ... */
 };
 
