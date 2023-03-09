@@ -1182,6 +1182,19 @@ bool client_get_extra_disconnect_reason(struct client *client,
 		return TRUE;
 	}
 
+	if (client->shutting_down) {
+		if (client->resource_constraint) {
+			*event_reason_r = "process_full";
+			*human_reason_r = "client_limit and process_limit was hit"
+					 " and this login session was killed.";
+		} else {
+			*event_reason_r = "shutting_down";
+			*human_reason_r = "The process is shutting down so the"
+					 " login is aborted.";
+		}
+		return TRUE;
+	}
+
 	/* Check for missing client SSL certificates before auth attempts.
 	   We may have advertised LOGINDISABLED, which would have prevented
 	   client from even attempting to authenticate. */
@@ -1272,12 +1285,16 @@ void client_notify_disconnect(struct client *client,
 	if (!client->notified_disconnect) {
 		if (client->v.notify_disconnect != NULL)
 			client->v.notify_disconnect(client, reason, text);
-		if (reason == CLIENT_DISCONNECT_SYSTEM_SHUTDOWN) {
-			client->shutting_down = TRUE;
-		}
-		if (reason == CLIENT_DISCONNECT_RESOURCE_CONSTRAINT) {
-			client->shutting_down = TRUE;
+		switch (reason) {
+		case CLIENT_DISCONNECT_RESOURCE_CONSTRAINT:
 			client->resource_constraint = TRUE;
+			/* fall through */
+		case CLIENT_DISCONNECT_SYSTEM_SHUTDOWN:
+			client->shutting_down = TRUE;
+			break;
+		case CLIENT_DISCONNECT_TIMEOUT:
+		case CLIENT_DISCONNECT_INTERNAL_ERROR:
+			break;
 		}
 		client->notified_disconnect = TRUE;
 	}
