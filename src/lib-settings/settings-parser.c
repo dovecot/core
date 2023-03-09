@@ -451,7 +451,7 @@ get_in_port_zero(struct setting_parser_context *ctx, const char *value,
 static int
 settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 	       const struct setting_define *def,
-	       const char *key, const char *value)
+	       const char *key, const char *value, bool dup_value)
 {
 	void *ptr, *change_ptr;
 	const void *ptr2;
@@ -507,7 +507,9 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 			return -1;
 		break;
 	case SET_STR:
-		*((char **)ptr) = p_strdup(ctx->set_pool, value);
+		if (dup_value)
+			value = p_strdup(ctx->set_pool, value);
+		*((const char **)ptr) = value;
 		break;
 	case SET_STR_VARS:
 		*((char **)ptr) = p_strconcat(ctx->set_pool,
@@ -650,8 +652,9 @@ settings_parse_strlist(struct setting_parser_context *ctx,
 	array_push_back(link->array, &vvalue);
 }
 
-int settings_parse_keyvalue(struct setting_parser_context *ctx,
-			    const char *key, const char *value)
+static int
+settings_parse_keyvalue_real(struct setting_parser_context *ctx,
+			     const char *key, const char *value, bool dup_value)
 {
 	const struct setting_define *def;
 	struct setting_link *link;
@@ -673,11 +676,23 @@ int settings_parse_keyvalue(struct setting_parser_context *ctx,
 			return 1;
 		}
 
-		if (settings_parse(ctx, link, def, key, value) < 0)
+		if (settings_parse(ctx, link, def, key, value, dup_value) < 0)
 			return -1;
 		/* there may be more instances of the setting */
 	} while (settings_find_key_nth(ctx, key, &n, &def, &link));
 	return 1;
+}
+
+int settings_parse_keyvalue(struct setting_parser_context *ctx,
+			    const char *key, const char *value)
+{
+	return settings_parse_keyvalue_real(ctx, key, value, TRUE);
+}
+
+int settings_parse_keyvalue_nodup(struct setting_parser_context *ctx,
+				  const char *key, const char *value)
+{
+	return settings_parse_keyvalue_real(ctx, key, value, FALSE);
 }
 
 const char *settings_parse_unalias(struct setting_parser_context *ctx,
