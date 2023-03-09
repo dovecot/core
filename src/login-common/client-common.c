@@ -1192,13 +1192,6 @@ bool client_get_extra_disconnect_reason(struct client *client,
 	} else if (client->auth_client_continue_pending) {
 		*event_reason_r = "auth_waiting_client";
 		last_reason = "client didn't finish SASL auth";
-	} else if (client->auth_request != NULL) {
-		*event_reason_r = "auth_waiting_server";
-		last_reason = "disconnected while authenticating";
-	} else if (client->authenticating) {
-		i_assert(client->master_tag != 0);
-		*event_reason_r = "auth_waiting_server_finish";
-		last_reason = "disconnected while finishing login";
 	} else if (client->auth_nologin_referral) {
 		/* Referral was sent to the connecting client, which is
 		   expected to be a trusted Dovecot proxy. There should be no
