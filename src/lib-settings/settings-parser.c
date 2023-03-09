@@ -45,8 +45,7 @@ struct setting_parser_context {
         enum settings_parser_flags flags;
 	bool str_vars_are_expanded;
 
-	struct setting_link *roots;
-	unsigned int root_count;
+	struct setting_link root;
 	HASH_TABLE(char *, struct setting_link *) links;
 
 	unsigned int linenum;
@@ -185,7 +184,6 @@ settings_parser_init(pool_t set_pool, const struct setting_parser_info *root,
 		     enum settings_parser_flags flags)
 {
 	struct setting_parser_context *ctx;
-	unsigned int i;
 	pool_t parser_pool;
 
 	parser_pool = pool_alloconly_create(MEMPOOL_GROWING"settings parser",
@@ -203,21 +201,15 @@ settings_parser_init(pool_t set_pool, const struct setting_parser_info *root,
 	hash_table_create(&ctx->links, ctx->parser_pool, 0,
 			  strcase_hash, strcasecmp);
 
-	ctx->root_count = 1;
-	ctx->roots = p_new(ctx->parser_pool, struct setting_link, 1);
-	const struct setting_parser_info *const *roots = &root;
-	for (i = 0; i < 1; i++) {
-		ctx->roots[i].info = roots[i];
-		if (roots[i]->struct_size == 0)
-			continue;
-
-		ctx->roots[i].set_struct =
-			p_malloc(ctx->set_pool, roots[i]->struct_size);
+	ctx->root.info = root;
+	if (root->struct_size > 0) {
+		ctx->root.set_struct =
+			p_malloc(ctx->set_pool, root->struct_size);
 		if ((flags & SETTINGS_PARSER_FLAG_TRACK_CHANGES) != 0) {
-			ctx->roots[i].change_struct =
-				p_malloc(ctx->set_pool, roots[i]->struct_size);
+			ctx->root.change_struct =
+				p_malloc(ctx->set_pool, root->struct_size);
 		}
-		setting_parser_copy_defaults(ctx, roots[i], &ctx->roots[i]);
+		setting_parser_copy_defaults(ctx, root, &ctx->root);
 	}
 
 	pool_ref(ctx->set_pool);
@@ -247,16 +239,12 @@ void settings_parser_unref(struct setting_parser_context **_ctx)
 
 void *settings_parser_get_set(const struct setting_parser_context *ctx)
 {
-	i_assert(ctx->root_count == 1);
-
-	return ctx->roots[0].set_struct;
+	return ctx->root.set_struct;
 }
 
 void *settings_parser_get_changes(struct setting_parser_context *ctx)
 {
-	i_assert(ctx->root_count == 1);
-
-	return ctx->roots[0].change_struct;
+	return ctx->root.change_struct;
 }
 
 static void settings_parser_set_error(struct setting_parser_context *ctx,
@@ -566,19 +554,18 @@ settings_find_key_nth(struct setting_parser_context *ctx, const char *key,
 	const struct setting_define *def;
 	struct setting_link *link;
 	const char *end, *parent_key;
-	unsigned int i;
 
 	/* try to find from roots */
-	for (i = *n; i < ctx->root_count; i++) {
-		def = setting_define_find(ctx->roots[i].info, key);
+	if (*n == 0) {
+		def = setting_define_find(ctx->root.info, key);
 		if (def != NULL) {
-			*n = i + 1;
+			*n = 1;
 			*def_r = def;
-			*link_r = &ctx->roots[i];
+			*link_r = &ctx->root;
 			return TRUE;
 		}
 	}
-	if (*n > ctx->root_count)
+	if (*n > 1)
 		return FALSE;
 	*n += 1;
 
@@ -815,14 +802,8 @@ bool settings_check(const struct setting_parser_info *info, pool_t pool,
 bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
 			   const char **error_r)
 {
-	unsigned int i;
-
-	for (i = 0; i < ctx->root_count; i++) {
-		if (!settings_check(ctx->roots[i].info, pool,
-				    ctx->roots[i].set_struct, error_r))
-			return FALSE;
-	}
-	return TRUE;
+	return settings_check(ctx->root.info, pool,
+			      ctx->root.set_struct, error_r);
 }
 
 void settings_parse_set_expanded(struct setting_parser_context *ctx,
@@ -980,15 +961,12 @@ int settings_var_expand_with_funcs(const struct setting_parser_info *info,
 
 void settings_parse_var_skip(struct setting_parser_context *ctx)
 {
-	unsigned int i;
 	const char *error;
 
-	for (i = 0; i < ctx->root_count; i++) {
-		(void)settings_var_expand_info(ctx->roots[i].info,
-					       ctx->roots[i].set_struct,
-					       NULL, NULL, NULL, NULL, NULL,
-					       &error);
-	}
+	(void)settings_var_expand_info(ctx->root.info,
+				       ctx->root.set_struct,
+				       NULL, NULL, NULL, NULL, NULL,
+				       &error);
 }
 
 static void settings_set_parent(const struct setting_parser_info *info,
@@ -1256,7 +1234,6 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 	HASH_TABLE_TYPE(setting_link) links;
 	struct setting_link *new_link, *value;
 	char *key;
-	unsigned int i;
 	pool_t parser_pool;
 	bool keep_values;
 
@@ -1279,25 +1256,20 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 
 	hash_table_create_direct(&links, new_ctx->parser_pool, 0);
 
-	new_ctx->root_count = old_ctx->root_count;
-	new_ctx->roots = p_new(new_ctx->parser_pool, struct setting_link,
-			       new_ctx->root_count);
-	for (i = 0; i < new_ctx->root_count; i++) {
-		i_assert(old_ctx->roots[i].parent == NULL);
-		i_assert(old_ctx->roots[i].array == NULL);
+	i_assert(old_ctx->root.parent == NULL);
+	i_assert(old_ctx->root.array == NULL);
 
-		new_ctx->roots[i].info = old_ctx->roots[i].info;
-		new_ctx->roots[i].set_struct =
-			settings_dup_full(old_ctx->roots[i].info,
-					  old_ctx->roots[i].set_struct,
-					  new_ctx->set_pool, keep_values);
-		new_ctx->roots[i].change_struct =
-			settings_changes_dup(old_ctx->roots[i].info,
-					     old_ctx->roots[i].change_struct,
-					     new_ctx->set_pool);
-		hash_table_insert(links, &old_ctx->roots[i],
-				  &new_ctx->roots[i]);
-	}
+	new_ctx->root.info = old_ctx->root.info;
+	new_ctx->root.set_struct =
+		settings_dup_full(old_ctx->root.info,
+				  old_ctx->root.set_struct,
+				  new_ctx->set_pool, keep_values);
+	new_ctx->root.change_struct =
+		settings_changes_dup(old_ctx->root.info,
+				     old_ctx->root.change_struct,
+				     new_ctx->set_pool);
+	struct setting_link *old_link = (struct setting_link *)&old_ctx->root;
+	hash_table_insert(links, old_link, &new_ctx->root);
 
 	hash_table_create(&new_ctx->links, new_ctx->parser_pool, 0,
 			  strcase_hash, strcasecmp);
@@ -1518,16 +1490,8 @@ int settings_parser_apply_changes(struct setting_parser_context *dest,
 				  const struct setting_parser_context *src,
 				  pool_t pool, const char **conflict_key_r)
 {
-	unsigned int i;
-
-	i_assert(src->root_count == dest->root_count);
-	for (i = 0; i < dest->root_count; i++) {
-		i_assert(src->roots[i].info == dest->roots[i].info);
-		if (settings_apply(&dest->roots[i], &src->roots[i], pool,
-				   conflict_key_r) < 0)
-			return -1;
-	}
-	return 0;
+	i_assert(src->root.info == dest->root.info);
+	return settings_apply(&dest->root, &src->root, pool, conflict_key_r);
 }
 
 const char *settings_section_escape(const char *name)
