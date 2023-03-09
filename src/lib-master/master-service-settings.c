@@ -403,7 +403,8 @@ master_service_open_config(struct master_service *service,
 
 static void
 master_service_append_config_overrides(struct master_service *service,
-				       ARRAY_TYPE(master_service_set) *settings)
+				       ARRAY_TYPE(master_service_set) *settings,
+				       pool_t set_pool)
 {
 	const char *const *overrides;
 	unsigned int i, count;
@@ -417,8 +418,8 @@ master_service_append_config_overrides(struct master_service *service,
 		t_split_key_value_eq(overrides[i], &key, &value);
 		struct master_service_set *set = array_append_space(settings);
 		set->type = MASTER_SERVICE_SET_TYPE_CLI_PARAM;
-		set->key = key;
-		set->value = value;
+		set->key = p_strdup(set_pool, key);
+		set->value = p_strdup(set_pool, value);
 	}
 }
 
@@ -578,7 +579,10 @@ master_service_settings_mmap_apply_blob(struct master_settings_mmap *config_mmap
 		}
 		int ret;
 		T_BEGIN {
-			ret = settings_parse_keyvalue(parser, key, value);
+			/* value points to mmap()ed memory, which is kept
+			   referenced by the set_pool for the life time of the
+			   settings struct. */
+			ret = settings_parse_keyvalue_nodup(parser, key, value);
 			if (ret < 0)
 				*error_r = t_strdup(settings_parser_get_error(parser));
 		} T_END_PASS_STR_IF(ret < 0, error_r);
@@ -777,6 +781,7 @@ struct master_settings_pool {
 	struct pool pool;
 	int refcount;
 
+	pool_t extra_pool_ref;
 	pool_t parent_pool;
 	struct master_settings_mmap *mmap;
 };
@@ -809,6 +814,7 @@ static void pool_master_settings_unref(pool_t *pool)
 		return;
 
 	master_settings_mmap_unref(&mpool->mmap);
+	pool_unref(&mpool->extra_pool_ref);
 	pool_unref(&mpool->parent_pool);
 }
 
@@ -865,7 +871,8 @@ static struct pool_vfuncs static_master_settings_pool_vfuncs = {
 	pool_master_settings_get_max_easy_alloc_size
 };
 
-static pool_t master_settings_pool_create(struct master_settings_mmap *mmap)
+static struct master_settings_pool *
+master_settings_pool_create(struct master_settings_mmap *mmap)
 {
 	struct master_settings_pool *mpool;
 	pool_t parent_pool =
@@ -879,7 +886,7 @@ static pool_t master_settings_pool_create(struct master_settings_mmap *mmap)
 	mpool->mmap = mmap;
 	if (mmap != NULL)
 		master_settings_mmap_ref(mmap);
-	return &mpool->pool;
+	return mpool;
 }
 
 static void
@@ -960,6 +967,7 @@ static int
 master_service_settings_instance_override(
 	struct master_service_settings_instance *instance,
 	struct setting_parser_context *parser,
+	struct master_settings_pool *mpool,
 	const char **error_r)
 {
 	ARRAY_TYPE(master_service_set) settings;
@@ -967,7 +975,8 @@ master_service_settings_instance_override(
 	t_array_init(&settings, 64);
 	if (array_is_created(&instance->settings))
 		array_append_array(&settings, &instance->settings);
-	master_service_append_config_overrides(instance->service, &settings);
+	master_service_append_config_overrides(instance->service, &settings,
+					       &mpool->pool);
 	array_sort(&settings, master_service_set_cmp);
 
 	const struct master_service_set *set;
@@ -977,8 +986,29 @@ master_service_settings_instance_override(
 						       &value, error_r);
 		if (ret < 0)
 			return -1;
-		if (ret > 0 &&
-		    settings_parse_keyvalue(parser, key, value) < 0) {
+		if (ret == 0)
+			continue;
+
+		if (value != set->value)
+			ret = settings_parse_keyvalue(parser, key, value);
+		else {
+			/* Add explicit reference to instance->pool, which is
+			   kept by the settings struct's pool. This allows
+			   settings to survive even if the instance is freed.
+
+			   If there is no instance pool, it means there are
+			   only CLI_PARAM settings, which are allocated from
+			   FIXME: should figure out some efficient way how to
+			   store them. */
+			if (mpool->extra_pool_ref != NULL)
+				i_assert(mpool->extra_pool_ref == instance->pool);
+			else if (instance->pool != NULL) {
+				mpool->extra_pool_ref = instance->pool;
+				pool_ref(mpool->extra_pool_ref);
+			}
+			ret = settings_parse_keyvalue_nodup(parser, key, value);
+		}
+		if (ret < 0) {
 			*error_r = t_strdup_printf(
 				"Failed to override configuration from %s: "
 				"Invalid %s=%s: %s",
@@ -1009,7 +1039,8 @@ int master_service_settings_instance_get(struct event *event,
 			      instance->service->set_protocol_name);
 	}
 
-	pool_t set_pool = master_settings_pool_create(master_service->config_mmap);
+	struct master_settings_pool *mpool = master_settings_pool_create(master_service->config_mmap);
+	pool_t set_pool = &mpool->pool;
 	struct setting_parser_context *parser =
 		settings_parser_init(set_pool, info,
 				     SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
@@ -1033,7 +1064,7 @@ int master_service_settings_instance_get(struct event *event,
 
 	T_BEGIN {
 		ret = master_service_settings_instance_override(
-			instance, parser, error_r);
+			instance, parser, mpool, error_r);
 	} T_END_PASS_STR_IF(ret < 0, error_r);
 	if (ret < 0) {
 		settings_parser_unref(&parser);
