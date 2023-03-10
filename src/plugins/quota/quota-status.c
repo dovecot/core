@@ -278,6 +278,11 @@ static const struct connection_vfuncs client_vfuncs = {
 
 static void main_preinit(void)
 {
+	const char *error;
+
+	if (master_service_settings_read_simple(master_service, &error) < 0)
+		i_fatal("%s", error);
+
 	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
 }
@@ -285,7 +290,6 @@ static void main_preinit(void)
 static void main_init(void)
 {
 	struct mail_storage_service_input input;
-	struct master_service_settings_instance *set_instance;
 	const struct mail_storage_settings *mail_set;
 	const char *value, *error;
 
@@ -301,12 +305,7 @@ static void main_init(void)
 	input.service = "quota-status";
 	input.username = "";
 
-	if (mail_storage_service_read_settings(storage_service, &input,
-					       &set_instance,
-					       &error) < 0)
-		i_fatal("%s", error);
-
-	if (master_service_settings_instance_get(NULL, set_instance,
+	if (master_service_settings_get(NULL,
 			&mail_storage_setting_parser_info,
 			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
 			&mail_set, &error) < 0)
@@ -317,7 +316,6 @@ static void main_init(void)
 	value = mail_user_set_plugin_getenv(mail_set, "quota_status_nouser");
 	nouser_reply = i_strdup(value != NULL ? value : "REJECT Unknown user");
 	master_service_settings_free(mail_set);
-	master_service_settings_instance_free(&set_instance);
 }
 
 static void main_deinit(void)
