@@ -31,8 +31,6 @@ enum mail_storage_service_flags {
 	MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS		= 0x100,
 	/* Don't close auth connections because of idling. */
 	MAIL_STORAGE_SERVICE_FLAG_NO_IDLE_TIMEOUT	= 0x200,
-	/* When executing doveconf, tell it to use sysexits codes */
-	MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS		= 0x400,
 	/* Don't create namespaces, only the user. */
 	MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES		= 0x800,
 };

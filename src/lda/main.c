@@ -528,7 +528,6 @@ int main(int argc, char *argv[])
 	service_input.username = user;
 	service_input.event_parent = event;
 
-	service_flags |= MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS;
 	storage_service = mail_storage_service_init(master_service,
 						    service_flags);
 	mail_deliver_hooks_init();
