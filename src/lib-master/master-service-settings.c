@@ -569,7 +569,10 @@ int master_service_settings_read(struct master_service *service,
 	} else if ((service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0) {
 		/* Open config via socket if possible. If it doesn't work,
 		   execute doveconf -F. */
-		fd = master_service_open_config(service, input, &path, error_r);
+		T_BEGIN {
+			fd = master_service_open_config(service, input, &path,
+							error_r);
+		} T_END_PASS_STR_IF(fd == -1, error_r);
 		if (fd == -1) {
 			if (errno == EACCES)
 				output_r->permission_denied = TRUE;
