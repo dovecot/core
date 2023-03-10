@@ -2531,6 +2531,12 @@ int mailbox_search_deinit(struct mail_search_context **_ctx)
 	return ret;
 }
 
+void mailbox_search_reset_progress_start(struct mail_search_context *ctx)
+{
+	i_zero(&ctx->search_start_time);
+	i_zero(&ctx->last_notify);
+}
+
 void
 mailbox_search_set_progress_hidden(struct mail_search_context *ctx, bool hidden)
 {
