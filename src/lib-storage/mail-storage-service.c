@@ -1495,22 +1495,17 @@ void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 					const struct mail_storage_service_input *input)
 {
 	const struct mail_user_settings *user_set;
-	struct master_service_settings_instance *set_instance;
 	const char *error;
 
 	if (ctx->conn != NULL)
 		return;
 
-	if (mail_storage_service_read_settings(ctx, input,
-					       &set_instance, &error) < 0)
-		i_fatal("%s", error);
 	struct event *event = input == NULL ? NULL : input->event_parent;
-	if (master_service_settings_instance_get(event, set_instance,
+	if (master_service_settings_get(event,
 			&mail_user_setting_parser_info,
 			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
 			&user_set, &error) < 0)
 		i_fatal("%s", error);
-	master_service_settings_instance_free(&set_instance);
 
 	mail_storage_service_first_init(ctx, user_set, ctx->flags);
 	master_service_settings_free(user_set);
