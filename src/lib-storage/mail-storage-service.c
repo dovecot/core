@@ -1085,14 +1085,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		   but allow this instance to set its own settings without
 		   affecting the parent instance. */
 		set_instance = master_service_settings_instance_dup(input->set_instance);
-	} else if (mail_storage_service_read_settings(ctx, input, &set_instance,
-						    error_r) < 0) {
-		if (ctx->config_permission_denied) {
-			/* just restart and maybe next time we will open the
-			   config socket before dropping privileges */
-			i_fatal("%s", *error_r);
-		}
-		return -1;
+	} else {
+		set_instance = master_service_settings_instance_new(ctx->service);
 	}
 
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0 &&
