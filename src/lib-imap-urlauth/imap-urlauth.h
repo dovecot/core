@@ -36,11 +36,11 @@ int imap_urlauth_generate(struct imap_urlauth_context *uctx,
 			  const char **urlauth_r, const char **client_error_r);
 
 bool imap_urlauth_check(struct imap_urlauth_context *uctx,
-			struct imap_url *url, bool ignore_unknown_access,
+			const struct imap_url *url, bool ignore_unknown_access,
 			const char **client_error_r);
 
 int imap_urlauth_fetch_parsed(struct imap_urlauth_context *uctx,
-			      struct imap_url *url,
+			      const struct imap_url *url,
 			      struct imap_msgpart_url **mpurl_r,
 			      enum mail_error *error_code_r,
 			      const char **client_error_r);

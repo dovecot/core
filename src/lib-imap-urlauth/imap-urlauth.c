@@ -124,7 +124,7 @@ imap_urlauth_internal_verify(
 
 static bool
 access_applications_have_access(struct imap_urlauth_context *uctx,
-				struct imap_url *url,
+				const struct imap_url *url,
 				const char *const *access_applications)
 {
 	const char *const *application;
@@ -159,7 +159,7 @@ access_applications_have_access(struct imap_urlauth_context *uctx,
 
 static bool
 imap_urlauth_check_access(struct imap_urlauth_context *uctx,
-			  struct imap_url *url, bool ignore_unknown,
+			  const struct imap_url *url, bool ignore_unknown,
 			  const char **client_error_r)
 {
 	const char *userid;
@@ -232,7 +232,8 @@ imap_urlauth_check_access(struct imap_urlauth_context *uctx,
 
 static bool
 imap_urlauth_check_hostport(struct imap_urlauth_context *uctx,
-			    struct imap_url *url, const char **client_error_r)
+			    const struct imap_url *url,
+			    const char **client_error_r)
 {
 	/* Validate host */
 	/* FIXME: allow host ip/ip6 as well? */
@@ -342,7 +343,7 @@ int imap_urlauth_generate(struct imap_urlauth_context *uctx,
 }
 
 bool imap_urlauth_check(struct imap_urlauth_context *uctx,
-			struct imap_url *url, bool ignore_unknown_access,
+			const struct imap_url *url, bool ignore_unknown_access,
 			const char **client_error_r)
 {
 	/* Validate URL fields */
@@ -388,7 +389,7 @@ bool imap_urlauth_check(struct imap_urlauth_context *uctx,
 }
 
 int imap_urlauth_fetch_parsed(struct imap_urlauth_context *uctx,
-			      struct imap_url *url,
+			      const struct imap_url *url,
 			      struct imap_msgpart_url **mpurl_r,
 			      enum mail_error *error_code_r,
 			      const char **client_error_r)
