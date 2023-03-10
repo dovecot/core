@@ -56,8 +56,6 @@ struct mail_storage_service_ctx {
 
 	bool debug:1;
 	bool log_initialized:1;
-	bool config_permission_denied:1;
-	bool settings_looked_up:1;
 };
 
 struct mail_storage_service_user {
@@ -877,48 +875,6 @@ mail_storage_service_input_get_flags(struct mail_storage_service_ctx *ctx,
 		flags &= ENUM_NEGATE(MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP);
 	}
 	return flags;
-}
-
-int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
-				       const struct mail_storage_service_input *input,
-				       struct master_service_settings_instance **instance_r,
-				       const char **error_r)
-{
-	struct master_service_settings_input set_input;
-	struct master_service_settings_output set_output;
-	enum mail_storage_service_flags flags;
-
-	ctx->config_permission_denied = FALSE;
-
-	flags = input == NULL ? ctx->flags :
-		mail_storage_service_input_get_flags(ctx, input);
-
-	i_zero(&set_input);
-	set_input.preserve_user = TRUE;
-	/* settings reader may exec doveconf, which is going to clear
-	   environment, and if we're not doing a userdb lookup we want to
-	   use $HOME */
-	set_input.preserve_home =
-		(flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0;
-	set_input.use_sysexits =
-		(flags & MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS) != 0;
-
-	if (input != NULL)
-		set_input.service = input->service;
-	if (ctx->settings_looked_up) {
-		/* already looked up settings at least once.
-		   we really shouldn't be execing anymore. */
-		set_input.never_exec = TRUE;
-	}
-
-	if (master_service_settings_read(ctx->service, &set_input,
-					 &set_output, error_r) < 0) {
-		ctx->config_permission_denied = set_output.permission_denied;
-		return -1;
-	}
-	ctx->settings_looked_up = TRUE;
-	*instance_r = master_service_settings_instance_new(ctx->service);
-	return 0;
 }
 
 void mail_storage_service_set_auth_conn(struct mail_storage_service_ctx *ctx,
