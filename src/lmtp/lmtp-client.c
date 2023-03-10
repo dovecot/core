@@ -111,10 +111,7 @@ static void client_read_settings(struct client *client, bool ssl)
 	input.end_client_tls_secured = ssl;
 	input.username = "";
 
-	if (mail_storage_service_read_settings(storage_service, &input,
-					       &client->set_instance, &error) < 0)
-		i_fatal("%s", error);
-
+	client->set_instance = master_service_settings_instance_new(master_service);
 	client->raw_mail_user =
 		raw_storage_create_from_set(storage_service, client->set_instance);
 
