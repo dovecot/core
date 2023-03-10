@@ -1325,6 +1325,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 			pool_unref(&user_pool);
 			return ret;
 		}
+		event_add_str(event, "user", username);
 		if (ctx->userdb_next_fieldsp != NULL)
 			*ctx->userdb_next_fieldsp = userdb_fields;
 	} else {
