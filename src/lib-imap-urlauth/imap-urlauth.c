@@ -235,17 +235,24 @@ imap_urlauth_check_hostport(struct imap_urlauth_context *uctx,
 			    const struct imap_url *url,
 			    const char **client_error_r)
 {
+	struct imap_url url_full = *url;
+
+	if (url_full.host.name == NULL) {
+		/* Not really supposed to happen, but we mend it anyway */
+		i_assert(url_full.host.ip.family != 0);
+		url_full.host.name = net_ip2addr(&url_full.host.ip);
+	}
+
 	/* Validate host */
-	/* FIXME: allow host ip/ip6 as well? */
 	if (strcmp(uctx->url_host, URL_HOST_ALLOW_ANY) != 0 &&
-	    strcmp(url->host.name, uctx->url_host) != 0) {
+	    strcmp(url_full.host.name, uctx->url_host) != 0) {
 		*client_error_r = "Invalid URL: Inappropriate host name";
 		return FALSE;
 	}
 
 	/* Validate port */
-	if ((url->port == 0 && uctx->url_port != 143) ||
-	    (url->port != 0 && uctx->url_port != url->port)) {
+	if ((url_full.port == 0 && uctx->url_port != 143) ||
+	    (url_full.port != 0 && uctx->url_port != url->port)) {
 		*client_error_r = "Invalid URL: Inappropriate server port";
 		return FALSE;
 	}
