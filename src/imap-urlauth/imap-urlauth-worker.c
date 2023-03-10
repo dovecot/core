@@ -983,7 +983,7 @@ int main(int argc, char *argv[])
 		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP |
 		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT;
 	ARRAY_TYPE (const_string) access_apps;
-	const char *access_user = NULL;
+	const char *access_user = NULL, *error;
 	int c;
 
 	if (IS_STANDALONE()) {
@@ -1018,6 +1018,9 @@ int main(int argc, char *argv[])
 
 	master_service_init_log_with_pid(master_service);
 	master_service_set_die_callback(master_service, imap_urlauth_worker_die);
+
+	if (master_service_settings_read_simple(master_service, &error) < 0)
+		i_fatal("%s", error);
 
 	storage_service =
 		mail_storage_service_init(master_service,

@@ -61,17 +61,11 @@ static void drop_privileges(void)
 	struct restrict_access_settings set;
 	const char *error;
 
+	if (master_service_settings_read_simple(master_service, &error) < 0)
+		i_fatal("%s", error);
+
 	/* by default we don't drop any privileges, but keep running as root. */
 	restrict_access_get_env(&set);
-	/* open config connection before dropping privileges */
-	struct master_service_settings_input input;
-	struct master_service_settings_output output;
-
-	i_zero(&input);
-	input.service = "lmtp";
-	if (master_service_settings_read(master_service,
-					 &input, &output, &error) < 0)
-		i_fatal("%s", error);
 	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 }
 

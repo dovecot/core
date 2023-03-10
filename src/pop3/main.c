@@ -370,6 +370,7 @@ int main(int argc, char *argv[])
 	enum master_service_flags service_flags = 0;
 	enum mail_storage_service_flags storage_service_flags = 0;
 	const char *username = NULL, *auth_socket_path = "auth-master";
+	const char *error;
 	int c;
 
 	i_zero(&login_set);
@@ -418,7 +419,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	const char *error;
+	if (master_service_settings_read_simple(master_service, &error) < 0)
+		i_fatal("%s", error);
+
 	if (t_abspath(auth_socket_path, &login_set.auth_socket_path, &error) < 0) {
 		i_fatal("t_abspath(%s) failed: %s", auth_socket_path, error);
 	}

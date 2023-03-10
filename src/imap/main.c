@@ -495,6 +495,7 @@ int main(int argc, char *argv[])
 		 */
 		MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES;
 	const char *username = NULL, *auth_socket_path = "auth-master";
+	const char *error;
 	int c;
 
 	i_zero(&login_set);
@@ -542,6 +543,9 @@ int main(int argc, char *argv[])
 	master_admin_clients_init(&admin_callbacks);
 	master_service_set_die_callback(master_service, imap_die);
 
+	if (master_service_settings_read_simple(master_service, &error) < 0)
+		i_fatal("%s", error);
+
 	/* plugins may want to add commands, so this needs to be called early */
 	commands_init();
 	imap_fetch_handlers_init();
@@ -552,7 +556,6 @@ int main(int argc, char *argv[])
 	verbose_proctitle = !IS_STANDALONE() &&
 		getenv(MASTER_VERBOSE_PROCTITLE_ENV) != NULL;
 
-	const char *error;
 	if (t_abspath(auth_socket_path, &login_set.auth_socket_path, &error) < 0)
 		i_fatal("t_abspath(%s) failed: %s", auth_socket_path, error);
 

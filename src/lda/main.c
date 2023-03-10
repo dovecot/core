@@ -348,7 +348,7 @@ int main(int argc, char *argv[])
 {
 	struct mail_deliver_input dinput;
 	enum mail_storage_service_flags service_flags = 0;
-	const char *user, *errstr, *path;
+	const char *user, *errstr, *path, *error;
 	struct smtp_address *rcpt_to, *final_rcpt_to, *mail_from;
 	struct mail_storage_service_ctx *storage_service;
 	struct mail_storage_service_input service_input;
@@ -473,6 +473,9 @@ int main(int argc, char *argv[])
 		print_help();
 		i_fatal_status(EX_USAGE, "Unknown argument: %s", argv[optind]);
 	}
+
+	if (master_service_settings_read_simple(master_service, &error) < 0)
+		i_fatal("%s", error);
 
 	process_euid = geteuid();
 	if ((service_flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0)

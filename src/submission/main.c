@@ -418,6 +418,9 @@ int main(int argc, char *argv[])
 	master_admin_clients_init(&admin_callbacks);
 	master_service_set_die_callback(master_service, submission_die);
 
+	if (master_service_settings_read_simple(master_service, &error) < 0)
+		i_fatal("%s", error);
+
 	storage_service =
 		mail_storage_service_init(master_service,
 					  storage_service_flags);
