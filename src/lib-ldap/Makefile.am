@@ -36,6 +36,7 @@ headers = \
 noinst_HEADERS = \
 	ldap-connection-pool.h \
 	ldap-private.h \
+	ldap-sasl.h \
 	ldap-settings.h \
 	ldap-settings-parse.h
 

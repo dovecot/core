@@ -8,6 +8,7 @@
 #ifdef HAVE_LDAP
 
 /* <settings checks> */
+#include "ldap-sasl.h"
 #include "ldap-settings-parse.h"
 
 static bool ldap_setting_check(void *_set, pool_t pool, const char **error_r);
