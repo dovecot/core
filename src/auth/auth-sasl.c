@@ -1,9 +1,36 @@
 /* Copyright (c) 2023 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "sasl-server-protected.h" // FIXME: Use public API only
 #include "auth.h"
 #include "auth-common.h"
 #include "auth-sasl.h"
+#include "auth-request.h"
+
+/*
+ * Request
+ */
+
+void
+auth_sasl_request_output(struct auth_request *request,
+			 const struct sasl_server_output *output)
+{
+	switch (output->status) {
+	case SASL_SERVER_OUTPUT_INTERNAL_FAILURE:
+		auth_request_internal_failure(request);
+		break;
+	case SASL_SERVER_OUTPUT_FAILURE:
+		auth_request_fail(request);
+		break;
+	case SASL_SERVER_OUTPUT_CONTINUE:
+		auth_request_handler_reply_continue(request, output->data,
+						    output->data_size);
+		break;
+	case SASL_SERVER_OUTPUT_SUCCESS:
+		auth_request_success(request, output->data, output->data_size);
+		break;
+	}
+}
 
 /*
  * Mechanisms

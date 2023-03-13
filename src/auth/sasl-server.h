@@ -18,4 +18,22 @@ enum mech_passdb_need {
 	MECH_PASSDB_NEED_SET_CREDENTIALS
 };
 
+enum sasl_server_output_status {
+	/* Internal failure */
+	SASL_SERVER_OUTPUT_INTERNAL_FAILURE = -2,
+	/* Authentication failed */
+	SASL_SERVER_OUTPUT_FAILURE = -1,
+	/* Client is challlenged to continue authentication */
+	SASL_SERVER_OUTPUT_CONTINUE = 0,
+	/* Authentication succeeded */
+	SASL_SERVER_OUTPUT_SUCCESS = 1,
+};
+
+struct sasl_server_output {
+	enum sasl_server_output_status status;
+
+	const void *data;
+	size_t data_size;
+};
+
 #endif
