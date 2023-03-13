@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "net.h"
+#include "path-util.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -63,6 +64,12 @@ void fd_debug_verify_leaks(int first_fd, int last_fd)
 		}
 
 		if (fstat(fd, &st) == 0) {
+			const char *error;
+			const char *fname;
+			if (t_readlink(t_strdup_printf("/proc/self/fd/%d", fd),
+				       &fname, &error) < 0)
+				fname = t_strdup_printf("<error: %s>", error);
+
 #ifdef __APPLE__
 			/* OSX workaround: gettimeofday() calls shm_open()
 			   internally and the fd won't get closed on exec.
@@ -72,14 +79,14 @@ void fd_debug_verify_leaks(int first_fd, int last_fd)
 				continue;
 #endif
 #ifdef HAVE_SYS_SYSMACROS_H
-			i_error("Leaked file fd %d: dev %s.%s inode %s",
-				fd, dec2str(major(st.st_dev)),
+			i_error("Leaked file %s: fd %d dev %s.%s inode %s",
+				fname, fd, dec2str(major(st.st_dev)),
 				dec2str(minor(st.st_dev)), dec2str(st.st_ino));
 			leaks = TRUE;
 			continue;
 #else
-			i_error("Leaked file fd %d: dev %s inode %s",
-				fd, dec2str(st.st_dev),
+			i_error("Leaked file %s: fd %d dev %s inode %s",
+				fname, fd, dec2str(st.st_dev),
 				dec2str(st.st_ino));
 			leaks = TRUE;
 			continue;
