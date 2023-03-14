@@ -33,6 +33,10 @@ auth_sasl_request_get_extra_field(struct auth_request *request,
 				  const char *name, const char **field_r);
 
 void
+auth_sasl_request_start_channel_binding(struct auth_request *request,
+					const char *type);
+
+void
 auth_sasl_request_output(struct auth_request *request,
 			 const struct sasl_server_output *output);
 
