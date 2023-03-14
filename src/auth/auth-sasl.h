@@ -20,6 +20,11 @@ auth_sasl_request_set_authid(struct auth_request *request,
 			     enum sasl_server_authid_type authid_type,
 			     const char *authid);
 
+bool
+auth_sasl_request_set_authzid(struct auth_request *request,
+			      const char *authzid);
+
+
 void
 auth_sasl_request_output(struct auth_request *request,
 			 const struct sasl_server_output *output);

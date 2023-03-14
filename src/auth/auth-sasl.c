@@ -53,6 +53,19 @@ auth_sasl_request_set_authid(struct auth_request *request,
 	i_unreached();
 }
 
+bool
+auth_sasl_request_set_authzid(struct auth_request *request,
+			      const char *authzid)
+{
+	const char *error;
+
+	if (!auth_request_set_login_username(request, authzid, &error)) {
+		e_info(request->event, "login user: %s", error);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 void
 auth_sasl_request_output(struct auth_request *request,
 			 const struct sasl_server_output *output)
