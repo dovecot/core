@@ -73,6 +73,20 @@ auth_sasl_request_set_realm(struct auth_request *request,
 	auth_request_set_realm(request, realm);
 }
 
+bool
+auth_sasl_request_get_extra_field(struct auth_request *request,
+				  const char *name, const char **field_r)
+{
+	const char *value;
+
+	value = auth_fields_find(request->fields.extra_fields, name);
+	if (value == NULL)
+		return FALSE;
+
+	*field_r = value;
+	return TRUE;
+}
+
 void
 auth_sasl_request_output(struct auth_request *request,
 			 const struct sasl_server_output *output)

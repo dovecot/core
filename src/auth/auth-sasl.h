@@ -28,6 +28,10 @@ void
 auth_sasl_request_set_realm(struct auth_request *request,
 			    const char *realm);
 
+bool
+auth_sasl_request_get_extra_field(struct auth_request *request,
+				  const char *name, const char **field_r);
+
 void
 auth_sasl_request_output(struct auth_request *request,
 			 const struct sasl_server_output *output);
