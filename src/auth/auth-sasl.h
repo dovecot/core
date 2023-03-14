@@ -24,6 +24,9 @@ bool
 auth_sasl_request_set_authzid(struct auth_request *request,
 			      const char *authzid);
 
+void
+auth_sasl_request_set_realm(struct auth_request *request,
+			    const char *realm);
 
 void
 auth_sasl_request_output(struct auth_request *request,

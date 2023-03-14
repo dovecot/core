@@ -67,6 +67,13 @@ auth_sasl_request_set_authzid(struct auth_request *request,
 }
 
 void
+auth_sasl_request_set_realm(struct auth_request *request,
+			    const char *realm)
+{
+	auth_request_set_realm(request, realm);
+}
+
+void
 auth_sasl_request_output(struct auth_request *request,
 			 const struct sasl_server_output *output)
 {
