@@ -32,6 +32,14 @@ auth_sasl_request_output(struct auth_request *request,
 	}
 }
 
+void
+auth_sasl_request_verify_plain(struct auth_request *request,
+			       const char *password,
+			       verify_plain_callback_t *verify_plain_callback)
+{
+	auth_request_verify_plain(request, password, verify_plain_callback);
+}
+
 /*
  * Mechanisms
  */
