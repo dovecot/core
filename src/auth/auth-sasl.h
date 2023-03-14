@@ -29,6 +29,11 @@ auth_sasl_request_lookup_credentials(struct auth_request *request,
 				     const char *scheme,
 				     lookup_credentials_callback_t *lookup_credentials_callback);
 
+void
+auth_sasl_request_set_credentials(struct auth_request *request,
+				  const char *scheme, const char *data,
+				  set_credentials_callback_t  *set_credentials_callback);
+
 /*
  * Mechanisms
  */
