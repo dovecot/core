@@ -94,6 +94,13 @@ auth_sasl_request_start_channel_binding(struct auth_request *request,
 	auth_request_start_channel_binding(request, type);
 }
 
+int
+auth_sasl_request_accept_channel_binding(struct auth_request *request,
+					 buffer_t **data_r)
+{
+	return auth_request_accept_channel_binding(request, data_r);
+}
+
 void
 auth_sasl_request_output(struct auth_request *request,
 			 const struct sasl_server_output *output)
