@@ -36,4 +36,17 @@ struct sasl_server_output {
 	size_t data_size;
 };
 
+/*
+ * Request
+ */
+
+enum sasl_server_authid_type {
+	/* Normal authentication ID (username) */
+	SASL_SERVER_AUTHID_TYPE_USERNAME = 0,
+	/* Anonymous credentials; there is no verified authentication ID. */
+	SASL_SERVER_AUTHID_TYPE_ANONYMOUS,
+	/* The authentication ID is set and verified by an external source. */
+	SASL_SERVER_AUTHID_TYPE_EXTERNAL,
+};
+
 #endif

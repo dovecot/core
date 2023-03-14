@@ -11,6 +11,48 @@
  * Request
  */
 
+bool
+auth_sasl_request_set_authid(struct auth_request *request,
+			     enum sasl_server_authid_type authid_type,
+			     const char *authid)
+{
+	const char *error;
+
+	switch (authid_type) {
+	case SASL_SERVER_AUTHID_TYPE_USERNAME:
+		if (!auth_request_set_username(request, authid, &error)) {
+			e_info(request->event, "%s", error);
+			return FALSE;
+		}
+		return TRUE;
+	case SASL_SERVER_AUTHID_TYPE_ANONYMOUS:
+		i_assert(*request->set->anonymous_username != '\0');
+
+		/* Temporarily set the user to the one that was given, so that
+		   the log  message goes right */
+		auth_request_set_username_forced(request, authid);
+		e_info(request->event, "anonymous login");
+		auth_request_set_username_forced(
+			request, request->set->anonymous_username);
+		return TRUE;
+	case SASL_SERVER_AUTHID_TYPE_EXTERNAL:
+		i_assert(authid == NULL || *authid == '\0');
+		if (request->fields.user == NULL) {
+			e_info(request->event, "Username not known");
+			return FALSE;
+		}
+
+		/* This call is done simply to put the username through
+		   translation settings */
+		if (!auth_request_set_username(request, "", &error)) {
+			e_info(request->event, "Invalid username");
+			return FALSE;
+		}
+		return TRUE;
+	}
+	i_unreached();
+}
+
 void
 auth_sasl_request_output(struct auth_request *request,
 			 const struct sasl_server_output *output)
