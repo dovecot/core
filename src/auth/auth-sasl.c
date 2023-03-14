@@ -40,6 +40,15 @@ auth_sasl_request_verify_plain(struct auth_request *request,
 	auth_request_verify_plain(request, password, verify_plain_callback);
 }
 
+void
+auth_sasl_request_lookup_credentials(struct auth_request *request,
+				     const char *scheme,
+				     lookup_credentials_callback_t *lookup_credentials_callback)
+{
+	auth_request_lookup_credentials(request, scheme,
+					lookup_credentials_callback);
+}
+
 /*
  * Mechanisms
  */
