@@ -75,6 +75,7 @@ struct master_service {
 
 	char *set_protocol_name;
 	const struct master_service_settings *set;
+	struct master_settings_pool *settings_pools;
 
 	struct ssl_iostream_context *ssl_ctx;
 	time_t ssl_params_last_refresh;

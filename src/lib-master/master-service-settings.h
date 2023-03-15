@@ -150,15 +150,19 @@ master_service_get_service_settings(struct master_service *service);
 int master_service_settings_get(struct event *event,
 				const struct setting_parser_info *info,
 				enum master_service_settings_get_flags flags,
+				const char *source_filename,
+				unsigned int source_linenum,
 				const void **set_r, const char **error_r);
 #ifdef HAVE_TYPE_CHECKS
 #  define master_service_settings_get(event, info, flags, set_r, error_r) \
-	master_service_settings_get(event, info, flags, (void *)set_r, 1 ? (error_r) : \
+	master_service_settings_get(event, info, flags, \
+		__FILE__, __LINE__, (void *)set_r, 1 ? (error_r) : \
 	COMPILE_ERROR_IF_TRUE( \
 		!__builtin_types_compatible_p(typeof((*set_r)->pool), pool_t)))
 #else
 #  define master_service_settings_get(event, info, flags, set_r, error_r) \
-	master_service_settings_get(event, info, flags, (void *)set_r, error_r)
+	master_service_settings_get(event, info, flags, \
+		__FILE__, __LINE__, (void *)set_r, error_r)
 #endif
 
 /* Like master_service_settings_get(), but get settings from the specified
@@ -167,26 +171,32 @@ int master_service_settings_instance_get(struct event *event,
 					 struct master_service_settings_instance *instance,
 					 const struct setting_parser_info *info,
 					 enum master_service_settings_get_flags flags,
+					 const char *source_filename,
+					 unsigned int source_linenum,
 					 const void **set_r, const char **error_r);
 #ifdef HAVE_TYPE_CHECKS
 #  define master_service_settings_instance_get(event, instance, \
 		info, flags, set_r, error_r) \
 	master_service_settings_instance_get(event, instance, \
-		info, flags, (void *)set_r, 1 ? (error_r) : \
+		info, flags, __FILE__, __LINE__, (void *)set_r, 1 ? (error_r) : \
 	COMPILE_ERROR_IF_TRUE( \
 		!__builtin_types_compatible_p(typeof((*set_r)->pool), pool_t)))
 #else
 #  define master_service_settings_instance_get(event, instance, \
 		info, flags, set_r, error_r) \
 	master_service_settings_instance_get(event, instance, \
-		info, flags, (void *)set_r, error_r)
+		info, flags, __FILE__, __LINE__, (void *)set_r, error_r)
 #endif
 
 /* Like master_service_settings_get(), but i_fatal() if there are any errors
    in settings. */
 const void *
 master_service_settings_get_or_fatal(struct event *event,
-				     const struct setting_parser_info *info);
+				     const struct setting_parser_info *info,
+				     const char *source_filename,
+				     unsigned int source_linenum);
+#define master_service_settings_get_or_fatal(event, info) \
+	master_service_settings_get_or_fatal(event, info, __FILE__, __LINE__)
 #define master_service_settings_free(set) \
 	STMT_START { \
 		if ((set) != NULL) { \
@@ -210,5 +220,7 @@ master_service_settings_instance_dup(const struct master_service_settings_instan
 /* Free a settings instance. */
 void master_service_settings_instance_free(
 	struct master_service_settings_instance **instance);
+
+void master_service_settings_deinit(struct master_service *service);
 
 #endif

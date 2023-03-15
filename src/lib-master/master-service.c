@@ -1601,6 +1601,10 @@ static void master_service_free(struct master_service **_service)
 	   NULL. */
 	*_service = NULL;
 
+	/* Check for leaks only after lib_atexit() callbacks have been called,
+	   since they may also free settings. */
+	master_service_settings_deinit(service);
+
 	for (i = 0; i < service->socket_count; i++) {
 		i_free(service->listeners[i].name);
 		i_free(service->listeners[i].type);

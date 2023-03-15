@@ -7,6 +7,7 @@
 #include "mmap-util.h"
 #include "fdpass.h"
 #include "write-full.h"
+#include "llist.h"
 #include "str.h"
 #include "syslog-util.h"
 #include "eacces-error.h"
@@ -39,6 +40,8 @@ struct master_service_mmap_filter {
 
 struct master_settings_mmap {
 	int refcount;
+	struct master_service *service;
+
 	void *mmap_base;
 	size_t mmap_size;
 
@@ -692,6 +695,7 @@ int master_service_settings_read(struct master_service *service,
 		master_settings_mmap_unref(&service->config_mmap);
 		config_mmap = i_new(struct master_settings_mmap, 1);
 		config_mmap->refcount = 1;
+		config_mmap->service = service;
 		config_mmap->mmap_base =
 			mmap_ro_file(fd, &config_mmap->mmap_size);
 		if (config_mmap->mmap_base == MAP_FAILED)
@@ -781,6 +785,11 @@ struct master_settings_pool {
 	struct pool pool;
 	int refcount;
 
+	struct master_settings_pool *prev, *next;
+
+	const char *source_filename;
+	unsigned int source_linenum;
+
 	pool_t extra_pool_ref;
 	pool_t parent_pool;
 	struct master_settings_mmap *mmap;
@@ -812,6 +821,8 @@ static void pool_master_settings_unref(pool_t *pool)
 	*pool = NULL;
 	if (--mpool->refcount > 0)
 		return;
+
+	DLLIST_REMOVE(&master_service->settings_pools, mpool);
 
 	master_settings_mmap_unref(&mpool->mmap);
 	pool_unref(&mpool->extra_pool_ref);
@@ -872,7 +883,9 @@ static struct pool_vfuncs static_master_settings_pool_vfuncs = {
 };
 
 static struct master_settings_pool *
-master_settings_pool_create(struct master_settings_mmap *mmap)
+master_settings_pool_create(struct master_settings_mmap *mmap,
+			    const char *source_filename,
+			    unsigned int source_linenum)
 {
 	struct master_settings_pool *mpool;
 	pool_t parent_pool =
@@ -884,8 +897,12 @@ master_settings_pool_create(struct master_settings_mmap *mmap)
 	mpool->refcount = 1;
 	mpool->parent_pool = parent_pool;
 	mpool->mmap = mmap;
+	mpool->source_filename = source_filename;
+	mpool->source_linenum = source_linenum;
 	if (mmap != NULL)
 		master_settings_mmap_ref(mmap);
+
+	DLLIST_PREPEND(&master_service->settings_pools, mpool);
 	return mpool;
 }
 
@@ -1025,6 +1042,8 @@ int master_service_settings_instance_get(struct event *event,
 					 struct master_service_settings_instance *instance,
 					 const struct setting_parser_info *info,
 					 enum master_service_settings_get_flags flags,
+					 const char *source_filename,
+					 unsigned int source_linenum,
 					 const void **set_r, const char **error_r)
 {
 	struct master_service *service = instance->service;
@@ -1039,7 +1058,9 @@ int master_service_settings_instance_get(struct event *event,
 			      instance->service->set_protocol_name);
 	}
 
-	struct master_settings_pool *mpool = master_settings_pool_create(master_service->config_mmap);
+	struct master_settings_pool *mpool =
+		master_settings_pool_create(master_service->config_mmap,
+					    source_filename, source_linenum);
 	pool_t set_pool = &mpool->pool;
 	struct setting_parser_context *parser =
 		settings_parser_init(set_pool, info,
@@ -1122,6 +1143,8 @@ int master_service_settings_instance_get(struct event *event,
 int master_service_settings_get(struct event *event,
 				const struct setting_parser_info *info,
 				enum master_service_settings_get_flags flags,
+				const char *source_filename,
+				unsigned int source_linenum,
 				const void **set_r, const char **error_r)
 {
 	/* no instance-specific settings */
@@ -1130,17 +1153,21 @@ int master_service_settings_get(struct event *event,
 	};
 
 	return master_service_settings_instance_get(event, &instance,
-		info, flags, set_r, error_r);
+		info, flags, source_filename, source_linenum, set_r, error_r);
 }
 
+#undef master_service_settings_get_or_fatal
 const void *
 master_service_settings_get_or_fatal(struct event *event,
-				     const struct setting_parser_info *info)
+				     const struct setting_parser_info *info,
+				     const char *source_filename,
+				     unsigned int source_linenum)
 {
 	const void *set;
 	const char *error;
 
-	if (master_service_settings_get(event, info, 0, &set, &error) < 0)
+	if (master_service_settings_get(event, info, 0, source_filename,
+					source_linenum, &set, &error) < 0)
 		i_fatal("%s", error);
 	return set;
 }
@@ -1206,4 +1233,14 @@ void master_service_settings_instance_free(
 	*_instance = NULL;
 
 	pool_unref(&instance->pool);
+}
+
+void master_service_settings_deinit(struct master_service *service)
+{
+	struct master_settings_pool *mpool;
+
+	for (mpool = service->settings_pools; mpool != NULL; mpool = mpool->next) {
+		e_warning(service->event, "Leaked settings: %s:%u",
+			  mpool->source_filename, mpool->source_linenum);
+	}
 }
