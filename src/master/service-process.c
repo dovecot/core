@@ -223,7 +223,6 @@ service_dup_fds(struct service *service)
 		   on config process. Note that we don't want to do this for
 		   other processes, since it prevents config reload. */
 		i_assert(global_config_fd != -1);
-		fd_close_on_exec(global_config_fd, FALSE);
 		if (lseek(global_config_fd, 0, SEEK_SET) < 0)
 			i_fatal("lseek(config fd, 0) failed: %m");
 		dup2_append(&dups, global_config_fd, MASTER_CONFIG_FD);
