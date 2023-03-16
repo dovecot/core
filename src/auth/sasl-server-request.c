@@ -9,15 +9,21 @@
  * Public API
  */
 
-void sasl_server_request_create(struct auth_request *request,
+void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 				const struct sasl_server_mech_def *mech,
 				struct event *event_parent)
 {
+	struct auth_request *request =
+		container_of(rctx, struct auth_request, sasl.req);
 	struct sasl_server_request *req;
 	pool_t pool;
 
+	i_zero(rctx);
+
 	pool = request->pool;
 	req = p_new(pool, struct sasl_server_request, 1);
+	req->pool = pool;
+	req->rctx = rctx;
 
 	struct sasl_server_mech_request *mreq;
 
@@ -32,55 +38,63 @@ void sasl_server_request_create(struct auth_request *request,
 	mreq->mech_event = event_parent;
 
 	req->mech = mreq;
-	request->sasl = mreq;
+	rctx->mech = mech;
+	rctx->mech_name = mech->mech_name;
+	rctx->request = req;
 }
 
-void sasl_server_request_destroy(struct auth_request *request)
+void sasl_server_request_destroy(struct sasl_server_req_ctx *rctx)
 {
-	struct sasl_server_mech_request *mreq = request->sasl;
+	struct sasl_server_request *req = rctx->request;
 
-	if (mreq == NULL)
+	i_zero(rctx);
+	if (req == NULL)
 		return;
-	request->sasl = NULL;
+
+	struct sasl_server_mech_request *mreq = req->mech;
 
 	if (mreq->mech->auth_free != NULL)
 		mreq->mech->auth_free(mreq);
 }
 
 static bool
-sasl_server_request_fail_on_nuls(struct sasl_server_mech_request *mreq,
+sasl_server_request_fail_on_nuls(struct sasl_server_request *req,
 				 const unsigned char *data, size_t data_size)
 {
-	const struct sasl_server_mech_def *mech = mreq->mech;
+	const struct sasl_server_mech_def *mech = req->mech->mech;
 
 	if ((mech->flags & SASL_MECH_SEC_ALLOW_NULS) != 0)
 		return FALSE;
 	if (memchr(data, '\0', data_size) != NULL) {
-		e_debug(mreq->mech_event, "Unexpected NUL in auth data");
-		sasl_server_request_failure(mreq);
+		e_debug(req->mech->mech_event, "Unexpected NUL in auth data");
+		sasl_server_request_failure(req->mech);
 		return TRUE;
 	}
 	return FALSE;
 }
 
-void sasl_server_request_initial(struct sasl_server_mech_request *mreq,
+void sasl_server_request_initial(struct sasl_server_req_ctx *rctx,
 				 const unsigned char *data, size_t data_size)
 {
+	struct sasl_server_request *req = rctx->request;
+	struct sasl_server_mech_request *mreq = req->mech;
 	const struct sasl_server_mech_def *mech = mreq->mech;
 
-	if (sasl_server_request_fail_on_nuls(mreq, data, data_size))
+	if (sasl_server_request_fail_on_nuls(req, data, data_size))
 		return;
 
 	i_assert(mech->auth_initial != NULL);
 	mech->auth_initial(mreq, data, data_size);
 }
 
-void sasl_server_request_input(struct sasl_server_mech_request *mreq,
+void sasl_server_request_input(struct sasl_server_req_ctx *rctx,
 			       const unsigned char *data, size_t data_size)
 {
+	struct sasl_server_request *req = rctx->request;
+	struct sasl_server_mech_request *mreq = req->mech;
 	const struct sasl_server_mech_def *mech = mreq->mech;
 
-	if (sasl_server_request_fail_on_nuls(mreq, data, data_size))
+	if (sasl_server_request_fail_on_nuls(req, data, data_size))
 		return;
 
 	i_assert(mech->auth_continue != NULL);
@@ -95,76 +109,76 @@ bool sasl_server_request_set_authid(struct sasl_server_mech_request *mreq,
 				    enum sasl_server_authid_type authid_type,
 				    const char *authid)
 {
-	struct auth_request *request = mreq->request;
+	struct sasl_server_request *req = mreq->req;
 
-	return auth_sasl_request_set_authid(request, authid_type, authid);
+	return auth_sasl_request_set_authid(req->rctx, authid_type, authid);
 }
 
 bool sasl_server_request_set_authzid(struct sasl_server_mech_request *mreq,
 				     const char *authzid)
 {
-	struct auth_request *request = mreq->request;
+	struct sasl_server_request *req = mreq->req;
 
-	return auth_sasl_request_set_authzid(request, authzid);
+	return auth_sasl_request_set_authzid(req->rctx, authzid);
 }
 
 void sasl_server_request_set_realm(struct sasl_server_mech_request *mreq,
 				   const char *realm)
 {
-	struct auth_request *request = mreq->request;
+	struct sasl_server_request *req = mreq->req;
 
-	auth_sasl_request_set_realm(request, realm);
+	auth_sasl_request_set_realm(req->rctx, realm);
 }
 
 bool sasl_server_request_get_extra_field(struct sasl_server_mech_request *mreq,
 					 const char *name,
 					 const char **field_r)
 {
-	struct auth_request *request = mreq->request;
+	struct sasl_server_request *req = mreq->req;
 
-	return auth_sasl_request_get_extra_field(request, name, field_r);
+	return auth_sasl_request_get_extra_field(req->rctx, name, field_r);
 }
 
 void sasl_server_request_start_channel_binding(
 	struct sasl_server_mech_request *mreq, const char *type)
 {
-	struct auth_request *request = mreq->request;
+	struct sasl_server_request *req = mreq->req;
 
-	auth_sasl_request_start_channel_binding(request, type);
+	auth_sasl_request_start_channel_binding(req->rctx, type);
 }
 
 int sasl_server_request_accept_channel_binding(
 	struct sasl_server_mech_request *mreq, buffer_t **data_r)
 {
-	struct auth_request *request = mreq->request;
+	struct sasl_server_request *req = mreq->req;
 
-	return auth_sasl_request_accept_channel_binding(request, data_r);
+	return auth_sasl_request_accept_channel_binding(req->rctx, data_r);
 }
 
 void sasl_server_request_output(struct sasl_server_mech_request *mreq,
 				const void *data, size_t data_size)
 {
-	struct auth_request *request = mreq->request;
+	struct sasl_server_request *req = mreq->req;
 
 	const struct sasl_server_output output = {
 		.status = SASL_SERVER_OUTPUT_CONTINUE,
 		.data = data,
 		.data_size = data_size,
 	};
-	auth_sasl_request_output(request, &output);
+	auth_sasl_request_output(req->rctx, &output);
 }
 
 void sasl_server_request_success(struct sasl_server_mech_request *mreq,
 				 const void *data, size_t data_size)
 {
-	struct auth_request *request = mreq->request;
+	struct sasl_server_request *req = mreq->req;
 
 	const struct sasl_server_output output = {
 		.status = SASL_SERVER_OUTPUT_SUCCESS,
 		.data = data,
 		.data_size = data_size,
 	};
-	auth_sasl_request_output(request, &output);
+	auth_sasl_request_output(req->rctx, &output);
 }
 
 static void
@@ -172,14 +186,14 @@ sasl_server_request_failure_common(struct sasl_server_mech_request *mreq,
 				   enum sasl_server_output_status status,
 				   const void *data, size_t data_size)
 {
-	struct auth_request *request = mreq->request;
+	struct sasl_server_request *req = mreq->req;
 
 	const struct sasl_server_output output = {
 		.status = status,
 		.data = data,
 		.data_size = data_size,
 	};
-	auth_sasl_request_output(request, &output);
+	auth_sasl_request_output(req->rctx, &output);
 }
 
 void sasl_server_request_failure_with_reply(
@@ -203,103 +217,61 @@ void sasl_server_request_internal_failure(
 		mreq, SASL_SERVER_OUTPUT_INTERNAL_FAILURE, "", 0);
 }
 
-static enum sasl_passdb_result_status
-translate_result_status(enum passdb_result result)
-{
-	switch (result) {
-	case PASSDB_RESULT_INTERNAL_FAILURE:;
-		return SASL_PASSDB_RESULT_INTERNAL_FAILURE;
-	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
-		return SASL_PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
-	case PASSDB_RESULT_USER_UNKNOWN:
-		return SASL_PASSDB_RESULT_USER_UNKNOWN;
-	case PASSDB_RESULT_USER_DISABLED:
-		return SASL_PASSDB_RESULT_USER_DISABLED;
-	case PASSDB_RESULT_PASS_EXPIRED:
-		return SASL_PASSDB_RESULT_PASS_EXPIRED;
-	case PASSDB_RESULT_PASSWORD_MISMATCH:
-		return SASL_PASSDB_RESULT_PASSWORD_MISMATCH;
-	case PASSDB_RESULT_NEXT:
-	case PASSDB_RESULT_OK:
-		return SASL_PASSDB_RESULT_OK;
-	}
-	i_unreached();
-}
-
 static void
-verify_plain_callback(enum passdb_result status, struct auth_request *request)
+verify_plain_callback(struct sasl_server_req_ctx *rctx,
+		      const struct sasl_passdb_result *result)
 {
-	struct sasl_server_mech_request *mreq = request->sasl;
-	struct sasl_server_request *req = mreq->req;
+	struct sasl_server_request *req = rctx->request;
 
 	i_assert(req->passdb_type == SASL_SERVER_PASSDB_TYPE_VERIFY_PLAIN);
-
-	const struct sasl_passdb_result result = {
-		.status = translate_result_status(status),
-	};
-	req->passdb_callback(mreq, &result);
+	req->passdb_callback(req->mech, result);
 }
 
 void sasl_server_request_verify_plain(
 	struct sasl_server_mech_request *mreq, const char *password,
 	sasl_server_mech_passdb_callback_t *callback)
 {
-	struct auth_request *request = mreq->request;
 	struct sasl_server_request *req = mreq->req;
 
 	req->passdb_type = SASL_SERVER_PASSDB_TYPE_VERIFY_PLAIN;
 	req->passdb_callback = callback;
-	auth_sasl_request_verify_plain(request, password, verify_plain_callback);
+
+	auth_sasl_request_verify_plain(req->rctx, password,
+				       verify_plain_callback);
 }
 
 static void
-lookup_credentials_callback(enum passdb_result status,
-			    const unsigned char *credentials,
-			    size_t size, struct auth_request *request)
+lookup_credentials_callback(struct sasl_server_req_ctx *rctx,
+			    const struct sasl_passdb_result *result)
 {
-	struct sasl_server_mech_request *mreq = request->sasl;
-	struct sasl_server_request *req = mreq->req;
+	struct sasl_server_request *req = rctx->request;
 
 	i_assert(req->passdb_type ==
 		 SASL_SERVER_PASSDB_TYPE_LOOKUP_CREDENTIALS);
-
-	const struct sasl_passdb_result result = {
-		.status = translate_result_status(status),
-		.credentials = {
-			.data = credentials,
-			.size = size,
-		},
-	};
-	req->passdb_callback(mreq, &result);
+	req->passdb_callback(req->mech, result);
 }
 
 void sasl_server_request_lookup_credentials(
 	struct sasl_server_mech_request *mreq, const char *scheme,
 	sasl_server_mech_passdb_callback_t *callback)
 {
-	struct auth_request *request = mreq->request;
 	struct sasl_server_request *req = mreq->req;
 
 	req->passdb_type = SASL_SERVER_PASSDB_TYPE_LOOKUP_CREDENTIALS;
 	req->passdb_callback = callback;
-	auth_sasl_request_lookup_credentials(request, scheme, 
+
+	auth_sasl_request_lookup_credentials(req->rctx, scheme,
 					     lookup_credentials_callback);
 }
 
 static void
-set_credentials_callback(bool success, struct auth_request *request)
+set_credentials_callback(struct sasl_server_req_ctx *rctx,
+			 const struct sasl_passdb_result *result)
 {
-	struct sasl_server_mech_request *mreq = request->sasl;
-	struct sasl_server_request *req = mreq->req;
+	struct sasl_server_request *req = rctx->request;
 
 	i_assert(req->passdb_type == SASL_SERVER_PASSDB_TYPE_SET_CREDENTIALS);
-
-	const struct sasl_passdb_result result = {
-		.status = (success ?
-			   SASL_PASSDB_RESULT_OK :
-			   SASL_PASSDB_RESULT_INTERNAL_FAILURE),
-	};
-	req->passdb_callback(mreq, &result);
+	req->passdb_callback(req->mech, result);
 }
 
 void sasl_server_request_set_credentials(
@@ -307,11 +279,17 @@ void sasl_server_request_set_credentials(
 	const char *scheme, const char *data,
 	sasl_server_mech_passdb_callback_t *callback)
 {
-	struct auth_request *request = mreq->request;
 	struct sasl_server_request *req = mreq->req;
 
 	req->passdb_type = SASL_SERVER_PASSDB_TYPE_SET_CREDENTIALS;
 	req->passdb_callback = callback;
-	auth_sasl_request_set_credentials(request, scheme, data,
+
+	auth_sasl_request_set_credentials(req->rctx, scheme, data,
 					  set_credentials_callback);
+}
+
+struct sasl_server_mech_request *
+sasl_server_request_get_mech_request(struct sasl_server_req_ctx *rctx)
+{
+	return rctx->request->mech;
 }

@@ -5,19 +5,24 @@
 #include "auth-sasl-oauth2.h"
 #include "auth-request.h"
 
+#include "auth-sasl-oauth2.h"
+
 static void
-oauth2_verify_finish(enum passdb_result result, struct auth_request *request)
+oauth2_verify_finish(enum passdb_result result,
+		     struct auth_request *auth_request)
 {
+	struct sasl_server_req_ctx *srctx = &auth_request->sasl.req;
+	struct sasl_server_mech_request *request =
+		sasl_server_request_get_mech_request(srctx);
 	struct oauth2_auth_request *oauth2_req =
-		container_of(request->sasl,
-			     struct oauth2_auth_request, request);
+		container_of(request, struct oauth2_auth_request, request);
 	struct sasl_server_oauth2_failure failure;
 
 	i_zero(&failure);
 
 	switch (result) {
 	case PASSDB_RESULT_INTERNAL_FAILURE:
-		sasl_server_oauth2_request_fail(request, NULL);
+		sasl_server_oauth2_request_fail(srctx, NULL);
 		return;
 	case PASSDB_RESULT_USER_DISABLED:
 	case PASSDB_RESULT_PASS_EXPIRED:
@@ -32,7 +37,7 @@ oauth2_verify_finish(enum passdb_result result, struct auth_request *request)
 	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
 	case PASSDB_RESULT_OK:
 		/* sending success */
-		sasl_server_oauth2_request_succeed(request);
+		sasl_server_oauth2_request_succeed(srctx);
 		return;
 	default:
 		i_unreached();
@@ -42,17 +47,18 @@ oauth2_verify_finish(enum passdb_result result, struct auth_request *request)
 		failure.openid_configuration =
 			db_oauth2_get_openid_configuration_url(oauth2_req->db);
 	}
-	sasl_server_oauth2_request_fail(request, &failure);
+	sasl_server_oauth2_request_fail(srctx, &failure);
 }
 
 static void
 oauth2_verify_callback(enum passdb_result result,
 		       const unsigned char *credentials ATTR_UNUSED,
-		       size_t size ATTR_UNUSED, struct auth_request *request)
+		       size_t size ATTR_UNUSED,
+		       struct auth_request *auth_request)
 {
 	if (result == PASSDB_RESULT_USER_UNKNOWN)
 		result = PASSDB_RESULT_OK;
-	oauth2_verify_finish(result, request);
+	oauth2_verify_finish(result, auth_request);
 }
 
 static void

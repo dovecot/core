@@ -7,6 +7,7 @@
 #include "auth-token.h"
 #include "auth-penalty.h"
 #include "sasl-server-protected.h" // FIXME: remove
+#include "auth-sasl-oauth2.h"
 #include "otp.h"
 #include "mech-otp.h"
 #include "db-oauth2.h"
@@ -62,6 +63,7 @@ void test_auth_init(void)
 	password_schemes_register_all();
 	password_schemes_allow_weak(TRUE);
 
+	auth_sasl_oauth2_initialize();
 	auths_preinit(simple_set.event, global_auth_settings, mech_reg, protocols);
 	auths_init();
 	auth_token_init();

@@ -9,9 +9,9 @@ struct sasl_server_oauth2_failure {
 	const char *openid_configuration;
 };
 
-void sasl_server_oauth2_request_succeed(struct auth_request *request);
+void sasl_server_oauth2_request_succeed(struct sasl_server_req_ctx *rctx);
 void sasl_server_oauth2_request_fail(
-	struct auth_request *request,
+	struct sasl_server_req_ctx *rctx,
 	const struct sasl_server_oauth2_failure *failure);
 
 #endif

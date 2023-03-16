@@ -10,7 +10,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "str-sanitize.h"
-#include "sasl-server-protected.h" // FIXME: remove
+#include "sasl-server.h"
 #include "master-interface.h"
 #include "auth-sasl.h"
 #include "auth-penalty.h"

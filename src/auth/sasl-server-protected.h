@@ -1,8 +1,7 @@
 #ifndef SASL_SERVER_PROTECTED_H
 #define SASL_SERVER_PROTECTED_H
 
-#include "passdb.h" // FIXME: remove
-#include "auth-request-handler.h"
+#include "auth-request.h" // FIXME: remove
 
 #include "sasl-server.h"
 
@@ -117,5 +116,14 @@ void sasl_server_request_set_credentials(
 	struct sasl_server_mech_request *mreq,
 	const char *scheme, const char *data,
 	sasl_server_mech_passdb_callback_t *callback);
+
+/* Obtains the mechanism request struct (protected) from the request context
+   struct (public). This function meant for providing the means to have
+   mechanisms that add their own backend API. If you use this function for
+   something else, you are subverting the design of the SASL server API, which
+   is to be avoided.
+*/
+struct sasl_server_mech_request *
+sasl_server_request_get_mech_request(struct sasl_server_req_ctx *rctx);
 
 #endif

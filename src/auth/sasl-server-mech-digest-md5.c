@@ -13,7 +13,7 @@
 #include "str-sanitize.h"
 #include "settings-parser.h"
 
-#include "sasl-server-protected.h"
+#include "sasl-server-private.h" // FIXME: Use protected API only
 
 /* Linear whitespace */
 #define IS_LWS(c) ((c) == ' ' || (c) == '\t')
@@ -620,8 +620,8 @@ void mech_digest_test_set_nonce(struct auth_request *auth_request,
 				const char *nonce)
 {
 	struct digest_auth_request *request =
-		container_of(auth_request->sasl, struct digest_auth_request,
-			     auth_request);
+		container_of(auth_request->sasl.req.request->mech,
+			     struct digest_auth_request, auth_request);
 
 	i_assert(auth_request->mech == &mech_digest_md5);
 	request->nonce = p_strdup(auth_request->pool, nonce);

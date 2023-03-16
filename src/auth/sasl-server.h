@@ -3,8 +3,8 @@
 
 #include "sasl-common.h"
 
+struct sasl_passdb_result;
 struct sasl_server_mech_def;
-struct sasl_server_mech_request;
 struct sasl_server_request;
 struct sasl_server_req_ctx;
 
@@ -46,6 +46,10 @@ enum sasl_server_output_status {
 	SASL_SERVER_OUTPUT_SUCCESS = 1,
 };
 
+typedef void
+sasl_server_passdb_callback_t(struct sasl_server_req_ctx *rctx,
+			      const struct sasl_passdb_result *result);
+
 struct sasl_server_output {
 	enum sasl_server_output_status status;
 
@@ -75,14 +79,21 @@ enum sasl_server_authid_type {
 	SASL_SERVER_AUTHID_TYPE_EXTERNAL,
 };
 
-void sasl_server_request_create(struct auth_request *request,
+struct sasl_server_req_ctx {
+	const struct sasl_server_mech_def *mech;
+	const char *mech_name;
+
+	struct sasl_server_request *request;
+};
+
+void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 				const struct sasl_server_mech_def *mech,
 				struct event *event_parent);
-void sasl_server_request_destroy(struct auth_request *request);
+void sasl_server_request_destroy(struct sasl_server_req_ctx *rctx);
 
-void sasl_server_request_initial(struct sasl_server_mech_request *mreq,
+void sasl_server_request_initial(struct sasl_server_req_ctx *rctx,
 				 const unsigned char *data, size_t data_size);
-void sasl_server_request_input(struct sasl_server_mech_request *mreq,
+void sasl_server_request_input(struct sasl_server_req_ctx *rctx,
 			       const unsigned char *data, size_t data_size);
 
 #endif

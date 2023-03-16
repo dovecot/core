@@ -5,7 +5,7 @@
 #include "str.h"
 #include "ioloop.h"
 #include "master-service.h"
-#include "sasl-server-protected.h" // FIXME: remove
+#include "sasl-server-private.h" // FIXME: remove
 #include "auth-common.h"
 #include "auth-request.h"
 #include "auth-request-handler-private.h"

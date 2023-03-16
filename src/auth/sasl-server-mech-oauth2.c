@@ -95,9 +95,10 @@ static void oauth2_fail_invalid_token(struct oauth2_auth_request *oauth2_req)
 	oauth2_fail_status(oauth2_req, "invalid_token");
 }
 
-void sasl_server_oauth2_request_succeed(struct auth_request *auth_request)
+void sasl_server_oauth2_request_succeed(struct sasl_server_req_ctx *rctx)
 {
-	struct sasl_server_mech_request *request = auth_request->sasl;
+	struct sasl_server_mech_request *request =
+		sasl_server_request_get_mech_request(rctx);
 
 	i_assert(request->mech == &mech_oauthbearer ||
 		 request->mech == &mech_xoauth2);
@@ -110,10 +111,11 @@ void sasl_server_oauth2_request_succeed(struct auth_request *auth_request)
 }
 
 void sasl_server_oauth2_request_fail(
-	struct auth_request *auth_request,
+	struct sasl_server_req_ctx *rctx,
 	const struct sasl_server_oauth2_failure *failure)
 {
-	struct sasl_server_mech_request *request = auth_request->sasl;
+	struct sasl_server_mech_request *request =
+		sasl_server_request_get_mech_request(rctx);
 
 	i_assert(request->mech == &mech_oauthbearer ||
 		 request->mech == &mech_xoauth2);
