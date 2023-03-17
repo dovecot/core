@@ -168,7 +168,8 @@ void auth_sasl_request_deinit(struct auth_request *request)
 
 void auth_sasl_request_initial(struct auth_request *request)
 {
-	request->mech->auth_initial(request->sasl, request->initial_response,
+	sasl_server_request_initial(request->sasl,
+				    request->initial_response,
 				    request->initial_response_len);
 }
 

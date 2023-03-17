@@ -4,6 +4,8 @@
 #include "sasl-common.h"
 
 struct sasl_server_mech_def;
+struct sasl_server_mech_request;
+struct sasl_server_req_ctx;
 
 enum sasl_passdb_result_status {
 	SASL_PASSDB_RESULT_INTERNAL_FAILURE = PASSDB_RESULT_INTERNAL_FAILURE,
@@ -67,5 +69,8 @@ void sasl_server_request_create(struct auth_request *request,
 				const struct sasl_server_mech_def *mech,
 				struct event *event_parent);
 void sasl_server_request_destroy(struct auth_request *request);
+
+void sasl_server_request_initial(struct sasl_server_mech_request *mreq,
+				 const unsigned char *data, size_t data_size);
 
 #endif

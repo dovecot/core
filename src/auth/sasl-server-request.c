@@ -41,6 +41,15 @@ void sasl_server_request_destroy(struct auth_request *request)
 		mreq->mech->auth_free(mreq);
 }
 
+void sasl_server_request_initial(struct sasl_server_mech_request *mreq,
+				 const unsigned char *data, size_t data_size)
+{
+	const struct sasl_server_mech_def *mech = mreq->mech;
+
+	i_assert(mech->auth_initial != NULL);
+	mech->auth_initial(mreq, data, data_size);
+}
+
 /*
  * Mechanism API
  */
