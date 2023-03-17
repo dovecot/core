@@ -136,7 +136,7 @@ auth_request_post_alloc_init(struct auth_request *request,
 	request->set = global_auth_settings;
 	request->protocol_set = global_auth_settings;
 	request->event = event_create(parent_event);
-	auth_request_fields_init(request);
+	auth_request_fields_alloc(request);
 
 	level = request->set->verbose ? LOG_TYPE_INFO : LOG_TYPE_WARNING;
 	event_set_min_log_level(request->event, level);
@@ -149,9 +149,7 @@ auth_request_post_alloc_init(struct auth_request *request,
 	p_array_init(&request->authdb_event, request->pool, 2);
 }
 
-struct auth_request *
-auth_request_new(const struct sasl_server_mech_def *mech,
-		 struct event *parent_event)
+struct auth_request *auth_request_new(struct event *parent_event)
 {
 	struct auth_request *request;
 	pool_t pool;
@@ -159,20 +157,8 @@ auth_request_new(const struct sasl_server_mech_def *mech,
 	pool = pool_alloconly_create(MEMPOOL_GROWING"auth_request", 1024);
 	request = p_new(pool, struct auth_request, 1);
 	request->pool = pool;
-	request->mech = mech;
+
 	auth_request_post_alloc_init(request, parent_event);
-
-	enum log_type level =
-		(request->set->verbose ? LOG_TYPE_INFO : LOG_TYPE_WARNING);
-	const char *prefix = t_strconcat(
-		t_str_lcase(request->mech->mech_name), ": ", NULL);
-
-	request->mech_event = event_create(request->event);
-	event_set_min_log_level(request->mech_event, level);
-	event_set_append_log_prefix(request->mech_event, prefix);
-
-	auth_sasl_request_init(request, mech);
-
 	return request;
 }
 
@@ -214,6 +200,23 @@ void auth_request_init(struct auth_request *request)
 	request->protocol_set = auth->protocol_set;
 	request->passdb = auth->passdbs;
 	request->userdb = auth->userdbs;
+
+	auth_request_fields_init(request);
+}
+
+void auth_request_init_sasl(struct auth_request *request,
+			    const struct sasl_server_mech_def *mech)
+{
+	request->mech = mech;
+
+	const char *prefix = t_strconcat(
+		t_str_lcase(request->mech->mech_name), ": ", NULL);
+
+	request->mech_event = event_create(request->event);
+	event_set_append_log_prefix(request->mech_event, prefix);
+
+	auth_sasl_request_init(request, mech);
+	auth_request_init(request);
 }
 
 struct auth *auth_request_get_auth(struct auth_request *request)

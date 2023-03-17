@@ -56,6 +56,7 @@ test_auth_request_init(const struct sasl_server_mech_def *mech)
 	request->set = global_auth_settings;
 	request->refcount = 1;
 	p_array_init(&request->authdb_event, pool, 1);
+	auth_request_fields_alloc(request);
 	auth_request_fields_init(request);
 
 	/* fill out fields that are always exported */

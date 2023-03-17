@@ -607,9 +607,8 @@ auth_request_handler_find_mech(struct auth_request_handler *handler,
 int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 				    const char *const *args)
 {
-	const struct sasl_server_mech_def *mech;
 	struct auth_request *request;
-	const char *name, *arg, *initial_resp;
+	const char *mech_name, *name, *arg, *initial_resp;
 	void *initial_resp_data;
 	unsigned int id;
 	buffer_t *buf;
@@ -624,11 +623,9 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 			"sent broken AUTH request", handler->client_pid);
 		return -1;
 	}
+	mech_name = args[1];
 
-	if (auth_request_handler_find_mech(handler, args[1], &mech) < 0)
-		return -1;
-
-	request = auth_request_new(mech, handler->conn->conn.event);
+	request = auth_request_new(handler->conn->event);
 	request->handler = handler;
 	request->connect_uid = handler->connect_uid;
 	request->client_pid = handler->client_pid;
@@ -681,7 +678,12 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		auth_request_unref(&request);
 		return -1;
 	}
-	auth_request_init(request);
+
+	const struct sasl_server_mech_def *mech;
+
+	if (auth_request_handler_find_mech(handler, mech_name, &mech) < 0)
+		return -1;
+	auth_request_init_sasl(request, mech);
 
 	request->to_abort = timeout_add(MASTER_AUTH_SERVER_TIMEOUT_SECS * 1000,
 					auth_request_timeout, request);

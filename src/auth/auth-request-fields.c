@@ -10,16 +10,20 @@
 #include "sasl-server-protected.h" // FIXME: remove
 #include "auth-request.h"
 
-void auth_request_fields_init(struct auth_request *request)
+void auth_request_fields_alloc(struct auth_request *request)
 {
 	request->fields.extra_fields = auth_fields_init(request->pool);
+	/* Default to "insecure" until it's changed later */
+	event_add_str(request->event, "transport", "insecure");
+}
+
+void auth_request_fields_init(struct auth_request *request)
+{
 	if (request->mech != NULL) {
 		request->fields.mech_name = request->mech->mech_name;
 		event_add_str(request->event, "mechanism",
 			      request->mech->mech_name);
 	}
-	/* Default to "insecure" until it's changed later */
-	event_add_str(request->event, "transport", "insecure");
 }
 
 static void

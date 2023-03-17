@@ -257,11 +257,13 @@ typedef void auth_request_proxy_cb_t(bool success, struct auth_request *);
 
 extern unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
 
-struct auth_request *
-auth_request_new(const struct sasl_server_mech_def *mech,
-		 struct event *parent_event);
+struct auth_request *auth_request_new(struct event *parent_event);
 struct auth_request *auth_request_new_dummy(struct event *parent_event);
+
 void auth_request_init(struct auth_request *request);
+void auth_request_init_sasl(struct auth_request *request,
+			    const struct sasl_server_mech_def *mech);
+
 struct auth *auth_request_get_auth(struct auth_request *request);
 
 void auth_request_set_state(struct auth_request *request,
@@ -434,6 +436,8 @@ struct event_passthrough *
 auth_request_finished_event(struct auth_request *request, struct event *event);
 void auth_request_log_finished(struct auth_request *request);
 void auth_request_master_user_login_finish(struct auth_request *request);
+
+void auth_request_fields_alloc(struct auth_request *request);
 void auth_request_fields_init(struct auth_request *request);
 
 void auth_request_passdb_lookup_begin(struct auth_request *request);

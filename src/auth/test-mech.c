@@ -89,9 +89,7 @@ static void test_mech_prepare_request(struct auth_request **request_r,
 				      unsigned int running_test,
 				      const struct test_case *test_case)
 {
-	struct auth *auth = auth_default_protocol();
-
-	struct auth_request *request = auth_request_new(mech,  NULL);
+	struct auth_request *request = auth_request_new(NULL);
 	struct auth_settings *new_set =
 		p_memdup(request->pool, global_auth_settings,
 			 sizeof(*global_auth_settings));
@@ -100,13 +98,15 @@ static void test_mech_prepare_request(struct auth_request **request_r,
 	request->handler = handler;
 	request->id = running_test+1;
 	request->mech_password = NULL;
+	request->fields.protocol = "service";
 	request->state = AUTH_REQUEST_STATE_NEW;
+	request->mech = mech;
 	request->set = new_set;
 	request->protocol_set = global_auth_settings;
 	request->connect_uid = running_test;
-	request->passdb = auth->passdbs;
-	request->userdb = auth->userdbs;
 	handler->refcount = 1;
+
+	auth_request_init_sasl(request, mech);
 
 	request->failure_nodelay = TRUE;
 	auth_request_state_count[AUTH_REQUEST_STATE_NEW] = 1;
