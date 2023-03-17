@@ -176,7 +176,7 @@ void auth_sasl_request_initial(struct auth_request *request)
 void auth_sasl_request_continue(struct auth_request *request,
 				const unsigned char *data, size_t data_size)
 {
-       request->mech->auth_continue(request->sasl, data, data_size);
+	sasl_server_request_input(request->sasl, data, data_size);
 }
 
 /*
