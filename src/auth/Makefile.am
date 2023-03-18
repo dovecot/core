@@ -90,6 +90,7 @@ auth_common_sources = \
 	auth-request-fields.c \
 	auth-request-handler.c \
 	auth-request-var-expand.c \
+	auth-sasl.c \
 	auth-settings.c \
 	auth-fields.c \
 	auth-token.c \
@@ -148,6 +149,7 @@ headers = \
 	auth-request-handler.h \
 	auth-request-handler-private.h \
 	auth-request-var-expand.h \
+	auth-sasl.h \
 	auth-settings.h \
 	auth-fields.h \
 	auth-token.h \

@@ -1,7 +1,7 @@
 #ifndef AUTH_SASL_H
 #define AUTH_SASL_H
 
-struct mech_module {
+struct auth_sasl_mech_module {
 	const char *mech_name;
 };
 
@@ -9,8 +9,11 @@ struct mech_module {
  * Mechanisms
  */
 
-void mech_register_module(const struct mech_module *module);
-void mech_unregister_module(const struct mech_module *module);
-const struct mech_module *mech_module_find(const char *name);
+void auth_sasl_mech_register_module(
+	const struct auth_sasl_mech_module *module);
+void auth_sasl_mech_unregister_module(
+	const struct auth_sasl_mech_module *module);
+const struct auth_sasl_mech_module *
+auth_sasl_mech_module_find(const char *name);
 
 #endif
