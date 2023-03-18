@@ -576,28 +576,30 @@ auth_request_handler_find_mech(struct auth_request_handler *handler,
 
 	if (handler->token_auth) {
 		mech = &mech_dovecot_token;
-		if (strcmp(mech_name, mech->mech_name) != 0) {
-			/* unsupported mechanism */
-			e_error(handler->conn->conn.event,
-				"BUG: Authentication client %u requested invalid "
-				"authentication mechanism %s (DOVECOT-TOKEN required)",
-				handler->client_pid,
-				str_sanitize(mech_name, AUTH_SASL_MAX_MECH_NAME_LEN));
-			return -1;
+		if (strcmp(mech_name, mech->mech_name) == 0) {
+			*mech_r = mech;
+			return 0;
 		}
-	} else {
-		struct auth *auth_default = auth_default_protocol();
-		mech = mech_register_find(auth_default->reg, mech_name);
-		if (mech == NULL) {
-			/* unsupported mechanism */
-			e_error(handler->conn->conn.event,
-				"BUG: Authentication client %u requested unsupported "
-				"authentication mechanism %s", handler->client_pid,
-				str_sanitize(mech_name, AUTH_SASL_MAX_MECH_NAME_LEN));
-			return -1;
-		}
+		/* unsupported mechanism */
+		e_error(handler->conn->conn.event,
+			"BUG: Authentication client %u requested invalid "
+			"authentication mechanism %s (DOVECOT-TOKEN required)",
+			handler->client_pid,
+			str_sanitize(mech_name, AUTH_SASL_MAX_MECH_NAME_LEN));
+		return -1;
 	}
 
+	struct auth *auth_default = auth_default_protocol();
+
+	mech = mech_register_find(auth_default->reg, mech_name);
+	if (mech == NULL) {
+		/* unsupported mechanism */
+		e_error(handler->conn->conn.event,
+			"BUG: Authentication client %u requested unsupported "
+			"authentication mechanism %s", handler->client_pid,
+			str_sanitize(mech_name, AUTH_SASL_MAX_MECH_NAME_LEN));
+		return -1;
+	}
 	*mech_r = mech;
 	return 0;
 }
