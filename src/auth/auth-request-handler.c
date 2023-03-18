@@ -567,6 +567,41 @@ auth_penalty_callback(unsigned int penalty, struct auth_request *request)
 	}
 }
 
+static int
+auth_request_handler_find_mech(struct auth_request_handler *handler,
+			       const char *mech_name,
+			       const struct sasl_server_mech_def **mech_r)
+{
+	const struct sasl_server_mech_def *mech;
+
+	if (handler->token_auth) {
+		mech = &mech_dovecot_token;
+		if (strcmp(mech_name, mech->mech_name) != 0) {
+			/* unsupported mechanism */
+			e_error(handler->conn->conn.event,
+				"BUG: Authentication client %u requested invalid "
+				"authentication mechanism %s (DOVECOT-TOKEN required)",
+				handler->client_pid,
+				str_sanitize(mech_name, AUTH_SASL_MAX_MECH_NAME_LEN));
+			return -1;
+		}
+	} else {
+		struct auth *auth_default = auth_default_protocol();
+		mech = mech_register_find(auth_default->reg, mech_name);
+		if (mech == NULL) {
+			/* unsupported mechanism */
+			e_error(handler->conn->conn.event,
+				"BUG: Authentication client %u requested unsupported "
+				"authentication mechanism %s", handler->client_pid,
+				str_sanitize(mech_name, AUTH_SASL_MAX_MECH_NAME_LEN));
+			return -1;
+		}
+	}
+
+	*mech_r = mech;
+	return 0;
+}
+
 int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 				    const char *const *args)
 {
@@ -588,29 +623,8 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		return -1;
 	}
 
-	if (handler->token_auth) {
-		mech = &mech_dovecot_token;
-		if (strcmp(args[1], mech->mech_name) != 0) {
-			/* unsupported mechanism */
-			e_error(handler->conn->conn.event,
-				"BUG: Authentication client %u requested invalid "
-				"authentication mechanism %s (DOVECOT-TOKEN required)",
-				handler->client_pid,
-				str_sanitize(args[1], AUTH_SASL_MAX_MECH_NAME_LEN));
-			return -1;
-		}
-	} else {
-		struct auth *auth_default = auth_default_protocol();
-		mech = mech_register_find(auth_default->reg, args[1]);
-		if (mech == NULL) {
-			/* unsupported mechanism */
-			e_error(handler->conn->conn.event,
-				"BUG: Authentication client %u requested unsupported "
-				"authentication mechanism %s", handler->client_pid,
-				str_sanitize(args[1], AUTH_SASL_MAX_MECH_NAME_LEN));
-			return -1;
-		}
-	}
+	if (auth_request_handler_find_mech(handler, args[1], &mech) < 0)
+		return -1;
 
 	request = auth_request_new(mech, handler->conn->conn.event);
 	request->handler = handler;
