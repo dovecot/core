@@ -599,7 +599,7 @@ static void test_mail_set_critical_different_mailboxes(void)
 
 	struct mailbox *box2 =
 		mailbox_alloc(ctx->user->namespaces->list, "testbox", 0);
-	mailbox_create(box2, NULL, FALSE);
+	test_assert(mailbox_create(box2, NULL, FALSE) == 0);
 	test_assert(mailbox_open(box2) == 0);
 	struct mailbox_transaction_context *trans2 =
 		mailbox_transaction_begin(box2, 0, __func__);
@@ -630,7 +630,7 @@ static void test_mail_get_last_internal_error(void)
 		mailbox_alloc(ctx->user->namespaces->list, "INBOX", 0);
 	struct mailbox *box2 =
 		mailbox_alloc(ctx->user->namespaces->list, "testbox", 0);
-	mailbox_create(box2, NULL, FALSE);
+	test_assert(mailbox_create(box2, NULL, FALSE) == 0);
 	test_assert(mailbox_open(box1) == 0);
 	test_assert(mailbox_open(box2) == 0);
 
