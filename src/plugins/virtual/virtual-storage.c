@@ -124,21 +124,24 @@ virtual_backend_box_lookup_name(struct virtual_mailbox *mbox, const char *name)
 	return NULL;
 }
 
-struct virtual_backend_box *
-virtual_backend_box_lookup(struct virtual_mailbox *mbox, uint32_t mailbox_id)
+bool virtual_backend_box_lookup(struct virtual_mailbox *mbox, uint32_t mailbox_id,
+				struct virtual_backend_box **bbox_r)
 {
 	struct virtual_backend_box *const *bboxes;
 	unsigned int i, count;
 
+	*bbox_r = NULL;
 	if (mailbox_id == 0)
-		return NULL;
+		return FALSE;
 
 	bboxes = array_get(&mbox->backend_boxes, &count);
 	for (i = 0; i < count; i++) {
-		if (bboxes[i]->mailbox_id == mailbox_id)
-			return bboxes[i];
+		if (bboxes[i]->mailbox_id == mailbox_id) {
+			*bbox_r = bboxes[i];
+			return TRUE;
+		}
 	}
-	return NULL;
+	return FALSE;
 }
 
 static bool virtual_mailbox_is_in_open_stack(struct virtual_storage *storage,

@@ -487,8 +487,8 @@ static int virtual_sync_index_rec(struct virtual_sync_context *ctx,
 				      &data, NULL);
 		vrec = data;
 
-		bbox = virtual_backend_box_lookup(ctx->mbox, vrec->mailbox_id);
-		if (bbox == NULL)
+		if (!virtual_backend_box_lookup(ctx->mbox, vrec->mailbox_id,
+						&bbox))
 			continue;
 		if (!bbox->box->opened) {
 			if (virtual_backend_box_open(ctx->mbox, bbox) < 0) {
@@ -1486,9 +1486,10 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 				add_rec.rec.real_uid = uidmap[j].real_uid;
 				array_push_back(&ctx->all_adds, &add_rec);
 			}
-			bbox = virtual_backend_box_lookup(ctx->mbox,
-							  vrec->mailbox_id);
-			if (bbox == NULL || bbox->first_sync) {
+			if (!virtual_backend_box_lookup(ctx->mbox,
+							vrec->mailbox_id,
+							&bbox) ||
+			    bbox->first_sync) {
 				/* the entire mailbox is lost */
 				mail_index_expunge(ctx->trans, vseq);
 				continue;
@@ -1593,8 +1594,17 @@ static int virtual_sync_backend_sort_new(struct virtual_sync_context *ctx)
 		vrec = &adds[i].rec;
 
 		if (bbox == NULL || bbox->mailbox_id != vrec->mailbox_id) {
-			bbox = virtual_backend_box_lookup(ctx->mbox,
-							  vrec->mailbox_id);
+			/* The mailbox_id comes from ctx->all_adds, which is
+			   filled earlier in this sync. The mailbox_ids in it
+			   come via mbox->backend_boxes, so the backend box is
+			   guaranteed to have existed already in this sync.
+			   Since backend_boxes are never removed during the sync,
+			   the lookup is guaranteed to find it here.
+			   (backend_boxes removal is done only while opening
+			   the virtual mailbox in virtual_mailbox_open() ) */
+			if (!virtual_backend_box_lookup(ctx->mbox,
+							vrec->mailbox_id, &bbox))
+				   i_unreached();
 			if (!bbox->box->opened &&
 			    virtual_backend_box_open(ctx->mbox, bbox) < 0)
 				return -1;
@@ -1648,8 +1658,11 @@ static int virtual_sync_backend_add_new(struct virtual_sync_context *ctx)
 	for (bbox = NULL, i = 0; i < count; i++) {
 		vrec = &adds[i].rec;
 		if (bbox == NULL || bbox->mailbox_id != vrec->mailbox_id) {
-			bbox = virtual_backend_box_lookup(ctx->mbox,
-							  vrec->mailbox_id);
+			if (!virtual_backend_box_lookup(ctx->mbox,
+							vrec->mailbox_id, &bbox)) {
+				/* See virtual_sync_backend_sort_new() */
+				i_unreached();
+			}
 			if (!bbox->box->opened &&
 			    virtual_backend_box_open(ctx->mbox, bbox) < 0)
 				return -1;
@@ -1672,8 +1685,12 @@ static int virtual_sync_backend_add_new(struct virtual_sync_context *ctx)
 	for (bbox = NULL, i = 0; i < count; i++) {
 		vrec = &adds[i].rec;
 		if (bbox == NULL || bbox->mailbox_id != vrec->mailbox_id) {
-			bbox = virtual_backend_box_lookup(ctx->mbox,
-							  vrec->mailbox_id);
+			if (!virtual_backend_box_lookup(ctx->mbox,
+							vrec->mailbox_id, &bbox)) {
+				/* See virtual_sync_backend_sort_new() */
+				i_unreached();
+			}
+
 		}
 
 		if (!array_bsearch_insert_pos(&bbox->uids, &vrec->real_uid,
@@ -1722,9 +1739,8 @@ virtual_sync_apply_existing_appends(struct virtual_sync_context *ctx)
 		mail_index_lookup_uid(ctx->sync_view, seq, &uidmap.virtual_uid);
 
 		if (bbox == NULL || bbox->mailbox_id != vrec->mailbox_id) {
-			bbox = virtual_backend_box_lookup(ctx->mbox,
-							  vrec->mailbox_id);
-			if (bbox == NULL) {
+			if (!virtual_backend_box_lookup(ctx->mbox,
+							vrec->mailbox_id, &bbox)) {
 				mail_index_expunge(ctx->trans, seq);
 				continue;
 			}
@@ -1760,9 +1776,8 @@ virtual_sync_apply_existing_expunges(struct virtual_mailbox *mbox,
 		vrec = data;
 
 		if (bbox == NULL || bbox->mailbox_id != vrec->mailbox_id) {
-			bbox = virtual_backend_box_lookup(mbox,
-							  vrec->mailbox_id);
-			if (bbox == NULL)
+			if (!virtual_backend_box_lookup(mbox,
+							vrec->mailbox_id, &bbox))
 				continue;
 			if (!array_is_created(&bbox->sync_outside_expunges))
 				i_array_init(&bbox->sync_outside_expunges, 32);
