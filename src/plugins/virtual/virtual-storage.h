@@ -200,8 +200,8 @@ int virtual_mailbox_ext_header_read(struct virtual_mailbox *mbox,
 
 struct virtual_backend_box *
 virtual_backend_box_lookup_name(struct virtual_mailbox *mbox, const char *name);
-struct virtual_backend_box *
-virtual_backend_box_lookup(struct virtual_mailbox *mbox, uint32_t mailbox_id);
+bool virtual_backend_box_lookup(struct virtual_mailbox *mbox, uint32_t mailbox_id,
+				struct virtual_backend_box **vbox_r);
 
 int virtual_backend_box_open(struct virtual_mailbox *mbox,
 			     struct virtual_backend_box *bbox);

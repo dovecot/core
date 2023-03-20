@@ -112,8 +112,8 @@ static int backend_mail_get(struct virtual_mail *vmail,
 		return 0;
 	}
 
-	bbox = virtual_backend_box_lookup(mbox, vmail->cur_vrec.mailbox_id);
-	i_assert(bbox != NULL);
+	if (!virtual_backend_box_lookup(mbox, vmail->cur_vrec.mailbox_id, &bbox))
+		i_unreached();
 
 	vmail->cur_backend_mail = backend_mail_find(vmail, bbox->box);
 	if (vmail->cur_backend_mail == NULL) {
