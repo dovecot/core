@@ -154,11 +154,6 @@ fs_dict_iterate_init(struct dict *_dict, const struct dict_op_settings *set,
 	struct fs_dict *dict = (struct fs_dict *)_dict;
 	struct fs_dict_iterate_context *iter;
 
-	/* these flags are not supported for now */
-	i_assert((flags & DICT_ITERATE_FLAG_RECURSE) == 0);
-	i_assert((flags & (DICT_ITERATE_FLAG_SORT_BY_KEY |
-			   DICT_ITERATE_FLAG_SORT_BY_VALUE)) == 0);
-
 	iter = i_new(struct fs_dict_iterate_context, 1);
 	iter->ctx.dict = _dict;
 	iter->path = i_strdup(path);
@@ -166,6 +161,18 @@ fs_dict_iterate_init(struct dict *_dict, const struct dict_op_settings *set,
 	iter->value_pool = pool_alloconly_create("iterate value pool", 128);
 	iter->fs_iter = fs_iter_init(dict->fs,
 				     fs_dict_get_full_key(set->username, path), 0);
+
+	const char *unsupported = NULL;
+	if ((flags & DICT_ITERATE_FLAG_RECURSE) != 0)
+		unsupported = "DICT_ITERATE_FLAG_RECURSE";
+	else if ((flags & DICT_ITERATE_FLAG_SORT_BY_KEY) != 0)
+		unsupported = "DICT_ITERATE_FLAG_SORT_BY_KEY";
+	else if ((flags & DICT_ITERATE_FLAG_SORT_BY_VALUE) != 0)
+		unsupported = "DICT_ITERATE_FLAG_SORT_BY_VALUE";
+	if (unsupported != NULL) {
+		iter->error = i_strdup_printf(
+			"dict-fs doesn't currently support %s", unsupported);
+	}
 	return &iter->ctx;
 }
 
