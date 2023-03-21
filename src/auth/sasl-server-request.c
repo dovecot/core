@@ -41,10 +41,29 @@ void sasl_server_request_destroy(struct auth_request *request)
 		mreq->mech->auth_free(mreq);
 }
 
+static bool
+sasl_server_request_fail_on_nuls(struct sasl_server_mech_request *mreq,
+				 const unsigned char *data, size_t data_size)
+{
+	const struct sasl_server_mech_def *mech = mreq->mech;
+
+	if ((mech->flags & SASL_MECH_SEC_ALLOW_NULS) != 0)
+		return FALSE;
+	if (memchr(data, '\0', data_size) != NULL) {
+		e_debug(mreq->mech_event, "Unexpected NUL in auth data");
+		sasl_server_request_failure(mreq);
+		return TRUE;
+	}
+	return FALSE;
+}
+
 void sasl_server_request_initial(struct sasl_server_mech_request *mreq,
 				 const unsigned char *data, size_t data_size)
 {
 	const struct sasl_server_mech_def *mech = mreq->mech;
+
+	if (sasl_server_request_fail_on_nuls(mreq, data, data_size))
+		return;
 
 	i_assert(mech->auth_initial != NULL);
 	mech->auth_initial(mreq, data, data_size);
@@ -54,6 +73,9 @@ void sasl_server_request_input(struct sasl_server_mech_request *mreq,
 			       const unsigned char *data, size_t data_size)
 {
 	const struct sasl_server_mech_def *mech = mreq->mech;
+
+	if (sasl_server_request_fail_on_nuls(mreq, data, data_size))
+		return;
 
 	i_assert(mech->auth_continue != NULL);
 	mech->auth_continue(mreq, data, data_size);

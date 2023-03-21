@@ -424,29 +424,11 @@ bool auth_request_import_master(struct auth_request *request,
 	return TRUE;
 }
 
-static bool
-auth_request_fail_on_nuls(struct auth_request *request,
-			  const unsigned char *data, size_t data_size)
-{
-	if ((request->mech->flags & SASL_MECH_SEC_ALLOW_NULS) != 0)
-		return FALSE;
-	if (memchr(data, '\0', data_size) != NULL) {
-		e_debug(request->mech_event, "Unexpected NUL in auth data");
-		auth_request_fail(request);
-		return TRUE;
-	}
-	return FALSE;
-}
-
 void auth_request_initial(struct auth_request *request)
 {
 	i_assert(request->state == AUTH_REQUEST_STATE_NEW);
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_MECH_CONTINUE);
-
-	if (auth_request_fail_on_nuls(request, request->initial_response,
-				      request->initial_response_len))
-		return;
 
 	auth_sasl_request_initial(request);
 }
@@ -464,9 +446,6 @@ void auth_request_continue(struct auth_request *request,
 		auth_request_success(request, "", 0);
 		return;
 	}
-
-	if (auth_request_fail_on_nuls(request, data, data_size))
-		return;
 
 	auth_request_refresh_last_access(request);
 	auth_sasl_request_continue(request, data, data_size);
