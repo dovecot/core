@@ -17,6 +17,7 @@ struct fs_dict_iterate_context {
 	struct dict_iterate_context ctx;
 	char *path;
 	enum dict_iterate_flags flags;
+	unsigned int key_count;
 	pool_t value_pool;
 	struct fs_iter *fs_iter;
 	const char *const *values;
@@ -155,7 +156,6 @@ fs_dict_iterate_init(struct dict *_dict, const struct dict_op_settings *set,
 
 	/* these flags are not supported for now */
 	i_assert((flags & DICT_ITERATE_FLAG_RECURSE) == 0);
-	i_assert((flags & DICT_ITERATE_FLAG_EXACT_KEY) == 0);
 	i_assert((flags & (DICT_ITERATE_FLAG_SORT_BY_KEY |
 			   DICT_ITERATE_FLAG_SORT_BY_VALUE)) == 0);
 
@@ -177,12 +177,25 @@ static bool fs_dict_iterate(struct dict_iterate_context *ctx,
 	const char *path, *error;
 	int ret;
 
-	if (iter->error != NULL)
+	if (iter->error != NULL || iter->fs_iter == NULL)
 		return FALSE;
 
 	*key_r = fs_iter_next(iter->fs_iter);
-	if (*key_r == NULL)
-		return FALSE;
+	if (*key_r == NULL) {
+		if (iter->key_count > 0 ||
+		    (iter->flags & DICT_ITERATE_FLAG_EXACT_KEY) == 0)
+			return FALSE;
+
+		if (fs_iter_deinit(&iter->fs_iter, &error) == 0)
+			return FALSE;
+		if (errno != ENOTDIR) {
+			iter->error = i_strdup(error);
+			return FALSE;
+		}
+		/* the path itself is the only key we are going to return */
+		*key_r = "";
+	}
+	iter->key_count++;
 
 	path = t_strconcat(iter->path, *key_r, NULL);
 	if ((iter->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0) {
