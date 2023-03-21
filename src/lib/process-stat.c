@@ -4,6 +4,7 @@
 #include "buffer.h"
 #include "str.h"
 #include "istream.h"
+#include "eacces-error.h"
 #include "process-stat.h"
 #include "time-util.h"
 #include <limits.h>
@@ -69,8 +70,10 @@ static int open_fd(const char *path, struct event *event)
 		errno = EACCES;
 	}
 	if (fd == -1) {
-		if (errno == ENOENT || errno == EACCES)
+		if (errno == ENOENT)
 			e_debug(event, "open(%s) failed: %m", path);
+		else if (errno == EACCES)
+			e_debug(event, "%s", eacces_error_get("open", path));
 		else
 			e_error(event, "open(%s) failed: %m", path);
 	}
