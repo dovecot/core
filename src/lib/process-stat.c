@@ -17,7 +17,7 @@
 #define PROC_STAT_PATH "/proc/self/stat"
 #define PROC_STAT_MAX_SIZE 1024
 #define PROC_STATUS_PATH "/proc/self/status"
-#define PROC_STATUS_MAX_SIZE 2048
+#define PROC_STATUS_MAX_SIZE 4096
 #define PROC_IO_PATH "/proc/self/io"
 #define PROC_IO_MAX_SIZE 1024
 #define PROC_BUFFER_INITIAL_SIZE 512
