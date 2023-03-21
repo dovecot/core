@@ -19,7 +19,7 @@
 #include "dict.h"
 #include "password-scheme.h"
 #include "passdb-cache.h"
-#include "mech.h"
+#include "sasl-server-protected.h"
 #include "otp.h"
 #include "mech-otp.h"
 #include "auth.h"

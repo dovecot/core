@@ -9,11 +9,11 @@
 #include "auth-common.h"
 #include "safe-memset.h"
 #include "hash.h"
-#include "mech.h"
 #include "passdb.h"
 #include "hex-binary.h"
 #include "otp.h"
 
+#include "sasl-server-protected.h"
 #include "mech-otp.h"
 
 struct otp_auth_request {

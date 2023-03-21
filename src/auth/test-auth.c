@@ -6,7 +6,7 @@
 #include "auth-settings.h"
 #include "auth-token.h"
 #include "auth-penalty.h"
-#include "mech.h"
+#include "sasl-server-protected.h" // FIXME: remove
 #include "otp.h"
 #include "mech-otp.h"
 #include "db-oauth2.h"

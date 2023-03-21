@@ -1,6 +1,8 @@
 #ifndef AUTH_REQUEST_HANDLER_PRIVATE_H
 #define AUTH_REQUEST_HANDLER_PRIVATE_H
 
+#include "auth-request-handler.h"
+
 struct auth_request;
 struct auth_client_connection;
 

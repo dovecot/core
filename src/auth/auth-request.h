@@ -8,7 +8,7 @@
 #include "array.h"
 #include "net.h"
 #include "var-expand.h"
-#include "mech.h"
+#include "sasl-server-protected.h" // FIXME: Use public API only
 #include "userdb.h"
 #include "passdb.h"
 #include "auth-request-var-expand.h"

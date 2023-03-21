@@ -4,8 +4,8 @@
    (e.g. imap to imap-urlauth). See auth-token.c */
 
 #include "auth-common.h"
-#include "mech.h"
 #include "safe-memset.h"
+#include "sasl-server-protected.h"
 #include "auth-token.h"
 
 static void

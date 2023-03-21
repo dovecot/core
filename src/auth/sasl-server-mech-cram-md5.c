@@ -11,9 +11,10 @@
 #include "hmac.h"
 #include "md5.h"
 #include "randgen.h"
-#include "mech.h"
 #include "passdb.h"
 #include "hostpid.h"
+
+#include "sasl-server-protected.h"
 
 #include <time.h>
 

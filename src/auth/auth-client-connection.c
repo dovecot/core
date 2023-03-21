@@ -10,7 +10,7 @@
 #include "str-sanitize.h"
 #include "randgen.h"
 #include "master-service.h"
-#include "mech.h"
+#include "sasl-server-protected.h" // FIXME: remove
 #include "auth-request-handler.h"
 #include "auth-client-interface.h"
 #include "auth-client-connection.h"

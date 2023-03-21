@@ -7,10 +7,10 @@
  */
 
 #include "auth-common.h"
-#include "mech.h"
 #include "passdb.h"
 #include "md5.h"
 #include "buffer.h"
+#include "sasl-server-protected.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
 

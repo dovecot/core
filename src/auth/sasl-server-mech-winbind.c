@@ -9,13 +9,14 @@
 
 #include "auth-common.h"
 #include "lib-signals.h"
-#include "mech.h"
 #include "str.h"
 #include "buffer.h"
 #include "base64.h"
 #include "execv-const.h"
 #include "istream.h"
 #include "ostream.h"
+
+#include "sasl-server-protected.h"
 
 #include <unistd.h>
 #include <sys/wait.h>

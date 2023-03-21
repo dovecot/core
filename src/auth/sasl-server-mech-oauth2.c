@@ -7,11 +7,12 @@
 #include "str.h"
 #include "strescape.h"
 #include "json-ostream.h"
-#include "mech.h"
 #include "passdb.h"
 #include "auth-gs2.h"
 #include "db-oauth2.h"
 #include "oauth2.h"
+
+#include "sasl-server-protected.h"
 
 struct oauth2_auth_request {
 	struct auth_request request;

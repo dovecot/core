@@ -2,7 +2,8 @@
 
 #include "auth-common.h"
 #include "passdb.h"
-#include "mech.h"
+
+#include "sasl-server-protected.h"
 #include "sasl-server-mech-plain-common.h"
 
 static void

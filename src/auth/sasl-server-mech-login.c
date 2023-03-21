@@ -7,11 +7,11 @@
  */
 
 #include "auth-common.h"
-#include "mech.h"
 #include "passdb.h"
 #include "safe-memset.h"
-#include "sasl-server-mech-plain-common.h"
 
+#include "sasl-server-protected.h"
+#include "sasl-server-mech-plain-common.h"
 
 static void
 mech_login_auth_continue(struct auth_request *request,

@@ -163,9 +163,10 @@ headers = \
 	db-sql.h \
 	db-passwd-file.h \
 	db-oauth2.h \
-	mech.h \
 	mech-otp.h \
 	mech-digest-md5-private.h \
+	sasl-server.h \
+	sasl-server-protected.h \
 	sasl-server-mech-plain-common.h \
 	sasl-server-mech-scram.h \
 	passdb.h \

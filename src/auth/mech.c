@@ -2,10 +2,11 @@
 
 #include "auth-common.h"
 #include "ioloop.h"
-#include "mech.h"
 #include "str.h"
 #include "strfuncs.h"
 #include "passdb.h"
+
+#include "sasl-server-private.h"
 
 #include <ctype.h>
 

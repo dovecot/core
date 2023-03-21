@@ -11,9 +11,10 @@
 #include "randgen.h"
 #include "str.h"
 #include "str-sanitize.h"
-#include "mech.h"
 #include "passdb.h"
 #include "settings-parser.h"
+
+#include "sasl-server-protected.h"
 
 /* Linear whitespace */
 #define IS_LWS(c) ((c) == ' ' || (c) == '\t')

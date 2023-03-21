@@ -1,7 +1,8 @@
 /* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
-#include "mech.h"
+
+#include "sasl-server-protected.h"
 
 static void
 mech_anonymous_auth_continue(struct auth_request *request,
