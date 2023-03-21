@@ -1,6 +1,9 @@
 /* Copyright (c) 2008-2021 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
+#include "str.h"
+#include "istream.h"
 #include "process-stat.h"
 #include "time-util.h"
 #include <limits.h>
@@ -12,8 +15,12 @@
 #include <stdio.h>
 
 #define PROC_STAT_PATH "/proc/self/stat"
+#define PROC_STAT_MAX_SIZE 1024
 #define PROC_STATUS_PATH "/proc/self/status"
+#define PROC_STATUS_MAX_SIZE 2048
 #define PROC_IO_PATH "/proc/self/io"
+#define PROC_IO_MAX_SIZE 1024
+#define PROC_BUFFER_INITIAL_SIZE 512
 
 static const uint64_t stat_undefined = 0xFFFFFFFFFFFFFFFF;
 
@@ -71,39 +78,38 @@ static int open_fd(const char *path, struct event *event)
 }
 
 static int
-read_file(int fd, const char *path, char *buf_r, size_t buf_size, struct event *event)
+read_file_buffer(const char *path, string_t *buf, size_t max_size, struct event *event)
 {
-	ssize_t ret;
-	ret = read(fd, buf_r, buf_size);
-	if (ret <= 0) {
-		if (ret == -1)
-			e_error(event, "read(%s) failed: %m", path);
-		else
-			e_error(event, "read(%s) returned EOF", path);
-	} else if (ret == (ssize_t)buf_size) {
-		e_error(event, "%s is larger than expected", path);
-		buf_r[buf_size - 1] = '\0';
-	} else {
-		buf_r[ret] = '\0';
+	const char *error;
+	int fd = open_fd(path, event);
+	if (fd < 0)
+		return -1;
+	struct istream *is = i_stream_create_fd_autoclose(&fd, max_size);
+	i_stream_set_name(is, path);
+	enum buffer_append_result res =
+		buffer_append_full_istream(buf, is, max_size, &error);
+	i_stream_unref(&is);
+	if (res == BUFFER_APPEND_READ_MAX_SIZE)
+		e_error(event, "%s is larger than expected (%zu)", path, max_size);
+	else if (res != BUFFER_APPEND_OK) {
+		e_error(event, "read(%s) failed: %s", path, error);
+		return -1;
 	}
-	i_close_fd(&fd);
-	return ret <= 0 ? -1 : 0;
+	return 0;
 }
 
 static int parse_key_val_file(const char *path,
+			      size_t max_size,
 			      struct key_val *fields,
 			      struct event *event)
 {
-	char buf[2048];
-	int fd;
-
-	fd = open_fd(path, event);
-	if (fd == -1 || read_file(fd, path, buf, sizeof(buf), event) < 0) {
+	string_t *buf = t_str_new(PROC_BUFFER_INITIAL_SIZE);
+	if (read_file_buffer(path, buf, max_size, event) < 0) {
 		for (; fields->key != NULL; fields++)
 			*fields->value = stat_undefined;
 		return -1;
 	}
-	buffer_parse(buf, fields);
+	buffer_parse(str_c(buf), fields);
 	return 0;
 }
 
@@ -117,7 +123,8 @@ static int parse_proc_io(struct process_stat *stat_r, struct event *event)
 		{ NULL, NULL, 0 },
 	};
 	if (stat_r->proc_io_failed ||
-	    parse_key_val_file(PROC_IO_PATH, fields, event) < 0) {
+	    parse_key_val_file(PROC_IO_PATH, PROC_IO_MAX_SIZE, fields,
+			       event) < 0) {
 		stat_r->proc_io_failed = TRUE;
 		return -1;
 	}
@@ -132,7 +139,8 @@ static int parse_proc_status(struct process_stat *stat_r, struct event *event)
 		{ NULL, NULL, 0 },
 	};
 	if (stat_r->proc_status_failed ||
-	    parse_key_val_file(PROC_STATUS_PATH, fields, event) < 0) {
+	    parse_key_val_file(PROC_STATUS_PATH, PROC_STATUS_MAX_SIZE,
+			       fields, event) < 0) {
 		stat_r->proc_status_failed = TRUE;
 		return -1;
 	}
@@ -156,8 +164,7 @@ static int stat_get_rusage(struct process_stat *stat_r)
 
 static int parse_stat_file(struct process_stat *stat_r, struct event *event)
 {
-	int fd = -1;
-	char buf[1024];
+	string_t *buf = t_str_new(PROC_BUFFER_INITIAL_SIZE);
 	unsigned int i;
 	const char *const *tmp;
 	struct {
@@ -171,9 +178,8 @@ static int parse_stat_file(struct process_stat *stat_r, struct event *event)
 		{ &stat_r->vsz, 22 },
 		{ &stat_r->rss, 23 },
 	};
-	if (!stat_r->proc_stat_failed)
-		fd = open_fd(PROC_STAT_PATH, event);
-	if (fd == -1) {
+	if (stat_r->proc_stat_failed ||
+	    read_file_buffer(PROC_STAT_PATH, buf, PROC_STAT_MAX_SIZE, event) < 0) {
 		stat_r->proc_stat_failed = TRUE;
 		/* vsz and rss are not provided by getrusage(), setting to undefined */
 		stat_r->vsz = stat_undefined;
@@ -187,11 +193,7 @@ static int parse_stat_file(struct process_stat *stat_r, struct event *event)
 		}
 		return 0;
 	}
-	if (read_file(fd, PROC_STAT_PATH, buf, sizeof(buf), event) < 0) {
-		stat_r->proc_stat_failed = TRUE;
-		return -1;
-	}
-	tmp = t_strsplit(buf, " ");
+	tmp = t_strsplit(str_c(buf), " ");
 	unsigned int tmp_count = str_array_length(tmp);
 
 	for (i = 0; i < N_ELEMENTS(fields); i++) {
@@ -208,13 +210,15 @@ static int parse_all_stats(struct process_stat *stat_r, struct event *event)
 {
 	bool has_fields = FALSE;
 
-	if (parse_stat_file(stat_r, event) == 0)
-		has_fields = TRUE;
-	if (parse_proc_io(stat_r, event) == 0)
-		has_fields = TRUE;
-	if ((!stat_r->proc_stat_failed || stat_r->rusage_failed) &&
-	    parse_proc_status(stat_r, event) == 0)
-		has_fields = TRUE;
+	T_BEGIN {
+		if (parse_stat_file(stat_r, event) == 0)
+			has_fields = TRUE;
+		if (parse_proc_io(stat_r, event) == 0)
+			has_fields = TRUE;
+		if ((!stat_r->proc_stat_failed || stat_r->rusage_failed) &&
+		    parse_proc_status(stat_r, event) == 0)
+			has_fields = TRUE;
+	} T_END;
 
 	if (has_fields)
 		return 0;
