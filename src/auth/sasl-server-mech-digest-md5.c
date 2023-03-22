@@ -54,7 +54,7 @@ static_assert_array_size(qop_names, QOP_COUNT);
 static string_t *get_digest_challenge(struct digest_auth_request *request)
 {
 	struct sasl_server_mech_request *auth_request = &request->auth_request;
-	const struct auth_settings *set = auth_request->request->set;
+	const struct sasl_server_settings *set = auth_request->set;
 	buffer_t buf;
 	string_t *str;
 	const char *const *tmp;
@@ -82,12 +82,12 @@ static string_t *get_digest_challenge(struct digest_auth_request *request)
 	request->nonce = p_strdup(auth_request->pool, buf.data);
 
 	str = t_str_new(256);
-	if (array_is_empty(&set->realms)) {
+	if (set->realms == NULL) {
 		/* If no realms are given, at least Cyrus SASL client defaults
 		   to destination host name */
 		str_append(str, "realm=\"\",");
 	} else {
-		for (tmp = settings_boollist_get(&set->realms); *tmp != NULL; tmp++)
+		for (tmp = set->realms; *tmp != NULL; tmp++)
 			str_printfa(str, "realm=\"%s\",", *tmp);
 	}
 
