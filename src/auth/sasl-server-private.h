@@ -11,7 +11,7 @@ enum sasl_server_passdb_type {
 
 struct sasl_server_request {
 	pool_t pool;
-	struct sasl_server *server;
+	struct sasl_server_instance *sinst;
 	struct sasl_server_req_ctx *rctx;
 	struct sasl_server_mech_request *mech;
 
@@ -19,10 +19,22 @@ struct sasl_server_request {
 	sasl_server_mech_passdb_callback_t *passdb_callback;
 };
 
+struct sasl_server_instance {
+	struct sasl_server *server;
+	pool_t pool;
+	int refcount;
+	struct sasl_server_instance *prev, *next;
+	struct event *event;
+
+	unsigned int requests;
+};
+
 struct sasl_server {
 	pool_t pool;
 	struct event *event;
 	const struct sasl_server_request_funcs *funcs;
+
+	struct sasl_server_instance *instances;
 
 	unsigned int requests;
 };

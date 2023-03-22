@@ -9,7 +9,7 @@
 #include "auth-request.h"
 #include "auth-request-handler.h"
 
-struct sasl_server *auth_sasl_server;
+static struct sasl_server *auth_sasl_server;
 
 /*
  * Request
@@ -291,7 +291,9 @@ auth_sasl_translate_protocol_name(struct auth_request *request)
 void auth_sasl_request_init(struct auth_request *request,
 			    const struct sasl_server_mech_def *mech)
 {
-	sasl_server_request_create(&request->sasl.req, auth_sasl_server, mech,
+	struct auth *auth = auth_request_get_auth(request);
+
+	sasl_server_request_create(&request->sasl.req, auth->sasl_inst, mech,
 				   auth_sasl_translate_protocol_name(request),
 				   request->mech_event);
 }
@@ -367,6 +369,25 @@ auth_sasl_mech_module_find(const char *name)
 			return &list->module;
 	}
 	return NULL;
+}
+
+/*
+ * Instance
+ */
+
+void auth_sasl_instance_init(struct auth *auth)
+{
+	const struct sasl_server_settings sasl_set = {
+		.event_parent = auth_event,
+	};
+
+	auth->sasl_inst =
+		sasl_server_instance_create(auth_sasl_server, &sasl_set);
+}
+
+void auth_sasl_instance_deinit(struct auth *auth)
+{
+	sasl_server_instance_unref(&auth->sasl_inst);
 }
 
 /*

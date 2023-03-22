@@ -10,11 +10,12 @@
  */
 
 void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
-				struct sasl_server *server,
+				struct sasl_server_instance *sinst,
 				const struct sasl_server_mech_def *mech,
 				const char *protocol,
 				struct event *event_parent)
 {
+	struct sasl_server *server = sinst->server;
 	struct auth_request *request =
 		container_of(rctx, struct auth_request, sasl.req);
 	struct sasl_server_request *req;
@@ -25,9 +26,10 @@ void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 	pool = request->pool;
 	req = p_new(pool, struct sasl_server_request, 1);
 	req->pool = pool;
-	req->server = server;
+	req->sinst = sinst;
 	req->rctx = rctx;
 
+	sinst->requests++;
 	server->requests++;
 
 	struct sasl_server_mech_request *mreq;
@@ -57,9 +59,12 @@ void sasl_server_request_destroy(struct sasl_server_req_ctx *rctx)
 	if (req == NULL)
 		return;
 
-	struct sasl_server *server = req->server;
+	struct sasl_server_instance *sinst = req->sinst;
+	struct sasl_server *server = sinst->server;
 	struct sasl_server_mech_request *mreq = req->mech;
 
+	i_assert(sinst->requests > 0);
+	sinst->requests--;
 	i_assert(server->requests > 0);
 	server->requests--;
 
@@ -120,7 +125,7 @@ bool sasl_server_request_set_authid(struct sasl_server_mech_request *mreq,
 				    const char *authid)
 {
 	struct sasl_server_request *req = mreq->req;
-	struct sasl_server *server = req->server;
+	struct sasl_server *server = req->sinst->server;
 	const struct sasl_server_request_funcs *funcs = server->funcs;
 
 	i_assert(funcs->request_set_authid != NULL);
@@ -131,7 +136,7 @@ bool sasl_server_request_set_authzid(struct sasl_server_mech_request *mreq,
 				     const char *authzid)
 {
 	struct sasl_server_request *req = mreq->req;
-	struct sasl_server *server = req->server;
+	struct sasl_server *server = req->sinst->server;
 	const struct sasl_server_request_funcs *funcs = server->funcs;
 
 	i_assert(funcs->request_set_authzid != NULL);
@@ -142,7 +147,7 @@ void sasl_server_request_set_realm(struct sasl_server_mech_request *mreq,
 				   const char *realm)
 {
 	struct sasl_server_request *req = mreq->req;
-	struct sasl_server *server = req->server;
+	struct sasl_server *server = req->sinst->server;
 	const struct sasl_server_request_funcs *funcs = server->funcs;
 
 	i_assert(funcs->request_set_realm != NULL);
@@ -154,7 +159,7 @@ bool sasl_server_request_get_extra_field(struct sasl_server_mech_request *mreq,
 					 const char **field_r)
 {
 	struct sasl_server_request *req = mreq->req;
-	struct sasl_server *server = req->server;
+	struct sasl_server *server = req->sinst->server;
 	const struct sasl_server_request_funcs *funcs = server->funcs;
 
 	if (funcs->request_get_extra_field == NULL) {
@@ -168,7 +173,7 @@ void sasl_server_request_start_channel_binding(
 	struct sasl_server_mech_request *mreq, const char *type)
 {
 	struct sasl_server_request *req = mreq->req;
-	struct sasl_server *server = req->server;
+	struct sasl_server *server = req->sinst->server;
 	const struct sasl_server_request_funcs *funcs = server->funcs;
 
 	i_assert(funcs->request_start_channel_binding != NULL);
@@ -179,7 +184,7 @@ int sasl_server_request_accept_channel_binding(
 	struct sasl_server_mech_request *mreq, buffer_t **data_r)
 {
 	struct sasl_server_request *req = mreq->req;
-	struct sasl_server *server = req->server;
+	struct sasl_server *server = req->sinst->server;
 	const struct sasl_server_request_funcs *funcs = server->funcs;
 
 	i_assert(funcs->request_accept_channel_binding != NULL);
@@ -190,7 +195,7 @@ void sasl_server_request_output(struct sasl_server_mech_request *mreq,
 				const void *data, size_t data_size)
 {
 	struct sasl_server_request *req = mreq->req;
-	struct sasl_server *server = req->server;
+	struct sasl_server *server = req->sinst->server;
 	const struct sasl_server_request_funcs *funcs = server->funcs;
 
 	const struct sasl_server_output output = {
@@ -206,7 +211,7 @@ void sasl_server_request_success(struct sasl_server_mech_request *mreq,
 				 const void *data, size_t data_size)
 {
 	struct sasl_server_request *req = mreq->req;
-	struct sasl_server *server = req->server;
+	struct sasl_server *server = req->sinst->server;
 	const struct sasl_server_request_funcs *funcs = server->funcs;
 
 	const struct sasl_server_output output = {
@@ -224,7 +229,7 @@ sasl_server_request_failure_common(struct sasl_server_mech_request *mreq,
 				   const void *data, size_t data_size)
 {
 	struct sasl_server_request *req = mreq->req;
-	struct sasl_server *server = req->server;
+	struct sasl_server *server = req->sinst->server;
 	const struct sasl_server_request_funcs *funcs = server->funcs;
 
 	const struct sasl_server_output output = {
@@ -272,7 +277,7 @@ void sasl_server_request_verify_plain(
 	sasl_server_mech_passdb_callback_t *callback)
 {
 	struct sasl_server_request *req = mreq->req;
-	struct sasl_server *server = req->server;
+	struct sasl_server *server = req->sinst->server;
 	const struct sasl_server_request_funcs *funcs = server->funcs;
 
 	req->passdb_type = SASL_SERVER_PASSDB_TYPE_VERIFY_PLAIN;
@@ -299,7 +304,7 @@ void sasl_server_request_lookup_credentials(
 	sasl_server_mech_passdb_callback_t *callback)
 {
 	struct sasl_server_request *req = mreq->req;
-	struct sasl_server *server = req->server;
+	struct sasl_server *server = req->sinst->server;
 	const struct sasl_server_request_funcs *funcs = server->funcs;
 
 	req->passdb_type = SASL_SERVER_PASSDB_TYPE_LOOKUP_CREDENTIALS;
@@ -326,7 +331,7 @@ void sasl_server_request_set_credentials(
 	sasl_server_mech_passdb_callback_t *callback)
 {
 	struct sasl_server_request *req = mreq->req;
-	struct sasl_server *server = req->server;
+	struct sasl_server *server = req->sinst->server;
 	const struct sasl_server_request_funcs *funcs = server->funcs;
 
 	req->passdb_type = SASL_SERVER_PASSDB_TYPE_SET_CREDENTIALS;

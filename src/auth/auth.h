@@ -6,6 +6,8 @@
 
 #define PASSWORD_HIDDEN_STR "<hidden>"
 
+struct sasl_server_instance;
+
 ARRAY_DEFINE_TYPE(auth, struct auth *);
 extern ARRAY_TYPE(auth) auths;
 
@@ -77,6 +79,8 @@ struct auth {
 	const struct auth_settings *protocol_set;
 
 	const struct mechanisms_register *reg;
+	struct sasl_server_instance *sasl_inst;
+
 	struct auth_passdb *masterdbs;
 	struct auth_passdb *passdbs;
 	struct auth_userdb *userdbs;

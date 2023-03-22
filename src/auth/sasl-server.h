@@ -7,6 +7,7 @@ struct sasl_passdb_result;
 struct sasl_server_mech_def;
 struct sasl_server_request;
 struct sasl_server_req_ctx;
+struct sasl_server_instance;
 struct sasl_server;
 
 enum sasl_passdb_result_status {
@@ -67,6 +68,11 @@ struct sasl_passdb_result {
 	} credentials;
 };
 
+struct sasl_server_settings {
+	/* Event to use for the SASL server instance. */
+	struct event *event_parent;
+};
+
 /*
  * Request
  */
@@ -120,7 +126,7 @@ struct sasl_server_request_funcs {
 };
 
 void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
-				struct sasl_server *server,
+				struct sasl_server_instance *sinst,
 				const struct sasl_server_mech_def *mech,
 				const char *protocol,
 				struct event *event_parent);
@@ -130,6 +136,16 @@ void sasl_server_request_initial(struct sasl_server_req_ctx *rctx,
 				 const unsigned char *data, size_t data_size);
 void sasl_server_request_input(struct sasl_server_req_ctx *rctx,
 			       const unsigned char *data, size_t data_size);
+
+/*
+ * Instance
+ */
+
+struct sasl_server_instance *
+sasl_server_instance_create(struct sasl_server *server,
+			    const struct sasl_server_settings *set);
+void sasl_server_instance_ref(struct sasl_server_instance *sinst);
+void sasl_server_instance_unref(struct sasl_server_instance **_sinst);
 
 /*
  * Server

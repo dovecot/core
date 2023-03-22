@@ -6,6 +6,7 @@
 #include "userdb.h"
 #include "passdb.h"
 #include "auth.h"
+#include "auth-sasl.h"
 #include "dns-lookup.h"
 
 #define AUTH_DNS_IDLE_TIMEOUT_MSECS (1000*60)
@@ -359,6 +360,9 @@ auth_preinit(const struct auth_settings *set, const char *protocol,
 		/* use a dummy userdb static. */
 		auth_userdb_preinit(auth, &userdb_dummy_set);
 	}
+
+	auth_sasl_instance_init(auth);
+
 	return auth;
 }
 
@@ -408,6 +412,7 @@ static void auth_deinit(struct auth *auth)
 
 static void auth_free(struct auth *auth)
 {
+	auth_sasl_instance_deinit(auth);
 	settings_free(auth->protocol_set);
 	pool_unref(&auth->pool);
 }

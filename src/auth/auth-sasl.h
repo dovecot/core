@@ -7,12 +7,11 @@
 #define AUTH_SASL_MAX_MECH_NAME_LEN 64
 
 struct auth_request;
+struct auth_settings;
 
 struct auth_sasl_mech_module {
 	const char *mech_name;
 };
-
-extern struct sasl_server *auth_sasl_server;
 
 /*
  * Request
@@ -36,6 +35,13 @@ void auth_sasl_mech_unregister_module(
 	const struct auth_sasl_mech_module *module);
 const struct auth_sasl_mech_module *
 auth_sasl_mech_module_find(const char *name);
+
+/*
+ * Instance
+ */
+
+void auth_sasl_instance_init(struct auth *auth);
+void auth_sasl_instance_deinit(struct auth *auth);
 
 /*
  * Global
