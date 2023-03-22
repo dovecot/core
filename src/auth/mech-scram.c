@@ -44,8 +44,7 @@ credentials_callback(enum passdb_result result,
 						 key_data->stored_key,
 						 key_data->server_key,
 						 &error) < 0) {
-			e_info(auth_request->mech_event,
-			       "%s", error);
+			e_info(auth_request->mech_event, "%s", error);
 			auth_request_fail(auth_request);
 			break;
 		}
