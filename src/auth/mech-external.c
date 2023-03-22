@@ -35,14 +35,14 @@ mech_external_auth_continue(struct auth_request *request,
 		       "login user: %s", error);
 		auth_request_fail(request);
 	} else {
-                auth_request_verify_plain(request, "",
-                                          plain_verify_callback);
+		auth_request_verify_plain(request, "",
+					  plain_verify_callback);
 	}
 }
 
 static struct auth_request *mech_external_auth_new(void)
 {
-        struct auth_request *request;
+	struct auth_request *request;
 	pool_t pool;
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"external_auth_request", 2048);
