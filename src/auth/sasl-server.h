@@ -1,8 +1,6 @@
 #ifndef SASL_SERVER_H
 #define SASL_SERVER_H
 
-#include "auth-client-interface.h"
-
 #include "sasl-common.h"
 
 enum sasl_passdb_result_status {

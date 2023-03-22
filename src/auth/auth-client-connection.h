@@ -2,6 +2,7 @@
 #define AUTH_CLIENT_CONNECTION_H
 
 #include "login-interface.h"
+#include "auth-client-interface.h"
 
 #define AUTH_CLIENT_MINOR_VERSION_CHANNEL_BINDING 3
 

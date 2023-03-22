@@ -21,6 +21,8 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+#define MAX_LINE_LENGTH 16384
+
 enum helper_result {
 	HR_OK	= 0,	/* OK or continue */
 	HR_FAIL	= -1,	/* authentication failed */
@@ -143,7 +145,7 @@ winbind_helper_connect(const struct auth_settings *set,
 
 	winbind->pid = pid;
 	winbind->in_pipe =
-		i_stream_create_fd_autoclose(&infd[0], AUTH_CLIENT_MAX_LINE_LENGTH);
+		i_stream_create_fd_autoclose(&infd[0], MAX_LINE_LENGTH);
 	winbind->out_pipe =
 		o_stream_create_fd_autoclose(&outfd[1], SIZE_MAX);
 
