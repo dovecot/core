@@ -14,7 +14,7 @@
 #include "oauth2.h"
 
 struct oauth2_auth_request {
-	struct auth_request auth;
+	struct auth_request request;
 	struct db_oauth2 *db;
 	struct db_oauth2_request db_req;
 	lookup_credentials_callback_t *callback;
@@ -26,7 +26,7 @@ static struct db_oauth2 *db_oauth2 = NULL;
 static void
 oauth2_fail(struct oauth2_auth_request *oauth2_req, const char *status)
 {
-	struct auth_request *request = &oauth2_req->auth;
+	struct auth_request *request = &oauth2_req->request;
 	const char *oidc_url = (oauth2_req->db == NULL ? "" :
 		db_oauth2_get_openid_configuration_url(oauth2_req->db));
 	string_t *reply = t_str_new(256);
@@ -71,7 +71,7 @@ static void
 oauth2_verify_finish(enum passdb_result result, struct auth_request *request)
 {
 	struct oauth2_auth_request *oauth2_req =
-		container_of(request, struct oauth2_auth_request, auth);
+		container_of(request, struct oauth2_auth_request, request);
 
 	switch (result) {
 	case PASSDB_RESULT_INTERNAL_FAILURE:
@@ -111,7 +111,7 @@ static void
 mech_oauth2_verify_token_continue(struct oauth2_auth_request *oauth2_req,
 				  const char *const *args)
 {
-	struct auth_request *request = &oauth2_req->auth;
+	struct auth_request *request = &oauth2_req->request;
 	int parsed;
 	enum passdb_result result;
 
@@ -165,7 +165,7 @@ mech_oauth2_verify_token_local_continue(struct db_oauth2_request *db_req,
 					const char *error,
 					struct oauth2_auth_request *oauth2_req)
 {
-	struct auth_request *request = &oauth2_req->auth;
+	struct auth_request *request = &oauth2_req->request;
 
 	if (result == PASSDB_RESULT_OK) {
 		auth_request_set_password_verified(request);
@@ -189,7 +189,7 @@ static void
 mech_oauth2_verify_token(struct oauth2_auth_request *oauth2_req,
 			 const char *token)
 {
-	struct auth_request *auth_request = &oauth2_req->auth;
+	struct auth_request *auth_request = &oauth2_req->request;
 
 	auth_request_ref(auth_request);
 	if (!db_oauth2_use_worker(oauth2_req->db)) {
@@ -224,7 +224,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 			       size_t data_size)
 {
 	struct oauth2_auth_request *oauth2_req =
-		container_of(request, struct oauth2_auth_request, auth);
+		container_of(request, struct oauth2_auth_request, request);
 
 	if (oauth2_req->db == NULL) {
 		e_error(request->event, "BUG: oauth2 database missing");
@@ -319,7 +319,7 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 			   size_t data_size)
 {
 	struct oauth2_auth_request *oauth2_req =
-		container_of(request, struct oauth2_auth_request, auth);
+		container_of(request, struct oauth2_auth_request, request);
 
 	if (oauth2_req->db == NULL) {
 		e_error(request->event, "BUG: oauth2 database missing");
@@ -385,10 +385,10 @@ static struct auth_request *mech_oauth2_auth_new(void)
 	pool_t pool = pool_alloconly_create_clean(MEMPOOL_GROWING
 						  "oauth2_auth_request", 2048);
 	request = p_new(pool, struct oauth2_auth_request, 1);
-	request->auth.pool = pool;
+	request->request.pool = pool;
 	request->db_req.pool = pool;
 	request->db = db_oauth2;
-	return &request->auth;
+	return &request->request;
 }
 
 const struct mech_module mech_oauthbearer = {
