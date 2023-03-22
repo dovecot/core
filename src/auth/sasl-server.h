@@ -7,6 +7,7 @@ struct sasl_passdb_result;
 struct sasl_server_mech_def;
 struct sasl_server_request;
 struct sasl_server_req_ctx;
+struct sasl_server;
 
 enum sasl_passdb_result_status {
 	SASL_PASSDB_RESULT_INTERNAL_FAILURE = -1,
@@ -87,6 +88,7 @@ struct sasl_server_req_ctx {
 };
 
 void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
+				struct sasl_server *server,
 				const struct sasl_server_mech_def *mech,
 				const char *protocol,
 				struct event *event_parent);
@@ -96,5 +98,12 @@ void sasl_server_request_initial(struct sasl_server_req_ctx *rctx,
 				 const unsigned char *data, size_t data_size);
 void sasl_server_request_input(struct sasl_server_req_ctx *rctx,
 			       const unsigned char *data, size_t data_size);
+
+/*
+ * Server
+ */
+
+struct sasl_server *sasl_server_init(struct event *event_parent);
+void sasl_server_deinit(struct sasl_server **_server);
 
 #endif

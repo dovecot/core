@@ -23,6 +23,7 @@
 #include "otp.h"
 #include "mech-otp.h"
 #include "auth.h"
+#include "auth-sasl.h"
 #include "auth-penalty.h"
 #include "auth-token.h"
 #include "auth-request-handler.h"
@@ -31,7 +32,6 @@
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
 #include "auth-policy.h"
-#include "auth-sasl-oauth2.h"
 #include "db-oauth2.h"
 
 #include <unistd.h>
@@ -180,9 +180,7 @@ static void main_preinit(void)
 		auth_penalty = auth_penalty_init(AUTH_PENALTY_ANVIL_PATH);
 
 	dict_drivers_register_builtin();
-	mech_init(global_auth_settings);
-	auth_sasl_oauth2_initialize();
-	mech_reg = mech_register_init(global_auth_settings);
+	auth_sasl_preinit();
 	auths_preinit(NULL, global_auth_settings, mech_reg, protocols);
 
 	listeners_init();
@@ -225,6 +223,7 @@ static void main_init(void)
 	child_wait_init();
 	auth_worker_connection_init();
 	auths_init();
+	auth_sasl_init();
 	auth_request_handler_init();
 	auth_policy_init();
 
@@ -284,6 +283,8 @@ static void main_deinit(void)
 	/* allow modules to unregister their dbs/drivers/etc. before freeing
 	   the whole data structures containing them. */
 	module_dir_unload(&modules);
+
+	auth_sasl_deinit();
 
 	userdbs_deinit();
 	passdbs_deinit();

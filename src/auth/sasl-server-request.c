@@ -10,6 +10,7 @@
  */
 
 void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
+				struct sasl_server *server,
 				const struct sasl_server_mech_def *mech,
 				const char *protocol,
 				struct event *event_parent)
@@ -24,7 +25,10 @@ void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 	pool = request->pool;
 	req = p_new(pool, struct sasl_server_request, 1);
 	req->pool = pool;
+	req->server = server;
 	req->rctx = rctx;
+
+	server->requests++;
 
 	struct sasl_server_mech_request *mreq;
 
@@ -53,7 +57,11 @@ void sasl_server_request_destroy(struct sasl_server_req_ctx *rctx)
 	if (req == NULL)
 		return;
 
+	struct sasl_server *server = req->server;
 	struct sasl_server_mech_request *mreq = req->mech;
+
+	i_assert(server->requests > 0);
+	server->requests--;
 
 	if (mreq->mech->auth_free != NULL)
 		mreq->mech->auth_free(mreq);

@@ -12,6 +12,8 @@ struct auth_sasl_mech_module {
 	const char *mech_name;
 };
 
+extern struct sasl_server *auth_sasl_server;
+
 /*
  * Request
  */
@@ -77,5 +79,13 @@ void auth_sasl_mech_unregister_module(
 	const struct auth_sasl_mech_module *module);
 const struct auth_sasl_mech_module *
 auth_sasl_mech_module_find(const char *name);
+
+/*
+ * Global
+ */
+
+void auth_sasl_preinit(void);
+void auth_sasl_init(void);
+void auth_sasl_deinit(void);
 
 #endif
