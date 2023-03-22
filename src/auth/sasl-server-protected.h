@@ -37,6 +37,10 @@ struct mechanisms_register {
 	buffer_t *handshake_cbind;
 };
 
+/*
+ * Mechanism
+ */
+
 extern const struct mech_module mech_dovecot_token;
 
 void mech_register_module(const struct mech_module *module);
