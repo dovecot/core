@@ -229,7 +229,7 @@ static void cmd_id_finish(struct imap_client *client)
 	client_send_reply(&client->common, IMAP_CMD_REPLY_OK, msg);
 }
 
-static void cmd_id_free(struct imap_client *client)
+void cmd_id_free(struct imap_client *client)
 {
 	struct imap_client_cmd_id *id = client->cmd_id;
 

@@ -93,5 +93,6 @@ bool client_handle_parser_error(struct imap_client *client,
 				struct imap_parser *parser);
 
 int cmd_id(struct imap_client *client);
+void cmd_id_free(struct imap_client *client);
 
 #endif
