@@ -505,7 +505,7 @@ gssapi_credentials_callback(struct sasl_server_mech_request *auth_request,
 		break;
 	}
 
-	if (mech_gssapi_userok(request, auth_request->request->fields.user) == 0)
+	if (mech_gssapi_userok(request, auth_request->authid) == 0)
 		sasl_server_request_success(auth_request, NULL, 0);
 	else
 		sasl_server_request_failure(auth_request);
