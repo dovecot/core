@@ -55,8 +55,8 @@ mech_plain_auth_continue(struct auth_request *request,
 		       "login user: %s", error);
 		auth_request_fail(request);
 	} else {
-		auth_request_verify_plain(request, pass,
-					  plain_verify_callback);
+		auth_request_verify_plain(
+			request, pass, sasl_server_mech_plain_verify_callback);
 	}
 
 	/* make sure it's cleared */

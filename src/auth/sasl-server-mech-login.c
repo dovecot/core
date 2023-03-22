@@ -32,7 +32,8 @@ mech_login_auth_continue(struct auth_request *request,
 						    strlen(prompt2));
 	} else {
 		char *pass = p_strndup(unsafe_data_stack_pool, data, data_size);
-		auth_request_verify_plain(request, pass, plain_verify_callback);
+		auth_request_verify_plain(
+			request, pass, sasl_server_mech_plain_verify_callback);
 		safe_memset(pass, 0, strlen(pass));
 	}
 }
