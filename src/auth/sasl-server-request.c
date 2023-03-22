@@ -117,6 +117,14 @@ void sasl_server_request_input(struct sasl_server_req_ctx *rctx,
 	mech->auth_continue(mreq, data, data_size);
 }
 
+void sasl_server_request_test_set_authid(struct sasl_server_req_ctx *rctx,
+					 const char *authid)
+{
+	struct sasl_server_request *req = rctx->request;
+
+	req->mech->authid = p_strdup(req->mech->pool, authid);
+}
+
 /*
  * Mechanism API
  */
@@ -128,6 +136,8 @@ bool sasl_server_request_set_authid(struct sasl_server_mech_request *mreq,
 	struct sasl_server_request *req = mreq->req;
 	struct sasl_server *server = req->sinst->server;
 	const struct sasl_server_request_funcs *funcs = server->funcs;
+
+	mreq->authid = p_strdup(req->pool, authid);
 
 	i_assert(funcs->request_set_authid != NULL);
 	return funcs->request_set_authid(req->rctx, authid_type, authid);

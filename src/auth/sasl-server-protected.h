@@ -46,7 +46,9 @@ struct sasl_server_mech_request {
 	const struct sasl_server_mech_def *mech;
 	struct sasl_server_request *req;
 	struct event *mech_event;
+
 	const char *protocol;
+	const char *authid;
 
 	const struct sasl_server_settings *set;
 

@@ -142,6 +142,12 @@ void sasl_server_request_initial(struct sasl_server_req_ctx *rctx,
 void sasl_server_request_input(struct sasl_server_req_ctx *rctx,
 			       const unsigned char *data, size_t data_size);
 
+/* Test */
+
+// FIXME: get rid of this
+void sasl_server_request_test_set_authid(struct sasl_server_req_ctx *rctx,
+					 const char *authid);
+
 /*
  * Instance
  */

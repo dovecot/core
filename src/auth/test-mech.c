@@ -117,6 +117,10 @@ static void test_mech_prepare_request(struct auth_request **request_r,
 		request->fields.user =
 			p_strdup(request->pool, test_case->username);
 	}
+	if (test_case->set_username_before_test) {
+		sasl_server_request_test_set_authid(&request->sasl.req,
+						    test_case->username);
+	}
 	if (test_case->set_cert_username)
 		request->fields.cert_username = TRUE;
 
@@ -183,7 +187,7 @@ static void test_mechs(void)
 		{&mech_digest_md5, UCHAR_LEN("username=\"test\xc3\xbaser@example.com\",realm=\"example.com\",nonce=\"OA6MG9tEQGm2hh\",cnonce=\"OA6MHXh6VqTrRk\",nc=00000001,digest-uriresponse=d388dad90d4bbd760a152321f2143af7,qop=\"auth\",authzid=\"masteruser\""), "test\xc3\xbaser@example.com", NULL, TRUE, FALSE, FALSE},
 		{&mech_digest_md5, UCHAR_LEN("username=\"test\xc3\xbaser@example.com\",realm=\"example.com\",nonce=\"OA6MG9tEQGm2hh\",cnonce=\"OA6MHXh6VqTrRk\",charset=\"utf-8\",cipher=unsupported,nc=00000001,digest-uri=imap/server.com,response=d388dad90d4bbd760a152321f2143af7,qop=\"auth\",authzid=\"masteruser\""), "test\xc3\xbaser@example.com", NULL, TRUE, FALSE, FALSE},
 		{&mech_digest_md5, UCHAR_LEN("username=\"testuser\",realm=\"example.com\",nonce=\"OA6MG9tEQGm2hh\",cnonce=\"OA6MHXh6VqTrRk\",charset=\"utf-8\",cipher=unsupported,nc=00000001,digest-uri=imap/server.com,response=d388dad90d4bbd760a152321f2143af7,qop=\"auth\",authzid=\"masteruser\""), "testuser@example.com", NULL, TRUE, FALSE, FALSE},
-		{&mech_external, UCHAR_LEN(""), "testuser", NULL, TRUE, TRUE, TRUE},
+		{&mech_external, UCHAR_LEN(""), "testuser", NULL, TRUE, FALSE, TRUE},
 		{&mech_dovecot_token, NULL, 0, "testuser", NULL, TRUE, FALSE, FALSE},
 		{&mech_login, UCHAR_LEN("testuser"), "testuser", NULL, TRUE, FALSE, FALSE},
 		{&mech_plain, UCHAR_LEN("\0testuser\0testpass"), "testuser", NULL, TRUE, FALSE, FALSE},
@@ -338,6 +342,7 @@ static void test_mechs(void)
 			test_assert_strcmp_idx(test_case->username, username,
 					       running_test);
 		} else if (!test_case->set_username_before_test &&
+			   !test_case->set_cert_username &&
 			   !test_case->success) {
 			/* If the username is not set by the testlogic and we
 			   expect failure, verify that the mechanism failed by
