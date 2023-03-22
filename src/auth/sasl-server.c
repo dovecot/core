@@ -27,6 +27,10 @@ sasl_server_instance_create(struct sasl_server *server,
 	sinst->refcount = 1;
 	sinst->server = server;
 
+	sinst->set = *set;
+	if (set->realms != NULL)
+		sinst->set.realms = p_strarray_dup(pool, set->realms);
+
 	if (set->event_parent == NULL)
 		sinst->event = event_create(server->event);
 	else {

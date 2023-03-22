@@ -48,6 +48,8 @@ struct sasl_server_mech_request {
 	struct event *mech_event;
 	const char *protocol;
 
+	const struct sasl_server_settings *set;
+
 	// FIXME: To be removed
 	struct auth_request *request;
 };

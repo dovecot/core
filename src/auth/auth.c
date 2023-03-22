@@ -361,7 +361,7 @@ auth_preinit(const struct auth_settings *set, const char *protocol,
 		auth_userdb_preinit(auth, &userdb_dummy_set);
 	}
 
-	auth_sasl_instance_init(auth);
+	auth_sasl_instance_init(auth, set);
 
 	return auth;
 }

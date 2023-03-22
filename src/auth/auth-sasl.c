@@ -1,6 +1,7 @@
 /* Copyright (c) 2023 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "settings-parser.h"
 #include "sasl-server-private.h" // FIXME: remove
 #include "auth.h"
 #include "auth-common.h"
@@ -375,10 +376,13 @@ auth_sasl_mech_module_find(const char *name)
  * Instance
  */
 
-void auth_sasl_instance_init(struct auth *auth)
+void auth_sasl_instance_init(struct auth *auth,
+			     const struct auth_settings *set)
 {
 	const struct sasl_server_settings sasl_set = {
+		.realms = settings_boollist_get(&set->realms),
 		.event_parent = auth_event,
+		.verbose = set->verbose,
 	};
 
 	auth->sasl_inst =

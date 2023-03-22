@@ -41,6 +41,7 @@ void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 	mreq->pool = pool;
 	mreq->req = req;
 	mreq->request = request;
+	mreq->set = &sinst->set;
 	mreq->mech = mech;
 	mreq->mech_event = event_parent;
 	mreq->protocol = p_strdup(mreq->pool, protocol);

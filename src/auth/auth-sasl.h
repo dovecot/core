@@ -40,7 +40,8 @@ auth_sasl_mech_module_find(const char *name);
  * Instance
  */
 
-void auth_sasl_instance_init(struct auth *auth);
+void auth_sasl_instance_init(struct auth *auth,
+			     const struct auth_settings *set);
 void auth_sasl_instance_deinit(struct auth *auth);
 
 /*

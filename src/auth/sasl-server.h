@@ -69,8 +69,13 @@ struct sasl_passdb_result {
 };
 
 struct sasl_server_settings {
+	const char *const *realms;
+
 	/* Event to use for the SASL server instance. */
 	struct event *event_parent;
+
+	/* Enable logging verbosity */
+	bool verbose:1;
 };
 
 /*

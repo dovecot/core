@@ -25,6 +25,7 @@ struct sasl_server_instance {
 	int refcount;
 	struct sasl_server_instance *prev, *next;
 	struct event *event;
+	struct sasl_server_settings set;
 
 	unsigned int requests;
 };
