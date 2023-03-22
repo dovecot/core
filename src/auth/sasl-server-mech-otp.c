@@ -23,7 +23,8 @@ struct otp_auth_request {
 	struct otp_state state;
 };
 
-static HASH_TABLE(char *, struct sasl_server_mech_request *) otp_lock_table;
+static HASH_TABLE(const char *, struct sasl_server_mech_request *)
+otp_lock_table;
 
 /*
  * Locking
@@ -47,12 +48,10 @@ static bool otp_try_lock(struct otp_auth_request *request)
 {
 	struct sasl_server_mech_request *auth_request = &request->auth_request;
 
-	if (hash_table_lookup(otp_lock_table,
-			      auth_request->request->fields.user) != NULL)
+	if (hash_table_lookup(otp_lock_table, auth_request->authid) != NULL)
 		return FALSE;
 
-	hash_table_insert(otp_lock_table, auth_request->request->fields.user,
-			  auth_request);
+	hash_table_insert(otp_lock_table, auth_request->authid, auth_request);
 	request->lock = TRUE;
 	return TRUE;
 }
@@ -64,7 +63,7 @@ static void otp_unlock(struct otp_auth_request *request)
 	if (!request->lock)
 		return;
 
-	hash_table_remove(otp_lock_table, auth_request->request->fields.user);
+	hash_table_remove(otp_lock_table, auth_request->authid);
 	request->lock = FALSE;
 }
 
@@ -281,7 +280,7 @@ mech_otp_auth_continue(struct sasl_server_mech_request *auth_request,
 		container_of(auth_request, struct otp_auth_request,
 			     auth_request);
 
-	if (auth_request->request->fields.user == NULL)
+	if (auth_request->authid == NULL)
 		mech_otp_auth_phase1(request, data, data_size);
 	else
 		mech_otp_auth_phase2(request, data, data_size);
