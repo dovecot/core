@@ -11,6 +11,7 @@
 
 void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 				const struct sasl_server_mech_def *mech,
+				const char *protocol,
 				struct event *event_parent)
 {
 	struct auth_request *request =
@@ -36,6 +37,7 @@ void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 	mreq->request = request;
 	mreq->mech = mech;
 	mreq->mech_event = event_parent;
+	mreq->protocol = p_strdup(mreq->pool, protocol);
 
 	req->mech = mreq;
 	rctx->mech = mech;

@@ -243,10 +243,28 @@ auth_sasl_request_set_credentials(struct sasl_server_req_ctx *rctx,
 				     set_credentials_callback);
 }
 
+static const char *
+auth_sasl_translate_protocol_name(struct auth_request *request)
+{
+	i_assert(request->fields.protocol != NULL);
+
+	const char *protocol = request->fields.protocol;
+
+	/* Translate to SASL/GSSAPI/Kerberos service name (IANA-registered) */
+	if (strcasecmp(protocol, "POP3") == 0) {
+		/* The standard POP3 service name with SASL/GSSAPI/Kerberos is
+		   called just "pop". */
+		return "pop";
+	}
+
+	return t_str_lcase(protocol);
+}
+
 void auth_sasl_request_init(struct auth_request *request,
 			    const struct sasl_server_mech_def *mech)
 {
 	sasl_server_request_create(&request->sasl.req, mech,
+				   auth_sasl_translate_protocol_name(request),
 				   request->mech_event);
 }
 

@@ -116,7 +116,6 @@ obtain_service_credentials(struct gssapi_auth_request *request,
 	string_t *principal_name;
 	gss_buffer_desc inbuf;
 	gss_name_t gss_principal;
-	const char *service_name;
 
 	if (!gssapi_initialized) {
 		gssapi_initialized = TRUE;
@@ -130,16 +129,8 @@ obtain_service_credentials(struct gssapi_auth_request *request,
 		return GSS_S_COMPLETE;
 	}
 
-	if (strcasecmp(auth_request->request->fields.protocol, "POP3") == 0) {
-		/* The standard POP3 service name with GSSAPI is called
-		   just "pop". */
-		service_name = "pop";
-	} else {
-		service_name = t_str_lcase(auth_request->request->fields.protocol);
-	}
-
 	principal_name = t_str_new(128);
-	str_append(principal_name, service_name);
+	str_append(principal_name, auth_request->protocol);
 	str_append_c(principal_name, '@');
 	str_append(principal_name, auth_request->request->set->gssapi_hostname);
 
