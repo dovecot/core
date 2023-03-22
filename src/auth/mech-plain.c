@@ -45,28 +45,28 @@ mech_plain_auth_continue(struct auth_request *request,
 		e_info(request->mech_event, "invalid input");
 		auth_request_fail(request);
 	} else if (!auth_request_set_username(request, authenid, &error)) {
-                /* invalid username */
-                e_info(request->mech_event, "%s", error);
-                auth_request_fail(request);
-        } else if (*authid != '\0' &&
-                   !auth_request_set_login_username(request, authid, &error)) {
-                /* invalid login username */
-                e_info(request->mech_event,
+		/* invalid username */
+		e_info(request->mech_event, "%s", error);
+		auth_request_fail(request);
+	} else if (*authid != '\0' &&
+		   !auth_request_set_login_username(request, authid, &error)) {
+		/* invalid login username */
+		e_info(request->mech_event,
 		       "login user: %s", error);
-                auth_request_fail(request);
-        } else {
-                auth_request_verify_plain(request, pass,
-                                          plain_verify_callback);
+		auth_request_fail(request);
+	} else {
+		auth_request_verify_plain(request, pass,
+					  plain_verify_callback);
 	}
 
-        /* make sure it's cleared */
+	/* make sure it's cleared */
 	if (pass != NULL)
 		safe_memset(pass, 0, strlen(pass));
 }
 
 static struct auth_request *mech_plain_auth_new(void)
 {
-        struct auth_request *request;
+	struct auth_request *request;
 	pool_t pool;
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"plain_auth_request", 2048);
