@@ -1,5 +1,5 @@
-#ifndef MECH_SCRAM_H
-#define MECH_SCRAM_H
+#ifndef SASL_SERVER_MECH_SCRAM_H
+#define SASL_SERVER_MECH_SCRAM_H
 
 struct auth_request *
 mech_scram_auth_new(const struct hash_method *hash_method,
