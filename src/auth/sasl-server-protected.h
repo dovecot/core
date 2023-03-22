@@ -49,6 +49,7 @@ struct sasl_server_mech_request {
 
 	const char *protocol;
 	const char *authid;
+	const char *realm;
 
 	const struct sasl_server_settings *set;
 

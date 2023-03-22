@@ -161,6 +161,9 @@ void sasl_server_request_set_realm(struct sasl_server_mech_request *mreq,
 	struct sasl_server *server = req->sinst->server;
 	const struct sasl_server_request_funcs *funcs = server->funcs;
 
+	i_assert(mreq->realm == NULL);
+	mreq->realm = p_strdup(req->pool, realm);
+
 	i_assert(funcs->request_set_realm != NULL);
 	funcs->request_set_realm(req->rctx, realm);
 }
