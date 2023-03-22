@@ -12,7 +12,9 @@ static struct event_category event_category_sasl_server = {
  * Server
  */
 
-struct sasl_server *sasl_server_init(struct event *event_parent)
+struct sasl_server *
+sasl_server_init(struct event *event_parent,
+		 const struct sasl_server_request_funcs *funcs)
 {
 	struct sasl_server *server;
 	pool_t pool;
@@ -20,6 +22,8 @@ struct sasl_server *sasl_server_init(struct event *event_parent)
 	pool = pool_alloconly_create(MEMPOOL_GROWING"sasl_server", 2048);
 	server = p_new(pool, struct sasl_server, 1);
 	server->pool = pool;
+
+	server->funcs = funcs;
 
 	server->event = event_create(event_parent);
 	event_add_category(server->event, &event_category_sasl_server);

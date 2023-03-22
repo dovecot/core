@@ -15,7 +15,7 @@ struct sasl_server *auth_sasl_server;
  * Request
  */
 
-bool
+static bool
 auth_sasl_request_set_authid(struct sasl_server_req_ctx *rctx,
 			     enum sasl_server_authid_type authid_type,
 			     const char *authid)
@@ -65,7 +65,7 @@ auth_sasl_request_set_authid(struct sasl_server_req_ctx *rctx,
 	i_unreached();
 }
 
-bool
+static bool
 auth_sasl_request_set_authzid(struct sasl_server_req_ctx *rctx,
 			      const char *authzid)
 {
@@ -80,7 +80,7 @@ auth_sasl_request_set_authzid(struct sasl_server_req_ctx *rctx,
 	return TRUE;
 }
 
-void
+static void
 auth_sasl_request_set_realm(struct sasl_server_req_ctx *rctx,
 			    const char *realm)
 {
@@ -90,7 +90,7 @@ auth_sasl_request_set_realm(struct sasl_server_req_ctx *rctx,
 	auth_request_set_realm(request, realm);
 }
 
-bool
+static bool
 auth_sasl_request_get_extra_field(struct sasl_server_req_ctx *rctx,
 				  const char *name, const char **field_r)
 {
@@ -106,7 +106,7 @@ auth_sasl_request_get_extra_field(struct sasl_server_req_ctx *rctx,
 	return TRUE;
 }
 
-void
+static void
 auth_sasl_request_start_channel_binding(struct sasl_server_req_ctx *rctx,
 					const char *type)
 {
@@ -116,7 +116,7 @@ auth_sasl_request_start_channel_binding(struct sasl_server_req_ctx *rctx,
 	auth_request_start_channel_binding(request, type);
 }
 
-int
+static int
 auth_sasl_request_accept_channel_binding(struct sasl_server_req_ctx *rctx,
 					 buffer_t **data_r)
 {
@@ -126,7 +126,7 @@ auth_sasl_request_accept_channel_binding(struct sasl_server_req_ctx *rctx,
 	return auth_request_accept_channel_binding(request, data_r);
 }
 
-void
+static void
 auth_sasl_request_output(struct sasl_server_req_ctx *rctx,
 			 const struct sasl_server_output *output)
 {
@@ -182,7 +182,7 @@ verify_plain_callback(enum passdb_result status, struct auth_request *request)
 	request->sasl.passdb_callback(&request->sasl.req, &result);
 }
 
-void
+static void
 auth_sasl_request_verify_plain(struct sasl_server_req_ctx *rctx,
 			       const char *password,
 			       sasl_server_passdb_callback_t *callback)
@@ -209,7 +209,7 @@ lookup_credentials_callback(enum passdb_result status,
 	request->sasl.passdb_callback(&request->sasl.req, &result);
 }
 
-void
+static void
 auth_sasl_request_lookup_credentials(struct sasl_server_req_ctx *rctx,
 				     const char *scheme,
 				     sasl_server_passdb_callback_t *callback)
@@ -233,7 +233,7 @@ set_credentials_callback(bool success, struct auth_request *request)
 	request->sasl.passdb_callback(&request->sasl.req, &result);
 }
 
-void
+static void
 auth_sasl_request_set_credentials(struct sasl_server_req_ctx *rctx,
 				  const char *scheme, const char *data,
 				  sasl_server_passdb_callback_t *callback)
@@ -245,6 +245,25 @@ auth_sasl_request_set_credentials(struct sasl_server_req_ctx *rctx,
 	auth_request_set_credentials(request, scheme, data,
 				     set_credentials_callback);
 }
+
+static const struct sasl_server_request_funcs auth_sasl_request_funcs = {
+	.request_set_authid = auth_sasl_request_set_authid,
+	.request_set_authzid = auth_sasl_request_set_authzid,
+	.request_set_realm = auth_sasl_request_set_realm,
+
+	.request_get_extra_field = auth_sasl_request_get_extra_field,
+
+	.request_start_channel_binding =
+		auth_sasl_request_start_channel_binding,
+	.request_accept_channel_binding =
+		auth_sasl_request_accept_channel_binding,
+
+	.request_output = auth_sasl_request_output,
+
+	.request_verify_plain = auth_sasl_request_verify_plain,
+	.request_lookup_credentials = auth_sasl_request_lookup_credentials,
+	.request_set_credentials = auth_sasl_request_set_credentials,
+};
 
 static const char *
 auth_sasl_translate_protocol_name(struct auth_request *request)
@@ -357,7 +376,8 @@ auth_sasl_mech_module_find(const char *name)
 void auth_sasl_preinit(void)
 {
 	auth_sasl_oauth2_initialize();
-	auth_sasl_server = sasl_server_init(auth_event);
+	auth_sasl_server = sasl_server_init(auth_event,
+					    &auth_sasl_request_funcs);
 }
 
 void auth_sasl_init(void)

@@ -87,6 +87,38 @@ struct sasl_server_req_ctx {
 	struct sasl_server_request *request;
 };
 
+struct sasl_server_request_funcs {
+	bool (*request_set_authid)(struct sasl_server_req_ctx *rctx,
+				   enum sasl_server_authid_type authid_type,
+				   const char *authid);
+	bool (*request_set_authzid)(struct sasl_server_req_ctx *rctx,
+				    const char *authzid);
+	void (*request_set_realm)(struct sasl_server_req_ctx *rctx,
+				  const char *realm);
+
+	bool (*request_get_extra_field)(struct sasl_server_req_ctx *rctx,
+					const char *name, const char **field_r);
+
+	void (*request_start_channel_binding)(struct sasl_server_req_ctx *rctx,
+					      const char *type);
+	int (*request_accept_channel_binding)(struct sasl_server_req_ctx *rctx,
+					      buffer_t **data_r);
+
+	void (*request_output)(struct sasl_server_req_ctx *rctx,
+			       const struct sasl_server_output *output);
+
+	void (*request_verify_plain)(
+		struct sasl_server_req_ctx *rctx, const char *password,
+		sasl_server_passdb_callback_t *callback);
+	void (*request_lookup_credentials)(
+		struct sasl_server_req_ctx *rctx, const char *scheme,
+		sasl_server_passdb_callback_t *callback);
+	void (*request_set_credentials)(
+		struct sasl_server_req_ctx *rctx,
+		const char *scheme, const char *data,
+		sasl_server_passdb_callback_t *callback);
+};
+
 void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 				struct sasl_server *server,
 				const struct sasl_server_mech_def *mech,
@@ -103,7 +135,9 @@ void sasl_server_request_input(struct sasl_server_req_ctx *rctx,
  * Server
  */
 
-struct sasl_server *sasl_server_init(struct event *event_parent);
+struct sasl_server *
+sasl_server_init(struct event *event_parent,
+		 const struct sasl_server_request_funcs *funcs);
 void sasl_server_deinit(struct sasl_server **_server);
 
 #endif

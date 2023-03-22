@@ -22,6 +22,7 @@ struct sasl_server_request {
 struct sasl_server {
 	pool_t pool;
 	struct event *event;
+	const struct sasl_server_request_funcs *funcs;
 
 	unsigned int requests;
 };
