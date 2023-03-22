@@ -19,7 +19,7 @@ mech_login_auth_continue(struct sasl_server_mech_request *request,
 	static const char prompt2[] = "Password:";
 	const char *username;
 
-	if (request->request->fields.user == NULL) {
+	if (request->authid == NULL) {
 		username = t_strndup(data, data_size);
 
 		if (!sasl_server_request_set_authid(
