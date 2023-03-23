@@ -66,6 +66,10 @@ enum master_login_state {
 /* getenv(MASTER_CONFIG_FILE_ENV) provides path to configuration file/socket */
 #define MASTER_CONFIG_FILE_ENV "CONFIG_FILE"
 
+/* getenv(MASTER_VERBOSE_PROCTITLE_ENV) is non-NULL if verbose_proctitle=yes.
+   This is used by lib-master during initialization. */
+#define MASTER_VERBOSE_PROCTITLE_ENV "VERBOSE_PROCTITLE"
+
 /* getenv(MASTER_DOVECOT_VERSION_ENV) provides master's version number
    (unset if version_ignore=yes) */
 #define MASTER_DOVECOT_VERSION_ENV "DOVECOT_VERSION"
