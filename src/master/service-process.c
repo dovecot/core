@@ -316,6 +316,8 @@ service_process_setup_environment(struct service *service, unsigned int uid,
 	env_put(MY_HOSTNAME_ENV, my_hostname);
 	env_put(MY_HOSTDOMAIN_ENV, hostdomain);
 
+	if (service_set->verbose_proctitle)
+		env_put(MASTER_VERBOSE_PROCTITLE_ENV, "1");
 	if (!service->set->master_set->version_ignore)
 		env_put(MASTER_DOVECOT_VERSION_ENV, PACKAGE_VERSION);
 
