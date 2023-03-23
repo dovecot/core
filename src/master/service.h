@@ -116,6 +116,8 @@ struct service {
 	struct timeout *to_drop;
 	/* delayed process_limit reached warning with SERVICE_TYPE_WORKER */
 	struct timeout *to_drop_warning;
+	/* next time to try to kill idling processes */
+	struct timeout *to_idle;
 
 	/* prefork processes up to process_min_avail if there's time */
 	struct timeout *to_prefork;

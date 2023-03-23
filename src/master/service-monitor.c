@@ -35,30 +35,67 @@ static void service_status_more(struct service_process *process,
 				const struct master_status *status);
 static void service_monitor_listen_start_force(struct service *service);
 
-static void service_process_kill_idle(struct service_process *process)
+static void service_process_idle_kill_timeout(struct service_process *process)
 {
-	struct service *service = process->service;
 	struct master_status status;
 
-	i_assert(process->available_count == service->client_limit);
+	e_error(process->service->event, "Process %s is ignoring idle SIGINT",
+		dec2str(process->pid));
 
+	/* assume this process is busy */
+	i_zero(&status);
+	service_status_more(process, &status);
+	process->available_count = 0;
+}
+
+static void service_kill_idle(struct service *service)
+{
+	/* Kill processes which have idled over idle_kill seconds.
+
+	   (It's actually not important which processes get killed. A better
+	   way could be to kill the oldest processes since they might have to
+	   be restarted anyway soon due to reaching service_count, but we'd
+	   have to use priority queue for tracking that, which is more
+	   expensive and probably not worth it.) */
+	if (service->idle_processes_head == NULL) {
+		/* no idling processes to kill */
+		timeout_remove(&service->to_idle);
+		return;
+	}
 	if (service->process_avail <= service->set->process_min_avail) {
 		/* we don't have any extra idling processes anymore. */
-		timeout_remove(&process->to_idle);
-	} else if (process->last_kill_sent > process->last_status_update+1) {
-		e_error(service->event, "Process %s is ignoring idle SIGINT",
-			dec2str(process->pid));
+		timeout_remove(&service->to_idle);
+		return;
+	}
+	time_t newest_time_to_kill = ioloop_time - service->idle_kill;
+	unsigned int max_processes_to_kill =
+		service->process_avail - service->set->process_min_avail;
+	for (; max_processes_to_kill > 0; max_processes_to_kill--) {
+		struct service_process *process = service->idle_processes_head;
 
-		/* assume this process is busy */
-		i_zero(&status);
-		service_status_more(process, &status);
-		process->available_count = 0;
-	} else {
+		if (process->to_idle_kill != NULL) {
+			/* already tried to kill all the idle processes */
+			break;
+		}
+		if (process->idle_start > newest_time_to_kill)
+			break;
+
+		i_assert(process->available_count == service->client_limit);
 		if (kill(process->pid, SIGINT) < 0 && errno != ESRCH) {
 			e_error(service->event, "kill(%s, SIGINT) failed: %m",
 				dec2str(process->pid));
 		}
 		process->last_kill_sent = ioloop_time;
+		process->to_idle_kill =
+			timeout_add(service->idle_kill * 1000,
+				    service_process_idle_kill_timeout, process);
+
+		/* Move it to the end of the list, so it's not tried to be
+		   killed again. */
+		DLLIST2_REMOVE(&service->idle_processes_head,
+			       &service->idle_processes_tail, process);
+		DLLIST2_APPEND(&service->idle_processes_head,
+			       &service->idle_processes_tail, process);
 	}
 }
 
@@ -79,8 +116,6 @@ static void service_status_more(struct service_process *process,
 	}
 	process->total_count +=
 		process->available_count - status->available_count;
-
-	timeout_remove(&process->to_idle);
 
 	if (status->available_count != 0)
 		return;
@@ -121,16 +156,13 @@ static void service_check_idle(struct service_process *process)
 	process->idle_start = ioloop_time;
 
 	if (service->process_avail > service->set->process_min_avail &&
-	    process->to_idle == NULL &&
+	    service->to_idle == NULL &&
 	    service->idle_kill != UINT_MAX) {
-		/* we have more processes than we really need.
-		   add a bit of randomness so that we don't send the
-		   signal to all of them at once */
-		process->to_idle =
-			timeout_add((service->idle_kill * 1000) +
-				    i_rand_limit(100) * 10,
-				    service_process_kill_idle,
-				    process);
+		/* We have more processes than we really need. Start a timer
+		   to trigger idle_kill. */
+		service->to_idle =
+			timeout_add(service->idle_kill * 1000,
+				    service_kill_idle, service);
 	}
 }
 
@@ -178,6 +210,8 @@ service_status_input_one(struct service *service,
 		return;
 	}
 	process->last_status_update = ioloop_time;
+	/* process worked a bit - it may have ignored idle-kill signal */
+	timeout_remove(&process->to_idle_kill);
 
 	/* first status notification */
 	timeout_remove(&process->to_status);
@@ -604,6 +638,7 @@ void service_monitor_stop(struct service *service)
 
 	timeout_remove(&service->to_throttle);
 	timeout_remove(&service->to_prefork);
+	timeout_remove(&service->to_idle);
 }
 
 void service_monitor_stop_close(struct service *service)
