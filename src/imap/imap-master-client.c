@@ -375,6 +375,16 @@ imap_master_client_input_line(struct connection *conn, const char *line)
 	return ret;
 }
 
+static void imap_master_client_idle_timeout(struct connection *conn)
+{
+	e_error(conn->event, "imap-master: Client didn't send any input for %"
+		PRIdTIME_T" seconds - disconnecting",
+		ioloop_time - conn->last_input_tv.tv_sec);
+
+	conn->disconnect_reason = CONNECTION_DISCONNECT_IDLE_TIMEOUT;
+	conn->v.destroy(conn);
+}
+
 void imap_master_client_create(int fd)
 {
 	struct imap_master_client *client;
@@ -396,12 +406,16 @@ static struct connection_settings client_set = {
 
 	.input_max_size = SIZE_MAX,
 	.output_max_size = SIZE_MAX,
-	.client = FALSE
+	.client = FALSE,
+
+	/* less than imap-hibernate's IMAP_MASTER_CONNECTION_TIMEOUT_MSECS */
+	.input_idle_timeout_secs = 25,
 };
 
 static const struct connection_vfuncs client_vfuncs = {
 	.destroy = imap_master_client_destroy,
-	.input_line = imap_master_client_input_line
+	.input_line = imap_master_client_input_line,
+	.idle_timeout = imap_master_client_idle_timeout,
 };
 
 void imap_master_clients_init(void)
