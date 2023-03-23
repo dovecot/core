@@ -429,8 +429,10 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	/* anvil never dies. it just gets moved to the new services list */
 	service = service_lookup_type(services, SERVICE_TYPE_ANVIL);
 	if (service != NULL) {
-		while (service->processes != NULL)
-			service_process_destroy(service->processes);
+		while (service->busy_processes != NULL)
+			service_process_destroy(service->busy_processes);
+		while (service->idle_processes_head != NULL)
+			service_process_destroy(service->idle_processes_head);
 	}
 	services_destroy(services, FALSE);
 

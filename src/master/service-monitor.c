@@ -4,6 +4,7 @@
 #include "array.h"
 #include "ioloop.h"
 #include "hash.h"
+#include "llist.h"
 #include "str.h"
 #include "safe-mkstemp.h"
 #include "time-util.h"
@@ -65,9 +66,15 @@ static void service_status_more(struct service_process *process,
 {
 	struct service *service = process->service;
 
+	if (process->idle_start != 0) {
+		/* idling process became busy */
+		DLLIST2_REMOVE(&service->idle_processes_head,
+			       &service->idle_processes_tail, process);
+		DLLIST_PREPEND(&service->busy_processes, process);
+		process->idle_start = 0;
+	}
 	process->total_count +=
 		process->available_count - status->available_count;
-	process->idle_start = 0;
 
 	timeout_remove(&process->to_idle);
 
@@ -94,7 +101,20 @@ static void service_check_idle(struct service_process *process)
 
 	if (process->available_count != service->client_limit)
 		return;
+
+	if (process->idle_start == 0) {
+		/* busy process started idling */
+		DLLIST_REMOVE(&service->busy_processes, process);
+	} else {
+		/* Idling process updated its status again to be idling. Maybe
+		   it was busy for a little bit? Update its idle_start time. */
+		DLLIST2_REMOVE(&service->idle_processes_head,
+			       &service->idle_processes_tail, process);
+	}
+	DLLIST2_APPEND(&service->idle_processes_head,
+		       &service->idle_processes_tail, process);
 	process->idle_start = ioloop_time;
+
 	if (service->process_avail > service->set->process_min_avail &&
 	    process->to_idle == NULL &&
 	    service->idle_kill != UINT_MAX) {
@@ -614,9 +634,11 @@ static void services_monitor_wait(struct service_list *service_list)
 	}
 }
 
-static bool service_processes_close_listeners(struct service *service)
+static bool
+service_processes_list_close_listeners(struct service *service,
+				       struct service_process *processes)
 {
-	struct service_process *process = service->processes;
+	struct service_process *process = processes;
 	bool ret = FALSE;
 
 	for (; process != NULL; process = process->next) {
@@ -627,6 +649,19 @@ static bool service_processes_close_listeners(struct service *service)
 				      dec2str(process->pid));
 		}
 	}
+	return ret;
+}
+
+static bool service_processes_close_listeners(struct service *service)
+{
+	bool ret = FALSE;
+
+	if (service_processes_list_close_listeners(service,
+						   service->busy_processes))
+		ret = TRUE;
+	if (service_processes_list_close_listeners(service,
+						   service->idle_processes_head))
+		ret = TRUE;
 	return ret;
 }
 

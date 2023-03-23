@@ -370,10 +370,12 @@ struct service_process *service_process_create(struct service *service)
 	}
 
 	process->available_count = service->client_limit;
+	process->idle_start = ioloop_time;
 	service->process_count_total++;
 	service->process_count++;
 	service->process_avail++;
-	DLLIST_PREPEND(&service->processes, process);
+	DLLIST2_APPEND(&service->idle_processes_head,
+		       &service->idle_processes_tail, process);
 
 	service_list_ref(service->list);
 	hash_table_insert(service_pids, POINTER_CAST(process->pid), process);
@@ -388,7 +390,12 @@ void service_process_destroy(struct service_process *process)
 	struct service *service = process->service;
 	struct service_list *service_list = service->list;
 
-	DLLIST_REMOVE(&service->processes, process);
+	if (process->idle_start == 0)
+		DLLIST_REMOVE(&service->busy_processes, process);
+	else {
+		DLLIST2_REMOVE(&service->idle_processes_head,
+			       &service->idle_processes_tail, process);
+	}
 	hash_table_remove(service_pids, POINTER_CAST(process->pid));
 
 	if (process->available_count > 0)
