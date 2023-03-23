@@ -433,6 +433,7 @@ struct service_process *service_process_create(struct service *service)
 	service->process_count_total++;
 	service->process_count++;
 	service->process_avail++;
+	service->process_idling++;
 	DLLIST2_APPEND(&service->idle_processes_head,
 		       &service->idle_processes_tail, process);
 
@@ -467,6 +468,8 @@ void service_process_destroy(struct service_process *process)
 	else {
 		DLLIST2_REMOVE(&service->idle_processes_head,
 			       &service->idle_processes_tail, process);
+		i_assert(service->process_idling > 0);
+		service->process_idling--;
 	}
 	hash_table_remove(service_pids, POINTER_CAST(process->pid));
 

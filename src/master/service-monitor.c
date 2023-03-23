@@ -73,6 +73,9 @@ static void service_status_more(struct service_process *process,
 			       &service->idle_processes_tail, process);
 		DLLIST_PREPEND(&service->busy_processes, process);
 		process->idle_start = 0;
+
+		i_assert(service->process_idling > 0);
+		service->process_idling--;
 	}
 	process->total_count +=
 		process->available_count - status->available_count;
@@ -106,6 +109,7 @@ static void service_check_idle(struct service_process *process)
 	if (process->idle_start == 0) {
 		/* busy process started idling */
 		DLLIST_REMOVE(&service->busy_processes, process);
+		service->process_idling++;
 	} else {
 		/* Idling process updated its status again to be idling. Maybe
 		   it was busy for a little bit? Update its idle_start time. */
