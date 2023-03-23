@@ -49,35 +49,37 @@ static void service_process_idle_kill_timeout(struct service_process *process)
 
 static void service_kill_idle(struct service *service)
 {
-	/* Kill processes which have idled over idle_kill seconds.
+	/* Kill extra idling processes to reduce their number. The idea here is
+	   that if the load stays the same, by killing the lowwater number of
+	   processes there won't be any extra idling processes left. */
+	unsigned int processes_to_kill =
+		service->process_idling_lowwater_since_kills;
+	service->process_idling_lowwater_since_kills = service->process_idling;
+
+	/* Always try to leave process_min_avail processes */
+	i_assert(processes_to_kill <= service->process_avail);
+	if (processes_to_kill <= service->set->process_min_avail) {
+		if (service->process_idling == 0)
+			timeout_remove(&service->to_idle);
+		return;
+	}
+	processes_to_kill -= service->set->process_min_avail;
+
+	/* Now, kill the processes with the oldest idle_start time.
 
 	   (It's actually not important which processes get killed. A better
 	   way could be to kill the oldest processes since they might have to
 	   be restarted anyway soon due to reaching service_count, but we'd
 	   have to use priority queue for tracking that, which is more
 	   expensive and probably not worth it.) */
-	if (service->idle_processes_head == NULL) {
-		/* no idling processes to kill */
-		timeout_remove(&service->to_idle);
-		return;
-	}
-	if (service->process_avail <= service->set->process_min_avail) {
-		/* we don't have any extra idling processes anymore. */
-		timeout_remove(&service->to_idle);
-		return;
-	}
-	time_t newest_time_to_kill = ioloop_time - service->idle_kill;
-	unsigned int max_processes_to_kill =
-		service->process_avail - service->set->process_min_avail;
-	for (; max_processes_to_kill > 0; max_processes_to_kill--) {
+	for (; processes_to_kill > 0; processes_to_kill--) {
 		struct service_process *process = service->idle_processes_head;
 
+		i_assert(process != NULL);
 		if (process->to_idle_kill != NULL) {
 			/* already tried to kill all the idle processes */
 			break;
 		}
-		if (process->idle_start > newest_time_to_kill)
-			break;
 
 		i_assert(process->available_count == service->client_limit);
 		if (kill(process->pid, SIGINT) < 0 && errno != ESRCH) {
@@ -112,6 +114,9 @@ static void service_status_more(struct service_process *process,
 
 		i_assert(service->process_idling > 0);
 		service->process_idling--;
+		service->process_idling_lowwater_since_kills =
+			I_MIN(service->process_idling_lowwater_since_kills,
+			      service->process_idling);
 	}
 	process->total_count +=
 		process->available_count - status->available_count;
