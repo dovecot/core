@@ -7,9 +7,6 @@
 #include "mech.h"
 #include "mech-scram.h"
 
-/* s-nonce length */
-#define SCRAM_SERVER_NONCE_LEN 64
-
 struct scram_auth_request {
 	struct auth_request auth_request;
 
