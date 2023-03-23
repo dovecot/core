@@ -61,8 +61,12 @@ struct service {
 	ARRAY(struct service_listener *) listeners;
 	/* per-process unix_listeners */
 	ARRAY(struct service_listener *) unix_pid_listeners;
-	/* linked list of all processes belonging to this service */
-	struct service_process *processes;
+	/* linked list of processes belonging to this service, which have
+	   idle_start == 0. */
+	struct service_process *busy_processes;
+	/* linked list of processes belonging to this service, which have
+	   ldle_start != 0. */
+	struct service_process *idle_processes_head, *idle_processes_tail;
 
 	/* number of processes currently created for this service */
 	unsigned int process_count;

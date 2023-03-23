@@ -512,20 +512,21 @@ int services_create(const struct master_settings *set,
 	return 0;
 }
 
-unsigned int service_signal(struct service *service, int signo,
-			    unsigned int *uninitialized_count_r)
+static unsigned int
+service_signal_processes(struct service *service, int signo,
+			 struct service_process *processes,
+			 unsigned int *uninitialized_count)
 {
-	struct service_process *process = service->processes;
+	struct service_process *process;
 	unsigned int count = 0;
 
-	*uninitialized_count_r = 0;
-	for (; process != NULL; process = process->next) {
+	for (process = processes; process != NULL; process = process->next) {
 		i_assert(process->service == service);
 
 		if (!SERVICE_PROCESS_IS_INITIALIZED(process) &&
 		    signo != SIGKILL) {
 			/* too early to signal it */
-			*uninitialized_count_r += 1;
+			*uninitialized_count += 1;
 			continue;
 		}
 
@@ -541,6 +542,21 @@ unsigned int service_signal(struct service *service, int signo,
 			  signo == SIGTERM ? "SIGTERM" : "SIGKILL",
 			  count, service->set->name);
 	}
+	return count;
+}
+
+unsigned int service_signal(struct service *service, int signo,
+			    unsigned int *uninitialized_count_r)
+{
+	unsigned int count = 0;
+
+	*uninitialized_count_r = 0;
+	count = service_signal_processes(service, signo,
+					 service->busy_processes,
+					 uninitialized_count_r);
+	count += service_signal_processes(service, signo,
+					  service->idle_processes_head,
+					  uninitialized_count_r);
 	return count;
 }
 
@@ -731,7 +747,8 @@ void service_throttle(struct service *service, unsigned int msecs)
 	if (service->to_throttle != NULL || service->list->destroyed)
 		return;
 
-	if (service->processes == NULL)
+	if (service->busy_processes == NULL &&
+	    service->idle_processes_head == NULL)
 		service_drop_listener_connections(service);
 
 	service_monitor_listen_stop(service);

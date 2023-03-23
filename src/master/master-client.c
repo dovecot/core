@@ -62,23 +62,35 @@ master_client_process_output(string_t *str,
 		    (long)process->last_kill_sent);
 }
 
+static void
+master_client_process_status_list(struct master_client *client,
+				  struct service_process *processes,
+				  string_t *str)
+{
+	struct service_process *p;
+
+	for (p = processes; p != NULL; p = p->next) {
+		str_truncate(str, 0);
+		master_client_process_output(str, p);
+		o_stream_nsend(client->conn.output,
+			       str_data(str), str_len(str));
+	}
+}
+
 static int
 master_client_process_status(struct master_client *client,
 			     const char *const *args)
 {
 	struct service *service;
-	struct service_process *p;
 	string_t *str = t_str_new(128);
 
 	array_foreach_elem(&services->services, service) {
 		if (args[0] != NULL && !str_array_find(args, service->set->name))
 			continue;
-		for (p = service->processes; p != NULL; p = p->next) {
-			str_truncate(str, 0);
-			master_client_process_output(str, p);
-			o_stream_nsend(client->conn.output,
-				       str_data(str), str_len(str));
-		}
+		master_client_process_status_list(client,
+			service->busy_processes, str);
+		master_client_process_status_list(client,
+			service->idle_processes_head, str);
 	}
 	o_stream_nsend_str(client->conn.output, "\n");
 	return 1;
