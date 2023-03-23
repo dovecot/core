@@ -302,7 +302,7 @@ static void stats_client_timeout(struct stats_client *client)
 	io_loop_stop(client->ioloop);
 }
 
-static void stats_client_wait_handshake(struct stats_client *client)
+static void stats_client_wait(struct stats_client *client)
 {
 	struct ioloop *prev_ioloop = current_ioloop;
 	struct timeout *to;
@@ -340,7 +340,7 @@ static void stats_client_connect(struct stats_client *client)
 		/* read the handshake so the global debug filter is updated */
 		stats_client_send_registered_categories(client);
 		if (!client->handshake_received_at_least_once)
-			stats_client_wait_handshake(client);
+			stats_client_wait(client);
 	} else if (!client->silent_notfound_errors ||
 		   (errno != ENOENT && errno != ECONNREFUSED)) {
 		e_error(client->conn.event,
@@ -363,11 +363,33 @@ stats_client_init(const char *path, bool silent_notfound_errors)
 	return client;
 }
 
+static int stats_client_deinit_callback(struct connection *conn)
+{
+	struct ostream *output = conn->output;
+	int ret = o_stream_flush(output);
+	if (ret < 0) {
+		e_error(conn->event, "write() failed: %s",
+			o_stream_get_error(output));
+	}
+	if (ret != 0)
+		io_loop_stop(current_ioloop);
+	return ret;
+}
+
 void stats_client_deinit(struct stats_client **_client)
 {
 	struct stats_client *client = *_client;
 
 	*_client = NULL;
+
+	if (client->conn.output != NULL && !client->conn.output->closed &&
+	    o_stream_get_buffer_used_size(client->conn.output) > 0) {
+		o_stream_set_flush_callback(client->conn.output,
+					    stats_client_deinit_callback,
+					    &client->conn);
+		o_stream_uncork(client->conn.output);
+		stats_client_wait(client);
+	}
 
 	event_filter_unref(&client->filter);
 	connection_deinit(&client->conn);
