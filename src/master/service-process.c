@@ -401,8 +401,11 @@ void service_process_destroy(struct service_process *process)
 	}
 	hash_table_remove(service_pids, POINTER_CAST(process->pid));
 
-	if (process->available_count > 0)
+	if (process->available_count > 0) {
+		i_assert(service->process_avail > 0);
 		service->process_avail--;
+	}
+	i_assert(service->process_count > 0);
 	service->process_count--;
 	i_assert(service->process_avail <= service->process_count);
 
