@@ -372,8 +372,12 @@ static const char *client_get_last_command_status(struct client *client)
 {
 	if (client->logged_out)
 		return "";
-	if (client->last_cmd_name == NULL)
-		return " (No commands sent)";
+	if (client->last_cmd_name == NULL) {
+		if (client->unhibernated)
+			return " (No commands sent after unhibernation)";
+		else
+			return " (No commands sent)";
+	}
 
 	/* client disconnected without sending LOGOUT. if the last command
 	   took over 1 second to run, log it. */
