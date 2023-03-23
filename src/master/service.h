@@ -69,6 +69,8 @@ struct service {
 	unsigned int process_count;
 	/* number of processes currently accepting new clients */
 	unsigned int process_avail;
+	/* number of processes currently idling (idle_start != 0) */
+	unsigned int process_idling;
 	/* max number of processes allowed */
 	unsigned int process_limit;
 	/* Total number of processes ever created */
