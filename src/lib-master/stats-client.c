@@ -182,7 +182,7 @@ stats_event_write(struct stats_client *client,
 	event_export(merged_event, str);
 	str_append_c(str, '\n');
 	event_unref(&merged_event);
-	if (flush_output) {
+	if (flush_output || str_len(str) >= IO_BLOCK_SIZE) {
 		o_stream_nsend(client->conn.output, str_data(str), str_len(str));
 		str_truncate(str, 0);
 	}
