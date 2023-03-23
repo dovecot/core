@@ -470,6 +470,9 @@ void service_process_destroy(struct service_process *process)
 			       &service->idle_processes_tail, process);
 		i_assert(service->process_idling > 0);
 		service->process_idling--;
+		service->process_idling_lowwater_since_kills =
+			I_MIN(service->process_idling_lowwater_since_kills,
+			      service->process_idling);
 	}
 	hash_table_remove(service_pids, POINTER_CAST(process->pid));
 
