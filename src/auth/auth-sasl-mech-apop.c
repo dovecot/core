@@ -154,6 +154,11 @@ static struct sasl_server_mech_request *mech_apop_auth_new(pool_t pool)
 	return &request->auth_request;
 }
 
+static const struct sasl_server_mech_funcs mech_apop_funcs = {
+	.auth_new = mech_apop_auth_new,
+	.auth_initial = mech_apop_auth_initial,
+};
+
 const struct sasl_server_mech_def mech_apop = {
 	.mech_name = "APOP",
 
@@ -161,6 +166,5 @@ const struct sasl_server_mech_def mech_apop = {
 		 SASL_MECH_SEC_ACTIVE | SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_VERIFY_RESPONSE,
 
-	.auth_new = mech_apop_auth_new,
-	.auth_initial = mech_apop_auth_initial,
+	.funcs = &mech_apop_funcs,
 };

@@ -313,6 +313,12 @@ static struct sasl_server_mech_request *mech_oauth2_auth_new(pool_t pool)
 	return &request->request;
 }
 
+static const struct sasl_server_mech_funcs mech_oauthbearer_funcs = {
+	.auth_new = mech_oauth2_auth_new,
+	.auth_initial = sasl_server_mech_generic_auth_initial,
+	.auth_continue = mech_oauthbearer_auth_continue,
+};
+
 const struct sasl_server_mech_def mech_oauthbearer = {
 	.mech_name = "OAUTHBEARER",
 
@@ -321,9 +327,13 @@ const struct sasl_server_mech_def mech_oauthbearer = {
 	.flags = SASL_MECH_SEC_PLAINTEXT,
 	.passdb_need = 0,
 
+	.funcs = &mech_oauthbearer_funcs,
+};
+
+static const struct sasl_server_mech_funcs mech_xoauth2_funcs = {
 	.auth_new = mech_oauth2_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,
-	.auth_continue = mech_oauthbearer_auth_continue,
+	.auth_continue = mech_xoauth2_auth_continue,
 };
 
 const struct sasl_server_mech_def mech_xoauth2 = {
@@ -332,7 +342,5 @@ const struct sasl_server_mech_def mech_xoauth2 = {
 	.flags = SASL_MECH_SEC_PLAINTEXT,
 	.passdb_need = 0,
 
-	.auth_new = mech_oauth2_auth_new,
-	.auth_initial = sasl_server_mech_generic_auth_initial,
-	.auth_continue = mech_xoauth2_auth_continue,
+	.funcs = &mech_xoauth2_funcs,
 };

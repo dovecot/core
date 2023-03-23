@@ -311,6 +311,13 @@ static void mech_otp_auth_free(struct sasl_server_mech_request *auth_request)
  * Mechanism
  */
 
+static const struct sasl_server_mech_funcs mech_otp_funcs = {
+	.auth_new = mech_otp_auth_new,
+	.auth_initial = sasl_server_mech_generic_auth_initial,
+	.auth_continue = mech_otp_auth_continue,
+	.auth_free = mech_otp_auth_free,
+};
+
 const struct sasl_server_mech_def mech_otp = {
 	.mech_name = "OTP",
 
@@ -318,10 +325,7 @@ const struct sasl_server_mech_def mech_otp = {
 		 SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_SET_CREDENTIALS,
 
-	.auth_new = mech_otp_auth_new,
-	.auth_initial = sasl_server_mech_generic_auth_initial,
-	.auth_continue = mech_otp_auth_continue,
-	.auth_free = mech_otp_auth_free,
+	.funcs = &mech_otp_funcs,
 };
 
 void mech_otp_deinit(void)

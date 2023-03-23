@@ -51,12 +51,16 @@ mech_login_auth_initial(struct sasl_server_mech_request *request,
 	}
 }
 
+static const struct sasl_server_mech_funcs mech_login_funcs = {
+	.auth_initial = mech_login_auth_initial,
+	.auth_continue = mech_login_auth_continue,
+};
+
 const struct sasl_server_mech_def mech_login = {
 	.mech_name = "LOGIN",
 
 	.flags = SASL_MECH_SEC_PLAINTEXT,
 	.passdb_need = SASL_MECH_PASSDB_NEED_VERIFY_PLAIN,
 
-	.auth_initial = mech_login_auth_initial,
-	.auth_continue = mech_login_auth_continue,
+	.funcs = &mech_login_funcs,
 };

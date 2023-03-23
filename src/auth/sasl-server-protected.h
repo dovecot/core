@@ -6,11 +6,21 @@
 #include "sasl-server.h"
 
 struct auth_request;
+struct sasl_server_mech_funcs;
 struct sasl_server_mech_request;
 
 typedef void
 sasl_server_mech_passdb_callback_t(struct sasl_server_mech_request *req,
 				   const struct sasl_passdb_result *result);
+
+struct sasl_server_mech_funcs {
+	struct sasl_server_mech_request *(*auth_new)(pool_t pool);
+	void (*auth_initial)(struct sasl_server_mech_request *req,
+			     const unsigned char *data, size_t data_size);
+	void (*auth_continue)(struct sasl_server_mech_request *req,
+			      const unsigned char *data, size_t data_size);
+	void (*auth_free)(struct sasl_server_mech_request *req);
+};
 
 struct sasl_server_mech_def {
 	const char *mech_name;
@@ -18,12 +28,7 @@ struct sasl_server_mech_def {
 	enum sasl_mech_security_flags flags;
 	enum sasl_mech_passdb_need passdb_need;
 
-	struct sasl_server_mech_request *(*auth_new)(pool_t pool);
-	void (*auth_initial)(struct sasl_server_mech_request *req,
-			     const unsigned char *data, size_t data_size);
-	void (*auth_continue)(struct sasl_server_mech_request *req,
-			      const unsigned char *data, size_t data_size);
-	void (*auth_free)(struct sasl_server_mech_request *req);
+	const struct sasl_server_mech_funcs *funcs;
 };
 
 struct mech_module_list {

@@ -62,12 +62,16 @@ mech_plain_auth_continue(struct sasl_server_mech_request *request,
 		safe_memset(pass, 0, strlen(pass));
 }
 
+static const struct sasl_server_mech_funcs mech_plain_funcs = {
+	.auth_initial = sasl_server_mech_generic_auth_initial,
+	.auth_continue = mech_plain_auth_continue,
+};
+
 const struct sasl_server_mech_def mech_plain = {
 	.mech_name = "PLAIN",
 
 	.flags = SASL_MECH_SEC_PLAINTEXT | SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_VERIFY_PLAIN,
 
-	.auth_initial = sasl_server_mech_generic_auth_initial,
-	.auth_continue = mech_plain_auth_continue,
+	.funcs = &mech_plain_funcs,
 };

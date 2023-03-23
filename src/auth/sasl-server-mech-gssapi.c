@@ -672,16 +672,20 @@ mech_gssapi_auth_free(struct sasl_server_mech_request *auth_request)
 		(void)gss_release_name(&minor_status, &request->authz_name);
 }
 
+static const struct sasl_server_mech_funcs mech_gssapi_funcs = {
+	.auth_new = mech_gssapi_auth_new,
+	.auth_initial = mech_gssapi_auth_initial,
+	.auth_continue = mech_gssapi_auth_continue,
+	.auth_free = mech_gssapi_auth_free,
+};
+
 const struct sasl_server_mech_def mech_gssapi = {
 	.mech_name = "GSSAPI",
 
 	.flags = SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_NOTHING,
 
-	.auth_new = mech_gssapi_auth_new,
-	.auth_initial = mech_gssapi_auth_initial,
-	.auth_continue = mech_gssapi_auth_continue,
-	.auth_free = mech_gssapi_auth_free,
+	.funcs = &mech_gssapi_funcs,
 };
 
 /* MIT Kerberos v1.5+ and Heimdal v0.7+ support SPNEGO for Kerberos tickets
@@ -693,10 +697,7 @@ const struct sasl_server_mech_def mech_gssapi_spnego = {
 	.flags = SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_NOTHING,
 
-	.auth_new = mech_gssapi_auth_new,
-        .auth_initial = mech_gssapi_auth_initial,
-        .auth_continue = mech_gssapi_auth_continue,
-        .auth_free = mech_gssapi_auth_free,
+	.funcs = &mech_gssapi_funcs,
 };
 
 static void mech_gssapi_initialize(const struct auth_settings *set)
@@ -734,7 +735,7 @@ void mech_gssapi_deinit(void)
 	const struct sasl_server_mech_def *mech;
 
 	mech = mech_module_find(mech_gssapi_spnego.mech_name);
-	if (mech != NULL && mech->auth_new == mech_gssapi_auth_new)
+	if (mech != NULL && mech == &mech_gssapi_spnego)
 		mech_unregister_module(&mech_gssapi_spnego);
 #endif
 	mech_unregister_module(&mech_gssapi);

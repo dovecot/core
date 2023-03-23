@@ -339,6 +339,12 @@ mech_winbind_spnego_auth_new(pool_t pool)
 	return do_auth_new(pool, &winbind_spnego_context);
 }
 
+static const struct sasl_server_mech_funcs mech_winbind_ntlm_funcs = {
+	.auth_new = mech_winbind_ntlm_auth_new,
+	.auth_initial = mech_winbind_auth_initial,
+	.auth_continue = mech_winbind_auth_continue,
+};
+
 const struct sasl_server_mech_def mech_winbind_ntlm = {
 	.mech_name = "NTLM",
 
@@ -346,7 +352,11 @@ const struct sasl_server_mech_def mech_winbind_ntlm = {
 		 SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_NOTHING,
 
-	.auth_new = mech_winbind_ntlm_auth_new,
+	.funcs = &mech_winbind_ntlm_funcs,
+};
+
+static const struct sasl_server_mech_funcs mech_winbind_spnego_funcs = {
+	.auth_new = mech_winbind_spnego_auth_new,
 	.auth_initial = mech_winbind_auth_initial,
 	.auth_continue = mech_winbind_auth_continue,
 };
@@ -357,7 +367,5 @@ const struct sasl_server_mech_def mech_winbind_spnego = {
 	.flags = SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_NOTHING,
 
-	.auth_new = mech_winbind_spnego_auth_new,
-	.auth_initial = mech_winbind_auth_initial,
-	.auth_continue = mech_winbind_auth_continue,
+	.funcs = &mech_winbind_spnego_funcs,
 };

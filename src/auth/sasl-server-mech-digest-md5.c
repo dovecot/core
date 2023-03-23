@@ -604,6 +604,12 @@ static struct sasl_server_mech_request *mech_digest_md5_auth_new(pool_t pool)
 	return &request->auth_request;
 }
 
+static const struct sasl_server_mech_funcs mech_digest_md5_funcs = {
+	.auth_new = mech_digest_md5_auth_new,
+	.auth_initial = mech_digest_md5_auth_initial,
+	.auth_continue = mech_digest_md5_auth_continue,
+};
+
 const struct sasl_server_mech_def mech_digest_md5 = {
 	.mech_name = "DIGEST-MD5",
 
@@ -611,9 +617,7 @@ const struct sasl_server_mech_def mech_digest_md5 = {
 		 SASL_MECH_SEC_MUTUAL_AUTH,
 	.passdb_need = SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
-	.auth_new = mech_digest_md5_auth_new,
-	.auth_initial = mech_digest_md5_auth_initial,
-	.auth_continue = mech_digest_md5_auth_continue,
+	.funcs = &mech_digest_md5_funcs,
 };
 
 void mech_digest_test_set_nonce(struct auth_request *auth_request,

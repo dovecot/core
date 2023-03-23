@@ -68,12 +68,16 @@ mech_dovecot_token_auth_continue(struct sasl_server_mech_request *request,
 		safe_memset(auth_token, 0, strlen(auth_token));
 }
 
+static const struct sasl_server_mech_funcs mech_dovecot_token_funcs = {
+	.auth_initial = sasl_server_mech_generic_auth_initial,
+	.auth_continue = mech_dovecot_token_auth_continue,
+};
+
 const struct sasl_server_mech_def mech_dovecot_token = {
 	.mech_name = "DOVECOT-TOKEN",
 
 	.flags = SASL_MECH_SEC_PRIVATE | SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_NOTHING,
 
-	.auth_initial = sasl_server_mech_generic_auth_initial,
-	.auth_continue = mech_dovecot_token_auth_continue,
+	.funcs = &mech_dovecot_token_funcs,
 };

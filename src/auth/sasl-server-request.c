@@ -21,6 +21,8 @@ void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 	struct sasl_server_request *req;
 	pool_t pool;
 
+	i_assert(mech->funcs != NULL);
+
 	i_zero(rctx);
 
 	pool = request->pool;
@@ -34,8 +36,8 @@ void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 
 	struct sasl_server_mech_request *mreq;
 
-	if (mech->auth_new != NULL)
-		mreq = mech->auth_new(pool);
+	if (mech->funcs->auth_new != NULL)
+		mreq = mech->funcs->auth_new(pool);
 	else
 		mreq = p_new(pool, struct sasl_server_mech_request, 1);
 	mreq->pool = pool;
@@ -69,8 +71,8 @@ void sasl_server_request_destroy(struct sasl_server_req_ctx *rctx)
 	i_assert(server->requests > 0);
 	server->requests--;
 
-	if (mreq->mech->auth_free != NULL)
-		mreq->mech->auth_free(mreq);
+	if (mreq->mech->funcs->auth_free != NULL)
+		mreq->mech->funcs->auth_free(mreq);
 }
 
 static bool
@@ -99,8 +101,8 @@ void sasl_server_request_initial(struct sasl_server_req_ctx *rctx,
 	if (sasl_server_request_fail_on_nuls(req, data, data_size))
 		return;
 
-	i_assert(mech->auth_initial != NULL);
-	mech->auth_initial(mreq, data, data_size);
+	i_assert(mech->funcs->auth_initial != NULL);
+	mech->funcs->auth_initial(mreq, data, data_size);
 }
 
 void sasl_server_request_input(struct sasl_server_req_ctx *rctx,
@@ -113,8 +115,8 @@ void sasl_server_request_input(struct sasl_server_req_ctx *rctx,
 	if (sasl_server_request_fail_on_nuls(req, data, data_size))
 		return;
 
-	i_assert(mech->auth_continue != NULL);
-	mech->auth_continue(mreq, data, data_size);
+	i_assert(mech->funcs->auth_continue != NULL);
+	mech->funcs->auth_continue(mreq, data, data_size);
 }
 
 void sasl_server_request_test_set_authid(struct sasl_server_req_ctx *rctx,
