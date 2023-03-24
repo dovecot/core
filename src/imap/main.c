@@ -71,12 +71,16 @@ void imap_refresh_proctitle(void)
 #define IMAP_PROCTITLE_PREFERRED_LEN 80
 	struct client *client;
 	struct client_command_context *cmd;
-	string_t *title = t_str_new(128);
 	bool wait_output;
 
 	if (!verbose_proctitle)
 		return;
+	if (imap_client_count == 0) {
+		if (imap_master_clients_refresh_proctitle())
+			return;
+	}
 
+	string_t *title = t_str_new(128);
 	str_append_c(title, '[');
 	switch (imap_client_count) {
 	case 0:
@@ -528,6 +532,9 @@ int main(int argc, char *argv[])
 	imap_features_init();
 	clients_init();
 	imap_master_clients_init();
+	/* this is needed before settings are read */
+	verbose_proctitle = !IS_STANDALONE() &&
+		getenv(MASTER_VERBOSE_PROCTITLE_ENV) != NULL;
 
 	const char *error;
 	if (t_abspath(auth_socket_path, &login_set.auth_socket_path, &error) < 0)
