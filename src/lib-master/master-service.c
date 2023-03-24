@@ -268,6 +268,9 @@ master_service_init(const char *name, enum master_service_flags flags,
 		flags |= MASTER_SERVICE_FLAG_STANDALONE;
 
 	process_title_init(*argc, argv);
+	if ((flags & MASTER_SERVICE_FLAG_STANDALONE) == 0 &&
+	    getenv(MASTER_VERBOSE_PROCTITLE_ENV) != NULL)
+		process_title_set("[initializing]");
 
 	/* process_title_init() might destroy all environments.
 	   Need to look this up again. */
@@ -703,6 +706,12 @@ void master_service_init_finish(struct master_service *service)
 		if (!t_pop(&service->datastack_frame_id))
 			i_panic("Leaked t_pop() call");
 	}
+	/* If nothing else has updated the process title yet, it should still
+	   be [initializing]. Remove it here. */
+	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0 &&
+	    process_title_get_counter() == 1 &&
+	    getenv(MASTER_VERBOSE_PROCTITLE_ENV) != NULL)
+		process_title_set("");
 }
 
 static void master_service_import_environment_real(const char *import_environment)
