@@ -10,6 +10,7 @@
 #include "strescape.h"
 #include "str-sanitize.h"
 #include "time-util.h"
+#include "process-title.h"
 #include "master-service.h"
 #include "mail-storage-service.h"
 #include "imap-client.h"
@@ -236,6 +237,7 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 		i_close_fd(&fd_client);
 		return -1;
 	}
+	process_title_set("[unhibernating]");
 
 	/* NOTE: before client_create_from_input() on failures we need to close
 	   fd_client, but afterward it gets closed by client_destroy() */
@@ -396,6 +398,8 @@ void imap_master_client_create(int fd)
 
 	/* read the first file descriptor that we can */
 	i_stream_unix_set_read_fd(client->conn.input);
+
+	imap_refresh_proctitle();
 }
 
 static struct connection_settings client_set = {
@@ -417,6 +421,21 @@ static const struct connection_vfuncs client_vfuncs = {
 	.input_line = imap_master_client_input_line,
 	.idle_timeout = imap_master_client_idle_timeout,
 };
+
+bool imap_master_clients_refresh_proctitle(void)
+{
+	switch (master_clients->connections_count) {
+	case 0:
+		return FALSE;
+	case 1:
+		process_title_set("[waiting on unhibernate client]");
+		return TRUE;
+	default:
+		process_title_set(t_strdup_printf("[unhibernating %u clients]",
+			master_clients->connections_count));
+		return TRUE;
+	}
+}
 
 void imap_master_clients_init(void)
 {
