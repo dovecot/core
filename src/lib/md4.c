@@ -34,23 +34,6 @@
 	(a) = ((a) << (s)) | ((a) >> (32 - (s)))
 
 
-/*
- * SET reads 4 input bytes in little-endian byte order and stores them
- * in a properly aligned word in host byte order.
- *
- * The check for little-endian architectures which tolerate unaligned
- * memory accesses is just an optimization.  Nothing will break if it
- * doesn't work.
- */
-#if defined(__i386__) || defined(__x86_64__) || defined(__vax__)
-/* uint_fast32_t might be 64 bit, and thus may read 4 more bytes
- * beyond the end of the buffer. So only read precisely 32 bits
- */
-#define SET(n)				\
-	(*(const uint32_t *)&ptr[(n) * 4])
-#define GET(n) \
-	SET(n)
-#else
 #define SET(n) \
 	(ctx->block[(n)] = \
 	(uint_fast32_t)ptr[(n) * 4] | \
@@ -59,7 +42,6 @@
 	((uint_fast32_t)ptr[(n) * 4 + 3] << 24))
 #define GET(n) \
 	(ctx->block[(n)])
-#endif
 
 /*
  * This processes one or more 64-byte data blocks, but does NOT update
