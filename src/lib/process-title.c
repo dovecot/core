@@ -12,6 +12,7 @@
 
 static char *process_name = NULL;
 static char *current_process_title;
+static unsigned int process_title_counter = 0;
 
 #ifdef HAVE_SETPROCTITLE
 #  undef PROCTITLE_HACK
@@ -146,6 +147,7 @@ void process_title_set(const char *title)
 {
 	i_assert(process_name != NULL);
 
+	process_title_counter++;
 	i_free(current_process_title);
 	current_process_title = i_strdup(title);
 #ifdef HAVE_SETPROCTITLE
@@ -163,6 +165,11 @@ void process_title_set(const char *title)
 const char *process_title_get(void)
 {
 	return current_process_title;
+}
+
+unsigned int process_title_get_counter(void)
+{
+	return process_title_counter;
 }
 
 void process_title_deinit(void)
