@@ -36,6 +36,7 @@ struct master_login_settings {
 	master_login_callback_t *callback;
 	master_login_failure_callback_t *failure_callback;
 
+	bool update_proctitle:1;
 	bool request_auth_token:1;
 };
 
