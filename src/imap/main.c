@@ -558,6 +558,8 @@ int main(int argc, char *argv[])
 	}
 	login_set.callback = login_request_finished;
 	login_set.failure_callback = login_request_failed;
+	login_set.update_proctitle = verbose_proctitle &&
+		master_service_get_client_limit(master_service) == 1;
 
 	if (!IS_STANDALONE())
 		login_server = login_server_init(master_service, &login_set);
