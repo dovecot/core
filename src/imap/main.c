@@ -546,6 +546,8 @@ int main(int argc, char *argv[])
 	}
 	login_set.callback = login_client_connected;
 	login_set.failure_callback = login_client_failed;
+	login_set.update_proctitle = verbose_proctitle &&
+		master_service_get_client_limit(master_service) == 1;
 
 	if (!IS_STANDALONE())
 		master_login = master_login_init(master_service, &login_set);

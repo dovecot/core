@@ -372,6 +372,9 @@ int main(int argc, char *argv[])
 	}
 	login_set.callback = login_client_connected;
 	login_set.failure_callback = login_client_failed;
+	login_set.update_proctitle =
+		getenv(MASTER_VERBOSE_PROCTITLE_ENV) != NULL &&
+		master_service_get_client_limit(master_service) == 1;
 
 	master_service_set_die_callback(master_service, submission_die);
 
