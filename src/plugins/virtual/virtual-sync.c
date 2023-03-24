@@ -1762,6 +1762,8 @@ virtual_sync_apply_existing_expunges(struct virtual_mailbox *mbox,
 		if (bbox == NULL || bbox->mailbox_id != vrec->mailbox_id) {
 			bbox = virtual_backend_box_lookup(mbox,
 							  vrec->mailbox_id);
+			if (bbox == NULL)
+				continue;
 			if (!array_is_created(&bbox->sync_outside_expunges))
 				i_array_init(&bbox->sync_outside_expunges, 32);
 		}
