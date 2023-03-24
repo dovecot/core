@@ -8,6 +8,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "time-util.h"
+#include "process-title.h"
 #include "master-service-private.h"
 #include "login-server.h"
 #include "login-server-auth.h"
@@ -41,6 +42,7 @@ struct login_server {
 	char *postlogin_socket_path;
 	unsigned int postlogin_timeout_secs;
 
+	bool update_proctitle:1;
 	bool stopping:1;
 };
 
@@ -52,6 +54,21 @@ static void login_server_stop_new_connections(void *context)
 	struct login_server *server = context;
 
 	login_server_stop(server);
+}
+
+static void login_server_proctitle_refresh(struct login_server *server)
+{
+	/* This function assumes that client_limit=1. With a higher limit
+	   it just returns the first client's state, which isn't too bad
+	   either. */
+	if (server->conns == NULL)
+		process_title_set("[idling]");
+	else if (server->conns->requests == NULL)
+		process_title_set("[waiting on client]");
+	else if (server->conns->requests->postlogin_request == NULL)
+		process_title_set("[auth lookup]");
+	else
+		process_title_set("[post-login script]");
 }
 
 struct login_server *
@@ -71,6 +88,7 @@ login_server_init(struct master_service *service,
 					      set->request_auth_token);
 	server->postlogin_socket_path = i_strdup(set->postlogin_socket_path);
 	server->postlogin_timeout_secs = set->postlogin_timeout_secs;
+	server->update_proctitle = set->update_proctitle;
 
 	master_service_add_stop_new_connections_callback(service,
 		login_server_stop_new_connections, server);
@@ -347,6 +365,9 @@ static int login_server_postlogin(struct login_server_request *request,
 	int fd;
 	ssize_t ret;
 
+	if (request->conn->server->update_proctitle)
+		process_title_set("[post-login script]");
+
 	fd = net_connect_unix_with_retries(socket_path, 1000);
 	if (fd == -1) {
 		e_error(request->conn->event, "net_connect_unix(%s) failed: %m%s",
@@ -392,6 +413,8 @@ static int login_server_postlogin(struct login_server_request *request,
 
 	i_assert(request->postlogin_request == NULL);
 	request->postlogin_request = pl;
+
+	login_server_proctitle_refresh(server);
 	return 0;
 }
 
@@ -501,6 +524,7 @@ static void login_server_conn_input(struct login_server_connection *conn)
 	memcpy(request->data, data+i, req.data_size);
 	conn->refcount++;
 	DLLIST_PREPEND(&conn->requests, request);
+	login_server_proctitle_refresh(conn->server);
 
 	login_server_auth_request(server->auth, &req,
 				  login_server_auth_callback, request);
@@ -523,6 +547,7 @@ void login_server_add(struct login_server *server, int fd)
 	event_set_log_message_callback(conn->event, login_server_event_log_callback, conn);
 
 	DLLIST_PREPEND(&server->conns, conn);
+	login_server_proctitle_refresh(server);
 
 	/* NOTE: currently there's a separate connection for each request. */
 }
@@ -552,6 +577,7 @@ static void login_server_conn_unref(struct login_server_connection **_conn)
 	o_stream_unref(&conn->output);
 
 	DLLIST_REMOVE(&conn->server->conns, conn);
+	login_server_proctitle_refresh(conn->server);
 
 	if (!conn->login_success)
 		master_service_client_connection_destroyed(conn->server->service);

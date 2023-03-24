@@ -54,6 +54,7 @@ struct login_server_settings {
 	login_server_callback_t *callback;
 	login_server_failure_callback_t *failure_callback;
 
+	bool update_proctitle:1;
 	bool request_auth_token:1;
 };
 
