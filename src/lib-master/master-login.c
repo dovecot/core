@@ -87,6 +87,7 @@ master_login_init(struct master_service *service,
 void master_login_deinit(struct master_login **_login)
 {
 	struct master_login *login = *_login;
+	struct master_login_connection *conn, *next;
 
 	*_login = NULL;
 
@@ -94,11 +95,16 @@ void master_login_deinit(struct master_login **_login)
 	login->service->login = NULL;
 
 	master_login_auth_deinit(&login->auth);
-	while (login->conns != NULL) {
-		struct master_login_connection *conn = login->conns;
-
-		master_login_conn_close(conn);
-		master_login_conn_unref(&conn);
+	for (conn = login->conns; conn != NULL; conn = next) {
+		next = conn->next;
+		if (!master_login_conn_is_closed(conn)) {
+			master_login_conn_close(conn);
+			master_login_conn_unref(&conn);
+		} else {
+			/* FIXME: auth request or post-login script is still
+			   running - we don't currently support aborting them */
+			i_assert(conn->clients != NULL);
+		}
 	}
 	i_free(login->postlogin_socket_path);
 	i_free(login);
@@ -526,8 +532,6 @@ static void master_login_conn_close(struct master_login_connection *conn)
 	if (master_login_conn_is_closed(conn))
 		return;
 
-	DLLIST_REMOVE(&conn->login->conns, conn);
-
 	io_remove(&conn->io);
 	o_stream_close(conn->output);
 	if (close(conn->fd) < 0)
@@ -548,6 +552,8 @@ static void master_login_conn_unref(struct master_login_connection **_conn)
 	i_assert(conn->clients == NULL);
 	master_login_conn_close(conn);
 	o_stream_unref(&conn->output);
+
+	DLLIST_REMOVE(&conn->login->conns, conn);
 
 	if (!conn->login_success)
 		master_service_client_connection_destroyed(conn->login->service);
