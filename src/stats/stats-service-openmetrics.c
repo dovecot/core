@@ -165,6 +165,7 @@ openmetrics_export_metric_value(struct openmetrics_request *req, string_t *out,
 			    stats_dist_get_sum(metric->duration_stats)/1e6F);
 		break;
 	case OPENMETRICS_METRIC_TYPE_FIELD:
+		field = &metric->fields[req->field_pos];
 		str_printfa(out, " %"PRIu64"\n",
 			    stats_dist_get_sum(field->stats));
 		break;
@@ -320,6 +321,7 @@ openmetrics_export_metric_header(struct openmetrics_request *req, string_t *out)
 		str_append(out, "_duration_seconds counter\n");
 		break;
 	case OPENMETRICS_METRIC_TYPE_FIELD:
+		field = &metric->fields[req->field_pos];
 		str_printfa(out, "_%s counter\n", field->field_key);
 		break;
 	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
