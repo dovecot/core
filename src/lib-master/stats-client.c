@@ -213,8 +213,12 @@ stats_client_send_event(struct stats_client *client, struct event *event,
 	o_stream_nsend(client->conn.output, str_data(str), str_len(str));
 
 	i_assert(recursion > 0);
-	if (--recursion == 0)
-		o_stream_uncork(client->conn.output);
+	if (--recursion == 0) {
+		if (o_stream_uncork_flush(client->conn.output) < 0) {
+			e_error(client->conn.event, "write() failed: %s",
+				o_stream_get_error(client->conn.output));
+		}
+	}
 }
 
 static void
