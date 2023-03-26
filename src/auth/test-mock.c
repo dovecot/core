@@ -35,12 +35,21 @@ static void passdb_mock_lookup_credentials(struct auth_request *request,
 				  callback, request);
 }
 
+static void
+passdb_mock_set_credentials(struct auth_request *request,
+			    const char *new_credentials ATTR_UNUSED,
+			    set_credentials_callback_t *callback)
+{
+	callback(TRUE, request);
+}
+
 static struct passdb_module_interface mock_interface = {
 	.name = "mock",
 	.init = passdb_mock_init,
 	.deinit = passdb_mock_deinit,
 	.verify_plain = passdb_mock_verify_plain,
 	.lookup_credentials = passdb_mock_lookup_credentials,
+	.set_credentials = passdb_mock_set_credentials,
 };
 
 void passdb_mock_mod_init(void)
