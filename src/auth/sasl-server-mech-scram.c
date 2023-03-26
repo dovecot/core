@@ -239,7 +239,7 @@ static const struct sasl_server_mech_funcs mech_scram_sha1_funcs = {
 };
 
 const struct sasl_server_mech_def mech_scram_sha1 = {
-	.mech_name = "SCRAM-SHA-1",
+	.name = "SCRAM-SHA-1",
 
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH,
 	.passdb_need = SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
@@ -248,7 +248,7 @@ const struct sasl_server_mech_def mech_scram_sha1 = {
 };
 
 const struct sasl_server_mech_def mech_scram_sha1_plus = {
-	.mech_name = "SCRAM-SHA-1-PLUS",
+	.name = "SCRAM-SHA-1-PLUS",
 
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH | SASL_MECH_SEC_CHANNEL_BINDING,
 	.passdb_need = SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
@@ -264,7 +264,7 @@ static const struct sasl_server_mech_funcs mech_scram_sha256_funcs = {
 };
 
 const struct sasl_server_mech_def mech_scram_sha256 = {
-	.mech_name = "SCRAM-SHA-256",
+	.name = "SCRAM-SHA-256",
 
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH,
 	.passdb_need = SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
@@ -273,7 +273,7 @@ const struct sasl_server_mech_def mech_scram_sha256 = {
 };
 
 const struct sasl_server_mech_def mech_scram_sha256_plus = {
-	.mech_name = "SCRAM-SHA-256-PLUS",
+	.name = "SCRAM-SHA-256-PLUS",
 
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH | SASL_MECH_SEC_CHANNEL_BINDING,
 	.passdb_need = SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,

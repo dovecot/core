@@ -293,7 +293,7 @@ static void test_mechs(void)
 		const struct sasl_server_mech_def *mech = test_case->mech;
 		struct auth_request *request;
 		const char *testname = t_strdup_printf("auth mech %s %d/%zu",
-						       mech->mech_name,
+						       mech->name,
 						       running_test+1,
 						       N_ELEMENTS(tests));
 		test_begin(testname);

@@ -346,7 +346,7 @@ static const struct sasl_server_mech_funcs mech_winbind_ntlm_funcs = {
 };
 
 const struct sasl_server_mech_def mech_winbind_ntlm = {
-	.mech_name = "NTLM",
+	.name = "NTLM",
 
 	.flags = SASL_MECH_SEC_DICTIONARY | SASL_MECH_SEC_ACTIVE |
 		 SASL_MECH_SEC_ALLOW_NULS,
@@ -362,7 +362,7 @@ static const struct sasl_server_mech_funcs mech_winbind_spnego_funcs = {
 };
 
 const struct sasl_server_mech_def mech_winbind_spnego = {
-	.mech_name = "GSS-SPNEGO",
+	.name = "GSS-SPNEGO",
 
 	.flags = SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_NOTHING,

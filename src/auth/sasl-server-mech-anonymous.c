@@ -25,7 +25,7 @@ static const struct sasl_server_mech_funcs mech_anonymous_funcs = {
 };
 
 const struct sasl_server_mech_def mech_anonymous = {
-	.mech_name = "ANONYMOUS",
+	.name = "ANONYMOUS",
 
 	.flags = SASL_MECH_SEC_ANONYMOUS | SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_NOTHING,

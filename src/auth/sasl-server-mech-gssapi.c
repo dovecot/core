@@ -680,7 +680,7 @@ static const struct sasl_server_mech_funcs mech_gssapi_funcs = {
 };
 
 const struct sasl_server_mech_def mech_gssapi = {
-	.mech_name = "GSSAPI",
+	.name = "GSSAPI",
 
 	.flags = SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_NOTHING,
@@ -692,7 +692,7 @@ const struct sasl_server_mech_def mech_gssapi = {
    internally. Nothing else needs to be done here. Note, however, that this does
    not support SPNEGO when the only available credential is NTLM. */
 const struct sasl_server_mech_def mech_gssapi_spnego = {
-	.mech_name = "GSS-SPNEGO",
+	.name = "GSS-SPNEGO",
 
 	.flags = SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_NOTHING,
@@ -724,7 +724,7 @@ void mech_gssapi_init(void)
 	mech_register_module(&mech_gssapi);
 #ifdef HAVE_GSSAPI_SPNEGO
 	/* load if we already didn't load it using winbind */
-	if (mech_module_find(mech_gssapi_spnego.mech_name) == NULL)
+	if (mech_module_find(mech_gssapi_spnego.name) == NULL)
 		mech_register_module(&mech_gssapi_spnego);
 #endif
 }
@@ -734,7 +734,7 @@ void mech_gssapi_deinit(void)
 #ifdef HAVE_GSSAPI_SPNEGO
 	const struct sasl_server_mech_def *mech;
 
-	mech = mech_module_find(mech_gssapi_spnego.mech_name);
+	mech = mech_module_find(mech_gssapi_spnego.name);
 	if (mech != NULL && mech == &mech_gssapi_spnego)
 		mech_unregister_module(&mech_gssapi_spnego);
 #endif

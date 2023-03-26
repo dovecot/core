@@ -173,8 +173,8 @@ void auth_sasl_oauth2_initialize(void)
 {
 	const char *mech, *error;
 	array_foreach_elem(&global_auth_settings->mechanisms, mech) {
-		if (strcasecmp(mech, mech_xoauth2.mech_name) == 0 ||
-		    strcasecmp(mech, mech_oauthbearer.mech_name) == 0) {
+		if (strcasecmp(mech, mech_xoauth2.name) == 0 ||
+		    strcasecmp(mech, mech_oauthbearer.name) == 0) {
 			if (db_oauth2_init(auth_event, FALSE,
 					   &db_oauth2, &error) < 0)
 				i_fatal("Cannot initialize oauth2: %s", error);

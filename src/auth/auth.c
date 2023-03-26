@@ -280,10 +280,10 @@ static void auth_mech_list_verify_passdb(const struct auth *auth)
 		if (auth->passdbs == NULL) {
 			i_fatal("No passdbs specified in configuration file. "
 				"%s mechanism needs one",
-				list->module->mech_name);
+				list->module->name);
 		}
 		i_fatal("%s mechanism can't be supported with given passdbs",
-			list->module->mech_name);
+			list->module->name);
 	}
 }
 

@@ -611,7 +611,7 @@ static const struct sasl_server_mech_funcs mech_digest_md5_funcs = {
 };
 
 const struct sasl_server_mech_def mech_digest_md5 = {
-	.mech_name = "DIGEST-MD5",
+	.name = "DIGEST-MD5",
 
 	.flags = SASL_MECH_SEC_DICTIONARY | SASL_MECH_SEC_ACTIVE |
 		 SASL_MECH_SEC_MUTUAL_AUTH,

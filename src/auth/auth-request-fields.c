@@ -20,9 +20,9 @@ void auth_request_fields_alloc(struct auth_request *request)
 void auth_request_fields_init(struct auth_request *request)
 {
 	if (request->mech != NULL) {
-		request->fields.mech_name = request->mech->mech_name;
+		request->fields.mech_name = request->mech->name;
 		event_add_str(request->event, "mechanism",
-			      request->mech->mech_name);
+			      request->mech->name);
 	}
 }
 

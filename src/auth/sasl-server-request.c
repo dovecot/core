@@ -50,7 +50,7 @@ void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 
 	req->mech = mreq;
 	rctx->mech = mech;
-	rctx->mech_name = mech->mech_name;
+	rctx->mech_name = mech->name;
 	rctx->request = req;
 }
 

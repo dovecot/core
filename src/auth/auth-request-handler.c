@@ -576,7 +576,7 @@ auth_request_handler_find_mech(struct auth_request_handler *handler,
 
 	if (handler->token_auth) {
 		mech = &mech_dovecot_token;
-		if (strcmp(mech_name, mech->mech_name) == 0) {
+		if (strcmp(mech_name, mech->name) == 0) {
 			*mech_r = mech;
 			return 0;
 		}
@@ -850,7 +850,7 @@ static void auth_str_append_userdb_extra_fields(struct auth_request *request,
 		auth_str_add_keyvalue(dest, "master_user",
 				      request->fields.master_user);
 	}
-	auth_str_add_keyvalue(dest, "auth_mech", request->mech->mech_name);
+	auth_str_add_keyvalue(dest, "auth_mech", request->mech->name);
 	if (*request->set->anonymous_username != '\0' &&
 	    strcmp(request->fields.user, request->set->anonymous_username) == 0) {
 		/* this is an anonymous login, either via ANONYMOUS

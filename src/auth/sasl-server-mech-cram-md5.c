@@ -180,7 +180,7 @@ static const struct sasl_server_mech_funcs mech_cram_md5_funcs = {
 };
 
 const struct sasl_server_mech_def mech_cram_md5 = {
-	.mech_name = "CRAM-MD5",
+	.name = "CRAM-MD5",
 
 	.flags = SASL_MECH_SEC_DICTIONARY | SASL_MECH_SEC_ACTIVE,
 	.passdb_need = SASL_MECH_PASSDB_NEED_VERIFY_RESPONSE,

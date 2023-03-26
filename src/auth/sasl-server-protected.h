@@ -23,7 +23,7 @@ struct sasl_server_mech_funcs {
 };
 
 struct sasl_server_mech_def {
-	const char *mech_name;
+	const char *name;
 
 	enum sasl_mech_security_flags flags;
 	enum sasl_mech_passdb_need passdb_need;

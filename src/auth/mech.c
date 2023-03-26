@@ -15,7 +15,7 @@ static struct mech_module_list *mech_modules;
 void mech_register_module(const struct sasl_server_mech_def *module)
 {
 	struct mech_module_list *list;
-	i_assert(strcmp(module->mech_name, t_str_ucase(module->mech_name)) == 0);
+	i_assert(strcmp(module->name, t_str_ucase(module->name)) == 0);
 
 	list = i_new(struct mech_module_list, 1);
 	list->module = module;
@@ -29,7 +29,7 @@ void mech_unregister_module(const struct sasl_server_mech_def *module)
 	struct mech_module_list **pos, *list;
 
 	for (pos = &mech_modules; *pos != NULL; pos = &(*pos)->next) {
-		if (strcmp((*pos)->module->mech_name, module->mech_name) == 0) {
+		if (strcmp((*pos)->module->name, module->name) == 0) {
 			list = *pos;
 			*pos = (*pos)->next;
 			i_free(list);
@@ -44,7 +44,7 @@ const struct sasl_server_mech_def *mech_module_find(const char *name)
 	name = t_str_ucase(name);
 
 	for (list = mech_modules; list != NULL; list = list->next) {
-		if (strcmp(list->module->mech_name, name) == 0)
+		if (strcmp(list->module->name, name) == 0)
 			return list->module;
 	}
 	return NULL;
@@ -87,7 +87,7 @@ static void mech_register_add(struct mechanisms_register *reg,
 	else
 		handshake = reg->handshake;
 
-	str_printfa(handshake, "MECH\t%s", mech->mech_name);
+	str_printfa(handshake, "MECH\t%s", mech->name);
 	if ((mech->flags & SASL_MECH_SEC_PRIVATE) != 0)
 		str_append(handshake, "\tprivate");
 	if ((mech->flags & SASL_MECH_SEC_ANONYMOUS) != 0)
@@ -180,7 +180,7 @@ mech_register_find(const struct mechanisms_register *reg, const char *name)
 	name = t_str_ucase(name);
 
 	for (list = reg->modules; list != NULL; list = list->next) {
-		if (strcmp(list->module->mech_name, name) == 0)
+		if (strcmp(list->module->name, name) == 0)
 			return list->module;
 	}
 	return NULL;

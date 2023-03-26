@@ -87,7 +87,7 @@ static const char *get_log_prefix(struct auth_request *auth_request)
 	}
 	if (auth_request->mech != NULL) {
 		str_append(str, ",sasl:");
-		str_append(str, t_str_lcase(auth_request->mech->mech_name));
+		str_append(str, t_str_lcase(auth_request->mech->name));
 	}
 	if (auth_request->fields.requested_login_user != NULL)
 	        str_append(str, ",master");
@@ -197,7 +197,7 @@ void auth_request_init_sasl(struct auth_request *request,
 	request->mech = mech;
 
 	const char *prefix = t_strconcat(
-		t_str_lcase(request->mech->mech_name), ": ", NULL);
+		t_str_lcase(request->mech->name), ": ", NULL);
 
 	request->mech_event = event_create(request->event);
 	event_set_append_log_prefix(request->mech_event, prefix);
@@ -533,7 +533,7 @@ auth_request_mechanism_accepted(const char *const *mechs,
 	if (mech == NULL)
 		return str_array_icase_find(mechs, "lookup");
 	/* check if request mechanism is accepted */
-	return str_array_icase_find(mechs, mech->mech_name);
+	return str_array_icase_find(mechs, mech->name);
 }
 
 /**

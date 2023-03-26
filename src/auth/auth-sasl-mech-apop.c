@@ -160,7 +160,7 @@ static const struct sasl_server_mech_funcs mech_apop_funcs = {
 };
 
 const struct sasl_server_mech_def mech_apop = {
-	.mech_name = "APOP",
+	.name = "APOP",
 
 	.flags = SASL_MECH_SEC_PRIVATE | SASL_MECH_SEC_DICTIONARY |
 		 SASL_MECH_SEC_ACTIVE | SASL_MECH_SEC_ALLOW_NULS,

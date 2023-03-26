@@ -74,7 +74,7 @@ static const struct sasl_server_mech_funcs mech_dovecot_token_funcs = {
 };
 
 const struct sasl_server_mech_def mech_dovecot_token = {
-	.mech_name = "DOVECOT-TOKEN",
+	.name = "DOVECOT-TOKEN",
 
 	.flags = SASL_MECH_SEC_PRIVATE | SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_NOTHING,
