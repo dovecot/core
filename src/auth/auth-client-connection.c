@@ -11,6 +11,7 @@
 #include "randgen.h"
 #include "master-service.h"
 #include "sasl-server-protected.h" // FIXME: remove
+#include "auth-sasl.h"
 #include "auth-request-handler.h"
 #include "auth-client-interface.h"
 #include "auth-client-connection.h"
@@ -195,11 +196,9 @@ static void auth_client_finish_handshake(struct auth_client_connection *conn)
 		mechanisms = t_strconcat("MECH\t",
 			mech_dovecot_token.name, "\tprivate\n", NULL);
 	} else {
-		mechanisms = str_c(conn->auth->reg->handshake);
-		if (conn->conn.minor_version >= AUTH_CLIENT_MINOR_VERSION_CHANNEL_BINDING) {
-			mechanisms_cbind =
-				str_c(conn->auth->reg->handshake_cbind);
-		}
+		mechanisms = auth_sasl_mechs_get_handshake();
+		if (conn->conn.minor_version >= AUTH_CLIENT_MINOR_VERSION_CHANNEL_BINDING)
+			mechanisms_cbind = auth_sasl_mechs_get_handshake_cbind();
 	}
 
 	str = t_str_new(128);

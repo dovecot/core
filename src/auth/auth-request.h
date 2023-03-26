@@ -262,7 +262,7 @@ struct auth_request *auth_request_new_dummy(struct event *parent_event);
 
 void auth_request_init(struct auth_request *request);
 void auth_request_init_sasl(struct auth_request *request,
-			    const struct sasl_server_mech_def *mech);
+			    const struct sasl_server_mech *mech);
 
 struct auth *auth_request_get_auth(struct auth_request *request);
 

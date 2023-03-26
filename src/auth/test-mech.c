@@ -85,7 +85,7 @@ auth_client_request_mock_callback(
 }
 
 static void test_mech_prepare_request(struct auth_request **request_r,
-				      const struct sasl_server_mech_def *mech,
+				      const char *mech_name,
 				      struct auth_request_handler *handler,
 				      unsigned int running_test,
 				      const struct test_case *test_case)
@@ -101,11 +101,19 @@ static void test_mech_prepare_request(struct auth_request **request_r,
 	request->mech_password = NULL;
 	request->fields.protocol = "service";
 	request->state = AUTH_REQUEST_STATE_NEW;
-	request->mech = mech;
 	request->set = new_set;
 	request->protocol_set = global_auth_settings;
 	request->connect_uid = running_test;
 	handler->refcount = 1;
+
+	struct auth *auth = auth_default_protocol();
+	const struct sasl_server_mech *mech;
+	if (strcmp(mech_name, "DOVECOT-TOKEN") == 0)
+		mech = auth->sasl_mech_dovecot_token;
+	else
+		mech = sasl_server_mech_find(auth->sasl_inst, mech_name);
+	i_assert(mech != NULL);
+	request->mech = mech->def;
 
 	auth_request_init_sasl(request, mech);
 
@@ -298,7 +306,7 @@ static void test_mechs(void)
 						       N_ELEMENTS(tests));
 		test_begin(testname);
 
-		test_mech_prepare_request(&request, mech, &handler,
+		test_mech_prepare_request(&request, mech->name, &handler,
 					  running_test, test_case);
 
 		if (mech == &mech_apop && test_case->in == NULL) {

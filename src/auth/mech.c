@@ -73,35 +73,6 @@ extern const struct sasl_server_mech_def mech_winbind_spnego;
 extern const struct sasl_server_mech_def mech_oauthbearer;
 extern const struct sasl_server_mech_def mech_xoauth2;
 
-void mech_register_add(struct mechanisms_register *reg,
-		       const struct sasl_server_mech_def *mech);
-
-const char *mech_get_plugin_name(const char *name);
-
-struct mechanisms_register *
-mech_register_init(const struct auth_settings *set);
-
-void mech_register_deinit(struct mechanisms_register **_reg)
-{
-	struct mechanisms_register *reg = *_reg;
-
-	*_reg = NULL;
-	pool_unref(&reg->pool);
-}
-
-const struct sasl_server_mech_def *
-mech_register_find(const struct mechanisms_register *reg, const char *name)
-{
-	const struct mech_module_list *list;
-	name = t_str_ucase(name);
-
-	for (list = reg->modules; list != NULL; list = list->next) {
-		if (strcmp(list->module->name, name) == 0)
-			return list->module;
-	}
-	return NULL;
-}
-
 void mech_init(const struct auth_settings *set)
 {
 	mech_register_module(&mech_plain);

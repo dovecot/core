@@ -4,7 +4,6 @@
 #include "sasl-common.h"
 
 struct sasl_passdb_result;
-struct sasl_server_mech_def;
 struct sasl_server_mech;
 struct sasl_server_request;
 struct sasl_server_req_ctx;

@@ -17,7 +17,9 @@
 
 static const char *const settings[] = {
 	"base_dir", ".",
-	"auth_mechanisms", "plain xoauth2",
+	"auth_mechanisms",
+		"ANONYMOUS APOP CRAM-MD5 DIGEST-MD5 EXTERNAL LOGIN PLAIN OTP "
+		"OAUTHBEARER SCRAM-SHA-1 SCRAM-SHA-256 XOAUTH2",
 	"auth_username_chars", "",
 	"auth_username_format", "",
 	/* For tests of digest-md5. */
@@ -41,7 +43,6 @@ static const char *const settings[] = {
 	NULL
 };
 
-static struct mechanisms_register *mech_reg;
 static struct settings_simple simple_set;
 
 void test_auth_init(void)
@@ -55,7 +56,6 @@ void test_auth_init(void)
 	/* this is needed to get oauth2 initialized */
 	auth_event = simple_set.event;
 	mech_init(global_auth_settings);
-	mech_reg = mech_register_init(global_auth_settings);
 	passdbs_init();
 	userdbs_init();
 	passdb_mock_mod_init();
@@ -63,7 +63,7 @@ void test_auth_init(void)
 	password_schemes_allow_weak(TRUE);
 
 	auth_sasl_preinit();
-	auths_preinit(simple_set.event, global_auth_settings, mech_reg, protocols);
+	auths_preinit(simple_set.event, global_auth_settings, protocols);
 	auths_init();
 	auth_token_init();
 	auth_sasl_init();
@@ -84,7 +84,6 @@ void test_auth_deinit(void)
 	userdbs_deinit();
 	event_unref(&auth_event);
 	mech_deinit(global_auth_settings);
-	mech_register_deinit(&mech_reg);
 	auths_free();
 	auth_sasl_deinit();
 	settings_free(global_auth_settings);

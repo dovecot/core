@@ -95,12 +95,6 @@ void sasl_server_mech_generic_auth_initial(
 	struct sasl_server_mech_request *mreq,
 	const unsigned char *data, size_t data_size);
 
-struct mechanisms_register *
-mech_register_init(const struct auth_settings *set);
-void mech_register_deinit(struct mechanisms_register **reg);
-const struct sasl_server_mech_def *
-mech_register_find(const struct mechanisms_register *reg, const char *name);
-
 void mech_init(const struct auth_settings *set);
 void mech_deinit(const struct auth_settings *set);
 

@@ -569,14 +569,16 @@ auth_penalty_callback(unsigned int penalty, struct auth_request *request)
 
 static int
 auth_request_handler_find_mech(struct auth_request_handler *handler,
+			       struct auth_request *request,
 			       const char *mech_name,
-			       const struct sasl_server_mech_def **mech_r)
+			       const struct sasl_server_mech **mech_r)
 {
-	const struct sasl_server_mech_def *mech;
+	struct auth *auth = auth_request_get_auth(request);
+	const struct sasl_server_mech *mech;
 
 	if (handler->token_auth) {
-		mech = &mech_dovecot_token;
-		if (strcmp(mech_name, mech->name) == 0) {
+		mech = auth->sasl_mech_dovecot_token;
+		if (strcmp(sasl_server_mech_get_name(mech), mech_name) == 0) {
 			*mech_r = mech;
 			return 0;
 		}
@@ -589,9 +591,7 @@ auth_request_handler_find_mech(struct auth_request_handler *handler,
 		return -1;
 	}
 
-	struct auth *auth_default = auth_default_protocol();
-
-	mech = mech_register_find(auth_default->reg, mech_name);
+	mech = sasl_server_mech_find(auth->sasl_inst, mech_name);
 	if (mech == NULL) {
 		/* unsupported mechanism */
 		e_error(handler->conn->conn.event,
@@ -679,9 +679,10 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		return -1;
 	}
 
-	const struct sasl_server_mech_def *mech;
+	const struct sasl_server_mech *mech;
 
-	if (auth_request_handler_find_mech(handler, mech_name, &mech) < 0)
+	if (auth_request_handler_find_mech(handler, request, mech_name,
+					   &mech) < 0)
 		return -1;
 	auth_request_init_sasl(request, mech);
 
@@ -850,7 +851,7 @@ static void auth_str_append_userdb_extra_fields(struct auth_request *request,
 		auth_str_add_keyvalue(dest, "master_user",
 				      request->fields.master_user);
 	}
-	auth_str_add_keyvalue(dest, "auth_mech", request->mech->name);
+	auth_str_add_keyvalue(dest, "auth_mech", request->fields.mech_name);
 	if (*request->set->anonymous_username != '\0' &&
 	    strcmp(request->fields.user, request->set->anonymous_username) == 0) {
 		/* this is an anonymous login, either via ANONYMOUS

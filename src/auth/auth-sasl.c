@@ -15,6 +15,9 @@
 
 static struct sasl_server *auth_sasl_server;
 
+static char *auth_sasl_mechs_handshake;
+static char *auth_sasl_mechs_handshake_cbind;
+
 /*
  * Request
  */
@@ -293,15 +296,8 @@ auth_sasl_translate_protocol_name(struct auth_request *request)
 }
 
 void auth_sasl_request_init(struct auth_request *request,
-			    const struct sasl_server_mech_def *mech_def)
+			    const struct sasl_server_mech *mech)
 {
-	struct auth *auth = auth_request_get_auth(request);
-	const struct sasl_server_mech *mech;
-
-	mech = sasl_server_mech_find(auth->sasl_inst, mech_def->name);
-	if (mech == NULL)
-		mech = sasl_server_mech_register(auth->sasl_inst, mech_def);
-	i_assert(mech != NULL);
 	sasl_server_request_create(&request->sasl.req, mech,
 				   auth_sasl_translate_protocol_name(request),
 				   request->mech_event);
@@ -380,9 +376,21 @@ auth_sasl_mech_module_find(const char *name)
 	return NULL;
 }
 
+const char *auth_sasl_mechs_get_handshake(void)
+{
+	return auth_sasl_mechs_handshake;
+}
+
+const char *auth_sasl_mechs_get_handshake_cbind(void)
+{
+	return auth_sasl_mechs_handshake_cbind;
+}
+
 /*
  * Instance
  */
+
+static const char *auth_sasl_mech_get_plugin_name(const char *name);
 
 void auth_sasl_instance_init(struct auth *auth,
 			     const struct auth_settings *set)
@@ -395,28 +403,9 @@ void auth_sasl_instance_init(struct auth *auth,
 
 	auth->sasl_inst =
 		sasl_server_instance_create(auth_sasl_server, &sasl_set);
-}
 
-const char *mech_get_plugin_name(const char *name);
-void mech_register_add(struct mechanisms_register *reg,
-		       const struct sasl_server_mech_def *mech);
-
-struct mechanisms_register *
-mech_register_init(const struct auth_settings *set);
-struct mechanisms_register *
-mech_register_init(const struct auth_settings *set)
-{
-	struct mechanisms_register *reg;
 	const struct sasl_server_mech_def *mech;
 	const char *name;
-	pool_t pool;
-
-	pool = pool_alloconly_create("mechanisms register", 1024);
-	reg = p_new(pool, struct mechanisms_register, 1);
-	reg->pool = pool;
-	reg->set = set;
-	reg->handshake = str_new(pool, 512);
-	reg->handshake_cbind = str_new(pool, 256);
 
 	if (array_is_empty(&set->mechanisms))
 		i_fatal("No authentication mechanisms configured");
@@ -433,14 +422,16 @@ mech_register_init(const struct auth_settings *set)
 		mech = mech_module_find(name);
 		if (mech == NULL) {
 			/* maybe it's a plugin. try to load it. */
-			auth_module_load(mech_get_plugin_name(name));
+			auth_module_load(auth_sasl_mech_get_plugin_name(name));
 			mech = mech_module_find(name);
 		}
 		if (mech == NULL)
 			i_fatal("Unknown authentication mechanism '%s'", name);
-		mech_register_add(reg, mech);
+		sasl_server_mech_register(auth->sasl_inst, mech);
 	}
-	return reg;
+
+	auth->sasl_mech_dovecot_token =
+		sasl_server_mech_register(auth->sasl_inst, &mech_dovecot_token);
 }
 
 static bool
@@ -471,23 +462,25 @@ auth_sasl_mech_verify_passdb(const struct auth *auth,
 
 void auth_sasl_instance_verify(const struct auth *auth)
 {
-	const struct mech_module_list *list;
+	struct sasl_server_mech_iter *mech_iter;
 
-	for (list = auth->reg->modules; list != NULL; list = list->next) {
-		if (!auth_sasl_mech_verify_passdb(
-				auth, list->module->passdb_need))
+	mech_iter = sasl_server_instance_mech_iter_new(auth->sasl_inst);
+	while (sasl_server_mech_iter_next(mech_iter)) {
+		if (!auth_sasl_mech_verify_passdb(auth, mech_iter->passdb_need))
 			break;
 	}
 
-	if (list != NULL) {
+	if (!sasl_server_mech_iter_ended(mech_iter)) {
 		if (auth->passdbs == NULL) {
 			i_fatal("No passdbs specified in configuration file. "
 				"%s mechanism needs one",
-				list->module->name);
+				mech_iter->name);
 		}
 		i_fatal("%s mechanism can't be supported with given passdbs",
-			list->module->name);
+			mech_iter->name);
 	}
+
+	sasl_server_mech_iter_free(&mech_iter);
 }
 
 void auth_sasl_instance_deinit(struct auth *auth)
@@ -499,44 +492,53 @@ void auth_sasl_instance_deinit(struct auth *auth)
  * Global
  */
 
-void mech_register_add(struct mechanisms_register *reg,
-		       const struct sasl_server_mech_def *mech)
+static void auth_sasl_mechs_handshake_init(void)
 {
-	struct mech_module_list *list;
-	string_t *handshake;
+	struct sasl_server_mech_iter *iter;
+	string_t *handshake_buf = t_str_new(512);
+	string_t *handshake_buf_cbind = t_str_new(256);
 
-	list = p_new(reg->pool, struct mech_module_list, 1);
-	list->module = mech;
+	iter = sasl_server_mech_iter_new(auth_sasl_server);
+	while (sasl_server_mech_iter_next(iter)) {
+		string_t *handshake;
 
-	if ((mech->flags & SASL_MECH_SEC_CHANNEL_BINDING) != 0)
-		handshake = reg->handshake_cbind;
-	else
-		handshake = reg->handshake;
+		if ((iter->flags & SASL_MECH_SEC_CHANNEL_BINDING) != 0)
+			handshake = handshake_buf_cbind;
+		else
+			handshake = handshake_buf;
 
-	str_printfa(handshake, "MECH\t%s", mech->name);
-	if ((mech->flags & SASL_MECH_SEC_PRIVATE) != 0)
-		str_append(handshake, "\tprivate");
-	if ((mech->flags & SASL_MECH_SEC_ANONYMOUS) != 0)
-		str_append(handshake, "\tanonymous");
-	if ((mech->flags & SASL_MECH_SEC_PLAINTEXT) != 0)
-		str_append(handshake, "\tplaintext");
-	if ((mech->flags & SASL_MECH_SEC_DICTIONARY) != 0)
-		str_append(handshake, "\tdictionary");
-	if ((mech->flags & SASL_MECH_SEC_ACTIVE) != 0)
-		str_append(handshake, "\tactive");
-	if ((mech->flags & SASL_MECH_SEC_FORWARD_SECRECY) != 0)
-		str_append(handshake, "\tforward-secrecy");
-	if ((mech->flags & SASL_MECH_SEC_MUTUAL_AUTH) != 0)
-		str_append(handshake, "\tmutual-auth");
-	if ((mech->flags & SASL_MECH_SEC_CHANNEL_BINDING) != 0)
-		str_append(handshake, "\tchannel-binding");
-	str_append_c(handshake, '\n');
+		str_printfa(handshake, "MECH\t%s", iter->name);
+		if ((iter->flags & SASL_MECH_SEC_PRIVATE) != 0)
+			str_append(handshake, "\tprivate");
+		if ((iter->flags & SASL_MECH_SEC_ANONYMOUS) != 0)
+			str_append(handshake, "\tanonymous");
+		if ((iter->flags & SASL_MECH_SEC_PLAINTEXT) != 0)
+			str_append(handshake, "\tplaintext");
+		if ((iter->flags & SASL_MECH_SEC_DICTIONARY) != 0)
+			str_append(handshake, "\tdictionary");
+		if ((iter->flags & SASL_MECH_SEC_ACTIVE) != 0)
+			str_append(handshake, "\tactive");
+		if ((iter->flags & SASL_MECH_SEC_FORWARD_SECRECY) != 0)
+			str_append(handshake, "\tforward-secrecy");
+		if ((iter->flags & SASL_MECH_SEC_MUTUAL_AUTH) != 0)
+			str_append(handshake, "\tmutual-auth");
+		if ((iter->flags & SASL_MECH_SEC_CHANNEL_BINDING) != 0)
+			str_append(handshake, "\tchannel-binding");
+		str_append_c(handshake, '\n');
+	}
+	sasl_server_mech_iter_free(&iter);
 
-	list->next = reg->modules;
-	reg->modules = list;
+	auth_sasl_mechs_handshake = i_strdup(str_c(handshake_buf));
+	auth_sasl_mechs_handshake_cbind = i_strdup(str_c(handshake_buf_cbind));
 }
 
-const char *mech_get_plugin_name(const char *name)
+static void auth_sasl_mechs_handshake_deinit(void)
+{
+	i_free(auth_sasl_mechs_handshake);
+	i_free(auth_sasl_mechs_handshake_cbind);
+}
+
+static const char *auth_sasl_mech_get_plugin_name(const char *name)
 {
 	string_t *str = t_str_new(32);
 
@@ -559,9 +561,11 @@ void auth_sasl_preinit(void)
 
 void auth_sasl_init(void)
 {
+	auth_sasl_mechs_handshake_init();
 }
 
 void auth_sasl_deinit(void)
 {
 	sasl_server_deinit(&auth_sasl_server);
+	auth_sasl_mechs_handshake_deinit();
 }

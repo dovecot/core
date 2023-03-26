@@ -187,18 +187,19 @@ mech_scram_auth_new(pool_t pool, const struct hash_method *hash_method,
 	request->password_scheme = password_scheme;
 
 	struct auth *auth = auth_default_protocol();
+	struct sasl_server_instance *sinst = auth->sasl_inst;
 	struct auth_scram_server_settings scram_set;
 
 	i_zero(&scram_set);
 	scram_set.hash_method = hash_method;
 
-	if (mech_register_find(auth->reg,
-			       t_strconcat(password_scheme,
-					   "-PLUS", NULL)) == NULL) {
+	if (sasl_server_mech_find(
+		sinst, t_strconcat(request->password_scheme,
+				   "-PLUS", NULL)) == NULL) {
 		scram_set.cbind_support =
 			AUTH_SCRAM_CBIND_SERVER_SUPPORT_NONE;
-	} else if (mech_register_find(auth->reg,
-				    request->password_scheme) == NULL) {
+	} else if (sasl_server_mech_find(sinst,
+					 request->password_scheme) == NULL) {
 		scram_set.cbind_support =
 			AUTH_SCRAM_CBIND_SERVER_SUPPORT_REQUIRED;
 	} else {

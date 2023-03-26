@@ -18,7 +18,7 @@ struct auth_sasl_mech_module {
  */
 
 void auth_sasl_request_init(struct auth_request *request,
-			    const struct sasl_server_mech_def *mech_def);
+			    const struct sasl_server_mech *mech);
 void auth_sasl_request_deinit(struct auth_request *request);
 
 void auth_sasl_request_initial(struct auth_request *request);
@@ -35,6 +35,9 @@ void auth_sasl_mech_unregister_module(
 	const struct auth_sasl_mech_module *module);
 const struct auth_sasl_mech_module *
 auth_sasl_mech_module_find(const char *name);
+
+const char *auth_sasl_mechs_get_handshake(void);
+const char *auth_sasl_mechs_get_handshake_cbind(void);
 
 /*
  * Instance

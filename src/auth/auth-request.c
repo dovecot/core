@@ -192,9 +192,9 @@ void auth_request_init(struct auth_request *request)
 }
 
 void auth_request_init_sasl(struct auth_request *request,
-			    const struct sasl_server_mech_def *mech)
+			    const struct sasl_server_mech *mech)
 {
-	request->mech = mech;
+	request->mech = mech->def;
 
 	const char *prefix = t_strconcat(
 		t_str_lcase(request->mech->name), ": ", NULL);

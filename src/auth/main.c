@@ -72,7 +72,6 @@ time_t process_start_time;
 struct auth_penalty *auth_penalty;
 
 static struct module *modules = NULL;
-static struct mechanisms_register *mech_reg;
 static ARRAY(struct auth_socket_listener) listeners;
 
 void auth_refresh_proctitle(void)
@@ -181,7 +180,7 @@ static void main_preinit(void)
 
 	dict_drivers_register_builtin();
 	auth_sasl_preinit();
-	auths_preinit(NULL, global_auth_settings, mech_reg, protocols);
+	auths_preinit(NULL, global_auth_settings, protocols);
 
 	listeners_init();
 	if (!worker)
@@ -276,7 +275,6 @@ static void main_deinit(void)
 	/* there are no more auth requests */
 	auths_free();
 
-	mech_register_deinit(&mech_reg);
 	mech_otp_deinit();
 	mech_deinit(global_auth_settings);
 

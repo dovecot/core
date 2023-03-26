@@ -242,8 +242,7 @@ bool auth_passdb_list_have_set_credentials(const struct auth *auth)
 }
 
 static struct auth * ATTR_NULL(2)
-auth_preinit(const struct auth_settings *set, const char *protocol,
-	     const struct mechanisms_register *reg)
+auth_preinit(const struct auth_settings *set, const char *protocol)
 {
 	const struct auth_passdb_settings *const *passdbs;
 	const struct auth_userdb_settings *const *userdbs;
@@ -256,7 +255,6 @@ auth_preinit(const struct auth_settings *set, const char *protocol,
 	auth->protocol = p_strdup(pool, protocol);
 	auth->protocol_set = set;
 	pool_ref(set->pool);
-	auth->reg = reg;
 
 	if (array_is_created(&set->parsed_passdbs))
 		passdbs = array_get(&set->parsed_passdbs, &db_count);
@@ -465,7 +463,6 @@ struct auth *auth_default_protocol(void)
 
 void auths_preinit(struct event *parent_event,
 		   const struct auth_settings *set,
-		   const struct mechanisms_register *reg,
 		   const char *const *protocols)
 {
 	const struct auth_settings *protocol_set;
@@ -479,7 +476,7 @@ void auths_preinit(struct event *parent_event,
 	event_add_category(auth_event, &event_category_auth);
 	i_array_init(&auths, 8);
 
-	auth = auth_preinit(set, NULL, reg);
+	auth = auth_preinit(set, NULL);
 	array_push_back(&auths, &auth);
 
 	for (i = 0; protocols[i] != NULL; i++) {
@@ -492,7 +489,7 @@ void auths_preinit(struct event *parent_event,
 			not_protocol = protocols[i];
 		}
 		protocol_set = auth_settings_get(protocols[i]);
-		auth = auth_preinit(protocol_set, protocols[i], reg);
+		auth = auth_preinit(protocol_set, protocols[i]);
 		array_push_back(&auths, &auth);
 		settings_free(protocol_set);
 	}
