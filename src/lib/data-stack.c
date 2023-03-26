@@ -430,6 +430,8 @@ static void data_stack_send_grow_event(size_t last_alloc_size)
 	const char *backtrace, *error;
 	if (backtrace_get(&backtrace, &error) == 0)
 		event_add_str(event_datastack, "backtrace", backtrace);
+	else
+		event_add_str(event_datastack, "backtrace_error", error);
 
 	string_t *str = t_str_new(128);
 	str_printfa(str, "total_used=%zu, total_alloc=%zu, last_alloc_size=%zu",
