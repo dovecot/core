@@ -11,7 +11,7 @@
 
 #include <libunwind.h>
 
-static int backtrace_append_unwind(string_t *str)
+static int backtrace_append_unwind(string_t *str, const char **error_r)
 {
 	size_t str_orig_size = str_len(str);
 	char proc_name[256];
@@ -23,11 +23,11 @@ static int backtrace_append_unwind(string_t *str)
 	bool success = FALSE;
 
 	if ((ret = unw_getcontext(&ctx)) != 0) {
-		str_printfa(str, "unw_getcontext() failed: %d", ret);
+		*error_r = t_strdup_printf("unw_getcontext() failed: %d", ret);
 		return -1;
 	}
 	if ((ret = unw_init_local(&c, &ctx)) != 0) {
-		str_printfa(str, "unw_init_local() failed: %d", ret);
+		*error_r = t_strdup_printf("unw_init_local() failed: %d", ret);
 		return -1;
 	}
 
@@ -55,7 +55,15 @@ static int backtrace_append_unwind(string_t *str)
 	/* remove ' -> ' */
 	if (str->used > 4)
 		str_truncate(str, str->used - 4);
-	return ret == 0 && success ? 0 : -1;
+	if (ret < 0) {
+		*error_r = t_strdup_printf("unw_step() failed: %d", ret);
+		return -1;
+	}
+	if (!success) {
+		*error_r = t_strdup_printf("No symbols found (process chrooted?)");
+		return -1;
+	}
+	return 0;
 }
 #endif
 
@@ -63,7 +71,7 @@ static int backtrace_append_unwind(string_t *str)
 /* Linux */
 #include <execinfo.h>
 
-static int backtrace_append_libc(string_t *str)
+static int backtrace_append_libc(string_t *str, const char **error_r)
 {
 	size_t str_orig_size = str_len(str);
 	void *stack[MAX_STACK_SIZE];
@@ -71,10 +79,16 @@ static int backtrace_append_libc(string_t *str)
 	int ret, i;
 
 	ret = backtrace(stack, N_ELEMENTS(stack));
-	if (ret <= 0)
+	if (ret <= 0) {
+		*error_r = "backtrace() failed";
 		return -1;
+	}
 
 	strings = backtrace_symbols(stack, ret);
+	if (strings == NULL) {
+		*error_r = "backtrace_symbols() failed";
+		return -1;
+	}
 	for (i = 0; i < ret; i++) {
 		if (str_len(str) > str_orig_size)
 			str_append(str, " -> ");
@@ -120,13 +134,15 @@ static int walk_callback(uintptr_t ptr, int signo ATTR_UNUSED,
 	return 0;
 }
 
-static int backtrace_append_libc(string_t *str)
+static int backtrace_append_libc(string_t *str, const char **error_r)
 {
 	ucontext_t uc;
 	struct walk_context ctx;
 
-	if (getcontext(&uc) < 0)
+	if (getcontext(&uc) < 0) {
+		*error_r = t_strdup_printf("getcontext() failed: %m");
 		return -1;
+	}
 
 	ctx.str = str;
 	ctx.pos = 0;
@@ -134,31 +150,33 @@ static int backtrace_append_libc(string_t *str)
 	return 0;
 }
 #else
-static int backtrace_append_libc(string_t *str ATTR_UNUSED)
+static int
+backtrace_append_libc(string_t *str ATTR_UNUSED, const char **error_r)
 {
+	*error_r = "Missing implementation";
 	return -1;
 }
 #endif
 
-int backtrace_append(string_t *str)
+int backtrace_append(string_t *str, const char **error_r)
 {
 #if defined(HAVE_LIBUNWIND)
 	size_t orig_len = str_len(str);
-	if (backtrace_append_unwind(str) == 0)
+	if (backtrace_append_unwind(str, error_r) == 0)
 		return 0;
 	/* failed to get useful backtrace. libc's own method is likely
 	   better. */
 	str_truncate(str, orig_len);
 #endif
-	return backtrace_append_libc(str);
+	return backtrace_append_libc(str, error_r);
 }
 
-int backtrace_get(const char **backtrace_r)
+int backtrace_get(const char **backtrace_r, const char **error_r)
 {
 	string_t *str;
 
 	str = t_str_new(512);
-	if (backtrace_append(str) < 0)
+	if (backtrace_append(str, error_r) < 0)
 		return -1;
 
 	*backtrace_r = str_c(str);

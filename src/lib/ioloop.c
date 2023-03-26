@@ -940,8 +940,8 @@ void io_loop_destroy(struct ioloop **_ioloop)
 	}
 
 	if (leaks) {
-		const char *backtrace;
-		if (backtrace_get(&backtrace) == 0)
+		const char *backtrace, *error;
+		if (backtrace_get(&backtrace, &error) == 0)
 			i_warning("Raw backtrace for leaks: %s", backtrace);
 	}
 
