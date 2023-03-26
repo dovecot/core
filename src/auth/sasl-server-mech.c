@@ -262,3 +262,93 @@ void sasl_server_mech_unregister(struct sasl_server_instance *sinst,
 
 	sasl_server_mech_reg_free(mech_reg);
 }
+
+/*
+ * Iterator
+ */
+
+struct sasl_server_mech_iter_prv {
+	struct sasl_server_mech_iter iter;
+
+	union {
+		struct sasl_server_mech_reg *reg;
+		struct sasl_server_mech_def_reg *def_reg;
+	};
+
+	bool instance:1;
+	bool ended:1;
+};
+
+struct sasl_server_mech_iter *
+sasl_server_mech_iter_new(struct sasl_server *server)
+{
+	struct sasl_server_mech_iter_prv *iterp;
+
+	iterp = i_new(struct sasl_server_mech_iter_prv, 1);
+	iterp->def_reg = server->mechs_head;
+
+	return &iterp->iter;
+}
+
+struct sasl_server_mech_iter *
+sasl_server_instance_mech_iter_new(struct sasl_server_instance *sinst)
+{
+	struct sasl_server_mech_iter_prv *iterp;
+
+	iterp = i_new(struct sasl_server_mech_iter_prv, 1);
+	iterp->reg = sinst->mechs_head;
+	iterp->instance = TRUE;
+
+	return &iterp->iter;
+}
+
+bool sasl_server_mech_iter_next(struct sasl_server_mech_iter *iter)
+{
+	struct sasl_server_mech_iter_prv *iterp =
+		container_of(iter, struct sasl_server_mech_iter_prv, iter);
+	const struct sasl_server_mech_def *def;
+
+	if (!iterp->instance) {
+		if (iterp->def_reg == NULL) {
+			iterp->ended = TRUE;
+			return FALSE;
+		}
+		def = iterp->def_reg->def;
+		iterp->def_reg = iterp->def_reg->next;
+	} else {
+		if (iterp->reg == NULL) {
+			iterp->ended = TRUE;
+			return FALSE;
+		}
+		def = iterp->reg->mech->def;
+		iterp->reg = iterp->reg->next;
+	}
+
+	iterp->iter.name = def->name;
+	iterp->iter.flags = def->flags;
+	iterp->iter.passdb_need = def->passdb_need;
+
+	return TRUE;
+}
+
+bool sasl_server_mech_iter_ended(struct sasl_server_mech_iter *iter)
+{
+	struct sasl_server_mech_iter_prv *iterp =
+		container_of(iter, struct sasl_server_mech_iter_prv, iter);
+
+	return iterp->ended;
+}
+
+void sasl_server_mech_iter_free(struct sasl_server_mech_iter **_iter)
+{
+	struct sasl_server_mech_iter *iter = *_iter;
+
+	if (iter == NULL)
+		return;
+	*_iter = NULL;
+
+	struct sasl_server_mech_iter_prv *iterp =
+		container_of(iter, struct sasl_server_mech_iter_prv, iter);
+
+	i_free(iterp);
+}

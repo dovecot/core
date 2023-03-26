@@ -153,6 +153,13 @@ void sasl_server_request_test_set_authid(struct sasl_server_req_ctx *rctx,
  * Mechanism
  */
 
+struct sasl_server_mech_iter {
+	const char *name;
+
+	enum sasl_mech_security_flags flags;
+	enum sasl_mech_passdb_need passdb_need;
+};
+
 const char * ATTR_PURE
 sasl_server_mech_get_name(const struct sasl_server_mech *mech);
 enum sasl_mech_security_flags ATTR_PURE
@@ -162,6 +169,14 @@ sasl_server_mech_get_passdb_need(const struct sasl_server_mech *mech);
 
 const struct sasl_server_mech *
 sasl_server_mech_find(struct sasl_server_instance *sinst, const char *name);
+
+struct sasl_server_mech_iter *
+sasl_server_mech_iter_new(struct sasl_server *server);
+struct sasl_server_mech_iter *
+sasl_server_instance_mech_iter_new(struct sasl_server_instance *sinst);
+bool sasl_server_mech_iter_next(struct sasl_server_mech_iter *iter);
+bool sasl_server_mech_iter_ended(struct sasl_server_mech_iter *iter);
+void sasl_server_mech_iter_free(struct sasl_server_mech_iter **_iter);
 
 /*
  * Instance
