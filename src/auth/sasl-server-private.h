@@ -22,6 +22,19 @@ struct sasl_server_request {
 struct sasl_server_mech_reg {
 	struct sasl_server_mech *mech;
 	struct sasl_server_mech_reg *prev, *next;
+
+	struct sasl_server_mech_def_reg *def_reg;
+	struct sasl_server_mech_reg *def_prev, *def_next;
+};
+
+struct sasl_server_mech_def_reg {
+	const struct sasl_server_mech_def *def;
+	unsigned int refcount;
+	struct sasl_server_mech_def_reg *prev, *next;
+
+	struct sasl_server_mech_data *data;
+
+	struct sasl_server_mech_reg *insts;
 };
 
 struct sasl_server_instance {
@@ -44,6 +57,8 @@ struct sasl_server {
 	const struct sasl_server_request_funcs *funcs;
 
 	struct sasl_server_instance *instances;
+
+	struct sasl_server_mech_def_reg *mechs_head, *mechs_tail;
 
 	unsigned int requests;
 };

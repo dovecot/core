@@ -49,6 +49,64 @@ void sasl_server_mech_generic_auth_initial(
  * Registry
  */
 
+static struct sasl_server_mech_def_reg *
+sasl_server_mech_find_def(struct sasl_server *server,
+			  const struct sasl_server_mech_def *def)
+{
+	struct sasl_server_mech_def_reg *mech_dreg;
+
+	mech_dreg = server->mechs_head;
+	while (mech_dreg != NULL) {
+		if (mech_dreg->def == def)
+			break;
+		mech_dreg = mech_dreg->next;
+	}
+
+	return mech_dreg;
+}
+
+static struct sasl_server_mech_def_reg *
+sasl_server_mech_find_def_by_name(struct sasl_server *server,
+				  const char *mech_name)
+{
+	struct sasl_server_mech_def_reg *mech_dreg;
+
+	mech_dreg = server->mechs_head;
+	while (mech_dreg != NULL) {
+		if (strcmp(mech_dreg->def->name, mech_name) == 0)
+			break;
+		mech_dreg = mech_dreg->next;
+	}
+
+	return mech_dreg;
+}
+
+static struct sasl_server_mech_def_reg *
+sasl_server_mech_register_def(struct sasl_server *server,
+			      const struct sasl_server_mech_def *def)
+{
+	struct sasl_server_mech_def_reg *mech_dreg;
+
+	i_assert(def->funcs != NULL);
+	i_assert(strcmp(def->name, t_str_ucase(def->name)) == 0);
+
+	mech_dreg = sasl_server_mech_find_def(server, def);
+	if (mech_dreg != NULL) {
+		i_assert(mech_dreg->refcount > 0);
+		mech_dreg->refcount++;
+		return mech_dreg;
+	}
+
+	i_assert(sasl_server_mech_find_def_by_name(server, def->name) == NULL);
+
+	mech_dreg = p_new(server->pool, struct sasl_server_mech_def_reg, 1);
+	mech_dreg->def = def;
+	mech_dreg->refcount = 1;
+
+	DLLIST2_APPEND(&server->mechs_head, &server->mechs_tail, mech_dreg);
+	return mech_dreg;
+}
+
 static struct sasl_server_mech_reg *
 sasl_server_mech_reg_find(struct sasl_server_instance *sinst, const char *name)
 {
@@ -57,7 +115,7 @@ sasl_server_mech_reg_find(struct sasl_server_instance *sinst, const char *name)
 
 	for (mech_reg = sinst->mechs_head; mech_reg != NULL;
 	     mech_reg = mech_reg->next) {
-		if (strcmp(mech_reg->mech->def->name, name) == 0)
+		if (strcmp(mech_reg->def_reg->def->name, name) == 0)
 			return mech_reg;
 	}
 	return NULL;
@@ -92,12 +150,18 @@ static struct sasl_server_mech *
 sasl_server_mech_register_common(struct sasl_server_instance *sinst,
 				 const struct sasl_server_mech_def *def)
 {
+	struct sasl_server_mech_def_reg *mech_dreg;
 	struct sasl_server_mech_reg *mech_reg;
 	struct sasl_server_mech *mech;
 
 	i_assert(sasl_server_mech_reg_find(sinst, def->name) == NULL);
 
+	mech_dreg = sasl_server_mech_register_def(sinst->server, def);
+
 	mech_reg = p_new(sinst->pool, struct sasl_server_mech_reg, 1);
+	mech_reg->def_reg = mech_dreg;
+
+	DLLIST_PREPEND_FULL(&mech_dreg->insts, mech_reg, def_prev, def_next);
 
 	mech = sasl_server_mech_create(sinst, def);
 	mech->reg = mech_reg;
@@ -141,6 +205,25 @@ sasl_server_mech_find(struct sasl_server_instance *sinst, const char *name)
 	return mech_reg->mech;
 }
 
+static void sasl_server_mech_reg_free(struct sasl_server_mech_reg *mech_reg)
+{
+	struct sasl_server_mech *mech = mech_reg->mech;
+	struct sasl_server_mech_def_reg *mech_dreg = mech_reg->def_reg;
+
+	i_assert(mech_dreg->def == mech->def);
+	DLLIST_REMOVE_FULL(&mech_dreg->insts, mech_reg, def_prev, def_next);
+	mech_reg->mech = NULL;
+	sasl_server_mech_free(mech);
+
+	if (mech_dreg->insts == NULL) {
+		struct sasl_server *server = mech->sinst->server;
+
+		DLLIST2_REMOVE(&server->mechs_head, &server->mechs_tail,
+			       mech_dreg);
+		mech_dreg->def = NULL;
+	}
+}
+
 static struct sasl_server_mech_reg *
 sasl_server_mech_reg_list_find(struct sasl_server_mech_reg *mech_reg_list,
 			       const struct sasl_server_mech_def *def)
@@ -177,5 +260,5 @@ void sasl_server_mech_unregister(struct sasl_server_instance *sinst,
 	if (mech_reg == NULL)
 		return;
 
-	sasl_server_mech_free(mech_reg->mech);
+	sasl_server_mech_reg_free(mech_reg);
 }
