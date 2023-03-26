@@ -46,6 +46,15 @@ struct mechanisms_register {
 	buffer_t *handshake_cbind;
 };
 
+struct sasl_server_mech {
+	struct sasl_server_instance *sinst;
+	struct sasl_server_mech_reg *reg;
+	pool_t pool;
+	struct event *event;
+
+	const struct sasl_server_mech_def *def;
+};
+
 struct sasl_server_mech_request {
 	pool_t pool;
 	const struct sasl_server_mech_def *mech;
@@ -67,6 +76,15 @@ struct sasl_server_mech_request {
  */
 
 extern const struct sasl_server_mech_def mech_dovecot_token;
+
+struct sasl_server_mech * ATTR_NOWARN_UNUSED_RESULT
+sasl_server_mech_register(struct sasl_server_instance *sinst,
+			  const struct sasl_server_mech_def *def);
+struct sasl_server_mech * ATTR_NOWARN_UNUSED_RESULT
+sasl_server_mech_register_hidden(struct sasl_server_instance *sinst,
+				 const struct sasl_server_mech_def *def);
+void sasl_server_mech_unregister(struct sasl_server_instance *sinst,
+				 const struct sasl_server_mech_def *def);
 
 void mech_register_module(const struct sasl_server_mech_def *module);
 void mech_unregister_module(const struct sasl_server_mech_def *module);

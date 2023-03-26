@@ -5,6 +5,7 @@
 
 struct sasl_passdb_result;
 struct sasl_server_mech_def;
+struct sasl_server_mech;
 struct sasl_server_request;
 struct sasl_server_req_ctx;
 struct sasl_server_instance;
@@ -147,6 +148,20 @@ void sasl_server_request_input(struct sasl_server_req_ctx *rctx,
 // FIXME: get rid of this
 void sasl_server_request_test_set_authid(struct sasl_server_req_ctx *rctx,
 					 const char *authid);
+
+/*
+ * Mechanism
+ */
+
+const char * ATTR_PURE
+sasl_server_mech_get_name(const struct sasl_server_mech *mech);
+enum sasl_mech_security_flags ATTR_PURE
+sasl_server_mech_get_security_flags(const struct sasl_server_mech *mech);
+enum sasl_mech_passdb_need ATTR_PURE
+sasl_server_mech_get_passdb_need(const struct sasl_server_mech *mech);
+
+const struct sasl_server_mech *
+sasl_server_mech_find(struct sasl_server_instance *sinst, const char *name);
 
 /*
  * Instance

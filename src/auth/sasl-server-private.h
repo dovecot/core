@@ -19,6 +19,11 @@ struct sasl_server_request {
 	sasl_server_mech_passdb_callback_t *passdb_callback;
 };
 
+struct sasl_server_mech_reg {
+	struct sasl_server_mech *mech;
+	struct sasl_server_mech_reg *prev, *next;
+};
+
 struct sasl_server_instance {
 	struct sasl_server *server;
 	pool_t pool;
@@ -26,6 +31,9 @@ struct sasl_server_instance {
 	struct sasl_server_instance *prev, *next;
 	struct event *event;
 	struct sasl_server_settings set;
+
+	struct sasl_server_mech_reg *mechs_head, *mechs_tail;
+	struct sasl_server_mech_reg *mechs_hidden;
 
 	unsigned int requests;
 };
