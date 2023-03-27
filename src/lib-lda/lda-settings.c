@@ -54,7 +54,8 @@ static const struct setting_parser_info *lda_setting_dependencies[] = {
 };
 
 const struct setting_parser_info lda_setting_parser_info = {
-	.module_name = "lda",
+	.name = "lda",
+
 	.defines = lda_setting_defines,
 	.defaults = &lda_default_settings,
 

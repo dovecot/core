@@ -86,7 +86,8 @@ static const struct setting_parser_info *imap_urlauth_setting_dependencies[] = {
 };
 
 const struct setting_parser_info imap_urlauth_setting_parser_info = {
-	.module_name = "imap-urlauth",
+	.name = "imap_urlauth",
+
 	.defines = imap_urlauth_setting_defines,
 	.defaults = &imap_urlauth_default_settings,
 

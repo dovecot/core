@@ -97,7 +97,8 @@ static bool pop3c_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 /* </settings checks> */
 
 const struct setting_parser_info pop3c_setting_parser_info = {
-	.module_name = "pop3c",
+	.name = "pop3c",
+
 	.defines = pop3c_setting_defines,
 	.defaults = &pop3c_default_settings,
 

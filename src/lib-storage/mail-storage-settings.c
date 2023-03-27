@@ -153,7 +153,8 @@ const struct mail_storage_settings mail_storage_default_settings = {
 };
 
 const struct setting_parser_info mail_storage_setting_parser_info = {
-	.module_name = "mail",
+	.name = "mail_storage",
+
 	.defines = mail_storage_setting_defines,
 	.defaults = &mail_storage_default_settings,
 
@@ -192,6 +193,8 @@ const struct mailbox_settings mailbox_default_settings = {
 };
 
 const struct setting_parser_info mailbox_setting_parser_info = {
+	.name = "mailbox",
+
 	.defines = mailbox_setting_defines,
 	.defaults = &mailbox_default_settings,
 
@@ -254,6 +257,8 @@ const struct mail_namespace_settings mail_namespace_default_settings = {
 };
 
 const struct setting_parser_info mail_namespace_setting_parser_info = {
+	.name = "mail_namespace",
+
 	.defines = mail_namespace_setting_defines,
 	.defaults = &mail_namespace_default_settings,
 
@@ -329,7 +334,8 @@ static const struct mail_user_settings mail_user_default_settings = {
 };
 
 const struct setting_parser_info mail_user_setting_parser_info = {
-	.module_name = "mail",
+	.name = "mail_user",
+
 	.defines = mail_user_setting_defines,
 	.defaults = &mail_user_default_settings,
 

@@ -103,6 +103,8 @@ static const struct stats_exporter_settings stats_exporter_default_settings = {
 };
 
 const struct setting_parser_info stats_exporter_setting_parser_info = {
+	.name = "stats_exporter",
+
 	.defines = stats_exporter_setting_defines,
 	.defaults = &stats_exporter_default_settings,
 
@@ -142,6 +144,8 @@ static const struct stats_metric_settings stats_metric_default_settings = {
 };
 
 const struct setting_parser_info stats_metric_setting_parser_info = {
+	.name = "stats_metric",
+
 	.defines = stats_metric_setting_defines,
 	.defaults = &stats_metric_default_settings,
 
@@ -180,7 +184,8 @@ const struct stats_settings stats_default_settings = {
 };
 
 const struct setting_parser_info stats_setting_parser_info = {
-	.module_name = "stats",
+	.name = "stats",
+
 	.defines = stats_setting_defines,
 	.defaults = &stats_default_settings,
 

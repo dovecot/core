@@ -23,7 +23,8 @@ static const struct setting_parser_info *fs_crypt_setting_dependencies[] = {
 };
 
 const struct setting_parser_info fs_crypt_setting_parser_info = {
-	.module_name = "fs-crypt",
+	.name = "fs_crypt",
+
 	.defines = fs_crypt_setting_defines,
 	.defaults = &fs_crypt_default_settings,
 

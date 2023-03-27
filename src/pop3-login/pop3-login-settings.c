@@ -85,7 +85,8 @@ static const struct setting_parser_info *pop3_login_setting_dependencies[] = {
 };
 
 const struct setting_parser_info pop3_login_setting_parser_info = {
-	.module_name = "pop3-login",
+	.name = "pop3_login",
+
 	.defines = pop3_login_setting_defines,
 
 	.dependencies = pop3_login_setting_dependencies

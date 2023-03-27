@@ -92,9 +92,12 @@ foreach my $file (@ARGV) {
     }
     
     if ($state == 1 || $state == 3) {
-      if ($state == 1) {
-	if (/\.module_name = "(.*)"/) {
+      if ($state == 1 && $cur_name ne "") {
+	if (/\.name = "(.*)"/) {
 	  $parsers{$cur_name} = $1;
+	}
+	if (/\.parent = /) {
+	  delete($parsers{$cur_name});
 	}
 	if (/DEFLIST.*".*",(.*)$/) {
 	  my $value = $1;
@@ -116,6 +119,7 @@ foreach my $file (@ARGV) {
       $write = 1;
       if (/};/) {
 	$state = 0;
+	$cur_name = "";
 	if ($state_ifdef) {
 	  $_ .= "#endif\n";
 	  $state_ifdef = 0;

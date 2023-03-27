@@ -26,7 +26,8 @@ static const struct mdbox_settings mdbox_default_settings = {
 };
 
 const struct setting_parser_info mdbox_setting_parser_info = {
-	.module_name = "mdbox",
+	.name = "mdbox",
+
 	.defines = mdbox_setting_defines,
 	.defaults = &mdbox_default_settings,
 

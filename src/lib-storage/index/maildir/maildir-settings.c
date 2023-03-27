@@ -28,7 +28,8 @@ static const struct maildir_settings maildir_default_settings = {
 };
 
 const struct setting_parser_info maildir_setting_parser_info = {
-	.module_name = "maildir",
+	.name = "maildir",
+
 	.defines = maildir_setting_defines,
 	.defaults = &maildir_default_settings,
 

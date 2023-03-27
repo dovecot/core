@@ -98,7 +98,9 @@ struct setting_define {
 	SETTING_DEFINE_STRUCT_TYPE(SET_ENUM, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
 
 struct setting_parser_info {
-	const char *module_name;
+	/* Unique name for the settings struct */
+	const char *name;
+
 	const struct setting_define *defines;
 	const void *defaults;
 

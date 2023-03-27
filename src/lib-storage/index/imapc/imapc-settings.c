@@ -64,7 +64,8 @@ static const struct imapc_settings imapc_default_settings = {
 };
 
 const struct setting_parser_info imapc_setting_parser_info = {
-	.module_name = "imapc",
+	.name = "imapc",
+
 	.defines = imapc_setting_defines,
 	.defaults = &imapc_default_settings,
 

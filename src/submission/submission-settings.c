@@ -157,7 +157,8 @@ static const struct setting_parser_info *submission_setting_dependencies[] = {
 };
 
 const struct setting_parser_info submission_setting_parser_info = {
-	.module_name = "submission",
+	.name = "submission",
+
 	.defines = submission_setting_defines,
 	.defaults = &submission_default_settings,
 

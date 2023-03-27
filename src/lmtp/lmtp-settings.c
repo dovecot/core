@@ -111,7 +111,8 @@ static const struct setting_parser_info *lmtp_setting_dependencies[] = {
 };
 
 const struct setting_parser_info lmtp_setting_parser_info = {
-	.module_name = "lmtp",
+	.name = "lmtp",
+
 	.defines = lmtp_setting_defines,
 	.defaults = &lmtp_default_settings,
 

@@ -77,7 +77,8 @@ static const struct login_settings login_default_settings = {
 };
 
 const struct setting_parser_info login_setting_parser_info = {
-	.module_name = "login",
+	.name = "login",
+
 	.defines = login_setting_defines,
 	.defaults = &login_default_settings,
 

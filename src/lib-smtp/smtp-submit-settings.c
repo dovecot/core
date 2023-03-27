@@ -43,7 +43,8 @@ static const struct smtp_submit_settings smtp_submit_default_settings = {
 };
 
 const struct setting_parser_info smtp_submit_setting_parser_info = {
-	.module_name = "smtp-submit",
+	.name = "smtp_submit",
+
 	.defines = smtp_submit_setting_defines,
 	.defaults = &smtp_submit_default_settings,
 

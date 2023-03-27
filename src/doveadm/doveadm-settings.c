@@ -128,7 +128,8 @@ static const struct setting_parser_info *doveadm_setting_dependencies[] = {
 };
 
 const struct setting_parser_info doveadm_setting_parser_info = {
-	.module_name = "doveadm",
+	.name = "doveadm",
+
 	.defines = doveadm_setting_defines,
 	.defaults = &doveadm_default_settings,
 

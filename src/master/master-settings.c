@@ -46,6 +46,8 @@ static const struct file_listener_settings file_listener_default_settings = {
 };
 
 static const struct setting_parser_info file_listener_setting_parser_info = {
+	.name = "file_listener",
+
 	.defines = file_listener_setting_defines,
 	.defaults = &file_listener_default_settings,
 
@@ -80,6 +82,8 @@ static const struct inet_listener_settings inet_listener_default_settings = {
 };
 
 static const struct setting_parser_info inet_listener_setting_parser_info = {
+	.name = "inet_listener",
+
 	.defines = inet_listener_setting_defines,
 	.defaults = &inet_listener_default_settings,
 
@@ -153,6 +157,8 @@ static const struct service_settings service_default_settings = {
 };
 
 const struct setting_parser_info service_setting_parser_info = {
+	.name = "service",
+
 	.defines = service_setting_defines,
 	.defaults = &service_default_settings,
 
@@ -232,7 +238,8 @@ static const struct master_settings master_default_settings = {
 };
 
 const struct setting_parser_info master_setting_parser_info = {
-	.module_name = "master",
+	.name = "master",
+
 	.defines = master_setting_defines,
 	.defaults = &master_default_settings,
 

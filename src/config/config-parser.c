@@ -132,7 +132,7 @@ int config_apply_line(struct config_parser_context *ctx, const char *key,
 		if (ret > 0) {
 			found = TRUE;
 			/* FIXME: remove once auth does support these. */
-			if (strcmp(l->root->module_name, "auth") == 0 &&
+			if (strcmp(l->root->name, "auth") == 0 &&
 			    config_parser_is_in_localremote(ctx->cur_section)) {
 				ctx->error = p_strconcat(ctx->pool,
 					"Auth settings not supported inside local/remote blocks: ",
@@ -1027,6 +1027,15 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 		ctx.root_parsers[i].parser =
 			settings_parser_init(ctx.pool, all_roots[i],
 					     settings_parser_flags);
+		for (unsigned int j = 0; j < i; j++) {
+			if (strcmp(all_roots[j]->name, all_roots[i]->name) == 0) {
+				/* Just fatal - it's difficult to continue
+				   correctly here, and it's not supposed to
+				   happen. */
+				i_panic("Duplicate settings struct name: %s",
+					all_roots[i]->name);
+			}
+		}
 	}
 
 	i_zero(&root);

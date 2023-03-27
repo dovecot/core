@@ -135,7 +135,8 @@ static const struct master_service_settings master_service_default_settings = {
 };
 
 const struct setting_parser_info master_service_setting_parser_info = {
-	.module_name = "master",
+	.name = "master_service",
+
 	.defines = master_service_setting_defines,
 	.defaults = &master_service_default_settings,
 
@@ -1108,7 +1109,7 @@ int master_service_settings_instance_get(struct event *event,
 	if ((flags & MASTER_SERVICE_SETTINGS_GET_FLAG_NO_CHECK) == 0) {
 		if (!settings_check(info, *pool_p, set, error_r)) {
 			*error_r = t_strdup_printf("Invalid %s settings: %s",
-						   info->module_name, *error_r);
+						   info->name, *error_r);
 			pool_unref(&set_pool);
 			event_unref(&event);
 			return -1;
@@ -1131,7 +1132,7 @@ int master_service_settings_instance_get(struct event *event,
 	if (ret <= 0) {
 		*error_r = t_strdup_printf(
 			"Failed to expand %s setting variables: %s",
-			info->module_name, *error_r);
+			info->name, *error_r);
 		pool_unref(&set_pool);
 		event_unref(&event);
 		return -1;

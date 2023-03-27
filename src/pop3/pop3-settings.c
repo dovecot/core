@@ -115,7 +115,8 @@ static const struct setting_parser_info *pop3_setting_dependencies[] = {
 };
 
 const struct setting_parser_info pop3_setting_parser_info = {
-	.module_name = "pop3",
+	.name = "pop3",
+
 	.defines = pop3_setting_defines,
 	.defaults = &pop3_default_settings,
 

@@ -25,7 +25,8 @@ static const struct setting_parser_info *quota_status_setting_dependencies[] = {
 };
 
 const struct setting_parser_info quota_status_setting_parser_info = {
-	.module_name = "mail",
+	.name = "quota_status",
+
 	.defines = quota_status_setting_defines,
 	.defaults = &quota_status_default_settings,
 

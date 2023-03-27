@@ -135,7 +135,8 @@ const struct dict_server_settings dict_default_settings = {
 };
 
 const struct setting_parser_info dict_setting_parser_info = {
-	.module_name = "dict",
+	.name = "dict",
+
 	.defines = dict_setting_defines,
 	.defaults = &dict_default_settings,
 

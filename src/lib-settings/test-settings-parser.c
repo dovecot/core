@@ -71,7 +71,7 @@ static void test_settings_parser(void)
 		SETTING_DEFINE_LIST_END
 	};
 	const struct setting_parser_info root = {
-		.module_name = "test",
+		.name = "test",
 		.defines = defs,
 		.defaults = &test_defaults,
 

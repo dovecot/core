@@ -38,7 +38,8 @@ static const struct mbox_settings mbox_default_settings = {
 };
 
 const struct setting_parser_info mbox_setting_parser_info = {
-	.module_name = "mbox",
+	.name = "mbox",
+
 	.defines = mbox_setting_defines,
 	.defaults = &mbox_default_settings,
 

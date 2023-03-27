@@ -60,7 +60,7 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 };
 
 const struct setting_parser_info master_service_ssl_setting_parser_info = {
-	.module_name = "ssl",
+	.name = "master_service_ssl",
 	.defines = master_service_ssl_setting_defines,
 	.defaults = &master_service_ssl_default_settings,
 
@@ -99,7 +99,8 @@ static const struct setting_parser_info *master_service_ssl_server_setting_depen
 };
 
 const struct setting_parser_info master_service_ssl_server_setting_parser_info = {
-	.module_name = "ssl-server",
+	.name = "master_service_ssl_server",
+
 	.defines = master_service_ssl_server_setting_defines,
 	.defaults = &master_service_ssl_server_default_settings,
 

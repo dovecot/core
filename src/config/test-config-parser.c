@@ -61,7 +61,7 @@ static const struct test_settings test_settings_defaults = {
 };
 
 const struct setting_parser_info test_settings_root = {
-	.module_name = "test",
+	.name = "test",
 	.defines = test_settings_defs,
 	.defaults = &test_settings_defaults,
 

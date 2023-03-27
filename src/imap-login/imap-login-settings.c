@@ -101,7 +101,8 @@ static const struct setting_parser_info *imap_login_setting_dependencies[] = {
 };
 
 const struct setting_parser_info imap_login_setting_parser_info = {
-	.module_name = "imap-login",
+	.name = "imap_login",
+
 	.defines = imap_login_setting_defines,
 	.defaults = &imap_login_default_settings,
 

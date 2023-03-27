@@ -137,7 +137,8 @@ static const struct setting_parser_info *imap_setting_dependencies[] = {
 };
 
 const struct setting_parser_info imap_setting_parser_info = {
-	.module_name = "imap",
+	.name = "imap",
+
 	.defines = imap_setting_defines,
 	.defaults = &imap_default_settings,
 

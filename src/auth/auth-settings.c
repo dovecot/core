@@ -191,6 +191,8 @@ static const struct auth_passdb_settings auth_passdb_default_settings = {
 };
 
 const struct setting_parser_info auth_passdb_setting_parser_info = {
+	.name = "auth_passdb",
+
 	.defines = auth_passdb_setting_defines,
 	.defaults = &auth_passdb_default_settings,
 
@@ -239,6 +241,8 @@ static const struct auth_userdb_settings auth_userdb_default_settings = {
 };
 
 const struct setting_parser_info auth_userdb_setting_parser_info = {
+	.name = "auth_userdb",
+
 	.defines = auth_userdb_setting_defines,
 	.defaults = &auth_userdb_default_settings,
 
@@ -374,7 +378,8 @@ static const struct auth_settings auth_default_settings = {
 };
 
 const struct setting_parser_info auth_setting_parser_info = {
-	.module_name = "auth",
+	.name = "auth",
+
 	.defines = auth_setting_defines,
 	.defaults = &auth_default_settings,
 

@@ -668,7 +668,7 @@ static void config_request_simple_stdout(const char *key, const char *value,
 	}
 }
 
-static const char *get_setting(const char *module, const char *name)
+static const char *get_setting(const char *info_name, const char *name)
 {
 	struct config_module_parser *l;
 	const struct setting_define *def;
@@ -676,7 +676,7 @@ static const char *get_setting(const char *module, const char *name)
 	const void *set;
 
 	for (l = config_module_parsers; l->root != NULL; l++) {
-		if (strcmp(l->root->module_name, module) != 0)
+		if (strcmp(l->root->name, info_name) != 0)
 			continue;
 
 		set = settings_parser_get_set(l->parser);
@@ -829,7 +829,7 @@ static void check_wrong_config(const char *config_path)
 {
 	const char *base_dir, *symlink_path, *prev_path, *error;
 
-	base_dir = get_setting("master", "base_dir");
+	base_dir = get_setting("master_service", "base_dir");
 	symlink_path = t_strconcat(base_dir, "/"PACKAGE".conf", NULL);
 	if (t_readlink(symlink_path, &prev_path, &error) < 0) {
 		if (errno != ENOENT)
@@ -1038,7 +1038,7 @@ int main(int argc, char *argv[])
 	} else {
 		const char *info;
 
-		info = sysinfo_get(get_setting("mail", "mail_location"));
+		info = sysinfo_get(get_setting("mail_storage", "mail_location"));
 		if (*info != '\0')
 			printf("# %s\n", info);
 		printf("# Hostname: %s\n", my_hostdomain());
