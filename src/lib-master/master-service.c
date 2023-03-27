@@ -1553,12 +1553,8 @@ static void master_service_refresh_login_state(struct master_service *service)
 		master_service_set_login_state(service, state);
 }
 
-static void master_service_deinit_real(struct master_service **_service)
+static void master_service_deinit_real(struct master_service *service)
 {
-	struct master_service *service = *_service;
-
-	*_service = NULL;
-
 	if (master_service_is_killed(service) &&
 	    (service->killed_signal != SIGINT ||
 	     (service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0))
@@ -1595,9 +1591,15 @@ static void master_service_deinit_real(struct master_service **_service)
 	master_service_unset_process_shutdown_filter(service);
 }
 
-static void master_service_free(struct master_service *service)
+static void master_service_free(struct master_service **_service)
 {
+	struct master_service *service = *_service;
 	unsigned int i;
+
+	/* This usually sets the global master_service=NULL. Do it late enough
+	   so that code relying on the global master_service won't see it
+	   NULL. */
+	*_service = NULL;
 
 	for (i = 0; i < service->socket_count; i++) {
 		i_free(service->listeners[i].name);
@@ -1619,14 +1621,14 @@ void master_service_deinit(struct master_service **_service)
 {
 	struct master_service *service = *_service;
 
-	master_service_deinit_real(_service);
+	master_service_deinit_real(service);
 
 	lib_signals_deinit();
 	/* run atexit callbacks before destroying ioloop */
 	lib_atexit_run();
 	io_loop_destroy(&service->ioloop);
 
-	master_service_free(service);
+	master_service_free(_service);
 	lib_deinit();
 }
 
@@ -1634,10 +1636,10 @@ void master_service_deinit_forked(struct master_service **_service)
 {
 	struct master_service *service = *_service;
 
-	master_service_deinit_real(_service);
+	master_service_deinit_real(service);
 	io_loop_destroy(&service->ioloop);
 
-	master_service_free(service);
+	master_service_free(_service);
 }
 
 static void master_service_overflow(struct master_service *service)
