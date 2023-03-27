@@ -544,20 +544,20 @@ auth_userdb_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 
 const struct auth_settings *global_auth_settings;
 
-const struct auth_settings *
-auth_settings_read(const char *service,
-		   struct master_service_settings_output *output_r)
+void auth_settings_read(struct master_service_settings_output *output_r)
 {
 	struct master_service_settings_input input;
 	const char *error;
 
 	i_zero(&input);
-	input.service = service;
 	input.disable_check_settings = TRUE;
 	if (master_service_settings_read(master_service, &input,
 					 output_r, &error) < 0)
 		i_fatal("%s", error);
+}
 
+const struct auth_settings *auth_settings_get(const char *service)
+{
 	struct event *event = event_create(NULL);
 	event_add_str(event, "protocol", service);
 	const struct auth_settings *set =

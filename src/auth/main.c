@@ -89,7 +89,8 @@ static const char *const *read_global_settings(void)
 {
 	struct master_service_settings_output set_output;
 
-	global_auth_settings = auth_settings_read(NULL, &set_output);
+	auth_settings_read(&set_output);
+	global_auth_settings = auth_settings_get(NULL);
 	if (set_output.specific_services == NULL)
 		return t_new(const char *, 1);
 	return set_output.specific_services;

@@ -407,7 +407,6 @@ void auths_preinit(const struct auth_settings *set,
 		   const struct mechanisms_register *reg,
 		   const char *const *services)
 {
-	struct master_service_settings_output set_output;
 	const struct auth_settings *service_set;
 	struct auth *auth;
 	unsigned int i;
@@ -431,7 +430,7 @@ void auths_preinit(const struct auth_settings *set,
 			}
 			not_service = services[i];
 		}
-		service_set = auth_settings_read(services[i], &set_output);
+		service_set = auth_settings_get(services[i]);
 		auth = auth_preinit(service_set, services[i], reg);
 		array_push_back(&auths, &auth);
 	}
