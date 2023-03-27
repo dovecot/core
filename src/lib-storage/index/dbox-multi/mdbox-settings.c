@@ -32,5 +32,4 @@ const struct setting_parser_info mdbox_setting_parser_info = {
 
 	.struct_size = sizeof(struct mdbox_settings),
 	.pool_offset1 = 1 + offsetof(struct mdbox_settings, pool),
-	.parent = &mail_user_setting_parser_info
 };

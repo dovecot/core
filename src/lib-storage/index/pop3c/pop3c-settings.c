@@ -103,7 +103,6 @@ const struct setting_parser_info pop3c_setting_parser_info = {
 
 	.struct_size = sizeof(struct pop3c_settings),
 	.pool_offset1 = 1 + offsetof(struct pop3c_settings, pool),
-	.parent = &mail_user_setting_parser_info,
 
         .check_func = pop3c_settings_check
 };
