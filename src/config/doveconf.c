@@ -687,7 +687,7 @@ static const char *get_setting(const char *module, const char *name)
 			}
 		}
 	}
-	return "";
+	i_unreached();
 }
 
 static void filter_parse_arg(struct config_filter *filter, const char *arg)
