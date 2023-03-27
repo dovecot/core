@@ -239,7 +239,7 @@ stats_event_callback(struct event *event, enum event_callback_type type,
 		return TRUE;
 	struct stats_client *client =
 		(struct stats_client *)stats_clients->connections;
-	if (client->conn.output == NULL)
+	if (client->conn.output == NULL || client->conn.output->closed)
 		return TRUE;
 
 	switch (type) {
