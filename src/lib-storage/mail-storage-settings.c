@@ -286,7 +286,7 @@ static const struct setting_define mail_user_setting_defines[] = {
 	DEF(STR, mail_plugins),
 	DEF(STR, mail_plugin_dir),
 
-	DEF(STR, mail_log_prefix),
+	DEF(STR_VARS, mail_log_prefix),
 
 	DEF(STR, hostname),
 	DEF(STR_VARS, postmaster_address),

@@ -806,19 +806,6 @@ mail_storage_service_var_expand_func_table[] = {
 	{ NULL, NULL }
 };
 
-static int
-mail_storage_service_var_expand(struct mail_storage_service_ctx *ctx,
-				string_t *str, const char *format,
-				struct mail_storage_service_user *user,
-				const struct mail_storage_service_input *input,
-				const struct mail_storage_service_privileges *priv,
-				const char **error_r)
-{
-	return var_expand_with_funcs(str, format,
-		   get_var_expand_table(ctx->service, user, input, priv),
-		   mail_storage_service_var_expand_func_table, user, error_r);
-}
-
 static void
 mail_storage_service_var_expand_callback(struct event *event,
 					 const struct var_expand_table **tab_r,
@@ -855,20 +842,9 @@ mail_storage_service_user_get_username(const struct mail_storage_service_user *u
 
 static void
 mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
-			      struct mail_storage_service_user *user,
-			      struct mail_storage_service_privileges *priv)
+			      struct mail_storage_service_user *user)
 {
-	const char *error;
-
-	T_BEGIN {
-		string_t *str;
-
-		str = t_str_new(256);
-		(void)mail_storage_service_var_expand(ctx, str,
-			user->user_set->mail_log_prefix,
-			user, &user->input, priv, &error);
-		user->log_prefix = p_strdup(user->pool, str_c(str));
-	} T_END;
+	user->log_prefix = user->user_set->mail_log_prefix;
 	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) != 0)
 		return;
 
@@ -1145,22 +1121,6 @@ static int extra_field_key_cmp_p(const char *const *s1, const char *const *s2)
 	return *p1 - *p2;
 }
 
-static void
-mail_storage_service_set_log_prefix(struct mail_storage_service_ctx *ctx,
-				    const struct mail_user_settings *user_set,
-				    struct mail_storage_service_user *user,
-				    const struct mail_storage_service_input *input,
-				    const struct mail_storage_service_privileges *priv)
-{
-	string_t *str;
-	const char *error;
-
-	str = t_str_new(256);
-	(void)mail_storage_service_var_expand(ctx, str, user_set->mail_log_prefix,
-					      user, input, priv, &error);
-	i_set_failure_prefix("%s", str_c(str));
-}
-
 static const char *
 mail_storage_service_generate_session_id(pool_t pool, const char *prefix)
 {
@@ -1254,7 +1214,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	}
 
 	if (update_log_prefix)
-		mail_storage_service_set_log_prefix(ctx, user_set, NULL, input, NULL);
+		i_set_failure_prefix("%s", user_set->mail_log_prefix);
 
 	if (ctx->conn == NULL)
 		mail_storage_service_first_init(ctx, user_set, flags);
@@ -1492,7 +1452,7 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 		set_keyval(ctx, user, "mail_home", priv.home);
 	}
 
-	mail_storage_service_init_log(ctx, user, &priv);
+	mail_storage_service_init_log(ctx, user);
 
 	/* create ioloop context regardless of logging. it's also used by
 	   stats plugin. */
@@ -1559,9 +1519,6 @@ int mail_storage_service_next_with_session_suffix(struct mail_storage_service_ct
 	char *old_log_prefix = i_strdup(i_get_failure_prefix());
 	int ret;
 
-	mail_storage_service_set_log_prefix(ctx, user->user_set, user,
-					    &user->input, NULL);
-	i_set_failure_prefix("%s", old_log_prefix);
 	T_BEGIN {
 		ret = mail_storage_service_next_real(ctx, user,
 						     session_id_suffix,
