@@ -417,6 +417,13 @@ void config_export_set_parsers(struct config_export_context *ctx,
 	ctx->parsers = parsers;
 }
 
+unsigned int config_export_get_parser_count(struct config_export_context *ctx)
+{
+	unsigned int i = 0;
+	for (i = 0; ctx->parsers[i].root != NULL; i++) ;
+	return i;
+}
+
 void config_export_get_output(struct config_export_context *ctx,
 			      struct master_service_settings_output *output_r)
 {
@@ -474,39 +481,54 @@ int config_export_all_parsers(struct config_export_context **_ctx,
 			      unsigned int *section_idx)
 {
 	struct config_export_context *ctx = *_ctx;
-	const struct config_module_parser *parser;
 	const char *error;
 	unsigned int i;
 	int ret = 0;
 
 	*_ctx = NULL;
 
-	ctx->section_idx = *section_idx;
 	for (i = 0; ctx->parsers[i].root != NULL; i++) {
-		parser = &ctx->parsers[i];
-
-		T_BEGIN {
-			void *set = settings_parser_get_set(parser->parser);
-			settings_export(ctx, parser->root, FALSE, set,
-					settings_parser_get_changes(parser->parser));
-		} T_END;
-
-		if ((ctx->flags & CONFIG_DUMP_FLAG_CHECK_SETTINGS) != 0) {
-			settings_parse_var_skip(parser->parser);
-			if (!settings_parser_check(parser->parser, ctx->pool,
-						   &error)) {
-				if ((ctx->flags & CONFIG_DUMP_FLAG_CALLBACK_ERRORS) != 0) {
-					ctx->callback(NULL, error, CONFIG_KEY_ERROR,
-						      ctx->context);
-				} else {
-					i_error("%s", error);
-					ret = -1;
-					break;
-				}
+		if (config_export_parser(ctx, i, section_idx, &error) < 0) {
+			if ((ctx->flags & CONFIG_DUMP_FLAG_CALLBACK_ERRORS) != 0) {
+				ctx->callback(NULL, error, CONFIG_KEY_ERROR,
+					      ctx->context);
+			} else {
+				i_error("%s", error);
+				ret = -1;
+				break;
 			}
 		}
 	}
-	*section_idx = ctx->section_idx;
 	config_export_free(&ctx);
+	return ret;
+}
+
+const struct setting_parser_info *
+config_export_parser_get_info(struct config_export_context *ctx,
+			      unsigned int parser_idx)
+{
+	return ctx->parsers[parser_idx].root;
+}
+
+int config_export_parser(struct config_export_context *ctx,
+			 unsigned int parser_idx,
+			 unsigned int *section_idx, const char **error_r)
+{
+	const struct config_module_parser *parser = &ctx->parsers[parser_idx];
+	int ret = 0;
+
+	ctx->section_idx = *section_idx;
+	T_BEGIN {
+		void *set = settings_parser_get_set(parser->parser);
+		settings_export(ctx, parser->root, FALSE, set,
+				settings_parser_get_changes(parser->parser));
+	} T_END;
+
+	if ((ctx->flags & CONFIG_DUMP_FLAG_CHECK_SETTINGS) != 0) {
+		settings_parse_var_skip(parser->parser);
+		if (!settings_parser_check(parser->parser, ctx->pool, error_r))
+			ret = -1;
+	}
+	*section_idx = ctx->section_idx;
 	return ret;
 }
