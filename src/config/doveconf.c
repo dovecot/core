@@ -338,7 +338,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 
 	setting_name_filter_len = setting_name_filter == NULL ? 0 :
 		strlen(setting_name_filter);
-	if (config_export_finish(&ctx->export_ctx, &section_idx) < 0)
+	if (config_export_all_parsers(&ctx->export_ctx, &section_idx) < 0)
 		return -1;
 
 	array_sort(&ctx->strings, config_string_cmp);
@@ -619,7 +619,7 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 
 	ctx = config_dump_human_init(scope, FALSE);
 	config_export_by_filter(ctx->export_ctx, filter);
-	if (config_export_finish(&ctx->export_ctx, &section_idx) < 0)
+	if (config_export_all_parsers(&ctx->export_ctx, &section_idx) < 0)
 		return -1;
 
 	len = strlen(setting_name_filter);
@@ -1022,7 +1022,7 @@ int main(int argc, char *argv[])
 					 config_request_simple_stdout,
 					 setting_name_filters);
 		config_export_by_filter(ctx, &filter);
-		ret2 = config_export_finish(&ctx, &section_idx);
+		ret2 = config_export_all_parsers(&ctx, &section_idx);
 	} else if (setting_name_filters != NULL) {
 		ret2 = 0;
 		/* ignore settings-check failures in configuration. this allows

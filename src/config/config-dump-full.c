@@ -130,7 +130,7 @@ config_dump_full_sections(struct ostream *output,
 				config_dump_full_callback, &dump_ctx);
 		}
 		config_export_parsers(export_ctx, (*filters)->parsers);
-		ret = config_export_finish(&export_ctx, &section_idx);
+		ret = config_export_all_parsers(&export_ctx, &section_idx);
 		if (ret == 0 && dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
 			/* write the filter blob size */
 			blob_size = cpu64_to_be(output->offset - start_offset);
@@ -198,7 +198,7 @@ int config_dump_full(enum config_dump_full_dest dest,
 		fd = safe_mkstemp(path, 0700, (uid_t)-1, (gid_t)-1);
 		if (fd == -1) {
 			i_error("safe_mkstemp(%s) failed: %m", str_c(path));
-			(void)config_export_finish(&export_ctx, &section_idx);
+			(void)config_export_all_parsers(&export_ctx, &section_idx);
 			str_free(&dump_ctx.delayed_output);
 			return -1;
 		}
@@ -223,7 +223,7 @@ int config_dump_full(enum config_dump_full_dest dest,
 		o_stream_nsend(output, &blob_size, sizeof(blob_size));
 	}
 
-	if (config_export_finish(&export_ctx, &section_idx) < 0)
+	if (config_export_all_parsers(&export_ctx, &section_idx) < 0)
 		failed = TRUE;
 	else if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
 		blob_size = cpu64_to_be(output->offset - blob_size_offset);

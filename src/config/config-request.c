@@ -467,8 +467,8 @@ static void config_export_free(struct config_export_context *ctx)
 	pool_unref(&ctx->pool);
 }
 
-int config_export_finish(struct config_export_context **_ctx,
-			 unsigned int *section_idx)
+int config_export_all_parsers(struct config_export_context **_ctx,
+			      unsigned int *section_idx)
 {
 	struct config_export_context *ctx = *_ctx;
 	const struct config_module_parser *parser;
