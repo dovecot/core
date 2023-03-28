@@ -27,8 +27,6 @@ struct config_export_context {
 	struct config_module_parser *dup_parsers;
 	struct master_service_settings_output output;
 	unsigned int section_idx;
-
-	bool failed;
 };
 
 static void config_export_size(string_t *str, uoff_t size)
@@ -398,8 +396,8 @@ config_export_init(enum config_dump_scope scope,
 	return ctx;
 }
 
-void config_export_by_filter(struct config_export_context *ctx,
-			     const struct config_filter *filter)
+int config_export_by_filter(struct config_export_context *ctx,
+			    const struct config_filter *filter)
 {
 	const char *error;
 
@@ -407,9 +405,10 @@ void config_export_by_filter(struct config_export_context *ctx,
 				      &ctx->dup_parsers, &ctx->output,
 				      &error) < 0) {
 		i_error("%s", error);
-		ctx->failed = TRUE;
+		return -1;
 	}
 	ctx->parsers = ctx->dup_parsers;
+	return 0;
 }
 
 void config_export_parsers(struct config_export_context *ctx,
@@ -481,11 +480,6 @@ int config_export_all_parsers(struct config_export_context **_ctx,
 	int ret = 0;
 
 	*_ctx = NULL;
-
-	if (ctx->failed) {
-		config_export_free(&ctx);
-		return -1;
-	}
 
 	ctx->section_idx = *section_idx;
 	for (i = 0; ctx->parsers[i].root != NULL; i++) {
