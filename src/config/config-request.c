@@ -459,8 +459,12 @@ const char *config_export_get_base_dir(struct config_export_context *ctx)
 	i_unreached();
 }
 
-static void config_export_free(struct config_export_context *ctx)
+void config_export_free(struct config_export_context **_ctx)
 {
+	struct config_export_context *ctx = *_ctx;
+
+	*_ctx = NULL;
+
 	if (ctx->dup_parsers != NULL)
 		config_filter_parsers_free(ctx->dup_parsers);
 	hash_table_destroy(&ctx->keys);
@@ -479,7 +483,7 @@ int config_export_all_parsers(struct config_export_context **_ctx,
 	*_ctx = NULL;
 
 	if (ctx->failed) {
-		config_export_free(ctx);
+		config_export_free(&ctx);
 		return -1;
 	}
 
@@ -509,6 +513,6 @@ int config_export_all_parsers(struct config_export_context **_ctx,
 		}
 	}
 	*section_idx = ctx->section_idx;
-	config_export_free(ctx);
+	config_export_free(&ctx);
 	return ret;
 }

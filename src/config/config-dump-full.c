@@ -198,7 +198,7 @@ int config_dump_full(enum config_dump_full_dest dest,
 		fd = safe_mkstemp(path, 0700, (uid_t)-1, (gid_t)-1);
 		if (fd == -1) {
 			i_error("safe_mkstemp(%s) failed: %m", str_c(path));
-			(void)config_export_all_parsers(&export_ctx, &section_idx);
+			config_export_free(&export_ctx);
 			str_free(&dump_ctx.delayed_output);
 			return -1;
 		}

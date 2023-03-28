@@ -55,5 +55,6 @@ config_export_get_import_environment(struct config_export_context *ctx);
 const char *config_export_get_base_dir(struct config_export_context *ctx);
 int config_export_all_parsers(struct config_export_context **ctx,
 			      unsigned int *section_idx);
+void config_export_free(struct config_export_context **ctx);
 
 #endif
