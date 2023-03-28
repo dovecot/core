@@ -12,17 +12,62 @@
 #include <stdio.h>
 #include <unistd.h>
 
+/*
+   Config binary file format:
+
+   The settings size numbers do not include the size integer itself.
+
+   "DOVECOT-CONFIG\t1.0\n"
+   <64bit big-endian: settings full size>
+   Repeat until "settings full size" is reached:
+     <64bit big-endian: settings block size>
+     <NUL-terminated string: setting block name>
+
+     <64bit big-endian: base settings size>
+     <NUL-terminated string: error string - if client attempts to access this
+                             settings block, it must fail with this error.
+			     NUL = no error, followed by settings>
+     Repeat until "base settings size" is reached:
+       <NUL-terminated string: key>
+       <NUL-terminated string: value>
+
+     Repeat until "settings block size" is reached:
+       <64bit big-endian: filter settings size>
+       <NUL-terminated string: event filter>
+       <NUL-terminated string: error string>
+       Repeat until "filter settings size" is reached:
+	 <NUL-terminated string: key>
+	 <NUL-terminated string: value>
+*/
+
 struct dump_context {
 	struct ostream *output;
 	string_t *delayed_output;
+
+	const struct config_filter *filter;
+	bool filter_written;
 };
 
-static void
-config_dump_full_write_filter(struct ostream *output,
-			      const struct config_filter *filter,
-			      enum config_dump_full_dest dest)
+static int output_blob_size(struct ostream *output, uoff_t blob_size_offset)
 {
-	string_t *str = t_str_new(128);
+	i_assert(output->offset >= blob_size_offset + sizeof(uint64_t));
+	uint64_t blob_size = cpu64_to_be(output->offset -
+					 (blob_size_offset + sizeof(uint64_t)));
+	if (o_stream_pwrite(output, &blob_size, sizeof(blob_size),
+			    blob_size_offset) < 0) {
+		i_error("o_stream_pwrite(%s) failed: %s",
+			o_stream_get_name(output),
+			o_stream_get_error(output));
+		return -1;
+	}
+	return 0;
+}
+
+static void
+config_dump_full_append_filter(string_t *str,
+			       const struct config_filter *filter,
+			       enum config_dump_full_dest dest)
+{
 	if (dest == CONFIG_DUMP_FULL_DEST_STDOUT)
 		str_append(str, ":FILTER ");
 	unsigned int prefix_len = str_len(str);
@@ -52,6 +97,15 @@ config_dump_full_write_filter(struct ostream *output,
 		str_append_c(str, '\n');
 	else
 		str_append_c(str, '\0');
+}
+
+static void
+config_dump_full_write_filter(struct ostream *output,
+			      const struct config_filter *filter,
+			      enum config_dump_full_dest dest)
+{
+	string_t *str = t_str_new(128);
+	config_dump_full_append_filter(str, filter, dest);
 	o_stream_nsend(output, str_data(str), str_len(str));
 }
 
@@ -62,6 +116,11 @@ config_dump_full_stdout_callback(const char *key, const char *value,
 {
 	struct dump_context *ctx = context;
 
+	if (!ctx->filter_written) {
+		config_dump_full_write_filter(ctx->output, ctx->filter,
+					      CONFIG_DUMP_FULL_DEST_STDOUT);
+		ctx->filter_written = TRUE;
+	}
 	T_BEGIN {
 		o_stream_nsend_str(ctx->output, t_strdup_printf(
 			"%s=%s\n", key, str_tabescape(value)));
@@ -75,6 +134,14 @@ static void config_dump_full_callback(const char *key, const char *value,
 	struct dump_context *ctx = context;
 	const char *suffix;
 
+	if (!ctx->filter_written) {
+		uint64_t blob_size = UINT64_MAX;
+		o_stream_nsend(ctx->output, &blob_size, sizeof(blob_size));
+		config_dump_full_write_filter(ctx->output, ctx->filter,
+					      CONFIG_DUMP_FULL_DEST_RUNDIR);
+		o_stream_nsend(ctx->output, "", 1); /* no error */
+		ctx->filter_written = TRUE;
+	}
 	if (ctx->delayed_output != NULL &&
 	    ((str_begins(key, "passdb", &suffix) &&
 	      (suffix[0] == '\0' || suffix[0] == '/')) ||
@@ -90,9 +157,50 @@ static void config_dump_full_callback(const char *key, const char *value,
 	}
 }
 
-static bool
+static int
+config_dump_full_handle_error(struct dump_context *dump_ctx,
+			      enum config_dump_full_dest dest,
+			      uoff_t start_offset, const char *error)
+{
+	struct ostream *output = dump_ctx->output;
+
+	if (dest == CONFIG_DUMP_FULL_DEST_STDOUT) {
+		i_error("%s", error);
+		return -1;
+	}
+
+	if (o_stream_flush(output) < 0) {
+		i_error("o_stream_flush(%s) failed: %s",
+			o_stream_get_name(output), o_stream_get_error(output));
+		return -1;
+	}
+	if (ftruncate(o_stream_get_fd(output), start_offset) < 0) {
+		i_error("ftruncate(%s) failed: %m", o_stream_get_name(output));
+		return -1;
+	}
+	if (o_stream_seek(output, start_offset) < 0) {
+		i_error("o_stream_seek(%s) failed: %s",
+			o_stream_get_name(output), o_stream_get_error(output));
+		return -1;
+	}
+
+	string_t *str = t_str_new(256);
+	if (dump_ctx->filter != NULL)
+		config_dump_full_append_filter(str, dump_ctx->filter, dest);
+	str_append(str, error);
+	str_append_c(str, '\0');
+
+	uint64_t blob_size = cpu64_to_be(str_len(str));
+	o_stream_nsend(output, &blob_size, sizeof(blob_size));
+	o_stream_nsend(output, str_data(str), str_len(str));
+	return 0;
+}
+
+static int
 config_dump_full_sections(struct ostream *output,
 			  enum config_dump_full_dest dest,
+			  unsigned int parser_idx,
+			  const struct setting_parser_info *info,
 			  unsigned int section_idx)
 {
 	struct config_filter_parser *const *filters;
@@ -112,12 +220,10 @@ config_dump_full_sections(struct ostream *output,
 	};
 
 	for (; *filters != NULL && ret == 0; filters++) T_BEGIN {
-		uint64_t blob_size = 0;
 		uoff_t start_offset = output->offset;
-		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT)
-			o_stream_nsend(output, &blob_size, sizeof(blob_size));
 
-		config_dump_full_write_filter(output, &(*filters)->filter, dest);
+		dump_ctx.filter = &(*filters)->filter;
+		dump_ctx.filter_written = FALSE;
 		if (dest == CONFIG_DUMP_FULL_DEST_STDOUT) {
 			export_ctx = config_export_init(
 				CONFIG_DUMP_SCOPE_SET,
@@ -130,21 +236,24 @@ config_dump_full_sections(struct ostream *output,
 				config_dump_full_callback, &dump_ctx);
 		}
 		config_export_set_parsers(export_ctx, (*filters)->parsers);
-		ret = config_export_all_parsers(&export_ctx, &section_idx);
-		if (ret == 0 && dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
+
+		const struct setting_parser_info *filter_info =
+			config_export_parser_get_info(export_ctx, parser_idx);
+		i_assert(filter_info == info);
+
+		const char *error;
+		ret = config_export_parser(export_ctx, parser_idx,
+					   &section_idx, &error);
+		if (ret < 0) {
+			ret = config_dump_full_handle_error(&dump_ctx, dest, start_offset, error);
+		} else if (dest != CONFIG_DUMP_FULL_DEST_STDOUT &&
+			   output->offset > start_offset) {
 			/* write the filter blob size */
-			blob_size = cpu64_to_be(output->offset - start_offset);
-			if (o_stream_pwrite(output, &blob_size,
-					    sizeof(blob_size),
-					    start_offset) < 0) {
-				i_error("o_stream_pwrite(%s) failed: %s",
-					o_stream_get_name(output),
-					o_stream_get_error(output));
+			if (output_blob_size(output, start_offset) < 0)
 				ret = -1;
-			}
 		}
 	} T_END;
-	return ret == 0;
+	return ret;
 }
 
 int config_dump_full(enum config_dump_full_dest dest,
@@ -153,12 +262,13 @@ int config_dump_full(enum config_dump_full_dest dest,
 {
 	struct config_export_context *export_ctx;
 	struct config_filter empty_filter;
+	const char *error;
 	unsigned int section_idx = 0;
 	int fd = -1;
-	bool failed = FALSE;
 
 	struct dump_context dump_ctx = {
 		.delayed_output = str_new(default_pool, 256),
+		.filter_written = TRUE,
 	};
 
 	if (dest == CONFIG_DUMP_FULL_DEST_STDOUT) {
@@ -219,41 +329,72 @@ int config_dump_full(enum config_dump_full_dest dest,
 	*import_environment_r =
 		t_strdup(config_export_get_import_environment(export_ctx));
 
-	uint64_t blob_size = 0;
-	uoff_t blob_size_offset = 0;
+	uint64_t blob_size = UINT64_MAX;
+	uoff_t settings_full_size_offset = 0;
 	if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
 		o_stream_nsend_str(output, "DOVECOT-CONFIG\t1.0\n");
-		blob_size_offset = output->offset;
+		settings_full_size_offset = output->offset;
 		o_stream_nsend(output, &blob_size, sizeof(blob_size));
 	}
 
-	if (config_export_all_parsers(&export_ctx, &section_idx) < 0)
-		failed = TRUE;
-	else if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
-		blob_size = cpu64_to_be(output->offset - blob_size_offset);
-		if (o_stream_pwrite(output, &blob_size, sizeof(blob_size),
-				    blob_size_offset) < 0) {
-			i_error("o_stream_pwrite(%s) failed: %s",
-				o_stream_get_name(output),
-				o_stream_get_error(output));
-			failed = TRUE;
+	unsigned int i, parser_count =
+		config_export_get_parser_count(export_ctx);
+	for (i = 0; i < parser_count; i++) {
+		const struct setting_parser_info *info =
+			config_export_parser_get_info(export_ctx, i);
+		if (info->name == NULL || info->name[0] == '\0')
+			i_panic("Setting parser info is missing name");
+
+		uoff_t settings_block_size_offset = output->offset;
+		o_stream_nsend(output, &blob_size, sizeof(blob_size));
+		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT)
+			o_stream_nsend(output, info->name, strlen(info->name)+1);
+		else {
+			o_stream_nsend_str(output,
+				t_strdup_printf("# %s\n", info->name));
+		}
+
+		uoff_t blob_size_offset = output->offset;
+		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT)
+			o_stream_nsend(output, &blob_size, sizeof(blob_size));
+		o_stream_nsend(output, "", 1); /* no error */
+		if (config_export_parser(export_ctx, i, &section_idx,
+					 &error) < 0) {
+			if (config_dump_full_handle_error(&dump_ctx, dest,
+					blob_size_offset, error) < 0)
+				break;
+		}
+		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
+			if (output_blob_size(output, blob_size_offset) < 0)
+				break;
+		}
+		if (config_dump_full_sections(output, dest, i, info, section_idx) < 0)
+			break;
+		if (dump_ctx.delayed_output != NULL &&
+		    str_len(dump_ctx.delayed_output) > 0) {
+			uint64_t blob_size =
+				cpu64_to_be(2 + str_len(dump_ctx.delayed_output));
+			o_stream_nsend(output, &blob_size, sizeof(blob_size));
+			o_stream_nsend(output, "", 1); /* empty filter */
+			o_stream_nsend(output, "", 1); /* no error */
+			o_stream_nsend(output, str_data(dump_ctx.delayed_output),
+				       str_len(dump_ctx.delayed_output));
+			str_truncate(dump_ctx.delayed_output, 0);
+		}
+		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
+			if (output_blob_size(output, settings_block_size_offset) < 0)
+				break;
 		}
 	}
-	if (!failed)
-		failed = !config_dump_full_sections(output, dest, section_idx);
-
-	if (dump_ctx.delayed_output != NULL &&
-	    str_len(dump_ctx.delayed_output) > 0) {
-		uint64_t blob_size =
-			cpu64_to_be(sizeof(blob_size) + 1 + str_len(dump_ctx.delayed_output));
-		o_stream_nsend(output, &blob_size, sizeof(blob_size));
-		o_stream_nsend(output, "", 1);
-		o_stream_nsend(output, str_data(dump_ctx.delayed_output),
-			       str_len(dump_ctx.delayed_output));
-	}
+	bool failed = i < parser_count;
+	config_export_free(&export_ctx);
 	str_free(&dump_ctx.delayed_output);
 
-	if (o_stream_finish(output) < 0) {
+	if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
+		if (output_blob_size(output, settings_full_size_offset) < 0)
+			failed = TRUE;
+	}
+	if (o_stream_finish(output) < 0 && !failed) {
 		i_error("write(%s) failed: %s",
 			o_stream_get_name(output), o_stream_get_error(output));
 		failed = TRUE;

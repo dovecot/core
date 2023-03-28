@@ -7,6 +7,7 @@
 #include "mmap-util.h"
 #include "fdpass.h"
 #include "write-full.h"
+#include "hash.h"
 #include "llist.h"
 #include "str.h"
 #include "syslog-util.h"
@@ -35,7 +36,16 @@ struct master_service_mmap_filter {
 	struct event_filter *filter;
 	bool empty_filter;
 
+	const char *error; /* if non-NULL, accessing the block must fail */
 	size_t start_offset, end_offset;
+};
+
+struct master_service_mmap_block {
+	const char *name;
+
+	const char *error; /* if non-NULL, accessing the block must fail */
+	size_t base_start_offset, base_end_offset;
+	ARRAY(struct master_service_mmap_filter) filters;
 };
 
 struct master_settings_mmap {
@@ -45,8 +55,7 @@ struct master_settings_mmap {
 	void *mmap_base;
 	size_t mmap_size;
 
-	size_t set_start_offset, set_end_offset;
-	ARRAY(struct master_service_mmap_filter) filters;
+	HASH_TABLE(const char *, struct master_service_mmap_block *) blocks;
 };
 
 struct master_service_set {
@@ -445,21 +454,184 @@ filter_string_parse_protocol(const char *filter_string,
 }
 
 static int
+settings_block_read_size(struct master_settings_mmap *config_mmap,
+			 size_t *offset, size_t end_offset,
+			 const char *name, uint64_t *size_r,
+			 const char **error_r)
+{
+	if (*offset + sizeof(*size_r) > end_offset) {
+		*error_r = t_strdup_printf(
+			"Area too small when reading size of '%s' "
+			"(offset=%zu, end_offset=%zu, file_size=%zu)", name,
+			*offset, end_offset, config_mmap->mmap_size);
+		return -1;
+	}
+	*size_r = be64_to_cpu_unaligned(CONST_PTR_OFFSET(config_mmap->mmap_base, *offset));
+	if (*size_r > end_offset - *offset - sizeof(*size_r)) {
+		*error_r = t_strdup_printf(
+			"'%s' points outside area "
+			"(offset=%zu, size=%"PRIu64", end_offset=%zu, file_size=%zu)",
+			name, *offset, *size_r, end_offset,
+			config_mmap->mmap_size);
+		return -1;
+	}
+	*offset += sizeof(*size_r);
+	return 0;
+}
+
+static int
+settings_block_read_str(struct master_settings_mmap *config_mmap,
+			uoff_t *offset, uoff_t end_offset, const char *name,
+			const char **str_r, const char **error_r)
+{
+	*str_r = (const char *)config_mmap->mmap_base + *offset;
+	*offset += strlen(*str_r) + 1;
+	if (*offset > end_offset) {
+		*error_r = t_strdup_printf("'%s' points outside area "
+			"(offset=%zu, end_offset=%zu, file_size=%zu)",
+			name, *offset, end_offset, config_mmap->mmap_size);
+		return -1;
+	}
+	return 0;
+}
+
+static int
+settings_block_read(struct master_settings_mmap *config_mmap, uoff_t *_offset,
+		    ARRAY_TYPE(const_string) *protocols, const char **error_r)
+{
+	uoff_t offset = *_offset;
+	size_t block_size_offset = offset;
+	const char *error;
+
+	/* <block size> */
+	uint64_t block_size;
+	if (settings_block_read_size(config_mmap, &offset,
+				     config_mmap->mmap_size,
+				     "block size", &block_size, error_r) < 0)
+		return -1;
+	size_t block_end_offset = offset + block_size;
+
+	/* <block name> */
+	const char *block_name;
+	if (settings_block_read_str(config_mmap, &offset, block_end_offset,
+				    "block name", &block_name, error_r) < 0)
+		return -1;
+
+	struct master_service_mmap_block *block =
+		hash_table_lookup(config_mmap->blocks, block_name);
+	if (block != NULL) {
+		*error_r = t_strdup_printf(
+			"Duplicate block name '%s' (offset=%zu)",
+			block_name, block_size_offset);
+		return -1;
+	}
+	block = i_new(struct master_service_mmap_block, 1);
+	block->name = block_name;
+	hash_table_insert(config_mmap->blocks, block->name, block);
+
+	/* <base settings size> */
+	uint64_t base_settings_size;
+	if (settings_block_read_size(config_mmap, &offset, block_end_offset,
+				     "base settings size", &base_settings_size,
+				     error_r) < 0)
+		return -1;
+	block->base_end_offset = offset + base_settings_size;
+
+	/* <base settings error string> */
+	if (settings_block_read_str(config_mmap, &offset,
+				    block->base_end_offset,
+				    "base settings error", &error,
+				    error_r) < 0)
+		return -1;
+	if (error[0] != '\0')
+		block->error = error;
+	block->base_start_offset = offset;
+
+	/* skip over the key-value pairs */
+	offset = block->base_end_offset;
+
+	/* filters */
+	while (offset < block_end_offset) {
+		/* <filter settings size> */
+		uint64_t filter_settings_size;
+		if (settings_block_read_size(config_mmap, &offset,
+				block_end_offset, "filter settings size",
+				&filter_settings_size, error_r) < 0)
+			return -1;
+		uint64_t filter_end_offset = offset + filter_settings_size;
+
+		/* <filter string> */
+		const char *filter_string;
+		if (settings_block_read_str(config_mmap, &offset,
+					    filter_end_offset, "filter string",
+					    &filter_string, error_r) < 0)
+			return -1;
+
+		/* <filter settings error string> */
+		const char *filter_error;
+		if (settings_block_read_str(config_mmap, &offset,
+					    filter_end_offset,
+					    "filter settings error",
+					    &filter_error, error_r) < 0)
+			return -1;
+
+		if (!array_is_created(&block->filters))
+			i_array_init(&block->filters, 4);
+
+		struct master_service_mmap_filter *config_filter =
+			array_append_space(&block->filters);
+		config_filter->filter = event_filter_create();
+		config_filter->empty_filter = filter_string[0] == '\0';
+		config_filter->error = filter_error[0] == '\0' ?
+			NULL : filter_error;
+		config_filter->start_offset = offset;
+		config_filter->end_offset = filter_end_offset;
+
+		if (event_filter_parse(filter_string,
+				       config_filter->filter, &error) < 0) {
+			*error_r = t_strdup_printf(
+				"Received invalid filter '%s': %s (offset=%zu)",
+				filter_string, error, offset);
+			return -1;
+		}
+		filter_string_parse_protocol(filter_string, protocols);
+
+		/* skip over the key-value pairs */
+		offset = filter_end_offset;
+	}
+	i_assert(offset == block_end_offset);
+	*_offset = offset;
+	return 0;
+}
+
+static void config_mmap_free_blocks(struct master_settings_mmap *config_mmap)
+{
+	struct hash_iterate_context *iter =
+		hash_table_iterate_init(config_mmap->blocks);
+	const char *name;
+	struct master_service_mmap_block *block;
+
+	while (hash_table_iterate(iter, config_mmap->blocks, &name, &block)) {
+		if (array_is_created(&block->filters)) {
+			struct master_service_mmap_filter *config_filter;
+			array_foreach_modifiable(&block->filters, config_filter)
+				event_filter_unref(&config_filter->filter);
+			array_free(&block->filters);
+		}
+		i_free(block);
+	}
+	hash_table_iterate_deinit(&iter);
+	hash_table_clear(config_mmap->blocks, FALSE);
+}
+
+static int
 master_service_settings_mmap_parse(struct master_settings_mmap *config_mmap,
 				   struct master_service_settings_output *output_r,
 				   const char **error_r)
 {
 	/*
-	   DOVECOT-CONFIG <TAB> 1.0 <LF>
-
-	   <64bit big-endian global settings blob size>
-	   [ key <NUL> value <NUL>, ... ]
-
-	   <64bit big-endian filter settings blob size>
-	   filter_string <NUL>
-	   [ key <NUL> value <NUL>, ... ]
-
-	   ... more filters ...
+	   See ../config/config-dump-full.c for the binary config file format
+	   description.
 
 	   Settings are read until the blob size is reached. There is no
 	   padding/alignment. The mmaped data comes from a trusted source
@@ -489,69 +661,26 @@ master_service_settings_mmap_parse(struct master_settings_mmap *config_mmap,
 		return -1;
 	}
 
-	struct master_service_mmap_filter *config_filter;
-	array_foreach_modifiable(&config_mmap->filters, config_filter)
-		event_filter_unref(&config_filter->filter);
-	array_clear(&config_mmap->filters);
+	/* <settings full size> */
+	config_mmap_free_blocks(config_mmap);
 
-	size_t start_offset = eol - mmap_base + 1;
-	uoff_t offset = start_offset;
+	size_t full_size_offset = eol - mmap_base + 1;
+	uint64_t settings_full_size =
+		be64_to_cpu_unaligned(mmap_base + full_size_offset);
+	if (full_size_offset + sizeof(settings_full_size) +
+	    settings_full_size != mmap_size) {
+		*error_r = t_strdup_printf("Full size mismatch: "
+			"Expected %zu + %zu + %"PRIu64", but file size is %zu",
+			full_size_offset, sizeof(settings_full_size),
+			settings_full_size, mmap_size);
+		return -1;
+	}
+
+	uoff_t offset = full_size_offset + sizeof(settings_full_size);
 	do {
-		/* <blob size> */
-		uint64_t blob_size;
-		if (offset + sizeof(blob_size) > mmap_size) {
-			*error_r = t_strdup_printf(
-				"Config file size too small "
-				"(offset=%zu, file_size=%zu)", offset, mmap_size);
+		if (settings_block_read(config_mmap, &offset,
+					&protocols, error_r) < 0)
 			return -1;
-		}
-		blob_size = be64_to_cpu_unaligned(mmap_base + offset);
-		if (offset + blob_size > mmap_size) {
-			*error_r = t_strdup_printf(
-				"Settings blob points outside file "
-				"(offset=%zu, blob_size=%"PRIu64", file_size=%zu)",
-				offset, blob_size, mmap_size);
-			return -1;
-		}
-		size_t end_offset = offset + blob_size;
-		offset += sizeof(blob_size);
-
-		if (offset <= start_offset + sizeof(blob_size)) {
-			/* base settings */
-			config_mmap->set_start_offset = offset;
-			config_mmap->set_end_offset = end_offset;
-		} else {
-			/* <filter> */
-			const char *filter_string =
-				(const char *)mmap_base + offset;
-			offset += strlen(filter_string) + 1;
-			if (offset > end_offset) {
-				*error_r = t_strdup_printf(
-					"Filter points outside blob "
-					"(offset=%zu, end_offset=%zu, file_size=%zu)",
-					offset, end_offset, mmap_size);
-				return -1;
-			}
-
-			config_filter = array_append_space(&config_mmap->filters);
-			config_filter->filter = event_filter_create();
-			config_filter->empty_filter = filter_string[0] == '\0';
-			config_filter->start_offset = offset;
-			config_filter->end_offset = end_offset;
-
-			const char *error;
-			filter_string_parse_protocol(filter_string, &protocols);
-			if (event_filter_parse(filter_string,
-					       config_filter->filter, &error) < 0) {
-				*error_r = t_strdup_printf(
-					"Received invalid filter '%s': %s",
-					filter_string, error);
-				return -1;
-			}
-		}
-
-		/* skip the actual settings here */
-		offset = end_offset;
 	} while (offset < mmap_size);
 
 	if (array_count(&protocols) > 0) {
@@ -601,11 +730,25 @@ static int
 master_service_settings_mmap_apply(struct master_settings_mmap *config_mmap,
 				   struct event *event,
 				   struct setting_parser_context *parser,
+				   const struct setting_parser_info *info,
 				   const char **error_r)
 {
+	struct master_service_mmap_block *block =
+		hash_table_lookup(config_mmap->blocks, info->name);
+	if (block == NULL) {
+		*error_r = t_strdup_printf(
+			"BUG: Configuration has no settings struct named '%s'",
+			info->name);
+		return -1;
+	}
+	if (block->error != NULL) {
+		*error_r = block->error;
+		return -1;
+	}
+
 	if (master_service_settings_mmap_apply_blob(config_mmap, parser,
-						    config_mmap->set_start_offset,
-						    config_mmap->set_end_offset,
+						    block->base_start_offset,
+						    block->base_end_offset,
 						    error_r) < 0)
 		return -1;
 
@@ -613,11 +756,18 @@ master_service_settings_mmap_apply(struct master_settings_mmap *config_mmap,
 		.type = LOG_TYPE_DEBUG,
 	};
 
+	if (!array_is_created(&block->filters))
+		return 0;
+
 	const struct master_service_mmap_filter *config_filter;
-	array_foreach(&config_mmap->filters, config_filter) {
+	array_foreach(&block->filters, config_filter) {
 		if (config_filter->empty_filter ||
 		    event_filter_match(config_filter->filter, event,
 				       &failure_ctx)) {
+			if (config_filter->error != NULL) {
+				*error_r = config_filter->error;
+				return -1;
+			}
 			if (master_service_settings_mmap_apply_blob(
 					config_mmap, parser,
 					config_filter->start_offset,
@@ -648,10 +798,8 @@ void master_settings_mmap_unref(struct master_settings_mmap **_mmap)
 	if (--mmap->refcount > 0)
 		return;
 
-	struct master_service_mmap_filter *config_filter;
-	array_foreach_modifiable(&mmap->filters, config_filter)
-		event_filter_unref(&config_filter->filter);
-	array_free(&mmap->filters);
+	config_mmap_free_blocks(mmap);
+	hash_table_destroy(&mmap->blocks);
 
 	if (munmap(mmap->mmap_base, mmap->mmap_size) < 0)
 		i_error("munmap(<config>) failed: %m");
@@ -704,9 +852,10 @@ int master_service_settings_read(struct master_service *service,
 			i_fatal("Failed to read config: mmap(%s) failed: %m", path);
 		if (config_mmap->mmap_size == 0)
 			i_fatal("Failed to read config: %s file size is empty", path);
-		i_array_init(&config_mmap->filters, 32);
 
 		service->config_mmap = config_mmap;
+		hash_table_create(&config_mmap->blocks, default_pool, 0,
+				  str_hash, strcmp);
 
 		if (input->return_config_fd)
 			output_r->config_fd = fd;
@@ -1073,7 +1222,7 @@ int master_service_settings_instance_get(struct event *event,
 
 	if (service->config_mmap != NULL) {
 		ret = master_service_settings_mmap_apply(service->config_mmap,
-				event, parser, &error);
+				event, parser, info, &error);
 		if (ret < 0) {
 			*error_r = t_strdup_printf(
 				"Failed to parse configuration: %s", error);

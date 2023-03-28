@@ -315,7 +315,8 @@ settings_export(struct config_export_context *ctx,
 				/* already added all of these */
 				break;
 			}
-			hash_table_insert(ctx->keys, key, key);
+			if ((ctx->flags & CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS) != 0)
+				hash_table_insert(ctx->keys, key, key);
 			/* for doveconf -n to see this KEY_LIST */
 			ctx->callback(key, "", CONFIG_KEY_LIST, ctx->context);
 
@@ -351,7 +352,8 @@ settings_export(struct config_export_context *ctx,
 					type = CONFIG_KEY_NORMAL;
 				ctx->callback(key, str_c(ctx->value), type,
 					ctx->context);
-				hash_table_insert(ctx->keys, key, key);
+				if ((ctx->flags & CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS) != 0)
+					hash_table_insert(ctx->keys, key, key);
 			}
 		}
 

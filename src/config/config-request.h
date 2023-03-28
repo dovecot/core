@@ -22,6 +22,7 @@ enum config_dump_flags {
 	CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS	= 0x02,
 	/* Errors are reported using callback and they don't stop handling */
 	CONFIG_DUMP_FLAG_CALLBACK_ERRORS	= 0x04,
+	CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS	= 0x08,
 };
 
 enum config_key_type {

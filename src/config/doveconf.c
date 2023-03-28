@@ -148,7 +148,8 @@ config_dump_human_init(enum config_dump_scope scope, bool check_settings)
 	i_array_init(&ctx->errors, 256);
 
 	flags = CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS |
-		CONFIG_DUMP_FLAG_CALLBACK_ERRORS;
+		CONFIG_DUMP_FLAG_CALLBACK_ERRORS |
+		CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS;
 	if (check_settings)
 		flags |= CONFIG_DUMP_FLAG_CHECK_SETTINGS;
 	ctx->export_ctx = config_export_init(scope, flags,
