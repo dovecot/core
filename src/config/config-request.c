@@ -411,8 +411,8 @@ int config_export_by_filter(struct config_export_context *ctx,
 	return 0;
 }
 
-void config_export_parsers(struct config_export_context *ctx,
-			   const struct config_module_parser *parsers)
+void config_export_set_parsers(struct config_export_context *ctx,
+			       const struct config_module_parser *parsers)
 {
 	ctx->parsers = parsers;
 }

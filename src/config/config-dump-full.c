@@ -129,7 +129,7 @@ config_dump_full_sections(struct ostream *output,
 				CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS,
 				config_dump_full_callback, &dump_ctx);
 		}
-		config_export_parsers(export_ctx, (*filters)->parsers);
+		config_export_set_parsers(export_ctx, (*filters)->parsers);
 		ret = config_export_all_parsers(&export_ctx, &section_idx);
 		if (ret == 0 && dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
 			/* write the filter blob size */

@@ -570,7 +570,7 @@ config_dump_human_sections(struct ostream *output,
 		ctx = config_dump_human_init(CONFIG_DUMP_SCOPE_SET, FALSE);
 		indent = config_dump_filter_begin(ctx->list_prefix,
 						  &(*filters)->filter);
-		config_export_parsers(ctx->export_ctx, (*filters)->parsers);
+		config_export_set_parsers(ctx->export_ctx, (*filters)->parsers);
 		if (config_dump_human_output(ctx, output, indent, NULL, hide_passwords) < 0)
 			ret = -1;
 		if (ctx->list_prefix_sent)

@@ -46,8 +46,8 @@ config_export_init(enum config_dump_scope scope,
 	ATTR_NULL(1, 5);
 int config_export_by_filter(struct config_export_context *ctx,
 			    const struct config_filter *filter);
-void config_export_parsers(struct config_export_context *ctx,
-			   const struct config_module_parser *parsers);
+void config_export_set_parsers(struct config_export_context *ctx,
+			       const struct config_module_parser *parsers);
 void config_export_get_output(struct config_export_context *ctx,
 			      struct master_service_settings_output *output_r);
 const char *
