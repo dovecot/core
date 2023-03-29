@@ -754,8 +754,6 @@ static int config_parse_finish(struct config_parser_context *ctx, const char **e
 
 	if (ret < 0)
 		;
-	else if (ctx->hide_errors)
-		ret = 0;
 	else if ((ret = config_all_parsers_check(ctx, new_filter, &error)) < 0) {
 		*error_r = t_strdup_printf("Error in configuration file %s: %s",
 					   ctx->path, error);
@@ -1024,8 +1022,6 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	i_zero(&ctx);
 	ctx.pool = pool_alloconly_create(MEMPOOL_GROWING"config file parser", 1024*256);
 	ctx.path = path;
-	ctx.hide_errors = fd == -1 ||
-		(flags & CONFIG_PARSE_FLAG_HIDE_ERRORS) != 0;
 	ctx.delay_errors = (flags & CONFIG_PARSE_FLAG_DELAY_ERRORS) != 0;
 
 	for (count = 0; all_roots[count] != NULL; count++) ;
