@@ -375,7 +375,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 
 static int
 config_filter_parser_check(struct config_parser_context *ctx,
-			   const struct config_module_parser *p,
+			   struct config_module_parser *p,
 			   const char **error_r)
 {
 	const char *error = NULL;
@@ -389,8 +389,12 @@ config_filter_parser_check(struct config_parser_context *ctx,
 		if (!ok) {
 			/* be sure to assert-crash early if error is missing */
 			i_assert(error != NULL);
-			*error_r = error;
-			return -1;
+			if (!ctx->delay_errors) {
+				*error_r = error;
+				return -1;
+			}
+			if (p->error == NULL)
+				p->error = p_strdup(ctx->pool, error);
 		}
 	}
 	return 0;
