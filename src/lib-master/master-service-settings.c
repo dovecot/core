@@ -261,8 +261,6 @@ master_service_exec_config(struct master_service *service,
 	strarr_push(&conf_argv, "-c");
 	strarr_push(&conf_argv, service->config_path);
 
-	if (input->disable_check_settings)
-		strarr_push(&conf_argv, "-E");
 	strarr_push(&conf_argv, "-F");
 	strarr_push(&conf_argv, binary_path);
 	array_append(&conf_argv, (const char *const *)service->argv + 1,
@@ -374,8 +372,6 @@ master_service_open_config(struct master_service *service,
 	str_append(str, CONFIG_HANDSHAKE"REQ");
 	if (input->reload_config)
 		str_append(str, "\treload");
-	if (input->disable_check_settings)
-		str_append(str, "\tdisable-check-settings");
 	str_append_c(str, '\n');
 	alarm(CONFIG_READ_TIMEOUT_SECS);
 	int ret = write_full(fd, str_data(str), str_len(str));

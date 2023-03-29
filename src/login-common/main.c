@@ -501,7 +501,6 @@ int login_binary_run(struct login_binary *binary,
 
 	struct master_service_settings_input input = {
 		.protocol = login_binary->protocol,
-		.disable_check_settings = TRUE,
 	};
 	struct master_service_settings_output output;
 	if (master_service_settings_read(master_service, &input,

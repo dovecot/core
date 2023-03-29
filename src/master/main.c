@@ -416,7 +416,6 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	input.never_exec = TRUE;
 	input.reload_config = TRUE;
 	input.return_config_fd = TRUE;
-	input.disable_check_settings = TRUE;
 	if (master_service_settings_read(master_service, &input,
 					 &output, &error) < 0) {
 		i_error("%s", error);
@@ -509,7 +508,6 @@ static const struct master_settings *master_settings_read(void)
 	input.preserve_environment = TRUE;
 	input.always_exec = TRUE;
 	input.return_config_fd = TRUE;
-	input.disable_check_settings = TRUE;
 	if (master_service_settings_read(master_service, &input, &output,
 					 &error) < 0)
 		i_fatal("%s", error);

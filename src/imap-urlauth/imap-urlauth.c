@@ -212,8 +212,6 @@ static void client_connected(struct master_service_connection *conn)
 int main(int argc, char *argv[])
 {
 	struct login_server_settings login_set;
-	struct master_service_settings_input input;
-	struct master_service_settings_output output;
 	enum master_service_flags service_flags = 0;
 	const char *error = NULL, *username = NULL;
 	const char *auth_socket_path = "auth-master";
@@ -248,11 +246,7 @@ int main(int argc, char *argv[])
 	}
 	master_service_init_log(master_service);
 
-	i_zero(&input);
-	input.service = "imap-urlauth";
-	input.disable_check_settings = TRUE;
-	if (master_service_settings_read(master_service, &input, &output,
-						&error) < 0)
+	if (master_service_settings_read_simple(master_service, &error) < 0)
 		i_fatal("%s", error);
 
 	imap_urlauth_settings = 

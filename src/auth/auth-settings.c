@@ -555,7 +555,6 @@ void auth_settings_read(struct master_service_settings_output *output_r)
 	const char *error;
 
 	i_zero(&input);
-	input.disable_check_settings = TRUE;
 	if (master_service_settings_read(master_service, &input,
 					 output_r, &error) < 0)
 		i_fatal("%s", error);

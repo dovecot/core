@@ -86,12 +86,7 @@ int main(int argc, char *argv[])
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
 
-	const struct master_service_settings_input set_input = {
-		.disable_check_settings = TRUE,
-	};
-	struct master_service_settings_output output;
-	if (master_service_settings_read(master_service, &set_input,
-					 &output, &error) < 0)
+	if (master_service_settings_read_simple(master_service, &error) < 0)
 		i_fatal("%s", error);
 	master_service_init_log(master_service);
 	master_service_set_die_callback(master_service, stats_die);
