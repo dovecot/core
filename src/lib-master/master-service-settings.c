@@ -440,7 +440,8 @@ filter_string_parse_protocol(const char *filter_string,
 	const char *protocol = t_strdup_until(p + 10, p2);
 	if (p - filter_string > 4 && strcmp(p - 4, "NOT ") == 0)
 		protocol = t_strconcat("!", protocol, NULL);
-	array_push_back(protocols, &protocol);
+	if (array_lsearch(protocols, &protocol, i_strcmp_p) == NULL)
+		array_push_back(protocols, &protocol);
 }
 
 static int
