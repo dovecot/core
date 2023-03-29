@@ -519,6 +519,11 @@ int config_export_parser(struct config_export_context *ctx,
 	const struct config_module_parser *parser = &ctx->parsers[parser_idx];
 	int ret = 0;
 
+	if (parser->error != NULL) {
+		*error_r = parser->error;
+		return -1;
+	}
+
 	ctx->section_idx = *section_idx;
 	T_BEGIN {
 		void *set = settings_parser_get_set(parser->parser);

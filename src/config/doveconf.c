@@ -980,6 +980,8 @@ int main(int argc, char *argv[])
 		flags |= CONFIG_PARSE_FLAG_EXPAND_VALUES;
 	if (disable_check_settings)
 		flags |= CONFIG_PARSE_FLAG_HIDE_ERRORS;
+	if (dump_full && exec_args != NULL)
+		flags |= CONFIG_PARSE_FLAG_DELAY_ERRORS;
 	if (null_strcmp(getenv("DOVECONF_SERVICE"), "doveadm") == 0) {
 		/* FIXME: temporary kludge - remove later */
 		flags |= CONFIG_PARSE_FLAG_SKIP_SSL_SERVER;

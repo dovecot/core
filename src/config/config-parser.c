@@ -158,6 +158,24 @@ int config_apply_line(struct config_parser_context *ctx, const char *key,
 	return 0;
 }
 
+static int
+config_apply_error(struct config_parser_context *ctx, const char *key)
+{
+	struct config_module_parser *l;
+	enum setting_type type;
+	bool found = FALSE;
+
+	for (l = ctx->cur_section->parsers; l->root != NULL; l++) {
+		if (settings_parse_get_value(l->parser, key, &type) != NULL) {
+			if (l->error == NULL)
+				l->error = ctx->error;
+			ctx->error = NULL;
+			found = TRUE;
+		}
+	}
+	return found ? 0 : -1;
+}
+
 static const char *
 fix_relative_path(const char *path, struct input_stack *input)
 {
@@ -935,9 +953,13 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 		config_parser_check_warnings(ctx, key);
 		str_append_c(ctx->str, '=');
 
-		if (config_write_value(ctx, type, key, value) < 0)
-			break;
-		(void)config_apply_line(ctx, key, str_c(ctx->str), NULL);
+		if (config_write_value(ctx, type, key, value) < 0) {
+			if (!ctx->delay_errors ||
+			    config_apply_error(ctx, key) < 0)
+				break;
+		} else {
+			(void)config_apply_line(ctx, key, str_c(ctx->str), NULL);
+		}
 		break;
 	case CONFIG_LINE_TYPE_SECTION_BEGIN:
 		ctx->cur_section = config_add_new_section(ctx);
@@ -1016,6 +1038,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	ctx.path = path;
 	ctx.hide_errors = fd == -1 ||
 		(flags & CONFIG_PARSE_FLAG_HIDE_ERRORS) != 0;
+	ctx.delay_errors = (flags & CONFIG_PARSE_FLAG_DELAY_ERRORS) != 0;
 	ctx.skip_ssl_server_settings =
 		(flags & CONFIG_PARSE_FLAG_SKIP_SSL_SERVER) != 0;
 

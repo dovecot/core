@@ -9,12 +9,14 @@ enum config_parse_flags {
 	CONFIG_PARSE_FLAG_EXPAND_VALUES	= BIT(0),
 	CONFIG_PARSE_FLAG_HIDE_ERRORS	= BIT(1),
 	CONFIG_PARSE_FLAG_SKIP_SSL_SERVER = BIT(2), /* FIXME: temporary kludge - remove later */
+	CONFIG_PARSE_FLAG_DELAY_ERRORS  = BIT(3),
 };
 
 struct config_module_parser {
 	const struct setting_parser_info *root;
 	struct setting_parser_context *parser;
 	void *settings;
+	const char *error;
 };
 ARRAY_DEFINE_TYPE(config_module_parsers, struct config_module_parser *);
 
