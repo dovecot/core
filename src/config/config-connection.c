@@ -56,9 +56,7 @@ static int config_connection_request(struct config_connection *conn,
 	enum config_dump_flags flags = CONFIG_DUMP_FLAG_CHECK_SETTINGS;
 
 	while (*args != NULL) {
-		if (strcmp(*args, "disable-check-settings") == 0)
-			flags &= ENUM_NEGATE(CONFIG_DUMP_FLAG_CHECK_SETTINGS);
-		else if (strcmp(*args, "reload") == 0) {
+		if (strcmp(*args, "reload") == 0) {
 			const char *path, *error;
 
 			path = master_service_get_config_path(master_service);
