@@ -73,7 +73,6 @@ struct dsync_ibc_settings {
 	bool hdr_hash_v2;
 	bool hdr_hash_v3;
 	unsigned int lock_timeout;
-	unsigned int import_commit_msgs_interval;
 };
 
 void dsync_ibc_init_pipe(struct dsync_ibc **ibc1_r,

@@ -508,7 +508,8 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	}
 
 	brain2 = dsync_brain_slave_init(user2, ibc2, TRUE, "",
-					doveadm_settings->dsync_alt_char[0]);
+					doveadm_settings->dsync_alt_char[0],
+					doveadm_settings->dsync_commit_msgs_interval);
 	mail_user_unref(&user2);
 
 	brain1_running = brain2_running = TRUE;
@@ -1280,7 +1281,8 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 
 	ibc = cmd_dsync_ibc_stream_init(ctx, name, str_c(temp_prefix));
 	brain = dsync_brain_slave_init(user, ibc, FALSE, process_title_prefix,
-				       doveadm_settings->dsync_alt_char[0]);
+				       doveadm_settings->dsync_alt_char[0],
+				       doveadm_settings->dsync_commit_msgs_interval);
 
 	io_loop_run(current_ioloop);
 	/* io_loop_run() deactivates the context - put it back */

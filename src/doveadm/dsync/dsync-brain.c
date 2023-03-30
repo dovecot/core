@@ -280,7 +280,6 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	ibc_set.sync_type = sync_type;
 	ibc_set.hdr_hash_v2 = TRUE;
 	ibc_set.lock_timeout = set->lock_timeout_secs;
-	ibc_set.import_commit_msgs_interval = set->import_commit_msgs_interval;
 	ibc_set.hashed_headers = set->hashed_headers;
 	/* reverse the backup direction for the slave */
 	ibc_set.brain_flags = flags & ENUM_NEGATE(DSYNC_BRAIN_FLAG_BACKUP_SEND |
@@ -302,7 +301,8 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 struct dsync_brain *
 dsync_brain_slave_init(struct mail_user *user, struct dsync_ibc *ibc,
 		       bool local, const char *process_title_prefix,
-		       char default_alt_char)
+		       char default_alt_char,
+		       unsigned int import_commit_msgs_interval)
 {
 	struct dsync_ibc_settings ibc_set;
 	struct dsync_brain *brain;
@@ -314,6 +314,7 @@ dsync_brain_slave_init(struct mail_user *user, struct dsync_ibc *ibc,
 	brain->process_title_prefix =
 		p_strdup(brain->pool, process_title_prefix);
 	brain->state = DSYNC_STATE_SLAVE_RECV_HANDSHAKE;
+	brain->import_commit_msgs_interval = import_commit_msgs_interval;
 
 	if (local) {
 		/* both master and slave are running within the same process,
