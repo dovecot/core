@@ -93,11 +93,8 @@ static int backtrace_append_libc(string_t *str, const char **error_r)
 		if (str_len(str) > str_orig_size)
 			str_append(str, " -> ");
 
-		if (strings == NULL) {
-			/* out of memory case */
-			str_printfa(str, "0x%p", stack[i]);
-		} else if (str_len(str) != str_orig_size ||
-			   !str_begins_with(strings[i], BACKTRACE_SKIP_PREFIX)) {
+		if (str_len(str) != str_orig_size ||
+		    !str_begins_with(strings[i], BACKTRACE_SKIP_PREFIX)) {
 			/* String often contains a full path to the binary,
 			   followed by the function name. The path causes the
 			   backtrace to be excessively large and we don't
