@@ -881,7 +881,7 @@ int main(int argc, char *argv[])
 
 	i_zero(&filter);
 	master_service = master_service_init("config", master_service_flags,
-					     &argc, &argv, "aCdf:FhHm:nNpPexsS");
+					     &argc, &argv, "aCdf:FhHm:nNpPxsS");
 	orig_config_path = t_strdup(master_service_get_config_path(master_service));
 
 	i_set_failure_prefix("doveconf: ");
