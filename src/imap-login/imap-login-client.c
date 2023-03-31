@@ -356,7 +356,11 @@ static void imap_client_input(struct client *client)
 			client->input_blocked = TRUE;
 			break;
 		} else {
-			if (!client_handle_input(imap_client))
+			bool ret;
+			T_BEGIN {
+				ret = client_handle_input(imap_client);
+			} T_END;
+			if (!ret)
 				break;
 		}
 	}
