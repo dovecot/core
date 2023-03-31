@@ -70,6 +70,9 @@ obsolete(struct config_parser_context *ctx, const char *str, ...)
 	static bool seen_obsoletes = FALSE;
 	va_list args;
 
+	if (ctx->hide_obsolete_warnings)
+		return;
+
 	if (!seen_obsoletes) {
 		i_warning("NOTE: You can get a new clean config file with: "
 			  "doveconf -Pn > dovecot-new.conf");

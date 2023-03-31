@@ -871,6 +871,7 @@ int main(int argc, char *argv[])
 	int c, ret, ret2;
 	bool config_path_specified, expand_vars = FALSE, hide_key = FALSE;
 	bool simple_output = FALSE, check_full_config = FALSE;
+	bool hide_obsolete_warnings = FALSE;
 	bool dump_defaults = FALSE, host_verify = FALSE, dump_full = FALSE;
 	bool print_plugin_banner = FALSE, hide_passwords = TRUE;
 
@@ -881,7 +882,7 @@ int main(int argc, char *argv[])
 
 	i_zero(&filter);
 	master_service = master_service_init("config", master_service_flags,
-					     &argc, &argv, "aCdf:FhHm:nNpPxsS");
+					     &argc, &argv, "aCdf:FhHm:nNpPwxsS");
 	orig_config_path = t_strdup(master_service_get_config_path(master_service));
 
 	i_set_failure_prefix("doveconf: ");
@@ -927,6 +928,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'S':
 			simple_output = TRUE;
+			break;
+		case 'w':
+			hide_obsolete_warnings = TRUE;
 			break;
 		case 'x':
 			expand_vars = TRUE;
@@ -979,6 +983,8 @@ int main(int argc, char *argv[])
 		flags |= CONFIG_PARSE_FLAG_EXPAND_VALUES;
 	if (dump_full && exec_args != NULL && !check_full_config)
 		flags |= CONFIG_PARSE_FLAG_DELAY_ERRORS;
+	if (hide_obsolete_warnings)
+		flags |= CONFIG_PARSE_FLAG_HIDE_OBSOLETE_WARNINGS;
 	if ((ret = config_parse_file(dump_defaults ? NULL : config_path,
 				     flags, &error)) == 0 &&
 	    access(EXAMPLE_CONFIG_DIR, X_OK) == 0) {

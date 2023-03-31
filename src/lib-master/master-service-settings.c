@@ -263,6 +263,8 @@ master_service_exec_config(struct master_service *service,
 
 	if (input->check_full_config)
 		strarr_push(&conf_argv, "-C");
+	if (input->hide_obsolete_warnings)
+		strarr_push(&conf_argv, "-w");
 	strarr_push(&conf_argv, "-F");
 	strarr_push(&conf_argv, binary_path);
 	array_append(&conf_argv, (const char *const *)service->argv + 1,

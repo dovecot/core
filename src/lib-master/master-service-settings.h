@@ -62,6 +62,8 @@ struct master_service_settings_input {
 	   this does nothing, since config process always checks the full
 	   config anyway). */
 	bool check_full_config;
+	/* If executing via doveconf, hide warnings about obsolete settings. */
+	bool hide_obsolete_warnings;
 	bool reload_config;
 	bool never_exec;
 	bool always_exec;
