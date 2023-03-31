@@ -243,8 +243,8 @@ master_service_exec_config(struct master_service *service,
 	if (input->use_sysexits)
 		env_put("USE_SYSEXITS", "1");
 
-	if (input->service != NULL)
-		env_put("DOVECONF_SERVICE", input->service);
+	if (input->protocol != NULL)
+		env_put("DOVECONF_PROTOCOL", input->protocol);
 
 	t_array_init(&conf_argv, 11 + (service->argc + 1) + 1);
 	strarr_push(&conf_argv, DOVECOT_CONFIG_BIN_PATH);
@@ -715,11 +715,11 @@ int master_service_settings_read(struct master_service *service,
 
 	/* Remember the protocol for following settings instance lookups */
 	i_free(service->set_protocol_name);
-	service->set_protocol_name = i_strdup(input->service);
+	service->set_protocol_name = i_strdup(input->protocol);
 
 	/* Create event for matching config filters */
 	struct event *event = event_create(NULL);
-	event_add_str(event, "protocol", input->service);
+	event_add_str(event, "protocol", input->protocol);
 
 	/* config_mmap is NULL only if MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS
 	   is used */

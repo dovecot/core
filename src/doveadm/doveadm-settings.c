@@ -224,7 +224,7 @@ void doveadm_read_settings(void)
 	const char *error;
 
 	i_zero(&input);
-	input.service = "doveadm";
+	input.protocol = "doveadm";
 	input.preserve_user = TRUE;
 	input.preserve_home = TRUE;
 	input.return_config_fd = TRUE; /* for doveadm exec */

@@ -63,7 +63,7 @@ struct master_service_settings_input {
 	bool use_sysexits;
 	bool disable_check_settings;
 
-	const char *service;
+	const char *protocol;
 };
 
 struct master_service_settings_output {
