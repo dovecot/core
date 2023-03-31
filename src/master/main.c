@@ -506,6 +506,7 @@ static const struct master_settings *master_settings_read(void)
 
 	i_zero(&input);
 	input.preserve_environment = TRUE;
+	input.check_full_config = TRUE;
 	input.always_exec = TRUE;
 	input.return_config_fd = TRUE;
 	if (master_service_settings_read(master_service, &input, &output,

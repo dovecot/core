@@ -261,6 +261,8 @@ master_service_exec_config(struct master_service *service,
 	strarr_push(&conf_argv, "-c");
 	strarr_push(&conf_argv, service->config_path);
 
+	if (input->check_full_config)
+		strarr_push(&conf_argv, "-C");
 	strarr_push(&conf_argv, "-F");
 	strarr_push(&conf_argv, binary_path);
 	array_append(&conf_argv, (const char *const *)service->argv + 1,

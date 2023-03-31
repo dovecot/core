@@ -56,6 +56,12 @@ struct master_service_settings_input {
 	bool preserve_environment;
 	bool preserve_user;
 	bool preserve_home;
+	/* When execing via doveconf, the errors in settings' values are
+	   delayed until the settings struct is actually accessed. Enabling
+	   this causes an immediate failure. (With config UNIX socket lookups
+	   this does nothing, since config process always checks the full
+	   config anyway). */
+	bool check_full_config;
 	bool reload_config;
 	bool never_exec;
 	bool always_exec;
