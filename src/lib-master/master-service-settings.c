@@ -719,7 +719,8 @@ int master_service_settings_read(struct master_service *service,
 
 	/* Create event for matching config filters */
 	struct event *event = event_create(NULL);
-	event_add_str(event, "protocol", input->protocol);
+	event_add_str(event, "protocol", input->protocol != NULL ?
+		      input->protocol : service->name);
 
 	/* config_mmap is NULL only if MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS
 	   is used */
@@ -1055,7 +1056,9 @@ int master_service_settings_instance_get(struct event *event,
 	event = event_create(event);
 	if (event_find_field_recursive(event, "protocol") == NULL) {
 		event_add_str(event, "protocol",
-			      instance->service->set_protocol_name);
+			      instance->service->set_protocol_name != NULL ?
+			      instance->service->set_protocol_name :
+			      service->name);
 	}
 
 	struct master_settings_pool *mpool =
