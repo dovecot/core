@@ -92,6 +92,7 @@ struct master_service {
 
 	bool stopping:1;
 	bool keep_environment:1;
+	bool options_parsed:1;
 	bool log_directly:1;
 	bool initial_status_sent:1;
 	bool die_with_master:1;

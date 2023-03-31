@@ -664,6 +664,7 @@ int master_getopt(struct master_service *service)
 
 	i_assert(master_getopt_str_is_valid(service->getopt_str));
 
+	service->options_parsed = TRUE;
 	while ((c = getopt(service->argc, service->argv,
 			   service->getopt_str)) > 0) {
 		if (!master_service_parse_option(service, c, optarg))
@@ -681,6 +682,7 @@ master_getopt_long(struct master_service *service, const char **longopt_r)
 
 	i_assert(master_getopt_str_is_valid(service->getopt_str));
 
+	service->options_parsed = TRUE;
 	int c;
 	int longopt_idx = -1;
 	while ((c = getopt_long(service->argc, service->argv,
@@ -718,6 +720,8 @@ master_service_try_init_log(struct master_service *service,
 			    const char *prefix)
 {
 	const char *timestamp;
+
+	i_assert(service->options_parsed);
 
 	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0 &&
 	    (service->flags & MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR) == 0) {
