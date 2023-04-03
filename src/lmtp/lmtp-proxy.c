@@ -126,6 +126,7 @@ lmtp_proxy_init(struct client *client,
 					      &lmtp_set.proxy_data);
 	lmtp_set.proxy_data.source_ip = client->remote_ip;
 	lmtp_set.proxy_data.source_port = client->remote_port;
+	lmtp_set.proxy_data.local_name = client->local_name;
 	bool end_client_tls_secured =
 		client->end_client_tls_secured_set ?
 		client->end_client_tls_secured :
