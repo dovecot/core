@@ -3,6 +3,7 @@
 #include "login-common.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "connection.h"
 #include "imap-parser.h"
 #include "imap-quote.h"
 #include "imap-login-settings.h"
@@ -20,6 +21,7 @@ struct imap_id_params {
 	in_port_t local_port, remote_port;
 	unsigned int proxy_ttl;
 	const char *session_id;
+	const char *local_name;
 	ARRAY(struct imap_id_params_forward) forward_fields;
 	bool end_client_tls_secured_set;
 	bool end_client_tls_secured;
@@ -114,11 +116,23 @@ cmd_id_x_forward_(struct imap_id_params *params,
 	return TRUE;
 }
 
+static bool
+cmd_id_x_connected_name(struct imap_id_params *params,
+			const char *key ATTR_UNUSED, const char *value)
+{
+	if (connection_is_valid_dns_name(value)) {
+		params->local_name = p_strdup(params->pool, value);
+		return TRUE;
+	}
+	return FALSE;
+}
+
 static const struct imap_id_param_handler imap_login_id_params[] = {
 	{ "x-originating-ip", FALSE, cmd_id_x_originating_ip },
 	{ "x-originating-port", FALSE, cmd_id_x_originating_port },
 	{ "x-connected-ip", FALSE, cmd_id_x_connected_ip },
 	{ "x-connected-port", FALSE, cmd_id_x_connected_port },
+	{ "x-connected-name", FALSE, cmd_id_x_connected_name },
 	{ "x-proxy-ttl", FALSE, cmd_id_x_proxy_ttl },
 	{ "x-session-id", FALSE, cmd_id_x_session_id },
 	{ "x-session-ext-id", FALSE, cmd_id_x_session_id },
@@ -238,6 +252,10 @@ static void cmd_id_copy_params(struct imap_client *client,
 	if (params->session_id != NULL) {
 		client->common.session_id = p_strdup(client->common.pool,
 						     params->session_id);
+	}
+	if (params->local_name != NULL) {
+		client->common.local_name = p_strdup(client->common.preproxy_pool,
+						     params->local_name);
 	}
 	if (params->end_client_tls_secured_set) {
 		client->common.end_client_tls_secured_set = params->end_client_tls_secured_set;

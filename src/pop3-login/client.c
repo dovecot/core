@@ -3,6 +3,7 @@
 #include "login-common.h"
 #include "base64.h"
 #include "buffer.h"
+#include "connection.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
@@ -69,6 +70,13 @@ static bool cmd_xclient(struct pop3_client *client, const char *args)
 			client->common.end_client_tls_secured_set = TRUE;
 			client->common.end_client_tls_secured =
 				str_begins_with(value, CLIENT_TRANSPORT_TLS);
+		} else if (str_begins_icase(*tmp, "DESTNAME=", &value)) {
+			if (!connection_is_valid_dns_name(value))
+				args_ok = FALSE;
+			else {
+				client->common.local_name =
+					p_strdup(client->common.preproxy_pool, value);
+			}
 		} else if (str_begins_icase(*tmp, "FORWARD=", &value)) {
 			if (!client_forward_decode_base64(&client->common, value))
 				args_ok = FALSE;

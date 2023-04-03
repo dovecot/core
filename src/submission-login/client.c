@@ -197,6 +197,10 @@ client_connection_cmd_xclient(void *context,
 		client->common.session_id =
 			p_strdup(client->common.pool, data->session);
 	}
+	if (data->local_name != NULL) {
+		client->common.local_name =
+			p_strdup(client->common.preproxy_pool, data->local_name);
+	}
 	if (data->client_transport != NULL) {
 		client->common.end_client_tls_secured_set = TRUE;
 		client->common.end_client_tls_secured =
