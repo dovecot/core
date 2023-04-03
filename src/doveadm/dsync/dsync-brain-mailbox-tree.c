@@ -72,6 +72,7 @@ void dsync_brain_mailbox_trees_init(struct dsync_brain *brain)
 					    brain->sync_box,
 					    brain->sync_box_guid,
 					    brain->exclude_mailboxes,
+					    brain->alt_char,
 					    brain->event,
 					    &brain->mail_error) < 0) {
 			brain->failed = TRUE;

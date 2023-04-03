@@ -10,17 +10,51 @@
 #include "mail-namespace.h"
 #include "mail-storage.h"
 #include "mailbox-list-iter.h"
+#include "dsync-brain.h"
 #include "dsync-mailbox-tree-private.h"
+
+static const char *
+dsync_mailbox_tree_name_unescape(struct mail_namespace *ns,
+				 const char *old_vname, char alt_char)
+{
+	const char ns_sep = mail_namespace_get_sep(ns);
+	const char escape_char =
+		mailbox_list_get_settings(ns->list)->vname_escape_char;
+	const char *const *old_vname_parts =
+		dsync_mailbox_name_to_parts(old_vname, ns_sep, escape_char);
+
+	string_t *new_vname = t_str_new(128);
+	for (; *old_vname_parts != NULL; old_vname_parts++) {
+		for (const char *p = *old_vname_parts; *p != '\0'; p++) {
+			if (*p != ns_sep)
+				str_append_c(new_vname, *p);
+			else
+				str_append_c(new_vname, alt_char);
+		}
+		str_append_c(new_vname, ns_sep);
+	}
+	str_truncate(new_vname, str_len(new_vname)-1);
+	return str_c(new_vname);
+};
 
 static int
 dsync_mailbox_tree_add_node(struct dsync_mailbox_tree *tree,
 			    const struct mailbox_info *info,
-			    struct event *event,
+			    char alt_char, struct event *event,
 			    struct dsync_mailbox_node **node_r)
 {
 	struct dsync_mailbox_node *node;
+	const char *vname = info->vname;
 
-	node = dsync_mailbox_tree_get(tree, info->vname);
+	struct dsync_mailbox_list *dlist = DSYNC_LIST_CONTEXT(info->ns->list);
+	if (dlist != NULL && !dlist->have_orig_escape_char) {
+		/* The escape character was added only for dsync internally.
+		   Normally there is no escape character configured. Change
+		   the mailbox names so that it doesn't rely on it. */
+		vname = dsync_mailbox_tree_name_unescape(info->ns, vname, alt_char);
+	}
+
+	node = dsync_mailbox_tree_get(tree, vname);
 	if (node->ns == info->ns)
 		;
 	else if (node->ns == NULL) {
@@ -29,7 +63,7 @@ dsync_mailbox_tree_add_node(struct dsync_mailbox_tree *tree,
 	} else {
 		e_error(event,
 			"Mailbox '%s' exists in two namespaces: '%s' and '%s'",
-			info->vname, node->ns->prefix, info->ns->prefix);
+			vname, node->ns->prefix, info->ns->prefix);
 		return -1;
 	}
 	*node_r = node;
@@ -40,10 +74,10 @@ static int
 dsync_mailbox_tree_add_exists_node(struct dsync_mailbox_tree *tree,
 				   const struct mailbox_info *info,
 				   struct dsync_mailbox_node **node_r,
-				   struct event *event,
+				   char alt_char, struct event *event,
 				   enum mail_error *error_r)
 {
-	if (dsync_mailbox_tree_add_node(tree, info, event, node_r) < 0) {
+	if (dsync_mailbox_tree_add_node(tree, info, alt_char, event, node_r) < 0) {
 		*error_r = MAIL_ERROR_TEMP;
 		return -1;
 	}
@@ -78,7 +112,7 @@ dsync_mailbox_tree_get_selectable(struct mailbox *box,
 static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
 				  const struct mailbox_info *info,
 				  const guid_128_t box_guid,
-				  struct event *event,
+				  char alt_char, struct event *event,
 				  enum mail_error *error_r)
 {
 	struct dsync_mailbox_node *node;
@@ -95,7 +129,7 @@ static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
 	if ((info->flags & MAILBOX_NOSELECT) != 0) {
 		return !guid_128_is_empty(box_guid) ? 0 :
 			dsync_mailbox_tree_add_exists_node(
-				tree, info, &node, event, error_r);
+				tree, info, &node, alt_char, event, error_r);
 	}
 
 	/* get GUID and UIDVALIDITY for selectable mailbox */
@@ -107,7 +141,7 @@ static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
 		if (existence == MAILBOX_EXISTENCE_NOSELECT) {
 			return !guid_128_is_empty(box_guid) ? 0 :
 				dsync_mailbox_tree_add_exists_node(
-					tree, info, &node, event, error_r);
+					tree, info, &node, alt_char, event, error_r);
 		} else {
 			return 0;
 		}
@@ -142,7 +176,7 @@ static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
 		return 0;
 	}
 	if (dsync_mailbox_tree_add_exists_node(
-		tree, info, &node, event, error_r) < 0)
+		tree, info, &node, alt_char, event, error_r) < 0)
 		return -1;
 	memcpy(node->mailbox_guid, metadata.guid,
 	       sizeof(node->mailbox_guid));
@@ -347,7 +381,7 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 			    struct mail_namespace *ns, const char *box_name,
 			    const guid_128_t box_guid,
 			    const char *const *exclude_mailboxes,
-			    struct event *event,
+			    char alt_char, struct event *event,
 			    enum mail_error *error_r)
 {
 	const enum mailbox_list_iter_flags list_flags =
@@ -380,7 +414,7 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 			.ns = ns,
 		};
 		if (dsync_mailbox_tree_add(
-			tree, &ns_info, box_guid, event, error_r) < 0)
+			tree, &ns_info, box_guid, alt_char, event, error_r) < 0)
 			return -1;
 	} else {
 		tree->root.ns = ns;
@@ -392,7 +426,7 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 		if (dsync_mailbox_info_is_wanted(info, box_name,
 						 exclude_mailboxes)) {
 			if (dsync_mailbox_tree_add(
-				tree, info, box_guid, event, error_r) < 0)
+				tree, info, box_guid, alt_char, event, error_r) < 0)
 				ret = -1;
 		}
 	} T_END;
@@ -405,7 +439,7 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 	/* add subscriptions */
 	iter = mailbox_list_iter_init(ns->list, list_pattern, subs_list_flags);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		if (dsync_mailbox_tree_add_node(tree, info, event, &node) == 0)
+		if (dsync_mailbox_tree_add_node(tree, info, alt_char, event, &node) == 0)
 			node->subscribed = TRUE;
 		else {
 			*error_r = MAIL_ERROR_TEMP;
