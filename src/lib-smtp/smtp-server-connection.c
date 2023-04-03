@@ -1658,3 +1658,11 @@ smtp_server_connection_reason_begin(struct smtp_server_connection *conn,
 		event_reason_code(conn->set.reason_code_module, name);
 	return event_reason_begin(reason_code);
 }
+
+const char *
+smtp_server_connection_get_server_name(struct smtp_server_connection *conn)
+{
+	if (conn->ssl_iostream == NULL)
+		return NULL;
+	return ssl_iostream_get_server_name(conn->ssl_iostream);
+}
