@@ -47,6 +47,7 @@ static const struct config_filter managesieve_filter = {
 
 static const struct {
 	const char *key;
+	const char *details;
 	bool fail_if_set;
 } removed_settings[] = {
 	{ .key = "login_dir", },
@@ -59,6 +60,7 @@ static const struct {
 	{ .key = "ssl_parameters_regenerate", },
 	{ .key = "ssl_dh_parameters_length", },
 	{ .key = "login_access_sockets", .fail_if_set = TRUE, },
+	{ .key = "imap_id_log", .details = "Use event exporter for the 'imap_id_received' event instead.", },
 };
 
 static void ATTR_FORMAT(2, 3)
@@ -290,7 +292,9 @@ old_settings_handle_root(struct config_parser_context *ctx,
 			if (removed_settings[i].fail_if_set &&
 			    value != NULL && *value != '\0')
 				i_fatal("%s is no longer supported", key);
-			obsolete(ctx, "%s has been removed", key);
+			obsolete(ctx, "%s has been removed.%s", key,
+				 removed_settings[i].details == NULL ? "" :
+				 t_strconcat(" ", removed_settings[i].details, NULL));
 			return TRUE;
 		}
 	}
@@ -359,13 +363,6 @@ old_settings_handle_root(struct config_parser_context *ctx,
 					 value);
 		return TRUE;
 	}
-	if (strcmp(key, "imap_id_log") == 0) {
-		obsolete(ctx,
-			 "'imap_id_log' has been removed. Use event exporter "
-			 "for the 'imap_id_received' event instead.");
-		return TRUE;
-	}
-
 	return FALSE;
 }
 
