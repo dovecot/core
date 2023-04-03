@@ -827,37 +827,6 @@ void settings_parse_set_expanded(struct setting_parser_context *ctx,
 	ctx->str_vars_are_expanded = is_expanded;
 }
 
-void settings_parse_set_key_expanded(struct setting_parser_context *ctx,
-				     pool_t pool, const char *key)
-{
-	const struct setting_define *def;
-	struct setting_link *link;
-	const char **val;
-
-	if (!settings_find_key(ctx, key, &def, &link))
-		return;
-	if (def == NULL) {
-		/* parent is strlist, no expansion needed */
-		i_assert(link->info == &strlist_info);
-		return;
-	}
-
-	val = PTR_OFFSET(link->set_struct, def->offset);
-	if (def->type == SET_STR_VARS && *val != NULL) {
-		i_assert(**val == SETTING_STRVAR_UNEXPANDED[0] ||
-			 **val == SETTING_STRVAR_EXPANDED[0]);
-		*val = p_strconcat(pool, SETTING_STRVAR_EXPANDED,
-				   *val + 1, NULL);
-	}
-}
-
-void settings_parse_set_keys_expanded(struct setting_parser_context *ctx,
-				      pool_t pool, const char *const *keys)
-{
-	for (; *keys != NULL; keys++)
-		settings_parse_set_key_expanded(ctx, pool, *keys);
-}
-
 static int ATTR_NULL(3, 4, 5)
 settings_var_expand_info(const struct setting_parser_info *info, void *set,
 			 pool_t pool,
