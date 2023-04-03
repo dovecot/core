@@ -352,6 +352,8 @@ client_connection_proxy_data_updated(void *context,
 
 	client->remote_ip = data->source_ip;
 	client->remote_port = data->source_port;
+	client->local_name = data->local_name;
+
 	if (data->client_transport != NULL) {
 		client->end_client_tls_secured = TRUE;
 		client->end_client_tls_secured =
