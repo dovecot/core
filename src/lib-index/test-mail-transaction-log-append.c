@@ -121,13 +121,10 @@ static void test_mail_transaction_log_append(void)
 	struct mail_transaction_log *log;
 	struct mail_transaction_log_file *file;
 	struct mail_transaction_log_append_ctx *ctx;
-	char tmp_path[] = "/tmp/dovecot.test.XXXXXX";
 	struct stat st;
 	int fd;
 
-	fd = mkstemp(tmp_path);
-	if (fd == -1)
-		i_fatal("mkstemp(%s) failed: %m", tmp_path);
+	fd = test_create_temp_fd();
 
 	test_begin("transaction log append");
 	log = i_new(struct mail_transaction_log, 1);
@@ -163,7 +160,6 @@ static void test_mail_transaction_log_append(void)
 	i_free(log->head);
 	i_free(log->index);
 	i_free(log);
-	i_unlink(tmp_path);
 }
 
 int main(void)

@@ -3,7 +3,6 @@
 #include "test-lib.h"
 #include "net.h"
 #include "str.h"
-#include "safe-mkstemp.h"
 #include "randgen.h"
 #include "istream.h"
 #include "ostream.h"
@@ -16,17 +15,13 @@
 static void test_ostream_file_random_once(void)
 {
 	struct ostream *output;
-	string_t *path = t_str_new(128);
 	char buf[MAX_BUFSIZE*4], buf2[MAX_BUFSIZE*4], randbuf[MAX_BUFSIZE];
 	unsigned int i, offset, size;
 	ssize_t ret;
 	int fd;
 
 	memset(buf, 0, sizeof(buf));
-	fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
-	if (fd == -1)
-		i_fatal("safe_mkstemp(%s) failed: %m", str_c(path));
-	i_unlink(str_c(path));
+	fd = test_create_temp_fd();
 	output = o_stream_create_fd(fd, MAX_BUFSIZE);
 	o_stream_cork(output);
 

@@ -5,7 +5,6 @@
 #include "str.h"
 #include "sha1.h"
 #include "hash-format.h"
-#include "safe-mkstemp.h"
 #include "istream.h"
 #include "istream-crlf.h"
 #include "istream-attachment-extractor.h"
@@ -123,17 +122,9 @@ struct attachment {
 static buffer_t *attachment_data;
 static ARRAY(struct attachment) attachments;
 
-static int test_open_temp_fd(void *context ATTR_UNUSED)
+static int test_open_temp_fd_callback(void *context ATTR_UNUSED)
 {
-	string_t *str = t_str_new(128);
-	int fd;
-
-	str_append(str, "/tmp/dovecot-test.");
-	fd = safe_mkstemp(str, 0600, (uid_t)-1, (gid_t)-1);
-	if (fd == -1)
-		i_fatal("safe_mkstemp(%s) failed: %m", str_c(str));
-	i_unlink(str_c(str));
-	return fd;
+	return test_create_temp_fd();
 }
 
 static int test_open_attachment_ostream(struct istream_attachment_info *info,
@@ -234,7 +225,7 @@ get_istream_attachment_settings(struct istream_attachment_settings *set_r)
 	i_zero(set_r);
 	set_r->min_size = 1;
 	set_r->drain_parent_input = TRUE;
-	set_r->open_temp_fd = test_open_temp_fd;
+	set_r->open_temp_fd = test_open_temp_fd_callback;
 	set_r->open_attachment_ostream = test_open_attachment_ostream;
 	set_r->close_attachment_ostream= test_close_attachment_ostream;
 	if (hash_format_init("%{sha1}", &set_r->hash_format, &error) < 0)
