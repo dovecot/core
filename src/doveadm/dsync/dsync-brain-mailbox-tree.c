@@ -83,18 +83,6 @@ void dsync_brain_mailbox_trees_init(struct dsync_brain *brain)
 		dsync_mailbox_tree_iter_init(brain->local_mailbox_tree);
 }
 
-static const char *const *
-dsync_brain_mailbox_to_parts(struct dsync_brain *brain, const char *name)
-{
-	char sep[] = { brain->hierarchy_sep, '\0' };
-	char **parts = p_strsplit(unsafe_data_stack_pool, name, sep);
-	for (unsigned int i = 0; parts[i] != NULL; i++) {
-		mailbox_list_name_unescape((const char **)&parts[i],
-					   brain->escape_char);
-	}
-	return (const char *const *)parts;
-}
-
 void dsync_brain_send_mailbox_tree(struct dsync_brain *brain)
 {
 	struct dsync_mailbox_node *node;
@@ -120,7 +108,8 @@ void dsync_brain_send_mailbox_tree(struct dsync_brain *brain)
 			e_debug(brain->event, "Local mailbox tree: %s %s",
 				full_name, dsync_mailbox_node_to_string(node));
 
-			parts = dsync_brain_mailbox_to_parts(brain, full_name);
+			parts = dsync_mailbox_name_to_parts(full_name, brain->hierarchy_sep,
+							    brain->escape_char);
 			ret = dsync_ibc_send_mailbox_tree_node(brain->ibc,
 							       parts, node);
 		} T_END;
