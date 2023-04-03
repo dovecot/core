@@ -84,6 +84,8 @@ void smtp_proxy_data_merge(pool_t pool, struct smtp_proxy_data *dst,
 		dst->session = p_strdup(pool, src->session);
 	if (src->client_transport != NULL && *src->client_transport != '\0')
 		dst->client_transport = p_strdup(pool, src->client_transport);
+	if (src->local_name != NULL && *src->local_name != '\0')
+		dst->local_name = p_strdup_empty(pool, src->local_name);
 	if (src->ttl_plus_1 > 0)
 		dst->ttl_plus_1 = src->ttl_plus_1;
 	if (src->timeout_secs > 0)

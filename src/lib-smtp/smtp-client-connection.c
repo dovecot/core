@@ -664,6 +664,15 @@ void smtp_client_connection_send_xclient(struct smtp_client_connection *conn)
 			"CLIENT-TRANSPORT", xclient->client_transport);
 	}
 
+	/* DESTNAME */
+	if (xclient->local_name != NULL &&
+	    str_array_icase_find(xclient_args, "DESTNAME")) {
+		/* This should already be checked elsewhere */
+		i_assert(connection_is_valid_dns_name(xclient->local_name));
+		smtp_client_connection_xclient_add(conn, str, offset,
+				"DESTNAME", xclient->local_name);
+	}
+
 	/* TTL */
 	if (xclient->ttl_plus_1 > 0 &&
 	    str_array_icase_find(xclient_args, "TTL")) {

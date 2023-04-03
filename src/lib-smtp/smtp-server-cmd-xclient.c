@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "istream.h"
+#include "connection.h"
 #include "smtp-syntax.h"
 #include "smtp-reply.h"
 
@@ -190,6 +191,13 @@ void smtp_server_cmd_xclient(struct smtp_server_cmd_ctx *cmd,
 				continue;
 			proxy_data->client_transport =
 				p_strdup(cmd->pool, param.value);
+		} else if (strcmp(param.keyword, "DESTNAME") == 0) {
+			if (!connection_is_valid_dns_name(param.value)) {
+				smtp_server_reply(cmd, 501, "5.5.4",
+						  "Invalid DESTNAME parameter");
+				return;
+			}
+			proxy_data->local_name = p_strdup(cmd->pool, param.value);
 		} else if (strcmp(param.keyword, "TIMEOUT") == 0) {
 			if (str_to_uint(param.value,
 				&proxy_data->timeout_secs) < 0) {

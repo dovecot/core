@@ -98,6 +98,8 @@ struct smtp_proxy_data {
 	const char *session;
 	/* CLIENT-TRANSPORT */
 	const char *client_transport;
+	/* DESTNAME */
+	const char *local_name;
 
 	/* TTL: send as this -1, so the default 0 means "don't send it" */
 	unsigned int ttl_plus_1;
