@@ -55,6 +55,8 @@ static const struct {
 	{ .key = "director_consistent_hashing", },
 	{ .key = "mail_log_max_lines_per_sec", },
 	{ .key = "maildir_copy_preserve_filename", },
+	{ .key = "ssl_parameters_regenerate", },
+	{ .key = "ssl_dh_parameters_length", },
 };
 
 static void ATTR_FORMAT(2, 3)
@@ -214,11 +216,6 @@ old_settings_handle_root(struct config_parser_context *ctx,
 		else if (strcasecmp(value, "no") == 0)
 			value = "yes";
 		set_rename(ctx, key, "ssl", value);
-		return TRUE;
-	}
-	if (strcmp(key, "ssl_parameters_regenerate") == 0 ||
-	    strcmp(key, "ssl_dh_parameters_length") == 0) {
-		obsolete(ctx, "%s is no longer needed", key);
 		return TRUE;
 	}
 	if (strcmp(key, "ssl_protocols") == 0) {
