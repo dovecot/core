@@ -511,6 +511,17 @@ settings_block_read(struct master_settings_mmap *config_mmap, uoff_t *_offset,
 		return -1;
 	size_t block_end_offset = offset + block_size;
 
+	/* Verify that block ends with NUL. This way we can safely use strlen()
+	   later on and we know it won't read past the mmaped memory area and
+	   cause a crash. The NUL is either from the last settings value or
+	   from the last error string. */
+	if (((const char *)config_mmap->mmap_base)[block_end_offset-1] != '\0') {
+		*error_r = t_strdup_printf(
+			"Settings block doesn't end with NUL at offset %zu",
+			block_end_offset-1);
+		return -1;
+	}
+
 	/* <block name> */
 	const char *block_name;
 	if (settings_block_read_str(config_mmap, &offset, block_end_offset,
@@ -634,10 +645,7 @@ master_service_settings_mmap_parse(struct master_settings_mmap *config_mmap,
 	   description.
 
 	   Settings are read until the blob size is reached. There is no
-	   padding/alignment. The mmaped data comes from a trusted source
-	   (if we can't trust the config, what can we trust?), so for
-	   performance and simplicity we trust the mmaped data to be properly
-	   NUL-terminated. If it's not, it can cause a segfault. */
+	   padding/alignment. */
 	const unsigned char *mmap_base = config_mmap->mmap_base;
 	size_t mmap_size = config_mmap->mmap_size;
 	ARRAY_TYPE(const_string) protocols;
@@ -700,13 +708,23 @@ master_service_settings_mmap_apply_blob(struct master_settings_mmap *config_mmap
 
 	/* list of settings: key, value, ... */
 	while (offset < end_offset) {
+		/* We already checked that settings blob ends with NUL, so
+		   strlen() can be used safely. */
 		const char *key = (const char *)config_mmap->mmap_base + offset;
 		offset += strlen(key)+1;
+		if (offset >= end_offset) {
+			/* if offset==end_offset, the value is missing. */
+			*error_r = t_strdup_printf(
+				"Settings key/value points outside blob "
+				"(offset=%zu, end_offset=%zu, file_size=%zu)",
+				offset, end_offset, config_mmap->mmap_size);
+			return -1;
+		}
 		const char *value = (const char *)config_mmap->mmap_base + offset;
 		offset += strlen(value)+1;
 		if (offset > end_offset) {
 			*error_r = t_strdup_printf(
-				"Settings key/value points outside blob "
+				"Settings value points outside blob "
 				"(offset=%zu, end_offset=%zu, file_size=%zu)",
 				offset, end_offset, config_mmap->mmap_size);
 			return -1;
