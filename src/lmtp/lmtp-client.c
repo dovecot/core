@@ -158,6 +158,8 @@ struct client *client_create(int fd_in, int fd_out,
 	client->real_remote_ip = conn->real_remote_ip;
 	client->real_remote_port = conn->real_remote_port;
 	client->state_pool = pool_alloconly_create("client state", 4096);
+	if (conn->haproxy.ssl)
+		client->local_name = conn->haproxy.hostname;
 
 	client->event = event_create(NULL);
 	event_add_category(client->event, &event_category_lmtp);
@@ -242,11 +244,16 @@ void client_destroy(struct client **_client, const char *enh_code,
 		    const char *reason)
 {
 	struct client *client = *_client;
+	struct smtp_server_connection *conn = client->conn;
 
 	*_client = NULL;
 
-	smtp_server_connection_terminate(&client->conn,
+	smtp_server_connection_terminate(&conn,
 		(enh_code == NULL ? "4.0.0" : enh_code), reason);
+	/* smtp_server_connection_terminate() calls
+	   client_connection_state_changed(), which may still access
+	   client->conn. Don't clear it before that. */
+	client->conn = NULL;
 }
 
 static void
@@ -318,6 +325,11 @@ client_connection_state_changed(void *context,
 	client->state.state = new_state;
 	client->state.args = i_strdup(new_args);
 
+	if (client->local_name == NULL) {
+		const char *local_name =
+			smtp_server_connection_get_server_name(client->conn);
+		client->local_name = p_strdup(client->pool, local_name);
+	}
 	if (clients_count == 1)
 		refresh_proctitle();
 }

@@ -687,6 +687,7 @@ lmtp_proxy_rcpt_init_auth_user_info(struct lmtp_recipient *lrcpt,
 	info_r->remote_port = client->remote_port;
 	info_r->real_remote_port = client->real_remote_port;
 	info_r->forward_fields = lrcpt->forward_fields;
+	info_r->local_name = client->local_name;
 }
 
 static void
