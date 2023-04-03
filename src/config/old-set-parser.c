@@ -47,6 +47,7 @@ static const struct config_filter managesieve_filter = {
 
 static const struct {
 	const char *key;
+	bool fail_if_set;
 } removed_settings[] = {
 	{ .key = "login_dir", },
 	{ .key = "license_checksum", },
@@ -57,6 +58,7 @@ static const struct {
 	{ .key = "maildir_copy_preserve_filename", },
 	{ .key = "ssl_parameters_regenerate", },
 	{ .key = "ssl_dh_parameters_length", },
+	{ .key = "login_access_sockets", .fail_if_set = TRUE, },
 };
 
 static void ATTR_FORMAT(2, 3)
@@ -285,6 +287,9 @@ old_settings_handle_root(struct config_parser_context *ctx,
 
 	for (unsigned int i = 0; i < N_ELEMENTS(removed_settings); i++) {
 		if (strcmp(removed_settings[i].key, key) == 0) {
+			if (removed_settings[i].fail_if_set &&
+			    value != NULL && *value != '\0')
+				i_fatal("%s is no longer supported", key);
 			obsolete(ctx, "%s has been removed", key);
 			return TRUE;
 		}
@@ -312,13 +317,6 @@ old_settings_handle_root(struct config_parser_context *ctx,
 	if (strcmp(key, LOG_DEBUG_KEY) == 0) {
 		ctx->old->post_log_debug = p_strdup(ctx->pool, value);
 		return FALSE;
-	}
-	if (strcmp(key, "login_access_sockets") == 0) {
-		if (value != NULL && *value != '\0')
-			i_fatal("%s is no longer supported", key);
-		else
-			obsolete(ctx, "%s is no longer supported", key);
-		return TRUE;
 	}
 	if (strcmp(key, "disable_plaintext_auth") == 0) {
 		const char *error;
