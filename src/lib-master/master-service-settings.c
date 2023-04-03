@@ -835,7 +835,11 @@ int master_service_settings_read(struct master_service *service,
 	i_zero(output_r);
 	output_r->config_fd = -1;
 
-	if (service->config_mmap != NULL && !input->reload_config) {
+	if (input->config_fd > 0) {
+		/* unit test */
+		fd = input->config_fd;
+		path = t_strdup_printf("<input fd %d>", fd);
+	} else if (service->config_mmap != NULL && !input->reload_config) {
 		/* config was already read once */
 	} else if ((value = getenv(DOVECOT_CONFIG_FD_ENV)) != NULL) {
 		/* doveconf -F parameter already executed us back.

@@ -53,6 +53,8 @@ struct master_service_settings {
 
 struct master_service_settings_input {
 	const char *config_path;
+	/* Read configuration from given fd. This is intended for unit tests. */
+	int config_fd;
 	bool preserve_environment;
 	bool preserve_user;
 	bool preserve_home;

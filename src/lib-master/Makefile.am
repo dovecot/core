@@ -46,23 +46,30 @@ pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
-	test-event-stats
+	test-event-stats \
+	test-master-service-settings
 
 noinst_PROGRAMS = $(test_programs)
 
-test_libs = \
+test_deps = \
+	libmaster.la \
+	../lib-ssl-iostream/libssl_iostream.la \
+	../lib-settings/libsettings.la \
 	../lib-test/libtest.la \
 	../lib-dns/libdns.la \
 	../lib/liblib.la
 
-test_event_stats_libs = \
-	libmaster.la
-
-test_deps = $(noinst_LTLIBRARIES) $(test_libs)
+test_libs = \
+	$(test_deps) \
+	$(MODULE_LIBS)
 
 test_event_stats_SOURCES = test-event-stats.c
-test_event_stats_LDADD = $(test_event_stats_libs) $(test_libs)
+test_event_stats_LDADD = $(test_libs)
 test_event_stats_DEPENDENCIES = $(test_deps)
+
+test_master_service_settings_SOURCES = test-master-service-settings.c
+test_master_service_settings_LDADD = $(test_libs)
+test_master_service_settings_DEPENDENCIES = $(test_deps)
 
 check-local:
 	for bin in $(test_programs); do \
