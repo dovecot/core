@@ -552,3 +552,18 @@ dsync_mailbox_delete_type_to_string(enum dsync_mailbox_delete_type type)
 	}
 	i_unreached();
 }
+
+const char *const *
+dsync_mailbox_name_to_parts(const char *name, char hierarchy_sep,
+			    char escape_char)
+{
+	const char sep[] = { hierarchy_sep, '\0' };
+	char **parts = p_strsplit(unsafe_data_stack_pool, name, sep);
+	if (escape_char != '\0') {
+		for (unsigned int i = 0; parts[i] != NULL; i++) {
+			mailbox_list_name_unescape((const char **)&parts[i],
+						   escape_char);
+		}
+	}
+	return (const char *const *)parts;
+}
