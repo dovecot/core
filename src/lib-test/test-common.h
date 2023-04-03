@@ -177,4 +177,8 @@ void test_forked_end(void);
 /* If a fork() wants to exit(), then this will avoid valgrind leak errors */
 void test_exit(int status) ATTR_NORETURN;
 
+/* Create a temporary file, unlink it immediately and return the fd. The
+   function handles failures by calling i_fatal(). */
+int test_create_temp_fd(void);
+
 #endif

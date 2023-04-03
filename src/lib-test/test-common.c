@@ -1,6 +1,8 @@
 /* Copyright (c) 2007-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
+#include "safe-mkstemp.h"
 #include "test-common.h"
 
 #include <stdio.h>
@@ -471,4 +473,17 @@ test_exit(int status)
 	t_pop_last_unsafe(); /* as we were within a T_BEGIN { tests[i].func(); } T_END */
 	lib_deinit();
 	lib_exit(status);
+}
+
+int test_create_temp_fd(void)
+{
+	string_t *str = t_str_new(128);
+	int fd;
+
+	str_append(str, "/tmp/dovecot-test.");
+	fd = safe_mkstemp(str, 0600, (uid_t)-1, (gid_t)-1);
+	if (fd == -1)
+		i_fatal("safe_mkstemp(%s) failed: %m", str_c(str));
+	i_unlink(str_c(str));
+	return fd;
 }
