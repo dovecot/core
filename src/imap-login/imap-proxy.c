@@ -57,6 +57,11 @@ static void proxy_write_id(struct imap_client *client, string_t *str)
 		    client->common.end_client_tls_secured ?
 		    CLIENT_TRANSPORT_TLS : CLIENT_TRANSPORT_INSECURE);
 
+	if (client->common.local_name != NULL) {
+		str_append(str, " \"x-connected-name\" ");
+		imap_append_nstring(str, client->common.local_name);
+	}
+
 	/* append any forward_ variables to request */
 	for(const char *const *ptr = client->common.auth_passdb_args; *ptr != NULL; ptr++) {
 		const char *suffix;

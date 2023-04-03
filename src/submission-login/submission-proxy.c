@@ -193,6 +193,11 @@ proxy_send_xclient(struct submission_client *client, struct ostream *output)
 			client->common.end_client_tls_secured ?
 			CLIENT_TRANSPORT_TLS : CLIENT_TRANSPORT_INSECURE);
 	}
+	if (client->common.local_name != NULL &&
+	    str_array_icase_find(client->proxy_xclient, "DESTNAME")) {
+		proxy_send_xclient_more(client, output, str, "DESTNAME",
+					client->common.local_name);
+	}
 	if (str_array_icase_find(client->proxy_xclient, "FORWARD")) {
 		buffer_t *fwd = proxy_compose_xclient_forward(client);
 

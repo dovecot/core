@@ -1,6 +1,7 @@
 /* Copyright (c) 2004-2018 Dovecot authors, see the included COPYING file */
 
 #include "login-common.h"
+#include "connection.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
@@ -30,6 +31,10 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 	i_assert(client->common.proxy_ttl > 1);
 	if (client->proxy_xclient &&
 	    !client->common.proxy_not_trusted) {
+		/* Already checked in login_proxy_connect() that the local_name
+		   won't have any characters that would require escaping. */
+		i_assert(client->common.local_name == NULL ||
+			 connection_is_valid_dns_name(client->common.local_name));
 		string_t *fwd = t_str_new(128);
                 for(const char *const *ptr = client->common.auth_passdb_args;*ptr != NULL; ptr++) {
                         if (str_begins_icase(*ptr, "forward_", &value)) {
@@ -47,6 +52,10 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 			    client->common.proxy_ttl - 1,
 			    client->common.end_client_tls_secured ?
 			    CLIENT_TRANSPORT_TLS : CLIENT_TRANSPORT_INSECURE);
+		if (client->common.local_name != NULL) {
+			str_append(str, " DESTNAME=");
+			str_append(str, client->common.local_name);
+		}
 		if (str_len(fwd) > 0) {
 			str_append(str, " FORWARD=");
 			base64_encode(str_data(fwd), str_len(fwd), str);
