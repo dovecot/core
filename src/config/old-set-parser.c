@@ -45,6 +45,18 @@ static const struct config_filter managesieve_filter = {
 	.service = "sieve"
 };
 
+static const struct {
+	const char *key;
+} removed_settings[] = {
+	{ .key = "login_dir", },
+	{ .key = "license_checksum", },
+	{ .key = "dbox_rotate_min_size", },
+	{ .key = "dbox_rotate_days", },
+	{ .key = "director_consistent_hashing", },
+	{ .key = "mail_log_max_lines_per_sec", },
+	{ .key = "maildir_copy_preserve_filename", },
+};
+
 static void ATTR_FORMAT(2, 3)
 obsolete(struct config_parser_context *ctx, const char *str, ...)
 {
@@ -274,15 +286,11 @@ old_settings_handle_root(struct config_parser_context *ctx,
 		return TRUE;
 	}
 
-	if (strcmp(key, "login_dir") == 0 ||
-	    strcmp(key, "license_checksum") == 0 ||
-	    strcmp(key, "dbox_rotate_min_size") == 0 ||
-	    strcmp(key, "dbox_rotate_days") == 0 ||
-	    strcmp(key, "director_consistent_hashing") == 0 ||
-	    strcmp(key, "mail_log_max_lines_per_sec") == 0 ||
-	    strcmp(key, "maildir_copy_preserve_filename") == 0) {
-		obsolete(ctx, "%s has been removed", key);
-		return TRUE;
+	for (unsigned int i = 0; i < N_ELEMENTS(removed_settings); i++) {
+		if (strcmp(removed_settings[i].key, key) == 0) {
+			obsolete(ctx, "%s has been removed", key);
+			return TRUE;
+		}
 	}
 	if (strcmp(key, "auth_worker_max_count") == 0) {
 		obsolete(ctx,
