@@ -259,13 +259,19 @@ int config_dump_full(enum config_dump_full_dest dest,
 		failed = TRUE;
 	}
 
-	if (final_path != NULL && !failed) {
+	if (final_path == NULL) {
+		/* There is no temporary file. We're either writing to stdout
+		   or the temporary file was already unlinked. */
+	} else if (failed) {
+		i_unlink(str_c(path));
+	} else {
 		if (rename(str_c(path), final_path) < 0) {
 			i_error("rename(%s, %s) failed: %m",
 				str_c(path), final_path);
 			/* the fd is still readable, so don't return failure */
 		}
 	}
+
 	if (!failed && dest != CONFIG_DUMP_FULL_DEST_STDOUT &&
 	    lseek(fd, 0, SEEK_SET) < 0) {
 		i_error("lseek(%s, 0) failed: %m", o_stream_get_name(output));
