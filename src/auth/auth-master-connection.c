@@ -297,6 +297,11 @@ user_callback(enum userdb_result result,
 	case USERDB_RESULT_OK:
 		str_printfa(str, "USER\t%u\t", auth_request->id);
 		str_append_tabescaped(str, auth_request->fields.user);
+		if (auth_request->fields.local_name != NULL) {
+			str_append(str, "\tlocal_name=");
+			str_append_tabescaped(str, auth_request->fields.local_name);
+			str_append_c(str, '\t');
+		}
 		auth_fields_append(auth_request->fields.userdb_reply, str,
 				   AUTH_FIELD_FLAG_HIDDEN, 0, TRUE);
 		if (*auth_request->set->anonymous_username != '\0' &&

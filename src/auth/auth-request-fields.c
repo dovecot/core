@@ -92,7 +92,7 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 		str_printfa(dest, "\treal_lport=%u", fields->real_local_port);
 	if (fields->real_remote_port != 0)
 		str_printfa(dest, "\treal_rport=%u", fields->real_remote_port);
-	if (fields->local_name != 0) {
+	if (fields->local_name != NULL) {
 		str_append(dest, "\tlocal_name=");
 		str_append_tabescaped(dest, fields->local_name);
 	}

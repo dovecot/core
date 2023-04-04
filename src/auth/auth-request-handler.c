@@ -774,6 +774,10 @@ static void auth_str_append_userdb_extra_fields(struct auth_request *request,
 		auth_str_add_keyvalue(dest, "auth_user",
 				      request->fields.original_username);
 	}
+	if (request->fields.local_name != NULL) {
+		auth_str_add_keyvalue(dest, "local_name",
+				      request->fields.local_name);
+	}
 }
 
 static void userdb_callback(enum userdb_result result,
