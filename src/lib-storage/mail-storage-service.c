@@ -115,7 +115,8 @@ static void set_keyval(struct mail_storage_service_user *user,
 
 static int set_keyvalue(struct mail_storage_service_ctx *ctx,
 			struct mail_storage_service_user *user,
-			const char *key, const char *value)
+			const char *key, const char *value,
+			const char **error_r)
 {
 	struct setting_parser_context *set_parser = user->set_parser;
 	const char *orig_key, *append_value = NULL;
@@ -162,19 +163,19 @@ static int set_keyvalue(struct mail_storage_service_ctx *ctx,
 	}
 
 	ret = settings_parse_keyvalue(set_parser, key, value);
-	if (ret >= 0) {
-		if (strstr(key, "pass") != NULL) {
-			/* possibly a password field (e.g. imapc_password).
-			   hide the value. */
-			value = "<hidden>";
-		}
-		if (ret == 0)
-			e_debug(user->event, "Unknown userdb setting: %s", key);
-		else {
-			e_debug(user->event, "Added userdb setting: %s=%s",
-				key, value);
-		}
+	if (ret < 0) {
+		*error_r = settings_parser_get_error(set_parser);
+		return -1;
 	}
+	if (strstr(key, "pass") != NULL) {
+		/* possibly a password field (e.g. imapc_password).
+		   hide the value. */
+		value = "<hidden>";
+	}
+	if (ret == 0)
+		e_debug(user->event, "Unknown userdb setting: %s", key);
+	else
+		e_debug(user->event, "Added userdb setting: %s=%s", key, value);
 	return ret;
 }
 
@@ -207,7 +208,7 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 {
 	const char *home = reply->home;
 	const char *chroot = reply->chroot;
-	const char *const *str, *p;
+	const char *const *str, *p, *error = NULL;
 	unsigned int i, count;
 	int ret = 0;
 
@@ -281,15 +282,16 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 		} else if (strcmp(key, "admin") == 0) {
 			user->admin = strchr("1Yy", value[0]) != NULL;
 		} else T_BEGIN {
-			ret = set_keyvalue(ctx, user, key, value);
-		} T_END;
+			ret = set_keyvalue(ctx, user, key, value, &error);
+		} T_END_PASS_STR_IF(ret < 0, &error);
 		if (ret < 0)
 			break;
 	}
 
 	if (ret < 0) {
+		i_assert(error != NULL);
 		*error_r = t_strdup_printf("Invalid userdb input '%s': %s",
-			str[i], settings_parser_get_error(user->set_parser));
+					   str[i], error);
 	}
 	return ret;
 }
