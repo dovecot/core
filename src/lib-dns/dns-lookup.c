@@ -425,7 +425,11 @@ static int dns_client_input_args(struct connection *conn, const char *const *arg
 
 static void dns_lookup_timeout(struct dns_lookup *lookup)
 {
-	lookup->result.error = "Lookup timed out";
+	int duration_msecs = timeval_diff_msecs(&ioloop_timeval,
+						&lookup->start_time);
+	lookup->result.error = t_strdup_printf("Lookup timed out in %u.%03u secs",
+					       duration_msecs / 1000,
+					       duration_msecs % 1000);
 
 	dns_lookup_callback(lookup);
 	dns_lookup_free(&lookup);
