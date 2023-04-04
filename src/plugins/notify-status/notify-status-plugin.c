@@ -295,7 +295,8 @@ static void notify_status_mail_user_deinit(struct mail_user *user)
 
 	dict_wait(nuser->dict);
 	dict_deinit(&nuser->dict);
-	notify_unregister(nuser->context);
+	if (nuser->context != NULL)
+		notify_unregister(nuser->context);
 	nuser->module_ctx.super.deinit(user);
 }
 
