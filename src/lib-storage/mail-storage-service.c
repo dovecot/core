@@ -69,6 +69,7 @@ struct mail_storage_service_user {
 	struct event *event;
 	struct ioloop_context *ioloop_ctx;
 	const char *log_prefix, *auth_mech, *auth_token, *auth_user;
+	const char *local_name;
 
 	const char *system_groups_user, *uid_source, *gid_source;
 	const char *chdir_path;
@@ -214,6 +215,8 @@ user_reply_handle(struct mail_storage_service_user *user,
 			user->auth_user = p_strdup(user->pool, value);
 		} else if (strcmp(key, "admin") == 0) {
 			user->admin = strchr("1Yy", value[0]) != NULL;
+		} else if (strcmp(key, "local_name") == 0) {
+			user->local_name = p_strdup(user->pool, value);
 		} else {
 			set_keyvalue(user, key, value);
 		}
@@ -239,6 +242,7 @@ service_auth_userdb_lookup(struct mail_storage_service_ctx *ctx,
 	info.local_port = input->local_port;
 	info.remote_port = input->remote_port;
 	info.forward_fields = input->forward_fields;
+	info.local_name = input->local_name;
 	info.debug = input->debug;
 
 	ret = auth_master_user_lookup(ctx->conn, *user, &info, pool,
@@ -312,6 +316,7 @@ get_var_expand_table(struct master_service *service,
 		dec2str(priv->uid == (uid_t)-1 ? geteuid() : priv->uid);
 	const char *gid = priv == NULL ? NULL :
 		dec2str(priv->gid == (gid_t)-1 ? getegid() : priv->gid);
+	const char *local_name = NULL;
 
 	const char *auth_user, *auth_username, *auth_domain;
 	if (user == NULL || user->auth_user == NULL) {
@@ -322,6 +327,7 @@ get_var_expand_table(struct master_service *service,
 		auth_user = user->auth_user;
 		auth_username = t_strcut(user->auth_user, '@');
 		auth_domain = i_strchr_to_next(user->auth_user, '@');
+		local_name = user->local_name;
 	}
 
 	const char *service_name = input->service != NULL ?
@@ -343,6 +349,7 @@ get_var_expand_table(struct master_service *service,
 		{ '\0', auth_username, "auth_username" },
 		{ '\0', auth_domain, "auth_domain" },
 		{ '\0', hostname, "hostname" },
+		{ '\0', local_name, "local_name" },
 		/* aliases: */
 		{ '\0', net_ip2addr(&input->local_ip), "local_ip" },
 		{ '\0', net_ip2addr(&input->remote_ip), "remote_ip" },
@@ -560,6 +567,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 		   known. */
 		mail_user_set_home(mail_user, *home == '\0' ? NULL : home);
 	}
+	conn_data.local_name = p_strdup(mail_user->pool, user->local_name);
 	mail_user_set_vars(mail_user, service_name, &conn_data);
 	mail_user->uid = priv->uid == (uid_t)-1 ? geteuid() : priv->uid;
 	mail_user->gid = priv->gid == (gid_t)-1 ? getegid() : priv->gid;
@@ -1116,6 +1124,9 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		{ .key = NULL }
 	});
 
+	if (input->local_name != NULL)
+		event_add_str(event, "local_name", input->local_name);
+
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0) {
 		ret = service_auth_userdb_lookup(
 			ctx, input, temp_pool, event,
@@ -1144,6 +1155,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		p_strarray_dup(user_pool, userdb_fields);
 	user->input.username = p_strdup(user_pool, username);
 	user->input.session_id = session_id; /* already allocated on user_pool */
+	user->input.local_name = p_strdup(user_pool, input->local_name);
 	user->event = event;
 	user->input.session_create_time = input->session_create_time;
 	user->flags = flags;
@@ -1167,6 +1179,10 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		if (ret2 == 0) {
 			array_sort(&reply.extra_fields, extra_field_key_cmp_p);
 			ret2 = user_reply_handle(user, &reply, &error);
+			if (user->local_name != NULL) {
+				event_add_str(event, "local_name",
+					      user->local_name);
+			}
 		}
 
 		if (ret2 < 0) {

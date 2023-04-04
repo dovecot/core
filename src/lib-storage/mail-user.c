@@ -265,6 +265,7 @@ mail_user_connection_init_from(struct mail_user_connection_data *conn,
 		conn->remote_ip = p_new(pool, struct ip_addr, 1);
 		*conn->remote_ip = *src->remote_ip;
 	}
+	conn->local_name = p_strdup(pool, conn->local_name);
 }
 
 void mail_user_set_vars(struct mail_user *user, const char *service,
@@ -314,6 +315,7 @@ mail_user_var_expand_table(struct mail_user *user)
 		{ '\0', auth_username, "auth_username" },
 		{ '\0', auth_domain, "auth_domain" },
 		{ '\0', user->set->hostname, "hostname" },
+		{ '\0', user->conn.local_name, "local_name" },
 		/* aliases: */
 		{ '\0', local_ip, "local_ip" },
 		{ '\0', remote_ip, "remote_ip" },
@@ -422,6 +424,7 @@ static int mail_user_userdb_lookup_home(struct mail_user *user)
 		info.local_ip = *user->conn.local_ip;
 	if (user->conn.remote_ip != NULL)
 		info.remote_ip = *user->conn.remote_ip;
+	info.local_name = user->conn.local_name;
 
 	userdb_pool = pool_alloconly_create("userdb lookup", 2048);
 	ret = auth_master_user_lookup(mail_user_auth_master_conn,
