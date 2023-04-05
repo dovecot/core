@@ -35,7 +35,7 @@ struct notify_vfuncs {
 
 struct notify_context *
 notify_register(const struct notify_vfuncs *vfuncs);
-void notify_unregister(struct notify_context *ctx);
+void notify_unregister(struct notify_context **ctx);
 
 void notify_plugin_init(struct module *module);
 void notify_plugin_deinit(void);

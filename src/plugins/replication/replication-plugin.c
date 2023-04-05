@@ -419,7 +419,7 @@ void replication_plugin_deinit(void)
 	i_free_and_null(fifo_path);
 
 	mail_storage_hooks_remove(&replication_mail_storage_hooks);
-	notify_unregister(replication_ctx);
+	notify_unregister(&replication_ctx);
 }
 
 const char *replication_plugin_dependencies[] = { "notify", NULL };

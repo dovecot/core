@@ -544,7 +544,7 @@ void mail_log_plugin_init(struct module *module)
 void mail_log_plugin_deinit(void)
 {
 	mail_storage_hooks_remove(&mail_log_mail_storage_hooks);
-	notify_unregister(mail_log_ctx);
+	notify_unregister(&mail_log_ctx);
 }
 
 const char *mail_log_plugin_dependencies[] = { "notify", NULL };
