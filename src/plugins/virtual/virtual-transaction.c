@@ -46,18 +46,16 @@ int virtual_transaction_commit(struct mailbox_transaction_context *t,
 {
 	struct virtual_transaction_context *vt =
 		container_of(t, struct virtual_transaction_context, t);
-	struct mailbox_transaction_context **bt;
-	unsigned int i, count;
-	int ret = 0;
 
 	if (t->save_ctx != NULL) {
 		virtual_save_free(t->save_ctx);
 		t->save_ctx = NULL;
 	}
 
-	bt = array_get_modifiable(&vt->backend_transactions, &count);
-	for (i = 0; i < count; i++) {
-		if (mailbox_transaction_commit(&bt[i]) < 0)
+	int ret = 0;
+	struct mailbox_transaction_context *bt;
+	array_foreach_elem(&vt->backend_transactions, bt) {
+		if (mailbox_transaction_commit(&bt) < 0)
 			ret = -1;
 	}
 	array_free(&vt->backend_transactions);
