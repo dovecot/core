@@ -14,10 +14,11 @@ struct dict_transaction_context dict_transaction_unsupported =
         .dict = &dict_driver_fail,
 };
 
-static int dict_fail_init(struct dict *dict_driver ATTR_UNUSED,
-			  const char *uri ATTR_UNUSED,
-			  const struct dict_settings *set ATTR_UNUSED,
-			  struct dict **dict_r ATTR_UNUSED, const char **error_r)
+static int
+dict_fail_init_legacy(struct dict *dict_driver ATTR_UNUSED,
+		      const char *uri ATTR_UNUSED,
+		      const struct dict_settings *set ATTR_UNUSED,
+		      struct dict **dict_r ATTR_UNUSED, const char **error_r)
 {
 	*error_r = "Unsupported operation (dict does not support this feature)";
 	return -1;
@@ -115,7 +116,7 @@ static void dict_fail_set_timestamp(struct dict_transaction_context *ctx ATTR_UN
 struct dict dict_driver_fail = {
 	.name = "fail",
 	.v = {
-		.init = dict_fail_init,
+		.init_legacy = dict_fail_init_legacy,
 		.deinit = dict_fail_deinit,
 		.wait = dict_fail_wait,
 		.lookup = dict_fail_lookup,

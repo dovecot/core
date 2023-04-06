@@ -113,7 +113,7 @@ int dict_init_legacy(const char *uri, const struct dict_settings *set,
 	event_set_append_log_prefix(event, t_strdup_printf("dict(%s): ",
 				    dict->name));
 	set_dup.event_parent = event;
-	if (dict->v.init(dict, p+1, &set_dup, dict_r, &error) < 0) {
+	if (dict->v.init_legacy(dict, p+1, &set_dup, dict_r, &error) < 0) {
 		*error_r = t_strdup_printf("dict %s: %s", name, error);
 		event_unref(&event);
 		return -1;

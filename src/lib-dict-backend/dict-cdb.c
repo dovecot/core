@@ -35,9 +35,9 @@ struct cdb_dict_iterate_context {
 static void cdb_dict_deinit(struct dict *_dict);
 
 static int
-cdb_dict_init(struct dict *driver, const char *uri,
-	      const struct dict_settings *set ATTR_UNUSED,
-	      struct dict **dict_r, const char **error_r)
+cdb_dict_init_legacy(struct dict *driver, const char *uri,
+		     const struct dict_settings *set ATTR_UNUSED,
+		     struct dict **dict_r, const char **error_r)
 {
 	struct cdb_dict *dict;
 
@@ -256,7 +256,7 @@ static int cdb_dict_iterate_deinit(struct dict_iterate_context *_ctx,
 struct dict dict_driver_cdb = {
 	.name = "cdb",
 	.v = {
-		.init = cdb_dict_init,
+		.init_legacy = cdb_dict_init_legacy,
 		.deinit = cdb_dict_deinit,
 		.lookup = cdb_dict_lookup,
 		.iterate_init = cdb_dict_iterate_init,

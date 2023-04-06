@@ -233,9 +233,9 @@ ldap_dict_build_query(const struct dict_op_settings *set,
 }
 
 static
-int ldap_dict_init(struct dict *dict_driver, const char *uri,
-		   const struct dict_settings *set ATTR_UNUSED,
-		   struct dict **dict_r, const char **error_r)
+int ldap_dict_init_legacy(struct dict *dict_driver, const char *uri,
+			  const struct dict_settings *set ATTR_UNUSED,
+			  struct dict **dict_r, const char **error_r)
 {
 	pool_t pool = pool_alloconly_create("ldap dict", 2048);
 	struct ldap_dict *dict = p_new(pool, struct ldap_dict, 1);
@@ -488,7 +488,7 @@ void ldap_dict_lookup_async(struct dict *dict,
 struct dict dict_driver_ldap = {
 	.name = "ldap",
 	.v = {
-		.init = ldap_dict_init,
+		.init_legacy = ldap_dict_init_legacy,
 		.deinit = ldap_dict_deinit,
 		.wait = ldap_dict_wait,
 		.lookup = ldap_dict_lookup,

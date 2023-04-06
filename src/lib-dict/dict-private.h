@@ -12,9 +12,9 @@ enum dict_driver_flags {
 };
 
 struct dict_vfuncs {
-	int (*init)(struct dict *dict_driver, const char *uri,
-		    const struct dict_settings *set,
-		    struct dict **dict_r, const char **error_r);
+	int (*init_legacy)(struct dict *dict_driver, const char *uri,
+			   const struct dict_settings *set,
+			   struct dict **dict_r, const char **error_r);
 	void (*deinit)(struct dict *dict);
 	void (*wait)(struct dict *dict);
 	int (*expire_scan)(struct dict *dict, const char **error_r);

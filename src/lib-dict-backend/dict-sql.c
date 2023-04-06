@@ -96,9 +96,9 @@ static void sql_dict_prev_inc_free(struct sql_dict_transaction_context *ctx);
 static void sql_dict_prev_set_free(struct sql_dict_transaction_context *ctx);
 
 static int
-sql_dict_init(struct dict *driver, const char *uri,
-	      const struct dict_settings *set,
-	      struct dict **dict_r, const char **error_r)
+sql_dict_init_legacy(struct dict *driver, const char *uri,
+		     const struct dict_settings *set,
+		     struct dict **dict_r, const char **error_r)
 {
 	struct sql_settings sql_set;
 	struct sql_dict *dict;
@@ -1651,7 +1651,7 @@ static struct dict sql_dict = {
 	.name = "sql",
 	.flags = DICT_DRIVER_FLAG_SUPPORT_EXPIRE_SECS,
 	.v = {
-		.init = sql_dict_init,
+		.init_legacy = sql_dict_init_legacy,
 		.deinit = sql_dict_deinit,
 		.wait = sql_dict_wait,
 		.expire_scan = sql_dict_expire_scan,

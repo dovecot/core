@@ -77,9 +77,9 @@ file_dict_ensure_path_home_dir(struct file_dict *dict, const char *home_dir,
 }
 
 static int
-file_dict_init(struct dict *driver, const char *uri,
-	       const struct dict_settings *set ATTR_UNUSED,
-	       struct dict **dict_r, const char **error_r)
+file_dict_init_legacy(struct dict *driver, const char *uri,
+		      const struct dict_settings *set ATTR_UNUSED,
+		      struct dict **dict_r, const char **error_r)
 {
 	struct file_dict *dict;
 	const char *p, *path;
@@ -700,7 +700,7 @@ file_dict_transaction_commit(struct dict_transaction_context *_ctx,
 struct dict dict_driver_file = {
 	.name = "file",
 	.v = {
-		.init = file_dict_init,
+		.init_legacy = file_dict_init_legacy,
 		.deinit = file_dict_deinit,
 		.lookup = file_dict_lookup,
 		.iterate_init = file_dict_iterate_init,

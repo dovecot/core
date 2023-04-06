@@ -367,9 +367,9 @@ static const char *redis_escape_username(const char *username)
 }
 
 static int
-redis_dict_init(struct dict *driver, const char *uri,
-		const struct dict_settings *set,
-		struct dict **dict_r, const char **error_r)
+redis_dict_init_legacy(struct dict *driver, const char *uri,
+		       const struct dict_settings *set,
+		       struct dict **dict_r, const char **error_r)
 {
 	struct redis_dict *dict;
 	struct ip_addr ip;
@@ -851,7 +851,7 @@ struct dict dict_driver_redis = {
 	.name = "redis",
 	.flags = DICT_DRIVER_FLAG_SUPPORT_EXPIRE_SECS,
 	.v = {
-		.init = redis_dict_init,
+		.init_legacy = redis_dict_init_legacy,
 		.deinit = redis_dict_deinit,
 		.wait = redis_dict_wait,
 		.lookup = redis_dict_lookup,

@@ -702,9 +702,9 @@ static const struct connection_vfuncs dict_conn_vfuncs = {
 };
 
 static int
-client_dict_init(struct dict *driver, const char *uri,
-		 const struct dict_settings *set,
-		 struct dict **dict_r, const char **error_r)
+client_dict_init_legacy(struct dict *driver, const char *uri,
+			const struct dict_settings *set,
+			struct dict **dict_r, const char **error_r)
 {
 	struct ioloop *old_ioloop = current_ioloop;
 	struct client_dict *dict;
@@ -1513,7 +1513,7 @@ struct dict dict_driver_client = {
 	.name = "proxy",
 	.flags = DICT_DRIVER_FLAG_SUPPORT_EXPIRE_SECS,
 	.v = {
-		.init = client_dict_init,
+		.init_legacy = client_dict_init_legacy,
 		.deinit = client_dict_deinit,
 		.wait = client_dict_wait,
 		.lookup = client_dict_lookup,

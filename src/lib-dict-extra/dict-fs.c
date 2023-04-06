@@ -25,9 +25,9 @@ struct fs_dict_iterate_context {
 };
 
 static int
-fs_dict_init(struct dict *driver, const char *uri,
-	     const struct dict_settings *set,
-	     struct dict **dict_r, const char **error_r)
+fs_dict_init_legacy(struct dict *driver, const char *uri,
+		    const struct dict_settings *set,
+		    struct dict **dict_r, const char **error_r)
 {
 	struct fs_settings fs_set;
 	struct fs *fs;
@@ -324,7 +324,7 @@ fs_dict_transaction_commit(struct dict_transaction_context *_ctx,
 struct dict dict_driver_fs = {
 	.name = "fs",
 	.v = {
-		.init = fs_dict_init,
+		.init_legacy = fs_dict_init_legacy,
 		.deinit = fs_dict_deinit,
 		.lookup = fs_dict_lookup,
 		.iterate_init = fs_dict_iterate_init,
