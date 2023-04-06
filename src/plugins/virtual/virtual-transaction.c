@@ -55,8 +55,11 @@ int virtual_transaction_commit(struct mailbox_transaction_context *t,
 	int ret = 0;
 	struct mailbox_transaction_context *bt;
 	array_foreach_elem(&vt->backend_transactions, bt) {
-		if (mailbox_transaction_commit(&bt) < 0)
+		struct mailbox *bbox = bt->box;
+		if (mailbox_transaction_commit(&bt) < 0) {
 			ret = -1;
+			virtual_box_copy_error(vt->t.box, bbox);
+		}
 	}
 	array_free(&vt->backend_transactions);
 
