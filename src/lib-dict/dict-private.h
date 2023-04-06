@@ -15,6 +15,8 @@ struct dict_vfuncs {
 	int (*init_legacy)(struct dict *dict_driver, const char *uri,
 			   const struct dict_legacy_settings *set,
 			   struct dict **dict_r, const char **error_r);
+	int (*init)(const struct dict *dict_driver, struct event *event,
+		    struct dict **dict_r, const char **error_r);
 	void (*deinit)(struct dict *dict);
 	void (*wait)(struct dict *dict);
 	int (*expire_scan)(struct dict *dict, const char **error_r);

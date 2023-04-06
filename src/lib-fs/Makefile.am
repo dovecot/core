@@ -49,6 +49,7 @@ test_programs = \
 test_deps = \
 	$(noinst_LTLIBRARIES) \
 	../lib-dict/libdict.la \
+	../lib-settings/libsettings.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 

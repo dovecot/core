@@ -7,6 +7,8 @@
 #include "ioloop.h"
 #include "str.h"
 #include "ioloop.h"
+#include "settings.h"
+#include "settings-parser.h"
 #include "dict-private.h"
 
 struct dict_commit_callback_ctx {
@@ -27,6 +29,27 @@ struct dict_lookup_callback_ctx {
 	struct event *event;
 	dict_lookup_callback_t *callback;
 	void *context;
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct dict_settings)
+static const struct setting_define dict_setting_defines[] = {
+	DEF(STR, dict_driver),
+
+	SETTING_DEFINE_LIST_END
+};
+static const struct dict_settings dict_default_settings = {
+	.dict_driver = "",
+};
+const struct setting_parser_info dict_setting_parser_info = {
+	.name = "dict",
+
+	.defines = dict_setting_defines,
+	.defaults = &dict_default_settings,
+
+	.struct_size = sizeof(struct dict_settings),
+	.pool_offset1 = 1 + offsetof(struct dict_settings, pool),
 };
 
 static ARRAY(struct dict *) dict_drivers;
@@ -125,6 +148,54 @@ int dict_init_legacy(const char *uri, const struct dict_legacy_settings *set,
 		"dict created (uri=%s, base_dir=%s)", uri, set->base_dir);
 
 	return 0;
+}
+
+int dict_init_auto(struct event *event, struct dict **dict_r,
+		   const char **error_r)
+{
+	const struct dict *dict_driver;
+	struct dict_settings *dict_set;
+	const char *error;
+
+	i_assert(event != NULL);
+
+	if (settings_get(event, &dict_setting_parser_info, 0,
+			 &dict_set, error_r) < 0)
+		return -1;
+
+	if (dict_set->dict_driver[0] == '\0') {
+		*error_r = "dict_driver setting is empty";
+		settings_free(dict_set);
+		return 0;
+	}
+	dict_driver = dict_driver_lookup(dict_set->dict_driver);
+	if (dict_driver == NULL) {
+		*error_r = t_strdup_printf("Unknown dict module: %s",
+					   dict_set->dict_driver);
+		settings_free(dict_set);
+		return -1;
+	}
+
+	event = event_create(event);
+	event_add_category(event, &event_category_dict);
+	event_add_str(event, "driver", dict_driver->name);
+	event_set_append_log_prefix(event, t_strdup_printf("dict(%s): ",
+				    dict_driver->name));
+	if (dict_driver->v.init(dict_driver, event, dict_r, &error) < 0) {
+		*error_r = t_strdup_printf("dict %s: %s",
+					   dict_set->dict_driver, error);
+		event_unref(&event);
+		settings_free(dict_set);
+		return -1;
+	}
+	i_assert(*dict_r != NULL);
+	(*dict_r)->refcount++;
+	(*dict_r)->event = event;
+	e_debug(event_create_passthrough(event)->
+		set_name("dict_created")->event(),
+		"dict created (driver=%s)", dict_set->dict_driver);
+	settings_free(dict_set);
+	return 1;
 }
 
 static void dict_ref(struct dict *dict)

@@ -54,16 +54,18 @@ test_programs = \
 noinst_PROGRAMS = $(test_programs) test-dict-client
 
 test_libs = \
+	libdict.la \
+	../lib-settings/libsettings.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
 test_dict_SOURCES = test-dict.c
-test_dict_LDADD = libdict.la $(test_libs)
-test_dict_DEPENDENCIES = $(noinst_LTLIBRARIES) $(test_libs)
+test_dict_LDADD = $(test_libs)
+test_dict_DEPENDENCIES = $(test_libs)
 
 test_dict_client_SOURCES = test-dict-client.c
-test_dict_client_LDADD = $(noinst_LTLIBRARIES) ../lib/liblib.la
-test_dict_client_DEPENDENCIES = $(noinst_LTLIBRARIES) $(test_libs)
+test_dict_client_LDADD = $(test_libs)
+test_dict_client_DEPENDENCIES = $(test_libs)
 
 check-local:
 	for bin in $(test_programs) $(check_PROGRAMS); do \

@@ -23,6 +23,7 @@ noinst_PROGRAMS = $(test_programs)
 test_libs = \
 	../lib-test/libtest.la \
 	../lib-dict/libdict.la \
+	../lib-settings/libsettings.la \
 	../lib/liblib.la
 
 test_dict_fs_SOURCES = test-dict-fs.c
