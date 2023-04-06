@@ -492,7 +492,8 @@ static void login_server_conn_input(struct login_server_connection *conn)
 	struct login_server_request *request;
 	struct login_server *server = conn->server;
 	unsigned char data[LOGIN_REQUEST_MAX_DATA_SIZE];
-	size_t i, session_len = 0;
+	unsigned char *ptr;
+	char *session_id;
 	int ret, client_fd;
 
 	ret = login_server_conn_read_request(conn, &req, data, &client_fd);
@@ -506,25 +507,29 @@ static void login_server_conn_input(struct login_server_connection *conn)
 	}
 	fd_close_on_exec(client_fd, TRUE);
 
-	/* extract the session ID from the request data */
-	for (i = 0; i < req.data_size; i++) {
-		if (data[i] == '\0') {
-			session_len = i++;
-			break;
-		}
+	/* lookup session ID */
+	if ((ptr = memchr(data, '\0', req.data_size)) != NULL) {
+		session_id = i_strdup_until(data, ptr);
+		ptr++;
+		req.data_size -= ptr - data; /* include NUL */
+	} else {
+		ptr = data;
+		session_id = i_strdup("");
 	}
+
 	io_loop_time_refresh();
 
 	/* @UNSAFE: we have a request. do userdb lookup for it. */
-	req.data_size -= i;
 	request = i_malloc(MALLOC_ADD(sizeof(struct login_server_request),
 				      req.data_size));
 	request->create_time = ioloop_timeval;
 	request->conn = conn;
 	request->fd = client_fd;
+	request->session_id = session_id;
+
+	if (req.data_size > 0)
+		memcpy(request->data, ptr, req.data_size);
 	request->auth_req = req;
-	request->session_id = i_strndup(data, session_len);
-	memcpy(request->data, data+i, req.data_size);
 	conn->refcount++;
 	DLLIST_PREPEND(&conn->requests, request);
 	login_server_proctitle_refresh(conn->server);
