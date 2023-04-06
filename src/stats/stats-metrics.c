@@ -188,6 +188,25 @@ stats_metrics_find(struct stats_metrics *metrics,
 	return NULL;
 }
 
+static bool
+stats_metrics_check_for_exporter(struct stats_metrics *metrics, const char *name)
+{
+	struct exporter *exporter;
+
+	if (!array_is_created(&metrics->exporters))
+		return FALSE;
+
+	bool is_found = FALSE;
+	array_foreach_elem(&metrics->exporters, exporter) {
+		if (strcmp(exporter->name, name) == 0) {
+			is_found = TRUE;
+			break;
+		}
+	}
+
+	return is_found;
+}
+
 bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
 			       struct stats_metric_settings *set,
 			       const char **error_r)
@@ -202,6 +221,13 @@ bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
 		stats_metric_settings_dup(metrics->pool, set);
 	if (!stats_metric_setting_parser_info.check_func(_set, metrics->pool, error_r))
 		return FALSE;
+
+	if (!stats_metrics_check_for_exporter(metrics, set->exporter)) {
+		*error_r = t_strdup_printf("Exporter '%s' does not exist.",
+					   set->exporter);
+		return FALSE;
+	}
+
 	stats_metrics_add_set(metrics, _set);
 	return TRUE;
 }
