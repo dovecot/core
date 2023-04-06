@@ -74,7 +74,6 @@ struct client_dict {
 	struct dict_client_connection conn;
 
 	char *uri;
-	enum dict_data_type value_type;
 	unsigned int slow_warn_msecs;
 
 	time_t last_failed_connect;
@@ -581,12 +580,10 @@ static int client_dict_connect(struct client_dict *dict, const char **error_r)
 		return -1;
 	}
 
-	query = t_strdup_printf("%c%u\t%u\t%d\t%s\t%s\n",
+	query = t_strdup_printf("%c%u\t%u\t0\t\t%s\n",
 				DICT_PROTOCOL_CMD_HELLO,
 				DICT_CLIENT_PROTOCOL_MAJOR_VERSION,
 				DICT_CLIENT_PROTOCOL_MINOR_VERSION,
-				dict->value_type,
-				"",
 				str_tabescape(dict->uri));
 	o_stream_nsend_str(dict->conn.conn.output, query);
 	client_dict_add_timeout(dict);
