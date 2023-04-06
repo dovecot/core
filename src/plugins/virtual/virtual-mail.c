@@ -6,6 +6,13 @@
 #include "virtual-storage.h"
 #include "virtual-transaction.h"
 
+#define virtual_mail_container_of(mail) \
+	container_of( \
+	container_of( \
+	container_of(mail, struct mail_private, mail), \
+			   struct index_mail,   mail), \
+			   struct virtual_mail, imail)
+
 struct virtual_mail {
 	struct index_mail imail;
 
@@ -33,7 +40,8 @@ virtual_mail_alloc(struct mailbox_transaction_context *t,
 		   enum mail_fetch_field wanted_fields,
 		   struct mailbox_header_lookup_ctx *wanted_headers)
 {
-	struct virtual_mailbox *mbox = (struct virtual_mailbox *)t->box;
+	struct virtual_mailbox *mbox =
+		container_of(t->box, struct virtual_mailbox, box);
 	struct virtual_mail *vmail;
 	pool_t mail_pool, data_pool;
 
@@ -55,7 +63,7 @@ virtual_mail_alloc(struct mailbox_transaction_context *t,
 
 static void virtual_mail_close(struct mail *mail)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail **mails;
 	unsigned int i, count;
 
@@ -66,7 +74,8 @@ static void virtual_mail_close(struct mail *mail)
 
 	mails = array_get_modifiable(&vmail->backend_mails, &count);
 	for (i = 0; i < count; i++) {
-		struct mail_private *p = (struct mail_private *)mails[i];
+		struct mail_private *p =
+			container_of(mails[i], struct mail_private, mail);
 
 		if (vmail->imail.freeing)
 			mail_free(&mails[i]);
@@ -98,7 +107,8 @@ static int backend_mail_get(struct virtual_mail *vmail,
 			    struct mail **backend_mail_r)
 {
 	struct mail *mail = &vmail->imail.mail.mail;
-	struct virtual_mailbox *mbox = (struct virtual_mailbox *)mail->box;
+	struct virtual_mailbox *mbox =
+		container_of(mail->box, struct virtual_mailbox, box);
 	struct virtual_backend_box *bbox;
 
 	*backend_mail_r = NULL;
@@ -145,7 +155,7 @@ struct mail *
 virtual_mail_set_backend_mail(struct mail *mail,
 			      struct virtual_backend_box *bbox)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail_private *backend_pmail;
 	struct mailbox_transaction_context *backend_trans;
 	struct mailbox_header_lookup_ctx *backend_headers;
@@ -170,7 +180,7 @@ virtual_mail_set_backend_mail(struct mail *mail,
 void virtual_mail_set_unattached_backend_mail(struct mail *mail,
 					      struct mail *backend_mail)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail_private *backend_pmail;
 
 	vmail->cur_backend_mail = backend_mail;
@@ -181,8 +191,9 @@ void virtual_mail_set_unattached_backend_mail(struct mail *mail,
 
 static void virtual_mail_set_seq(struct mail *mail, uint32_t seq, bool saving)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
-	struct virtual_mailbox *mbox = (struct virtual_mailbox *)mail->box;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
+	struct virtual_mailbox *mbox =
+		container_of(mail->box, struct virtual_mailbox, box);
 	const void *data;
 
 	i_assert(!saving);
@@ -209,7 +220,7 @@ static bool virtual_mail_set_uid(struct mail *mail, uint32_t uid)
 
 static void virtual_mail_set_uid_cache_updates(struct mail *mail, bool set)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 	struct mail_private *p;
 
@@ -221,7 +232,7 @@ static void virtual_mail_set_uid_cache_updates(struct mail *mail, bool set)
 
 static bool virtual_mail_prefetch(struct mail *mail)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 	struct mail_private *p;
 
@@ -233,7 +244,7 @@ static bool virtual_mail_prefetch(struct mail *mail)
 
 static int virtual_mail_precache(struct mail *mail)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 	struct mail_private *p;
 
@@ -248,7 +259,7 @@ virtual_mail_add_temp_wanted_fields(struct mail *mail,
 				    enum mail_fetch_field fields,
 				    struct mailbox_header_lookup_ctx *headers)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 	struct mailbox_header_lookup_ctx *backend_headers, *new_headers;
 
@@ -278,7 +289,7 @@ virtual_mail_add_temp_wanted_fields(struct mail *mail,
 static int
 virtual_mail_get_parts(struct mail *mail, struct message_part **parts_r)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 
 	if (backend_mail_get(vmail, &backend_mail) < 0)
@@ -293,7 +304,7 @@ virtual_mail_get_parts(struct mail *mail, struct message_part **parts_r)
 static int
 virtual_mail_get_date(struct mail *mail, time_t *date_r, int *timezone_r)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 	int tz;
 
@@ -311,7 +322,7 @@ virtual_mail_get_date(struct mail *mail, time_t *date_r, int *timezone_r)
 
 static int virtual_mail_get_received_date(struct mail *mail, time_t *date_r)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 
 	if (backend_mail_get(vmail, &backend_mail) < 0)
@@ -325,7 +336,7 @@ static int virtual_mail_get_received_date(struct mail *mail, time_t *date_r)
 
 static int virtual_mail_get_save_date(struct mail *mail, time_t *date_r)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 	int ret;
 
@@ -339,7 +350,7 @@ static int virtual_mail_get_save_date(struct mail *mail, time_t *date_r)
 
 static int virtual_mail_get_virtual_mail_size(struct mail *mail, uoff_t *size_r)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 
 	if (backend_mail_get(vmail, &backend_mail) < 0)
@@ -353,7 +364,7 @@ static int virtual_mail_get_virtual_mail_size(struct mail *mail, uoff_t *size_r)
 
 static int virtual_mail_get_physical_size(struct mail *mail, uoff_t *size_r)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 
 	if (backend_mail_get(vmail, &backend_mail) < 0)
@@ -369,7 +380,7 @@ static int
 virtual_mail_get_first_header(struct mail *mail, const char *field,
 			      bool decode_to_utf8, const char **value_r)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 	struct mail_private *p;
 	int ret;
@@ -390,7 +401,7 @@ static int
 virtual_mail_get_headers(struct mail *mail, const char *field,
 			 bool decode_to_utf8, const char *const **value_r)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 	struct mail_private *p;
 
@@ -409,7 +420,7 @@ virtual_mail_get_header_stream(struct mail *mail,
 			       struct mailbox_header_lookup_ctx *headers,
 			       struct istream **stream_r)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 	struct mailbox_header_lookup_ctx *backend_headers;
 	int ret;
@@ -434,8 +445,9 @@ virtual_mail_get_stream(struct mail *mail, bool get_body,
 			struct message_size *body_size,
 			struct istream **stream_r)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
-	struct mail_private *vp = (struct mail_private *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
+	struct mail_private *vp =
+		container_of(mail, struct mail_private, mail);
 	struct mail *backend_mail;
 	const char *reason = t_strdup_printf("virtual mailbox %s: Opened mail UID=%u: %s",
 					     mailbox_get_vname(mail->box), mail->uid, vp->get_stream_reason);
@@ -466,13 +478,14 @@ virtual_mail_get_binary_stream(struct mail *mail,
 			       unsigned int *lines_r, bool *binary_r,
 			       struct istream **stream_r)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 
 	if (backend_mail_get(vmail, &backend_mail) < 0)
 		return -1;
 
-	struct mail_private *p = (struct mail_private *)backend_mail;
+	struct mail_private *p =
+		container_of(backend_mail, struct mail_private, mail);
 	if (p->v.get_binary_stream(backend_mail, part, include_hdr,
 				   size_r, lines_r, binary_r, stream_r) < 0) {
 		virtual_box_copy_error(mail->box, backend_mail->box);
@@ -485,7 +498,7 @@ static int
 virtual_mail_get_special(struct mail *mail, enum mail_fetch_field field,
 			 const char **value_r)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 
 	if (backend_mail_get(vmail, &backend_mail) < 0)
@@ -500,7 +513,7 @@ virtual_mail_get_special(struct mail *mail, enum mail_fetch_field field,
 static int virtual_mail_get_backend_mail(struct mail *mail,
 					 struct mail **real_mail_r)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 
 	if (backend_mail_get(vmail, &backend_mail) < 0)
@@ -513,7 +526,7 @@ static int virtual_mail_get_backend_mail(struct mail *mail,
 
 static void virtual_mail_update_pop3_uidl(struct mail *mail, const char *uidl)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 
 	if (backend_mail_get(vmail, &backend_mail) < 0)
@@ -523,7 +536,7 @@ static void virtual_mail_update_pop3_uidl(struct mail *mail, const char *uidl)
 
 static void virtual_mail_expunge(struct mail *mail)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 
 	if (backend_mail_get(vmail, &backend_mail) < 0)
@@ -536,7 +549,7 @@ virtual_mail_set_cache_corrupted(struct mail *mail,
 				 enum mail_fetch_field field,
 				 const char *reason)
 {
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct virtual_mail *vmail = virtual_mail_container_of(mail);
 	struct mail *backend_mail;
 
 	if (backend_mail_get(vmail, &backend_mail) < 0)

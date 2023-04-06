@@ -65,7 +65,7 @@ static void virtual_search_get_records(struct mail_search_context *ctx,
 				       struct virtual_search_context *vctx)
 {
 	struct virtual_mailbox *mbox =
-		(struct virtual_mailbox *)ctx->transaction->box;
+		container_of(ctx->transaction->box, struct virtual_mailbox, box);
 	const struct virtual_mail_index_record *vrec;
 	struct virtual_search_record srec;
 	const void *data;
@@ -135,7 +135,8 @@ bool virtual_search_next_nonblock(struct mail_search_context *ctx,
 				  struct mail **mail_r, bool *tryagain_r)
 {
 	struct virtual_search_context *vctx = VIRTUAL_CONTEXT_REQUIRE(ctx);
-	struct index_search_context *ictx = (struct index_search_context *)ctx;
+	struct index_search_context *ictx =
+		container_of(ctx, struct index_search_context, mail_ctx);
 	uint32_t seq;
 
 	switch (vctx->search_state) {

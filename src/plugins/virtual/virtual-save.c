@@ -17,7 +17,7 @@ struct mail_save_context *
 virtual_save_alloc(struct mailbox_transaction_context *_t)
 {
 	struct virtual_transaction_context *t =
-		(struct virtual_transaction_context *)_t;
+		container_of(_t, struct virtual_transaction_context, t);
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)_t->box;
 	struct mailbox_transaction_context *backend_trans;
 	struct virtual_save_context *ctx;

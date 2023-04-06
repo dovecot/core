@@ -1769,7 +1769,7 @@ virtual_sync_apply_existing_expunges(struct virtual_mailbox *mbox,
 				     struct mailbox_sync_context *sync_ctx)
 {
 	struct index_mailbox_sync_context *isync_ctx =
-		(struct index_mailbox_sync_context *)sync_ctx;
+		container_of(sync_ctx, struct index_mailbox_sync_context, ctx);
 	struct virtual_backend_box *bbox = NULL;
 	struct seq_range_iter iter;
 	const struct virtual_mail_index_record *vrec;
@@ -1971,7 +1971,8 @@ static int virtual_sync(struct virtual_mailbox *mbox,
 struct mailbox_sync_context *
 virtual_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
-	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+	struct virtual_mailbox *mbox =
+		container_of(box, struct virtual_mailbox, box);
 	struct mailbox_sync_context *sync_ctx;
 	int ret = 0;
 

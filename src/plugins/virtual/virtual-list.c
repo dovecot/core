@@ -34,7 +34,7 @@ virtual_get_storage(struct mailbox_list **list, const char **vname,
 	struct mailbox *vbox =
 		mailbox_alloc(*list, *vname, flags & ENUM_NEGATE(MAILBOX_FLAG_SAVEONLY));
 	i_assert(strcmp(vbox->storage->name, VIRTUAL_STORAGE_NAME) == 0);
-	struct virtual_mailbox *mbox = (struct virtual_mailbox *)vbox;
+	struct virtual_mailbox *mbox = container_of(vbox, struct virtual_mailbox, box);
 	const char *path;
 	int ret = mailbox_get_path_to(vbox, MAILBOX_LIST_PATH_TYPE_MAILBOX, &path);
 	if (ret > 0)

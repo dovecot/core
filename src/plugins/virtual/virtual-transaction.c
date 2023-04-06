@@ -10,7 +10,7 @@ virtual_transaction_get(struct mailbox_transaction_context *trans,
 			struct mailbox *backend_box)
 {
 	struct virtual_transaction_context *vt =
-		(struct virtual_transaction_context *)trans;
+		container_of(trans, struct virtual_transaction_context, t);
 	struct mailbox_transaction_context *const *bt, *new_bt;
 	unsigned int i, count;
 
@@ -30,7 +30,8 @@ virtual_transaction_begin(struct mailbox *box,
 			  enum mailbox_transaction_flags flags,
 			  const char *reason)
 {
-	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+	struct virtual_mailbox *mbox =
+		container_of(box, struct virtual_mailbox, box);
 	struct virtual_transaction_context *vt;
 
 	vt = i_new(struct virtual_transaction_context, 1);
@@ -44,7 +45,7 @@ int virtual_transaction_commit(struct mailbox_transaction_context *t,
 			       struct mail_transaction_commit_changes *changes_r)
 {
 	struct virtual_transaction_context *vt =
-		(struct virtual_transaction_context *)t;
+		container_of(t, struct virtual_transaction_context, t);
 	struct mailbox_transaction_context **bt;
 	unsigned int i, count;
 	int ret = 0;
@@ -69,7 +70,7 @@ int virtual_transaction_commit(struct mailbox_transaction_context *t,
 void virtual_transaction_rollback(struct mailbox_transaction_context *t)
 {
 	struct virtual_transaction_context *vt =
-		(struct virtual_transaction_context *)t;
+		container_of(t, struct virtual_transaction_context, t);
 	struct mailbox_transaction_context **bt;
 	unsigned int i, count;
 

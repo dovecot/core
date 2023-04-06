@@ -87,7 +87,8 @@ virtual_storage_create(struct mail_storage *_storage,
 		       struct mail_namespace *ns ATTR_UNUSED,
 		       const char **error_r)
 {
-	struct virtual_storage *storage = (struct virtual_storage *)_storage;
+	struct virtual_storage *storage =
+		container_of(_storage, struct virtual_storage, storage);
 	const char *value;
 
 	value = mail_user_plugin_getenv(_storage->user, "virtual_max_open_mailboxes");
@@ -258,7 +259,8 @@ static struct mailbox *
 virtual_mailbox_alloc(struct mail_storage *_storage, struct mailbox_list *list,
 		      const char *vname, enum mailbox_flags flags)
 {
-	struct virtual_storage *storage = (struct virtual_storage *)_storage;
+	struct virtual_storage *storage =
+		container_of(_storage, struct virtual_storage, storage);
 	struct virtual_mailbox *mbox;
 	pool_t pool;
 
@@ -481,7 +483,8 @@ virtual_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
 
 static int virtual_mailbox_open(struct mailbox *box)
 {
-	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+	struct virtual_mailbox *mbox =
+		container_of(box, struct virtual_mailbox, box);
 	bool broken;
 	int ret = 0;
 
@@ -543,7 +546,8 @@ static int virtual_mailbox_open(struct mailbox *box)
 
 static void virtual_mailbox_close(struct mailbox *box)
 {
-	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+	struct virtual_mailbox *mbox =
+		container_of(box, struct virtual_mailbox, box);
 
 	virtual_mailbox_close_internal(mbox);
 	index_storage_mailbox_close(box);
@@ -551,7 +555,8 @@ static void virtual_mailbox_close(struct mailbox *box)
 
 static void virtual_mailbox_free(struct mailbox *box)
 {
-	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+	struct virtual_mailbox *mbox =
+		container_of(box, struct virtual_mailbox, box);
 
 	virtual_config_free(mbox);
 	index_storage_mailbox_free(box);
@@ -623,7 +628,8 @@ virtual_storage_get_status(struct mailbox *box,
 			   enum mailbox_status_items items,
 			   struct mailbox_status *status_r)
 {
-	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+	struct virtual_mailbox *mbox =
+		container_of(box, struct virtual_mailbox, box);
 
 	if ((items & STATUS_LAST_CACHED_SEQ) != 0)
 		items |= STATUS_MESSAGES;
@@ -658,7 +664,8 @@ virtual_mailbox_get_metadata(struct mailbox *box,
 			     enum mailbox_metadata_items items,
 			     struct mailbox_metadata *metadata_r)
 {
-	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+	struct virtual_mailbox *mbox =
+		container_of(box, struct virtual_mailbox, box);
 	if (index_mailbox_get_metadata(box, items, metadata_r) < 0)
 		return -1;
 	i_assert(box->opened);
@@ -696,7 +703,8 @@ static int virtual_notify_start(struct virtual_backend_box *bbox)
 
 static void virtual_notify_changes(struct mailbox *box)
 {
-	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+	struct virtual_mailbox *mbox =
+		container_of(box, struct virtual_mailbox, box);
 	struct virtual_backend_box **bboxp;
 
 	if (box->notify_callback == NULL) {
@@ -756,7 +764,8 @@ virtual_get_virtual_uids(struct mailbox *box,
 			 const ARRAY_TYPE(seq_range) *backend_uids,
 			 ARRAY_TYPE(seq_range) *virtual_uids_r)
 {
-	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+	struct virtual_mailbox *mbox =
+		container_of(box, struct virtual_mailbox, box);
 	struct virtual_backend_box *bbox;
 	const struct virtual_backend_uidmap *uids;
 	ARRAY_TYPE(seq_range) uid_range;
@@ -798,7 +807,8 @@ virtual_get_virtual_uid_map(struct mailbox *box,
 			    const ARRAY_TYPE(seq_range) *backend_uids,
 			    ARRAY_TYPE(uint32_t) *virtual_uids_r)
 {
-	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+	struct virtual_mailbox *mbox =
+		container_of(box, struct virtual_mailbox, box);
 	struct virtual_backend_box *bbox;
 	const struct virtual_backend_uidmap *uids;
 	struct seq_range_iter iter;
@@ -836,7 +846,8 @@ virtual_get_virtual_backend_boxes(struct mailbox *box,
 				  ARRAY_TYPE(mailboxes) *mailboxes,
 				  bool only_with_msgs)
 {
-	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+	struct virtual_mailbox *mbox =
+		container_of(box, struct virtual_mailbox, box);
 	struct virtual_backend_box *const *bboxes;
 	unsigned int i, count;
 
@@ -849,7 +860,8 @@ virtual_get_virtual_backend_boxes(struct mailbox *box,
 
 static bool virtual_is_inconsistent(struct mailbox *box)
 {
-	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
+	struct virtual_mailbox *mbox =
+		container_of(box, struct virtual_mailbox, box);
 
 	if (mbox->inconsistent)
 		return TRUE;
