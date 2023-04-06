@@ -11,26 +11,21 @@
 #include "connection.h"
 #include "ostream.h"
 #include "eacces-error.h"
+#include "settings.h"
+#include "settings-parser.h"
+#include "master-service.h"
+#include "master-service-settings.h"
 #include "dict-private.h"
 #include "dict-client.h"
 
 #include <unistd.h>
 #include <fcntl.h>
 
-/* Disconnect from dict server after this many milliseconds of idling after
-   sending a command. Because dict server does blocking dict accesses, it can
-   handle only one client at a time. This is why the default timeout is zero,
-   so that there won't be many dict processes just doing nothing. Zero means
-   that the socket is disconnected immediately after returning to ioloop. */
-#define DICT_CLIENT_DEFAULT_TIMEOUT_MSECS 0
-
 /* Abort dict lookup after this many milliseconds. */
 #define DICT_CLIENT_REQUEST_TIMEOUT_MSECS 30000
 /* When dict lookup timeout is reached, wait a bit longer if the last dict
    ioloop wait was shorter than this. */
 #define DICT_CLIENT_REQUEST_TIMEOUT_MIN_LAST_IOLOOP_WAIT_MSECS 1000
-/* Log a warning if dict lookup takes longer than this many milliseconds. */
-#define DICT_CLIENT_DEFAULT_WARN_SLOW_MSECS 5000
 
 struct client_dict_cmd {
 	int refcount;
@@ -72,9 +67,7 @@ struct dict_client_connection {
 struct client_dict {
 	struct dict dict;
 	struct dict_client_connection conn;
-
-	char *uri;
-	unsigned int slow_warn_msecs;
+	struct dict_proxy_settings *set;
 
 	time_t last_failed_connect;
 	char *last_connect_error;
@@ -83,7 +76,6 @@ struct client_dict {
 	uint64_t last_timer_switch_usecs;
 	struct timeout *to_requests;
 	struct timeout *to_idle;
-	unsigned int idle_timeout_msecs;
 
 	ARRAY(struct client_dict_cmd *) cmds;
 	struct client_dict_transaction_context *transactions;
@@ -124,6 +116,48 @@ struct client_dict_transaction_context {
 	unsigned int query_count;
 
 	bool sent_begin:1;
+};
+
+struct dict_proxy_settings {
+	pool_t pool;
+
+	unsigned int dict_proxy_idle_timeout;
+	unsigned int dict_proxy_slow_warn;
+	const char *dict_proxy_socket_path;
+	const char *dict_proxy_name;
+};
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct dict_proxy_settings)
+static const struct setting_define dict_proxy_setting_defines[] = {
+	DEF(TIME_MSECS, dict_proxy_idle_timeout),
+	DEF(TIME_MSECS, dict_proxy_slow_warn),
+	DEF(STR, dict_proxy_socket_path),
+	DEF(STR, dict_proxy_name),
+
+	SETTING_DEFINE_LIST_END
+};
+static const struct dict_proxy_settings dict_proxy_default_settings = {
+	/* Disconnect from dict server after this many milliseconds of idling
+	   after sending a command. Because dict server does blocking dict
+	   accesses, it can handle only one client at a time. This is why the
+	   default timeout is zero, so that there won't be many dict processes
+	   just doing nothing. Zero means that the socket is disconnected
+	   immediately after returning to ioloop. */
+	.dict_proxy_idle_timeout = 0,
+	/* Log a warning if dict lookup takes longer than this many milliseconds. */
+	.dict_proxy_slow_warn = 5000,
+	.dict_proxy_socket_path = "dict",
+	.dict_proxy_name = "",
+};
+const struct setting_parser_info dict_proxy_setting_parser_info = {
+	.name = "dict_proxy",
+
+	.defines = dict_proxy_setting_defines,
+	.defaults = &dict_proxy_default_settings,
+
+	.struct_size = sizeof(struct dict_proxy_settings),
+	.pool_offset1 = 1 + offsetof(struct dict_proxy_settings, pool),
 };
 
 static struct connection_list *dict_connections;
@@ -422,10 +456,10 @@ static bool client_dict_have_nonbackground_cmds(struct client_dict *dict)
 static void client_dict_add_timeout(struct client_dict *dict)
 {
 	if (dict->to_idle != NULL) {
-		if (dict->idle_timeout_msecs > 0)
+		if (dict->set->dict_proxy_idle_timeout > 0)
 			timeout_reset(dict->to_idle);
 	} else if (client_dict_is_finished(dict)) {
-		dict->to_idle = timeout_add(dict->idle_timeout_msecs,
+		dict->to_idle = timeout_add(dict->set->dict_proxy_idle_timeout,
 					    client_dict_timeout, dict);
 		timeout_remove(&dict->to_requests);
 	} else if (dict->transactions == NULL &&
@@ -584,7 +618,7 @@ static int client_dict_connect(struct client_dict *dict, const char **error_r)
 				DICT_PROTOCOL_CMD_HELLO,
 				DICT_CLIENT_PROTOCOL_MAJOR_VERSION,
 				DICT_CLIENT_PROTOCOL_MINOR_VERSION,
-				str_tabescape(dict->uri));
+				str_tabescape(dict->set->dict_proxy_name));
 	o_stream_nsend_str(dict->conn.conn.output, query);
 	client_dict_add_timeout(dict);
 	return 0;
@@ -698,17 +732,72 @@ static const struct connection_vfuncs dict_conn_vfuncs = {
 	.input_line = dict_conn_input_line
 };
 
-static int
-client_dict_init_legacy(struct dict *driver, const char *uri,
-			const struct dict_legacy_settings *set,
-			struct dict **dict_r, const char **error_r)
+static struct dict *
+client_dict_init_common(const struct dict *dict_driver, struct event *event,
+			struct dict_proxy_settings *set, const char *base_dir)
 {
 	struct ioloop *old_ioloop = current_ioloop;
 	struct client_dict *dict;
-	const char *p, *dest_uri, *value, *path;
+	const char *path;
+
+	if (dict_connections == NULL) {
+		dict_connections = connection_list_init(&dict_conn_set,
+							&dict_conn_vfuncs);
+	}
+
+	dict = i_new(struct client_dict, 1);
+	dict->dict = *dict_driver;
+	dict->conn.dict = dict;
+	dict->conn.conn.event_parent = event;
+	dict->set = set;
+	i_array_init(&dict->cmds, 32);
+
+	if (set->dict_proxy_socket_path[0] == '/') {
+		/* absolute path */
+		path = set->dict_proxy_socket_path;
+	} else {
+		/* relative path to base_dir */
+		path = t_strconcat(base_dir, "/",
+			set->dict_proxy_socket_path, NULL);
+	}
+	connection_init_client_unix(dict_connections, &dict->conn.conn, path);
+
+	dict->dict.ioloop = io_loop_create();
+	dict->wait_timer = io_wait_timer_add();
+	io_loop_set_current(old_ioloop);
+	return &dict->dict;
+}
+
+static int
+client_dict_init(const struct dict *dict_driver, struct event *event,
+		 struct dict **dict_r, const char **error_r)
+{
+	struct dict_proxy_settings *set;
+
+	if (settings_get(event, &dict_proxy_setting_parser_info,
+			 0, &set, error_r) < 0)
+		return -1;
+	const struct master_service_settings *master_set =
+		master_service_get_service_settings(master_service);
+
+	*dict_r = client_dict_init_common(dict_driver, event, set,
+					  master_set->base_dir);
+	return 0;
+}
+
+static int
+client_dict_init_legacy(struct dict *dict_driver, const char *uri,
+			const struct dict_legacy_settings *legacy_set,
+			struct dict **dict_r, const char **error_r)
+{
+	struct dict_proxy_settings *set;
+	const char *p, *dest_uri, *value;
 	const char *error;
-	unsigned int idle_timeout_msecs = DICT_CLIENT_DEFAULT_TIMEOUT_MSECS;
-	unsigned int slow_warn_msecs = DICT_CLIENT_DEFAULT_WARN_SLOW_MSECS;
+
+	pool_t pool = pool_alloconly_create("dict_proxy_settings", 128);
+	set = p_new(pool, struct dict_proxy_settings, 1);
+	*set = dict_proxy_default_settings;
+	set->pool = pool;
 
 	/* uri = [idle_timeout=<n>:] [slow_warn=<n>:] [<path>] ":" <uri> */
 	for (;;) {
@@ -716,13 +805,16 @@ client_dict_init_legacy(struct dict *driver, const char *uri,
 			p = strchr(value, ':');
 			if (p == NULL) {
 				*error_r = t_strdup_printf("Invalid URI: %s", uri);
+				pool_unref(&pool);
 				return -1;
 			}
 			const char *value_str = t_strdup_until(value, p);
-			if (str_parse_get_interval_msecs(value_str, &idle_timeout_msecs,
-							 &error) < 0) {
+			if (str_parse_get_interval_msecs(value_str,
+					&set->dict_proxy_idle_timeout,
+					&error) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid idle_timeout: %s", error);
+				pool_unref(&pool);
 				return -1;
 			}
 			uri = p+1;
@@ -730,13 +822,16 @@ client_dict_init_legacy(struct dict *driver, const char *uri,
 			p = strchr(value, ':');
 			if (p == NULL) {
 				*error_r = t_strdup_printf("Invalid URI: %s", uri);
+				pool_unref(&pool);
 				return -1;
 			}
 			const char *value_str = t_strdup_until(value, p);
-			if (str_parse_get_interval_msecs(value_str, &slow_warn_msecs,
-							 &error) < 0) {
+			if (str_parse_get_interval_msecs(value_str,
+					&set->dict_proxy_slow_warn,
+					&error) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid slow_warn: %s", error);
+				pool_unref(&pool);
 				return -1;
 			}
 			uri = p+1;
@@ -747,41 +842,16 @@ client_dict_init_legacy(struct dict *driver, const char *uri,
 	dest_uri = strchr(uri, ':');
 	if (dest_uri == NULL) {
 		*error_r = t_strdup_printf("Invalid URI: %s", uri);
+		pool_unref(&pool);
 		return -1;
 	}
 
-	if (dict_connections == NULL) {
-		dict_connections = connection_list_init(&dict_conn_set,
-							&dict_conn_vfuncs);
-	}
+	if (uri[0] != ':')
+		set->dict_proxy_socket_path = t_strdup_until(uri, dest_uri);
+	set->dict_proxy_name = p_strdup(pool, dest_uri + 1);
 
-	dict = i_new(struct client_dict, 1);
-	dict->dict = *driver;
-	dict->conn.dict = dict;
-	dict->conn.conn.event_parent = set->event_parent;
-	dict->idle_timeout_msecs = idle_timeout_msecs;
-	dict->slow_warn_msecs = slow_warn_msecs;
-	i_array_init(&dict->cmds, 32);
-
-	if (uri[0] == ':') {
-		/* default path */
-		path = t_strconcat(set->base_dir,
-			"/"DEFAULT_DICT_SERVER_SOCKET_FNAME, NULL);
-	} else if (uri[0] == '/') {
-		/* absolute path */
-		path = t_strdup_until(uri, dest_uri);
-	} else {
-		/* relative path to base_dir */
-		path = t_strconcat(set->base_dir, "/",
-			t_strdup_until(uri, dest_uri), NULL);
-	}
-	connection_init_client_unix(dict_connections, &dict->conn.conn, path);
-	dict->uri = i_strdup(dest_uri + 1);
-
-	dict->dict.ioloop = io_loop_create();
-	dict->wait_timer = io_wait_timer_add();
-	io_loop_set_current(old_ioloop);
-	*dict_r = &dict->dict;
+	*dict_r = client_dict_init_common(dict_driver, legacy_set->event_parent,
+					  set, legacy_set->base_dir);
 	return 0;
 }
 
@@ -803,7 +873,7 @@ static void client_dict_deinit(struct dict *_dict)
 
 	array_free(&dict->cmds);
 	i_free(dict->last_connect_error);
-	i_free(dict->uri);
+	settings_free(dict->set);
 	i_free(dict);
 
 	if (dict_connections->connections == NULL)
@@ -963,7 +1033,7 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd,
 		result.error = t_strdup_printf("%s (reply took %s)",
 			result.error, dict_warnings_sec(cmd, diff, extra_args));
 	} else if (!cmd->background &&
-		   diff >= (int)dict->slow_warn_msecs) {
+		   diff >= (int)dict->set->dict_proxy_slow_warn) {
 		e_warning(dict->conn.conn.event, "dict lookup took %s: %s",
 			  dict_warnings_sec(cmd, diff, extra_args),
 			  cmd->query);
@@ -1077,7 +1147,7 @@ client_dict_iter_api_callback(struct client_dict_iterate_context *ctx,
 			i_free(ctx->error);
 			ctx->error = new_error;
 		} else if (!cmd->background &&
-			   diff >= (int)dict->slow_warn_msecs) {
+			   diff >= (int)dict->set->dict_proxy_slow_warn) {
 			e_warning(dict->conn.conn.event, "dict iteration took %s: %s",
 				  dict_warnings_sec(cmd, diff, extra_args),
 				  cmd->query);
@@ -1355,7 +1425,7 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 		result.error = t_strdup_printf("%s (reply took %s)",
 			result.error, dict_warnings_sec(cmd, diff, extra_args));
 	} else if (!cmd->background && !cmd->trans->ctx.set.no_slowness_warning &&
-		   diff >= (int)dict->slow_warn_msecs) {
+		   diff >= (int)dict->set->dict_proxy_slow_warn) {
 		e_warning(dict->conn.conn.event, "dict commit took %s: "
 			  "%s (%u commands, first: %s)",
 			  dict_warnings_sec(cmd, diff, extra_args),
@@ -1510,6 +1580,7 @@ struct dict dict_driver_client = {
 	.name = "proxy",
 	.flags = DICT_DRIVER_FLAG_SUPPORT_EXPIRE_SECS,
 	.v = {
+		.init = client_dict_init,
 		.init_legacy = client_dict_init_legacy,
 		.deinit = client_dict_deinit,
 		.wait = client_dict_wait,

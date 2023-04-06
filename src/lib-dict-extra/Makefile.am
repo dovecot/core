@@ -5,6 +5,7 @@ dict_drivers = @dict_drivers@
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-fs \
 	-I$(top_srcdir)/src/lib-settings
@@ -25,6 +26,9 @@ test_programs = \
 noinst_PROGRAMS = $(test_programs) test-dict-client
 
 test_libs = \
+	../lib-master/libmaster.la \
+	../lib-ssl-iostream/libssl_iostream.la \
+	../lib-settings/libsettings.la \
 	../lib-test/libtest.la \
 	../lib-dict/libdict.la \
 	../lib-settings/libsettings.la \
