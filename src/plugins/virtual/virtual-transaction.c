@@ -56,7 +56,11 @@ int virtual_transaction_commit(struct mailbox_transaction_context *t,
 	struct mailbox_transaction_context *bt;
 	array_foreach_elem(&vt->backend_transactions, bt) {
 		struct mailbox *bbox = bt->box;
+		unsigned int changes = bt->changes == NULL ? 0 :
+			array_count(&bt->changes->saved_uids);
 		if (mailbox_transaction_commit(&bt) < 0) {
+			if (bbox->mailbox_deleted && changes == 0)
+				continue;
 			ret = -1;
 			virtual_box_copy_error(vt->t.box, bbox);
 		}
