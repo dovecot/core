@@ -78,7 +78,7 @@ static void dict_expire_init(void)
 		const char *name = strlist[i];
 		const char *uri = strlist[i+1];
 
-		if (dict_init(uri, &dict_set, &dict, &error) < 0) {
+		if (dict_init_legacy(uri, &dict_set, &dict, &error) < 0) {
 			i_error("Failed to initialize dictionary '%s': %s - skipping",
 				name, error);
 		} else {

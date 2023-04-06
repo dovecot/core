@@ -55,7 +55,7 @@ static int notify_status_dict_init(struct mail_user *user, const char *uri,
 		.base_dir = user->set->base_dir,
 		.event_parent = user->event,
 	};
-	if (dict_init(uri, &set, dict_r, error_r) < 0) {
+	if (dict_init_legacy(uri, &set, dict_r, error_r) < 0) {
 		*error_r = t_strdup_printf("dict_init(%s) failed: %s",
 					   uri, *error_r);
 		return -1;

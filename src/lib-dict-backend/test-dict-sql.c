@@ -21,7 +21,7 @@ static void test_setup(struct dict **dict_r)
 	};
 	struct dict *dict = NULL;
 
-	if (dict_init("mysql:" DICT_SRC_DIR "/dict.conf", &set, &dict, &error) < 0)
+	if (dict_init_legacy("mysql:" DICT_SRC_DIR "/dict.conf", &set, &dict, &error) < 0)
 		i_fatal("cannot initialize dict: %s", error);
 
 	*dict_r = dict;

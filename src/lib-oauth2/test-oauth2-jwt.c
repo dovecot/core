@@ -941,7 +941,7 @@ static void test_do_init(void)
 
 	i_unlink_if_exists(".keys");
 	dict_driver_register(&dict_driver_file);
-	if (dict_init("file:.keys", &dict_set, &keys_dict, &error) < 0)
+	if (dict_init_legacy("file:.keys", &dict_set, &keys_dict, &error) < 0)
 		i_fatal("dict_init(file:.keys): %s", error);
 	if (!dcrypt_initialize(NULL, &dcrypt_set, &error)) {
 		i_error("No functional dcrypt backend found - "

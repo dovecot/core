@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 	set.base_dir = "/var/run/dovecot";
 	opset.username = "testuser";
 
-	if (dict_init(uri, &set, &dict, &error) < 0)
+	if (dict_init_legacy(uri, &set, &dict, &error) < 0)
 		i_fatal("dict_init(%s) failed: %s", argv[1], error);
 
 	while (!stop) {

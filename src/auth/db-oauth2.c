@@ -295,8 +295,8 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 			.base_dir = global_auth_settings->base_dir,
 			.event_parent = auth_event,
 		};
-		if (dict_init(db->set.local_validation_key_dict, &dict_set,
-			      &db->oauth2_set.key_dict, &error) < 0)
+		if (dict_init_legacy(db->set.local_validation_key_dict, &dict_set,
+				     &db->oauth2_set.key_dict, &error) < 0)
 			i_fatal("Cannot initialize key dict: %s", error);
 		/* failure to initialize dcrypt is not fatal - we can still
 		   validate HMAC based keys */

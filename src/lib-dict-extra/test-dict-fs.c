@@ -40,7 +40,7 @@ static void test_dict_fs_set_get(void)
 	struct dict_settings set = {
 		.base_dir = ".",
 	};
-	if (dict_init("fs:posix:prefix=.test-dict/", &set, &dict, &error) < 0)
+	if (dict_init_legacy("fs:posix:prefix=.test-dict/", &set, &dict, &error) < 0)
 		i_fatal("dict_init() failed: %s", error);
 
 	/* shared paths */

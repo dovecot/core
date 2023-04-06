@@ -63,7 +63,7 @@ static void test_dict_lua(void)
 	test_begin("dict lua");
 	struct ioloop *ioloop = io_loop_create();
 	i_unlink_if_exists(".test.dict");
-	if (dict_init("file:.test.dict", &set, &dict, &error) < 0)
+	if (dict_init_legacy("file:.test.dict", &set, &dict, &error) < 0)
 		i_fatal("dict_init(.test.dict) failed: %s", error);
 
 	struct dlua_script *script;

@@ -57,7 +57,7 @@ cmd_dict_init_full(struct doveadm_cmd_context *cctx,
 	dict_drivers_register_builtin();
 	i_zero(&dict_set);
 	dict_set.base_dir = doveadm_settings->base_dir;
-	if (dict_init(dict_uri, &dict_set, &dict, &error) < 0) {
+	if (dict_init_legacy(dict_uri, &dict_set, &dict, &error) < 0) {
 		e_error(cctx->event,
 			"dict_init(%s) failed: %s", dict_uri, error);
 		doveadm_exit_code = EX_TEMPFAIL;

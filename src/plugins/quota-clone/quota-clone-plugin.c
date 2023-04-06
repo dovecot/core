@@ -283,7 +283,7 @@ static void quota_clone_mail_user_created(struct mail_user *user)
 	i_zero(&dict_set);
 	dict_set.base_dir = user->set->base_dir;
 	dict_set.event_parent = user->event;
-	if (dict_init(uri, &dict_set, &dict, &error) < 0) {
+	if (dict_init_legacy(uri, &dict_set, &dict, &error) < 0) {
 		e_error(user->event, "quota_clone_dict: Failed to initialize '%s': %s",
 			uri, error);
 		return;

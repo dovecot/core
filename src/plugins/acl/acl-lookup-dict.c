@@ -52,7 +52,7 @@ struct acl_lookup_dict *acl_lookup_dict_init(struct mail_user *user)
 		i_zero(&dict_set);
 		dict_set.base_dir = user->set->base_dir;
 		dict_set.event_parent = user->event;
-		if (dict_init(uri, &dict_set, &dict->dict, &error) < 0)
+		if (dict_init_legacy(uri, &dict_set, &dict->dict, &error) < 0)
 			e_error(dict->event, "dict_init(%s) failed: %s", uri, error);
 	} else {
 		e_debug(dict->event, "No acl_shared_dict setting - "

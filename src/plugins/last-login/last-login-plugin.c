@@ -98,7 +98,7 @@ static void last_login_mail_user_created(struct mail_user *user)
 	i_zero(&set);
 	set.base_dir = user->set->base_dir;
 	set.event_parent = user->event;
-	if (dict_init(dict_value, &set, &dict, &error) < 0) {
+	if (dict_init_legacy(dict_value, &set, &dict, &error) < 0) {
 		e_error(user->event,
 			"last_login_dict: dict_init(%s) failed: %s",
 			dict_value, error);

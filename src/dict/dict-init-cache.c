@@ -84,7 +84,7 @@ int dict_init_cache_get(const char *dict_name, const char *uri,
 
 	match = dict_init_cache_find(dict_name);
 	if (match == NULL) {
-		if (dict_init(uri, set, dict_r, error_r) < 0)
+		if (dict_init_legacy(uri, set, dict_r, error_r) < 0)
 			return -1;
 		match = dict_init_cache_add(dict_name, *dict_r);
 	} else {
