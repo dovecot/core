@@ -1,5 +1,5 @@
-#ifndef SETTINGS_H
-#define SETTINGS_H
+#ifndef SETTINGS_LEGACY_H
+#define SETTINGS_LEGACY_H
 
 /*
  * Note:

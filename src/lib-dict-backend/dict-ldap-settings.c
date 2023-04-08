@@ -6,7 +6,7 @@
 
 #include "array.h"
 #include "str.h"
-#include "settings.h"
+#include "settings-legacy.h"
 #include "dict-ldap-settings.h"
 
 #include <ctype.h>

@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "net.h"
-#include "settings.h"
+#include "settings-legacy.h"
 #include "istream.h"
 #include "ostream.h"
 #include "test-common.h"

@@ -7,7 +7,7 @@
 #include "var-expand.h"
 #include "env-util.h"
 #include "var-expand.h"
-#include "settings.h"
+#include "settings-legacy.h"
 #include "oauth2.h"
 #include "http-client.h"
 #include "http-url.h"

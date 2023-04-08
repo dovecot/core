@@ -4,7 +4,7 @@
 #include "str.h"
 #include "istream.h"
 #include "strescape.h"
-#include "settings.h"
+#include "settings-legacy.h"
 
 #include <stdio.h>
 #include <fcntl.h>

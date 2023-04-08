@@ -4,7 +4,7 @@
 #include "array.h"
 #include "str.h"
 #include "hash.h"
-#include "settings.h"
+#include "settings-legacy.h"
 #include "dict-sql-settings.h"
 
 #include <ctype.h>

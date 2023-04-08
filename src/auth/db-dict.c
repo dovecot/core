@@ -7,7 +7,7 @@
 #include "str.h"
 #include "str-sanitize.h"
 #include "json-istream.h"
-#include "settings.h"
+#include "settings-legacy.h"
 #include "dict.h"
 #include "auth-request.h"
 #include "auth-worker-server.h"

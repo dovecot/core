@@ -4,7 +4,7 @@
 
 #if defined(PASSDB_SQL) || defined(USERDB_SQL)
 
-#include "settings.h"
+#include "settings-legacy.h"
 #include "auth-request.h"
 #include "auth-worker-server.h"
 #include "auth-common.h"

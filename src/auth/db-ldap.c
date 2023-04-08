@@ -13,7 +13,7 @@
 #include "time-util.h"
 #include "env-util.h"
 #include "var-expand.h"
-#include "settings.h"
+#include "settings-legacy.h"
 #include "userdb.h"
 #include "db-ldap.h"
 
