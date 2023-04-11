@@ -6,17 +6,17 @@
 #include "master-service.h"
 #include "test-mail-storage-common.h"
 
-/* globally used test date and appropriate time_t value */
-static struct test_globals {
-	const char *date_str_iso;
-	const char *date_str_imap;
-	const char *date_str_unix;
-	time_t date_time_t;
-} test_globals = {
-	.date_str_iso = "2022-01-21",
-	.date_str_imap = "21-Jan-2022",
-	.date_str_unix = "1642723200",
-	.date_time_t = 1642723200
+static const struct test_globals {
+	const char *str;
+	time_t timestamp;
+	bool utc;
+} human_timestamp_tests[] = {
+	/* ISO */
+	{ "2022-01-21", 1642723200, TRUE },
+	/* IMAP date */
+	{ "21-Jan-2022", 1642723200, FALSE },
+	/* UNIX timestamp */
+	{ "1642723200", 1642723200, TRUE },
 };
 
 static void test_init_storage(struct mail_storage *storage_r)
@@ -638,57 +638,22 @@ static void test_mailbox_list_mbox(void)
 	test_end();
 }
 
-
-static void test_mail_parse_human_timestamp_iso(void)
+static void test_mail_parse_human_timestamp(void)
 {
 	int ret;
 	time_t timestamp;
 	bool is_utc;
 
-	test_begin("mail_parse_human_timestamp (iso)");
+	test_begin("mail_parse_human_timestamp");
 
-	ret = mail_parse_human_timestamp(test_globals.date_str_iso, &timestamp,
-					 &is_utc);
+	for (unsigned int i = 0; i < N_ELEMENTS(human_timestamp_tests); i++) {
+		ret = mail_parse_human_timestamp(human_timestamp_tests[i].str,
+						 &timestamp, &is_utc);
 
-	test_assert(ret == 0);
-	test_assert(timestamp == test_globals.date_time_t);
-	test_assert(is_utc);
-
-	test_end();
-}
-
-static void test_mail_parse_human_timestamp_imap(void)
-{
-	int ret;
-	time_t timestamp;
-	bool is_utc;
-
-	test_begin("mail_parse_human_timestamp (imap)");
-
-	ret = mail_parse_human_timestamp(test_globals.date_str_imap, &timestamp,
-					 &is_utc);
-
-	test_assert(ret == 0);
-	test_assert(timestamp == test_globals.date_time_t);
-	test_assert(!is_utc);
-
-	test_end();
-}
-
-static void test_mail_parse_human_timestamp_unix(void)
-{
-	int ret;
-	time_t timestamp;
-	bool is_utc;
-
-	test_begin("mail_parse_human_timestamp (unix)");
-
-	ret = mail_parse_human_timestamp(test_globals.date_str_unix, &timestamp,
-					 &is_utc);
-
-	test_assert(ret == 0);
-	test_assert(timestamp == test_globals.date_time_t);
-	test_assert(is_utc);
+		test_assert_idx(ret == 0, i);
+		test_assert_idx(timestamp == human_timestamp_tests[i].timestamp, i);
+		test_assert_idx(is_utc == human_timestamp_tests[i].utc, i);
+	}
 
 	test_end();
 }
@@ -753,9 +718,7 @@ int main(int argc, char **argv)
 		test_mailbox_verify_name,
 		test_mailbox_list_maildir,
 		test_mailbox_list_mbox,
-		test_mail_parse_human_timestamp_iso,
-		test_mail_parse_human_timestamp_imap,
-		test_mail_parse_human_timestamp_unix,
+		test_mail_parse_human_timestamp,
 		test_mail_parse_human_timestamp_time_interval,
 		test_mail_parse_human_timestamp_fail,
 		NULL
