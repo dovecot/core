@@ -15,6 +15,8 @@ static const struct test_globals {
 	{ "2022-01-21", 1642723200, TRUE },
 	/* IMAP date */
 	{ "21-Jan-2022", 1642723200, FALSE },
+	/* IMAP datetime */
+	{ "21-Jan-2022 10:00:00 +0300", 1642723200 + 7*3600, TRUE },
 	/* UNIX timestamp */
 	{ "1642723200", 1642723200, TRUE },
 };
@@ -644,7 +646,7 @@ static void test_mail_parse_human_timestamp(void)
 	time_t timestamp;
 	bool is_utc;
 
-	test_begin("mail_parse_human_timestamp");
+	test_begin("mail_parse_human_timestamp()");
 
 	for (unsigned int i = 0; i < N_ELEMENTS(human_timestamp_tests); i++) {
 		ret = mail_parse_human_timestamp(human_timestamp_tests[i].str,

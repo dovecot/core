@@ -1026,8 +1026,8 @@ void mail_generate_guid_128_hash(const char *guid, guid_128_t guid_128_r);
 
    Returns 0 and timestamp on success, -1 if the string couldn't be parsed.
    Currently supported string formats: yyyy-mm-dd (utc=FALSE),
-   imap date (utc=FALSE), unix timestamp (utc=TRUE), interval (e.g. n days,
-   utc=TRUE). */
+   imap date (utc=FALSE), imap date-time (utc=TRUE), unix timestamp (utc=TRUE),
+   interval (e.g. n days, utc=TRUE). */
 int mail_parse_human_timestamp(const char *str, time_t *timestamp_r,
 			       bool *utc_r);
 

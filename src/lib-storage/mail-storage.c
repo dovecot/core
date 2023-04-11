@@ -3344,6 +3344,7 @@ int mail_parse_human_timestamp(const char *str, time_t *timestamp_r,
 	struct tm tm;
 	unsigned int secs;
 	const char *error;
+	int tz;
 
 	if (i_isdigit(str[0]) && i_isdigit(str[1]) &&
 	    i_isdigit(str[2]) && i_isdigit(str[3]) && str[4] == '-' &&
@@ -3359,8 +3360,12 @@ int mail_parse_human_timestamp(const char *str, time_t *timestamp_r,
 		*utc_r = TRUE;
 		return 0;
 	} else if (imap_parse_date(str, timestamp_r)) {
-		/* imap date */
+		/* imap datetime */
 		*utc_r = FALSE;
+		return 0;
+	} else if (imap_parse_datetime(str, timestamp_r, &tz)) {
+		/* imap datetime */
+		*utc_r = TRUE;
 		return 0;
 	} else if (str_to_time(str, timestamp_r) == 0) {
 		/* unix timestamp */
