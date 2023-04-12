@@ -76,9 +76,12 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 		}
 	}
 
-	if (t->save_ctx != NULL) {
+	if (t->save_ctx == NULL) {
+	} else if (ret >= 0) {
 		i_assert(t->save_ctx->dest_mail == NULL);
 		t->box->v.transaction_save_commit_post(t->save_ctx, result_r);
+	} else {
+		t->box->v.transaction_save_rollback(t->save_ctx);
 	}
 
 	if (pvt_sync_ctx != NULL) {
