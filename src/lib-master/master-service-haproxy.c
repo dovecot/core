@@ -1,6 +1,7 @@
 /* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "connection.h"
 #include "llist.h"
 #include "ioloop.h"
 #include "str-sanitize.h"
@@ -261,6 +262,12 @@ master_service_haproxy_parse_tlv(struct master_service_haproxy_conn *hpconn,
                         /* store hostname somewhere */
                         hpconn->conn.haproxy.hostname =
 				p_strndup(hpconn->pool, kv.data, kv.len);
+			if (!connection_is_valid_dns_name(hpconn->conn.haproxy.hostname)) {
+				*error_r = t_strdup_printf(
+						"get_tlv(%d) failed: Invalid characters in value",
+						PP2_TYPE_AUTHORITY);
+				return -1;
+			}
                         break;
                 case PP2_TYPE_SSL:
 			if (get_ssl_tlv(kv.data, kv.len, &ssl_kv) < 0) {
