@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "connection.h"
 #include "hex-binary.h"
 #include "safe-memset.h"
 #include "iostream-openssl.h"
@@ -348,7 +349,13 @@ static int ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
 
 	ssl_io = SSL_get_ex_data(ssl, dovecot_ssl_extdata_index);
 	host = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+
 	if (SSL_get_servername_type(ssl) != -1) {
+		if (!connection_is_valid_dns_name(host)) {
+			openssl_iostream_set_error(ssl_io,
+					"TLS SNI servername sent by client is not a valid DNS name");
+			return SSL_TLSEXT_ERR_ALERT_FATAL;
+		}
 		i_free(ssl_io->sni_host);
 		ssl_io->sni_host = i_strdup(host);
 	} else {
