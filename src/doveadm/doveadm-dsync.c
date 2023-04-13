@@ -1022,7 +1022,9 @@ get_default_replica_location(struct dsync_cmd_context *ctx,
 	struct master_service_settings_instance *set_instance =
 		mail_storage_service_user_get_settings_instance(service_user);
 	const struct mail_storage_settings *mail_set;
-	if (master_service_settings_instance_get(NULL, set_instance,
+	if (master_service_settings_instance_get(
+			mail_storage_service_user_get_event(service_user),
+			set_instance,
 			&mail_storage_setting_parser_info,
 			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_CHECK |
 			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,

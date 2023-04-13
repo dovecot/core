@@ -346,7 +346,9 @@ int lmtp_local_rcpt(struct client *client,
 
 	struct master_service_settings_instance *set_instance =
 		mail_storage_service_user_get_settings_instance(service_user);
-	if (master_service_settings_instance_get(rcpt->event, set_instance,
+	if (master_service_settings_instance_get(
+			mail_storage_service_user_get_event(service_user),
+			set_instance,
 			&lda_setting_parser_info,
 			0, &llrcpt->lda_set, &error) < 0) {
 		e_error(rcpt->event, "%s", error);
@@ -445,7 +447,9 @@ lmtp_local_deliver(struct lmtp_local *local,
 	username = t_strdup(input->username);
 
 	set_instance = mail_storage_service_user_get_settings_instance(service_user);
-	if (master_service_settings_instance_get(rcpt->event, set_instance,
+	if (master_service_settings_instance_get(
+			mail_storage_service_user_get_event(service_user),
+			set_instance,
 			&mail_storage_setting_parser_info,
 			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
 			&mail_set, &error) < 0) {
