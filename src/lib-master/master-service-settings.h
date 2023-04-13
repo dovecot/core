@@ -180,29 +180,6 @@ int master_service_settings_get(struct event *event,
 		__FILE__, __LINE__, (void *)set_r, error_r)
 #endif
 
-/* Like master_service_settings_get(), but get settings from the specified
-   instance. */
-int master_service_settings_instance_get(struct event *event,
-					 struct master_service_settings_instance *instance,
-					 const struct setting_parser_info *info,
-					 enum master_service_settings_get_flags flags,
-					 const char *source_filename,
-					 unsigned int source_linenum,
-					 const void **set_r, const char **error_r);
-#ifdef HAVE_TYPE_CHECKS
-#  define master_service_settings_instance_get(event, instance, \
-		info, flags, set_r, error_r) \
-	master_service_settings_instance_get(event, instance, \
-		info, flags, __FILE__, __LINE__, (void *)set_r, 1 ? (error_r) : \
-	COMPILE_ERROR_IF_TRUE( \
-		!__builtin_types_compatible_p(typeof((*set_r)->pool), pool_t)))
-#else
-#  define master_service_settings_instance_get(event, instance, \
-		info, flags, set_r, error_r) \
-	master_service_settings_instance_get(event, instance, \
-		info, flags, __FILE__, __LINE__, (void *)set_r, error_r)
-#endif
-
 /* Like master_service_settings_get(), but i_fatal() if there are any errors
    in settings. */
 const void *

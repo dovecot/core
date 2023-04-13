@@ -1211,14 +1211,14 @@ master_service_settings_instance_override(
 	return 0;
 }
 
-#undef master_service_settings_instance_get
-int master_service_settings_instance_get(struct event *event,
-					 struct master_service_settings_instance *instance,
-					 const struct setting_parser_info *info,
-					 enum master_service_settings_get_flags flags,
-					 const char *source_filename,
-					 unsigned int source_linenum,
-					 const void **set_r, const char **error_r)
+static int
+master_service_settings_instance_get(struct event *event,
+				     struct master_service_settings_instance *instance,
+				     const struct setting_parser_info *info,
+				     enum master_service_settings_get_flags flags,
+				     const char *source_filename,
+				     unsigned int source_linenum,
+				     const void **set_r, const char **error_r)
 {
 	struct master_service *service = instance->service;
 	const char *error;
