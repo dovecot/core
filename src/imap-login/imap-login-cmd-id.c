@@ -8,81 +8,103 @@
 #include "imap-login-settings.h"
 #include "imap-login-client.h"
 
+struct imap_id_params_forward {
+	const char *key;
+	const char *value;
+};
+
+struct imap_id_params {
+	pool_t pool;
+	struct ip_addr local_ip;
+	struct ip_addr ip;
+	in_port_t local_port, remote_port;
+	unsigned int proxy_ttl;
+	const char *session_id;
+	ARRAY(struct imap_id_params_forward) forward_fields;
+	bool end_client_tls_secured_set;
+	bool end_client_tls_secured;
+};
+
 struct imap_id_param_handler {
 	const char *key;
 	bool key_is_prefix;
 
-	void (*callback)(struct imap_client *client,
+	void (*callback)(struct imap_id_params *params,
 			 const char *key, const char *value);
 };
 
 static void
-cmd_id_x_originating_ip(struct imap_client *client,
+cmd_id_x_originating_ip(struct imap_id_params *params,
 			const char *key ATTR_UNUSED, const char *value)
 {
-	(void)net_addr2ip(value, &client->common.ip);
+	(void)net_addr2ip(value, &params->ip);
 }
 
 static void
-cmd_id_x_originating_port(struct imap_client *client,
+cmd_id_x_originating_port(struct imap_id_params *params,
 			  const char *key ATTR_UNUSED, const char *value)
 {
-	(void)net_str2port(value, &client->common.remote_port);
+	(void)net_str2port(value, &params->remote_port);
 }
 
 static void
-cmd_id_x_connected_ip(struct imap_client *client,
+cmd_id_x_connected_ip(struct imap_id_params *params,
 		      const char *key ATTR_UNUSED, const char *value)
 {
-	(void)net_addr2ip(value, &client->common.local_ip);
+	(void)net_addr2ip(value, &params->local_ip);
 }
 
 static void
-cmd_id_x_connected_port(struct imap_client *client,
+cmd_id_x_connected_port(struct imap_id_params *params,
 			const char *key ATTR_UNUSED, const char *value)
 {
-	(void)net_str2port(value, &client->common.local_port);
+	(void)net_str2port(value, &params->local_port);
 }
 
 static void
-cmd_id_x_proxy_ttl(struct imap_client *client,
+cmd_id_x_proxy_ttl(struct imap_id_params *params,
 		   const char *key ATTR_UNUSED, const char *value)
 {
-	if (str_to_uint(value, &client->common.proxy_ttl) < 0) {
+	if (str_to_uint(value, &params->proxy_ttl) < 0) {
 		/* nothing */
 	}
 }
 
 static void
-cmd_id_x_session_id(struct imap_client *client,
+cmd_id_x_session_id(struct imap_id_params *params,
 		    const char *key ATTR_UNUSED, const char *value)
 {
 	if (strlen(value) <= LOGIN_MAX_SESSION_ID_LEN) {
-		client->common.session_id =
-			p_strdup(client->common.pool, value);
+		params->session_id =
+			p_strdup_empty(params->pool, value);
 	}
 }
 
 static void
-cmd_id_x_client_transport(struct imap_client *client,
+cmd_id_x_client_transport(struct imap_id_params *params,
 			  const char *key ATTR_UNUSED, const char *value)
 {
 	/* for now values are either "insecure" or "TLS", but plan ahead already
 	   in case we want to transfer e.g. the TLS security string */
-	client->common.end_client_tls_secured_set = TRUE;
-	client->common.end_client_tls_secured =
+	params->end_client_tls_secured_set = TRUE;
+	params->end_client_tls_secured =
 		str_begins_with(value, CLIENT_TRANSPORT_TLS);
 }
 
 static void
-cmd_id_x_forward_(struct imap_client *client,
+cmd_id_x_forward_(struct imap_id_params *params,
 		  const char *key, const char *value)
 {
 	const char *suffix;
 
 	if (!str_begins_icase(key, "x-forward-", &suffix))
 		i_unreached();
-	client_add_forward_field(&client->common, suffix, value);
+	if (!array_is_created(&params->forward_fields))
+		p_array_init(&params->forward_fields, params->pool, 1);
+	struct imap_id_params_forward *fwd =
+		array_append_space(&params->forward_fields);
+	fwd->key = p_strdup_empty(params->pool, suffix);
+	fwd->value = p_strdup(params->pool, value);
 }
 
 static const struct imap_id_param_handler imap_login_id_params[] = {
@@ -127,7 +149,7 @@ client_try_update_info(struct imap_client *client,
 	   but store them for non-reserved keys */
 	if (client->common.connection_trusted &&
 	    !client->id_logged && value != NULL)
-		handler->callback(client, key, value);
+		handler->callback(client->cmd_id->params, key, value);
 	return TRUE;
 }
 
@@ -198,6 +220,37 @@ static int cmd_id_handle_args(struct imap_client *client,
 	return 0;
 }
 
+static void cmd_id_copy_params(struct imap_client *client,
+			       struct imap_id_params *params)
+{
+	if (params->ip.family != AF_UNSPEC)
+		client->common.ip = params->ip;
+	if (params->local_ip.family != AF_UNSPEC)
+		client->common.local_ip = params->local_ip;
+	if (params->local_port != 0)
+		client->common.local_port = params->local_port;
+	if (params->remote_port != 0)
+		client->common.remote_port = params->remote_port;
+	if (params->proxy_ttl != 0)
+		client->common.proxy_ttl = params->proxy_ttl;
+	if (params->session_id != NULL) {
+		client->common.session_id = p_strdup(client->common.pool,
+						     params->session_id);
+	}
+	if (params->end_client_tls_secured_set) {
+		client->common.end_client_tls_secured_set = params->end_client_tls_secured_set;
+		client->common.end_client_tls_secured = params->end_client_tls_secured;
+	}
+	if (!array_is_created(&params->forward_fields))
+		return;
+	const struct imap_id_params_forward *elem;
+	array_foreach(&params->forward_fields, elem) {
+		if (elem->key != NULL)
+			client_add_forward_field(&client->common, elem->key,
+						 elem->value);
+	}
+}
+
 static void cmd_id_finish(struct imap_client *client)
 {
 	if (!client->id_logged) {
@@ -216,8 +269,10 @@ static void cmd_id_finish(struct imap_client *client)
 		t_strdup_printf("* ID %s\r\n",
 			imap_id_reply_generate(client->set->imap_id_send)));
 	const char *msg = "ID completed.";
-	if (client->common.connection_trusted)
+	if (client->common.connection_trusted) {
+		cmd_id_copy_params(client, client->cmd_id->params);
 		msg = "Trusted ID completed.";
+	}
 	client_send_reply(&client->common, IMAP_CMD_REPLY_OK, msg);
 }
 
@@ -228,6 +283,7 @@ void cmd_id_free(struct imap_client *client)
 	event_unref(&id->params_event);
 	str_free(&id->log_reply);
 	imap_parser_unref(&id->parser);
+	pool_unref(&client->cmd_id->params->pool);
 
 	i_free_and_null(client->cmd_id);
 	client->skip_line = TRUE;
@@ -244,7 +300,11 @@ int cmd_id(struct imap_client *client)
 		str_truncate(client->common.client_id, 0);
 
 	if (client->cmd_id == NULL) {
+		pool_t param_pool =
+			pool_alloconly_create(MEMPOOL_GROWING"ID parameter pool", 64);
 		client->cmd_id = id = i_new(struct imap_client_cmd_id, 1);
+		id->params = p_new(param_pool, struct imap_id_params, 1);
+		id->params->pool = param_pool;
 		id->parser = imap_parser_create(client->common.input,
 						client->common.output,
 						IMAP_LOGIN_MAX_LINE_LENGTH);
