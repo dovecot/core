@@ -29,58 +29,61 @@ struct imap_id_param_handler {
 	const char *key;
 	bool key_is_prefix;
 
-	void (*callback)(struct imap_id_params *params,
+	bool (*callback)(struct imap_id_params *params,
 			 const char *key, const char *value);
 };
 
-static void
+static bool
 cmd_id_x_originating_ip(struct imap_id_params *params,
 			const char *key ATTR_UNUSED, const char *value)
 {
-	(void)net_addr2ip(value, &params->ip);
+	return net_addr2ip(value, &params->ip) == 0;
 }
 
-static void
+static bool
 cmd_id_x_originating_port(struct imap_id_params *params,
 			  const char *key ATTR_UNUSED, const char *value)
 {
-	(void)net_str2port(value, &params->remote_port);
+	return net_str2port(value, &params->remote_port) == 0;
 }
 
-static void
+static bool
 cmd_id_x_connected_ip(struct imap_id_params *params,
 		      const char *key ATTR_UNUSED, const char *value)
 {
-	(void)net_addr2ip(value, &params->local_ip);
+	return net_addr2ip(value, &params->local_ip) == 0;
 }
 
-static void
+static bool
 cmd_id_x_connected_port(struct imap_id_params *params,
 			const char *key ATTR_UNUSED, const char *value)
 {
-	(void)net_str2port(value, &params->local_port);
+	return net_str2port(value, &params->local_port) == 0;
 }
 
-static void
+static bool
 cmd_id_x_proxy_ttl(struct imap_id_params *params,
 		   const char *key ATTR_UNUSED, const char *value)
 {
-	if (str_to_uint(value, &params->proxy_ttl) < 0) {
-		/* nothing */
-	}
+	return str_to_uint(value, &params->proxy_ttl) == 0 &&
+	       params->proxy_ttl != 0;
 }
 
-static void
+static bool
 cmd_id_x_session_id(struct imap_id_params *params,
 		    const char *key ATTR_UNUSED, const char *value)
 {
+	if (*value == '\0')
+		return FALSE;
 	if (strlen(value) <= LOGIN_MAX_SESSION_ID_LEN) {
 		params->session_id =
 			p_strdup_empty(params->pool, value);
+		return TRUE;
 	}
+	return FALSE;
 }
 
-static void
+static bool
 cmd_id_x_client_transport(struct imap_id_params *params,
 			  const char *key ATTR_UNUSED, const char *value)
 {
@@ -89,9 +92,10 @@ cmd_id_x_client_transport(struct imap_id_params *params,
 	params->end_client_tls_secured_set = TRUE;
 	params->end_client_tls_secured =
 		str_begins_with(value, CLIENT_TRANSPORT_TLS);
+	return TRUE;
 }
 
-static void
+static bool
 cmd_id_x_forward_(struct imap_id_params *params,
 		  const char *key, const char *value)
 {
@@ -101,10 +105,13 @@ cmd_id_x_forward_(struct imap_id_params *params,
 		i_unreached();
 	if (!array_is_created(&params->forward_fields))
 		p_array_init(&params->forward_fields, params->pool, 1);
+	if (*suffix == '\0')
+		return FALSE;
 	struct imap_id_params_forward *fwd =
 		array_append_space(&params->forward_fields);
-	fwd->key = p_strdup_empty(params->pool, suffix);
+	fwd->key = p_strdup(params->pool, suffix);
 	fwd->value = p_strdup(params->pool, value);
+	return TRUE;
 }
 
 static const struct imap_id_param_handler imap_login_id_params[] = {
@@ -135,7 +142,7 @@ imap_id_param_handler_find(const char *key)
 	return NULL;
 }
 
-static void cmd_id_handle_keyvalue(struct imap_client *client,
+static bool cmd_id_handle_keyvalue(struct imap_client *client,
 				   struct imap_id_log_entry *log_entry,
 				   const char *key, const char *value)
 {
@@ -149,7 +156,11 @@ static void cmd_id_handle_keyvalue(struct imap_client *client,
 
 	if (is_login_id_param && client->common.connection_trusted &&
 	    !client->id_logged && value != NULL) {
-		handler->callback(client->cmd_id->params, key, value);
+		if (!handler->callback(client->cmd_id->params, key, value)) {
+			e_debug(client->common.event,
+				"Client sent invalid ID parameter '%s'", key);
+			return FALSE;
+		}
 	}
 
 	if (client->set->imap_id_retain && !is_login_id_param &&
@@ -170,6 +181,7 @@ static void cmd_id_handle_keyvalue(struct imap_client *client,
 
 	if (!is_login_id_param)
 		imap_id_add_log_entry(log_entry, key, value);
+	return TRUE;
 }
 
 static int cmd_id_handle_args(struct imap_client *client,
@@ -201,7 +213,8 @@ static int cmd_id_handle_args(struct imap_client *client,
 			return -1;
 		if (!client->id_logged && id->log_reply != NULL) {
 			log_entry->reply = id->log_reply;
-			cmd_id_handle_keyvalue(client, log_entry, id->key, value);
+			if (!cmd_id_handle_keyvalue(client, log_entry, id->key, value))
+				return -1;
 		}
 		id->state = IMAP_CLIENT_ID_STATE_KEY;
 		break;
@@ -234,9 +247,8 @@ static void cmd_id_copy_params(struct imap_client *client,
 		return;
 	const struct imap_id_params_forward *elem;
 	array_foreach(&params->forward_fields, elem) {
-		if (elem->key != NULL)
-			client_add_forward_field(&client->common, elem->key,
-						 elem->value);
+		i_assert(elem->key != NULL && *elem->key != '\0');
+		client_add_forward_field(&client->common, elem->key, elem->value);
 	}
 }
 
