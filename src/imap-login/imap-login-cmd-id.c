@@ -135,24 +135,6 @@ imap_id_param_handler_find(const char *key)
 	return NULL;
 }
 
-static bool
-client_try_update_info(struct imap_client *client,
-		       const char *key, const char *value)
-{
-	const struct imap_id_param_handler *handler;
-
-	handler = imap_id_param_handler_find(key);
-	if (handler == NULL)
-		return FALSE;
-
-	/* do not try to process NIL values as client-info,
-	   but store them for non-reserved keys */
-	if (client->common.connection_trusted &&
-	    !client->id_logged && value != NULL)
-		handler->callback(client->cmd_id->params, key, value);
-	return TRUE;
-}
-
 static void cmd_id_handle_keyvalue(struct imap_client *client,
 				   struct imap_id_log_entry *log_entry,
 				   const char *key, const char *value)
@@ -161,7 +143,14 @@ static void cmd_id_handle_keyvalue(struct imap_client *client,
 	   quotes and space */
 	size_t kvlen = strlen(key) + 2 + 1 +
 		       (value == NULL ? 3 : strlen(value)) + 2;
-	bool is_login_id_param = client_try_update_info(client, key, value);
+	const struct imap_id_param_handler *handler =
+		imap_id_param_handler_find(key);
+	bool is_login_id_param = handler != NULL;
+
+	if (is_login_id_param && client->common.connection_trusted &&
+	    !client->id_logged && value != NULL) {
+		handler->callback(client->cmd_id->params, key, value);
+	}
 
 	if (client->set->imap_id_retain && !is_login_id_param &&
 	    (client->common.client_id == NULL ||
