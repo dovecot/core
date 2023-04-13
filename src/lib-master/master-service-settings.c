@@ -635,9 +635,9 @@ static void settings_mmap_free_blocks(struct settings_mmap *mmap)
 }
 
 static int
-master_service_settings_mmap_parse(struct settings_mmap *mmap,
-				   struct master_service_settings_output *output_r,
-				   const char **error_r)
+settings_mmap_parse(struct settings_mmap *mmap,
+		    struct master_service_settings_output *output_r,
+		    const char **error_r)
 {
 	/*
 	   See ../config/config-dump-full.c for the binary config file format
@@ -698,10 +698,10 @@ master_service_settings_mmap_parse(struct settings_mmap *mmap,
 }
 
 static int
-master_service_settings_mmap_apply_blob(struct settings_mmap *mmap,
-					struct setting_parser_context *parser,
-					size_t start_offset, size_t end_offset,
-					const char **error_r)
+settings_mmap_apply_blob(struct settings_mmap *mmap,
+			 struct setting_parser_context *parser,
+			 size_t start_offset, size_t end_offset,
+			 const char **error_r)
 {
 	size_t offset = start_offset;
 
@@ -744,11 +744,10 @@ master_service_settings_mmap_apply_blob(struct settings_mmap *mmap,
 }
 
 static int
-master_service_settings_mmap_apply(struct settings_mmap *mmap,
-				   struct event *event,
-				   struct setting_parser_context *parser,
-				   const struct setting_parser_info *info,
-				   const char **error_r)
+settings_mmap_apply(struct settings_mmap *mmap, struct event *event,
+		    struct setting_parser_context *parser,
+		    const struct setting_parser_info *info,
+		    const char **error_r)
 {
 	struct master_service_mmap_block *block =
 		hash_table_lookup(mmap->blocks, info->name);
@@ -763,10 +762,9 @@ master_service_settings_mmap_apply(struct settings_mmap *mmap,
 		return -1;
 	}
 
-	if (master_service_settings_mmap_apply_blob(mmap, parser,
-						    block->base_start_offset,
-						    block->base_end_offset,
-						    error_r) < 0)
+	if (settings_mmap_apply_blob(mmap, parser,
+				     block->base_start_offset,
+				     block->base_end_offset, error_r) < 0)
 		return -1;
 
 	const struct failure_context failure_ctx = {
@@ -785,8 +783,7 @@ master_service_settings_mmap_apply(struct settings_mmap *mmap,
 				*error_r = config_filter->error;
 				return -1;
 			}
-			if (master_service_settings_mmap_apply_blob(
-					mmap, parser,
+			if (settings_mmap_apply_blob(mmap, parser,
 					config_filter->start_offset,
 					config_filter->end_offset,
 					error_r) < 0)
@@ -896,8 +893,8 @@ int master_service_settings_read(struct master_service *service,
 	/* config_mmap is NULL only if MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS
 	   is used */
 	if (service->config_mmap != NULL) {
-		ret = master_service_settings_mmap_parse(service->config_mmap,
-			output_r, &error);
+		ret = settings_mmap_parse(service->config_mmap,
+					  output_r, &error);
 		if (ret < 0) {
 			if (getenv(DOVECOT_CONFIG_FD_ENV) != NULL) {
 				i_fatal("Failed to parse config from fd %d: %s",
@@ -1241,7 +1238,7 @@ master_service_settings_instance_get(struct event *event,
 				     SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
 
 	if (service->config_mmap != NULL) {
-		ret = master_service_settings_mmap_apply(service->config_mmap,
+		ret = settings_mmap_apply(service->config_mmap,
 				event, parser, info, &error);
 		if (ret < 0) {
 			*error_r = t_strdup_printf(
