@@ -1323,12 +1323,25 @@ int master_service_settings_get(struct event *event,
 				unsigned int source_linenum,
 				const void **set_r, const char **error_r)
 {
+	struct master_service_settings_instance *instance = NULL;
+	struct event *scan_event = event;
+
+	while (scan_event != NULL) {
+		instance = event_get_ptr(scan_event,
+					 MASTER_SERVICE_SETTINGS_INSTANCE);
+		if (instance != NULL)
+			break;
+		scan_event = event_get_parent(scan_event);
+	}
+
 	/* no instance-specific settings */
-	struct master_service_settings_instance instance = {
+	struct master_service_settings_instance empty_instance = {
 		.service = master_service,
 	};
+	if (instance == NULL)
+		instance = &empty_instance;
 
-	return master_service_settings_instance_get(event, &instance,
+	return master_service_settings_instance_get(event, instance,
 		info, flags, source_filename, source_linenum, set_r, error_r);
 }
 
