@@ -32,7 +32,7 @@
 #define CONFIG_READ_TIMEOUT_SECS 10
 #define CONFIG_HANDSHAKE "VERSION\tconfig\t3\t0\n"
 
-struct master_service_mmap_filter {
+struct settings_mmap_filter {
 	struct event_filter *filter;
 	bool empty_filter;
 
@@ -40,12 +40,12 @@ struct master_service_mmap_filter {
 	size_t start_offset, end_offset;
 };
 
-struct master_service_mmap_block {
+struct settings_mmap_block {
 	const char *name;
 
 	const char *error; /* if non-NULL, accessing the block must fail */
 	size_t base_start_offset, base_end_offset;
-	ARRAY(struct master_service_mmap_filter) filters;
+	ARRAY(struct settings_mmap_filter) filters;
 };
 
 struct settings_mmap {
@@ -55,7 +55,7 @@ struct settings_mmap {
 	void *mmap_base;
 	size_t mmap_size;
 
-	HASH_TABLE(const char *, struct master_service_mmap_block *) blocks;
+	HASH_TABLE(const char *, struct settings_mmap_block *) blocks;
 };
 
 struct master_service_set {
@@ -527,7 +527,7 @@ settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 				    "block name", &block_name, error_r) < 0)
 		return -1;
 
-	struct master_service_mmap_block *block =
+	struct settings_mmap_block *block =
 		hash_table_lookup(mmap->blocks, block_name);
 	if (block != NULL) {
 		*error_r = t_strdup_printf(
@@ -535,7 +535,7 @@ settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 			block_name, block_size_offset);
 		return -1;
 	}
-	block = i_new(struct master_service_mmap_block, 1);
+	block = i_new(struct settings_mmap_block, 1);
 	block->name = block_name;
 	hash_table_insert(mmap->blocks, block->name, block);
 
@@ -588,7 +588,7 @@ settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 		if (!array_is_created(&block->filters))
 			i_array_init(&block->filters, 4);
 
-		struct master_service_mmap_filter *config_filter =
+		struct settings_mmap_filter *config_filter =
 			array_append_space(&block->filters);
 		config_filter->filter = event_filter_create();
 		config_filter->empty_filter = filter_string[0] == '\0';
@@ -619,11 +619,11 @@ static void settings_mmap_free_blocks(struct settings_mmap *mmap)
 	struct hash_iterate_context *iter =
 		hash_table_iterate_init(mmap->blocks);
 	const char *name;
-	struct master_service_mmap_block *block;
+	struct settings_mmap_block *block;
 
 	while (hash_table_iterate(iter, mmap->blocks, &name, &block)) {
 		if (array_is_created(&block->filters)) {
-			struct master_service_mmap_filter *config_filter;
+			struct settings_mmap_filter *config_filter;
 			array_foreach_modifiable(&block->filters, config_filter)
 				event_filter_unref(&config_filter->filter);
 			array_free(&block->filters);
@@ -749,7 +749,7 @@ settings_mmap_apply(struct settings_mmap *mmap, struct event *event,
 		    const struct setting_parser_info *info,
 		    const char **error_r)
 {
-	struct master_service_mmap_block *block =
+	struct settings_mmap_block *block =
 		hash_table_lookup(mmap->blocks, info->name);
 	if (block == NULL) {
 		*error_r = t_strdup_printf(
@@ -774,7 +774,7 @@ settings_mmap_apply(struct settings_mmap *mmap, struct event *event,
 	if (!array_is_created(&block->filters))
 		return 0;
 
-	const struct master_service_mmap_filter *config_filter;
+	const struct settings_mmap_filter *config_filter;
 	array_foreach(&block->filters, config_filter) {
 		if (config_filter->empty_filter ||
 		    event_filter_match(config_filter->filter, event,
