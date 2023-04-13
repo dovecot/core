@@ -1073,9 +1073,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		      mail_storage_service_var_expand_callback);
 	event_set_ptr(event, MASTER_SERVICE_VAR_EXPAND_FUNC_CONTEXT,
 		      &var_expand_ctx);
-	if (master_service_settings_instance_get(event, set_instance,
-					       &mail_user_setting_parser_info,
-					       0, &user_set, error_r) < 0) {
+	if (master_service_settings_get(event, &mail_user_setting_parser_info,
+					0, &user_set, error_r) < 0) {
 		event_unref(&event);
 		master_service_settings_instance_free(&set_instance);
 		return -1;
@@ -1192,9 +1191,9 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	if (ret > 0) {
 		mail_storage_service_update_chroot(user);
 		/* Settings may have changed in the parser */
-		if (master_service_settings_instance_get(event, user->set_instance,
-				&mail_user_setting_parser_info,
-				0, &user_set, &error) < 0) {
+		if (master_service_settings_get(event,
+						&mail_user_setting_parser_info,
+						0, &user_set, &error) < 0) {
 			*error_r = t_strdup_printf(
 				"%s (probably caused by userdb)", error);
 			ret = -2;
@@ -1545,13 +1544,11 @@ int mail_storage_service_user_init_ssl_client_settings(
 	struct mail_storage_service_user *user, pool_t pool,
 	struct ssl_iostream_settings *ssl_set_r, const char **error_r)
 {
-	struct master_service_settings_instance *set_instance;
 	const struct master_service_ssl_settings *ssl_set;
 
-	set_instance = mail_storage_service_user_get_settings_instance(user);
-	if (master_service_settings_instance_get(user->event,
-			set_instance, &master_service_ssl_setting_parser_info,
-			0, &ssl_set, error_r) < 0)
+	if (master_service_settings_get(user->event,
+					&master_service_ssl_setting_parser_info,
+					0, &ssl_set, error_r) < 0)
 		return -1;
 	master_service_ssl_client_settings_to_iostream_set(ssl_set, pool,
 							   ssl_set_r);

@@ -191,10 +191,9 @@ client_create_from_input(const struct mail_storage_service_input *input,
 
 	restrict_access_allow_coredumps(TRUE);
 
-	if (master_service_settings_instance_get(mail_user->event,
-			mail_user->set_instance,
-			&submission_setting_parser_info, 0,
-			&set, error_r) < 0) {
+	if (master_service_settings_get(mail_user->event,
+					&submission_setting_parser_info, 0,
+					&set, error_r) < 0) {
 		send_error(fd_out, event, my_hostname,
 			"4.7.0", MAIL_ERRSTR_CRITICAL_MSG);
 		mail_user_deinit(&mail_user);

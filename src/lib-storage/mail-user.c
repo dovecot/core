@@ -150,9 +150,9 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 
 	i_assert(!user->initialized);
 
-	if (master_service_settings_instance_get(user->event, user->set_instance,
-			&mail_storage_setting_parser_info, 0,
-			&user->_mail_set, &error) < 0)
+	if (master_service_settings_get(user->event,
+					&mail_storage_setting_parser_info, 0,
+					&user->_mail_set, &error) < 0)
 		user->error = p_strdup(user->pool, error);
 	else
 		mail_user_expand_plugins_envs(user, user->_mail_set);

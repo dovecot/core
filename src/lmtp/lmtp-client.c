@@ -122,12 +122,10 @@ static void client_read_settings(struct client *client, bool ssl)
 
 	struct event *event = event_create(client->event);
 	event_set_ptr(event, MASTER_SERVICE_VAR_EXPAND_TABLE, (void *)tab);
-	if (master_service_settings_instance_get(event, client->set_instance,
-			&lda_setting_parser_info, 0,
-			&client->lda_set, &error) < 0 ||
-	    master_service_settings_instance_get(event, client->set_instance,
-			&lmtp_setting_parser_info, 0,
-			&client->lmtp_set, &error) < 0)
+	if (master_service_settings_get(event, &lda_setting_parser_info, 0,
+					&client->lda_set, &error) < 0 ||
+	    master_service_settings_get(event, &lmtp_setting_parser_info, 0,
+					&client->lmtp_set, &error) < 0)
 		i_fatal("%s", error);
 	event_unref(&event);
 }

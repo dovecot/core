@@ -57,10 +57,9 @@ maildir_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	struct mailbox_list *list = ns->list;
 	const char *dir;
 
-	if (master_service_settings_instance_get(_storage->event,
-			_storage->user->set_instance,
-			&maildir_setting_parser_info, 0,
-			&storage->set, error_r) < 0)
+	if (master_service_settings_get(_storage->event,
+					&maildir_setting_parser_info, 0,
+					&storage->set, error_r) < 0)
 		return -1;
 
 	storage->temp_prefix = p_strdup(_storage->pool,

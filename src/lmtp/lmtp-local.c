@@ -344,11 +344,8 @@ int lmtp_local_rcpt(struct client *client,
 	lrcpt->type = LMTP_RECIPIENT_TYPE_LOCAL;
 	lrcpt->backend_context = llrcpt;
 
-	struct master_service_settings_instance *set_instance =
-		mail_storage_service_user_get_settings_instance(service_user);
-	if (master_service_settings_instance_get(
+	if (master_service_settings_get(
 			mail_storage_service_user_get_event(service_user),
-			set_instance,
 			&lda_setting_parser_info,
 			0, &llrcpt->lda_set, &error) < 0) {
 		e_error(rcpt->event, "%s", error);
@@ -439,17 +436,14 @@ lmtp_local_deliver(struct lmtp_local *local,
 	const struct mail_storage_settings *mail_set;
 	struct smtp_proxy_data proxy_data;
 	struct mail_namespace *ns;
-	struct master_service_settings_instance *set_instance;
 	const char *error, *username;
 	int ret;
 
 	input = mail_storage_service_user_get_input(service_user);
 	username = t_strdup(input->username);
 
-	set_instance = mail_storage_service_user_get_settings_instance(service_user);
-	if (master_service_settings_instance_get(
+	if (master_service_settings_get(
 			mail_storage_service_user_get_event(service_user),
-			set_instance,
 			&mail_storage_setting_parser_info,
 			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
 			&mail_set, &error) < 0) {
@@ -503,8 +497,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 		mail_storage_service_user_get_log_prefix(service_user));
 
 	lldctx.rcpt_user = rcpt_user;
-	if (master_service_settings_instance_get(rcpt_user->event,
-			rcpt_user->set_instance,
+	if (master_service_settings_get(rcpt_user->event,
 			&smtp_submit_setting_parser_info, 0,
 			&lldctx.smtp_set, &error) < 0) {
 		e_error(rcpt->event, "%s", error);

@@ -290,14 +290,12 @@ lda_deliver(struct mail_deliver_input *dinput,
 	const char *error;
 	int ret;
 
-	if (master_service_settings_instance_get(dinput->rcpt_user->event,
-			dinput->rcpt_user->set_instance,
-			&lda_setting_parser_info, 0,
-			&dinput->set, &error) < 0 ||
-	    master_service_settings_instance_get(dinput->rcpt_user->event,
-			dinput->rcpt_user->set_instance,
-			&smtp_submit_setting_parser_info, 0,
-			&dinput->smtp_set, &error) < 0)
+	if (master_service_settings_get(dinput->rcpt_user->event,
+					&lda_setting_parser_info, 0,
+					&dinput->set, &error) < 0 ||
+	    master_service_settings_get(dinput->rcpt_user->event,
+					&smtp_submit_setting_parser_info, 0,
+					&dinput->smtp_set, &error) < 0)
 		i_fatal("%s", error);
 
 	dinput->src_mail = lda_raw_mail_open(dinput, path);

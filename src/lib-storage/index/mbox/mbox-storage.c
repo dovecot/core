@@ -185,10 +185,9 @@ mbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		return -1;
 	}
 
-	if (master_service_settings_instance_get(_storage->event,
-			_storage->user->set_instance,
-			&mbox_setting_parser_info, 0,
-			&storage->set, error_r) < 0)
+	if (master_service_settings_get(_storage->event,
+					&mbox_setting_parser_info, 0,
+					&storage->set, error_r) < 0)
 		return -1;
 
 	if (mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_INDEX, &dir)) {
