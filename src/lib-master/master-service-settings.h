@@ -8,7 +8,7 @@ struct var_expand_table;
 struct var_expand_func_table;
 struct master_service;
 struct settings_mmap;
-struct master_service_settings_instance;
+struct settings_instance;
 
 enum master_service_set_type {
 	/* Setting is from userdb. */
@@ -88,9 +88,8 @@ struct master_service_settings_output {
 	bool permission_denied:1;
 };
 
-/* Set struct master_service_settings_instance to events so
-   master_service_settings_get() can use it to get instance-specific
-   settings. */
+/* Set struct settings_instance to events so master_service_settings_get() can
+   use it to get instance-specific settings. */
 #define MASTER_SERVICE_SETTINGS_INSTANCE \
 	"master_service_settings_instance"
 
@@ -199,19 +198,18 @@ master_service_settings_get_or_fatal(struct event *event,
 	} STMT_END
 
 /* Override a setting. */
-void master_service_set(struct master_service_settings_instance *instance,
+void master_service_set(struct settings_instance *instance,
 			const char *key, const char *value,
 			enum master_service_set_type type);
 
 /* Return a new instance for settings. */
-struct master_service_settings_instance *
-master_service_settings_instance_new(struct master_service *service);
+struct settings_instance *
+settings_instance_new(struct master_service *service);
 /* Return a new instance based on an existing instance. */
-struct master_service_settings_instance *
-master_service_settings_instance_dup(const struct master_service_settings_instance *src);
+struct settings_instance *
+settings_instance_dup(const struct settings_instance *src);
 /* Free a settings instance. */
-void master_service_settings_instance_free(
-	struct master_service_settings_instance **instance);
+void settings_instance_free(struct settings_instance **instance);
 
 void master_service_settings_deinit(struct master_service *service);
 

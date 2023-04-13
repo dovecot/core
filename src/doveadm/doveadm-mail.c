@@ -331,7 +331,7 @@ static int cmd_force_resync_prerun(struct doveadm_mail_cmd_context *ctx ATTR_UNU
 				   struct mail_storage_service_user *service_user,
 				   const char **error_r ATTR_UNUSED)
 {
-	struct master_service_settings_instance *set_instance =
+	struct settings_instance *set_instance =
 		mail_storage_service_user_get_settings_instance(service_user);
 	master_service_set(set_instance,
 			   "mailbox_list_index_very_dirty_syncs", "no",

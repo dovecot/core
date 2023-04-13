@@ -466,7 +466,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 
 	/* update mail_location and create another user for the
 	   second location. */
-	struct master_service_settings_instance *set_instance =
+	struct settings_instance *set_instance =
 		mail_storage_service_user_get_settings_instance(ctx->ctx.cur_service_user);
 	master_service_set(set_instance, "mail_location", location,
 			   MASTER_SERVICE_SET_TYPE_CODE);

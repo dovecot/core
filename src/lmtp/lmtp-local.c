@@ -462,7 +462,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 		   advertised that it's going to timeout the connection.
 		   this avoids duplicate deliveries in case the delivery
 		   succeeds after the proxy has already disconnected from us. */
-		struct master_service_settings_instance *set_instance =
+		struct settings_instance *set_instance =
 			mail_storage_service_user_get_settings_instance(service_user);
 		const char *value = t_strdup_printf("%us",
 				       proxy_data.timeout_secs <= 1 ? 1 :

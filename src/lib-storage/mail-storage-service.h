@@ -57,7 +57,7 @@ struct mail_storage_service_input {
 	const char *const *forward_fields;
 
 	/* Use this settings instance instead of looking it up. */
-	struct master_service_settings_instance *set_instance;
+	struct settings_instance *set_instance;
 
 	/* Override specified global flags */
 	enum mail_storage_service_flags flags_override_add;
@@ -148,7 +148,7 @@ const struct mail_user_settings *
 mail_storage_service_user_get_set(struct mail_storage_service_user *user);
 const struct mail_storage_service_input *
 mail_storage_service_user_get_input(struct mail_storage_service_user *user);
-struct master_service_settings_instance *
+struct settings_instance *
 mail_storage_service_user_get_settings_instance(struct mail_storage_service_user *user);
 int mail_storage_service_user_init_ssl_client_settings(
 	struct mail_storage_service_user *user, pool_t pool,

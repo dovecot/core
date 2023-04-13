@@ -258,7 +258,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 		mail_storage_service_user_get_service_ctx(user->service_user);
 	struct event *service_user_event =
 		mail_storage_service_user_get_event(user->service_user);
-	struct master_service_settings_instance *service_user_set_instance =
+	struct settings_instance *service_user_set_instance =
 		mail_storage_service_user_get_settings_instance(user->service_user);
 	const struct mail_storage_service_input input = {
 		.event_parent = event_get_parent(service_user_event),

@@ -65,7 +65,7 @@ struct master_service_set {
 };
 ARRAY_DEFINE_TYPE(master_service_set, struct master_service_set);
 
-struct master_service_settings_instance {
+struct settings_instance {
 	pool_t pool;
 	struct master_service *service;
 	ARRAY_TYPE(master_service_set) settings;
@@ -1150,11 +1150,10 @@ master_service_set_get_value(struct setting_parser_context *parser,
 }
 
 static int
-master_service_settings_instance_override(
-	struct master_service_settings_instance *instance,
-	struct setting_parser_context *parser,
-	struct master_settings_pool *mpool,
-	const char **error_r)
+settings_instance_override(struct settings_instance *instance,
+			   struct setting_parser_context *parser,
+			   struct master_settings_pool *mpool,
+			   const char **error_r)
 {
 	ARRAY_TYPE(master_service_set) settings;
 
@@ -1207,13 +1206,13 @@ master_service_settings_instance_override(
 }
 
 static int
-master_service_settings_instance_get(struct event *event,
-				     struct master_service_settings_instance *instance,
-				     const struct setting_parser_info *info,
-				     enum master_service_settings_get_flags flags,
-				     const char *source_filename,
-				     unsigned int source_linenum,
-				     const void **set_r, const char **error_r)
+settings_instance_get(struct event *event,
+		      struct settings_instance *instance,
+		      const struct setting_parser_info *info,
+		      enum master_service_settings_get_flags flags,
+		      const char *source_filename,
+		      unsigned int source_linenum,
+		      const void **set_r, const char **error_r)
 {
 	struct master_service *service = instance->service;
 	const char *error;
@@ -1255,8 +1254,8 @@ master_service_settings_instance_get(struct event *event,
 	settings_parse_set_expanded(parser, TRUE);
 
 	T_BEGIN {
-		ret = master_service_settings_instance_override(
-			instance, parser, mpool, error_r);
+		ret = settings_instance_override(instance, parser, mpool,
+						 error_r);
 	} T_END_PASS_STR_IF(ret < 0, error_r);
 	if (ret < 0) {
 		settings_parser_unref(&parser);
@@ -1318,7 +1317,7 @@ int master_service_settings_get(struct event *event,
 				unsigned int source_linenum,
 				const void **set_r, const char **error_r)
 {
-	struct master_service_settings_instance *instance = NULL;
+	struct settings_instance *instance = NULL;
 	struct event *scan_event = event;
 
 	while (scan_event != NULL) {
@@ -1330,13 +1329,13 @@ int master_service_settings_get(struct event *event,
 	}
 
 	/* no instance-specific settings */
-	struct master_service_settings_instance empty_instance = {
+	struct settings_instance empty_instance = {
 		.service = master_service,
 	};
 	if (instance == NULL)
 		instance = &empty_instance;
 
-	return master_service_settings_instance_get(event, instance,
+	return settings_instance_get(event, instance,
 		info, flags, source_filename, source_linenum, set_r, error_r);
 }
 
@@ -1356,7 +1355,7 @@ master_service_settings_get_or_fatal(struct event *event,
 	return set;
 }
 
-void master_service_set(struct master_service_settings_instance *instance,
+void master_service_set(struct settings_instance *instance,
 			const char *key, const char *value,
 			enum master_service_set_type type)
 {
@@ -1376,22 +1375,22 @@ void master_service_set(struct master_service_settings_instance *instance,
 	set->value = p_strdup(instance->pool, value);
 }
 
-struct master_service_settings_instance *
-master_service_settings_instance_new(struct master_service *service)
+struct settings_instance *
+settings_instance_new(struct master_service *service)
 {
-	pool_t pool = pool_alloconly_create("master service settings instance", 1024);
-	struct master_service_settings_instance *instance =
-		p_new(pool, struct master_service_settings_instance, 1);
+	pool_t pool = pool_alloconly_create("settings instance", 1024);
+	struct settings_instance *instance =
+		p_new(pool, struct settings_instance, 1);
 	instance->pool = pool;
 	instance->service = service;
 	return instance;
 }
 
-struct master_service_settings_instance *
-master_service_settings_instance_dup(const struct master_service_settings_instance *src)
+struct settings_instance *
+settings_instance_dup(const struct settings_instance *src)
 {
-	struct master_service_settings_instance *dest =
-		master_service_settings_instance_new(src->service);
+	struct settings_instance *dest =
+		settings_instance_new(src->service);
 	if (!array_is_created(&src->settings))
 		return dest;
 
@@ -1409,10 +1408,9 @@ master_service_settings_instance_dup(const struct master_service_settings_instan
 	return dest;
 }
 
-void master_service_settings_instance_free(
-	struct master_service_settings_instance **_instance)
+void settings_instance_free(struct settings_instance **_instance)
 {
-	struct master_service_settings_instance *instance = *_instance;
+	struct settings_instance *instance = *_instance;
 
 	*_instance = NULL;
 

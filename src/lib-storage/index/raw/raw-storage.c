@@ -17,7 +17,7 @@ extern struct mailbox raw_mailbox;
 
 struct mail_user *
 raw_storage_create_from_set(struct mail_storage_service_ctx *ctx,
-			    struct master_service_settings_instance *set_instance)
+			    struct settings_instance *set_instance)
 {
 	struct mail_user *user;
 	struct mail_namespace *ns;

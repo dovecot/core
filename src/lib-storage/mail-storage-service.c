@@ -73,7 +73,7 @@ struct mail_storage_service_user {
 	const char *system_groups_user, *uid_source, *gid_source;
 	const char *chdir_path;
 	const struct mail_user_settings *user_set;
-	struct master_service_settings_instance *set_instance;
+	struct settings_instance *set_instance;
 
 	unsigned int session_id_counter;
 
@@ -1021,7 +1021,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	const struct mail_user_settings *user_set;
 	const char *const *userdb_fields, *error;
 	struct auth_user_reply reply;
-	struct master_service_settings_instance *set_instance;
+	struct settings_instance *set_instance;
 	pool_t temp_pool;
 	int ret = 1;
 
@@ -1040,9 +1040,9 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		/* Start with the specified settings instance and its settings,
 		   but allow this instance to set its own settings without
 		   affecting the parent instance. */
-		set_instance = master_service_settings_instance_dup(input->set_instance);
+		set_instance = settings_instance_dup(input->set_instance);
 	} else {
-		set_instance = master_service_settings_instance_new(ctx->service);
+		set_instance = settings_instance_new(ctx->service);
 	}
 
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0 &&
@@ -1076,7 +1076,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	if (master_service_settings_get(event, &mail_user_setting_parser_info,
 					0, &user_set, error_r) < 0) {
 		event_unref(&event);
-		master_service_settings_instance_free(&set_instance);
+		settings_instance_free(&set_instance);
 		return -1;
 	}
 
@@ -1089,7 +1089,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	if (mail_storage_service_load_modules(ctx, user_set, error_r) < 0) {
 		master_service_settings_free(user_set);
 		event_unref(&event);
-		master_service_settings_instance_free(&set_instance);
+		settings_instance_free(&set_instance);
 		return -1;
 	}
 
@@ -1124,7 +1124,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 			event_unref(&event);
 			pool_unref(&temp_pool);
 			pool_unref(&user_pool);
-			master_service_settings_instance_free(&set_instance);
+			settings_instance_free(&set_instance);
 			return ret;
 		}
 		event_add_str(event, "user", username);
@@ -1430,7 +1430,7 @@ void mail_storage_service_user_unref(struct mail_storage_service_user **_user)
 		master_service_set_current_user(master_service, NULL);
 
 	master_service_settings_free(user->user_set);
-	master_service_settings_instance_free(&user->set_instance);
+	settings_instance_free(&user->set_instance);
 	event_unref(&user->event);
 	pool_unref(&user->pool);
 }
@@ -1534,7 +1534,7 @@ mail_storage_service_user_get_input(struct mail_storage_service_user *user)
 	return &user->input;
 }
 
-struct master_service_settings_instance *
+struct settings_instance *
 mail_storage_service_user_get_settings_instance(struct mail_storage_service_user *user)
 {
 	return user->set_instance;
