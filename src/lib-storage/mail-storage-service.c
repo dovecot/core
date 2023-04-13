@@ -1059,6 +1059,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	   This event won't be a parent to any other events - mail_user.event
 	   will be used for that. */
 	struct event *event = event_create(input->event_parent);
+	event_set_ptr(event, MASTER_SERVICE_SETTINGS_INSTANCE, set_instance);
 
 	struct mail_storage_service_init_var_expand_ctx var_expand_ctx = {
 		.ctx = ctx,

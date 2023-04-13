@@ -112,6 +112,8 @@ static void client_read_settings(struct client *client, bool ssl)
 	input.username = "";
 
 	client->set_instance = master_service_settings_instance_new(master_service);
+	event_set_ptr(client->event, MASTER_SERVICE_SETTINGS_INSTANCE,
+		      client->set_instance);
 	client->raw_mail_user =
 		raw_storage_create_from_set(storage_service, client->set_instance);
 
