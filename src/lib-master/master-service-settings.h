@@ -90,8 +90,7 @@ struct master_service_settings_output {
 
 /* Set struct settings_instance to events so master_service_settings_get() can
    use it to get instance-specific settings. */
-#define MASTER_SERVICE_SETTINGS_INSTANCE \
-	"master_service_settings_instance"
+#define SETTINGS_EVENT_INSTANCE "settings_instance"
 
 /* Set struct var_expand_table to be used for settings expansion. The table is
    expected to be accessible until the event is freed or the table is cleared

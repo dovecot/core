@@ -1321,8 +1321,7 @@ int master_service_settings_get(struct event *event,
 	struct event *scan_event = event;
 
 	while (scan_event != NULL) {
-		instance = event_get_ptr(scan_event,
-					 MASTER_SERVICE_SETTINGS_INSTANCE);
+		instance = event_get_ptr(scan_event, SETTINGS_EVENT_INSTANCE);
 		if (instance != NULL)
 			break;
 		scan_event = event_get_parent(scan_event);
