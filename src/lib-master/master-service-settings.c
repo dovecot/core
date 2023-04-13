@@ -48,7 +48,7 @@ struct master_service_mmap_block {
 	ARRAY(struct master_service_mmap_filter) filters;
 };
 
-struct master_settings_mmap {
+struct settings_mmap {
 	int refcount;
 	struct master_service *service;
 
@@ -454,7 +454,7 @@ filter_string_parse_protocol(const char *filter_string,
 }
 
 static int
-settings_block_read_size(struct master_settings_mmap *mmap,
+settings_block_read_size(struct settings_mmap *mmap,
 			 size_t *offset, size_t end_offset,
 			 const char *name, uint64_t *size_r,
 			 const char **error_r)
@@ -480,7 +480,7 @@ settings_block_read_size(struct master_settings_mmap *mmap,
 }
 
 static int
-settings_block_read_str(struct master_settings_mmap *mmap,
+settings_block_read_str(struct settings_mmap *mmap,
 			uoff_t *offset, uoff_t end_offset, const char *name,
 			const char **str_r, const char **error_r)
 {
@@ -496,7 +496,7 @@ settings_block_read_str(struct master_settings_mmap *mmap,
 }
 
 static int
-settings_block_read(struct master_settings_mmap *mmap, uoff_t *_offset,
+settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 		    ARRAY_TYPE(const_string) *protocols, const char **error_r)
 {
 	uoff_t offset = *_offset;
@@ -614,7 +614,7 @@ settings_block_read(struct master_settings_mmap *mmap, uoff_t *_offset,
 	return 0;
 }
 
-static void config_mmap_free_blocks(struct master_settings_mmap *mmap)
+static void settings_mmap_free_blocks(struct settings_mmap *mmap)
 {
 	struct hash_iterate_context *iter =
 		hash_table_iterate_init(mmap->blocks);
@@ -635,7 +635,7 @@ static void config_mmap_free_blocks(struct master_settings_mmap *mmap)
 }
 
 static int
-master_service_settings_mmap_parse(struct master_settings_mmap *mmap,
+master_service_settings_mmap_parse(struct settings_mmap *mmap,
 				   struct master_service_settings_output *output_r,
 				   const char **error_r)
 {
@@ -669,7 +669,7 @@ master_service_settings_mmap_parse(struct master_settings_mmap *mmap,
 	}
 
 	/* <settings full size> */
-	config_mmap_free_blocks(mmap);
+	settings_mmap_free_blocks(mmap);
 
 	size_t full_size_offset = eol - mmap_base + 1;
 	uint64_t settings_full_size =
@@ -698,7 +698,7 @@ master_service_settings_mmap_parse(struct master_settings_mmap *mmap,
 }
 
 static int
-master_service_settings_mmap_apply_blob(struct master_settings_mmap *mmap,
+master_service_settings_mmap_apply_blob(struct settings_mmap *mmap,
 					struct setting_parser_context *parser,
 					size_t start_offset, size_t end_offset,
 					const char **error_r)
@@ -744,7 +744,7 @@ master_service_settings_mmap_apply_blob(struct master_settings_mmap *mmap,
 }
 
 static int
-master_service_settings_mmap_apply(struct master_settings_mmap *mmap,
+master_service_settings_mmap_apply(struct settings_mmap *mmap,
 				   struct event *event,
 				   struct setting_parser_context *parser,
 				   const struct setting_parser_info *info,
@@ -797,16 +797,16 @@ master_service_settings_mmap_apply(struct master_settings_mmap *mmap,
 
 }
 
-void master_settings_mmap_ref(struct master_settings_mmap *mmap)
+void settings_mmap_ref(struct settings_mmap *mmap)
 {
 	i_assert(mmap->refcount > 0);
 
 	mmap->refcount++;
 }
 
-void master_settings_mmap_unref(struct master_settings_mmap **_mmap)
+void settings_mmap_unref(struct settings_mmap **_mmap)
 {
-	struct master_settings_mmap *mmap = *_mmap;
+	struct settings_mmap *mmap = *_mmap;
 	if (mmap == NULL)
 		return;
 	i_assert(mmap->refcount > 0);
@@ -815,7 +815,7 @@ void master_settings_mmap_unref(struct master_settings_mmap **_mmap)
 	if (--mmap->refcount > 0)
 		return;
 
-	config_mmap_free_blocks(mmap);
+	settings_mmap_free_blocks(mmap);
 	hash_table_destroy(&mmap->blocks);
 
 	if (munmap(mmap->mmap_base, mmap->mmap_size) < 0)
@@ -862,9 +862,9 @@ int master_service_settings_read(struct master_service *service,
 		}
 	}
 	if (fd != -1) {
-		struct master_settings_mmap *mmap;
-		master_settings_mmap_unref(&service->config_mmap);
-		mmap = i_new(struct master_settings_mmap, 1);
+		struct settings_mmap *mmap;
+		settings_mmap_unref(&service->config_mmap);
+		mmap = i_new(struct settings_mmap, 1);
 		mmap->refcount = 1;
 		mmap->service = service;
 		mmap->mmap_base = mmap_ro_file(fd, &mmap->mmap_size);
@@ -964,7 +964,7 @@ struct master_settings_pool {
 
 	pool_t extra_pool_ref;
 	pool_t parent_pool;
-	struct master_settings_mmap *mmap;
+	struct settings_mmap *mmap;
 };
 
 static const char *pool_master_settings_get_name(pool_t pool)
@@ -996,7 +996,7 @@ static void pool_master_settings_unref(pool_t *pool)
 
 	DLLIST_REMOVE(&master_service->settings_pools, mpool);
 
-	master_settings_mmap_unref(&mpool->mmap);
+	settings_mmap_unref(&mpool->mmap);
 	pool_unref(&mpool->extra_pool_ref);
 	pool_unref(&mpool->parent_pool);
 }
@@ -1055,7 +1055,7 @@ static struct pool_vfuncs static_master_settings_pool_vfuncs = {
 };
 
 static struct master_settings_pool *
-master_settings_pool_create(struct master_settings_mmap *mmap,
+master_settings_pool_create(struct settings_mmap *mmap,
 			    const char *source_filename,
 			    unsigned int source_linenum)
 {
@@ -1072,7 +1072,7 @@ master_settings_pool_create(struct master_settings_mmap *mmap,
 	mpool->source_filename = source_filename;
 	mpool->source_linenum = source_linenum;
 	if (mmap != NULL)
-		master_settings_mmap_ref(mmap);
+		settings_mmap_ref(mmap);
 
 	DLLIST_PREPEND(&master_service->settings_pools, mpool);
 	return mpool;

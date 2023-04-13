@@ -1584,7 +1584,7 @@ static void master_service_deinit_real(struct master_service *service)
 		array_free(&service->config_overrides);
 
 	master_service_settings_free(service->set);
-	master_settings_mmap_unref(&service->config_mmap);
+	settings_mmap_unref(&service->config_mmap);
 	i_free(master_service_category_name);
 	master_service_category.name = NULL;
 	event_unregister_callback(master_service_event_callback);

@@ -7,7 +7,7 @@
 struct var_expand_table;
 struct var_expand_func_table;
 struct master_service;
-struct master_settings_mmap;
+struct settings_mmap;
 struct master_service_settings_instance;
 
 enum master_service_set_type {
@@ -139,8 +139,8 @@ master_service_settings_var_expand_t(struct event *event,
 
 extern const struct setting_parser_info master_service_setting_parser_info;
 
-void master_settings_mmap_ref(struct master_settings_mmap *mmap);
-void master_settings_mmap_unref(struct master_settings_mmap **mmap);
+void settings_mmap_ref(struct settings_mmap *mmap);
+void settings_mmap_unref(struct settings_mmap **mmap);
 
 int master_service_settings_read(struct master_service *service,
 				 const struct master_service_settings_input *input,
