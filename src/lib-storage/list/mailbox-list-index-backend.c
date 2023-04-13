@@ -539,6 +539,16 @@ static int index_list_mailbox_open(struct mailbox *box)
 	const unsigned char *name_hdr;
 	size_t name_hdr_size;
 
+	if (!box->creating && (box->flags & MAILBOX_FLAG_OPEN_DELETED) == 0) {
+		if (mailbox_list_index_refresh(box->list) < 0)
+			return -1;
+		if (mailbox_list_index_lookup(box->list, box->name) == NULL) {
+			mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+					       T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
+			return -1;
+		}
+	}
+
 	if (ibox->module_ctx.super.open(box) < 0)
 		return -1;
 
