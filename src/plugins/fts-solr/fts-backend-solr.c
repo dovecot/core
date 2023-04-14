@@ -443,8 +443,12 @@ fts_backend_solr_update_set_mailbox(struct fts_backend_update_context *_ctx,
 		   last_uid before we know it has succeeded */
 		if (fts_backed_solr_build_flush(ctx) < 0)
 			_ctx->failed = TRUE;
-		else if (!_ctx->failed)
-			fts_index_set_last_uid(ctx->cur_box, ctx->prev_uid);
+		else if (!_ctx->failed) {
+			if (fts_backend_solr_commit(ctx) < 0)
+				_ctx->failed = TRUE;
+			else
+				fts_index_set_last_uid(ctx->cur_box, ctx->prev_uid);
+		}
 		ctx->prev_uid = 0;
 	}
 
