@@ -65,6 +65,8 @@ static void master_login_conn_unref(struct master_login_connection **_conn);
 
 static void login_server_proctitle_refresh(struct master_login *login)
 {
+	if (!login->update_proctitle)
+		return;
 	/* This function assumes that client_limit=1. With a higher limit
 	   it just returns the first client's state, which isn't too bad
 	   either. */
