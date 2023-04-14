@@ -408,11 +408,8 @@ fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 	if (fts_backed_solr_build_flush(ctx) < 0)
 		ret = -1;
 
-	if (ctx->documents_added || ctx->expunges) {
-		/* commit and wait until the documents we just indexed are
-		   visible to the following search */
-		if (ctx->expunges)
-			fts_backend_solr_expunge_flush(ctx);
+	if (ctx->expunges) {
+		fts_backend_solr_expunge_flush(ctx);
 		if (fts_backend_solr_commit(ctx) < 0)
 			ret = -1;
 	}
