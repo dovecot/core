@@ -58,6 +58,9 @@ static void login_server_stop_new_connections(void *context)
 
 static void login_server_proctitle_refresh(struct login_server *server)
 {
+	if (!server->update_proctitle)
+		return;
+
 	/* This function assumes that client_limit=1. With a higher limit
 	   it just returns the first client's state, which isn't too bad
 	   either. */
