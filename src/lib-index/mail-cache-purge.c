@@ -326,10 +326,14 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	}
 	i_assert(orig_fields_count == cache->fields_count);
 
-	hdr.record_count = record_count;
-	hdr.field_header_offset = mail_index_uint32_to_offset(output->offset);
-	mail_cache_purge_get_fields(&ctx, used_fields_count);
-	o_stream_nsend(output, ctx.buffer->data, ctx.buffer->used);
+	bool file_too_large =
+		output->offset > cache->index->optimization_set.cache.max_size;
+	if (!file_too_large) {
+		hdr.record_count = record_count;
+		hdr.field_header_offset = mail_index_uint32_to_offset(output->offset);
+		mail_cache_purge_get_fields(&ctx, used_fields_count);
+		o_stream_nsend(output, ctx.buffer->data, ctx.buffer->used);
+	}
 
 	hdr.backwards_compat_used_file_size = output->offset;
 	buffer_free(&ctx.buffer);
@@ -342,8 +346,17 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	mail_cache_view_close(&cache_view);
 	mail_index_view_close(&view);
 
-	if (o_stream_finish(output) < 0) {
-		mail_cache_set_syscall_error(cache, "write()");
+	if (file_too_large || o_stream_finish(output) < 0) {
+		if (!file_too_large) {
+			errno = output->stream_errno;
+			mail_cache_set_syscall_error(cache, "write()");
+		} else {
+			/* start from a new empty cache file */
+			mail_index_set_error(cache->index,
+				"Cache file %s: File is too large - deleting",
+				cache->filepath);
+			i_unlink(cache->filepath);
+		}
 		o_stream_destroy(&output);
 		array_free(ext_offsets);
 		return -1;
