@@ -1367,9 +1367,9 @@ master_service_settings_get_or_fatal(struct event *event,
 	return set;
 }
 
-void master_service_set(struct settings_instance *instance,
-			const char *key, const char *value,
-			enum settings_override_type type)
+void settings_override(struct settings_instance *instance,
+		       const char *key, const char *value,
+		       enum settings_override_type type)
 {
 	if (!array_is_created(&instance->overrides))
 		p_array_init(&instance->overrides, instance->pool, 16);

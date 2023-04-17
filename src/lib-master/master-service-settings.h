@@ -195,9 +195,9 @@ master_service_settings_get_or_fatal(struct event *event,
 	} STMT_END
 
 /* Override a setting. */
-void master_service_set(struct settings_instance *instance,
-			const char *key, const char *value,
-			enum settings_override_type type);
+void settings_override(struct settings_instance *instance,
+		       const char *key, const char *value,
+		       enum settings_override_type type);
 
 /* Return a new instance for settings. */
 struct settings_instance *

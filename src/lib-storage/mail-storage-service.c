@@ -98,8 +98,8 @@ static void set_keyvalue(struct mail_storage_service_user *user,
 	if (*key == '\0')
 		return;
 
-	master_service_set(user->set_instance, key, value,
-			   SETTINGS_OVERRIDE_TYPE_USERDB);
+	settings_override(user->set_instance, key, value,
+			  SETTINGS_OVERRIDE_TYPE_USERDB);
 	if (strstr(key, "pass") != NULL) {
 		/* possibly a password field (e.g. imapc_password).
 		   hide the value. */
@@ -145,15 +145,15 @@ user_reply_handle(struct mail_storage_service_user *user,
 			return -1;
 		}
 		user->uid_source = "userdb lookup";
-		master_service_set(user->set_instance,
-				   "mail_uid", dec2str(reply->uid),
-				   SETTINGS_OVERRIDE_TYPE_USERDB);
+		settings_override(user->set_instance,
+				  "mail_uid", dec2str(reply->uid),
+				  SETTINGS_OVERRIDE_TYPE_USERDB);
 	}
 	if (reply->gid != (uid_t)-1) {
 		user->gid_source = "userdb lookup";
-		master_service_set(user->set_instance,
-				   "mail_gid", dec2str(reply->gid),
-				   SETTINGS_OVERRIDE_TYPE_USERDB);
+		settings_override(user->set_instance,
+				  "mail_gid", dec2str(reply->gid),
+				  SETTINGS_OVERRIDE_TYPE_USERDB);
 	}
 
 	if (home != NULL && chroot == NULL &&
@@ -166,8 +166,8 @@ user_reply_handle(struct mail_storage_service_user *user,
 	}
 
 	if (home != NULL) {
-		master_service_set(user->set_instance, "mail_home", home,
-				   SETTINGS_OVERRIDE_TYPE_USERDB);
+		settings_override(user->set_instance, "mail_home", home,
+				  SETTINGS_OVERRIDE_TYPE_USERDB);
 		user->home_from_userdb = TRUE;
 	}
 
@@ -178,8 +178,8 @@ user_reply_handle(struct mail_storage_service_user *user,
 				"(see valid_chroot_dirs setting)", chroot);
 			return -1;
 		}
-		master_service_set(user->set_instance, "mail_chroot", chroot,
-				   SETTINGS_OVERRIDE_TYPE_USERDB);
+		settings_override(user->set_instance, "mail_chroot", chroot,
+				  SETTINGS_OVERRIDE_TYPE_USERDB);
 	}
 
 	user->anonymous = reply->anonymous;
@@ -988,12 +988,12 @@ mail_storage_service_update_chroot(struct mail_storage_service_user *user)
 				home = "/";
 			chroot = t_strndup(chroot, len - 2);
 
-			master_service_set(user->set_instance,
-					   "mail_home", home,
-					   SETTINGS_OVERRIDE_TYPE_USERDB);
-			master_service_set(user->set_instance,
-					   "mail_chroot", chroot,
-					   SETTINGS_OVERRIDE_TYPE_USERDB);
+			settings_override(user->set_instance,
+					  "mail_home", home,
+					  SETTINGS_OVERRIDE_TYPE_USERDB);
+			settings_override(user->set_instance,
+					  "mail_chroot", chroot,
+					  SETTINGS_OVERRIDE_TYPE_USERDB);
 		}
 	} else if (len > 0 && !use_chroot) {
 		/* we're not going to chroot. fix home directory so we can
@@ -1002,10 +1002,10 @@ mail_storage_service_update_chroot(struct mail_storage_service_user *user)
 			home = chroot;
 		else
 			home = t_strconcat(chroot, home, NULL);
-		master_service_set(user->set_instance, "mail_home", home,
-				   SETTINGS_OVERRIDE_TYPE_USERDB);
-		master_service_set(user->set_instance, "mail_chroot", "",
-				   SETTINGS_OVERRIDE_TYPE_USERDB);
+		settings_override(user->set_instance, "mail_home", home,
+				  SETTINGS_OVERRIDE_TYPE_USERDB);
+		settings_override(user->set_instance, "mail_chroot", "",
+				  SETTINGS_OVERRIDE_TYPE_USERDB);
 	}
 }
 
@@ -1157,8 +1157,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	var_expand_ctx.user = user;
 
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0) {
-		master_service_set(user->set_instance, "mail_debug", "yes",
-				   SETTINGS_OVERRIDE_TYPE_CODE);
+		settings_override(user->set_instance, "mail_debug", "yes",
+				  SETTINGS_OVERRIDE_TYPE_CODE);
 	}
 
 	if (userdb_fields != NULL) {
@@ -1186,8 +1186,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		   fine that extra plugins are loaded - we'll just need to
 		   prevent any of their hooks from being called. One easy way
 		   to do this is just to clear out the mail_plugins setting: */
-		master_service_set(user->set_instance, "mail_plugins", "",
-				   SETTINGS_OVERRIDE_TYPE_CODE);
+		settings_override(user->set_instance, "mail_plugins", "",
+				  SETTINGS_OVERRIDE_TYPE_CODE);
 	}
 	if (ret > 0) {
 		mail_storage_service_update_chroot(user);
