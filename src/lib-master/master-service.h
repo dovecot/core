@@ -237,6 +237,9 @@ const char *master_service_get_name(struct master_service *service);
    service name=auth, but configured_name=auth-worker. This is preferred in
    e.g. log prefixes. */
 const char *master_service_get_configured_name(struct master_service *service);
+/* Returns the settings root. */
+struct settings_root *
+master_service_get_settings_root(struct master_service *service);
 
 /* Start the service. Blocks until finished */
 void master_service_run(struct master_service *service,

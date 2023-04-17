@@ -50,12 +50,18 @@ struct settings_mmap_block {
 
 struct settings_mmap {
 	int refcount;
+	struct settings_root *root;
 	struct master_service *service;
 
 	void *mmap_base;
 	size_t mmap_size;
 
 	HASH_TABLE(const char *, struct settings_mmap_block *) blocks;
+};
+
+struct settings_root {
+	pool_t pool;
+	struct settings_mmap *mmap;
 };
 
 struct settings_override {
@@ -835,7 +841,8 @@ int master_service_settings_read(struct master_service *service,
 		/* unit test */
 		fd = input->config_fd;
 		path = t_strdup_printf("<input fd %d>", fd);
-	} else if (service->config_mmap != NULL && !input->reload_config) {
+	} else if (service->settings_root->mmap != NULL &&
+		   !input->reload_config) {
 		/* config was already read once */
 	} else if ((value = getenv(DOVECOT_CONFIG_FD_ENV)) != NULL) {
 		/* doveconf -F parameter already executed us back.
@@ -860,9 +867,10 @@ int master_service_settings_read(struct master_service *service,
 	}
 	if (fd != -1) {
 		struct settings_mmap *mmap;
-		settings_mmap_unref(&service->config_mmap);
+		settings_mmap_unref(&service->settings_root->mmap);
 		mmap = i_new(struct settings_mmap, 1);
 		mmap->refcount = 1;
+		mmap->root = service->settings_root;
 		mmap->service = service;
 		mmap->mmap_base = mmap_ro_file(fd, &mmap->mmap_size);
 		if (mmap->mmap_base == MAP_FAILED)
@@ -870,7 +878,7 @@ int master_service_settings_read(struct master_service *service,
 		if (mmap->mmap_size == 0)
 			i_fatal("Failed to read config: %s file size is empty", path);
 
-		service->config_mmap = mmap;
+		service->settings_root->mmap = mmap;
 		hash_table_create(&mmap->blocks, default_pool, 0,
 				  str_hash, strcmp);
 
@@ -892,8 +900,8 @@ int master_service_settings_read(struct master_service *service,
 
 	/* config_mmap is NULL only if MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS
 	   is used */
-	if (service->config_mmap != NULL) {
-		ret = settings_mmap_parse(service->config_mmap,
+	if (service->settings_root->mmap != NULL) {
+		ret = settings_mmap_parse(service->settings_root->mmap,
 					  output_r, &error);
 		if (ret < 0) {
 			if (getenv(DOVECOT_CONFIG_FD_ENV) != NULL) {
@@ -1229,15 +1237,15 @@ settings_instance_get(struct event *event,
 	}
 
 	struct master_settings_pool *mpool =
-		master_settings_pool_create(master_service->config_mmap,
+		master_settings_pool_create(master_service->settings_root->mmap,
 					    source_filename, source_linenum);
 	pool_t set_pool = &mpool->pool;
 	struct setting_parser_context *parser =
 		settings_parser_init(set_pool, info,
 				     SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
 
-	if (service->config_mmap != NULL) {
-		ret = settings_mmap_apply(service->config_mmap,
+	if (service->settings_root->mmap != NULL) {
+		ret = settings_mmap_apply(service->settings_root->mmap,
 				event, parser, info, &error);
 		if (ret < 0) {
 			*error_r = t_strdup_printf(
@@ -1414,6 +1422,24 @@ void settings_instance_free(struct settings_instance **_instance)
 	*_instance = NULL;
 
 	pool_unref(&instance->pool);
+}
+
+struct settings_root *settings_root_init(void)
+{
+	pool_t pool = pool_alloconly_create("settings root", 128);
+	struct settings_root *root = p_new(pool, struct settings_root, 1);
+	root->pool = pool;
+	return root;
+}
+
+void settings_root_deinit(struct settings_root **_root)
+{
+	struct settings_root *root = *_root;
+
+	*_root = NULL;
+
+	settings_mmap_unref(&root->mmap);
+	pool_unref(&root->pool);
 }
 
 void master_service_settings_deinit(struct master_service *service)

@@ -510,6 +510,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 	service->argv = *argv;
 	service->name = i_strdup(name);
 	service->configured_name = i_strdup(service_configured_name);
+	service->settings_root = settings_root_init();
 
 	master_service_category_name =
 		i_strdup_printf("service:%s", service->configured_name);
@@ -1179,6 +1180,12 @@ const char *master_service_get_configured_name(struct master_service *service)
 	return service->configured_name;
 }
 
+struct settings_root *
+master_service_get_settings_root(struct master_service *service)
+{
+	return service->settings_root;
+}
+
 void master_service_run(struct master_service *service,
 			master_service_connection_callback_t *callback)
 {
@@ -1584,7 +1591,7 @@ static void master_service_deinit_real(struct master_service *service)
 		array_free(&service->config_overrides);
 
 	master_service_settings_free(service->set);
-	settings_mmap_unref(&service->config_mmap);
+	settings_root_deinit(&service->settings_root);
 	i_free(master_service_category_name);
 	master_service_category.name = NULL;
 	event_unregister_callback(master_service_event_callback);

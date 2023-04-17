@@ -7,6 +7,7 @@
 struct var_expand_table;
 struct var_expand_func_table;
 struct master_service;
+struct settings_root;
 struct settings_mmap;
 struct settings_instance;
 
@@ -209,6 +210,9 @@ struct settings_instance *
 settings_instance_dup(const struct settings_instance *src);
 /* Free a settings instance. */
 void settings_instance_free(struct settings_instance **instance);
+
+struct settings_root *settings_root_init(void);
+void settings_root_deinit(struct settings_root **root);
 
 void master_service_settings_deinit(struct master_service *service);
 
