@@ -1175,6 +1175,11 @@ const char *master_service_get_name(struct master_service *service)
 	return service->name;
 }
 
+struct event *master_service_get_event(struct master_service *service)
+{
+	return service->event;
+}
+
 const char *master_service_get_configured_name(struct master_service *service)
 {
 	return service->configured_name;
