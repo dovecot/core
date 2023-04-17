@@ -899,6 +899,18 @@ int master_service_settings_read(struct master_service *service,
 			output_r->config_fd = fd;
 		else
 			i_close_fd(&fd);
+
+		ret = settings_mmap_parse(service->settings_root->mmap,
+					  output_r, &error);
+		if (ret < 0) {
+			if (getenv(DOVECOT_CONFIG_FD_ENV) != NULL) {
+				i_fatal("Failed to parse config from fd %d: %s",
+					fd, error);
+			}
+			*error_r = t_strdup_printf(
+				"Failed to parse configuration: %s", error);
+			return -1;
+		}
 		env_remove(DOVECOT_CONFIG_FD_ENV);
 	}
 
@@ -906,23 +918,6 @@ int master_service_settings_read(struct master_service *service,
 	struct event *event = event_create(NULL);
 	event_add_str(event, "protocol", input->protocol != NULL ?
 		      input->protocol : service->name);
-
-	/* config_mmap is NULL only if MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS
-	   is used */
-	if (service->settings_root->mmap != NULL) {
-		ret = settings_mmap_parse(service->settings_root->mmap,
-					  output_r, &error);
-		if (ret < 0) {
-			if (getenv(DOVECOT_CONFIG_FD_ENV) != NULL) {
-				i_fatal("Failed to parse config from fd %d: %s",
-					fd, *error_r);
-			}
-			*error_r = t_strdup_printf(
-				"Failed to parse configuration: %s", error);
-			event_unref(&event);
-			return -1;
-		}
-	}
 
 	settings_free(service->set);
 	ret = settings_get(event, &master_service_setting_parser_info, 0,
