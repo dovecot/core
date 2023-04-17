@@ -307,7 +307,7 @@ static void main_init(void)
 
 	if (master_service_settings_get(NULL,
 			&mail_storage_setting_parser_info,
-			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			SETTINGS_GET_FLAG_NO_EXPAND,
 			&mail_set, &error) < 0)
 		i_fatal("%s", error);
 	quota_status_settings = master_service_settings_get_or_fatal(NULL,

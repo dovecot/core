@@ -22,11 +22,11 @@ enum settings_override_type {
 	SETTINGS_OVERRIDE_TYPE_COUNT,
 };
 
-enum master_service_settings_get_flags {
+enum settings_get_flags {
 	/* Don't call check_func()s */
-	MASTER_SERVICE_SETTINGS_GET_FLAG_NO_CHECK = BIT(0),
+	SETTINGS_GET_FLAG_NO_CHECK = BIT(0),
 	/* Don't expand %variables in settings */
-	MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND = BIT(1),
+	SETTINGS_GET_FLAG_NO_EXPAND = BIT(1),
 };
 
 struct master_service_settings {
@@ -154,13 +154,13 @@ master_service_get_service_settings(struct master_service *service);
    macro can be used to do the freeing in a nice way.
 
    Settings have their %variables expanded, unless
-   MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND is used. The event and its
+   SETTINGS_GET_FLAG_NO_EXPAND is used. The event and its
    parents are scanned for MASTER_SERVICE_VAR_EXPAND_* pointers. The first
    callback or tables that are found in the event hierarchy are used for the
    expansion. See MASTER_SERVICE_VAR_EXPAND_* macros for more details. */
 int master_service_settings_get(struct event *event,
 				const struct setting_parser_info *info,
-				enum master_service_settings_get_flags flags,
+				enum settings_get_flags flags,
 				const char *source_filename,
 				unsigned int source_linenum,
 				const void **set_r, const char **error_r);

@@ -1454,7 +1454,7 @@ void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 	struct event *event = input == NULL ? NULL : input->event_parent;
 	if (master_service_settings_get(event,
 			&mail_user_setting_parser_info,
-			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			SETTINGS_GET_FLAG_NO_EXPAND,
 			&user_set, &error) < 0)
 		i_fatal("%s", error);
 

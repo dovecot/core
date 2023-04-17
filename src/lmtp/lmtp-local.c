@@ -445,7 +445,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 	if (master_service_settings_get(
 			mail_storage_service_user_get_event(service_user),
 			&mail_storage_setting_parser_info,
-			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			SETTINGS_GET_FLAG_NO_EXPAND,
 			&mail_set, &error) < 0) {
 		e_error(rcpt->event, "%s", error);
 		smtp_server_recipient_reply(rcpt, 451, "4.3.0",

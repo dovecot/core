@@ -1226,7 +1226,7 @@ settings_instance_get(struct event *event,
 		      struct settings_root *root,
 		      struct settings_instance *instance,
 		      const struct setting_parser_info *info,
-		      enum master_service_settings_get_flags flags,
+		      enum settings_get_flags flags,
 		      const char *source_filename,
 		      unsigned int source_linenum,
 		      const void **set_r, const char **error_r)
@@ -1284,7 +1284,7 @@ settings_instance_get(struct event *event,
 	/* settings are now referenced, but the parser is no longer needed */
 	settings_parser_unref(&parser);
 
-	if ((flags & MASTER_SERVICE_SETTINGS_GET_FLAG_NO_CHECK) == 0) {
+	if ((flags & SETTINGS_GET_FLAG_NO_CHECK) == 0) {
 		if (!settings_check(info, *pool_p, set, error_r)) {
 			*error_r = t_strdup_printf("Invalid %s settings: %s",
 						   info->name, *error_r);
@@ -1294,7 +1294,7 @@ settings_instance_get(struct event *event,
 		}
 	}
 
-	if ((flags & MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND) != 0)
+	if ((flags & SETTINGS_GET_FLAG_NO_EXPAND) != 0)
 		ret = 1;
 	else T_BEGIN {
 		const struct var_expand_table *tab;
@@ -1324,7 +1324,7 @@ settings_instance_get(struct event *event,
 #undef master_service_settings_get
 int master_service_settings_get(struct event *event,
 				const struct setting_parser_info *info,
-				enum master_service_settings_get_flags flags,
+				enum settings_get_flags flags,
 				const char *source_filename,
 				unsigned int source_linenum,
 				const void **set_r, const char **error_r)
