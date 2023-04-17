@@ -32,6 +32,13 @@
 #define CONFIG_READ_TIMEOUT_SECS 10
 #define CONFIG_HANDSHAKE "VERSION\tconfig\t3\t0\n"
 
+struct settings_override {
+	int type;
+	bool append;
+	const char *key, *value;
+};
+ARRAY_DEFINE_TYPE(settings_override, struct settings_override);
+
 struct settings_mmap_filter {
 	struct event_filter *filter;
 	bool empty_filter;
@@ -64,13 +71,6 @@ struct settings_root {
 	const char *protocol_name;
 	struct settings_mmap *mmap;
 };
-
-struct settings_override {
-	int type;
-	bool append;
-	const char *key, *value;
-};
-ARRAY_DEFINE_TYPE(settings_override, struct settings_override);
 
 struct settings_instance {
 	pool_t pool;
