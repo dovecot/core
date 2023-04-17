@@ -61,6 +61,7 @@ struct settings_mmap {
 
 struct settings_root {
 	pool_t pool;
+	const char *protocol_name;
 	struct settings_mmap *mmap;
 };
 
@@ -877,6 +878,9 @@ int master_service_settings_read(struct master_service *service,
 			i_fatal("Failed to read config: mmap(%s) failed: %m", path);
 		if (mmap->mmap_size == 0)
 			i_fatal("Failed to read config: %s file size is empty", path);
+		/* Remember the protocol for following settings lookups */
+		mmap->root->protocol_name =
+			p_strdup(mmap->root->pool, input->protocol);
 
 		service->settings_root->mmap = mmap;
 		hash_table_create(&mmap->blocks, default_pool, 0,
@@ -888,10 +892,6 @@ int master_service_settings_read(struct master_service *service,
 			i_close_fd(&fd);
 		env_remove(DOVECOT_CONFIG_FD_ENV);
 	}
-
-	/* Remember the protocol for following settings instance lookups */
-	i_free(service->set_protocol_name);
-	service->set_protocol_name = i_strdup(input->protocol);
 
 	/* Create event for matching config filters */
 	struct event *event = event_create(NULL);
@@ -1231,8 +1231,8 @@ settings_instance_get(struct event *event,
 	event = event_create(event);
 	if (event_find_field_recursive(event, "protocol") == NULL) {
 		event_add_str(event, "protocol",
-			      instance->service->set_protocol_name != NULL ?
-			      instance->service->set_protocol_name :
+			      service->settings_root->protocol_name != NULL ?
+			      service->settings_root->protocol_name :
 			      service->name);
 	}
 

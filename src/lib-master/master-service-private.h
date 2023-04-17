@@ -73,7 +73,6 @@ struct master_service {
 
 	master_service_connection_callback_t *callback;
 
-	char *set_protocol_name;
 	const struct master_service_settings *set;
 	struct master_settings_pool *settings_pools;
 

@@ -1623,7 +1623,6 @@ static void master_service_free(struct master_service **_service)
 	i_free(service->config_path);
 	i_free(service->current_user);
 	i_free(service->last_kick_signal_user);
-	i_free(service->set_protocol_name);
 	event_unref(&service->event);
 	i_free(service);
 }
