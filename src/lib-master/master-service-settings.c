@@ -1335,12 +1335,12 @@ int settings_get(struct event *event,
 	struct settings_instance *instance = NULL;
 	struct event *scan_event = event;
 
-	while (scan_event != NULL) {
+	do {
 		instance = event_get_ptr(scan_event, SETTINGS_EVENT_INSTANCE);
 		if (instance != NULL)
 			break;
 		scan_event = event_get_parent(scan_event);
-	}
+	} while (scan_event != NULL);
 
 	/* no instance-specific settings */
 	struct settings_instance empty_instance = {
