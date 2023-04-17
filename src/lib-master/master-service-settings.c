@@ -1332,24 +1332,38 @@ int settings_get(struct event *event,
 		 unsigned int source_linenum,
 		 const void **set_r, const char **error_r)
 {
+	struct settings_root *root = NULL;
+	struct settings_mmap *mmap = NULL;
 	struct settings_instance *instance = NULL;
 	struct event *scan_event = event;
 
 	do {
-		instance = event_get_ptr(scan_event, SETTINGS_EVENT_INSTANCE);
-		if (instance != NULL)
+		if (root == NULL)
+			root = event_get_ptr(scan_event, SETTINGS_EVENT_ROOT);
+		if (instance == NULL) {
+			instance = event_get_ptr(scan_event,
+						 SETTINGS_EVENT_INSTANCE);
+		}
+		if (root != NULL && instance != NULL)
 			break;
 		scan_event = event_get_parent(scan_event);
 	} while (scan_event != NULL);
 
+	if (root == NULL)
+		i_panic("settings_get() - event has no SETTINGS_EVENT_ROOT");
+	if (instance != NULL)
+		mmap = instance->mmap;
+	else
+		mmap = root->mmap;
+
 	/* no instance-specific settings */
 	struct settings_instance empty_instance = {
-		.mmap = master_service->settings_root->mmap,
+		.mmap = mmap,
 	};
 	if (instance == NULL)
 		instance = &empty_instance;
 
-	return settings_instance_get(event, master_service->settings_root,
+	return settings_instance_get(event, root,
 		instance, info, flags, source_filename, source_linenum,
 		set_r, error_r);
 }

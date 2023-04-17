@@ -93,6 +93,10 @@ struct master_service_settings_output {
    use it to get instance-specific settings. */
 #define SETTINGS_EVENT_INSTANCE "settings_instance"
 
+/* Used by settings_get() to find struct settings_root via the event.
+   This is set automatically by lib-master for all created root events. */
+#define SETTINGS_EVENT_ROOT "settings_root"
+
 /* Set struct var_expand_table to be used for settings expansion. The table is
    expected to be accessible until the event is freed or the table is cleared
    from the event. Usage:

@@ -353,6 +353,11 @@ master_service_event_callback(struct event *event,
 		   to do it only for root events, because all other events
 		   inherit the category from them. */
 		event_add_category(event, &master_service_category);
+		if (master_service != NULL) {
+			/* Set settings root for created events */
+			event_set_ptr(event, SETTINGS_EVENT_ROOT,
+				      master_service->settings_root);
+		}
 	}
 	/* This callback may be called while still in master_service_init().
 	   In that case master_service is NULL. */
@@ -518,6 +523,8 @@ master_service_init(const char *name, enum master_service_flags flags,
 	event_register_callback(master_service_event_callback);
 
 	service->event = event_create(NULL);
+	event_set_ptr(service->event, SETTINGS_EVENT_ROOT,
+		      service->settings_root);
 
 	/* keep getopt_str first in case it contains "+" */
 	service->getopt_str = *getopt_str == '\0' ?
