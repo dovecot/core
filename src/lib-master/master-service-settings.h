@@ -211,6 +211,4 @@ void settings_instance_free(struct settings_instance **instance);
 struct settings_root *settings_root_init(void);
 void settings_root_deinit(struct settings_root **root);
 
-void master_service_settings_deinit(struct master_service *service);
-
 #endif

@@ -70,6 +70,8 @@ struct settings_root {
 	const char *protocol_name;
 	struct settings_mmap *mmap;
 	ARRAY_TYPE(settings_override) overrides;
+
+	struct settings_mmap_pool *settings_pools;
 };
 
 struct settings_instance {
@@ -975,7 +977,8 @@ struct settings_mmap_pool {
 
 	pool_t extra_pool_ref;
 	pool_t parent_pool;
-	struct settings_mmap *mmap;
+	struct settings_mmap *mmap; /* NULL for unit tests */
+	struct settings_root *root;
 };
 
 static const char *settings_mmap_pool_get_name(pool_t pool)
@@ -1005,7 +1008,7 @@ static void settings_mmap_pool_unref(pool_t *pool)
 	if (--mpool->refcount > 0)
 		return;
 
-	DLLIST_REMOVE(&master_service->settings_pools, mpool);
+	DLLIST_REMOVE(&mpool->root->settings_pools, mpool);
 
 	settings_mmap_unref(&mpool->mmap);
 	pool_unref(&mpool->extra_pool_ref);
@@ -1066,7 +1069,8 @@ static struct pool_vfuncs static_settings_mmap_pool_vfuncs = {
 };
 
 static struct settings_mmap_pool *
-settings_mmap_pool_create(struct settings_mmap *mmap,
+settings_mmap_pool_create(struct settings_root *root,
+			  struct settings_mmap *mmap,
 			  const char *source_filename,
 			  unsigned int source_linenum)
 {
@@ -1079,13 +1083,14 @@ settings_mmap_pool_create(struct settings_mmap *mmap,
 	mpool->pool.alloconly_pool = TRUE;
 	mpool->refcount = 1;
 	mpool->parent_pool = parent_pool;
+	mpool->root = root;
 	mpool->mmap = mmap;
 	mpool->source_filename = source_filename;
 	mpool->source_linenum = source_linenum;
 	if (mmap != NULL)
 		settings_mmap_ref(mmap);
 
-	DLLIST_PREPEND(&master_service->settings_pools, mpool);
+	DLLIST_PREPEND(&root->settings_pools, mpool);
 	return mpool;
 }
 
@@ -1240,7 +1245,7 @@ settings_instance_get(struct event *event,
 		event_add_str(event, "protocol", root->protocol_name);
 
 	struct settings_mmap_pool *mpool =
-		settings_mmap_pool_create(instance->mmap,
+		settings_mmap_pool_create(root, instance->mmap,
 					  source_filename, source_linenum);
 	pool_t set_pool = &mpool->pool;
 	struct setting_parser_context *parser =
@@ -1460,19 +1465,15 @@ struct settings_root *settings_root_init(void)
 void settings_root_deinit(struct settings_root **_root)
 {
 	struct settings_root *root = *_root;
+	struct settings_mmap_pool *mpool;
 
 	*_root = NULL;
 
 	settings_mmap_unref(&root->mmap);
-	pool_unref(&root->pool);
-}
 
-void master_service_settings_deinit(struct master_service *service)
-{
-	struct settings_mmap_pool *mpool;
-
-	for (mpool = service->settings_pools; mpool != NULL; mpool = mpool->next) {
-		e_warning(service->event, "Leaked settings: %s:%u",
+	for (mpool = root->settings_pools; mpool != NULL; mpool = mpool->next) {
+		i_warning("Leaked settings: %s:%u",
 			  mpool->source_filename, mpool->source_linenum);
 	}
+	pool_unref(&root->pool);
 }

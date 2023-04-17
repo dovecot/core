@@ -1591,7 +1591,6 @@ static void master_service_deinit_real(struct master_service *service)
 		array_free(&service->config_overrides);
 
 	settings_free(service->set);
-	settings_root_deinit(&service->settings_root);
 	i_free(master_service_category_name);
 	master_service_category.name = NULL;
 	event_unregister_callback(master_service_event_callback);
@@ -1610,7 +1609,7 @@ static void master_service_free(struct master_service **_service)
 
 	/* Check for leaks only after lib_atexit() callbacks have been called,
 	   since they may also free settings. */
-	master_service_settings_deinit(service);
+	settings_root_deinit(&service->settings_root);
 
 	for (i = 0; i < service->socket_count; i++) {
 		i_free(service->listeners[i].name);
