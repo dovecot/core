@@ -725,6 +725,60 @@ static void test_connection_no_version(void)
 
 /* END NO VERSION TEST */
 
+static void test_connection_is_valid_dns_name(void)
+{
+	test_begin("connection is valid DNS name");
+
+	struct test_case {
+		const char *input;
+		bool valid;
+	} test_cases[] = {
+		{ "", FALSE }, /* empty string is not valid */
+		{ "valid.hostname", TRUE },
+		{ "xn--land-poa.island", TRUE },
+		{ "dns_server.name", TRUE },
+		{ "127.0.0.1", TRUE },
+		{ "fe80::1", TRUE },
+		{ "hello world domain", FALSE }, /* spaces are not valid */
+		{ "hello\tworld\tdomain", FALSE }, /* tabs are not valid */
+		{ "hello,world,domain", FALSE }, /* commas are not valid */
+		{ "hello..world..domain", FALSE }, /* double-dot is not valid */
+		{ "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+		  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+		  "xxxxxxx.yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+		  "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+		  "yyyyyyyyyyyyyyy", TRUE }, /* 255 bytes long */
+		{ "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+		  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+		  "xxxxxxxx.yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+		  "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+		  "yyyyyyyyyyyyyyyy", FALSE }, /* 256 bytes long */
+	};
+
+	/* first, ensure everything not allowed is rejected as first byte. */
+	for (int c = 0; c <= UCHAR_MAX; c++) T_BEGIN {
+		bool valid = TRUE;
+		/* is it valid? */
+		if ((c < '0' || c > '9') &&
+		    (c < 'A' || c > 'Z') &&
+		    (c < 'a' || c > 'z') &&
+		    c != '.' && c != '-' &&
+		    c != '_' && c != ':')
+			valid = FALSE;
+
+		const char *name = t_strdup_printf("%c", (unsigned char)c);
+		test_assert(connection_is_valid_dns_name(name) == valid);
+	} T_END;
+
+	/* then test special cases */
+	for (size_t i = 0; i < N_ELEMENTS(test_cases); i++) {
+		const struct test_case *tc = &test_cases[i];
+		test_assert_idx(connection_is_valid_dns_name(tc->input) == tc->valid, i);
+	}
+
+	test_end();
+}
+
 void test_connection(void)
 {
 	test_connection_simple();
@@ -741,4 +795,5 @@ void test_connection(void)
 	test_connection_handshake_failed_input();
 	test_connection_input_error_reason();
 	test_connection_no_version();
+	test_connection_is_valid_dns_name();
 }

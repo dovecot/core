@@ -1011,3 +1011,21 @@ void connection_list_deinit(struct connection_list **_list)
 	}
 	i_free(list);
 }
+
+bool connection_is_valid_dns_name(const char *name)
+{
+	const char *p = name;
+	if (*name == '\0')
+		return FALSE;
+	if (strstr(name, "..") != NULL)
+		return FALSE;
+	for (; *p != '\0'; p++) {
+		if ((*p < '0' || *p > '9') &&
+		    (*p < 'A' || *p > 'Z') &&
+		    (*p < 'a' || *p > 'z') &&
+		    *p != '.' && *p != '-' &&
+		    *p != '_' && *p != ':')
+			return FALSE;
+	}
+	return p - name < 256; /* maximum length is 255 by RFC 952 */
+}

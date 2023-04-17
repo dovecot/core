@@ -275,4 +275,10 @@ int connection_input_line_default(struct connection *conn, const char *line);
 void connection_set_handlers(struct connection *conn, const struct connection_vfuncs *vfuncs);
 void connection_set_default_handlers(struct connection *conn);
 
+/* Checks if the given name is a valid DNS servername as per RFC1123 section 1.2,
+   RFC8591 section 4.2.1 and for practicality, the '_' character.
+   IP address like values are also accepted.
+*/
+bool connection_is_valid_dns_name(const char *name);
+
 #endif
