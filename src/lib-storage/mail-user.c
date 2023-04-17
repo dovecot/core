@@ -68,7 +68,7 @@ mail_user_var_expand_callback(struct event *event,
 			      const struct var_expand_func_table **func_tab_r)
 {
 	struct mail_user *user =
-		event_get_ptr(event, MASTER_SERVICE_VAR_EXPAND_FUNC_CONTEXT);
+		event_get_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT);
 	i_assert(user != NULL);
 
 	*tab_r = mail_user_var_expand_table(user);
@@ -102,9 +102,9 @@ mail_user_alloc(struct mail_storage_service_user *service_user)
 
 	/* Register %variable expansion callback function for settings
 	   lookups. */
-	event_set_ptr(user->event, MASTER_SERVICE_VAR_EXPAND_CALLBACK,
+	event_set_ptr(user->event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK,
 		      mail_user_var_expand_callback);
-	event_set_ptr(user->event, MASTER_SERVICE_VAR_EXPAND_FUNC_CONTEXT, user);
+	event_set_ptr(user->event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT, user);
 
 	user->v.deinit = mail_user_deinit_base;
 	user->v.deinit_pre = mail_user_deinit_pre_base;

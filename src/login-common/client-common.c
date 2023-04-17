@@ -271,7 +271,7 @@ int client_alloc(int fd, const struct master_service_connection *conn,
 	event_add_str(client->event, "service", login_binary->protocol);
 
 	/* Get settings before using log callback */
-	event_set_ptr(client->event, MASTER_SERVICE_VAR_EXPAND_CALLBACK,
+	event_set_ptr(client->event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK,
 		      client_var_expand_callback);
 	event_set_ptr(client->event, "client", client);
 	if (client_settings_get(client, &error) < 0) {

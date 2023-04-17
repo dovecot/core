@@ -122,7 +122,7 @@ static void client_read_settings(struct client *client, bool ssl)
 		mail_storage_service_get_var_expand_table(storage_service, &input);
 
 	struct event *event = event_create(client->event);
-	event_set_ptr(event, MASTER_SERVICE_VAR_EXPAND_TABLE, (void *)tab);
+	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_TABLE, (void *)tab);
 	if (settings_get(event, &lda_setting_parser_info, 0,
 			 &client->lda_set, &error) < 0 ||
 	    settings_get(event, &lmtp_setting_parser_info, 0,

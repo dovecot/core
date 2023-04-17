@@ -97,38 +97,38 @@ struct master_service_settings_output {
    expected to be accessible until the event is freed or the table is cleared
    from the event. Usage:
 
-   event_set_ptr(event, MASTER_SERVICE_VAR_EXPAND_TABLE, var_expand_table);
+   event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_TABLE, var_expand_table);
 */
-#define MASTER_SERVICE_VAR_EXPAND_TABLE \
-	"master_service_var_expand_table"
+#define SETTINGS_EVENT_VAR_EXPAND_TABLE \
+	"settings_var_expand_table"
 /* Set struct var_expand_func_table and its function context pointer to be used
    for settings expansion. The table is expected to be accessible until the
    event is freed or the table is cleared from the event. Usage:
 
-   event_set_ptr(event, MASTER_SERVICE_VAR_EXPAND_FUNC_TABLE, func_table);
-   event_set_ptr(event, MASTER_SERVICE_VAR_EXPAND_FUNC_CONTEXT, func_context);
+   event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE, func_table);
+   event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT, func_context);
 
-   You can set either or both of MASTER_SERVICE_VAR_EXPAND_TABLE and
-   MASTER_SERVICE_VAR_EXPAND_FUNC_TABLE for the same event. The parent events
+   You can set either or both of SETTINGS_EVENT_VAR_EXPAND_TABLE and
+   SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE for the same event. The parent events
    won't be searched for either of them if either one is set.
 */
-#define MASTER_SERVICE_VAR_EXPAND_FUNC_TABLE \
-	"master_service_var_expand_func_table"
-#define MASTER_SERVICE_VAR_EXPAND_FUNC_CONTEXT \
-	"master_service_var_expand_func_context"
+#define SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE \
+	"settings_var_expand_func_table"
+#define SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT \
+	"settings_var_expand_func_context"
 
 /* Set a master_service_settings_var_expand_t callback that returns
    var_expand_[func_]table for settings expansion. This can be used instead of
-   MASTER_SERVICE_VAR_EXPAND_[FUNC_]TABLE to dynamically generate the table
-   on-demand. If this is found from the event, all other MASTER_SERVICE_VAR_*
+   SETTINGS_EVENT_VAR_EXPAND_[FUNC_]TABLE to dynamically generate the table
+   on-demand. If this is found from the event, all other SETTINGS_EVENT_VAR_*
    fields are ignored in this and the parent events. Usage:
 
-   event_set_ptr(event, MASTER_SERVICE_VAR_EXPAND_CALLBACK, callback);
-   event_set_ptr(event, MASTER_SERVICE_VAR_EXPAND_FUNC_CONTEXT, func_context);
+   event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK, callback);
+   event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT, func_context);
 */
-#define MASTER_SERVICE_VAR_EXPAND_CALLBACK \
-	"master_service_var_expand_callback"
-/* Callback function used with MASTER_SERVICE_VAR_EXPAND_CALLBACK. The function
+#define SETTINGS_EVENT_VAR_EXPAND_CALLBACK \
+	"settings_var_expand_callback"
+/* Callback function used with SETTINGS_EVENT_VAR_EXPAND_CALLBACK. The function
    can return either or both of tab_r and func_tab_r, using NULL for the field
    that isn't needed. */
 typedef void
@@ -155,9 +155,9 @@ master_service_get_service_settings(struct master_service *service);
 
    Settings have their %variables expanded, unless
    SETTINGS_GET_FLAG_NO_EXPAND is used. The event and its
-   parents are scanned for MASTER_SERVICE_VAR_EXPAND_* pointers. The first
+   parents are scanned for SETTINGS_EVENT_VAR_EXPAND_* pointers. The first
    callback or tables that are found in the event hierarchy are used for the
-   expansion. See MASTER_SERVICE_VAR_EXPAND_* macros for more details. */
+   expansion. See SETTINGS_EVENT_VAR_EXPAND_* macros for more details. */
 int settings_get(struct event *event,
 		 const struct setting_parser_info *info,
 		 enum settings_get_flags flags,

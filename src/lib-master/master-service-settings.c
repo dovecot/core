@@ -1100,14 +1100,14 @@ master_service_var_expand_init(struct event *event,
 
 	while (event != NULL) {
 		master_service_settings_var_expand_t *callback =
-			event_get_ptr(event, MASTER_SERVICE_VAR_EXPAND_CALLBACK);
+			event_get_ptr(event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK);
 		if (callback != NULL) {
 			callback(event, tab_r, func_tab_r);
 			break;
 		}
 
-		*tab_r = event_get_ptr(event, MASTER_SERVICE_VAR_EXPAND_TABLE);
-		*func_tab_r = event_get_ptr(event, MASTER_SERVICE_VAR_EXPAND_FUNC_TABLE);
+		*tab_r = event_get_ptr(event, SETTINGS_EVENT_VAR_EXPAND_TABLE);
+		*func_tab_r = event_get_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE);
 		if (*tab_r != NULL || *func_tab_r != NULL)
 			break;
 		event = event_get_parent(event);
@@ -1115,7 +1115,7 @@ master_service_var_expand_init(struct event *event,
 	if (*tab_r == NULL)
 		*tab_r = t_new(struct var_expand_table, 1);
 	*func_context_r = event == NULL ? NULL :
-		event_get_ptr(event, MASTER_SERVICE_VAR_EXPAND_FUNC_CONTEXT);
+		event_get_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT);
 }
 
 static int settings_override_cmp(const struct settings_override *set1,
