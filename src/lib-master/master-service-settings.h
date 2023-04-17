@@ -117,7 +117,7 @@ struct master_service_settings_output {
 #define SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT \
 	"settings_var_expand_func_context"
 
-/* Set a master_service_settings_var_expand_t callback that returns
+/* Set a settings_var_expand_t callback that returns
    var_expand_[func_]table for settings expansion. This can be used instead of
    SETTINGS_EVENT_VAR_EXPAND_[FUNC_]TABLE to dynamically generate the table
    on-demand. If this is found from the event, all other SETTINGS_EVENT_VAR_*
@@ -132,9 +132,9 @@ struct master_service_settings_output {
    can return either or both of tab_r and func_tab_r, using NULL for the field
    that isn't needed. */
 typedef void
-master_service_settings_var_expand_t(struct event *event,
-				     const struct var_expand_table **tab_r,
-				     const struct var_expand_func_table **func_tab_r);
+settings_var_expand_t(struct event *event,
+		      const struct var_expand_table **tab_r,
+		      const struct var_expand_func_table **func_tab_r);
 
 extern const struct setting_parser_info master_service_setting_parser_info;
 

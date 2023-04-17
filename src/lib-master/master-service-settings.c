@@ -1099,7 +1099,7 @@ master_service_var_expand_init(struct event *event,
 	*func_tab_r = NULL;
 
 	while (event != NULL) {
-		master_service_settings_var_expand_t *callback =
+		settings_var_expand_t *callback =
 			event_get_ptr(event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK);
 		if (callback != NULL) {
 			callback(event, tab_r, func_tab_r);
