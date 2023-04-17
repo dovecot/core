@@ -70,6 +70,7 @@ struct settings_root {
 	pool_t pool;
 	const char *protocol_name;
 	struct settings_mmap *mmap;
+	ARRAY_TYPE(settings_override) overrides;
 };
 
 struct settings_instance {
@@ -83,6 +84,11 @@ static const char *master_service_set_type_names[] = {
 };
 static_assert_array_size(master_service_set_type_names,
 			 MASTER_SERVICE_SET_TYPE_COUNT);
+
+static void
+settings_root_override(struct settings_root *root,
+		       const char *key, const char *value,
+		       enum master_service_set_type type);
 
 #undef DEF
 #define DEF(type, name) \
@@ -422,9 +428,7 @@ master_service_open_config(struct master_service *service,
 }
 
 static void
-master_service_append_config_overrides(struct master_service *service,
-				       ARRAY_TYPE(settings_override) *overrides,
-				       pool_t set_pool)
+master_service_append_config_overrides(struct master_service *service)
 {
 	const char *const *cli_overrides;
 	unsigned int i, count;
@@ -436,10 +440,9 @@ master_service_append_config_overrides(struct master_service *service,
 	for (i = 0; i < count; i++) {
 		const char *key, *value;
 		t_split_key_value_eq(cli_overrides[i], &key, &value);
-		struct settings_override *set = array_append_space(overrides);
-		set->type = MASTER_SERVICE_SET_TYPE_CLI_PARAM;
-		set->key = p_strdup(set_pool, key);
-		set->value = p_strdup(set_pool, value);
+
+		settings_root_override(service->settings_root, key, value,
+				       MASTER_SERVICE_SET_TYPE_CLI_PARAM);
 	}
 }
 
@@ -866,6 +869,10 @@ int master_service_settings_read(struct master_service *service,
 			return -1;
 		}
 	}
+	if (service->settings_root->mmap == NULL) {
+		/* first time reading settings */
+		master_service_append_config_overrides(service);
+	}
 	if (fd != -1) {
 		struct settings_mmap *mmap;
 		settings_mmap_unref(&service->settings_root->mmap);
@@ -1168,8 +1175,8 @@ settings_instance_override(struct settings_instance *instance,
 	t_array_init(&overrides, 64);
 	if (array_is_created(&instance->overrides))
 		array_append_array(&overrides, &instance->overrides);
-	master_service_append_config_overrides(instance->service, &overrides,
-					       &mpool->pool);
+	if (array_is_created(&instance->service->settings_root->overrides))
+		array_append_array(&overrides, &instance->service->settings_root->overrides);
 	array_sort(&overrides, settings_override_cmp);
 
 	const struct settings_override *set;
@@ -1380,6 +1387,20 @@ void master_service_set(struct settings_instance *instance,
 		set->key = p_strdup(instance->pool, key);
 	}
 	set->value = p_strdup(instance->pool, value);
+}
+
+static void
+settings_root_override(struct settings_root *root,
+		       const char *key, const char *value,
+		       enum master_service_set_type type)
+{
+	if (!array_is_created(&root->overrides))
+		p_array_init(&root->overrides, root->pool, 16);
+	struct settings_override *set =
+		array_append_space(&root->overrides);
+	set->type = type;
+	set->key = p_strdup(root->pool, key);
+	set->value = p_strdup(root->pool, value);
 }
 
 struct settings_instance *
