@@ -83,7 +83,7 @@ static void maildir_storage_destroy(struct mail_storage *_storage)
 {
 	struct maildir_storage *storage = MAILDIR_STORAGE(_storage);
 
-	master_service_settings_free(storage->set);
+	settings_free(storage->set);
 	index_storage_destroy(_storage);
 }
 

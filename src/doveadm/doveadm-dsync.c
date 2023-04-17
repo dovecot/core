@@ -1028,7 +1028,7 @@ get_default_replica_location(struct dsync_cmd_context *ctx,
 		return -1;
 	ctx->local_location = p_strdup(ctx->ctx.pool,
 		mail_user_set_plugin_getenv(mail_set, "mail_replica"));
-	master_service_settings_free(mail_set);
+	settings_free(mail_set);
 	return 0;
 }
 

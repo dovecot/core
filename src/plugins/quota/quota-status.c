@@ -313,12 +313,12 @@ static void main_init(void)
 
 	value = mail_user_set_plugin_getenv(mail_set, "quota_status_nouser");
 	nouser_reply = i_strdup(value != NULL ? value : "REJECT Unknown user");
-	master_service_settings_free(mail_set);
+	settings_free(mail_set);
 }
 
 static void main_deinit(void)
 {
-	master_service_settings_free(quota_status_settings);
+	settings_free(quota_status_settings);
 	i_free(nouser_reply);
 	connection_list_deinit(&clients);
 	mail_storage_service_deinit(&storage_service);

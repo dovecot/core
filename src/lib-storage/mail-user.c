@@ -228,7 +228,7 @@ void mail_user_unref(struct mail_user **_user)
 		user->v.deinit_pre(user);
 		user->v.deinit(user);
 	} T_END;
-	master_service_settings_free(user->_mail_set);
+	settings_free(user->_mail_set);
 	event_unref(&user->event);
 	i_assert(user->refcount == 1);
 	pool_unref(&user->pool);

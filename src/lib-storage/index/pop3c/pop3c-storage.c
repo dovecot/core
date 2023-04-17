@@ -65,7 +65,7 @@ static void pop3c_storage_destroy(struct mail_storage *_storage)
 {
 	struct pop3c_storage *storage = POP3C_STORAGE(_storage);
 
-	master_service_settings_free(storage->set);
+	settings_free(storage->set);
 	index_storage_destroy(_storage);
 }
 

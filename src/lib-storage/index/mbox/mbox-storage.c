@@ -207,7 +207,7 @@ static void mbox_storage_destroy(struct mail_storage *_storage)
 {
 	struct mbox_storage *storage = MBOX_STORAGE(_storage);
 
-	master_service_settings_free(storage->set);
+	settings_free(storage->set);
 	index_storage_destroy(_storage);
 }
 

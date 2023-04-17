@@ -569,8 +569,8 @@ int main(int argc, char *argv[])
 	}
 
 	mail_deliver_session_deinit(&dinput.session);
-	master_service_settings_free(dinput.set);
-	master_service_settings_free(dinput.smtp_set);
+	settings_free(dinput.set);
+	settings_free(dinput.smtp_set);
 	mail_storage_service_deinit(&storage_service);
 
 	event_unref(&event);

@@ -93,7 +93,7 @@ void mdbox_storage_destroy(struct mail_storage *_storage)
 		array_free(&storage->move_to_alt_map_uids);
 	array_free(&storage->open_files);
 	i_free(storage->corrupted_reason);
-	master_service_settings_free(storage->set);
+	settings_free(storage->set);
 	dbox_storage_destroy(_storage);
 }
 

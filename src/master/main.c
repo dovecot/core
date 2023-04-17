@@ -437,10 +437,10 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 		/* new configuration is invalid, keep the old */
 		i_error("Config reload failed: %s", error);
 		i_sd_notify(0, "READY=1");
-		master_service_settings_free(set);
+		settings_free(set);
 		return;
 	}
-	master_service_settings_free(set);
+	settings_free(set);
 	new_services->config->config_file_path =
 		p_strdup(new_services->pool,
 			 services->config->config_file_path);
@@ -953,7 +953,7 @@ int main(int argc, char *argv[])
 
 	T_BEGIN {
 		main_init(set);
-		master_service_settings_free(set);
+		settings_free(set);
 	} T_END;
 	master_service_run(master_service, NULL);
 	main_deinit();

@@ -120,7 +120,7 @@ lmtp_local_rcpt_destroy(struct smtp_server_recipient *rcpt ATTR_UNUSED,
 	if (llrcpt->anvil_query != NULL)
 		anvil_client_query_abort(anvil, &llrcpt->anvil_query);
 	lmtp_local_rcpt_anvil_disconnect(llrcpt);
-	master_service_settings_free(llrcpt->lda_set);
+	settings_free(llrcpt->lda_set);
 	mail_storage_service_user_unref(&llrcpt->service_user);
 }
 
@@ -468,7 +468,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 		settings_override(set_instance, "mail_max_lock_timeout",
 				  value, SETTINGS_OVERRIDE_TYPE_CODE);
 	}
-	master_service_settings_free(mail_set);
+	settings_free(mail_set);
 
 	i_zero(&lldctx);
 	lldctx.session_id = lrcpt->session_id;
@@ -516,7 +516,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 
 	lmtp_local_rcpt_anvil_disconnect(llrcpt);
 
-	master_service_settings_free(lldctx.smtp_set);
+	settings_free(lldctx.smtp_set);
 	return ret;
 }
 

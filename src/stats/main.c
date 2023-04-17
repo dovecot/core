@@ -68,8 +68,8 @@ static void main_deinit(void)
 	client_http_deinit();
 	stats_event_categories_deinit();
 	stats_metrics_deinit(&stats_metrics);
-	master_service_settings_free(stats_settings);
-	master_service_settings_free(master_ssl_set);
+	settings_free(stats_settings);
+	settings_free(master_ssl_set);
 }
 
 int main(int argc, char *argv[])

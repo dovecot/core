@@ -137,7 +137,7 @@ static void main_deinit(void)
 
 	sql_drivers_deinit();
 	timeout_remove(&to_expire);
-	master_service_settings_free(dict_settings);
+	settings_free(dict_settings);
 }
 
 int main(int argc, char *argv[])

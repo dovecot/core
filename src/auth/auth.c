@@ -475,7 +475,7 @@ void auths_free(void)
 	struct auth *auth;
 
 	array_foreach_elem(&auths, auth) {
-		master_service_settings_free(auth->set);
+		settings_free(auth->set);
 		pool_unref(&auth->pool);
 	}
 	array_free(&auths);

@@ -699,7 +699,7 @@ void service_list_unref(struct service_list *service_list)
 
 	timeout_remove(&service_list->to_kill);
 	event_unref(&service_list->event);
-	master_service_settings_free(service_list->set);
+	settings_free(service_list->set);
 	pool_unref(&service_list->pool);
 }
 

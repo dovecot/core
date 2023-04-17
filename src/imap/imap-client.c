@@ -561,8 +561,8 @@ static void client_default_destroy(struct client *client, const char *reason)
 	imap_client_count--;
 	DLLIST_REMOVE(&imap_clients, client);
 
-	master_service_settings_free(client->set);
-	master_service_settings_free(client->smtp_set);
+	settings_free(client->set);
+	settings_free(client->smtp_set);
 	event_unref(&client->event);
 	i_free(client->last_cmd_name);
 	pool_unref(&client->pool);

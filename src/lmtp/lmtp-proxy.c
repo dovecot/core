@@ -221,7 +221,7 @@ lmtp_proxy_connection_init_ssl(struct lmtp_proxy_connection *conn,
 		*ssl_mode_r = SMTP_CLIENT_SSL_MODE_IMMEDIATE;
 	else
 		*ssl_mode_r = SMTP_CLIENT_SSL_MODE_STARTTLS;
-	master_service_settings_free(master_ssl_set);
+	settings_free(master_ssl_set);
 	return 0;
 }
 

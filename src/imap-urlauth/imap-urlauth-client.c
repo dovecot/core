@@ -133,7 +133,7 @@ void client_destroy(struct client *client, const char *reason)
 
 	connection_deinit(&client->conn);
 	event_unref(&client->event);
-	master_service_settings_free(client->set);
+	settings_free(client->set);
 
 	i_free(client->username);
 	i_free(client->service);

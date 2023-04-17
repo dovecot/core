@@ -409,7 +409,7 @@ static void imap_client_destroy(struct client *client)
 		cmd_id_free(imap_client);
 	}
 
-	master_service_settings_free(imap_client->set);
+	settings_free(imap_client->set);
 	i_free_and_null(imap_client->proxy_backend_capability);
 	imap_parser_unref(&imap_client->parser);
 }

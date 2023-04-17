@@ -331,7 +331,7 @@ client_default_destroy(struct client *client)
 
 	client_state_reset(client);
 
-	master_service_settings_free(client->set);
+	settings_free(client->set);
 	event_unref(&client->event);
 	pool_unref(&client->pool);
 

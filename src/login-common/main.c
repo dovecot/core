@@ -453,9 +453,9 @@ static void main_deinit(void)
 	client_common_deinit();
 	dsasl_clients_deinit();
 
-	master_service_settings_free(global_login_settings);
-	master_service_settings_free(global_ssl_settings);
-	master_service_settings_free(global_ssl_server_settings);
+	settings_free(global_login_settings);
+	settings_free(global_ssl_settings);
+	settings_free(global_ssl_server_settings);
 }
 
 int login_binary_run(struct login_binary *binary,

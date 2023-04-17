@@ -251,6 +251,6 @@ int doveadm_settings_get_config_fd(void)
 
 void doveadm_settings_deinit(void)
 {
-	master_service_settings_free(doveadm_settings);
-	master_service_settings_free(doveadm_ssl_set);
+	settings_free(doveadm_settings);
+	settings_free(doveadm_ssl_set);
 }

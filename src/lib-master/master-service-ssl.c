@@ -31,7 +31,7 @@ int master_service_ssl_init(struct master_service *service,
 			*error_r = "SSL is disabled (ssl=no)";
 		else
 			*error_r = "Failed to initialize SSL context";
-		master_service_settings_free(set);
+		settings_free(set);
 		return -1;
 	}
 
@@ -40,7 +40,7 @@ int master_service_ssl_init(struct master_service *service,
 	ssl_set.verify_remote_cert = set->ssl_verify_client_cert;
 	ret = io_stream_create_ssl_server(service->ssl_ctx, &ssl_set, NULL,
 					  input, output, ssl_iostream_r, error_r);
-	master_service_settings_free(set);
+	settings_free(set);
 	return ret;
 }
 
@@ -71,14 +71,14 @@ void master_service_ssl_ctx_init(struct master_service *service)
 			 &master_service_ssl_server_setting_parser_info, 0,
 			 &server_set, &error) < 0) {
 		e_error(service->event, "%s - disabling SSL", error);
-		master_service_settings_free(set);
+		settings_free(set);
 		master_service_ssl_io_listeners_remove(service);
 		return;
 	}
 	if (strcmp(set->ssl, "no") == 0) {
 		/* SSL disabled, don't use it */
-		master_service_settings_free(set);
-		master_service_settings_free(server_set);
+		settings_free(set);
+		settings_free(server_set);
 		return;
 	}
 
@@ -113,8 +113,8 @@ void master_service_ssl_ctx_init(struct master_service *service)
 			error);
 		master_service_ssl_io_listeners_remove(service);
 	}
-	master_service_settings_free(set);
-	master_service_settings_free(server_set);
+	settings_free(set);
+	settings_free(server_set);
 }
 
 void master_service_ssl_ctx_deinit(struct master_service *service)

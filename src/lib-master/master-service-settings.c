@@ -922,7 +922,7 @@ int master_service_settings_read(struct master_service *service,
 		}
 	}
 
-	master_service_settings_free(service->set);
+	settings_free(service->set);
 	ret = settings_get(event, &master_service_setting_parser_info, 0,
 			   &service->set, error_r);
 	event_unref(&event);

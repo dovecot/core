@@ -138,7 +138,7 @@ static void submission_client_destroy(struct client *client)
 
 	if (subm_client->conn != NULL)
 		smtp_server_connection_close(&subm_client->conn, NULL);
-	master_service_settings_free(subm_client->set);
+	settings_free(subm_client->set);
 	i_free_and_null(subm_client->proxy_xclient);
 }
 

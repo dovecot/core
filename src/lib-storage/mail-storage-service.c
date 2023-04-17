@@ -1088,7 +1088,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		mail_storage_service_first_init(ctx, user_set, flags);
 	/* load global plugins */
 	if (mail_storage_service_load_modules(ctx, user_set, error_r) < 0) {
-		master_service_settings_free(user_set);
+		settings_free(user_set);
 		event_unref(&event);
 		settings_instance_free(&set_instance);
 		return -1;
@@ -1121,7 +1121,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 			ctx, input, temp_pool, event,
 			&username, &userdb_fields, error_r);
 		if (ret <= 0) {
-			master_service_settings_free(user_set);
+			settings_free(user_set);
 			event_unref(&event);
 			pool_unref(&temp_pool);
 			pool_unref(&user_pool);
@@ -1198,7 +1198,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 				"%s (probably caused by userdb)", error);
 			ret = -2;
 		} else {
-			master_service_settings_free(user->user_set);
+			settings_free(user->user_set);
 			user->user_set = user_set;
 		}
 	}
@@ -1429,7 +1429,7 @@ void mail_storage_service_user_unref(struct mail_storage_service_user **_user)
 	if (user->master_service_user_set)
 		master_service_set_current_user(master_service, NULL);
 
-	master_service_settings_free(user->user_set);
+	settings_free(user->user_set);
 	settings_instance_free(&user->set_instance);
 	event_unref(&user->event);
 	pool_unref(&user->pool);
@@ -1456,7 +1456,7 @@ void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 		i_fatal("%s", error);
 
 	mail_storage_service_first_init(ctx, user_set, ctx->flags);
-	master_service_settings_free(user_set);
+	settings_free(user_set);
 }
 
 static int
@@ -1549,7 +1549,7 @@ int mail_storage_service_user_init_ssl_client_settings(
 		return -1;
 	master_service_ssl_client_settings_to_iostream_set(ssl_set, pool,
 							   ssl_set_r);
-	master_service_settings_free(ssl_set);
+	settings_free(ssl_set);
 	return 0;
 }
 

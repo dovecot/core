@@ -170,7 +170,7 @@ void auth_policy_init(void)
 	http_client_set.ssl = &ssl_set;
 	http_client_set.event_parent = auth_event;
 	http_client = http_client_init(&http_client_set);
-	master_service_settings_free(master_ssl_set);
+	settings_free(master_ssl_set);
 
 	/* prepare template */
 

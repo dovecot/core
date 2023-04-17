@@ -264,8 +264,8 @@ client_default_destroy(struct client *client)
 	client_state_reset(client);
 
 	settings_instance_free(&client->set_instance);
-	master_service_settings_free(client->lda_set);
-	master_service_settings_free(client->lmtp_set);
+	settings_free(client->lda_set);
+	settings_free(client->lmtp_set);
 	event_unref(&client->event);
 	pool_unref(&client->state_pool);
 	pool_unref(&client->pool);

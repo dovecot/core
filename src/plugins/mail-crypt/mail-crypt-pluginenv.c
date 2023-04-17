@@ -82,6 +82,6 @@ int mail_crypt_global_keys_load_pluginenv(const char *set_prefix,
 
 	if (ret != 0)
 		mail_crypt_global_keys_free(global_keys_r);
-	master_service_settings_free(set);
+	settings_free(set);
 	return ret;
 }

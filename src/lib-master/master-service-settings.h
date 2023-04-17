@@ -150,7 +150,7 @@ master_service_get_service_settings(struct master_service *service);
 
 /* Get the wanted settings and check that the settings are valid.
    The settings struct must have pool_t (info->pool_offset1), which the caller
-   must unreference when done with the settings. master_service_settings_free()
+   must unreference when done with the settings. settings_free()
    macro can be used to do the freeing in a nice way.
 
    Settings have their %variables expanded, unless
@@ -185,7 +185,7 @@ settings_get_or_fatal(struct event *event,
 		      unsigned int source_linenum);
 #define settings_get_or_fatal(event, info) \
 	settings_get_or_fatal(event, info, __FILE__, __LINE__)
-#define master_service_settings_free(set) \
+#define settings_free(set) \
 	STMT_START { \
 		if ((set) != NULL) { \
 			pool_t pool_copy = set->pool; \

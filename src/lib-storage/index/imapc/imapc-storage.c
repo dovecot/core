@@ -324,7 +324,7 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	set.host = imapc_set->imapc_host;
 	if (*set.host == '\0') {
 		*error_r = "missing imapc_host";
-		master_service_settings_free(imapc_set);
+		settings_free(imapc_set);
 		return -1;
 	}
 	set.port = imapc_set->imapc_port;
@@ -338,7 +338,7 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	set.password = imapc_set->imapc_password;
 	if (*set.password == '\0') {
 		*error_r = "missing imapc_password";
-		master_service_settings_free(imapc_set);
+		settings_free(imapc_set);
 		return -1;
 	}
 	set.sasl_mechanisms = imapc_set->imapc_sasl_mechanisms;
@@ -409,7 +409,7 @@ void imapc_storage_client_unref(struct imapc_storage_client **_client)
 	if (--client->refcount > 0)
 		return;
 	imapc_client_deinit(&client->client);
-	master_service_settings_free(client->set);
+	settings_free(client->set);
 	array_foreach_modifiable(&client->untagged_callbacks, cb)
 		i_free(cb->name);
 	array_free(&client->untagged_callbacks);

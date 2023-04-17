@@ -239,7 +239,7 @@ static void client_destroy(struct client *client)
 	connection_deinit(&client->conn_ctrl);
 	connection_deinit(&client->conn);
 	event_unref(&client->event);
-	master_service_settings_free(client->set);
+	settings_free(client->set);
 	i_free(client);
 
 	imap_urlauth_worker_refresh_proctitle();

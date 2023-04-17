@@ -496,7 +496,7 @@ static int dlua_http_client_new(lua_State *L)
 	master_service_ssl_client_settings_to_iostream_set(master_ssl_set,
 		pool_datastack_create(), &ssl_set);
 	http_set.ssl = &ssl_set;
-	master_service_settings_free(master_ssl_set);
+	settings_free(master_ssl_set);
 
 	client = http_client_init(&http_set);
 	dlua_push_http_client(L, client);

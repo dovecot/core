@@ -1590,7 +1590,7 @@ static void master_service_deinit_real(struct master_service *service)
 	if (array_is_created(&service->config_overrides))
 		array_free(&service->config_overrides);
 
-	master_service_settings_free(service->set);
+	settings_free(service->set);
 	settings_root_deinit(&service->settings_root);
 	i_free(master_service_category_name);
 	master_service_category.name = NULL;

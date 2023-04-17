@@ -288,7 +288,7 @@ int main(int argc, char *argv[])
 
 	if (login_server != NULL)
 		login_server_deinit(&login_server);
-	master_service_settings_free(imap_urlauth_settings);
+	settings_free(imap_urlauth_settings);
 	master_service_deinit(&master_service);
 	return 0;
 }
