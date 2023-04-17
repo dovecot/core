@@ -147,9 +147,8 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	}
 	restrict_access_allow_coredumps(TRUE);
 
-	if (master_service_settings_get(mail_user->event,
-					&pop3_setting_parser_info, 0,
-					&set, error_r) < 0) {
+	if (settings_get(mail_user->event, &pop3_setting_parser_info, 0,
+			 &set, error_r) < 0) {
 		if (write(fd_out, lookup_error_str, strlen(lookup_error_str)) < 0) {
 			/* ignored */
 		}

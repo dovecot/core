@@ -100,9 +100,8 @@ static int submission_client_create(struct client *client)
 	struct smtp_server_settings smtp_set;
 	const char *error;
 
-	if (master_service_settings_get(client->event,
-					&submission_login_setting_parser_info,
-					0, &subm_client->set, &error) < 0) {
+	if (settings_get(client->event, &submission_login_setting_parser_info,
+			 0, &subm_client->set, &error) < 0) {
 		e_error(client->event, "%s", error);
 		return -1;
 	}

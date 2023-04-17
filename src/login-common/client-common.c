@@ -214,15 +214,13 @@ static int client_settings_get(struct client *client, const char **error_r)
 {
 	i_assert(client->set == NULL);
 
-	if (master_service_settings_get(client->event,
-					&login_setting_parser_info,
-					0, &client->set, error_r) < 0 ||
-	    master_service_settings_get(client->event,
-					&master_service_ssl_setting_parser_info,
-					0, &client->ssl_set, error_r) < 0 ||
-	    master_service_settings_get(client->event,
-					&master_service_ssl_server_setting_parser_info,
-					0, &client->ssl_server_set, error_r) < 0) {
+	if (settings_get(client->event, &login_setting_parser_info,
+			 0, &client->set, error_r) < 0 ||
+	    settings_get(client->event, &master_service_ssl_setting_parser_info,
+			 0, &client->ssl_set, error_r) < 0 ||
+	    settings_get(client->event,
+			 &master_service_ssl_server_setting_parser_info,
+			 0, &client->ssl_server_set, error_r) < 0) {
 		master_service_settings_free(client->set);
 		master_service_settings_free(client->ssl_set);
 		return -1;

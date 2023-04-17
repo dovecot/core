@@ -382,9 +382,8 @@ static int imap_client_create(struct client *client)
 	struct imap_client *imap_client = (struct imap_client *)client;
 	const char *error;
 
-	if (master_service_settings_get(client->event,
-					&imap_login_setting_parser_info, 0,
-					&imap_client->set, &error) < 0) {
+	if (settings_get(client->event, &imap_login_setting_parser_info, 0,
+			 &imap_client->set, &error) < 0) {
 		e_error(client->event, "%s", error);
 		return -1;
 	}

@@ -344,10 +344,9 @@ int lmtp_local_rcpt(struct client *client,
 	lrcpt->type = LMTP_RECIPIENT_TYPE_LOCAL;
 	lrcpt->backend_context = llrcpt;
 
-	if (master_service_settings_get(
-			mail_storage_service_user_get_event(service_user),
-			&lda_setting_parser_info,
-			0, &llrcpt->lda_set, &error) < 0) {
+	if (settings_get(mail_storage_service_user_get_event(service_user),
+			 &lda_setting_parser_info,
+			 0, &llrcpt->lda_set, &error) < 0) {
 		e_error(rcpt->event, "%s", error);
 		smtp_server_recipient_reply(rcpt, 451, "4.3.0",
 					    "Temporary internal error");
@@ -442,11 +441,10 @@ lmtp_local_deliver(struct lmtp_local *local,
 	input = mail_storage_service_user_get_input(service_user);
 	username = t_strdup(input->username);
 
-	if (master_service_settings_get(
-			mail_storage_service_user_get_event(service_user),
-			&mail_storage_setting_parser_info,
-			SETTINGS_GET_FLAG_NO_EXPAND,
-			&mail_set, &error) < 0) {
+	if (settings_get(mail_storage_service_user_get_event(service_user),
+			 &mail_storage_setting_parser_info,
+			 SETTINGS_GET_FLAG_NO_EXPAND,
+			 &mail_set, &error) < 0) {
 		e_error(rcpt->event, "%s", error);
 		smtp_server_recipient_reply(rcpt, 451, "4.3.0",
 					    "Temporary internal error");
@@ -497,9 +495,8 @@ lmtp_local_deliver(struct lmtp_local *local,
 		mail_storage_service_user_get_log_prefix(service_user));
 
 	lldctx.rcpt_user = rcpt_user;
-	if (master_service_settings_get(rcpt_user->event,
-			&smtp_submit_setting_parser_info, 0,
-			&lldctx.smtp_set, &error) < 0) {
+	if (settings_get(rcpt_user->event, &smtp_submit_setting_parser_info, 0,
+			 &lldctx.smtp_set, &error) < 0) {
 		e_error(rcpt->event, "%s", error);
 		smtp_server_recipient_reply(rcpt, 451, "4.3.0",
 					    "Temporary internal error");

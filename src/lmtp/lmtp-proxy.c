@@ -208,9 +208,9 @@ lmtp_proxy_connection_init_ssl(struct lmtp_proxy_connection *conn,
 		return 0;
 	}
 
-	if (master_service_settings_get(conn->proxy->client->event,
-			&master_service_ssl_setting_parser_info, 0,
-			&master_ssl_set, error_r) < 0)
+	if (settings_get(conn->proxy->client->event,
+			 &master_service_ssl_setting_parser_info, 0,
+			 &master_ssl_set, error_r) < 0)
 		return -1;
 	master_service_ssl_client_settings_to_iostream_set(
 		master_ssl_set, pool_datastack_create(), ssl_set_r);

@@ -1020,12 +1020,11 @@ get_default_replica_location(struct dsync_cmd_context *ctx,
 			     const char **error_r)
 {
 	const struct mail_storage_settings *mail_set;
-	if (master_service_settings_get(
-			mail_storage_service_user_get_event(service_user),
-			&mail_storage_setting_parser_info,
-			SETTINGS_GET_FLAG_NO_CHECK |
-			SETTINGS_GET_FLAG_NO_EXPAND,
-			&mail_set, error_r) < 0)
+	if (settings_get(mail_storage_service_user_get_event(service_user),
+			 &mail_storage_setting_parser_info,
+			 SETTINGS_GET_FLAG_NO_CHECK |
+			 SETTINGS_GET_FLAG_NO_EXPAND,
+			 &mail_set, error_r) < 0)
 		return -1;
 	ctx->local_location = p_strdup(ctx->ctx.pool,
 		mail_user_set_plugin_getenv(mail_set, "mail_replica"));

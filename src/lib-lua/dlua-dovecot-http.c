@@ -490,9 +490,8 @@ static int dlua_http_client_new(lua_State *L)
 		luaL_error(L, "Invalid HTTP client setting: %s", error);
 
 	const struct master_service_ssl_settings *master_ssl_set;
-	if (master_service_settings_get(NULL,
-					&master_service_ssl_setting_parser_info,
-					0, &master_ssl_set, &error) < 0)
+	if (settings_get(NULL, &master_service_ssl_setting_parser_info,
+			 0, &master_ssl_set, &error) < 0)
 		luaL_error(L, "%s", error);
 	master_service_ssl_client_settings_to_iostream_set(master_ssl_set,
 		pool_datastack_create(), &ssl_set);

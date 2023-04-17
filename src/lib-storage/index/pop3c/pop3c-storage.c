@@ -42,9 +42,8 @@ pop3c_storage_create(struct mail_storage *_storage,
 {
 	struct pop3c_storage *storage = POP3C_STORAGE(_storage);
 
-	if (master_service_settings_get(_storage->event,
-					&pop3c_setting_parser_info, 0,
-					&storage->set, error_r) < 0)
+	if (settings_get(_storage->event, &pop3c_setting_parser_info, 0,
+			 &storage->set, error_r) < 0)
 		return -1;
 
 	if (storage->set->pop3c_host[0] == '\0') {

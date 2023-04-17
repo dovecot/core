@@ -46,10 +46,10 @@ static void main_preinit(void)
 
 static void main_init(void)
 {
-	stats_settings = master_service_settings_get_or_fatal(NULL,
-			&stats_setting_parser_info);
-	master_ssl_set = master_service_settings_get_or_fatal(NULL,
-			&master_service_ssl_setting_parser_info);
+	stats_settings =
+		settings_get_or_fatal(NULL, &stats_setting_parser_info);
+	master_ssl_set =
+		settings_get_or_fatal(NULL, &master_service_ssl_setting_parser_info);
 
 	stats_startup_time = ioloop_time;
 	stats_metrics = stats_metrics_init(stats_settings);

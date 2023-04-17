@@ -89,7 +89,7 @@ struct master_service_settings_output {
 	bool permission_denied:1;
 };
 
-/* Set struct settings_instance to events so master_service_settings_get() can
+/* Set struct settings_instance to events so settings_get() can
    use it to get instance-specific settings. */
 #define SETTINGS_EVENT_INSTANCE "settings_instance"
 
@@ -158,33 +158,33 @@ master_service_get_service_settings(struct master_service *service);
    parents are scanned for MASTER_SERVICE_VAR_EXPAND_* pointers. The first
    callback or tables that are found in the event hierarchy are used for the
    expansion. See MASTER_SERVICE_VAR_EXPAND_* macros for more details. */
-int master_service_settings_get(struct event *event,
-				const struct setting_parser_info *info,
-				enum settings_get_flags flags,
-				const char *source_filename,
-				unsigned int source_linenum,
-				const void **set_r, const char **error_r);
+int settings_get(struct event *event,
+		 const struct setting_parser_info *info,
+		 enum settings_get_flags flags,
+		 const char *source_filename,
+		 unsigned int source_linenum,
+		 const void **set_r, const char **error_r);
 #ifdef HAVE_TYPE_CHECKS
-#  define master_service_settings_get(event, info, flags, set_r, error_r) \
-	master_service_settings_get(event, info, flags, \
+#  define settings_get(event, info, flags, set_r, error_r) \
+	settings_get(event, info, flags, \
 		__FILE__, __LINE__, (void *)set_r, 1 ? (error_r) : \
 	COMPILE_ERROR_IF_TRUE( \
 		!__builtin_types_compatible_p(typeof((*set_r)->pool), pool_t)))
 #else
-#  define master_service_settings_get(event, info, flags, set_r, error_r) \
-	master_service_settings_get(event, info, flags, \
+#  define settings_get(event, info, flags, set_r, error_r) \
+	settings_get(event, info, flags, \
 		__FILE__, __LINE__, (void *)set_r, error_r)
 #endif
 
-/* Like master_service_settings_get(), but i_fatal() if there are any errors
+/* Like settings_get(), but i_fatal() if there are any errors
    in settings. */
 const void *
-master_service_settings_get_or_fatal(struct event *event,
-				     const struct setting_parser_info *info,
-				     const char *source_filename,
-				     unsigned int source_linenum);
-#define master_service_settings_get_or_fatal(event, info) \
-	master_service_settings_get_or_fatal(event, info, __FILE__, __LINE__)
+settings_get_or_fatal(struct event *event,
+		      const struct setting_parser_info *info,
+		      const char *source_filename,
+		      unsigned int source_linenum);
+#define settings_get_or_fatal(event, info) \
+	settings_get_or_fatal(event, info, __FILE__, __LINE__)
 #define master_service_settings_free(set) \
 	STMT_START { \
 		if ((set) != NULL) { \

@@ -923,9 +923,8 @@ int master_service_settings_read(struct master_service *service,
 	}
 
 	master_service_settings_free(service->set);
-	ret = master_service_settings_get(event,
-			&master_service_setting_parser_info, 0,
-			&service->set, error_r);
+	ret = settings_get(event, &master_service_setting_parser_info, 0,
+			   &service->set, error_r);
 	event_unref(&event);
 	if (ret < 0)
 		return -1;
@@ -1321,13 +1320,13 @@ settings_instance_get(struct event *event,
 	return 0;
 }
 
-#undef master_service_settings_get
-int master_service_settings_get(struct event *event,
-				const struct setting_parser_info *info,
-				enum settings_get_flags flags,
-				const char *source_filename,
-				unsigned int source_linenum,
-				const void **set_r, const char **error_r)
+#undef settings_get
+int settings_get(struct event *event,
+		 const struct setting_parser_info *info,
+		 enum settings_get_flags flags,
+		 const char *source_filename,
+		 unsigned int source_linenum,
+		 const void **set_r, const char **error_r)
 {
 	struct settings_instance *instance = NULL;
 	struct event *scan_event = event;
@@ -1351,18 +1350,18 @@ int master_service_settings_get(struct event *event,
 		set_r, error_r);
 }
 
-#undef master_service_settings_get_or_fatal
+#undef settings_get_or_fatal
 const void *
-master_service_settings_get_or_fatal(struct event *event,
-				     const struct setting_parser_info *info,
-				     const char *source_filename,
-				     unsigned int source_linenum)
+settings_get_or_fatal(struct event *event,
+		      const struct setting_parser_info *info,
+		      const char *source_filename,
+		      unsigned int source_linenum)
 {
 	const void *set;
 	const char *error;
 
-	if (master_service_settings_get(event, info, 0, source_filename,
-					source_linenum, &set, &error) < 0)
+	if (settings_get(event, info, 0, source_filename,
+			 source_linenum, &set, &error) < 0)
 		i_fatal("%s", error);
 	return set;
 }

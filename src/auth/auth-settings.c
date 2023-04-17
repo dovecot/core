@@ -565,8 +565,7 @@ const struct auth_settings *auth_settings_get(const char *service)
 	struct event *event = event_create(NULL);
 	event_add_str(event, "protocol", service);
 	const struct auth_settings *set =
-		master_service_settings_get_or_fatal(event,
-						     &auth_setting_parser_info);
+		settings_get_or_fatal(event, &auth_setting_parser_info);
 	event_unref(&event);
 	return set;
 }

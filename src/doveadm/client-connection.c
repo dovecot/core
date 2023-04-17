@@ -34,9 +34,8 @@ static int client_connection_read_settings(struct client_connection *conn)
 {
 	const char *error;
 
-	if (master_service_settings_get(conn->event,
-					&doveadm_setting_parser_info, 0,
-					&conn->set, &error) < 0) {
+	if (settings_get(conn->event, &doveadm_setting_parser_info, 0,
+			 &conn->set, &error) < 0) {
 		e_error(conn->event, "%s", error);
 		return -1;
 	}

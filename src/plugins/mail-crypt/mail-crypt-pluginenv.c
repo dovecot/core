@@ -62,8 +62,7 @@ int mail_crypt_global_keys_load_pluginenv(const char *set_prefix,
 				const char **error_r)
 {
 	const struct fs_crypt_settings *set =
-		master_service_settings_get_or_fatal(NULL,
-			&fs_crypt_setting_parser_info);
+		settings_get_or_fatal(NULL, &fs_crypt_setting_parser_info);
 
 	const char *set_key = t_strconcat(set_prefix, "_public_key", NULL);
 	const char *key_data = mail_crypt_plugin_getenv(set, set_key);
