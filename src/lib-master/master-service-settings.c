@@ -800,14 +800,14 @@ settings_mmap_apply(struct settings_mmap *mmap, struct event *event,
 
 }
 
-void settings_mmap_ref(struct settings_mmap *mmap)
+static void settings_mmap_ref(struct settings_mmap *mmap)
 {
 	i_assert(mmap->refcount > 0);
 
 	mmap->refcount++;
 }
 
-void settings_mmap_unref(struct settings_mmap **_mmap)
+static void settings_mmap_unref(struct settings_mmap **_mmap)
 {
 	struct settings_mmap *mmap = *_mmap;
 	if (mmap == NULL)

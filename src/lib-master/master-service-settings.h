@@ -138,9 +138,6 @@ master_service_settings_var_expand_t(struct event *event,
 
 extern const struct setting_parser_info master_service_setting_parser_info;
 
-void settings_mmap_ref(struct settings_mmap *mmap);
-void settings_mmap_unref(struct settings_mmap **mmap);
-
 int master_service_settings_read(struct master_service *service,
 				 const struct master_service_settings_input *input,
 				 struct master_service_settings_output *output_r,
