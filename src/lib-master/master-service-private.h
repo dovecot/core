@@ -74,7 +74,7 @@ struct master_service {
 	master_service_connection_callback_t *callback;
 
 	const struct master_service_settings *set;
-	struct master_settings_pool *settings_pools;
+	struct settings_mmap_pool *settings_pools;
 
 	struct ssl_iostream_context *ssl_ctx;
 	time_t ssl_params_last_refresh;

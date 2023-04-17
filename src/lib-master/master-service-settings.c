@@ -964,11 +964,11 @@ master_service_get_service_settings(struct master_service *service)
 	return service->set;
 }
 
-struct master_settings_pool {
+struct settings_mmap_pool {
 	struct pool pool;
 	int refcount;
 
-	struct master_settings_pool *prev, *next;
+	struct settings_mmap_pool *prev, *next;
 
 	const char *source_filename;
 	unsigned int source_linenum;
@@ -978,27 +978,27 @@ struct master_settings_pool {
 	struct settings_mmap *mmap;
 };
 
-static const char *pool_master_settings_get_name(pool_t pool)
+static const char *settings_mmap_pool_get_name(pool_t pool)
 {
-	struct master_settings_pool *mpool =
-		container_of(pool, struct master_settings_pool, pool);
+	struct settings_mmap_pool *mpool =
+		container_of(pool, struct settings_mmap_pool, pool);
 
 	return pool_get_name(mpool->parent_pool);
 }
 
-static void pool_master_settings_ref(pool_t pool)
+static void settings_mmap_pool_ref(pool_t pool)
 {
-	struct master_settings_pool *mpool =
-		container_of(pool, struct master_settings_pool, pool);
+	struct settings_mmap_pool *mpool =
+		container_of(pool, struct settings_mmap_pool, pool);
 
 	i_assert(mpool->refcount > 0);
 	mpool->refcount++;
 }
 
-static void pool_master_settings_unref(pool_t *pool)
+static void settings_mmap_pool_unref(pool_t *pool)
 {
-	struct master_settings_pool *mpool =
-		container_of(*pool, struct master_settings_pool, pool);
+	struct settings_mmap_pool *mpool =
+		container_of(*pool, struct settings_mmap_pool, pool);
 
 	i_assert(mpool->refcount > 0);
 	*pool = NULL;
@@ -1012,70 +1012,70 @@ static void pool_master_settings_unref(pool_t *pool)
 	pool_unref(&mpool->parent_pool);
 }
 
-static void *pool_master_settings_malloc(pool_t pool, size_t size)
+static void *settings_mmap_pool_malloc(pool_t pool, size_t size)
 {
-	struct master_settings_pool *mpool =
-		container_of(pool, struct master_settings_pool, pool);
+	struct settings_mmap_pool *mpool =
+		container_of(pool, struct settings_mmap_pool, pool);
 
 	return p_malloc(mpool->parent_pool, size);
 }
 
-static void pool_master_settings_free(pool_t pool, void *mem)
+static void settings_mmap_pool_free(pool_t pool, void *mem)
 {
-	struct master_settings_pool *mpool =
-		container_of(pool, struct master_settings_pool, pool);
+	struct settings_mmap_pool *mpool =
+		container_of(pool, struct settings_mmap_pool, pool);
 
 	p_free(mpool->parent_pool, mem);
 }
 
-static void *pool_master_settings_realloc(pool_t pool, void *mem,
-					  size_t old_size, size_t new_size)
+static void *settings_mmap_pool_realloc(pool_t pool, void *mem,
+					size_t old_size, size_t new_size)
 {
-	struct master_settings_pool *mpool =
-		container_of(pool, struct master_settings_pool, pool);
+	struct settings_mmap_pool *mpool =
+		container_of(pool, struct settings_mmap_pool, pool);
 
 	return p_realloc(mpool->parent_pool, mem, old_size, new_size);
 }
 
-static void pool_master_settings_clear(pool_t pool ATTR_UNUSED)
+static void settings_mmap_pool_clear(pool_t pool ATTR_UNUSED)
 {
-	i_panic("pool_master_settings_clear() must not be called");
+	i_panic("settings_mmap_pool_clear() must not be called");
 }
 
-static size_t pool_master_settings_get_max_easy_alloc_size(pool_t pool)
+static size_t settings_mmap_pool_get_max_easy_alloc_size(pool_t pool)
 {
-	struct master_settings_pool *mpool =
-		container_of(pool, struct master_settings_pool, pool);
+	struct settings_mmap_pool *mpool =
+		container_of(pool, struct settings_mmap_pool, pool);
 
 	return p_get_max_easy_alloc_size(mpool->parent_pool);
 }
 
-static struct pool_vfuncs static_master_settings_pool_vfuncs = {
-	pool_master_settings_get_name,
+static struct pool_vfuncs static_settings_mmap_pool_vfuncs = {
+	settings_mmap_pool_get_name,
 
-	pool_master_settings_ref,
-	pool_master_settings_unref,
+	settings_mmap_pool_ref,
+	settings_mmap_pool_unref,
 
-	pool_master_settings_malloc,
-	pool_master_settings_free,
+	settings_mmap_pool_malloc,
+	settings_mmap_pool_free,
 
-	pool_master_settings_realloc,
+	settings_mmap_pool_realloc,
 
-	pool_master_settings_clear,
-	pool_master_settings_get_max_easy_alloc_size
+	settings_mmap_pool_clear,
+	settings_mmap_pool_get_max_easy_alloc_size
 };
 
-static struct master_settings_pool *
-master_settings_pool_create(struct settings_mmap *mmap,
-			    const char *source_filename,
-			    unsigned int source_linenum)
+static struct settings_mmap_pool *
+settings_mmap_pool_create(struct settings_mmap *mmap,
+			  const char *source_filename,
+			  unsigned int source_linenum)
 {
-	struct master_settings_pool *mpool;
+	struct settings_mmap_pool *mpool;
 	pool_t parent_pool =
-		pool_alloconly_create("master service settings", 256);
+		pool_alloconly_create("settings mmap", 256);
 
-	mpool = p_new(parent_pool, struct master_settings_pool, 1);
-	mpool->pool.v = &static_master_settings_pool_vfuncs;
+	mpool = p_new(parent_pool, struct settings_mmap_pool, 1);
+	mpool->pool.v = &static_settings_mmap_pool_vfuncs;
 	mpool->pool.alloconly_pool = TRUE;
 	mpool->refcount = 1;
 	mpool->parent_pool = parent_pool;
@@ -1167,7 +1167,7 @@ static int
 settings_instance_override(struct settings_root *root,
 			   struct settings_instance *instance,
 			   struct setting_parser_context *parser,
-			   struct master_settings_pool *mpool,
+			   struct settings_mmap_pool *mpool,
 			   const char **error_r)
 {
 	ARRAY_TYPE(settings_override) overrides;
@@ -1239,9 +1239,9 @@ settings_instance_get(struct event *event,
 	if (event_find_field_recursive(event, "protocol") == NULL)
 		event_add_str(event, "protocol", root->protocol_name);
 
-	struct master_settings_pool *mpool =
-		master_settings_pool_create(instance->mmap,
-					    source_filename, source_linenum);
+	struct settings_mmap_pool *mpool =
+		settings_mmap_pool_create(instance->mmap,
+					  source_filename, source_linenum);
 	pool_t set_pool = &mpool->pool;
 	struct setting_parser_context *parser =
 		settings_parser_init(set_pool, info,
@@ -1469,7 +1469,7 @@ void settings_root_deinit(struct settings_root **_root)
 
 void master_service_settings_deinit(struct master_service *service)
 {
-	struct master_settings_pool *mpool;
+	struct settings_mmap_pool *mpool;
 
 	for (mpool = service->settings_pools; mpool != NULL; mpool = mpool->next) {
 		e_warning(service->event, "Leaked settings: %s:%u",
