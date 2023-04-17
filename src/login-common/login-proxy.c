@@ -1,6 +1,7 @@
 /* Copyright (c) 2004-2018 Dovecot authors, see the included COPYING file */
 
 #include "login-common.h"
+#include "connection.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
@@ -382,6 +383,14 @@ static int login_proxy_connect(struct login_proxy *proxy)
 	   num_waiting_connections. */
 	proxy->num_waiting_connections_updated = FALSE;
 	rec->num_waiting_connections++;
+
+	if (proxy->client->local_name != NULL &&
+	    !connection_is_valid_dns_name(proxy->client->local_name)) {
+		login_proxy_failed(proxy, proxy->event,
+				   LOGIN_PROXY_FAILURE_TYPE_INTERNAL,
+				   "[BUG] Invalid local_name!");
+		return -1;
+	}
 
 	if (proxy->client->proxy_ttl <= 1) {
 		login_proxy_failed(proxy, proxy->event,
