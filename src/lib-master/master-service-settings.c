@@ -647,7 +647,7 @@ static void settings_mmap_free_blocks(struct settings_mmap *mmap)
 
 static int
 settings_mmap_parse(struct settings_mmap *mmap,
-		    struct master_service_settings_output *output_r,
+		    const char *const **specific_services_r,
 		    const char **error_r)
 {
 	/*
@@ -703,7 +703,9 @@ settings_mmap_parse(struct settings_mmap *mmap,
 
 	if (array_count(&protocols) > 0) {
 		array_append_zero(&protocols);
-		output_r->specific_services = array_front(&protocols);
+		*specific_services_r = array_front(&protocols);
+	} else {
+		*specific_services_r = NULL;
 	}
 	return 0;
 }
@@ -831,6 +833,30 @@ static void settings_mmap_unref(struct settings_mmap **_mmap)
 	i_free(mmap);
 }
 
+static int
+settings_read(struct settings_root *root, int fd, const char *path,
+	      const char *protocol_name,
+	      const char *const **specific_services_r,
+	      const char **error_r)
+{
+	struct settings_mmap *mmap = i_new(struct settings_mmap, 1);
+	mmap->refcount = 1;
+	mmap->mmap_base = mmap_ro_file(fd, &mmap->mmap_size);
+	if (mmap->mmap_base == MAP_FAILED)
+		i_fatal("Failed to read config: mmap(%s) failed: %m", path);
+	if (mmap->mmap_size == 0)
+		i_fatal("Failed to read config: %s file size is empty", path);
+	/* Remember the protocol for following settings lookups */
+	root->protocol_name = p_strdup(root->pool, protocol_name);
+
+	settings_mmap_unref(&root->mmap);
+	mmap->root = root;
+	root->mmap = mmap;
+	hash_table_create(&mmap->blocks, default_pool, 0, str_hash, strcmp);
+
+	return settings_mmap_parse(root->mmap, specific_services_r, error_r);
+}
+
 int master_service_settings_read(struct master_service *service,
 				 const struct master_service_settings_input *input,
 				 struct master_service_settings_output *output_r,
@@ -875,33 +901,15 @@ int master_service_settings_read(struct master_service *service,
 		master_service_append_config_overrides(service);
 	}
 	if (fd != -1) {
-		struct settings_mmap *mmap;
-		settings_mmap_unref(&service->settings_root->mmap);
-		mmap = i_new(struct settings_mmap, 1);
-		mmap->refcount = 1;
-		mmap->root = service->settings_root;
-		mmap->mmap_base = mmap_ro_file(fd, &mmap->mmap_size);
-		if (mmap->mmap_base == MAP_FAILED)
-			i_fatal("Failed to read config: mmap(%s) failed: %m", path);
-		if (mmap->mmap_size == 0)
-			i_fatal("Failed to read config: %s file size is empty", path);
-		/* Remember the protocol for following settings lookups */
 		const char *protocol_name = input->protocol != NULL ?
 			input->protocol : service->name;
-		mmap->root->protocol_name =
-			p_strdup(mmap->root->pool, protocol_name);
-
-		service->settings_root->mmap = mmap;
-		hash_table_create(&mmap->blocks, default_pool, 0,
-				  str_hash, strcmp);
-
+		ret = settings_read(service->settings_root, fd, path,
+				    protocol_name, &output_r->specific_services,
+				    &error);
 		if (input->return_config_fd)
 			output_r->config_fd = fd;
 		else
 			i_close_fd(&fd);
-
-		ret = settings_mmap_parse(service->settings_root->mmap,
-					  output_r, &error);
 		if (ret < 0) {
 			if (getenv(DOVECOT_CONFIG_FD_ENV) != NULL) {
 				i_fatal("Failed to parse config from fd %d: %s",
