@@ -238,9 +238,11 @@ void doveadm_read_settings(void)
 	doveadm_verbose_proctitle = master_service_get_service_settings(master_service)->verbose_proctitle;
 
 	doveadm_settings =
-		settings_get_or_fatal(NULL, &doveadm_setting_parser_info);
+		settings_get_or_fatal(master_service_get_event(master_service),
+				      &doveadm_setting_parser_info);
 	doveadm_ssl_set =
-		settings_get_or_fatal(NULL, &master_service_ssl_setting_parser_info);
+		settings_get_or_fatal(master_service_get_event(master_service),
+				      &master_service_ssl_setting_parser_info);
 }
 
 int doveadm_settings_get_config_fd(void)

@@ -250,7 +250,8 @@ int main(int argc, char *argv[])
 		i_fatal("%s", error);
 
 	imap_urlauth_settings = 
-		settings_get_or_fatal(NULL, &imap_urlauth_setting_parser_info);
+		settings_get_or_fatal(master_service_get_event(master_service),
+				      &imap_urlauth_setting_parser_info);
 
 	if (imap_urlauth_settings->verbose_proctitle)
 		verbose_proctitle = TRUE;

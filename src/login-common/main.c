@@ -505,13 +505,16 @@ int login_binary_run(struct login_binary *binary,
 	struct master_service_settings_output output;
 	if (master_service_settings_read(master_service, &input,
 					 &output, &error) < 0 ||
-	    settings_get(NULL, &login_setting_parser_info,
+	    settings_get(master_service_get_event(master_service),
+			 &login_setting_parser_info,
 			 SETTINGS_GET_FLAG_NO_EXPAND,
 			 &global_login_settings, &error) < 0)
 		i_fatal("%s", error);
-	global_ssl_settings = settings_get_or_fatal(NULL,
+	global_ssl_settings = settings_get_or_fatal(
+		master_service_get_event(master_service),
 		&master_service_ssl_setting_parser_info);
-	global_ssl_server_settings = settings_get_or_fatal(NULL,
+	global_ssl_server_settings = settings_get_or_fatal(
+		master_service_get_event(master_service),
 		&master_service_ssl_server_setting_parser_info);
 
 	if (argv[optind] != NULL)

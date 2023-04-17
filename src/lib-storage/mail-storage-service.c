@@ -1450,7 +1450,8 @@ void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 	if (ctx->conn != NULL)
 		return;
 
-	struct event *event = input == NULL ? NULL : input->event_parent;
+	struct event *event = input != NULL && input->event_parent != NULL ?
+		input->event_parent : master_service_get_event(ctx->service);
 	if (settings_get(event, &mail_user_setting_parser_info,
 			 SETTINGS_GET_FLAG_NO_EXPAND, &user_set, &error) < 0)
 		i_fatal("%s", error);

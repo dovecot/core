@@ -305,10 +305,12 @@ static void main_init(void)
 	input.service = "quota-status";
 	input.username = "";
 
-	if (settings_get(NULL, &mail_storage_setting_parser_info,
+	if (settings_get(master_service_get_event(master_service),
+			 &mail_storage_setting_parser_info,
 			 SETTINGS_GET_FLAG_NO_EXPAND, &mail_set, &error) < 0)
 		i_fatal("%s", error);
-	quota_status_settings = settings_get_or_fatal(NULL,
+	quota_status_settings = settings_get_or_fatal(
+		master_service_get_event(master_service),
 		&quota_status_setting_parser_info);
 
 	value = mail_user_set_plugin_getenv(mail_set, "quota_status_nouser");

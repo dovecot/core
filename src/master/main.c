@@ -422,7 +422,8 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 		i_sd_notify(0, "READY=1");
 		return;
 	}
-	if (settings_get(NULL, &master_setting_parser_info, 0,
+	if (settings_get(master_service_get_event(master_service),
+			 &master_setting_parser_info, 0,
 			 &set, &error) < 0) {
 		i_close_fd(&output.config_fd);
 		i_error("%s", error);
@@ -514,7 +515,8 @@ static const struct master_settings *master_settings_read(void)
 		i_fatal("%s", error);
 	global_config_fd = output.config_fd;
 	fd_close_on_exec(global_config_fd, TRUE);
-	return settings_get_or_fatal(NULL, &master_setting_parser_info);
+	return settings_get_or_fatal(master_service_get_event(master_service),
+				     &master_setting_parser_info);
 }
 
 static void main_log_startup(char **protocols)
