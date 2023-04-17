@@ -1090,10 +1090,10 @@ master_settings_pool_create(struct settings_mmap *mmap,
 }
 
 static void
-master_service_var_expand_init(struct event *event,
-			       const struct var_expand_table **tab_r,
-			       const struct var_expand_func_table **func_tab_r,
-			       void **func_context_r)
+settings_var_expand_init(struct event *event,
+			 const struct var_expand_table **tab_r,
+			 const struct var_expand_func_table **func_tab_r,
+			 void **func_context_r)
 {
 	*tab_r = NULL;
 	*func_tab_r = NULL;
@@ -1300,8 +1300,7 @@ settings_instance_get(struct event *event,
 		const struct var_expand_func_table *func_tab;
 		void *func_context;
 
-		master_service_var_expand_init(event, &tab, &func_tab,
-					       &func_context);
+		settings_var_expand_init(event, &tab, &func_tab, &func_context);
 		ret = settings_var_expand_with_funcs(info, set, *pool_p, tab,
 						     func_tab, func_context,
 						     error_r);
