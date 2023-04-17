@@ -11,15 +11,15 @@ struct settings_root;
 struct settings_mmap;
 struct settings_instance;
 
-enum master_service_set_type {
+enum settings_override_type {
 	/* Setting is from userdb. */
-	MASTER_SERVICE_SET_TYPE_USERDB,
+	SETTINGS_OVERRIDE_TYPE_USERDB,
 	/* Setting is from -o command line parameters. */
-	MASTER_SERVICE_SET_TYPE_CLI_PARAM,
+	SETTINGS_OVERRIDE_TYPE_CLI_PARAM,
 	/* Setting is hardcoded to be overridden in the code. */
-	MASTER_SERVICE_SET_TYPE_CODE,
+	SETTINGS_OVERRIDE_TYPE_CODE,
 
-	MASTER_SERVICE_SET_TYPE_COUNT,
+	SETTINGS_OVERRIDE_TYPE_COUNT,
 };
 
 enum master_service_settings_get_flags {
@@ -197,7 +197,7 @@ master_service_settings_get_or_fatal(struct event *event,
 /* Override a setting. */
 void master_service_set(struct settings_instance *instance,
 			const char *key, const char *value,
-			enum master_service_set_type type);
+			enum settings_override_type type);
 
 /* Return a new instance for settings. */
 struct settings_instance *

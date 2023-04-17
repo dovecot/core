@@ -469,7 +469,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	struct settings_instance *set_instance =
 		mail_storage_service_user_get_settings_instance(ctx->ctx.cur_service_user);
 	master_service_set(set_instance, "mail_location", location,
-			   MASTER_SERVICE_SET_TYPE_CODE);
+			   SETTINGS_OVERRIDE_TYPE_CODE);
 	ret = mail_storage_service_next(ctx->ctx.storage_service,
 					ctx->ctx.cur_service_user,
 					&user2, &error);

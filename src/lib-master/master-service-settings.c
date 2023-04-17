@@ -78,16 +78,16 @@ struct settings_instance {
 	ARRAY_TYPE(settings_override) overrides;
 };
 
-static const char *master_service_set_type_names[] = {
+static const char *settings_override_type_names[] = {
 	"userdb", "-o parameter", "hardcoded"
 };
-static_assert_array_size(master_service_set_type_names,
-			 MASTER_SERVICE_SET_TYPE_COUNT);
+static_assert_array_size(settings_override_type_names,
+			 SETTINGS_OVERRIDE_TYPE_COUNT);
 
 static void
 settings_root_override(struct settings_root *root,
 		       const char *key, const char *value,
-		       enum master_service_set_type type);
+		       enum settings_override_type type);
 
 #undef DEF
 #define DEF(type, name) \
@@ -441,7 +441,7 @@ master_service_append_config_overrides(struct master_service *service)
 		t_split_key_value_eq(cli_overrides[i], &key, &value);
 
 		settings_root_override(service->settings_root, key, value,
-				       MASTER_SERVICE_SET_TYPE_CLI_PARAM);
+				       SETTINGS_OVERRIDE_TYPE_CLI_PARAM);
 	}
 }
 
@@ -1137,7 +1137,7 @@ settings_override_get_value(struct setting_parser_context *parser,
 	   no longer needed. */
 	const void *old_value = settings_parse_get_value(parser, key, &value_type);
 	if (old_value == NULL && !str_begins_with(key, "plugin/") &&
-	    set->type == MASTER_SERVICE_SET_TYPE_USERDB) {
+	    set->type == SETTINGS_OVERRIDE_TYPE_USERDB) {
 		/* FIXME: Setting is unknown in this parser. Since the parser
 		   doesn't know all settings, we can't be sure if it's because
 		   it should simply be ignored or because it's a plugin setting.
@@ -1213,7 +1213,7 @@ settings_instance_override(struct settings_root *root,
 			*error_r = t_strdup_printf(
 				"Failed to override configuration from %s: "
 				"Invalid %s=%s: %s",
-				master_service_set_type_names[set->type],
+				settings_override_type_names[set->type],
 				key, value, settings_parser_get_error(parser));
 			return -1;
 		}
@@ -1369,7 +1369,7 @@ master_service_settings_get_or_fatal(struct event *event,
 
 void master_service_set(struct settings_instance *instance,
 			const char *key, const char *value,
-			enum master_service_set_type type)
+			enum settings_override_type type)
 {
 	if (!array_is_created(&instance->overrides))
 		p_array_init(&instance->overrides, instance->pool, 16);
@@ -1390,7 +1390,7 @@ void master_service_set(struct settings_instance *instance,
 static void
 settings_root_override(struct settings_root *root,
 		       const char *key, const char *value,
-		       enum master_service_set_type type)
+		       enum settings_override_type type)
 {
 	if (!array_is_created(&root->overrides))
 		p_array_init(&root->overrides, root->pool, 16);
