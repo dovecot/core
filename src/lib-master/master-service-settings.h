@@ -201,7 +201,7 @@ void master_service_set(struct settings_instance *instance,
 
 /* Return a new instance for settings. */
 struct settings_instance *
-settings_instance_new(struct master_service *service);
+settings_instance_new(struct settings_root *root);
 /* Return a new instance based on an existing instance. */
 struct settings_instance *
 settings_instance_dup(const struct settings_instance *src);

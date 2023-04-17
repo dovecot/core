@@ -111,7 +111,8 @@ static void client_read_settings(struct client *client, bool ssl)
 	input.end_client_tls_secured = ssl;
 	input.username = "";
 
-	client->set_instance = settings_instance_new(master_service);
+	client->set_instance = settings_instance_new(
+		master_service_get_settings_root(master_service));
 	event_set_ptr(client->event, SETTINGS_EVENT_INSTANCE,
 		      client->set_instance);
 	client->raw_mail_user =

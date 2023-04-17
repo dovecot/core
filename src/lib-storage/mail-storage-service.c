@@ -1042,7 +1042,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		   affecting the parent instance. */
 		set_instance = settings_instance_dup(input->set_instance);
 	} else {
-		set_instance = settings_instance_new(ctx->service);
+		set_instance = settings_instance_new(
+			master_service_get_settings_root(ctx->service));
 	}
 
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0 &&

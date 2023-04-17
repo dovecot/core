@@ -58,7 +58,6 @@ struct settings_mmap_block {
 struct settings_mmap {
 	int refcount;
 	struct settings_root *root;
-	struct master_service *service;
 
 	void *mmap_base;
 	size_t mmap_size;
@@ -75,7 +74,7 @@ struct settings_root {
 
 struct settings_instance {
 	pool_t pool;
-	struct master_service *service;
+	struct settings_mmap *mmap;
 	ARRAY_TYPE(settings_override) overrides;
 };
 
@@ -879,15 +878,16 @@ int master_service_settings_read(struct master_service *service,
 		mmap = i_new(struct settings_mmap, 1);
 		mmap->refcount = 1;
 		mmap->root = service->settings_root;
-		mmap->service = service;
 		mmap->mmap_base = mmap_ro_file(fd, &mmap->mmap_size);
 		if (mmap->mmap_base == MAP_FAILED)
 			i_fatal("Failed to read config: mmap(%s) failed: %m", path);
 		if (mmap->mmap_size == 0)
 			i_fatal("Failed to read config: %s file size is empty", path);
 		/* Remember the protocol for following settings lookups */
+		const char *protocol_name = input->protocol != NULL ?
+			input->protocol : service->name;
 		mmap->root->protocol_name =
-			p_strdup(mmap->root->pool, input->protocol);
+			p_strdup(mmap->root->pool, protocol_name);
 
 		service->settings_root->mmap = mmap;
 		hash_table_create(&mmap->blocks, default_pool, 0,
@@ -1165,7 +1165,8 @@ settings_override_get_value(struct setting_parser_context *parser,
 }
 
 static int
-settings_instance_override(struct settings_instance *instance,
+settings_instance_override(struct settings_root *root,
+			   struct settings_instance *instance,
 			   struct setting_parser_context *parser,
 			   struct master_settings_pool *mpool,
 			   const char **error_r)
@@ -1175,8 +1176,8 @@ settings_instance_override(struct settings_instance *instance,
 	t_array_init(&overrides, 64);
 	if (array_is_created(&instance->overrides))
 		array_append_array(&overrides, &instance->overrides);
-	if (array_is_created(&instance->service->settings_root->overrides))
-		array_append_array(&overrides, &instance->service->settings_root->overrides);
+	if (array_is_created(&root->overrides))
+		array_append_array(&overrides, &root->overrides);
 	array_sort(&overrides, settings_override_cmp);
 
 	const struct settings_override *set;
@@ -1222,6 +1223,7 @@ settings_instance_override(struct settings_instance *instance,
 
 static int
 settings_instance_get(struct event *event,
+		      struct settings_root *root,
 		      struct settings_instance *instance,
 		      const struct setting_parser_info *info,
 		      enum master_service_settings_get_flags flags,
@@ -1229,31 +1231,26 @@ settings_instance_get(struct event *event,
 		      unsigned int source_linenum,
 		      const void **set_r, const char **error_r)
 {
-	struct master_service *service = instance->service;
 	const char *error;
 	int ret;
 
 	i_assert(info->pool_offset1 != 0);
 
 	event = event_create(event);
-	if (event_find_field_recursive(event, "protocol") == NULL) {
-		event_add_str(event, "protocol",
-			      service->settings_root->protocol_name != NULL ?
-			      service->settings_root->protocol_name :
-			      service->name);
-	}
+	if (event_find_field_recursive(event, "protocol") == NULL)
+		event_add_str(event, "protocol", root->protocol_name);
 
 	struct master_settings_pool *mpool =
-		master_settings_pool_create(master_service->settings_root->mmap,
+		master_settings_pool_create(instance->mmap,
 					    source_filename, source_linenum);
 	pool_t set_pool = &mpool->pool;
 	struct setting_parser_context *parser =
 		settings_parser_init(set_pool, info,
 				     SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
 
-	if (service->settings_root->mmap != NULL) {
-		ret = settings_mmap_apply(service->settings_root->mmap,
-				event, parser, info, &error);
+	if (instance->mmap != NULL) {
+		ret = settings_mmap_apply(instance->mmap,
+					  event, parser, info, &error);
 		if (ret < 0) {
 			*error_r = t_strdup_printf(
 				"Failed to parse configuration: %s", error);
@@ -1269,7 +1266,7 @@ settings_instance_get(struct event *event,
 	settings_parse_set_expanded(parser, TRUE);
 
 	T_BEGIN {
-		ret = settings_instance_override(instance, parser, mpool,
+		ret = settings_instance_override(root, instance, parser, mpool,
 						 error_r);
 	} T_END_PASS_STR_IF(ret < 0, error_r);
 	if (ret < 0) {
@@ -1344,13 +1341,14 @@ int master_service_settings_get(struct event *event,
 
 	/* no instance-specific settings */
 	struct settings_instance empty_instance = {
-		.service = master_service,
+		.mmap = master_service->settings_root->mmap,
 	};
 	if (instance == NULL)
 		instance = &empty_instance;
 
-	return settings_instance_get(event, instance,
-		info, flags, source_filename, source_linenum, set_r, error_r);
+	return settings_instance_get(event, master_service->settings_root,
+		instance, info, flags, source_filename, source_linenum,
+		set_r, error_r);
 }
 
 #undef master_service_settings_get_or_fatal
@@ -1403,22 +1401,30 @@ settings_root_override(struct settings_root *root,
 	set->value = p_strdup(root->pool, value);
 }
 
-struct settings_instance *
-settings_instance_new(struct master_service *service)
+static struct settings_instance *
+settings_instance_alloc(void)
 {
 	pool_t pool = pool_alloconly_create("settings instance", 1024);
 	struct settings_instance *instance =
 		p_new(pool, struct settings_instance, 1);
 	instance->pool = pool;
-	instance->service = service;
+	return instance;
+}
+
+struct settings_instance *
+settings_instance_new(struct settings_root *root)
+{
+	struct settings_instance *instance = settings_instance_alloc();
+	instance->mmap = root->mmap;
 	return instance;
 }
 
 struct settings_instance *
 settings_instance_dup(const struct settings_instance *src)
 {
-	struct settings_instance *dest =
-		settings_instance_new(src->service);
+	struct settings_instance *dest = settings_instance_alloc();
+	dest->mmap = src->mmap;
+
 	if (!array_is_created(&src->overrides))
 		return dest;
 
