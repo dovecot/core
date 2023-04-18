@@ -83,8 +83,6 @@ mail_user_alloc(struct mail_storage_service_user *service_user)
 		mail_storage_service_user_get_event(service_user);
 	const char *username =
 		mail_storage_service_user_get_username(service_user);
-	struct master_service_settings_instance *service_user_set_instance =
-		mail_storage_service_user_get_settings_instance(service_user);
 	i_assert(*username != '\0');
 
 	pool_t pool = pool_alloconly_create(MEMPOOL_GROWING"mail user", 16*1024);
@@ -94,7 +92,6 @@ mail_user_alloc(struct mail_storage_service_user *service_user)
 	user->service_user = service_user;
 	mail_storage_service_user_ref(service_user);
 	user->username = p_strdup(pool, username);
-	user->set_instance = service_user_set_instance;
 	user->set = mail_storage_service_user_get_set(service_user);
 	user->service = master_service_get_name(master_service);
 	user->default_normalizer = uni_utf8_to_decomposed_titlecase;

@@ -4,6 +4,7 @@
 #include "index-storage.h"
 
 struct setting_parser_context;
+struct master_service_settings_instance;
 struct mail_storage_service_ctx;
 
 #define RAW_STORAGE_NAME "raw"
