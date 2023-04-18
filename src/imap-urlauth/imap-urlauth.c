@@ -275,8 +275,11 @@ int main(int argc, char *argv[])
 		master_service_get_client_limit(master_service) == 1;
 
 	clients_init();
-	master_service_init_finish(master_service);
 	master_service_set_die_callback(master_service, imap_urlauth_die);
+
+	if (!IS_STANDALONE())
+		login_server = login_server_init(master_service, &login_set);
+	master_service_init_finish(master_service);
 
 	/* fake that we're running, so we know if client was destroyed
 	   while handling its initial input */
@@ -287,7 +290,6 @@ int main(int argc, char *argv[])
 			main_stdio_run(username);
 		} T_END;
 	} else {
-		login_server = login_server_init(master_service, &login_set);
 		io_loop_set_running(current_ioloop);
 	}
 
