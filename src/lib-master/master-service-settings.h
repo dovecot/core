@@ -1,9 +1,6 @@
 #ifndef MASTER_SERVICE_SETTINGS_H
 #define MASTER_SERVICE_SETTINGS_H
 
-#include "net.h"
-#include "settings-parser.h"
-
 struct var_expand_table;
 struct var_expand_func_table;
 struct master_service;
