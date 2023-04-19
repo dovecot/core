@@ -573,7 +573,7 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 			/* filter name doesn't match the path prefix at all. */
 			continue;
 		} else if (suffix[0] == '\0') {
-			/* filter name match (e.g. "mail_attribute_dict") */
+			/* filter name match (e.g. "mail_attribute") */
 			set_name_filter = set_filter_path[1];
 			sub_filter_path++;
 		} else if (suffix[0] != '/') {

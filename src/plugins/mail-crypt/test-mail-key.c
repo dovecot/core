@@ -372,7 +372,8 @@ static void test_setup(void)
 	const char *username = "mcp_test@example.com";
 	const char *const extra_input[] = {
 		t_strdup_printf("mail_crypt_curve=prime256v1"),
-		t_strdup_printf("mail_attribute_dict=file:%s/%s/dovecot-attributes",
+		"mail_attribute/dict_driver=file",
+		t_strdup_printf("dict_file_path=%s/%s/dovecot-attributes",
 				test_ctx->home_root, username),
 		NULL
 	};

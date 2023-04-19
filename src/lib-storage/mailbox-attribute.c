@@ -4,6 +4,8 @@
 #include "array.h"
 #include "str.h"
 #include "istream.h"
+#include "settings.h"
+#include "dict.h"
 #include "mail-storage-private.h"
 #include "bsearch-insert-pos.h"
 #include "mailbox-attribute-internal.h"
@@ -473,6 +475,21 @@ struct mailbox_attribute_internal_iter {
 	bool iter_failed;
 };
 
+int mailbox_attribute_dict_is_enabled(struct mail_user *user,
+				      const char **error_r)
+{
+	struct dict_settings *dict_set;
+	struct event *event = event_create(user->event);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "mail_attribute");
+	int ret = settings_get(event, &dict_setting_parser_info, 0,
+			       &dict_set, error_r);
+	if (ret == 0 && dict_set->dict_driver[0] != '\0')
+		ret = 1;
+	settings_free(dict_set);
+	event_unref(&event);
+	return ret;
+}
+
 struct mailbox_attribute_iter *
 mailbox_attribute_iter_init(struct mailbox *box,
 			    enum mail_attribute_type type_flags,
@@ -481,7 +498,7 @@ mailbox_attribute_iter_init(struct mailbox *box,
 	struct mailbox_attribute_internal_iter *intiter;
 	struct mailbox_attribute_iter *iter;
 	ARRAY_TYPE(const_string) extra_attrs;
-	const char *const *attr;
+	const char *const *attr, *error;
 	pool_t pool;
 	bool have_dict, failed = FALSE;
 
@@ -489,9 +506,15 @@ mailbox_attribute_iter_init(struct mailbox *box,
 	i_assert(iter->box != NULL);
 	box->attribute_iter_count++;
 
+	int ret = mailbox_attribute_dict_is_enabled(box->storage->user, &error);
+	have_dict = ret > 0;
+	if (ret < 0) {
+		mail_storage_set_critical(box->storage, "%s", error);
+		failed = TRUE;
+	}
+
 	/* check which internal attributes may apply */
 	t_array_init(&extra_attrs, 4);
-	have_dict = box->storage->set->mail_attribute_dict[0] != '\0';
 	pool = pool_alloconly_create("mailbox internal attribute iter", 128);
 	if (mailbox_internal_attributes_get(box, type_flags, prefix, pool,
 					    have_dict, &extra_attrs) < 0)
