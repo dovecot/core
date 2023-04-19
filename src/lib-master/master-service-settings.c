@@ -857,6 +857,11 @@ settings_read(struct settings_root *root, int fd, const char *path,
 	return settings_mmap_parse(root->mmap, specific_services_r, error_r);
 }
 
+static bool settings_has_mmap(struct settings_root *root)
+{
+	return root->mmap != NULL;
+}
+
 int master_service_settings_read(struct master_service *service,
 				 const struct master_service_settings_input *input,
 				 struct master_service_settings_output *output_r,
@@ -872,7 +877,7 @@ int master_service_settings_read(struct master_service *service,
 		/* unit test */
 		fd = input->config_fd;
 		path = t_strdup_printf("<input fd %d>", fd);
-	} else if (service->settings_root->mmap != NULL &&
+	} else if (settings_has_mmap(service->settings_root) &&
 		   !input->reload_config) {
 		/* config was already read once */
 	} else if ((value = getenv(DOVECOT_CONFIG_FD_ENV)) != NULL) {
@@ -896,7 +901,7 @@ int master_service_settings_read(struct master_service *service,
 			return -1;
 		}
 	}
-	if (service->settings_root->mmap == NULL) {
+	if (!settings_has_mmap(service->settings_root)) {
 		/* first time reading settings */
 		master_service_append_config_overrides(service);
 	}
