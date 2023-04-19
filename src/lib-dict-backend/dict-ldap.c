@@ -234,7 +234,7 @@ ldap_dict_build_query(const struct dict_op_settings *set,
 
 static
 int ldap_dict_init_legacy(struct dict *dict_driver, const char *uri,
-			  const struct dict_settings *set ATTR_UNUSED,
+			  const struct dict_legacy_settings *set ATTR_UNUSED,
 			  struct dict **dict_r, const char **error_r)
 {
 	pool_t pool = pool_alloconly_create("ldap dict", 2048);

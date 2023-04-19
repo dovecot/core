@@ -13,7 +13,7 @@ cmd_dict_init_full(struct doveadm_cmd_context *cctx,
 		   doveadm_command_ver2_t *cmd ATTR_UNUSED, enum dict_iterate_flags *iter_flags,
 		   struct dict **dict_r, struct dict_op_settings *dopset_r)
 {
-	struct dict_settings dict_set;
+	struct dict_legacy_settings dict_set;
 	struct dict *dict;
 	bool set = FALSE;
 	const char *dict_uri, *error, *key, *username = "";

@@ -26,7 +26,7 @@ struct fs_dict_iterate_context {
 
 static int
 fs_dict_init_legacy(struct dict *driver, const char *uri,
-		    const struct dict_settings *set,
+		    const struct dict_legacy_settings *set,
 		    struct dict **dict_r, const char **error_r)
 {
 	struct fs_settings fs_set;

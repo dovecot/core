@@ -78,7 +78,7 @@ file_dict_ensure_path_home_dir(struct file_dict *dict, const char *home_dir,
 
 static int
 file_dict_init_legacy(struct dict *driver, const char *uri,
-		      const struct dict_settings *set ATTR_UNUSED,
+		      const struct dict_legacy_settings *set ATTR_UNUSED,
 		      struct dict **dict_r, const char **error_r)
 {
 	struct file_dict *dict;

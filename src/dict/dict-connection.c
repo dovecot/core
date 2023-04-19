@@ -68,7 +68,7 @@ static int dict_connection_handshake_line(struct connection *conn,
 
 static int dict_connection_dict_init(struct dict_connection *conn)
 {
-	struct dict_settings dict_set;
+	struct dict_legacy_settings dict_set;
 	const char *const *strlist;
 	unsigned int i, count;
 	const char *uri, *error;

@@ -16,7 +16,7 @@ struct dict_op_settings dict_op_settings = {
 static void test_setup(struct dict **dict_r)
 {
 	const char *error = NULL;
-	struct dict_settings set = {
+	struct dict_legacy_settings set = {
 		.base_dir = "."
 	};
 	struct dict *dict = NULL;

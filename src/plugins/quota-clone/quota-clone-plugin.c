@@ -270,7 +270,7 @@ static void quota_clone_mail_user_created(struct mail_user *user)
 {
 	struct quota_clone_user *quser;
 	struct mail_user_vfuncs *v = user->vlast;
-	struct dict_settings dict_set;
+	struct dict_legacy_settings dict_set;
 	struct dict *dict;
 	const char *uri, *error;
 

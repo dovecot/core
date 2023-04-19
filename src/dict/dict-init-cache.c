@@ -76,7 +76,7 @@ static struct dict_init_cache_list *dict_init_cache_find(const char *dict_name)
 }
 
 int dict_init_cache_get(const char *dict_name, const char *uri,
-			const struct dict_settings *set,
+			const struct dict_legacy_settings *set,
 			struct dict **dict_r, const char **error_r)
 {
 	struct dict_init_cache_list *match;

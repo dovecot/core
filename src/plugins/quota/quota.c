@@ -854,7 +854,7 @@ int quota_set_resource(struct quota_root *root, const char *name,
 	}
 
 	if (root->limit_set_dict == NULL) {
-		struct dict_settings set;
+		struct dict_legacy_settings set;
 
 		i_zero(&set);
 		set.base_dir = root->quota->user->set->base_dir;

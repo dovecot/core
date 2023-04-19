@@ -221,7 +221,7 @@ db_dict_settings_parse(struct db_dict_settings *set)
 
 struct dict_connection *db_dict_init(const char *config_path)
 {
-	struct dict_settings dict_set;
+	struct dict_legacy_settings dict_set;
 	struct dict_settings_parser_ctx ctx;
 	struct dict_connection *conn;
 	const char *error;

@@ -87,10 +87,10 @@ void dict_driver_unregister(struct dict *driver)
 		array_free(&dict_drivers);
 }
 
-int dict_init_legacy(const char *uri, const struct dict_settings *set,
+int dict_init_legacy(const char *uri, const struct dict_legacy_settings *set,
 		     struct dict **dict_r, const char **error_r)
 {
-	struct dict_settings set_dup = *set;
+	struct dict_legacy_settings set_dup = *set;
 	struct dict *dict;
 	const char *p, *name, *error;
 

@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
 {
 	const char *prefix, *uri;
 	struct dict *dict;
-	struct dict_settings set;
+	struct dict_legacy_settings set;
 	struct dict_op_settings opset;
 	struct ioloop *ioloop;
 	const char *error;

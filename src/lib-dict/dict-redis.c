@@ -368,7 +368,7 @@ static const char *redis_escape_username(const char *username)
 
 static int
 redis_dict_init_legacy(struct dict *driver, const char *uri,
-		       const struct dict_settings *set,
+		       const struct dict_legacy_settings *set,
 		       struct dict **dict_r, const char **error_r)
 {
 	struct redis_dict *dict;

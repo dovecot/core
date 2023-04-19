@@ -54,7 +54,7 @@ static void test_dict_lua(void)
 "  assert(dict:lookup('shared/testkey')[1] == 'updated')\n"
 "  assert(dict:lookup('shared/testkey2') == nil)\n"
 "end\n";
-	struct dict_settings set = {
+	struct dict_legacy_settings set = {
 		.base_dir = NULL,
 	};
 	struct dict *dict;

@@ -50,7 +50,7 @@ fs_dict_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 	     const char **error_r)
 {
 	struct dict_fs *fs = (struct dict_fs *)_fs;
-	struct dict_settings dict_set;
+	struct dict_legacy_settings dict_set;
 	const char *p, *encoding_str, *error;
 
 	p = strchr(args, ':');

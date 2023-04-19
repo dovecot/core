@@ -77,7 +77,7 @@ static void last_login_mail_user_created(struct mail_user *user)
 	struct mail_user_vfuncs *v = user->vlast;
 	struct last_login_user *luser;
 	struct dict *dict;
-	struct dict_settings set;
+	struct dict_legacy_settings set;
 	struct dict_transaction_context *trans;
 	const char *dict_value, *key_name, *precision, *error;
 

@@ -703,7 +703,7 @@ static const struct connection_vfuncs dict_conn_vfuncs = {
 
 static int
 client_dict_init_legacy(struct dict *driver, const char *uri,
-			const struct dict_settings *set,
+			const struct dict_legacy_settings *set,
 			struct dict **dict_r, const char **error_r)
 {
 	struct ioloop *old_ioloop = current_ioloop;

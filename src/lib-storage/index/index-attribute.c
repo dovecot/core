@@ -33,7 +33,7 @@ static int
 index_storage_get_user_dict(struct mail_storage *err_storage,
 			    struct mail_user *user, struct dict **dict_r)
 {
-	struct dict_settings dict_set;
+	struct dict_legacy_settings dict_set;
 	struct mail_namespace *ns;
 	struct mail_storage *attr_storage;
 	const char *error;
@@ -85,7 +85,7 @@ index_storage_get_dict(struct mailbox *box, enum mail_attribute_type type_flags,
 	struct mail_storage *storage = box->storage;
 	struct mail_namespace *ns;
 	struct mailbox_metadata metadata;
-	struct dict_settings set;
+	struct dict_legacy_settings set;
 	const char *error;
 
 	if ((type_flags & MAIL_ATTRIBUTE_TYPE_FLAG_VALIDATED) != 0) {

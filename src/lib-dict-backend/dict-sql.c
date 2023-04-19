@@ -97,7 +97,7 @@ static void sql_dict_prev_set_free(struct sql_dict_transaction_context *ctx);
 
 static int
 sql_dict_init_legacy(struct dict *driver, const char *uri,
-		     const struct dict_settings *set,
+		     const struct dict_legacy_settings *set,
 		     struct dict **dict_r, const char **error_r)
 {
 	struct sql_settings sql_set;

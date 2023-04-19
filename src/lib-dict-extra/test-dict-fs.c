@@ -37,7 +37,7 @@ static void test_dict_fs_set_get(void)
 	test_begin("dict-fs get/set");
 	const char *error;
 	struct dict *dict;
-	struct dict_settings set = {
+	struct dict_legacy_settings set = {
 		.base_dir = ".",
 	};
 	if (dict_init_legacy("fs:posix:prefix=.test-dict/", &set, &dict, &error) < 0)

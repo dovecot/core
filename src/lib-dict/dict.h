@@ -31,7 +31,7 @@ enum dict_data_type {
 	DICT_DATA_TYPE_LAST
 };
 
-struct dict_settings {
+struct dict_legacy_settings {
 	const char *base_dir;
 	/* set to parent event, if exists */
 	struct event *event_parent;
@@ -99,7 +99,7 @@ void dict_drivers_unregister_all(void);
 
 /* Open dictionary with given URI (type:data).
    Returns 0 if ok, -1 if URI is invalid. */
-int dict_init_legacy(const char *uri, const struct dict_settings *set,
+int dict_init_legacy(const char *uri, const struct dict_legacy_settings *set,
 		     struct dict **dict_r, const char **error_r);
 /* Close dictionary. */
 void dict_deinit(struct dict **dict);

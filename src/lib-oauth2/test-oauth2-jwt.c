@@ -935,7 +935,7 @@ static void test_do_init(void)
 	struct dcrypt_settings dcrypt_set = {
 		.module_dir = TEST_DCRYPT_MODULE_DIR,
 	};
-	struct dict_settings dict_set = {
+	struct dict_legacy_settings dict_set = {
 		.base_dir = ".",
 	};
 

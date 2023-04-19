@@ -65,7 +65,7 @@ static void client_connected(struct master_service_connection *conn ATTR_UNUSED)
 
 static void dict_expire_init(void)
 {
-	struct dict_settings dict_set = {
+	struct dict_legacy_settings dict_set = {
 		.base_dir = dict_settings->base_dir,
 	};
 	struct dict *dict;
