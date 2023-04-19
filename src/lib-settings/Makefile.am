@@ -5,10 +5,12 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-test
 
 libsettings_la_SOURCES = \
+	settings.c \
 	settings-legacy.c \
 	settings-parser.c
 
 headers = \
+	settings.h \
 	settings-legacy.h \
 	settings-parser.h
 
