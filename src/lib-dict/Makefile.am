@@ -8,7 +8,6 @@ AM_CPPFLAGS = \
 
 base_sources = \
 	dict.c \
-	dict-client.c \
 	dict-file.c \
 	dict-redis.c \
 	dict-fail.c \
@@ -19,7 +18,6 @@ libdict_la_SOURCES = \
 
 headers = \
 	dict.h \
-	dict-client.h \
 	dict-private.h \
 	dict-transaction-memory.h
 
@@ -51,7 +49,7 @@ pkginc_lib_HEADERS = $(headers)
 test_programs = \
 	test-dict
 
-noinst_PROGRAMS = $(test_programs) test-dict-client
+noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
 	libdict.la \
@@ -62,10 +60,6 @@ test_libs = \
 test_dict_SOURCES = test-dict.c
 test_dict_LDADD = $(test_libs)
 test_dict_DEPENDENCIES = $(test_libs)
-
-test_dict_client_SOURCES = test-dict-client.c
-test_dict_client_LDADD = $(test_libs)
-test_dict_client_DEPENDENCIES = $(test_libs)
 
 check-local:
 	for bin in $(test_programs) $(check_PROGRAMS); do \
