@@ -202,6 +202,8 @@ static int lazy_expunge_mail_is_last_instance(struct mail *_mail)
 			/* already expunged - just ignore it */
 			return 0;
 		}
+		if (_mail->box->mailbox_deleted)
+			return 0;
 		mail_set_critical(_mail,
 			"lazy_expunge: Couldn't lookup message's refcount: %s",
 			errstr);
