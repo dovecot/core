@@ -11,6 +11,7 @@
 #include "eacces-error.h"
 #include "env-util.h"
 #include "execv-const.h"
+#include "settings.h"
 #include "settings-parser.h"
 #include "stats-client.h"
 #include "master-service-private.h"

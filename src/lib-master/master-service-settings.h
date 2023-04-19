@@ -1,8 +1,6 @@
 #ifndef MASTER_SERVICE_SETTINGS_H
 #define MASTER_SERVICE_SETTINGS_H
 
-#include "settings.h"
-
 struct master_service;
 
 struct master_service_settings {

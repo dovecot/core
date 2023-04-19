@@ -7,6 +7,7 @@
 #include "hash.h"
 #include "str.h"
 #include "net.h"
+#include "settings.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "service.h"

@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "hash-method.h"
+#include "settings.h"
 #include "settings-parser.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"

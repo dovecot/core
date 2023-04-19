@@ -3,6 +3,7 @@
 #include "stats-common.h"
 #include "restrict-access.h"
 #include "ioloop.h"
+#include "settings.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "master-service-ssl-settings.h"

@@ -9,6 +9,7 @@
 #include "http-client-private.h"
 #include "istream.h"
 #include "iostream-ssl.h"
+#include "settings.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "master-service-ssl-settings.h"

@@ -17,6 +17,7 @@
 #include "process-title.h"
 #include "randgen.h"
 #include "restrict-access.h"
+#include "settings.h"
 #include "settings-parser.h"
 #include "connection.h"
 #include "master-service.h"

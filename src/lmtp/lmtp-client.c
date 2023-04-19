@@ -11,6 +11,7 @@
 #include "process-title.h"
 #include "var-expand.h"
 #include "module-dir.h"
+#include "settings.h"
 #include "master-service-ssl.h"
 #include "master-service-settings.h"
 #include "iostream-ssl.h"

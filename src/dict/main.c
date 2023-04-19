@@ -9,6 +9,7 @@
 #include "process-title.h"
 #include "env-util.h"
 #include "module-dir.h"
+#include "settings.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "sql-api.h"

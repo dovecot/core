@@ -54,6 +54,7 @@ The imap-urlauth service thus consists of three separate stages:
 #include "base64.h"
 #include "str.h"
 #include "process-title.h"
+#include "settings.h"
 #include "auth-master.h"
 #include "master-service.h"
 #include "master-service-settings.h"

@@ -15,7 +15,7 @@
 #include "json-istream.h"
 #include "json-ostream.h"
 #include "master-service.h"
-#include "master-service-settings.h"
+#include "settings.h"
 #include "master-service-ssl-settings.h"
 #include "auth-request.h"
 #include "auth-penalty.h"

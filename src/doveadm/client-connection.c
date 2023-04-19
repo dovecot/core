@@ -2,9 +2,9 @@
 
 #include "lib.h"
 #include "process-title.h"
+#include "settings.h"
 #include "settings-parser.h"
 #include "master-service.h"
-#include "master-service-settings.h"
 #include "doveadm.h"
 #include "doveadm-settings.h"
 #include "client-connection-private.h"

@@ -11,6 +11,7 @@
 #include "randgen.h"
 #include "restrict-access.h"
 #include "write-full.h"
+#include "settings.h"
 #include "settings-parser.h"
 #include "master-interface.h"
 #include "master-service.h"

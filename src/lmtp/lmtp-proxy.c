@@ -18,7 +18,7 @@
 #include "smtp-dovecot.h"
 #include "auth-proxy.h"
 #include "auth-master.h"
-#include "master-service-settings.h"
+#include "settings.h"
 #include "master-service-ssl-settings.h"
 #include "mail-storage-service.h"
 #include "lda-settings.h"

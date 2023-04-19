@@ -6,7 +6,7 @@
 #include "ostream.h"
 #include "restrict-access.h"
 #include "master-service.h"
-#include "master-service-settings.h"
+#include "settings.h"
 #include "settings-parser.h"
 #include "mailbox-list-private.h"
 #include "mbox-storage.h"

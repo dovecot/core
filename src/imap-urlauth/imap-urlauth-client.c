@@ -13,9 +13,9 @@
 #include "execv-const.h"
 #include "env-util.h"
 #include "var-expand.h"
+#include "settings.h"
 #include "restrict-access.h"
 #include "master-service.h"
-#include "master-service-settings.h"
 #include "master-interface.h"
 
 #include "imap-urlauth-worker-client.h"
