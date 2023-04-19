@@ -333,6 +333,7 @@ settings_export(struct config_export_context *ctx,
 			count = 0;
 			break;
 		}
+		case SET_FILTER_NAME:
 		case SET_ALIAS:
 			break;
 		}

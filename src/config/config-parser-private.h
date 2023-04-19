@@ -36,6 +36,8 @@ struct config_section_stack {
 	const char *open_path;
 	unsigned int open_linenum;
 	bool is_filter;
+
+	const struct setting_define *filter_def;
 };
 
 struct input_stack {

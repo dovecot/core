@@ -131,12 +131,34 @@ get_setting_full_path(struct config_parser_context *ctx, const char *key)
 	return str_c(str);
 }
 
+static bool
+config_is_filter_name(struct config_parser_context *ctx, const char *key,
+		      const struct setting_define **def_r)
+{
+	const struct config_module_parser *module_parsers =
+		ctx->cur_section->module_parsers;
+	unsigned int i;
+
+	for (i = 0; module_parsers[i].root != NULL; i++) {
+		*def_r = settings_parse_get_filter(module_parsers[i].parser, key);
+		if (*def_r != NULL)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 int config_apply_line(struct config_parser_context *ctx, const char *key,
 		      const char *line, const char *section_name)
 {
 	struct config_module_parser *l;
 	bool found = FALSE;
 	int ret;
+
+	if (ctx->cur_section->filter_def != NULL &&
+	    !ctx->cur_section->filter_parser->filter_required_setting_seen &&
+	    ctx->cur_section->filter_def->required_setting != NULL &&
+	    strcmp(key, ctx->cur_section->filter_def->required_setting) == 0)
+		ctx->cur_section->filter_parser->filter_required_setting_seen = TRUE;
 
 	for (l = ctx->cur_section->module_parsers; l->root != NULL; l++) {
 		ret = settings_parse_line(l->parser, line);
@@ -338,6 +360,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 	struct config_filter *filter = &ctx->cur_section->filter;
 	struct config_filter *parent = &ctx->cur_section->prev->filter;
 	struct config_filter_parser *filter_parser;
+	const struct setting_define *filter_def = NULL;
 	const char *error;
 
 	i_zero(filter);
@@ -387,6 +410,15 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			ctx->error = "remote net1 { remote net2 { .. } } requires net2 to be inside net1";
 		else
 			filter->remote_host = p_strdup(ctx->pool, value);
+	} else if (value[0] == '\0' &&
+		   config_is_filter_name(ctx, key, &filter_def)) {
+		if (parent->filter_name != NULL) {
+			ctx->error = p_strdup_printf(ctx->pool,
+				"Nested named filters not allowed: %s { %s { .. } }",
+				parent->filter_name, key);
+			return FALSE;
+		}
+		filter->filter_name = p_strdup(ctx->pool, key);
 	} else {
 		return FALSE;
 	}
@@ -395,11 +427,13 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 	if (filter_parser != NULL) {
 		ctx->cur_section->filter_parser = filter_parser;
 		ctx->cur_section->module_parsers =
-			filter_parser->module_parsers;
+			ctx->cur_section->filter_parser->module_parsers;
 	} else {
 		config_add_new_parser(ctx);
 	}
 	ctx->cur_section->is_filter = TRUE;
+	if (filter_def != NULL)
+		ctx->cur_section->filter_def = filter_def;
 	return TRUE;
 }
 
@@ -1046,7 +1080,15 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 	case CONFIG_LINE_TYPE_SECTION_END:
 		if (ctx->cur_section->prev == NULL)
 			ctx->error = "Unexpected '}'";
-		else {
+		else if (ctx->cur_section->filter_def != NULL &&
+			 ctx->cur_section->filter_def->required_setting != NULL &&
+			 !ctx->cur_section->filter_parser->filter_required_setting_seen) {
+			ctx->error = p_strdup_printf(ctx->pool,
+				"Named filter %s is required to have %s setting, "
+				"but it is missing",
+				ctx->cur_section->filter_def->key,
+				ctx->cur_section->filter_def->required_setting);
+		} else {
 			ctx->pathlen = ctx->cur_section->pathlen;
 			ctx->cur_section = ctx->cur_section->prev;
 		}

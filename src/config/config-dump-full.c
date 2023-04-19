@@ -92,6 +92,10 @@ config_dump_full_append_filter_query(string_t *str,
 			    net_ip2addr(&filter->remote_net),
 			    filter->remote_bits);
 	}
+	if (filter->filter_name != NULL) {
+		str_printfa(str, SETTINGS_EVENT_FILTER_NAME"=\"%s\" AND ",
+			    wildcard_str_escape(filter->filter_name));
+	}
 }
 
 static void

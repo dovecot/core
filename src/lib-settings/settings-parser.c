@@ -539,6 +539,10 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 			return -1;
 		break;
 	}
+	case SET_FILTER_NAME:
+		settings_parser_set_error(ctx, t_strdup_printf(
+			"Setting is a named filter, use '%s {'", key));
+		return -1;
 	case SET_ALIAS:
 		i_unreached();
 	}
@@ -550,7 +554,8 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 
 static bool
 settings_find_key_nth(struct setting_parser_context *ctx, const char *key,
-		      unsigned int *n, const struct setting_define **def_r,
+		      bool allow_filter_name, unsigned int *n,
+		      const struct setting_define **def_r,
 		      struct setting_link **link_r)
 {
 	const struct setting_define *def;
@@ -560,7 +565,8 @@ settings_find_key_nth(struct setting_parser_context *ctx, const char *key,
 	/* try to find from roots */
 	if (*n == 0) {
 		def = setting_define_find(ctx->root.info, key);
-		if (def != NULL) {
+		if (def != NULL && (def->type != SET_FILTER_NAME ||
+				    allow_filter_name)) {
 			*n = 1;
 			*def_r = def;
 			*link_r = &ctx->root;
@@ -584,7 +590,7 @@ settings_find_key_nth(struct setting_parser_context *ctx, const char *key,
 		const struct setting_define *parent_def;
 		struct setting_link *parent_link;
 
-		if (!settings_find_key_nth(ctx, parent_key, &parent_n,
+		if (!settings_find_key_nth(ctx, parent_key, FALSE, &parent_n,
 					   &parent_def, &parent_link))
 			return FALSE;
 		if (parent_def == NULL) {
@@ -618,12 +624,27 @@ settings_find_key_nth(struct setting_parser_context *ctx, const char *key,
 
 static bool
 settings_find_key(struct setting_parser_context *ctx, const char *key,
-		  const struct setting_define **def_r,
+		  bool allow_filter_name, const struct setting_define **def_r,
 		  struct setting_link **link_r)
 {
 	unsigned int n = 0;
 
-	return settings_find_key_nth(ctx, key, &n, def_r, link_r);
+	return settings_find_key_nth(ctx, key, allow_filter_name,
+				     &n, def_r, link_r);
+}
+
+const struct setting_define *
+settings_parse_get_filter(struct setting_parser_context *ctx,
+			  const char *filter_name)
+{
+	const struct setting_define *def;
+	struct setting_link *link;
+
+	if (!settings_find_key(ctx, filter_name, TRUE, &def, &link))
+		return NULL;
+	if (def->type != SET_FILTER_NAME)
+		return NULL;
+	return def;
 }
 
 static void
@@ -663,7 +684,7 @@ settings_parse_keyvalue_real(struct setting_parser_context *ctx,
 	i_free(ctx->error);
 	ctx->prev_info = NULL;
 
-	if (!settings_find_key_nth(ctx, key, &n, &def, &link)) {
+	if (!settings_find_key_nth(ctx, key, FALSE, &n, &def, &link)) {
 		settings_parser_set_error(ctx,
 			t_strconcat("Unknown setting: ", key, NULL));
 		return 0;
@@ -679,7 +700,7 @@ settings_parse_keyvalue_real(struct setting_parser_context *ctx,
 		if (settings_parse(ctx, link, def, key, value, dup_value) < 0)
 			return -1;
 		/* there may be more instances of the setting */
-	} while (settings_find_key_nth(ctx, key, &n, &def, &link));
+	} while (settings_find_key_nth(ctx, key, FALSE, &n, &def, &link));
 	return 1;
 }
 
@@ -701,7 +722,7 @@ const char *settings_parse_unalias(struct setting_parser_context *ctx,
 	const struct setting_define *def;
 	struct setting_link *link;
 
-	if (!settings_find_key(ctx, key, &def, &link))
+	if (!settings_find_key(ctx, key, FALSE, &def, &link))
 		return NULL;
 	if (def == NULL) {
 		/* strlist */
@@ -723,7 +744,7 @@ settings_parse_get_value(struct setting_parser_context *ctx,
 	const struct setting_define *def;
 	struct setting_link *link;
 
-	if (!settings_find_key(ctx, key, &def, &link))
+	if (!settings_find_key(ctx, key, TRUE, &def, &link))
 		return NULL;
 	if (link->set_struct == NULL || def == NULL)
 		return NULL;
@@ -739,7 +760,7 @@ bool settings_parse_is_changed(struct setting_parser_context *ctx,
 	struct setting_link *link;
 	const unsigned char *p;
 
-	if (!settings_find_key(ctx, key, &def, &link))
+	if (!settings_find_key(ctx, key, FALSE, &def, &link))
 		return FALSE;
 	if (link->change_struct == NULL || def == NULL)
 		return FALSE;
@@ -854,6 +875,7 @@ settings_var_expand_info(const struct setting_parser_info *info, void *set,
 		case SET_STR:
 		case SET_ENUM:
 		case SET_STRLIST:
+		case SET_FILTER_NAME:
 		case SET_ALIAS:
 			break;
 		case SET_STR_VARS: {
@@ -1048,6 +1070,7 @@ setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool,
 		}
 		break;
 	}
+	case SET_FILTER_NAME:
 	case SET_ALIAS:
 		break;
 	}
@@ -1162,6 +1185,7 @@ settings_changes_dup(const struct setting_parser_info *info,
 			}
 			break;
 		}
+		case SET_FILTER_NAME:
 		case SET_ALIAS:
 			break;
 		}

@@ -108,5 +108,8 @@ bool config_filters_equal(const struct config_filter *f1,
 	if (null_strcasecmp(f1->local_name, f2->local_name) != 0)
 		return FALSE;
 
+	if (null_strcmp(f1->filter_name, f2->filter_name) != 0)
+		return FALSE;
+
 	return TRUE;
 }

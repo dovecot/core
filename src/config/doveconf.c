@@ -538,6 +538,11 @@ config_dump_filter_begin(string_t *str, unsigned int indent,
 		str_printfa(str, "protocol %s {\n", filter->service);
 		indent++;
 	}
+	if (filter->filter_name != NULL) {
+		str_append_max(str, indent_str, indent*2);
+		str_printfa(str, "%s {\n", filter->filter_name);
+		indent++;
+	}
 	return indent;
 }
 
@@ -553,17 +558,65 @@ config_dump_filter_end(struct ostream *output, unsigned int indent,
 }
 
 static void
-config_dump_human_filter_path(struct config_filter_parser *filter_parser,
+config_dump_human_filter_path(enum config_dump_scope scope,
+			      const char *const *set_filter_path,
+			      struct config_filter_parser *filter_parser,
 			      struct ostream *output, unsigned int indent,
 			      string_t *list_prefix, bool *list_prefix_sent,
 			      bool hide_key, bool hide_passwords)
 {
 	for (; filter_parser != NULL; filter_parser = filter_parser->next) {
+		const char *suffix, *set_name_filter = NULL;
+		const char *const *sub_filter_path = set_filter_path;
+
+		if (set_filter_path[0] == NULL) {
+			/* show everything */
+		} else if (filter_parser->filter.filter_name == NULL) {
+			/* not a named filter / array - can't match */
+			continue;
+		} else if (!str_begins(filter_parser->filter.filter_name,
+				       set_filter_path[0], &suffix)) {
+			/* filter name doesn't match the path prefix at all. */
+			continue;
+		} else if (suffix[0] == '\0') {
+			/* filter name match (e.g. "mail_attribute_dict") */
+			set_name_filter = set_filter_path[1];
+			sub_filter_path++;
+		} else if (suffix[0] != '/') {
+			/* filter name doesn't match the path */
+		} else if (set_filter_path[1] == NULL) {
+			/* filter array name prefix match (e.g. "service") */
+			sub_filter_path++;
+		} else if (strcmp(suffix+1, set_filter_path[1]) == 0) {
+			/* filter array match */
+			sub_filter_path += 2;
+
+			if (sub_filter_path[0] == NULL) {
+				/* Show all settings under this section */
+			} else if (sub_filter_path[1] == NULL) {
+				/* One more string in the path - it could be
+				   either a filter or a setting name.
+				   Check both. */
+				set_name_filter = sub_filter_path[0];
+			} else {
+				/* There is at least one more '/' in the path.
+				   It could be either another filter, or it
+				   could be e.g. "plugin/key". */
+				set_name_filter = t_strarray_join(sub_filter_path, "/");
+			}
+		} else {
+			continue;
+		}
+
 		struct config_dump_human_context *ctx;
 		unsigned int sub_indent;
 		size_t parent_list_prefix_len = str_len(list_prefix);
+		/* If we're asking for a specific setting, don't hide
+		   passwords. */
+		bool sub_hide_passwords = set_name_filter != NULL ?
+			FALSE : hide_passwords;
 
-		ctx = config_dump_human_init(CONFIG_DUMP_SCOPE_CHANGED);
+		ctx = config_dump_human_init(scope);
 		sub_indent = hide_key ? 0 :
 			config_dump_filter_begin(list_prefix, indent,
 						 &filter_parser->filter);
@@ -571,9 +624,9 @@ config_dump_human_filter_path(struct config_filter_parser *filter_parser,
 						 filter_parser->module_parsers);
 		str_append_str(ctx->list_prefix, list_prefix);
 		config_dump_human_output(ctx, output, sub_indent,
-					 NULL,
+					 set_name_filter,
 					 hide_key,
-					 hide_passwords);
+					 sub_hide_passwords);
 
 		bool sub_list_prefix_sent = ctx->list_prefix_sent;
 		if (sub_list_prefix_sent) {
@@ -582,10 +635,10 @@ config_dump_human_filter_path(struct config_filter_parser *filter_parser,
 		}
 		config_dump_human_deinit(ctx);
 
-		config_dump_human_filter_path(filter_parser->children_head,
-					      output, sub_indent, list_prefix,
-					      &sub_list_prefix_sent,
-					      hide_key, hide_passwords);
+		config_dump_human_filter_path(scope, sub_filter_path,
+			filter_parser->children_head, output, sub_indent,
+			list_prefix, &sub_list_prefix_sent,
+			hide_key, hide_passwords);
 		if (sub_list_prefix_sent) {
 			*list_prefix_sent = TRUE;
 			config_dump_filter_end(output, sub_indent, indent);
@@ -620,14 +673,15 @@ config_dump_human(enum config_dump_scope scope,
 				 hide_key, hide_passwords);
 	config_dump_human_deinit(ctx);
 
-	if (setting_name_filter == NULL) {
-		string_t *list_prefix = t_str_new(128);
-		bool list_prefix_sent = FALSE;
-		config_dump_human_filter_path(filter_parser->children_head,
-					      output, 0, list_prefix,
-					      &list_prefix_sent,
-					      hide_key, hide_passwords);
-	}
+	string_t *list_prefix = t_str_new(128);
+	bool list_prefix_sent = FALSE;
+	const char *const *set_filter_path =
+		setting_name_filter == NULL ? empty_str_array :
+		t_strsplit(setting_name_filter, "/");
+	config_dump_human_filter_path(scope, set_filter_path,
+				      filter_parser->children_head, output, 0,
+				      list_prefix, &list_prefix_sent,
+				      hide_key, hide_passwords);
 
 	/* flush output before writing errors */
 	o_stream_uncork(output);

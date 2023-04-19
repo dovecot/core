@@ -14,6 +14,9 @@ struct config_filter {
 	const char *local_host, *remote_host;
 	struct ip_addr local_net, remote_net;
 	unsigned int local_bits, remote_bits;
+
+	/* named_filter { .. } */
+	const char *filter_name;
 };
 
 struct config_filter_parser {
@@ -23,6 +26,7 @@ struct config_filter_parser {
 	const char *file_and_line;
 	/* NULL-terminated array of parsers */
 	struct config_module_parser *module_parsers;
+	bool filter_required_setting_seen;
 };
 
 /* Returns TRUE if filter matches mask. */

@@ -30,7 +30,8 @@ enum setting_type {
 	SET_DEFLIST, /* of type array_t */
 	SET_DEFLIST_UNIQUE,
 	SET_STRLIST, /* of type ARRAY_TYPE(const_string) */
-	SET_ALIAS /* alias name for above setting definition */
+	SET_ALIAS, /* alias name for above setting definition */
+	SET_FILTER_NAME,
 };
 enum setting_flags {
 	SET_FLAG_HIDDEN = BIT(0),
@@ -38,7 +39,7 @@ enum setting_flags {
 #define SETTING_TYPE_IS_DEFLIST(type) \
 	((type) == SET_DEFLIST || (type) == SET_DEFLIST_UNIQUE)
 
-#define SETTING_DEFINE_LIST_END { 0, 0, NULL, 0, NULL }
+#define SETTING_DEFINE_LIST_END { 0, 0, NULL, 0, NULL, NULL }
 
 struct setting_define {
 	enum setting_type type;
@@ -47,6 +48,7 @@ struct setting_define {
 
 	size_t offset;
 	const struct setting_parser_info *list_info;
+	const char *required_setting;
 };
 
 #define SETTING_DEFINE_STRUCT_TYPE(_enum_type, _flags, _c_type, _key, _name, _struct_name) \
@@ -143,6 +145,10 @@ const char *settings_parser_get_error(struct setting_parser_context *ctx);
 const struct setting_parser_info *
 settings_parse_get_prev_info(struct setting_parser_context *ctx);
 
+/* Find the definition for a given SET_FILTER_NAME. */
+const struct setting_define *
+settings_parse_get_filter(struct setting_parser_context *ctx,
+			  const char *filter_name);
 /* If key is an alias, return the primary key name. If key exists, return key
    itself. If key doesn't exist, return NULL. */
 const char *settings_parse_unalias(struct setting_parser_context *ctx,
