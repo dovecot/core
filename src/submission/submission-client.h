@@ -137,7 +137,7 @@ client_create(int fd_in, int fd_out, struct event *event,
 	      const struct submission_settings *set, const char *helo,
 	      const struct smtp_proxy_data *proxy_data,
 	      const unsigned char *pdata, unsigned int pdata_len,
-	      bool no_greeting);
+	      bool no_greeting, bool have_mailbox_attribute_dict);
 void client_destroy(struct client **_client, const char *prefix,
 		    const char *reply_reason, const char *log_reason);
 void client_kick(struct client *client, bool shutdown);

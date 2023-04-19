@@ -18,7 +18,6 @@ struct mail_storage_settings {
 	const char *mail_attachment_dir;
 	const char *mail_attachment_hash;
 	uoff_t mail_attachment_min_size;
-	const char *mail_attribute_dict;
 	unsigned int mail_prefetch_count;
 	const char *mail_cache_fields;
 	const char *mail_always_cache_fields;

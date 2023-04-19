@@ -177,6 +177,7 @@ struct client {
 	const struct imap_settings *set;
 	const struct smtp_submit_settings *smtp_set;
 	string_t *capability_string;
+	const char *init_error;
 	const char *disconnect_reason;
 
         struct mail_user *user;

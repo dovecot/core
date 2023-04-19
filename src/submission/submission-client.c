@@ -185,11 +185,10 @@ client_create(int fd_in, int fd_out, struct event *event,
 	      const struct submission_settings *set, const char *helo,
 	      const struct smtp_proxy_data *proxy_data,
 	      const unsigned char *pdata, unsigned int pdata_len,
-	      bool no_greeting)
+	      bool no_greeting, bool have_mailbox_attribute_dict)
 {
 	enum submission_client_workarounds workarounds =
 		set->parsed_workarounds;
-	const struct mail_storage_settings *mail_set;
 	struct smtp_server_settings smtp_set;
 	struct smtp_server_connection *conn;
 	struct client *client;
@@ -246,9 +245,7 @@ client_create(int fd_in, int fd_out, struct event *event,
 
 	client_create_backend_default(client, set);
 
-	mail_set = mail_user_set_get_storage_set(user);
-	if (*set->imap_urlauth_host != '\0' &&
-	    *mail_set->mail_attribute_dict != '\0') {
+	if (*set->imap_urlauth_host != '\0' && have_mailbox_attribute_dict) {
 		/* Enable BURL capability only when urlauth dict is
 		   configured correctly */
 		client_init_urlauth(client);

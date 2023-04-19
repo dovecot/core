@@ -175,15 +175,20 @@ struct client *client_create(int fd_in, int fd_out,
 		client_add_capability(client, "NOTIFY");
 	}
 
-	if (*set->imap_urlauth_host != '\0' &&
-	    *mail_set->mail_attribute_dict != '\0') {
+	const char *error;
+	int ret = mailbox_attribute_dict_is_enabled(user, &error);
+	if (ret < 0 && client->init_error == NULL)
+		client->init_error = p_strdup(user->pool, error);
+	bool have_mailbox_attribute_dict = ret > 0;
+
+	if (*set->imap_urlauth_host != '\0' && have_mailbox_attribute_dict) {
 		/* Enable URLAUTH capability only when dict is
 		   configured correctly */
 		client_init_urlauth(client);
 		client_add_capability(client, "URLAUTH");
 		client_add_capability(client, "URLAUTH=BINARY");
 	}
-	if (set->imap_metadata && *mail_set->mail_attribute_dict != '\0')
+	if (set->imap_metadata && have_mailbox_attribute_dict)
 		client_add_capability(client, "METADATA");
 	if (user_has_special_use_mailboxes(user)) {
 		/* Advertise SPECIAL-USE only if there are actually some
@@ -229,6 +234,10 @@ void client_create_finish_io(struct client *client)
 
 int client_create_finish(struct client *client, const char **error_r)
 {
+	if (client->init_error != NULL) {
+		*error_r = client->init_error;
+		return -1;
+	}
 	if (mail_namespaces_init(client->user, error_r) < 0)
 		return -1;
 	mail_namespaces_set_storage_callbacks(client->user->namespaces,

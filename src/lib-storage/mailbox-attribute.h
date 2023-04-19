@@ -151,6 +151,7 @@
  *	shared/<GUID>/vendor/vendor.dovecot/pvt/server/vendor/vendor.dovecot/pvt
  */
 
+struct mail_user;
 struct mailbox;
 struct mailbox_transaction_context;
 
@@ -312,5 +313,10 @@ mailbox_attribute_iter_init(struct mailbox *box,
 /* Returns the attribute key or NULL if there are no more attributes. */
 const char *mailbox_attribute_iter_next(struct mailbox_attribute_iter *iter);
 int mailbox_attribute_iter_deinit(struct mailbox_attribute_iter **iter);
+
+/* Returns 1 if mailbox_attribute_dict is configured, 0 if not, -1 if there was
+   error looking up the settings. */
+int mailbox_attribute_dict_is_enabled(struct mail_user *user,
+				      const char **error_r);
 
 #endif

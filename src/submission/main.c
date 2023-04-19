@@ -23,6 +23,7 @@
 #include "var-expand.h"
 #include "mail-error.h"
 #include "mail-user.h"
+#include "mailbox-attribute.h"
 #include "mail-storage-service.h"
 #include "smtp-server.h"
 #include "smtp-client.h"
@@ -213,6 +214,15 @@ client_create_from_input(const struct mail_storage_service_input *input,
 		event_unref(&event);
 		return -1;
 	}
+	int ret = mailbox_attribute_dict_is_enabled(mail_user, error_r);
+	if (ret < 0) {
+		send_error(fd_out, event, my_hostname,
+			"4.7.0", MAIL_ERRSTR_CRITICAL_MSG);
+		mail_user_deinit(&mail_user);
+		event_unref(&event);
+		return -1;
+	}
+	bool have_mailbox_attribute_dict = ret > 0;
 
 	/* parse input data */
 	data = NULL;
@@ -235,7 +245,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 
 	(void)client_create(fd_in, fd_out, event, mail_user,
 			    set, helo, &proxy_data, data, data_len,
-			    no_greeting);
+			    no_greeting, have_mailbox_attribute_dict);
 	event_unref(&event);
 	return 0;
 }
