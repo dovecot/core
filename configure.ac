@@ -682,11 +682,41 @@ dnl **
 dnl ** Settings
 dnl **
 
-dnl get a list of setting .[ch] files, but list .h files first
-FILES1=`find $srcdir/src -name '*settings.[[ch]]'|grep "$srcdir/src/lib-" | sed 's/^\(.*\)\(.\)$/\2 \1\2/' | grep -E -v 'lib-(master|smtp|settings).*c$' | sort -r | sed s/^..//`
-FILES2=`find $srcdir/src -name '*settings.[[ch]]'|grep -v "$srcdir/src/lib-" | sed 's/^\(.*\)\(.\)$/\2 \1\2/' | grep -v all-settings | sort -r | sed s/^..//`
-SETTING_FILES=`echo $FILES1 $FILES2 | sed -e s,$srcdir/src,./src,g -e 's,./src,$(top_srcdir)/src,g'`
+libdovecot_dirs=`echo "$LIBDOVECOT_LA_LIBS" | sed -e "s:\\$(top_builddir):$srcdir:g" -e 's:/[[^/]]*\\.la::g'`
+
+libdovecot_headers=
+libdovecot_c_files=
+non_libdovecot_headers=
+non_libdovecot_c_files=
+all_files=`find $srcdir/src -name '*.[[ch]]' | grep -v '/src/config/all-settings.c' | grep -v '/src/lib-settings/' | grep -v '/test-' | xargs grep '\\(struct setting_parser_info [[a-z]]\\)\\|\\(struct service_settings [[a-z]]\\)\\|\\(<settings checks>\\)' | sed 's/:.*//' | sort | uniq`
+for file in $all_files; do
+  dir=`echo "$file" | sed 's:/[[^/]]*$::'`
+  if echo "$libdovecot_dirs" | grep "$dir" >/dev/null; then
+    dnl lib-dovecot
+    if echo "$file" | grep '\.h$' >/dev/null; then
+      libdovecot_headers="$libdovecot_headers $file"
+    else
+      libdovecot_c_files="$libdovecot_c_files $file"
+    fi
+  else
+    dnl not lib-dovecot
+    if echo "$file" | grep '\.h$' >/dev/null; then
+      non_libdovecot_headers="$non_libdovecot_headers $file"
+    else
+      non_libdovecot_c_files="$non_libdovecot_c_files $file"
+    fi
+  fi
+done
+
+dnl libdovecot is linked to doveconf/config binaries, so don't duplicate the .c
+dnl file contents. However, we still need to scan the .c files for any
+dnl setting_parser_infos that aren't elsewhere.
+
+# list headers first, C files last
+SETTING_FILES=`echo $libdovecot_headers $non_libdovecot_headers $non_libdovecot_c_files | sed -e s,$srcdir/src,./src,g -e 's,./src,$(top_srcdir)/src,g'`
+SETTING_LINKED_FILES=`echo $libdovecot_c_files | sed -e s,$srcdir/src,./src,g -e 's,./src,$(top_srcdir)/src,g'`
 AC_SUBST(SETTING_FILES)
+AC_SUBST(SETTING_LINKED_FILES)
 
 dnl **
 dnl ** capabilities

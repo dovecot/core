@@ -33,7 +33,12 @@ my @services = ();
 my @service_ifdefs = ();
 my %parsers = {};
 
+my $linked_file = 0;
 foreach my $file (@ARGV) {
+  if ($file eq "--") {
+    $linked_file = 1;
+    next;
+  }
   my $f;
   open($f, $file) || die "Can't open $file: $@";
   
@@ -65,8 +70,15 @@ foreach my $file (@ARGV) {
 	push @service_ifdefs, $ifdef;
       } elsif (/^(static )?const struct setting_parser_info (.*) = \{/) {
 	$cur_name = $2;
+	if (/^const/ && $cur_name !~ /^\*/) {
+	  $parsers{$cur_name} = 1;
+	  if ($linked_file) {
+	    $externs .= "extern const struct setting_parser_info $cur_name;\n";
+	  }
+	}
 	$state++ if ($cur_name !~ /^\*default_/);
       } elsif (/^extern const struct setting_parser_info (.*);/) {
+	$parsers{$1} = 1;
 	$externs .= "extern const struct setting_parser_info $1;\n";
       } elsif (/\/\* <settings checks> \*\//) {
 	$state = 4;
@@ -93,9 +105,6 @@ foreach my $file (@ARGV) {
     
     if ($state == 1 || $state == 3) {
       if ($state == 1 && $cur_name ne "") {
-	if (/\.name = "(.*)"/) {
-	  $parsers{$cur_name} = $1;
-	}
 	if (/\.parent = /) {
 	  delete($parsers{$cur_name});
 	}
@@ -132,8 +141,10 @@ foreach my $file (@ARGV) {
   
   print "/* $file */\n";
   print $externs;
-  print $code;
-  print $file_contents;
+  if (!$linked_file) {
+    print $code;
+    print $file_contents;
+  }
 
   close $f;
 }
@@ -152,10 +163,6 @@ print "\t{ { config_all_services, sizeof(config_all_services) } }\n";
 print "};\n";
 
 print "const struct setting_parser_info *all_default_roots[] = {\n";
-print "\t&master_service_setting_parser_info,\n";
-print "\t&master_service_ssl_setting_parser_info,\n";
-print "\t&master_service_ssl_server_setting_parser_info,\n";
-print "\t&smtp_submit_setting_parser_info,\n";
 foreach my $name (sort(keys %parsers)) {
   my $module = $parsers{$name};
   next if (!$module);
