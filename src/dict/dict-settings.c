@@ -134,8 +134,8 @@ const struct dict_server_settings dict_default_settings = {
 	.dicts = ARRAY_INIT
 };
 
-const struct setting_parser_info dict_setting_parser_info = {
-	.name = "dict",
+const struct setting_parser_info dict_server_setting_parser_info = {
+	.name = "dict_server",
 
 	.defines = dict_setting_defines,
 	.defaults = &dict_default_settings,

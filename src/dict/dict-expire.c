@@ -109,7 +109,7 @@ static void main_init(void)
 
 	dict_settings =
 		settings_get_or_fatal(master_service_get_event(master_service),
-				      &dict_setting_parser_info);
+				      &dict_server_setting_parser_info);
 
 	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
