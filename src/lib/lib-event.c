@@ -1221,6 +1221,11 @@ struct event *event_get_parent(const struct event *event)
 	return event->parent;
 }
 
+pool_t event_get_pool(const struct event *event)
+{
+	return event->pool;
+}
+
 void event_get_create_time(const struct event *event, struct timeval *tv_r)
 {
 	*tv_r = event->tv_created;

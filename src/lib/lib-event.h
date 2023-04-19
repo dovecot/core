@@ -391,6 +391,8 @@ void event_field_clear(struct event *event, const char *key);
 
 /* Returns the parent event, or NULL if it doesn't exist. */
 struct event *event_get_parent(const struct event *event);
+/* Returns the memory pool used by the event. */
+pool_t event_get_pool(const struct event *event);
 /* Get the event's creation time. */
 void event_get_create_time(const struct event *event, struct timeval *tv_r);
 /* Get the time when the event was last sent. Returns TRUE if time was
