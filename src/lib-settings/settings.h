@@ -35,6 +35,13 @@ enum settings_get_flags {
    This is set automatically by lib-master for all created root events. */
 #define SETTINGS_EVENT_ROOT "settings_root"
 
+/* Used by settings_get() to access the named filter. This is copied to the
+   temporary lookup event to avoid having to use "filter_name" visible in
+   the main event's fields. Usage:
+
+   event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "auth_policy"); */
+#define SETTINGS_EVENT_FILTER_NAME "settings_filter_name"
+
 /* Set struct var_expand_table to be used for settings expansion. The table is
    expected to be accessible until the event is freed or the table is cleared
    from the event. Usage:
