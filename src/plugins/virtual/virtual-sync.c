@@ -1846,13 +1846,16 @@ static int virtual_sync_backend_boxes(struct virtual_sync_context *ctx)
 		virtual_sync_bboxes_get_mails(ctx);
 
 	for (i = 0; i < count; i++) {
+		struct virtual_backend_box *bbox = bboxes[i];
+		if (bbox->box->mailbox_deleted)
+			continue;
+
 		T_BEGIN {
-			ret = virtual_sync_backend_box(ctx, bboxes[i]);
+			ret = virtual_sync_backend_box(ctx, bbox);
 		} T_END;
 		if (ret < 0) {
 			/* backend failed, copy the error */
-			virtual_box_copy_error(&ctx->mbox->box,
-					       bboxes[i]->box);
+			virtual_box_copy_error(&ctx->mbox->box, bbox->box);
 			return -1;
 		}
 	}
