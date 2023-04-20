@@ -6,7 +6,8 @@ enum dict_sql_type {
 	DICT_SQL_TYPE_INT,
 	DICT_SQL_TYPE_UINT,
 	DICT_SQL_TYPE_DOUBLE,
-	DICT_SQL_TYPE_HEXBLOB
+	DICT_SQL_TYPE_HEXBLOB,
+	DICT_SQL_TYPE_UUID,
 };
 
 struct dict_sql_field {

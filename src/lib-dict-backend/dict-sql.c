@@ -33,6 +33,7 @@ struct sql_dict_param {
 	double value_double;
 	const void *value_binary;
 	size_t value_binary_size;
+	guid_128_t value_uuid;
 };
 ARRAY_DEFINE_TYPE(sql_dict_param, struct sql_dict_param);
 
@@ -259,6 +260,9 @@ sql_dict_statement_bind(struct sql_statement *stmt, unsigned int column_idx,
 		sql_statement_bind_binary(stmt, column_idx, param->value_binary,
 					  param->value_binary_size);
 		break;
+	case DICT_SQL_TYPE_UUID:
+		sql_statement_bind_uuid(stmt, column_idx, param->value_uuid);
+		break;
 	}
 }
 
@@ -328,6 +332,15 @@ sql_dict_value_get(const struct dict_sql_map *map,
 		    str_to_double(value, &param->value_double) < 0) {
 			*error_r = t_strdup_printf(
 				"%s field's value isn't a double: %s%s (in pattern: %s)",
+				field_name, value, value_suffix, map->pattern);
+			return -1;
+		}
+		return 0;
+	case DICT_SQL_TYPE_UUID:
+		if (value_suffix[0] != '\0' ||
+		    guid_128_from_uuid_string(value, param->value_uuid) < 0) {
+			*error_r = t_strdup_printf(
+				"%s field's value isn't an uuid: %s%s (in pattern: %s)",
 				field_name, value, value_suffix, map->pattern);
 			return -1;
 		}
@@ -494,6 +507,7 @@ sql_dict_result_unescape(enum dict_sql_type type, pool_t pool,
 	const unsigned char *data;
 	size_t size;
 	const char *value;
+	guid_128_t guid;
 	string_t *str;
 
 	switch (type) {
@@ -503,6 +517,12 @@ sql_dict_result_unescape(enum dict_sql_type type, pool_t pool,
 	case DICT_SQL_TYPE_DOUBLE:
 		value = sql_result_get_field_value(result, result_idx);
 		return value == NULL ? "" : p_strdup(pool, value);
+	case DICT_SQL_TYPE_UUID:
+		value = sql_result_get_field_value(result, result_idx);
+		if (value == NULL)
+			return "";
+		guid_128_from_uuid_string(value, guid);
+		return guid_128_to_uuid_string(guid, FORMAT_RECORD);
 	case DICT_SQL_TYPE_HEXBLOB:
 		break;
 	}
