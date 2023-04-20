@@ -104,7 +104,7 @@ static int config_string_cmp(const char *const *p1, const char *const *p2)
 	if (s2[i] == '=')
 		return 1;
 
-	return s1[i] - s2[i];
+	return (signed char)s1[i] - (signed char)s2[i];
 }
 
 static struct prefix_stack prefix_stack_pop(ARRAY_TYPE(prefix_stack) *stack)
