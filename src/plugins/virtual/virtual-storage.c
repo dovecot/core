@@ -66,6 +66,9 @@ void virtual_box_copy_error(struct mailbox *dest, struct mailbox *src)
 	str = mailbox_get_last_error(src, &error);
 
 	str = t_strdup_printf("%s (for backend mailbox %s)", str, name);
+	if (src->mailbox_deleted)
+		error = MAIL_ERROR_EXPUNGED;
+
 	mail_storage_set_error(dest->storage, error, str);
 }
 
