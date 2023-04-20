@@ -228,33 +228,6 @@ void mail_user_ref(struct mail_user *user)
 	user->refcount++;
 }
 
-void mail_user_unref(struct mail_user **_user)
-{
-	struct mail_user *user = *_user;
-
-	i_assert(user->refcount > 0);
-
-	*_user = NULL;
-	if (user->refcount > 1) {
-		user->refcount--;
-		return;
-	}
-
-	user->deinitializing = TRUE;
-
-	/* call deinit() and deinit_pre() with refcount=1, otherwise we may
-	   assert-crash in mail_user_ref() that is called by some handlers. */
-	T_BEGIN {
-		user->v.deinit_pre(user);
-		user->v.deinit(user);
-	} T_END;
-	settings_parser_unref(&user->set_parser);
-	settings_parser_unref(&user->unexpanded_set_parser);
-	event_unref(&user->event);
-	i_assert(user->refcount == 1);
-	pool_unref(&user->pool);
-}
-
 static void mail_user_session_finished(struct mail_user *user)
 {
 	struct event *ev = user->event;
@@ -279,9 +252,37 @@ static void mail_user_session_finished(struct mail_user *user)
 	e_debug(e->event(), "User session is finished");
 }
 
+void mail_user_unref(struct mail_user **_user)
+{
+	struct mail_user *user = *_user;
+
+	i_assert(user->refcount > 0);
+
+	*_user = NULL;
+	if (user->refcount > 1) {
+		user->refcount--;
+		return;
+	}
+
+	user->deinitializing = TRUE;
+	if (user->creator == NULL)
+		mail_user_session_finished(user);
+
+	/* call deinit() and deinit_pre() with refcount=1, otherwise we may
+	   assert-crash in mail_user_ref() that is called by some handlers. */
+	T_BEGIN {
+		user->v.deinit_pre(user);
+		user->v.deinit(user);
+	} T_END;
+	settings_parser_unref(&user->set_parser);
+	settings_parser_unref(&user->unexpanded_set_parser);
+	event_unref(&user->event);
+	i_assert(user->refcount == 1);
+	pool_unref(&user->pool);
+}
+
 void mail_user_deinit(struct mail_user **user)
 {
-	mail_user_session_finished(*user);
 	i_assert((*user)->refcount == 1);
 	mail_user_unref(user);
 }
