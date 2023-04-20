@@ -186,6 +186,7 @@ enum cassandra_sql_arg_type {
 	CASSANDRA_SQL_ARG_TYPE_BINARY,
 	CASSANDRA_SQL_ARG_TYPE_INT64,
 	CASSANDRA_SQL_ARG_TYPE_DOUBLE,
+	CASSANDRA_SQL_ARG_TYPE_UUID,
 };
 
 struct cassandra_sql_arg {
@@ -197,6 +198,7 @@ struct cassandra_sql_arg {
 	size_t value_binary_size;
 	int64_t value_int64;
 	double value_double;
+	CassUuid value_uuid;
 };
 
 struct cassandra_sql_statement {
@@ -1740,6 +1742,19 @@ driver_cassandra_get_value(struct cassandra_result *result,
 		type = "int64";
 		break;
 	}
+	case CASS_VALUE_TYPE_UUID: {
+		CassUuid uuid;
+
+		rc = cass_value_get_uuid(value, &uuid);
+		if (rc == CASS_OK) {
+			char *str = t_malloc_no0(CASS_UUID_STRING_LENGTH);
+			cass_uuid_string(uuid, str);
+			output_size = strlen(str);
+			output = (const void *)str;
+		}
+		type = "uuid";
+		break;
+	}
 	default:
 		rc = cass_value_get_bytes(value, &output, &output_size);
 		type = "bytes";
@@ -2205,6 +2220,11 @@ static void prepare_finish_arg(struct cassandra_sql_statement *stmt,
 						arg->column_idx,
 						arg->value_double);
 		break;
+	case CASSANDRA_SQL_ARG_TYPE_UUID:
+		rc = cass_statement_bind_uuid(stmt->cass_stmt,
+					      arg->column_idx,
+					      arg->value_uuid);
+		break;
 	default:
 		i_unreached();
 	}
@@ -2494,6 +2514,27 @@ driver_cassandra_statement_bind_double(struct sql_statement *_stmt,
 }
 
 static void
+driver_cassandra_statement_bind_uuid(struct sql_statement *_stmt,
+				     unsigned int column_idx, const guid_128_t uuid)
+{
+	struct cassandra_sql_statement *stmt =
+		container_of(_stmt, struct cassandra_sql_statement, stmt);
+	CassUuid cuuid;
+	CassError err =
+		cass_uuid_from_string(guid_128_to_uuid_string(uuid, FORMAT_RECORD), &cuuid);
+	i_assert(err == CASS_OK);
+	if (stmt->cass_stmt != NULL)
+		cass_statement_bind_uuid(stmt->cass_stmt, column_idx, cuuid);
+	else if (stmt->prep != NULL) {
+		struct cassandra_sql_arg *arg =
+			driver_cassandra_add_pending_arg(stmt, column_idx,
+				CASSANDRA_SQL_ARG_TYPE_UUID);
+		memcpy(&arg->value_uuid, &cuuid, sizeof(CassUuid));
+	}
+}
+
+
+static void
 driver_cassandra_statement_query(struct sql_statement *_stmt,
 				 sql_query_callback_t *callback, void *context)
 {
@@ -2619,6 +2660,7 @@ const struct sql_db driver_cassandra_db = {
 		.statement_bind_binary = driver_cassandra_statement_bind_binary,
 		.statement_bind_int64 = driver_cassandra_statement_bind_int64,
 		.statement_bind_double = driver_cassandra_statement_bind_double,
+		.statement_bind_uuid = driver_cassandra_statement_bind_uuid,
 		.statement_query = driver_cassandra_statement_query,
 		.statement_query_s = driver_cassandra_statement_query_s,
 		.update_stmt = driver_cassandra_update_stmt,
