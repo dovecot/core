@@ -446,6 +446,16 @@ void sql_statement_bind_double(struct sql_statement *stmt,
 		stmt->db->v.statement_bind_double(stmt, column_idx, value);
 }
 
+void sql_statement_bind_uuid(struct sql_statement *stmt,
+			     unsigned int column_idx, const guid_128_t uuid)
+{
+	const char *value_str = p_strdup(stmt->pool, guid_128_to_uuid_string(uuid, FORMAT_RECORD));
+	array_idx_set(&stmt->args, column_idx, &value_str);
+
+	if (stmt->db->v.statement_bind_uuid != NULL)
+		stmt->db->v.statement_bind_uuid(stmt, column_idx, uuid);
+}
+
 #undef sql_statement_query
 void sql_statement_query(struct sql_statement **_stmt,
 			 sql_query_callback_t *callback, void *context)
@@ -528,6 +538,9 @@ sql_result_build_map(struct sql_result *result,
 			case SQL_TYPE_BOOL:
 				field_size = sizeof(bool);
 				break;
+			case SQL_TYPE_UUID:
+				field_size = GUID_128_SIZE;
+				break;
 			}
 			i_assert(def->offset + field_size <= dest_size);
 		} else {
@@ -584,6 +597,11 @@ static void sql_result_fetch(struct sql_result *result)
 		case SQL_TYPE_BOOL: {
 			if (value != NULL && (*value == 't' || *value == '1'))
 				*((bool *)ptr) = TRUE;
+			break;
+		}
+		case SQL_TYPE_UUID: {
+			if (value != NULL)
+				guid_128_from_uuid_string(value, *((guid_128_t *)ptr));
 			break;
 		}
 		}

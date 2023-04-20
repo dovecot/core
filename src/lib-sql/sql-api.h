@@ -1,6 +1,8 @@
 #ifndef SQL_API_H
 #define SQL_API_H
 
+#include "guid.h"
+
 struct timespec;
 
 /* This SQL API is designed to work asynchronously. The underlying drivers
@@ -25,7 +27,8 @@ enum sql_field_type {
 	SQL_TYPE_STR,
 	SQL_TYPE_UINT,
 	SQL_TYPE_ULLONG,
-	SQL_TYPE_BOOL
+	SQL_TYPE_BOOL,
+	SQL_TYPE_UUID,
 };
 
 struct sql_field_def {
@@ -154,6 +157,8 @@ void sql_statement_bind_int64(struct sql_statement *stmt,
 			      unsigned int column_idx, int64_t value);
 void sql_statement_bind_double(struct sql_statement *stmt,
 			       unsigned int column_idx, double value);
+void sql_statement_bind_uuid(struct sql_statement *stmt,
+			     unsigned int column_idx, const guid_128_t uuid);
 void sql_statement_query(struct sql_statement **stmt,
 			 sql_query_callback_t *callback, void *context);
 #define sql_statement_query(stmt, callback, context) \
