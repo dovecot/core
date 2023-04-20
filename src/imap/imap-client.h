@@ -120,6 +120,7 @@ struct client_command_context {
 	bool temp_executed:1; /* temporary execution state tracking */
 	bool tagline_sent:1;
 	bool executing:1;
+	bool internal:1;
 };
 
 struct imap_client_vfuncs {

@@ -1017,7 +1017,8 @@ void client_command_free(struct client_command_context **_cmd)
 	if (client->mailbox_change_lock == cmd)
 		client->mailbox_change_lock = NULL;
 
-	event_set_name(cmd->event, "imap_command_finished");
+	if (!cmd->internal)
+		event_set_name(cmd->event, "imap_command_finished");
 	if (cmd->tagline_reply != NULL) {
 		event_add_str(cmd->event, "tagged_reply_state",
 			      t_strcut(cmd->tagline_reply, ' '));
