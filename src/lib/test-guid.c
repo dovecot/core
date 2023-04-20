@@ -174,7 +174,7 @@ void test_guid(void)
 	  0xab, 0xcd, 0xef,
 	  0xAB, 0xCD, 0xEF,
 	  0x00, 0x00, 0x00, 0x00, 0x00 };
-	guid_128_t guid1, guid2, guid3;
+	guid_128_t guid1, guid2, guid3, guid_empty;
 	const char *str;
 	char guidbuf[GUID_128_SIZE*2 + 2];
 	unsigned int i;
@@ -242,6 +242,8 @@ void test_guid(void)
 	guidbuf[0] = ' ';
 	test_assert(guid_128_from_string(guidbuf, guid3) < 0);
 
+	test_assert(guid_128_from_uuid_string("00000000-0000-0000-0000-000000000000", guid_empty) == 0);
+	test_assert(guid_128_is_empty(guid_empty));
 	test_assert(guid_128_from_uuid_string("fee0ceac-0327-11e7-ad39-52540078f374", guid3) == 0);
 	test_assert(guid_128_from_uuid_string("fee0ceac032711e7ad3952540078f374", guid2) == 0);
 	test_assert(guid_128_cmp(guid3, guid2) == 0);
@@ -252,6 +254,12 @@ void test_guid(void)
 	test_assert(strcmp(guid_128_to_uuid_string(guid3, FORMAT_MICROSOFT), "{fee0ceac-0327-11e7-ad39-52540078f374}")==0);
 	/* failure test */
 	test_assert(guid_128_from_uuid_string("fe-e0ceac-0327-11e7-ad39-52540078f374", guid3) < 0);
+
+	/* UUIDv4 */
+	guid_128_t uuidv4;
+	guid_128_uuid4_generate(uuidv4);
+	test_assert((uuidv4[6] & 0xF0) == 0x40);
+	test_assert((uuidv4[8] & 0xC0) == 0x80);
 
 	test_end();
 

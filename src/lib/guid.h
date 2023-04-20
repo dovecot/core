@@ -8,6 +8,10 @@ typedef uint8_t guid_128_t[GUID_128_SIZE];
 
 ARRAY_DEFINE_TYPE(guid_128_t, guid_128_t);
 
+/* Very liberal check, checks only version. */
+#define GUID_128_IS_UUID4(uuid) \
+	(((uuid)[6] & 0xF0) == 0x40)
+
 enum uuid_format {
 	FORMAT_RECORD,
 	FORMAT_COMPACT,
@@ -17,6 +21,9 @@ enum uuid_format {
 const char *guid_generate(void);
 /* Generate 128 bit GUID */
 void guid_128_generate(guid_128_t guid_r);
+/* Generate UUID4gen1 */
+void guid_128_uuid4_generate(guid_128_t guid_r);
+
 /* Returns TRUE if GUID is empty (not set / unknown). */
 bool guid_128_is_empty(const guid_128_t guid) ATTR_PURE;
 static inline void guid_128_empty(guid_128_t guid)

@@ -9,6 +9,7 @@
 #include "hex-binary.h"
 #include "hostpid.h"
 #include "guid.h"
+#include "randgen.h"
 
 #include <unistd.h>
 #include <time.h>
@@ -91,6 +92,13 @@ void guid_128_generate(guid_128_t guid_r)
 	guid_r[6] = (ts.tv_sec & 0x00ff0000) >> 16;
 	guid_r[7] = (ts.tv_sec & 0xff000000) >> 24;
 	memcpy(guid_r + 8, guid_static, 8);
+}
+
+void guid_128_uuid4_generate(guid_128_t uuid)
+{
+	random_fill(uuid, sizeof(guid_128_t));
+	uuid[6] = (uuid[6] & 0x0F) | 0x40; /* Set version 4 */
+	uuid[8] = (uuid[8] & 0xBF) | 0x80; /* Set variant 2 (first 2 bits to 10) */
 }
 
 bool guid_128_is_empty(const guid_128_t guid)
