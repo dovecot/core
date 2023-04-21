@@ -346,18 +346,19 @@ int config_dump_full(enum config_dump_full_dest dest,
 			i_panic("Setting parser info is missing name");
 
 		uoff_t settings_block_size_offset = output->offset;
-		o_stream_nsend(output, &blob_size, sizeof(blob_size));
-		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT)
+		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
+			o_stream_nsend(output, &blob_size, sizeof(blob_size));
 			o_stream_nsend(output, info->name, strlen(info->name)+1);
-		else {
+		} else {
 			o_stream_nsend_str(output,
 				t_strdup_printf("# %s\n", info->name));
 		}
 
 		uoff_t blob_size_offset = output->offset;
-		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT)
+		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
 			o_stream_nsend(output, &blob_size, sizeof(blob_size));
-		o_stream_nsend(output, "", 1); /* no error */
+			o_stream_nsend(output, "", 1); /* no error */
+		}
 		if (config_export_parser(export_ctx, i, &section_idx,
 					 &error) < 0) {
 			if (config_dump_full_handle_error(&dump_ctx, dest,
