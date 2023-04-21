@@ -317,6 +317,7 @@ static void ATTR_NULL(4)
 config_dump_human_output(struct config_dump_human_context *ctx,
 			 struct ostream *output, unsigned int indent,
 			 const char *setting_name_filter,
+			 const char *alt_setting_name_filter,
 			 bool hide_key, bool default_hide_passwords)
 {
 	ARRAY_TYPE(const_string) prefixes_arr;
@@ -327,11 +328,14 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 	unsigned int i, j, count, prefix_count;
 	unsigned int prefix_idx = UINT_MAX;
 	size_t len, skip_len, setting_name_filter_len;
+	size_t alt_setting_name_filter_len;
 	unsigned int section_idx = 0;
 	bool unique_key;
 
 	setting_name_filter_len = setting_name_filter == NULL ? 0 :
 		strlen(setting_name_filter);
+	alt_setting_name_filter_len = alt_setting_name_filter == NULL ? 0 :
+		strlen(alt_setting_name_filter);
 	if (config_export_all_parsers(&ctx->export_ctx, &section_idx) < 0)
 		i_unreached(); /* settings aren't checked - this can't happen */
 
@@ -385,6 +389,14 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			     key[setting_name_filter_len] == '\0')) {
 				/* match */
 				if (key[setting_name_filter_len] == '\0')
+					hide_passwords = FALSE;
+			} else if (alt_setting_name_filter_len > 0 &&
+				   (strncmp(alt_setting_name_filter, key,
+					    alt_setting_name_filter_len) == 0 &&
+				    (key[alt_setting_name_filter_len] == '/' ||
+				     key[alt_setting_name_filter_len] == '\0'))) {
+				/* alt match */
+				if (key[alt_setting_name_filter_len] == '\0')
 					hide_passwords = FALSE;
 			} else
 				goto end;
@@ -656,9 +668,17 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 		config_export_set_module_parsers(ctx->export_ctx,
 						 filter_parser->module_parsers);
 		str_append_str(ctx->list_prefix, list_prefix);
+		const char *filter_key =
+			!filter_parser->filter.filter_name_array ? NULL :
+			t_strcut(filter_parser->filter.filter_name, '/');
+
+		const char *alt_set_name_filter =
+			set_name_filter != NULL && filter_key != NULL ?
+			t_strdup_printf("%s_%s", filter_key, set_name_filter) :
+			NULL;
 		config_dump_human_output(ctx, output, sub_indent,
 					 set_name_filter,
-					 hide_key,
+					 alt_set_name_filter, hide_key,
 					 sub_hide_passwords);
 
 		bool sub_list_prefix_sent = ctx->list_prefix_sent;
@@ -702,7 +722,7 @@ config_dump_human(enum config_dump_scope scope,
 	ctx = config_dump_human_init(scope);
 	config_export_set_module_parsers(ctx->export_ctx,
 					 filter_parser->module_parsers);
-	config_dump_human_output(ctx, output, 0, setting_name_filter,
+	config_dump_human_output(ctx, output, 0, setting_name_filter, NULL,
 				 hide_key, hide_passwords);
 	config_dump_human_deinit(ctx);
 

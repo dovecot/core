@@ -149,8 +149,9 @@ config_is_filter_name(struct config_parser_context *ctx, const char *key,
 	return FALSE;
 }
 
-int config_apply_line(struct config_parser_context *ctx, const char *key,
-		      const char *line, const char *section_name)
+static int
+config_apply_exact_line(struct config_parser_context *ctx, const char *key,
+			const char *line, const char *section_name)
 {
 	struct config_module_parser *l;
 	bool found = FALSE;
@@ -185,7 +186,27 @@ int config_apply_line(struct config_parser_context *ctx, const char *key,
 			return -1;
 		}
 	}
-	if (!found) {
+	return found ? 1 : 0;
+}
+
+int config_apply_line(struct config_parser_context *ctx, const char *key,
+		      const char *line, const char *section_name)
+{
+	int ret = 0;
+
+	if (ctx->cur_section->filter.filter_name_array) {
+		/* first try the filter name-specific prefix, so e.g.
+		   inet_listener { ssl=yes } won't try to change the global
+		   ssl setting. */
+		const char *filter_key =
+			t_strcut(ctx->cur_section->filter.filter_name, '/');
+		const char *key2 = t_strdup_printf("%s_%s", filter_key, key);
+		const char *line2 = t_strdup_printf("%s_%s", filter_key, line);
+		ret = config_apply_exact_line(ctx, key2, line2, section_name);
+	}
+	if (ret == 0)
+		ret = config_apply_exact_line(ctx, key, line, section_name);
+	if (ret == 0) {
 		ctx->error = p_strconcat(ctx->pool, "Unknown setting: ",
 					 get_setting_full_path(ctx, key), NULL);
 		return -1;
