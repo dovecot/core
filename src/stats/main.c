@@ -47,6 +47,8 @@ static void main_preinit(void)
 
 static void main_init(void)
 {
+	const char *error;
+
 	stats_settings =
 		settings_get_or_fatal(master_service_get_event(master_service),
 				      &stats_setting_parser_info);
@@ -55,7 +57,9 @@ static void main_init(void)
 				      &master_service_ssl_setting_parser_info);
 
 	stats_startup_time = ioloop_time;
-	stats_metrics = stats_metrics_init(stats_settings);
+	if (stats_metrics_init(master_service_get_event(master_service),
+			       stats_settings, &stats_metrics, &error) < 0)
+		i_fatal("%s", error);
 	stats_event_categories_init();
 	client_readers_init();
 	client_writers_init();

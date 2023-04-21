@@ -23,7 +23,8 @@ static struct stats_settings *stats_set;
 static struct settings_root *set_root;
 static bool callback_added = FALSE;
 
-static struct stats_settings *read_settings(const char *const settings[])
+static struct stats_settings *read_settings(const char *const settings[],
+					    struct event **event_r)
 {
 	const char *error;
 
@@ -39,12 +40,14 @@ static struct stats_settings *read_settings(const char *const settings[])
 	event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
 	if (settings_get(event, &stats_setting_parser_info, 0, &set, &error) < 0)
 		i_fatal("%s", error);
-	event_unref(&event);
+	*event_r = event;
 	return set;
 }
 
 void test_init(const char *const settings_blob[])
 {
+	const char *error;
+
 	if (!callback_added) {
 		event_register_callback(test_stats_callback);
 		callback_added = TRUE;
@@ -58,8 +61,12 @@ void test_init(const char *const settings_blob[])
 	stats_event_category_register(test_category.name, NULL);
 	stats_event_category_register(child_test_category.name,
 				      &test_category);
-	stats_set = read_settings(settings_blob);
-	stats_metrics = stats_metrics_init(stats_set);
+
+	struct event *event;
+	stats_set = read_settings(settings_blob, &event);
+	if (stats_metrics_init(event, stats_set, &stats_metrics, &error) < 0)
+		i_fatal("%s", error);
+	event_unref(&event);
 }
 
 void test_deinit(void)

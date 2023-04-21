@@ -115,7 +115,9 @@ bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
 bool stats_metrics_remove_dynamic(struct stats_metrics *metrics,
 				  const char *name);
 
-struct stats_metrics *stats_metrics_init(const struct stats_settings *set);
+int stats_metrics_init(struct event *event,
+		       const struct stats_settings *set,
+		       struct stats_metrics **metrics_r, const char **error_r);
 void stats_metrics_deinit(struct stats_metrics **metrics);
 
 /* Reset all metrics */
