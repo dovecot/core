@@ -130,10 +130,36 @@ static void test_settings_parser(void)
 	test_end();
 }
 
+static void test_settings_section_escape(void)
+{
+	const struct {
+		const char *input;
+		const char *output;
+	} tests[] = {
+		{ "", "" },
+		{ "foo", "foo" },
+		{ "foo bar", "foo\\_bar" },
+		{ " foo bar ", "\\_foo\\_bar\\_" },
+		{ "=/\\ ,", "\\e\\s\\\\\\_\\+" },
+	};
+	test_begin("settings_escape() and settings_unescape()");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		const char *escaped = settings_section_escape(tests[i].input);
+		test_assert_strcmp_idx(escaped, tests[i].output, i);
+		const char *unescaped = settings_section_unescape(escaped);
+		test_assert_strcmp_idx(unescaped, tests[i].input, i);
+	}
+
+	test_assert_strcmp(settings_section_unescape("\\."), "\\.");
+	test_assert_strcmp(settings_section_unescape("foo\\"), "foo\\");
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_settings_parser,
+		test_settings_section_escape,
 		NULL
 	};
 	return test_run(test_functions);

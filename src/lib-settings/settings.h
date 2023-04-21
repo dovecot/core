@@ -116,6 +116,67 @@ int settings_get(struct event *event,
 		__FILE__, __LINE__, (void *)set_r, error_r)
 #endif
 
+/* Same as settings_get(), but looks up settings for a specific named array
+   filter. Use e.g. { filter_key="namespace", filter_value="inbox" }.
+   Returns 0 on success, -1 on error. */
+int settings_get_filter(struct event *event,
+			const char *filter_key, const char *filter_value,
+			const struct setting_parser_info *info,
+			enum settings_get_flags flags,
+			const char *source_filename,
+			unsigned int source_linenum,
+			const void **set_r, const char **error_r);
+#ifdef HAVE_TYPE_CHECKS
+#  define settings_get_filter(event, filter_key, filter_value, info, flags, \
+		set_r, error_r) \
+	settings_get_filter(event, filter_key, filter_value, info, flags, \
+		__FILE__, __LINE__, (void *)set_r, 1 ? (error_r) : \
+	COMPILE_ERROR_IF_TRUE( \
+		!__builtin_types_compatible_p(typeof((*set_r)->pool), pool_t)))
+#else
+#  define settings_get_filter(event, filter_key, filter_value, info, flags, \
+		set_r, error_r) \
+	settings_get_filter(event, filter_key, filter_value, info, flags, \
+		__FILE__, __LINE__, (void *)set_r, error_r)
+#endif
+
+/* Same as settings_get_filter(), but doesn't fail if the filter doesn't exist.
+   Returns 1 if filter exists, 0 if not, -1 if error. */
+int settings_try_get_filter(struct event *event,
+			    const char *filter_key, const char *filter_value,
+			    const struct setting_parser_info *info,
+			    enum settings_get_flags flags,
+			    const char *source_filename,
+			    unsigned int source_linenum,
+			    const void **set_r, const char **error_r);
+#ifdef HAVE_TYPE_CHECKS
+#  define settings_try_get_filter(event, filter_key, filter_value, info, \
+		flags, set_r, error_r) \
+	settings_try_get_filter(event, filter_key, filter_value, info, flags, \
+		__FILE__, __LINE__, (void *)set_r, 1 ? (error_r) : \
+	COMPILE_ERROR_IF_TRUE( \
+		!__builtin_types_compatible_p(typeof((*set_r)->pool), pool_t)))
+#else
+#  define settings_try_get_filter(event, filter_key, filter_value, info, flags, \
+		set_r, error_r) \
+	settings_try_get_filter(event, filter_key, filter_value, info, flags, \
+		__FILE__, __LINE__, (void *)set_r, error_r)
+#endif
+
+#ifdef HAVE_TYPE_CHECKS
+#  define settings_get_filter(event, filter_key, filter_value, info, \
+		flags, set_r, error_r) \
+	settings_get_filter(event, filter_key, filter_value, info, flags, \
+		__FILE__, __LINE__, (void *)set_r, 1 ? (error_r) : \
+	COMPILE_ERROR_IF_TRUE( \
+		!__builtin_types_compatible_p(typeof((*set_r)->pool), pool_t)))
+#else
+#  define settings_get_filter(event, filter_key, filter_value, info, flags, \
+		set_r, error_r) \
+	settings_get_filter(event, filter_key, filter_value, info, flags, \
+		__FILE__, __LINE__, (void *)set_r, error_r)
+#endif
+
 /* Like settings_get(), but i_fatal() if there are any errors
    in settings. */
 const void *

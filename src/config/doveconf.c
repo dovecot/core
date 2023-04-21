@@ -80,6 +80,8 @@ config_request_get_strings(const char *key, const char *value,
 		value = p_strdup_printf(ctx->pool, "%.*s/"UNIQUE_KEY_SUFFIX"%s=%s",
 					(int)(p - key), key, p + 1, value);
 		break;
+	case CONFIG_KEY_FILTER_ARRAY:
+		return;
 	}
 	array_push_back(&ctx->strings, &value);
 }
@@ -494,6 +496,41 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 	}
 }
 
+static const char *filter_name_escaped(const char *name)
+{
+	name = settings_section_unescape(name);
+	if (name[0] == '\0')
+		return "\"\"";
+	if (strpbrk(name, " \"{=<'$") == NULL)
+		return name;
+
+	string_t *dest = t_str_new(64);
+	str_append_c(dest, '"');
+	str_append_escaped(dest, name, strlen(name));
+	str_append_c(dest, '"');
+	return str_c(dest);
+}
+
+static void
+config_dump_named_filters(string_t *str, unsigned int *indent,
+			  const struct config_filter *filter)
+{
+	if (filter->filter_name == NULL)
+		return;
+
+	const char *p = strchr(filter->filter_name, '/');
+	str_append_max(str, indent_str, (*indent) * 2);
+	if (p == NULL)
+		str_printfa(str, "%s {\n", filter->filter_name);
+	else {
+		/* SET_FILTER_ARRAY */
+		str_printfa(str, "%s %s {\n",
+			    t_strdup_until(filter->filter_name, p),
+			    filter_name_escaped(p+1));
+	}
+	*indent += 1;
+}
+
 static unsigned int
 config_dump_filter_begin(string_t *str, unsigned int indent,
 			 const struct config_filter *filter)
@@ -538,11 +575,7 @@ config_dump_filter_begin(string_t *str, unsigned int indent,
 		str_printfa(str, "protocol %s {\n", filter->service);
 		indent++;
 	}
-	if (filter->filter_name != NULL) {
-		str_append_max(str, indent_str, indent*2);
-		str_printfa(str, "%s {\n", filter->filter_name);
-		indent++;
-	}
+	config_dump_named_filters(str, &indent, filter);
 	return indent;
 }
 

@@ -32,6 +32,7 @@ enum setting_type {
 	SET_STRLIST, /* of type ARRAY_TYPE(const_string) */
 	SET_ALIAS, /* alias name for above setting definition */
 	SET_FILTER_NAME,
+	SET_FILTER_ARRAY,
 };
 enum setting_flags {
 	SET_FLAG_HIDDEN = BIT(0),
@@ -39,7 +40,7 @@ enum setting_flags {
 #define SETTING_TYPE_IS_DEFLIST(type) \
 	((type) == SET_DEFLIST || (type) == SET_DEFLIST_UNIQUE)
 
-#define SETTING_DEFINE_LIST_END { 0, 0, NULL, 0, NULL, NULL }
+#define SETTING_DEFINE_LIST_END { 0, 0, NULL, 0, NULL, NULL, NULL }
 
 struct setting_define {
 	enum setting_type type;
@@ -48,6 +49,7 @@ struct setting_define {
 
 	size_t offset;
 	const struct setting_parser_info *list_info;
+	const char *filter_array_field_name;
 	const char *required_setting;
 };
 
@@ -148,7 +150,7 @@ const char *settings_parser_get_error(struct setting_parser_context *ctx);
 const struct setting_parser_info *
 settings_parse_get_prev_info(struct setting_parser_context *ctx);
 
-/* Find the definition for a given SET_FILTER_NAME. */
+/* Find the definition for a given SET_FILTER_NAME or SET_FILTER_ARRAY. */
 const struct setting_define *
 settings_parse_get_filter(struct setting_parser_context *ctx,
 			  const char *filter_name);
@@ -213,6 +215,7 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 
 /* Return section name escaped */
 const char *settings_section_escape(const char *name);
+const char *settings_section_unescape(const char *name);
 
 void set_config_binary(bool value);
 bool is_config_binary(void);

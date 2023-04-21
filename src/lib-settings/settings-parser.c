@@ -539,6 +539,22 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 			return -1;
 		break;
 	}
+	case SET_FILTER_ARRAY: {
+		/* Add filter names to the array. Userdb can add more simply
+		   by giving e.g. "namespace=newname" without it removing the
+		   existing ones. */
+		ARRAY_TYPE(const_string) *arr = ptr;
+		const char *const *list = t_strsplit(value, ",\t ");
+		unsigned int i, count = str_array_length(list);
+		if (!array_is_created(arr))
+			p_array_init(arr, ctx->set_pool, count);
+		for (i = 0; i < count; i++) {
+			const char *value = p_strdup(ctx->set_pool,
+				settings_section_unescape(list[i]));
+			array_push_back(arr, &value);
+		}
+		break;
+	}
 	case SET_FILTER_NAME:
 		settings_parser_set_error(ctx, t_strdup_printf(
 			"Setting is a named filter, use '%s {'", key));
@@ -642,7 +658,7 @@ settings_parse_get_filter(struct setting_parser_context *ctx,
 
 	if (!settings_find_key(ctx, filter_name, TRUE, &def, &link))
 		return NULL;
-	if (def->type != SET_FILTER_NAME)
+	if (def->type != SET_FILTER_NAME && def->type != SET_FILTER_ARRAY)
 		return NULL;
 	return def;
 }
@@ -883,6 +899,7 @@ settings_var_expand_info(const struct setting_parser_info *info, void *set,
 		case SET_ENUM:
 		case SET_STRLIST:
 		case SET_FILTER_NAME:
+		case SET_FILTER_ARRAY:
 		case SET_ALIAS:
 			break;
 		case SET_STR_VARS: {
@@ -1080,6 +1097,34 @@ setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool,
 		}
 		break;
 	}
+	case SET_FILTER_ARRAY: {
+		const ARRAY_TYPE(const_string) *src_arr = src;
+		ARRAY_TYPE(const_string) *dest_arr = dest;
+		const char *const *strings, *const *dest_strings, *dup;
+		unsigned int i, j, count, dest_count;
+
+		if (!array_is_created(src_arr))
+			break;
+
+		strings = array_get(src_arr, &count);
+		if (!array_is_created(dest_arr))
+			p_array_init(dest_arr, pool, count);
+		dest_count = array_count(dest_arr);
+		for (i = 0; i < count; i++) {
+			if (dest_count > 0) {
+				dest_strings = array_front(dest_arr);
+				for (j = 0; j < dest_count; j++) {
+					if (strcmp(strings[i], dest_strings[j]) == 0)
+						break;
+				}
+				if (j < dest_count)
+					continue;
+			}
+			dup = keep_values ? strings[i] : p_strdup(pool, strings[i]);
+			array_push_back(dest_arr, &dup);
+		}
+		break;
+	}
 	case SET_FILTER_NAME:
 	case SET_ALIAS:
 		break;
@@ -1174,6 +1219,7 @@ settings_changes_dup(const struct setting_parser_info *info,
 		case SET_STR:
 		case SET_ENUM:
 		case SET_STRLIST:
+		case SET_FILTER_ARRAY:
 			*((char *)dest) = *((const char *)src);
 			break;
 		case SET_DEFLIST:
@@ -1469,7 +1515,8 @@ settings_apply(struct setting_link *dest_link,
 		csrc = CONST_PTR_OFFSET(src_link->change_struct, def->offset);
 		cdest = PTR_OFFSET(dest_link->change_struct, def->offset);
 
-		if (def->type == SET_DEFLIST || def->type == SET_STRLIST) {
+		if (def->type == SET_DEFLIST || def->type == SET_STRLIST ||
+		    def->type == SET_FILTER_ARRAY) {
 			/* just add the new values */
 		} else if (def->type == SET_DEFLIST_UNIQUE) {
 			/* merge sections */
@@ -1547,6 +1594,50 @@ const char *settings_section_escape(const char *name)
 			break;
 		}
 	}
+	return str_c(str);
+}
+
+const char *settings_section_unescape(const char *name)
+{
+	const char *p = strchr(name, '\\');
+	if (p == NULL)
+		return name;
+
+	string_t *str = t_str_new(strlen(name));
+	str_append_data(str, name, p - name);
+	while (p[1] != '\0') {
+		switch (p[1]) {
+		case 'e':
+			str_append_c(str, '=');
+			break;
+		case 's':
+			str_append_c(str, SETTINGS_SEPARATOR);
+			break;
+		case '\\':
+			str_append_c(str, '\\');
+			break;
+		case '_':
+			str_append_c(str, ' ');
+			break;
+		case '+':
+			str_append_c(str, ',');
+			break;
+		default:
+			/* not supposed to happen */
+			str_append_c(str, '\\');
+			str_append_c(str, p[1]);
+			break;
+		}
+		name = p+2;
+		p = strchr(name, '\\');
+		if (p == NULL) {
+			str_append(str, name);
+			return str_c(str);
+		}
+		str_append_data(str, name, p - name);
+	}
+	/* ends with '\\' - not supposed to happen */
+	str_append_c(str, '\\');
 	return str_c(str);
 }
 

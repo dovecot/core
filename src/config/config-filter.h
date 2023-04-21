@@ -17,6 +17,7 @@ struct config_filter {
 
 	/* named_filter { .. } */
 	const char *filter_name;
+	bool filter_name_array;
 };
 
 struct config_filter_parser {

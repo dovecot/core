@@ -26,6 +26,7 @@ enum config_key_type {
 	CONFIG_KEY_NORMAL,
 	CONFIG_KEY_LIST,
 	CONFIG_KEY_UNIQUE_KEY,
+	CONFIG_KEY_FILTER_ARRAY,
 };
 
 typedef void config_request_callback_t(const char *key, const char *value,

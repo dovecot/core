@@ -110,6 +110,20 @@ bool config_filters_equal(const struct config_filter *f1,
 
 	if (null_strcmp(f1->filter_name, f2->filter_name) != 0)
 		return FALSE;
+	for (;;) {
+		f1 = f1->parent;
+		f2 = f2->parent;
+		if (f1 != NULL && f1->filter_name_array) {
+			if (f2 == NULL || !f2->filter_name_array)
+				return FALSE;
+		} else if (f2 != NULL && f2->filter_name_array) {
+			return FALSE;
+		} else {
+			break;
+		}
+		if (strcmp(f1->filter_name, f2->filter_name) != 0)
+			return FALSE;
+	}
 
 	return TRUE;
 }

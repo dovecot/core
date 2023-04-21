@@ -371,6 +371,11 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 	if (strcmp(key, "protocol") == 0) {
 		if (parent->service != NULL)
 			ctx->error = "Nested protocol { protocol { .. } } block not allowed";
+		else if (parent->filter_name != NULL)
+			ctx->error = p_strdup_printf(ctx->pool,
+				"%s { protocol { .. } } not allowed (use protocol { %s { .. } } instead)",
+				t_strcut(parent->filter_name, '/'),
+				t_strcut(parent->filter_name, '/'));
 		else
 			filter->service = p_strdup(ctx->pool, value);
 	} else if (strcmp(key, "local") == 0) {
@@ -380,6 +385,11 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			ctx->error = "protocol { local { .. } } not allowed (use local { protocol { .. } } instead)";
 		else if (parent->local_name != NULL)
 			ctx->error = "local_name { local { .. } } not allowed (use local { local_name { .. } } instead)";
+		else if (parent->filter_name != NULL)
+			ctx->error = p_strdup_printf(ctx->pool,
+				"%s { local { .. } } not allowed (use local { %s { .. } } instead)",
+				t_strcut(parent->filter_name, '/'),
+				t_strcut(parent->filter_name, '/'));
 		else if (config_parse_net(value, &filter->local_net,
 					  &filter->local_bits, &error) < 0)
 			ctx->error = p_strdup(ctx->pool, error);
@@ -396,11 +406,21 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			ctx->error = "remote { local_name { .. } } not allowed (use local_name { remote { .. } } instead)";
 		else if (parent->service != NULL)
 			ctx->error = "protocol { local_name { .. } } not allowed (use local_name { protocol { .. } } instead)";
+		else if (parent->filter_name != NULL)
+			ctx->error = p_strdup_printf(ctx->pool,
+				"%s { local_name { .. } } not allowed (use local_name { %s { .. } } instead)",
+				t_strcut(parent->filter_name, '/'),
+				t_strcut(parent->filter_name, '/'));
 		else
 			filter->local_name = p_strdup(ctx->pool, value);
 	} else if (strcmp(key, "remote") == 0) {
 		if (parent->service != NULL)
 			ctx->error = "protocol { remote { .. } } not allowed (use remote { protocol { .. } } instead)";
+		else if (parent->filter_name != NULL)
+			ctx->error = p_strdup_printf(ctx->pool,
+				"%s { remote { .. } } not allowed (use remote { %s { .. } } instead)",
+				t_strcut(parent->filter_name, '/'),
+				t_strcut(parent->filter_name, '/'));
 		else if (config_parse_net(value, &filter->remote_net,
 					  &filter->remote_bits, &error) < 0)
 			ctx->error = p_strdup(ctx->pool, error);
@@ -412,15 +432,39 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			ctx->error = "remote net1 { remote net2 { .. } } requires net2 to be inside net1";
 		else
 			filter->remote_host = p_strdup(ctx->pool, value);
-	} else if (value[0] == '\0' &&
-		   config_is_filter_name(ctx, key, &filter_def)) {
-		if (parent->filter_name != NULL) {
-			ctx->error = p_strdup_printf(ctx->pool,
-				"Nested named filters not allowed: %s { %s { .. } }",
-				parent->filter_name, key);
-			return FALSE;
+	} else if (config_is_filter_name(ctx, key, &filter_def)) {
+		if (filter_def->type == SET_FILTER_NAME) {
+			if (value[0] != '\0') {
+				ctx->error = p_strdup_printf(ctx->pool,
+					"%s { } must not have a section name",
+					key);
+				return TRUE;
+			}
+			if (parent->filter_name != NULL &&
+			    !parent->filter_name_array) {
+				ctx->error = p_strdup_printf(ctx->pool,
+					"Nested named filters not allowed: %s { %s { .. } }",
+					parent->filter_name, key);
+				return FALSE;
+			}
+			filter->filter_name = p_strdup(ctx->pool, key);
+		} else {
+			if (parent->filter_name != NULL &&
+			    !parent->filter_name_array) {
+				ctx->error = p_strdup_printf(ctx->pool,
+					"%s { %s { .. } } not allowed (use %s { %s { .. } } instead)",
+					parent->filter_name, key, key, parent->filter_name);
+				return FALSE;
+			}
+			if (value[0] == '\0') {
+				ctx->error = p_strdup_printf(ctx->pool,
+					"%s { } is missing section name", key);
+				return TRUE;
+			}
+			filter->filter_name =
+				p_strdup_printf(ctx->pool, "%s/%s", key, value);
+			filter->filter_name_array = TRUE;
 		}
-		filter->filter_name = p_strdup(ctx->pool, key);
 	} else {
 		return FALSE;
 	}
@@ -431,11 +475,34 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 		ctx->cur_section->module_parsers =
 			ctx->cur_section->filter_parser->module_parsers;
 	} else {
+		if (filter_def != NULL && filter_def->type == SET_FILTER_ARRAY) {
+			/* add it to the list of filter names */
+			const char *line = t_strdup_printf("%s=%s",
+				filter_def->key, settings_section_escape(value));
+			if (config_apply_line(ctx, filter_def->key, line, NULL) < 0) {
+				i_panic("BUG: Invalid setting definitions: "
+					"Failed to set %s: %s", line,
+					ctx->error);
+			}
+		}
 		config_add_new_parser(ctx);
 	}
 	ctx->cur_section->is_filter = TRUE;
-	if (filter_def != NULL)
+
+	if (filter_def != NULL) {
 		ctx->cur_section->filter_def = filter_def;
+		if (filter_def->type == SET_FILTER_ARRAY) {
+			/* add the name field for the filter */
+			const char *line = t_strdup_printf("%s=%s",
+				filter_def->filter_array_field_name, value);
+			if (config_apply_line(ctx, filter_def->filter_array_field_name,
+					      line, NULL) < 0) {
+				i_panic("BUG: Invalid setting definitions: "
+					"Failed to set %s: %s", line,
+					ctx->error);
+			}
+		}
+	}
 	return TRUE;
 }
 

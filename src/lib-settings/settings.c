@@ -4,8 +4,11 @@
 #include "array.h"
 #include "hash.h"
 #include "llist.h"
+#include "str.h"
+#include "strescape.h"
 #include "event-filter.h"
 #include "var-expand.h"
+#include "wildcard-match.h"
 #include "mmap-util.h"
 #include "settings-parser.h"
 #include "settings.h"
@@ -14,6 +17,9 @@ struct settings_override {
 	int type;
 	bool append;
 	const char *key, *value;
+
+	struct event_filter *filter;
+	const char *last_filter_key, *last_filter_value;
 };
 ARRAY_DEFINE_TYPE(settings_override, struct settings_override);
 
@@ -707,7 +713,9 @@ settings_instance_override(struct settings_root *root,
 			   struct settings_instance *instance,
 			   struct setting_parser_context *parser,
 			   struct settings_mmap_pool *mpool,
-			   const char *filter_name, const char **error_r)
+			   struct event *event,
+			   const char *filter_key, const char *filter_value,
+			   const char **error_r)
 {
 	ARRAY_TYPE(settings_override) overrides;
 
@@ -718,18 +726,26 @@ settings_instance_override(struct settings_root *root,
 		array_append_array(&overrides, &root->overrides);
 	array_sort(&overrides, settings_override_cmp);
 
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+
 	bool seen_filter = FALSE;
 	const struct settings_override *set;
 	array_foreach(&overrides, set) {
-		const char *key = set->key, *value, *suffix;
+		const char *key = set->key, *value;
 
-		if (str_begins(key, filter_name, &suffix) && suffix[0] == '/') {
-			/* key=filter_value/value */
-			key = suffix + 1;
+		if (set->filter != NULL &&
+		    !event_filter_match(set->filter, event, &failure_ctx))
+			continue;
+
+		if (filter_key != NULL && set->last_filter_key != NULL &&
+		    strcmp(filter_key, set->last_filter_key) == 0 &&
+		    null_strcmp(filter_value, set->last_filter_value) == 0)
 			seen_filter = TRUE;
-		}
-		int ret = settings_override_get_value(parser, set, &key,
-						      &value, error_r);
+
+		int ret = settings_override_get_value(parser, set,
+						      &key, &value, error_r);
 		if (ret < 0)
 			return -1;
 		if (ret == 0)
@@ -770,7 +786,7 @@ static int
 settings_instance_get(struct event *event,
 		      struct settings_root *root,
 		      struct settings_instance *instance,
-		      const char *filter_key,
+		      const char *filter_key, const char *filter_value,
 		      const char *filter_name,
 		      const struct setting_parser_info *info,
 		      enum settings_get_flags flags,
@@ -821,7 +837,7 @@ settings_instance_get(struct event *event,
 
 	T_BEGIN {
 		ret = settings_instance_override(root, instance, parser, mpool,
-			filter_name, error_r);
+			event, filter_key, filter_value, error_r);
 	} T_END_PASS_STR_IF(ret < 0, error_r);
 	if (ret < 0) {
 		settings_parser_unref(&parser);
@@ -884,19 +900,21 @@ settings_instance_get(struct event *event,
 	return 1;
 }
 
-#undef settings_get
-int settings_get(struct event *event,
-		 const struct setting_parser_info *info,
-		 enum settings_get_flags flags,
-		 const char *source_filename,
-		 unsigned int source_linenum,
-		 const void **set_r, const char **error_r)
+static int
+settings_get_full(struct event *event,
+		  const char *filter_key, const char *filter_value,
+		  const struct setting_parser_info *info,
+		  enum settings_get_flags flags,
+		  const char *source_filename,
+		  unsigned int source_linenum,
+		  const void **set_r, const char **error_r)
 {
 	struct settings_root *root = NULL;
 	struct settings_mmap *mmap = NULL;
 	struct settings_instance *instance = NULL;
 	struct event *scan_event = event;
-	const char *filter_key = NULL;
+
+	i_assert((filter_key == NULL) == (filter_value == NULL));
 
 	do {
 		if (root == NULL)
@@ -929,16 +947,71 @@ int settings_get(struct event *event,
 		instance = &empty_instance;
 
 	const char *filter_name;
-	if (filter_key != NULL)
+	if (filter_value != NULL) {
+		filter_name = t_strdup_printf("%s/%s", filter_key,
+			settings_section_escape(filter_value));
+	} else if (filter_key != NULL)
 		filter_name = filter_key;
 	else
 		filter_name = NULL;
 
-	int ret = settings_instance_get(event, root, instance,
-		filter_key, filter_name, info, flags,
+	return settings_instance_get(event, root, instance,
+		filter_key, filter_value, filter_name, info, flags,
 		source_filename, source_linenum, set_r, error_r);
+}
+
+#undef settings_get
+int settings_get(struct event *event,
+		 const struct setting_parser_info *info,
+		 enum settings_get_flags flags,
+		 const char *source_filename,
+		 unsigned int source_linenum,
+		 const void **set_r, const char **error_r)
+{
+	int ret = settings_get_full(event, NULL, NULL, info, flags,
+				    source_filename, source_linenum,
+				    set_r, error_r);
 	i_assert(ret != 0);
 	return ret < 0 ? -1 : 0;
+}
+
+#undef settings_get_filter
+int settings_get_filter(struct event *event,
+			const char *filter_key, const char *filter_value,
+			const struct setting_parser_info *info,
+			enum settings_get_flags flags,
+			const char *source_filename,
+			unsigned int source_linenum,
+			const void **set_r, const char **error_r)
+{
+	int ret = settings_get_full(event, filter_key, filter_value, info,
+				    flags, source_filename, source_linenum,
+				    set_r, error_r);
+	if (ret < 0)
+		return -1;
+	if (ret == 0) {
+		/* e.g. namespace=foo was given but no namespace/foo/name */
+		*error_r = t_strdup_printf(
+			"Filter %s=%s unexpectedly not found "
+			"(invalid userdb or -o override settings?)",
+			filter_key, filter_value);
+		return -1;
+	}
+	return 0;
+}
+
+#undef settings_try_get_filter
+int settings_try_get_filter(struct event *event,
+			    const char *filter_key, const char *filter_value,
+			    const struct setting_parser_info *info,
+			    enum settings_get_flags flags,
+			    const char *source_filename,
+			    unsigned int source_linenum,
+			    const void **set_r, const char **error_r)
+{
+	return settings_get_full(event, filter_key, filter_value, info,
+				 flags, source_filename, source_linenum,
+				 set_r, error_r);
 }
 
 #undef settings_get_or_fatal
@@ -957,6 +1030,83 @@ settings_get_or_fatal(struct event *event,
 	return set;
 }
 
+static void
+settings_override_get_filter(struct settings_override *set, pool_t pool,
+			     const char *_key)
+{
+	const char *key = _key;
+	const char *error;
+
+	/* key could be e.g.:
+	   - global: dict_driver=file
+	   - accessed via named filter: mail_attribute_dict/dict_driver=file
+	   - inside multiple filters:
+	     namespace/inbox/mailbox/Trash/dict_driver=file
+	   - named filter inside multiple filters:
+	     namespace/inbox/mailbox/Trash/mail_attribute_dict/dict_driver=file
+
+	   We start by converting all key/value/ prefixes to key=value in
+	   event filter. At the end there are 0..1 '/' characters left.
+	*/
+	const char *last_filter_key = NULL, *last_filter_value = NULL;
+	const char *value, *next;
+	string_t *filter = NULL;
+	size_t last_filter_key_pos = 0;
+	while ((value = strchr(key, '/')) != NULL &&
+	       (next = strchr(value + 1, '/')) != NULL) {
+		if (str_begins_with(key, "namespace/")) {
+			/* FIXME: temporary kludge - removed when namespaces
+			   are named array filters */
+			value = NULL;
+			break;
+		}
+
+		if (filter == NULL)
+			filter = t_str_new(64);
+		else
+			str_append(filter, " AND ");
+
+		last_filter_key = t_strdup_until(key, value);
+		last_filter_value = t_strdup_until(value + 1, next);
+		last_filter_key_pos = str_len(filter);
+		str_printfa(filter, "\"%s\"=\"%s\"",
+			    wildcard_str_escape(last_filter_key),
+			    str_escape(last_filter_value));
+		key = next + 1;
+	}
+	if (value != NULL && !str_begins_with(key, "plugin")) {
+		/* There is one more '/' left - this is a named filter e.g.
+		   mail_attribute_dict/dict_driver=file */
+		set->last_filter_key = p_strdup_until(pool, key, value);
+		set->last_filter_value = NULL;
+		if (filter == NULL)
+			filter = t_str_new(64);
+		else
+			str_append(filter, " AND ");
+		str_printfa(filter, SETTINGS_EVENT_FILTER_NAME"=\"%s\"",
+			    wildcard_str_escape(set->last_filter_key));
+		key = value + 1;
+	} else if (last_filter_key != NULL) {
+		str_insert(filter, last_filter_key_pos, "(");
+		str_printfa(filter, " OR "SETTINGS_EVENT_FILTER_NAME"=\"%s/%s\")",
+			    last_filter_key, wildcard_str_escape(
+				settings_section_escape(last_filter_value)));
+		set->last_filter_key = p_strdup(pool, last_filter_key);
+		set->last_filter_value = p_strdup(pool, last_filter_value);
+	}
+	set->key = p_strdup(pool, key);
+
+	if (filter == NULL)
+		return;
+
+	set->filter = event_filter_create();
+	if (event_filter_parse_case_sensitive(str_c(filter), set->filter,
+					      &error) < 0) {
+		i_panic("BUG: Failed to create event filter filter for %s: %s",
+			_key, error);
+	}
+}
+
 void settings_override(struct settings_instance *instance,
 		       const char *key, const char *value,
 		       enum settings_override_type type)
@@ -967,14 +1117,15 @@ void settings_override(struct settings_instance *instance,
 		array_append_space(&instance->overrides);
 	set->type = type;
 	size_t len = strlen(key);
-	if (len > 0 && key[len-1] == '+') {
-		/* key+=value */
-		set->append = TRUE;
-		set->key = p_strndup(instance->pool, key, len-1);
-	} else {
-		set->key = p_strdup(instance->pool, key);
-	}
-	set->value = p_strdup(instance->pool, value);
+	T_BEGIN {
+		if (len > 0 && key[len-1] == '+') {
+			/* key+=value */
+			set->append = TRUE;
+			key = t_strndup(key, len-1);
+		}
+		set->value = p_strdup(instance->pool, value);
+		settings_override_get_filter(set, instance->pool, key);
+	} T_END;
 }
 
 void settings_root_override(struct settings_root *root,
@@ -986,8 +1137,10 @@ void settings_root_override(struct settings_root *root,
 	struct settings_override *set =
 		array_append_space(&root->overrides);
 	set->type = type;
-	set->key = p_strdup(root->pool, key);
 	set->value = p_strdup(root->pool, value);
+	T_BEGIN {
+		settings_override_get_filter(set, root->pool, key);
+	} T_END;
 }
 
 static struct settings_instance *
@@ -1034,9 +1187,14 @@ settings_instance_dup(const struct settings_instance *src)
 void settings_instance_free(struct settings_instance **_instance)
 {
 	struct settings_instance *instance = *_instance;
+	struct settings_override *override;
 
 	*_instance = NULL;
 
+	if (array_is_created(&instance->overrides)) {
+		array_foreach_modifiable(&instance->overrides, override)
+			event_filter_unref(&override->filter);
+	}
 	pool_unref(&instance->pool);
 }
 
@@ -1051,10 +1209,15 @@ struct settings_root *settings_root_init(void)
 void settings_root_deinit(struct settings_root **_root)
 {
 	struct settings_root *root = *_root;
+	struct settings_override *override;
 	struct settings_mmap_pool *mpool;
 
 	*_root = NULL;
 
+	if (array_is_created(&root->overrides)) {
+		array_foreach_modifiable(&root->overrides, override)
+			event_filter_unref(&override->filter);
+	}
 	settings_mmap_unref(&root->mmap);
 
 	for (mpool = root->settings_pools; mpool != NULL; mpool = mpool->next) {

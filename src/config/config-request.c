@@ -333,6 +333,21 @@ settings_export(struct config_export_context *ctx,
 			count = 0;
 			break;
 		}
+		case SET_FILTER_ARRAY: {
+			const ARRAY_TYPE(const_string) *val = value;
+			const char *name;
+
+			if (!array_is_created(val))
+				break;
+
+			array_foreach_elem(val, name) {
+				if (str_len(ctx->value) > 0)
+					str_append_c(ctx->value, ' ');
+				str_append(ctx->value,
+					   settings_section_escape(name));
+			}
+			break;
+		}
 		case SET_FILTER_NAME:
 		case SET_ALIAS:
 			break;
@@ -348,6 +363,8 @@ settings_export(struct config_export_context *ctx,
 					type = CONFIG_KEY_UNIQUE_KEY;
 				else if (SETTING_TYPE_IS_DEFLIST(def->type))
 					type = CONFIG_KEY_LIST;
+				else if (def->type == SET_FILTER_ARRAY)
+					type = CONFIG_KEY_FILTER_ARRAY;
 				else
 					type = CONFIG_KEY_NORMAL;
 				ctx->callback(key, str_c(ctx->value), type,
