@@ -174,63 +174,22 @@ config_filter_parser_cmp_rev(struct config_filter_parser *const *p1,
 	return -config_filter_parser_cmp(p1, p2);
 }
 
-static bool str_array_contains(ARRAY_TYPE(const_string) *arr, const char *str)
-{
-	const char *p;
-
-	array_foreach_elem(arr, p) {
-		if (strcmp(p, str) == 0)
-			return TRUE;
-	}
-	return FALSE;
-}
-
-static bool have_changed_settings(const struct config_filter_parser *parser)
-{
-	const unsigned char *changes;
-	unsigned int i, j, size;
-
-	for (i = 0; parser->parsers[i].root != NULL; i++) {
-		changes = settings_parser_get_changes(parser->parsers[i].parser);
-		size = parser->parsers[i].root->struct_size;
-		for (j = 0; j < size; j++) {
-			if (changes[j] != 0)
-				return TRUE;
-		}
-	}
-	return FALSE;
-}
-
 static struct config_filter_parser *const *
 config_filter_find_all(struct config_filter_context *ctx, pool_t pool,
-		       const struct config_filter *filter,
-		       struct master_service_settings_output *output_r)
+		       const struct config_filter *filter)
 {
 	ARRAY_TYPE(config_filter_parsers) matches;
-	ARRAY_TYPE(const_string) service_names;
 	unsigned int i;
 
-	i_zero(output_r);
-
 	p_array_init(&matches, pool, 8);
-	p_array_init(&service_names, pool, 8);
 	for (i = 0; ctx->parsers[i] != NULL; i++) {
 		const struct config_filter *mask = &ctx->parsers[i]->filter;
 
-		if (!config_filter_match_service(mask, filter)) {
-			if (!str_array_contains(&service_names, mask->service) &&
-			    have_changed_settings(ctx->parsers[i]))
-				array_push_back(&service_names,
-						&mask->service);
+		if (!config_filter_match_service(mask, filter))
 			continue;
-		}
 
 		if (config_filter_match_rest(mask, filter))
 			array_push_back(&matches, &ctx->parsers[i]);
-	}
-	if (filter->service == NULL) {
-		array_append_zero(&service_names);
-		output_r->specific_services = array_front(&service_names);
 	}
 
 	array_sort(&matches, config_filter_parser_cmp);
@@ -316,7 +275,6 @@ config_module_parser_apply_changes(struct config_module_parser *dest,
 int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
 			      const struct config_filter *filter,
 			      struct config_module_parser **parsers_r,
-			      struct master_service_settings_output *output_r,
 			      const char **error_r)
 {
 	struct config_filter_parser *const *src;
@@ -329,7 +287,7 @@ int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
 	   with an error. Merging SET_STRLIST types requires
 	   settings_parser_apply_changes() to work a bit unintuitively by
 	   letting the destination settings override the source settings. */
-	src = config_filter_find_all(ctx, pool, filter, output_r);
+	src = config_filter_find_all(ctx, pool, filter);
 
 	/* all of them should have the same number of parsers.
 	   duplicate our initial parsers from the first match */

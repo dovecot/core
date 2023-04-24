@@ -25,7 +25,6 @@ struct config_export_context {
 	enum config_dump_flags flags;
 	const struct config_module_parser *parsers;
 	struct config_module_parser *dup_parsers;
-	struct master_service_settings_output output;
 	unsigned int section_idx;
 };
 
@@ -404,8 +403,7 @@ int config_export_by_filter(struct config_export_context *ctx,
 	const char *error;
 
 	if (config_filter_parsers_get(config_filter, ctx->pool, filter,
-				      &ctx->dup_parsers, &ctx->output,
-				      &error) < 0) {
+				      &ctx->dup_parsers, &error) < 0) {
 		i_error("%s", error);
 		return -1;
 	}
@@ -424,12 +422,6 @@ unsigned int config_export_get_parser_count(struct config_export_context *ctx)
 	unsigned int i = 0;
 	for (i = 0; ctx->parsers[i].root != NULL; i++) ;
 	return i;
-}
-
-void config_export_get_output(struct config_export_context *ctx,
-			      struct master_service_settings_output *output_r)
-{
-	*output_r = ctx->output;
 }
 
 const char *

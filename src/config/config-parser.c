@@ -428,7 +428,6 @@ config_all_parsers_check(struct config_parser_context *ctx,
 {
 	struct config_filter_parser *const *parsers;
 	struct config_module_parser *tmp_parsers;
-	struct master_service_settings_output output;
 	unsigned int i, count;
 	const char *ssl_set, *global_ssl_set;
 	pool_t tmp_pool;
@@ -452,8 +451,7 @@ config_all_parsers_check(struct config_parser_context *ctx,
 	for (i = 0; i < count && ret == 0; i++) {
 		if (config_filter_parsers_get(new_filter, tmp_pool,
 					      &parsers[i]->filter,
-					      &tmp_parsers, &output,
-					      error_r) < 0) {
+					      &tmp_parsers, error_r) < 0) {
 			ret = -1;
 			break;
 		}

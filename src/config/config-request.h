@@ -4,8 +4,6 @@
 #include "settings-parser.h"
 #include "config-filter.h"
 
-struct master_service_settings_output;
-
 enum config_dump_scope {
 	/* Dump all settings, including hidden settings */
 	CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN,
@@ -50,8 +48,6 @@ int config_export_by_filter(struct config_export_context *ctx,
 void config_export_set_parsers(struct config_export_context *ctx,
 			       const struct config_module_parser *parsers);
 unsigned int config_export_get_parser_count(struct config_export_context *ctx);
-void config_export_get_output(struct config_export_context *ctx,
-			      struct master_service_settings_output *output_r);
 const char *
 config_export_get_import_environment(struct config_export_context *ctx);
 const char *config_export_get_base_dir(struct config_export_context *ctx);
