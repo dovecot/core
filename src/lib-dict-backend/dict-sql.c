@@ -263,6 +263,8 @@ sql_dict_statement_bind(struct sql_statement *stmt, unsigned int column_idx,
 	case DICT_SQL_TYPE_UUID:
 		sql_statement_bind_uuid(stmt, column_idx, param->value_uuid);
 		break;
+	case DICT_SQL_TYPE_COUNT:
+		i_unreached();
 	}
 }
 
@@ -347,6 +349,8 @@ sql_dict_value_get(const struct dict_sql_map *map,
 		return 0;
 	case DICT_SQL_TYPE_HEXBLOB:
 		break;
+	case DICT_SQL_TYPE_COUNT:
+		i_unreached();
 	}
 
 	buf = t_buffer_create(strlen(value)/2);
@@ -525,6 +529,8 @@ sql_dict_result_unescape(enum dict_sql_type type, pool_t pool,
 		return guid_128_to_uuid_string(guid, FORMAT_RECORD);
 	case DICT_SQL_TYPE_HEXBLOB:
 		break;
+	case DICT_SQL_TYPE_COUNT:
+		i_unreached();
 	}
 
 	data = sql_result_get_field_value_binary(result, result_idx, &size);
