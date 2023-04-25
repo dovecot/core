@@ -208,9 +208,7 @@ config_dump_full_sections(struct config_filter_context *config_filter,
 	struct config_export_context *export_ctx;
 	int ret = 0;
 
-	struct config_filter empty_filter;
-	i_zero(&empty_filter);
-	filters = config_filter_find_subset(config_filter, &empty_filter);
+	filters = config_filter_find_subset(config_filter);
 
 	/* first filter should be the global one */
 	i_assert(filters[0] != NULL && filters[0]->filter.service == NULL);
@@ -264,7 +262,6 @@ int config_dump_full(struct config_filter_context *config_filter,
 		     const char **import_environment_r)
 {
 	struct config_export_context *export_ctx;
-	struct config_filter empty_filter;
 	const char *error;
 	unsigned int section_idx = 0;
 	int fd = -1;
@@ -283,8 +280,7 @@ int config_dump_full(struct config_filter_context *config_filter,
 				CONFIG_DUMP_SCOPE_CHANGED, flags,
 				config_dump_full_callback, &dump_ctx);
 	}
-	i_zero(&empty_filter);
-	if (config_export_by_filter(export_ctx, config_filter, &empty_filter) < 0) {
+	if (config_export_by_filter(export_ctx, config_filter) < 0) {
 		config_export_free(&export_ctx);
 		str_free(&dump_ctx.delayed_output);
 		return -1;
@@ -326,7 +322,6 @@ int config_dump_full(struct config_filter_context *config_filter,
 	}
 	struct ostream *output = dump_ctx.output;
 
-	i_zero(&empty_filter);
 	o_stream_cork(output);
 
 	*import_environment_r =

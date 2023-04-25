@@ -39,8 +39,7 @@ config_export_init(enum config_dump_scope scope,
 		   config_request_callback_t *callback, void *context)
 	ATTR_NULL(1, 5);
 int config_export_by_filter(struct config_export_context *ctx,
-			    struct config_filter_context *config_filter,
-			    const struct config_filter *filter);
+			    struct config_filter_context *config_filter);
 void config_export_set_parsers(struct config_export_context *ctx,
 			       const struct config_module_parser *parsers);
 unsigned int config_export_get_parser_count(struct config_export_context *ctx);

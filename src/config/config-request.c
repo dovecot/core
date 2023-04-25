@@ -398,12 +398,11 @@ config_export_init(enum config_dump_scope scope,
 }
 
 int config_export_by_filter(struct config_export_context *ctx,
-			    struct config_filter_context *config_filter,
-			    const struct config_filter *filter)
+			    struct config_filter_context *config_filter)
 {
 	const char *error;
 
-	if (config_filter_parsers_get(config_filter, ctx->pool, filter,
+	if (config_filter_parsers_get(config_filter, ctx->pool,
 				      &ctx->dup_parsers, &error) < 0) {
 		i_error("%s", error);
 		return -1;

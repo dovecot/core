@@ -177,22 +177,12 @@ config_filter_parser_cmp_rev(struct config_filter_parser *const *p1,
 }
 
 static struct config_filter_parser *const *
-config_filter_find_all(struct config_filter_context *ctx, pool_t pool,
-		       const struct config_filter *filter)
+config_filter_find_all(struct config_filter_context *ctx, pool_t pool)
 {
 	ARRAY_TYPE(config_filter_parsers) matches;
-	unsigned int i;
 
 	p_array_init(&matches, pool, 8);
-	for (i = 0; ctx->parsers[i] != NULL; i++) {
-		const struct config_filter *mask = &ctx->parsers[i]->filter;
-
-		if (!config_filter_match_service(mask, filter))
-			continue;
-
-		if (config_filter_match_rest(mask, filter))
-			array_push_back(&matches, &ctx->parsers[i]);
-	}
+	array_push_back(&matches, &ctx->parsers[0]);
 
 	array_sort(&matches, config_filter_parser_cmp);
 	array_append_zero(&matches);
@@ -200,33 +190,15 @@ config_filter_find_all(struct config_filter_context *ctx, pool_t pool,
 }
 
 struct config_filter_parser *const *
-config_filter_find_subset(struct config_filter_context *ctx,
-			  const struct config_filter *filter)
+config_filter_find_subset(struct config_filter_context *ctx)
 {
 	ARRAY_TYPE(config_filter_parsers) matches;
-	struct config_filter tmp_mask;
 	unsigned int i;
 
 	t_array_init(&matches, 8);
-	for (i = 0; ctx->parsers[i] != NULL; i++) {
-		const struct config_filter *mask = &ctx->parsers[i]->filter;
+	for (i = 0; ctx->parsers[i] != NULL; i++)
+		array_push_back(&matches, &ctx->parsers[i]);
 
-		if (filter->service != NULL) {
-			if (!config_filter_match_service(mask, filter))
-				continue;
-		}
-
-		tmp_mask = *mask;
-		if (filter->local_name == NULL)
-			tmp_mask.local_name = NULL;
-		if (filter->local_bits == 0)
-			tmp_mask.local_bits = 0;
-		if (filter->remote_bits == 0)
-			tmp_mask.remote_bits = 0;
-
-		if (config_filter_match_rest(&tmp_mask, filter))
-			array_push_back(&matches, &ctx->parsers[i]);
-	}
 	array_sort(&matches, config_filter_parser_cmp_rev);
 	array_append_zero(&matches);
 	return array_front(&matches);
@@ -275,7 +247,6 @@ config_module_parser_apply_changes(struct config_module_parser *dest,
 }
 
 int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
-			      const struct config_filter *filter,
 			      struct config_module_parser **parsers_r,
 			      const char **error_r)
 {
@@ -289,7 +260,7 @@ int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
 	   with an error. Merging SET_STRLIST types requires
 	   settings_parser_apply_changes() to work a bit unintuitively by
 	   letting the destination settings override the source settings. */
-	src = config_filter_find_all(ctx, pool, filter);
+	src = config_filter_find_all(ctx, pool);
 
 	/* all of them should have the same number of parsers.
 	   duplicate our initial parsers from the first match */

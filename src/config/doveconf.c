@@ -537,12 +537,11 @@ static void
 config_dump_human_sections(struct ostream *output,
 			   bool hide_passwords)
 {
-	struct config_filter empty_filter = {};
 	struct config_filter_parser *const *filters;
 	struct config_dump_human_context *ctx;
 	unsigned int indent;
 
-	filters = config_filter_find_subset(config_filter, &empty_filter);
+	filters = config_filter_find_subset(config_filter);
 
 	/* first filter should be the global one */
 	i_assert(filters[0] != NULL && filters[0]->filter.service == NULL);
@@ -565,7 +564,6 @@ config_dump_human(enum config_dump_scope scope, const char *setting_name_filter,
 		  bool hide_passwords)
 {
 	struct config_dump_human_context *ctx;
-	struct config_filter empty_filter = {};
 	struct ostream *output;
 	const char *str;
 	int ret = 0;
@@ -575,7 +573,7 @@ config_dump_human(enum config_dump_scope scope, const char *setting_name_filter,
 	o_stream_cork(output);
 
 	ctx = config_dump_human_init(scope);
-	if ((ret = config_export_by_filter(ctx->export_ctx, config_filter, &empty_filter)) < 0)
+	if ((ret = config_export_by_filter(ctx->export_ctx, config_filter)) < 0)
 		config_export_free(&ctx->export_ctx);
 	else
 		config_dump_human_output(ctx, output, 0, setting_name_filter, hide_passwords);
@@ -600,14 +598,13 @@ config_dump_one(bool hide_key,
 		bool hide_passwords)
 {
 	struct config_dump_human_context *ctx;
-	struct config_filter empty_filter = {};
 	const char *str;
 	size_t len;
 	unsigned int section_idx = 0;
 	bool dump_section = FALSE;
 
 	ctx = config_dump_human_init(scope);
-	if (config_export_by_filter(ctx->export_ctx, config_filter, &empty_filter) < 0) {
+	if (config_export_by_filter(ctx->export_ctx, config_filter) < 0) {
 		config_export_free(&ctx->export_ctx);
 		return -1;
 	}
@@ -970,14 +967,12 @@ int main(int argc, char *argv[])
 		ret2 = -1;
 	} else if (simple_output) {
 		struct config_export_context *ctx;
-		struct config_filter empty_filter = {};
 		unsigned int section_idx = 0;
 
 		ctx = config_export_init(scope, 0,
 					 config_request_simple_stdout,
 					 setting_name_filters);
-		if ((ret2 = config_export_by_filter(ctx, config_filter,
-						    &empty_filter)) < 0)
+		if ((ret2 = config_export_by_filter(ctx, config_filter)) < 0)
 			config_export_free(&ctx);
 		else {
 			if (config_export_all_parsers(&ctx, &section_idx) < 0)
