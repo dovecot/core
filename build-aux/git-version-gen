@@ -1,6 +1,6 @@
 #!/bin/sh
 
-## serial 2
+# serial 2
 
 if test "${VERSION}" != ""; then
   VN="${VERSION}"

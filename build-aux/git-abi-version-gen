@@ -1,14 +1,36 @@
 #!/bin/sh
 
-## serial 1
+set -eu
 
-if test "${VERSION}" != ""; then
-  VN=`echo ${VERSION} | sed -e "s/^\([0-9]*\.[0-9]*\)\.\([0-9]*\).*/\1.ABIv\2(${VERSION})/"`
+# serial 2
+
+# Converts version to ABI version (discards extra information)
+
+mangle_version()
+{
+  case "$1" in
+    # Convert YYYY.nn-foo+bar (rolling release) to
+    # YYYY.ABIvnn
+    20*[[:digit:]].*[[:digit:]])
+      echo \"`echo $1 | sed -e "s/^\(20[0-9]*\)\.\([0-9]*\).*/\1.ABIv\2/"`\"
+      ;;
+    # Convert 2.x.x-foo+bar and 3.x.x-foo+bar to
+    # MAJOR.MINOR.ABIvPATCH
+    [23].*[[:digit:]].*[[:digit:]])
+      echo \"`echo $1 | sed -e "s/^\([0-9]*\.[0-9]*\)\.\([0-9]*\).*/\1.ABIv\2/"`\"
+      ;;
+    *)
+      echo "\"0.0.ABIv0\""
+      ;;
+  esac
+}
+
+if test "${VERSION:-}" != ""; then
+  :
 elif test -f version; then
-  VN=`cat version`
-  VN=`echo $VN | sed -e "s/^\([0-9]*\.[0-9]*\)\.\([0-9]*\).*/\1.ABIv\2($VN)/"`
+  VERSION="`cat version`"
 else test -d .git;
-  VN="0.0.ABIv0(0.0.0)"
+  VERSION="0.0.0"
 fi
 
-echo \"$VN\"
+mangle_version $VERSION
