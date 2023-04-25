@@ -535,14 +535,14 @@ config_dump_filter_end(struct ostream *output, unsigned int indent)
 
 static void
 config_dump_human_sections(struct ostream *output,
-			   const struct config_filter *filter,
 			   bool hide_passwords)
 {
+	struct config_filter empty_filter = {};
 	struct config_filter_parser *const *filters;
 	struct config_dump_human_context *ctx;
 	unsigned int indent;
 
-	filters = config_filter_find_subset(config_filter, filter);
+	filters = config_filter_find_subset(config_filter, &empty_filter);
 
 	/* first filter should be the global one */
 	i_assert(filters[0] != NULL && filters[0]->filter.service == NULL);
@@ -561,11 +561,11 @@ config_dump_human_sections(struct ostream *output,
 }
 
 static int ATTR_NULL(4)
-config_dump_human(const struct config_filter *filter,
-		  enum config_dump_scope scope, const char *setting_name_filter,
+config_dump_human(enum config_dump_scope scope, const char *setting_name_filter,
 		  bool hide_passwords)
 {
 	struct config_dump_human_context *ctx;
+	struct config_filter empty_filter = {};
 	struct ostream *output;
 	const char *str;
 	int ret = 0;
@@ -575,14 +575,14 @@ config_dump_human(const struct config_filter *filter,
 	o_stream_cork(output);
 
 	ctx = config_dump_human_init(scope);
-	if ((ret = config_export_by_filter(ctx->export_ctx, config_filter, filter)) < 0)
+	if ((ret = config_export_by_filter(ctx->export_ctx, config_filter, &empty_filter)) < 0)
 		config_export_free(&ctx->export_ctx);
 	else
 		config_dump_human_output(ctx, output, 0, setting_name_filter, hide_passwords);
 	config_dump_human_deinit(ctx);
 
 	if (setting_name_filter == NULL)
-		config_dump_human_sections(output, filter, hide_passwords);
+		config_dump_human_sections(output, hide_passwords);
 
 	/* flush output before writing errors */
 	o_stream_uncork(output);
@@ -595,18 +595,19 @@ config_dump_human(const struct config_filter *filter,
 }
 
 static int
-config_dump_one(const struct config_filter *filter, bool hide_key,
+config_dump_one(bool hide_key,
 		enum config_dump_scope scope, const char *setting_name_filter,
 		bool hide_passwords)
 {
 	struct config_dump_human_context *ctx;
+	struct config_filter empty_filter = {};
 	const char *str;
 	size_t len;
 	unsigned int section_idx = 0;
 	bool dump_section = FALSE;
 
 	ctx = config_dump_human_init(scope);
-	if (config_export_by_filter(ctx->export_ctx, config_filter, filter) < 0) {
+	if (config_export_by_filter(ctx->export_ctx, config_filter, &empty_filter) < 0) {
 		config_export_free(&ctx->export_ctx);
 		return -1;
 	}
@@ -634,7 +635,7 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 	config_dump_human_deinit(ctx);
 
 	if (dump_section)
-		(void)config_dump_human(filter, scope, setting_name_filter, hide_passwords);
+		(void)config_dump_human(scope, setting_name_filter, hide_passwords);
 	return 0;
 }
 
@@ -679,37 +680,6 @@ static const char *get_setting(const char *info_name, const char *name)
 		}
 	}
 	i_unreached();
-}
-
-static void filter_parse_arg(struct config_filter *filter, const char *arg)
-{
-	const char *key, *value, *error;
-
-	value = strchr(arg, '=');
-	if (value != NULL)
-		key = t_strdup_until(arg, value++);
-	else {
-		key = arg;
-		value = "";
-	}
-
-	if (strcmp(key, "service") == 0)
-		filter->service = value;
-	else if (strcmp(key, "protocol") == 0)
-		filter->service = value;
-	else if (strcmp(key, "lname") == 0)
-		filter->local_name = value;
-	else if (strcmp(key, "local") == 0) {
-		if (config_parse_net(value, &filter->local_net,
-				     &filter->local_bits, &error) < 0)
-			i_fatal("local filter: %s", error);
-	} else if (strcmp(key, "remote") == 0) {
-		if (config_parse_net(value, &filter->remote_net,
-				     &filter->remote_bits, &error) < 0)
-			i_fatal("remote filter: %s", error);
-	} else {
-		i_fatal("Unknown filter argument: %s", arg);
-	}
 }
 
 struct hostname_format {
@@ -849,7 +819,6 @@ int main(int argc, char *argv[])
 		MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME;
 	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN;
 	const char *orig_config_path, *config_path;
-	struct config_filter filter;
 	const char *import_environment, *error;
 	char **exec_args = NULL, **setting_name_filters = NULL;
 	unsigned int i;
@@ -865,9 +834,8 @@ int main(int argc, char *argv[])
 		i_set_failure_exit_callback(failure_exit_callback);
 	}
 
-	i_zero(&filter);
 	master_service = master_service_init("config", master_service_flags,
-					     &argc, &argv, "aCdf:FhHm:nNpPwxsS");
+					     &argc, &argv, "aCdFhHm:nNpPwxsS");
 	orig_config_path = t_strdup(master_service_get_config_path(master_service));
 
 	i_set_failure_prefix("doveconf: ");
@@ -880,9 +848,6 @@ int main(int argc, char *argv[])
 			break;
 		case 'd':
 			dump_defaults = TRUE;
-			break;
-		case 'f':
-			filter_parse_arg(&filter, optarg);
 			break;
 		case 'F':
 			dump_full = TRUE;
@@ -1005,12 +970,14 @@ int main(int argc, char *argv[])
 		ret2 = -1;
 	} else if (simple_output) {
 		struct config_export_context *ctx;
+		struct config_filter empty_filter = {};
 		unsigned int section_idx = 0;
 
 		ctx = config_export_init(scope, 0,
 					 config_request_simple_stdout,
 					 setting_name_filters);
-		if ((ret2 = config_export_by_filter(ctx, config_filter, &filter)) < 0)
+		if ((ret2 = config_export_by_filter(ctx, config_filter,
+						    &empty_filter)) < 0)
 			config_export_free(&ctx);
 		else {
 			if (config_export_all_parsers(&ctx, &section_idx) < 0)
@@ -1024,7 +991,7 @@ int main(int argc, char *argv[])
 		   (temporarily) not be fully usable */
 		ret = 0;
 		for (i = 0; setting_name_filters[i] != NULL; i++) {
-			if (config_dump_one(&filter, hide_key, scope,
+			if (config_dump_one(hide_key, scope,
 					    setting_name_filters[i], hide_passwords) < 0)
 				ret2 = -1;
 		}
@@ -1040,7 +1007,7 @@ int main(int argc, char *argv[])
 		if (scope == CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN)
 			printf("# NOTE: Send doveconf -n output instead when asking for help.\n");
 		fflush(stdout);
-		ret2 = config_dump_human(&filter, scope, NULL, hide_passwords);
+		ret2 = config_dump_human(scope, NULL, hide_passwords);
 	}
 
 	if (ret < 0) {
