@@ -12,4 +12,4 @@ if ! test -f build-aux/config.rpath; then
   done
 fi
 
-autoreconf -i
+autoreconf -vif
