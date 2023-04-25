@@ -397,18 +397,11 @@ config_export_init(enum config_dump_scope scope,
 	return ctx;
 }
 
-int config_export_by_filter(struct config_export_context *ctx,
-			    struct config_filter_context *config_filter)
+void config_export_dup_parsers(struct config_export_context *ctx,
+			       struct config_filter_context *config_filter)
 {
-	const char *error;
-
-	if (config_filter_parsers_get(config_filter, ctx->pool,
-				      &ctx->dup_parsers, &error) < 0) {
-		i_error("%s", error);
-		return -1;
-	}
+	ctx->dup_parsers = config_filter_parsers_dup(config_filter, ctx->pool);
 	ctx->parsers = ctx->dup_parsers;
-	return 0;
 }
 
 void config_export_set_parsers(struct config_export_context *ctx,

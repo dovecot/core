@@ -573,10 +573,8 @@ config_dump_human(enum config_dump_scope scope, const char *setting_name_filter,
 	o_stream_cork(output);
 
 	ctx = config_dump_human_init(scope);
-	if ((ret = config_export_by_filter(ctx->export_ctx, config_filter)) < 0)
-		config_export_free(&ctx->export_ctx);
-	else
-		config_dump_human_output(ctx, output, 0, setting_name_filter, hide_passwords);
+	config_export_dup_parsers(ctx->export_ctx, config_filter);
+	config_dump_human_output(ctx, output, 0, setting_name_filter, hide_passwords);
 	config_dump_human_deinit(ctx);
 
 	if (setting_name_filter == NULL)
@@ -604,10 +602,7 @@ config_dump_one(bool hide_key,
 	bool dump_section = FALSE;
 
 	ctx = config_dump_human_init(scope);
-	if (config_export_by_filter(ctx->export_ctx, config_filter) < 0) {
-		config_export_free(&ctx->export_ctx);
-		return -1;
-	}
+	config_export_dup_parsers(ctx->export_ctx, config_filter);
 	if (config_export_all_parsers(&ctx->export_ctx, &section_idx) < 0)
 		i_unreached(); /* settings aren't checked - this can't happen */
 
@@ -972,12 +967,10 @@ int main(int argc, char *argv[])
 		ctx = config_export_init(scope, 0,
 					 config_request_simple_stdout,
 					 setting_name_filters);
-		if ((ret2 = config_export_by_filter(ctx, config_filter)) < 0)
-			config_export_free(&ctx);
-		else {
-			if (config_export_all_parsers(&ctx, &section_idx) < 0)
-				i_unreached();
-		}
+		config_export_dup_parsers(ctx, config_filter);
+		if (config_export_all_parsers(&ctx, &section_idx) < 0)
+			i_unreached();
+		ret2 = 0;
 	} else if (setting_name_filters != NULL) {
 		ret2 = 0;
 		/* ignore settings-check failures in configuration. this allows

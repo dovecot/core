@@ -176,19 +176,6 @@ config_filter_parser_cmp_rev(struct config_filter_parser *const *p1,
 	return -config_filter_parser_cmp(p1, p2);
 }
 
-static struct config_filter_parser *const *
-config_filter_find_all(struct config_filter_context *ctx, pool_t pool)
-{
-	ARRAY_TYPE(config_filter_parsers) matches;
-
-	p_array_init(&matches, pool, 8);
-	array_push_back(&matches, &ctx->parsers[0]);
-
-	array_sort(&matches, config_filter_parser_cmp);
-	array_append_zero(&matches);
-	return array_front(&matches);
-}
-
 struct config_filter_parser *const *
 config_filter_find_subset(struct config_filter_context *ctx)
 {
@@ -204,92 +191,22 @@ config_filter_find_subset(struct config_filter_context *ctx)
 	return array_front(&matches);
 }
 
-static bool
-config_filter_is_superset(const struct config_filter *sup,
-			  const struct config_filter *filter)
+struct config_module_parser *
+config_filter_parsers_dup(struct config_filter_context *ctx, pool_t pool)
 {
-	/* assume that both of the filters match the same subset, so we don't
-	   need to compare IPs and service name. */
-	if (sup->local_bits > filter->local_bits)
-		return FALSE;
-	if (sup->remote_bits > filter->remote_bits)
-		return FALSE;
-	if (sup->local_name != NULL && filter->local_name == NULL) {
-		i_warning("%s", sup->local_name);
-		return FALSE;
-	}
-	if (sup->service != NULL && filter->service == NULL)
-		return FALSE;
-	return TRUE;
-}
-
-static int
-config_module_parser_apply_changes(struct config_module_parser *dest,
-				   const struct config_filter_parser *src,
-				   pool_t pool, const char **error_r)
-{
-	const char *conflict_key;
-	unsigned int i;
-
-	for (i = 0; dest[i].root != NULL; i++) {
-		if (settings_parser_apply_changes(dest[i].parser,
-						  src->parsers[i].parser, pool,
-						  error_r == NULL ? NULL :
-						  &conflict_key) < 0) {
-			i_assert(error_r != NULL);
-			*error_r = t_strdup_printf("Conflict in setting %s "
-				"found from filter at %s", conflict_key,
-				src->file_and_line);
-			return -1;
-		}
-	}
-	return 0;
-}
-
-int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
-			      struct config_module_parser **parsers_r,
-			      const char **error_r)
-{
-	struct config_filter_parser *const *src;
+	const struct config_filter_parser *global_filter;
 	struct config_module_parser *dest;
-	const char *error = NULL, **error_p;
 	unsigned int i, count;
 
-	/* get the matching filters. the most specific ones are handled first,
-	   so that if more generic filters try to override settings we'll fail
-	   with an error. Merging SET_STRLIST types requires
-	   settings_parser_apply_changes() to work a bit unintuitively by
-	   letting the destination settings override the source settings. */
-	src = config_filter_find_all(ctx, pool);
-
-	/* all of them should have the same number of parsers.
-	   duplicate our initial parsers from the first match */
-	for (count = 0; src[0]->parsers[count].root != NULL; count++) ;
+	global_filter = ctx->parsers[0];
+	for (count = 0; global_filter->parsers[count].root != NULL; count++) ;
 	dest = p_new(pool, struct config_module_parser, count + 1);
 	for (i = 0; i < count; i++) {
-		dest[i] = src[0]->parsers[i];
+		dest[i] = global_filter->parsers[i];
 		dest[i].parser =
-			settings_parser_dup(src[0]->parsers[i].parser, pool);
+			settings_parser_dup(global_filter->parsers[i].parser, pool);
 	}
-
-	/* apply the changes from rest of the matches */
-	for (i = 1; src[i] != NULL; i++) {
-		if (config_filter_is_superset(&src[i]->filter,
-					      &src[i-1]->filter))
-			error_p = NULL;
-		else
-			error_p = &error;
-
-		if (config_module_parser_apply_changes(dest, src[i], pool,
-						       error_p) < 0) {
-			i_assert(error != NULL);
-			config_filter_parsers_free(dest);
-			*error_r = error;
-			return -1;
-		}
-	}
-	*parsers_r = dest;
-	return 0;
+	return dest;
 }
 
 void config_filter_add_error(struct config_filter_context *ctx,

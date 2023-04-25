@@ -280,11 +280,7 @@ int config_dump_full(struct config_filter_context *config_filter,
 				CONFIG_DUMP_SCOPE_CHANGED, flags,
 				config_dump_full_callback, &dump_ctx);
 	}
-	if (config_export_by_filter(export_ctx, config_filter) < 0) {
-		config_export_free(&export_ctx);
-		str_free(&dump_ctx.delayed_output);
-		return -1;
-	}
+	config_export_dup_parsers(export_ctx, config_filter);
 
 	string_t *path = t_str_new(128);
 	const char *final_path = NULL;
