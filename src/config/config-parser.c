@@ -379,24 +379,33 @@ config_filter_parser_check(struct config_parser_context *ctx,
 			   const char **error_r)
 {
 	const char *error = NULL;
+	pool_t tmp_pool;
 	bool ok;
 
+	tmp_pool = pool_alloconly_create(MEMPOOL_GROWING"config parsers check", 1024);
 	for (; p->root != NULL; p++) {
-		settings_parse_var_skip(p->parser);
+		p_clear(tmp_pool);
+		struct setting_parser_context *tmp_parser =
+			settings_parser_dup(p->parser, tmp_pool);
+		settings_parse_var_skip(tmp_parser);
 		T_BEGIN {
-			ok = settings_parser_check(p->parser, ctx->pool, &error);
+			ok = settings_parser_check(tmp_parser, tmp_pool, &error);
 		} T_END_PASS_STR_IF(!ok, &error);
+		settings_parser_unref(&tmp_parser);
+
 		if (!ok) {
 			/* be sure to assert-crash early if error is missing */
 			i_assert(error != NULL);
 			if (!ctx->delay_errors) {
 				*error_r = error;
+				pool_unref(&tmp_pool);
 				return -1;
 			}
 			if (p->error == NULL)
 				p->error = p_strdup(ctx->pool, error);
 		}
 	}
+	pool_unref(&tmp_pool);
 	return 0;
 }
 
@@ -423,16 +432,12 @@ get_str_setting(struct config_filter_parser *parser, const char *key,
 
 static int
 config_all_parsers_check(struct config_parser_context *ctx,
-			 struct config_filter_context *new_filter,
 			 const char **error_r)
 {
 	struct config_filter_parser *const *parsers;
-	struct config_module_parser *tmp_parsers;
 	unsigned int i, count;
 	const char *ssl_set, *global_ssl_set;
-	pool_t tmp_pool;
 	bool ssl_warned = FALSE;
-	int ret = 0;
 
 	if (ctx->cur_section->prev != NULL) {
 		*error_r = t_strdup_printf(
@@ -442,20 +447,20 @@ config_all_parsers_check(struct config_parser_context *ctx,
 		return -1;
 	}
 
-	tmp_pool = pool_alloconly_create(MEMPOOL_GROWING"config parsers check", 1024*64);
 	parsers = array_get(&ctx->all_parsers, &count);
 	i_assert(count > 0 && parsers[count-1] == NULL);
 	count--;
 
+	/* Run check_func()s for each filter independently. If you have
+	   protocol imap { ... local { ... } } blocks, it's going to check the
+	   "local" filter without applying settings from the "protocol imap"
+	   filter. In theory this could complain about nonexistent problems,
+	   but currently such checks are rare enough that this shouldn't be a
+	   practical problem. Fixing this is possible and it was done in a
+	   previous version of the code, but it got in the way of cleaning up
+	   the config code, so at least for now it's not done. */
 	global_ssl_set = get_str_setting(parsers[0], "ssl", "");
-	for (i = 0; i < count && ret == 0; i++) {
-		if (config_filter_parsers_get(new_filter, tmp_pool,
-					      &parsers[i]->filter,
-					      &tmp_parsers, error_r) < 0) {
-			ret = -1;
-			break;
-		}
-
+	for (i = 0; i < count; i++) {
 		ssl_set = get_str_setting(parsers[i], "ssl", global_ssl_set);
 		if (strcmp(ssl_set, "no") != 0 &&
 		    strcmp(global_ssl_set, "no") == 0 && !ssl_warned) {
@@ -464,12 +469,10 @@ config_all_parsers_check(struct config_parser_context *ctx,
 			ssl_warned = TRUE;
 		}
 
-		ret = config_filter_parser_check(ctx, tmp_parsers, error_r);
-		config_filter_parsers_free(tmp_parsers);
-		p_clear(tmp_pool);
+		if (config_filter_parser_check(ctx, parsers[i]->parsers, error_r) < 0)
+			return -1;
 	}
-	pool_unref(&tmp_pool);
-	return ret;
+	return 0;
 }
 
 static int
@@ -752,7 +755,7 @@ static int config_parse_finish(struct config_parser_context *ctx, const char **e
 
 	if (ret < 0)
 		;
-	else if ((ret = config_all_parsers_check(ctx, new_filter, &error)) < 0) {
+	else if ((ret = config_all_parsers_check(ctx, &error)) < 0) {
 		*error_r = t_strdup_printf("Error in configuration file %s: %s",
 					   ctx->path, error);
 	}
