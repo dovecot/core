@@ -398,6 +398,7 @@ config_export_init(enum config_dump_scope scope,
 }
 
 int config_export_by_filter(struct config_export_context *ctx,
+			    struct config_filter_context *config_filter,
 			    const struct config_filter *filter)
 {
 	const char *error;

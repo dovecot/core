@@ -282,7 +282,7 @@ int config_dump_full(enum config_dump_full_dest dest,
 				config_dump_full_callback, &dump_ctx);
 	}
 	i_zero(&empty_filter);
-	if (config_export_by_filter(export_ctx, &empty_filter) < 0) {
+	if (config_export_by_filter(export_ctx, config_filter, &empty_filter) < 0) {
 		config_export_free(&export_ctx);
 		str_free(&dump_ctx.delayed_output);
 		return -1;
