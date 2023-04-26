@@ -38,7 +38,6 @@ static const enum settings_parser_flags settings_parser_flags =
 	SETTINGS_PARSER_FLAG_TRACK_CHANGES;
 
 struct config_module_parser *config_module_parsers;
-struct config_filter_context *config_filter;
 struct module *modules;
 void (*hook_config_parser_begin)(struct config_parser_context *ctx);
 int (*hook_config_parser_end)(struct config_parser_context *ctx,
@@ -763,8 +762,6 @@ config_parse_finish(struct config_parser_context *ctx,
 					   ctx->path, error);
 	}
 
-	if (config_filter != NULL)
-		config_filter_deinit(&config_filter);
 	config_module_parsers = ctx->root_parsers;
 	*filter_r = new_filter;
 	return ret;

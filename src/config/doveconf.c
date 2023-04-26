@@ -46,6 +46,7 @@ struct config_dump_human_context {
 #define LIST_KEY_PREFIX "\001"
 #define UNIQUE_KEY_SUFFIX "\xff"
 
+static struct config_filter_context *config_filter;
 static const char *indent_str = "                              !!!!";
 
 static const char *const secrets[] = {

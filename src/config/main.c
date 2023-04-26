@@ -19,6 +19,7 @@ int main(int argc, char *argv[])
 {
 	const enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_DONT_SEND_STATS;
+	struct config_filter_context *config_filter;
 	const char *path, *error;
 
 	master_service = master_service_init("config", service_flags,
@@ -37,6 +38,7 @@ int main(int argc, char *argv[])
 	if (config_parse_file(path, CONFIG_PARSE_FLAG_EXPAND_VALUES,
 			      &config_filter, &error) <= 0)
 		i_fatal("%s", error);
+	config_connections_init(config_filter);
 
 	/* notify about our success only after successfully parsing the
 	   config file, so if the parsing fails, master won't immediately

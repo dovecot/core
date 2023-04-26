@@ -86,6 +86,7 @@ static void write_config_file(const char *contents)
 
 static void test_config_parser(void)
 {
+	struct config_filter_context *config_filter;
 	const char *error = NULL;
 
 	test_begin("config_parse_file");
@@ -133,6 +134,7 @@ static void test_config_parser(void)
 	test_assert_strcmp(set->env_key4, "test1 test2 value");
 	test_assert_strcmp(set->env_key5, "test1 test1");
 	test_assert_strcmp(set->protocols, "pop3 imap");
+	config_filter_deinit(&config_filter);
 
 	/* try again unexpanded */
 	test_assert(config_parse_file(TEST_CONFIG_FILE, 0, &config_filter, &error) == 1);

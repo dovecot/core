@@ -5,6 +5,8 @@
 
 #define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
 
+struct config_filter_context;
+
 enum config_parse_flags {
 	CONFIG_PARSE_FLAG_EXPAND_VALUES	= BIT(0),
 	CONFIG_PARSE_FLAG_HIDE_OBSOLETE_WARNINGS = BIT(1),
@@ -20,7 +22,6 @@ struct config_module_parser {
 ARRAY_DEFINE_TYPE(config_module_parsers, struct config_module_parser *);
 
 extern struct config_module_parser *config_module_parsers;
-extern struct config_filter_context *config_filter;
 extern struct module *modules;
 
 int config_parse_net(const char *value, struct ip_addr *ip_r,
