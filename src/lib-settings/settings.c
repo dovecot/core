@@ -846,7 +846,7 @@ settings_instance_get(struct event *event,
 		return 0;
 	}
 	if ((flags & SETTINGS_GET_FLAG_NO_CHECK) == 0) {
-		if (!settings_check(info, *pool_p, set, error_r)) {
+		if (!settings_check(event, info, *pool_p, set, error_r)) {
 			*error_r = t_strdup_printf("Invalid %s settings: %s",
 						   info->name, *error_r);
 			pool_unref(&set_pool);

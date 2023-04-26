@@ -8,6 +8,7 @@
 #include "strescape.h"
 #include "istream.h"
 #include "module-dir.h"
+#include "settings.h"
 #include "settings-parser.h"
 #include "service-settings.h"
 #include "master-service.h"
@@ -16,6 +17,7 @@
 #include "all-settings.h"
 #include "old-set-parser.h"
 #include "config-request.h"
+#include "config-dump-full.h"
 #include "config-parser-private.h"
 
 #include <unistd.h>
@@ -440,20 +442,36 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 static void
 config_filter_parser_check(struct config_parser_context *ctx,
 			   struct config_parsed *new_config,
-			   struct config_module_parser *p)
+			   struct event *event,
+			   struct config_filter_parser *filter_parser)
 {
+	struct config_module_parser *p;
+	const struct config_filter *filter;
 	const char *error = NULL;
 	pool_t tmp_pool;
 	bool ok;
 
+	event = event_create(event);
+	for (filter = &filter_parser->filter; filter != NULL; filter = filter->parent) {
+		if (filter->service != NULL)
+			event_add_str(event, "protocol", filter->service);
+		if (filter->local_name != NULL)
+			event_add_str(event, "local_name", filter->local_name);
+		if (filter->local_bits > 0)
+			event_add_ip(event, "local_ip", &filter->local_net);
+		if (filter->remote_bits > 0)
+			event_add_ip(event, "remote_ip", &filter->remote_net);
+	}
+
 	tmp_pool = pool_alloconly_create(MEMPOOL_GROWING"config parsers check", 1024);
-	for (; p->root != NULL; p++) {
+	for (p = filter_parser->module_parsers; p->root != NULL; p++) {
 		p_clear(tmp_pool);
 		struct setting_parser_context *tmp_parser =
 			settings_parser_dup(p->parser, tmp_pool);
 		settings_parse_var_skip(tmp_parser);
 		T_BEGIN {
-			ok = settings_parser_check(tmp_parser, tmp_pool, &error);
+			ok = settings_parser_check(tmp_parser, tmp_pool,
+						   event, &error);
 		} T_END_PASS_STR_IF(!ok, &error);
 		settings_parser_unref(&tmp_parser);
 
@@ -474,6 +492,7 @@ config_filter_parser_check(struct config_parser_context *ctx,
 		}
 	}
 	pool_unref(&tmp_pool);
+	event_unref(&event);
 }
 
 static const char *
@@ -515,9 +534,30 @@ config_all_parsers_check(struct config_parser_context *ctx,
 		return -1;
 	}
 
+	int fd = config_dump_full(new_config, CONFIG_DUMP_FULL_DEST_TEMPDIR, 0,
+				  NULL);
+	if (fd == -1) {
+		*error_r = "Failed to write binary config file";
+		return -1;
+	}
+	struct settings_root *set_root = settings_root_init();
+	const char *const *specific_services, *error;
+	if (settings_read(set_root, fd, "(temp config file)", NULL,
+			  &specific_services, &error) < 0) {
+		*error_r = t_strdup_printf(
+			"Failed to read settings from binary config file: %s",
+			error);
+		i_close_fd(&fd);
+		settings_root_deinit(&set_root);
+		return -1;
+	}
+
 	parsers = array_get(&ctx->all_filter_parsers, &count);
 	i_assert(count > 0 && parsers[count-1] == NULL);
 	count--;
+
+	struct event *event = event_create(NULL);
+	event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
 
 	/* Run check_func()s for each filter independently. If you have
 	   protocol imap { ... local { ... } } blocks, it's going to check the
@@ -537,9 +577,12 @@ config_all_parsers_check(struct config_parser_context *ctx,
 			ssl_warned = TRUE;
 		}
 
-		config_filter_parser_check(ctx, new_config,
-					   parsers[i]->module_parsers);
+		config_filter_parser_check(ctx, new_config, event, parsers[i]);
 	}
+	event_unref(&event);
+	i_close_fd(&fd);
+	settings_root_deinit(&set_root);
+
 	const char *const *errors =
 		array_get(config_parsed_get_errors(new_config), &count);
 	if (count > 0) {

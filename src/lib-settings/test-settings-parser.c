@@ -92,7 +92,7 @@ static void test_settings_parser(void)
 	if (ret < 0)
 		i_error("settings_parse_line() failed: %s",
 			settings_parser_get_error(ctx));
-	test_assert(settings_parser_check(ctx, pool, NULL));
+	test_assert(settings_parser_check(ctx, pool, NULL, NULL));
 
 	/* check what we got */
 	struct test_settings *settings = settings_parser_get_set(ctx);

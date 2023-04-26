@@ -115,6 +115,9 @@ struct setting_parser_info {
 	size_t pool_offset1; /* pool_offset+1. 0=nonexistent. */
 
 	bool (*check_func)(void *set, pool_t pool, const char **error_r);
+	/* The event parameter can be used with settings_get*() to access other
+	   settings structs. */
+	bool (*ext_check_func)(struct event *event, void *set, pool_t pool, const char **error_r);
 	bool (*expand_check_func)(void *set, pool_t pool, const char **error_r);
 	const struct setting_parser_info *const *dependencies;
 
@@ -169,11 +172,12 @@ int settings_parse_keyvalue(struct setting_parser_context *ctx,
    pointer's validity must be enforced by the caller. */
 int settings_parse_keyvalue_nodup(struct setting_parser_context *ctx,
 				  const char *key, const char *value);
-/* Call all check_func()s to see if currently parsed settings are valid. */
+/* Call all check_func()s and ext_check_func()s to see if currently parsed
+   settings are valid. */
 bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
-			   const char **error_r);
-bool settings_check(const struct setting_parser_info *info, pool_t pool,
-		    void *set, const char **error_r);
+			   struct event *event, const char **error_r);
+bool settings_check(struct event *event, const struct setting_parser_info *info,
+		    pool_t pool, void *set, const char **error_r);
 
 /* While parsing values, specifies if STR_VARS strings are already expanded. */
 void settings_parse_set_expanded(struct setting_parser_context *ctx,

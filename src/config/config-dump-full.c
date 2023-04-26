@@ -344,8 +344,10 @@ int config_dump_full(struct config_parsed *config,
 
 	o_stream_cork(output);
 
-	*import_environment_r =
-		t_strdup(config_export_get_import_environment(export_ctx));
+	if (import_environment_r != NULL) {
+		*import_environment_r =
+			t_strdup(config_export_get_import_environment(export_ctx));
+	}
 
 	uint64_t blob_size = UINT64_MAX;
 	uoff_t settings_full_size_offset = 0;

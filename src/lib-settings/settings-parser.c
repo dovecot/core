@@ -800,8 +800,8 @@ settings_parse_get_prev_info(struct setting_parser_context *ctx)
 	return ctx->prev_info;
 }
 
-bool settings_check(const struct setting_parser_info *info, pool_t pool,
-		    void *set, const char **error_r)
+bool settings_check(struct event *event, const struct setting_parser_info *info,
+		    pool_t pool, void *set, const char **error_r)
 {
 	const struct setting_define *def;
 	const ARRAY_TYPE(void_array) *val;
@@ -812,6 +812,13 @@ bool settings_check(const struct setting_parser_info *info, pool_t pool,
 	if (info->check_func != NULL) {
 		T_BEGIN {
 			valid = info->check_func(set, pool, error_r);
+		} T_END_PASS_STR_IF(!valid, error_r);
+		if (!valid)
+			return FALSE;
+	}
+	if (info->ext_check_func != NULL) {
+		T_BEGIN {
+			valid = info->ext_check_func(event, set, pool, error_r);
 		} T_END_PASS_STR_IF(!valid, error_r);
 		if (!valid)
 			return FALSE;
@@ -827,7 +834,7 @@ bool settings_check(const struct setting_parser_info *info, pool_t pool,
 
 		children = array_get(val, &count);
 		for (i = 0; i < count; i++) {
-			if (!settings_check(def->list_info, pool,
+			if (!settings_check(event, def->list_info, pool,
 					    children[i], error_r))
 				return FALSE;
 		}
@@ -836,9 +843,9 @@ bool settings_check(const struct setting_parser_info *info, pool_t pool,
 }
 
 bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
-			   const char **error_r)
+			   struct event *event, const char **error_r)
 {
-	return settings_check(ctx->root.info, pool,
+	return settings_check(event, ctx->root.info, pool,
 			      ctx->root.set_struct, error_r);
 }
 

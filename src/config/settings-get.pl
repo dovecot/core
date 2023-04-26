@@ -19,6 +19,7 @@ print '#include "hash-format.h"'."\n";
 print '#include "net.h"'."\n";
 print '#include "unichar.h"'."\n";
 print '#include "hash-method.h"'."\n";
+print '#include "settings.h"'."\n";
 print '#include "settings-parser.h"'."\n";
 print '#include "message-header-parser.h"'."\n";
 print '#include "pop3-protocol.h"'."\n";
