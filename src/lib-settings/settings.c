@@ -74,11 +74,20 @@ filter_string_parse_protocol(const char *filter_string,
 	const char *p2 = strchr(p + 10, '"');
 	if (p2 == NULL)
 		return;
-	const char *protocol = t_strdup_until(p + 10, p2);
-	if (p - filter_string > 4 && strcmp(p - 4, "NOT ") == 0)
-		protocol = t_strconcat("!", protocol, NULL);
-	if (array_lsearch(protocols, &protocol, i_strcmp_p) == NULL)
+
+	char *add_protocol = NULL;
+	T_BEGIN {
+		const char *protocol = t_strdup_until(p + 10, p2);
+		if (p - filter_string > 4 && strcmp(p - 4, "NOT ") == 0)
+			protocol = t_strconcat("!", protocol, NULL);
+		if (array_lsearch(protocols, &protocol, i_strcmp_p) == NULL)
+			add_protocol = i_strdup(protocol);
+	} T_END;
+	if (add_protocol != NULL) {
+		const char *protocol = t_strdup(add_protocol);
 		array_push_back(protocols, &protocol);
+		i_free(add_protocol);
+	}
 }
 
 static int
