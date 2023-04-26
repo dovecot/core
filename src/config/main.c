@@ -34,7 +34,8 @@ int main(int argc, char *argv[])
 	config_parse_load_modules();
 
 	path = master_service_get_config_path(master_service);
-	if (config_parse_file(path, CONFIG_PARSE_FLAG_EXPAND_VALUES, &error) <= 0)
+	if (config_parse_file(path, CONFIG_PARSE_FLAG_EXPAND_VALUES,
+			      &config_filter, &error) <= 0)
 		i_fatal("%s", error);
 
 	/* notify about our success only after successfully parsing the

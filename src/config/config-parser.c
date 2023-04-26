@@ -740,7 +740,10 @@ config_parse_line(struct config_parser_context *ctx,
 	return CONFIG_LINE_TYPE_SECTION_BEGIN;
 }
 
-static int config_parse_finish(struct config_parser_context *ctx, const char **error_r)
+static int
+config_parse_finish(struct config_parser_context *ctx,
+		    struct config_filter_context **filter_r,
+		    const char **error_r)
 {
 	struct config_filter_context *new_filter;
 	const char *error;
@@ -763,7 +766,7 @@ static int config_parse_finish(struct config_parser_context *ctx, const char **e
 	if (config_filter != NULL)
 		config_filter_deinit(&config_filter);
 	config_module_parsers = ctx->root_parsers;
-	config_filter = new_filter;
+	*filter_r = new_filter;
 	return ret;
 }
 
@@ -997,6 +1000,7 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 }
 
 int config_parse_file(const char *path, enum config_parse_flags flags,
+		      struct config_filter_context **filter_r,
 		      const char **error_r)
 {
 	struct input_stack root;
@@ -1008,6 +1012,8 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	char *line;
 	int fd, ret = 0;
 	bool handled;
+
+	*filter_r = NULL;
 
 	if (path == NULL) {
 		path = "<defaults>";
@@ -1102,7 +1108,7 @@ prevfile:
 	hash_table_destroy(&ctx.seen_settings);
 	str_free(&full_line);
 	if (ret == 0)
-		ret = config_parse_finish(&ctx, error_r);
+		ret = config_parse_finish(&ctx, filter_r, error_r);
 	return ret < 0 ? ret : 1;
 }
 

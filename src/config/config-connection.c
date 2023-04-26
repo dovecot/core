@@ -53,6 +53,7 @@ static int config_connection_request(struct config_connection *conn,
 				     const char *const *args)
 {
 	const char *import_environment;
+	struct config_filter_context *new_filter;
 	enum config_dump_flags flags = CONFIG_DUMP_FLAG_CHECK_SETTINGS;
 
 	while (*args != NULL) {
@@ -60,11 +61,13 @@ static int config_connection_request(struct config_connection *conn,
 			const char *path, *error;
 
 			path = master_service_get_config_path(master_service);
-			if (config_parse_file(path, CONFIG_PARSE_FLAG_EXPAND_VALUES, &error) <= 0) {
+			if (config_parse_file(path, CONFIG_PARSE_FLAG_EXPAND_VALUES,
+					      &new_filter, &error) <= 0) {
 				o_stream_nsend_str(conn->output,
 						   t_strconcat("-", error, "\n", NULL));
 				return 0;
 			}
+			config_filter = new_filter;
 			i_close_fd(&global_config_fd);
 		} else {
 			o_stream_nsend_str(conn->output, "-Unknown parameters\n");

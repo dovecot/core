@@ -986,7 +986,7 @@ int main(int argc, char *argv[])
 	if (hide_obsolete_warnings)
 		flags |= CONFIG_PARSE_FLAG_HIDE_OBSOLETE_WARNINGS;
 	if ((ret = config_parse_file(dump_defaults ? NULL : config_path,
-				     flags, &error)) == 0 &&
+				     flags, &config_filter, &error)) == 0 &&
 	    access(EXAMPLE_CONFIG_DIR, X_OK) == 0) {
 		i_fatal("%s (copy example configs from "EXAMPLE_CONFIG_DIR"/)",
 			error);
