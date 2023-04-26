@@ -381,6 +381,46 @@ static bool mail_cache_fields_parse(const char *key, const char *value,
 	return TRUE;
 }
 
+static bool
+mail_storage_settings_check_namespaces(struct mail_storage_settings *set,
+				       const char **error_r)
+{
+	struct mail_namespace_settings *ns;
+
+	if (!array_is_created(&set->namespaces))
+		return TRUE;
+
+	array_foreach_elem(&set->namespaces, ns) {
+		if (ns->alias_for == NULL || ns->disabled)
+			continue;
+
+		unsigned int i, count;
+		struct mail_namespace_settings *const *namespaces =
+			array_get(&set->namespaces, &count);
+		for (i = 0; i < count; i++) {
+			if (strcmp(namespaces[i]->prefix, ns->alias_for) == 0)
+				break;
+		}
+		if (i == count) {
+			*error_r = t_strdup_printf(
+				"Namespace '%s': alias_for points to "
+				"unknown namespace: %s",
+				ns->prefix != NULL ? ns->prefix : "",
+				ns->alias_for);
+			return FALSE;
+		}
+		if (namespaces[i]->alias_for != NULL) {
+			*error_r = t_strdup_printf(
+				"Namespace '%s': alias_for chaining isn't "
+				"allowed: %s -> %s",
+				ns->prefix != NULL ? ns->prefix : "",
+				ns->alias_for, namespaces[i]->alias_for);
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
 static bool mail_storage_settings_check(void *_set, pool_t pool,
 					const char **error_r)
 {
@@ -528,6 +568,9 @@ static bool mail_storage_settings_check(void *_set, pool_t pool,
 	if (!mail_cache_fields_parse("mail_never_cache_fields",
 				     set->mail_never_cache_fields, error_r))
 		return FALSE;
+
+	if (!mail_storage_settings_check_namespaces(set, error_r))
+		return FALSE;
 	return TRUE;
 }
 
@@ -535,9 +578,7 @@ static bool namespace_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				     const char **error_r)
 {
 	struct mail_namespace_settings *ns = _set;
-	struct mail_namespace_settings *const *namespaces;
 	const char *name;
-	unsigned int i, count;
 
 	name = ns->prefix != NULL ? ns->prefix : "";
 
@@ -557,33 +598,6 @@ static bool namespace_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		*error_r = t_strdup_printf("Namespace prefix not valid UTF8: %s",
 					   name);
 		return FALSE;
-	}
-
-	if (ns->alias_for != NULL && !ns->disabled) {
-		if (array_is_created(&ns->mail_set->namespaces)) {
-			namespaces = array_get(&ns->mail_set->namespaces,
-					       &count);
-		} else {
-			namespaces = NULL;
-			count = 0;
-		}
-		for (i = 0; i < count; i++) {
-			if (strcmp(namespaces[i]->prefix, ns->alias_for) == 0)
-				break;
-		}
-		if (i == count) {
-			*error_r = t_strdup_printf(
-				"Namespace '%s': alias_for points to "
-				"unknown namespace: %s", name, ns->alias_for);
-			return FALSE;
-		}
-		if (namespaces[i]->alias_for != NULL) {
-			*error_r = t_strdup_printf(
-				"Namespace '%s': alias_for chaining isn't "
-				"allowed: %s -> %s", name, ns->alias_for,
-				namespaces[i]->alias_for);
-			return FALSE;
-		}
 	}
 	return TRUE;
 }
