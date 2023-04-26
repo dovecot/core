@@ -77,6 +77,7 @@ struct mail_storage_settings {
 	bool parsed_mail_attachment_exclude_inlined;
 	bool parsed_mail_attachment_detection_add_flags;
 	bool parsed_mail_attachment_detection_no_flags_on_fetch;
+	bool parsed_have_special_use_mailboxes;
 };
 
 struct mail_namespace_settings {

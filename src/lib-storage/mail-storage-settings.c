@@ -390,7 +390,13 @@ mail_storage_settings_check_namespaces(struct mail_storage_settings *set,
 		return TRUE;
 
 	array_foreach_elem(&set->namespaces, ns) {
-		if (ns->alias_for == NULL || ns->disabled)
+		if (ns->disabled)
+			continue;
+
+		if (ns->parsed_have_special_use_mailboxes)
+			set->parsed_have_special_use_mailboxes = TRUE;
+
+		if (ns->alias_for == NULL)
 			continue;
 
 		unsigned int i, count;
