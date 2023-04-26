@@ -252,6 +252,7 @@ config_dump_full_sections(struct ostream *output,
 			if (output_blob_size(output, start_offset) < 0)
 				ret = -1;
 		}
+		config_export_free(&export_ctx);
 	} T_END;
 	return ret;
 }
