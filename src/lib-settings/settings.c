@@ -677,9 +677,19 @@ settings_override_get_value(struct setting_parser_context *parser,
 {
 	const char *key = *_key;
 	enum setting_type value_type;
-	/* FIXME: Do this lookup only with set->append once plugin/ check is
-	   no longer needed. */
-	const void *old_value = settings_parse_get_value(parser, key, &value_type);
+	const void *old_value = NULL;
+	if (set->last_filter_value != NULL) {
+		/* Try filter/name/key -> filter_key. Do this before the
+		   non-prefixed check, so e.g. inet_listener/imap/ssl won't
+		   try to change the global ssl setting. */
+		const char *prefixed_key =
+			t_strdup_printf("%s_%s", set->last_filter_key, key);
+		old_value = settings_parse_get_value(parser, prefixed_key, &value_type);
+		if (old_value != NULL)
+			key = prefixed_key;
+	}
+	if (old_value == NULL)
+		old_value = settings_parse_get_value(parser, key, &value_type);
 	if (old_value == NULL && !str_begins_with(key, "plugin/") &&
 	    set->type == SETTINGS_OVERRIDE_TYPE_USERDB) {
 		/* FIXME: Setting is unknown in this parser. Since the parser
