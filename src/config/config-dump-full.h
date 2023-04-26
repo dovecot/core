@@ -9,7 +9,8 @@ enum config_dump_full_dest {
 	CONFIG_DUMP_FULL_DEST_STDOUT,
 };
 
-int config_dump_full(enum config_dump_full_dest dest,
+int config_dump_full(struct config_filter_context *config_filter,
+		     enum config_dump_full_dest dest,
 		     enum config_dump_flags flags,
 		     const char **import_environment_r);
 

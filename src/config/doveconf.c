@@ -997,11 +997,13 @@ int main(int argc, char *argv[])
 
 	enum config_dump_flags dump_flags = CONFIG_DUMP_FLAG_CHECK_SETTINGS;
 	if (dump_full && exec_args == NULL) {
-		ret2 = config_dump_full(CONFIG_DUMP_FULL_DEST_STDOUT,
+		ret2 = config_dump_full(config_filter,
+					CONFIG_DUMP_FULL_DEST_STDOUT,
 					dump_flags,
 					&import_environment);
 	} else if (dump_full) {
-		int temp_fd = config_dump_full(CONFIG_DUMP_FULL_DEST_TEMPDIR,
+		int temp_fd = config_dump_full(config_filter,
+					       CONFIG_DUMP_FULL_DEST_TEMPDIR,
 					       dump_flags,
 					       &import_environment);
 		if (getenv(DOVECOT_PRESERVE_ENVS_ENV) != NULL) {

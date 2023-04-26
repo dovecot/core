@@ -197,7 +197,8 @@ config_dump_full_handle_error(struct dump_context *dump_ctx,
 }
 
 static int
-config_dump_full_sections(struct ostream *output,
+config_dump_full_sections(struct config_filter_context *config_filter,
+			  struct ostream *output,
 			  enum config_dump_full_dest dest,
 			  unsigned int parser_idx,
 			  const struct setting_parser_info *info,
@@ -257,7 +258,8 @@ config_dump_full_sections(struct ostream *output,
 	return ret;
 }
 
-int config_dump_full(enum config_dump_full_dest dest,
+int config_dump_full(struct config_filter_context *config_filter,
+		     enum config_dump_full_dest dest,
 		     enum config_dump_flags flags,
 		     const char **import_environment_r)
 {
@@ -372,8 +374,8 @@ int config_dump_full(enum config_dump_full_dest dest,
 		}
 		int ret;
 		T_BEGIN {
-			ret = config_dump_full_sections(output, dest, i, info,
-							section_idx);
+			ret = config_dump_full_sections(config_filter, output,
+				dest, i, info, section_idx);
 		} T_END;
 		if (ret < 0)
 			break;

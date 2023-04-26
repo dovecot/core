@@ -77,7 +77,8 @@ static int config_connection_request(struct config_connection *conn,
 	}
 
 	if (global_config_fd == -1) {
-		int fd = config_dump_full(CONFIG_DUMP_FULL_DEST_RUNDIR,
+		int fd = config_dump_full(config_filter,
+					  CONFIG_DUMP_FULL_DEST_RUNDIR,
 					  flags, &import_environment);
 		if (fd == -1) {
 			o_stream_nsend_str(conn->output, "-Failed\n");
