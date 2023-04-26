@@ -80,8 +80,6 @@ config_request_get_strings(const char *key, const char *value,
 		value = p_strdup_printf(ctx->pool, "%.*s/"UNIQUE_KEY_SUFFIX"%s=%s",
 					(int)(p - key), key, p + 1, value);
 		break;
-	case CONFIG_KEY_ERROR:
-		i_unreached();
 	}
 	array_push_back(&ctx->strings, &value);
 }

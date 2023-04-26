@@ -484,14 +484,9 @@ int config_export_all_parsers(struct config_export_context **_ctx,
 
 	for (i = 0; ctx->parsers[i].root != NULL; i++) {
 		if (config_export_parser(ctx, i, section_idx, &error) < 0) {
-			if ((ctx->flags & CONFIG_DUMP_FLAG_CALLBACK_ERRORS) != 0) {
-				ctx->callback(NULL, error, CONFIG_KEY_ERROR,
-					      ctx->context);
-			} else {
-				i_error("%s", error);
-				ret = -1;
-				break;
-			}
+			i_error("%s", error);
+			ret = -1;
+			break;
 		}
 	}
 	config_export_free(&ctx);

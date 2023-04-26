@@ -18,8 +18,6 @@ enum config_dump_scope {
 enum config_dump_flags {
 	CONFIG_DUMP_FLAG_CHECK_SETTINGS		= 0x01,
 	CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS	= 0x02,
-	/* Errors are reported using callback and they don't stop handling */
-	CONFIG_DUMP_FLAG_CALLBACK_ERRORS	= 0x04,
 	CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS	= 0x08,
 };
 
@@ -27,8 +25,6 @@ enum config_key_type {
 	CONFIG_KEY_NORMAL,
 	CONFIG_KEY_LIST,
 	CONFIG_KEY_UNIQUE_KEY,
-	/* error message is in value */
-	CONFIG_KEY_ERROR
 };
 
 typedef void config_request_callback_t(const char *key, const char *value,
