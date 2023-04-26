@@ -156,8 +156,9 @@ static bool filter_node_requires_event_name(struct event_filter_node *node)
 	}
 }
 
-int event_filter_parse(const char *str, struct event_filter *filter,
-		       const char **error_r)
+static int
+event_filter_parse_real(const char *str, struct event_filter *filter,
+			const char **error_r)
 {
 	struct event_filter_query_internal *int_query;
 	struct event_filter_parser_state state;
@@ -200,6 +201,16 @@ int event_filter_parse(const char *str, struct event_filter *filter,
 	 */
 
 	return (ret != 0) ? -1 : 0;
+}
+
+int event_filter_parse(const char *str, struct event_filter *filter,
+		       const char **error_r)
+{
+	int ret;
+	T_BEGIN {
+		ret = event_filter_parse_real(str, filter, error_r);
+	} T_END_PASS_STR_IF(ret < 0, error_r);
+	return ret;
 }
 
 bool event_filter_category_to_log_type(const char *name,
