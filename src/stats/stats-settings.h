@@ -111,7 +111,9 @@ struct stats_metric_settings_group_by {
 /* </settings checks> */
 
 struct stats_metric_settings {
-	const char *metric_name;
+	pool_t pool;
+
+	const char *name;
 	const char *description;
 	const char *fields;
 	const char *group_by;
@@ -130,7 +132,7 @@ struct stats_settings {
 	const char *stats_http_rawlog_dir;
 
 	ARRAY_TYPE(const_string) exporters;
-	ARRAY(struct stats_metric_settings *) metrics;
+	ARRAY_TYPE(const_string) metrics;
 };
 
 extern const struct setting_parser_info stats_setting_parser_info;

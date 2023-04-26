@@ -164,7 +164,7 @@ reader_client_input_metrics_add(struct reader_client *client,
 	}
 
 	struct stats_metric_settings set = {
-		.metric_name = args[0],
+		.name = args[0],
 		.description = args[1],
 		.fields = args[2],
 		.group_by = args[3],

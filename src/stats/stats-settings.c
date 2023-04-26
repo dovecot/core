@@ -121,10 +121,10 @@ const struct setting_parser_info stats_exporter_setting_parser_info = {
 
 #undef DEF
 #define DEF(type, name) \
-	SETTING_DEFINE_STRUCT_##type(#name, name, struct stats_metric_settings)
+	SETTING_DEFINE_STRUCT_##type("metric_"#name, name, struct stats_metric_settings)
 
 static const struct setting_define stats_metric_setting_defines[] = {
-	DEF(STR, metric_name),
+	DEF(STR, name),
 	DEF(STR, fields),
 	DEF(STR, group_by),
 	DEF(STR, filter),
@@ -135,7 +135,7 @@ static const struct setting_define stats_metric_setting_defines[] = {
 };
 
 static const struct stats_metric_settings stats_metric_default_settings = {
-	.metric_name = "",
+	.name = "",
 	.fields = "",
 	.filter = "",
 	.exporter = "",
@@ -150,9 +150,9 @@ const struct setting_parser_info stats_metric_setting_parser_info = {
 	.defines = stats_metric_setting_defines,
 	.defaults = &stats_metric_default_settings,
 
-	.type_offset1 = 1 + offsetof(struct stats_metric_settings, metric_name),
+	.type_offset1 = 1 + offsetof(struct stats_metric_settings, name),
 	.struct_size = sizeof(struct stats_metric_settings),
-	.parent = &stats_setting_parser_info,
+	.pool_offset1 = 1 + offsetof(struct stats_metric_settings, pool),
 	.check_func = stats_metric_settings_check,
 };
 
@@ -163,16 +163,14 @@ const struct setting_parser_info stats_metric_setting_parser_info = {
 #undef DEF
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct stats_settings)
-#undef DEFLIST_UNIQUE
-#define DEFLIST_UNIQUE(field, name, defines) \
-	{ .type = SET_DEFLIST_UNIQUE, .key = name, \
-	  .offset = offsetof(struct stats_settings, field), \
-	  .list_info = defines }
 
 static const struct setting_define stats_setting_defines[] = {
 	DEF(STR, stats_http_rawlog_dir),
 
-	DEFLIST_UNIQUE(metrics, "metric", &stats_metric_setting_parser_info),
+	{ .type = SET_FILTER_ARRAY, .key = "metric",
+	  .offset = offsetof(struct stats_settings, metrics),
+	  .filter_array_field_name = "metric_name",
+	  .required_setting = "metric_filter", },
 	{ .type = SET_FILTER_ARRAY, .key = "event_exporter",
 	  .offset = offsetof(struct stats_settings, exporters),
 	  .filter_array_field_name = "event_exporter_name",
@@ -519,14 +517,12 @@ static bool stats_metric_settings_check(void *_set, pool_t pool, const char **er
 {
 	struct stats_metric_settings *set = _set;
 
-	if (set->metric_name[0] == '\0') {
-		*error_r = "Metric name can't be empty";
-		return FALSE;
-	}
+	if (set->name[0] == '\0')
+		return TRUE;
 
 	if (set->filter[0] == '\0') {
 		*error_r = t_strdup_printf("metric %s { filter } is empty - "
-					   "will not match anything", set->metric_name);
+					   "will not match anything", set->name);
 		return FALSE;
 	}
 
@@ -547,19 +543,33 @@ stats_settings_ext_check(struct event *event, void *_set,
 	struct stats_settings *set = _set;
 	const struct stats_exporter_settings *exporter;
 	struct stats_metric_settings *metric;
-	const char *error;
+	const char *metric_name, *error;
 	int ret;
 
 	if (!array_is_created(&set->metrics))
 		return TRUE;
 
 	/* check that all metrics refer to exporters that exist */
-	array_foreach_elem(&set->metrics, metric) {
-		if (metric->exporter[0] == '\0')
+	array_foreach_elem(&set->metrics, metric_name) {
+		if (settings_get_filter(event, "metric", metric_name,
+					&stats_metric_setting_parser_info,
+					SETTINGS_GET_FLAG_NO_CHECK |
+					SETTINGS_GET_FLAG_NO_EXPAND,
+					&metric, &error) < 0) {
+			*error_r = t_strdup_printf(
+				"Failed to get metric %s: %s",
+				metric_name, error);
+			return FALSE;
+		}
+
+		const char *metric_exporter = t_strdup(metric->exporter);
+		settings_free(metric);
+
+		if (metric_exporter[0] == '\0')
 			continue; /* metric not exported */
 
 		ret = settings_try_get_filter(event, "event_exporter",
-					      metric->exporter,
+					      metric_exporter,
 					      &stats_exporter_setting_parser_info,
 					      SETTINGS_GET_FLAG_NO_CHECK |
 					      SETTINGS_GET_FLAG_NO_EXPAND,
@@ -567,14 +577,14 @@ stats_settings_ext_check(struct event *event, void *_set,
 		if (ret < 0) {
 			*error_r = t_strdup_printf(
 				"Failed to get event_exporter %s: %s",
-				metric->exporter, error);
+				metric_exporter, error);
 			return FALSE;
 		}
 		if (ret == 0) {
 			*error_r = t_strdup_printf("metric %s refers to "
 						   "non-existent exporter '%s'",
-						   metric->metric_name,
-						   metric->exporter);
+						   metric_name,
+						   metric_exporter);
 			return FALSE;
 		}
 		settings_free(exporter);

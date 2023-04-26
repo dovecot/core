@@ -164,14 +164,14 @@ static int stats_metrics_add_set(struct stats_metrics *metrics,
 		if (exporter == NULL) {
 			*error_r = t_strdup_printf("metric %s refers to "
 						   "non-existent exporter '%s'",
-						   set->metric_name,
+						   set->name,
 						   set->exporter);
 			return -1;
 		}
 	}
 
 	fields = t_strsplit_spaces(set->fields, " ");
-	metric = stats_metric_alloc(metrics->pool, set->metric_name, set, fields);
+	metric = stats_metric_alloc(metrics->pool, set->name, set, fields);
 
 	if (array_is_created(&set->parsed_group_by))
 		metric->group_by = array_get(&set->parsed_group_by,
@@ -211,12 +211,35 @@ static int stats_metrics_add_set(struct stats_metrics *metrics,
 	return 0;
 }
 
+static int stats_metrics_add_filter(struct stats_metrics *metrics,
+				    const char *filter_name,
+				    const char **error_r)
+{
+	struct stats_metric_settings *set;
+	int ret = 0;
+
+	if (settings_get_filter(metrics->event, "metric", filter_name,
+				&stats_metric_setting_parser_info, 0, &set,
+				error_r) < 0)
+		return -1;
+
+	if (set->name[0] == '\0') {
+		*error_r = "Metric name can't be empty";
+		ret = -1;
+	} else {
+		ret = stats_metrics_add_set(metrics, set, error_r);
+	}
+	return ret;
+}
+
 static struct stats_metric_settings *
 stats_metric_settings_dup(pool_t pool, const struct stats_metric_settings *src)
 {
 	struct stats_metric_settings *set = p_new(pool, struct stats_metric_settings, 1);
 
-	set->metric_name = p_strdup(pool, src->metric_name);
+	set->pool = pool;
+	pool_ref(pool);
+	set->name = p_strdup(pool, src->name);
 	set->description = p_strdup(pool, src->description);
 	set->fields = p_strdup(pool, src->fields);
 	set->group_by = p_strdup(pool, src->group_by);
@@ -269,7 +292,7 @@ bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
 			       const char **error_r)
 {
 	unsigned int existing_idx ATTR_UNUSED;
-	if (stats_metrics_find(metrics, set->metric_name, &existing_idx) != NULL) {
+	if (stats_metrics_find(metrics, set->name, &existing_idx) != NULL) {
 		*error_r = "Metric already exists";
 		return FALSE;
 	}
@@ -328,14 +351,13 @@ stats_metrics_add_from_settings(struct stats_metrics *metrics,
 	if (!array_is_created(&set->metrics)) {
 		p_array_init(&metrics->metrics, metrics->pool, 0);
 	} else {
-		struct stats_metric_settings *metric_set;
 		int ret;
 
 		p_array_init(&metrics->metrics, metrics->pool,
 			     array_count(&set->metrics));
-		array_foreach_elem(&set->metrics, metric_set) {
+		array_foreach_elem(&set->metrics, name) {
 			T_BEGIN {
-				ret = stats_metrics_add_set(metrics, metric_set, error_r);
+				ret = stats_metrics_add_filter(metrics, name, error_r);
 			} T_END_PASS_STR_IF(ret < 0, error_r);
 			if (ret < 0)
 				return -1;
@@ -370,6 +392,8 @@ static void stats_metric_free(struct metric *metric)
 	stats_dist_deinit(&metric->duration_stats);
 	for (unsigned int i = 0; i < metric->fields_count; i++)
 		stats_dist_deinit(&metric->fields[i].stats);
+	settings_free(metric->set);
+
 	if (!array_is_created(&metric->sub_metrics))
 		return;
 	array_foreach_elem(&metric->sub_metrics, sub_metric)
@@ -469,6 +493,7 @@ stats_metric_sub_metric_alloc(struct metric *metric, const char *name, pool_t po
 	array_append_zero(&fields);
 	sub_metric = stats_metric_alloc(pool, metric->name, metric->set,
 					array_idx(&fields, 0));
+	pool_ref(sub_metric->set->pool);
 	size_t max_len = STATS_SUB_METRIC_MAX_LENGTH - metric->sub_name_used_size;
 	sub_metric->sub_name = p_strdup(pool, str_sanitize_utf8(name, max_len));
 	sub_metric->sub_name_used_size =
