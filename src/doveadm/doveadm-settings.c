@@ -234,7 +234,8 @@ void doveadm_read_settings(void)
 		i_fatal("%s", error);
 	i_assert(global_config_fd == -1);
 	global_config_fd = output.config_fd;
-	fd_close_on_exec(output.config_fd, TRUE);
+	if (output.config_fd != -1)
+		fd_close_on_exec(output.config_fd, TRUE);
 
 	doveadm_verbose_proctitle = master_service_get_service_settings(master_service)->verbose_proctitle;
 
@@ -248,7 +249,6 @@ void doveadm_read_settings(void)
 
 int doveadm_settings_get_config_fd(void)
 {
-	i_assert(global_config_fd != -1);
 	return global_config_fd;
 }
 

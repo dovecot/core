@@ -48,6 +48,8 @@ extern bool doveadm_verbose_proctitle;
 void doveadm_get_ssl_settings(struct ssl_iostream_settings *set_r, pool_t pool);
 
 void doveadm_read_settings(void);
+/* Returns the global binary config fd. Note that it may be -1 if doveadm was
+   called with -O parameter. */
 int doveadm_settings_get_config_fd(void);
 
 void doveadm_settings_deinit(void);
