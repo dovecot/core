@@ -37,7 +37,6 @@ struct config_dump_human_context {
 	pool_t pool;
 	string_t *list_prefix;
 	ARRAY_TYPE(const_string) strings;
-	ARRAY_TYPE(const_string) errors;
 	struct config_export_context *export_ctx;
 
 	bool list_prefix_sent:1;
@@ -82,9 +81,7 @@ config_request_get_strings(const char *key, const char *value,
 					(int)(p - key), key, p + 1, value);
 		break;
 	case CONFIG_KEY_ERROR:
-		value = p_strdup(ctx->pool, value);
-		array_push_back(&ctx->errors, &value);
-		return;
+		i_unreached();
 	}
 	array_push_back(&ctx->strings, &value);
 }
@@ -135,7 +132,7 @@ static void prefix_stack_reset_str(ARRAY_TYPE(prefix_stack) *stack)
 }
 
 static struct config_dump_human_context *
-config_dump_human_init(enum config_dump_scope scope, bool check_settings)
+config_dump_human_init(enum config_dump_scope scope)
 {
 	struct config_dump_human_context *ctx;
 	enum config_dump_flags flags;
@@ -146,13 +143,9 @@ config_dump_human_init(enum config_dump_scope scope, bool check_settings)
 	ctx->pool = pool;
 	ctx->list_prefix = str_new(ctx->pool, 128);
 	i_array_init(&ctx->strings, 256);
-	i_array_init(&ctx->errors, 256);
 
 	flags = CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS |
-		CONFIG_DUMP_FLAG_CALLBACK_ERRORS |
 		CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS;
-	if (check_settings)
-		flags |= CONFIG_DUMP_FLAG_CHECK_SETTINGS;
 	ctx->export_ctx = config_export_init(scope, flags,
 					     config_request_get_strings, ctx);
 	return ctx;
@@ -161,7 +154,6 @@ config_dump_human_init(enum config_dump_scope scope, bool check_settings)
 static void config_dump_human_deinit(struct config_dump_human_context *ctx)
 {
 	array_free(&ctx->strings);
-	array_free(&ctx->errors);
 	pool_unref(&ctx->pool);
 }
 
@@ -321,7 +313,7 @@ hide_secrets_from_value(struct ostream *output, const char *key,
 	return ret;
 }
 
-static int ATTR_NULL(4)
+static void ATTR_NULL(4)
 config_dump_human_output(struct config_dump_human_context *ctx,
 			 struct ostream *output, unsigned int indent,
 			 const char *setting_name_filter, bool hide_passwords)
@@ -336,12 +328,11 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 	size_t len, skip_len, setting_name_filter_len;
 	unsigned int section_idx = 0;
 	bool unique_key;
-	int ret = 0;
 
 	setting_name_filter_len = setting_name_filter == NULL ? 0 :
 		strlen(setting_name_filter);
 	if (config_export_all_parsers(&ctx->export_ctx, &section_idx) < 0)
-		return -1;
+		i_unreached(); /* settings aren't checked - this can't happen */
 
 	array_sort(&ctx->strings, config_string_cmp);
 	strings = array_get(&ctx->strings, &count);
@@ -484,14 +475,6 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		o_stream_nsend(output, indent_str, indent*2);
 		o_stream_nsend_str(output, "}\n");
 	}
-
-	/* flush output before writing errors */
-	o_stream_uncork(output);
-	array_foreach_elem(&ctx->errors, str) {
-		i_error("%s", str);
-		ret = -1;
-	}
-	return ret;
 }
 
 static unsigned int
@@ -552,7 +535,7 @@ config_dump_filter_end(struct ostream *output, unsigned int indent)
 	}
 }
 
-static int
+static void
 config_dump_human_sections(struct ostream *output,
 			   const struct config_filter *filter,
 			   bool hide_passwords)
@@ -560,7 +543,6 @@ config_dump_human_sections(struct ostream *output,
 	struct config_filter_parser *const *filters;
 	struct config_dump_human_context *ctx;
 	unsigned int indent;
-	int ret = 0;
 
 	filters = config_filter_find_subset(config_filter, filter);
 
@@ -569,17 +551,15 @@ config_dump_human_sections(struct ostream *output,
 	filters++;
 
 	for (; *filters != NULL; filters++) {
-		ctx = config_dump_human_init(CONFIG_DUMP_SCOPE_SET, FALSE);
+		ctx = config_dump_human_init(CONFIG_DUMP_SCOPE_SET);
 		indent = config_dump_filter_begin(ctx->list_prefix,
 						  &(*filters)->filter);
 		config_export_set_parsers(ctx->export_ctx, (*filters)->parsers);
-		if (config_dump_human_output(ctx, output, indent, NULL, hide_passwords) < 0)
-			ret = -1;
+		config_dump_human_output(ctx, output, indent, NULL, hide_passwords);
 		if (ctx->list_prefix_sent)
 			config_dump_filter_end(output, indent);
 		config_dump_human_deinit(ctx);
 	}
-	return ret;
 }
 
 static int ATTR_NULL(4)
@@ -589,23 +569,29 @@ config_dump_human(const struct config_filter *filter,
 {
 	struct config_dump_human_context *ctx;
 	struct ostream *output;
-	int ret;
+	const char *str;
+	int ret = 0;
 
 	output = o_stream_create_fd(STDOUT_FILENO, 0);
 	o_stream_set_no_error_handling(output, TRUE);
 	o_stream_cork(output);
 
-	ctx = config_dump_human_init(scope, TRUE);
+	ctx = config_dump_human_init(scope);
 	if ((ret = config_export_by_filter(ctx->export_ctx, config_filter, filter)) < 0)
 		config_export_free(&ctx->export_ctx);
 	else
-		ret = config_dump_human_output(ctx, output, 0, setting_name_filter, hide_passwords);
+		config_dump_human_output(ctx, output, 0, setting_name_filter, hide_passwords);
 	config_dump_human_deinit(ctx);
 
 	if (setting_name_filter == NULL)
-		ret = config_dump_human_sections(output, filter, hide_passwords);
+		config_dump_human_sections(output, filter, hide_passwords);
 
+	/* flush output before writing errors */
 	o_stream_uncork(output);
+	array_foreach_elem(config_filter_get_errors(config_filter), str) {
+		i_error("%s", str);
+		ret = -1;
+	}
 	o_stream_destroy(&output);
 	return ret;
 }
@@ -621,13 +607,13 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 	unsigned int section_idx = 0;
 	bool dump_section = FALSE;
 
-	ctx = config_dump_human_init(scope, FALSE);
+	ctx = config_dump_human_init(scope);
 	if (config_export_by_filter(ctx->export_ctx, config_filter, filter) < 0) {
 		config_export_free(&ctx->export_ctx);
 		return -1;
 	}
 	if (config_export_all_parsers(&ctx->export_ctx, &section_idx) < 0)
-		return -1;
+		i_unreached(); /* settings aren't checked - this can't happen */
 
 	len = strlen(setting_name_filter);
 	array_foreach_elem(&ctx->strings, str) {

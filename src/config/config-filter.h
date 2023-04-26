@@ -29,6 +29,14 @@ void config_filter_deinit(struct config_filter_context **ctx);
 void config_filter_add_all(struct config_filter_context *ctx,
 			   struct config_filter_parser *const *parsers);
 
+/* Add an error to the filter. Used when parsing config file to give all
+   delayed errors. */
+void config_filter_add_error(struct config_filter_context *ctx,
+			     const char *error);
+/* Return all errors found while parsing the config file. */
+const ARRAY_TYPE(const_string) *
+config_filter_get_errors(struct config_filter_context *ctx);
+
 /* Build new parsers from all existing ones matching the given filter. */
 int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
 			      const struct config_filter *filter,

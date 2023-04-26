@@ -375,10 +375,10 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 	return TRUE;
 }
 
-static int
+static void
 config_filter_parser_check(struct config_parser_context *ctx,
-			   struct config_module_parser *p,
-			   const char **error_r)
+			   struct config_filter_context *new_filter,
+			   struct config_module_parser *p)
 {
 	const char *error = NULL;
 	pool_t tmp_pool;
@@ -399,19 +399,18 @@ config_filter_parser_check(struct config_parser_context *ctx,
 			/* be sure to assert-crash early if error is missing */
 			i_assert(error != NULL);
 			if (!ctx->delay_errors) {
-				*error_r = error;
-				pool_unref(&tmp_pool);
-				return -1;
-			}
-			/* Settings checking failed, but we're delaying the
-			   error until the settings struct is used by the
-			   client side. See config-parser.h */
-			if (p->delayed_error == NULL)
+				/* the errors are still slightly delayed so
+				   we get the full list of them. */
+				config_filter_add_error(new_filter, error);
+			} else if (p->delayed_error == NULL) {
+				/* Settings checking failed, but we're delaying
+				   the error until the settings struct is used
+				   by the client side. See config-parser.h */
 				p->delayed_error = p_strdup(ctx->pool, error);
+			}
 		}
 	}
 	pool_unref(&tmp_pool);
-	return 0;
 }
 
 static const char *
@@ -437,6 +436,7 @@ get_str_setting(struct config_filter_parser *parser, const char *key,
 
 static int
 config_all_parsers_check(struct config_parser_context *ctx,
+			 struct config_filter_context *new_filter,
 			 const char **error_r)
 {
 	struct config_filter_parser *const *parsers;
@@ -474,8 +474,16 @@ config_all_parsers_check(struct config_parser_context *ctx,
 			ssl_warned = TRUE;
 		}
 
-		if (config_filter_parser_check(ctx, parsers[i]->parsers, error_r) < 0)
-			return -1;
+		config_filter_parser_check(ctx, new_filter,
+					   parsers[i]->parsers);
+	}
+	const char *const *errors =
+		array_get(config_filter_get_errors(new_filter), &count);
+	if (count > 0) {
+		/* Use the first error as the main error. The others are also
+		   printed out by doveconf. */
+		*error_r = errors[0];
+		return -1;
 	}
 	return 0;
 }
@@ -763,7 +771,7 @@ config_parse_finish(struct config_parser_context *ctx,
 
 	if (ret < 0)
 		;
-	else if ((ret = config_all_parsers_check(ctx, &error)) < 0) {
+	else if ((ret = config_all_parsers_check(ctx, new_filter, &error)) < 0) {
 		*error_r = t_strdup_printf("Error in configuration file %s: %s",
 					   ctx->path, error);
 	}

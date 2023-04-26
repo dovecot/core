@@ -11,6 +11,7 @@
 struct config_filter_context {
 	pool_t pool;
 	struct config_filter_parser *const *parsers;
+	ARRAY_TYPE(const_string) errors;
 };
 
 static bool config_filter_match_service(const struct config_filter *mask,
@@ -116,6 +117,7 @@ struct config_filter_context *config_filter_init(pool_t pool)
 
 	ctx = p_new(pool, struct config_filter_context, 1);
 	ctx->pool = pool;
+	p_array_init(&ctx->errors, pool, 1);
 	return ctx;
 }
 
@@ -317,6 +319,19 @@ int config_filter_parsers_get(struct config_filter_context *ctx, pool_t pool,
 	}
 	*parsers_r = dest;
 	return 0;
+}
+
+void config_filter_add_error(struct config_filter_context *ctx,
+			     const char *error)
+{
+	error = p_strdup(ctx->pool, error);
+	array_push_back(&ctx->errors, &error);
+}
+
+const ARRAY_TYPE(const_string) *
+config_filter_get_errors(struct config_filter_context *ctx)
+{
+	return &ctx->errors;
 }
 
 void config_filter_parsers_free(struct config_module_parser *parsers)
