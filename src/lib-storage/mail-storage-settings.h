@@ -96,7 +96,6 @@ struct mail_namespace_settings {
 	unsigned int order;
 
 	ARRAY(struct mailbox_settings *) mailboxes;
-	struct mail_storage_settings *mail_set;
 	const char *unexpanded_location;
 };
 

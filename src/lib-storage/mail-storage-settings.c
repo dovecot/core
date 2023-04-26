@@ -265,7 +265,6 @@ const struct setting_parser_info mail_namespace_setting_parser_info = {
 	.type_offset1 = 1 + offsetof(struct mail_namespace_settings, name),
 	.struct_size = sizeof(struct mail_namespace_settings),
 
-	.parent_offset1 = 1 + offsetof(struct mail_namespace_settings, mail_set),
 	.parent = &mail_storage_setting_parser_info,
 
 	.check_func = namespace_settings_check
