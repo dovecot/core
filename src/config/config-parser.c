@@ -164,10 +164,13 @@ config_apply_error(struct config_parser_context *ctx, const char *key)
 	enum setting_type type;
 	bool found = FALSE;
 
+	/* Couldn't get value for the setting, but we're delaying error
+	   handling. Mark all settings parsers containing this key as failed.
+	   See config-parser.h for details. */
 	for (l = ctx->cur_section->parsers; l->root != NULL; l++) {
 		if (settings_parse_get_value(l->parser, key, &type) != NULL) {
-			if (l->error == NULL)
-				l->error = ctx->error;
+			if (l->delayed_error == NULL)
+				l->delayed_error = ctx->error;
 			ctx->error = NULL;
 			found = TRUE;
 		}
@@ -400,8 +403,11 @@ config_filter_parser_check(struct config_parser_context *ctx,
 				pool_unref(&tmp_pool);
 				return -1;
 			}
-			if (p->error == NULL)
-				p->error = p_strdup(ctx->pool, error);
+			/* Settings checking failed, but we're delaying the
+			   error until the settings struct is used by the
+			   client side. See config-parser.h */
+			if (p->delayed_error == NULL)
+				p->delayed_error = p_strdup(ctx->pool, error);
 		}
 	}
 	pool_unref(&tmp_pool);

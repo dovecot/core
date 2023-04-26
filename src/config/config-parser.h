@@ -17,7 +17,13 @@ struct config_module_parser {
 	const struct setting_parser_info *root;
 	struct setting_parser_context *parser;
 	void *settings;
-	const char *error;
+	/* Set if CONFIG_PARSE_FLAG_DELAY_ERRORS is enabled. The error won't
+	   cause an immediate config parsing failure. Instead, the error string
+	   is forwarded to the config client process, which errors out only if
+	   the settings struct is attempted to be used. This allows for example
+	   doveadm to be called non-root and not fail even if it can't access
+	   ssl_key file. */
+	const char *delayed_error;
 };
 ARRAY_DEFINE_TYPE(config_module_parsers, struct config_module_parser *);
 
