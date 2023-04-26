@@ -69,7 +69,6 @@ struct service_settings {
 	ARRAY_TYPE(inet_listener_settings) inet_listeners;
 
 	/* internal to master: */
-	struct master_settings *master_set;
 	enum service_type parsed_type;
 	enum service_user_default user_default;
 	bool login_dump_core:1;

@@ -133,7 +133,7 @@ service_create_inet_listeners(struct service *service,
 	const char *const *tmp, *addresses;
 	const struct ip_addr *ips;
 	unsigned int i, ips_count;
-	bool ssl_disabled = strcmp(service->set->master_set->ssl, "no") == 0;
+	bool ssl_disabled = strcmp(service->list->set->ssl, "no") == 0;
 
 	if (set->port == 0) {
 		/* disabled */
@@ -144,7 +144,7 @@ service_create_inet_listeners(struct service *service,
 		addresses = set->address;
 	else {
 		/* use the default listen address */
-		addresses = service->set->master_set->listen;
+		addresses = service->list->set->listen;
 	}
 
 	tmp = t_strsplit_spaces(addresses, ", ");
@@ -206,21 +206,21 @@ service_create_real(pool_t pool, struct event *event,
 	service->throttle_msecs = SERVICE_STARTUP_FAILURE_THROTTLE_MIN_MSECS;
 
 	service->client_limit = set->client_limit != 0 ? set->client_limit :
-		set->master_set->default_client_limit;
+		service_list->set->default_client_limit;
 	if (set->service_count > 0 &&
 	    service->client_limit > set->service_count)
 		service->client_limit = set->service_count;
 
 	service->vsz_limit = set->vsz_limit != UOFF_T_MAX ? set->vsz_limit :
-		set->master_set->default_vsz_limit;
+		service_list->set->default_vsz_limit;
 	service->idle_kill = set->idle_kill != 0 ? set->idle_kill :
-		set->master_set->default_idle_kill;
+		service_list->set->default_idle_kill;
 	service->type = service->set->parsed_type;
 
 	if (set->process_limit == 0) {
 		/* use default */
 		service->process_limit =
-			set->master_set->default_process_limit;
+			service_list->set->default_process_limit;
 	} else {
 		service->process_limit = set->process_limit;
 	}
@@ -398,7 +398,8 @@ service_lookup_type(struct service_list *service_list, enum service_type type)
 	return NULL;
 }
 
-static bool service_want(struct service_settings *set)
+static bool service_want(const struct master_settings *master_set,
+			 struct service_settings *set)
 {
 	char *const *proto;
 
@@ -412,7 +413,7 @@ static bool service_want(struct service_settings *set)
 	if (*set->protocol == '\0')
 		return TRUE;
 
-	for (proto = set->master_set->protocols_split; *proto != NULL; proto++) {
+	for (proto = master_set->protocols_split; *proto != NULL; proto++) {
 		if (strcmp(*proto, set->protocol) == 0)
 			return TRUE;
 	}
@@ -443,7 +444,7 @@ services_create_real(const struct master_settings *set, pool_t pool,
 	p_array_init(&service_list->services, pool, count);
 
 	for (i = 0; i < count; i++) {
-		if (!service_want(service_settings[i]))
+		if (!service_want(set, service_settings[i]))
 			continue;
 		T_BEGIN {
 			service = service_create(pool, service_settings[i],

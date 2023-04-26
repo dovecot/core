@@ -513,7 +513,7 @@ static int service_login_create_notify_fd(struct service *service)
 		string_t *prefix = t_str_new(128);
 		const char *path;
 
-		str_append(prefix, service->set->master_set->base_dir);
+		str_append(prefix, service->list->set->base_dir);
 		str_append(prefix, "/login-master-notify");
 
 		fd = safe_mkstemp(prefix, 0600, (uid_t)-1, (gid_t)-1);

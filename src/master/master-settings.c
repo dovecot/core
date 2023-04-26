@@ -165,7 +165,6 @@ const struct setting_parser_info service_setting_parser_info = {
 	.type_offset1 = 1 + offsetof(struct service_settings, name),
 	.struct_size = sizeof(struct service_settings),
 
-	.parent_offset1 = 1 + offsetof(struct service_settings, master_set),
 	.parent = &master_setting_parser_info
 };
 

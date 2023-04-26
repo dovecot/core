@@ -319,7 +319,7 @@ service_process_setup_environment(struct service *service, unsigned int uid,
 
 	if (service_set->verbose_proctitle)
 		env_put(MASTER_VERBOSE_PROCTITLE_ENV, "1");
-	if (!service->set->master_set->version_ignore)
+	if (!service->list->set->version_ignore)
 		env_put(MASTER_DOVECOT_VERSION_ENV, PACKAGE_VERSION);
 
 	if (service_set->stats_writer_socket_path[0] == '\0')
