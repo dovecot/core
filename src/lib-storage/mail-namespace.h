@@ -87,7 +87,7 @@ static inline bool mail_namespace_is_removable(const struct mail_namespace *ns)
    This is the most low-level namespace creation function. The storage isn't
    initialized for the namespace. */
 int mail_namespace_alloc(struct mail_user *user,
-			 struct mail_namespace_settings *ns_set,
+			 const struct mail_namespace_settings *ns_set,
 			 struct mail_namespace **ns_r,
 			 const char **error_r);
 
@@ -105,7 +105,7 @@ void mail_namespaces_deinit(struct mail_namespace **namespaces);
 /* Allocate a new namespace and initialize it. This is called automatically by
    mail_namespaces_init(). */
 int mail_namespaces_init_add(struct mail_user *user,
-			     struct mail_namespace_settings *ns_set,
+			     const struct mail_namespace_settings *ns_set,
 			     struct mail_namespace **ns_p, const char **error_r);
 int mail_namespaces_init_finish(struct mail_namespace *namespaces,
 				const char **error_r);

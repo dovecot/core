@@ -1064,8 +1064,8 @@ settings_override_get_filter(struct settings_override *set, pool_t pool,
 	size_t last_filter_key_pos = 0;
 	while ((value = strchr(key, '/')) != NULL &&
 	       (next = strchr(value + 1, '/')) != NULL) {
-		if (str_begins_with(key, "namespace/")) {
-			/* FIXME: temporary kludge - removed when namespaces
+		if (str_begins_with(key, "mailbox/")) {
+			/* FIXME: temporary kludge - removed when mailboxes
 			   are named array filters */
 			value = NULL;
 			break;

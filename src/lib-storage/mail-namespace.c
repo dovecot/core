@@ -4,6 +4,7 @@
 #include "array.h"
 #include "str.h"
 #include "file-lock.h"
+#include "settings.h"
 #include "settings-parser.h"
 #include "mailbox-list-private.h"
 #include "mail-storage-private.h"
@@ -63,12 +64,14 @@ static void mail_namespace_free(struct mail_namespace *ns)
 
 	if (ns->owner != ns->user && ns->owner != NULL)
 		mail_user_unref(&ns->owner);
+	if (ns->set->pool != NULL)
+		settings_free(ns->set);
 	i_free(ns->prefix);
 	i_free(ns);
 }
 
 int mail_namespace_alloc(struct mail_user *user,
-			 struct mail_namespace_settings *ns_set,
+			 const struct mail_namespace_settings *ns_set,
 			 struct mail_namespace **ns_r,
 			 const char **error_r)
 {
@@ -79,6 +82,8 @@ int mail_namespace_alloc(struct mail_user *user,
 	ns->user = user;
 	ns->prefix = i_strdup(ns_set->prefix);
 	ns->set = ns_set;
+	if (ns_set->pool != NULL)
+		pool_ref(ns_set->pool);
 	ns->mail_set = mail_user_set_get_storage_set(user);
 	i_array_init(&ns->all_storages, 2);
 
@@ -122,7 +127,7 @@ int mail_namespace_alloc(struct mail_user *user,
 }
 
 int mail_namespaces_init_add(struct mail_user *user,
-			     struct mail_namespace_settings *ns_set,
+			     const struct mail_namespace_settings *ns_set,
 			     struct mail_namespace **ns_p, const char **error_r)
 {
 	const struct mail_storage_settings *mail_set =
@@ -131,8 +136,13 @@ int mail_namespaces_init_add(struct mail_user *user,
 	const char *driver, *error;
 	int ret;
 
-	if (*ns_set->location == '\0')
-		ns_set->location = mail_set->mail_location;
+	if (*ns_set->location == '\0') {
+		struct mail_namespace_settings *ns_set_copy =
+			p_new(ns_set->pool, struct mail_namespace_settings, 1);
+		*ns_set_copy = *ns_set;
+		ns_set_copy->location = mail_set->mail_location;
+		ns_set = ns_set_copy;
+	}
 
 	e_debug(user->event, "Namespace %s: type=%s, prefix=%s, sep=%s, "
 		"inbox=%s, hidden=%s, list=%s, subscriptions=%s "
@@ -419,7 +429,8 @@ int mail_namespaces_init_finish(struct mail_namespace *namespaces,
 
 int mail_namespaces_init(struct mail_user *user, const char **error_r)
 {
-	struct mail_namespace_settings *const *ns_set;
+	const struct mail_namespace_settings *ns_set;
+	const char *const *ns_names, *error;
 	struct mail_namespace *namespaces, **ns_p;
 	unsigned int i, count;
 
@@ -430,26 +441,38 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 	const struct mail_storage_settings *mail_set =
 		mail_user_set_get_storage_set(user);
 	if (array_is_created(&mail_set->namespaces))
-		ns_set = array_get(&mail_set->namespaces, &count);
+		ns_names = array_get(&mail_set->namespaces, &count);
 	else {
-		ns_set = NULL;
+		ns_names = NULL;
 		count = 0;
 	}
 	for (i = 0; i < count; i++) {
-		if (ns_set[i]->disabled)
+		if (settings_get_filter(user->event, "namespace", ns_names[i],
+					&mail_namespace_setting_parser_info,
+					0, &ns_set, &error) < 0) {
+			*error_r = t_strdup_printf(
+				"Failed to get namespace %s: %s",
+				ns_names[i], error);
+			return -1;
+		}
+		if (ns_set->disabled) {
+			settings_free(ns_set);
 			continue;
+		}
 
-		if (mail_namespaces_init_add(user, ns_set[i],
+		if (mail_namespaces_init_add(user, ns_set,
 					     ns_p, error_r) < 0) {
-			if (!ns_set[i]->ignore_on_failure) {
+			if (!ns_set->ignore_on_failure) {
 				mail_namespaces_deinit(&namespaces);
+				settings_free(ns_set);
 				return -1;
 			}
 			e_debug(user->event, "Skipping namespace %s: %s",
-				ns_set[i]->prefix, *error_r);
+				ns_set->prefix, *error_r);
 		} else {
 			ns_p = &(*ns_p)->next;
 		}
+		settings_free(ns_set);
 	}
 
 	if (namespaces == NULL) {

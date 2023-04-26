@@ -66,7 +66,7 @@ struct mail_storage_settings {
 
 	const char *mail_attachment_detection_options;
 
-	ARRAY(struct mail_namespace_settings *) namespaces;
+	ARRAY_TYPE(const_string) namespaces;
 	ARRAY(const char *) plugin_envs;
 
 	enum file_lock_method parsed_lock_method;
@@ -81,6 +81,7 @@ struct mail_storage_settings {
 };
 
 struct mail_namespace_settings {
+	pool_t pool;
 	const char *name;
 	const char *type;
 	const char *separator;

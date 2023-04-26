@@ -483,6 +483,14 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 					parent->filter_name, key, key, parent->filter_name);
 				return FALSE;
 			}
+			if (strcmp(key, "namespace") == 0 &&
+			    parent->filter_name_array &&
+			    str_begins_with(parent->filter_name, "namespace/")) {
+				ctx->error = p_strdup_printf(ctx->pool,
+					"%s { .. } not allowed under %s { .. }",
+					key, t_strcut(parent->filter_name, '/'));
+				return FALSE;
+			}
 			if (value[0] == '\0' && !line->value_quoted) {
 				ctx->error = p_strdup_printf(ctx->pool,
 					"%s { } is missing section name", key);
