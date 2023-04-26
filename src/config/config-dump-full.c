@@ -369,7 +369,12 @@ int config_dump_full(enum config_dump_full_dest dest,
 			if (output_blob_size(output, blob_size_offset) < 0)
 				break;
 		}
-		if (config_dump_full_sections(output, dest, i, info, section_idx) < 0)
+		int ret;
+		T_BEGIN {
+			ret = config_dump_full_sections(output, dest, i, info,
+							section_idx);
+		} T_END;
+		if (ret < 0)
 			break;
 		if (dump_ctx.delayed_output != NULL &&
 		    str_len(dump_ctx.delayed_output) > 0) {
