@@ -505,7 +505,6 @@ int config_export_parser(struct config_export_context *ctx,
 			 unsigned int *section_idx, const char **error_r)
 {
 	const struct config_module_parser *parser = &ctx->parsers[parser_idx];
-	int ret = 0;
 
 	if (parser->delayed_error != NULL) {
 		*error_r = parser->delayed_error;
@@ -519,11 +518,6 @@ int config_export_parser(struct config_export_context *ctx,
 				settings_parser_get_changes(parser->parser));
 	} T_END;
 
-	if ((ctx->flags & CONFIG_DUMP_FLAG_CHECK_SETTINGS) != 0) {
-		settings_parse_var_skip(parser->parser);
-		if (!settings_parser_check(parser->parser, ctx->pool, error_r))
-			ret = -1;
-	}
 	*section_idx = ctx->section_idx;
-	return ret;
+	return 0;
 }

@@ -980,17 +980,14 @@ int main(int argc, char *argv[])
 	if ((ret == -1 && exec_args != NULL) || ret == 0 || ret == -2)
 		i_fatal("%s", error);
 
-	enum config_dump_flags dump_flags = CONFIG_DUMP_FLAG_CHECK_SETTINGS;
 	if (dump_full && exec_args == NULL) {
 		ret2 = config_dump_full(config_filter,
 					CONFIG_DUMP_FULL_DEST_STDOUT,
-					dump_flags,
-					&import_environment);
+					0, &import_environment);
 	} else if (dump_full) {
 		int temp_fd = config_dump_full(config_filter,
 					       CONFIG_DUMP_FULL_DEST_TEMPDIR,
-					       dump_flags,
-					       &import_environment);
+					       0, &import_environment);
 		if (getenv(DOVECOT_PRESERVE_ENVS_ENV) != NULL) {
 			/* Standalone binary is getting its configuration via
 			   doveconf. Clean the environment before calling it.
@@ -1010,14 +1007,15 @@ int main(int argc, char *argv[])
 		struct config_export_context *ctx;
 		unsigned int section_idx = 0;
 
-		ctx = config_export_init(scope,
-					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
+		ctx = config_export_init(scope, 0,
 					 config_request_simple_stdout,
 					 setting_name_filters);
 		if ((ret2 = config_export_by_filter(ctx, config_filter, &filter)) < 0)
 			config_export_free(&ctx);
-		else
-			ret2 = config_export_all_parsers(&ctx, &section_idx);
+		else {
+			if (config_export_all_parsers(&ctx, &section_idx) < 0)
+				i_unreached();
+		}
 	} else if (setting_name_filters != NULL) {
 		ret2 = 0;
 		/* ignore settings-check failures in configuration. this allows

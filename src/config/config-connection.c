@@ -55,7 +55,6 @@ static int config_connection_request(struct config_connection *conn,
 {
 	const char *import_environment;
 	struct config_filter_context *new_filter;
-	enum config_dump_flags flags = CONFIG_DUMP_FLAG_CHECK_SETTINGS;
 
 	while (*args != NULL) {
 		if (strcmp(*args, "reload") == 0) {
@@ -80,7 +79,7 @@ static int config_connection_request(struct config_connection *conn,
 	if (global_config_fd == -1) {
 		int fd = config_dump_full(global_config_filter,
 					  CONFIG_DUMP_FULL_DEST_RUNDIR,
-					  flags, &import_environment);
+					  0, &import_environment);
 		if (fd == -1) {
 			o_stream_nsend_str(conn->output, "-Failed\n");
 			return 0;

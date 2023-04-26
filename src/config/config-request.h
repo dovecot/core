@@ -16,7 +16,6 @@ enum config_dump_scope {
 };
 
 enum config_dump_flags {
-	CONFIG_DUMP_FLAG_CHECK_SETTINGS		= 0x01,
 	CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS	= 0x02,
 	CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS	= 0x08,
 };
