@@ -220,8 +220,6 @@ static const struct setting_define mail_namespace_setting_defines[] = {
 	DEF(STR, separator),
 	DEF(STR_VARS, prefix),
 	DEF(STR_VARS, location),
-	{ .type = SET_ALIAS, .key = "mail" },
-	{ .type = SET_ALIAS, .key = "mail_location" },
 	DEF(STR_VARS, alias_for),
 
 	DEF(BOOL, inbox),
