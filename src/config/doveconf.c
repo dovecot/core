@@ -557,7 +557,7 @@ config_dump_human_sections(struct ostream *output,
 			   bool hide_passwords)
 {
 	struct config_filter_parser *const *filters;
-	static struct config_dump_human_context *ctx;
+	struct config_dump_human_context *ctx;
 	unsigned int indent;
 	int ret = 0;
 
@@ -586,7 +586,7 @@ config_dump_human(const struct config_filter *filter,
 		  enum config_dump_scope scope, const char *setting_name_filter,
 		  bool hide_passwords)
 {
-	static struct config_dump_human_context *ctx;
+	struct config_dump_human_context *ctx;
 	struct ostream *output;
 	int ret;
 
@@ -614,7 +614,7 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 		enum config_dump_scope scope, const char *setting_name_filter,
 		bool hide_passwords)
 {
-	static struct config_dump_human_context *ctx;
+	struct config_dump_human_context *ctx;
 	const char *str;
 	size_t len;
 	unsigned int section_idx = 0;
