@@ -186,6 +186,7 @@ void settings_parse_set_expanded(struct setting_parser_context *ctx,
    This is mainly useful when you want to run settings_parser_check() without
    actually knowing what the variables are. */
 void settings_parse_var_skip(struct setting_parser_context *ctx);
+void settings_var_skip(const struct setting_parser_info *info, void *set);
 /* Expand all unexpanded variables using the given table. Update the string
    pointers so that they can be used without skipping over the '1'.
    Returns the same as var_expand(). */

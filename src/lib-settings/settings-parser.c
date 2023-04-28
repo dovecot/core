@@ -974,11 +974,14 @@ int settings_var_expand_with_funcs(const struct setting_parser_info *info,
 
 void settings_parse_var_skip(struct setting_parser_context *ctx)
 {
+	settings_var_skip(ctx->root.info, ctx->root.set_struct);
+}
+
+void settings_var_skip(const struct setting_parser_info *info, void *set)
+{
 	const char *error;
 
-	(void)settings_var_expand_info(ctx->root.info,
-				       ctx->root.set_struct,
-				       NULL, NULL, NULL, NULL, NULL,
+	(void)settings_var_expand_info(info, set, NULL, NULL, NULL, NULL, NULL,
 				       &error);
 }
 

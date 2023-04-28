@@ -857,7 +857,10 @@ settings_instance_get(struct event *event,
 
 	if ((flags & SETTINGS_GET_FLAG_NO_EXPAND) != 0)
 		ret = 1;
-	else T_BEGIN {
+	else if ((flags & SETTINGS_GET_FLAG_FAKE_EXPAND) != 0) {
+		settings_var_skip(info, set);
+		ret = 1;
+	} else T_BEGIN {
 		const struct var_expand_table *tab;
 		const struct var_expand_func_table *func_tab;
 		void *func_context;

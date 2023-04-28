@@ -25,6 +25,9 @@ enum settings_get_flags {
 	SETTINGS_GET_FLAG_NO_CHECK = BIT(0),
 	/* Don't expand %variables in settings */
 	SETTINGS_GET_FLAG_NO_EXPAND = BIT(1),
+	/* Mark %settings as expanded without actually doing it. This is needed
+	   while doing checks for settings before expansion is possible. */
+	SETTINGS_GET_FLAG_FAKE_EXPAND = BIT(2),
 };
 
 /* Set struct settings_instance to events so settings_get() can
