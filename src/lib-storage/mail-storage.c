@@ -2274,9 +2274,9 @@ mailbox_get_namespace(const struct mailbox *box)
 	return box->list->ns;
 }
 
-const struct mail_storage_settings *mailbox_get_settings(struct mailbox *box)
+const struct mailbox_settings *mailbox_get_settings(struct mailbox *box)
 {
-	return box->storage->set;
+	return box->set;
 }
 
 const char *mailbox_get_name(const struct mailbox *box)

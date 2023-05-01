@@ -626,8 +626,8 @@ struct mail_storage *mailbox_get_storage(const struct mailbox *box) ATTR_PURE;
 /* Return namespace of given mailbox. */
 struct mail_namespace *
 mailbox_get_namespace(const struct mailbox *box) ATTR_PURE;
-/* Returns the storage's settings. */
-const struct mail_storage_settings *
+/* Returns the mailbox's settings. */
+const struct mailbox_settings *
 mailbox_get_settings(struct mailbox *box) ATTR_PURE;
 /* Returns the mailbox's settings, or NULL if there are none. */
 const struct mailbox_settings *
