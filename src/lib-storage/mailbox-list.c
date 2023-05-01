@@ -141,6 +141,8 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	list = class->v.alloc();
 	array_create(&list->module_contexts, list->pool, sizeof(void *), 5);
 
+	list->event = event_create(ns->user->event);
+	event_add_str(list->event, "namespace", ns->set->name);
 	list->ns = ns;
 	list->mail_set = ns->mail_set;
 	list->flags = flags;
@@ -820,7 +822,10 @@ void mailbox_list_destroy(struct mailbox_list **_list)
 		i_assert(array_count(&list->error_stack) == 0);
 		array_free(&list->error_stack);
 	}
+
+	struct event *event = list->event;
 	list->v.deinit(list);
+	event_unref(&event);
 }
 
 const char *mailbox_list_get_driver_name(const struct mailbox_list *list)
@@ -843,6 +848,12 @@ struct mail_namespace *
 mailbox_list_get_namespace(const struct mailbox_list *list)
 {
 	return list->ns;
+}
+
+struct event *
+mailbox_list_get_event(const struct mailbox_list *list)
+{
+	return list->event;
 }
 
 static mode_t get_dir_mode(mode_t mode)

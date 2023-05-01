@@ -105,6 +105,7 @@ union mailbox_list_module_context {
 
 struct mailbox_list {
 	const char *name;
+	struct event *event;
 	enum mailbox_list_properties props;
 	size_t mailbox_name_max_length;
 

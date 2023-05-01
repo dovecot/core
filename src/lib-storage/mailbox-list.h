@@ -226,6 +226,8 @@ enum mailbox_list_flags
 mailbox_list_get_flags(const struct mailbox_list *list) ATTR_PURE;
 struct mail_namespace *
 mailbox_list_get_namespace(const struct mailbox_list *list) ATTR_PURE;
+struct event *
+mailbox_list_get_event(const struct mailbox_list *list) ATTR_PURE;
 struct mail_user *
 mailbox_list_get_user(const struct mailbox_list *list) ATTR_PURE;
 /* Get a mail_storage for the given mailbox_list/vname combination. This might

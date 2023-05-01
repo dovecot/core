@@ -35,6 +35,7 @@ static void test_init_list(struct mailbox_list *list_r)
 	list_r->ns = t_new(struct mail_namespace, 1);
 	list_r->ns->user = t_new(struct mail_user, 1);
 	list_r->ns->user->event = event_create(NULL);
+	list_r->event = event_create(list_r->ns->user->event);
 }
 
 static void test_deinit_list(struct mailbox_list *list)
@@ -45,6 +46,7 @@ static void test_deinit_list(struct mailbox_list *list)
 		i_assert(array_count(&list->error_stack) == 0);
 		array_free(&list->error_stack);
 	}
+	event_unref(&list->event);
 	event_unref(&list->ns->user->event);
 }
 
