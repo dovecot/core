@@ -121,7 +121,7 @@ static bool
 index_mail_want_attachment_keywords_on_fetch(struct index_mail *mail)
 {
 	const struct mail_storage_settings *mail_set =
-		mailbox_get_settings(mail->mail.mail.box);
+		mail->mail.mail.box->storage->set;
 
 	return mail_set->parsed_mail_attachment_detection_add_flags &&
 		!mail_set->parsed_mail_attachment_detection_no_flags_on_fetch &&
@@ -1176,7 +1176,7 @@ index_mail_parse_body_finish(struct index_mail *mail,
 {
 	struct istream *parser_input = mail->data.parser_input;
 	const struct mail_storage_settings *mail_set =
-		mailbox_get_settings(mail->mail.mail.box);
+		mail->mail.mail.box->storage->set;
 	const char *error = NULL;
 	int ret;
 
