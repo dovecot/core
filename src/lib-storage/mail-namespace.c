@@ -67,21 +67,6 @@ static void mail_namespace_free(struct mail_namespace *ns)
 	i_free(ns);
 }
 
-static bool
-namespace_has_special_use_mailboxes(struct mail_namespace_settings *ns_set)
-{
-	struct mailbox_settings *box_set;
-
-	if (!array_is_created(&ns_set->mailboxes))
-		return FALSE;
-
-	array_foreach_elem(&ns_set->mailboxes, box_set) {
-		if (box_set->special_use[0] != '\0')
-			return TRUE;
-	}
-	return FALSE;
-}
-
 int mail_namespace_alloc(struct mail_user *user,
 			 struct mail_namespace_settings *ns_set,
 			 struct mail_namespace **ns_r,
@@ -167,8 +152,6 @@ int mail_namespaces_init_add(struct mail_user *user,
 		ns->flags |= NAMESPACE_FLAG_UNUSABLE |
 			NAMESPACE_FLAG_AUTOCREATED;
 	}
-
-	ns->special_use_mailboxes = namespace_has_special_use_mailboxes(ns_set);
 
 	if (ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
 	    (strchr(ns->prefix, '%') != NULL ||

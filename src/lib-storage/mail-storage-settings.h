@@ -97,6 +97,7 @@ struct mail_namespace_settings {
 
 	ARRAY(struct mailbox_settings *) mailboxes;
 	const char *unexpanded_location;
+	bool parsed_have_special_use_mailboxes;
 };
 
 /* <settings checks> */

@@ -598,6 +598,15 @@ static bool namespace_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 					   name);
 		return FALSE;
 	}
+
+	if (array_is_created(&ns->mailboxes)) {
+		struct mailbox_settings *box_set;
+
+		array_foreach_elem(&ns->mailboxes, box_set) {
+			if (box_set->special_use[0] != '\0')
+				ns->parsed_have_special_use_mailboxes = TRUE;
+		}
+	}
 	return TRUE;
 }
 

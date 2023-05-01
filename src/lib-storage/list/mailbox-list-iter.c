@@ -462,7 +462,7 @@ mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 	ctx->ns_info.ns = ns;
 	ctx->ns_info.vname = p_strndup(ctx->pool, ns->prefix,
 				       ns->prefix_len-1);
-	if (ns->special_use_mailboxes)
+	if (ns->set->parsed_have_special_use_mailboxes)
 		ctx->ns_info.flags |= MAILBOX_CHILD_SPECIALUSE;
 
 	if (strcasecmp(ctx->ns_info.vname, "INBOX") == 0) {

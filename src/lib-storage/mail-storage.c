@@ -1097,7 +1097,7 @@ namespace_find_special_use(struct mail_namespace *ns, const char *special_use,
 	*vname_r = NULL;
 	*error_code_r = MAIL_ERROR_NONE;
 
-	if (!ns->special_use_mailboxes)
+	if (!ns->set->parsed_have_special_use_mailboxes)
 		return 0;
 	if (!HAS_ALL_BITS(ns->type, MAIL_NAMESPACE_TYPE_PRIVATE))
 		return 0;

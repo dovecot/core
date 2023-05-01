@@ -73,7 +73,6 @@ struct mail_namespace {
 	const struct mail_namespace_settings *set;
 	const struct mail_storage_settings *mail_set;
 
-	bool special_use_mailboxes:1;
 	bool destroyed:1;
 };
 
