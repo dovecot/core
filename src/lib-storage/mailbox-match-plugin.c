@@ -51,8 +51,7 @@ bool mailbox_match_plugin_exclude(struct mailbox_match_plugin *match,
 	if (!array_is_created(&match->patterns))
 		return FALSE;
 
-	set = mailbox_settings_find(mailbox_get_namespace(box),
-				    mailbox_get_vname(box));
+	set = mailbox_get_settings(box);
 	special_use = set == NULL ? NULL :
 		t_strsplit_spaces(set->special_use, " ");
 

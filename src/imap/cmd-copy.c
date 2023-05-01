@@ -63,8 +63,7 @@ static void copy_update_trashed(struct client *client, struct mailbox *box,
 {
 	const struct mailbox_settings *set;
 
-	set = mailbox_settings_find(mailbox_get_namespace(box),
-				    mailbox_get_vname(box));
+	set = mailbox_get_settings(box);
 	if (set != NULL && set->special_use[0] != '\0' &&
 	    str_array_icase_find(t_strsplit_spaces(set->special_use, " "),
 				 "\\Trash"))
