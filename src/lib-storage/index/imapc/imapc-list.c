@@ -414,7 +414,6 @@ imapc_list_get_vname(struct mailbox_list *_list, const char *storage_name)
 
 static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 {
-	struct event *event = list->list.ns->user->event;
 	struct mailbox_list_settings list_set;
 	const char *error, *dir;
 
@@ -437,7 +436,7 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 		if (mailbox_list_create(list_set.layout, list->list.ns,
 					&list_set, MAILBOX_LIST_FLAG_SECONDARY,
 					&list->index_list, &error) < 0) {
-			e_error(event,
+			e_error(list->list.event,
 				"imapc: Couldn't create %s mailbox list: %s",
 				list_set.layout, error);
 			list->index_list_failed = TRUE;

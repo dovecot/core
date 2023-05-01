@@ -161,7 +161,7 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 								 src_list, name);
 		} T_END;
 		if (ret < 0) {
-			e_warning(dest_list->ns->user->event,
+			e_warning(dest_list->event,
 				  "Subscriptions file %s: "
 				  "Removing invalid entry: %s",
 				  path, name);

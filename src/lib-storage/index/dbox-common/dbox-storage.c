@@ -439,7 +439,6 @@ int dbox_mailbox_create_indexes(struct mailbox *box,
 
 int dbox_verify_alt_storage(struct mailbox_list *list)
 {
-	struct event *event = list->ns->user->event;
 	const char *alt_path;
 	struct stat st;
 
@@ -451,7 +450,7 @@ int dbox_verify_alt_storage(struct mailbox_list *list)
 	if (stat(alt_path, &st) == 0)
 		return 0;
 	if (errno != ENOENT) {
-		e_error(event, "stat(%s) failed: %m", alt_path);
+		e_error(list->event, "stat(%s) failed: %m", alt_path);
 		return -1;
 	}
 

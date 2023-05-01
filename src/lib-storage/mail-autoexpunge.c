@@ -206,7 +206,7 @@ mailbox_autoexpunge_wildcards(struct mail_namespace *ns,
 					expunged_count);
 	} T_END;
 	if (mailbox_list_iter_deinit(&iter) < 0) {
-		e_error(ns->user->event,
+		e_error(mailbox_list_get_event(ns->list),
 			"Failed to iterate autoexpunge mailboxes '%s': %s",
 			iter_name, mailbox_list_get_last_internal_error(ns->list, NULL));
 	}

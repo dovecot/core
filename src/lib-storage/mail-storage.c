@@ -288,13 +288,13 @@ mail_storage_create_root(struct mailbox_list *list,
 	}
 
 	if ((flags & MAIL_STORAGE_FLAG_NO_AUTOVERIFY) != 0) {
-		if (!event_want_debug_log(list->ns->user->event))
+		if (!event_want_debug_log(list->event))
 			return 0;
 
 		/* we don't need to verify, but since debugging is
 		   enabled, check and log if the root doesn't exist */
 		if (mail_storage_verify_root(root_dir, type_name, &error) < 0) {
-			e_debug(list->ns->user->event,
+			e_debug(list->event,
 				"Namespace %s: Creating storage despite: %s",
 				list->ns->prefix, error);
 		}
@@ -432,7 +432,7 @@ mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
 	   used for mails currently being saved. */
 	storage->last_internal_error_mail_uid = UINT32_MAX;
 
-	storage->event = event_create(ns->user->event);
+	storage->event = event_create(ns->list->event);
 	if (storage_class->event_category != NULL)
 		event_add_category(storage->event, storage_class->event_category);
 	event_set_append_log_prefix(
@@ -1047,7 +1047,7 @@ struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
 			/* successfully opened the correct mailbox */
 			return box;
 		}
-		e_error(list->ns->user->event, "mailbox_alloc_guid(%s): "
+		e_error(list->event, "mailbox_alloc_guid(%s): "
 			"Couldn't verify mailbox GUID: %s",
 			guid_128_to_string(guid),
 			mailbox_get_last_internal_error(box, NULL));
@@ -1124,7 +1124,7 @@ namespace_find_special_use(struct mail_namespace *ns, const char *special_use,
 		const char *error;
 
 		error = mailbox_list_get_last_error(ns->list, error_code_r);
-		e_error(ns->user->event,
+		e_error(ns->list->event,
 			"Failed to find mailbox with SPECIAL-USE flag '%s' "
 			"in namespace '%s': %s",
 			special_use, ns->prefix, error);

@@ -905,7 +905,7 @@ void fts_mail_namespaces_added(struct mail_namespace *ns)
 
 		if (flist != NULL && !flist->failed && flist->backend == NULL &&
 		    fts_init_namespace(flist, ns, &error) < 0) {
-			e_error(ns->user->event,
+			e_error(ns->list->event,
 				"fts: Failed to initialize backend '%s': %s",
 				flist->backend_name, error);
 		}
@@ -920,13 +920,13 @@ fts_mailbox_list_created(struct mailbox_list *list)
 	const char *path;
 
 	if (name == NULL || name[0] == '\0') {
-		e_debug(list->ns->user->event,
+		e_debug(list->event,
 			"fts: No fts setting - plugin disabled");
 		return;
 	}
 
 	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX, &path)) {
-		e_debug(list->ns->user->event,
+		e_debug(list->event,
 			"fts: Indexes disabled for namespace '%s'",
 			list->ns->prefix);
 		return;

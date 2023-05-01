@@ -758,7 +758,7 @@ solr_search_multi(struct solr_fts_backend *backend, string_t *str,
 		  enum fts_lookup_flags flags,
 		  struct fts_multi_result *result)
 {
-	struct event *event = backend->backend.ns->user->event;
+	struct event *event = backend->backend.ns->list->event;
 	struct solr_result **solr_results;
 	struct fts_result *fts_result;
 	ARRAY(struct fts_result) fts_results;

@@ -120,7 +120,7 @@ fs_list_rename_invalid(struct fs_list_iterate_context *ctx,
 	(void)imap_utf8_to_utf7(str_c(destname), dest);
 
 	if (rename(src, str_c(dest)) < 0 && errno != ENOENT)
-		e_error(ctx->ctx.list->ns->user->event,
+		e_error(ctx->ctx.list->event,
 			"rename(%s, %s) failed: %m", src, str_c(dest));
 }
 

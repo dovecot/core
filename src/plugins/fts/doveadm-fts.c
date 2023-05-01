@@ -34,7 +34,7 @@ static int
 cmd_search_box(struct doveadm_mail_cmd_context *ctx,
 	       const struct mailbox_info *info)
 {
-	struct event *event = info->ns->user->event;
+	struct event *event = mailbox_list_get_event(info->ns->list);
 	struct mailbox *box;
 	struct fts_backend *backend;
 	struct fts_result result;

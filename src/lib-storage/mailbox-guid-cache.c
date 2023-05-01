@@ -53,7 +53,7 @@ static void mailbox_guid_cache_add_mailbox(struct mailbox_list *list,
 		list->guid_cache_errors = TRUE;
 	} else if ((rec = hash_table_lookup(list->guid_cache,
 			(const uint8_t *)metadata.guid)) != NULL) {
-		e_warning(list->ns->user->event,
+		e_warning(list->event,
 			  "Mailbox %s has duplicate GUID with %s: %s",
 			  info->vname, rec->vname,
 			  guid_128_to_string(metadata.guid));

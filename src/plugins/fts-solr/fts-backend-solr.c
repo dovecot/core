@@ -871,7 +871,7 @@ solr_search_multi(struct fts_backend *_backend, string_t *str,
 		  struct mailbox *const boxes[], enum fts_lookup_flags flags,
 		  struct fts_multi_result *result)
 {
-	struct event *event = _backend->ns->user->event;
+	struct event *event = _backend->ns->list->event;
 	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
 	struct solr_result **solr_results;
 	struct fts_result *fts_result;

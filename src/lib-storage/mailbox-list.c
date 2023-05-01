@@ -211,7 +211,7 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 		}
 	}
 
-	e_debug(ns->user->event,
+	e_debug(list->event,
 		"%s: root=%s, index=%s, indexpvt=%s, control=%s, inbox=%s, alt=%s",
 		list->name,
 		list->set.root_dir == NULL ? "" : list->set.root_dir,
@@ -950,7 +950,7 @@ mailbox_list_get_permissions_stat(struct mailbox_list *list, const char *path,
 			mailbox_list_set_critical(list, "stat(%s) failed: %m",
 						  path);
 		} else {
-			e_debug(list->ns->user->event,
+			e_debug(list->event,
 				"Namespace %s: %s doesn't exist yet, "
 				"using default permissions",
 				list->ns->prefix, path);
@@ -1069,7 +1069,7 @@ mailbox_list_get_permissions_internal(struct mailbox_list *list,
 	}
 
 	if (name == NULL) {
-		e_debug(list->ns->user->event,
+		e_debug(list->event,
 			"Namespace %s: Using permissions from %s: "
 			"mode=0%o gid=%s", list->ns->prefix,
 			path != NULL ? path : "",
@@ -1666,7 +1666,7 @@ static bool mailbox_list_init_changelog(struct mailbox_list *list)
 		return FALSE;
 
 	path = t_strconcat(path, "/"MAILBOX_LOG_FILE_NAME, NULL);
-	list->changelog = mailbox_log_alloc(list->ns->user->event, path);
+	list->changelog = mailbox_log_alloc(list->event, path);
 
 	mailbox_list_get_root_permissions(list, &perm);
 	mailbox_log_set_permissions(list->changelog, perm.file_create_mode,
@@ -1847,7 +1847,7 @@ int mailbox_list_dirent_is_alias_symlink(struct mailbox_list *list,
 		} else if (!S_ISLNK(st.st_mode)) {
 			ret = 0;
 		} else if (t_readlink(path, &linkpath, &error) < 0) {
-			e_error(list->ns->user->event,
+			e_error(list->event,
 				"t_readlink(%s) failed: %s", path, error);
 			ret = -1;
 		} else {
@@ -2006,7 +2006,7 @@ void mailbox_list_set_critical(struct mailbox_list *list, const char *fmt, ...)
 	list->last_internal_error = i_strdup_vprintf(fmt, va);
 	va_end(va);
 	list->last_error_is_internal = TRUE;
-	e_error(list->ns->user->event, "%s", list->last_internal_error);
+	e_error(list->event, "%s", list->last_internal_error);
 
 	/* free the old_error and old_internal_error only after the new error
 	   is generated, because they may be one of the parameters. */
