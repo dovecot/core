@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "strescape.h"
+#include "wildcard-match.h"
 #include "safe-mkstemp.h"
 #include "ostream.h"
 #include "config-parser.h"
@@ -74,13 +75,18 @@ config_dump_full_append_filter(string_t *str,
 	unsigned int prefix_len = str_len(str);
 
 	if (filter->service != NULL) {
-		if (filter->service[0] != '!')
-			str_printfa(str, "protocol=\"%s\" AND ", str_escape(filter->service));
-		else
-			str_printfa(str, "NOT protocol=\"%s\" AND ", str_escape(filter->service + 1));
+		if (filter->service[0] != '!') {
+			str_printfa(str, "protocol=\"%s\" AND ",
+				    wildcard_str_escape(filter->service));
+		} else {
+			str_printfa(str, "NOT protocol=\"%s\" AND ",
+				    wildcard_str_escape(filter->service + 1));
+		}
 	}
-	if (filter->local_name != NULL)
-		str_printfa(str, "local_name=\"%s\" AND ", str_escape(filter->local_name));
+	if (filter->local_name != NULL) {
+		str_printfa(str, "local_name=\"%s\" AND ",
+			    wildcard_str_escape(filter->local_name));
+	}
 	if (filter->local_bits > 0) {
 		str_printfa(str, "local_ip=\"%s/%u\" AND ",
 			    net_ip2addr(&filter->local_net),
