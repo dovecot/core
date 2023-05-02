@@ -57,6 +57,7 @@ SUBDIRS = \
 	imap-login \
 	imap \
 	imap-urlauth \
+	imap-urlauth-login \
 	pop3-login \
 	pop3 \
 	submission-login \

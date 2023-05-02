@@ -797,6 +797,7 @@ src/imap/Makefile
 src/imap-hibernate/Makefile
 src/imap-login/Makefile
 src/imap-urlauth/Makefile
+src/imap-urlauth-login/Makefile
 src/login-common/Makefile
 src/master/Makefile
 src/pop3/Makefile
