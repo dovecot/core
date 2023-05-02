@@ -4,6 +4,48 @@
 #include "ioloop.h"
 #include "event-filter-private.h"
 
+static void test_event_filter_strings(void)
+{
+	struct event_filter *filter;
+	const char *error;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+
+	test_begin("event filter: strings");
+
+	struct event *e = event_create(NULL);
+	event_add_str(e, "str", "hello \\world");
+
+	struct event *e2 = event_create(NULL);
+	event_add_str(e2, "str", "hello *world");
+
+	/* "quoting" works with \escaping */
+	filter = event_filter_create();
+	test_assert(event_filter_parse("str = \"hello \\\\world\"", filter, &error) == 0);
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	test_assert(!event_filter_match(filter, e2, &failure_ctx));
+	event_filter_unref(&filter);
+
+	/* wildcards work inside quotes */
+	filter = event_filter_create();
+	test_assert(event_filter_parse("str = \"hello *world\"", filter, &error) == 0);
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	test_assert(event_filter_match(filter, e2, &failure_ctx));
+	event_filter_unref(&filter);
+
+	/* escaped wildcard is an exact string */
+	filter = event_filter_create();
+	test_assert(event_filter_parse("str = \"hello \\*world\"", filter, &error) == 0);
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	test_assert(event_filter_match(filter, e2, &failure_ctx));
+	event_filter_unref(&filter);
+
+	event_unref(&e);
+	event_unref(&e2);
+	test_end();
+}
+
 static void test_event_filter_override_parent_fields(void)
 {
 	struct event_filter *filter;
@@ -1074,6 +1116,7 @@ static void test_event_filter_timeval_values(void)
 
 void test_event_filter(void)
 {
+	test_event_filter_strings();
 	test_event_filter_override_parent_fields();
 	test_event_filter_override_global_fields();
 	test_event_filter_clear_parent_fields();
