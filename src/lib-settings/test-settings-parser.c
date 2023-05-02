@@ -136,7 +136,7 @@ static void test_settings_section_escape(void)
 		const char *input;
 		const char *output;
 	} tests[] = {
-		{ "", "" },
+		{ "", "\\." },
 		{ "foo", "foo" },
 		{ "foo bar", "foo\\_bar" },
 		{ " foo bar ", "\\_foo\\_bar\\_" },
@@ -150,8 +150,9 @@ static void test_settings_section_escape(void)
 		test_assert_strcmp_idx(unescaped, tests[i].input, i);
 	}
 
-	test_assert_strcmp(settings_section_unescape("\\."), "\\.");
+	test_assert_strcmp(settings_section_unescape("\\?"), "\\?");
 	test_assert_strcmp(settings_section_unescape("foo\\"), "foo\\");
+	test_assert_strcmp(settings_section_unescape("foo\\.bar"), "foobar");
 	test_end();
 }
 

@@ -1567,8 +1567,11 @@ const char *settings_section_escape(const char *name)
 		if (CHAR_NEED_ESCAPE(name[i]))
 			break;
 	}
-	if (name[i] == '\0')
+	if (name[i] == '\0') {
+		if (i == 0)
+			return "\\.";
 		return name;
+	}
 
 	str = t_str_new(i + strlen(name+i) + 8);
 	str_append_data(str, name, i);
@@ -1621,6 +1624,9 @@ const char *settings_section_unescape(const char *name)
 			break;
 		case '+':
 			str_append_c(str, ',');
+			break;
+		case '.':
+			/* empty string */
 			break;
 		default:
 			/* not supposed to happen */

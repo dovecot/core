@@ -21,6 +21,7 @@ struct config_line {
 	enum config_line_type type;
 	const char *key;
 	const char *value;
+	bool value_quoted;
 };
 
 struct config_section_stack {

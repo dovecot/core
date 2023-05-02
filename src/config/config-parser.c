@@ -461,7 +461,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			filter->remote_host = p_strdup(ctx->pool, value);
 	} else if (config_is_filter_name(ctx, key, &filter_def)) {
 		if (filter_def->type == SET_FILTER_NAME) {
-			if (value[0] != '\0') {
+			if (value[0] != '\0' || line->value_quoted) {
 				ctx->error = p_strdup_printf(ctx->pool,
 					"%s { } must not have a section name",
 					key);
@@ -483,7 +483,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 					parent->filter_name, key, key, parent->filter_name);
 				return FALSE;
 			}
-			if (value[0] == '\0') {
+			if (value[0] == '\0' && !line->value_quoted) {
 				ctx->error = p_strdup_printf(ctx->pool,
 					"%s { } is missing section name", key);
 				return TRUE;
@@ -914,6 +914,7 @@ config_parse_line(struct config_parser_context *ctx,
 		     (*line == '\'' && line[len-1] == '\''))) {
 			line[len-1] = '\0';
 			line = str_unescape(line+1);
+			config_line_r->value_quoted = TRUE;
 		}
 		config_line_r->value = line;
 		config_line_r->type = CONFIG_LINE_TYPE_KEYVALUE;
@@ -950,6 +951,7 @@ config_parse_line(struct config_parser_context *ctx,
 				while (IS_WHITE(*line))
 					line++;
 				config_line_r->value = str_unescape(value);
+				config_line_r->value_quoted = TRUE;
 			}
 		}
 		if (*line != '{') {
