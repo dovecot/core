@@ -21,7 +21,7 @@
 #include <stddef.h>
 
 static bool mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool, const char **error_r);
-static bool namespace_settings_check(void *_set, pool_t pool, const char **error_r);
+static bool namespace_settings_ext_check(struct event *event, void *_set, pool_t pool, const char **error_r);
 static bool mailbox_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool mail_user_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool mail_user_settings_expand_check(void *_set, pool_t pool ATTR_UNUSED, const char **error_r);
@@ -163,11 +163,11 @@ const struct setting_parser_info mail_storage_setting_parser_info = {
 
 #undef DEF
 #define DEF(type, name) \
-	SETTING_DEFINE_STRUCT_##type(#name, name, struct mailbox_settings)
+	SETTING_DEFINE_STRUCT_##type("mailbox_"#name, name, struct mailbox_settings)
 
 static const struct setting_define mailbox_setting_defines[] = {
 	DEF(STR, name),
-	{ .type = SET_ENUM, .key = "auto",
+	{ .type = SET_ENUM, .key = "mailbox_auto",
 	  .offset = offsetof(struct mailbox_settings, autocreate) } ,
 	DEF(STR, special_use),
 	DEF(STR, driver),
@@ -198,19 +198,14 @@ const struct setting_parser_info mailbox_setting_parser_info = {
 
 	.type_offset1 = 1 + offsetof(struct mailbox_settings, name),
 	.struct_size = sizeof(struct mailbox_settings),
-	.parent = &mail_user_setting_parser_info,
+	.pool_offset1 = 1 + offsetof(struct mailbox_settings, pool),
 
 	.check_func = mailbox_settings_check
 };
 
 #undef DEF
-#undef DEFLIST_UNIQUE
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type("namespace_"#name, name, struct mail_namespace_settings)
-#define DEFLIST_UNIQUE(field, name, defines) \
-	{ .type = SET_DEFLIST_UNIQUE, .key = name, \
-	  .offset = offsetof(struct mail_namespace_settings, field), \
-	  .list_info = defines }
 
 static const struct setting_define mail_namespace_setting_defines[] = {
 	DEF(STR, name),
@@ -228,7 +223,9 @@ static const struct setting_define mail_namespace_setting_defines[] = {
 	DEF(BOOL, disabled),
 	DEF(UINT, order),
 
-	DEFLIST_UNIQUE(mailboxes, "mailbox", &mailbox_setting_parser_info),
+	{ .type = SET_FILTER_ARRAY, .key = "mailbox",
+	   .offset = offsetof(struct mail_namespace_settings, mailboxes),
+	   .filter_array_field_name = "mailbox_name" },
 
 	SETTING_DEFINE_LIST_END
 };
@@ -262,7 +259,7 @@ const struct setting_parser_info mail_namespace_setting_parser_info = {
 	.struct_size = sizeof(struct mail_namespace_settings),
 	.pool_offset1 = 1 + offsetof(struct mail_namespace_settings, pool),
 
-	.check_func = namespace_settings_check
+	.ext_check_func = namespace_settings_ext_check
 };
 
 #undef DEF
@@ -420,7 +417,6 @@ mail_storage_settings_check_namespaces(struct event *event,
 	array_foreach_elem(&set->namespaces, ns_name) {
 		if (settings_get_filter(event, "namespace", ns_name,
 					&mail_namespace_setting_parser_info,
-					SETTINGS_GET_FLAG_NO_CHECK |
 					SETTINGS_GET_FLAG_FAKE_EXPAND,
 					&ns, &error) < 0) {
 			*error_r = t_strdup_printf(
@@ -626,11 +622,51 @@ mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool,
 	return TRUE;
 }
 
-static bool namespace_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+static int
+namespace_have_special_use_mailboxes(struct event *event,
+				     struct mail_namespace_settings *ns,
 				     const char **error_r)
+{
+	struct mailbox_settings *box_set;
+	const char *box_name, *error;
+	int ret = 0;
+
+	if (!array_is_created(&ns->mailboxes))
+		return 0;
+
+	event = event_create(event);
+	event_add_str(event, "namespace", ns->name);
+	array_foreach_elem(&ns->mailboxes, box_name) {
+		if (settings_get_filter(event,
+					SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX,
+					box_name,
+					&mailbox_setting_parser_info,
+					SETTINGS_GET_FLAG_NO_CHECK |
+					SETTINGS_GET_FLAG_FAKE_EXPAND,
+					&box_set, &error) < 0) {
+			*error_r = t_strdup_printf(
+				"Failed to get mailbox %s: %s",
+				box_name, error);
+			break;
+		}
+		bool have_special_use = box_set->special_use[0] != '\0';
+		settings_free(box_set);
+		if (have_special_use) {
+			ret = 1;
+			break;
+		}
+	}
+	event_unref(&event);
+	return ret;
+}
+
+static bool namespace_settings_ext_check(struct event *event,
+					 void *_set, pool_t pool ATTR_UNUSED,
+					 const char **error_r)
 {
 	struct mail_namespace_settings *ns = _set;
 	const char *name;
+	int ret;
 
 	name = ns->prefix != NULL ? ns->prefix : "";
 
@@ -652,14 +688,11 @@ static bool namespace_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	}
 
-	if (array_is_created(&ns->mailboxes)) {
-		struct mailbox_settings *box_set;
-
-		array_foreach_elem(&ns->mailboxes, box_set) {
-			if (box_set->special_use[0] != '\0')
-				ns->parsed_have_special_use_mailboxes = TRUE;
-		}
-	}
+	ret = namespace_have_special_use_mailboxes(event, ns, error_r);
+	if (ret < 0)
+		return FALSE;
+	if (ret > 0)
+		ns->parsed_have_special_use_mailboxes = TRUE;
 	return TRUE;
 }
 

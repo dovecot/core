@@ -13,6 +13,7 @@
 #include "home-expand.h"
 #include "time-util.h"
 #include "unichar.h"
+#include "settings.h"
 #include "settings-parser.h"
 #include "iostream-ssl.h"
 #include "fs-api-private.h"
@@ -904,14 +905,27 @@ int mailbox_list_default_get_storage(struct mailbox_list **list,
 				     struct mail_storage **storage_r)
 {
 	const struct mailbox_settings *set;
-
-	set = mailbox_settings_find((*list)->ns, *vname);
-	if (set != NULL && set->driver != NULL && set->driver[0] != '\0') {
-		return mailbox_list_get_storage_driver(*list, set->driver,
-						       storage_r);
+	const char *error;
+	struct event *event =
+		mail_storage_mailbox_create_event((*list)->event, *list, *vname);
+	if (settings_get(event, &mailbox_setting_parser_info, 0,
+			 &set, &error) < 0) {
+		mailbox_list_set_critical(*list, "%s", error);
+		event_unref(&event);
+		return -1;
 	}
-	*storage_r = mail_namespace_get_default_storage((*list)->ns);
-	return 0;
+
+	int ret;
+	if (set->driver != NULL && set->driver[0] != '\0') {
+		ret = mailbox_list_get_storage_driver(*list, set->driver,
+						      storage_r);
+	} else {
+		*storage_r = mail_namespace_get_default_storage((*list)->ns);
+		ret = 0;
+	}
+	event_unref(&event);
+	settings_free(set);
+	return ret;
 }
 
 int mailbox_list_get_storage(struct mailbox_list **list, const char **vname,

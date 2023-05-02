@@ -682,8 +682,11 @@ settings_override_get_value(struct setting_parser_context *parser,
 		/* Try filter/name/key -> filter_key. Do this before the
 		   non-prefixed check, so e.g. inet_listener/imap/ssl won't
 		   try to change the global ssl setting. */
+		const char *key_prefix = set->last_filter_key;
+		if (strcmp(key_prefix, SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX) == 0)
+			key_prefix = SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX;
 		const char *prefixed_key =
-			t_strdup_printf("%s_%s", set->last_filter_key, key);
+			t_strdup_printf("%s_%s", key_prefix, key);
 		old_value = settings_parse_get_value(parser, prefixed_key, &value_type);
 		if (old_value != NULL)
 			key = prefixed_key;
@@ -1064,19 +1067,14 @@ settings_override_get_filter(struct settings_override *set, pool_t pool,
 	size_t last_filter_key_pos = 0;
 	while ((value = strchr(key, '/')) != NULL &&
 	       (next = strchr(value + 1, '/')) != NULL) {
-		if (str_begins_with(key, "mailbox/")) {
-			/* FIXME: temporary kludge - removed when mailboxes
-			   are named array filters */
-			value = NULL;
-			break;
-		}
-
 		if (filter == NULL)
 			filter = t_str_new(64);
 		else
 			str_append(filter, " AND ");
 
 		last_filter_key = t_strdup_until(key, value);
+		if (strcmp(last_filter_key, SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX) == 0)
+			last_filter_key = SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX;
 		last_filter_value = t_strdup_until(value + 1, next);
 		last_filter_key_pos = str_len(filter);
 		str_printfa(filter, "\"%s\"=\"%s\"",

@@ -424,7 +424,7 @@ acl_mailbox_list_iter_check_autocreate_acls(struct mailbox_list_iterate_context 
 {
 	struct acl_mailbox_list_iterate_context *ctx =
 		ACL_LIST_ITERATE_CONTEXT(_ctx);
-	struct mailbox_settings *const *box_sets;
+	const struct mailbox_settings *const *box_sets;
 	unsigned int i, count;
 	int ret = 0;
 

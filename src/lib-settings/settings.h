@@ -45,6 +45,13 @@ enum settings_get_flags {
    event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "auth_policy"); */
 #define SETTINGS_EVENT_FILTER_NAME "settings_filter_name"
 
+/* The "mailbox" event field contains the full mailbox with namespace prefix.
+   However, for settings we need to use the mailbox name without the namespace
+   prefix. Internally convert the "mailbox" named filters to "mailbox_subname",
+   so the matching works for the event. */
+#define SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX "mailbox"
+#define SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX "mailbox_subname"
+
 /* Set struct var_expand_table to be used for settings expansion. The table is
    expected to be accessible until the event is freed or the table is cleared
    from the event. Usage:

@@ -27,8 +27,6 @@ static struct mail_namespace_settings prefixless_ns_set = {
 	.subscriptions = FALSE,
 	.ignore_on_failure = FALSE,
 	.disabled = FALSE,
-
-	.mailboxes = ARRAY_INIT
 };
 
 void mail_namespace_add_storage(struct mail_namespace *ns,

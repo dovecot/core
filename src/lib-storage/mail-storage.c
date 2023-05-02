@@ -19,6 +19,7 @@
 #include "mkdir-parents.h"
 #include "time-util.h"
 #include "var-expand.h"
+#include "settings.h"
 #include "dsasl-client.h"
 #include "imap-date.h"
 #include "mail-index-private.h"
@@ -937,30 +938,6 @@ bool mail_storage_set_error_from_errno(struct mail_storage *storage)
 	return TRUE;
 }
 
-const struct mailbox_settings *
-mailbox_settings_find(struct mail_namespace *ns, const char *vname)
-{
-	struct mailbox_settings *box_set;
-
-	if (!array_is_created(&ns->set->mailboxes))
-		return NULL;
-
-	if (ns->prefix_len > 0 &&
-	    strncmp(ns->prefix, vname, ns->prefix_len-1) == 0) {
-		if (vname[ns->prefix_len-1] == mail_namespace_get_sep(ns))
-			vname += ns->prefix_len;
-		else if (vname[ns->prefix_len-1] == '\0') {
-			/* namespace prefix itself */
-			vname = "";
-		}
-	}
-	array_foreach_elem(&ns->set->mailboxes, box_set) {
-		if (strcmp(box_set->name, vname) == 0)
-			return box_set;
-	}
-	return NULL;
-}
-
 struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 			      enum mailbox_flags flags)
 {
@@ -1008,10 +985,16 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 		}
 
 		box = storage->v.mailbox_alloc(storage, new_list, vname, flags);
-		box->set = mailbox_settings_find(new_list->ns, vname);
-		box->open_error = open_error;
-		if (open_error != 0)
+		const char *error;
+		if (open_error != 0) {
+			box->open_error = open_error;
 			mail_storage_set_error(storage, open_error, errstr);
+		} else if (settings_get(box->event,
+					&mailbox_setting_parser_info, 0,
+					&box->set, &error) < 0) {
+			mailbox_set_critical(box, "%s", error);
+			box->open_error = box->storage->error;
+		}
 		if (strcmp(orig_vname, vname) != 0)
 			box->mailbox_not_original = TRUE;
 		hook_mailbox_allocated(box);
@@ -1817,6 +1800,7 @@ void mailbox_free(struct mailbox **_box)
 
 	DLLIST_REMOVE(&box->storage->mailboxes, box);
 	mail_storage_obj_unref(box->storage);
+	settings_free(box->set);
 	pool_unref(&box->pool);
 }
 
@@ -3369,12 +3353,31 @@ mail_storage_settings_to_index_flags(const struct mail_storage_settings *set)
 	return index_flags;
 }
 
+static const char *
+mailbox_get_name_without_prefix(struct mail_namespace *ns,
+				const char *vname)
+{
+	if (ns->prefix_len > 0 &&
+	    strncmp(ns->prefix, vname, ns->prefix_len-1) == 0) {
+		if (vname[ns->prefix_len-1] == mail_namespace_get_sep(ns))
+			vname += ns->prefix_len;
+		else if (vname[ns->prefix_len-1] == '\0') {
+			/* namespace prefix itself */
+			vname = "";
+		}
+	}
+	return vname;
+}
+
 struct event *
 mail_storage_mailbox_create_event(struct event *parent,
 				  struct mailbox_list *list, const char *vname)
 {
 	struct event *event = event_create(parent);
 	event_add_category(event, &event_category_mailbox);
+	event_add_str(event, SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX, vname);
+	event_add_str(event, SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX,
+		      mailbox_get_name_without_prefix(list->ns, vname));
 	event_add_str(event, "namespace", list->ns->set->name);
 
 	event_drop_parent_log_prefixes(event, 1);

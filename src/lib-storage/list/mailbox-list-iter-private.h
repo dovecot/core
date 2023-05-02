@@ -12,12 +12,16 @@ struct autocreate_box {
 	bool child_listed;
 };
 
-ARRAY_DEFINE_TYPE(mailbox_settings, struct mailbox_settings *);
+ARRAY_DEFINE_TYPE(mailbox_settings, const struct mailbox_settings *);
 struct mailbox_list_autocreate_iterate_context {
 	unsigned int idx;
 	struct mailbox_info new_info;
+	/* Autocreated mailboxes that match the filters */
 	ARRAY(struct autocreate_box) boxes;
+	/* References to settings in the boxes array. This is just for
+	   convenience. */
 	ARRAY_TYPE(mailbox_settings) box_sets;
+	/* References to all mailbox { ... } settings in the namespace. */
 	ARRAY_TYPE(mailbox_settings) all_ns_box_sets;
 	HASH_TABLE(char *, char *) duplicate_vnames;
 	bool listing_autoboxes:1;

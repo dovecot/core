@@ -101,6 +101,8 @@ config_dump_full_append_filter_query(string_t *str,
 		if (leaf)
 			str_append_c(str, '(');
 		const char *filter_key = t_strdup_until(filter->filter_name, p);
+		if (strcmp(filter_key, SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX) == 0)
+			filter_key = SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX;
 		str_printfa(str, "%s=\"%s\"", filter_key, str_escape(p + 1));
 		if (leaf) {
 			/* the filter_name is used by settings_get_filter() for

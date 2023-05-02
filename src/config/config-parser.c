@@ -485,7 +485,16 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			}
 			if (strcmp(key, "namespace") == 0 &&
 			    parent->filter_name_array &&
-			    str_begins_with(parent->filter_name, "namespace/")) {
+			    (str_begins_with(parent->filter_name, "namespace/") ||
+			     str_begins_with(parent->filter_name, "mailbox/"))) {
+				ctx->error = p_strdup_printf(ctx->pool,
+					"%s { .. } not allowed under %s { .. }",
+					key, t_strcut(parent->filter_name, '/'));
+				return FALSE;
+			}
+			if (strcmp(key, "mailbox") == 0 &&
+			    parent->filter_name_array &&
+			    str_begins_with(parent->filter_name, "mailbox/")) {
 				ctx->error = p_strdup_printf(ctx->pool,
 					"%s { .. } not allowed under %s { .. }",
 					key, t_strcut(parent->filter_name, '/'));
