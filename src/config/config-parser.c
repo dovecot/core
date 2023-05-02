@@ -311,8 +311,9 @@ int config_parse_net(const char *value, struct ip_addr *ip_r,
 
 static bool
 config_filter_add_new_filter(struct config_parser_context *ctx,
-			     const char *key, const char *value)
+			     const struct config_line *line)
 {
+	const char *key = line->key, *value = line->value;
 	struct config_filter *filter = &ctx->cur_section->filter;
 	struct config_filter *parent = &ctx->cur_section->prev->filter;
 	struct config_filter_parser *parser;
@@ -594,17 +595,16 @@ settings_include(struct config_parser_context *ctx, const char *pattern,
 #endif
 }
 
-static enum config_line_type
+static void
 config_parse_line(struct config_parser_context *ctx,
 		  char *line, string_t *full_line,
-		  const char **key_r, const char **value_r)
+		  struct config_line *config_line_r)
 {
 	const char *key;
 	size_t len;
 	char *p;
 
-	*key_r = NULL;
-	*value_r = NULL;
+	i_zero(config_line_r);
 
 	/* @UNSAFE: line is modified */
 
@@ -613,8 +613,10 @@ config_parse_line(struct config_parser_context *ctx,
 		line++;
 
 	/* ignore comments or empty lines */
-	if (*line == '#' || *line == '\0')
-		return CONFIG_LINE_TYPE_SKIP;
+	if (*line == '#' || *line == '\0') {
+		config_line_r->type = CONFIG_LINE_TYPE_SKIP;
+		return;
+	}
 
 	/* strip away comments. pretty kludgy way really.. */
 	for (p = line; *p != '\0'; p++) {
@@ -660,7 +662,8 @@ config_parse_line(struct config_parser_context *ctx,
 			str_append_data(full_line, line, len);
 			str_append_c(full_line, ' ');
 		}
-		return CONFIG_LINE_TYPE_CONTINUE;
+		config_line_r->type = CONFIG_LINE_TYPE_CONTINUE;
+		return;
 	}
 	if (str_len(full_line) > 0) {
 		str_append(full_line, line);
@@ -677,13 +680,17 @@ config_parse_line(struct config_parser_context *ctx,
 		*line++ = '\0';
 		while (IS_WHITE(*line)) line++;
 	}
-	*key_r = key;
-	*value_r = line;
+	config_line_r->key = key;
+	config_line_r->value = line;
 
-	if (strcmp(key, "!include") == 0)
-		return CONFIG_LINE_TYPE_INCLUDE;
-	if (strcmp(key, "!include_try") == 0)
-		return CONFIG_LINE_TYPE_INCLUDE_TRY;
+	if (strcmp(key, "!include") == 0) {
+		config_line_r->type = CONFIG_LINE_TYPE_INCLUDE;
+		return;
+	}
+	if (strcmp(key, "!include_try") == 0) {
+		config_line_r->type = CONFIG_LINE_TYPE_INCLUDE_TRY;
+		return;
+	}
 
 	if (*line == '=') {
 		/* a) */
@@ -692,12 +699,14 @@ config_parse_line(struct config_parser_context *ctx,
 
 		if (*line == '<') {
 			while (IS_WHITE(line[1])) line++;
-			*value_r = line + 1;
-			return CONFIG_LINE_TYPE_KEYFILE;
+			config_line_r->value = line + 1;
+			config_line_r->type = CONFIG_LINE_TYPE_KEYFILE;
+			return;
 		}
 		if (*line != '\'' && *line != '"' && strchr(line, '$') != NULL) {
-			*value_r = line;
-			return CONFIG_LINE_TYPE_KEYVARIABLE;
+			config_line_r->value = line;
+			config_line_r->type = CONFIG_LINE_TYPE_KEYVARIABLE;
+			return;
 		}
 
 		len = strlen(line);
@@ -707,22 +716,25 @@ config_parse_line(struct config_parser_context *ctx,
 			line[len-1] = '\0';
 			line = str_unescape(line+1);
 		}
-		*value_r = line;
-		return CONFIG_LINE_TYPE_KEYVALUE;
+		config_line_r->value = line;
+		config_line_r->type = CONFIG_LINE_TYPE_KEYVALUE;
+		return;
 	}
 
-	if (strcmp(key, "}") == 0 && *line == '\0')
-		return CONFIG_LINE_TYPE_SECTION_END;
+	if (strcmp(key, "}") == 0 && *line == '\0') {
+		config_line_r->type = CONFIG_LINE_TYPE_SECTION_END;
+		return;
+	}
 
 	/* b) + errors */
 	line[-1] = '\0';
 
 	if (*line == '{')
-		*value_r = "";
+		config_line_r->value = "";
 	else {
 		/* get section name */
 		if (*line != '"') {
-			*value_r = line;
+			config_line_r->value = line;
 			while (!IS_WHITE(*line) && *line != '\0')
 				line++;
 			if (*line != '\0') {
@@ -738,19 +750,21 @@ config_parse_line(struct config_parser_context *ctx,
 				*line++ = '\0';
 				while (IS_WHITE(*line))
 					line++;
-				*value_r = str_unescape(value);
+				config_line_r->value = str_unescape(value);
 			}
 		}
 		if (*line != '{') {
-			*value_r = "Expecting '{'";
-			return CONFIG_LINE_TYPE_ERROR;
+			config_line_r->value = "Expecting '{'";
+			config_line_r->type = CONFIG_LINE_TYPE_ERROR;
+			return;
 		}
 	}
 	if (line[1] != '\0') {
-		*value_r = "Garbage after '{'";
-		return CONFIG_LINE_TYPE_ERROR;
+		config_line_r->value = "Garbage after '{'";
+		config_line_r->type = CONFIG_LINE_TYPE_ERROR;
+		return;
 	}
-	return CONFIG_LINE_TYPE_SECTION_BEGIN;
+	config_line_r->type = CONFIG_LINE_TYPE_SECTION_BEGIN;
 }
 
 static int
@@ -878,23 +892,22 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 }
 
 static int config_write_value(struct config_parser_context *ctx,
-			      enum config_line_type type,
-			      const char *key, const char *value)
+			      const struct config_line *line)
 {
 	string_t *str = ctx->str;
 	const char *error, *path, *full_key;
 
-	switch (type) {
+	switch (line->type) {
 	case CONFIG_LINE_TYPE_KEYVALUE:
-		str_append(str, value);
+		str_append(str, line->value);
 		break;
 	case CONFIG_LINE_TYPE_KEYFILE:
 		full_key = t_strndup(str_data(ctx->str), str_len(str)-1);
 		if (!ctx->expand_values) {
 			str_append_c(str, '<');
-			str_append(str, value);
+			str_append(str, line->value);
 		} else {
-			path = fix_relative_path(value, ctx->cur_input);
+			path = fix_relative_path(line->value, ctx->cur_input);
 			if (str_append_file(str, full_key, path, &error) < 0) {
 				/* file reading failed */
 				ctx->error = p_strdup(ctx->pool, error);
@@ -903,7 +916,7 @@ static int config_write_value(struct config_parser_context *ctx,
 		}
 		break;
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
-		if (config_write_keyvariable(ctx, key, value, str) < 0)
+		if (config_write_keyvariable(ctx, line->key, line->value, str) < 0)
 			return -1;
 		break;
 	default:
@@ -938,59 +951,59 @@ config_parser_check_warnings(struct config_parser_context *ctx, const char *key)
 }
 
 void config_parser_apply_line(struct config_parser_context *ctx,
-			      enum config_line_type type,
-			      const char *key, const char *value)
+			      const struct config_line *line)
 {
 	const char *section_name;
 
 	str_truncate(ctx->str, ctx->pathlen);
-	switch (type) {
+	switch (line->type) {
 	case CONFIG_LINE_TYPE_SKIP:
 		break;
 	case CONFIG_LINE_TYPE_CONTINUE:
 		i_unreached();
 	case CONFIG_LINE_TYPE_ERROR:
-		ctx->error = p_strdup(ctx->pool, value);
+		ctx->error = p_strdup(ctx->pool, line->value);
 		break;
 	case CONFIG_LINE_TYPE_KEYVALUE:
 	case CONFIG_LINE_TYPE_KEYFILE:
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
-		str_append(ctx->str, key);
-		config_parser_check_warnings(ctx, key);
+		str_append(ctx->str, line->key);
+		config_parser_check_warnings(ctx, line->key);
 		str_append_c(ctx->str, '=');
 
-		if (config_write_value(ctx, type, key, value) < 0) {
+		if (config_write_value(ctx, line) < 0) {
 			if (!ctx->delay_errors ||
-			    config_apply_error(ctx, key) < 0)
+			    config_apply_error(ctx, line->key) < 0)
 				break;
 		} else {
-			(void)config_apply_line(ctx, key, str_c(ctx->str), NULL);
+			(void)config_apply_line(ctx, line->key, str_c(ctx->str), NULL);
 		}
 		break;
 	case CONFIG_LINE_TYPE_SECTION_BEGIN:
 		ctx->cur_section = config_add_new_section(ctx);
 		ctx->cur_section->pathlen = ctx->pathlen;
-		ctx->cur_section->key = p_strdup(ctx->pool, key);
+		ctx->cur_section->key = p_strdup(ctx->pool, line->key);
 
-		if (config_filter_add_new_filter(ctx, key, value)) {
+		if (config_filter_add_new_filter(ctx, line)) {
 			/* new filter */
 			break;
 		}
 
 		/* new config section */
-		if (*value == '\0') {
+		if (*line->value == '\0') {
 			/* no section name, use a counter */
 			section_name = dec2str(ctx->section_counter++);
 		} else {
-			section_name = settings_section_escape(value);
+			section_name = settings_section_escape(line->value);
 		}
-		str_append(ctx->str, key);
+		str_append(ctx->str, line->key);
 		ctx->pathlen = str_len(ctx->str);
 
 		str_append_c(ctx->str, '=');
 		str_append(ctx->str, section_name);
 
-		if (config_apply_line(ctx, key, str_c(ctx->str), value) < 0)
+		if (config_apply_line(ctx, line->key, str_c(ctx->str),
+				      line->value) < 0)
 			break;
 
 		str_truncate(ctx->str, ctx->pathlen);
@@ -1009,8 +1022,8 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 		break;
 	case CONFIG_LINE_TYPE_INCLUDE:
 	case CONFIG_LINE_TYPE_INCLUDE_TRY:
-		(void)settings_include(ctx, fix_relative_path(value, ctx->cur_input),
-				       type == CONFIG_LINE_TYPE_INCLUDE_TRY);
+		(void)settings_include(ctx, fix_relative_path(line->value, ctx->cur_input),
+				       line->type == CONFIG_LINE_TYPE_INCLUDE_TRY);
 		break;
 	}
 }
@@ -1022,9 +1035,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	struct input_stack root;
 	struct config_parser_context ctx;
 	unsigned int i, count;
-	const char *key, *value;
 	string_t *full_line;
-	enum config_line_type type;
 	char *line;
 	int fd, ret = 0;
 	bool handled;
@@ -1091,17 +1102,17 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 
 prevfile:
 	while ((line = i_stream_read_next_line(ctx.cur_input->input)) != NULL) {
+		struct config_line config_line;
 		ctx.cur_input->linenum++;
-		type = config_parse_line(&ctx, line, full_line,
-					 &key, &value);
+		config_parse_line(&ctx, line, full_line, &config_line);
 		str_truncate(ctx.str, ctx.pathlen);
-		if (type == CONFIG_LINE_TYPE_CONTINUE)
+		if (config_line.type == CONFIG_LINE_TYPE_CONTINUE)
 			continue;
 
 		T_BEGIN {
-			handled = old_settings_handle(&ctx, type, key, value);
+			handled = old_settings_handle(&ctx, &config_line);
 			if (!handled)
-				config_parser_apply_line(&ctx, type, key, value);
+				config_parser_apply_line(&ctx, &config_line);
 		} T_END;
 
 		if (ctx.error != NULL) {

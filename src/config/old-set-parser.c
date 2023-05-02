@@ -86,11 +86,23 @@ obsolete(struct config_parser_context *ctx, const char *str, ...)
 	va_end(args);
 }
 
+static void old_set_parser_apply(struct config_parser_context *ctx,
+				 enum config_line_type type,
+				 const char *key, const char *value)
+{
+	const struct config_line line = {
+		.type = type,
+		.key = key,
+		.value = value,
+	};
+	config_parser_apply_line(ctx, &line);
+}
+
 static void set_rename(struct config_parser_context *ctx,
 		       const char *old_key, const char *key, const char *value)
 {
 	obsolete(ctx, "%s has been renamed to %s", old_key, key);
-	config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE, key, value);
+	old_set_parser_apply(ctx, CONFIG_LINE_TYPE_KEYVALUE, key, value);
 }
 
 static int ssl_protocols_to_min_protocol(const char *ssl_protocols,
@@ -203,8 +215,7 @@ old_settings_handle_root(struct config_parser_context *ctx,
 			obsolete(ctx, "'pop3s' protocol is no longer necessary, remove it");
 
 		if (*value == ' ') value++;
-		config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE,
-					 key, value);
+		old_set_parser_apply(ctx, CONFIG_LINE_TYPE_KEYVALUE, key, value);
 		return TRUE;
 	}
 	if (strcmp(key, "ssl_cert_file") == 0 ||
@@ -214,8 +225,7 @@ old_settings_handle_root(struct config_parser_context *ctx,
 			return TRUE;
 		p = t_strdup_until(key, strrchr(key, '_'));
 		obsolete(ctx, "%s has been replaced by %s = <file", key, p);
-		config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYFILE,
-					 p, value);
+		old_set_parser_apply(ctx, CONFIG_LINE_TYPE_KEYFILE, p, value);
 		return TRUE;
 	}
 	if (strcmp(key, "ssl_disable") == 0) {
@@ -235,8 +245,8 @@ old_settings_handle_root(struct config_parser_context *ctx,
 				value, error);
 			return TRUE;
 		}
-		config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE,
-					 "ssl_min_protocol", min_protocol);
+		old_set_parser_apply(ctx, CONFIG_LINE_TYPE_KEYVALUE,
+				     "ssl_min_protocol", min_protocol);
 		return TRUE;
 	}
 	if (strcmp(key, "sieve") == 0 ||
@@ -286,8 +296,8 @@ old_settings_handle_root(struct config_parser_context *ctx,
 			}
 		}
 		value = t_strarray_join((void *)args, " ");
-		config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE,
-					 key, value);
+		old_set_parser_apply(ctx, CONFIG_LINE_TYPE_KEYVALUE,
+				     key, value);
 		return TRUE;
 	}
 
@@ -333,15 +343,15 @@ old_settings_handle_root(struct config_parser_context *ctx,
 			i_fatal("%s has bad value '%s': %s", key, value, error);
 		obsolete(ctx, "%s = %s has been replaced with auth_allow_cleartext = %s",
 			 key, value, b ? "no" : "yes");
-		config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE,
-					 "auth_allow_cleartext", b ? "no" : "yes");
+		old_set_parser_apply(ctx, CONFIG_LINE_TYPE_KEYVALUE,
+				     "auth_allow_cleartext", b ? "no" : "yes");
 		return TRUE;
 	}
 	if (ctx->old->auth_section == 1) {
 		if (!str_begins_with(key, "auth_"))
 			key = t_strconcat("auth_", key, NULL);
-		config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE,
-					 key, value);
+		old_set_parser_apply(ctx, CONFIG_LINE_TYPE_KEYVALUE,
+				     key, value);
 		return TRUE;
 	}
 	if (strcmp(key, "imapc_features") == 0) {
@@ -363,8 +373,7 @@ old_settings_handle_root(struct config_parser_context *ctx,
 			}
 		}
 		value = t_strarray_join((void *)args, " ");
-		config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE, key,
-					 value);
+		old_set_parser_apply(ctx, CONFIG_LINE_TYPE_KEYVALUE, key, value);
 		return TRUE;
 	}
 	return FALSE;
@@ -486,8 +495,8 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 			}
 		}
 		if (root && *ssl == '\0') {
-			config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE,
-						 key, value);
+			old_set_parser_apply(ctx, CONFIG_LINE_TYPE_KEYVALUE,
+					     key, value);
 		} else {
 			obsolete(ctx, "protocol { %s } has been replaced by service { inet_listener { address } }", key);
 			if (config_filter_match(&old_section->filter, &imap_filter)) {
@@ -642,9 +651,9 @@ static bool old_auth_section(struct config_parser_context *ctx,
 	    ctx->old->auth_section == 2) {
 		obsolete(ctx, "%s %s {} has been replaced by %s { driver=%s }",
 			 key, value, key, value);
-		config_parser_apply_line(ctx, CONFIG_LINE_TYPE_SECTION_BEGIN, key, "");
-		config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE,
-					 "driver", value);
+		old_set_parser_apply(ctx, CONFIG_LINE_TYPE_SECTION_BEGIN, key, "");
+		old_set_parser_apply(ctx, CONFIG_LINE_TYPE_KEYVALUE,
+				     "driver", value);
 		return TRUE;
 	}
 	if (strcmp(key, "socket") == 0 && ctx->old->auth_section == 2) {
@@ -756,10 +765,11 @@ old_settings_handle_path(struct config_parser_context *ctx,
 }
 
 bool old_settings_handle(struct config_parser_context *ctx,
-			 enum config_line_type type,
-			 const char *key, const char *value)
+			 const struct config_line *line)
 {
-	switch (type) {
+	const char *key = line->key, *value = line->value;
+
+	switch (line->type) {
 	case CONFIG_LINE_TYPE_SKIP:
 	case CONFIG_LINE_TYPE_CONTINUE:
 	case CONFIG_LINE_TYPE_ERROR:
@@ -792,14 +802,14 @@ bool old_settings_handle(struct config_parser_context *ctx,
 		} else if (ctx->pathlen == 0 && strcmp(key, "protocol") == 0 &&
 			 strcmp(value, "managesieve") == 0) {
 			obsolete(ctx, "protocol managesieve {} has been replaced by protocol sieve { }");
-			config_parser_apply_line(ctx, CONFIG_LINE_TYPE_SECTION_BEGIN,
-						 "protocol", "sieve");
+			old_set_parser_apply(ctx, CONFIG_LINE_TYPE_SECTION_BEGIN,
+					     "protocol", "sieve");
 			return TRUE;
 		} else if (ctx->pathlen == 0 && strcmp(key, "service") == 0 &&
 			   strcmp(value, "dns_client") == 0) {
 			obsolete(ctx, "service dns_client {} has been replaced by service dns-client { }");
-			config_parser_apply_line(ctx, CONFIG_LINE_TYPE_SECTION_BEGIN,
-						 "service", "dns-client");
+			old_set_parser_apply(ctx, CONFIG_LINE_TYPE_SECTION_BEGIN,
+					     "service", "dns-client");
 			return TRUE;
 		} else if (ctx->pathlen == 0 && strcmp(key, "service") == 0 &&
 			   strcmp(value, "ipc") == 0) {
@@ -833,8 +843,8 @@ static void old_settings_handle_post_log_debug(struct config_parser_context *ctx
 		return;
 
 	if (prev == NULL || *prev == '\0') {
-		config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE,
-					 LOG_DEBUG_KEY, category_auth);
+		old_set_parser_apply(ctx, CONFIG_LINE_TYPE_KEYVALUE,
+				     LOG_DEBUG_KEY, category_auth);
 		return;
 	}
 
@@ -856,8 +866,8 @@ static void old_settings_handle_post_log_debug(struct config_parser_context *ctx
 	event_filter_unref(&auth_filter);
 	event_filter_unref(&filter);
 
-	config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE,
-				 LOG_DEBUG_KEY, str_c(merged));
+	old_set_parser_apply(ctx, CONFIG_LINE_TYPE_KEYVALUE,
+			     LOG_DEBUG_KEY, str_c(merged));
 }
 
 void old_settings_handle_post(struct config_parser_context *ctx)

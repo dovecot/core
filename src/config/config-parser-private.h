@@ -17,6 +17,12 @@ enum config_line_type {
 	CONFIG_LINE_TYPE_INCLUDE_TRY
 };
 
+struct config_line {
+	enum config_line_type type;
+	const char *key;
+	const char *value;
+};
+
 struct config_section_stack {
 	struct config_section_stack *prev;
 	const char *key;
@@ -70,7 +76,6 @@ extern int (*hook_config_parser_end)(struct config_parser_context *ctx,
 int config_apply_line(struct config_parser_context *ctx, const char *key,
 		      const char *line, const char *section_name) ATTR_NULL(4);
 void config_parser_apply_line(struct config_parser_context *ctx,
-			      enum config_line_type type,
-			      const char *key, const char *value);
+			      const struct config_line *line);
 
 #endif
