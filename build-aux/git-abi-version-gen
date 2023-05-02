@@ -29,8 +29,11 @@ if test "${VERSION:-}" != ""; then
   :
 elif test -f version; then
   VERSION="`cat version`"
-else test -e .git;
+elif test -e .git; then
   VERSION="0.0.0"
+else
+  echo "Cannot determine version number">&2
+  exit 1
 fi
 
 mangle_version $VERSION
