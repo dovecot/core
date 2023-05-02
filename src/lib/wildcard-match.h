@@ -12,4 +12,13 @@ static inline bool wildcard_is_literal(const char *mask)
 	return strpbrk(mask, "*?") == NULL;
 }
 
+bool wildcard_match_escaped(const char *data, const char *mask);
+bool wildcard_match_escaped_icase(const char *data, const char *mask);
+/* Returns TRUE if mask does *not* contain any '*' or '?' wildcards, except
+   preceded by '\' escape character. */
+bool wildcard_is_escaped_literal(const char *mask);
+
+/* Same as str_escape(), but also escape '*' and '?' characters. */
+const char *wildcard_str_escape(const char *str);
+
 #endif
