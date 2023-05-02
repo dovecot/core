@@ -29,7 +29,7 @@ if test "${VERSION:-}" != ""; then
   :
 elif test -f version; then
   VERSION="`cat version`"
-else test -d .git;
+else test -e .git;
   VERSION="0.0.0"
 fi
 
