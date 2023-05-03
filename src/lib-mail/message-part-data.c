@@ -588,7 +588,9 @@ bool message_part_is_attachment(struct message_part *part,
 	if (null_strcasecmp(data->content_disposition, "attachment") == 0 ||
 	    (!set->exclude_inlined &&
 	     null_strcasecmp(data->content_disposition, "inline") == 0 &&
-	     message_part_has_parameter(part, "filename", FALSE)))
+	     (message_part_has_parameter(part, "filename", FALSE) ||
+	        message_part_has_parameter(part, "filename*", FALSE)
+	     )))
 		return TRUE;
 	return FALSE;
 }
