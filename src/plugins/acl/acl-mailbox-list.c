@@ -286,9 +286,8 @@ iter_mailbox_has_visible_children(struct mailbox_list_iterate_context *_ctx,
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
 	string_t *pattern;
-	const char *prefix;
 	size_t i, prefix_len;
-	bool stars = FALSE, ret = FALSE;
+	bool wildcards = FALSE, ret = FALSE;
 
 	/* do we have child mailboxes with LOOKUP right that don't match
 	   the list pattern? */
@@ -309,18 +308,21 @@ iter_mailbox_has_visible_children(struct mailbox_list_iterate_context *_ctx,
 	   results have the correct prefix. */
 	pattern = t_str_new(128);
 	for (i = 0; ctx->info.vname[i] != '\0'; i++) {
-		if (ctx->info.vname[i] != '*')
+		if (ctx->info.vname[i] != '*' && ctx->info.vname[i] != '%')
 			str_append_c(pattern, ctx->info.vname[i]);
 		else {
-			stars = TRUE;
+			wildcards = TRUE;
 			str_append_c(pattern, '%');
 		}
 	}
 	if (i > 0 && ctx->info.vname[i-1] != ctx->sep)
 		str_append_c(pattern, ctx->sep);
 	str_append_c(pattern, '*');
-	prefix = str_c(pattern);
 	prefix_len = str_len(pattern) - 1;
+	if (prefix_len == 0) {
+		/* empty mailbox names shouldn't be possible */
+		return FALSE;
+	}
 
 	iter = mailbox_list_iter_init(_ctx->list, str_c(pattern),
 				      (!subscribed ? 0 :
@@ -334,7 +336,9 @@ iter_mailbox_has_visible_children(struct mailbox_list_iterate_context *_ctx,
 			ret = FALSE;
 			break;
 		}
-		if (!stars || strncmp(info->vname, prefix, prefix_len) == 0)
+		if (!wildcards ||
+		    (strncmp(info->vname, ctx->info.vname, prefix_len-1) == 0 &&
+		     info->vname[prefix_len-1] == ctx->sep))
 			ret = TRUE;
 	}
 	(void)mailbox_list_iter_deinit(&iter);
