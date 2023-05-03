@@ -3,8 +3,8 @@
 #include "lib.h"
 #include "istream.h"
 #include "message-parser.h"
-#include "test-common.h"
 #include "message-part-data.h"
+#include "test-common.h"
 
 static int message_parse_stream(pool_t pool, struct istream *input,
 				const struct message_parser_settings *set,
