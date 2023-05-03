@@ -37,6 +37,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 		      struct config_filter_context **filter_r,
 		      const char **error_r)
 	ATTR_NULL(3);
+void config_module_parsers_free(struct config_module_parser *parsers);
 
 void config_parse_load_modules(void);
 

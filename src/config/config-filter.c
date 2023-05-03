@@ -130,7 +130,7 @@ void config_filter_deinit(struct config_filter_context **_ctx)
 	*_ctx = NULL;
 
 	for (i = 0; ctx->parsers[i] != NULL; i++)
-		config_filter_parsers_free(ctx->parsers[i]->parsers);
+		config_module_parsers_free(ctx->parsers[i]->parsers);
 	pool_unref(&ctx->pool);
 }
 
@@ -218,12 +218,4 @@ const ARRAY_TYPE(const_string) *
 config_filter_get_errors(struct config_filter_context *ctx)
 {
 	return &ctx->errors;
-}
-
-void config_filter_parsers_free(struct config_module_parser *parsers)
-{
-	unsigned int i;
-
-	for (i = 0; parsers[i].root != NULL; i++)
-		settings_parser_unref(&parsers[i].parser);
 }

@@ -40,7 +40,6 @@ config_filter_get_errors(struct config_filter_context *ctx);
 /* Duplicate current parsers. */
 struct config_module_parser *
 config_filter_parsers_dup(struct config_filter_context *ctx, pool_t pool);
-void config_filter_parsers_free(struct config_module_parser *parsers);
 
 /* Return a list of filters that are a subset of the given filter. */
 struct config_filter_parser *const *

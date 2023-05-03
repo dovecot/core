@@ -459,7 +459,7 @@ void config_export_free(struct config_export_context **_ctx)
 	*_ctx = NULL;
 
 	if (ctx->dup_parsers != NULL)
-		config_filter_parsers_free(ctx->dup_parsers);
+		config_module_parsers_free(ctx->dup_parsers);
 	hash_table_destroy(&ctx->keys);
 	pool_unref(&ctx->pool);
 }

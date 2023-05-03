@@ -1129,6 +1129,14 @@ prevfile:
 	return ret < 0 ? ret : 1;
 }
 
+void config_module_parsers_free(struct config_module_parser *parsers)
+{
+	unsigned int i;
+
+	for (i = 0; parsers[i].root != NULL; i++)
+		settings_parser_unref(&parsers[i].parser);
+}
+
 void config_parse_load_modules(void)
 {
 	struct module_dir_load_settings mod_set;
