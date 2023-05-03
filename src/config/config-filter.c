@@ -140,12 +140,9 @@ void config_filter_add_all(struct config_filter_context *ctx,
 	ctx->parsers = parsers;
 }
 
-static int
-config_filter_parser_cmp(struct config_filter_parser *const *p1,
-			 struct config_filter_parser *const *p2)
+int config_filter_sort_cmp(const struct config_filter *f1,
+			   const struct config_filter *f2)
 {
-	const struct config_filter *f1 = &(*p1)->filter, *f2 = &(*p2)->filter;
-
 	/* remote and locals are first, although it doesn't really
 	   matter which one comes first */
 	if (f1->local_name != NULL && f2->local_name == NULL)
@@ -168,6 +165,13 @@ config_filter_parser_cmp(struct config_filter_parser *const *p1,
 	if (f1->service == NULL && f2->service != NULL)
 		return -1;
 	return 0;
+}
+
+static int
+config_filter_parser_cmp(struct config_filter_parser *const *p1,
+			 struct config_filter_parser *const *p2)
+{
+	return config_filter_sort_cmp(&(*p1)->filter, &(*p2)->filter);
 }
 
 struct config_filter_parser *const *

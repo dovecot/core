@@ -53,4 +53,8 @@ bool config_filter_match(const struct config_filter *mask,
 bool config_filters_equal(const struct config_filter *f1,
 			  const struct config_filter *f2);
 
+/* Used for sorting filters - doesn't return exact equality. */
+int config_filter_sort_cmp(const struct config_filter *f1,
+			   const struct config_filter *f2);
+
 #endif
