@@ -551,7 +551,8 @@ config_dump_human_sections(struct ostream *output,
 		ctx = config_dump_human_init(CONFIG_DUMP_SCOPE_SET);
 		indent = config_dump_filter_begin(ctx->list_prefix,
 						  &(*filters)->filter);
-		config_export_set_parsers(ctx->export_ctx, (*filters)->parsers);
+		config_export_set_module_parsers(ctx->export_ctx,
+						 (*filters)->module_parsers);
 		config_dump_human_output(ctx, output, indent, NULL, hide_passwords);
 		if (ctx->list_prefix_sent)
 			config_dump_filter_end(output, indent);
@@ -573,7 +574,7 @@ config_dump_human(enum config_dump_scope scope, const char *setting_name_filter,
 	o_stream_cork(output);
 
 	ctx = config_dump_human_init(scope);
-	config_export_dup_parsers(ctx->export_ctx, config);
+	config_export_dup_module_parsers(ctx->export_ctx, config);
 	config_dump_human_output(ctx, output, 0, setting_name_filter, hide_passwords);
 	config_dump_human_deinit(ctx);
 
@@ -602,7 +603,7 @@ config_dump_one(bool hide_key,
 	bool dump_section = FALSE;
 
 	ctx = config_dump_human_init(scope);
-	config_export_dup_parsers(ctx->export_ctx, config);
+	config_export_dup_module_parsers(ctx->export_ctx, config);
 	if (config_export_all_parsers(&ctx->export_ctx, &section_idx) < 0)
 		i_unreached(); /* settings aren't checked - this can't happen */
 
@@ -967,7 +968,7 @@ int main(int argc, char *argv[])
 		ctx = config_export_init(scope, 0,
 					 config_request_simple_stdout,
 					 setting_name_filters);
-		config_export_dup_parsers(ctx, config);
+		config_export_dup_module_parsers(ctx, config);
 		if (config_export_all_parsers(&ctx, &section_idx) < 0)
 			i_unreached();
 		ret2 = 0;

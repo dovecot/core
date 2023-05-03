@@ -24,8 +24,8 @@ struct config_export_context {
 	void *context;
 
 	enum config_dump_flags flags;
-	const struct config_module_parser *parsers;
-	struct config_module_parser *dup_parsers;
+	const struct config_module_parser *module_parsers;
+	struct config_module_parser *dup_module_parsers;
 	unsigned int section_idx;
 };
 
@@ -404,36 +404,37 @@ config_filter_parsers_dup(pool_t pool, struct config_filter_parser *global_filte
 	struct config_module_parser *dest;
 	unsigned int i, count;
 
-	for (count = 0; global_filter->parsers[count].root != NULL; count++) ;
+	for (count = 0; global_filter->module_parsers[count].root != NULL; count++) ;
 	dest = p_new(pool, struct config_module_parser, count + 1);
 	for (i = 0; i < count; i++) {
-		dest[i] = global_filter->parsers[i];
+		dest[i] = global_filter->module_parsers[i];
 		dest[i].parser =
-			settings_parser_dup(global_filter->parsers[i].parser, pool);
+			settings_parser_dup(global_filter->module_parsers[i].parser, pool);
 	}
 	return dest;
 }
 
-void config_export_dup_parsers(struct config_export_context *ctx,
-			       struct config_parsed *config)
+void config_export_dup_module_parsers(struct config_export_context *ctx,
+				      struct config_parsed *config)
 {
 	struct config_filter_parser *global_filter =
 		config_parsed_get_global_filter_parser(config);
 
-	ctx->dup_parsers = config_filter_parsers_dup(ctx->pool, global_filter);
-	ctx->parsers = ctx->dup_parsers;
+	ctx->dup_module_parsers =
+		config_filter_parsers_dup(ctx->pool, global_filter);
+	ctx->module_parsers = ctx->dup_module_parsers;
 }
 
-void config_export_set_parsers(struct config_export_context *ctx,
-			       const struct config_module_parser *parsers)
+void config_export_set_module_parsers(struct config_export_context *ctx,
+				      const struct config_module_parser *module_parsers)
 {
-	ctx->parsers = parsers;
+	ctx->module_parsers = module_parsers;
 }
 
 unsigned int config_export_get_parser_count(struct config_export_context *ctx)
 {
 	unsigned int i = 0;
-	for (i = 0; ctx->parsers[i].root != NULL; i++) ;
+	for (i = 0; ctx->module_parsers[i].root != NULL; i++) ;
 	return i;
 }
 
@@ -443,10 +444,10 @@ config_export_get_import_environment(struct config_export_context *ctx)
 	enum setting_type stype;
 	unsigned int i;
 
-	for (i = 0; ctx->parsers[i].root != NULL; i++) {
-		if (ctx->parsers[i].root == &master_service_setting_parser_info) {
+	for (i = 0; ctx->module_parsers[i].root != NULL; i++) {
+		if (ctx->module_parsers[i].root == &master_service_setting_parser_info) {
 			const char *const *value =
-				settings_parse_get_value(ctx->parsers[i].parser,
+				settings_parse_get_value(ctx->module_parsers[i].parser,
 					"import_environment", &stype);
 			i_assert(value != NULL);
 			return *value;
@@ -460,10 +461,10 @@ const char *config_export_get_base_dir(struct config_export_context *ctx)
 	enum setting_type stype;
 	unsigned int i;
 
-	for (i = 0; ctx->parsers[i].root != NULL; i++) {
-		if (ctx->parsers[i].root == &master_service_setting_parser_info) {
+	for (i = 0; ctx->module_parsers[i].root != NULL; i++) {
+		if (ctx->module_parsers[i].root == &master_service_setting_parser_info) {
 			const char *const *value =
-				settings_parse_get_value(ctx->parsers[i].parser,
+				settings_parse_get_value(ctx->module_parsers[i].parser,
 					"base_dir", &stype);
 			i_assert(value != NULL);
 			return *value;
@@ -478,8 +479,8 @@ void config_export_free(struct config_export_context **_ctx)
 
 	*_ctx = NULL;
 
-	if (ctx->dup_parsers != NULL)
-		config_module_parsers_free(ctx->dup_parsers);
+	if (ctx->dup_module_parsers != NULL)
+		config_module_parsers_free(ctx->dup_module_parsers);
 	hash_table_destroy(&ctx->keys);
 	pool_unref(&ctx->pool);
 }
@@ -494,7 +495,7 @@ int config_export_all_parsers(struct config_export_context **_ctx,
 
 	*_ctx = NULL;
 
-	for (i = 0; ctx->parsers[i].root != NULL; i++) {
+	for (i = 0; ctx->module_parsers[i].root != NULL; i++) {
 		if (config_export_parser(ctx, i, section_idx, &error) < 0) {
 			i_error("%s", error);
 			ret = -1;
@@ -509,25 +510,26 @@ const struct setting_parser_info *
 config_export_parser_get_info(struct config_export_context *ctx,
 			      unsigned int parser_idx)
 {
-	return ctx->parsers[parser_idx].root;
+	return ctx->module_parsers[parser_idx].root;
 }
 
 int config_export_parser(struct config_export_context *ctx,
 			 unsigned int parser_idx,
 			 unsigned int *section_idx, const char **error_r)
 {
-	const struct config_module_parser *parser = &ctx->parsers[parser_idx];
+	const struct config_module_parser *module_parser =
+		&ctx->module_parsers[parser_idx];
 
-	if (parser->delayed_error != NULL) {
-		*error_r = parser->delayed_error;
+	if (module_parser->delayed_error != NULL) {
+		*error_r = module_parser->delayed_error;
 		return -1;
 	}
 
 	ctx->section_idx = *section_idx;
 	T_BEGIN {
-		void *set = settings_parser_get_set(parser->parser);
-		settings_export(ctx, parser->root, FALSE, set,
-				settings_parser_get_changes(parser->parser));
+		void *set = settings_parser_get_set(module_parser->parser);
+		settings_export(ctx, module_parser->root, FALSE, set,
+				settings_parser_get_changes(module_parser->parser));
 	} T_END;
 
 	*section_idx = ctx->section_idx;

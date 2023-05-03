@@ -132,7 +132,7 @@ int config_apply_line(struct config_parser_context *ctx, const char *key,
 	bool found = FALSE;
 	int ret;
 
-	for (l = ctx->cur_section->parsers; l->root != NULL; l++) {
+	for (l = ctx->cur_section->module_parsers; l->root != NULL; l++) {
 		ret = settings_parse_line(l->parser, line);
 		if (ret > 0) {
 			found = TRUE;
@@ -173,7 +173,7 @@ config_apply_error(struct config_parser_context *ctx, const char *key)
 	/* Couldn't get value for the setting, but we're delaying error
 	   handling. Mark all settings parsers containing this key as failed.
 	   See config-parser.h for details. */
-	for (l = ctx->cur_section->parsers; l->root != NULL; l++) {
+	for (l = ctx->cur_section->module_parsers; l->root != NULL; l++) {
 		if (settings_parse_get_value(l->parser, key, &type) != NULL) {
 			if (l->delayed_error == NULL)
 				l->delayed_error = ctx->error;
@@ -233,11 +233,12 @@ config_add_new_parser(struct config_parser_context *ctx)
 					ctx->cur_input->path,
 					ctx->cur_input->linenum);
 	}
-	parser->parsers = cur_section->prev == NULL ? ctx->root_parsers :
+	parser->module_parsers = cur_section->prev == NULL ?
+		ctx->root_module_parsers :
 		config_module_parsers_init(ctx->pool);
 	array_push_back(&ctx->all_parsers, &parser);
 
-	cur_section->parsers = parser->parsers;
+	cur_section->module_parsers = parser->module_parsers;
 }
 
 static struct config_section_stack *
@@ -248,7 +249,7 @@ config_add_new_section(struct config_parser_context *ctx)
 	section = p_new(ctx->pool, struct config_section_stack, 1);
 	section->prev = ctx->cur_section;
 	section->filter = ctx->cur_section->filter;
-	section->parsers = ctx->cur_section->parsers;
+	section->module_parsers = ctx->cur_section->module_parsers;
 
 	section->open_path = p_strdup(ctx->pool, ctx->cur_input->path);
 	section->open_linenum = ctx->cur_input->linenum;
@@ -375,7 +376,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 
 	parser = config_filter_parser_find(ctx, filter);
 	if (parser != NULL)
-		ctx->cur_section->parsers = parser->parsers;
+		ctx->cur_section->module_parsers = parser->module_parsers;
 	else
 		config_add_new_parser(ctx);
 	ctx->cur_section->is_filter = TRUE;
@@ -429,7 +430,7 @@ get_str_setting(struct config_filter_parser *parser, const char *key,
 	const char *const *set_value;
 	enum setting_type set_type;
 
-	module_parser = parser->parsers;
+	module_parser = parser->module_parsers;
 	for (; module_parser->parser != NULL; module_parser++) {
 		set_value = settings_parse_get_value(module_parser->parser,
 						     key, &set_type);
@@ -483,7 +484,7 @@ config_all_parsers_check(struct config_parser_context *ctx,
 		}
 
 		config_filter_parser_check(ctx, new_config,
-					   parsers[i]->parsers);
+					   parsers[i]->module_parsers);
 	}
 	const char *const *errors =
 		array_get(config_parsed_get_errors(new_config), &count);
@@ -817,7 +818,7 @@ config_parse_finish(struct config_parser_context *ctx,
 		config_parsed_free(&new_config);
 		return -1;
 	}
-	config_module_parsers = ctx->root_parsers;
+	config_module_parsers = ctx->root_module_parsers;
 	*config_r = new_config;
 	return ret;
 }
@@ -829,7 +830,7 @@ config_get_value(struct config_section_stack *section, const char *key,
 	struct config_module_parser *l;
 	const void *value;
 
-	for (l = section->parsers; l->root != NULL; l++) {
+	for (l = section->module_parsers; l->root != NULL; l++) {
 		value = settings_parse_get_value(l->parser, key, type_r);
 		if (value != NULL) {
 			if (!expand_parent || section->prev == NULL ||
@@ -1083,11 +1084,11 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	ctx.delay_errors = (flags & CONFIG_PARSE_FLAG_DELAY_ERRORS) != 0;
 
 	for (count = 0; all_roots[count] != NULL; count++) ;
-	ctx.root_parsers =
+	ctx.root_module_parsers =
 		p_new(ctx.pool, struct config_module_parser, count+1);
 	for (i = 0; i < count; i++) {
-		ctx.root_parsers[i].root = all_roots[i];
-		ctx.root_parsers[i].parser =
+		ctx.root_module_parsers[i].root = all_roots[i];
+		ctx.root_module_parsers[i].parser =
 			settings_parser_init(ctx.pool, all_roots[i],
 					     settings_parser_flags);
 		for (unsigned int j = 0; j < i; j++) {
@@ -1188,7 +1189,7 @@ void config_parsed_free(struct config_parsed **_config)
 	*_config = NULL;
 
 	for (i = 0; config->parsers[i] != NULL; i++)
-		config_module_parsers_free(config->parsers[i]->parsers);
+		config_module_parsers_free(config->parsers[i]->module_parsers);
 	pool_unref(&config->pool);
 }
 

@@ -29,7 +29,7 @@ struct config_section_stack {
 
 	struct config_filter filter;
 	/* root=NULL-terminated list of parsers */
-	struct config_module_parser *parsers;
+	struct config_module_parser *module_parsers;
 	size_t pathlen;
 
 	const char *open_path;
@@ -50,7 +50,7 @@ struct config_parser_context {
 	const char *path;
 
 	ARRAY(struct config_filter_parser *) all_parsers;
-	struct config_module_parser *root_parsers;
+	struct config_module_parser *root_module_parsers;
 	struct config_section_stack *cur_section;
 	struct input_stack *cur_input;
 

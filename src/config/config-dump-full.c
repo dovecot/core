@@ -235,7 +235,8 @@ config_dump_full_sections(struct config_parsed *config,
 				CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS,
 				config_dump_full_callback, &dump_ctx);
 		}
-		config_export_set_parsers(export_ctx, (*filters)->parsers);
+		config_export_set_module_parsers(export_ctx,
+						 (*filters)->module_parsers);
 
 		const struct setting_parser_info *filter_info =
 			config_export_parser_get_info(export_ctx, parser_idx);
@@ -281,7 +282,7 @@ int config_dump_full(struct config_parsed *config,
 				CONFIG_DUMP_SCOPE_CHANGED, flags,
 				config_dump_full_callback, &dump_ctx);
 	}
-	config_export_dup_parsers(export_ctx, config);
+	config_export_dup_module_parsers(export_ctx, config);
 
 	string_t *path = t_str_new(128);
 	const char *final_path = NULL;

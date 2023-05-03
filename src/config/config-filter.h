@@ -18,7 +18,7 @@ struct config_filter_parser {
 	struct config_filter filter;
 	const char *file_and_line;
 	/* NULL-terminated array of parsers */
-	struct config_module_parser *parsers;
+	struct config_module_parser *module_parsers;
 };
 ARRAY_DEFINE_TYPE(config_filter_parsers, struct config_filter_parser *);
 
