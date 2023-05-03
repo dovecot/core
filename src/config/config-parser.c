@@ -33,7 +33,7 @@
 
 struct config_parsed {
 	pool_t pool;
-	struct config_filter_parser *const *parsers;
+	struct config_filter_parser *const *filter_parsers;
 	ARRAY_TYPE(const_string) errors;
 };
 
@@ -220,25 +220,25 @@ static void
 config_add_new_parser(struct config_parser_context *ctx)
 {
 	struct config_section_stack *cur_section = ctx->cur_section;
-	struct config_filter_parser *parser;
+	struct config_filter_parser *filter_parser;
 
-	parser = p_new(ctx->pool, struct config_filter_parser, 1);
-	parser->filter = cur_section->filter;
+	filter_parser = p_new(ctx->pool, struct config_filter_parser, 1);
+	filter_parser->filter = cur_section->filter;
 	if (ctx->cur_input->linenum == 0) {
-		parser->file_and_line =
+		filter_parser->file_and_line =
 			p_strdup(ctx->pool, ctx->cur_input->path);
 	} else {
-		parser->file_and_line =
+		filter_parser->file_and_line =
 			p_strdup_printf(ctx->pool, "%s:%d",
 					ctx->cur_input->path,
 					ctx->cur_input->linenum);
 	}
-	parser->module_parsers = cur_section->prev == NULL ?
+	filter_parser->module_parsers = cur_section->prev == NULL ?
 		ctx->root_module_parsers :
 		config_module_parsers_init(ctx->pool);
-	array_push_back(&ctx->all_parsers, &parser);
+	array_push_back(&ctx->all_filter_parsers, &filter_parser);
 
-	cur_section->module_parsers = parser->module_parsers;
+	cur_section->module_parsers = filter_parser->module_parsers;
 }
 
 static struct config_section_stack *
@@ -260,11 +260,11 @@ static struct config_filter_parser *
 config_filter_parser_find(struct config_parser_context *ctx,
 			  const struct config_filter *filter)
 {
-	struct config_filter_parser *parser;
+	struct config_filter_parser *filter_parser;
 
-	array_foreach_elem(&ctx->all_parsers, parser) {
-		if (config_filters_equal(&parser->filter, filter))
-			return parser;
+	array_foreach_elem(&ctx->all_filter_parsers, filter_parser) {
+		if (config_filters_equal(&filter_parser->filter, filter))
+			return filter_parser;
 	}
 	return NULL;
 }
@@ -323,7 +323,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 	const char *key = line->key, *value = line->value;
 	struct config_filter *filter = &ctx->cur_section->filter;
 	struct config_filter *parent = &ctx->cur_section->prev->filter;
-	struct config_filter_parser *parser;
+	struct config_filter_parser *filter_parser;
 	const char *error;
 
 	if (strcmp(key, "protocol") == 0) {
@@ -374,11 +374,13 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 		return FALSE;
 	}
 
-	parser = config_filter_parser_find(ctx, filter);
-	if (parser != NULL)
-		ctx->cur_section->module_parsers = parser->module_parsers;
-	else
+	filter_parser = config_filter_parser_find(ctx, filter);
+	if (filter_parser != NULL) {
+		ctx->cur_section->module_parsers =
+			filter_parser->module_parsers;
+	} else {
 		config_add_new_parser(ctx);
+	}
 	ctx->cur_section->is_filter = TRUE;
 	return TRUE;
 }
@@ -461,7 +463,7 @@ config_all_parsers_check(struct config_parser_context *ctx,
 		return -1;
 	}
 
-	parsers = array_get(&ctx->all_parsers, &count);
+	parsers = array_get(&ctx->all_filter_parsers, &count);
 	i_assert(count > 0 && parsers[count-1] == NULL);
 	count--;
 
@@ -800,12 +802,12 @@ config_parse_finish(struct config_parser_context *ctx,
 	p_array_init(&new_config->errors, ctx->pool, 1);
 
 	struct config_filter_parser *global_filter =
-		array_idx_elem(&ctx->all_parsers, 0);
-	array_sort(&ctx->all_parsers, config_filter_parser_cmp);
-	i_assert(global_filter == array_idx_elem(&ctx->all_parsers, 0));
+		array_idx_elem(&ctx->all_filter_parsers, 0);
+	array_sort(&ctx->all_filter_parsers, config_filter_parser_cmp);
+	i_assert(global_filter == array_idx_elem(&ctx->all_filter_parsers, 0));
 
-	array_append_zero(&ctx->all_parsers);
-	new_config->parsers = array_front(&ctx->all_parsers);
+	array_append_zero(&ctx->all_filter_parsers);
+	new_config->filter_parsers = array_front(&ctx->all_filter_parsers);
 
 	if (ret < 0)
 		;
@@ -1108,7 +1110,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	ctx.expand_values = (flags & CONFIG_PARSE_FLAG_EXPAND_VALUES) != 0;
 	hash_table_create(&ctx.seen_settings, ctx.pool, 0, str_hash, strcmp);
 
-	p_array_init(&ctx.all_parsers, ctx.pool, 128);
+	p_array_init(&ctx.all_filter_parsers, ctx.pool, 128);
 	ctx.cur_section = p_new(ctx.pool, struct config_section_stack, 1);
 	config_add_new_parser(&ctx);
 
@@ -1172,13 +1174,13 @@ config_parsed_get_errors(struct config_parsed *config)
 struct config_filter_parser *
 config_parsed_get_global_filter_parser(struct config_parsed *config)
 {
-	return config->parsers[0];
+	return config->filter_parsers[0];
 }
 
 struct config_filter_parser *const *
 config_parsed_get_filter_parsers(struct config_parsed *config)
 {
-	return config->parsers;
+	return config->filter_parsers;
 }
 
 void config_parsed_free(struct config_parsed **_config)
@@ -1188,8 +1190,8 @@ void config_parsed_free(struct config_parsed **_config)
 
 	*_config = NULL;
 
-	for (i = 0; config->parsers[i] != NULL; i++)
-		config_module_parsers_free(config->parsers[i]->module_parsers);
+	for (i = 0; config->filter_parsers[i] != NULL; i++)
+		config_module_parsers_free(config->filter_parsers[i]->module_parsers);
 	pool_unref(&config->pool);
 }
 
