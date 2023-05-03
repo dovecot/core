@@ -318,7 +318,8 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			 struct ostream *output, unsigned int indent,
 			 const char *setting_name_filter,
 			 const char *alt_setting_name_filter,
-			 bool hide_key, bool default_hide_passwords)
+			 bool hide_key, bool default_hide_passwords,
+			 const char *strip_prefix)
 {
 	ARRAY_TYPE(const_string) prefixes_arr;
 	ARRAY_TYPE(prefix_stack) prefix_stack;
@@ -471,6 +472,9 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			o_stream_nsend(output, indent_str, indent*2);
 		key = strings[i] + skip_len;
 		if (unique_key) key++;
+		const char *full_key = key;
+		if (strip_prefix != NULL && str_begins(key, strip_prefix, &key))
+			key++;
 		value = strchr(key, '=');
 		i_assert(value != NULL);
 		if (!hide_key) {
@@ -481,7 +485,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 				i_fatal("Multiple settings matched with -h parameter");
 		}
 		if (hide_passwords &&
-		    hide_secrets_from_value(output, key, value+1))
+		    hide_secrets_from_value(output, full_key, value+1))
 			/* sent */
 			;
 		else if (!value_need_quote(value+1))
@@ -679,7 +683,7 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 		config_dump_human_output(ctx, output, sub_indent,
 					 set_name_filter,
 					 alt_set_name_filter, hide_key,
-					 sub_hide_passwords);
+					 sub_hide_passwords, filter_key);
 
 		bool sub_list_prefix_sent = ctx->list_prefix_sent;
 		if (sub_list_prefix_sent) {
@@ -723,7 +727,7 @@ config_dump_human(enum config_dump_scope scope,
 	config_export_set_module_parsers(ctx->export_ctx,
 					 filter_parser->module_parsers);
 	config_dump_human_output(ctx, output, 0, setting_name_filter, NULL,
-				 hide_key, hide_passwords);
+				 hide_key, hide_passwords, NULL);
 	config_dump_human_deinit(ctx);
 
 	string_t *list_prefix = t_str_new(128);
