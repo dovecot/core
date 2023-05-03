@@ -189,22 +189,10 @@ config_filter_find_subset(struct config_filter_context *ctx)
 	return array_front(&matches);
 }
 
-struct config_module_parser *
-config_filter_parsers_dup(struct config_filter_context *ctx, pool_t pool)
+struct config_filter_parser *
+config_filter_parser_get_global_filter(struct config_filter_context *ctx)
 {
-	const struct config_filter_parser *global_filter;
-	struct config_module_parser *dest;
-	unsigned int i, count;
-
-	global_filter = ctx->parsers[0];
-	for (count = 0; global_filter->parsers[count].root != NULL; count++) ;
-	dest = p_new(pool, struct config_module_parser, count + 1);
-	for (i = 0; i < count; i++) {
-		dest[i] = global_filter->parsers[i];
-		dest[i].parser =
-			settings_parser_dup(global_filter->parsers[i].parser, pool);
-	}
-	return dest;
+	return ctx->parsers[0];
 }
 
 void config_filter_add_error(struct config_filter_context *ctx,

@@ -397,10 +397,29 @@ config_export_init(enum config_dump_scope scope,
 	return ctx;
 }
 
+static struct config_module_parser *
+config_filter_parsers_dup(pool_t pool, struct config_filter_parser *global_filter)
+{
+	struct config_module_parser *dest;
+	unsigned int i, count;
+
+	for (count = 0; global_filter->parsers[count].root != NULL; count++) ;
+	dest = p_new(pool, struct config_module_parser, count + 1);
+	for (i = 0; i < count; i++) {
+		dest[i] = global_filter->parsers[i];
+		dest[i].parser =
+			settings_parser_dup(global_filter->parsers[i].parser, pool);
+	}
+	return dest;
+}
+
 void config_export_dup_parsers(struct config_export_context *ctx,
 			       struct config_filter_context *config_filter)
 {
-	ctx->dup_parsers = config_filter_parsers_dup(config_filter, ctx->pool);
+	struct config_filter_parser *global_filter =
+		config_filter_parser_get_global_filter(config_filter);
+
+	ctx->dup_parsers = config_filter_parsers_dup(ctx->pool, global_filter);
 	ctx->parsers = ctx->dup_parsers;
 }
 

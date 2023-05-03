@@ -37,9 +37,8 @@ void config_filter_add_error(struct config_filter_context *ctx,
 const ARRAY_TYPE(const_string) *
 config_filter_get_errors(struct config_filter_context *ctx);
 
-/* Duplicate current parsers. */
-struct config_module_parser *
-config_filter_parsers_dup(struct config_filter_context *ctx, pool_t pool);
+struct config_filter_parser *
+config_filter_parser_get_global_filter(struct config_filter_context *ctx);
 
 /* Return a list of filters that are a subset of the given filter. */
 struct config_filter_parser *const *
