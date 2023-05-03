@@ -149,32 +149,25 @@ config_filter_parser_cmp(struct config_filter_parser *const *p1,
 	/* remote and locals are first, although it doesn't really
 	   matter which one comes first */
 	if (f1->local_name != NULL && f2->local_name == NULL)
-		return -1;
-	if (f1->local_name == NULL && f2->local_name != NULL)
 		return 1;
+	if (f1->local_name == NULL && f2->local_name != NULL)
+		return -1;
 
 	if (f1->local_bits > f2->local_bits)
-		return -1;
-	if (f1->local_bits < f2->local_bits)
 		return 1;
+	if (f1->local_bits < f2->local_bits)
+		return -1;
 
 	if (f1->remote_bits > f2->remote_bits)
-		return -1;
-	if (f1->remote_bits < f2->remote_bits)
 		return 1;
+	if (f1->remote_bits < f2->remote_bits)
+		return -1;
 
 	if (f1->service != NULL && f2->service == NULL)
-		return -1;
-	if (f1->service == NULL && f2->service != NULL)
 		return 1;
+	if (f1->service == NULL && f2->service != NULL)
+		return -1;
 	return 0;
-}
-
-static int
-config_filter_parser_cmp_rev(struct config_filter_parser *const *p1,
-			     struct config_filter_parser *const *p2)
-{
-	return -config_filter_parser_cmp(p1, p2);
 }
 
 struct config_filter_parser *const *
@@ -187,7 +180,7 @@ config_filter_find_subset(struct config_filter_context *ctx)
 	for (i = 0; ctx->parsers[i] != NULL; i++)
 		array_push_back(&matches, &ctx->parsers[i]);
 
-	array_sort(&matches, config_filter_parser_cmp_rev);
+	array_sort(&matches, config_filter_parser_cmp);
 	array_append_zero(&matches);
 	return array_front(&matches);
 }
