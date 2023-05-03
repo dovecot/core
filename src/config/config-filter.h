@@ -20,7 +20,6 @@ struct config_filter_parser {
 	/* NULL-terminated array of parsers */
 	struct config_module_parser *module_parsers;
 };
-ARRAY_DEFINE_TYPE(config_filter_parsers, struct config_filter_parser *);
 
 /* Returns TRUE if filter matches mask. */
 bool config_filter_match(const struct config_filter *mask,
