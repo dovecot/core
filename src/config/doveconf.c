@@ -45,7 +45,7 @@ struct config_dump_human_context {
 #define LIST_KEY_PREFIX "\001"
 #define UNIQUE_KEY_SUFFIX "\xff"
 
-static struct config_filter_context *config_filter;
+static struct config_parsed *config;
 static const char *indent_str = "                              !!!!";
 
 static const char *const secrets[] = {
@@ -541,7 +541,7 @@ config_dump_human_sections(struct ostream *output,
 	struct config_dump_human_context *ctx;
 	unsigned int indent;
 
-	filters = config_filter_find_subset(config_filter);
+	filters = config_parsed_get_filter_parsers(config);
 
 	/* first filter should be the global one */
 	i_assert(filters[0] != NULL && filters[0]->filter.service == NULL);
@@ -573,7 +573,7 @@ config_dump_human(enum config_dump_scope scope, const char *setting_name_filter,
 	o_stream_cork(output);
 
 	ctx = config_dump_human_init(scope);
-	config_export_dup_parsers(ctx->export_ctx, config_filter);
+	config_export_dup_parsers(ctx->export_ctx, config);
 	config_dump_human_output(ctx, output, 0, setting_name_filter, hide_passwords);
 	config_dump_human_deinit(ctx);
 
@@ -582,7 +582,7 @@ config_dump_human(enum config_dump_scope scope, const char *setting_name_filter,
 
 	/* flush output before writing errors */
 	o_stream_uncork(output);
-	array_foreach_elem(config_filter_get_errors(config_filter), str) {
+	array_foreach_elem(config_parsed_get_errors(config), str) {
 		i_error("%s", str);
 		ret = -1;
 	}
@@ -602,7 +602,7 @@ config_dump_one(bool hide_key,
 	bool dump_section = FALSE;
 
 	ctx = config_dump_human_init(scope);
-	config_export_dup_parsers(ctx->export_ctx, config_filter);
+	config_export_dup_parsers(ctx->export_ctx, config);
 	if (config_export_all_parsers(&ctx->export_ctx, &section_idx) < 0)
 		i_unreached(); /* settings aren't checked - this can't happen */
 
@@ -928,7 +928,7 @@ int main(int argc, char *argv[])
 	if (hide_obsolete_warnings)
 		flags |= CONFIG_PARSE_FLAG_HIDE_OBSOLETE_WARNINGS;
 	if ((ret = config_parse_file(dump_defaults ? NULL : config_path,
-				     flags, &config_filter, &error)) == 0 &&
+				     flags, &config, &error)) == 0 &&
 	    access(EXAMPLE_CONFIG_DIR, X_OK) == 0) {
 		i_fatal("%s (copy example configs from "EXAMPLE_CONFIG_DIR"/)",
 			error);
@@ -938,11 +938,11 @@ int main(int argc, char *argv[])
 		i_fatal("%s", error);
 
 	if (dump_full && exec_args == NULL) {
-		ret2 = config_dump_full(config_filter,
+		ret2 = config_dump_full(config,
 					CONFIG_DUMP_FULL_DEST_STDOUT,
 					0, &import_environment);
 	} else if (dump_full) {
-		int temp_fd = config_dump_full(config_filter,
+		int temp_fd = config_dump_full(config,
 					       CONFIG_DUMP_FULL_DEST_TEMPDIR,
 					       0, &import_environment);
 		if (getenv(DOVECOT_PRESERVE_ENVS_ENV) != NULL) {
@@ -967,7 +967,7 @@ int main(int argc, char *argv[])
 		ctx = config_export_init(scope, 0,
 					 config_request_simple_stdout,
 					 setting_name_filters);
-		config_export_dup_parsers(ctx, config_filter);
+		config_export_dup_parsers(ctx, config);
 		if (config_export_all_parsers(&ctx, &section_idx) < 0)
 			i_unreached();
 		ret2 = 0;
@@ -1005,7 +1005,7 @@ int main(int argc, char *argv[])
 	if (ret2 < 0)
 		i_fatal("Errors in configuration");
 
-	config_filter_deinit(&config_filter);
+	config_parsed_free(&config);
 	old_settings_deinit_global();
 	module_dir_unload(&modules);
 	config_parser_deinit();

@@ -8,12 +8,6 @@
 #include "config-filter.h"
 #include "dns-util.h"
 
-struct config_filter_context {
-	pool_t pool;
-	struct config_filter_parser *const *parsers;
-	ARRAY_TYPE(const_string) errors;
-};
-
 static bool config_filter_match_service(const struct config_filter *mask,
 					const struct config_filter *filter)
 {
@@ -111,35 +105,6 @@ bool config_filters_equal(const struct config_filter *f1,
 	return TRUE;
 }
 
-struct config_filter_context *config_filter_init(pool_t pool)
-{
-	struct config_filter_context *ctx;
-
-	ctx = p_new(pool, struct config_filter_context, 1);
-	ctx->pool = pool;
-	pool_ref(ctx->pool);
-	p_array_init(&ctx->errors, pool, 1);
-	return ctx;
-}
-
-void config_filter_deinit(struct config_filter_context **_ctx)
-{
-	struct config_filter_context *ctx = *_ctx;
-	unsigned int i;
-
-	*_ctx = NULL;
-
-	for (i = 0; ctx->parsers[i] != NULL; i++)
-		config_module_parsers_free(ctx->parsers[i]->parsers);
-	pool_unref(&ctx->pool);
-}
-
-void config_filter_add_all(struct config_filter_context *ctx,
-			   struct config_filter_parser *const *parsers)
-{
-	ctx->parsers = parsers;
-}
-
 int config_filter_sort_cmp(const struct config_filter *f1,
 			   const struct config_filter *f2)
 {
@@ -165,45 +130,4 @@ int config_filter_sort_cmp(const struct config_filter *f1,
 	if (f1->service == NULL && f2->service != NULL)
 		return -1;
 	return 0;
-}
-
-static int
-config_filter_parser_cmp(struct config_filter_parser *const *p1,
-			 struct config_filter_parser *const *p2)
-{
-	return config_filter_sort_cmp(&(*p1)->filter, &(*p2)->filter);
-}
-
-struct config_filter_parser *const *
-config_filter_find_subset(struct config_filter_context *ctx)
-{
-	ARRAY_TYPE(config_filter_parsers) matches;
-	unsigned int i;
-
-	t_array_init(&matches, 8);
-	for (i = 0; ctx->parsers[i] != NULL; i++)
-		array_push_back(&matches, &ctx->parsers[i]);
-
-	array_sort(&matches, config_filter_parser_cmp);
-	array_append_zero(&matches);
-	return array_front(&matches);
-}
-
-struct config_filter_parser *
-config_filter_parser_get_global_filter(struct config_filter_context *ctx)
-{
-	return ctx->parsers[0];
-}
-
-void config_filter_add_error(struct config_filter_context *ctx,
-			     const char *error)
-{
-	error = p_strdup(ctx->pool, error);
-	array_push_back(&ctx->errors, &error);
-}
-
-const ARRAY_TYPE(const_string) *
-config_filter_get_errors(struct config_filter_context *ctx)
-{
-	return &ctx->errors;
 }

@@ -35,7 +35,7 @@ struct config_connection {
 };
 
 static struct config_connection *config_connections = NULL;
-static struct config_filter_context *global_config_filter;
+static struct config_parsed *global_config;
 static int global_config_fd = -1;
 
 static const char *const *
@@ -54,7 +54,7 @@ static int config_connection_request(struct config_connection *conn,
 				     const char *const *args)
 {
 	const char *import_environment;
-	struct config_filter_context *new_filter;
+	struct config_parsed *new_config;
 
 	while (*args != NULL) {
 		if (strcmp(*args, "reload") == 0) {
@@ -62,12 +62,12 @@ static int config_connection_request(struct config_connection *conn,
 
 			path = master_service_get_config_path(master_service);
 			if (config_parse_file(path, CONFIG_PARSE_FLAG_EXPAND_VALUES,
-					      &new_filter, &error) <= 0) {
+					      &new_config, &error) <= 0) {
 				o_stream_nsend_str(conn->output,
 						   t_strconcat("-", error, "\n", NULL));
 				return 0;
 			}
-			global_config_filter = new_filter;
+			global_config = new_config;
 			i_close_fd(&global_config_fd);
 		} else {
 			o_stream_nsend_str(conn->output, "-Unknown parameters\n");
@@ -77,7 +77,7 @@ static int config_connection_request(struct config_connection *conn,
 	}
 
 	if (global_config_fd == -1) {
-		int fd = config_dump_full(global_config_filter,
+		int fd = config_dump_full(global_config,
 					  CONFIG_DUMP_FULL_DEST_RUNDIR,
 					  0, &import_environment);
 		if (fd == -1) {
@@ -160,9 +160,9 @@ void config_connection_destroy(struct config_connection *conn)
 	master_service_client_connection_destroyed(master_service);
 }
 
-void config_connections_init(struct config_filter_context *config_filter)
+void config_connections_init(struct config_parsed *config)
 {
-	global_config_filter = config_filter;
+	global_config = config;
 }
 
 void config_connections_destroy_all(void)

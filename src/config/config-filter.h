@@ -22,28 +22,6 @@ struct config_filter_parser {
 };
 ARRAY_DEFINE_TYPE(config_filter_parsers, struct config_filter_parser *);
 
-struct config_filter_context *config_filter_init(pool_t pool);
-void config_filter_deinit(struct config_filter_context **ctx);
-
-/* Replace filter's parsers with given parser list. */
-void config_filter_add_all(struct config_filter_context *ctx,
-			   struct config_filter_parser *const *parsers);
-
-/* Add an error to the filter. Used when parsing config file to give all
-   delayed errors. */
-void config_filter_add_error(struct config_filter_context *ctx,
-			     const char *error);
-/* Return all errors found while parsing the config file. */
-const ARRAY_TYPE(const_string) *
-config_filter_get_errors(struct config_filter_context *ctx);
-
-struct config_filter_parser *
-config_filter_parser_get_global_filter(struct config_filter_context *ctx);
-
-/* Return a list of filters that are a subset of the given filter. */
-struct config_filter_parser *const *
-config_filter_find_subset(struct config_filter_context *ctx);
-
 /* Returns TRUE if filter matches mask. */
 bool config_filter_match(const struct config_filter *mask,
 			 const struct config_filter *filter);

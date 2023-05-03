@@ -10,6 +10,7 @@
 #include "all-settings.h"
 #include "config-parser.h"
 #include "config-request.h"
+#include "config-filter.h"
 #include "old-set-parser.h"
 
 struct config_export_context {
@@ -414,10 +415,10 @@ config_filter_parsers_dup(pool_t pool, struct config_filter_parser *global_filte
 }
 
 void config_export_dup_parsers(struct config_export_context *ctx,
-			       struct config_filter_context *config_filter)
+			       struct config_parsed *config)
 {
 	struct config_filter_parser *global_filter =
-		config_filter_parser_get_global_filter(config_filter);
+		config_parsed_get_global_filter_parser(config);
 
 	ctx->dup_parsers = config_filter_parsers_dup(ctx->pool, global_filter);
 	ctx->parsers = ctx->dup_parsers;

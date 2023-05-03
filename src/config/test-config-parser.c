@@ -86,7 +86,7 @@ static void write_config_file(const char *contents)
 
 static void test_config_parser(void)
 {
-	struct config_filter_context *config_filter;
+	struct config_parsed *config;
 	const char *error = NULL;
 
 	test_begin("config_parse_file");
@@ -115,7 +115,7 @@ static void test_config_parser(void)
 	putenv("bar=test2");
 	putenv("FOO$ENV:FOO=works");
 
-	test_assert(config_parse_file(TEST_CONFIG_FILE, CONFIG_PARSE_FLAG_EXPAND_VALUES, &config_filter, &error) == 1);
+	test_assert(config_parse_file(TEST_CONFIG_FILE, CONFIG_PARSE_FLAG_EXPAND_VALUES, &config, &error) == 1);
 	if (error != NULL)
 		i_error("config_parse_file(): %s", error);
 
@@ -134,10 +134,10 @@ static void test_config_parser(void)
 	test_assert_strcmp(set->env_key4, "test1 test2 value");
 	test_assert_strcmp(set->env_key5, "test1 test1");
 	test_assert_strcmp(set->protocols, "pop3 imap");
-	config_filter_deinit(&config_filter);
+	config_parsed_free(&config);
 
 	/* try again unexpanded */
-	test_assert(config_parse_file(TEST_CONFIG_FILE, 0, &config_filter, &error) == 1);
+	test_assert(config_parse_file(TEST_CONFIG_FILE, 0, &config, &error) == 1);
 	set = settings_parser_get_set(config_module_parsers[0].parser);
 
 	test_assert_strcmp(set->key, "value");
@@ -153,7 +153,7 @@ static void test_config_parser(void)
 	test_assert_strcmp(set->env_key5, "$ENV:foo $ENV:foo");
 	test_assert_strcmp(set->protocols, "pop3 imap");
 
-	config_filter_deinit(&config_filter);
+	config_parsed_free(&config);
 	config_parser_deinit();
 	i_unlink_if_exists(TEST_CONFIG_FILE);
 	test_end();

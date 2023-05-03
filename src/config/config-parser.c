@@ -31,6 +31,12 @@
 #define DNS_LOOKUP_TIMEOUT_SECS 30
 #define DNS_LOOKUP_WARN_SECS 5
 
+struct config_parsed {
+	pool_t pool;
+	struct config_filter_parser *const *parsers;
+	ARRAY_TYPE(const_string) errors;
+};
+
 ARRAY_DEFINE_TYPE(setting_parser_info_p, const struct setting_parser_info *);
 
 static const enum settings_parser_flags settings_parser_flags =
@@ -378,7 +384,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 
 static void
 config_filter_parser_check(struct config_parser_context *ctx,
-			   struct config_filter_context *new_filter,
+			   struct config_parsed *new_config,
 			   struct config_module_parser *p)
 {
 	const char *error = NULL;
@@ -402,7 +408,8 @@ config_filter_parser_check(struct config_parser_context *ctx,
 			if (!ctx->delay_errors) {
 				/* the errors are still slightly delayed so
 				   we get the full list of them. */
-				config_filter_add_error(new_filter, error);
+				error = p_strdup(new_config->pool, error);
+				array_push_back(&new_config->errors, &error);
 			} else if (p->delayed_error == NULL) {
 				/* Settings checking failed, but we're delaying
 				   the error until the settings struct is used
@@ -437,7 +444,7 @@ get_str_setting(struct config_filter_parser *parser, const char *key,
 
 static int
 config_all_parsers_check(struct config_parser_context *ctx,
-			 struct config_filter_context *new_filter,
+			 struct config_parsed *new_config,
 			 const char **error_r)
 {
 	struct config_filter_parser *const *parsers;
@@ -475,11 +482,11 @@ config_all_parsers_check(struct config_parser_context *ctx,
 			ssl_warned = TRUE;
 		}
 
-		config_filter_parser_check(ctx, new_filter,
+		config_filter_parser_check(ctx, new_config,
 					   parsers[i]->parsers);
 	}
 	const char *const *errors =
-		array_get(config_filter_get_errors(new_filter), &count);
+		array_get(config_parsed_get_errors(new_config), &count);
 	if (count > 0) {
 		/* Use the first error as the main error. The others are also
 		   printed out by doveconf. */
@@ -768,35 +775,50 @@ config_parse_line(struct config_parser_context *ctx,
 }
 
 static int
+config_filter_parser_cmp(struct config_filter_parser *const *p1,
+			 struct config_filter_parser *const *p2)
+{
+	return config_filter_sort_cmp(&(*p1)->filter, &(*p2)->filter);
+}
+
+static int
 config_parse_finish(struct config_parser_context *ctx,
 		    enum config_parse_flags flags,
-		    struct config_filter_context **filter_r,
-		    const char **error_r)
+		    struct config_parsed **config_r, const char **error_r)
 {
-	struct config_filter_context *new_filter;
+	struct config_parsed *new_config;
 	const char *error;
 	int ret = 0;
 
 	if (hook_config_parser_end != NULL)
 		ret = hook_config_parser_end(ctx, error_r);
 
-	new_filter = config_filter_init(ctx->pool);
+	new_config = p_new(ctx->pool, struct config_parsed, 1);
+	new_config->pool = ctx->pool;
+	pool_ref(new_config->pool);
+	p_array_init(&new_config->errors, ctx->pool, 1);
+
+	struct config_filter_parser *global_filter =
+		array_idx_elem(&ctx->all_parsers, 0);
+	array_sort(&ctx->all_parsers, config_filter_parser_cmp);
+	i_assert(global_filter == array_idx_elem(&ctx->all_parsers, 0));
+
 	array_append_zero(&ctx->all_parsers);
-	config_filter_add_all(new_filter, array_front(&ctx->all_parsers));
+	new_config->parsers = array_front(&ctx->all_parsers);
 
 	if (ret < 0)
 		;
-	else if ((ret = config_all_parsers_check(ctx, new_filter, &error)) < 0) {
+	else if ((ret = config_all_parsers_check(ctx, new_config, &error)) < 0) {
 		*error_r = t_strdup_printf("Error in configuration file %s: %s",
 					   ctx->path, error);
 	}
 
 	if (ret < 0 && (flags & CONFIG_PARSE_FLAG_RETURN_BROKEN_CONFIG) == 0) {
-		config_filter_deinit(&new_filter);
+		config_parsed_free(&new_config);
 		return -1;
 	}
 	config_module_parsers = ctx->root_parsers;
-	*filter_r = new_filter;
+	*config_r = new_config;
 	return ret;
 }
 
@@ -1029,7 +1051,7 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 }
 
 int config_parse_file(const char *path, enum config_parse_flags flags,
-		      struct config_filter_context **filter_r,
+		      struct config_parsed **config_r,
 		      const char **error_r)
 {
 	struct input_stack root;
@@ -1040,7 +1062,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	int fd, ret = 0;
 	bool handled;
 
-	*filter_r = NULL;
+	*config_r = NULL;
 
 	if (path == NULL) {
 		path = "<defaults>";
@@ -1135,9 +1157,39 @@ prevfile:
 	hash_table_destroy(&ctx.seen_settings);
 	str_free(&full_line);
 	if (ret == 0)
-		ret = config_parse_finish(&ctx, flags, filter_r, error_r);
+		ret = config_parse_finish(&ctx, flags, config_r, error_r);
 	pool_unref(&ctx.pool);
 	return ret < 0 ? ret : 1;
+}
+
+const ARRAY_TYPE(const_string) *
+config_parsed_get_errors(struct config_parsed *config)
+{
+	return &config->errors;
+}
+
+struct config_filter_parser *
+config_parsed_get_global_filter_parser(struct config_parsed *config)
+{
+	return config->parsers[0];
+}
+
+struct config_filter_parser *const *
+config_parsed_get_filter_parsers(struct config_parsed *config)
+{
+	return config->parsers;
+}
+
+void config_parsed_free(struct config_parsed **_config)
+{
+	struct config_parsed *config = *_config;
+	unsigned int i;
+
+	*_config = NULL;
+
+	for (i = 0; config->parsers[i] != NULL; i++)
+		config_module_parsers_free(config->parsers[i]->parsers);
+	pool_unref(&config->pool);
 }
 
 void config_module_parsers_free(struct config_module_parser *parsers)

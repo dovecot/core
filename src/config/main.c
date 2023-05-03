@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
 {
 	const enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_DONT_SEND_STATS;
-	struct config_filter_context *config_filter;
+	struct config_parsed *config;
 	const char *path, *error;
 
 	master_service = master_service_init("config", service_flags,
@@ -36,9 +36,9 @@ int main(int argc, char *argv[])
 
 	path = master_service_get_config_path(master_service);
 	if (config_parse_file(path, CONFIG_PARSE_FLAG_EXPAND_VALUES,
-			      &config_filter, &error) <= 0)
+			      &config, &error) <= 0)
 		i_fatal("%s", error);
-	config_connections_init(config_filter);
+	config_connections_init(config);
 
 	/* notify about our success only after successfully parsing the
 	   config file, so if the parsing fails, master won't immediately
@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 	master_service_run(master_service, client_connected);
 	config_connections_destroy_all();
 
-	config_filter_deinit(&config_filter);
+	config_parsed_free(&config);
 	old_settings_deinit_global();
 	module_dir_unload(&modules);
 	config_parser_deinit();

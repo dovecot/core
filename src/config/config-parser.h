@@ -5,7 +5,7 @@
 
 #define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
 
-struct config_filter_context;
+struct config_parsed;
 
 enum config_parse_flags {
 	CONFIG_PARSE_FLAG_EXPAND_VALUES	= BIT(0),
@@ -34,9 +34,21 @@ extern struct module *modules;
 int config_parse_net(const char *value, struct ip_addr *ip_r,
 		     unsigned int *bits_r, const char **error_r);
 int config_parse_file(const char *path, enum config_parse_flags flags,
-		      struct config_filter_context **filter_r,
+		      struct config_parsed **config_r,
 		      const char **error_r)
 	ATTR_NULL(3);
+/* Return all errors found while parsing the config file. */
+const ARRAY_TYPE(const_string) *
+config_parsed_get_errors(struct config_parsed *config);
+
+/* Returns the global filter */
+struct config_filter_parser *
+config_parsed_get_global_filter_parser(struct config_parsed *config);
+/* Returns all filters sorted */
+struct config_filter_parser *const *
+config_parsed_get_filter_parsers(struct config_parsed *config);
+void config_parsed_free(struct config_parsed **config);
+
 void config_module_parsers_free(struct config_module_parser *parsers);
 
 void config_parse_load_modules(void);

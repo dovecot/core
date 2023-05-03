@@ -7,6 +7,7 @@
 #include "ostream.h"
 #include "config-parser.h"
 #include "config-request.h"
+#include "config-filter.h"
 #include "config-dump-full.h"
 
 #include <stdio.h>
@@ -197,7 +198,7 @@ config_dump_full_handle_error(struct dump_context *dump_ctx,
 }
 
 static int
-config_dump_full_sections(struct config_filter_context *config_filter,
+config_dump_full_sections(struct config_parsed *config,
 			  struct ostream *output,
 			  enum config_dump_full_dest dest,
 			  unsigned int parser_idx,
@@ -208,7 +209,7 @@ config_dump_full_sections(struct config_filter_context *config_filter,
 	struct config_export_context *export_ctx;
 	int ret = 0;
 
-	filters = config_filter_find_subset(config_filter);
+	filters = config_parsed_get_filter_parsers(config);
 
 	/* first filter should be the global one */
 	i_assert(filters[0] != NULL && filters[0]->filter.service == NULL);
@@ -256,7 +257,7 @@ config_dump_full_sections(struct config_filter_context *config_filter,
 	return ret;
 }
 
-int config_dump_full(struct config_filter_context *config_filter,
+int config_dump_full(struct config_parsed *config,
 		     enum config_dump_full_dest dest,
 		     enum config_dump_flags flags,
 		     const char **import_environment_r)
@@ -280,7 +281,7 @@ int config_dump_full(struct config_filter_context *config_filter,
 				CONFIG_DUMP_SCOPE_CHANGED, flags,
 				config_dump_full_callback, &dump_ctx);
 	}
-	config_export_dup_parsers(export_ctx, config_filter);
+	config_export_dup_parsers(export_ctx, config);
 
 	string_t *path = t_str_new(128);
 	const char *final_path = NULL;
@@ -365,7 +366,7 @@ int config_dump_full(struct config_filter_context *config_filter,
 		}
 		int ret;
 		T_BEGIN {
-			ret = config_dump_full_sections(config_filter, output,
+			ret = config_dump_full_sections(config, output,
 				dest, i, info, section_idx);
 		} T_END;
 		if (ret < 0)
