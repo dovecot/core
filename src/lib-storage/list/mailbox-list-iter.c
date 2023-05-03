@@ -538,7 +538,7 @@ static void inbox_set_children_flags(struct ns_list_iterate_context *ctx)
 		return;
 	}
 
- 	/* INBOX namespace doesn't exist and we didn't see any children listed
+	/* INBOX namespace doesn't exist and we didn't see any children listed
 	   for INBOX. this could be because there truly aren't any children,
 	   or that the list patterns just didn't match them. */
 	prefix = t_strdup_printf("INBOX%c",
@@ -1023,7 +1023,7 @@ const struct mailbox_info *
 mailbox_list_iter_default_next(struct mailbox_list_iterate_context *ctx)
 {
 	struct mailbox_list_autocreate_iterate_context *actx =
-        	ctx->autocreate_ctx;
+		ctx->autocreate_ctx;
 	const struct autocreate_box *autoboxes, *autobox;
 	unsigned int count;
 
