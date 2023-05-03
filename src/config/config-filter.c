@@ -117,6 +117,7 @@ struct config_filter_context *config_filter_init(pool_t pool)
 
 	ctx = p_new(pool, struct config_filter_context, 1);
 	ctx->pool = pool;
+	pool_ref(ctx->pool);
 	p_array_init(&ctx->errors, pool, 1);
 	return ctx;
 }

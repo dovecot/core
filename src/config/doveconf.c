@@ -920,7 +920,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	enum config_parse_flags flags = 0;
+	enum config_parse_flags flags = CONFIG_PARSE_FLAG_RETURN_BROKEN_CONFIG;
 	if (expand_vars)
 		flags |= CONFIG_PARSE_FLAG_EXPAND_VALUES;
 	if (dump_full && exec_args != NULL && !check_full_config)

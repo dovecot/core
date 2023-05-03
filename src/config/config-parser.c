@@ -755,6 +755,7 @@ config_parse_line(struct config_parser_context *ctx,
 
 static int
 config_parse_finish(struct config_parser_context *ctx,
+		    enum config_parse_flags flags,
 		    struct config_filter_context **filter_r,
 		    const char **error_r)
 {
@@ -776,6 +777,10 @@ config_parse_finish(struct config_parser_context *ctx,
 					   ctx->path, error);
 	}
 
+	if (ret < 0 && (flags & CONFIG_PARSE_FLAG_RETURN_BROKEN_CONFIG) == 0) {
+		config_filter_deinit(&new_filter);
+		return -1;
+	}
 	config_module_parsers = ctx->root_parsers;
 	*filter_r = new_filter;
 	return ret;
@@ -1119,7 +1124,8 @@ prevfile:
 	hash_table_destroy(&ctx.seen_settings);
 	str_free(&full_line);
 	if (ret == 0)
-		ret = config_parse_finish(&ctx, filter_r, error_r);
+		ret = config_parse_finish(&ctx, flags, filter_r, error_r);
+	pool_unref(&ctx.pool);
 	return ret < 0 ? ret : 1;
 }
 
