@@ -17,6 +17,11 @@ enum event_filter_code {
 	EVENT_FILTER_CODE_FIELD		= 'f',
 };
 
+enum cmp_flags {
+	CMP_FLAG_WILDCARD = BIT(1),
+	CMP_FLAG_CASE_SENSITIVE = BIT(2),
+};
+
 /* map <log type> to <event filter log type & name> */
 static const struct log_type_map {
 	enum event_filter_log_type log_type;
@@ -154,7 +159,7 @@ static bool filter_node_requires_event_name(struct event_filter_node *node)
 
 static int
 event_filter_parse_real(const char *str, struct event_filter *filter,
-			const char **error_r)
+			bool case_sensitive, const char **error_r)
 {
 	struct event_filter_query_internal *int_query;
 	struct event_filter_parser_state state;
@@ -165,6 +170,7 @@ event_filter_parse_real(const char *str, struct event_filter *filter,
 	state.len = strlen(str);
 	state.pos = 0;
 	state.pool = filter->pool;
+	state.case_sensitive = case_sensitive;
 
 	event_filter_parser_lex_init(&state.scanner);
 	event_filter_parser_set_extra(&state, state.scanner);
@@ -204,7 +210,18 @@ int event_filter_parse(const char *str, struct event_filter *filter,
 {
 	int ret;
 	T_BEGIN {
-		ret = event_filter_parse_real(str, filter, error_r);
+		ret = event_filter_parse_real(str, filter, FALSE, error_r);
+	} T_END_PASS_STR_IF(ret < 0, error_r);
+	return ret;
+}
+
+int event_filter_parse_case_sensitive(const char *str,
+				      struct event_filter *filter,
+				      const char **error_r)
+{
+	int ret;
+	T_BEGIN {
+		ret = event_filter_parse_real(str, filter, TRUE, error_r);
 	} T_END_PASS_STR_IF(ret < 0, error_r);
 	return ret;
 }
@@ -311,6 +328,7 @@ clone_expr(pool_t pool, struct event_filter_node *old)
 	new->warned_type_mismatch = old->warned_type_mismatch;
 	new->warned_string_inequality = old->warned_string_inequality;
 	new->warned_timeval_not_implemented = old->warned_timeval_not_implemented;
+	new->case_sensitive = old->case_sensitive;
 
 	return new;
 }
@@ -562,14 +580,29 @@ event_has_category(struct event *event, struct event_filter_node *node,
 }
 
 static bool
+cmp_str(const char *value, const char *wanted_value, enum cmp_flags flags)
+{
+	if ((flags & CMP_FLAG_WILDCARD) != 0) {
+		if ((flags & CMP_FLAG_CASE_SENSITIVE) != 0)
+			return wildcard_match_escaped(value, wanted_value);
+		else
+			return wildcard_match_escaped_icase(value, wanted_value);
+	} else {
+		if ((flags & CMP_FLAG_CASE_SENSITIVE) != 0)
+			return strcmp(value, wanted_value) == 0;
+		else
+			return strcasecmp(value, wanted_value) == 0;
+	}
+}
+
+static bool
 event_match_strlist_recursive(struct event *event,
 			      const struct event_field *wanted_field,
-			      bool use_strcmp, bool *seen)
+			      enum cmp_flags cmp_flags, bool *seen)
 {
 	const char *wanted_value = wanted_field->value.str;
 	const struct event_field *field;
 	const char *value;
-	bool match;
 
 	if (event == NULL)
 		return FALSE;
@@ -579,27 +612,25 @@ event_match_strlist_recursive(struct event *event,
 		i_assert(field->value_type == EVENT_FIELD_VALUE_TYPE_STRLIST);
 		array_foreach_elem(&field->value.strlist, value) {
 			*seen = TRUE;
-			match = use_strcmp ? strcasecmp(value, wanted_value) == 0 :
-				wildcard_match_escaped_icase(value, wanted_value);
-			if (match)
+			if (cmp_str(value, wanted_value, cmp_flags))
 				return TRUE;
 		}
 	}
 	return event_match_strlist_recursive(event->parent, wanted_field,
-					     use_strcmp, seen);
+					     cmp_flags, seen);
 }
 
 static bool
 event_match_strlist(struct event *event, const struct event_field *wanted_field,
-		    bool use_strcmp)
+		    enum cmp_flags cmp_flags)
 {
 	bool seen = FALSE;
 
 	if (event_match_strlist_recursive(event, wanted_field,
-					  use_strcmp, &seen))
+					  cmp_flags, &seen))
 		return TRUE;
 	if (event_match_strlist_recursive(event_get_global(),
-					  wanted_field, use_strcmp, &seen))
+					  wanted_field, cmp_flags, &seen))
 		return TRUE;
 	if (wanted_field->value.str[0] == '\0' && !seen) {
 		/* strlist="" matches nonexistent strlist */
@@ -657,6 +688,11 @@ event_match_field(struct event *event, struct event_filter_node *node,
 		/* field="" matches nonexistent field */
 		return wanted_field->value.str[0] == '\0';
 	}
+	enum cmp_flags cmp_flags = 0;
+	if (!use_strcmp)
+		cmp_flags |= CMP_FLAG_WILDCARD;
+	if (node->case_sensitive)
+		cmp_flags |= CMP_FLAG_CASE_SENSITIVE;
 
 	switch (field->value_type) {
 	case EVENT_FIELD_VALUE_TYPE_STR:
@@ -681,10 +717,7 @@ event_match_field(struct event *event, struct event_filter_node *node,
 			/* field was removed, but it matches field="" filter */
 			return wanted_field->value.str[0] == '\0';
 		}
-		if (use_strcmp)
-			return strcasecmp(field->value.str, wanted_field->value.str) == 0;
-		else
-			return wildcard_match_escaped_icase(field->value.str, wanted_field->value.str);
+		return cmp_str(field->value.str, wanted_field->value.str, cmp_flags);
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
 		if (node->ambiguous_unit) {
 			if (!node->warned_ambiguous_unit) {
@@ -707,7 +740,7 @@ event_match_field(struct event *event, struct event_filter_node *node,
 			/* compare against an integer */
 			return event_filter_handle_numeric_operation(
 				node->op, field->value.intmax, wanted_field->value.intmax);
-		} else if (use_strcmp ||
+		} else if ((cmp_flags & CMP_FLAG_WILDCARD) == 0 ||
 			   (node->type != EVENT_FILTER_NODE_TYPE_EVENT_FIELD_NUMERIC_WILDCARD)) {
 			if (!node->warned_type_mismatch) {
 				const char *name = event->sending_name;
@@ -781,7 +814,7 @@ event_match_field(struct event *event, struct event_filter_node *node,
 						 &wanted_field->value.ip,
 						 wanted_field->value.ip_bits);
 		}
-		if (use_strcmp) {
+		if ((cmp_flags & CMP_FLAG_WILDCARD) == 0) {
 			/* If the matched value was a number, it was already
 			   matched in the previous branch. So here we have a
 			   non-wildcard IP, which can never be a match to an
@@ -824,7 +857,7 @@ event_match_field(struct event *event, struct event_filter_node *node,
 			}
 			return FALSE;
 		}
-		return event_match_strlist(event, wanted_field, use_strcmp);
+		return event_match_strlist(event, wanted_field, cmp_flags);
 	}
 	i_unreached();
 }

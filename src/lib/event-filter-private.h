@@ -91,6 +91,7 @@ struct event_filter_node {
 	bool warned_ip_inequality:1;
 	bool warned_type_mismatch:1;
 	bool warned_timeval_not_implemented:1;
+	bool case_sensitive:1;
 };
 
 bool event_filter_category_to_log_type(const char *name,
@@ -107,6 +108,7 @@ struct event_filter_parser_state {
 	struct event_filter_node *output;
 	const char *error;
 	bool has_event_name:1;
+	bool case_sensitive:1;
 };
 
 int event_filter_parser_lex_init(void **scanner);

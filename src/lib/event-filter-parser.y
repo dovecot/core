@@ -57,6 +57,7 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 	node = p_new(state->pool, struct event_filter_node, 1);
 	node->type = type;
 	node->op = op;
+	node->case_sensitive = state->case_sensitive;
 
 	switch (type) {
 	case EVENT_FILTER_NODE_TYPE_LOGIC:

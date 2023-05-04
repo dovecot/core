@@ -38,6 +38,10 @@ void event_filter_export(struct event_filter *filter, string_t *dest);
 /* Parse a string-ified query, filling the passed in filter */
 int event_filter_parse(const char *str, struct event_filter *filter,
 		       const char **error_r);
+/* Same as event_filter_parse(), but use case-sensitive comparisons. */
+int event_filter_parse_case_sensitive(const char *str,
+				      struct event_filter *filter,
+				      const char **error_r);
 /* Find key=value from the event filter and return the value, or NULL if not
    found. This works only for string values. NOT key=value is not returned. */
 const char *event_filter_find_field_exact(struct event_filter *filter,
