@@ -50,7 +50,7 @@ config_connection_next_line(struct config_connection *conn)
 }
 
 static int config_connection_request(struct config_connection *conn,
-				     const char *const *args ATTR_UNUSED)
+				     const char *const *args)
 {
 	const char *import_environment;
 	enum config_dump_flags flags = CONFIG_DUMP_FLAG_CHECK_SETTINGS;
