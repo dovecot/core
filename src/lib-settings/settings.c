@@ -234,8 +234,8 @@ settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 		config_filter->start_offset = offset;
 		config_filter->end_offset = filter_end_offset;
 
-		if (event_filter_parse(filter_string,
-				       config_filter->filter, &error) < 0) {
+		if (event_filter_parse_case_sensitive(filter_string,
+				config_filter->filter, &error) < 0) {
 			*error_r = t_strdup_printf(
 				"Received invalid filter '%s': %s (offset=%zu)",
 				filter_string, error, offset);
