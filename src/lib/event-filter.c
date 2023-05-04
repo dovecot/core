@@ -511,7 +511,7 @@ event_match_strlist_recursive(struct event *event,
 		i_assert(field->value_type == EVENT_FIELD_VALUE_TYPE_STRLIST);
 		array_foreach_elem(&field->value.strlist, value) {
 			*seen = TRUE;
-			match = use_strcmp ? strcmp(value, wanted_value) == 0 :
+			match = use_strcmp ? strcasecmp(value, wanted_value) == 0 :
 				wildcard_match_icase(value, wanted_value);
 			if (match)
 				return TRUE;
