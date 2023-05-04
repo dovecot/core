@@ -160,6 +160,16 @@ oauth2_request_response(const struct http_response *response,
 }
 
 static void
+oauth2_request_fail(struct oauth2_request *req)
+{
+	struct oauth2_request_result res = {
+		.error = "No token provided",
+		.valid = FALSE,
+	};
+	oauth2_request_callback(req, &res);
+}
+
+static void
 oauth2_request_set_headers(struct oauth2_request *req,
 			   const struct oauth2_request_input *input)
 {
@@ -194,8 +204,6 @@ oauth2_request_start(const struct oauth2_settings *set,
 		     const string_t *payload,
 		     bool add_auth_bearer)
 {
-	i_assert(oauth2_valid_token(input->token));
-
 	pool_t pool = (p == NULL) ?
 		pool_alloconly_create_clean("oauth2 request", 1024) : p;
 	struct oauth2_request *req =
@@ -205,6 +213,12 @@ oauth2_request_start(const struct oauth2_settings *set,
 	req->set = set;
 	req->req_callback = callback;
 	req->req_context = context;
+
+	if (!oauth2_valid_token(input->token)) {
+		req->to_delayed_error =
+			timeout_add_short(0, oauth2_request_fail, req);
+		return req;
+	}
 
 	req->req = http_client_request_url_str(req->set->client, method, url,
 					       oauth2_request_response, req);
