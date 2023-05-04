@@ -154,6 +154,7 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 {
 	/* split the data from ^A */
 	bool user_given = FALSE;
+	bool fail = FALSE;
 	const char *value, *error;
 	const char *token = NULL;
 	const char *const *ptr;
@@ -184,17 +185,17 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 	if (user_given && !auth_request_set_username(request, username, &error)) {
 		e_info(request->mech_event,
 		       "%s", error);
-		xoauth2_verify_callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
-		return;
-	}
-
-	if (user_given && token != NULL)
-		mech_oauth2_verify_token(request, token, PASSDB_RESULT_OK,
-					 xoauth2_verify_callback);
-	else {
+		fail = TRUE;
+	} else if (!user_given || token == NULL) {
 		e_info(request->mech_event, "Username or token missing");
-		xoauth2_verify_callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
+		fail = TRUE;
+		token = "";
 	}
+	/* need to go through the database ... */
+	mech_oauth2_verify_token(request, token, fail ?
+					PASSDB_RESULT_PASSWORD_MISMATCH :
+					PASSDB_RESULT_OK,
+				 xoauth2_verify_callback);
 }
 
 /* Input syntax for data:
@@ -206,6 +207,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 			       size_t data_size)
 {
 	bool user_given = FALSE;
+	bool fail = FALSE;
 	const char *value, *error;
 	const char *username;
 	const char *const *ptr;
@@ -281,18 +283,17 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 	if (user_given && !auth_request_set_username(request, username, &error)) {
 		e_info(request->mech_event,
 		       "%s", error);
-		oauthbearer_verify_callback(PASSDB_RESULT_PASSWORD_MISMATCH,
-					    request);
-		return;
+		fail = TRUE;
+	} else if (!user_given || token == NULL) {
+		e_info(request->mech_event, "Username or token missing");
+		fail = TRUE;
+		token = "";
 	}
-	if (user_given && token != NULL)
-		mech_oauth2_verify_token(request, token, PASSDB_RESULT_OK,
-					 oauthbearer_verify_callback);
-	else {
-		e_info(request->mech_event, "Missing username or token");
-		oauthbearer_verify_callback(PASSDB_RESULT_PASSWORD_MISMATCH,
-					    request);
-	}
+	/* need to go through the database ... */
+	mech_oauth2_verify_token(request, token, fail ?
+					PASSDB_RESULT_PASSWORD_MISMATCH :
+					PASSDB_RESULT_OK,
+				 oauthbearer_verify_callback);
 }
 
 static struct auth_request *mech_oauth2_auth_new(void)
