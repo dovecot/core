@@ -565,6 +565,7 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	if (outbuf.length < 4) {
 		e_error(auth_request->mech_event,
 			"Invalid response length");
+		(void)gss_release_buffer(&minor_status, &outbuf);
 		return -1;
 	}
 
@@ -575,6 +576,7 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 		if (data_has_nuls(name, name_len)) {
 			e_info(auth_request->mech_event,
 			       "authz_name has NULs");
+			(void)gss_release_buffer(&minor_status, &outbuf);
 			return -1;
 		}
 
@@ -584,13 +586,16 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 		request->authz_name = duplicate_name(auth_request,
 						     request->authn_name);
 		if (get_display_name(auth_request, request->authz_name,
-				     NULL, &login_user) < 0)
+				     NULL, &login_user) < 0) {
+			(void)gss_release_buffer(&minor_status, &outbuf);
 			return -1;
+		}
 	}
 
 	if (request->authz_name == GSS_C_NO_NAME) {
 		e_info(auth_request->mech_event,
 		       "no authz_name");
+		(void)gss_release_buffer(&minor_status, &outbuf);
 		return -1;
 	}
 
@@ -602,6 +607,7 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	if (!auth_request_set_username(auth_request, login_user, &error)) {
 		e_info(auth_request->mech_event,
 		       "authz_name: %s", error);
+		(void)gss_release_buffer(&minor_status, &outbuf);
 		return -1;
 	}
 
@@ -610,6 +616,7 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	auth_request->passdb_success = TRUE; /* default to success */
 	auth_request_lookup_credentials(&request->auth_request, "",
 					gssapi_credentials_callback);
+	(void)gss_release_buffer(&minor_status, &outbuf);
 	return 0;
 }
 
