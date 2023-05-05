@@ -37,6 +37,10 @@
 #include "macros.h"
 #include "failures.h"
 
+typedef struct buffer buffer_t;
+typedef struct buffer string_t;
+
+#include "array-decl.h" /* ARRAY*()s may exist in any header */
 #include "malloc-overflow.h"
 #include "data-stack.h"
 #include "mempool.h"
@@ -57,7 +61,6 @@ struct ostream;
 
 typedef void lib_atexit_callback_t(void);
 
-#include "array-decl.h" /* ARRAY*()s may exist in any header */
 #include "bits.h"
 #include "hash-decl.h" /* HASH_TABLE*()s may exist in any header */
 #include "strfuncs.h"

@@ -348,6 +348,7 @@ static void pool_alloconly_unref(pool_t *pool)
 	if (--apool->refcount > 0)
 		return;
 
+	pool_external_refs_unref(&apool->pool);
 	pool_alloconly_destroy(apool);
 }
 

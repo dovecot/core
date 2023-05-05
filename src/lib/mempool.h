@@ -46,6 +46,7 @@ struct pool_vfuncs {
 
 struct pool {
 	const struct pool_vfuncs *v;
+	ARRAY(pool_t) external_refs;
 
 	bool alloconly_pool:1;
 	bool datastack_pool:1;
@@ -85,6 +86,10 @@ pool_t pool_allocfree_create_clean(const char *name);
    allocation size. If you don't have any explicit minimum size, use
    old_size + 1. */
 size_t pool_get_exp_grown_size(pool_t pool, size_t old_size, size_t min_size);
+
+/* Reference another memory pool in the given pool. When the pool is freed,
+   the referenced memory pools are also unreferenced. */
+void pool_add_external_ref(pool_t pool, pool_t ref_pool);
 
 /* We require sizeof(type) to be <= UINT_MAX. This allows compiler to optimize
    away the entire MALLOC_MULTIPLY() call on 64bit systems. */
@@ -175,5 +180,6 @@ size_t pool_allocfree_get_total_alloc_size(pool_t pool);
 
 /* private: */
 void pool_system_free(pool_t pool, void *mem);
+void pool_external_refs_unref(pool_t pool);
 
 #endif
