@@ -3,7 +3,6 @@
 
 extern const struct setting_parser_info *const *all_roots;
 extern const struct setting_parser_info *all_default_roots[];
-extern ARRAY_TYPE(service_settings) *default_services;
 extern const struct config_service *config_all_services;
 
 #endif

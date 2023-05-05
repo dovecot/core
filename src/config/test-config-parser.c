@@ -11,9 +11,6 @@
 
 #define TEST_CONFIG_FILE ".test-config"
 
-static ARRAY_TYPE(service_settings) services = ARRAY_INIT;
-ARRAY_TYPE(service_settings) *default_services = &services;
-
 static const struct config_service test_config_all_services[] = { { NULL, NULL } };
 const struct config_service *config_all_services = test_config_all_services;
 
@@ -118,7 +115,10 @@ static void test_config_parser(void)
 	putenv("bar=test2");
 	putenv("FOO$ENV:FOO=works");
 
-	test_assert(config_parse_file(TEST_CONFIG_FILE, CONFIG_PARSE_FLAG_EXPAND_VALUES, &config, &error) == 1);
+	test_assert(config_parse_file(TEST_CONFIG_FILE,
+				      CONFIG_PARSE_FLAG_EXPAND_VALUES |
+				      CONFIG_PARSE_FLAG_NO_DEFAULTS,
+				      &config, &error) == 1);
 	if (error != NULL)
 		i_error("config_parse_file(): %s", error);
 
@@ -140,7 +140,9 @@ static void test_config_parser(void)
 	config_parsed_free(&config);
 
 	/* try again unexpanded */
-	test_assert(config_parse_file(TEST_CONFIG_FILE, 0, &config, &error) == 1);
+	test_assert(config_parse_file(TEST_CONFIG_FILE,
+				      CONFIG_PARSE_FLAG_NO_DEFAULTS,
+				      &config, &error) == 1);
 	set = settings_parser_get_set(config_module_parsers[0].parser);
 
 	test_assert_strcmp(set->key, "value");

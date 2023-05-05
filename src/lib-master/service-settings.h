@@ -27,6 +27,7 @@ struct config_service {
 	const struct service_settings *set;
 	const struct setting_keyvalue *defaults;
 };
+ARRAY_DEFINE_TYPE(config_service, struct config_service);
 /* </settings checks> */
 
 struct file_listener_settings {
@@ -50,6 +51,7 @@ struct inet_listener_settings {
 ARRAY_DEFINE_TYPE(inet_listener_settings, struct inet_listener_settings *);
 
 struct service_settings {
+	pool_t pool;
 	const char *name;
 	const char *protocol;
 	const char *type;

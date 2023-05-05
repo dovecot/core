@@ -254,7 +254,11 @@ settings_export(struct config_export_context *ctx,
 			if (def->type == SET_DEFLIST ||
 			    def->type == SET_DEFLIST_UNIQUE)
 				break;
-			dump_default = *((const char *)change_value) != 0;
+			if (*((const uint8_t *)change_value) < CONFIG_PARSER_CHANGE_INTERNAL) {
+				/* setting is completely unchanged */
+				continue;
+			}
+			dump_default = TRUE;
 			break;
 		case CONFIG_DUMP_SCOPE_CHANGED:
 			if (*((const uint8_t *)change_value) < CONFIG_PARSER_CHANGE_EXPLICIT) {
@@ -263,20 +267,6 @@ settings_export(struct config_export_context *ctx,
 			}
 			dump_default = FALSE;
 			break;
-		}
-		if (!parent_unique_deflist ||
-		    (ctx->flags & CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS) == 0) {
-			/* .. */
-		} else if (*((const char *)change_value) == 0 &&
-			   def->offset + 1 != info->type_offset1) {
-			/* this is mainly for service {} blocks. if value
-			   hasn't changed, it's the default. even if
-			   info->defaults has a different value. */
-			default_value = value;
-		} else {
-			/* value is set explicitly, but we don't know the
-			   default here. assume it's not the default. */
-			dump_default = TRUE;
 		}
 
 		dump = FALSE;

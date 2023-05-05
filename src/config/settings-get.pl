@@ -22,13 +22,11 @@ print '#include "hash-method.h"'."\n";
 print '#include "settings.h"'."\n";
 print '#include "settings-parser.h"'."\n";
 print '#include "message-header-parser.h"'."\n";
-print '#include "pop3-protocol.h"'."\n";
 print '#include "imap-urlauth-worker-common.h"'."\n";
 print '#include "all-settings.h"'."\n";
 print '#include <stddef.h>'."\n";
 print '#include <unistd.h>'."\n";
 print '#define CONFIG_BINARY'."\n";
-print 'extern buffer_t config_all_services_buf;';
 
 my @services = ();
 my %service_defaults = {};
@@ -154,20 +152,13 @@ foreach my $file (@ARGV) {
   close $f;
 }
 
-print "static struct service_settings *config_default_service_settings[] = {\n";
-
-for (my $i = 0; $i < scalar(@services); $i++) {
-  my $ifdef = $service_ifdefs[$i];
-  print "$ifdef\n" if ($ifdef ne "");
-  print "\t&".$services[$i].",\n";
-  print "#endif\n" if ($ifdef ne "");
+sub service_name {
+  $_ = $_[0];
+  return $1 if (/^(.*)_service_settings$/);
+  die "unexpected service name $_";
 }
-print "};\n";
-print "buffer_t config_all_services_buf = {\n";
-print "\t{ { config_default_service_settings, sizeof(config_default_service_settings) } }\n";
-print "};\n";
-
 print "static const struct config_service config_default_services[] = {\n";
+@services = sort { service_name($a) cmp service_name($b) } @services;
 for (my $i = 0; $i < scalar(@services); $i++) {
   my $ifdef = $service_ifdefs[$i];
   print "$ifdef\n" if ($ifdef ne "");
@@ -191,5 +182,4 @@ foreach my $name (sort(keys %parsers)) {
 print "\tNULL\n";
 print "};\n";
 print "const struct setting_parser_info *const *all_roots = all_default_roots;\n";
-print "ARRAY_TYPE(service_settings) *default_services = &master_default_settings.services;\n";
 print "const struct config_service *config_all_services = config_default_services;\n";

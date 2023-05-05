@@ -10,6 +10,7 @@
 #include "mkdir-parents.h"
 #include "safe-mkdir.h"
 #include "restrict-process-size.h"
+#include "settings.h"
 #include "settings-parser.h"
 #include "master-settings.h"
 
@@ -19,8 +20,8 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
-static bool master_settings_verify(void *_set, pool_t pool,
-				   const char **error_r);
+static bool master_settings_ext_check(struct event *event, void *_set,
+				      pool_t pool, const char **error_r);
 
 extern const struct setting_parser_info service_setting_parser_info;
 
@@ -95,7 +96,7 @@ static const struct setting_parser_info inet_listener_setting_parser_info = {
 #undef DEF
 #undef DEFLIST_UNIQUE
 #define DEF(type, name) \
-	SETTING_DEFINE_STRUCT_##type(#name, name, struct service_settings)
+	SETTING_DEFINE_STRUCT_##type("service_"#name, name, struct service_settings)
 #define DEFLIST_UNIQUE(field, name, defines) \
 	{ .type = SET_DEFLIST_UNIQUE, .key = name, \
 	  .offset = offsetof(struct service_settings, field), \
@@ -164,18 +165,12 @@ const struct setting_parser_info service_setting_parser_info = {
 
 	.type_offset1 = 1 + offsetof(struct service_settings, name),
 	.struct_size = sizeof(struct service_settings),
-
-	.parent = &master_setting_parser_info
+	.pool_offset1 = 1 + offsetof(struct service_settings, pool),
 };
 
 #undef DEF
-#undef DEFLIST_UNIQUE
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct master_settings)
-#define DEFLIST_UNIQUE(field, name, defines) \
-	{ .type = SET_DEFLIST_UNIQUE, .key = name, \
-	  .offset = offsetof(struct master_settings, field), \
-	  .list_info = defines }
 
 static const struct setting_define master_setting_defines[] = {
 	DEF(STR, base_dir),
@@ -200,7 +195,9 @@ static const struct setting_define master_setting_defines[] = {
 	DEF(UINT, first_valid_gid),
 	DEF(UINT, last_valid_gid),
 
-	DEFLIST_UNIQUE(services, "service", &service_setting_parser_info),
+	{ .type = SET_FILTER_ARRAY, .key = "service",
+	  .offset = offsetof(struct master_settings, services),
+	  .filter_array_field_name = "name", },
 
 	SETTING_DEFINE_LIST_END
 };
@@ -228,12 +225,7 @@ static const struct master_settings master_default_settings = {
 	.first_valid_gid = 1,
 	.last_valid_gid = 0,
 
-#ifndef CONFIG_BINARY
 	.services = ARRAY_INIT
-#else
-	.services = { { &config_all_services_buf,
-			     sizeof(struct service_settings *) } },
-#endif
 };
 
 const struct setting_parser_info master_setting_parser_info = {
@@ -244,7 +236,7 @@ const struct setting_parser_info master_setting_parser_info = {
 
 	.struct_size = sizeof(struct master_settings),
 	.pool_offset1 = 1 + offsetof(struct master_settings, pool),
-	.check_func = master_settings_verify
+	.ext_check_func = master_settings_ext_check
 };
 
 /* <settings checks> */
@@ -371,7 +363,7 @@ services_have_protocol(struct master_settings *set, const char *name)
 {
 	struct service_settings *service;
 
-	array_foreach_elem(&set->services, service) {
+	array_foreach_elem(&set->parsed_services, service) {
 		if (strcmp(service->protocol, name) == 0)
 			return TRUE;
 	}
@@ -382,12 +374,9 @@ services_have_protocol(struct master_settings *set, const char *name)
 static const struct service_settings *
 master_default_settings_get_service(const char *name)
 {
-	extern struct master_settings master_default_settings;
-	struct service_settings *set;
-
-	array_foreach_elem(&master_default_settings.services, set) {
-		if (strcmp(set->name, name) == 0)
-			return set;
+	for (unsigned int i = 0; config_all_services[i].set != NULL; i++) {
+		if (strcmp(config_all_services[i].set->name, name) == 0)
+			return config_all_services[i].set;
 	}
 	return NULL;
 }
@@ -398,7 +387,7 @@ service_get_client_limit(struct master_settings *set, const char *name)
 {
 	struct service_settings *service;
 
-	array_foreach_elem(&set->services, service) {
+	array_foreach_elem(&set->parsed_services, service) {
 		if (strcmp(service->name, name) == 0) {
 			if (service->client_limit != 0)
 				return service->client_limit;
@@ -418,7 +407,38 @@ static bool service_is_enabled(const struct master_settings *set,
 }
 
 static bool
-master_settings_verify(void *_set, pool_t pool, const char **error_r)
+master_settings_get_services(struct master_settings *set, pool_t pool,
+			     struct event *event, const char **error_r)
+{
+	const struct service_settings *service_set;
+	const char *service_name, *error;
+
+	p_array_init(&set->parsed_services, pool,
+		     array_count(&set->services));
+	array_foreach_elem(&set->services, service_name) {
+		if (settings_get_filter(event, "service", service_name,
+					&service_setting_parser_info,
+					SETTINGS_GET_FLAG_NO_CHECK |
+					SETTINGS_GET_FLAG_FAKE_EXPAND,
+					&service_set, &error) < 0) {
+			*error_r = t_strdup_printf(
+				"Failed to get service %s: %s",
+				service_name, error);
+			return FALSE;
+		}
+		struct service_settings *service_set_dup =
+			p_memdup(pool, service_set, sizeof(*service_set));
+
+		pool_add_external_ref(pool, service_set->pool);
+		array_push_back(&set->parsed_services, &service_set_dup);
+		settings_free(service_set);
+	}
+	return TRUE;
+}
+
+static bool
+master_settings_ext_check(struct event *event, void *_set,
+			  pool_t pool, const char **error_r)
 {
 	static bool warned_auth = FALSE, warned_anvil = FALSE;
 	struct master_settings *set = _set;
@@ -476,10 +496,16 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	   structure validity is checked later while creating them. */
 	if (!array_is_created(&set->services) ||
 	    array_count(&set->services) == 0) {
+#ifdef CONFIG_BINARY
+		return TRUE;
+#else
 		*error_r = "No services defined";
 		return FALSE;
+#endif
 	}
-	services = array_get(&set->services, &count);
+	if (!master_settings_get_services(set, pool, event, error_r))
+		return FALSE;
+	services = array_get(&set->parsed_services, &count);
 	for (i = 0; i < count; i++) {
 		struct service_settings *service = services[i];
 
@@ -667,7 +693,7 @@ login_want_core_dumps(const struct master_settings *set, gid_t *gid_r)
 
 	*gid_r = (gid_t)-1;
 
-	array_foreach_elem(&set->services, service) {
+	array_foreach_elem(&set->parsed_services, service) {
 		if (service->parsed_type == SERVICE_TYPE_LOGIN) {
 			if (service->login_dump_core)
 				cores = TRUE;
@@ -813,7 +839,7 @@ static void mkdir_listener_subdirs(const struct master_settings *set)
 	   base_dir. */
 	t_array_init(&subdir_listeners, 16);
 	base_prefix = t_strconcat(set->base_dir, "/", NULL);
-	array_foreach_elem(&set->services, service) {
+	array_foreach_elem(&set->parsed_services, service) {
 		if (!service_is_enabled(set, service))
 			continue;
 

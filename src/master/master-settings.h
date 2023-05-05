@@ -25,7 +25,9 @@ struct master_settings {
 	unsigned int first_valid_uid, last_valid_uid;
 	unsigned int first_valid_gid, last_valid_gid;
 
-	ARRAY_TYPE(service_settings) services;
+	ARRAY_TYPE(const_string) services;
+
+	ARRAY_TYPE(service_settings) parsed_services;
 	char **protocols_split;
 };
 

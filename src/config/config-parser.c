@@ -52,8 +52,20 @@ void (*hook_config_parser_begin)(struct config_parser_context *ctx);
 int (*hook_config_parser_end)(struct config_parser_context *ctx,
 			      const char **error_r);
 
-static ARRAY_TYPE(service_settings) services_free_at_deinit = ARRAY_INIT;
+static ARRAY_TYPE(config_service) services_free_at_deinit = ARRAY_INIT;
 static ARRAY_TYPE(setting_parser_info_p) roots_free_at_deinit = ARRAY_INIT;
+
+static struct config_filter_parser *
+config_filter_parser_find(struct config_parser_context *ctx,
+			  const struct config_filter *filter);
+static struct config_section_stack *
+config_add_new_section(struct config_parser_context *ctx);
+static void
+config_add_new_parser(struct config_parser_context *ctx,
+		      struct config_section_stack *cur_section);
+static int
+config_apply_exact_line(struct config_parser_context *ctx, const char *key,
+			const char *line, const char *section_name);
 
 void config_parser_set_change_counter(struct config_parser_context *ctx,
 				      uint8_t change_counter)
@@ -66,29 +78,100 @@ void config_parser_set_change_counter(struct config_parser_context *ctx,
 	}
 }
 
-static void
-config_parser_add_service_defaults(struct config_parser_context *ctx)
+static struct config_section_stack *
+config_parser_add_filter_array(struct config_parser_context *ctx,
+			       const char *filter_key, const char *name)
 {
-	for (unsigned int i = 0; config_all_services[i].set != NULL; i++) {
+	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
+	const char *line = t_strdup_printf("%s=%s", filter_key, name);
+	if (config_apply_exact_line(ctx, filter_key, line, NULL) < 0) {
+		i_panic("Failed to add %s %s: %s", filter_key, name,
+			ctx->error);
+	}
+	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
+
+	struct config_section_stack *section;
+	section = config_add_new_section(ctx);
+	section->filter.filter_name =
+		p_strdup_printf(ctx->pool, "%s/%s", filter_key, name);
+	section->filter.filter_name_array = TRUE;
+	section->is_filter = TRUE;
+	/* use cur_section's filter_parser as parent */
+	section->filter_parser = ctx->cur_section->filter_parser;
+	config_add_new_parser(ctx, section);
+	section->filter_parser->filter_required_setting_seen = TRUE;
+	return section;
+}
+
+static void
+config_parser_add_service_default_struct(struct config_parser_context *ctx,
+					 unsigned int service_root_idx,
+					 const struct service_settings *default_set)
+{
+	const struct setting_parser_info *info = all_roots[service_root_idx];
+	string_t *line = t_str_new(64);
+	bool dump;
+
+	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
+	for (unsigned int i = 0; info->defines[i].key != NULL; i++) {
+		const void *value = CONST_PTR_OFFSET(default_set,
+						     info->defines[i].offset);
+		i_assert(value != NULL);
+
+		str_truncate(line, 0);
+		str_append(line, info->defines[i].key);
+		str_append_c(line, '=');
+		if (!config_export_type(line, value, NULL,
+					info->defines[i].type, TRUE, &dump))
+			continue;
+
+		if (config_apply_line(ctx, info->defines[i].key,
+				      str_c(line), NULL, NULL) < 0) {
+			i_panic("Failed to add default setting %s for service %s: %s",
+				str_c(line),
+				default_set->name, ctx->error);
+		}
+	}
+	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
+}
+
+static void
+config_parser_add_service_default_keyvalues(struct config_parser_context *ctx,
+					    const char *service_name,
+					    const struct setting_keyvalue *defaults)
+{
+	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
+	for (unsigned int i = 0; defaults[i].key != NULL; i++) T_BEGIN {
+		const char *line = t_strdup_printf("%s=%s",
+			defaults[i].key, defaults[i].value);
+		if (config_apply_line(ctx, defaults[i].key, line, NULL, NULL) < 0)
+			i_panic("Failed to add default setting %s for service %s: %s",
+				line, service_name, ctx->error);
+	} T_END;
+	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
+}
+
+static void config_parser_add_services(struct config_parser_context *ctx,
+				       unsigned int service_root_idx)
+{
+	struct config_section_stack *orig_section = ctx->cur_section;
+
+	for (unsigned int i = 0; config_all_services[i].set != NULL; i++) T_BEGIN {
 		const struct service_settings *set = config_all_services[i].set;
+		struct config_section_stack *section =
+			config_parser_add_filter_array(ctx, "service",
+						       set->name);
+		ctx->cur_section = section;
+		config_parser_add_service_default_struct(ctx, service_root_idx, set);
+
 		const struct setting_keyvalue *defaults =
 			config_all_services[i].defaults;
 		if (defaults != NULL) {
-			config_parser_set_change_counter(ctx,
-				CONFIG_PARSER_CHANGE_INTERNAL);
-			for (unsigned int j = 0; defaults[j].key != NULL; j++) T_BEGIN {
-				const char *key = t_strdup_printf("service/%s/%s",
-					set->name, defaults[j].key);
-				const char *line = t_strdup_printf("%s=%s",
-					key, defaults[j].value);
-				if (config_apply_line(ctx, key, line, NULL, NULL) < 0)
-					i_panic("Failed to add default setting %s for service %s: %s",
-						line, set->name, ctx->error);
-			} T_END;
-			config_parser_set_change_counter(ctx,
-				CONFIG_PARSER_CHANGE_EXPLICIT);
+			config_parser_add_service_default_keyvalues(
+				ctx, set->name, defaults);
 		}
-	}
+		ctx->cur_section = orig_section;
+	} T_END;
 }
 
 static const char *info_type_name_find(const struct setting_parser_info *info)
@@ -229,7 +312,33 @@ int config_apply_line(struct config_parser_context *ctx, const char *key,
 		      const char *line, const char *section_name,
 		      const char **full_key_r)
 {
+	struct config_filter orig_filter = ctx->cur_section->filter;
+	struct config_module_parser *orig_module_parsers =
+		ctx->cur_section->module_parsers;
+	struct config_filter_parser *filter_parser, *orig_filter_parser;
+	const char *p;
 	int ret = 0;
+
+	orig_filter_parser = ctx->cur_section->filter_parser;
+	while ((p = strchr(line, '/')) != NULL &&
+	       (p = strchr(p + 1, '/')) != NULL) {
+		/* Support e.g. service/imap/inet_listener/imap prefix here.
+		   These prefixes are used by default settings and
+		   old-set-parser. */
+		struct config_filter filter = {
+			.parent = &ctx->cur_section->filter,
+			.filter_name = t_strdup_until(line, p),
+			.filter_name_array = TRUE,
+		};
+		filter_parser = config_filter_parser_find(ctx, &filter);
+		if (filter_parser == NULL)
+			break;
+		line = p + 1;
+		ctx->cur_section->filter_parser = filter_parser;
+		ctx->cur_section->module_parsers =
+			ctx->cur_section->filter_parser->module_parsers;
+		ctx->cur_section->filter = filter_parser->filter;
+	}
 
 	if (ctx->cur_section->filter.filter_name_array) {
 		/* first try the filter name-specific prefix, so e.g.
@@ -248,6 +357,9 @@ int config_apply_line(struct config_parser_context *ctx, const char *key,
 		if (full_key_r != NULL)
 			*full_key_r = key;
 	}
+	ctx->cur_section->filter_parser = orig_filter_parser;
+	ctx->cur_section->module_parsers = orig_module_parsers;
+	ctx->cur_section->filter = orig_filter;
 	if (ret == 0) {
 		ctx->error = p_strconcat(ctx->pool, "Unknown setting: ",
 					 get_setting_full_path(ctx, key), NULL);
@@ -312,9 +424,9 @@ config_module_parsers_init(pool_t pool)
 }
 
 static void
-config_add_new_parser(struct config_parser_context *ctx)
+config_add_new_parser(struct config_parser_context *ctx,
+		      struct config_section_stack *cur_section)
 {
-	struct config_section_stack *cur_section = ctx->cur_section;
 	struct config_filter_parser *filter_parser;
 
 	filter_parser = p_new(ctx->pool, struct config_filter_parser, 1);
@@ -538,6 +650,13 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 					key, t_strcut(parent->filter_name, '/'));
 				return FALSE;
 			}
+			if (strcmp(key, "service") == 0 &&
+			    parent->filter_name_array) {
+				ctx->error = p_strdup_printf(ctx->pool,
+					"%s { .. } not allowed under %s { .. }",
+					key, t_strcut(parent->filter_name, '/'));
+				return FALSE;
+			}
 			if (value[0] == '\0' && !line->value_quoted) {
 				ctx->error = p_strdup_printf(ctx->pool,
 					"%s { } is missing section name", key);
@@ -567,7 +686,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 					ctx->error);
 			}
 		}
-		config_add_new_parser(ctx);
+		config_add_new_parser(ctx, ctx->cur_section);
 	}
 	ctx->cur_section->is_filter = TRUE;
 
@@ -1331,7 +1450,10 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	for (count = 0; all_roots[count] != NULL; count++) ;
 	ctx.root_module_parsers =
 		p_new(ctx.pool, struct config_module_parser, count+1);
+	unsigned int service_root_idx = UINT_MAX;
 	for (i = 0; i < count; i++) {
+		if (strcmp(all_roots[i]->name, "service") == 0)
+			service_root_idx = i;
 		ctx.root_module_parsers[i].root = all_roots[i];
 		ctx.root_module_parsers[i].parser =
 			settings_parser_init(ctx.pool, all_roots[i],
@@ -1348,6 +1470,8 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 			}
 		}
 	}
+	i_assert(service_root_idx != UINT_MAX ||
+		 (flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) != 0);
 
 	i_zero(&root);
 	root.path = path;
@@ -1357,7 +1481,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 
 	p_array_init(&ctx.all_filter_parsers, ctx.pool, 128);
 	ctx.cur_section = p_new(ctx.pool, struct config_section_stack, 1);
-	config_add_new_parser(&ctx);
+	config_add_new_parser(&ctx, ctx.cur_section);
 
 	ctx.str = str_new(ctx.pool, 256);
 	full_line = str_new(default_pool, 512);
@@ -1366,7 +1490,8 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 		i_stream_create_from_data("", 0);
 	i_stream_set_return_partial_line(ctx.cur_input->input, TRUE);
 	old_settings_init(&ctx);
-	config_parser_add_service_defaults(&ctx);
+	if ((flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) == 0)
+		config_parser_add_services(&ctx, service_root_idx);
 	if (hook_config_parser_begin != NULL) T_BEGIN {
 		hook_config_parser_begin(&ctx);
 	} T_END;
@@ -1449,14 +1574,20 @@ void config_module_parsers_free(struct config_module_parser *parsers)
 		settings_parser_unref(&parsers[i].parser);
 }
 
+static int config_service_cmp(const struct config_service *s1,
+			      const struct config_service *s2)
+{
+	return strcmp(s1->set->name, s2->set->name);
+}
+
 void config_parse_load_modules(void)
 {
 	struct module_dir_load_settings mod_set;
 	struct module *m;
 	const struct setting_parser_info **roots;
 	ARRAY_TYPE(setting_parser_info_p) new_roots;
-	ARRAY_TYPE(service_settings) new_services;
-	struct service_settings *const *services, *service_set;
+	ARRAY_TYPE(config_service) new_services;
+	const struct config_service *services;
 	unsigned int i, count;
 
 	i_zero(&mod_set);
@@ -1475,15 +1606,19 @@ void config_parse_load_modules(void)
 		}
 
 		services = module_get_symbol_quiet(m,
-			t_strdup_printf("%s_service_settings_array", m->name));
+			t_strdup_printf("%s_services_array", m->name));
 		if (services != NULL) {
-			for (count = 0; services[count] != NULL; count++) ;
+			for (count = 0; services[count].set != NULL; count++) ;
 			array_append(&new_services, services, count);
 		} else {
-			service_set = module_get_symbol_quiet(m,
+			struct config_service new_service = { };
+			new_service.set = module_get_symbol_quiet(m,
 				t_strdup_printf("%s_service_settings", m->name));
-			if (service_set != NULL)
-				array_push_back(&new_services, &service_set);
+			if (new_service.set != NULL) {
+				new_service.defaults = module_get_symbol_quiet(m,
+					t_strdup_printf("%s_service_settings_defaults", m->name));
+				array_push_back(&new_services, &new_service);
+			}
 		}
 	}
 	if (array_count(&new_roots) > 0) {
@@ -1499,10 +1634,11 @@ void config_parse_load_modules(void)
 	}
 	if (array_count(&new_services) > 0) {
 		/* module added new services. update the defaults. */
-		services = array_get(default_services, &count);
-		for (i = 0; i < count; i++)
-			array_push_back(&new_services, &services[i]);
-		*default_services = new_services;
+		for (i = 0; config_all_services[i].set != NULL; i++)
+			array_push_back(&new_services, &config_all_services[i]);
+		array_sort(&new_services, config_service_cmp);
+		array_append_zero(&new_services);
+		config_all_services = array_front(&new_services);
 		services_free_at_deinit = new_services;
 	} else {
 		array_free(&new_services);
