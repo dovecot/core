@@ -76,6 +76,28 @@ static const char *imap_parse_date_internal(const char *str, struct tm *tm)
 		(str[2]-'0') * 10 + (str[3]-'0') - 1900;
 
 	str += 4;
+	
+	/* check if day is correct */
+
+    	int month_len = 31;
+
+	/* 30 on Apr, Jun, Sep, Nov */
+    	if (tm->tm_mon == 3 || tm->tm_mon == 5 || tm->tm_mon == 8 || tm->tm_mon == 10)
+		month_len = 30;
+		/* 28 or 29 on Feb */
+    	else if (tm->tm_mon == 1) {
+		int year = tm->tm_year + 1900;
+		if ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0)
+	    		month_len = 29;
+		else
+	    		month_len = 28;
+    	}
+
+    	if (tm->tm_mday < 1 || tm->tm_mday > month_len)
+		return NULL;
+
+	/* end check on day*/
+	
 	return str;
 }
 
