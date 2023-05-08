@@ -31,6 +31,7 @@ print '#define CONFIG_BINARY'."\n";
 print 'extern buffer_t config_all_services_buf;';
 
 my @services = ();
+my %service_defaults = {};
 my @service_ifdefs = ();
 my %parsers = {};
 
@@ -69,6 +70,9 @@ foreach my $file (@ARGV) {
 	}
 	push @services, $1;
 	push @service_ifdefs, $ifdef;
+      } elsif (/^const struct setting_keyvalue (.*_defaults)\[\] = \{/) {
+        $service_defaults{$1} = 1;
+        $state++;
       } elsif (/^(static )?const struct setting_parser_info (.*) = \{/) {
 	$cur_name = $2;
 	if (/^const/ && $cur_name !~ /^\*/) {
@@ -150,7 +154,7 @@ foreach my $file (@ARGV) {
   close $f;
 }
 
-print "static struct service_settings *config_all_services[] = {\n";
+print "static struct service_settings *config_default_service_settings[] = {\n";
 
 for (my $i = 0; $i < scalar(@services); $i++) {
   my $ifdef = $service_ifdefs[$i];
@@ -160,7 +164,21 @@ for (my $i = 0; $i < scalar(@services); $i++) {
 }
 print "};\n";
 print "buffer_t config_all_services_buf = {\n";
-print "\t{ { config_all_services, sizeof(config_all_services) } }\n";
+print "\t{ { config_default_service_settings, sizeof(config_default_service_settings) } }\n";
+print "};\n";
+
+print "static const struct config_service config_default_services[] = {\n";
+for (my $i = 0; $i < scalar(@services); $i++) {
+  my $ifdef = $service_ifdefs[$i];
+  print "$ifdef\n" if ($ifdef ne "");
+  my $defaults = "NULL";
+  if (defined($service_defaults{$services[$i]."_defaults"})) {
+    $defaults = $services[$i]."_defaults";
+  }
+  print "\t{ &".$services[$i].", $defaults },\n";
+  print "#endif\n" if ($ifdef ne "");
+}
+print "\t{ NULL, NULL }\n";
 print "};\n";
 
 print "const struct setting_parser_info *all_default_roots[] = {\n";
@@ -174,3 +192,4 @@ print "\tNULL\n";
 print "};\n";
 print "const struct setting_parser_info *const *all_roots = all_default_roots;\n";
 print "ARRAY_TYPE(service_settings) *default_services = &master_default_settings.services;\n";
+print "const struct config_service *config_all_services = config_default_services;\n";

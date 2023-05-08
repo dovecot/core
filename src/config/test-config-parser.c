@@ -14,6 +14,9 @@
 static ARRAY_TYPE(service_settings) services = ARRAY_INIT;
 ARRAY_TYPE(service_settings) *default_services = &services;
 
+static const struct config_service test_config_all_services[] = { { NULL, NULL } };
+const struct config_service *config_all_services = test_config_all_services;
+
 struct test_settings {
 	const char *key;
 	const char *key2;

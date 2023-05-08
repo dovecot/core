@@ -55,6 +55,42 @@ int (*hook_config_parser_end)(struct config_parser_context *ctx,
 static ARRAY_TYPE(service_settings) services_free_at_deinit = ARRAY_INIT;
 static ARRAY_TYPE(setting_parser_info_p) roots_free_at_deinit = ARRAY_INIT;
 
+void config_parser_set_change_counter(struct config_parser_context *ctx,
+				      uint8_t change_counter)
+{
+	struct config_module_parser *module_parsers =
+		ctx->cur_section->module_parsers;
+	for (unsigned int i = 0; module_parsers[i].root != NULL; i++) {
+		settings_parse_set_change_counter(module_parsers[i].parser,
+						  change_counter);
+	}
+}
+
+static void
+config_parser_add_service_defaults(struct config_parser_context *ctx)
+{
+	for (unsigned int i = 0; config_all_services[i].set != NULL; i++) {
+		const struct service_settings *set = config_all_services[i].set;
+		const struct setting_keyvalue *defaults =
+			config_all_services[i].defaults;
+		if (defaults != NULL) {
+			config_parser_set_change_counter(ctx,
+				CONFIG_PARSER_CHANGE_INTERNAL);
+			for (unsigned int j = 0; defaults[j].key != NULL; j++) T_BEGIN {
+				const char *key = t_strdup_printf("service/%s/%s",
+					set->name, defaults[j].key);
+				const char *line = t_strdup_printf("%s=%s",
+					key, defaults[j].value);
+				if (config_apply_line(ctx, key, line, NULL, NULL) < 0)
+					i_panic("Failed to add default setting %s for service %s: %s",
+						line, set->name, ctx->error);
+			} T_END;
+			config_parser_set_change_counter(ctx,
+				CONFIG_PARSER_CHANGE_EXPLICIT);
+		}
+	}
+}
+
 static const char *info_type_name_find(const struct setting_parser_info *info)
 {
 	unsigned int i;
@@ -1330,6 +1366,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 		i_stream_create_from_data("", 0);
 	i_stream_set_return_partial_line(ctx.cur_input->input, TRUE);
 	old_settings_init(&ctx);
+	config_parser_add_service_defaults(&ctx);
 	if (hook_config_parser_begin != NULL) T_BEGIN {
 		hook_config_parser_begin(&ctx);
 	} T_END;

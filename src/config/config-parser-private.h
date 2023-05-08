@@ -82,5 +82,7 @@ int config_apply_line(struct config_parser_context *ctx, const char *key,
 		      const char **full_key_r) ATTR_NULL(4, 5);
 void config_parser_apply_line(struct config_parser_context *ctx,
 			      const struct config_line *line);
+void config_parser_set_change_counter(struct config_parser_context *ctx,
+				      uint8_t change_counter);
 
 #endif

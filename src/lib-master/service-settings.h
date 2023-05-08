@@ -22,6 +22,11 @@ enum service_type {
 	   warnings about temporarily reaching the limit. */
 	SERVICE_TYPE_WORKER,
 };
+
+struct config_service {
+	const struct service_settings *set;
+	const struct setting_keyvalue *defaults;
+};
 /* </settings checks> */
 
 struct file_listener_settings {
