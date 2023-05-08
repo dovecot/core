@@ -5,8 +5,6 @@
 #include "settings-parser.h"
 #include "smtp-submit-settings.h"
 
-#include <stddef.h>
-
 static bool smtp_submit_settings_check(void *_set, pool_t pool, const char **error_r);
 
 #undef DEF

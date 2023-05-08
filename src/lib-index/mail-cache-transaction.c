@@ -12,7 +12,6 @@
 #include "mail-cache-private.h"
 #include "mail-index-transaction-private.h"
 
-#include <stddef.h>
 #include <sys/stat.h>
 
 #define MAIL_CACHE_INIT_WRITE_BUFFER (1024*16)

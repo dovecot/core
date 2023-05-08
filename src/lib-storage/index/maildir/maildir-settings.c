@@ -5,8 +5,6 @@
 #include "mail-storage-settings.h"
 #include "maildir-settings.h"
 
-#include <stddef.h>
-
 #undef DEF
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct maildir_settings)

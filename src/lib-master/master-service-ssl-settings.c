@@ -6,8 +6,6 @@
 #include "master-service-ssl-settings.h"
 #include "iostream-ssl.h"
 
-#include <stddef.h>
-
 #undef DEF
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct master_service_ssl_settings)

@@ -10,8 +10,6 @@
 #include "service-settings.h"
 #include "auth-settings.h"
 
-#include <stddef.h>
-
 static bool auth_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool auth_passdb_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool auth_userdb_settings_check(void *_set, pool_t pool, const char **error_r);

@@ -14,7 +14,6 @@
 #include "settings-parser.h"
 #include "master-settings.h"
 
-#include <stddef.h>
 #include <dirent.h>
 #include <unistd.h>
 #include <sys/stat.h>

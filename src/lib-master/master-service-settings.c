@@ -18,7 +18,6 @@
 #include "master-service-ssl-settings.h"
 #include "master-service-settings.h"
 
-#include <stddef.h>
 #include <unistd.h>
 #include <time.h>
 #include <sys/stat.h>

@@ -5,7 +5,6 @@
 #include "settings-parser.h"
 #include "service-settings.h"
 
-#include <stddef.h>
 #include <unistd.h>
 
 struct service_settings imap_hibernate_service_settings = {

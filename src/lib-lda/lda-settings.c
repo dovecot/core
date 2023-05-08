@@ -7,8 +7,6 @@
 #include "smtp-submit-settings.h"
 #include "lda-settings.h"
 
-#include <stddef.h>
-
 static bool lda_settings_check(void *_set, pool_t pool, const char **error_r);
 
 #undef DEF

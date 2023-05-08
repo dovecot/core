@@ -10,8 +10,6 @@
 #include "auth-common.h"
 #include "db-sql.h"
 
-#include <stddef.h>
-
 #define DEF_STR(name) DEF_STRUCT_STR(name, db_sql_settings)
 #define DEF_INT(name) DEF_STRUCT_INT(name, db_sql_settings)
 #define DEF_BOOL(name) DEF_STRUCT_BOOL(name, db_sql_settings)

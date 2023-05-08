@@ -53,7 +53,6 @@
 #include "mbox-lock.h"
 #include "mbox-sync-private.h"
 
-#include <stddef.h>
 #include <utime.h>
 #include <sys/stat.h>
 

@@ -10,8 +10,6 @@
 #include "mmap-util.h"
 #include "mail-cache-private.h"
 
-#include <stddef.h>
-
 #define CACHE_FIELD_IS_NEWLY_WANTED(cache, field_idx) \
 	((cache)->field_file_map[field_idx] == (uint32_t)-1 && \
 	 (cache)->fields[field_idx].used)

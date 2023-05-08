@@ -9,7 +9,6 @@
 #include "master-service-ssl-settings.h"
 #include "login-settings.h"
 
-#include <stddef.h>
 #include <unistd.h>
 
 static bool login_settings_check(void *_set, pool_t pool, const char **error_r);

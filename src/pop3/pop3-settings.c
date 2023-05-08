@@ -7,7 +7,6 @@
 #include "mail-storage-settings.h"
 #include "pop3-settings.h"
 
-#include <stddef.h>
 #include <unistd.h>
 
 static bool pop3_settings_verify(void *_set, pool_t pool,

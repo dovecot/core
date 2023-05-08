@@ -7,8 +7,6 @@
 #include "login-settings.h"
 #include "pop3-protocol.h"
 
-#include <stddef.h>
-
 struct service_settings pop3_login_service_settings = {
 	.name = "pop3-login",
 	.protocol = "pop3",

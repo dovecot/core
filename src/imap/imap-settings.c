@@ -9,7 +9,6 @@
 #include "smtp-submit-settings.h"
 #include "imap-settings.h"
 
-#include <stddef.h>
 #include <unistd.h>
 
 static bool imap_settings_verify(void *_set, pool_t pool,

@@ -18,8 +18,6 @@
 #include "mail-storage-settings.h"
 #include "iostream-ssl.h"
 
-#include <stddef.h>
-
 static bool mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool, const char **error_r);
 static bool namespace_settings_ext_check(struct event *event, void *_set, pool_t pool, const char **error_r);
 static bool mailbox_settings_check(void *_set, pool_t pool, const char **error_r);

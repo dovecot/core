@@ -184,7 +184,6 @@
 #include "maildir-sync.h"
 
 #include <stdio.h>
-#include <stddef.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/stat.h>

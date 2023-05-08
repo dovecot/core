@@ -7,8 +7,6 @@
 #include "login-settings.h"
 #include "imap-login-settings.h"
 
-#include <stddef.h>
-
 struct service_settings imap_login_service_settings = {
 	.name = "imap-login",
 	.protocol = "imap",

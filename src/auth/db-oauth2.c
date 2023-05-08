@@ -21,8 +21,6 @@
 #include "dcrypt.h"
 #include "dict.h"
 
-#include <stddef.h>
-
 struct passdb_oauth2_settings {
 	/* tokeninfo endpoint, format https://endpoint/somewhere?token= */
 	const char *tokeninfo_url;

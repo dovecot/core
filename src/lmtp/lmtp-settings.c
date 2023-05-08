@@ -11,7 +11,6 @@
 #include "lmtp-settings.h"
 #include "mail-storage-settings.h"
 
-#include <stddef.h>
 #include <unistd.h>
 
 static bool lmtp_settings_check(void *_set, pool_t pool, const char **error_r);

@@ -6,7 +6,6 @@
 #include "service-settings.h"
 #include "imap-urlauth-settings.h"
 
-#include <stddef.h>
 #include <unistd.h>
 
 struct service_settings imap_urlauth_service_settings = {

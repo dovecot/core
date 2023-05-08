@@ -6,8 +6,6 @@
 #include "service-settings.h"
 #include "login-settings.h"
 
-#include <stddef.h>
-
 struct service_settings imap_urlauth_login_service_settings = {
 	.name = "imap-urlauth-login",
 	.protocol = "imap",

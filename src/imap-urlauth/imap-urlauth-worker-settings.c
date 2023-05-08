@@ -8,7 +8,6 @@
 #include "imap-urlauth-worker-common.h"
 #include "imap-urlauth-worker-settings.h"
 
-#include <stddef.h>
 #include <unistd.h>
 
 struct service_settings imap_urlauth_worker_service_settings = {

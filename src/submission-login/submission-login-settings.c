@@ -8,8 +8,6 @@
 #include "login-settings.h"
 #include "submission-login-settings.h"
 
-#include <stddef.h>
-
 static bool
 submission_login_settings_check(void *_set, pool_t pool, const char **error_r);
 

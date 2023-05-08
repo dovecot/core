@@ -17,7 +17,6 @@
 #include "userdb.h"
 #include "db-ldap.h"
 
-#include <stddef.h>
 #include <unistd.h>
 
 #define HAVE_LDAP_SASL

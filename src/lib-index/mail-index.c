@@ -21,7 +21,6 @@
 #include "mail-cache.h"
 
 #include <stdio.h>
-#include <stddef.h>
 #include <time.h>
 #include <sys/stat.h>
 #include <ctype.h>

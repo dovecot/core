@@ -9,7 +9,6 @@
 #include "mail-index-private.h"
 #include "mail-transaction-log-private.h"
 
-#include <stddef.h>
 #include <stdio.h>
 #include <sys/stat.h>
 

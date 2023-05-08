@@ -13,8 +13,6 @@
 #include "auth-worker-server.h"
 #include "db-dict.h"
 
-#include <stddef.h>
-
 enum dict_settings_section {
 	DICT_SETTINGS_SECTION_ROOT = 0,
 	DICT_SETTINGS_SECTION_KEY,

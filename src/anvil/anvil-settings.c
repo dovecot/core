@@ -5,8 +5,6 @@
 #include "settings-parser.h"
 #include "service-settings.h"
 
-#include <stddef.h>
-
 struct service_settings anvil_service_settings = {
 	.name = "anvil",
 	.protocol = "",

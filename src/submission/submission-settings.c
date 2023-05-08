@@ -8,7 +8,6 @@
 #include "mail-storage-settings.h"
 #include "submission-settings.h"
 
-#include <stddef.h>
 #include <unistd.h>
 
 static bool submission_settings_verify(void *_set, pool_t pool,

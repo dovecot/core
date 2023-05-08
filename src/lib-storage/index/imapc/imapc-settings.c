@@ -5,8 +5,6 @@
 #include "mail-storage-settings.h"
 #include "imapc-settings.h"
 
-#include <stddef.h>
-
 #undef DEF
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct imapc_settings)

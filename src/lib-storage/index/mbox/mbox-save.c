@@ -23,7 +23,6 @@
 #include "mbox-md5.h"
 #include "mbox-sync-private.h"
 
-#include <stddef.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
