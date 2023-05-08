@@ -800,6 +800,8 @@ imap_msgpart_vsizes_to_binary(struct mail *mail, const struct message_part *part
 	**binpart_r = *part;
 	(*binpart_r)->body_size.virtual_size = bprops.size;
 	(*binpart_r)->body_size.lines = bprops.lines;
+	if (bprops.binary)
+		(*binpart_r)->data->content_transfer_encoding = "binary";
 
 	pos = &(*binpart_r)->children;
 	for (part = part->children; part != NULL; part = part->next) {
