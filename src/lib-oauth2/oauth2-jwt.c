@@ -337,14 +337,8 @@ static int
 oauth2_jwt_header_process(struct json_tree *tree, const char **alg_r,
 			  const char **kid_r, const char **error_r)
 {
-	const char *typ = get_field(tree, "typ", NULL);
 	const char *alg = get_field(tree, "alg", NULL);
 	const char *kid = get_field(tree, "kid", NULL);
-
-	if (typ != NULL && strcasecmp(typ, "JWT") != 0) {
-		*error_r = t_strdup_printf("Unsupported typ value '%s'", typ);
-		return -1;
-	}
 
 	if (alg == NULL) {
 		*error_r = "Cannot find 'alg' field";
