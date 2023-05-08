@@ -735,6 +735,10 @@ config_dump_human(enum config_dump_scope scope,
 	const char *const *set_filter_path =
 		setting_name_filter == NULL ? empty_str_array :
 		t_strsplit(setting_name_filter, "/");
+	if (scope == CONFIG_DUMP_SCOPE_CHANGED)
+		scope = CONFIG_DUMP_SCOPE_SET;
+	else
+		scope = CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES;
 	config_dump_human_filter_path(scope, set_filter_path,
 				      filter_parser->children_head, output, 0,
 				      list_prefix, &list_prefix_sent,

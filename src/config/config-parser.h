@@ -5,6 +5,11 @@
 
 #define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
 
+/* change_counter used for default settings created internally */
+#define CONFIG_PARSER_CHANGE_INTERNAL 1
+/* change_counter used for settings changed by configuration file */
+#define CONFIG_PARSER_CHANGE_EXPLICIT 2
+
 struct config_parsed;
 
 enum config_parse_flags {

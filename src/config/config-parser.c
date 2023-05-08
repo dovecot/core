@@ -269,6 +269,8 @@ config_module_parsers_init(pool_t pool)
 		dest[i].root = all_roots[i];
 		dest[i].parser = settings_parser_init(pool, all_roots[i],
 						      settings_parser_flags);
+		settings_parse_set_change_counter(dest[i].parser,
+						  CONFIG_PARSER_CHANGE_EXPLICIT);
 	}
 	return dest;
 }
@@ -1298,6 +1300,8 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 		ctx.root_module_parsers[i].parser =
 			settings_parser_init(ctx.pool, all_roots[i],
 					     settings_parser_flags);
+		settings_parse_set_change_counter(ctx.root_module_parsers[i].parser,
+						  CONFIG_PARSER_CHANGE_EXPLICIT);
 		for (unsigned int j = 0; j < i; j++) {
 			if (strcmp(all_roots[j]->name, all_roots[i]->name) == 0) {
 				/* Just fatal - it's difficult to continue

@@ -269,12 +269,12 @@ config_dump_full_sections(struct config_parsed *config,
 		dump_ctx.filter_written = FALSE;
 		if (dest == CONFIG_DUMP_FULL_DEST_STDOUT) {
 			export_ctx = config_export_init(
-				CONFIG_DUMP_SCOPE_SET,
+				CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES,
 				CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS,
 				config_dump_full_stdout_callback, &dump_ctx);
 		} else {
 			export_ctx = config_export_init(
-				CONFIG_DUMP_SCOPE_SET,
+				CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES,
 				CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS,
 				config_dump_full_callback, &dump_ctx);
 		}
@@ -318,12 +318,13 @@ int config_dump_full(struct config_parsed *config,
 
 	if (dest == CONFIG_DUMP_FULL_DEST_STDOUT) {
 		export_ctx = config_export_init(
-				CONFIG_DUMP_SCOPE_CHANGED, flags,
-				config_dump_full_stdout_callback, &dump_ctx);
+				CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES,
+				flags, config_dump_full_stdout_callback,
+				&dump_ctx);
 	} else {
 		export_ctx = config_export_init(
-				CONFIG_DUMP_SCOPE_CHANGED, flags,
-				config_dump_full_callback, &dump_ctx);
+				CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES,
+				flags, config_dump_full_callback, &dump_ctx);
 	}
 	struct config_filter_parser *filter_parser =
 		config_parsed_get_global_filter_parser(config);

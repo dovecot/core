@@ -13,6 +13,9 @@ enum config_dump_scope {
 	CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN,
 	/* Dump all that have explicitly been set */
 	CONFIG_DUMP_SCOPE_SET,
+	/* Same as CONFIG_DUMP_SCOPE_SET, but also dump any defaults overridden
+	   via strings (instead of the defaults struct). */
+	CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES,
 	/* Dump only settings that differ from defaults */
 	CONFIG_DUMP_SCOPE_CHANGED
 };

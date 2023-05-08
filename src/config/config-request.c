@@ -241,9 +241,26 @@ settings_export(struct config_export_context *ctx,
 			/* hidden - dump default only if it's explicitly set */
 			/* fall through */
 		case CONFIG_DUMP_SCOPE_SET:
+			if (def->type == SET_DEFLIST ||
+			    def->type == SET_DEFLIST_UNIQUE)
+				break;
+			if (*((const uint8_t *)change_value) < CONFIG_PARSER_CHANGE_EXPLICIT) {
+				/* setting is unchanged in config file */
+				continue;
+			}
+			dump_default = TRUE;
+			break;
+		case CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES:
+			if (def->type == SET_DEFLIST ||
+			    def->type == SET_DEFLIST_UNIQUE)
+				break;
 			dump_default = *((const char *)change_value) != 0;
 			break;
 		case CONFIG_DUMP_SCOPE_CHANGED:
+			if (*((const uint8_t *)change_value) < CONFIG_PARSER_CHANGE_EXPLICIT) {
+				/* setting is unchanged in config file */
+				continue;
+			}
 			dump_default = FALSE;
 			break;
 		}
