@@ -83,7 +83,6 @@ static int parse_jwt_token(struct oauth2_request *req, const char *token,
 	struct oauth2_settings set;
 
 	i_zero(&set);
-	set.scope = "mail";
 	set.key_dict = keys_dict;
 	set.key_cache = key_cache;
 	i_zero(req);
