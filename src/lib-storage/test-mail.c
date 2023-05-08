@@ -109,8 +109,7 @@ test_mail_fetch_field(struct mail *mail, enum mail_fetch_field field)
 	const char *str;
 	time_t t;
 	uoff_t size;
-	unsigned int lines;
-	bool binary;
+	struct mail_binary_properties bprops;
 	int tz, ret = 0;
 
 	e_debug(test_event, "field=0x%x", field);
@@ -156,13 +155,13 @@ test_mail_fetch_field(struct mail *mail, enum mail_fetch_field field)
 		if (i_rand_limit(2) == 0) {
 			ret = mail_get_binary_stream(mail, parts,
 						     i_rand_limit(2) == 0,
-						     &size, &binary, &input);
+						     &bprops, &input);
 			if (ret == 0)
 				i_stream_unref(&input);
 		} else {
-			ret = mail_get_binary_size(mail, parts,
-						   i_rand_limit(2) == 0,
-						   &size, &lines);
+			ret = mail_get_binary_properties(mail, parts,
+							 i_rand_limit(2) == 0,
+							 &bprops);
 		}
 		break;
 	case MAIL_FETCH_IMAP_BODY:

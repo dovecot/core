@@ -554,10 +554,10 @@ struct mail_vfuncs {
 			  struct message_size *hdr_size,
 			  struct message_size *body_size,
 			  struct istream **stream_r);
-	int (*get_binary_stream)(struct mail *mail,
+	int (*get_binary_stream)(struct mail *_mail,
 				 const struct message_part *part,
-				 bool include_hdr, uoff_t *size_r,
-				 unsigned int *lines_r, bool *binary_r,
+				 bool include_hdr,
+				 struct mail_binary_properties *bprops_r,
 				 struct istream **stream_r);
 
 	int (*get_special)(struct mail *mail, enum mail_fetch_field field,

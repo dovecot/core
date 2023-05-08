@@ -12,6 +12,7 @@
 #include "ostream.h"
 #include "message-parser.h"
 #include "message-decoder.h"
+#include "message-part-data.h"
 #include "mail-storage-private.h"
 #include "mail-namespace.h"
 #include "imap-bodystructure.h"
@@ -673,6 +674,7 @@ int imap_msgpart_open(struct mail *mail, struct imap_msgpart *msgpart,
 	struct message_part *part;
 	uoff_t virtual_size;
 	bool include_hdr, binary, use_partial_cache, have_crlfs;
+	struct mail_binary_properties bprops;
 	int ret;
 
 	i_zero(result_r);
@@ -696,9 +698,10 @@ int imap_msgpart_open(struct mail *mail, struct imap_msgpart *msgpart,
 				return -1;
 		}
 		if (mail_get_binary_stream(mail, part, include_hdr,
-					   &virtual_size, &binary,
-					   &result_r->input) < 0)
+					   &bprops, &result_r->input) < 0)
 			return -1;
+		virtual_size = bprops.size;
+		binary = bprops.binary;
 		have_crlfs = TRUE;
 		use_partial_cache = FALSE;
 	} else {
@@ -723,7 +726,7 @@ int imap_msgpart_size(struct mail *mail, struct imap_msgpart *msgpart,
 	struct imap_msgpart_open_result result;
 	struct message_part *part;
 	bool include_hdr;
-	unsigned int lines;
+	struct mail_binary_properties bprops;
 	int ret;
 
 	if (!msgpart->decode_cte_to_binary ||
@@ -751,7 +754,10 @@ int imap_msgpart_size(struct mail *mail, struct imap_msgpart *msgpart,
 			return -1;
 	}
 	include_hdr = msgpart->fetch_type == FETCH_FULL;
-	return mail_get_binary_size(mail, part, include_hdr, size_r, &lines);
+	if (mail_get_binary_properties(mail, part, include_hdr, &bprops) < 0)
+		return -1;
+	*size_r = bprops.size;
+	return 0;
 }
 
 static int
@@ -785,16 +791,15 @@ imap_msgpart_vsizes_to_binary(struct mail *mail, const struct message_part *part
 			      struct message_part **binpart_r)
 {
 	struct message_part **pos;
-	uoff_t size;
-	unsigned int lines;
+	struct mail_binary_properties bprops;
 
-	if (mail_get_binary_size(mail, part, FALSE, &size, &lines) < 0)
+	if (mail_get_binary_properties(mail, part, FALSE, &bprops) < 0)
 		return -1;
 
 	*binpart_r = t_new(struct message_part, 1);
 	**binpart_r = *part;
-	(*binpart_r)->body_size.virtual_size = size;
-	(*binpart_r)->body_size.lines = lines;
+	(*binpart_r)->body_size.virtual_size = bprops.size;
+	(*binpart_r)->body_size.lines = bprops.lines;
 
 	pos = &(*binpart_r)->children;
 	for (part = part->children; part != NULL; part = part->next) {

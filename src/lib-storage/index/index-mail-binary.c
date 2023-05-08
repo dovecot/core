@@ -479,9 +479,10 @@ msg_part_find(struct message_part *parts, uoff_t physical_pos)
 }
 
 static int
-index_mail_get_binary_size(struct mail *_mail,
-			   const struct message_part *part, bool include_hdr,
-			   uoff_t *size_r, unsigned int *lines_r)
+index_mail_get_binary_properties(struct mail *_mail,
+				 const struct message_part *part,
+				 bool include_hdr,
+				 struct mail_binary_properties *bprops_r)
 {
 	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct message_part *all_parts, *msg_part;
@@ -494,7 +495,10 @@ index_mail_get_binary_size(struct mail *_mail,
 		return -1;
 
 	/* first lookup from cache */
-	if (!get_cached_binary_parts(mail)) {
+	if (get_cached_binary_parts(mail)) {
+		converted = (mail->data.bin_parts != NULL);
+		binary = converted || message_parts_have_nuls(all_parts);
+	} else {
 		/* not found. parse the whole message */
 		if (index_mail_read_binary_to_cache(_mail, all_parts, TRUE,
 						    "binary.size", &binary, &converted) < 0)
@@ -539,15 +543,20 @@ index_mail_get_binary_size(struct mail *_mail,
 			size -= part->header_size.virtual_size;
 		lines -= part->header_size.lines;
 	}
-	*size_r = size;
-	*lines_r = lines;
+
+	if (bprops_r != NULL) {
+		bprops_r->size = size;
+		bprops_r->lines = lines;
+		bprops_r->binary = binary;
+		bprops_r->converted = converted;
+	}
 	return 0;
 }
 
 int index_mail_get_binary_stream(struct mail *_mail,
 				 const struct message_part *part,
-				 bool include_hdr, uoff_t *size_r,
-				 unsigned int *lines_r, bool *binary_r,
+				 bool include_hdr,
+				 struct mail_binary_properties *bprops_r,
 				 struct istream **stream_r)
 {
 	struct index_mail *mail = INDEX_MAIL(_mail);
@@ -556,12 +565,9 @@ int index_mail_get_binary_stream(struct mail *_mail,
 	bool binary, converted;
 
 	if (stream_r == NULL) {
-		return index_mail_get_binary_size(_mail, part, include_hdr,
-						  size_r, lines_r);
+		return index_mail_get_binary_properties(_mail, part,
+							include_hdr, bprops_r);
 	}
-	/* current implementation doesn't bother implementing this,
-	   because it's not needed by anything. */
-	i_assert(lines_r == NULL);
 
 	/* FIXME: always put the header to temp file. skip it when needed. */
 	if (cache->box == _mail->box && cache->uid == _mail->uid &&
@@ -578,8 +584,14 @@ int index_mail_get_binary_stream(struct mail *_mail,
 			return -1;
 		mail->data.cache_fetch_fields |= MAIL_FETCH_STREAM_BINARY;
 	}
-	*size_r = cache->size;
-	*binary_r = binary;
+	if (bprops_r != NULL) {
+		bprops_r->size = cache->size;
+		/* FIXME: lines is a bit complex to calculate in this code path,
+		   and current callers don't need it either. */
+		bprops_r->lines = UINT_MAX;
+		bprops_r->binary = binary;
+		bprops_r->converted = converted;
+	}
 	if (!converted) {
 		/* don't keep this cached. it's exactly the same as
 		   the original stream */
@@ -588,7 +600,7 @@ int index_mail_get_binary_stream(struct mail *_mail,
 			      (include_hdr ? 0 :
 			       part->header_size.physical_size));
 		input = i_stream_create_crlf(mail->data.stream);
-		*stream_r = i_stream_create_limit(input, *size_r);
+		*stream_r = i_stream_create_limit(input, cache->size);
 		i_stream_unref(&input);
 		mail_storage_free_binary_cache(_mail->box->storage);
 	} else {

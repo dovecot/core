@@ -398,6 +398,14 @@ enum mail_access_type {
 	MAIL_ACCESS_TYPE_SORT,
 };
 
+struct mail_binary_properties {
+	uoff_t size;
+	unsigned int lines;
+
+	bool binary;
+	bool converted;
+};
+
 struct mail {
 	/* always set */
 	struct mailbox *box;
@@ -994,13 +1002,14 @@ int mail_get_hdr_stream_because(struct mail *mail,
    children are returned decoded. Note that the returned stream must be
    unreferenced, unlike mail_get_*stream*() which automatically free it. */
 int mail_get_binary_stream(struct mail *mail, const struct message_part *part,
-			   bool include_hdr, uoff_t *size_r,
-			   bool *binary_r, struct istream **stream_r);
-/* Like mail_get_binary_stream(), but only return the size. */
-int mail_get_binary_size(struct mail *mail, const struct message_part *part,
-			 bool include_hdr, uoff_t *size_r,
-			 unsigned int *lines_r);
-
+			   bool include_hdr,
+			   struct mail_binary_properties *bprops_r,
+			   struct istream **stream_r);
+/* Like mail_get_binary_stream(), but only return the properties. */
+int mail_get_binary_properties(struct mail *mail,
+			       const struct message_part *part,
+			       bool include_hdr,
+			       struct mail_binary_properties *bprops_r);
 /* Get any of the "special" fields. Unhandled specials are returned as "". */
 int mail_get_special(struct mail *mail, enum mail_fetch_field field,
 		     const char **value_r);

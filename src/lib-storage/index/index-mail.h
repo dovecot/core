@@ -236,8 +236,8 @@ int index_mail_init_stream(struct index_mail *mail,
 			   struct istream **stream_r) ATTR_NULL(2, 3);
 int index_mail_get_binary_stream(struct mail *_mail,
 				 const struct message_part *part,
-				 bool include_hdr, uoff_t *size_r,
-				 unsigned int *body_lines_r, bool *binary_r,
+				 bool include_hdr,
+				 struct mail_binary_properties *bprops_r,
 				 struct istream **stream_r);
 int index_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 			   const char **value_r);

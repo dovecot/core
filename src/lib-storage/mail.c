@@ -387,11 +387,15 @@ int mail_get_hdr_stream_because(struct mail *mail,
 }
 
 int mail_get_binary_stream(struct mail *mail, const struct message_part *part,
-			   bool include_hdr, uoff_t *size_r,
-			   bool *binary_r, struct istream **stream_r)
+			   bool include_hdr,
+			   struct mail_binary_properties *bprops_r,
+			   struct istream **stream_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 	int ret;
+
+	if (bprops_r != NULL)
+		i_zero(bprops_r);
 
 	if (mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
 		mail_set_aborted(mail);
@@ -399,23 +403,26 @@ int mail_get_binary_stream(struct mail *mail, const struct message_part *part,
 	}
 	T_BEGIN {
 		ret = p->v.get_binary_stream(mail, part, include_hdr,
-					     size_r, NULL, binary_r, stream_r);
+					     bprops_r, stream_r);
 	} T_END;
 	i_assert(ret < 0 || (*stream_r)->blocking);
 	return ret;
 }
 
-int mail_get_binary_size(struct mail *mail, const struct message_part *part,
-			 bool include_hdr, uoff_t *size_r,
-			 unsigned int *lines_r)
+int mail_get_binary_properties(struct mail *mail,
+			       const struct message_part *part,
+			       bool include_hdr,
+			       struct mail_binary_properties *bprops_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
-	bool binary;
 	int ret;
+
+	if (bprops_r != NULL)
+		i_zero(bprops_r);
 
 	T_BEGIN {
 		ret = p->v.get_binary_stream(mail, part, include_hdr,
-					     size_r, lines_r, &binary, NULL);
+					     bprops_r, NULL);
 	} T_END;
 	return ret;
 }
