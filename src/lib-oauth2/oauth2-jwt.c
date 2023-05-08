@@ -352,6 +352,17 @@ oauth2_jwt_header_process(struct json_tree *tree, const char **alg_r,
 	return 0;
 }
 
+static bool check_scope(const char *req, const char *got)
+{
+	const char *const *scope_req = t_strsplit_spaces(req, " ,");
+	const char *const *scope_got = t_strsplit_spaces(got, " ,");
+
+	for (; *scope_req != NULL; scope_req++)
+		if (!str_array_icase_find(scope_got, *scope_req))
+			return FALSE;
+	return TRUE;
+}
+
 static int
 oauth2_jwt_body_process(const struct oauth2_settings *set, const char *alg,
 			const char *kid, ARRAY_TYPE(oauth2_field) *fields,
@@ -433,6 +444,22 @@ oauth2_jwt_body_process(const struct oauth2_settings *set, const char *alg,
 		const char *const *auds = t_strsplit_spaces(aud, " ");
 		if (!str_array_find(auds, set->client_id)) {
 			*error_r = "client_id not found in aud field";
+			return -1;
+		}
+	}
+
+	const char *got_scope = get_field(tree, "scope", NULL);
+	const char *req_scope = set->scope;
+
+	if (req_scope != NULL && *req_scope != '\0') {
+		if (got_scope == NULL) {
+			*error_r = "scope set but not found in token";
+			return -1;
+		}
+
+		if (!check_scope(req_scope, got_scope)) {
+			*error_r = t_strdup_printf("configured scope '%s' missing from token scope '%s'",
+						   req_scope, got_scope);
 			return -1;
 		}
 	}
