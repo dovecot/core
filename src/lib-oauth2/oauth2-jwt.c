@@ -428,6 +428,21 @@ oauth2_jwt_body_process(const struct oauth2_settings *set, const char *alg,
 		}
 	}
 
+	const char *aud = get_field(tree, "aud", NULL);
+	/* if there is client_id configured, then aud should be present */
+	if (set->client_id != NULL && *set->client_id != '\0') {
+		if (aud == NULL) {
+			*error_r = "client_id set but aud is missing";
+			return -1;
+
+		}
+		const char *const *auds = t_strsplit_spaces(aud, " ");
+		if (!str_array_find(auds, set->client_id)) {
+			*error_r = "client_id not found in aud field";
+			return -1;
+		}
+	}
+
 	/* see if there is azp */
 	const char *azp = get_field(tree, "azp", NULL);
 	if (azp == NULL)
