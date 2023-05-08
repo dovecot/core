@@ -180,6 +180,24 @@ setting_parser_copy_defaults(struct setting_parser_context *ctx,
 	}
 }
 
+static void
+setting_parser_fill_defaults_strings(struct setting_parser_context *ctx)
+{
+	const struct setting_keyvalue *defaults =
+		ctx->root.info->default_settings;
+	if (defaults == NULL)
+		return;
+
+	for (unsigned int i = 0; defaults[i].key != NULL; i++) {
+		const char *key = defaults[i].key;
+		const char *value = defaults[i].value;
+		if (settings_parse_keyvalue_nodup(ctx, key, value) <= 0) {
+			i_panic("Failed to add default setting %s=%s: %s",
+				key, value, settings_parser_get_error(ctx));
+		}
+	}
+}
+
 struct setting_parser_context *
 settings_parser_init(pool_t set_pool, const struct setting_parser_info *root,
 		     enum settings_parser_flags flags)
@@ -212,6 +230,7 @@ settings_parser_init(pool_t set_pool, const struct setting_parser_info *root,
 				p_malloc(ctx->set_pool, root->struct_size);
 		}
 		setting_parser_copy_defaults(ctx, root, &ctx->root);
+		setting_parser_fill_defaults_strings(ctx);
 	}
 
 	pool_ref(ctx->set_pool);

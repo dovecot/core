@@ -101,12 +101,19 @@ struct setting_define {
 #define SETTING_DEFINE_STRUCT_ENUM_HIDDEN(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_ENUM, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
 
+struct setting_keyvalue {
+	const char *key;
+	const char *value;
+};
+
 struct setting_parser_info {
 	/* Unique name for the settings struct */
 	const char *name;
 
 	const struct setting_define *defines;
 	const void *defaults;
+	/* Add defaults via strings on top of the of defaults struct. */
+	const struct setting_keyvalue *default_settings;
 
 	size_t type_offset1; /* type_offset+1. 0=nonexistent. */
 	size_t struct_size;
