@@ -270,12 +270,12 @@ config_dump_full_sections(struct config_parsed *config,
 		if (dest == CONFIG_DUMP_FULL_DEST_STDOUT) {
 			export_ctx = config_export_init(
 				CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES,
-				CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS,
+				0,
 				config_dump_full_stdout_callback, &dump_ctx);
 		} else {
 			export_ctx = config_export_init(
 				CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES,
-				CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS,
+				0,
 				config_dump_full_callback, &dump_ctx);
 		}
 		config_export_set_module_parsers(export_ctx,

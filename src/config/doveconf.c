@@ -144,8 +144,7 @@ config_dump_human_init(enum config_dump_scope scope)
 	ctx->list_prefix = str_new(ctx->pool, 128);
 	i_array_init(&ctx->strings, 256);
 
-	flags = CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS |
-		CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS;
+	flags = CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS;
 	ctx->export_ctx = config_export_init(scope, flags,
 					     config_request_get_strings, ctx);
 	return ctx;
