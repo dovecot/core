@@ -44,6 +44,7 @@ struct setting_parser_context {
 	int refcount;
         enum settings_parser_flags flags;
 	bool str_vars_are_expanded;
+	uint8_t change_counter;
 
 	struct setting_link root;
 	HASH_TABLE(char *, struct setting_link *) links;
@@ -206,6 +207,7 @@ settings_parser_init(pool_t set_pool, const struct setting_parser_info *root,
 		ctx->root.set_struct =
 			p_malloc(ctx->set_pool, root->struct_size);
 		if ((flags & SETTINGS_PARSER_FLAG_TRACK_CHANGES) != 0) {
+			ctx->change_counter = 1;
 			ctx->root.change_struct =
 				p_malloc(ctx->set_pool, root->struct_size);
 		}
@@ -563,8 +565,11 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 		i_unreached();
 	}
 
-	if (change_ptr != NULL)
-		*((char *)change_ptr) = 1;
+	if (change_ptr != NULL) {
+		uint8_t *change_ptr8 = change_ptr;
+		if (*change_ptr8 < ctx->change_counter)
+			*change_ptr8 = ctx->change_counter;
+	}
 	return 0;
 }
 
@@ -769,20 +774,28 @@ settings_parse_get_value(struct setting_parser_context *ctx,
 	return STRUCT_MEMBER_P(link->set_struct, def->offset);
 }
 
-bool settings_parse_is_changed(struct setting_parser_context *ctx,
-			       const char *key)
+void settings_parse_set_change_counter(struct setting_parser_context *ctx,
+				       uint8_t change_counter)
+{
+	i_assert(change_counter > 0);
+	i_assert((ctx->flags & SETTINGS_PARSER_FLAG_TRACK_CHANGES) != 0);
+	ctx->change_counter = change_counter;
+}
+
+uint8_t settings_parse_get_change_counter(struct setting_parser_context *ctx,
+					  const char *key)
 {
 	const struct setting_define *def;
 	struct setting_link *link;
-	const unsigned char *p;
+	const uint8_t *p;
 
 	if (!settings_find_key(ctx, key, FALSE, &def, &link))
-		return FALSE;
+		return 0;
 	if (link->change_struct == NULL || def == NULL)
-		return FALSE;
+		return 0;
 
 	p = STRUCT_MEMBER_P(link->change_struct, def->offset);
-	return *p != 0;
+	return *p;
 }
 
 int settings_parse_line(struct setting_parser_context *ctx, const char *line)
@@ -1220,7 +1233,7 @@ settings_changes_dup(const struct setting_parser_info *info,
 		case SET_ENUM:
 		case SET_STRLIST:
 		case SET_FILTER_ARRAY:
-			*((char *)dest) = *((const char *)src);
+			*((uint8_t *)dest) = *((const uint8_t *)src);
 			break;
 		case SET_DEFLIST:
 		case SET_DEFLIST_UNIQUE: {
@@ -1520,13 +1533,13 @@ settings_apply(struct setting_link *dest_link,
 			/* just add the new values */
 		} else if (def->type == SET_DEFLIST_UNIQUE) {
 			/* merge sections */
-		} else if (*((const char *)csrc) == 0) {
+		} else if (*((const uint8_t *)csrc) == 0) {
 			/* unchanged */
 			continue;
 		} else if (def->type == SET_ALIAS) {
 			/* ignore aliases */
 			continue;
-		} else if (*((const char *)cdest) != 0) {
+		} else if (*((const uint8_t *)cdest) != 0) {
 			/* conflict */
 			if (conflict_key_r != NULL) {
 				*conflict_key_r = def->key;
@@ -1534,7 +1547,7 @@ settings_apply(struct setting_link *dest_link,
 			}
 			continue;
 		} else {
-			*((char *)cdest) = 1;
+			*((uint8_t *)cdest) = *(const uint8_t *)csrc;
 		}
 
 		/* found a changed setting */

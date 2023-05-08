@@ -162,9 +162,15 @@ const char *settings_parse_unalias(struct setting_parser_context *ctx,
 const void *
 settings_parse_get_value(struct setting_parser_context *ctx,
 			 const char *key, enum setting_type *type_r);
-/* Returns TRUE if setting has been changed by this parser. */
-bool settings_parse_is_changed(struct setting_parser_context *ctx,
-			       const char *key);
+/* Set the change_counter to use for tracking the following changes.
+   SETTINGS_PARSER_FLAG_TRACK_CHANGES must be enabled, and the counter must be
+   higher than 0. If the same setting is changed multiple times with different
+   change_counters, the highest change_counter is kept. */
+void settings_parse_set_change_counter(struct setting_parser_context *ctx,
+				       uint8_t change_counter);
+/* Returns change_counter (>0) if setting has been changed by this parser. */
+uint8_t settings_parse_get_change_counter(struct setting_parser_context *ctx,
+					  const char *key);
 /* Parse a single line. Returns 1 if OK, 0 if key is unknown, -1 if error. */
 int settings_parse_line(struct setting_parser_context *ctx, const char *line);
 /* Parse key/value pair. Returns 1 if OK, 0 if key is unknown, -1 if error. */

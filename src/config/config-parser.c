@@ -619,7 +619,7 @@ get_str_setting(struct config_filter_parser *parser, const char *key,
 		set_value = settings_parse_get_value(module_parser->parser,
 						     key, &set_type);
 		if (set_value != NULL &&
-		    settings_parse_is_changed(module_parser->parser, key)) {
+		    settings_parse_get_change_counter(module_parser->parser, key) != 0) {
 			i_assert(set_type == SET_STR || set_type == SET_ENUM);
 			return *set_value;
 		}
@@ -1032,7 +1032,7 @@ config_get_value(struct config_section_stack *section, const char *key,
 		value = settings_parse_get_value(l->parser, key, type_r);
 		if (value != NULL) {
 			if (!expand_parent || section->prev == NULL ||
-			    settings_parse_is_changed(l->parser, key))
+			    settings_parse_get_change_counter(l->parser, key) != 0)
 				return value;
 
 			/* not changed by this parser. maybe parent has. */
