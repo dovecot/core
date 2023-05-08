@@ -515,7 +515,6 @@ struct settings_mmap_pool {
 	const char *source_filename;
 	unsigned int source_linenum;
 
-	pool_t extra_pool_ref;
 	pool_t parent_pool;
 	struct settings_mmap *mmap; /* NULL for unit tests */
 	struct settings_root *root;
@@ -551,7 +550,7 @@ static void settings_mmap_pool_unref(pool_t *pool)
 	DLLIST_REMOVE(&mpool->root->settings_pools, mpool);
 
 	settings_mmap_unref(&mpool->mmap);
-	pool_unref(&mpool->extra_pool_ref);
+	pool_external_refs_unref(&mpool->pool);
 	pool_unref(&mpool->parent_pool);
 }
 
@@ -775,12 +774,10 @@ settings_instance_override(struct settings_root *root,
 			   only CLI_PARAM settings, which are allocated from
 			   FIXME: should figure out some efficient way how to
 			   store them. */
-			if (mpool->extra_pool_ref != NULL)
-				i_assert(mpool->extra_pool_ref == instance->pool);
-			else if (instance->pool != NULL) {
-				mpool->extra_pool_ref = instance->pool;
-				pool_ref(mpool->extra_pool_ref);
-			}
+			if (array_is_created(&mpool->pool.external_refs))
+				i_assert(array_idx_elem(&mpool->pool.external_refs, 0) == instance->pool);
+			else if (instance->pool != NULL)
+				pool_add_external_ref(&mpool->pool, instance->pool);
 			ret = settings_parse_keyvalue_nodup(parser, key, value);
 		}
 		if (ret < 0) {
