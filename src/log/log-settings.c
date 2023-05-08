@@ -7,24 +7,6 @@
 
 #include <stddef.h>
 
-/* <settings checks> */
-static struct file_listener_settings log_unix_listeners_array[] = {
-	{
-		.path = "log-errors",
-		.type = "errors",
-		.mode = 0600,
-		.user = "",
-		.group = "",
-	},
-};
-static struct file_listener_settings *log_unix_listeners[] = {
-	&log_unix_listeners_array[0]
-};
-static buffer_t log_unix_listeners_buf = {
-	{ { log_unix_listeners, sizeof(log_unix_listeners) } }
-};
-/* </settings checks> */
-
 struct service_settings log_service_settings = {
 	.name = "log",
 	.protocol = "",
@@ -45,11 +27,19 @@ struct service_settings log_service_settings = {
 	.idle_kill = UINT_MAX,
 	.vsz_limit = UOFF_T_MAX,
 
-	.unix_listeners = { { &log_unix_listeners_buf,
-			      sizeof(log_unix_listeners[0]) } },
+	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT,
 
 	.process_limit_1 = TRUE
 };
 
+const struct setting_keyvalue log_service_settings_defaults[] = {
+	{ "unix_listener", "log-errors" },
+
+	{ "unix_listener/log-errors/path", "log-errors" },
+	{ "unix_listener/log-errors/type", "errors" },
+	{ "unix_listener/log-errors/mode", "0600" },
+
+	{ NULL, NULL }
+};

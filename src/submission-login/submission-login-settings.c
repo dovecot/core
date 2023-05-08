@@ -13,47 +13,6 @@
 static bool
 submission_login_settings_check(void *_set, pool_t pool, const char **error_r);
 
-/* <settings checks> */
-static struct file_listener_settings submission_login_unix_listeners_array[] = {
-	{
-		.path = "srv.submission-login/%{pid}",
-		.type = "admin",
-		.mode = 0600,
-		.user = "",
-		.group = "",
-	},
-};
-static struct file_listener_settings *submission_login_unix_listeners[] = {
-	&submission_login_unix_listeners_array[0],
-};
-static buffer_t submission_login_unix_listeners_buf = {
-	{ { submission_login_unix_listeners,
-	    sizeof(submission_login_unix_listeners) } }
-};
-
-static struct inet_listener_settings submission_login_inet_listeners_array[] = {
-	{
-		.name = "submission",
-		.address = "",
-		.port = 587,
-	},
-	{
-		.name = "submissions",
-		.address = "",
-		.port = 465,
-		.ssl = TRUE,
-	},
-};
-static struct inet_listener_settings *submission_login_inet_listeners[] = {
-	&submission_login_inet_listeners_array[0],
-	&submission_login_inet_listeners_array[1],
-};
-static buffer_t submission_login_inet_listeners_buf = {
-	{ { submission_login_inet_listeners,
-	    sizeof(submission_login_inet_listeners) } }
-};
-
-/* </settings checks> */
 struct service_settings submission_login_service_settings = {
 	.name = "submission-login",
 	.protocol = "submission",
@@ -74,11 +33,28 @@ struct service_settings submission_login_service_settings = {
 	.idle_kill = 0,
 	.vsz_limit = UOFF_T_MAX,
 
-	.unix_listeners = { { &submission_login_unix_listeners_buf,
-			      sizeof(submission_login_unix_listeners[0]) } },
+	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
-	.inet_listeners = { { &submission_login_inet_listeners_buf,
-			      sizeof(submission_login_inet_listeners[0]) } }
+	.inet_listeners = ARRAY_INIT,
+};
+
+const struct setting_keyvalue submission_login_service_settings_defaults[] = {
+	{ "unix_listener", "srv.submission-login\\s%{pid}" },
+
+	{ "unix_listener/srv.submission-login\\s%{pid}/path", "srv.submission-login/%{pid}" },
+	{ "unix_listener/srv.submission-login\\s%{pid}/type", "admin" },
+	{ "unix_listener/srv.submission-login\\s%{pid}/mode", "0600" },
+
+	{ "inet_listener", "submission submissions" },
+
+	{ "inet_listener/submission/name", "submission" },
+	{ "inet_listener/submission/port", "587" },
+
+	{ "inet_listener/submissions/name", "submissions" },
+	{ "inet_listener/submissions/port", "465" },
+	{ "inet_listener/submissions/ssl", "yes" },
+
+	{ NULL, NULL }
 };
 
 #undef DEF

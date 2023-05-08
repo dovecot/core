@@ -14,31 +14,6 @@
 static bool submission_settings_verify(void *_set, pool_t pool,
 				       const char **error_r);
 
-/* <settings checks> */
-static struct file_listener_settings submission_unix_listeners_array[] = {
-	{
-		.path = "login/submission",
-		.mode = 0666,
-		.user = "",
-		.group = "",
-	},
-	{
-		.path = "srv.submission/%{pid}",
-		.type = "admin",
-		.mode = 0600,
-		.user = "",
-		.group = "",
-	},
-};
-static struct file_listener_settings *submission_unix_listeners[] = {
-	&submission_unix_listeners_array[0],
-	&submission_unix_listeners_array[1],
-};
-static buffer_t submission_unix_listeners_buf = {
-	{ { submission_unix_listeners, sizeof(submission_unix_listeners) } }
-};
-/* </settings checks> */
-
 struct service_settings submission_service_settings = {
 	.name = "submission",
 	.protocol = "submission",
@@ -59,10 +34,22 @@ struct service_settings submission_service_settings = {
 	.idle_kill = 0,
 	.vsz_limit = UOFF_T_MAX,
 
-	.unix_listeners = { { &submission_unix_listeners_buf,
-			      sizeof(submission_unix_listeners[0]) } },
+	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT
+};
+
+const struct setting_keyvalue submission_service_settings_defaults[] = {
+	{ "unix_listener", "login\\ssubmission srv.submission\\s%{pid}" },
+
+	{ "unix_listener/login\\ssubmission/path", "login/submission" },
+	{ "unix_listener/login\\ssubmission/mode", "0666" },
+
+	{ "unix_listener/srv.submission\\s%{pid}/path", "srv.submission/%{pid}" },
+	{ "unix_listener/srv.submission\\s%{pid}/type", "admin" },
+	{ "unix_listener/srv.submission\\s%{pid}/mode", "0600" },
+
+	{ NULL, NULL }
 };
 
 #undef DEF

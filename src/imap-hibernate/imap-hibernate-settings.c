@@ -8,31 +8,6 @@
 #include <stddef.h>
 #include <unistd.h>
 
-/* <settings checks> */
-static struct file_listener_settings imap_hibernate_unix_listeners_array[] = {
-	{
-		.path = "imap-hibernate",
-		.mode = 0660,
-		.user = "",
-		.group = "$default_internal_group",
-	},
-	{
-		.path = "srv.imap-hibernate/%{pid}",
-		.type = "admin",
-		.mode = 0600,
-		.user = "",
-		.group = "",
-	},
-};
-static struct file_listener_settings *imap_hibernate_unix_listeners[] = {
-	&imap_hibernate_unix_listeners_array[0],
-	&imap_hibernate_unix_listeners_array[1],
-};
-static buffer_t imap_hibernate_unix_listeners_buf = {
-	{ { imap_hibernate_unix_listeners, sizeof(imap_hibernate_unix_listeners) } }
-};
-/* </settings checks> */
-
 struct service_settings imap_hibernate_service_settings = {
 	.name = "imap-hibernate",
 	.protocol = "imap",
@@ -53,8 +28,21 @@ struct service_settings imap_hibernate_service_settings = {
 	.idle_kill = 0,
 	.vsz_limit = UOFF_T_MAX,
 
-	.unix_listeners = { { &imap_hibernate_unix_listeners_buf,
-			      sizeof(imap_hibernate_unix_listeners[0]) } },
+	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT
+};
+
+const struct setting_keyvalue imap_hibernate_service_settings_defaults[] = {
+	{ "unix_listener", "imap-hibernate srv.imap-hibernate\\s%{pid}" },
+
+	{ "unix_listener/imap-hibernate/path", "imap-hibernate" },
+	{ "unix_listener/imap-hibernate/mode", "0660" },
+	{ "unix_listener/imap-hibernate/group", "$default_internal_group" },
+
+	{ "unix_listener/srv.imap-hibernate\\s%{pid}/path", "srv.imap-hibernate/%{pid}" },
+	{ "unix_listener/srv.imap-hibernate\\s%{pid}/type", "admin" },
+	{ "unix_listener/srv.imap-hibernate\\s%{pid}/mode", "0600" },
+
+	{ NULL, NULL }
 };

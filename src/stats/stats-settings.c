@@ -17,40 +17,6 @@ static bool stats_metric_settings_check(void *_set, pool_t pool, const char **er
 static bool stats_exporter_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool stats_settings_ext_check(struct event *event, void *_set, pool_t pool, const char **error_r);
 
-/* <settings checks> */
-static struct file_listener_settings stats_unix_listeners_array[] = {
-	{
-		.path = "stats-reader",
-		.type = "reader",
-		.mode = 0600,
-		.user = "",
-		.group = "",
-	},
-	{
-		.path = "stats-writer",
-		.type = "writer",
-		.mode = 0660,
-		.user = "",
-		.group = "$default_internal_group",
-	},
-	{
-		.path = "login/stats-writer",
-		.type = "writer",
-		.mode = 0600,
-		.user = "$default_login_user",
-		.group = "",
-	},
-};
-static struct file_listener_settings *stats_unix_listeners[] = {
-	&stats_unix_listeners_array[0],
-	&stats_unix_listeners_array[1],
-	&stats_unix_listeners_array[2],
-};
-static buffer_t stats_unix_listeners_buf = {
-	{ { stats_unix_listeners, sizeof(stats_unix_listeners) } }
-};
-/* </settings checks> */
-
 struct service_settings stats_service_settings = {
 	.name = "stats",
 	.protocol = "",
@@ -71,9 +37,28 @@ struct service_settings stats_service_settings = {
 	.idle_kill = UINT_MAX,
 	.vsz_limit = UOFF_T_MAX,
 
-	.unix_listeners = { { &stats_unix_listeners_buf,
-			      sizeof(stats_unix_listeners[0]) } },
+	.unix_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT,
+};
+
+const struct setting_keyvalue stats_service_settings_defaults[] = {
+	{ "unix_listener", "login\\sstats-writer stats-reader stats-writer" },
+
+	{ "unix_listener/login\\sstats-writer/path", "login/stats-writer" },
+	{ "unix_listener/login\\sstats-writer/type", "writer" },
+	{ "unix_listener/login\\sstats-writer/mode", "0600" },
+	{ "unix_listener/login\\sstats-writer/user", "$default_login_user" },
+
+	{ "unix_listener/stats-reader/path", "stats-reader" },
+	{ "unix_listener/stats-reader/type", "reader" },
+	{ "unix_listener/stats-reader/mode", "0600" },
+
+	{ "unix_listener/stats-writer/path", "stats-writer" },
+	{ "unix_listener/stats-writer/type", "writer" },
+	{ "unix_listener/stats-writer/mode", "0660" },
+	{ "unix_listener/stats-writer/group", "$default_internal_group" },
+
+	{ NULL, NULL }
 };
 
 /*

@@ -9,45 +9,6 @@
 
 #include <stddef.h>
 
-/* <settings checks> */
-static struct file_listener_settings pop3_login_unix_listeners_array[] = {
-	{
-		.path = "srv.pop3-login/%{pid}",
-		.type = "admin",
-		.mode = 0600,
-		.user = "",
-		.group = "",
-	},
-};
-static struct file_listener_settings *pop3_login_unix_listeners[] = {
-	&pop3_login_unix_listeners_array[0],
-};
-static buffer_t pop3_login_unix_listeners_buf = {
-	{ { pop3_login_unix_listeners, sizeof(pop3_login_unix_listeners) } }
-};
-
-static struct inet_listener_settings pop3_login_inet_listeners_array[] = {
-	{
-		.name = "pop3",
-		.address = "",
-		.port = POP3_DEFAULT_PORT,
-	},
-	{
-		.name = "pop3s",
-		.address = "",
-		.port = POP3S_DEFAULT_PORT,
-		.ssl = TRUE,
-	},
-};
-static struct inet_listener_settings *pop3_login_inet_listeners[] = {
-	&pop3_login_inet_listeners_array[0],
-	&pop3_login_inet_listeners_array[1]
-};
-static buffer_t pop3_login_inet_listeners_buf = {
-	{ { pop3_login_inet_listeners, sizeof(pop3_login_inet_listeners) } }
-};
-
-/* </settings checks> */
 struct service_settings pop3_login_service_settings = {
 	.name = "pop3-login",
 	.protocol = "pop3",
@@ -68,11 +29,28 @@ struct service_settings pop3_login_service_settings = {
 	.idle_kill = 0,
 	.vsz_limit = UOFF_T_MAX,
 
-	.unix_listeners = { { &pop3_login_unix_listeners_buf,
-			      sizeof(pop3_login_unix_listeners[0]) } },
+	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
-	.inet_listeners = { { &pop3_login_inet_listeners_buf,
-			      sizeof(pop3_login_inet_listeners[0]) } }
+	.inet_listeners = ARRAY_INIT,
+};
+
+const struct setting_keyvalue pop3_login_service_settings_defaults[] = {
+	{ "unix_listener", "srv.pop3-login\\s%{pid}" },
+
+	{ "unix_listener/srv.pop3-login\\s%{pid}/path", "srv.pop3-login/%{pid}" },
+	{ "unix_listener/srv.pop3-login\\s%{pid}/type", "admin" },
+	{ "unix_listener/srv.pop3-login\\s%{pid}/mode", "0600" },
+
+	{ "inet_listener", "pop3 pop3s" },
+
+	{ "inet_listener/pop3/name", "pop3" },
+	{ "inet_listener/pop3/port", "110" },
+
+	{ "inet_listener/pop3s/name", "pop3s" },
+	{ "inet_listener/pop3s/port", "995" },
+	{ "inet_listener/pop3s/ssl", "yes" },
+
+	{ NULL, NULL }
 };
 
 static const struct setting_define pop3_login_setting_defines[] = {

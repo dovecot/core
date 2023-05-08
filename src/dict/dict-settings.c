@@ -6,38 +6,6 @@
 #include "service-settings.h"
 #include "dict-settings.h"
 
-/* <settings checks> */
-static struct file_listener_settings dict_unix_listeners_array[] = {
-	{
-		.path = "dict",
-		.mode = 0660,
-		.user = "",
-		.group = "$default_internal_group",
-	},
-};
-static struct file_listener_settings *dict_unix_listeners[] = {
-	&dict_unix_listeners_array[0]
-};
-static buffer_t dict_unix_listeners_buf = {
-	{ { dict_unix_listeners, sizeof(dict_unix_listeners) } }
-};
-
-static struct file_listener_settings dict_async_unix_listeners_array[] = {
-	{
-		.path = "dict-async",
-		.mode = 0660,
-		.user = "",
-		.group = "$default_internal_group",
-	},
-};
-static struct file_listener_settings *dict_async_unix_listeners[] = {
-	&dict_async_unix_listeners_array[0]
-};
-static buffer_t dict_async_unix_listeners_buf = {
-	{ { dict_async_unix_listeners, sizeof(dict_async_unix_listeners) } }
-};
-/* </settings checks> */
-
 struct service_settings dict_service_settings = {
 	.name = "dict",
 	.protocol = "",
@@ -58,10 +26,19 @@ struct service_settings dict_service_settings = {
 	.idle_kill = 0,
 	.vsz_limit = UOFF_T_MAX,
 
-	.unix_listeners = { { &dict_unix_listeners_buf,
-			      sizeof(dict_unix_listeners[0]) } },
+	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT
+};
+
+const struct setting_keyvalue dict_service_settings_defaults[] = {
+	{ "unix_listener", "dict" },
+
+	{ "unix_listener/dict/path", "dict" },
+	{ "unix_listener/dict/mode", "0660" },
+	{ "unix_listener/dict/group", "$default_internal_group" },
+
+	{ NULL, NULL }
 };
 
 struct service_settings dict_async_service_settings = {
@@ -84,10 +61,19 @@ struct service_settings dict_async_service_settings = {
 	.idle_kill = 0,
 	.vsz_limit = UOFF_T_MAX,
 
-	.unix_listeners = { { &dict_async_unix_listeners_buf,
-			      sizeof(dict_async_unix_listeners[0]) } },
+	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT
+};
+
+const struct setting_keyvalue dict_async_service_settings_defaults[] = {
+	{ "unix_listener", "dict-async" },
+
+	{ "unix_listener/dict-async/path", "dict-async" },
+	{ "unix_listener/dict-async/mode", "0660" },
+	{ "unix_listener/dict-async/group", "$default_internal_group" },
+
+	{ NULL, NULL }
 };
 
 struct service_settings dict_expire_service_settings = {

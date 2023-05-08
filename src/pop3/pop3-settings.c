@@ -13,31 +13,6 @@
 static bool pop3_settings_verify(void *_set, pool_t pool,
 				 const char **error_r);
 
-/* <settings checks> */
-static struct file_listener_settings pop3_unix_listeners_array[] = {
-	{
-		.path = "login/pop3",
-		.mode = 0666,
-		.user = "",
-		.group = "",
-	},
-	{
-		.path = "srv.pop3/%{pid}",
-		.type = "admin",
-		.mode = 0600,
-		.user = "",
-		.group = "",
-	},
-};
-static struct file_listener_settings *pop3_unix_listeners[] = {
-	&pop3_unix_listeners_array[0],
-	&pop3_unix_listeners_array[1],
-};
-static buffer_t pop3_unix_listeners_buf = {
-	{ { pop3_unix_listeners, sizeof(pop3_unix_listeners) } }
-};
-/* </settings checks> */
-
 struct service_settings pop3_service_settings = {
 	.name = "pop3",
 	.protocol = "pop3",
@@ -58,10 +33,22 @@ struct service_settings pop3_service_settings = {
 	.idle_kill = 0,
 	.vsz_limit = UOFF_T_MAX,
 
-	.unix_listeners = { { &pop3_unix_listeners_buf,
-			      sizeof(pop3_unix_listeners[0]) } },
+	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT
+};
+
+const struct setting_keyvalue pop3_service_settings_defaults[] = {
+	{ "unix_listener", "login\\spop3 srv.pop3\\s%{pid}" },
+
+	{ "unix_listener/login\\spop3/path", "login/pop3" },
+	{ "unix_listener/login\\spop3/mode", "0666" },
+
+	{ "unix_listener/srv.pop3\\s%{pid}/path", "srv.pop3/%{pid}" },
+	{ "unix_listener/srv.pop3\\s%{pid}/type", "admin" },
+	{ "unix_listener/srv.pop3\\s%{pid}/mode", "0600" },
+
+	{ NULL, NULL }
 };
 
 #undef DEF

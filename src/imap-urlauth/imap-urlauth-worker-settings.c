@@ -11,24 +11,6 @@
 #include <stddef.h>
 #include <unistd.h>
 
-/* <settings checks> */
-static struct file_listener_settings imap_urlauth_worker_unix_listeners_array[] = {
-	{
-		.path = IMAP_URLAUTH_WORKER_SOCKET,
-		.mode = 0600,
-		.user = "$default_internal_user",
-		.group = "",
-	},
-};
-static struct file_listener_settings *imap_urlauth_worker_unix_listeners[] = {
-	&imap_urlauth_worker_unix_listeners_array[0]
-};
-static buffer_t imap_urlauth_worker_unix_listeners_buf = {
-	{ { imap_urlauth_worker_unix_listeners,
-	    sizeof(imap_urlauth_worker_unix_listeners) } }
-};
-/* </settings checks> */
-
 struct service_settings imap_urlauth_worker_service_settings = {
 	.name = "imap-urlauth-worker",
 	.protocol = "imap",
@@ -49,10 +31,19 @@ struct service_settings imap_urlauth_worker_service_settings = {
 	.idle_kill = 0,
 	.vsz_limit = UOFF_T_MAX,
 
-	.unix_listeners = { { &imap_urlauth_worker_unix_listeners_buf,
-			      sizeof(imap_urlauth_worker_unix_listeners[0]) } },
+	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT
+};
+
+const struct setting_keyvalue imap_urlauth_worker_service_settings_defaults[] = {
+	{ "unix_listener", IMAP_URLAUTH_WORKER_SOCKET },
+
+	{ "unix_listener/"IMAP_URLAUTH_WORKER_SOCKET"/path", IMAP_URLAUTH_WORKER_SOCKET },
+	{ "unix_listener/"IMAP_URLAUTH_WORKER_SOCKET"/mode", "0600" },
+	{ "unix_listener/"IMAP_URLAUTH_WORKER_SOCKET"/user", "$default_internal_user" },
+
+	{ NULL, NULL }
 };
 
 #undef DEF

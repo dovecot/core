@@ -19,24 +19,6 @@ static int global_config_fd = -1;
 
 static bool doveadm_settings_check(void *_set, pool_t pool, const char **error_r);
 
-/* <settings checks> */
-static struct file_listener_settings doveadm_unix_listeners_array[] = {
-	{
-		.path = "doveadm-server",
-		.type = "tcp",
-		.mode = 0600,
-		.user = "",
-		.group = "",
-	},
-};
-static struct file_listener_settings *doveadm_unix_listeners[] = {
-	&doveadm_unix_listeners_array[0]
-};
-static buffer_t doveadm_unix_listeners_buf = {
-	{ { doveadm_unix_listeners, sizeof(doveadm_unix_listeners) } }
-};
-/* </settings checks> */
-
 struct service_settings doveadm_service_settings = {
 	.name = "doveadm",
 	.protocol = "",
@@ -57,10 +39,19 @@ struct service_settings doveadm_service_settings = {
 	.idle_kill = 0,
 	.vsz_limit = UOFF_T_MAX,
 
-	.unix_listeners = { { &doveadm_unix_listeners_buf,
-			      sizeof(doveadm_unix_listeners[0]) } },
+	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT
+};
+
+const struct setting_keyvalue doveadm_service_settings_defaults[] = {
+	{ "unix_listener", "doveadm-server" },
+
+	{ "unix_listener/doveadm-server/path", "doveadm-server" },
+	{ "unix_listener/doveadm-server/type", "tcp" },
+	{ "unix_listener/doveadm-server/mode", "0600" },
+
+	{ NULL, NULL }
 };
 
 #undef DEF

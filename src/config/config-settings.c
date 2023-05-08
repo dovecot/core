@@ -7,23 +7,6 @@
 
 #include <stddef.h>
 
-/* <settings checks> */
-static struct file_listener_settings config_unix_listeners_array[] = {
-	{
-		.path = "config",
-		.mode = 0600,
-		.user = "",
-		.group = "",
-	},
-};
-static struct file_listener_settings *config_unix_listeners[] = {
-	&config_unix_listeners_array[0]
-};
-static buffer_t config_unix_listeners_buf = {
-	{ { config_unix_listeners, sizeof(config_unix_listeners) } }
-};
-/* </settings checks> */
-
 struct service_settings config_service_settings = {
 	.name = "config",
 	.protocol = "",
@@ -44,8 +27,16 @@ struct service_settings config_service_settings = {
 	.idle_kill = UINT_MAX,
 	.vsz_limit = UOFF_T_MAX,
 
-	.unix_listeners = { { &config_unix_listeners_buf,
-			      sizeof(config_unix_listeners[0]) } },
+	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT
+};
+
+const struct setting_keyvalue config_service_settings_defaults[] = {
+	{ "unix_listener", "config" },
+
+	{ "unix_listener/config/path", "config" },
+	{ "unix_listener/config/mode", "0600" },
+
+	{ NULL, NULL }
 };

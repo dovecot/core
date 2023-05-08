@@ -7,30 +7,6 @@
 
 #include <stddef.h>
 
-/* <settings checks> */
-static struct file_listener_settings anvil_unix_listeners_array[] = {
-	{
-		.path = "anvil",
-		.mode = 0600,
-		.user = "",
-		.group = "",
-	},
-	{
-		.path = "anvil-auth-penalty",
-		.mode = 0600,
-		.user = "",
-		.group = "",
-	},
-};
-static struct file_listener_settings *anvil_unix_listeners[] = {
-	&anvil_unix_listeners_array[0],
-	&anvil_unix_listeners_array[1]
-};
-static buffer_t anvil_unix_listeners_buf = {
-	{ { anvil_unix_listeners, sizeof(anvil_unix_listeners) } }
-};
-/* </settings checks> */
-
 struct service_settings anvil_service_settings = {
 	.name = "anvil",
 	.protocol = "",
@@ -51,10 +27,21 @@ struct service_settings anvil_service_settings = {
 	.idle_kill = UINT_MAX,
 	.vsz_limit = UOFF_T_MAX,
 
-	.unix_listeners = { { &anvil_unix_listeners_buf,
-			      sizeof(anvil_unix_listeners[0]) } },
+	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT,
 
 	.process_limit_1 = TRUE
+};
+
+const struct setting_keyvalue anvil_service_settings_defaults[] = {
+	{ "unix_listener", "anvil anvil-auth-penalty" },
+
+	{ "unix_listener/anvil/path", "anvil" },
+	{ "unix_listener/anvil/mode", "0600" },
+
+	{ "unix_listener/anvil-auth-penalty/path", "anvil-auth-penalty" },
+	{ "unix_listener/anvil-auth-penalty/mode", "0600" },
+
+	{ NULL, NULL }
 };

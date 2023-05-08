@@ -16,64 +16,6 @@ static bool auth_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool auth_passdb_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool auth_userdb_settings_check(void *_set, pool_t pool, const char **error_r);
 
-/* <settings checks> */
-static struct file_listener_settings auth_unix_listeners_array[] = {
-	{
-		.path = "login/login",
-		.type = "login",
-		.mode = 0666,
-		.user = "",
-		.group = "",
-	},
-	{
-		.path = "token-login/tokenlogin",
-		.type = "token-login",
-		.mode = 0666,
-		.user = "",
-		.group = "",
-	},
-	{
-		.path = "auth-login",
-		.type = "login",
-		.mode = 0600,
-		.user = "$default_internal_user",
-		.group = "",
-	},
-	{
-		.path = "auth-client",
-		.type = "auth",
-		.mode = 0600,
-		.user = "$default_internal_user",
-		.group = "",
-	},
-	{
-		.path = "auth-userdb",
-		.type = "userdb",
-		.mode = 0666,
-		.user = "$default_internal_user",
-		.group = "",
-	},
-	{
-		.path = "auth-master",
-		.type = "master",
-		.mode = 0600,
-		.user = "",
-		.group = "",
-	},
-};
-static struct file_listener_settings *auth_unix_listeners[] = {
-	&auth_unix_listeners_array[0],
-	&auth_unix_listeners_array[1],
-	&auth_unix_listeners_array[2],
-	&auth_unix_listeners_array[3],
-	&auth_unix_listeners_array[4],
-	&auth_unix_listeners_array[5]
-};
-static buffer_t auth_unix_listeners_buf = {
-	{ { auth_unix_listeners, sizeof(auth_unix_listeners) } }
-};
-/* </settings checks> */
-
 struct service_settings auth_service_settings = {
 	.name = "auth",
 	.protocol = "",
@@ -94,30 +36,45 @@ struct service_settings auth_service_settings = {
 	.idle_kill = 0,
 	.vsz_limit = UOFF_T_MAX,
 
-	.unix_listeners = { { &auth_unix_listeners_buf,
-			      sizeof(auth_unix_listeners[0]) } },
+	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT,
 
 	.process_limit_1 = TRUE
 };
 
-/* <settings checks> */
-static struct file_listener_settings auth_worker_unix_listeners_array[] = {
-	{
-		.path = "auth-worker",
-		.mode = 0600,
-		.user = "$default_internal_user",
-		.group = "",
-	},
+const struct setting_keyvalue auth_service_settings_defaults[] = {
+	{ "unix_listener", "auth-client auth-login auth-master auth-userdb login\\slogin token-login\\stokenlogin" },
+
+	{ "unix_listener/auth-client/path", "auth-client" },
+	{ "unix_listener/auth-client/type", "auth" },
+	{ "unix_listener/auth-client/mode", "0600" },
+	{ "unix_listener/auth-client/user", "$default_internal_user" },
+
+	{ "unix_listener/auth-login/path", "auth-login" },
+	{ "unix_listener/auth-login/type", "login" },
+	{ "unix_listener/auth-login/mode", "0600" },
+	{ "unix_listener/auth-login/user", "$default_internal_user" },
+
+	{ "unix_listener/auth-master/path", "auth-master" },
+	{ "unix_listener/auth-master/type", "master" },
+	{ "unix_listener/auth-master/mode", "0600" },
+
+	{ "unix_listener/auth-userdb/path", "auth-userdb" },
+	{ "unix_listener/auth-userdb/type", "userdb" },
+	{ "unix_listener/auth-userdb/mode", "0666" },
+	{ "unix_listener/auth-userdb/user", "$default_internal_user" },
+
+	{ "unix_listener/login\\slogin/path", "login/login" },
+	{ "unix_listener/login\\slogin/type", "login" },
+	{ "unix_listener/login\\slogin/mode", "0666" },
+
+	{ "unix_listener/token-login\\stokenlogin/path", "token-login/tokenlogin" },
+	{ "unix_listener/token-login\\stokenlogin/type", "token-login" },
+	{ "unix_listener/token-login\\stokenlogin/mode", "0666" },
+
+	{ NULL, NULL }
 };
-static struct file_listener_settings *auth_worker_unix_listeners[] = {
-	&auth_worker_unix_listeners_array[0]
-};
-static buffer_t auth_worker_unix_listeners_buf = {
-	{ { auth_worker_unix_listeners, sizeof(auth_worker_unix_listeners) } }
-};
-/* </settings checks> */
 
 struct service_settings auth_worker_service_settings = {
 	.name = "auth-worker",
@@ -139,10 +96,19 @@ struct service_settings auth_worker_service_settings = {
 	.idle_kill = 0,
 	.vsz_limit = UOFF_T_MAX,
 
-	.unix_listeners = { { &auth_worker_unix_listeners_buf,
-			      sizeof(auth_worker_unix_listeners[0]) } },
+	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT
+};
+
+const struct setting_keyvalue auth_worker_service_settings_defaults[] = {
+	{ "unix_listener", "auth-worker" },
+
+	{ "unix_listener/auth-worker/path", "auth-worker" },
+	{ "unix_listener/auth-worker/mode", "0600" },
+	{ "unix_listener/auth-worker/user", "$default_internal_user" },
+
+	{ NULL, NULL }
 };
 
 #undef DEF
