@@ -424,6 +424,9 @@ static void imap_notify_watch_selected_mailbox(struct client *client)
 	}
 	mailbox_notify_changes(client->mailbox, imap_notify_callback, client);
 	client->notify_ctx->watching_mailbox = TRUE;
+	/* There may have been changes before the mailbox notification watch
+	   was added. Check that now. */
+	imap_notify_callback(client->mailbox, client);
 }
 
 static void imap_notify_watch_timeout(struct client *client)
