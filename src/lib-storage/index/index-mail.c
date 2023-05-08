@@ -156,19 +156,6 @@ static struct message_part *get_unserialized_parts(struct index_mail *mail)
 	return parts;
 }
 
-static bool message_parts_have_nuls(const struct message_part *part)
-{
-	for (; part != NULL; part = part->next) {
-		if ((part->flags & MESSAGE_PART_FLAG_HAS_NULS) != 0)
-			return TRUE;
-		if (part->children != NULL) {
-			if (message_parts_have_nuls(part->children))
-				return TRUE;
-		}
-	}
-	return FALSE;
-}
-
 static bool get_cached_parts(struct index_mail *mail)
 {
 	struct message_part *part;

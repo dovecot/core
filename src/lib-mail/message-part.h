@@ -73,4 +73,9 @@ bool message_part_is_equal_ex(const struct message_part *p1,
 			      const struct message_part *p2,
 			      message_part_comparator_t *equals_ex) ATTR_NULL(1, 2, 3);
 
+/* Returns TRUE when message parts (including children) contain NULs. */
+bool message_parts_have_nuls(const struct message_part *parts);
+/* Returns TRUE when message part (including its children) contains NULs. */
+bool message_part_has_nuls(const struct message_part *part);
+
 #endif

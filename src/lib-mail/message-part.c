@@ -111,3 +111,22 @@ bool message_part_is_equal(const struct message_part *p1,
 {
 	return message_part_is_equal_ex(p1, p2, NULL);
 }
+
+bool message_parts_have_nuls(const struct message_part *parts)
+{
+	const struct message_part *part;
+
+	for (part = parts; part != NULL; part = part->next) {
+		if (message_part_has_nuls(part))
+			return TRUE;
+	}
+	return FALSE;
+}
+
+bool message_part_has_nuls(const struct message_part *part)
+{
+	if (HAS_ALL_BITS(part->flags, MESSAGE_PART_FLAG_HAS_NULS))
+		return TRUE;
+
+	return message_parts_have_nuls(part->children);
+}
