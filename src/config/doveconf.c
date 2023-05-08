@@ -638,27 +638,6 @@ config_dump_one(bool hide_key,
 	return 0;
 }
 
-static void config_request_simple_stdout(const char *key, const char *value,
-					 enum config_key_type type ATTR_UNUSED,
-					 void *context)
-{
-	char **setting_name_filters = context;
-	unsigned int i;
-	size_t filter_len;
-
-	if (setting_name_filters == NULL) {
-		printf("%s=%s\n", key, value);
-		return;
-	}
-
-	for (i = 0; setting_name_filters[i] != NULL; i++) {
-		filter_len = strlen(setting_name_filters[i]);
-		if (strncmp(setting_name_filters[i], key, filter_len) == 0 &&
-		    (key[filter_len] == '\0' || key[filter_len] == '/'))
-			printf("%s=%s\n", key, value);
-	}
-}
-
 static const char *get_setting(const char *info_name, const char *name)
 {
 	struct config_module_parser *l;
@@ -834,7 +813,7 @@ int main(int argc, char *argv[])
 	}
 
 	master_service = master_service_init("config", master_service_flags,
-					     &argc, &argv, "aCdFhHm:nNpPwxsS");
+					     &argc, &argv, "aCdFhHm:nNpPwxs");
 	orig_config_path = t_strdup(master_service_get_config_path(master_service));
 
 	i_set_failure_prefix("doveconf: ");
@@ -874,9 +853,6 @@ int main(int argc, char *argv[])
 			break;
 		case 's':
 			scope = CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN;
-			break;
-		case 'S':
-			simple_output = TRUE;
 			break;
 		case 'w':
 			hide_obsolete_warnings = TRUE;
@@ -967,19 +943,6 @@ int main(int argc, char *argv[])
 			i_fatal("execvp(%s) failed: %m", exec_args[0]);
 		}
 		ret2 = -1;
-	} else if (simple_output) {
-		struct config_export_context *ctx;
-		unsigned int section_idx = 0;
-
-		ctx = config_export_init(scope, 0,
-					 config_request_simple_stdout,
-					 setting_name_filters);
-		struct config_filter_parser *filter_parser =
-			config_parsed_get_global_filter_parser(config);
-		config_export_set_module_parsers(ctx, filter_parser->module_parsers);
-		if (config_export_all_parsers(&ctx, &section_idx) < 0)
-			i_unreached();
-		ret2 = 0;
 	} else if (setting_name_filters != NULL) {
 		ret2 = 0;
 		/* ignore settings-check failures in configuration. this allows
