@@ -315,7 +315,7 @@ static void ATTR_NULL(4)
 config_dump_human_output(struct config_dump_human_context *ctx,
 			 struct ostream *output, unsigned int indent,
 			 const char *setting_name_filter,
-			 bool hide_key, bool hide_passwords)
+			 bool hide_key, bool default_hide_passwords)
 {
 	ARRAY_TYPE(const_string) prefixes_arr;
 	ARRAY_TYPE(prefix_stack) prefix_stack;
@@ -366,6 +366,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		key = t_strdup_until(strings[i], value++);
 		unique_key = FALSE;
 
+		bool hide_passwords = default_hide_passwords;
 		p = strrchr(key, '/');
 		if (p != NULL && p[1] == UNIQUE_KEY_SUFFIX[0]) {
 			key = t_strconcat(t_strdup_until(key, p + 1),
@@ -373,11 +374,17 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			unique_key = TRUE;
 		}
 		if (setting_name_filter_len > 0) {
-			/* see if this setting matches the name filter */
-			if (!(strncmp(setting_name_filter, key,
-				      setting_name_filter_len) == 0 &&
-			      (key[setting_name_filter_len] == '/' ||
-			       key[setting_name_filter_len] == '\0')))
+			/* See if this setting matches the name filter.
+			   If we're asking for a full specific setting,
+			   don't hide passwords. */
+			if (strncmp(setting_name_filter, key,
+				    setting_name_filter_len) == 0 &&
+			    (key[setting_name_filter_len] == '/' ||
+			     key[setting_name_filter_len] == '\0')) {
+				/* match */
+				if (key[setting_name_filter_len] == '\0')
+					hide_passwords = FALSE;
+			} else
 				goto end;
 		}
 	again:
@@ -488,15 +495,11 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 }
 
 static unsigned int
-config_dump_filter_begin(string_t *str,
+config_dump_filter_begin(string_t *str, unsigned int indent,
 			 const struct config_filter *filter)
 {
-	unsigned int indent = 0;
-
-	if (filter->parent != NULL)
-		indent = config_dump_filter_begin(str, filter->parent);
-
 	if (filter->local_bits > 0) {
+		str_append_max(str, indent_str, indent*2);
 		str_printfa(str, "local %s", net_ip2addr(&filter->local_net));
 
 		if (IPADDR_IS_V4(&filter->local_net)) {
@@ -539,9 +542,10 @@ config_dump_filter_begin(string_t *str,
 }
 
 static void
-config_dump_filter_end(struct ostream *output, unsigned int indent)
+config_dump_filter_end(struct ostream *output, unsigned int indent,
+		       unsigned int parent_indent)
 {
-	while (indent > 0) {
+	while (indent > parent_indent) {
 		indent--;
 		o_stream_nsend(output, indent_str, indent*2);
 		o_stream_nsend(output, "}\n", 2);
@@ -549,37 +553,53 @@ config_dump_filter_end(struct ostream *output, unsigned int indent)
 }
 
 static void
-config_dump_human_sections(struct ostream *output,
-			   bool hide_key, bool hide_passwords)
+config_dump_human_filter_path(struct config_filter_parser *filter_parser,
+			      struct ostream *output, unsigned int indent,
+			      string_t *list_prefix, bool *list_prefix_sent,
+			      bool hide_key, bool hide_passwords)
 {
-	struct config_filter_parser *const *filters;
-	struct config_dump_human_context *ctx;
-	unsigned int indent;
+	for (; filter_parser != NULL; filter_parser = filter_parser->next) {
+		struct config_dump_human_context *ctx;
+		unsigned int sub_indent;
+		size_t parent_list_prefix_len = str_len(list_prefix);
 
-	filters = config_parsed_get_filter_parsers(config);
-
-	/* first filter should be the global one */
-	i_assert(filters[0] != NULL && filters[0]->filter.service == NULL);
-	filters++;
-
-	for (; *filters != NULL; filters++) {
-		ctx = config_dump_human_init(CONFIG_DUMP_SCOPE_SET);
-		indent = config_dump_filter_begin(ctx->list_prefix,
-						  &(*filters)->filter);
+		ctx = config_dump_human_init(CONFIG_DUMP_SCOPE_CHANGED);
+		sub_indent = hide_key ? 0 :
+			config_dump_filter_begin(list_prefix, indent,
+						 &filter_parser->filter);
 		config_export_set_module_parsers(ctx->export_ctx,
-						 (*filters)->module_parsers);
-		config_dump_human_output(ctx, output, indent, NULL,
-					 hide_key, hide_passwords);
-		if (ctx->list_prefix_sent)
-			config_dump_filter_end(output, indent);
+						 filter_parser->module_parsers);
+		str_append_str(ctx->list_prefix, list_prefix);
+		config_dump_human_output(ctx, output, sub_indent,
+					 NULL,
+					 hide_key,
+					 hide_passwords);
+
+		bool sub_list_prefix_sent = ctx->list_prefix_sent;
+		if (sub_list_prefix_sent) {
+			*list_prefix_sent = TRUE;
+			str_truncate(list_prefix, 0);
+		}
 		config_dump_human_deinit(ctx);
+
+		config_dump_human_filter_path(filter_parser->children_head,
+					      output, sub_indent, list_prefix,
+					      &sub_list_prefix_sent,
+					      hide_key, hide_passwords);
+		if (sub_list_prefix_sent) {
+			*list_prefix_sent = TRUE;
+			config_dump_filter_end(output, sub_indent, indent);
+		}
+		str_truncate(list_prefix, parent_list_prefix_len);
 	}
 }
 
-static int ATTR_NULL(4)
-config_dump_human(enum config_dump_scope scope, const char *setting_name_filter,
+static int
+config_dump_human(enum config_dump_scope scope,
+		  const char *setting_name_filter,
 		  bool hide_key, bool hide_passwords)
 {
+	struct config_filter_parser *filter_parser;
 	struct config_dump_human_context *ctx;
 	struct ostream *output;
 	const char *str;
@@ -589,17 +609,25 @@ config_dump_human(enum config_dump_scope scope, const char *setting_name_filter,
 	o_stream_set_no_error_handling(output, TRUE);
 	o_stream_cork(output);
 
+	filter_parser = config_parsed_get_global_filter_parser(config);
+
+	/* Check for the setting always even with a filter - it might be
+	   e.g. plugin/key strlist */
 	ctx = config_dump_human_init(scope);
-	struct config_filter_parser *filter_parser =
-		config_parsed_get_global_filter_parser(config);
 	config_export_set_module_parsers(ctx->export_ctx,
 					 filter_parser->module_parsers);
 	config_dump_human_output(ctx, output, 0, setting_name_filter,
 				 hide_key, hide_passwords);
 	config_dump_human_deinit(ctx);
 
-	if (setting_name_filter == NULL)
-		config_dump_human_sections(output, hide_key, hide_passwords);
+	if (setting_name_filter == NULL) {
+		string_t *list_prefix = t_str_new(128);
+		bool list_prefix_sent = FALSE;
+		config_dump_human_filter_path(filter_parser->children_head,
+					      output, 0, list_prefix,
+					      &list_prefix_sent,
+					      hide_key, hide_passwords);
+	}
 
 	/* flush output before writing errors */
 	o_stream_uncork(output);
@@ -609,52 +637,6 @@ config_dump_human(enum config_dump_scope scope, const char *setting_name_filter,
 	}
 	o_stream_destroy(&output);
 	return ret;
-}
-
-static int
-config_dump_one(bool hide_key,
-		enum config_dump_scope scope, const char *setting_name_filter,
-		bool hide_passwords)
-{
-	struct config_dump_human_context *ctx;
-	const char *str;
-	size_t len;
-	unsigned int section_idx = 0;
-	bool dump_section = FALSE;
-
-	ctx = config_dump_human_init(scope);
-	struct config_filter_parser *filter_parser =
-		config_parsed_get_global_filter_parser(config);
-	config_export_set_module_parsers(ctx->export_ctx,
-					 filter_parser->module_parsers);
-	if (config_export_all_parsers(&ctx->export_ctx, &section_idx) < 0)
-		i_unreached(); /* settings aren't checked - this can't happen */
-
-	len = strlen(setting_name_filter);
-	array_foreach_elem(&ctx->strings, str) {
-		if (strncmp(str, setting_name_filter, len) != 0)
-			continue;
-
-		if (str[len] == '=') {
-			if (hide_key)
-				printf("%s\n", str + len+1);
-			else {
-				printf("%s = %s\n", setting_name_filter,
-				       str + len+1);
-			}
-			dump_section = FALSE;
-			break;
-		} else if (str[len] == '/') {
-			dump_section = TRUE;
-		}
-	}
-	config_dump_human_deinit(ctx);
-
-	if (dump_section) {
-		(void)config_dump_human(scope, setting_name_filter,
-					hide_key, hide_passwords);
-	}
-	return 0;
 }
 
 static const char *get_setting(const char *info_name, const char *name)
@@ -970,9 +952,8 @@ int main(int argc, char *argv[])
 		   (temporarily) not be fully usable */
 		ret = 0;
 		for (i = 0; setting_name_filters[i] != NULL; i++) {
-			if (config_dump_one(hide_key, scope,
-					    setting_name_filters[i], hide_passwords) < 0)
-				ret2 = -1;
+			(void)config_dump_human(scope, setting_name_filters[i],
+						hide_key, hide_passwords);
 		}
 	} else {
 		const char *info;
