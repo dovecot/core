@@ -17,6 +17,7 @@ enum auth_lua_script_type {
 struct auth_lua_script_parameters {
 	enum auth_lua_script_type stype;
 	struct dlua_script *script;
+	const char *const *arguments;
 };
 
 int auth_lua_script_init(const struct auth_lua_script_parameters *params,

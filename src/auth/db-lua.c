@@ -449,9 +449,21 @@ int auth_lua_script_init(const struct auth_lua_script_parameters *params,
 	}
 	if (!dlua_script_has_function(script, fn))
 		return 0;
+	i_assert(params->arguments == NULL ||
+		 (str_array_length(params->arguments) % 2 == 0));
+	if (params->arguments != NULL) {
+		/* prepare a table for arguments */
+		lua_createtable(script->L, 0, str_array_length(params->arguments) / 2);
+		for (const char *const *p = params->arguments; *p != NULL; p += 2) {
+			lua_pushstring(script->L, p[1]);
+			lua_setfield(script->L, -2, p[0]);
+		}
+	} else {
+		lua_newtable(script->L);
+	}
 
 	/* call the function */
-	if (dlua_pcall(script->L, fn, 0, 0, error_r) < 0)
+	if (dlua_pcall(script->L, fn, 1, 0, error_r) < 0)
 		return -1;
 
 	i_assert(lua_gettop(script->L) == 0);
