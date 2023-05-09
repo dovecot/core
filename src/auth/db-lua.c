@@ -393,16 +393,6 @@ static void auth_lua_dovecot_auth_register(lua_State *L)
 	lua_pop(L, 1);
 }
 
-int auth_lua_script_init(const struct auth_lua_script_parameters *params,
-			 const char **error_r)
-{
-	struct dlua_script *script = params->script;
-	dlua_dovecot_register(script);
-	auth_lua_dovecot_auth_register(script->L);
-	auth_lua_auth_request_register(script->L);
-	return dlua_script_init(script, error_r);
-}
-
 static int auth_lua_call_lookup(lua_State *L, const char *fn,
 				struct auth_request *req, const char **error_r)
 {
@@ -435,6 +425,16 @@ static int auth_lua_call_lookup(lua_State *L, const char *fn,
 	}
 
 	return 0;
+}
+
+int auth_lua_script_init(const struct auth_lua_script_parameters *params,
+			 const char **error_r)
+{
+	struct dlua_script *script = params->script;
+	dlua_dovecot_register(script);
+	auth_lua_dovecot_auth_register(script->L);
+	auth_lua_auth_request_register(script->L);
+	return dlua_script_init(script, error_r);
 }
 
 static void
