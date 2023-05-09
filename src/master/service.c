@@ -286,20 +286,20 @@ service_create_real(pool_t pool, struct event *event,
 		service->status_fd[1] = service_anvil_global->status_fd[1];
 	}
 
-	if (array_is_created(&set->unix_listeners))
-		unix_listeners = array_get(&set->unix_listeners, &unix_count);
+	if (array_is_created(&set->parsed_unix_listeners))
+		unix_listeners = array_get(&set->parsed_unix_listeners, &unix_count);
 	else {
 		unix_listeners = NULL;
 		unix_count = 0;
 	}
-	if (array_is_created(&set->fifo_listeners))
-		fifo_listeners = array_get(&set->fifo_listeners, &fifo_count);
+	if (array_is_created(&set->parsed_fifo_listeners))
+		fifo_listeners = array_get(&set->parsed_fifo_listeners, &fifo_count);
 	else {
 		fifo_listeners = NULL;
 		fifo_count = 0;
 	}
-	if (array_is_created(&set->inet_listeners))
-		inet_listeners = array_get(&set->inet_listeners, &inet_count);
+	if (array_is_created(&set->parsed_inet_listeners))
+		inet_listeners = array_get(&set->parsed_inet_listeners, &inet_count);
 	else {
 		inet_listeners = NULL;
 		inet_count = 0;

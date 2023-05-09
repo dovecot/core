@@ -140,15 +140,55 @@ config_parser_add_service_default_keyvalues(struct config_parser_context *ctx,
 					    const char *service_name,
 					    const struct setting_keyvalue *defaults)
 {
-	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
+	struct config_filter_parser *orig_filter_parser =
+		ctx->cur_section->filter_parser;
+	struct config_module_parser *orig_module_parsers =
+		ctx->cur_section->module_parsers;
+	const char *p;
+
 	for (unsigned int i = 0; defaults[i].key != NULL; i++) T_BEGIN {
-		const char *line = t_strdup_printf("%s=%s",
-			defaults[i].key, defaults[i].value);
-		if (config_apply_line(ctx, defaults[i].key, line, NULL, NULL) < 0)
-			i_panic("Failed to add default setting %s for service %s: %s",
-				line, service_name, ctx->error);
+		const char *key = defaults[i].key;
+
+		if ((p = strchr(key, '/')) != NULL &&
+		    (p = strchr(p + 1, '/')) != NULL) {
+			/* *_listener filter */
+			const char *escaped_key = t_strdup_until(key, p);
+			struct config_filter filter = {
+				.filter_name = settings_section_unescape(escaped_key),
+				.filter_name_array = TRUE,
+				.parent = &orig_filter_parser->filter,
+			};
+			struct config_filter_parser *filter_parser =
+				config_filter_parser_find(ctx, &filter);
+			if (filter_parser == NULL) {
+				ctx->cur_section->filter = filter;
+				ctx->cur_section->filter.filter_name =
+					p_strdup(ctx->pool, filter.filter_name);
+				ctx->cur_section->filter_parser = orig_filter_parser;
+				config_add_new_parser(ctx, ctx->cur_section);
+				ctx->cur_section->filter_parser->filter_required_setting_seen = TRUE;
+			} else {
+				ctx->cur_section->filter_parser = filter_parser;
+				ctx->cur_section->module_parsers =
+					ctx->cur_section->filter_parser->module_parsers;
+				ctx->cur_section->filter = filter_parser->filter;
+			}
+			key = p + 1;
+		}
+
+		config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
+		const char *line = t_strdup_printf("%s=%s", key, defaults[i].value);
+		if (config_apply_line(ctx, defaults[i].key, line, NULL, NULL) < 0) {
+			i_panic("Failed to add default setting %s=%s for service %s: %s",
+				defaults[i].key, defaults[i].value,
+				service_name, ctx->error);
+		}
+		config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
+
+		ctx->cur_section->filter_parser = orig_filter_parser;
+		ctx->cur_section->module_parsers = orig_module_parsers;
+		ctx->cur_section->filter = orig_filter_parser->filter;
 	} T_END;
-	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
 }
 
 static void config_parser_add_services(struct config_parser_context *ctx,

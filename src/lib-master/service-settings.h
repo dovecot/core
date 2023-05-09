@@ -31,6 +31,7 @@ ARRAY_DEFINE_TYPE(config_service, struct config_service);
 /* </settings checks> */
 
 struct file_listener_settings {
+	pool_t pool;
 	const char *path;
 	const char *type;
 	unsigned int mode;
@@ -40,6 +41,7 @@ struct file_listener_settings {
 ARRAY_DEFINE_TYPE(file_listener_settings, struct file_listener_settings *);
 
 struct inet_listener_settings {
+	pool_t pool;
 	const char *name;
 	const char *type;
 	const char *address;
@@ -71,14 +73,18 @@ struct service_settings {
 	unsigned int idle_kill;
 	uoff_t vsz_limit;
 
-	ARRAY_TYPE(file_listener_settings) unix_listeners;
-	ARRAY_TYPE(file_listener_settings) fifo_listeners;
-	ARRAY_TYPE(inet_listener_settings) inet_listeners;
+	ARRAY_TYPE(const_string) unix_listeners;
+	ARRAY_TYPE(const_string) fifo_listeners;
+	ARRAY_TYPE(const_string) inet_listeners;
 
 	/* internal to master: */
 	enum service_type parsed_type;
 	enum service_user_default user_default;
 	bool login_dump_core:1;
+
+	ARRAY_TYPE(file_listener_settings) parsed_unix_listeners;
+	ARRAY_TYPE(file_listener_settings) parsed_fifo_listeners;
+	ARRAY_TYPE(inet_listener_settings) parsed_inet_listeners;
 
 	/* -- flags that can be set internally -- */
 
