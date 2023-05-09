@@ -416,9 +416,9 @@ static int auth_lua_call_lookup(lua_State *L, const char *fn,
 					   "(expected number got %s)",
 					   fn, luaL_typename(L, -2));
 		err = -1;
-	} else if (!lua_isstring(L, -1) && !lua_istable(L, -1)) {
+	} else if (!lua_isstring(L, -1) && !lua_istable(L, -1) && !lua_isnil(L, -1)) {
 		*error_r = t_strdup_printf("db-lua: %s(req) invalid return value "
-					   "(expected string or table, got %s)",
+					   "(expected nil, string or table, got %s)",
 					   fn, luaL_typename(L, -1));
 		err = -1;
 	}
@@ -622,7 +622,7 @@ auth_lua_call_lookup_finish(lua_State *L, struct auth_request *req,
 
 	if (ret != PASSDB_RESULT_OK && ret != PASSDB_RESULT_NEXT) {
 		*error_r = str;
-	} else {
+	} else if (str != NULL) {
 		auth_lua_export_fields(req, str, scheme_r, password_r);
 	}
 
@@ -654,9 +654,9 @@ auth_lua_call_password_verify(struct dlua_script *script,
 					   AUTH_LUA_PASSWORD_VERIFY,
 					   luaL_typename(L, -2));
 		err = -1;
-	} else if (!lua_isstring(L, -1) && !lua_istable(L, -1)) {
+	} else if (!lua_isstring(L, -1) && !lua_istable(L, -1) && !lua_isnil(L, -1)) {
 		*error_r = t_strdup_printf("db-lua: %s invalid return value "
-					   "(expected string or table, got %s)",
+					   "(expected nil, string or table, got %s)",
 					   AUTH_LUA_PASSWORD_VERIFY,
 					   luaL_typename(L, -1));
 		err = -1;
@@ -717,7 +717,8 @@ auth_lua_call_userdb_lookup(struct dlua_script *script,
 		*error_r = str;
 		return ret;
 	}
-	auth_lua_export_fields(req, str, NULL, NULL);
+	if (str != NULL)
+		auth_lua_export_fields(req, str, NULL, NULL);
 
 	return USERDB_RESULT_OK;
 }
