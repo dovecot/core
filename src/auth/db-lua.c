@@ -193,6 +193,10 @@ static int auth_request_lua_password_verify(lua_State *L)
 	const unsigned char *raw_password = NULL;
 	size_t raw_password_size;
 	int ret;
+	if (crypted_password == NULL)
+		return luaL_error(L, "Crypted password must not be nil");
+	if (plain_password == NULL)
+		return luaL_error(L, "Plain password must not be nil");
 	struct password_generate_params gen_params = {
 		.user = request->fields.original_username,
 		.rounds = 0
