@@ -12,6 +12,7 @@ struct dlua_userdb_module {
 	struct userdb_module module;
 	struct dlua_script *script;
 	const char *file;
+	const char *const *arguments;
 };
 
 static void userdb_lua_lookup(struct auth_request *auth_request,
@@ -38,10 +39,13 @@ userdb_lua_preinit(pool_t pool, const char *args)
 
 	module = p_new(pool, struct dlua_userdb_module, 1);
 	const char *const *fields = t_strsplit_spaces(args, " ");
+	ARRAY_TYPE(const_string) arguments;
+	t_array_init(&arguments, 8);
+
 	while(*fields != NULL) {
 		const char *key, *value;
 		if (!t_split_key_value_eq(*fields, &key, &value)) {
-			i_fatal("Unsupported parameter %s", *fields);
+			/* pass */
 		} else if (strcmp(key, "file") == 0) {
 			 module->file = p_strdup(pool, value);
 		} else if (strcmp(key, "blocking") == 0) {
@@ -59,9 +63,13 @@ userdb_lua_preinit(pool_t pool, const char *args)
                                 cache_key = value;
                         else /* explicitly disable auth caching for lua */
                                 cache_key = NULL;
-		} else {
-			i_fatal("Unsupported parameter %s", *fields);
 		}
+
+		/* Catch arguments for lua initialization */
+		const char **argument = array_append_space(&arguments);
+		*argument = key;
+		argument = array_append_space(&arguments);
+		*argument = value;
 		fields++;
 	}
 
@@ -72,6 +80,10 @@ userdb_lua_preinit(pool_t pool, const char *args)
 	if (cache_key != NULL) {
 		module->module.default_cache_key =
 			auth_cache_parse_key(pool, cache_key);
+	}
+	if (array_count(&arguments) > 0) {
+		array_append_zero(&arguments);
+		module->arguments = array_front(&arguments);
 	}
 	return &module->module;
 }
@@ -88,6 +100,7 @@ static void userdb_lua_init(struct userdb_module *_module)
 	const struct auth_lua_script_parameters params = {
 		.script = module->script,
 		.stype = AUTH_LUA_SCRIPT_TYPE_USERDB,
+		.arguments = module->arguments,
 	};
 	if (auth_lua_script_init(&params, &error) < 0)
 		i_fatal("userdb-lua: initialization failed: %s", error);

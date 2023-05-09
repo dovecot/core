@@ -12,6 +12,7 @@ struct dlua_passdb_module {
 	struct passdb_module module;
 	struct dlua_script *script;
 	const char *file;
+	const char *const *arguments;
 	bool has_password_verify;
 };
 
@@ -113,10 +114,13 @@ passdb_lua_preinit(pool_t pool, const char *args)
 
 	module = p_new(pool, struct dlua_passdb_module, 1);
 	const char *const *fields = t_strsplit_spaces(args, " ");
+	ARRAY_TYPE(const_string) arguments;
+	t_array_init(&arguments, 8);
+
 	while(*fields != NULL) {
 		const char *key, *value;
 		if (!t_split_key_value_eq(*fields, &key, &value)) {
-			i_fatal("Unsupported parameter %s", *fields);
+			/* pass */
 		} else if (strcmp(key, "file") == 0) {
 			 module->file = p_strdup(pool, value);
 		} else if (strcmp(key, "blocking") == 0) {
@@ -136,9 +140,13 @@ passdb_lua_preinit(pool_t pool, const char *args)
                                 cache_key = NULL;
 		} else if (strcmp(key, "scheme") == 0) {
 			scheme = p_strdup(pool, value);
-		} else {
-			i_fatal("Unsupported parameter %s", *fields);
 		}
+
+		/* Catch arguments for lua initialization */
+		const char **argument = array_append_space(&arguments);
+		*argument = p_strdup(pool, key);
+		argument = array_append_space(&arguments);
+		*argument = p_strdup(pool, value);
 		fields++;
 	}
 
@@ -149,6 +157,10 @@ passdb_lua_preinit(pool_t pool, const char *args)
 	module->module.default_cache_key =
 		auth_cache_parse_key(pool, cache_key);
 	module->module.default_pass_scheme = scheme;
+	if (array_count(&arguments) > 0) {
+		array_append_zero(&arguments);
+		module->arguments = array_front(&arguments);
+	}
 	return &module->module;
 }
 
@@ -164,6 +176,7 @@ static void passdb_lua_init(struct passdb_module *_module)
 	const struct auth_lua_script_parameters params = {
 		.script = module->script,
 		.stype = AUTH_LUA_SCRIPT_TYPE_PASSDB,
+		.arguments = module->arguments,
 	};
 	if (auth_lua_script_init(&params, &error) < 0)
 		i_fatal("passdb-lua: initialization failed: %s", error);
