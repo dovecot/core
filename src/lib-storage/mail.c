@@ -437,24 +437,43 @@ int mail_get_backend_mail(struct mail *mail, struct mail **real_mail_r)
 	return p->v.get_backend_mail(mail, real_mail_r);
 }
 
-int mail_get_message_id(struct mail *mail, const char **value_r)
+static int mail_get_message_id_full(struct mail *mail,
+				    const char **value_r,
+				    bool require_valid)
 {
 	const char *hdr_value, *msgid_bare;
 	int ret;
 
-	*value_r = NULL;
-
 	ret = mail_get_first_header(mail, "Message-ID", &hdr_value);
-	if (ret <= 0)
+	if (ret <= 0) {
+		*value_r = NULL;
 		return ret;
+	}
 
+	*value_r = hdr_value; /* save it now as next function alters it */
 	msgid_bare = message_id_get_next(&hdr_value);
-	if (msgid_bare == NULL)
-		return 0;
 
-	/* Complete the message ID with surrounding `<' and `>'. */
-	*value_r = t_strconcat("<",  msgid_bare, ">", NULL);
-	return 1;
+	if (msgid_bare != NULL) {
+		/* Complete the message ID with surrounding `<' and `>'. */
+		*value_r = t_strconcat("<",  msgid_bare, ">", NULL);
+		return 1;
+	} else if (!require_valid) {
+		/* *value_r already set above */
+		return 1;
+	} else {
+		*value_r = NULL;
+		return 0;
+	}
+}
+
+int mail_get_message_id(struct mail *mail, const char **value_r)
+{
+	return mail_get_message_id_full(mail, value_r, TRUE/*require_valid*/);
+}
+
+int mail_get_message_id_no_validation(struct mail *mail, const char **value_r)
+{
+	return mail_get_message_id_full(mail, value_r, FALSE/*require_valid*/);
 }
 
 void mail_update_flags(struct mail *mail, enum modify_type modify_type,

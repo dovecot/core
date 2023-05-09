@@ -990,6 +990,9 @@ int mail_get_backend_mail(struct mail *mail, struct mail **real_mail_r);
    '>' in the *value_r return parameter or NULL if the header wasn't found or
    its value was invalid. */
 int mail_get_message_id(struct mail *mail, const char **value_r);
+/* Try to retrieve a properly parsed Message-ID header, if that fails return
+   the raw header value as it is. */
+int mail_get_message_id_no_validation(struct mail *mail, const char **value_r);
 
 /* Update message flags. */
 void mail_update_flags(struct mail *mail, enum modify_type modify_type,
