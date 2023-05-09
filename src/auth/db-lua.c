@@ -18,7 +18,9 @@
 #include "password-scheme.h"
 #include "auth-request-var-expand.h"
 
+#define AUTH_LUA_PASSDB_INIT "auth_passdb_init"
 #define AUTH_LUA_PASSDB_LOOKUP "auth_passdb_lookup"
+#define AUTH_LUA_USERDB_INIT "auth_userdb_init"
 #define AUTH_LUA_USERDB_LOOKUP "auth_userdb_lookup"
 #define AUTH_LUA_USERDB_ITERATE "auth_userdb_iterate"
 
@@ -434,7 +436,26 @@ int auth_lua_script_init(const struct auth_lua_script_parameters *params,
 	dlua_dovecot_register(script);
 	auth_lua_dovecot_auth_register(script->L);
 	auth_lua_auth_request_register(script->L);
-	return dlua_script_init(script, error_r);
+	if (dlua_script_init(script, error_r) < 0)
+		return -1;
+	const char *fn;
+	switch (params->stype) {
+	case AUTH_LUA_SCRIPT_TYPE_PASSDB:
+		fn = AUTH_LUA_PASSDB_INIT;
+		break;
+	case AUTH_LUA_SCRIPT_TYPE_USERDB:
+		fn = AUTH_LUA_USERDB_INIT;
+		break;
+	}
+	if (!dlua_script_has_function(script, fn))
+		return 0;
+
+	/* call the function */
+	if (dlua_pcall(script->L, fn, 0, 0, error_r) < 0)
+		return -1;
+
+	i_assert(lua_gettop(script->L) == 0);
+	return 0;
 }
 
 static void

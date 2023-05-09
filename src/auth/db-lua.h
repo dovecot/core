@@ -9,7 +9,13 @@
 
 struct dlua_script;
 
+enum auth_lua_script_type {
+	AUTH_LUA_SCRIPT_TYPE_PASSDB,
+	AUTH_LUA_SCRIPT_TYPE_USERDB,
+};
+
 struct auth_lua_script_parameters {
+	enum auth_lua_script_type stype;
 	struct dlua_script *script;
 };
 

@@ -84,6 +84,7 @@ static void userdb_lua_init(struct userdb_module *_module)
 
 	const struct auth_lua_script_parameters params = {
 		.script = module->script,
+		.stype = AUTH_LUA_SCRIPT_TYPE_USERDB,
 	};
 	if (auth_lua_script_init(&params, &error) < 0)
 		i_fatal("userdb-lua: initialization failed: %s", error);

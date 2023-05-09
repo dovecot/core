@@ -160,6 +160,7 @@ static void passdb_lua_init(struct passdb_module *_module)
 
 	const struct auth_lua_script_parameters params = {
 		.script = module->script,
+		.stype = AUTH_LUA_SCRIPT_TYPE_PASSDB,
 	};
 	if (auth_lua_script_init(&params, &error) < 0)
 		i_fatal("passdb-lua: initialization failed: %s", error);
