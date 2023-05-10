@@ -352,6 +352,32 @@ get_in_port_zero(struct setting_parser_context *ctx, const char *value,
 	return 0;
 }
 
+static void
+settings_parse_strlist(struct setting_parser_context *ctx,
+		       struct setting_link *link,
+		       const char *key, const char *value)
+{
+	void *const *items;
+	void *vkey, *vvalue;
+	unsigned int i, count;
+
+	key = strrchr(key, SETTINGS_SEPARATOR) + 1;
+	vvalue = p_strdup(ctx->set_pool, value);
+
+	/* replace if it already exists */
+	items = array_get(link->array, &count);
+	for (i = 0; i < count; i += 2) {
+		if (strcmp(items[i], key) == 0) {
+			array_idx_set(link->array, i + 1, &vvalue);
+			return;
+		}
+	}
+
+	vkey = p_strdup(ctx->set_pool, key);
+	array_push_back(link->array, &vkey);
+	array_push_back(link->array, &vvalue);
+}
+
 static int
 settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 	       const struct setting_define *def,
@@ -555,32 +581,6 @@ settings_parse_get_filter(struct setting_parser_context *ctx,
 	if (def->type != SET_FILTER_NAME && def->type != SET_FILTER_ARRAY)
 		return NULL;
 	return def;
-}
-
-static void
-settings_parse_strlist(struct setting_parser_context *ctx,
-		       struct setting_link *link,
-		       const char *key, const char *value)
-{
-	void *const *items;
-	void *vkey, *vvalue;
-	unsigned int i, count;
-
-	key = strrchr(key, SETTINGS_SEPARATOR) + 1;
-	vvalue = p_strdup(ctx->set_pool, value);
-
-	/* replace if it already exists */
-	items = array_get(link->array, &count);
-	for (i = 0; i < count; i += 2) {
-		if (strcmp(items[i], key) == 0) {
-			array_idx_set(link->array, i + 1, &vvalue);
-			return;
-		}
-	}
-
-	vkey = p_strdup(ctx->set_pool, key);
-	array_push_back(link->array, &vkey);
-	array_push_back(link->array, &vvalue);
 }
 
 static int
