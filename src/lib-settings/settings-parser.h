@@ -143,9 +143,6 @@ void *settings_parser_get_changes(struct setting_parser_context *ctx);
 
 /* Return the last error. */
 const char *settings_parser_get_error(struct setting_parser_context *ctx);
-/* Return the parser info used for the previously parsed line. */
-const struct setting_parser_info *
-settings_parse_get_prev_info(struct setting_parser_context *ctx);
 
 /* Find the definition for a given SET_FILTER_NAME or SET_FILTER_ARRAY. */
 const struct setting_define *

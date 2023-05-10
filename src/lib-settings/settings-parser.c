@@ -40,7 +40,6 @@ struct setting_parser_context {
 
 	unsigned int linenum;
 	char *error;
-	const struct setting_parser_info *prev_info;
 };
 
 static void
@@ -312,8 +311,6 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 		def--;
 	}
 
-	ctx->prev_info = link->info;
-
 	change_ptr = link->change_struct == NULL ? NULL :
 		STRUCT_MEMBER_P(link->change_struct, def->offset);
 
@@ -462,7 +459,6 @@ settings_parse_keyvalue_real(struct setting_parser_context *ctx,
 	struct setting_link *link;
 
 	i_free(ctx->error);
-	ctx->prev_info = NULL;
 
 	if (!settings_find_key(ctx, key, FALSE, &def, &link)) {
 		settings_parser_set_error(ctx,
@@ -566,12 +562,6 @@ int settings_parse_line(struct setting_parser_context *ctx, const char *line)
 		ret = settings_parse_keyvalue(ctx, key, value + 1);
 	} T_END;
 	return ret;
-}
-
-const struct setting_parser_info *
-settings_parse_get_prev_info(struct setting_parser_context *ctx)
-{
-	return ctx->prev_info;
 }
 
 bool settings_check(struct event *event, const struct setting_parser_info *info,
@@ -922,7 +912,6 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 	new_ctx->str_vars_are_expanded = old_ctx->str_vars_are_expanded;
 	new_ctx->linenum = old_ctx->linenum;
 	new_ctx->error = i_strdup(old_ctx->error);
-	new_ctx->prev_info = old_ctx->prev_info;
 
 	new_ctx->root.info = old_ctx->root.info;
 	new_ctx->root.set_struct =
