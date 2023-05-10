@@ -5,6 +5,7 @@ struct master_service;
 struct master_service_settings_output;
 
 struct auth_passdb_settings {
+	pool_t pool;
 	const char *name;
 	const char *driver;
 	const char *args;
@@ -24,6 +25,7 @@ struct auth_passdb_settings {
 };
 
 struct auth_userdb_settings {
+	pool_t pool;
 	const char *name;
 	const char *driver;
 	const char *args;
@@ -78,8 +80,8 @@ struct auth_settings {
 	bool use_winbind;
 
 	/* settings that don't have auth_ prefix: */
-	ARRAY(struct auth_passdb_settings *) passdbs;
-	ARRAY(struct auth_userdb_settings *) userdbs;
+	ARRAY_TYPE(const_string) passdbs;
+	ARRAY_TYPE(const_string) userdbs;
 
 	const char *base_dir;
 	const char *ssl_client_ca_dir;
@@ -92,6 +94,8 @@ struct auth_settings {
 	unsigned int last_valid_gid;
 
 	/* generated: */
+	ARRAY(const struct auth_passdb_settings *) parsed_passdbs;
+	ARRAY(const struct auth_userdb_settings *) parsed_userdbs;
 	char username_chars_map[256];
 	char username_translation_map[256];
 	const char *const *realms_arr;

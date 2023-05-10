@@ -259,8 +259,8 @@ static struct auth * ATTR_NULL(2)
 auth_preinit(const struct auth_settings *set, const char *service,
 	     const struct mechanisms_register *reg)
 {
-	struct auth_passdb_settings *const *passdbs;
-	struct auth_userdb_settings *const *userdbs;
+	const struct auth_passdb_settings *const *passdbs;
+	const struct auth_userdb_settings *const *userdbs;
 	struct auth *auth;
 	unsigned int i, count, db_count, passdb_count, last_passdb = 0;
 
@@ -272,8 +272,8 @@ auth_preinit(const struct auth_settings *set, const char *service,
 	pool_ref(set->pool);
 	auth->reg = reg;
 
-	if (array_is_created(&set->passdbs))
-		passdbs = array_get(&set->passdbs, &db_count);
+	if (array_is_created(&set->parsed_passdbs))
+		passdbs = array_get(&set->parsed_passdbs, &db_count);
 	else {
 		passdbs = NULL;
 		db_count = 0;
@@ -316,8 +316,8 @@ auth_preinit(const struct auth_settings *set, const char *service,
 		auth_passdb_preinit(auth, passdbs[i], &auth->masterdbs);
 	}
 
-	if (array_is_created(&set->userdbs)) {
-		userdbs = array_get(&set->userdbs, &count);
+	if (array_is_created(&set->parsed_userdbs)) {
+		userdbs = array_get(&set->parsed_userdbs, &count);
 		for (i = 0; i < count; i++)
 			auth_userdb_preinit(auth, userdbs[i]);
 	}

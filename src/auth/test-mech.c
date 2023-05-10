@@ -100,15 +100,17 @@ static void test_mechs_init(void)
 	memset((&set)->username_chars_map, 1, sizeof((&set)->username_chars_map));
 	set.username_format = "";
 
-	t_array_init(&set.passdbs, 2);
+	t_array_init(&set.parsed_passdbs, 2);
 	struct auth_passdb_settings *mock_set = t_new(struct auth_passdb_settings, 1);
 	*mock_set = mock_passdb_set;
-	array_push_back(&set.passdbs, &mock_set);
+	const struct auth_passdb_settings *const_mock_set = mock_set;
+	array_push_back(&set.parsed_passdbs, &const_mock_set);
 	mock_set = t_new(struct auth_passdb_settings, 1);
 	*mock_set = mock_passdb_set;
 	mock_set->master = TRUE;
-	array_push_back(&set.passdbs, &mock_set);
-	t_array_init(&set.userdbs, 1);
+	const_mock_set = mock_set;
+	array_push_back(&set.parsed_passdbs, &const_mock_set);
+	t_array_init(&set.parsed_userdbs, 1);
 
 	/* For tests of digest-md5. */
 	set.realms_arr = t_strsplit_spaces("example.com ", " ");

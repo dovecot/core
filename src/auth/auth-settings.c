@@ -10,9 +10,12 @@
 #include "service-settings.h"
 #include "auth-settings.h"
 
-static bool auth_settings_check(void *_set, pool_t pool, const char **error_r);
+static bool auth_settings_ext_check(struct event *event, void *_set, pool_t pool, const char **error_r);
 static bool auth_passdb_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool auth_userdb_settings_check(void *_set, pool_t pool, const char **error_r);
+
+extern const struct setting_parser_info auth_userdb_setting_parser_info;
+extern const struct setting_parser_info auth_passdb_setting_parser_info;
 
 struct service_settings auth_service_settings = {
 	.name = "auth",
@@ -111,7 +114,7 @@ const struct setting_keyvalue auth_worker_service_settings_defaults[] = {
 
 #undef DEF
 #define DEF(type, name) \
-	SETTING_DEFINE_STRUCT_##type(#name, name, struct auth_passdb_settings)
+	SETTING_DEFINE_STRUCT_##type("passdb_"#name, name, struct auth_passdb_settings)
 
 static const struct setting_define auth_passdb_setting_defines[] = {
 	DEF(STR, name),
@@ -163,14 +166,14 @@ const struct setting_parser_info auth_passdb_setting_parser_info = {
 
 	.type_offset1 = 1 + offsetof(struct auth_passdb_settings, name),
 	.struct_size = sizeof(struct auth_passdb_settings),
-	.parent = &auth_setting_parser_info,
+	.pool_offset1 = 1 + offsetof(struct auth_passdb_settings, pool),
 
 	.check_func = auth_passdb_settings_check
 };
 
 #undef DEF
 #define DEF(type, name) \
-	SETTING_DEFINE_STRUCT_##type(#name, name, struct auth_userdb_settings)
+	SETTING_DEFINE_STRUCT_##type("userdb_"#name, name, struct auth_userdb_settings)
 
 static const struct setting_define auth_userdb_setting_defines[] = {
 	DEF(STR, name),
@@ -213,22 +216,17 @@ const struct setting_parser_info auth_userdb_setting_parser_info = {
 
 	.type_offset1 = 1 + offsetof(struct auth_userdb_settings, name),
 	.struct_size = sizeof(struct auth_userdb_settings),
-	.parent = &auth_setting_parser_info,
+	.pool_offset1 = 1 + offsetof(struct auth_userdb_settings, pool),
 	.check_func = auth_userdb_settings_check
 };
 
 /* we're kind of kludging here to avoid "auth_" prefix in the struct fields */
 #undef DEF
 #undef DEF_NOPREFIX
-#undef DEFLIST
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type("auth_"#name, name, struct auth_settings)
 #define DEF_NOPREFIX(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct auth_settings)
-#define DEFLIST(field, name, defines) \
-	{ .type = SET_DEFLIST, .key = name, \
-	  .offset = offsetof(struct auth_settings, field), \
-	  .list_info = defines }
 
 static const struct setting_define auth_setting_defines[] = {
 	DEF(STR, mechanisms),
@@ -271,8 +269,14 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(BOOL, ssl_username_from_cert),
 	DEF(BOOL, use_winbind),
 
-	DEFLIST(passdbs, "passdb", &auth_passdb_setting_parser_info),
-	DEFLIST(userdbs, "userdb", &auth_userdb_setting_parser_info),
+	{ .type = SET_FILTER_ARRAY, .key = "passdb",
+	  .offset = offsetof(struct auth_settings, passdbs),
+	  .filter_array_field_name = "name",
+	  .required_setting = "passdb_driver", },
+	{ .type = SET_FILTER_ARRAY, .key = "userdb",
+	  .offset = offsetof(struct auth_settings, userdbs),
+	  .filter_array_field_name = "name",
+	  .required_setting = "userdb_driver", },
 
 	DEF_NOPREFIX(STR, base_dir),
 	DEF_NOPREFIX(BOOL, verbose_proctitle),
@@ -350,7 +354,7 @@ const struct setting_parser_info auth_setting_parser_info = {
 
 	.struct_size = sizeof(struct auth_settings),
 	.pool_offset1 = 1 + offsetof(struct auth_settings, pool),
-	.check_func = auth_settings_check
+	.ext_check_func = auth_settings_ext_check,
 };
 
 /* <settings checks> */
@@ -417,8 +421,62 @@ auth_verify_verbose_password(struct auth_settings *set,
 	}
 }
 
-static bool auth_settings_check(void *_set, pool_t pool,
-				const char **error_r)
+static bool
+auth_settings_get_passdbs(struct auth_settings *set, pool_t pool,
+			  struct event *event, const char **error_r)
+{
+	const struct auth_passdb_settings *passdb_set;
+	const char *passdb_name, *error;
+
+	if (!array_is_created(&set->passdbs))
+		return TRUE;
+
+	p_array_init(&set->parsed_passdbs, pool, array_count(&set->passdbs));
+	array_foreach_elem(&set->passdbs, passdb_name) {
+		if (settings_get_filter(event, "passdb", passdb_name,
+					&auth_passdb_setting_parser_info,
+					0, &passdb_set, &error) < 0) {
+			*error_r = t_strdup_printf("Failed to get passdb %s: %s",
+						   passdb_name, error);
+			return FALSE;
+		}
+
+		pool_add_external_ref(pool, passdb_set->pool);
+		array_push_back(&set->parsed_passdbs, &passdb_set);
+		settings_free(passdb_set);
+	}
+	return TRUE;
+}
+
+static bool
+auth_settings_get_userdbs(struct auth_settings *set, pool_t pool,
+			  struct event *event, const char **error_r)
+{
+	const struct auth_userdb_settings *userdb_set;
+	const char *userdb_name, *error;
+
+	if (!array_is_created(&set->userdbs))
+		return TRUE;
+
+	p_array_init(&set->parsed_userdbs, pool, array_count(&set->userdbs));
+	array_foreach_elem(&set->userdbs, userdb_name) {
+		if (settings_get_filter(event, "userdb", userdb_name,
+					&auth_userdb_setting_parser_info,
+					0, &userdb_set, &error) < 0) {
+			*error_r = t_strdup_printf("Failed to get userdb %s: %s",
+						   userdb_name, error);
+			return FALSE;
+		}
+
+		pool_add_external_ref(pool, userdb_set->pool);
+		array_push_back(&set->parsed_userdbs, &userdb_set);
+		settings_free(userdb_set);
+	}
+	return TRUE;
+}
+
+static bool auth_settings_ext_check(struct event *event, void *_set,
+				    pool_t pool, const char **error_r)
 {
 	struct auth_settings *set = _set;
 	const char *p;
@@ -478,6 +536,10 @@ static bool auth_settings_check(void *_set, pool_t pool,
 
 	if (!auth_settings_set_self_ips(set, pool, error_r))
 		return FALSE;
+	if (!auth_settings_get_passdbs(set, pool, event, error_r))
+		return FALSE;
+	if (!auth_settings_get_userdbs(set, pool, event, error_r))
+		return FALSE;
 	return TRUE;
 }
 
@@ -487,10 +549,8 @@ auth_passdb_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 {
 	struct auth_passdb_settings *set = _set;
 
-	if (set->driver == NULL || *set->driver == '\0') {
-		*error_r = "passdb is missing driver";
-		return FALSE;
-	}
+	if (*set->driver == '\0')
+		return TRUE;
 	if (set->pass && strcmp(set->result_success, "return-ok") != 0) {
 		*error_r = "Obsolete pass=yes setting mixed with non-default result_success";
 		return FALSE;
@@ -500,14 +560,12 @@ auth_passdb_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 
 static bool
 auth_userdb_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-			   const char **error_r)
+			   const char **error_r ATTR_UNUSED)
 {
 	struct auth_userdb_settings *set = _set;
 
-	if (set->driver == NULL || *set->driver == '\0') {
-		*error_r = "userdb is missing driver";
-		return FALSE;
-	}
+	if (*set->driver == '\0')
+		return TRUE;
 	return TRUE;
 }
 /* </settings checks> */
