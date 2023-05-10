@@ -25,7 +25,6 @@ struct config_export_context {
 
 	enum config_dump_flags flags;
 	const struct config_module_parser *module_parsers;
-	unsigned int section_idx;
 };
 
 static void config_export_size(string_t *str, uoff_t size)
@@ -185,40 +184,13 @@ bool config_export_type(string_t *str, const void *value,
 }
 
 static void
-setting_export_section_name(string_t *str, const struct setting_define *def,
-			    const void *set, unsigned int idx)
-{
-	const char *const *name;
-	size_t name_offset1;
-
-	if (def->type != SET_DEFLIST_UNIQUE) {
-		/* not unique, use the index */
-		str_printfa(str, "%u", idx);
-		return;
-	}
-	name_offset1 = def->list_info->type_offset1;
-	i_assert(name_offset1 != 0);
-
-	name = CONST_PTR_OFFSET(set, name_offset1 - 1);
-	if (*name == NULL || **name == '\0') {
-		/* no name, this one isn't unique. use the index. */
-		str_printfa(str, "%u", idx);
-	} else T_BEGIN {
-		str_append(str, settings_section_escape(*name));
-	} T_END;
-}
-
-static void
 settings_export(struct config_export_context *ctx,
 		const struct setting_parser_info *info,
-		bool parent_unique_deflist,
 		const void *set, const void *change_set)
 {
 	const struct setting_define *def;
 	const void *value, *default_value, *change_value;
-	void *const *children, *const *change_children = NULL;
-	unsigned int i, count, count2;
-	size_t prefix_len;
+	unsigned int i, count;
 	const char *str;
 	char *key;
 	bool dump, dump_default = FALSE;
@@ -241,9 +213,6 @@ settings_export(struct config_export_context *ctx,
 			/* hidden - dump default only if it's explicitly set */
 			/* fall through */
 		case CONFIG_DUMP_SCOPE_SET:
-			if (def->type == SET_DEFLIST ||
-			    def->type == SET_DEFLIST_UNIQUE)
-				break;
 			if (*((const uint8_t *)change_value) < CONFIG_PARSER_CHANGE_EXPLICIT) {
 				/* setting is unchanged in config file */
 				continue;
@@ -251,9 +220,6 @@ settings_export(struct config_export_context *ctx,
 			dump_default = TRUE;
 			break;
 		case CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES:
-			if (def->type == SET_DEFLIST ||
-			    def->type == SET_DEFLIST_UNIQUE)
-				break;
 			if (*((const uint8_t *)change_value) < CONFIG_PARSER_CHANGE_INTERNAL) {
 				/* setting is completely unchanged */
 				continue;
@@ -270,7 +236,6 @@ settings_export(struct config_export_context *ctx,
 		}
 
 		dump = FALSE;
-		count = 0; children = NULL;
 		str_truncate(ctx->value, 0);
 		switch (def->type) {
 		case SET_BOOL:
@@ -288,25 +253,6 @@ settings_export(struct config_export_context *ctx,
 						dump_default, &dump))
 				i_unreached();
 			break;
-		case SET_DEFLIST:
-		case SET_DEFLIST_UNIQUE: {
-			const ARRAY_TYPE(void_array) *val = value;
-			const ARRAY_TYPE(void_array) *change_val = change_value;
-
-			if (!array_is_created(val))
-				break;
-
-			children = array_get(val, &count);
-			for (i = 0; i < count; i++) {
-				if (i > 0)
-					str_append_c(ctx->value, ' ');
-				setting_export_section_name(ctx->value, def, children[i],
-							    ctx->section_idx + i);
-			}
-			change_children = array_get(change_val, &count2);
-			i_assert(count == count2);
-			break;
-		}
 		case SET_STRLIST: {
 			const ARRAY_TYPE(const_string) *val = value;
 			const char *const *strings;
@@ -337,7 +283,6 @@ settings_export(struct config_export_context *ctx,
 				ctx->callback(str, strings[i+1],
 					      CONFIG_KEY_NORMAL, ctx->context);
 			}
-			count = 0;
 			break;
 		}
 		case SET_FILTER_ARRAY: {
@@ -365,12 +310,7 @@ settings_export(struct config_export_context *ctx,
 			if (hash_table_lookup(ctx->keys, key) == NULL) {
 				enum config_key_type type;
 
-				if (def->offset + 1 == info->type_offset1 &&
-				    parent_unique_deflist)
-					type = CONFIG_KEY_UNIQUE_KEY;
-				else if (SETTING_TYPE_IS_DEFLIST(def->type))
-					type = CONFIG_KEY_LIST;
-				else if (def->type == SET_FILTER_ARRAY)
+				if (def->type == SET_FILTER_ARRAY)
 					type = CONFIG_KEY_FILTER_ARRAY;
 				else
 					type = CONFIG_KEY_NORMAL;
@@ -379,23 +319,6 @@ settings_export(struct config_export_context *ctx,
 				if ((ctx->flags & CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS) != 0)
 					hash_table_insert(ctx->keys, key, key);
 			}
-		}
-
-		i_assert(count == 0 || children != NULL);
-		prefix_len = str_len(ctx->prefix);
-		unsigned int section_start_idx = ctx->section_idx;
-		ctx->section_idx += count;
-		for (i = 0; i < count; i++) {
-			str_append(ctx->prefix, def->key);
-			str_append_c(ctx->prefix, SETTINGS_SEPARATOR);
-			setting_export_section_name(ctx->prefix, def, children[i],
-						    section_start_idx + i);
-			str_append_c(ctx->prefix, SETTINGS_SEPARATOR);
-			settings_export(ctx, def->list_info,
-					def->type == SET_DEFLIST_UNIQUE,
-					children[i], change_children[i]);
-
-			str_truncate(ctx->prefix, prefix_len);
 		}
 	}
 }
@@ -480,8 +403,7 @@ void config_export_free(struct config_export_context **_ctx)
 	pool_unref(&ctx->pool);
 }
 
-int config_export_all_parsers(struct config_export_context **_ctx,
-			      unsigned int *section_idx)
+int config_export_all_parsers(struct config_export_context **_ctx)
 {
 	struct config_export_context *ctx = *_ctx;
 	const char *error;
@@ -491,7 +413,7 @@ int config_export_all_parsers(struct config_export_context **_ctx,
 	*_ctx = NULL;
 
 	for (i = 0; ctx->module_parsers[i].root != NULL; i++) {
-		if (config_export_parser(ctx, i, section_idx, &error) < 0) {
+		if (config_export_parser(ctx, i, &error) < 0) {
 			i_error("%s", error);
 			ret = -1;
 			break;
@@ -509,8 +431,7 @@ config_export_parser_get_info(struct config_export_context *ctx,
 }
 
 int config_export_parser(struct config_export_context *ctx,
-			 unsigned int parser_idx,
-			 unsigned int *section_idx, const char **error_r)
+			 unsigned int parser_idx, const char **error_r)
 {
 	const struct config_module_parser *module_parser =
 		&ctx->module_parsers[parser_idx];
@@ -520,13 +441,10 @@ int config_export_parser(struct config_export_context *ctx,
 		return -1;
 	}
 
-	ctx->section_idx = *section_idx;
 	T_BEGIN {
 		void *set = settings_parser_get_set(module_parser->parser);
-		settings_export(ctx, module_parser->root, FALSE, set,
+		settings_export(ctx, module_parser->root, set,
 				settings_parser_get_changes(module_parser->parser));
 	} T_END;
-
-	*section_idx = ctx->section_idx;
 	return 0;
 }

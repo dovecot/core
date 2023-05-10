@@ -29,7 +29,6 @@
 
 struct prefix_stack {
 	unsigned int prefix_idx;
-	unsigned int str_pos;
 };
 ARRAY_DEFINE_TYPE(prefix_stack, struct prefix_stack);
 
@@ -43,7 +42,6 @@ struct config_dump_human_context {
 };
 
 #define LIST_KEY_PREFIX "\001"
-#define UNIQUE_KEY_SUFFIX "\xff"
 
 static struct config_parsed *config;
 static const char *indent_str = "                              !!!!";
@@ -64,7 +62,6 @@ config_request_get_strings(const char *key, const char *value,
 			   enum config_key_type type, void *context)
 {
 	struct config_dump_human_context *ctx = context;
-	const char *p;
 
 	switch (type) {
 	case CONFIG_KEY_NORMAL:
@@ -73,12 +70,6 @@ config_request_get_strings(const char *key, const char *value,
 	case CONFIG_KEY_LIST:
 		value = p_strdup_printf(ctx->pool, LIST_KEY_PREFIX"%s=%s",
 					key, value);
-		break;
-	case CONFIG_KEY_UNIQUE_KEY:
-		p = strrchr(key, '/');
-		i_assert(p != NULL);
-		value = p_strdup_printf(ctx->pool, "%.*s/"UNIQUE_KEY_SUFFIX"%s=%s",
-					(int)(p - key), key, p + 1, value);
 		break;
 	case CONFIG_KEY_FILTER_ARRAY:
 		return;
@@ -118,17 +109,8 @@ static struct prefix_stack prefix_stack_pop(ARRAY_TYPE(prefix_stack) *stack)
 	} else {
 		sc.prefix_idx = s[count-2].prefix_idx;
 	}
-	sc.str_pos = s[count-1].str_pos;
 	array_delete(stack, count-1, 1);
 	return sc;
-}
-
-static void prefix_stack_reset_str(ARRAY_TYPE(prefix_stack) *stack)
-{
-	struct prefix_stack *s;
-
-	array_foreach_modifiable(stack, s)
-		s->str_pos = UINT_MAX;
 }
 
 static struct config_dump_human_context *
@@ -323,20 +305,18 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 	ARRAY_TYPE(const_string) prefixes_arr;
 	ARRAY_TYPE(prefix_stack) prefix_stack;
 	struct prefix_stack prefix;
-	const char *const *strings, *const *args, *p, *str, *const *prefixes;
+	const char *const *strings, *p, *str, *const *prefixes;
 	const char *key, *key2, *value;
 	unsigned int i, j, count, prefix_count;
 	unsigned int prefix_idx = UINT_MAX;
 	size_t len, skip_len, setting_name_filter_len;
 	size_t alt_setting_name_filter_len;
-	unsigned int section_idx = 0;
-	bool unique_key;
 
 	setting_name_filter_len = setting_name_filter == NULL ? 0 :
 		strlen(setting_name_filter);
 	alt_setting_name_filter_len = alt_setting_name_filter == NULL ? 0 :
 		strlen(alt_setting_name_filter);
-	if (config_export_all_parsers(&ctx->export_ctx, &section_idx) < 0)
+	if (config_export_all_parsers(&ctx->export_ctx) < 0)
 		i_unreached(); /* settings aren't checked - this can't happen */
 
 	array_sort(&ctx->strings, config_string_cmp);
@@ -346,21 +326,11 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 	p_array_init(&prefixes_arr, ctx->pool, 32);
 	for (i = 0; i < count && strings[i][0] == LIST_KEY_PREFIX[0]; i++) T_BEGIN {
 		p = strchr(strings[i], '=');
-		i_assert(p != NULL);
-		if (p[1] == '\0') {
-			/* "strlist=" */
-			str = p_strdup_printf(ctx->pool, "%s/",
-					      t_strcut(strings[i]+1, '='));
-			array_push_back(&prefixes_arr, &str);
-		} else {
-			/* string is in format: "list=0 1 2" */
-			for (args = t_strsplit(p + 1, " "); *args != NULL; args++) {
-				str = p_strdup_printf(ctx->pool, "%s/%s/",
-						      t_strcut(strings[i]+1, '='),
-						      *args);
-				array_push_back(&prefixes_arr, &str);
-			}
-		}
+		i_assert(p != NULL && p[1] == '\0');
+		/* "strlist=" */
+		str = p_strdup_printf(ctx->pool, "%s/",
+				      t_strcut(strings[i]+1, '='));
+		array_push_back(&prefixes_arr, &str);
 	} T_END;
 	prefixes = array_get(&prefixes_arr, &prefix_count);
 
@@ -370,15 +340,9 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		i_assert(value != NULL);
 
 		key = t_strdup_until(strings[i], value++);
-		unique_key = FALSE;
 
 		bool hide_passwords = default_hide_passwords;
 		p = strrchr(key, '/');
-		if (p != NULL && p[1] == UNIQUE_KEY_SUFFIX[0]) {
-			key = t_strconcat(t_strdup_until(key, p + 1),
-					  p + 2, NULL);
-			unique_key = TRUE;
-		}
 		if (setting_name_filter_len > 0) {
 			/* See if this setting matches the name filter.
 			   If we're asking for a full specific setting,
@@ -410,9 +374,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			if (strncmp(prefixes[prefix_idx], key, len) != 0) {
 				prefix = prefix_stack_pop(&prefix_stack);
 				indent--;
-				if (prefix.str_pos != UINT_MAX)
-					str_truncate(ctx->list_prefix, prefix.str_pos);
-				else if (!hide_key) {
+				if (!hide_key) {
 					o_stream_nsend(output, indent_str, indent*2);
 					o_stream_nsend_str(output, "}\n");
 				}
@@ -429,8 +391,6 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			if (strncmp(prefixes[j], key, len) == 0) {
 				key2 = key + (prefix_idx == UINT_MAX ? 0 :
 					      strlen(prefixes[prefix_idx]));
-				prefix.str_pos = !unique_key ? UINT_MAX :
-					str_len(ctx->list_prefix);
 				prefix_idx = j;
 				prefix.prefix_idx = prefix_idx;
 				array_push_back(&prefix_stack, &prefix);
@@ -441,19 +401,10 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 					str_append_data(ctx->list_prefix, key2, p - key2);
 				else
 					str_append(ctx->list_prefix, key2);
-				if (unique_key && *value != '\0') {
-					if (strchr(value, ' ') == NULL)
-						str_printfa(ctx->list_prefix, " %s", value);
-					else
-						str_printfa(ctx->list_prefix, " \"%s\"", str_escape(value));
-				}
 				str_append(ctx->list_prefix, " {\n");
 				indent++;
 
-				if (unique_key)
-					goto end;
-				else
-					goto again;
+				goto again;
 			}
 		}
 		if (!hide_key) {
@@ -461,7 +412,6 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 				       str_len(ctx->list_prefix));
 		}
 		str_truncate(ctx->list_prefix, 0);
-		prefix_stack_reset_str(&prefix_stack);
 		ctx->list_prefix_sent = TRUE;
 
 		skip_len = prefix_idx == UINT_MAX ? 0 : strlen(prefixes[prefix_idx]);
@@ -470,7 +420,6 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		if (!hide_key)
 			o_stream_nsend(output, indent_str, indent*2);
 		key = strings[i] + skip_len;
-		if (unique_key) key++;
 		const char *full_key = key;
 		if (strip_prefix != NULL && str_begins(key, strip_prefix, &key))
 			key++;
@@ -500,8 +449,6 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 
 	while (prefix_idx != UINT_MAX) {
 		prefix = prefix_stack_pop(&prefix_stack);
-		if (prefix.str_pos != UINT_MAX)
-			break;
 		prefix_idx = prefix.prefix_idx;
 		indent--;
 		if (!hide_key) {

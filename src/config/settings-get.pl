@@ -104,27 +104,8 @@ foreach my $file (@ARGV) {
       $code .= $_;
       $state = 0 if (/\/\* <\/settings checks> \*\//);
     }
-    
-    if ($state == 1 || $state == 3) {
-      if ($state == 1 && $cur_name ne "") {
-	if (/\.parent = /) {
-	  delete($parsers{$cur_name});
-	}
-	if (/DEFLIST.*".*",(.*)$/) {
-	  my $value = $1;
-	  if ($value =~ /.*&(.*)\)/) {
-	    $parsers{$1} = 0;
-	    $externs .= "extern const struct setting_parser_info $1;\n";
-	  } else {
-	    $state = 3;
-	  }
-	}
-      } elsif ($state == 3) {
-	if (/.*&(.*)\)/) {
-	  $parsers{$1} = 0;
-	}        
-      }
-      
+
+    if ($state == 1) {
       s/^static const (struct master_settings master_default_settings)/$1/;
 
       $write = 1;
@@ -173,9 +154,6 @@ print "};\n";
 
 print "const struct setting_parser_info *all_default_roots[] = {\n";
 foreach my $name (sort(keys %parsers)) {
-  my $module = $parsers{$name};
-  next if (!$module);
-
   print "\t&".$name.", \n";
 }
 print "\tNULL\n";

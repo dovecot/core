@@ -245,8 +245,7 @@ config_dump_full_sections(struct config_parsed *config,
 			  struct ostream *output,
 			  enum config_dump_full_dest dest,
 			  unsigned int parser_idx,
-			  const struct setting_parser_info *info,
-			  unsigned int section_idx)
+			  const struct setting_parser_info *info)
 {
 	struct config_filter_parser *const *filters;
 	struct config_export_context *export_ctx;
@@ -286,8 +285,7 @@ config_dump_full_sections(struct config_parsed *config,
 		i_assert(filter_info == info);
 
 		const char *error;
-		ret = config_export_parser(export_ctx, parser_idx,
-					   &section_idx, &error);
+		ret = config_export_parser(export_ctx, parser_idx, &error);
 		if (ret < 0) {
 			ret = config_dump_full_handle_error(&dump_ctx, dest, start_offset, error);
 		} else if (dest != CONFIG_DUMP_FULL_DEST_STDOUT &&
@@ -308,7 +306,6 @@ int config_dump_full(struct config_parsed *config,
 {
 	struct config_export_context *export_ctx;
 	const char *error;
-	unsigned int section_idx = 0;
 	int fd = -1;
 
 	struct dump_context dump_ctx = {
@@ -403,8 +400,7 @@ int config_dump_full(struct config_parsed *config,
 			o_stream_nsend(output, &blob_size, sizeof(blob_size));
 			o_stream_nsend(output, "", 1); /* no error */
 		}
-		if (config_export_parser(export_ctx, i, &section_idx,
-					 &error) < 0) {
+		if (config_export_parser(export_ctx, i, &error) < 0) {
 			if (config_dump_full_handle_error(&dump_ctx, dest,
 					blob_size_offset, error) < 0)
 				break;
@@ -416,7 +412,7 @@ int config_dump_full(struct config_parsed *config,
 		int ret;
 		T_BEGIN {
 			ret = config_dump_full_sections(config, output,
-				dest, i, info, section_idx);
+				dest, i, info);
 		} T_END;
 		if (ret < 0)
 			break;

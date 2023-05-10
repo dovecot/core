@@ -27,7 +27,6 @@ enum config_dump_flags {
 enum config_key_type {
 	CONFIG_KEY_NORMAL,
 	CONFIG_KEY_LIST,
-	CONFIG_KEY_UNIQUE_KEY,
 	CONFIG_KEY_FILTER_ARRAY,
 };
 
@@ -49,14 +48,12 @@ unsigned int config_export_get_parser_count(struct config_export_context *ctx);
 const char *
 config_export_get_import_environment(struct config_export_context *ctx);
 const char *config_export_get_base_dir(struct config_export_context *ctx);
-int config_export_all_parsers(struct config_export_context **ctx,
-			      unsigned int *section_idx);
+int config_export_all_parsers(struct config_export_context **ctx);
 const struct setting_parser_info *
 config_export_parser_get_info(struct config_export_context *ctx,
 			      unsigned int parser_idx);
 int config_export_parser(struct config_export_context *ctx,
-			 unsigned int parser_idx,
-			 unsigned int *section_idx, const char **error_r);
+			 unsigned int parser_idx, const char **error_r);
 void config_export_free(struct config_export_context **ctx);
 
 #endif

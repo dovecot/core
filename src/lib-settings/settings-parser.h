@@ -27,8 +27,6 @@ enum setting_type {
 	SET_STR,
 	SET_STR_VARS, /* string with %variables */
 	SET_ENUM,
-	SET_DEFLIST, /* of type array_t */
-	SET_DEFLIST_UNIQUE,
 	SET_STRLIST, /* of type ARRAY_TYPE(const_string) */
 	SET_ALIAS, /* alias name for above setting definition */
 	SET_FILTER_NAME,
@@ -37,10 +35,8 @@ enum setting_type {
 enum setting_flags {
 	SET_FLAG_HIDDEN = BIT(0),
 };
-#define SETTING_TYPE_IS_DEFLIST(type) \
-	((type) == SET_DEFLIST || (type) == SET_DEFLIST_UNIQUE)
 
-#define SETTING_DEFINE_LIST_END { 0, 0, NULL, 0, NULL, NULL, NULL }
+#define SETTING_DEFINE_LIST_END { 0, 0, NULL, 0, NULL, NULL }
 
 struct setting_define {
 	enum setting_type type;
@@ -48,7 +44,6 @@ struct setting_define {
 	const char *key;
 
 	size_t offset;
-	const struct setting_parser_info *list_info;
 	const char *filter_array_field_name;
 	const char *required_setting;
 };
@@ -117,9 +112,6 @@ struct setting_parser_info {
 
 	size_t type_offset1; /* type_offset+1. 0=nonexistent. */
 	size_t struct_size;
-
-	size_t parent_offset1; /* parent_offset+1. 0=nonexistent. */
-	const struct setting_parser_info *parent;
 
 	size_t pool_offset1; /* pool_offset+1. 0=nonexistent. */
 

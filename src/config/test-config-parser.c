@@ -66,7 +66,6 @@ const struct setting_parser_info test_settings_root = {
 	.defaults = &test_settings_defaults,
 
 	.struct_size = sizeof(struct test_settings),
-	.parent = NULL,
 };
 
 static const struct setting_parser_info *const roots[] = {
