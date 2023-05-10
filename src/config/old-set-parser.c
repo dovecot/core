@@ -15,19 +15,11 @@
 #define config_apply_line(ctx, key, value, section) \
 	(void)config_apply_line(ctx, key, value, section, NULL)
 
-struct socket_set {
-	const char *path, *mode, *user, *group;
-	bool master;
-};
-
 struct old_set_parser {
 	const char *base_dir;
 	const char *post_log_debug;
 	/* 1 when in auth {} section, >1 when inside auth { .. { .. } } */
 	unsigned int auth_section;
-	/* 1 when in socket listen {}, >1 when inside more of its sections */
-	unsigned int socket_listen_section;
-	struct socket_set socket_set;
 	bool seen_auth_section:1;
 	bool post_auth_debug:1;
 };
@@ -617,23 +609,6 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 			obsolete(ctx, "auth_count has been removed, and its value must be 1");
 		return TRUE;
 	}
-	if (ctx->old->socket_listen_section == 2) {
-		const char **p = NULL;
-
-		if (strcmp(key, "path") == 0)
-			p = &ctx->old->socket_set.path;
-		else if (strcmp(key, "mode") == 0)
-			p = &ctx->old->socket_set.mode;
-		else if (strcmp(key, "user") == 0)
-			p = &ctx->old->socket_set.user;
-		else if (strcmp(key, "group") == 0)
-			p = &ctx->old->socket_set.group;
-
-		if (p != NULL) {
-			*p = p_strdup(ctx->pool, value);
-			return TRUE;
-		}
-	}
 	return FALSE;
 }
 
@@ -645,7 +620,6 @@ static bool old_auth_section(struct config_parser_context *ctx,
 		return FALSE;
 	}
 	ctx->old->seen_auth_section = TRUE;
-	i_zero(&ctx->old->socket_set);
 
 	ctx->old->auth_section++;
 	if ((strcmp(key, "passdb") == 0 || strcmp(key, "userdb") == 0) &&
@@ -657,74 +631,7 @@ static bool old_auth_section(struct config_parser_context *ctx,
 				     "driver", value);
 		return TRUE;
 	}
-	if (strcmp(key, "socket") == 0 && ctx->old->auth_section == 2) {
-		if (strcmp(value, "connect") == 0) {
-			obsolete(ctx, "socket connect {} is no longer supported");
-			return FALSE;
-		}
-		if (strcmp(value, "listen") != 0)
-			return FALSE;
-
-		/* socket listen { .. } */
-		ctx->old->socket_listen_section++;
-		return TRUE;
-	}
-
-	if (ctx->old->socket_listen_section > 0)
-		ctx->old->socket_listen_section++;
-	if ((strcmp(key, "master") == 0 || strcmp(key, "client") == 0) &&
-	    ctx->old->socket_listen_section == 2) {
-		ctx->old->socket_set.master = strcmp(key, "master") == 0;
-		return TRUE;
-	}
 	return FALSE;
-}
-
-static void socket_apply(struct config_parser_context *ctx)
-{
-	const struct socket_set *set = &ctx->old->socket_set;
-	const char *path, *prefix, *suffix;
-	size_t len;
-	bool master_suffix;
-
-	if (set->path == NULL) {
-		ctx->error = "socket listen {} is missing path";
-		return;
-	}
-	path = set->path;
-	if (str_begins(path, ctx->old->base_dir, &suffix) &&
-	    suffix[0] == '/')
-		path = suffix + 1;
-
-	len = strlen(path);
-	master_suffix = len >= 7 &&
-		(strcmp(path + len - 7, "-master") == 0 ||
-		 strcmp(path + len - 7, "-userdb") == 0);
-
-	if (set->master && !master_suffix) {
-		ctx->error = "socket listen { master { path=.. } } must end with -master (or -userdb) suffix";
-		return;
-	} else if (!set->master && master_suffix) {
-		ctx->error = "socket listen { client { path=.. } } must end not with -master or -userdb suffix";
-		return;
-	}
-
-	config_apply_line(ctx, "unix_listener",
-		t_strdup_printf("service/auth/unix_listener=%s", settings_section_escape(path)), path);
-	prefix = t_strdup_printf("service/auth/unix_listener/%s", settings_section_escape(path));
-	if (set->mode != NULL) {
-		config_apply_line(ctx, "mode",
-			  t_strdup_printf("%s/mode=%s", prefix, set->mode), NULL);
-	}
-	if (set->user != NULL) {
-		config_apply_line(ctx, "user",
-			  t_strdup_printf("%s/user=%s", prefix, set->user), NULL);
-	}
-	if (set->group != NULL) {
-		config_apply_line(ctx, "group",
-			  t_strdup_printf("%s/group=%s", prefix, set->group), NULL);
-	}
-	i_zero(&ctx->old->socket_set);
 }
 
 static bool
@@ -820,12 +727,6 @@ bool old_settings_handle(struct config_parser_context *ctx,
 		if (ctx->old->auth_section > 0) {
 			if (--ctx->old->auth_section == 0)
 				return TRUE;
-		}
-		if (ctx->old->socket_listen_section > 0) {
-			if (ctx->old->socket_listen_section == 2)
-				socket_apply(ctx);
-			ctx->old->socket_listen_section--;
-			return TRUE;
 		}
 		break;
 	}
