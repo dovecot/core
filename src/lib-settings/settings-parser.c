@@ -19,16 +19,6 @@
 
 #define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
 
-struct setting_link {
-	const struct setting_parser_info *info;
-
-	/* Pointer to structure containing the values */
-	void *set_struct;
-	/* Pointer to structure containing non-zero values for settings that
-	   have been changed. */
-	void *change_struct;
-};
-
 struct setting_parser_context {
 	pool_t set_pool, parser_pool;
 	int refcount;
@@ -36,7 +26,13 @@ struct setting_parser_context {
 	bool str_vars_are_expanded;
 	uint8_t change_counter;
 
-	struct setting_link root;
+	const struct setting_parser_info *info;
+
+	/* Pointer to structure containing the values */
+	void *set_struct;
+	/* Pointer to structure containing non-zero values for settings that
+	   have been changed. */
+	void *change_struct;
 
 	unsigned int linenum;
 	char *error;
@@ -52,13 +48,13 @@ setting_parser_copy_defaults(struct setting_parser_context *ctx,
 	if (info->defaults == NULL)
 		return;
 
-	memcpy(ctx->root.set_struct, info->defaults, info->struct_size);
+	memcpy(ctx->set_struct, info->defaults, info->struct_size);
 	for (def = info->defines; def->key != NULL; def++) {
 		switch (def->type) {
 		case SET_ENUM: {
 			/* fix enums by dropping everything after the
 			   first ':' */
-			strp = STRUCT_MEMBER_P(ctx->root.set_struct, def->offset);
+			strp = STRUCT_MEMBER_P(ctx->set_struct, def->offset);
 			p = strchr(*strp, ':');
 			if (p != NULL)
 				*strp = p_strdup_until(ctx->set_pool, *strp, p);
@@ -66,7 +62,7 @@ setting_parser_copy_defaults(struct setting_parser_context *ctx,
 		}
 		case SET_STR_VARS: {
 			/* insert the unexpanded-character */
-			strp = STRUCT_MEMBER_P(ctx->root.set_struct, def->offset);
+			strp = STRUCT_MEMBER_P(ctx->set_struct, def->offset);
 			if (*strp != NULL) {
 				*strp = p_strconcat(ctx->set_pool,
 						    SETTING_STRVAR_UNEXPANDED,
@@ -83,8 +79,7 @@ setting_parser_copy_defaults(struct setting_parser_context *ctx,
 static void
 setting_parser_fill_defaults_strings(struct setting_parser_context *ctx)
 {
-	const struct setting_keyvalue *defaults =
-		ctx->root.info->default_settings;
+	const struct setting_keyvalue *defaults = ctx->info->default_settings;
 	if (defaults == NULL)
 		return;
 
@@ -113,13 +108,13 @@ settings_parser_init(pool_t set_pool, const struct setting_parser_info *root,
 	ctx->parser_pool = parser_pool;
 	ctx->flags = flags;
 
-	ctx->root.info = root;
+	ctx->info = root;
 	if (root->struct_size > 0) {
-		ctx->root.set_struct =
+		ctx->set_struct =
 			p_malloc(ctx->set_pool, root->struct_size);
 		if ((flags & SETTINGS_PARSER_FLAG_TRACK_CHANGES) != 0) {
 			ctx->change_counter = 1;
-			ctx->root.change_struct =
+			ctx->change_struct =
 				p_malloc(ctx->set_pool, root->struct_size);
 		}
 		setting_parser_copy_defaults(ctx, root);
@@ -152,12 +147,12 @@ void settings_parser_unref(struct setting_parser_context **_ctx)
 
 void *settings_parser_get_set(const struct setting_parser_context *ctx)
 {
-	return ctx->root.set_struct;
+	return ctx->set_struct;
 }
 
 void *settings_parser_get_changes(struct setting_parser_context *ctx)
 {
-	return ctx->root.change_struct;
+	return ctx->change_struct;
 }
 
 static void settings_parser_set_error(struct setting_parser_context *ctx,
@@ -306,14 +301,14 @@ settings_parse(struct setting_parser_context *ctx,
 	const char *error;
 
 	while (def->type == SET_ALIAS) {
-		i_assert(def != ctx->root.info->defines);
+		i_assert(def != ctx->info->defines);
 		def--;
 	}
 
-	change_ptr = ctx->root.change_struct == NULL ? NULL :
-		STRUCT_MEMBER_P(ctx->root.change_struct, def->offset);
+	change_ptr = ctx->change_struct == NULL ? NULL :
+		STRUCT_MEMBER_P(ctx->change_struct, def->offset);
 
-	ptr = STRUCT_MEMBER_P(ctx->root.set_struct, def->offset);
+	ptr = STRUCT_MEMBER_P(ctx->set_struct, def->offset);
 	switch (def->type) {
 	case SET_BOOL:
 		if (get_bool(ctx, value, (bool *)ptr) < 0)
@@ -363,8 +358,8 @@ settings_parse(struct setting_parser_context *ctx,
 		break;
 	case SET_ENUM:
 		/* get the available values from default string */
-		i_assert(ctx->root.info->defaults != NULL);
-		ptr2 = CONST_STRUCT_MEMBER_P(ctx->root.info->defaults, def->offset);
+		i_assert(ctx->info->defaults != NULL);
+		ptr2 = CONST_STRUCT_MEMBER_P(ctx->info->defaults, def->offset);
 		if (get_enum(ctx, value, (char **)ptr,
 			     *(const char *const *)ptr2) < 0)
 			return -1;
@@ -412,7 +407,7 @@ settings_find_key(struct setting_parser_context *ctx, const char *key,
 	const char *end, *parent_key;
 
 	/* try to find the exact key */
-	def = setting_define_find(ctx->root.info, key);
+	def = setting_define_find(ctx->info, key);
 	if (def != NULL && (def->type != SET_FILTER_NAME ||
 			    allow_filter_name)) {
 		*def_r = def;
@@ -425,7 +420,7 @@ settings_find_key(struct setting_parser_context *ctx, const char *key,
 		return FALSE;
 
 	parent_key = t_strdup_until(key, end);
-	def = setting_define_find(ctx->root.info, parent_key);
+	def = setting_define_find(ctx->info, parent_key);
 	if (def != NULL && def->type == SET_STRLIST) {
 		*def_r = def;
 		return TRUE;
@@ -486,7 +481,7 @@ const char *settings_parse_unalias(struct setting_parser_context *ctx,
 		return NULL;
 
 	while (def->type == SET_ALIAS) {
-		i_assert(def != ctx->root.info->defines);
+		i_assert(def != ctx->info->defines);
 		def--;
 	}
 	return def->key;
@@ -502,7 +497,7 @@ settings_parse_get_value(struct setting_parser_context *ctx,
 		return NULL;
 
 	*type_r = def->type;
-	return STRUCT_MEMBER_P(ctx->root.set_struct, def->offset);
+	return STRUCT_MEMBER_P(ctx->set_struct, def->offset);
 }
 
 void settings_parse_set_change_counter(struct setting_parser_context *ctx,
@@ -521,10 +516,10 @@ uint8_t settings_parse_get_change_counter(struct setting_parser_context *ctx,
 
 	if (!settings_find_key(ctx, key, FALSE, &def))
 		return 0;
-	if (ctx->root.change_struct == NULL)
+	if (ctx->change_struct == NULL)
 		return 0;
 
-	p = STRUCT_MEMBER_P(ctx->root.change_struct, def->offset);
+	p = STRUCT_MEMBER_P(ctx->change_struct, def->offset);
 	return *p;
 }
 
@@ -578,8 +573,8 @@ bool settings_check(struct event *event, const struct setting_parser_info *info,
 bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
 			   struct event *event, const char **error_r)
 {
-	return settings_check(event, ctx->root.info, pool,
-			      ctx->root.set_struct, error_r);
+	return settings_check(event, ctx->info, pool,
+			      ctx->set_struct, error_r);
 }
 
 void settings_parse_set_expanded(struct setting_parser_context *ctx,
@@ -688,7 +683,7 @@ int settings_var_expand_with_funcs(const struct setting_parser_info *info,
 
 void settings_parse_var_skip(struct setting_parser_context *ctx)
 {
-	settings_var_skip(ctx->root.info, ctx->root.set_struct);
+	settings_var_skip(ctx->info, ctx->set_struct);
 }
 
 void settings_var_skip(const struct setting_parser_info *info, void *set)
@@ -902,14 +897,14 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 	new_ctx->linenum = old_ctx->linenum;
 	new_ctx->error = i_strdup(old_ctx->error);
 
-	new_ctx->root.info = old_ctx->root.info;
-	new_ctx->root.set_struct =
-		settings_dup_full(old_ctx->root.info,
-				  old_ctx->root.set_struct,
+	new_ctx->info = old_ctx->info;
+	new_ctx->set_struct =
+		settings_dup_full(old_ctx->info,
+				  old_ctx->set_struct,
 				  new_ctx->set_pool, keep_values);
-	new_ctx->root.change_struct =
-		settings_changes_dup(old_ctx->root.info,
-				     old_ctx->root.change_struct,
+	new_ctx->change_struct =
+		settings_changes_dup(old_ctx->info,
+				     old_ctx->change_struct,
 				     new_ctx->set_pool);
 	return new_ctx;
 }
