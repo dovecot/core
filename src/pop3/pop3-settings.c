@@ -51,13 +51,8 @@ const struct setting_keyvalue pop3_service_settings_defaults[] = {
 };
 
 #undef DEF
-#undef DEFLIST
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct pop3_settings)
-#define DEFLIST(field, name, defines) \
-	{ .type = SET_DEFLIST, .key = name, \
-	  .offset = offsetof(struct pop3_settings, field), \
-	  .list_info = defines }
 
 static const struct setting_define pop3_setting_defines[] = {
 	DEF(BOOL, verbose_proctitle),
