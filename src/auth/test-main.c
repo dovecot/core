@@ -13,6 +13,7 @@ int main(int argc, const char *argv[])
 	int ret;
 	static const struct named_test test_functions[] = {
 		TEST_NAMED(test_db_ldap_parse_attrs)
+		TEST_NAMED(test_db_ldap_field_multi_expand_parse_data)
 		TEST_NAMED(test_auth_request_var_expand)
 		TEST_NAMED(test_auth_request_fields)
 		TEST_NAMED(test_db_dict_parse_cache_key)

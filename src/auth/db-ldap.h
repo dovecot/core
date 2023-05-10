@@ -223,4 +223,8 @@ void db_ldap_result_iterate_deinit(struct db_ldap_result_iterate_context **ctx);
 
 const char *const *db_ldap_parse_attrs(const char *cstr);
 
+void db_ldap_field_multi_expand_parse_data(
+	const char *data, const char **field_name_r,
+	const char **separator_r, const char **default_r);
+
 #endif

@@ -1429,6 +1429,7 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 {
 	static struct var_expand_func_table var_funcs_table[] = {
 		{ "ldap", db_ldap_field_find },
+		{ "ldap_multi", db_ldap_field_find },
 		{ "ldap_ptr", db_ldap_field_find },
 		{ NULL, NULL }
 	};
@@ -1712,6 +1713,88 @@ db_ldap_field_expand(const char *data, void *context,
 	return 1;
 }
 
+void db_ldap_field_multi_expand_parse_data(
+	const char *data, const char **field_name_r,
+	const char **separator_r, const char **default_r)
+{
+	/* start with the defaults */
+	*separator_r = " ";
+	*default_r = "";
+
+	*field_name_r = t_strcut(data, ':');
+	const char *ptr = i_strchr_to_next(data, ':');
+
+	if (ptr == NULL || ptr[0] == '\0') {
+		/* Handling here the cases:
+		   attrName		-> *sep_r = (default), *default_r = (default)
+		   attrName:		-> *sep_r = (default), *default_r = (default)
+		*/
+		return;
+	}
+
+	if (ptr[0] == ':' && (ptr[1] == '\0' || ptr[1] == ':')) {
+		/* Handling here the cases (exceptions dealing with ':'):
+		   attrName::		-> *sep_r = ":", *default_r = (default)
+		   attrName:::		-> *sep_r = ":", *default_r = (default)
+		   attrName:::defl	-> *sep_r = ":", *default_r = "defl"
+		*/
+		*separator_r = ":";
+
+		/* The current ':' was not a field separator, but just datum.
+		   Advance paste it */
+		if (*++ptr == ':')
+			++ptr;
+	} else {
+		/* Handling here the cases (the normal ones):
+		   attrName::defl       -> *sep_r = (default), *default_r = "defl"
+		   attrName:sep         -> *sep_r = "sep", *default_r = (default)
+		   attrName:sep:defl    -> *sep_r = "sep", *default_r = "defl"
+		*/
+		const char *sep = t_strcut(ptr, ':');
+		ptr = i_strchr_to_next(ptr, ':');
+		if (*sep != '\0')
+			*separator_r = sep;
+	}
+
+	if (ptr == NULL || ptr[0] == '\0')
+		return;
+
+	*default_r = ptr;
+}
+
+static int
+db_ldap_field_multi_expand(const char *data, void *context,
+			   const char **value_r, const char **error_r ATTR_UNUSED)
+{
+	struct db_ldap_result_iterate_context *ctx = context;
+	struct db_ldap_value *ldap_value;
+
+	const char *field_name;
+	const char *field_separator;
+	const char *field_default;
+
+	db_ldap_field_multi_expand_parse_data(data, &field_name,
+					      &field_separator,
+					      &field_default);
+	*value_r = field_default;
+
+	ldap_value = hash_table_lookup(ctx->ldap_attrs, field_name);
+	if (ldap_value == NULL) {
+		/* requested ldap attribute wasn't returned at all */
+		str_printfa(ctx->debug, "; %s missing", field_name);
+		return 1;
+	}
+	ldap_value->used = TRUE;
+
+	if (ldap_value->values[0] == NULL) {
+		/* no value for ldap attribute */
+		return 1;
+	}
+
+	*value_r = t_strarray_join(ldap_value->values, field_separator);
+	return 1;
+}
+
 static int
 db_ldap_field_ptr_expand(const char *data, void *context,
 			 const char **value_r, const char **error_r)
@@ -1743,6 +1826,7 @@ db_ldap_field_dn_expand(const char *data ATTR_UNUSED, void *context ATTR_UNUSED,
 
 static struct var_expand_func_table ldap_var_funcs_table[] = {
 	{ "ldap", db_ldap_field_expand },
+	{ "ldap_multi", db_ldap_field_multi_expand },
 	{ "ldap_ptr", db_ldap_field_ptr_expand },
 	{ "ldap_dn", db_ldap_field_dn_expand },
 	{ NULL, NULL }
