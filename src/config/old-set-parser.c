@@ -12,7 +12,8 @@
 #include <stdio.h>
 
 #define LOG_DEBUG_KEY "log_debug"
-#define config_apply_line (void)config_apply_line
+#define config_apply_line(ctx, key, value, section) \
+	(void)config_apply_line(ctx, key, value, section, NULL)
 
 struct socket_set {
 	const char *path, *mode, *user, *group;

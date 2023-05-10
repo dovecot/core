@@ -190,7 +190,8 @@ config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 }
 
 int config_apply_line(struct config_parser_context *ctx, const char *key,
-		      const char *line, const char *section_name)
+		      const char *line, const char *section_name,
+		      const char **full_key_r)
 {
 	int ret = 0;
 
@@ -203,9 +204,14 @@ int config_apply_line(struct config_parser_context *ctx, const char *key,
 		const char *key2 = t_strdup_printf("%s_%s", filter_key, key);
 		const char *line2 = t_strdup_printf("%s_%s", filter_key, line);
 		ret = config_apply_exact_line(ctx, key2, line2, section_name);
+		if (ret > 0 && full_key_r != NULL)
+			*full_key_r = key2;
 	}
-	if (ret == 0)
+	if (ret == 0) {
 		ret = config_apply_exact_line(ctx, key, line, section_name);
+		if (full_key_r != NULL)
+			*full_key_r = key;
+	}
 	if (ret == 0) {
 		ctx->error = p_strconcat(ctx->pool, "Unknown setting: ",
 					 get_setting_full_path(ctx, key), NULL);
@@ -500,7 +506,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			/* add it to the list of filter names */
 			const char *line = t_strdup_printf("%s=%s",
 				filter_def->key, settings_section_escape(value));
-			if (config_apply_line(ctx, filter_def->key, line, NULL) < 0) {
+			if (config_apply_line(ctx, filter_def->key, line, NULL, NULL) < 0) {
 				i_panic("BUG: Invalid setting definitions: "
 					"Failed to set %s: %s", line,
 					ctx->error);
@@ -517,7 +523,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			const char *line = t_strdup_printf("%s=%s",
 				filter_def->filter_array_field_name, value);
 			if (config_apply_line(ctx, filter_def->filter_array_field_name,
-					      line, NULL) < 0) {
+					      line, NULL, NULL) < 0) {
 				i_panic("BUG: Invalid setting definitions: "
 					"Failed to set %s: %s", line,
 					ctx->error);
@@ -1126,7 +1132,7 @@ config_parser_check_warnings(struct config_parser_context *ctx, const char *key)
 {
 	const char *path, *first_pos;
 
-	first_pos = hash_table_lookup(ctx->seen_settings, str_c(ctx->str));
+	first_pos = hash_table_lookup(ctx->seen_settings, key);
 	if (ctx->cur_section->prev == NULL) {
 		/* changing a root setting. if we've already seen it inside
 		   filters, log a warning. */
@@ -1142,14 +1148,14 @@ config_parser_check_warnings(struct config_parser_context *ctx, const char *key)
 		return;
 	first_pos = p_strdup_printf(ctx->pool, "%s line %u",
 				    ctx->cur_input->path, ctx->cur_input->linenum);
-	path = p_strdup(ctx->pool, str_c(ctx->str));
+	path = p_strdup(ctx->pool, key);
 	hash_table_insert(ctx->seen_settings, path, first_pos);
 }
 
 void config_parser_apply_line(struct config_parser_context *ctx,
 			      const struct config_line *line)
 {
-	const char *section_name;
+	const char *section_name, *full_key;
 
 	str_truncate(ctx->str, ctx->pathlen);
 	switch (line->type) {
@@ -1164,7 +1170,6 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 	case CONFIG_LINE_TYPE_KEYFILE:
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
 		str_append(ctx->str, line->key);
-		config_parser_check_warnings(ctx, line->key);
 		str_append_c(ctx->str, '=');
 
 		if (config_write_value(ctx, line) < 0) {
@@ -1172,7 +1177,9 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 			    config_apply_error(ctx, line->key) < 0)
 				break;
 		} else {
-			(void)config_apply_line(ctx, line->key, str_c(ctx->str), NULL);
+			(void)config_apply_line(ctx, line->key, str_c(ctx->str),
+						NULL, &full_key);
+			config_parser_check_warnings(ctx, full_key);
 		}
 		break;
 	case CONFIG_LINE_TYPE_SECTION_BEGIN:
@@ -1199,7 +1206,7 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 		str_append(ctx->str, section_name);
 
 		if (config_apply_line(ctx, line->key, str_c(ctx->str),
-				      line->value) < 0)
+				      line->value, NULL) < 0)
 			break;
 
 		str_truncate(ctx->str, ctx->pathlen);
