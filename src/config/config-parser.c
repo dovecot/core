@@ -65,7 +65,7 @@ config_add_new_parser(struct config_parser_context *ctx,
 		      struct config_section_stack *cur_section);
 static int
 config_apply_exact_line(struct config_parser_context *ctx, const char *key,
-			const char *line, const char *section_name);
+			const char *line);
 
 void config_parser_set_change_counter(struct config_parser_context *ctx,
 				      uint8_t change_counter)
@@ -84,7 +84,7 @@ config_parser_add_filter_array(struct config_parser_context *ctx,
 {
 	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
 	const char *line = t_strdup_printf("%s=%s", filter_key, name);
-	if (config_apply_exact_line(ctx, filter_key, line, NULL) < 0) {
+	if (config_apply_exact_line(ctx, filter_key, line) < 0) {
 		i_panic("Failed to add %s %s: %s", filter_key, name,
 			ctx->error);
 	}
@@ -126,7 +126,7 @@ config_parser_add_service_default_struct(struct config_parser_context *ctx,
 			continue;
 
 		if (config_apply_line(ctx, info->defines[i].key,
-				      str_c(line), NULL, NULL) < 0) {
+				      str_c(line), NULL) < 0) {
 			i_panic("Failed to add default setting %s for service %s: %s",
 				str_c(line),
 				default_set->name, ctx->error);
@@ -178,7 +178,7 @@ config_parser_add_service_default_keyvalues(struct config_parser_context *ctx,
 
 		config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
 		const char *line = t_strdup_printf("%s=%s", key, defaults[i].value);
-		if (config_apply_line(ctx, defaults[i].key, line, NULL, NULL) < 0) {
+		if (config_apply_line(ctx, defaults[i].key, line, NULL) < 0) {
 			i_panic("Failed to add default setting %s=%s for service %s: %s",
 				defaults[i].key, defaults[i].value,
 				service_name, ctx->error);
@@ -212,49 +212,6 @@ static void config_parser_add_services(struct config_parser_context *ctx,
 		}
 		ctx->cur_section = orig_section;
 	} T_END;
-}
-
-static const char *info_type_name_find(const struct setting_parser_info *info)
-{
-	unsigned int i;
-
-	for (i = 0; info->defines[i].key != NULL; i++) {
-		if (info->defines[i].offset + 1 == info->type_offset1)
-			return info->defines[i].key;
-	}
-	i_panic("setting parser: Invalid type_offset1 value");
-	return NULL;
-}
-
-static int config_add_type(struct setting_parser_context *parser,
-			   const char *line, const char *section_name)
-{
-	const struct setting_parser_info *info;
-	const char *p;
-	string_t *str;
-	int ret;
-
-	info = settings_parse_get_prev_info(parser);
-	if (info == NULL) {
-		/* section inside strlist */
-		return -1;
-	}
-	if (info->type_offset1 == 0)
-		return 0;
-
-	str = t_str_new(256);
-	p = strchr(line, '=');
-	str_append_data(str, line, p-line);
-	str_append_c(str, SETTINGS_SEPARATOR);
-	str_append(str, p+1);
-	if (info != NULL) {
-		str_append_c(str, SETTINGS_SEPARATOR);
-		str_append(str, info_type_name_find(info));
-	}
-
-	ret = settings_parse_keyvalue(parser, str_c(str), section_name);
-	i_assert(ret > 0);
-	return 0;
 }
 
 static bool
@@ -310,7 +267,7 @@ config_is_filter_name(struct config_parser_context *ctx, const char *key,
 
 static int
 config_apply_exact_line(struct config_parser_context *ctx, const char *key,
-			const char *line, const char *section_name)
+			const char *line)
 {
 	struct config_module_parser *l;
 	bool found = FALSE;
@@ -334,12 +291,6 @@ config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 					key, NULL);
 				return -1;
 			}
-			if (section_name != NULL) {
-				if (config_add_type(l->parser, line, section_name) < 0) {
-					ctx->error = "Section not allowed here";
-					return -1;
-				}
-			}
 		} else if (ret < 0) {
 			ctx->error = settings_parser_get_error(l->parser);
 			return -1;
@@ -349,8 +300,7 @@ config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 }
 
 int config_apply_line(struct config_parser_context *ctx, const char *key,
-		      const char *line, const char *section_name,
-		      const char **full_key_r)
+		      const char *line, const char **full_key_r)
 {
 	struct config_filter orig_filter = ctx->cur_section->filter;
 	struct config_module_parser *orig_module_parsers =
@@ -388,12 +338,12 @@ int config_apply_line(struct config_parser_context *ctx, const char *key,
 			t_strcut(ctx->cur_section->filter.filter_name, '/');
 		const char *key2 = t_strdup_printf("%s_%s", filter_key, key);
 		const char *line2 = t_strdup_printf("%s_%s", filter_key, line);
-		ret = config_apply_exact_line(ctx, key2, line2, section_name);
+		ret = config_apply_exact_line(ctx, key2, line2);
 		if (ret > 0 && full_key_r != NULL)
 			*full_key_r = key2;
 	}
 	if (ret == 0) {
-		ret = config_apply_exact_line(ctx, key, line, section_name);
+		ret = config_apply_exact_line(ctx, key, line);
 		if (full_key_r != NULL)
 			*full_key_r = key;
 	}
@@ -720,7 +670,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			/* add it to the list of filter names */
 			const char *line = t_strdup_printf("%s=%s",
 				filter_def->key, settings_section_escape(value));
-			if (config_apply_line(ctx, filter_def->key, line, NULL, NULL) < 0) {
+			if (config_apply_line(ctx, filter_def->key, line, NULL) < 0) {
 				i_panic("BUG: Invalid setting definitions: "
 					"Failed to set %s: %s", line,
 					ctx->error);
@@ -737,7 +687,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			const char *line = t_strdup_printf("%s=%s",
 				filter_def->filter_array_field_name, value);
 			if (config_apply_line(ctx, filter_def->filter_array_field_name,
-					      line, NULL, NULL) < 0) {
+					      line, NULL) < 0) {
 				i_panic("BUG: Invalid setting definitions: "
 					"Failed to set %s: %s", line,
 					ctx->error);
@@ -1394,7 +1344,7 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 				break;
 		} else {
 			(void)config_apply_line(ctx, line->key, str_c(ctx->str),
-						NULL, &full_key);
+						&full_key);
 			config_parser_check_warnings(ctx, full_key);
 		}
 		break;

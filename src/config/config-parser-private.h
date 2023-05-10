@@ -77,8 +77,7 @@ extern int (*hook_config_parser_end)(struct config_parser_context *ctx,
 				     const char **error_r);
 
 int config_apply_line(struct config_parser_context *ctx, const char *key,
-		      const char *line, const char *section_name,
-		      const char **full_key_r) ATTR_NULL(4, 5);
+		      const char *line, const char **full_key_r) ATTR_NULL(4);
 void config_parser_apply_line(struct config_parser_context *ctx,
 			      const struct config_line *line);
 void config_parser_set_change_counter(struct config_parser_context *ctx,
