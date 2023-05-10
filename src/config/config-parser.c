@@ -1371,7 +1371,7 @@ config_parser_check_warnings(struct config_parser_context *ctx, const char *key)
 void config_parser_apply_line(struct config_parser_context *ctx,
 			      const struct config_line *line)
 {
-	const char *section_name, *full_key;
+	const char *full_key;
 
 	str_truncate(ctx->str, ctx->pathlen);
 	switch (line->type) {
@@ -1408,26 +1408,8 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 			break;
 		}
 
-		/* new config section */
-		if (*line->value == '\0') {
-			/* no section name, use a counter */
-			section_name = dec2str(ctx->section_counter++);
-		} else {
-			section_name = settings_section_escape(line->value);
-		}
+		/* This is SET_STRLIST */
 		str_append(ctx->str, line->key);
-		ctx->pathlen = str_len(ctx->str);
-
-		str_append_c(ctx->str, '=');
-		str_append(ctx->str, section_name);
-
-		if (config_apply_line(ctx, line->key, str_c(ctx->str),
-				      line->value, NULL) < 0)
-			break;
-
-		str_truncate(ctx->str, ctx->pathlen);
-		str_append_c(ctx->str, SETTINGS_SEPARATOR);
-		str_append(ctx->str, section_name);
 		str_append_c(ctx->str, SETTINGS_SEPARATOR);
 		ctx->pathlen = str_len(ctx->str);
 		break;

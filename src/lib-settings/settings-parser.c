@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "array.h"
-#include "hash.h"
 #include "net.h"
 #include "env-util.h"
 #include "execv-const.h"
@@ -21,14 +20,8 @@
 #define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
 
 struct setting_link {
-        struct setting_link *parent;
 	const struct setting_parser_info *info;
 
-	const char *full_key;
-
-	/* Points to array inside parent->set_struct.
-	   SET_STRLIST : array of const_strings */
-	ARRAY_TYPE(void_array) *array;
 	/* Pointer to structure containing the values */
 	void *set_struct;
 	/* Pointer to structure containing non-zero values for settings that
@@ -44,23 +37,11 @@ struct setting_parser_context {
 	uint8_t change_counter;
 
 	struct setting_link root;
-	HASH_TABLE(char *, struct setting_link *) links;
 
 	unsigned int linenum;
 	char *error;
 	const struct setting_parser_info *prev_info;
 };
-
-static const struct setting_parser_info strlist_info = {
-	.name = NULL,
-	.defines = NULL,
-	.defaults = NULL,
-
-	.struct_size = 0,
-};
-
-HASH_TABLE_DEFINE_TYPE(setting_link, struct setting_link *,
-		       struct setting_link *);
 
 static void
 setting_parser_copy_defaults(struct setting_parser_context *ctx,
@@ -133,13 +114,6 @@ settings_parser_init(pool_t set_pool, const struct setting_parser_info *root,
 	ctx->set_pool = set_pool;
 	ctx->parser_pool = parser_pool;
 	ctx->flags = flags;
-	/* use case-insensitive comparisons. this is mainly because settings
-	   may go through environment variables where their keys get
-	   uppercased. of course the alternative would be to not uppercase
-	   environment. probably doesn't make much difference which way is
-	   chosen. */
-	hash_table_create(&ctx->links, ctx->parser_pool, 0,
-			  strcase_hash, strcasecmp);
 
 	ctx->root.info = root;
 	if (root->struct_size > 0) {
@@ -173,7 +147,6 @@ void settings_parser_unref(struct setting_parser_context **_ctx)
 	i_assert(ctx->refcount > 0);
 	if (--ctx->refcount > 0)
 		return;
-	hash_table_destroy(&ctx->links);
 	i_free(ctx->error);
 	pool_unref(&ctx->set_pool);
 	pool_unref(&ctx->parser_pool);
@@ -281,65 +254,6 @@ static int get_enum(struct setting_parser_context *ctx, const char *value,
 	return 0;
 }
 
-static int ATTR_NULL(2)
-setting_link_add(struct setting_parser_context *ctx,
-		 const struct setting_link *link_copy, char *key)
-{
-	struct setting_link *link;
-
-	link = hash_table_lookup(ctx->links, key);
-	if (link != NULL) {
-		if (link->parent == link_copy->parent &&
-		    link->info == link_copy->info)
-			return 0;
-		settings_parser_set_error(ctx,
-			t_strconcat(key, " already exists", NULL));
-		return -1;
-	}
-
-	link = p_new(ctx->parser_pool, struct setting_link, 1);
-	*link = *link_copy;
-	link->full_key = key;
-	i_assert(hash_table_lookup(ctx->links, key) == NULL);
-	hash_table_insert(ctx->links, key, link);
-	return 0;
-}
-
-static int ATTR_NULL(3, 8)
-get_strlist(struct setting_parser_context *ctx, struct setting_link *parent,
-	    const char *key, const char *value, ARRAY_TYPE(void_array) *result)
-{
-	struct setting_link new_link;
-	const char *const *list;
-	char *full_key;
-
-	if (!array_is_created(result))
-		p_array_init(result, ctx->set_pool, 5);
-
-	i_zero(&new_link);
-	new_link.parent = parent;
-	new_link.info = &strlist_info;
-	new_link.array = result;
-
-	/* there are no sections below strlist, so allow referencing it
-	   without the key (e.g. plugin/foo instead of plugin/0/foo) */
-	full_key = p_strdup(ctx->parser_pool, key);
-	if (setting_link_add(ctx, &new_link, full_key) < 0)
-		return -1;
-
-	list = t_strsplit(value, ",\t ");
-	for (; *list != NULL; list++) {
-		if (**list == '\0')
-			continue;
-
-		full_key = p_strconcat(ctx->parser_pool, key,
-				       SETTINGS_SEPARATOR_S, *list, NULL);
-		if (setting_link_add(ctx, &new_link, full_key) < 0)
-			return -1;
-	}
-	return 0;
-}
-
 static int
 get_in_port_zero(struct setting_parser_context *ctx, const char *value,
 	 in_port_t *result_r)
@@ -354,28 +268,34 @@ get_in_port_zero(struct setting_parser_context *ctx, const char *value,
 
 static void
 settings_parse_strlist(struct setting_parser_context *ctx,
-		       struct setting_link *link,
+		       ARRAY_TYPE(const_string) *array,
 		       const char *key, const char *value)
 {
-	void *const *items;
-	void *vkey, *vvalue;
+	const char *const *items;
+	const char *vkey, *vvalue;
 	unsigned int i, count;
 
-	key = strrchr(key, SETTINGS_SEPARATOR) + 1;
+	key = strrchr(key, SETTINGS_SEPARATOR);
+	if (key == NULL)
+		return;
+	key++;
 	vvalue = p_strdup(ctx->set_pool, value);
 
+	if (!array_is_created(array))
+		p_array_init(array, ctx->set_pool, 4);
+
 	/* replace if it already exists */
-	items = array_get(link->array, &count);
+	items = array_get(array, &count);
 	for (i = 0; i < count; i += 2) {
 		if (strcmp(items[i], key) == 0) {
-			array_idx_set(link->array, i + 1, &vvalue);
+			array_idx_set(array, i + 1, &vvalue);
 			return;
 		}
 	}
 
 	vkey = p_strdup(ctx->set_pool, key);
-	array_push_back(link->array, &vkey);
-	array_push_back(link->array, &vvalue);
+	array_push_back(array, &vkey);
+	array_push_back(array, &vvalue);
 }
 
 static int
@@ -453,13 +373,9 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 			     *(const char *const *)ptr2) < 0)
 			return -1;
 		break;
-	case SET_STRLIST: {
-		ctx->prev_info = &strlist_info;
-		if (get_strlist(ctx, link, key, value,
-				(ARRAY_TYPE(void_array) *)ptr) < 0)
-			return -1;
+	case SET_STRLIST:
+		settings_parse_strlist(ctx, ptr, key, value);
 		break;
-	}
 	case SET_FILTER_ARRAY: {
 		/* Add filter names to the array. Userdb can add more simply
 		   by giving e.g. "namespace=newname" without it removing the
@@ -493,80 +409,35 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 }
 
 static bool
-settings_find_key_nth(struct setting_parser_context *ctx, const char *key,
-		      bool allow_filter_name, unsigned int *n,
-		      const struct setting_define **def_r,
-		      struct setting_link **link_r)
+settings_find_key(struct setting_parser_context *ctx, const char *key,
+		  bool allow_filter_name, const struct setting_define **def_r,
+		  struct setting_link **link_r)
 {
 	const struct setting_define *def;
-	struct setting_link *link;
 	const char *end, *parent_key;
 
-	/* try to find from roots */
-	if (*n == 0) {
-		def = setting_define_find(ctx->root.info, key);
-		if (def != NULL && (def->type != SET_FILTER_NAME ||
-				    allow_filter_name)) {
-			*n = 1;
-			*def_r = def;
-			*link_r = &ctx->root;
-			return TRUE;
-		}
+	/* try to find the exact key */
+	def = setting_define_find(ctx->root.info, key);
+	if (def != NULL && (def->type != SET_FILTER_NAME ||
+			    allow_filter_name)) {
+		*def_r = def;
+		*link_r = &ctx->root;
+		return TRUE;
 	}
-	if (*n > 1)
-		return FALSE;
-	*n += 1;
 
-	/* try to find from links */
+	/* try to find strlist/key prefix */
 	end = strrchr(key, SETTINGS_SEPARATOR);
 	if (end == NULL)
 		return FALSE;
 
 	parent_key = t_strdup_until(key, end);
-	link = hash_table_lookup(ctx->links, parent_key);
-	if (link == NULL) {
-		/* maybe this is the first strlist value */
-		unsigned int parent_n = 0;
-		const struct setting_define *parent_def;
-		struct setting_link *parent_link;
-
-		if (!settings_find_key_nth(ctx, parent_key, FALSE, &parent_n,
-					   &parent_def, &parent_link))
-			return FALSE;
-		if (parent_def == NULL) {
-			/* we'll get here with e.g. "plugin/a/b=val".
-			   not sure if we should ever do anything here.. */
-			if (parent_link->full_key == NULL ||
-			    strcmp(parent_link->full_key, parent_key) != 0)
-				return FALSE;
-		} else {
-			if (parent_def->type != SET_STRLIST)
-				return FALSE;
-		}
-
-		/* setting parent_key=0 adds it to links list */
-		if (settings_parse_keyvalue(ctx, parent_key, "0") <= 0)
-			return FALSE;
-
-		link = hash_table_lookup(ctx->links, parent_key);
-		i_assert(link != NULL);
+	def = setting_define_find(ctx->root.info, parent_key);
+	if (def != NULL && def->type == SET_STRLIST) {
+		*def_r = def;
+		*link_r = &ctx->root;
+		return TRUE;
 	}
-
-	*link_r = link;
-	i_assert(link->info == &strlist_info);
-	*def_r = NULL;
-	return TRUE;
-}
-
-static bool
-settings_find_key(struct setting_parser_context *ctx, const char *key,
-		  bool allow_filter_name, const struct setting_define **def_r,
-		  struct setting_link **link_r)
-{
-	unsigned int n = 0;
-
-	return settings_find_key_nth(ctx, key, allow_filter_name,
-				     &n, def_r, link_r);
+	return FALSE;
 }
 
 const struct setting_define *
@@ -589,28 +460,18 @@ settings_parse_keyvalue_real(struct setting_parser_context *ctx,
 {
 	const struct setting_define *def;
 	struct setting_link *link;
-	unsigned int n = 0;
 
 	i_free(ctx->error);
 	ctx->prev_info = NULL;
 
-	if (!settings_find_key_nth(ctx, key, FALSE, &n, &def, &link)) {
+	if (!settings_find_key(ctx, key, FALSE, &def, &link)) {
 		settings_parser_set_error(ctx,
 			t_strconcat("Unknown setting: ", key, NULL));
 		return 0;
 	}
 
-	do {
-		if (def == NULL) {
-			i_assert(link->info == &strlist_info);
-			settings_parse_strlist(ctx, link, key, value);
-			return 1;
-		}
-
-		if (settings_parse(ctx, link, def, key, value, dup_value) < 0)
-			return -1;
-		/* there may be more instances of the setting */
-	} while (settings_find_key_nth(ctx, key, FALSE, &n, &def, &link));
+	if (settings_parse(ctx, link, def, key, value, dup_value) < 0)
+		return -1;
 	return 1;
 }
 
@@ -634,11 +495,6 @@ const char *settings_parse_unalias(struct setting_parser_context *ctx,
 
 	if (!settings_find_key(ctx, key, FALSE, &def, &link))
 		return NULL;
-	if (def == NULL) {
-		/* strlist */
-		i_assert(link->info == &strlist_info);
-		return key;
-	}
 
 	while (def->type == SET_ALIAS) {
 		i_assert(def != link->info->defines);
@@ -1043,60 +899,11 @@ settings_changes_dup(const struct setting_parser_info *info,
 	return dest_set;
 }
 
-static struct setting_link *
-settings_link_get_new(struct setting_parser_context *new_ctx,
-		      HASH_TABLE_TYPE(setting_link) links,
-		      struct setting_link *old_link)
-{
-	struct setting_link *new_link;
-	void *const *old_sets, **new_sets;
-	unsigned int i, count, count2;
-	size_t diff;
-
-	new_link = hash_table_lookup(links, old_link);
-	if (new_link != NULL)
-		return new_link;
-
-	i_assert(old_link->parent != NULL);
-	i_assert(old_link->array != NULL);
-
-	new_link = p_new(new_ctx->parser_pool, struct setting_link, 1);
-	new_link->info = old_link->info;
-	new_link->parent = settings_link_get_new(new_ctx, links,
-						 old_link->parent);
-
-	/* find the array from parent struct */
-	diff = (char *)old_link->array - (char *)old_link->parent->set_struct;
-	i_assert(diff + sizeof(*old_link->array) <= old_link->parent->info->struct_size);
-	new_link->array = PTR_OFFSET(new_link->parent->set_struct, diff);
-
-	if (old_link->set_struct != NULL) {
-		/* find our struct from array */
-		old_sets = array_get(old_link->array, &count);
-		new_sets = array_get_modifiable(new_link->array, &count2);
-		i_assert(count == count2);
-		for (i = 0; i < count; i++) {
-			if (old_sets[i] == old_link->set_struct) {
-				new_link->set_struct = new_sets[i];
-				break;
-			}
-		}
-		i_assert(i < count);
-	}
-	i_assert(hash_table_lookup(links, old_link) == NULL);
-	hash_table_insert(links, old_link, new_link);
-	return new_link;
-}
-
 struct setting_parser_context *
 settings_parser_dup(const struct setting_parser_context *old_ctx,
 		    pool_t new_pool)
 {
 	struct setting_parser_context *new_ctx;
-	struct hash_iterate_context *iter;
-	HASH_TABLE_TYPE(setting_link) links;
-	struct setting_link *new_link, *value;
-	char *key;
 	pool_t parser_pool;
 	bool keep_values;
 
@@ -1117,11 +924,6 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 	new_ctx->error = i_strdup(old_ctx->error);
 	new_ctx->prev_info = old_ctx->prev_info;
 
-	hash_table_create_direct(&links, new_ctx->parser_pool, 0);
-
-	i_assert(old_ctx->root.parent == NULL);
-	i_assert(old_ctx->root.array == NULL);
-
 	new_ctx->root.info = old_ctx->root.info;
 	new_ctx->root.set_struct =
 		settings_dup_full(old_ctx->root.info,
@@ -1131,20 +933,6 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 		settings_changes_dup(old_ctx->root.info,
 				     old_ctx->root.change_struct,
 				     new_ctx->set_pool);
-	struct setting_link *old_link = (struct setting_link *)&old_ctx->root;
-	hash_table_insert(links, old_link, &new_ctx->root);
-
-	hash_table_create(&new_ctx->links, new_ctx->parser_pool, 0,
-			  strcase_hash, strcasecmp);
-
-	iter = hash_table_iterate_init(old_ctx->links);
-	while (hash_table_iterate(iter, old_ctx->links, &key, &value)) {
-		new_link = settings_link_get_new(new_ctx, links, value);
-		key = p_strdup(new_ctx->parser_pool, key);
-		hash_table_insert(new_ctx->links, key, new_link);
-	}
-	hash_table_iterate_deinit(&iter);
-	hash_table_destroy(&links);
 	return new_ctx;
 }
 

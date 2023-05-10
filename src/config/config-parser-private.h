@@ -60,7 +60,6 @@ struct config_parser_context {
 
 	string_t *str;
 	size_t pathlen;
-	unsigned int section_counter;
 	const char *error;
 
 	struct old_set_parser *old;

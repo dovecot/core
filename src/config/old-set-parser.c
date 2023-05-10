@@ -731,29 +731,27 @@ static bool
 old_settings_handle_path(struct config_parser_context *ctx,
 			 const char *key, const char *value)
 {
-	char end;
-	int index;
-	if (sscanf(str_c(ctx->str), "plugin/%d%c]", &index, &end) == 2 && end == '/') {
+	if (str_begins_with(str_c(ctx->str), "plugin/")) {
 		if (strcmp(key, "push_notification_backend") == 0) {
 			obsolete(ctx, "%s has been replaced by push_notification_driver", key);
 			config_apply_line(ctx, key, t_strdup_printf(
-				"plugin/%d/push_notification_driver=%s",
-				index, value), NULL);
+				"plugin/push_notification_driver=%s",
+				value), NULL);
 			return TRUE;
 		}
 
 		if (strcmp(key, "zlib_save") == 0) {
 			obsolete(ctx, "%s has been replaced by mail_compress_save", key);
 			config_apply_line(ctx, key, t_strdup_printf(
-				"plugin/%d/mail_compress_save=%s",
-				index, value), NULL);
+				"plugin/mail_compress_save=%s",
+				value), NULL);
 			return TRUE;
 		}
 		if (strcmp(key, "zlib_save_level") == 0) {
 			obsolete(ctx, "%s has been replaced by mail_compress_save_level", key);
 			config_apply_line(ctx, key, t_strdup_printf(
-				"plugin/%d/mail_compress_save_level=%s",
-				index, value), NULL);
+				"plugin/mail_compress_save_level=%s",
+				value), NULL);
 			return TRUE;
 		}
 	}
