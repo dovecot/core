@@ -201,6 +201,13 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 		break;
 	}
 
+	if (orig_errno == EROFS) {
+		str_append(errmsg, " Read-only file system");
+		str_append_c(errmsg, ')');
+		errno = orig_errno;
+		return str_c(errmsg);
+	}
+
 	prev_path = path; ret = -1;
 	while (strcmp(prev_path, "/") != 0) {
 		if ((p = strrchr(prev_path, '/')) == NULL)
