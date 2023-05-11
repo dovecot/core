@@ -7,9 +7,12 @@
 bool mail_error_from_errno(enum mail_error *error_r,
 			   const char **error_string_r)
 {
-	if (ENOACCESS(errno)) {
+	if (errno == EACCES || errno == EPERM) {
 		*error_r = MAIL_ERROR_PERM;
 		*error_string_r = MAIL_ERRSTR_NO_PERMISSION;
+	} else if (errno == EROFS) {
+		*error_r = MAIL_ERROR_PERM;
+		*error_string_r = "Read only file system";
 	} else if (ENOQUOTA(errno)) {
 		*error_r = MAIL_ERROR_NOQUOTA;
 		*error_string_r = MAIL_ERRSTR_NO_QUOTA;
