@@ -1381,6 +1381,48 @@ db_ldap_field_find(const char *data, void *context,
 	return 1;
 }
 
+const char *const *db_ldap_parse_attrs(const char *cstr)
+{
+	ARRAY_TYPE(const_string) entries;
+	t_array_init(&entries, 32);
+
+	char *ptr = t_strdup_noconst(cstr);
+	const char *start = ptr;
+	unsigned int nesting = 0;
+	while (*ptr != '\0') {
+		switch (*ptr) {
+		case '{':
+			nesting++;
+			ptr++;
+			break;
+		case '}':
+			if (nesting > 0)
+				nesting--;
+			ptr++;
+			break;
+		case ',':
+			if (nesting > 0)
+				ptr++;
+			else {
+				*ptr = '\0';
+				if (*start != '\0')
+					array_push_back(&entries, &start);
+				start = ++ptr;
+			}
+			break;
+		default:
+			ptr++;
+			break;
+		}
+	}
+	if (*start != '\0')
+		array_push_back(&entries, &start);
+
+	unsigned int count ATTR_UNUSED;
+	array_append_zero(&entries);
+	return array_get(&entries, &count);
+}
+
 void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		       char ***attr_names_r, ARRAY_TYPE(ldap_field) *attr_map,
 		       const char *skip_attr)
@@ -1397,10 +1439,9 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 	char *ldap_attr, *name, *templ;
 	unsigned int i;
 
-	if (*attrlist == '\0')
+	attr = db_ldap_parse_attrs(attrlist);
+	if (*attr == NULL)
 		return;
-
-	attr = t_strsplit_spaces(attrlist, ",");
 
 	tmp_str = t_str_new(128);
 	ctx.pool = conn->pool;

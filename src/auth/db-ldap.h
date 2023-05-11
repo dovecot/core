@@ -219,4 +219,8 @@ bool db_ldap_result_iterate_next(struct db_ldap_result_iterate_context *ctx,
 				 const char *const **values_r);
 void db_ldap_result_iterate_deinit(struct db_ldap_result_iterate_context **ctx);
 
+/* exposed only for unit tests */
+
+const char *const *db_ldap_parse_attrs(const char *cstr);
+
 #endif
