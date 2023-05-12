@@ -244,12 +244,8 @@ oauth2_refresh_start(const struct oauth2_settings *set,
 {
 	string_t *payload = t_str_new(128);
 
-	str_append(payload, "client_secret=");
-	http_url_escape_param(payload, set->client_secret);
-	str_append(payload, "&grant_type=refresh_token&refresh_token=");
+	str_append(payload, "grant_type=refresh_token&refresh_token=");
 	http_url_escape_param(payload, input->token);
-	str_append(payload, "&client_id=");
-	http_url_escape_param(payload, set->client_id);
 
 	return oauth2_request_start(set, input, callback, context, NULL,
 				    "POST", set->refresh_url, NULL, FALSE);
