@@ -4,6 +4,7 @@
 #include "array.h"
 #include "str.h"
 #include "hash.h"
+#include "llist.h"
 #include "strescape.h"
 #include "istream.h"
 #include "module-dir.h"
@@ -238,6 +239,13 @@ config_add_new_parser(struct config_parser_context *ctx)
 		config_module_parsers_init(ctx->pool);
 	array_push_back(&ctx->all_filter_parsers, &filter_parser);
 
+	if (cur_section->filter_parser != NULL) {
+		DLLIST2_APPEND(&cur_section->filter_parser->children_head,
+			       &cur_section->filter_parser->children_tail,
+			       filter_parser);
+	}
+
+	cur_section->filter_parser = filter_parser;
 	cur_section->module_parsers = filter_parser->module_parsers;
 }
 
@@ -249,6 +257,7 @@ config_add_new_section(struct config_parser_context *ctx)
 	section = p_new(ctx->pool, struct config_section_stack, 1);
 	section->prev = ctx->cur_section;
 	section->filter = ctx->cur_section->filter;
+	section->filter_parser = ctx->cur_section->filter_parser;
 	section->module_parsers = ctx->cur_section->module_parsers;
 
 	section->open_path = p_strdup(ctx->pool, ctx->cur_input->path);
@@ -376,6 +385,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 
 	filter_parser = config_filter_parser_find(ctx, filter);
 	if (filter_parser != NULL) {
+		ctx->cur_section->filter_parser = filter_parser;
 		ctx->cur_section->module_parsers =
 			filter_parser->module_parsers;
 	} else {
