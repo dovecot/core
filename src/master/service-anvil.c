@@ -127,7 +127,7 @@ void service_anvil_process_destroyed(struct service_process *process)
 	service_anvil_global->restarted = TRUE;
 }
 
-void service_anvil_send_log_fd(void)
+void service_anvil_send_log_fd(struct service_list *service_list)
 {
 	ssize_t ret;
 	char b = 0;
@@ -136,7 +136,7 @@ void service_anvil_send_log_fd(void)
 		return;
 
 	ret = fd_send(service_anvil_global->log_fdpass_fd[1],
-		      services->anvil->log_fd[1], &b, 1);
+		      service_list->anvil->log_fd[1], &b, 1);
 	if (ret < 0)
 		i_error("fd_send(anvil log fd) failed: %m");
 	else if (ret == 0)

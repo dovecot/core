@@ -111,7 +111,7 @@ int services_log_init(struct service_list *service_list)
 		return -1;
 	}
 
-	service_anvil_send_log_fd();
+	service_anvil_send_log_fd(service_list);
 	return 0;
 }
 

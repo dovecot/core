@@ -28,7 +28,7 @@ void service_anvil_monitor_start(struct service_list *service_list);
 void service_anvil_process_created(struct service_process *process);
 void service_anvil_process_destroyed(struct service_process *process);
 
-void service_anvil_send_log_fd(void);
+void service_anvil_send_log_fd(struct service_list *service_list);
 
 void service_anvil_global_init(void);
 void service_anvil_global_deinit(void);
