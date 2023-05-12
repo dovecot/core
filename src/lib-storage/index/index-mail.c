@@ -125,6 +125,7 @@ index_mail_want_attachment_keywords_on_fetch(struct index_mail *mail)
 
 	return mail_set->parsed_mail_attachment_detection_add_flags &&
 		!mail_set->parsed_mail_attachment_detection_no_flags_on_fetch &&
+		!mailbox_is_readonly(mail->mail.mail.box) &&
 		!mail_has_attachment_keywords(&mail->mail.mail);
 }
 
