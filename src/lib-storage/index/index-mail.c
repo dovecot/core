@@ -1239,9 +1239,14 @@ index_mail_parse_body_finish(struct index_mail *mail,
 	index_mail_body_parsed_cache_bodystructure(mail, field);
 	index_mail_cache_sizes(mail);
 	index_mail_cache_dates(mail);
-	if (mail_set->parsed_mail_attachment_detection_add_flags &&
-	    !mail_has_attachment_keywords(&mail->mail.mail))
-		index_mail_try_set_attachment_keywords(mail);
+	if (mail->mail.mail.saving) {
+		if (mail_set->parsed_mail_attachment_detection_add_flags &&
+		    !mail_has_attachment_keywords(&mail->mail.mail))
+			index_mail_try_set_attachment_keywords(mail);
+	} else {
+		if (index_mail_want_attachment_keywords_on_fetch(mail))
+			index_mail_try_set_attachment_keywords(mail);
+	}
 	return 0;
 }
 
