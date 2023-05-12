@@ -268,10 +268,14 @@ oauth2_introspection_start(const struct oauth2_settings *set,
 		enc = t_str_new(64);
 		str_append(enc, set->introspection_url);
 		http_url_escape_param(enc, input->token);
-		str_append(enc, "&client_id=");
-		http_url_escape_param(enc, set->client_id);
-		str_append(enc, "&client_secret=");
-		http_url_escape_param(enc, set->client_secret);
+		if (*set->client_id != '\0') {
+			str_append(enc, "&client_id=");
+			http_url_escape_param(enc, set->client_id);
+		}
+		if (*set->client_secret != '\0') {
+			str_append(enc, "&client_secret=");
+			http_url_escape_param(enc, set->client_secret);
+		}
 		url = str_c(enc);
 		method = "GET";
 		break;
@@ -326,10 +330,14 @@ oauth2_passwd_grant_start(const struct oauth2_settings *set,
 	http_url_escape_param(payload, username);
 	str_append(payload, "&password=");
 	http_url_escape_param(payload, password);
-	str_append(payload, "&client_id=");
-	http_url_escape_param(payload, set->client_id);
-	str_append(payload, "&client_secret=");
-	http_url_escape_param(payload, set->client_secret);
+	if (*set->client_id != '\0') {
+		str_append(payload, "&client_id=");
+		http_url_escape_param(payload, set->client_id);
+	}
+	if (*set->client_secret != '\0') {
+		str_append(payload, "&client_secret=");
+		http_url_escape_param(payload, set->client_secret);
+	}
 	if (set->scope[0] != '\0') {
 		str_append(payload, "&scope=");
 		http_url_escape_param(payload, set->scope);
