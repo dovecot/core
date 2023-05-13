@@ -254,7 +254,7 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	http_set.debug = db->set.debug;
 	http_set.event_parent = auth_event;
 
-	db->client = http_client_init(&http_set);
+	db->client = http_client_init_private(&http_set);
 
 	i_zero(&db->oauth2_set);
 	db->oauth2_set.client = db->client;
