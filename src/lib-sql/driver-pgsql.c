@@ -1281,13 +1281,13 @@ static void driver_pgsql_wait(struct sql_db *_db)
 	if (!driver_pgsql_have_work(db))
 		return;
 
-	struct ioloop *prev_ioloop = current_ioloop;
+	db->orig_ioloop = current_ioloop;
 	db->ioloop = io_loop_create();
 	db->io = io_loop_move_io(&db->io);
 	while (driver_pgsql_have_work(db))
 		io_loop_run(db->ioloop);
 
-	io_loop_set_current(prev_ioloop);
+	io_loop_set_current(db->orig_ioloop);
 	db->io = io_loop_move_io(&db->io);
 	io_loop_set_current(db->ioloop);
 	io_loop_destroy(&db->ioloop);
