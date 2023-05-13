@@ -44,6 +44,7 @@ pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
 	test-imap-bodystructure \
+	test-imap-date \
 	test-imap-envelope \
 	test-imap-match \
 	test-imap-parser \
@@ -63,6 +64,10 @@ test_deps = $(noinst_LTLIBRARIES) $(test_libs)
 test_imap_bodystructure_SOURCES = test-imap-bodystructure.c
 test_imap_bodystructure_LDADD = imap-bodystructure.lo imap-envelope.lo imap-quote.lo imap-parser.lo imap-arg.lo ../lib-mail/libmail.la $(test_libs)
 test_imap_bodystructure_DEPENDENCIES = $(test_deps) ../lib-mail/libmail.la
+
+test_imap_date_SOURCES = test-imap-date.c
+test_imap_date_LDADD = imap-date.lo $(test_libs)
+test_imap_date_DEPENDENCIES = $(test_deps)
 
 test_imap_envelope_SOURCES = test-imap-envelope.c
 test_imap_envelope_LDADD = imap-envelope.lo imap-quote.lo imap-parser.lo imap-arg.lo ../lib-mail/libmail.la $(test_libs)

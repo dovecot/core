@@ -79,11 +79,43 @@ static const char *imap_parse_date_internal(const char *str, struct tm *tm)
 	return str;
 }
 
-static bool imap_mktime(struct tm *tm, time_t *time_r)
+static bool tm_is_too_large(const struct tm *tm, time_t *max_time_r)
+{
+	static time_t max_time = 0;
+	static struct tm max_tm = { 0, };
+
+	if (max_time == 0) {
+#if TIME_T_MAX_BITS == 32
+		max_time = 0xffffffffUL;
+#elif TIME_T_MAX_BITS == 64
+		max_time = 0xffffffffffffffffULL;
+#else
+		max_time = ((time_t)1 << TIME_T_MAX_BITS) - 1;
+#endif
+		max_tm = *gmtime(&max_time);
+	}
+	*max_time_r = max_time;
+
+	if (tm->tm_year != max_tm.tm_year)
+		return tm->tm_year > max_tm.tm_year;
+	if (tm->tm_mon != max_tm.tm_mon)
+		return tm->tm_mon > max_tm.tm_mon;
+	if (tm->tm_mday != max_tm.tm_mday)
+		return tm->tm_mday > max_tm.tm_mday;
+	if (tm->tm_hour != max_tm.tm_hour)
+		return tm->tm_hour > max_tm.tm_hour;
+	if (tm->tm_min != max_tm.tm_min)
+		return tm->tm_min > max_tm.tm_min;
+	if (tm->tm_sec != max_tm.tm_sec)
+		return tm->tm_sec > max_tm.tm_sec;
+	return FALSE;
+}
+
+static int imap_mktime(struct tm *tm, time_t *time_r)
 {
 	*time_r = utc_mktime(tm);
 	if (*time_r != (time_t)-1)
-		return TRUE;
+		return 1;
 
 	/* the date is outside valid range for time_t. it might still be
 	   technically valid though, so try to handle this case.
@@ -96,17 +128,15 @@ static bool imap_mktime(struct tm *tm, time_t *time_r)
 #else
 		*time_r = 0;
 #endif
-	} else {
+		return 0;
+	} else if (tm_is_too_large(tm, time_r)) {
 		/* too high. return the highest allowed value.
 		   we shouldn't get here with 64bit time_t,
 		   but handle that anyway. */
-#if (TIME_T_MAX_BITS == 32 || TIME_T_MAX_BITS == 64)
-		*time_r = (1UL << (TIME_T_MAX_BITS-1)) - 1;
-#else
-		*time_r = (1UL << TIME_T_MAX_BITS) - 1;
-#endif
+		return 0;
+	} else {
+		return -1;
 	}
-	return FALSE;
 }
 
 bool imap_parse_date(const char *str, time_t *timestamp_r)
@@ -118,7 +148,8 @@ bool imap_parse_date(const char *str, time_t *timestamp_r)
 		return FALSE;
 
 	tm.tm_isdst = -1;
-	(void)imap_mktime(&tm, timestamp_r);
+	if (imap_mktime(&tm, timestamp_r) < 0)
+		return FALSE;
 	return TRUE;
 }
 
@@ -126,6 +157,7 @@ bool imap_parse_datetime(const char *str, time_t *timestamp_r,
 			 int *timezone_offset_r)
 {
 	struct tm tm;
+	int ret;
 
 	str = imap_parse_date_internal(str, &tm);
 	if (str == NULL)
@@ -157,9 +189,9 @@ bool imap_parse_datetime(const char *str, time_t *timestamp_r,
 	*timezone_offset_r = parse_timezone(str);
 
 	tm.tm_isdst = -1;
-	if (imap_mktime(&tm, timestamp_r))
+	if ((ret = imap_mktime(&tm, timestamp_r)) > 0)
 		*timestamp_r -= *timezone_offset_r * 60;
-	return TRUE;
+	return ret >= 0;
 }
 
 static void imap_to_date_tm(char buf[11], const struct tm *tm)
