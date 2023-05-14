@@ -15,6 +15,7 @@ static const struct config_service test_config_all_services[] = { { NULL, NULL }
 const struct config_service *config_all_services = test_config_all_services;
 
 struct test_settings {
+	pool_t pool;
 	const char *key;
 	const char *key2;
 	const char *key3;
@@ -66,6 +67,7 @@ const struct setting_parser_info test_settings_root = {
 	.defaults = &test_settings_defaults,
 
 	.struct_size = sizeof(struct test_settings),
+	.pool_offset1 = 1 + offsetof(struct test_settings, pool),
 };
 
 static const struct setting_parser_info *const roots[] = {

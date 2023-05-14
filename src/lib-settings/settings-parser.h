@@ -113,7 +113,7 @@ struct setting_parser_info {
 	size_t type_offset1; /* type_offset+1. 0=nonexistent. */
 	size_t struct_size;
 
-	size_t pool_offset1; /* pool_offset+1. 0=nonexistent. */
+	size_t pool_offset1; /* 1 + offset to pool_t field */
 
 	bool (*check_func)(void *set, pool_t pool, const char **error_r);
 	/* The event parameter can be used with settings_get*() to access other
