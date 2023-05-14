@@ -194,7 +194,6 @@ const struct setting_parser_info mailbox_setting_parser_info = {
 	.defines = mailbox_setting_defines,
 	.defaults = &mailbox_default_settings,
 
-	.type_offset1 = 1 + offsetof(struct mailbox_settings, name),
 	.struct_size = sizeof(struct mailbox_settings),
 	.pool_offset1 = 1 + offsetof(struct mailbox_settings, pool),
 
@@ -253,7 +252,6 @@ const struct setting_parser_info mail_namespace_setting_parser_info = {
 	.defines = mail_namespace_setting_defines,
 	.defaults = &mail_namespace_default_settings,
 
-	.type_offset1 = 1 + offsetof(struct mail_namespace_settings, name),
 	.struct_size = sizeof(struct mail_namespace_settings),
 	.pool_offset1 = 1 + offsetof(struct mail_namespace_settings, pool),
 

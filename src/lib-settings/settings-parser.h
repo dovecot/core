@@ -110,9 +110,7 @@ struct setting_parser_info {
 	/* Add defaults via strings on top of the of defaults struct. */
 	const struct setting_keyvalue *default_settings;
 
-	size_t type_offset1; /* type_offset+1. 0=nonexistent. */
 	size_t struct_size;
-
 	size_t pool_offset1; /* 1 + offset to pool_t field */
 
 	bool (*check_func)(void *set, pool_t pool, const char **error_r);

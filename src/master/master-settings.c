@@ -65,7 +65,6 @@ const struct setting_parser_info unix_listener_setting_parser_info = {
 	.defines = unix_listener_setting_defines,
 	.defaults = &file_listener_default_settings,
 
-	.type_offset1 = 1 + offsetof(struct file_listener_settings, path),
 	.struct_size = sizeof(struct file_listener_settings),
 	.pool_offset1 = 1 + offsetof(struct file_listener_settings, pool),
 };
@@ -76,7 +75,6 @@ const struct setting_parser_info fifo_listener_setting_parser_info = {
 	.defines = fifo_listener_setting_defines,
 	.defaults = &file_listener_default_settings,
 
-	.type_offset1 = 1 + offsetof(struct file_listener_settings, path),
 	.struct_size = sizeof(struct file_listener_settings),
 	.pool_offset1 = 1 + offsetof(struct file_listener_settings, pool),
 };
@@ -112,7 +110,6 @@ const struct setting_parser_info inet_listener_setting_parser_info = {
 	.defines = inet_listener_setting_defines,
 	.defaults = &inet_listener_default_settings,
 
-	.type_offset1 = 1 + offsetof(struct inet_listener_settings, name),
 	.struct_size = sizeof(struct inet_listener_settings),
 	.pool_offset1 = 1 + offsetof(struct inet_listener_settings, pool),
 };
@@ -185,7 +182,6 @@ const struct setting_parser_info service_setting_parser_info = {
 	.defines = service_setting_defines,
 	.defaults = &service_default_settings,
 
-	.type_offset1 = 1 + offsetof(struct service_settings, name),
 	.struct_size = sizeof(struct service_settings),
 	.pool_offset1 = 1 + offsetof(struct service_settings, pool),
 };

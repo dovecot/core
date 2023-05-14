@@ -164,7 +164,6 @@ const struct setting_parser_info auth_passdb_setting_parser_info = {
 	.defines = auth_passdb_setting_defines,
 	.defaults = &auth_passdb_default_settings,
 
-	.type_offset1 = 1 + offsetof(struct auth_passdb_settings, name),
 	.struct_size = sizeof(struct auth_passdb_settings),
 	.pool_offset1 = 1 + offsetof(struct auth_passdb_settings, pool),
 
@@ -214,7 +213,6 @@ const struct setting_parser_info auth_userdb_setting_parser_info = {
 	.defines = auth_userdb_setting_defines,
 	.defaults = &auth_userdb_default_settings,
 
-	.type_offset1 = 1 + offsetof(struct auth_userdb_settings, name),
 	.struct_size = sizeof(struct auth_userdb_settings),
 	.pool_offset1 = 1 + offsetof(struct auth_userdb_settings, pool),
 	.check_func = auth_userdb_settings_check

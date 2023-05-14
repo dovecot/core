@@ -94,7 +94,6 @@ const struct setting_parser_info stats_exporter_setting_parser_info = {
 	.defines = stats_exporter_setting_defines,
 	.defaults = &stats_exporter_default_settings,
 
-	.type_offset1 = 1 + offsetof(struct stats_exporter_settings, name),
 	.struct_size = sizeof(struct stats_exporter_settings),
 	.pool_offset1 = 1 + offsetof(struct stats_exporter_settings, pool),
 	.check_func = stats_exporter_settings_check,
@@ -135,7 +134,6 @@ const struct setting_parser_info stats_metric_setting_parser_info = {
 	.defines = stats_metric_setting_defines,
 	.defaults = &stats_metric_default_settings,
 
-	.type_offset1 = 1 + offsetof(struct stats_metric_settings, name),
 	.struct_size = sizeof(struct stats_metric_settings),
 	.pool_offset1 = 1 + offsetof(struct stats_metric_settings, pool),
 	.check_func = stats_metric_settings_check,
