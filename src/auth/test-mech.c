@@ -94,6 +94,7 @@ static void test_mechs_init(void)
 
 	/* Copy default settings */
 	set = *(const struct auth_settings *)auth_setting_parser_info.defaults;
+	set.pool = pool_alloconly_create("test settings", 128);
 	set.base_dir = ".";
 	global_auth_settings = &set;
 	memset((&set)->username_chars_map, 1, sizeof((&set)->username_chars_map));
@@ -397,6 +398,7 @@ static void test_mechs(void)
 	mech_deinit(global_auth_settings);
 	mech_register_deinit(&mech_reg);
 	auths_free();
+	pool_unref(&set.pool);
 	i_unlink("auth-token-secret.dat");
 }
 

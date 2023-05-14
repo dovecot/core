@@ -269,6 +269,7 @@ auth_preinit(const struct auth_settings *set, const char *service,
 	auth->pool = pool;
 	auth->service = p_strdup(pool, service);
 	auth->set = set;
+	pool_ref(set->pool);
 	auth->reg = reg;
 
 	if (array_is_created(&set->passdbs))
@@ -433,6 +434,7 @@ void auths_preinit(const struct auth_settings *set,
 		service_set = auth_settings_get(services[i]);
 		auth = auth_preinit(service_set, services[i], reg);
 		array_push_back(&auths, &auth);
+		settings_free(service_set);
 	}
 
 	if (not_service != NULL && str_array_find(services, not_service+1))

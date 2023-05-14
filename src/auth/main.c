@@ -12,6 +12,7 @@
 #include "module-dir.h"
 #include "randgen.h"
 #include "process-title.h"
+#include "settings.h"
 #include "settings-parser.h"
 #include "master-service.h"
 #include "master-service-settings.h"
@@ -269,6 +270,7 @@ static void main_deinit(void)
 	mech_register_deinit(&mech_reg);
 	mech_otp_deinit();
 	mech_deinit(global_auth_settings);
+	settings_free(global_auth_settings);
 
 	/* allow modules to unregister their dbs/drivers/etc. before freeing
 	   the whole data structures containing them. */
