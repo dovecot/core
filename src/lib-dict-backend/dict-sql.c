@@ -526,7 +526,7 @@ sql_dict_result_unescape(enum dict_sql_type type, pool_t pool,
 		if (value == NULL)
 			return "";
 		guid_128_from_uuid_string(value, guid);
-		return guid_128_to_uuid_string(guid, FORMAT_RECORD);
+		return p_strdup(pool, guid_128_to_uuid_string(guid, FORMAT_RECORD));
 	case DICT_SQL_TYPE_HEXBLOB:
 		break;
 	case DICT_SQL_TYPE_COUNT:
