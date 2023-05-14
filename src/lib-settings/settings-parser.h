@@ -206,13 +206,6 @@ int settings_var_expand_with_funcs(const struct setting_parser_info *info,
 				   const struct var_expand_table *table,
 				   const struct var_expand_func_table *func_table,
 				   void *func_context, const char **error_r);
-/* Duplicate the entire settings structure. */
-void *settings_dup(const struct setting_parser_info *info,
-		   const void *set, pool_t pool);
-/* Same as settings_dup(), but assume that the old pointers can still be safely
-   used. This saves memory since strings don't have to be duplicated. */
-void *settings_dup_with_pointers(const struct setting_parser_info *info,
-				 const void *set, pool_t pool);
 /* Duplicate the entire setting parser. */
 struct setting_parser_context *
 settings_parser_dup(const struct setting_parser_context *old_ctx,

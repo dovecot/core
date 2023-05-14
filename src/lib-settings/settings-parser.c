@@ -1005,18 +1005,6 @@ static void *settings_dup_full(const struct setting_parser_info *info,
 	return dest_set;
 }
 
-void *settings_dup(const struct setting_parser_info *info,
-		   const void *set, pool_t pool)
-{
-	return settings_dup_full(info, set, pool, FALSE);
-}
-
-void *settings_dup_with_pointers(const struct setting_parser_info *info,
-				 const void *set, pool_t pool)
-{
-	return settings_dup_full(info, set, pool, TRUE);
-}
-
 static void *
 settings_changes_dup(const struct setting_parser_info *info,
 		     const void *change_set, pool_t pool)
