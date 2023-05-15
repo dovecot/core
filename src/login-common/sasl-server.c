@@ -1,12 +1,16 @@
 /* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "login-common.h"
+#include "array.h"
+#include "md5.h"
+#include "sasl-server.h"
 #include "str.h"
 #include "base64.h"
 #include "buffer.h"
 #include "hex-binary.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "strfuncs.h"
 #include "write-full.h"
 #include "strescape.h"
 #include "str-sanitize.h"
@@ -368,10 +372,9 @@ authenticate_callback(struct auth_client_request *request,
 						      t_strdup_until(key, value),
 						      value+1);
 				}
-			} else if (str_begins(args[i], "resp=") &&
-				   login_binary->sasl_support_final_reply) {
-				client->sasl_final_resp =
-					p_strdup(client->pool, args[i] + 5);
+			} else if (str_begins(args[i], "resp=")) {
+				client->sasl_final_delayed_resp =
+					p_strdup(client->pool, args[i]+5);
 			}
 		}
 
@@ -394,13 +397,29 @@ authenticate_callback(struct auth_client_request *request,
 
 		if (args != NULL) {
 			/* parse our username if it's there */
-			for (i = 0; args[i] != NULL; i++)
-				(void)args_parse_user(client, args[i]);
+			for (i = 0; args[i] != NULL; i++) {
+				if (args_parse_user(client, args[i]))
+					continue;
+				if (str_begins(args[i], "resp=")) {
+					client->sasl_final_delayed_resp =
+						p_strdup(client->preproxy_pool,
+							 t_strdup(args[i]+5));
+				}
+			}
 		}
 
-		client->authenticating = FALSE;
-		call_client_callback(client, SASL_SERVER_REPLY_AUTH_FAILED,
-				     NULL, args);
+		if (client->sasl_final_delayed_resp != NULL &&
+		    !login_binary->sasl_support_final_reply) {
+			client->final_response = TRUE;
+			client->final_args = p_strarray_dup(client->preproxy_pool, args);
+			client->delayed_final_reply = SASL_SERVER_REPLY_AUTH_FAILED;
+			client->sasl_callback(client, SASL_SERVER_REPLY_CONTINUE,
+					      client->sasl_final_delayed_resp, NULL);
+		} else {
+			client->authenticating = FALSE;
+			call_client_callback(client, SASL_SERVER_REPLY_AUTH_FAILED,
+					     NULL, args);
+		}
 		break;
 	}
 }
@@ -573,4 +592,12 @@ void sasl_server_auth_abort(struct client *client)
 		i_free(client->anvil_request);
 	}
 	sasl_server_auth_cancel(client, NULL, NULL, SASL_SERVER_REPLY_AUTH_ABORTED);
+}
+
+void sasl_server_auth_delayed_final(struct client *client)
+{
+	client->final_response = FALSE;
+	client->authenticating = FALSE;
+	client->auth_client_continue_pending = FALSE;
+	call_client_callback(client, client->delayed_final_reply, NULL, client->final_args);
 }

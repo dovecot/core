@@ -345,7 +345,8 @@ void client_destroy(struct client *client, const char *reason)
 		master_auth_request_abort(master_auth, client->master_tag);
 		client->refcount--;
 	} else if (client->auth_request != NULL ||
-		   client->anvil_query != NULL) {
+		   client->anvil_query != NULL ||
+		   client->final_response) {
 		i_assert(client->authenticating);
 		sasl_server_auth_abort(client);
 	}

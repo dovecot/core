@@ -205,6 +205,9 @@ struct client {
 	string_t *auth_response;
 	time_t auth_first_started, auth_finished;
 	const char *sasl_final_resp;
+	const char *sasl_final_delayed_resp;
+	enum sasl_server_reply delayed_final_reply;
+	const char *const *final_args;
 	const char *const *auth_passdb_args;
 	struct anvil_query *anvil_query;
 	struct anvil_request *anvil_request;
@@ -245,6 +248,7 @@ struct client {
 	bool ssl_servername_settings_read:1;
 	bool banner_sent:1;
 	bool authenticating:1;
+	bool auth_client_continue_pending:1;
 	bool auth_try_aborted:1;
 	bool auth_initializing:1;
 	bool auth_process_comm_fail:1;
@@ -257,6 +261,7 @@ struct client {
 	bool notified_auth_ready:1;
 	bool notified_disconnect:1;
 	bool fd_proxying:1;
+	bool final_response:1;
 	/* ... */
 };
 
