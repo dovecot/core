@@ -406,6 +406,12 @@ auth_request_handler_default_reply_callback(struct auth_request *request,
 		break;
 	case AUTH_CLIENT_RESULT_FAILURE:
 		auth_request_proxy_finish_failure(request);
+		if (reply_size > 0) {
+			str = t_str_new(MAX_BASE64_ENCODED_SIZE(reply_size));
+			base64_encode(auth_reply, reply_size, str);
+			auth_fields_add(request->fields.extra_fields, "resp",
+					str_c(str), 0);
+		}
 		auth_request_handler_reply_failure_finish(request);
 		break;
 	}
