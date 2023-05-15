@@ -1092,6 +1092,11 @@ static void *settings_dup_full(const struct setting_parser_info *info,
 			}
 		}
 	}
+
+	if (info->pool_offset1 > 0) {
+		pool_t *pool_p = PTR_OFFSET(dest_set, info->pool_offset1 - 1);
+		*pool_p = pool;
+	}
 	return dest_set;
 }
 
