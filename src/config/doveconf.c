@@ -314,7 +314,8 @@ hide_secrets_from_value(struct ostream *output, const char *key,
 static void ATTR_NULL(4)
 config_dump_human_output(struct config_dump_human_context *ctx,
 			 struct ostream *output, unsigned int indent,
-			 const char *setting_name_filter, bool hide_passwords)
+			 const char *setting_name_filter,
+			 bool hide_key, bool hide_passwords)
 {
 	ARRAY_TYPE(const_string) prefixes_arr;
 	ARRAY_TYPE(prefix_stack) prefix_stack;
@@ -390,7 +391,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 				indent--;
 				if (prefix.str_pos != UINT_MAX)
 					str_truncate(ctx->list_prefix, prefix.str_pos);
-				else {
+				else if (!hide_key) {
 					o_stream_nsend(output, indent_str, indent*2);
 					o_stream_nsend_str(output, "}\n");
 				}
@@ -434,7 +435,10 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 					goto again;
 			}
 		}
-		o_stream_nsend(output, str_data(ctx->list_prefix), str_len(ctx->list_prefix));
+		if (!hide_key) {
+			o_stream_nsend(output, str_data(ctx->list_prefix),
+				       str_len(ctx->list_prefix));
+		}
 		str_truncate(ctx->list_prefix, 0);
 		prefix_stack_reset_str(&prefix_stack);
 		ctx->list_prefix_sent = TRUE;
@@ -442,13 +446,19 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		skip_len = prefix_idx == UINT_MAX ? 0 : strlen(prefixes[prefix_idx]);
 		i_assert(skip_len == 0 ||
 			 strncmp(prefixes[prefix_idx], strings[i], skip_len) == 0);
-		o_stream_nsend(output, indent_str, indent*2);
+		if (!hide_key)
+			o_stream_nsend(output, indent_str, indent*2);
 		key = strings[i] + skip_len;
 		if (unique_key) key++;
 		value = strchr(key, '=');
 		i_assert(value != NULL);
-		o_stream_nsend(output, key, value-key);
-		o_stream_nsend_str(output, " = ");
+		if (!hide_key) {
+			o_stream_nsend(output, key, value-key);
+			o_stream_nsend_str(output, " = ");
+		} else {
+			if (output->offset != 0)
+				i_fatal("Multiple settings matched with -h parameter");
+		}
 		if (hide_passwords &&
 		    hide_secrets_from_value(output, key, value+1))
 			/* sent */
@@ -470,8 +480,10 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			break;
 		prefix_idx = prefix.prefix_idx;
 		indent--;
-		o_stream_nsend(output, indent_str, indent*2);
-		o_stream_nsend_str(output, "}\n");
+		if (!hide_key) {
+			o_stream_nsend(output, indent_str, indent*2);
+			o_stream_nsend_str(output, "}\n");
+		}
 	}
 }
 
@@ -538,7 +550,7 @@ config_dump_filter_end(struct ostream *output, unsigned int indent)
 
 static void
 config_dump_human_sections(struct ostream *output,
-			   bool hide_passwords)
+			   bool hide_key, bool hide_passwords)
 {
 	struct config_filter_parser *const *filters;
 	struct config_dump_human_context *ctx;
@@ -556,7 +568,8 @@ config_dump_human_sections(struct ostream *output,
 						  &(*filters)->filter);
 		config_export_set_module_parsers(ctx->export_ctx,
 						 (*filters)->module_parsers);
-		config_dump_human_output(ctx, output, indent, NULL, hide_passwords);
+		config_dump_human_output(ctx, output, indent, NULL,
+					 hide_key, hide_passwords);
 		if (ctx->list_prefix_sent)
 			config_dump_filter_end(output, indent);
 		config_dump_human_deinit(ctx);
@@ -565,7 +578,7 @@ config_dump_human_sections(struct ostream *output,
 
 static int ATTR_NULL(4)
 config_dump_human(enum config_dump_scope scope, const char *setting_name_filter,
-		  bool hide_passwords)
+		  bool hide_key, bool hide_passwords)
 {
 	struct config_dump_human_context *ctx;
 	struct ostream *output;
@@ -581,11 +594,12 @@ config_dump_human(enum config_dump_scope scope, const char *setting_name_filter,
 		config_parsed_get_global_filter_parser(config);
 	config_export_set_module_parsers(ctx->export_ctx,
 					 filter_parser->module_parsers);
-	config_dump_human_output(ctx, output, 0, setting_name_filter, hide_passwords);
+	config_dump_human_output(ctx, output, 0, setting_name_filter,
+				 hide_key, hide_passwords);
 	config_dump_human_deinit(ctx);
 
 	if (setting_name_filter == NULL)
-		config_dump_human_sections(output, hide_passwords);
+		config_dump_human_sections(output, hide_key, hide_passwords);
 
 	/* flush output before writing errors */
 	o_stream_uncork(output);
@@ -636,8 +650,10 @@ config_dump_one(bool hide_key,
 	}
 	config_dump_human_deinit(ctx);
 
-	if (dump_section)
-		(void)config_dump_human(scope, setting_name_filter, hide_passwords);
+	if (dump_section) {
+		(void)config_dump_human(scope, setting_name_filter,
+					hide_key, hide_passwords);
+	}
 	return 0;
 }
 
@@ -970,7 +986,7 @@ int main(int argc, char *argv[])
 		if (scope == CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN)
 			printf("# NOTE: Send doveconf -n output instead when asking for help.\n");
 		fflush(stdout);
-		ret2 = config_dump_human(scope, NULL, hide_passwords);
+		ret2 = config_dump_human(scope, NULL, hide_key, hide_passwords);
 	}
 
 	if (ret < 0) {
