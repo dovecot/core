@@ -66,14 +66,9 @@ static int output_blob_size(struct ostream *output, uoff_t blob_size_offset)
 }
 
 static void
-config_dump_full_append_filter(string_t *str,
-			       const struct config_filter *filter,
-			       enum config_dump_full_dest dest)
+config_dump_full_append_filter_query(string_t *str,
+				     const struct config_filter *filter)
 {
-	if (dest == CONFIG_DUMP_FULL_DEST_STDOUT)
-		str_append(str, ":FILTER ");
-	unsigned int prefix_len = str_len(str);
-
 	if (filter->service != NULL) {
 		if (filter->service[0] != '!') {
 			str_printfa(str, "protocol=\"%s\" AND ",
@@ -97,6 +92,21 @@ config_dump_full_append_filter(string_t *str,
 			    net_ip2addr(&filter->remote_net),
 			    filter->remote_bits);
 	}
+}
+
+static void
+config_dump_full_append_filter(string_t *str,
+			       const struct config_filter *filter,
+			       enum config_dump_full_dest dest)
+{
+	if (dest == CONFIG_DUMP_FULL_DEST_STDOUT)
+		str_append(str, ":FILTER ");
+	unsigned int prefix_len = str_len(str);
+
+	do {
+		config_dump_full_append_filter_query(str, filter);
+		filter = filter->parent;
+	} while (filter != NULL);
 
 	i_assert(str_len(str) > prefix_len);
 	str_delete(str, str_len(str) - 4, 4);

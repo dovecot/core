@@ -44,7 +44,7 @@ config_parsed_get_errors(struct config_parsed *config);
 /* Returns the global filter */
 struct config_filter_parser *
 config_parsed_get_global_filter_parser(struct config_parsed *config);
-/* Returns all filters sorted */
+/* Returns all filters */
 struct config_filter_parser *const *
 config_parsed_get_filter_parsers(struct config_parsed *config);
 void config_parsed_free(struct config_parsed **config);

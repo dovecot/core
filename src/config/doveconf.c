@@ -481,6 +481,9 @@ config_dump_filter_begin(string_t *str,
 {
 	unsigned int indent = 0;
 
+	if (filter->parent != NULL)
+		indent = config_dump_filter_begin(str, filter->parent);
+
 	if (filter->local_bits > 0) {
 		str_printfa(str, "local %s", net_ip2addr(&filter->local_net));
 

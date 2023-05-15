@@ -101,8 +101,13 @@ config_parser_is_in_localremote(struct config_section_stack *section)
 {
 	const struct config_filter *filter = &section->filter;
 
-	return filter->local_name != NULL || filter->local_bits > 0 ||
-		filter->remote_bits > 0;
+	do {
+		if (filter->local_name != NULL || filter->local_bits > 0 ||
+		    filter->remote_bits > 0)
+			return TRUE;
+		filter = filter->parent;
+	} while (filter != NULL);
+	return FALSE;
 }
 
 static void
@@ -334,6 +339,9 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 	struct config_filter *parent = &ctx->cur_section->prev->filter;
 	struct config_filter_parser *filter_parser;
 	const char *error;
+
+	i_zero(filter);
+	filter->parent = parent;
 
 	if (strcmp(key, "protocol") == 0) {
 		if (parent->service != NULL)
@@ -788,13 +796,6 @@ config_parse_line(struct config_parser_context *ctx,
 }
 
 static int
-config_filter_parser_cmp(struct config_filter_parser *const *p1,
-			 struct config_filter_parser *const *p2)
-{
-	return config_filter_sort_cmp(&(*p1)->filter, &(*p2)->filter);
-}
-
-static int
 config_parse_finish(struct config_parser_context *ctx,
 		    enum config_parse_flags flags,
 		    struct config_parsed **config_r, const char **error_r)
@@ -810,11 +811,6 @@ config_parse_finish(struct config_parser_context *ctx,
 	new_config->pool = ctx->pool;
 	pool_ref(new_config->pool);
 	p_array_init(&new_config->errors, ctx->pool, 1);
-
-	struct config_filter_parser *global_filter =
-		array_idx_elem(&ctx->all_filter_parsers, 0);
-	array_sort(&ctx->all_filter_parsers, config_filter_parser_cmp);
-	i_assert(global_filter == array_idx_elem(&ctx->all_filter_parsers, 0));
 
 	array_append_zero(&ctx->all_filter_parsers);
 	new_config->filter_parsers = array_front(&ctx->all_filter_parsers);
