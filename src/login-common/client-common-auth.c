@@ -209,6 +209,9 @@ static bool client_auth_parse_args(const struct client *client, bool success,
 		} else if (str_begins(key, "event_", &key)) {
 			/* add key to event */
 			event_add_str(client->event_auth, key, value);
+		} else if (strcmp(key, "resp") == 0) {
+			/* ignore final response */
+			continue;
 		} else
 			e_debug(client->event_auth,
 				"Ignoring unknown passdb extra field: %s", key);
