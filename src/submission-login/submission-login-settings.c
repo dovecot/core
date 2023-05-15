@@ -45,7 +45,8 @@ static struct inet_listener_settings submission_login_inet_listeners_array[] = {
 	},
 };
 static struct inet_listener_settings *submission_login_inet_listeners[] = {
-	&submission_login_inet_listeners_array[0]
+	&submission_login_inet_listeners_array[0],
+	&submission_login_inet_listeners_array[1],
 };
 static buffer_t submission_login_inet_listeners_buf = {
 	{ { submission_login_inet_listeners,
