@@ -25,7 +25,6 @@ struct config_export_context {
 
 	enum config_dump_flags flags;
 	const struct config_module_parser *module_parsers;
-	struct config_module_parser *dup_module_parsers;
 	unsigned int section_idx;
 };
 
@@ -398,33 +397,6 @@ config_export_init(enum config_dump_scope scope,
 	return ctx;
 }
 
-static struct config_module_parser *
-config_filter_parsers_dup(pool_t pool, struct config_filter_parser *global_filter)
-{
-	struct config_module_parser *dest;
-	unsigned int i, count;
-
-	for (count = 0; global_filter->module_parsers[count].root != NULL; count++) ;
-	dest = p_new(pool, struct config_module_parser, count + 1);
-	for (i = 0; i < count; i++) {
-		dest[i] = global_filter->module_parsers[i];
-		dest[i].parser =
-			settings_parser_dup(global_filter->module_parsers[i].parser, pool);
-	}
-	return dest;
-}
-
-void config_export_dup_module_parsers(struct config_export_context *ctx,
-				      struct config_parsed *config)
-{
-	struct config_filter_parser *global_filter =
-		config_parsed_get_global_filter_parser(config);
-
-	ctx->dup_module_parsers =
-		config_filter_parsers_dup(ctx->pool, global_filter);
-	ctx->module_parsers = ctx->dup_module_parsers;
-}
-
 void config_export_set_module_parsers(struct config_export_context *ctx,
 				      const struct config_module_parser *module_parsers)
 {
@@ -479,8 +451,6 @@ void config_export_free(struct config_export_context **_ctx)
 
 	*_ctx = NULL;
 
-	if (ctx->dup_module_parsers != NULL)
-		config_module_parsers_free(ctx->dup_module_parsers);
 	hash_table_destroy(&ctx->keys);
 	pool_unref(&ctx->pool);
 }

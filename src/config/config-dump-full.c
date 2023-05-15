@@ -282,7 +282,9 @@ int config_dump_full(struct config_parsed *config,
 				CONFIG_DUMP_SCOPE_CHANGED, flags,
 				config_dump_full_callback, &dump_ctx);
 	}
-	config_export_dup_module_parsers(export_ctx, config);
+	struct config_filter_parser *filter_parser =
+		config_parsed_get_global_filter_parser(config);
+	config_export_set_module_parsers(export_ctx, filter_parser->module_parsers);
 
 	string_t *path = t_str_new(128);
 	const char *final_path = NULL;
