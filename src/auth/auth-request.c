@@ -292,7 +292,8 @@ void auth_request_success_continue(struct auth_policy_check_ctx *ctx)
 		ctx->success_data->data, ctx->success_data->used);
 }
 
-void auth_request_fail(struct auth_request *request)
+void auth_request_fail_with_reply(struct auth_request *request,
+				  const void *final_data, size_t final_data_size)
 {
 	struct auth_stats *stats;
 
@@ -306,7 +307,13 @@ void auth_request_fail(struct auth_request *request)
 	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	auth_request_refresh_last_access(request);
 	auth_request_log_finished(request);
-	auth_request_handler_reply(request, AUTH_CLIENT_RESULT_FAILURE, "", 0);
+	auth_request_handler_reply(request, AUTH_CLIENT_RESULT_FAILURE,
+			           final_data, final_data_size);
+}
+
+void auth_request_fail(struct auth_request *request)
+{
+	auth_request_fail_with_reply(request, "", 0);
 }
 
 void auth_request_internal_failure(struct auth_request *request)
