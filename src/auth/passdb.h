@@ -112,6 +112,8 @@ void passdbs_generate_md5(unsigned char md5[STATIC_ARRAY MD5_RESULTLEN]);
 void passdbs_init(void);
 void passdbs_deinit(void);
 
+const char *passdb_oauth2_get_oidc_url(struct passdb_module *passdb);
+
 #include "auth-request.h"
 
 #endif
