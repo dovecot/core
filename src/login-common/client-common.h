@@ -205,7 +205,9 @@ struct client {
 	struct auth_client_request *reauth_request;
 	string_t *auth_response;
 	struct timeval auth_first_started, auth_finished;
-	const char *sasl_final_resp;
+	const char *sasl_final_delayed_resp;
+	enum sasl_server_reply delayed_final_reply;
+	const char *const *final_args;
 	const char *const *auth_passdb_args;
 	struct anvil_query *anvil_query;
 	struct anvil_request *anvil_request;
@@ -287,6 +289,7 @@ struct client {
 	bool fd_proxying:1;
 	bool shutting_down:1;
 	bool resource_constraint:1;
+	bool final_response:1;
 	/* ... */
 };
 

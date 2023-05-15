@@ -857,6 +857,13 @@ void client_auth_parse_response(struct client *client)
 	if (client_auth_read_line(client) <= 0)
 		return;
 
+	/* This has to happen before * handling, otherwise
+	   client can abort failed request. */
+	if (client->final_response) {
+		sasl_server_auth_delayed_final(client);
+		return;
+	}
+
 	if (strcmp(str_c(client->auth_response), "*") == 0) {
 		sasl_server_auth_abort(client);
 		return;

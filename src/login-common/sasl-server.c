@@ -3,12 +3,14 @@
 #include "login-common.h"
 #include "array.h"
 #include "md5.h"
+#include "sasl-server.h"
 #include "str.h"
 #include "base64.h"
 #include "buffer.h"
 #include "hex-binary.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "strfuncs.h"
 #include "write-full.h"
 #include "strescape.h"
 #include "str-sanitize.h"
@@ -369,9 +371,8 @@ authenticate_callback(struct auth_client_request *request,
 				client->auth_anonymous = TRUE;
 			} else if (str_begins(args[i], "event_", &key)) {
 				event_add_str(client->event_auth, key, value);
-			} else if (login_binary->sasl_support_final_reply &&
-				   strcmp(key, "resp") == 0) {
-				client->sasl_final_resp =
+			} else if (strcmp(key, "resp") == 0) {
+				client->sasl_final_delayed_resp =
 					p_strdup(client->pool, value);
 			}
 		}
@@ -398,13 +399,27 @@ authenticate_callback(struct auth_client_request *request,
 			for (i = 0; args[i] != NULL; i++) {
 				const char *key, *value;
 				t_split_key_value_eq(args[i], &key, &value);
-				args_parse_user(client, key, value);
+				if (args_parse_user(client, key, value))
+					continue;
+				if (strcmp(key, "resp") == 0) {
+					client->sasl_final_delayed_resp =
+						p_strdup(client->preproxy_pool, value);
+				}
 			}
 		}
 
-		client->authenticating = FALSE;
-		call_client_callback(client, SASL_SERVER_REPLY_AUTH_FAILED,
-				     NULL, args);
+		if (client->sasl_final_delayed_resp != NULL &&
+		    !login_binary->sasl_support_final_reply) {
+			client->final_response = TRUE;
+			client->final_args = p_strarray_dup(client->preproxy_pool, args);
+			client->delayed_final_reply = SASL_SERVER_REPLY_AUTH_FAILED;
+			client->sasl_callback(client, SASL_SERVER_REPLY_CONTINUE,
+					      client->sasl_final_delayed_resp, NULL);
+		} else {
+			client->authenticating = FALSE;
+			call_client_callback(client, SASL_SERVER_REPLY_AUTH_FAILED,
+					     NULL, args);
+		}
 		break;
 	}
 }
@@ -603,4 +618,12 @@ void sasl_server_auth_abort(struct client *client)
 	}
 	sasl_server_auth_cancel(client, "Aborted", NULL,
 				SASL_SERVER_REPLY_AUTH_ABORTED);
+}
+
+void sasl_server_auth_delayed_final(struct client *client)
+{
+	client->final_response = FALSE;
+	client->authenticating = FALSE;
+	client->auth_client_continue_pending = FALSE;
+	call_client_callback(client, client->delayed_final_reply, NULL, client->final_args);
 }
