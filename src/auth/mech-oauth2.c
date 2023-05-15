@@ -14,6 +14,29 @@ struct oauth2_auth_request {
 	bool failed;
 };
 
+static bool oauth2_find_oidc_url(struct auth_request *req, const char **url_r)
+{
+	struct auth_passdb *db = req->passdb;
+	if (req->openid_config_url != NULL) {
+		*url_r = req->openid_config_url;
+		return TRUE;
+	}
+
+	/* keep looking until you get a value */
+	for (; db != NULL; db = db->next) {
+		if (strcmp(db->passdb->iface.name, "oauth2") == 0) {
+			const char *url =
+				passdb_oauth2_get_oidc_url(req->passdb->passdb);
+			if (url == NULL || *url == '\0')
+				continue;
+			*url_r = url;
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
 /* RFC5801 based unescaping */
 static bool oauth2_unescape_username(const char *in, const char **username_r)
 {
@@ -44,6 +67,7 @@ static void oauth2_verify_callback(enum passdb_result result,
 {
 	struct oauth2_auth_request *oauth2_req =
 			(struct oauth2_auth_request*)request;
+	const char *oidc_url;
 
 	i_assert(result == PASSDB_RESULT_OK || error_fields != NULL);
 	switch (result) {
@@ -76,11 +100,11 @@ static void oauth2_verify_callback(enum passdb_result result,
 		   This **must** be removed from here and db-oauth2 once the
 		   validation result et al is handled here.
 		*/
-		if (request->openid_config_url != NULL) {
+		if (oauth2_find_oidc_url(request, &oidc_url)) {
 			if (str_len(error) > 0)
 				str_append_c(error, ',');
 			str_printfa(error, "\"openid-configuration\":\"");
-			json_append_escaped(error, request->openid_config_url);
+			json_append_escaped(error, oidc_url);
 			str_append_c(error, '"');
 		}
 		str_append_c(error, '}');

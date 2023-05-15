@@ -67,6 +67,16 @@ static void oauth2_deinit(struct passdb_module *passdb)
 	db_oauth2_unref(&module->db);
 }
 
+/* FIXME: Remove when oauth2 mech is fixed */
+const char *passdb_oauth2_get_oidc_url(struct passdb_module *passdb)
+{
+	struct oauth2_passdb_module *module =
+		container_of(passdb, struct oauth2_passdb_module, module);
+	if (module->db != NULL)
+		return db_oauth2_get_openid_configuration_url(module->db);
+	return NULL;
+}
+
 struct passdb_module_interface passdb_oauth2 = {
 	"oauth2",
 
