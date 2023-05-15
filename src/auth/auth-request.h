@@ -241,6 +241,8 @@ void auth_request_unref(struct auth_request **request);
 
 void auth_request_success(struct auth_request *request,
 			  const void *data, size_t data_size);
+void auth_request_fail_with_reply(struct auth_request *request,
+				  const void *final_data, size_t final_data_size);
 void auth_request_fail(struct auth_request *request);
 void auth_request_internal_failure(struct auth_request *request);
 
