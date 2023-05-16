@@ -83,6 +83,7 @@ static void redis_reply_callback(struct redis_connection *conn,
 				 const struct redis_dict_reply *reply,
 				 const struct dict_commit_result *result)
 {
+	i_assert(reply->callback != NULL);
 	if (conn->dict->dict.prev_ioloop != NULL)
 		io_loop_set_current(conn->dict->dict.prev_ioloop);
 	reply->callback(result, reply->context);
@@ -679,7 +680,6 @@ static void redis_transaction_rollback(struct dict_transaction_context *_ctx)
 	struct redis_dict_transaction_context *ctx =
 		(struct redis_dict_transaction_context *)_ctx;
 	struct redis_dict *dict = (struct redis_dict *)_ctx->dict;
-	struct redis_dict_reply *reply;
 
 	i_assert(dict->transaction_open);
 	dict->transaction_open = FALSE;
@@ -690,8 +690,6 @@ static void redis_transaction_rollback(struct dict_transaction_context *_ctx)
 	} else if (_ctx->changed) {
 		o_stream_nsend_str(dict->conn.conn.output,
 				   "*1\r\n$7\r\nDISCARD\r\n");
-		reply = array_append_space(&dict->replies);
-		reply->reply_count = 1;
 		redis_input_state_add(dict, REDIS_INPUT_STATE_DISCARD);
 	}
 	i_free(ctx->error);
