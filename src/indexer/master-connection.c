@@ -78,7 +78,6 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 	struct mailbox_metadata metadata;
 	uint32_t seq, first_uid = 0, last_uid = 0;
 	char percentage_str[2+1+1];
-	unsigned int counter = 0, max, percentage, percentage_sent = 0;
 	int ret = 0;
 	struct event *index_event = event_create(box->event);
 	event_add_category(index_event, &event_category_indexer_worker);
@@ -113,7 +112,9 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 	/* otherwise the client doesn't receive the updates timely */
 	o_stream_uncork(conn->conn.output);
 
-	max = status.messages + 1 - seq;
+	unsigned int counter = 0;
+	unsigned int percentage_sent = 0;
+	unsigned int max = status.messages + 1 - seq;
 	while (mailbox_search_next(ctx, &mail)) {
 		if (first_uid == 0)
 			first_uid = mail->uid;
@@ -128,10 +129,10 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 			ret = -1;
 			break;
 		}
-		percentage = (++counter * 100) / max;
-		if (percentage > percentage_sent) {
+		unsigned int percentage = (++counter * 100) / max;
+		if (percentage_sent < percentage) {
+			percentage_sent = percentage;
 			if (percentage < 100) {
-				percentage_sent = percentage;
 				if (i_snprintf(percentage_str,
 					       sizeof(percentage_str), "%u\n",
 					       percentage) < 0)
