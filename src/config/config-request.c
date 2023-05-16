@@ -258,7 +258,8 @@ settings_export(struct config_export_context *ctx,
 			if (!array_is_created(val))
 				break;
 
-			if (hash_table_lookup(ctx->keys, def->key) != NULL) {
+			if (hash_table_is_created(ctx->keys) &&
+			    hash_table_lookup(ctx->keys, def->key) != NULL) {
 				/* already added all of these */
 				break;
 			}
@@ -270,14 +271,14 @@ settings_export(struct config_export_context *ctx,
 
 			strings = array_get(val, &count);
 			i_assert(count % 2 == 0);
-			for (i = 0; i < count; i += 2) {
-				str = p_strdup_printf(ctx->pool, "%s%c%s",
+			for (i = 0; i < count; i += 2) T_BEGIN {
+				str = t_strdup_printf("%s%c%s",
 						      def->key,
 						      SETTINGS_SEPARATOR,
 						      strings[i]);
 				ctx->callback(str, strings[i+1],
 					      CONFIG_KEY_NORMAL, ctx->context);
-			}
+			} T_END;
 			break;
 		}
 		case SET_FILTER_ARRAY: {
@@ -300,7 +301,8 @@ settings_export(struct config_export_context *ctx,
 			break;
 		}
 		if (str_len(ctx->value) > 0 || dump) {
-			if (hash_table_lookup(ctx->keys, def->key) == NULL) {
+			if (!hash_table_is_created(ctx->keys) ||
+			    hash_table_lookup(ctx->keys, def->key) == NULL) {
 				enum config_key_type type;
 
 				if (def->type == SET_FILTER_ARRAY)
@@ -324,7 +326,7 @@ config_export_init(enum config_dump_scope scope,
 	struct config_export_context *ctx;
 	pool_t pool;
 
-	pool = pool_alloconly_create(MEMPOOL_GROWING"config export", 1024*64);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"config export", 512);
 	ctx = p_new(pool, struct config_export_context, 1);
 	ctx->pool = pool;
 
@@ -333,7 +335,8 @@ config_export_init(enum config_dump_scope scope,
 	ctx->context = context;
 	ctx->scope = scope;
 	ctx->value = str_new(pool, 256);
-	hash_table_create(&ctx->keys, ctx->pool, 0, str_hash, strcmp);
+	if ((ctx->flags & CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS) != 0)
+		hash_table_create(&ctx->keys, ctx->pool, 0, str_hash, strcmp);
 	return ctx;
 }
 
@@ -391,7 +394,8 @@ void config_export_free(struct config_export_context **_ctx)
 
 	*_ctx = NULL;
 
-	hash_table_destroy(&ctx->keys);
+	if (hash_table_is_created(ctx->keys))
+		hash_table_destroy(&ctx->keys);
 	pool_unref(&ctx->pool);
 }
 
