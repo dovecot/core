@@ -16,8 +16,7 @@
 struct config_export_context {
 	pool_t pool;
 	string_t *value;
-	string_t *prefix;
-	HASH_TABLE(char *, char *) keys;
+	HASH_TABLE(const char *, const char *) keys;
 	enum config_dump_scope scope;
 
 	config_request_callback_t *callback;
@@ -192,7 +191,6 @@ settings_export(struct config_export_context *ctx,
 	const void *value, *default_value, *change_value;
 	unsigned int i, count;
 	const char *str;
-	char *key;
 	bool dump, dump_default = FALSE;
 
 	for (def = info->defines; def->key != NULL; def++) {
@@ -260,23 +258,20 @@ settings_export(struct config_export_context *ctx,
 			if (!array_is_created(val))
 				break;
 
-			key = p_strconcat(ctx->pool, str_c(ctx->prefix),
-					  def->key, NULL);
-
-			if (hash_table_lookup(ctx->keys, key) != NULL) {
+			if (hash_table_lookup(ctx->keys, def->key) != NULL) {
 				/* already added all of these */
 				break;
 			}
 			if ((ctx->flags & CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS) != 0)
-				hash_table_insert(ctx->keys, key, key);
+				hash_table_insert(ctx->keys, def->key, def->key);
+
 			/* for doveconf -n to see this KEY_LIST */
-			ctx->callback(key, "", CONFIG_KEY_LIST, ctx->context);
+			ctx->callback(def->key, "", CONFIG_KEY_LIST, ctx->context);
 
 			strings = array_get(val, &count);
 			i_assert(count % 2 == 0);
 			for (i = 0; i < count; i += 2) {
-				str = p_strdup_printf(ctx->pool, "%s%s%c%s",
-						      str_c(ctx->prefix),
+				str = p_strdup_printf(ctx->pool, "%s%c%s",
 						      def->key,
 						      SETTINGS_SEPARATOR,
 						      strings[i]);
@@ -305,19 +300,17 @@ settings_export(struct config_export_context *ctx,
 			break;
 		}
 		if (str_len(ctx->value) > 0 || dump) {
-			key = p_strconcat(ctx->pool, str_c(ctx->prefix),
-					  def->key, NULL);
-			if (hash_table_lookup(ctx->keys, key) == NULL) {
+			if (hash_table_lookup(ctx->keys, def->key) == NULL) {
 				enum config_key_type type;
 
 				if (def->type == SET_FILTER_ARRAY)
 					type = CONFIG_KEY_FILTER_ARRAY;
 				else
 					type = CONFIG_KEY_NORMAL;
-				ctx->callback(key, str_c(ctx->value), type,
+				ctx->callback(def->key, str_c(ctx->value), type,
 					ctx->context);
 				if ((ctx->flags & CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS) != 0)
-					hash_table_insert(ctx->keys, key, key);
+					hash_table_insert(ctx->keys, def->key, def->key);
 			}
 		}
 	}
@@ -340,7 +333,6 @@ config_export_init(enum config_dump_scope scope,
 	ctx->context = context;
 	ctx->scope = scope;
 	ctx->value = str_new(pool, 256);
-	ctx->prefix = str_new(pool, 64);
 	hash_table_create(&ctx->keys, ctx->pool, 0, str_hash, strcmp);
 	return ctx;
 }
