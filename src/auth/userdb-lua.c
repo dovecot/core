@@ -95,7 +95,7 @@ static void userdb_lua_init(struct userdb_module *_module)
 	const char *error;
 
 	if (dlua_script_create_file(module->file, &module->script, auth_event, &error) < 0)
-		i_fatal("userdb-lua: initialization failed: %s", error);
+		i_fatal("userdb-lua: failed to load '%s': %s", module->file, error);
 
 	const struct auth_lua_script_parameters params = {
 		.script = module->script,
@@ -103,7 +103,7 @@ static void userdb_lua_init(struct userdb_module *_module)
 		.arguments = module->arguments,
 	};
 	if (auth_lua_script_init(&params, &error) < 0)
-		i_fatal("userdb-lua: initialization failed: %s", error);
+		i_fatal("userdb-lua: auth_userdb_init() failed: %s", error);
 }
 
 static void userdb_lua_deinit(struct userdb_module *_module)

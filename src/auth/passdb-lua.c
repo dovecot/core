@@ -171,7 +171,7 @@ static void passdb_lua_init(struct passdb_module *_module)
 	const char *error;
 
 	if (dlua_script_create_file(module->file, &module->script, auth_event, &error) < 0)
-		i_fatal("passdb-lua: initialization failed: %s", error);
+		i_fatal("passdb-lua: failed to load '%s': %s", module->file, error);
 
 	const struct auth_lua_script_parameters params = {
 		.script = module->script,
@@ -179,7 +179,7 @@ static void passdb_lua_init(struct passdb_module *_module)
 		.arguments = module->arguments,
 	};
 	if (auth_lua_script_init(&params, &error) < 0)
-		i_fatal("passdb-lua: initialization failed: %s", error);
+		i_fatal("passdb-lua: auth_passdb_init() failed: %s", error);
 
 	module->has_password_verify =
 		dlua_script_has_function(module->script, AUTH_LUA_PASSWORD_VERIFY);
