@@ -33,15 +33,18 @@ static struct userdb_module *
 userdb_lua_preinit(pool_t pool, const char *args)
 {
 	struct dlua_userdb_module *module;
-	const char *value, *cache_key = DB_LUA_CACHE_KEY;
+	const char *cache_key = DB_LUA_CACHE_KEY;
 	bool blocking = TRUE;
 
 	module = p_new(pool, struct dlua_userdb_module, 1);
 	const char *const *fields = t_strsplit_spaces(args, " ");
 	while(*fields != NULL) {
-		if (str_begins(*fields, "file=", &value))
-			module->file = p_strdup(pool, value);
-		else if (str_begins(*fields, "blocking=", &value)) {
+		const char *key, *value;
+		if (!t_split_key_value_eq(*fields, &key, &value)) {
+			i_fatal("Unsupported parameter %s", *fields);
+		} else if (strcmp(key, "file") == 0) {
+			 module->file = p_strdup(pool, value);
+		} else if (strcmp(key, "blocking") == 0) {
 			if (strcmp(value, "yes") == 0) {
 				blocking = TRUE;
 			} else if (strcmp(value, "no") == 0) {
@@ -51,11 +54,11 @@ userdb_lua_preinit(pool_t pool, const char *args)
 					"Field blocking must be yes or no",
 					value);
 			}
-		} else if (str_begins(*fields, "cache_key=", &value)) {
-			if (value[0] != '\0')
-				cache_key = value;
-			else /* explicitly disable auth caching for lua */
-				cache_key = NULL;
+                } else if (strcmp(key, "cache_key") == 0) {
+                        if (value[0] != '\0')
+                                cache_key = value;
+                        else /* explicitly disable auth caching for lua */
+                                cache_key = NULL;
 		} else {
 			i_fatal("Unsupported parameter %s", *fields);
 		}
