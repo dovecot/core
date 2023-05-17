@@ -606,6 +606,12 @@ mailbox_list_ns_iter_try_next(struct mailbox_list_iterate_context *_ctx,
 			mailbox_list_iter_init_multiple(ctx->cur_ns->list,
 							ctx->patterns,
 							_ctx->flags);
+		if (ctx->backend_ctx == &mailbox_list_iter_failed) {
+			(void)mailbox_list_iter_deinit(&ctx->backend_ctx);
+			mailbox_list_ns_iter_failed(ctx);
+			*info_r = NULL;
+			return TRUE;
+		}
 		ctx->cur_ns_prefix_sent = FALSE;
 	}
 	if (ctx->pending_backend_info == NULL)
