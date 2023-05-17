@@ -253,15 +253,20 @@ indexer_client_input_args(struct connection *conn, const char *const *args)
 	return 1;
 }
 
-void indexer_client_status_callback(int percentage, void *context)
+void indexer_client_status_callback(const struct indexer_status *status,
+				    void *context)
 {
 	struct indexer_client_request *ctx = context;
 
 	if (ctx->client->conn.output != NULL) T_BEGIN {
-		o_stream_nsend_str(ctx->client->conn.output,
-			t_strdup_printf("%u\t%d\n", ctx->tag, percentage));
+		const char *update = t_strdup_printf(
+			"%u\t%d\t%u\t%u\n", ctx->tag,
+			status->state, status->progress, status->total);
+		o_stream_nsend_str(ctx->client->conn.output, update);
+
 	} T_END;
-	if (percentage < 0 || percentage == 100) {
+
+	if (status->state != INDEXER_STATE_PROCESSING) {
 		indexer_client_unref(ctx->client);
 		i_free(ctx);
 	}

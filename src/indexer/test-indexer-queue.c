@@ -7,7 +7,8 @@
 void indexer_refresh_proctitle(void) { }
 
 static void
-indexer_queue_status_callback(int status ATTR_UNUSED, void *context ATTR_UNUSED)
+indexer_queue_status_callback(const struct indexer_status *status ATTR_UNUSED,
+			      void *context ATTR_UNUSED)
 {
 }
 
@@ -45,7 +46,7 @@ static void test_indexer_queue(void)
 		test_assert_strcmp_idx(request->mailbox, expected[i].mailbox, i);
 
 		indexer_queue_request_remove(queue);
-		indexer_queue_request_finish(queue, &request, TRUE);
+		indexer_queue_request_finish(queue, &request, INDEXER_STATE_COMPLETED);
 	}
 	test_assert(indexer_queue_request_peek(queue) == NULL);
 
@@ -68,7 +69,7 @@ static void test_indexer_queue_repeated_prepend(void)
 
 	request = indexer_queue_request_peek(queue);
 	indexer_queue_request_remove(queue);
-	indexer_queue_request_finish(queue, &request, TRUE);
+	indexer_queue_request_finish(queue, &request, INDEXER_STATE_COMPLETED);
 
 	test_assert(indexer_queue_request_peek(queue) == NULL);
 
@@ -101,7 +102,7 @@ static void test_indexer_queue_reindex(void)
 	test_assert(request->reindex_head);
 
 	/* finish the request, and it should now be at the head again */
-	indexer_queue_request_finish(queue, &request, TRUE);
+	indexer_queue_request_finish(queue, &request, INDEXER_STATE_COMPLETED);
 	request = indexer_queue_request_peek(queue);
 	test_assert_strcmp(request->mailbox, "mailbox1");
 	test_assert(!request->working);
@@ -114,17 +115,17 @@ static void test_indexer_queue_reindex(void)
 	test_assert(request->reindex_tail);
 
 	/* finish the request, and it should now be at the tail again */
-	indexer_queue_request_finish(queue, &request, TRUE);
+	indexer_queue_request_finish(queue, &request, INDEXER_STATE_COMPLETED);
 
 	request = indexer_queue_request_peek(queue);
 	test_assert_strcmp(request->mailbox, "mailbox2");
 	indexer_queue_request_remove(queue);
-	indexer_queue_request_finish(queue, &request, TRUE);
+	indexer_queue_request_finish(queue, &request, INDEXER_STATE_COMPLETED);
 
 	request = indexer_queue_request_peek(queue);
 	test_assert_strcmp(request->mailbox, "mailbox1");
 	indexer_queue_request_remove(queue);
-	indexer_queue_request_finish(queue, &request, TRUE);
+	indexer_queue_request_finish(queue, &request, INDEXER_STATE_COMPLETED);
 
 	test_assert(indexer_queue_request_peek(queue) == NULL);
 
@@ -179,7 +180,7 @@ static void test_indexer_queue_cancel(void)
 	test_assert(request->reindex_tail);
 	indexer_queue_cancel(queue, "user1", NULL);
 	test_assert(!request->reindex_tail);
-	indexer_queue_request_finish(queue, &request, TRUE);
+	indexer_queue_request_finish(queue, &request, INDEXER_STATE_COMPLETED);
 	test_assert(indexer_queue_request_peek(queue) == NULL);
 
 	/* test cancelling mailbox wildcards */
@@ -247,8 +248,8 @@ static void test_indexer_queue_iter(void)
 	indexer_queue_iter_deinit(&iter);
 
 	/* Finish cleanup */
-	indexer_queue_request_finish(queue, &request1, FALSE);
-	indexer_queue_request_finish(queue, &request2, FALSE);
+	indexer_queue_request_finish(queue, &request1, INDEXER_STATE_FAILED);
+	indexer_queue_request_finish(queue, &request2, INDEXER_STATE_FAILED);
 
 	indexer_queue_cancel_all(queue);
 	test_assert(indexer_queue_request_peek(queue) == NULL);

@@ -199,24 +199,23 @@ void indexer_queue_request_remove(struct indexer_queue *queue)
 
 static void indexer_queue_request_status_int(struct indexer_queue *queue,
 					     struct indexer_request *request,
-					     int percentage)
+					     const struct indexer_status *status)
 {
 	void *context;
 	unsigned int i;
 
 	for (i = 0; i < request->working_context_idx; i++) {
 		context = array_idx_elem(&request->contexts, i);
-		queue->callback(percentage, context);
+		queue->callback(status, context);
 	}
 }
 
 void indexer_queue_request_status(struct indexer_queue *queue,
 				  struct indexer_request *request,
-				  int percentage)
+				  const struct indexer_status *status)
 {
-	i_assert(percentage >= 0 && percentage < 100);
-
-	indexer_queue_request_status_int(queue, request, percentage);
+	i_assert(status->state == INDEXER_STATE_PROCESSING);
+	indexer_queue_request_status_int(queue, request, status);
 }
 
 void indexer_queue_move_head_to_tail(struct indexer_queue *queue)
@@ -237,14 +236,16 @@ void indexer_queue_request_work(struct indexer_request *request)
 
 void indexer_queue_request_finish(struct indexer_queue *queue,
 				  struct indexer_request **_request,
-				  bool success)
+				  enum indexer_state state)
 {
 	struct indexer_request *first_request, *request = *_request;
 	char *first_username;
 
 	*_request = NULL;
 
-	indexer_queue_request_status_int(queue, request, success ? 100 : -1);
+	i_assert(state != INDEXER_STATE_PROCESSING);
+	struct indexer_status status = { .state = state };
+	indexer_queue_request_status_int(queue, request, &status);
 
 	if (request->reindex_head || request->reindex_tail) {
 		i_assert(request->working);
@@ -292,7 +293,7 @@ indexer_queue_request_cancel(struct indexer_queue *queue,
 	*_request = NULL;
 	request->reindex_head = request->reindex_tail = FALSE;
 	DLLIST2_REMOVE(&queue->head, &queue->tail, request);
-	indexer_queue_request_finish(queue, &request, FALSE);
+	indexer_queue_request_finish(queue, &request, INDEXER_STATE_FAILED);
 }
 
 void indexer_queue_cancel(struct indexer_queue *queue, const char *username,

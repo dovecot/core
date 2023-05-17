@@ -14,6 +14,7 @@
 #include "fts-api.h"
 #include "fts-storage.h"
 #include "fts-indexer.h"
+#include "fts-indexer-status.h"
 
 #define INDEXER_SOCKET_NAME "indexer"
 #define INDEXER_WAIT_MSECS 250
@@ -25,7 +26,7 @@ struct fts_indexer_context {
 	struct ioloop *ioloop;
 
 	struct timeval search_start_time, last_notify;
-	unsigned int percentage;
+	struct indexer_status status;
 	struct connection_list *connection_list;
 
 	bool notified:1;
@@ -55,8 +56,8 @@ static void fts_indexer_notify(struct fts_indexer_context *ctx)
 
 	struct mail_storage_progress_details dtl = {
 		.verb = "Indexed",
-		.total = 100,
-		.processed = ctx->percentage,
+		.total = ctx->status.total,
+		.processed = ctx->status.progress,
 		.start_time = ctx->search_start_time,
 		.now = ioloop_timeval,
 	};
@@ -145,7 +146,6 @@ fts_indexer_input_args(struct connection *conn, const char *const *args)
 {
 	struct fts_indexer_context *ctx =
 		container_of(conn, struct fts_indexer_context, conn);
-	int percentage;
 	if (args[1] == NULL) {
 		e_error(conn->event, "indexer sent invalid reply");
 		return -1;
@@ -156,19 +156,38 @@ fts_indexer_input_args(struct connection *conn, const char *const *args)
 	}
 	if (strcmp(args[1], "OK") == 0)
 		return 1;
-	if (str_to_int(args[1], &percentage) < 0) {
-		e_error(conn->event, "indexer sent invalid progress: %s", args[1]);
+	if (str_to_int(args[1], &ctx->status.state) < 0) {
+		e_error(conn->event, "indexer sent invalid percentage: %s", args[1]);
 		ctx->failed = TRUE;
 		return -1;
 	}
-	if (percentage < 0) {
+	if (ctx->status.state < INDEXER_STATE_FAILED ||
+	    ctx->status.state > INDEXER_STATE_COMPLETED) {
+		e_error(conn->event, "indexer sent invalid state: %s", args[2]);
+		ctx->failed = TRUE;
+		return -1;
+	}
+	if (ctx->status.state == INDEXER_STATE_FAILED) {
 		e_error(ctx->box->event, "indexer failed to index mailbox");
 		ctx->failed = TRUE;
 		return -1;
 	}
-	ctx->percentage = percentage;
+	if (str_array_length(args) < 4) {
+		e_error(conn->event, "indexer sent invalid reply");
+		return -1;
+	}
+	if (str_to_uint32(args[2], &ctx->status.progress) < 0) {
+		e_error(conn->event, "indexer sent invalid processed: %s", args[2]);
+		ctx->failed = TRUE;
+		return -1;
+	}
+	if (str_to_uint32(args[3], &ctx->status.total) < 0) {
+		e_error(conn->event, "indexer sent invalid total: %s", args[3]);
+		ctx->failed = TRUE;
+		return -1;
+	}
 	time_t elapsed = ioloop_time - ctx->search_start_time.tv_sec;
-	if (ctx->percentage == 100)
+	if (ctx->status.state == INDEXER_STATE_COMPLETED)
 		ctx->completed = TRUE;
 	else if (ctx->conn.input_idle_timeout_secs > 0 &&
 		 elapsed > ctx->conn.input_idle_timeout_secs) {

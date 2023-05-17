@@ -13,8 +13,8 @@
 static const struct master_service_settings *set;
 static struct indexer_queue *queue;
 
-static void
-worker_status_callback(int percentage, struct indexer_request *request);
+static void worker_status_callback(const struct indexer_status *status,
+				   struct indexer_request *request);
 static void worker_avail_callback(void);
 
 void indexer_refresh_proctitle(void)
@@ -84,17 +84,15 @@ static void queue_listen_callback(struct indexer_queue *queue)
 	queue_try_send_more(queue);
 }
 
-static void
-worker_status_callback(int percentage, struct indexer_request *request)
+static void worker_status_callback(const struct indexer_status *status,
+				   struct indexer_request *request)
 {
-	if (percentage >= 0 && percentage < 100) {
-		indexer_queue_request_status(queue, request,
-					     percentage);
+	if (status->state == INDEXER_STATE_PROCESSING) {
+		indexer_queue_request_status(queue, request, status);
 		return;
 	}
 
-	indexer_queue_request_finish(queue, &request,
-				     percentage == 100);
+	indexer_queue_request_finish(queue, &request, status->state);
 }
 
 static void worker_avail_callback(void)

@@ -37,11 +37,11 @@ static unsigned int worker_last_process_limit = 0;
 static struct connection_list *worker_connections;
 
 static void worker_connection_call_callback(struct worker_connection *worker,
-					    int percentage)
+					    const struct indexer_status *status)
 {
 	if (worker->request != NULL)
-		worker->callback(percentage, worker->request);
-	if (percentage < 0 || percentage == 100)
+		worker->callback(status, worker->request);
+	if (status->state != INDEXER_STATE_PROCESSING)
 		worker->request = NULL;
 }
 
@@ -50,7 +50,8 @@ static void worker_connection_destroy(struct connection *conn)
 	struct worker_connection *worker =
 		container_of(conn, struct worker_connection, conn);
 
-	worker_connection_call_callback(worker, -1);
+	struct indexer_status status = { .state = INDEXER_STATE_FAILED };
+	worker_connection_call_callback(worker, &status);
 	i_free_and_null(worker->request_username);
 	connection_deinit(conn);
 
@@ -120,20 +121,12 @@ worker_connection_input_args(struct connection *conn, const char *const *args)
 		}
 	}
 
-	unsigned int percentage;
-	switch (state) {
-	case INDEXER_STATE_FAILED:
-		percentage = -1;
-		break;
-	case INDEXER_STATE_COMPLETED:
-		percentage = 100;
-		break;
-	case INDEXER_STATE_PROCESSING:
-		percentage = total == 0 ? 0 : progress * 100 / total;
-		break;
-	}
-
-	worker_connection_call_callback(worker, percentage);
+	struct indexer_status status = {
+		.state = state,
+		.progress = progress,
+		.total = total,
+	};
+	worker_connection_call_callback(worker, &status);
 	if (worker->request == NULL) {
 		/* disconnect after each request */
 		ret = -1;
