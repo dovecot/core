@@ -15,6 +15,7 @@
 #include "mail-storage-service.h"
 #include "mail-search-build.h"
 #include "master-connection.h"
+#include "indexer.h"
 
 #include <unistd.h>
 
@@ -77,7 +78,6 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 	struct mail *mail;
 	struct mailbox_metadata metadata;
 	uint32_t seq, first_uid = 0, last_uid = 0;
-	char percentage_str[2+1+1];
 	int ret = 0;
 	struct event *index_event = event_create(box->event);
 	event_add_category(index_event, &event_category_indexer_worker);
@@ -114,7 +114,7 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 
 	unsigned int counter = 0;
 	unsigned int percentage_sent = 0;
-	unsigned int max = status.messages + 1 - seq;
+	unsigned int goal = status.messages + 1 - seq;
 	while (mailbox_search_next(ctx, &mail)) {
 		if (first_uid == 0)
 			first_uid = mail->uid;
@@ -129,19 +129,17 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 			ret = -1;
 			break;
 		}
-		unsigned int percentage = (++counter * 100) / max;
+		unsigned int percentage = (++counter * 100) / goal;
 		if (percentage_sent < percentage) {
 			percentage_sent = percentage;
-			if (percentage < 100) {
-				if (i_snprintf(percentage_str,
-					       sizeof(percentage_str), "%u\n",
-					       percentage) < 0)
-					i_unreached();
-				o_stream_nsend_str(conn->conn.output,
-						   percentage_str);
-			}
+			if (percentage < 100) T_BEGIN {
+				const char *update = t_strdup_printf(
+					"%d\t%u\t%u\n", INDEXER_STATE_PROCESSING,
+					counter, goal);
+				o_stream_nsend_str(conn->conn.output, update);
+			} T_END;
 			indexer_worker_refresh_proctitle(username, box_vname,
-							 counter, max);
+							 counter, goal);
 		}
 	}
 	if (mailbox_search_deinit(&ctx) < 0) {
@@ -314,7 +312,6 @@ master_connection_input_args(struct connection *_conn, const char *const *args)
 {
 	struct master_connection *conn =
 		container_of(_conn, struct master_connection, conn);
-	const char *str;
 	unsigned int max_recent_msgs;
 	int ret;
 
@@ -333,7 +330,8 @@ master_connection_input_args(struct connection *_conn, const char *const *args)
 	ret = master_connection_cmd_index(conn, username, mailbox, session_id,
 					  max_recent_msgs, what);
 
-	str = ret < 0 ? "-1\n" : "100\n";
+	const char *str = t_strdup_printf("%d\n",
+		ret < 0 ? INDEXER_STATE_FAILED: INDEXER_STATE_COMPLETED);
 	o_stream_nsend_str(conn->conn.output, str);
 	return ret;
 }

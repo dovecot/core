@@ -96,17 +96,42 @@ worker_connection_input_args(struct connection *conn, const char *const *args)
 {
 	struct worker_connection *worker =
 		container_of(conn, struct worker_connection, conn);
-	int percentage;
+	unsigned int progress = 0, total = 0;
+	int state;
 	int ret = 1;
 
-	if (str_to_int(args[0], &percentage) < 0 ||
-	    percentage < -1 || percentage > 100) {
-		e_error(conn->event, "Worker sent invalid progress '%s'", args[0]);
+	if (str_to_int(args[0], &state) < 0 ||
+	    state < INDEXER_STATE_FAILED || state > INDEXER_STATE_COMPLETED) {
+		e_error(conn->event, "Worker sent invalid state '%s'", args[0]);
 		return -1;
 	}
 
-	if (percentage < 0)
+	if (state == INDEXER_STATE_FAILED)
 		ret = -1;
+	else if (args[1] != NULL && args[2] != NULL) {
+		if (str_to_uint32(args[1], &progress) < 0) {
+			e_error(conn->event, "Worker sent invalid progress '%s'", args[1]);
+			return -1;
+		}
+
+		if (str_to_uint32(args[2], &total) < 0) {
+			e_error(conn->event, "Worker sent invalid total '%s'", args[2]);
+			return -1;
+		}
+	}
+
+	unsigned int percentage;
+	switch (state) {
+	case INDEXER_STATE_FAILED:
+		percentage = -1;
+		break;
+	case INDEXER_STATE_COMPLETED:
+		percentage = 100;
+		break;
+	case INDEXER_STATE_PROCESSING:
+		percentage = total == 0 ? 0 : progress * 100 / total;
+		break;
+	}
 
 	worker_connection_call_callback(worker, percentage);
 	if (worker->request == NULL) {

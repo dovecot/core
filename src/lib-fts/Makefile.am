@@ -105,7 +105,8 @@ headers = \
 	fts-tokenizer.h \
 	fts-tokenizer-common.h \
 	fts-tokenizer-private.h \
-	fts-tokenizer-generic-private.h
+	fts-tokenizer-generic-private.h \
+	fts-indexer-status.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)

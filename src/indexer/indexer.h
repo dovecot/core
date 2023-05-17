@@ -1,6 +1,8 @@
 #ifndef INDEXER_H
 #define INDEXER_H
 
+#include "fts-indexer-status.h"
+
 struct indexer_request;
 
 /* percentage: -1 = failed, 0..99 = indexing in progress, 100 = done */
