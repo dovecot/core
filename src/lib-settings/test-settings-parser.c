@@ -10,20 +10,20 @@
 static const char *const test_settings_blobs[] =
 {
 /* Blob 0 */
-	"bool_true=yes",
-	"bool_false=no",
-	"uint=15",
-	"uint_oct=0700",
-	"secs=5s",
-	"msecs=5ms",
-	"size=1k",
-	"port=2205",
-	"str=test string",
-	"expand_str=test %{string}",
-	"strlist=",
-	"strlist/x=a",
-	"strlist/y=b",
-	"strlist/z=c",
+	"bool_true", "yes",
+	"bool_false", "no",
+	"uint", "15",
+	"uint_oct", "0700",
+	"secs", "5s",
+	"msecs", "5ms",
+	"size", "1k",
+	"port", "2205",
+	"str", "test string",
+	"expand_str", "test %{string}",
+	"strlist", "",
+	"strlist/x", "a",
+	"strlist/y", "b",
+	"strlist/z", "c",
 };
 
 static void test_settings_parser(void)
@@ -85,12 +85,13 @@ static void test_settings_parser(void)
 		settings_parser_init(pool, &root, 0);
 	const char *error = NULL;
 	int ret = 1;
-	for (unsigned int i = 0; i < N_ELEMENTS(test_settings_blobs); i++) {
-		ret = settings_parse_line(ctx, test_settings_blobs[i]);
+	for (unsigned int i = 0; i < N_ELEMENTS(test_settings_blobs); i += 2) {
+		ret = settings_parse_keyvalue(ctx, test_settings_blobs[i],
+					      test_settings_blobs[i+1]);
 		test_assert_idx(ret == 1, i);
 	}
 	if (ret < 0)
-		i_error("settings_parse_line() failed: %s",
+		i_error("settings_parse_keyvalue() failed: %s",
 			settings_parser_get_error(ctx));
 	test_assert(settings_parser_check(ctx, pool, NULL, NULL));
 
