@@ -261,7 +261,7 @@ client_create(int fd_in, int fd_out, struct event *event,
 	if (hook_client_created != NULL)
 		hook_client_created(&client);
 
-	if (user->anonymous && !client->anonymous_allowed) {
+	if (user->anonymous) {
 		smtp_server_connection_abort(
 			&client->conn, 534, "5.7.9",
 			"Anonymous login is not allowed for submission");

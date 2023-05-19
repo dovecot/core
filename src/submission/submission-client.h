@@ -19,8 +19,6 @@ struct client_state {
 	struct submission_backend *backend;
 	struct istream *data_input;
 	uoff_t data_size;
-
-	bool anonymous_allowed:1;
 };
 
 struct client_extra_capability {
@@ -118,7 +116,6 @@ struct client {
 	bool destroyed:1;
 	bool anvil_sent:1;
 	bool backend_capabilities_configured:1;
-	bool anonymous_allowed:1;
 };
 
 struct submission_module_register {

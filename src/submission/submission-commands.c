@@ -138,7 +138,7 @@ int client_default_cmd_mail(struct client *client,
 			    struct smtp_server_cmd_ctx *cmd,
 			    struct smtp_server_cmd_mail *data)
 {
-	if (client->user->anonymous && !client->state.anonymous_allowed) {
+	if (client->user->anonymous) {
 		/* NOTE: may need to allow anonymous BURL access in the future,
 		   but while that is not supported, deny all anonymous access
 		   explicitly. */
@@ -169,7 +169,7 @@ int client_default_cmd_rcpt(struct client *client ATTR_UNUSED,
 			    struct smtp_server_cmd_ctx *cmd,
 			    struct submission_recipient *srcpt)
 {
-	if (client->user->anonymous && !srcpt->anonymous_allowed) {
+	if (client->user->anonymous) {
 		/* NOTE: may need to allow anonymous BURL access in the future,
 		   but while that is not supported, deny all anonymous access
 		   explicitly. */
@@ -275,7 +275,7 @@ int cmd_data_begin(void *conn_ctx,
 	struct istream *inputs[2];
 	string_t *path;
 
-	if (client->user->anonymous && !client->state.anonymous_allowed) {
+	if (client->user->anonymous) {
 		smtp_server_reply(cmd, 554, "5.7.1",
 				  "Access denied (anonymous user)");
 		return -1;

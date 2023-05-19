@@ -12,8 +12,6 @@ struct submission_recipient {
 
 	/* Module-specific contexts. */
 	ARRAY(union submission_recipient_module_context *) module_contexts;
-
-	bool anonymous_allowed:1;
 };
 
 struct submission_recipient_module_register {
