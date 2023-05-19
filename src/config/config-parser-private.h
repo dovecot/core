@@ -58,8 +58,7 @@ struct config_parser_context {
 	struct config_section_stack *cur_section;
 	struct input_stack *cur_input;
 
-	string_t *str;
-	size_t pathlen;
+	string_t *key_path, *value;
 	const char *error;
 
 	struct old_set_parser *old;

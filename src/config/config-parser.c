@@ -1265,21 +1265,21 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 static int config_write_value(struct config_parser_context *ctx,
 			      const struct config_line *line)
 {
-	string_t *str = ctx->str;
 	const char *error, *path, *full_key;
 
+	str_truncate(ctx->value, 0);
 	switch (line->type) {
 	case CONFIG_LINE_TYPE_KEYVALUE:
-		str_append(str, line->value);
+		str_append(ctx->value, line->value);
 		break;
 	case CONFIG_LINE_TYPE_KEYFILE:
-		full_key = t_strndup(str_data(ctx->str), str_len(str)-1);
 		if (!ctx->expand_values) {
-			str_append_c(str, '<');
-			str_append(str, line->value);
+			str_append_c(ctx->value, '<');
+			str_append(ctx->value, line->value);
 		} else {
+			full_key = t_strconcat(str_c(ctx->key_path), line->key, NULL);
 			path = fix_relative_path(line->value, ctx->cur_input);
-			if (str_append_file(str, full_key, path, &error) < 0) {
+			if (str_append_file(ctx->value, full_key, path, &error) < 0) {
 				/* file reading failed */
 				ctx->error = p_strdup(ctx->pool, error);
 				return -1;
@@ -1287,7 +1287,8 @@ static int config_write_value(struct config_parser_context *ctx,
 		}
 		break;
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
-		if (config_write_keyvariable(ctx, line->key, line->value, str) < 0)
+		if (config_write_keyvariable(ctx, line->key, line->value,
+					     ctx->value) < 0)
 			return -1;
 		break;
 	default:
@@ -1326,7 +1327,6 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 {
 	const char *full_key;
 
-	str_truncate(ctx->str, ctx->pathlen);
 	switch (line->type) {
 	case CONFIG_LINE_TYPE_SKIP:
 		break;
@@ -1338,22 +1338,20 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 	case CONFIG_LINE_TYPE_KEYVALUE:
 	case CONFIG_LINE_TYPE_KEYFILE:
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
-		str_append(ctx->str, line->key);
-		str_append_c(ctx->str, '=');
-
 		if (config_write_value(ctx, line) < 0) {
 			if (!ctx->delay_errors ||
 			    config_apply_error(ctx, line->key) < 0)
 				break;
 		} else {
-			(void)config_apply_line(ctx, line->key, str_c(ctx->str),
-						&full_key);
+			const char *str = t_strdup_printf("%s%s=%s",
+				str_c(ctx->key_path), line->key, str_c(ctx->value));
+			(void)config_apply_line(ctx, line->key, str, &full_key);
 			config_parser_check_warnings(ctx, full_key);
 		}
 		break;
 	case CONFIG_LINE_TYPE_SECTION_BEGIN:
 		ctx->cur_section = config_add_new_section(ctx);
-		ctx->cur_section->pathlen = ctx->pathlen;
+		ctx->cur_section->pathlen = str_len(ctx->key_path);
 		ctx->cur_section->key = p_strdup(ctx->pool, line->key);
 
 		if (config_filter_add_new_filter(ctx, line)) {
@@ -1362,9 +1360,8 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 		}
 
 		/* This is SET_STRLIST */
-		str_append(ctx->str, line->key);
-		str_append_c(ctx->str, SETTINGS_SEPARATOR);
-		ctx->pathlen = str_len(ctx->str);
+		str_append(ctx->key_path, line->key);
+		str_append_c(ctx->key_path, SETTINGS_SEPARATOR);
 		break;
 	case CONFIG_LINE_TYPE_SECTION_END:
 		if (ctx->cur_section->prev == NULL)
@@ -1378,7 +1375,7 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 				ctx->cur_section->filter_def->key,
 				ctx->cur_section->filter_def->required_setting);
 		} else {
-			ctx->pathlen = ctx->cur_section->pathlen;
+			str_truncate(ctx->key_path, ctx->cur_section->pathlen);
 			ctx->cur_section = ctx->cur_section->prev;
 		}
 		break;
@@ -1458,7 +1455,8 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	ctx.cur_section = p_new(ctx.pool, struct config_section_stack, 1);
 	config_add_new_parser(&ctx, ctx.cur_section);
 
-	ctx.str = str_new(ctx.pool, 256);
+	ctx.key_path = str_new(ctx.pool, 256);
+	ctx.value = str_new(ctx.pool, 256);
 	full_line = str_new(default_pool, 512);
 	ctx.cur_input->input = fd != -1 ?
 		i_stream_create_fd_autoclose(&fd, SIZE_MAX) :
@@ -1476,7 +1474,6 @@ prevfile:
 		struct config_line config_line;
 		ctx.cur_input->linenum++;
 		config_parse_line(&ctx, line, full_line, &config_line);
-		str_truncate(ctx.str, ctx.pathlen);
 		if (config_line.type == CONFIG_LINE_TYPE_CONTINUE)
 			continue;
 

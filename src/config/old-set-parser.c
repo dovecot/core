@@ -637,7 +637,7 @@ static bool
 old_settings_handle_path(struct config_parser_context *ctx,
 			 const char *key, const char *value)
 {
-	if (str_begins_with(str_c(ctx->str), "plugin/")) {
+	if (str_begins_with(str_c(ctx->key_path), "plugin/")) {
 		if (strcmp(key, "push_notification_backend") == 0) {
 			obsolete(ctx, "%s has been replaced by push_notification_driver", key);
 			config_apply_line(ctx, key, t_strdup_printf(
@@ -681,7 +681,7 @@ bool old_settings_handle(struct config_parser_context *ctx,
 		break;
 	case CONFIG_LINE_TYPE_KEYFILE:
 	case CONFIG_LINE_TYPE_KEYVALUE:
-		if (ctx->pathlen == 0) {
+		if (str_len(ctx->key_path) == 0) {
 			struct config_section_stack *old_section =
 				ctx->cur_section;
 			bool ret;
@@ -697,23 +697,23 @@ bool old_settings_handle(struct config_parser_context *ctx,
 	case CONFIG_LINE_TYPE_SECTION_BEGIN:
 		if (ctx->old->auth_section > 0)
 			return old_auth_section(ctx, key, value);
-		else if (ctx->pathlen == 0 && strcmp(key, "auth") == 0) {
+		else if (str_len(ctx->key_path) == 0 && strcmp(key, "auth") == 0) {
 			obsolete(ctx, "add auth_ prefix to all settings inside auth {} and remove the auth {} section completely");
 			ctx->old->auth_section = 1;
 			return TRUE;
-		} else if (ctx->pathlen == 0 && strcmp(key, "protocol") == 0 &&
+		} else if (str_len(ctx->key_path) == 0 && strcmp(key, "protocol") == 0 &&
 			 strcmp(value, "managesieve") == 0) {
 			obsolete(ctx, "protocol managesieve {} has been replaced by protocol sieve { }");
 			old_set_parser_apply(ctx, CONFIG_LINE_TYPE_SECTION_BEGIN,
 					     "protocol", "sieve");
 			return TRUE;
-		} else if (ctx->pathlen == 0 && strcmp(key, "service") == 0 &&
+		} else if (str_len(ctx->key_path) == 0 && strcmp(key, "service") == 0 &&
 			   strcmp(value, "dns_client") == 0) {
 			obsolete(ctx, "service dns_client {} has been replaced by service dns-client { }");
 			old_set_parser_apply(ctx, CONFIG_LINE_TYPE_SECTION_BEGIN,
 					     "service", "dns-client");
 			return TRUE;
-		} else if (ctx->pathlen == 0 && strcmp(key, "service") == 0 &&
+		} else if (str_len(ctx->key_path) == 0 && strcmp(key, "service") == 0 &&
 			   strcmp(value, "ipc") == 0) {
 			obsolete(ctx, "service ipc {} no longer exists");
 			/* continue anyway */
