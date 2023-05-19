@@ -299,6 +299,14 @@ user_callback(enum userdb_result result,
 		str_append_tabescaped(str, auth_request->fields.user);
 		auth_fields_append(auth_request->fields.userdb_reply, str,
 				   AUTH_FIELD_FLAG_HIDDEN, 0, TRUE);
+		if (*auth_request->set->anonymous_username != '\0' &&
+		    strcmp(auth_request->fields.user,
+		    	   auth_request->set->anonymous_username) == 0) {
+		       	/* this is an anonymous login, either via ANONYMOUS
+			   SASL mechanism or simply logging in as the anonymous
+			   user via another mechanism */
+			str_append(str, "\tanonymous");
+		}
 		break;
 	}
 
