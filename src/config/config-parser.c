@@ -65,7 +65,7 @@ config_add_new_parser(struct config_parser_context *ctx,
 		      struct config_section_stack *cur_section);
 static int
 config_apply_exact_line(struct config_parser_context *ctx, const char *key,
-			const char *line);
+			const char *value);
 
 void config_parser_set_change_counter(struct config_parser_context *ctx,
 				      uint8_t change_counter)
@@ -83,8 +83,7 @@ config_parser_add_filter_array(struct config_parser_context *ctx,
 			       const char *filter_key, const char *name)
 {
 	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
-	const char *line = t_strdup_printf("%s=%s", filter_key, name);
-	if (config_apply_exact_line(ctx, filter_key, line) < 0) {
+	if (config_apply_exact_line(ctx, filter_key, name) < 0) {
 		i_panic("Failed to add %s %s: %s", filter_key, name,
 			ctx->error);
 	}
@@ -264,7 +263,7 @@ config_is_filter_name(struct config_parser_context *ctx, const char *key,
 
 static int
 config_apply_exact_line(struct config_parser_context *ctx, const char *key,
-			const char *line)
+			const char *value)
 {
 	struct config_module_parser *l;
 	bool found = FALSE;
@@ -277,7 +276,7 @@ config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 		ctx->cur_section->filter_parser->filter_required_setting_seen = TRUE;
 
 	for (l = ctx->cur_section->module_parsers; l->root != NULL; l++) {
-		ret = settings_parse_line(l->parser, line);
+		ret = settings_parse_keyvalue(l->parser, key, value);
 		if (ret > 0) {
 			found = TRUE;
 			/* FIXME: remove once auth does support these. */
@@ -304,36 +303,31 @@ int config_apply_line(struct config_parser_context *ctx,
 	struct config_module_parser *orig_module_parsers =
 		ctx->cur_section->module_parsers;
 	struct config_filter_parser *filter_parser, *orig_filter_parser;
-	const char *p, *key, *line;
+	const char *p, *key;
 	int ret = 0;
 
-	line = t_strdup_printf("%s=%s", key_with_path, value);
-	key = strrchr(key_with_path, '/');
-	if (key == NULL)
-		key = key_with_path;
-	else
-		key++;
-
 	orig_filter_parser = ctx->cur_section->filter_parser;
-	while ((p = strchr(line, '/')) != NULL &&
+	while ((p = strchr(key_with_path, '/')) != NULL &&
 	       (p = strchr(p + 1, '/')) != NULL) {
 		/* Support e.g. service/imap/inet_listener/imap prefix here.
 		   These prefixes are used by default settings and
 		   old-set-parser. */
 		struct config_filter filter = {
 			.parent = &ctx->cur_section->filter,
-			.filter_name = t_strdup_until(line, p),
+			.filter_name = t_strdup_until(key_with_path, p),
 			.filter_name_array = TRUE,
 		};
 		filter_parser = config_filter_parser_find(ctx, &filter);
 		if (filter_parser == NULL)
 			break;
-		line = p + 1;
+		key_with_path = p + 1;
 		ctx->cur_section->filter_parser = filter_parser;
 		ctx->cur_section->module_parsers =
 			ctx->cur_section->filter_parser->module_parsers;
 		ctx->cur_section->filter = filter_parser->filter;
 	}
+	/* the only '/' left should be if key is under strlist/ */
+	key = key_with_path;
 
 	if (ctx->cur_section->filter.filter_name_array) {
 		/* first try the filter name-specific prefix, so e.g.
@@ -342,13 +336,12 @@ int config_apply_line(struct config_parser_context *ctx,
 		const char *filter_key =
 			t_strcut(ctx->cur_section->filter.filter_name, '/');
 		const char *key2 = t_strdup_printf("%s_%s", filter_key, key);
-		const char *line2 = t_strdup_printf("%s_%s", filter_key, line);
-		ret = config_apply_exact_line(ctx, key2, line2);
+		ret = config_apply_exact_line(ctx, key2, value);
 		if (ret > 0 && full_key_r != NULL)
 			*full_key_r = key2;
 	}
 	if (ret == 0) {
-		ret = config_apply_exact_line(ctx, key, line);
+		ret = config_apply_exact_line(ctx, key, value);
 		if (full_key_r != NULL)
 			*full_key_r = key;
 	}
