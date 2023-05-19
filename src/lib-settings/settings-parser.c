@@ -532,31 +532,6 @@ uint8_t settings_parse_get_change_counter(struct setting_parser_context *ctx,
 	return *p;
 }
 
-int settings_parse_line(struct setting_parser_context *ctx, const char *line)
-{
-	const char *key, *value;
-	int ret;
-
-	key = line;
-	value = strchr(line, '=');
-	if (value == NULL) {
-		settings_parser_set_error(ctx, "Missing '='");
-		return -1;
-	}
-
-	if (key == value) {
-		settings_parser_set_error(ctx,
-			"Missing key name ('=' at the beginning of line)");
-		return -1;
-	}
-
-	T_BEGIN {
-		key = t_strdup_until(key, value);
-		ret = settings_parse_keyvalue(ctx, key, value + 1);
-	} T_END;
-	return ret;
-}
-
 bool settings_check(struct event *event, const struct setting_parser_info *info,
 		    pool_t pool, void *set, const char **error_r)
 {
