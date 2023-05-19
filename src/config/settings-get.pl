@@ -1,5 +1,6 @@
 #!/usr/bin/env perl
 use strict;
+use warnings;
 
 print "/* WARNING: THIS FILE IS GENERATED - DO NOT PATCH!\n";
 print "   It's not enough alone in any case, because the defaults may be\n";
@@ -28,9 +29,9 @@ print '#include <unistd.h>'."\n";
 print '#define CONFIG_BINARY'."\n";
 
 my @services = ();
-my %service_defaults = {};
+my %service_defaults = ();
 my @service_ifdefs = ();
-my %parsers = {};
+my %parsers = ();
 
 my $linked_file = 0;
 foreach my $file (@ARGV) {
