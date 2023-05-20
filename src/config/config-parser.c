@@ -72,7 +72,7 @@ void config_parser_set_change_counter(struct config_parser_context *ctx,
 {
 	struct config_module_parser *module_parsers =
 		ctx->cur_section->module_parsers;
-	for (unsigned int i = 0; module_parsers[i].root != NULL; i++) {
+	for (unsigned int i = 0; module_parsers[i].info != NULL; i++) {
 		settings_parse_set_change_counter(module_parsers[i].parser,
 						  change_counter);
 	}
@@ -253,7 +253,7 @@ config_is_filter_name(struct config_parser_context *ctx, const char *key,
 		ctx->cur_section->module_parsers;
 	unsigned int i;
 
-	for (i = 0; module_parsers[i].root != NULL; i++) {
+	for (i = 0; module_parsers[i].info != NULL; i++) {
 		*def_r = settings_parse_get_filter(module_parsers[i].parser, key);
 		if (*def_r != NULL)
 			return TRUE;
@@ -275,12 +275,12 @@ config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 	    strcmp(key, ctx->cur_section->filter_def->required_setting) == 0)
 		ctx->cur_section->filter_parser->filter_required_setting_seen = TRUE;
 
-	for (l = ctx->cur_section->module_parsers; l->root != NULL; l++) {
+	for (l = ctx->cur_section->module_parsers; l->info != NULL; l++) {
 		ret = settings_parse_keyvalue(l->parser, key, value);
 		if (ret > 0) {
 			found = TRUE;
 			/* FIXME: remove once auth does support these. */
-			if (strcmp(l->root->name, "auth") == 0 &&
+			if (strcmp(l->info->name, "auth") == 0 &&
 			    config_parser_is_in_localremote(ctx->cur_section)) {
 				ctx->error = p_strconcat(ctx->pool,
 					"Auth settings not supported inside local/remote blocks: ",
@@ -366,7 +366,7 @@ config_apply_error(struct config_parser_context *ctx, const char *key)
 	/* Couldn't get value for the setting, but we're delaying error
 	   handling. Mark all settings parsers containing this key as failed.
 	   See config-parser.h for details. */
-	for (l = ctx->cur_section->module_parsers; l->root != NULL; l++) {
+	for (l = ctx->cur_section->module_parsers; l->info != NULL; l++) {
 		const char *lookup_key = key;
 		if (settings_parse_get_value(l->parser, &lookup_key, &type) != NULL) {
 			if (l->delayed_error == NULL)
@@ -403,7 +403,7 @@ config_module_parsers_init(pool_t pool)
 
 	dest = p_new(pool, struct config_module_parser, count + 1);
 	for (i = 0; i < count; i++) {
-		dest[i].root = all_infos[i];
+		dest[i].info = all_infos[i];
 		dest[i].parser = settings_parser_init(pool, all_infos[i],
 						      settings_parser_flags);
 		settings_parse_set_change_counter(dest[i].parser,
@@ -722,7 +722,7 @@ config_filter_parser_check(struct config_parser_context *ctx,
 	}
 
 	tmp_pool = pool_alloconly_create(MEMPOOL_GROWING"config parsers check", 1024);
-	for (p = filter_parser->module_parsers; p->root != NULL; p++) {
+	for (p = filter_parser->module_parsers; p->info != NULL; p++) {
 		p_clear(tmp_pool);
 		struct setting_parser_context *tmp_parser =
 			settings_parser_dup(p->parser, tmp_pool);
@@ -1176,7 +1176,7 @@ config_get_value(struct config_section_stack *section, const char *key,
 	struct config_module_parser *l;
 	const void *value;
 
-	for (l = section->module_parsers; l->root != NULL; l++) {
+	for (l = section->module_parsers; l->info != NULL; l++) {
 		const char *lookup_key = key;
 		value = settings_parse_get_value(l->parser, &lookup_key, type_r);
 		if (value != NULL) {
@@ -1428,7 +1428,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	for (i = 0; i < count; i++) {
 		if (strcmp(all_infos[i]->name, "service") == 0)
 			service_root_idx = i;
-		ctx.root_module_parsers[i].root = all_infos[i];
+		ctx.root_module_parsers[i].info = all_infos[i];
 		ctx.root_module_parsers[i].parser =
 			settings_parser_init(ctx.pool, all_infos[i],
 					     settings_parser_flags);
@@ -1544,7 +1544,7 @@ void config_module_parsers_free(struct config_module_parser *parsers)
 {
 	unsigned int i;
 
-	for (i = 0; parsers[i].root != NULL; i++)
+	for (i = 0; parsers[i].info != NULL; i++)
 		settings_parser_unref(&parsers[i].parser);
 }
 

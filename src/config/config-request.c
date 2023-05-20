@@ -349,7 +349,7 @@ void config_export_set_module_parsers(struct config_export_context *ctx,
 unsigned int config_export_get_parser_count(struct config_export_context *ctx)
 {
 	unsigned int i = 0;
-	for (i = 0; ctx->module_parsers[i].root != NULL; i++) ;
+	for (i = 0; ctx->module_parsers[i].info != NULL; i++) ;
 	return i;
 }
 
@@ -359,8 +359,8 @@ config_export_get_import_environment(struct config_export_context *ctx)
 	enum setting_type stype;
 	unsigned int i;
 
-	for (i = 0; ctx->module_parsers[i].root != NULL; i++) {
-		if (ctx->module_parsers[i].root == &master_service_setting_parser_info) {
+	for (i = 0; ctx->module_parsers[i].info != NULL; i++) {
+		if (ctx->module_parsers[i].info == &master_service_setting_parser_info) {
 			const char *key = "import_environment";
 			const char *const *value =
 				settings_parse_get_value(ctx->module_parsers[i].parser,
@@ -377,8 +377,8 @@ const char *config_export_get_base_dir(struct config_export_context *ctx)
 	enum setting_type stype;
 	unsigned int i;
 
-	for (i = 0; ctx->module_parsers[i].root != NULL; i++) {
-		if (ctx->module_parsers[i].root == &master_service_setting_parser_info) {
+	for (i = 0; ctx->module_parsers[i].info != NULL; i++) {
+		if (ctx->module_parsers[i].info == &master_service_setting_parser_info) {
 			const char *key = "base_dir";
 			const char *const *value =
 				settings_parse_get_value(ctx->module_parsers[i].parser,
@@ -410,7 +410,7 @@ int config_export_all_parsers(struct config_export_context **_ctx)
 
 	*_ctx = NULL;
 
-	for (i = 0; ctx->module_parsers[i].root != NULL; i++) {
+	for (i = 0; ctx->module_parsers[i].info != NULL; i++) {
 		if (config_export_parser(ctx, i, &error) < 0) {
 			i_error("%s", error);
 			ret = -1;
@@ -425,7 +425,7 @@ const struct setting_parser_info *
 config_export_parser_get_info(struct config_export_context *ctx,
 			      unsigned int parser_idx)
 {
-	return ctx->module_parsers[parser_idx].root;
+	return ctx->module_parsers[parser_idx].info;
 }
 
 int config_export_parser(struct config_export_context *ctx,
@@ -441,7 +441,7 @@ int config_export_parser(struct config_export_context *ctx,
 
 	T_BEGIN {
 		void *set = settings_parser_get_set(module_parser->parser);
-		settings_export(ctx, module_parser->root, set,
+		settings_export(ctx, module_parser->info, set,
 				settings_parser_get_changes(module_parser->parser));
 	} T_END;
 	return 0;

@@ -21,7 +21,7 @@ enum config_parse_flags {
 };
 
 struct config_module_parser {
-	const struct setting_parser_info *root;
+	const struct setting_parser_info *info;
 	struct setting_parser_context *parser;
 	void *settings;
 	/* Set if CONFIG_PARSE_FLAG_DELAY_ERRORS is enabled. The error won't

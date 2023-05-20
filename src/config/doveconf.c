@@ -707,12 +707,12 @@ static const char *get_setting(const char *info_name, const char *name)
 	const char *const *value;
 	const void *set;
 
-	for (l = config_module_parsers; l->root != NULL; l++) {
-		if (strcmp(l->root->name, info_name) != 0)
+	for (l = config_module_parsers; l->info != NULL; l++) {
+		if (strcmp(l->info->name, info_name) != 0)
 			continue;
 
 		set = settings_parser_get_set(l->parser);
-		for (def = l->root->defines; def->key != NULL; def++) {
+		for (def = l->info->defines; def->key != NULL; def++) {
 			if (strcmp(def->key, name) == 0) {
 				value = CONST_PTR_OFFSET(set, def->offset);
 				return *value;
