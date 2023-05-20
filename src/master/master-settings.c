@@ -22,10 +22,6 @@
 static bool master_settings_ext_check(struct event *event, void *_set,
 				      pool_t pool, const char **error_r);
 
-extern const struct setting_parser_info unix_listener_setting_parser_info;
-extern const struct setting_parser_info fifo_listener_setting_parser_info;
-extern const struct setting_parser_info inet_listener_setting_parser_info;
-
 #undef DEF
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type("unix_listener_"#name, name, struct file_listener_settings)

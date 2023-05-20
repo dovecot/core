@@ -5,8 +5,6 @@
 #include "settings-parser.h"
 #include "service-settings.h"
 
-extern const struct setting_parser_info service_setting_parser_info;
-
 struct service_settings indexer_service_settings = {
 	.name = "indexer",
 	.protocol = "",

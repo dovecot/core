@@ -14,9 +14,6 @@ static bool auth_settings_ext_check(struct event *event, void *_set, pool_t pool
 static bool auth_passdb_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool auth_userdb_settings_check(void *_set, pool_t pool, const char **error_r);
 
-extern const struct setting_parser_info auth_userdb_setting_parser_info;
-extern const struct setting_parser_info auth_passdb_setting_parser_info;
-
 struct service_settings auth_service_settings = {
 	.name = "auth",
 	.protocol = "",

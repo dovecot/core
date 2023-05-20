@@ -62,13 +62,10 @@ foreach my $file (@ARGV) {
       } elsif (/^const struct setting_parser_info (.*) = \{/) {
         my $cur_name = $1;
         $parsers{$cur_name} = 1;
-        if ($linked_file) {
-          $externs .= "extern const struct setting_parser_info $cur_name;\n";
-        }
+        # Add forward declaration for the info struct. This may be needed by
+        # the ext_check() functions.
+        $externs .= "extern const struct setting_parser_info $cur_name;\n";
         $state = "copy-to-end-of-block";
-      } elsif (/^extern const struct setting_parser_info (.*);/) {
-        $parsers{$1} = 1;
-        $externs .= "extern const struct setting_parser_info $1;\n";
       } elsif (/\/\* <settings checks> \*\//) {
         $state = "copy-to-end-of-settings-checks";
         $code .= $_;
