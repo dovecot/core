@@ -52,14 +52,19 @@ foreach my $file (@ARGV) {
       if (/struct .*_settings \{/ ||
           /struct setting_define.*\{/ ||
           /struct .*_default_settings = \{/) {
+        # settings-related structure - copy.
         $state = "copy-to-end-of-block";
       } elsif (/^struct service_settings (.*) = \{/) {
+        # service settings - copy and add to list of services.
         $state = "copy-to-end-of-block";
         push @services, $1;
       } elsif (/^const struct setting_keyvalue (.*_defaults)\[\] = \{/) {
+        # service's default settings as keyvalues - copy and add to list of
+        # defaults.
         $service_defaults{$1} = 1;
         $state = "copy-to-end-of-block";
       } elsif (/^const struct setting_parser_info (.*) = \{/) {
+        # info structure for settings
         my $cur_name = $1;
         $infos{$cur_name} = 1;
         # Add forward declaration for the info struct. This may be needed by
@@ -67,15 +72,21 @@ foreach my $file (@ARGV) {
         $externs .= "extern const struct setting_parser_info $cur_name;\n";
         $state = "copy-to-end-of-block";
       } elsif (/\/\* <settings checks> \*\//) {
+        # Anything inside <settings check> ... </settings check> is copied.
         $state = "copy-to-end-of-settings-checks";
         $code .= $_;
       }
       
       if (/#define.*DEF/ || /^#undef.*DEF/ || /ARRAY_DEFINE_TYPE.*_settings/) {
+        # macro for setting_define { ... } - copy.
         $write = 1;
-        $state = "copy-to-end-of-macro" if (/\\$/);
+        if (/\\$/) {
+          # multi-line macro
+          $state = "copy-to-end-of-macro";
+        }
       }
     } elsif ($state eq "copy-to-end-of-macro") {
+      # Continue copying macro until the line doesn't end with '\'
       $write = 1;
       $state = "root" if (!/\\$/);
     } elsif ($state eq "copy-to-end-of-settings-checks") {
@@ -95,7 +106,10 @@ foreach my $file (@ARGV) {
   
   print "/* $file */\n";
   print $externs;
-  if (!$linked_file) {
+  if ($linked_file) {
+    # The code and contents are already linked via libdovecot.so. Don't add
+    # them again.
+  } else {
     print $code;
     print $file_contents;
   }
@@ -108,6 +122,7 @@ sub service_name {
   return $1 if (/^(.*)_service_settings$/);
   die "unexpected service name $_";
 }
+# Write an array of default services and their default settings.
 print "static const struct config_service config_default_services[] = {\n";
 @services = sort { service_name($a) cmp service_name($b) } @services;
 for (my $i = 0; $i < scalar(@services); $i++) {
@@ -120,6 +135,7 @@ for (my $i = 0; $i < scalar(@services); $i++) {
 print "\t{ NULL, NULL }\n";
 print "};\n";
 
+# Write a list of all settings infos.
 print "const struct setting_parser_info *all_default_roots[] = {\n";
 foreach my $name (sort(keys %infos)) {
   print "\t&".$name.", \n";
