@@ -53,7 +53,7 @@ int (*hook_config_parser_end)(struct config_parser_context *ctx,
 			      const char **error_r);
 
 static ARRAY_TYPE(config_service) services_free_at_deinit = ARRAY_INIT;
-static ARRAY_TYPE(setting_parser_info_p) roots_free_at_deinit = ARRAY_INIT;
+static ARRAY_TYPE(setting_parser_info_p) infos_free_at_deinit = ARRAY_INIT;
 
 static struct config_filter_parser *
 config_filter_parser_find(struct config_parser_context *ctx,
@@ -104,10 +104,10 @@ config_parser_add_filter_array(struct config_parser_context *ctx,
 
 static void
 config_parser_add_service_default_struct(struct config_parser_context *ctx,
-					 unsigned int service_root_idx,
+					 unsigned int service_info_idx,
 					 const struct service_settings *default_set)
 {
-	const struct setting_parser_info *info = all_infos[service_root_idx];
+	const struct setting_parser_info *info = all_infos[service_info_idx];
 	string_t *value_str = t_str_new(64);
 	bool dump;
 
@@ -188,7 +188,7 @@ config_parser_add_service_default_keyvalues(struct config_parser_context *ctx,
 }
 
 static void config_parser_add_services(struct config_parser_context *ctx,
-				       unsigned int service_root_idx)
+				       unsigned int service_info_idx)
 {
 	struct config_section_stack *orig_section = ctx->cur_section;
 
@@ -198,7 +198,7 @@ static void config_parser_add_services(struct config_parser_context *ctx,
 			config_parser_add_filter_array(ctx, "service",
 						       set->name);
 		ctx->cur_section = section;
-		config_parser_add_service_default_struct(ctx, service_root_idx, set);
+		config_parser_add_service_default_struct(ctx, service_info_idx, set);
 
 		const struct setting_keyvalue *defaults =
 			config_all_services[i].defaults;
@@ -1424,10 +1424,10 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	for (count = 0; all_infos[count] != NULL; count++) ;
 	ctx.root_module_parsers =
 		p_new(ctx.pool, struct config_module_parser, count+1);
-	unsigned int service_root_idx = UINT_MAX;
+	unsigned int service_info_idx = UINT_MAX;
 	for (i = 0; i < count; i++) {
 		if (strcmp(all_infos[i]->name, "service") == 0)
-			service_root_idx = i;
+			service_info_idx = i;
 		ctx.root_module_parsers[i].info = all_infos[i];
 		ctx.root_module_parsers[i].parser =
 			settings_parser_init(ctx.pool, all_infos[i],
@@ -1444,7 +1444,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 			}
 		}
 	}
-	i_assert(service_root_idx != UINT_MAX ||
+	i_assert(service_info_idx != UINT_MAX ||
 		 (flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) != 0);
 
 	i_zero(&root);
@@ -1466,7 +1466,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	i_stream_set_return_partial_line(ctx.cur_input->input, TRUE);
 	old_settings_init(&ctx);
 	if ((flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) == 0)
-		config_parser_add_services(&ctx, service_root_idx);
+		config_parser_add_services(&ctx, service_info_idx);
 	if (hook_config_parser_begin != NULL) T_BEGIN {
 		hook_config_parser_begin(&ctx);
 	} T_END;
@@ -1558,8 +1558,8 @@ void config_parse_load_modules(void)
 {
 	struct module_dir_load_settings mod_set;
 	struct module *m;
-	const struct setting_parser_info **roots;
-	ARRAY_TYPE(setting_parser_info_p) new_roots;
+	const struct setting_parser_info **infos;
+	ARRAY_TYPE(setting_parser_info_p) new_infos;
 	ARRAY_TYPE(config_service) new_services;
 	const struct config_service *services;
 	unsigned int i, count;
@@ -1569,14 +1569,14 @@ void config_parse_load_modules(void)
 	modules = module_dir_load(CONFIG_MODULE_DIR, NULL, &mod_set);
 	module_dir_init(modules);
 
-	i_array_init(&new_roots, 64);
+	i_array_init(&new_infos, 64);
 	i_array_init(&new_services, 64);
 	for (m = modules; m != NULL; m = m->next) {
-		roots = module_get_symbol_quiet(m,
+		infos = module_get_symbol_quiet(m,
 			t_strdup_printf("%s_set_roots", m->name));
-		if (roots != NULL) {
-			for (i = 0; roots[i] != NULL; i++)
-				array_push_back(&new_roots, &roots[i]);
+		if (infos != NULL) {
+			for (i = 0; infos[i] != NULL; i++)
+				array_push_back(&new_infos, &infos[i]);
 		}
 
 		services = module_get_symbol_quiet(m,
@@ -1595,16 +1595,16 @@ void config_parse_load_modules(void)
 			}
 		}
 	}
-	if (array_count(&new_roots) > 0) {
+	if (array_count(&new_infos) > 0) {
 		/* modules added new settings. add the defaults and start
 		   using the new list. */
 		for (i = 0; all_infos[i] != NULL; i++)
-			array_push_back(&new_roots, &all_infos[i]);
-		array_append_zero(&new_roots);
-		all_infos = array_front(&new_roots);
-		roots_free_at_deinit = new_roots;
+			array_push_back(&new_infos, &all_infos[i]);
+		array_append_zero(&new_infos);
+		all_infos = array_front(&new_infos);
+		infos_free_at_deinit = new_infos;
 	} else {
-		array_free(&new_roots);
+		array_free(&new_infos);
 	}
 	if (array_count(&new_services) > 0) {
 		/* module added new services. update the defaults. */
@@ -1623,6 +1623,6 @@ void config_parser_deinit(void)
 {
 	if (array_is_created(&services_free_at_deinit))
 		array_free(&services_free_at_deinit);
-	if (array_is_created(&roots_free_at_deinit))
-		array_free(&roots_free_at_deinit);
+	if (array_is_created(&infos_free_at_deinit))
+		array_free(&infos_free_at_deinit);
 }

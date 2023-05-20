@@ -61,7 +61,7 @@ static const struct test_settings test_settings_defaults = {
 	.protocols = "pop3",
 };
 
-const struct setting_parser_info test_settings_root = {
+const struct setting_parser_info test_settings_info = {
 	.name = "test",
 	.defines = test_settings_defs,
 	.defaults = &test_settings_defaults,
@@ -70,12 +70,12 @@ const struct setting_parser_info test_settings_root = {
 	.pool_offset1 = 1 + offsetof(struct test_settings, pool),
 };
 
-static const struct setting_parser_info *const roots[] = {
-	&test_settings_root,
+static const struct setting_parser_info *const infos[] = {
+	&test_settings_info,
 	NULL
 };
 
-const struct setting_parser_info *const *all_infos = roots;
+const struct setting_parser_info *const *all_infos = infos;
 
 static void write_config_file(const char *contents)
 {
