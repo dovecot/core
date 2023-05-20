@@ -54,6 +54,11 @@ config_parsed_get_filter_parsers(struct config_parsed *config);
 /* Returns all module_parsers. The array is terminated with info=NULL. */
 const struct config_module_parser *
 config_parsed_get_module_parsers(struct config_parsed *config);
+/* Returns the value for a specified setting. The setting must be found and it
+   must be a string, or the function panics. */
+const char *
+config_module_parsers_get_setting(const struct config_module_parser *module_parsers,
+				  const char *info_name, const char *key);
 void config_parsed_free(struct config_parsed **config);
 
 void config_module_parsers_free(struct config_module_parser *parsers);

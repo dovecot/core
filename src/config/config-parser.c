@@ -1591,6 +1591,28 @@ config_parsed_get_module_parsers(struct config_parsed *config)
 	return config->module_parsers;
 }
 
+const char *
+config_module_parsers_get_setting(const struct config_module_parser *module_parsers,
+				  const char *info_name, const char *key)
+{
+	const struct config_module_parser *l;
+
+	for (l = module_parsers; l->info != NULL; l++) {
+		if (strcmp(l->info->name, info_name) != 0)
+			continue;
+
+		enum setting_type type;
+		const char *const *value =
+			settings_parse_get_value(l->parser, &key, &type);
+		if (value != NULL) {
+			i_assert(type == SET_STR || type == SET_STR_VARS);
+			return *value;
+		}
+	}
+	i_panic("BUG: Couldn't find setting with info=%s key=%s",
+		info_name, key);
+}
+
 void config_parsed_free(struct config_parsed **_config)
 {
 	struct config_parsed *config = *_config;
