@@ -143,10 +143,6 @@ void *settings_parser_get_changes(struct setting_parser_context *ctx);
 /* Return the last error. */
 const char *settings_parser_get_error(struct setting_parser_context *ctx);
 
-/* Find the definition for a given SET_FILTER_NAME or SET_FILTER_ARRAY. */
-const struct setting_define *
-settings_parse_get_filter(struct setting_parser_context *ctx,
-			  const char *filter_name);
 /* If key is an alias, return the primary key name. If key exists, return key
    itself. If key doesn't exist, return NULL. */
 const char *settings_parse_unalias(struct setting_parser_context *ctx,

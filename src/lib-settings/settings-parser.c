@@ -430,19 +430,6 @@ settings_find_key(struct setting_parser_context *ctx, const char *key,
 	return FALSE;
 }
 
-const struct setting_define *
-settings_parse_get_filter(struct setting_parser_context *ctx,
-			  const char *filter_name)
-{
-	const struct setting_define *def;
-
-	if (!settings_find_key(ctx, filter_name, TRUE, &def))
-		return NULL;
-	if (def->type != SET_FILTER_NAME && def->type != SET_FILTER_ARRAY)
-		return NULL;
-	return def;
-}
-
 static int
 settings_parse_keyvalue_real(struct setting_parser_context *ctx,
 			     const char *key, const char *value, bool dup_value)
