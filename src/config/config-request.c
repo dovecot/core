@@ -356,38 +356,14 @@ unsigned int config_export_get_parser_count(struct config_export_context *ctx)
 const char *
 config_export_get_import_environment(struct config_export_context *ctx)
 {
-	enum setting_type stype;
-	unsigned int i;
-
-	for (i = 0; ctx->module_parsers[i].info != NULL; i++) {
-		if (ctx->module_parsers[i].info == &master_service_setting_parser_info) {
-			const char *key = "import_environment";
-			const char *const *value =
-				settings_parse_get_value(ctx->module_parsers[i].parser,
-							 &key, &stype);
-			i_assert(value != NULL);
-			return *value;
-		}
-	}
-	i_unreached();
+	return config_module_parsers_get_setting(ctx->module_parsers,
+		"master_service", "import_environment");
 }
 
 const char *config_export_get_base_dir(struct config_export_context *ctx)
 {
-	enum setting_type stype;
-	unsigned int i;
-
-	for (i = 0; ctx->module_parsers[i].info != NULL; i++) {
-		if (ctx->module_parsers[i].info == &master_service_setting_parser_info) {
-			const char *key = "base_dir";
-			const char *const *value =
-				settings_parse_get_value(ctx->module_parsers[i].parser,
-							 &key, &stype);
-			i_assert(value != NULL);
-			return *value;
-		}
-	}
-	i_unreached();
+	return config_module_parsers_get_setting(ctx->module_parsers,
+						 "master_service", "base_dir");
 }
 
 void config_export_free(struct config_export_context **_ctx)

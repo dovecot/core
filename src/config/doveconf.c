@@ -700,28 +700,6 @@ config_dump_human(enum config_dump_scope scope,
 	return ret;
 }
 
-static const char *get_setting(const char *info_name, const char *name)
-{
-	const struct config_module_parser *l;
-	const struct setting_define *def;
-	const char *const *value;
-	const void *set;
-
-	for (l = config_parsed_get_module_parsers(config); l->info != NULL; l++) {
-		if (strcmp(l->info->name, info_name) != 0)
-			continue;
-
-		set = settings_parser_get_set(l->parser);
-		for (def = l->info->defines; def->key != NULL; def++) {
-			if (strcmp(def->key, name) == 0) {
-				value = CONST_PTR_OFFSET(set, def->offset);
-				return *value;
-			}
-		}
-	}
-	i_unreached();
-}
-
 struct hostname_format {
 	const char *prefix, *suffix;
 	unsigned int numcount;
@@ -830,7 +808,9 @@ static void check_wrong_config(const char *config_path)
 {
 	const char *base_dir, *symlink_path, *prev_path, *error;
 
-	base_dir = get_setting("master_service", "base_dir");
+	base_dir = config_module_parsers_get_setting(
+			config_parsed_get_module_parsers(config),
+			"master_service", "base_dir");
 	symlink_path = t_strconcat(base_dir, "/"PACKAGE".conf", NULL);
 	if (t_readlink(symlink_path, &prev_path, &error) < 0) {
 		if (errno != ENOENT)
@@ -1017,9 +997,12 @@ int main(int argc, char *argv[])
 						hide_key, hide_passwords);
 		}
 	} else {
-		const char *info;
+		const char *info, *mail_location;
 
-		info = sysinfo_get(get_setting("mail_storage", "mail_location"));
+		mail_location = config_module_parsers_get_setting(
+			config_parsed_get_module_parsers(config),
+			"mail_storage", "mail_location");
+		info = sysinfo_get(mail_location);
 		if (*info != '\0')
 			printf("# %s\n", info);
 		printf("# Hostname: %s\n", my_hostdomain());
