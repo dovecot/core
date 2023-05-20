@@ -300,6 +300,8 @@ settings_parse(struct setting_parser_context *ctx,
 	const void *ptr2;
 	const char *error;
 
+	i_free(ctx->error);
+
 	while (def->type == SET_ALIAS) {
 		i_assert(def != ctx->info->defines);
 		def--;
@@ -447,8 +449,6 @@ settings_parse_keyvalue_real(struct setting_parser_context *ctx,
 {
 	const struct setting_define *def;
 
-	i_free(ctx->error);
-
 	if (!settings_find_key(ctx, key, FALSE, &def)) {
 		settings_parser_set_error(ctx,
 			t_strconcat("Unknown setting: ", key, NULL));
@@ -466,10 +466,26 @@ int settings_parse_keyvalue(struct setting_parser_context *ctx,
 	return settings_parse_keyvalue_real(ctx, key, value, TRUE);
 }
 
+int settings_parse_keyidx_value(struct setting_parser_context *ctx,
+				unsigned int key_idx, const char *key,
+				const char *value)
+{
+	return settings_parse(ctx, &ctx->info->defines[key_idx],
+			      key, value, TRUE);
+}
+
 int settings_parse_keyvalue_nodup(struct setting_parser_context *ctx,
 				  const char *key, const char *value)
 {
 	return settings_parse_keyvalue_real(ctx, key, value, FALSE);
+}
+
+int settings_parse_keyidx_value_nodup(struct setting_parser_context *ctx,
+				      unsigned int key_idx, const char *key,
+				      const char *value)
+{
+	return settings_parse(ctx, &ctx->info->defines[key_idx],
+			      key, value, FALSE);
 }
 
 const char *settings_parse_unalias(struct setting_parser_context *ctx,

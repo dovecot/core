@@ -167,10 +167,21 @@ uint8_t settings_parse_get_change_counter(struct setting_parser_context *ctx,
 /* Parse key/value pair. Returns 1 if OK, 0 if key is unknown, -1 if error. */
 int settings_parse_keyvalue(struct setting_parser_context *ctx,
 			    const char *key, const char *value);
+/* Parse key index/value pair. The key_idx points to the key in
+   info->defines[]. The key string is still needed to support strlists, which
+   need the key in "strlist/key" format. Returns 0 if OK, -1 if error. */
+int settings_parse_keyidx_value(struct setting_parser_context *ctx,
+				unsigned int key_idx, const char *key,
+				const char *value);
 /* Same as settings_parse_keyvalue(), but don't strdup() the value. The value
    pointer's validity must be enforced by the caller. */
 int settings_parse_keyvalue_nodup(struct setting_parser_context *ctx,
 				  const char *key, const char *value);
+/* Same as settings_parse_keyidx_value(), but don't strdup() the value.
+   The value pointer's validity must be enforced by the caller. */
+int settings_parse_keyidx_value_nodup(struct setting_parser_context *ctx,
+				      unsigned int key_idx, const char *key,
+				      const char *value);
 /* Call all check_func()s and ext_check_func()s to see if currently parsed
    settings are valid. */
 bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
