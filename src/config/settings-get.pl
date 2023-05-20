@@ -30,7 +30,7 @@ print '#define CONFIG_BINARY'."\n";
 
 my @services = ();
 my %service_defaults = ();
-my %parsers = ();
+my %infos = ();
 
 my $linked_file = 0;
 foreach my $file (@ARGV) {
@@ -61,7 +61,7 @@ foreach my $file (@ARGV) {
         $state = "copy-to-end-of-block";
       } elsif (/^const struct setting_parser_info (.*) = \{/) {
         my $cur_name = $1;
-        $parsers{$cur_name} = 1;
+        $infos{$cur_name} = 1;
         # Add forward declaration for the info struct. This may be needed by
         # the ext_check() functions.
         $externs .= "extern const struct setting_parser_info $cur_name;\n";
@@ -121,7 +121,7 @@ print "\t{ NULL, NULL }\n";
 print "};\n";
 
 print "const struct setting_parser_info *all_default_roots[] = {\n";
-foreach my $name (sort(keys %parsers)) {
+foreach my $name (sort(keys %infos)) {
   print "\t&".$name.", \n";
 }
 print "\tNULL\n";
