@@ -34,6 +34,16 @@
 #define DNS_LOOKUP_TIMEOUT_SECS 30
 #define DNS_LOOKUP_WARN_SECS 5
 
+struct config_parser_key {
+	struct config_parser_key *prev, *next;
+
+	/* Index number to get setting_parser_info from all_infos[] or
+	   module_parsers[] */
+	unsigned int info_idx;
+	/* Index number inside setting_parser_info->defines[] */
+	unsigned int define_idx;
+};
+
 struct config_parsed {
 	pool_t pool;
 	struct config_filter_parser *const *filter_parsers;
@@ -249,25 +259,26 @@ static bool
 config_is_filter_name(struct config_parser_context *ctx, const char *key,
 		      const struct setting_define **def_r)
 {
-	const struct config_module_parser *module_parsers =
-		ctx->cur_section->module_parsers;
-	unsigned int i;
+	struct config_parser_key *config_key;
+	const struct setting_define *def;
 
-	for (i = 0; module_parsers[i].info != NULL; i++) {
-		*def_r = settings_parse_get_filter(module_parsers[i].parser, key);
-		if (*def_r != NULL)
-			return TRUE;
-	}
-	return FALSE;
+	config_key = hash_table_lookup(ctx->all_keys, key);
+	if (config_key == NULL)
+		return FALSE;
+
+	def = &all_infos[config_key->info_idx]->defines[config_key->define_idx];
+	if (def->type != SET_FILTER_NAME && def->type != SET_FILTER_ARRAY)
+		return FALSE;
+
+	*def_r = def;
+	return TRUE;
 }
 
 static int
 config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 			const char *value)
 {
-	struct config_module_parser *l;
-	bool found = FALSE;
-	int ret;
+	struct config_parser_key *config_key;
 
 	if (ctx->cur_section->filter_def != NULL &&
 	    !ctx->cur_section->filter_parser->filter_required_setting_seen &&
@@ -275,10 +286,16 @@ config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 	    strcmp(key, ctx->cur_section->filter_def->required_setting) == 0)
 		ctx->cur_section->filter_parser->filter_required_setting_seen = TRUE;
 
-	for (l = ctx->cur_section->module_parsers; l->info != NULL; l++) {
-		ret = settings_parse_keyvalue(l->parser, key, value);
-		if (ret > 0) {
-			found = TRUE;
+	/* if key is strlist/key, lookup only "strlist" */
+	config_key = hash_table_lookup(ctx->all_keys, t_strcut(key, '/'));
+	if (config_key == NULL)
+		return 0;
+
+	for (; config_key != NULL; config_key = config_key->next) {
+		struct config_module_parser *l =
+			&ctx->cur_section->module_parsers[config_key->info_idx];
+		if (settings_parse_keyidx_value(l->parser,
+				config_key->define_idx, key, value) == 0) {
 			/* FIXME: remove once auth does support these. */
 			if (strcmp(l->info->name, "auth") == 0 &&
 			    config_parser_is_in_localremote(ctx->cur_section)) {
@@ -287,12 +304,12 @@ config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 					key, NULL);
 				return -1;
 			}
-		} else if (ret < 0) {
+		} else {
 			ctx->error = settings_parser_get_error(l->parser);
 			return -1;
 		}
 	}
-	return found ? 1 : 0;
+	return 1;
 }
 
 int config_apply_line(struct config_parser_context *ctx,
@@ -359,23 +376,23 @@ int config_apply_line(struct config_parser_context *ctx,
 static int
 config_apply_error(struct config_parser_context *ctx, const char *key)
 {
-	struct config_module_parser *l;
-	enum setting_type type;
-	bool found = FALSE;
+	struct config_parser_key *config_key;
 
 	/* Couldn't get value for the setting, but we're delaying error
 	   handling. Mark all settings parsers containing this key as failed.
 	   See config-parser.h for details. */
-	for (l = ctx->cur_section->module_parsers; l->info != NULL; l++) {
-		const char *lookup_key = key;
-		if (settings_parse_get_value(l->parser, &lookup_key, &type) != NULL) {
-			if (l->delayed_error == NULL)
-				l->delayed_error = ctx->error;
-			ctx->error = NULL;
-			found = TRUE;
-		}
+	config_key = hash_table_lookup(ctx->all_keys, t_strcut(key, '/'));
+	if (config_key == NULL)
+		return -1;
+
+	for (; config_key != NULL; config_key = config_key->next) {
+		struct config_module_parser *l =
+			&ctx->cur_section->module_parsers[config_key->info_idx];
+		if (l->delayed_error == NULL)
+			l->delayed_error = ctx->error;
+		ctx->error = NULL;
 	}
-	return found ? 0 : -1;
+	return 0;
 }
 
 static const char *
@@ -1170,26 +1187,23 @@ config_parse_finish(struct config_parser_context *ctx,
 }
 
 static const void *
-config_get_value(struct config_section_stack *section, const char *key,
+config_get_value(struct config_section_stack *section,
+		 struct config_parser_key *config_key, const char *key,
 		 bool expand_parent, enum setting_type *type_r)
 {
-	struct config_module_parser *l;
+	struct config_module_parser *l =
+		&section->module_parsers[config_key->info_idx];
 	const void *value;
 
-	for (l = section->module_parsers; l->info != NULL; l++) {
-		const char *lookup_key = key;
-		value = settings_parse_get_value(l->parser, &lookup_key, type_r);
-		if (value != NULL) {
-			if (!expand_parent || section->prev == NULL ||
-			    settings_parse_get_change_counter(l->parser, lookup_key) != 0)
-				return value;
+	value = settings_parse_get_value(l->parser, &key, type_r);
+	i_assert(value != NULL);
 
-			/* not changed by this parser. maybe parent has. */
-			return config_get_value(section->prev,
-						key, TRUE, type_r);
-		}
-	}
-	return NULL;
+	if (!expand_parent || section->prev == NULL ||
+	    settings_parse_get_change_counter(l->parser, key) != 0)
+		return value;
+
+	/* not changed by this parser. maybe parent has. */
+	return config_get_value(section->prev, config_key, key, TRUE, type_r);
 }
 
 static int config_write_keyvariable(struct config_parser_context *ctx,
@@ -1224,14 +1238,17 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 			if (envval != NULL)
 				str_append(str, envval);
 		} else {
+			struct config_parser_key *config_key;
 			const char *var_value;
 			enum setting_type var_type;
 
 			i_assert(var_name[0] == '$');
 			var_name++;
 
-			var_value = config_get_value(ctx->cur_section, var_name,
-						     expand_parent, &var_type);
+			config_key = hash_table_lookup(ctx->all_keys, var_name);
+			var_value = config_key == NULL ? NULL :
+				config_get_value(ctx->cur_section, config_key,
+						 var_name, expand_parent, &var_type);
 			if (var_value == NULL) {
 				ctx->error = p_strconcat(ctx->pool,
 							 "Unknown variable: $",
@@ -1389,6 +1406,43 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 	}
 }
 
+static void
+config_parser_add_info(struct config_parser_context *ctx,
+		       unsigned int info_idx)
+{
+	const struct setting_parser_info *info = all_infos[info_idx];
+	struct config_parser_key *config_key, *old_config_key;
+	const char *name;
+
+	for (unsigned int i = 0; info->defines[i].key != NULL; i++) {
+		const struct setting_define *def = &info->defines[i];
+		if (!hash_table_lookup_full(ctx->all_keys, info->defines[i].key,
+					    &name, &old_config_key))
+			old_config_key = NULL;
+		else {
+			const struct setting_parser_info *old_info =
+				all_infos[old_config_key->info_idx];
+			const struct setting_define *old_def =
+				&old_info->defines[old_config_key->define_idx];
+			i_assert(strcmp(old_def->key, def->key) == 0);
+			if (old_def->type != def->type)
+				i_panic("Setting key '%s' type mismatch between infos %s and %s (%d != %d)",
+					def->key, old_info->name, info->name,
+					old_def->type, def->type);
+			if (old_def->flags != def->flags)
+				i_panic("Setting key '%s' flags mismatch between infos %s and %s (%d != %d)",
+					def->key, old_info->name, info->name,
+					old_def->flags, def->flags);
+		}
+		config_key = p_new(ctx->pool, struct config_parser_key, 1);
+		config_key->info_idx = info_idx;
+		config_key->define_idx = i;
+		if (old_config_key != NULL)
+			DLLIST_PREPEND(&old_config_key, config_key);
+		hash_table_update(ctx->all_keys, def->key, config_key);
+	}
+}
+
 int config_parse_file(const char *path, enum config_parse_flags flags,
 		      struct config_parsed **config_r,
 		      const char **error_r)
@@ -1420,6 +1474,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	ctx.hide_obsolete_warnings =
 		(flags & CONFIG_PARSE_FLAG_HIDE_OBSOLETE_WARNINGS) != 0;
 	ctx.delay_errors = (flags & CONFIG_PARSE_FLAG_DELAY_ERRORS) != 0;
+	hash_table_create(&ctx.all_keys, ctx.pool, 500, str_hash, strcmp);
 
 	for (count = 0; all_infos[count] != NULL; count++) ;
 	ctx.root_module_parsers =
@@ -1434,6 +1489,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 					     settings_parser_flags);
 		settings_parse_set_change_counter(ctx.root_module_parsers[i].parser,
 						  CONFIG_PARSER_CHANGE_EXPLICIT);
+		config_parser_add_info(&ctx, i);
 		for (unsigned int j = 0; j < i; j++) {
 			if (strcmp(all_infos[j]->name, all_infos[i]->name) == 0) {
 				/* Just fatal - it's difficult to continue
@@ -1503,6 +1559,7 @@ prevfile:
 
 	old_settings_handle_post(&ctx);
 	hash_table_destroy(&ctx.seen_settings);
+	hash_table_destroy(&ctx.all_keys);
 	str_free(&full_line);
 	if (ret == 0)
 		ret = config_parse_finish(&ctx, flags, config_r, error_r);
