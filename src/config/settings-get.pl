@@ -41,7 +41,7 @@ foreach my $file (@ARGV) {
   my $f;
   open($f, $file) || die "Can't open $file: $@";
   
-  my $state = 0;
+  my $state = "root";
   my $file_contents = "";
   my $externs = "";
   my $code = "";
@@ -50,50 +50,50 @@ foreach my $file (@ARGV) {
   
   while (<$f>) {
     my $write = 0;
-    if ($state == 0) {
+    if ($state eq "root") {
       if (/struct .*_settings \{/ ||
 	  /struct setting_define.*\{/ ||
 	  /struct .*_default_settings = \{/) {
-	$state++;
+	$state = "copy-to-end-of-block";
       } elsif (/^struct service_settings (.*) = \{/) {
-	$state++;
+	$state = "copy-to-end-of-block";
 	push @services, $1;
       } elsif (/^const struct setting_keyvalue (.*_defaults)\[\] = \{/) {
         $service_defaults{$1} = 1;
-        $state++;
+	$state = "copy-to-end-of-block";
       } elsif (/^const struct setting_parser_info (.*) = \{/) {
         $cur_name = $1;
         $parsers{$cur_name} = 1;
         if ($linked_file) {
           $externs .= "extern const struct setting_parser_info $cur_name;\n";
 	}
-	$state++;
+	$state = "copy-to-end-of-block";
       } elsif (/^extern const struct setting_parser_info (.*);/) {
 	$parsers{$1} = 1;
 	$externs .= "extern const struct setting_parser_info $1;\n";
       } elsif (/\/\* <settings checks> \*\//) {
-	$state = 4;
+	$state = "copy-to-end-of-settings-checks";
 	$code .= $_;
       }
       
       if (/#define.*DEF/ || /^#undef.*DEF/ || /ARRAY_DEFINE_TYPE.*_settings/) {
 	$write = 1;
-	$state = 2 if (/\\$/);
+	$state = "copy-to-end-of-macro" if (/\\$/);
       }
-    } elsif ($state == 2) {
+    } elsif ($state eq "copy-to-end-of-macro") {
       $write = 1;
-      $state = 0 if (!/\\$/);
-    } elsif ($state == 4) {
+      $state = "root" if (!/\\$/);
+    } elsif ($state eq "copy-to-end-of-settings-checks") {
       $code .= $_;
-      $state = 0 if (/\/\* <\/settings checks> \*\//);
+      $state = "root" if (/\/\* <\/settings checks> \*\//);
     }
 
-    if ($state == 1) {
+    if ($state eq "copy-to-end-of-block") {
       s/^static const (struct master_settings master_default_settings)/$1/;
 
       $write = 1;
       if (/};/) {
-	$state = 0;
+	$state = "root";
 	$cur_name = "";
       }
     }
