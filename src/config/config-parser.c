@@ -82,9 +82,13 @@ void config_parser_set_change_counter(struct config_parser_context *ctx,
 {
 	struct config_module_parser *module_parsers =
 		ctx->cur_section->module_parsers;
+
+	ctx->change_counter = change_counter;
 	for (unsigned int i = 0; module_parsers[i].info != NULL; i++) {
-		settings_parse_set_change_counter(module_parsers[i].parser,
-						  change_counter);
+		if (module_parsers[i].parser != NULL) {
+			settings_parse_set_change_counter(module_parsers[i].parser,
+							  change_counter);
+		}
 	}
 }
 
@@ -294,6 +298,13 @@ config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 	for (; config_key != NULL; config_key = config_key->next) {
 		struct config_module_parser *l =
 			&ctx->cur_section->module_parsers[config_key->info_idx];
+		if (l->parser == NULL) {
+			l->parser = settings_parser_init(ctx->pool,
+				all_infos[config_key->info_idx],
+				settings_parser_flags);
+			settings_parse_set_change_counter(l->parser,
+							  ctx->change_counter);
+		}
 		if (settings_parse_keyidx_value(l->parser,
 				config_key->define_idx, key, value) == 0) {
 			/* FIXME: remove once auth does support these. */
@@ -420,11 +431,8 @@ config_module_parsers_init(pool_t pool)
 
 	dest = p_new(pool, struct config_module_parser, count + 1);
 	for (i = 0; i < count; i++) {
+		/* create parser lazily */
 		dest[i].info = all_infos[i];
-		dest[i].parser = settings_parser_init(pool, all_infos[i],
-						      settings_parser_flags);
-		settings_parse_set_change_counter(dest[i].parser,
-						  CONFIG_PARSER_CHANGE_EXPLICIT);
 	}
 	return dest;
 }
@@ -740,6 +748,8 @@ config_filter_parser_check(struct config_parser_context *ctx,
 
 	tmp_pool = pool_alloconly_create(MEMPOOL_GROWING"config parsers check", 1024);
 	for (p = filter_parser->module_parsers; p->info != NULL; p++) {
+		if (p->parser == NULL)
+			continue;
 		p_clear(tmp_pool);
 		struct setting_parser_context *tmp_parser =
 			settings_parser_dup(p->parser, tmp_pool);
@@ -779,7 +789,9 @@ get_str_setting(struct config_filter_parser *parser, const char *key,
 	enum setting_type set_type;
 
 	module_parser = parser->module_parsers;
-	for (; module_parser->parser != NULL; module_parser++) {
+	for (; module_parser->info != NULL; module_parser++) {
+		if (module_parser->parser == NULL)
+			continue;
 		const char *lookup_key = key;
 		set_value = settings_parse_get_value(module_parser->parser,
 						     &lookup_key, &set_type);
@@ -1195,12 +1207,14 @@ config_get_value(struct config_section_stack *section,
 		&section->module_parsers[config_key->info_idx];
 	const void *value;
 
-	value = settings_parse_get_value(l->parser, &key, type_r);
-	i_assert(value != NULL);
+	if (l->parser != NULL) {
+		value = settings_parse_get_value(l->parser, &key, type_r);
+		i_assert(value != NULL);
 
-	if (!expand_parent || section->prev == NULL ||
-	    settings_parse_get_change_counter(l->parser, key) != 0)
-		return value;
+		if (!expand_parent || section->prev == NULL ||
+		    settings_parse_get_change_counter(l->parser, key) != 0)
+			return value;
+	}
 
 	/* not changed by this parser. maybe parent has. */
 	return config_get_value(section->prev, config_key, key, TRUE, type_r);

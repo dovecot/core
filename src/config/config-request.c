@@ -414,8 +414,7 @@ int config_export_parser(struct config_export_context *ctx,
 		*error_r = module_parser->delayed_error;
 		return -1;
 	}
-
-	T_BEGIN {
+	if (module_parser->parser != NULL) T_BEGIN {
 		void *set = settings_parser_get_set(module_parser->parser);
 		settings_export(ctx, module_parser->info, set,
 				settings_parser_get_changes(module_parser->parser));

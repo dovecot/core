@@ -58,6 +58,7 @@ struct config_parser_context {
 	struct config_module_parser *root_module_parsers;
 	struct config_section_stack *cur_section;
 	struct input_stack *cur_input;
+	uint8_t change_counter;
 
 	string_t *key_path, *value;
 	const char *error;
