@@ -67,7 +67,7 @@ foreach my $file (@ARGV) {
         if ($linked_file) {
           $externs .= "extern const struct setting_parser_info $cur_name;\n";
 	}
-	$state++ if ($cur_name !~ /^\*default_/);
+	$state++;
       } elsif (/^extern const struct setting_parser_info (.*);/) {
 	$parsers{$1} = 1;
 	$externs .= "extern const struct setting_parser_info $1;\n";
