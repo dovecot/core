@@ -45,8 +45,6 @@ foreach my $file (@ARGV) {
   my $file_contents = "";
   my $externs = "";
   my $code = "";
-  my %funcs;
-  my $cur_name = "";
   
   while (<$f>) {
     my $write = 0;
@@ -62,7 +60,7 @@ foreach my $file (@ARGV) {
         $service_defaults{$1} = 1;
 	$state = "copy-to-end-of-block";
       } elsif (/^const struct setting_parser_info (.*) = \{/) {
-        $cur_name = $1;
+        my $cur_name = $1;
         $parsers{$cur_name} = 1;
         if ($linked_file) {
           $externs .= "extern const struct setting_parser_info $cur_name;\n";
@@ -94,7 +92,6 @@ foreach my $file (@ARGV) {
       $write = 1;
       if (/};/) {
 	$state = "root";
-	$cur_name = "";
       }
     }
   
