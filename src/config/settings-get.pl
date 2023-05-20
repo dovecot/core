@@ -87,8 +87,6 @@ foreach my $file (@ARGV) {
     }
 
     if ($state eq "copy-to-end-of-block") {
-      s/^static const (struct master_settings master_default_settings)/$1/;
-
       $write = 1;
       if (/};/) {
 	$state = "root";
