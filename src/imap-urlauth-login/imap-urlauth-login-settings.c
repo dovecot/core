@@ -44,15 +44,8 @@ static const struct setting_define imap_urlauth_login_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static const struct setting_parser_info *imap_urlauth_login_setting_dependencies[] = {
-	&login_setting_parser_info,
-	NULL
-};
-
 const struct setting_parser_info imap_urlauth_login_setting_parser_info = {
 	.name = "imap_urlauth_login",
 
 	.defines = imap_urlauth_login_setting_defines,
-
-	.dependencies = imap_urlauth_login_setting_dependencies
 };

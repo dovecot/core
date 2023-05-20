@@ -71,10 +71,6 @@ const struct imap_urlauth_settings imap_urlauth_default_settings = {
 	.imap_urlauth_stream_user = NULL
 };
 
-static const struct setting_parser_info *imap_urlauth_setting_dependencies[] = {
-	NULL
-};
-
 const struct setting_parser_info imap_urlauth_setting_parser_info = {
 	.name = "imap_urlauth",
 
@@ -83,5 +79,4 @@ const struct setting_parser_info imap_urlauth_setting_parser_info = {
 
 	.struct_size = sizeof(struct imap_urlauth_settings),
 	.pool_offset1 = 1 + offsetof(struct imap_urlauth_settings, pool),
-	.dependencies = imap_urlauth_setting_dependencies
 };

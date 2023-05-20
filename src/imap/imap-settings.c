@@ -107,12 +107,6 @@ static const struct imap_settings imap_default_settings = {
 	.imap_urlauth_port = 143
 };
 
-static const struct setting_parser_info *imap_setting_dependencies[] = {
-	&mail_user_setting_parser_info,
-	&smtp_submit_setting_parser_info,
-	NULL
-};
-
 const struct setting_parser_info imap_setting_parser_info = {
 	.name = "imap",
 
@@ -122,7 +116,6 @@ const struct setting_parser_info imap_setting_parser_info = {
 	.struct_size = sizeof(struct imap_settings),
 	.pool_offset1 = 1 + offsetof(struct imap_settings, pool),
 	.check_func = imap_settings_verify,
-	.dependencies = imap_setting_dependencies
 };
 
 /* <settings checks> */

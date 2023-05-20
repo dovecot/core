@@ -114,11 +114,6 @@ const struct doveadm_settings doveadm_default_settings = {
 	.plugin_envs = ARRAY_INIT
 };
 
-static const struct setting_parser_info *doveadm_setting_dependencies[] = {
-	&mail_user_setting_parser_info,
-	NULL
-};
-
 const struct setting_parser_info doveadm_setting_parser_info = {
 	.name = "doveadm",
 
@@ -128,7 +123,6 @@ const struct setting_parser_info doveadm_setting_parser_info = {
 	.struct_size = sizeof(struct doveadm_settings),
 	.pool_offset1 = 1 + offsetof(struct doveadm_settings, pool),
 	.check_func = doveadm_settings_check,
-	.dependencies = doveadm_setting_dependencies
 };
 
 const struct doveadm_settings *doveadm_settings;

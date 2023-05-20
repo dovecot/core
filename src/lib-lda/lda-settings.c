@@ -40,12 +40,6 @@ static const struct lda_settings lda_default_settings = {
 	.lda_mailbox_autosubscribe = FALSE
 };
 
-static const struct setting_parser_info *lda_setting_dependencies[] = {
-	&mail_user_setting_parser_info,
-	&smtp_submit_setting_parser_info,
-	NULL
-};
-
 const struct setting_parser_info lda_setting_parser_info = {
 	.name = "lda",
 
@@ -57,7 +51,6 @@ const struct setting_parser_info lda_setting_parser_info = {
 #ifndef CONFIG_BINARY
 	.check_func = lda_settings_check,
 #endif
-	.dependencies = lda_setting_dependencies
 };
 
 static bool lda_settings_check(void *_set, pool_t pool,

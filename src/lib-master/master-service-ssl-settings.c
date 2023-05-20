@@ -91,11 +91,6 @@ static const struct master_service_ssl_server_settings master_service_ssl_server
 	.ssl_dh = "",
 };
 
-static const struct setting_parser_info *master_service_ssl_server_setting_dependencies[] = {
-	&master_service_ssl_setting_parser_info,
-	NULL
-};
-
 const struct setting_parser_info master_service_ssl_server_setting_parser_info = {
 	.name = "master_service_ssl_server",
 
@@ -104,7 +99,6 @@ const struct setting_parser_info master_service_ssl_server_setting_parser_info =
 
 	.pool_offset1 = 1 + offsetof(struct master_service_ssl_server_settings, pool),
 	.struct_size = sizeof(struct master_service_ssl_server_settings),
-	.dependencies = master_service_ssl_server_setting_dependencies,
 };
 
 /* <settings checks> */

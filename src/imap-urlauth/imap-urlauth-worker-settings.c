@@ -65,11 +65,6 @@ const struct imap_urlauth_worker_settings imap_urlauth_worker_default_settings =
 	.imap_urlauth_port = 143
 };
 
-static const struct setting_parser_info *imap_urlauth_worker_setting_dependencies[] = {
-	&mail_user_setting_parser_info,
-	NULL
-};
-
 const struct setting_parser_info imap_urlauth_worker_setting_parser_info = {
 	.name = "imap_urlauth_worker",
 
@@ -78,5 +73,4 @@ const struct setting_parser_info imap_urlauth_worker_setting_parser_info = {
 
 	.struct_size = sizeof(struct imap_urlauth_worker_settings),
 	.pool_offset1 = 1 + offsetof(struct imap_urlauth_worker_settings, pool),
-	.dependencies = imap_urlauth_worker_setting_dependencies
 };

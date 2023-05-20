@@ -55,15 +55,8 @@ static const struct setting_define pop3_login_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static const struct setting_parser_info *pop3_login_setting_dependencies[] = {
-	&login_setting_parser_info,
-	NULL
-};
-
 const struct setting_parser_info pop3_login_setting_parser_info = {
 	.name = "pop3_login",
 
 	.defines = pop3_login_setting_defines,
-
-	.dependencies = pop3_login_setting_dependencies
 };

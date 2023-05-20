@@ -70,13 +70,11 @@ foreach my $file (@ARGV) {
       } elsif (/^const struct setting_keyvalue (.*_defaults)\[\] = \{/) {
         $service_defaults{$1} = 1;
         $state++;
-      } elsif (/^(static )?const struct setting_parser_info (.*) = \{/) {
-	$cur_name = $2;
-	if (/^const/ && $cur_name !~ /^\*/) {
-	  $parsers{$cur_name} = 1;
-	  if ($linked_file) {
-	    $externs .= "extern const struct setting_parser_info $cur_name;\n";
-	  }
+      } elsif (/^const struct setting_parser_info (.*) = \{/) {
+        $cur_name = $1;
+        $parsers{$cur_name} = 1;
+        if ($linked_file) {
+          $externs .= "extern const struct setting_parser_info $cur_name;\n";
 	}
 	$state++ if ($cur_name !~ /^\*default_/);
       } elsif (/^extern const struct setting_parser_info (.*);/) {

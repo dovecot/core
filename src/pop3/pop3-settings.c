@@ -90,11 +90,6 @@ static const struct pop3_settings pop3_default_settings = {
 	.pop3_delete_type = "default:expunge:flag"
 };
 
-static const struct setting_parser_info *pop3_setting_dependencies[] = {
-	&mail_user_setting_parser_info,
-	NULL
-};
-
 const struct setting_parser_info pop3_setting_parser_info = {
 	.name = "pop3",
 
@@ -104,7 +99,6 @@ const struct setting_parser_info pop3_setting_parser_info = {
 	.struct_size = sizeof(struct pop3_settings),
 	.pool_offset1 = 1 + offsetof(struct pop3_settings, pool),
 	.check_func = pop3_settings_verify,
-	.dependencies = pop3_setting_dependencies
 };
 
 /* <settings checks> */

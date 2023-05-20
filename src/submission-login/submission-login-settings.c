@@ -77,11 +77,6 @@ static const struct submission_login_settings submission_login_default_settings 
 	.submission_backend_capabilities = NULL
 };
 
-static const struct setting_parser_info *submission_login_setting_dependencies[] = {
-	&login_setting_parser_info,
-	NULL
-};
-
 const struct setting_parser_info submission_login_setting_parser_info = {
 	.name = "submission_login",
 
@@ -91,7 +86,6 @@ const struct setting_parser_info submission_login_setting_parser_info = {
 	.struct_size = sizeof(struct submission_login_settings),
 	.pool_offset1 = 1 + offsetof(struct submission_login_settings, pool),
 	.check_func = submission_login_settings_check,
-	.dependencies = submission_login_setting_dependencies
 };
 
 /* <settings checks> */

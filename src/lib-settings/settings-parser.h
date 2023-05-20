@@ -118,7 +118,6 @@ struct setting_parser_info {
 	   settings structs. */
 	bool (*ext_check_func)(struct event *event, void *set, pool_t pool, const char **error_r);
 	bool (*expand_check_func)(void *set, pool_t pool, const char **error_r);
-	const struct setting_parser_info *const *dependencies;
 
 };
 ARRAY_DEFINE_TYPE(setting_parser_info, struct setting_parser_info);

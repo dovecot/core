@@ -95,11 +95,6 @@ static const struct lmtp_settings lmtp_default_settings = {
 	.mail_plugin_dir = MODULEDIR,
 };
 
-static const struct setting_parser_info *lmtp_setting_dependencies[] = {
-	&lda_setting_parser_info,
-	NULL
-};
-
 const struct setting_parser_info lmtp_setting_parser_info = {
 	.name = "lmtp",
 
@@ -109,7 +104,6 @@ const struct setting_parser_info lmtp_setting_parser_info = {
 	.struct_size = sizeof(struct lmtp_settings),
 	.pool_offset1 = 1 + offsetof(struct lmtp_settings, pool),
 	.check_func = lmtp_settings_check,
-	.dependencies = lmtp_setting_dependencies
 };
 
 /* <settings checks> */

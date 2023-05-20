@@ -71,11 +71,6 @@ static const struct imap_login_settings imap_login_default_settings = {
 	.imap_id_retain = FALSE,
 };
 
-static const struct setting_parser_info *imap_login_setting_dependencies[] = {
-	&login_setting_parser_info,
-	NULL
-};
-
 const struct setting_parser_info imap_login_setting_parser_info = {
 	.name = "imap_login",
 
@@ -84,5 +79,4 @@ const struct setting_parser_info imap_login_setting_parser_info = {
 
 	.struct_size = sizeof(struct imap_login_settings),
 	.pool_offset1 = 1 + offsetof(struct imap_login_settings, pool),
-	.dependencies = imap_login_setting_dependencies
 };
