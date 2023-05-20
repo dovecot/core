@@ -1573,7 +1573,7 @@ void config_parse_load_modules(void)
 	i_array_init(&new_services, 64);
 	for (m = modules; m != NULL; m = m->next) {
 		infos = module_get_symbol_quiet(m,
-			t_strdup_printf("%s_set_roots", m->name));
+			t_strdup_printf("%s_set_infos", m->name));
 		if (infos != NULL) {
 			for (i = 0; infos[i] != NULL; i++)
 				array_push_back(&new_infos, &infos[i]);
