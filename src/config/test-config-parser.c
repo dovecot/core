@@ -75,7 +75,7 @@ static const struct setting_parser_info *const roots[] = {
 	NULL
 };
 
-const struct setting_parser_info *const *all_roots = roots;
+const struct setting_parser_info *const *all_infos = roots;
 
 static void write_config_file(const char *contents)
 {

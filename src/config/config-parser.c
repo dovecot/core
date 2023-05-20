@@ -107,7 +107,7 @@ config_parser_add_service_default_struct(struct config_parser_context *ctx,
 					 unsigned int service_root_idx,
 					 const struct service_settings *default_set)
 {
-	const struct setting_parser_info *info = all_roots[service_root_idx];
+	const struct setting_parser_info *info = all_infos[service_root_idx];
 	string_t *value_str = t_str_new(64);
 	bool dump;
 
@@ -399,12 +399,12 @@ config_module_parsers_init(pool_t pool)
 	struct config_module_parser *dest;
 	unsigned int i, count;
 
-	for (count = 0; all_roots[count] != NULL; count++) ;
+	for (count = 0; all_infos[count] != NULL; count++) ;
 
 	dest = p_new(pool, struct config_module_parser, count + 1);
 	for (i = 0; i < count; i++) {
-		dest[i].root = all_roots[i];
-		dest[i].parser = settings_parser_init(pool, all_roots[i],
+		dest[i].root = all_infos[i];
+		dest[i].parser = settings_parser_init(pool, all_infos[i],
 						      settings_parser_flags);
 		settings_parse_set_change_counter(dest[i].parser,
 						  CONFIG_PARSER_CHANGE_EXPLICIT);
@@ -1421,26 +1421,26 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 		(flags & CONFIG_PARSE_FLAG_HIDE_OBSOLETE_WARNINGS) != 0;
 	ctx.delay_errors = (flags & CONFIG_PARSE_FLAG_DELAY_ERRORS) != 0;
 
-	for (count = 0; all_roots[count] != NULL; count++) ;
+	for (count = 0; all_infos[count] != NULL; count++) ;
 	ctx.root_module_parsers =
 		p_new(ctx.pool, struct config_module_parser, count+1);
 	unsigned int service_root_idx = UINT_MAX;
 	for (i = 0; i < count; i++) {
-		if (strcmp(all_roots[i]->name, "service") == 0)
+		if (strcmp(all_infos[i]->name, "service") == 0)
 			service_root_idx = i;
-		ctx.root_module_parsers[i].root = all_roots[i];
+		ctx.root_module_parsers[i].root = all_infos[i];
 		ctx.root_module_parsers[i].parser =
-			settings_parser_init(ctx.pool, all_roots[i],
+			settings_parser_init(ctx.pool, all_infos[i],
 					     settings_parser_flags);
 		settings_parse_set_change_counter(ctx.root_module_parsers[i].parser,
 						  CONFIG_PARSER_CHANGE_EXPLICIT);
 		for (unsigned int j = 0; j < i; j++) {
-			if (strcmp(all_roots[j]->name, all_roots[i]->name) == 0) {
+			if (strcmp(all_infos[j]->name, all_infos[i]->name) == 0) {
 				/* Just fatal - it's difficult to continue
 				   correctly here, and it's not supposed to
 				   happen. */
 				i_panic("Duplicate settings struct name: %s",
-					all_roots[i]->name);
+					all_infos[i]->name);
 			}
 		}
 	}
@@ -1598,10 +1598,10 @@ void config_parse_load_modules(void)
 	if (array_count(&new_roots) > 0) {
 		/* modules added new settings. add the defaults and start
 		   using the new list. */
-		for (i = 0; all_roots[i] != NULL; i++)
-			array_push_back(&new_roots, &all_roots[i]);
+		for (i = 0; all_infos[i] != NULL; i++)
+			array_push_back(&new_roots, &all_infos[i]);
 		array_append_zero(&new_roots);
-		all_roots = array_front(&new_roots);
+		all_infos = array_front(&new_roots);
 		roots_free_at_deinit = new_roots;
 	} else {
 		array_free(&new_roots);

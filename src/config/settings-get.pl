@@ -137,11 +137,11 @@ print "\t{ NULL, NULL }\n";
 print "};\n";
 
 # Write a list of all settings infos.
-print "const struct setting_parser_info *all_default_roots[] = {\n";
+print "const struct setting_parser_info *all_default_infos[] = {\n";
 foreach my $name (sort(keys %infos)) {
   print "\t&".$name.", \n";
 }
 print "\tNULL\n";
 print "};\n";
-print "const struct setting_parser_info *const *all_roots = all_default_roots;\n";
+print "const struct setting_parser_info *const *all_infos = all_default_infos;\n";
 print "const struct config_service *config_all_services = config_default_services;\n";
