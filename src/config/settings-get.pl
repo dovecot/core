@@ -50,33 +50,33 @@ foreach my $file (@ARGV) {
     my $write = 0;
     if ($state eq "root") {
       if (/struct .*_settings \{/ ||
-	  /struct setting_define.*\{/ ||
-	  /struct .*_default_settings = \{/) {
-	$state = "copy-to-end-of-block";
+          /struct setting_define.*\{/ ||
+          /struct .*_default_settings = \{/) {
+        $state = "copy-to-end-of-block";
       } elsif (/^struct service_settings (.*) = \{/) {
-	$state = "copy-to-end-of-block";
-	push @services, $1;
+        $state = "copy-to-end-of-block";
+        push @services, $1;
       } elsif (/^const struct setting_keyvalue (.*_defaults)\[\] = \{/) {
         $service_defaults{$1} = 1;
-	$state = "copy-to-end-of-block";
+        $state = "copy-to-end-of-block";
       } elsif (/^const struct setting_parser_info (.*) = \{/) {
         my $cur_name = $1;
         $parsers{$cur_name} = 1;
         if ($linked_file) {
           $externs .= "extern const struct setting_parser_info $cur_name;\n";
-	}
-	$state = "copy-to-end-of-block";
+        }
+        $state = "copy-to-end-of-block";
       } elsif (/^extern const struct setting_parser_info (.*);/) {
-	$parsers{$1} = 1;
-	$externs .= "extern const struct setting_parser_info $1;\n";
+        $parsers{$1} = 1;
+        $externs .= "extern const struct setting_parser_info $1;\n";
       } elsif (/\/\* <settings checks> \*\//) {
-	$state = "copy-to-end-of-settings-checks";
-	$code .= $_;
+        $state = "copy-to-end-of-settings-checks";
+        $code .= $_;
       }
       
       if (/#define.*DEF/ || /^#undef.*DEF/ || /ARRAY_DEFINE_TYPE.*_settings/) {
-	$write = 1;
-	$state = "copy-to-end-of-macro" if (/\\$/);
+        $write = 1;
+        $state = "copy-to-end-of-macro" if (/\\$/);
       }
     } elsif ($state eq "copy-to-end-of-macro") {
       $write = 1;
@@ -89,7 +89,7 @@ foreach my $file (@ARGV) {
     if ($state eq "copy-to-end-of-block") {
       $write = 1;
       if (/};/) {
-	$state = "root";
+        $state = "root";
       }
     }
   
