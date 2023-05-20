@@ -135,6 +135,8 @@ void settings_parser_unref(struct setting_parser_context **_ctx)
 {
 	struct setting_parser_context *ctx = *_ctx;
 
+	if (ctx == NULL)
+		return;
 	*_ctx = NULL;
 
 	i_assert(ctx->refcount > 0);
