@@ -702,12 +702,12 @@ config_dump_human(enum config_dump_scope scope,
 
 static const char *get_setting(const char *info_name, const char *name)
 {
-	struct config_module_parser *l;
+	const struct config_module_parser *l;
 	const struct setting_define *def;
 	const char *const *value;
 	const void *set;
 
-	for (l = config_module_parsers; l->info != NULL; l++) {
+	for (l = config_parsed_get_module_parsers(config); l->info != NULL; l++) {
 		if (strcmp(l->info->name, info_name) != 0)
 			continue;
 

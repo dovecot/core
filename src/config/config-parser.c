@@ -47,6 +47,7 @@ struct config_parser_key {
 struct config_parsed {
 	pool_t pool;
 	struct config_filter_parser *const *filter_parsers;
+	struct config_module_parser *module_parsers;
 	ARRAY_TYPE(const_string) errors;
 };
 
@@ -56,7 +57,6 @@ static const enum settings_parser_flags settings_parser_flags =
 	SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS |
 	SETTINGS_PARSER_FLAG_TRACK_CHANGES;
 
-struct config_module_parser *config_module_parsers;
 struct module *modules;
 void (*hook_config_parser_begin)(struct config_parser_context *ctx);
 int (*hook_config_parser_end)(struct config_parser_context *ctx,
@@ -1169,6 +1169,7 @@ config_parse_finish(struct config_parser_context *ctx,
 
 	array_append_zero(&ctx->all_filter_parsers);
 	new_config->filter_parsers = array_front(&ctx->all_filter_parsers);
+	new_config->module_parsers = ctx->root_module_parsers;
 
 	if (ret < 0)
 		;
@@ -1181,7 +1182,6 @@ config_parse_finish(struct config_parser_context *ctx,
 		config_parsed_free(&new_config);
 		return -1;
 	}
-	config_module_parsers = ctx->root_module_parsers;
 	*config_r = new_config;
 	return ret;
 }
@@ -1583,6 +1583,12 @@ struct config_filter_parser *const *
 config_parsed_get_filter_parsers(struct config_parsed *config)
 {
 	return config->filter_parsers;
+}
+
+const struct config_module_parser *
+config_parsed_get_module_parsers(struct config_parsed *config)
+{
+	return config->module_parsers;
 }
 
 void config_parsed_free(struct config_parsed **_config)
