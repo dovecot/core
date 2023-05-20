@@ -475,21 +475,6 @@ int settings_parse_keyidx_value_nodup(struct setting_parser_context *ctx,
 			      key, value, FALSE);
 }
 
-const char *settings_parse_unalias(struct setting_parser_context *ctx,
-				   const char *key)
-{
-	const struct setting_define *def;
-
-	if (!settings_find_key(ctx, key, FALSE, &def))
-		return NULL;
-
-	while (def->type == SET_ALIAS) {
-		i_assert(def != ctx->info->defines);
-		def--;
-	}
-	return def->key;
-}
-
 const void *
 settings_parse_get_value(struct setting_parser_context *ctx,
 			 const char **key, enum setting_type *type_r)

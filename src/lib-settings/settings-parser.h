@@ -143,10 +143,6 @@ void *settings_parser_get_changes(struct setting_parser_context *ctx);
 /* Return the last error. */
 const char *settings_parser_get_error(struct setting_parser_context *ctx);
 
-/* If key is an alias, return the primary key name. If key exists, return key
-   itself. If key doesn't exist, return NULL. */
-const char *settings_parse_unalias(struct setting_parser_context *ctx,
-				   const char *key);
 /* Returns pointer to value for a key, or NULL if not found. */
 const void *
 settings_parse_get_value(struct setting_parser_context *ctx,
