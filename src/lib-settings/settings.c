@@ -274,7 +274,6 @@ static void settings_mmap_free_blocks(struct settings_mmap *mmap)
 		i_free(block);
 	}
 	hash_table_iterate_deinit(&iter);
-	hash_table_clear(mmap->blocks, FALSE);
 }
 
 static int
@@ -312,8 +311,6 @@ settings_mmap_parse(struct settings_mmap *mmap,
 	}
 
 	/* <settings full size> */
-	settings_mmap_free_blocks(mmap);
-
 	size_t full_size_offset = eol - mmap_base + 1;
 	uint64_t settings_full_size =
 		be64_to_cpu_unaligned(mmap_base + full_size_offset);
