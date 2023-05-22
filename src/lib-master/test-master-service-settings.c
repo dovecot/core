@@ -76,52 +76,68 @@ static const struct {
 	       "\x00"), // trailing garbage so we can have NUL
 	  "'base settings error' points outside area" },
 
+	/* filter count is truncated */
+	{ DATA("DOVECOT-CONFIG\t1.0\n"
+	       "\x00\x00\x00\x00\x00\x00\x00\x16" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x0E" // block size
+	       "N\x00" // block name
+	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
+	       "\x00" // base settings error
+	       "\x00\x00\x00"), // filter count
+	  "Area too small when reading uint of 'filter count'" },
+
 	/* filter settings size is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x1A" // full size
-	       "\x00\x00\x00\x00\x00\x00\x00\x12" // block size
+	       "\x00\x00\x00\x00\x00\x00\x00\x1E" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x16" // block size
 	       "N\x00" // block name
 	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
 	       "\x00" // base settings error
+	       "\x00\x00\x00\x01" // filter count
 	       "\x00\x00\x00\x00\x00\x00\x00"), // filter settings size
 	  "Area too small when reading size of 'filter settings size'" },
+
 	/* filter settings size is zero */
-	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x1B" // full size
-	       "\x00\x00\x00\x00\x00\x00\x00\x13" // block size
-	       "N\x00" // block name
-	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
-	       "\x00" // base settings error
-	       "\x00\x00\x00\x00\x00\x00\x00\x00"), // filter settings size
-	  "'filter string' points outside area" },
-	/* filter string is not NUL-terminated */
-	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x1D" // full size
-	       "\x00\x00\x00\x00\x00\x00\x00\x15" // block size
-	       "N\x00" // block name
-	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
-	       "\x00" // base settings error
-	       "\x00\x00\x00\x00\x00\x00\x00\x01" // filter settings size
-	       "F" // filter string
-	       "\x00"), // trailing garbage so we can have NUL
-	  "'filter string' points outside area" },
-	/* filter error is missing */
-	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x1D" // full size
-	       "\x00\x00\x00\x00\x00\x00\x00\x15" // block size
-	       "N\x00" // block name
-	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
-	       "\x00" // base settings error
-	       "\x00\x00\x00\x00\x00\x00\x00\x02" // filter settings size
-	       "F\x00"), // filter string
-	  "'filter settings error' points outside area" },
-	/* filter error is not NUL-terminated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
 	       "\x00\x00\x00\x00\x00\x00\x00\x1F" // full size
 	       "\x00\x00\x00\x00\x00\x00\x00\x17" // block size
 	       "N\x00" // block name
 	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
 	       "\x00" // base settings error
+	       "\x00\x00\x00\x01" // filter count
+	       "\x00\x00\x00\x00\x00\x00\x00\x00"), // filter settings size
+	  "'filter string' points outside area" },
+	/* filter string is not NUL-terminated */
+	{ DATA("DOVECOT-CONFIG\t1.0\n"
+	       "\x00\x00\x00\x00\x00\x00\x00\x21" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x19" // block size
+	       "N\x00" // block name
+	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
+	       "\x00" // base settings error
+	       "\x00\x00\x00\x01" // filter count
+	       "\x00\x00\x00\x00\x00\x00\x00\x01" // filter settings size
+	       "F" // filter string
+	       "\x00"), // trailing garbage so we can have NUL
+	  "'filter string' points outside area" },
+	/* filter error is missing */
+	{ DATA("DOVECOT-CONFIG\t1.0\n"
+	       "\x00\x00\x00\x00\x00\x00\x00\x21" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x19" // block size
+	       "N\x00" // block name
+	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
+	       "\x00" // base settings error
+	       "\x00\x00\x00\x01" // filter count
+	       "\x00\x00\x00\x00\x00\x00\x00\x02" // filter settings size
+	       "F\x00"), // filter string
+	  "'filter settings error' points outside area" },
+	/* filter error is not NUL-terminated */
+	{ DATA("DOVECOT-CONFIG\t1.0\n"
+	       "\x00\x00\x00\x00\x00\x00\x00\x23" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x1B" // block size
+	       "N\x00" // block name
+	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
+	       "\x00" // base settings error
+	       "\x00\x00\x00\x01" // filter count
 	       "\x00\x00\x00\x00\x00\x00\x00\x03" // filter settings size
 	       "F\x00" // filter string
 	       "E" // filter error
@@ -129,11 +145,12 @@ static const struct {
 	  "'filter settings error' points outside area" },
 	/* invalid filter string */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x1E" // full size
-	       "\x00\x00\x00\x00\x00\x00\x00\x16" // block size
+	       "\x00\x00\x00\x00\x00\x00\x00\x22" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x1A" // block size
 	       "N\x00" // block name
 	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
 	       "\x00" // base settings error
+	       "\x00\x00\x00\x01" // filter count
 	       "\x00\x00\x00\x00\x00\x00\x00\x03" // filter settings size
 	       "F\x00" // filter string
 	       "\x00"), // filter error
@@ -141,11 +158,12 @@ static const struct {
 
 	/* Duplicate block name */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x27" // full size
-	       "\x00\x00\x00\x00\x00\x00\x00\x15" // block size
+	       "\x00\x00\x00\x00\x00\x00\x00\x2B" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x19" // block size
 	       "N\x00" // block name
 	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
 	       "\x00" // base settings error
+	       "\x00\x00\x00\x01" // filter count
 	       "\x00\x00\x00\x00\x00\x00\x00\x02" // filter settings size
 	       "\x00" // filter string
 	       "\x00" // filter error

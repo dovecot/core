@@ -34,7 +34,8 @@
        <NUL-terminated string: key>
        <NUL-terminated string: value>
 
-     Repeat until "settings block size" is reached:
+     <32bit big-endian: filter count>
+     Repeat for "filter count":
        <64bit big-endian: filter settings size>
        <NUL-terminated string: event filter>
        <NUL-terminated string: error string>
@@ -247,6 +248,7 @@ config_dump_full_sections(struct config_parsed *config,
 {
 	struct config_filter_parser *const *filters;
 	struct config_export_context *export_ctx;
+	uint32_t filter_count = 0;
 	int ret = 0;
 
 	filters = config_parsed_get_filter_parsers(config);
@@ -258,6 +260,10 @@ config_dump_full_sections(struct config_parsed *config,
 	struct dump_context dump_ctx = {
 		.output = output,
 	};
+
+	uoff_t filter_count_offset = output->offset;
+	if (dest != CONFIG_DUMP_FULL_DEST_STDOUT)
+		o_stream_nsend(output, &filter_count, sizeof(filter_count));
 
 	for (; *filters != NULL && ret == 0; filters++) T_BEGIN {
 		uoff_t start_offset = output->offset;
@@ -293,6 +299,8 @@ config_dump_full_sections(struct config_parsed *config,
 				ret = -1;
 		}
 		config_export_free(&export_ctx);
+		if (dump_ctx.filter_written)
+			filter_count++;
 	} T_END;
 
 	if (str_len(delayed_filter) > 0) {
@@ -303,6 +311,17 @@ config_dump_full_sections(struct config_parsed *config,
 		o_stream_nsend(output, "", 1); /* no error */
 		o_stream_nsend(output, str_data(delayed_filter),
 			       str_len(delayed_filter));
+		filter_count++;
+	}
+
+	filter_count = cpu32_to_be(filter_count);
+	if (dest != CONFIG_DUMP_FULL_DEST_STDOUT &&
+	    o_stream_pwrite(output, &filter_count, sizeof(filter_count),
+			    filter_count_offset) < 0) {
+		i_error("o_stream_pwrite(%s) failed: %s",
+			o_stream_get_name(output),
+			o_stream_get_error(output));
+		return -1;
 	}
 	return ret;
 }

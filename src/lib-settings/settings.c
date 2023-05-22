@@ -97,6 +97,24 @@ filter_string_parse_protocol(const char *filter_string,
 }
 
 static int
+settings_block_read_uint32(struct settings_mmap *mmap,
+			   size_t *offset, size_t end_offset,
+			   const char *name, uint32_t *num_r,
+			   const char **error_r)
+{
+	if (*offset + sizeof(*num_r) > end_offset) {
+		*error_r = t_strdup_printf(
+			"Area too small when reading uint of '%s' "
+			"(offset=%zu, end_offset=%zu, file_size=%zu)", name,
+			*offset, end_offset, mmap->mmap_size);
+		return -1;
+	}
+	*num_r = be32_to_cpu_unaligned(CONST_PTR_OFFSET(mmap->mmap_base, *offset));
+	*offset += sizeof(*num_r);
+	return 0;
+}
+
+static int
 settings_block_read_size(struct settings_mmap *mmap,
 			 size_t *offset, size_t end_offset,
 			 const char *name, uint64_t *size_r,
@@ -203,7 +221,16 @@ settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 	/* skip over the key-value pairs */
 	offset = block->base_end_offset;
 
+	/* <filter count> */
+	uint32_t filter_count;
+	if (settings_block_read_uint32(mmap, &offset, block_end_offset,
+				       "filter count", &filter_count,
+				       error_r) < 0)
+		return -1;
+	i_array_init(&block->filters, filter_count);
+
 	/* filters */
+	unsigned int filter_idx = 0;
 	while (offset < block_end_offset) {
 		/* <filter settings size> */
 		uint64_t filter_settings_size;
@@ -228,9 +255,6 @@ settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 					    &filter_error, error_r) < 0)
 			return -1;
 
-		if (!array_is_created(&block->filters))
-			i_array_init(&block->filters, 4);
-
 		struct settings_mmap_filter *config_filter =
 			array_append_space(&block->filters);
 		config_filter->filter = event_filter_create();
@@ -251,6 +275,12 @@ settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 
 		/* skip over the key-value pairs */
 		offset = filter_end_offset;
+		filter_idx++;
+	}
+	if (filter_idx != filter_count) {
+		*error_r = t_strdup_printf("Filter count mismatch: %u != %u",
+					   filter_idx, filter_count);
+		return -1;
 	}
 	i_assert(offset == block_end_offset);
 	*_offset = offset;
