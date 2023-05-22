@@ -242,7 +242,8 @@ config_dump_full_sections(struct config_parsed *config,
 			  struct ostream *output,
 			  enum config_dump_full_dest dest,
 			  unsigned int parser_idx,
-			  const struct setting_parser_info *info)
+			  const struct setting_parser_info *info,
+			  const string_t *delayed_filter)
 {
 	struct config_filter_parser *const *filters;
 	struct config_export_context *export_ctx;
@@ -293,6 +294,16 @@ config_dump_full_sections(struct config_parsed *config,
 		}
 		config_export_free(&export_ctx);
 	} T_END;
+
+	if (str_len(delayed_filter) > 0) {
+		uint64_t blob_size =
+			cpu64_to_be(2 + str_len(delayed_filter));
+		o_stream_nsend(output, &blob_size, sizeof(blob_size));
+		o_stream_nsend(output, "", 1); /* empty filter */
+		o_stream_nsend(output, "", 1); /* no error */
+		o_stream_nsend(output, str_data(delayed_filter),
+			       str_len(delayed_filter));
+	}
 	return ret;
 }
 
@@ -409,25 +420,15 @@ int config_dump_full(struct config_parsed *config,
 		int ret;
 		T_BEGIN {
 			ret = config_dump_full_sections(config, output,
-				dest, i, info);
+				dest, i, info, dump_ctx.delayed_output);
 		} T_END;
 		if (ret < 0)
 			break;
-		if (dump_ctx.delayed_output != NULL &&
-		    str_len(dump_ctx.delayed_output) > 0) {
-			uint64_t blob_size =
-				cpu64_to_be(2 + str_len(dump_ctx.delayed_output));
-			o_stream_nsend(output, &blob_size, sizeof(blob_size));
-			o_stream_nsend(output, "", 1); /* empty filter */
-			o_stream_nsend(output, "", 1); /* no error */
-			o_stream_nsend(output, str_data(dump_ctx.delayed_output),
-				       str_len(dump_ctx.delayed_output));
-			str_truncate(dump_ctx.delayed_output, 0);
-		}
 		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
 			if (output_blob_size(output, settings_block_size_offset) < 0)
 				break;
 		}
+		str_truncate(dump_ctx.delayed_output, 0);
 	}
 	bool failed = i < parser_count;
 	config_export_free(&export_ctx);
