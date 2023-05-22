@@ -41,6 +41,7 @@ struct settings_mmap_block {
 
 struct settings_mmap {
 	int refcount;
+	pool_t pool;
 	struct settings_root *root;
 
 	void *mmap_base;
@@ -196,7 +197,7 @@ settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 			block_name, block_size_offset);
 		return -1;
 	}
-	block = i_new(struct settings_mmap_block, 1);
+	block = p_new(mmap->pool, struct settings_mmap_block, 1);
 	block->name = block_name;
 	hash_table_insert(mmap->blocks, block->name, block);
 
@@ -227,7 +228,7 @@ settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 				       "filter count", &filter_count,
 				       error_r) < 0)
 		return -1;
-	i_array_init(&block->filters, filter_count);
+	p_array_init(&block->filters, mmap->pool, filter_count);
 
 	/* filters */
 	unsigned int filter_idx = 0;
@@ -299,9 +300,7 @@ static void settings_mmap_free_blocks(struct settings_mmap *mmap)
 			struct settings_mmap_filter *config_filter;
 			array_foreach_modifiable(&block->filters, config_filter)
 				event_filter_unref(&config_filter->filter);
-			array_free(&block->filters);
 		}
-		i_free(block);
 	}
 	hash_table_iterate_deinit(&iter);
 }
@@ -502,7 +501,7 @@ static void settings_mmap_unref(struct settings_mmap **_mmap)
 
 	if (munmap(mmap->mmap_base, mmap->mmap_size) < 0)
 		i_error("munmap(<config>) failed: %m");
-	i_free(mmap);
+	pool_unref(&mmap->pool);
 }
 
 int settings_read(struct settings_root *root, int fd, const char *path,
@@ -510,8 +509,10 @@ int settings_read(struct settings_root *root, int fd, const char *path,
 		  const char *const **specific_services_r,
 		  const char **error_r)
 {
-	struct settings_mmap *mmap = i_new(struct settings_mmap, 1);
+	pool_t pool = pool_alloconly_create("settings mmap", 1024*16);
+	struct settings_mmap *mmap = p_new(pool, struct settings_mmap, 1);
 	mmap->refcount = 1;
+	mmap->pool = pool;
 	mmap->mmap_base = mmap_ro_file(fd, &mmap->mmap_size);
 	if (mmap->mmap_base == MAP_FAILED)
 		i_fatal("Failed to read config: mmap(%s) failed: %m", path);
@@ -523,7 +524,7 @@ int settings_read(struct settings_root *root, int fd, const char *path,
 	settings_mmap_unref(&root->mmap);
 	mmap->root = root;
 	root->mmap = mmap;
-	hash_table_create(&mmap->blocks, default_pool, 0, str_hash, strcmp);
+	hash_table_create(&mmap->blocks, mmap->pool, 0, str_hash, strcmp);
 
 	return settings_mmap_parse(root->mmap, specific_services_r, error_r);
 }
@@ -642,7 +643,7 @@ settings_mmap_pool_create(struct settings_root *root,
 {
 	struct settings_mmap_pool *mpool;
 	pool_t parent_pool =
-		pool_alloconly_create("settings mmap", 256);
+		pool_alloconly_create("settings mmap pool", 256);
 
 	mpool = p_new(parent_pool, struct settings_mmap_pool, 1);
 	mpool->pool.v = &static_settings_mmap_pool_vfuncs;
