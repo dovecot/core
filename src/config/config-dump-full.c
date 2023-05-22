@@ -26,12 +26,16 @@
      <64bit big-endian: settings block size>
      <NUL-terminated string: setting block name>
 
+     <32bit big-endian: settings count>
+     <NUL-terminated string: key>[settings count]
+
      <64bit big-endian: base settings size>
      <NUL-terminated string: error string - if client attempts to access this
                              settings block, it must fail with this error.
 			     NUL = no error, followed by settings>
      Repeat until "base settings size" is reached:
-       <NUL-terminated string: key>
+       <32bit big-endian: key index number>
+       [<strlist key>]
        <NUL-terminated string: value>
 
      <32bit big-endian: filter count>
@@ -40,13 +44,16 @@
        <NUL-terminated string: event filter>
        <NUL-terminated string: error string>
        Repeat until "filter settings size" is reached:
-	 <NUL-terminated string: key>
+         <32bit big-endian: key index number>
+	 [<strlist key>]
 	 <NUL-terminated string: value>
 */
 
 struct dump_context {
 	struct ostream *output;
 	string_t *delayed_output;
+
+	const struct setting_parser_info *info;
 
 	const struct config_filter *filter;
 	bool filter_written;
@@ -155,6 +162,22 @@ config_dump_full_write_filter(struct ostream *output,
 }
 
 static void
+config_dump_full_write_keys(struct ostream *output,
+			    const struct setting_parser_info *info)
+{
+	unsigned int count;
+
+	for (count = 0; info->defines[count].key != NULL; count++) ;
+	uint32_t count_be32 = cpu32_to_be(count);
+	o_stream_nsend(output, &count_be32, sizeof(count_be32));
+
+	for (unsigned int i = 0; i < count; i++) {
+		const char *key = info->defines[i].key;
+		o_stream_nsend(output, key, strlen(key)+1);
+	}
+}
+
+static void
 config_dump_full_stdout_callback(const struct config_export_setting *set,
 				 struct dump_context *ctx)
 {
@@ -174,6 +197,11 @@ static void config_dump_full_callback(const struct config_export_setting *set,
 {
 	const char *suffix;
 
+	if (set->type == CONFIG_KEY_LIST) {
+		/* these aren't needed */
+		return;
+	}
+
 	if (!ctx->filter_written) {
 		uint64_t blob_size = UINT64_MAX;
 		o_stream_nsend(ctx->output, &blob_size, sizeof(blob_size));
@@ -182,6 +210,8 @@ static void config_dump_full_callback(const struct config_export_setting *set,
 		o_stream_nsend(ctx->output, "", 1); /* no error */
 		ctx->filter_written = TRUE;
 	}
+
+	uint32_t key_be32 = cpu32_to_be(set->key_define_idx);
 	if (ctx->delayed_output != NULL &&
 	    ((str_begins(set->key, "passdb", &suffix) &&
 	      (suffix[0] == '\0' || suffix[0] == '/')) ||
@@ -189,12 +219,25 @@ static void config_dump_full_callback(const struct config_export_setting *set,
 	      (suffix[0] == '\0' || suffix[0] == '/')))) {
 		/* For backwards compatibility: global passdbs and userdbs are
 		   added after per-protocol ones, not before. */
-		str_append_data(ctx->delayed_output, set->key,
-				strlen(set->key)+1);
+		str_append_data(ctx->delayed_output, &key_be32,
+				sizeof(key_be32));
 		str_append_data(ctx->delayed_output, set->value,
 				strlen(set->value)+1);
 	} else {
-		o_stream_nsend(ctx->output, set->key, strlen(set->key)+1);
+		o_stream_nsend(ctx->output, &key_be32, sizeof(key_be32));
+		const struct setting_define *def =
+			&ctx->info->defines[set->key_define_idx];
+		if (def->type == SET_STRLIST) {
+			const char *suffix;
+			if (!str_begins(set->key, def->key, &suffix) ||
+			    suffix[0] != '/')
+				i_unreached();
+			else {
+				suffix++;
+				o_stream_nsend(ctx->output, suffix,
+					       strlen(suffix) + 1);
+			}
+		}
 		o_stream_nsend(ctx->output, set->value, strlen(set->value)+1);
 	}
 }
@@ -259,6 +302,7 @@ config_dump_full_sections(struct config_parsed *config,
 
 	struct dump_context dump_ctx = {
 		.output = output,
+		.info = info,
 	};
 
 	uoff_t filter_count_offset = output->offset;
@@ -417,6 +461,8 @@ int config_dump_full(struct config_parsed *config,
 		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
 			o_stream_nsend(output, &blob_size, sizeof(blob_size));
 			o_stream_nsend(output, info->name, strlen(info->name)+1);
+
+			config_dump_full_write_keys(output, info);
 		} else {
 			o_stream_nsend_str(output,
 				t_strdup_printf("# %s\n", info->name));
@@ -427,6 +473,7 @@ int config_dump_full(struct config_parsed *config,
 			o_stream_nsend(output, &blob_size, sizeof(blob_size));
 			o_stream_nsend(output, "", 1); /* no error */
 		}
+		dump_ctx.info = info;
 		if (config_export_parser(export_ctx, i, &error) < 0) {
 			if (config_dump_full_handle_error(&dump_ctx, dest,
 					blob_size_offset, error) < 0)

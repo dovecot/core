@@ -33,10 +33,16 @@ struct settings_mmap_filter {
 
 struct settings_mmap_block {
 	const char *name;
+	size_t block_end_offset;
 
 	const char *error; /* if non-NULL, accessing the block must fail */
 	size_t base_start_offset, base_end_offset;
 	ARRAY(struct settings_mmap_filter) filters;
+
+	uint32_t settings_count;
+	size_t settings_keys_offset;
+	/* TRUE if settings have been validated against setting_parser_info */
+	bool settings_validated;
 };
 
 struct settings_mmap {
@@ -163,7 +169,7 @@ settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 {
 	uoff_t offset = *_offset;
 	size_t block_size_offset = offset;
-	const char *error;
+	const char *key, *error;
 
 	/* <block size> */
 	uint64_t block_size;
@@ -199,7 +205,21 @@ settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 	}
 	block = p_new(mmap->pool, struct settings_mmap_block, 1);
 	block->name = block_name;
+	block->block_end_offset = block_end_offset;
 	hash_table_insert(mmap->blocks, block->name, block);
+
+	/* <settings count> */
+	if (settings_block_read_uint32(mmap, &offset, block_end_offset,
+				       "settings count", &block->settings_count,
+				       error_r) < 0)
+		return -1;
+	block->settings_keys_offset = offset;
+	/* skip over the settings keys for now - they will be validated later */
+	for (uint32_t i = 0; i < block->settings_count; i++) {
+		if (settings_block_read_str(mmap, &offset, block_end_offset,
+					    "setting key", &key, error_r) < 0)
+			return -1;
+	}
 
 	/* <base settings size> */
 	uint64_t base_settings_size;
@@ -370,7 +390,9 @@ settings_mmap_parse(struct settings_mmap *mmap,
 
 static int
 settings_mmap_apply_blob(struct settings_mmap *mmap,
+			 struct settings_mmap_block *block,
 			 struct setting_parser_context *parser,
+			 const struct setting_parser_info *info,
 			 size_t start_offset, size_t end_offset,
 			 const char **error_r)
 {
@@ -380,8 +402,22 @@ settings_mmap_apply_blob(struct settings_mmap *mmap,
 	while (offset < end_offset) {
 		/* We already checked that settings blob ends with NUL, so
 		   strlen() can be used safely. */
-		const char *key = (const char *)mmap->mmap_base + offset;
-		offset += strlen(key)+1;
+		uint32_t key_idx = be32_to_cpu_unaligned(
+			CONST_PTR_OFFSET(mmap->mmap_base, offset));
+		if (key_idx >= block->settings_count) {
+			*error_r = t_strdup_printf(
+				"Settings key index too high (%u >= %u)",
+				key_idx, block->settings_count);
+			return -1;
+		}
+		offset += sizeof(key_idx);
+
+		const char *strlist_key = NULL;
+		if (info->defines[key_idx].type == SET_STRLIST) {
+			strlist_key = (const char *)mmap->mmap_base + offset;
+			offset += strlen(strlist_key)+1;
+		}
+
 		if (offset >= end_offset) {
 			/* if offset==end_offset, the value is missing. */
 			*error_r = t_strdup_printf(
@@ -401,15 +437,53 @@ settings_mmap_apply_blob(struct settings_mmap *mmap,
 		}
 		int ret;
 		T_BEGIN {
+			const char *key = info->defines[key_idx].key;
+			if (strlist_key != NULL)
+				key = t_strdup_printf("%s/%s", key, strlist_key);
 			/* value points to mmap()ed memory, which is kept
 			   referenced by the set_pool for the life time of the
 			   settings struct. */
-			ret = settings_parse_keyvalue_nodup(parser, key, value);
+			ret = settings_parse_keyidx_value_nodup(parser, key_idx,
+								key, value);
 			if (ret < 0)
 				*error_r = t_strdup(settings_parser_get_error(parser));
 		} T_END_PASS_STR_IF(ret < 0, error_r);
 		if (ret < 0)
 			return -1;
+	}
+	return 0;
+}
+
+static int settings_mmap_validate(struct settings_mmap *mmap,
+				  struct settings_mmap_block *block,
+				  const struct setting_parser_info *info,
+				  const char **error_r)
+{
+	size_t offset = block->settings_keys_offset;
+	const char *key;
+	uint32_t i;
+
+	for (i = 0; info->defines[i].key != NULL; i++) {
+		if (i >= block->settings_count)
+			break;
+		if (settings_block_read_str(mmap, &offset,
+					    block->block_end_offset,
+					    "setting key", &key, error_r) < 0) {
+			/* shouldn't happen - we already read it once */
+			return -1;
+		}
+		if (strcmp(info->defines[i].key, key) != 0) {
+			*error_r = t_strdup_printf(
+				"settings struct %s #%u key mismatch %s != %s",
+				info->name, i, info->defines[i].key, key);
+			return -1;
+		}
+	}
+	if (i != block->settings_count) {
+		*error_r = t_strdup_printf(
+			"settings struct %s count mismatch %u != %u",
+			info->name, i+1, block->settings_count);
+		return -1;
 	}
 	return 0;
 }
@@ -433,7 +507,13 @@ settings_mmap_apply(struct settings_mmap *mmap, struct event *event,
 		return -1;
 	}
 
-	if (settings_mmap_apply_blob(mmap, parser,
+	if (!block->settings_validated) {
+		if (settings_mmap_validate(mmap, block, info, error_r) < 0)
+			return -1;
+		block->settings_validated = TRUE;
+	}
+
+	if (settings_mmap_apply_blob(mmap, block, parser, info,
 				     block->base_start_offset,
 				     block->base_end_offset, error_r) < 0)
 		return -1;
@@ -467,7 +547,7 @@ settings_mmap_apply(struct settings_mmap *mmap, struct event *event,
 				    strcmp(filter_name, value) == 0)
 					seen_filter = TRUE;
 			}
-			if (settings_mmap_apply_blob(mmap, parser,
+			if (settings_mmap_apply_blob(mmap, block, parser, info,
 					config_filter->start_offset,
 					config_filter->end_offset,
 					error_r) < 0)

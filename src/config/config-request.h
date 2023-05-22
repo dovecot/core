@@ -33,6 +33,7 @@ enum config_key_type {
 struct config_export_setting {
 	enum config_key_type type;
 	const char *key;
+	unsigned int key_define_idx;
 	const char *value;
 };
 

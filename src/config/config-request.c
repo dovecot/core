@@ -187,13 +187,14 @@ settings_export(struct config_export_context *ctx,
 		const struct setting_parser_info *info,
 		const void *set, const void *change_set)
 {
-	const struct setting_define *def;
 	const void *value, *default_value, *change_value;
-	unsigned int i, count;
+	unsigned int i, count, define_idx;
 	const char *str;
 	bool dump, dump_default = FALSE;
 
-	for (def = info->defines; def->key != NULL; def++) {
+	for (define_idx = 0; info->defines[define_idx].key != NULL; define_idx++) {
+		const struct setting_define *def = &info->defines[define_idx];
+
 		value = CONST_PTR_OFFSET(set, def->offset);
 		default_value = info->defaults == NULL ? NULL :
 			CONST_PTR_OFFSET(info->defaults, def->offset);
@@ -270,6 +271,7 @@ settings_export(struct config_export_context *ctx,
 			struct config_export_setting export_set = {
 				.type = CONFIG_KEY_LIST,
 				.key = def->key,
+				.key_define_idx = define_idx,
 				.value = "",
 			};
 			ctx->callback(&export_set, ctx->context);
@@ -284,6 +286,7 @@ settings_export(struct config_export_context *ctx,
 				struct config_export_setting export_set = {
 					.type = CONFIG_KEY_NORMAL,
 					.key = str,
+					.key_define_idx = define_idx,
 					.value = strings[i+1],
 				};
 				ctx->callback(&export_set, ctx->context);
@@ -321,6 +324,7 @@ settings_export(struct config_export_context *ctx,
 				struct config_export_setting export_set = {
 					.type = type,
 					.key = def->key,
+					.key_define_idx = define_idx,
 					.value = str_c(ctx->value),
 				};
 				ctx->callback(&export_set, ctx->context);
