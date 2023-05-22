@@ -267,7 +267,12 @@ settings_export(struct config_export_context *ctx,
 				hash_table_insert(ctx->keys, def->key, def->key);
 
 			/* for doveconf -n to see this KEY_LIST */
-			ctx->callback(def->key, "", CONFIG_KEY_LIST, ctx->context);
+			struct config_export_setting export_set = {
+				.type = CONFIG_KEY_LIST,
+				.key = def->key,
+				.value = "",
+			};
+			ctx->callback(&export_set, ctx->context);
 
 			strings = array_get(val, &count);
 			i_assert(count % 2 == 0);
@@ -276,8 +281,12 @@ settings_export(struct config_export_context *ctx,
 						      def->key,
 						      SETTINGS_SEPARATOR,
 						      strings[i]);
-				ctx->callback(str, strings[i+1],
-					      CONFIG_KEY_NORMAL, ctx->context);
+				struct config_export_setting export_set = {
+					.type = CONFIG_KEY_NORMAL,
+					.key = str,
+					.value = strings[i+1],
+				};
+				ctx->callback(&export_set, ctx->context);
 			} T_END;
 			break;
 		}
@@ -309,8 +318,12 @@ settings_export(struct config_export_context *ctx,
 					type = CONFIG_KEY_FILTER_ARRAY;
 				else
 					type = CONFIG_KEY_NORMAL;
-				ctx->callback(def->key, str_c(ctx->value), type,
-					ctx->context);
+				struct config_export_setting export_set = {
+					.type = type,
+					.key = def->key,
+					.value = str_c(ctx->value),
+				};
+				ctx->callback(&export_set, ctx->context);
 				if ((ctx->flags & CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS) != 0)
 					hash_table_insert(ctx->keys, def->key, def->key);
 			}

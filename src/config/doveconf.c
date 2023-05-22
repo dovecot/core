@@ -58,18 +58,19 @@ static const char *const secrets[] = {
 
 
 static void
-config_request_get_strings(const char *key, const char *value,
-			   enum config_key_type type, void *context)
+config_request_get_strings(const struct config_export_setting *set,
+			   void *context)
 {
 	struct config_dump_human_context *ctx = context;
+	const char *value;
 
-	switch (type) {
+	switch (set->type) {
 	case CONFIG_KEY_NORMAL:
-		value = p_strdup_printf(ctx->pool, "%s=%s", key, value);
+		value = p_strdup_printf(ctx->pool, "%s=%s", set->key, set->value);
 		break;
 	case CONFIG_KEY_LIST:
 		value = p_strdup_printf(ctx->pool, LIST_KEY_PREFIX"%s=%s",
-					key, value);
+					set->key, set->value);
 		break;
 	case CONFIG_KEY_FILTER_ARRAY:
 		return;

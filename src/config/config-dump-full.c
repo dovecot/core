@@ -154,8 +154,7 @@ config_dump_full_write_filter(struct ostream *output,
 }
 
 static void
-config_dump_full_stdout_callback(const char *key, const char *value,
-				 enum config_key_type type ATTR_UNUSED,
+config_dump_full_stdout_callback(const struct config_export_setting *set,
 				 void *context)
 {
 	struct dump_context *ctx = context;
@@ -167,12 +166,11 @@ config_dump_full_stdout_callback(const char *key, const char *value,
 	}
 	T_BEGIN {
 		o_stream_nsend_str(ctx->output, t_strdup_printf(
-			"%s=%s\n", key, str_tabescape(value)));
+			"%s=%s\n", set->key, str_tabescape(set->value)));
 	} T_END;
 }
 
-static void config_dump_full_callback(const char *key, const char *value,
-				      enum config_key_type type ATTR_UNUSED,
+static void config_dump_full_callback(const struct config_export_setting *set,
 				      void *context)
 {
 	struct dump_context *ctx = context;
@@ -187,17 +185,19 @@ static void config_dump_full_callback(const char *key, const char *value,
 		ctx->filter_written = TRUE;
 	}
 	if (ctx->delayed_output != NULL &&
-	    ((str_begins(key, "passdb", &suffix) &&
+	    ((str_begins(set->key, "passdb", &suffix) &&
 	      (suffix[0] == '\0' || suffix[0] == '/')) ||
-	     (str_begins(key, "userdb", &suffix) &&
+	     (str_begins(set->key, "userdb", &suffix) &&
 	      (suffix[0] == '\0' || suffix[0] == '/')))) {
 		/* For backwards compatibility: global passdbs and userdbs are
 		   added after per-protocol ones, not before. */
-		str_append_data(ctx->delayed_output, key, strlen(key)+1);
-		str_append_data(ctx->delayed_output, value, strlen(value)+1);
+		str_append_data(ctx->delayed_output, set->key,
+				strlen(set->key)+1);
+		str_append_data(ctx->delayed_output, set->value,
+				strlen(set->value)+1);
 	} else {
-		o_stream_nsend(ctx->output, key, strlen(key)+1);
-		o_stream_nsend(ctx->output, value, strlen(value)+1);
+		o_stream_nsend(ctx->output, set->key, strlen(set->key)+1);
+		o_stream_nsend(ctx->output, set->value, strlen(set->value)+1);
 	}
 }
 

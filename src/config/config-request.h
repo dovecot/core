@@ -30,8 +30,14 @@ enum config_key_type {
 	CONFIG_KEY_FILTER_ARRAY,
 };
 
-typedef void config_request_callback_t(const char *key, const char *value,
-				       enum config_key_type type, void *context);
+struct config_export_setting {
+	enum config_key_type type;
+	const char *key;
+	const char *value;
+};
+
+typedef void config_request_callback_t(const struct config_export_setting *set,
+				       void *context);
 
 bool config_export_type(string_t *str, const void *value,
 			const void *default_value,
