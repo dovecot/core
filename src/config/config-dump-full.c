@@ -22,6 +22,10 @@
 
    "DOVECOT-CONFIG\t1.0\n"
    <64bit big-endian: settings full size>
+
+   <32bit big-endian: event filter strings count>
+   <NUL-terminated string: event filter string>[count]
+
    Repeat until "settings full size" is reached:
      <64bit big-endian: settings block size>
      <NUL-terminated string: setting block name>
@@ -41,7 +45,7 @@
      <32bit big-endian: filter count>
      Repeat for "filter count":
        <64bit big-endian: filter settings size>
-       <NUL-terminated string: event filter>
+       <32bit big-endian: event filter string index number>
        <NUL-terminated string: error string>
        Repeat until "filter settings size" is reached:
          <32bit big-endian: key index number>
@@ -56,6 +60,7 @@ struct dump_context {
 	const struct setting_parser_info *info;
 
 	const struct config_filter *filter;
+	unsigned int filter_idx;
 	bool filter_written;
 };
 
@@ -129,12 +134,8 @@ config_dump_full_append_filter_query(string_t *str,
 
 static void
 config_dump_full_append_filter(string_t *str,
-			       const struct config_filter *filter,
-			       enum config_dump_full_dest dest)
+			       const struct config_filter *filter)
 {
-	if (dest == CONFIG_DUMP_FULL_DEST_STDOUT)
-		str_append(str, ":FILTER ");
-	unsigned int prefix_len = str_len(str);
 	bool leaf = TRUE;
 
 	do {
@@ -143,22 +144,31 @@ config_dump_full_append_filter(string_t *str,
 		filter = filter->parent;
 	} while (filter != NULL);
 
-	i_assert(str_len(str) > prefix_len);
-	str_delete(str, str_len(str) - 4, 4);
-	if (dest == CONFIG_DUMP_FULL_DEST_STDOUT)
-		str_append_c(str, '\n');
-	else
-		str_append_c(str, '\0');
+	str_truncate(str, str_len(str) - 5);
 }
 
 static void
-config_dump_full_write_filter(struct ostream *output,
-			      const struct config_filter *filter,
-			      enum config_dump_full_dest dest)
+config_dump_full_write_filters(struct ostream *output,
+			       struct config_parsed *config)
 {
+	struct config_filter_parser *const *filters =
+		config_parsed_get_filter_parsers(config);
+	unsigned int i, filter_count = 0;
+
+	while (filters[filter_count] != NULL) filter_count++;
+
+	uint32_t filter_count_be32 = cpu32_to_be(filter_count);
+	o_stream_nsend(output, &filter_count_be32, sizeof(filter_count_be32));
+
+	/* the first filter is the global empty filter */
+	o_stream_nsend(output, "", 1);
 	string_t *str = t_str_new(128);
-	config_dump_full_append_filter(str, filter, dest);
-	o_stream_nsend(output, str_data(str), str_len(str));
+	for (i = 1; i < filter_count; i++) {
+		str_truncate(str, 0);
+		config_dump_full_append_filter(str, &filters[i]->filter);
+		str_append_c(str, '\0');
+		o_stream_nsend(output, str_data(str), str_len(str));
+	}
 }
 
 static void
@@ -182,8 +192,11 @@ config_dump_full_stdout_callback(const struct config_export_setting *set,
 				 struct dump_context *ctx)
 {
 	if (!ctx->filter_written) {
-		config_dump_full_write_filter(ctx->output, ctx->filter,
-					      CONFIG_DUMP_FULL_DEST_STDOUT);
+		string_t *str = t_str_new(128);
+		str_append(str, ":FILTER ");
+		config_dump_full_append_filter(str, ctx->filter);
+		str_append_c(str, '\n');
+		o_stream_nsend(ctx->output, str_data(str), str_len(str));
 		ctx->filter_written = TRUE;
 	}
 	T_BEGIN {
@@ -205,8 +218,9 @@ static void config_dump_full_callback(const struct config_export_setting *set,
 	if (!ctx->filter_written) {
 		uint64_t blob_size = UINT64_MAX;
 		o_stream_nsend(ctx->output, &blob_size, sizeof(blob_size));
-		config_dump_full_write_filter(ctx->output, ctx->filter,
-					      CONFIG_DUMP_FULL_DEST_RUNDIR);
+		uint32_t filter_idx_be32 = cpu32_to_be(ctx->filter_idx);
+		o_stream_nsend(ctx->output, &filter_idx_be32,
+			       sizeof(filter_idx_be32));
 		o_stream_nsend(ctx->output, "", 1); /* no error */
 		ctx->filter_written = TRUE;
 	}
@@ -270,8 +284,11 @@ config_dump_full_handle_error(struct dump_context *dump_ctx,
 	}
 
 	string_t *str = t_str_new(256);
-	if (dump_ctx->filter != NULL)
-		config_dump_full_append_filter(str, dump_ctx->filter, dest);
+	if (dump_ctx->filter != NULL) {
+		uint32_t filter_idx_be32 = cpu32_to_be(dump_ctx->filter_idx);
+		o_stream_nsend(output, &filter_idx_be32,
+			       sizeof(filter_idx_be32));
+	}
 	str_append(str, error);
 	str_append_c(str, '\0');
 
@@ -298,7 +315,6 @@ config_dump_full_sections(struct config_parsed *config,
 
 	/* first filter should be the global one */
 	i_assert(filters[0] != NULL && filters[0]->filter.service == NULL);
-	filters++;
 
 	struct dump_context dump_ctx = {
 		.output = output,
@@ -309,10 +325,12 @@ config_dump_full_sections(struct config_parsed *config,
 	if (dest != CONFIG_DUMP_FULL_DEST_STDOUT)
 		o_stream_nsend(output, &filter_count, sizeof(filter_count));
 
-	for (; *filters != NULL && ret == 0; filters++) T_BEGIN {
+	for (unsigned int i = 1; filters[i] != NULL && ret == 0; i++) T_BEGIN {
+		const struct config_filter_parser *filter = filters[i];
 		uoff_t start_offset = output->offset;
 
-		dump_ctx.filter = &(*filters)->filter;
+		dump_ctx.filter = &filter->filter;
+		dump_ctx.filter_idx = i;
 		dump_ctx.filter_written = FALSE;
 		if (dest == CONFIG_DUMP_FULL_DEST_STDOUT) {
 			export_ctx = config_export_init(
@@ -326,7 +344,7 @@ config_dump_full_sections(struct config_parsed *config,
 				config_dump_full_callback, &dump_ctx);
 		}
 		config_export_set_module_parsers(export_ctx,
-						 (*filters)->module_parsers);
+						 filter->module_parsers);
 
 		const struct setting_parser_info *filter_info =
 			config_export_parser_get_info(export_ctx, parser_idx);
@@ -348,10 +366,11 @@ config_dump_full_sections(struct config_parsed *config,
 	} T_END;
 
 	if (str_len(delayed_filter) > 0) {
-		uint64_t blob_size =
-			cpu64_to_be(2 + str_len(delayed_filter));
+		uint32_t filter_idx = 0; /* empty/global filter */
+		uint64_t blob_size = cpu64_to_be(sizeof(filter_idx) + 1 +
+						 str_len(delayed_filter));
 		o_stream_nsend(output, &blob_size, sizeof(blob_size));
-		o_stream_nsend(output, "", 1); /* empty filter */
+		o_stream_nsend(output, &filter_idx, sizeof(filter_idx));
 		o_stream_nsend(output, "", 1); /* no error */
 		o_stream_nsend(output, str_data(delayed_filter),
 			       str_len(delayed_filter));
@@ -447,6 +466,8 @@ int config_dump_full(struct config_parsed *config,
 		o_stream_nsend_str(output, "DOVECOT-CONFIG\t1.0\n");
 		settings_full_size_offset = output->offset;
 		o_stream_nsend(output, &blob_size, sizeof(blob_size));
+
+		config_dump_full_write_filters(output, config);
 	}
 
 	unsigned int i, parser_count =

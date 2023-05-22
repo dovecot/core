@@ -24,8 +24,8 @@ struct settings_override {
 ARRAY_DEFINE_TYPE(settings_override, struct settings_override);
 
 struct settings_mmap_filter {
+	/* NULL = empty filter, which matches everything */
 	struct event_filter *filter;
-	bool empty_filter;
 
 	const char *error; /* if non-NULL, accessing the block must fail */
 	size_t start_offset, end_offset;
@@ -52,6 +52,9 @@ struct settings_mmap {
 
 	void *mmap_base;
 	size_t mmap_size;
+
+	struct event_filter **event_filters;
+	unsigned int event_filters_count;
 
 	HASH_TABLE(const char *, struct settings_mmap_block *) blocks;
 };
@@ -164,8 +167,45 @@ settings_block_read_str(struct settings_mmap *mmap,
 }
 
 static int
+settings_read_filters(struct settings_mmap *mmap, uoff_t *offset,
+		      ARRAY_TYPE(const_string) *protocols, const char **error_r)
+{
+	const char *filter_string, *error;
+
+	if (settings_block_read_uint32(mmap, offset, mmap->mmap_size,
+				       "filters count",
+				       &mmap->event_filters_count,
+				       error_r) < 0)
+		return -1;
+
+	mmap->event_filters = mmap->event_filters_count == 0 ? NULL :
+		p_new(mmap->pool, struct event_filter *, mmap->event_filters_count);
+
+	for (uint32_t i = 0; i < mmap->event_filters_count; i++) {
+		if (settings_block_read_str(mmap, offset, mmap->mmap_size,
+					    "filter string", &filter_string,
+					    error_r) < 0)
+			return -1;
+		if (filter_string[0] == '\0')
+			continue;
+
+		mmap->event_filters[i] = event_filter_create();
+		if (event_filter_parse_case_sensitive(filter_string,
+				mmap->event_filters[i], &error) < 0) {
+			*error_r = t_strdup_printf(
+				"Received invalid filter '%s' at index %u: %s",
+				filter_string, i, error);
+			return -1;
+		}
+
+		filter_string_parse_protocol(filter_string, protocols);
+	}
+	return 0;
+}
+
+static int
 settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
-		    ARRAY_TYPE(const_string) *protocols, const char **error_r)
+		    const char **error_r)
 {
 	uoff_t offset = *_offset;
 	size_t block_size_offset = offset;
@@ -261,12 +301,18 @@ settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 			return -1;
 		uint64_t filter_end_offset = offset + filter_settings_size;
 
-		/* <filter string> */
-		const char *filter_string;
-		if (settings_block_read_str(mmap, &offset,
-					    filter_end_offset, "filter string",
-					    &filter_string, error_r) < 0)
+		/* <filter string index number> */
+		uint32_t event_filter_idx;
+		if (settings_block_read_uint32(mmap, &offset, filter_end_offset,
+					       "filter string index",
+					       &event_filter_idx, error_r) < 0)
 			return -1;
+		if (event_filter_idx >= mmap->event_filters_count) {
+			*error_r = t_strdup_printf(
+				"Event filter index %u higher than count %u",
+				event_filter_idx, mmap->event_filters_count);
+			return -1;
+		}
 
 		/* <filter settings error string> */
 		const char *filter_error;
@@ -278,21 +324,11 @@ settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 
 		struct settings_mmap_filter *config_filter =
 			array_append_space(&block->filters);
-		config_filter->filter = event_filter_create();
-		config_filter->empty_filter = filter_string[0] == '\0';
+		config_filter->filter = mmap->event_filters[event_filter_idx];
 		config_filter->error = filter_error[0] == '\0' ?
 			NULL : filter_error;
 		config_filter->start_offset = offset;
 		config_filter->end_offset = filter_end_offset;
-
-		if (event_filter_parse_case_sensitive(filter_string,
-				config_filter->filter, &error) < 0) {
-			*error_r = t_strdup_printf(
-				"Received invalid filter '%s': %s (offset=%zu)",
-				filter_string, error, offset);
-			return -1;
-		}
-		filter_string_parse_protocol(filter_string, protocols);
 
 		/* skip over the key-value pairs */
 		offset = filter_end_offset;
@@ -306,23 +342,6 @@ settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 	i_assert(offset == block_end_offset);
 	*_offset = offset;
 	return 0;
-}
-
-static void settings_mmap_free_blocks(struct settings_mmap *mmap)
-{
-	struct hash_iterate_context *iter =
-		hash_table_iterate_init(mmap->blocks);
-	const char *name;
-	struct settings_mmap_block *block;
-
-	while (hash_table_iterate(iter, mmap->blocks, &name, &block)) {
-		if (array_is_created(&block->filters)) {
-			struct settings_mmap_filter *config_filter;
-			array_foreach_modifiable(&block->filters, config_filter)
-				event_filter_unref(&config_filter->filter);
-		}
-	}
-	hash_table_iterate_deinit(&iter);
 }
 
 static int
@@ -373,9 +392,11 @@ settings_mmap_parse(struct settings_mmap *mmap,
 	}
 
 	uoff_t offset = full_size_offset + sizeof(settings_full_size);
+	if (settings_read_filters(mmap, &offset, &protocols, error_r) < 0)
+		return -1;
+
 	do {
-		if (settings_block_read(mmap, &offset,
-					&protocols, error_r) < 0)
+		if (settings_block_read(mmap, &offset, error_r) < 0)
 			return -1;
 	} while (offset < mmap_size);
 
@@ -528,7 +549,7 @@ settings_mmap_apply(struct settings_mmap *mmap, struct event *event,
 	bool seen_filter = FALSE;
 	const struct settings_mmap_filter *config_filter;
 	array_foreach(&block->filters, config_filter) {
-		if (config_filter->empty_filter ||
+		if (config_filter->filter == NULL ||
 		    event_filter_match(config_filter->filter, event,
 				       &failure_ctx)) {
 			if (config_filter->error != NULL) {
@@ -576,7 +597,8 @@ static void settings_mmap_unref(struct settings_mmap **_mmap)
 	if (--mmap->refcount > 0)
 		return;
 
-	settings_mmap_free_blocks(mmap);
+	for (unsigned int i = 0; i < mmap->event_filters_count; i++)
+		event_filter_unref(&mmap->event_filters[i]);
 	hash_table_destroy(&mmap->blocks);
 
 	if (munmap(mmap->mmap_base, mmap->mmap_size) < 0)

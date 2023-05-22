@@ -28,25 +28,46 @@ static const struct {
 	{ DATA("DOVECOT-CONFIG\t1.0\n" // 19 bytes
 	       "\x00\x00\x00\x00\x00\x00\x00\x01"), // full size
 	  "Full size mismatch" },
+
+	/* event filter count is truncated */
+	{ DATA("DOVECOT-CONFIG\t1.0\n"
+	       "\x00\x00\x00\x00\x00\x00\x00\x04" // full size
+	       "\x00\x00\x00"), // event filter count
+	  "Full size mismatch" },
+
+	/* event filter strings are truncated */
+	{ DATA("DOVECOT-CONFIG\t1.0\n"
+	       "\x00\x00\x00\x00\x00\x00\x00\x04" // full size
+	       "\x00\x00\x10\x00"), // event filter count
+	  "'filter string' points outside area" },
+
 	/* full file size is 7 bytes, which makes the first block size
 	   truncated, since it needs 8 bytes */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x07" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x0C" // full size
+	       "\x00\x00\x00\x01" // event filter count
+	       "\x00" // event filter[0]
 	       "\x00\x00\x00\x00\x00\x00\x00"), // block size
 	  "Area too small when reading size of 'block size'" },
 	/* first block size is 0, which is too small */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x08" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x0D" // full size
+	       "\x00\x00\x00\x01" // event filter count
+	       "\x00" // event filter[0]
 	       "\x00\x00\x00\x00\x00\x00\x00\x00"), // block size
 	  "'block name' points outside area" },
 	/* first block size is 1, but full file size is too small */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x08" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x0D" // full size
+	       "\x00\x00\x00\x01" // event filter count
+	       "\x00" // event filter[0]
 	       "\x00\x00\x00\x00\x00\x00\x00\x01"), // block size
 	  "'block size' points outside are" },
 	/* block name is not NUL-terminated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x0A" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x0F" // full size
+	       "\x00\x00\x00\x01" // event filter count
+	       "\x00" // event filter[0]
 	       "\x00\x00\x00\x00\x00\x00\x00\x01" // block size
 	       "N"
 	       "\x00"), // trailing garbage so we can have NUL
@@ -54,7 +75,9 @@ static const struct {
 
 	/* settings count is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x0D" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x12" // full size
+	       "\x00\x00\x00\x01" // event filter count
+	       "\x00" // event filter[0]
 	       "\x00\x00\x00\x00\x00\x00\x00\x05" // block size
 	       "N\x00" // block name
 	       "\x00\x00\x00"),
@@ -62,7 +85,9 @@ static const struct {
 
 	/* settings keys are truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x0E" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x13" // full size
+	       "\x00\x00\x00\x01" // event filter count
+	       "\x00" // event filter[0]
 	       "\x00\x00\x00\x00\x00\x00\x00\x06" // block size
 	       "N\x00" // block name
 	       "\x00\x00\x01\x00"), // settings count
@@ -70,7 +95,9 @@ static const struct {
 
 	/* base settings size is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x17" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x1C" // full size
+	       "\x00\x00\x00\x01" // event filter count
+	       "\x00" // event filter[0]
 	       "\x00\x00\x00\x00\x00\x00\x00\x0F" // block size
 	       "N\x00" // block name
 	       "\x00\x00\x00\x01" // settings count
@@ -79,7 +106,9 @@ static const struct {
 	  "Area too small when reading size of 'base settings size'" },
 	/* base settings size is zero */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x18" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x1D" // full size
+	       "\x00\x00\x00\x01" // event filter count
+	       "\x00" // event filter[0]
 	       "\x00\x00\x00\x00\x00\x00\x00\x10" // block size
 	       "N\x00" // block name
 	       "\x00\x00\x00\x01" // settings count
@@ -88,7 +117,9 @@ static const struct {
 	  "'base settings error' points outside area" },
 	/* base settings error is not NUL-terminated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x1A" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x1F" // full size
+	       "\x00\x00\x00\x01" // event filter count
+	       "\x00" // event filter[0]
 	       "\x00\x00\x00\x00\x00\x00\x00\x12" // block size
 	       "N\x00" // block name
 	       "\x00\x00\x00\x01" // settings count
@@ -100,7 +131,9 @@ static const struct {
 
 	/* filter count is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x1C" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x21" // full size
+	       "\x00\x00\x00\x01" // event filter count
+	       "\x00" // event filter[0]
 	       "\x00\x00\x00\x00\x00\x00\x00\x14" // block size
 	       "N\x00" // block name
 	       "\x00\x00\x00\x01" // settings count
@@ -112,7 +145,9 @@ static const struct {
 
 	/* filter settings size is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x24" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x29" // full size
+	       "\x00\x00\x00\x01" // event filter count
+	       "\x00" // event filter[0]
 	       "\x00\x00\x00\x00\x00\x00\x00\x1B" // block size
 	       "N\x00" // block name
 	       "\x00\x00\x00\x01" // settings count
@@ -125,7 +160,9 @@ static const struct {
 
 	/* filter settings size is zero */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x25" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x2A" // full size
+	       "\x00\x00\x00\x01" // event filter count
+	       "\x00" // event filter[0]
 	       "\x00\x00\x00\x00\x00\x00\x00\x1D" // block size
 	       "N\x00" // block name
 	       "\x00\x00\x00\x01" // settings count
@@ -134,53 +171,12 @@ static const struct {
 	       "\x00" // base settings error
 	       "\x00\x00\x00\x01" // filter count
 	       "\x00\x00\x00\x00\x00\x00\x00\x00"), // filter settings size
-	  "'filter string' points outside area" },
-
-	/* filter string is not NUL-terminated */
+	  "Area too small when reading uint of 'filter string index'" },
+	/* event filter index is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x27" // full size
-	       "\x00\x00\x00\x00\x00\x00\x00\x1F" // block size
-	       "N\x00" // block name
-	       "\x00\x00\x00\x01" // settings count
-	       "K\x00" // setting[0] key
-	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
-	       "\x00" // base settings error
-	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x00\x01" // filter settings size
-	       "F" // filter string
-	       "\x00"), // trailing garbage so we can have NUL
-	  "'filter string' points outside area" },
-	/* filter error is missing */
-	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x27" // full size
-	       "\x00\x00\x00\x00\x00\x00\x00\x1F" // block size
-	       "N\x00" // block name
-	       "\x00\x00\x00\x01" // settings count
-	       "K\x00" // setting[0] key
-	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
-	       "\x00" // base settings error
-	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x00\x02" // filter settings size
-	       "F\x00"), // filter string
-	  "'filter settings error' points outside area" },
-	/* filter error is not NUL-terminated */
-	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x29" // full size
-	       "\x00\x00\x00\x00\x00\x00\x00\x21" // block size
-	       "N\x00" // block name
-	       "\x00\x00\x00\x01" // settings count
-	       "K\x00" // setting[0] key
-	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
-	       "\x00" // base settings error
-	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x00\x03" // filter settings size
-	       "F\x00" // filter string
-	       "E" // filter error
-	       "\x00"), // trailing garbage so we can have NUL
-	  "'filter settings error' points outside area" },
-	/* invalid filter string */
-	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x28" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x2D" // full size
+	       "\x00\x00\x00\x01" // event filter count
+	       "\x00" // event filter[0]
 	       "\x00\x00\x00\x00\x00\x00\x00\x20" // block size
 	       "N\x00" // block name
 	       "\x00\x00\x00\x01" // settings count
@@ -189,22 +185,71 @@ static const struct {
 	       "\x00" // base settings error
 	       "\x00\x00\x00\x01" // filter count
 	       "\x00\x00\x00\x00\x00\x00\x00\x03" // filter settings size
-	       "F\x00" // filter string
-	       "\x00"), // filter error
-	  "Received invalid filter 'F': event filter: syntax error" },
-
-	/* Duplicate block name */
+	       "\x00\x00\x00"), // event filter index
+	  "Area too small when reading uint of 'filter string index'" },
+	/* filter error is missing */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x31" // full size
-	       "\x00\x00\x00\x00\x00\x00\x00\x1F" // block size
+	       "\x00\x00\x00\x00\x00\x00\x00\x2E" // full size
+	       "\x00\x00\x00\x01" // event filter count
+	       "\x00" // event filter[0]
+	       "\x00\x00\x00\x00\x00\x00\x00\x21" // block size
 	       "N\x00" // block name
 	       "\x00\x00\x00\x01" // settings count
 	       "K\x00" // setting[0] key
 	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
 	       "\x00" // base settings error
 	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x00\x02" // filter settings size
-	       "\x00" // filter string
+	       "\x00\x00\x00\x00\x00\x00\x00\x04" // filter settings size
+	       "\x00\x00\x00\x00"), // event filter index
+	  "'filter settings error' points outside area" },
+	/* filter error is not NUL-terminated */
+	{ DATA("DOVECOT-CONFIG\t1.0\n"
+	       "\x00\x00\x00\x00\x00\x00\x00\x30" // full size
+	       "\x00\x00\x00\x01" // event filter count
+	       "\x00" // event filter[0]
+	       "\x00\x00\x00\x00\x00\x00\x00\x23" // block size
+	       "N\x00" // block name
+	       "\x00\x00\x00\x01" // settings count
+	       "K\x00" // setting[0] key
+	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
+	       "\x00" // base settings error
+	       "\x00\x00\x00\x01" // filter count
+	       "\x00\x00\x00\x00\x00\x00\x00\x05" // filter settings size
+	       "\x00\x00\x00\x00" // event filter index
+	       "E" // filter error
+	       "\x00"), // trailing garbage so we can have NUL
+	  "'filter settings error' points outside area" },
+	/* invalid filter string */
+	{ DATA("DOVECOT-CONFIG\t1.0\n"
+	       "\x00\x00\x00\x00\x00\x00\x00\x30" // full size
+	       "\x00\x00\x00\x01" // event filter count
+	       "F\x00" // event filter[0]
+	       "\x00\x00\x00\x00\x00\x00\x00\x22" // block size
+	       "N\x00" // block name
+	       "\x00\x00\x00\x01" // settings count
+	       "K\x00" // setting[0] key
+	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
+	       "\x00" // base settings error
+	       "\x00\x00\x00\x01" // filter count
+	       "\x00\x00\x00\x00\x00\x00\x00\x05" // filter settings size
+	       "\x00\x00\x00\x00" // event filter index
+	       "\x00"), // filter error
+	  "Received invalid filter 'F' at index 0: event filter: syntax error" },
+
+	/* Duplicate block name */
+	{ DATA("DOVECOT-CONFIG\t1.0\n"
+	       "\x00\x00\x00\x00\x00\x00\x00\x39" // full size
+	       "\x00\x00\x00\x01" // event filter count
+	       "\x00" // event filter[0]
+	       "\x00\x00\x00\x00\x00\x00\x00\x22" // block size
+	       "N\x00" // block name
+	       "\x00\x00\x00\x01" // settings count
+	       "K\x00" // setting[0] key
+	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
+	       "\x00" // base settings error
+	       "\x00\x00\x00\x01" // filter count
+	       "\x00\x00\x00\x00\x00\x00\x00\x05" // filter settings size
+	       "\x00\x00\x00\x00" // event filter index
 	       "\x00" // filter error
 	       "\x00\x00\x00\x00\x00\x00\x00\x02" // 2nd block size
 	       "N\x00"), // 2nd block name
