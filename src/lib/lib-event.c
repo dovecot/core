@@ -1086,12 +1086,11 @@ event_strlist_append(struct event *event, const char *key, const char *value)
 {
 	struct event_field *field = event_get_field(event, key, FALSE);
 
-	if (field->value_type != EVENT_FIELD_VALUE_TYPE_STRLIST)
-		i_zero(&field->value);
-	field->value_type = EVENT_FIELD_VALUE_TYPE_STRLIST;
-
-	if (!array_is_created(&field->value.strlist))
+	if (field->value_type != EVENT_FIELD_VALUE_TYPE_STRLIST ||
+	    !array_is_created(&field->value.strlist)) {
+		field->value_type = EVENT_FIELD_VALUE_TYPE_STRLIST;
 		p_array_init(&field->value.strlist, event->pool, 1);
+	}
 
 	/* lets not add empty values there though */
 	if (value == NULL)

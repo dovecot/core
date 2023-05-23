@@ -41,12 +41,14 @@ enum event_field_value_type {
 struct event_field {
 	const char *key;
 	enum event_field_value_type value_type;
-	struct {
+	union {
 		const char *str;
 		intmax_t intmax;
 		struct timeval timeval;
-		struct ip_addr ip;
-		unsigned int ip_bits; /* set for event filters */
+		struct {
+			struct ip_addr ip;
+			unsigned int ip_bits; /* set for event filters */
+		};
 		ARRAY_TYPE(const_string) strlist;
 	} value;
 };

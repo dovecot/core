@@ -99,6 +99,28 @@ void event_filter_unref(struct event_filter **_filter)
 	}
 }
 
+static const char *
+wanted_field_value_str(const struct event_field *wanted_field)
+{
+	switch (wanted_field->value_type) {
+	case EVENT_FIELD_VALUE_TYPE_STR:
+		return wanted_field->value.str;
+	case EVENT_FIELD_VALUE_TYPE_INTMAX:
+		return dec2str(wanted_field->value.intmax);
+	case EVENT_FIELD_VALUE_TYPE_IP: {
+		const char *str = net_ip2addr(&wanted_field->value.ip);
+		if (wanted_field->value.ip_bits ==
+		    IPADDR_BITS(&wanted_field->value.ip))
+			return str;
+		return t_strdup_printf("%s/%u", str, wanted_field->value.ip_bits);
+	}
+	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
+	case EVENT_FIELD_VALUE_TYPE_STRLIST:
+		break;
+	}
+	i_unreached();
+}
+
 /*
  * Look for an existing query with the same context pointer and return it.
  *
@@ -329,20 +351,32 @@ clone_expr(pool_t pool, struct event_filter_node *old)
 	default:
 		new->field.key = p_strdup(pool, old->field.key);
 		new->field.value_type = old->field.value_type;
-		new->field.value.str = p_strdup(pool, old->field.value.str);
-		new->field.value.intmax = old->field.value.intmax;
-		new->field.value.timeval = old->field.value.timeval;
-		new->field.value.ip = old->field.value.ip;
-		if (array_is_created(&old->field.value.strlist)) {
-			const char *str;
-			p_array_init(&new->field.value.strlist, pool,
-				     array_count(&old->field.value.strlist));
-			array_foreach_elem(&old->field.value.strlist, str) {
-				str = p_strdup(pool, str);
-				array_push_back(&new->field.value.strlist, &str);
+
+		switch (old->field.value_type) {
+		case EVENT_FIELD_VALUE_TYPE_STR:
+			new->field.value.str = p_strdup(pool, old->field.value.str);
+			break;
+		case EVENT_FIELD_VALUE_TYPE_INTMAX:
+			new->field.value.intmax = old->field.value.intmax;
+			break;
+		case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
+			new->field.value.timeval = old->field.value.timeval;
+			break;
+		case EVENT_FIELD_VALUE_TYPE_IP:
+			new->field.value.ip = old->field.value.ip;
+			break;
+		case EVENT_FIELD_VALUE_TYPE_STRLIST:
+			if (array_is_created(&old->field.value.strlist)) {
+				const char *str;
+				p_array_init(&new->field.value.strlist, pool,
+					     array_count(&old->field.value.strlist));
+				array_foreach_elem(&old->field.value.strlist, str) {
+					str = p_strdup(pool, str);
+					array_push_back(&new->field.value.strlist, &str);
+				}
 			}
+			break;
 		}
-		break;
 	}
 	new->ambiguous_unit = old->ambiguous_unit;
 	new->warned_ambiguous_unit = old->warned_ambiguous_unit;
@@ -502,7 +536,8 @@ event_filter_export_query_expr(const struct event_filter_query_internal *query,
 		str_append_c(dest, '"');
 		str_append(dest, event_filter_export_query_expr_op(node->op));
 		str_append_c(dest, '"');
-		event_filter_append_escaped(dest, node->field.value.str,
+		event_filter_append_escaped(dest,
+			wanted_field_value_str(&node->field),
 			node->type != EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT);
 		str_append_c(dest, '"');
 		break;
@@ -615,18 +650,24 @@ cmp_str(const char *value, const char *wanted_value, enum cmp_flags flags)
 }
 
 static bool
+cmp_value(const char *value, const struct event_field *wanted_field,
+	  enum cmp_flags flags)
+{
+	return cmp_str(value, wanted_field_value_str(wanted_field), flags);
+}
+
+static bool
 event_match_strlist_recursive(struct event *event,
-			      const struct event_field *wanted_field,
+			      const char *wanted_key, const char *wanted_value,
 			      enum cmp_flags cmp_flags, bool *seen)
 {
-	const char *wanted_value = wanted_field->value.str;
 	const struct event_field *field;
 	const char *value;
 
 	if (event == NULL)
 		return FALSE;
 
-	field = event_find_field_nonrecursive(event, wanted_field->key);
+	field = event_find_field_nonrecursive(event, wanted_key);
 	if (field != NULL) {
 		i_assert(field->value_type == EVENT_FIELD_VALUE_TYPE_STRLIST);
 		array_foreach_elem(&field->value.strlist, value) {
@@ -635,23 +676,25 @@ event_match_strlist_recursive(struct event *event,
 				return TRUE;
 		}
 	}
-	return event_match_strlist_recursive(event->parent, wanted_field,
-					     cmp_flags, seen);
+	return event_match_strlist_recursive(event->parent, wanted_key,
+					     wanted_value, cmp_flags, seen);
 }
 
 static bool
 event_match_strlist(struct event *event, const struct event_field *wanted_field,
 		    enum cmp_flags cmp_flags)
 {
+	const char *wanted_value = wanted_field_value_str(wanted_field);
 	bool seen = FALSE;
 
-	if (event_match_strlist_recursive(event, wanted_field,
+	if (event_match_strlist_recursive(event, wanted_field->key, wanted_value,
 					  cmp_flags, &seen))
 		return TRUE;
 	if (event_match_strlist_recursive(event_get_global(),
-					  wanted_field, cmp_flags, &seen))
+					  wanted_field->key, wanted_value,
+					  cmp_flags, &seen))
 		return TRUE;
-	if (wanted_field->value.str[0] == '\0' && !seen) {
+	if (wanted_value[0] == '\0' && !seen) {
 		/* strlist="" matches nonexistent strlist */
 		return TRUE;
 	}
@@ -689,6 +732,7 @@ event_match_field(struct event *event, struct event_filter_node *node,
 {
 	const struct event_field *field;
 	struct event_field duration;
+	bool ret;
 
 	const struct event_field *wanted_field = &node->field;
 	if (strcmp(wanted_field->key, "duration") == 0) {
@@ -705,7 +749,8 @@ event_match_field(struct event *event, struct event_filter_node *node,
 	}
 	if (field == NULL) {
 		/* field="" matches nonexistent field */
-		return wanted_field->value.str[0] == '\0';
+		return wanted_field->value_type == EVENT_FIELD_VALUE_TYPE_STR &&
+			wanted_field->value.str[0] == '\0';
 	}
 	enum cmp_flags cmp_flags = 0;
 	if (!use_strcmp)
@@ -734,9 +779,13 @@ event_match_field(struct event *event, struct event_filter_node *node,
 		}
 		if (field->value.str[0] == '\0') {
 			/* field was removed, but it matches field="" filter */
-			return wanted_field->value.str[0] == '\0';
+			return wanted_field->value_type == EVENT_FIELD_VALUE_TYPE_STR &&
+				wanted_field->value.str[0] == '\0';
 		}
-		return cmp_str(field->value.str, wanted_field->value.str, cmp_flags);
+		T_BEGIN {
+			ret = cmp_value(field->value.str, wanted_field, cmp_flags);
+		} T_END;
+		return ret;
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
 		if (node->ambiguous_unit) {
 			if (!node->warned_ambiguous_unit) {
@@ -749,7 +798,7 @@ event_match_field(struct event *event, struct event_filter_node *node,
 					  "interval or size respectively. "
 					  "(event=%s, source=%s:%u)",
 					  wanted_field->key,
-					  wanted_field->value.str,
+					  wanted_field_value_str(wanted_field),
 					  name != NULL ? name : "",
 					  source_filename, source_linenum);
 				node->warned_ambiguous_unit = TRUE;
@@ -768,7 +817,7 @@ event_match_field(struct event *event, struct event_filter_node *node,
 					  "'%s' against non-integer value '%s'. "
 					  "(event=%s, source=%s:%u)",
 					  wanted_field->key,
-					  wanted_field->value.str,
+					  wanted_field_value_str(wanted_field),
 					  name != NULL ? name : "",
 					  source_filename, source_linenum);
 				node->warned_type_mismatch = TRUE;
@@ -786,7 +835,7 @@ event_match_field(struct event *event, struct event_filter_node *node,
 					  "please use '='. (event=%s, "
 					  "source=%s:%u)",
 					  wanted_field->key,
-					  wanted_field->value.str,
+					  wanted_field_value_str(wanted_field),
 					  event_filter_export_query_expr_op(node->op),
 					  name != NULL ? name : "",
 					  source_filename, source_linenum);
@@ -796,7 +845,11 @@ event_match_field(struct event *event, struct event_filter_node *node,
 		} else {
 			char tmp[MAX_INT_STRLEN];
 			i_snprintf(tmp, sizeof(tmp), "%jd", field->value.intmax);
-			return wildcard_match_escaped_icase(tmp, wanted_field->value.str);
+			T_BEGIN {
+				ret = wildcard_match_escaped_icase(tmp,
+					wanted_field_value_str(wanted_field));
+			} T_END;
+			return ret;
 		}
 	case EVENT_FIELD_VALUE_TYPE_TIMEVAL: {
 		/* Filtering for timeval fields is not implemented. */
@@ -845,17 +898,16 @@ event_match_field(struct event *event, struct event_filter_node *node,
 					  "'%s' against non-IP value '%s'. "
 					  "(event=%s, source=%s:%u)",
 					  wanted_field->key,
-					  wanted_field->value.str,
+					  wanted_field_value_str(wanted_field),
 					  name != NULL ? name : "",
 					  source_filename, source_linenum);
 				node->warned_type_mismatch = TRUE;
 			}
 			return FALSE;
 		}
-		bool ret;
 		T_BEGIN {
 			ret = wildcard_match_escaped_icase(net_ip2addr(&field->value.ip),
-							   wanted_field->value.str);
+							   wanted_field_value_str(wanted_field));
 		} T_END;
 		return ret;
 	case EVENT_FIELD_VALUE_TYPE_STRLIST:
@@ -876,7 +928,10 @@ event_match_field(struct event *event, struct event_filter_node *node,
 			}
 			return FALSE;
 		}
-		return event_match_strlist(event, wanted_field, cmp_flags);
+		T_BEGIN {
+			ret = event_match_strlist(event, wanted_field, cmp_flags);
+		} T_END;
+		return ret;
 	}
 	i_unreached();
 }
