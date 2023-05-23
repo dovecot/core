@@ -23,21 +23,16 @@ struct settings_override {
 };
 ARRAY_DEFINE_TYPE(settings_override, struct settings_override);
 
-struct settings_mmap_filter {
-	/* NULL = empty filter, which matches everything */
-	struct event_filter *filter;
-
-	const char *error; /* if non-NULL, accessing the block must fail */
-	size_t start_offset, end_offset;
-};
-
 struct settings_mmap_block {
 	const char *name;
 	size_t block_end_offset;
 
 	const char *error; /* if non-NULL, accessing the block must fail */
 	size_t base_start_offset, base_end_offset;
-	ARRAY(struct settings_mmap_filter) filters;
+
+	uint32_t filter_count;
+	size_t filter_indexes_start_offset;
+	size_t filter_offsets_start_offset;
 
 	uint32_t settings_count;
 	size_t settings_keys_offset;
@@ -284,63 +279,45 @@ settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 	offset = block->base_end_offset;
 
 	/* <filter count> */
-	uint32_t filter_count;
 	if (settings_block_read_uint32(mmap, &offset, block_end_offset,
-				       "filter count", &filter_count,
+				       "filter count", &block->filter_count,
 				       error_r) < 0)
 		return -1;
-	p_array_init(&block->filters, mmap->pool, filter_count);
 
 	/* filters */
-	unsigned int filter_idx = 0;
-	while (offset < block_end_offset) {
+	unsigned int filter_idx;
+	for (filter_idx = 0; filter_idx < block->filter_count; filter_idx++) {
 		/* <filter settings size> */
 		uint64_t filter_settings_size;
 		if (settings_block_read_size(mmap, &offset,
 				block_end_offset, "filter settings size",
 				&filter_settings_size, error_r) < 0)
 			return -1;
-		uint64_t filter_end_offset = offset + filter_settings_size;
 
-		/* <filter string index number> */
-		uint32_t event_filter_idx;
-		if (settings_block_read_uint32(mmap, &offset, filter_end_offset,
-					       "filter string index",
-					       &event_filter_idx, error_r) < 0)
-			return -1;
-		if (event_filter_idx >= mmap->event_filters_count) {
-			*error_r = t_strdup_printf(
-				"Event filter index %u higher than count %u",
-				event_filter_idx, mmap->event_filters_count);
-			return -1;
-		}
-
-		/* <filter settings error string> */
-		const char *filter_error;
-		if (settings_block_read_str(mmap, &offset,
+		uoff_t tmp_offset = offset;
+		uoff_t filter_end_offset = offset + filter_settings_size;
+		if (settings_block_read_str(mmap, &tmp_offset,
 					    filter_end_offset,
-					    "filter settings error",
-					    &filter_error, error_r) < 0)
+					    "filter error string", &error,
+					    error_r) < 0)
 			return -1;
 
-		struct settings_mmap_filter *config_filter =
-			array_append_space(&block->filters);
-		config_filter->filter = mmap->event_filters[event_filter_idx];
-		config_filter->error = filter_error[0] == '\0' ?
-			NULL : filter_error;
-		config_filter->start_offset = offset;
-		config_filter->end_offset = filter_end_offset;
-
-		/* skip over the key-value pairs */
-		offset = filter_end_offset;
-		filter_idx++;
+		/* skip over the filter contents for now */
+		offset += filter_settings_size;
 	}
-	if (filter_idx != filter_count) {
-		*error_r = t_strdup_printf("Filter count mismatch: %u != %u",
-					   filter_idx, filter_count);
+
+	block->filter_indexes_start_offset = offset;
+	offset += sizeof(uint32_t) * block->filter_count;
+	block->filter_offsets_start_offset = offset;
+	offset += sizeof(uint64_t) * block->filter_count;
+	offset++; /* safety NUL */
+
+	if (offset != block_end_offset) {
+		*error_r = t_strdup_printf(
+			"Filter end offset mismatch (%"PRIuUOFF_T" != %zu)",
+			offset, block_end_offset);
 		return -1;
 	}
-	i_assert(offset == block_end_offset);
 	*_offset = offset;
 	return 0;
 }
@@ -514,6 +491,7 @@ static int
 settings_mmap_apply(struct settings_mmap *mmap, struct event *event,
 		    struct setting_parser_context *parser,
 		    const struct setting_parser_info *info,
+		    enum settings_get_flags flags,
 		    const char *filter_name, const char **error_r)
 {
 	struct settings_mmap_block *block =
@@ -529,7 +507,8 @@ settings_mmap_apply(struct settings_mmap *mmap, struct event *event,
 		return -1;
 	}
 
-	if (!block->settings_validated) {
+	if (!block->settings_validated &&
+	    (flags & SETTINGS_GET_NO_KEY_VALIDATION) == 0) {
 		if (settings_mmap_validate(mmap, block, info, error_r) < 0)
 			return -1;
 		block->settings_validated = TRUE;
@@ -544,23 +523,44 @@ settings_mmap_apply(struct settings_mmap *mmap, struct event *event,
 		.type = LOG_TYPE_DEBUG,
 	};
 
-	if (!array_is_created(&block->filters))
-		return 0;
-
 	bool seen_filter = FALSE;
-	const struct settings_mmap_filter *config_filter;
-	array_foreach(&block->filters, config_filter) {
-		if (config_filter->filter == NULL ||
-		    event_filter_match(config_filter->filter, event,
-				       &failure_ctx)) {
-			if (config_filter->error != NULL) {
-				*error_r = config_filter->error;
+	for (uint32_t i = 0; i < block->filter_count; i++) {
+		uint32_t event_filter_idx = be32_to_cpu_unaligned(
+			CONST_PTR_OFFSET(mmap->mmap_base,
+					 block->filter_indexes_start_offset +
+					 sizeof(uint32_t) * i));
+		if (event_filter_idx >= mmap->event_filters_count) {
+			*error_r = t_strdup_printf("event filter idx %u >= %u",
+				event_filter_idx, mmap->event_filters_count);
+			return -1;
+		}
+		struct event_filter *event_filter =
+			mmap->event_filters[event_filter_idx];
+		if (event_filter == NULL ||
+		    event_filter_match(event_filter, event, &failure_ctx)) {
+			uint64_t filter_offset = be64_to_cpu_unaligned(
+				CONST_PTR_OFFSET(mmap->mmap_base,
+						 block->filter_offsets_start_offset +
+						 sizeof(uint64_t) * i));
+			uint64_t filter_set_size = be64_to_cpu_unaligned(
+				CONST_PTR_OFFSET(mmap->mmap_base, filter_offset));
+			filter_offset += sizeof(filter_set_size);
+			uint64_t filter_end_offset =
+				filter_offset + filter_set_size;
+
+			const char *filter_error =
+				CONST_PTR_OFFSET(mmap->mmap_base,
+						 filter_offset);
+			if (filter_error[0] != '\0') {
+				*error_r = filter_error;
 				return -1;
 			}
+			filter_offset += strlen(filter_error) + 1;
+
 			if (filter_name != NULL && !seen_filter) {
 				const char *value =
 					event_filter_find_field_exact(
-						config_filter->filter,
+						event_filter,
 						SETTINGS_EVENT_FILTER_NAME);
 				/* NOTE: The event filter is using
 				   EVENT_FIELD_EXACT, so the value has already
@@ -570,8 +570,7 @@ settings_mmap_apply(struct settings_mmap *mmap, struct event *event,
 					seen_filter = TRUE;
 			}
 			if (settings_mmap_apply_blob(mmap, block, parser, info,
-					config_filter->start_offset,
-					config_filter->end_offset,
+					filter_offset, filter_end_offset,
 					error_r) < 0)
 				return -1;
 		}
@@ -959,7 +958,7 @@ settings_instance_get(struct event *event,
 
 	if (instance->mmap != NULL) {
 		ret = settings_mmap_apply(instance->mmap, event, parser, info,
-					  filter_name, &error);
+					  flags, filter_name, &error);
 		if (ret < 0) {
 			*error_r = t_strdup_printf(
 				"Failed to parse configuration: %s", error);

@@ -41,6 +41,8 @@ struct master_service_settings_input {
 	bool check_full_config;
 	/* If executing via doveconf, hide warnings about obsolete settings. */
 	bool hide_obsolete_warnings;
+	/* unit tests: Enable SETTINGS_GET_NO_KEY_VALIDATION */
+	bool no_key_validation;
 	bool reload_config;
 	bool never_exec;
 	bool always_exec;

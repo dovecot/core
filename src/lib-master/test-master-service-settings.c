@@ -158,7 +158,7 @@ static const struct {
 	       "\x00\x00\x00\x00\x00\x00\x00"), // filter settings size
 	  "Area too small when reading size of 'filter settings size'" },
 
-	/* filter settings size is zero */
+	/* filter settings is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
 	       "\x00\x00\x00\x00\x00\x00\x00\x2A" // full size
 	       "\x00\x00\x00\x01" // event filter count
@@ -170,87 +170,79 @@ static const struct {
 	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
 	       "\x00" // base settings error
 	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x00\x00"), // filter settings size
-	  "Area too small when reading uint of 'filter string index'" },
-	/* event filter index is truncated */
-	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x2D" // full size
-	       "\x00\x00\x00\x01" // event filter count
-	       "\x00" // event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x20" // block size
-	       "N\x00" // block name
-	       "\x00\x00\x00\x01" // settings count
-	       "K\x00" // setting[0] key
-	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
-	       "\x00" // base settings error
-	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x00\x03" // filter settings size
-	       "\x00\x00\x00"), // event filter index
-	  "Area too small when reading uint of 'filter string index'" },
+	       "\x00\x00\x00\x00\x00\x00\x10\x00"), // filter settings size
+	  "'filter settings size' points outside area" },
 	/* filter error is missing */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x2E" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x37" // full size
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x21" // block size
+	       "\x00\x00\x00\x00\x00\x00\x00\x2A" // block size
 	       "N\x00" // block name
 	       "\x00\x00\x00\x01" // settings count
 	       "K\x00" // setting[0] key
 	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
 	       "\x00" // base settings error
 	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x00\x04" // filter settings size
-	       "\x00\x00\x00\x00"), // event filter index
-	  "'filter settings error' points outside area" },
+	       "\x00\x00\x00\x00\x00\x00\x00\x00" // filter settings size
+	       "\x00\x00\x00\x00" // event filter index
+	       "\x00\x00\x00\x00\x00\x00\x00\x00" // filter settings offset
+	       "\x00"), // safety NUL
+	  "'filter error string' points outside area" },
 	/* filter error is not NUL-terminated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x30" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x45" // full size
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x23" // block size
-	       "N\x00" // block name
+	       "\x00\x00\x00\x00\x00\x00\x00\x38" // block size
+	       "master_service\x00" // block name
 	       "\x00\x00\x00\x01" // settings count
 	       "K\x00" // setting[0] key
 	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
 	       "\x00" // base settings error
 	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x00\x05" // filter settings size
+	       "\x00\x00\x00\x00\x00\x00\x00\x01" // filter settings size
+	       "E" // filter error string
 	       "\x00\x00\x00\x00" // event filter index
-	       "E" // filter error
-	       "\x00"), // trailing garbage so we can have NUL
-	  "'filter settings error' points outside area" },
+	       "\x00\x00\x00\x00\x00\x00\x00\x00" // filter settings offset
+	       "\x00"), // safety NUL
+	  "'filter error string' points outside area" },
 	/* invalid filter string */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x30" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x39" // full size
 	       "\x00\x00\x00\x01" // event filter count
 	       "F\x00" // event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x22" // block size
+	       "\x00\x00\x00\x00\x00\x00\x00\x2B" // block size
 	       "N\x00" // block name
 	       "\x00\x00\x00\x01" // settings count
 	       "K\x00" // setting[0] key
 	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
 	       "\x00" // base settings error
 	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x00\x05" // filter settings size
+	       "\x00\x00\x00\x00\x00\x00\x00\x01" // filter settings size
+	       "\x00" // filter error string
 	       "\x00\x00\x00\x00" // event filter index
-	       "\x00"), // filter error
+	       "\x00\x00\x00\x00\x00\x00\x00\x00" // filter settings offset
+	       "\x00"), // safety NUL
 	  "Received invalid filter 'F' at index 0: event filter: syntax error" },
 
 	/* Duplicate block name */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x39" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x42" // full size
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x22" // block size
+	       "\x00\x00\x00\x00\x00\x00\x00\x2B" // block size
 	       "N\x00" // block name
 	       "\x00\x00\x00\x01" // settings count
 	       "K\x00" // setting[0] key
 	       "\x00\x00\x00\x00\x00\x00\x00\x01" // base settings size
 	       "\x00" // base settings error
 	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x00\x05" // filter settings size
+	       "\x00\x00\x00\x00\x00\x00\x00\x01" // filter settings size
+	       "\x00" // filter error string
 	       "\x00\x00\x00\x00" // event filter index
-	       "\x00" // filter error
+	       "\x00\x00\x00\x00\x00\x00\x00\x00" // filter settings offset
+	       "\x00" // safety NUL
 	       "\x00\x00\x00\x00\x00\x00\x00\x02" // 2nd block size
 	       "N\x00"), // 2nd block name
 	  "Duplicate block name 'N'" },
@@ -274,6 +266,7 @@ static void test_master_service_settings_read_binary_corruption(void)
 	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
 		struct master_service_settings_input input = {
 			.config_fd = test_input_to_fd(tests[i].data, tests[i].size),
+			.no_key_validation = TRUE,
 		};
 		struct master_service_settings_output output;
 

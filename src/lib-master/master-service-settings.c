@@ -455,7 +455,9 @@ int master_service_settings_read(struct master_service *service,
 		      input->protocol : service->name);
 
 	settings_free(service->set);
-	ret = settings_get(event, &master_service_setting_parser_info, 0,
+	ret = settings_get(event, &master_service_setting_parser_info,
+			   !input->no_key_validation ? 0 :
+			   SETTINGS_GET_NO_KEY_VALIDATION,
 			   &service->set, error_r);
 	event_unref(&event);
 	if (ret < 0)

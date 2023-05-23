@@ -28,6 +28,10 @@ enum settings_get_flags {
 	/* Mark %settings as expanded without actually doing it. This is needed
 	   while doing checks for settings before expansion is possible. */
 	SETTINGS_GET_FLAG_FAKE_EXPAND = BIT(2),
+
+	/* For unit tests: Don't validate that settings struct keys match
+	   th binary config file. */
+	SETTINGS_GET_NO_KEY_VALIDATION = BIT(3),
 };
 
 /* Set struct settings_instance to events so settings_get() can

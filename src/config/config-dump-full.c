@@ -45,12 +45,16 @@
      <32bit big-endian: filter count>
      Repeat for "filter count":
        <64bit big-endian: filter settings size>
-       <32bit big-endian: event filter string index number>
        <NUL-terminated string: error string>
        Repeat until "filter settings size" is reached:
          <32bit big-endian: key index number>
 	 [<strlist key>]
 	 <NUL-terminated string: value>
+     Repeat for "filter count":
+       <32bit big-endian: event filter string index number>
+     Repeat for "filter count":
+       <64bit big-endian: filter settings offset>
+     <trailing safety NUL>
 */
 
 struct dump_context {
@@ -218,9 +222,6 @@ static void config_dump_full_callback(const struct config_export_setting *set,
 	if (!ctx->filter_written) {
 		uint64_t blob_size = UINT64_MAX;
 		o_stream_nsend(ctx->output, &blob_size, sizeof(blob_size));
-		uint32_t filter_idx_be32 = cpu32_to_be(ctx->filter_idx);
-		o_stream_nsend(ctx->output, &filter_idx_be32,
-			       sizeof(filter_idx_be32));
 		o_stream_nsend(ctx->output, "", 1); /* no error */
 		ctx->filter_written = TRUE;
 	}
@@ -308,7 +309,7 @@ config_dump_full_sections(struct config_parsed *config,
 {
 	struct config_filter_parser *const *filters;
 	struct config_export_context *export_ctx;
-	uint32_t filter_count = 0;
+	uint32_t max_filter_count = 0, filter_count = 0;
 	int ret = 0;
 
 	filters = config_parsed_get_filter_parsers(config);
@@ -324,6 +325,11 @@ config_dump_full_sections(struct config_parsed *config,
 	uoff_t filter_count_offset = output->offset;
 	if (dest != CONFIG_DUMP_FULL_DEST_STDOUT)
 		o_stream_nsend(output, &filter_count, sizeof(filter_count));
+
+	while (filters[max_filter_count] != NULL) max_filter_count++;
+
+	uint32_t filter_indexes_be32[max_filter_count];
+	uint64_t filter_offsets_be64[max_filter_count];
 
 	for (unsigned int i = 1; filters[i] != NULL && ret == 0; i++) T_BEGIN {
 		const struct config_filter_parser *filter = filters[i];
@@ -361,20 +367,32 @@ config_dump_full_sections(struct config_parsed *config,
 				ret = -1;
 		}
 		config_export_free(&export_ctx);
-		if (dump_ctx.filter_written)
+		if (dump_ctx.filter_written) {
+			filter_indexes_be32[filter_count] = cpu32_to_be(i);
+			filter_offsets_be64[filter_count] =
+				cpu64_to_be(start_offset);
 			filter_count++;
+		}
 	} T_END;
 
 	if (str_len(delayed_filter) > 0) {
-		uint32_t filter_idx = 0; /* empty/global filter */
-		uint64_t blob_size = cpu64_to_be(sizeof(filter_idx) + 1 +
-						 str_len(delayed_filter));
+		filter_indexes_be32[filter_count] = 0; /* empty/global filter */
+		filter_offsets_be64[filter_count] = cpu64_to_be(output->offset);
+
+		uint64_t blob_size = cpu64_to_be(1 + str_len(delayed_filter));
 		o_stream_nsend(output, &blob_size, sizeof(blob_size));
-		o_stream_nsend(output, &filter_idx, sizeof(filter_idx));
 		o_stream_nsend(output, "", 1); /* no error */
 		o_stream_nsend(output, str_data(delayed_filter),
 			       str_len(delayed_filter));
 		filter_count++;
+	}
+
+	if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
+		o_stream_nsend(output, filter_indexes_be32,
+			       sizeof(filter_indexes_be32[0]) * filter_count);
+		o_stream_nsend(output, filter_offsets_be64,
+			       sizeof(filter_offsets_be64[0]) * filter_count);
+		o_stream_nsend(output, "", 1);
 	}
 
 	filter_count = cpu32_to_be(filter_count);
