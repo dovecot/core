@@ -72,25 +72,7 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 		break;
 	}
 	case EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION: {
-		const char *colon = strrchr(b, ':');
-		char *file;
-		uintmax_t line;
-
-		/* split "filename:line-number", but also handle "filename" */
-		if (colon != NULL) {
-			if (str_to_uintmax(colon + 1, &line) < 0) {
-				file = p_strdup(state->pool, b);
-				line = 0;
-			} else {
-				file = p_strdup_until(state->pool, b, colon);
-			}
-		} else {
-			file = p_strdup(state->pool, b);
-			line = 0;
-		}
-
-		node->field.value.str = str_unescape(file);
-		node->field.value.intmax = line;
+		node->field.value.str = str_unescape(p_strdup(state->pool, b));
 		break;
 	}
 	case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:

@@ -482,8 +482,6 @@ event_filter_export_query_expr(const struct event_filter_query_internal *query,
 		str_append(dest, event_filter_export_query_expr_op(node->op));
 		str_append_c(dest, '"');
 		event_filter_append_escaped(dest, node->field.value.str, FALSE);
-		if (node->field.value.intmax != 0)
-			str_printfa(dest, ":%ju", node->field.value.intmax);
 		str_append_c(dest, '"');
 		break;
 	case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:
@@ -905,11 +903,17 @@ event_filter_query_match_cmp(struct event_filter_node *node,
 			return (event->sending_name != NULL) &&
 				wildcard_match_escaped(event->sending_name,
 						       node->field.value.str);
-		case EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION:
-			return !((source_linenum != node->field.value.intmax &&
-				  node->field.value.intmax != 0) ||
-				 source_filename == NULL ||
-				 strcmp(source_filename, node->field.value.str) != 0);
+		case EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION: {
+			bool ret;
+			if (strchr(node->field.value.str, ':') == NULL)
+				ret = strcmp(node->field.value.str, source_filename) == 0;
+			else T_BEGIN {
+				const char *wanted_str =
+					t_strdup_printf("%s:%u", source_filename, source_linenum);
+				ret = strcmp(node->field.value.str, wanted_str) == 0;
+			} T_END;
+			return ret;
+		}
 		case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:
 			return event_has_category(event, node, log_type);
 		case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT:
