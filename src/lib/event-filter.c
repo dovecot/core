@@ -63,6 +63,11 @@ struct event_filter *event_filter_create(void)
 	return event_filter_create_real(pool_alloconly_create("event filter", 2048), FALSE);
 }
 
+struct event_filter *event_filter_create_with_pool(pool_t pool)
+{
+	return event_filter_create_real(pool, FALSE);
+}
+
 struct event_filter *event_filter_create_fragment(pool_t pool)
 {
 	return event_filter_create_real(pool, TRUE);
