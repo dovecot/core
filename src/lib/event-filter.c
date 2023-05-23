@@ -326,6 +326,16 @@ clone_expr(pool_t pool, struct event_filter_node *old)
 	new->field.value.str = p_strdup(pool, old->field.value.str);
 	new->field.value.intmax = old->field.value.intmax;
 	new->field.value.timeval = old->field.value.timeval;
+	new->field.value.ip = old->field.value.ip;
+	if (array_is_created(&old->field.value.strlist)) {
+		const char *str;
+		p_array_init(&new->field.value.strlist, pool,
+			     array_count(&old->field.value.strlist));
+		array_foreach_elem(&old->field.value.strlist, str) {
+			str = p_strdup(pool, str);
+			array_push_back(&new->field.value.strlist, &str);
+		}
+	}
 	new->ambiguous_unit = old->ambiguous_unit;
 	new->warned_ambiguous_unit = old->warned_ambiguous_unit;
 	new->warned_type_mismatch = old->warned_type_mismatch;
