@@ -189,7 +189,8 @@ settings_read_filters(struct settings_mmap *mmap, uoff_t *offset,
 		if (filter_string[0] == '\0')
 			continue;
 
-		mmap->event_filters[i] = event_filter_create();
+		mmap->event_filters[i] = event_filter_create_with_pool(mmap->pool);
+		pool_ref(mmap->pool);
 		if (event_filter_parse_case_sensitive(filter_string,
 				mmap->event_filters[i], &error) < 0) {
 			*error_r = t_strdup_printf(
@@ -1234,7 +1235,8 @@ settings_override_get_filter(struct settings_override *set, pool_t pool,
 	if (filter == NULL)
 		return;
 
-	set->filter = event_filter_create();
+	set->filter = event_filter_create_with_pool(pool);
+	pool_ref(pool);
 	if (event_filter_parse_case_sensitive(str_c(filter), set->filter,
 					      &error) < 0) {
 		i_panic("BUG: Failed to create event filter filter for %s: %s",
