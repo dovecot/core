@@ -318,8 +318,6 @@ clone_expr(pool_t pool, struct event_filter_node *old)
 	new->op = old->op;
 	new->children[0] = clone_expr(pool, old->children[0]);
 	new->children[1] = clone_expr(pool, old->children[1]);
-	new->str = p_strdup(pool, old->str);
-	new->intmax = old->intmax;
 	new->category.log_type = old->category.log_type;
 	new->category.name = p_strdup(pool, old->category.name);
 	new->category.ptr = old->category.ptr;
@@ -457,7 +455,7 @@ event_filter_export_query_expr(const struct event_filter_query_internal *query,
 		str_append(dest, "event");
 		str_append(dest, event_filter_export_query_expr_op(node->op));
 		str_append_c(dest, '"');
-		event_filter_append_escaped(dest, node->str,
+		event_filter_append_escaped(dest, node->field.value.str,
 			node->type == EVENT_FILTER_NODE_TYPE_EVENT_NAME_WILDCARD);
 		str_append_c(dest, '"');
 		break;
@@ -465,9 +463,9 @@ event_filter_export_query_expr(const struct event_filter_query_internal *query,
 		str_append(dest, "source_location");
 		str_append(dest, event_filter_export_query_expr_op(node->op));
 		str_append_c(dest, '"');
-		event_filter_append_escaped(dest, node->str, FALSE);
-		if (node->intmax != 0)
-			str_printfa(dest, ":%ju", node->intmax);
+		event_filter_append_escaped(dest, node->field.value.str, FALSE);
+		if (node->field.value.intmax != 0)
+			str_printfa(dest, ":%ju", node->field.value.intmax);
 		str_append_c(dest, '"');
 		break;
 	case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:
@@ -884,15 +882,16 @@ event_filter_query_match_cmp(struct event_filter_node *node,
 			i_unreached();
 		case EVENT_FILTER_NODE_TYPE_EVENT_NAME_EXACT:
 			return (event->sending_name != NULL) &&
-			       strcmp(event->sending_name, node->str) == 0;
+			       strcmp(event->sending_name, node->field.value.str) == 0;
 		case EVENT_FILTER_NODE_TYPE_EVENT_NAME_WILDCARD:
 			return (event->sending_name != NULL) &&
-			       wildcard_match_escaped(event->sending_name, node->str);
+				wildcard_match_escaped(event->sending_name,
+						       node->field.value.str);
 		case EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION:
-			return !((source_linenum != node->intmax &&
-				  node->intmax != 0) ||
+			return !((source_linenum != node->field.value.intmax &&
+				  node->field.value.intmax != 0) ||
 				 source_filename == NULL ||
-				 strcmp(event->source_filename, node->str) != 0);
+				 strcmp(event->source_filename, node->field.value.str) != 0);
 		case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:
 			return event_has_category(event, node, log_type);
 		case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT:

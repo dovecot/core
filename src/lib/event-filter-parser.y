@@ -65,9 +65,9 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 	case EVENT_FILTER_NODE_TYPE_EVENT_NAME_WILDCARD: {
 		if (wildcard_is_escaped_literal(b)) {
 			node->type = EVENT_FILTER_NODE_TYPE_EVENT_NAME_EXACT;
-			node->str = str_unescape(p_strdup(state->pool, b));
+			node->field.value.str = str_unescape(p_strdup(state->pool, b));
 		} else {
-			node->str = p_strdup(state->pool, b);
+			node->field.value.str = p_strdup(state->pool, b);
 		}
 		break;
 	}
@@ -89,8 +89,8 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 			line = 0;
 		}
 
-		node->str = str_unescape(file);
-		node->intmax = line;
+		node->field.value.str = str_unescape(file);
+		node->field.value.intmax = line;
 		break;
 	}
 	case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:

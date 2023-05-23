@@ -61,8 +61,6 @@ struct event_filter_node {
 	struct event_filter_node *children[2];
 
 	/* leaf node */
-	const char *str;
-	uintmax_t intmax;
 	struct {
 		/*
 		 * We may be dealing with one of three situations:
