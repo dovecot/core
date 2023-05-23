@@ -405,6 +405,8 @@ event_filter_merge_with_context_internal(struct event_filter *dest,
 		add_node(dest->pool, &new->expr,
 			 clone_expr(dest->pool, int_query->expr),
 			 EVENT_FILTER_OP_OR);
+		dest->named_queries_only = dest->named_queries_only &&
+			filter_node_requires_event_name(int_query->expr);
 	} T_END;
 }
 
