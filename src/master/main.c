@@ -414,6 +414,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 
 	i_zero(&input);
 	input.config_path = services_get_config_socket_path(services);
+	input.no_service_filter = TRUE;
 	input.never_exec = TRUE;
 	input.reload_config = TRUE;
 	input.return_config_fd = TRUE;
@@ -507,6 +508,7 @@ static const struct master_settings *master_settings_read(void)
 	const char *error;
 
 	i_zero(&input);
+	input.no_service_filter = TRUE;
 	input.preserve_environment = TRUE;
 	input.check_full_config = TRUE;
 	input.always_exec = TRUE;

@@ -428,10 +428,16 @@ int master_service_settings_read(struct master_service *service,
 		master_service_append_config_overrides(service);
 	}
 	if (fd != -1) {
+		const char *service_name = input->no_service_filter ?
+			NULL : service->name;
 		const char *protocol_name = input->protocol != NULL ?
 			input->protocol : service->name;
+		enum settings_read_flags read_flags =
+			!input->no_protocol_filter ? 0 :
+			SETTINGS_READ_NO_PROTOCOL_FILTER;
 		ret = settings_read(service->settings_root, fd, path,
-				    protocol_name, &output_r->specific_services,
+				    service_name, protocol_name, read_flags,
+				    &output_r->specific_services,
 				    &error);
 		if (input->return_config_fd)
 			output_r->config_fd = fd;

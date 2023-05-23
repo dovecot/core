@@ -569,10 +569,11 @@ const struct auth_settings *global_auth_settings;
 
 void auth_settings_read(struct master_service_settings_output *output_r)
 {
-	struct master_service_settings_input input;
+	struct master_service_settings_input input = {
+		.no_protocol_filter = TRUE,
+	};
 	const char *error;
 
-	i_zero(&input);
 	if (master_service_settings_read(master_service, &input,
 					 output_r, &error) < 0)
 		i_fatal("%s", error);

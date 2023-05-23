@@ -20,6 +20,11 @@ enum settings_override_type {
 	SETTINGS_OVERRIDE_TYPE_COUNT,
 };
 
+enum settings_read_flags {
+	/* Don't drop filters that contain a mismatching protocol */
+	SETTINGS_READ_NO_PROTOCOL_FILTER = BIT(0),
+};
+
 enum settings_get_flags {
 	/* Don't call check_func()s */
 	SETTINGS_GET_FLAG_NO_CHECK = BIT(0),
@@ -223,8 +228,13 @@ settings_instance_dup(const struct settings_instance *src);
 /* Free a settings instance. */
 void settings_instance_free(struct settings_instance **instance);
 
+/* Read settings. If service_name or protocol_name is non-NULL, all
+   non-matching service/protocol filters are dropped immediately and cannot
+   be looked up afterwards. */
 int settings_read(struct settings_root *root, int fd, const char *path,
+		  const char *service_name,
 		  const char *protocol_name,
+		  enum settings_read_flags flags,
 		  const char *const **specific_services_r,
 		  const char **error_r);
 bool settings_has_mmap(struct settings_root *root);

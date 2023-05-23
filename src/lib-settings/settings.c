@@ -6,7 +6,7 @@
 #include "llist.h"
 #include "str.h"
 #include "strescape.h"
-#include "event-filter.h"
+#include "event-filter-private.h"
 #include "var-expand.h"
 #include "wildcard-match.h"
 #include "mmap-util.h"
@@ -75,31 +75,9 @@ static const char *settings_override_type_names[] = {
 static_assert_array_size(settings_override_type_names,
 			 SETTINGS_OVERRIDE_TYPE_COUNT);
 
-static void
-filter_string_parse_protocol(const char *filter_string,
-			     ARRAY_TYPE(const_string) *protocols)
-{
-	const char *p = strstr(filter_string, "protocol=\"");
-	if (p == NULL)
-		return;
-	const char *p2 = strchr(p + 10, '"');
-	if (p2 == NULL)
-		return;
-
-	char *add_protocol = NULL;
-	T_BEGIN {
-		const char *protocol = t_strdup_until(p + 10, p2);
-		if (p - filter_string > 4 && strcmp(p - 4, "NOT ") == 0)
-			protocol = t_strconcat("!", protocol, NULL);
-		if (array_lsearch(protocols, &protocol, i_strcmp_p) == NULL)
-			add_protocol = i_strdup(protocol);
-	} T_END;
-	if (add_protocol != NULL) {
-		const char *protocol = t_strdup(add_protocol);
-		array_push_back(protocols, &protocol);
-		i_free(add_protocol);
-	}
-}
+static struct event_filter event_filter_match_never, event_filter_match_always;
+#define EVENT_FILTER_MATCH_ALWAYS (&event_filter_match_always)
+#define EVENT_FILTER_MATCH_NEVER (&event_filter_match_never)
 
 static int
 settings_block_read_uint32(struct settings_mmap *mmap,
@@ -162,7 +140,8 @@ settings_block_read_str(struct settings_mmap *mmap,
 }
 
 static int
-settings_read_filters(struct settings_mmap *mmap, uoff_t *offset,
+settings_read_filters(struct settings_mmap *mmap, const char *service_name,
+		      enum settings_read_flags flags, uoff_t *offset,
 		      ARRAY_TYPE(const_string) *protocols, const char **error_r)
 {
 	const char *filter_string, *error;
@@ -181,20 +160,53 @@ settings_read_filters(struct settings_mmap *mmap, uoff_t *offset,
 					    "filter string", &filter_string,
 					    error_r) < 0)
 			return -1;
-		if (filter_string[0] == '\0')
+		if (filter_string[0] == '\0') {
+			mmap->event_filters[i] = EVENT_FILTER_MATCH_ALWAYS;
 			continue;
+		}
 
-		mmap->event_filters[i] = event_filter_create_with_pool(mmap->pool);
-		pool_ref(mmap->pool);
+		struct event_filter *tmp_filter = event_filter_create();
 		if (event_filter_parse_case_sensitive(filter_string,
-				mmap->event_filters[i], &error) < 0) {
+						      tmp_filter, &error) < 0) {
 			*error_r = t_strdup_printf(
 				"Received invalid filter '%s' at index %u: %s",
 				filter_string, i, error);
+			event_filter_unref(&tmp_filter);
 			return -1;
 		}
+		bool op_not;
+		const char *value =
+			event_filter_find_field_exact(tmp_filter, "protocol", &op_not);
+		if (value != NULL) {
+			if (op_not)
+				value = t_strconcat("!", value, NULL);
+			if (array_lsearch(protocols, &value, i_strcmp_p) == NULL) {
+				value = t_strdup(value);
+				array_push_back(protocols, &value);
+			}
 
-		filter_string_parse_protocol(filter_string, protocols);
+			if (mmap->root->protocol_name != NULL &&
+			    (strcmp(mmap->root->protocol_name, value) == 0) == op_not &&
+			    (flags & SETTINGS_READ_NO_PROTOCOL_FILTER) == 0) {
+				/* protocol doesn't match */
+				mmap->event_filters[i] = EVENT_FILTER_MATCH_NEVER;
+				event_filter_unref(&tmp_filter);
+				continue;
+			}
+		}
+		value = event_filter_find_field_exact(tmp_filter, "service", &op_not);
+		if (value != NULL && service_name != NULL &&
+		    (strcmp(value, service_name) == 0) == op_not) {
+			/* service name doesn't match */
+			mmap->event_filters[i] = EVENT_FILTER_MATCH_NEVER;
+			event_filter_unref(&tmp_filter);
+			continue;
+		}
+
+		mmap->event_filters[i] = event_filter_create_with_pool(mmap->pool);
+		pool_ref(mmap->pool);
+		event_filter_merge(mmap->event_filters[i], tmp_filter);
+		event_filter_unref(&tmp_filter);
 	}
 	return 0;
 }
@@ -323,7 +335,8 @@ settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 }
 
 static int
-settings_mmap_parse(struct settings_mmap *mmap,
+settings_mmap_parse(struct settings_mmap *mmap, const char *service_name,
+		    enum settings_read_flags flags,
 		    const char *const **specific_services_r,
 		    const char **error_r)
 {
@@ -370,7 +383,8 @@ settings_mmap_parse(struct settings_mmap *mmap,
 	}
 
 	uoff_t offset = full_size_offset + sizeof(settings_full_size);
-	if (settings_read_filters(mmap, &offset, &protocols, error_r) < 0)
+	if (settings_read_filters(mmap, service_name, flags, &offset,
+				  &protocols, error_r) < 0)
 		return -1;
 
 	do {
@@ -536,8 +550,10 @@ settings_mmap_apply(struct settings_mmap *mmap, struct event *event,
 		}
 		struct event_filter *event_filter =
 			mmap->event_filters[event_filter_idx];
-		if (event_filter == NULL ||
-		    event_filter_match(event_filter, event, &failure_ctx)) {
+		if (event_filter == EVENT_FILTER_MATCH_NEVER)
+			;
+		else if (event_filter == EVENT_FILTER_MATCH_ALWAYS ||
+			 event_filter_match(event_filter, event, &failure_ctx)) {
 			uint64_t filter_offset = be64_to_cpu_unaligned(
 				CONST_PTR_OFFSET(mmap->mmap_base,
 						 block->filter_offsets_start_offset +
@@ -598,8 +614,11 @@ static void settings_mmap_unref(struct settings_mmap **_mmap)
 	if (--mmap->refcount > 0)
 		return;
 
-	for (unsigned int i = 0; i < mmap->event_filters_count; i++)
-		event_filter_unref(&mmap->event_filters[i]);
+	for (unsigned int i = 0; i < mmap->event_filters_count; i++) {
+		if (mmap->event_filters[i] != EVENT_FILTER_MATCH_ALWAYS &&
+		    mmap->event_filters[i] != EVENT_FILTER_MATCH_NEVER)
+			event_filter_unref(&mmap->event_filters[i]);
+	}
 	hash_table_destroy(&mmap->blocks);
 
 	if (munmap(mmap->mmap_base, mmap->mmap_size) < 0)
@@ -608,7 +627,8 @@ static void settings_mmap_unref(struct settings_mmap **_mmap)
 }
 
 int settings_read(struct settings_root *root, int fd, const char *path,
-		  const char *protocol_name,
+		  const char *service_name, const char *protocol_name,
+		  enum settings_read_flags flags,
 		  const char *const **specific_services_r,
 		  const char **error_r)
 {
@@ -629,7 +649,8 @@ int settings_read(struct settings_root *root, int fd, const char *path,
 	root->mmap = mmap;
 	hash_table_create(&mmap->blocks, mmap->pool, 0, str_hash, strcmp);
 
-	return settings_mmap_parse(root->mmap, specific_services_r, error_r);
+	return settings_mmap_parse(root->mmap, service_name, flags,
+				   specific_services_r, error_r);
 }
 
 bool settings_has_mmap(struct settings_root *root)

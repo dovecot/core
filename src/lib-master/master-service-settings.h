@@ -33,6 +33,9 @@ struct master_service_settings_input {
 	bool preserve_environment;
 	bool preserve_user;
 	bool preserve_home;
+	/* Don't filter by master_service->name - this allows reading all
+	   service { ... } settings. */
+	bool no_service_filter;
 	/* When execing via doveconf, the errors in settings' values are
 	   delayed until the settings struct is actually accessed. Enabling
 	   this causes an immediate failure. (With config UNIX socket lookups
@@ -41,6 +44,8 @@ struct master_service_settings_input {
 	bool check_full_config;
 	/* If executing via doveconf, hide warnings about obsolete settings. */
 	bool hide_obsolete_warnings;
+	/* Enable SETTINGS_READ_NO_PROTOCOL_FILTER */
+	bool no_protocol_filter;
 	/* unit tests: Enable SETTINGS_GET_NO_KEY_VALIDATION */
 	bool no_key_validation;
 	bool reload_config;

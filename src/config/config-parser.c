@@ -830,7 +830,7 @@ config_all_parsers_check(struct config_parser_context *ctx,
 	}
 	struct settings_root *set_root = settings_root_init();
 	const char *const *specific_services, *error;
-	if (settings_read(set_root, fd, "(temp config file)", NULL,
+	if (settings_read(set_root, fd, "(temp config file)", NULL, NULL, 0,
 			  &specific_services, &error) < 0) {
 		*error_r = t_strdup_printf(
 			"Failed to read settings from binary config file: %s",
