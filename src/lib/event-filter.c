@@ -255,7 +255,7 @@ int event_filter_parse_case_sensitive(const char *str,
 
 static const char *
 event_filter_node_find_field_exact(struct event_filter_node *node,
-				   const char *key, bool op_not)
+				   const char *key, bool op_not, bool *op_not_r)
 {
 	const char *value;
 
@@ -263,24 +263,25 @@ event_filter_node_find_field_exact(struct event_filter_node *node,
 	case EVENT_FILTER_OP_CMP_EQ:
 		if (node->type == EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT &&
 		    strcmp(node->field.key, key) == 0 &&
-		    node->field.value_type == EVENT_FIELD_VALUE_TYPE_STR &&
-		    !op_not)
+		    node->field.value_type == EVENT_FIELD_VALUE_TYPE_STR) {
+			*op_not_r = op_not;
 			return node->field.value.str;
+		}
 		break;
 	case EVENT_FILTER_OP_AND:
 	case EVENT_FILTER_OP_OR:
 		value = event_filter_node_find_field_exact(node->children[0],
-							   key, op_not);
+							   key, op_not, op_not_r);
 		if (value != NULL)
 			return value;
 		value = event_filter_node_find_field_exact(node->children[1],
-							   key, op_not);
+							   key, op_not, op_not_r);
 		if (value != NULL)
 			return value;
 		break;
 	case EVENT_FILTER_OP_NOT:
 		return event_filter_node_find_field_exact(node->children[0],
-							  key, !op_not);
+							  key, !op_not, op_not_r);
 	default:
 		break;
 	}
@@ -288,13 +289,13 @@ event_filter_node_find_field_exact(struct event_filter_node *node,
 }
 
 const char *event_filter_find_field_exact(struct event_filter *filter,
-					  const char *key)
+					  const char *key, bool *op_not_r)
 {
 	const struct event_filter_query_internal *query;
 	const char *value;
 
 	array_foreach(&filter->queries, query) {
-		value = event_filter_node_find_field_exact(query->expr, key, FALSE);
+		value = event_filter_node_find_field_exact(query->expr, key, FALSE, op_not_r);
 		if (value != NULL)
 			return value;
 	}

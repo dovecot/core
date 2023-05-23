@@ -558,14 +558,15 @@ settings_mmap_apply(struct settings_mmap *mmap, struct event *event,
 			filter_offset += strlen(filter_error) + 1;
 
 			if (filter_name != NULL && !seen_filter) {
+				bool op_not;
 				const char *value =
 					event_filter_find_field_exact(
 						event_filter,
-						SETTINGS_EVENT_FILTER_NAME);
+						SETTINGS_EVENT_FILTER_NAME, &op_not);
 				/* NOTE: The event filter is using
 				   EVENT_FIELD_EXACT, so the value has already
 				   removed wildcard escapes. */
-				if (value != NULL &&
+				if (value != NULL && !op_not &&
 				    strcmp(filter_name, value) == 0)
 					seen_filter = TRUE;
 			}
