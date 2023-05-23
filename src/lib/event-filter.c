@@ -316,25 +316,33 @@ clone_expr(pool_t pool, struct event_filter_node *old)
 	new = p_new(pool, struct event_filter_node, 1);
 	new->type = old->type;
 	new->op = old->op;
-	new->children[0] = clone_expr(pool, old->children[0]);
-	new->children[1] = clone_expr(pool, old->children[1]);
-	new->category.log_type = old->category.log_type;
-	new->category.name = p_strdup(pool, old->category.name);
-	new->category.ptr = old->category.ptr;
-	new->field.key = p_strdup(pool, old->field.key);
-	new->field.value_type = old->field.value_type;
-	new->field.value.str = p_strdup(pool, old->field.value.str);
-	new->field.value.intmax = old->field.value.intmax;
-	new->field.value.timeval = old->field.value.timeval;
-	new->field.value.ip = old->field.value.ip;
-	if (array_is_created(&old->field.value.strlist)) {
-		const char *str;
-		p_array_init(&new->field.value.strlist, pool,
-			     array_count(&old->field.value.strlist));
-		array_foreach_elem(&old->field.value.strlist, str) {
-			str = p_strdup(pool, str);
-			array_push_back(&new->field.value.strlist, &str);
+	switch (old->type) {
+	case EVENT_FILTER_NODE_TYPE_LOGIC:
+		new->children[0] = clone_expr(pool, old->children[0]);
+		new->children[1] = clone_expr(pool, old->children[1]);
+		break;
+	case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:
+		new->category.log_type = old->category.log_type;
+		new->category.name = p_strdup(pool, old->category.name);
+		new->category.ptr = old->category.ptr;
+		break;
+	default:
+		new->field.key = p_strdup(pool, old->field.key);
+		new->field.value_type = old->field.value_type;
+		new->field.value.str = p_strdup(pool, old->field.value.str);
+		new->field.value.intmax = old->field.value.intmax;
+		new->field.value.timeval = old->field.value.timeval;
+		new->field.value.ip = old->field.value.ip;
+		if (array_is_created(&old->field.value.strlist)) {
+			const char *str;
+			p_array_init(&new->field.value.strlist, pool,
+				     array_count(&old->field.value.strlist));
+			array_foreach_elem(&old->field.value.strlist, str) {
+				str = p_strdup(pool, str);
+				array_push_back(&new->field.value.strlist, &str);
+			}
 		}
+		break;
 	}
 	new->ambiguous_unit = old->ambiguous_unit;
 	new->warned_ambiguous_unit = old->warned_ambiguous_unit;

@@ -57,31 +57,33 @@ struct event_filter_node {
 	enum event_filter_node_type type;
 	enum event_filter_node_op op;
 
-	/* internal node */
-	struct event_filter_node *children[2];
+	union {
+		/* internal node */
+		struct event_filter_node *children[2];
 
-	/* leaf node */
-	struct {
-		/*
-		 * We may be dealing with one of three situations:
-		 *
-		 * 1) the category is a special "log type" category
-		 * 2) the category is a "normal" category which is:
-		 *    a) registered
-		 *    b) not registered
-		 *
-		 * A "log type" category is always stored here as the
-		 * log_type enum value with the name and ptr members being
-		 * NULL.
-		 *
-		 * A regular category always has a name.  Additionally, if
-		 * it is registered, the category pointer is non-NULL.
-		 */
-		enum event_filter_log_type log_type;
-		const char *name;
-		struct event_category *ptr;
-	} category;
-	struct event_field field;
+		/* leaf node */
+		struct {
+			/*
+			 * We may be dealing with one of three situations:
+			 *
+			 * 1) the category is a special "log type" category
+			 * 2) the category is a "normal" category which is:
+			 *    a) registered
+			 *    b) not registered
+			 *
+			 * A "log type" category is always stored here as the
+			 * log_type enum value with the name and ptr members being
+			 * NULL.
+			 *
+			 * A regular category always has a name.  Additionally, if
+			 * it is registered, the category pointer is non-NULL.
+			 */
+			enum event_filter_log_type log_type;
+			const char *name;
+			struct event_category *ptr;
+		} category;
+		struct event_field field;
+	};
 
 	bool ambiguous_unit:1;
 	bool warned_ambiguous_unit:1;
