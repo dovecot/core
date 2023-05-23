@@ -901,7 +901,7 @@ event_filter_query_match_cmp(struct event_filter_node *node,
 			return !((source_linenum != node->field.value.intmax &&
 				  node->field.value.intmax != 0) ||
 				 source_filename == NULL ||
-				 strcmp(event->source_filename, node->field.value.str) != 0);
+				 strcmp(source_filename, node->field.value.str) != 0);
 		case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:
 			return event_has_category(event, node, log_type);
 		case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT:
