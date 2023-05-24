@@ -198,6 +198,14 @@ stats_client_send_event(struct stats_client *client, struct event *event,
 	if (!client->handshaked)
 		return;
 
+	if (event->sending_name == NULL) {
+		/* At least for now don't even try to send unnamed events.
+		   They are most likely not actually wanted. We could later on
+		   support them if necessary by explicitly requiring e.g.
+		   "event=" in the filter. */
+		return;
+	}
+
 	if (!event_filter_match(client->filter, event, ctx))
 		return;
 
@@ -207,8 +215,12 @@ stats_client_send_event(struct stats_client *client, struct event *event,
 	if (++recursion == 0)
 		o_stream_cork(client->conn.output);
 	struct event *global_event = event_get_global();
-	if (global_event != NULL)
+	if (global_event != NULL) {
+		/* Global event can contain e.g. reason_code. Send it as a
+		   separate BEGIN event, which can be referred to in a later
+		   EVENT. */
 		stats_event_write(client, global_event, NULL, ctx, str, TRUE);
+	}
 
 	stats_event_write(client, event, global_event, ctx, str, FALSE);
 	o_stream_nsend(client->conn.output, str_data(str), str_len(str));

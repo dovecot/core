@@ -121,6 +121,7 @@ static void test_no_merging1(void)
 	struct event *single_ev = event_create(NULL);
 	event_add_category(single_ev, &test_cats[0]);
 	event_add_str(single_ev, test_fields[0].key, test_fields[0].value.str);
+	event_set_name(single_ev, "evname");
 	e_info(single_ev, "info message");
 	l = __LINE__ - 1;
 	event_unref(&single_ev);
@@ -128,7 +129,7 @@ static void test_no_merging1(void)
 		compare_test_stats_to(
 			"EVENT	0	0	1	0	0"
 			"	s"__FILE__"	%d"
-			"	l0	0	ctest1	Skey1	str1\n", l));
+			"	l0	0	nevname	ctest1	Skey1	str1\n", l));
 	test_end();
 }
 
@@ -144,6 +145,7 @@ static void test_no_merging2(void)
 	id = parent_ev->id;
 	struct event *child_ev = event_create(parent_ev);
 	event_add_category(child_ev, &test_cats[1]);
+	event_set_name(child_ev, "evname");
 	e_info(child_ev, "info message");
 	l = __LINE__ - 1;
 	event_unref(&parent_ev);
@@ -152,7 +154,7 @@ static void test_no_merging2(void)
 		compare_test_stats_to(
 			"EVENT	0	%"PRIu64"	1	0	0"
 			"	s"__FILE__"	%d"
-			"	l0	0	ctest2\n"
+			"	l0	0	nevname	ctest2\n"
 			"END	8\n", id, l));
 	test_end();
 }
@@ -171,6 +173,7 @@ static void test_no_merging3(void)
 	ioloop_timeval.tv_sec++;
 	struct event *child_ev = event_create(parent_ev);
 	event_add_category(child_ev, &test_cats[1]);
+	event_set_name(child_ev, "evname");
 	e_info(child_ev, "info message");
 	l = __LINE__ - 1;
 	event_unref(&parent_ev);
@@ -181,7 +184,7 @@ static void test_no_merging3(void)
 			"	s"__FILE__"	%d	ctest1\n"
 			"EVENT	0	%"PRIu64"	1	1	0"
 			"	s"__FILE__"	%d"
-			"	l1	0	ctest2\n"
+			"	l1	0	nevname	ctest2\n"
 			"END\t%"PRIu64"\n", idp, lp, idp, l, idp));
 	test_end();
 }
@@ -201,6 +204,7 @@ static void test_merge_events1(void)
 	event_add_timeval(merge_ev2,test_fields[2].key,
 			  &test_fields[2].value.timeval);
 	event_add_int(merge_ev2,test_fields[1].key, test_fields[1].value.intmax);
+	event_set_name(merge_ev2, "evname");
 	e_info(merge_ev2, "info message");
 	l = __LINE__ - 1;
 	event_unref(&merge_ev1);
@@ -209,7 +213,7 @@ static void test_merge_events1(void)
 		compare_test_stats_to(
 			"EVENT	0	0	1	0	0"
 			"	s"__FILE__"	%d	l0	0"
-			"	ctest3	ctest2	ctest1	Tkey3"
+			"	nevname	ctest3	ctest2	ctest1	Tkey3"
 			"	10	0	Ikey2	20"
 			"	Skey1	str1\n", l));
 	test_end();
@@ -234,6 +238,7 @@ static void test_merge_events2(void)
 	event_add_timeval(merge_ev2,test_fields[2].key,
 			  &test_fields[2].value.timeval);
 	event_add_int(merge_ev2,test_fields[1].key, test_fields[1].value.intmax);
+	event_set_name(merge_ev2, "evname");
 	e_info(merge_ev2, "info message");
 	l = __LINE__ - 1;
 	id = parent_ev->id;
@@ -244,7 +249,7 @@ static void test_merge_events2(void)
 		compare_test_stats_to(
 			"EVENT	0	%"PRIu64"	1	0	0"
 			"	s"__FILE__"	%d	l0	0"
-			"	ctest3	ctest2	ctest1	Tkey3"
+			"	nevname	ctest3	ctest2	ctest1	Tkey3"
 			"	10	0	Ikey2	20"
 			"	Skey1	str1\n"
 			"END	15\n", id, l));
@@ -267,6 +272,7 @@ static void test_skip_parents(void)
 	ioloop_timeval.tv_sec++;
 	struct event *child_ev = event_create(empty_parent2);
 	event_add_category(child_ev, &test_cats[1]);
+	event_set_name(child_ev, "evname");
 	e_info(child_ev, "info message");
 	l = __LINE__ - 1;
 	event_unref(&parent_to_log);
@@ -278,7 +284,7 @@ static void test_skip_parents(void)
 			"BEGIN	%"PRIu64"	0	1	0	0"
 			"	s"__FILE__"	%d	ctest1\n"
 			"EVENT	0	%"PRIu64"	1	3	0	"
-			"s"__FILE__"	%d	l3	0"
+			"s"__FILE__"	%d	l3	0	nevname"
 			"	ctest2\nEND\t%"PRIu64"\n", id, lp, id, l, id));
 	test_end();
 }
@@ -308,6 +314,7 @@ static void test_merge_events_skip_parents(void)
 	event_add_timeval(child2_ev,test_fields[2].key,
 			  &test_fields[2].value.timeval);
 	event_add_str(child2_ev,test_fields[3].key, test_fields[3].value.str);
+	event_set_name(child2_ev, "evname");
 	e_info(child2_ev, "info message");
 	l = __LINE__ - 1;
 	event_unref(&parent_to_log);
@@ -320,7 +327,7 @@ static void test_merge_events_skip_parents(void)
 			"BEGIN	%"PRIu64"	0	1	0	0"
 			"	s"__FILE__"	%d	ctest1\n"
 			"EVENT	0	%"PRIu64"	1	3	0	"
-			"s"__FILE__"	%d	l3	0	"
+			"s"__FILE__"	%d	l3	0	nevname	"
 			"ctest4	ctest5	Tkey3	10	0	Skey4"
 			"	str4\nEND\t%"PRIu64"\n", id, lp, id, l, id));
 	test_end();
@@ -369,12 +376,14 @@ static void test_parent_update_post_send(void)
 	event_add_int(c, "c", 3);
 
 	/* force 'a' event to be sent */
+	event_set_name(b, "evname");
 	e_info(b, "field 'a' should be 1");
 	line_log1 = __LINE__ - 1;
 
 	event_add_int(a, "a", 1000); /* update parent */
 
 	/* log child, which should re-sent parent */
+	event_set_name(c, "evname");
 	e_info(c, "field 'a' should be 1000");
 	line_log2 = __LINE__ - 1;
 
@@ -393,7 +402,7 @@ static void test_parent_update_post_send(void)
 			"	Ia	1\n"
 			"EVENT	0	%"PRIu64"	1	1	0"
 			"	s"__FILE__"	%d"
-			"	l1	0	ctest2" "	Ib	2\n"
+			"	l1	0	nevname	ctest2" "	Ib	2\n"
 			/* second e_info() */
 			"UPDATE	%"PRIu64"	0	0	0"
 			"	s"__FILE__"	%d	ctest1"
@@ -403,7 +412,7 @@ static void test_parent_update_post_send(void)
 			"	l0	0	ctest2	Ib	2\n"
 			"EVENT	0	%"PRIu64"	1	1	0"
 			"	s"__FILE__"	%d"
-			"	l1	0	ctest3"
+			"	l1	0	nevname	ctest3"
 			"	Ic	3\n"
 			"END\t%"PRIu64"\n"
 			"END\t%"PRIu64"\n",
@@ -432,12 +441,15 @@ static void test_large_event_id(void)
 	b = make_event(a, &test_cats[1], NULL, NULL);
 
 	ioloop_timeval.tv_sec++;
+	event_set_name(a, "evname");
 	e_info(a, "emit");
 	line_log1 = __LINE__-1;
 	ioloop_timeval.tv_sec++;
+	event_set_name(b, "evname");
 	e_info(b, "emit");
 	line_log2 = __LINE__-1;
 	event_add_int(a, "test1", 1);
+	event_set_name(b, "evname");
 	e_info(b, "emit");
 	line_log3 = __LINE__-1;
 
@@ -449,19 +461,19 @@ static void test_large_event_id(void)
 			/* first e_info() */
 			"EVENT	0	%"PRIu64"	1	1	0"
 			"	s"__FILE__"	%d"
-			"	l1	0	ctest1\n"
+			"	l1	0	nevname	ctest1\n"
 			"BEGIN	%"PRIu64"	0	1	0	0"
 			"	s"__FILE__"	%d"
 			"	l0	0	ctest1\n"
 			"EVENT	0	%"PRIu64"	1	1	0"
 			"	s"__FILE__"	%d"
-			"	l1	0	ctest2\n"
+			"	l1	0	nevname	ctest2\n"
 			"UPDATE	%"PRIu64"	0	1	0"
 			"	s"__FILE__"	%d"
 			"	l1	0	ctest1	Itest1	1\n"
 			"EVENT	0	%"PRIu64"	1	1	0"
 			"	s"__FILE__"	%d"
-			"	l1	0	ctest2\n"
+			"	l1	0	nevname	ctest2\n"
 			"END	%"PRIu64"\n",
 			(uint64_t)0, line_log1,
 			id, line,
@@ -493,6 +505,7 @@ static void test_global_event(void)
 	struct timeval tv;
 	event_get_create_time(merge_ev1, &tv);
 
+	event_set_name(merge_ev2, "evname");
 	e_info(merge_ev2, "info message");
 	int log_line = __LINE__ - 1;
 
@@ -507,7 +520,7 @@ static void test_global_event(void)
 			"\ts"__FILE__"\t%d"
 			"\tSglobal\tvalue\n"
 			"EVENT\t%"PRIu64"\t0\t1\t0\t0"
-			"\ts"__FILE__"\t%d\tl0\t0"
+			"\ts"__FILE__"\t%d\tl0\t0\tnevname"
 			"\tctest1\tIkey2\t20\tSkey1\tstr1\n"
 			"END\t%"PRIu64"\n",
 			global_event_id, global_event_line,
