@@ -105,7 +105,8 @@ static void
 json_export_name(struct json_ostream *joutput, struct event *event,
 		 const struct metric_export_info *info)
 {
-	if ((info->include & EVENT_EXPORTER_INCL_NAME) == 0)
+	if ((info->include & EVENT_EXPORTER_INCL_NAME) == 0 ||
+	    event->sending_name == NULL)
 		return;
 
 	json_ostream_nwrite_string(joutput, "event", event->sending_name);
