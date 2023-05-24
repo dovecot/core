@@ -181,6 +181,7 @@ struct client *client_create(int fd_in, int fd_out,
 		SMTP_CAPABILITY_8BITMIME |
 		SMTP_CAPABILITY_CHUNKING |
 		SMTP_CAPABILITY_XCLIENT |
+		SMTP_CAPABILITY_SMTPUTF8 |
 		SMTP_CAPABILITY__ORCPT;
 	if (!conn_tls && master_service_ssl_is_enabled(master_service))
 		lmtp_set.capabilities |= SMTP_CAPABILITY_STARTTLS;

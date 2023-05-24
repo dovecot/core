@@ -28,6 +28,12 @@ bool cmd_search(struct client_command_context *cmd)
 
 	if (imap_arg_atom_equals(args, "CHARSET")) {
 		/* CHARSET specified */
+		if (client_enabled_mailbox_features(cmd->client) & MAILBOX_FEATURE_UTF8ACCEPT) {
+			/* RFC 6855 Section 3 bans CHARSET after UTF8=ACCEPT */
+			client_send_command_error(cmd,
+				"Cannot set search charset when using UTF8=ACCEPT");
+			return TRUE;
+		}
 		if (!imap_arg_get_astring(&args[1], &charset)) {
 			client_send_command_error(cmd,
 				"Invalid charset argument.");

@@ -83,6 +83,7 @@ enum mailbox_flags {
 enum mailbox_feature {
 	/* Enable tracking modsequences */
 	MAILBOX_FEATURE_CONDSTORE	= 0x01,
+	MAILBOX_FEATURE_UTF8ACCEPT	= 0x02
 };
 
 enum mailbox_existence {

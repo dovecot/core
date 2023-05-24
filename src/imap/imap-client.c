@@ -43,6 +43,7 @@ unsigned int imap_client_count = 0;
 
 unsigned int imap_feature_condstore = UINT_MAX;
 unsigned int imap_feature_qresync = UINT_MAX;
+unsigned int imap_feature_utf8accept = UINT_MAX;
 
 static const char *client_command_state_names[] = {
 	"wait-input",
@@ -1596,6 +1597,12 @@ static void imap_client_enable_qresync(struct client *client)
 	client_enable(client, imap_feature_condstore);
 }
 
+static void imap_client_enable_utf8accept(struct client *client)
+{
+	if (client->mailbox)
+		mailbox_enable(client->mailbox, MAILBOX_FEATURE_UTF8ACCEPT);
+}
+
 enum mailbox_feature client_enabled_mailbox_features(struct client *client)
 {
 	enum mailbox_feature mailbox_features = 0;
@@ -1672,6 +1679,9 @@ void clients_init(void)
 	imap_feature_qresync =
 		imap_feature_register("QRESYNC", MAILBOX_FEATURE_CONDSTORE,
 				      imap_client_enable_qresync);
+	imap_feature_utf8accept =
+		imap_feature_register("UTF8=ACCEPT", MAILBOX_FEATURE_UTF8ACCEPT,
+				      imap_client_enable_utf8accept);
 }
 
 void client_kick(struct client *client)
