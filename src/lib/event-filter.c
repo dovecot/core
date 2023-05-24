@@ -365,6 +365,7 @@ clone_expr(pool_t pool, struct event_filter_node *old)
 			break;
 		case EVENT_FIELD_VALUE_TYPE_IP:
 			new->field.value.ip = old->field.value.ip;
+			new->field.value.ip_bits = old->field.value.ip_bits;
 			break;
 		case EVENT_FIELD_VALUE_TYPE_STRLIST:
 			if (array_is_created(&old->field.value.strlist)) {
