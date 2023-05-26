@@ -65,7 +65,7 @@ static const struct setting_define pop3_setting_defines[] = {
 	DEF(BOOL, pop3_lock_session),
 	DEF(BOOL, pop3_fast_size_lookups),
 	DEF(STR, pop3_client_workarounds),
-	DEF(STR, pop3_logout_format),
+	DEF(STR_NOVARS, pop3_logout_format),
 	DEF(ENUM, pop3_uidl_duplicates),
 	DEF(STR, pop3_deleted_flag),
 	DEF(ENUM, pop3_delete_type),

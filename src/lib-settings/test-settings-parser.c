@@ -80,7 +80,7 @@ static void test_settings_parser(void)
 		SETTING_DEFINE_STRUCT_TIME_MSECS("msecs", msecs, struct test_settings),
 		SETTING_DEFINE_STRUCT_SIZE("size", size, struct test_settings),
 		SETTING_DEFINE_STRUCT_IN_PORT("port", port, struct test_settings),
-		SETTING_DEFINE_STRUCT_STR("str", str, struct test_settings),
+		SETTING_DEFINE_STRUCT_STR_NOVARS("str", str, struct test_settings),
 		{ .type = SET_STR_VARS, .key = "expand_str",
 		  offsetof(struct test_settings, expand_str), NULL },
 		{ .type = SET_STRLIST, .key = "strlist",

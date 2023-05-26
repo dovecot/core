@@ -69,7 +69,7 @@ static const struct setting_define submission_setting_defines[] = {
 	DEF(SIZE, submission_max_mail_size),
 	DEF(UINT, submission_max_recipients),
 	DEF(STR, submission_client_workarounds),
-	DEF(STR, submission_logout_format),
+	DEF(STR_NOVARS, submission_logout_format),
 	DEF(BOOL, submission_add_received_header),
 
 	DEF(STR, submission_backend_capabilities),

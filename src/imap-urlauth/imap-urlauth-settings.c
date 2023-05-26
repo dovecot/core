@@ -53,7 +53,7 @@ static const struct setting_define imap_urlauth_setting_defines[] = {
 
 	DEF(BOOL, verbose_proctitle),
 
-	DEF(STR, imap_urlauth_logout_format),
+	DEF(STR_NOVARS, imap_urlauth_logout_format),
 	DEF(STR, imap_urlauth_submit_user),
 	DEF(STR, imap_urlauth_stream_user),
 

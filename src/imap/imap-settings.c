@@ -65,7 +65,7 @@ static const struct setting_define imap_setting_defines[] = {
 	DEF(TIME_HIDDEN, imap_idle_notify_interval),
 	DEF(STR, imap_capability),
 	DEF(STR, imap_client_workarounds),
-	DEF(STR, imap_logout_format),
+	DEF(STR_NOVARS, imap_logout_format),
 	DEF(STR, imap_id_send),
 	DEF(ENUM, imap_fetch_failure),
 	DEF(BOOL, imap_metadata),

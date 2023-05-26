@@ -75,7 +75,7 @@ static const struct setting_define doveadm_setting_defines[] = {
 	DEF(STR, doveadm_password),
 	DEF(STR, doveadm_allowed_commands),
 	DEF(STR, dsync_alt_char),
-	DEF(STR, dsync_remote_cmd),
+	DEF(STR_NOVARS, dsync_remote_cmd),
 	DEF(STR, doveadm_api_key),
 	DEF(STR, dsync_features),
 	DEF(UINT, dsync_commit_msgs_interval),

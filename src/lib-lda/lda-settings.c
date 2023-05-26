@@ -15,9 +15,9 @@ static bool lda_settings_check(void *_set, pool_t pool, const char **error_r);
 
 static const struct setting_define lda_setting_defines[] = {
 	DEF(STR, hostname),
-	DEF(STR, rejection_subject),
-	DEF(STR, rejection_reason),
-	DEF(STR, deliver_log_format),
+	DEF(STR_NOVARS, rejection_subject),
+	DEF(STR_NOVARS, rejection_reason),
+	DEF(STR_NOVARS, deliver_log_format),
 	DEF(STR, recipient_delimiter),
 	DEF(STR, lda_original_recipient_header),
 	DEF(BOOL, quota_full_tempfail),
