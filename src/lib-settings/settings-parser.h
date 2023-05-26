@@ -17,8 +17,7 @@ enum setting_type {
 	SET_TIME_MSECS,
 	SET_SIZE,
 	SET_IN_PORT, /* internet port */
-	SET_STR,
-	SET_STR_VARS, /* string with %variables */
+	SET_STR, /* string with %variables */
 	SET_STR_NOVARS, /* string explicitly without %variables */
 	SET_ENUM,
 	SET_STRLIST, /* of type ARRAY_TYPE(const_string) */
@@ -65,7 +64,7 @@ struct setting_define {
 #define SETTING_DEFINE_STRUCT_STR(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_STR, 0, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_STR_VARS(key, name, struct_name) \
-	SETTING_DEFINE_STRUCT_TYPE(SET_STR_VARS, 0, const char *, key, name, struct_name)
+	SETTING_DEFINE_STRUCT_TYPE(SET_STR, 0, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_STR_NOVARS(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_STR_NOVARS, 0, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_ENUM(key, name, struct_name) \
@@ -88,7 +87,7 @@ struct setting_define {
 #define SETTING_DEFINE_STRUCT_STR_HIDDEN(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_STR, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_STR_VARS_HIDDEN(key, name, struct_name) \
-	SETTING_DEFINE_STRUCT_TYPE(SET_STR_VARS, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
+	SETTING_DEFINE_STRUCT_TYPE(SET_STR, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_STR_NOVARS_HIDDEN(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_STR_NOVARS, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_ENUM_HIDDEN(key, name, struct_name) \
