@@ -143,6 +143,7 @@ bool config_export_type(string_t *str, const void *value,
 		}
 		break;
 	}
+	case SET_STR_NOVARS:
 	case SET_STR: {
 		const char *const *val = value;
 		const char *const *_dval = default_value;
@@ -244,6 +245,7 @@ settings_export(struct config_export_context *ctx,
 		case SET_IN_PORT:
 		case SET_STR_VARS:
 		case SET_STR:
+		case SET_STR_NOVARS:
 		case SET_ENUM:
 			if (!config_export_type(ctx->value, value,
 						default_value, def->type,

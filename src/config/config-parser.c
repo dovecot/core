@@ -1718,7 +1718,8 @@ config_module_parsers_get_setting(const struct config_module_parser *module_pars
 		const char *const *value =
 			settings_parse_get_value(l->parser, &key, &type);
 		if (value != NULL) {
-			i_assert(type == SET_STR || type == SET_STR_VARS);
+			i_assert(type == SET_STR || type == SET_STR_VARS ||
+				 type == SET_STR_NOVARS);
 			return *value;
 		}
 	}
