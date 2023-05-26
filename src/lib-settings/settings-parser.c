@@ -372,6 +372,7 @@ settings_parse(struct setting_parser_context *ctx,
 		break;
 	case SET_STR:
 	case SET_STR_VARS:
+	case SET_STR_NOVARS:
 		if (dup_value)
 			value = p_strdup(ctx->set_pool, value);
 		*((const char **)ptr) = value;
@@ -630,6 +631,7 @@ setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool,
 	}
 	case SET_STR_VARS:
 	case SET_STR:
+	case SET_STR_NOVARS:
 	case SET_ENUM: {
 		const char *const *src_str = src;
 		const char **dest_str = dest;
@@ -757,6 +759,7 @@ settings_changes_dup(const struct setting_parser_info *info,
 		case SET_SIZE:
 		case SET_IN_PORT:
 		case SET_STR_VARS:
+		case SET_STR_NOVARS:
 		case SET_STR:
 		case SET_ENUM:
 		case SET_STRLIST:
