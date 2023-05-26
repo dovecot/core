@@ -115,9 +115,9 @@ const struct setting_keyvalue auth_worker_service_settings_defaults[] = {
 static const struct setting_define auth_passdb_setting_defines[] = {
 	DEF(STR, name),
 	DEF(STR, driver),
-	DEF(STR, args),
-	DEF(STR, default_fields),
-	DEF(STR, override_fields),
+	DEF(STR_NOVARS, args),
+	DEF(STR_NOVARS, default_fields),
+	DEF(STR_NOVARS, override_fields),
 	DEF(STR, mechanisms),
 	DEF(STR, username_filter),
 
@@ -173,9 +173,9 @@ const struct setting_parser_info auth_passdb_setting_parser_info = {
 static const struct setting_define auth_userdb_setting_defines[] = {
 	DEF(STR, name),
 	DEF(STR, driver),
-	DEF(STR, args),
-	DEF(STR, default_fields),
-	DEF(STR, override_fields),
+	DEF(STR_NOVARS, args),
+	DEF(STR_NOVARS, default_fields),
+	DEF(STR_NOVARS, override_fields),
 
 	DEF(ENUM, skip),
 	DEF(ENUM, result_success),
@@ -231,7 +231,7 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(BOOL, cache_verify_password_with_worker),
 	DEF(STR, username_chars),
 	DEF(STR_HIDDEN, username_translation),
-	DEF(STR, username_format),
+	DEF(STR_NOVARS, username_format),
 	DEF(STR, master_user_separator),
 	DEF(STR, anonymous_username),
 #ifdef DOVECOT_PRO_EDITION
@@ -252,7 +252,7 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(UINT, policy_server_timeout_msecs),
 	DEF(STR, policy_hash_mech),
 	DEF(STR, policy_hash_nonce),
-	DEF(STR, policy_request_attributes),
+	DEF(STR_NOVARS, policy_request_attributes),
 	DEF(BOOL, policy_reject_on_fail),
 	DEF(BOOL, policy_check_before_auth),
 	DEF(BOOL, policy_check_after_auth),

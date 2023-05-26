@@ -26,7 +26,7 @@ static bool master_settings_ext_check(struct event *event, void *_set,
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type("unix_listener_"#name, name, struct file_listener_settings)
 static const struct setting_define unix_listener_setting_defines[] = {
-	DEF(STR, path),
+	DEF(STR_NOVARS, path),
 	DEF(STR, type),
 	DEF(UINT_OCT, mode),
 	DEF(STR, user),
@@ -39,7 +39,7 @@ static const struct setting_define unix_listener_setting_defines[] = {
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type("fifo_listener_"#name, name, struct file_listener_settings)
 static const struct setting_define fifo_listener_setting_defines[] = {
-	DEF(STR, path),
+	DEF(STR_NOVARS, path),
 	DEF(STR, type),
 	DEF(UINT_OCT, mode),
 	DEF(STR, user),
@@ -82,7 +82,7 @@ const struct setting_parser_info fifo_listener_setting_parser_info = {
 static const struct setting_define inet_listener_setting_defines[] = {
 	DEF(STR, name),
 	DEF(STR, type),
-	DEF(STR, address),
+	DEF(STR_NOVARS, address), /* NOVARS to avoid expanding %scope */
 	DEF(IN_PORT, port),
 	DEF(BOOL, ssl),
 	DEF(BOOL, reuse_port),
@@ -192,7 +192,7 @@ static const struct setting_define master_setting_defines[] = {
 	DEF(STR_HIDDEN, libexec_dir),
 	DEF(STR, instance_name),
 	DEF(STR, protocols),
-	DEF(STR, listen),
+	DEF(STR_NOVARS, listen), /* NOVARS to avoid expanding %scope */
 	DEF(ENUM, ssl),
 	DEF(STR, default_internal_user),
 	DEF(STR, default_internal_group),

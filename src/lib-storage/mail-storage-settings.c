@@ -34,7 +34,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	{ .type = SET_ALIAS, .key = "mail" },
 	DEF(STR_VARS, mail_attachment_fs),
 	DEF(STR_VARS, mail_attachment_dir),
-	DEF(STR_HIDDEN, mail_attachment_hash),
+	DEF(STR_NOVARS_HIDDEN, mail_attachment_hash),
 	DEF(SIZE, mail_attachment_min_size),
 	DEF(STR, mail_attachment_detection_options),
 	{ .type = SET_FILTER_NAME, .key = "mail_attribute",
@@ -80,7 +80,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(BOOL, maildir_stat_dirs),
 	DEF(BOOL, mail_shared_explicit_inbox),
 	DEF(ENUM, lock_method),
-	DEF(STR, pop3_uidl_format),
+	DEF(STR_NOVARS, pop3_uidl_format),
 
 	DEF(STR, recipient_delimiter),
 

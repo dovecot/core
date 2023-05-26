@@ -112,7 +112,7 @@ const struct setting_parser_info stats_exporter_setting_parser_info = {
 static const struct setting_define stats_metric_setting_defines[] = {
 	DEF(STR, name),
 	DEF(STR, fields),
-	DEF(STR, group_by),
+	DEF(STR_NOVARS, group_by),
 	DEF(STR, filter),
 	DEF(STR, exporter),
 	DEF(STR, exporter_include),

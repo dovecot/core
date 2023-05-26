@@ -42,7 +42,7 @@ static const struct setting_define master_service_setting_defines[] = {
 	DEF(STR, log_path),
 	DEF(STR, info_log_path),
 	DEF(STR, debug_log_path),
-	DEF(STR, log_timestamp),
+	DEF(STR_NOVARS, log_timestamp),
 	DEF(STR, log_debug),
 	DEF(STR, log_core_filter),
 	DEF(STR, process_shutdown_filter),
