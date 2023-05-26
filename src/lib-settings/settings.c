@@ -473,7 +473,7 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 
 	if (strlist_key == NULL &&
 	    (ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0 &&
-	    ctx->info->defines[key_idx].type == SET_STR_VARS) {
+	    ctx->info->defines[key_idx].type == SET_STR) {
 		const char *error;
 		str_truncate(ctx->str, 0);
 		if (var_expand_with_funcs(ctx->str, value, ctx->table,
@@ -514,7 +514,7 @@ settings_mmap_apply_defaults(struct settings_apply_ctx *ctx,
 
 		void *set = PTR_OFFSET(ctx->info->defaults,
 				       ctx->info->defines[key_idx].offset);
-		if (ctx->info->defines[key_idx].type != SET_STR_VARS)
+		if (ctx->info->defines[key_idx].type != SET_STR)
 			continue; /* not needed for now */
 		const char *key = ctx->info->defines[key_idx].key;
 		const char *const *valuep = set;
