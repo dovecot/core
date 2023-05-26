@@ -369,6 +369,27 @@ stats_client_init(const char *path, bool silent_notfound_errors)
 	return client;
 }
 
+struct stats_client *
+stats_client_init_unittest(buffer_t *buf, const char *filter)
+{
+	struct stats_client *client;
+	const char *error;
+
+	if (stats_clients == NULL)
+		stats_global_init();
+
+	client = i_new(struct stats_client, 1);
+	connection_init_client_unix(stats_clients, &client->conn, "(unit test)");
+	client->conn.output = o_stream_create_buffer(buf);
+	client->handshaked = TRUE;
+
+	client->filter = event_filter_create();
+	if (!event_filter_import(client->filter, filter, &error))
+		i_panic("Failed to import unit test event filter: %s", error);
+	event_set_global_debug_send_filter(client->filter);
+	return client;
+}
+
 static int stats_client_deinit_callback(struct connection *conn)
 {
 	struct ostream *output = conn->output;

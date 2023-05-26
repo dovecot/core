@@ -5,4 +5,7 @@ struct stats_client *
 stats_client_init(const char *path, bool silent_notfound_errors);
 void stats_client_deinit(struct stats_client **client);
 
+struct stats_client *
+stats_client_init_unittest(buffer_t *buf, const char *filter);
+
 #endif
