@@ -617,14 +617,6 @@ settings_var_expand_info(const struct setting_parser_info *info, void *set,
 		}
 	}
 
-	if (final_ret <= 0)
-		return final_ret;
-
-	if (info->expand_check_func != NULL) {
-		if (!info->expand_check_func(set, pool, error_r))
-			return -1;
-	}
-
 	return final_ret;
 }
 

@@ -124,7 +124,6 @@ struct setting_parser_info {
 	/* The event parameter can be used with settings_get*() to access other
 	   settings structs. */
 	bool (*ext_check_func)(struct event *event, void *set, pool_t pool, const char **error_r);
-	bool (*expand_check_func)(void *set, pool_t pool, const char **error_r);
 
 };
 ARRAY_DEFINE_TYPE(setting_parser_info, struct setting_parser_info);
