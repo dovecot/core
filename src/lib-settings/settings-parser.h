@@ -119,6 +119,7 @@ struct setting_parser_info {
 	bool (*setting_apply)(struct event *event, void *set,
 			      const char *key, const char *value, bool override,
 			      const char **error_r);
+	/* This is called after %variable expansion. */
 	bool (*check_func)(void *set, pool_t pool, const char **error_r);
 	/* The event parameter can be used with settings_get*() to access other
 	   settings structs. */

@@ -1065,15 +1065,6 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 		pool_unref(&set_pool);
 		return 0;
 	}
-	if ((ctx->flags & SETTINGS_GET_FLAG_NO_CHECK) == 0) {
-		if (!settings_check(ctx->event, ctx->info, *pool_p,
-				    ctx->set_struct, error_r)) {
-			*error_r = t_strdup_printf("Invalid %s settings: %s",
-						   ctx->info->name, *error_r);
-			pool_unref(&set_pool);
-			return -1;
-		}
-	}
 
 	if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) != 0)
 		ret = 1;
@@ -1097,6 +1088,16 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 			ctx->info->name, *error_r);
 		pool_unref(&set_pool);
 		return -1;
+	}
+
+	if ((ctx->flags & SETTINGS_GET_FLAG_NO_CHECK) == 0) {
+		if (!settings_check(ctx->event, ctx->info, *pool_p,
+				    ctx->set_struct, error_r)) {
+			*error_r = t_strdup_printf("Invalid %s settings: %s",
+						   ctx->info->name, *error_r);
+			pool_unref(&set_pool);
+			return -1;
+		}
 	}
 
 	*set_r = ctx->set_struct;
