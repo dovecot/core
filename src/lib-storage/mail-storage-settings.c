@@ -24,7 +24,6 @@ static bool namespace_settings_apply(struct event *event, void *_set, const char
 static bool namespace_settings_ext_check(struct event *event, void *_set, pool_t pool, const char **error_r);
 static bool mailbox_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool mail_user_settings_check(void *_set, pool_t pool, const char **error_r);
-static bool mail_user_settings_expand_check(void *_set, pool_t pool ATTR_UNUSED, const char **error_r);
 
 #undef DEF
 #define DEF(type, name) \
@@ -333,9 +332,6 @@ const struct setting_parser_info mail_user_setting_parser_info = {
 	.struct_size = sizeof(struct mail_user_settings),
 	.pool_offset1 = 1 + offsetof(struct mail_user_settings, pool),
 	.check_func = mail_user_settings_check,
-#ifndef CONFIG_BINARY
-	.expand_check_func = mail_user_settings_expand_check,
-#endif
 };
 
 const struct mail_storage_settings *
@@ -823,6 +819,10 @@ static bool mail_user_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 
 	if (*set->hostname == '\0')
 		set->hostname = p_strdup(pool, my_hostdomain());
+	/* Parse if possible. Perform error handling later. */
+	const char *error ATTR_UNUSED;
+	(void)parse_postmaster_address(set->postmaster_address, pool,
+				       set, &error);
 #else
 	if (*set->mail_plugins != '\0' &&
 	    faccessat(AT_FDCWD, set->mail_plugin_dir, R_OK | X_OK, AT_EACCESS) < 0) {
@@ -834,21 +834,6 @@ static bool mail_user_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 #endif
 	return TRUE;
 }
-
-#ifndef CONFIG_BINARY
-static bool
-mail_user_settings_expand_check(void *_set, pool_t pool,
-				const char **error_r ATTR_UNUSED)
-{
-	struct mail_user_settings *set = _set;
-	const char *error;
-
-	/* Parse if possible. Perform error handling later. */
-	(void)parse_postmaster_address(set->postmaster_address, pool,
-				       set, &error);
-	return TRUE;
-}
-#endif
 
 /* </settings checks> */
 
