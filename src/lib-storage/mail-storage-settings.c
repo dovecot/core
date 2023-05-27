@@ -758,17 +758,6 @@ static bool mail_user_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 
 	if (*set->hostname == '\0')
 		set->hostname = p_strdup(pool, my_hostdomain());
-	if (set->postmaster_address[0] == SETTING_STRVAR_UNEXPANDED[0] &&
-	    set->postmaster_address[1] == '\0') {
-		/* check for valid looking fqdn in hostname */
-		if (strchr(set->hostname, '.') == NULL) {
-			*error_r = "postmaster_address setting not given";
-			return FALSE;
-		}
-		set->postmaster_address =
-			p_strconcat(pool, SETTING_STRVAR_UNEXPANDED,
-				    "postmaster@", set->hostname, NULL);
-	}
 #else
 	if (*set->mail_plugins != '\0' &&
 	    faccessat(AT_FDCWD, set->mail_plugin_dir, R_OK | X_OK, AT_EACCESS) < 0) {
