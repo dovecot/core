@@ -154,7 +154,7 @@ const char *settings_parse_unalias(struct setting_parser_context *ctx,
 /* Returns pointer to value for a key, or NULL if not found. */
 const void *
 settings_parse_get_value(struct setting_parser_context *ctx,
-			 const char *key, enum setting_type *type_r);
+			 const char **key, enum setting_type *type_r);
 /* Set the change_counter to use for tracking the following changes.
    SETTINGS_PARSER_FLAG_TRACK_CHANGES must be enabled, and the counter must be
    higher than 0. If the same setting is changed multiple times with different

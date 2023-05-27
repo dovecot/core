@@ -489,13 +489,22 @@ const char *settings_parse_unalias(struct setting_parser_context *ctx,
 
 const void *
 settings_parse_get_value(struct setting_parser_context *ctx,
-			 const char *key, enum setting_type *type_r)
+			 const char **key, enum setting_type *type_r)
 {
 	const struct setting_define *def;
 
-	if (!settings_find_key(ctx, key, TRUE, &def))
+	if (!settings_find_key(ctx, *key, TRUE, &def))
 		return NULL;
 
+	while (def->type == SET_ALIAS) {
+		i_assert(def != ctx->info->defines);
+		def--;
+		/* Replace the key with the unaliased key. We assume here that
+		   strlists don't have aliases, because the key replacement
+		   would only need to replace the key prefix then. */
+		i_assert(def->type != SET_STRLIST);
+		*key = def->key;
+	}
 	*type_r = def->type;
 	return STRUCT_MEMBER_P(ctx->set_struct, def->offset);
 }

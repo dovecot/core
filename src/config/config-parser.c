@@ -369,7 +369,8 @@ config_apply_error(struct config_parser_context *ctx, const char *key)
 	   handling. Mark all settings parsers containing this key as failed.
 	   See config-parser.h for details. */
 	for (l = ctx->cur_section->module_parsers; l->root != NULL; l++) {
-		if (settings_parse_get_value(l->parser, key, &type) != NULL) {
+		const char *lookup_key = key;
+		if (settings_parse_get_value(l->parser, &lookup_key, &type) != NULL) {
 			if (l->delayed_error == NULL)
 				l->delayed_error = ctx->error;
 			ctx->error = NULL;
@@ -763,10 +764,11 @@ get_str_setting(struct config_filter_parser *parser, const char *key,
 
 	module_parser = parser->module_parsers;
 	for (; module_parser->parser != NULL; module_parser++) {
+		const char *lookup_key = key;
 		set_value = settings_parse_get_value(module_parser->parser,
-						     key, &set_type);
+						     &lookup_key, &set_type);
 		if (set_value != NULL &&
-		    settings_parse_get_change_counter(module_parser->parser, key) != 0) {
+		    settings_parse_get_change_counter(module_parser->parser, lookup_key) != 0) {
 			i_assert(set_type == SET_STR || set_type == SET_ENUM);
 			return *set_value;
 		}
@@ -1176,10 +1178,11 @@ config_get_value(struct config_section_stack *section, const char *key,
 	const void *value;
 
 	for (l = section->module_parsers; l->root != NULL; l++) {
-		value = settings_parse_get_value(l->parser, key, type_r);
+		const char *lookup_key = key;
+		value = settings_parse_get_value(l->parser, &lookup_key, type_r);
 		if (value != NULL) {
 			if (!expand_parent || section->prev == NULL ||
-			    settings_parse_get_change_counter(l->parser, key) != 0)
+			    settings_parse_get_change_counter(l->parser, lookup_key) != 0)
 				return value;
 
 			/* not changed by this parser. maybe parent has. */

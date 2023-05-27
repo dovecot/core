@@ -361,9 +361,10 @@ config_export_get_import_environment(struct config_export_context *ctx)
 
 	for (i = 0; ctx->module_parsers[i].root != NULL; i++) {
 		if (ctx->module_parsers[i].root == &master_service_setting_parser_info) {
+			const char *key = "import_environment";
 			const char *const *value =
 				settings_parse_get_value(ctx->module_parsers[i].parser,
-					"import_environment", &stype);
+							 &key, &stype);
 			i_assert(value != NULL);
 			return *value;
 		}
@@ -378,9 +379,10 @@ const char *config_export_get_base_dir(struct config_export_context *ctx)
 
 	for (i = 0; ctx->module_parsers[i].root != NULL; i++) {
 		if (ctx->module_parsers[i].root == &master_service_setting_parser_info) {
+			const char *key = "base_dir";
 			const char *const *value =
 				settings_parse_get_value(ctx->module_parsers[i].parser,
-					"base_dir", &stype);
+							 &key, &stype);
 			i_assert(value != NULL);
 			return *value;
 		}

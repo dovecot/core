@@ -686,12 +686,12 @@ settings_override_get_value(struct setting_parser_context *parser,
 			key_prefix = SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX;
 		const char *prefixed_key =
 			t_strdup_printf("%s_%s", key_prefix, key);
-		old_value = settings_parse_get_value(parser, prefixed_key, &value_type);
+		old_value = settings_parse_get_value(parser, &prefixed_key, &value_type);
 		if (old_value != NULL)
 			key = prefixed_key;
 	}
 	if (old_value == NULL)
-		old_value = settings_parse_get_value(parser, key, &value_type);
+		old_value = settings_parse_get_value(parser, &key, &value_type);
 	if (old_value == NULL && !str_begins_with(key, "plugin/") &&
 	    set->type == SETTINGS_OVERRIDE_TYPE_USERDB) {
 		/* FIXME: Setting is unknown in this parser. Since the parser
@@ -701,7 +701,7 @@ settings_override_get_value(struct setting_parser_context *parser,
 		   removed eventually once all plugin settings have been
 		   converted away. */
 		key = t_strconcat("plugin/", key, NULL);
-		old_value = settings_parse_get_value(parser, key, &value_type);
+		old_value = settings_parse_get_value(parser, &key, &value_type);
 	}
 	if (!set->append || old_value == NULL) {
 		*_key = key;
