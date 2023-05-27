@@ -113,6 +113,12 @@ struct setting_parser_info {
 	size_t struct_size;
 	size_t pool_offset1; /* 1 + offset to pool_t field */
 
+	/* This is called for every setting that is parsed. value is already
+	   the final pointer stored into the settings struct. override=TRUE for
+	   settings overridden via userdb/cli. */
+	bool (*setting_apply)(struct event *event, void *set,
+			      const char *key, const char *value, bool override,
+			      const char **error_r);
 	bool (*check_func)(void *set, pool_t pool, const char **error_r);
 	/* The event parameter can be used with settings_get*() to access other
 	   settings structs. */

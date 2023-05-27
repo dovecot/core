@@ -83,6 +83,7 @@ struct settings_apply_ctx {
 
 	struct setting_parser_context *parser;
 	struct settings_mmap_pool *mpool;
+	void *set_struct;
 };
 
 static const char *settings_override_type_names[] = {
@@ -425,6 +426,14 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 	const char *key = ctx->info->defines[key_idx].key;
 	if (strlist_key != NULL)
 		key = t_strdup_printf("%s/%s", key, strlist_key);
+	if (ctx->info->setting_apply != NULL &&
+	    !ctx->info->setting_apply(ctx->event, ctx->set_struct, key, value,
+				      FALSE, error_r)) {
+		*error_r = t_strdup_printf("Invalid setting %s=%s: %s",
+					   key, orig_value, *error_r);
+		return -1;
+	}
+
 	/* value points to mmap()ed memory, which is kept
 	   referenced by the set_pool for the life time of the
 	   settings struct. */
@@ -935,7 +944,7 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			continue;
 
 		if (value != set->value)
-			ret = settings_parse_keyvalue(ctx->parser, key, value);
+			value = p_strdup(&ctx->mpool->pool, value);
 		else {
 			/* Add explicit reference to instance->pool, which is
 			   kept by the settings struct's pool. This allows
@@ -949,14 +958,23 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 				i_assert(array_idx_elem(&ctx->mpool->pool.external_refs, 0) == ctx->instance->pool);
 			else if (ctx->instance->pool != NULL)
 				pool_add_external_ref(&ctx->mpool->pool, ctx->instance->pool);
-			ret = settings_parse_keyvalue_nodup(ctx->parser, key, value);
 		}
-		if (ret < 0) {
+		if (settings_parse_keyvalue_nodup(ctx->parser, key, value) < 0) {
 			*error_r = t_strdup_printf(
 				"Failed to override configuration from %s: "
 				"Invalid %s=%s: %s",
 				settings_override_type_names[set->type],
 				key, value, settings_parser_get_error(ctx->parser));
+			return -1;
+		}
+		if (ctx->info->setting_apply != NULL &&
+		    !ctx->info->setting_apply(ctx->event, ctx->set_struct, key,
+					      value, TRUE, error_r)) {
+			*error_r = t_strdup_printf(
+				"Failed to override configuration from %s: "
+				"Invalid %s=%s: %s",
+				settings_override_type_names[set->type],
+				key, value, *error_r);
 			return -1;
 		}
 	}
@@ -987,8 +1005,9 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 					   SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
 
 	/* Set the pool early on before any callbacks are called. */
-	void *set = settings_parser_get_set(ctx->parser);
-	pool_t *pool_p = PTR_OFFSET(set, ctx->info->pool_offset1 - 1);
+	ctx->set_struct = settings_parser_get_set(ctx->parser);
+	pool_t *pool_p = PTR_OFFSET(ctx->set_struct,
+				    ctx->info->pool_offset1 - 1);
 	*pool_p = set_pool;
 
 	if (ctx->instance->mmap != NULL) {
@@ -1023,7 +1042,8 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 		return 0;
 	}
 	if ((ctx->flags & SETTINGS_GET_FLAG_NO_CHECK) == 0) {
-		if (!settings_check(ctx->event, ctx->info, *pool_p, set, error_r)) {
+		if (!settings_check(ctx->event, ctx->info, *pool_p,
+				    ctx->set_struct, error_r)) {
 			*error_r = t_strdup_printf("Invalid %s settings: %s",
 						   ctx->info->name, *error_r);
 			pool_unref(&set_pool);
@@ -1034,7 +1054,7 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 	if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) != 0)
 		ret = 1;
 	else if ((ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) != 0) {
-		settings_var_skip(ctx->info, set);
+		settings_var_skip(ctx->info, ctx->set_struct);
 		ret = 1;
 	} else T_BEGIN {
 		const struct var_expand_table *tab;
@@ -1042,7 +1062,8 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 		void *func_context;
 
 		settings_var_expand_init(ctx->event, &tab, &func_tab, &func_context);
-		ret = settings_var_expand_with_funcs(ctx->info, set, *pool_p, tab,
+		ret = settings_var_expand_with_funcs(ctx->info, ctx->set_struct,
+						     *pool_p, tab,
 						     func_tab, func_context,
 						     error_r);
 	} T_END_PASS_STR_IF(ret <= 0, error_r);
@@ -1054,7 +1075,7 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 		return -1;
 	}
 
-	*set_r = set;
+	*set_r = ctx->set_struct;
 	return 1;
 }
 
