@@ -780,28 +780,6 @@ static bool mailbox_settings_check(void *_set, pool_t pool,
 	return TRUE;
 }
 
-static bool mail_user_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-				     const char **error_r ATTR_UNUSED)
-{
-	struct mail_user_settings *set = _set;
-
-#ifndef CONFIG_BINARY
-	fix_base_path(set, pool, &set->auth_socket_path);
-
-	if (*set->hostname == '\0')
-		set->hostname = p_strdup(pool, my_hostdomain());
-#else
-	if (*set->mail_plugins != '\0' &&
-	    faccessat(AT_FDCWD, set->mail_plugin_dir, R_OK | X_OK, AT_EACCESS) < 0) {
-		*error_r = t_strdup_printf(
-			"mail_plugin_dir: access(%s) failed: %m",
-			set->mail_plugin_dir);
-		return FALSE;
-	}
-#endif
-	return TRUE;
-}
-
 #ifndef CONFIG_BINARY
 static bool parse_postmaster_address(const char *address, pool_t pool,
 				     struct mail_user_settings *set,
@@ -833,7 +811,31 @@ static bool parse_postmaster_address(const char *address, pool_t pool,
 	}
 	return TRUE;
 }
+#endif
 
+static bool mail_user_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+				     const char **error_r ATTR_UNUSED)
+{
+	struct mail_user_settings *set = _set;
+
+#ifndef CONFIG_BINARY
+	fix_base_path(set, pool, &set->auth_socket_path);
+
+	if (*set->hostname == '\0')
+		set->hostname = p_strdup(pool, my_hostdomain());
+#else
+	if (*set->mail_plugins != '\0' &&
+	    faccessat(AT_FDCWD, set->mail_plugin_dir, R_OK | X_OK, AT_EACCESS) < 0) {
+		*error_r = t_strdup_printf(
+			"mail_plugin_dir: access(%s) failed: %m",
+			set->mail_plugin_dir);
+		return FALSE;
+	}
+#endif
+	return TRUE;
+}
+
+#ifndef CONFIG_BINARY
 static bool
 mail_user_settings_expand_check(void *_set, pool_t pool,
 				const char **error_r ATTR_UNUSED)
