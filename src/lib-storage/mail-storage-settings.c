@@ -18,7 +18,9 @@
 #include "mail-storage-settings.h"
 #include "iostream-ssl.h"
 
+static bool mail_storage_settings_apply(struct event *event, void *_set, const char *key, const char *value, bool override, const char **error_r);
 static bool mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool, const char **error_r);
+static bool namespace_settings_apply(struct event *event, void *_set, const char *key, const char *value, bool override, const char **error_r);
 static bool namespace_settings_ext_check(struct event *event, void *_set, pool_t pool, const char **error_r);
 static bool mailbox_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool mail_user_settings_check(void *_set, pool_t pool, const char **error_r);
@@ -156,6 +158,7 @@ const struct setting_parser_info mail_storage_setting_parser_info = {
 
 	.struct_size = sizeof(struct mail_storage_settings),
 	.pool_offset1 = 1 + offsetof(struct mail_storage_settings, pool),
+	.setting_apply = mail_storage_settings_apply,
 	.ext_check_func = mail_storage_settings_ext_check,
 };
 
@@ -255,7 +258,8 @@ const struct setting_parser_info mail_namespace_setting_parser_info = {
 	.struct_size = sizeof(struct mail_namespace_settings),
 	.pool_offset1 = 1 + offsetof(struct mail_namespace_settings, pool),
 
-	.ext_check_func = namespace_settings_ext_check
+	.setting_apply = namespace_settings_apply,
+	.ext_check_func = namespace_settings_ext_check,
 };
 
 #undef DEF
@@ -463,6 +467,22 @@ mail_storage_settings_check_namespaces(struct event *event,
 }
 
 static bool
+mail_storage_settings_apply(struct event *event ATTR_UNUSED, void *_set,
+			    const char *key, const char *value,
+			    bool override, const char **error_r ATTR_UNUSED)
+{
+	struct mail_storage_settings *set = _set;
+
+	if (strcmp(key, "mail_location") == 0) {
+		const char *prefix = override ?
+			SETTING_STRVAR_EXPANDED : SETTING_STRVAR_UNEXPANDED;
+		set->unexpanded_mail_location =
+			p_strconcat(set->pool, prefix, value, NULL);
+	}
+	return TRUE;
+}
+
+static bool
 mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool,
 				const char **error_r)
 {
@@ -473,9 +493,7 @@ mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool,
 	char c;
 
 #ifndef CONFIG_BINARY
-	i_assert(set->mail_location[0] == SETTING_STRVAR_UNEXPANDED[0] ||
-		 set->mail_location[0] == SETTING_STRVAR_EXPANDED[0]);
-	set->unexpanded_mail_location = set->mail_location;
+	i_assert(set->unexpanded_mail_location != NULL);
 #endif
 
 	if (set->mailbox_idle_check_interval == 0) {
@@ -654,6 +672,22 @@ namespace_have_special_use_mailboxes(struct event *event,
 	return ret;
 }
 
+static bool
+namespace_settings_apply(struct event *event ATTR_UNUSED, void *_set,
+			 const char *key, const char *value,
+			 bool override, const char **error_r ATTR_UNUSED)
+{
+	struct mail_namespace_settings *set = _set;
+
+	if (strcmp(key, "namespace_location") == 0) {
+		const char *prefix = override ?
+			SETTING_STRVAR_EXPANDED : SETTING_STRVAR_UNEXPANDED;
+		set->unexpanded_location =
+			p_strconcat(set->pool, prefix, value, NULL);
+	}
+	return TRUE;
+}
+
 static bool namespace_settings_ext_check(struct event *event,
 					 void *_set, pool_t pool ATTR_UNUSED,
 					 const char **error_r)
@@ -662,9 +696,7 @@ static bool namespace_settings_ext_check(struct event *event,
 	int ret;
 
 #ifndef CONFIG_BINARY
-	i_assert(ns->location[0] == SETTING_STRVAR_UNEXPANDED[0] ||
-		 ns->location[0] == SETTING_STRVAR_EXPANDED[0]);
-	ns->unexpanded_location = ns->location;
+	i_assert(ns->unexpanded_location != NULL);
 #endif
 
 	if (ns->separator[0] != '\0' && ns->separator[1] != '\0') {
