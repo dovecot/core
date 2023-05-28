@@ -212,18 +212,6 @@ void settings_parse_set_expanded(struct setting_parser_context *ctx,
    actually knowing what the variables are. */
 void settings_parse_var_skip(struct setting_parser_context *ctx);
 void settings_var_skip(const struct setting_parser_info *info, void *set);
-/* Expand all unexpanded variables using the given table. Update the string
-   pointers so that they can be used without skipping over the '1'.
-   Returns the same as var_expand(). */
-int settings_var_expand(const struct setting_parser_info *info,
-			void *set, pool_t pool,
-			const struct var_expand_table *table,
-			const char **error_r);
-int settings_var_expand_with_funcs(const struct setting_parser_info *info,
-				   void *set, pool_t pool,
-				   const struct var_expand_table *table,
-				   const struct var_expand_func_table *func_table,
-				   void *func_context, const char **error_r);
 /* Duplicate the entire setting parser. */
 struct setting_parser_context *
 settings_parser_dup(const struct setting_parser_context *old_ctx,

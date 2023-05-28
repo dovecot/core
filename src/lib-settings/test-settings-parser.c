@@ -100,7 +100,6 @@ static void test_settings_parser(void)
 	pool_t pool = pool_alloconly_create("settings parser", 1024);
 	struct setting_parser_context *ctx =
 		settings_parser_init(pool, &root, 0);
-	const char *error = NULL;
 	int ret = 1;
 	for (unsigned int i = 0; i < N_ELEMENTS(test_settings_blobs); i += 2) {
 		ret = settings_parse_keyvalue(ctx, test_settings_blobs[i],
@@ -130,18 +129,6 @@ static void test_settings_parser(void)
 	test_assert(array_count(&settings->strlist) == 6);
 	test_assert_strcmp(t_array_const_string_join(&settings->strlist, ";"),
 			   "x;a;y;b;z;c");
-
-	const struct var_expand_table table[] = {
-		{'\0', "value", "string"},
-		{'\0', NULL, NULL}
-	};
-
-	/* expand settings */
-	test_assert(settings_var_expand(&root, settings, pool, table, &error) == 1 &&
-		    error == NULL);
-
-	/* check that the setting got expanded */
-	test_assert_strcmp(settings->expand_str, "test value");
 
 	/* test invalid settings */
 	for (unsigned int i = 0; i < N_ELEMENTS(test_settings_invalid); i += 2) {
