@@ -156,6 +156,30 @@ setting_parser_info_get_define_count(const struct setting_parser_info *info)
 	return count;
 }
 
+bool setting_parser_info_find_key(const struct setting_parser_info *info,
+				  const char *key, unsigned int *idx_r)
+{
+	const char *suffix;
+
+	for (unsigned int i = 0; info->defines[i].key != NULL; i++) {
+		if (!str_begins(key, info->defines[i].key, &suffix))
+			; /* mismatch */
+		else if (suffix[0] == '\0') {
+			/* full setting */
+			while (i > 0 && info->defines[i].type == SET_ALIAS)
+				i--;
+			*idx_r = i;
+			return TRUE;
+		} else if (suffix[0] == '/' &&
+			   info->defines[i].type == SET_STRLIST) {
+			/* strlist key */
+			*idx_r = i;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 void *settings_parser_get_set(const struct setting_parser_context *ctx)
 {
 	return ctx->set_struct;

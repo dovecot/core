@@ -144,6 +144,11 @@ void settings_parser_unref(struct setting_parser_context **ctx);
 /* Returns number of defines in info->defines */
 unsigned int
 setting_parser_info_get_define_count(const struct setting_parser_info *info);
+/* Find a specific key from info and return its index number in the defines
+   array. "strlist/key" will return the strlist's define. If the key is an
+   alias, the primary key's index is returned. */
+bool setting_parser_info_find_key(const struct setting_parser_info *info,
+				  const char *key, unsigned int *idx_r);
 
 /* Returns the current settings. */
 void *settings_parser_get_set(const struct setting_parser_context *ctx);
