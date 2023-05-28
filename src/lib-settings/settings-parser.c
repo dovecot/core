@@ -615,18 +615,15 @@ void settings_parse_set_expanded(struct setting_parser_context *ctx,
 	ctx->str_vars_are_expanded = is_expanded;
 }
 
-static int ATTR_NULL(3, 4, 5)
-settings_var_expand_info(const struct setting_parser_info *info, void *set,
-			 pool_t pool,
-			 const struct var_expand_table *table,
-			 const struct var_expand_func_table *func_table,
-			 void *func_context, string_t *str,
-			 const char **error_r)
+void settings_parse_var_skip(struct setting_parser_context *ctx)
+{
+	settings_var_skip(ctx->info, ctx->set_struct);
+}
+
+void settings_var_skip(const struct setting_parser_info *info, void *set)
 {
 	const struct setting_define *def;
 	void *value;
-	const char *error;
-	int ret, final_ret = 1;
 
 	for (def = info->defines; def->key != NULL; def++) {
 		value = PTR_OFFSET(set, def->offset);
@@ -651,71 +648,13 @@ settings_var_expand_info(const struct setting_parser_info *info, void *set,
 			if (*val == NULL)
 				break;
 
-			if (table == NULL) {
-				i_assert(**val == SETTING_STRVAR_EXPANDED[0] ||
-					 **val == SETTING_STRVAR_UNEXPANDED[0]);
-				*val += 1;
-			} else if (**val == SETTING_STRVAR_UNEXPANDED[0]) {
-				str_truncate(str, 0);
-				ret = var_expand_with_funcs(str, *val + 1, table,
-							    func_table, func_context,
-							    &error);
-				if (final_ret > ret) {
-					final_ret = ret;
-					*error_r = t_strdup_printf(
-						"%s: %s", def->key, error);
-				}
-				*val = p_strdup(pool, str_c(str));
-			} else {
-				i_assert(**val == SETTING_STRVAR_EXPANDED[0]);
-				*val += 1;
-			}
+			i_assert(**val == SETTING_STRVAR_EXPANDED[0] ||
+				 **val == SETTING_STRVAR_UNEXPANDED[0]);
+			*val += 1;
 			break;
 		}
 		}
 	}
-
-	return final_ret;
-}
-
-int settings_var_expand(const struct setting_parser_info *info,
-			void *set, pool_t pool,
-			const struct var_expand_table *table,
-			const char **error_r)
-{
-	return settings_var_expand_with_funcs(info, set, pool, table,
-					      NULL, NULL, error_r);
-}
-
-int settings_var_expand_with_funcs(const struct setting_parser_info *info,
-				   void *set, pool_t pool,
-				   const struct var_expand_table *table,
-				   const struct var_expand_func_table *func_table,
-				   void *func_context, const char **error_r)
-{
-	int ret;
-
-	T_BEGIN {
-		string_t *str = t_str_new(256);
-
-		ret = settings_var_expand_info(info, set, pool, table,
-					       func_table, func_context, str,
-					       error_r);
-	} T_END_PASS_STR_IF(ret <= 0, error_r);
-	return ret;
-}
-
-void settings_parse_var_skip(struct setting_parser_context *ctx)
-{
-	settings_var_skip(ctx->info, ctx->set_struct);
-}
-
-void settings_var_skip(const struct setting_parser_info *info, void *set)
-{
-	const char *error;
-
-	(void)settings_var_expand_info(info, set, NULL, NULL, NULL, NULL, NULL,
-				       &error);
 }
 
 static void
