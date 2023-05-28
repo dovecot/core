@@ -56,7 +56,8 @@ static int config_global_reload(const char **error_r)
 	struct config_parsed *new_config;
 
 	path = master_service_get_config_path(master_service);
-	if (config_parse_file(path, CONFIG_PARSE_FLAG_EXPAND_VALUES,
+	if (config_parse_file(path, CONFIG_PARSE_FLAG_EXPAND_VALUES |
+			      CONFIG_PARSE_FLAG_EXTERNAL_HOOKS,
 			      &new_config, error_r) <= 0)
 		return -1;
 

@@ -962,6 +962,8 @@ int main(int argc, char *argv[])
 		flags |= CONFIG_PARSE_FLAG_EXPAND_VALUES;
 	if (dump_full && exec_args != NULL && !check_full_config)
 		flags |= CONFIG_PARSE_FLAG_DELAY_ERRORS;
+	if (exec_args == NULL)
+		flags |= CONFIG_PARSE_FLAG_EXTERNAL_HOOKS;
 	if (hide_obsolete_warnings)
 		flags |= CONFIG_PARSE_FLAG_HIDE_OBSOLETE_WARNINGS;
 	if ((ret = config_parse_file(dump_defaults ? NULL : config_path,

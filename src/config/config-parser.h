@@ -18,6 +18,11 @@ enum config_parse_flags {
 	CONFIG_PARSE_FLAG_DELAY_ERRORS  = BIT(3),
 	CONFIG_PARSE_FLAG_RETURN_BROKEN_CONFIG = BIT(4),
 	CONFIG_PARSE_FLAG_NO_DEFAULTS = BIT(5),
+	/* External hook is currently used by Pigeonhole to get capabilities
+	   for managesieve-login process by running the managesieve process.
+	   Do this only when executing doveconf or config binary explicitly,
+	   not e.g. when executing doveadm. */
+	CONFIG_PARSE_FLAG_EXTERNAL_HOOKS = BIT(6),
 };
 
 struct config_module_parser {

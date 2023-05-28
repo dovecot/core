@@ -1175,7 +1175,8 @@ config_parse_finish(struct config_parser_context *ctx,
 	const char *error;
 	int ret = 0;
 
-	if (hook_config_parser_end != NULL)
+	if (hook_config_parser_end != NULL &&
+	    (flags & CONFIG_PARSE_FLAG_EXTERNAL_HOOKS) != 0)
 		ret = hook_config_parser_end(ctx, error_r);
 
 	new_config = p_new(ctx->pool, struct config_parsed, 1);
@@ -1608,7 +1609,8 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	old_settings_init(&ctx);
 	if ((flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) == 0)
 		config_parser_add_services(&ctx, service_info_idx);
-	if (hook_config_parser_begin != NULL) T_BEGIN {
+	if (hook_config_parser_begin != NULL &&
+	    (flags & CONFIG_PARSE_FLAG_EXTERNAL_HOOKS) != 0) T_BEGIN {
 		hook_config_parser_begin(&ctx);
 	} T_END;
 
