@@ -1050,9 +1050,7 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 	   especially all settings from userdb are already expanded. */
 	settings_parse_set_expanded(ctx->parser, TRUE);
 
-	T_BEGIN {
-		ret = settings_instance_override(ctx, error_r);
-	} T_END_PASS_STR_IF(ret < 0, error_r);
+	ret = settings_instance_override(ctx, error_r);
 	if (ret < 0) {
 		pool_unref(&set_pool);
 		return -1;
@@ -1071,7 +1069,7 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 	else if ((ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) != 0) {
 		settings_var_skip(ctx->info, ctx->set_struct);
 		ret = 1;
-	} else T_BEGIN {
+	} else {
 		const struct var_expand_table *tab;
 		const struct var_expand_func_table *func_tab;
 		void *func_context;
@@ -1081,7 +1079,7 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 						     *pool_p, tab,
 						     func_tab, func_context,
 						     error_r);
-	} T_END_PASS_STR_IF(ret <= 0, error_r);
+	}
 	if (ret <= 0) {
 		*error_r = t_strdup_printf(
 			"Failed to expand %s setting variables: %s",
