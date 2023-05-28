@@ -71,6 +71,7 @@ struct mail_storage_settings {
 	enum file_lock_method parsed_lock_method;
 	enum fsync_mode parsed_fsync_mode;
 	const char *unexpanded_mail_location;
+	bool unexpanded_mail_location_override;
 
 	const char *const *parsed_mail_attachment_content_type_filter;
 	bool parsed_mail_attachment_exclude_inlined;
@@ -98,6 +99,7 @@ struct mail_namespace_settings {
 
 	ARRAY_TYPE(const_string) mailboxes;
 	const char *unexpanded_location;
+	bool unexpanded_location_override;
 	bool parsed_have_special_use_mailboxes;
 };
 

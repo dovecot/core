@@ -46,6 +46,8 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	storage->location = p_strdup(_storage->pool, ns->set->location);
 	storage->unexpanded_location =
 		p_strdup(_storage->pool, ns->set->unexpanded_location);
+	storage->unexpanded_location_override =
+		ns->set->unexpanded_location_override;
 	storage->storage_class_name = p_strdup(_storage->pool, driver);
 
 	if (mail_user_get_storage_class(_storage->user, driver) == NULL &&
@@ -368,6 +370,8 @@ shared_mail_user_init(struct mail_storage *_storage,
 	ns_set->location = p_strdup(user->pool, str_c(location));
 	ns_set->unexpanded_location =
 		p_strdup(user->pool, storage->unexpanded_location);
+	ns_set->unexpanded_location_override =
+		storage->unexpanded_location_override;
 	ns_set->hidden = TRUE;
 	ns_set->list = "yes";
 	new_ns->set = ns_set;

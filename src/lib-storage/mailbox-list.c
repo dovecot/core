@@ -431,7 +431,8 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 	struct mailbox_list_settings set;
 	const char *p, *path, *error;
 
-	if (*location == SETTING_STRVAR_EXPANDED[0]) {
+	if (list->ns->set->unexpanded_location_override) {
+		i_assert(*location == SETTING_STRVAR_EXPANDED[0]);
 		/* set using -o or userdb lookup. */
 		return "";
 	}
@@ -442,8 +443,10 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 	if (*location == '\0') {
 		mail_set = mail_user_set_get_storage_set(user);
 		location = mail_set->unexpanded_mail_location;
-		if (*location == SETTING_STRVAR_EXPANDED[0])
+		if (mail_set->unexpanded_mail_location_override) {
+			i_assert(*location == SETTING_STRVAR_EXPANDED[0]);
 			return "";
+		}
 		i_assert(*location == SETTING_STRVAR_UNEXPANDED[0]);
 		location++;
 	}

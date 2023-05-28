@@ -474,6 +474,7 @@ mail_storage_settings_apply(struct event *event ATTR_UNUSED, void *_set,
 			SETTING_STRVAR_EXPANDED : SETTING_STRVAR_UNEXPANDED;
 		set->unexpanded_mail_location =
 			p_strconcat(set->pool, prefix, value, NULL);
+		set->unexpanded_mail_location_override = override;
 	}
 	return TRUE;
 }
@@ -680,6 +681,7 @@ namespace_settings_apply(struct event *event ATTR_UNUSED, void *_set,
 			SETTING_STRVAR_EXPANDED : SETTING_STRVAR_UNEXPANDED;
 		set->unexpanded_location =
 			p_strconcat(set->pool, prefix, value, NULL);
+		set->unexpanded_location_override = override;
 	}
 	return TRUE;
 }
