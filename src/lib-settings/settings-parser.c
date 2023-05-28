@@ -23,7 +23,6 @@ struct setting_parser_context {
 	pool_t set_pool, parser_pool;
 	int refcount;
         enum settings_parser_flags flags;
-	bool str_vars_are_expanded;
 	uint8_t change_counter;
 
 	const struct setting_parser_info *info;
@@ -58,16 +57,6 @@ setting_parser_copy_defaults(struct setting_parser_context *ctx,
 			p = strchr(*strp, ':');
 			if (p != NULL)
 				*strp = p_strdup_until(ctx->set_pool, *strp, p);
-			break;
-		}
-		case SET_STR_VARS: {
-			/* insert the unexpanded-character */
-			strp = STRUCT_MEMBER_P(ctx->set_struct, def->offset);
-			if (*strp != NULL) {
-				*strp = p_strconcat(ctx->set_pool,
-						    SETTING_STRVAR_UNEXPANDED,
-						    *strp, NULL);
-			}
 			break;
 		}
 		default:
@@ -382,16 +371,10 @@ settings_parse(struct setting_parser_context *ctx,
 			return -1;
 		break;
 	case SET_STR:
+	case SET_STR_VARS:
 		if (dup_value)
 			value = p_strdup(ctx->set_pool, value);
 		*((const char **)ptr) = value;
-		break;
-	case SET_STR_VARS:
-		*((char **)ptr) = p_strconcat(ctx->set_pool,
-					      ctx->str_vars_are_expanded ?
-					      SETTING_STRVAR_EXPANDED :
-					      SETTING_STRVAR_UNEXPANDED,
-					      value, NULL);
 		break;
 	case SET_ENUM:
 		/* get the available values from default string */
@@ -609,54 +592,6 @@ bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
 			      ctx->set_struct, error_r);
 }
 
-void settings_parse_set_expanded(struct setting_parser_context *ctx,
-				 bool is_expanded)
-{
-	ctx->str_vars_are_expanded = is_expanded;
-}
-
-void settings_parse_var_skip(struct setting_parser_context *ctx)
-{
-	settings_var_skip(ctx->info, ctx->set_struct);
-}
-
-void settings_var_skip(const struct setting_parser_info *info, void *set)
-{
-	const struct setting_define *def;
-	void *value;
-
-	for (def = info->defines; def->key != NULL; def++) {
-		value = PTR_OFFSET(set, def->offset);
-		switch (def->type) {
-		case SET_BOOL:
-		case SET_UINT:
-		case SET_UINT_OCT:
-		case SET_TIME:
-		case SET_TIME_MSECS:
-		case SET_SIZE:
-		case SET_IN_PORT:
-		case SET_STR:
-		case SET_ENUM:
-		case SET_STRLIST:
-		case SET_FILTER_NAME:
-		case SET_FILTER_ARRAY:
-		case SET_ALIAS:
-			break;
-		case SET_STR_VARS: {
-			const char **val = value;
-
-			if (*val == NULL)
-				break;
-
-			i_assert(**val == SETTING_STRVAR_EXPANDED[0] ||
-				 **val == SETTING_STRVAR_UNEXPANDED[0]);
-			*val += 1;
-			break;
-		}
-		}
-	}
-}
-
 static void
 setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool,
 	     bool keep_values)
@@ -856,7 +791,6 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 	new_ctx->set_pool = new_pool;
 	new_ctx->parser_pool = parser_pool;
 	new_ctx->flags = old_ctx->flags;
-	new_ctx->str_vars_are_expanded = old_ctx->str_vars_are_expanded;
 	new_ctx->linenum = old_ctx->linenum;
 	new_ctx->error = i_strdup(old_ctx->error);
 

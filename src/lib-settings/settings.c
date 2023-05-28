@@ -1166,7 +1166,6 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 					 &ctx->func_table, &ctx->func_context);
 	}
 
-	settings_parse_set_expanded(ctx->parser, TRUE);
 	ret = settings_instance_override(ctx, error_r);
 	if (ret > 0)
 		seen_filter = TRUE;

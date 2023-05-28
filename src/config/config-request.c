@@ -132,17 +132,13 @@ bool config_export_type(string_t *str, const void *value,
 		break;
 	}
 	case SET_STR_VARS: {
-		const char *const *val = value, *sval;
+		const char *const *val = value;
 		const char *const *_dval = default_value;
 		const char *dval = _dval == NULL ? NULL : *_dval;
 
-		i_assert(*val == NULL ||
-			 **val == SETTING_STRVAR_UNEXPANDED[0]);
-
-		sval = *val == NULL ? NULL : (*val + 1);
-		if ((dump_default || null_strcmp(sval, dval) != 0) &&
-		    sval != NULL) {
-			str_append(str, sval);
+		if ((dump_default || null_strcmp(*val, dval) != 0) &&
+		    *val != NULL) {
+			str_append(str, *val);
 			*dump_r = TRUE;
 		}
 		break;

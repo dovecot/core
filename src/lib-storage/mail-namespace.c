@@ -526,7 +526,7 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 		/* treat this the same as if a namespace was created with
 		   default settings. dsync relies on finding a namespace
 		   without explicit location setting. */
-		inbox_set->unexpanded_location = SETTING_STRVAR_UNEXPANDED;
+		inbox_set->unexpanded_location = "";
 	} else {
 		inbox_set->unexpanded_location = inbox_set->location;
 		inbox_set->unexpanded_location_override = TRUE;

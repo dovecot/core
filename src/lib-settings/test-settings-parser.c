@@ -124,7 +124,7 @@ static void test_settings_parser(void)
 	test_assert(settings->size == 1024);
 	test_assert(settings->port == 2205);
 	test_assert_strcmp(settings->str, "test string");
-	test_assert_strcmp(settings->expand_str, "0test %{string}");
+	test_assert_strcmp(settings->expand_str, "test %{string}");
 
 	test_assert(array_count(&settings->strlist) == 6);
 	test_assert_strcmp(t_array_const_string_join(&settings->strlist, ";"),
