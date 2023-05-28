@@ -7,6 +7,7 @@ struct shared_storage {
 
 	const char *ns_prefix_pattern;
 	const char *location, *unexpanded_location;
+	bool unexpanded_location_override;
 
 	const char *storage_class_name;
 };

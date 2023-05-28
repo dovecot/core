@@ -528,9 +528,8 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 		   without explicit location setting. */
 		inbox_set->unexpanded_location = SETTING_STRVAR_UNEXPANDED;
 	} else {
-		inbox_set->unexpanded_location =
-			p_strconcat(user->pool, SETTING_STRVAR_EXPANDED,
-				    inbox_set->location, NULL);
+		inbox_set->unexpanded_location = inbox_set->location;
+		inbox_set->unexpanded_location_override = TRUE;
 	}
 
 	if ((ret = mail_namespace_alloc(user, inbox_set, &ns, error_r)) < 0)
