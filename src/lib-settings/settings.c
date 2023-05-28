@@ -99,6 +99,11 @@ struct settings_apply_ctx {
 	struct settings_mmap_pool *mpool;
 	void *set_struct;
 	ARRAY_TYPE(bool) set_seen;
+
+	string_t *str;
+	const struct var_expand_table *table;
+	const struct var_expand_func_table *func_table;
+	void *func_context;
 };
 
 static const char *settings_override_type_names[] = {
@@ -433,14 +438,30 @@ settings_mmap_parse(struct settings_mmap *mmap, const char *service_name,
 	return 0;
 }
 
+static const char *
+get_invalid_setting_error(struct settings_apply_ctx *ctx, const char *prefix,
+			  const char *key,
+			  const char *value, const char *orig_value)
+{
+	string_t *str = t_str_new(64);
+	str_printfa(str, "%s %s=%s", prefix, key, value);
+	if (strcmp(value, orig_value) != 0)
+		str_printfa(str, " (before expansion: %s)", orig_value);
+	str_printfa(str, ": %s", settings_parser_get_error(ctx->parser));
+	return str_c(str);
+}
+
 static int
 settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 			const char *strlist_key, const char *value,
 			const char **error_r)
 {
 	const char *key = ctx->info->defines[key_idx].key;
+	const char *orig_value = value;
 	if (strlist_key != NULL)
 		key = t_strdup_printf("%s/%s", key, strlist_key);
+
+	/* call settings_apply() before variable expansion */
 	if (ctx->info->setting_apply != NULL &&
 	    !ctx->info->setting_apply(ctx->event, ctx->set_struct, key, value,
 				      FALSE, error_r)) {
@@ -449,19 +470,38 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 		return -1;
 	}
 
+	if (strlist_key == NULL &&
+	    (ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0 &&
+	    ctx->info->defines[key_idx].type == SET_STR_VARS) {
+		const char *error;
+		str_truncate(ctx->str, 0);
+		if (var_expand_with_funcs(ctx->str, value, ctx->table,
+					  ctx->func_table, ctx->func_context,
+					  &error) < 0 &&
+		    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
+			*error_r = t_strdup_printf(
+				"Failed to expand %s setting variables: %s",
+				key, error);
+			return -1;
+		}
+		if (strcmp(value, str_c(ctx->str)) != 0)
+			value = p_strdup(&ctx->mpool->pool, str_c(ctx->str));
+	}
 	/* value points to mmap()ed memory, which is kept
 	   referenced by the set_pool for the life time of the
 	   settings struct. */
 	if (settings_parse_keyidx_value_nodup(ctx->parser, key_idx,
 					      key, value) < 0) {
-		*error_r = t_strdup_printf("Invalid setting %s=%s: %s",
-			key, value, settings_parser_get_error(ctx->parser));
+		*error_r = get_invalid_setting_error(ctx, "Invalid setting",
+						     key, value, orig_value);
 		return -1;
 	}
 	return 0;
 }
 
-static void settings_mmap_apply_defaults(struct settings_apply_ctx *ctx)
+static int
+settings_mmap_apply_defaults(struct settings_apply_ctx *ctx,
+			     const char **error_r)
 {
 	const char *error;
 	unsigned int key_idx;
@@ -485,7 +525,31 @@ static void settings_mmap_apply_defaults(struct settings_apply_ctx *ctx)
 					      *valuep, TRUE, &error))
 			i_panic("BUG: Failed to apply default setting %s=%s: %s",
 				key, *valuep, error);
+
+		if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0) {
+			const char *error;
+			str_truncate(ctx->str, 0);
+			if (var_expand_with_funcs(ctx->str, *valuep, ctx->table,
+						  ctx->func_table, ctx->func_context,
+						  &error) < 0 &&
+			    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
+				i_panic("BUG: Failed to expand default setting %s=%s variables: %s",
+					key, *valuep, error);
+				return -1;
+			}
+			if (strcmp(*valuep, str_c(ctx->str)) != 0) {
+				if (settings_parse_keyidx_value(
+						ctx->parser, key_idx,
+						key, str_c(ctx->str)) < 0) {
+					*error_r = get_invalid_setting_error(ctx,
+						"Invalid default setting",
+						key, str_c(ctx->str), *valuep);
+					return -1;
+				}
+			}
+		}
 	}
+	return 0;
 }
 
 static int
@@ -1094,11 +1158,16 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 				    ctx->info->pool_offset1 - 1);
 	*pool_p = set_pool;
 
+	ctx->str = str_new(default_pool, 256);
 	i_array_init(&ctx->set_seen, 64);
+	if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0 &&
+	    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
+		settings_var_expand_init(ctx->event, &ctx->table,
+					 &ctx->func_table, &ctx->func_context);
+	}
 
 	settings_parse_set_expanded(ctx->parser, TRUE);
 	ret = settings_instance_override(ctx, error_r);
-	settings_parse_set_expanded(ctx->parser, FALSE);
 	if (ret > 0)
 		seen_filter = TRUE;
 
@@ -1112,7 +1181,7 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 			seen_filter = TRUE;
 	}
 	if (ret >= 0)
-		settings_mmap_apply_defaults(ctx);
+		ret = settings_mmap_apply_defaults(ctx, error_r);
 	if (ret < 0) {
 		pool_unref(&set_pool);
 		return -1;
@@ -1122,30 +1191,6 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 	    ctx->filter_name_required) {
 		pool_unref(&set_pool);
 		return 0;
-	}
-
-	if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) != 0)
-		ret = 1;
-	else if ((ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) != 0) {
-		settings_var_skip(ctx->info, ctx->set_struct);
-		ret = 1;
-	} else {
-		const struct var_expand_table *tab;
-		const struct var_expand_func_table *func_tab;
-		void *func_context;
-
-		settings_var_expand_init(ctx->event, &tab, &func_tab, &func_context);
-		ret = settings_var_expand_with_funcs(ctx->info, ctx->set_struct,
-						     *pool_p, tab,
-						     func_tab, func_context,
-						     error_r);
-	}
-	if (ret <= 0) {
-		*error_r = t_strdup_printf(
-			"Failed to expand %s setting variables: %s",
-			ctx->info->name, *error_r);
-		pool_unref(&set_pool);
-		return -1;
 	}
 
 	if ((ctx->flags & SETTINGS_GET_FLAG_NO_CHECK) == 0) {
@@ -1245,6 +1290,7 @@ settings_get_full(struct event *event,
 	settings_parser_unref(&ctx.parser);
 	event_unref(&ctx.event);
 	array_free(&ctx.set_seen);
+	str_free(&ctx.str);
 	return ret;
 }
 
