@@ -911,7 +911,9 @@ settings_override_get_value(struct setting_parser_context *parser,
 		key = t_strconcat("plugin/", key, NULL);
 		old_value = settings_parse_get_value(parser, &key, &value_type);
 	}
-	if (!set->append || old_value == NULL) {
+	if (old_value == NULL)
+		return 0;
+	if (!set->append) {
 		*_key = key;
 		*value_r = set->value;
 		return 1;
@@ -963,8 +965,10 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 						      &key, &value, error_r);
 		if (ret < 0)
 			return -1;
-		if (ret == 0)
+		if (ret == 0) {
+			/* setting doesn't exist in this info */
 			continue;
+		}
 
 		if (value != set->value)
 			value = p_strdup(&ctx->mpool->pool, value);
