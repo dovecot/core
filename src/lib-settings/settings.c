@@ -876,14 +876,14 @@ static int settings_override_cmp(const struct settings_override *set1,
 }
 
 static int
-settings_override_get_value(struct setting_parser_context *parser,
+settings_override_get_value(struct settings_apply_ctx *ctx,
 			    const struct settings_override *set,
-			    const char **_key, const char **value_r,
-			    const char **error_r)
+			    const char **_key, unsigned int *key_idx_r,
+			    const char **value_r, const char **error_r)
 {
 	const char *key = *_key;
-	enum setting_type value_type;
-	const void *old_value = NULL;
+	unsigned int key_idx = UINT_MAX;
+
 	if (set->last_filter_value != NULL) {
 		i_assert(set->last_filter_key != NULL);
 		/* Try filter/name/key -> filter_key. Do this before the
@@ -894,14 +894,16 @@ settings_override_get_value(struct setting_parser_context *parser,
 			key_prefix = SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX;
 		const char *prefixed_key =
 			t_strdup_printf("%s_%s", key_prefix, key);
-		old_value = settings_parse_get_value(parser, &prefixed_key, &value_type);
-		if (old_value != NULL)
+		if (setting_parser_info_find_key(ctx->info, prefixed_key,
+						 &key_idx))
 			key = prefixed_key;
 	}
-	if (old_value == NULL)
-		old_value = settings_parse_get_value(parser, &key, &value_type);
-	if (old_value == NULL && !str_begins_with(key, "plugin/") &&
-	    set->type == SETTINGS_OVERRIDE_TYPE_USERDB) {
+	if (key_idx == UINT_MAX)
+		(void)setting_parser_info_find_key(ctx->info, key, &key_idx);
+
+	if (key_idx == UINT_MAX && strchr(key, '/') == NULL &&
+	    set->type == SETTINGS_OVERRIDE_TYPE_USERDB &&
+	    setting_parser_info_find_key(ctx->info, "plugin", &key_idx)) {
 		/* FIXME: Setting is unknown in this parser. Since the parser
 		   doesn't know all settings, we can't be sure if it's because
 		   it should simply be ignored or because it's a plugin setting.
@@ -909,23 +911,25 @@ settings_override_get_value(struct setting_parser_context *parser,
 		   removed eventually once all plugin settings have been
 		   converted away. */
 		key = t_strconcat("plugin/", key, NULL);
-		old_value = settings_parse_get_value(parser, &key, &value_type);
 	}
-	if (old_value == NULL)
+	if (key_idx == UINT_MAX)
 		return 0;
 	if (!set->append) {
 		*_key = key;
+		*key_idx_r = key_idx;
 		*value_r = set->value;
 		return 1;
 	}
 
-	if (value_type != SET_STR) {
+	if (ctx->info->defines[key_idx].type != SET_STR) {
 		*error_r = t_strdup_printf(
 			"%s setting is not a string - can't use '+'", key);
 		return -1;
 	}
-	const char *const *strp = old_value;
+	const char *const *strp =
+		PTR_OFFSET(ctx->set_struct, ctx->info->defines[key_idx].offset);
 	*_key = key;
+	*key_idx_r = key_idx;
 	*value_r = t_strconcat(*strp, set->value, NULL);
 	return 1;
 }
@@ -951,6 +955,7 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 	const struct settings_override *set;
 	array_foreach(&overrides, set) {
 		const char *key = set->key, *value;
+		unsigned int key_idx;
 
 		if (set->filter != NULL &&
 		    !event_filter_match(set->filter, ctx->event, &failure_ctx))
@@ -961,8 +966,8 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		    null_strcmp(ctx->filter_value, set->last_filter_value) == 0)
 			seen_filter = TRUE;
 
-		int ret = settings_override_get_value(ctx->parser, set,
-						      &key, &value, error_r);
+		int ret = settings_override_get_value(ctx, set, &key,
+						      &key_idx, &value, error_r);
 		if (ret < 0)
 			return -1;
 		if (ret == 0) {
@@ -986,7 +991,8 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			else if (ctx->instance->pool != NULL)
 				pool_add_external_ref(&ctx->mpool->pool, ctx->instance->pool);
 		}
-		if (settings_parse_keyvalue_nodup(ctx->parser, key, value) < 0) {
+		if (settings_parse_keyidx_value_nodup(ctx->parser, key_idx, key,
+						      value) < 0) {
 			*error_r = t_strdup_printf(
 				"Failed to override configuration from %s: "
 				"Invalid %s=%s: %s",
