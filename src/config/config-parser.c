@@ -757,7 +757,6 @@ config_filter_parser_check(struct config_parser_context *ctx,
 		p_clear(tmp_pool);
 		struct setting_parser_context *tmp_parser =
 			settings_parser_dup(p->parser, tmp_pool);
-		settings_parse_var_skip(tmp_parser);
 		T_BEGIN {
 			ok = settings_parser_check(tmp_parser, tmp_pool,
 						   event, &error);

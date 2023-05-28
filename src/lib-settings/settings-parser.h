@@ -9,13 +9,6 @@ struct var_expand_func_table;
 #define SETTINGS_SEPARATOR '/'
 #define SETTINGS_SEPARATOR_S "/"
 
-/* STR_VARS pointer begins with either of these initially. Before actually
-   using the variables all variables in all unexpanded strings need to be
-   expanded. Afterwards the string pointers should be increased to skip
-   the initial '1' so it'll be easy to use them. */
-#define SETTING_STRVAR_UNEXPANDED "0"
-#define SETTING_STRVAR_EXPANDED "1"
-
 enum setting_type {
 	SET_BOOL,
 	SET_UINT,
@@ -204,14 +197,6 @@ bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
 bool settings_check(struct event *event, const struct setting_parser_info *info,
 		    pool_t pool, void *set, const char **error_r);
 
-/* While parsing values, specifies if STR_VARS strings are already expanded. */
-void settings_parse_set_expanded(struct setting_parser_context *ctx,
-				 bool is_expanded);
-/* Update variable string pointers to skip over the '1' or '0'.
-   This is mainly useful when you want to run settings_parser_check() without
-   actually knowing what the variables are. */
-void settings_parse_var_skip(struct setting_parser_context *ctx);
-void settings_var_skip(const struct setting_parser_info *info, void *set);
 /* Duplicate the entire setting parser. */
 struct setting_parser_context *
 settings_parser_dup(const struct setting_parser_context *old_ctx,

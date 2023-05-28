@@ -470,10 +470,7 @@ mail_storage_settings_apply(struct event *event ATTR_UNUSED, void *_set,
 	struct mail_storage_settings *set = _set;
 
 	if (strcmp(key, "mail_location") == 0) {
-		const char *prefix = override ?
-			SETTING_STRVAR_EXPANDED : SETTING_STRVAR_UNEXPANDED;
-		set->unexpanded_mail_location =
-			p_strconcat(set->pool, prefix, value, NULL);
+		set->unexpanded_mail_location = value;
 		set->unexpanded_mail_location_override = override;
 	}
 	return TRUE;
@@ -677,10 +674,7 @@ namespace_settings_apply(struct event *event ATTR_UNUSED, void *_set,
 	struct mail_namespace_settings *set = _set;
 
 	if (strcmp(key, "namespace_location") == 0) {
-		const char *prefix = override ?
-			SETTING_STRVAR_EXPANDED : SETTING_STRVAR_UNEXPANDED;
-		set->unexpanded_location =
-			p_strconcat(set->pool, prefix, value, NULL);
+		set->unexpanded_location = value;
 		set->unexpanded_location_override = override;
 	}
 	return TRUE;
