@@ -200,17 +200,6 @@ struct setting_parser_context *
 settings_parser_dup(const struct setting_parser_context *old_ctx,
 		    pool_t new_pool);
 
-/* Copy changed settings from src to dest. If conflict_key_r is not NULL and
-   both src and dest have changed the same setting, return -1 and set the
-   key name. If it's NULL, the old setting is kept.
-
-   KLUDGE: For SET_STRLIST types if both source and destination have identical
-   keys, the duplicates in the source side are ignored. This is required to
-   make the current config code work correctly. */
-int settings_parser_apply_changes(struct setting_parser_context *dest,
-				  const struct setting_parser_context *src,
-				  pool_t pool, const char **conflict_key_r);
-
 /* Return section name escaped */
 const char *settings_section_escape(const char *name);
 

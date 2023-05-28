@@ -1475,14 +1475,6 @@ settings_apply(struct setting_link *dest_link,
 	return 0;
 }
 
-int settings_parser_apply_changes(struct setting_parser_context *dest,
-				  const struct setting_parser_context *src,
-				  pool_t pool, const char **conflict_key_r)
-{
-	i_assert(src->root.info == dest->root.info);
-	return settings_apply(&dest->root, &src->root, pool, conflict_key_r);
-}
-
 const char *settings_section_escape(const char *name)
 {
 #define CHAR_NEED_ESCAPE(c) \
