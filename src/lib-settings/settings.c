@@ -69,6 +69,21 @@ struct settings_instance {
 	ARRAY_TYPE(settings_override) overrides;
 };
 
+struct settings_apply_ctx {
+	struct event *event;
+	struct settings_root *root;
+	struct settings_instance *instance;
+	const struct setting_parser_info *info;
+	enum settings_get_flags flags;
+
+	const char *filter_key;
+	const char *filter_value;
+	const char *filter_name;
+
+	struct setting_parser_context *parser;
+	struct settings_mmap_pool *mpool;
+};
+
 static const char *settings_override_type_names[] = {
 	"userdb", "-o parameter", "hardcoded"
 };
@@ -402,13 +417,12 @@ settings_mmap_parse(struct settings_mmap *mmap, const char *service_name,
 }
 
 static int
-settings_mmap_apply_blob(struct settings_mmap *mmap,
+settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 			 struct settings_mmap_block *block,
-			 struct setting_parser_context *parser,
-			 const struct setting_parser_info *info,
 			 size_t start_offset, size_t end_offset,
 			 const char **error_r)
 {
+	struct settings_mmap *mmap = ctx->instance->mmap;
 	size_t offset = start_offset;
 
 	/* list of settings: key, value, ... */
@@ -426,7 +440,7 @@ settings_mmap_apply_blob(struct settings_mmap *mmap,
 		offset += sizeof(key_idx);
 
 		const char *strlist_key = NULL;
-		if (info->defines[key_idx].type == SET_STRLIST) {
+		if (ctx->info->defines[key_idx].type == SET_STRLIST) {
 			strlist_key = (const char *)mmap->mmap_base + offset;
 			offset += strlen(strlist_key)+1;
 		}
@@ -450,16 +464,16 @@ settings_mmap_apply_blob(struct settings_mmap *mmap,
 		}
 		int ret;
 		T_BEGIN {
-			const char *key = info->defines[key_idx].key;
+			const char *key = ctx->info->defines[key_idx].key;
 			if (strlist_key != NULL)
 				key = t_strdup_printf("%s/%s", key, strlist_key);
 			/* value points to mmap()ed memory, which is kept
 			   referenced by the set_pool for the life time of the
 			   settings struct. */
-			ret = settings_parse_keyidx_value_nodup(parser, key_idx,
+			ret = settings_parse_keyidx_value_nodup(ctx->parser, key_idx,
 								key, value);
 			if (ret < 0)
-				*error_r = t_strdup(settings_parser_get_error(parser));
+				*error_r = t_strdup(settings_parser_get_error(ctx->parser));
 		} T_END_PASS_STR_IF(ret < 0, error_r);
 		if (ret < 0)
 			return -1;
@@ -502,18 +516,15 @@ static int settings_mmap_validate(struct settings_mmap *mmap,
 }
 
 static int
-settings_mmap_apply(struct settings_mmap *mmap, struct event *event,
-		    struct setting_parser_context *parser,
-		    const struct setting_parser_info *info,
-		    enum settings_get_flags flags,
-		    const char *filter_name, const char **error_r)
+settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 {
+	struct settings_mmap *mmap = ctx->instance->mmap;
 	struct settings_mmap_block *block =
-		hash_table_lookup(mmap->blocks, info->name);
+		hash_table_lookup(mmap->blocks, ctx->info->name);
 	if (block == NULL) {
 		*error_r = t_strdup_printf(
 			"BUG: Configuration has no settings struct named '%s'",
-			info->name);
+			ctx->info->name);
 		return -1;
 	}
 	if (block->error != NULL) {
@@ -522,14 +533,13 @@ settings_mmap_apply(struct settings_mmap *mmap, struct event *event,
 	}
 
 	if (!block->settings_validated &&
-	    (flags & SETTINGS_GET_NO_KEY_VALIDATION) == 0) {
-		if (settings_mmap_validate(mmap, block, info, error_r) < 0)
+	    (ctx->flags & SETTINGS_GET_NO_KEY_VALIDATION) == 0) {
+		if (settings_mmap_validate(mmap, block, ctx->info, error_r) < 0)
 			return -1;
 		block->settings_validated = TRUE;
 	}
 
-	if (settings_mmap_apply_blob(mmap, block, parser, info,
-				     block->base_start_offset,
+	if (settings_mmap_apply_blob(ctx, block, block->base_start_offset,
 				     block->base_end_offset, error_r) < 0)
 		return -1;
 
@@ -553,7 +563,7 @@ settings_mmap_apply(struct settings_mmap *mmap, struct event *event,
 		if (event_filter == EVENT_FILTER_MATCH_NEVER)
 			;
 		else if (event_filter == EVENT_FILTER_MATCH_ALWAYS ||
-			 event_filter_match(event_filter, event, &failure_ctx)) {
+			 event_filter_match(event_filter, ctx->event, &failure_ctx)) {
 			uint64_t filter_offset = be64_to_cpu_unaligned(
 				CONST_PTR_OFFSET(mmap->mmap_base,
 						 block->filter_offsets_start_offset +
@@ -573,7 +583,7 @@ settings_mmap_apply(struct settings_mmap *mmap, struct event *event,
 			}
 			filter_offset += strlen(filter_error) + 1;
 
-			if (filter_name != NULL && !seen_filter) {
+			if (ctx->filter_name != NULL && !seen_filter) {
 				bool op_not;
 				const char *value =
 					event_filter_find_field_exact(
@@ -583,10 +593,10 @@ settings_mmap_apply(struct settings_mmap *mmap, struct event *event,
 				   EVENT_FIELD_EXACT, so the value has already
 				   removed wildcard escapes. */
 				if (value != NULL && !op_not &&
-				    strcmp(filter_name, value) == 0)
+				    strcmp(ctx->filter_name, value) == 0)
 					seen_filter = TRUE;
 			}
-			if (settings_mmap_apply_blob(mmap, block, parser, info,
+			if (settings_mmap_apply_blob(ctx, block,
 					filter_offset, filter_end_offset,
 					error_r) < 0)
 				return -1;
@@ -874,21 +884,16 @@ settings_override_get_value(struct setting_parser_context *parser,
 }
 
 static int
-settings_instance_override(struct settings_root *root,
-			   struct settings_instance *instance,
-			   struct setting_parser_context *parser,
-			   struct settings_mmap_pool *mpool,
-			   struct event *event,
-			   const char *filter_key, const char *filter_value,
+settings_instance_override(struct settings_apply_ctx *ctx,
 			   const char **error_r)
 {
 	ARRAY_TYPE(settings_override) overrides;
 
 	t_array_init(&overrides, 64);
-	if (array_is_created(&instance->overrides))
-		array_append_array(&overrides, &instance->overrides);
-	if (array_is_created(&root->overrides))
-		array_append_array(&overrides, &root->overrides);
+	if (array_is_created(&ctx->instance->overrides))
+		array_append_array(&overrides, &ctx->instance->overrides);
+	if (array_is_created(&ctx->root->overrides))
+		array_append_array(&overrides, &ctx->root->overrides);
 	array_sort(&overrides, settings_override_cmp);
 
 	const struct failure_context failure_ctx = {
@@ -901,15 +906,15 @@ settings_instance_override(struct settings_root *root,
 		const char *key = set->key, *value;
 
 		if (set->filter != NULL &&
-		    !event_filter_match(set->filter, event, &failure_ctx))
+		    !event_filter_match(set->filter, ctx->event, &failure_ctx))
 			continue;
 
-		if (filter_key != NULL && set->last_filter_key != NULL &&
-		    strcmp(filter_key, set->last_filter_key) == 0 &&
-		    null_strcmp(filter_value, set->last_filter_value) == 0)
+		if (ctx->filter_key != NULL && set->last_filter_key != NULL &&
+		    strcmp(ctx->filter_key, set->last_filter_key) == 0 &&
+		    null_strcmp(ctx->filter_value, set->last_filter_value) == 0)
 			seen_filter = TRUE;
 
-		int ret = settings_override_get_value(parser, set,
+		int ret = settings_override_get_value(ctx->parser, set,
 						      &key, &value, error_r);
 		if (ret < 0)
 			return -1;
@@ -917,7 +922,7 @@ settings_instance_override(struct settings_root *root,
 			continue;
 
 		if (value != set->value)
-			ret = settings_parse_keyvalue(parser, key, value);
+			ret = settings_parse_keyvalue(ctx->parser, key, value);
 		else {
 			/* Add explicit reference to instance->pool, which is
 			   kept by the settings struct's pool. This allows
@@ -927,18 +932,18 @@ settings_instance_override(struct settings_root *root,
 			   only CLI_PARAM settings, which are allocated from
 			   FIXME: should figure out some efficient way how to
 			   store them. */
-			if (array_is_created(&mpool->pool.external_refs))
-				i_assert(array_idx_elem(&mpool->pool.external_refs, 0) == instance->pool);
-			else if (instance->pool != NULL)
-				pool_add_external_ref(&mpool->pool, instance->pool);
-			ret = settings_parse_keyvalue_nodup(parser, key, value);
+			if (array_is_created(&ctx->mpool->pool.external_refs))
+				i_assert(array_idx_elem(&ctx->mpool->pool.external_refs, 0) == ctx->instance->pool);
+			else if (ctx->instance->pool != NULL)
+				pool_add_external_ref(&ctx->mpool->pool, ctx->instance->pool);
+			ret = settings_parse_keyvalue_nodup(ctx->parser, key, value);
 		}
 		if (ret < 0) {
 			*error_r = t_strdup_printf(
 				"Failed to override configuration from %s: "
 				"Invalid %s=%s: %s",
 				settings_override_type_names[set->type],
-				key, value, settings_parser_get_error(parser));
+				key, value, settings_parser_get_error(ctx->parser));
 			return -1;
 		}
 	}
@@ -946,13 +951,7 @@ settings_instance_override(struct settings_root *root,
 }
 
 static int
-settings_instance_get(struct event *event,
-		      struct settings_root *root,
-		      struct settings_instance *instance,
-		      const char *filter_key, const char *filter_value,
-		      const char *filter_name,
-		      const struct setting_parser_info *info,
-		      enum settings_get_flags flags,
+settings_instance_get(struct settings_apply_ctx *ctx,
 		      const char *source_filename,
 		      unsigned int source_linenum,
 		      const void **set_r, const char **error_r)
@@ -961,38 +960,30 @@ settings_instance_get(struct event *event,
 	bool seen_filter = FALSE;
 	int ret;
 
-	i_assert(info->pool_offset1 != 0);
+	i_assert(ctx->info->pool_offset1 != 0);
 
 	*set_r = NULL;
 
-	event = event_create(event);
-	if (filter_name != NULL)
-		event_add_str(event, SETTINGS_EVENT_FILTER_NAME, filter_name);
-	if (event_find_field_recursive(event, "protocol") == NULL)
-		event_add_str(event, "protocol", root->protocol_name);
+	if (event_find_field_recursive(ctx->event, "protocol") == NULL)
+		event_add_str(ctx->event, "protocol", ctx->root->protocol_name);
 
-	struct settings_mmap_pool *mpool =
-		settings_mmap_pool_create(root, instance->mmap,
-					  source_filename, source_linenum);
-	pool_t set_pool = &mpool->pool;
-	struct setting_parser_context *parser =
-		settings_parser_init(set_pool, info,
-				     SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
+	ctx->mpool = settings_mmap_pool_create(ctx->root, ctx->instance->mmap,
+					       source_filename, source_linenum);
+	pool_t set_pool = &ctx->mpool->pool;
+	ctx->parser = settings_parser_init(set_pool, ctx->info,
+					   SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
 
 	/* Set the pool early on before any callbacks are called. */
-	void *set = settings_parser_get_set(parser);
-	pool_t *pool_p = PTR_OFFSET(set, info->pool_offset1 - 1);
+	void *set = settings_parser_get_set(ctx->parser);
+	pool_t *pool_p = PTR_OFFSET(set, ctx->info->pool_offset1 - 1);
 	*pool_p = set_pool;
 
-	if (instance->mmap != NULL) {
-		ret = settings_mmap_apply(instance->mmap, event, parser, info,
-					  flags, filter_name, &error);
+	if (ctx->instance->mmap != NULL) {
+		ret = settings_mmap_apply(ctx, &error);
 		if (ret < 0) {
 			*error_r = t_strdup_printf(
 				"Failed to parse configuration: %s", error);
-			settings_parser_unref(&parser);
 			pool_unref(&set_pool);
-			event_unref(&event);
 			return -1;
 		}
 		if (ret > 0)
@@ -1001,65 +992,55 @@ settings_instance_get(struct event *event,
 
 	/* if we change any settings afterwards, they're in expanded form.
 	   especially all settings from userdb are already expanded. */
-	settings_parse_set_expanded(parser, TRUE);
+	settings_parse_set_expanded(ctx->parser, TRUE);
 
 	T_BEGIN {
-		ret = settings_instance_override(root, instance, parser, mpool,
-			event, filter_key, filter_value, error_r);
+		ret = settings_instance_override(ctx, error_r);
 	} T_END_PASS_STR_IF(ret < 0, error_r);
 	if (ret < 0) {
-		settings_parser_unref(&parser);
 		pool_unref(&set_pool);
-		event_unref(&event);
 		return -1;
 	}
 	if (ret > 0)
 		seen_filter = TRUE;
 
-	/* settings are now referenced, but the parser is no longer needed */
-	settings_parser_unref(&parser);
-
-	if (filter_key != NULL && !seen_filter) {
+	if (ctx->filter_key != NULL && !seen_filter) {
 		pool_unref(&set_pool);
-		event_unref(&event);
 		return 0;
 	}
-	if ((flags & SETTINGS_GET_FLAG_NO_CHECK) == 0) {
-		if (!settings_check(event, info, *pool_p, set, error_r)) {
+	if ((ctx->flags & SETTINGS_GET_FLAG_NO_CHECK) == 0) {
+		if (!settings_check(ctx->event, ctx->info, *pool_p, set, error_r)) {
 			*error_r = t_strdup_printf("Invalid %s settings: %s",
-						   info->name, *error_r);
+						   ctx->info->name, *error_r);
 			pool_unref(&set_pool);
-			event_unref(&event);
 			return -1;
 		}
 	}
 
-	if ((flags & SETTINGS_GET_FLAG_NO_EXPAND) != 0)
+	if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) != 0)
 		ret = 1;
-	else if ((flags & SETTINGS_GET_FLAG_FAKE_EXPAND) != 0) {
-		settings_var_skip(info, set);
+	else if ((ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) != 0) {
+		settings_var_skip(ctx->info, set);
 		ret = 1;
 	} else T_BEGIN {
 		const struct var_expand_table *tab;
 		const struct var_expand_func_table *func_tab;
 		void *func_context;
 
-		settings_var_expand_init(event, &tab, &func_tab, &func_context);
-		ret = settings_var_expand_with_funcs(info, set, *pool_p, tab,
+		settings_var_expand_init(ctx->event, &tab, &func_tab, &func_context);
+		ret = settings_var_expand_with_funcs(ctx->info, set, *pool_p, tab,
 						     func_tab, func_context,
 						     error_r);
 	} T_END_PASS_STR_IF(ret <= 0, error_r);
 	if (ret <= 0) {
 		*error_r = t_strdup_printf(
 			"Failed to expand %s setting variables: %s",
-			info->name, *error_r);
+			ctx->info->name, *error_r);
 		pool_unref(&set_pool);
-		event_unref(&event);
 		return -1;
 	}
 
 	*set_r = set;
-	event_unref(&event);
 	return 1;
 }
 
@@ -1109,21 +1090,33 @@ settings_get_full(struct event *event,
 	if (instance == NULL)
 		instance = &empty_instance;
 
+	struct settings_apply_ctx ctx = {
+		.event = event_create(event),
+		.root = root,
+		.instance = instance,
+		.info = info,
+		.flags = flags,
+		.filter_key = filter_key,
+		.filter_value = filter_value,
+	};
+
 	int ret;
 	T_BEGIN {
-		const char *filter_name;
 		if (filter_value != NULL) {
-			filter_name = t_strdup_printf("%s/%s", filter_key,
-				settings_section_escape(filter_value));
+			ctx.filter_name = t_strdup_printf("%s/%s", filter_key,
+				settings_section_escape(ctx.filter_value));
 		} else if (filter_key != NULL)
-			filter_name = filter_key;
-		else
-			filter_name = NULL;
+			ctx.filter_name = filter_key;
+		if (ctx.filter_name != NULL) {
+			event_add_str(ctx.event, SETTINGS_EVENT_FILTER_NAME,
+				      ctx.filter_name);
+		}
 
-		ret = settings_instance_get(event, root, instance,
-			filter_key, filter_value, filter_name, info, flags,
-			source_filename, source_linenum, set_r, error_r);
-	} T_END_PASS_STR_IF(ret <= 0, error_r);
+		ret = settings_instance_get(&ctx, source_filename,
+					    source_linenum, set_r, error_r);
+	} T_END_PASS_STR_IF(ret < 0, error_r);
+	settings_parser_unref(&ctx.parser);
+	event_unref(&ctx.event);
 	return ret;
 }
 
