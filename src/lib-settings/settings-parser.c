@@ -413,10 +413,14 @@ settings_parse(struct setting_parser_context *ctx,
 		unsigned int i, count = str_array_length(list);
 		if (!array_is_created(arr))
 			p_array_init(arr, ctx->set_pool, count);
+		unsigned int insert_pos = 0;
 		for (i = 0; i < count; i++) {
 			const char *value = p_strdup(ctx->set_pool,
 				settings_section_unescape(list[i]));
-			array_push_back(arr, &value);
+			if ((ctx->flags & SETTINGS_PARSER_FLAG_INSERT_FILTERS) != 0)
+				array_insert(arr, insert_pos++, &value, 1);
+			else
+				array_push_back(arr, &value);
 		}
 		break;
 	}
@@ -508,6 +512,27 @@ int settings_parse_keyidx_value_nodup(struct setting_parser_context *ctx,
 {
 	return settings_parse(ctx, &ctx->info->defines[key_idx],
 			      key, value, FALSE);
+}
+
+bool settings_parse_strlist_has_key(struct setting_parser_context *ctx,
+				    unsigned int key_idx,
+				    const char *key_suffix)
+{
+	const struct setting_define *def = &ctx->info->defines[key_idx];
+	i_assert(def->type == SET_STRLIST);
+
+	ARRAY_TYPE(const_string) *array =
+		STRUCT_MEMBER_P(ctx->set_struct, def->offset);
+	if (!array_is_created(array))
+		return FALSE;
+
+	unsigned int i, count;
+	const char *const *items = array_get(array, &count);
+	for (i = 0; i < count; i += 2) {
+		if (strcmp(items[i], key_suffix) == 0)
+			return TRUE;
+	}
+	return FALSE;
 }
 
 const void *
