@@ -13,6 +13,20 @@
 #include "settings-parser.h"
 #include "settings.h"
 
+struct settings_mmap_pool {
+	struct pool pool;
+	int refcount;
+
+	struct settings_mmap_pool *prev, *next;
+
+	const char *source_filename;
+	unsigned int source_linenum;
+
+	pool_t parent_pool;
+	struct settings_mmap *mmap; /* NULL for unit tests */
+	struct settings_root *root;
+};
+
 struct settings_override {
 	int type;
 	bool append;
@@ -712,20 +726,6 @@ bool settings_has_mmap(struct settings_root *root)
 {
 	return root->mmap != NULL;
 }
-
-struct settings_mmap_pool {
-	struct pool pool;
-	int refcount;
-
-	struct settings_mmap_pool *prev, *next;
-
-	const char *source_filename;
-	unsigned int source_linenum;
-
-	pool_t parent_pool;
-	struct settings_mmap *mmap; /* NULL for unit tests */
-	struct settings_root *root;
-};
 
 static const char *settings_mmap_pool_get_name(pool_t pool)
 {
