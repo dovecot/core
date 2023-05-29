@@ -979,6 +979,11 @@ settings_instance_get(struct event *event,
 		settings_parser_init(set_pool, info,
 				     SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
 
+	/* Set the pool early on before any callbacks are called. */
+	void *set = settings_parser_get_set(parser);
+	pool_t *pool_p = PTR_OFFSET(set, info->pool_offset1 - 1);
+	*pool_p = set_pool;
+
 	if (instance->mmap != NULL) {
 		ret = settings_mmap_apply(instance->mmap, event, parser, info,
 					  flags, filter_name, &error);
@@ -1010,11 +1015,6 @@ settings_instance_get(struct event *event,
 	}
 	if (ret > 0)
 		seen_filter = TRUE;
-
-	void *set = settings_parser_get_set(parser);
-
-	pool_t *pool_p = PTR_OFFSET(set, info->pool_offset1 - 1);
-	*pool_p = set_pool;
 
 	/* settings are now referenced, but the parser is no longer needed */
 	settings_parser_unref(&parser);
