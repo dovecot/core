@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 use strict;
 use warnings;
+use 5.008;
 
 print "/* WARNING: THIS FILE IS GENERATED - DO NOT PATCH!\n";
 print "   It's not enough alone in any case, because the defaults may be\n";
