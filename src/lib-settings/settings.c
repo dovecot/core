@@ -418,6 +418,26 @@ settings_mmap_parse(struct settings_mmap *mmap, const char *service_name,
 }
 
 static int
+settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
+			const char *strlist_key, const char *value,
+			const char **error_r)
+{
+	const char *key = ctx->info->defines[key_idx].key;
+	if (strlist_key != NULL)
+		key = t_strdup_printf("%s/%s", key, strlist_key);
+	/* value points to mmap()ed memory, which is kept
+	   referenced by the set_pool for the life time of the
+	   settings struct. */
+	if (settings_parse_keyidx_value_nodup(ctx->parser, key_idx,
+					      key, value) < 0) {
+		*error_r = t_strdup_printf("Invalid setting %s=%s: %s",
+			key, value, settings_parser_get_error(ctx->parser));
+		return -1;
+	}
+	return 0;
+}
+
+static int
 settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 			 struct settings_mmap_block *block,
 			 size_t start_offset, size_t end_offset,
@@ -465,16 +485,8 @@ settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 		}
 		int ret;
 		T_BEGIN {
-			const char *key = ctx->info->defines[key_idx].key;
-			if (strlist_key != NULL)
-				key = t_strdup_printf("%s/%s", key, strlist_key);
-			/* value points to mmap()ed memory, which is kept
-			   referenced by the set_pool for the life time of the
-			   settings struct. */
-			ret = settings_parse_keyidx_value_nodup(ctx->parser, key_idx,
-								key, value);
-			if (ret < 0)
-				*error_r = t_strdup(settings_parser_get_error(ctx->parser));
+			ret = settings_mmap_apply_key(ctx, key_idx, strlist_key,
+						      value, error_r);
 		} T_END_PASS_STR_IF(ret < 0, error_r);
 		if (ret < 0)
 			return -1;
