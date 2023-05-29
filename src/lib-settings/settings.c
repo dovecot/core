@@ -98,6 +98,7 @@ struct settings_apply_ctx {
 	struct setting_parser_context *parser;
 	struct settings_mmap_pool *mpool;
 	void *set_struct;
+	ARRAY_TYPE(bool) set_seen;
 };
 
 static const char *settings_override_type_names[] = {
@@ -466,6 +467,10 @@ static void settings_mmap_apply_defaults(struct settings_apply_ctx *ctx)
 	unsigned int key_idx;
 
 	for (key_idx = 0; ctx->info->defines[key_idx].key != NULL; key_idx++) {
+		bool *setp = array_idx_get_space(&ctx->set_seen, key_idx);
+		if (*setp)
+			continue;
+
 		void *set = PTR_OFFSET(ctx->info->defaults,
 				       ctx->info->defines[key_idx].offset);
 		if (ctx->info->defines[key_idx].type != SET_STR_VARS)
@@ -506,10 +511,23 @@ settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 		}
 		offset += sizeof(key_idx);
 
+		bool set_apply;
 		const char *strlist_key = NULL;
 		if (ctx->info->defines[key_idx].type == SET_STRLIST) {
 			strlist_key = (const char *)mmap->mmap_base + offset;
 			offset += strlen(strlist_key)+1;
+			set_apply = !settings_parse_strlist_has_key(ctx->parser,
+					key_idx, strlist_key);
+		} else if (ctx->info->defines[key_idx].type == SET_FILTER_ARRAY)
+			set_apply = TRUE;
+		else {
+			bool *setp = array_idx_get_space(&ctx->set_seen, key_idx);
+			if (*setp)
+				set_apply = FALSE;
+			else {
+				*setp = TRUE;
+				set_apply = TRUE;
+			}
 		}
 
 		if (offset >= end_offset) {
@@ -530,7 +548,9 @@ settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 			return -1;
 		}
 		int ret;
-		T_BEGIN {
+		if (!set_apply)
+			ret = 0;
+		else T_BEGIN {
 			ret = settings_mmap_apply_key(ctx, key_idx, strlist_key,
 						      value, error_r);
 		} T_END_PASS_STR_IF(ret < 0, error_r);
@@ -598,16 +618,15 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 		block->settings_validated = TRUE;
 	}
 
-	if (settings_mmap_apply_blob(ctx, block, block->base_start_offset,
-				     block->base_end_offset, error_r) < 0)
-		return -1;
-
 	const struct failure_context failure_ctx = {
 		.type = LOG_TYPE_DEBUG,
 	};
 
+	/* go through the filters in reverse sorted order, so we always set the
+	   setting just once, never overriding anything. */
 	bool seen_filter = FALSE;
-	for (uint32_t i = 0; i < block->filter_count; i++) {
+	for (uint32_t i = block->filter_count; i > 0; ) {
+		i--;
 		uint32_t event_filter_idx = be32_to_cpu_unaligned(
 			CONST_PTR_OFFSET(mmap->mmap_base,
 					 block->filter_indexes_start_offset +
@@ -661,6 +680,10 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 				return -1;
 		}
 	}
+	/* apply the base settings last after all filters */
+	if (settings_mmap_apply_blob(ctx, block, block->base_start_offset,
+				     block->base_end_offset, error_r) < 0)
+		return -1;
 	return seen_filter ? 1 : 0;
 
 }
@@ -872,7 +895,7 @@ settings_var_expand_init(struct event *event,
 static int settings_override_cmp(const struct settings_override *set1,
 				 const struct settings_override *set2)
 {
-	return set1->type - set2->type;
+	return set2->type - set1->type;
 }
 
 static int
@@ -955,6 +978,7 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		array_append_array(&overrides, &ctx->instance->overrides);
 	if (array_is_created(&ctx->root->overrides))
 		array_append_array(&overrides, &ctx->root->overrides);
+	/* sort overrides so that the most specific ones are first */
 	array_sort(&overrides, settings_override_cmp);
 
 	const struct failure_context failure_ctx = {
@@ -983,6 +1007,22 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		if (ret == 0) {
 			/* setting doesn't exist in this info */
 			continue;
+		}
+		if (ctx->info->defines[key_idx].type == SET_STRLIST) {
+			const char *suffix;
+			if (!str_begins(key, ctx->info->defines[key_idx].key, &suffix) ||
+			    suffix[0] != '/')
+				i_unreached();
+			if (settings_parse_strlist_has_key(ctx->parser, key_idx,
+							   suffix + 1))
+				continue;
+		} else if (ctx->info->defines[key_idx].type != SET_FILTER_ARRAY) {
+			bool *setp = array_idx_get_space(&ctx->set_seen, key_idx);
+			if (*setp) {
+				/* already set - skip */
+				continue;
+			}
+			*setp = TRUE;
 		}
 
 		if (value != set->value)
@@ -1045,7 +1085,8 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 					       source_filename, source_linenum);
 	pool_t set_pool = &ctx->mpool->pool;
 	ctx->parser = settings_parser_init(set_pool, ctx->info,
-					   SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
+					   SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS |
+					   SETTINGS_PARSER_FLAG_INSERT_FILTERS);
 
 	/* Set the pool early on before any callbacks are called. */
 	ctx->set_struct = settings_parser_get_set(ctx->parser);
@@ -1053,30 +1094,29 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 				    ctx->info->pool_offset1 - 1);
 	*pool_p = set_pool;
 
-	settings_mmap_apply_defaults(ctx);
-	if (ctx->instance->mmap != NULL) {
+	i_array_init(&ctx->set_seen, 64);
+
+	settings_parse_set_expanded(ctx->parser, TRUE);
+	ret = settings_instance_override(ctx, error_r);
+	settings_parse_set_expanded(ctx->parser, FALSE);
+	if (ret > 0)
+		seen_filter = TRUE;
+
+	if (ctx->instance->mmap != NULL && ret >= 0) {
 		ret = settings_mmap_apply(ctx, &error);
 		if (ret < 0) {
 			*error_r = t_strdup_printf(
 				"Failed to parse configuration: %s", error);
-			pool_unref(&set_pool);
-			return -1;
 		}
 		if (ret > 0)
 			seen_filter = TRUE;
 	}
-
-	/* if we change any settings afterwards, they're in expanded form.
-	   especially all settings from userdb are already expanded. */
-	settings_parse_set_expanded(ctx->parser, TRUE);
-
-	ret = settings_instance_override(ctx, error_r);
+	if (ret >= 0)
+		settings_mmap_apply_defaults(ctx);
 	if (ret < 0) {
 		pool_unref(&set_pool);
 		return -1;
 	}
-	if (ret > 0)
-		seen_filter = TRUE;
 
 	if (ctx->filter_key != NULL && !seen_filter &&
 	    ctx->filter_name_required) {
@@ -1204,6 +1244,7 @@ settings_get_full(struct event *event,
 	} T_END_PASS_STR_IF(ret < 0, error_r);
 	settings_parser_unref(&ctx.parser);
 	event_unref(&ctx.event);
+	array_free(&ctx.set_seen);
 	return ret;
 }
 

@@ -130,7 +130,10 @@ ARRAY_DEFINE_TYPE(setting_parser_info, struct setting_parser_info);
 
 enum settings_parser_flags {
 	SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS	= 0x01,
-	SETTINGS_PARSER_FLAG_TRACK_CHANGES		= 0x02
+	SETTINGS_PARSER_FLAG_TRACK_CHANGES		= 0x02,
+	/* Filters are added in reverse order. New filters are inserted to the
+	   beginning of the array. */
+	SETTINGS_PARSER_FLAG_INSERT_FILTERS		= 0x04,
 };
 
 struct setting_parser_context;
@@ -189,6 +192,11 @@ int settings_parse_keyvalue_nodup(struct setting_parser_context *ctx,
 int settings_parse_keyidx_value_nodup(struct setting_parser_context *ctx,
 				      unsigned int key_idx, const char *key,
 				      const char *value);
+/* Returns TRUE if strlist has the specific key. The key must NOT include the
+   strlist/ prefix. */
+bool settings_parse_strlist_has_key(struct setting_parser_context *ctx,
+				    unsigned int key_idx,
+				    const char *key_suffix);
 /* Call all check_func()s and ext_check_func()s to see if currently parsed
    settings are valid. */
 bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
