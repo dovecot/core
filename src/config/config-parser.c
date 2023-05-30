@@ -1291,26 +1291,38 @@ config_parse_finish(struct config_parser_context *ctx,
 	return ret;
 }
 
-static const void *
+static bool
 config_get_value(struct config_section_stack *section,
 		 struct config_parser_key *config_key, const char *key,
-		 bool expand_parent, enum setting_type *type_r)
+		 bool expand_parent, string_t *str)
 {
 	struct config_module_parser *l =
 		&section->module_parsers[config_key->info_idx];
-	const void *value;
+	const struct setting_define *def =
+		&l->info->defines[config_key->define_idx];
+	if (def->type == SET_STRLIST ||
+	    def->type == SET_FILTER_NAME || def->type == SET_FILTER_ARRAY)
+		return FALSE;
 
-	if (l->parser != NULL) {
-		value = settings_parse_get_value(l->parser, &key, type_r);
-		i_assert(value != NULL);
-
-		if (!expand_parent || section->prev == NULL ||
-		    settings_parse_get_change_counter(l->parser, key) != 0)
-			return value;
+	if (l->change_counters != NULL) {
+		if (l->change_counters[config_key->define_idx] != 0) {
+			str_append(str, l->settings[config_key->define_idx].str);
+			return TRUE;
+		}
+		if (!expand_parent || section->prev == NULL) {
+			/* use the default setting */
+			const void *value = CONST_PTR_OFFSET(l->info->defaults,
+							     def->offset);
+			bool dump;
+			if (!config_export_type(str, value, NULL, def->type,
+						TRUE, &dump))
+				i_unreached();
+			return TRUE;
+		}
 	}
 
 	/* not changed by this parser. maybe parent has. */
-	return config_get_value(section->prev, config_key, key, TRUE, type_r);
+	return config_get_value(section->prev, config_key, key, TRUE, str);
 }
 
 static int config_write_keyvariable(struct config_parser_context *ctx,
@@ -1318,7 +1330,6 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 				    string_t *str)
 {
 	const char *var_end, *p_start = value;
-	bool dump;
 	while (value != NULL) {
 		const char *var_name, *env_name;
 		bool expand_parent;
@@ -1346,26 +1357,16 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 				str_append(str, envval);
 		} else {
 			struct config_parser_key *config_key;
-			const char *var_value;
-			enum setting_type var_type;
 
 			i_assert(var_name[0] == '$');
 			var_name++;
 
 			config_key = hash_table_lookup(ctx->all_keys, var_name);
-			var_value = config_key == NULL ? NULL :
-				config_get_value(ctx->cur_section, config_key,
-						 var_name, expand_parent, &var_type);
-			if (var_value == NULL) {
+			if (config_key == NULL ||
+			    !config_get_value(ctx->cur_section, config_key,
+					      var_name, expand_parent, str)) {
 				ctx->error = p_strconcat(ctx->pool,
 							 "Unknown variable: $",
-							 var_name, NULL);
-				return -1;
-			}
-			if (!config_export_type(str, var_value, NULL,
-						var_type, TRUE, &dump)) {
-				ctx->error = p_strconcat(ctx->pool,
-							 "Invalid variable: $",
 							 var_name, NULL);
 				return -1;
 			}
