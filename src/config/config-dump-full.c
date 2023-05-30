@@ -180,9 +180,8 @@ static void
 config_dump_full_write_keys(struct ostream *output,
 			    const struct setting_parser_info *info)
 {
-	unsigned int count;
+	unsigned int count = setting_parser_info_get_define_count(info);
 
-	for (count = 0; info->defines[count].key != NULL; count++) ;
 	uint32_t count_be32 = cpu32_to_be(count);
 	o_stream_nsend(output, &count_be32, sizeof(count_be32));
 
