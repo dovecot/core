@@ -70,14 +70,16 @@ void doveadm_master_send_signal(int signo, struct event *event)
 
 	if (signo == SIGTERM) {
 		/* wait for a while for the process to die */
-		i_sleep_msecs(1);
+		unsigned int sleep_msecs = 1;
 		for (i = 0; i < 30; i++) {
+			i_sleep_msecs(sleep_msecs);
 			if (kill(pid, 0) < 0) {
 				if (errno != ESRCH)
 					e_error(event, "kill() failed: %m");
 				break;
 			}
-			i_sleep_msecs(100);
+			if (sleep_msecs < 256)
+				sleep_msecs *= 2;
 		}
 	}
 }
