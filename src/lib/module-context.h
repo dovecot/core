@@ -45,21 +45,6 @@
 #define OBJ_REGISTER_COMPATIBLE(obj, id_ctx) \
 	COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(OBJ_REGISTER(obj), (id_ctx).reg)
 
-#define MODULE_CONTEXT(obj, id_ctx) \
-	(module_get_context_id(&(id_ctx).id) < array_count(&(obj)->module_contexts) ? \
-	 (*((void **)array_idx_modifiable(&(obj)->module_contexts,	\
- 		module_get_context_id(&(id_ctx).id)) + \
-	    OBJ_REGISTER_COMPATIBLE(obj, id_ctx))) : NULL)
-
-/* Will crash if context is missing. This is mainly used to simplify code and
-   keep static analyzers happy. This syntax discards result of i_panic and
-   returns NULL instead to keep compilers happy. */
-#define MODULE_CONTEXT_REQUIRE(obj, id_ctx) \
-	(module_get_context_id(&(id_ctx).id) < array_count(&(obj)->module_contexts) ? \
-	 (*((void **)array_idx_modifiable(&(obj)->module_contexts,      \
-		module_get_context_id(&(id_ctx).id)) + \
-	    OBJ_REGISTER_COMPATIBLE(obj, id_ctx))) : (i_panic("Module context " #id_ctx " missing"), NULL))
-
 #ifdef HAVE_TYPEOF
 #  define MODULE_CONTEXT_DEFINE(_name, _reg) \
 	struct _name { \
@@ -95,6 +80,35 @@ static inline unsigned int module_get_context_id(struct module_context_id *id)
 	}
 	return id->module_id;
 }
+
+static inline void *
+module_context_get(struct array *array, struct module_context_id *id)
+{
+	unsigned int module_id = module_get_context_id(id);
+	if (module_id >= array_count_i(array))
+		return NULL;
+	void **ctx = (void **)array_idx_modifiable_i(array, module_id);
+	return *ctx;
+}
+#define MODULE_CONTEXT(obj, id_ctx) \
+	(TRUE ? module_context_get(&(obj)->module_contexts.arr, &(id_ctx).id) : \
+	OBJ_REGISTER_COMPATIBLE(obj, id_ctx))
+
+static inline void *
+module_context_get_require(struct array *array, struct module_context_id *id,
+			   const char *panic_message)
+{
+	void *ctx = module_context_get(array, id);
+	if (ctx == NULL)
+		i_panic("%s", panic_message);
+	return ctx;
+}
+/* Will crash if context is missing. This is mainly used to simplify code and
+   prevent static analyzers from complaining about NULL pointer dereferences. */
+#define MODULE_CONTEXT_REQUIRE(obj, id_ctx) \
+	(TRUE ? module_context_get_require(&(obj)->module_contexts.arr, \
+		&(id_ctx).id, "Module context " #id_ctx " missing") : \
+	OBJ_REGISTER_COMPATIBLE(obj, id_ctx))
 
 #define MODULE_CONTEXT_SET_FULL(obj, id_ctx, ctx, module_ctx) STMT_START { \
 	(void)COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(module_ctx, \
