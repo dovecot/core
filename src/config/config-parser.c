@@ -141,7 +141,6 @@ config_parser_add_service_default_struct(struct config_parser_context *ctx,
 {
 	const struct setting_parser_info *info = all_infos[service_info_idx];
 	string_t *value_str = t_str_new(64);
-	bool dump;
 
 	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
 	for (unsigned int i = 0; info->defines[i].key != NULL; i++) {
@@ -150,8 +149,7 @@ config_parser_add_service_default_struct(struct config_parser_context *ctx,
 		i_assert(value != NULL);
 
 		str_truncate(value_str, 0);
-		if (!config_export_type(value_str, value, NULL,
-					info->defines[i].type, TRUE, &dump))
+		if (!config_export_type(value_str, value, info->defines[i].type))
 			continue;
 
 		if (config_apply_line(ctx, info->defines[i].key,
@@ -1309,9 +1307,7 @@ config_get_value(struct config_section_stack *section,
 			/* use the default setting */
 			const void *value = CONST_PTR_OFFSET(l->info->defaults,
 							     def->offset);
-			bool dump;
-			if (!config_export_type(str, value, NULL, def->type,
-						TRUE, &dump))
+			if (!config_export_type(str, value, def->type))
 				i_unreached();
 			return TRUE;
 		}
@@ -1809,9 +1805,8 @@ config_module_parsers_get_setting(const struct config_module_parser *module_pars
 		return l->settings[key_idx].str;
 
 	const void *value = CONST_PTR_OFFSET(l->info->defaults, def->offset);
-	bool dump;
 	string_t *str = t_str_new(64);
-	if (!config_export_type(str, value, NULL, def->type, TRUE, &dump))
+	if (!config_export_type(str, value, def->type))
 		i_unreached();
 	return str_c(str);
 }

@@ -81,95 +81,56 @@ static void config_export_time_msecs(string_t *str, unsigned int stamp_msecs)
 }
 
 bool config_export_type(string_t *str, const void *value,
-			const void *default_value,
-			enum setting_type type, bool dump_default,
-			bool *dump_r)
+			enum setting_type type)
 {
 	switch (type) {
 	case SET_BOOL: {
-		const bool *val = value, *dval = default_value;
+		const bool *val = value;
 
-		if (dump_default || dval == NULL || *val != *dval)
-			str_append(str, *val ? "yes" : "no");
+		str_append(str, *val ? "yes" : "no");
 		break;
 	}
 	case SET_SIZE: {
-		const uoff_t *val = value, *dval = default_value;
+		const uoff_t *val = value;
 
-		if (dump_default || dval == NULL || *val != *dval)
-			config_export_size(str, *val);
+		config_export_size(str, *val);
 		break;
 	}
 	case SET_UINT:
 	case SET_UINT_OCT:
 	case SET_TIME:
 	case SET_TIME_MSECS: {
-		const unsigned int *val = value, *dval = default_value;
+		const unsigned int *val = value;
 
-		if (dump_default || dval == NULL || *val != *dval) {
-			switch (type) {
-			case SET_UINT_OCT:
-				str_printfa(str, "0%o", *val);
-				break;
-			case SET_TIME:
-				config_export_time(str, *val);
-				break;
-			case SET_TIME_MSECS:
-				config_export_time_msecs(str, *val);
-				break;
-			default:
-				str_printfa(str, "%u", *val);
-				break;
-			}
+		switch (type) {
+		case SET_UINT_OCT:
+			str_printfa(str, "0%o", *val);
+			break;
+		case SET_TIME:
+			config_export_time(str, *val);
+			break;
+		case SET_TIME_MSECS:
+			config_export_time_msecs(str, *val);
+			break;
+		default:
+			str_printfa(str, "%u", *val);
+			break;
 		}
 		break;
 	}
 	case SET_IN_PORT: {
-		const in_port_t *val = value, *dval = default_value;
+		const in_port_t *val = value;
 
-		if (dump_default || dval == NULL || *val != *dval)
-			str_printfa(str, "%u", *val);
+		str_printfa(str, "%u", *val);
 		break;
 	}
-	case SET_STR: {
-		const char *const *val = value;
-		const char *const *_dval = default_value;
-		const char *dval = _dval == NULL ? NULL : *_dval;
-
-		if ((dump_default || null_strcmp(*val, dval) != 0) &&
-		    *val != NULL) {
-			str_append(str, *val);
-			*dump_r = TRUE;
-		}
-		break;
-	}
-	case SET_STR_NOVARS: {
-		const char *const *val = value;
-		const char *const *_dval = default_value;
-		const char *dval = _dval == NULL ? NULL : *_dval;
-
-		if ((dump_default || null_strcmp(*val, dval) != 0) &&
-		    *val != NULL) {
-			str_append(str, *val);
-			*dump_r = TRUE;
-		}
-		break;
-	}
+	case SET_STR:
+	case SET_STR_NOVARS:
 	case SET_ENUM: {
 		const char *const *val = value;
-		size_t len = strlen(*val);
 
-		if (dump_default)
+		if (*val != NULL)
 			str_append(str, *val);
-		else {
-			const char *const *_dval = default_value;
-			const char *dval = _dval == NULL ? NULL : *_dval;
-
-			i_assert(dval != NULL);
-			if (strncmp(*val, dval, len) != 0 ||
-			    ((*val)[len] != ':' && (*val)[len] != '\0'))
-				str_append(str, *val);
-		}
 		break;
 	}
 	default:
@@ -248,10 +209,9 @@ settings_export(struct config_export_context *ctx,
 				const void *default_value =
 					CONST_PTR_OFFSET(info->defaults,
 							 def->offset);
-				bool dump;
 				default_str = t_str_new(64);
 				if (!config_export_type(default_str, default_value,
-							NULL, def->type, TRUE, &dump))
+							def->type))
 					i_unreached();
 				if (def->type == SET_ENUM) {
 					/* enum begins with default: followed
