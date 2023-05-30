@@ -180,10 +180,10 @@ bool config_export_type(string_t *str, const void *value,
 
 static void
 settings_export(struct config_export_context *ctx,
-		const struct setting_parser_info *info,
-		const void *set, const void *change_set)
+		const struct config_module_parser *module_parser)
 {
-	const void *value, *default_value, *change_value;
+	const struct setting_parser_info *info = module_parser->info;
+	uint8_t change_value;
 	unsigned int i, count, define_idx;
 	const char *str;
 	bool dump, dump_default = FALSE;
@@ -191,10 +191,7 @@ settings_export(struct config_export_context *ctx,
 	for (define_idx = 0; info->defines[define_idx].key != NULL; define_idx++) {
 		const struct setting_define *def = &info->defines[define_idx];
 
-		value = CONST_PTR_OFFSET(set, def->offset);
-		default_value = info->defaults == NULL ? NULL :
-			CONST_PTR_OFFSET(info->defaults, def->offset);
-		change_value = CONST_PTR_OFFSET(change_set, def->offset);
+		change_value = module_parser->change_counters[define_idx];
 		switch (ctx->scope) {
 		case CONFIG_DUMP_SCOPE_DEFAULT:
 			i_unreached();
@@ -210,21 +207,21 @@ settings_export(struct config_export_context *ctx,
 			/* hidden - dump default only if it's explicitly set */
 			/* fall through */
 		case CONFIG_DUMP_SCOPE_SET:
-			if (*((const uint8_t *)change_value) < CONFIG_PARSER_CHANGE_EXPLICIT) {
+			if (change_value < CONFIG_PARSER_CHANGE_EXPLICIT) {
 				/* setting is unchanged in config file */
 				continue;
 			}
 			dump_default = TRUE;
 			break;
 		case CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES:
-			if (*((const uint8_t *)change_value) < CONFIG_PARSER_CHANGE_INTERNAL) {
+			if (change_value < CONFIG_PARSER_CHANGE_INTERNAL) {
 				/* setting is completely unchanged */
 				continue;
 			}
 			dump_default = TRUE;
 			break;
 		case CONFIG_DUMP_SCOPE_CHANGED:
-			if (*((const uint8_t *)change_value) < CONFIG_PARSER_CHANGE_EXPLICIT) {
+			if (change_value < CONFIG_PARSER_CHANGE_EXPLICIT) {
 				/* setting is unchanged in config file */
 				continue;
 			}
@@ -244,17 +241,50 @@ settings_export(struct config_export_context *ctx,
 		case SET_IN_PORT:
 		case SET_STR:
 		case SET_STR_NOVARS:
-		case SET_ENUM:
-			if (!config_export_type(ctx->value, value,
-						default_value, def->type,
-						dump_default, &dump))
-				i_unreached();
+		case SET_ENUM: {
+			string_t *default_str = NULL;
+			i_assert(info->defaults != NULL);
+			if (!dump_default || module_parser->change_counters[define_idx] == 0) {
+				const void *default_value =
+					CONST_PTR_OFFSET(info->defaults,
+							 def->offset);
+				bool dump;
+				default_str = t_str_new(64);
+				if (!config_export_type(default_str, default_value,
+							NULL, def->type, TRUE, &dump))
+					i_unreached();
+				if (def->type == SET_ENUM) {
+					/* enum begins with default: followed
+					   by other valid values */
+					const char *p = strchr(str_c(default_str), ':');
+					if (p != NULL) {
+						str_truncate(default_str,
+							p - str_c(default_str));
+					}
+				}
+			}
+			if (!dump_default &&
+			    strcmp(str_c(default_str),
+				   module_parser->settings[define_idx].str) == 0) {
+				/* Explicitly set setting value wasn't
+				   actually changed from its default. */
+				break;
+			}
+			if (module_parser->change_counters[define_idx] != 0) {
+				str_append(ctx->value,
+					module_parser->settings[define_idx].str);
+			} else {
+				str_append_str(ctx->value, default_str);
+			}
+			dump = TRUE;
 			break;
+		}
 		case SET_STRLIST: {
-			const ARRAY_TYPE(const_string) *val = value;
+			const ARRAY_TYPE(const_string) *val =
+				module_parser->settings[define_idx].array;
 			const char *const *strings;
 
-			if (!array_is_created(val))
+			if (val == NULL)
 				break;
 
 			if (hash_table_is_created(ctx->keys) &&
@@ -292,10 +322,11 @@ settings_export(struct config_export_context *ctx,
 			break;
 		}
 		case SET_FILTER_ARRAY: {
-			const ARRAY_TYPE(const_string) *val = value;
+			const ARRAY_TYPE(const_string) *val =
+				module_parser->settings[define_idx].array;
 			const char *name;
 
-			if (!array_is_created(val))
+			if (val == NULL)
 				break;
 
 			array_foreach_elem(val, name) {
@@ -430,10 +461,8 @@ int config_export_parser(struct config_export_context *ctx,
 		*error_r = module_parser->delayed_error;
 		return -1;
 	}
-	if (module_parser->parser != NULL) T_BEGIN {
-		void *set = settings_parser_get_set(module_parser->parser);
-		settings_export(ctx, module_parser->info, set,
-				settings_parser_get_changes(module_parser->parser));
+	if (module_parser->settings != NULL) T_BEGIN {
+		settings_export(ctx, module_parser);
 	} T_END;
 	return 0;
 }
