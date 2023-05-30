@@ -55,8 +55,7 @@ struct config_parsed {
 ARRAY_DEFINE_TYPE(setting_parser_info_p, const struct setting_parser_info *);
 
 static const enum settings_parser_flags settings_parser_flags =
-	SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS |
-	SETTINGS_PARSER_FLAG_TRACK_CHANGES;
+	SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS;
 
 struct module *modules;
 void (*hook_config_parser_begin)(struct config_parser_context *ctx);
