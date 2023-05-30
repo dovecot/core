@@ -147,6 +147,15 @@ void settings_parser_unref(struct setting_parser_context **_ctx)
 	pool_unref(&ctx->parser_pool);
 }
 
+unsigned int
+setting_parser_info_get_define_count(const struct setting_parser_info *info)
+{
+	unsigned int count = 0;
+	while (info->defines[count].key != NULL)
+		count++;
+	return count;
+}
+
 void *settings_parser_get_set(const struct setting_parser_context *ctx)
 {
 	return ctx->set_struct;
