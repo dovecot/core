@@ -78,6 +78,24 @@ static int
 config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 			const char *value);
 
+static void
+config_module_parser_init(struct config_parser_context *ctx,
+			  struct config_module_parser *module_parser)
+{
+	module_parser->set_count =
+		setting_parser_info_get_define_count(module_parser->info);
+	module_parser->settings = module_parser->set_count == 0 ? NULL :
+		p_new(ctx->pool, union config_module_parser_setting,
+		      module_parser->set_count);
+	module_parser->change_counters = module_parser->set_count == 0 ? NULL :
+		p_new(ctx->pool, uint8_t, module_parser->set_count);
+	module_parser->parser =
+		settings_parser_init(ctx->pool, module_parser->info,
+				     settings_parser_flags);
+	settings_parse_set_change_counter(module_parser->parser,
+					  ctx->change_counter);
+}
+
 void config_parser_set_change_counter(struct config_parser_context *ctx,
 				      uint8_t change_counter)
 {
@@ -279,6 +297,62 @@ config_is_filter_name(struct config_parser_context *ctx, const char *key,
 	return TRUE;
 }
 
+static int config_apply_strlist(struct config_parser_context *ctx,
+				const char *key, const char *value,
+				ARRAY_TYPE(const_string) **strlistp)
+{
+	const char *suffix;
+
+	suffix = strchr(key, SETTINGS_SEPARATOR);
+	if (suffix == NULL) {
+		ctx->error = p_strdup_printf(ctx->pool,
+			"Setting is a string list, use '%s {'", key);
+		return -1;
+	}
+	key = suffix + 1;
+
+	if (*strlistp == NULL) {
+		*strlistp = p_new(ctx->pool, ARRAY_TYPE(const_string), 1);
+		p_array_init(*strlistp, ctx->pool, 5);
+	}
+
+	value = p_strdup(ctx->pool, value);
+
+	/* replace if it already exists */
+	unsigned int i, count;
+	const char *const *items = array_get(*strlistp, &count);
+	for (i = 0; i < count; i += 2) {
+		if (strcmp(items[i], key) == 0) {
+			array_idx_set(*strlistp, i + 1, &value);
+			return 0;
+		}
+	}
+
+	key = p_strdup(ctx->pool, key);
+	array_push_back(*strlistp, &key);
+	array_push_back(*strlistp, &value);
+	return 0;
+}
+
+static void config_apply_filter_array(struct config_parser_context *ctx,
+				      const char *value,
+				      ARRAY_TYPE(const_string) **namesp)
+{
+	const char *const *list = t_strsplit(value, ",\t ");
+	unsigned int i, count = str_array_length(list);
+
+	if (*namesp == NULL) {
+		*namesp = p_new(ctx->pool, ARRAY_TYPE(const_string), 1);
+		p_array_init(*namesp, ctx->pool, count);
+	}
+
+	for (i = 0; i < count; i++) {
+		const char *value =
+			p_strdup(ctx->pool, settings_section_unescape(list[i]));
+		array_push_back(*namesp, &value);
+	}
+}
+
 static int
 config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 			const char *value)
@@ -299,12 +373,26 @@ config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 	for (; config_key != NULL; config_key = config_key->next) {
 		struct config_module_parser *l =
 			&ctx->cur_section->module_parsers[config_key->info_idx];
-		if (l->parser == NULL) {
-			l->parser = settings_parser_init(ctx->pool,
-				all_infos[config_key->info_idx],
-				settings_parser_flags);
-			settings_parse_set_change_counter(l->parser,
-							  ctx->change_counter);
+		if (l->parser == NULL)
+			config_module_parser_init(ctx, l);
+		switch (l->info->defines[config_key->define_idx].type) {
+		case SET_STRLIST:
+			if (config_apply_strlist(ctx, key, value,
+					&l->settings[config_key->define_idx].array) < 0)
+				return -1;
+			break;
+		case SET_FILTER_ARRAY:
+			config_apply_filter_array(ctx, value,
+				&l->settings[config_key->define_idx].array);
+			break;
+		default:
+			l->settings[config_key->define_idx].str =
+				p_strdup(ctx->pool, value);
+			break;
+		}
+		if (l->change_counters[config_key->define_idx] < ctx->change_counter) {
+			l->change_counters[config_key->define_idx] =
+				ctx->change_counter;
 		}
 		if (settings_parse_keyidx_value(l->parser,
 				config_key->define_idx, key, value) == 0) {
@@ -1562,6 +1650,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	hash_table_create(&ctx.all_keys, ctx.pool, 500, str_hash, strcmp);
 
 	for (count = 0; all_infos[count] != NULL; count++) ;
+	ctx.change_counter = CONFIG_PARSER_CHANGE_EXPLICIT;
 	ctx.root_module_parsers =
 		p_new(ctx.pool, struct config_module_parser, count+1);
 	unsigned int service_info_idx = UINT_MAX;
@@ -1569,11 +1658,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 		if (strcmp(all_infos[i]->name, "service") == 0)
 			service_info_idx = i;
 		ctx.root_module_parsers[i].info = all_infos[i];
-		ctx.root_module_parsers[i].parser =
-			settings_parser_init(ctx.pool, all_infos[i],
-					     settings_parser_flags);
-		settings_parse_set_change_counter(ctx.root_module_parsers[i].parser,
-						  CONFIG_PARSER_CHANGE_EXPLICIT);
+		config_module_parser_init(&ctx, &ctx.root_module_parsers[i]);
 		config_parser_add_info(&ctx, i);
 		for (unsigned int j = 0; j < i; j++) {
 			if (strcmp(all_infos[j]->name, all_infos[i]->name) == 0) {
