@@ -876,20 +876,17 @@ get_str_setting(struct config_filter_parser *parser, const char *key,
 		const char *default_value)
 {
 	struct config_module_parser *module_parser;
-	const char *const *set_value;
-	enum setting_type set_type;
+	unsigned int key_idx;
 
 	module_parser = parser->module_parsers;
 	for (; module_parser->info != NULL; module_parser++) {
-		if (module_parser->parser == NULL)
-			continue;
-		const char *lookup_key = key;
-		set_value = settings_parse_get_value(module_parser->parser,
-						     &lookup_key, &set_type);
-		if (set_value != NULL &&
-		    settings_parse_get_change_counter(module_parser->parser, lookup_key) != 0) {
-			i_assert(set_type == SET_STR || set_type == SET_ENUM);
-			return *set_value;
+		if (module_parser->change_counters != NULL &&
+		    setting_parser_info_find_key(module_parser->info, key,
+						 &key_idx) &&
+		    module_parser->change_counters[key_idx] != 0) {
+			i_assert(module_parser->info->defines[key_idx].type != SET_STRLIST &&
+				 module_parser->info->defines[key_idx].type != SET_FILTER_ARRAY);
+			return module_parser->settings[key_idx].str;
 		}
 	}
 	return default_value;
@@ -1795,21 +1792,29 @@ config_module_parsers_get_setting(const struct config_module_parser *module_pars
 				  const char *info_name, const char *key)
 {
 	const struct config_module_parser *l;
+	unsigned int key_idx;
 
 	for (l = module_parsers; l->info != NULL; l++) {
-		if (strcmp(l->info->name, info_name) != 0)
-			continue;
-
-		enum setting_type type;
-		const char *const *value =
-			settings_parse_get_value(l->parser, &key, &type);
-		if (value != NULL) {
-			i_assert(type == SET_STR || type == SET_STR_NOVARS);
-			return *value;
-		}
+		if (strcmp(l->info->name, info_name) == 0)
+			break;
 	}
-	i_panic("BUG: Couldn't find setting with info=%s key=%s",
-		info_name, key);
+	if (l->info == NULL ||
+	    !setting_parser_info_find_key(l->info, key, &key_idx)) {
+		i_panic("BUG: Couldn't find setting with info=%s key=%s",
+			info_name, key);
+	}
+
+	const struct setting_define *def = &l->info->defines[key_idx];
+	i_assert(def->type != SET_STRLIST && def->type != SET_FILTER_ARRAY);
+	if (l->change_counters[key_idx] != 0)
+		return l->settings[key_idx].str;
+
+	const void *value = CONST_PTR_OFFSET(l->info->defaults, def->offset);
+	bool dump;
+	string_t *str = t_str_new(64);
+	if (!config_export_type(str, value, NULL, def->type, TRUE, &dump))
+		i_unreached();
+	return str_c(str);
 }
 
 void config_parsed_free(struct config_parsed **_config)
