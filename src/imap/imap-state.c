@@ -257,6 +257,10 @@ int imap_state_export_base(struct client *client, bool internal,
 		*error_r = "NOTIFY not supported currently";
 		return 0;
 	}
+	if (client->compress_handler != NULL && internal) {
+		*error_r = "COMPRESS enabled";
+		return 0;
+	}
 
 	if (client->mailbox != NULL) {
 		ret = imap_state_export_mailbox(dest, client,
