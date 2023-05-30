@@ -59,6 +59,12 @@ bool cmd_compress(struct client_command_context *cmd)
 		return TRUE;
 	}
 
+	if (client->compress_handler != NULL) {
+		client_send_tagline(cmd, t_strdup_printf(
+			"NO [COMPRESSIONACTIVE] COMPRESSION=%s already enabled.",
+			t_str_ucase(client->compress_handler->name)));
+		return TRUE;
+	}
 	int ret = compression_lookup_handler(t_str_lcase(mechanism), &handler);
 	if (ret <= 0) {
 		const char * tagline =
@@ -121,5 +127,6 @@ bool cmd_compress(struct client_command_context *cmd)
 	}
 
 	client_update_imap_parser_streams(client);
+	client->compress_handler = handler;
 	return TRUE;
 }

@@ -212,6 +212,8 @@ struct client {
 	/* NOTIFY extension */
 	struct imap_notify_context *notify_ctx;
 	uint32_t notify_uidnext;
+	/* COMPRESS extension */
+	const struct compression_handler *compress_handler;
 
 	/* client input/output is locked by this command */
 	struct client_command_context *input_lock;
