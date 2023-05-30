@@ -316,6 +316,7 @@ int main(int argc, char *argv[])
 		/* special case commands: even if there is something wrong
 		   with the config (e.g. mail_plugins), don't fail these
 		   commands */
+		master_service->flags |= MASTER_SERVICE_FLAG_DONT_SEND_STATS;
 		if (strcmp(cmd_name, "help") != 0)
 			doveadm_read_settings();
 		quick_init = TRUE;
