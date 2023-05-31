@@ -33,7 +33,6 @@ struct config_module_parser {
 		ARRAY_TYPE(const_string) *array;
 	} *settings; /* [set_count] */
 	uint8_t *change_counters; /* [set_count] */
-	struct setting_parser_context *parser;
 	/* Set if CONFIG_PARSE_FLAG_DELAY_ERRORS is enabled. The error won't
 	   cause an immediate config parsing failure. Instead, the error string
 	   is forwarded to the config client process, which errors out only if
@@ -77,8 +76,6 @@ const char *
 config_module_parsers_get_setting(const struct config_module_parser *module_parsers,
 				  const char *info_name, const char *key);
 void config_parsed_free(struct config_parsed **config);
-
-void config_module_parsers_free(struct config_module_parser *parsers);
 
 void config_parse_load_modules(void);
 

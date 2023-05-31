@@ -328,7 +328,7 @@ config_dump_full_sections(struct config_parsed *config,
 		const struct config_filter_parser *filter = filters[i];
 		uoff_t start_offset = output->offset;
 
-		if (filter->module_parsers[parser_idx].parser == NULL &&
+		if (filter->module_parsers[parser_idx].settings == NULL &&
 		    filter->module_parsers[parser_idx].delayed_error == NULL)
 			continue;
 
