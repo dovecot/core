@@ -811,7 +811,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 	return TRUE;
 }
 
-static struct setting_parser_context *
+struct setting_parser_context *
 config_module_parser_get_set_parser(const struct config_module_parser *p,
 				    pool_t pool)
 {

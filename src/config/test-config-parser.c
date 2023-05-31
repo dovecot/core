@@ -125,8 +125,11 @@ static void test_config_parser(void)
 		i_error("config_parse_file(): %s", error);
 
 	/* get the parsed output */
-	const struct test_settings *set =
-		settings_parser_get_set(config_parsed_get_module_parsers(config)[0].parser);
+	pool_t pool = pool_alloconly_create("test settings", 128);
+	struct setting_parser_context *set_parser =
+		config_module_parser_get_set_parser(config_parsed_get_module_parsers(config),
+						    pool);
+	const struct test_settings *set = settings_parser_get_set(set_parser);
 	test_assert_strcmp(set->key, "value");
 	test_assert_strcmp(set->key2, "\\$escape \\escape \\\"escape\\\"");
 	test_assert_strcmp(set->key3, "yetanother value value nothervalue right here");
@@ -139,13 +142,18 @@ static void test_config_parser(void)
 	test_assert_strcmp(set->env_key4, "test1 test2 value");
 	test_assert_strcmp(set->env_key5, "test1 test1");
 	test_assert_strcmp(set->protocols, "pop3 imap");
+	settings_parser_unref(&set_parser);
 	config_parsed_free(&config);
 
 	/* try again unexpanded */
 	test_assert(config_parse_file(TEST_CONFIG_FILE,
 				      CONFIG_PARSE_FLAG_NO_DEFAULTS,
 				      &config, &error) == 1);
-	set = settings_parser_get_set(config_parsed_get_module_parsers(config)[0].parser);
+
+	p_clear(pool);
+	set_parser = config_module_parser_get_set_parser(
+			config_parsed_get_module_parsers(config), pool);
+	set = settings_parser_get_set(set_parser);
 
 	test_assert_strcmp(set->key, "value");
 	test_assert_strcmp(set->key2, "\\$escape \\escape \\\"escape\\\"");
@@ -160,9 +168,11 @@ static void test_config_parser(void)
 	test_assert_strcmp(set->env_key5, "$ENV:foo $ENV:foo");
 	test_assert_strcmp(set->protocols, "pop3 imap");
 
+	settings_parser_unref(&set_parser);
 	config_parsed_free(&config);
 	config_parser_deinit();
 	i_unlink_if_exists(TEST_CONFIG_FILE);
+	pool_unref(&pool);
 	test_end();
 }
 
