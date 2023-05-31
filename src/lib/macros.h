@@ -47,14 +47,6 @@
    #error "VA_COPY not defined"
 #endif
 
-/* Provide convenience macros for handling structure
- * fields through their offsets.
- */
-#define STRUCT_MEMBER_P(struct_p, struct_offset) \
-	((void *) ((char *) (struct_p) + (long) (struct_offset)))
-#define CONST_STRUCT_MEMBER_P(struct_p, struct_offset) \
-	((const void *) ((const char *) (struct_p) + (long) (struct_offset)))
-
 /* Provide simple macro statement wrappers:
    STMT_START { statements; } STMT_END;
    can be used as a single statement, as in
