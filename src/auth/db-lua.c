@@ -450,6 +450,8 @@ int auth_lua_script_init(const struct auth_lua_script_parameters *params,
 	case AUTH_LUA_SCRIPT_TYPE_USERDB:
 		fn = AUTH_LUA_USERDB_INIT;
 		break;
+	default:
+		i_unreached();
 	}
 	if (!dlua_script_has_function(script, fn))
 		return 0;
