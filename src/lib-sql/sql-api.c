@@ -572,8 +572,7 @@ static void sql_result_fetch(struct sql_result *result)
 			continue;
 
 		value = sql_result_get_field_value(result, i);
-		ptr = STRUCT_MEMBER_P(result->fetch_dest,
-				      result->map[i].offset);
+		ptr = PTR_OFFSET(result->fetch_dest, result->map[i].offset);
 
 		switch (result->map[i].type) {
 		case SQL_TYPE_STR: {

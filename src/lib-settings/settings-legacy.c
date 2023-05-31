@@ -97,7 +97,7 @@ parse_setting_from_defs(pool_t pool, const struct setting_def *defs, void *base,
 
 	for (def = defs; def->name != NULL; def++) {
 		if (strcmp(def->name, key) == 0) {
-			void *ptr = STRUCT_MEMBER_P(base, def->offset);
+			void *ptr = PTR_OFFSET(base, def->offset);
 
 			switch (def->type) {
 			case SET_STR:

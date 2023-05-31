@@ -53,7 +53,7 @@ setting_parser_copy_defaults(struct setting_parser_context *ctx,
 		case SET_ENUM: {
 			/* fix enums by dropping everything after the
 			   first ':' */
-			strp = STRUCT_MEMBER_P(ctx->set_struct, def->offset);
+			strp = PTR_OFFSET(ctx->set_struct, def->offset);
 			p = strchr(*strp, ':');
 			if (p != NULL)
 				*strp = p_strdup_until(ctx->set_pool, *strp, p);
@@ -332,9 +332,9 @@ settings_parse(struct setting_parser_context *ctx,
 	}
 
 	change_ptr = ctx->change_struct == NULL ? NULL :
-		STRUCT_MEMBER_P(ctx->change_struct, def->offset);
+		PTR_OFFSET(ctx->change_struct, def->offset);
 
-	ptr = STRUCT_MEMBER_P(ctx->set_struct, def->offset);
+	ptr = PTR_OFFSET(ctx->set_struct, def->offset);
 	switch (def->type) {
 	case SET_BOOL:
 		if (get_bool(ctx, value, (bool *)ptr) < 0)
@@ -379,7 +379,7 @@ settings_parse(struct setting_parser_context *ctx,
 	case SET_ENUM:
 		/* get the available values from default string */
 		i_assert(ctx->info->defaults != NULL);
-		ptr2 = CONST_STRUCT_MEMBER_P(ctx->info->defaults, def->offset);
+		ptr2 = CONST_PTR_OFFSET(ctx->info->defaults, def->offset);
 		if (get_enum(ctx, value, (char **)ptr,
 			     *(const char *const *)ptr2) < 0)
 			return -1;
@@ -505,7 +505,7 @@ bool settings_parse_strlist_has_key(struct setting_parser_context *ctx,
 	i_assert(def->type == SET_STRLIST);
 
 	ARRAY_TYPE(const_string) *array =
-		STRUCT_MEMBER_P(ctx->set_struct, def->offset);
+		PTR_OFFSET(ctx->set_struct, def->offset);
 	if (!array_is_created(array))
 		return FALSE;
 
@@ -537,7 +537,7 @@ settings_parse_get_value(struct setting_parser_context *ctx,
 		*key = def->key;
 	}
 	*type_r = def->type;
-	return STRUCT_MEMBER_P(ctx->set_struct, def->offset);
+	return PTR_OFFSET(ctx->set_struct, def->offset);
 }
 
 void settings_parse_set_change_counter(struct setting_parser_context *ctx,
@@ -559,7 +559,7 @@ uint8_t settings_parse_get_change_counter(struct setting_parser_context *ctx,
 	if (ctx->change_struct == NULL)
 		return 0;
 
-	p = STRUCT_MEMBER_P(ctx->change_struct, def->offset);
+	p = PTR_OFFSET(ctx->change_struct, def->offset);
 	return *p;
 }
 
