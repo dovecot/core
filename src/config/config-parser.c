@@ -811,6 +811,48 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 	return TRUE;
 }
 
+static struct setting_parser_context *
+config_module_parser_get_set_parser(const struct config_module_parser *p,
+				    pool_t pool)
+{
+	struct setting_parser_context *parser =
+		settings_parser_init(pool, p->info, settings_parser_flags);
+	for (unsigned int i = 0; p->info->defines[i].key != NULL; i++) {
+		if (p->change_counters[i] == 0)
+			continue;
+
+		switch (p->info->defines[i].type) {
+		case SET_STRLIST: {
+			unsigned int j, count;
+			const char *const *strings =
+				array_get(p->settings[i].array, &count);
+			for (j = 0; j < count; j += 2) T_BEGIN {
+				const char *key = t_strdup_printf("%s/%s",
+					p->info->defines[i].key,
+					settings_section_escape(strings[j]));
+				(void)settings_parse_keyidx_value_nodup(parser, i,
+					key, strings[j + 1]);
+			} T_END;
+			break;
+		}
+		case SET_FILTER_ARRAY: {
+			const char *name;
+			array_foreach_elem(p->settings[i].array, name) T_BEGIN {
+				(void)settings_parse_keyidx_value(parser, i,
+					p->info->defines[i].key,
+					settings_section_escape(name));
+			} T_END;
+			break;
+		}
+		default:
+			(void)settings_parse_keyidx_value_nodup(parser, i,
+				p->info->defines[i].key, p->settings[i].str);
+			break;
+		}
+	}
+	return parser;
+}
+
 static void
 config_filter_parser_check(struct config_parser_context *ctx,
 			   struct config_parsed *new_config,
@@ -837,11 +879,11 @@ config_filter_parser_check(struct config_parser_context *ctx,
 
 	tmp_pool = pool_alloconly_create(MEMPOOL_GROWING"config parsers check", 1024);
 	for (p = filter_parser->module_parsers; p->info != NULL; p++) {
-		if (p->parser == NULL)
+		if (p->settings == NULL)
 			continue;
 		p_clear(tmp_pool);
 		struct setting_parser_context *tmp_parser =
-			settings_parser_dup(p->parser, tmp_pool);
+			config_module_parser_get_set_parser(p, tmp_pool);
 		T_BEGIN {
 			ok = settings_parser_check(tmp_parser, tmp_pool,
 						   event, &error);
