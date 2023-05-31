@@ -23,8 +23,6 @@
 	MODULE_CONTEXT(obj, lazy_expunge_mail_storage_module)
 #define LAZY_EXPUNGE_CONTEXT_REQUIRE(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, lazy_expunge_mail_storage_module)
-#define LAZY_EXPUNGE_LIST_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, lazy_expunge_mailbox_list_module)
 #define LAZY_EXPUNGE_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, lazy_expunge_mail_user_module)
 #define LAZY_EXPUNGE_USER_CONTEXT_REQUIRE(obj) \
@@ -50,13 +48,6 @@ struct lazy_expunge_mail_user {
 	bool copy_only_last_instance;
 };
 
-struct lazy_expunge_mailbox_list {
-	union mailbox_list_module_context module_ctx;
-
-	bool allow_rename:1;
-	bool internal_namespace:1;
-};
-
 struct lazy_expunge_transaction {
 	union mailbox_transaction_module_context module_ctx;
 
@@ -79,54 +70,19 @@ static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mail_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mail_module,
 				  &mail_module_register);
-static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mailbox_list_module,
-				  &mailbox_list_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mail_user_module,
 				  &mail_user_module_register);
 
-static const char *
-get_dest_vname(struct mailbox_list *list, struct mailbox *src_box)
+static struct mailbox *
+mailbox_open_or_create(struct mailbox_list *list, const char **error_r)
 {
 	struct lazy_expunge_mail_user *luser =
 		LAZY_EXPUNGE_USER_CONTEXT_REQUIRE(list->ns->user);
-	const char *name;
-	char src_sep, dest_sep;
-
-	if (luser->lazy_mailbox_vname != NULL)
-		return luser->lazy_mailbox_vname;
-
-	/* use the (canonical / unaliased) storage name */
-	name = src_box->name;
-	/* replace hierarchy separators with destination virtual separator */
-	src_sep = mailbox_list_get_hierarchy_sep(src_box->list);
-	dest_sep = mail_namespace_get_sep(list->ns);
-	if (src_sep != dest_sep) {
-		string_t *str = t_str_new(128);
-		unsigned int i;
-
-		for (i = 0; name[i] != '\0'; i++) {
-			if (name[i] == src_sep)
-				str_append_c(str, dest_sep);
-			else
-				str_append_c(str, name[i]);
-		}
-		name = str_c(str);
-	}
-	/* add expunge namespace prefix. the name is now a proper vname */
-	return t_strconcat(list->ns->prefix, name, NULL);
-}
-
-static struct mailbox *
-mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
-		       const char **error_r)
-{
 	struct mailbox *box;
 	enum mail_error error;
-	const char *name;
 
-	name = get_dest_vname(list, src_box);
-
-	box = mailbox_alloc(list, name, MAILBOX_FLAG_NO_INDEX_FILES |
+	box = mailbox_alloc(list, luser->lazy_mailbox_vname,
+			    MAILBOX_FLAG_NO_INDEX_FILES |
 			    MAILBOX_FLAG_SAVEONLY | MAILBOX_FLAG_IGNORE_ACLS);
 	if (mailbox_open(box) == 0) {
 		*error_r = NULL;
@@ -136,7 +92,7 @@ mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
 	*error_r = mailbox_get_last_internal_error(box, &error);
 	if (error != MAIL_ERROR_NOTFOUND) {
 		*error_r = t_strdup_printf("Failed to open mailbox %s: %s",
-					   name, *error_r);
+					   luser->lazy_mailbox_vname, *error_r);
 		mailbox_free(&box);
 		return NULL;
 	}
@@ -144,13 +100,15 @@ mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
 	/* try creating and re-opening it. */
 	if (mailbox_create(box, NULL, FALSE) < 0 &&
 	    mailbox_get_last_mail_error(box) != MAIL_ERROR_EXISTS) {
-		*error_r = t_strdup_printf("Failed to create mailbox %s: %s", name,
+		*error_r = t_strdup_printf("Failed to create mailbox %s: %s",
+					   luser->lazy_mailbox_vname,
 					   mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
 		return NULL;
 	}
 	if (mailbox_open(box) < 0) {
-		*error_r = t_strdup_printf("Failed to open created mailbox %s: %s", name,
+		*error_r = t_strdup_printf("Failed to open created mailbox %s: %s",
+					   luser->lazy_mailbox_vname,
 					   mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
 		return NULL;
@@ -250,19 +208,12 @@ static bool lazy_expunge_is_internal_mailbox(struct mailbox *box)
 	struct mail_namespace *ns = box->list->ns;
 	struct lazy_expunge_mail_user *luser =
 		LAZY_EXPUNGE_USER_CONTEXT(ns->user);
-	struct lazy_expunge_mailbox_list *llist =
-		LAZY_EXPUNGE_LIST_CONTEXT(box->list);
 
-	if (luser == NULL || llist == NULL) {
+	if (luser == NULL) {
 		/* lazy_expunge not enabled at all */
 		return FALSE;
 	}
-	if (llist->internal_namespace) {
-		/* lazy-expunge namespace */
-		return TRUE;
-	}
-	if (luser->lazy_mailbox_vname != NULL &&
-	    strcmp(luser->lazy_mailbox_vname, box->vname) == 0) {
+	if (strcmp(luser->lazy_mailbox_vname, box->vname) == 0) {
 		/* lazy-expunge mailbox */
 		return TRUE;
 	}
@@ -309,7 +260,7 @@ static void lazy_expunge_mail_expunge_move(struct mail *_mail)
 
 	if (lt->dest_box == NULL) {
 		lt->dest_box = mailbox_open_or_create(luser->lazy_ns->list,
-						      _mail->box, &error);
+						      &error);
 		if (lt->dest_box == NULL) {
 			mail_set_critical(_mail,
 				"lazy_expunge: Couldn't open expunge mailbox: "
@@ -362,7 +313,7 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 	mmail->moving = FALSE;
 
 	/* don't copy the mail if we're expunging from lazy_expunge
-	   namespace (even if it's via a virtual mailbox) */
+	   mailbox (even if it's via a virtual mailbox) */
 	if (mail_get_backend_mail(_mail, &real_mail) < 0) {
 		lazy_expunge_set_error(lt, _mail->box->storage);
 		return;
@@ -378,7 +329,7 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 		ret = 1;
 	else {
 		/* we want to copy only the last instance of the mail to
-		   lazy_expunge namespace. other instances will be expunged
+		   lazy_expunge mailbox. other instances will be expunged
 		   immediately. */
 		if (moving)
 			ret = 0;
@@ -505,35 +456,13 @@ static void lazy_expunge_mail_allocated(struct mail *_mail)
 	MODULE_CONTEXT_SET(mail, lazy_expunge_mail_module, mmail);
 }
 
-static int
-lazy_expunge_mailbox_rename(struct mailbox *src, struct mailbox *dest)
-{
-	union mailbox_module_context *lbox = LAZY_EXPUNGE_CONTEXT_REQUIRE(src);
-	struct lazy_expunge_mailbox_list *src_llist =
-		LAZY_EXPUNGE_LIST_CONTEXT(src->list);
-	struct lazy_expunge_mailbox_list *dest_llist =
-		LAZY_EXPUNGE_LIST_CONTEXT(dest->list);
-
-	i_assert(src_llist != NULL && dest_llist != NULL);
-
-	if (!src_llist->allow_rename &&
-	    (src_llist->internal_namespace ||
-	     dest_llist->internal_namespace)) {
-		mail_storage_set_error(src->storage, MAIL_ERROR_NOTPOSSIBLE,
-			"Can't rename mailboxes to/from expunge namespace.");
-		return -1;
-	}
-	return lbox->super.rename_box(src, dest);
-}
-
 static void lazy_expunge_mailbox_allocated(struct mailbox *box)
 {
-	struct lazy_expunge_mailbox_list *llist =
-		LAZY_EXPUNGE_LIST_CONTEXT(box->list);
 	union mailbox_module_context *mbox;
 	struct mailbox_vfuncs *v = box->vlast;
 
-	if (llist == NULL || (box->flags & MAILBOX_FLAG_DELETE_UNSAFE) != 0)
+	if (box->list->ns->type != MAIL_NAMESPACE_TYPE_PRIVATE ||
+	    (box->flags & MAILBOX_FLAG_DELETE_UNSAFE) != 0)
 		return;
 
 	mbox = p_new(box->pool, union mailbox_module_context, 1);
@@ -546,34 +475,9 @@ static void lazy_expunge_mailbox_allocated(struct mailbox *box)
 		v->transaction_begin = lazy_expunge_transaction_begin;
 		v->transaction_commit = lazy_expunge_transaction_commit;
 		v->transaction_rollback = lazy_expunge_transaction_rollback;
-		v->rename_box = lazy_expunge_mailbox_rename;
-	} else if (llist->internal_namespace) {
-		v->rename_box = lazy_expunge_mailbox_rename;
 	} else {
-		/* internal mailbox in a non-internal namespace -
-		   don't add any unnecessary restrictions to it. if it's not
-		   wanted, just use the ACL plugin. */
-	}
-}
-
-static void lazy_expunge_mailbox_list_created(struct mailbox_list *list)
-{
-	struct lazy_expunge_mail_user *luser =
-		LAZY_EXPUNGE_USER_CONTEXT(list->ns->user);
-	struct lazy_expunge_mailbox_list *llist;
-
-	if (luser == NULL)
-		return;
-
-	/* if this is one of our internal namespaces, mark it as such before
-	   quota plugin sees it */
-	if (strcmp(list->ns->prefix, luser->env) == 0)
-		list->ns->flags |= NAMESPACE_FLAG_NOQUOTA;
-
-	if (list->ns->type == MAIL_NAMESPACE_TYPE_PRIVATE) {
-		llist = p_new(list->pool, struct lazy_expunge_mailbox_list, 1);
-		MODULE_CONTEXT_SET(list, lazy_expunge_mailbox_list_module,
-				   llist);
+		/* internal mailbox - don't add any unnecessary restrictions
+		   to it. if it's not wanted, just use the ACL plugin. */
 	}
 }
 
@@ -582,22 +486,13 @@ lazy_expunge_mail_namespaces_created(struct mail_namespace *namespaces)
 {
 	struct lazy_expunge_mail_user *luser =
 		LAZY_EXPUNGE_USER_CONTEXT(namespaces->user);
-	struct lazy_expunge_mailbox_list *llist;
 
 	if (luser == NULL)
 		return;
 
-	luser->lazy_ns = mail_namespace_find_prefix(namespaces, luser->env);
-	if (luser->lazy_ns != NULL) {
-		/* we don't want to override this namespace's expunge operation. */
-		llist = LAZY_EXPUNGE_LIST_CONTEXT(luser->lazy_ns->list);
-		i_assert(llist != NULL);
-		llist->internal_namespace = TRUE;
-	} else {
-		/* store the the expunged mails to the specified mailbox. */
-		luser->lazy_ns = mail_namespace_find(namespaces, luser->env);
-		luser->lazy_mailbox_vname = luser->env;
-	}
+	/* store the the expunged mails to the specified mailbox. */
+	luser->lazy_ns = mail_namespace_find(namespaces, luser->env);
+	luser->lazy_mailbox_vname = luser->env;
 	mail_namespace_ref(luser->lazy_ns);
 }
 
@@ -606,8 +501,7 @@ static void lazy_expunge_user_deinit(struct mail_user *user)
 	struct lazy_expunge_mail_user *luser = LAZY_EXPUNGE_USER_CONTEXT_REQUIRE(user);
 
 	/* mail_namespaces_created hook isn't necessarily ever called */
-	if (luser->lazy_ns != NULL)
-		mail_namespace_unref(&luser->lazy_ns);
+	mail_namespace_unref(&luser->lazy_ns);
 	mailbox_match_plugin_deinit(&luser->excludes);
 
 	luser->module_ctx.super.deinit(user);
@@ -640,7 +534,6 @@ static void lazy_expunge_mail_user_created(struct mail_user *user)
 static struct mail_storage_hooks lazy_expunge_mail_storage_hooks = {
 	.mail_user_created = lazy_expunge_mail_user_created,
 	.mail_namespaces_created = lazy_expunge_mail_namespaces_created,
-	.mailbox_list_created = lazy_expunge_mailbox_list_created,
 	.mailbox_allocated = lazy_expunge_mailbox_allocated,
 	.mail_allocated = lazy_expunge_mail_allocated
 };
