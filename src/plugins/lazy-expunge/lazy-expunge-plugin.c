@@ -7,6 +7,7 @@
 #include "hash.h"
 #include "seq-range-array.h"
 #include "mkdir-parents.h"
+#include "settings.h"
 #include "mail-storage-private.h"
 #include "mail-search-build.h"
 #include "mailbox-list-private.h"
@@ -43,9 +44,7 @@ struct lazy_expunge_mail_user {
 
 	struct mail_namespace *lazy_ns;
 	struct mailbox_match_plugin *excludes;
-	const char *lazy_mailbox_vname;
-	const char *env;
-	bool copy_only_last_instance;
+	const struct lazy_expunge_settings *set;
 };
 
 struct lazy_expunge_transaction {
@@ -81,7 +80,7 @@ mailbox_open_or_create(struct mailbox_list *list, const char **error_r)
 	struct mailbox *box;
 	enum mail_error error;
 
-	box = mailbox_alloc(list, luser->lazy_mailbox_vname,
+	box = mailbox_alloc(list, luser->set->lazy_expunge,
 			    MAILBOX_FLAG_NO_INDEX_FILES |
 			    MAILBOX_FLAG_SAVEONLY | MAILBOX_FLAG_IGNORE_ACLS);
 	if (mailbox_open(box) == 0) {
@@ -92,7 +91,7 @@ mailbox_open_or_create(struct mailbox_list *list, const char **error_r)
 	*error_r = mailbox_get_last_internal_error(box, &error);
 	if (error != MAIL_ERROR_NOTFOUND) {
 		*error_r = t_strdup_printf("Failed to open mailbox %s: %s",
-					   luser->lazy_mailbox_vname, *error_r);
+					   luser->set->lazy_expunge, *error_r);
 		mailbox_free(&box);
 		return NULL;
 	}
@@ -101,14 +100,14 @@ mailbox_open_or_create(struct mailbox_list *list, const char **error_r)
 	if (mailbox_create(box, NULL, FALSE) < 0 &&
 	    mailbox_get_last_mail_error(box) != MAIL_ERROR_EXISTS) {
 		*error_r = t_strdup_printf("Failed to create mailbox %s: %s",
-					   luser->lazy_mailbox_vname,
+					   luser->set->lazy_expunge,
 					   mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
 		return NULL;
 	}
 	if (mailbox_open(box) < 0) {
 		*error_r = t_strdup_printf("Failed to open created mailbox %s: %s",
-					   luser->lazy_mailbox_vname,
+					   luser->set->lazy_expunge,
 					   mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
 		return NULL;
@@ -213,7 +212,7 @@ static bool lazy_expunge_is_internal_mailbox(struct mailbox *box)
 		/* lazy_expunge not enabled at all */
 		return FALSE;
 	}
-	if (strcmp(luser->lazy_mailbox_vname, box->vname) == 0) {
+	if (strcmp(luser->set->lazy_expunge, box->vname) == 0) {
 		/* lazy-expunge mailbox */
 		return TRUE;
 	}
@@ -376,7 +375,8 @@ lazy_expunge_transaction_begin(struct mailbox *box,
 
 	t = mbox->super.transaction_begin(box, flags, reason);
 	lt = i_new(struct lazy_expunge_transaction, 1);
-	lt->copy_only_last_instance = luser->copy_only_last_instance;
+	lt->copy_only_last_instance =
+		luser->set->lazy_expunge_only_last_instance;
 
 	MODULE_CONTEXT_SET(t, lazy_expunge_mail_storage_module, lt);
 	return t;
@@ -491,8 +491,8 @@ lazy_expunge_mail_namespaces_created(struct mail_namespace *namespaces)
 		return;
 
 	/* store the the expunged mails to the specified mailbox. */
-	luser->lazy_ns = mail_namespace_find(namespaces, luser->env);
-	luser->lazy_mailbox_vname = luser->env;
+	luser->lazy_ns = mail_namespace_find(namespaces,
+					     luser->set->lazy_expunge);
 	mail_namespace_ref(luser->lazy_ns);
 }
 
@@ -503,6 +503,7 @@ static void lazy_expunge_user_deinit(struct mail_user *user)
 	/* mail_namespaces_created hook isn't necessarily ever called */
 	mail_namespace_unref(&luser->lazy_ns);
 	mailbox_match_plugin_deinit(&luser->excludes);
+	settings_free(luser->set);
 
 	luser->module_ctx.super.deinit(user);
 }
@@ -511,23 +512,27 @@ static void lazy_expunge_mail_user_created(struct mail_user *user)
 {
 	struct mail_user_vfuncs *v = user->vlast;
 	struct lazy_expunge_mail_user *luser;
-	const char *env;
+	const struct lazy_expunge_settings *set;
+	const char *error;
 
-	env = mail_user_plugin_getenv(user, "lazy_expunge");
-	if (env != NULL && env[0] != '\0') {
+	if (settings_get(user->event, &lazy_expunge_setting_parser_info, 0,
+			 &set, &error) < 0) {
+		user->error = p_strdup(user->pool, error);
+		return;
+	}
+	if (set->lazy_expunge[0] != '\0') {
 		luser = p_new(user->pool, struct lazy_expunge_mail_user, 1);
 		luser->module_ctx.super = *v;
 		user->vlast = &luser->module_ctx.super;
 		v->deinit = lazy_expunge_user_deinit;
-		luser->env = env;
-		luser->copy_only_last_instance =
-			mail_user_plugin_getenv_bool(user, "lazy_expunge_only_last_instance");
+		luser->set = set;
 		luser->excludes = mailbox_match_plugin_init(user, "lazy_expunge_exclude");
 
 		MODULE_CONTEXT_SET(user, lazy_expunge_mail_user_module, luser);
 	} else {
 		e_debug(user->event, "lazy_expunge: No lazy_expunge setting - "
 			"plugin disabled");
+		settings_free(set);
 	}
 }
 
