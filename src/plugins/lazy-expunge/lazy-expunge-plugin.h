@@ -7,7 +7,7 @@ struct lazy_expunge_settings {
 	pool_t pool;
 
 	bool lazy_expunge_only_last_instance;
-	const char *lazy_expunge;
+	const char *lazy_expunge_mailbox;
 };
 
 extern const struct setting_parser_info lazy_expunge_setting_parser_info;
