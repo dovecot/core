@@ -26,6 +26,23 @@ static const char *const test_settings_blobs[] =
 	"strlist/z", "c",
 };
 
+static const char *const test_settings_invalid[] =
+{
+	"bool_true", "",
+	"bool_false", "x",
+	"uint", "",
+	"uint", "15M",
+	"uint_oct", "",
+	"uint_oct", "1M",
+	"secs", "",
+	"secs", "5G",
+	"msecs", "",
+	"msecs", "5G",
+	"size", "1s",
+	"port", "",
+	"port", "1s",
+};
+
 static void test_settings_parser(void)
 {
 	struct test_settings {
@@ -125,6 +142,13 @@ static void test_settings_parser(void)
 
 	/* check that the setting got expanded */
 	test_assert_strcmp(settings->expand_str, "test value");
+
+	/* test invalid settings */
+	for (unsigned int i = 0; i < N_ELEMENTS(test_settings_invalid); i += 2) {
+		test_assert_idx(settings_parse_keyvalue(ctx,
+			test_settings_invalid[i],
+			test_settings_invalid[i+1]) < 0, i);
+	}
 
 	settings_parser_unref(&ctx);
 	pool_unref(&pool);
