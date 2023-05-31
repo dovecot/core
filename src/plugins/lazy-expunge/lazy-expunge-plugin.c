@@ -80,7 +80,7 @@ mailbox_open_or_create(struct mailbox_list *list, const char **error_r)
 	struct mailbox *box;
 	enum mail_error error;
 
-	box = mailbox_alloc(list, luser->set->lazy_expunge,
+	box = mailbox_alloc(list, luser->set->lazy_expunge_mailbox,
 			    MAILBOX_FLAG_NO_INDEX_FILES |
 			    MAILBOX_FLAG_SAVEONLY | MAILBOX_FLAG_IGNORE_ACLS);
 	if (mailbox_open(box) == 0) {
@@ -91,7 +91,7 @@ mailbox_open_or_create(struct mailbox_list *list, const char **error_r)
 	*error_r = mailbox_get_last_internal_error(box, &error);
 	if (error != MAIL_ERROR_NOTFOUND) {
 		*error_r = t_strdup_printf("Failed to open mailbox %s: %s",
-					   luser->set->lazy_expunge, *error_r);
+			luser->set->lazy_expunge_mailbox, *error_r);
 		mailbox_free(&box);
 		return NULL;
 	}
@@ -100,14 +100,14 @@ mailbox_open_or_create(struct mailbox_list *list, const char **error_r)
 	if (mailbox_create(box, NULL, FALSE) < 0 &&
 	    mailbox_get_last_mail_error(box) != MAIL_ERROR_EXISTS) {
 		*error_r = t_strdup_printf("Failed to create mailbox %s: %s",
-					   luser->set->lazy_expunge,
+					   luser->set->lazy_expunge_mailbox,
 					   mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
 		return NULL;
 	}
 	if (mailbox_open(box) < 0) {
 		*error_r = t_strdup_printf("Failed to open created mailbox %s: %s",
-					   luser->set->lazy_expunge,
+					   luser->set->lazy_expunge_mailbox,
 					   mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
 		return NULL;
@@ -212,7 +212,7 @@ static bool lazy_expunge_is_internal_mailbox(struct mailbox *box)
 		/* lazy_expunge not enabled at all */
 		return FALSE;
 	}
-	if (strcmp(luser->set->lazy_expunge, box->vname) == 0) {
+	if (strcmp(luser->set->lazy_expunge_mailbox, box->vname) == 0) {
 		/* lazy-expunge mailbox */
 		return TRUE;
 	}
@@ -492,7 +492,7 @@ lazy_expunge_mail_namespaces_created(struct mail_namespace *namespaces)
 
 	/* store the the expunged mails to the specified mailbox. */
 	luser->lazy_ns = mail_namespace_find(namespaces,
-					     luser->set->lazy_expunge);
+					     luser->set->lazy_expunge_mailbox);
 	mail_namespace_ref(luser->lazy_ns);
 }
 
@@ -520,7 +520,7 @@ static void lazy_expunge_mail_user_created(struct mail_user *user)
 		user->error = p_strdup(user->pool, error);
 		return;
 	}
-	if (set->lazy_expunge[0] != '\0') {
+	if (set->lazy_expunge_mailbox[0] != '\0') {
 		luser = p_new(user->pool, struct lazy_expunge_mail_user, 1);
 		luser->module_ctx.super = *v;
 		user->vlast = &luser->module_ctx.super;
