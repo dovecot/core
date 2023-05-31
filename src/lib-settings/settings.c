@@ -476,7 +476,8 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 
 	if (strlist_key == NULL &&
 	    (ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0 &&
-	    ctx->info->defines[key_idx].type == SET_STR) {
+	    ctx->info->defines[key_idx].type != SET_STR_NOVARS &&
+	    ctx->info->defines[key_idx].type != SET_FILTER_ARRAY) {
 		const char *error;
 		str_truncate(ctx->str, 0);
 		if (var_expand_with_funcs(ctx->str, value, ctx->table,

@@ -272,6 +272,8 @@ settings_value_check(struct config_parser_context *ctx,
 	switch (def->type) {
 	case SET_BOOL: {
 		bool b;
+		if (strchr(value, '%') != NULL)
+			break;
 		if (str_parse_get_bool(value, &b, &error) < 0) {
 			ctx->error = p_strdup(ctx->pool, error);
 			return -1;
@@ -281,6 +283,8 @@ settings_value_check(struct config_parser_context *ctx,
 	case SET_UINT_OCT:
 		if (*value == '0') {
 			unsigned long long octal;
+			if (strchr(value, '%') != NULL)
+				break;
 			if (str_to_ullong_oct(value, &octal) < 0) {
 				ctx->error = p_strconcat(ctx->pool,
 					"Invalid number: ", value, NULL);
@@ -292,6 +296,8 @@ settings_value_check(struct config_parser_context *ctx,
 	case SET_UINT: {
 		unsigned int num;
 
+		if (strchr(value, '%') != NULL)
+			break;
 		if (str_to_uint(value, &num) < 0) {
 			ctx->error = p_strdup_printf(ctx->pool,
 				"Invalid number %s: %s", value,
@@ -302,6 +308,8 @@ settings_value_check(struct config_parser_context *ctx,
 	}
 	case SET_TIME: {
 		unsigned int interval;
+		if (strchr(value, '%') != NULL)
+			break;
 		if (str_parse_get_interval(value, &interval, &error) < 0) {
 			ctx->error = p_strdup(ctx->pool, error);
 			return -1;
@@ -310,6 +318,8 @@ settings_value_check(struct config_parser_context *ctx,
 	}
 	case SET_TIME_MSECS: {
 		unsigned int interval;
+		if (strchr(value, '%') != NULL)
+			break;
 		if (str_parse_get_interval_msecs(value, &interval, &error) < 0) {
 			ctx->error = p_strdup(ctx->pool, error);
 			return -1;
@@ -318,6 +328,8 @@ settings_value_check(struct config_parser_context *ctx,
 	}
 	case SET_SIZE: {
 		uoff_t size;
+		if (strchr(value, '%') != NULL)
+			break;
 		if (str_parse_get_size(value, &size, &error) < 0) {
 			ctx->error = p_strdup(ctx->pool, error);
 			return -1;
@@ -326,6 +338,8 @@ settings_value_check(struct config_parser_context *ctx,
 	}
 	case SET_IN_PORT: {
 		in_port_t port;
+		if (strchr(value, '%') != NULL)
+			break;
 		if (net_str2port_zero(value, &port) < 0) {
 			ctx->error = p_strdup_printf(ctx->pool,
 				"Invalid port number %s", value);
@@ -338,6 +352,8 @@ settings_value_check(struct config_parser_context *ctx,
 		break;
 	case SET_ENUM:
 		/* get the available values from default string */
+		if (strchr(value, '%') != NULL)
+			break;
 		i_assert(info->defaults != NULL);
 		const char *const *default_value =
 			CONST_PTR_OFFSET(info->defaults, def->offset);
