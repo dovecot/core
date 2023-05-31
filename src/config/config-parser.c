@@ -88,26 +88,12 @@ config_module_parser_init(struct config_parser_context *ctx,
 		      module_parser->set_count);
 	module_parser->change_counters = module_parser->set_count == 0 ? NULL :
 		p_new(ctx->pool, uint8_t, module_parser->set_count);
-	module_parser->parser =
-		settings_parser_init(ctx->pool, module_parser->info,
-				     settings_parser_flags);
-	settings_parse_set_change_counter(module_parser->parser,
-					  ctx->change_counter);
 }
 
 void config_parser_set_change_counter(struct config_parser_context *ctx,
 				      uint8_t change_counter)
 {
-	struct config_module_parser *module_parsers =
-		ctx->cur_section->module_parsers;
-
 	ctx->change_counter = change_counter;
-	for (unsigned int i = 0; module_parsers[i].info != NULL; i++) {
-		if (module_parsers[i].parser != NULL) {
-			settings_parse_set_change_counter(module_parsers[i].parser,
-							  change_counter);
-		}
-	}
 }
 
 static struct config_section_stack *
@@ -275,6 +261,106 @@ get_setting_full_path(struct config_parser_context *ctx, const char *key)
 	return str_c(str);
 }
 
+static int
+settings_value_check(struct config_parser_context *ctx,
+		     const struct setting_parser_info *info,
+		     const struct setting_define *def,
+		     const char *value)
+{
+	const char *error;
+
+	switch (def->type) {
+	case SET_BOOL: {
+		bool b;
+		if (str_parse_get_bool(value, &b, &error) < 0) {
+			ctx->error = p_strdup(ctx->pool, error);
+			return -1;
+		}
+		break;
+	}
+	case SET_UINT_OCT:
+		if (*value == '0') {
+			unsigned long long octal;
+			if (str_to_ullong_oct(value, &octal) < 0) {
+				ctx->error = p_strconcat(ctx->pool,
+					"Invalid number: ", value, NULL);
+				return -1;
+			}
+			break;
+		}
+		/* fall through */
+	case SET_UINT: {
+		unsigned int num;
+
+		if (str_to_uint(value, &num) < 0) {
+			ctx->error = p_strdup_printf(ctx->pool,
+				"Invalid number %s: %s", value,
+				str_num_error(value));
+			return -1;
+		}
+		break;
+	}
+	case SET_TIME: {
+		unsigned int interval;
+		if (str_parse_get_interval(value, &interval, &error) < 0) {
+			ctx->error = p_strdup(ctx->pool, error);
+			return -1;
+		}
+		break;
+	}
+	case SET_TIME_MSECS: {
+		unsigned int interval;
+		if (str_parse_get_interval_msecs(value, &interval, &error) < 0) {
+			ctx->error = p_strdup(ctx->pool, error);
+			return -1;
+		}
+		break;
+	}
+	case SET_SIZE: {
+		uoff_t size;
+		if (str_parse_get_size(value, &size, &error) < 0) {
+			ctx->error = p_strdup(ctx->pool, error);
+			return -1;
+		}
+		break;
+	}
+	case SET_IN_PORT: {
+		in_port_t port;
+		if (net_str2port_zero(value, &port) < 0) {
+			ctx->error = p_strdup_printf(ctx->pool,
+				"Invalid port number %s", value);
+			return -1;
+		}
+		break;
+	}
+	case SET_STR:
+	case SET_STR_NOVARS:
+		break;
+	case SET_ENUM:
+		/* get the available values from default string */
+		i_assert(info->defaults != NULL);
+		const char *const *default_value =
+			CONST_PTR_OFFSET(info->defaults, def->offset);
+		const char *const *valid_values = t_strsplit(*default_value, ":");
+		if (!str_array_find(valid_values, value)) {
+			ctx->error = p_strconcat(ctx->pool, "Invalid value: ",
+						 value, NULL);
+			return -1;
+		}
+		break;
+	case SET_STRLIST:
+	case SET_FILTER_ARRAY:
+		break;
+	case SET_FILTER_NAME:
+		ctx->error = p_strdup_printf(ctx->pool,
+			"Setting is a named filter, use '%s {'", def->key);
+		return -1;
+	case SET_ALIAS:
+		i_unreached();
+	}
+	return 0;
+}
+
 static bool
 config_is_filter_name(struct config_parser_context *ctx, const char *key,
 		      const struct setting_define **def_r)
@@ -370,7 +456,7 @@ config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 	for (; config_key != NULL; config_key = config_key->next) {
 		struct config_module_parser *l =
 			&ctx->cur_section->module_parsers[config_key->info_idx];
-		if (l->parser == NULL)
+		if (l->settings == NULL)
 			config_module_parser_init(ctx, l);
 		switch (l->info->defines[config_key->define_idx].type) {
 		case SET_STRLIST:
@@ -391,18 +477,16 @@ config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 			l->change_counters[config_key->define_idx] =
 				ctx->change_counter;
 		}
-		if (settings_parse_keyidx_value(l->parser,
-				config_key->define_idx, key, value) == 0) {
-			/* FIXME: remove once auth does support these. */
-			if (strcmp(l->info->name, "auth") == 0 &&
-			    config_parser_is_in_localremote(ctx->cur_section)) {
-				ctx->error = p_strconcat(ctx->pool,
-					"Auth settings not supported inside local/remote blocks: ",
-					key, NULL);
-				return -1;
-			}
-		} else {
-			ctx->error = settings_parser_get_error(l->parser);
+		if (settings_value_check(ctx, l->info,
+				&l->info->defines[config_key->define_idx],
+				value) < 0)
+			return -1;
+		/* FIXME: remove once auth does support these. */
+		if (strcmp(l->info->name, "auth") == 0 &&
+		    config_parser_is_in_localremote(ctx->cur_section)) {
+			ctx->error = p_strconcat(ctx->pool,
+				"Auth settings not supported inside local/remote blocks: ",
+				key, NULL);
 			return -1;
 		}
 	}
@@ -1783,12 +1867,6 @@ prevfile:
 	str_free(&full_line);
 	if (ret == 0)
 		ret = config_parse_finish(&ctx, flags, config_r, error_r);
-	else {
-		struct config_filter_parser *filter_parser;
-		array_foreach_elem(&ctx.all_filter_parsers, filter_parser)
-			config_module_parsers_free(filter_parser->module_parsers);
-		config_module_parsers_free(ctx.root_module_parsers);
-	}
 	pool_unref(&ctx.pool);
 	return ret < 0 ? ret : 1;
 }
@@ -1856,24 +1934,12 @@ config_module_parsers_get_setting(const struct config_module_parser *module_pars
 void config_parsed_free(struct config_parsed **_config)
 {
 	struct config_parsed *config = *_config;
-	unsigned int i;
 
 	if (config == NULL)
 		return;
 	*_config = NULL;
 
-	for (i = 0; config->filter_parsers[i] != NULL; i++)
-		config_module_parsers_free(config->filter_parsers[i]->module_parsers);
-	config_module_parsers_free(config->module_parsers);
 	pool_unref(&config->pool);
-}
-
-void config_module_parsers_free(struct config_module_parser *parsers)
-{
-	unsigned int i;
-
-	for (i = 0; parsers[i].info != NULL; i++)
-		settings_parser_unref(&parsers[i].parser);
 }
 
 static int config_service_cmp(const struct config_service *s1,
