@@ -15,8 +15,8 @@ static const struct setting_define imapc_setting_defines[] = {
 	DEF(STR, imapc_host),
 	DEF(IN_PORT, imapc_port),
 
-	DEF(STR_VARS, imapc_user),
-	DEF(STR_VARS, imapc_master_user),
+	DEF(STR, imapc_user),
+	DEF(STR, imapc_master_user),
 	DEF(STR, imapc_password),
 	DEF(STR, imapc_sasl_mechanisms),
 

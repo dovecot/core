@@ -61,12 +61,12 @@ static const struct setting_define lmtp_setting_defines[] = {
 	DEF(BOOL_HIDDEN, lmtp_verbose_replies),
 	DEF(UINT, lmtp_user_concurrency_limit),
 	DEF(ENUM, lmtp_hdr_delivery_address),
-	DEF(STR_VARS, lmtp_rawlog_dir),
-	DEF(STR_VARS, lmtp_proxy_rawlog_dir),
+	DEF(STR, lmtp_rawlog_dir),
+	DEF(STR, lmtp_proxy_rawlog_dir),
 
 	DEF(STR, lmtp_client_workarounds),
 
-	DEF(STR_VARS_HIDDEN, login_greeting),
+	DEF(STR_HIDDEN, login_greeting),
 	DEF(STR, login_trusted_networks),
 
 	DEF(STR, mail_plugins),

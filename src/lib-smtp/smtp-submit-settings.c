@@ -15,8 +15,8 @@ static const struct setting_define smtp_submit_setting_defines[] = {
 	DEF(STR, hostname),
 	DEF(BOOL, mail_debug),
 
-	DEF(STR_VARS, submission_host),
-	DEF(STR_VARS, sendmail_path),
+	DEF(STR, submission_host),
+	DEF(STR, sendmail_path),
 	DEF(TIME, submission_timeout),
 
 	DEF(ENUM, submission_ssl),

@@ -61,7 +61,7 @@ struct dict_file_settings {
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct dict_file_settings)
 static const struct setting_define dict_file_setting_defines[] = {
 	DEF(ENUM, dict_file_lock_method),
-	DEF(STR_VARS, dict_file_path),
+	DEF(STR, dict_file_path),
 
 	SETTING_DEFINE_LIST_END
 };
