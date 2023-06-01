@@ -605,36 +605,38 @@ static bool
 db_oauth2_user_is_enabled(struct db_oauth2_request *req,
 			  enum passdb_result *result_r, const char **error_r)
 {
-	if (*req->db->set.active_attribute != '\0' &&
-	    *req->db->set.active_value != '\0') {
-		const char *active_value =
-			auth_fields_find(req->fields, req->db->set.active_attribute);
-		if (active_value != NULL) {
-			if (strcmp(req->db->set.active_value, active_value) == 0) {
-				e_debug(authdb_event(req->auth_request),
-					"oauth2 active_attribute check succeeded");
-			} else {
-				e_debug(authdb_event(req->auth_request),
-					"oauth2 active_attribute check failed: expected %s=\"%s\" but got \"%s\"",
-					req->db->set.active_attribute,
-					req->db->set.active_value,
-					active_value);
-				*error_r = "Provided token is not valid";
-				*result_r = PASSDB_RESULT_PASSWORD_MISMATCH;
-				return FALSE;
-			}
-		} else {
-			e_debug(authdb_event(req->auth_request),
-				"oauth2 active_attribute \"%s\" not found in oauth2 server's response",
-				req->db->set.active_attribute);
-			*error_r = "Missing active_attribute from token";
-			*result_r = PASSDB_RESULT_PASSWORD_MISMATCH;
-			return FALSE;
-		}
-	} else {
+	if (*req->db->set.active_attribute == '\0' ||
+	    *req->db->set.active_value == '\0') {
 		e_debug(authdb_event(req->auth_request),
 			"oauth2 active_attribute is not configured; skipping the check");
+	    	return TRUE;
 	}
+
+	const char *active_value =
+		auth_fields_find(req->fields, req->db->set.active_attribute);
+
+	if (active_value == NULL) {
+		e_debug(authdb_event(req->auth_request),
+			"oauth2 active_attribute \"%s\" is not present in the oauth2 server's response",
+			req->db->set.active_attribute);
+		*error_r = "Missing active_attribute from token";
+		*result_r = PASSDB_RESULT_PASSWORD_MISMATCH;
+		return FALSE;
+	}
+
+	if (strcmp(req->db->set.active_value, active_value) != 0) {
+		e_debug(authdb_event(req->auth_request),
+			"oauth2 active_attribute check failed: expected %s=\"%s\" but got \"%s\"",
+			req->db->set.active_attribute,
+			req->db->set.active_value,
+			active_value);
+		*error_r = "Provided token is not valid";
+		*result_r = PASSDB_RESULT_PASSWORD_MISMATCH;
+		return FALSE;
+	}
+
+	e_debug(authdb_event(req->auth_request),
+		"oauth2 active_attribute check succeeded");
 	return TRUE;
 }
 
