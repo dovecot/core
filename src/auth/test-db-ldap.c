@@ -3,6 +3,8 @@
 #include "lib.h"
 #include "test-common.h"
 #include "test-auth.h"
+#if defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD)
+
 #include "db-ldap.h"
 #include <stdio.h>
 
@@ -98,3 +100,5 @@ void test_db_ldap_field_multi_expand_parse_data(void)
 	}
 	test_end();
 }
+
+#endif
