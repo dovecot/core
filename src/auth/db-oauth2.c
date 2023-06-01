@@ -268,9 +268,6 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	db->oauth2_set.use_grant_password = db->set.use_grant_password;
 	db->oauth2_set.scope = db->set.scope;
 
-	if (*db->set.active_attribute != '\0' &&
-	    *db->set.active_value == '\0')
-		i_fatal("oauth2: Cannot have empty active_value if active_attribute is set");
 	if (*db->set.active_attribute == '\0' &&
 	    *db->set.active_value != '\0')
 		i_fatal("oauth2: Cannot have empty active_attribute is active_value is set");
@@ -605,8 +602,7 @@ static bool
 db_oauth2_user_is_enabled(struct db_oauth2_request *req,
 			  enum passdb_result *result_r, const char **error_r)
 {
-	if (*req->db->set.active_attribute == '\0' ||
-	    *req->db->set.active_value == '\0') {
+	if (*req->db->set.active_attribute == '\0' ) {
 		e_debug(authdb_event(req->auth_request),
 			"oauth2 active_attribute is not configured; skipping the check");
 	    	return TRUE;
@@ -622,6 +618,13 @@ db_oauth2_user_is_enabled(struct db_oauth2_request *req,
 		*error_r = "Missing active_attribute from token";
 		*result_r = PASSDB_RESULT_PASSWORD_MISMATCH;
 		return FALSE;
+	}
+
+	if (*req->db->set.active_value == '\0') {
+		e_debug(authdb_event(req->auth_request),
+			"oauth2 active_attribute \"%s\" present; skipping the check on value",
+			req->db->set.active_attribute);
+	    	return TRUE;
 	}
 
 	if (strcmp(req->db->set.active_value, active_value) != 0) {
