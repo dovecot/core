@@ -386,7 +386,8 @@ static int fts_backend_solr_commit(struct solr_fts_backend_update_context *ctx)
 {
 	struct solr_fts_backend *backend =
 		(struct solr_fts_backend *) ctx->ctx.backend;
-	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT(ctx->ctx.backend->ns->user);
+	struct fts_solr_user *fuser =
+		FTS_SOLR_USER_CONTEXT_REQUIRE(ctx->ctx.backend->ns->user);
 
 	if (!fuser->set.soft_commit)
 		return 0;
@@ -502,7 +503,8 @@ fts_backend_solr_uid_changed(struct solr_fts_backend_update_context *ctx,
 {
 	struct solr_fts_backend *backend =
 		(struct solr_fts_backend *)ctx->ctx.backend;
-	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT(ctx->ctx.backend->ns->user);
+	struct fts_solr_user *fuser =
+		FTS_SOLR_USER_CONTEXT_REQUIRE(ctx->ctx.backend->ns->user);
 
 	if (ctx->mails_since_flush >= fuser->set.batch_size) {
 		if (fts_backed_solr_build_flush(ctx) < 0)
