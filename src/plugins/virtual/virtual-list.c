@@ -5,8 +5,8 @@
 #include "virtual-storage.h"
 #include "virtual-plugin.h"
 
-#define VIRTUAL_LIST_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, virtual_mailbox_list_module)
+#define VIRTUAL_LIST_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, virtual_mailbox_list_module)
 
 struct virtual_mailbox_list {
 	union mailbox_list_module_context module_ctx;
@@ -20,7 +20,8 @@ virtual_get_storage(struct mailbox_list **list, const char **vname,
 		    enum mailbox_list_get_storage_flags flags,
 		    struct mail_storage **storage_r)
 {
-	struct virtual_mailbox_list *vlist = VIRTUAL_LIST_CONTEXT(*list);
+	struct virtual_mailbox_list *vlist =
+		VIRTUAL_LIST_CONTEXT_REQUIRE(*list);
 
 	if (vlist->module_ctx.super.get_storage(list, vname, flags, storage_r) < 0)
 		return -1;
