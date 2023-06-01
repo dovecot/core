@@ -63,8 +63,6 @@ struct setting_define {
 	SETTING_DEFINE_STRUCT_TYPE(SET_IN_PORT, 0, in_port_t, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_STR(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_STR, 0, const char *, key, name, struct_name)
-#define SETTING_DEFINE_STRUCT_STR_VARS(key, name, struct_name) \
-	SETTING_DEFINE_STRUCT_TYPE(SET_STR, 0, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_STR_NOVARS(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_STR_NOVARS, 0, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_ENUM(key, name, struct_name) \
@@ -85,8 +83,6 @@ struct setting_define {
 #define SETTING_DEFINE_STRUCT_IN_PORT_HIDDEN(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_IN_PORT, SET_FLAG_HIDDEN, in_port_t, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_STR_HIDDEN(key, name, struct_name) \
-	SETTING_DEFINE_STRUCT_TYPE(SET_STR, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
-#define SETTING_DEFINE_STRUCT_STR_VARS_HIDDEN(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_STR, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_STR_NOVARS_HIDDEN(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_STR_NOVARS, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
