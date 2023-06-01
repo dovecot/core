@@ -13,8 +13,8 @@ static const struct setting_define pop3c_setting_defines[] = {
 	DEF(STR, pop3c_host),
 	DEF(IN_PORT, pop3c_port),
 
-	DEF(STR_VARS, pop3c_user),
-	DEF(STR_VARS, pop3c_master_user),
+	DEF(STR, pop3c_user),
+	DEF(STR, pop3c_master_user),
 	DEF(STR, pop3c_password),
 
 	DEF(ENUM, pop3c_ssl),

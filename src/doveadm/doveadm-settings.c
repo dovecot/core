@@ -63,7 +63,7 @@ static const struct setting_define doveadm_setting_defines[] = {
 	DEF(STR_HIDDEN, libexec_dir),
 	DEF(STR, mail_plugins),
 	DEF(STR, mail_plugin_dir),
-	DEF(STR_VARS, mail_temp_dir),
+	DEF(STR, mail_temp_dir),
 	DEF(BOOL, auth_debug),
 	DEF(STR, auth_socket_path),
 	DEF(STR, doveadm_socket_path),

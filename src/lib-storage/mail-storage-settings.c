@@ -30,10 +30,10 @@ static bool mail_user_settings_check(void *_set, pool_t pool, const char **error
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct mail_storage_settings)
 
 static const struct setting_define mail_storage_setting_defines[] = {
-	DEF(STR_VARS, mail_location),
+	DEF(STR, mail_location),
 	{ .type = SET_ALIAS, .key = "mail" },
-	DEF(STR_VARS, mail_attachment_fs),
-	DEF(STR_VARS, mail_attachment_dir),
+	DEF(STR, mail_attachment_fs),
+	DEF(STR, mail_attachment_dir),
 	DEF(STR_NOVARS_HIDDEN, mail_attachment_hash),
 	DEF(SIZE, mail_attachment_min_size),
 	DEF(STR, mail_attachment_detection_options),
@@ -210,9 +210,9 @@ static const struct setting_define mail_namespace_setting_defines[] = {
 	DEF(STR, name),
 	DEF(ENUM, type),
 	DEF(STR, separator),
-	DEF(STR_VARS, prefix),
-	DEF(STR_VARS, location),
-	DEF(STR_VARS, alias_for),
+	DEF(STR, prefix),
+	DEF(STR, location),
+	DEF(STR, alias_for),
 
 	DEF(BOOL, inbox),
 	DEF(BOOL, hidden),
@@ -268,13 +268,13 @@ const struct setting_parser_info mail_namespace_setting_parser_info = {
 static const struct setting_define mail_user_setting_defines[] = {
 	DEF(STR_HIDDEN, base_dir),
 	DEF(STR, auth_socket_path),
-	DEF(STR_VARS, mail_temp_dir),
+	DEF(STR, mail_temp_dir),
 	DEF(BOOL, mail_debug),
 
 	DEF(STR, mail_uid),
 	DEF(STR, mail_gid),
-	DEF(STR_VARS, mail_home),
-	DEF(STR_VARS, mail_chroot),
+	DEF(STR, mail_home),
+	DEF(STR, mail_chroot),
 	DEF(STR, mail_access_groups),
 	DEF(STR, mail_privileged_group),
 	DEF(STR, valid_chroot_dirs),
@@ -287,10 +287,10 @@ static const struct setting_define mail_user_setting_defines[] = {
 	DEF(STR, mail_plugins),
 	DEF(STR, mail_plugin_dir),
 
-	DEF(STR_VARS, mail_log_prefix),
+	DEF(STR, mail_log_prefix),
 
 	DEF(STR, hostname),
-	DEF(STR_VARS, postmaster_address),
+	DEF(STR, postmaster_address),
 
 	SETTING_DEFINE_LIST_END
 };
