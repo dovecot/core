@@ -408,7 +408,7 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *vname,
 	box->flags = flags;
 	box->index_prefix = p_strdup(box->pool, index_prefix);
 	box->event = mail_storage_mailbox_create_event(box->storage->event,
-						       box->vname);
+						       box->list, box->vname);
 
 	p_array_init(&box->search_results, box->pool, 16);
 	array_create(&box->module_contexts,

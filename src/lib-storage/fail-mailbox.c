@@ -331,8 +331,8 @@ fail_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	box->pool = pool;
 	box->flags = flags;
 
-	box->event = mail_storage_mailbox_create_event(box->storage->event,
-						       box->vname);
+	box->event = mail_storage_mailbox_create_event(storage->event,
+						       list, box->vname);
 	p_array_init(&box->search_results, pool, 16);
 	p_array_init(&box->module_contexts, pool, 5);
 	return box;

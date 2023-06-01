@@ -928,7 +928,8 @@ static inline const char *mailbox_name_sanitize(const char *name)
 }
 
 struct event *
-mail_storage_mailbox_create_event(struct event *parent, const char *vname);
+mail_storage_mailbox_create_event(struct event *parent,
+				  struct mailbox_list *list, const char *vname);
 
 /* for unit testing */
 int mailbox_verify_name(struct mailbox *box);

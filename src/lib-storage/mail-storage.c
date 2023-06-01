@@ -3371,13 +3371,14 @@ mail_storage_settings_to_index_flags(const struct mail_storage_settings *set)
 	return index_flags;
 }
 
-
 struct event *
-mail_storage_mailbox_create_event(struct event *parent, const char* vname)
+mail_storage_mailbox_create_event(struct event *parent,
+				  struct mailbox_list *list, const char *vname)
 {
 	struct event *event = event_create(parent);
 	event_add_category(event, &event_category_mailbox);
-	event_add_str(event, "mailbox", vname);
+	event_add_str(event, "namespace", list->ns->set->name);
+
 	event_drop_parent_log_prefixes(event, 1);
 	event_set_append_log_prefix(event, t_strdup_printf(
 		"Mailbox %s: ", mailbox_name_sanitize(vname)));
