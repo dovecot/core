@@ -12,6 +12,8 @@
 
 #define FTS_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, fts_user_module)
+#define FTS_USER_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, fts_user_module)
 
 struct fts_user {
 	union mail_user_module_context module_ctx;
@@ -244,9 +246,8 @@ fts_user_language_find(struct mail_user *user,
 		       const struct fts_language *lang)
 {
 	struct fts_user_language *user_lang;
-	struct fts_user *fuser = FTS_USER_CONTEXT(user);
+	struct fts_user *fuser = FTS_USER_CONTEXT_REQUIRE(user);
 
-	i_assert(fuser != NULL);
 	array_foreach_elem(&fuser->languages, user_lang) {
 		if (strcmp(user_lang->lang->name, lang->name) == 0)
 			return user_lang;
@@ -313,41 +314,37 @@ fts_user_init_data_language(struct mail_user *user, struct fts_user *fuser,
 
 struct fts_language_list *fts_user_get_language_list(struct mail_user *user)
 {
-	struct fts_user *fuser = FTS_USER_CONTEXT(user);
+	struct fts_user *fuser = FTS_USER_CONTEXT_REQUIRE(user);
 
-	i_assert(fuser != NULL);
 	return fuser->lang_list;
 }
 
 const ARRAY_TYPE(fts_user_language) *
 fts_user_get_all_languages(struct mail_user *user)
 {
-	struct fts_user *fuser = FTS_USER_CONTEXT(user);
+	struct fts_user *fuser = FTS_USER_CONTEXT_REQUIRE(user);
 
-	i_assert(fuser != NULL);
 	return &fuser->languages;
 }
 
 const ARRAY_TYPE(fts_user_language) *
 fts_user_get_data_languages(struct mail_user *user)
 {
-	struct fts_user *fuser = FTS_USER_CONTEXT(user);
+	struct fts_user *fuser = FTS_USER_CONTEXT_REQUIRE(user);
 
-	i_assert(fuser != NULL);
 	return &fuser->data_languages;
 }
 
 struct fts_user_language *fts_user_get_data_lang(struct mail_user *user)
 {
-	struct fts_user *fuser = FTS_USER_CONTEXT(user);
+	struct fts_user *fuser = FTS_USER_CONTEXT_REQUIRE(user);
 
-	i_assert(fuser != NULL);
 	return fuser->data_lang;
 }
 
 bool fts_user_autoindex_exclude(struct mailbox *box)
 {
-	struct fts_user *fuser = FTS_USER_CONTEXT(box->storage->user);
+	struct fts_user *fuser = FTS_USER_CONTEXT_REQUIRE(box->storage->user);
 
 	return mailbox_match_plugin_exclude(fuser->autoindex_exclude, box);
 }
