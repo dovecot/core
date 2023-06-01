@@ -331,6 +331,7 @@ settings_export(struct config_export_context *ctx,
 	}
 }
 
+#undef config_export_init
 struct config_export_context *
 config_export_init(enum config_dump_scope scope,
 		   enum config_dump_flags flags,

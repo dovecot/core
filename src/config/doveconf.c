@@ -59,9 +59,8 @@ static const char *const secrets[] = {
 
 static void
 config_request_get_strings(const struct config_export_setting *set,
-			   void *context)
+			   struct config_dump_human_context *ctx)
 {
-	struct config_dump_human_context *ctx = context;
 	const char *value;
 
 	switch (set->type) {

@@ -155,10 +155,8 @@ config_dump_full_write_filter(struct ostream *output,
 
 static void
 config_dump_full_stdout_callback(const struct config_export_setting *set,
-				 void *context)
+				 struct dump_context *ctx)
 {
-	struct dump_context *ctx = context;
-
 	if (!ctx->filter_written) {
 		config_dump_full_write_filter(ctx->output, ctx->filter,
 					      CONFIG_DUMP_FULL_DEST_STDOUT);
@@ -171,9 +169,8 @@ config_dump_full_stdout_callback(const struct config_export_setting *set,
 }
 
 static void config_dump_full_callback(const struct config_export_setting *set,
-				      void *context)
+				      struct dump_context *ctx)
 {
-	struct dump_context *ctx = context;
 	const char *suffix;
 
 	if (!ctx->filter_written) {
