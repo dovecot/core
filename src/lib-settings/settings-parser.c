@@ -23,15 +23,11 @@ struct setting_parser_context {
 	pool_t set_pool, parser_pool;
 	int refcount;
         enum settings_parser_flags flags;
-	uint8_t change_counter;
 
 	const struct setting_parser_info *info;
 
 	/* Pointer to structure containing the values */
 	void *set_struct;
-	/* Pointer to structure containing non-zero values for settings that
-	   have been changed. */
-	void *change_struct;
 
 	unsigned int linenum;
 	char *error;
@@ -101,11 +97,6 @@ settings_parser_init(pool_t set_pool, const struct setting_parser_info *root,
 	if (root->struct_size > 0) {
 		ctx->set_struct =
 			p_malloc(ctx->set_pool, root->struct_size);
-		if ((flags & SETTINGS_PARSER_FLAG_TRACK_CHANGES) != 0) {
-			ctx->change_counter = 1;
-			ctx->change_struct =
-				p_malloc(ctx->set_pool, root->struct_size);
-		}
 		setting_parser_copy_defaults(ctx, root);
 		setting_parser_fill_defaults_strings(ctx);
 	}
@@ -172,11 +163,6 @@ bool setting_parser_info_find_key(const struct setting_parser_info *info,
 void *settings_parser_get_set(const struct setting_parser_context *ctx)
 {
 	return ctx->set_struct;
-}
-
-void *settings_parser_get_changes(struct setting_parser_context *ctx)
-{
-	return ctx->change_struct;
 }
 
 static void settings_parser_set_error(struct setting_parser_context *ctx,
@@ -320,7 +306,7 @@ settings_parse(struct setting_parser_context *ctx,
 	       const struct setting_define *def,
 	       const char *key, const char *value, bool dup_value)
 {
-	void *ptr, *change_ptr;
+	void *ptr;
 	const void *ptr2;
 	const char *error;
 
@@ -330,9 +316,6 @@ settings_parse(struct setting_parser_context *ctx,
 		i_assert(def != ctx->info->defines);
 		def--;
 	}
-
-	change_ptr = ctx->change_struct == NULL ? NULL :
-		PTR_OFFSET(ctx->change_struct, def->offset);
 
 	ptr = PTR_OFFSET(ctx->set_struct, def->offset);
 	switch (def->type) {
@@ -413,12 +396,6 @@ settings_parse(struct setting_parser_context *ctx,
 		return -1;
 	case SET_ALIAS:
 		i_unreached();
-	}
-
-	if (change_ptr != NULL) {
-		uint8_t *change_ptr8 = change_ptr;
-		if (*change_ptr8 < ctx->change_counter)
-			*change_ptr8 = ctx->change_counter;
 	}
 	return 0;
 }
@@ -538,29 +515,6 @@ settings_parse_get_value(struct setting_parser_context *ctx,
 	}
 	*type_r = def->type;
 	return PTR_OFFSET(ctx->set_struct, def->offset);
-}
-
-void settings_parse_set_change_counter(struct setting_parser_context *ctx,
-				       uint8_t change_counter)
-{
-	i_assert(change_counter > 0);
-	i_assert((ctx->flags & SETTINGS_PARSER_FLAG_TRACK_CHANGES) != 0);
-	ctx->change_counter = change_counter;
-}
-
-uint8_t settings_parse_get_change_counter(struct setting_parser_context *ctx,
-					  const char *key)
-{
-	const struct setting_define *def;
-	const uint8_t *p;
-
-	if (!settings_find_key(ctx, key, FALSE, &def))
-		return 0;
-	if (ctx->change_struct == NULL)
-		return 0;
-
-	p = PTR_OFFSET(ctx->change_struct, def->offset);
-	return *p;
 }
 
 bool settings_check(struct event *event, const struct setting_parser_info *info,
@@ -732,45 +686,6 @@ static void *settings_dup_full(const struct setting_parser_info *info,
 	return dest_set;
 }
 
-static void *
-settings_changes_dup(const struct setting_parser_info *info,
-		     const void *change_set, pool_t pool)
-{
-	const struct setting_define *def;
-	const void *src;
-	void *dest_set, *dest;
-
-	if (change_set == NULL || info->struct_size == 0)
-		return NULL;
-
-	dest_set = p_malloc(pool, info->struct_size);
-	for (def = info->defines; def->key != NULL; def++) {
-		src = CONST_PTR_OFFSET(change_set, def->offset);
-		dest = PTR_OFFSET(dest_set, def->offset);
-
-		switch (def->type) {
-		case SET_BOOL:
-		case SET_UINT:
-		case SET_UINT_OCT:
-		case SET_TIME:
-		case SET_TIME_MSECS:
-		case SET_SIZE:
-		case SET_IN_PORT:
-		case SET_STR_NOVARS:
-		case SET_STR:
-		case SET_ENUM:
-		case SET_STRLIST:
-		case SET_FILTER_ARRAY:
-			*((uint8_t *)dest) = *((const uint8_t *)src);
-			break;
-		case SET_FILTER_NAME:
-		case SET_ALIAS:
-			break;
-		}
-	}
-	return dest_set;
-}
-
 struct setting_parser_context *
 settings_parser_dup(const struct setting_parser_context *old_ctx,
 		    pool_t new_pool)
@@ -799,10 +714,6 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 		settings_dup_full(old_ctx->info,
 				  old_ctx->set_struct,
 				  new_ctx->set_pool, keep_values);
-	new_ctx->change_struct =
-		settings_changes_dup(old_ctx->info,
-				     old_ctx->change_struct,
-				     new_ctx->set_pool);
 	return new_ctx;
 }
 
