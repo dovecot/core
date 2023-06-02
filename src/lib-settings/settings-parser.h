@@ -185,11 +185,6 @@ bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
 bool settings_check(struct event *event, const struct setting_parser_info *info,
 		    pool_t pool, void *set, const char **error_r);
 
-/* Duplicate the entire setting parser. */
-struct setting_parser_context *
-settings_parser_dup(const struct setting_parser_context *old_ctx,
-		    pool_t new_pool);
-
 /* Return section name escaped */
 const char *settings_section_escape(const char *name);
 const char *settings_section_unescape(const char *name);
