@@ -123,7 +123,6 @@ ARRAY_DEFINE_TYPE(setting_parser_info, struct setting_parser_info);
 
 enum settings_parser_flags {
 	SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS	= 0x01,
-	SETTINGS_PARSER_FLAG_TRACK_CHANGES		= 0x02,
 	/* Filters are added in reverse order. New filters are inserted to the
 	   beginning of the array. */
 	SETTINGS_PARSER_FLAG_INSERT_FILTERS		= 0x04,
@@ -148,8 +147,6 @@ bool setting_parser_info_find_key(const struct setting_parser_info *info,
 
 /* Returns the current settings. */
 void *settings_parser_get_set(const struct setting_parser_context *ctx);
-/* Return pointer to changes in the root setting structure. */
-void *settings_parser_get_changes(struct setting_parser_context *ctx);
 
 /* Return the last error. */
 const char *settings_parser_get_error(struct setting_parser_context *ctx);
@@ -158,15 +155,6 @@ const char *settings_parser_get_error(struct setting_parser_context *ctx);
 const void *
 settings_parse_get_value(struct setting_parser_context *ctx,
 			 const char **key, enum setting_type *type_r);
-/* Set the change_counter to use for tracking the following changes.
-   SETTINGS_PARSER_FLAG_TRACK_CHANGES must be enabled, and the counter must be
-   higher than 0. If the same setting is changed multiple times with different
-   change_counters, the highest change_counter is kept. */
-void settings_parse_set_change_counter(struct setting_parser_context *ctx,
-				       uint8_t change_counter);
-/* Returns change_counter (>0) if setting has been changed by this parser. */
-uint8_t settings_parse_get_change_counter(struct setting_parser_context *ctx,
-					  const char *key);
 /* Parse key/value pair. Returns 1 if OK, 0 if key is unknown, -1 if error. */
 int settings_parse_keyvalue(struct setting_parser_context *ctx,
 			    const char *key, const char *value);
