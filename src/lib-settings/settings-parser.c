@@ -2,22 +2,9 @@
 
 #include "lib.h"
 #include "array.h"
-#include "net.h"
-#include "env-util.h"
-#include "execv-const.h"
 #include "str.h"
-#include "strescape.h"
 #include "str-parse.h"
-#include "var-expand.h"
 #include "settings-parser.h"
-
-#include <stdio.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
-
-#define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
 
 struct setting_parser_context {
 	pool_t set_pool, parser_pool;
