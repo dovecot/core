@@ -591,6 +591,7 @@ db_oauth2_validate_username(struct db_oauth2_request *req,
 		*result_r = PASSDB_RESULT_USER_UNKNOWN;
 		return FALSE;
 	} else {
+		req->username = p_strdup(req->pool, str_c(username_val));
 		return TRUE;
 	}
 }
