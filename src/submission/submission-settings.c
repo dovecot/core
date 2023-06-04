@@ -114,7 +114,7 @@ static const struct submission_settings submission_default_settings = {
 	.submission_logout_format = "in=%i out=%o",
 	.submission_add_received_header = TRUE,
 
-	.submission_backend_capabilities = NULL,
+	.submission_backend_capabilities = "",
 
 	.submission_relay_host = "",
 	.submission_relay_port = 25,

@@ -33,7 +33,7 @@ client_parse_backend_capabilities(struct submission_client *subm_client )
 	const struct submission_login_settings *set = subm_client->set;
 	const char *const *str;
 
-	if (set->submission_backend_capabilities == NULL) {
+	if (set->submission_backend_capabilities[0] == '\0') {
 		subm_client->backend_capabilities = SMTP_CAPABILITY_8BITMIME;
 		return;
 	}
@@ -41,6 +41,8 @@ client_parse_backend_capabilities(struct submission_client *subm_client )
 	subm_client->backend_capabilities = SMTP_CAPABILITY_NONE;
 	str = t_strsplit_spaces(set->submission_backend_capabilities, " ,");
 	for (; *str != NULL; str++) {
+		if (strcmp(*str, "none") == 0)
+			continue;
 		enum smtp_capability cap = smtp_capability_find_by_name(*str);
 
 		if (cap == SMTP_CAPABILITY_NONE) {
