@@ -125,6 +125,9 @@ config_parser_add_service_default_struct(struct config_parser_context *ctx,
 					 unsigned int service_info_idx,
 					 const struct service_settings *default_set)
 {
+#define SERVICE_SETTING_TYPE_HAS_DEFAULT(type) \
+	((type) == SET_UINT || (type) == SET_SIZE || \
+	 (type) == SET_TIME || (type) == SET_TIME_MSECS)
 	const struct setting_parser_info *info = all_infos[service_info_idx];
 	string_t *value_str = t_str_new(64);
 
@@ -137,6 +140,11 @@ config_parser_add_service_default_struct(struct config_parser_context *ctx,
 		str_truncate(value_str, 0);
 		if (!config_export_type(value_str, value, info->defines[i].type))
 			continue;
+		if (strcmp(str_c(value_str), "0") == 0 &&
+		    SERVICE_SETTING_TYPE_HAS_DEFAULT(info->defines[i].type)) {
+			/* 0 uses the global default */
+			continue;
+		}
 
 		if (config_apply_line(ctx, info->defines[i].key,
 				      str_c(value_str), NULL) < 0) {
