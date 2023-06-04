@@ -9,6 +9,16 @@ struct var_expand_func_table;
 #define SETTINGS_SEPARATOR '/'
 #define SETTINGS_SEPARATOR_S "/"
 
+/* These values are shown as "unlimited" */
+#define SET_VALUE_UNLIMITED "unlimited"
+#define SET_UINT_UNLIMITED UINT_MAX
+#define SET_SIZE_UNLIMITED UOFF_T_MAX
+
+/* These values are shown as "infinite" */
+#define SET_VALUE_INFINITE "infinite"
+#define SET_TIME_INFINITE UINT_MAX
+#define SET_TIME_MSECS_INFINITE UINT_MAX
+
 enum setting_type {
 	SET_BOOL,
 	SET_UINT,
@@ -188,6 +198,13 @@ bool settings_check(struct event *event, const struct setting_parser_info *info,
 /* Return section name escaped */
 const char *settings_section_escape(const char *name);
 const char *settings_section_unescape(const char *name);
+
+static inline bool settings_value_is_unlimited(const char *value)
+{
+	/* allow both as input for all types */
+	return strcmp(value, SET_VALUE_UNLIMITED) == 0 ||
+		strcmp(value, SET_VALUE_INFINITE) == 0;
+}
 
 void set_config_binary(bool value);
 bool is_config_binary(void);

@@ -190,6 +190,10 @@ static int
 get_uint(struct setting_parser_context *ctx, const char *value,
 	 unsigned int *result_r)
 {
+	if (settings_value_is_unlimited(value)) {
+		*result_r = SET_UINT_UNLIMITED;
+		return 0;
+	}
 	if (str_to_uint(value, result_r) < 0) {
 		settings_parser_set_error(ctx, t_strdup_printf(
 			"Invalid number %s: %s", value,
@@ -319,18 +323,30 @@ settings_parse(struct setting_parser_context *ctx,
 			return -1;
 		break;
 	case SET_TIME:
+		if (settings_value_is_unlimited(value)) {
+			*(unsigned int *)ptr = SET_TIME_INFINITE;
+			return 0;
+		}
 		if (str_parse_get_interval(value, (unsigned int *)ptr, &error) < 0) {
 			settings_parser_set_error(ctx, error);
 			return -1;
 		}
 		break;
 	case SET_TIME_MSECS:
+		if (settings_value_is_unlimited(value)) {
+			*(unsigned int *)ptr = SET_TIME_MSECS_INFINITE;
+			return 0;
+		}
 		if (str_parse_get_interval_msecs(value, (unsigned int *)ptr, &error) < 0) {
 			settings_parser_set_error(ctx, error);
 			return -1;
 		}
 		break;
 	case SET_SIZE:
+		if (settings_value_is_unlimited(value)) {
+			*(uoff_t *)ptr = SET_SIZE_UNLIMITED;
+			return 0;
+		}
 		if (str_parse_get_size(value, (uoff_t *)ptr, &error) < 0) {
 			settings_parser_set_error(ctx, error);
 			return -1;
