@@ -43,7 +43,7 @@ ns_purge(struct doveadm_mail_cmd_context *ctx, struct mail_namespace *ns,
 {
 	if (mail_storage_purge(storage) < 0) {
 		e_error(mailbox_list_get_event(ns->list),
-			"Purging namespace '%s' failed: %s", ns->prefix,
+			"Purging namespace %s failed: %s", ns->set->name,
 			mail_storage_get_last_internal_error(storage, NULL));
 		doveadm_mail_failed_storage(ctx, storage);
 		return -1;

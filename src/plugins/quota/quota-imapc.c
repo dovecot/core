@@ -225,9 +225,9 @@ static bool imapc_quota_client_init(struct imapc_quota_root *root)
 		if ((storage->class_flags &
 		     MAIL_STORAGE_CLASS_FLAG_NOQUOTA) == 0) {
 			e_warning(root->root.backend.event,
-				  "Namespace '%s' is not imapc, "
+				  "Namespace %s is not imapc, "
 				  "skipping for imapc quota",
-				  root->imapc_ns->prefix);
+				  root->imapc_ns->set->name);
 		}
 		return FALSE;
 	}

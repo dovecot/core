@@ -279,8 +279,8 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 					     &owner, &error) < 0) {
 		if (owner == NULL || !owner->nonexistent) {
 			mailbox_list_set_critical(list,
-				"Couldn't create namespace '%s' for user %s: %s",
-				ns->prefix, userdomain, error);
+				"Couldn't create namespace %s for user %s: %s",
+				ns->set->name, userdomain, error);
 			if (owner != NULL)
 				mail_user_deinit(&owner);
 			io_loop_context_switch(old_ioloop_ctx);
@@ -320,9 +320,9 @@ shared_mail_user_init(struct mail_storage *_storage,
 	} else {
 		/* we'll need to look up the user's home directory */
 		if ((ret = mail_user_get_home(owner, &tab[3].value)) < 0) {
-			mailbox_list_set_critical(ns->list, "Namespace '%s': "
+			mailbox_list_set_critical(ns->list, "Namespace %s: "
 				"Could not lookup home for user %s",
-				ns->prefix, owner->username);
+				ns->set->name, owner->username);
 			mail_user_deinit(&owner);
 			return -1;
 		}
@@ -382,8 +382,8 @@ shared_mail_user_init(struct mail_storage *_storage,
 
 	if (mail_storage_create(new_ns, NULL, _storage->flags |
 				MAIL_STORAGE_FLAG_NO_AUTOVERIFY, &error) < 0) {
-		mailbox_list_set_critical(ns->list, "Namespace '%s': %s",
-					  new_ns->prefix, error);
+		mailbox_list_set_critical(ns->list, "Namespace %s: %s",
+					  new_ns->set->name, error);
 		/* owner gets freed by namespace deinit */
 		mail_namespace_destroy(new_ns);
 		return -1;

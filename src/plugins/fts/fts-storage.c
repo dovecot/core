@@ -928,8 +928,8 @@ fts_mailbox_list_created(struct mailbox_list *list)
 
 	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX, &path)) {
 		e_debug(list->event,
-			"fts: Indexes disabled for namespace '%s'",
-			list->ns->prefix);
+			"fts: Indexes disabled for namespace %s",
+			list->ns->set->name);
 		return;
 	}
 

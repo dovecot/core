@@ -81,8 +81,8 @@ shared_list_get_path(struct mailbox_list *list, const char *name,
 static const char *
 shared_list_get_temp_prefix(struct mailbox_list *list, bool global ATTR_UNUSED)
 {
-	i_panic("shared mailbox list: Can't return a temp prefix for '%s'",
-		list->ns->prefix);
+	i_panic("shared mailbox list: Can't return a temp prefix for namespace %s",
+		list->ns->set->name);
 }
 
 static const char *

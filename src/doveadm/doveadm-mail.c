@@ -151,7 +151,7 @@ cmd_purge_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 		storage = mail_namespace_get_default_storage(ns);
 		if (mail_storage_purge(storage) < 0) {
 			e_error(ctx->cctx->event,
-				"Purging namespace '%s' failed: %s", ns->prefix,
+				"Purging namespace %s failed: %s", ns->set->name,
 				mail_storage_get_last_internal_error(storage, NULL));
 			doveadm_mail_failed_storage(ctx, storage);
 			ret = -1;

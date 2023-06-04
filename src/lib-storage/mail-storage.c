@@ -297,7 +297,7 @@ mail_storage_create_root(struct mailbox_list *list,
 		if (mail_storage_verify_root(root_dir, type_name, &error) < 0) {
 			e_debug(list->event,
 				"Namespace %s: Creating storage despite: %s",
-				list->ns->prefix, error);
+				list->ns->set->name, error);
 		}
 		return 0;
 	}
@@ -963,8 +963,8 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 			 !str_begins_with(list->ns->prefix, "INBOX")) {
 			mailbox_list_set_critical(list,
 				"Invalid server configuration: "
-				"Namespace prefix=%s must be uppercase INBOX",
-				list->ns->prefix);
+				"Namespace %s: prefix=%s must be uppercase INBOX",
+				list->ns->set->name, list->ns->prefix);
 			open_error = MAIL_ERROR_TEMP;
 		} else {
 			vname = t_strconcat("INBOX", suffix, NULL);
@@ -1108,9 +1108,8 @@ namespace_find_special_use(struct mail_namespace *ns, const char *special_use,
 
 		error = mailbox_list_get_last_error(ns->list, error_code_r);
 		e_error(ns->list->event,
-			"Failed to find mailbox with SPECIAL-USE flag '%s' "
-			"in namespace '%s': %s",
-			special_use, ns->prefix, error);
+			"Namespace %s: Failed to find mailbox with SPECIAL-USE flag '%s': %s",
+			ns->set->name, special_use, error);
 		return -1;
 	}
 	return ret;
@@ -2086,22 +2085,22 @@ mailbox_lists_rename_compatible(struct mailbox_list *list1,
 {
 	if (!nullequals(list1->set.alt_dir, list2->set.alt_dir)) {
 		*error_r = t_strdup_printf("Namespace %s has alt dir, %s doesn't",
-					   list1->ns->prefix, list2->ns->prefix);
+			list1->ns->set->name, list2->ns->set->name);
 		return FALSE;
 	}
 	if (!nullequals(list1->set.index_dir, list2->set.index_dir)) {
 		*error_r = t_strdup_printf("Namespace %s has index dir, %s doesn't",
-					   list1->ns->prefix, list2->ns->prefix);
+			list1->ns->set->name, list2->ns->set->name);
 		return FALSE;
 	}
 	if (!nullequals(list1->set.index_cache_dir, list2->set.index_cache_dir)) {
 		*error_r = t_strdup_printf("Namespace %s has index cache dir, %s doesn't",
-					   list1->ns->prefix, list2->ns->prefix);
+			list1->ns->set->name, list2->ns->set->name);
 		return FALSE;
 	}
 	if (!nullequals(list1->set.control_dir, list2->set.control_dir)) {
 		*error_r = t_strdup_printf("Namespace %s has control dir, %s doesn't",
-					   list1->ns->prefix, list2->ns->prefix);
+			list1->ns->set->name, list2->ns->set->name);
 		return FALSE;
 	}
 	return TRUE;

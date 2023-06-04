@@ -522,8 +522,8 @@ static int mail_storage_list_index_rebuild_ctx(struct mail_storage_list_index_re
 
 	array_foreach_modifiable(&ctx->rebuild_namespaces, rebuild_ns) {
 		e_debug(ctx->storage->event,
-			"Rebuilding list index for namespace '%s'",
-			rebuild_ns->ns->prefix);
+			"Rebuilding list index for namespace %s",
+			rebuild_ns->ns->set->name);
 		if (mail_storage_list_index_fill_storage_mailboxes(ctx, rebuild_ns->ns->list) < 0)
 			return -1;
 		if (mail_storage_list_index_find_indexed_mailboxes(ctx, rebuild_ns) < 0)

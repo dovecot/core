@@ -507,8 +507,8 @@ imapc_list_get_temp_prefix(struct mailbox_list *_list, bool global)
 			mailbox_list_get_global_temp_prefix(fs_list) :
 			mailbox_list_get_temp_prefix(fs_list);
 	} else {
-		i_panic("imapc: Can't return a temp prefix for '%s'",
-			_list->ns->prefix);
+		i_panic("imapc: Can't return a temp prefix for namespace %s",
+			_list->ns->set->name);
 	}
 }
 

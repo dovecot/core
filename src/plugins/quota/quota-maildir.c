@@ -669,9 +669,9 @@ static bool maildirquota_limits_init(struct maildir_quota_root *root)
 		if ((storage->class_flags &
 		     MAIL_STORAGE_CLASS_FLAG_NOQUOTA) == 0) {
 			e_warning(root->root.backend.event,
-				  "Namespace '%s' is not Maildir, "
+				  "Namespace %s is not Maildir, "
 				  "skipping for Maildir++ quota",
-				  root->maildirsize_ns->prefix);
+				  root->maildirsize_ns->set->name);
 		}
 		root->maildirsize_path = NULL;
 		return FALSE;

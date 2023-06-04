@@ -174,8 +174,8 @@ int mail_namespaces_init_add(struct mail_user *user,
 	}
 
 	if (mail_storage_create(ns, driver, 0, &error) < 0) {
-		*error_r = t_strdup_printf("Namespace '%s': %s",
-					   ns->prefix, error);
+		*error_r = t_strdup_printf("Namespace %s: %s",
+					   ns->set->name, error);
 		mail_namespace_free(ns);
 		return -1;
 	}
@@ -191,7 +191,7 @@ static bool namespace_is_valid_alias_storage(struct mail_namespace *ns,
 		*error_r = t_strdup_printf(
 			"Namespace %s can't have alias_for=%s "
 			"to a different storage type (%s vs %s)",
-			ns->prefix, ns->alias_for->prefix,
+			ns->set->name, ns->alias_for->prefix,
 			ns->storage->name, ns->alias_for->storage->name);
 		return FALSE;
 	}
@@ -201,7 +201,7 @@ static bool namespace_is_valid_alias_storage(struct mail_namespace *ns,
 		*error_r = t_strdup_printf(
 			"Namespace %s can't have alias_for=%s "
 			"to a different storage (different root dirs)",
-			ns->prefix, ns->alias_for->prefix);
+			ns->set->name, ns->alias_for->prefix);
 		return FALSE;
 	}
 	return TRUE;
@@ -280,9 +280,9 @@ namespace_has_duplicate_listindex(struct mail_namespace *ns,
 		if (strcmp(ns_list_index_path, ns2_list_index_path) == 0 &&
 		    strcmp(ns_mailboxes_root, ns2_mailboxes_root) != 0) {
 			*error_r = t_strdup_printf(
-				"Namespaces '%s' and '%s' have different mailboxes paths, but duplicate LISTINDEX path. "
+				"Namespaces %s and %s have different mailboxes paths, but duplicate LISTINDEX path. "
 				"Add a unique LISTINDEX=<fname>",
-				ns->prefix, ns2->prefix);
+				ns->set->name, ns2->set->name);
 			return TRUE;
 		}
 	}
