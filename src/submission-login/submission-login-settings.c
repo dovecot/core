@@ -24,12 +24,7 @@ struct service_settings submission_login_service_settings = {
 
 	.drop_priv_before_exec = FALSE,
 
-	.process_min_avail = 0,
-	.process_limit = 0,
-	.client_limit = 0,
 	.service_count = 1,
-	.idle_kill = 0,
-	.vsz_limit = UOFF_T_MAX,
 
 	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
