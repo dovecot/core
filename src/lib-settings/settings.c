@@ -914,6 +914,16 @@ settings_override_get_value(struct settings_apply_ctx *ctx,
 	}
 	if (key_idx == UINT_MAX)
 		return 0;
+
+	/* remove alias */
+	const char *strlist = strchr(key, SETTINGS_SEPARATOR);
+	if (strlist == NULL)
+		key = ctx->info->defines[key_idx].key;
+	else {
+		key = t_strconcat(ctx->info->defines[key_idx].key,
+				  strlist, NULL);
+	}
+
 	if (!set->append) {
 		*_key = key;
 		*key_idx_r = key_idx;
