@@ -33,7 +33,7 @@ struct service_settings stats_service_settings = {
 	.drop_priv_before_exec = FALSE,
 
 	.process_limit = 1,
-	.idle_kill = UINT_MAX,
+	.idle_kill = SET_TIME_INFINITE,
 
 	.unix_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT,

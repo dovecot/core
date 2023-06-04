@@ -20,7 +20,7 @@ struct service_settings anvil_service_settings = {
 
 	.process_min_avail = 1,
 	.process_limit = 1,
-	.idle_kill = UINT_MAX,
+	.idle_kill = SET_TIME_INFINITE,
 
 	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
