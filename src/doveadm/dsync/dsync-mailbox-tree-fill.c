@@ -62,8 +62,8 @@ dsync_mailbox_tree_add_node(struct dsync_mailbox_tree *tree,
 		node->ns = info->ns;
 	} else {
 		e_error(event,
-			"Mailbox '%s' exists in two namespaces: '%s' and '%s'",
-			vname, node->ns->prefix, info->ns->prefix);
+			"Mailbox '%s' exists in two namespaces: %s and %s",
+			vname, node->ns->set->name, info->ns->set->name);
 		return -1;
 	}
 	*node_r = node;
@@ -285,8 +285,8 @@ dsync_mailbox_tree_add_change_timestamps(struct dsync_mailbox_tree *tree,
 		}
 	}
 	if (mailbox_log_iter_deinit(&iter) < 0) {
-		e_error(event, "Mailbox log iteration for namespace '%s' failed",
-			ns->prefix);
+		e_error(event, "Mailbox log iteration for namespace %s failed",
+			ns->set->name);
 		return -1;
 	}
 	return 0;
@@ -431,8 +431,8 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 		}
 	} T_END;
 	if (mailbox_list_iter_deinit(&iter) < 0) {
-		e_error(event, "Mailbox listing for namespace '%s' failed: %s",
-			ns->prefix, mailbox_list_get_last_internal_error(ns->list, error_r));
+		e_error(event, "Mailbox listing for namespace %s failed: %s",
+			ns->set->name, mailbox_list_get_last_internal_error(ns->list, error_r));
 		ret = -1;
 	}
 
@@ -447,8 +447,8 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 		}
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0) {
-		e_error(event, "Mailbox listing for namespace '%s' failed: %s",
-			ns->prefix, mailbox_list_get_last_internal_error(ns->list, error_r));
+		e_error(event, "Mailbox listing for namespace %s failed: %s",
+			ns->set->name, mailbox_list_get_last_internal_error(ns->list, error_r));
 		ret = -1;
 	}
 	if (ret < 0)

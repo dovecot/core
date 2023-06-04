@@ -441,19 +441,17 @@ mail_storage_settings_check_namespaces(struct event *event,
 		}
 		if (alias_ns == NULL) {
 			*error_r = t_strdup_printf(
-				"Namespace '%s': alias_for points to "
+				"Namespace %s: alias_for points to "
 				"unknown namespace name: %s",
-				ns->prefix != NULL ? ns->prefix : "",
-				ns->alias_for);
+				ns->name, ns->alias_for);
 			settings_free(ns);
 			return FALSE;
 		}
 		if (alias_ns->alias_for[0] != '\0') {
 			*error_r = t_strdup_printf(
-				"Namespace '%s': alias_for chaining isn't "
+				"Namespace %s: alias_for chaining isn't "
 				"allowed: %s -> %s",
-				ns->prefix != NULL ? ns->prefix : "",
-				ns->alias_for, alias_ns->alias_for);
+				ns->name, ns->alias_for, alias_ns->alias_for);
 			settings_free(alias_ns);
 			settings_free(ns);
 			return FALSE;
@@ -661,10 +659,7 @@ static bool namespace_settings_ext_check(struct event *event,
 					 const char **error_r)
 {
 	struct mail_namespace_settings *ns = _set;
-	const char *name;
 	int ret;
-
-	name = ns->prefix != NULL ? ns->prefix : "";
 
 #ifndef CONFIG_BINARY
 	i_assert(ns->location[0] == SETTING_STRVAR_UNEXPANDED[0] ||
@@ -673,14 +668,14 @@ static bool namespace_settings_ext_check(struct event *event,
 #endif
 
 	if (ns->separator[0] != '\0' && ns->separator[1] != '\0') {
-		*error_r = t_strdup_printf("Namespace '%s': "
+		*error_r = t_strdup_printf("Namespace %s: "
 			"Hierarchy separator must be only one character long",
-			name);
+			ns->name);
 		return FALSE;
 	}
-	if (!uni_utf8_str_is_valid(name)) {
-		*error_r = t_strdup_printf("Namespace prefix not valid UTF8: %s",
-					   name);
+	if (!uni_utf8_str_is_valid(ns->prefix)) {
+		*error_r = t_strdup_printf("Namespace %s: prefix not valid UTF8: %s",
+					   ns->name, ns->prefix);
 		return FALSE;
 	}
 

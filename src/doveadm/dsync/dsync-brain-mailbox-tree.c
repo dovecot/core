@@ -30,14 +30,14 @@ static void dsync_brain_check_namespaces(struct dsync_brain *brain)
 			first_ns = ns;
 		} else if (brain->hierarchy_sep != sep) {
 			i_fatal("Synced namespaces have conflicting separators "
-				"('%c' for prefix=\"%s\", '%c' for prefix=\"%s\")",
-				brain->hierarchy_sep, first_ns->prefix,
-				sep, ns->prefix);
+				"('%c' for %s, '%c' for %s)",
+				brain->hierarchy_sep, first_ns->set->name,
+				sep, ns->set->name);
 		} else if (brain->escape_char != escape_char) {
 			i_fatal("Synced namespaces have conflicting escape chars "
-				"('%c' for prefix=\"%s\", '%c' for prefix=\"%s\")",
-				brain->escape_char, first_ns->prefix,
-				escape_char, ns->prefix);
+				"('%c' for %s, '%c' for %s)",
+				brain->escape_char, first_ns->set->name,
+				escape_char, ns->set->name);
 		}
 	}
 	if (brain->hierarchy_sep != '\0')
@@ -67,7 +67,7 @@ void dsync_brain_mailbox_trees_init(struct dsync_brain *brain)
 		if (!dsync_brain_want_namespace(brain, ns))
 			continue;
 		e_debug(brain->event, "Namespace %s has location %s",
-			ns->prefix, ns->set->location);
+			ns->set->name, ns->set->location);
 		if (dsync_mailbox_tree_fill(brain->local_mailbox_tree, ns,
 					    brain->sync_box,
 					    brain->sync_box_guid,

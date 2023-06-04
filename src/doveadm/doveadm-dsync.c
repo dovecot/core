@@ -487,8 +487,8 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	if (mail_namespace_get_sep(ns) != mail_namespace_get_sep(ns2)) {
 		e_error(ctx->ctx.cctx->event,
 			"Mail locations must use the same hierarchy separator "
-			"(specify namespace prefix=\"%s\" "
-			"{ separator } explicitly)", ns->prefix);
+			"(specify namespace %s { separator } explicitly)",
+			ns->set->name);
 		ctx->ctx.exit_code = EX_CONFIG;
 		mail_user_deinit(&user2);
 		return -1;
@@ -497,11 +497,11 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	    paths_are_equal(ns, ns2, MAILBOX_LIST_PATH_TYPE_INDEX)) {
 		e_error(ctx->ctx.cctx->event,
 			"Both source and destination mail_location "
-			"points to same directory: %s (namespace "
-			"prefix=\"%s\" { location } is set explicitly?)",
+			"points to same directory: %s (namespace %s "
+			"{ location } is set explicitly?)",
 			mailbox_list_get_root_forced(user->namespaces->list,
 						     MAILBOX_LIST_PATH_TYPE_MAILBOX),
-			ns->prefix);
+			ns->set->name);
 		ctx->ctx.exit_code = EX_CONFIG;
 		mail_user_deinit(&user2);
 		return -1;

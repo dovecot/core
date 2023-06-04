@@ -893,7 +893,7 @@ mailbox_list_get_storage_driver(struct mailbox_list *list, const char *driver,
 				     storage_r, &error) < 0) {
 		mailbox_list_set_critical(list,
 			"Namespace %s: Failed to create storage '%s': %s",
-			list->ns->prefix, driver, error);
+			list->ns->set->name, driver, error);
 		return -1;
 	}
 	return 0;
@@ -967,7 +967,7 @@ mailbox_list_get_permissions_stat(struct mailbox_list *list, const char *path,
 			e_debug(list->event,
 				"Namespace %s: %s doesn't exist yet, "
 				"using default permissions",
-				list->ns->prefix, path);
+				list->ns->set->name, path);
 		}
 		return FALSE;
 	}
@@ -1085,7 +1085,7 @@ mailbox_list_get_permissions_internal(struct mailbox_list *list,
 	if (name == NULL) {
 		e_debug(list->event,
 			"Namespace %s: Using permissions from %s: "
-			"mode=0%o gid=%s", list->ns->prefix,
+			"mode=0%o gid=%s", list->ns->set->name,
 			path != NULL ? path : "",
 			(int)permissions_r->dir_create_mode,
 			permissions_r->file_create_gid == (gid_t)-1 ? "default" :

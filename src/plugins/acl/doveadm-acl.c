@@ -379,8 +379,8 @@ cmd_acl_debug_mailbox_open(struct doveadm_mail_cmd_context *ctx,
 				"Can't open mailbox %s: %s", mailbox, errstr);
 		else {
 			e_error(box->event,
-				"Mailbox '%s' in namespace '%s' doesn't exist in %s",
-				box->name, ns->prefix, path);
+				"Mailbox '%s' in namespace %s doesn't exist in %s",
+				box->name, ns->set->name, path);
 		}
 		mailbox_free(&box);
 		return -1;
@@ -415,8 +415,8 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 
 	*retry_r = FALSE;
 
-	e_info(box->event, "Mailbox '%s' is in namespace '%s'",
-	       box->name, box->list->ns->prefix);
+	e_info(box->event, "Mailbox '%s' is in namespace %s",
+	       box->name, box->list->ns->set->name);
 	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX, &path) > 0)
 		e_info(box->event, "Mailbox path: %s", path);
 
