@@ -205,25 +205,15 @@ service_create_real(pool_t pool, struct event *event,
 	service->set = set;
 	service->throttle_msecs = SERVICE_STARTUP_FAILURE_THROTTLE_MIN_MSECS;
 
-	service->client_limit = set->client_limit != 0 ? set->client_limit :
-		service_list->set->default_client_limit;
+	service->client_limit = set->client_limit;
 	if (set->service_count > 0 &&
 	    service->client_limit > set->service_count)
 		service->client_limit = set->service_count;
 
-	service->vsz_limit = set->vsz_limit != UOFF_T_MAX ? set->vsz_limit :
-		service_list->set->default_vsz_limit;
-	service->idle_kill = set->idle_kill != 0 ? set->idle_kill :
-		service_list->set->default_idle_kill;
+	service->vsz_limit = set->vsz_limit;
+	service->idle_kill = set->idle_kill;
 	service->type = service->set->parsed_type;
-
-	if (set->process_limit == 0) {
-		/* use default */
-		service->process_limit =
-			service_list->set->default_process_limit;
-	} else {
-		service->process_limit = set->process_limit;
-	}
+	service->process_limit = set->process_limit;
 
 	/* default gid to user's primary group */
 	if (get_uidgid(set->user, &service->uid, &service->gid, error_r) < 0) {
