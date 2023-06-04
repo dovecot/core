@@ -233,7 +233,7 @@ const struct mail_namespace_settings mail_namespace_default_settings = {
 	.separator = "",
 	.prefix = "",
 	.location = "",
-	.alias_for = NULL,
+	.alias_for = "",
 
 	.inbox = FALSE,
 	.hidden = FALSE,
@@ -369,11 +369,11 @@ static bool mail_cache_fields_parse(const char *key, const char *value,
 }
 
 static int
-mail_storage_settings_find_ns_by_prefix(struct event *event,
-					struct mail_storage_settings *set,
-					const char *ns_prefix,
-					const struct mail_namespace_settings **ns_r,
-					const char **error_r)
+mail_storage_settings_find_ns(struct event *event,
+			      struct mail_storage_settings *set,
+			      const char *wanted_name,
+			      const struct mail_namespace_settings **ns_r,
+			      const char **error_r)
 {
 	const struct mail_namespace_settings *ns;
 	const char *ns_name, *error;
@@ -389,7 +389,7 @@ mail_storage_settings_find_ns_by_prefix(struct event *event,
 				ns_name, error);
 			return -1;
 		}
-		if (strcmp(ns->prefix, ns_prefix) == 0) {
+		if (strcmp(ns->name, wanted_name) == 0) {
 			*ns_r = ns;
 			return 0;
 		}
@@ -429,12 +429,12 @@ mail_storage_settings_check_namespaces(struct event *event,
 		if (ns->parsed_have_special_use_mailboxes)
 			set->parsed_have_special_use_mailboxes = TRUE;
 
-		if (ns->alias_for == NULL) {
+		if (ns->alias_for[0] == '\0') {
 			settings_free(ns);
 			continue;
 		}
 
-		if (mail_storage_settings_find_ns_by_prefix(event, set,
+		if (mail_storage_settings_find_ns(event, set,
 				ns->alias_for, &alias_ns, error_r) < 0) {
 			settings_free(ns);
 			return FALSE;
@@ -442,13 +442,13 @@ mail_storage_settings_check_namespaces(struct event *event,
 		if (alias_ns == NULL) {
 			*error_r = t_strdup_printf(
 				"Namespace '%s': alias_for points to "
-				"unknown namespace: %s",
+				"unknown namespace name: %s",
 				ns->prefix != NULL ? ns->prefix : "",
 				ns->alias_for);
 			settings_free(ns);
 			return FALSE;
 		}
-		if (alias_ns->alias_for != NULL) {
+		if (alias_ns->alias_for[0] != '\0') {
 			*error_r = t_strdup_printf(
 				"Namespace '%s': alias_for chaining isn't "
 				"allowed: %s -> %s",

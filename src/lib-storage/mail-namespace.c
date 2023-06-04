@@ -19,7 +19,7 @@ static struct mail_namespace_settings prefixless_ns_set = {
 	.prefix = "",
 	.location = "fail::LAYOUT=none",
 	.unexpanded_location = "0fail::LAYOUT=none",
-	.alias_for = NULL,
+	.alias_for = "",
 
 	.inbox = FALSE,
 	.hidden = TRUE,
@@ -212,9 +212,9 @@ namespace_set_alias_for(struct mail_namespace *ns,
 			struct mail_namespace *all_namespaces,
 			const char **error_r)
 {
-	if (ns->set->alias_for != NULL) {
-		ns->alias_for = mail_namespace_find_prefix(all_namespaces,
-							   ns->set->alias_for);
+	if (ns->set->alias_for[0] != '\0') {
+		ns->alias_for = mail_namespace_find_name(all_namespaces,
+							 ns->set->alias_for);
 		if (ns->alias_for == NULL) {
 			*error_r = t_strdup_printf("Invalid namespace alias_for: %s",
 						   ns->set->alias_for);
@@ -824,6 +824,19 @@ mail_namespace_find_prefix_nosep(struct mail_namespace *namespaces,
 		if (ns->prefix_len == len + 1 &&
 		    strncmp(ns->prefix, prefix, len) == 0 &&
 		    ns->prefix[len] == mail_namespace_get_sep(ns))
+			return ns;
+	}
+	return NULL;
+}
+
+struct mail_namespace *
+mail_namespace_find_name(struct mail_namespace *namespaces,
+			 const char *name)
+{
+        struct mail_namespace *ns;
+
+	for (ns = namespaces; ns != NULL; ns = ns->next) {
+		if (strcmp(ns->set->name, name) == 0)
 			return ns;
 	}
 	return NULL;
