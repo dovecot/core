@@ -36,6 +36,10 @@ static void config_export_size(string_t *str, uoff_t size)
 		str_append_c(str, '0');
 		return;
 	}
+	if (size == SET_SIZE_UNLIMITED) {
+		str_append(str, SET_VALUE_UNLIMITED);
+		return;
+	}
 	for (i = 1; i < N_ELEMENTS(suffixes) && (size % 1024) == 0; i++) {
 		suffix = suffixes[i];
 		size /= 1024;
@@ -49,6 +53,10 @@ static void config_export_time(string_t *str, unsigned int stamp)
 
 	if (stamp == 0) {
 		str_append_c(str, '0');
+		return;
+	}
+	if (stamp == SET_TIME_INFINITE) {
+		str_append(str, SET_VALUE_INFINITE);
 		return;
 	}
 
@@ -74,7 +82,9 @@ static void config_export_time(string_t *str, unsigned int stamp)
 
 static void config_export_time_msecs(string_t *str, unsigned int stamp_msecs)
 {
-	if ((stamp_msecs % 1000) == 0)
+	if (stamp_msecs == SET_TIME_MSECS_INFINITE)
+		str_append(str, SET_VALUE_INFINITE);
+	else if ((stamp_msecs % 1000) == 0)
 		config_export_time(str, stamp_msecs/1000);
 	else
 		str_printfa(str, "%u ms", stamp_msecs);
@@ -97,25 +107,26 @@ bool config_export_type(string_t *str, const void *value,
 		break;
 	}
 	case SET_UINT:
-	case SET_UINT_OCT:
+	case SET_UINT_OCT: {
+		const unsigned int *val = value;
+		if (*val == SET_UINT_UNLIMITED) {
+			str_append(str, SET_VALUE_UNLIMITED);
+			break;
+		}
+		if (type == SET_UINT_OCT)
+			str_printfa(str, "0%o", *val);
+		else
+			str_printfa(str, "%u", *val);
+		break;
+	}
 	case SET_TIME:
 	case SET_TIME_MSECS: {
 		const unsigned int *val = value;
 
-		switch (type) {
-		case SET_UINT_OCT:
-			str_printfa(str, "0%o", *val);
-			break;
-		case SET_TIME:
+		if (type == SET_TIME)
 			config_export_time(str, *val);
-			break;
-		case SET_TIME_MSECS:
+		else
 			config_export_time_msecs(str, *val);
-			break;
-		default:
-			str_printfa(str, "%u", *val);
-			break;
-		}
 		break;
 	}
 	case SET_IN_PORT: {

@@ -306,6 +306,8 @@ settings_value_check(struct config_parser_context *ctx,
 
 		if (strchr(value, '%') != NULL)
 			break;
+		if (settings_value_is_unlimited(value))
+			break;
 		if (str_to_uint(value, &num) < 0) {
 			ctx->error = p_strdup_printf(ctx->pool,
 				"Invalid number %s: %s", value,
@@ -318,6 +320,8 @@ settings_value_check(struct config_parser_context *ctx,
 		unsigned int interval;
 		if (strchr(value, '%') != NULL)
 			break;
+		if (settings_value_is_unlimited(value))
+			break;
 		if (str_parse_get_interval(value, &interval, &error) < 0) {
 			ctx->error = p_strdup(ctx->pool, error);
 			return -1;
@@ -328,6 +332,8 @@ settings_value_check(struct config_parser_context *ctx,
 		unsigned int interval;
 		if (strchr(value, '%') != NULL)
 			break;
+		if (settings_value_is_unlimited(value))
+			break;
 		if (str_parse_get_interval_msecs(value, &interval, &error) < 0) {
 			ctx->error = p_strdup(ctx->pool, error);
 			return -1;
@@ -337,6 +343,8 @@ settings_value_check(struct config_parser_context *ctx,
 	case SET_SIZE: {
 		uoff_t size;
 		if (strchr(value, '%') != NULL)
+			break;
+		if (settings_value_is_unlimited(value))
 			break;
 		if (str_parse_get_size(value, &size, &error) < 0) {
 			ctx->error = p_strdup(ctx->pool, error);
