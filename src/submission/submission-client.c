@@ -69,11 +69,13 @@ static void client_parse_backend_capabilities(struct client *client)
 	const char *const *str;
 
 	client->backend_capabilities = SMTP_CAPABILITY_NONE;
-	if (set->submission_backend_capabilities == NULL)
+	if (set->submission_backend_capabilities[0] == '\0')
 		return;
 
 	str = t_strsplit_spaces(set->submission_backend_capabilities, " ,");
 	for (; *str != NULL; str++) {
+		if (strcmp(*str, "none") == 0)
+			continue;
 		enum smtp_capability cap = smtp_capability_find_by_name(*str);
 
 		if (cap == SMTP_CAPABILITY_NONE) {

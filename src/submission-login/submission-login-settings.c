@@ -74,7 +74,7 @@ static const struct submission_login_settings submission_login_default_settings 
 
 	.submission_max_mail_size = 0,
 	.submission_client_workarounds = "",
-	.submission_backend_capabilities = NULL
+	.submission_backend_capabilities = "",
 };
 
 const struct setting_parser_info submission_login_setting_parser_info = {
