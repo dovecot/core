@@ -170,6 +170,10 @@ mail_namespace_find_prefix(struct mail_namespace *namespaces,
 struct mail_namespace *
 mail_namespace_find_prefix_nosep(struct mail_namespace *namespaces,
 				 const char *prefix);
+/* Find namespace with given name. */
+struct mail_namespace *
+mail_namespace_find_name(struct mail_namespace *namespaces,
+			 const char *name);
 
 /* Called internally by mailbox_list_create(). */
 void mail_namespace_finish_list_init(struct mail_namespace *ns,
