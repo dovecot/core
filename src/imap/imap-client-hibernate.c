@@ -57,7 +57,7 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 
 	str_append_tabescaped(cmd, user->username);
 	str_append_c(cmd, '\t');
-	str_append_tabescaped(cmd, user->set->mail_log_prefix);
+	str_append_tabescaped(cmd, user->set->unexpanded_mail_log_prefix);
 	str_printfa(cmd, "\tidle_notify_interval=%u",
 		    client->set->imap_idle_notify_interval);
 	if (fstat(client->fd_in, &peer_st) == 0) {

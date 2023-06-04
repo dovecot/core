@@ -23,6 +23,7 @@ static bool mail_storage_settings_ext_check(struct event *event, void *_set, poo
 static bool namespace_settings_apply(struct event *event, void *_set, const char *key, const char *value, bool override, const char **error_r);
 static bool namespace_settings_ext_check(struct event *event, void *_set, pool_t pool, const char **error_r);
 static bool mailbox_settings_check(void *_set, pool_t pool, const char **error_r);
+static bool mail_user_settings_apply(struct event *event, void *_set, const char *key, const char *value, bool override, const char **error_r);
 static bool mail_user_settings_check(void *_set, pool_t pool, const char **error_r);
 
 #undef DEF
@@ -331,6 +332,7 @@ const struct setting_parser_info mail_user_setting_parser_info = {
 
 	.struct_size = sizeof(struct mail_user_settings),
 	.pool_offset1 = 1 + offsetof(struct mail_user_settings, pool),
+	.setting_apply = mail_user_settings_apply,
 	.check_func = mail_user_settings_check,
 };
 
@@ -805,12 +807,26 @@ static bool parse_postmaster_address(const char *address, pool_t pool,
 }
 #endif
 
+static bool
+mail_user_settings_apply(struct event *event ATTR_UNUSED, void *_set,
+			 const char *key, const char *value,
+			 bool override ATTR_UNUSED,
+			 const char **error_r ATTR_UNUSED)
+{
+	struct mail_user_settings *set = _set;
+
+	if (strcmp(key, "mail_log_prefix") == 0)
+		set->unexpanded_mail_log_prefix = value;
+	return TRUE;
+}
+
 static bool mail_user_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				     const char **error_r ATTR_UNUSED)
 {
 	struct mail_user_settings *set = _set;
 
 #ifndef CONFIG_BINARY
+	i_assert(set->unexpanded_mail_log_prefix != NULL);
 	fix_base_path(set, pool, &set->auth_socket_path);
 
 	if (*set->hostname == '\0')
