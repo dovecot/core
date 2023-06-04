@@ -149,6 +149,7 @@ struct mail_user_settings {
 	   directly accessing this. */
 	const struct message_address *_parsed_postmaster_address;
 	const struct smtp_address *_parsed_postmaster_address_smtp;
+	const char *unexpanded_mail_log_prefix;
 };
 
 extern const struct setting_parser_info mail_user_setting_parser_info;
