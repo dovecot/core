@@ -161,11 +161,11 @@ static const struct service_settings service_default_settings = {
 	.drop_priv_before_exec = FALSE,
 
 	.process_min_avail = 0,
-	.process_limit = 0,
-	.client_limit = 0,
+	.process_limit = 100,
+	.client_limit = 1000,
 	.service_count = 0,
-	.idle_kill = 0,
-	.vsz_limit = UOFF_T_MAX,
+	.idle_kill = 60,
+	.vsz_limit = 256*1024*1024,
 
 	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
@@ -197,10 +197,6 @@ static const struct setting_define master_setting_defines[] = {
 	DEF(STR, default_internal_user),
 	DEF(STR, default_internal_group),
 	DEF(STR, default_login_user),
-	DEF(UINT, default_process_limit),
-	DEF(UINT, default_client_limit),
-	DEF(TIME, default_idle_kill),
-	DEF(SIZE, default_vsz_limit),
 
 	DEF(BOOL, version_ignore),
 
@@ -227,10 +223,6 @@ static const struct master_settings master_default_settings = {
 	.default_internal_user = "dovecot",
 	.default_internal_group = "dovecot",
 	.default_login_user = "dovenull",
-	.default_process_limit = 100,
-	.default_client_limit = 1000,
-	.default_idle_kill = 60,
-	.default_vsz_limit = 256*1024*1024,
 
 	.version_ignore = FALSE,
 
@@ -402,14 +394,10 @@ service_get_client_limit(struct master_settings *set, const char *name)
 	struct service_settings *service;
 
 	array_foreach_elem(&set->parsed_services, service) {
-		if (strcmp(service->name, name) == 0) {
-			if (service->client_limit != 0)
-				return service->client_limit;
-			else
-				return set->default_client_limit;
-		}
+		if (strcmp(service->name, name) == 0)
+			return service->client_limit;
 	}
-	return set->default_client_limit;
+	i_panic("Unexpectedly didn't find service %s", name);
 }
 
 static bool service_is_enabled(const struct master_settings *set,
@@ -562,8 +550,8 @@ master_settings_ext_check(struct event *event, void *_set,
 	const struct service_settings *default_service;
 #else
 	rlim_t fd_limit;
-	const char *max_client_limit_source = "default_client_limit";
-	unsigned int max_client_limit = set->default_client_limit;
+	const char *max_client_limit_source = "BUG";
+	unsigned int max_client_limit = 0;
 #endif
 
 	if (*set->listen == '\0') {
@@ -679,15 +667,31 @@ master_settings_ext_check(struct event *event, void *_set,
 			return FALSE;
 		}
 		process_limit = service->process_limit;
-		if (process_limit == 0)
-			process_limit = set->default_process_limit;
+		if (process_limit == 0) {
+			*error_r = t_strdup_printf("service(%s): "
+				"process_limit must be higher than 0",
+				service->name);
+			return FALSE;
+		}
 		if (service->process_min_avail > process_limit) {
 			*error_r = t_strdup_printf("service(%s): "
 				"process_min_avail is higher than process_limit",
 				service->name);
 			return FALSE;
 		}
-		if (service->vsz_limit < 1024*1024 && service->vsz_limit != 0) {
+		if (service->client_limit == 0) {
+			*error_r = t_strdup_printf("service(%s): "
+				"client_limit must be higher than 0",
+				service->name);
+			return FALSE;
+		}
+		if (service->idle_kill == 0) {
+			*error_r = t_strdup_printf("service(%s): "
+				"idle_kill must be higher than 0",
+				service->name);
+			return FALSE;
+		}
+		if (service->vsz_limit < 1024*1024) {
 			*error_r = t_strdup_printf("service(%s): "
 				"vsz_limit is too low", service->name);
 			return FALSE;
