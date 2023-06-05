@@ -2554,8 +2554,13 @@ void mailbox_search_notify(struct mailbox *box, struct mail_search_context *ctx)
 		ctx->last_notify = ctx->search_start_time;
 
 	if (box->storage->callbacks.notify_progress == NULL ||
-	    ctx->progress_hidden ||
-	    ioloop_time - ctx->last_notify.tv_sec < MAIL_STORAGE_NOTIFY_INTERVAL_SECS)
+	    ctx->progress_hidden)
+	    	return;
+
+	if (++ctx->search_notify_passes % 1024 == 0)
+		io_loop_time_refresh();
+
+	if (ioloop_time - ctx->last_notify.tv_sec < MAIL_STORAGE_NOTIFY_INTERVAL_SECS)
 	    	return;
 
 	struct mail_storage_progress_details dtl = {
