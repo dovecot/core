@@ -331,9 +331,13 @@ config_dump_full_sections(struct config_parsed *config,
 	uint32_t filter_indexes_be32[max_filter_count];
 	uint64_t filter_offsets_be64[max_filter_count];
 
-	for (unsigned int i = 1; filters[i] != NULL && ret == 0; i++) T_BEGIN {
+	for (unsigned int i = 1; filters[i] != NULL && ret == 0; i++) {
 		const struct config_filter_parser *filter = filters[i];
 		uoff_t start_offset = output->offset;
+
+		if (filter->module_parsers[parser_idx].parser == NULL &&
+		    filter->module_parsers[parser_idx].delayed_error == NULL)
+			continue;
 
 		dump_ctx.filter = &filter->filter;
 		dump_ctx.filter_idx = i;
@@ -373,7 +377,7 @@ config_dump_full_sections(struct config_parsed *config,
 				cpu64_to_be(start_offset);
 			filter_count++;
 		}
-	} T_END;
+	}
 
 	if (str_len(delayed_filter) > 0) {
 		filter_indexes_be32[filter_count] = 0; /* empty/global filter */
