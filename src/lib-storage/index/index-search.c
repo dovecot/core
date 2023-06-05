@@ -1812,6 +1812,7 @@ static int search_more(struct index_search_context *ctx,
 			ret = -1;
 			break;
 		}
+		mailbox_search_notify(ctx->box, &ctx->mail_ctx);
 	}
 	return ret;
 }
