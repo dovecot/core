@@ -446,6 +446,29 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 	return 0;
 }
 
+static void settings_mmap_apply_defaults(struct settings_apply_ctx *ctx)
+{
+	const char *error;
+	unsigned int key_idx;
+
+	for (key_idx = 0; ctx->info->defines[key_idx].key != NULL; key_idx++) {
+		void *set = PTR_OFFSET(ctx->info->defaults,
+				       ctx->info->defines[key_idx].offset);
+		if (ctx->info->defines[key_idx].type != SET_STR_VARS)
+			continue; /* not needed for now */
+		const char *key = ctx->info->defines[key_idx].key;
+		const char *const *valuep = set;
+		if (*valuep == NULL)
+			continue;
+
+		if (ctx->info->setting_apply != NULL &&
+		    !ctx->info->setting_apply(ctx->event, ctx->set_struct, key,
+					      *valuep, TRUE, &error))
+			i_panic("BUG: Failed to apply default setting %s=%s: %s",
+				key, *valuep, error);
+	}
+}
+
 static int
 settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 			 struct settings_mmap_block *block,
@@ -1010,6 +1033,7 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 				    ctx->info->pool_offset1 - 1);
 	*pool_p = set_pool;
 
+	settings_mmap_apply_defaults(ctx);
 	if (ctx->instance->mmap != NULL) {
 		ret = settings_mmap_apply(ctx, &error);
 		if (ret < 0) {
