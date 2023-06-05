@@ -1065,8 +1065,11 @@ config_all_parsers_check(struct config_parser_context *ctx,
 		return -1;
 	}
 
-	int fd = config_dump_full(new_config, CONFIG_DUMP_FULL_DEST_TEMPDIR, 0,
-				  NULL);
+	int fd;
+	T_BEGIN {
+		fd = config_dump_full(new_config, CONFIG_DUMP_FULL_DEST_TEMPDIR,
+				      0, NULL);
+	} T_END;
 	if (fd == -1) {
 		*error_r = "Failed to write binary config file";
 		return -1;
