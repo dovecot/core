@@ -39,7 +39,7 @@
 			     NUL = no error, followed by settings>
      Repeat until "base settings size" is reached:
        <32bit big-endian: key index number>
-       [<strlist key>]
+       [<strlist/boollist key>]
        <NUL-terminated string: value>
 
      <32bit big-endian: filter count>
@@ -48,7 +48,7 @@
        <NUL-terminated string: error string>
        Repeat until "filter settings size" is reached:
          <32bit big-endian: key index number>
-	 [<strlist key>]
+	 [<strlist/boollist key>]
 	 <NUL-terminated string: value>
      Repeat for "filter count":
        <32bit big-endian: event filter string index number>
@@ -242,7 +242,7 @@ static void config_dump_full_callback(const struct config_export_setting *set,
 		o_stream_nsend(ctx->output, &key_be32, sizeof(key_be32));
 		const struct setting_define *def =
 			&ctx->info->defines[set->key_define_idx];
-		if (def->type == SET_STRLIST) {
+		if (def->type == SET_STRLIST || def->type == SET_BOOLLIST) {
 			const char *suffix;
 			if (!str_begins(set->key, def->key, &suffix) ||
 			    suffix[0] != '/')

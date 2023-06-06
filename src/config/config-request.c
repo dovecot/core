@@ -157,7 +157,6 @@ settings_export(struct config_export_context *ctx,
 	const struct setting_parser_info *info = module_parser->info;
 	uint8_t change_value;
 	unsigned int i, count, define_idx;
-	const char *str;
 	bool dump, dump_default = FALSE;
 
 	for (define_idx = 0; info->defines[define_idx].key != NULL; define_idx++) {
@@ -250,7 +249,8 @@ settings_export(struct config_export_context *ctx,
 			dump = TRUE;
 			break;
 		}
-		case SET_STRLIST: {
+		case SET_STRLIST:
+		case SET_BOOLLIST: {
 			const ARRAY_TYPE(const_string) *val =
 				module_parser->settings[define_idx].array;
 			const char *const *strings;
@@ -275,19 +275,17 @@ settings_export(struct config_export_context *ctx,
 			};
 			ctx->callback(&export_set, ctx->context);
 
+			export_set.type = def->type == SET_STRLIST ?
+				CONFIG_KEY_NORMAL : CONFIG_KEY_BOOLLIST_ELEM;
 			strings = array_get(val, &count);
 			i_assert(count % 2 == 0);
 			for (i = 0; i < count; i += 2) T_BEGIN {
-				str = t_strdup_printf("%s%c%s",
+				export_set.key = t_strdup_printf("%s%c%s",
 						      def->key,
 						      SETTINGS_SEPARATOR,
 						      strings[i]);
-				struct config_export_setting export_set = {
-					.type = CONFIG_KEY_NORMAL,
-					.key = str,
-					.key_define_idx = define_idx,
-					.value = strings[i+1],
-				};
+				export_set.list_idx = i / 2;
+				export_set.value = strings[i+1];
 				ctx->callback(&export_set, ctx->context);
 			} T_END;
 			break;

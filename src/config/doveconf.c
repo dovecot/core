@@ -42,6 +42,7 @@ struct config_dump_human_context {
 };
 
 #define LIST_KEY_PREFIX "\001"
+#define BOOLLIST_ELEM_KEY_PREFIX "\002"
 
 static struct config_parsed *config;
 static const char *indent_str = "                              !!!!";
@@ -61,11 +62,21 @@ static void
 config_request_get_strings(const struct config_export_setting *set,
 			   struct config_dump_human_context *ctx)
 {
-	const char *value;
+	const char *p, *value;
 
 	switch (set->type) {
 	case CONFIG_KEY_NORMAL:
 		value = p_strdup_printf(ctx->pool, "%s=%s", set->key, set->value);
+		break;
+	case CONFIG_KEY_BOOLLIST_ELEM:
+		/* add list index as the prefix to preserve the configured
+		   order when sorting the strings. */
+		p = strchr(set->key, SETTINGS_SEPARATOR);
+		i_assert(p != NULL);
+		value = p_strdup_printf(ctx->pool, "%.*s/"
+					BOOLLIST_ELEM_KEY_PREFIX"%08x/%s=%s",
+					(int)(p - set->key), set->key,
+					set->list_idx, p + 1, set->value);
 		break;
 	case CONFIG_KEY_LIST:
 		value = p_strdup_printf(ctx->pool, LIST_KEY_PREFIX"%s=%s",
@@ -419,6 +430,13 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		if (!hide_key)
 			o_stream_nsend(output, indent_str, indent*2);
 		key = strings[i] + skip_len;
+		if (skip_len > 0 && key[0] == BOOLLIST_ELEM_KEY_PREFIX[0]) {
+			/* skip the boollist order index */
+			key = strchr(key, SETTINGS_SEPARATOR);
+			i_assert(key != NULL);
+			key++;
+		}
+
 		const char *full_key = key;
 		if (strip_prefix != NULL && str_begins(key, strip_prefix, &key))
 			key++;

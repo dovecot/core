@@ -142,6 +142,57 @@ static void test_settings_parser(void)
 	test_end();
 }
 
+static void test_settings_parse_boollist_string(void)
+{
+	const struct {
+		const char *input;
+		const char *const *output;
+	} tests[] = {
+		{ "", (const char *const *) { NULL } },
+		{ "foo", (const char *const []) { "foo", NULL } },
+		{ "foo bar", (const char *const []) { "foo", "bar", NULL } },
+		{ "foo bar,baz", (const char *const []) { "foo", "bar", "baz", NULL } },
+		{ ", foo, ,  b\\\\ar  ", (const char *const []) { "foo", "b\\\\ar", NULL } },
+
+		{ "\"\"", (const char *const []) { "", NULL } },
+		{ "\",.\"", (const char *const []) { ",.", NULL } },
+		{ "\"esc\\\\str\"", (const char *const []) { "esc\\str", NULL } },
+		{ "\"quotes\\\"str\"", (const char *const []) { "quotes\"str", NULL } },
+		{ "\"val1\", \"val2\" \"val3\"", (const char *const []) { "val1", "val2", "val3", NULL } },
+	};
+	const struct {
+		const char *input;
+		const char *error;
+	} error_tests[] = {
+		{ "\"", "Missing ending '\"'" },
+		{ "\"foo\\", "Value ends with '\\'" },
+		{ "x\"", "'\"' in the middle of a string" },
+		{ "\"v1\"x", "Expected ',' or ' ' after '\"'" },
+		{ "\"v1\"\"", "Expected ',' or ' ' after '\"'" },
+	};
+	ARRAY_TYPE(const_string) output;
+	const char *value, *error;
+
+	test_begin("settings_parse_boollist_string()");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) T_BEGIN {
+		t_array_init(&output, 8);
+		test_assert_idx(settings_parse_boollist_string(tests[i].input,
+			pool_datastack_create(), &output, &error) == 0, i);
+		test_assert_idx(array_count(&output) == str_array_length(tests[i].output), i);
+		unsigned int j = 0;
+		array_foreach_elem(&output, value)
+			test_assert_strcmp_idx(tests[i].output[j++], value, i);
+	} T_END;
+
+	t_array_init(&output, 8);
+	for (unsigned int i = 0; i < N_ELEMENTS(error_tests); i++) {
+		test_assert_idx(settings_parse_boollist_string(error_tests[i].input,
+			pool_datastack_create(), &output, &error) < 0, i);
+		test_assert_strcmp_idx(error, error_tests[i].error, i);
+	};
+	test_end();
+}
+
 static void test_settings_section_escape(void)
 {
 	const struct {
@@ -172,6 +223,7 @@ int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_settings_parser,
+		test_settings_parse_boollist_string,
 		test_settings_section_escape,
 		NULL
 	};

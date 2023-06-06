@@ -474,8 +474,8 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 		return -1;
 	}
 
-	if (list_key == NULL &&
-	    (ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0 &&
+	if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0 &&
+	    ctx->info->defines[key_idx].type != SET_STRLIST &&
 	    ctx->info->defines[key_idx].type != SET_STR_NOVARS &&
 	    ctx->info->defines[key_idx].type != SET_FILTER_ARRAY) {
 		const char *error;
@@ -580,24 +580,27 @@ settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 		}
 		offset += sizeof(key_idx);
 
-		bool set_apply;
+		bool set_apply = TRUE;
 		const char *list_key = NULL;
-		if (ctx->info->defines[key_idx].type == SET_STRLIST) {
+
+		bool *setp = array_idx_get_space(&ctx->set_seen, key_idx);
+		if (*setp) {
+			/* Already seen this setting - don't set it again.
+			   This check is used also with boollists when the
+			   whole list is replaced. */
+			set_apply = FALSE;
+		}
+		if (ctx->info->defines[key_idx].type == SET_STRLIST ||
+		    ctx->info->defines[key_idx].type == SET_BOOLLIST) {
 			list_key = (const char *)mmap->mmap_base + offset;
 			offset += strlen(list_key)+1;
-			set_apply = !settings_parse_list_has_key(ctx->parser,
-					key_idx, list_key);
+			set_apply = set_apply &&
+				!settings_parse_list_has_key(ctx->parser,
+							     key_idx, list_key);
 		} else if (ctx->info->defines[key_idx].type == SET_FILTER_ARRAY)
 			set_apply = TRUE;
-		else {
-			bool *setp = array_idx_get_space(&ctx->set_seen, key_idx);
-			if (*setp)
-				set_apply = FALSE;
-			else {
-				*setp = TRUE;
-				set_apply = TRUE;
-			}
-		}
+		else if (set_apply)
+			*setp = TRUE;
 
 		if (offset >= end_offset) {
 			/* if offset==end_offset, the value is missing. */
@@ -1024,7 +1027,8 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 			filter_finished = FALSE;
 			break;
 		}
-		if (ctx->info->defines[key_idx].type == SET_STRLIST)
+		if (ctx->info->defines[key_idx].type == SET_STRLIST ||
+		    ctx->info->defines[key_idx].type == SET_BOOLLIST)
 			break;
 
 		if (filter_string == NULL)
@@ -1199,12 +1203,14 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			continue;
 		}
 		bool track_seen = ctx->info->defines[key_idx].type != SET_FILTER_ARRAY;
-		if (ctx->info->defines[key_idx].type == SET_STRLIST) {
+		if (ctx->info->defines[key_idx].type == SET_STRLIST ||
+		    ctx->info->defines[key_idx].type == SET_BOOLLIST) {
 			const char *suffix;
 			if (!str_begins(key, ctx->info->defines[key_idx].key, &suffix))
 				i_unreached();
 			if (suffix[0] != '/') {
-				/* invalid */
+				/* replace full boollist setting
+				   (invalid for strlist) */
 				i_assert(suffix[0] == '\0');
 			} else if (settings_parse_list_has_key(ctx->parser,
 						key_idx, suffix + 1))
