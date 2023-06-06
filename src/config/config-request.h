@@ -29,6 +29,7 @@ enum config_dump_flags {
 
 enum config_key_type {
 	CONFIG_KEY_NORMAL,
+	CONFIG_KEY_BOOLLIST_ELEM,
 	CONFIG_KEY_LIST,
 	CONFIG_KEY_FILTER_ARRAY,
 };
@@ -37,6 +38,7 @@ struct config_export_setting {
 	enum config_key_type type;
 	const char *key;
 	unsigned int key_define_idx;
+	unsigned int list_idx;
 	const char *value;
 };
 

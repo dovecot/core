@@ -6,6 +6,11 @@
 #include "str-parse.h"
 #include "settings-parser.h"
 
+struct boollist_removal {
+	ARRAY_TYPE(const_string) *array;
+	const char *key_suffix;
+};
+
 struct setting_parser_context {
 	pool_t set_pool, parser_pool;
 	int refcount;
@@ -15,6 +20,7 @@ struct setting_parser_context {
 
 	/* Pointer to structure containing the values */
 	void *set_struct;
+	ARRAY(struct boollist_removal) boollist_removals;
 
 	unsigned int linenum;
 	char *error;
@@ -138,7 +144,8 @@ bool setting_parser_info_find_key(const struct setting_parser_info *info,
 			*idx_r = i;
 			return TRUE;
 		} else if (suffix[0] == '/' &&
-			   info->defines[i].type == SET_STRLIST) {
+			   (info->defines[i].type == SET_STRLIST ||
+			    info->defines[i].type == SET_BOOLLIST)) {
 			/* strlist key */
 			*idx_r = i;
 			return TRUE;
@@ -292,6 +299,133 @@ settings_parse_strlist(struct setting_parser_context *ctx,
 	array_push_back(array, &vvalue);
 }
 
+int settings_parse_boollist_string(const char *value, pool_t pool,
+				   ARRAY_TYPE(const_string) *dest,
+				   const char **error_r)
+{
+	string_t *elem = t_str_new(32);
+	const char *elem_dup;
+	bool quoted = FALSE, end_of_quote = FALSE;
+	for (unsigned int i = 0; value[i] != '\0'; i++) {
+		switch (value[i]) {
+		case '"':
+			if (!quoted) {
+				/* beginning of a string */
+				if (str_len(elem) != 0) {
+					*error_r = "'\"' in the middle of a string";
+					return -1;
+				}
+				quoted = TRUE;
+			} else if (end_of_quote) {
+				*error_r = "Expected ',' or ' ' after '\"'";
+				return -1;
+			} else {
+				/* end of a string */
+				end_of_quote = TRUE;
+			}
+			break;
+		case ' ':
+		case ',':
+			if (quoted && !end_of_quote) {
+				/* inside a "quoted string" */
+				str_append_c(elem, value[i]);
+				break;
+			}
+
+			if (quoted || str_len(elem) > 0) {
+				elem_dup = p_strdup(pool, str_c(elem));
+				array_push_back(dest, &elem_dup);
+				str_truncate(elem, 0);
+			}
+			quoted = FALSE;
+			end_of_quote = FALSE;
+			break;
+		case '\\':
+			if (quoted) {
+				i++;
+				if (value[i] == '\0') {
+					*error_r = "Value ends with '\\'";
+					return -1;
+				}
+			}
+			/* fall through */
+		default:
+			if (end_of_quote) {
+				*error_r = "Expected ',' or ' ' after '\"'";
+				return -1;
+			}
+			str_append_c(elem, value[i]);
+			break;
+		}
+	}
+	if (quoted && !end_of_quote) {
+		*error_r = "Missing ending '\"'";
+		return -1;
+	}
+	if (quoted || str_len(elem) > 0) {
+		elem_dup = p_strdup(pool, str_c(elem));
+		array_push_back(dest, &elem_dup);
+	}
+	return 0;
+}
+
+static int
+settings_parse_boollist(struct setting_parser_context *ctx,
+			ARRAY_TYPE(const_string) *array,
+			const char *key, const char *value)
+{
+	const char *const *elem, *error;
+
+	if (!array_is_created(array))
+		p_array_init(array, ctx->set_pool, 5);
+
+	key = strrchr(key, SETTINGS_SEPARATOR);
+	if (key == NULL) {
+		/* replace the whole boollist */
+		array_clear(array);
+		if (settings_parse_boollist_string(value, ctx->set_pool,
+						   array, &error) < 0) {
+			settings_parser_set_error(ctx, error);
+			return -1;
+		}
+		/* keep it NULL-terminated for each access */
+		array_append_zero(array);
+		array_pop_back(array);
+		return 0;
+	}
+	key++;
+
+	bool value_bool;
+	if (get_bool(ctx, value, &value_bool) < 0)
+		return -1;
+
+	elem = array_lsearch(array, &key, i_strcmp_p);
+	if (elem == NULL && value_bool) {
+		/* add missing element */
+		key = p_strdup(ctx->set_pool, key);
+		array_push_back(array, &key);
+	} else if (!value_bool) {
+		/* remove unwanted element */
+		if (elem != NULL) {
+			key = *elem;
+			array_delete(array, array_ptr_to_idx(array, elem), 1);
+		} else {
+			key = p_strdup(ctx->parser_pool, key);
+		}
+		/* remember the removal for settings_parse_list_has_key() */
+		if (!array_is_created(&ctx->boollist_removals))
+			p_array_init(&ctx->boollist_removals, ctx->parser_pool, 2);
+		struct boollist_removal *removal =
+			array_append_space(&ctx->boollist_removals);
+		removal->array = array;
+		removal->key_suffix = key;
+	}
+	/* keep it NULL-terminated for each access */
+	array_append_zero(array);
+	array_pop_back(array);
+	return 0;
+}
+
 static int
 settings_parse(struct setting_parser_context *ctx,
 	       const struct setting_define *def,
@@ -373,6 +507,10 @@ settings_parse(struct setting_parser_context *ctx,
 	case SET_STRLIST:
 		settings_parse_strlist(ctx, ptr, key, value);
 		break;
+	case SET_BOOLLIST:
+		if (settings_parse_boollist(ctx, ptr, key, value) < 0)
+			return -1;
+		break;
 	case SET_FILTER_ARRAY: {
 		/* Add filter names to the array. Userdb can add more simply
 		   by giving e.g. "namespace=newname" without it removing the
@@ -425,7 +563,8 @@ settings_find_key(struct setting_parser_context *ctx, const char *key,
 
 	parent_key = t_strdup_until(key, end);
 	def = setting_define_find(ctx->info, parent_key);
-	if (def != NULL && def->type == SET_STRLIST) {
+	if (def != NULL && (def->type == SET_STRLIST ||
+			    def->type == SET_BOOLLIST)) {
 		*def_r = def;
 		return TRUE;
 	}
@@ -477,12 +616,41 @@ int settings_parse_keyidx_value_nodup(struct setting_parser_context *ctx,
 			      key, value, FALSE);
 }
 
+static int boollist_removal_cmp(const struct boollist_removal *r1,
+				const struct boollist_removal *r2)
+{
+	if (r1->array != r2->array)
+		return 1;
+	return strcmp(r1->key_suffix, r2->key_suffix);
+}
+
 bool settings_parse_list_has_key(struct setting_parser_context *ctx,
 				 unsigned int key_idx,
 				 const char *key_suffix)
 {
 	const struct setting_define *def = &ctx->info->defines[key_idx];
-	i_assert(def->type == SET_STRLIST);
+	unsigned int skip = UINT_MAX;
+
+	switch (def->type) {
+	case SET_STRLIST:
+		skip = 2;
+		break;
+	case SET_BOOLLIST:
+		skip = 1;
+		if (!array_is_created(&ctx->boollist_removals))
+			break;
+
+		struct boollist_removal lookup = {
+			.array = PTR_OFFSET(ctx->set_struct, def->offset),
+			.key_suffix = key_suffix,
+		};
+		if (array_lsearch(&ctx->boollist_removals, &lookup,
+				  boollist_removal_cmp) != NULL)
+			return TRUE;
+		break;
+	default:
+		i_unreached();
+	}
 
 	ARRAY_TYPE(const_string) *array =
 		PTR_OFFSET(ctx->set_struct, def->offset);
@@ -491,7 +659,7 @@ bool settings_parse_list_has_key(struct setting_parser_context *ctx,
 
 	unsigned int i, count;
 	const char *const *items = array_get(array, &count);
-	for (i = 0; i < count; i += 2) {
+	for (i = 0; i < count; i += skip) {
 		if (strcmp(items[i], key_suffix) == 0)
 			return TRUE;
 	}
@@ -513,7 +681,7 @@ settings_parse_get_value(struct setting_parser_context *ctx,
 		/* Replace the key with the unaliased key. We assume here that
 		   lists don't have aliases, because the key replacement
 		   would only need to replace the key prefix then. */
-		i_assert(def->type != SET_STRLIST);
+		i_assert(def->type != SET_STRLIST && def->type != SET_BOOLLIST);
 		*key = def->key;
 	}
 	*type_r = def->type;

@@ -400,6 +400,7 @@ settings_value_check(struct config_parser_context *ctx,
 		}
 		break;
 	case SET_STRLIST:
+	case SET_BOOLLIST:
 	case SET_FILTER_ARRAY:
 		break;
 	case SET_FILTER_NAME:
@@ -468,6 +469,44 @@ static int config_apply_strlist(struct config_parser_context *ctx,
 	return 0;
 }
 
+static int config_apply_boollist(struct config_parser_context *ctx,
+				 const char *key, const char *value,
+				 ARRAY_TYPE(const_string) **strlistp)
+{
+	ARRAY_TYPE(const_string) boollist;
+	const char *error;
+	bool b;
+
+	if (strchr(key, SETTINGS_SEPARATOR) != NULL) {
+		if (strchr(value, '%') == NULL &&
+		    str_parse_get_bool(value, &b, &error) < 0) {
+			ctx->error = p_strdup(ctx->pool, error);
+			return -1;
+		}
+		return config_apply_strlist(ctx, key, value, strlistp);
+	}
+
+	/* replace the whole list */
+	t_array_init(&boollist, 16);
+	if (settings_parse_boollist_string(value, ctx->pool, &boollist,
+					   &error) < 0) {
+		ctx->error = p_strdup(ctx->pool, error);
+		return -1;
+	}
+	if (*strlistp == NULL) {
+		*strlistp = p_new(ctx->pool, ARRAY_TYPE(const_string), 1);
+		p_array_init(*strlistp, ctx->pool, array_count(&boollist));
+	} else {
+		array_clear(*strlistp);
+	}
+	const char *yes = "yes";
+	array_foreach_elem(&boollist, key) {
+		array_push_back(*strlistp, &key);
+		array_push_back(*strlistp, &yes);
+	}
+	return 0;
+}
+
 static void config_apply_filter_array(struct config_parser_context *ctx,
 				      const char *value,
 				      ARRAY_TYPE(const_string) **namesp)
@@ -512,6 +551,11 @@ config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 		switch (l->info->defines[config_key->define_idx].type) {
 		case SET_STRLIST:
 			if (config_apply_strlist(ctx, key, value,
+					&l->settings[config_key->define_idx].array) < 0)
+				return -1;
+			break;
+		case SET_BOOLLIST:
+			if (config_apply_boollist(ctx, key, value,
 					&l->settings[config_key->define_idx].array) < 0)
 				return -1;
 			break;
@@ -957,7 +1001,8 @@ config_module_parser_get_set_parser(const struct config_module_parser *p,
 			continue;
 
 		switch (p->info->defines[i].type) {
-		case SET_STRLIST: {
+		case SET_STRLIST:
+		case SET_BOOLLIST: {
 			unsigned int j, count;
 			const char *const *strings =
 				array_get(p->settings[i].array, &count);
@@ -1059,6 +1104,7 @@ get_str_setting(struct config_filter_parser *parser, const char *key,
 						 &key_idx) &&
 		    module_parser->change_counters[key_idx] != 0) {
 			i_assert(module_parser->info->defines[key_idx].type != SET_STRLIST &&
+				 module_parser->info->defines[key_idx].type != SET_BOOLLIST &&
 				 module_parser->info->defines[key_idx].type != SET_FILTER_ARRAY);
 			return module_parser->settings[key_idx].str;
 		}
@@ -1487,7 +1533,7 @@ config_get_value(struct config_section_stack *section,
 		&section->module_parsers[config_key->info_idx];
 	const struct setting_define *def =
 		&l->info->defines[config_key->define_idx];
-	if (def->type == SET_STRLIST ||
+	if (def->type == SET_STRLIST || def->type == SET_BOOLLIST ||
 	    def->type == SET_FILTER_NAME || def->type == SET_FILTER_ARRAY)
 		return FALSE;
 
@@ -1737,7 +1783,7 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 			break;
 		}
 
-		/* This is SET_STRLIST */
+		/* This is SET_STRLIST or SET_BOOLLIST */
 		str_append(ctx->key_path, line->key);
 		str_append_c(ctx->key_path, SETTINGS_SEPARATOR);
 		break;
@@ -2001,7 +2047,8 @@ config_module_parsers_get_setting(const struct config_module_parser *module_pars
 	}
 
 	const struct setting_define *def = &l->info->defines[key_idx];
-	i_assert(def->type != SET_STRLIST && def->type != SET_FILTER_ARRAY);
+	i_assert(def->type != SET_STRLIST && def->type != SET_BOOLLIST &&
+		 def->type != SET_FILTER_ARRAY);
 	if (l->change_counters[key_idx] != 0)
 		return l->settings[key_idx].str;
 

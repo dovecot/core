@@ -31,6 +31,7 @@ enum setting_type {
 	SET_STR_NOVARS, /* string explicitly without %variables */
 	SET_ENUM,
 	SET_STRLIST, /* of type ARRAY_TYPE(const_string) */
+	SET_BOOLLIST, /* of type ARRAY_TYPE(const_string) - guaranteed NULL-terminted */
 	SET_ALIAS, /* alias name for above setting definition */
 	SET_FILTER_NAME,
 	SET_FILTER_ARRAY,
@@ -77,6 +78,8 @@ struct setting_define {
 	SETTING_DEFINE_STRUCT_TYPE(SET_STR_NOVARS, 0, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_ENUM(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_ENUM, 0, const char *, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_BOOLLIST(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_BOOLLIST, 0, ARRAY_TYPE(const_string), key, name, struct_name)
 
 #define SETTING_DEFINE_STRUCT_BOOL_HIDDEN(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_BOOL, SET_FLAG_HIDDEN, bool, key, name, struct_name)
@@ -98,6 +101,8 @@ struct setting_define {
 	SETTING_DEFINE_STRUCT_TYPE(SET_STR_NOVARS, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_ENUM_HIDDEN(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_ENUM, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_BOOLLIST_HIDDEN(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_BOOLLIST, SET_FLAG_HIDDEN, ARRAY_TYPE(const_string), key, name, struct_name)
 
 struct setting_keyvalue {
 	const char *key;
@@ -194,6 +199,10 @@ bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
 			   struct event *event, const char **error_r);
 bool settings_check(struct event *event, const struct setting_parser_info *info,
 		    pool_t pool, void *set, const char **error_r);
+
+int settings_parse_boollist_string(const char *value, pool_t pool,
+				   ARRAY_TYPE(const_string) *dest,
+				   const char **error_r);
 
 /* Return section name escaped */
 const char *settings_section_escape(const char *name);
