@@ -522,7 +522,7 @@ static const struct master_settings *master_settings_read(void)
 				     &master_setting_parser_info);
 }
 
-static void main_log_startup(char **protocols)
+static void main_log_startup(const char *const *protocols)
 {
 #define STARTUP_STRING PACKAGE_NAME" v"DOVECOT_VERSION_FULL" starting up"
 	string_t *str = t_str_new(128);
@@ -534,7 +534,7 @@ static void main_log_startup(char **protocols)
 		str_append(str, " without any protocols");
 	else {
 		str_printfa(str, " for %s",
-			    t_strarray_join((const char **)protocols, ", "));
+			    t_strarray_join(protocols, ", "));
 	}
 
 	core_dumps_disabled = restrict_get_core_limit(&core_limit) == 0 &&
@@ -577,7 +577,7 @@ static void main_init(const struct master_settings *set)
 	/* deny file access from everyone else except owner */
         (void)umask(0077);
 
-	main_log_startup(set->protocols_split);
+	main_log_startup(array_front(&set->protocols));
 
 	lib_signals_init();
         lib_signals_ignore(SIGPIPE, TRUE);

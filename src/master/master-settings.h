@@ -9,7 +9,7 @@ struct master_settings {
 	const char *state_dir;
 	const char *libexec_dir;
 	const char *instance_name;
-	const char *protocols;
+	ARRAY_TYPE(const_string) protocols;
 	const char *listen;
 	const char *ssl;
 	const char *default_internal_user;
@@ -24,7 +24,6 @@ struct master_settings {
 	ARRAY_TYPE(const_string) services;
 
 	ARRAY_TYPE(service_settings) parsed_services;
-	char **protocols_split;
 };
 
 extern const struct setting_parser_info master_setting_parser_info;
