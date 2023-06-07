@@ -523,20 +523,6 @@ DOVECOT_WANT_CASSANDRA
 
 DOVECOT_SQL
 
-if test $have_modules = yes; then
-  AC_DEFINE(HAVE_MODULES,, [Define if you have dynamic module support])
-  AC_SUBST(MODULE_LIBS)
-
-  # shrext_cmds comes from libtool.m4
-  module=yes eval MODULE_SUFFIX=$shrext_cmds
-  if test "$MODULE_SUFFIX" = ""; then
-    # too old libtool?
-    MODULE_SUFFIX=.so
-  fi
-  AC_DEFINE_UNQUOTED(MODULE_SUFFIX,"$MODULE_SUFFIX", [Dynamic module suffix])
-  AC_SUBST(MODULE_SUFFIX)
-fi
-
 AC_SUBST(AUTH_CFLAGS)
 AC_SUBST(AUTH_LIBS)
 AC_SUBST(SQL_CFLAGS)
