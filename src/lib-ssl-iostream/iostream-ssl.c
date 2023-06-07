@@ -49,7 +49,6 @@ int ssl_module_load(const char **error_r)
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.setting_name = "<built-in lib-ssl-iostream lookup>";
 	mod_set.require_init_funcs = TRUE;
-	ssl_module = module_dir_load(MODULE_DIR, plugin_name, &mod_set);
 	if (module_dir_try_load_missing(&ssl_module, MODULE_DIR, plugin_name,
 					&mod_set, error_r) < 0)
 		return -1;
