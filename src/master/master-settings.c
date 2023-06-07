@@ -193,7 +193,7 @@ static const struct setting_define master_setting_defines[] = {
 	DEF(STR_HIDDEN, state_dir),
 	DEF(STR_HIDDEN, libexec_dir),
 	DEF(STR, instance_name),
-	DEF(STR, protocols),
+	DEF(BOOLLIST, protocols),
 	DEF(STR_NOVARS, listen), /* NOVARS to avoid expanding %scope */
 	DEF(ENUM, ssl),
 	DEF(STR, default_internal_user),
@@ -219,7 +219,6 @@ static const struct master_settings master_default_settings = {
 	.state_dir = PKG_STATEDIR,
 	.libexec_dir = PKG_LIBEXECDIR,
 	.instance_name = PACKAGE,
-	.protocols = "imap pop3 lmtp",
 	.listen = "*, ::",
 	.ssl = "yes:no:required",
 	.default_internal_user = "dovecot",
@@ -235,12 +234,17 @@ static const struct master_settings master_default_settings = {
 
 	.services = ARRAY_INIT
 };
+static const struct setting_keyvalue master_default_settings_keyvalue[] = {
+	{ "protocols", "imap pop3 lmtp" },
+	{ NULL, NULL }
+};
 
 const struct setting_parser_info master_setting_parser_info = {
 	.name = "master",
 
 	.defines = master_setting_defines,
 	.defaults = &master_default_settings,
+	.default_settings = master_default_settings_keyvalue,
 
 	.struct_size = sizeof(struct master_settings),
 	.pool_offset1 = 1 + offsetof(struct master_settings, pool),
@@ -405,9 +409,10 @@ service_get_client_limit(struct master_settings *set, const char *name)
 static bool service_is_enabled(const struct master_settings *set,
 			       struct service_settings *service)
 {
-	return service->protocol[0] == '\0' ||
-		str_array_find((const char **)set->protocols_split,
-			       service->protocol);
+	if (service->protocol[0] == '\0')
+		return TRUE;
+	return array_is_created(&set->protocols) &&
+		array_lsearch(&set->protocols, &service->protocol, i_strcmp_p) != NULL;
 }
 
 static bool
@@ -540,7 +545,7 @@ master_settings_ext_check(struct event *event, void *_set,
 	static bool warned_auth = FALSE, warned_anvil = FALSE;
 	struct master_settings *set = _set;
 	struct service_settings *const *services;
-	const char *const *strings;
+	const char *const *strings, *proto;
 	ARRAY_TYPE(const_string) all_listeners;
 	struct passwd pw;
 	unsigned int i, j, count, client_limit, process_limit;
@@ -625,18 +630,14 @@ master_settings_ext_check(struct event *event, void *_set,
 		expand_group(&service->extra_groups, set);
 		service_set_login_dump_core(service);
 	}
-	set->protocols_split = p_strsplit_spaces(pool, set->protocols, " ");
-	if (set->protocols_split[0] != NULL &&
-	    strcmp(set->protocols_split[0], "none") == 0 &&
-	    set->protocols_split[1] == NULL)
-		set->protocols_split[0] = NULL;
 
-	for (i = 0; set->protocols_split[i] != NULL; i++) {
-		if (!services_have_protocol(set, set->protocols_split[i])) {
-			*error_r = t_strdup_printf("protocols: "
-						   "Unknown protocol: %s",
-						   set->protocols_split[i]);
-			return FALSE;
+	if (array_is_created(&set->protocols)) {
+		array_foreach_elem(&set->protocols, proto) {
+			if (!services_have_protocol(set, proto)) {
+				*error_r = t_strdup_printf("protocols: "
+					"Unknown protocol: %s", proto);
+				return FALSE;
+			}
 		}
 	}
 	t_array_init(&all_listeners, 64);

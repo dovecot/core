@@ -391,8 +391,6 @@ service_lookup_type(struct service_list *service_list, enum service_type type)
 static bool service_want(const struct master_settings *master_set,
 			 struct service_settings *set)
 {
-	char *const *proto;
-
 	if (*set->executable == '\0') {
 		/* silently allow service {} blocks for disabled extensions
 		   (e.g. service managesieve {} block without pigeonhole
@@ -403,11 +401,10 @@ static bool service_want(const struct master_settings *master_set,
 	if (*set->protocol == '\0')
 		return TRUE;
 
-	for (proto = master_set->protocols_split; *proto != NULL; proto++) {
-		if (strcmp(*proto, set->protocol) == 0)
-			return TRUE;
-	}
-	return FALSE;
+	if (!array_is_created(&master_set->protocols))
+		return FALSE;
+	return array_lsearch(&master_set->protocols, &set->protocol,
+			     i_strcmp_p) != NULL;
 }
 
 static int
