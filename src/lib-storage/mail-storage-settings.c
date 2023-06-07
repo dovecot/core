@@ -285,7 +285,7 @@ static const struct setting_define mail_user_setting_defines[] = {
 	DEF(UINT, first_valid_gid),
 	DEF(UINT, last_valid_gid),
 
-	DEF(STR, mail_plugins),
+	DEF(BOOLLIST, mail_plugins),
 	DEF(STR, mail_plugin_dir),
 
 	DEF(STR, mail_log_prefix),
@@ -315,7 +315,7 @@ static const struct mail_user_settings mail_user_default_settings = {
 	.first_valid_gid = 1,
 	.last_valid_gid = 0,
 
-	.mail_plugins = "",
+	.mail_plugins = ARRAY_INIT,
 	.mail_plugin_dir = MODULEDIR,
 
 	.mail_log_prefix = "%s(%u)<%{process:pid}><%{session}>: ",
@@ -836,7 +836,8 @@ static bool mail_user_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	(void)parse_postmaster_address(set->postmaster_address, pool,
 				       set, &error);
 #else
-	if (*set->mail_plugins != '\0' &&
+	if (array_is_created(&set->mail_plugins) &&
+	    array_not_empty(&set->mail_plugins) &&
 	    faccessat(AT_FDCWD, set->mail_plugin_dir, R_OK | X_OK, AT_EACCESS) < 0) {
 		*error_r = t_strdup_printf(
 			"mail_plugin_dir: access(%s) failed: %m",

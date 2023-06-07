@@ -839,11 +839,14 @@ void doveadm_mail_init_finish(void)
 	mod_set.binary_name = "doveadm";
 
 	/* load all configured mail plugins */
-	mail_storage_service_modules =
-		module_dir_load_missing(mail_storage_service_modules,
-					doveadm_settings->mail_plugin_dir,
-					t_strsplit_spaces(doveadm_settings->mail_plugins, ", "),
-					&mod_set);
+	if (array_is_created(&doveadm_settings->mail_plugins) &&
+	    array_not_empty(&doveadm_settings->mail_plugins)) {
+		mail_storage_service_modules =
+			module_dir_load_missing(mail_storage_service_modules,
+						doveadm_settings->mail_plugin_dir,
+						array_front(&doveadm_settings->mail_plugins),
+						&mod_set);
+	}
 	/* keep mail_storage_init() referenced so that its _deinit() doesn't
 	   try to free doveadm plugins' hooks too early. */
 	mail_storage_init();

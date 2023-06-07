@@ -494,12 +494,14 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 
 bool mail_user_is_plugin_loaded(struct mail_user *user, struct module *module)
 {
-	const char *const *plugins;
 	bool ret;
 
-	T_BEGIN {
-		plugins = t_strsplit_spaces(user->set->mail_plugins, ", ");
-		ret = str_array_find(plugins, module_get_plugin_name(module));
+	if (!array_is_created(&user->set->mail_plugins))
+		ret = FALSE;
+	else T_BEGIN {
+		const char *name = module_get_plugin_name(module);
+		ret = array_lsearch(&user->set->mail_plugins, &name,
+				    i_strcmp_p) != NULL;
 	} T_END;
 	return ret;
 }

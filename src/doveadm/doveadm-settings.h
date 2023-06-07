@@ -16,7 +16,7 @@ struct doveadm_settings {
 	pool_t pool;
 	const char *base_dir;
 	const char *libexec_dir;
-	const char *mail_plugins;
+	ARRAY_TYPE(const_string) mail_plugins;
 	const char *mail_plugin_dir;
 	const char *mail_temp_dir;
 	bool auth_debug;

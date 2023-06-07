@@ -938,7 +938,8 @@ mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 {
 	struct module_dir_load_settings mod_set;
 
-	if (*user_set->mail_plugins == '\0')
+	if (!array_is_created(&user_set->mail_plugins) ||
+	    array_is_empty(&user_set->mail_plugins))
 		return 0;
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS) != 0)
 		return 0;
@@ -952,7 +953,7 @@ mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 
 	return module_dir_try_load_missing(&mail_storage_service_modules,
 					   user_set->mail_plugin_dir,
-					   t_strsplit_spaces(user_set->mail_plugins, ", "),
+					   array_front(&user_set->mail_plugins),
 					   &mod_set, error_r);
 }
 
@@ -1211,7 +1212,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		}
 	}
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS) != 0 &&
-	    user_set->mail_plugins[0] != '\0') {
+	    array_is_created(&user_set->mail_plugins) &&
+	    array_not_empty(&user_set->mail_plugins)) {
 		/* mail_storage_service_load_modules() already avoids loading
 		   plugins when the _NO_PLUGINS flag is set. However, it's
 		   possible that the plugins are already loaded, because the
