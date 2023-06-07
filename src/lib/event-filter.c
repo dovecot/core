@@ -393,9 +393,22 @@ clone_expr(pool_t pool, struct event_filter_node *old)
 static void
 event_filter_merge_with_context_internal(struct event_filter *dest,
 					 const struct event_filter *src,
+					 enum event_filter_merge_op op,
 					 void *new_context, bool with_context)
 {
 	const struct event_filter_query_internal *int_query;
+	enum event_filter_node_op node_op;
+
+	switch (op) {
+	case EVENT_FILTER_MERGE_OP_OR:
+		node_op = EVENT_FILTER_OP_OR;
+		break;
+	case EVENT_FILTER_MERGE_OP_AND:
+		node_op = EVENT_FILTER_OP_AND;
+		break;
+	default:
+		i_unreached();
+	}
 
 	array_foreach(&src->queries, int_query) T_BEGIN {
 		void *context = with_context ? new_context : int_query->context;
@@ -404,8 +417,7 @@ event_filter_merge_with_context_internal(struct event_filter *dest,
 		new = event_filter_get_or_alloc_internal_query(dest, context);
 
 		add_node(dest->pool, &new->expr,
-			 clone_expr(dest->pool, int_query->expr),
-			 EVENT_FILTER_OP_OR);
+			 clone_expr(dest->pool, int_query->expr), node_op);
 		dest->named_queries_only = dest->named_queries_only &&
 			filter_node_requires_event_name(int_query->expr);
 	} T_END;
@@ -428,16 +440,18 @@ bool event_filter_remove_queries_with_context(struct event_filter *filter,
 }
 
 void event_filter_merge(struct event_filter *dest,
-			const struct event_filter *src)
+			const struct event_filter *src,
+			enum event_filter_merge_op op)
 {
-	event_filter_merge_with_context_internal(dest, src, NULL, FALSE);
+	event_filter_merge_with_context_internal(dest, src, op, NULL, FALSE);
 }
 
 void event_filter_merge_with_context(struct event_filter *dest,
 				     const struct event_filter *src,
+				     enum event_filter_merge_op op,
 				     void *new_context)
 {
-	event_filter_merge_with_context_internal(dest, src, new_context, TRUE);
+	event_filter_merge_with_context_internal(dest, src, op, new_context, TRUE);
 }
 
 static void

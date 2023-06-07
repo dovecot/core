@@ -754,7 +754,7 @@ static void old_settings_handle_post_log_debug(struct config_parser_context *ctx
 		i_unreached();
 
 	string_t *merged = t_str_new(128);
-	event_filter_merge(auth_filter, filter);
+	event_filter_merge(auth_filter, filter, EVENT_FILTER_MERGE_OP_OR);
 	event_filter_export(filter, merged);
 	event_filter_unref(&auth_filter);
 	event_filter_unref(&filter);

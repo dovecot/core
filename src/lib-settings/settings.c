@@ -242,7 +242,8 @@ settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 
 		mmap->event_filters[i] = event_filter_create_with_pool(mmap->pool);
 		pool_ref(mmap->pool);
-		event_filter_merge(mmap->event_filters[i], tmp_filter);
+		event_filter_merge(mmap->event_filters[i], tmp_filter,
+				   EVENT_FILTER_MERGE_OP_OR);
 		event_filter_unref(&tmp_filter);
 	}
 	return 0;
