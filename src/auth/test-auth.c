@@ -27,7 +27,9 @@ void test_auth_init(void)
 	test_auth_set = *(const struct auth_settings *)auth_setting_parser_info.defaults;
 	test_auth_set.pool = pool_alloconly_create("test settings", 128);
 	test_auth_set.base_dir = ".";
-	test_auth_set.mechanisms = "plain";
+	p_array_init(&test_auth_set.mechanisms, test_auth_set.pool, 1);
+	const char *plain = "plain";
+	array_push_back(&test_auth_set.mechanisms, &plain);
 	global_auth_settings = &test_auth_set;
 	memset((&test_auth_set)->username_chars_map, 1,
 	       sizeof((&test_auth_set)->username_chars_map));

@@ -213,7 +213,7 @@ const struct setting_parser_info auth_userdb_setting_parser_info = {
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct auth_settings)
 
 static const struct setting_define auth_setting_defines[] = {
-	DEF(STR, mechanisms),
+	DEF(BOOLLIST, mechanisms),
 	DEF(STR, realms),
 	DEF(STR, default_domain),
 	DEF(SIZE, cache_size),
@@ -287,7 +287,6 @@ static const struct setting_define auth_setting_defines[] = {
 };
 
 static const struct auth_settings auth_default_settings = {
-	.mechanisms = "plain",
 	.realms = "",
 	.default_domain = "",
 	.cache_size = 0,
@@ -341,12 +340,17 @@ static const struct auth_settings auth_default_settings = {
 	.first_valid_gid = 1,
 	.last_valid_gid = 0,
 };
+static const struct setting_keyvalue auth_default_settings_keyvalue[] = {
+	{ "auth_mechanisms", "plain" },
+	{ NULL, NULL }
+};
 
 const struct setting_parser_info auth_setting_parser_info = {
 	.name = "auth",
 
 	.defines = auth_setting_defines,
 	.defaults = &auth_default_settings,
+	.default_settings = auth_default_settings_keyvalue,
 
 	.struct_size = sizeof(struct auth_settings),
 	.pool_offset1 = 1 + offsetof(struct auth_settings, pool),
