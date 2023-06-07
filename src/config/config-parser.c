@@ -1332,8 +1332,21 @@ config_parse_line(struct config_parser_context *ctx,
 	   b) section_type [section_name] {
 	   c) } */
 	key = line;
-	while (!IS_WHITE(*line) && *line != '\0' && *line != '=')
-		line++;
+	if (*key == '"') {
+		key++; line++;
+		while (*line != '\0') {
+			if (*line == '\\' && line[1] != '\0')
+				line += 2;
+			else if (*line == '"') {
+				*line++ = '\0';
+				break;
+			} else
+				line++;
+		}
+	} else {
+		while (!IS_WHITE(*line) && *line != '\0' && *line != '=')
+			line++;
+	}
 	if (IS_WHITE(*line)) {
 		*line++ = '\0';
 		while (IS_WHITE(*line)) line++;
