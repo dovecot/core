@@ -50,6 +50,7 @@ static const struct setting_define fifo_listener_setting_defines[] = {
 
 static const struct file_listener_settings file_listener_default_settings = {
 	.path = "",
+	.type = "",
 	.mode = 0600,
 	.user = "",
 	.group = "",
@@ -93,6 +94,7 @@ static const struct setting_define inet_listener_setting_defines[] = {
 
 static const struct inet_listener_settings inet_listener_default_settings = {
 	.name = "",
+	.type = "",
 	.address = "",
 	.port = 0,
 	.ssl = FALSE,
