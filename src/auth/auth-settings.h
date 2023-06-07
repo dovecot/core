@@ -11,7 +11,7 @@ struct auth_passdb_settings {
 	const char *args;
 	const char *default_fields;
 	const char *override_fields;
-	const char *mechanisms;
+	ARRAY_TYPE(const_string) mechanisms;
 	const char *username_filter;
 
 	const char *skip;

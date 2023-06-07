@@ -109,7 +109,7 @@ static const struct setting_define auth_passdb_setting_defines[] = {
 	DEF(STR_NOVARS, args),
 	DEF(STR_NOVARS, default_fields),
 	DEF(STR_NOVARS, override_fields),
-	DEF(STR, mechanisms),
+	DEF(BOOLLIST, mechanisms),
 	DEF(STR, username_filter),
 
 	DEF(ENUM, skip),
@@ -131,7 +131,7 @@ static const struct auth_passdb_settings auth_passdb_default_settings = {
 	.args = "",
 	.default_fields = "",
 	.override_fields = "",
-	.mechanisms = "",
+	.mechanisms = ARRAY_INIT,
 	.username_filter = "",
 
 	.skip = "never:authenticated:unauthenticated",
