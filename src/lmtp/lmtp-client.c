@@ -84,6 +84,9 @@ static void client_load_modules(struct client *client)
 {
         struct module_dir_load_settings mod_set;
 
+	if (!array_is_created(&client->lmtp_set->mail_plugins) ||
+	    array_is_empty(&client->lmtp_set->mail_plugins))
+		return;
         i_zero(&mod_set);
         mod_set.abi_version = DOVECOT_ABI_VERSION;
         mod_set.require_init_funcs = TRUE;
@@ -93,7 +96,7 @@ static void client_load_modules(struct client *client)
         mail_storage_service_modules =
                 module_dir_load_missing(mail_storage_service_modules,
                                         client->lmtp_set->mail_plugin_dir,
-                                        t_strsplit_spaces(client->lmtp_set->mail_plugins, ", "),
+                                        array_front(&client->lmtp_set->mail_plugins),
                                         &mod_set);
 	module_dir_init(mail_storage_service_modules);
 }

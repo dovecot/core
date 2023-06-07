@@ -127,15 +127,16 @@ static void mail_user_add_plugin_hooks(struct mail_user *user)
 {
 	const struct mail_storage_module_hooks *module_hook;
 	ARRAY(struct mail_storage_module_hooks) tmp_hooks;
-	const char *const *plugins, *name;
+	const char *name;
 
 	/* first get all hooks wanted by the user */
 	t_array_init(&tmp_hooks, array_count(&module_hooks));
-	plugins = t_strsplit_spaces(user->set->mail_plugins, ", ");
 	array_foreach(&module_hooks, module_hook) {
 		if (!module_hook->forced) {
 			name = module_get_plugin_name(module_hook->module);
-			if (!str_array_find(plugins, name))
+			if (!array_is_created(&user->set->mail_plugins) ||
+			    array_lsearch(&user->set->mail_plugins, &name,
+					  i_strcmp_p) == NULL)
 				continue;
 		}
 		array_push_back(&tmp_hooks, module_hook);

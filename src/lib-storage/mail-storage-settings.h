@@ -137,7 +137,7 @@ struct mail_user_settings {
 	unsigned int first_valid_uid, last_valid_uid;
 	unsigned int first_valid_gid, last_valid_gid;
 
-	const char *mail_plugins;
+	ARRAY_TYPE(const_string) mail_plugins;
 	const char *mail_plugin_dir;
 
 	const char *mail_log_prefix;

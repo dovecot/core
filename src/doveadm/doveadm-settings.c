@@ -57,7 +57,7 @@ const struct setting_keyvalue doveadm_service_settings_defaults[] = {
 static const struct setting_define doveadm_setting_defines[] = {
 	DEF(STR_HIDDEN, base_dir),
 	DEF(STR_HIDDEN, libexec_dir),
-	DEF(STR, mail_plugins),
+	DEF(BOOLLIST, mail_plugins),
 	DEF(STR, mail_plugin_dir),
 	DEF(STR, mail_temp_dir),
 	DEF(BOOL, auth_debug),
@@ -87,7 +87,7 @@ static const struct setting_define doveadm_setting_defines[] = {
 const struct doveadm_settings doveadm_default_settings = {
 	.base_dir = PKG_RUNDIR,
 	.libexec_dir = PKG_LIBEXECDIR,
-	.mail_plugins = "",
+	.mail_plugins = ARRAY_INIT,
 	.mail_plugin_dir = MODULEDIR,
 	.mail_temp_dir = "/tmp",
 	.auth_debug = FALSE,

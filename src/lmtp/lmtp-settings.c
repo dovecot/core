@@ -64,7 +64,7 @@ static const struct setting_define lmtp_setting_defines[] = {
 	DEF(STR_HIDDEN, login_greeting),
 	DEF(STR, login_trusted_networks),
 
-	DEF(STR, mail_plugins),
+	DEF(BOOLLIST, mail_plugins),
 	DEF(STR, mail_plugin_dir),
 
 	SETTING_DEFINE_LIST_END
@@ -86,7 +86,7 @@ static const struct lmtp_settings lmtp_default_settings = {
 	.login_greeting = PACKAGE_NAME" ready.",
 	.login_trusted_networks = "",
 
-	.mail_plugins = "",
+	.mail_plugins = ARRAY_INIT,
 	.mail_plugin_dir = MODULEDIR,
 };
 
