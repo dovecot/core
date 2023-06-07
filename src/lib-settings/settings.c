@@ -457,13 +457,13 @@ get_invalid_setting_error(struct settings_apply_ctx *ctx, const char *prefix,
 
 static int
 settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
-			const char *strlist_key, const char *value,
+			const char *list_key, const char *value,
 			const char **error_r)
 {
 	const char *key = ctx->info->defines[key_idx].key;
 	const char *orig_value = value;
-	if (strlist_key != NULL)
-		key = t_strdup_printf("%s/%s", key, strlist_key);
+	if (list_key != NULL)
+		key = t_strdup_printf("%s/%s", key, list_key);
 
 	/* call settings_apply() before variable expansion */
 	if (ctx->info->setting_apply != NULL &&
@@ -474,7 +474,7 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 		return -1;
 	}
 
-	if (strlist_key == NULL &&
+	if (list_key == NULL &&
 	    (ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0 &&
 	    ctx->info->defines[key_idx].type != SET_STR_NOVARS &&
 	    ctx->info->defines[key_idx].type != SET_FILTER_ARRAY) {
@@ -581,12 +581,12 @@ settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 		offset += sizeof(key_idx);
 
 		bool set_apply;
-		const char *strlist_key = NULL;
+		const char *list_key = NULL;
 		if (ctx->info->defines[key_idx].type == SET_STRLIST) {
-			strlist_key = (const char *)mmap->mmap_base + offset;
-			offset += strlen(strlist_key)+1;
-			set_apply = !settings_parse_strlist_has_key(ctx->parser,
-					key_idx, strlist_key);
+			list_key = (const char *)mmap->mmap_base + offset;
+			offset += strlen(list_key)+1;
+			set_apply = !settings_parse_list_has_key(ctx->parser,
+					key_idx, list_key);
 		} else if (ctx->info->defines[key_idx].type == SET_FILTER_ARRAY)
 			set_apply = TRUE;
 		else {
@@ -620,7 +620,7 @@ settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 		if (!set_apply)
 			ret = 0;
 		else T_BEGIN {
-			ret = settings_mmap_apply_key(ctx, key_idx, strlist_key,
+			ret = settings_mmap_apply_key(ctx, key_idx, list_key,
 						      value, error_r);
 		} T_END_PASS_STR_IF(ret < 0, error_r);
 		if (ret < 0)
@@ -1126,13 +1126,11 @@ settings_override_get_value(struct settings_apply_ctx *ctx,
 		return 0;
 
 	/* remove alias */
-	const char *strlist = strchr(key, SETTINGS_SEPARATOR);
-	if (strlist == NULL)
+	const char *list = strchr(key, SETTINGS_SEPARATOR);
+	if (list == NULL)
 		key = ctx->info->defines[key_idx].key;
-	else {
-		key = t_strconcat(ctx->info->defines[key_idx].key,
-				  strlist, NULL);
-	}
+	else
+		key = t_strconcat(ctx->info->defines[key_idx].key, list, NULL);
 
 	if (!set->append) {
 		*_key = key;
@@ -1208,7 +1206,7 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			if (suffix[0] != '/') {
 				/* invalid */
 				i_assert(suffix[0] == '\0');
-			} else if (settings_parse_strlist_has_key(ctx->parser,
+			} else if (settings_parse_list_has_key(ctx->parser,
 						key_idx, suffix + 1))
 				continue;
 			else

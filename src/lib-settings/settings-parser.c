@@ -418,7 +418,7 @@ settings_find_key(struct setting_parser_context *ctx, const char *key,
 		return TRUE;
 	}
 
-	/* try to find strlist/key prefix */
+	/* try to find list/key prefix */
 	end = strrchr(key, SETTINGS_SEPARATOR);
 	if (end == NULL)
 		return FALSE;
@@ -477,9 +477,9 @@ int settings_parse_keyidx_value_nodup(struct setting_parser_context *ctx,
 			      key, value, FALSE);
 }
 
-bool settings_parse_strlist_has_key(struct setting_parser_context *ctx,
-				    unsigned int key_idx,
-				    const char *key_suffix)
+bool settings_parse_list_has_key(struct setting_parser_context *ctx,
+				 unsigned int key_idx,
+				 const char *key_suffix)
 {
 	const struct setting_define *def = &ctx->info->defines[key_idx];
 	i_assert(def->type == SET_STRLIST);
@@ -511,7 +511,7 @@ settings_parse_get_value(struct setting_parser_context *ctx,
 		i_assert(def != ctx->info->defines);
 		def--;
 		/* Replace the key with the unaliased key. We assume here that
-		   strlists don't have aliases, because the key replacement
+		   lists don't have aliases, because the key replacement
 		   would only need to replace the key prefix then. */
 		i_assert(def->type != SET_STRLIST);
 		*key = def->key;

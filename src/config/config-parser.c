@@ -499,7 +499,7 @@ config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 	    strcmp(key, ctx->cur_section->filter_def->required_setting) == 0)
 		ctx->cur_section->filter_parser->filter_required_setting_seen = TRUE;
 
-	/* if key is strlist/key, lookup only "strlist" */
+	/* if key is list/key, lookup only "list" */
 	config_key = hash_table_lookup(ctx->all_keys, t_strcut(key, '/'));
 	if (config_key == NULL)
 		return 0;
@@ -575,7 +575,7 @@ int config_apply_line(struct config_parser_context *ctx,
 			ctx->cur_section->filter_parser->module_parsers;
 		ctx->cur_section->filter = filter_parser->filter;
 	}
-	/* the only '/' left should be if key is under strlist/ */
+	/* the only '/' left should be if key is under list/ */
 	key = key_with_path;
 
 	if (ctx->cur_section->filter.filter_name_array) {
