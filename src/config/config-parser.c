@@ -234,6 +234,25 @@ static void config_parser_add_services(struct config_parser_context *ctx,
 	} T_END;
 }
 
+static void config_parser_add_info_defaults(struct config_parser_context *ctx,
+					    const struct setting_parser_info *info)
+{
+	if (info->default_settings == NULL)
+		return;
+
+	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
+	for (unsigned int i = 0; info->default_settings[i].key != NULL; i++) {
+		if (config_apply_line(ctx, info->default_settings[i].key,
+				      info->default_settings[i].value, NULL) < 0) {
+			i_panic("Failed to add default setting %s=%s for struct %s: %s",
+				info->default_settings[i].key,
+				info->default_settings[i].value,
+				info->name, ctx->error);
+		}
+	}
+	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
+}
+
 static bool
 config_parser_is_in_localremote(struct config_section_stack *section)
 {
@@ -1856,8 +1875,11 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 		i_stream_create_from_data("", 0);
 	i_stream_set_return_partial_line(ctx.cur_input->input, TRUE);
 	old_settings_init(&ctx);
-	if ((flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) == 0)
+	if ((flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) == 0) {
 		config_parser_add_services(&ctx, service_info_idx);
+		for (i = 0; i < count; i++)
+			config_parser_add_info_defaults(&ctx, all_infos[i]);
+	}
 	if (hook_config_parser_begin != NULL &&
 	    (flags & CONFIG_PARSE_FLAG_EXTERNAL_HOOKS) != 0) T_BEGIN {
 		hook_config_parser_begin(&ctx);

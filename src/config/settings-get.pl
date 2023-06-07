@@ -52,7 +52,8 @@ foreach my $file (@ARGV) {
     if ($state eq "root") {
       if (/struct .*_settings \{/ ||
           /struct setting_define.*\{/ ||
-          /struct .*_default_settings = \{/) {
+          /struct .*_default_settings = \{/ ||
+          /struct setting_keyvalue.*_default_settings_keyvalue\[\] = \{/) {
         # settings-related structure - copy.
         $state = "copy-to-end-of-block";
       } elsif (/^struct service_settings (.*) = \{/) {
