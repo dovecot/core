@@ -42,21 +42,21 @@ void iostream_ssl_module_init(const struct iostream_ssl_vfuncs *vfuncs)
 
 int ssl_module_load(const char **error_r)
 {
-	const char *plugin_name = "ssl_iostream_openssl";
+	const char *plugin_names[] = { "ssl_iostream_openssl", NULL };
 	struct module_dir_load_settings mod_set;
 
 	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.setting_name = "<built-in lib-ssl-iostream lookup>";
 	mod_set.require_init_funcs = TRUE;
-	if (module_dir_try_load_missing(&ssl_module, MODULE_DIR, plugin_name,
+	if (module_dir_try_load_missing(&ssl_module, MODULE_DIR, plugin_names,
 					&mod_set, error_r) < 0)
 		return -1;
 	module_dir_init(ssl_module);
 	if (!ssl_module_loaded) {
 		*error_r = t_strdup_printf(
 			"%s didn't call iostream_ssl_module_init() - SSL not initialized",
-			plugin_name);
+			plugin_names[0]);
 		module_dir_unload(&ssl_module);
 		return -1;
 	}

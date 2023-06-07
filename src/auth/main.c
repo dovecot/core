@@ -190,8 +190,9 @@ static void main_preinit(void)
 	restrict_access_allow_coredumps(TRUE);
 }
 
-void auth_module_load(const char *names)
+void auth_module_load(const char *name)
 {
+	const char *names[] = { name, NULL };
 	struct module_dir_load_settings mod_set;
 
 	i_zero(&mod_set);

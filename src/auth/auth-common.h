@@ -13,6 +13,6 @@ extern struct event *auth_event;
 
 void auth_refresh_proctitle(void);
 void auth_worker_refresh_proctitle(const char *state);
-void auth_module_load(const char *names);
+void auth_module_load(const char *name);
 
 #endif

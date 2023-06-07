@@ -120,8 +120,10 @@ static const char *fs_driver_module_name(const char *driver)
 
 static void fs_class_try_load_plugin(const char *driver)
 {
-	const char *module_name =
-		t_strdup_printf("fs_%s", fs_driver_module_name(driver));
+	const char *module_names[] = {
+		t_strdup_printf("fs_%s", fs_driver_module_name(driver)),
+		NULL
+	};
 	struct module *module;
 	struct module_dir_load_settings mod_set;
 	const struct fs *fs_class;
@@ -131,10 +133,10 @@ static void fs_class_try_load_plugin(const char *driver)
 	mod_set.ignore_missing = TRUE;
 
 	fs_modules = module_dir_load_missing(fs_modules, MODULE_DIR,
-					     module_name, &mod_set);
+					     module_names, &mod_set);
 	module_dir_init(fs_modules);
 
-	module = module_dir_find(fs_modules, module_name);
+	module = module_dir_find(fs_modules, module_names[0]);
 	fs_class = module == NULL ? NULL :
 		module_get_symbol(module, t_strdup_printf(
 			"fs_class_%s", fs_driver_module_name(driver)));

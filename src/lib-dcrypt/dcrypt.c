@@ -26,7 +26,10 @@ bool dcrypt_initialize(const char *backend, const struct dcrypt_settings *set,
 	if (set == NULL)
 		set = &dcrypt_default_set;
 
-	const char *implementation = t_strconcat("dcrypt_",backend,NULL);
+	const char *implementation[] = {
+		t_strconcat("dcrypt_", backend, NULL),
+		NULL
+	};
 
 	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
