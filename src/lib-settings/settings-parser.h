@@ -150,7 +150,7 @@ void settings_parser_unref(struct setting_parser_context **ctx);
 unsigned int
 setting_parser_info_get_define_count(const struct setting_parser_info *info);
 /* Find a specific key from info and return its index number in the defines
-   array. "strlist/key" will return the strlist's define. If the key is an
+   array. "list/key" will return the list's define. If the key is an
    alias, the primary key's index is returned. */
 bool setting_parser_info_find_key(const struct setting_parser_info *info,
 				  const char *key, unsigned int *idx_r);
@@ -169,8 +169,8 @@ settings_parse_get_value(struct setting_parser_context *ctx,
 int settings_parse_keyvalue(struct setting_parser_context *ctx,
 			    const char *key, const char *value);
 /* Parse key index/value pair. The key_idx points to the key in
-   info->defines[]. The key string is still needed to support strlists, which
-   need the key in "strlist/key" format. Returns 0 if OK, -1 if error. */
+   info->defines[]. The key string is still needed to support lists, which
+   need the key in "list/key" format. Returns 0 if OK, -1 if error. */
 int settings_parse_keyidx_value(struct setting_parser_context *ctx,
 				unsigned int key_idx, const char *key,
 				const char *value);
@@ -183,11 +183,11 @@ int settings_parse_keyvalue_nodup(struct setting_parser_context *ctx,
 int settings_parse_keyidx_value_nodup(struct setting_parser_context *ctx,
 				      unsigned int key_idx, const char *key,
 				      const char *value);
-/* Returns TRUE if strlist has the specific key. The key must NOT include the
-   strlist/ prefix. */
-bool settings_parse_strlist_has_key(struct setting_parser_context *ctx,
-				    unsigned int key_idx,
-				    const char *key_suffix);
+/* Returns TRUE if list has the specific key. The key must NOT include the
+   list/ prefix. */
+bool settings_parse_list_has_key(struct setting_parser_context *ctx,
+				 unsigned int key_idx,
+				 const char *key_suffix);
 /* Call all check_func()s and ext_check_func()s to see if currently parsed
    settings are valid. */
 bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
