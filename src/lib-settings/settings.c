@@ -963,6 +963,32 @@ static int settings_override_cmp(const struct settings_override *set1,
 	return set2->type - set1->type;
 }
 
+
+static bool
+settings_key_part_find(struct settings_apply_ctx *ctx, const char **key,
+		       const char *last_filter_key,
+		       const char *last_filter_value,
+		       unsigned int *key_idx_r)
+{
+	if (last_filter_value != NULL) {
+		i_assert(last_filter_key != NULL);
+		/* Try filter/name/key -> filter_key. Do this before the
+		   non-prefixed check, so e.g. inet_listener/imap/ssl won't
+		   try to change the global ssl setting. */
+		const char *key_prefix = last_filter_key;
+		if (strcmp(key_prefix, SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX) == 0)
+			key_prefix = SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX;
+		const char *prefixed_key =
+			t_strdup_printf("%s_%s", key_prefix, *key);
+		if (setting_parser_info_find_key(ctx->info, prefixed_key,
+						 key_idx_r)) {
+			*key = prefixed_key;
+			return TRUE;
+		}
+	}
+	return setting_parser_info_find_key(ctx->info, *key, key_idx_r);
+}
+
 static int
 settings_override_get_value(struct settings_apply_ctx *ctx,
 			    const struct settings_override *set,
@@ -972,22 +998,9 @@ settings_override_get_value(struct settings_apply_ctx *ctx,
 	const char *key = *_key;
 	unsigned int key_idx = UINT_MAX;
 
-	if (set->last_filter_value != NULL) {
-		i_assert(set->last_filter_key != NULL);
-		/* Try filter/name/key -> filter_key. Do this before the
-		   non-prefixed check, so e.g. inet_listener/imap/ssl won't
-		   try to change the global ssl setting. */
-		const char *key_prefix = set->last_filter_key;
-		if (strcmp(key_prefix, SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX) == 0)
-			key_prefix = SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX;
-		const char *prefixed_key =
-			t_strdup_printf("%s_%s", key_prefix, key);
-		if (setting_parser_info_find_key(ctx->info, prefixed_key,
-						 &key_idx))
-			key = prefixed_key;
-	}
-	if (key_idx == UINT_MAX)
-		(void)setting_parser_info_find_key(ctx->info, key, &key_idx);
+	if (!settings_key_part_find(ctx, &key, set->last_filter_key,
+				    set->last_filter_value, &key_idx))
+		key_idx = UINT_MAX;
 
 	if (key_idx == UINT_MAX && strchr(key, '/') == NULL &&
 	    set->type == SETTINGS_OVERRIDE_TYPE_USERDB &&
