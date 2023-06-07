@@ -6,8 +6,6 @@
 #include "sort.h"
 #include "module-dir.h"
 
-#ifdef HAVE_MODULES
-
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
@@ -595,60 +593,6 @@ void module_dir_unload(struct module **modules)
 
 	*modules = NULL;
 }
-
-#else
-
-#ifndef MODULE_SUFFIX
-#  define MODULE_SUFFIX ".so" /* just to avoid build failure */
-#endif
-
-struct module *
-module_dir_load_missing(struct module *old_modules ATTR_UNUSED,
-			const char *dir ATTR_UNUSED,
-			const char *module_names,
-			const struct module_dir_load_settings *set ATTR_UNUSED)
-{
-#define NO_SUPPORT_ERRSTR "Dynamically loadable module support not built in"
-	if (module_names == NULL)
-		i_error(NO_SUPPORT_ERRSTR);
-	else {
-		i_fatal(NO_SUPPORT_ERRSTR", can't load plugins: %s",
-			module_names);
-	}
-	return NULL;
-}
-
-void module_dir_init(struct module *modules ATTR_UNUSED)
-{
-}
-
-void module_dir_deinit(struct module *modules ATTR_UNUSED)
-{
-}
-
-void module_dir_unload(struct module **modules ATTR_UNUSED)
-{
-}
-
-struct module *module_dir_find(struct module *modules ATTR_UNUSED,
-			       const char *name ATTR_UNUSED)
-{
-	return NULL;
-}
-
-void *module_get_symbol(struct module *module ATTR_UNUSED,
-			const char *symbol ATTR_UNUSED)
-{
-	return NULL;
-}
-
-void *module_get_symbol_quiet(struct module *module ATTR_UNUSED,
-			      const char *symbol ATTR_UNUSED)
-{
-	return NULL;
-}
-
-#endif
 
 struct module *module_dir_load(const char *dir, const char *module_names,
 			       const struct module_dir_load_settings *set)
