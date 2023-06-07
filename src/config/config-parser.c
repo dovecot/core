@@ -1743,6 +1743,17 @@ config_parser_add_info(struct config_parser_context *ctx,
 
 	for (unsigned int i = 0; info->defines[i].key != NULL; i++) {
 		const struct setting_define *def = &info->defines[i];
+
+		if (def->type == SET_STR ||
+		    def->type == SET_STR_NOVARS ||
+		    def->type == SET_ENUM) {
+			const char *const *valuep =
+				CONST_PTR_OFFSET(info->defaults, def->offset);
+			if (*valuep == NULL) {
+				i_panic("struct %s setting %s default is NULL",
+					info->name, def->key);
+			}
+		}
 		if (!hash_table_lookup_full(ctx->all_keys, info->defines[i].key,
 					    &name, &old_config_key))
 			old_config_key = NULL;
