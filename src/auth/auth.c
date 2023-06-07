@@ -99,14 +99,11 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
 	auth_passdb->override_fields_tmpl =
 		passdb_template_build(auth->pool, set->override_fields);
 
-	if (*set->mechanisms == '\0') {
+	if (!array_is_created(&set->mechanisms) ||
+	    array_is_empty(&set->mechanisms)) {
 		auth_passdb->mechanisms = NULL;
-	} else if (strcasecmp(set->mechanisms, "none") == 0) {
-		auth_passdb->mechanisms = (const char *const[]){ NULL };
 	} else {
-		auth_passdb->mechanisms =
-			(const char *const *)p_strsplit_spaces(auth->pool,
-				set->mechanisms, " ,");
+		auth_passdb->mechanisms = array_front(&set->mechanisms);
 	}
 
 	if (*set->username_filter == '\0') {

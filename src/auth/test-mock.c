@@ -49,7 +49,7 @@ struct auth_passdb_settings mock_passdb_set = {
 	.args = "",
 	.default_fields = "",
 	.override_fields = "",
-	.mechanisms = "",
+	.mechanisms = ARRAY_INIT,
 	.username_filter = "",
 	.skip = "never",
 	.result_success = "return-ok",
@@ -76,7 +76,7 @@ void passdb_mock_mod_init(void)
 		.args = "",
 		.default_fields = "",
 		.override_fields = "",
-		.mechanisms = "",
+		.mechanisms = ARRAY_INIT,
 		.username_filter = "",
 
 		.skip = "never",
