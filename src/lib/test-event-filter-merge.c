@@ -27,7 +27,7 @@ static void filter_merge(const char *parent_str, const char *child_str)
 			       event_filter_parse(child_str, child, &error) == 0);
 	}
 	/* merge */
-	event_filter_merge(parent, child);
+	event_filter_merge(parent, child, EVENT_FILTER_MERGE_OP_OR);
 
 	/* export - to visit/deref everything in the filter */
 	event_filter_export(parent, out);

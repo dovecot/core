@@ -180,7 +180,8 @@ static int stats_metrics_add_set(struct stats_metrics *metrics,
 
 	array_push_back(&metrics->metrics, &metric);
 
-	event_filter_merge_with_context(metrics->filter, set->parsed_filter, metric);
+	event_filter_merge_with_context(metrics->filter, set->parsed_filter,
+					EVENT_FILTER_MERGE_OP_OR, metric);
 
 	/*
 	 * Metrics may also be exported - make sure exporter info is set

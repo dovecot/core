@@ -3,6 +3,11 @@
 
 struct event;
 
+enum event_filter_merge_op {
+	EVENT_FILTER_MERGE_OP_OR,
+	EVENT_FILTER_MERGE_OP_AND,
+};
+
 struct event_filter_field {
 	const char *key;
 	const char *value;
@@ -16,11 +21,13 @@ void event_filter_unref(struct event_filter **filter);
 
 /* Add queries from source filter to destination filter. */
 void event_filter_merge(struct event_filter *dest,
-			const struct event_filter *src);
+			const struct event_filter *src,
+			enum event_filter_merge_op op);
 /* Add queries from source filter to destination filter, but with supplied
    context overriding whatever context source queries had. */
 void event_filter_merge_with_context(struct event_filter *dest,
 				     const struct event_filter *src,
+				     enum event_filter_merge_op op,
 				     void *new_context);
 
 /* Remove query with given context from filter.
