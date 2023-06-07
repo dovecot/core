@@ -88,11 +88,6 @@ AS_HELP_STRING([--with-notify=NOTIFY], [Specify the file system notification met
 	notify=$withval,
 	notify=)
 
-AC_ARG_WITH(nss,
-AS_HELP_STRING([--with-nss], [Build with NSS module support (auto)]),
-  TEST_WITH(nss, $withval),
-  want_nss=auto)
-
 AC_ARG_WITH(pam,
 AS_HELP_STRING([--with-pam], [Build with PAM support (auto)]),
   TEST_WITH(pam, $withval),
