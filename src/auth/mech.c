@@ -134,7 +134,7 @@ mech_register_init(const struct auth_settings *set)
 {
 	struct mechanisms_register *reg;
 	const struct mech_module *mech;
-	const char *const *mechanisms;
+	const char *name;
 	pool_t pool;
 
 	pool = pool_alloconly_create("mechanisms register", 1024);
@@ -143,9 +143,12 @@ mech_register_init(const struct auth_settings *set)
 	reg->set = set;
 	reg->handshake = str_new(pool, 512);
 
-	mechanisms = t_strsplit_spaces(set->mechanisms, " ");
-	for (; *mechanisms != NULL; mechanisms++) {
-		const char *name = t_str_ucase(*mechanisms);
+	if (!array_is_created(&set->mechanisms) ||
+	    array_is_empty(&set->mechanisms))
+		i_fatal("No authentication mechanisms configured");
+
+	array_foreach_elem(&set->mechanisms, name) {
+		name = t_str_ucase(name);
 
 		if (strcmp(name, "ANONYMOUS") == 0) {
 			if (*set->anonymous_username == '\0') {
@@ -163,9 +166,6 @@ mech_register_init(const struct auth_settings *set)
 			i_fatal("Unknown authentication mechanism '%s'", name);
 		mech_register_add(reg, mech);
 	}
-
-	if (reg->modules == NULL)
-		i_fatal("No authentication mechanisms configured");
 	return reg;
 }
 
