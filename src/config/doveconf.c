@@ -425,7 +425,14 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		value = strchr(key, '=');
 		i_assert(value != NULL);
 		if (!hide_key) {
-			o_stream_nsend(output, key, value-key);
+			key = t_strdup_until(key, value);
+			if (strpbrk(key, " \"\\#") == NULL)
+				o_stream_nsend_str(output, key);
+			else {
+				o_stream_nsend(output, "\"", 1);
+				o_stream_nsend_str(output, str_escape(key));
+				o_stream_nsend(output, "\"", 1);
+			}
 			o_stream_nsend_str(output, " = ");
 		} else {
 			if (output->offset != 0)
