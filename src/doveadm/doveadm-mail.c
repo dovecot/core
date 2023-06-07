@@ -842,7 +842,7 @@ void doveadm_mail_init_finish(void)
 	mail_storage_service_modules =
 		module_dir_load_missing(mail_storage_service_modules,
 					doveadm_settings->mail_plugin_dir,
-					doveadm_settings->mail_plugins,
+					t_strsplit_spaces(doveadm_settings->mail_plugins, ", "),
 					&mod_set);
 	/* keep mail_storage_init() referenced so that its _deinit() doesn't
 	   try to free doveadm plugins' hooks too early. */

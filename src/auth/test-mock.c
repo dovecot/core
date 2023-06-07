@@ -10,7 +10,7 @@ bool worker, worker_restart_request;
 static struct passdb_module *mock_passdb_mod = NULL;
 static pool_t mock_pool;
 
-void auth_module_load(const char *names ATTR_UNUSED)
+void auth_module_load(const char *name ATTR_UNUSED)
 {
 }
 void auth_refresh_proctitle(void) {

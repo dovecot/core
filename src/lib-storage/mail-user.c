@@ -684,10 +684,11 @@ mail_user_try_load_class_plugin(struct mail_user *user, const char *name)
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = event_want_debug(user->event);
 
+	const char *module_names[] = { name, NULL };
 	mail_storage_service_modules =
 		module_dir_load_missing(mail_storage_service_modules,
 					user->set->mail_plugin_dir,
-					name, &mod_set);
+					module_names, &mod_set);
 	/* initialize the module (and only this module!) immediately so that
 	   the class gets registered */
 	for (module = mail_storage_service_modules; module != NULL; module = module->next) {

@@ -335,7 +335,7 @@ static void login_load_modules(void)
 	mod_set.debug = login_debug;
 
 	modules = module_dir_load(global_login_settings->login_plugin_dir,
-				  global_login_settings->login_plugins,
+				  t_strsplit_spaces(global_login_settings->login_plugins, ", "),
 				  &mod_set);
 	module_dir_init(modules);
 }

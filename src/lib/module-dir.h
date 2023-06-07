@@ -41,18 +41,18 @@ struct module {
 
 /* Load modules in given directory. module_names is a space separated list of
    module names to load. */
-struct module *module_dir_load(const char *dir, const char *module_names,
+struct module *module_dir_load(const char *dir, const char *const *module_names,
 			       const struct module_dir_load_settings *set)
 	ATTR_NULL(2);
 /* Load modules that aren't already loaded. */
 struct module *
 module_dir_load_missing(struct module *old_modules,
-			const char *dir, const char *module_names,
+			const char *dir, const char *const *module_names,
 			const struct module_dir_load_settings *set)
 	ATTR_NULL(1, 3);
 /* Load modules that aren't already loaded. */
 int module_dir_try_load_missing(struct module **modules,
-				const char *dir, const char *module_names,
+				const char *dir, const char *const *module_names,
 				const struct module_dir_load_settings *set,
 				const char **error_r)
 	ATTR_NULL(1, 3);
