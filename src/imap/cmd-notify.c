@@ -48,15 +48,57 @@ cmd_notify_parse_fetch(struct imap_notify_context *ctx,
 					 &ctx->fetch_ctx, &ctx->error);
 }
 
+static bool
+cmd_notify_parse_event_list(struct imap_notify_context *ctx,
+			    const struct imap_arg *list,
+			    enum imap_notify_event *mask_r)
+{
+#define EV_NEW_OR_EXPUNGE \
+	(IMAP_NOTIFY_EVENT_MESSAGE_NEW | IMAP_NOTIFY_EVENT_MESSAGE_EXPUNGE)
+	const struct imap_arg *fetch_att_list;
+	enum imap_notify_event event;
+
+	*mask_r = 0;
+	for (; list->type != IMAP_ARG_EOL; list++) {
+		if (cmd_notify_parse_event(list, &event) < 0)
+			return FALSE;
+		*mask_r |= event;
+		ctx->global_used_events |= event;
+
+		if (event == IMAP_NOTIFY_EVENT_MESSAGE_NEW &&
+		    imap_arg_get_list(&list[1], &fetch_att_list)) {
+			/* MessageNew: list of fetch-att */
+			if (cmd_notify_parse_fetch(ctx, fetch_att_list) < 0)
+				return FALSE;
+			list++;
+		}
+	}
+
+	/* if MessageNew or MessageExpunge is specified, both of them must */
+	if ((*mask_r & EV_NEW_OR_EXPUNGE) != 0 &&
+	    (*mask_r & EV_NEW_OR_EXPUNGE) != EV_NEW_OR_EXPUNGE) {
+		ctx->error = "MessageNew and MessageExpunge must be together";
+		return FALSE;
+	}
+
+	/* if FlagChange or AnnotationChange is specified,
+	   MessageNew and MessageExpunge must also be specified */
+	if ((*mask_r &
+	     (IMAP_NOTIFY_EVENT_FLAG_CHANGE |
+	      IMAP_NOTIFY_EVENT_ANNOTATION_CHANGE)) != 0 &&
+	    (*mask_r & IMAP_NOTIFY_EVENT_MESSAGE_EXPUNGE) == 0) {
+		ctx->error = "FlagChange requires MessageNew and MessageExpunge";
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static int
 cmd_notify_set_selected(struct imap_notify_context *ctx,
 			const struct imap_arg *events)
 {
-#define EV_NEW_OR_EXPUNGE \
-	(IMAP_NOTIFY_EVENT_MESSAGE_NEW | IMAP_NOTIFY_EVENT_MESSAGE_EXPUNGE)
-	const struct imap_arg *list, *fetch_att_list;
+	const struct imap_arg *list;
 	const char *str;
-	enum imap_notify_event event;
 
 	if (imap_arg_get_atom(events, &str) &&
 	    strcasecmp(str, "NONE") == 0) {
@@ -73,38 +115,8 @@ cmd_notify_set_selected(struct imap_notify_context *ctx,
 		return -1; /* no extra parameters */
 	if (list->type == IMAP_ARG_EOL)
 		return -1; /* at least one event */
-
-	for (; list->type != IMAP_ARG_EOL; list++) {
-		if (cmd_notify_parse_event(list, &event) < 0)
-			return -1;
-		ctx->selected_events |= event;
-		ctx->global_used_events |= event;
-
-		if (event == IMAP_NOTIFY_EVENT_MESSAGE_NEW &&
-		    imap_arg_get_list(&list[1], &fetch_att_list)) {
-			/* MessageNew: list of fetch-att */
-			if (cmd_notify_parse_fetch(ctx, fetch_att_list) < 0)
-				return -1;
-			list++;
-		}
-	}
-
-	/* if MessageNew or MessageExpunge is specified, both of them must */
-	if ((ctx->selected_events & EV_NEW_OR_EXPUNGE) != 0 &&
-	    (ctx->selected_events & EV_NEW_OR_EXPUNGE) != EV_NEW_OR_EXPUNGE) {
-		ctx->error = "MessageNew and MessageExpunge must be together";
+	if (!cmd_notify_parse_event_list(ctx, list, &ctx->selected_events))
 		return -1;
-	}
-
-	/* if FlagChange or AnnotationChange is specified,
-	   MessageNew and MessageExpunge must also be specified */
-	if ((ctx->selected_events &
-	     (IMAP_NOTIFY_EVENT_FLAG_CHANGE |
-	      IMAP_NOTIFY_EVENT_ANNOTATION_CHANGE)) != 0 &&
-	    (ctx->selected_events & IMAP_NOTIFY_EVENT_MESSAGE_EXPUNGE) == 0) {
-		ctx->error = "FlagChange requires MessageNew and MessageExpunge";
-		return -1;
-	}
 	return 0;
 }
 
