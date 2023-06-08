@@ -22,7 +22,6 @@ struct setting_parser_context {
 	void *set_struct;
 	ARRAY(struct boollist_removal) boollist_removals;
 
-	unsigned int linenum;
 	char *error;
 };
 
