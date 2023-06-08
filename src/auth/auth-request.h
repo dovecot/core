@@ -213,6 +213,10 @@ struct auth_request {
 	bool stats_sent:1;
 	bool policy_refusal:1;
 	bool policy_processed:1;
+	/* "nodelay" passdb extra field: Disable delay if auth fails. This
+	   needs to be tracked outside regular extra fields, because they get
+	   rolled back on passdb failure. */
+	bool failure_nodelay:1;
 
 	bool event_finished_sent:1;
 

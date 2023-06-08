@@ -1772,6 +1772,11 @@ void auth_request_set_field(struct auth_request *request,
 					       &request->fields.remote_ip);
 	} else if (strcmp(name, "fail") == 0) {
 		request->failed = TRUE;
+	} else if (strcmp(name, "nodelay") == 0) {
+		/* don't delay replying to client of the failure */
+		request->failure_nodelay = TRUE;
+	 	auth_fields_add(request->fields.extra_fields, name, value, 0);
+	 	return;
 	} else if (strcmp(name, "delay_until") == 0) {
 		time_t timestamp;
 		unsigned int extra_secs = 0;

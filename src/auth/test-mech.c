@@ -147,7 +147,7 @@ static void test_mech_prepare_request(struct auth_request **request_r,
 	request->userdb = auth->userdbs;
 	handler->refcount = 1;
 
-	auth_fields_add(request->fields.extra_fields, "nodelay", "", 0);
+	request->failure_nodelay = TRUE;
 	auth_request_ref(request);
 	auth_request_state_count[AUTH_REQUEST_STATE_NEW] = 1;
 
