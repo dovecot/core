@@ -79,6 +79,11 @@ config_request_get_strings(const struct config_export_setting *set,
 					set->list_idx, p + 1, set->value);
 		break;
 	case CONFIG_KEY_LIST:
+		if (set->list_count == 0 && set->def_type == SET_BOOLLIST) {
+			/* empty deflist - show as an empty string */
+			value = p_strdup_printf(ctx->pool, "%s=", set->key);
+			break;
+		}
 		value = p_strdup_printf(ctx->pool, LIST_KEY_PREFIX"%s=%s",
 					set->key, set->value);
 		break;

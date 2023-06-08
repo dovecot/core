@@ -36,9 +36,11 @@ enum config_key_type {
 
 struct config_export_setting {
 	enum config_key_type type;
+	enum setting_type def_type;
 	const char *key;
 	unsigned int key_define_idx;
 	unsigned int list_idx;
+	unsigned int list_count;
 	const char *value;
 };
 
