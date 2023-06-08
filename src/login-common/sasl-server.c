@@ -444,7 +444,7 @@ get_cert_username(struct client *client, const char **username_r,
 	}
 
 	/* get peer name */
-	const char *username = ssl_iostream_get_peer_name(client->ssl_iostream);
+	const char *username = ssl_iostream_get_peer_username(client->ssl_iostream);
 
 	/* if we wanted peer name, but it was not there, fail */
 	if (client->set->auth_ssl_username_from_cert &&
