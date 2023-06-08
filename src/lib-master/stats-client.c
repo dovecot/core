@@ -18,6 +18,7 @@ struct stats_client {
 	struct event_filter *filter;
 	struct ioloop *ioloop;
 	struct timeout *to_reconnect;
+	struct timeval wait_started;
 	bool handshaked;
 	bool handshake_received_at_least_once;
 	bool silent_notfound_errors;
@@ -298,7 +299,11 @@ static void stats_global_deinit(void)
 
 static void stats_client_timeout(struct stats_client *client)
 {
-	e_error(client->conn.event, "Timeout waiting for handshake response");
+	int diff_msecs = timeval_diff_msecs(&ioloop_timeval,
+					    &client->wait_started);
+	e_error(client->conn.event, "Timeout waiting for handshake response "
+		"(waited %d.%03d secs%s)", diff_msecs / 1000, diff_msecs % 1000,
+		client->conn.version_received ? ", version received" : "");
 	io_loop_stop(client->ioloop);
 }
 
@@ -310,6 +315,7 @@ static void stats_client_wait(struct stats_client *client)
 	i_assert(client->to_reconnect == NULL);
 
 	client->ioloop = io_loop_create();
+	client->wait_started = ioloop_timeval;
 	to = timeout_add(STATS_CLIENT_TIMEOUT_MSECS, stats_client_timeout, client);
 	connection_switch_ioloop(&client->conn);
 	io_loop_run(client->ioloop);
