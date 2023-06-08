@@ -255,9 +255,6 @@ settings_export(struct config_export_context *ctx,
 				module_parser->settings[define_idx].array;
 			const char *const *strings;
 
-			if (val == NULL)
-				break;
-
 			if (hash_table_is_created(ctx->keys) &&
 			    hash_table_lookup(ctx->keys, def->key) != NULL) {
 				/* already added all of these */
@@ -266,19 +263,27 @@ settings_export(struct config_export_context *ctx,
 			if ((ctx->flags & CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS) != 0)
 				hash_table_insert(ctx->keys, def->key, def->key);
 
+			if (val != NULL) {
+				strings = array_get(val, &count);
+				i_assert(count % 2 == 0);
+			} else {
+				strings = NULL;
+				count = 0;
+			}
+
 			/* for doveconf -n to see this KEY_LIST */
 			struct config_export_setting export_set = {
 				.type = CONFIG_KEY_LIST,
+				.def_type = def->type,
 				.key = def->key,
 				.key_define_idx = define_idx,
 				.value = "",
+				.list_count = count / 2,
 			};
 			ctx->callback(&export_set, ctx->context);
 
 			export_set.type = def->type == SET_STRLIST ?
 				CONFIG_KEY_NORMAL : CONFIG_KEY_BOOLLIST_ELEM;
-			strings = array_get(val, &count);
-			i_assert(count % 2 == 0);
 			for (i = 0; i < count; i += 2) T_BEGIN {
 				export_set.key = t_strdup_printf("%s%c%s",
 						      def->key,
