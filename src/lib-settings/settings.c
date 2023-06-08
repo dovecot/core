@@ -28,14 +28,17 @@ struct settings_mmap_pool {
 };
 
 struct settings_override {
+	pool_t pool;
 	int type;
 	bool append;
-	const char *key, *value;
+	bool filter_finished;
+	const char *key, *orig_key, *value;
 
 	struct event_filter *filter;
 	const char *last_filter_key, *last_filter_value;
 };
 ARRAY_DEFINE_TYPE(settings_override, struct settings_override);
+ARRAY_DEFINE_TYPE(settings_override_p, struct settings_override *);
 
 struct settings_mmap_block {
 	const char *name;
@@ -957,10 +960,10 @@ settings_var_expand_init(struct event *event,
 		event_get_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT);
 }
 
-static int settings_override_cmp(const struct settings_override *set1,
-				 const struct settings_override *set2)
+static int settings_override_cmp(struct settings_override *const *set1,
+				 struct settings_override *const *set2)
 {
-	return set2->type - set1->type;
+	return (*set2)->type - (*set1)->type;
 }
 
 
@@ -987,6 +990,111 @@ settings_key_part_find(struct settings_apply_ctx *ctx, const char **key,
 		}
 	}
 	return setting_parser_info_find_key(ctx->info, *key, key_idx_r);
+}
+
+static int
+settings_override_filter_match(struct settings_apply_ctx *ctx,
+			       struct settings_override *set,
+			       const char **error_r)
+{
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+	unsigned int key_idx;
+	const char *p, *error;
+
+	/* check the filter that exists so far */
+	if (set->filter != NULL &&
+	    !event_filter_match(set->filter, ctx->event, &failure_ctx))
+		return 0;
+	if (set->filter_finished)
+		return 1;
+
+	bool filter_finished = TRUE;
+	string_t *filter_string = NULL;
+	const char *last_filter_key = set->last_filter_key;
+	const char *last_filter_value = set->last_filter_value;
+	size_t last_filter_key_pos = SIZE_MAX;
+	while ((p = strchr(set->key, SETTINGS_SEPARATOR)) != NULL) {
+		/* see if the info struct knows about the next part in the key. */
+		const char *part = t_strdup_until(set->key, p);
+		if (!settings_key_part_find(ctx, &part, last_filter_key,
+					    last_filter_value, &key_idx)) {
+			filter_finished = FALSE;
+			break;
+		}
+		if (ctx->info->defines[key_idx].type == SET_STRLIST)
+			break;
+
+		if (filter_string == NULL)
+			filter_string = t_str_new(64);
+		else
+			str_append(filter_string, " AND ");
+		switch (ctx->info->defines[key_idx].type) {
+		case SET_FILTER_NAME:
+			last_filter_key = part;
+			last_filter_value = NULL;
+			str_printfa(filter_string, SETTINGS_EVENT_FILTER_NAME"=\"%s\"",
+				    wildcard_str_escape(last_filter_key));
+			break;
+		case SET_FILTER_ARRAY: {
+			const char *value = p + 1;
+			p = strchr(value, SETTINGS_SEPARATOR);
+			if (p == NULL) {
+				*error_r = t_strdup_printf(
+					"Setting override %s is missing filter name child element ('/child' expected)",
+					set->key);
+				return -1;
+			}
+			last_filter_key = part;
+			if (strcmp(last_filter_key, SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX) == 0)
+				last_filter_key = SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX;
+			last_filter_value = t_strdup_until(value, p);
+			last_filter_key_pos = str_len(filter_string);
+			str_printfa(filter_string, "\"%s\"=\"%s\"",
+				    wildcard_str_escape(last_filter_key),
+				    str_escape(last_filter_value));
+			break;
+		}
+		default:
+			*error_r = t_strdup_printf(
+				"Setting override %s type doesn't support child elements in the path ('/' not expected)",
+				set->key);
+			return -1;
+		}
+		set->key = p + 1;
+	}
+	if (filter_finished && last_filter_value != NULL) {
+		i_assert(last_filter_key_pos != SIZE_MAX);
+		str_insert(filter_string, last_filter_key_pos, "(");
+		str_printfa(filter_string, " OR "SETTINGS_EVENT_FILTER_NAME"=\"%s/%s\")",
+			    last_filter_key, wildcard_str_escape(
+				settings_section_escape(last_filter_value)));
+	}
+
+	if (filter_string != NULL) {
+		struct event_filter *tmp_filter = event_filter_create();
+		if (event_filter_parse_case_sensitive(str_c(filter_string),
+						      tmp_filter, &error) < 0) {
+			i_panic("BUG: Failed to create event filter filter for %s: %s (%s)",
+				set->orig_key, error, str_c(filter_string));
+		}
+		if (set->filter == NULL) {
+			set->filter = event_filter_create_with_pool(set->pool);
+			pool_ref(set->pool);
+		}
+		event_filter_merge(set->filter, tmp_filter, EVENT_FILTER_MERGE_OP_AND);
+		event_filter_unref(&tmp_filter);
+	}
+
+	if (set->last_filter_key != last_filter_key)
+		set->last_filter_key = p_strdup(set->pool, last_filter_key);
+	if (set->last_filter_value != last_filter_value)
+		set->last_filter_value = p_strdup(set->pool, last_filter_value);
+	set->filter_finished = filter_finished;
+	return filter_finished &&
+		(set->filter == NULL ||
+		 event_filter_match(set->filter, ctx->event, &failure_ctx)) ? 1 : 0;
 }
 
 static int
@@ -1049,28 +1157,33 @@ static int
 settings_instance_override(struct settings_apply_ctx *ctx,
 			   const char **error_r)
 {
-	ARRAY_TYPE(settings_override) overrides;
+	ARRAY_TYPE(settings_override_p) overrides;
+	struct settings_override *set;
 
 	t_array_init(&overrides, 64);
-	if (array_is_created(&ctx->instance->overrides))
-		array_append_array(&overrides, &ctx->instance->overrides);
-	if (array_is_created(&ctx->root->overrides))
-		array_append_array(&overrides, &ctx->root->overrides);
+	if (array_is_created(&ctx->instance->overrides)) {
+		array_foreach_modifiable(&ctx->instance->overrides, set)
+			array_push_back(&overrides, &set);
+	}
+	if (array_is_created(&ctx->root->overrides)) {
+		array_foreach_modifiable(&ctx->root->overrides, set)
+			array_push_back(&overrides, &set);
+	}
 	/* sort overrides so that the most specific ones are first */
 	array_sort(&overrides, settings_override_cmp);
 
-	const struct failure_context failure_ctx = {
-		.type = LOG_TYPE_DEBUG
-	};
-
 	bool seen_filter = FALSE;
-	const struct settings_override *set;
-	array_foreach(&overrides, set) {
+	array_foreach_elem(&overrides, set) {
 		const char *key = set->key, *value;
 		unsigned int key_idx;
+		int ret;
 
-		if (set->filter != NULL &&
-		    !event_filter_match(set->filter, ctx->event, &failure_ctx))
+		T_BEGIN {
+			ret = settings_override_filter_match(ctx, set, error_r);
+		} T_END_PASS_STR_IF(ret < 0, error_r);
+		if (ret < 0)
+			return -1;
+		if (ret == 0)
 			continue;
 
 		if (ctx->filter_key != NULL && set->last_filter_key != NULL &&
@@ -1078,23 +1191,29 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		    null_strcmp(ctx->filter_value, set->last_filter_value) == 0)
 			seen_filter = TRUE;
 
-		int ret = settings_override_get_value(ctx, set, &key,
-						      &key_idx, &value, error_r);
+		ret = settings_override_get_value(ctx, set, &key,
+						  &key_idx, &value, error_r);
 		if (ret < 0)
 			return -1;
 		if (ret == 0) {
 			/* setting doesn't exist in this info */
 			continue;
 		}
+		bool track_seen = ctx->info->defines[key_idx].type != SET_FILTER_ARRAY;
 		if (ctx->info->defines[key_idx].type == SET_STRLIST) {
 			const char *suffix;
-			if (!str_begins(key, ctx->info->defines[key_idx].key, &suffix) ||
-			    suffix[0] != '/')
+			if (!str_begins(key, ctx->info->defines[key_idx].key, &suffix))
 				i_unreached();
-			if (settings_parse_strlist_has_key(ctx->parser, key_idx,
-							   suffix + 1))
+			if (suffix[0] != '/') {
+				/* invalid */
+				i_assert(suffix[0] == '\0');
+			} else if (settings_parse_strlist_has_key(ctx->parser,
+						key_idx, suffix + 1))
 				continue;
-		} else if (ctx->info->defines[key_idx].type != SET_FILTER_ARRAY) {
+			else
+				track_seen = FALSE;
+		}
+		if (track_seen) {
 			bool *setp = array_idx_get_space(&ctx->set_seen, key_idx);
 			if (*setp) {
 				/* already set - skip */
@@ -1289,6 +1408,9 @@ settings_get_full(struct event *event,
 		if (filter_value != NULL) {
 			ctx.filter_name = t_strdup_printf("%s/%s", filter_key,
 				settings_section_escape(ctx.filter_value));
+		/* the filter key=value field is needed by setting override
+		   handling to incrementally generate the filter */
+		event_add_str(ctx.event, filter_key, filter_value);
 			ctx.filter_name_required = TRUE;
 		} else if (filter_key != NULL)
 			ctx.filter_name = filter_key;
@@ -1377,79 +1499,6 @@ settings_get_or_fatal(struct event *event,
 	return set;
 }
 
-static void
-settings_override_get_filter(struct settings_override *set, pool_t pool,
-			     const char *_key)
-{
-	const char *key = _key;
-	const char *error;
-
-	/* key could be e.g.:
-	   - global: dict_driver=file
-	   - accessed via named filter: mail_attribute_dict/dict_driver=file
-	   - inside multiple filters:
-	     namespace/inbox/mailbox/Trash/dict_driver=file
-	   - named filter inside multiple filters:
-	     namespace/inbox/mailbox/Trash/mail_attribute_dict/dict_driver=file
-
-	   We start by converting all key/value/ prefixes to key=value in
-	   event filter. At the end there are 0..1 '/' characters left.
-	*/
-	const char *last_filter_key = NULL, *last_filter_value = NULL;
-	const char *value, *next;
-	string_t *filter = NULL;
-	size_t last_filter_key_pos = 0;
-	while ((value = strchr(key, '/')) != NULL &&
-	       (next = strchr(value + 1, '/')) != NULL) {
-		if (filter == NULL)
-			filter = t_str_new(64);
-		else
-			str_append(filter, " AND ");
-
-		last_filter_key = t_strdup_until(key, value);
-		if (strcmp(last_filter_key, SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX) == 0)
-			last_filter_key = SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX;
-		last_filter_value = t_strdup_until(value + 1, next);
-		last_filter_key_pos = str_len(filter);
-		str_printfa(filter, "\"%s\"=\"%s\"",
-			    wildcard_str_escape(last_filter_key),
-			    str_escape(last_filter_value));
-		key = next + 1;
-	}
-	if (value != NULL && !str_begins_with(key, "plugin")) {
-		/* There is one more '/' left - this is a named filter e.g.
-		   mail_attribute_dict/dict_driver=file */
-		set->last_filter_key = p_strdup_until(pool, key, value);
-		set->last_filter_value = NULL;
-		if (filter == NULL)
-			filter = t_str_new(64);
-		else
-			str_append(filter, " AND ");
-		str_printfa(filter, SETTINGS_EVENT_FILTER_NAME"=\"%s\"",
-			    wildcard_str_escape(set->last_filter_key));
-		key = value + 1;
-	} else if (last_filter_key != NULL) {
-		str_insert(filter, last_filter_key_pos, "(");
-		str_printfa(filter, " OR "SETTINGS_EVENT_FILTER_NAME"=\"%s/%s\")",
-			    last_filter_key, wildcard_str_escape(
-				settings_section_escape(last_filter_value)));
-		set->last_filter_key = p_strdup(pool, last_filter_key);
-		set->last_filter_value = p_strdup(pool, last_filter_value);
-	}
-	set->key = p_strdup(pool, key);
-
-	if (filter == NULL)
-		return;
-
-	set->filter = event_filter_create_with_pool(pool);
-	pool_ref(pool);
-	if (event_filter_parse_case_sensitive(str_c(filter), set->filter,
-					      &error) < 0) {
-		i_panic("BUG: Failed to create event filter filter for %s: %s",
-			_key, error);
-	}
-}
-
 void settings_override(struct settings_instance *instance,
 		       const char *key, const char *value,
 		       enum settings_override_type type)
@@ -1458,6 +1507,7 @@ void settings_override(struct settings_instance *instance,
 		p_array_init(&instance->overrides, instance->pool, 16);
 	struct settings_override *set =
 		array_append_space(&instance->overrides);
+	set->pool = instance->pool;
 	set->type = type;
 	size_t len = strlen(key);
 	T_BEGIN {
@@ -1466,8 +1516,8 @@ void settings_override(struct settings_instance *instance,
 			set->append = TRUE;
 			key = t_strndup(key, len-1);
 		}
+		set->key = set->orig_key = p_strdup(instance->pool, key);
 		set->value = p_strdup(instance->pool, value);
-		settings_override_get_filter(set, instance->pool, key);
 	} T_END;
 }
 
@@ -1479,11 +1529,10 @@ void settings_root_override(struct settings_root *root,
 		p_array_init(&root->overrides, root->pool, 16);
 	struct settings_override *set =
 		array_append_space(&root->overrides);
+	set->pool = root->pool;
 	set->type = type;
+	set->key = set->orig_key = p_strdup(root->pool, key);
 	set->value = p_strdup(root->pool, value);
-	T_BEGIN {
-		settings_override_get_filter(set, root->pool, key);
-	} T_END;
 }
 
 static struct settings_instance *
@@ -1519,9 +1568,12 @@ settings_instance_dup(const struct settings_instance *src)
 	array_foreach(&src->overrides, src_set) {
 		struct settings_override *dest_set =
 			array_append_space(&dest->overrides);
+		/* regenerate filter later */
+		dest_set->pool = dest->pool;
 		dest_set->type = src_set->type;
 		dest_set->append = src_set->append;
-		dest_set->key = p_strdup(dest->pool, src_set->key);
+		dest_set->orig_key = p_strdup(dest->pool, src_set->orig_key);
+		dest_set->key = dest_set->orig_key;
 		dest_set->value = p_strdup(dest->pool, src_set->value);
 	}
 	return dest;
