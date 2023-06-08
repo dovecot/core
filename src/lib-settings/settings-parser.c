@@ -275,7 +275,7 @@ settings_parse_strlist(struct setting_parser_context *ctx,
 	const char *vkey, *vvalue;
 	unsigned int i, count;
 
-	key = strrchr(key, SETTINGS_SEPARATOR);
+	key = strchr(key, SETTINGS_SEPARATOR);
 	if (key == NULL)
 		return;
 	key++;
