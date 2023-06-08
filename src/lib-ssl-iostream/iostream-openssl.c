@@ -821,7 +821,7 @@ openssl_iostream_has_broken_client_cert(struct ssl_iostream *ssl_io)
 }
 
 static const char *
-openssl_iostream_get_peer_name(struct ssl_iostream *ssl_io)
+openssl_iostream_get_peer_username(struct ssl_iostream *ssl_io)
 {
 	X509 *x509;
 	char *name;
@@ -970,7 +970,7 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.has_valid_client_cert = openssl_iostream_has_valid_client_cert,
 	.has_broken_client_cert = openssl_iostream_has_broken_client_cert,
 	.cert_match_name = openssl_iostream_cert_match_name,
-	.get_peer_name = openssl_iostream_get_peer_name,
+	.get_peer_username = openssl_iostream_get_peer_username,
 	.get_server_name = openssl_iostream_get_server_name,
 	.get_compression = openssl_iostream_get_compression,
 	.get_security_string = openssl_iostream_get_security_string,

@@ -122,9 +122,10 @@ int ssl_iostream_check_cert_validity(struct ssl_iostream *ssl_io,
    will always return FALSE before even checking the hostname. */
 bool ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io, const char *name,
 				  const char **reason_r);
-/* Returns name of the peer if available, NULL if not. Usually used to retrieve
-   username from certificate. */
-const char *ssl_iostream_get_peer_name(struct ssl_iostream *ssl_io);
+/* Returns username from the received certificate of the peer (client) if
+   available, NULL if not. The username is based on cert_username_field
+   setting. */
+const char *ssl_iostream_get_peer_username(struct ssl_iostream *ssl_io);
 /* Returns used compression, if any. Returns NULL if not available. */
 const char *ssl_iostream_get_compression(struct ssl_iostream *ssl_io);
 /* Returns TLS extension server_name(0) requested by client, or NULL if not
