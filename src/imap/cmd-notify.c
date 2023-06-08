@@ -51,6 +51,7 @@ cmd_notify_parse_fetch(struct imap_notify_context *ctx,
 static bool
 cmd_notify_parse_event_list(struct imap_notify_context *ctx,
 			    const struct imap_arg *list,
+			    bool parse_fetch,
 			    enum imap_notify_event *mask_r)
 {
 #define EV_NEW_OR_EXPUNGE \
@@ -65,7 +66,7 @@ cmd_notify_parse_event_list(struct imap_notify_context *ctx,
 		*mask_r |= event;
 		ctx->global_used_events |= event;
 
-		if (event == IMAP_NOTIFY_EVENT_MESSAGE_NEW &&
+		if (parse_fetch && event == IMAP_NOTIFY_EVENT_MESSAGE_NEW &&
 		    imap_arg_get_list(&list[1], &fetch_att_list)) {
 			/* MessageNew: list of fetch-att */
 			if (cmd_notify_parse_fetch(ctx, fetch_att_list) < 0)
@@ -115,7 +116,7 @@ cmd_notify_set_selected(struct imap_notify_context *ctx,
 		return -1; /* no extra parameters */
 	if (list->type == IMAP_ARG_EOL)
 		return -1; /* at least one event */
-	if (!cmd_notify_parse_event_list(ctx, list, &ctx->selected_events))
+	if (!cmd_notify_parse_event_list(ctx, list, TRUE, &ctx->selected_events))
 		return -1;
 	return 0;
 }
@@ -307,7 +308,7 @@ cmd_notify_set(struct imap_notify_context *ctx, const struct imap_arg *args)
 {
 	const struct imap_arg *event_group, *mailboxes, *list;
 	const char *str, *filter_mailboxes;
-	enum imap_notify_event event, event_mask;
+	enum imap_notify_event event_mask;
 
 	if (imap_arg_get_atom(args, &str) &&
 	    strcasecmp(str, "STATUS") == 0) {
@@ -370,12 +371,8 @@ cmd_notify_set(struct imap_notify_context *ctx, const struct imap_arg *args)
 			return -1;
 
 		event_mask = 0;
-		for (; list->type != IMAP_ARG_EOL; list++) {
-			if (cmd_notify_parse_event(list, &event) < 0)
-				return -1;
-			event_mask |= event;
-			ctx->global_used_events |= event;
-		}
+		if (!cmd_notify_parse_event_list(ctx, list, FALSE, &event_mask))
+			return -1;
 
 		/* we can't currently know inboxes, so treat it the
 		   same as personal */
