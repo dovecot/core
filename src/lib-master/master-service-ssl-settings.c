@@ -119,10 +119,6 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 {
 	struct master_service_ssl_settings *set = _set;
 
-	/* we get called from many different tools, possibly with -O parameter,
-	   and few of those tools care about SSL settings. so don't check
-	   ssl_cert/ssl_key/etc validity here except in doveconf, because it
-	   usually is just an extra annoyance. */
 	if (is_config_binary()) T_BEGIN {
 		const char *proto = t_str_ucase(set->ssl_min_protocol);
 		if (strstr(proto, "ANY") != NULL)
