@@ -45,7 +45,7 @@ struct master_service_ssl_server_settings {
 	const char *ssl_key_password;
 	const char *ssl_dh;
 
-	bool ssl_verify_client_cert;
+	bool ssl_request_client_cert;
 };
 
 extern const struct setting_parser_info master_service_ssl_setting_parser_info;

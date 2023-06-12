@@ -80,7 +80,7 @@ static const struct setting_define master_service_ssl_server_setting_defines[] =
 	DEF(STR, ssl_key_password),
 	DEF(STR, ssl_dh),
 
-	DEF(BOOL, ssl_verify_client_cert),
+	DEF(BOOL, ssl_request_client_cert),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -94,7 +94,7 @@ static const struct master_service_ssl_server_settings master_service_ssl_server
 	.ssl_key_password = "",
 	.ssl_dh = "",
 
-	.ssl_verify_client_cert = FALSE,
+	.ssl_request_client_cert = FALSE,
 };
 
 const struct setting_parser_info master_service_ssl_server_setting_parser_info = {
@@ -159,8 +159,8 @@ master_service_ssl_server_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 {
 	struct master_service_ssl_server_settings *set = _set;
 
-	if (set->ssl_verify_client_cert && *set->ssl_ca == '\0') {
-		*error_r = "ssl_verify_client_cert set, but ssl_ca not";
+	if (set->ssl_request_client_cert && *set->ssl_ca == '\0') {
+		*error_r = "ssl_request_client_cert set, but ssl_ca not";
 		return FALSE;
 	}
 	return TRUE;
@@ -223,7 +223,7 @@ void master_service_ssl_server_settings_to_iostream_set(
 		set_r->alt_cert.key_password = p_strdup(pool, ssl_server_set->ssl_key_password);
 	}
 	set_r->dh = p_strdup(pool, ssl_server_set->ssl_dh);
-	set_r->verify_remote_cert = ssl_server_set->ssl_verify_client_cert;
+	set_r->verify_remote_cert = ssl_server_set->ssl_request_client_cert;
 	set_r->allow_invalid_cert = !set_r->verify_remote_cert;
 	/* ssl_require_crl is used only for checking client-provided SSL
 	   certificate's CRL. */
