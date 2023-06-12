@@ -8,7 +8,6 @@ struct ssl_iostream_settings;
 struct master_service_ssl_settings {
 	pool_t pool;
 
-	const char *ssl;
 	const char *ssl_client_ca;
 	const char *ssl_client_ca_file;
 	const char *ssl_client_ca_dir;
@@ -18,14 +17,11 @@ struct master_service_ssl_settings {
 	const char *ssl_cipher_suites;
 	const char *ssl_curve_list;
 	const char *ssl_min_protocol;
-	const char *ssl_cert_username_field;
 	const char *ssl_crypto_device;
 	const char *ssl_options;
 
 	bool ssl_client_require_valid_cert;
-	bool ssl_require_crl;
 	bool verbose_ssl;
-	bool ssl_prefer_server_ciphers;
 
 	/* These are derived from ssl_options, not set directly */
 	struct {
@@ -37,6 +33,7 @@ struct master_service_ssl_settings {
 struct master_service_ssl_server_settings {
 	pool_t pool;
 
+	const char *ssl;
 	const char *ssl_ca;
 	const char *ssl_cert;
 	const char *ssl_alt_cert;
@@ -44,7 +41,10 @@ struct master_service_ssl_server_settings {
 	const char *ssl_alt_key;
 	const char *ssl_key_password;
 	const char *ssl_dh;
+	const char *ssl_cert_username_field;
 
+	bool ssl_require_crl;
+	bool ssl_prefer_server_ciphers;
 	bool ssl_request_client_cert;
 };
 

@@ -119,7 +119,7 @@ static int submission_client_create(struct client *client)
 	smtp_set.hostname = subm_client->set->hostname;
 	smtp_set.login_greeting = client->set->login_greeting;
 	smtp_set.tls_required = !client->connection_secured &&
-		(strcmp(client->ssl_set->ssl, "required") == 0);
+		(strcmp(client->ssl_server_set->ssl, "required") == 0);
 	smtp_set.xclient_extensions = xclient_extensions;
 	smtp_set.command_limits.max_parameters_size = LOGIN_MAX_INBUF_SIZE;
 	smtp_set.command_limits.max_auth_size = LOGIN_MAX_AUTH_BUF_SIZE;

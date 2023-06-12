@@ -84,7 +84,7 @@ static bool is_login_cmd_disabled(struct client *client)
 	}
 	if (!client->set->auth_allow_cleartext)
 		return TRUE;
-	if (strcmp(client->ssl_set->ssl, "required") == 0)
+	if (strcmp(client->ssl_server_set->ssl, "required") == 0)
 		return TRUE;
 	return FALSE;
 }

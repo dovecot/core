@@ -28,7 +28,7 @@ int master_service_ssl_init(struct master_service *service,
 			 &server_set, error_r) < 0)
 		return -1;
 	if (service->ssl_ctx == NULL) {
-		if (strcmp(set->ssl, "no") == 0)
+		if (strcmp(server_set->ssl, "no") == 0)
 			*error_r = "SSL is disabled (ssl=no)";
 		else
 			*error_r = "Failed to initialize SSL context";
@@ -83,7 +83,7 @@ void master_service_ssl_ctx_init(struct master_service *service)
 		master_service_ssl_io_listeners_remove(service);
 		return;
 	}
-	if (strcmp(set->ssl, "no") == 0) {
+	if (strcmp(server_set->ssl, "no") == 0) {
 		/* SSL disabled, don't use it */
 		settings_free(set);
 		settings_free(server_set);
@@ -99,7 +99,7 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	ssl_set.cert.key = server_set->ssl_key;
 	ssl_set.dh = server_set->ssl_dh;
 	ssl_set.cert.key_password = server_set->ssl_key_password;
-	ssl_set.cert_username_field = set->ssl_cert_username_field;
+	ssl_set.cert_username_field = server_set->ssl_cert_username_field;
 	if (server_set->ssl_alt_cert != NULL &&
 	    *server_set->ssl_alt_cert != '\0') {
 		ssl_set.alt_cert.cert = server_set->ssl_alt_cert;
@@ -107,11 +107,11 @@ void master_service_ssl_ctx_init(struct master_service *service)
 		ssl_set.alt_cert.key_password = server_set->ssl_key_password;
 	}
 	ssl_set.crypto_device = set->ssl_crypto_device;
-	ssl_set.skip_crl_check = !set->ssl_require_crl;
+	ssl_set.skip_crl_check = !server_set->ssl_require_crl;
 
 	ssl_set.verbose = set->verbose_ssl;
 	ssl_set.verify_remote_cert = server_set->ssl_request_client_cert;
-	ssl_set.prefer_server_ciphers = set->ssl_prefer_server_ciphers;
+	ssl_set.prefer_server_ciphers = server_set->ssl_prefer_server_ciphers;
 	ssl_set.compression = set->parsed_opts.compression;
 
 	if (ssl_iostream_context_init_server(&ssl_set, &service->ssl_ctx,

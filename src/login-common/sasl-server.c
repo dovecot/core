@@ -50,7 +50,7 @@ sasl_server_get_advertised_mechs(struct client *client, unsigned int *count_r)
 
 	mech = auth_client_get_available_mechs(auth_client, &count);
 	if (count == 0 || (!client->connection_secured &&
-			   strcmp(client->ssl_set->ssl, "required") == 0)) {
+			   strcmp(client->ssl_server_set->ssl, "required") == 0)) {
 		*count_r = 0;
 		return NULL;
 	}

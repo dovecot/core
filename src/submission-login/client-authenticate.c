@@ -35,7 +35,7 @@ static void cmd_helo_reply(struct submission_client *subm_client,
 			smtp_server_reply_ehlo_add(reply, "8BITMIME");
 
 		if (client->connection_secured ||
-			strcmp(client->ssl_set->ssl, "required") != 0) {
+			strcmp(client->ssl_server_set->ssl, "required") != 0) {
 			const struct auth_mech_desc *mechs;
 			unsigned int count, i;
 			string_t *param = t_str_new(128);

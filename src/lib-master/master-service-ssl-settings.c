@@ -16,7 +16,6 @@ static bool
 master_service_ssl_server_settings_check(void *_set, pool_t pool, const char **error_r);
 
 static const struct setting_define master_service_ssl_setting_defines[] = {
-	DEF(ENUM, ssl),
 	DEF(STR, ssl_client_ca),
 	DEF(STR, ssl_client_ca_file),
 	DEF(STR, ssl_client_ca_dir),
@@ -26,19 +25,15 @@ static const struct setting_define master_service_ssl_setting_defines[] = {
 	DEF(STR, ssl_cipher_suites),
 	DEF(STR, ssl_curve_list),
 	DEF(STR, ssl_min_protocol),
-	DEF(STR, ssl_cert_username_field),
 	DEF(STR, ssl_crypto_device),
 	DEF(BOOL, ssl_client_require_valid_cert),
-	DEF(BOOL, ssl_require_crl),
 	DEF(BOOL, verbose_ssl),
-	DEF(BOOL, ssl_prefer_server_ciphers),
 	DEF(STR, ssl_options), /* parsed as a string to set bools */
 
 	SETTING_DEFINE_LIST_END
 };
 
 static const struct master_service_ssl_settings master_service_ssl_default_settings = {
-	.ssl = "yes:no:required",
 	.ssl_client_ca = "",
 	.ssl_client_ca_file = "",
 	.ssl_client_ca_dir = "",
@@ -48,12 +43,9 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 	.ssl_cipher_suites = "", /* Use TLS library provided value */
 	.ssl_curve_list = "",
 	.ssl_min_protocol = "TLSv1.2",
-	.ssl_cert_username_field = "commonName",
 	.ssl_crypto_device = "",
 	.ssl_client_require_valid_cert = TRUE,
-	.ssl_require_crl = TRUE,
 	.verbose_ssl = FALSE,
-	.ssl_prefer_server_ciphers = FALSE,
 	.ssl_options = "",
 };
 
@@ -72,6 +64,7 @@ const struct setting_parser_info master_service_ssl_setting_parser_info = {
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct master_service_ssl_server_settings)
 
 static const struct setting_define master_service_ssl_server_setting_defines[] = {
+	DEF(ENUM, ssl),
 	DEF(STR, ssl_ca),
 	DEF(STR, ssl_cert),
 	DEF(STR, ssl_key),
@@ -79,13 +72,17 @@ static const struct setting_define master_service_ssl_server_setting_defines[] =
 	DEF(STR, ssl_alt_key),
 	DEF(STR, ssl_key_password),
 	DEF(STR, ssl_dh),
+	DEF(STR, ssl_cert_username_field),
 
+	DEF(BOOL, ssl_require_crl),
+	DEF(BOOL, ssl_prefer_server_ciphers),
 	DEF(BOOL, ssl_request_client_cert),
 
 	SETTING_DEFINE_LIST_END
 };
 
 static const struct master_service_ssl_server_settings master_service_ssl_server_default_settings = {
+	.ssl = "yes:no:required",
 	.ssl_ca = "",
 	.ssl_cert = "",
 	.ssl_key = "",
@@ -93,7 +90,10 @@ static const struct master_service_ssl_server_settings master_service_ssl_server
 	.ssl_alt_key = "",
 	.ssl_key_password = "",
 	.ssl_dh = "",
+	.ssl_cert_username_field = "commonName",
 
+	.ssl_require_crl = TRUE,
+	.ssl_prefer_server_ciphers = FALSE,
 	.ssl_request_client_cert = FALSE,
 };
 
@@ -115,10 +115,6 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 {
 	struct master_service_ssl_settings *set = _set;
 
-	if (strcmp(set->ssl, "no") == 0) {
-		/* disabled */
-		return TRUE;
-	}
 	/* we get called from many different tools, possibly with -O parameter,
 	   and few of those tools care about SSL settings. so don't check
 	   ssl_cert/ssl_key/etc validity here except in doveconf, because it
@@ -159,6 +155,11 @@ master_service_ssl_server_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 {
 	struct master_service_ssl_server_settings *set = _set;
 
+	if (strcmp(set->ssl, "no") == 0) {
+		/* disabled */
+		return TRUE;
+	}
+
 	if (set->ssl_request_client_cert && *set->ssl_ca == '\0') {
 		*error_r = "ssl_request_client_cert set, but ssl_ca not";
 		return FALSE;
@@ -178,11 +179,9 @@ static void master_service_ssl_common_settings_to_iostream_set(
 	set_r->ciphersuites = p_strdup_empty(pool, ssl_set->ssl_cipher_suites);
 
 	set_r->crypto_device = p_strdup(pool, ssl_set->ssl_crypto_device);
-	set_r->cert_username_field = p_strdup(pool, ssl_set->ssl_cert_username_field);
 
 	set_r->verbose = ssl_set->verbose_ssl;
 	set_r->verbose_invalid_cert = ssl_set->verbose_ssl;
-	set_r->prefer_server_ciphers = ssl_set->ssl_prefer_server_ciphers;
 	set_r->compression = ssl_set->parsed_opts.compression;
 	set_r->tickets = ssl_set->parsed_opts.tickets;
 	set_r->curve_list = p_strdup(pool, ssl_set->ssl_curve_list);
@@ -223,9 +222,12 @@ void master_service_ssl_server_settings_to_iostream_set(
 		set_r->alt_cert.key_password = p_strdup(pool, ssl_server_set->ssl_key_password);
 	}
 	set_r->dh = p_strdup(pool, ssl_server_set->ssl_dh);
+	set_r->cert_username_field =
+		p_strdup(pool, ssl_server_set->ssl_cert_username_field);
+	set_r->prefer_server_ciphers = ssl_server_set->ssl_prefer_server_ciphers;
 	set_r->verify_remote_cert = ssl_server_set->ssl_request_client_cert;
 	set_r->allow_invalid_cert = !set_r->verify_remote_cert;
 	/* ssl_require_crl is used only for checking client-provided SSL
 	   certificate's CRL. */
-	set_r->skip_crl_check = !ssl_set->ssl_require_crl;
+	set_r->skip_crl_check = !ssl_server_set->ssl_require_crl;
 }

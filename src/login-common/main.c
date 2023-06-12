@@ -345,7 +345,7 @@ static void login_ssl_init(void)
 	struct ssl_iostream_settings ssl_set;
 	const char *error;
 
-	if (strcmp(global_ssl_settings->ssl, "no") == 0)
+	if (strcmp(global_ssl_server_settings->ssl, "no") == 0)
 		return;
 
 	master_service_ssl_server_settings_to_iostream_set(global_ssl_settings,
@@ -385,7 +385,7 @@ static void main_preinit(void)
 		master_service_get_client_limit(master_service)*6;
 	io_loop_set_max_fd_count(current_ioloop, max_fds);
 
-	i_assert(strcmp(global_ssl_settings->ssl, "no") == 0 ||
+	i_assert(strcmp(global_ssl_server_settings->ssl, "no") == 0 ||
 		 login_ssl_initialized);
 
 	if (global_login_settings->mail_max_userip_connections > 0)
