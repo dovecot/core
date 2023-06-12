@@ -88,6 +88,15 @@ static int mail_index_seq_record_cmp(const uint32_t *key_seq,
 bool mail_index_seq_array_lookup(const ARRAY_TYPE(seq_array) *array,
 				 uint32_t seq, unsigned int *idx_r)
 {
+	/* fast path: expect array to be usually appended to */
+	unsigned int count = array_count(array);
+	if (count > 0) {
+		const uint32_t *elem = array_back(array);
+		if (seq > *elem) {
+			*idx_r = count;
+			return FALSE;
+		}
+	}
 	return array_bsearch_insert_pos(array, &seq,
 					mail_index_seq_record_cmp, idx_r);
 }
