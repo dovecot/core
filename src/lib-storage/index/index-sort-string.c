@@ -773,6 +773,8 @@ static void index_sort_write_changed_sort_ids(struct sort_string_context *ctx)
 			lowest_failed_seq = seq;
 	}
 
+	ARRAY_TYPE(mail_sort_node) sorted_by_seq;
+	i_array_init(&sorted_by_seq, array_count(&ctx->sorted_nodes));
 	/* add the missing sort IDs to index, but only for those sequences
 	   that are below lowest_failed_seq */
 	nodes = array_get(&ctx->sorted_nodes, &count);
@@ -782,9 +784,17 @@ static void index_sort_write_changed_sort_ids(struct sort_string_context *ctx)
 		    nodes[i].seq >= lowest_failed_seq)
 			continue;
 
+		array_push_back(&sorted_by_seq, &nodes[i]);
+	}
+	/* update extensions in sequence order so the records are always
+	   appended. */
+	array_sort(&sorted_by_seq, sort_node_seq_cmp);
+	nodes = array_get(&sorted_by_seq, &count);
+	for (i = 0; i < count; i++) {
 		mail_index_update_ext(itrans, nodes[i].seq, ext_id,
 				      &nodes[i].sort_id, NULL);
 	}
+	array_free(&sorted_by_seq);
 }
 
 static int sort_node_cmp(const struct mail_sort_node *n1,
