@@ -831,6 +831,11 @@ void smtp_server_reply_ehlo_add_size(struct smtp_server_reply *reply)
 	}
 }
 
+void smtp_server_reply_ehlo_add_smtputf8(struct smtp_server_reply *reply)
+{
+	smtp_server_reply_ehlo_add(reply, "SMTPUTF8");
+}
+
 void smtp_server_reply_ehlo_add_starttls(struct smtp_server_reply *reply)
 {
 	struct smtp_server_cmd_ctx *cmd = &reply->command->context;

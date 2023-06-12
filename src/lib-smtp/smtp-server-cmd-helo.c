@@ -143,6 +143,7 @@ smtp_server_cmd_ehlo_reply_create(struct smtp_server_cmd_ctx *cmd)
 		  smtp_server_reply_ehlo_add_enhancedstatuscodes },
 		{ "PIPELINING", smtp_server_reply_ehlo_add_pipelining },
 		{ "SIZE", smtp_server_reply_ehlo_add_size },
+		{ "SMTPUTF8", smtp_server_reply_ehlo_add_smtputf8 },
 		{ "STARTTLS", smtp_server_reply_ehlo_add_starttls },
 		{ "VRFY", smtp_server_reply_ehlo_add_vrfy },
 		{ "XCLIENT", smtp_server_reply_ehlo_add_xclient }

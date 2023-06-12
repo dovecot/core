@@ -795,6 +795,7 @@ void smtp_server_reply_ehlo_add_enhancedstatuscodes(
 	struct smtp_server_reply *reply);
 void smtp_server_reply_ehlo_add_pipelining(struct smtp_server_reply *reply);
 void smtp_server_reply_ehlo_add_size(struct smtp_server_reply *reply);
+void smtp_server_reply_ehlo_add_smtputf8(struct smtp_server_reply *reply);
 void smtp_server_reply_ehlo_add_starttls(struct smtp_server_reply *reply);
 void smtp_server_reply_ehlo_add_vrfy(struct smtp_server_reply *reply);
 void smtp_server_reply_ehlo_add_xclient(struct smtp_server_reply *reply);
