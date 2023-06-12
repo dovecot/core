@@ -44,7 +44,7 @@ int master_service_ssl_init(struct master_service *service,
 
 	i_zero(&ssl_set);
 	ssl_set.verbose = set->verbose_ssl;
-	ssl_set.verify_remote_cert = server_set->ssl_verify_client_cert;
+	ssl_set.verify_remote_cert = server_set->ssl_request_client_cert;
 	ret = io_stream_create_ssl_server(service->ssl_ctx, &ssl_set, NULL,
 					  input, output, ssl_iostream_r, error_r);
 	settings_free(set);
@@ -110,7 +110,7 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	ssl_set.skip_crl_check = !set->ssl_require_crl;
 
 	ssl_set.verbose = set->verbose_ssl;
-	ssl_set.verify_remote_cert = server_set->ssl_verify_client_cert;
+	ssl_set.verify_remote_cert = server_set->ssl_request_client_cert;
 	ssl_set.prefer_server_ciphers = set->ssl_prefer_server_ciphers;
 	ssl_set.compression = set->parsed_opts.compression;
 
