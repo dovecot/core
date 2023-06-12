@@ -1082,7 +1082,7 @@ client_auth_begin_common(struct client *client, const char *mech_name,
 			 const char *init_resp)
 {
 	if (!client->connection_secured &&
-	    strcmp(client->ssl_set->ssl, "required") == 0) {
+	    strcmp(client->ssl_server_set->ssl, "required") == 0) {
 		e_info(client->event_auth, "Login failed: "
 			"SSL required for authentication");
 		client->auth_attempts++;
@@ -1130,7 +1130,7 @@ int client_auth_begin_implicit(struct client *client, const char *mech_name,
 
 bool client_check_plaintext_auth(struct client *client, bool pass_sent)
 {
-	bool ssl_required = (strcmp(client->ssl_set->ssl, "required") == 0);
+	bool ssl_required = (strcmp(client->ssl_server_set->ssl, "required") == 0);
 
 	i_assert(!ssl_required || !client->set->auth_allow_cleartext);
 

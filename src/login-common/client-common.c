@@ -292,7 +292,7 @@ int client_alloc(int fd, const struct master_service_connection *conn,
 		   is coming from localhost.  */
 		client->connection_secured = conn->haproxy.ssl ||
 			net_ip_compare(&conn->remote_ip, &conn->local_ip) ||
-			strcmp(client->ssl_set->ssl, "required") != 0;
+			strcmp(client->ssl_server_set->ssl, "required") != 0;
 		/* Assume that the connection is also TLS secured if client
 		   terminated TLS connections on haproxy. If haproxy isn't
 		   running on localhost, the haproxy-Dovecot connection isn't
@@ -310,7 +310,7 @@ int client_alloc(int fd, const struct master_service_connection *conn,
 		/* localhost connections are always secured */
 		client->connection_secured = TRUE;
 	} else if (client->connection_trusted &&
-		   strcmp(client->ssl_set->ssl, "required") != 0) {
+		   strcmp(client->ssl_server_set->ssl, "required") != 0) {
 		/* Connections from login_trusted_networks are assumed to be
 		   secured, except if ssl=required. */
 		client->connection_secured = TRUE;
@@ -706,7 +706,7 @@ int client_init_ssl(struct client *client)
 
 	i_assert(client->fd != -1);
 
-	if (strcmp(client->ssl_set->ssl, "no") == 0) {
+	if (strcmp(client->ssl_server_set->ssl, "no") == 0) {
 		e_info(client->event, "SSL is disabled (ssl=no)");
 		return -1;
 	}
@@ -1275,7 +1275,8 @@ client_get_log_str(struct client *client, const char *msg)
 
 bool client_is_tls_enabled(struct client *client)
 {
-	return login_ssl_initialized && strcmp(client->ssl_set->ssl, "no") != 0;
+	return login_ssl_initialized &&
+		strcmp(client->ssl_server_set->ssl, "no") != 0;
 }
 
 bool client_get_extra_disconnect_reason(struct client *client,
