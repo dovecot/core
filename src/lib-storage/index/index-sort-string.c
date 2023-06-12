@@ -103,12 +103,12 @@ static int sort_node_seq_cmp(const struct mail_sort_node *n1,
 
 static void index_sort_generate_seqs(struct sort_string_context *ctx)
 {
-	struct mail_sort_node *nodes, *nodes2;
+	const struct mail_sort_node *nodes, *nodes2;
 	unsigned int i, j, count, count2;
 	uint32_t seq;
 
-	nodes = array_get_modifiable(&ctx->nonzero_nodes, &count);
-	nodes2 = array_get_modifiable(&ctx->zero_nodes, &count2);
+	nodes = array_get(&ctx->nonzero_nodes, &count);
+	nodes2 = array_get(&ctx->zero_nodes, &count2);
 
 	if (!array_is_created(&ctx->program->seqs))
 		i_array_init(&ctx->program->seqs, count + count2);
@@ -465,7 +465,8 @@ index_sort_bsearch(struct sort_string_context *ctx, const char *key,
 
 static void index_sort_merge(struct sort_string_context *ctx)
 {
-	struct mail_sort_node *znodes, *nznodes;
+	const struct mail_sort_node *znodes;
+	struct mail_sort_node *nznodes;
 	const char *zstr, *nzstr, *prev_str;
 	unsigned int zpos, nzpos, nz_next_pos, zcount, nzcount;
 	int ret;
@@ -475,7 +476,7 @@ static void index_sort_merge(struct sort_string_context *ctx)
 	i_array_init(&ctx->sorted_nodes, array_count(&ctx->nonzero_nodes) +
 		     array_count(&ctx->zero_nodes));
 
-	znodes = array_get_modifiable(&ctx->zero_nodes, &zcount);
+	znodes = array_get(&ctx->zero_nodes, &zcount);
 	nznodes = array_get_modifiable(&ctx->nonzero_nodes, &nzcount);
 
 	prev_str = NULL;
@@ -762,7 +763,7 @@ static void index_sort_write_changed_sort_ids(struct sort_string_context *ctx)
 	   Otherwise, make sure we don't write those gaps out
 
 	   First find the lowest non-expunged mail that has no_update set. */
-	nodes = array_get_modifiable(&ctx->sorted_nodes, &count);
+	nodes = array_get(&ctx->sorted_nodes, &count);
 	lowest_failed_seq = (uint32_t)-1;
 	for (i = 0; i < count; i++) {
 		uint32_t seq = nodes[i].seq;
@@ -774,7 +775,7 @@ static void index_sort_write_changed_sort_ids(struct sort_string_context *ctx)
 
 	/* add the missing sort IDs to index, but only for those sequences
 	   that are below lowest_failed_seq */
-	nodes = array_get_modifiable(&ctx->sorted_nodes, &count);
+	nodes = array_get(&ctx->sorted_nodes, &count);
 	for (i = 0; i < count; i++) {
 		i_assert(nodes[i].sort_id != 0);
 		if (!nodes[i].sort_id_changed || nodes[i].no_update ||
