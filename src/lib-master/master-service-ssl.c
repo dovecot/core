@@ -17,30 +17,38 @@ int master_service_ssl_init(struct master_service *service,
 			    const char **error_r)
 {
 	const struct master_service_ssl_settings *set;
+	const struct master_service_ssl_server_settings *server_set;
 	struct ssl_iostream_settings ssl_set;
 	int ret;
 
 	i_assert(service->ssl_ctx_initialized);
 
 	if (settings_get(service->event,
-			 &master_service_ssl_setting_parser_info, 0,
-			 &set, error_r) < 0)
+			 &master_service_ssl_server_setting_parser_info, 0,
+			 &server_set, error_r) < 0)
 		return -1;
 	if (service->ssl_ctx == NULL) {
 		if (strcmp(set->ssl, "no") == 0)
 			*error_r = "SSL is disabled (ssl=no)";
 		else
 			*error_r = "Failed to initialize SSL context";
-		settings_free(set);
+		settings_free(server_set);
+		return -1;
+	}
+	if (settings_get(service->event,
+			 &master_service_ssl_setting_parser_info, 0,
+			 &set, error_r) < 0) {
+		settings_free(server_set);
 		return -1;
 	}
 
 	i_zero(&ssl_set);
 	ssl_set.verbose = set->verbose_ssl;
-	ssl_set.verify_remote_cert = set->ssl_verify_client_cert;
+	ssl_set.verify_remote_cert = server_set->ssl_verify_client_cert;
 	ret = io_stream_create_ssl_server(service->ssl_ctx, &ssl_set, NULL,
 					  input, output, ssl_iostream_r, error_r);
 	settings_free(set);
+	settings_free(server_set);
 	return ret;
 }
 
@@ -86,7 +94,7 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	ssl_set.min_protocol = set->ssl_min_protocol;
 	ssl_set.cipher_list = set->ssl_cipher_list;
 	ssl_set.curve_list = set->ssl_curve_list;
-	ssl_set.ca = set->ssl_ca;
+	ssl_set.ca = server_set->ssl_ca;
 	ssl_set.cert.cert = server_set->ssl_cert;
 	ssl_set.cert.key = server_set->ssl_key;
 	ssl_set.dh = server_set->ssl_dh;
@@ -102,7 +110,7 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	ssl_set.skip_crl_check = !set->ssl_require_crl;
 
 	ssl_set.verbose = set->verbose_ssl;
-	ssl_set.verify_remote_cert = set->ssl_verify_client_cert;
+	ssl_set.verify_remote_cert = server_set->ssl_verify_client_cert;
 	ssl_set.prefer_server_ciphers = set->ssl_prefer_server_ciphers;
 	ssl_set.compression = set->parsed_opts.compression;
 

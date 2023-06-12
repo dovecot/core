@@ -9,7 +9,7 @@ struct master_service_ssl_settings {
 	pool_t pool;
 
 	const char *ssl;
-	const char *ssl_ca;
+	const char *ssl_client_ca;
 	const char *ssl_client_ca_file;
 	const char *ssl_client_ca_dir;
 	const char *ssl_client_cert;
@@ -22,7 +22,6 @@ struct master_service_ssl_settings {
 	const char *ssl_crypto_device;
 	const char *ssl_options;
 
-	bool ssl_verify_client_cert;
 	bool ssl_client_require_valid_cert;
 	bool ssl_require_crl;
 	bool verbose_ssl;
@@ -38,12 +37,15 @@ struct master_service_ssl_settings {
 struct master_service_ssl_server_settings {
 	pool_t pool;
 
+	const char *ssl_ca;
 	const char *ssl_cert;
 	const char *ssl_alt_cert;
 	const char *ssl_key;
 	const char *ssl_alt_key;
 	const char *ssl_key_password;
 	const char *ssl_dh;
+
+	bool ssl_verify_client_cert;
 };
 
 extern const struct setting_parser_info master_service_ssl_setting_parser_info;
