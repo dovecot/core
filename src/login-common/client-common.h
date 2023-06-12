@@ -205,7 +205,6 @@ struct client {
 	struct auth_client_request *reauth_request;
 	string_t *auth_response;
 	struct timeval auth_first_started, auth_finished;
-	const char *sasl_final_delayed_resp;
 	enum sasl_server_reply delayed_final_reply;
 	const char *const *final_args;
 	const char *const *auth_passdb_args;
