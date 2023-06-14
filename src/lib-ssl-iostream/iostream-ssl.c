@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "module-dir.h"
+#include "settings.h"
 #include "iostream-ssl-private.h"
 
 static bool ssl_module_loaded = FALSE;
@@ -124,6 +125,68 @@ int io_stream_create_ssl_server(struct ssl_iostream_context *ctx,
 {
 	return ssl_vfuncs->create(ctx, event_parent, NULL, TRUE,
 				  input, output, iostream_r, error_r);
+}
+
+int io_stream_autocreate_ssl_client(
+	struct event *event_parent, const char *host,
+	struct istream **input, struct ostream **output,
+	struct ssl_iostream **iostream_r,
+	const char **error_r)
+{
+	const struct ssl_settings *ssl_set;
+	const struct ssl_iostream_settings *set;
+	struct ssl_iostream_context *ctx;
+	int ret;
+
+	if (settings_get(event_parent, &ssl_setting_parser_info,
+			 0, &ssl_set, error_r) < 0)
+		return -1;
+	ssl_client_settings_to_iostream_set(ssl_set, &set);
+	settings_free(ssl_set);
+
+	ret = ssl_iostream_client_context_cache_get(set, &ctx, error_r);
+	settings_free(set);
+	if (ret < 0)
+		return -1;
+
+	ret = io_stream_create_ssl_client(ctx, host, event_parent, input,
+					  output, iostream_r, error_r);
+	ssl_iostream_context_unref(&ctx);
+	return ret;
+}
+
+int io_stream_autocreate_ssl_server(
+	struct event *event_parent,
+	struct istream **input, struct ostream **output,
+	struct ssl_iostream **iostream_r,
+	const char **error_r)
+{
+	const struct ssl_settings *ssl_set;
+	const struct ssl_server_settings *ssl_server_set;
+	const struct ssl_iostream_settings *set;
+	struct ssl_iostream_context *ctx;
+	int ret;
+
+	if (settings_get(event_parent, &ssl_setting_parser_info,
+			 0, &ssl_set, error_r) < 0)
+		return -1;
+	if (settings_get(event_parent, &ssl_server_setting_parser_info,
+			 0, &ssl_server_set, error_r) < 0) {
+		settings_free(ssl_set);
+		return -1;
+	}
+	ssl_server_settings_to_iostream_set(ssl_set, ssl_server_set, &set);
+	settings_free(ssl_set);
+	settings_free(ssl_server_set);
+
+	ret = ssl_iostream_server_context_cache_get(set, &ctx, error_r);
+	settings_free(set);
+	if (ret < 0)
+		return -1;
+	ret = io_stream_create_ssl_server(ctx, event_parent, input,
+					  output, iostream_r, error_r);
+	ssl_iostream_context_unref(&ctx);
+	return ret;
 }
 
 void ssl_iostream_unref(struct ssl_iostream **_ssl_io)

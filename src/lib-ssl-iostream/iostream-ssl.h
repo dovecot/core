@@ -77,6 +77,21 @@ int io_stream_create_ssl_server(struct ssl_iostream_context *ctx,
 				struct istream **input, struct ostream **output,
 				struct ssl_iostream **iostream_r,
 				const char **error_r);
+
+/* Lookup settings from event, use ssl_iostream_client_context_cache_get() to
+   get the context and call io_stream_create_ssl_client(). */
+int io_stream_autocreate_ssl_client(
+	struct event *event_parent, const char *host,
+	struct istream **input, struct ostream **output,
+	struct ssl_iostream **iostream_r,
+	const char **error_r);
+/* Lookup settings from event, use ssl_iostream_server_context_cache_get() to
+   get the context and call io_stream_create_ssl_server(). */
+int io_stream_autocreate_ssl_server(
+	struct event *event_parent,
+	struct istream **input, struct ostream **output,
+	struct ssl_iostream **iostream_r,
+	const char **error_r);
 /* Shutdown SSL connection and unreference ssl iostream.
    The returned input and output streams must also be unreferenced. */
 void ssl_iostream_destroy(struct ssl_iostream **ssl_io);
