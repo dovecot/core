@@ -27,6 +27,11 @@ size_t pool_get_exp_grown_size(pool_t pool, size_t old_size, size_t min_size)
 
 void pool_add_external_ref(pool_t pool, pool_t ref_pool)
 {
+	i_assert(pool != system_pool);
+	i_assert(ref_pool != system_pool);
+	i_assert(!pool->datastack_pool);
+	i_assert(!ref_pool->datastack_pool);
+
 	if (!array_is_created(&pool->external_refs))
 		i_array_init(&pool->external_refs, 1);
 	array_push_back(&pool->external_refs, &ref_pool);
