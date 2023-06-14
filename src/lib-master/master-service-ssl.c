@@ -16,7 +16,6 @@ int master_service_ssl_init(struct master_service *service,
 			    struct ssl_iostream **ssl_iostream_r,
 			    const char **error_r)
 {
-	const struct master_service_ssl_settings *set;
 	const struct master_service_ssl_server_settings *server_set;
 	struct ssl_iostream_settings ssl_set;
 	int ret;
@@ -35,18 +34,10 @@ int master_service_ssl_init(struct master_service *service,
 		settings_free(server_set);
 		return -1;
 	}
-	if (settings_get(service->event,
-			 &master_service_ssl_setting_parser_info, 0,
-			 &set, error_r) < 0) {
-		settings_free(server_set);
-		return -1;
-	}
 
 	i_zero(&ssl_set);
-	ssl_set.verbose = set->verbose_ssl;
 	ret = io_stream_create_ssl_server(service->ssl_ctx, &ssl_set, NULL,
 					  input, output, ssl_iostream_r, error_r);
-	settings_free(set);
 	settings_free(server_set);
 	return ret;
 }
@@ -108,7 +99,6 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	ssl_set.crypto_device = set->ssl_crypto_device;
 	ssl_set.skip_crl_check = !server_set->ssl_require_crl;
 
-	ssl_set.verbose = set->verbose_ssl;
 	ssl_set.verify_remote_cert = server_set->ssl_request_client_cert;
 	ssl_set.prefer_server_ciphers = server_set->ssl_prefer_server_ciphers;
 	ssl_set.compression = set->parsed_opts.compression;

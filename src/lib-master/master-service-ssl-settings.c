@@ -29,7 +29,6 @@ static const struct setting_define master_service_ssl_setting_defines[] = {
 	DEF(STR, ssl_crypto_device),
 
 	DEF(BOOL, ssl_client_require_valid_cert),
-	DEF(BOOL, verbose_ssl),
 	DEF(STR, ssl_options), /* parsed as a string to set bools */
 
 	SETTING_DEFINE_LIST_END
@@ -49,7 +48,6 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 	.ssl_crypto_device = "",
 
 	.ssl_client_require_valid_cert = TRUE,
-	.verbose_ssl = FALSE,
 	.ssl_options = "",
 };
 
@@ -180,7 +178,6 @@ static void master_service_ssl_common_settings_to_iostream_set(
 
 	set_r->crypto_device = p_strdup(pool, ssl_set->ssl_crypto_device);
 
-	set_r->verbose = ssl_set->verbose_ssl;
 	set_r->compression = ssl_set->parsed_opts.compression;
 	set_r->tickets = ssl_set->parsed_opts.tickets;
 	set_r->curve_list = p_strdup(pool, ssl_set->ssl_curve_list);
