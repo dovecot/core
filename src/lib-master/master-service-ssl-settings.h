@@ -22,7 +22,6 @@ struct master_service_ssl_settings {
 	const char *ssl_options;
 
 	bool ssl_client_require_valid_cert;
-	bool verbose_ssl;
 
 	/* These are derived from ssl_options, not set directly */
 	struct {
