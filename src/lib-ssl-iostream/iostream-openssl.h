@@ -52,7 +52,6 @@ struct ssl_iostream {
 
 	/* copied settings */
 	bool verbose_invalid_cert, allow_invalid_cert;
-	int username_nid;
 
 	ssl_iostream_handshake_callback_t *handshake_callback;
 	void *handshake_context;

@@ -14,24 +14,24 @@ struct ssl_iostream_settings {
 	/* NOTE: when updating, remember to update:
 	   ssl_iostream_settings_string_offsets[],
 	   ssl_iostream_settings_drop_stream_only() */
-	const char *min_protocol; /* both */
-	const char *cipher_list; /* both */
-	const char *ciphersuites; /* both, TLSv1.3 only */
-	const char *curve_list; /* both */
+	const char *min_protocol; /* context-only */
+	const char *cipher_list; /* context-only, TLSv1.2 and below only */
+	const char *ciphersuites; /* context-only, TLSv1.3 only */
+	const char *curve_list; /* context-only */
 	const char *ca, *ca_file, *ca_dir; /* context-only */
 	/* alternative cert is for providing certificate using
 	   different key algorithm */
 	struct ssl_iostream_cert cert; /* both */
 	struct ssl_iostream_cert alt_cert; /* both */
 	const char *dh; /* context-only */
-	const char *cert_username_field; /* both */
+	const char *cert_username_field; /* context-only */
 	const char *crypto_device; /* context-only */
 
 	bool verbose, verbose_invalid_cert; /* stream-only */
 	bool skip_crl_check; /* context-only */
 	bool verify_remote_cert; /* neither/both */
 	bool allow_invalid_cert; /* stream-only */
-	bool prefer_server_ciphers; /* both */
+	bool prefer_server_ciphers; /* context-only */
 	bool compression; /* context-only */
 	bool tickets; /* context-only */
 };
