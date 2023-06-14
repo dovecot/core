@@ -680,6 +680,8 @@ ssl_iostream_context_init_common(struct ssl_iostream_context *ctx,
 #ifdef SSL_OP_NO_COMPRESSION
 	if (!set->compression)
 		ssl_ops |= SSL_OP_NO_COMPRESSION;
+	else
+		SSL_CTX_clear_options(ctx->ssl_ctx, SSL_OP_NO_COMPRESSION);
 #endif
 #ifdef SSL_OP_NO_TICKET
 	if (!set->tickets)
