@@ -13,25 +13,25 @@ struct ssl_iostream_cert {
 struct ssl_iostream_settings {
 	/* NOTE: when updating, remember to update:
 	   ssl_iostream_settings_string_offsets[] */
-	const char *min_protocol; /* context-only */
-	const char *cipher_list; /* context-only, TLSv1.2 and below only */
-	const char *ciphersuites; /* context-only, TLSv1.3 only */
-	const char *curve_list; /* context-only */
-	const char *ca, *ca_file, *ca_dir; /* context-only */
+	const char *min_protocol;
+	const char *cipher_list; /* TLSv1.2 and below only */
+	const char *ciphersuites; /* TLSv1.3 only */
+	const char *curve_list;
+	const char *ca, *ca_file, *ca_dir;
 	/* alternative cert is for providing certificate using
 	   different key algorithm */
-	struct ssl_iostream_cert cert; /* context-only */
-	struct ssl_iostream_cert alt_cert; /* context-only */
-	const char *dh; /* context-only */
-	const char *cert_username_field; /* context-only */
-	const char *crypto_device; /* context-only */
+	struct ssl_iostream_cert cert;
+	struct ssl_iostream_cert alt_cert;
+	const char *dh;
+	const char *cert_username_field;
+	const char *crypto_device;
 
-	bool skip_crl_check; /* context-only */
-	bool verify_remote_cert; /* context-only */
-	bool allow_invalid_cert; /* context-only */
-	bool prefer_server_ciphers; /* context-only */
-	bool compression; /* context-only */
-	bool tickets; /* context-only */
+	bool skip_crl_check;
+	bool verify_remote_cert;
+	bool allow_invalid_cert;
+	bool prefer_server_ciphers;
+	bool compression;
+	bool tickets;
 };
 
 /* Load SSL module */
@@ -54,13 +54,11 @@ int io_stream_ssl_global_init(const struct ssl_iostream_settings *set,
 			      const char **error_r);
 
 int io_stream_create_ssl_client(struct ssl_iostream_context *ctx, const char *host,
-				const struct ssl_iostream_settings *set,
 				struct event *event_parent,
 				struct istream **input, struct ostream **output,
 				struct ssl_iostream **iostream_r,
 				const char **error_r);
 int io_stream_create_ssl_server(struct ssl_iostream_context *ctx,
-				const struct ssl_iostream_settings *set,
 				struct event *event_parent,
 				struct istream **input, struct ostream **output,
 				struct ssl_iostream **iostream_r,

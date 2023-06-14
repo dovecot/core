@@ -18,7 +18,6 @@ struct iostream_ssl_vfuncs {
 	int (*create)(struct ssl_iostream_context *ctx,
 		      struct event *event_parent,
 		      const char *host,
-		      const struct ssl_iostream_settings *set,
 		      bool client,
 		      struct istream **input, struct ostream **output,
 		      struct ssl_iostream **iostream_r, const char **error_r);
