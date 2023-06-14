@@ -75,10 +75,12 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 	if (conn->ssl_set.ca_dir != NULL)
 		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CACERTDIR, conn->ssl_set.ca_dir);
 
+#ifdef LDAP_OPT_X_TLS_CERT
 	if (conn->ssl_set.cert.cert != NULL)
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CERTFILE, conn->ssl_set.cert.cert);
+		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CERT, conn->ssl_set.cert.cert);
 	if (conn->ssl_set.cert.key != NULL)
 		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_KEYFILE, conn->ssl_set.cert.key);
+#endif
 
 	opt = conn->set.debug;
 	ldap_set_option(NULL, LDAP_OPT_DEBUG_LEVEL, &opt);
