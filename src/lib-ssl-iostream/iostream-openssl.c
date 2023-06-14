@@ -188,7 +188,7 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 		if (openssl_iostream_use_key(ssl_io, "ssl_alt_key", &set->alt_cert, error_r) < 0)
 			return -1;
 	}
-	if (set->verify_remote_cert) {
+	if (ssl_io->ctx->set.verify_remote_cert) {
 		if (ssl_io->ctx->client_ctx)
 			verify_flags = SSL_VERIFY_NONE;
 		else
