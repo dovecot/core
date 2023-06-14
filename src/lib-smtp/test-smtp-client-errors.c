@@ -3827,7 +3827,6 @@ static void test_invalid_ssl_certificate(void)
 
 	/* ssl settings */
 	ssl_iostream_test_settings_client(&ssl_set);
-	ssl_set.verbose = debug;
 
 	test_client_defaults(&smtp_client_set);
 	smtp_client_set.dns_client_socket_path = "./dns-test";
@@ -3941,7 +3940,6 @@ server_connection_init_ssl(struct server_connection *conn)
 	connection_input_halt(&conn->conn);
 
 	ssl_iostream_test_settings_server(&ssl_set);
-	ssl_set.verbose = debug;
 
 	if (server_ssl_ctx == NULL &&
 	    ssl_iostream_context_init_server(&ssl_set, &server_ssl_ctx,

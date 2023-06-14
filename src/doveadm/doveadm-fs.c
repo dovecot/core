@@ -32,7 +32,6 @@ cmd_fs_init(struct doveadm_cmd_context *cctx)
 		fs_cmd_help(cctx);
 
 	doveadm_get_ssl_settings(&ssl_set, pool_datastack_create());
-	ssl_set.verbose = doveadm_debug;
 	i_zero(&fs_set);
 	fs_set.ssl_client_set = &ssl_set;
 	fs_set.temp_dir = doveadm_settings->mail_temp_dir;

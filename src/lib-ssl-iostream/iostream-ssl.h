@@ -27,7 +27,6 @@ struct ssl_iostream_settings {
 	const char *cert_username_field; /* context-only */
 	const char *crypto_device; /* context-only */
 
-	bool verbose; /* stream-only */
 	bool skip_crl_check; /* context-only */
 	bool verify_remote_cert; /* context-only */
 	bool allow_invalid_cert; /* stream-only */
