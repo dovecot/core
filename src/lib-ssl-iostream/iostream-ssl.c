@@ -319,10 +319,6 @@ bool ssl_iostream_settings_equals(const struct ssl_iostream_settings *set1,
 	return memcmp(&set1_nonstr, &set2_nonstr, sizeof(set1_nonstr)) == 0;
 }
 
-void ssl_iostream_settings_drop_stream_only(struct ssl_iostream_settings *set ATTR_UNUSED)
-{
-}
-
 const char *ssl_iostream_get_cipher(struct ssl_iostream *ssl_io,
 				    unsigned int *bits_r)
 {

@@ -67,7 +67,6 @@ ssl_iostream_context_cache_get(const struct ssl_iostream_settings *set,
 				  ssl_iostream_context_cache_hash,
 				  ssl_iostream_context_cache_cmp);
 	}
-	ssl_iostream_settings_drop_stream_only(&lookup.set);
 
 	ctx = hash_table_lookup(ssl_iostream_contexts, &lookup);
 	if (ctx != NULL) {

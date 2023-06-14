@@ -59,9 +59,6 @@ void iostream_ssl_module_init(const struct iostream_ssl_vfuncs *vfuncs);
    treated equal. */
 bool ssl_iostream_settings_equals(const struct ssl_iostream_settings *set1,
 				  const struct ssl_iostream_settings *set2);
-/* Clear out all stream-only settings, so only settings useful for a context
-   are left. */
-void ssl_iostream_settings_drop_stream_only(struct ssl_iostream_settings *set);
 
 void ssl_iostream_unref(struct ssl_iostream **ssl_io);
 
