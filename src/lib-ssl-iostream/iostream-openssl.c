@@ -100,7 +100,7 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 	}
 	if (preverify_ok == 0) {
 		ssl_io->cert_broken = TRUE;
-		if (!ssl_io->allow_invalid_cert) {
+		if (!ssl_io->ctx->set.allow_invalid_cert) {
 			ssl_io->handshake_failed = TRUE;
 			return 0;
 		}
@@ -109,8 +109,7 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 }
 
 static void
-openssl_iostream_set(struct ssl_iostream *ssl_io,
-		     const struct ssl_iostream_settings *set)
+openssl_iostream_set(struct ssl_iostream *ssl_io)
 {
 	int verify_flags;
 
@@ -124,14 +123,12 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 		SSL_set_verify(ssl_io->ssl, verify_flags,
 			       openssl_iostream_verify_client_cert);
 	}
-
-	ssl_io->allow_invalid_cert = set->allow_invalid_cert;
 }
 
 static int
 openssl_iostream_create(struct ssl_iostream_context *ctx,
 			struct event *event_parent, const char *host,
-			const struct ssl_iostream_settings *set, bool client,
+			const struct ssl_iostream_settings *set ATTR_UNUSED, bool client,
 			struct istream **input, struct ostream **output,
 			struct ssl_iostream **iostream_r,
 			const char **error_r)
@@ -186,7 +183,7 @@ openssl_iostream_create(struct ssl_iostream_context *ctx,
         SSL_set_ex_data(ssl_io->ssl, dovecot_ssl_extdata_index, ssl_io);
 	SSL_set_tlsext_host_name(ssl_io->ssl, host);
 
-	openssl_iostream_set(ssl_io, set);
+	openssl_iostream_set(ssl_io);
 
 	o_stream_uncork(ssl_io->plain_output);
 
@@ -604,7 +601,7 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 			ssl_io->handshake_failed = TRUE;
 		}
        } else if (ssl_io->connected_host != NULL && !ssl_io->handshake_failed &&
-		  !ssl_io->allow_invalid_cert) {
+		  !ssl_io->ctx->set.allow_invalid_cert) {
 		if (ssl_iostream_check_cert_validity(ssl_io, ssl_io->connected_host, &reason) < 0) {
 			openssl_iostream_set_error(ssl_io, reason);
 			ssl_io->handshake_failed = TRUE;

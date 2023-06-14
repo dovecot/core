@@ -50,9 +50,6 @@ struct ssl_iostream {
 	char *ja3_str;
 	int plain_stream_errno;
 
-	/* copied settings */
-	bool allow_invalid_cert;
-
 	ssl_iostream_handshake_callback_t *handshake_callback;
 	void *handshake_context;
 
