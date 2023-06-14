@@ -12,8 +12,7 @@ struct ssl_iostream_cert {
 
 struct ssl_iostream_settings {
 	/* NOTE: when updating, remember to update:
-	   ssl_iostream_settings_string_offsets[],
-	   ssl_iostream_settings_drop_stream_only() */
+	   ssl_iostream_settings_string_offsets[] */
 	const char *min_protocol; /* context-only */
 	const char *cipher_list; /* context-only, TLSv1.2 and below only */
 	const char *ciphersuites; /* context-only, TLSv1.3 only */
