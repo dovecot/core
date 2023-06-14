@@ -697,8 +697,6 @@ static int client_sni_callback(const char *name, const char **error_r,
 
 int client_init_ssl(struct client *client)
 {
-	struct ssl_iostream_context *ssl_ctx;
-	const struct ssl_iostream_settings *ssl_set;
 	const char *error;
 
 	i_assert(client->fd != -1);
@@ -708,30 +706,18 @@ int client_init_ssl(struct client *client)
 		return -1;
 	}
 
-	ssl_server_settings_to_iostream_set(client->ssl_set,
-		client->ssl_server_set, &ssl_set);
-	if (ssl_iostream_server_context_cache_get(ssl_set, &ssl_ctx, &error) < 0) {
-		e_error(client->event,
-			"Failed to initialize SSL server context: %s", error);
-		settings_free(ssl_set);
-		return -1;
-	}
-	settings_free(ssl_set);
-
 	if (client->v.iostream_change_pre != NULL)
 		client->v.iostream_change_pre(client);
-	int ret = io_stream_create_ssl_server(ssl_ctx, client->event,
-					      &client->input, &client->output,
-					      &client->ssl_iostream, &error);
+	int ret = io_stream_autocreate_ssl_server(client->event,
+			&client->input, &client->output,
+			&client->ssl_iostream, &error);
 	if (client->v.iostream_change_post != NULL)
 		client->v.iostream_change_post(client);
 	if (ret < 0) {
 		e_error(client->event,
 			"Failed to initialize SSL connection: %s", error);
-		ssl_iostream_context_unref(&ssl_ctx);
 		return -1;
 	}
-	ssl_iostream_context_unref(&ssl_ctx);
 	ssl_iostream_set_sni_callback(client->ssl_iostream,
 				      client_sni_callback, client);
 
