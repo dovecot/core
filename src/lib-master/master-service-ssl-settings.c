@@ -181,7 +181,6 @@ static void master_service_ssl_common_settings_to_iostream_set(
 	set_r->crypto_device = p_strdup(pool, ssl_set->ssl_crypto_device);
 
 	set_r->verbose = ssl_set->verbose_ssl;
-	set_r->verbose_invalid_cert = ssl_set->verbose_ssl;
 	set_r->compression = ssl_set->parsed_opts.compression;
 	set_r->tickets = ssl_set->parsed_opts.tickets;
 	set_r->curve_list = p_strdup(pool, ssl_set->ssl_curve_list);
