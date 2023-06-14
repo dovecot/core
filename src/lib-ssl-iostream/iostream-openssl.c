@@ -98,7 +98,7 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 		if (ssl_io->verbose_invalid_cert)
 			e_warning(ssl_io->event, "%s", ssl_io->last_error);
 	} else {
-		e_info(ssl_io->event, "Received valid SSL certificate: %s", certname);
+		e_debug(ssl_io->event, "Received valid SSL certificate: %s", certname);
 	}
 	if (preverify_ok == 0) {
 		ssl_io->cert_broken = TRUE;
