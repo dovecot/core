@@ -172,49 +172,6 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 
 	SSL_set_info_callback(ssl_io->ssl, openssl_info_callback);
 
-       if (set->cipher_list != NULL &&
-	    strcmp(ctx_set->cipher_list, set->cipher_list) != 0) {
-		if (SSL_set_cipher_list(ssl_io->ssl, set->cipher_list) == 0) {
-			*error_r = t_strdup_printf(
-				"Can't set cipher list to '%s': %s",
-				set->cipher_list, openssl_iostream_error());
-			return -1;
-		}
-	}
-	if (set->curve_list != NULL && strlen(set->curve_list) > 0 &&
-		(ctx_set->curve_list == NULL || strcmp(ctx_set->curve_list, set->curve_list) != 0)) {
-		if (SSL_set1_curves_list(ssl_io->ssl, set->curve_list) == 0) {
-			*error_r = t_strdup_printf(
-					"Failed to set curve list to '%s'",
-					set->curve_list);
-			return -1;
-		}
-	}
-        if (set->ciphersuites != NULL &&
-	    strcmp(ctx_set->ciphersuites, set->ciphersuites) != 0) {
-		if (SSL_set_ciphersuites(ssl_io->ssl, set->ciphersuites) == 0) {
-			*error_r = t_strdup_printf(
-				"Can't set ciphersuites to '%s': %s",
-				set->ciphersuites, openssl_iostream_error());
-			return -1;
-		}
-	}
-	if (set->prefer_server_ciphers)
-		SSL_set_options(ssl_io->ssl, SSL_OP_CIPHER_SERVER_PREFERENCE);
-	if (set->min_protocol != NULL) {
-		SSL_clear_options(ssl_io->ssl, OPENSSL_ALL_PROTOCOL_OPTIONS);
-		long opts;
-		int min_protocol;
-		if (openssl_min_protocol_to_options(set->min_protocol, &opts,
-						    &min_protocol) < 0) {
-			*error_r = t_strdup_printf(
-					"Unknown ssl_min_protocol setting '%s'",
-					set->min_protocol);
-			return -1;
-		}
-		SSL_set_min_proto_version(ssl_io->ssl, min_protocol);
-	}
-
 	if (set->cert.cert != NULL && strcmp(ctx_set->cert.cert, set->cert.cert) != 0) {
 		if (openssl_iostream_use_certificate(ssl_io, set->cert.cert, error_r) < 0)
 			return -1;
@@ -238,18 +195,6 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 			verify_flags = SSL_VERIFY_PEER | SSL_VERIFY_CLIENT_ONCE;
 		SSL_set_verify(ssl_io->ssl, verify_flags,
 			       openssl_iostream_verify_client_cert);
-	}
-
-	if (set->cert_username_field != NULL) {
-		ssl_io->username_nid = OBJ_txt2nid(set->cert_username_field);
-		if (ssl_io->username_nid == NID_undef) {
-			*error_r = t_strdup_printf(
-				"Invalid cert_username_field: %s",
-				set->cert_username_field);
-			return -1;
-		}
-	} else {
-		ssl_io->username_nid = ssl_io->ctx->username_nid;
 	}
 
 	if (set->verbose)
@@ -838,13 +783,13 @@ openssl_iostream_get_peer_username(struct ssl_iostream *ssl_io)
 	i_assert(x509 != NULL);
 
 	len = X509_NAME_get_text_by_NID(X509_get_subject_name(x509),
-					ssl_io->username_nid, NULL, 0);
+					ssl_io->ctx->username_nid, NULL, 0);
 	if (len < 0)
 		name = NULL;
 	else {
 		name = t_malloc0(len + 1);
 		if (X509_NAME_get_text_by_NID(X509_get_subject_name(x509),
-					      ssl_io->username_nid,
+					      ssl_io->ctx->username_nid,
 					      name, len + 1) < 0)
 			name = NULL;
 		else if (strlen(name) != (size_t)len) {
