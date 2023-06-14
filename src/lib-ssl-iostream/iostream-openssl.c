@@ -125,10 +125,6 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 			       openssl_iostream_verify_client_cert);
 	}
 
-	if (set->verbose)
-		event_set_forced_debug(ssl_io->event, TRUE);
-	else
-		event_set_min_log_level(ssl_io->event, LOG_TYPE_WARNING);
 	ssl_io->allow_invalid_cert = set->allow_invalid_cert;
 }
 

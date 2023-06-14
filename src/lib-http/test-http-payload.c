@@ -1883,9 +1883,7 @@ test_run_sequential(
 
 	/* ssl settings */
 	ssl_iostream_test_settings_server(&ssl_server_set);
-	ssl_server_set.verbose = debug;
 	ssl_iostream_test_settings_client(&ssl_client_set);
-	ssl_client_set.verbose = debug;
 
 	/* server settings */
 	test_init_server_settings(&http_server_set);
@@ -1915,9 +1913,7 @@ test_run_pipeline(
 
 	/* ssl settings */
 	ssl_iostream_test_settings_server(&ssl_server_set);
-	ssl_server_set.verbose = debug;
 	ssl_iostream_test_settings_client(&ssl_client_set);
-	ssl_client_set.verbose = debug;
 
 	/* server settings */
 	test_init_server_settings(&http_server_set);
@@ -1947,9 +1943,7 @@ test_run_parallel(
 
 	/* ssl settings */
 	ssl_iostream_test_settings_server(&ssl_server_set);
-	ssl_server_set.verbose = debug;
 	ssl_iostream_test_settings_client(&ssl_client_set);
-	ssl_client_set.verbose = debug;
 
 	/* server settings */
 	test_init_server_settings(&http_server_set);

@@ -958,9 +958,7 @@ test_run_scenarios(
 
 	/* ssl settings */
 	ssl_iostream_test_settings_server(&ssl_server_set);
-	ssl_server_set.verbose = debug;
 	ssl_iostream_test_settings_client(&ssl_client_set);
-	ssl_client_set.verbose = debug;
 
 	/* server settings */
 	i_zero(&smtp_server_set);

@@ -321,7 +321,6 @@ bool ssl_iostream_settings_equals(const struct ssl_iostream_settings *set1,
 
 void ssl_iostream_settings_drop_stream_only(struct ssl_iostream_settings *set)
 {
-	set->verbose = FALSE;
 	set->allow_invalid_cert = FALSE;
 }
 
