@@ -95,8 +95,6 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 			ssl_io->ctx->client_ctx ?
 				"ssl_client_ca_* settings?" :
 				"ssl_ca setting?"));
-		if (ssl_io->verbose_invalid_cert)
-			e_warning(ssl_io->event, "%s", ssl_io->last_error);
 	} else {
 		e_debug(ssl_io->event, "Received valid SSL certificate: %s", certname);
 	}
@@ -131,9 +129,6 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 		event_set_forced_debug(ssl_io->event, TRUE);
 	else
 		event_set_min_log_level(ssl_io->event, LOG_TYPE_WARNING);
-	ssl_io->verbose_invalid_cert =
-		set->verbose_invalid_cert ||
-		event_want_debug(ssl_io->event);
 	ssl_io->allow_invalid_cert = set->allow_invalid_cert;
 }
 

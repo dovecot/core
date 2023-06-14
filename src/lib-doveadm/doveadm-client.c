@@ -567,8 +567,6 @@ static int doveadm_client_init_ssl(struct doveadm_client *conn,
 
 	if ((conn->set.ssl_flags & AUTH_PROXY_SSL_FLAG_ANY_CERT) != 0)
 		ssl_set.allow_invalid_cert = TRUE;
-	if (ssl_set.allow_invalid_cert)
-		ssl_set.verbose_invalid_cert = TRUE;
 
 	if (conn->set.ssl_ctx == NULL &&
 	    ssl_iostream_client_context_cache_get(&ssl_set, &conn->set.ssl_ctx,

@@ -121,7 +121,6 @@ pop3c_client_init(const struct pop3c_client_settings *set,
 
 	if (set->ssl_mode != POP3C_CLIENT_SSL_MODE_NONE) {
 		ssl_iostream_settings_init_from(client->pool, &client->set.ssl_set, &set->ssl_set);
-		client->set.ssl_set.verbose_invalid_cert = !client->set.ssl_set.allow_invalid_cert;
 		if (ssl_iostream_client_context_cache_get(&set->ssl_set,
 							  &client->ssl_ctx,
 							  &error) < 0) {

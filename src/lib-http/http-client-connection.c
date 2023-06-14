@@ -1502,21 +1502,16 @@ http_client_connection_ssl_init(struct http_client_connection *conn,
 	struct http_client_peer_shared *pshared = ppool->peer;
 	const struct http_client_settings *set =
 		http_client_connection_get_settings(conn);
-	struct ssl_iostream_settings ssl_set;
 	struct ssl_iostream_context *ssl_ctx = ppool->ssl_ctx;
 	const char *error;
 
 	i_assert(ssl_ctx != NULL);
 
-	ssl_set = *set->ssl;
-	if (!set->ssl->allow_invalid_cert)
-		ssl_set.verbose_invalid_cert = TRUE;
-
 	e_debug(conn->event, "Starting SSL handshake");
 
 	connection_input_halt(&conn->conn);
 	if (io_stream_create_ssl_client(ssl_ctx, pshared->addr.a.tcp.https_name,
-					&ssl_set, conn->event,
+					set->ssl, conn->event,
 					&conn->conn.input, &conn->conn.output,
 					&conn->ssl_iostream, &error) < 0) {
 		*error_r = t_strdup_printf(

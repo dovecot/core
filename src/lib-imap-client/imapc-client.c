@@ -104,7 +104,6 @@ imapc_client_init(const struct imapc_client_settings *set,
 	if (set->ssl_mode != IMAPC_CLIENT_SSL_MODE_NONE) {
 		client->set.ssl_mode = set->ssl_mode;
 		ssl_iostream_settings_init_from(pool, &client->set.ssl_set, &set->ssl_set);
-		client->set.ssl_set.verbose_invalid_cert = !client->set.ssl_set.allow_invalid_cert;
 		if (ssl_iostream_client_context_cache_get(&client->set.ssl_set,
 							  &client->ssl_ctx,
 							  &error) < 0) {

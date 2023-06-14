@@ -1089,9 +1089,7 @@ submission_backend_relay_create(
 	event_set_append_log_prefix(rbackend->backend.event, "relay: ");
 
 	ssl_set = *user->ssl_set;
-	if (set->ssl_verify)
-		ssl_set.verbose_invalid_cert = TRUE;
-	else
+	if (!set->ssl_verify)
 		ssl_set.allow_invalid_cert = TRUE;
 
 	/* make relay connection */

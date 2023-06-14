@@ -229,7 +229,6 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	ssl_set.prefer_server_ciphers = TRUE;
 	ssl_set.allow_invalid_cert = db->set.tls_allow_invalid_cert;
 	ssl_set.verbose = db->set.debug;
-	ssl_set.verbose_invalid_cert = db->set.debug;
 	http_set.ssl = &ssl_set;
 
 	http_set.dns_client_socket_path = "dns-client";
