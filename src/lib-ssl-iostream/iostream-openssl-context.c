@@ -636,10 +636,8 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 	}
 	if (!ctx->client_ctx) {
 		if (SSL_CTX_set_tlsext_servername_callback(ctx->ssl_ctx,
-					ssl_servername_callback) != 1) {
-			if (set->verbose)
-				i_debug("OpenSSL library doesn't support SNI");
-		}
+					ssl_servername_callback) != 1)
+			i_unreached();
 #ifdef HAVE_SSL_client_hello_get0_ciphers
 		SSL_CTX_set_client_hello_cb(ctx->ssl_ctx, ssl_clienthello_callback, ctx);
 #endif
