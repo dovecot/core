@@ -1234,7 +1234,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 		add_multiplex_istream = TRUE;
 	}
 
-	if (io_stream_create_ssl_client(ssl_ctx, proxy->host, &ssl_set,
+	if (io_stream_create_ssl_client(ssl_ctx, proxy->host,
 					proxy->event,
 					&proxy->server_input,
 					&proxy->server_output,

@@ -17,7 +17,6 @@ int master_service_ssl_init(struct master_service *service,
 			    const char **error_r)
 {
 	const struct master_service_ssl_server_settings *server_set;
-	struct ssl_iostream_settings ssl_set;
 	int ret;
 
 	i_assert(service->ssl_ctx_initialized);
@@ -35,8 +34,7 @@ int master_service_ssl_init(struct master_service *service,
 		return -1;
 	}
 
-	i_zero(&ssl_set);
-	ret = io_stream_create_ssl_server(service->ssl_ctx, &ssl_set, NULL,
+	ret = io_stream_create_ssl_server(service->ssl_ctx, NULL,
 					  input, output, ssl_iostream_r, error_r);
 	settings_free(server_set);
 	return ret;

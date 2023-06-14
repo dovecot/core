@@ -1692,7 +1692,6 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 	io_remove(&conn->io);
 	if (io_stream_create_ssl_client(conn->client->ssl_ctx,
 					conn->client->set.host,
-					&conn->client->set.ssl_set,
 					conn->event,
 					&conn->input, &conn->output,
 					&conn->ssl_iostream, &error) < 0) {

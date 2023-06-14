@@ -723,7 +723,7 @@ int client_init_ssl(struct client *client)
 	}
 	if (client->v.iostream_change_pre != NULL)
 		client->v.iostream_change_pre(client);
-	int ret = io_stream_create_ssl_server(ssl_ctx, &ssl_set, client->event,
+	int ret = io_stream_create_ssl_server(ssl_ctx, client->event,
 					      &client->input, &client->output,
 					      &client->ssl_iostream, &error);
 	if (client->v.iostream_change_post != NULL)
