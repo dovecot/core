@@ -70,58 +70,6 @@ static void openssl_info_callback(const SSL *ssl, int where, int ret)
 }
 
 static int
-openssl_iostream_use_certificate(struct ssl_iostream *ssl_io, const char *cert,
-				 const char **error_r)
-{
-	BIO *in;
-	X509 *x;
-	int ret = 0;
-
-	in = BIO_new_mem_buf(t_strdup_noconst(cert), strlen(cert));
-	if (in == NULL) {
-		*error_r = t_strdup_printf("BIO_new_mem_buf() failed: %s",
-					   openssl_iostream_error());
-		return -1;
-	}
-
-	x = PEM_read_bio_X509(in, NULL, NULL, NULL);
-	if (x != NULL) {
-		ret = SSL_use_certificate(ssl_io->ssl, x);
-		if (ERR_peek_error() != 0)
-			ret = 0;
-		X509_free(x);
-	}
-	BIO_free(in);
-
-	if (ret == 0) {
-		*error_r = t_strdup_printf("Can't load ssl_cert: %s",
-			openssl_iostream_use_certificate_error(cert, NULL));
-		return -1;
-	}
-	return 0;
-}
-
-static int
-openssl_iostream_use_key(struct ssl_iostream *ssl_io, const char *set_name,
-			 const struct ssl_iostream_cert *set,
-			 const char **error_r)
-{
-	EVP_PKEY *pkey;
-	int ret = 0;
-
-	if (openssl_iostream_load_key(set, set_name, &pkey, error_r) < 0)
-		return -1;
-	if (SSL_use_PrivateKey(ssl_io->ssl, pkey) != 1) {
-		*error_r = t_strdup_printf(
-			"Can't load SSL private key (%s setting): %s",
-			set_name, openssl_iostream_key_load_error());
-		ret = -1;
-	}
-	EVP_PKEY_free(pkey);
-	return ret;
-}
-
-static int
 openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 {
 	int ssl_extidx = SSL_get_ex_data_X509_STORE_CTX_idx();
@@ -162,32 +110,14 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 	return 1;
 }
 
-static int
+static void
 openssl_iostream_set(struct ssl_iostream *ssl_io,
-		     const struct ssl_iostream_settings *set,
-		     const char **error_r)
+		     const struct ssl_iostream_settings *set)
 {
-	const struct ssl_iostream_settings *ctx_set = &ssl_io->ctx->set;
 	int verify_flags;
 
 	SSL_set_info_callback(ssl_io->ssl, openssl_info_callback);
 
-	if (set->cert.cert != NULL && strcmp(ctx_set->cert.cert, set->cert.cert) != 0) {
-		if (openssl_iostream_use_certificate(ssl_io, set->cert.cert, error_r) < 0)
-			return -1;
-	}
-	if (set->cert.key != NULL && strcmp(ctx_set->cert.key, set->cert.key) != 0) {
-		if (openssl_iostream_use_key(ssl_io, "ssl_key", &set->cert, error_r) < 0)
-			return -1;
-	}
-	if (set->alt_cert.cert != NULL && strcmp(ctx_set->alt_cert.cert, set->alt_cert.cert) != 0) {
-		if (openssl_iostream_use_certificate(ssl_io, set->alt_cert.cert, error_r) < 0)
-			return -1;
-	}
-	if (set->alt_cert.key != NULL && strcmp(ctx_set->alt_cert.key, set->alt_cert.key) != 0) {
-		if (openssl_iostream_use_key(ssl_io, "ssl_alt_key", &set->alt_cert, error_r) < 0)
-			return -1;
-	}
 	if (ssl_io->ctx->set.verify_remote_cert) {
 		if (ssl_io->ctx->client_ctx)
 			verify_flags = SSL_VERIFY_NONE;
@@ -205,7 +135,6 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 		set->verbose_invalid_cert ||
 		event_want_debug(ssl_io->event);
 	ssl_io->allow_invalid_cert = set->allow_invalid_cert;
-	return 0;
 }
 
 static int
@@ -266,10 +195,7 @@ openssl_iostream_create(struct ssl_iostream_context *ctx,
         SSL_set_ex_data(ssl_io->ssl, dovecot_ssl_extdata_index, ssl_io);
 	SSL_set_tlsext_host_name(ssl_io->ssl, host);
 
-	if (openssl_iostream_set(ssl_io, set, error_r) < 0) {
-		openssl_iostream_free(ssl_io);
-		return -1;
-	}
+	openssl_iostream_set(ssl_io, set);
 
 	o_stream_uncork(ssl_io->plain_output);
 

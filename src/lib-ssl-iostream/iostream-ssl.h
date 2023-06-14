@@ -21,8 +21,8 @@ struct ssl_iostream_settings {
 	const char *ca, *ca_file, *ca_dir; /* context-only */
 	/* alternative cert is for providing certificate using
 	   different key algorithm */
-	struct ssl_iostream_cert cert; /* both */
-	struct ssl_iostream_cert alt_cert; /* both */
+	struct ssl_iostream_cert cert; /* context-only */
+	struct ssl_iostream_cert alt_cert; /* context-only */
 	const char *dh; /* context-only */
 	const char *cert_username_field; /* context-only */
 	const char *crypto_device; /* context-only */
