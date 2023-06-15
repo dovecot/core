@@ -134,6 +134,7 @@ liblib_la_SOURCES = \
 	mempool-allocfree.c \
 	mempool-alloconly.c \
 	mempool-datastack.c \
+	mempool-null.c \
 	mempool-system.c \
 	mempool-unsafe-datastack.c \
 	mkdir-parents.c \

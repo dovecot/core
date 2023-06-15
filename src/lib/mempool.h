@@ -60,6 +60,11 @@ extern struct pool static_system_pool;
    No checks are performed. */
 extern pool_t unsafe_data_stack_pool;
 
+/* null_pool can be used to have a memory pool where referencing and
+   unreferencing it are ignored. Any attempt to allocate memory from it will
+   panic. */
+extern pool_t null_pool;
+
 /* Create a new alloc-only pool. Note that `size' specifies the initial
    malloc()ed block size, part of it is used internally. */
 pool_t pool_alloconly_create(const char *name, size_t size);
