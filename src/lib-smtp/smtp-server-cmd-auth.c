@@ -107,7 +107,7 @@ static void cmd_auth_input(struct smtp_server_cmd_ctx *cmd)
 		return;
 	}
 
-	e_debug(conn->event, "Received AUTH response: %s", auth_response);
+	e_debug(conn->event, "Received AUTH response: <hidden>");
 
 	smtp_server_command_input_lock(cmd);
 
