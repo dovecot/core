@@ -96,13 +96,19 @@ int ssl_iostream_context_init_server(const struct ssl_iostream_settings *set,
 				     struct ssl_iostream_context **ctx_r,
 				     const char **error_r)
 {
+	struct ssl_iostream_settings set_copy = *set;
+
+	/* Allow client to provide an invalid certificate. The caller is
+	   expected to check and handle it however it wants. */
+	set_copy.allow_invalid_cert = TRUE;
+
 	if (!ssl_module_loaded) {
 		if (ssl_module_load(error_r) < 0)
 			return -1;
 	}
-	if (io_stream_ssl_global_init(set, error_r) < 0)
+	if (io_stream_ssl_global_init(&set_copy, error_r) < 0)
 		return -1;
-	return ssl_vfuncs->context_init_server(set, ctx_r, error_r);
+	return ssl_vfuncs->context_init_server(&set_copy, ctx_r, error_r);
 }
 
 void ssl_iostream_context_ref(struct ssl_iostream_context *ctx)

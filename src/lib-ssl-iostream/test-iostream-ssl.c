@@ -369,14 +369,7 @@ static void test_iostream_ssl_handshake(void)
 	server_set.verify_remote_cert = TRUE;
 	server_set.ca = client_set.ca;
 	client_set.cert = server_set.cert;
-#ifdef DOVECOT_USE_OPENSSL3
-	test_expect_error_string("server: SSL_accept() failed: error:0A000086:SSL routines::"
-				 "certificate verify failed+Received invalid SSL certificate:");
-#else
-	test_expect_error_string("server: SSL_accept() failed: error:1417C086:SSL routines:"
-				 "tls_process_client_certificate:certificate verify failed+"
-				 "Received invalid SSL certificate: ");
-#endif
+	test_expect_error_string("server: Received invalid SSL certificate");
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
 							 "127.0.0.1") != 0, idx);
 	idx++;
