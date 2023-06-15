@@ -18,19 +18,29 @@ struct ssl_iostream_settings {
 	const char *ciphersuites; /* TLSv1.3 only */
 	const char *curve_list;
 	const char *ca, *ca_file, *ca_dir;
+	struct ssl_iostream_cert cert;
 	/* alternative cert is for providing certificate using
 	   different key algorithm */
-	struct ssl_iostream_cert cert;
 	struct ssl_iostream_cert alt_cert;
 	const char *dh;
+	/* Field which contains the username returned by
+	   ssl_iostream_get_peer_username() */
 	const char *cert_username_field;
 	const char *crypto_device;
 
+	/* If FALSE, check for CA CRLs. */
 	bool skip_crl_check;
+	/* server-only: Request client certificate. */
 	bool verify_remote_cert;
+	/* Don't fail the SSL handshake even if certificate isn't valid. */
 	bool allow_invalid_cert;
+	/* server-only: Use the server's configured cipher order rather than
+	   the client's. */
 	bool prefer_server_ciphers;
+	/* Enable SSL compression (if the linked OpenSSL library is built
+	   with support for it) */
 	bool compression;
+	/* If FALSE, set SSL_OP_NO_TICKET. See OpenSSL documentation. */
 	bool tickets;
 };
 
