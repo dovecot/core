@@ -713,9 +713,6 @@ int client_init_ssl(struct client *client)
 
 	master_service_ssl_server_settings_to_iostream_set(client->ssl_set,
 		client->ssl_server_set, pool_datastack_create(), &ssl_set);
-	/* If the client cert is invalid, we'll reply NO to the login
-	   command. */
-	ssl_set.allow_invalid_cert = TRUE;
 	if (ssl_iostream_server_context_cache_get(&ssl_set, &ssl_ctx, &error) < 0) {
 		e_error(client->event,
 			"Failed to initialize SSL server context: %s", error);
