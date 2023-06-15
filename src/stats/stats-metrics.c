@@ -193,6 +193,10 @@ stats_metrics_check_for_exporter(struct stats_metrics *metrics, const char *name
 {
 	struct exporter *exporter;
 
+	/* Allow registering metrics with empty/missing exporters. */
+	if (name[0] == '\0')
+		return TRUE;
+
 	if (!array_is_created(&metrics->exporters))
 		return FALSE;
 
