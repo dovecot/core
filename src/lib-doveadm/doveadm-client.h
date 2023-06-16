@@ -46,10 +46,6 @@ struct doveadm_client_settings {
 
 	/* SSL flags. */
 	enum auth_proxy_ssl_flags ssl_flags;
-	/* SSL settings. */
-	const struct ssl_iostream_settings *ssl_set;
-	/* SSL context, or NULL to create a new one. */
-	struct ssl_iostream_context *ssl_ctx;
 
 	/* Enable receiving logs from the server */
 	bool log_passthrough;
