@@ -43,8 +43,8 @@ ARRAY_TYPE(string) global_alt_usernames;
 bool login_ssl_initialized;
 
 const struct login_settings *global_login_settings;
-const struct master_service_ssl_settings *global_ssl_settings;
-const struct master_service_ssl_server_settings *global_ssl_server_settings;
+const struct ssl_settings *global_ssl_settings;
+const struct ssl_server_settings *global_ssl_server_settings;
 void **global_other_settings;
 
 static ARRAY(struct ip_addr) login_source_v4_ips_array;
@@ -348,7 +348,7 @@ static void login_ssl_init(void)
 	if (strcmp(global_ssl_server_settings->ssl, "no") == 0)
 		return;
 
-	master_service_ssl_server_settings_to_iostream_set(global_ssl_settings,
+	ssl_server_settings_to_iostream_set(global_ssl_settings,
 		global_ssl_server_settings, &ssl_set);
 	if (io_stream_ssl_global_init(ssl_set, &error) < 0)
 		i_fatal("Failed to initialize SSL library: %s", error);
@@ -527,10 +527,10 @@ int login_binary_run(struct login_binary *binary,
 		i_fatal("%s", error);
 	global_ssl_settings = settings_get_or_fatal(
 		master_service_get_event(master_service),
-		&master_service_ssl_setting_parser_info);
+		&ssl_setting_parser_info);
 	global_ssl_server_settings = settings_get_or_fatal(
 		master_service_get_event(master_service),
-		&master_service_ssl_server_setting_parser_info);
+		&ssl_server_setting_parser_info);
 
 	if (argv[optind] != NULL)
 		login_socket = argv[optind];

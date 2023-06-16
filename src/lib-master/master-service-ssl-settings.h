@@ -5,7 +5,7 @@ struct master_service;
 struct setting_parser_context;
 struct ssl_iostream_settings;
 
-struct master_service_ssl_settings {
+struct ssl_settings {
 	pool_t pool;
 
 	const char *ssl_client_ca;
@@ -30,7 +30,7 @@ struct master_service_ssl_settings {
 	} parsed_opts;
 };
 
-struct master_service_ssl_server_settings {
+struct ssl_server_settings {
 	pool_t pool;
 
 	const char *ssl;
@@ -48,16 +48,16 @@ struct master_service_ssl_server_settings {
 	bool ssl_request_client_cert;
 };
 
-extern const struct setting_parser_info master_service_ssl_setting_parser_info;
-extern const struct setting_parser_info master_service_ssl_server_setting_parser_info;
+extern const struct setting_parser_info ssl_setting_parser_info;
+extern const struct setting_parser_info ssl_server_setting_parser_info;
 
 /* Provides master service ssl settings to iostream settings */
-void master_service_ssl_client_settings_to_iostream_set(
-	const struct master_service_ssl_settings *ssl_set,
+void ssl_client_settings_to_iostream_set(
+	const struct ssl_settings *ssl_set,
 	const struct ssl_iostream_settings **set_r);
-void master_service_ssl_server_settings_to_iostream_set(
-	const struct master_service_ssl_settings *ssl_set,
-	const struct master_service_ssl_server_settings *ssl_server_set,
+void ssl_server_settings_to_iostream_set(
+	const struct ssl_settings *ssl_set,
+	const struct ssl_server_settings *ssl_server_set,
 	const struct ssl_iostream_settings **set_r);
 
 #endif

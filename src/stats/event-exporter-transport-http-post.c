@@ -52,18 +52,13 @@ void event_export_transport_http_post(const struct exporter *exporter,
 	struct http_client_request *req;
 
 	if (exporter_http_client == NULL) {
-		const struct ssl_iostream_settings *ssl_set = NULL;
-
 		struct http_client_settings set = {
 			.dns_client_socket_path = "dns-client",
 		};
-		if (master_ssl_set != NULL) {
-			master_service_ssl_client_settings_to_iostream_set(
-				master_ssl_set, &ssl_set);
-			set.ssl = ssl_set;
-		}
+		if (ssl_set != NULL)
+			ssl_client_settings_to_iostream_set(ssl_set, &set.ssl);
 		exporter_http_client = http_client_init(&set);
-		settings_free(ssl_set);
+		settings_free(set.ssl);
 	}
 
 	req = http_client_request_url_str(exporter_http_client, "POST",
