@@ -51,6 +51,7 @@ struct smtp_client *smtp_client_init(const struct smtp_client_settings *set)
 		client->set.ssl = set->ssl;
 		pool_ref(client->set.ssl->pool);
 	}
+	client->set.ssl_allow_invalid_cert = set->ssl_allow_invalid_cert;
 
 	client->set.master_user = p_strdup_empty(pool, set->master_user);
 	client->set.username = p_strdup_empty(pool, set->username);

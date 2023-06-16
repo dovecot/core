@@ -61,6 +61,7 @@ struct smtp_client_settings {
 	const char *dns_client_socket_path;
 
 	const struct ssl_iostream_settings *ssl;
+	bool ssl_allow_invalid_cert;
 
 	const char *master_user;
 	const char *username;
