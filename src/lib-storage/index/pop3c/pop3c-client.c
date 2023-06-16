@@ -59,7 +59,6 @@ struct pop3c_client {
 	pool_t pool;
 	struct event *event;
 	struct pop3c_client_settings set;
-	struct ssl_iostream_context *ssl_ctx;
 	struct ip_addr ip;
 
 	int fd;
@@ -96,7 +95,6 @@ pop3c_client_init(const struct pop3c_client_settings *set,
 		  struct event *event_parent)
 {
 	struct pop3c_client *client;
-	const char *error;
 	pool_t pool;
 
 	pool = pool_alloconly_create("pop3c client", 1024);
@@ -119,15 +117,7 @@ pop3c_client_init(const struct pop3c_client_settings *set,
 	client->set.temp_path_prefix = p_strdup(pool, set->temp_path_prefix);
 	client->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
 	client->set.ssl_mode = set->ssl_mode;
-
-	if (set->ssl_mode != POP3C_CLIENT_SSL_MODE_NONE) {
-		client->set.ssl_set = set->ssl_set;
-		pool_ref(client->set.ssl_set.pool);
-		if (ssl_iostream_client_context_cache_get(&set->ssl_set,
-							  &client->ssl_ctx,
-							  &error) < 0)
-			e_error(client->event, "%s", error);
-	}
+	client->set.ssl_allow_invalid_cert = set->ssl_allow_invalid_cert;
 	return client;
 }
 
@@ -210,12 +200,8 @@ static void pop3c_client_disconnect(struct pop3c_client *client)
 void pop3c_client_deinit(struct pop3c_client **_client)
 {
 	struct pop3c_client *client = *_client;
-	const struct ssl_iostream_settings *ssl_set = &client->set.ssl_set;
 
 	pop3c_client_disconnect(client);
-	settings_free(ssl_set);
-	if (client->ssl_ctx != NULL)
-		ssl_iostream_context_unref(&client->ssl_ctx);
 	event_unref(&client->event);
 	pool_unref(&client->pool);
 }
@@ -540,7 +526,7 @@ static int pop3c_client_ssl_handshaked(const char **error_r, void *context)
 					     client->set.host, &error) == 0) {
 		e_debug(client->event, "SSL handshake successful");
 		return 0;
-	} else if (client->set.ssl_set.allow_invalid_cert) {
+	} else if (ssl_iostream_get_allow_invalid_cert(client->ssl_iostream)) {
 		e_debug(client->event,
 			"SSL handshake successful, "
 			"ignoring invalid certificate: %s",
@@ -556,11 +542,6 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 {
 	const char *error;
 
-	if (client->ssl_ctx == NULL) {
-		e_error(client->event, "No SSL context");
-		return -1;
-	}
-
 	e_debug(client->event, "Starting SSL handshake");
 
 	if (client->raw_input != client->input) {
@@ -573,10 +554,13 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 		client->output = client->raw_output;
 	}
 
-	if (io_stream_create_ssl_client(client->ssl_ctx, client->set.host,
-					client->event, 0,
-					&client->input, &client->output,
-					&client->ssl_iostream, &error) < 0) {
+	enum ssl_iostream_flags ssl_flags = 0;
+	if (client->set.ssl_allow_invalid_cert)
+		ssl_flags |= SSL_IOSTREAM_FLAG_ALLOW_INVALID_CERT;
+	if (io_stream_autocreate_ssl_client(client->event, client->set.host,
+					    ssl_flags,
+					    &client->input, &client->output,
+					    &client->ssl_iostream, &error) < 0) {
 		e_error(client->event,
 			"Couldn't initialize SSL client: %s", error);
 		return -1;
