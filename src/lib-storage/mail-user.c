@@ -20,7 +20,6 @@
 #include "fs-api.h"
 #include "auth-master.h"
 #include "master-service.h"
-#include "master-service-ssl-settings.h"
 #include "dict.h"
 #include "mail-storage-settings.h"
 #include "mail-storage-private.h"

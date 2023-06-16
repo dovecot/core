@@ -19,7 +19,6 @@
 #include "auth-client.h"
 #include "dsasl-client.h"
 #include "master-service-settings.h"
-#include "master-service-ssl-settings.h"
 #include "login-proxy.h"
 
 #include <unistd.h>

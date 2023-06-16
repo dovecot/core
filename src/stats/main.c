@@ -6,7 +6,7 @@
 #include "settings.h"
 #include "master-service.h"
 #include "master-service-settings.h"
-#include "master-service-ssl-settings.h"
+#include "ssl-settings.h"
 #include "stats-settings.h"
 #include "stats-event-category.h"
 #include "stats-metrics.h"

@@ -1,6 +1,8 @@
 #ifndef IOSTREAM_SSL_H
 #define IOSTREAM_SSL_H
 
+#include "ssl-settings.h"
+
 struct ssl_iostream;
 struct ssl_iostream_context;
 

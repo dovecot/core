@@ -15,7 +15,7 @@
 #include "anvil-client.h"
 #include "auth-client.h"
 #include "iostream-ssl.h"
-#include "master-service-ssl-settings.h"
+#include "master-interface.h"
 #include "login-client.h"
 #include "client-common.h"
 

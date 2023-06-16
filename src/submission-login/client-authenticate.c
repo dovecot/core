@@ -11,7 +11,7 @@
 #include "str.h"
 #include "str-sanitize.h"
 #include "auth-client.h"
-#include "master-service-ssl-settings.h"
+#include "ssl-settings.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "submission-proxy.h"

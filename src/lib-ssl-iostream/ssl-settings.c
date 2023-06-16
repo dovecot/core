@@ -2,8 +2,6 @@
 
 #include "lib.h"
 #include "settings-parser.h"
-#include "master-service-private.h"
-#include "master-service-ssl-settings.h"
 #include "iostream-ssl.h"
 
 #undef DEF

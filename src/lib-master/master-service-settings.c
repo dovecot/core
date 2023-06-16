@@ -15,7 +15,6 @@
 #include "settings-parser.h"
 #include "stats-client.h"
 #include "master-service-private.h"
-#include "master-service-ssl-settings.h"
 #include "master-service-settings.h"
 
 #include <unistd.h>

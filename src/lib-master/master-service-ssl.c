@@ -6,7 +6,6 @@
 #include "iostream-ssl.h"
 #include "settings.h"
 #include "master-service-private.h"
-#include "master-service-ssl-settings.h"
 #include "master-service-ssl.h"
 
 #include <unistd.h>
