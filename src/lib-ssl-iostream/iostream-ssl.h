@@ -11,9 +11,10 @@ struct ssl_iostream_cert {
 };
 
 struct ssl_iostream_settings {
+	/* NOTE: when adding fields, remember to update
+	   ssl_iostream_settings_equals() */
 	pool_t pool;
-	/* NOTE: when updating, remember to update:
-	   ssl_iostream_settings_string_offsets[] */
+
 	const char *min_protocol;
 	const char *cipher_list; /* TLSv1.2 and below only */
 	const char *ciphersuites; /* TLSv1.3 only */
