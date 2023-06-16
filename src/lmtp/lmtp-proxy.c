@@ -196,7 +196,7 @@ static void lmtp_proxy_connection_finish(struct lmtp_proxy_connection *conn)
 
 static int
 lmtp_proxy_connection_init_ssl(struct lmtp_proxy_connection *conn,
-			       struct ssl_iostream_settings *ssl_set_r,
+			       const struct ssl_iostream_settings **ssl_set_r,
 			       enum smtp_client_connection_ssl_mode *ssl_mode_r,
 			       const char **error_r)
 {
@@ -205,7 +205,7 @@ lmtp_proxy_connection_init_ssl(struct lmtp_proxy_connection *conn,
 	*ssl_mode_r = SMTP_CLIENT_SSL_MODE_NONE;
 
 	if ((conn->set.set.ssl_flags & AUTH_PROXY_SSL_FLAG_YES) == 0) {
-		i_zero(ssl_set_r);
+		*ssl_set_r = NULL;
 		return 0;
 	}
 
@@ -214,9 +214,17 @@ lmtp_proxy_connection_init_ssl(struct lmtp_proxy_connection *conn,
 			 &master_ssl_set, error_r) < 0)
 		return -1;
 	master_service_ssl_client_settings_to_iostream_set(
-		master_ssl_set, pool_datastack_create(), ssl_set_r);
-	if ((conn->set.set.ssl_flags & AUTH_PROXY_SSL_FLAG_ANY_CERT) != 0)
-		ssl_set_r->allow_invalid_cert = TRUE;
+		master_ssl_set, ssl_set_r);
+	if ((conn->set.set.ssl_flags & AUTH_PROXY_SSL_FLAG_ANY_CERT) != 0) {
+		pool_t pool = pool_alloconly_create("ssl iostream settings",
+						    sizeof(**ssl_set_r));
+		struct ssl_iostream_settings *ssl_set_copy =
+			p_memdup(pool, *ssl_set_r, sizeof(**ssl_set_r));
+		ssl_set_copy->pool = pool;
+		pool_add_external_ref(pool, (*ssl_set_r)->pool);
+		ssl_set_copy->allow_invalid_cert = TRUE;
+		*ssl_set_r = ssl_set_copy;
+	}
 
 	if ((conn->set.set.ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) == 0)
 		*ssl_mode_r = SMTP_CLIENT_SSL_MODE_IMMEDIATE;
@@ -253,7 +261,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	struct client *client = proxy->client;
 	struct lmtp_proxy_connection *conn;
 	enum smtp_client_connection_ssl_mode ssl_mode;
-	struct ssl_iostream_settings ssl_set;
+	const struct ssl_iostream_settings *ssl_set;
 
 	i_assert(set->set.timeout_msecs > 0);
 
@@ -287,7 +295,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 
 	i_zero(&lmtp_set);
 	lmtp_set.my_ip = conn->set.set.source_ip;
-	lmtp_set.ssl = &ssl_set;
+	lmtp_set.ssl = ssl_set;
 	lmtp_set.peer_trusted = !conn->set.set.remote_not_trusted;
 	lmtp_set.forced_capabilities = SMTP_CAPABILITY__ORCPT;
 	lmtp_set.mail_send_broken_path = TRUE;
@@ -304,6 +312,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 			conn->set.set.host, conn->set.set.port,
 			ssl_mode, &lmtp_set);
 	}
+	settings_free(ssl_set);
 	struct smtp_proxy_data proxy_data = {
 		.session = t_strdup_printf("%s:P%u", proxy->trans->id,
 					   ++proxy->proxy_session_seq),

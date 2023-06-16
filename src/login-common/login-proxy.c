@@ -16,6 +16,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "time-util.h"
+#include "settings.h"
 #include "master-service.h"
 #include "master-service-ssl-settings.h"
 #include "client-common.h"
@@ -1198,24 +1199,30 @@ void login_proxy_detach(struct login_proxy *proxy)
 int login_proxy_starttls(struct login_proxy *proxy)
 {
 	struct ssl_iostream_context *ssl_ctx;
-	struct ssl_iostream_settings ssl_set;
+	const struct ssl_iostream_settings *ssl_set;
+	struct ssl_iostream_settings *ssl_set_copy;
 	const char *error;
 	bool add_multiplex_istream = FALSE;
 
 	master_service_ssl_client_settings_to_iostream_set(
-		proxy->client->ssl_set, pool_datastack_create(), &ssl_set);
+		proxy->client->ssl_set, &ssl_set);
+	pool_t pool = pool_alloconly_create("ssl iostream settings",
+					    sizeof(*ssl_set));
+	ssl_set_copy = p_memdup(pool, ssl_set, sizeof(*ssl_set));
+	ssl_set_copy->pool = pool;
+	pool_add_external_ref(pool, ssl_set->pool);
 	if ((proxy->ssl_flags & AUTH_PROXY_SSL_FLAG_ANY_CERT) != 0)
-		ssl_set.allow_invalid_cert = TRUE;
+		ssl_set_copy->allow_invalid_cert = TRUE;
 	/* NOTE: We're explicitly disabling ssl_client_ca_* settings for now
 	   at least. The main problem is that we're chrooted, so we can't read
 	   them at this point anyway. The second problem is that especially
 	   ssl_client_ca_dir does blocking disk I/O, which could cause
 	   unexpected hangs when login process handles multiple clients. */
-	ssl_set.ca_file = ssl_set.ca_dir = NULL;
+	ssl_set_copy->ca_file = ssl_set_copy->ca_dir = NULL;
 
 	io_remove(&proxy->side_channel_io);
 	io_remove(&proxy->server_io);
-	if (ssl_iostream_client_context_cache_get(&ssl_set, &ssl_ctx, &error) < 0) {
+	if (ssl_iostream_client_context_cache_get(ssl_set_copy, &ssl_ctx, &error) < 0) {
 		const char *reason = t_strdup_printf(
 			"Failed to create SSL client context: %s", error);
 		login_proxy_failed(proxy, proxy->event,
@@ -1245,9 +1252,12 @@ int login_proxy_starttls(struct login_proxy *proxy)
 		login_proxy_failed(proxy, proxy->event,
 				   LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
 		ssl_iostream_context_unref(&ssl_ctx);
+		settings_free(ssl_set_copy);
 		return -1;
 	}
 	ssl_iostream_context_unref(&ssl_ctx);
+	settings_free(ssl_set_copy);
+
 	if (ssl_iostream_handshake(proxy->server_ssl_iostream) < 0) {
 		error = ssl_iostream_get_last_error(proxy->server_ssl_iostream);
 		const char *reason = t_strdup_printf(

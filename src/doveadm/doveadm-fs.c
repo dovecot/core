@@ -9,6 +9,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "iostream-ssl.h"
+#include "settings.h"
 #include "fs-api.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
@@ -22,7 +23,7 @@ static void cmd_fs_delete(struct doveadm_cmd_context *cctx);
 static struct fs *
 cmd_fs_init(struct doveadm_cmd_context *cctx)
 {
-	struct ssl_iostream_settings ssl_set;
+	const struct ssl_iostream_settings *ssl_set;
 	struct fs_settings fs_set;
 	struct fs *fs;
 	const char *fs_driver, *fs_args, *error;
@@ -31,15 +32,16 @@ cmd_fs_init(struct doveadm_cmd_context *cctx)
 	    !doveadm_cmd_param_str(cctx, "fs-args", &fs_args))
 		fs_cmd_help(cctx);
 
-	doveadm_get_ssl_settings(&ssl_set, pool_datastack_create());
+	doveadm_get_ssl_settings(&ssl_set);
 	i_zero(&fs_set);
-	fs_set.ssl_client_set = &ssl_set;
+	fs_set.ssl_client_set = ssl_set;
 	fs_set.temp_dir = doveadm_settings->mail_temp_dir;
 	fs_set.base_dir = doveadm_settings->base_dir;
 	fs_set.debug = doveadm_debug;
 
 	if (fs_init(fs_driver, fs_args, &fs_set, &fs, &error) < 0)
 		i_fatal("fs_init() failed: %s", error);
+	settings_free(ssl_set);
 	return fs;
 }
 

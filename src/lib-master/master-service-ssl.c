@@ -79,6 +79,8 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	}
 
 	i_zero(&ssl_set);
+	ssl_set.pool = set->pool;
+	pool_add_external_ref(ssl_set.pool, server_set->pool);
 	ssl_set.min_protocol = set->ssl_min_protocol;
 	ssl_set.cipher_list = set->ssl_cipher_list;
 	ssl_set.curve_list = set->ssl_curve_list;

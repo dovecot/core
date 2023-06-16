@@ -13,6 +13,7 @@
 #include "connection.h"
 #include "iostream-rawlog.h"
 #include "iostream-ssl.h"
+#include "settings.h"
 #include "master-service.h"
 #include "master-service-ssl.h"
 
@@ -808,8 +809,10 @@ smtp_server_connection_alloc(struct smtp_server *server,
 		if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
 			conn->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
 
-		if (set->ssl != NULL)
-			conn->set.ssl = ssl_iostream_settings_dup(pool, set->ssl);
+		if (set->ssl != NULL) {
+			conn->set.ssl = set->ssl;
+			pool_ref(conn->set.ssl->pool);
+		}
 
 		if (set->hostname != NULL && *set->hostname != '\0')
 			conn->set.hostname = p_strdup(pool, set->hostname);
@@ -1086,6 +1089,7 @@ smtp_server_connection_disconnect(struct smtp_server_connection *conn,
 	if (conn->smtp_parser != NULL)
 		smtp_command_parser_deinit(&conn->smtp_parser);
 	ssl_iostream_destroy(&conn->ssl_iostream);
+	settings_free(conn->set.ssl);
 	if (conn->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&conn->ssl_ctx);
 

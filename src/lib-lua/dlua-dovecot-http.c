@@ -527,7 +527,7 @@ static int dlua_http_client_new(lua_State *L)
 
 	struct http_client *client;
 	struct http_client_settings http_set;
-	struct ssl_iostream_settings ssl_set;
+	const struct ssl_iostream_settings *ssl_set;
 	const char *error;
 
 	i_zero(&http_set);
@@ -541,12 +541,12 @@ static int dlua_http_client_new(lua_State *L)
 			 &master_service_ssl_setting_parser_info,
 			 0, &master_ssl_set, &error) < 0)
 		luaL_error(L, "%s", error);
-	master_service_ssl_client_settings_to_iostream_set(master_ssl_set,
-		pool_datastack_create(), &ssl_set);
-	http_set.ssl = &ssl_set;
+	master_service_ssl_client_settings_to_iostream_set(master_ssl_set, &ssl_set);
+	http_set.ssl = ssl_set;
 	settings_free(master_ssl_set);
 
 	client = http_client_init(&http_set);
+	settings_free(ssl_set);
 	dlua_push_http_client(L, client);
 	return 1;
 }

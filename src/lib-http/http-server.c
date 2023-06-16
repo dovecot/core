@@ -12,6 +12,7 @@
 #include "dns-lookup.h"
 #include "iostream-rawlog.h"
 #include "iostream-ssl.h"
+#include "settings.h"
 #include "http-url.h"
 
 #include "http-server-private.h"
@@ -40,8 +41,8 @@ struct http_server *http_server_init(const struct http_server_settings *set)
 	if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
 		server->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
 	if (set->ssl != NULL) {
-		server->set.ssl =
-			ssl_iostream_settings_dup(server->pool, set->ssl);
+		server->set.ssl = set->ssl;
+		pool_ref(server->set.ssl->pool);
 	}
 	server->set.max_client_idle_time_msecs = set->max_client_idle_time_msecs;
 	server->set.max_pipelined_requests =
@@ -77,6 +78,7 @@ void http_server_deinit(struct http_server **_server)
 		http_server_resource_free(&res);
 	i_assert(array_count(&server->locations) == 0);
 
+	settings_free(server->set.ssl);
 	if (server->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&server->ssl_ctx);
 	event_unref(&server->event);

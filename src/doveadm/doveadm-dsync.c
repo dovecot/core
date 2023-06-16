@@ -926,11 +926,10 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 
 	if (ssl) {
 		if (mail_storage_service_user_init_ssl_client_settings(
-				service_user, pool_datastack_create(),
-				&conn_set.ssl_set, error_r) < 0)
+				service_user, &conn_set.ssl_set, error_r) < 0)
 			return -1;
 		if (ctx->ssl_ctx == NULL &&
-		    ssl_iostream_client_context_cache_get(&conn_set.ssl_set,
+		    ssl_iostream_client_context_cache_get(conn_set.ssl_set,
 							  &ctx->ssl_ctx,
 							  &error) < 0) {
 			*error_r = t_strdup_printf(

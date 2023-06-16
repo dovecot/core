@@ -11,6 +11,7 @@ struct ssl_iostream_cert {
 };
 
 struct ssl_iostream_settings {
+	pool_t pool;
 	/* NOTE: when updating, remember to update:
 	   ssl_iostream_settings_string_offsets[] */
 	const char *min_protocol;

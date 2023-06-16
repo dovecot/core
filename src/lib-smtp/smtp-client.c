@@ -9,6 +9,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "connection.h"
+#include "settings.h"
 #include "dns-lookup.h"
 #include "iostream-rawlog.h"
 #include "iostream-ssl.h"
@@ -47,8 +48,8 @@ struct smtp_client *smtp_client_init(const struct smtp_client_settings *set)
 	client->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
 
 	if (set->ssl != NULL) {
-		client->set.ssl =
-			ssl_iostream_settings_dup(client->pool, set->ssl);
+		client->set.ssl = set->ssl;
+		pool_ref(client->set.ssl->pool);
 	}
 
 	client->set.master_user = p_strdup_empty(pool, set->master_user);
@@ -96,6 +97,7 @@ void smtp_client_deinit(struct smtp_client **_client)
 
 	connection_list_deinit(&client->conn_list);
 
+	settings_free(client->set.ssl);
 	if (client->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&client->ssl_ctx);
 	event_unref(&client->event);

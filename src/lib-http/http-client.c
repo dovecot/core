@@ -13,6 +13,7 @@
 #include "dns-lookup.h"
 #include "iostream-rawlog.h"
 #include "iostream-ssl.h"
+#include "settings.h"
 #include "http-url.h"
 
 #include "http-client-private.h"
@@ -161,8 +162,10 @@ http_client_init_shared(struct http_client_context *cctx,
 		if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
 			client->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
 
-		if (set->ssl != NULL)
-			client->set.ssl = ssl_iostream_settings_dup(pool, set->ssl);
+		if (set->ssl != NULL) {
+			client->set.ssl = set->ssl;
+			pool_ref(client->set.ssl->pool);
+		}
 
 		if (set->proxy_socket_path != NULL && *set->proxy_socket_path != '\0') {
 			client->set.proxy_socket_path = p_strdup(pool, set->proxy_socket_path);
@@ -278,6 +281,7 @@ void http_client_deinit(struct http_client **_client)
 	array_free(&client->delayed_failing_requests);
 	timeout_remove(&client->to_failing_requests);
 
+	settings_free(client->set.ssl);
 	if (client->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&client->ssl_ctx);
 	http_client_context_remove_client(client->cctx, client);
@@ -460,8 +464,10 @@ http_client_context_create(const struct http_client_settings *set)
 	cctx->set.user_agent = p_strdup_empty(pool, set->user_agent);
 	cctx->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
 
-	if (set->ssl != NULL)
-		cctx->set.ssl = ssl_iostream_settings_dup(pool, set->ssl);
+	if (set->ssl != NULL) {
+		cctx->set.ssl = set->ssl;
+		pool_ref(cctx->set.ssl->pool);
+	}
 
 	if (set->proxy_socket_path != NULL &&
 	    *set->proxy_socket_path != '\0') {

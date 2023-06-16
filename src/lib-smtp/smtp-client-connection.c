@@ -13,6 +13,7 @@
 #include "iostream-rawlog.h"
 #include "iostream-ssl.h"
 #include "str.h"
+#include "settings.h"
 #include "dsasl-client.h"
 #include "dns-lookup.h"
 #include "smtp-syntax.h"
@@ -2056,6 +2057,7 @@ void smtp_client_connection_disconnect(struct smtp_client_connection *conn)
 	timeout_remove(&conn->to_cmd_fail);
 
 	ssl_iostream_destroy(&conn->ssl_iostream);
+	settings_free(conn->set.ssl);
 	if (conn->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&conn->ssl_ctx);
 	smtp_client_connection_auth_deinit(conn);
@@ -2119,8 +2121,8 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 		}
 
 		if (set->ssl != NULL) {
-			conn->set.ssl =
-				ssl_iostream_settings_dup(pool, set->ssl);
+			conn->set.ssl = set->ssl;
+			pool_ref(conn->set.ssl->pool);
 		}
 
 		if (set->master_user != NULL && *set->master_user != '\0') {

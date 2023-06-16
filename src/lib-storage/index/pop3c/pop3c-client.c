@@ -14,6 +14,7 @@
 #include "safe-mkstemp.h"
 #include "base64.h"
 #include "str.h"
+#include "settings.h"
 #include "dns-lookup.h"
 #include "pop3c-client.h"
 
@@ -120,7 +121,8 @@ pop3c_client_init(const struct pop3c_client_settings *set,
 	client->set.ssl_mode = set->ssl_mode;
 
 	if (set->ssl_mode != POP3C_CLIENT_SSL_MODE_NONE) {
-		ssl_iostream_settings_init_from(client->pool, &client->set.ssl_set, &set->ssl_set);
+		client->set.ssl_set = set->ssl_set;
+		pool_ref(client->set.ssl_set.pool);
 		if (ssl_iostream_client_context_cache_get(&set->ssl_set,
 							  &client->ssl_ctx,
 							  &error) < 0) {
@@ -210,8 +212,10 @@ static void pop3c_client_disconnect(struct pop3c_client *client)
 void pop3c_client_deinit(struct pop3c_client **_client)
 {
 	struct pop3c_client *client = *_client;
+	const struct ssl_iostream_settings *ssl_set = &client->set.ssl_set;
 
 	pop3c_client_disconnect(client);
+	settings_free(ssl_set);
 	if (client->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&client->ssl_ctx);
 	event_unref(&client->event);

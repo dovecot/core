@@ -45,7 +45,7 @@ extern const struct doveadm_settings *doveadm_settings;
 extern const struct master_service_ssl_settings *doveadm_ssl_set;
 extern bool doveadm_verbose_proctitle;
 
-void doveadm_get_ssl_settings(struct ssl_iostream_settings *set_r, pool_t pool);
+void doveadm_get_ssl_settings(const struct ssl_iostream_settings **set_r);
 
 void doveadm_read_settings(void);
 /* Returns the global binary config fd. Note that it may be -1 if doveadm was

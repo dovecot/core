@@ -1590,16 +1590,15 @@ mail_storage_service_user_get_settings_instance(struct mail_storage_service_user
 }
 
 int mail_storage_service_user_init_ssl_client_settings(
-	struct mail_storage_service_user *user, pool_t pool,
-	struct ssl_iostream_settings *ssl_set_r, const char **error_r)
+	struct mail_storage_service_user *user,
+	const struct ssl_iostream_settings **ssl_set_r, const char **error_r)
 {
 	const struct master_service_ssl_settings *ssl_set;
 
 	if (settings_get(user->event, &master_service_ssl_setting_parser_info,
 			 0, &ssl_set, error_r) < 0)
 		return -1;
-	master_service_ssl_client_settings_to_iostream_set(ssl_set, pool,
-							   ssl_set_r);
+	master_service_ssl_client_settings_to_iostream_set(ssl_set, ssl_set_r);
 	settings_free(ssl_set);
 	return 0;
 }

@@ -8,6 +8,7 @@
 #include "ostream.h"
 #include "iostream-temp.h"
 #include "iostream-ssl.h"
+#include "settings.h"
 #include "master-service.h"
 #include "program-client.h"
 #include "smtp-client.h"
@@ -29,7 +30,7 @@ static struct event_category event_category_smtp_submit = {
 struct smtp_submit_session {
 	pool_t pool;
 	struct smtp_submit_settings set;
-	struct ssl_iostream_settings ssl_set;
+	const struct ssl_iostream_settings *ssl_set;
 	struct event *event;
 	bool allow_root:1;
 };
@@ -82,8 +83,8 @@ smtp_submit_session_init(const struct smtp_submit_input *input,
 		p_strdup_empty(pool, set->submission_ssl);
 
 	if (input->ssl != NULL) {
-		ssl_iostream_settings_init_from(pool, &session->ssl_set,
-						input->ssl);
+		session->ssl_set = input->ssl;
+		pool_ref(session->ssl_set->pool);
 	}
 	session->allow_root = input->allow_root;
 
@@ -99,6 +100,7 @@ void smtp_submit_session_deinit(struct smtp_submit_session **_session)
 
 	*_session = NULL;
 
+	settings_free(session->ssl_set);
 	event_unref(&session->event);
 	pool_unref(&session->pool);
 }
@@ -332,7 +334,7 @@ smtp_submit_send_host(struct smtp_submit *subm)
 	smtp_set.connect_timeout_msecs = set->submission_timeout*1000;
 	smtp_set.command_timeout_msecs = set->submission_timeout*1000;
 	smtp_set.debug = set->mail_debug;
-	smtp_set.ssl = &subm->session->ssl_set;
+	smtp_set.ssl = subm->session->ssl_set;
 	smtp_set.event_parent = subm->event;
 
 	ssl_mode = SMTP_CLIENT_SSL_MODE_NONE;
