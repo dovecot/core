@@ -370,16 +370,28 @@ unsigned int http_client_get_pending_request_count(struct http_client *client)
 
 int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 {
+	const struct ssl_settings *ssl_set;
+	const struct ssl_iostream_settings *set = NULL;
+
 	if (client->ssl_ctx != NULL)
 		return 0;
 
-	if (client->set.ssl == NULL) {
-		*error_r = "Requested https connection, "
-			   "but no SSL settings given";
-		return -1;
+	if (client->set.ssl != NULL) {
+		return ssl_iostream_client_context_cache_get(client->set.ssl,
+			&client->ssl_ctx, error_r);
 	}
-	return ssl_iostream_client_context_cache_get(client->set.ssl,
-						     &client->ssl_ctx, error_r);
+	/* no ssl settings given via http_client_settings -
+	   look them up automatically */
+	if (settings_get(client->event, &ssl_setting_parser_info,
+			 0, &ssl_set, error_r) < 0)
+		return -1;
+	ssl_client_settings_to_iostream_set(ssl_set, &set);
+
+	int ret = ssl_iostream_client_context_cache_get(set, &client->ssl_ctx,
+							error_r);
+	settings_free(set);
+	settings_free(ssl_set);
+	return ret;
 }
 
 /*

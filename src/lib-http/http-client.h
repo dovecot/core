@@ -30,6 +30,7 @@ struct http_client_settings {
 	   (default = HTTP_CLIENT_DEFAULT_DNS_TTL_MSECS) */
 	unsigned int dns_ttl_msecs;
 
+	/* SSL settings; if NULL, settings_get() is used automatically */
 	const struct ssl_iostream_settings *ssl;
 
 	/* User-Agent: header (default: none) */
