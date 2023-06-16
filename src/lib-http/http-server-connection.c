@@ -354,28 +354,29 @@ static int
 http_server_connection_ssl_init(struct http_server_connection *conn)
 {
 	struct http_server *server = conn->server;
+	struct ssl_iostream_context *ssl_ctx;
 	const char *error;
 	int ret;
-
-	if (http_server_init_ssl_ctx(server, &error) < 0) {
-		e_error(conn->event, "Couldn't initialize SSL: %s", error);
-		return -1;
-	}
 
 	e_debug(conn->event, "Starting SSL handshake");
 
 	http_server_connection_input_halt(conn);
-	if (server->ssl_ctx == NULL) {
-		ret = master_service_ssl_init(master_service,
-					      &conn->conn.input,
-					      &conn->conn.output,
-					      &conn->ssl_iostream, &error);
-	} else {
-		ret = io_stream_create_ssl_server(server->ssl_ctx,
+	if (server->set.ssl == NULL) {
+		ret = io_stream_autocreate_ssl_server(server->event,
+						      &conn->conn.input,
+						      &conn->conn.output,
+						      &conn->ssl_iostream,
+						      &error);
+	} else if (ssl_iostream_server_context_cache_get(server->set.ssl,
+							 &ssl_ctx, &error) < 0)
+		ret = -1;
+	else {
+		ret = io_stream_create_ssl_server(ssl_ctx,
 						  server->event,
 						  &conn->conn.input,
 						  &conn->conn.output,
 						  &conn->ssl_iostream, &error);
+		ssl_iostream_context_unref(&ssl_ctx);
 	}
 	if (ret < 0) {
 		e_error(conn->event,

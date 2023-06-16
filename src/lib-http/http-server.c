@@ -79,8 +79,6 @@ void http_server_deinit(struct http_server **_server)
 	i_assert(array_count(&server->locations) == 0);
 
 	settings_free(server->set.ssl);
-	if (server->ssl_ctx != NULL)
-		ssl_iostream_context_unref(&server->ssl_ctx);
 	event_unref(&server->event);
 	pool_unref(&server->pool);
 }
@@ -115,13 +113,4 @@ void http_server_shut_down(struct http_server *server)
 		_next = _conn->next;
 		(void)http_server_connection_shut_down(conn);
 	}
-}
-
-int http_server_init_ssl_ctx(struct http_server *server, const char **error_r)
-{
-	if (server->set.ssl == NULL || server->ssl_ctx != NULL)
-		return 0;
-
-	return ssl_iostream_server_context_cache_get(server->set.ssl,
-						     &server->ssl_ctx, error_r);
 }
