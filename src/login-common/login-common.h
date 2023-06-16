@@ -59,7 +59,7 @@ extern ARRAY_TYPE(string) global_alt_usernames;
 extern bool login_ssl_initialized;
 
 extern const struct login_settings *global_login_settings;
-extern const struct master_service_ssl_settings *global_ssl_settings;
+extern const struct ssl_settings *global_ssl_settings;
 
 extern const struct ip_addr *login_source_v4_ips;
 extern unsigned int login_source_v4_ips_idx, login_source_v4_ips_count;

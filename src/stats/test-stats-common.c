@@ -15,7 +15,7 @@ struct event_category child_test_category = {
 };
 
 pool_t test_pool;
-const struct master_service_ssl_settings *master_ssl_set = NULL;
+const struct ssl_settings *ssl_set = NULL;
 struct stats_metrics *stats_metrics = NULL;
 time_t stats_startup_time;
 

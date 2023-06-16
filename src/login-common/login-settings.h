@@ -1,9 +1,6 @@
 #ifndef LOGIN_SETTINGS_H
 #define LOGIN_SETTINGS_H
 
-struct master_service_ssl_settings;
-struct master_service_ssl_server_settings;
-
 struct login_settings {
 	pool_t pool;
 	const char *login_trusted_networks;

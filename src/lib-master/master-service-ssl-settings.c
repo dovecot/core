@@ -8,14 +8,14 @@
 
 #undef DEF
 #define DEF(type, name) \
-	SETTING_DEFINE_STRUCT_##type(#name, name, struct master_service_ssl_settings)
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct ssl_settings)
 
 static bool
-master_service_ssl_settings_check(void *_set, pool_t pool, const char **error_r);
+ssl_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool
-master_service_ssl_server_settings_check(void *_set, pool_t pool, const char **error_r);
+ssl_server_settings_check(void *_set, pool_t pool, const char **error_r);
 
-static const struct setting_define master_service_ssl_setting_defines[] = {
+static const struct setting_define ssl_setting_defines[] = {
 	DEF(STR, ssl_client_ca),
 	DEF(STR, ssl_client_ca_file),
 	DEF(STR, ssl_client_ca_dir),
@@ -34,7 +34,7 @@ static const struct setting_define master_service_ssl_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static const struct master_service_ssl_settings master_service_ssl_default_settings = {
+static const struct ssl_settings ssl_default_settings = {
 	.ssl_client_ca = "",
 	.ssl_client_ca_file = "",
 	.ssl_client_ca_dir = "",
@@ -51,21 +51,21 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 	.ssl_options = "",
 };
 
-const struct setting_parser_info master_service_ssl_setting_parser_info = {
-	.name = "master_service_ssl",
-	.defines = master_service_ssl_setting_defines,
-	.defaults = &master_service_ssl_default_settings,
+const struct setting_parser_info ssl_setting_parser_info = {
+	.name = "ssl",
+	.defines = ssl_setting_defines,
+	.defaults = &ssl_default_settings,
 
-	.pool_offset1 = 1 + offsetof(struct master_service_ssl_settings, pool),
-	.struct_size = sizeof(struct master_service_ssl_settings),
-	.check_func = master_service_ssl_settings_check
+	.pool_offset1 = 1 + offsetof(struct ssl_settings, pool),
+	.struct_size = sizeof(struct ssl_settings),
+	.check_func = ssl_settings_check
 };
 
 #undef DEF
 #define DEF(type, name) \
-	SETTING_DEFINE_STRUCT_##type(#name, name, struct master_service_ssl_server_settings)
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct ssl_server_settings)
 
-static const struct setting_define master_service_ssl_server_setting_defines[] = {
+static const struct setting_define ssl_server_setting_defines[] = {
 	DEF(ENUM, ssl),
 	DEF(STR, ssl_ca),
 	DEF(STR, ssl_cert),
@@ -83,7 +83,7 @@ static const struct setting_define master_service_ssl_server_setting_defines[] =
 	SETTING_DEFINE_LIST_END
 };
 
-static const struct master_service_ssl_server_settings master_service_ssl_server_default_settings = {
+static const struct ssl_server_settings ssl_server_default_settings = {
 	.ssl = "yes:no:required",
 	.ssl_ca = "",
 	.ssl_cert = "",
@@ -99,23 +99,23 @@ static const struct master_service_ssl_server_settings master_service_ssl_server
 	.ssl_request_client_cert = FALSE,
 };
 
-const struct setting_parser_info master_service_ssl_server_setting_parser_info = {
-	.name = "master_service_ssl_server",
+const struct setting_parser_info ssl_server_setting_parser_info = {
+	.name = "ssl_server",
 
-	.defines = master_service_ssl_server_setting_defines,
-	.defaults = &master_service_ssl_server_default_settings,
+	.defines = ssl_server_setting_defines,
+	.defaults = &ssl_server_default_settings,
 
-	.pool_offset1 = 1 + offsetof(struct master_service_ssl_server_settings, pool),
-	.struct_size = sizeof(struct master_service_ssl_server_settings),
-	.check_func = master_service_ssl_server_settings_check,
+	.pool_offset1 = 1 + offsetof(struct ssl_server_settings, pool),
+	.struct_size = sizeof(struct ssl_server_settings),
+	.check_func = ssl_server_settings_check,
 };
 
 /* <settings checks> */
 static bool
-master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-				  const char **error_r)
+ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+		   const char **error_r)
 {
-	struct master_service_ssl_settings *set = _set;
+	struct ssl_settings *set = _set;
 
 	if (is_config_binary()) T_BEGIN {
 		const char *proto = t_str_ucase(set->ssl_min_protocol);
@@ -148,10 +148,10 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 }
 
 static bool
-master_service_ssl_server_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-					 const char **error_r)
+ssl_server_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+			  const char **error_r)
 {
-	struct master_service_ssl_server_settings *set = _set;
+	struct ssl_server_settings *set = _set;
 
 	if (strcmp(set->ssl, "no") == 0) {
 		/* disabled */
@@ -167,8 +167,7 @@ master_service_ssl_server_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 /* </settings checks> */
 
 static struct ssl_iostream_settings *
-master_service_ssl_common_settings_to_iostream_set(
-	const struct master_service_ssl_settings *ssl_set)
+ssl_common_settings_to_iostream_set(const struct ssl_settings *ssl_set)
 {
 	struct ssl_iostream_settings *set;
 	pool_t pool = pool_alloconly_create("ssl iostream settings", 256);
@@ -187,12 +186,12 @@ master_service_ssl_common_settings_to_iostream_set(
 	return set;
 }
 
-void master_service_ssl_client_settings_to_iostream_set(
-	const struct master_service_ssl_settings *ssl_set,
+void ssl_client_settings_to_iostream_set(
+	const struct ssl_settings *ssl_set,
 	const struct ssl_iostream_settings **set_r)
 {
 	struct ssl_iostream_settings *set =
-		master_service_ssl_common_settings_to_iostream_set(ssl_set);
+		ssl_common_settings_to_iostream_set(ssl_set);
 	pool_t pool = set->pool;
 
 	set->ca = p_strdup_empty(pool, ssl_set->ssl_client_ca);
@@ -207,13 +206,13 @@ void master_service_ssl_client_settings_to_iostream_set(
 	*set_r = set;
 }
 
-void master_service_ssl_server_settings_to_iostream_set(
-	const struct master_service_ssl_settings *ssl_set,
-	const struct master_service_ssl_server_settings *ssl_server_set,
+void ssl_server_settings_to_iostream_set(
+	const struct ssl_settings *ssl_set,
+	const struct ssl_server_settings *ssl_server_set,
 	const struct ssl_iostream_settings **set_r)
 {
 	struct ssl_iostream_settings *set =
-		master_service_ssl_common_settings_to_iostream_set(ssl_set);
+		ssl_common_settings_to_iostream_set(ssl_set);
 	pool_t pool = set->pool;
 
 	set->ca = p_strdup_empty(pool, ssl_server_set->ssl_ca);

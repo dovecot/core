@@ -189,8 +189,8 @@ struct client {
 	in_port_t real_local_port, real_remote_port;
 	struct ssl_iostream *ssl_iostream;
 	const struct login_settings *set;
-	const struct master_service_ssl_settings *ssl_set;
-	const struct master_service_ssl_server_settings *ssl_server_set;
+	const struct ssl_settings *ssl_set;
+	const struct ssl_server_settings *ssl_server_set;
 	const char *session_id, *listener_name, *postlogin_socket_path;
 	const char *local_name;
 	const char *client_cert_common_name;

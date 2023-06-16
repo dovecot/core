@@ -1204,8 +1204,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 	const char *error;
 	bool add_multiplex_istream = FALSE;
 
-	master_service_ssl_client_settings_to_iostream_set(
-		proxy->client->ssl_set, &ssl_set);
+	ssl_client_settings_to_iostream_set(proxy->client->ssl_set, &ssl_set);
 	pool_t pool = pool_alloconly_create("ssl iostream settings",
 					    sizeof(*ssl_set));
 	ssl_set_copy = p_memdup(pool, ssl_set, sizeof(*ssl_set));

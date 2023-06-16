@@ -15,7 +15,7 @@
 #include "client-reader.h"
 #include "client-http.h"
 
-const struct master_service_ssl_settings *master_ssl_set;
+const struct ssl_settings *ssl_set;
 struct stats_metrics *stats_metrics;
 time_t stats_startup_time;
 
@@ -52,9 +52,9 @@ static void main_init(void)
 	stats_settings =
 		settings_get_or_fatal(master_service_get_event(master_service),
 				      &stats_setting_parser_info);
-	master_ssl_set =
+	ssl_set =
 		settings_get_or_fatal(master_service_get_event(master_service),
-				      &master_service_ssl_setting_parser_info);
+				      &ssl_setting_parser_info);
 
 	stats_startup_time = ioloop_time;
 	if (stats_metrics_init(master_service_get_event(master_service),
@@ -76,7 +76,7 @@ static void main_deinit(void)
 	stats_event_categories_deinit();
 	stats_metrics_deinit(&stats_metrics);
 	settings_free(stats_settings);
-	settings_free(master_ssl_set);
+	settings_free(ssl_set);
 }
 
 int main(int argc, char *argv[])

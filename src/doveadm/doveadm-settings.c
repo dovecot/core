@@ -192,11 +192,11 @@ static bool doveadm_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 }
 /* </settings checks> */
 
-const struct master_service_ssl_settings *doveadm_ssl_set = NULL;
+const struct ssl_settings *doveadm_ssl_set = NULL;
 
 void doveadm_get_ssl_settings(const struct ssl_iostream_settings **set_r)
 {
-	master_service_ssl_client_settings_to_iostream_set(doveadm_ssl_set, set_r);
+	ssl_client_settings_to_iostream_set(doveadm_ssl_set, set_r);
 }
 
 void doveadm_read_settings(void)
@@ -224,7 +224,7 @@ void doveadm_read_settings(void)
 				      &doveadm_setting_parser_info);
 	doveadm_ssl_set =
 		settings_get_or_fatal(master_service_get_event(master_service),
-				      &master_service_ssl_setting_parser_info);
+				      &ssl_setting_parser_info);
 }
 
 int doveadm_settings_get_config_fd(void)

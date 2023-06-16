@@ -527,7 +527,6 @@ static int dlua_http_client_new(lua_State *L)
 
 	struct http_client *client;
 	struct http_client_settings http_set;
-	const struct ssl_iostream_settings *ssl_set;
 	const char *error;
 
 	i_zero(&http_set);
@@ -536,17 +535,15 @@ static int dlua_http_client_new(lua_State *L)
 	if (parse_client_settings(L, &http_set, &error) < 0)
 		luaL_error(L, "Invalid HTTP client setting: %s", error);
 
-	const struct master_service_ssl_settings *master_ssl_set;
-	if (settings_get(script->event,
-			 &master_service_ssl_setting_parser_info,
-			 0, &master_ssl_set, &error) < 0)
+	const struct ssl_settings *ssl_set;
+	if (settings_get(script->event, &ssl_setting_parser_info,
+			 0, &ssl_set, &error) < 0)
 		luaL_error(L, "%s", error);
-	master_service_ssl_client_settings_to_iostream_set(master_ssl_set, &ssl_set);
-	http_set.ssl = ssl_set;
-	settings_free(master_ssl_set);
+	ssl_client_settings_to_iostream_set(ssl_set, &http_set.ssl);
+	settings_free(ssl_set);
 
 	client = http_client_init(&http_set);
-	settings_free(ssl_set);
+	settings_free(http_set.ssl);
 	dlua_push_http_client(L, client);
 	return 1;
 }

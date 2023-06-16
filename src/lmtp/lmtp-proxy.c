@@ -200,7 +200,7 @@ lmtp_proxy_connection_init_ssl(struct lmtp_proxy_connection *conn,
 			       enum smtp_client_connection_ssl_mode *ssl_mode_r,
 			       const char **error_r)
 {
-	const struct master_service_ssl_settings *master_ssl_set;
+	const struct ssl_settings *ssl_set;
 
 	*ssl_mode_r = SMTP_CLIENT_SSL_MODE_NONE;
 
@@ -209,12 +209,10 @@ lmtp_proxy_connection_init_ssl(struct lmtp_proxy_connection *conn,
 		return 0;
 	}
 
-	if (settings_get(conn->proxy->client->event,
-			 &master_service_ssl_setting_parser_info, 0,
-			 &master_ssl_set, error_r) < 0)
+	if (settings_get(conn->proxy->client->event, &ssl_setting_parser_info,
+			 0, &ssl_set, error_r) < 0)
 		return -1;
-	master_service_ssl_client_settings_to_iostream_set(
-		master_ssl_set, ssl_set_r);
+	ssl_client_settings_to_iostream_set(ssl_set, ssl_set_r);
 	if ((conn->set.set.ssl_flags & AUTH_PROXY_SSL_FLAG_ANY_CERT) != 0) {
 		pool_t pool = pool_alloconly_create("ssl iostream settings",
 						    sizeof(**ssl_set_r));
@@ -230,7 +228,7 @@ lmtp_proxy_connection_init_ssl(struct lmtp_proxy_connection *conn,
 		*ssl_mode_r = SMTP_CLIENT_SSL_MODE_IMMEDIATE;
 	else
 		*ssl_mode_r = SMTP_CLIENT_SSL_MODE_STARTTLS;
-	settings_free(master_ssl_set);
+	settings_free(ssl_set);
 	return 0;
 }
 

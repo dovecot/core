@@ -215,10 +215,9 @@ static int client_settings_get(struct client *client, const char **error_r)
 
 	if (settings_get(client->event, &login_setting_parser_info,
 			 0, &client->set, error_r) < 0 ||
-	    settings_get(client->event, &master_service_ssl_setting_parser_info,
+	    settings_get(client->event, &ssl_setting_parser_info,
 			 0, &client->ssl_set, error_r) < 0 ||
-	    settings_get(client->event,
-			 &master_service_ssl_server_setting_parser_info,
+	    settings_get(client->event, &ssl_server_setting_parser_info,
 			 0, &client->ssl_server_set, error_r) < 0) {
 		settings_free(client->set);
 		settings_free(client->ssl_set);
@@ -662,8 +661,8 @@ static int client_sni_callback(const char *name, const char **error_r,
 	client->ssl_servername_settings_read = TRUE;
 
 	const struct login_settings *old_set = client->set;
-	const struct master_service_ssl_settings *old_ssl_set = client->ssl_set;
-	const struct master_service_ssl_server_settings *old_ssl_server_set =
+	const struct ssl_settings *old_ssl_set = client->ssl_set;
+	const struct ssl_server_settings *old_ssl_server_set =
 		client->ssl_server_set;
 	client->set = NULL;
 	client->ssl_set = NULL;
@@ -686,7 +685,7 @@ static int client_sni_callback(const char *name, const char **error_r,
 	settings_free(old_ssl_set);
 	settings_free(old_ssl_server_set);
 
-	master_service_ssl_server_settings_to_iostream_set(client->ssl_set,
+	ssl_server_settings_to_iostream_set(client->ssl_set,
 		client->ssl_server_set, &ssl_set);
 	if (ssl_iostream_server_context_cache_get(ssl_set, &ssl_ctx, &error) < 0) {
 		*error_r = t_strdup_printf(
@@ -713,7 +712,7 @@ int client_init_ssl(struct client *client)
 		return -1;
 	}
 
-	master_service_ssl_server_settings_to_iostream_set(client->ssl_set,
+	ssl_server_settings_to_iostream_set(client->ssl_set,
 		client->ssl_server_set, &ssl_set);
 	if (ssl_iostream_server_context_cache_get(ssl_set, &ssl_ctx, &error) < 0) {
 		e_error(client->event,
