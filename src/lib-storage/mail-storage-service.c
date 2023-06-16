@@ -16,7 +16,6 @@
 #include "dict.h"
 #include "settings.h"
 #include "settings-parser.h"
-#include "ssl-settings.h"
 #include "auth-master.h"
 #include "master-service-private.h"
 #include "mail-user.h"
@@ -1587,20 +1586,6 @@ struct settings_instance *
 mail_storage_service_user_get_settings_instance(struct mail_storage_service_user *user)
 {
 	return user->set_instance;
-}
-
-int mail_storage_service_user_init_ssl_client_settings(
-	struct mail_storage_service_user *user,
-	const struct ssl_iostream_settings **ssl_set_r, const char **error_r)
-{
-	const struct ssl_settings *ssl_set;
-
-	if (settings_get(user->event, &ssl_setting_parser_info,
-			 0, &ssl_set, error_r) < 0)
-		return -1;
-	ssl_client_settings_to_iostream_set(ssl_set, ssl_set_r);
-	settings_free(ssl_set);
-	return 0;
 }
 
 struct mail_storage_service_ctx *
