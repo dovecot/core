@@ -61,7 +61,6 @@ struct mail_user {
 
 	const struct mail_user_settings *set;
 	struct mail_storage_settings *_mail_set;
-	const struct ssl_iostream_settings *ssl_set;
 	struct mail_namespace *namespaces;
 	struct mail_storage *storages;
 	struct dict_op_settings *dict_op_set;
