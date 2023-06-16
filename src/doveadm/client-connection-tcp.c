@@ -504,9 +504,9 @@ client_connection_tcp_init_ssl(struct client_connection_tcp *conn)
 {
 	const char *error;
 
-	if (master_service_ssl_init(master_service,
-				    &conn->input, &conn->output,
-				    &conn->ssl_iostream, &error) < 0) {
+	if (io_stream_autocreate_ssl_server(conn->conn.event,
+					    &conn->input, &conn->output,
+					    &conn->ssl_iostream, &error) < 0) {
 		e_error(conn->conn.event, "SSL init failed: %s", error);
 		return -1;
 	}
