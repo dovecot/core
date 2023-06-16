@@ -280,9 +280,6 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF_NOPREFIX(UINT, first_valid_gid),
 	DEF_NOPREFIX(UINT, last_valid_gid),
 
-	DEF_NOPREFIX(STR, ssl_client_ca_dir),
-	DEF_NOPREFIX(STR, ssl_client_ca_file),
-
 	SETTING_DEFINE_LIST_END
 };
 
@@ -325,8 +322,6 @@ static const struct auth_settings auth_default_settings = {
 	.verbose_passwords = "no",
 	.ssl_require_client_cert = FALSE,
 	.ssl_username_from_cert = FALSE,
-	.ssl_client_ca_dir = "",
-	.ssl_client_ca_file = "",
 
 	.use_winbind = FALSE,
 
