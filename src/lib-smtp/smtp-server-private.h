@@ -169,7 +169,6 @@ struct smtp_server_connection {
 	struct timeout *to_idle;
 	struct istream *raw_input;
 	struct ostream *raw_output;
-	struct ssl_iostream_context *ssl_ctx;
 	struct ssl_iostream *ssl_iostream;
 	struct smtp_command_parser *smtp_parser;
 
@@ -204,7 +203,6 @@ struct smtp_server {
 	struct smtp_server_settings set;
 
 	struct event *event;
-	struct ssl_iostream_context *ssl_ctx;
 
 	ARRAY(struct smtp_server_command_reg) commands_reg;
 
@@ -395,6 +393,5 @@ void smtp_server_transaction_finished(struct smtp_server_transaction *trans,
  */
 
 void smtp_server_event_init(struct smtp_server *server, struct event *event);
-int smtp_server_init_ssl_ctx(struct smtp_server *server, const char **error_r);
 
 #endif

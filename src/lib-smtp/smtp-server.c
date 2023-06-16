@@ -115,8 +115,6 @@ void smtp_server_deinit(struct smtp_server **_server)
 	connection_list_deinit(&server->conn_list);
 
 	settings_free(server->set.ssl);
-	if (server->ssl_ctx != NULL)
-		ssl_iostream_context_unref(&server->ssl_ctx);
 	event_unref(&server->event);
 	pool_unref(&server->pool);
 	*_server = NULL;
@@ -136,20 +134,4 @@ void smtp_server_switch_ioloop(struct smtp_server *server)
 
 		smtp_server_connection_switch_ioloop(conn);
 	}
-}
-
-int smtp_server_init_ssl_ctx(struct smtp_server *server, const char **error_r)
-{
-	const char *error;
-
-	if (server->ssl_ctx != NULL || server->set.ssl == NULL)
-		return 0;
-
-	if (ssl_iostream_server_context_cache_get(server->set.ssl,
-		&server->ssl_ctx, &error) < 0) {
-		*error_r = t_strdup_printf("Couldn't initialize SSL context: %s",
-					   error);
-		return -1;
-	}
-	return 0;
 }
