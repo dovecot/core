@@ -11,7 +11,6 @@
 #include "unichar.h"
 #include "hex-binary.h"
 #include "fs-api.h"
-#include "iostream-ssl.h"
 #include "file-dotlock.h"
 #include "file-create-locked.h"
 #include "istream.h"
@@ -454,11 +453,10 @@ mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
 	if (storage->v.list_index_rebuild != NULL &&
 	    storage->mailboxes_fs == NULL) {
 		struct fs_settings fs_set;
-		const struct ssl_iostream_settings *ssl_set;
 		const char *error;
 		i_zero(&fs_set);
 
-		mail_user_init_fs_settings(storage->user, &fs_set, &ssl_set);
+		mail_user_init_fs_settings(storage->user, &fs_set);
 		if (fs_init("posix", "", &fs_set, &storage->mailboxes_fs,
 			    &error) < 0) {
 			*error_r = t_strdup_printf("fs_init(posix) failed: %s", error);

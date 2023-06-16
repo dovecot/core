@@ -15,7 +15,6 @@
 #include "unichar.h"
 #include "settings.h"
 #include "settings-parser.h"
-#include "iostream-ssl.h"
 #include "fs-api-private.h"
 #include "imap-utf7.h"
 #include "mailbox-log.h"
@@ -2087,12 +2086,11 @@ int mailbox_list_init_fs(struct mailbox_list *list, struct event *event_parent,
 			 struct fs **fs_r, const char **error_r)
 {
 	struct fs_settings fs_set;
-	const struct ssl_iostream_settings *ssl_set;
 	struct mailbox_list_fs_context *ctx;
 	struct fs *parent_fs;
 
 	i_zero(&fs_set);
-	mail_user_init_fs_settings(list->ns->user, &fs_set, &ssl_set);
+	mail_user_init_fs_settings(list->ns->user, &fs_set);
 	/* fs_set.event_parent points to user->event by default */
 	if (event_parent != NULL)
 		fs_set.event_parent = event_parent;
