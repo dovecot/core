@@ -16,7 +16,6 @@
 #include "var-expand.h"
 #include "settings.h"
 #include "settings-parser.h"
-#include "iostream-ssl.h"
 #include "fs-api.h"
 #include "auth-master.h"
 #include "master-service.h"
@@ -151,11 +150,6 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 		user->error = p_strdup(user->pool, error);
 	else
 		mail_user_expand_plugins_envs(user, user->_mail_set);
-
-	if (user->error == NULL &&
-	    mail_storage_service_user_init_ssl_client_settings(
-			user->service_user, &user->ssl_set, &error) < 0)
-		user->error = p_strdup(user->pool, error);
 
 	/* autocreated users for shared mailboxes need to be fully initialized
 	   if they don't exist, since they're going to be used anyway */
