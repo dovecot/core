@@ -226,6 +226,11 @@ int ssl_iostream_check_cert_validity(struct ssl_iostream *ssl_io,
 	return 0;
 }
 
+bool ssl_iostream_get_allow_invalid_cert(struct ssl_iostream *ssl_io)
+{
+	return ssl_vfuncs->get_allow_invalid_cert(ssl_io);
+}
+
 const char *ssl_iostream_get_peer_username(struct ssl_iostream *ssl_io)
 {
 	return ssl_vfuncs->get_peer_username(ssl_io);

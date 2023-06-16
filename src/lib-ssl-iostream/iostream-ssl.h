@@ -130,6 +130,8 @@ int ssl_iostream_check_cert_validity(struct ssl_iostream *ssl_io,
    will always return FALSE before even checking the hostname. */
 bool ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io, const char *name,
 				  const char **reason_r);
+/* Returns ssl_iostream_settings.allow_invalid_cert. */
+bool ssl_iostream_get_allow_invalid_cert(struct ssl_iostream *ssl_io);
 /* Returns username from the received certificate of the peer (client) if
    available, NULL if not. The username is based on cert_username_field
    setting. */
