@@ -53,11 +53,11 @@ extern const struct setting_parser_info master_service_ssl_server_setting_parser
 
 /* Provides master service ssl settings to iostream settings */
 void master_service_ssl_client_settings_to_iostream_set(
-	const struct master_service_ssl_settings *ssl_set, pool_t pool,
-	struct ssl_iostream_settings *set_r);
+	const struct master_service_ssl_settings *ssl_set,
+	const struct ssl_iostream_settings **set_r);
 void master_service_ssl_server_settings_to_iostream_set(
 	const struct master_service_ssl_settings *ssl_set,
 	const struct master_service_ssl_server_settings *ssl_server_set,
-	pool_t pool, struct ssl_iostream_settings *set_r);
+	const struct ssl_iostream_settings **set_r);
 
 #endif

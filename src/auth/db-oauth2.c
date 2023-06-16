@@ -194,7 +194,7 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 {
 	struct db_oauth2 *db;
 	const char *error;
-	struct ssl_iostream_settings ssl_set;
+	struct ssl_iostream_settings *ssl_set;
 	struct http_client_settings http_set;
 
 	for(db = db_oauth2_head; db != NULL; db = db->next) {
@@ -216,19 +216,23 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 
 	db->tmpl = passdb_template_build(pool, db->set.pass_attrs);
 
-	i_zero(&ssl_set);
-	i_zero(&http_set);
+	pool_t ssl_pool = pool_alloconly_create("oauth2 ssl settings",
+						sizeof(*ssl_set));
+	ssl_set = p_new(ssl_pool, struct ssl_iostream_settings, 1);
+	ssl_set->pool = ssl_pool;
 
-	ssl_set.cipher_list = db->set.tls_cipher_suite;
-	ssl_set.ca_file = db->set.tls_ca_cert_file;
-	ssl_set.ca_dir = db->set.tls_ca_cert_dir;
+	ssl_set->cipher_list = db->set.tls_cipher_suite;
+	ssl_set->ca_file = db->set.tls_ca_cert_file;
+	ssl_set->ca_dir = db->set.tls_ca_cert_dir;
 	if (db->set.tls_cert_file != NULL && *db->set.tls_cert_file != '\0') {
-		ssl_set.cert.cert = db->set.tls_cert_file;
-		ssl_set.cert.key = db->set.tls_key_file;
+		ssl_set->cert.cert = db->set.tls_cert_file;
+		ssl_set->cert.key = db->set.tls_key_file;
 	}
-	ssl_set.prefer_server_ciphers = TRUE;
-	ssl_set.allow_invalid_cert = db->set.tls_allow_invalid_cert;
-	http_set.ssl = &ssl_set;
+	ssl_set->prefer_server_ciphers = TRUE;
+	ssl_set->allow_invalid_cert = db->set.tls_allow_invalid_cert;
+
+	i_zero(&http_set);
+	http_set.ssl = ssl_set;
 
 	http_set.dns_client_socket_path = "dns-client";
 	http_set.user_agent = "dovecot-oauth2-passdb/" DOVECOT_VERSION;
@@ -252,6 +256,7 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	http_set.event_parent = auth_event;
 
 	db->client = http_client_init(&http_set);
+	pool_unref(&ssl_pool);
 
 	i_zero(&db->oauth2_set);
 	db->oauth2_set.client = db->client;

@@ -94,7 +94,8 @@ void doveadm_client_settings_dup(const struct doveadm_client_settings *src,
 	dest_r->password = p_strdup(pool, src->password);
 
 	dest_r->ssl_flags = src->ssl_flags;
-	dest_r->ssl_set = *ssl_iostream_settings_dup(pool, &src->ssl_set);
+	dest_r->ssl_set = src->ssl_set;
+	pool_add_external_ref(pool, src->ssl_set->pool);
 	if (src->ssl_ctx != NULL) {
 		dest_r->ssl_ctx = src->ssl_ctx;
 		ssl_iostream_context_ref(dest_r->ssl_ctx);
@@ -559,7 +560,7 @@ static bool doveadm_client_input_one(struct doveadm_client *conn)
 static int doveadm_client_init_ssl(struct doveadm_client *conn,
 				   const char **error_r)
 {
-	struct ssl_iostream_settings ssl_set = conn->set.ssl_set;
+	struct ssl_iostream_settings ssl_set = *conn->set.ssl_set;
 	const char *error;
 
 	if (conn->set.ssl_flags == 0)

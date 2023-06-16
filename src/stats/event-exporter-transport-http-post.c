@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "str.h"
 #include "event-exporter.h"
+#include "settings.h"
 #include "http-client.h"
 #include "iostream-ssl.h"
 #include "master-service.h"
@@ -51,18 +52,18 @@ void event_export_transport_http_post(const struct exporter *exporter,
 	struct http_client_request *req;
 
 	if (exporter_http_client == NULL) {
-		struct ssl_iostream_settings ssl_set;
+		const struct ssl_iostream_settings *ssl_set = NULL;
 
 		struct http_client_settings set = {
 			.dns_client_socket_path = "dns-client",
 		};
 		if (master_ssl_set != NULL) {
 			master_service_ssl_client_settings_to_iostream_set(
-				master_ssl_set, pool_datastack_create(),
-				&ssl_set);
-			set.ssl = &ssl_set;
+				master_ssl_set, &ssl_set);
+			set.ssl = ssl_set;
 		}
 		exporter_http_client = http_client_init(&set);
+		settings_free(ssl_set);
 	}
 
 	req = http_client_request_url_str(exporter_http_client, "POST",

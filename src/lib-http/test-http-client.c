@@ -381,6 +381,7 @@ int main(int argc, char *argv[])
 		dns_client = NULL;
 	}
 	i_zero(&ssl_set);
+	ssl_set.pool = null_pool;
 	ssl_set.allow_invalid_cert = TRUE;
 	if (stat("/etc/ssl/certs", &st) == 0 && S_ISDIR(st.st_mode))
 		ssl_set.ca_dir = "/etc/ssl/certs"; /* debian */

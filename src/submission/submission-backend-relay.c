@@ -3,6 +3,7 @@
 #include "submission-common.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "settings.h"
 #include "mail-user.h"
 #include "iostream-ssl.h"
 #include "smtp-client.h"
@@ -1077,7 +1078,8 @@ submission_backend_relay_create(
 {
 	struct submission_backend_relay *rbackend;
 	struct mail_user *user = client->user;
-	struct ssl_iostream_settings ssl_set;
+	const struct ssl_iostream_settings *ssl_set;
+	struct ssl_iostream_settings *ssl_set_copy = NULL;
 	struct smtp_client_settings smtp_set;
 	pool_t pool;
 
@@ -1088,15 +1090,22 @@ submission_backend_relay_create(
 
 	event_set_append_log_prefix(rbackend->backend.event, "relay: ");
 
-	ssl_set = *user->ssl_set;
-	if (!set->ssl_verify)
-		ssl_set.allow_invalid_cert = TRUE;
+	ssl_set = user->ssl_set;
+	if (!set->ssl_verify) {
+		pool_t pool = pool_alloconly_create("ssl iostream settings",
+						    sizeof(*ssl_set));
+		ssl_set_copy = p_memdup(pool, ssl_set, sizeof(*ssl_set));
+		ssl_set_copy->pool = pool;
+		pool_add_external_ref(pool, ssl_set->pool);
+		ssl_set_copy->allow_invalid_cert = TRUE;
+		ssl_set = ssl_set_copy;
+	}
 
 	/* make relay connection */
 	i_zero(&smtp_set);
 	smtp_set.my_hostname = set->my_hostname;
 	smtp_set.extra_capabilities = set->extra_capabilities;
-	smtp_set.ssl = &ssl_set;
+	smtp_set.ssl = ssl_set;
 	smtp_set.debug = event_want_debug(rbackend->backend.event);
 	smtp_set.event_parent = rbackend->backend.event;
 
@@ -1141,6 +1150,7 @@ submission_backend_relay_create(
 			smtp_client, set->protocol, &set->ip, set->port,
 			set->host, set->ssl_mode, &smtp_set);
 	}
+	settings_free(ssl_set_copy);
 
 	return rbackend;
 }

@@ -8,6 +8,7 @@
 #include "connection.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "settings.h"
 #include "master-service.h"
 #include "iostream-ssl.h"
 #include "auth-proxy.h"
@@ -624,12 +625,13 @@ doveadm_mail_server_request_queue_handle_next(struct doveadm_mail_cmd_context *c
 	request_copy = *request;
 	array_pop_front(&doveadm_server_request_queue);
 
-	doveadm_get_ssl_settings(&request_copy.set.ssl_set,
-				 pool_datastack_create());
+	doveadm_get_ssl_settings(&request_copy.set.ssl_set);
 	if (doveadm_client_create(&request_copy.set, &conn, error_r) < 0) {
+		settings_free(request_copy.set.ssl_set);
 		internal_failure = TRUE;
 		return -1;
 	}
+	settings_free(request_copy.set.ssl_set);
 	doveadm_mail_server_handle(request_copy.server, conn, cmd_ctx,
 				   request_copy.username,
 				   request_copy.print_username);
@@ -823,12 +825,13 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	}
 
 	if (doveadm_clients_count() <= limit) {
-		doveadm_get_ssl_settings(&conn_set.ssl_set,
-					 pool_datastack_create());
+		doveadm_get_ssl_settings(&conn_set.ssl_set);
 		if (doveadm_client_create(&conn_set, &conn, error_r) < 0) {
+			settings_free(conn_set.ssl_set);
 			internal_failure = TRUE;
 			return -1;
 		} else {
+			settings_free(conn_set.ssl_set);
 			doveadm_mail_server_handle(server, conn, ctx,
 						   proxy_set.username,
 						   print_username);

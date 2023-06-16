@@ -154,6 +154,7 @@ static const char *test_server_dh =
 void ssl_iostream_test_settings_server(struct ssl_iostream_settings *test_set)
 {
 	i_zero(test_set);
+	test_set->pool = null_pool;
 	test_set->ca = test_ca_cert;
 	test_set->cert.cert = test_server_cert;
 	test_set->cert.key = test_server_key;
@@ -164,6 +165,7 @@ void ssl_iostream_test_settings_server(struct ssl_iostream_settings *test_set)
 void ssl_iostream_test_settings_client(struct ssl_iostream_settings *test_set)
 {
 	i_zero(test_set);
+	test_set->pool = null_pool;
 	test_set->ca = test_ca_cert;
 	test_set->skip_crl_check = TRUE;
 }

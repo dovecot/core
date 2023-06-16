@@ -153,11 +153,9 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 	else
 		mail_user_expand_plugins_envs(user, user->_mail_set);
 
-	user->ssl_set = p_new(user->pool, struct ssl_iostream_settings, 1);
 	if (user->error == NULL &&
 	    mail_storage_service_user_init_ssl_client_settings(
-			user->service_user, user->pool,
-			user->ssl_set, &error) < 0)
+			user->service_user, &user->ssl_set, &error) < 0)
 		user->error = p_strdup(user->pool, error);
 
 	/* autocreated users for shared mailboxes need to be fully initialized
@@ -752,7 +750,7 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 
 void mail_user_init_fs_settings(struct mail_user *user,
 				struct fs_settings *fs_set,
-				struct ssl_iostream_settings *ssl_set_r)
+				const struct ssl_iostream_settings **ssl_set_r)
 {
 	fs_set->event_parent = user->event;
 	fs_set->username = user->username;
@@ -762,8 +760,8 @@ void mail_user_init_fs_settings(struct mail_user *user,
 	fs_set->debug = event_want_debug(user->event);
 	fs_set->enable_timing = user->stats_enabled;
 
-	fs_set->ssl_client_set = ssl_set_r;
-	*ssl_set_r = *user->ssl_set;
+	fs_set->ssl_client_set = user->ssl_set;
+	*ssl_set_r = user->ssl_set;
 }
 
 static int

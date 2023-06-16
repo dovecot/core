@@ -454,7 +454,7 @@ mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
 	if (storage->v.list_index_rebuild != NULL &&
 	    storage->mailboxes_fs == NULL) {
 		struct fs_settings fs_set;
-		struct ssl_iostream_settings ssl_set;
+		const struct ssl_iostream_settings *ssl_set;
 		const char *error;
 		i_zero(&fs_set);
 

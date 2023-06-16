@@ -2087,7 +2087,7 @@ int mailbox_list_init_fs(struct mailbox_list *list, struct event *event_parent,
 			 struct fs **fs_r, const char **error_r)
 {
 	struct fs_settings fs_set;
-	struct ssl_iostream_settings ssl_set;
+	const struct ssl_iostream_settings *ssl_set;
 	struct mailbox_list_fs_context *ctx;
 	struct fs *parent_fs;
 

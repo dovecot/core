@@ -61,7 +61,7 @@ struct mail_user {
 
 	const struct mail_user_settings *set;
 	struct mail_storage_settings *_mail_set;
-	struct ssl_iostream_settings *ssl_set;
+	const struct ssl_iostream_settings *ssl_set;
 	struct mail_namespace *namespaces;
 	struct mail_storage *storages;
 	struct dict_op_settings *dict_op_set;
@@ -205,7 +205,7 @@ void mail_user_add_event_fields(struct mail_user *user);
 /* Initialize fs_settings from mail_user settings. */
 void mail_user_init_fs_settings(struct mail_user *user,
 				struct fs_settings *fs_set,
-				struct ssl_iostream_settings *ssl_set_r);
+				const struct ssl_iostream_settings **ssl_set_r);
 
 /* Try to mkdir() user's home directory. Ideally this should be called only
    after the caller tries to create a file to the home directory, but it fails

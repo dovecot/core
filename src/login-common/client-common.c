@@ -654,7 +654,7 @@ static int client_sni_callback(const char *name, const char **error_r,
 {
 	struct client *client = context;
 	struct ssl_iostream_context *ssl_ctx;
-	struct ssl_iostream_settings ssl_set;
+	const struct ssl_iostream_settings *ssl_set;
 	const char *error;
 
 	if (client->ssl_servername_settings_read)
@@ -687,12 +687,14 @@ static int client_sni_callback(const char *name, const char **error_r,
 	settings_free(old_ssl_server_set);
 
 	master_service_ssl_server_settings_to_iostream_set(client->ssl_set,
-		client->ssl_server_set, pool_datastack_create(), &ssl_set);
-	if (ssl_iostream_server_context_cache_get(&ssl_set, &ssl_ctx, &error) < 0) {
+		client->ssl_server_set, &ssl_set);
+	if (ssl_iostream_server_context_cache_get(ssl_set, &ssl_ctx, &error) < 0) {
 		*error_r = t_strdup_printf(
 			"Failed to initialize SSL server context: %s", error);
+		settings_free(ssl_set);
 		return -1;
 	}
+	settings_free(ssl_set);
 	ssl_iostream_change_context(client->ssl_iostream, ssl_ctx);
 	ssl_iostream_context_unref(&ssl_ctx);
 	return 0;
@@ -701,7 +703,7 @@ static int client_sni_callback(const char *name, const char **error_r,
 int client_init_ssl(struct client *client)
 {
 	struct ssl_iostream_context *ssl_ctx;
-	struct ssl_iostream_settings ssl_set;
+	const struct ssl_iostream_settings *ssl_set;
 	const char *error;
 
 	i_assert(client->fd != -1);
@@ -712,12 +714,15 @@ int client_init_ssl(struct client *client)
 	}
 
 	master_service_ssl_server_settings_to_iostream_set(client->ssl_set,
-		client->ssl_server_set, pool_datastack_create(), &ssl_set);
-	if (ssl_iostream_server_context_cache_get(&ssl_set, &ssl_ctx, &error) < 0) {
+		client->ssl_server_set, &ssl_set);
+	if (ssl_iostream_server_context_cache_get(ssl_set, &ssl_ctx, &error) < 0) {
 		e_error(client->event,
 			"Failed to initialize SSL server context: %s", error);
+		settings_free(ssl_set);
 		return -1;
 	}
+	settings_free(ssl_set);
+
 	if (client->v.iostream_change_pre != NULL)
 		client->v.iostream_change_pre(client);
 	int ret = io_stream_create_ssl_server(ssl_ctx, client->event,

@@ -158,20 +158,19 @@ void auth_policy_init(void)
 	const struct master_service_ssl_settings *master_ssl_set =
 		settings_get_or_fatal(master_service_get_event(master_service),
 			&master_service_ssl_setting_parser_info);
-	struct ssl_iostream_settings ssl_set;
-	i_zero(&ssl_set);
+	const struct ssl_iostream_settings *ssl_set;
 
 	http_client_set.request_absolute_timeout_msecs =
 		global_auth_settings->policy_server_timeout_msecs;
 	if (global_auth_settings->debug)
 		http_client_set.debug = 1;
 
-	master_service_ssl_client_settings_to_iostream_set(
-		master_ssl_set, pool_datastack_create(), &ssl_set);
-	http_client_set.ssl = &ssl_set;
+	master_service_ssl_client_settings_to_iostream_set(master_ssl_set, &ssl_set);
+	http_client_set.ssl = ssl_set;
 	http_client_set.event_parent = auth_event;
 	http_client = http_client_init(&http_client_set);
 	settings_free(master_ssl_set);
+	settings_free(ssl_set);
 
 	/* prepare template */
 

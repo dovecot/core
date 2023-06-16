@@ -166,64 +166,74 @@ master_service_ssl_server_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 }
 /* </settings checks> */
 
-static void master_service_ssl_common_settings_to_iostream_set(
-	const struct master_service_ssl_settings *ssl_set, pool_t pool,
-	struct ssl_iostream_settings *set_r)
+static struct ssl_iostream_settings *
+master_service_ssl_common_settings_to_iostream_set(
+	const struct master_service_ssl_settings *ssl_set)
 {
-	i_zero(set_r);
-	set_r->min_protocol = p_strdup(pool, ssl_set->ssl_min_protocol);
-	set_r->cipher_list = p_strdup(pool, ssl_set->ssl_cipher_list);
+	struct ssl_iostream_settings *set;
+	pool_t pool = pool_alloconly_create("ssl iostream settings", 256);
+	set = p_new(pool, struct ssl_iostream_settings, 1);
+	set->pool = pool;
+	set->min_protocol = p_strdup(pool, ssl_set->ssl_min_protocol);
+	set->cipher_list = p_strdup(pool, ssl_set->ssl_cipher_list);
 	/* leave NULL if empty - let library decide */
-	set_r->ciphersuites = p_strdup_empty(pool, ssl_set->ssl_cipher_suites);
+	set->ciphersuites = p_strdup_empty(pool, ssl_set->ssl_cipher_suites);
 
-	set_r->crypto_device = p_strdup(pool, ssl_set->ssl_crypto_device);
+	set->crypto_device = p_strdup(pool, ssl_set->ssl_crypto_device);
 
-	set_r->compression = ssl_set->parsed_opts.compression;
-	set_r->tickets = ssl_set->parsed_opts.tickets;
-	set_r->curve_list = p_strdup(pool, ssl_set->ssl_curve_list);
+	set->compression = ssl_set->parsed_opts.compression;
+	set->tickets = ssl_set->parsed_opts.tickets;
+	set->curve_list = p_strdup(pool, ssl_set->ssl_curve_list);
+	return set;
 }
 
 void master_service_ssl_client_settings_to_iostream_set(
-	const struct master_service_ssl_settings *ssl_set, pool_t pool,
-	struct ssl_iostream_settings *set_r)
+	const struct master_service_ssl_settings *ssl_set,
+	const struct ssl_iostream_settings **set_r)
 {
-	master_service_ssl_common_settings_to_iostream_set(ssl_set, pool, set_r);
+	struct ssl_iostream_settings *set =
+		master_service_ssl_common_settings_to_iostream_set(ssl_set);
+	pool_t pool = set->pool;
 
-	set_r->ca = p_strdup_empty(pool, ssl_set->ssl_client_ca);
-	set_r->ca_file = p_strdup_empty(pool, ssl_set->ssl_client_ca_file);
-	set_r->ca_dir = p_strdup_empty(pool, ssl_set->ssl_client_ca_dir);
-	set_r->cert.cert = p_strdup_empty(pool, ssl_set->ssl_client_cert);
-	set_r->cert.key = p_strdup_empty(pool, ssl_set->ssl_client_key);
-	set_r->verify_remote_cert = ssl_set->ssl_client_require_valid_cert;
-	set_r->allow_invalid_cert = !set_r->verify_remote_cert;
+	set->ca = p_strdup_empty(pool, ssl_set->ssl_client_ca);
+	set->ca_file = p_strdup_empty(pool, ssl_set->ssl_client_ca_file);
+	set->ca_dir = p_strdup_empty(pool, ssl_set->ssl_client_ca_dir);
+	set->cert.cert = p_strdup_empty(pool, ssl_set->ssl_client_cert);
+	set->cert.key = p_strdup_empty(pool, ssl_set->ssl_client_key);
+	set->verify_remote_cert = ssl_set->ssl_client_require_valid_cert;
+	set->allow_invalid_cert = !set->verify_remote_cert;
 	/* client-side CRL checking not supported currently */
-	set_r->skip_crl_check = TRUE;
+	set->skip_crl_check = TRUE;
+	*set_r = set;
 }
 
 void master_service_ssl_server_settings_to_iostream_set(
 	const struct master_service_ssl_settings *ssl_set,
 	const struct master_service_ssl_server_settings *ssl_server_set,
-	pool_t pool, struct ssl_iostream_settings *set_r)
+	const struct ssl_iostream_settings **set_r)
 {
-	master_service_ssl_common_settings_to_iostream_set(ssl_set, pool, set_r);
+	struct ssl_iostream_settings *set =
+		master_service_ssl_common_settings_to_iostream_set(ssl_set);
+	pool_t pool = set->pool;
 
-	set_r->ca = p_strdup_empty(pool, ssl_server_set->ssl_ca);
-	set_r->cert.cert = p_strdup(pool, ssl_server_set->ssl_cert);
-	set_r->cert.key = p_strdup(pool, ssl_server_set->ssl_key);
-	set_r->cert.key_password = p_strdup(pool, ssl_server_set->ssl_key_password);
+	set->ca = p_strdup_empty(pool, ssl_server_set->ssl_ca);
+	set->cert.cert = p_strdup(pool, ssl_server_set->ssl_cert);
+	set->cert.key = p_strdup(pool, ssl_server_set->ssl_key);
+	set->cert.key_password = p_strdup(pool, ssl_server_set->ssl_key_password);
 	if (ssl_server_set->ssl_alt_cert != NULL &&
 	    *ssl_server_set->ssl_alt_cert != '\0') {
-		set_r->alt_cert.cert = p_strdup(pool, ssl_server_set->ssl_alt_cert);
-		set_r->alt_cert.key = p_strdup(pool, ssl_server_set->ssl_alt_key);
-		set_r->alt_cert.key_password = p_strdup(pool, ssl_server_set->ssl_key_password);
+		set->alt_cert.cert = p_strdup(pool, ssl_server_set->ssl_alt_cert);
+		set->alt_cert.key = p_strdup(pool, ssl_server_set->ssl_alt_key);
+		set->alt_cert.key_password = p_strdup(pool, ssl_server_set->ssl_key_password);
 	}
-	set_r->dh = p_strdup(pool, ssl_server_set->ssl_dh);
-	set_r->cert_username_field =
+	set->dh = p_strdup(pool, ssl_server_set->ssl_dh);
+	set->cert_username_field =
 		p_strdup(pool, ssl_server_set->ssl_cert_username_field);
-	set_r->prefer_server_ciphers = ssl_server_set->ssl_prefer_server_ciphers;
-	set_r->verify_remote_cert = ssl_server_set->ssl_request_client_cert;
-	set_r->allow_invalid_cert = !set_r->verify_remote_cert;
+	set->prefer_server_ciphers = ssl_server_set->ssl_prefer_server_ciphers;
+	set->verify_remote_cert = ssl_server_set->ssl_request_client_cert;
+	set->allow_invalid_cert = !set->verify_remote_cert;
 	/* ssl_require_crl is used only for checking client-provided SSL
 	   certificate's CRL. */
-	set_r->skip_crl_check = !ssl_server_set->ssl_require_crl;
+	set->skip_crl_check = !ssl_server_set->ssl_require_crl;
+	*set_r = set;
 }
