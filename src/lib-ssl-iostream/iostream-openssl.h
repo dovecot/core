@@ -21,11 +21,12 @@ struct ssl_iostream_context {
 	SSL_CTX *ssl_ctx;
 
 	pool_t pool;
-	struct ssl_iostream_settings set;
 
 	int username_nid;
 
 	bool client_ctx:1;
+	bool verify_remote_cert:1;
+	bool allow_invalid_cert:1;
 };
 
 struct ssl_iostream {

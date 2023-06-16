@@ -292,10 +292,11 @@ load_ca_locations(struct ssl_iostream_context *ctx, const char *ca_file,
 
 static void
 ssl_iostream_ctx_verify_remote_cert(struct ssl_iostream_context *ctx,
+				    const struct ssl_iostream_settings *set,
 				    STACK_OF(X509_NAME) *ca_names)
 {
 #if OPENSSL_VERSION_NUMBER >= 0x00907000L
-	if (!ctx->set.skip_crl_check) {
+	if (!set->skip_crl_check) {
 		X509_STORE *store;
 
 		store = SSL_CTX_get_cert_store(ctx->ssl_ctx);
@@ -521,7 +522,7 @@ ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 						   openssl_iostream_error());
 			return -1;
 		}
-		ssl_iostream_ctx_verify_remote_cert(ctx, xnames);
+		ssl_iostream_ctx_verify_remote_cert(ctx, set, xnames);
 		have_ca = TRUE;
 	}
 	ca_file = set->ca_file == NULL || *set->ca_file == '\0' ?
@@ -552,7 +553,9 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			 const struct ssl_iostream_settings *set,
 			 const char **error_r)
 {
-	ssl_iostream_settings_init_from(ctx->pool, &ctx->set, set);
+	ctx->verify_remote_cert = set->verify_remote_cert;
+	ctx->allow_invalid_cert = set->allow_invalid_cert;
+
 	if (set->cipher_list != NULL &&
 	    SSL_CTX_set_cipher_list(ctx->ssl_ctx, set->cipher_list) == 0) {
 		*error_r = t_strdup_printf(
@@ -577,10 +580,10 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 		SSL_CTX_set_options(ctx->ssl_ctx,
 				    SSL_OP_CIPHER_SERVER_PREFERENCE);
 	}
-	if (ctx->set.min_protocol != NULL) {
+	if (set->min_protocol != NULL) {
 		long opts;
 		int min_protocol;
-		if (openssl_min_protocol_to_options(ctx->set.min_protocol,
+		if (openssl_min_protocol_to_options(set->min_protocol,
 						    &opts, &min_protocol) < 0) {
 			*error_r = t_strdup_printf(
 					"Unknown ssl_min_protocol setting '%s'",

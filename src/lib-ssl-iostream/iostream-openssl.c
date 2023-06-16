@@ -100,7 +100,7 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 	}
 	if (preverify_ok == 0) {
 		ssl_io->cert_broken = TRUE;
-		if (!ssl_io->ctx->set.allow_invalid_cert) {
+		if (!ssl_io->ctx->allow_invalid_cert) {
 			ssl_io->handshake_failed = TRUE;
 			return 0;
 		}
@@ -115,7 +115,7 @@ openssl_iostream_set(struct ssl_iostream *ssl_io)
 
 	SSL_set_info_callback(ssl_io->ssl, openssl_info_callback);
 
-	if (ssl_io->ctx->set.verify_remote_cert) {
+	if (ssl_io->ctx->verify_remote_cert) {
 		if (ssl_io->ctx->client_ctx)
 			verify_flags = SSL_VERIFY_NONE;
 		else
@@ -601,7 +601,7 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 			ssl_io->handshake_failed = TRUE;
 		}
        } else if (ssl_io->connected_host != NULL && !ssl_io->handshake_failed &&
-		  !ssl_io->ctx->set.allow_invalid_cert) {
+		  !ssl_io->ctx->allow_invalid_cert) {
 		if (ssl_iostream_check_cert_validity(ssl_io, ssl_io->connected_host, &reason) < 0) {
 			openssl_iostream_set_error(ssl_io, reason);
 			ssl_io->handshake_failed = TRUE;
