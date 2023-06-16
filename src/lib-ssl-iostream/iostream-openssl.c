@@ -100,7 +100,7 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 	}
 	if (preverify_ok == 0) {
 		ssl_io->cert_broken = TRUE;
-		if (!ssl_io->ctx->allow_invalid_cert) {
+		if (!ssl_io->allow_invalid_cert) {
 			ssl_io->handshake_failed = TRUE;
 			return 0;
 		}
@@ -129,6 +129,7 @@ static int
 openssl_iostream_create(struct ssl_iostream_context *ctx,
 			struct event *event_parent, const char *host,
 			bool client,
+			enum ssl_iostream_flags flags,
 			struct istream **input, struct ostream **output,
 			struct ssl_iostream **iostream_r,
 			const char **error_r)
@@ -170,6 +171,8 @@ openssl_iostream_create(struct ssl_iostream_context *ctx,
 	ssl_io->plain_output = *output;
 	ssl_io->connected_host = i_strdup(host);
 	ssl_io->event = event_create(event_parent);
+	ssl_io->allow_invalid_cert = ctx->allow_invalid_cert ||
+		(flags & SSL_IOSTREAM_FLAG_ALLOW_INVALID_CERT) != 0;
 	if (client)
 		event_add_category(ssl_io->event, &event_category_ssl_client);
 	else
@@ -601,7 +604,7 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 			ssl_io->handshake_failed = TRUE;
 		}
        } else if (ssl_io->connected_host != NULL && !ssl_io->handshake_failed &&
-		  !ssl_io->ctx->allow_invalid_cert) {
+		  !ssl_io->allow_invalid_cert) {
 		if (ssl_iostream_check_cert_validity(ssl_io, ssl_io->connected_host, &reason) < 0) {
 			openssl_iostream_set_error(ssl_io, reason);
 			ssl_io->handshake_failed = TRUE;
@@ -682,7 +685,7 @@ openssl_iostream_has_broken_client_cert(struct ssl_iostream *ssl_io)
 static bool
 openssl_iostream_get_allow_invalid_cert(struct ssl_iostream *ssl_io)
 {
-	return ssl_io->ctx->allow_invalid_cert;
+	return ssl_io->allow_invalid_cert;
 }
 
 static const char *

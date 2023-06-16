@@ -222,7 +222,7 @@ static int test_iostream_ssl_handshake_real(struct ssl_iostream_settings *server
 		ret = -1;
 	}
 
-	if (io_stream_create_ssl_client(client->ctx, client->hostname, NULL,
+	if (io_stream_create_ssl_client(client->ctx, client->hostname, NULL, 0,
 					&client->input, &client->output,
 					&client->iostream, &error) != 0) {
 		ret = -1;
@@ -416,7 +416,7 @@ static void test_iostream_ssl_get_buffer_avail_size(void)
 	test_assert(io_stream_create_ssl_server(server->ctx, NULL,
 						&server->input, &server->output,
 						&server->iostream, &error) == 0);
-	test_assert(io_stream_create_ssl_client(client->ctx, "localhost", NULL,
+	test_assert(io_stream_create_ssl_client(client->ctx, "localhost", NULL, 0,
 						&client->input, &client->output,
 						&client->iostream, &error) == 0);
 
@@ -508,7 +508,7 @@ static void test_iostream_ssl_small_packets(void)
 	test_assert(io_stream_create_ssl_server(server->ctx, NULL,
 						&server->input, &server->output,
 						&server->iostream, &error) == 0);
-	test_assert(io_stream_create_ssl_client(client->ctx, "localhost", NULL,
+	test_assert(io_stream_create_ssl_client(client->ctx, "localhost", NULL, 0,
 						&client->input, &client->output,
 						&client->iostream, &error) == 0);
 
