@@ -1,42 +1,10 @@
 /* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "ioloop.h"
-#include "buffer.h"
 #include "iostream-ssl.h"
 #include "settings.h"
 #include "master-service-private.h"
 #include "master-service-ssl.h"
-
-#include <unistd.h>
-
-int master_service_ssl_init(struct master_service *service,
-			    struct istream **input, struct ostream **output,
-			    struct ssl_iostream **ssl_iostream_r,
-			    const char **error_r)
-{
-	const struct ssl_server_settings *server_set;
-	int ret;
-
-	i_assert(service->ssl_ctx_initialized);
-
-	if (settings_get(service->event, &ssl_server_setting_parser_info, 0,
-			 &server_set, error_r) < 0)
-		return -1;
-	if (service->ssl_ctx == NULL) {
-		if (strcmp(server_set->ssl, "no") == 0)
-			*error_r = "SSL is disabled (ssl=no)";
-		else
-			*error_r = "Failed to initialize SSL context";
-		settings_free(server_set);
-		return -1;
-	}
-
-	ret = io_stream_create_ssl_server(service->ssl_ctx, NULL,
-					  input, output, ssl_iostream_r, error_r);
-	settings_free(server_set);
-	return ret;
-}
 
 bool master_service_ssl_is_enabled(struct master_service *service)
 {
