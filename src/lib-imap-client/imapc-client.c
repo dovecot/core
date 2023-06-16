@@ -5,7 +5,6 @@
 #include "str.h"
 #include "ioloop.h"
 #include "safe-mkstemp.h"
-#include "iostream-ssl.h"
 #include "settings.h"
 #include "imapc-msgmap.h"
 #include "imapc-connection.h"
@@ -53,7 +52,6 @@ imapc_client_init(const struct imapc_client_settings *set,
 		  struct event *event_parent)
 {
 	struct imapc_client *client;
-	const char *error;
 	pool_t pool;
 
 	i_assert(set->connect_retry_count == 0 ||
@@ -94,6 +92,8 @@ imapc_client_init(const struct imapc_client_settings *set,
 	client->set.max_line_length = set->max_line_length != 0 ?
 		set->max_line_length : IMAPC_DEFAULT_MAX_LINE_LENGTH;
 	client->set.throttle_set = set->throttle_set;
+	client->set.ssl_mode = set->ssl_mode;
+	client->set.ssl_allow_invalid_cert = set->ssl_allow_invalid_cert;
 
 	if (client->set.throttle_set.init_msecs == 0)
 		client->set.throttle_set.init_msecs = IMAPC_THROTTLE_DEFAULT_INIT_MSECS;
@@ -102,14 +102,6 @@ imapc_client_init(const struct imapc_client_settings *set,
 	if (client->set.throttle_set.shrink_min_msecs == 0)
 		client->set.throttle_set.shrink_min_msecs = IMAPC_THROTTLE_DEFAULT_SHRINK_MIN_MSECS;
 
-	if (set->ssl_mode != IMAPC_CLIENT_SSL_MODE_NONE) {
-		client->set.ssl_mode = set->ssl_mode;
-		if (ssl_iostream_client_context_cache_get(&set->ssl_set,
-							  &client->ssl_ctx,
-							  &error) < 0) {
-			e_error(client->event, "%s", error);
-		}
-	}
 	client->untagged_callback = default_untagged_callback;
 
 	p_array_init(&client->conns, pool, 8);
@@ -133,8 +125,6 @@ void imapc_client_unref(struct imapc_client **_client)
 	if (--client->refcount > 0)
 		return;
 
-	if (client->ssl_ctx != NULL)
-		ssl_iostream_context_unref(&client->ssl_ctx);
 	event_unref(&client->event);
 	pool_unref(&client->pool);
 }

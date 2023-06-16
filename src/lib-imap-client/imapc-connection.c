@@ -1658,7 +1658,7 @@ static int imapc_connection_ssl_handshaked(const char **error_r, void *context)
 					     conn->client->set.host, &error) == 0) {
 		e_debug(conn->event, "SSL handshake successful");
 		return 0;
-	} else if (conn->client->set.ssl_set.allow_invalid_cert) {
+	} else if (ssl_iostream_get_allow_invalid_cert(conn->ssl_iostream)) {
 		e_debug(conn->event, "SSL handshake successful, "
 			"ignoring invalid certificate: %s", error);
 		return 0;
@@ -1671,11 +1671,6 @@ static int imapc_connection_ssl_handshaked(const char **error_r, void *context)
 static int imapc_connection_ssl_init(struct imapc_connection *conn)
 {
 	const char *error;
-
-	if (conn->client->ssl_ctx == NULL) {
-		e_error(conn->event, "No SSL context");
-		return -1;
-	}
 
 	e_debug(conn->event, "Starting SSL handshake");
 
@@ -1690,11 +1685,13 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 	}
 
 	io_remove(&conn->io);
-	if (io_stream_create_ssl_client(conn->client->ssl_ctx,
-					conn->client->set.host,
-					conn->event, 0,
-					&conn->input, &conn->output,
-					&conn->ssl_iostream, &error) < 0) {
+	enum ssl_iostream_flags ssl_flags = 0;
+	if (conn->client->set.ssl_allow_invalid_cert)
+		ssl_flags |= SSL_IOSTREAM_FLAG_ALLOW_INVALID_CERT;
+	if (io_stream_autocreate_ssl_client(conn->event, conn->client->set.host,
+					    ssl_flags,
+					    &conn->input, &conn->output,
+					    &conn->ssl_iostream, &error) < 0) {
 		e_error(conn->event, "Couldn't initialize SSL client: %s",
 			error);
 		return -1;

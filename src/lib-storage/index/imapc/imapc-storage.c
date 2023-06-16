@@ -363,9 +363,8 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	mail_user_set_get_temp_prefix(str, ns->user->set);
 	set.temp_path_prefix = str_c(str);
 
-	set.ssl_set = *ns->user->ssl_set;
 	if (!imapc_set->imapc_ssl_verify)
-		set.ssl_set.allow_invalid_cert = TRUE;
+		set.ssl_allow_invalid_cert = TRUE;
 
 	if (strcmp(imapc_set->imapc_ssl, "imaps") == 0)
 		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_IMMEDIATE;

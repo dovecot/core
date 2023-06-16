@@ -96,9 +96,9 @@ struct imapc_client_settings {
 
 	const char *dns_client_socket_path;
 	const char *temp_path_prefix;
-	struct ssl_iostream_settings ssl_set;
 
 	enum imapc_client_ssl_mode ssl_mode;
+	bool ssl_allow_invalid_cert;
 
 	const char *rawlog_dir;
 	bool debug;
