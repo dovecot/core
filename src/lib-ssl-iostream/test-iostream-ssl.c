@@ -158,7 +158,8 @@ create_test_endpoint(int fd, const struct ssl_iostream_settings *set)
 	ep->input = i_stream_create_fd(ep->fd, 512);
 	ep->output = o_stream_create_fd(ep->fd, 1024);
 	o_stream_uncork(ep->output);
-	ep->set = ssl_iostream_settings_dup(pool, set);
+	/* We assume here that strings continue to be valid pointers */
+	ep->set = p_memdup(pool, set, sizeof(*set));
 	ep->last_write = buffer_create_dynamic(pool, 1024);
 	return ep;
 }
