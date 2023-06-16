@@ -370,8 +370,6 @@ unsigned int http_client_get_pending_request_count(struct http_client *client)
 
 int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 {
-	const char *error;
-
 	if (client->ssl_ctx != NULL)
 		return 0;
 
@@ -380,13 +378,8 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 			   "but no SSL settings given";
 		return -1;
 	}
-	if (ssl_iostream_client_context_cache_get(client->set.ssl,
-		&client->ssl_ctx, &error) < 0) {
-		*error_r = t_strdup_printf(
-			"Couldn't initialize SSL context: %s", error);
-		return -1;
-	}
-	return 0;
+	return ssl_iostream_client_context_cache_get(client->set.ssl,
+						     &client->ssl_ctx, error_r);
 }
 
 /*

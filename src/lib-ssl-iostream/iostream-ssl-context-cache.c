@@ -101,14 +101,26 @@ int ssl_iostream_client_context_cache_get(const struct ssl_iostream_settings *se
 					  struct ssl_iostream_context **ctx_r,
 					  const char **error_r)
 {
-	return ssl_iostream_context_cache_get(set, FALSE, ctx_r, error_r);
+	const char *error;
+	if (ssl_iostream_context_cache_get(set, FALSE, ctx_r, &error) < 0) {
+		*error_r = t_strdup_printf(
+			"Couldn't initialize SSL client context: %s", error);
+		return -1;
+	}
+	return 0;
 }
 
 int ssl_iostream_server_context_cache_get(const struct ssl_iostream_settings *set,
 					  struct ssl_iostream_context **ctx_r,
 					  const char **error_r)
 {
-	return ssl_iostream_context_cache_get(set, TRUE, ctx_r, error_r);
+	const char *error;
+	if (ssl_iostream_context_cache_get(set, TRUE, ctx_r, &error) < 0) {
+		*error_r = t_strdup_printf(
+			"Couldn't initialize SSL server context: %s", error);
+		return -1;
+	}
+	return 0;
 }
 
 void ssl_iostream_context_cache_free(void)

@@ -107,7 +107,7 @@ imapc_client_init(const struct imapc_client_settings *set,
 		if (ssl_iostream_client_context_cache_get(&set->ssl_set,
 							  &client->ssl_ctx,
 							  &error) < 0) {
-			e_error(client->event, "Couldn't initialize SSL context: %s", error);
+			e_error(client->event, "%s", error);
 		}
 	}
 	client->untagged_callback = default_untagged_callback;
