@@ -24,7 +24,7 @@ struct http_server_settings {
 
 	const char *rawlog_dir;
 
-	/* SSL settings; if NULL, master_service_ssl_init() is used instead */
+	/* SSL settings; if NULL, settings_get() is used automatically */
 	const struct ssl_iostream_settings *ssl;
 
 	/* The maximum time in milliseconds a client is allowed to be idle
