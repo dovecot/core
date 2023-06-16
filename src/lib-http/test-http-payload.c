@@ -1897,6 +1897,7 @@ test_run_sequential(
 	http_client_set.max_pipelined_requests = 1;
 
 	test_run_client_server(&http_client_set, &http_server_set, client_init);
+	ssl_iostream_context_cache_free();
 
 	test_out_reason("sequential", (failure == NULL), failure);
 }
@@ -1927,6 +1928,7 @@ test_run_pipeline(
 	http_client_set.max_pipelined_requests = 8;
 
 	test_run_client_server(&http_client_set, &http_server_set, client_init);
+	ssl_iostream_context_cache_free();
 
 	test_out_reason("pipeline", (failure == NULL), failure);
 }
@@ -1957,6 +1959,7 @@ test_run_parallel(
 	http_client_set.max_pipelined_requests = 8;
 
 	test_run_client_server(&http_client_set, &http_server_set, client_init);
+	ssl_iostream_context_cache_free();
 
 	test_out_reason("parallel", (failure == NULL), failure);
 }

@@ -375,6 +375,7 @@ static void test_iostream_ssl_handshake(void)
 	idx++;
 
 	io_loop_destroy(&ioloop);
+	ssl_iostream_context_cache_free();
 
 	test_end();
 }
@@ -466,6 +467,7 @@ static void test_iostream_ssl_get_buffer_avail_size(void)
 	destroy_test_endpoint(&server);
 
 	io_loop_destroy(&ioloop);
+	ssl_iostream_context_cache_free();
 
 	test_end();
 }
@@ -540,6 +542,7 @@ static void test_iostream_ssl_small_packets(void)
 	destroy_test_endpoint(&client);
 
 	io_loop_destroy(&ioloop);
+	ssl_iostream_context_cache_free();
 
 	test_end();
 }
