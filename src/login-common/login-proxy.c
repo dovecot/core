@@ -1221,10 +1221,8 @@ int login_proxy_starttls(struct login_proxy *proxy)
 	io_remove(&proxy->side_channel_io);
 	io_remove(&proxy->server_io);
 	if (ssl_iostream_client_context_cache_get(ssl_set_copy, &ssl_ctx, &error) < 0) {
-		const char *reason = t_strdup_printf(
-			"Failed to create SSL client context: %s", error);
 		login_proxy_failed(proxy, proxy->event,
-				   LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
+				   LOGIN_PROXY_FAILURE_TYPE_INTERNAL, error);
 		return -1;
 	}
 

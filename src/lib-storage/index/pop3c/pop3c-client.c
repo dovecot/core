@@ -125,10 +125,8 @@ pop3c_client_init(const struct pop3c_client_settings *set,
 		pool_ref(client->set.ssl_set.pool);
 		if (ssl_iostream_client_context_cache_get(&set->ssl_set,
 							  &client->ssl_ctx,
-							  &error) < 0) {
-			e_error(client->event,
-				"Couldn't initialize SSL context: %s", error);
-		}
+							  &error) < 0)
+			e_error(client->event, "%s", error);
 	}
 	return client;
 }

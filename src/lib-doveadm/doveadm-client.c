@@ -571,11 +571,8 @@ static int doveadm_client_init_ssl(struct doveadm_client *conn,
 
 	if (conn->set.ssl_ctx == NULL &&
 	    ssl_iostream_client_context_cache_get(&ssl_set, &conn->set.ssl_ctx,
-						  &error) < 0) {
-		*error_r = t_strdup_printf(
-			"Couldn't initialize SSL client: %s", error);
+						  error_r) < 0)
 		return -1;
-	}
 
 	const char *hostname =
 		conn->set.hostname != NULL ? conn->set.hostname : "";

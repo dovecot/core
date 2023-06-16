@@ -119,16 +119,9 @@ void http_server_shut_down(struct http_server *server)
 
 int http_server_init_ssl_ctx(struct http_server *server, const char **error_r)
 {
-	const char *error;
-
 	if (server->set.ssl == NULL || server->ssl_ctx != NULL)
 		return 0;
 
-	if (ssl_iostream_server_context_cache_get(server->set.ssl,
-		&server->ssl_ctx, &error) < 0) {
-		*error_r = t_strdup_printf("Couldn't initialize SSL context: %s",
-					   error);
-		return -1;
-	}
-	return 0;
+	return ssl_iostream_server_context_cache_get(server->set.ssl,
+						     &server->ssl_ctx, error_r);
 }

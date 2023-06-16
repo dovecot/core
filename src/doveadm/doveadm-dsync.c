@@ -930,11 +930,8 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 		if (ctx->ssl_ctx == NULL &&
 		    ssl_iostream_client_context_cache_get(conn_set.ssl_set,
 							  &ctx->ssl_ctx,
-							  &error) < 0) {
-			*error_r = t_strdup_printf(
-				"Couldn't initialize SSL context: %s", error);
+							  error_r) < 0)
 			return -1;
-		}
 		conn_set.ssl_flags = AUTH_PROXY_SSL_FLAG_YES;
 		conn_set.ssl_ctx = ctx->ssl_ctx;
 	}
