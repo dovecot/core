@@ -4,26 +4,6 @@
 #include "module-dir.h"
 #include "iostream-ssl-private.h"
 
-#define OFFSET(name) offsetof(struct ssl_iostream_settings, name)
-static const size_t ssl_iostream_settings_string_offsets[] = {
-	OFFSET(min_protocol),
-	OFFSET(cipher_list),
-	OFFSET(ciphersuites),
-	OFFSET(curve_list),
-	OFFSET(ca),
-	OFFSET(ca_file),
-	OFFSET(ca_dir),
-	OFFSET(cert.cert),
-	OFFSET(cert.key),
-	OFFSET(cert.key_password),
-	OFFSET(alt_cert.cert),
-	OFFSET(alt_cert.key),
-	OFFSET(alt_cert.key_password),
-	OFFSET(dh),
-	OFFSET(cert_username_field),
-	OFFSET(crypto_device),
-};
-
 static bool ssl_module_loaded = FALSE;
 static struct module *ssl_module = NULL;
 static const struct iostream_ssl_vfuncs *ssl_vfuncs = NULL;
@@ -271,29 +251,54 @@ const char *ssl_iostream_get_last_error(struct ssl_iostream *ssl_io)
 	return ssl_vfuncs->get_last_error(ssl_io);
 }
 
+static bool quick_strcmp(const char *str1, const char *str2)
+{
+	/* fast path: settings can point to the same strings */
+	if (str1 == str2)
+		return TRUE;
+	return null_strcmp(str1, str2) == 0;
+}
+
 bool ssl_iostream_settings_equals(const struct ssl_iostream_settings *set1,
 				  const struct ssl_iostream_settings *set2)
 {
-	struct ssl_iostream_settings set1_nonstr, set2_nonstr;
-	unsigned int i;
+	if (set1 == set2)
+		return TRUE;
 
-	set1_nonstr = *set1;
-	set2_nonstr = *set2;
-	for (i = 0; i < N_ELEMENTS(ssl_iostream_settings_string_offsets); i++) {
-		const size_t offset = ssl_iostream_settings_string_offsets[i];
-		const char **str1 = PTR_OFFSET(&set1_nonstr, offset);
-		const char **str2 = PTR_OFFSET(&set2_nonstr, offset);
+	if (!quick_strcmp(set1->cert.cert, set2->cert.cert) ||
+	    !quick_strcmp(set1->cert.key, set2->cert.key) ||
+	    !quick_strcmp(set1->cert.key_password, set2->cert.key_password))
+		return FALSE;
 
-		if (null_strcmp(*str1, *str2) != 0)
-			return FALSE;
+	if (!quick_strcmp(set1->alt_cert.cert, set2->alt_cert.cert) ||
+	    !quick_strcmp(set1->alt_cert.key, set2->alt_cert.key) ||
+	    !quick_strcmp(set1->alt_cert.key_password,
+			  set2->alt_cert.key_password))
+		return FALSE;
 
-		/* clear away the string pointer from the settings struct */
-		*str1 = NULL;
-		*str2 = NULL;
-	}
-	/* The set*_nonstr no longer have any pointers, so we can compare them
-	   directly. */
-	return memcmp(&set1_nonstr, &set2_nonstr, sizeof(set1_nonstr)) == 0;
+	if (!quick_strcmp(set1->ca, set2->ca) ||
+	    !quick_strcmp(set1->ca_file, set2->ca_file) ||
+	    !quick_strcmp(set1->ca_dir, set2->ca_dir))
+		return FALSE;
+
+	if (!quick_strcmp(set1->min_protocol, set2->min_protocol) ||
+	    !quick_strcmp(set1->cipher_list, set2->cipher_list) ||
+	    !quick_strcmp(set1->ciphersuites, set2->ciphersuites) ||
+	    !quick_strcmp(set1->curve_list, set2->curve_list) ||
+	    !quick_strcmp(set1->dh, set2->dh) ||
+	    !quick_strcmp(set1->cert_username_field,
+			  set2->cert_username_field) ||
+	    !quick_strcmp(set1->crypto_device, set2->crypto_device))
+		return FALSE;
+
+	if (set1->skip_crl_check != set2->skip_crl_check ||
+	    set1->verify_remote_cert != set2->verify_remote_cert ||
+	    set1->allow_invalid_cert != set2->allow_invalid_cert ||
+	    set1->prefer_server_ciphers != set2->prefer_server_ciphers ||
+	    set1->compression != set2->compression ||
+	    set1->tickets != set2->tickets)
+		return FALSE;
+	return TRUE;
 }
 
 const char *ssl_iostream_get_cipher(struct ssl_iostream *ssl_io,
