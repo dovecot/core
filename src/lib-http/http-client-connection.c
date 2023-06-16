@@ -1477,14 +1477,12 @@ http_client_connection_ssl_handshaked(const char **error_r, void *context)
 {
 	struct http_client_connection *conn = context;
 	struct http_client_peer_shared *pshared = conn->ppool->peer;
-	const struct http_client_settings *set =
-		http_client_connection_get_settings(conn);
 	const char *error, *host = pshared->addr.a.tcp.https_name;
 
 	if (ssl_iostream_check_cert_validity(conn->ssl_iostream,
 					     host, &error) == 0)
 		e_debug(conn->event, "SSL handshake successful");
-	else if (set->ssl->allow_invalid_cert) {
+	else if (ssl_iostream_get_allow_invalid_cert(conn->ssl_iostream)) {
 		e_debug(conn->event, "SSL handshake successful, "
 			"ignoring invalid certificate: %s", error);
 	} else {
