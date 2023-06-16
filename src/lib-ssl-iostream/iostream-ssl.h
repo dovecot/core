@@ -12,6 +12,9 @@ enum ssl_iostream_flags {
 	   ssl_iostream_settings.allow_invalid_cert enabled, it can't
 	   be anymore disabled. */
 	SSL_IOSTREAM_FLAG_ALLOW_INVALID_CERT = BIT(0),
+	/* Disable ssl_iostream_settings.ca_file and ca_dir settings in
+	   io_stream_autocreate_ssl_client() when creating context. */
+	SSL_IOSTREAM_FLAG_DISABLE_CA_FILES = BIT(1),
 };
 
 struct ssl_iostream_cert {

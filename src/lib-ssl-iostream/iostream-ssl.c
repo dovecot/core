@@ -144,6 +144,18 @@ int io_stream_autocreate_ssl_client(
 			 0, &ssl_set, error_r) < 0)
 		return -1;
 	ssl_client_settings_to_iostream_set(ssl_set, &set);
+	if ((flags & SSL_IOSTREAM_FLAG_DISABLE_CA_FILES) != 0) {
+		pool_t pool = pool_alloconly_create("ssl iostream settings copy",
+						    sizeof(*set));
+		struct ssl_iostream_settings *set_copy =
+			p_memdup(pool, set, sizeof(*set));
+		set_copy->pool = pool;
+		pool_add_external_ref(pool, set->pool);
+		set_copy->ca_file = NULL;
+		set_copy->ca_dir = NULL;
+		settings_free(set);
+		set = set_copy;
+	}
 	settings_free(ssl_set);
 
 	ret = ssl_iostream_client_context_cache_get(set, &ctx, error_r);
