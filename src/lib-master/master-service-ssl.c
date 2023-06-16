@@ -18,10 +18,6 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	const struct ssl_iostream_settings *ssl_set;
 	const char *error;
 
-	if (service->ssl_ctx_initialized)
-		return;
-	service->ssl_ctx_initialized = TRUE;
-
 	/* must be called after master_service_init_finish() so that if
 	   initialization fails we can close the SSL listeners */
 	i_assert(service->listeners != NULL || service->socket_count == 0);
@@ -59,5 +55,4 @@ void master_service_ssl_ctx_deinit(struct master_service *service)
 {
 	if (service->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&service->ssl_ctx);
-	service->ssl_ctx_initialized = FALSE;
 }
