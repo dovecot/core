@@ -22,7 +22,6 @@
 #include "imap-util.h"
 #include "master-interface.h"
 #include "master-service.h"
-#include "master-service-ssl-settings.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
 #include "mail-user.h"

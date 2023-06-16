@@ -13,7 +13,7 @@
 #include "strescape.h"
 #include "settings.h"
 #include "master-service.h"
-#include "master-service-ssl-settings.h"
+#include "ssl-settings.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "auth-client.h"

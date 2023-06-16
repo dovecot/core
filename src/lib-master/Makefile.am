@@ -23,7 +23,6 @@ libmaster_la_SOURCES = \
 	master-service-haproxy.c \
 	master-service-settings.c \
 	master-service-ssl.c \
-	master-service-ssl-settings.c \
 	stats-client.c \
 	syslog-util.c
 
@@ -37,7 +36,6 @@ headers = \
 	master-service-private.h \
 	master-service-settings.h \
 	master-service-ssl.h \
-	master-service-ssl-settings.h \
 	service-settings.h \
 	stats-client.h \
 	syslog-util.h

@@ -40,6 +40,7 @@ test_deps = \
 	../lib-auth/libauth.la \
 	../lib-otp/libotp.la \
 	../lib-json/libjson.la \
+	../lib-settings/libsettings.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 

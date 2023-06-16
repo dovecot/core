@@ -14,7 +14,7 @@
 #include "login-proxy.h"
 #include "auth-client.h"
 #include "dsasl-client.h"
-#include "master-service-ssl-settings.h"
+#include "ssl-settings.h"
 #include "client-common.h"
 
 /* If we've been waiting auth server to respond for over this many milliseconds,

@@ -13,7 +13,6 @@
 #include "service-settings.h"
 #include "master-service.h"
 #include "master-service-settings.h"
-#include "master-service-ssl-settings.h"
 #include "all-settings.h"
 #include "old-set-parser.h"
 #include "config-request.h"

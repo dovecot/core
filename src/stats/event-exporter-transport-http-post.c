@@ -9,7 +9,6 @@
 #include "iostream-ssl.h"
 #include "master-service.h"
 #include "master-service-settings.h"
-#include "master-service-ssl-settings.h"
 #include "stats-common.h"
 
 /* the http client used to export all events with exporter=http-post */

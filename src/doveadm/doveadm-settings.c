@@ -9,7 +9,6 @@
 #include "mail-storage-settings.h"
 #include "master-service.h"
 #include "master-service-settings.h"
-#include "master-service-ssl-settings.h"
 #include "iostream-ssl.h"
 #include "doveadm-settings.h"
 

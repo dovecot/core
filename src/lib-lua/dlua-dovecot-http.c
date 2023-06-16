@@ -12,7 +12,6 @@
 #include "settings.h"
 #include "master-service.h"
 #include "master-service-settings.h"
-#include "master-service-ssl-settings.h"
 
 #define DLUA_DOVECOT_HTTP "http"
 #define DLUA_HTTP_CLIENT "struct http_client"

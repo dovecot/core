@@ -19,7 +19,6 @@
 #include "auth-proxy.h"
 #include "auth-master.h"
 #include "settings.h"
-#include "master-service-ssl-settings.h"
 #include "mail-storage-service.h"
 #include "lda-settings.h"
 #include "lmtp-recipient.h"
