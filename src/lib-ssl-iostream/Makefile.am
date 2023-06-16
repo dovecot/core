@@ -5,6 +5,7 @@ NOPLUGIN_LDFLAGS =
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-settings \
 	-DMODULE_DIR=\""$(moduledir)"\" \
 	$(SSL_CFLAGS)
 
