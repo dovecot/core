@@ -90,7 +90,6 @@ struct dsync_cmd_context {
 	const char *err_prefix;
 	struct failure_context failure_ctx;
 
-	struct ssl_iostream_context *ssl_ctx;
 	struct ssl_iostream *ssl_iostream;
 
 	enum dsync_run_type run_type;
@@ -811,8 +810,6 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	if (ctx->run_type != DSYNC_RUN_TYPE_CMD)
 		dsync_errors_finish(ctx);
 	ssl_iostream_destroy(&ctx->ssl_iostream);
-	if (ctx->ssl_ctx != NULL)
-		ssl_iostream_context_unref(&ctx->ssl_ctx);
 	if (ctx->input != NULL) {
 		i_stream_set_max_buffer_size(ctx->input, ctx->input_orig_bufsize);
 		i_stream_unref(&ctx->input);
@@ -900,7 +897,6 @@ static void dsync_server_run_command(struct dsync_cmd_context *ctx,
 
 static int
 dsync_connect_tcp(struct dsync_cmd_context *ctx,
-		  struct mail_storage_service_user *service_user,
 		  const char *target, bool ssl, const char **error_r)
 {
 	struct doveadm_client_settings conn_set;
@@ -923,18 +919,8 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 		}
 	}
 
-	if (ssl) {
-		if (mail_storage_service_user_init_ssl_client_settings(
-				service_user, &conn_set.ssl_set, error_r) < 0)
-			return -1;
-		if (ctx->ssl_ctx == NULL &&
-		    ssl_iostream_client_context_cache_get(conn_set.ssl_set,
-							  &ctx->ssl_ctx,
-							  error_r) < 0)
-			return -1;
+	if (ssl)
 		conn_set.ssl_flags = AUTH_PROXY_SSL_FLAG_YES;
-		conn_set.ssl_ctx = ctx->ssl_ctx;
-	}
 	conn_set.username = ctx->ctx.set->doveadm_username;
 	conn_set.password = ctx->ctx.set->doveadm_password;
 	conn_set.log_passthrough = TRUE;
@@ -966,7 +952,6 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 	io_loop_destroy(&ioloop);
 
 	if (ctx->error != NULL) {
-		ssl_iostream_context_unref(&ctx->ssl_ctx);
 		*error_r = ctx->error;
 		ctx->error = NULL;
 		return -1;
@@ -977,7 +962,6 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 
 static int
 parse_location(struct dsync_cmd_context *ctx,
-	       struct mail_storage_service_user *service_user,
 	       const char *location,
 	       const char *const **remote_cmd_args_r, const char **error_r)
 {
@@ -985,13 +969,11 @@ parse_location(struct dsync_cmd_context *ctx,
 
 	if (str_begins(location, "tcp:", &ctx->remote_name)) {
 		/* TCP connection to remote dsync */
-		return dsync_connect_tcp(ctx, service_user, ctx->remote_name,
-					 FALSE, error_r);
+		return dsync_connect_tcp(ctx, ctx->remote_name, FALSE, error_r);
 	}
 	if (str_begins(location, "tcps:", &ctx->remote_name)) {
 		/* TCP+SSL connection to remote dsync */
-		return dsync_connect_tcp(ctx, service_user, ctx->remote_name,
-					 TRUE, error_r);
+		return dsync_connect_tcp(ctx, ctx->remote_name, TRUE, error_r);
 	}
 
 	if (str_begins(location, "remote:", &ctx->remote_name)) {
@@ -1071,7 +1053,7 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 	}
 
 	if (remote_cmd_args == NULL && ctx->local_location != NULL) {
-		if (parse_location(ctx, service_user, ctx->local_location,
+		if (parse_location(ctx, ctx->local_location,
 				   &remote_cmd_args, error_r) < 0)
 			return -1;
 	}
