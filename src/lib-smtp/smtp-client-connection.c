@@ -1536,7 +1536,7 @@ smtp_client_connection_ssl_handshaked(const char **error_r, void *context)
 	if (ssl_iostream_check_cert_validity(conn->ssl_iostream,
 					     host, &error) == 0) {
 		e_debug(conn->event, "SSL handshake successful");
-	} else if (conn->set.ssl->allow_invalid_cert) {
+	} else if (ssl_iostream_get_allow_invalid_cert(conn->ssl_iostream)) {
 		e_debug(conn->event, "SSL handshake successful, "
 			"ignoring invalid certificate: %s", error);
 	} else {
@@ -1618,9 +1618,12 @@ smtp_client_connection_ssl_init(struct smtp_client_connection *conn,
 		conn->conn.output = conn->raw_output;
 	}
 
+	enum ssl_iostream_flags ssl_flags = 0;
+	if (conn->set.ssl_allow_invalid_cert)
+		ssl_flags |= SSL_IOSTREAM_FLAG_ALLOW_INVALID_CERT;
 	connection_input_halt(&conn->conn);
 	if (io_stream_create_ssl_client(
-		conn->ssl_ctx, conn->host, conn->event, 0,
+		conn->ssl_ctx, conn->host, conn->event, ssl_flags,
 		&conn->conn.input, &conn->conn.output,
 		&conn->ssl_iostream, &error) < 0) {
 		*error_r = t_strdup_printf(
@@ -2118,6 +2121,7 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 			conn->set.ssl = set->ssl;
 			pool_ref(conn->set.ssl->pool);
 		}
+		conn->set.ssl_allow_invalid_cert = set->ssl_allow_invalid_cert;
 
 		if (set->master_user != NULL && *set->master_user != '\0') {
 			conn->set.master_user =
