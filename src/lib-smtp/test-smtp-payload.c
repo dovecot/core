@@ -1046,6 +1046,8 @@ test_run_scenarios(
 
 	test_out_reason("parallel pipelining startls",
 			(failure == NULL), failure);
+
+	ssl_iostream_context_cache_free();
 }
 
 static void test_smtp_normal(void)

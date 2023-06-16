@@ -45,6 +45,7 @@ struct server_connection {
 	struct connection conn;
 	void *context;
 
+	struct ssl_iostream_settings ssl_set;
 	struct ssl_iostream *ssl_iostream;
 
 	enum server_connection_state state;
@@ -3837,6 +3838,7 @@ static void test_invalid_ssl_certificate(void)
 			       test_client_invalid_ssl_certificate,
 			       test_server_invalid_ssl_certificate, 1,
 			       test_dns_invalid_ssl_certificate);
+	ssl_iostream_context_cache_free();
 	test_end();
 }
 
@@ -3931,7 +3933,6 @@ test_client_run(test_client_init_t client_test,
 static int
 server_connection_init_ssl(struct server_connection *conn)
 {
-	struct ssl_iostream_settings ssl_set;
 	const char *error;
 
 	if (!test_server_ssl)
@@ -3939,10 +3940,10 @@ server_connection_init_ssl(struct server_connection *conn)
 
 	connection_input_halt(&conn->conn);
 
-	ssl_iostream_test_settings_server(&ssl_set);
+	ssl_iostream_test_settings_server(&conn->ssl_set);
 
 	if (server_ssl_ctx == NULL &&
-	    ssl_iostream_context_init_server(&ssl_set, &server_ssl_ctx,
+	    ssl_iostream_context_init_server(&conn->ssl_set, &server_ssl_ctx,
 					     &error) < 0) {
 		i_error("SSL context initialization failed: %s", error);
 		return -1;
@@ -4178,6 +4179,7 @@ static void test_server_run(unsigned int index)
 
 	if (server_ssl_ctx != NULL)
 		ssl_iostream_context_unref(&server_ssl_ctx);
+	ssl_iostream_context_cache_free();
 }
 
 /*
