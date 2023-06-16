@@ -154,9 +154,6 @@ const struct mail_storage_service_input *
 mail_storage_service_user_get_input(struct mail_storage_service_user *user);
 struct settings_instance *
 mail_storage_service_user_get_settings_instance(struct mail_storage_service_user *user);
-int mail_storage_service_user_init_ssl_client_settings(
-	struct mail_storage_service_user *user,
-	const struct ssl_iostream_settings **ssl_set_r, const char **error_r);
 struct mail_storage_service_ctx *
 mail_storage_service_user_get_service_ctx(struct mail_storage_service_user *user);
 pool_t mail_storage_service_user_get_pool(struct mail_storage_service_user *user);
