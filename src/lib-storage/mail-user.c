@@ -748,8 +748,7 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 }
 
 void mail_user_init_fs_settings(struct mail_user *user,
-				struct fs_settings *fs_set,
-				const struct ssl_iostream_settings **ssl_set_r)
+				struct fs_settings *fs_set)
 {
 	fs_set->event_parent = user->event;
 	fs_set->username = user->username;
@@ -758,9 +757,6 @@ void mail_user_init_fs_settings(struct mail_user *user,
 	fs_set->temp_dir = user->set->mail_temp_dir;
 	fs_set->debug = event_want_debug(user->event);
 	fs_set->enable_timing = user->stats_enabled;
-
-	fs_set->ssl_client_set = user->ssl_set;
-	*ssl_set_r = user->ssl_set;
 }
 
 static int
