@@ -179,12 +179,6 @@ int ssl_iostream_context_init_server(const struct ssl_iostream_settings *set,
 void ssl_iostream_context_ref(struct ssl_iostream_context *ctx);
 void ssl_iostream_context_unref(struct ssl_iostream_context **ctx);
 
-struct ssl_iostream_settings *ssl_iostream_settings_dup(pool_t pool,
-			const struct ssl_iostream_settings *old_set);
-void ssl_iostream_settings_init_from(pool_t pool,
-				     struct ssl_iostream_settings *dest,
-				     const struct ssl_iostream_settings *src);
-
 /* Persistent cache of ssl_iostream_contexts. The context is permanently stored
    until ssl_iostream_context_cache_free() is called. The returned context
    must be unreferenced by the caller. */

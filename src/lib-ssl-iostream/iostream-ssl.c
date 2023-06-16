@@ -271,31 +271,6 @@ const char *ssl_iostream_get_last_error(struct ssl_iostream *ssl_io)
 	return ssl_vfuncs->get_last_error(ssl_io);
 }
 
-struct ssl_iostream_settings *ssl_iostream_settings_dup(pool_t pool,
-			const struct ssl_iostream_settings *old_set)
-{
-	struct ssl_iostream_settings *new_set;
-
-	new_set = p_new(pool, struct ssl_iostream_settings, 1);
-	ssl_iostream_settings_init_from(pool, new_set, old_set);
-	return new_set;
-}
-
-void ssl_iostream_settings_init_from(pool_t pool,
-				     struct ssl_iostream_settings *dest,
-				     const struct ssl_iostream_settings *src)
-{
-	unsigned int i;
-
-	*dest = *src;
-	for (i = 0; i < N_ELEMENTS(ssl_iostream_settings_string_offsets); i++) {
-		const size_t offset = ssl_iostream_settings_string_offsets[i];
-		const char *const *src_str = CONST_PTR_OFFSET(src, offset);
-		const char **dest_str = PTR_OFFSET(dest, offset);
-		*dest_str = p_strdup(pool, *src_str);
-	}
-}
-
 bool ssl_iostream_settings_equals(const struct ssl_iostream_settings *set1,
 				  const struct ssl_iostream_settings *set2)
 {
