@@ -3,7 +3,6 @@
 
 #include "net.h"
 #include "pop3c-settings.h"
-#include "iostream-ssl.h"
 
 enum pop3c_capability {
 	POP3C_CAPABILITY_PIPELINING	= 0x01,
@@ -35,11 +34,11 @@ struct pop3c_client_settings {
 	const char *temp_path_prefix;
 
 	enum pop3c_client_ssl_mode ssl_mode;
+	bool ssl_allow_invalid_cert;
+
 	enum pop3c_features parsed_features;
-	struct ssl_iostream_settings ssl_set;
 
 	const char *rawlog_dir;
-	const char *ssl_crypto_device;
 	bool debug;
 };
 
