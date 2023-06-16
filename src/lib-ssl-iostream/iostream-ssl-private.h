@@ -41,6 +41,7 @@ struct iostream_ssl_vfuncs {
 	bool (*has_broken_client_cert)(struct ssl_iostream *ssl_io);
 	bool (*cert_match_name)(struct ssl_iostream *ssl_io, const char *name,
 				const char **reason_r);
+	bool (*get_allow_invalid_cert)(struct ssl_iostream *ssl_io);
 	const char *(*get_peer_username)(struct ssl_iostream *ssl_io);
 	const char *(*get_server_name)(struct ssl_iostream *ssl_io);
 	const char *(*get_compression)(struct ssl_iostream *ssl_io);

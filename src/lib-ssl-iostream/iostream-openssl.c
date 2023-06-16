@@ -679,6 +679,12 @@ openssl_iostream_has_broken_client_cert(struct ssl_iostream *ssl_io)
 	return ssl_io->cert_received && ssl_io->cert_broken;
 }
 
+static bool
+openssl_iostream_get_allow_invalid_cert(struct ssl_iostream *ssl_io)
+{
+	return ssl_io->ctx->allow_invalid_cert;
+}
+
 static const char *
 openssl_iostream_get_peer_username(struct ssl_iostream *ssl_io)
 {
@@ -829,6 +835,7 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.has_valid_client_cert = openssl_iostream_has_valid_client_cert,
 	.has_broken_client_cert = openssl_iostream_has_broken_client_cert,
 	.cert_match_name = openssl_iostream_cert_match_name,
+	.get_allow_invalid_cert = openssl_iostream_get_allow_invalid_cert,
 	.get_peer_username = openssl_iostream_get_peer_username,
 	.get_server_name = openssl_iostream_get_server_name,
 	.get_compression = openssl_iostream_get_compression,
