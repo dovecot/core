@@ -109,11 +109,12 @@ void ssl_iostream_context_unref(struct ssl_iostream_context **_ctx)
 
 int io_stream_create_ssl_client(struct ssl_iostream_context *ctx, const char *host,
 				struct event *event_parent,
+				enum ssl_iostream_flags flags,
 				struct istream **input, struct ostream **output,
 				struct ssl_iostream **iostream_r,
 				const char **error_r)
 {
-	return ssl_vfuncs->create(ctx, event_parent, host, TRUE,
+	return ssl_vfuncs->create(ctx, event_parent, host, TRUE, flags,
 				  input, output, iostream_r, error_r);
 }
 
@@ -123,12 +124,13 @@ int io_stream_create_ssl_server(struct ssl_iostream_context *ctx,
 				struct ssl_iostream **iostream_r,
 				const char **error_r)
 {
-	return ssl_vfuncs->create(ctx, event_parent, NULL, TRUE,
+	return ssl_vfuncs->create(ctx, event_parent, NULL, TRUE, 0,
 				  input, output, iostream_r, error_r);
 }
 
 int io_stream_autocreate_ssl_client(
 	struct event *event_parent, const char *host,
+	enum ssl_iostream_flags flags,
 	struct istream **input, struct ostream **output,
 	struct ssl_iostream **iostream_r,
 	const char **error_r)
@@ -149,7 +151,7 @@ int io_stream_autocreate_ssl_client(
 	if (ret < 0)
 		return -1;
 
-	ret = io_stream_create_ssl_client(ctx, host, event_parent, input,
+	ret = io_stream_create_ssl_client(ctx, host, event_parent, flags, input,
 					  output, iostream_r, error_r);
 	ssl_iostream_context_unref(&ctx);
 	return ret;

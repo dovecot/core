@@ -6,6 +6,14 @@
 struct ssl_iostream;
 struct ssl_iostream_context;
 
+enum ssl_iostream_flags {
+	/* Enable ssl_iostream_settings.allow_invalid_cert after context is
+	   already created. If the context already has
+	   ssl_iostream_settings.allow_invalid_cert enabled, it can't
+	   be anymore disabled. */
+	SSL_IOSTREAM_FLAG_ALLOW_INVALID_CERT = BIT(0),
+};
+
 struct ssl_iostream_cert {
 	const char *cert;
 	const char *key;
@@ -69,6 +77,7 @@ int io_stream_ssl_global_init(const struct ssl_iostream_settings *set,
 
 int io_stream_create_ssl_client(struct ssl_iostream_context *ctx, const char *host,
 				struct event *event_parent,
+				enum ssl_iostream_flags flags,
 				struct istream **input, struct ostream **output,
 				struct ssl_iostream **iostream_r,
 				const char **error_r);
@@ -82,6 +91,7 @@ int io_stream_create_ssl_server(struct ssl_iostream_context *ctx,
    get the context and call io_stream_create_ssl_client(). */
 int io_stream_autocreate_ssl_client(
 	struct event *event_parent, const char *host,
+	enum ssl_iostream_flags flags,
 	struct istream **input, struct ostream **output,
 	struct ssl_iostream **iostream_r,
 	const char **error_r);
@@ -147,7 +157,8 @@ int ssl_iostream_check_cert_validity(struct ssl_iostream *ssl_io,
    will always return FALSE before even checking the hostname. */
 bool ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io, const char *name,
 				  const char **reason_r);
-/* Returns ssl_iostream_settings.allow_invalid_cert. */
+/* Returns if ssl_iostream_settings.allow_invalid_cert is set or
+   SSL_IOSTREAM_FLAG_ALLOW_INVALID_CERT is used. */
 bool ssl_iostream_get_allow_invalid_cert(struct ssl_iostream *ssl_io);
 /* Returns username from the received certificate of the peer (client) if
    available, NULL if not. The username is based on cert_username_field

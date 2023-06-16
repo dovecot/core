@@ -1620,7 +1620,7 @@ smtp_client_connection_ssl_init(struct smtp_client_connection *conn,
 
 	connection_input_halt(&conn->conn);
 	if (io_stream_create_ssl_client(
-		conn->ssl_ctx, conn->host, conn->event,
+		conn->ssl_ctx, conn->host, conn->event, 0,
 		&conn->conn.input, &conn->conn.output,
 		&conn->ssl_iostream, &error) < 0) {
 		*error_r = t_strdup_printf(

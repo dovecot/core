@@ -19,6 +19,7 @@ struct iostream_ssl_vfuncs {
 		      struct event *event_parent,
 		      const char *host,
 		      bool client,
+		      enum ssl_iostream_flags flags,
 		      struct istream **input, struct ostream **output,
 		      struct ssl_iostream **iostream_r, const char **error_r);
 	void (*unref)(struct ssl_iostream *ssl_io);

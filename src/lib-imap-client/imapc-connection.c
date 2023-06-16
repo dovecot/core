@@ -1692,7 +1692,7 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 	io_remove(&conn->io);
 	if (io_stream_create_ssl_client(conn->client->ssl_ctx,
 					conn->client->set.host,
-					conn->event,
+					conn->event, 0,
 					&conn->input, &conn->output,
 					&conn->ssl_iostream, &error) < 0) {
 		e_error(conn->event, "Couldn't initialize SSL client: %s",
