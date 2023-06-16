@@ -192,8 +192,7 @@ fts_backend_solr_init(struct fts_backend *_backend, const char **error_r)
 		_backend->flags |= FTS_BACKEND_FLAG_TOKENIZED_INPUT;
 	}
 
-	return solr_connection_init(&fuser->set, _backend->ns->user->ssl_set,
-				    _backend->event,
+	return solr_connection_init(&fuser->set, _backend->event,
 				    &backend->solr_conn, error_r);
 }
 

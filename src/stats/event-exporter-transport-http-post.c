@@ -54,10 +54,7 @@ void event_export_transport_http_post(const struct exporter *exporter,
 		struct http_client_settings set = {
 			.dns_client_socket_path = "dns-client",
 		};
-		if (ssl_set != NULL)
-			ssl_client_settings_to_iostream_set(ssl_set, &set.ssl);
 		exporter_http_client = http_client_init(&set);
-		settings_free(set.ssl);
 	}
 
 	req = http_client_request_url_str(exporter_http_client, "POST",
