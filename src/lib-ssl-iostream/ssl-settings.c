@@ -170,17 +170,16 @@ ssl_common_settings_to_iostream_set(const struct ssl_settings *ssl_set)
 	struct ssl_iostream_settings *set;
 	pool_t pool = pool_alloconly_create("ssl iostream settings", 256);
 	set = p_new(pool, struct ssl_iostream_settings, 1);
+	pool_add_external_ref(pool, ssl_set->pool);
 	set->pool = pool;
-	set->min_protocol = p_strdup(pool, ssl_set->ssl_min_protocol);
-	set->cipher_list = p_strdup(pool, ssl_set->ssl_cipher_list);
-	/* leave NULL if empty - let library decide */
-	set->ciphersuites = p_strdup_empty(pool, ssl_set->ssl_cipher_suites);
-
-	set->crypto_device = p_strdup(pool, ssl_set->ssl_crypto_device);
+	set->min_protocol = ssl_set->ssl_min_protocol;
+	set->cipher_list = ssl_set->ssl_cipher_list;
+	set->ciphersuites = ssl_set->ssl_cipher_suites;
+	set->crypto_device = ssl_set->ssl_crypto_device;
 
 	set->compression = ssl_set->parsed_opts.compression;
 	set->tickets = ssl_set->parsed_opts.tickets;
-	set->curve_list = p_strdup(pool, ssl_set->ssl_curve_list);
+	set->curve_list = ssl_set->ssl_curve_list;
 	return set;
 }
 
@@ -190,13 +189,12 @@ void ssl_client_settings_to_iostream_set(
 {
 	struct ssl_iostream_settings *set =
 		ssl_common_settings_to_iostream_set(ssl_set);
-	pool_t pool = set->pool;
 
-	set->ca = p_strdup_empty(pool, ssl_set->ssl_client_ca);
-	set->ca_file = p_strdup_empty(pool, ssl_set->ssl_client_ca_file);
-	set->ca_dir = p_strdup_empty(pool, ssl_set->ssl_client_ca_dir);
-	set->cert.cert = p_strdup_empty(pool, ssl_set->ssl_client_cert);
-	set->cert.key = p_strdup_empty(pool, ssl_set->ssl_client_key);
+	set->ca = ssl_set->ssl_client_ca;
+	set->ca_file = ssl_set->ssl_client_ca_file;
+	set->ca_dir = ssl_set->ssl_client_ca_dir;
+	set->cert.cert = ssl_set->ssl_client_cert;
+	set->cert.key = ssl_set->ssl_client_key;
 	set->verify_remote_cert = ssl_set->ssl_client_require_valid_cert;
 	set->allow_invalid_cert = !set->verify_remote_cert;
 	/* client-side CRL checking not supported currently */
@@ -211,21 +209,21 @@ void ssl_server_settings_to_iostream_set(
 {
 	struct ssl_iostream_settings *set =
 		ssl_common_settings_to_iostream_set(ssl_set);
-	pool_t pool = set->pool;
+	pool_add_external_ref(set->pool, ssl_server_set->pool);
 
-	set->ca = p_strdup_empty(pool, ssl_server_set->ssl_ca);
-	set->cert.cert = p_strdup(pool, ssl_server_set->ssl_cert);
-	set->cert.key = p_strdup(pool, ssl_server_set->ssl_key);
-	set->cert.key_password = p_strdup(pool, ssl_server_set->ssl_key_password);
+	set->ca = ssl_server_set->ssl_ca;
+	set->cert.cert = ssl_server_set->ssl_cert;
+	set->cert.key = ssl_server_set->ssl_key;
+	set->cert.key_password = ssl_server_set->ssl_key_password;
 	if (ssl_server_set->ssl_alt_cert != NULL &&
 	    *ssl_server_set->ssl_alt_cert != '\0') {
-		set->alt_cert.cert = p_strdup(pool, ssl_server_set->ssl_alt_cert);
-		set->alt_cert.key = p_strdup(pool, ssl_server_set->ssl_alt_key);
-		set->alt_cert.key_password = p_strdup(pool, ssl_server_set->ssl_key_password);
+		set->alt_cert.cert = ssl_server_set->ssl_alt_cert;
+		set->alt_cert.key = ssl_server_set->ssl_alt_key;
+		set->alt_cert.key_password = ssl_server_set->ssl_key_password;
 	}
-	set->dh = p_strdup(pool, ssl_server_set->ssl_dh);
+	set->dh = ssl_server_set->ssl_dh;
 	set->cert_username_field =
-		p_strdup(pool, ssl_server_set->ssl_cert_username_field);
+		ssl_server_set->ssl_cert_username_field;
 	set->prefer_server_ciphers = ssl_server_set->ssl_prefer_server_ciphers;
 	set->verify_remote_cert = ssl_server_set->ssl_request_client_cert;
 	set->allow_invalid_cert = !set->verify_remote_cert;
