@@ -99,7 +99,6 @@ struct master_service {
 	bool config_path_changed_with_param:1;
 	bool have_admin_sockets:1;
 	bool want_ssl_server:1;
-	bool ssl_ctx_initialized:1;
 	bool config_path_from_master:1;
 	bool log_initialized:1;
 	bool init_finished:1;
