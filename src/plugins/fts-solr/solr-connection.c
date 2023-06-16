@@ -64,7 +64,6 @@ static char *solr_connection_create_http_base_url(struct http_url *http_url)
 }
 
 int solr_connection_init(const struct fts_solr_settings *solr_set,
-			 const struct ssl_iostream_settings *ssl_client_set,
 			 struct event *event_parent,
 			 struct solr_connection **conn_r, const char **error_r)
 {
@@ -104,7 +103,6 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 		http_set.max_attempts = 3;
 		http_set.connect_timeout_msecs = 5*1000;
 		http_set.request_timeout_msecs = 60*1000;
-		http_set.ssl = ssl_client_set;
 		http_set.debug = solr_set->debug;
 		http_set.rawlog_dir = solr_set->rawlog_dir;
 		http_set.event_parent = conn->event;

@@ -385,9 +385,6 @@ static int dlua_http_request_new(lua_State *L)
 		return -1;
 	}
 
-	if (http_url->have_ssl && client->set.ssl == NULL) {
-		return luaL_error(L, "TLS not enabled, cannot submit https request");
-	}
 	http_req = http_client_request_url(client, method, http_url,
 					   dlua_http_request_callback, L);
 
@@ -530,19 +527,10 @@ static int dlua_http_client_new(lua_State *L)
 
 	i_zero(&http_set);
 
-	struct dlua_script *script = dlua_script_from_state(L);
 	if (parse_client_settings(L, &http_set, &error) < 0)
 		luaL_error(L, "Invalid HTTP client setting: %s", error);
 
-	const struct ssl_settings *ssl_set;
-	if (settings_get(script->event, &ssl_setting_parser_info,
-			 0, &ssl_set, &error) < 0)
-		luaL_error(L, "%s", error);
-	ssl_client_settings_to_iostream_set(ssl_set, &http_set.ssl);
-	settings_free(ssl_set);
-
 	client = http_client_init(&http_set);
-	settings_free(http_set.ssl);
 	dlua_push_http_client(L, client);
 	return 1;
 }

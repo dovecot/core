@@ -73,7 +73,6 @@ tika_get_http_client_url(struct fts_parser_context *parser_context, struct http_
 		http_set.max_attempts = 3;
 		http_set.connect_timeout_msecs = 5*1000;
 		http_set.request_timeout_msecs = 60*1000;
-		http_set.ssl = user->ssl_set;
 		http_set.debug = event_want_debug(user->event);
 		http_set.event_parent = user->event;
 
