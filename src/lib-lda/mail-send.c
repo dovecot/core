@@ -98,7 +98,6 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 	vtable = get_var_expand_table(mail, recipient, reason);
 
 	i_zero(&smtp_input);
-	smtp_input.ssl = user->ssl_set;
 	smtp_submit = smtp_submit_init_simple(&smtp_input, ctx->smtp_set, NULL);
 	smtp_submit_add_rcpt(smtp_submit, return_addr);
 	output = smtp_submit_send(smtp_submit);

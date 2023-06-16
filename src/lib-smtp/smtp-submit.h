@@ -10,9 +10,6 @@ struct smtp_submit_session;
 struct smtp_submit;
 
 struct smtp_submit_input {
-	/* SSL settings */
-	const struct ssl_iostream_settings *ssl;
-
 	/* Event to use as parent for the submit event */
 	struct event *event_parent;
 

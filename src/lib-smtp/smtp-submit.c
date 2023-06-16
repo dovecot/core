@@ -30,7 +30,6 @@ static struct event_category event_category_smtp_submit = {
 struct smtp_submit_session {
 	pool_t pool;
 	struct smtp_submit_settings set;
-	const struct ssl_iostream_settings *ssl_set;
 	struct event *event;
 	bool allow_root:1;
 };
@@ -82,10 +81,6 @@ smtp_submit_session_init(const struct smtp_submit_input *input,
 	session->set.submission_ssl =
 		p_strdup_empty(pool, set->submission_ssl);
 
-	if (input->ssl != NULL) {
-		session->ssl_set = input->ssl;
-		pool_ref(session->ssl_set->pool);
-	}
 	session->allow_root = input->allow_root;
 
 	session->event = event_create(input->event_parent);
@@ -100,7 +95,6 @@ void smtp_submit_session_deinit(struct smtp_submit_session **_session)
 
 	*_session = NULL;
 
-	settings_free(session->ssl_set);
 	event_unref(&session->event);
 	pool_unref(&session->pool);
 }
@@ -334,7 +328,6 @@ smtp_submit_send_host(struct smtp_submit *subm)
 	smtp_set.connect_timeout_msecs = set->submission_timeout*1000;
 	smtp_set.command_timeout_msecs = set->submission_timeout*1000;
 	smtp_set.debug = set->mail_debug;
-	smtp_set.ssl = subm->session->ssl_set;
 	smtp_set.event_parent = subm->event;
 
 	ssl_mode = SMTP_CLIENT_SSL_MODE_NONE;
