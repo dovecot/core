@@ -456,7 +456,7 @@ static int ssl_clienthello_callback(SSL *ssl, int *al ATTR_UNUSED,
 	int ver = SSL_version(ssl)-1;
 	const unsigned char *ciphers = NULL;
 	size_t nciphers = 0;
-	string_t *ja3 = str_new(ssl_io->ctx->pool, 64);
+	string_t *ja3 = t_str_new(64);
 
 	str_printfa(ja3, "%d,", ver);
 	nciphers = SSL_client_hello_get0_ciphers(ssl, &ciphers);
@@ -521,7 +521,8 @@ static int ssl_clienthello_callback(SSL *ssl, int *al ATTR_UNUSED,
 	}
 
 	/* Store ja3 string */
-	ssl_io->ja3_str = str_c(ja3);
+	i_free(ssl_io->ja3_str);
+	ssl_io->ja3_str = i_strdup(str_c(ja3));
 
 	return SSL_CLIENT_HELLO_SUCCESS;
 }

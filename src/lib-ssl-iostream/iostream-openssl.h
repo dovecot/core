@@ -47,7 +47,7 @@ struct ssl_iostream {
 	char *sni_host;
 	char *last_error;
 	char *plain_stream_errstr;
-	const char *ja3_str;
+	char *ja3_str;
 	int plain_stream_errno;
 
 	/* copied settings */

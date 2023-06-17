@@ -360,6 +360,7 @@ static void openssl_iostream_free(struct ssl_iostream *ssl_io)
 	i_stream_unref(&ssl_io->plain_input);
 	BIO_free(ssl_io->bio_ext);
 	SSL_free(ssl_io->ssl);
+	i_free(ssl_io->ja3_str);
 	i_free(ssl_io->plain_stream_errstr);
 	i_free(ssl_io->last_error);
 	i_free(ssl_io->connected_host);
