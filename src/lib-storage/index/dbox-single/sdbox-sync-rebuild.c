@@ -25,10 +25,9 @@ static void sdbox_sync_set_uidvalidity(struct index_rebuild_context *ctx)
 }
 
 static int
-sdbox_sync_add_file_index(struct index_rebuild_context *ctx,
-			  struct dbox_file *file, uint32_t uid, bool primary)
+sdbox_sync_file_fix(struct index_rebuild_context *ctx,
+		    struct dbox_file *file, bool primary)
 {
-	uint32_t seq;
 	bool deleted;
 	int ret;
 
@@ -57,12 +56,7 @@ sdbox_sync_add_file_index(struct index_rebuild_context *ctx,
 		   it twice. */
 		return 0;
 	}
-
-	mail_index_append(ctx->trans, uid, &seq);
-	T_BEGIN {
-		index_rebuild_index_metadata(ctx, seq, uid);
-	} T_END;
-	return 0;
+	return 1;
 }
 
 static int
@@ -71,7 +65,7 @@ sdbox_sync_add_file(struct index_rebuild_context *ctx,
 {
 	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(ctx->box);
 	struct dbox_file *file;
-	uint32_t uid;
+	uint32_t seq, uid;
 	int ret;
 
 	if (!str_begins(fname, SDBOX_MAIL_FILE_PREFIX, &fname))
@@ -85,7 +79,13 @@ sdbox_sync_add_file(struct index_rebuild_context *ctx,
 	file = sdbox_file_init(mbox, uid);
 	if (!primary)
 		file->cur_path = file->alt_path;
-	ret = sdbox_sync_add_file_index(ctx, file, uid, primary);
+	if ((ret = sdbox_sync_file_fix(ctx, file, primary)) > 0) {
+		mail_index_append(ctx->trans, uid, &seq);
+		T_BEGIN {
+			index_rebuild_index_metadata(ctx, seq, uid);
+		} T_END;
+		ret = 0;
+	}
 	dbox_file_unref(&file);
 	return ret;
 }
