@@ -91,34 +91,44 @@ static int dbox_mail_open_init(struct dbox_mail *mail, uint32_t map_uid)
 	return 0;
 }
 
+static int mdbox_mail_file_set(struct dbox_mail *mail)
+{
+	struct mail *_mail = &mail->imail.mail.mail;
+	struct mdbox_mailbox *mbox = MDBOX_MAILBOX(_mail->box);
+
+	if (mail->open_file != NULL) {
+		/* already open */
+	} else if (!_mail->saving) {
+		uint32_t map_uid;
+		if (mdbox_mail_lookup(mbox, _mail->transaction->view,
+				      _mail->seq, &map_uid) < 0)
+			return -1;
+		if (dbox_mail_open_init(mail, map_uid) < 0)
+			return -1;
+	} else {
+		/* mail is being saved in this transaction */
+		mail->open_file =
+			mdbox_save_file_get_file(_mail->transaction,
+						 _mail->seq,
+						 &mail->offset);
+	}
+	return 0;
+}
+
 int mdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 		    struct dbox_file **file_r)
 {
 	struct mail *_mail = &mail->imail.mail.mail;
 	struct mdbox_mailbox *mbox = MDBOX_MAILBOX(_mail->box);
-	uint32_t prev_file_id = 0, map_uid = 0;
+	uint32_t prev_file_id = 0;
 	bool deleted;
 
 	if (!mail_stream_access_start(_mail))
 		return -1;
 
 	do {
-		if (mail->open_file != NULL) {
-			/* already open */
-		} else if (!_mail->saving) {
-			if (mdbox_mail_lookup(mbox, _mail->transaction->view,
-					      _mail->seq, &map_uid) < 0)
-				return -1;
-			if (dbox_mail_open_init(mail, map_uid) < 0)
-				return -1;
-		} else {
-			/* mail is being saved in this transaction */
-			mail->open_file =
-				mdbox_save_file_get_file(_mail->transaction,
-							 _mail->seq,
-							 &mail->offset);
-		}
-
+		if (mdbox_mail_file_set(mail) < 0)
+			return -1;
 		if (!dbox_file_is_open(mail->open_file))
 			_mail->transaction->stats.open_lookup_count++;
 		if (dbox_file_open(mail->open_file, &deleted) <= 0)
@@ -129,6 +139,10 @@ int mdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 				(struct mdbox_file *)mail->open_file;
 
 			if (mfile->file_id == prev_file_id) {
+				uint32_t map_uid;
+				if (mdbox_mail_lookup(mbox, _mail->transaction->view,
+						      _mail->seq, &map_uid) < 0)
+					return -1;
 				dbox_mail_set_expunged(mail, map_uid);
 				return -1;
 			}
