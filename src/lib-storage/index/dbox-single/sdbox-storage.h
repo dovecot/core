@@ -38,6 +38,7 @@ struct sdbox_mailbox {
 
 extern struct mail_vfuncs sdbox_mail_vfuncs;
 
+int sdbox_mail_file_set(struct dbox_mail *mail);
 int sdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 		    struct dbox_file **file_r);
 

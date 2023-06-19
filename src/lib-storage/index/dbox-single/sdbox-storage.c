@@ -525,6 +525,7 @@ struct mailbox sdbox_mailbox = {
 struct dbox_storage_vfuncs sdbox_dbox_storage_vfuncs = {
 	sdbox_file_free,
 	sdbox_file_create_fd,
+	sdbox_mail_file_set,
 	sdbox_mail_open,
 	sdbox_mailbox_create_indexes,
 	sdbox_get_attachment_path_suffix,

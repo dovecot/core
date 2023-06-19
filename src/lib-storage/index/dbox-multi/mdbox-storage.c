@@ -525,6 +525,7 @@ struct mailbox mdbox_mailbox = {
 struct dbox_storage_vfuncs mdbox_dbox_storage_vfuncs = {
 	mdbox_file_unrefed,
 	mdbox_file_create_fd,
+	mdbox_mail_file_set,
 	mdbox_mail_open,
 	mdbox_mailbox_create_indexes,
 	mdbox_get_attachment_path_suffix,

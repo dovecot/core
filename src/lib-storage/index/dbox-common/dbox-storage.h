@@ -37,6 +37,8 @@ struct dbox_storage_vfuncs {
 	   if parents=TRUE, create the directory if necessary */
 	int (*file_create_fd)(struct dbox_file *file, const char *path,
 			      bool parents);
+	/* Initialize the mail file, but don't actually open it. */
+	int (*mail_file_set)(struct dbox_mail *mail);
 	/* open the mail and return its file/offset */
 	int (*mail_open)(struct dbox_mail *mail, uoff_t *offset_r,
 			 struct dbox_file **file_r);

@@ -25,7 +25,7 @@ static void sdbox_mail_set_expunged(struct dbox_mail *mail)
 	sdbox_set_mailbox_corrupted(_mail->box);
 }
 
-static int sdbox_mail_file_set(struct dbox_mail *mail)
+int sdbox_mail_file_set(struct dbox_mail *mail)
 {
 	struct mail *_mail = &mail->imail.mail.mail;
 	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(_mail->box);

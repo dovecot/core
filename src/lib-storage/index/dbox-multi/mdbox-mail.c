@@ -91,7 +91,7 @@ static int dbox_mail_open_init(struct dbox_mail *mail, uint32_t map_uid)
 	return 0;
 }
 
-static int mdbox_mail_file_set(struct dbox_mail *mail)
+int mdbox_mail_file_set(struct dbox_mail *mail)
 {
 	struct mail *_mail = &mail->imail.mail.mail;
 	struct mdbox_mailbox *mbox = MDBOX_MAILBOX(_mail->box);

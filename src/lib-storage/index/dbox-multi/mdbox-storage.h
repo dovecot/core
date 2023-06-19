@@ -70,6 +70,7 @@ struct mdbox_mailbox {
 extern struct dbox_storage_vfuncs mdbox_dbox_storage_vfuncs;
 extern struct mail_vfuncs mdbox_mail_vfuncs;
 
+int mdbox_mail_file_set(struct dbox_mail *mail);
 int mdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 		    struct dbox_file **file_r);
 
