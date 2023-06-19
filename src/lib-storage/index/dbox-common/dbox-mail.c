@@ -141,18 +141,16 @@ int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 	struct dbox_storage *storage = DBOX_STORAGE(_mail->box->storage);
 	struct dbox_mail *mail = DBOX_MAIL(_mail);
 	struct index_mail_data *data = &mail->imail.data;
-	struct dbox_file *file;
 	struct stat st;
-	uoff_t offset;
 
 	if (index_mail_get_save_date(_mail, date_r) > 0)
 		return 1;
 
-	if (storage->v.mail_open(mail, &offset, &file) < 0)
+	if (storage->v.mail_file_set(mail) < 0)
 		return -1;
 
-	_mail->transaction->stats.fstat_lookup_count++;
-	if (dbox_file_stat(file, &st) < 0) {
+	_mail->transaction->stats.stat_lookup_count++;
+	if (dbox_file_stat(mail->open_file, &st) < 0) {
 		if (errno == ENOENT)
 			mail_set_expunged(_mail);
 		return -1;
