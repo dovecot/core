@@ -176,7 +176,7 @@ static time_t cleanup_interval(struct mailbox_list *list)
 {
 	time_t interval = list->mail_set->mail_temp_scan_interval;
 
-	const char *username = list->ns->storage->user->username;
+	const char *username = list->ns->user->username;
 	/* No need for a cryptographic-quality hash here. */
 	unsigned int hash = crc32_str(username);
 
@@ -282,6 +282,35 @@ int dbox_mailbox_open(struct mailbox *box)
 	return 0;
 }
 
+int dbox_mailbox_list_cleanup(struct mailbox_list *list, const char *path,
+			      time_t last_temp_file_scan)
+{
+	time_t change_time = -1;
+
+	if (last_temp_file_scan == 0) {
+		/* Try to fetch the scan time from the directory's atime
+		   if the directory exists. In case, get also the ctime */
+		struct stat stats;
+		if (stat(path, &stats) == 0) {
+			last_temp_file_scan = stats.st_atim.tv_sec;
+			change_time = stats.st_ctim.tv_sec;
+		} else {
+			if (errno != ENOENT) {
+				e_error(list->ns->user->event,
+					"stat(%s) failed: %m", path);
+			}
+			return -1;
+		}
+	}
+
+	if (dbox_cleanup_temp_files(list, path, last_temp_file_scan, change_time) ||
+	    last_temp_file_scan == 0) {
+		/* temp files were scanned. update the last scan timestamp. */
+		return 1;
+	}
+	return 0;
+}
+
 void dbox_mailbox_close_cleanup(struct mailbox *box)
 {
 	if (box->view == NULL)
@@ -289,32 +318,9 @@ void dbox_mailbox_close_cleanup(struct mailbox *box)
 
 	const struct mail_index_header *hdr =
 		mail_index_get_header(box->view);
-
-	const char *box_path = mailbox_get_path(box);
-	time_t scan_time = hdr->last_temp_file_scan;
-	time_t change_time = -1;
-
-	if (scan_time == 0) {
-		/* Try to fetch the scan time from dhe directory's atime
-		   if the directory exists. In case, get also the ctime */
-		struct stat stats;
-		if (stat(box_path, &stats) == 0) {
-			scan_time = stats.st_atim.tv_sec;
-			change_time = stats.st_ctim.tv_sec;
-		} else {
-			if (errno != ENOENT) {
-				e_error(box->event,
-					"stat(%s) failed: %m", box_path);
-			}
-			return;
-		}
-	}
-
-	if (dbox_cleanup_temp_files(box->list, box_path, scan_time, change_time) ||
-		hdr->last_temp_file_scan == 0) {
-		/* temp files were scanned. update the last scan timestamp. */
+	if (dbox_mailbox_list_cleanup(box->list, mailbox_get_path(box),
+				      hdr->last_temp_file_scan) > 0)
 		index_mailbox_update_last_temp_file_scan(box);
-	}
 }
 
 void dbox_mailbox_close(struct mailbox *box)
