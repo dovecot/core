@@ -95,7 +95,10 @@ static void
 redis_disconnected(struct redis_connection *conn, const char *reason)
 {
 	const struct dict_commit_result result = {
-		DICT_COMMIT_RET_FAILED, reason
+		DICT_COMMIT_RET_FAILED,
+		/* t_strdup() in case reason points to istream, which gets
+		   freed by connection_disconnect() */
+		t_strdup(reason)
 	};
 	const struct redis_dict_reply *reply;
 
