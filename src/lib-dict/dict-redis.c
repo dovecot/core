@@ -700,7 +700,9 @@ redis_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 			i_free(ctx);
 			return;
 		}
-		(void)redis_wait(dict);
+		ctx->error = i_strdup(redis_wait(dict));
+		if (ctx->error != NULL)
+			result.ret = DICT_COMMIT_RET_FAILED;
 	} else {
 		callback(&result, context);
 	}
