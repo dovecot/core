@@ -226,8 +226,8 @@ dbox_cleanup_temp_files(struct mailbox_list *list, const char *path,
 		return stated;
 	}
 
-	const char *prefix = mailbox_list_get_global_temp_prefix(list);
-	(void)unlink_old_files(path, prefix, ioloop_time - DBOX_TMP_DELETE_SECS);
+	(void)unlink_old_files(path, DBOX_TEMP_FILE_PREFIX,
+			       ioloop_time - DBOX_TMP_DELETE_SECS);
 	return TRUE;
 }
 
