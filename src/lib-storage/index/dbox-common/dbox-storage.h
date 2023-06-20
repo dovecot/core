@@ -75,6 +75,7 @@ void dbox_notify_changes(struct mailbox *box);
 int dbox_mailbox_check_existence(struct mailbox *box);
 int dbox_mailbox_open(struct mailbox *box);
 void dbox_mailbox_close(struct mailbox *box);
+void dbox_mailbox_close_cleanup(struct mailbox *box);
 int dbox_mailbox_create(struct mailbox *box,
 			const struct mailbox_update *update, bool directory);
 int dbox_mailbox_create_indexes(struct mailbox *box,

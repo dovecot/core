@@ -282,7 +282,7 @@ int dbox_mailbox_open(struct mailbox *box)
 	return 0;
 }
 
-static void dbox_mailbox_close_cleanup(struct mailbox *box)
+void dbox_mailbox_close_cleanup(struct mailbox *box)
 {
 	if (box->view == NULL)
 		return;
@@ -319,7 +319,6 @@ static void dbox_mailbox_close_cleanup(struct mailbox *box)
 
 void dbox_mailbox_close(struct mailbox *box)
 {
-	dbox_mailbox_close_cleanup(box);
 	index_storage_mailbox_close(box);
 }
 
