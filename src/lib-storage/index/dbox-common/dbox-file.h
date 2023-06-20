@@ -122,6 +122,7 @@ struct dbox_file {
 
 	bool appending:1;
 	bool corrupted:1;
+	bool fixing:1;
 };
 
 struct dbox_file_append_context {
