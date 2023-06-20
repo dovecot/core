@@ -81,6 +81,7 @@ int index_storage_mailbox_delete(struct mailbox *box);
 int index_storage_mailbox_delete_dir(struct mailbox *box, bool mailbox_deleted);
 int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest);
 
+int index_mailbox_view_update_last_temp_file_scan(struct mail_index_view *view);
 int index_mailbox_update_last_temp_file_scan(struct mailbox *box);
 int index_mailbox_fix_inconsistent_existence(struct mailbox *box,
 					     const char *path);
