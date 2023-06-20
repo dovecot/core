@@ -299,11 +299,6 @@ int dbox_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 
 		ret = get_mail_stream(mail, offset, &input);
 		if (ret <= 0) {
-			if (ret < 0)
-				return -1;
-			dbox_file_set_corrupted(mail->open_file,
-				"uid=%u points to broken data at offset="
-				"%"PRIuUOFF_T, _mail->uid, offset);
 			i_stream_unref(&input);
 			return -1;
 		}
