@@ -375,6 +375,7 @@ static void sdbox_mailbox_close(struct mailbox *box)
 	if (mbox->corrupted_rebuild_count != 0)
 		(void)sdbox_sync(mbox, 0);
 
+	dbox_mailbox_close_cleanup(box);
 	dbox_mailbox_close(box);
 }
 
