@@ -192,20 +192,27 @@ event_get_log_message(struct event *event,
 
 		/* construct the log message composed by children and arguments
 		 */
+		const char *log_prefix = str_c(glmctx->log_prefix);
 		if (glmctx->message == NULL) {
 			str_vprintfa(glmctx->log_prefix, fmt, args);
-			in_message = str_c(glmctx->log_prefix);
+			in_message = log_prefix;
 		} else if (str_len(glmctx->log_prefix) == 0) {
 			in_message = glmctx->message;
 		} else {
 			str_append(glmctx->log_prefix, glmctx->message);
-			in_message = str_c(glmctx->log_prefix);
+			in_message = log_prefix;
 		}
 
 		/* reformat the log message */
 		glmctx->message = event->log_message_callback(
 			event->log_message_callback_context,
 			glmctx->params->log_type, in_message);
+		if (glmctx->message == log_prefix) {
+			/* The log message returned the input log_prefix
+			   pointer. However, it's going to become modified, so
+			   it needs to be duplicated. */
+			glmctx->message = t_strdup(log_prefix);
+		}
 
 		/* continue with a cleared prefix buffer (as prefix is now part
 		   of *message_r). */
