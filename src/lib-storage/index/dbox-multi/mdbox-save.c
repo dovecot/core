@@ -401,7 +401,7 @@ void mdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 		const char *box_path = mailbox_get_path(&ctx->mbox->box);
 
 		if (fdatasync_path(box_path) < 0) {
-			mail_set_critical(_ctx->dest_mail,
+			mailbox_set_critical(_ctx->transaction->box,
 				"fdatasync_path(%s) failed: %m", box_path);
 		}
 	}
