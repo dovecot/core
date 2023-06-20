@@ -24,36 +24,7 @@ static void sdbox_sync_set_uidvalidity(struct index_rebuild_context *ctx)
 		&uid_validity, sizeof(uid_validity), TRUE);
 }
 
-static int
-sdbox_sync_file_fix(struct index_rebuild_context *ctx,
-		    struct dbox_file *file)
-{
-	bool deleted;
-	int ret;
-
-	if ((ret = dbox_file_open(file, &deleted)) > 0) {
-		if (deleted)
-			return 0;
-		ret = dbox_file_seek(file, 0);
-	}
-	if (ret == 0) {
-		if ((ret = dbox_file_fix(file, 0)) > 0)
-			ret = dbox_file_seek(file, 0);
-	}
-
-	if (ret <= 0) {
-		if (ret < 0)
-			return -1;
-
-		e_warning(ctx->box->event, "Skipping unfixable file: %s",
-			  file->cur_path);
-		return 0;
-	}
-
-	return 1;
-}
-
-static int
+static void
 sdbox_sync_add_file(struct index_rebuild_context *ctx,
 		    struct mail_index_view *trans_view,
 		    const char *fname, bool primary)
@@ -61,14 +32,13 @@ sdbox_sync_add_file(struct index_rebuild_context *ctx,
 	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(ctx->box);
 	struct dbox_file *file;
 	uint32_t seq, uid;
-	int ret;
 
 	if (!str_begins(fname, SDBOX_MAIL_FILE_PREFIX, &fname))
-		return 0;
+		return;
 
 	if (str_to_uint32(fname, &uid) < 0 || uid == 0) {
 		e_warning(mbox->box.event, "Ignoring invalid filename %s", fname);
-		return 0;
+		return;
 	}
 
 	file = sdbox_file_init(mbox, uid);
@@ -77,16 +47,13 @@ sdbox_sync_add_file(struct index_rebuild_context *ctx,
 	/* If the UID exists already in the transaction, it means we're trying
 	   to add a file to alt storage that was already found from primary
 	   storage. Just skip it then. */
-	if ((ret = sdbox_sync_file_fix(ctx, file)) > 0 &&
-	    !mail_index_lookup_seq(trans_view, uid, &seq)) {
+	if (!mail_index_lookup_seq(trans_view, uid, &seq)) {
 		mail_index_append(ctx->trans, uid, &seq);
 		T_BEGIN {
 			index_rebuild_index_metadata(ctx, seq, uid);
 		} T_END;
-		ret = 0;
 	}
 	dbox_file_unref(&file);
-	return ret;
 }
 
 static int sdbox_sync_index_rebuild_dir(struct index_rebuild_context *ctx,
@@ -109,13 +76,8 @@ static int sdbox_sync_index_rebuild_dir(struct index_rebuild_context *ctx,
 		mailbox_set_critical(ctx->box, "opendir(%s) failed: %m", path);
 		return -1;
 	}
-	do {
-		errno = 0;
-		if ((d = readdir(dir)) == NULL)
-			break;
-
-		ret = sdbox_sync_add_file(ctx, trans_view, d->d_name, primary);
-	} while (ret >= 0);
+	for (errno = 0; (d = readdir(dir)) != NULL; errno = 0)
+		sdbox_sync_add_file(ctx, trans_view, d->d_name, primary);
 	if (errno != 0) {
 		mailbox_set_critical(ctx->box, "readdir(%s) failed: %m", path);
 		ret = -1;
