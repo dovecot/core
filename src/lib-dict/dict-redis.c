@@ -55,6 +55,7 @@ struct redis_dict {
 
 	ARRAY(enum redis_input_state) input_states;
 	ARRAY(struct redis_dict_reply) replies;
+	char *last_error;
 
 	bool connected;
 	bool transaction_open;
@@ -68,6 +69,8 @@ struct redis_dict_transaction_context {
 };
 
 static struct connection_list *redis_connections;
+
+static void redis_dict_wait(struct dict *_dict);
 
 static void
 redis_input_state_add(struct redis_dict *dict, enum redis_input_state state)
@@ -103,6 +106,9 @@ redis_disconnected(struct redis_connection *conn, const char *reason)
 	};
 	const struct redis_dict_reply *reply;
 
+	if (conn->dict->last_error == NULL)
+		conn->dict->last_error = i_strdup(reason);
+
 	conn->dict->db_id_set = FALSE;
 	conn->dict->connected = FALSE;
 	connection_disconnect(&conn->conn);
@@ -132,10 +138,11 @@ static void redis_dict_wait_timeout(struct redis_dict *dict)
 	redis_disconnected(&dict->conn, reason);
 }
 
-static void redis_wait(struct redis_dict *dict)
+static const char *redis_wait(struct redis_dict *dict)
 {
 	i_assert(dict->dict.ioloop == NULL);
 
+	i_free(dict->last_error);
 	dict->dict.prev_ioloop = current_ioloop;
 	dict->dict.ioloop = io_loop_create();
 	if (dict->to != NULL)
@@ -156,6 +163,9 @@ static void redis_wait(struct redis_dict *dict)
 	io_loop_set_current(dict->dict.ioloop);
 	io_loop_destroy(&dict->dict.ioloop);
 	dict->dict.prev_ioloop = NULL;
+	const char *error = t_strdup(dict->last_error);
+	i_free(dict->last_error);
+	return error;
 }
 
 static int redis_input_get(struct redis_connection *conn, const char **error_r)
@@ -463,7 +473,7 @@ static void redis_dict_deinit(struct dict *_dict)
 
 	if (array_count(&dict->input_states) > 0) {
 		i_assert(dict->connected);
-		redis_wait(dict);
+		redis_dict_wait(_dict);
 	}
 	i_assert(dict->to == NULL); /* wait triggers the timeout */
 
@@ -471,6 +481,7 @@ static void redis_dict_deinit(struct dict *_dict)
 	str_free(&dict->conn.last_reply);
 	array_free(&dict->replies);
 	array_free(&dict->input_states);
+	i_free(dict->last_error);
 	i_free(dict->expire_value);
 	i_free(dict->key_prefix);
 	i_free(dict->password);
@@ -484,8 +495,10 @@ static void redis_dict_wait(struct dict *_dict)
 {
 	struct redis_dict *dict = (struct redis_dict *)_dict;
 
-	if (array_count(&dict->input_states) > 0)
-		redis_wait(dict);
+	if (array_count(&dict->input_states) > 0) {
+		/* any errors are already logged by the callbacks */
+		(void)redis_wait(dict);
+	}
 }
 
 static void redis_dict_lookup_timeout(struct redis_dict *dict)
@@ -633,10 +646,11 @@ redis_transaction_init(struct dict *_dict)
 
 	if (dict->conn.conn.fd_in == -1 &&
 	    connection_client_connect(&dict->conn.conn) < 0) {
-		e_error(dict->conn.conn.event, "Couldn't connect");
+		ctx->error = i_strdup_printf("connect() failed: %m");
+		e_error(dict->conn.conn.event, "%s", ctx->error);
 	} else if (!dict->connected) {
 		/* wait for connection */
-		redis_wait(dict);
+		ctx->error = i_strdup(redis_wait(dict));
 		if (dict->connected)
 			redis_dict_auth(dict);
 	}
@@ -686,7 +700,7 @@ redis_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 			i_free(ctx);
 			return;
 		}
-		redis_wait(dict);
+		(void)redis_wait(dict);
 	} else {
 		callback(&result, context);
 	}
