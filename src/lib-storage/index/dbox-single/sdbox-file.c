@@ -268,6 +268,8 @@ int sdbox_file_create_fd(struct dbox_file *file, const char *path, bool parents)
 	}
 	if (fd == -1) {
 		mailbox_set_critical(box, "open(%s, O_CREAT) failed: %m", path);
+		if (errno == ENOENT)
+			sdbox_set_mailbox_corrupted(box);
 	} else if (perm->file_create_gid == (gid_t)-1) {
 		/* no group change */
 	} else if (fchown(fd, (uid_t)-1, perm->file_create_gid) < 0) {
