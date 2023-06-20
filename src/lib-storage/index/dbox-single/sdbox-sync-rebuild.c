@@ -26,7 +26,7 @@ static void sdbox_sync_set_uidvalidity(struct index_rebuild_context *ctx)
 
 static int
 sdbox_sync_file_fix(struct index_rebuild_context *ctx,
-		    struct dbox_file *file, bool primary)
+		    struct dbox_file *file)
 {
 	bool deleted;
 	int ret;
@@ -50,17 +50,12 @@ sdbox_sync_file_fix(struct index_rebuild_context *ctx,
 		return 0;
 	}
 
-	if (!dbox_file_is_in_alt(file) && !primary) {
-		/* we were supposed to open the file in alt storage, but it
-		   exists in primary storage as well. skip it to avoid adding
-		   it twice. */
-		return 0;
-	}
 	return 1;
 }
 
 static int
 sdbox_sync_add_file(struct index_rebuild_context *ctx,
+		    struct mail_index_view *trans_view,
 		    const char *fname, bool primary)
 {
 	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(ctx->box);
@@ -79,7 +74,11 @@ sdbox_sync_add_file(struct index_rebuild_context *ctx,
 	file = sdbox_file_init(mbox, uid);
 	if (!primary)
 		file->cur_path = file->alt_path;
-	if ((ret = sdbox_sync_file_fix(ctx, file, primary)) > 0) {
+	/* If the UID exists already in the transaction, it means we're trying
+	   to add a file to alt storage that was already found from primary
+	   storage. Just skip it then. */
+	if ((ret = sdbox_sync_file_fix(ctx, file)) > 0 &&
+	    !mail_index_lookup_seq(trans_view, uid, &seq)) {
 		mail_index_append(ctx->trans, uid, &seq);
 		T_BEGIN {
 			index_rebuild_index_metadata(ctx, seq, uid);
@@ -91,6 +90,7 @@ sdbox_sync_add_file(struct index_rebuild_context *ctx,
 }
 
 static int sdbox_sync_index_rebuild_dir(struct index_rebuild_context *ctx,
+					struct mail_index_view *trans_view,
 					const char *path, bool primary)
 {
 	DIR *dir;
@@ -114,7 +114,7 @@ static int sdbox_sync_index_rebuild_dir(struct index_rebuild_context *ctx,
 		if ((d = readdir(dir)) == NULL)
 			break;
 
-		ret = sdbox_sync_add_file(ctx, d->d_name, primary);
+		ret = sdbox_sync_add_file(ctx, trans_view, d->d_name, primary);
 	} while (ret >= 0);
 	if (errno != 0) {
 		mailbox_set_critical(ctx->box, "readdir(%s) failed: %m", path);
@@ -156,18 +156,21 @@ sdbox_sync_index_rebuild_singles(struct index_rebuild_context *ctx)
 				&alt_path) < 0)
 		return -1;
 
+	struct mail_index_view *trans_view =
+		mail_index_transaction_open_updated_view(ctx->trans);
 	sdbox_sync_set_uidvalidity(ctx);
-	if (sdbox_sync_index_rebuild_dir(ctx, path, TRUE) < 0) {
+	if (sdbox_sync_index_rebuild_dir(ctx, trans_view, path, TRUE) < 0) {
 		mailbox_set_critical(ctx->box, "sdbox: Rebuilding failed");
 		ret = -1;
 	} else if (alt_path != NULL) {
-		if (sdbox_sync_index_rebuild_dir(ctx, alt_path, FALSE) < 0) {
+		if (sdbox_sync_index_rebuild_dir(ctx, trans_view, alt_path, FALSE) < 0) {
 			mailbox_set_critical(ctx->box,
 				"sdbox: Rebuilding failed on alt path %s",
 				alt_path);
 			ret = -1;
 		}
 	}
+	mail_index_view_close(&trans_view);
 	sdbox_sync_update_header(ctx);
 	return ret;
 }
