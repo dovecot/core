@@ -306,9 +306,7 @@ void sdbox_set_mailbox_corrupted(struct mailbox *box)
 
 static void sdbox_set_file_corrupted(struct dbox_file *_file)
 {
-	struct sdbox_file *file = (struct sdbox_file *)_file;
-
-	sdbox_set_mailbox_corrupted(&file->mbox->box);
+	(void)dbox_file_fix(_file, 0);
 }
 
 static int sdbox_mailbox_alloc_index(struct sdbox_mailbox *mbox)
