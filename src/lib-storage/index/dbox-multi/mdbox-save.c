@@ -374,7 +374,9 @@ void mdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 					struct mail_index_transaction_commit_result *result)
 {
 	struct mdbox_save_context *ctx = MDBOX_SAVECTX(_ctx);
-	struct mail_storage *storage = _ctx->transaction->box->storage;
+	struct mail_storage *_storage = _ctx->transaction->box->storage;
+	struct mdbox_storage *storage =
+		container_of(_storage, struct mdbox_storage, storage.storage);
 
 	_ctx->transaction = NULL; /* transaction is already freed */
 
@@ -397,12 +399,11 @@ void mdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 	   was already written at this point. */
 	(void)mdbox_map_atomic_finish(&ctx->atomic);
 
-	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
-		const char *box_path = mailbox_get_path(&ctx->mbox->box);
-
-		if (fdatasync_path(box_path) < 0) {
+	if (_storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
+		if (fdatasync_path(storage->storage_dir) < 0) {
 			mailbox_set_critical(_ctx->transaction->box,
-				"fdatasync_path(%s) failed: %m", box_path);
+				"fdatasync_path(%s) failed: %m",
+				storage->storage_dir);
 		}
 	}
 	mdbox_transaction_save_rollback(_ctx);
