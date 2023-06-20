@@ -51,6 +51,7 @@ struct redis_dict {
 	unsigned int timeout_msecs, db_id;
 
 	struct redis_connection conn;
+	struct timeout *to;
 
 	ARRAY(enum redis_input_state) input_states;
 	ARRAY(struct redis_dict_reply) replies;
@@ -110,6 +111,7 @@ redis_disconnected(struct redis_connection *conn, const char *reason)
 		redis_reply_callback(conn, reply, &result);
 	array_clear(&conn->dict->replies);
 	array_clear(&conn->dict->input_states);
+	timeout_remove(&conn->dict->to);
 
 	if (conn->dict->dict.ioloop != NULL)
 		io_loop_stop(conn->dict->dict.ioloop);
@@ -132,20 +134,23 @@ static void redis_dict_wait_timeout(struct redis_dict *dict)
 
 static void redis_wait(struct redis_dict *dict)
 {
-	struct timeout *to;
-
 	i_assert(dict->dict.ioloop == NULL);
 
 	dict->dict.prev_ioloop = current_ioloop;
 	dict->dict.ioloop = io_loop_create();
-	to = timeout_add(dict->timeout_msecs, redis_dict_wait_timeout, dict);
+	if (dict->to != NULL)
+		dict->to = io_loop_move_timeout(&dict->to);
+	else {
+		dict->to = timeout_add(dict->timeout_msecs,
+				       redis_dict_wait_timeout, dict);
+	}
 	connection_switch_ioloop(&dict->conn.conn);
 
 	do {
 		io_loop_run(dict->dict.ioloop);
 	} while (array_count(&dict->input_states) > 0);
 
-	timeout_remove(&to);
+	timeout_remove(&dict->to);
 	io_loop_set_current(dict->dict.prev_ioloop);
 	connection_switch_ioloop(&dict->conn.conn);
 	io_loop_set_current(dict->dict.ioloop);
@@ -228,6 +233,9 @@ redis_conn_input_more(struct redis_connection *conn, const char **error_r)
 	if (line == NULL)
 		return 0;
 
+	if (dict->to != NULL)
+		timeout_reset(dict->to);
+
 	redis_input_state_remove(dict);
 	switch (state) {
 	case REDIS_INPUT_STATE_GET:
@@ -266,9 +274,11 @@ redis_conn_input_more(struct redis_connection *conn, const char **error_r)
 			array_pop_front(&dict->replies);
 			/* if we're running in a dict-ioloop, we're handling a
 			   synchronous commit and need to stop now */
-			if (array_count(&dict->replies) == 0 &&
-			    conn->dict->dict.ioloop != NULL)
-				io_loop_stop(conn->dict->dict.ioloop);
+			if (array_count(&dict->replies) == 0) {
+				timeout_remove(&dict->to);
+				if (conn->dict->dict.ioloop != NULL)
+					io_loop_stop(conn->dict->dict.ioloop);
+			}
 		}
 		return 1;
 	}
@@ -455,6 +465,8 @@ static void redis_dict_deinit(struct dict *_dict)
 		i_assert(dict->connected);
 		redis_wait(dict);
 	}
+	i_assert(dict->to == NULL); /* wait triggers the timeout */
+
 	connection_deinit(&dict->conn.conn);
 	str_free(&dict->conn.last_reply);
 	array_free(&dict->replies);
@@ -667,6 +679,10 @@ redis_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 		for (i = 0; i < ctx->cmd_count; i++)
 			redis_input_state_add(dict, REDIS_INPUT_STATE_EXEC_REPLY);
 		if (async) {
+			if (dict->to == NULL) {
+				dict->to = timeout_add(dict->timeout_msecs,
+					redis_dict_wait_timeout, dict);
+			}
 			i_free(ctx);
 			return;
 		}
