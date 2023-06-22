@@ -236,6 +236,7 @@ int dbox_mailbox_check_existence(struct mailbox *box)
 	const char *index_path, *box_path = mailbox_get_path(box);
 	struct stat st;
 	int ret = -1;
+	bool has_log_in_index_dir = FALSE;
 
 	if (box->list->set.index_dir != NULL) {
 		/* Just because the index directory exists, it doesn't mean
@@ -253,6 +254,8 @@ int dbox_mailbox_check_existence(struct mailbox *box)
 		index_path = t_strconcat(index_path, "/", box->index_prefix,
 					 ".log", NULL);
 		ret = stat(index_path, &st);
+		if (ret == 0)
+			has_log_in_index_dir = TRUE;
 	}
 	if (ret < 0) {
 		ret = stat(box_path, &st);
@@ -264,6 +267,8 @@ int dbox_mailbox_check_existence(struct mailbox *box)
 	}
 
 	if (ret == 0) {
+		if (has_log_in_index_dir)
+			return 1;
 		return 0;
 	} else if (errno == ENOENT || errno == ENAMETOOLONG) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
