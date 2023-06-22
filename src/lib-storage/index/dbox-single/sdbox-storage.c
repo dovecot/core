@@ -332,8 +332,9 @@ static int sdbox_mailbox_open(struct mailbox *box)
 	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(box);
 	struct sdbox_index_header hdr;
 	bool need_resize;
+	int existence_ret;
 
-	if (dbox_mailbox_check_existence(box) < 0)
+	if ((existence_ret = dbox_mailbox_check_existence(box)) < 0)
 		return -1;
 
 	if (sdbox_mailbox_alloc_index(mbox) < 0)
@@ -345,6 +346,13 @@ static int sdbox_mailbox_open(struct mailbox *box)
 	if (box->creating) {
 		/* wait for mailbox creation to initialize the index */
 		return 0;
+	}
+
+	if (box->list->set.index_dir != NULL && existence_ret == 0) {
+		/* If there is an separate INDEX directory configured but no
+		   index files found for this mailbox, do an index rebuild */
+		if (sdbox_sync(mbox, SDBOX_SYNC_FLAG_FORCE_REBUILD) < 0)
+			return -1;
 	}
 
 	/* get/generate mailbox guid */
