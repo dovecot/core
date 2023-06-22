@@ -116,9 +116,15 @@ const char *master_service_getopt_string(void);
 struct master_service *
 master_service_init(const char *name, enum master_service_flags flags,
 		    int *argc, char **argv[], const char *getopt_str);
+void master_service_register_long_options(struct master_service *service,
+					  const struct option *longopts);
 /* Call getopt() and handle internal parameters. Return values are the same as
    getopt()'s. */
 int master_getopt(struct master_service *service);
+/* Call getopt_long() and handle internal parameters. Return values are the
+   same as getopt_long()'s. Additionally if a long option was encountered, its
+   name is written to longopt_r. */
+int master_getopt_long(struct master_service *service, const char **longopt_r);
 /* Returns TRUE if str is a valid getopt_str. Currently this only checks for
    duplicate args so they aren't accidentally added. */
 bool master_getopt_str_is_valid(const char *str);

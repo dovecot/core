@@ -30,6 +30,7 @@ struct master_service {
 	char *name;
 	char *configured_name;
 	char *getopt_str;
+	const struct option *longopts;
 	enum master_service_flags flags;
 
 	int argc;

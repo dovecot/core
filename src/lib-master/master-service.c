@@ -27,6 +27,7 @@
 #include "master-service-settings.h"
 #include "iostream-ssl.h"
 
+#include <getopt.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <syslog.h>
@@ -627,6 +628,13 @@ master_service_init(const char *name, enum master_service_flags flags,
 	return service;
 }
 
+void
+master_service_register_long_options(struct master_service *service,
+				     const struct option *longopts)
+{
+	service->longopts = longopts;
+}
+
 int master_getopt(struct master_service *service)
 {
 	int c;
@@ -638,6 +646,27 @@ int master_getopt(struct master_service *service)
 		if (!master_service_parse_option(service, c, optarg))
 			break;
 	}
+	return c;
+}
+
+int
+master_getopt_long(struct master_service *service, const char **longopt_r)
+{
+	if (service->longopts == NULL)
+		return master_getopt(service);
+
+	i_assert(master_getopt_str_is_valid(service->getopt_str));
+
+	int c;
+	int longopt_idx = -1;
+	while ((c = getopt_long(service->argc, service->argv,
+				service->getopt_str, service->longopts,
+				&longopt_idx)) > 0) {
+		if (!master_service_parse_option(service, c, optarg))
+			break;
+	}
+	if (longopt_idx >= 0)
+		*longopt_r = service->longopts[longopt_idx].name;
 	return c;
 }
 
