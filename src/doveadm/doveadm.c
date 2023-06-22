@@ -383,8 +383,16 @@ int main(int argc, char *argv[])
 	cctx->username = getenv("USER");
 
 	if (!doveadm_cmdline_try_run(cmd_name, argc, (const char**)argv, cctx)) {
+		help_requested = cctx->help_requested != DOVEADM_CMD_VER2_NO_HELP;
+		FILE *out = help_requested ? stdout : stderr;
+		int exit_code = help_requested ? EX_OK : EX_USAGE;
+		if (cctx->help_requested == DOVEADM_CMD_VER2_HELP_ARGUMENT &&
+		    cctx->cmd != NULL) {
+			print_usage_and_exit(stdout, cctx->cmd, EX_OK);
+		}
 		if (doveadm_has_subcommands(cmd_name))
-			usage_prefix(stderr, cmd_name, EX_USAGE);
+			usage_prefix(out, cmd_name, exit_code);
+
 		if (doveadm_has_unloaded_plugin(cmd_name)) {
 			i_fatal("Unknown command '%s', but plugin %s exists. "
 				"Try to set mail_plugins=%s",

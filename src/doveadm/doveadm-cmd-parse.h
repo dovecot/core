@@ -90,12 +90,19 @@ struct doveadm_cmd_ver2 {
 	const struct doveadm_cmd_param *parameters;
 };
 
+enum doveadm_cmd_ver2_help_requested {
+	DOVEADM_CMD_VER2_NO_HELP,
+	DOVEADM_CMD_VER2_HELP_ARGUMENT,
+	DOVEADM_CMD_VER2_HELP_COMMAND,
+};
+
 struct doveadm_cmd_context {
 	const struct doveadm_cmd_ver2 *cmd; /* for help */
 
 	pool_t pool;
 	int argc;
 	const struct doveadm_cmd_param *argv;
+	enum doveadm_cmd_ver2_help_requested help_requested;
 
 	const char *username;
 	struct ip_addr local_ip, remote_ip;

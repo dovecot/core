@@ -124,17 +124,39 @@ void doveadm_cmds_deinit(void)
 	array_free(&doveadm_cmds_ver2);
 }
 
+static void
+doveadm_cmdline_check_for_help_request(int argc, const char *const argv[],
+				       struct doveadm_cmd_context *cctx) {
+	for (int i = 0; i < argc; i++) {
+		if (strcmp(argv[i], "--") == 0)
+			break;
+
+		if (strcmp(argv[i], "--help") == 0) {
+			cctx->help_requested = DOVEADM_CMD_VER2_HELP_ARGUMENT;
+			break;
+		}
+
+		if (strcmp(argv[i], "help") == 0) {
+			cctx->help_requested = DOVEADM_CMD_VER2_HELP_COMMAND;
+			break;
+		}
+	}
+}
+
 bool doveadm_cmdline_try_run(const char *cmd_name,
 			     int argc, const char *const argv[],
 			     struct doveadm_cmd_context *cctx)
 {
 	const struct doveadm_cmd_ver2 *cmd;
 
+	doveadm_cmdline_check_for_help_request(argc, argv, cctx);
 	cmd = doveadm_cmdline_find_with_args(cmd_name, &argc, &argv);
 	if (cmd == NULL)
 		return FALSE;
 
 	cctx->cmd = cmd;
+	if (cctx->help_requested == DOVEADM_CMD_VER2_HELP_ARGUMENT)
+		return FALSE;
 	if (doveadm_cmdline_run(argc, argv, cctx) < 0)
 		doveadm_exit_code = EX_USAGE;
 	return TRUE;
