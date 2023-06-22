@@ -374,7 +374,8 @@ void mdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 					struct mail_index_transaction_commit_result *result)
 {
 	struct mdbox_save_context *ctx = MDBOX_SAVECTX(_ctx);
-	struct mail_storage *_storage = _ctx->transaction->box->storage;
+	struct mailbox *box = _ctx->transaction->box;
+	struct mail_storage *_storage = box->storage;
 	struct mdbox_storage *storage =
 		container_of(_storage, struct mdbox_storage, storage.storage);
 
@@ -401,7 +402,7 @@ void mdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 
 	if (_storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
 		if (fdatasync_path(storage->storage_dir) < 0) {
-			mailbox_set_critical(_ctx->transaction->box,
+			mailbox_set_critical(box,
 				"fdatasync_path(%s) failed: %m",
 				storage->storage_dir);
 		}
