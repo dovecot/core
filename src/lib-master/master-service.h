@@ -110,6 +110,8 @@ master_service_avail_overflow_callback_t(bool kill, struct timeval *created_r);
 
 extern struct master_service *master_service;
 
+extern const struct option master_service_helpopt;
+
 const char *master_service_getopt_string(void);
 
 /* Start service initialization. */

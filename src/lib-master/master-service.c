@@ -51,6 +51,8 @@
 
 struct master_service *master_service;
 
+const struct option master_service_helpopt = {"help", no_argument, NULL, 0};
+
 static struct event_category master_service_category = {
 	.name = NULL, /* set dynamically later */
 };

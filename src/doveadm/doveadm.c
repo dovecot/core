@@ -18,6 +18,7 @@
 #include "doveadm-dsync.h"
 #include "doveadm.h"
 
+#include <getopt.h>
 #include <unistd.h>
 
 const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {
@@ -147,7 +148,7 @@ static void cmd_help(struct doveadm_cmd_context *cctx)
 	const char *cmd, *man_argv[3];
 
 	if (!doveadm_cmd_param_str(cctx, "cmd", &cmd))
-		usage();
+		usage_prefix(stdout, "", EX_OK);
 
 	env_put("MANPATH", MANDIR);
 	man_argv[0] = "man";
@@ -270,13 +271,24 @@ int main(int argc, char *argv[])
 	   others just accept -+ option. */
 	master_service = master_service_init("doveadm", service_flags,
 					     &argc, &argv, "+Df:hv");
+	const struct option longopts[] = {
+		master_service_helpopt,
+		{NULL, 0, NULL, 0},
+	};
+	master_service_register_long_options(master_service, longopts);
 	struct doveadm_cmd_context *cctx = doveadm_cmd_context_create(
 		DOVEADM_CONNECTION_TYPE_CLI, doveadm_verbose || doveadm_debug);
 
 	i_set_failure_exit_callback(failure_exit_callback);
 
-	while ((c = master_getopt(master_service)) > 0) {
+	bool help_requested = FALSE;
+	const char *longopt = NULL;
+	while ((c = master_getopt_long(master_service, &longopt)) >= 0) {
 		switch (c) {
+		case 0:
+			if (strcmp(longopt, "help") == 0)
+				help_requested = TRUE;
+			break;
 		case 'D':
 			doveadm_debug = TRUE;
 			doveadm_verbose = TRUE;
@@ -342,9 +354,11 @@ int main(int argc, char *argv[])
 		   mail_plugins have been loaded. */
 		doveadm_load_modules();
 
+		/* show usage after registering all plugins */
 		if (cmd_name == NULL) {
-			/* show usage after registering all plugins */
-			usage();
+			FILE *out = help_requested ? stdout : stderr;
+			int exit_code = help_requested ? EX_OK : EX_USAGE;
+			usage_prefix(out, "", exit_code);
 		}
 	}
 
