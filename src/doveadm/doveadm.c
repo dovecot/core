@@ -111,29 +111,29 @@ doveadm_usage_compress_lines(FILE *out, const char *str, const char *prefix)
 }
 
 static void ATTR_NORETURN
-usage_prefix(const char *prefix)
+usage_prefix(FILE *out, const char *prefix, int return_code)
 {
 	const struct doveadm_cmd_ver2 *cmd2;
 	string_t *str = t_str_new(1024);
 
-	fprintf(stderr, "usage: doveadm [-Dv] [-f <formatter>] ");
+	fprintf(out, "usage: doveadm [-Dv] [-f <formatter>] ");
 	if (*prefix != '\0')
-		fprintf(stderr, "%s ", prefix);
-	fprintf(stderr, "<command> [<args>]\n");
+		fprintf(out, "%s ", prefix);
+	fprintf(out, "<command> [<args>]\n");
 
 	array_foreach(&doveadm_cmds_ver2, cmd2) {
 		if ((cmd2->flags & CMD_FLAG_HIDDEN) == 0)
 			str_printfa(str, "%s\t%s\n", cmd2->name, cmd2->usage);
 	}
 
-	doveadm_usage_compress_lines(stderr, str_c(str), prefix);
+	doveadm_usage_compress_lines(out, str_c(str), prefix);
 
-	lib_exit(EX_USAGE);
+	lib_exit(return_code);
 }
 
 void usage(void)
 {
-	usage_prefix("");
+	usage_prefix(stderr, "", EX_USAGE);
 }
 
 void help_ver2(const struct doveadm_cmd_ver2 *cmd)
@@ -147,7 +147,7 @@ static void cmd_help(struct doveadm_cmd_context *cctx)
 	const char *cmd, *man_argv[3];
 
 	if (!doveadm_cmd_param_str(cctx, "cmd", &cmd))
-		usage_prefix("");
+		usage();
 
 	env_put("MANPATH", MANDIR);
 	man_argv[0] = "man";
@@ -344,7 +344,7 @@ int main(int argc, char *argv[])
 
 		if (cmd_name == NULL) {
 			/* show usage after registering all plugins */
-			usage_prefix("");
+			usage();
 		}
 	}
 
@@ -364,7 +364,7 @@ int main(int argc, char *argv[])
 
 	if (!doveadm_cmdline_try_run(cmd_name, argc, (const char**)argv, cctx)) {
 		if (doveadm_has_subcommands(cmd_name))
-			usage_prefix(cmd_name);
+			usage_prefix(stderr, cmd_name, EX_USAGE);
 		if (doveadm_has_unloaded_plugin(cmd_name)) {
 			i_fatal("Unknown command '%s', but plugin %s exists. "
 				"Try to set mail_plugins=%s",
