@@ -137,10 +137,16 @@ void usage(void)
 	usage_prefix(stderr, "", EX_USAGE);
 }
 
+static void ATTR_NORETURN
+print_usage_and_exit(FILE *out, const struct doveadm_cmd_ver2 *cmd, int exit_code)
+{
+	fprintf(out, "doveadm %s %s\n", cmd->name, cmd->usage);
+	lib_exit(exit_code);
+}
+
 void help_ver2(const struct doveadm_cmd_ver2 *cmd)
 {
-	fprintf(stderr, "doveadm %s %s\n", cmd->name, cmd->usage);
-	lib_exit(EX_USAGE);
+	print_usage_and_exit(stderr, cmd, EX_USAGE);
 }
 
 static void cmd_help(struct doveadm_cmd_context *cctx)
