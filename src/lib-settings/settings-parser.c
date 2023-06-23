@@ -25,6 +25,10 @@ struct setting_parser_context {
 	char *error;
 };
 
+#ifdef DEBUG
+static const char *boollist_eol_sentry = "boollist-eol";
+#endif
+
 static void
 setting_parser_copy_defaults(struct setting_parser_context *ctx,
 			     const struct setting_parser_info *info)
@@ -368,6 +372,30 @@ int settings_parse_boollist_string(const char *value, pool_t pool,
 	return 0;
 }
 
+const char *const *settings_boollist_get(const ARRAY_TYPE(const_string) *array)
+{
+	const char *const *strings;
+	unsigned int count;
+
+	strings = array_get(array, &count);
+	i_assert(strings[count] == NULL);
+#ifdef DEBUG
+	i_assert(strings[count+1] == boollist_eol_sentry);
+#endif
+	return strings;
+
+}
+
+static void boollist_null_terminate(ARRAY_TYPE(const_string) *array)
+{
+	array_append_zero(array);
+#ifdef DEBUG
+	array_push_back(array, &boollist_eol_sentry);
+	array_pop_back(array);
+#endif
+	array_pop_back(array);
+}
+
 static int
 settings_parse_boollist(struct setting_parser_context *ctx,
 			ARRAY_TYPE(const_string) *array,
@@ -388,8 +416,7 @@ settings_parse_boollist(struct setting_parser_context *ctx,
 			return -1;
 		}
 		/* keep it NULL-terminated for each access */
-		array_append_zero(array);
-		array_pop_back(array);
+		boollist_null_terminate(array);
 		return 0;
 	}
 	key++;
@@ -420,8 +447,7 @@ settings_parse_boollist(struct setting_parser_context *ctx,
 		removal->key_suffix = key;
 	}
 	/* keep it NULL-terminated for each access */
-	array_append_zero(array);
-	array_pop_back(array);
+	boollist_null_terminate(array);
 	return 0;
 }
 
