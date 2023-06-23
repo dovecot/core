@@ -953,7 +953,7 @@ mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 
 	return module_dir_try_load_missing(&mail_storage_service_modules,
 					   user_set->mail_plugin_dir,
-					   array_front(&user_set->mail_plugins),
+					   settings_boollist_get(&user_set->mail_plugins),
 					   &mod_set, error_r);
 }
 

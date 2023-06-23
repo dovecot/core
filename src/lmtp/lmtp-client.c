@@ -96,7 +96,7 @@ static void client_load_modules(struct client *client)
         mail_storage_service_modules =
                 module_dir_load_missing(mail_storage_service_modules,
                                         client->lmtp_set->mail_plugin_dir,
-                                        array_front(&client->lmtp_set->mail_plugins),
+                                        settings_boollist_get(&client->lmtp_set->mail_plugins),
                                         &mod_set);
 	module_dir_init(mail_storage_service_modules);
 }
