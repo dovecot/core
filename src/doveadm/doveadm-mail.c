@@ -14,6 +14,7 @@
 #include "module-dir.h"
 #include "wildcard-match.h"
 #include "settings.h"
+#include "settings-parser.h"
 #include "master-service.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
@@ -844,7 +845,7 @@ void doveadm_mail_init_finish(void)
 		mail_storage_service_modules =
 			module_dir_load_missing(mail_storage_service_modules,
 						doveadm_settings->mail_plugin_dir,
-						array_front(&doveadm_settings->mail_plugins),
+						settings_boollist_get(&doveadm_settings->mail_plugins),
 						&mod_set);
 	}
 	/* keep mail_storage_init() referenced so that its _deinit() doesn't

@@ -14,6 +14,7 @@
 #include "execv-const.h"
 #include "restrict-process-size.h"
 #include "settings.h"
+#include "settings-parser.h"
 #include "master-instance.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
@@ -577,7 +578,7 @@ static void main_init(const struct master_settings *set)
 	/* deny file access from everyone else except owner */
         (void)umask(0077);
 
-	main_log_startup(array_front(&set->protocols));
+	main_log_startup(settings_boollist_get(&set->protocols));
 
 	lib_signals_init();
         lib_signals_ignore(SIGPIPE, TRUE);

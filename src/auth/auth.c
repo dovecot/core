@@ -103,7 +103,7 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
 	    array_is_empty(&set->mechanisms)) {
 		auth_passdb->mechanisms = NULL;
 	} else {
-		auth_passdb->mechanisms = array_front(&set->mechanisms);
+		auth_passdb->mechanisms = settings_boollist_get(&set->mechanisms);
 	}
 
 	if (*set->username_filter == '\0') {
