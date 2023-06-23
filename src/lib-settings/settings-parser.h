@@ -203,6 +203,11 @@ bool settings_check(struct event *event, const struct setting_parser_info *info,
 int settings_parse_boollist_string(const char *value, pool_t pool,
 				   ARRAY_TYPE(const_string) *dest,
 				   const char **error_r);
+/* Returns the boollist array NULL-terminated. The list is actually always
+   already NULL-terminated, but to avoid confusion with regular non-NULL
+   terminated arrays, use this function instead. Also, it includes some sanity
+   checks to try to make sure it's used only for boollists. */
+const char *const *settings_boollist_get(const ARRAY_TYPE(const_string) *array);
 
 /* Return section name escaped */
 const char *settings_section_escape(const char *name);
