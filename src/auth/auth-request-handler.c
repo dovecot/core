@@ -549,7 +549,7 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 			return -1;
 		}
 	} else {
-		struct auth *auth_default = auth_default_service();
+		struct auth *auth_default = auth_default_protocol();
 		mech = mech_register_find(auth_default->reg, args[1]);
 		if (mech == NULL) {
 			/* unsupported mechanism */

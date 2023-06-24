@@ -573,10 +573,10 @@ void auth_settings_read(struct master_service_settings_output *output_r)
 		i_fatal("%s", error);
 }
 
-const struct auth_settings *auth_settings_get(const char *service)
+const struct auth_settings *auth_settings_get(const char *protocol)
 {
 	struct event *event = event_create(NULL);
-	event_add_str(event, "protocol", service);
+	event_add_str(event, "protocol", protocol);
 	const struct auth_settings *set =
 		settings_get_or_fatal(event, &auth_setting_parser_info);
 	event_unref(&event);

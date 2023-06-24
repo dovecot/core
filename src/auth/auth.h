@@ -72,7 +72,7 @@ struct auth_userdb {
 
 struct auth {
 	pool_t pool;
-	const char *service;
+	const char *protocol;
 	const struct auth_settings *set;
 
 	const struct mechanisms_register *reg;
@@ -84,12 +84,12 @@ struct auth {
 };
 
 
-struct auth *auth_find_service(const char *name);
-struct auth *auth_default_service(void);
+struct auth *auth_find_protocol(const char *name);
+struct auth *auth_default_protocol(void);
 
 void auths_preinit(const struct auth_settings *set,
 		   const struct mechanisms_register *reg,
-		   const char *const *services);
+		   const char *const *protocols);
 void auths_init(void);
 void auths_deinit(void);
 void auths_free(void);

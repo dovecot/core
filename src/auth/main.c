@@ -150,7 +150,7 @@ static bool auth_module_filter(const char *name, void *context ATTR_UNUSED)
 static void main_preinit(void)
 {
 	struct module_dir_load_settings mod_set;
-	const char *const *services;
+	const char *const *protocols;
 
 	/* Load built-in SQL drivers (if any) */
 	sql_drivers_init();
@@ -163,7 +163,7 @@ static void main_preinit(void)
 	/* init schemes before plugins are loaded */
 	password_schemes_init();
 
-	services = read_global_settings();
+	protocols = read_global_settings();
 
 	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
@@ -179,7 +179,7 @@ static void main_preinit(void)
 	mech_init(global_auth_settings);
 	mech_reg = mech_register_init(global_auth_settings);
 	dict_drivers_register_builtin();
-	auths_preinit(global_auth_settings, mech_reg, services);
+	auths_preinit(global_auth_settings, mech_reg, protocols);
 
 	listeners_init();
 	if (!worker)
@@ -299,7 +299,7 @@ static void worker_connected(struct master_service_connection *conn)
 	}
 
 	master_service_client_connection_accept(conn);
-	(void)auth_worker_server_create(auth_default_service(), conn);
+	(void)auth_worker_server_create(auth_default_protocol(), conn);
 }
 
 static void client_connected(struct master_service_connection *conn)
@@ -313,7 +313,7 @@ static void client_connected(struct master_service_connection *conn)
 		l->path = i_strdup(conn->name);
 
 	type = master_service_connection_get_type(conn);
-	auth = auth_default_service();
+	auth = auth_default_protocol();
 	switch (auth_socket_type_get(type)) {
 	case AUTH_SOCKET_MASTER:
 		(void)auth_master_connection_create(auth, conn->fd,

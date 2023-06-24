@@ -12,7 +12,7 @@
 
 static void auth_client_connected(int *server_fd)
 {
-	struct auth *auth = auth_default_service();
+	struct auth *auth = auth_default_protocol();
 	int fd = net_accept(*server_fd, NULL, NULL);
 	auth_client_connection_create(auth, fd, TEST_AUTH_CLIENT_SOCKET, FALSE, FALSE);
 }
