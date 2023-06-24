@@ -466,7 +466,7 @@ int sasl_server_auth_request_info_fill(struct client *client,
 	const char *error;
 
 	i_zero(info_r);
-	info_r->service = login_binary->protocol;
+	info_r->protocol = login_binary->protocol;
 	info_r->session_id = client_get_session_id(client);
 
 	if (!get_cert_username(client, &info_r->cert_username, &error)) {

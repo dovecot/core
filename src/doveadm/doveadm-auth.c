@@ -262,7 +262,7 @@ static void auth_connected(struct auth_client *client,
 
 	i_zero(&info);
 	info.mech = mech;
-	info.service = input->info.service;
+	info.protocol = input->info.service;
 	info.session_id = input->info.session_id;
 	info.local_name = input->info.local_name;
 	info.local_ip = input->info.local_ip;

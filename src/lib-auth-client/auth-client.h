@@ -45,7 +45,7 @@ struct auth_connect_id {
 
 struct auth_request_info {
 	const char *mech;
-	const char *service;
+	const char *protocol;
 	const char *session_id;
 	const char *cert_username;
 	const char *local_name;

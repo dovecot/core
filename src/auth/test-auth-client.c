@@ -55,7 +55,7 @@ static void test_auth_client(void)
 	struct auth_request_info reqinfo = {
 		.mech = "plain",
 		.client_id = "1",
-		.service = "default",
+		.protocol = "default",
 		.session_id = "1",
 	};
 	(void)auth_client_request_new(client, &reqinfo, test_callback, client);
