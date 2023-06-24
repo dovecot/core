@@ -92,9 +92,9 @@ static const char *const *read_global_settings(void)
 
 	auth_settings_read(&set_output);
 	global_auth_settings = auth_settings_get(NULL);
-	if (set_output.specific_services == NULL)
+	if (set_output.specific_protocols == NULL)
 		return t_new(const char *, 1);
-	return set_output.specific_services;
+	return set_output.specific_protocols;
 }
 
 static enum auth_socket_type auth_socket_type_get(const char *typename)

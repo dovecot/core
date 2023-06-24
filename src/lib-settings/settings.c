@@ -378,7 +378,7 @@ settings_block_read(struct settings_mmap *mmap, size_t *_offset,
 static int
 settings_mmap_parse(struct settings_mmap *mmap, const char *service_name,
 		    enum settings_read_flags flags,
-		    const char *const **specific_services_r,
+		    const char *const **specific_protocols_r,
 		    const char **error_r)
 {
 	/*
@@ -435,9 +435,9 @@ settings_mmap_parse(struct settings_mmap *mmap, const char *service_name,
 
 	if (array_count(&protocols) > 0) {
 		array_append_zero(&protocols);
-		*specific_services_r = array_front(&protocols);
+		*specific_protocols_r = array_front(&protocols);
 	} else {
-		*specific_services_r = NULL;
+		*specific_protocols_r = NULL;
 	}
 	return 0;
 }
@@ -793,7 +793,7 @@ static void settings_mmap_unref(struct settings_mmap **_mmap)
 int settings_read(struct settings_root *root, int fd, const char *path,
 		  const char *service_name, const char *protocol_name,
 		  enum settings_read_flags flags,
-		  const char *const **specific_services_r,
+		  const char *const **specific_protocols_r,
 		  const char **error_r)
 {
 	pool_t pool = pool_alloconly_create("settings mmap", 1024*16);
@@ -814,7 +814,7 @@ int settings_read(struct settings_root *root, int fd, const char *path,
 	hash_table_create(&mmap->blocks, mmap->pool, 0, str_hash, strcmp);
 
 	return settings_mmap_parse(root->mmap, service_name, flags,
-				   specific_services_r, error_r);
+				   specific_protocols_r, error_r);
 }
 
 bool settings_has_mmap(struct settings_root *root)

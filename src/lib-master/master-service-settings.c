@@ -491,7 +491,7 @@ int master_service_settings_read(struct master_service *service,
 			SETTINGS_READ_NO_PROTOCOL_FILTER;
 		ret = settings_read(service->settings_root, fd, path,
 				    service_name, protocol_name, read_flags,
-				    &output_r->specific_services,
+				    &output_r->specific_protocols,
 				    &error);
 		if (input->return_config_fd)
 			output_r->config_fd = fd;
