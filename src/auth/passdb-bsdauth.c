@@ -36,7 +36,7 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 	}
 
 	/* check if the password is valid */
-	type = t_strdup_printf("auth-%s", request->fields.service);
+	type = t_strdup_printf("auth-%s", request->fields.protocol);
 	result = auth_userokay(request->fields.user, NULL,
 			       t_strdup_noconst(type),
 			       t_strdup_noconst(password));

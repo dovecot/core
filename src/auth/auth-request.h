@@ -60,7 +60,7 @@ struct auth_request_fields {
 	/* realm for the request, may be specified by some auth mechanisms */
 	const char *realm;
 
-	const char *service, *mech_name, *session_id, *local_name, *client_id;
+	const char *protocol, *mech_name, *session_id, *local_name, *client_id;
 	struct ip_addr local_ip, remote_ip, real_local_ip, real_remote_ip;
 	in_port_t local_port, remote_port, real_local_port, real_remote_port;
 	const char *ssl_ja3_hash;

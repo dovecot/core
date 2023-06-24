@@ -55,7 +55,7 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 	str_append(dest, "user=");
 	str_append_tabescaped(dest, fields->user);
 
-	auth_str_add_keyvalue(dest, "service", fields->service);
+	auth_str_add_keyvalue(dest, "service", fields->protocol);
 
 	if (fields->master_user != NULL)
 		auth_str_add_keyvalue(dest, "master-user", fields->master_user);
@@ -139,7 +139,7 @@ bool auth_request_import_info(struct auth_request *request,
 
 	/* authentication and user lookups may set these */
 	if (strcmp(key, "service") == 0) {
-		fields->service = p_strdup(request->pool, value);
+		fields->protocol = p_strdup(request->pool, value);
 		event_add_str(event, "service", value);
 	} else if (strcmp(key, "lip") == 0) {
 		if (net_addr2ip(value, &fields->local_ip) < 0)

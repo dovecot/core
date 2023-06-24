@@ -213,9 +213,9 @@ static int master_input_auth_request(struct auth_master_connection *conn,
 		(void)auth_request_import_info(auth_request, name, arg);
 	}
 
-	if (auth_request->fields.service == NULL) {
+	if (auth_request->fields.protocol == NULL) {
 		e_error(conn->conn.event,
-			"BUG: Master sent %s request without service", cmd);
+			"BUG: Master sent %s request without protocol", cmd);
 		auth_request_unref(&auth_request);
 		auth_master_connection_unref(&conn);
 		return -1;
@@ -616,10 +616,10 @@ static int master_input_list(struct auth_master_connection *conn,
 	/* rest of the code doesn't like NULL user or service */
 	if (auth_request->fields.user == NULL)
 		auth_request_set_username_forced(auth_request, "");
-	if (auth_request->fields.service == NULL) {
+	if (auth_request->fields.protocol == NULL) {
 		if (!auth_request_import(auth_request, "service", ""))
 			i_unreached();
-		i_assert(auth_request->fields.service != NULL);
+		i_assert(auth_request->fields.protocol != NULL);
 	}
 
 	ctx = i_new(struct master_list_iter_ctx, 1);

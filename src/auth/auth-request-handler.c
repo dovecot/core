@@ -599,10 +599,10 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		return -1;
 	}
 
-	if (request->fields.service == NULL) {
+	if (request->fields.protocol == NULL) {
 		e_error(handler->conn->conn.event,
 			"BUG: Authentication client %u "
-			"didn't specify service in request",
+			"didn't specify protocol in request",
 			handler->client_pid);
 		auth_request_unref(&request);
 		return -1;
@@ -761,7 +761,7 @@ static void auth_str_append_userdb_extra_fields(struct auth_request *request,
 	if (request->request_auth_token &&
 	    request->session_pid != (pid_t)-1) {
 		const char *auth_token =
-			auth_token_get(request->fields.service,
+			auth_token_get(request->fields.protocol,
 				       dec2str(request->session_pid),
 				       request->fields.user,
 				       request->fields.session_id);

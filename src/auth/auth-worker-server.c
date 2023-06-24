@@ -152,7 +152,7 @@ bool auth_worker_auth_request_new(struct auth_worker_command *cmd, unsigned int 
 		}
 	}
 	if (auth_request->fields.user == NULL ||
-	    auth_request->fields.service == NULL) {
+	    auth_request->fields.protocol == NULL) {
 		auth_request_unref(&auth_request);
 		return FALSE;
 	}

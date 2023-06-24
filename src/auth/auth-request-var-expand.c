@@ -118,7 +118,7 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	tab[2].value = i_strchr_to_next(username, '@');
 	if (tab[2].value != NULL)
 		tab[2].value = escape_func(tab[2].value, auth_request);
-	tab[3].value = escape_func(fields->service, auth_request);
+	tab[3].value = escape_func(fields->protocol, auth_request);
 	/* tab[4] = we have no home dir */
 	if (fields->local_ip.family != 0)
 		tab[5].value = tab[ALIAS(0)].value =
