@@ -17,7 +17,7 @@ auth_request_var_expand_static_tab[] = {
 	{ 'u', NULL, "user" },
 	{ 'n', NULL, "username" },
 	{ 'd', NULL, "domain" },
-	{ 's', NULL, "service" },
+	{ '\0', NULL, "protocol" },
 	{ 'h', NULL, "home" },
 	{ 'l', NULL, "lip" },
 	{ 'r', NULL, "rip" },
