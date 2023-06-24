@@ -255,7 +255,7 @@ int settings_read(struct settings_root *root, int fd, const char *path,
 		  const char *service_name,
 		  const char *protocol_name,
 		  enum settings_read_flags flags,
-		  const char *const **specific_services_r,
+		  const char *const **specific_protocols_r,
 		  const char **error_r);
 bool settings_has_mmap(struct settings_root *root);
 

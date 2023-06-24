@@ -59,9 +59,9 @@ struct master_service_settings_input {
 };
 
 struct master_service_settings_output {
-	/* if service was not given for lookup, this contains names of services
-	   that have more specific settings */
-	const char *const *specific_services;
+	/* Contains the list of all names used for protocol name { .. } and
+	   protocol !name { .. } filters. */
+	const char *const *specific_protocols;
 	/* Configuration file fd. Returned if input.return_config_fd=TRUE. */
 	int config_fd;
 
