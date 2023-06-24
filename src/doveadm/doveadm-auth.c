@@ -262,7 +262,7 @@ static void auth_connected(struct auth_client *client,
 
 	i_zero(&info);
 	info.mech = mech;
-	info.protocol = input->info.service;
+	info.protocol = input->info.protocol;
 	info.session_id = input->info.session_id;
 	info.local_name = input->info.local_name;
 	info.local_ip = input->info.local_ip;
@@ -348,7 +348,7 @@ auth_user_info_parse_arg(struct auth_user_info *info, const char *arg,
 	const char *key, *value;
 
 	if (str_begins(arg, "service=", &value))
-		info->service = value;
+		info->protocol = value;
 	else if (str_begins(arg, "session=", &value))
 		info->session_id = value;
 	else if (str_begins(arg, "local_name=", &value))
@@ -450,7 +450,7 @@ static void cmd_auth_cache_flush(struct doveadm_cmd_context *cctx)
 static void authtest_input_init(struct authtest_input *input)
 {
 	i_zero(input);
-	input->info.service = "doveadm";
+	input->info.protocol = "doveadm";
 	input->info.debug = auth_want_log_debug();
 	/* start assuming any failure will be internal failure */
 	input->internal_failure = TRUE;
@@ -698,7 +698,7 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 	int ret;
 
 	i_zero(&service_input);
-	service_input.service = input->info.service;
+	service_input.service = input->info.protocol;
 	service_input.username = input->username;
 	service_input.local_ip = input->info.local_ip;
 	service_input.local_port = input->info.local_port;

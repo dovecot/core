@@ -13,7 +13,7 @@ enum auth_master_flags {
 };
 
 struct auth_user_info {
-	const char *service;
+	const char *protocol;
 	const char *session_id;
 	const char *local_name;
 	struct ip_addr local_ip, remote_ip, real_local_ip, real_remote_ip;

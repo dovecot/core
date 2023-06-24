@@ -1137,7 +1137,7 @@ test_client_passdb_lookup_simple(const char *username, bool retry,
 	int ret;
 
 	i_zero(&info);
-	info.service = "test";
+	info.protocol = "test";
 	info.debug = debug;
 
 	if (debug)
@@ -1174,7 +1174,7 @@ test_client_userdb_lookup_simple(const char *username, bool retry,
 	int ret;
 
 	i_zero(&info);
-	info.service = "test";
+	info.protocol = "test";
 	info.debug = debug;
 
 	if (debug)
@@ -1207,7 +1207,7 @@ static int test_client_user_list_simple(void)
 	int ret;
 
 	i_zero(&info);
-	info.service = "test";
+	info.protocol = "test";
 	info.debug = debug;
 
 	if (debug)
