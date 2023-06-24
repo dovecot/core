@@ -617,7 +617,7 @@ static int master_input_list(struct auth_master_connection *conn,
 	if (auth_request->fields.user == NULL)
 		auth_request_set_username_forced(auth_request, "");
 	if (auth_request->fields.protocol == NULL) {
-		if (!auth_request_import(auth_request, "service", ""))
+		if (!auth_request_import(auth_request, "protocol", ""))
 			i_unreached();
 		i_assert(auth_request->fields.protocol != NULL);
 	}

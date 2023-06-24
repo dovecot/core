@@ -15,7 +15,7 @@ static const struct test_auth_request_field auth_request_field_names[] = {
 	/* use the order in auth_request_export() */
 #define PREFIX "\t\r\n\001prefix-"
 	{ "user", "user", PREFIX"testuser" },
-	{ "service", "protocol", PREFIX"testservice" },
+	{ "protocol", "protocol", PREFIX"testprotocol" },
 	{ "master-user", "master_user", PREFIX"testmasteruser" },
 	{ "original-username", "original_user", PREFIX"testoriguser" },
 	{ "requested-login-user", "login_user", PREFIX"testloginuser" },
@@ -106,7 +106,7 @@ test_auth_request_export_cmp(struct auth_request *request,
 			     const char *key, const char *value)
 {
 	string_t *exported = t_str_new(128);
-	str_append(exported, "user=user\tservice=protocol\toriginal-username=user\t");
+	str_append(exported, "user=user\tprotocol=protocol\toriginal-username=user\t");
 	str_append(exported, key);
 	if (value[0] != '\0') {
 		str_append_c(exported, '=');

@@ -26,7 +26,7 @@ auth_server_send_new_request(struct auth_client_connection *conn,
 	str = t_str_new(512);
 	str_printfa(str, "AUTH\t%u\t", request->id);
 	str_append_tabescaped(str, info->mech);
-	str_append(str, "\tservice=");
+	str_append(str, "\tprotocol=");
 	str_append_tabescaped(str, info->protocol);
 
 	event_add_str(request->event, "mechanism", info->mech);
