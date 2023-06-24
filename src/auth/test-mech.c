@@ -87,7 +87,7 @@ static void test_mech_prepare_request(struct auth_request **request_r,
 				      const struct test_case *test_case)
 {
 	test_auth_set.ssl_username_from_cert = test_case->set_cert_username;
-	struct auth *auth = auth_default_service();
+	struct auth *auth = auth_default_protocol();
 
 	struct auth_request *request = auth_request_new(mech,  NULL);
 	request->handler = handler;

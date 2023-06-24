@@ -214,7 +214,7 @@ void auth_request_init(struct auth_request *request)
 
 struct auth *auth_request_get_auth(struct auth_request *request)
 {
-	return auth_find_service(request->fields.service);
+	return auth_find_protocol(request->fields.service);
 }
 
 void auth_request_success(struct auth_request *request,
@@ -2307,7 +2307,7 @@ auth_request_proxy_host_lookup(struct auth_request *request,
 			       const char *host,
 			       auth_request_proxy_cb_t *callback)
 {
-	struct auth *auth = auth_default_service();
+	struct auth *auth = auth_default_protocol();
 	struct event *proxy_event;
 	struct auth_request_proxy_dns_lookup_ctx *ctx;
 	const char *value;

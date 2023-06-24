@@ -253,7 +253,7 @@ static void auth_mech_list_verify_passdb(const struct auth *auth)
 }
 
 static struct auth * ATTR_NULL(2)
-auth_preinit(const struct auth_settings *set, const char *service,
+auth_preinit(const struct auth_settings *set, const char *protocol,
 	     const struct mechanisms_register *reg)
 {
 	const struct auth_passdb_settings *const *passdbs;
@@ -264,7 +264,7 @@ auth_preinit(const struct auth_settings *set, const char *service,
 	pool_t pool = pool_alloconly_create("auth", 128);
 	auth = p_new(pool, struct auth, 1);
 	auth->pool = pool;
-	auth->service = p_strdup(pool, service);
+	auth->protocol = p_strdup(pool, protocol);
 	auth->set = set;
 	pool_ref(set->pool);
 	auth->reg = reg;
@@ -371,7 +371,7 @@ static void auth_deinit(struct auth *auth)
 	dns_client_deinit(&auth->dns_client);
 }
 
-struct auth *auth_find_service(const char *name)
+struct auth *auth_find_protocol(const char *name)
 {
 	struct auth *const *a;
 	unsigned int i, count;
@@ -379,20 +379,20 @@ struct auth *auth_find_service(const char *name)
 	a = array_get(&auths, &count);
 	if (name != NULL) {
 		for (i = 1; i < count; i++) {
-			if (strcmp(a[i]->service, name) == 0)
+			if (strcmp(a[i]->protocol, name) == 0)
 				return a[i];
 		}
-		/* not found. maybe we can instead find a !service */
+		/* not found. maybe we can instead find a !protocol */
 		for (i = 1; i < count; i++) {
-			if (a[i]->service[0] == '!' &&
-			    strcmp(a[i]->service + 1, name) != 0)
+			if (a[i]->protocol[0] == '!' &&
+			    strcmp(a[i]->protocol + 1, name) != 0)
 				return a[i];
 		}
 	}
 	return a[0];
 }
 
-struct auth *auth_default_service(void)
+struct auth *auth_default_protocol(void)
 {
 	struct auth *const *a;
 	unsigned int count;
@@ -403,12 +403,12 @@ struct auth *auth_default_service(void)
 
 void auths_preinit(const struct auth_settings *set,
 		   const struct mechanisms_register *reg,
-		   const char *const *services)
+		   const char *const *protocols)
 {
-	const struct auth_settings *service_set;
+	const struct auth_settings *protocol_set;
 	struct auth *auth;
 	unsigned int i;
-	const char *not_service = NULL;
+	const char *not_protocol = NULL;
 	bool check_default = TRUE;
 
 	auth_event = event_create(NULL);
@@ -419,26 +419,26 @@ void auths_preinit(const struct auth_settings *set,
 	auth = auth_preinit(set, NULL, reg);
 	array_push_back(&auths, &auth);
 
-	for (i = 0; services[i] != NULL; i++) {
-		if (services[i][0] == '!') {
-			if (not_service != NULL) {
-				i_fatal("Can't have multiple protocol "
-					"!services (seen %s and %s)",
-					not_service, services[i]);
+	for (i = 0; protocols[i] != NULL; i++) {
+		if (protocols[i][0] == '!') {
+			if (not_protocol != NULL) {
+				i_fatal("Can't have multiple !protocols "
+					"(seen %s and %s)",
+					not_protocol, protocols[i]);
 			}
-			not_service = services[i];
+			not_protocol = protocols[i];
 		}
-		service_set = auth_settings_get(services[i]);
-		auth = auth_preinit(service_set, services[i], reg);
+		protocol_set = auth_settings_get(protocols[i]);
+		auth = auth_preinit(protocol_set, protocols[i], reg);
 		array_push_back(&auths, &auth);
-		settings_free(service_set);
+		settings_free(protocol_set);
 	}
 
-	if (not_service != NULL && str_array_find(services, not_service+1))
+	if (not_protocol != NULL && str_array_find(protocols, not_protocol+1))
 		check_default = FALSE;
 
 	array_foreach_elem(&auths, auth) {
-		if (auth->service != NULL || check_default)
+		if (auth->protocol != NULL || check_default)
 			auth_mech_list_verify_passdb(auth);
 	}
 }
