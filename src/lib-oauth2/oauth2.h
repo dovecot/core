@@ -66,7 +66,7 @@ struct oauth2_request_result {
 
 struct oauth2_request_input {
 	const char *token;
-	const char *service;
+	const char *protocol;
 	struct ip_addr local_ip, real_local_ip, remote_ip, real_remote_ip;
 	in_port_t local_port, real_local_port, remote_port, real_remote_port;
 };

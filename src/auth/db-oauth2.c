@@ -729,7 +729,7 @@ static void db_oauth2_lookup_introspect(struct db_oauth2_request *req)
 	input.real_local_port = req->auth_request->fields.real_local_port;
 	input.real_remote_ip = req->auth_request->fields.real_remote_ip;
 	input.real_remote_port = req->auth_request->fields.real_remote_port;
-	input.service = req->auth_request->fields.service;
+	input.protocol = req->auth_request->fields.service;
 
 	req->req = oauth2_introspection_start(&req->db->oauth2_set, &input,
 					      db_oauth2_introspect_continue, req);
@@ -874,7 +874,7 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 	input.real_local_port = req->auth_request->fields.real_local_port;
 	input.real_remote_ip = req->auth_request->fields.real_remote_ip;
 	input.real_remote_port = req->auth_request->fields.real_remote_port;
-	input.service = req->auth_request->fields.service;
+	input.protocol = req->auth_request->fields.service;
 
 	if (db->oauth2_set.introspection_mode == INTROSPECTION_MODE_LOCAL &&
 	    !db_oauth2_uses_password_grant(db)) {
