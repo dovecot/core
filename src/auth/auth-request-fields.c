@@ -140,7 +140,7 @@ bool auth_request_import_info(struct auth_request *request,
 	/* authentication and user lookups may set these */
 	if (strcmp(key, "service") == 0) {
 		fields->protocol = p_strdup(request->pool, value);
-		event_add_str(event, "service", value);
+		event_add_str(event, "protocol", value);
 	} else if (strcmp(key, "lip") == 0) {
 		if (net_addr2ip(value, &fields->local_ip) < 0)
 			return TRUE;
