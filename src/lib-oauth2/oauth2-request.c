@@ -196,9 +196,9 @@ oauth2_request_set_headers(struct oauth2_request *req,
 {
 	if (!req->set->send_auth_headers)
 		return;
-	if (input->service != NULL) {
+	if (input->protocol != NULL) {
 		http_client_request_add_header(
-			req->req, "X-Dovecot-Auth-Service", input->service);
+			req->req, "X-Dovecot-Auth-Service", input->protocol);
 	}
 	if (input->local_ip.family != 0) {
 		http_client_request_add_header(
