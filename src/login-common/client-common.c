@@ -1004,7 +1004,7 @@ static struct var_expand_table login_var_expand_empty_tab[] = {
 	{ 'n', NULL, "username" },
 	{ 'd', NULL, "domain" },
 
-	{ 's', NULL, "service" },
+	{ '\0', NULL, "protocol" },
 	{ 'h', NULL, "home" },
 	{ 'l', NULL, "lip" },
 	{ 'r', NULL, "rip" },
