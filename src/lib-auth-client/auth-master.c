@@ -598,7 +598,7 @@ auth_master_user_event_create(struct auth_master_connection *conn,
 
 	if (info != NULL) {
 		if (info->service != NULL)
-			event_add_str(conn->event, "service", info->service);
+			event_add_str(conn->event, "protocol", info->service);
 		if (info->session_id != NULL)
 			event_add_str(conn->event, "session", info->session_id);
 		if (info->local_name != NULL)

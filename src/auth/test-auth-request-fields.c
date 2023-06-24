@@ -15,7 +15,7 @@ static const struct test_auth_request_field auth_request_field_names[] = {
 	/* use the order in auth_request_export() */
 #define PREFIX "\t\r\n\001prefix-"
 	{ "user", "user", PREFIX"testuser" },
-	{ "service", "service", PREFIX"testservice" },
+	{ "service", "protocol", PREFIX"testservice" },
 	{ "master-user", "master_user", PREFIX"testmasteruser" },
 	{ "original-username", "original_user", PREFIX"testoriguser" },
 	{ "requested-login-user", "login_user", PREFIX"testloginuser" },
