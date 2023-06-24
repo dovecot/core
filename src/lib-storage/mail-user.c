@@ -436,7 +436,7 @@ static int mail_user_userdb_lookup_home(struct mail_user *user)
 	i_assert(!user->home_looked_up);
 
 	i_zero(&info);
-	info.service = user->service;
+	info.protocol = user->service;
 	if (user->conn.local_ip != NULL)
 		info.local_ip = *user->conn.local_ip;
 	if (user->conn.remote_ip != NULL)

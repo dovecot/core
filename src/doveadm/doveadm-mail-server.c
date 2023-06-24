@@ -123,7 +123,7 @@ int doveadm_cmd_pass_lookup(struct doveadm_mail_cmd_context *ctx,
 	mail_storage_service_init_settings(ctx->storage_service, &input);
 
 	i_zero(&info);
-	info.service = master_service_get_name(master_service);
+	info.protocol = master_service_get_name(master_service);
 	info.local_ip = ctx->cctx->local_ip;
 	info.remote_ip = ctx->cctx->remote_ip;
 	info.local_port = ctx->cctx->local_port;

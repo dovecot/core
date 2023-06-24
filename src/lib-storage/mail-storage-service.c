@@ -235,7 +235,7 @@ service_auth_userdb_lookup(struct mail_storage_service_ctx *ctx,
 	int ret;
 
 	i_zero(&info);
-	info.service = input->service != NULL ? input->service :
+	info.protocol = input->service != NULL ? input->service :
 		ctx->service->name;
 	info.local_ip = input->local_ip;
 	info.remote_ip = input->remote_ip;

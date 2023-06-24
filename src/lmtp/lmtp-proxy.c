@@ -678,7 +678,7 @@ lmtp_proxy_rcpt_init_auth_user_info(struct lmtp_recipient *lrcpt,
 	struct client *client = lrcpt->client;
 
 	i_zero(info_r);
-	info_r->service = master_service_get_name(master_service);
+	info_r->protocol = master_service_get_name(master_service);
 	info_r->local_ip = client->local_ip;
 	info_r->real_local_ip = client->real_local_ip;
 	info_r->remote_ip = client->remote_ip;

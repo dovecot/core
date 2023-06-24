@@ -120,7 +120,7 @@ static void auth_user_info_parse(struct auth_user_info *info, const char *arg)
 	const char *value;
 
 	if (str_begins(arg, "service=", &value))
-		info->service = value;
+		info->protocol = value;
 	else if (str_begins(arg, "lip=", &value)) {
 		if (net_addr2ip(value, &info->local_ip) < 0)
 			i_fatal("lip: Invalid ip");
@@ -267,7 +267,7 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 	int ret;
 
 	i_zero(&service_input);
-	service_input.service = input->info.service;
+	service_input.service = input->info.protocol;
 	service_input.username = input->username;
 	service_input.local_ip = input->info.local_ip;
 	service_input.local_port = input->info.local_port;

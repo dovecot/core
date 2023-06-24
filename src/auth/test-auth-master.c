@@ -34,7 +34,7 @@ static void test_auth_master(void)
 	pool_t pool = pool_alloconly_create("test pool", 128);
 	struct auth_user_info info = {
 		.session_id = "1",
-		.service = "default",
+		.protocol = "default",
 	};
 	const char *const *fields;
 	const char *username;
