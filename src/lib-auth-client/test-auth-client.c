@@ -1001,7 +1001,7 @@ test_client_auth_parallel(const char *mech, const char *username,
 
 	i_zero(&info);
 	info.mech = mech;
-	info.service = "test";
+	info.protocol = "test";
 	info.session_id = "23423dfd243daaa223";
 	info.flags = AUTH_REQUEST_FLAG_CONN_SECURED;
 

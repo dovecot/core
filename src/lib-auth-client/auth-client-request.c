@@ -27,10 +27,10 @@ auth_server_send_new_request(struct auth_client_connection *conn,
 	str_printfa(str, "AUTH\t%u\t", request->id);
 	str_append_tabescaped(str, info->mech);
 	str_append(str, "\tservice=");
-	str_append_tabescaped(str, info->service);
+	str_append_tabescaped(str, info->protocol);
 
 	event_add_str(request->event, "mechanism", info->mech);
-	event_add_str(request->event, "protocol", info->service);
+	event_add_str(request->event, "protocol", info->protocol);
 
 	str_append(str, "\tfinal-resp-ok");
 	if ((info->flags & AUTH_REQUEST_FLAG_CONN_SECURED) != 0) {
