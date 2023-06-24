@@ -119,7 +119,8 @@ static void auth_user_info_parse(struct auth_user_info *info, const char *arg)
 {
 	const char *value;
 
-	if (str_begins(arg, "service=", &value))
+	if (str_begins(arg, "service=", &value) ||
+	    str_begins(arg, "protocol=", &value))
 		info->protocol = value;
 	else if (str_begins(arg, "lip=", &value)) {
 		if (net_addr2ip(value, &info->local_ip) < 0)

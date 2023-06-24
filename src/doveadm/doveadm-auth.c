@@ -347,7 +347,8 @@ auth_user_info_parse_arg(struct auth_user_info *info, const char *arg,
 {
 	const char *key, *value;
 
-	if (str_begins(arg, "service=", &value))
+	if (str_begins(arg, "service=", &value) ||
+	    str_begins(arg, "protocol=", &value))
 		info->protocol = value;
 	else if (str_begins(arg, "session=", &value))
 		info->session_id = value;
