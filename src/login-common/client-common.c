@@ -267,7 +267,7 @@ int client_alloc(int fd, const struct master_service_connection *conn,
 	event_add_int(client->event, "local_port", conn->local_port);
 	event_add_ip(client->event, "remote_ip", &conn->remote_ip);
 	event_add_int(client->event, "remote_port", conn->remote_port);
-	event_add_str(client->event, "service", login_binary->protocol);
+	event_add_str(client->event, "protocol", login_binary->protocol);
 
 	/* Get settings before using log callback */
 	event_set_ptr(client->event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK,
