@@ -82,11 +82,12 @@ static bool test_empty_request(string_t *str, const char *input)
 
 static void test_auth_request_var_expand_shortlong(void)
 {
+	/* %{protocol} has no short option */
 	static const char *test_input_short =
-		"%u\n%n\n%d\n%s\n%h\n%l\n%r\n%l\n%r\n%p\n%w\n%m\n%c\n"
+		"%u\n%n\n%d\n%{protocol}\n%h\n%l\n%r\n%l\n%r\n%p\n%w\n%m\n%c\n"
 		"%a\n%b\n%a\n%b\n%k\n";
 	static const char *test_input_long =
-		"%{user}\n%{username}\n%{domain}\n%{service}\n%{home}\n"
+		"%{user}\n%{username}\n%{domain}\n%{protocol}\n%{home}\n"
 		"%{lip}\n%{rip}\n%{local_ip}\n%{remote_ip}\n"
 		"%{client_pid}\n%{password}\n%{mech}\n%{secured}\n"
 		"%{lport}\n%{rport}\n%{local_port}\n%{remote_port}\n%{cert}\n";
