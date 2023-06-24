@@ -58,7 +58,7 @@ test_auth_request_init(const struct mech_module *mech)
 	/* fill out fields that are always exported */
 	request->fields.user = "user";
 	request->fields.original_username = "user";
-	request->fields.service = "service";
+	request->fields.protocol = "protocol";
 	return request;
 }
 
@@ -106,7 +106,7 @@ test_auth_request_export_cmp(struct auth_request *request,
 			     const char *key, const char *value)
 {
 	string_t *exported = t_str_new(128);
-	str_append(exported, "user=user\tservice=service\toriginal-username=user\t");
+	str_append(exported, "user=user\tservice=protocol\toriginal-username=user\t");
 	str_append(exported, key);
 	if (value[0] != '\0') {
 		str_append_c(exported, '=');

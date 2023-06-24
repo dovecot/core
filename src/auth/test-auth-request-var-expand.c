@@ -24,7 +24,7 @@ static struct auth_userdb test_auth_userdb = {
 static struct auth_request default_test_request = {
 	.fields = {
 		.user = "-user@+domain1@+domain2",
-		.service = "-service",
+		.protocol = "-protocol",
 		.local_ip = { .family = AF_INET },
 		.remote_ip = { .family = AF_INET },
 		.mech_name = "-mech",
@@ -92,7 +92,7 @@ static void test_auth_request_var_expand_shortlong(void)
 		"%{lport}\n%{rport}\n%{local_port}\n%{remote_port}\n%{cert}\n";
 	static const char *test_output =
 		/* %{home} is intentionally always expanding to empty */
-		"+user@+domain1@+domain2\n+user\n+domain1@+domain2\n+service\n\n"
+		"+user@+domain1@+domain2\n+user\n+domain1@+domain2\n+protocol\n\n"
 		"7.91.205.21\n73.150.2.210\n7.91.205.21\n73.150.2.210\n"
 		"54321\n+password\n+mech\nsecured\n"
 		"21\n210\n21\n210\nvalid\n";

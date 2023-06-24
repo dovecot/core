@@ -214,7 +214,7 @@ void auth_request_init(struct auth_request *request)
 
 struct auth *auth_request_get_auth(struct auth_request *request)
 {
-	return auth_find_protocol(request->fields.service);
+	return auth_find_protocol(request->fields.protocol);
 }
 
 void auth_request_success(struct auth_request *request,

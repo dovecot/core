@@ -147,12 +147,12 @@ obtain_service_credentials(struct auth_request *request, gss_cred_id_t *ret_r)
 		return GSS_S_COMPLETE;
 	}
 
-	if (strcasecmp(request->fields.service, "POP3") == 0) {
+	if (strcasecmp(request->fields.protocol, "POP3") == 0) {
 		/* The standard POP3 service name with GSSAPI is called
 		   just "pop". */
 		service_name = "pop";
 	} else {
-		service_name = t_str_lcase(request->fields.service);
+		service_name = t_str_lcase(request->fields.protocol);
 	}
 
 	principal_name = t_str_new(128);
