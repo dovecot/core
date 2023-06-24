@@ -529,7 +529,7 @@ void auth_user_info_export(string_t *str, const struct auth_user_info *info)
 	const char *const *fieldp;
 
 	if (info->protocol != NULL) {
-		str_append(str, "\tservice=");
+		str_append(str, "\tprotocol=");
 		str_append(str, info->protocol);
 	}
 	if (info->session_id != NULL) {

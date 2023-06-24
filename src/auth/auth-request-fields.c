@@ -55,7 +55,7 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 	str_append(dest, "user=");
 	str_append_tabescaped(dest, fields->user);
 
-	auth_str_add_keyvalue(dest, "service", fields->protocol);
+	auth_str_add_keyvalue(dest, "protocol", fields->protocol);
 
 	if (fields->master_user != NULL)
 		auth_str_add_keyvalue(dest, "master-user", fields->master_user);
@@ -138,7 +138,8 @@ bool auth_request_import_info(struct auth_request *request,
 	i_assert(value != NULL);
 
 	/* authentication and user lookups may set these */
-	if (strcmp(key, "service") == 0) {
+	if (strcmp(key, "protocol") == 0 ||
+	    strcmp(key, "service") == 0) { /* FIXME: backwards compatibility */
 		fields->protocol = p_strdup(request->pool, value);
 		event_add_str(event, "protocol", value);
 	} else if (strcmp(key, "lip") == 0) {
