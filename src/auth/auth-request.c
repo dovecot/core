@@ -668,21 +668,16 @@ auth_request_cache_result_to_str(enum auth_request_cache_result result)
 void auth_request_passdb_lookup_begin(struct auth_request *request)
 {
 	struct event *event;
-	const char *name;
 
 	i_assert(request->passdb != NULL);
 	i_assert(!request->userdb_lookup);
 
 	request->passdb_cache_result = AUTH_REQUEST_CACHE_NONE;
 
-	name = (request->passdb->set->name[0] != '\0' ?
-		request->passdb->set->name :
-		request->passdb->passdb->iface.name);
-
 	event = event_create(request->event);
+	event_add_str(event, "passdb", request->passdb->set->name);
 	event_add_str(event, "passdb_id", dec2str(request->passdb->passdb->id));
-	event_add_str(event, "passdb_name", name);
-	event_add_str(event, "passdb", request->passdb->passdb->iface.name);
+	event_add_str(event, "passdb_driver", request->passdb->passdb->iface.name);
 	event_set_log_prefix_callback(event, FALSE,
 		auth_request_get_log_prefix_db, request);
 
@@ -721,21 +716,16 @@ void auth_request_passdb_lookup_end(struct auth_request *request,
 void auth_request_userdb_lookup_begin(struct auth_request *request)
 {
 	struct event *event;
-	const char *name;
 
 	i_assert(request->userdb != NULL);
 	i_assert(request->userdb_lookup);
 
 	request->userdb_cache_result = AUTH_REQUEST_CACHE_NONE;
 
-	name = (request->userdb->set->name[0] != '\0' ?
-		request->userdb->set->name :
-		request->userdb->userdb->iface->name);
-
 	event = event_create(request->event);
+	event_add_str(event, "userdb", request->userdb->set->name);
 	event_add_str(event, "userdb_id", dec2str(request->userdb->userdb->id));
-	event_add_str(event, "userdb_name", name);
-	event_add_str(event, "userdb", request->userdb->userdb->iface->name);
+	event_add_str(event, "userdb_driver", request->userdb->userdb->iface->name);
 	event_set_log_prefix_callback(event, FALSE,
 		auth_request_get_log_prefix_db, request);
 
