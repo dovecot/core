@@ -514,7 +514,7 @@ ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 	const char *ca_file, *ca_dir;
 	bool have_ca = FALSE;
 
-	if (set->ca != NULL) {
+	if (set->ca != NULL && set->ca[0] != '\0') {
 		store = SSL_CTX_get_cert_store(ctx->ssl_ctx);
 		if (load_ca(store, set->ca, &xnames) < 0) {
 			*error_r = t_strdup_printf("Couldn't parse ssl_ca: %s",
@@ -567,7 +567,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			set->curve_list);
 		return -1;
 	}
-	if (set->ciphersuites != NULL &&
+	if (set->ciphersuites != NULL && set->ciphersuites[0] != '\0' &&
 	    SSL_CTX_set_ciphersuites(ctx->ssl_ctx, set->ciphersuites) == 0) {
 		*error_r = t_strdup_printf("Can't set ciphersuites to '%s': %s",
 			set->ciphersuites, openssl_iostream_error());
@@ -590,18 +590,21 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 		SSL_CTX_set_min_proto_version(ctx->ssl_ctx, min_protocol);
 	}
 
+	/* Client can ignore an empty ssl_client_cert, but server will fail
+	   if ssl_cert is empty. */
 	if (set->cert.cert != NULL &&
+	    (set->cert.cert[0] != '\0' || !ctx->client_ctx) &&
 	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->cert.cert) == 0) {
 		*error_r = t_strdup_printf(
 			"Can't load SSL certificate (ssl_cert setting): %s",
 			openssl_iostream_use_certificate_error(set->cert.cert, NULL));
 		return -1;
 	}
-	if (set->cert.key != NULL) {
+	if (set->cert.key != NULL && set->cert.key[0] != '\0') {
 		if (ssl_iostream_ctx_use_key(ctx, "ssl_key", &set->cert, error_r) < 0)
 			return -1;
 	}
-	if (set->alt_cert.cert != NULL &&
+	if (set->alt_cert.cert != NULL && set->alt_cert.cert[0] != '\0' &&
 	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->alt_cert.cert) == 0) {
 		*error_r = t_strdup_printf(
 			"Can't load alternative SSL certificate "
@@ -609,7 +612,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			openssl_iostream_use_certificate_error(set->alt_cert.cert, NULL));
 		return -1;
 	}
-	if (set->alt_cert.key != NULL) {
+	if (set->alt_cert.key != NULL && set->alt_cert.key[0] != '\0') {
 		if (ssl_iostream_ctx_use_key(ctx, "ssl_alt_key", &set->alt_cert, error_r) < 0)
 			return -1;
 	}
