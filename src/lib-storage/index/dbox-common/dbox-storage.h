@@ -77,7 +77,7 @@ int dbox_mailbox_check_existence(struct mailbox *box);
 int dbox_mailbox_open(struct mailbox *box);
 void dbox_mailbox_close(struct mailbox *box);
 void dbox_mailbox_close_cleanup(struct mailbox *box);
-int dbox_mailbox_list_cleanup(struct mailbox_list *list, const char *path,
+int dbox_mailbox_list_cleanup(struct mail_user *user, const char *path,
 			      time_t last_temp_file_scan);
 int dbox_mailbox_create(struct mailbox *box,
 			const struct mailbox_update *update, bool directory);
