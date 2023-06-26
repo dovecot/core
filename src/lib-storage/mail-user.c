@@ -436,7 +436,7 @@ static int mail_user_userdb_lookup_home(struct mail_user *user)
 	i_assert(!user->home_looked_up);
 
 	i_zero(&info);
-	info.protocol = user->service;
+	info.protocol = user->protocol;
 	if (user->conn.local_ip != NULL)
 		info.local_ip = *user->conn.local_ip;
 	if (user->conn.remote_ip != NULL)
@@ -738,6 +738,7 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 	user2->gid = user->gid;
 	user2->anonymous = user->anonymous;
 	user2->admin = user->admin;
+	user2->protocol = p_strdup(user2->pool, user->protocol);
 	user2->auth_mech = p_strdup(user2->pool, user->auth_mech);
 	user2->auth_token = p_strdup(user2->pool, user->auth_token);
 	user2->auth_user = p_strdup(user2->pool, user->auth_user);

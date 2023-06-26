@@ -38,7 +38,10 @@ enum mail_storage_service_flags {
 struct mail_storage_service_input {
 	struct event *event_parent;
 
+	/* service name - NULL defaults to master_service_get_name() */
 	const char *service;
+	/* protocol name - defaults to service name */
+	const char *protocol;
 	const char *username;
 	/* If set, use this string as the session ID */
 	const char *session_id;
