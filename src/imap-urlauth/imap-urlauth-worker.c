@@ -542,6 +542,7 @@ client_handle_user_command(struct client *client, const char *cmd,
 	/* lookup user */
 	i_zero(&input);
 	input.service = "imap-urlauth-worker";
+	input.protocol = "imap";
 	input.username = args[0];
 	input.event_parent = client->event;
 
