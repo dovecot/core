@@ -361,6 +361,7 @@ get_var_expand_table(struct master_service *service,
 		{ '\0', auth_domain, "auth_domain" },
 		{ '\0', hostname, "hostname" },
 		{ '\0', local_name, "local_name" },
+		{ '\0', protocol, "protocol" },
 		/* aliases: */
 		{ '\0', net_ip2addr(&input->local_ip), "local_ip" },
 		{ '\0', net_ip2addr(&input->remote_ip), "remote_ip" },
