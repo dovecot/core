@@ -264,6 +264,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 		mail_storage_service_user_get_settings_instance(user->service_user);
 	const struct mail_storage_service_input input = {
 		.event_parent = event_get_parent(service_user_event),
+		.service = user->service,
 		.username = userdomain,
 		.set_instance = service_user_set_instance,
 		.session_id = user->session_id,
