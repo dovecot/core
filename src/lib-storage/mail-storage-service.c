@@ -235,8 +235,15 @@ service_auth_userdb_lookup(struct mail_storage_service_ctx *ctx,
 	int ret;
 
 	i_zero(&info);
-	info.protocol = input->service != NULL ? input->service :
-		ctx->service->name;
+	/* If protocol was explicitly provided, use it. Otherwise, fallback to
+	   using service name as the protocol. Outside a few special cases
+	   (e.g. imap-urlauth-worker) the service and protocol are the same. */
+	if (input->protocol != NULL)
+		info.protocol = input->protocol;
+	else if (input->service != NULL)
+		info.protocol = input->service;
+	else
+		info.protocol = ctx->service->name;
 	info.local_ip = input->local_ip;
 	info.remote_ip = input->remote_ip;
 	info.local_port = input->local_port;
@@ -327,6 +334,8 @@ get_var_expand_table(struct master_service *service,
 
 	const char *service_name = input->service != NULL ?
 				   input->service : service->name;
+	const char *protocol = input->protocol != NULL ?
+		input->protocol : service_name;
 	const char *hostname = user != NULL ?
 		user->user_set->hostname : my_hostname;
 	const char *local_port = "";
@@ -592,6 +601,9 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	mail_user->gid = priv->gid == (gid_t)-1 ? getegid() : priv->gid;
 	mail_user->anonymous = user->anonymous;
 	mail_user->admin = user->admin;
+	mail_user->protocol = user->input.protocol != NULL ?
+		p_strdup(mail_user->pool, user->input.protocol) :
+		mail_user->service;
 	mail_user->auth_mech = p_strdup(mail_user->pool, user->auth_mech);
 	mail_user->auth_token = p_strdup(mail_user->pool, user->auth_token);
 	mail_user->auth_user = p_strdup(mail_user->pool, user->auth_user);

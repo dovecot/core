@@ -277,7 +277,7 @@ imap_urlauth_verify_url_userid(struct imap_urlauth_context *uctx,
 		return 1;
 
 	i_zero(&info);
-	info.protocol = user->service;
+	info.protocol = user->protocol;
 	if (user->conn.local_ip != NULL)
 		info.local_ip = *user->conn.local_ip;
 	if (user->conn.remote_ip != NULL)

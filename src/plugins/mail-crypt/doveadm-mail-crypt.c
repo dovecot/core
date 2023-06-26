@@ -89,6 +89,7 @@ mcp_user_create(struct mail_user *user, const char *dest_username,
 
 	i_zero(&input);
 	input.service = old_input->service;
+	input.protocol = old_input->protocol;
 	input.username = dest_username;
 	input.session_id_prefix = user->session_id;
 	input.flags_override_add = MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS |

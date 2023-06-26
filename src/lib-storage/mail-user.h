@@ -44,6 +44,7 @@ struct mail_user {
 	uid_t uid;
 	gid_t gid;
 	const char *service;
+	const char *protocol;
 	const char *session_id;
 	struct mail_user_connection_data conn;
 	const char *auth_mech, *auth_token, *auth_user;
