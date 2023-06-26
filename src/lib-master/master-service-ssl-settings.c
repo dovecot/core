@@ -21,11 +21,13 @@ static const struct setting_define master_service_ssl_setting_defines[] = {
 	DEF(STR, ssl_client_ca_dir),
 	DEF(STR, ssl_client_cert),
 	DEF(STR, ssl_client_key),
+
 	DEF(STR, ssl_cipher_list),
 	DEF(STR, ssl_cipher_suites),
 	DEF(STR, ssl_curve_list),
 	DEF(STR, ssl_min_protocol),
 	DEF(STR, ssl_crypto_device),
+
 	DEF(BOOL, ssl_client_require_valid_cert),
 	DEF(BOOL, verbose_ssl),
 	DEF(STR, ssl_options), /* parsed as a string to set bools */
@@ -39,11 +41,13 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 	.ssl_client_ca_dir = "",
 	.ssl_client_cert = "",
 	.ssl_client_key = "",
+
 	.ssl_cipher_list = "ALL:!kRSA:!SRP:!kDHd:!DSS:!aNULL:!eNULL:!EXPORT:!DES:!3DES:!MD5:!PSK:!RC4:!ADH:!LOW@STRENGTH",
 	.ssl_cipher_suites = "", /* Use TLS library provided value */
 	.ssl_curve_list = "",
 	.ssl_min_protocol = "TLSv1.2",
 	.ssl_crypto_device = "",
+
 	.ssl_client_require_valid_cert = TRUE,
 	.verbose_ssl = FALSE,
 	.ssl_options = "",
