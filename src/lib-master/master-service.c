@@ -646,6 +646,7 @@ int master_getopt(struct master_service *service)
 		if (!master_service_parse_option(service, c, optarg))
 			break;
 	}
+	i_assert(c != 0);
 	return c;
 }
 
@@ -667,6 +668,8 @@ master_getopt_long(struct master_service *service, const char **longopt_r)
 	}
 	if (longopt_idx >= 0)
 		*longopt_r = service->longopts[longopt_idx].name;
+	else
+		i_assert(c != 0);
 	return c;
 }
 
