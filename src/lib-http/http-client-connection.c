@@ -570,7 +570,6 @@ void http_client_connection_claim_idle(struct http_client_connection *conn,
 		http_client_connection_detach_peer(conn);
 
 		conn->peer = peer;
-		conn->debug = peer->client->set.debug;
 		array_push_back(&peer->conns, &conn);
 	}
 }
@@ -1743,7 +1742,6 @@ http_client_connection_create(struct http_client_peer *peer)
 	conn->refcount = 1;
 	conn->ppool = ppool;
 	conn->peer = peer;
-	conn->debug = client->set.debug;
 	if (pshared->addr.type != HTTP_CLIENT_PEER_ADDR_RAW)
 		i_array_init(&conn->request_wait_list, 16);
 	conn->io_wait_timer = io_wait_timer_add_to(cctx->ioloop);
