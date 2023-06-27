@@ -396,15 +396,17 @@ int main(int argc, char *argv[])
 	http_set.request_timeout_msecs = 10*1000;
 	http_set.max_attempts = 1;
 	http_set.rawlog_dir = "/tmp/http-test";
-	http_set.event_parent = event_create(NULL);
-	event_set_forced_debug(http_set.event_parent, TRUE);
 
 	http_cctx = http_client_context_create();
 
-	http_client1 = http_client_init_shared(http_cctx, &http_set);
-	http_client2 = http_client_init_shared(http_cctx, &http_set);
-	http_client3 = http_client_init_shared(http_cctx, &http_set);
-	http_client4 = http_client_init_shared(http_cctx, &http_set);
+	struct event *event = event_create(NULL);
+	event_set_forced_debug(event, TRUE);
+	http_client1 = http_client_init_shared(http_cctx, &http_set, event);
+	http_client2 = http_client_init_shared(http_cctx, &http_set, event);
+	http_client3 = http_client_init_shared(http_cctx, &http_set, event);
+	http_client4 = http_client_init_shared(http_cctx, &http_set, event);
+	event_unref(&event);
+
 	http_client_set_ssl_settings(http_client1, &ssl_set);
 	http_client_set_ssl_settings(http_client2, &ssl_set);
 	http_client_set_ssl_settings(http_client3, &ssl_set);
@@ -463,7 +465,6 @@ int main(int argc, char *argv[])
 	http_client_deinit(&http_client4);
 
 	http_client_context_unref(&http_cctx);
-	event_unref(&http_set.event_parent);
 
 	if (dns_client != NULL)
 		dns_client_deinit(&dns_client);

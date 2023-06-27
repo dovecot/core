@@ -137,7 +137,7 @@ test_client_invalid_url(const struct http_client_settings *client_set)
 	ctx = i_new(struct _invalid_url, 1);
 	ctx->count = 2;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request_url_str(
 		http_client, "GET", "imap://example.com/INBOX",
@@ -203,7 +203,7 @@ test_client_host_lookup_failed(const struct http_client_settings *client_set)
 	ctx = i_new(struct _host_lookup_failed, 1);
 	ctx->count = 2;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		http_client, "GET", "test.invalid.",
@@ -297,7 +297,7 @@ test_client_connection_refused(const struct http_client_settings *client_set)
 			test_client_connection_refused_timeout, ctx);
 	}
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		http_client, "GET", net_ip2addr(&bind_ip),
@@ -406,7 +406,7 @@ test_client_connection_lost_prematurely(
 	ctx->to = timeout_add_short(
 		250, test_client_connection_lost_prematurely_timeout, ctx);
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		http_client, "GET", net_ip2addr(&bind_ip),
@@ -475,7 +475,7 @@ test_client_connection_timed_out(const struct http_client_settings *client_set)
 	ctx = i_new(struct _connection_timed_out, 1);
 	ctx->count = 2;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		http_client, "GET", "192.168.0.0", "/connection-timed-out.txt",
@@ -590,7 +590,7 @@ test_client_invalid_redirect(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		http_client, "GET", net_ip2addr(&bind_ip),
@@ -676,7 +676,7 @@ test_client_unseekable_redirect(const struct http_client_settings *client_set)
 	struct http_client_request *hreq;
 	struct istream *input;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	input = i_stream_create_from_data("FROP", 4);
 	input->seekable = FALSE;
@@ -744,7 +744,7 @@ test_client_unseekable_retry(const struct http_client_settings *client_set)
 	struct http_client_request *hreq;
 	struct istream *input;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	input = i_stream_create_from_data("FROP", 4);
 	input->seekable = FALSE;
@@ -821,7 +821,7 @@ test_client_broken_payload(const struct http_client_settings *client_set)
 
 	test_expect_errors(1);
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	input = i_stream_create_error_str(EIO, "Moehahahaha!!");
 	i_stream_set_name(input, "PURE EVIL");
@@ -971,7 +971,7 @@ test_client_retry_payload(const struct http_client_settings *client_set)
 	ctx = i_new(struct _retry_payload_ctx, 1);
 	ctx->count = 1;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	input = i_stream_create_from_data(payload, sizeof(payload)-1);
 
@@ -1093,7 +1093,7 @@ test_client_connection_lost(const struct http_client_settings *client_set)
 	ctx = i_new(struct _connection_lost_ctx, 1);
 	ctx->count = 2;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	input = i_stream_create_from_data(payload, sizeof(payload)-1);
 
@@ -1219,7 +1219,7 @@ test_client_connection_lost_100(
 	ctx = i_new(struct _connection_lost_100_ctx, 1);
 	ctx->count = 2;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	input = i_stream_create_from_data(payload, sizeof(payload)-1);
 
@@ -1355,7 +1355,7 @@ test_client_connection_lost_sub_ioloop(
 	ctx = i_new(struct _connection_lost_sub_ioloop_ctx, 1);
 	ctx->count = 2;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	input = i_stream_create_from_data(payload, sizeof(payload)-1);
 
@@ -1460,7 +1460,7 @@ test_client_early_success(const struct http_client_settings *client_set)
 	ctx = i_new(struct _early_success_ctx, 1);
 	ctx->count = 2;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		http_client, "GET", net_ip2addr(&bind_ip),
@@ -1568,7 +1568,7 @@ test_client_bad_response(const struct http_client_settings *client_set)
 	ctx = i_new(struct _bad_response_ctx, 1);
 	ctx->count = 2;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		http_client, "GET", net_ip2addr(&bind_ip),
@@ -1648,7 +1648,7 @@ test_client_request_timed_out1(const struct http_client_settings *client_set)
 	ctx = i_new(struct _request_timed_out1_ctx, 1);
 	ctx->count = 2;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		http_client, "GET", net_ip2addr(&bind_ip),
@@ -1712,7 +1712,7 @@ test_client_request_timed_out2(const struct http_client_settings *client_set)
 	ctx->to = timeout_add(2000,
 		test_client_request_timed_out2_timeout, ctx);
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		http_client, "GET", net_ip2addr(&bind_ip),
@@ -1872,7 +1872,7 @@ test_client_request_aborted_early(const struct http_client_settings *client_set)
 
 	ctx = i_new(struct _request_aborted_early_ctx, 1);
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = ctx->req1 = http_client_request(
 		http_client, "GET", net_ip2addr(&bind_ip),
@@ -1963,7 +1963,7 @@ test_client_request_failed_blocking(
 
 	ctx = i_new(struct _request_failed_blocking_ctx, 1);
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = ctx->req = http_client_request(
 		http_client, "GET", net_ip2addr(&bind_ip),
@@ -2062,7 +2062,7 @@ test_client_client_deinit_early(const struct http_client_settings *client_set)
 
 	ctx = i_new(struct _client_deinit_early_ctx, 1);
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		http_client, "GET", net_ip2addr(&bind_ip),
@@ -2171,7 +2171,7 @@ test_client_retry_with_delay(const struct http_client_settings *client_set)
 	ctx = i_new(struct _client_retry_with_delay_ctx, 1);
 	ctx->time = ioloop_timeval;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	ctx->req = hreq = http_client_request(
 		http_client, "GET", net_ip2addr(&bind_ip),
@@ -2233,7 +2233,7 @@ test_client_dns_service_failure(const struct http_client_settings *client_set)
 	ctx = i_new(struct _dns_service_failure, 1);
 	ctx->count = 2;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		http_client, "GET", "example.com", "/dns-service-failure.txt",
@@ -2315,7 +2315,7 @@ test_client_dns_timeout(const struct http_client_settings *client_set)
 	ctx = i_new(struct _dns_timeout, 1);
 	ctx->count = 2;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		http_client, "GET", "example.com", "/dns-timeout.txt",
@@ -2404,7 +2404,7 @@ test_client_dns_lookup_failure(const struct http_client_settings *client_set)
 	ctx = i_new(struct _dns_lookup_failure, 1);
 	ctx->count = 2;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		http_client, "GET", "example.com", "/dns-lookup-failure.txt",
@@ -2570,7 +2570,7 @@ test_client_dns_lookup_ttl(const struct http_client_settings *client_set)
 	ctx = i_new(struct _dns_lookup_ttl, 1);
 	ctx->count = 2;
 
-	ctx->client = http_client = http_client_init(client_set);
+	ctx->client = http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		ctx->client, "GET", "example.com",
@@ -2693,7 +2693,7 @@ test_client_peer_reuse_failure(const struct http_client_settings *client_set)
 	ctx = i_new(struct _peer_reuse_failure, 1);
 	ctx->first = TRUE;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		http_client, "GET", net_ip2addr(&bind_ip), "/peer-reuse.txt",
@@ -2852,7 +2852,7 @@ test_client_reconnect_failure(const struct http_client_settings *client_set)
 
 	ctx = i_new(struct _reconnect_failure_ctx, 1);
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		http_client, "GET", "example.com", "/reconnect-failure-1.txt",
@@ -2973,7 +2973,7 @@ test_client_multi_ip_attempts1(const struct http_client_settings *client_set)
 	ctx = i_new(struct _multi_ip_attempts, 1);
 	ctx->count = 2;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		http_client, "GET", "test1.local", "/multi-ip-attempts.txt",
@@ -2999,7 +2999,7 @@ test_client_multi_ip_attempts2(const struct http_client_settings *client_set)
 	ctx = i_new(struct _multi_ip_attempts, 1);
 	ctx->count = 2;
 
-	http_client = http_client_init(client_set);
+	http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		http_client, "GET", "test2.local", "/multi-ip-attempts.txt",
@@ -3188,7 +3188,7 @@ test_client_idle_connections(const struct http_client_settings *client_set)
 	ctx->max = client_set->max_parallel_connections;
 	ctx->count = client_set->max_parallel_connections;
 
-	ctx->client = http_client = http_client_init(client_set);
+	ctx->client = http_client = http_client_init(client_set, NULL);
 
 	for (i = 0; i < ctx->count; i++) {
 		hreq = http_client_request(
@@ -3386,7 +3386,7 @@ test_client_idle_hosts(const struct http_client_settings *client_set)
 	ctx = i_new(struct _idle_hosts, 1);
 	ctx->count = 2;
 
-	ctx->client = http_client = http_client_init(client_set);
+	ctx->client = http_client = http_client_init(client_set, NULL);
 
 	hreq = http_client_request(
 		ctx->client, "GET", "hosta",

@@ -156,8 +156,7 @@ void auth_policy_init(void)
 	http_client_set.request_absolute_timeout_msecs =
 		global_auth_settings->policy_server_timeout_msecs;
 
-	http_client_set.event_parent = auth_event;
-	http_client = http_client_init(&http_client_set);
+	http_client = http_client_init(&http_client_set, auth_event);
 
 	/* prepare template */
 

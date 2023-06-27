@@ -71,9 +71,8 @@ push_notification_driver_ox_init_global(
 		i_zero(&http_set);
 		http_set.max_attempts = config->http_max_retries+1;
 		http_set.request_timeout_msecs = config->http_timeout_msecs;
-		http_set.event_parent = user->event;
 
-		ox_global->http_client = http_client_init(&http_set);
+		ox_global->http_client = http_client_init(&http_set, user->event);
 	}
 }
 

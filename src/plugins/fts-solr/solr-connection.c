@@ -105,7 +105,6 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 		http_set.connect_timeout_msecs = 5*1000;
 		http_set.request_timeout_msecs = 60*1000;
 		http_set.rawlog_dir = solr_set->rawlog_dir;
-		http_set.event_parent = conn->event;
 
 		/* FIXME: We should initialize a shared client instead. However,
 		          this is currently not possible due to an obscure bug
@@ -113,7 +112,7 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 		          conflicts with other HTTP applications like FTS Tika.
 		          Using a private client will provide a quick fix for
 		          now. */
-		solr_http_client = http_client_init_private(&http_set);
+		solr_http_client = http_client_init_private(&http_set, conn->event);
 	}
 
 	*conn_r = conn;
