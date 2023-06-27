@@ -901,7 +901,7 @@ static void http_client_request_do_submit(struct http_client_request *req)
 	struct http_client *client = req->client;
 	struct http_client_host *host;
 	const char *proxy_socket_path = client->set->proxy_socket_path;
-	const struct http_url *proxy_url = client->set->proxy_url;
+	const struct http_url *proxy_url = client->set->parsed_proxy_url;
 	bool have_proxy =
 		((proxy_socket_path != NULL && proxy_socket_path[0] != '\0') ||
 		 (proxy_url != NULL) ||

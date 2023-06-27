@@ -153,6 +153,7 @@ auth_policy_open_and_close_to_key(struct json_ostream *json_output,
 
 void auth_policy_init(void)
 {
+	http_client_set.pool = null_pool;
 	http_client_set.request_absolute_timeout_msecs =
 		global_auth_settings->policy_server_timeout_msecs;
 

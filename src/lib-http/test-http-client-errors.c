@@ -3481,6 +3481,7 @@ static void test_client_defaults(struct http_client_settings *http_set)
 {
 	/* client settings */
 	i_zero(http_set);
+	http_set->pool = null_pool;
 	http_set->max_idle_time_msecs = 5*1000;
 	http_set->max_parallel_connections = 1;
 	http_set->max_pipelined_requests = 1;

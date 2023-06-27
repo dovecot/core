@@ -51,9 +51,10 @@ void event_export_transport_http_post(const struct exporter *exporter,
 	struct http_client_request *req;
 
 	if (exporter_http_client == NULL) {
-		struct http_client_settings set = {
+		static struct http_client_settings set = {
 			.dns_client_socket_path = "dns-client",
 		};
+		set.pool = null_pool;
 		exporter_http_client = http_client_init(&set, NULL);
 	}
 

@@ -141,79 +141,42 @@ http_client_init_shared(struct http_client_context *cctx,
 	event_add_category(client->event, &event_category_http_client);
 	event_set_append_log_prefix(client->event, log_prefix);
 
-	client->set = p_new(pool, struct http_client_settings, 1);
-	client->set->dns_client_socket_path =
-		p_strdup_empty(pool, set->dns_client_socket_path);
-	client->set->dns_ttl_msecs = set->dns_ttl_msecs;
-
-	if (set->user_agent != NULL && *set->user_agent != '\0')
-		client->set->user_agent = p_strdup_empty(pool, set->user_agent);
-	if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
-		client->set->rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
-
-	if (set->proxy_socket_path != NULL && *set->proxy_socket_path != '\0') {
-		client->set->proxy_socket_path = p_strdup(pool, set->proxy_socket_path);
-		client->set->proxy_url = NULL;
-	} else if (set->proxy_url != NULL) {
-		client->set->proxy_url = http_url_clone(pool, set->proxy_url);
-		client->set->proxy_socket_path = NULL;
+	struct http_client_settings set_copy = *set;
+	bool set_changed = FALSE;
+	if (set->max_pipelined_requests == 0) {
+		set_copy.max_pipelined_requests = 1;
+		set_changed = TRUE;
 	}
-	if (set->proxy_username != NULL && *set->proxy_username != '\0') {
-		client->set->proxy_username = p_strdup_empty(pool, set->proxy_username);
-		client->set->proxy_password = p_strdup(pool, set->proxy_password);
-	} else if (set->proxy_url != NULL && set->proxy_url->user != NULL &&
-		   *set->proxy_url->user != '\0') {
-		client->set->proxy_username =
-			p_strdup_empty(pool, set->proxy_url->user);
-		client->set->proxy_password =
-			p_strdup(pool, set->proxy_url->password);
+	if (set->max_parallel_connections == 0) {
+		set_copy.max_parallel_connections = 1;
+		set_changed = TRUE;
 	}
-
-	if (set->max_idle_time_msecs > 0)
-		client->set->max_idle_time_msecs = set->max_idle_time_msecs;
-	client->set->max_pipelined_requests =
-		(set->max_pipelined_requests > 0 ?
-		 set->max_pipelined_requests : 1);
-	client->set->max_parallel_connections =
-		(set->max_parallel_connections > 0 ?
-		 set->max_parallel_connections : 1);
-	if (set->max_attempts > 0)
-		client->set->max_attempts = set->max_attempts;
-	if (set->max_connect_attempts > 0)
-		client->set->max_connect_attempts = set->max_connect_attempts;
-	client->set->connect_backoff_time_msecs =
-		set->connect_backoff_time_msecs > 0 ?
-		set->connect_backoff_time_msecs :
-		HTTP_CLIENT_DEFAULT_BACKOFF_TIME_MSECS;
-	client->set->connect_backoff_max_time_msecs =
-		set->connect_backoff_max_time_msecs > 0 ?
-		set->connect_backoff_max_time_msecs :
-		HTTP_CLIENT_DEFAULT_BACKOFF_MAX_TIME_MSECS;
-	client->set->no_auto_redirect =
-		client->set->no_auto_redirect || set->no_auto_redirect;
-	client->set->no_auto_retry =
-		client->set->no_auto_retry || set->no_auto_retry;
-	client->set->no_ssl_tunnel =
-		client->set->no_ssl_tunnel || set->no_ssl_tunnel;
-	if (set->max_redirects > 0)
-		client->set->max_redirects = set->max_redirects;
-	if (set->request_absolute_timeout_msecs > 0) {
-		client->set->request_absolute_timeout_msecs =
-			set->request_absolute_timeout_msecs;
+	if (set->connect_backoff_time_msecs == 0) {
+		set_copy.connect_backoff_time_msecs =
+			HTTP_CLIENT_DEFAULT_BACKOFF_TIME_MSECS;
+		set_changed = TRUE;
 	}
-	client->set->request_timeout_msecs = set->request_timeout_msecs > 0 ?
-		set->request_timeout_msecs :
-		HTTP_CLIENT_DEFAULT_REQUEST_TIMEOUT_MSECS;
-	if (set->connect_timeout_msecs > 0)
-		client->set->connect_timeout_msecs = set->connect_timeout_msecs;
-	if (set->soft_connect_timeout_msecs > 0)
-		client->set->soft_connect_timeout_msecs = set->soft_connect_timeout_msecs;
-	if (set->socket_send_buffer_size > 0)
-		client->set->socket_send_buffer_size = set->socket_send_buffer_size;
-	if (set->socket_recv_buffer_size > 0)
-		client->set->socket_recv_buffer_size = set->socket_recv_buffer_size;
-	if (set->max_auto_retry_delay_secs > 0)
-		client->set->max_auto_retry_delay_secs = set->max_auto_retry_delay_secs;
+	if (set->connect_backoff_max_time_msecs == 0) {
+		set_copy.connect_backoff_max_time_msecs =
+			HTTP_CLIENT_DEFAULT_BACKOFF_MAX_TIME_MSECS;
+		set_changed = TRUE;
+	}
+	if (set->request_timeout_msecs == 0) {
+		set_copy.request_timeout_msecs =
+			HTTP_CLIENT_DEFAULT_REQUEST_TIMEOUT_MSECS;
+		set_changed = TRUE;
+	}
+	if (set_changed) {
+		pool_t pool = pool_alloconly_create("http client set", sizeof(set_copy));
+		pool_add_external_ref(pool, set->pool);
+		struct http_client_settings *set_dup =
+			p_memdup(pool, &set_copy, sizeof(set_copy));
+		set_dup->pool = pool;
+		client->set = set_dup;
+	} else {
+		pool_ref(set->pool);
+		client->set = set;
+	}
 
 	i_array_init(&client->delayed_failing_requests, 1);
 
@@ -269,6 +232,7 @@ void http_client_deinit(struct http_client **_client)
 	array_free(&client->delayed_failing_requests);
 	timeout_remove(&client->to_failing_requests);
 
+	settings_free(client->set);
 	settings_free(client->ssl_set);
 	if (client->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&client->ssl_ctx);
@@ -540,8 +504,19 @@ http_client_context_update_settings(struct http_client_context *cctx)
 		if (cctx->dns_client_socket_path == NULL &&
 		    client->set->dns_client_socket_path != NULL &&
 		    client->set->dns_client_socket_path[0] != '\0') {
-			cctx->dns_client_socket_path =
-				p_strdup(cctx->pool, client->set->dns_client_socket_path);
+			/* FIXME: This base_dir expansion shouldn't be here.
+			   Maybe support %{set:base_dir}/dns-client?
+			   The "./" check is to avoid breaking unit tests. */
+			if (client->set->dns_client_socket_path[0] == '/' ||
+			    str_begins_with(client->set->dns_client_socket_path, "./")) {
+				cctx->dns_client_socket_path =
+					p_strdup(cctx->pool, client->set->dns_client_socket_path);
+			} else {
+				cctx->dns_client_socket_path =
+					p_strdup_printf(cctx->pool, "%s/%s",
+							client->set->base_dir,
+							client->set->dns_client_socket_path);
+			}
 		}
 		if (client->set->dns_ttl_msecs != 0 &&
 		    cctx->dns_ttl_msecs > client->set->dns_ttl_msecs)

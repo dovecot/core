@@ -41,7 +41,7 @@ tika_get_http_client_url(struct fts_parser_context *parser_context, struct http_
 	struct mail_user *user = parser_context->user;
 	struct event *event = parser_context->event;
 	struct fts_parser_tika_user *tuser = TIKA_USER_CONTEXT(user);
-	struct http_client_settings http_set;
+	struct http_client_settings *http_set;
 	const char *url, *error;
 
 	url = mail_user_plugin_getenv(user, "fts_tika");
@@ -65,14 +65,17 @@ tika_get_http_client_url(struct fts_parser_context *parser_context, struct http_
 	}
 
 	if (tika_http_client == NULL) {
-		i_zero(&http_set);
-		http_set.max_idle_time_msecs = 100;
-		http_set.max_parallel_connections = 1;
-		http_set.max_pipelined_requests = 1;
-		http_set.max_redirects = 1;
-		http_set.max_attempts = 3;
-		http_set.connect_timeout_msecs = 5*1000;
-		http_set.request_timeout_msecs = 60*1000;
+		pool_t http_pool = pool_alloconly_create("solr http settings",
+							 sizeof(*http_set));
+		http_set = p_new(http_pool, struct http_client_settings, 1);
+		http_set->pool = http_pool;
+		http_set->max_idle_time_msecs = 100;
+		http_set->max_parallel_connections = 1;
+		http_set->max_pipelined_requests = 1;
+		http_set->max_redirects = 1;
+		http_set->max_attempts = 3;
+		http_set->connect_timeout_msecs = 5*1000;
+		http_set->request_timeout_msecs = 60*1000;
 
 		/* FIXME: We should initialize a shared client instead. However,
 		          this is currently not possible due to an obscure bug
@@ -80,7 +83,8 @@ tika_get_http_client_url(struct fts_parser_context *parser_context, struct http_
 		          conflicts with other HTTP applications like FTS Solr.
 		          Using a private client will provide a quick fix for
 		          now. */
-		tika_http_client = http_client_init_private(&http_set, user->event);
+		tika_http_client = http_client_init_private(http_set, user->event);
+		pool_unref(&http_pool);
 	}
 	*http_url_r = tuser->http_url;
 	return 0;
