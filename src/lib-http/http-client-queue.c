@@ -204,8 +204,7 @@ http_client_queue_fail(struct http_client_queue *queue,
 static bool
 http_client_queue_is_last_connect_ip(struct http_client_queue *queue)
 {
-	const struct http_client_settings *set =
-		&queue->client->set;
+	const struct http_client_settings *set = queue->client->set;
 	struct http_client_host *host = queue->host;
 	unsigned int ips_count = http_client_host_get_ips_count(host);
 
@@ -415,7 +414,7 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 		/* Start soft connect time-out
 		   (but only if we have another IP left) */
 		if (queue->addr.type != HTTP_CLIENT_PEER_ADDR_UNIX) {
-			msecs = client->set.soft_connect_timeout_msecs;
+			msecs = client->set->soft_connect_timeout_msecs;
 			if (!http_client_queue_is_last_connect_ip(queue) &&
 			    msecs > 0 && queue->to_connect == NULL) {
 				queue->to_connect = timeout_add_to(
@@ -507,8 +506,7 @@ void http_client_queue_connection_failure(struct http_client_queue *queue,
 					  struct http_client_peer *peer,
 					  const char *reason)
 {
-	const struct http_client_settings *set =
-		&queue->client->set;
+	const struct http_client_settings *set = queue->client->set;
 	const struct http_client_peer_addr *addr = &peer->shared->addr;
 	const char *https_name = http_client_peer_addr_get_https_name(addr);
 	struct http_client_host *host = queue->host;

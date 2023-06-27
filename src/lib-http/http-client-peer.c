@@ -193,7 +193,7 @@ http_client_peer_pool_get(struct http_client_peer_shared *pshared,
 {
 	struct http_client_peer_pool *ppool;
 	struct ssl_iostream_context *ssl_ctx = client->ssl_ctx;
-	const char *rawlog_dir = client->set.rawlog_dir;
+	const char *rawlog_dir = client->set->rawlog_dir;
 
 	i_assert(!http_client_peer_addr_is_https(&pshared->addr) ||
 		 ssl_ctx != NULL);
@@ -549,7 +549,7 @@ http_client_peer_shared_max_connections(struct http_client_peer_shared *pshared)
 
 	peer = pshared->peers_list;
 	while (peer != NULL) {
-		const struct http_client_settings *set = &peer->client->set;
+		const struct http_client_settings *set = peer->client->set;
 		unsigned int client_max_conns = set->max_parallel_connections;
 
 		if ((UINT_MAX - max_conns) <= client_max_conns)
@@ -597,16 +597,16 @@ http_client_peer_create(struct http_client *client,
 
 	/* Choose backoff times */
 	if (pshared->peers_list == NULL ||
-	    (client->set.connect_backoff_time_msecs <
+	    (client->set->connect_backoff_time_msecs <
 	     pshared->backoff_initial_time_msecs)) {
 		pshared->backoff_initial_time_msecs =
-			client->set.connect_backoff_time_msecs;
+			client->set->connect_backoff_time_msecs;
 	}
 	if (pshared->peers_list == NULL ||
-	    (client->set.connect_backoff_max_time_msecs >
+	    (client->set->connect_backoff_max_time_msecs >
 	     pshared->backoff_max_time_msecs)) {
 		pshared->backoff_max_time_msecs =
-			client->set.connect_backoff_max_time_msecs;
+			client->set->connect_backoff_max_time_msecs;
 	}
 
 	e_debug(peer->event, "Peer created");
@@ -688,15 +688,15 @@ bool http_client_peer_unref(struct http_client_peer **_peer)
 	while (peer != NULL) {
 		struct http_client *client = peer->client;
 
-		if (client->set.connect_backoff_time_msecs <
+		if (client->set->connect_backoff_time_msecs <
 		    pshared->backoff_initial_time_msecs) {
 			pshared->backoff_initial_time_msecs =
-				client->set.connect_backoff_time_msecs;
+				client->set->connect_backoff_time_msecs;
 		}
-		if (client->set.connect_backoff_max_time_msecs >
+		if (client->set->connect_backoff_max_time_msecs >
 		    pshared->backoff_max_time_msecs) {
 			pshared->backoff_max_time_msecs =
-				client->set.connect_backoff_max_time_msecs;
+				client->set->connect_backoff_max_time_msecs;
 		}
 		peer = peer->shared_next;
 	}
@@ -1062,7 +1062,7 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 		new_connections = 0;
 	} else {
 		if ((working_conn_count - connecting + num_urgent) >=
-		    peer->client->set.max_parallel_connections) {
+		    peer->client->set->max_parallel_connections) {
 			/* Only create connections for urgent requests */
 			new_connections = (num_urgent > connecting ?
 					   num_urgent - connecting : 0);
@@ -1080,11 +1080,11 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 				new_connections = (connecting == 0 ? 1 : 0);
 			}
 		} else if ((num_pending - connecting) >
-			   (peer->client->set.max_parallel_connections -
+			   (peer->client->set->max_parallel_connections -
 			    working_conn_count)) {
 			/* Create maximum allowed connections */
 			new_connections =
-				(peer->client->set.max_parallel_connections -
+				(peer->client->set->max_parallel_connections -
 				 working_conn_count);
 		} else {
 			/* Create as many connections as we need */
@@ -1106,7 +1106,7 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 	/* Cannot create new connections for normal request; attempt pipelining
 	 */
 	if ((working_conn_count - connecting) >=
-	    peer->client->set.max_parallel_connections) {
+	    peer->client->set->max_parallel_connections) {
 		unsigned int pipeline_level = 0, total_handled = 0, handled;
 
 		if (!pshared->allows_pipelining) {
