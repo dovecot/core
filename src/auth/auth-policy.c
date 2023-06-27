@@ -23,16 +23,6 @@
 #include "auth-common.h"
 #include "iostream-ssl.h"
 
-#define AUTH_POLICY_DNS_SOCKET_PATH "dns-client"
-
-static struct http_client_settings http_client_set = {
-	.dns_client_socket_path = AUTH_POLICY_DNS_SOCKET_PATH,
-	.max_connect_attempts = 1,
-	.max_idle_time_msecs = 10000,
-	.max_parallel_connections = 100,
-	.user_agent = "dovecot/auth-policy-client"
-};
-
 static char *auth_policy_json_template;
 
 static struct http_client *http_client;
@@ -153,11 +143,12 @@ auth_policy_open_and_close_to_key(struct json_ostream *json_output,
 
 void auth_policy_init(void)
 {
-	http_client_set.pool = null_pool;
-	http_client_set.request_absolute_timeout_msecs =
-		global_auth_settings->policy_server_timeout_msecs;
-
-	http_client = http_client_init(&http_client_set, auth_event);
+	const char *error;
+	struct event *event = event_create(auth_event);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "auth_policy");
+	if (http_client_init_auto(event, &http_client, &error) < 0)
+		i_fatal("%s", error);
+	event_unref(&event);
 
 	/* prepare template */
 

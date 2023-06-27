@@ -238,9 +238,9 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(TIME, failure_delay),
 	DEF(TIME_MSECS, internal_failure_delay),
 
+	{ .type = SET_FILTER_NAME, .key = "auth_policy", },
 	DEF(STR, policy_server_url),
 	DEF(STR, policy_server_api_header),
-	DEF(UINT, policy_server_timeout_msecs),
 	DEF(STR, policy_hash_mech),
 	DEF(STR, policy_hash_nonce),
 	DEF(STR_NOVARS, policy_request_attributes),
@@ -304,7 +304,6 @@ static const struct auth_settings auth_default_settings = {
 
 	.policy_server_url = "",
 	.policy_server_api_header = "",
-	.policy_server_timeout_msecs = 2000,
 	.policy_hash_mech = "sha256",
 	.policy_hash_nonce = "",
 	.policy_request_attributes = "login=%{requested_username} pwhash=%{hashed_password} remote=%{rip} device_id=%{client_id} protocol=%{protocol} session_id=%{session} fail_type=%{fail_type}",
@@ -340,12 +339,21 @@ static const struct setting_keyvalue auth_default_settings_keyvalue[] = {
 	{ NULL, NULL }
 };
 
+static const struct setting_keyvalue auth_default_filter_settings_keyvalue[] = {
+	{ "auth_policy/http_client_request_absolute_timeout", "2s" },
+	{ "auth_policy/http_client_max_idle_time", "10s" },
+	{ "auth_policy/http_client_max_parallel_connections", "100" },
+	{ "auth_policy/http_client_user_agent", "dovecot/auth-policy-client" },
+	{ NULL, NULL }
+};
+
 const struct setting_parser_info auth_setting_parser_info = {
 	.name = "auth",
 
 	.defines = auth_setting_defines,
 	.defaults = &auth_default_settings,
 	.default_settings = auth_default_settings_keyvalue,
+	.default_filter_settings = auth_default_filter_settings_keyvalue,
 
 	.struct_size = sizeof(struct auth_settings),
 	.pool_offset1 = 1 + offsetof(struct auth_settings, pool),

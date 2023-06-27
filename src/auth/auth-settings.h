@@ -62,7 +62,6 @@ struct auth_settings {
 
 	const char *policy_server_url;
 	const char *policy_server_api_header;
-	unsigned int policy_server_timeout_msecs;
 	const char *policy_hash_mech;
 	const char *policy_hash_nonce;
 	const char *policy_request_attributes;
