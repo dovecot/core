@@ -144,7 +144,6 @@ http_client_init_shared(struct http_client_context *cctx,
 	event_add_category(client->event, &event_category_http_client);
 	event_set_append_log_prefix(client->event, log_prefix);
 
-	client->set.dns_client = set->dns_client;
 	client->set.dns_client_socket_path =
 		p_strdup_empty(pool, set->dns_client_socket_path);
 	client->set.dns_ttl_msecs = set->dns_ttl_msecs;
@@ -327,8 +326,8 @@ void http_client_wait(struct http_client *client)
 	prev_ioloop = current_ioloop;
 	client_ioloop = io_loop_create();
 	prev_client_ioloop = http_client_switch_ioloop(client);
-	if (client->set.dns_client != NULL)
-		dns_client_switch_ioloop(client->set.dns_client);
+	if (client->dns_client != NULL)
+		dns_client_switch_ioloop(client->dns_client);
 	/* Either we're waiting for network I/O or we're getting out of a
 	   callback using timeout_add_short(0) */
 	i_assert(io_loop_have_ios(client_ioloop) ||
@@ -350,10 +349,16 @@ void http_client_wait(struct http_client *client)
 	else
 		io_loop_set_current(prev_ioloop);
 	(void)http_client_switch_ioloop(client);
-	if (client->set.dns_client != NULL)
-		dns_client_switch_ioloop(client->set.dns_client);
+	if (client->dns_client != NULL)
+		dns_client_switch_ioloop(client->dns_client);
 	io_loop_set_current(client_ioloop);
 	io_loop_destroy(&client_ioloop);
+}
+
+void http_client_set_dns_client(struct http_client *client,
+				struct dns_client *dns_client)
+{
+	client->dns_client = dns_client;
 }
 
 unsigned int http_client_get_pending_request_count(struct http_client *client)
@@ -527,7 +532,7 @@ http_client_context_update_settings(struct http_client_context *cctx)
 			http_client_get_dns_lookup_timeout_msecs(&client->set);
 
 		if (cctx->dns_client == NULL)
-			cctx->dns_client = client->set.dns_client;
+			cctx->dns_client = client->dns_client;
 		if (cctx->dns_client_socket_path == NULL) {
 			cctx->dns_client_socket_path =
 				client->set.dns_client_socket_path;
