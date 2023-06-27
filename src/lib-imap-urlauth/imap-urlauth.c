@@ -312,9 +312,14 @@ int imap_urlauth_generate(struct imap_urlauth_context *uctx,
 		*client_error_r = "Invalid URL: Missing user name";
 		return 0;
 	}
-	if (user->anonymous || strcmp(url->userid, user->username) != 0) {
+	if (user->anonymous) {
+		*client_error_r =
+			"Anonymous logins not permitted to generate URLAUTH";
+		return 0;
+	}
+	if (strcmp(url->userid, user->username) != 0) {
 		*client_error_r = t_strdup_printf(
-			"Not permitted to generate URLAUTH for user %s",
+			"Not permitted to generate URLAUTH for other user %s",
 			url->userid);
 		return 0;
 	}
