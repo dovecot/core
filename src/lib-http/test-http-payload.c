@@ -1011,8 +1011,8 @@ test_client_create_clients(const struct http_client_settings *client_set,
 	http_clients = i_new(struct http_client *, tset.parallel_clients);
 	for (i = 0; i < tset.parallel_clients; i++) {
 		http_clients[i] = (tset.parallel_clients_global ?
-				   http_client_init(client_set) :
-				   http_client_init_shared(http_context, client_set));
+				   http_client_init(client_set, client_event) :
+				   http_client_init_shared(http_context, client_set, client_event));
 		http_client_set_ssl_settings(http_clients[i], ssl_client_set);
 		if (old_test_http_client_connection_connected == NULL) {
 			old_test_http_client_connection_connected =
@@ -1779,7 +1779,6 @@ test_init_client_settings(struct http_client_settings *client_set_r)
 	client_set_r->max_redirects = 0;
 	client_set_r->max_attempts = 1;
 	client_set_r->max_idle_time_msecs =  5* 1000;
-	client_set_r->event_parent = client_event;
 
 	if (small_socket_buffers) {
 		client_set_r->socket_send_buffer_size = 40960;

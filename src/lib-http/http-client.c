@@ -105,7 +105,8 @@ http_client_context_remove_client(struct http_client_context *cctx,
 
 struct http_client *
 http_client_init_shared(struct http_client_context *cctx,
-			const struct http_client_settings *set)
+			const struct http_client_settings *set,
+			struct event *event_parent)
 {
 	static unsigned int id = 0;
 	struct http_client *client;
@@ -130,8 +131,8 @@ http_client_init_shared(struct http_client_context *cctx,
 		log_prefix = "http-client: ";
 	}
 
-	if (set->event_parent != NULL)
-		client->event = event_create(set->event_parent);
+	if (event_parent != NULL)
+		client->event = event_create(event_parent);
 	else {
 		i_assert(cctx->event != NULL);
 		client->event = event_create(cctx->event);
@@ -220,15 +221,18 @@ http_client_init_shared(struct http_client_context *cctx,
 	return client;
 }
 
-struct http_client *http_client_init(const struct http_client_settings *set)
+struct http_client *http_client_init(const struct http_client_settings *set,
+				     struct event *event_parent)
 {
-	return http_client_init_shared(http_client_get_global_context(), set);
+	return http_client_init_shared(http_client_get_global_context(), set,
+				       event_parent);
 }
 
 struct http_client *
-http_client_init_private(const struct http_client_settings *set)
+http_client_init_private(const struct http_client_settings *set,
+			 struct event *event_parent)
 {
-	return http_client_init_shared(NULL, set);
+	return http_client_init_shared(NULL, set, event_parent);
 }
 
 void http_client_deinit(struct http_client **_client)

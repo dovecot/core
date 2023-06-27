@@ -442,11 +442,13 @@ static void dlua_push_http_client(lua_State *L, struct http_client *client)
 	}
 
 static int parse_client_settings(lua_State *L, struct http_client_settings *set,
+				 struct event **event_parent_r,
 				 const char **error_r)
 {
 	const struct master_service_settings *master_set =
 		master_service_get_service_settings(master_service);
 
+	*event_parent_r = NULL;
 	if (!lua_istable(L, -1)) {
 		*error_r = t_strdup_printf("Table expected");
 		return -1;
@@ -473,7 +475,7 @@ static int parse_client_settings(lua_State *L, struct http_client_settings *set,
 			set->proxy_username = parsed_url->user;
 			set->proxy_password = parsed_url->password;
 		} else if (strcmp(key, "event_parent") == 0) {
-			set->event_parent = dlua_check_event(L, -1);
+			*event_parent_r = dlua_check_event(L, -1);
 		} CLIENT_SETTING_STR(dns_client_socket_path)
 		CLIENT_SETTING_STR(user_agent)
 		CLIENT_SETTING_STR(rawlog_dir)
@@ -507,9 +509,9 @@ static int parse_client_settings(lua_State *L, struct http_client_settings *set,
 			t_strconcat(master_set->base_dir, "/dns-client", NULL);
 	}
 
-	if (set->event_parent == NULL) {
+	if (*event_parent_r == NULL) {
 		struct dlua_script *script = dlua_script_from_state(L);
-		set->event_parent = script->event;
+		*event_parent_r = script->event;
 	}
 
 	return 0;
@@ -522,14 +524,15 @@ static int dlua_http_client_new(lua_State *L)
 
 	struct http_client *client;
 	struct http_client_settings http_set;
+	struct event *event_parent;
 	const char *error;
 
 	i_zero(&http_set);
 
-	if (parse_client_settings(L, &http_set, &error) < 0)
+	if (parse_client_settings(L, &http_set, &event_parent, &error) < 0)
 		luaL_error(L, "Invalid HTTP client setting: %s", error);
 
-	client = http_client_init(&http_set);
+	client = http_client_init(&http_set, event_parent);
 	dlua_push_http_client(L, client);
 	return 1;
 }

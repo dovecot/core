@@ -251,9 +251,8 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	http_set.max_pipelined_requests = db->set.max_pipelined_requests;
 	http_set.no_auto_redirect = FALSE;
 	http_set.no_auto_retry = TRUE;
-	http_set.event_parent = auth_event;
 
-	db->client = http_client_init(&http_set);
+	db->client = http_client_init(&http_set, auth_event);
 	http_client_set_ssl_settings(db->client, ssl_set);
 	pool_unref(&ssl_pool);
 

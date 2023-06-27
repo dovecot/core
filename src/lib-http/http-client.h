@@ -123,11 +123,6 @@ struct http_client_settings {
 	   defaults are used when these settings are 0. */
 	size_t socket_send_buffer_size;
 	size_t socket_recv_buffer_size;
-
-	/* Event to use as parent for the http client event. For specific
-	   requests this can be overridden with http_client_request_set_event().
-	 */
-	struct event *event_parent;
 };
 
 /*
@@ -463,14 +458,18 @@ void http_client_request_start_tunnel(struct http_client_request *req,
  * Client
  */
 
-/* Create a client using the global shared client context. */
-struct http_client *http_client_init(const struct http_client_settings *set);
+/* Create a client using the global shared client context. The parent event can
+   be overriden for specific requests with http_client_request_set_event(). */
+struct http_client *http_client_init(const struct http_client_settings *set,
+				     struct event *event_parent);
 /* Create a client without a shared context. */
 struct http_client *
-http_client_init_private(const struct http_client_settings *set);
+http_client_init_private(const struct http_client_settings *set,
+			 struct event *event_parent);
 struct http_client *
 http_client_init_shared(struct http_client_context *cctx,
-			const struct http_client_settings *set) ATTR_NULL(1);
+			const struct http_client_settings *set,
+			struct event *event_parent) ATTR_NULL(1);
 void http_client_deinit(struct http_client **_client);
 
 /* Switch this client to the current ioloop */

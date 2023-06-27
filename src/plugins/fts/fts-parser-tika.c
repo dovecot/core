@@ -73,7 +73,6 @@ tika_get_http_client_url(struct fts_parser_context *parser_context, struct http_
 		http_set.max_attempts = 3;
 		http_set.connect_timeout_msecs = 5*1000;
 		http_set.request_timeout_msecs = 60*1000;
-		http_set.event_parent = user->event;
 
 		/* FIXME: We should initialize a shared client instead. However,
 		          this is currently not possible due to an obscure bug
@@ -81,7 +80,7 @@ tika_get_http_client_url(struct fts_parser_context *parser_context, struct http_
 		          conflicts with other HTTP applications like FTS Solr.
 		          Using a private client will provide a quick fix for
 		          now. */
-		tika_http_client = http_client_init_private(&http_set);
+		tika_http_client = http_client_init_private(&http_set, user->event);
 	}
 	*http_url_r = tuser->http_url;
 	return 0;
