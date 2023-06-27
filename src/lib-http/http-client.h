@@ -31,9 +31,6 @@ struct http_client_settings {
 	   (default = HTTP_CLIENT_DEFAULT_DNS_TTL_MSECS) */
 	unsigned int dns_ttl_msecs;
 
-	/* SSL settings; if NULL, settings_get() is used automatically */
-	const struct ssl_iostream_settings *ssl;
-
 	/* User-Agent: header (default: none) */
 	const char *user_agent;
 
@@ -482,6 +479,10 @@ struct ioloop *http_client_switch_ioloop(struct http_client *client);
 /* Blocks until all currently submitted requests are handled */
 void http_client_wait(struct http_client *client);
 
+/* Specify the SSL settings. By default lib-ssl-iostream automatically looks
+   them up from settings. */
+void http_client_set_ssl_settings(struct http_client *client,
+				  const struct ssl_iostream_settings *ssl);
 /* Do all lookups using the specified DNS client. */
 void http_client_set_dns_client(struct http_client *client,
 				struct dns_client *dns_client);
