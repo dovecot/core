@@ -472,10 +472,17 @@ void http_client_request_start_tunnel(struct http_client_request *req,
    be overriden for specific requests with http_client_request_set_event(). */
 struct http_client *http_client_init(const struct http_client_settings *set,
 				     struct event *event_parent);
+/* Same as http_client_init(), but pull settings automatically. */
+int http_client_init_auto(struct event *event_parent,
+			  struct http_client **client_r, const char **error_r);
 /* Create a client without a shared context. */
 struct http_client *
 http_client_init_private(const struct http_client_settings *set,
 			 struct event *event_parent);
+/* Same as http_client_init_private(), but pull settings automatically. */
+int http_client_init_private_auto(struct event *event_parent,
+				  struct http_client **client_r,
+				  const char **error_r);
 struct http_client *
 http_client_init_shared(struct http_client_context *cctx,
 			const struct http_client_settings *set,
