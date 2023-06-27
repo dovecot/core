@@ -1036,7 +1036,7 @@ test_client_create_clients(const struct http_client_settings *client_set)
 	unsigned int i;
 
 	if (!tset.parallel_clients_global)
-		http_context = http_client_context_create(client_set);
+		http_context = http_client_context_create();
 
 	if (tset.parallel_clients < 1)
 		tset.parallel_clients = 1;

@@ -323,9 +323,9 @@ http_client_peer_shared_create(struct http_client_context *cctx,
 	DLLIST_PREPEND(&cctx->peers_list, pshared);
 
 	pshared->backoff_initial_time_msecs =
-		cctx->set.connect_backoff_time_msecs;
+		HTTP_CLIENT_DEFAULT_BACKOFF_TIME_MSECS;
 	pshared->backoff_max_time_msecs =
-		cctx->set.connect_backoff_max_time_msecs;
+		HTTP_CLIENT_DEFAULT_BACKOFF_MAX_TIME_MSECS;
 
 	e_debug(pshared->event, "Peer created");
 	return pshared;

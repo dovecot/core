@@ -397,8 +397,6 @@ struct http_client_context {
 	struct event *event;
 	struct ioloop *ioloop;
 
-	struct http_client_settings set;
-
 	struct dns_client *dns_client;
 	const char *dns_client_socket_path;
 	unsigned int dns_ttl_msecs;

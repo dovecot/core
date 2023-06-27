@@ -491,8 +491,7 @@ unsigned int http_client_get_pending_request_count(struct http_client *client);
  * Client shared context
  */
 
-struct http_client_context *
-http_client_context_create(const struct http_client_settings *set);
+struct http_client_context *http_client_context_create(void);
 void http_client_context_ref(struct http_client_context *cctx);
 void http_client_context_unref(struct http_client_context **_cctx);
 

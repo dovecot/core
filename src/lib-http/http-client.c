@@ -130,7 +130,7 @@ http_client_init_shared(struct http_client_context *cctx,
 		http_client_context_ref(cctx);
 		log_prefix = t_strdup_printf("http-client[%u]: ", id);
 	} else {
-		client->cctx = cctx = http_client_context_create(set);
+		client->cctx = cctx = http_client_context_create();
 		log_prefix = "http-client: ";
 	}
 
@@ -142,13 +142,9 @@ http_client_init_shared(struct http_client_context *cctx,
 		event_drop_parent_log_prefixes(client->event, 1);
 	}
 	event_add_category(client->event, &event_category_http_client);
-	event_set_forced_debug(client->event,
-			       (set->debug ||
-				(cctx != NULL && cctx->set.debug)));
+	event_set_forced_debug(client->event, set->debug);
 	event_set_append_log_prefix(client->event, log_prefix);
 
-	/* Merge provided settings with context defaults */
-	client->set = cctx->set;
 	client->set.dns_client = set->dns_client;
 	client->set.dns_client_socket_path =
 		p_strdup_empty(pool, set->dns_client_socket_path);
@@ -184,22 +180,24 @@ http_client_init_shared(struct http_client_context *cctx,
 
 	if (set->max_idle_time_msecs > 0)
 		client->set.max_idle_time_msecs = set->max_idle_time_msecs;
-	if (set->max_parallel_connections > 0)
-		client->set.max_parallel_connections = set->max_parallel_connections;
-	if (set->max_pipelined_requests > 0)
-		client->set.max_pipelined_requests = set->max_pipelined_requests;
+	client->set.max_pipelined_requests =
+		(set->max_pipelined_requests > 0 ?
+		 set->max_pipelined_requests : 1);
+	client->set.max_parallel_connections =
+		(set->max_parallel_connections > 0 ?
+		 set->max_parallel_connections : 1);
 	if (set->max_attempts > 0)
 		client->set.max_attempts = set->max_attempts;
 	if (set->max_connect_attempts > 0)
 		client->set.max_connect_attempts = set->max_connect_attempts;
-	if (set->connect_backoff_time_msecs > 0) {
-		client->set.connect_backoff_time_msecs =
-			set->connect_backoff_time_msecs;
-	}
-	if (set->connect_backoff_max_time_msecs > 0) {
-		client->set.connect_backoff_max_time_msecs =
-			set->connect_backoff_max_time_msecs;
-	}
+	client->set.connect_backoff_time_msecs =
+		set->connect_backoff_time_msecs > 0 ?
+		set->connect_backoff_time_msecs :
+		HTTP_CLIENT_DEFAULT_BACKOFF_TIME_MSECS;
+	client->set.connect_backoff_max_time_msecs =
+		set->connect_backoff_max_time_msecs > 0 ?
+		set->connect_backoff_max_time_msecs :
+		HTTP_CLIENT_DEFAULT_BACKOFF_MAX_TIME_MSECS;
 	client->set.no_auto_redirect =
 		client->set.no_auto_redirect || set->no_auto_redirect;
 	client->set.no_auto_retry =
@@ -212,8 +210,9 @@ http_client_init_shared(struct http_client_context *cctx,
 		client->set.request_absolute_timeout_msecs =
 			set->request_absolute_timeout_msecs;
 	}
-	if (set->request_timeout_msecs > 0)
-		client->set.request_timeout_msecs = set->request_timeout_msecs;
+	client->set.request_timeout_msecs = set->request_timeout_msecs > 0 ?
+		set->request_timeout_msecs :
+		HTTP_CLIENT_DEFAULT_REQUEST_TIMEOUT_MSECS;
 	if (set->connect_timeout_msecs > 0)
 		client->set.connect_timeout_msecs = set->connect_timeout_msecs;
 	if (set->soft_connect_timeout_msecs > 0)
@@ -438,91 +437,20 @@ void http_client_remove_request_error(struct http_client *client,
  * Client shared context
  */
 
-struct http_client_context *
-http_client_context_create(const struct http_client_settings *set)
+struct http_client_context *http_client_context_create(void)
 {
 	struct http_client_context *cctx;
 	pool_t pool;
-	size_t pool_size;
 
-	pool_size = (set->ssl != NULL) ? 8192 : 1024; /* certs will be >4K */
-	pool = pool_alloconly_create("http client context", pool_size);
+	pool = pool_alloconly_create("http client context", 1024);
 	cctx = p_new(pool, struct http_client_context, 1);
 	cctx->pool = pool;
 	cctx->refcount = 1;
 	cctx->ioloop = current_ioloop;
 
-	cctx->event = event_create(set->event_parent);
+	cctx->event = event_create(NULL);
 	event_add_category(cctx->event, &event_category_http_client);
-	event_set_forced_debug(cctx->event, set->debug);
 	event_set_append_log_prefix(cctx->event, "http-client: ");
-
-	cctx->set.dns_client = set->dns_client;
-	cctx->set.dns_client_socket_path =
-		p_strdup_empty(pool, set->dns_client_socket_path);
-	cctx->set.dns_ttl_msecs = (set->dns_ttl_msecs == 0 ?
-			HTTP_CLIENT_DEFAULT_DNS_TTL_MSECS : set->dns_ttl_msecs);
-	cctx->set.user_agent = p_strdup_empty(pool, set->user_agent);
-	cctx->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
-
-	if (set->ssl != NULL) {
-		cctx->set.ssl = set->ssl;
-		pool_ref(cctx->set.ssl->pool);
-	}
-
-	if (set->proxy_socket_path != NULL &&
-	    *set->proxy_socket_path != '\0') {
-		cctx->set.proxy_socket_path =
-			p_strdup(pool, set->proxy_socket_path);
-	} else if (set->proxy_url != NULL) {
-		cctx->set.proxy_url = http_url_clone(pool, set->proxy_url);
-	}
-	if (set->proxy_username != NULL && *set->proxy_username != '\0') {
-		cctx->set.proxy_username =
-			p_strdup_empty(pool, set->proxy_username);
-		cctx->set.proxy_password =
-			p_strdup(pool, set->proxy_password);
-	} else if (set->proxy_url != NULL) {
-		cctx->set.proxy_username =
-			p_strdup_empty(pool, set->proxy_url->user);
-		cctx->set.proxy_password =
-			p_strdup(pool, set->proxy_url->password);
-	}
-
-	cctx->set.max_idle_time_msecs = set->max_idle_time_msecs;
-	cctx->set.max_pipelined_requests =
-		(set->max_pipelined_requests > 0 ?
-		 set->max_pipelined_requests : 1);
-	cctx->set.max_parallel_connections =
-		(set->max_parallel_connections > 0 ?
-		 set->max_parallel_connections : 1);
-	cctx->set.max_attempts = set->max_attempts;
-	cctx->set.max_connect_attempts = set->max_connect_attempts;
-	cctx->set.connect_backoff_time_msecs =
-		(set->connect_backoff_time_msecs == 0 ?
-		 HTTP_CLIENT_DEFAULT_BACKOFF_TIME_MSECS :
-		 set->connect_backoff_time_msecs);
-	cctx->set.connect_backoff_max_time_msecs =
-		(set->connect_backoff_max_time_msecs == 0 ?
-		 HTTP_CLIENT_DEFAULT_BACKOFF_MAX_TIME_MSECS :
-		 set->connect_backoff_max_time_msecs);
-	cctx->set.no_auto_redirect = set->no_auto_redirect;
-	cctx->set.no_auto_retry = set->no_auto_retry;
-	cctx->set.no_ssl_tunnel = set->no_ssl_tunnel;
-	cctx->set.max_redirects = set->max_redirects;
-	cctx->set.response_hdr_limits = set->response_hdr_limits;
-	cctx->set.request_absolute_timeout_msecs =
-		set->request_absolute_timeout_msecs;
-	cctx->set.request_timeout_msecs =
-		(set->request_timeout_msecs == 0 ?
-		 HTTP_CLIENT_DEFAULT_REQUEST_TIMEOUT_MSECS :
-		 set->request_timeout_msecs);
-	cctx->set.connect_timeout_msecs = set->connect_timeout_msecs;
-	cctx->set.soft_connect_timeout_msecs = set->soft_connect_timeout_msecs;
-	cctx->set.max_auto_retry_delay_secs = set->max_auto_retry_delay_secs;
-	cctx->set.socket_send_buffer_size = set->socket_send_buffer_size;
-	cctx->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
-	cctx->set.debug = set->debug;
 
 	cctx->conn_list = http_client_connection_list_init();
 
@@ -586,18 +514,14 @@ static void
 http_client_context_update_settings(struct http_client_context *cctx)
 {
 	struct http_client *client;
-	bool debug;
+	bool debug = FALSE;
 
-	/* Revert back to context settings */
-	cctx->dns_client = cctx->set.dns_client;
-	cctx->dns_client_socket_path = cctx->set.dns_client_socket_path;
-	cctx->dns_ttl_msecs = cctx->set.dns_ttl_msecs;
+	/* Revert back to default settings */
+	cctx->dns_client = NULL;
+	cctx->dns_client_socket_path = NULL;
+	cctx->dns_ttl_msecs = HTTP_CLIENT_DEFAULT_DNS_TTL_MSECS;
 	cctx->dns_lookup_timeout_msecs =
-		http_client_get_dns_lookup_timeout_msecs(&cctx->set);
-	debug = cctx->set.debug;
-
-	i_assert(cctx->dns_ttl_msecs > 0);
-	i_assert(cctx->dns_lookup_timeout_msecs > 0);
+		HTTP_CLIENT_DEFAULT_DNS_LOOKUP_TIMEOUT_MSECS;
 
 	/* Override with available client settings */
 	for (client = cctx->clients_list; client != NULL;
@@ -749,9 +673,7 @@ struct http_client_context *http_client_get_global_context(void)
 	if (http_client_global_context != NULL)
 		return http_client_global_context;
 
-	struct http_client_settings set;
-	i_zero(&set);
-	http_client_global_context = http_client_context_create(&set);
+	http_client_global_context = http_client_context_create();
 	/* Keep this a bit higher than lib-ssl-iostream */
 	lib_atexit_priority(http_client_global_context_free,
 			    LIB_ATEXIT_PRIORITY_LOW-1);
