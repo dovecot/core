@@ -113,8 +113,10 @@ http_client_init_shared(struct http_client_context *cctx,
 	pool_t pool;
 	size_t pool_size;
 
+	i_assert(set != NULL);
+
 	/* certs will be >4K */
-	pool_size = ((set != NULL && set->ssl != NULL) ? 8192 : 1024);
+	pool_size = set->ssl != NULL ? 8192 : 1024;
 
 	pool = pool_alloconly_create("http client", pool_size);
 	client = p_new(pool, struct http_client, 1);
@@ -128,13 +130,12 @@ http_client_init_shared(struct http_client_context *cctx,
 		http_client_context_ref(cctx);
 		log_prefix = t_strdup_printf("http-client[%u]: ", id);
 	} else {
-		i_assert(set != NULL);
 		client->cctx = cctx = http_client_context_create(set);
 		log_prefix = "http-client: ";
 	}
 
 	struct event *parent_event;
-	if (set != NULL && set->event_parent != NULL)
+	if (set->event_parent != NULL)
 		parent_event = set->event_parent;
 	else {
 		/* FIXME: we could use cctx->event, but it already has a log
@@ -145,90 +146,88 @@ http_client_init_shared(struct http_client_context *cctx,
 	client->event = event_create(parent_event);
 	event_add_category(client->event, &event_category_http_client);
 	event_set_forced_debug(client->event,
-			       ((set != NULL && set->debug) ||
-			        (cctx != NULL && cctx->set.debug)));
+			       (set->debug ||
+				(cctx != NULL && cctx->set.debug)));
 	event_set_append_log_prefix(client->event, log_prefix);
 
 	/* Merge provided settings with context defaults */
 	client->set = cctx->set;
-	if (set != NULL) {
-		client->set.dns_client = set->dns_client;
-		client->set.dns_client_socket_path =
-			p_strdup_empty(pool, set->dns_client_socket_path);
-		client->set.dns_ttl_msecs = set->dns_ttl_msecs;
+	client->set.dns_client = set->dns_client;
+	client->set.dns_client_socket_path =
+		p_strdup_empty(pool, set->dns_client_socket_path);
+	client->set.dns_ttl_msecs = set->dns_ttl_msecs;
 
-		if (set->user_agent != NULL && *set->user_agent != '\0')
-			client->set.user_agent = p_strdup_empty(pool, set->user_agent);
-		if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
-			client->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
+	if (set->user_agent != NULL && *set->user_agent != '\0')
+		client->set.user_agent = p_strdup_empty(pool, set->user_agent);
+	if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
+		client->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
 
-		if (set->ssl != NULL) {
-			client->set.ssl = set->ssl;
-			pool_ref(client->set.ssl->pool);
-		}
-
-		if (set->proxy_socket_path != NULL && *set->proxy_socket_path != '\0') {
-			client->set.proxy_socket_path = p_strdup(pool, set->proxy_socket_path);
-			client->set.proxy_url = NULL;
-		} else if (set->proxy_url != NULL) {
-			client->set.proxy_url = http_url_clone(pool, set->proxy_url);
-			client->set.proxy_socket_path = NULL;
-		}
-		if (set->proxy_username != NULL && *set->proxy_username != '\0') {
-			client->set.proxy_username = p_strdup_empty(pool, set->proxy_username);
-			client->set.proxy_password = p_strdup(pool, set->proxy_password);
-		} else if (set->proxy_url != NULL && set->proxy_url->user != NULL &&
-			*set->proxy_url->user != '\0') {
-			client->set.proxy_username =
-				p_strdup_empty(pool, set->proxy_url->user);
-			client->set.proxy_password =
-				p_strdup(pool, set->proxy_url->password);
-		}
-
-		if (set->max_idle_time_msecs > 0)
-			client->set.max_idle_time_msecs = set->max_idle_time_msecs;
-		if (set->max_parallel_connections > 0)
-			client->set.max_parallel_connections = set->max_parallel_connections;
-		if (set->max_pipelined_requests > 0)
-			client->set.max_pipelined_requests = set->max_pipelined_requests;
-		if (set->max_attempts > 0)
-			client->set.max_attempts = set->max_attempts;
-		if (set->max_connect_attempts > 0)
-			client->set.max_connect_attempts = set->max_connect_attempts;
-		if (set->connect_backoff_time_msecs > 0) {
-			client->set.connect_backoff_time_msecs =
-				set->connect_backoff_time_msecs;
-		}
-		if (set->connect_backoff_max_time_msecs > 0) {
-			client->set.connect_backoff_max_time_msecs =
-				set->connect_backoff_max_time_msecs;
-		}
-		client->set.no_auto_redirect =
-			client->set.no_auto_redirect || set->no_auto_redirect;
-		client->set.no_auto_retry =
-			client->set.no_auto_retry || set->no_auto_retry;
-		client->set.no_ssl_tunnel =
-			client->set.no_ssl_tunnel || set->no_ssl_tunnel;
-		if (set->max_redirects > 0)
-			client->set.max_redirects = set->max_redirects;
-		if (set->request_absolute_timeout_msecs > 0) {
-			client->set.request_absolute_timeout_msecs =
-				set->request_absolute_timeout_msecs;
-		}
-		if (set->request_timeout_msecs > 0)
-			client->set.request_timeout_msecs = set->request_timeout_msecs;
-		if (set->connect_timeout_msecs > 0)
-			client->set.connect_timeout_msecs = set->connect_timeout_msecs;
-		if (set->soft_connect_timeout_msecs > 0)
-			client->set.soft_connect_timeout_msecs = set->soft_connect_timeout_msecs;
-		if (set->socket_send_buffer_size > 0)
-			client->set.socket_send_buffer_size = set->socket_send_buffer_size;
-		if (set->socket_recv_buffer_size > 0)
-			client->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
-		if (set->max_auto_retry_delay_secs > 0)
-			client->set.max_auto_retry_delay_secs = set->max_auto_retry_delay_secs;
-		client->set.debug = client->set.debug || set->debug;
+	if (set->ssl != NULL) {
+		client->set.ssl = set->ssl;
+		pool_ref(client->set.ssl->pool);
 	}
+
+	if (set->proxy_socket_path != NULL && *set->proxy_socket_path != '\0') {
+		client->set.proxy_socket_path = p_strdup(pool, set->proxy_socket_path);
+		client->set.proxy_url = NULL;
+	} else if (set->proxy_url != NULL) {
+		client->set.proxy_url = http_url_clone(pool, set->proxy_url);
+		client->set.proxy_socket_path = NULL;
+	}
+	if (set->proxy_username != NULL && *set->proxy_username != '\0') {
+		client->set.proxy_username = p_strdup_empty(pool, set->proxy_username);
+		client->set.proxy_password = p_strdup(pool, set->proxy_password);
+	} else if (set->proxy_url != NULL && set->proxy_url->user != NULL &&
+		   *set->proxy_url->user != '\0') {
+		client->set.proxy_username =
+			p_strdup_empty(pool, set->proxy_url->user);
+		client->set.proxy_password =
+			p_strdup(pool, set->proxy_url->password);
+	}
+
+	if (set->max_idle_time_msecs > 0)
+		client->set.max_idle_time_msecs = set->max_idle_time_msecs;
+	if (set->max_parallel_connections > 0)
+		client->set.max_parallel_connections = set->max_parallel_connections;
+	if (set->max_pipelined_requests > 0)
+		client->set.max_pipelined_requests = set->max_pipelined_requests;
+	if (set->max_attempts > 0)
+		client->set.max_attempts = set->max_attempts;
+	if (set->max_connect_attempts > 0)
+		client->set.max_connect_attempts = set->max_connect_attempts;
+	if (set->connect_backoff_time_msecs > 0) {
+		client->set.connect_backoff_time_msecs =
+			set->connect_backoff_time_msecs;
+	}
+	if (set->connect_backoff_max_time_msecs > 0) {
+		client->set.connect_backoff_max_time_msecs =
+			set->connect_backoff_max_time_msecs;
+	}
+	client->set.no_auto_redirect =
+		client->set.no_auto_redirect || set->no_auto_redirect;
+	client->set.no_auto_retry =
+		client->set.no_auto_retry || set->no_auto_retry;
+	client->set.no_ssl_tunnel =
+		client->set.no_ssl_tunnel || set->no_ssl_tunnel;
+	if (set->max_redirects > 0)
+		client->set.max_redirects = set->max_redirects;
+	if (set->request_absolute_timeout_msecs > 0) {
+		client->set.request_absolute_timeout_msecs =
+			set->request_absolute_timeout_msecs;
+	}
+	if (set->request_timeout_msecs > 0)
+		client->set.request_timeout_msecs = set->request_timeout_msecs;
+	if (set->connect_timeout_msecs > 0)
+		client->set.connect_timeout_msecs = set->connect_timeout_msecs;
+	if (set->soft_connect_timeout_msecs > 0)
+		client->set.soft_connect_timeout_msecs = set->soft_connect_timeout_msecs;
+	if (set->socket_send_buffer_size > 0)
+		client->set.socket_send_buffer_size = set->socket_send_buffer_size;
+	if (set->socket_recv_buffer_size > 0)
+		client->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
+	if (set->max_auto_retry_delay_secs > 0)
+		client->set.max_auto_retry_delay_secs = set->max_auto_retry_delay_secs;
+	client->set.debug = client->set.debug || set->debug;
 
 	i_array_init(&client->delayed_failing_requests, 1);
 

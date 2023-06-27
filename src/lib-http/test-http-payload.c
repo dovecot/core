@@ -1044,7 +1044,7 @@ test_client_create_clients(const struct http_client_settings *client_set)
 	for (i = 0; i < tset.parallel_clients; i++) {
 		http_clients[i] = (tset.parallel_clients_global ?
 				   http_client_init(client_set) :
-				   http_client_init_shared(http_context, NULL));
+				   http_client_init_shared(http_context, client_set));
 		if (old_test_http_client_connection_connected == NULL) {
 			old_test_http_client_connection_connected =
 				http_clients[i]->cctx->conn_list->v.client_connected;
