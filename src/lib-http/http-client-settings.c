@@ -12,11 +12,19 @@ http_client_settings_check(void *_set, pool_t pool, const char **error_r);
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type("http_client_"#name, name, struct http_client_settings)
 
+#undef DEF_MSECS
+#define DEF_MSECS(type, name) \
+	SETTING_DEFINE_STRUCT_##type("http_client_"#name, name##_msecs, struct http_client_settings)
+
+#undef DEF_SECS
+#define DEF_SECS(type, name) \
+	SETTING_DEFINE_STRUCT_##type("http_client_"#name, name##_secs, struct http_client_settings)
+
 static const struct setting_define http_client_setting_defines[] = {
 	SETTING_DEFINE_STRUCT_STR_HIDDEN("base_dir", base_dir,
 					 struct http_client_settings),
 	DEF(STR_HIDDEN, dns_client_socket_path),
-	DEF(TIME_MSECS_HIDDEN, dns_ttl_msecs),
+	DEF_MSECS(TIME_MSECS_HIDDEN, dns_ttl),
 
 	DEF(STR_HIDDEN, user_agent),
 
@@ -27,7 +35,7 @@ static const struct setting_define http_client_setting_defines[] = {
 
 	DEF(STR, rawlog_dir),
 
-	DEF(TIME_MSECS, max_idle_time_msecs),
+	DEF_MSECS(TIME_MSECS, max_idle_time),
 	DEF(UINT, max_parallel_connections),
 	DEF(UINT, max_pipelined_requests),
 
@@ -42,18 +50,18 @@ static const struct setting_define http_client_setting_defines[] = {
 	DEF(UINT, delete_max_attempts),
 	DEF(UINT, max_connect_attempts),
 
-	DEF(TIME_MSECS_HIDDEN, connect_backoff_time_msecs),
-	DEF(TIME_MSECS_HIDDEN, connect_backoff_max_time_msecs),
+	DEF_MSECS(TIME_MSECS_HIDDEN, connect_backoff_time),
+	DEF_MSECS(TIME_MSECS_HIDDEN, connect_backoff_max_time),
 
 	DEF(SIZE_HIDDEN, response_hdr_max_size),
 	DEF(SIZE_HIDDEN, response_hdr_max_field_size),
 	DEF(UINT_HIDDEN, response_hdr_max_fields),
 
-	DEF(TIME_MSECS, request_absolute_timeout_msecs),
-	DEF(TIME_MSECS, request_timeout_msecs),
-	DEF(TIME_MSECS, connect_timeout_msecs),
-	DEF(TIME_MSECS_HIDDEN, soft_connect_timeout_msecs),
-	DEF(TIME_HIDDEN, max_auto_retry_delay_secs),
+	DEF_MSECS(TIME_MSECS, request_absolute_timeout),
+	DEF_MSECS(TIME_MSECS, request_timeout),
+	DEF_MSECS(TIME_MSECS, connect_timeout),
+	DEF_MSECS(TIME_MSECS_HIDDEN, soft_connect_timeout),
+	DEF_SECS(TIME_HIDDEN, max_auto_retry_delay),
 
 	DEF(SIZE_HIDDEN, socket_send_buffer_size),
 	DEF(SIZE_HIDDEN, socket_recv_buffer_size),
