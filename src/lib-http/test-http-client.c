@@ -400,7 +400,7 @@ int main(int argc, char *argv[])
 	http_set.debug = TRUE;
 	http_set.rawlog_dir = "/tmp/http-test";
 
-	http_cctx = http_client_context_create(&http_set);
+	http_cctx = http_client_context_create();
 
 	http_client1 = http_client_init_shared(http_cctx, &http_set);
 	http_client2 = http_client_init_shared(http_cctx, &http_set);
