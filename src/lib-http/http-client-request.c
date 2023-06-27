@@ -1161,8 +1161,8 @@ http_client_request_continue_payload(struct http_client_request **_req,
 		prev_ioloop = current_ioloop;
 		client_ioloop = io_loop_create();
 		prev_client_ioloop = http_client_switch_ioloop(client);
-		if (client->set.dns_client != NULL)
-			dns_client_switch_ioloop(client->set.dns_client);
+		if (client->dns_client != NULL)
+			dns_client_switch_ioloop(client->dns_client);
 
 		client->waiting = TRUE;
 		while (req->state < HTTP_REQUEST_STATE_PAYLOAD_IN) {
@@ -1189,8 +1189,8 @@ http_client_request_continue_payload(struct http_client_request **_req,
 		else
 			io_loop_set_current(prev_ioloop);
 		(void)http_client_switch_ioloop(client);
-		if (client->set.dns_client != NULL)
-			dns_client_switch_ioloop(client->set.dns_client);
+		if (client->dns_client != NULL)
+			dns_client_switch_ioloop(client->dns_client);
 		io_loop_set_current(client_ioloop);
 		io_loop_destroy(&client_ioloop);
 	}

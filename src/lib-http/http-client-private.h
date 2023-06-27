@@ -376,6 +376,7 @@ struct http_client {
 	struct event *event;
 	struct ioloop *ioloop;
 	struct ssl_iostream_context *ssl_ctx;
+	struct dns_client *dns_client;
 
 	/* List of failed requests that are waiting for ioloop */
 	ARRAY(struct http_client_request *) delayed_failing_requests;

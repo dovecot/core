@@ -13,6 +13,7 @@ struct http_client_request;
 struct http_client;
 struct http_client_context;
 
+struct dns_client;
 struct ssl_iostream_settings;
 
 /*
@@ -20,11 +21,11 @@ struct ssl_iostream_settings;
  */
 
 struct http_client_settings {
-	/* a) If dns_client is set, all lookups are done via it.
+	/* a) If http_client_set_dns_client() is used, all lookups are done
+	   via it.
 	   b) If dns_client_socket_path is set, each DNS lookup does its own
 	   dns-lookup UNIX socket connection.
 	   c) Otherwise, blocking gethostbyname() lookups are used. */
-	struct dns_client *dns_client;
 	const char *dns_client_socket_path;
 	/* How long to cache DNS records internally
 	   (default = HTTP_CLIENT_DEFAULT_DNS_TTL_MSECS) */
@@ -481,6 +482,9 @@ struct ioloop *http_client_switch_ioloop(struct http_client *client);
 /* Blocks until all currently submitted requests are handled */
 void http_client_wait(struct http_client *client);
 
+/* Do all lookups using the specified DNS client. */
+void http_client_set_dns_client(struct http_client *client,
+				struct dns_client *dns_client);
 /* Returns the total number of pending HTTP requests. */
 unsigned int http_client_get_pending_request_count(struct http_client *client);
 
