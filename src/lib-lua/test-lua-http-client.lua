@@ -53,7 +53,7 @@ end
 
 function test_invalid_set_value_1()
   http_client = dovecot.http.client({
-    debug = "yes"
+    auto_retry = "yes"
   })
   return 0
 end

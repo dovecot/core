@@ -1771,7 +1771,7 @@ test_init_client_settings(struct http_client_settings *client_set_r)
 	client_set_r->max_redirects = 0;
 	client_set_r->max_attempts = 1;
 	client_set_r->max_idle_time_msecs =  5* 1000;
-	client_set_r->debug = debug;
+	client_set_r->event_parent = client_event;
 
 	if (small_socket_buffers) {
 		client_set_r->socket_send_buffer_size = 40960;

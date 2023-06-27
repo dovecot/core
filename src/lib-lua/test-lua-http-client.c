@@ -385,7 +385,7 @@ static void test_bad_settings(void)
 
 	ret = dlua_pcall(script->L, "test_invalid_set_value_1", 0, 0, &error);
 	test_assert(ret < 0);
-	test_assert(strstr(error, "Invalid HTTP client setting: debug: boolean expected") != NULL);
+	test_assert(strstr(error, "Invalid HTTP client setting: auto_retry: boolean expected") != NULL);
 
 	ret = dlua_pcall(script->L, "test_invalid_set_value_2", 0, 0, &error);
 	test_assert(ret < 0);

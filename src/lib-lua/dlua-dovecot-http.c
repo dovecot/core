@@ -494,7 +494,6 @@ static int parse_client_settings(lua_State *L, struct http_client_settings *set,
 		CLIENT_SETTING_UINT(connect_timeout_msecs)
 		CLIENT_SETTING_UINT(soft_connect_timeout_msecs)
 		CLIENT_SETTING_UINT(max_auto_retry_delay_secs)
-		CLIENT_SETTING_BOOL(debug)
 		else {
 			*error_r = t_strdup_printf("%s is unknown setting", key);
 			return -1;

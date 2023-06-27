@@ -130,9 +130,6 @@ struct http_client_settings {
 	   requests this can be overridden with http_client_request_set_event().
 	 */
 	struct event *event_parent;
-
-	/* Enable logging debug messages */
-	bool debug;
 };
 
 /*

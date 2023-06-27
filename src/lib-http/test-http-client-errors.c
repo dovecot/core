@@ -3486,7 +3486,6 @@ static void test_client_defaults(struct http_client_settings *http_set)
 	http_set->max_pipelined_requests = 1;
 	http_set->max_redirects = 0;
 	http_set->max_attempts = 1;
-	http_set->debug = debug;
 }
 
 static void test_client_progress_timeout(void *context ATTR_UNUSED)
