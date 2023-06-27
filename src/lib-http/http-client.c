@@ -192,11 +192,38 @@ struct http_client *http_client_init(const struct http_client_settings *set,
 				       event_parent);
 }
 
+int http_client_init_auto(struct event *event_parent,
+			  struct http_client **client_r, const char **error_r)
+{
+	const struct http_client_settings *set;
+
+	if (settings_get(event_parent, &http_client_setting_parser_info,
+			 0, &set, error_r) < 0)
+		return -1;
+	*client_r = http_client_init(set, event_parent);
+	settings_free(set);
+	return 0;
+}
+
 struct http_client *
 http_client_init_private(const struct http_client_settings *set,
 			 struct event *event_parent)
 {
 	return http_client_init_shared(NULL, set, event_parent);
+}
+
+int http_client_init_private_auto(struct event *event_parent,
+				  struct http_client **client_r,
+				  const char **error_r)
+{
+	const struct http_client_settings *set;
+
+	if (settings_get(event_parent, &http_client_setting_parser_info,
+			 0, &set, error_r) < 0)
+		return -1;
+	*client_r = http_client_init_private(set, event_parent);
+	settings_free(set);
+	return 0;
 }
 
 void http_client_deinit(struct http_client **_client)
