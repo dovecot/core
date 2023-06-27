@@ -402,10 +402,10 @@ int main(int argc, char *argv[])
 
 	http_cctx = http_client_context_create(&http_set);
 
-	http_client1 = http_client_init_shared(http_cctx, NULL);
-	http_client2 = http_client_init_shared(http_cctx, NULL);
-	http_client3 = http_client_init_shared(http_cctx, NULL);
-	http_client4 = http_client_init_shared(http_cctx, NULL);
+	http_client1 = http_client_init_shared(http_cctx, &http_set);
+	http_client2 = http_client_init_shared(http_cctx, &http_set);
+	http_client3 = http_client_init_shared(http_cctx, &http_set);
+	http_client4 = http_client_init_shared(http_cctx, &http_set);
 
 	switch (argc) {
 	case 1:
