@@ -123,8 +123,8 @@ http_client_request_new(struct http_client *client, const char *method,
 				     EVENT_REASON_CODE);
 
 	/* Default to client-wide settings: */
-	req->max_attempts = client->set.max_attempts;
-	req->attempt_timeout_msecs = client->set.request_timeout_msecs;
+	req->max_attempts = client->set->max_attempts;
+	req->attempt_timeout_msecs = client->set->request_timeout_msecs;
 
 	req->state = HTTP_REQUEST_STATE_NEW;
 	return req;
@@ -724,9 +724,9 @@ int http_client_request_delay_from_response(
 		return 0;  /* no delay */
 	if (retry_after < ioloop_time)
 		return 0;  /* delay already expired */
-	max = (req->client->set.max_auto_retry_delay_secs == 0 ?
+	max = (req->client->set->max_auto_retry_delay_secs == 0 ?
 	       req->attempt_timeout_msecs / 1000 :
-	       req->client->set.max_auto_retry_delay_secs);
+	       req->client->set->max_auto_retry_delay_secs);
 	if ((unsigned int)(retry_after - ioloop_time) > max)
 		return -1; /* delay too long */
 	req->release_time.tv_sec = retry_after;
@@ -900,8 +900,8 @@ static void http_client_request_do_submit(struct http_client_request *req)
 {
 	struct http_client *client = req->client;
 	struct http_client_host *host;
-	const char *proxy_socket_path = client->set.proxy_socket_path;
-	const struct http_url *proxy_url = client->set.proxy_url;
+	const char *proxy_socket_path = client->set->proxy_socket_path;
+	const struct http_url *proxy_url = client->set->proxy_url;
 	bool have_proxy =
 		((proxy_socket_path != NULL) || (proxy_url != NULL) ||
 		 (req->host_socket != NULL) || (req->host_url != NULL));
@@ -931,7 +931,7 @@ static void http_client_request_do_submit(struct http_client_request *req)
 			/* Specific normal proxy */
 			req->host_socket = NULL;
 		} else if (req->origin_url.have_ssl &&
-			   !client->set.no_ssl_tunnel &&
+			   !client->set->no_ssl_tunnel &&
 			   !req->connect_tunnel) {
 			/* Tunnel to origin server */
 			req->host_url = &req->origin_url;
@@ -978,10 +978,10 @@ static void http_client_request_do_submit(struct http_client_request *req)
 			req->timeout_time = ioloop_timeval;
 			timeval_add_msecs(&req->timeout_time,
 					  req->timeout_msecs);
-		} else if (client->set.request_absolute_timeout_msecs > 0) {
+		} else if (client->set->request_absolute_timeout_msecs > 0) {
 			req->timeout_time = ioloop_timeval;
 			timeval_add_msecs(&req->timeout_time,
-				client->set.request_absolute_timeout_msecs);
+				client->set->request_absolute_timeout_msecs);
 		}
 	}
 
@@ -1365,7 +1365,7 @@ int http_client_request_send_more(struct http_client_request *req,
 static int
 http_client_request_send_real(struct http_client_request *req, bool pipelined)
 {
-	const struct http_client_settings *set = &req->client->set;
+	const struct http_client_settings *set = req->client->set;
 	struct http_client_connection *conn = req->conn;
 	string_t *rtext = t_str_new(256);
 	struct const_iovec iov[3];
@@ -1414,9 +1414,9 @@ http_client_request_send_real(struct http_client_request *req, bool pipelined)
 		http_auth_create_credentials(rtext, &auth_creds);
 		str_append(rtext, "\r\n");
 	}
-	if (!req->have_hdr_user_agent && req->client->set.user_agent != NULL) {
+	if (!req->have_hdr_user_agent && req->client->set->user_agent != NULL) {
 		str_printfa(rtext, "User-Agent: %s\r\n",
-			    req->client->set.user_agent);
+			    req->client->set->user_agent);
 	}
 	if (!req->have_hdr_expect && req->payload_sync) {
 		str_append(rtext, "Expect: 100-continue\r\n");
@@ -1778,15 +1778,15 @@ void http_client_request_redirect(struct http_client_request *req,
 		return;
 	}
 
-	i_assert(req->redirects <= req->client->set.max_redirects);
-	if (++req->redirects > req->client->set.max_redirects) {
-		if (req->client->set.max_redirects > 0) {
+	i_assert(req->redirects <= req->client->set->max_redirects);
+	if (++req->redirects > req->client->set->max_redirects) {
+		if (req->client->set->max_redirects > 0) {
 			http_client_request_error(
 				&req,
 				HTTP_CLIENT_REQUEST_ERROR_INVALID_REDIRECT,
 				t_strdup_printf(
 					"Redirected more than %d times",
-					req->client->set.max_redirects));
+					req->client->set->max_redirects));
 		} else {
 			http_client_request_error(
 				&req,
@@ -1868,7 +1868,7 @@ void http_client_request_resubmit(struct http_client_request *req)
 void http_client_request_retry(struct http_client_request *req,
 			       unsigned int status, const char *error)
 {
-	if (req->client == NULL || req->client->set.no_auto_retry ||
+	if (req->client == NULL || req->client->set->no_auto_retry ||
 	    !http_client_request_try_retry(req))
 		http_client_request_error(&req, status, error);
 }

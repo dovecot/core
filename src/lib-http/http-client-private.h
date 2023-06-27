@@ -369,7 +369,7 @@ struct http_client_host {
 struct http_client {
 	pool_t pool;
 	struct http_client_context *cctx;
-	struct http_client_settings set;
+	struct http_client_settings *set;
 
 	struct http_client *prev, *next;
 

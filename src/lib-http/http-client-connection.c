@@ -31,7 +31,7 @@ static inline const struct http_client_settings *
 http_client_connection_get_settings(struct http_client_connection *conn)
 {
 	i_assert(conn->peer != NULL);
-	return &conn->peer->client->set;
+	return conn->peer->client->set;
 }
 
 static inline void
@@ -1207,7 +1207,7 @@ static void http_client_connection_input(struct connection *_conn)
 					if (http_client_request_try_retry(req))
 						handled = TRUE;
 				/* Redirection */
-				} else if (!req->client->set.no_auto_redirect &&
+				} else if (!req->client->set->no_auto_redirect &&
 					   response.status / 100 == 3 &&
 					   response.status != 304 &&
 					   response.location != NULL) {
@@ -1707,7 +1707,7 @@ http_client_connection_create(struct http_client_peer *peer)
 	struct http_client_peer_pool *ppool = peer->ppool;
 	struct http_client_context *cctx = pshared->cctx;
 	struct http_client *client = peer->client;
-	const struct http_client_settings *set = &client->set;
+	const struct http_client_settings *set = client->set;
 	struct http_client_connection *conn;
 	const struct http_client_peer_addr *addr = &pshared->addr;
 	const char *conn_type;
