@@ -142,7 +142,6 @@ http_client_init_shared(struct http_client_context *cctx,
 		event_drop_parent_log_prefixes(client->event, 1);
 	}
 	event_add_category(client->event, &event_category_http_client);
-	event_set_forced_debug(client->event, set->debug);
 	event_set_append_log_prefix(client->event, log_prefix);
 
 	client->set.dns_client = set->dns_client;
@@ -223,7 +222,6 @@ http_client_init_shared(struct http_client_context *cctx,
 		client->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
 	if (set->max_auto_retry_delay_secs > 0)
 		client->set.max_auto_retry_delay_secs = set->max_auto_retry_delay_secs;
-	client->set.debug = client->set.debug || set->debug;
 
 	i_array_init(&client->delayed_failing_requests, 1);
 
@@ -542,7 +540,7 @@ http_client_context_update_settings(struct http_client_context *cctx)
 			cctx->dns_lookup_timeout_msecs =
 				dns_lookup_timeout_msecs;
 		}
-		debug = debug || client->set.debug;
+		debug = debug || event_want_debug(client->event);
 	}
 
 	if (cctx->dns_ttl_msecs == UINT_MAX)

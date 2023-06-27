@@ -30,7 +30,6 @@ static struct http_client_settings http_client_set = {
 	.max_connect_attempts = 1,
 	.max_idle_time_msecs = 10000,
 	.max_parallel_connections = 100,
-	.debug = 0,
 	.user_agent = "dovecot/auth-policy-client"
 };
 
@@ -156,8 +155,6 @@ void auth_policy_init(void)
 {
 	http_client_set.request_absolute_timeout_msecs =
 		global_auth_settings->policy_server_timeout_msecs;
-	if (global_auth_settings->debug)
-		http_client_set.debug = 1;
 
 	http_client_set.event_parent = auth_event;
 	http_client = http_client_init(&http_client_set);

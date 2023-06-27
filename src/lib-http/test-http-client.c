@@ -397,8 +397,9 @@ int main(int argc, char *argv[])
 	http_set.max_redirects = 2;
 	http_set.request_timeout_msecs = 10*1000;
 	http_set.max_attempts = 1;
-	http_set.debug = TRUE;
 	http_set.rawlog_dir = "/tmp/http-test";
+	http_set.event_parent = event_create(NULL);
+	event_set_forced_debug(http_set.event_parent, TRUE);
 
 	http_cctx = http_client_context_create();
 
@@ -456,6 +457,7 @@ int main(int argc, char *argv[])
 	http_client_deinit(&http_client4);
 
 	http_client_context_unref(&http_cctx);
+	event_unref(&http_set.event_parent);
 
 	if (dns_client != NULL)
 		dns_client_deinit(&dns_client);

@@ -69,7 +69,6 @@ push_notification_driver_ox_init_global(
 		   unlikely to change between users so it shouldn't matter much.
 		 */
 		i_zero(&http_set);
-		http_set.debug = event_want_debug(user->event);
 		http_set.max_attempts = config->http_max_retries+1;
 		http_set.request_timeout_msecs = config->http_timeout_msecs;
 		http_set.event_parent = user->event;
