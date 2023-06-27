@@ -375,6 +375,7 @@ struct http_client {
 
 	struct event *event;
 	struct ioloop *ioloop;
+	const struct ssl_iostream_settings *ssl_set;
 	struct ssl_iostream_context *ssl_ctx;
 	struct dns_client *dns_client;
 

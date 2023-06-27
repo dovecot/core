@@ -997,7 +997,8 @@ test_http_client_connection_connected(struct connection *conn, bool success)
 }
 
 static void
-test_client_create_clients(const struct http_client_settings *client_set)
+test_client_create_clients(const struct http_client_settings *client_set,
+			   const struct ssl_iostream_settings *ssl_client_set)
 {
 	struct http_client_context *http_context = NULL;
 	unsigned int i;
@@ -1012,6 +1013,7 @@ test_client_create_clients(const struct http_client_settings *client_set)
 		http_clients[i] = (tset.parallel_clients_global ?
 				   http_client_init(client_set) :
 				   http_client_init_shared(http_context, client_set));
+		http_client_set_ssl_settings(http_clients[i], ssl_client_set);
 		if (old_test_http_client_connection_connected == NULL) {
 			old_test_http_client_connection_connected =
 				http_clients[i]->cctx->conn_list->v.client_connected;
@@ -1236,10 +1238,11 @@ static void test_client_download_continue(void)
 	}
 }
 
-static void test_client_download(const struct http_client_settings *client_set)
+static void test_client_download(const struct http_client_settings *client_set,
+				 const struct ssl_iostream_settings *ssl_client_set)
 {
 	/* create client(s) */
-	test_client_create_clients(client_set);
+	test_client_create_clients(client_set, ssl_client_set);
 
 	/* start querying server */
 	client_files_first = client_files_last = 0;
@@ -1644,10 +1647,11 @@ static void test_client_echo_continue(void *context ATTR_UNUSED)
 	}
 }
 
-static void test_client_echo(const struct http_client_settings *client_set)
+static void test_client_echo(const struct http_client_settings *client_set,
+			     const struct ssl_iostream_settings *ssl_client_set)
 {
 	/* create client */
-	test_client_create_clients(client_set);
+	test_client_create_clients(client_set, ssl_client_set);
 
 	/* start querying server */
 	client_files_first = client_files_last = 0;
@@ -1703,7 +1707,9 @@ static int test_run_server(struct test_server_data *data)
 static void
 test_run_client(
 	const struct http_client_settings *client_set,
-	void (*client_init)(const struct http_client_settings *client_set))
+	const struct ssl_iostream_settings *ssl_client_set,
+	void (*client_init)(const struct http_client_settings *client_set,
+			    const struct ssl_iostream_settings *ssl_client_set))
 {
 	struct ioloop *ioloop;
 
@@ -1715,7 +1721,7 @@ test_run_client(
 	ioloop_nested_depth = 0;
 	ioloop = io_loop_create();
 	test_client_init();
-	client_init(client_set);
+	client_init(client_set, ssl_client_set);
 	io_loop_run(ioloop);
 	test_client_deinit();
 	io_loop_destroy(&ioloop);
@@ -1726,8 +1732,10 @@ test_run_client(
 static void
 test_run_client_server(
 	const struct http_client_settings *client_set,
+	const struct ssl_iostream_settings *ssl_client_set,
 	const struct http_server_settings *server_set,
-	void (*client_init)(const struct http_client_settings *client_set))
+	void (*client_init)(const struct http_client_settings *client_set,
+			    const struct ssl_iostream_settings *ssl_client_set))
 {
 	struct test_server_data data;
 
@@ -1744,7 +1752,7 @@ test_run_client_server(
 	i_close_fd(&fd_listen);
 
 	/* Run client */
-	test_run_client(client_set, client_init);
+	test_run_client(client_set, ssl_client_set, client_init);
 
 	i_unset_failure_prefix();
 	test_subprocess_kill_all(SERVER_KILL_TIMEOUT_SECS);
@@ -1783,7 +1791,8 @@ test_init_client_settings(struct http_client_settings *client_set_r)
 
 static void
 test_run_sequential(
-	void (*client_init)(const struct http_client_settings *client_set))
+	void (*client_init)(const struct http_client_settings *client_set,
+			    const struct ssl_iostream_settings *ssl_client_set))
 {
 	struct http_server_settings http_server_set;
 	struct http_client_settings http_client_set;
@@ -1802,11 +1811,11 @@ test_run_sequential(
 
 	/* client settings */
 	test_init_client_settings(&http_client_set);
-	http_client_set.ssl = &ssl_client_set;
 	http_client_set.max_parallel_connections = 1;
 	http_client_set.max_pipelined_requests = 1;
 
-	test_run_client_server(&http_client_set, &http_server_set, client_init);
+	test_run_client_server(&http_client_set, &ssl_client_set,
+			       &http_server_set, client_init);
 	ssl_iostream_context_cache_free();
 
 	test_out_reason("sequential", (failure == NULL), failure);
@@ -1814,7 +1823,8 @@ test_run_sequential(
 
 static void
 test_run_pipeline(
-	void (*client_init)(const struct http_client_settings *client_set))
+	void (*client_init)(const struct http_client_settings *client_set,
+			    const struct ssl_iostream_settings *ssl_client_set))
 {
 	struct http_server_settings http_server_set;
 	struct http_client_settings http_client_set;
@@ -1833,11 +1843,11 @@ test_run_pipeline(
 
 	/* client settings */
 	test_init_client_settings(&http_client_set);
-	http_client_set.ssl = &ssl_client_set;
 	http_client_set.max_parallel_connections = 1;
 	http_client_set.max_pipelined_requests = 8;
 
-	test_run_client_server(&http_client_set, &http_server_set, client_init);
+	test_run_client_server(&http_client_set, &ssl_client_set,
+			       &http_server_set, client_init);
 	ssl_iostream_context_cache_free();
 
 	test_out_reason("pipeline", (failure == NULL), failure);
@@ -1845,7 +1855,8 @@ test_run_pipeline(
 
 static void
 test_run_parallel(
-	void (*client_init)(const struct http_client_settings *client_set))
+	void (*client_init)(const struct http_client_settings *client_set,
+			    const struct ssl_iostream_settings *ssl_client_set))
 {
 	struct http_server_settings http_server_set;
 	struct http_client_settings http_client_set;
@@ -1864,11 +1875,11 @@ test_run_parallel(
 
 	/* client settings */
 	test_init_client_settings(&http_client_set);
-	http_client_set.ssl = &ssl_client_set;
 	http_client_set.max_parallel_connections = 40;
 	http_client_set.max_pipelined_requests = 8;
 
-	test_run_client_server(&http_client_set, &http_server_set, client_init);
+	test_run_client_server(&http_client_set, &ssl_client_set,
+			       &http_server_set, client_init);
 	ssl_iostream_context_cache_free();
 
 	test_out_reason("parallel", (failure == NULL), failure);

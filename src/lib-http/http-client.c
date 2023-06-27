@@ -111,14 +111,10 @@ http_client_init_shared(struct http_client_context *cctx,
 	struct http_client *client;
 	const char *log_prefix;
 	pool_t pool;
-	size_t pool_size;
 
 	i_assert(set != NULL);
 
-	/* certs will be >4K */
-	pool_size = set->ssl != NULL ? 8192 : 1024;
-
-	pool = pool_alloconly_create("http client", pool_size);
+	pool = pool_alloconly_create("http client", 1024);
 	client = p_new(pool, struct http_client, 1);
 	client->pool = pool;
 	client->ioloop = current_ioloop;
@@ -152,11 +148,6 @@ http_client_init_shared(struct http_client_context *cctx,
 		client->set.user_agent = p_strdup_empty(pool, set->user_agent);
 	if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
 		client->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
-
-	if (set->ssl != NULL) {
-		client->set.ssl = set->ssl;
-		pool_ref(client->set.ssl->pool);
-	}
 
 	if (set->proxy_socket_path != NULL && *set->proxy_socket_path != '\0') {
 		client->set.proxy_socket_path = p_strdup(pool, set->proxy_socket_path);
@@ -273,7 +264,7 @@ void http_client_deinit(struct http_client **_client)
 	array_free(&client->delayed_failing_requests);
 	timeout_remove(&client->to_failing_requests);
 
-	settings_free(client->set.ssl);
+	settings_free(client->ssl_set);
 	if (client->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&client->ssl_ctx);
 	http_client_context_remove_client(client->cctx, client);
@@ -355,6 +346,14 @@ void http_client_wait(struct http_client *client)
 	io_loop_destroy(&client_ioloop);
 }
 
+void http_client_set_ssl_settings(struct http_client *client,
+				  const struct ssl_iostream_settings *ssl)
+{
+	settings_free(client->ssl_set);
+	client->ssl_set = ssl;
+	pool_ref(client->ssl_set->pool);
+}
+
 void http_client_set_dns_client(struct http_client *client,
 				struct dns_client *dns_client)
 {
@@ -374,8 +373,8 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 	if (client->ssl_ctx != NULL)
 		return 0;
 
-	if (client->set.ssl != NULL) {
-		return ssl_iostream_client_context_cache_get(client->set.ssl,
+	if (client->ssl_set != NULL) {
+		return ssl_iostream_client_context_cache_get(client->ssl_set,
 			&client->ssl_ctx, error_r);
 	}
 	/* no ssl settings given via http_client_settings -

@@ -232,7 +232,6 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	ssl_set->allow_invalid_cert = db->set.tls_allow_invalid_cert;
 
 	i_zero(&http_set);
-	http_set.ssl = ssl_set;
 
 	http_set.dns_client_socket_path = "dns-client";
 	http_set.user_agent = "dovecot-oauth2-passdb/" DOVECOT_VERSION;
@@ -255,6 +254,7 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	http_set.event_parent = auth_event;
 
 	db->client = http_client_init(&http_set);
+	http_client_set_ssl_settings(db->client, ssl_set);
 	pool_unref(&ssl_pool);
 
 	i_zero(&db->oauth2_set);

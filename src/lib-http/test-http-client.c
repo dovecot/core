@@ -389,7 +389,6 @@ int main(int argc, char *argv[])
 		ssl_set.ca_file = "/etc/pki/tls/cert.pem"; /* redhat */
 
 	i_zero(&http_set);
-	http_set.ssl = &ssl_set;
 	http_set.max_idle_time_msecs = 5*1000;
 	http_set.max_parallel_connections = 4;
 	http_set.max_pipelined_requests = 4;
@@ -406,6 +405,10 @@ int main(int argc, char *argv[])
 	http_client2 = http_client_init_shared(http_cctx, &http_set);
 	http_client3 = http_client_init_shared(http_cctx, &http_set);
 	http_client4 = http_client_init_shared(http_cctx, &http_set);
+	http_client_set_ssl_settings(http_client1, &ssl_set);
+	http_client_set_ssl_settings(http_client2, &ssl_set);
+	http_client_set_ssl_settings(http_client3, &ssl_set);
+	http_client_set_ssl_settings(http_client4, &ssl_set);
 	http_client_set_dns_client(http_client1, dns_client);
 	http_client_set_dns_client(http_client2, dns_client);
 	http_client_set_dns_client(http_client3, dns_client);
