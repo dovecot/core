@@ -206,7 +206,6 @@ struct http_client_connection {
 	bool output_locked:1;       /* Output is locked; no pipelining */
 	bool output_broken:1;       /* Output is broken; no more requests */
 	bool in_req_callback:1;     /* Performing request callback (busy) */
-	bool debug:1;
 };
 
 struct http_client_peer_shared {
