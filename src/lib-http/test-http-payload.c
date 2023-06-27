@@ -1776,6 +1776,7 @@ static void
 test_init_client_settings(struct http_client_settings *client_set_r)
 {
 	i_zero(client_set_r);
+	client_set_r->pool = null_pool;
 	client_set_r->max_redirects = 0;
 	client_set_r->max_attempts = 1;
 	client_set_r->max_idle_time_msecs =  5* 1000;

@@ -195,7 +195,7 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	struct db_oauth2 *db;
 	const char *error;
 	struct ssl_iostream_settings *ssl_set;
-	struct http_client_settings http_set;
+	struct http_client_settings *http_set;
 
 	for(db = db_oauth2_head; db != NULL; db = db->next) {
 		if (strcmp(db->config_path, config_path) == 0) {
@@ -231,10 +231,13 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	ssl_set->prefer_server_ciphers = TRUE;
 	ssl_set->allow_invalid_cert = db->set.tls_allow_invalid_cert;
 
-	i_zero(&http_set);
+	pool_t http_pool = pool_alloconly_create("oauth2 http settings",
+						 sizeof(*http_set));
+	http_set = p_new(http_pool, struct http_client_settings, 1);
+	http_set->pool = http_pool;
 
-	http_set.dns_client_socket_path = "dns-client";
-	http_set.user_agent = "dovecot-oauth2-passdb/" DOVECOT_VERSION;
+	http_set->dns_client_socket_path = "dns-client";
+	http_set->user_agent = "dovecot-oauth2-passdb/" DOVECOT_VERSION;
 
 	if (*db->set.local_validation_key_dict == '\0' &&
 	    *db->set.tokeninfo_url == '\0' &&
@@ -244,16 +247,17 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 			"validation key dictionary must be given");
 
 	if (*db->set.rawlog_dir != '\0')
-		http_set.rawlog_dir = db->set.rawlog_dir;
+		http_set->rawlog_dir = db->set.rawlog_dir;
 
-	http_set.max_idle_time_msecs = db->set.max_idle_time_msecs;
-	http_set.max_parallel_connections = db->set.max_parallel_connections;
-	http_set.max_pipelined_requests = db->set.max_pipelined_requests;
-	http_set.no_auto_redirect = FALSE;
-	http_set.no_auto_retry = TRUE;
+	http_set->max_idle_time_msecs = db->set.max_idle_time_msecs;
+	http_set->max_parallel_connections = db->set.max_parallel_connections;
+	http_set->max_pipelined_requests = db->set.max_pipelined_requests;
+	http_set->no_auto_redirect = FALSE;
+	http_set->no_auto_retry = TRUE;
 
-	db->client = http_client_init(&http_set, auth_event);
+	db->client = http_client_init(http_set, auth_event);
 	http_client_set_ssl_settings(db->client, ssl_set);
+	pool_unref(&http_pool);
 	pool_unref(&ssl_pool);
 
 	i_zero(&db->oauth2_set);

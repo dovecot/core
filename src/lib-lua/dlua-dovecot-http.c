@@ -420,7 +420,7 @@ static void dlua_push_http_client(lua_State *L, struct http_client *client)
 		if (lua_type(L, -1) != LUA_TSTRING) { \
 			*error_r = t_strdup_printf("%s: string expected", #field); return -1; \
 		} \
-		set->field = lua_tostring(L, -1); \
+		set->field = p_strdup(set->pool, lua_tostring(L, -1)); \
 	}
 #define CLIENT_SETTING_UINT(field) \
 	else if (strcmp(#field, key) == 0) { \
@@ -466,12 +466,13 @@ static int parse_client_settings(lua_State *L, struct http_client_settings *set,
 			const char *proxy_url = lua_tostring(L, -1);
 			struct http_url *parsed_url;
 			if (http_url_parse(proxy_url, NULL, HTTP_URL_ALLOW_USERINFO_PART,
-					   pool_datastack_create(), &parsed_url, error_r) < 0) {
+					   set->pool, &parsed_url, error_r) < 0) {
 				*error_r = t_strdup_printf("proxy_url is invalid: %s",
 							   *error_r);
 				return -1;
 			}
-			set->proxy_url = parsed_url;
+			set->proxy_url = proxy_url;
+			set->parsed_proxy_url = parsed_url;
 			set->proxy_username = parsed_url->user;
 			set->proxy_password = parsed_url->password;
 		} else if (strcmp(key, "event_parent") == 0) {
@@ -523,16 +524,22 @@ static int dlua_http_client_new(lua_State *L)
 	luaL_checktype(L, 1, LUA_TTABLE);
 
 	struct http_client *client;
-	struct http_client_settings http_set;
+	struct http_client_settings *http_set;
 	struct event *event_parent;
 	const char *error;
 
-	i_zero(&http_set);
+	pool_t http_pool = pool_alloconly_create("lua http settings",
+						 sizeof(*http_set));
+	http_set = p_new(http_pool, struct http_client_settings, 1);
+	http_set->pool = http_pool;
 
-	if (parse_client_settings(L, &http_set, &event_parent, &error) < 0)
+	if (parse_client_settings(L, http_set, &event_parent, &error) < 0) {
+		pool_unref(&http_pool);
 		luaL_error(L, "Invalid HTTP client setting: %s", error);
+	}
 
-	client = http_client_init(&http_set, event_parent);
+	client = http_client_init(http_set, event_parent);
+	pool_unref(&http_pool);
 	dlua_push_http_client(L, client);
 	return 1;
 }

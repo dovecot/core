@@ -62,17 +62,21 @@ push_notification_driver_ox_init_global(
 	struct mail_user *user,
 	struct push_notification_driver_ox_config *config)
 {
-	struct http_client_settings http_set;
+	struct http_client_settings *http_set;
 
 	if (ox_global->http_client == NULL) {
 		/* This is going to use the first user's settings, but these are
 		   unlikely to change between users so it shouldn't matter much.
 		 */
-		i_zero(&http_set);
-		http_set.max_attempts = config->http_max_retries+1;
-		http_set.request_timeout_msecs = config->http_timeout_msecs;
+		pool_t http_pool = pool_alloconly_create("ox push http settings",
+							 sizeof(*http_set));
+		http_set = p_new(http_pool, struct http_client_settings, 1);
+		http_set->pool = http_pool;
+		http_set->max_attempts = config->http_max_retries+1;
+		http_set->request_timeout_msecs = config->http_timeout_msecs;
 
-		ox_global->http_client = http_client_init(&http_set, user->event);
+		ox_global->http_client = http_client_init(http_set, user->event);
+		pool_unref(&http_pool);
 	}
 }
 

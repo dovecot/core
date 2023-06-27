@@ -13,12 +13,11 @@ test_http_client_request_callback(const struct http_response *response ATTR_UNUS
 
 static void test_http_client_request_headers(void)
 {
-	struct http_client_settings set;
+	struct http_client_settings set = { .pool = null_pool };
 	struct http_client *client;
 	struct http_client_request *req;
 
 	test_begin("http client request headers");
-	i_zero(&set);
 	client = http_client_init(&set, NULL);
 	req = http_client_request(client, "GET", "host", "target",
 				  test_http_client_request_callback, NULL);
