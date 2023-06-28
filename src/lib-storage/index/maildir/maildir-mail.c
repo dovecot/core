@@ -119,7 +119,8 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st_r)
 		struct istream *input;
 
 		(void)mail_get_stream(mail, NULL, NULL, &input);
-	}
+	} else
+		mail_metadata_accessed_event(mail_event(mail));
 
 	if (imail->data.stream != NULL &&
 	    (fd = i_stream_get_fd(imail->data.stream)) != -1) {
