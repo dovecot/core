@@ -56,7 +56,9 @@ int dbox_mail_metadata_read(struct dbox_mail *mail, struct dbox_file **file_r)
 		/* we just messed up mail's input stream by reading metadata */
 		i_stream_seek((*file_r)->input, offset);
 		i_stream_sync(mail->imail.data.stream);
-	}
+	} else
+		mail_metadata_accessed_event(mail_event(&mail->imail.mail.mail));
+
 	return 0;
 }
 
@@ -150,7 +152,8 @@ int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 		return -1;
 
 	_mail->transaction->stats.stat_lookup_count++;
-	if (dbox_file_stat(mail->open_file, &st) < 0) {
+	if (dbox_file_stat(mail->open_file,
+	    mail_event(&mail->imail.mail.mail), &st) < 0) {
 		if (errno == ENOENT)
 			mail_set_expunged(_mail);
 		return -1;

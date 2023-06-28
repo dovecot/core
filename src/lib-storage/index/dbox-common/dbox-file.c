@@ -240,7 +240,7 @@ int dbox_file_open_primary(struct dbox_file *file, bool *notfound_r)
 	return dbox_file_open_full(file, FALSE, notfound_r);
 }
 
-int dbox_file_stat(struct dbox_file *file, struct stat *st_r)
+int dbox_file_stat(struct dbox_file *file, struct event *event, struct stat *st_r)
 {
 	const char *path;
 	bool alt = FALSE;
@@ -253,6 +253,7 @@ int dbox_file_stat(struct dbox_file *file, struct stat *st_r)
 		}
 		return 0;
 	}
+	mail_metadata_accessed_event(event);
 
 	/* try the primary path first */
 	path = file->primary_path;

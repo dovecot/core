@@ -10,7 +10,7 @@
 #define SDBOX_REBUILD_COUNT 3
 
 static void
-dbox_sync_file_move_if_needed(struct dbox_file *file,
+dbox_sync_file_move_if_needed(struct dbox_file *file, struct event *event,
 			      enum sdbox_sync_entry_type type)
 {
 	struct stat st;
@@ -21,7 +21,7 @@ dbox_sync_file_move_if_needed(struct dbox_file *file,
 	    !move_to_alt) {
 		/* unopened dbox files default to primary dir.
 		   stat the file to update its location. */
-		(void)dbox_file_stat(file, &st);
+		(void)dbox_file_stat(file, event, &st);
 
 	}
 	if (move_to_alt != dbox_file_is_in_alt(file)) {
@@ -56,7 +56,7 @@ static void sdbox_sync_file(struct sdbox_sync_context *ctx,
 		mail_index_update_flags(ctx->trans, seq, modify_type,
 					(enum mail_flags)DBOX_INDEX_FLAG_ALT);
 		file = sdbox_file_init(ctx->mbox, uid);
-		dbox_sync_file_move_if_needed(file, type);
+		dbox_sync_file_move_if_needed(file, ctx->mbox->box.event, type);
 		dbox_file_unref(&file);
 		break;
 	}
