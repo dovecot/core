@@ -712,6 +712,14 @@ void mail_opened_event(struct mail *mail)
 		e_debug(e->event(), "Opened mail");
 }
 
+void mail_metadata_accessed_event(struct event *mail_event)
+{
+	struct event_passthrough *e =
+		event_create_passthrough(mail_event)->
+		set_name("mail_metadata_accessed");
+	e_debug(e->event(), "Mail metadata accessed");
+}
+
 void mail_expunge_requested_event(struct mail *mail)
 {
 	struct event_passthrough *e =

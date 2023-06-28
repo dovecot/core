@@ -852,6 +852,8 @@ bool mail_stream_access_start(struct mail *mail);
 bool mail_metadata_access_start(struct mail *mail);
 /* Emit mail opened events */
 void mail_opened_event(struct mail *mail);
+/* Emit mail metadata accessed events */
+void mail_metadata_accessed_event(struct event *mail_event);
 
 /* Emit mail expunge_requested event */
 void mail_expunge_requested_event(struct mail *mail);
