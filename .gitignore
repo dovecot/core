@@ -126,8 +126,8 @@ src/doveadm/doveadm-server
 src/imap-hibernate/imap-hibernate
 src/imap-login/imap-login
 src/imap-urlauth/imap-urlauth
-src/imap-urlauth/imap-urlauth-login
 src/imap-urlauth/imap-urlauth-worker
+src/imap-urlauth-login/imap-urlauth-login
 src/imap/imap
 src/indexer/indexer
 src/indexer/indexer-worker
