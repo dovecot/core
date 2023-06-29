@@ -146,6 +146,7 @@ static void driver_pgsql_close(struct pgsql_db *db)
 	timeout_remove(&db->to_connect);
 
 	driver_pgsql_set_state(db, SQL_DB_STATE_DISCONNECTED);
+	sql_connection_log_finished(&db->api);
 
 	if (db->ioloop != NULL) {
 		/* running a sync query, stop it */
