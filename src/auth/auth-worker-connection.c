@@ -263,7 +263,7 @@ static void auth_worker_deinit(struct auth_worker_connection **_worker,
 
 	if (worker->received_error) {
 		i_assert(auth_workers_with_errors > 0);
-		i_assert(auth_workers_with_errors <= connections->connections_count);
+		i_assert(connections == NULL || auth_workers_with_errors <= connections->connections_count);
 		auth_workers_with_errors--;
 	}
 
