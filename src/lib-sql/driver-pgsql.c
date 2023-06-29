@@ -245,7 +245,7 @@ static int driver_pgsql_connect(struct sql_db *_db)
 
 	db->pg = PQconnectStart(db->connect_string);
 	if (db->pg == NULL) {
-		i_fatal("pgsql: PQconnectStart() failed (out of memory)");
+		i_fatal_status(FATAL_OUTOFMEM, "pgsql: PQconnectStart() failed (out of memory)");
 	}
 
 	(void)PQsetNoticeProcessor(db->pg, pgsql_notice_processor, db);
