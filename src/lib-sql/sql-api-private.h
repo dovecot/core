@@ -156,6 +156,8 @@ struct sql_db {
 	unsigned int connect_delay;
 	unsigned int connect_failure_count;
 	struct timeout *to_reconnect;
+	/* last connection error */
+	char *last_connect_error;
 
 	uint64_t succeeded_queries;
 	uint64_t failed_queries;

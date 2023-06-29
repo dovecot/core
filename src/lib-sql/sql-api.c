@@ -815,11 +815,14 @@ void sql_transaction_add_query(struct sql_transaction_context *ctx, pool_t pool,
 void sql_connection_log_finished(struct sql_db *db)
 {
 	struct event_passthrough *e = event_create_passthrough(db->event)->
-		set_name(SQL_CONNECTION_FINISHED);
+		set_name(SQL_CONNECTION_FINISHED)->
+		add_str("name", db->name)->
+		add_str("error", db->last_connect_error);
 	e_debug(e->event(),
 		"Connection finished (queries=%"PRIu64", slow queries=%"PRIu64")",
 		db->succeeded_queries + db->failed_queries,
 		db->slow_queries);
+	i_free(db->last_connect_error);
 }
 
 struct event_passthrough *
