@@ -54,6 +54,7 @@ static void driver_sqlite_disconnect(struct sql_db *_db)
 {
 	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
 
+	sql_connection_log_finished(_db);
 	sqlite3_close(db->sqlite);
 	db->sqlite = NULL;
 }
