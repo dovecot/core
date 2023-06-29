@@ -198,6 +198,8 @@ static void connect_callback(struct pgsql_db *db)
 	case PGRES_POLLING_FAILED:
 		e_error(db->api.event, "Connect failed to database %s: %s (state: %s)",
 			PQdb(db->pg), last_error(db), db->connect_state);
+		i_free(db->api.last_connect_error);
+		db->api.last_connect_error = i_strdup(last_error(db));
 		driver_pgsql_close(db);
 		return;
 	}
@@ -226,9 +228,10 @@ static void connect_callback(struct pgsql_db *db)
 static void driver_pgsql_connect_timeout(struct pgsql_db *db)
 {
 	unsigned int secs = ioloop_time - db->api.last_connect_try;
-
-	e_error(db->api.event, "Connect failed: Timeout after %u seconds (state: %s)",
-		secs, db->connect_state);
+	i_free(db->api.last_connect_error);
+	db->api.last_connect_error = i_strdup_printf("Timeout after %u seconds (state: %s)",
+						     secs, db->connect_state);
+	e_error(db->api.event, "Connect failed: %s", db->api.last_connect_error);
 	driver_pgsql_close(db);
 }
 
@@ -253,6 +256,8 @@ static int driver_pgsql_connect(struct sql_db *_db)
 	if (PQstatus(db->pg) == CONNECTION_BAD) {
 		e_error(_db->event, "Connect failed to database %s: %s",
 			PQdb(db->pg), last_error(db));
+		i_free(db->api.last_connect_error);
+		db->api.last_connect_error = i_strdup(last_error(db));
 		driver_pgsql_close(db);
 		return -1;
 	}
