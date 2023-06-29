@@ -156,15 +156,20 @@ static void driver_pgsql_close(struct pgsql_db *db)
 
 static const char *last_error(struct pgsql_db *db)
 {
-	const char *msg;
+	const char *msg, *pos, *orig;
 	size_t len;
 
-	msg = PQerrorMessage(db->pg);
+	orig = msg = PQerrorMessage(db->pg);
 	if (msg == NULL)
 		return "(no error set)";
 
-	/* Error message should contain trailing \n, we don't want it */
 	len = strlen(msg);
+	/* The error can contain multiple lines, but we only want the last */
+	while ((pos = strchr(msg, '\n')) != NULL && (pos - orig) < (ptrdiff_t)len - 1)
+		msg = pos + 1;
+
+	len = strlen(msg);
+	/* Error message should contain trailing \n, we don't want it */
 	return len == 0 || msg[len-1] != '\n' ? msg :
 		t_strndup(msg, len-1);
 }
