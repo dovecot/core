@@ -163,6 +163,8 @@ static int driver_mysql_connect(struct sql_db *_db)
 		e_error(_db->event, "Connect failed to database (%s): %s - "
 			"waiting for %u seconds before retry",
 			db->dbname, mysql_error(db->mysql), db->api.connect_delay);
+		i_free(_db->last_connect_error);
+		_db->last_connect_error = i_strdup(mysql_error(db->mysql));
 		return -1;
 	} else {
 		db->last_success = ioloop_time;
