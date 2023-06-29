@@ -111,7 +111,6 @@ struct dsync_cmd_context {
 	bool remote_user_prefix:1;
 	bool no_mail_sync:1;
 	bool local_location_from_arg:1;
-	bool replicator_notify:1;
 	bool exited:1;
 	bool empty_hdr_workaround:1;
 	bool no_header_hashes:1;
@@ -638,51 +637,6 @@ cmd_dsync_ibc_stream_init(struct dsync_cmd_context *ctx,
 				     name, temp_prefix, ctx->io_timeout_secs);
 }
 
-static void
-dsync_replicator_notify(struct dsync_cmd_context *ctx,
-			enum dsync_brain_sync_type sync_type,
-			const char *state_str)
-{
-#define REPLICATOR_HANDSHAKE "VERSION\treplicator-doveadm-client\t1\t0\n"
-	const char *path;
-	string_t *str;
-	int fd;
-
-	path = t_strdup_printf("%s/replicator-doveadm",
-			       ctx->ctx.cur_mail_user->set->base_dir);
-	fd = net_connect_unix(path);
-	if (fd == -1) {
-		if (errno == ECONNREFUSED || errno == ENOENT) {
-			/* replicator not running on this server. ignore. */
-			return;
-		}
-		e_error(ctx->ctx.cctx->event,
-			"net_connect_unix(%s) failed: %m", path);
-		return;
-	}
-	fd_set_nonblock(fd, FALSE);
-
-	str = t_str_new(128);
-	str_append(str, REPLICATOR_HANDSHAKE"NOTIFY\t");
-	str_append_tabescaped(str, ctx->ctx.cur_mail_user->username);
-	str_append_c(str, '\t');
-	if (sync_type == DSYNC_BRAIN_SYNC_TYPE_FULL)
-		str_append_c(str, 'f');
-	str_append_c(str, '\t');
-	str_append_tabescaped(str, state_str);
-	str_append_c(str, '\n');
-	if (write_full(fd, str_data(str), str_len(str)) < 0) {
-		e_error(ctx->ctx.cctx->event,
-			"write(%s) failed: %m", path);
-	}
-	/* we only wanted to notify replicator. we don't care enough about the
-	   answer to wait for it. */
-	if (close(fd) < 0) {
-		e_error(ctx->ctx.cctx->event,
-			"close(%s) failed: %m", path);
-	}
-}
-
 static void dsync_errors_finish(struct dsync_cmd_context *ctx)
 {
 	if (ctx->err_stream == NULL)
@@ -711,18 +665,9 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	const char *const *strp;
 	enum dsync_brain_flags brain_flags;
 	enum mail_error mail_error = 0, mail_error2;
-	bool cli = (cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
 	const char *changes_during_sync, *changes_during_sync2 = NULL;
 	bool remote_only_changes;
 	int ret = 0;
-
-	/* replicator_notify indicates here automated attempt,
-	   we still want to allow manual sync/backup */
-	if (!cli && ctx->replicator_notify &&
-	    mail_user_plugin_getenv_bool(_ctx->cur_mail_user, "noreplicate")) {
-		ctx->ctx.exit_code = DOVEADM_EX_NOREPLICATE;
-		return -1;
-	}
 
 	i_zero(&set);
 	if (cctx->remote_ip.family != 0) {
@@ -837,8 +782,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 	changes_during_sync = dsync_brain_get_unexpected_changes_reason(brain, &remote_only_changes);
 	if (changes_during_sync != NULL || changes_during_sync2 != NULL) {
-		/* don't log a warning when running via doveadm server
-		   (e.g. called by replicator) */
+		/* don't log a warning when running via doveadm server */
 		const char *msg = t_strdup_printf(
 			"Mailbox changes caused a desync. "
 			"You may want to run dsync again: %s",
@@ -919,11 +863,6 @@ static void dsync_connected_callback(const struct doveadm_server_reply *reply,
 	case EX_NOUSER:
 		ctx->error = "Unknown user in remote";
 		break;
-	case DOVEADM_EX_NOREPLICATE:
-		if (doveadm_debug)
-			e_debug(ctx->ctx.cctx->event,
-				"user is disabled for replication");
-		break;
 	default:
 		ctx->error = p_strdup_printf(ctx->ctx.pool,
 			"Failed to start remote dsync-server command: "
@@ -946,8 +885,6 @@ static void dsync_server_run_command(struct dsync_cmd_context *ctx,
 	str_append_tabescaped(cmd, cctx->username);
 	str_append(cmd, "\tdsync-server\t-u");
 	str_append_tabescaped(cmd, cctx->username);
-	if (ctx->replicator_notify)
-		str_append(cmd, "\t-U");
 	str_append_c(cmd, '\n');
 
 	ctx->tcp_conn = conn;
@@ -1240,8 +1177,6 @@ static void cmd_dsync_preinit(struct doveadm_mail_cmd_context *_ctx)
 		i_fatal("Invalid -I parameter '%s': %s", value_str, error);
 
 	(void)doveadm_cmd_param_uint32(cctx, "timeout", &ctx->io_timeout_secs);
-	ctx->replicator_notify =
-		doveadm_cmd_param_flag(cctx, "replicator-notify");
 
 	if (!doveadm_cmd_param_array(cctx, "destination", &ctx->destination))
 		ctx->destination = empty_str_array;
@@ -1295,20 +1230,11 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	bool cli = (cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
 	struct dsync_ibc *ibc;
 	struct dsync_brain *brain;
-	string_t *temp_prefix, *state_str = NULL;
-	enum dsync_brain_sync_type sync_type;
+	string_t *temp_prefix;
 	const char *name, *process_title_prefix = "";
 	enum mail_error mail_error;
 
 	if (!cli) {
-		/* replicator_notify indicates here automated attempt,
-		   we still want to allow manual sync/backup */
-		if (ctx->replicator_notify &&
-		    mail_user_plugin_getenv_bool(_ctx->cur_mail_user, "noreplicate")) {
-			_ctx->exit_code = DOVEADM_EX_NOREPLICATE;
-			return -1;
-		}
-
 		/* doveadm-server connection. start with a success reply.
 		   after that follows the regular dsync protocol. */
 		ctx->fd_in = ctx->fd_out = -1;
@@ -1346,12 +1272,6 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	/* io_loop_run() deactivates the context - put it back */
 	mail_storage_service_io_activate_user(ctx->ctx.cur_service_user);
 
-	if (ctx->replicator_notify) {
-		state_str = t_str_new(128);
-		dsync_brain_get_state(brain, state_str);
-	}
-	sync_type = dsync_brain_get_sync_type(brain);
-
 	if (dsync_brain_deinit(&brain, &mail_error) < 0)
 		doveadm_mail_failed_error(_ctx, mail_error);
 	dsync_ibc_deinit(&ibc);
@@ -1364,8 +1284,6 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	i_stream_unref(&ctx->input);
 	o_stream_unref(&ctx->output);
 
-	if (ctx->replicator_notify && _ctx->exit_code == 0)
-		dsync_replicator_notify(ctx, sync_type, str_c(state_str));
 	return _ctx->exit_code == 0 ? 0 : -1;
 }
 
@@ -1381,7 +1299,6 @@ cmd_dsync_server_init(struct doveadm_mail_cmd_context *_ctx)
 
 	(void)doveadm_cmd_param_str(cctx, "rawlog", &ctx->rawlog_path);
 	(void)doveadm_cmd_param_uint32(cctx, "timeout", &ctx->io_timeout_secs);
-	ctx->replicator_notify = doveadm_cmd_param_flag(cctx, "replicator-notify");
 }
 
 static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
@@ -1404,7 +1321,6 @@ DOVEADM_CMD_MAIL_COMMON \
 DOVEADM_CMD_PARAM('f', "full-sync", CMD_PARAM_BOOL, 0) \
 DOVEADM_CMD_PARAM('P', "purge-remote", CMD_PARAM_BOOL, 0) \
 DOVEADM_CMD_PARAM('R', "reverse-sync", CMD_PARAM_BOOL, 0) \
-DOVEADM_CMD_PARAM('U', "replicator-notify", CMD_PARAM_BOOL, 0) \
 DOVEADM_CMD_PARAM('l', "lock-timeout", CMD_PARAM_INT64, CMD_PARAM_FLAG_UNSIGNED) \
 DOVEADM_CMD_PARAM('r', "rawlog", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('m', "mailbox", CMD_PARAM_STR, 0) \
@@ -1458,7 +1374,6 @@ DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('E', "legacy-dsync", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('r', "rawlog", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('T', "timeout", CMD_PARAM_INT64, CMD_PARAM_FLAG_UNSIGNED)
-DOVEADM_CMD_PARAM('U', "replicator-notify", CMD_PARAM_BOOL, 0)
 /* previously dsync-server could have been added twice to the parameters */
 DOVEADM_CMD_PARAM('\0', "ignore-arg", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END

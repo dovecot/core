@@ -80,7 +80,6 @@ doveadm_common_cmds = \
 	doveadm-master.c \
 	doveadm-mutf7.c \
 	doveadm-penalty.c \
-	doveadm-replicator.c \
 	doveadm-sis.c \
 	doveadm-stats.c \
 	doveadm-who.c

@@ -115,7 +115,6 @@ void doveadm_cmds_init(void)
 
 	doveadm_register_instance_commands();
 	doveadm_register_log_commands();
-	doveadm_register_replicator_commands();
 	doveadm_register_dict_commands();
 	doveadm_register_fs_commands();
 }
