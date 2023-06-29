@@ -102,8 +102,7 @@ static int driver_sqlite_connect(struct sql_db *_db)
 		break;
 	}
 
-	sqlite3_close(db->sqlite);
-	db->sqlite = NULL;
+	driver_sqlite_disconnect(_db);
 	return -1;
 }
 
@@ -182,8 +181,7 @@ static void driver_sqlite_deinit_v(struct sql_db *_db)
 	_db->no_reconnect = TRUE;
 	sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
 
-	sqlite3_close(db->sqlite);
-	sql_connection_log_finished(_db);
+	driver_sqlite_disconnect(_db);
 	event_unref(&_db->event);
 	array_free(&_db->module_contexts);
 	pool_unref(&db->pool);
