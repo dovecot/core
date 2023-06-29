@@ -50,6 +50,14 @@ static struct event_category event_category_sqlite = {
 	.name = "sqlite"
 };
 
+static void driver_sqlite_disconnect(struct sql_db *_db)
+{
+	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
+
+	sqlite3_close(db->sqlite);
+	db->sqlite = NULL;
+}
+
 static int driver_sqlite_connect(struct sql_db *_db)
 {
 	struct stat st;
@@ -97,14 +105,6 @@ static int driver_sqlite_connect(struct sql_db *_db)
 	sqlite3_close(db->sqlite);
 	db->sqlite = NULL;
 	return -1;
-}
-
-static void driver_sqlite_disconnect(struct sql_db *_db)
-{
-	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
-
-	sqlite3_close(db->sqlite);
-	db->sqlite = NULL;
 }
 
 static int driver_sqlite_parse_connect_string(struct sqlite_db *db,
