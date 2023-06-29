@@ -62,6 +62,7 @@ static int driver_sqlite_connect(struct sql_db *_db)
 {
 	struct stat st;
 	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
+	const char *err;
 	/* this is default for sqlite_open */
 	int flags;
 
@@ -85,20 +86,22 @@ static int driver_sqlite_connect(struct sql_db *_db)
 	case SQLITE_READONLY:
 	case SQLITE_CANTOPEN:
 	case SQLITE_PERM:
-		if (stat(db->dbfile, &st) == -1 && errno == ENOENT) {
-			e_error(_db->event, "%s",
-				eacces_error_get_creating("creat", db->dbfile));
-		} else {
-			e_error(_db->event, "%s",
-				eacces_error_get("open", db->dbfile));
-		}
+		if (stat(db->dbfile, &st) == -1 && errno == ENOENT)
+			err = eacces_error_get_creating("creat", db->dbfile);
+		else
+			err = eacces_error_get("open", db->dbfile);
+		i_free(_db->last_connect_error);
+		_db->last_connect_error = i_strdup(err);
+		e_error(_db->event, "%s", err);
 		break;
 	case SQLITE_NOMEM:
 		i_fatal_status(FATAL_OUTOFMEM, "open(%s) failed: %s",
 			       db->dbfile, sqlite3_errmsg(db->sqlite));
 	default:
-		e_error(_db->event, "open(%s) failed: %s", db->dbfile,
-			sqlite3_errmsg(db->sqlite));
+		i_free(_db->last_connect_error);
+		_db->last_connect_error = i_strdup_printf("open(%s) failed: %s", db->dbfile,
+							  sqlite3_errmsg(db->sqlite));
+		e_error(_db->event, "%s", _db->last_connect_error);
 		break;
 	}
 
