@@ -545,8 +545,16 @@ static void connect_callback(CassFuture *future, void *context)
 	struct cassandra_db *db = context;
 
 	if (cass_future_error_code(future) != CASS_OK) {
+		const char *message;
+		size_t size;
+		string_t *str;
 		driver_cassandra_log_error(db, future,
 					   "Couldn't connect to Cassandra");
+		cass_future_error_message(future, &message, &size);
+		i_free(db->api.last_connect_error);
+		str = str_new(default_pool, size);
+		str_append_data(str, message, size);
+		db->api.last_connect_error = str_free_without_data(&str);
 		driver_cassandra_close(db, "Couldn't connect to Cassandra");
 		return;
 	}
