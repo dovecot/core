@@ -26,6 +26,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#define DOVEADM_CHECK_INTERRUPT_INTERVAL_MS 1000
+
 static struct event_category event_category_auth = {
 	.name = "auth",
 };
@@ -48,7 +50,7 @@ struct authtest_input {
 	unsigned int auth_id;
 	unsigned int auth_pid;
 	const char *auth_cookie;
-
+	struct timeout *to;
 };
 
 static bool auth_want_log_debug(void)
@@ -65,6 +67,14 @@ static bool auth_want_log_debug(void)
 }
 
 static void auth_cmd_help(struct doveadm_cmd_context *cctx);
+
+static void auth_is_interrupted(struct authtest_input *input)
+{
+	if (master_service_is_killed(master_service)) {
+		auth_client_request_abort(&input->request, "cancelled");
+		timeout_remove(&input->to);
+	}
+}
 
 static struct auth_master_connection *
 doveadm_get_auth_master_conn(const char *auth_socket_path)
@@ -160,7 +170,8 @@ auth_callback(struct auth_client_request *request,
 
 	switch (status) {
 	case AUTH_REQUEST_STATUS_ABORT:
-		i_unreached();
+		printf("passdb: %s request cancelled\n", input->username);
+		break;
 	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
 	case AUTH_REQUEST_STATUS_FAIL:
 		printf("passdb: %s auth failed\n", input->username);
@@ -244,6 +255,8 @@ static void auth_connected(struct auth_client *client,
 
 	input->request = auth_client_request_new(client, &info,
 						 auth_callback, input);
+	input->to = timeout_add(DOVEADM_CHECK_INTERRUPT_INTERVAL_MS,
+				auth_is_interrupted, input);
 }
 
 static void cmd_auth_init_sasl_client(struct authtest_input *input)
@@ -296,6 +309,7 @@ cmd_auth_input(const char *auth_socket_path, struct authtest_input *input)
 		io_loop_run(current_ioloop);
 
 	auth_client_set_connect_notify(client, NULL, NULL);
+	timeout_remove(&input->to);
 	auth_client_deinit(&client);
 
 	cmd_auth_deinit_sasl_client(input);
@@ -529,6 +543,7 @@ static void cmd_auth_login(struct doveadm_cmd_context *cctx)
 	if (!auth_client_is_disconnected(auth_client))
 		io_loop_run(current_ioloop);
 	auth_client_set_connect_notify(auth_client, NULL, NULL);
+	timeout_remove(&input.to);
 	/* finish login with userdb lookup */
 	if (input.success)
 		cmd_auth_master_input(auth_master_socket_path, &input);
