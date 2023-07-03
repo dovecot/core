@@ -201,8 +201,10 @@ static void mdbox_mailbox_close(struct mailbox *box)
 {
 	struct mdbox_storage *mstorage = MDBOX_STORAGE(box->storage);
 
-	if (mstorage->corrupted && !mstorage->rebuilding_storage)
-		(void)mdbox_storage_rebuild(mstorage);
+	if (mstorage->corrupted && !mstorage->rebuilding_storage) {
+		(void)mdbox_storage_rebuild(mstorage, box,
+					    MDBOX_REBUILD_REASON_CORRUPTED);
+	}
 
 	dbox_mailbox_close(box);
 }
