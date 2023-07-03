@@ -950,13 +950,6 @@ mdbox_storage_rebuild_scan_prepare(struct mdbox_storage_rebuild_context *ctx,
 		return 0;
 	}
 
-	/* fsck the map just in case its UIDs are broken */
-	if (mail_index_fsck(ctx->storage->map->index) < 0) {
-		mail_storage_set_index_error(&ctx->storage->storage.storage,
-					     ctx->storage->map->index);
-		return -1;
-	}
-
 	/* get old map header */
 	mail_index_get_header_ext(ctx->atomic->sync_view,
 				  ctx->storage->map->map_ext_id,
@@ -973,6 +966,13 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx,
 {
 	i_warning("mdbox %s: rebuilding indexes: %s",
 		  ctx->storage->storage_dir, reason);
+
+	/* fsck the map just in case its UIDs are broken */
+	if (mail_index_fsck(ctx->storage->map->index) < 0) {
+		mail_storage_set_index_error(&ctx->storage->storage.storage,
+					     ctx->storage->map->index);
+		return -1;
+	}
 
 	if (mdbox_storage_rebuild_scan_dir(ctx, ctx->storage->storage_dir,
 					   FALSE) < 0)
