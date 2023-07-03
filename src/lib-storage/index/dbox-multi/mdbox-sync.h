@@ -9,7 +9,6 @@ enum mdbox_sync_flags {
 	MDBOX_SYNC_FLAG_FSYNC		= 0x02,
 	MDBOX_SYNC_FLAG_FORCE_REBUILD	= 0x04,
 	MDBOX_SYNC_FLAG_NO_PURGE	= 0x08,
-	MDBOX_SYNC_FLAG_NO_REBUILD	= 0x10
 };
 
 struct mdbox_sync_context {
@@ -27,7 +26,7 @@ struct mdbox_sync_context {
 
 int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 		     struct mdbox_map_atomic_context *atomic,
-		     struct mdbox_sync_context **ctx_r);
+		     struct mdbox_sync_context **ctx_r, bool *corrupted_r);
 int mdbox_sync_finish(struct mdbox_sync_context **ctx, bool success);
 int mdbox_sync(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags);
 

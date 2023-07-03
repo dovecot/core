@@ -286,6 +286,7 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	struct mailbox_transaction_context *_t = _ctx->transaction;
 	const struct mail_index_header *hdr;
 	uint32_t first_map_uid, last_map_uid;
+	bool corrupted;
 
 	i_assert(ctx->ctx.finished);
 
@@ -305,9 +306,12 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	   up-to-date atomic->sync_view */
 	if (mdbox_sync_begin(ctx->mbox, MDBOX_SYNC_FLAG_NO_PURGE |
 			     MDBOX_SYNC_FLAG_FORCE |
-			     MDBOX_SYNC_FLAG_FSYNC |
-			     MDBOX_SYNC_FLAG_NO_REBUILD, ctx->atomic,
-			     &ctx->sync_ctx) < 0) {
+			     MDBOX_SYNC_FLAG_FSYNC, ctx->atomic,
+			     &ctx->sync_ctx, &corrupted) < 0) {
+		if (corrupted) {
+			mailbox_set_critical(_t->box,
+				"mdbox: Can't rebuild corrupted storage while saving a mail");
+		}
 		mdbox_transaction_save_rollback(_ctx);
 		return -1;
 	}

@@ -226,30 +226,18 @@ static int mdbox_sync_try_begin(struct mdbox_sync_context *ctx,
 
 int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 		     struct mdbox_map_atomic_context *atomic,
-		     struct mdbox_sync_context **ctx_r)
+		     struct mdbox_sync_context **ctx_r, bool *corrupted_r)
 {
-	const struct mail_index_header *hdr =
-		mail_index_get_header(mbox->box.view);
 	struct mdbox_sync_context *ctx;
 	const char *reason;
 	enum mail_index_sync_flags sync_flags;
 	int ret;
-	bool rebuild, storage_rebuilt = FALSE;
 
 	*ctx_r = NULL;
+	*corrupted_r = FALSE;
 
 	/* avoid race conditions with mailbox creation, don't check for dbox
 	   headers until syncing has locked the mailbox */
-	rebuild = mbox->storage->corrupted ||
-		(hdr->flags & MAIL_INDEX_HDR_FLAG_FSCKD) != 0 ||
-		mdbox_map_is_fscked(mbox->storage->map) ||
-		(flags & MDBOX_SYNC_FLAG_FORCE_REBUILD) != 0;
-	if (rebuild && (flags & MDBOX_SYNC_FLAG_NO_REBUILD) == 0) {
-		if (mdbox_storage_rebuild_in_context(mbox->storage, atomic) < 0)
-			return -1;
-		mailbox_recent_flags_reset(&mbox->box);
-		storage_rebuilt = TRUE;
-	}
 
 	ctx = i_new(struct mdbox_sync_context, 1);
 	ctx->mbox = mbox;
@@ -257,7 +245,7 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 	ctx->atomic = atomic;
 
 	sync_flags = index_storage_get_sync_flags(&mbox->box);
-	if (!rebuild && (flags & MDBOX_SYNC_FLAG_FORCE) == 0)
+	if ((flags & MDBOX_SYNC_FLAG_FORCE) == 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
 	if ((flags & MDBOX_SYNC_FLAG_FSYNC) != 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_FSYNC;
@@ -280,25 +268,9 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 		index_storage_expunging_deinit(&mbox->box);
 		i_free_and_null(ctx);
 
-		if (ret < 0)
-			return -1;
-
-		/* corrupted */
-		if (storage_rebuilt) {
-			mailbox_set_critical(&mbox->box,
-				"mdbox: Storage keeps breaking");
-			return -1;
-		}
-
-		/* we'll need to rebuild storage.
-		   try again from the beginning. */
-		mdbox_storage_set_corrupted(mbox->storage);
-		if ((flags & MDBOX_SYNC_FLAG_NO_REBUILD) != 0) {
-			mailbox_set_critical(&mbox->box,
-				"mdbox: Can't rebuild storage");
-			return -1;
-		}
-		return mdbox_sync_begin(mbox, flags, atomic, ctx_r);
+		if (ret == 0)
+			*corrupted_r = TRUE;
+		return -1;
 	}
 	index_storage_expunging_deinit(&mbox->box);
 
@@ -342,12 +314,43 @@ int mdbox_sync_finish(struct mdbox_sync_context **_ctx, bool success)
 
 int mdbox_sync(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags)
 {
+	const struct mail_index_header *hdr =
+		mail_index_get_header(mbox->box.view);
 	struct mdbox_sync_context *sync_ctx;
 	struct mdbox_map_atomic_context *atomic;
+	bool corrupted, storage_rebuilt = FALSE;
 	int ret;
 
 	atomic = mdbox_map_atomic_begin(mbox->storage->map);
-	ret = mdbox_sync_begin(mbox, flags, atomic, &sync_ctx);
+
+	if (mbox->storage->corrupted ||
+	    (hdr->flags & MAIL_INDEX_HDR_FLAG_FSCKD) != 0 ||
+	    mdbox_map_is_fscked(mbox->storage->map) ||
+	    (flags & MDBOX_SYNC_FLAG_FORCE_REBUILD) != 0) {
+		if (mdbox_storage_rebuild_in_context(mbox->storage, atomic) < 0) {
+			(void)mdbox_map_atomic_finish(&atomic);
+			return -1;
+		}
+		mailbox_recent_flags_reset(&mbox->box);
+		storage_rebuilt = TRUE;
+		flags |= MDBOX_SYNC_FLAG_FORCE;
+	}
+
+
+	ret = mdbox_sync_begin(mbox, flags, atomic, &sync_ctx, &corrupted);
+	if (corrupted) {
+		if (storage_rebuilt) {
+			mailbox_set_critical(&mbox->box,
+				"mdbox: Storage keeps breaking");
+			return -1;
+		}
+
+		/* we'll need to rebuild storage.
+		   try again from the beginning. */
+		mdbox_storage_set_corrupted(mbox->storage);
+		return mdbox_sync(mbox, flags);
+	}
+
 	if (ret == 0 && sync_ctx != NULL)
 		ret = mdbox_sync_finish(&sync_ctx, TRUE);
 	if (ret == 0)
