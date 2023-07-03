@@ -201,9 +201,8 @@ int mdbox_file_assign_file_id(struct mdbox_file *file, uint32_t file_id)
 	new_path = t_strdup_printf("%s/%s", new_dir, new_fname);
 
 	if (stat(new_path, &st) == 0) {
-		mail_storage_set_critical(&file->file.storage->storage,
-			"mdbox: %s already exists, rebuilding index", new_path);
-		mdbox_storage_set_corrupted(file->storage);
+		mdbox_storage_set_corrupted(file->storage,
+			"%s already exists, rebuilding index", new_path);
 		return -1;
 	}
 	if (rename(old_path, new_path) < 0) {

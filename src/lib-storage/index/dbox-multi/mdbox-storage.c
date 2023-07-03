@@ -352,14 +352,23 @@ int mdbox_mailbox_create_indexes(struct mailbox *box,
 	return ret;
 }
 
-void mdbox_storage_set_corrupted(struct mdbox_storage *storage)
+void mdbox_storage_set_corrupted(struct mdbox_storage *storage,
+				 const char *reason, ...)
 {
+	const char *reason_str;
+	va_list args;
+
+	va_start(args, reason);
+	reason_str = t_strdup_vprintf(reason, args);
+	va_end(args);
+
+	mail_storage_set_critical(&storage->storage.storage, "%s", reason_str);
 	if (storage->corrupted_reason != NULL) {
 		/* already set it corrupted (possibly recursing back here) */
 		return;
 	}
 
-	storage->corrupted_reason = i_strdup("Storage marked corrupted");
+	storage->corrupted_reason = i_strdup(reason_str);
 	storage->corrupted_rebuild_count = (uint32_t)-1;
 
 	if (mdbox_map_open(storage->map) > 0 &&
@@ -379,16 +388,15 @@ void mdbox_set_mailbox_corrupted(struct mailbox *box, const char *reason)
 {
 	struct mdbox_storage *mstorage = MDBOX_STORAGE(box->storage);
 
-	mailbox_set_critical(box, "%s", reason);
-	mdbox_storage_set_corrupted(mstorage);
+	mdbox_storage_set_corrupted(mstorage, "Mailbox %s: %s",
+				    box->vname, reason);
 }
 
 void mdbox_set_file_corrupted(struct dbox_file *file, const char *reason)
 {
 	struct mdbox_storage *mstorage = MDBOX_DBOX_STORAGE(file->storage);
 
-	mail_storage_set_critical(&mstorage->storage.storage, "%s", reason);
-	mdbox_storage_set_corrupted(mstorage);
+	mdbox_storage_set_corrupted(mstorage, "%s", reason);
 }
 
 static int
