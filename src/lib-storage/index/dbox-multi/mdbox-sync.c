@@ -321,22 +321,18 @@ int mdbox_sync(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags)
 	bool corrupted, storage_rebuilt = FALSE;
 	int ret;
 
-	atomic = mdbox_map_atomic_begin(mbox->storage->map);
-
 	if (mbox->storage->corrupted ||
 	    (hdr->flags & MAIL_INDEX_HDR_FLAG_FSCKD) != 0 ||
 	    mdbox_map_is_fscked(mbox->storage->map) ||
 	    (flags & MDBOX_SYNC_FLAG_FORCE_REBUILD) != 0) {
-		if (mdbox_storage_rebuild_in_context(mbox->storage, atomic) < 0) {
-			(void)mdbox_map_atomic_finish(&atomic);
+		if (mdbox_storage_rebuild(mbox->storage) < 0)
 			return -1;
-		}
 		mailbox_recent_flags_reset(&mbox->box);
 		storage_rebuilt = TRUE;
 		flags |= MDBOX_SYNC_FLAG_FORCE;
 	}
 
-
+	atomic = mdbox_map_atomic_begin(mbox->storage->map);
 	ret = mdbox_sync_begin(mbox, flags, atomic, &sync_ctx, &corrupted);
 	if (corrupted) {
 		if (storage_rebuilt) {
