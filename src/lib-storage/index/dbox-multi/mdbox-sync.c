@@ -151,7 +151,7 @@ static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 				return -1;
 			return 1;
 		}
-		mailbox_set_critical(box, "Broken index: missing UIDVALIDITY");
+		mdbox_set_mailbox_corrupted(box, "Broken index: missing UIDVALIDITY");
 		return 0;
 	}
 
@@ -268,8 +268,10 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 		index_storage_expunging_deinit(&mbox->box);
 		i_free_and_null(ctx);
 
-		if (ret == 0)
+		if (ret == 0) {
+			i_assert(mbox->storage->corrupted_reason != NULL);
 			*corrupted_r = TRUE;
+		}
 		return -1;
 	}
 	index_storage_expunging_deinit(&mbox->box);
@@ -342,15 +344,16 @@ int mdbox_sync(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags)
 	atomic = mdbox_map_atomic_begin(mbox->storage->map);
 	ret = mdbox_sync_begin(mbox, flags, atomic, &sync_ctx, &corrupted);
 	if (corrupted) {
+		i_assert(mbox->storage->corrupted_reason != NULL);
 		if (storage_rebuilt) {
 			mailbox_set_critical(&mbox->box,
-				"mdbox: Storage keeps breaking");
+				"mdbox: Storage keeps breaking: %s",
+				mbox->storage->corrupted_reason);
 			return -1;
 		}
 
 		/* we'll need to rebuild storage.
 		   try again from the beginning. */
-		mdbox_storage_set_corrupted(mbox->storage);
 		return mdbox_sync(mbox, flags);
 	}
 
