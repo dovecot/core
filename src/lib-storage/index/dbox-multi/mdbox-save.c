@@ -304,7 +304,7 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	/* lock the mailbox after map to avoid deadlocks. if we've noticed
 	   any corruption, deal with it later, otherwise we won't have
 	   up-to-date atomic->sync_view */
-	if (mdbox_sync_begin(ctx->mbox, MDBOX_SYNC_FLAG_NO_PURGE |
+	if (mdbox_sync_begin(ctx->mbox,
 			     MDBOX_SYNC_FLAG_FORCE |
 			     MDBOX_SYNC_FLAG_FSYNC, ctx->atomic,
 			     &ctx->sync_ctx, &corrupted) < 0) {
