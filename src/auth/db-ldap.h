@@ -66,7 +66,6 @@ struct ldap_settings {
 	const char *iterate_filter;
 
 	const char *default_pass_scheme;
-	bool userdb_warning_disable; /* deprecated for now at least */
 	bool blocking;
 
 	/* ... */
