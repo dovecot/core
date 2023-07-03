@@ -83,6 +83,7 @@ void mdbox_storage_destroy(struct mail_storage *_storage)
 	if (array_is_created(&storage->move_to_alt_map_uids))
 		array_free(&storage->move_to_alt_map_uids);
 	array_free(&storage->open_files);
+	i_free(storage->corrupted_reason);
 	dbox_storage_destroy(_storage);
 }
 
@@ -197,7 +198,8 @@ static void mdbox_mailbox_close(struct mailbox *box)
 {
 	struct mdbox_storage *mstorage = MDBOX_STORAGE(box->storage);
 
-	if (mstorage->corrupted && !mstorage->rebuilding_storage) {
+	if (mstorage->corrupted_reason != NULL &&
+	    !mstorage->rebuilding_storage) {
 		(void)mdbox_storage_rebuild(mstorage, box,
 					    MDBOX_REBUILD_REASON_CORRUPTED);
 	}
@@ -350,12 +352,12 @@ int mdbox_mailbox_create_indexes(struct mailbox *box,
 
 void mdbox_storage_set_corrupted(struct mdbox_storage *storage)
 {
-	if (storage->corrupted) {
+	if (storage->corrupted_reason != NULL) {
 		/* already set it corrupted (possibly recursing back here) */
 		return;
 	}
 
-	storage->corrupted = TRUE;
+	storage->corrupted_reason = i_strdup("Storage marked corrupted");
 	storage->corrupted_rebuild_count = (uint32_t)-1;
 
 	if (mdbox_map_open(storage->map) > 0 &&
