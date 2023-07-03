@@ -223,10 +223,8 @@ int mdbox_read_header(struct mdbox_mailbox *mbox,
 				  &data, &data_size);
 	if (data_size < MDBOX_INDEX_HEADER_MIN_SIZE &&
 	    (!mbox->creating || data_size != 0)) {
-		mailbox_set_critical(&mbox->box,
-			"mdbox: Invalid dbox header size: %zu",
-			data_size);
-		mdbox_storage_set_corrupted(mbox->storage);
+		mdbox_set_mailbox_corrupted(&mbox->box, t_strdup_printf(
+			"Invalid dbox header size: %zu", data_size));
 		return -1;
 	}
 	i_zero(hdr);
