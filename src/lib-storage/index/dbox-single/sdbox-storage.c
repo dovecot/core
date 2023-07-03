@@ -305,10 +305,12 @@ void sdbox_set_mailbox_corrupted(struct mailbox *box)
 		mbox->corrupted_rebuild_count = hdr.rebuild_count;
 }
 
-static void sdbox_set_file_corrupted(struct dbox_file *_file)
+static void sdbox_set_file_corrupted(struct dbox_file *_file,
+				     const char *reason)
 {
 	struct sdbox_file *file = (struct sdbox_file *)_file;
 
+	mail_storage_set_critical(&_file->storage->storage, "%s", reason);
 	sdbox_set_mailbox_corrupted(&file->mbox->box);
 }
 
