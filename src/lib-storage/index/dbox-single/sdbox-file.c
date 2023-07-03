@@ -163,9 +163,8 @@ int sdbox_file_assign_uid(struct sdbox_file *file, uint32_t uid)
 	new_path = t_strdup_printf("%s/%s", dir, new_fname);
 
 	if (stat(new_path, &st) == 0) {
-		mailbox_set_critical(&file->mbox->box,
-			"sdbox: %s already exists, rebuilding index", new_path);
-		sdbox_set_mailbox_corrupted(&file->mbox->box);
+		sdbox_set_mailbox_corrupted(&file->mbox->box, t_strdup_printf(
+			"%s already exists, rebuilding index", new_path));
 		return -1;
 	}
 	if (rename(old_path, new_path) < 0) {

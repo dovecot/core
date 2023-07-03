@@ -116,9 +116,8 @@ static int sdbox_sync_index(struct sdbox_sync_context *ctx)
 				return -1;
 			return 1;
 		}
-		mailbox_set_critical(box,
+		sdbox_set_mailbox_corrupted(box,
 			"sdbox: Broken index: missing UIDVALIDITY");
-		sdbox_set_mailbox_corrupted(box);
 		return 0;
 	}
 
@@ -220,8 +219,10 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 		ret = index_storage_expunged_sync_begin(&mbox->box,
 				&ctx->index_sync_ctx, &ctx->sync_view,
 				&ctx->trans, sync_flags);
-		if (mail_index_reset_fscked(mbox->box.index))
-			sdbox_set_mailbox_corrupted(&mbox->box);
+		if (mail_index_reset_fscked(mbox->box.index)) {
+			sdbox_set_mailbox_corrupted(&mbox->box,
+				"Mailbox index was fsck'd");
+		}
 		if (ret <= 0) {
 			array_free(&ctx->expunged_uids);
 			i_free(ctx);
@@ -314,7 +315,7 @@ sdbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	int ret = 0;
 
 	if (mail_index_reset_fscked(box->index))
-		sdbox_set_mailbox_corrupted(box);
+		sdbox_set_mailbox_corrupted(box, "Mailbox index was fsck'd");
 	if (index_mailbox_want_full_sync(&mbox->box, flags) ||
 	    mbox->corrupted_rebuild_count != 0) {
 		if ((flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0)
