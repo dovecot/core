@@ -163,9 +163,8 @@ int sdbox_file_assign_uid(struct sdbox_file *file, uint32_t uid)
 	new_path = t_strdup_printf("%s/%s", dir, new_fname);
 
 	if (stat(new_path, &st) == 0) {
-		mailbox_set_critical(&file->mbox->box,
-			"sdbox: %s already exists, rebuilding index", new_path);
-		sdbox_set_mailbox_corrupted(&file->mbox->box);
+		sdbox_set_mailbox_corrupted(&file->mbox->box, t_strdup_printf(
+			"%s already exists, rebuilding index", new_path));
 		return -1;
 	}
 	if (rename(old_path, new_path) < 0) {
@@ -267,9 +266,12 @@ int sdbox_file_create_fd(struct dbox_file *file, const char *path, bool parents)
 		umask(old_mask);
 	}
 	if (fd == -1) {
-		mailbox_set_critical(box, "open(%s, O_CREAT) failed: %m", path);
-		if (errno == ENOENT)
-			sdbox_set_mailbox_corrupted(box);
+		if (errno == ENOENT) {
+			sdbox_set_mailbox_corrupted(box, t_strdup_printf(
+				"open(%s, O_CREAT) failed: %m", path));
+		} else {
+			mailbox_set_critical(box, "open(%s, O_CREAT) failed: %m", path);
+		}
 	} else if (perm->file_create_gid == (gid_t)-1) {
 		/* no group change */
 	} else if (fchown(fd, (uid_t)-1, perm->file_create_gid) < 0) {

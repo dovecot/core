@@ -50,7 +50,7 @@ struct dbox_storage_vfuncs {
 	   "-<mailbox_guid>-<uid>" */
 	const char *(*get_attachment_path_suffix)(struct dbox_file *file);
 	/* mark the mailbox corrupted */
-	void (*set_mailbox_corrupted)(struct mailbox *box);
+	void (*set_mailbox_corrupted)(struct mailbox *box, const char *reason);
 	/* mark the file corrupted */
 	void (*set_file_corrupted)(struct dbox_file *file, const char *reason);
 };

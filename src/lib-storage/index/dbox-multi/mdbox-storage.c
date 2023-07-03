@@ -377,10 +377,11 @@ mdbox_get_attachment_path_suffix(struct dbox_file *file ATTR_UNUSED)
 	return "";
 }
 
-void mdbox_set_mailbox_corrupted(struct mailbox *box)
+void mdbox_set_mailbox_corrupted(struct mailbox *box, const char *reason)
 {
 	struct mdbox_storage *mstorage = MDBOX_STORAGE(box->storage);
 
+	mailbox_set_critical(box, "%s", reason);
 	mdbox_storage_set_corrupted(mstorage);
 }
 

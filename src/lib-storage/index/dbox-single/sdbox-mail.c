@@ -21,8 +21,8 @@ static void sdbox_mail_set_expunged(struct dbox_mail *mail)
 		return;
 	}
 
-	mail_set_critical(_mail, "dbox: Unexpectedly lost uid");
-	sdbox_set_mailbox_corrupted(_mail->box);
+	sdbox_set_mailbox_corrupted(_mail->box, t_strdup_printf(
+		"Unexpectedly lost uid %u", _mail->uid));
 }
 
 int sdbox_mail_file_set(struct dbox_mail *mail)
@@ -48,9 +48,8 @@ int sdbox_mail_file_set(struct dbox_mail *mail)
 		/* it doesn't have input stream yet */
 		ret = dbox_file_open(mail->open_file, &deleted);
 		if (ret <= 0) {
-			mail_set_critical(_mail,
-				"dbox: Unexpectedly lost mail being saved");
-			sdbox_set_mailbox_corrupted(_mail->box);
+			sdbox_set_mailbox_corrupted(_mail->box,
+				"Unexpectedly lost mail being saved");
 			return -1;
 		}
 		return 1;

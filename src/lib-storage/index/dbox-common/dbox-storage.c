@@ -398,10 +398,9 @@ int dbox_mailbox_create(struct mailbox *box,
 		if (ret < 0)
 			return -1;
 		if (ret == 0) {
-			mailbox_set_critical(box,
+			storage->v.set_mailbox_corrupted(box,
 				"Existing files in alt path, "
 				"rebuilding storage to avoid losing messages");
-			storage->v.set_mailbox_corrupted(box);
 			return -1;
 		}
 		/* dir is empty, ignore it */

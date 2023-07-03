@@ -291,12 +291,13 @@ sdbox_get_attachment_path_suffix(struct dbox_file *_file)
 			file->uid);
 }
 
-void sdbox_set_mailbox_corrupted(struct mailbox *box)
+void sdbox_set_mailbox_corrupted(struct mailbox *box, const char *reason)
 {
 	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(box);
 	struct sdbox_index_header hdr;
 	bool need_resize;
 
+	mailbox_set_critical(box, "%s", reason);
 	if (sdbox_read_header(mbox, &hdr, TRUE, &need_resize) < 0 ||
 	    hdr.rebuild_count == 0)
 		mbox->corrupted_rebuild_count = 1;

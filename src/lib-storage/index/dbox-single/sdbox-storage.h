@@ -48,7 +48,7 @@ int sdbox_read_header(struct sdbox_mailbox *mbox,
 int sdbox_mailbox_create_indexes(struct mailbox *box,
 				 const struct mailbox_update *update,
 				 struct mail_index_transaction *trans);
-void sdbox_set_mailbox_corrupted(struct mailbox *box);
+void sdbox_set_mailbox_corrupted(struct mailbox *box, const char *reason);
 
 struct mail_save_context *
 sdbox_save_alloc(struct mailbox_transaction_context *_t);
