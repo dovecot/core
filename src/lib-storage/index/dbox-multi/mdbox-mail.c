@@ -26,9 +26,8 @@ int mdbox_mail_lookup(struct mdbox_mailbox *mbox, struct mail_index_view *view,
 	dbox_rec = data;
 	if (dbox_rec == NULL || dbox_rec->map_uid == 0) {
 		mail_index_lookup_uid(view, seq, &uid);
-		mailbox_set_critical(&mbox->box,
-			"mdbox: map uid lost for uid %u", uid);
-		mdbox_storage_set_corrupted(mbox->storage);
+		mdbox_set_mailbox_corrupted(&mbox->box, t_strdup_printf(
+			"map uid lost for uid %u", uid));
 		return -1;
 	}
 
@@ -42,10 +41,9 @@ int mdbox_mail_lookup(struct mdbox_mailbox *mbox, struct mail_index_view *view,
 
 	cur_map_uid_validity = mdbox_map_get_uid_validity(mbox->storage->map);
 	if (cur_map_uid_validity != mbox->map_uid_validity) {
-		mailbox_set_critical(&mbox->box,
-			"mdbox: map uidvalidity mismatch (%u vs %u)",
-			mbox->map_uid_validity, cur_map_uid_validity);
-		mdbox_storage_set_corrupted(mbox->storage);
+		mdbox_set_mailbox_corrupted(&mbox->box, t_strdup_printf(
+			"map uidvalidity mismatch (%u vs %u)",
+			mbox->map_uid_validity, cur_map_uid_validity));
 		return -1;
 	}
 	*map_uid_r = dbox_rec->map_uid;

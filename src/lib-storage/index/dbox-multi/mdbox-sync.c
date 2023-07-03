@@ -43,10 +43,9 @@ dbox_sync_verify_expunge_guid(struct mdbox_sync_context *ctx, uint32_t seq,
 	    memcmp(data, guid_128, GUID_128_SIZE) == 0)
 		return 1;
 
-	mailbox_set_critical(&ctx->mbox->box,
+	mdbox_set_mailbox_corrupted(&ctx->mbox->box, t_strdup_printf(
 		"Expunged GUID mismatch for UID %u: %s vs %s",
-		uid, guid_128_to_string(data), guid_128_to_string(guid_128));
-	mdbox_storage_set_corrupted(ctx->mbox->storage);
+		uid, guid_128_to_string(data), guid_128_to_string(guid_128)));
 	return -1;
 }
 
@@ -204,8 +203,10 @@ static int mdbox_sync_try_begin(struct mdbox_sync_context *ctx,
 
 	ret = index_storage_expunged_sync_begin(&mbox->box, &ctx->index_sync_ctx,
 						&ctx->sync_view, &ctx->trans, sync_flags);
-	if (mail_index_reset_fscked(mbox->box.index))
-		mdbox_storage_set_corrupted(mbox->storage);
+	if (mail_index_reset_fscked(mbox->box.index)) {
+		mdbox_set_mailbox_corrupted(&mbox->box,
+			"dovecot.index was fsck'd (mailbox sync)");
+	}
 	if (ret <= 0)
 		return ret; /* error / nothing to do */
 
@@ -374,7 +375,8 @@ mdbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	int ret = 0;
 
 	if (mail_index_reset_fscked(box->index))
-		mdbox_storage_set_corrupted(mbox->storage);
+		mdbox_set_mailbox_corrupted(box, "Mailbox index was fsck'd");
+
 	if (index_mailbox_want_full_sync(&mbox->box, flags) ||
 	    mbox->storage->corrupted_reason != NULL) {
 		if ((flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0)
