@@ -903,6 +903,16 @@ mdbox_storage_rebuild_scan_dir(struct mdbox_storage_rebuild_context *ctx,
 	return ret;
 }
 
+static bool mdbox_mailbox_is_fscked(struct mailbox *box)
+{
+	(void)mail_index_refresh(box->index);
+	struct mail_index_view *view = mail_index_view_open(box->index);
+	const struct mail_index_header *hdr = mail_index_get_header(box->view);
+	bool fscked = (hdr->flags & MAIL_INDEX_HDR_FLAG_FSCKD) != 0;
+	mail_index_view_close(&view);
+	return fscked;
+}
+
 static int
 mdbox_storage_rebuild_scan_prepare(struct mdbox_storage_rebuild_context *ctx,
 				   struct mailbox *fsckd_box,
@@ -920,20 +930,28 @@ mdbox_storage_rebuild_scan_prepare(struct mdbox_storage_rebuild_context *ctx,
 	if (mdbox_map_atomic_lock(ctx->atomic, "mdbox storage rebuild") < 0)
 		return -1;
 
+	/* get storage rebuild counter after locking */
+	ctx->rebuild_count = mdbox_map_get_rebuild_count(ctx->storage->map);
+
 	if ((reason & MDBOX_REBUILD_REASON_FORCED) != 0)
 		*reason_string_r = "Rebuild forced";
-	else if ((reason & MDBOX_REBUILD_REASON_CORRUPTED) != 0) {
+	else if ((reason & MDBOX_REBUILD_REASON_CORRUPTED) != 0 &&
+		 ctx->rebuild_count == ctx->storage->corrupted_rebuild_count) {
 		i_assert(ctx->storage->corrupted_reason != NULL);
 		*reason_string_r = t_strdup_printf(
 			"Storage was marked corrupted: %s",
 			ctx->storage->corrupted_reason);
-	} else if ((reason & MDBOX_REBUILD_REASON_MAP_FSCKD) != 0)
+	} else if ((reason & MDBOX_REBUILD_REASON_MAP_FSCKD) != 0 &&
+		   mdbox_map_refresh(ctx->storage->map) == 0 &&
+		   mdbox_map_is_fscked(ctx->storage->map))
 		*reason_string_r = "dovecot.index.map was fsck'd";
-	else if ((reason & MDBOX_REBUILD_REASON_MAILBOX_FSCKD) != 0) {
+	else if ((reason & MDBOX_REBUILD_REASON_MAILBOX_FSCKD) != 0 &&
+		 mdbox_mailbox_is_fscked(fsckd_box)) {
 		*reason_string_r = t_strdup_printf(
 			"Mailbox %s index was fsck'd", fsckd_box->vname);
 	} else {
-		i_unreached();
+		/* storage was already rebuilt by someone else */
+		return 0;
 	}
 
 	/* fsck the map just in case its UIDs are broken */
@@ -953,14 +971,6 @@ mdbox_storage_rebuild_scan_prepare(struct mdbox_storage_rebuild_context *ctx,
 		       I_MIN(data_size, sizeof(ctx->orig_map_hdr)));
 	}
 	ctx->highest_file_id = ctx->orig_map_hdr.highest_file_id;
-
-	/* get storage rebuild counter after locking */
-	ctx->rebuild_count = mdbox_map_get_rebuild_count(ctx->storage->map);
-	if (ctx->rebuild_count != ctx->storage->corrupted_rebuild_count &&
-	    ctx->storage->corrupted_reason != NULL) {
-		/* storage was already rebuilt by someone else */
-		return 0;
-	}
 	return 1;
 }
 
