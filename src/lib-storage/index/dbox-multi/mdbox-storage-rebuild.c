@@ -968,8 +968,9 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 	return 0;
 }
 
-int mdbox_storage_rebuild_in_context(struct mdbox_storage *storage,
-				     struct mdbox_map_atomic_context *atomic)
+static int
+mdbox_storage_rebuild_in_context(struct mdbox_storage *storage,
+				 struct mdbox_map_atomic_context *atomic)
 {
 	struct mdbox_storage_rebuild_context *ctx;
 	int ret;
