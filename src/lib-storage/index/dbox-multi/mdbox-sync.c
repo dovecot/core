@@ -318,14 +318,21 @@ int mdbox_sync(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags)
 		mail_index_get_header(mbox->box.view);
 	struct mdbox_sync_context *sync_ctx;
 	struct mdbox_map_atomic_context *atomic;
+	enum mdbox_rebuild_reason rebuild_reason = 0;
 	bool corrupted, storage_rebuilt = FALSE;
 	int ret;
 
-	if (mbox->storage->corrupted ||
-	    (hdr->flags & MAIL_INDEX_HDR_FLAG_FSCKD) != 0 ||
-	    mdbox_map_is_fscked(mbox->storage->map) ||
-	    (flags & MDBOX_SYNC_FLAG_FORCE_REBUILD) != 0) {
-		if (mdbox_storage_rebuild(mbox->storage) < 0)
+	if (mbox->storage->corrupted)
+		rebuild_reason |= MDBOX_REBUILD_REASON_CORRUPTED;
+	if ((hdr->flags & MAIL_INDEX_HDR_FLAG_FSCKD) != 0)
+		rebuild_reason |= MDBOX_REBUILD_REASON_MAILBOX_FSCKD;
+	if (mdbox_map_is_fscked(mbox->storage->map))
+		rebuild_reason |= MDBOX_REBUILD_REASON_MAP_FSCKD;
+	if ((flags & MDBOX_SYNC_FLAG_FORCE_REBUILD) != 0)
+		rebuild_reason |= MDBOX_REBUILD_REASON_FORCED;
+	if (rebuild_reason != 0) {
+		if (mdbox_storage_rebuild(mbox->storage, &mbox->box,
+					  rebuild_reason) < 0)
 			return -1;
 		mailbox_recent_flags_reset(&mbox->box);
 		storage_rebuilt = TRUE;

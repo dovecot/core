@@ -900,7 +900,10 @@ mdbox_storage_rebuild_scan_dir(struct mdbox_storage_rebuild_context *ctx,
 }
 
 static int
-mdbox_storage_rebuild_scan_prepare(struct mdbox_storage_rebuild_context *ctx)
+mdbox_storage_rebuild_scan_prepare(struct mdbox_storage_rebuild_context *ctx,
+				   struct mailbox *fsckd_box,
+				   enum mdbox_rebuild_reason reason,
+				   const char **reason_string_r)
 {
 	const void *data;
 	size_t data_size;
@@ -912,6 +915,19 @@ mdbox_storage_rebuild_scan_prepare(struct mdbox_storage_rebuild_context *ctx)
 	   rebuild at the same time. */
 	if (mdbox_map_atomic_lock(ctx->atomic, "mdbox storage rebuild") < 0)
 		return -1;
+
+	if ((reason & MDBOX_REBUILD_REASON_FORCED) != 0)
+		*reason_string_r = "Rebuild forced";
+	else if ((reason & MDBOX_REBUILD_REASON_CORRUPTED) != 0)
+		*reason_string_r = "Storage was marked corrupted";
+	else if ((reason & MDBOX_REBUILD_REASON_MAP_FSCKD) != 0)
+		*reason_string_r = "dovecot.index.map was fsck'd";
+	else if ((reason & MDBOX_REBUILD_REASON_MAILBOX_FSCKD) != 0) {
+		*reason_string_r = t_strdup_printf(
+			"Mailbox %s index was fsck'd", fsckd_box->vname);
+	} else {
+		i_unreached();
+	}
 
 	/* fsck the map just in case its UIDs are broken */
 	if (mail_index_fsck(ctx->storage->map->index) < 0) {
@@ -939,9 +955,11 @@ mdbox_storage_rebuild_scan_prepare(struct mdbox_storage_rebuild_context *ctx)
 	return 1;
 }
 
-static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
+static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx,
+				      const char *reason)
 {
-	i_warning("mdbox %s: rebuilding indexes", ctx->storage->storage_dir);
+	i_warning("mdbox %s: rebuilding indexes: %s",
+		  ctx->storage->storage_dir, reason);
 
 	if (mdbox_storage_rebuild_scan_dir(ctx, ctx->storage->storage_dir,
 					   FALSE) < 0)
@@ -963,9 +981,12 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 
 static int
 mdbox_storage_rebuild_in_context(struct mdbox_storage *storage,
-				 struct mdbox_map_atomic_context *atomic)
+				 struct mdbox_map_atomic_context *atomic,
+				 struct mailbox *fsckd_box,
+				 enum mdbox_rebuild_reason rebuild_reason)
 {
 	struct mdbox_storage_rebuild_context *ctx;
+	const char *reason_string;
 	int ret;
 
 	if (dbox_verify_alt_storage(storage->map->root_list) < 0) {
@@ -977,9 +998,11 @@ mdbox_storage_rebuild_in_context(struct mdbox_storage *storage,
 	}
 
 	ctx = mdbox_storage_rebuild_init(storage, atomic);
-	if ((ret = mdbox_storage_rebuild_scan_prepare(ctx)) > 0) {
+	if ((ret = mdbox_storage_rebuild_scan_prepare(ctx, fsckd_box,
+						      rebuild_reason,
+						      &reason_string)) > 0) {
 		struct event_reason *reason = event_reason_begin("mdbox:rebuild");
-		ret = mdbox_storage_rebuild_scan(ctx);
+		ret = mdbox_storage_rebuild_scan(ctx, reason_string);
 		event_reason_end(&reason);
 	}
 	mdbox_storage_rebuild_deinit(ctx);
@@ -991,13 +1014,16 @@ mdbox_storage_rebuild_in_context(struct mdbox_storage *storage,
 	return ret;
 }
 
-int mdbox_storage_rebuild(struct mdbox_storage *storage)
+int mdbox_storage_rebuild(struct mdbox_storage *storage,
+			  struct mailbox *fsckd_box,
+			  enum mdbox_rebuild_reason reason)
 {
 	struct mdbox_map_atomic_context *atomic;
 	int ret;
 
 	atomic = mdbox_map_atomic_begin(storage->map);
-	ret = mdbox_storage_rebuild_in_context(storage, atomic);
+	ret = mdbox_storage_rebuild_in_context(storage, atomic,
+					       fsckd_box, reason);
 	mdbox_map_atomic_set_success(atomic);
 	mdbox_map_atomic_unset_fscked(atomic);
 	if (mdbox_map_atomic_finish(&atomic) < 0)
