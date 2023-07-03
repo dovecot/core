@@ -1331,7 +1331,7 @@ void mail_index_reset(struct mail_index_transaction *t)
 void mail_index_unset_fscked(struct mail_index_transaction *t)
 {
 	struct mail_index_header new_hdr =
-		*mail_index_get_header(t->view);
+		t->view->index->map->hdr;
 
 	i_assert(t->view->index->log_sync_locked);
 
