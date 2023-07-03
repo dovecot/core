@@ -922,9 +922,12 @@ mdbox_storage_rebuild_scan_prepare(struct mdbox_storage_rebuild_context *ctx,
 
 	if ((reason & MDBOX_REBUILD_REASON_FORCED) != 0)
 		*reason_string_r = "Rebuild forced";
-	else if ((reason & MDBOX_REBUILD_REASON_CORRUPTED) != 0)
-		*reason_string_r = "Storage was marked corrupted";
-	else if ((reason & MDBOX_REBUILD_REASON_MAP_FSCKD) != 0)
+	else if ((reason & MDBOX_REBUILD_REASON_CORRUPTED) != 0) {
+		i_assert(ctx->storage->corrupted_reason != NULL);
+		*reason_string_r = t_strdup_printf(
+			"Storage was marked corrupted: %s",
+			ctx->storage->corrupted_reason);
+	} else if ((reason & MDBOX_REBUILD_REASON_MAP_FSCKD) != 0)
 		*reason_string_r = "dovecot.index.map was fsck'd";
 	else if ((reason & MDBOX_REBUILD_REASON_MAILBOX_FSCKD) != 0) {
 		*reason_string_r = t_strdup_printf(
@@ -954,7 +957,7 @@ mdbox_storage_rebuild_scan_prepare(struct mdbox_storage_rebuild_context *ctx,
 	/* get storage rebuild counter after locking */
 	ctx->rebuild_count = mdbox_map_get_rebuild_count(ctx->storage->map);
 	if (ctx->rebuild_count != ctx->storage->corrupted_rebuild_count &&
-	    ctx->storage->corrupted) {
+	    ctx->storage->corrupted_reason != NULL) {
 		/* storage was already rebuilt by someone else */
 		return 0;
 	}
@@ -1014,7 +1017,7 @@ mdbox_storage_rebuild_in_context(struct mdbox_storage *storage,
 	mdbox_storage_rebuild_deinit(ctx);
 
 	if (ret == 0) {
-		storage->corrupted = FALSE;
+		i_free(storage->corrupted_reason);
 		storage->corrupted_rebuild_count = 0;
 	}
 	return ret;

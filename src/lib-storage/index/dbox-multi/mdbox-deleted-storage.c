@@ -231,7 +231,7 @@ mdbox_deleted_storage_sync_init(struct mailbox *box,
 	int ret = 0;
 
 	if (index_mailbox_want_full_sync(&mbox->box, flags) ||
-	    mbox->storage->corrupted)
+	    mbox->storage->corrupted_reason != NULL)
 		ret = mdbox_deleted_sync(mbox, mdbox_sync_flags);
 
 	return index_mailbox_sync_init(box, flags, ret < 0);

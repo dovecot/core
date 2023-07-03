@@ -39,8 +39,8 @@ struct mdbox_storage {
 	/* if non-zero, storage should be rebuilt (except if rebuild_count
 	   has changed from this value) */
 	uint32_t corrupted_rebuild_count;
+	char *corrupted_reason;
 
-	bool corrupted:1;
 	bool rebuilding_storage:1;
 	bool preallocate_space:1;
 };
