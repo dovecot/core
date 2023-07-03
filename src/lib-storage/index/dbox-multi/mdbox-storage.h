@@ -114,6 +114,6 @@ int mdbox_mailbox_open(struct mailbox *box);
 
 void mdbox_storage_set_corrupted(struct mdbox_storage *storage);
 void mdbox_set_mailbox_corrupted(struct mailbox *box);
-void mdbox_set_file_corrupted(struct dbox_file *file);
+void mdbox_set_file_corrupted(struct dbox_file *file, const char *reason);
 
 #endif

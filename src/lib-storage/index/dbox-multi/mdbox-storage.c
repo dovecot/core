@@ -384,10 +384,11 @@ void mdbox_set_mailbox_corrupted(struct mailbox *box)
 	mdbox_storage_set_corrupted(mstorage);
 }
 
-void mdbox_set_file_corrupted(struct dbox_file *file)
+void mdbox_set_file_corrupted(struct dbox_file *file, const char *reason)
 {
 	struct mdbox_storage *mstorage = MDBOX_DBOX_STORAGE(file->storage);
 
+	mail_storage_set_critical(&mstorage->storage.storage, "%s", reason);
 	mdbox_storage_set_corrupted(mstorage);
 }
 

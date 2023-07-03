@@ -52,7 +52,7 @@ struct dbox_storage_vfuncs {
 	/* mark the mailbox corrupted */
 	void (*set_mailbox_corrupted)(struct mailbox *box);
 	/* mark the file corrupted */
-	void (*set_file_corrupted)(struct dbox_file *file);
+	void (*set_file_corrupted)(struct dbox_file *file, const char *reason);
 };
 
 struct dbox_storage {
