@@ -1045,6 +1045,7 @@ int mdbox_storage_rebuild(struct mdbox_storage *storage,
 					       fsckd_box, reason);
 	mdbox_map_atomic_set_success(atomic);
 	mdbox_map_atomic_unset_fscked(atomic);
+	(void)mail_index_reset_fscked(storage->map->index);
 	if (mdbox_map_atomic_finish(&atomic) < 0)
 		ret = -1;
 	return ret;
