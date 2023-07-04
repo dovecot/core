@@ -906,7 +906,7 @@ int mail_transaction_log_file_open(struct mail_transaction_log_file *file,
 		} else {
 			file->fd = nfs_safe_open(file->filepath, O_RDONLY);
 		}
-		if (file->fd == -1 && errno == EACCES) {
+		if (file->fd == -1 && ENOACCESS(errno)) {
 			file->fd = nfs_safe_open(file->filepath, O_RDONLY);
 			index->readonly = TRUE;
 		}

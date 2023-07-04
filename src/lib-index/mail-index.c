@@ -497,7 +497,7 @@ int mail_index_try_open_only(struct mail_index *index)
 		index->readonly = FALSE;
 	}
 
-	if (index->fd == -1 && errno == EACCES) {
+	if (index->fd == -1 && ENOACCESS(errno)) {
 		index->fd = open(index->filepath, O_RDONLY);
 		index->readonly = TRUE;
 	}
@@ -1086,7 +1086,7 @@ void mail_index_file_set_syscall_error(struct mail_index *index,
 			return;
 	}
 
-	if (errno == EACCES) {
+	if (ENOACCESS(errno)) {
 		function = t_strcut(function, '(');
 		if (strcmp(function, "creat") == 0 ||
 		    str_begins_with(function, "file_dotlock_"))
