@@ -932,7 +932,7 @@ mailbox_list_get_permissions_stat(struct mailbox_list *list, const char *path,
 	struct stat st;
 
 	if (stat(path, &st) < 0) {
-		if (errno == EACCES) {
+		if (ENOACCESS(errno)) {
 			mailbox_list_set_critical(list, "%s",
 				mail_error_eacces_msg("stat", path));
 		} else if (!ENOTFOUND(errno)) {
@@ -1173,7 +1173,7 @@ mailbox_list_try_mkdir_root_parent(struct mailbox_list *list,
 
 	/* get the first existing parent directory's permissions */
 	if (stat_first_parent(expanded, &root_dir, &st) < 0) {
-		*error_r = errno == EACCES ?
+		*error_r = ENOACCESS(errno) ?
 			mail_error_eacces_msg("stat", root_dir) :
 			t_strdup_printf("stat(%s) failed: %m", root_dir);
 		return -1;
@@ -1259,7 +1259,7 @@ int mailbox_list_try_mkdir_root(struct mailbox_list *list, const char *path,
 				perm.file_create_gid,
 				perm.file_create_gid_origin) < 0 &&
 	    errno != EEXIST) {
-		if (errno == EACCES)
+		if (ENOACCESS(errno))
 			*error_r = mail_error_create_eacces_msg("mkdir", path);
 		else
 			*error_r = t_strdup_printf("mkdir(%s) failed: %m", path);

@@ -782,7 +782,7 @@ int mbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 		buf.modtime = st.st_mtime;
 		buf.actime = ctx->orig_atime;
 		if (utime(mailbox_get_path(&mbox->box), &buf) < 0 &&
-		    errno != EPERM)
+		    !ENOACCESS(errno))
 			mbox_set_syscall_error(mbox, "utime()");
 	}
 

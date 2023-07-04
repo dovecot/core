@@ -274,7 +274,7 @@ int dbox_mailbox_check_existence(struct mailbox *box)
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
 		return -1;
-	} else if (errno == EACCES) {
+	} else if (ENOACCESS(errno)) {
 		mailbox_set_critical(box, "%s",
 			mail_error_eacces_msg("stat", box_path));
 		return -1;

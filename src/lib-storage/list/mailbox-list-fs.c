@@ -503,7 +503,7 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 		mailbox_list_set_error(oldlist, MAIL_ERROR_NOTPOSSIBLE,
 			"Target mailbox doesn't allow inferior mailboxes");
 		return -1;
-	} else if (errno != ENOENT && errno != EACCES) {
+	} else if (errno != ENOENT && !ENOACCESS(errno)) {
 		mailbox_list_set_critical(oldlist, "lstat(%s) failed: %m",
 					  newpath);
 		return -1;

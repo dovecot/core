@@ -299,7 +299,7 @@ fs_list_dir_read(struct fs_list_iterate_context *ctx,
 			   deleting the mailbox. */
 			return 0;
 		}
-		if (errno == EACCES) {
+		if (ENOACCESS(errno)) {
 			/* ignore permission errors */
 			return 0;
 		}

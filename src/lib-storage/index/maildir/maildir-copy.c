@@ -42,7 +42,7 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 		/* we could handle the EEXIST condition by changing the
 		   filename, but it practically never happens so just fallback
 		   to standard copying for the rare cases when it does. */
-		if (errno == EACCES || ECANTLINK(errno) || errno == EEXIST)
+		if (ENOACCESS(errno) || ECANTLINK(errno) || errno == EEXIST)
 			return 1;
 
 		mailbox_set_critical(&mbox->box, "link(%s, %s) failed: %m",

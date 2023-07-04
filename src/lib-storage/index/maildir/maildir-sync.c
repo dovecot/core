@@ -423,7 +423,7 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final,
 			break;
 
 		if (errno != ENOENT || i == MAILDIR_DELETE_RETRY_COUNT) {
-			if (errno == EACCES) {
+			if (ENOACCESS(errno)) {
 				mailbox_set_critical(&ctx->mbox->box, "%s",
 					eacces_error_get("opendir", path));
 			} else {
@@ -506,7 +506,7 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final,
 				move_count++;
 				flags |= MAILDIR_UIDLIST_REC_FLAG_MOVED |
 					MAILDIR_UIDLIST_REC_FLAG_RECENT;
-			} else if (ENOSPACE(errno) || errno == EACCES) {
+			} else if (ENOSPACE(errno) || ENOACCESS(errno)) {
 				/* not enough disk space / read-only maildir,
 				   leave here */
 				flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;

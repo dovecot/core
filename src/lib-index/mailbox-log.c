@@ -105,7 +105,7 @@ static int mailbox_log_open(struct mailbox_log *log)
 	umask(old_mode);
 
 	if (log->fd == -1) {
-		if (errno != EACCES)
+		if (!ENOACCESS(errno))
 			e_error(log->event, "creat(%s) failed: %m",
 				log->filepath);
 		else
@@ -114,7 +114,7 @@ static int mailbox_log_open(struct mailbox_log *log)
 		return -1;
 	}
 	if (fchown(log->fd, (uid_t)-1, log->gid) < 0) {
-		if (errno != EPERM)
+		if (!ENOACCESS(errno))
 			e_error(log->event, "fchown(%s) failed: %m",
 				log->filepath);
 		else {

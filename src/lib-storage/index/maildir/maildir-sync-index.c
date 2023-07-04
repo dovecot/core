@@ -143,7 +143,7 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 		if (rename(path, newpath) < 0) {
 			if (errno == ENOENT)
 				return 0;
-			if (!ENOSPACE(errno) && errno != EACCES) {
+			if (!ENOSPACE(errno) && !ENOACCESS(errno)) {
 				mailbox_set_critical(box,
 					"rename(%s, %s) failed: %m",
 					path, newpath);

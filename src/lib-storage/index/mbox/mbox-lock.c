@@ -300,7 +300,7 @@ mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 		ret = file_dotlock_create(set, fname, 0, &mbox->mbox_dotlock);
 		if (ret > 0)
 			mbox->mbox_used_privileges = TRUE;
-		else if (ret < 0 && errno == EACCES) {
+		else if (ret < 0 && ENOACCESS(errno)) {
 			const char *errmsg =
 				eacces_error_get_creating("file_dotlock_create",
 							  fname);
@@ -418,18 +418,18 @@ mbox_lock_dotlock_int(struct mbox_lock_context *ctx, int lock_type, bool try)
 				  &mbox->mbox_dotlock);
 	if (ret >= 0) {
 		/* success / timeout */
-	} else if (errno == EACCES && restrict_access_have_priv_gid() &&
+	} else if (ENOACCESS(errno) && restrict_access_have_priv_gid() &&
 		   mbox->mbox_privileged_locking) {
 		/* try again, this time with extra privileges */
 		ret = mbox_dotlock_privileged_op(mbox, &set,
 						 MBOX_DOTLOCK_OP_LOCK);
-	} else if (errno == EACCES)
+	} else if (ENOACCESS(errno))
 		mbox_dotlock_log_eacces_error(mbox, mailbox_get_path(&mbox->box));
 	else
 		mbox_set_syscall_error(mbox, "file_dotlock_create()");
 
 	if (ret < 0) {
-		if ((ENOSPACE(errno) || errno == EACCES) && try)
+		if ((ENOSPACE(errno) || ENOACCESS(errno)) && try)
 			return 1;
 		return -1;
 	}
@@ -552,7 +552,7 @@ static int mbox_lock_lockf(struct mbox_lock_context *ctx, int lock_type,
 
 	while (lockf(ctx->mbox->mbox_fd, lock_type, 0) < 0) {
 		if (errno != EINTR) {
-			if ((errno == EACCES || errno == EAGAIN) &&
+			if ((ENOACCESS(errno) || errno == EAGAIN) &&
 			    max_wait_time == 0) {
 				/* non-blocking lock trying failed */
 				return 0;
@@ -619,7 +619,7 @@ static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 
 	while (fcntl(ctx->mbox->mbox_fd, wait_type, &fl) < 0) {
 		if (errno != EINTR) {
-			if ((errno == EACCES || errno == EAGAIN) &&
+			if ((ENOACCESS(errno) || errno == EAGAIN) &&
 			    wait_type == F_SETLK) {
 				/* non-blocking lock trying failed */
 				return 0;

@@ -758,7 +758,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 			if (chdir("/") < 0)
 				e_error(user->event, "chdir(/) failed: %m");
 		} else if (chdir(chdir_path) < 0) {
-			if (errno == EACCES) {
+			if (ENOACCESS(errno)) {
 				e_error(user->event, "%s",
 					eacces_error_get("chdir",
 						t_strconcat(chdir_path, "/", NULL)));

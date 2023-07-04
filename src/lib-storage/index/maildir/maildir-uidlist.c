@@ -170,7 +170,7 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 			return 0;
 		}
 		if (errno != ENOENT || i == MAILDIR_DELETE_RETRY_COUNT) {
-			if (errno == EACCES) {
+			if (ENOACCESS(errno)) {
 				mailbox_set_critical(box, "%s",
 					eacces_error_get_creating("file_dotlock_create", path));
 			} else {
@@ -712,7 +712,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 
 	if (uidlist->fd == -1) {
 		fd = nfs_safe_open(uidlist->path, O_RDWR);
-		if (fd == -1 && errno == EACCES) {
+		if (fd == -1 && ENOACCESS(errno)) {
 			fd = nfs_safe_open(uidlist->path, O_RDONLY);
 			readonly = TRUE;
 		}
@@ -932,7 +932,7 @@ static int maildir_uidlist_open_latest(struct maildir_uidlist *uidlist)
 	}
 
 	uidlist->fd = nfs_safe_open(uidlist->path, O_RDWR);
-	if (uidlist->fd == -1 && errno == EACCES) {
+	if (uidlist->fd == -1 && ENOACCESS(errno)) {
 		uidlist->fd = nfs_safe_open(uidlist->path, O_RDONLY);
 		uidlist->recreate_on_change = TRUE;
 	}

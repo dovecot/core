@@ -255,7 +255,7 @@ mail_storage_verify_root(const char *root_dir, const char *dir_type,
 		*error_r = t_strdup_printf(
 			"Root mail directory is a file: %s", root_dir);
 		return -1;
-	} else if (errno == EACCES) {
+	} else if (ENOACCESS(errno)) {
 		*error_r = mail_error_eacces_msg("stat", root_dir);
 		return -1;
 	} else if (errno != ENOENT) {

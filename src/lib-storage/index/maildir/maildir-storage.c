@@ -187,7 +187,7 @@ mkdir_verify(struct mailbox *box, const char *dir, bool verify)
 	} else if (errno == ENOENT) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 			"Mailbox was deleted while it was being created");
-	} else if (errno == EACCES) {
+	} else if (ENOACCESS(errno)) {
 		if (box->list->ns->type == MAIL_NAMESPACE_TYPE_SHARED) {
 			/* shared namespace, don't log permission errors */
 			mail_storage_set_error(box->storage, MAIL_ERROR_PERM,
@@ -213,7 +213,7 @@ static int maildir_check_tmp(struct mail_storage *storage, const char *dir)
 	if (stat(path, &st) < 0) {
 		if (errno == ENOENT || errno == ENAMETOOLONG)
 			return 0;
-		if (errno == EACCES) {
+		if (ENOACCESS(errno)) {
 			mail_storage_set_critical(storage, "%s",
 				mail_error_eacces_msg("stat", path));
 			return -1;
@@ -713,7 +713,7 @@ bool maildir_is_backend_readonly(struct maildir_mailbox *mbox)
 
 		mbox->backend_readonly_set = TRUE;
 		if (i_faccessat2(AT_FDCWD, t_strconcat(box_path, "/cur", NULL), W_OK, AT_EACCESS) < 0 &&
-		    errno == EACCES)
+		    ENOACCESS(errno))
 			mbox->backend_readonly = TRUE;
 	}
 	return mbox->backend_readonly;

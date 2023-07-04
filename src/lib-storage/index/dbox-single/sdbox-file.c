@@ -380,7 +380,7 @@ int sdbox_file_move(struct dbox_file *file, bool alt_path)
 	}
 	if (unlink(file->cur_path) < 0) {
 		dbox_file_set_syscall_error(file, "unlink()");
-		if (errno == EACCES) {
+		if (ENOACCESS(errno)) {
 			/* configuration problem? revert the write */
 			i_unlink(dest_path);
 		}

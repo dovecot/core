@@ -1015,7 +1015,7 @@ void mail_index_fchown(struct mail_index *index, int fd, const char *path)
 		   really matter. ignore silently. */
 		return;
 	}
-	if (errno != EPERM)
+	if (!ENOACCESS(errno))
 		mail_index_file_set_syscall_error(index, path, "fchown()");
 	else {
 		mail_index_set_error(index, "%s",

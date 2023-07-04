@@ -31,7 +31,7 @@ do_open(struct maildir_mailbox *mbox, const char *path,
 	if (errno == ENOENT)
 		return 0;
 
-	if (errno == EACCES) {
+	if (ENOACCESS(errno)) {
 		mailbox_set_critical(&mbox->box, "%s",
 			mail_error_eacces_msg("open", path));
 	} else {
@@ -49,7 +49,7 @@ do_stat(struct maildir_mailbox *mbox, const char *path, struct stat *st)
 	if (errno == ENOENT)
 		return 0;
 
-	if (errno == EACCES) {
+	if (ENOACCESS(errno)) {
 		mailbox_set_critical(&mbox->box, "%s",
 			mail_error_eacces_msg("stat", path));
 	} else {

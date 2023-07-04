@@ -27,7 +27,7 @@ int mbox_file_open(struct mbox_mailbox *mbox)
 
 	fd = open(mailbox_get_path(&mbox->box),
 		  mbox_is_backend_readonly(mbox) ? O_RDONLY : O_RDWR);
-	if (fd == -1 && errno == EACCES && !mbox->backend_readonly) {
+	if (fd == -1 && ENOACCESS(errno) && !mbox->backend_readonly) {
 		mbox->backend_readonly = TRUE;
 		fd = open(mailbox_get_path(&mbox->box), O_RDONLY);
 	}
@@ -115,7 +115,7 @@ static void mbox_file_fix_atime(struct mbox_mailbox *mbox)
 			buf.actime = buf.modtime - 1;
 			/* EPERM can happen with shared mailboxes */
 			if (utime(mailbox_get_path(&mbox->box), &buf) < 0 &&
-			    errno != EPERM)
+			    !ENOACCESS(errno))
 				mbox_set_syscall_error(mbox, "utime()");
 		}
 	}

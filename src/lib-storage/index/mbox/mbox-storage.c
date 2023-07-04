@@ -542,7 +542,7 @@ static int create_inbox(struct mailbox *box)
 	inbox_path = mailbox_get_path(box);
 
 	fd = open(inbox_path, O_RDWR | O_CREAT | O_EXCL, 0660);
-	if (fd == -1 && errno == EACCES) {
+	if (fd == -1 && ENOACCESS(errno)) {
 		/* try again with increased privileges */
 		(void)restrict_access_use_priv_gid();
 		fd = open(inbox_path, O_RDWR | O_CREAT | O_EXCL, 0660);
@@ -551,7 +551,7 @@ static int create_inbox(struct mailbox *box)
 	if (fd != -1) {
 		i_close_fd(&fd);
 		return 0;
-	} else if (errno == EACCES) {
+	} else if (ENOACCESS(errno)) {
 		mailbox_set_critical(box, "%s",
 			mail_error_create_eacces_msg("open", inbox_path));
 		return -1;
@@ -812,7 +812,7 @@ bool mbox_is_backend_readonly(struct mbox_mailbox *mbox)
 	if (!mbox->backend_readonly_set) {
 		mbox->backend_readonly_set = TRUE;
 		if (i_faccessat2(AT_FDCWD, mailbox_get_path(&mbox->box), R_OK | W_OK, AT_EACCESS) < 0 &&
-		    errno == EACCES)
+		    ENOACCESS(errno))
 			mbox->backend_readonly = TRUE;
 	}
 	return mbox->backend_readonly;

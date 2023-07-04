@@ -177,7 +177,7 @@ static int dbox_file_open_fd(struct dbox_file *file, bool try_altpath)
 	/* try the primary path first */
 	path = file->primary_path;
 	while ((file->fd = open(path, flags)) == -1) {
-		if (errno == EACCES && flags == O_RDWR) {
+		if (ENOACCESS(errno) && flags == O_RDWR) {
 			flags = O_RDONLY;
 			continue;
 		}
