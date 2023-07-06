@@ -91,6 +91,7 @@ struct metric {
 	   This is a display name and does not guarantee uniqueness.
 	*/
 	const char *sub_name;
+	size_t sub_name_used_size;
 
 	/* Timing for how long the event existed */
 	struct stats_dist *duration_stats;

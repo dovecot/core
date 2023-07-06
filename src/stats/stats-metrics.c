@@ -15,6 +15,7 @@
 #include <ctype.h>
 
 #define LOG_EXPORTER_LONG_FIELD_TRUNCATE_LEN 1000
+#define STATS_SUB_METRIC_MAX_LENGTH 256
 
 struct stats_metrics {
 	pool_t pool;
@@ -395,7 +396,10 @@ stats_metric_sub_metric_alloc(struct metric *metric, const char *name, pool_t po
 	array_append_zero(&fields);
 	sub_metric = stats_metric_alloc(pool, metric->name, metric->set,
 					array_idx(&fields, 0));
-	sub_metric->sub_name = p_strdup(pool, str_sanitize_utf8(name, 32));
+	size_t max_len = STATS_SUB_METRIC_MAX_LENGTH - metric->sub_name_used_size;
+	sub_metric->sub_name = p_strdup(pool, str_sanitize_utf8(name, max_len));
+	sub_metric->sub_name_used_size =
+		metric->sub_name_used_size + strlen(sub_metric->sub_name);
 	array_append(&metric->sub_metrics, &sub_metric, 1);
 	return sub_metric;
 }
@@ -603,6 +607,8 @@ stats_metric_group_by_field(struct metric *metric, struct event *event,
 	if (!stats_metric_group_by_get_value(field, &metric->group_by[0], &value))
 		return;
 
+	if (metric->sub_name_used_size >= STATS_SUB_METRIC_MAX_LENGTH)
+		return;
 	if (!array_is_created(&metric->sub_metrics))
 		p_array_init(&metric->sub_metrics, pool, 8);
 	sub_metric = stats_metric_get_sub_metric(metric, field, &value, pool);
