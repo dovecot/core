@@ -189,10 +189,11 @@ void clients_init(void)
 
 void clients_deinit(void)
 {
-	struct connection *conn;
+	struct connection *conn, *next;
 
-	for (conn = imap_urlauth_clist->connections;
-	     conn != NULL; conn = conn->next) {
+	for (conn = imap_urlauth_clist->connections; conn != NULL; conn = next) {
+		next = conn->next; /* client_destroy() frees client & conn */
+
 		struct client *client = container_of(conn, struct client, conn);
 
 		client_destroy(client, MASTER_SERVICE_SHUTTING_DOWN_MSG);
