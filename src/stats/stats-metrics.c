@@ -642,10 +642,17 @@ stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 		event_find_field_recursive(event, metric->group_by[0].field);
 
 	/* ignore missing field */
-	if (field == NULL)
-		return;
-
-	if (field->value_type != EVENT_FIELD_VALUE_TYPE_STRLIST)
+	if (field == NULL) {
+		const struct event_field empty_event_field = {
+			.value_type = EVENT_FIELD_VALUE_TYPE_STR,
+			.key = metric->group_by[0].field,
+			.value = {
+				.str = "",
+			},
+		};
+		stats_metric_group_by_field(metric, event, &empty_event_field,
+					    pool);
+	} else if (field->value_type != EVENT_FIELD_VALUE_TYPE_STRLIST)
 		stats_metric_group_by_field(metric, event, field, pool);
 	else {
 		/* Handle each string in strlist separately. The strlist needs
