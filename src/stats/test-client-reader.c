@@ -197,7 +197,7 @@ static void test_client_reader_group_by(void)
 	struct event *event = event_create(NULL);
 	event_add_category(event, &test_category);
 	event_set_name(event, "test");
-	event_add_str(event, "event_name", "alpha");
+	event_add_str(event, "test_name", "alpha");
 	test_event_send(event);
 	event_unref(&event);
 
