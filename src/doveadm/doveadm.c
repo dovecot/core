@@ -309,7 +309,10 @@ int main(int argc, char *argv[])
 			doveadm_verbose = TRUE;
 			break;
 		default:
-			return FATAL_DEFAULT;
+			fprintf(stderr, "%s\n",
+				"Use doveadm --help for a list of available "
+				"options and commands.");
+			return EX_USAGE;
 		}
 	}
 	cmd_name = argv[optind];
