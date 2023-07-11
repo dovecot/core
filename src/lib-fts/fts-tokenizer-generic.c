@@ -277,7 +277,7 @@ static unsigned char allowed_base64_leaders[] = {
 };
 
 /* skip_base64() works doing lookahead on the data available in the tokenizer
-   buffer, .i.e. it is not able to see "what will come next" to perform more
+   buffer, i.e. it is not able to see "what will come next" to perform more
    extensive matches. This implies that a very long base64 sequence, which is
    split halfway into two different chunks while feeding tokenizer, will be
    matched separately as the trailing part of first buffer and as the leading
