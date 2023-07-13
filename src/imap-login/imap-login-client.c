@@ -419,6 +419,17 @@ static void imap_client_destroy(struct client *client)
 	imap_parser_unref(&imap_client->parser);
 }
 
+static int
+imap_client_reload_config(struct client *client, const char **error_r)
+{
+	struct imap_client *imap_client =
+		container_of(client, struct imap_client, common);
+
+	settings_free(imap_client->set);
+	return settings_get(client->event, &imap_login_setting_parser_info, 0,
+			    &imap_client->set, error_r);
+}
+
 static void imap_client_notify_auth_ready(struct client *client)
 {
 	string_t *greet;
@@ -557,6 +568,7 @@ static struct client_vfuncs imap_client_vfuncs = {
 	.alloc = imap_client_alloc,
 	.create = imap_client_create,
 	.destroy = imap_client_destroy,
+	.reload_config = imap_client_reload_config,
 	.notify_auth_ready = imap_client_notify_auth_ready,
 	.notify_disconnect = imap_client_notify_disconnect,
 	.notify_status = imap_client_notify_status,
