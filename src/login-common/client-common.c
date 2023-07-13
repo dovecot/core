@@ -674,7 +674,9 @@ static int client_sni_callback(const char *name, const char **error_r,
 	   again. */
 	event_add_str(client->event, "local_name", name);
 	client->local_name = p_strdup(client->pool, name);
-	if (client_settings_get(client, error_r) < 0) {
+	if (client_settings_get(client, error_r) < 0 ||
+	    (client->v.reload_config != NULL &&
+	     client->v.reload_config(client, error_r) < 0)) {
 		client->set = old_set;
 		client->ssl_set = old_ssl_set;
 		client->ssl_server_set = old_ssl_server_set;
