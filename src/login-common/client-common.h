@@ -123,6 +123,7 @@ struct client_vfuncs {
 	struct client *(*alloc)(pool_t pool);
 	int (*create)(struct client *client);
 	void (*destroy)(struct client *client);
+	int (*reload_config)(struct client *client, const char **error_r);
 	void (*notify_auth_ready)(struct client *client);
 	void (*notify_disconnect)(struct client *client,
 				  enum client_disconnect_reason reason,
