@@ -9,7 +9,9 @@ docfiles = \
 	dovecot-openssl.cnf \
 	solr-schema.xml \
 	solr-schema-7.7.0.xml \
-	solr-config-7.7.0.xml
+	solr-config-7.7.0.xml \
+	solr-config-9.xml \
+	solr-schema-9.xml
 
 DOCS_URL=https://doc.dovecot.org/assets/3.0/docs.txz
 MAN_URL=https://doc.dovecot.org/assets/3.0/man.txz
