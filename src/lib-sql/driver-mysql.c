@@ -165,6 +165,7 @@ static int driver_mysql_connect(struct sql_db *_db)
 			db->dbname, mysql_error(db->mysql), db->api.connect_delay);
 		i_free(_db->last_connect_error);
 		_db->last_connect_error = i_strdup(mysql_error(db->mysql));
+		sql_disconnect(&db->api);
 		return -1;
 	} else {
 		db->last_success = ioloop_time;
