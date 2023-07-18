@@ -133,10 +133,45 @@ int fts_backend_get_last_uid(struct fts_backend *backend, struct mailbox *box,
 	return backend->v.get_last_uid(backend, box, last_uid_r);
 }
 
+static int
+fts_backend_is_uid_indexed_virtual(struct mailbox *box,
+				   uint32_t *last_indexed_uid_r)
+{
+	const struct virtual_mailbox_vfuncs *v = box->virtual_vfuncs;
+
+	ARRAY_TYPE(mailboxes) mailboxes;
+	t_array_init(&mailboxes, 8);
+	v->get_virtual_backend_boxes(box, &mailboxes, TRUE);
+
+	struct mailbox *bbox;
+	array_foreach_elem(&mailboxes, bbox) {
+		uint32_t last_uid, unused ATTR_UNUSED;
+
+		last_uid = v->get_virtual_backend_last_uid(box, bbox);
+		struct fts_backend *backend = fts_list_backend(bbox->list);
+		int ret = fts_backend_is_uid_indexed(backend, bbox, last_uid,
+						     &unused);
+
+		if (ret == 0) {
+			/* we have no idea what corresponds in the virtual box
+			   to the backend box uid last_uid - so we simply set
+			   the last_indexed_uid_r to 0 to trigger a reindex */
+			*last_indexed_uid_r = 0;
+		}
+
+		if (ret <= 0)
+			return ret;
+	}
+	return 1;
+}
+
 int fts_backend_is_uid_indexed(struct fts_backend *backend, struct mailbox *box,
 			       uint32_t uid, uint32_t *last_indexed_uid_r)
 {
-	if (box->virtual_vfuncs == NULL && backend->v.is_uid_indexed != NULL)
+	if (box->virtual_vfuncs != NULL)
+		return fts_backend_is_uid_indexed_virtual(box, last_indexed_uid_r);
+
+	if (backend->v.is_uid_indexed != NULL)
 		return backend->v.is_uid_indexed(backend, box, uid,
 						 last_indexed_uid_r);
 
