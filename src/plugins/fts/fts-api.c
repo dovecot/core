@@ -9,6 +9,7 @@
 #include "mailbox-list-iter.h"
 #include "mail-search.h"
 #include "fts-api-private.h"
+#include "fts-storage.h"
 
 struct event_category event_category_fts = {
 	.name = "fts",
@@ -252,9 +253,44 @@ int fts_backend_update_build_more(struct fts_backend_update_context *ctx,
 	return ret;
 }
 
-int fts_backend_refresh(struct fts_backend *backend)
+static int fts_backend_cmp(struct fts_backend *const *lhs_i,
+			   struct fts_backend *const *rhs_i)
 {
-	return backend->v.refresh(backend);
+	struct fts_backend *lhs = *lhs_i;
+	struct fts_backend *rhs = *rhs_i;
+	return lhs < rhs ? -1 : lhs > rhs ? 1 : 0;
+}
+
+static int fts_backend_virtual_refresh(struct mailbox *box)
+{
+	ARRAY_TYPE(mailboxes) mailboxes;
+	t_array_init(&mailboxes, 8);
+	box->virtual_vfuncs->get_virtual_backend_boxes(box, &mailboxes, TRUE);
+
+	ARRAY(struct fts_backend *) backends;
+	t_array_init(&backends, 4);
+	struct mailbox *bbox;
+	array_foreach_elem(&mailboxes, bbox) {
+		struct fts_backend *backend = fts_list_backend(bbox->list);
+		if (array_lsearch(&backends, &backend, fts_backend_cmp) != NULL)
+			continue;
+
+		array_push_back(&backends, &backend);
+		if (fts_backend_refresh(backend, bbox) < 0)
+			return -1;
+	}
+	return 0;
+}
+
+int fts_backend_refresh(struct fts_backend *backend, struct mailbox *box)
+{
+	int ret = 0;
+	T_BEGIN {
+		ret = backend->v.refresh(backend);
+		if (ret == 0 && box->virtual_vfuncs != NULL)
+			ret = fts_backend_virtual_refresh(box);
+	} T_END;
+	return ret;
 }
 
 int fts_backend_reset_last_uids(struct fts_backend *backend)

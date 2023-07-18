@@ -362,7 +362,7 @@ int fts_search_get_first_missing_uid(struct fts_backend *backend,
 
 		/* UID doesn't seem to be indexed yet.
 		   Refresh FTS and check again. */
-		if (fts_backend_refresh(backend) < 0)
+		if (fts_backend_refresh(backend, box) < 0)
 			return -1;
 	}
 	i_unreached();
