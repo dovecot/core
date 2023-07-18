@@ -116,8 +116,9 @@ static void test_istream_jsonstr_partial(void)
 	test_assert(i_stream_read(input) == 2);
 	test_assert(i_stream_read(input) == -1);
 
-	test_assert(memcmp(i_stream_get_data(input, &len), output, I_MIN(len, strlen(output))) == 0 &&
-		    len == strlen(output));
+	const unsigned char *data = i_stream_get_data(input, &len);
+	test_assert_cmp(len, ==, strlen(output));
+	test_assert_strcmp((const char*) data, output);
 
 	i_stream_unref(&input);
 	i_stream_unref(&input_data);
