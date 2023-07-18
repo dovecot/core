@@ -91,7 +91,8 @@ static bool is_login_cmd_disabled(struct client *client)
 
 static const char *get_capability(struct client *client)
 {
-	struct imap_client *imap_client = (struct imap_client *)client;
+	struct imap_client *imap_client =
+		container_of(client, struct imap_client, common);
 	string_t *cap_str = t_str_new(256);
 	bool explicit_capability = FALSE;
 
@@ -293,7 +294,8 @@ static bool client_handle_input(struct imap_client *client)
 
 static bool imap_client_input_next_cmd(struct client *_client)
 {
-	struct imap_client *client = (struct imap_client *)_client;
+	struct imap_client *client =
+		container_of(_client, struct imap_client, common);
 	const struct imap_arg *args;
 	bool parsed;
 	int ret;
@@ -339,7 +341,8 @@ static bool imap_client_input_next_cmd(struct client *_client)
 
 static void imap_client_input(struct client *client)
 {
-	struct imap_client *imap_client = (struct imap_client *)client;
+	struct imap_client *imap_client =
+		container_of(client, struct imap_client, common);
 
 	if (!client_read(client))
 		return;
@@ -379,7 +382,8 @@ static struct client *imap_client_alloc(pool_t pool)
 
 static int imap_client_create(struct client *client)
 {
-	struct imap_client *imap_client = (struct imap_client *)client;
+	struct imap_client *imap_client =
+		container_of(client, struct imap_client, common);
 	const char *error;
 
 	if (settings_get(client->event, &imap_login_setting_parser_info, 0,
@@ -400,7 +404,8 @@ static int imap_client_create(struct client *client)
 
 static void imap_client_destroy(struct client *client)
 {
-	struct imap_client *imap_client = (struct imap_client *)client;
+	struct imap_client *imap_client =
+		container_of(client, struct imap_client, common);
 
 	/* Prevent memory leak of ID command if client got disconnected before
 	   command was finished. */
@@ -431,7 +436,8 @@ static void imap_client_notify_auth_ready(struct client *client)
 
 static void imap_client_starttls(struct client *client)
 {
-	struct imap_client *imap_client = (struct imap_client *)client;
+	struct imap_client *imap_client =
+		container_of(client, struct imap_client, common);
 
 	imap_parser_unref(&imap_client->parser);
 	imap_client->parser =
@@ -448,7 +454,8 @@ client_send_reply_raw(struct client *client,
 		      const char *prefix, const char *resp_code,
 		      const char *text, bool tagged)
 {
-	struct imap_client *imap_client = (struct imap_client *)client;
+	struct imap_client *imap_client =
+		container_of(client, struct imap_client, common);
 
 	T_BEGIN {
 		string_t *line = t_str_new(256);
