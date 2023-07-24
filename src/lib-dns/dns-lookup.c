@@ -385,6 +385,8 @@ struct dns_client *dns_client_init(const struct dns_lookup_settings *set)
 {
 	struct dns_client *client;
 
+	i_assert(set->dns_client_socket_path[0] != '\0');
+
 	client = i_new(struct dns_client, 1);
 	client->timeout_msecs = set->timeout_msecs;
 	client->idle_timeout_msecs = set->idle_timeout_msecs;
