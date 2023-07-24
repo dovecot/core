@@ -49,10 +49,15 @@ enum settings_get_flags {
 
 /* Used by settings_get() to access the named filter. This is copied to the
    temporary lookup event to avoid having to use "filter_name" visible in
-   the main event's fields. Usage:
+   the main event's fields. All the filter names in the event's parents are
+   also included in the settings lookup. The filters aren't required to exist
+   in the configuration. Usage:
 
    event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "auth_policy"); */
 #define SETTINGS_EVENT_FILTER_NAME "settings_filter_name"
+/* Same as SETTINGS_EVENT_FILTER_NAME, but if the named filter doesn't exist,
+   fail the settings lookup. */
+#define SETTINGS_EVENT_FILTER_NAME_REQUIRED "settings_filter_name!"
 
 /* The "mailbox" event field contains the full mailbox with namespace prefix.
    However, for settings we need to use the mailbox name without the namespace
