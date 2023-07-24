@@ -7,6 +7,7 @@
 #include "var-expand.h"
 #include "env-util.h"
 #include "var-expand.h"
+#include "settings.h"
 #include "settings-legacy.h"
 #include "oauth2.h"
 #include "http-client.h"
@@ -61,23 +62,6 @@ struct passdb_oauth2_settings {
 	*/
 	const char *openid_configuration_url;
 
-	/* TLS options */
-	const char *tls_ca_cert_file;
-	const char *tls_ca_cert_dir;
-	const char *tls_cert_file;
-	const char *tls_key_file;
-	const char *tls_cipher_suite;
-
-	/* HTTP rawlog directory */
-	const char *rawlog_dir;
-
-	/* HTTP client options */
-	unsigned int timeout_msecs;
-	unsigned int max_idle_time_msecs;
-	unsigned int max_parallel_connections;
-	unsigned int max_pipelined_requests;
-	bool tls_allow_invalid_cert;
-
 	bool debug;
 	/* Should introspection be done even if not necessary */
 	bool force_introspection;
@@ -129,21 +113,8 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(client_secret),
 	DEF_STR(issuers),
 	DEF_STR(openid_configuration_url),
-	DEF_INT(timeout_msecs),
-	DEF_INT(max_idle_time_msecs),
-	DEF_INT(max_parallel_connections),
-	DEF_INT(max_pipelined_requests),
 	DEF_BOOL(send_auth_headers),
 	DEF_BOOL(use_grant_password),
-
-	DEF_STR(tls_ca_cert_file),
-	DEF_STR(tls_ca_cert_dir),
-	DEF_STR(tls_cert_file),
-	DEF_STR(tls_key_file),
-	DEF_STR(tls_cipher_suite),
-	DEF_BOOL(tls_allow_invalid_cert),
-
-	DEF_STR(rawlog_dir),
 
 	DEF_BOOL(debug),
 
@@ -167,17 +138,6 @@ static struct passdb_oauth2_settings default_oauth2_settings = {
 	.openid_configuration_url = "",
 	.pass_attrs = "",
 	.local_validation_key_dict = "",
-	.rawlog_dir = "",
-	.timeout_msecs = 0,
-	.max_idle_time_msecs = 60000,
-	.max_parallel_connections = 10,
-	.max_pipelined_requests = 1,
-	.tls_ca_cert_file = NULL,
-	.tls_ca_cert_dir = NULL,
-	.tls_cert_file = NULL,
-	.tls_key_file = NULL,
-	.tls_cipher_suite = "HIGH:!SSLv2",
-	.tls_allow_invalid_cert = FALSE,
 	.send_auth_headers = FALSE,
 	.use_grant_password = FALSE,
 	.debug = FALSE,
@@ -194,8 +154,6 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 {
 	struct db_oauth2 *db;
 	const char *error;
-	struct ssl_iostream_settings *ssl_set;
-	struct http_client_settings *http_set;
 
 	for(db = db_oauth2_head; db != NULL; db = db->next) {
 		if (strcmp(db->config_path, config_path) == 0) {
@@ -216,29 +174,6 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 
 	db->tmpl = passdb_template_build(pool, db->set.pass_attrs);
 
-	pool_t ssl_pool = pool_alloconly_create("oauth2 ssl settings",
-						sizeof(*ssl_set));
-	ssl_set = p_new(ssl_pool, struct ssl_iostream_settings, 1);
-	ssl_set->pool = ssl_pool;
-
-	ssl_set->cipher_list = db->set.tls_cipher_suite;
-	ssl_set->ca_file = db->set.tls_ca_cert_file;
-	ssl_set->ca_dir = db->set.tls_ca_cert_dir;
-	if (db->set.tls_cert_file != NULL && *db->set.tls_cert_file != '\0') {
-		ssl_set->cert.cert = db->set.tls_cert_file;
-		ssl_set->cert.key = db->set.tls_key_file;
-	}
-	ssl_set->prefer_server_ciphers = TRUE;
-	ssl_set->allow_invalid_cert = db->set.tls_allow_invalid_cert;
-
-	pool_t http_pool = pool_alloconly_create("oauth2 http settings",
-						 sizeof(*http_set));
-	http_set = p_new(http_pool, struct http_client_settings, 1);
-	http_set->pool = http_pool;
-
-	http_set->dns_client_socket_path = "dns-client";
-	http_set->user_agent = "dovecot-oauth2-passdb/" DOVECOT_VERSION;
-
 	if (*db->set.local_validation_key_dict == '\0' &&
 	    *db->set.tokeninfo_url == '\0' &&
 	    (*db->set.grant_url == '\0' || *db->set.client_id == '\0') &&
@@ -246,20 +181,11 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 		i_fatal("oauth2: Password grant, tokeninfo, introspection URL or "
 			"validation key dictionary must be given");
 
-	if (*db->set.rawlog_dir != '\0')
-		http_set->rawlog_dir = db->set.rawlog_dir;
-
-	http_set->max_idle_time_msecs = db->set.max_idle_time_msecs;
-	http_set->max_parallel_connections = db->set.max_parallel_connections;
-	http_set->max_pipelined_requests = db->set.max_pipelined_requests;
-	http_set->request_absolute_timeout = db->set.timeout_msecs;
-	http_set->no_auto_redirect = FALSE;
-	http_set->no_auto_retry = TRUE;
-
-	db->client = http_client_init(http_set, auth_event);
-	http_client_set_ssl_settings(db->client, ssl_set);
-	pool_unref(&http_pool);
-	pool_unref(&ssl_pool);
+	struct event *event = event_create(auth_event);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "oauth2");
+	if (http_client_init_auto(event, &db->client, &error) < 0)
+		i_fatal("%s", error);
+	event_unref(&event);
 
 	i_zero(&db->oauth2_set);
 	db->oauth2_set.client = db->client;
