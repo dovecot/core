@@ -531,7 +531,7 @@ static int dlua_http_client_new(lua_State *L)
 	pool_t http_pool = pool_alloconly_create("lua http settings",
 						 sizeof(*http_set));
 	http_set = p_new(http_pool, struct http_client_settings, 1);
-	http_set->pool = http_pool;
+	http_client_settings_init(http_pool, http_set);
 
 	if (parse_client_settings(L, http_set, &event_parent, &error) < 0) {
 		pool_unref(&http_pool);

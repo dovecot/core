@@ -68,7 +68,7 @@ tika_get_http_client_url(struct fts_parser_context *parser_context, struct http_
 		pool_t http_pool = pool_alloconly_create("solr http settings",
 							 sizeof(*http_set));
 		http_set = p_new(http_pool, struct http_client_settings, 1);
-		http_set->pool = http_pool;
+		http_client_settings_init(http_pool, http_set);
 		http_set->max_idle_time_msecs = 100;
 		http_set->max_parallel_connections = 1;
 		http_set->max_pipelined_requests = 1;

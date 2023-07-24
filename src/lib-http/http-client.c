@@ -103,6 +103,21 @@ http_client_context_remove_client(struct http_client_context *cctx,
  * Client
  */
 
+void http_client_settings_init(pool_t pool, struct http_client_settings *set_r)
+{
+	i_zero(set_r);
+	set_r->pool = pool;
+	pool_ref(pool);
+	set_r->max_pipelined_requests = 1;
+	set_r->max_parallel_connections = 1;
+	set_r->connect_backoff_time_msecs =
+		HTTP_CLIENT_DEFAULT_BACKOFF_TIME_MSECS;
+	set_r->connect_backoff_max_time_msecs =
+		HTTP_CLIENT_DEFAULT_BACKOFF_MAX_TIME_MSECS;
+	set_r->request_timeout_msecs =
+		HTTP_CLIENT_DEFAULT_REQUEST_TIMEOUT_MSECS;
+}
+
 struct http_client *
 http_client_init_shared(struct http_client_context *cctx,
 			const struct http_client_settings *set,
@@ -114,6 +129,11 @@ http_client_init_shared(struct http_client_context *cctx,
 	pool_t pool;
 
 	i_assert(set != NULL);
+	i_assert(set->max_pipelined_requests > 0);
+	i_assert(set->max_parallel_connections > 0);
+	i_assert(set->connect_backoff_time_msecs > 0);
+	i_assert(set->connect_backoff_max_time_msecs > 0);
+	i_assert(set->request_timeout_msecs > 0);
 
 	pool = pool_alloconly_create("http client", 1024);
 	client = p_new(pool, struct http_client, 1);
@@ -141,42 +161,8 @@ http_client_init_shared(struct http_client_context *cctx,
 	event_add_category(client->event, &event_category_http_client);
 	event_set_append_log_prefix(client->event, log_prefix);
 
-	struct http_client_settings set_copy = *set;
-	bool set_changed = FALSE;
-	if (set->max_pipelined_requests == 0) {
-		set_copy.max_pipelined_requests = 1;
-		set_changed = TRUE;
-	}
-	if (set->max_parallel_connections == 0) {
-		set_copy.max_parallel_connections = 1;
-		set_changed = TRUE;
-	}
-	if (set->connect_backoff_time_msecs == 0) {
-		set_copy.connect_backoff_time_msecs =
-			HTTP_CLIENT_DEFAULT_BACKOFF_TIME_MSECS;
-		set_changed = TRUE;
-	}
-	if (set->connect_backoff_max_time_msecs == 0) {
-		set_copy.connect_backoff_max_time_msecs =
-			HTTP_CLIENT_DEFAULT_BACKOFF_MAX_TIME_MSECS;
-		set_changed = TRUE;
-	}
-	if (set->request_timeout_msecs == 0) {
-		set_copy.request_timeout_msecs =
-			HTTP_CLIENT_DEFAULT_REQUEST_TIMEOUT_MSECS;
-		set_changed = TRUE;
-	}
-	if (set_changed) {
-		pool_t pool = pool_alloconly_create("http client set", sizeof(set_copy));
-		pool_add_external_ref(pool, set->pool);
-		struct http_client_settings *set_dup =
-			p_memdup(pool, &set_copy, sizeof(set_copy));
-		set_dup->pool = pool;
-		client->set = set_dup;
-	} else {
-		pool_ref(set->pool);
-		client->set = set;
-	}
+	pool_ref(set->pool);
+	client->set = set;
 
 	i_array_init(&client->delayed_failing_requests, 1);
 
