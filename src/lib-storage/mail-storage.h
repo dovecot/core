@@ -216,8 +216,6 @@ enum mailbox_transaction_flags {
 enum mailbox_sync_flags {
 	/* Make sure we sync all external changes done to mailbox */
 	MAILBOX_SYNC_FLAG_FULL_READ		= 0x01,
-	/* Make sure we write all our internal changes into the mailbox */
-	MAILBOX_SYNC_FLAG_FULL_WRITE		= 0x02,
 	/* If it's not too much trouble, check if there are some changes */
 	MAILBOX_SYNC_FLAG_FAST			= 0x04,
 

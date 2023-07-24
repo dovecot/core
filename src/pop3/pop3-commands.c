@@ -321,7 +321,7 @@ static int cmd_quit(struct pop3_command_context *cctx)
 	}
 
 	if (mailbox_transaction_commit(&cctx->client->trans) < 0 ||
-	    mailbox_sync(cctx->client->mailbox, MAILBOX_SYNC_FLAG_FULL_WRITE) < 0) {
+	    mailbox_sync(cctx->client->mailbox, 0) < 0) {
 		client_send_storage_error(cctx->client);
 		client_disconnect(cctx->client, "Storage error during logout.");
 		return 1;

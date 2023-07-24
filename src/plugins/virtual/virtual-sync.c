@@ -1372,7 +1372,6 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 	virtual_backend_box_sync_mail_unset(bbox);
 
 	sync_flags = ctx->flags & (MAILBOX_SYNC_FLAG_FULL_READ |
-				   MAILBOX_SYNC_FLAG_FULL_WRITE |
 				   MAILBOX_SYNC_FLAG_FAST);
 
 	if (bbox->search_result == NULL) {
