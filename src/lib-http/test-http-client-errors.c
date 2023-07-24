@@ -1155,7 +1155,7 @@ static void test_connection_lost(void)
 
 	test_begin("connection lost: manual retry");
 	http_client_set.max_attempts = 3;
-	http_client_set.no_auto_retry = TRUE;
+	http_client_set.auto_retry = FALSE;
 	test_run_client_server(&http_client_set,
 			       test_client_connection_lost,
 			       test_server_connection_lost, 1, NULL);

@@ -956,7 +956,7 @@ static void http_client_request_do_submit(struct http_client_request *req)
 			/* Specific normal proxy */
 			req->host_socket = NULL;
 		} else if (req->origin_url.have_ssl &&
-			   !client->set->no_ssl_tunnel &&
+			   client->set->ssl_tunnel &&
 			   !req->connect_tunnel) {
 			/* Tunnel to origin server */
 			req->host_url = &req->origin_url;
@@ -1896,7 +1896,7 @@ void http_client_request_resubmit(struct http_client_request *req)
 void http_client_request_retry(struct http_client_request *req,
 			       unsigned int status, const char *error)
 {
-	if (req->client == NULL || req->client->set->no_auto_retry ||
+	if (req->client == NULL || !req->client->set->auto_retry ||
 	    !http_client_request_try_retry(req))
 		http_client_request_error(&req, status, error);
 }
