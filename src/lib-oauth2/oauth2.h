@@ -45,7 +45,6 @@ struct oauth2_settings {
 		INTROSPECTION_MODE_POST,
 		INTROSPECTION_MODE_LOCAL,
 	} introspection_mode;
-	unsigned int timeout_msecs;
 	/* Should X-Dovecot-Auth-* headers be sent */
 	bool send_auth_headers;
 	/* Should use grant password mechanism for authentication */

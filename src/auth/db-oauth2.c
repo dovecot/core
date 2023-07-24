@@ -252,6 +252,7 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	http_set->max_idle_time_msecs = db->set.max_idle_time_msecs;
 	http_set->max_parallel_connections = db->set.max_parallel_connections;
 	http_set->max_pipelined_requests = db->set.max_pipelined_requests;
+	http_set->request_absolute_timeout = db->set.timeout_msecs;
 	http_set->no_auto_redirect = FALSE;
 	http_set->no_auto_retry = TRUE;
 
@@ -267,7 +268,6 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	db->oauth2_set.introspection_url = db->set.introspection_url;
 	db->oauth2_set.client_id = db->set.client_id;
 	db->oauth2_set.client_secret = db->set.client_secret;
-	db->oauth2_set.timeout_msecs = db->set.timeout_msecs;
 	db->oauth2_set.send_auth_headers = db->set.send_auth_headers;
 	db->oauth2_set.use_grant_password = db->set.use_grant_password;
 	db->oauth2_set.scope = db->set.scope;
