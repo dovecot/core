@@ -109,6 +109,12 @@ struct http_client_settings {
 	/* Max time to wait for HTTP request to finish before retrying.
 	   (default = HTTP_CLIENT_DEFAULT_REQUEST_TIMEOUT_MSECS) */
 	unsigned int request_timeout_msecs;
+	/* If non-zero, override request_timeout for GET/HEAD requests. */
+	unsigned int read_request_timeout_msecs;
+	/* If non-zero, override request_timeout for PUT/POST requests. */
+	unsigned int write_request_timeout_msecs;
+	/* If non-zero, override request_timeout for DELETE requests. */
+	unsigned int delete_request_timeout_msecs;
 	/* Max time to wait for connect() (and SSL handshake) to finish before
 	   retrying. (default = request_timeout_msecs) */
 	unsigned int connect_timeout_msecs;

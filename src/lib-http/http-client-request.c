@@ -125,6 +125,24 @@ http_client_request_new(struct http_client *client, const char *method,
 	/* Default to client-wide settings: */
 	req->max_attempts = client->set->max_attempts;
 	req->attempt_timeout_msecs = client->set->request_timeout_msecs;
+	if (strcasecmp(method, "GET") == 0 ||
+	    strcasecmp(method, "HEAD") == 0) {
+		if (client->set->read_request_timeout_msecs != 0) {
+			req->attempt_timeout_msecs =
+				client->set->read_request_timeout_msecs;
+		}
+	} else if (strcasecmp(method, "PUT") == 0 ||
+		   strcasecmp(method, "POST") == 0) {
+		if (client->set->write_request_timeout_msecs != 0) {
+			req->attempt_timeout_msecs =
+				client->set->write_request_timeout_msecs;
+		}
+	} else if (strcasecmp(method, "DELETE") == 0) {
+		if (client->set->delete_request_timeout_msecs != 0) {
+			req->attempt_timeout_msecs =
+				client->set->delete_request_timeout_msecs;
+		}
+	}
 
 	req->state = HTTP_REQUEST_STATE_NEW;
 	return req;
