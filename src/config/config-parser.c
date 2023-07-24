@@ -599,25 +599,55 @@ int config_apply_line(struct config_parser_context *ctx,
 	int ret = 0;
 
 	orig_filter_parser = ctx->cur_section->filter_parser;
-	while ((p = strchr(key_with_path, '/')) != NULL &&
-	       (p = strchr(p + 1, '/')) != NULL) {
-		/* Support e.g. service/imap/inet_listener/imap prefix here.
-		   These prefixes are used by default settings and
+	while ((p = strchr(key_with_path, '/')) != NULL) {
+		/* Support e.g. service/imap/inet_listener/imap/ or auth_policy/
+		   prefix here. These prefixes are used by default settings and
 		   old-set-parser. */
 		struct config_filter filter = {
 			.parent = &ctx->cur_section->filter,
-			.filter_name = t_strdup_until(key_with_path, p),
-			.filter_name_array = TRUE,
 		};
+		const char *p2 = strchr(p + 1, '/');
+		if (p2 == NULL)
+			filter.filter_name = t_strdup_until(key_with_path, p);
+		else {
+			filter.filter_name = t_strdup_until(key_with_path, p2);
+			filter.filter_name_array = TRUE;
+		}
 		filter_parser = config_filter_parser_find(ctx, &filter);
-		if (filter_parser == NULL)
+		if (filter_parser == NULL) {
+			if (filter.filter_name_array) {
+				/* don't create new arrays */
+				break;
+			}
+			/* Verify that this is a filter_name/ prefix. If not,
+			   it should be a list/ */
+			struct config_parser_key *config_key =
+				hash_table_lookup(ctx->all_keys,
+						  filter.filter_name);
+			if (config_key == NULL)
+				break;
+			struct config_module_parser *l =
+				&ctx->cur_section->module_parsers[config_key->info_idx];
+			if (l->info->defines[config_key->define_idx].type != SET_FILTER_NAME)
+				break;
+
+			ctx->cur_section->filter.filter_name =
+				p_strdup(ctx->pool, filter.filter_name);
+			config_add_new_parser(ctx, ctx->cur_section, FALSE);
+		} else {
+			ctx->cur_section->filter_parser = filter_parser;
+			ctx->cur_section->module_parsers =
+				ctx->cur_section->filter_parser->module_parsers;
+			ctx->cur_section->filter = filter_parser->filter;
+		}
+		if (!filter.filter_name_array) {
+			key_with_path = p + 1;
 			break;
-		key_with_path = p + 1;
-		ctx->cur_section->filter_parser = filter_parser;
-		ctx->cur_section->module_parsers =
-			ctx->cur_section->filter_parser->module_parsers;
-		ctx->cur_section->filter = filter_parser->filter;
+		}
+
+		key_with_path = p2 + 1;
 	}
+
 	/* the only '/' left should be if key is under list/ */
 	key = key_with_path;
 
