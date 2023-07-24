@@ -251,6 +251,8 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(BOOL, policy_log_only),
 	DEF(UINT_HIDDEN, policy_hash_truncate),
 
+	{ .type = SET_FILTER_NAME, .key = "oauth2", },
+
 	DEF(BOOL, verbose),
 	DEF(BOOL, debug),
 	DEF(BOOL, debug_passwords),
@@ -344,6 +346,12 @@ static const struct setting_keyvalue auth_default_filter_settings_keyvalue[] = {
 	{ "auth_policy/http_client_max_idle_time", "10s" },
 	{ "auth_policy/http_client_max_parallel_connections", "100" },
 	{ "auth_policy/http_client_user_agent", "dovecot/auth-policy-client" },
+	{ "oauth2/ssl_prefer_server_ciphers", "yes" },
+	{ "oauth2/http_client_user_agent", "dovecot-oauth2-passdb/"DOVECOT_VERSION },
+	{ "oauth2/http_client_max_idle_time", "60s" },
+	{ "oauth2/http_client_max_parallel_connections", "10" },
+	{ "oauth2/http_client_max_pipelined_requests", "1" },
+	{ "oauth2/http_client_no_auto_retry", "yes" },
 	{ NULL, NULL }
 };
 
