@@ -233,22 +233,30 @@ static void config_parser_add_services(struct config_parser_context *ctx,
 	} T_END;
 }
 
-static void config_parser_add_info_defaults(struct config_parser_context *ctx,
-					    const struct setting_parser_info *info)
+static void
+config_parser_add_info_defaults_arr(struct config_parser_context *ctx,
+				    const struct setting_parser_info *info,
+				    const struct setting_keyvalue *defaults)
 {
-	if (info->default_settings == NULL)
+	if (defaults == NULL)
 		return;
 
-	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
-	for (unsigned int i = 0; info->default_settings[i].key != NULL; i++) {
-		if (config_apply_line(ctx, info->default_settings[i].key,
-				      info->default_settings[i].value, NULL) < 0) {
+	for (unsigned int i = 0; defaults[i].key != NULL; i++) {
+		if (config_apply_line(ctx, defaults[i].key,
+				      defaults[i].value, NULL) < 0) {
 			i_panic("Failed to add default setting %s=%s for struct %s: %s",
-				info->default_settings[i].key,
-				info->default_settings[i].value,
+				defaults[i].key, defaults[i].value,
 				info->name, ctx->error);
 		}
 	}
+}
+
+static void config_parser_add_info_defaults(struct config_parser_context *ctx,
+					    const struct setting_parser_info *info)
+{
+	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
+	config_parser_add_info_defaults_arr(ctx, info, info->default_settings);
+	config_parser_add_info_defaults_arr(ctx, info, info->default_filter_settings);
 	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
 }
 
