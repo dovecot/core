@@ -79,6 +79,7 @@ struct settings_apply_ctx {
 	const char *filter_key;
 	const char *filter_value;
 	const char *filter_name;
+	bool filter_name_required;
 
 	struct setting_parser_context *parser;
 	struct settings_mmap_pool *mpool;
@@ -1004,7 +1005,8 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 	if (ret > 0)
 		seen_filter = TRUE;
 
-	if (ctx->filter_key != NULL && !seen_filter) {
+	if (ctx->filter_key != NULL && !seen_filter &&
+	    ctx->filter_name_required) {
 		pool_unref(&set_pool);
 		return 0;
 	}
@@ -1057,6 +1059,7 @@ settings_get_full(struct event *event,
 	struct settings_mmap *mmap = NULL;
 	struct settings_instance *instance = NULL;
 	struct event *scan_event = event;
+	bool filter_name_required = FALSE;
 
 	i_assert((filter_key == NULL) == (filter_value == NULL));
 
@@ -1070,6 +1073,12 @@ settings_get_full(struct event *event,
 		if (filter_key == NULL) {
 			filter_key = event_get_ptr(scan_event,
 						   SETTINGS_EVENT_FILTER_NAME);
+		}
+		if (filter_key == NULL) {
+			filter_key = event_get_ptr(scan_event,
+				SETTINGS_EVENT_FILTER_NAME_REQUIRED);
+			if (filter_key != NULL)
+				filter_name_required = TRUE;
 		}
 		if (root != NULL && instance != NULL && filter_key != NULL)
 			break;
@@ -1098,6 +1107,7 @@ settings_get_full(struct event *event,
 		.flags = flags,
 		.filter_key = filter_key,
 		.filter_value = filter_value,
+		.filter_name_required = filter_name_required,
 	};
 
 	int ret;
@@ -1105,6 +1115,7 @@ settings_get_full(struct event *event,
 		if (filter_value != NULL) {
 			ctx.filter_name = t_strdup_printf("%s/%s", filter_key,
 				settings_section_escape(ctx.filter_value));
+			ctx.filter_name_required = TRUE;
 		} else if (filter_key != NULL)
 			ctx.filter_name = filter_key;
 		if (ctx.filter_name != NULL) {
