@@ -59,6 +59,9 @@ static const struct setting_define http_client_setting_defines[] = {
 
 	DEF_MSECS(TIME_MSECS, request_absolute_timeout),
 	DEF_MSECS(TIME_MSECS, request_timeout),
+	DEF_MSECS(TIME_MSECS, read_request_timeout),
+	DEF_MSECS(TIME_MSECS, write_request_timeout),
+	DEF_MSECS(TIME_MSECS, delete_request_timeout),
 	DEF_MSECS(TIME_MSECS, connect_timeout),
 	DEF_MSECS(TIME_MSECS_HIDDEN, soft_connect_timeout),
 	DEF_SECS(TIME_HIDDEN, max_auto_retry_delay),
@@ -106,6 +109,9 @@ static const struct http_client_settings http_client_default_settings = {
 
 	.request_absolute_timeout_msecs = 0,
 	.request_timeout_msecs = HTTP_CLIENT_DEFAULT_REQUEST_TIMEOUT_MSECS,
+	.read_request_timeout_msecs = 0,
+	.write_request_timeout_msecs = 0,
+	.delete_request_timeout_msecs = 0,
 	.connect_timeout_msecs = 0,
 	.soft_connect_timeout_msecs = 0,
 	.max_auto_retry_delay_secs = 0,
