@@ -71,7 +71,7 @@ static struct config_section_stack *
 config_add_new_section(struct config_parser_context *ctx);
 static void
 config_add_new_parser(struct config_parser_context *ctx,
-		      struct config_section_stack *cur_section);
+		      struct config_section_stack *cur_section, bool root);
 static int
 config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 			const char *value);
@@ -114,7 +114,7 @@ config_parser_add_filter_array(struct config_parser_context *ctx,
 	section->is_filter = TRUE;
 	/* use cur_section's filter_parser as parent */
 	section->filter_parser = ctx->cur_section->filter_parser;
-	config_add_new_parser(ctx, section);
+	config_add_new_parser(ctx, section, FALSE);
 	section->filter_parser->filter_required_setting_seen = TRUE;
 	return section;
 }
@@ -185,7 +185,7 @@ config_parser_add_service_default_keyvalues(struct config_parser_context *ctx,
 				ctx->cur_section->filter.filter_name =
 					p_strdup(ctx->pool, filter.filter_name);
 				ctx->cur_section->filter_parser = orig_filter_parser;
-				config_add_new_parser(ctx, ctx->cur_section);
+				config_add_new_parser(ctx, ctx->cur_section, FALSE);
 				ctx->cur_section->filter_parser->filter_required_setting_seen = TRUE;
 			} else {
 				ctx->cur_section->filter_parser = filter_parser;
@@ -703,7 +703,7 @@ config_module_parsers_init(pool_t pool)
 
 static void
 config_add_new_parser(struct config_parser_context *ctx,
-		      struct config_section_stack *cur_section)
+		      struct config_section_stack *cur_section, bool root)
 {
 	struct config_filter_parser *filter_parser;
 
@@ -718,7 +718,7 @@ config_add_new_parser(struct config_parser_context *ctx,
 					ctx->cur_input->path,
 					ctx->cur_input->linenum);
 	}
-	filter_parser->module_parsers = cur_section->prev == NULL ?
+	filter_parser->module_parsers = root ?
 		ctx->root_module_parsers :
 		config_module_parsers_init(ctx->pool);
 	array_push_back(&ctx->all_filter_parsers, &filter_parser);
@@ -969,7 +969,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 					ctx->error);
 			}
 		}
-		config_add_new_parser(ctx, ctx->cur_section);
+		config_add_new_parser(ctx, ctx->cur_section, FALSE);
 	}
 	ctx->cur_section->is_filter = TRUE;
 
@@ -1923,7 +1923,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 
 	p_array_init(&ctx.all_filter_parsers, ctx.pool, 128);
 	ctx.cur_section = p_new(ctx.pool, struct config_section_stack, 1);
-	config_add_new_parser(&ctx, ctx.cur_section);
+	config_add_new_parser(&ctx, ctx.cur_section, TRUE);
 
 	ctx.key_path = str_new(ctx.pool, 256);
 	ctx.value = str_new(ctx.pool, 256);
