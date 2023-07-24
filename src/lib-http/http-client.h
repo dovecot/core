@@ -480,6 +480,9 @@ void http_client_request_start_tunnel(struct http_client_request *req,
  * Client
  */
 
+/* Initialize settings with defaults. Must be used if settings struct is
+   filled manually. */
+void http_client_settings_init(pool_t pool, struct http_client_settings *set_r);
 /* Create a client using the global shared client context. The parent event can
    be overriden for specific requests with http_client_request_set_event(). */
 struct http_client *http_client_init(const struct http_client_settings *set,

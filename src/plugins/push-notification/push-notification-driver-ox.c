@@ -71,7 +71,7 @@ push_notification_driver_ox_init_global(
 		pool_t http_pool = pool_alloconly_create("ox push http settings",
 							 sizeof(*http_set));
 		http_set = p_new(http_pool, struct http_client_settings, 1);
-		http_set->pool = http_pool;
+		http_client_settings_init(http_pool, http_set);
 		http_set->max_attempts = config->http_max_retries+1;
 		http_set->request_timeout_msecs = config->http_timeout_msecs;
 

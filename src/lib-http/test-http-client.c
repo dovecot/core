@@ -388,8 +388,7 @@ int main(int argc, char *argv[])
 	if (stat("/etc/ssl/certs", &st) == 0 && S_ISREG(st.st_mode))
 		ssl_set.ca_file = "/etc/pki/tls/cert.pem"; /* redhat */
 
-	i_zero(&http_set);
-	http_set.pool = null_pool;
+	http_client_settings_init(null_pool, &http_set);
 	http_set.max_idle_time_msecs = 5*1000;
 	http_set.max_parallel_connections = 4;
 	http_set.max_pipelined_requests = 4;

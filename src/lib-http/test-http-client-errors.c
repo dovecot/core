@@ -1758,7 +1758,7 @@ static void test_request_timed_out(void)
 	test_end();
 
 	test_begin("request absolutely timed out");
-	http_client_set.request_timeout_msecs = 0;
+	test_client_defaults(&http_client_set);
 	http_client_set.request_absolute_timeout_msecs = 2000;
 	http_client_set.max_attempts = 3;
 	test_run_client_server(&http_client_set,
@@ -1776,8 +1776,8 @@ static void test_request_timed_out(void)
 	test_end();
 
 	test_begin("request timed out: specific timeout");
+	test_client_defaults(&http_client_set);
 	http_client_set.request_timeout_msecs = 3000;
-	http_client_set.request_absolute_timeout_msecs = 0;
 	http_client_set.max_attempts = 1;
 	http_client_set.max_parallel_connections = 1;
 	test_run_client_server(&http_client_set,
@@ -1786,8 +1786,8 @@ static void test_request_timed_out(void)
 	test_end();
 
 	test_begin("request timed out: specific timeout (parallel)");
+	test_client_defaults(&http_client_set);
 	http_client_set.request_timeout_msecs = 3000;
-	http_client_set.request_absolute_timeout_msecs = 0;
 	http_client_set.max_attempts = 1;
 	http_client_set.max_parallel_connections = 4;
 	test_run_client_server(&http_client_set,
@@ -3480,8 +3480,8 @@ static void (*const test_functions[])(void) = {
 static void test_client_defaults(struct http_client_settings *http_set)
 {
 	/* client settings */
-	i_zero(http_set);
-	http_set->pool = null_pool;
+	http_client_settings_init(null_pool, http_set);
+
 	http_set->max_idle_time_msecs = 5*1000;
 	http_set->max_parallel_connections = 1;
 	http_set->max_pipelined_requests = 1;

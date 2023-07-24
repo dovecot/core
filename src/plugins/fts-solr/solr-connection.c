@@ -99,7 +99,7 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 		pool_t http_pool = pool_alloconly_create("solr http settings",
 							 sizeof(*http_set));
 		http_set = p_new(http_pool, struct http_client_settings, 1);
-		http_set->pool = http_pool;
+		http_client_settings_init(http_pool, http_set);
 
 		http_set->max_idle_time_msecs = 5*1000;
 		http_set->max_parallel_connections = 1;
