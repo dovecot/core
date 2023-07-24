@@ -76,6 +76,12 @@ struct http_client_settings {
 
 	/* Maximum number of attempts for a request */
 	unsigned int max_attempts;
+	/* If non-zero, override max_attempts for GET/HEAD requests. */
+	unsigned int read_max_attempts;
+	/* If non-zero, override max_attempts for PUT/POST requests. */
+	unsigned int write_max_attempts;
+	/* If non-zero, override max_attempts for DELETE requests. */
+	unsigned int delete_max_attempts;
 
 	/* Maximum number of connection attempts to a host before all associated
 	   requests fail.

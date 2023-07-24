@@ -127,17 +127,23 @@ http_client_request_new(struct http_client *client, const char *method,
 	req->attempt_timeout_msecs = client->set->request_timeout_msecs;
 	if (strcasecmp(method, "GET") == 0 ||
 	    strcasecmp(method, "HEAD") == 0) {
+		if (client->set->read_max_attempts != 0)
+			req->max_attempts = client->set->read_max_attempts;
 		if (client->set->read_request_timeout_msecs != 0) {
 			req->attempt_timeout_msecs =
 				client->set->read_request_timeout_msecs;
 		}
 	} else if (strcasecmp(method, "PUT") == 0 ||
 		   strcasecmp(method, "POST") == 0) {
+		if (client->set->write_max_attempts != 0)
+			req->max_attempts = client->set->write_max_attempts;
 		if (client->set->write_request_timeout_msecs != 0) {
 			req->attempt_timeout_msecs =
 				client->set->write_request_timeout_msecs;
 		}
 	} else if (strcasecmp(method, "DELETE") == 0) {
+		if (client->set->delete_max_attempts != 0)
+			req->max_attempts = client->set->delete_max_attempts;
 		if (client->set->delete_request_timeout_msecs != 0) {
 			req->attempt_timeout_msecs =
 				client->set->delete_request_timeout_msecs;
