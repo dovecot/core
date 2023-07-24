@@ -39,9 +39,9 @@ static const struct setting_define http_client_setting_defines[] = {
 	DEF(UINT, max_parallel_connections),
 	DEF(UINT, max_pipelined_requests),
 
-	DEF(BOOL_HIDDEN, no_auto_redirect),
-	DEF(BOOL_HIDDEN, no_auto_retry),
-	DEF(BOOL, no_ssl_tunnel),
+	DEF(BOOL_HIDDEN, auto_redirect),
+	DEF(BOOL_HIDDEN, auto_retry),
+	DEF(BOOL, ssl_tunnel),
 
 	DEF(UINT, max_redirects),
 	DEF(UINT, max_attempts),
@@ -89,9 +89,9 @@ static const struct http_client_settings http_client_default_settings = {
 	.max_parallel_connections = 1,
 	.max_pipelined_requests = 1,
 
-	.no_auto_redirect = FALSE,
-	.no_auto_retry = FALSE,
-	.no_ssl_tunnel = FALSE,
+	.auto_redirect = TRUE,
+	.auto_retry = TRUE,
+	.ssl_tunnel = TRUE,
 
 	.max_redirects = 0,
 	.max_attempts = 0,

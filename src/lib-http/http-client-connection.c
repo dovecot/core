@@ -1211,7 +1211,7 @@ static void http_client_connection_input(struct connection *_conn)
 					if (http_client_request_try_retry(req))
 						handled = TRUE;
 				/* Redirection */
-				} else if (!req->client->set->no_auto_redirect &&
+				} else if (req->client->set->auto_redirect &&
 					   response.status / 100 == 3 &&
 					   response.status != 304 &&
 					   response.location != NULL) {
