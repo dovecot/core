@@ -265,8 +265,6 @@ oauth2_request_start(const struct oauth2_settings *set,
 					       t_strdup_printf("Bearer %s",
 							       input->token));
 	}
-	http_client_request_set_timeout_msecs(req->req,
-					      req->set->timeout_msecs);
 	http_client_request_submit(req->req);
 
 	return req;
