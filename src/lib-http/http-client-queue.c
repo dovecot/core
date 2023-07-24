@@ -212,8 +212,8 @@ http_client_queue_is_last_connect_ip(struct http_client_queue *queue)
 	i_assert(queue->ips_connect_idx < ips_count);
 	i_assert(queue->ips_connect_start_idx < ips_count);
 
-	/* If a maximum connect attempts > 1 is set, enforce it directly */
-	if (set->max_connect_attempts > 1 &&
+	/* If a maximum connect attempts > 0 is set, enforce it directly */
+	if (set->max_connect_attempts > 0 &&
 		queue->connect_attempts >= set->max_connect_attempts)
 		return TRUE;
 

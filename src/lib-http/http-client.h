@@ -86,11 +86,11 @@ struct http_client_settings {
 	/* Maximum number of connection attempts to a host before all associated
 	   requests fail.
 
-	   if > 1, the maximum will be enforced across all IPs for that host,
+	   if > 0, the maximum will be enforced across all IPs for that host,
 	   meaning that IPs may be tried more than once eventually if the number
 	   of IPs is smaller than the specified maximum attempts. If the number
 	   of IPs is higher than the maximum attempts, not all IPs are tried.
-	   If <= 1, all IPs are tried at most once.
+	   If 0, all IPs are tried at most once.
 	 */
 	unsigned int max_connect_attempts;
 
