@@ -93,7 +93,9 @@ struct http_client_settings {
 	unsigned int connect_backoff_max_time_msecs;
 
 	/* Response header limits */
-	struct http_header_limits response_hdr_limits;
+	uoff_t response_hdr_max_size;
+	uoff_t response_hdr_max_field_size;
+	unsigned int response_hdr_max_fields;
 
 	/* Max total time to wait for HTTP request to finish this can be
 	   overridden/reset for individual requests using
