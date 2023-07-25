@@ -682,6 +682,8 @@ bool http_client_peer_unref(struct http_client_peer **_peer)
 	i_free(peer);
 
 	/* Choose new backoff times */
+	pshared->backoff_initial_time_msecs = UINT_MAX;
+	pshared->backoff_max_time_msecs = UINT_MAX;
 	peer = pshared->peers_list;
 	while (peer != NULL) {
 		struct http_client *client = peer->client;
