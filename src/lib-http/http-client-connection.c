@@ -1463,8 +1463,13 @@ static void http_client_connection_ready(struct http_client_connection *conn)
 	}
 
 	/* Start protocol I/O */
+	struct http_header_limits limits = {
+		.max_size = set->response_hdr_max_size,
+		.max_field_size = set->response_hdr_max_field_size,
+		.max_fields = set->response_hdr_max_fields,
+	};
 	conn->http_parser = http_response_parser_init(
-		conn->conn.input, &set->response_hdr_limits, 0);
+		conn->conn.input, &limits, 0);
 	o_stream_set_finish_via_child(conn->conn.output, FALSE);
 	o_stream_set_flush_callback(conn->conn.output,
 				    http_client_connection_output, conn);
