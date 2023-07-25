@@ -30,9 +30,8 @@ http_client_connection_disconnect(struct http_client_connection *conn);
 static inline const struct http_client_settings *
 http_client_connection_get_settings(struct http_client_connection *conn)
 {
-	if (conn->peer != NULL)
-		return &conn->peer->client->set;
-	return &conn->ppool->peer->cctx->set;
+	i_assert(conn->peer != NULL);
+	return &conn->peer->client->set;
 }
 
 static inline void
