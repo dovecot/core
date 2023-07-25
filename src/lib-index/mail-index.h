@@ -80,6 +80,7 @@ enum mail_index_mail_flags {
 enum mail_index_error_code {
 	MAIL_INDEX_ERROR_CODE_NONE,
 	MAIL_INDEX_ERROR_CODE_NO_SPACE,
+	MAIL_INDEX_ERROR_CODE_NO_ACCESS,
 };
 
 #define MAIL_INDEX_FLAGS_MASK \

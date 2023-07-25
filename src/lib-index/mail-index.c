@@ -1108,7 +1108,9 @@ void mail_index_file_set_syscall_error(struct mail_index *index,
 			errstr = eacces_error_get_creating(function, filepath);
 		else
 			errstr = eacces_error_get(function, filepath);
-		mail_index_set_error(index, "%s", errstr);
+
+		mail_index_set_error_code(index, MAIL_INDEX_ERROR_CODE_NO_ACCESS,
+					  "%s", errstr);
 	} else {
 		const char *suffix = errno != EFBIG ? "" :
 			" (process was started with ulimit -f limit)";
