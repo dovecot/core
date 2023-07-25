@@ -195,10 +195,7 @@ struct mail_index_settings {
 struct mail_index_error {
 	/* Human-readable error text */
 	char *text;
-
-	/* Error happened because there's no disk space, i.e. syscall failed
-	   with ENOSPC or EDQUOT. */
-	bool nodiskspace:1;
+	enum mail_index_error_code code;
 };
 
 struct mail_index {

@@ -1081,7 +1081,7 @@ void mail_index_file_set_syscall_error(struct mail_index *index,
 	}
 
 	if (ENOSPACE(errno)) {
-		index->last_error.nodiskspace = TRUE;
+		index->last_error.code = MAIL_INDEX_ERROR_CODE_NO_SPACE;
 		if ((index->flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) == 0)
 			return;
 	}
