@@ -253,7 +253,7 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 					perm.file_create_gid_origin);
 	}
 	if (fd == -1) {
-		if (errno == EACCES) {
+		if (ENOACCESS(errno)) {
 			/* Ignore silently if we can't create it */
 			return 0;
 		}

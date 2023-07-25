@@ -284,7 +284,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 		if (errno == ENOENT || errno == ENOTDIR) {
 			e_debug(event, "acl vfile: file %s not found", path);
 			validity->last_mtime = ACL_VFILE_VALIDITY_MTIME_NOTFOUND;
-		} else if (errno == EACCES) {
+		} else if (ENOACCESS(errno)) {
 			e_debug(event, "acl vfile: no access to file %s", path);
 
 			acl_object_remove_all_access(aclobj);
@@ -438,7 +438,7 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 			/* if the file used to exist, we have to re-read it */
 			return validity->last_mtime != ACL_VFILE_VALIDITY_MTIME_NOTFOUND ? 1 : 0;
 		}
-		if (errno == EACCES)
+		if (ENOACCESS(errno))
 			return validity->last_mtime != ACL_VFILE_VALIDITY_MTIME_NOACCESS ? 1 : 0;
 		e_error(event, "stat(%s) failed: %m", path);
 		return -1;
