@@ -115,8 +115,12 @@ void test_expect_no_more_errors(void);
 void test_end(void);
 
 void test_out(const char *name, bool success);
-void test_out_quiet(const char *name, bool success); /* only prints failures */
 void test_out_reason(const char *name, bool success, const char *reason)
+	ATTR_NULL(3);
+
+/* These only print failures */
+void test_out_quiet(const char *name, bool success);
+void test_out_reason_quiet(const char *name, bool success, const char *reason)
 	ATTR_NULL(3);
 
 int test_run(void (*const test_functions[])(void)) ATTR_WARN_UNUSED_RESULT;
