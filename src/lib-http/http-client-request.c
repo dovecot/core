@@ -903,7 +903,8 @@ static void http_client_request_do_submit(struct http_client_request *req)
 	const char *proxy_socket_path = client->set->proxy_socket_path;
 	const struct http_url *proxy_url = client->set->proxy_url;
 	bool have_proxy =
-		((proxy_socket_path != NULL) || (proxy_url != NULL) ||
+		((proxy_socket_path != NULL && proxy_socket_path[0] != '\0') ||
+		 (proxy_url != NULL) ||
 		 (req->host_socket != NULL) || (req->host_url != NULL));
 	const char *authority, *target;
 
@@ -936,7 +937,8 @@ static void http_client_request_do_submit(struct http_client_request *req)
 			/* Tunnel to origin server */
 			req->host_url = &req->origin_url;
 			req->ssl_tunnel = TRUE;
-		} else if (proxy_socket_path != NULL) {
+		} else if (proxy_socket_path != NULL &&
+			   proxy_socket_path[0] != '\0') {
 			/* Proxy on unix socket */
 			req->host_socket = proxy_socket_path;
 			req->host_url = NULL;
@@ -1404,7 +1406,8 @@ http_client_request_send_real(struct http_client_request *req, bool pipelined)
 		str_append(rtext, "\r\n");
 	}
 	if (http_client_request_to_proxy(req) &&
-		set->proxy_username != NULL && set->proxy_password != NULL) {
+	    set->proxy_username != NULL && set->proxy_username[0] != '\0' &&
+	    set->proxy_password != NULL) {
 		struct http_auth_credentials auth_creds;
 
 		http_auth_basic_credentials_init(&auth_creds,
@@ -1414,7 +1417,8 @@ http_client_request_send_real(struct http_client_request *req, bool pipelined)
 		http_auth_create_credentials(rtext, &auth_creds);
 		str_append(rtext, "\r\n");
 	}
-	if (!req->have_hdr_user_agent && req->client->set->user_agent != NULL) {
+	if (!req->have_hdr_user_agent && req->client->set->user_agent != NULL &&
+	    req->client->set->user_agent[0] != '\0') {
 		str_printfa(rtext, "User-Agent: %s\r\n",
 			    req->client->set->user_agent);
 	}

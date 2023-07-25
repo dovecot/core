@@ -193,7 +193,10 @@ http_client_peer_pool_get(struct http_client_peer_shared *pshared,
 {
 	struct http_client_peer_pool *ppool;
 	struct ssl_iostream_context *ssl_ctx = client->ssl_ctx;
-	const char *rawlog_dir = client->set->rawlog_dir;
+	const char *rawlog_dir =
+		(client->set->rawlog_dir != NULL &&
+		 client->set->rawlog_dir[0] != '\0') ?
+		client->set->rawlog_dir : NULL;
 
 	i_assert(!http_client_peer_addr_is_https(&pshared->addr) ||
 		 ssl_ctx != NULL);
