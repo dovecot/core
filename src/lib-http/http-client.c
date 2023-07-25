@@ -519,9 +519,8 @@ http_client_context_update_settings(struct http_client_context *cctx)
 	/* Revert back to default settings */
 	cctx->dns_client = NULL;
 	cctx->dns_client_socket_path = NULL;
-	cctx->dns_ttl_msecs = HTTP_CLIENT_DEFAULT_DNS_TTL_MSECS;
-	cctx->dns_lookup_timeout_msecs =
-		HTTP_CLIENT_DEFAULT_DNS_LOOKUP_TIMEOUT_MSECS;
+	cctx->dns_ttl_msecs = UINT_MAX;
+	cctx->dns_lookup_timeout_msecs = UINT_MAX;
 
 	/* Override with available client settings */
 	for (client = cctx->clients_list; client != NULL;
@@ -544,6 +543,13 @@ http_client_context_update_settings(struct http_client_context *cctx)
 				dns_lookup_timeout_msecs;
 		}
 		debug = debug || client->set.debug;
+	}
+
+	if (cctx->dns_ttl_msecs == UINT_MAX)
+		cctx->dns_ttl_msecs = HTTP_CLIENT_DEFAULT_DNS_TTL_MSECS;
+	if (cctx->dns_lookup_timeout_msecs == UINT_MAX) {
+		cctx->dns_lookup_timeout_msecs =
+			HTTP_CLIENT_DEFAULT_DNS_LOOKUP_TIMEOUT_MSECS;
 	}
 
 	event_set_forced_debug(cctx->event, debug);
