@@ -311,7 +311,7 @@ static int quota_count_recalculate_box(struct mailbox *box,
 		*error_r = t_strdup_printf(
 			"Couldn't commit mail index transaction for %s: %s",
 			box->vname,
-			mail_index_get_error_message(box->view->index));
+			mail_index_get_last_error(box->view->index, NULL));
 		return -1;
 	}
 	/* getting the vsize now forces its recalculation */

@@ -794,7 +794,7 @@ void mail_storage_set_index_error(struct mail_storage *storage,
 
 	mail_storage_set_internal_error(storage);
 	/* use the lib-index's error as our internal error string */
-	index_error = mail_index_get_error_message(index);
+	index_error = mail_index_get_last_error(index, NULL);
 	if (index_error == NULL)
 		index_error = "BUG: Unknown internal index error";
 	storage->last_internal_error = i_strdup(index_error);

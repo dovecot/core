@@ -126,7 +126,7 @@ static bool try_get_mailbox_name(struct mail_storage_list_index_rebuild_ctx *ctx
 		e_debug(ctx->storage->event, "Cannot open mailbox index at %s: Not found", path);
 	} else if (rc < 0) {
 		e_debug(ctx->storage->event, "Cannot open mailbox index at %s: %s",
-			path, mail_index_get_error_message(index));
+			path, mail_index_get_last_error(index, NULL));
 	}
 	mail_index_free(&index);
 	return ret;

@@ -1119,8 +1119,11 @@ void mail_index_file_set_syscall_error(struct mail_index *index,
 	}
 }
 
-const char *mail_index_get_error_message(struct mail_index *index)
+const char *mail_index_get_last_error(struct mail_index *index,
+				      enum mail_index_error_code *code_r)
 {
+	if (code_r != NULL)
+		*code_r = index->last_error.code;
 	return index->last_error.text;
 }
 
