@@ -541,7 +541,7 @@ http_client_context_update_settings(struct http_client_context *cctx)
 		    client->set->dns_client_socket_path != NULL &&
 		    client->set->dns_client_socket_path[0] != '\0') {
 			cctx->dns_client_socket_path =
-				client->set->dns_client_socket_path;
+				p_strdup(cctx->pool, client->set->dns_client_socket_path);
 		}
 		if (client->set->dns_ttl_msecs != 0 &&
 		    cctx->dns_ttl_msecs > client->set->dns_ttl_msecs)
