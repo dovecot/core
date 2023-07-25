@@ -479,7 +479,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	path = t_strconcat(box_path, "/"VIRTUAL_CONFIG_FNAME, NULL);
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
-		if (errno == EACCES) {
+		if (ENOACCESS(errno)) {
 			mailbox_set_critical(&mbox->box, "%s",
 				mail_error_eacces_msg("open", path));
 		} else if (errno != ENOENT) {
