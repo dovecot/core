@@ -537,7 +537,9 @@ http_client_context_update_settings(struct http_client_context *cctx)
 
 		if (cctx->dns_client == NULL)
 			cctx->dns_client = client->dns_client;
-		if (cctx->dns_client_socket_path == NULL) {
+		if (cctx->dns_client_socket_path == NULL &&
+		    client->set->dns_client_socket_path != NULL &&
+		    client->set->dns_client_socket_path[0] != '\0') {
 			cctx->dns_client_socket_path =
 				client->set->dns_client_socket_path;
 		}
