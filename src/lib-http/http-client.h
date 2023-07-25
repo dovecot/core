@@ -123,8 +123,8 @@ struct http_client_settings {
 	/* The kernel send/receive buffer sizes used for the connection sockets.
 	   Configuring this is mainly useful for the test suite. The kernel
 	   defaults are used when these settings are 0. */
-	size_t socket_send_buffer_size;
-	size_t socket_recv_buffer_size;
+	uoff_t socket_send_buffer_size;
+	uoff_t socket_recv_buffer_size;
 };
 
 /*

@@ -1563,14 +1563,14 @@ http_client_connection_connected(struct connection *_conn, bool success)
 		    net_set_send_buffer_size(
 			_conn->fd_out, set->socket_send_buffer_size) < 0) {
 			e_error(conn->event,
-				"net_set_send_buffer_size(%zu) failed: %m",
+				"net_set_send_buffer_size(%"PRIuUOFF_T") failed: %m",
 				set->socket_send_buffer_size);
 		}
 		if (set->socket_recv_buffer_size > 0 &&
 		    net_set_recv_buffer_size(
 			_conn->fd_in, set->socket_recv_buffer_size) < 0) {
 			e_error(conn->event,
-				"net_set_recv_buffer_size(%zu) failed: %m",
+				"net_set_recv_buffer_size(%"PRIuUOFF_T") failed: %m",
 				set->socket_recv_buffer_size);
 		}
 
