@@ -64,7 +64,7 @@ get_attempt_error(unsigned int counter, uint32_t first_uid, uint32_t last_uid)
 }
 
 static int
-index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
+index_mailbox_precache_real(struct master_connection *conn, struct mailbox *box)
 {
 	struct mail_storage *storage = mailbox_get_storage(box);
 	const char *username = mail_storage_get_user(storage)->username;
@@ -182,6 +182,29 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 	}
 	event_unref(&index_event);
 	return ret;
+}
+
+static int
+index_mailbox_precache_virtual(struct master_connection *conn, struct mailbox *box)
+{
+	ARRAY_TYPE(mailboxes) mailboxes;
+	t_array_init(&mailboxes, 8);
+	box->virtual_vfuncs->get_virtual_backend_boxes(box, &mailboxes, TRUE);
+
+	struct mailbox *bbox;
+	array_foreach_elem(&mailboxes, bbox)
+		if (index_mailbox_precache_real(conn, bbox) < 0)
+			return -1;
+
+	return 0;
+}
+
+static int
+index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
+{
+	return box->virtual_vfuncs == NULL ?
+	       index_mailbox_precache_real(conn, box) :
+	       index_mailbox_precache_virtual(conn, box);
 }
 
 static int
