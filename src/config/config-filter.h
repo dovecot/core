@@ -7,6 +7,7 @@ struct master_service_settings_output;
 
 struct config_filter {
 	const char *service;
+	const char *mechanism;
 	/* local_name is for TLS SNI requests.
 	   both local_name and local_bits can't be set at the same time. */
 	const char *local_name;

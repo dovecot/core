@@ -612,6 +612,7 @@ int master_service_settings_read(struct master_service *service,
 	event_add_str(event, "protocol", input->service);
 	event_add_str(event, "user", input->username);
 	event_add_str(event, "local_name", input->local_name);
+	event_add_str(event, "mechanism", input->mechanism);
 	event_add_ip(event, "local_ip", &input->local_ip);
 	event_add_ip(event, "remote_ip", &input->remote_ip);
 

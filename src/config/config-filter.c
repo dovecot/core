@@ -47,6 +47,25 @@ config_filter_match_local_name(const struct config_filter *mask,
 	return dns_match_wildcard(filter_local_name, local_name) == 0;
 }
 
+static bool config_filter_match_mechanism(const struct config_filter *mask,
+					  const char *filter_mechanism)
+{
+// TODO support multiple mechanisms
+	if (mask->mechanism != NULL) {
+		if (filter_mechanism == NULL)
+			return FALSE;
+		if (mask->mechanism[0] == '!') {
+			/* not mechanism */
+			if (strcmp(filter_mechanism, mask->mechanism + 1) == 0)
+				return FALSE;
+		} else {
+			if (strcmp(filter_mechanism, mask->mechanism) != 0)
+				return FALSE;
+		}
+	}
+	return TRUE;
+}
+
 static bool config_filter_match_rest(const struct config_filter *mask,
 				     const struct config_filter *filter)
 {
@@ -57,6 +76,15 @@ static bool config_filter_match_rest(const struct config_filter *mask,
 			return FALSE;
 		T_BEGIN {
 			matched = config_filter_match_local_name(mask, filter->local_name);
+		} T_END;
+		if (!matched)
+			return FALSE;
+	}
+	if (mask->mechanism != NULL) {
+		if (filter->mechanism == NULL)
+			return FALSE;
+		T_BEGIN {
+			matched = config_filter_match_mechanism(mask, filter->mechanism);
 		} T_END;
 		if (!matched)
 			return FALSE;
@@ -107,6 +135,9 @@ bool config_filters_equal(const struct config_filter *f1,
 	if (null_strcasecmp(f1->local_name, f2->local_name) != 0)
 		return FALSE;
 
+	if (null_strcasecmp(f1->mechanism, f2->mechanism) != 0)
+		return FALSE;
+
 	return TRUE;
 }
 
@@ -145,6 +176,11 @@ config_filter_parser_cmp(struct config_filter_parser *const *p1,
 
 	/* remote and locals are first, although it doesn't really
 	   matter which one comes first */
+	if (f1->mechanism != NULL && f2->mechanism == NULL)
+		return -1;
+	if (f1->mechanism == NULL && f2->mechanism != NULL)
+		return 1;
+
 	if (f1->local_name != NULL && f2->local_name == NULL)
 		return -1;
 	if (f1->local_name == NULL && f2->local_name != NULL)
@@ -285,6 +321,8 @@ config_filter_is_superset(const struct config_filter *sup,
 		i_warning("%s", sup->local_name);
 		return FALSE;
 	}
+	if (sup->mechanism != NULL && filter->mechanism == NULL)
+		return FALSE;
 	if (sup->service != NULL && filter->service == NULL)
 		return FALSE;
 	return TRUE;

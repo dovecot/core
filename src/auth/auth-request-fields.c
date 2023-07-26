@@ -186,6 +186,9 @@ bool auth_request_import_info(struct auth_request *request,
 	} else if (strcmp(key, "local_name") == 0) {
 		fields->local_name = p_strdup(request->pool, value);
 		event_add_str(event, "local_name", value);
+	} else if (strcmp(key, "mech") == 0) {
+		fields->mech_name = p_strdup(request->pool, value);
+		event_add_str(event, "mechanism", value);
 	} else if (strcmp(key, "session") == 0) {
 		fields->session_id = p_strdup(request->pool, value);
 		event_add_str(event, "session", value);

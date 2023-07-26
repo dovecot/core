@@ -303,6 +303,11 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			ctx->error = "Nested protocol { protocol { .. } } block not allowed";
 		else
 			filter->service = p_strdup(ctx->pool, value);
+	} else if (strcmp(key, "mechanism") == 0) {
+		if (parent->mechanism != NULL)
+			ctx->error = "Nested mechanism { mechanism { .. } } block not allowed";
+		else
+			filter->mechanism = p_strdup(ctx->pool, value);
 	} else if (strcmp(key, "local") == 0) {
 		if (parent->remote_bits > 0)
 			ctx->error = "remote { local { .. } } not allowed (use local { remote { .. } } instead)";

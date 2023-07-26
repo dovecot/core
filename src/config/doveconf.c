@@ -532,6 +532,12 @@ config_dump_filter_begin(string_t *str,
 		str_append(str, " {\n");
 		indent++;
 	}
+
+	if (filter->mechanism != NULL) {
+		str_append_max(str, indent_str, indent*2);
+		str_printfa(str, "mechanism %s {\n", filter->mechanism);
+		indent++;
+	}
 	if (filter->service != NULL) {
 		str_append_max(str, indent_str, indent*2);
 		str_printfa(str, "protocol %s {\n", filter->service);
@@ -706,6 +712,8 @@ static void filter_parse_arg(struct config_filter *filter, const char *arg)
 		filter->service = value;
 	else if (strcmp(key, "protocol") == 0)
 		filter->service = value;
+	else if (strcmp(key, "mechanism") == 0)
+		filter->mechanism = value;
 	else if (strcmp(key, "lname") == 0)
 		filter->local_name = value;
 	else if (strcmp(key, "local") == 0) {

@@ -68,6 +68,12 @@ config_dump_full_write_filter(struct ostream *output,
 		else
 			str_printfa(str, "NOT protocol=\"%s\" AND ", str_escape(filter->service + 1));
 	}
+	if (filter->mechanism != NULL) {
+		if (filter->mechanism[0] != '!')
+			str_printfa(str, "mechanism=\"%s\" AND ", str_escape(filter->mechanism));
+		else
+			str_printfa(str, "NOT mechanism=\"%s\" AND ", str_escape(filter->mechanism + 1));
+	}
 	if (filter->local_name != NULL)
 		str_printfa(str, "local_name=\"%s\" AND ", str_escape(filter->local_name));
 	if (filter->local_bits > 0) {
