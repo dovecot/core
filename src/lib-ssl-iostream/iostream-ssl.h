@@ -34,6 +34,7 @@ struct ssl_iostream_settings {
 	bool prefer_server_ciphers; /* both */
 	bool compression; /* context-only */
 	bool tickets; /* context-only */
+	bool cert_username_cea; /* both */
 };
 
 /* Load SSL module */
