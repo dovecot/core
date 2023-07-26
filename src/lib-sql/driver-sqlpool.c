@@ -647,11 +647,12 @@ static void driver_sqlpool_timeout(struct sqlpool_db *db)
 
 
 		if (request->query != NULL) {
-			e_error(sql_query_finished_event(&db->api, request->event,
+			struct event_passthrough *e =
+				sql_query_finished_event(&db->api, request->event,
 							 request->query, FALSE,
 							 &duration)->
-					add_str("error", "Query timed out")->
-					event(),
+				add_str("error", "Query timed out");
+			e_error(e->event(),
 				SQL_QUERY_FINISHED_FMT": Query timed out "
 	                        "(no free connections for %u secs)",
 				request->query, duration,

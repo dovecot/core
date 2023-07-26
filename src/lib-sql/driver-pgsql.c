@@ -480,10 +480,11 @@ static void result_finish(struct pgsql_result *result)
 		e_debug(e->event(), SQL_QUERY_FINISHED_FMT": %s", result->query,
 			duration, error);
 	} else {
-		e_debug(sql_query_finished_event(&db->api, result->api.event,
-						 result->query, FALSE, &duration)->
-						 event(),
-			SQL_QUERY_FINISHED_FMT, result->query, duration);
+		struct event_passthrough *e =
+			sql_query_finished_event(&db->api, result->api.event,
+						 result->query, FALSE, &duration);
+		e_debug(e->event(), SQL_QUERY_FINISHED_FMT,
+			result->query, duration);
 	}
 	result->api.callback = TRUE;
 	T_BEGIN {
