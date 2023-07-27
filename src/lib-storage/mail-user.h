@@ -7,7 +7,7 @@
 #include "process-stat.h"
 
 struct module;
-struct fs_settings;
+struct fs_parameters;
 struct ssl_iostream_settings;
 struct master_service_anvil_session;
 struct mail_user;
@@ -201,9 +201,9 @@ mail_user_get_storage_class(struct mail_user *user, const char *name);
 /* Import any event_ fields from userdb fields to mail user event. */
 void mail_user_add_event_fields(struct mail_user *user);
 
-/* Initialize fs_settings from mail_user settings. */
+/* Initialize fs_parameters from mail_user settings. */
 void mail_user_init_fs_settings(struct mail_user *user,
-				struct fs_settings *fs_set);
+				struct fs_parameters *fs_set);
 
 /* Try to mkdir() user's home directory. Ideally this should be called only
    after the caller tries to create a file to the home directory, but it fails

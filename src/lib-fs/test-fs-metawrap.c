@@ -7,7 +7,7 @@
 #include "fs-test.h"
 #include "test-common.h"
 
-static const struct fs_settings fs_set;
+static const struct fs_parameters fs_params;
 
 static void test_fs_metawrap_stat(void)
 {
@@ -21,7 +21,7 @@ static void test_fs_metawrap_stat(void)
 
 	test_begin("fs metawrap stat");
 
-	if (fs_init("metawrap", "test", NULL, &fs_set, &fs, &error) < 0)
+	if (fs_init("metawrap", "test", NULL, &fs_params, &fs, &error) < 0)
 		i_fatal("fs_init() failed: %s", error);
 
 	for (i = 0; i < 2; i++) {
@@ -60,7 +60,7 @@ static void test_fs_metawrap_write_empty(void)
 	const char *error;
 
 	test_begin("fs metawrap write empty file");
-	if (fs_init("metawrap", "test", NULL, &fs_set, &fs, &error) < 0)
+	if (fs_init("metawrap", "test", NULL, &fs_params, &fs, &error) < 0)
 		i_fatal("fs_init() failed: %s", error);
 	struct fs_file *file = fs_file_init(fs, "foo", FS_OPEN_MODE_REPLACE);
 	struct ostream *output = fs_write_stream(file);
@@ -77,7 +77,7 @@ static void test_fs_metawrap_write_fname_rename(void)
 	const char *error;
 
 	test_begin("fs metawrap write fname rename");
-	if (fs_init("metawrap", "test", NULL, &fs_set, &fs, &error) < 0)
+	if (fs_init("metawrap", "test", NULL, &fs_params, &fs, &error) < 0)
 		i_fatal("fs_init() failed: %s", error);
 	struct fs_file *file = fs_file_init(fs, "foo", FS_OPEN_MODE_REPLACE);
 	struct ostream *output = fs_write_stream(file);

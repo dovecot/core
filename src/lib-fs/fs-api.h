@@ -123,7 +123,7 @@ enum fs_op {
 	FS_OP_COUNT
 };
 
-struct fs_settings {
+struct fs_parameters {
 	/* Username and session ID are mainly used for debugging/logging,
 	   but may also be useful for other purposes if they exist (they
 	   may be NULL). */
@@ -186,7 +186,7 @@ struct fs_stats {
 	uint64_t write_bytes;
 
 	/* Cumulative sum of usecs spent on calls - set only if
-	   fs_settings.enable_timing=TRUE */
+	   fs_parameters.enable_timing=TRUE */
 	struct stats_dist *timings[FS_OP_COUNT];
 };
 
@@ -200,7 +200,7 @@ typedef void fs_file_async_callback_t(void *context);
 
 /* event_parent can be overridden by fs_file_init_with_event() */
 int fs_init(const char *driver, const char *args,
-	    struct event *event_parent, const struct fs_settings *set,
+	    struct event *event_parent, const struct fs_parameters *params,
 	    struct fs **fs_r, const char **error_r);
 /* same as fs_unref() */
 void fs_deinit(struct fs **fs);

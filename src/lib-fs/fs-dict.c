@@ -47,7 +47,7 @@ static struct fs *fs_dict_alloc(void)
 
 static int
 fs_dict_init(struct fs *_fs, const char *args, struct event *event_parent,
-	     const struct fs_settings *set, const char **error_r)
+	     const struct fs_parameters *params, const char **error_r)
 {
 	struct dict_fs *fs = (struct dict_fs *)_fs;
 	struct dict_legacy_settings dict_set;
@@ -72,7 +72,7 @@ fs_dict_init(struct fs *_fs, const char *args, struct event *event_parent,
 	}
 
 	i_zero(&dict_set);
-	dict_set.base_dir = set->base_dir;
+	dict_set.base_dir = params->base_dir;
 	dict_set.event_parent = event_parent;
 
 	if (dict_init_legacy(p, &dict_set, &fs->dict, &error) < 0) {

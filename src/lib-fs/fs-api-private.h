@@ -28,7 +28,8 @@ extern struct fs_api_module_register fs_api_module_register;
 struct fs_vfuncs {
 	struct fs *(*alloc)(void);
 	int (*init)(struct fs *fs, const char *args,
-		    struct event *event_parent, const struct fs_settings *set,
+		    struct event *event_parent,
+		    const struct fs_parameters *params,
 		    const char **error_r);
 	void (*deinit)(struct fs *fs);
 	void (*free)(struct fs *fs);

@@ -23,7 +23,7 @@ static void cmd_fs_delete(struct doveadm_cmd_context *cctx);
 static struct fs *
 cmd_fs_init(struct doveadm_cmd_context *cctx)
 {
-	struct fs_settings fs_set;
+	struct fs_parameters fs_param;
 	struct fs *fs;
 	const char *fs_driver, *fs_args, *error;
 
@@ -31,11 +31,12 @@ cmd_fs_init(struct doveadm_cmd_context *cctx)
 	    !doveadm_cmd_param_str(cctx, "fs-args", &fs_args))
 		fs_cmd_help(cctx);
 
-	i_zero(&fs_set);
-	fs_set.temp_dir = doveadm_settings->mail_temp_dir;
-	fs_set.base_dir = doveadm_settings->base_dir;
+	i_zero(&fs_param);
+	fs_param.temp_dir = doveadm_settings->mail_temp_dir;
+	fs_param.base_dir = doveadm_settings->base_dir;
 
-	if (fs_init(fs_driver, fs_args, cctx->event, &fs_set, &fs, &error) < 0)
+	if (fs_init(fs_driver, fs_args, cctx->event, &fs_param,
+		    &fs, &error) < 0)
 		i_fatal("fs_init() failed: %s", error);
 	return fs;
 }

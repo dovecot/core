@@ -29,7 +29,7 @@ fs_dict_init_legacy(struct dict *driver, const char *uri,
 		    const struct dict_legacy_settings *set,
 		    struct dict **dict_r, const char **error_r)
 {
-	struct fs_settings fs_set;
+	struct fs_parameters fs_param;
 	struct fs *fs;
 	struct fs_dict *dict;
 	const char *p, *fs_driver, *fs_args;
@@ -43,9 +43,9 @@ fs_dict_init_legacy(struct dict *driver, const char *uri,
 		fs_args = p+1;
 	}
 
-	i_zero(&fs_set);
-	fs_set.base_dir = set->base_dir;
-	if (fs_init(fs_driver, fs_args, set->event_parent, &fs_set,
+	i_zero(&fs_param);
+	fs_param.base_dir = set->base_dir;
+	if (fs_init(fs_driver, fs_args, set->event_parent, &fs_param,
 		    &fs, error_r) < 0)
 		return -1;
 

@@ -365,7 +365,7 @@ static void stats_output(struct test_ctx *ctx)
 
 int main(int argc, char *argv[])
 {
-	struct fs_settings set;
+	struct fs_parameters params;
 	struct test_ctx ctx;
 	const char *error;
 	unsigned int timeout_secs = 0;
@@ -376,8 +376,8 @@ int main(int argc, char *argv[])
 	ctx.max_parallel_ops = DEFAULT_MAX_PARALLEL_OPS;
 	ctx.files_count = DEFAULT_FILES_COUNT;
 
-	i_zero(&set);
-	set.base_dir = PKG_RUNDIR;
+	i_zero(&params);
+	params.base_dir = PKG_RUNDIR;
 	master_service = master_service_init("test-fs",
 					     MASTER_SERVICE_FLAG_STANDALONE,
 					     &argc, &argv, "Daf:p:st:u:");
@@ -402,7 +402,7 @@ int main(int argc, char *argv[])
 			ctx.sync_only = TRUE;
 			break;
 		case 'u':
-			set.username = optarg;
+			params.username = optarg;
 			break;
 		case 't':
 			if (str_to_uint(optarg, &timeout_secs) < 0)
@@ -422,7 +422,7 @@ int main(int argc, char *argv[])
 	dict_drivers_register_builtin();
 
 	if (fs_init(argv[0], argv[1], master_service_get_event(master_service),
-		    &set, &ctx.fs, &error) < 0)
+		    &params, &ctx.fs, &error) < 0)
 		i_fatal("fs_init() failed: %s", error);
 	ctx.prefix = argv[2];
 

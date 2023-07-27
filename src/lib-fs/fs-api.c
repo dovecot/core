@@ -38,7 +38,7 @@ static struct event *fs_create_event(struct fs *fs, struct event *parent)
 
 static int
 fs_alloc(const struct fs *fs_class, const char *args,
-	 struct event *event_parent, const struct fs_settings *set,
+	 struct event *event_parent, const struct fs_parameters *params,
 	 struct fs **fs_r, const char **error_r)
 {
 	struct fs *fs;
@@ -47,20 +47,20 @@ fs_alloc(const struct fs *fs_class, const char *args,
 
 	fs = fs_class->v.alloc();
 	fs->refcount = 1;
-	fs->enable_timing = set->enable_timing;
+	fs->enable_timing = params->enable_timing;
 	i_array_init(&fs->module_contexts, 5);
 	fs->event = fs_create_event(fs, event_parent);
 
 	T_BEGIN {
-		ret = fs_class->v.init(fs, args, event_parent, set, &error);
+		ret = fs_class->v.init(fs, args, event_parent, params, &error);
 	} T_END_PASS_STR_IF(ret < 0, &error);
 	if (ret < 0) {
 		*error_r = t_strdup_printf("%s: %s", fs_class->name, error);
 		fs_unref(&fs);
 		return -1;
 	}
-	fs->username = i_strdup(set->username);
-	fs->session_id = i_strdup(set->session_id);
+	fs->username = i_strdup(params->username);
+	fs->session_id = i_strdup(params->session_id);
 	*fs_r = fs;
 	return 0;
 }
@@ -143,7 +143,7 @@ static void fs_class_try_load_plugin(const char *driver)
 }
 
 int fs_init(const char *driver, const char *args,
-	    struct event *event_parent, const struct fs_settings *set,
+	    struct event *event_parent, const struct fs_parameters *params,
 	    struct fs **fs_r, const char **error_r)
 {
 	const struct fs *fs_class;
@@ -160,17 +160,17 @@ int fs_init(const char *driver, const char *args,
 		*error_r = t_strdup_printf("Unknown fs driver: %s", driver);
 		return -1;
 	}
-	if (fs_alloc(fs_class, args, event_parent, set, fs_r, error_r) < 0)
+	if (fs_alloc(fs_class, args, event_parent, params, fs_r, error_r) < 0)
 		return -1;
 	event_set_ptr((*fs_r)->event, FS_EVENT_FIELD_FS, *fs_r);
 
-	temp_file_prefix = set->temp_file_prefix != NULL ?
-		set->temp_file_prefix : ".temp.dovecot";
-	if(set->temp_dir == NULL)
+	temp_file_prefix = params->temp_file_prefix != NULL ?
+		params->temp_file_prefix : ".temp.dovecot";
+	if(params->temp_dir == NULL)
 		(*fs_r)->temp_path_prefix = i_strconcat("/tmp/",
 						temp_file_prefix, NULL);
 	else
-		(*fs_r)->temp_path_prefix = i_strconcat(set->temp_dir, "/",
+		(*fs_r)->temp_path_prefix = i_strconcat(params->temp_dir, "/",
 						temp_file_prefix, NULL);
 	return 0;
 }
