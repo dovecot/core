@@ -152,9 +152,10 @@ fs_alloc(const char *driver, struct event *event_parent,
 	return 0;
 }
 
-int fs_init(const char *driver, const char *args,
-	    struct event *event_parent, const struct fs_parameters *params,
-	    struct fs **fs_r, const char **error_r)
+int fs_legacy_init(const char *driver, const char *args,
+		   struct event *event_parent,
+		   const struct fs_parameters *params,
+		   struct fs **fs_r, const char **error_r)
 {
 	struct fs *fs;
 	const char *error;
@@ -164,7 +165,7 @@ int fs_init(const char *driver, const char *args,
 		return -1;
 
 	T_BEGIN {
-		ret = fs->v.init(fs, args, params, &error);
+		ret = fs->v.legacy_init(fs, args, params, &error);
 	} T_END_PASS_STR_IF(ret < 0, &error);
 	if (ret < 0) {
 		*error_r = t_strdup_printf("%s: %s", fs->name, error);

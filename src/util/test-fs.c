@@ -421,8 +421,8 @@ int main(int argc, char *argv[])
 	master_service_init_finish(master_service);
 	dict_drivers_register_builtin();
 
-	if (fs_init(argv[0], argv[1], master_service_get_event(master_service),
-		    &params, &ctx.fs, &error) < 0)
+	if (fs_legacy_init(argv[0], argv[1], master_service_get_event(master_service),
+			   &params, &ctx.fs, &error) < 0)
 		i_fatal("fs_init() failed: %s", error);
 	ctx.prefix = argv[2];
 

@@ -100,8 +100,8 @@ fs_compress_init(struct fs *_fs, const char *args,
 		parent_name = t_strdup_until(args, parent_args);
 		parent_args++;
 	}
-	return fs_init(parent_name, parent_args, _fs->event, params,
-		       &_fs->parent, error_r);
+	return fs_legacy_init(parent_name, parent_args, _fs->event, params,
+			      &_fs->parent, error_r);
 }
 
 static void fs_compress_free(struct fs *_fs)
@@ -267,7 +267,7 @@ const struct fs fs_class_compress = {
 	.name = "compress",
 	.v = {
 		.alloc = fs_compress_alloc,
-		.init = fs_compress_init,
+		.legacy_init = fs_compress_init,
 		.deinit = NULL,
 		.free = fs_compress_free,
 		.get_properties = fs_wrapper_get_properties,

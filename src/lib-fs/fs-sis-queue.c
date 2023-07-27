@@ -51,8 +51,8 @@ fs_sis_queue_init(struct fs *_fs, const char *args,
 		parent_args = "";
 	else
 		parent_name = t_strdup_until(parent_name, parent_args++);
-	if (fs_init(parent_name, parent_args, _fs->event, params,
-		    &_fs->parent, error_r) < 0)
+	if (fs_legacy_init(parent_name, parent_args, _fs->event, params,
+			   &_fs->parent, error_r) < 0)
 		return -1;
 	return 0;
 }
@@ -173,7 +173,7 @@ const struct fs fs_class_sis_queue = {
 	.name = "sis-queue",
 	.v = {
 		.alloc = fs_sis_queue_alloc,
-		.init = fs_sis_queue_init,
+		.legacy_init = fs_sis_queue_init,
 		.deinit = NULL,
 		.free = fs_sis_queue_free,
 		.get_properties = fs_wrapper_get_properties,

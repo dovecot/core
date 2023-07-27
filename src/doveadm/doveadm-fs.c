@@ -35,8 +35,8 @@ cmd_fs_init(struct doveadm_cmd_context *cctx)
 	fs_param.temp_dir = doveadm_settings->mail_temp_dir;
 	fs_param.base_dir = doveadm_settings->base_dir;
 
-	if (fs_init(fs_driver, fs_args, cctx->event, &fs_param,
-		    &fs, &error) < 0)
+	if (fs_legacy_init(fs_driver, fs_args, cctx->event, &fs_param,
+			   &fs, &error) < 0)
 		i_fatal("fs_init() failed: %s", error);
 	return fs;
 }
