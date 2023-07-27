@@ -19,7 +19,7 @@ static struct fs *fs_test_alloc(void)
 static int
 fs_test_init(struct fs *_fs ATTR_UNUSED, const char *args ATTR_UNUSED,
 	     struct event *event_parent ATTR_UNUSED,
-	     const struct fs_settings *set ATTR_UNUSED,
+	     const struct fs_parameters *params ATTR_UNUSED,
 	     const char **error_r ATTR_UNUSED)
 {
 	return 0;

@@ -28,12 +28,12 @@ static void test_fs_posix(void)
 	int ret;
 	const char *error;
 	struct fs *fs;
-	struct fs_settings fs_set;
+	struct fs_parameters fs_params;
 
 	test_begin("test-fs-posix filesystem");
-	i_zero(&fs_set);
+	i_zero(&fs_params);
 	ret = fs_init("posix", t_strdup_printf("prefix=%s/", testdir), NULL,
-		      &fs_set, &fs, &error);
+		      &fs_params, &fs, &error);
 	test_out_quiet("fs_init() failed", ret >= 0);
 	if (ret < 0) {
 		test_end();

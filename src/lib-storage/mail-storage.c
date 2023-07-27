@@ -452,12 +452,12 @@ mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
 	   wants to use its own. */
 	if (storage->v.list_index_rebuild != NULL &&
 	    storage->mailboxes_fs == NULL) {
-		struct fs_settings fs_set;
+		struct fs_parameters fs_params;
 		const char *error;
-		i_zero(&fs_set);
+		i_zero(&fs_params);
 
-		mail_user_init_fs_settings(storage->user, &fs_set);
-		if (fs_init("posix", "", storage->user->event, &fs_set,
+		mail_user_init_fs_settings(storage->user, &fs_params);
+		if (fs_init("posix", "", storage->user->event, &fs_params,
 			    &storage->mailboxes_fs, &error) < 0) {
 			*error_r = t_strdup_printf("fs_init(posix) failed: %s", error);
 			storage->v.destroy(storage);

@@ -741,13 +741,13 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 }
 
 void mail_user_init_fs_settings(struct mail_user *user,
-				struct fs_settings *fs_set)
+				struct fs_parameters *fs_params)
 {
-	fs_set->username = user->username;
-	fs_set->session_id = user->session_id;
-	fs_set->base_dir = user->set->base_dir;
-	fs_set->temp_dir = user->set->mail_temp_dir;
-	fs_set->enable_timing = user->stats_enabled;
+	fs_params->username = user->username;
+	fs_params->session_id = user->session_id;
+	fs_params->base_dir = user->set->base_dir;
+	fs_params->temp_dir = user->set->mail_temp_dir;
+	fs_params->enable_timing = user->stats_enabled;
 }
 
 static int

@@ -84,13 +84,13 @@ static void test_fs_async_copy(const char *test_name, struct fs *fs)
 void test_fs_async(const char *test_name, enum fs_properties properties,
 		   const char *driver, const char *args)
 {
-	struct fs_settings fs_set;
+	struct fs_parameters fs_params;
 	struct fs *fs;
 	struct test_fs *test_fs;
 	const char *error;
 
-	i_zero(&fs_set);
-	if (fs_init(driver, args, NULL, &fs_set, &fs, &error) < 0)
+	i_zero(&fs_params);
+	if (fs_init(driver, args, NULL, &fs_params, &fs, &error) < 0)
 		i_fatal("fs_init() failed: %s", error);
 
 	test_fs = test_fs_get(fs);

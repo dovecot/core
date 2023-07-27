@@ -78,15 +78,15 @@ static struct fs *fs_posix_alloc(void)
 static int
 fs_posix_init(struct fs *_fs, const char *args,
 	      struct event *event_parent ATTR_UNUSED,
-	      const struct fs_settings *set, const char **error_r)
+	      const struct fs_parameters *params, const char **error_r)
 {
 	struct posix_fs *fs = container_of(_fs, struct posix_fs, fs);
 	const char *value, *const *tmp;
 
-	fs->temp_file_prefix = set->temp_file_prefix != NULL ?
-		i_strdup(set->temp_file_prefix) : i_strdup("temp.dovecot.");
+	fs->temp_file_prefix = params->temp_file_prefix != NULL ?
+		i_strdup(params->temp_file_prefix) : i_strdup("temp.dovecot.");
 	fs->temp_file_prefix_len = strlen(fs->temp_file_prefix);
-	fs->root_path = i_strdup(set->root_path);
+	fs->root_path = i_strdup(params->root_path);
 
 	fs->lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
 	fs->mode = FS_DEFAULT_MODE;
