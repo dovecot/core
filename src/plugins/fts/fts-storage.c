@@ -507,33 +507,13 @@ static int fts_mail_index(struct mail *_mail)
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT_REQUIRE(_mail->box->list);
 	struct mail_private *pmail = (struct mail_private *)_mail;
 
+	i_assert(pmail->vmail == NULL);
 	if (ft->failure_reason != NULL)
 		return -1;
 
 	if (!ft->precached) {
 		if (fts_mail_precache_init(_mail) < 0)
 			return -1;
-	}
-	if (pmail->vmail != NULL) {
-		/* Indexing via virtual mailbox: Index all the mails in this
-		   same real mailbox. */
-		uint32_t msgs_count =
-			mail_index_view_get_messages_count(_mail->box->view);
-
-		fts_backend_update_set_mailbox(flist->update_ctx, _mail->box);
-		if (ft->next_index_seq > msgs_count) {
-			/* everything indexed already */
-			return 0;
-		} else if (fts_mail_precache_range(_mail->transaction,
-						   flist->update_ctx,
-						   ft->next_index_seq,
-						   msgs_count,
-						   &ft->precache_extra_count) < 0) {
-			return -1;
-		} else {
-			ft->next_index_seq = msgs_count+1;
-			return 0;
-		}
 	}
 
 	if (ft->next_index_seq < _mail->seq) {
@@ -565,11 +545,9 @@ static int fts_mail_precache(struct mail *_mail)
 	struct fts_transaction_context *ft = FTS_CONTEXT_REQUIRE(_mail->transaction);
 	int ret = 0;
 
+	i_assert(!fmail->virtual_mail);
 	fmail->module_ctx.super.precache(_mail);
-	if (fmail->virtual_mail) {
-		if (ft->highest_virtual_uid < _mail->uid)
-			ft->highest_virtual_uid = _mail->uid;
-	} else if (!ft->indexing) T_BEGIN {
+	if (!ft->indexing) T_BEGIN {
 		/* avoid recursing here from fts_mail_precache_range() */
 		struct event_reason *reason =
 			event_reason_begin("fts:index");
