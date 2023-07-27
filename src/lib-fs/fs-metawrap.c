@@ -65,8 +65,8 @@ fs_metawrap_init(struct fs *_fs, const char *args,
 		parent_name = t_strdup_until(args, parent_args);
 		parent_args++;
 	}
-	if (fs_init(parent_name, parent_args, _fs->event, params,
-		    &_fs->parent, error_r) < 0)
+	if (fs_legacy_init(parent_name, parent_args, _fs->event, params,
+			   &_fs->parent, error_r) < 0)
 		return -1;
 	if ((fs_get_properties(_fs->parent) & FS_PROPERTY_METADATA) == 0)
 		fs->wrap_metadata = TRUE;
@@ -499,7 +499,7 @@ const struct fs fs_class_metawrap = {
 	.name = "metawrap",
 	.v = {
 		.alloc = fs_metawrap_alloc,
-		.init = fs_metawrap_init,
+		.legacy_init = fs_metawrap_init,
 		.deinit = NULL,
 		.free = fs_metawrap_free,
 		.get_properties = fs_metawrap_get_properties,

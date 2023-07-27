@@ -43,7 +43,7 @@ static void test_setup(void)
 	fs_class_register(&fs_class_posix);
 	fs_class_register(&fs_class_crypt);
 
-	if (fs_init("posix", "", NULL, &test_fs_params, &fs, &error) < 0)
+	if (fs_legacy_init("posix", "", NULL, &test_fs_params, &fs, &error) < 0)
 		 i_fatal("fs_init(posix) failed: %s", error);
 	/* write keys to disk */
 	file = fs_file_init(fs, "test_public_key.pem", FS_OPEN_MODE_CREATE);
@@ -67,9 +67,9 @@ static void test_fs_crypt_read_write(void)
 	const char *error;
 	struct fs *fs;
 
-	if (fs_init("crypt", "public_key_path=test_public_key.pem:"
-		    "private_key_path=test_private_key.pem:posix",
-		    NULL, &test_fs_params, &fs, &error) < 0)
+	if (fs_legacy_init("crypt", "public_key_path=test_public_key.pem:"
+			   "private_key_path=test_private_key.pem:posix",
+			   NULL, &test_fs_params, &fs, &error) < 0)
 		i_fatal("fs_init(crypt:posix) failed: %s", error);
 
 	i_unlink_if_exists("test_file");
@@ -116,9 +116,9 @@ static void test_fs_crypt_read_write_0(void)
 	const char *error;
 	struct fs *fs;
 
-	if (fs_init("crypt", "public_key_path=test_public_key.pem:"
-		    "private_key_path=test_private_key.pem:posix",
-		    NULL, &test_fs_params, &fs, &error) < 0)
+	if (fs_legacy_init("crypt", "public_key_path=test_public_key.pem:"
+			   "private_key_path=test_private_key.pem:posix",
+			   NULL, &test_fs_params, &fs, &error) < 0)
 		i_fatal("fs_init(crypt:posix) failed: %s", error);
 
 	i_unlink_if_exists("test_file");
@@ -157,10 +157,10 @@ static void test_fs_crypt_read_write_unencrypted(void)
 	const char *error;
 	struct fs *fs;
 
-	if (fs_init("crypt", "public_key_path=:"
-		    "private_key_path=test_private_key.pem:"
-		    "maybe:posix",
-		    NULL, &test_fs_params, &fs, &error) < 0)
+	if (fs_legacy_init("crypt", "public_key_path=:"
+			   "private_key_path=test_private_key.pem:"
+			   "maybe:posix",
+			   NULL, &test_fs_params, &fs, &error) < 0)
 		i_fatal("fs_init(crypt:posix) failed: %s", error);
 
 	i_unlink_if_exists("test_file");
@@ -199,10 +199,10 @@ static void test_fs_crypt_read_write_unencrypted(void)
 	fs_file_deinit(&file);
 	fs_deinit(&fs);
 
-	if (fs_init("crypt", "public_key_path=test_public_key.pem:"
-		    "private_key_path=test_private_key.pem:"
-		    "maybe:posix",
-		    NULL, &test_fs_params, &fs, &error) < 0)
+	if (fs_legacy_init("crypt", "public_key_path=test_public_key.pem:"
+			   "private_key_path=test_private_key.pem:"
+			   "maybe:posix",
+			   NULL, &test_fs_params, &fs, &error) < 0)
 		i_fatal("fs_init(crypt:posix) failed: %s", error);
 
 	i_unlink_if_exists("test_file");

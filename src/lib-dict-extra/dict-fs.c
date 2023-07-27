@@ -45,8 +45,8 @@ fs_dict_init_legacy(struct dict *driver, const char *uri,
 
 	i_zero(&fs_param);
 	fs_param.base_dir = set->base_dir;
-	if (fs_init(fs_driver, fs_args, set->event_parent, &fs_param,
-		    &fs, error_r) < 0)
+	if (fs_legacy_init(fs_driver, fs_args, set->event_parent, &fs_param,
+			   &fs, error_r) < 0)
 		return -1;
 
 	dict = i_new(struct fs_dict, 1);

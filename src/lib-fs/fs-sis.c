@@ -60,8 +60,8 @@ fs_sis_init(struct fs *_fs, const char *args,
 		parent_name = t_strdup_until(args, parent_args);
 		parent_args++;
 	}
-	if (fs_init(parent_name, parent_args, _fs->event, params,
-		    &_fs->parent, error_r) < 0)
+	if (fs_legacy_init(parent_name, parent_args, _fs->event, params,
+			   &_fs->parent, error_r) < 0)
 		return -1;
 	props = fs_get_properties(_fs->parent);
 	if ((props & FS_SIS_REQUIRED_PROPS) != FS_SIS_REQUIRED_PROPS) {
@@ -255,7 +255,7 @@ const struct fs fs_class_sis = {
 	.name = "sis",
 	.v = {
 		.alloc = fs_sis_alloc,
-		.init = fs_sis_init,
+		.legacy_init = fs_sis_init,
 		.deinit = NULL,
 		.free = fs_sis_free,
 		.get_properties = fs_wrapper_get_properties,

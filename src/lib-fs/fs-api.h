@@ -199,9 +199,10 @@ ARRAY_DEFINE_TYPE(fs_metadata, struct fs_metadata);
 typedef void fs_file_async_callback_t(void *context);
 
 /* event_parent can be overridden by fs_file_init_with_event() */
-int fs_init(const char *driver, const char *args,
-	    struct event *event_parent, const struct fs_parameters *params,
-	    struct fs **fs_r, const char **error_r);
+int fs_legacy_init(const char *driver, const char *args,
+		   struct event *event_parent,
+		   const struct fs_parameters *params,
+		   struct fs **fs_r, const char **error_r);
 /* same as fs_unref() */
 void fs_deinit(struct fs **fs);
 

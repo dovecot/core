@@ -2095,7 +2095,8 @@ int mailbox_list_init_fs(struct mailbox_list *list, struct event *event_parent,
 
 	if (event_parent == NULL)
 		event_parent = list->ns->user->event;
-	if (fs_init(driver, args, event_parent, &fs_params, fs_r, error_r) < 0)
+	if (fs_legacy_init(driver, args, event_parent, &fs_params,
+			   fs_r, error_r) < 0)
 		return -1;
 
 	/* add mailbox_list context to the parent fs, which allows
