@@ -46,11 +46,9 @@ fs_alloc(const struct fs *fs_class, const char *args,
 
 	fs = fs_class->v.alloc();
 	fs->refcount = 1;
-	fs->set.debug = set->debug;
 	fs->set.enable_timing = set->enable_timing;
 	i_array_init(&fs->module_contexts, 5);
 	fs->event = fs_create_event(fs, set->event_parent);
-	event_set_forced_debug(fs->event, fs->set.debug);
 
 	T_BEGIN {
 		ret = fs_class->v.init(fs, args, set, &error);

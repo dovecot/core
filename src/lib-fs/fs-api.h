@@ -150,8 +150,6 @@ struct fs_settings {
 	   fs_file_init_with_event() */
 	struct event *event_parent;
 
-	/* Enable debugging */
-	bool debug;
 	/* Enable timing statistics */
 	bool enable_timing;
 };
