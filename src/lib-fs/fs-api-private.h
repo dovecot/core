@@ -93,8 +93,6 @@ struct fs {
 
 	char *username, *session_id;
 
-	struct fs_settings set;
-
 	/* may be used by fs_wait_async() to do the waiting */
 	struct ioloop *wait_ioloop, *prev_ioloop;
 
@@ -103,6 +101,7 @@ struct fs {
 	struct fs_iter *iters;
 	struct event *event;
 
+	bool enable_timing;
 	struct fs_stats stats;
 
 	ARRAY(union fs_api_module_context *) module_contexts;
