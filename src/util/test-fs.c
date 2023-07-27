@@ -381,11 +381,11 @@ int main(int argc, char *argv[])
 	master_service = master_service_init("test-fs",
 					     MASTER_SERVICE_FLAG_STANDALONE,
 					     &argc, &argv, "Daf:p:st:u:");
-	set.event_parent = master_service_get_event(master_service);
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'D':
-			event_set_forced_debug(set.event_parent, TRUE);
+			event_set_forced_debug(
+				master_service_get_event(master_service), TRUE);
 			break;
 		case 'a':
 			ctx.async_only = TRUE;
@@ -421,7 +421,8 @@ int main(int argc, char *argv[])
 	master_service_init_finish(master_service);
 	dict_drivers_register_builtin();
 
-	if (fs_init(argv[0], argv[1], &set, &ctx.fs, &error) < 0)
+	if (fs_init(argv[0], argv[1], master_service_get_event(master_service),
+		    &set, &ctx.fs, &error) < 0)
 		i_fatal("fs_init() failed: %s", error);
 	ctx.prefix = argv[2];
 

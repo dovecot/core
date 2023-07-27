@@ -743,7 +743,6 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 void mail_user_init_fs_settings(struct mail_user *user,
 				struct fs_settings *fs_set)
 {
-	fs_set->event_parent = user->event;
 	fs_set->username = user->username;
 	fs_set->session_id = user->session_id;
 	fs_set->base_dir = user->set->base_dir;
