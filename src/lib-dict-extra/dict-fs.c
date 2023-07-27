@@ -45,6 +45,7 @@ fs_dict_init_legacy(struct dict *driver, const char *uri,
 
 	i_zero(&fs_set);
 	fs_set.base_dir = set->base_dir;
+	fs_set.event_parent = set->event_parent;
 	if (fs_init(fs_driver, fs_args, &fs_set, &fs, error_r) < 0)
 		return -1;
 
