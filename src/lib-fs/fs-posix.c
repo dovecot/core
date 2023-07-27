@@ -87,8 +87,6 @@ fs_posix_init(struct fs *_fs, const char *args,
 		i_strdup(set->temp_file_prefix) : i_strdup("temp.dovecot.");
 	fs->temp_file_prefix_len = strlen(fs->temp_file_prefix);
 	fs->root_path = i_strdup(set->root_path);
-	fs->fs.set.temp_file_prefix = fs->temp_file_prefix;
-	fs->fs.set.root_path = fs->root_path;
 
 	fs->lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
 	fs->mode = FS_DEFAULT_MODE;

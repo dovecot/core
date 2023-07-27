@@ -47,7 +47,7 @@ fs_alloc(const struct fs *fs_class, const char *args,
 
 	fs = fs_class->v.alloc();
 	fs->refcount = 1;
-	fs->set.enable_timing = set->enable_timing;
+	fs->enable_timing = set->enable_timing;
 	i_array_init(&fs->module_contexts, 5);
 	fs->event = fs_create_event(fs, event_parent);
 
@@ -451,7 +451,7 @@ void fs_set_metadata(struct fs_file *file, const char *key, const char *value)
 
 static void fs_file_timing_start(struct fs_file *file, enum fs_op op)
 {
-	if (!file->fs->set.enable_timing)
+	if (!file->fs->enable_timing)
 		return;
 	if (file->timing_start[op].tv_sec == 0)
 		i_gettimeofday(&file->timing_start[op]);
@@ -475,7 +475,7 @@ fs_timing_end(struct stats_dist **timing, const struct timeval *start_tv)
 
 void fs_file_timing_end(struct fs_file *file, enum fs_op op)
 {
-	if (!file->fs->set.enable_timing || file->timing_start[op].tv_sec == 0)
+	if (!file->fs->enable_timing || file->timing_start[op].tv_sec == 0)
 		return;
 
 	fs_timing_end(&file->fs->stats.timings[op], &file->timing_start[op]);
@@ -749,7 +749,7 @@ struct istream *fs_read_stream(struct fs_file *file, size_t max_buffer_size)
 		fs_file_timing_end(file, FS_OP_READ);
 		return input;
 	}
-	if (file->fs->set.enable_timing) {
+	if (file->fs->enable_timing) {
 		struct istream *input2 = i_stream_create_fs_stats(input, file);
 
 		i_stream_unref(&input);
@@ -1233,7 +1233,7 @@ fs_iter_init_with_event(struct fs *fs, struct event *event,
 		 (fs_get_properties(fs) & FS_PROPERTY_OBJECTIDS) != 0);
 
 	fs->stats.iter_count++;
-	if (fs->set.enable_timing)
+	if (fs->enable_timing)
 		i_gettimeofday(&now);
 	if (fs->v.iter_init == NULL)
 		iter = i_new(struct fs_iter, 1);
