@@ -748,7 +748,6 @@ void mail_user_init_fs_settings(struct mail_user *user,
 	fs_set->session_id = user->session_id;
 	fs_set->base_dir = user->set->base_dir;
 	fs_set->temp_dir = user->set->mail_temp_dir;
-	fs_set->debug = event_want_debug(user->event);
 	fs_set->enable_timing = user->stats_enabled;
 }
 
