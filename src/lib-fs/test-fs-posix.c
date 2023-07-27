@@ -32,7 +32,8 @@ static void test_fs_posix(void)
 
 	test_begin("test-fs-posix filesystem");
 	i_zero(&fs_set);
-	ret = fs_init("posix", t_strdup_printf("prefix=%s/", testdir), &fs_set, &fs, &error);
+	ret = fs_init("posix", t_strdup_printf("prefix=%s/", testdir), NULL,
+		      &fs_set, &fs, &error);
 	test_out_quiet("fs_init() failed", ret >= 0);
 	if (ret < 0) {
 		test_end();

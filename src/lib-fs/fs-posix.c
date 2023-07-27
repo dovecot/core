@@ -76,8 +76,9 @@ static struct fs *fs_posix_alloc(void)
 }
 
 static int
-fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set,
-	      const char **error_r)
+fs_posix_init(struct fs *_fs, const char *args,
+	      struct event *event_parent ATTR_UNUSED,
+	      const struct fs_settings *set, const char **error_r)
 {
 	struct posix_fs *fs = container_of(_fs, struct posix_fs, fs);
 	const char *value, *const *tmp;

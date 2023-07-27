@@ -164,7 +164,8 @@ static int fs_randomfail_parse_params(struct randomfail_fs *fs,
 
 static int
 fs_randomfail_init(struct fs *_fs, const char *args,
-		   const struct fs_settings *set, const char **error_r)
+		   struct event *event_parent, const struct fs_settings *set,
+		   const char **error_r)
 {
 	struct randomfail_fs *fs = RANDOMFAIL_FS(_fs);
 	const char *p, *parent_name, *parent_args, *error;
@@ -194,7 +195,8 @@ fs_randomfail_init(struct fs *_fs, const char *args,
 		parent_name = t_strdup_until(args, parent_args);
 		parent_args++;
 	}
-	if (fs_init(parent_name, parent_args, set, &_fs->parent, error_r) < 0)
+	if (fs_init(parent_name, parent_args, event_parent, set,
+		    &_fs->parent, error_r) < 0)
 		return -1;
 	return 0;
 }

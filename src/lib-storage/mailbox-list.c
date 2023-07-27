@@ -2090,13 +2090,12 @@ int mailbox_list_init_fs(struct mailbox_list *list, struct event *event_parent,
 
 	i_zero(&fs_set);
 	mail_user_init_fs_settings(list->ns->user, &fs_set);
-	/* fs_set.event_parent points to user->event by default */
-	if (event_parent != NULL)
-		fs_set.event_parent = event_parent;
 	fs_set.root_path = root_dir;
 	fs_set.temp_file_prefix = mailbox_list_get_global_temp_prefix(list);
 
-	if (fs_init(driver, args, &fs_set, fs_r, error_r) < 0)
+	if (event_parent == NULL)
+		event_parent = list->ns->user->event;
+	if (fs_init(driver, args, event_parent, &fs_set, fs_r, error_r) < 0)
 		return -1;
 
 	/* add mailbox_list context to the parent fs, which allows

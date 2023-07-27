@@ -41,8 +41,8 @@ static struct fs *fs_sis_alloc(void)
 }
 
 static int
-fs_sis_init(struct fs *_fs, const char *args, const struct fs_settings *set,
-	    const char **error_r)
+fs_sis_init(struct fs *_fs, const char *args, struct event *event_parent,
+	    const struct fs_settings *set, const char **error_r)
 {
 	enum fs_properties props;
 	const char *parent_name, *parent_args;
@@ -60,7 +60,8 @@ fs_sis_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 		parent_name = t_strdup_until(args, parent_args);
 		parent_args++;
 	}
-	if (fs_init(parent_name, parent_args, set, &_fs->parent, error_r) < 0)
+	if (fs_init(parent_name, parent_args, event_parent, set,
+		    &_fs->parent, error_r) < 0)
 		return -1;
 	props = fs_get_properties(_fs->parent);
 	if ((props & FS_SIS_REQUIRED_PROPS) != FS_SIS_REQUIRED_PROPS) {
