@@ -381,10 +381,11 @@ int main(int argc, char *argv[])
 	master_service = master_service_init("test-fs",
 					     MASTER_SERVICE_FLAG_STANDALONE,
 					     &argc, &argv, "Daf:p:st:u:");
+	set.event_parent = master_service_get_event(master_service);
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'D':
-			set.debug = TRUE;
+			event_set_forced_debug(set.event_parent, TRUE);
 			break;
 		case 'a':
 			ctx.async_only = TRUE;
