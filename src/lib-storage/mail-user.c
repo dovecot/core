@@ -740,7 +740,7 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 	return user2;
 }
 
-void mail_user_init_fs_settings(struct mail_user *user,
+void mail_user_init_fs_parameters(struct mail_user *user,
 				struct fs_parameters *fs_params)
 {
 	fs_params->username = user->username;

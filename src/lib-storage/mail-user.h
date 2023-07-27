@@ -202,7 +202,7 @@ mail_user_get_storage_class(struct mail_user *user, const char *name);
 void mail_user_add_event_fields(struct mail_user *user);
 
 /* Initialize fs_parameters from mail_user settings. */
-void mail_user_init_fs_settings(struct mail_user *user,
+void mail_user_init_fs_parameters(struct mail_user *user,
 				struct fs_parameters *fs_set);
 
 /* Try to mkdir() user's home directory. Ideally this should be called only

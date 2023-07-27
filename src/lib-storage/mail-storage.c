@@ -456,7 +456,7 @@ mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
 		const char *error;
 		i_zero(&fs_params);
 
-		mail_user_init_fs_settings(storage->user, &fs_params);
+		mail_user_init_fs_parameters(storage->user, &fs_params);
 		if (fs_init("posix", "", storage->user->event, &fs_params,
 			    &storage->mailboxes_fs, &error) < 0) {
 			*error_r = t_strdup_printf("fs_init(posix) failed: %s", error);
