@@ -41,8 +41,26 @@ static struct fs *fs_sis_alloc(void)
 }
 
 static int
-fs_sis_init(struct fs *_fs, const char *args,
-	    const struct fs_parameters *params, const char **error_r)
+fs_sis_init(struct fs *_fs, const struct fs_parameters *params,
+	    const char **error_r)
+{
+	enum fs_properties props;
+
+	if (fs_init_parent(_fs, params, error_r) < 0)
+		return -1;
+
+	props = fs_get_properties(_fs->parent);
+	if ((props & FS_SIS_REQUIRED_PROPS) != FS_SIS_REQUIRED_PROPS) {
+		*error_r = t_strdup_printf("%s backend can't be used with SIS",
+					   _fs->name);
+		return -1;
+	}
+	return 0;
+}
+
+static int
+fs_sis_legacy_init(struct fs *_fs, const char *args,
+		   const struct fs_parameters *params, const char **error_r)
 {
 	enum fs_properties props;
 	const char *parent_name, *parent_args;
@@ -255,7 +273,8 @@ const struct fs fs_class_sis = {
 	.name = "sis",
 	.v = {
 		.alloc = fs_sis_alloc,
-		.legacy_init = fs_sis_init,
+		.init = fs_sis_init,
+		.legacy_init = fs_sis_legacy_init,
 		.deinit = NULL,
 		.free = fs_sis_free,
 		.get_properties = fs_wrapper_get_properties,
