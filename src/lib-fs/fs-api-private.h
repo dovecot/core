@@ -27,6 +27,8 @@ extern struct fs_api_module_register fs_api_module_register;
 
 struct fs_vfuncs {
 	struct fs *(*alloc)(void);
+	int (*init)(struct fs *fs, const struct fs_parameters *params,
+		    const char **error_r);
 	int (*legacy_init)(struct fs *fs, const char *args,
 			   const struct fs_parameters *params,
 			   const char **error_r);
@@ -90,6 +92,7 @@ struct fs {
 	struct fs_vfuncs v;
 	char *temp_path_prefix;
 	int refcount;
+	unsigned int child_count;
 
 	char *username, *session_id;
 
@@ -175,6 +178,9 @@ extern const struct fs fs_class_sis_queue;
 extern const struct fs fs_class_test;
 
 void fs_class_register(const struct fs *fs_class);
+
+int fs_init_parent(struct fs *fs, const struct fs_parameters *params,
+		   const char **error_r);
 
 /* Event must be fs_file or fs_iter events. Set errno from err. */
 void fs_set_error(struct event *event, int err,

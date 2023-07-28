@@ -11,8 +11,32 @@
 #include "ostream.h"
 #include "stats-dist.h"
 #include "time-util.h"
+#include "settings.h"
 #include "istream-fs-stats.h"
 #include "fs-api-private.h"
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct fs_settings)
+static const struct setting_define fs_setting_defines[] = {
+	DEF(STR, fs_driver),
+	{ .type = SET_FILTER_HIERARCHY, .key = "fs_parent",
+	  .required_setting = "fs_driver", },
+
+	SETTING_DEFINE_LIST_END
+};
+static const struct fs_settings fs_default_settings = {
+	.fs_driver = "",
+};
+const struct setting_parser_info fs_setting_parser_info = {
+	.name = "fs",
+
+	.defines = fs_setting_defines,
+	.defaults = &fs_default_settings,
+
+	.struct_size = sizeof(struct fs_settings),
+	.pool_offset1 = 1 + offsetof(struct fs_settings, pool),
+};
 
 static struct event_category event_category_fs = {
 	.name = "fs"
@@ -174,6 +198,50 @@ int fs_legacy_init(const char *driver, const char *args,
 	}
 	*fs_r = fs;
 	return 0;
+}
+
+static int fs_init(const char *fs_driver, struct event *event,
+		   const struct fs_parameters *params,
+		   struct fs **fs_r, const char **error_r)
+{
+	struct fs *fs;
+	const char *error;
+	int ret;
+
+	ret = fs_alloc(fs_driver, event, params, &fs, error_r);
+	if (ret < 0)
+		return -1;
+
+	T_BEGIN {
+		ret = fs->v.init(fs, params, &error);
+	} T_END_PASS_STR_IF(ret < 0, &error);
+	if (ret < 0) {
+		*error_r = t_strdup_printf("%s: %s", fs->name, error);
+		fs_unref(&fs);
+		return -1;
+	}
+	*fs_r = fs;
+	return 0;
+}
+
+int fs_init_auto(struct event *event, const struct fs_parameters *params,
+		 struct fs **fs_r, const char **error_r)
+{
+	struct fs_settings *fs_set;
+	int ret;
+
+	if (settings_get(event, &fs_setting_parser_info, 0,
+			 &fs_set, error_r) < 0)
+		return -1;
+	if (fs_set->fs_driver[0] == '\0') {
+		settings_free(fs_set);
+		*error_r = "fs_driver is empty";
+		return 0;
+	}
+
+	ret = fs_init(fs_set->fs_driver, event, params, fs_r, error_r);
+	settings_free(fs_set);
+	return ret < 0 ? -1 : 1;
 }
 
 void fs_deinit(struct fs **fs)
