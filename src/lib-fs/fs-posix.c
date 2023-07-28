@@ -35,7 +35,6 @@ struct posix_fs {
 	size_t temp_file_prefix_len;
 	enum fs_posix_lock_method lock_method;
 	mode_t mode;
-	bool mode_auto;
 	bool have_dirs;
 	bool disable_fsync;
 	bool accurate_mtime;
@@ -101,8 +100,6 @@ fs_posix_init(struct fs *_fs, const char *args,
 		else if (str_begins(arg, "prefix=", &value)) {
 			i_free(fs->path_prefix);
 			fs->path_prefix = i_strdup(value);
-		} else if (strcmp(arg, "mode=auto") == 0) {
-			fs->mode_auto = TRUE;
 		} else if (strcmp(arg, "dirs") == 0) {
 			fs->have_dirs = TRUE;
 		} else if (strcmp(arg, "no-fsync") == 0) {
