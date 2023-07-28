@@ -1042,6 +1042,25 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 			str_printfa(filter_string, SETTINGS_EVENT_FILTER_NAME"=\"%s\"",
 				    wildcard_str_escape(last_filter_key));
 			break;
+		case SET_FILTER_HIERARCHY: {
+			/* add the full repeated hierarchy here */
+			const char *next;
+
+			str_printfa(filter_string, SETTINGS_EVENT_FILTER_NAME"=\"%s",
+				    wildcard_str_escape(part));
+			while (str_begins(p + 1, part, &next) &&
+			       next[0] == SETTINGS_SEPARATOR) {
+				str_append_c(filter_string, '/');
+				str_append(filter_string,
+					   wildcard_str_escape(part));
+				p = next;
+			}
+			str_append_c(filter_string, '"');
+
+			last_filter_key = t_strdup_until(set->key, p);
+			last_filter_value = NULL;
+			break;
+		}
 		case SET_FILTER_ARRAY: {
 			const char *value = p + 1;
 			p = strchr(value, SETTINGS_SEPARATOR);
@@ -1372,6 +1391,8 @@ settings_get_full(struct event *event,
 		filter_name_required = TRUE;
 	} else if (filter_key != NULL) {
 		filter_name = filter_key;
+		event_strlist_append(lookup_event, SETTINGS_EVENT_FILTER_NAME,
+				     filter_name);
 		filter_name_required = TRUE;
 	}
 

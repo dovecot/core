@@ -557,6 +557,7 @@ settings_parse(struct setting_parser_context *ctx,
 		break;
 	}
 	case SET_FILTER_NAME:
+	case SET_FILTER_HIERARCHY:
 		settings_parser_set_error(ctx, t_strdup_printf(
 			"Setting is a named filter, use '%s {'", key));
 		return -1;
@@ -575,7 +576,8 @@ settings_find_key(struct setting_parser_context *ctx, const char *key,
 
 	/* try to find the exact key */
 	def = setting_define_find(ctx->info, key);
-	if (def != NULL && (def->type != SET_FILTER_NAME ||
+	if (def != NULL && ((def->type != SET_FILTER_NAME &&
+			     def->type != SET_FILTER_HIERARCHY) ||
 			    allow_filter_name)) {
 		*def_r = def;
 		return TRUE;
