@@ -42,14 +42,22 @@ fs_alloc(const struct fs *fs_class, const char *args,
 	 struct fs **fs_r, const char **error_r)
 {
 	struct fs *fs;
-	const char *error;
+	const char *error, *temp_dir, *temp_file_prefix;
 	int ret;
 
 	fs = fs_class->v.alloc();
 	fs->refcount = 1;
 	fs->enable_timing = params->enable_timing;
+	fs->username = i_strdup(params->username);
+	fs->session_id = i_strdup(params->session_id);
 	i_array_init(&fs->module_contexts, 5);
 	fs->event = fs_create_event(fs, event_parent);
+	event_set_ptr(fs->event, FS_EVENT_FIELD_FS, fs);
+
+	temp_dir = params->temp_dir != NULL ? params->temp_dir : "/tmp";
+	temp_file_prefix = params->temp_file_prefix != NULL ?
+		params->temp_file_prefix : ".temp.dovecot";
+	fs->temp_path_prefix = i_strconcat(temp_dir, "/", temp_file_prefix, NULL);
 
 	T_BEGIN {
 		ret = fs_class->v.init(fs, args, params, &error);
@@ -59,8 +67,6 @@ fs_alloc(const struct fs *fs_class, const char *args,
 		fs_unref(&fs);
 		return -1;
 	}
-	fs->username = i_strdup(params->username);
-	fs->session_id = i_strdup(params->session_id);
 	*fs_r = fs;
 	return 0;
 }
@@ -147,7 +153,6 @@ int fs_init(const char *driver, const char *args,
 	    struct fs **fs_r, const char **error_r)
 {
 	const struct fs *fs_class;
-	const char *temp_file_prefix;
 
 	fs_class = fs_class_find(driver);
 	if (fs_class == NULL) {
@@ -162,16 +167,6 @@ int fs_init(const char *driver, const char *args,
 	}
 	if (fs_alloc(fs_class, args, event_parent, params, fs_r, error_r) < 0)
 		return -1;
-	event_set_ptr((*fs_r)->event, FS_EVENT_FIELD_FS, *fs_r);
-
-	temp_file_prefix = params->temp_file_prefix != NULL ?
-		params->temp_file_prefix : ".temp.dovecot";
-	if(params->temp_dir == NULL)
-		(*fs_r)->temp_path_prefix = i_strconcat("/tmp/",
-						temp_file_prefix, NULL);
-	else
-		(*fs_r)->temp_path_prefix = i_strconcat(params->temp_dir, "/",
-						temp_file_prefix, NULL);
 	return 0;
 }
 
