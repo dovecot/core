@@ -882,6 +882,27 @@ virtual_get_virtual_backend_last_uid(struct mailbox *box, struct mailbox *bbox)
 		bbox->name, box->name);
 }
 
+static void
+virtual_get_virtual_backend_mail_uid(struct mailbox *box, uint32_t seq,
+				     struct mailbox **backend_box_r,
+				     uint32_t *backend_uid_r)
+{
+	struct virtual_mailbox *mbox =
+		container_of(box, struct virtual_mailbox, box);
+
+	const void *data;
+	mail_index_lookup_ext(box->view, seq, mbox->virtual_ext_id, &data, NULL);
+	i_assert(data != NULL);
+
+	const struct virtual_mail_index_record *vrec = data;
+	struct virtual_backend_box *vbbox;
+	bool found = virtual_backend_box_lookup(mbox, vrec->mailbox_id, &vbbox);
+	i_assert(found);
+
+	*backend_box_r = vbbox->box;
+	*backend_uid_r = vrec->real_uid;
+}
+
 static bool virtual_is_inconsistent(struct mailbox *box)
 {
 	struct virtual_mailbox *mbox =
@@ -987,4 +1008,5 @@ struct virtual_mailbox_vfuncs virtual_mailbox_vfuncs = {
 	.get_virtual_uid_map = virtual_get_virtual_uid_map,
 	.get_virtual_backend_boxes = virtual_get_virtual_backend_boxes,
 	.get_virtual_backend_last_uid = virtual_get_virtual_backend_last_uid,
+	.get_virtual_backend_mail_uid = virtual_get_virtual_backend_mail_uid,
 };

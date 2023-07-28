@@ -228,6 +228,9 @@ struct virtual_mailbox_vfuncs {
 					  bool only_with_msgs);
 	uint32_t (*get_virtual_backend_last_uid)(struct mailbox *box,
 						 struct mailbox *bbox);
+	void (*get_virtual_backend_mail_uid)(struct mailbox *box, uint32_t seq,
+					     struct mailbox **backend_box_r,
+					     uint32_t *backend_uid_r);
 };
 
 struct mailbox_vfuncs {
