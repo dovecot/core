@@ -114,14 +114,13 @@ static void fs_class_try_load_plugin(const char *driver)
 }
 
 static int
-fs_alloc(const char *driver, const char *args,
-	 struct event *event_parent, const struct fs_parameters *params,
+fs_alloc(const char *driver, struct event *event_parent,
+	 const struct fs_parameters *params,
 	 struct fs **fs_r, const char **error_r)
 {
 	const struct fs *fs_class;
 	struct fs *fs;
-	const char *error, *temp_dir, *temp_file_prefix;
-	int ret;
+	const char *temp_dir, *temp_file_prefix;
 
 	fs_class = fs_class_find(driver);
 	if (fs_class == NULL) {
@@ -149,14 +148,6 @@ fs_alloc(const char *driver, const char *args,
 		params->temp_file_prefix : ".temp.dovecot";
 	fs->temp_path_prefix = i_strconcat(temp_dir, "/", temp_file_prefix, NULL);
 
-	T_BEGIN {
-		ret = fs_class->v.init(fs, args, params, &error);
-	} T_END_PASS_STR_IF(ret < 0, &error);
-	if (ret < 0) {
-		*error_r = t_strdup_printf("%s: %s", fs_class->name, error);
-		fs_unref(&fs);
-		return -1;
-	}
 	*fs_r = fs;
 	return 0;
 }
@@ -165,8 +156,22 @@ int fs_init(const char *driver, const char *args,
 	    struct event *event_parent, const struct fs_parameters *params,
 	    struct fs **fs_r, const char **error_r)
 {
-	if (fs_alloc(driver, args, event_parent, params, fs_r, error_r) < 0)
+	struct fs *fs;
+	const char *error;
+	int ret;
+
+	if (fs_alloc(driver, event_parent, params, &fs, error_r) < 0)
 		return -1;
+
+	T_BEGIN {
+		ret = fs->v.init(fs, args, params, &error);
+	} T_END_PASS_STR_IF(ret < 0, &error);
+	if (ret < 0) {
+		*error_r = t_strdup_printf("%s: %s", fs->name, error);
+		fs_unref(&fs);
+		return -1;
+	}
+	*fs_r = fs;
 	return 0;
 }
 
