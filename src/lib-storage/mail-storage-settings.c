@@ -32,7 +32,8 @@ static bool mail_user_settings_check(void *_set, pool_t pool, const char **error
 static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(STR, mail_location),
 	{ .type = SET_ALIAS, .key = "mail" },
-	DEF(STR, mail_attachment_fs),
+	{ .type = SET_FILTER_NAME, .key = "mail_attachment",
+	  .required_setting = "fs_driver", },
 	DEF(STR, mail_attachment_dir),
 	DEF(STR_NOVARS_HIDDEN, mail_attachment_hash),
 	DEF(SIZE, mail_attachment_min_size),
@@ -95,7 +96,6 @@ static const struct setting_define mail_storage_setting_defines[] = {
 
 const struct mail_storage_settings mail_storage_default_settings = {
 	.mail_location = "",
-	.mail_attachment_fs = "sis posix",
 	.mail_attachment_dir = "",
 	.mail_attachment_hash = "%{sha1}",
 	.mail_attachment_min_size = 1024*128,
