@@ -12,6 +12,7 @@
 #include "file-lock.h"
 #include "file-dotlock.h"
 #include "time-util.h"
+#include "settings.h"
 #include "fs-api-private.h"
 
 #include <stdio.h>
@@ -22,22 +23,29 @@
 
 #define FS_POSIX_DOTLOCK_STALE_TIMEOUT_SECS (60*10)
 #define MAX_MKDIR_RETRY_COUNT 5
-#define FS_DEFAULT_MODE 0600
 
 enum fs_posix_lock_method {
 	FS_POSIX_LOCK_METHOD_FLOCK,
 	FS_POSIX_LOCK_METHOD_DOTLOCK
 };
 
+struct fs_posix_settings {
+	pool_t pool;
+	const char *fs_posix_lock_method;
+	const char *fs_posix_prefix;
+	unsigned int fs_posix_mode;
+	bool fs_posix_autodelete_empty_directories;
+	bool fs_posix_fsync;
+	bool fs_posix_accurate_mtime;
+
+	enum fs_posix_lock_method parsed_lock_method;
+};
+
 struct posix_fs {
 	struct fs fs;
-	char *temp_file_prefix, *root_path, *path_prefix;
+	char *temp_file_prefix, *root_path;
 	size_t temp_file_prefix_len;
-	enum fs_posix_lock_method lock_method;
-	mode_t mode;
-	bool have_dirs;
-	bool disable_fsync;
-	bool accurate_mtime;
+	const struct fs_posix_settings *set;
 };
 
 struct posix_fs_file {
@@ -65,6 +73,41 @@ struct posix_fs_iter {
 	int err;
 };
 
+static bool fs_posix_settings_check(void *_set, pool_t pool, const char **error_r);
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct fs_posix_settings)
+static const struct setting_define fs_posix_setting_defines[] = {
+	DEF(ENUM, fs_posix_lock_method),
+	DEF(STR, fs_posix_prefix),
+	DEF(UINT_OCT, fs_posix_mode),
+	DEF(BOOL, fs_posix_autodelete_empty_directories),
+	DEF(BOOL, fs_posix_fsync),
+	DEF(BOOL, fs_posix_accurate_mtime),
+
+	SETTING_DEFINE_LIST_END
+};
+static const struct fs_posix_settings fs_posix_default_settings = {
+	.fs_posix_lock_method = "flock:dotlock",
+	.fs_posix_prefix = "",
+	.fs_posix_mode = 0600,
+	.fs_posix_autodelete_empty_directories = TRUE,
+	.fs_posix_fsync = TRUE,
+	.fs_posix_accurate_mtime = FALSE,
+};
+
+const struct setting_parser_info fs_posix_setting_parser_info = {
+	.name = "fs_posix",
+
+	.defines = fs_posix_setting_defines,
+	.defaults = &fs_posix_default_settings,
+
+	.struct_size = sizeof(struct fs_posix_settings),
+	.pool_offset1 = 1 + offsetof(struct fs_posix_settings, pool),
+	.check_func = fs_posix_settings_check,
+};
+
 static struct fs *fs_posix_alloc(void)
 {
 	struct posix_fs *fs;
@@ -74,46 +117,86 @@ static struct fs *fs_posix_alloc(void)
 	return &fs->fs;
 }
 
-static int
-fs_posix_init(struct fs *_fs, const char *args,
-	      const struct fs_parameters *params, const char **error_r)
+static bool fs_posix_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+				    const char **error_r)
 {
-	struct posix_fs *fs = container_of(_fs, struct posix_fs, fs);
-	const char *value, *const *tmp;
+	struct fs_posix_settings *set = _set;
 
+	if (strcmp(set->fs_posix_lock_method, "flock") == 0)
+		set->parsed_lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
+	else if (strcmp(set->fs_posix_lock_method, "dotlock") == 0)
+		set->parsed_lock_method = FS_POSIX_LOCK_METHOD_DOTLOCK;
+	else {
+		*error_r = "Invalid fs_posix_lock_method";
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static void fs_posix_init_common(struct posix_fs *fs,
+				 const struct fs_parameters *params)
+{
 	fs->temp_file_prefix = params->temp_file_prefix != NULL ?
 		i_strdup(params->temp_file_prefix) : i_strdup("temp.dovecot.");
 	fs->temp_file_prefix_len = strlen(fs->temp_file_prefix);
 	fs->root_path = i_strdup(params->root_path);
+}
 
-	fs->lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
-	fs->mode = FS_DEFAULT_MODE;
+static int
+fs_posix_init(struct fs *_fs, const struct fs_parameters *params,
+	      const char **error_r)
+{
+	struct posix_fs *fs = container_of(_fs, struct posix_fs, fs);
+
+	if (settings_get(_fs->event, &fs_posix_setting_parser_info, 0,
+			 &fs->set, error_r) < 0)
+		return -1;
+
+	fs_posix_init_common(fs, params);
+	return 0;
+}
+
+static int
+fs_posix_legacy_init(struct fs *_fs, const char *args,
+		     const struct fs_parameters *params, const char **error_r)
+{
+	struct posix_fs *fs = container_of(_fs, struct posix_fs, fs);
+	const char *value, *const *tmp;
+
+	fs_posix_init_common(fs, params);
+
+	pool_t pool = pool_alloconly_create("fs_posix_settings", 128);
+	struct fs_posix_settings *set =
+		p_new(pool, struct fs_posix_settings, 1);
+	*set = fs_posix_default_settings;
+	set->pool = pool;
+	set->parsed_lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
+	fs->set = set;
 
 	tmp = t_strsplit_spaces(args, ":");
 	for (; *tmp != NULL; tmp++) {
 		const char *arg = *tmp;
 
 		if (strcmp(arg, "lock=flock") == 0)
-			fs->lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
+			set->parsed_lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
 		else if (strcmp(arg, "lock=dotlock") == 0)
-			fs->lock_method = FS_POSIX_LOCK_METHOD_DOTLOCK;
-		else if (str_begins(arg, "prefix=", &value)) {
-			i_free(fs->path_prefix);
-			fs->path_prefix = i_strdup(value);
-		} else if (strcmp(arg, "dirs") == 0) {
-			fs->have_dirs = TRUE;
-		} else if (strcmp(arg, "no-fsync") == 0) {
-			fs->disable_fsync = TRUE;
-		} else if (strcmp(arg, "accurate-mtime") == 0) {
-			fs->accurate_mtime = TRUE;
-		} else if (str_begins(arg, "mode=", &value)) {
+			set->parsed_lock_method = FS_POSIX_LOCK_METHOD_DOTLOCK;
+		else if (str_begins(arg, "prefix=", &value))
+			set->fs_posix_prefix = p_strdup(pool, value);
+		else if (strcmp(arg, "dirs") == 0)
+			set->fs_posix_autodelete_empty_directories = FALSE;
+		else if (strcmp(arg, "no-fsync") == 0)
+			set->fs_posix_fsync = FALSE;
+		else if (strcmp(arg, "accurate-mtime") == 0)
+			set->fs_posix_accurate_mtime = TRUE;
+		else if (str_begins(arg, "mode=", &value)) {
 			unsigned int mode;
 			if (str_to_uint_oct(value, &mode) < 0) {
 				*error_r = t_strdup_printf("Invalid mode value: %s", value);
 				return -1;
 			}
-			fs->mode = mode & 0666;
-			if (fs->mode == 0) {
+			set->fs_posix_mode = mode & 0666;
+			if (set->fs_posix_mode == 0) {
 				*error_r = t_strdup_printf("Invalid mode: %s", value);
 				return -1;
 			}
@@ -129,9 +212,9 @@ static void fs_posix_free(struct fs *_fs)
 {
 	struct posix_fs *fs = container_of(_fs, struct posix_fs, fs);
 
+	settings_free(fs->set);
 	i_free(fs->temp_file_prefix);
 	i_free(fs->root_path);
-	i_free(fs->path_prefix);
 	i_free(fs);
 }
 
@@ -147,7 +230,7 @@ static enum fs_properties fs_posix_get_properties(struct fs *_fs)
 	   (especially with SIS code) we'll do it that way, but optionally with
 	   "dirs" parameter enable them. This is especially important to be
 	   able to use doveadm fs commands to delete empty directories. */
-	if (fs->have_dirs)
+	if (!fs->set->fs_posix_autodelete_empty_directories)
 		props |= FS_PROPERTY_DIRECTORIES;
 	return props;
 }
@@ -159,7 +242,7 @@ fs_posix_get_mode(struct posix_fs_file *file, const char *path, mode_t *mode_r)
 	struct stat st;
 	const char *p;
 
-	*mode_r = fs->mode;
+	*mode_r = fs->set->fs_posix_mode;
 
 	/* This function is used to get mode of the parent directory, so path
 	   is never the same as file->path. The file is used just to set the
@@ -218,15 +301,15 @@ static int fs_posix_rmdir_parents(struct posix_fs_file *file, const char *path)
 	struct posix_fs *fs = (struct posix_fs *)file->file.fs;
 	const char *p;
 
-	if (fs->have_dirs)
+	if (!fs->set->fs_posix_autodelete_empty_directories)
 		return 0;
-	if (fs->root_path == NULL && fs->path_prefix == NULL)
+	if (fs->root_path == NULL && fs->set->fs_posix_prefix[0] == '\0')
 		return 0;
 
 	while ((p = strrchr(path, '/')) != NULL) {
 		path = t_strdup_until(path, p);
 		if ((fs->root_path != NULL && strcmp(path, fs->root_path) == 0) ||
-		    (fs->path_prefix != NULL && str_begins_with(fs->path_prefix, path)))
+		    str_begins_with(fs->set->fs_posix_prefix, path))
 			break;
 		if (rmdir(path) == 0) {
 			/* success, continue to parent */
@@ -345,8 +428,8 @@ fs_posix_file_init(struct fs_file *_file, const char *path,
 		file->file.path = i_strdup_printf("%s/%s", path,
 						  guid_128_to_string(guid));
 	}
-	file->full_path = fs->path_prefix == NULL ? i_strdup(file->file.path) :
-		i_strconcat(fs->path_prefix, file->file.path, NULL);
+	file->full_path = i_strconcat(fs->set->fs_posix_prefix,
+				      file->file.path, NULL);
 	file->open_mode = mode;
 	file->open_flags = flags;
 	file->fd = -1;
@@ -490,8 +573,8 @@ static void fs_posix_write_rename_if_needed(struct posix_fs_file *file)
 	file->file.path = i_strdup(new_fname);
 
 	i_free(file->full_path);
-	file->full_path = fs->path_prefix == NULL ? i_strdup(file->file.path) :
-		i_strconcat(fs->path_prefix, file->file.path, NULL);
+	file->full_path = i_strconcat(fs->set->fs_posix_prefix,
+				      file->file.path, NULL);
 }
 
 static int fs_posix_write_finish_link(struct posix_fs_file *file)
@@ -521,7 +604,7 @@ static int fs_posix_write_finish(struct posix_fs_file *file)
 	int ret, old_errno;
 
 	if ((file->open_flags & FS_OPEN_FLAG_FSYNC) != 0 &&
-	    !fs->disable_fsync) {
+	    fs->set->fs_posix_fsync) {
 		if (fdatasync(file->fd) < 0) {
 			fs_set_error_errno(file->file.event,
 					   "fdatasync(%s) failed: %m",
@@ -529,7 +612,7 @@ static int fs_posix_write_finish(struct posix_fs_file *file)
 			return -1;
 		}
 	}
-	if (fs->accurate_mtime) {
+	if (fs->set->fs_posix_accurate_mtime) {
 		/* Linux updates the mtime timestamp only on timer interrupts.
 		   This isn't anywhere close to being microsecond precision.
 		   If requested, use utimes() to explicitly set a more accurate
@@ -688,7 +771,7 @@ fs_posix_lock(struct fs_file *_file, unsigned int secs, struct fs_lock **lock_r)
 	i_zero(&fs_lock);
 	fs_lock.lock.file = _file;
 
-	switch (fs->lock_method) {
+	switch (fs->set->parsed_lock_method) {
 	case FS_POSIX_LOCK_METHOD_FLOCK: {
 #ifndef HAVE_FLOCK
 		fs_set_error(_file->event, ENOTSUP,
@@ -887,8 +970,7 @@ fs_posix_iter_init(struct fs_iter *_iter, const char *path,
 		container_of(_iter, struct posix_fs_iter, iter);
 	struct posix_fs *fs = container_of(_iter->fs, struct posix_fs, fs);
 
-	iter->path = fs->path_prefix == NULL ? i_strdup(path) :
-		i_strconcat(fs->path_prefix, path, NULL);
+	iter->path = i_strconcat(fs->set->fs_posix_prefix, path, NULL);
 	if (iter->path[0] == '\0') {
 		i_free(iter->path);
 		iter->path = i_strdup(".");
@@ -989,7 +1071,8 @@ const struct fs fs_class_posix = {
 	.name = "posix",
 	.v = {
 		.alloc = fs_posix_alloc,
-		.legacy_init = fs_posix_init,
+		.init = fs_posix_init,
+		.legacy_init = fs_posix_legacy_init,
 		.deinit = NULL,
 		.free = fs_posix_free,
 		.get_properties = fs_posix_get_properties,
