@@ -7,6 +7,7 @@
 #include "fs-api.h"
 #include "mkdir-parents.h"
 #include "unlink-old-files.h"
+#include "settings.h"
 #include "mailbox-uidvalidity.h"
 #include "mailbox-list-private.h"
 #include "index-storage.h"
@@ -105,33 +106,28 @@ int dbox_storage_create(struct mail_storage *_storage,
 	const struct mail_storage_settings *set = _storage->set;
 	const char *error;
 
-	if (*set->mail_attachment_fs != '\0' &&
-	    *set->mail_attachment_dir != '\0') {
-		const char *name, *args, *dir;
+	if (*set->mail_attachment_dir != '\0') {
+		const char *dir;
+		int ret;
 
-		args = strpbrk(set->mail_attachment_fs, ": ");
-		if (args == NULL) {
-			name = set->mail_attachment_fs;
-			args = "";
-		} else {
-			name = t_strdup_until(set->mail_attachment_fs, args++);
-		}
-		if (strcmp(name, "sis-queue") == 0 &&
-		    (_storage->class_flags & MAIL_STORAGE_CLASS_FLAG_FILE_PER_MSG) != 0) {
-			/* FIXME: the deduplication part doesn't work, because
-			   sdbox renames the files.. */
-			*error_r = "mail_attachment_fs: "
-				"sis-queue not currently supported by sdbox";
-			return -1;
-		}
 		dir = mail_user_home_expand(_storage->user,
 					    set->mail_attachment_dir);
 		storage->attachment_dir = p_strdup(_storage->pool, dir);
 
-		if (mailbox_list_init_fs(ns->list, _storage->event, name, args,
-					 storage->attachment_dir,
-					 &storage->attachment_fs, &error) < 0) {
-			*error_r = t_strdup_printf("mail_attachment_fs: %s",
+		struct event *event = event_create(_storage->event);
+		event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
+			      "mail_attachment");
+		ret = mailbox_list_init_fs(ns->list, event,
+					   storage->attachment_dir,
+					   &storage->attachment_fs, &error);
+		event_unref(&event);
+		if (ret == 0) {
+			*error_r = "mail_attachment_dir is set, "
+				"but mail_attachment { fs_driver } is missing";
+			return -1;
+		}
+		if (ret < 0) {
+			*error_r = t_strdup_printf("mail_attachment: %s",
 						   error);
 			return -1;
 		}

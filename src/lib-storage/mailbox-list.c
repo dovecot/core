@@ -2080,13 +2080,13 @@ void mailbox_list_last_error_pop(struct mailbox_list *list)
 }
 
 int mailbox_list_init_fs(struct mailbox_list *list, struct event *event_parent,
-			 const char *driver,
-			 const char *args, const char *root_dir,
-			 struct fs **fs_r, const char **error_r)
+			 const char *root_dir, struct fs **fs_r,
+			 const char **error_r)
 {
 	struct fs_parameters fs_params;
 	struct mailbox_list_fs_context *ctx;
 	struct fs *parent_fs;
+	int ret;
 
 	i_assert(event_parent != NULL);
 
@@ -2095,9 +2095,9 @@ int mailbox_list_init_fs(struct mailbox_list *list, struct event *event_parent,
 	fs_params.root_path = root_dir;
 	fs_params.temp_file_prefix = mailbox_list_get_global_temp_prefix(list);
 
-	if (fs_legacy_init(driver, args, event_parent, &fs_params,
-			   fs_r, error_r) < 0)
-		return -1;
+	ret = fs_init_auto(event_parent, &fs_params, fs_r, error_r);
+	if (ret <= 0)
+		return ret;
 
 	/* add mailbox_list context to the parent fs, which allows
 	   mailbox_list_fs_get_list() to work */
@@ -2111,7 +2111,7 @@ int mailbox_list_init_fs(struct mailbox_list *list, struct event *event_parent,
 	/* a bit kludgy notification to the fs that we're now finished setting
 	   up the module context. */
 	(void)fs_get_properties(*fs_r);
-	return 0;
+	return ret;
 }
 
 struct mailbox_list *mailbox_list_fs_get_list(struct fs *fs)

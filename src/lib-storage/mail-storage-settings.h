@@ -14,7 +14,6 @@ struct setting_parser_context;
 struct mail_storage_settings {
 	pool_t pool;
 	const char *mail_location;
-	const char *mail_attachment_fs;
 	const char *mail_attachment_dir;
 	const char *mail_attachment_hash;
 	uoff_t mail_attachment_min_size;
