@@ -46,7 +46,7 @@ static struct fs *fs_compress_alloc(void)
 
 static int
 fs_compress_init(struct fs *_fs, const char *args,
-		 struct event *event_parent, const struct fs_parameters *params,
+		 const struct fs_parameters *params,
 		 const char **error_r)
 {
 	struct compress_fs *fs = COMPRESS_FS(_fs);
@@ -100,7 +100,7 @@ fs_compress_init(struct fs *_fs, const char *args,
 		parent_name = t_strdup_until(args, parent_args);
 		parent_args++;
 	}
-	return fs_init(parent_name, parent_args, event_parent, params,
+	return fs_init(parent_name, parent_args, _fs->event, params,
 		       &_fs->parent, error_r);
 }
 
