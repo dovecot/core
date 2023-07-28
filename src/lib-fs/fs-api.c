@@ -52,7 +52,7 @@ fs_alloc(const struct fs *fs_class, const char *args,
 	fs->event = fs_create_event(fs, event_parent);
 
 	T_BEGIN {
-		ret = fs_class->v.init(fs, args, event_parent, params, &error);
+		ret = fs_class->v.init(fs, args, params, &error);
 	} T_END_PASS_STR_IF(ret < 0, &error);
 	if (ret < 0) {
 		*error_r = t_strdup_printf("%s: %s", fs_class->name, error);

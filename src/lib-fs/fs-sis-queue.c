@@ -29,7 +29,7 @@ static struct fs *fs_sis_queue_alloc(void)
 }
 
 static int
-fs_sis_queue_init(struct fs *_fs, const char *args, struct event *event_parent,
+fs_sis_queue_init(struct fs *_fs, const char *args,
 		  const struct fs_parameters *params, const char **error_r)
 {
 	struct sis_queue_fs *fs = SISQUEUE_FS(_fs);
@@ -51,7 +51,7 @@ fs_sis_queue_init(struct fs *_fs, const char *args, struct event *event_parent,
 		parent_args = "";
 	else
 		parent_name = t_strdup_until(parent_name, parent_args++);
-	if (fs_init(parent_name, parent_args, event_parent, params,
+	if (fs_init(parent_name, parent_args, _fs->event, params,
 		    &_fs->parent, error_r) < 0)
 		return -1;
 	return 0;

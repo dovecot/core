@@ -46,7 +46,7 @@ static struct fs *fs_dict_alloc(void)
 }
 
 static int
-fs_dict_init(struct fs *_fs, const char *args, struct event *event_parent,
+fs_dict_init(struct fs *_fs, const char *args,
 	     const struct fs_parameters *params, const char **error_r)
 {
 	struct dict_fs *fs = (struct dict_fs *)_fs;
@@ -73,7 +73,7 @@ fs_dict_init(struct fs *_fs, const char *args, struct event *event_parent,
 
 	i_zero(&dict_set);
 	dict_set.base_dir = params->base_dir;
-	dict_set.event_parent = event_parent;
+	dict_set.event_parent = _fs->event;
 
 	if (dict_init_legacy(p, &dict_set, &fs->dict, &error) < 0) {
 		*error_r = t_strdup_printf("dict_init(%s) failed: %s",
