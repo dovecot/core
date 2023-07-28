@@ -8,6 +8,7 @@
 #include "base64.h"
 #include "istream.h"
 #include "ostream.h"
+#include "settings.h"
 #include "dict.h"
 #include "fs-api-private.h"
 
@@ -45,9 +46,80 @@ static struct fs *fs_dict_alloc(void)
 	return &fs->fs;
 }
 
+struct fs_dict_settings {
+	pool_t pool;
+	const char *fs_dict_value_encoding;
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct fs_dict_settings)
+static const struct setting_define fs_dict_setting_defines[] = {
+	DEF(ENUM, fs_dict_value_encoding),
+
+	SETTING_DEFINE_LIST_END
+};
+static const struct fs_dict_settings fs_dict_default_settings = {
+	.fs_dict_value_encoding = "raw:hex:base64",
+};
+
+const struct setting_parser_info fs_dict_setting_parser_info = {
+	.name = "fs_dict",
+
+	.defines = fs_dict_setting_defines,
+	.defaults = &fs_dict_default_settings,
+
+	.struct_size = sizeof(struct fs_dict_settings),
+	.pool_offset1 = 1 + offsetof(struct fs_dict_settings, pool),
+};
+
 static int
-fs_dict_init(struct fs *_fs, const char *args,
-	     const struct fs_parameters *params, const char **error_r)
+fs_dict_value_encoding_parse(const char *str,
+			     enum fs_dict_value_encoding *encoding_r,
+			     const char **error_r)
+{
+	if (strcmp(str, "raw") == 0)
+		*encoding_r = FS_DICT_VALUE_ENCODING_RAW;
+	else if (strcmp(str, "hex") == 0)
+		*encoding_r = FS_DICT_VALUE_ENCODING_HEX;
+	else if (strcmp(str, "base64") == 0)
+		*encoding_r = FS_DICT_VALUE_ENCODING_BASE64;
+	else {
+		*error_r = t_strdup_printf("Unknown value encoding '%s'", str);
+		return -1;
+	}
+	return 0;
+}
+
+static int
+fs_dict_init(struct fs *_fs, const struct fs_parameters *params ATTR_UNUSED,
+	     const char **error_r)
+{
+	struct dict_fs *fs = container_of(_fs, struct dict_fs, fs);
+	struct fs_dict_settings *fs_dict_set;
+	int ret;
+
+	if (settings_get(_fs->event, &fs_dict_setting_parser_info, 0,
+			 &fs_dict_set, error_r) < 0)
+		return -1;
+	ret = fs_dict_value_encoding_parse(fs_dict_set->fs_dict_value_encoding,
+					   &fs->encoding, error_r);
+	settings_free(fs_dict_set);
+	if (ret < 0)
+		return -1;
+
+	struct event *event = event_create(_fs->event);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "fs_dict");
+	ret = dict_init_auto(event, &fs->dict, error_r);
+	event_unref(&event);
+	if (ret == 0)
+		*error_r = "fs_dict { dict_driver } not set";
+	return ret <= 0 ? -1 : 0;
+}
+
+static int
+fs_dict_init_legacy(struct fs *_fs, const char *args,
+		    const struct fs_parameters *params, const char **error_r)
 {
 	struct dict_fs *fs = (struct dict_fs *)_fs;
 	struct dict_legacy_settings dict_set;
@@ -59,17 +131,8 @@ fs_dict_init(struct fs *_fs, const char *args,
 		return -1;
 	}
 	encoding_str = t_strdup_until(args, p++);
-	if (strcmp(encoding_str, "raw") == 0)
-		fs->encoding = FS_DICT_VALUE_ENCODING_RAW;
-	else if (strcmp(encoding_str, "hex") == 0)
-		fs->encoding = FS_DICT_VALUE_ENCODING_HEX;
-	else if (strcmp(encoding_str, "base64") == 0)
-		fs->encoding = FS_DICT_VALUE_ENCODING_BASE64;
-	else {
-		*error_r = t_strdup_printf("Unknown value encoding '%s'",
-					   encoding_str);
+	if (fs_dict_value_encoding_parse(encoding_str, &fs->encoding, error_r) < 0)
 		return -1;
-	}
 
 	i_zero(&dict_set);
 	dict_set.base_dir = params->base_dir;
@@ -337,7 +400,8 @@ const struct fs fs_class_dict = {
 	.name = "dict",
 	.v = {
 		.alloc = fs_dict_alloc,
-		.legacy_init = fs_dict_init,
+		.init = fs_dict_init,
+		.legacy_init = fs_dict_init_legacy,
 		.deinit = NULL,
 		.free = fs_dict_free,
 		.get_properties = fs_dict_get_properties,
