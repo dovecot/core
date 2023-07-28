@@ -2088,13 +2088,13 @@ int mailbox_list_init_fs(struct mailbox_list *list, struct event *event_parent,
 	struct mailbox_list_fs_context *ctx;
 	struct fs *parent_fs;
 
+	i_assert(event_parent != NULL);
+
 	i_zero(&fs_params);
 	mail_user_init_fs_parameters(list->ns->user, &fs_params);
 	fs_params.root_path = root_dir;
 	fs_params.temp_file_prefix = mailbox_list_get_global_temp_prefix(list);
 
-	if (event_parent == NULL)
-		event_parent = list->ns->user->event;
 	if (fs_legacy_init(driver, args, event_parent, &fs_params,
 			   fs_r, error_r) < 0)
 		return -1;
