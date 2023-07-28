@@ -3,6 +3,7 @@ noinst_LTLIBRARIES = libfs.la
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-DMODULE_DIR=\""$(moduledir)"\"
