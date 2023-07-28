@@ -17,9 +17,17 @@ static struct fs *fs_test_alloc(void)
 }
 
 static int
-fs_test_init(struct fs *_fs ATTR_UNUSED, const char *args ATTR_UNUSED,
+fs_test_init(struct fs *_fs ATTR_UNUSED,
 	     const struct fs_parameters *params ATTR_UNUSED,
 	     const char **error_r ATTR_UNUSED)
+{
+	return 0;
+}
+
+static int
+fs_test_legacy_init(struct fs *_fs ATTR_UNUSED, const char *args ATTR_UNUSED,
+		    const struct fs_parameters *params ATTR_UNUSED,
+		    const char **error_r ATTR_UNUSED)
 {
 	return 0;
 }
@@ -407,7 +415,8 @@ const struct fs fs_class_test = {
 	.name = "test",
 	.v = {
 		.alloc = fs_test_alloc,
-		.legacy_init = fs_test_init,
+		.init = fs_test_init,
+		.legacy_init = fs_test_legacy_init,
 		.deinit = NULL,
 		.free = fs_test_free,
 		.get_properties = fs_test_get_properties,
