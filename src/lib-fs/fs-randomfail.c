@@ -7,6 +7,7 @@
 #include "istream-failure-at.h"
 #include "ostream-failure-at.h"
 #include "ostream.h"
+#include "settings.h"
 #include "fs-api-private.h"
 
 
@@ -17,6 +18,11 @@ static const char *fs_op_names[] = {
 	"stat", "copy", "rename", "delete", "iter"
 };
 static_assert_array_size(fs_op_names, FS_OP_COUNT);
+
+struct fs_randomfail_settings {
+	pool_t pool;
+	ARRAY_TYPE(const_string) fs_randomfail_ops;
+};
 
 struct randomfail_fs {
 	struct fs fs;
@@ -42,6 +48,26 @@ struct randomfail_fs_iter {
 #define RANDOMFAIL_FS(ptr)	container_of((ptr), struct randomfail_fs, fs)
 #define RANDOMFAIL_FILE(ptr)	container_of((ptr), struct randomfail_fs_file, file)
 #define RANDOMFAIL_ITER(ptr)	container_of((ptr), struct randomfail_fs_iter, iter)
+
+static const struct setting_define fs_randomfail_setting_defines[] = {
+	{ .type = SET_STRLIST, .key = "fs_randomfail_ops",
+	  .offset = offsetof(struct fs_randomfail_settings, fs_randomfail_ops) },
+
+	SETTING_DEFINE_LIST_END
+};
+static const struct fs_randomfail_settings fs_randomfail_default_settings = {
+	.fs_randomfail_ops = ARRAY_INIT,
+};
+
+const struct setting_parser_info fs_randomfail_setting_parser_info = {
+	.name = "fs_randomfail",
+
+	.defines = fs_randomfail_setting_defines,
+	.defaults = &fs_randomfail_default_settings,
+
+	.struct_size = sizeof(struct fs_randomfail_settings),
+	.pool_offset1 = 1 + offsetof(struct fs_randomfail_settings, pool),
+};
 
 static struct fs *fs_randomfail_alloc(void)
 {
@@ -131,11 +157,30 @@ fs_randomfail_add_probability_range(struct randomfail_fs *fs,
 	return 1;
 }
 
+static int
+fs_randomfail_op_add(struct randomfail_fs *fs, const char *key,
+		     const char *value, const char **error_r)
+{
+	int ret;
+
+	if ((ret = fs_randomfail_add_probability(fs, key, value, error_r)) != 0) {
+		if (ret < 0)
+			return -1;
+		return 0;
+	}
+	if ((ret = fs_randomfail_add_probability_range(fs, key, value, error_r)) != 0) {
+		if (ret < 0)
+			return -1;
+		return 0;
+	}
+	*error_r = t_strdup_printf("Unknown key '%s'", key);
+	return -1;
+}
+
 static int fs_randomfail_parse_params(struct randomfail_fs *fs,
 				      const char *params, const char **error_r)
 {
 	const char *const *tmp;
-	int ret;
 
 	for (tmp = t_strsplit_spaces(params, ","); *tmp != NULL; tmp++) {
 		const char *key = *tmp;
@@ -146,25 +191,40 @@ static int fs_randomfail_parse_params(struct randomfail_fs *fs,
 			return -1;
 		}
 		key = t_strdup_until(key, value++);
-		if ((ret = fs_randomfail_add_probability(fs, key, value, error_r)) != 0) {
-			if (ret < 0)
-				return -1;
-			continue;
-		}
-		if ((ret = fs_randomfail_add_probability_range(fs, key, value, error_r)) != 0) {
-			if (ret < 0)
-				return -1;
-			continue;
-		}
-		*error_r = t_strdup_printf("Unknown key '%s'", key);
-		return -1;
+		if (fs_randomfail_op_add(fs, key, value, error_r) < 0)
+			return -1;
 	}
 	return 0;
 }
 
 static int
-fs_randomfail_init(struct fs *_fs, const char *args,
-		   const struct fs_parameters *params, const char **error_r)
+fs_randomfail_init(struct fs *_fs, const struct fs_parameters *params,
+		   const char **error_r)
+{
+	struct randomfail_fs *fs = RANDOMFAIL_FS(_fs);
+	const struct fs_randomfail_settings *set;
+	const char *const *ops;
+	unsigned int count;
+
+	if (settings_get(_fs->event, &fs_randomfail_setting_parser_info, 0,
+			 &set, error_r) < 0)
+		return -1;
+	ops = array_get(&set->fs_randomfail_ops, &count);
+	for (unsigned int i = 0; i < count; i += 2) {
+		if (fs_randomfail_op_add(fs, ops[i], ops[i + 1], error_r) < 0) {
+			settings_free(set);
+			return -1;
+		}
+	}
+	settings_free(set);
+
+	return fs_init_parent(_fs, params, error_r);
+}
+
+static int
+fs_randomfail_legacy_init(struct fs *_fs, const char *args,
+			  const struct fs_parameters *params,
+			  const char **error_r)
 {
 	struct randomfail_fs *fs = RANDOMFAIL_FS(_fs);
 	const char *p, *parent_name, *parent_args, *error;
@@ -522,7 +582,8 @@ const struct fs fs_class_randomfail = {
 	.name = "randomfail",
 	.v = {
 		.alloc = fs_randomfail_alloc,
-		.legacy_init = fs_randomfail_init,
+		.init = fs_randomfail_init,
+		.legacy_init = fs_randomfail_legacy_init,
 		.deinit = NULL,
 		.free = fs_randomfail_free,
 		.get_properties = fs_randomfail_get_properties,
