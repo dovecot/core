@@ -56,9 +56,6 @@ fs_alloc(const struct fs *fs_class, const char *args,
 		ret = fs_class->v.init(fs, args, set, &error);
 	} T_END_PASS_STR_IF(ret < 0, &error);
 	if (ret < 0) {
-		/* a bit kludgy way to allow data stack frame usage in normal
-		   conditions but still be able to return error message from
-		   data stack. */
 		*error_r = t_strdup_printf("%s: %s", fs_class->name, error);
 		fs_unref(&fs);
 		return -1;
