@@ -411,6 +411,7 @@ settings_value_check(struct config_parser_context *ctx,
 	case SET_FILTER_ARRAY:
 		break;
 	case SET_FILTER_NAME:
+	case SET_FILTER_HIERARCHY:
 		ctx->error = p_strdup_printf(ctx->pool,
 			"Setting is a named filter, use '%s {'", def->key);
 		return -1;
@@ -432,7 +433,9 @@ config_is_filter_name(struct config_parser_context *ctx, const char *key,
 		return FALSE;
 
 	def = &all_infos[config_key->info_idx]->defines[config_key->define_idx];
-	if (def->type != SET_FILTER_NAME && def->type != SET_FILTER_ARRAY)
+	if (def->type != SET_FILTER_NAME &&
+	    def->type != SET_FILTER_HIERARCHY &&
+	    def->type != SET_FILTER_ARRAY)
 		return FALSE;
 
 	*def_r = def;
@@ -636,7 +639,8 @@ int config_apply_line(struct config_parser_context *ctx,
 				break;
 			struct config_module_parser *l =
 				&ctx->cur_section->module_parsers[config_key->info_idx];
-			if (l->info->defines[config_key->define_idx].type != SET_FILTER_NAME)
+			if (l->info->defines[config_key->define_idx].type != SET_FILTER_NAME &&
+			    l->info->defines[config_key->define_idx].type != SET_FILTER_HIERARCHY)
 				break;
 
 			ctx->cur_section->filter.filter_name =
@@ -926,20 +930,16 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 		else
 			filter->remote_host = p_strdup(ctx->pool, value);
 	} else if (config_is_filter_name(ctx, key, &filter_def)) {
-		if (filter_def->type == SET_FILTER_NAME) {
+		if (filter_def->type == SET_FILTER_NAME ||
+		    filter_def->type == SET_FILTER_HIERARCHY) {
 			if (value[0] != '\0' || line->value_quoted) {
 				ctx->error = p_strdup_printf(ctx->pool,
 					"%s { } must not have a section name",
 					key);
 				return TRUE;
 			}
-			if (parent->filter_name != NULL &&
-			    !parent->filter_name_array) {
-				ctx->error = p_strdup_printf(ctx->pool,
-					"Nested named filters not allowed: %s { %s { .. } }",
-					parent->filter_name, key);
-				return FALSE;
-			}
+			if (filter_def->type == SET_FILTER_HIERARCHY)
+				filter->filter_hierarchical = TRUE;
 			filter->filter_name = p_strdup(ctx->pool, key);
 		} else {
 			if (parent->filter_name != NULL &&

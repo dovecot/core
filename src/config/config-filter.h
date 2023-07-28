@@ -18,6 +18,10 @@ struct config_filter {
 	/* named_filter { .. } */
 	const char *filter_name;
 	bool filter_name_array;
+	/* This filter is hierarchical. If a child event is also hierarchical,
+	   their filter_names will be merged into one filter path when dumping
+	   the config. */
+	bool filter_hierarchical;
 };
 
 struct config_filter_parser {

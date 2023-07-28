@@ -34,6 +34,7 @@ enum setting_type {
 	SET_BOOLLIST, /* of type ARRAY_TYPE(const_string) - guaranteed NULL-terminted */
 	SET_ALIAS, /* alias name for above setting definition */
 	SET_FILTER_NAME,
+	SET_FILTER_HIERARCHY,
 	SET_FILTER_ARRAY,
 };
 enum setting_flags {

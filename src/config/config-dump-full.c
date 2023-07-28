@@ -84,9 +84,21 @@ static int output_blob_size(struct ostream *output, uoff_t blob_size_offset)
 }
 
 static void
+config_filter_write_hierarchical(string_t *str,
+				 const struct config_filter *filter)
+{
+	if (filter == NULL || !filter->filter_hierarchical)
+		return;
+	if (str_len(str) > 0)
+		str_append_c(str, '/');
+	str_append(str, filter->filter_name);
+	config_filter_write_hierarchical(str, filter->parent);
+}
+
+static void
 config_dump_full_append_filter_query(string_t *str,
 				     const struct config_filter *filter,
-				     bool leaf)
+				     bool leaf, bool parent_hierarchical)
 {
 	if (filter->service != NULL) {
 		if (filter->service[0] != '!') {
@@ -131,8 +143,23 @@ config_dump_full_append_filter_query(string_t *str,
 		}
 		str_append(str, " AND ");
 	} else if (filter->filter_name != NULL) {
+		const char *filter_name = filter->filter_name;
+
+		if (!parent_hierarchical &&
+		    filter->filter_hierarchical &&
+		    filter->parent->filter_hierarchical) {
+			/* beginning of a hierarchical filter. */
+			string_t *str = t_str_new(128);
+			config_filter_write_hierarchical(str, filter);
+			filter_name = str_c(str);
+		} else if (parent_hierarchical &&
+			   filter->filter_hierarchical) {
+			/* hierarchical filter was already written. */
+			return;
+		}
+
 		str_printfa(str, SETTINGS_EVENT_FILTER_NAME"=\"%s\" AND ",
-			    wildcard_str_escape(filter->filter_name));
+			    wildcard_str_escape(filter_name));
 	}
 }
 
@@ -141,10 +168,13 @@ config_dump_full_append_filter(string_t *str,
 			       const struct config_filter *filter)
 {
 	bool leaf = TRUE;
+	bool parent_hierarchical = FALSE;
 
 	do {
-		config_dump_full_append_filter_query(str, filter, leaf);
+		config_dump_full_append_filter_query(str, filter, leaf,
+						     parent_hierarchical);
 		leaf = FALSE;
+		parent_hierarchical = filter->filter_hierarchical;
 		filter = filter->parent;
 	} while (filter != NULL);
 
