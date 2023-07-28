@@ -114,13 +114,26 @@ static void fs_class_try_load_plugin(const char *driver)
 }
 
 static int
-fs_alloc(const struct fs *fs_class, const char *args,
+fs_alloc(const char *driver, const char *args,
 	 struct event *event_parent, const struct fs_parameters *params,
 	 struct fs **fs_r, const char **error_r)
 {
+	const struct fs *fs_class;
 	struct fs *fs;
 	const char *error, *temp_dir, *temp_file_prefix;
 	int ret;
+
+	fs_class = fs_class_find(driver);
+	if (fs_class == NULL) {
+		T_BEGIN {
+			fs_class_try_load_plugin(driver);
+		} T_END;
+		fs_class = fs_class_find(driver);
+	}
+	if (fs_class == NULL) {
+		*error_r = t_strdup_printf("Unknown fs driver: %s", driver);
+		return -1;
+	}
 
 	fs = fs_class->v.alloc();
 	fs->refcount = 1;
@@ -152,20 +165,7 @@ int fs_init(const char *driver, const char *args,
 	    struct event *event_parent, const struct fs_parameters *params,
 	    struct fs **fs_r, const char **error_r)
 {
-	const struct fs *fs_class;
-
-	fs_class = fs_class_find(driver);
-	if (fs_class == NULL) {
-		T_BEGIN {
-			fs_class_try_load_plugin(driver);
-		} T_END;
-		fs_class = fs_class_find(driver);
-	}
-	if (fs_class == NULL) {
-		*error_r = t_strdup_printf("Unknown fs driver: %s", driver);
-		return -1;
-	}
-	if (fs_alloc(fs_class, args, event_parent, params, fs_r, error_r) < 0)
+	if (fs_alloc(driver, args, event_parent, params, fs_r, error_r) < 0)
 		return -1;
 	return 0;
 }
