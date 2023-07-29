@@ -1,10 +1,11 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
+#include "settings-parser.h"
+
 struct var_expand_table;
 struct var_expand_func_table;
 
-struct setting_parser_info;
 struct settings_root;
 struct settings_mmap;
 struct settings_instance;
