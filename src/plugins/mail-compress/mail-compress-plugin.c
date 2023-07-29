@@ -6,6 +6,7 @@
 #include "istream-seekable.h"
 #include "ostream.h"
 #include "str.h"
+#include "settings.h"
 #include "mail-user.h"
 #include "index-storage.h"
 #include "index-mail.h"
@@ -43,7 +44,30 @@ struct mail_compress_user {
 	struct mail_compress_mail_cache cache;
 
 	const struct compression_handler *save_handler;
-	int save_level;
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct mail_compress_settings)
+
+static struct setting_define mail_compress_setting_defines[] = {
+	DEF(STR, mail_compress_write_method),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static struct mail_compress_settings mail_compress_default_settings = {
+	.mail_compress_write_method = "",
+};
+
+const struct setting_parser_info mail_compress_setting_parser_info = {
+	.name = "mail_compress",
+
+	.defines = mail_compress_setting_defines,
+	.defaults = &mail_compress_default_settings,
+
+	.struct_size = sizeof(struct mail_compress_settings),
+	.pool_offset1 = 1 + offsetof(struct mail_compress_settings, pool),
 };
 
 const char *mail_compress_plugin_version = DOVECOT_ABI_VERSION;
@@ -233,8 +257,8 @@ mail_compress_mail_save_compress_begin(struct mail_save_context *ctx,
 	if (zbox->super.save_begin(ctx, input) < 0)
 		return -1;
 
-	output = zuser->save_handler->create_ostream(ctx->data.output,
-						     zuser->save_level);
+	output = zuser->save_handler->create_ostream_auto(ctx->data.output,
+							  box->event);
 	o_stream_unref(&ctx->data.output);
 	ctx->data.output = output;
 	o_stream_cork(ctx->data.output);
@@ -337,7 +361,8 @@ static void mail_compress_mail_user_created(struct mail_user *user)
 {
 	struct mail_user_vfuncs *v = user->vlast;
 	struct mail_compress_user *zuser;
-	const char *name;
+	const struct mail_compress_settings *set;
+	const char *error;
 	int ret;
 
 	zuser = p_new(user->pool, struct mail_compress_user, 1);
@@ -345,33 +370,26 @@ static void mail_compress_mail_user_created(struct mail_user *user)
 	user->vlast = &zuser->module_ctx.super;
 	v->deinit = mail_compress_mail_user_deinit;
 
-	name = mail_user_plugin_getenv(user, "mail_compress_save");
-	if (name != NULL && *name != '\0') {
-		ret = compression_lookup_handler(name, &zuser->save_handler);
+	if (settings_get(user->event, &mail_compress_setting_parser_info, 0,
+			 &set, &error) < 0) {
+		user->error = p_strdup(user->pool, error);
+		return;
+	}
+	if (set->mail_compress_write_method[0] != '\0') {
+		ret = compression_lookup_handler(set->mail_compress_write_method,
+						 &zuser->save_handler);
 		if (ret <= 0) {
-			e_error(user->event,
-				"mail_compress_save: %s: %s", ret == 0 ?
+			user->error = p_strdup_printf(user->pool,
+				"mail_compress_save_method: %s: %s", ret == 0 ?
 				"Support not compiled in for handler" :
-				"Unknown handler", name);
-			zuser->save_handler = NULL;
+				"Unknown handler",
+				set->mail_compress_write_method);
+			settings_free(set);
+			return;
 		}
 	}
-	name = zuser->save_handler == NULL ? NULL :
-		mail_user_plugin_getenv(user, "mail_compress_save_level");
-	if (name != NULL && name[0] != '\0') {
-		if (str_to_int(name, &zuser->save_level) < 0 ||
-		    zuser->save_level < zuser->save_handler->get_min_level() ||
-		    zuser->save_level > zuser->save_handler->get_max_level()) {
-			e_error(user->event,
-				"mail_compress_save_level: Level must be between %d..%d",
-				zuser->save_handler->get_min_level(),
-				zuser->save_handler->get_max_level());
-			zuser->save_level =
-				zuser->save_handler->get_default_level();
-		}
-	} else if (zuser->save_handler != NULL) {
-		zuser->save_level = zuser->save_handler->get_default_level();
-	}
+	settings_free(set);
+
 	MODULE_CONTEXT_SET(user, mail_compress_user_module, zuser);
 }
 
