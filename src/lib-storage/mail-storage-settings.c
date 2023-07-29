@@ -7,7 +7,6 @@
 #include "unichar.h"
 #include "hostpid.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "message-address.h"
 #include "message-header-parser.h"
 #include "smtp-address.h"

@@ -18,7 +18,6 @@
 #include "var-expand.h"
 #include "process-title.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "imap-util.h"
 #include "master-interface.h"
 #include "master-service.h"

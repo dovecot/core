@@ -7,7 +7,6 @@
 #include "connection.h"
 #include "restrict-access.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "mail-namespace.h"

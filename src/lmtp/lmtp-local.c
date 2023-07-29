@@ -11,7 +11,6 @@
 #include "restrict-access.h"
 #include "anvil-client.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
 #include "mail-namespace.h"

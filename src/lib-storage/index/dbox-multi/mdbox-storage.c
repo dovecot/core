@@ -5,7 +5,6 @@
 #include "ioloop.h"
 #include "mkdir-parents.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "mail-index-modseq.h"
 #include "mail-index-alloc-cache.h"
 #include "mailbox-log.h"

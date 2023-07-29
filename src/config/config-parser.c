@@ -9,7 +9,6 @@
 #include "istream.h"
 #include "module-dir.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "service-settings.h"
 #include "master-service.h"
 #include "master-service-settings.h"

@@ -14,7 +14,6 @@
 #include "time-util.h"
 #include "unichar.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "fs-api-private.h"
 #include "imap-utf7.h"
 #include "mailbox-log.h"

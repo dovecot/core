@@ -4,7 +4,6 @@
 #include "ioloop.h"
 #include "str.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "imap-arg.h"
 #include "imap-resp-code.h"
 #include "mailbox-tree.h"

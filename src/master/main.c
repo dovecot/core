@@ -14,7 +14,6 @@
 #include "execv-const.h"
 #include "restrict-process-size.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "master-instance.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"

@@ -18,7 +18,6 @@
 #include "time-util.h"
 #include "restrict-access.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "syslog-util.h"
 #include "stats-client.h"
 #include "master-admin-client.h"

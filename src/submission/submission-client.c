@@ -12,7 +12,6 @@
 #include "hostpid.h"
 #include "var-expand.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "master-service.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"

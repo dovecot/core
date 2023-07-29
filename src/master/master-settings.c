@@ -11,7 +11,6 @@
 #include "safe-mkdir.h"
 #include "restrict-process-size.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "master-settings.h"
 
 #include <dirent.h>

@@ -3,7 +3,6 @@
 #include "str.h"
 #include "array.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "mail-crypt-common.h"

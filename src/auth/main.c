@@ -13,7 +13,6 @@
 #include "randgen.h"
 #include "process-title.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "master-interface.h"
