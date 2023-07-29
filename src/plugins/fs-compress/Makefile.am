@@ -4,6 +4,7 @@ fs_module_LTLIBRARIES = \
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-compression \
 	-I$(top_srcdir)/src/lib-fs
 
