@@ -5,6 +5,7 @@
 #ifdef HAVE_BZLIB
 
 #include "ostream-private.h"
+#include "settings.h"
 #include "ostream-zlib.h"
 #include <bzlib.h>
 
@@ -19,6 +20,51 @@ struct bzlib_ostream {
 
 	bool flushed:1;
 };
+
+struct bzlib_settings {
+	pool_t pool;
+	unsigned int compress_bz2_block_size_100k;
+};
+
+static bool bzlib_settings_check(void *_set, pool_t pool, const char **error_r);
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct bzlib_settings)
+static const struct setting_define bzlib_setting_defines[] = {
+	DEF(UINT, compress_bz2_block_size_100k),
+
+	SETTING_DEFINE_LIST_END
+};
+static const struct bzlib_settings bzlib_default_settings = {
+	.compress_bz2_block_size_100k = 9,
+};
+
+const struct setting_parser_info bzlib_setting_parser_info = {
+	.name = "bzlib",
+
+	.defines = bzlib_setting_defines,
+	.defaults = &bzlib_default_settings,
+
+	.struct_size = sizeof(struct bzlib_settings),
+	.pool_offset1 = 1 + offsetof(struct bzlib_settings, pool),
+#ifndef CONFIG_BINARY
+	.check_func = bzlib_settings_check,
+#endif
+};
+
+static bool bzlib_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+				 const char **error_r)
+{
+	struct bzlib_settings *set = _set;
+
+	if (set->compress_bz2_block_size_100k < 1 ||
+	    set->compress_bz2_block_size_100k > 9) {
+		*error_r = "compress_bz2_block_size_100k must be between 1..9";
+		return FALSE;
+	}
+	return TRUE;
+}
 
 /* in bzlib, level is actually block size. From bzlib manual:
 
@@ -304,4 +350,19 @@ struct ostream *o_stream_create_bz2(struct ostream *output, int level)
 	return o_stream_create(&zstream->ostream, output,
 			       o_stream_get_fd(output));
 }
+
+struct ostream *
+o_stream_create_bz2_auto(struct ostream *output, struct event *event)
+{
+	const struct bzlib_settings *set;
+	const char *error;
+
+	if (settings_get(event, &bzlib_setting_parser_info, 0,
+			 &set, &error) < 0)
+		return o_stream_create_error_str(EIO, "%s", error);
+	int block_size = set->compress_bz2_block_size_100k;
+	settings_free(set);
+	return o_stream_create_bz2(output, block_size);
+}
+
 #endif
