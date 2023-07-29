@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "crc32.h"
 #include "ostream-private.h"
+#include "settings.h"
 #include "ostream-zlib.h"
 #include <zlib.h>
 
@@ -23,6 +24,61 @@ struct zlib_ostream {
 	bool gz:1;
 	bool flushed:1;
 };
+
+struct zlib_settings {
+	pool_t pool;
+	unsigned int compress_gz_level;
+	unsigned int compress_deflate_level;
+};
+
+static bool zlib_settings_check(void *_set, pool_t pool, const char **error_r);
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct zlib_settings)
+static const struct setting_define zlib_setting_defines[] = {
+	DEF(UINT, compress_gz_level),
+	DEF(UINT, compress_deflate_level),
+
+	SETTING_DEFINE_LIST_END
+};
+static const struct zlib_settings zlib_default_settings = {
+	.compress_gz_level = 6,
+	.compress_deflate_level = 6,
+};
+
+const struct setting_parser_info zlib_setting_parser_info = {
+	.name = "zlib",
+
+	.defines = zlib_setting_defines,
+	.defaults = &zlib_default_settings,
+
+	.struct_size = sizeof(struct zlib_settings),
+	.pool_offset1 = 1 + offsetof(struct zlib_settings, pool),
+#ifndef CONFIG_BINARY
+	.check_func = zlib_settings_check,
+#endif
+};
+
+static bool zlib_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+				const char **error_r)
+{
+	struct zlib_settings *set = _set;
+
+	if (set->compress_gz_level > Z_BEST_COMPRESSION) {
+		*error_r = t_strdup_printf(
+			"compress_gz_level must be between %d..%d",
+			Z_NO_COMPRESSION, Z_BEST_COMPRESSION);
+		return FALSE;
+	}
+	if (set->compress_deflate_level > Z_BEST_COMPRESSION) {
+		*error_r = t_strdup_printf(
+			"compress_deflate_level must be between %d..%d",
+			Z_NO_COMPRESSION, Z_BEST_COMPRESSION);
+		return FALSE;
+	}
+	return TRUE;
+}
 
 int compression_get_min_level_gz(void)
 {
@@ -385,4 +441,28 @@ struct ostream *o_stream_create_gz(struct ostream *output, int level)
 struct ostream *o_stream_create_deflate(struct ostream *output, int level)
 {
 	return o_stream_create_zlib(output, level, FALSE);
+}
+
+static struct ostream *
+o_stream_create_zlib_auto(struct ostream *output, struct event *event, bool gz)
+{
+	const struct zlib_settings *set;
+	const char *error;
+
+	if (settings_get(event, &zlib_setting_parser_info, 0,
+			 &set, &error) < 0)
+		return o_stream_create_error_str(EIO, "%s", error);
+	int level = gz ? set->compress_gz_level : set->compress_deflate_level;
+	settings_free(set);
+	return o_stream_create_zlib(output, level, gz);
+}
+
+struct ostream *o_stream_create_gz_auto(struct ostream *output, struct event *event)
+{
+	return o_stream_create_zlib_auto(output, event, TRUE);
+}
+
+struct ostream *o_stream_create_deflate_auto(struct ostream *output, struct event *event)
+{
+	return o_stream_create_zlib_auto(output, event, FALSE);
 }
