@@ -18,6 +18,7 @@
 #ifndef HAVE_LZ4
 #  define i_stream_create_lz4 NULL
 #  define o_stream_create_lz4 NULL
+#  define o_stream_create_lz4_auto NULL
 #  define compression_get_min_level_lz4 NULL
 #  define compression_get_default_level_lz4 NULL
 #  define compression_get_max_level_lz4 NULL
@@ -184,6 +185,7 @@ const struct compression_handler compression_handlers[] = {
 		.is_compressed = is_compressed_lz4,
 		.create_istream = i_stream_create_lz4,
 		.create_ostream = o_stream_create_lz4,
+		.create_ostream_auto = o_stream_create_lz4_auto,
 		.get_min_level = compression_get_min_level_lz4, /* does not actually support any of this */
 		.get_default_level = compression_get_default_level_lz4,
 		.get_max_level = compression_get_max_level_lz4,

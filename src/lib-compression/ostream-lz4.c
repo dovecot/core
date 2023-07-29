@@ -246,4 +246,12 @@ struct ostream *o_stream_create_lz4(struct ostream *output, int level)
 	return o_stream_create(&zstream->ostream, output,
 			       o_stream_get_fd(output));
 }
+
+struct ostream *
+o_stream_create_lz4_auto(struct ostream *output,
+			 struct event *event ATTR_UNUSED)
+{
+	return o_stream_create_lz4(output, 1);
+}
+
 #endif
