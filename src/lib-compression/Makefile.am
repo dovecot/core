@@ -3,6 +3,7 @@ noinst_LTLIBRARIES = libcompression.la
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-settings \
 	$(ZSTD_CFLAGS)
 
 libcompression_la_SOURCES = \
@@ -42,6 +43,7 @@ noinst_PROGRAMS = $(test_programs) bench-compression
 
 test_libs = \
 	$(noinst_LTLIBRARIES) \
+	../lib-settings/libsettings.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 test_deps = $(test_libs)
