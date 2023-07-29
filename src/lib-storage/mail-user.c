@@ -15,7 +15,6 @@
 #include "strfuncs.h"
 #include "var-expand.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "fs-api.h"
 #include "auth-master.h"
 #include "master-service.h"

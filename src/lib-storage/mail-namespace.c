@@ -5,7 +5,6 @@
 #include "str.h"
 #include "file-lock.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "mailbox-list-private.h"
 #include "mail-storage-private.h"
 #include "mail-storage-settings.h"

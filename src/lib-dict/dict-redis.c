@@ -7,7 +7,6 @@
 #include "ostream.h"
 #include "connection.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "dict-private.h"
 
 #define DICT_USERNAME_SEPARATOR '/'

@@ -12,7 +12,6 @@
 #include "settings.h"
 #include "stats-settings.h"
 #include "stats-metrics.h"
-#include "settings-parser.h"
 
 #include <ctype.h>
 

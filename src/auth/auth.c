@@ -3,7 +3,6 @@
 #include "auth-common.h"
 #include "array.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "mech.h"
 #include "userdb.h"
 #include "passdb.h"

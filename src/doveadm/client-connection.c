@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "process-title.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "master-service.h"
 #include "doveadm.h"
 #include "doveadm-settings.h"

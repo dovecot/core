@@ -10,7 +10,6 @@
 #include "var-expand.h"
 #include "wildcard-match.h"
 #include "mmap-util.h"
-#include "settings-parser.h"
 #include "settings.h"
 
 struct settings_mmap_pool {

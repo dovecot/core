@@ -14,7 +14,6 @@
 #include "module-dir.h"
 #include "wildcard-match.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "master-service.h"
 #include "mail-user.h"
 #include "mail-namespace.h"

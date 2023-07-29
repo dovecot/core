@@ -4,7 +4,6 @@
 #include "ioloop.h"
 #include "str.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "mail-copy.h"
 #include "mail-user.h"
 #include "mailbox-list-private.h"

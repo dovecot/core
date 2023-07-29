@@ -8,7 +8,6 @@
 #include "str.h"
 #include "ioloop.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "dict-private.h"
 
 struct dict_commit_callback_ctx {

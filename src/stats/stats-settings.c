@@ -3,7 +3,6 @@
 #include "stats-common.h"
 #include "buffer.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "service-settings.h"
 #include "stats-settings.h"
 #include "array.h"

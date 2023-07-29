@@ -14,7 +14,6 @@
 #include "istream.h"
 #include "ostream.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "dict-transaction-memory.h"
 #include "dict-private.h"
 

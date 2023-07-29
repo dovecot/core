@@ -12,7 +12,6 @@
 #include "ostream.h"
 #include "eacces-error.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "dict-private.h"
