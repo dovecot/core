@@ -11,28 +11,28 @@
  * We should remove the need for this file in v3.0.
  */
 
-enum setting_type {
-	SET_STR,
-	SET_INT,
-	SET_BOOL
+enum setting_legacy_type {
+	SET_LEGACY_STR,
+	SET_LEGACY_INT,
+	SET_LEGACY_BOOL
 };
 
 struct setting_def {
-	enum setting_type type;
+	enum setting_legacy_type type;
 	const char *name;
 	size_t offset;
 };
 
 #define DEF_STRUCT_STR(name, struct_name) \
-	{ SET_STR + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
+	{ SET_LEGACY_STR + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
 		((struct struct_name *)0)->name, const char *), \
 	  #name, offsetof(struct struct_name, name) }
 #define DEF_STRUCT_INT(name, struct_name) \
-	{ SET_INT + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
+	{ SET_LEGACY_INT + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
 		((struct struct_name *)0)->name, unsigned int), \
 	  #name, offsetof(struct struct_name, name) }
 #define DEF_STRUCT_BOOL(name, struct_name) \
-	{ SET_BOOL + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
+	{ SET_LEGACY_BOOL + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
 		((struct struct_name *)0)->name, bool), \
 	  #name, offsetof(struct struct_name, name) }
 

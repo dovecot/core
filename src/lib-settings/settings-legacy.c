@@ -100,14 +100,14 @@ parse_setting_from_defs(pool_t pool, const struct setting_def *defs, void *base,
 			void *ptr = PTR_OFFSET(base, def->offset);
 
 			switch (def->type) {
-			case SET_STR:
+			case SET_LEGACY_STR:
 				*((char **)ptr) = p_strdup(pool, value);
 				return NULL;
-			case SET_INT:
+			case SET_LEGACY_INT:
 				/* use %i so we can handle eg. 0600
 				   as octal value with umasks */
 				return get_uint(value, (unsigned int *) ptr);
-			case SET_BOOL:
+			case SET_LEGACY_BOOL:
 				return get_bool(value, (bool *) ptr);
 			}
 		}
