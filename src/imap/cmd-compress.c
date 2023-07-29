@@ -49,7 +49,6 @@ bool cmd_compress(struct client_command_context *cmd)
 	struct istream *old_input;
 	struct ostream *old_output;
 	const char *mechanism;
-	int level;
 
 	/* <mechanism> */
 	if (!client_read_args(cmd, 0, 0, &args))
@@ -136,11 +135,10 @@ bool cmd_compress(struct client_command_context *cmd)
 		i_assert(client->input->v_offset == prev_in_offset);
 	}
 
-	level = handler->get_default_level();
 	old_input = client->input;
 	old_output = client->output;
 	client->input = handler->create_istream(old_input);
-	client->output = handler->create_ostream(old_output, level);
+	client->output = handler->create_ostream_auto(old_output, cmd->event);
 	/* preserve output offset so that the bytes out counter in logout
 	   message doesn't get reset here */
 	client->output->offset = old_output->offset;
