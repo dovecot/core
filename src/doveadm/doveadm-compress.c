@@ -256,7 +256,8 @@ static void server_input(struct client *client)
 
 			e_info(client->event, "<Compression started>");
 			input = client->handler->create_istream(client->input);
-			output = client->handler->create_ostream(client->output, 6);
+			output = client->handler->
+				create_ostream_auto(client->output, client->event);
 			i_stream_unref(&client->input);
 			o_stream_unref(&client->output);
 			client->input = input;
