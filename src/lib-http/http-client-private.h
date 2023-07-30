@@ -510,8 +510,6 @@ void http_client_request_resubmit(struct http_client_request *req);
 void http_client_request_retry(struct http_client_request *req,
 			       unsigned int status, const char *error);
 void http_client_request_error_delayed(struct http_client_request **_req);
-void http_client_request_error(struct http_client_request **req,
-			       unsigned int status, const char *error);
 void http_client_request_redirect(struct http_client_request *req,
 				  unsigned int status, const char *location);
 void http_client_request_finish(struct http_client_request *req);
