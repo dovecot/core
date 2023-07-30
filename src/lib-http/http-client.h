@@ -445,6 +445,10 @@ void http_client_request_submit(struct http_client_request *req);
    callback. It returns false if the request cannot be retried */
 bool http_client_request_try_retry(struct http_client_request *req);
 
+/* Fail the request. This can also be used instead of submitting the request to
+   cause the request callback to be called later on with the spcified error. */
+void http_client_request_error(struct http_client_request **req,
+			       unsigned int status, const char *error);
 /* Abort the request immediately. It may still linger for a while when it is
    already sent to the service, but the callback will not be called anymore. */
 void http_client_request_abort(struct http_client_request **req);
