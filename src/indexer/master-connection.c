@@ -81,13 +81,6 @@ index_mailbox_precache_real(struct master_connection *conn, struct mailbox *box)
 	struct event *index_event = event_create(box->event);
 	event_add_category(index_event, &event_category_indexer_worker);
 
-	if (mailbox_get_metadata(box, MAILBOX_METADATA_PRECACHE_FIELDS,
-				 &metadata) < 0) {
-		e_error(index_event, "Precache-fields lookup failed: %s",
-			mailbox_get_last_internal_error(box, NULL));
-		event_unref(&index_event);
-		return -1;
-	}
 	if (mailbox_get_status(box, STATUS_MESSAGES | STATUS_FTS_LAST_INDEXED_UID,
 			       &status) < 0) {
 		e_error(index_event, "Status lookup failed: %s",
@@ -96,6 +89,22 @@ index_mailbox_precache_real(struct master_connection *conn, struct mailbox *box)
 		return -1;
 	}
 
+	if (status.fts_last_indexed_uid >= status.uidnext - 1) {
+		e_debug(index_event,
+			"Index is already up to date "
+			"(last_indexed_uid=%u, uidnext=%u)",
+			status.fts_last_indexed_uid, status.uidnext);
+		event_unref(&index_event);
+		return 0;
+	}
+
+	if (mailbox_get_metadata(box, MAILBOX_METADATA_PRECACHE_FIELDS,
+				 &metadata) < 0) {
+		e_error(index_event, "Precache-fields lookup failed: %s",
+			mailbox_get_last_internal_error(box, NULL));
+		event_unref(&index_event);
+		return -1;
+	}
 	uint32_t seq = 0, unused ATTR_UNUSED;
 	if (status.fts_last_indexed_uid > 0)
 		mailbox_get_seq_range(box, 1, status.fts_last_indexed_uid,
