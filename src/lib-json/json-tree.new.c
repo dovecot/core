@@ -605,3 +605,145 @@ json_tree_node_get_child_with(const struct json_tree_node *jtnode,
 
 	return child;
 }
+
+/*
+ * Walker
+ */
+
+struct json_tree_walker {
+	const struct json_tree_node *root, *node;
+	ARRAY_TYPE(json_tree_node_const) sub_nodes;
+	unsigned int node_level;
+
+	bool node_is_end:1;
+};
+
+struct json_tree_walker *
+json_tree_walker_create_from_node(const struct json_tree_node *tree_node)
+{
+	struct json_tree_walker *twalker;
+
+	i_assert(tree_node != NULL);
+
+	twalker = i_new(struct json_tree_walker, 1);
+	twalker->root = tree_node;
+
+	return twalker;
+}
+
+struct json_tree_walker *
+json_tree_walker_create(const struct json_tree *tree)
+{
+	i_assert(tree != NULL);
+	return json_tree_walker_create_from_node(
+		json_tree_get_root_const(tree));
+}
+
+void json_tree_walker_free(struct json_tree_walker **_twalker)
+{
+	struct json_tree_walker *twalker = *_twalker;
+
+	if (twalker == NULL)
+		return;
+	*_twalker = NULL;
+
+	array_free(&twalker->sub_nodes);
+	i_free(twalker);
+}
+
+static const struct json_tree_node *
+json_tree_walk_next(struct json_tree_walker *twalker, bool *is_end_r)
+{
+	const struct json_tree_node *tnode = twalker->node, *tnode_next;
+
+	*is_end_r = FALSE;
+
+	if (tnode == NULL) {
+		i_assert(twalker->node_level == 0);
+		twalker->node_level++;
+		return twalker->root;
+	}
+
+	bool tnode_is_end = twalker->node_is_end;
+	const struct json_node *node = &tnode->node;
+
+	if (!json_node_is_singular(node) && !tnode_is_end) {
+		tnode_next = json_tree_node_get_child(tnode);
+		if (tnode_next != NULL) {
+			twalker->node_level++;
+			return tnode_next;
+		}
+		*is_end_r = TRUE;
+		return tnode;
+	}
+
+	tnode_next = json_tree_node_get_next(tnode);
+	if (tnode_next != NULL || twalker->node_level == 0)
+		return tnode_next;
+
+	twalker->node_level--;
+	*is_end_r = TRUE;
+	return json_tree_node_get_parent(tnode);
+}
+
+bool json_tree_walk(struct json_tree_walker *twalker, struct json_node *node_r)
+{
+	const struct json_tree_node *tnode_next;
+	bool tnode_next_is_end;
+
+	tnode_next = json_tree_walk_next(twalker, &tnode_next_is_end);
+	if (tnode_next == NULL) {
+		i_assert(twalker->node_level == 0);
+		i_zero(node_r);
+		twalker->node = twalker->root = NULL;
+		twalker->node_is_end = TRUE;
+		return FALSE;
+	}
+	if (json_tree_node_is_root(tnode_next) && twalker->node_level > 1) {
+		const struct json_tree_node *tnode_sub = tnode_next;
+
+		/* Returned to root of subtree */
+		i_assert(tnode_next_is_end);
+		i_assert(array_is_created(&twalker->sub_nodes));
+		i_assert(array_count(&twalker->sub_nodes) > 0);
+		tnode_next = *array_back(&twalker->sub_nodes);
+		array_pop_back(&twalker->sub_nodes);
+
+		i_zero(node_r);
+		node_r->name = tnode_next->node.name;
+		node_r->type = tnode_sub->node.type;
+
+		twalker->node = tnode_next;
+		twalker->node_is_end = TRUE;
+		return TRUE;
+	}
+
+	const struct json_node *node_next = &tnode_next->node;
+
+	if (tnode_next_is_end) {
+		i_zero(node_r);
+		node_r->name = node_next->name;
+		node_r->type = node_next->type;
+	} else if (node_next->type == JSON_TYPE_TEXT &&
+		   node_next->value.content_type == JSON_CONTENT_TYPE_TREE) {
+		struct json_tree *tree = node_next->value.content.tree;
+		const struct json_tree_node *tnode_sub;
+
+		/* Descend into subtree */
+		if (!array_is_created(&twalker->sub_nodes))
+			i_array_init(&twalker->sub_nodes, 4);
+		array_push_back(&twalker->sub_nodes, &tnode_next);
+		tnode_sub = json_tree_get_root(tree);
+		i_assert(tnode_sub != NULL);
+		i_assert(tnode_sub->node.type != JSON_TYPE_NONE);
+		*node_r = tnode_sub->node;
+		node_r->name = node_next->name;
+		tnode_next = tnode_sub;
+	} else {
+		*node_r = tnode_next->node;
+	}
+
+	twalker->node = tnode_next;
+	twalker->node_is_end = tnode_next_is_end;
+	return TRUE;
+}

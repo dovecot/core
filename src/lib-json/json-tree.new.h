@@ -254,4 +254,18 @@ bool json_tree_is_false(const struct json_tree *jtree) ATTR_PURE;
 bool json_tree_is_boolean(const struct json_tree *jtree) ATTR_PURE;
 bool json_tree_is_null(const struct json_tree *jtree) ATTR_PURE;
 
+/*
+ * Walker
+ */
+
+struct json_tree_walker;
+
+struct json_tree_walker *
+json_tree_walker_create_from_node(const struct json_tree_node *tree_node);
+struct json_tree_walker *
+json_tree_walker_create(const struct json_tree *tree);
+void json_tree_walker_free(struct json_tree_walker **_twalker);
+
+bool json_tree_walk(struct json_tree_walker *twalker, struct json_node *node_r);
+
 #endif
