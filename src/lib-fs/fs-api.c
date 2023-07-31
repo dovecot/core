@@ -188,7 +188,10 @@ int fs_legacy_init(const char *driver, const char *args,
 	if (fs_alloc(driver, event_parent, params, &fs, error_r) < 0)
 		return -1;
 
-	T_BEGIN {
+	if (fs->v.legacy_init == NULL) {
+		error = "legacy_init() not supported";
+		ret = -1;
+	} else T_BEGIN {
 		ret = fs->v.legacy_init(fs, args, params, &error);
 	} T_END_PASS_STR_IF(ret < 0, &error);
 	if (ret < 0) {
