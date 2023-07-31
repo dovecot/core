@@ -7,28 +7,6 @@
 #include "mailbox-recent-flags.h"
 #include "index-storage.h"
 
-static void
-get_last_cached_seq(struct mailbox *box, uint32_t *last_cached_seq_r)
-{
-	const struct mail_index_header *hdr;
-	struct mail_cache_view *cache_view;
-	uint32_t seq;
-
-	*last_cached_seq_r = 0;
-	if (!mail_cache_exists(box->cache))
-		return;
-
-	cache_view = mail_cache_view_open(box->cache, box->view);
-	hdr = mail_index_get_header(box->view);
-	for (seq = hdr->messages_count; seq > 0; seq--) {
-		if (mail_cache_field_exists_any(cache_view, seq)) {
-			*last_cached_seq_r = seq;
-			break;
-		}
-	}
-	mail_cache_view_close(&cache_view);
-}
-
 int index_storage_get_status(struct mailbox *box,
 			     enum mailbox_status_items items,
 			     struct mailbox_status *status_r)
@@ -173,8 +151,13 @@ void index_storage_get_open_status(struct mailbox *box,
 				index_storage_find_first_pvt_unseen_seq(box);
 		}
 	}
-	if ((items & STATUS_LAST_CACHED_SEQ) != 0)
-		get_last_cached_seq(box, &status_r->last_cached_seq);
+	if ((items & STATUS_FTS_LAST_INDEXED_UID) != 0) {
+		/* This is called only when FTS plugin isn't loaded,
+		   in which case it returns "all mails are FTS indexed"
+		   to avoid "doveadm index" constantly trying to precache
+		   all mails. */
+		status_r->fts_last_indexed_uid = status_r->uidnext - 1;
+	}
 
 	if ((items & STATUS_KEYWORDS) != 0)
 		status_r->keywords = mail_index_get_keywords(box->index);

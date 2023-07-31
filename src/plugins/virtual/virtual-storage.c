@@ -634,21 +634,9 @@ virtual_storage_get_status(struct mailbox *box,
 	struct virtual_mailbox *mbox =
 		container_of(box, struct virtual_mailbox, box);
 
-	if ((items & STATUS_LAST_CACHED_SEQ) != 0)
-		items |= STATUS_MESSAGES;
-
 	if (index_storage_get_status(box, items, status_r) < 0)
 		return -1;
 
-	if ((items & STATUS_LAST_CACHED_SEQ) != 0) {
-		/* Virtual mailboxes have no cached data of their own, so the
-		   current value is always 0. The most important use for this
-		   functionality is for "doveadm index" to do FTS indexing and
-		   it doesn't really matter there if we set this value
-		   correctly or not. So for now just assume that everything is
-		   indexed. */
-		status_r->last_cached_seq = status_r->messages;
-	}
 	if (!mbox->have_guid_flags_set) {
 		if (virtual_storage_set_have_guid_flags(mbox) < 0)
 			return -1;

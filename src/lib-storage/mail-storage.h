@@ -93,23 +93,23 @@ enum mailbox_existence {
 };
 
 enum mailbox_status_items {
-	STATUS_MESSAGES		= 0x01,
-	STATUS_RECENT		= 0x02,
-	STATUS_UIDNEXT		= 0x04,
-	STATUS_UIDVALIDITY	= 0x08,
-	STATUS_UNSEEN		= 0x10,
-	STATUS_FIRST_UNSEEN_SEQ	= 0x20,
-	STATUS_KEYWORDS		= 0x40,
-	STATUS_HIGHESTMODSEQ	= 0x80,
-	STATUS_PERMANENT_FLAGS	= 0x200,
-	STATUS_FIRST_RECENT_UID	= 0x400,
-	STATUS_LAST_CACHED_SEQ	= 0x800,
-	STATUS_CHECK_OVER_QUOTA	= 0x1000, /* return error if over quota */
-	STATUS_HIGHESTPVTMODSEQ	= 0x2000,
+	STATUS_MESSAGES			= 0x01,
+	STATUS_RECENT			= 0x02,
+	STATUS_UIDNEXT			= 0x04,
+	STATUS_UIDVALIDITY		= 0x08,
+	STATUS_UNSEEN			= 0x10,
+	STATUS_FIRST_UNSEEN_SEQ		= 0x20,
+	STATUS_KEYWORDS			= 0x40,
+	STATUS_HIGHESTMODSEQ		= 0x80,
+	STATUS_PERMANENT_FLAGS		= 0x200,
+	STATUS_FIRST_RECENT_UID		= 0x400,
+	STATUS_FTS_LAST_INDEXED_UID	= 0x800,
+	STATUS_CHECK_OVER_QUOTA		= 0x1000, /* return error if over quota */
+	STATUS_HIGHESTPVTMODSEQ		= 0x2000,
 	/* status items that must not be looked up with
 	   mailbox_get_open_status(), because they can return failure. */
 #define MAILBOX_STATUS_FAILING_ITEMS \
-	(STATUS_LAST_CACHED_SEQ | STATUS_CHECK_OVER_QUOTA)
+	(STATUS_FTS_LAST_INDEXED_UID | STATUS_CHECK_OVER_QUOTA)
 };
 
 enum mailbox_metadata_items {
@@ -261,7 +261,7 @@ struct mailbox_status {
 
 	uint32_t first_unseen_seq; /* STATUS_FIRST_UNSEEN_SEQ */
 	uint32_t first_recent_uid; /* STATUS_FIRST_RECENT_UID */
-	uint32_t last_cached_seq; /* STATUS_LAST_CACHED_SEQ */
+	uint32_t fts_last_indexed_uid; /* STATUS_FTS_LAST_INDEXED_UID */
 	uint64_t highest_modseq; /* STATUS_HIGHESTMODSEQ */
 	/* 0 if no private index (STATUS_HIGHESTPVTMODSEQ) */
 	uint64_t highest_pvt_modseq;

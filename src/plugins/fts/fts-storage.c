@@ -77,28 +77,13 @@ static MODULE_CONTEXT_DEFINE_INIT(fts_mail_module, &mail_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(fts_mailbox_list_module,
 				  &mailbox_list_module_register);
 
-static int fts_mailbox_get_last_cached_seq(struct mailbox *box, uint32_t *seq_r)
+static int fts_mailbox_get_last_indexed_uid(struct mailbox *box, uint32_t *uid_r)
 {
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT_REQUIRE(box->list);
-	uint32_t seq1, seq2, last_uid;
-	int ret;
-
-	ret = fts_search_get_first_missing_uid(flist->backend, box, &last_uid);
+	int ret = fts_search_get_first_missing_uid(flist->backend, box, uid_r);
 	if (ret < 0) {
 		mail_storage_set_internal_error(box->storage);
 		return -1;
-	}
-
-	if (ret == 0 && last_uid == 0) {
-		/* nothing is indexed. */
-		*seq_r = 0;
-	} else {
-		if (ret > 0) {
-			/* everything is indexed */
-			last_uid = (uint32_t)-1;
-		}
-		mailbox_get_seq_range(box, 1, last_uid, &seq1, &seq2);
-		*seq_r = seq2;
 	}
 	return 0;
 }
@@ -108,20 +93,16 @@ fts_mailbox_get_status(struct mailbox *box, enum mailbox_status_items items,
 		       struct mailbox_status *status_r)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT_REQUIRE(box);
-	uint32_t seq;
-
-	if (fbox->module_ctx.super.get_status(box, items, status_r) < 0)
+	if (fbox->module_ctx.super.get_status(
+			box, items & ENUM_NEGATE(STATUS_FTS_LAST_INDEXED_UID),
+			status_r) < 0)
 		return -1;
 
-	if ((items & STATUS_LAST_CACHED_SEQ) != 0) {
-		if (fts_mailbox_get_last_cached_seq(box, &seq) < 0)
-			return -1;
+	if ((items & STATUS_FTS_LAST_INDEXED_UID) != 0 &&
+	    fts_mailbox_get_last_indexed_uid(
+			box, &status_r->fts_last_indexed_uid) < 0)
+		return -1;
 
-		/* Always use the FTS's last_cached_seq. This is because we
-		   don't want to reindex all mails to FTS if .cache file is
-		   deleted. */
-		status_r->last_cached_seq = seq;
-	}
 	return 0;
 }
 
@@ -486,12 +467,16 @@ static int fts_mail_precache_init(struct mail *_mail)
 {
 	struct fts_transaction_context *ft = FTS_CONTEXT_REQUIRE(_mail->transaction);
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT_REQUIRE(_mail->box->list);
-	uint32_t last_seq;
 
-	if (fts_mailbox_get_last_cached_seq(_mail->box, &last_seq) < 0) {
+	uint32_t last_uid;
+	if (fts_mailbox_get_last_indexed_uid(_mail->box,&last_uid) < 0) {
 		ft->failure_reason = "Failed to lookup last indexed FTS mail";
 		return -1;
 	}
+
+	uint32_t last_seq = 0, unused ATTR_UNUSED;
+	if (last_uid > 0)
+		mailbox_get_seq_range(_mail->box, 1, last_uid, &unused, &last_seq);
 
 	ft->precached = TRUE;
 	ft->next_index_seq = last_seq + 1;
