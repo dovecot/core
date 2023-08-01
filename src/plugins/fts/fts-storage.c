@@ -295,7 +295,7 @@ fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 			*tryagain_r = TRUE;
 			return FALSE;
 		}
-		if (fctx->indexing_timed_out) {
+		if (fctx->indexing_timed_out || fctx->mailbox_failed) {
 			*tryagain_r = FALSE;
 			return FALSE;
 		}
@@ -333,6 +333,34 @@ fts_search_apply_results_level(struct mail_search_context *ctx,
 	}
 }
 
+static int
+fts_mailbox_search_is_virtual_seq_indexed(struct fts_search_context *fctx,
+					  uint32_t seq)
+{
+	const struct virtual_mailbox_vfuncs *v = fctx->box->virtual_vfuncs;
+	struct mailbox *box;
+	uint32_t uid;
+	v->get_real_mail_uid(fctx->box, seq, &box, &uid);
+
+	struct mailbox_status status;
+	if (mailbox_get_status(box, STATUS_FTS_LAST_INDEXED_UID, &status) < 0)
+		return -1;
+
+	if (uid > status.fts_last_indexed_uid)
+		return 0;
+
+	return 1;
+}
+
+static int
+fts_mailbox_search_is_seq_indexed(struct fts_search_context *fctx, uint32_t seq)
+{
+	const struct virtual_mailbox_vfuncs *v = fctx->box->virtual_vfuncs;
+	if (v == NULL)
+		return seq < fctx->first_unindexed_seq ? 1 : 0;
+	return fts_mailbox_search_is_virtual_seq_indexed(fctx, seq);
+}
+
 static bool fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT_REQUIRE(ctx->transaction->box);
@@ -341,7 +369,8 @@ static bool fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 
 	if (fctx == NULL || !fctx->fts_lookup_success) {
 		/* fts lookup not done for this search */
-		if (fctx != NULL && fctx->indexing_timed_out)
+		if (fctx != NULL &&
+		    (fctx->indexing_timed_out || fctx->mailbox_failed))
 			return FALSE;
 		return fbox->module_ctx.super.search_next_update_seq(ctx);
 	}
@@ -352,10 +381,13 @@ static bool fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 	if (!fbox->module_ctx.super.search_next_update_seq(ctx))
 		return FALSE;
 
-	if (ctx->seq >= fctx->first_unindexed_seq) {
-		/* we've not indexed this far */
-		return TRUE;
+	int ret = fts_mailbox_search_is_seq_indexed(fctx, ctx->seq);
+	if (ret < 0) {
+		fctx->mailbox_failed = TRUE;
+		return FALSE;
 	}
+	if (ret == 0)
+		return TRUE;
 
 	/* apply [non]matches based on the FTS lookup results */
 	idx = 0;
@@ -377,8 +409,12 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 			if (fts_indexer_deinit(&fctx->indexer_ctx) < 0)
 				ft->failure_reason = "FTS indexing failed";
 		}
-		if (fctx->indexing_timed_out)
+		if (fctx->indexing_timed_out || fctx->mailbox_failed)
 			ret = -1;
+		else if (fctx->mailbox_failed) {
+			mail_storage_set_internal_error(ctx->transaction->box->storage);
+			ret = -1;
+		}
 		else if (!fctx->fts_lookup_success &&
 			 fctx->enforced != FTS_ENFORCED_NO) {
 			/* FTS lookup failed and we didn't want to fallback to

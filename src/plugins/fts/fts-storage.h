@@ -51,6 +51,7 @@ struct fts_search_context {
 	bool fts_lookup_success:1;
 	bool indexing_timed_out:1;
 	bool virtual_seen_unindexed_gaps:1;
+	bool mailbox_failed:1;
 };
 
 /* Figure out if we want to use full text search indexes and update
