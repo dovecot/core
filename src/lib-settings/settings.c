@@ -1355,8 +1355,6 @@ settings_get_full(struct event *event,
 	const char *str, *filter_name = NULL;
 	bool filter_name_required = FALSE;
 
-	i_assert((filter_key == NULL) == (filter_value == NULL));
-
 	lookup_event = event_create(event);
 	if (filter_value != NULL) {
 		filter_name = t_strdup_printf("%s/%s", filter_key,
@@ -1366,6 +1364,9 @@ settings_get_full(struct event *event,
 		event_add_str(lookup_event, filter_key, filter_value);
 		event_strlist_append(lookup_event, SETTINGS_EVENT_FILTER_NAME,
 				     filter_name);
+		filter_name_required = TRUE;
+	} else if (filter_key != NULL) {
+		filter_name = filter_key;
 		filter_name_required = TRUE;
 	}
 
@@ -1380,17 +1381,6 @@ settings_get_full(struct event *event,
 		if (str != NULL) {
 			event_strlist_append(lookup_event,
 					     SETTINGS_EVENT_FILTER_NAME, str);
-		}
-		str = event_get_ptr(scan_event,
-				    SETTINGS_EVENT_FILTER_NAME_REQUIRED);
-		if (str != NULL) {
-			event_strlist_append(lookup_event,
-					     SETTINGS_EVENT_FILTER_NAME, str);
-			if (!filter_name_required) {
-				filter_name_required = TRUE;
-				filter_name = str;
-				filter_key = str;
-			}
 		}
 		scan_event = event_get_parent(scan_event);
 	} while (scan_event != NULL);
@@ -1448,6 +1438,19 @@ int settings_get(struct event *event,
 	return ret < 0 ? -1 : 0;
 }
 
+#undef settings_try_get
+int settings_try_get(struct event *event, const char *filter_name,
+		     const struct setting_parser_info *info,
+		     enum settings_get_flags flags,
+		     const char *source_filename,
+		     unsigned int source_linenum,
+		     const void **set_r, const char **error_r)
+{
+	return settings_get_full(event, filter_name, NULL, info, flags,
+				 source_filename, source_linenum,
+				 set_r, error_r);
+}
+
 #undef settings_get_filter
 int settings_get_filter(struct event *event,
 			const char *filter_key, const char *filter_value,
@@ -1457,6 +1460,9 @@ int settings_get_filter(struct event *event,
 			unsigned int source_linenum,
 			const void **set_r, const char **error_r)
 {
+	i_assert(filter_key != NULL);
+	i_assert(filter_value != NULL);
+
 	int ret = settings_get_full(event, filter_key, filter_value, info,
 				    flags, source_filename, source_linenum,
 				    set_r, error_r);
@@ -1482,6 +1488,9 @@ int settings_try_get_filter(struct event *event,
 			    unsigned int source_linenum,
 			    const void **set_r, const char **error_r)
 {
+	i_assert(filter_key != NULL);
+	i_assert(filter_value != NULL);
+
 	return settings_get_full(event, filter_key, filter_value, info,
 				 flags, source_filename, source_linenum,
 				 set_r, error_r);
