@@ -1351,10 +1351,23 @@ settings_get_full(struct event *event,
 	struct settings_root *root = NULL;
 	struct settings_mmap *mmap = NULL;
 	struct settings_instance *instance = NULL;
-	struct event *scan_event = event;
+	struct event *lookup_event, *scan_event = event;
+	const char *str, *filter_name = NULL;
 	bool filter_name_required = FALSE;
 
 	i_assert((filter_key == NULL) == (filter_value == NULL));
+
+	lookup_event = event_create(event);
+	if (filter_value != NULL) {
+		filter_name = t_strdup_printf("%s/%s", filter_key,
+			settings_section_escape(filter_value));
+		/* the filter key=value field is needed by setting override
+		   handling to incrementally generate the filter */
+		event_add_str(lookup_event, filter_key, filter_value);
+		event_strlist_append(lookup_event, SETTINGS_EVENT_FILTER_NAME,
+				     filter_name);
+		filter_name_required = TRUE;
+	}
 
 	do {
 		if (root == NULL)
@@ -1363,18 +1376,22 @@ settings_get_full(struct event *event,
 			instance = event_get_ptr(scan_event,
 						 SETTINGS_EVENT_INSTANCE);
 		}
-		if (filter_key == NULL) {
-			filter_key = event_get_ptr(scan_event,
-						   SETTINGS_EVENT_FILTER_NAME);
+		str = event_get_ptr(scan_event, SETTINGS_EVENT_FILTER_NAME);
+		if (str != NULL) {
+			event_strlist_append(lookup_event,
+					     SETTINGS_EVENT_FILTER_NAME, str);
 		}
-		if (filter_key == NULL) {
-			filter_key = event_get_ptr(scan_event,
-				SETTINGS_EVENT_FILTER_NAME_REQUIRED);
-			if (filter_key != NULL)
+		str = event_get_ptr(scan_event,
+				    SETTINGS_EVENT_FILTER_NAME_REQUIRED);
+		if (str != NULL) {
+			event_strlist_append(lookup_event,
+					     SETTINGS_EVENT_FILTER_NAME, str);
+			if (!filter_name_required) {
 				filter_name_required = TRUE;
+				filter_name = str;
+				filter_key = str;
+			}
 		}
-		if (root != NULL && instance != NULL && filter_key != NULL)
-			break;
 		scan_event = event_get_parent(scan_event);
 	} while (scan_event != NULL);
 
@@ -1393,11 +1410,12 @@ settings_get_full(struct event *event,
 		instance = &empty_instance;
 
 	struct settings_apply_ctx ctx = {
-		.event = event_create(event),
+		.event = lookup_event,
 		.root = root,
 		.instance = instance,
 		.info = info,
 		.flags = flags,
+		.filter_name = filter_name,
 		.filter_key = filter_key,
 		.filter_value = filter_value,
 		.filter_name_required = filter_name_required,
@@ -1405,25 +1423,11 @@ settings_get_full(struct event *event,
 
 	int ret;
 	T_BEGIN {
-		if (filter_value != NULL) {
-			ctx.filter_name = t_strdup_printf("%s/%s", filter_key,
-				settings_section_escape(ctx.filter_value));
-		/* the filter key=value field is needed by setting override
-		   handling to incrementally generate the filter */
-		event_add_str(ctx.event, filter_key, filter_value);
-			ctx.filter_name_required = TRUE;
-		} else if (filter_key != NULL)
-			ctx.filter_name = filter_key;
-		if (ctx.filter_name != NULL) {
-			event_add_str(ctx.event, SETTINGS_EVENT_FILTER_NAME,
-				      ctx.filter_name);
-		}
-
-		ret = settings_instance_get(&ctx, source_filename,
-					    source_linenum, set_r, error_r);
+		ret = settings_instance_get(&ctx, source_filename, source_linenum,
+					    set_r, error_r);
 	} T_END_PASS_STR_IF(ret < 0, error_r);
 	settings_parser_unref(&ctx.parser);
-	event_unref(&ctx.event);
+	event_unref(&lookup_event);
 	array_free(&ctx.set_seen);
 	str_free(&ctx.str);
 	return ret;
