@@ -36,7 +36,15 @@ test_programs = \
 	test-json-tree \
 	test-json-tree-io
 
-noinst_PROGRAMS = $(test_programs)
+noinst_PROGRAMS = json-format $(test_programs)
+
+json_format_SOURCE = \
+	json-format.c
+json_format_LDADD = \
+	libjson.la \
+	../lib-charset/libcharset.la \
+	../lib/liblib.la \
+	$(MODULE_LIBS)
 
 test_libs = \
 	libjson.la \
