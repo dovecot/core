@@ -134,17 +134,13 @@ http_client_init_shared(struct http_client_context *cctx,
 		log_prefix = "http-client: ";
 	}
 
-	struct event *parent_event;
 	if (set->event_parent != NULL)
-		parent_event = set->event_parent;
+		client->event = event_create(set->event_parent);
 	else {
 		i_assert(cctx->event != NULL);
-		/* FIXME: we could use cctx->event, but it already has a log
-		   prefix that we don't want.. should we update event API to
-		   support replacing parent's log prefix? */
-		parent_event = event_get_parent(cctx->event);
+		client->event = event_create(cctx->event);
+		event_drop_parent_log_prefixes(client->event, 1);
 	}
-	client->event = event_create(parent_event);
 	event_add_category(client->event, &event_category_http_client);
 	event_set_forced_debug(client->event,
 			       (set->debug ||
