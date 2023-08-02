@@ -12,6 +12,7 @@
 #include "ostream.h"
 #include "time-util.h"
 #include "file-lock.h"
+#include "settings.h"
 #include "iostream-rawlog.h"
 #include "iostream-ssl.h"
 #include "http-response-parser.h"
@@ -30,8 +31,7 @@ http_client_connection_disconnect(struct http_client_connection *conn);
 static inline const struct http_client_settings *
 http_client_connection_get_settings(struct http_client_connection *conn)
 {
-	i_assert(conn->peer != NULL);
-	return conn->peer->client->set;
+	return conn->set;
 }
 
 static inline void
@@ -568,6 +568,10 @@ void http_client_connection_claim_idle(struct http_client_connection *conn,
 
 	if (conn->peer == NULL || conn->peer != peer) {
 		http_client_connection_detach_peer(conn);
+
+		settings_free(conn->set);
+		conn->set = peer->client->set;
+		pool_ref(conn->set->pool);
 
 		conn->peer = peer;
 		array_push_back(&peer->conns, &conn);
@@ -1747,6 +1751,8 @@ http_client_connection_create(struct http_client_peer *peer)
 	conn->refcount = 1;
 	conn->ppool = ppool;
 	conn->peer = peer;
+	conn->set = client->set;
+	pool_ref(conn->set->pool);
 	if (pshared->addr.type != HTTP_CLIENT_PEER_ADDR_RAW)
 		i_array_init(&conn->request_wait_list, 16);
 	conn->io_wait_timer = io_wait_timer_add_to(cctx->ioloop);
@@ -1883,6 +1889,7 @@ bool http_client_connection_unref(struct http_client_connection **_conn)
 	ssl_iostream_destroy(&conn->ssl_iostream);
 	connection_deinit(&conn->conn);
 	io_wait_timer_remove(&conn->io_wait_timer);
+	settings_free(conn->set);
 
 	i_free(conn);
 
