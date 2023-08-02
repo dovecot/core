@@ -610,6 +610,7 @@ static int mail_index_open_files(struct mail_index *index,
 			index->map->hdr.indexid = index->indexid;
 		}
 		index->initial_create = FALSE;
+		index->initial_created = TRUE;
 	}
 	if (ret >= 0) {
 		ret = index->map != NULL ? 1 : mail_index_try_open(index);
@@ -725,7 +726,7 @@ int mail_index_open_or_create(struct mail_index *index,
 	flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
 	ret = mail_index_open(index, flags);
 	i_assert(ret != 0);
-	return ret < 0 ? -1 : 0;
+	return ret < 0 ? -1 : (index->initial_created ? 1 : 0);
 }
 
 void mail_index_close_file(struct mail_index *index)

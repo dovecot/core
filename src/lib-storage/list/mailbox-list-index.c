@@ -59,6 +59,7 @@ int mailbox_list_index_index_open(struct mailbox_list *list)
 	const struct mail_storage_settings *set = list->mail_set;
 	enum mail_index_open_flags index_flags;
 	unsigned int lock_timeout;
+	int ret;
 
 	if (ilist->opened)
 		return 0;
@@ -98,7 +99,7 @@ int mailbox_list_index_index_open(struct mailbox_list *list)
 	mail_index_set_fsync_mode(ilist->index, set->parsed_fsync_mode, 0);
 	mail_index_set_lock_method(ilist->index, set->parsed_lock_method,
 				   lock_timeout);
-	if (mail_index_open_or_create(ilist->index, index_flags) < 0) {
+	if ((ret = mail_index_open_or_create(ilist->index, index_flags)) < 0) {
 		if (mail_index_move_to_memory(ilist->index) < 0) {
 			/* try opening once more. it should be created
 			   directly into memory now, except if it fails with
@@ -110,6 +111,8 @@ int mailbox_list_index_index_open(struct mailbox_list *list)
 			}
 		}
 	}
+	if (ret == 1)
+		ilist->index_created = TRUE;
 	ilist->opened = TRUE;
 	return 0;
 }

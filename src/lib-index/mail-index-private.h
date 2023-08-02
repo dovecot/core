@@ -318,6 +318,9 @@ struct mail_index {
 	/* Index has been fsck'd, but mail_index_reset_fscked() hasn't been
 	   called yet. */
 	bool fscked:1;
+	/* mail_index_open() has created new index files */
+	bool initial_created:1;
+
 };
 
 extern struct mail_index_module_register mail_index_module_register;

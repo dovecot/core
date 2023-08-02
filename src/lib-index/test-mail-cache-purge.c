@@ -18,7 +18,7 @@ static void test_mail_cache_read_during_purge2(void)
 	i_set_failure_prefix("index2: ");
 
 	/* read from cache via 2nd index */
-	test_mail_cache_init(test_mail_index_open(), &ctx);
+	test_mail_cache_init(test_mail_index_open(FALSE), &ctx);
 
 	cache_view = mail_cache_view_open(ctx.cache, ctx.view);
 	test_assert(mail_cache_lookup_field(cache_view, str, 1,
@@ -36,7 +36,7 @@ static void test_mail_cache_read_during_purge(void)
 	int status;
 
 	test_begin("mail cache read during purge");
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	test_mail_cache_add_mail(&ctx, ctx.cache_field.idx, "foo1");
 
 	/* lock the index for cache purge */
@@ -88,7 +88,7 @@ static void test_mail_cache_write_during_purge2(void)
 	i_set_failure_prefix("index2: ");
 
 	/* add to cache via 2nd index */
-	test_mail_cache_init(test_mail_index_open(), &ctx);
+	test_mail_cache_init(test_mail_index_open(FALSE), &ctx);
 	test_mail_cache_add_field(&ctx, 1, ctx.cache_field2.idx, "bar2");
 	test_mail_cache_deinit(&ctx);
 }
@@ -103,7 +103,7 @@ static void test_mail_cache_write_during_purge(void)
 	int status;
 
 	test_begin("mail cache write during purge");
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	test_mail_cache_add_mail(&ctx, ctx.cache_field.idx, "foo1");
 
 	/* lock the index for cache purge */
@@ -171,7 +171,7 @@ static void test_mail_cache_purge_while_cache_locked(void)
 	int status;
 
 	test_begin("mail cache purge while cache locked");
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	test_mail_cache_add_mail(&ctx, ctx.cache_field.idx, "foo1");
 
 	/* lock the cache */
@@ -250,7 +250,7 @@ static void test_mail_cache_purge_during_write_n(unsigned int num_mails,
 	struct mail_index_transaction *trans;
 	uint32_t seq;
 
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	mail_index_set_optimization_settings(ctx.index, &optimization_set);
 
 	/* Add mails */
@@ -379,7 +379,7 @@ static void test_mail_cache_delete_too_large_int(bool exceed_on_first_write)
 	struct test_mail_cache_ctx ctx;
 	struct stat st;
 
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	mail_index_set_optimization_settings(ctx.index, &optimization_set);
 	test_mail_cache_add_mail(&ctx, ctx.cache_field.idx, "foo1");
 	test_mail_cache_add_mail(&ctx, ctx.cache_field.idx, "foo2");
@@ -441,7 +441,7 @@ static void test_mail_cache_purge_too_large_int(bool exceed_size)
 	struct test_mail_cache_ctx ctx;
 	struct stat st;
 
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	mail_index_set_optimization_settings(ctx.index, &optimization_set);
 
 	/* add two mails with some cache field and expunge the first mail */
@@ -503,7 +503,7 @@ static void test_mail_cache_unexpectedly_lost_int(bool read_first)
 	struct test_mail_cache_ctx ctx;
 	struct mail_cache_view *cache_view;
 
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	test_mail_cache_add_mail(&ctx, ctx.cache_field.idx, "foo1");
 
 	test_mail_cache_purge();
@@ -566,7 +566,7 @@ static void test_mail_cache_resetid_mismatch_int(bool read_first)
 	struct mail_cache_view *cache_view;
 	const char *temp_cache_path;
 
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	test_mail_cache_add_mail(&ctx, ctx.cache_field.idx, "foo1");
 
 	/* make a copy of the first cache file */
@@ -695,7 +695,7 @@ static void test_mail_cache_purge_field_changes_int(enum test_drop drop)
 	struct mail_index_transaction *trans;
 	unsigned int i;
 
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	mail_index_set_optimization_settings(ctx.index, &optimization_set);
 
 	/* add two mails with all of the cache fields */
@@ -851,7 +851,7 @@ static void test_mail_cache_purge_already_done(void)
 	struct test_mail_cache_ctx ctx;
 
 	test_begin("mail cache purge already done");
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	test_mail_cache_add_mail(&ctx, ctx.cache_field.idx, "foo1");
 
 	test_mail_cache_purge();
@@ -886,7 +886,7 @@ static void test_mail_cache_purge_bitmask(void)
 	struct mail_cache_view *cache_view;
 
 	test_begin("mail cache purge bitmask");
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	mail_index_set_optimization_settings(ctx.index, &optimization_set);
 	ioloop_time = 1000000;
 	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
@@ -934,7 +934,7 @@ test_mail_cache_update_need_purge_continued_records_int(bool big_min_size)
 	struct test_mail_cache_ctx ctx;
 	uint32_t seq;
 
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	mail_index_set_optimization_settings(ctx.index, &optimization_set);
 
 	for (seq = 1; seq <= 100; seq++) {
@@ -989,7 +989,7 @@ test_mail_cache_update_need_purge_deleted_records_int(bool big_min_size)
 	struct test_mail_cache_ctx ctx;
 	uint32_t seq;
 
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	mail_index_set_optimization_settings(ctx.index, &optimization_set);
 
 	for (seq = 1; seq <= 100; seq++) {

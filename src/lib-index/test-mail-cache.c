@@ -106,7 +106,7 @@ static void test_mail_cache_fields(void)
 	string_t *str = t_str_new(16);
 
 	test_begin("mail cache uncommitted lookups");
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	mail_cache_register_fields(ctx.cache, cache_fields,
 				   N_ELEMENTS(cache_fields),
 				   unsafe_data_stack_pool);
@@ -253,7 +253,7 @@ static void test_mail_cache_record_max_size_int(unsigned int field3_size)
 	struct mail_cache_transaction_ctx *cache_trans;
 	string_t *str = t_str_new(16);
 
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	mail_index_set_optimization_settings(ctx.index, &optimization_set);
 
 	/* Add the first cache field. In a chain of cache records each one
@@ -358,7 +358,7 @@ static void test_mail_cache_record_max_size4(void)
 	string_t *str = t_str_new(16);
 
 	test_begin("mail cache record max size (4)");
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	mail_index_set_optimization_settings(ctx.index, &optimization_set);
 
 	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
@@ -400,7 +400,7 @@ static void test_mail_cache_add_decisions(void)
 
 	test_begin("mail cache add decisions");
 
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	memcpy(cache_fields, decision_cache_fields, sizeof(cache_fields));
 	mail_cache_register_fields(ctx.cache, cache_fields, TEST_FIELD_COUNT,
 				   unsafe_data_stack_pool);
@@ -471,7 +471,7 @@ static void test_mail_cache_lookup_decisions_int(bool header_lookups)
 	unsigned int i;
 	string_t *str = t_str_new(16);
 
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	/* create the initial mails and the cache file */
 	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
 	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
@@ -657,7 +657,7 @@ static void test_mail_cache_in_memory(void)
 	test_begin("mail cache add in-memory");
 
 	index = mail_index_alloc(NULL, NULL, "(in-memory)");
-	test_assert(mail_index_open_or_create(index, MAIL_INDEX_OPEN_FLAG_CREATE) == 0);
+	test_assert(mail_index_open_or_create(index, MAIL_INDEX_OPEN_FLAG_CREATE) == 1);
 	test_mail_cache_init(index, &ctx);
 	mail_index_set_optimization_settings(ctx.index, &optimization_set);
 	cache_view = mail_cache_view_open(ctx.cache, ctx.view);
@@ -726,7 +726,7 @@ static void test_mail_cache_size_corruption(void)
 
 	test_begin("mail cache size corruption");
 
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	test_mail_cache_add_mail(&ctx, ctx.cache_field.idx, "12345678");
 	cache_view = mail_cache_view_open(ctx.cache, ctx.view);
 
@@ -768,7 +768,7 @@ static void test_mail_cache_duplicate_fields(void)
 	struct mail_cache_transaction_ctx *cache_trans;
 
 	test_begin("mail cache duplicate fields");
-	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_init(test_mail_index_init(TRUE), &ctx);
 	mail_cache_register_fields(ctx.cache, cache_fields,
 				   N_ELEMENTS(cache_fields),
 				   unsafe_data_stack_pool);

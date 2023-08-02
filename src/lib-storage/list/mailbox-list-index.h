@@ -135,6 +135,7 @@ struct mailbox_list_index {
 	bool force_resynced:1;
 	bool force_resync_failed:1;
 	bool last_refresh_success:1;
+	bool index_created:1;
 };
 
 struct mailbox_list_index_iterate_context {

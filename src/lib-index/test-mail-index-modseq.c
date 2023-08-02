@@ -27,7 +27,7 @@ static void test_mail_index_modseq_get_next_log_offset(void)
 	uint32_t seq, uid;
 
 	test_begin("mail_transaction_log_file_get_modseq_next_offset()");
-	index = test_mail_index_init();
+	index = test_mail_index_init(TRUE);
 	view = mail_index_view_open(index);
 	mail_index_modseq_enable(index);
 

@@ -95,7 +95,7 @@ void test_mail_cache_purge(void)
 {
 	struct test_mail_cache_ctx ctx;
 
-	test_mail_cache_init(test_mail_index_open(), &ctx);
+	test_mail_cache_init(test_mail_index_open(FALSE), &ctx);
 	test_assert(mail_cache_purge(ctx.cache, (uint32_t)-1, "test") == 0);
 	test_mail_cache_deinit(&ctx);
 }

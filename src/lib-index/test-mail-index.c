@@ -15,8 +15,8 @@ static void test_mail_index_rotate(void)
 	const char *reason;
 
 	test_begin("mail index rotate");
-	index = test_mail_index_init();
-	index2 = test_mail_index_open();
+	index = test_mail_index_init(TRUE);
+	index2 = test_mail_index_open(FALSE);
 	view = mail_index_view_open(index);
 
 	/* First rotation of the index. The view will point to the old index. */
@@ -92,8 +92,8 @@ static void test_mail_index_new_extension(void)
 	uint32_t seq, rec_ext_id, rec_ext = 0x12345678;
 
 	test_begin("mail index new extension");
-	index = test_mail_index_init();
-	index2 = test_mail_index_open();
+	index = test_mail_index_init(TRUE);
+	index2 = test_mail_index_open(FALSE);
 	view = mail_index_view_open(index);
 
 	rec_ext_id = mail_index_ext_register(index, "test-rec", 0,

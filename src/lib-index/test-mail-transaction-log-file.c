@@ -244,7 +244,7 @@ static void test_mail_transaction_update_modseq(void)
 static struct mail_index *test_mail_index_open(void)
 {
 	struct mail_index *index = mail_index_alloc(NULL, NULL, "test.dovecot.index");
-	test_assert(mail_index_open_or_create(index, MAIL_INDEX_OPEN_FLAG_CREATE) == 0);
+	test_assert(mail_index_open_or_create(index, MAIL_INDEX_OPEN_FLAG_CREATE) == 1);
 	struct mail_index_view *view = mail_index_view_open(index);
 
 	struct mail_index_transaction *trans =
