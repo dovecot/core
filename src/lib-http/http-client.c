@@ -138,6 +138,7 @@ http_client_init_shared(struct http_client_context *cctx,
 	if (set->event_parent != NULL)
 		parent_event = set->event_parent;
 	else {
+		i_assert(cctx->event != NULL);
 		/* FIXME: we could use cctx->event, but it already has a log
 		   prefix that we don't want.. should we update event API to
 		   support replacing parent's log prefix? */
