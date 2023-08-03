@@ -433,7 +433,7 @@ static bool db_ldap_request_queue_next(struct ldap_connection *conn)
 		return FALSE;
 	} else {
 		/* broken request, remove from queue */
-		aqueue_delete_tail(conn->request_queue);
+		aqueue_delete(conn->request_queue, conn->pending_count);
 		request->callback(conn, request, NULL);
 		return TRUE;
 	}
