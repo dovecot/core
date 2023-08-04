@@ -617,13 +617,23 @@ int config_apply_line(struct config_parser_context *ctx,
 		struct config_filter filter = {
 			.parent = &ctx->cur_section->filter,
 		};
-		const char *p2 = strchr(p + 1, '/');
-		if (p2 == NULL)
-			filter.filter_name = t_strdup_until(key_with_path, p);
-		else {
+		/* find the type of the first prefix/ */
+		filter.filter_name = t_strdup_until(key_with_path, p);
+		struct config_parser_key *config_key =
+			hash_table_lookup(ctx->all_keys, filter.filter_name);
+		if (config_key == NULL)
+			break;
+		struct config_module_parser *l =
+			&ctx->cur_section->module_parsers[config_key->info_idx];
+
+		const char *p2 = NULL;
+		if (l->info->defines[config_key->define_idx].type == SET_FILTER_ARRAY &&
+		    (p2 = strchr(p + 1, '/')) != NULL) {
+			/* We have prefix/name/ */
 			filter.filter_name = t_strdup_until(key_with_path, p2);
 			filter.filter_name_array = TRUE;
 		}
+
 		filter_parser = config_filter_parser_find(ctx, &filter);
 		if (filter_parser == NULL) {
 			if (filter.filter_name_array) {
@@ -632,13 +642,6 @@ int config_apply_line(struct config_parser_context *ctx,
 			}
 			/* Verify that this is a filter_name/ prefix. If not,
 			   it should be a list/ */
-			struct config_parser_key *config_key =
-				hash_table_lookup(ctx->all_keys,
-						  filter.filter_name);
-			if (config_key == NULL)
-				break;
-			struct config_module_parser *l =
-				&ctx->cur_section->module_parsers[config_key->info_idx];
 			if (l->info->defines[config_key->define_idx].type != SET_FILTER_NAME &&
 			    l->info->defines[config_key->define_idx].type != SET_FILTER_HIERARCHY)
 				break;
@@ -657,6 +660,7 @@ int config_apply_line(struct config_parser_context *ctx,
 			break;
 		}
 
+		i_assert(p2 != NULL);
 		key_with_path = p2 + 1;
 	}
 
