@@ -13,10 +13,10 @@
 #include "imap-match.h"
 #include "dict.h"
 #include "notify-plugin.h"
+#include "settings.h"
+#include "settings-parser.h"
 
-#define NOTIFY_STATUS_SETTING_DICT_URI "notify_status_dict"
 #define NOTIFY_STATUS_SETTING_MAILBOX_PREFIX "notify_status_mailbox"
-#define NOTIFY_STATUS_SETTING_VALUE_TEMPLATE "notify_status_value"
 #define NOTIFY_STATUS_SETTING_VALUE_TEMPLATE_DEFAULT "{\"messages\":%{messages},\"unseen\":%{unseen}}"
 #define NOTIFY_STATUS_KEY "priv/status/%s"
 
@@ -33,6 +33,39 @@ const char *notify_status_plugin_version = DOVECOT_ABI_VERSION;
 const char *notify_status_plugin_dependencies[] = { "notify", NULL };
 
 ARRAY_DEFINE_TYPE(imap_match_glob, struct imap_match_glob*);
+struct notify_status_plugin_settings {
+	pool_t pool;
+
+	bool mailbox_notify_status;
+	const char *notify_status_value;
+};
+
+#undef DEF
+#define DEF(type, name) \
+       SETTING_DEFINE_STRUCT_##type(#name, name, struct notify_status_plugin_settings)
+static const struct setting_define notify_status_plugin_setting_defines[] = {
+       DEF(BOOL, mailbox_notify_status),
+       DEF(STR_NOVARS, notify_status_value),
+       { .type = SET_FILTER_NAME, .key = "notify_status",
+	 .required_setting = "dict_driver", },
+
+       SETTING_DEFINE_LIST_END
+};
+
+static const struct notify_status_plugin_settings notify_status_plugin_default_settings = {
+	.notify_status_value = NOTIFY_STATUS_SETTING_VALUE_TEMPLATE_DEFAULT,
+	.mailbox_notify_status = FALSE,
+};
+
+const struct setting_parser_info notify_status_plugin_setting_parser_info = {
+       .name = "notify_status",
+
+       .defines = notify_status_plugin_setting_defines,
+       .defaults = &notify_status_plugin_default_settings,
+
+       .struct_size = sizeof(struct notify_status_plugin_settings),
+       .pool_offset1 = 1 + offsetof(struct notify_status_plugin_settings, pool),
+};
 
 struct notify_status_mail_txn {
 	struct mailbox *box;
@@ -44,24 +77,9 @@ struct notify_status_user {
 
 	ARRAY_TYPE(imap_match_glob) patterns;
 	struct dict *dict;
-	const char *value_template;
+	const struct notify_status_plugin_settings *set;
 	struct notify_context *context;
 };
-
-static int notify_status_dict_init(struct mail_user *user, const char *uri,
-				   struct dict **dict_r, const char **error_r)
-{
-	struct dict_legacy_settings set = {
-		.base_dir = user->set->base_dir,
-		.event_parent = user->event,
-	};
-	if (dict_init_legacy(uri, &set, dict_r, error_r) < 0) {
-		*error_r = t_strdup_printf("dict_init(%s) failed: %s",
-					   uri, *error_r);
-		return -1;
-	}
-	return 0;
-}
 
 static void notify_status_mailbox_patterns_init(struct mail_user *user,
 						ARRAY_TYPE(imap_match_glob) *patterns)
@@ -171,9 +189,9 @@ static void notify_update_mailbox_status(struct mailbox *box)
 		const char *key =
 			t_strdup_printf(NOTIFY_STATUS_KEY, mailbox_get_vname(box));
 		string_t *dest = t_str_new(64);
-		if (var_expand(dest, nuser->value_template, values, &error) <= 0) {
+		if (var_expand(dest, nuser->set->notify_status_value, values, &error) <= 0) {
 			e_error(box->event, "notify-status: var_expand(%s) failed: %s",
-				nuser->value_template, error);
+				nuser->set->notify_status_value, error);
 		} else {
 			const struct dict_op_settings *set = mail_user_get_dict_op_settings(user);
 			t = dict_transaction_begin(nuser->dict, set);
@@ -295,6 +313,7 @@ static void notify_status_mail_user_deinit(struct mail_user *user)
 
 	dict_wait(nuser->dict);
 	dict_deinit(&nuser->dict);
+	settings_free(nuser->set);
 	notify_unregister(&nuser->context);
 	nuser->module_ctx.super.deinit(user);
 }
@@ -302,36 +321,38 @@ static void notify_status_mail_user_deinit(struct mail_user *user)
 static void notify_status_mail_user_created(struct mail_user *user)
 {
 	struct mail_user_vfuncs *v = user->vlast;
+	struct notify_status_plugin_settings *set;
 	struct notify_status_user *nuser;
 	struct dict *dict;
 	const char *error;
-	const char *template = mail_user_plugin_getenv(user, NOTIFY_STATUS_SETTING_VALUE_TEMPLATE);
-	const char *uri = mail_user_plugin_getenv(user, NOTIFY_STATUS_SETTING_DICT_URI);
 
 	if (user->autocreated)
 		return;
 
-	if (uri == NULL || *uri == '\0') {
-		e_debug(user->event, "notify-status: Disabled - Missing plugin/"
-			NOTIFY_STATUS_SETTING_DICT_URI" setting");
+	if (settings_get(user->event, &notify_status_plugin_setting_parser_info,
+			 0, &set, &error) < 0) {
+		e_error(user->event, "%s", error);
 		return;
 	}
 
-	if (template == NULL || *template == '\0')
-		template = NOTIFY_STATUS_SETTING_VALUE_TEMPLATE_DEFAULT;
+	struct event *event = event_create(user->event);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "notify_status");
 
-	if (notify_status_dict_init(user, uri, &dict, &error) < 0) {
-		e_error(user->event, "notify-status: %s", error);
+	int ret = dict_init_auto(event, &dict, &error);
+	event_unref(&event);
+	if (ret < 0)
+		e_error(user->event, "notify-status: dict_init_auto() failed: %s", error);
+	if (ret <= 0) {
+		settings_free(set);
 		return;
 	}
 
 	nuser = p_new(user->pool, struct notify_status_user, 1);
 	nuser->module_ctx.super = *v;
 	nuser->dict = dict;
+	nuser->set = set;
 	user->vlast = &nuser->module_ctx.super;
 	v->deinit = notify_status_mail_user_deinit;
-	/* either static value or lifetime is user object's lifetime */
-	nuser->value_template = template;
 
 	MODULE_CONTEXT_SET(user, notify_status_user_module, nuser);
 }
