@@ -33,6 +33,9 @@ enum mail_storage_service_flags {
 	MAIL_STORAGE_SERVICE_FLAG_NO_IDLE_TIMEOUT	= 0x200,
 	/* Don't create namespaces, only the user. */
 	MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES		= 0x800,
+	/* Initialize the user only minimally. Used by "doveadm mail fs"
+	   commands. */
+	MAIL_STORAGE_SERVICE_FLAG_MINIMAL_USER_INIT	= 0x1000,
 };
 
 struct mail_storage_service_input {
