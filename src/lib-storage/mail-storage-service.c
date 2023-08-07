@@ -1603,3 +1603,9 @@ mail_storage_service_get_log_prefix(struct mail_storage_service_ctx *ctx)
 {
 	return ctx->default_log_prefix;
 }
+
+enum mail_storage_service_flags
+mail_storage_service_get_flags(struct mail_storage_service_ctx *ctx)
+{
+	return ctx->flags;
+}
