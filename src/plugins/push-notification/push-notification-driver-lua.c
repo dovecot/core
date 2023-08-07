@@ -34,7 +34,7 @@
 #include "push-notification-event-messageread.h"
 #include "push-notification-event-messagetrash.h"
 
-#define DLUA_LOG_USERENV_KEY "push_notification_lua_script_file"
+#define DLUA_LOG_USERENV_KEY "push_notification_lua_script_path"
 
 #define DLUA_FN_BEGIN_TXN "dovecot_lua_notify_begin_txn"
 #define DLUA_FN_EVENT_PREFIX "dovecot_lua_notify_event"
@@ -81,7 +81,7 @@ push_notification_driver_lua_init(
 	event_set_append_log_prefix(event, "lua: ");
 
 	if ((tmp = mail_user_plugin_getenv(user, DLUA_LOG_USERENV_KEY)) == NULL)
-		tmp = hash_table_lookup(config->config, (const char *)"file");
+		tmp = hash_table_lookup(config->config, (const char *)"path");
 
 	if (tmp == NULL) {
 		struct dlua_script *script;
@@ -97,7 +97,7 @@ push_notification_driver_lua_init(
 		}
 
 		event_unref(&event);
-		*error_r = "No file in config and no "
+		*error_r = "No path in config and no "
 			   DLUA_LOG_USERENV_KEY " set";
 		return -1;
 	}
