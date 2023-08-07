@@ -166,6 +166,9 @@ mail_storage_service_user_get_username(const struct mail_storage_service_user *u
 
 const char *
 mail_storage_service_get_log_prefix(struct mail_storage_service_ctx *ctx);
+enum mail_storage_service_flags
+mail_storage_service_get_flags(struct mail_storage_service_ctx *ctx);
+
 const struct var_expand_table *
 mail_storage_service_get_var_expand_table(struct mail_storage_service_ctx *ctx,
 					  struct mail_storage_service_input *input);
