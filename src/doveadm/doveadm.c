@@ -282,8 +282,6 @@ int main(int argc, char *argv[])
 		{NULL, 0, NULL, 0},
 	};
 	master_service_register_long_options(master_service, longopts);
-	struct doveadm_cmd_context *cctx = doveadm_cmd_context_create(
-		DOVEADM_CONNECTION_TYPE_CLI, doveadm_verbose || doveadm_debug);
 
 	i_set_failure_exit_callback(failure_exit_callback);
 
@@ -381,6 +379,8 @@ int main(int argc, char *argv[])
 		i_set_debug_file("/dev/null");
 	}
 
+	struct doveadm_cmd_context *cctx = doveadm_cmd_context_create(
+		DOVEADM_CONNECTION_TYPE_CLI, doveadm_debug);
 	/* this has to be done here because proctitle hack can break
 	   the env pointer */
 	cctx->username = getenv("USER");
