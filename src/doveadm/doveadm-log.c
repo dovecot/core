@@ -413,8 +413,12 @@ static void cmd_log_errors(struct doveadm_cmd_context *cctx)
 	struct log_error error1, error2;
 	i_zero(&error1);
 	i_zero(&error2);
-	while (cmd_log_error_next(cctx->event, input1, &error1) ||
-	       cmd_log_error_next(cctx->event, input2, &error2)) T_BEGIN {
+	for (;;) {
+		bool have1 = cmd_log_error_next(cctx->event, input1, &error1);
+		bool have2 = cmd_log_error_next(cctx->event, input2, &error2);
+		if (!have1 && !have2)
+			break;
+
 		struct log_error *error;
 		if (error2.text == NULL ||
 		    (error1.text != NULL &&
@@ -426,10 +430,11 @@ static void cmd_log_errors(struct doveadm_cmd_context *cctx)
 				error2.prefix = "master: ";
 			error = &error2;
 		}
-		if (error->timestamp.tv_sec >= min_timestamp)
+		if (error->timestamp.tv_sec >= min_timestamp) T_BEGIN {
 			cmd_log_error_write(error);
+		} T_END;
 		i_zero(error);
-	} T_END;
+	}
 	i_stream_destroy(&input1);
 	i_stream_destroy(&input2);
 }
