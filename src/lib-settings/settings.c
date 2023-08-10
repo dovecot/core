@@ -1664,3 +1664,33 @@ void settings_root_deinit(struct settings_root **_root)
 	}
 	pool_unref(&root->pool);
 }
+
+void settings_simple_init(struct settings_simple *set_r,
+			  const char *const settings[])
+{
+	i_zero(set_r);
+	set_r->root = settings_root_init();
+	set_r->event = event_create(NULL);
+	event_set_ptr(set_r->event, SETTINGS_EVENT_ROOT, set_r->root);
+	if (settings != NULL)
+		settings_simple_update(set_r, settings);
+}
+
+void settings_simple_deinit(struct settings_simple *set)
+{
+	settings_instance_free(&set->instance);
+	settings_root_deinit(&set->root);
+	event_unref(&set->event);
+}
+
+void settings_simple_update(struct settings_simple *set,
+			    const char *const settings[])
+{
+	settings_instance_free(&set->instance);
+	set->instance = settings_instance_new(set->root);
+	for (unsigned int i = 0; settings[i] != NULL; i += 2) {
+		settings_override(set->instance, settings[i], settings[i + 1],
+				  SETTINGS_OVERRIDE_TYPE_CODE);
+	}
+	event_set_ptr(set->event, SETTINGS_EVENT_INSTANCE, set->instance);
+}
