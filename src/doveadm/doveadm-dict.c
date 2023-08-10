@@ -1,6 +1,7 @@
 /* Copyright (c) 2014-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "settings.h"
 #include "dict.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
@@ -13,10 +14,9 @@ cmd_dict_init_full(struct doveadm_cmd_context *cctx,
 		   doveadm_command_ver2_t *cmd ATTR_UNUSED, enum dict_iterate_flags *iter_flags,
 		   struct dict **dict_r, struct dict_op_settings *dopset_r)
 {
-	struct dict_legacy_settings dict_set;
 	struct dict *dict;
 	bool set = FALSE;
-	const char *dict_uri, *error, *key, *username = "";
+	const char *filter_name, *error, *key, *username = "";
 	i_zero(dopset_r);
 
 	if (doveadm_cmd_param_bool(cctx, "exact", &set) && set)
@@ -28,8 +28,8 @@ cmd_dict_init_full(struct doveadm_cmd_context *cctx,
 	(void)doveadm_cmd_param_str(cctx, "user", &username);
 	dopset_r->username = username;
 
-	if (!doveadm_cmd_param_str(cctx, "dict-uri", &dict_uri)) {
-		e_error(cctx->event, "dictionary URI must be specified");
+	if (!doveadm_cmd_param_str(cctx, "filter-name", &filter_name)) {
+		e_error(cctx->event, "filter-name must be specified");
 		doveadm_exit_code = EX_USAGE;
 		return -1;
 	}
@@ -55,11 +55,12 @@ cmd_dict_init_full(struct doveadm_cmd_context *cctx,
 	}
 
 	dict_drivers_register_builtin();
-	i_zero(&dict_set);
-	dict_set.base_dir = doveadm_settings->base_dir;
-	if (dict_init_legacy(dict_uri, &dict_set, &dict, &error) < 0) {
+
+	event_set_ptr(cctx->event, SETTINGS_EVENT_FILTER_NAME,
+		      t_strdup_noconst(filter_name));
+	if (dict_init_auto(cctx->event, &dict, &error) <= 0) {
 		e_error(cctx->event,
-			"dict_init(%s) failed: %s", dict_uri, error);
+			"dict_init() failed: %s", error);
 		doveadm_exit_code = EX_TEMPFAIL;
 		return -1;
 	}
@@ -292,22 +293,22 @@ static struct doveadm_cmd_ver2 doveadm_cmd_dict[] = {
 {
 	.name = "dict get",
 	.cmd = cmd_dict_get,
-	.usage = "[-u <user>] <dict uri> <key>",
+	.usage = "[-u <user>] <config-filter-name> <key>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
-DOVEADM_CMD_PARAM('\0', "dict-uri", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "filter-name", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "key", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 },
 {
 	.name = "dict set",
 	.cmd = cmd_dict_set,
-	.usage = "[-u <user>] [-t <timestamp-nsecs>] [-e <expire-secs>] <dict uri> <key> <value>",
+	.usage = "[-u <user>] [-t <timestamp-nsecs>] [-e <expire-secs>] <config-filter-name> <key> <value>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('t', "timestamp", CMD_PARAM_INT64, CMD_PARAM_FLAG_UNSIGNED)
 DOVEADM_CMD_PARAM('e', "expire-secs", CMD_PARAM_INT64, CMD_PARAM_FLAG_UNSIGNED)
-DOVEADM_CMD_PARAM('\0', "dict-uri", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "filter-name", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "key", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "value", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
@@ -315,22 +316,22 @@ DOVEADM_CMD_PARAMS_END
 {
 	.name = "dict unset",
 	.cmd = cmd_dict_unset,
-	.usage = "[-u <user>] [-t <timestamp-nsecs>] <dict uri> <key>",
+	.usage = "[-u <user>] [-t <timestamp-nsecs>] <config-filter-name> <key>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('t', "timestamp", CMD_PARAM_INT64, CMD_PARAM_FLAG_UNSIGNED)
-DOVEADM_CMD_PARAM('\0', "dict-uri", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "filter-name", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "key", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 },
 {
 	.name = "dict inc",
 	.cmd = cmd_dict_inc,
-	.usage = "[-u <user>] [-t <timestamp-nsecs>] <dict uri> <key> <diff>",
+	.usage = "[-u <user>] [-t <timestamp-nsecs>] <config-filter-name> <key> <diff>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('t', "timestamp", CMD_PARAM_INT64, CMD_PARAM_FLAG_UNSIGNED)
-DOVEADM_CMD_PARAM('\0', "dict-uri", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "filter-name", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "key", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "difference", CMD_PARAM_INT64, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
@@ -338,13 +339,13 @@ DOVEADM_CMD_PARAMS_END
 {
 	.name = "dict iter",
 	.cmd = cmd_dict_iter,
-	.usage = "[-u <user>] [-1RV] <dict uri> <prefix>",
+	.usage = "[-u <user>] [-1RV] <config-filter-name> <prefix>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('1', "exact", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('R', "recurse", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('V', "no-value", CMD_PARAM_BOOL, 0)
-DOVEADM_CMD_PARAM('\0', "dict-uri", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "filter-name", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "prefix", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 }
