@@ -325,6 +325,7 @@ cmd_log_error_next(struct event *event, struct istream *input,
 
 	if (line[0] == '\0') {
 		/* end of lines reply from master */
+		i_stream_close(input);
 		return FALSE;
 	}
 
