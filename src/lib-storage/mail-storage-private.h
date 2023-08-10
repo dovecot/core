@@ -192,6 +192,7 @@ struct mail_storage {
 
 	/* optional fs-api object for accessing mailboxes */
 	struct fs *mailboxes_fs;
+	struct settings_instance *mailboxes_fs_set_instance;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY(union mail_storage_module_context *) module_contexts;
