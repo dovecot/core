@@ -1622,6 +1622,9 @@ void settings_instance_free(struct settings_instance **_instance)
 	struct settings_instance *instance = *_instance;
 	struct settings_override *override;
 
+	if (instance == NULL)
+		return;
+
 	*_instance = NULL;
 
 	if (array_is_created(&instance->overrides)) {
