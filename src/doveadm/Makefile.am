@@ -90,6 +90,7 @@ doveadm_common_mail_cmds = \
 	doveadm-mail.c \
 	doveadm-mail-altmove.c \
 	doveadm-mail-deduplicate.c \
+	doveadm-mail-dict.c \
 	doveadm-mail-expunge.c \
 	doveadm-mail-fetch.c \
 	doveadm-mail-flags.c \
