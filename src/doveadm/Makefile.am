@@ -171,6 +171,7 @@ pkginc_lib_HEADERS = \
 noinst_HEADERS = \
 	client-connection.h \
 	client-connection-private.h \
+	doveadm-dict.h \
 	doveadm-fs.h \
 	doveadm-who.h
 

@@ -4,6 +4,7 @@
 #include "settings.h"
 #include "dict.h"
 #include "doveadm.h"
+#include "doveadm-dict.h"
 #include "doveadm-print.h"
 
 #include <stdio.h>
@@ -103,10 +104,7 @@ static void dict_lookup_callback(const struct dict_lookup_result *result,
 
 static void cmd_dict_get(struct doveadm_cmd_context *cctx)
 {
-	struct doveadm_dict_ctx ctx;
-	struct dict *dict;
 	const char *key;
-	struct dict_op_settings set;
 
 	if (!doveadm_cmd_param_str(cctx, "key", &key)) {
 		e_error(cctx->event, "dict-get: Missing key");
@@ -114,11 +112,19 @@ static void cmd_dict_get(struct doveadm_cmd_context *cctx)
 		return;
 	}
 
-	if (cmd_dict_init(cctx, &dict, &set) < 0)
-		return;
-
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	doveadm_print_header("value", "", DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+	doveadm_dict_get(cctx, key);
+}
+
+void doveadm_dict_get(struct doveadm_cmd_context *cctx, const char *key)
+{
+	struct doveadm_dict_ctx ctx;
+	struct dict *dict;
+	struct dict_op_settings set;
+
+	if (cmd_dict_init(cctx, &dict, &set) < 0)
+		return;
 
 	i_zero(&ctx);
 	ctx.pool = pool_alloconly_create("doveadm dict lookup", 512);
@@ -147,9 +153,6 @@ static void cmd_dict_get(struct doveadm_cmd_context *cctx)
 
 static void cmd_dict_set(struct doveadm_cmd_context *cctx)
 {
-	struct dict *dict;
-	struct dict_transaction_context *trans;
-	const char *error;
 	const char *key, *value = "";
 
 	if (!doveadm_cmd_param_str(cctx, "key", &key) ||
@@ -158,6 +161,15 @@ static void cmd_dict_set(struct doveadm_cmd_context *cctx)
 		doveadm_exit_code = EX_USAGE;
 		return;
 	}
+	doveadm_dict_set(cctx, key, value);
+}
+
+void doveadm_dict_set(struct doveadm_cmd_context *cctx, const char *key,
+		      const char *value)
+{
+	struct dict *dict;
+	struct dict_transaction_context *trans;
+	const char *error;
 
 	if (cmd_dict_init_transaction(cctx, &dict, &trans) < 0)
 		return;
@@ -173,9 +185,6 @@ static void cmd_dict_set(struct doveadm_cmd_context *cctx)
 
 static void cmd_dict_unset(struct doveadm_cmd_context *cctx)
 {
-	struct dict *dict;
-	struct dict_transaction_context *trans;
-	const char *error;
 	const char *key;
 
 	if (!doveadm_cmd_param_str(cctx, "key", &key)) {
@@ -183,6 +192,14 @@ static void cmd_dict_unset(struct doveadm_cmd_context *cctx)
 		doveadm_exit_code = EX_USAGE;
 		return;
 	}
+	doveadm_dict_unset(cctx, key);
+}
+
+void doveadm_dict_unset(struct doveadm_cmd_context *cctx, const char *key)
+{
+	struct dict *dict;
+	struct dict_transaction_context *trans;
+	const char *error;
 
 	if (cmd_dict_init_transaction(cctx, &dict, &trans) < 0)
 		return;
@@ -198,12 +215,8 @@ static void cmd_dict_unset(struct doveadm_cmd_context *cctx)
 
 static void cmd_dict_inc(struct doveadm_cmd_context *cctx)
 {
-	struct dict *dict;
-	struct dict_transaction_context *trans;
-	const char *error;
 	const char *key;
 	int64_t diff;
-	int ret;
 
 	if (!doveadm_cmd_param_str(cctx, "key", &key) ||
 	    !doveadm_cmd_param_int64(cctx, "difference", &diff)) {
@@ -211,6 +224,16 @@ static void cmd_dict_inc(struct doveadm_cmd_context *cctx)
 		doveadm_exit_code = EX_USAGE;
 		return;
 	}
+	doveadm_dict_inc(cctx, key, diff);
+}
+
+void doveadm_dict_inc(struct doveadm_cmd_context *cctx, const char *key,
+		      int64_t diff)
+{
+	struct dict *dict;
+	struct dict_transaction_context *trans;
+	const char *error;
+	int ret;
 
 	if (cmd_dict_init_transaction(cctx, &dict, &trans) < 0)
 		return;
@@ -230,12 +253,8 @@ static void cmd_dict_inc(struct doveadm_cmd_context *cctx)
 
 static void cmd_dict_iter(struct doveadm_cmd_context *cctx)
 {
-	struct dict *dict;
-	struct dict_iterate_context *iter;
 	enum dict_iterate_flags iter_flags = 0;
-	const char *prefix, *key, *const *values, *error;
-	bool header_printed = FALSE;
-	struct dict_op_settings set;
+	const char *prefix;
 
 	if (!doveadm_cmd_param_str(cctx, "prefix", &prefix)) {
 		e_error(cctx->event, "dict-iter: Missing prefix");
@@ -249,13 +268,24 @@ static void cmd_dict_iter(struct doveadm_cmd_context *cctx)
 	if (doveadm_cmd_param_flag(cctx, "no-value"))
 		iter_flags |= DICT_ITERATE_FLAG_NO_VALUE;
 
-	if (cmd_dict_init(cctx, &dict, &set) < 0)
-		return;
-
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TAB);
 	doveadm_print_header_simple("key");
 	if ((iter_flags & DICT_ITERATE_FLAG_NO_VALUE) == 0)
 		doveadm_print_header_simple("value");
+	doveadm_dict_iter(cctx, iter_flags, prefix);
+}
+
+void doveadm_dict_iter(struct doveadm_cmd_context *cctx,
+		       enum dict_iterate_flags iter_flags, const char *prefix)
+{
+	struct dict *dict;
+	struct dict_iterate_context *iter;
+	const char *key, *const *values, *error;
+	bool header_printed = FALSE;
+	struct dict_op_settings set;
+
+	if (cmd_dict_init(cctx, &dict, &set) < 0)
+		return;
 
 	iter = dict_iterate_init(dict, &set, prefix, iter_flags);
 	while (dict_iterate_values(iter, &key, &values)) {
