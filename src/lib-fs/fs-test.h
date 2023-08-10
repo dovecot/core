@@ -40,6 +40,6 @@ struct test_fs *test_fs_get(struct fs *fs);
 struct test_fs_file *test_fs_file_get(struct fs *fs, const char *path);
 
 void test_fs_async(const char *test_name, enum fs_properties properties,
-		   const char *driver, const char *args);
+		   struct event *event);
 
 #endif

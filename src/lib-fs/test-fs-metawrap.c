@@ -4,10 +4,18 @@
 #include "str.h"
 #include "istream.h"
 #include "ostream.h"
+#include "settings.h"
 #include "fs-test.h"
 #include "test-common.h"
 
 static const struct fs_parameters fs_params;
+static struct settings_simple test_set;
+
+static const char *const set_metawrap_test[] = {
+	"fs_parent/fs_driver", "test",
+	"fs_driver", "metawrap",
+	NULL
+};
 
 static void test_fs_metawrap_stat(void)
 {
@@ -20,8 +28,8 @@ static void test_fs_metawrap_stat(void)
 	unsigned int i;
 
 	test_begin("fs metawrap stat");
-
-	if (fs_legacy_init("metawrap", "test", NULL, &fs_params, &fs, &error) < 0)
+	settings_simple_update(&test_set, set_metawrap_test);
+	if (fs_init_auto(test_set.event, &fs_params, &fs, &error) <= 0)
 		i_fatal("fs_init() failed: %s", error);
 
 	for (i = 0; i < 2; i++) {
@@ -48,9 +56,18 @@ static void test_fs_metawrap_stat(void)
 
 static void test_fs_metawrap_async(void)
 {
-	test_fs_async("metawrap", FS_PROPERTY_METADATA, "metawrap", "test");
-	test_fs_async("metawrap passthrough", 0, "metawrap", "test");
-	test_fs_async("double-metawrap", FS_PROPERTY_METADATA, "metawrap", "metawrap:test");
+	static const char *const set_metawrap_metawrap_test[] = {
+		"fs_parent/fs_parent/fs_driver", "test",
+		"fs_parent/fs_driver", "metawrap",
+		"fs_driver", "metawrap",
+		NULL
+	};
+
+	settings_simple_update(&test_set, set_metawrap_test);
+	test_fs_async("metawrap", FS_PROPERTY_METADATA, test_set.event);
+	test_fs_async("metawrap passthrough", 0, test_set.event);
+	settings_simple_update(&test_set, set_metawrap_metawrap_test);
+	test_fs_async("double-metawrap", FS_PROPERTY_METADATA, test_set.event);
 }
 
 static void test_fs_metawrap_write_empty(void)
@@ -60,7 +77,8 @@ static void test_fs_metawrap_write_empty(void)
 	const char *error;
 
 	test_begin("fs metawrap write empty file");
-	if (fs_legacy_init("metawrap", "test", NULL, &fs_params, &fs, &error) < 0)
+	settings_simple_update(&test_set, set_metawrap_test);
+	if (fs_init_auto(test_set.event, &fs_params, &fs, &error) <= 0)
 		i_fatal("fs_init() failed: %s", error);
 	struct fs_file *file = fs_file_init(fs, "foo", FS_OPEN_MODE_REPLACE);
 	struct ostream *output = fs_write_stream(file);
@@ -77,7 +95,8 @@ static void test_fs_metawrap_write_fname_rename(void)
 	const char *error;
 
 	test_begin("fs metawrap write fname rename");
-	if (fs_legacy_init("metawrap", "test", NULL, &fs_params, &fs, &error) < 0)
+	settings_simple_update(&test_set, set_metawrap_test);
+	if (fs_init_auto(test_set.event, &fs_params, &fs, &error) <= 0)
 		i_fatal("fs_init() failed: %s", error);
 	struct fs_file *file = fs_file_init(fs, "foo", FS_OPEN_MODE_REPLACE);
 	struct ostream *output = fs_write_stream(file);
@@ -99,5 +118,11 @@ int main(void)
 		test_fs_metawrap_write_fname_rename,
 		NULL
 	};
-	return test_run(test_functions);
+
+	lib_init();
+	settings_simple_init(&test_set, NULL);
+	int ret = test_run(test_functions);
+	settings_simple_deinit(&test_set);
+	lib_deinit();
+	return ret;
 }
