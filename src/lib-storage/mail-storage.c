@@ -26,6 +26,7 @@
 #include "mailbox-tree.h"
 #include "mailbox-list-private.h"
 #include "mail-storage-private.h"
+#include "mail-storage-service.h"
 #include "mail-storage-settings.h"
 #include "mail-namespace.h"
 #include "mail-search.h"
@@ -455,15 +456,28 @@ mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
 		struct fs_parameters fs_params;
 		const char *error;
 		i_zero(&fs_params);
-
 		mail_user_init_fs_parameters(storage->user, &fs_params);
-		if (fs_legacy_init("posix", "", storage->user->event,
-				   &fs_params, &storage->mailboxes_fs,
-				   &error) < 0) {
+
+		struct settings_instance *set_instance =
+			mail_storage_service_user_get_settings_instance(
+				storage->user->service_user);
+		storage->mailboxes_fs_set_instance =
+			settings_instance_dup(set_instance);
+		settings_override(storage->mailboxes_fs_set_instance,
+				  "fs_driver", "posix",
+				  SETTINGS_OVERRIDE_TYPE_CODE);
+
+		struct event *event = event_create(storage->event);
+		event_set_ptr(event, SETTINGS_EVENT_INSTANCE,
+			      storage->mailboxes_fs_set_instance);
+		if (fs_init_auto(event, &fs_params, &storage->mailboxes_fs,
+				 &error) <= 0) {
 			*error_r = t_strdup_printf("fs_init(posix) failed: %s", error);
+			event_unref(&event);
 			storage->v.destroy(storage);
 			return -1;
 		}
+		event_unref(&event);
 	}
 
 	T_BEGIN {
@@ -529,6 +543,7 @@ void mail_storage_unref(struct mail_storage **_storage)
 		array_free(&storage->error_stack);
 	}
 	fs_unref(&storage->mailboxes_fs);
+	settings_instance_free(&storage->mailboxes_fs_set_instance);
 	event_unref(&storage->event);
 
 	*_storage = NULL;
