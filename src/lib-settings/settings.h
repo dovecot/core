@@ -263,4 +263,16 @@ bool settings_has_mmap(struct settings_root *root);
 struct settings_root *settings_root_init(void);
 void settings_root_deinit(struct settings_root **root);
 
+struct settings_simple {
+	struct settings_root *root;
+	struct settings_instance *instance;
+	struct event *event;
+};
+
+void settings_simple_init(struct settings_simple *set_r,
+			  const char *const settings[]);
+void settings_simple_deinit(struct settings_simple *set);
+void settings_simple_update(struct settings_simple *set,
+			    const char *const settings[]);
+
 #endif
