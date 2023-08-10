@@ -826,6 +826,11 @@ static struct doveadm_cmd_ver2 *mail_commands_ver2[] = {
 	&doveadm_cmd_mail_fs_delete,
 	&doveadm_cmd_mail_fs_iter,
 	&doveadm_cmd_mail_fs_iter_dirs,
+	&doveadm_cmd_mail_dict_get,
+	&doveadm_cmd_mail_dict_set,
+	&doveadm_cmd_mail_dict_unset,
+	&doveadm_cmd_mail_dict_inc,
+	&doveadm_cmd_mail_dict_iter,
 };
 
 void doveadm_mail_init(void)

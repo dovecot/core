@@ -19,7 +19,10 @@ cmd_dict_init(struct doveadm_cmd_context *cctx,
 	const char *filter_name, *error, *key, *username = "";
 	i_zero(dopset_r);
 
-	(void)doveadm_cmd_param_str(cctx, "user", &username);
+	if (cctx->cmd->mail_cmd != NULL)
+		username = cctx->username; /* doveadm mail dict command */
+	else
+		(void)doveadm_cmd_param_str(cctx, "user", &username);
 	dopset_r->username = username;
 
 	if (!doveadm_cmd_param_str(cctx, "filter-name", &filter_name)) {
@@ -142,6 +145,10 @@ void doveadm_dict_get(struct doveadm_cmd_context *cctx, const char *key)
 	} else {
 		unsigned int i, values_count = str_array_length(ctx.values);
 
+		/* We don't know beforehand how many values there are,
+		   so allow adding headers at this stage, even though
+		   it's not correct. */
+		doveadm_print_header_disallow(FALSE);
 		for (i = 1; i < values_count; i++)
 			doveadm_print_header("value", "", DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
 		for (i = 0; i < values_count; i++)
@@ -291,6 +298,10 @@ void doveadm_dict_iter(struct doveadm_cmd_context *cctx,
 	while (dict_iterate_values(iter, &key, &values)) {
 		unsigned int values_count = str_array_length(values);
 		if (!header_printed) {
+			/* We don't know beforehand how many values there are,
+			   so allow adding headers at this stage, even though
+			   it's not correct. */
+			doveadm_print_header_disallow(FALSE);
 			for (unsigned int i = 1; i < values_count; i++)
 				doveadm_print_header_simple("value");
 			header_printed = TRUE;
