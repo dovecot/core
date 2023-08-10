@@ -7,7 +7,9 @@
 #include "ostream.h"
 #include "guid.h"
 #include "llist.h"
+#include "settings.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "dict.h"
 #include "fs-api.h"
 
@@ -379,7 +381,8 @@ int main(int argc, char *argv[])
 	i_zero(&params);
 	params.base_dir = PKG_RUNDIR;
 	master_service = master_service_init("test-fs",
-					     MASTER_SERVICE_FLAG_STANDALONE,
+					     MASTER_SERVICE_FLAG_STANDALONE |
+					     MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS,
 					     &argc, &argv, "Daf:p:st:u:");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
@@ -415,16 +418,19 @@ int main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (argc != 3)
-		i_fatal("Usage: [-a|-s] [-D] [-f <files#>] [-p <max ops>] [-t <secs>] [-u <user>] <driver> <args> <prefix>");
+	if (argc != 1)
+		i_fatal("Usage: [-a|-s] [-D] [-f <files#>] [-p <max ops>] [-t <secs>] [-u <user>] -o fs_driver=<name> [-o ...] <prefix>");
+
+	if (master_service_settings_read_simple(master_service, &error) < 0)
+		i_fatal("%s", error);
 
 	master_service_init_finish(master_service);
 	dict_drivers_register_builtin();
 
-	if (fs_legacy_init(argv[0], argv[1], master_service_get_event(master_service),
-			   &params, &ctx.fs, &error) < 0)
+	if (fs_init_auto(master_service_get_event(master_service),
+			 &params, &ctx.fs, &error) <= 0)
 		i_fatal("fs_init() failed: %s", error);
-	ctx.prefix = argv[2];
+	ctx.prefix = argv[0];
 
 	root_ioloop = current_ioloop;
 	test_more(&ctx);
