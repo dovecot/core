@@ -10,21 +10,14 @@
 #include <unistd.h>
 
 static int
-cmd_dict_init_full(struct doveadm_cmd_context *cctx,
-		   enum dict_iterate_flags *iter_flags,
-		   struct dict **dict_r, struct dict_op_settings *dopset_r)
+cmd_dict_init(struct doveadm_cmd_context *cctx,
+	      struct dict **dict_r,
+	      struct dict_op_settings *dopset_r)
 {
 	struct dict *dict;
-	bool set = FALSE;
 	const char *filter_name, *error, *key, *username = "";
 	i_zero(dopset_r);
 
-	if (doveadm_cmd_param_bool(cctx, "exact", &set) && set)
-		*iter_flags |= DICT_ITERATE_FLAG_EXACT_KEY;
-	if (doveadm_cmd_param_bool(cctx, "recurse", &set) && set)
-		*iter_flags |= DICT_ITERATE_FLAG_RECURSE;
-	if (doveadm_cmd_param_bool(cctx, "no-value", &set) && set)
-		*iter_flags |= DICT_ITERATE_FLAG_NO_VALUE;
 	(void)doveadm_cmd_param_str(cctx, "user", &username);
 	dopset_r->username = username;
 
@@ -66,15 +59,6 @@ cmd_dict_init_full(struct doveadm_cmd_context *cctx,
 	}
 	*dict_r = dict;
 	return 0;
-}
-
-static int
-cmd_dict_init(struct doveadm_cmd_context *cctx,
-	      struct dict **dict_r,
-	      struct dict_op_settings *set_r)
-{
-	enum dict_iterate_flags iter_flags = 0;
-	return cmd_dict_init_full(cctx, &iter_flags, dict_r, set_r);
 }
 
 static int
@@ -258,8 +242,14 @@ static void cmd_dict_iter(struct doveadm_cmd_context *cctx)
 		doveadm_exit_code = EX_USAGE;
 		return;
 	}
+	if (doveadm_cmd_param_flag(cctx, "exact"))
+		iter_flags |= DICT_ITERATE_FLAG_EXACT_KEY;
+	if (doveadm_cmd_param_flag(cctx, "recurse"))
+		iter_flags |= DICT_ITERATE_FLAG_RECURSE;
+	if (doveadm_cmd_param_flag(cctx, "no-value"))
+		iter_flags |= DICT_ITERATE_FLAG_NO_VALUE;
 
-	if (cmd_dict_init_full(cctx, &iter_flags, &dict, &set) < 0)
+	if (cmd_dict_init(cctx, &dict, &set) < 0)
 		return;
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TAB);
