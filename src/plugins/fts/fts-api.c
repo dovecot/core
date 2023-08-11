@@ -91,7 +91,7 @@ int fts_backend_init(const char *backend_name, struct mail_namespace *ns,
 	backend = be->v.alloc();
 	backend->ns = ns;
 	if (backend->v.init(backend, error_r) < 0) {
-		i_free(backend);
+		backend->v.deinit(backend);
 		return -1;
 	}
 
