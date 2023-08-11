@@ -263,6 +263,11 @@ bool settings_has_mmap(struct settings_root *root);
 struct settings_root *settings_root_init(void);
 void settings_root_deinit(struct settings_root **root);
 
+/* Return SETTINGS_EVENT_ROOT from the event or its parents. */
+struct settings_root *settings_root_find(const struct event *event);
+/* Return SETTINGS_EVENT_INSTANCE from the event or its parents. */
+struct settings_instance *settings_instance_find(const struct event *event);
+
 struct settings_simple {
 	struct settings_root *root;
 	struct settings_instance *instance;
