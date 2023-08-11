@@ -474,7 +474,10 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 	}
 
 	if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0 &&
-	    ctx->info->defines[key_idx].type != SET_STRLIST &&
+	    /* FIXME: plugin { .. } settings aren't expanded here. Eventually
+	       plugin strlist should be removed entirely. */
+	    (ctx->info->defines[key_idx].type != SET_STRLIST ||
+	     strcmp(ctx->info->defines[key_idx].key, "plugin") != 0) &&
 	    ctx->info->defines[key_idx].type != SET_STR_NOVARS &&
 	    ctx->info->defines[key_idx].type != SET_FILTER_ARRAY) {
 		const char *error;
