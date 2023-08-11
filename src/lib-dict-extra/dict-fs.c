@@ -25,6 +25,26 @@ struct fs_dict_iterate_context {
 };
 
 static int
+fs_dict_init(const struct dict *dict_driver, struct event *event,
+	     struct dict **dict_r, const char **error_r)
+{
+	struct fs_parameters fs_param;
+	struct fs *fs;
+	struct fs_dict *dict;
+
+	i_zero(&fs_param);
+	if (fs_init_auto(event, &fs_param, &fs, error_r) <= 0)
+		return -1;
+
+	dict = i_new(struct fs_dict, 1);
+	dict->dict = *dict_driver;
+	dict->fs = fs;
+
+	*dict_r = &dict->dict;
+	return 0;
+}
+
+static int
 fs_dict_init_legacy(struct dict *driver, const char *uri,
 		    const struct dict_legacy_settings *set,
 		    struct dict **dict_r, const char **error_r)
@@ -325,6 +345,7 @@ fs_dict_transaction_commit(struct dict_transaction_context *_ctx,
 struct dict dict_driver_fs = {
 	.name = "fs",
 	.v = {
+		.init = fs_dict_init,
 		.init_legacy = fs_dict_init_legacy,
 		.deinit = fs_dict_deinit,
 		.lookup = fs_dict_lookup,
