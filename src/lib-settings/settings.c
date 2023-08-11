@@ -1665,6 +1665,32 @@ void settings_root_deinit(struct settings_root **_root)
 	pool_unref(&root->pool);
 }
 
+struct settings_root *settings_root_find(const struct event *event)
+{
+	struct settings_root *root;
+
+	do {
+		root = event_get_ptr(event, SETTINGS_EVENT_ROOT);
+		if (root != NULL)
+			return root;
+		event = event_get_parent(event);
+	} while (event != NULL);
+	return NULL;
+}
+
+struct settings_instance *settings_instance_find(const struct event *event)
+{
+	struct settings_instance *instance;
+
+	do {
+		instance = event_get_ptr(event, SETTINGS_EVENT_INSTANCE);
+		if (instance != NULL)
+			return instance;
+		event = event_get_parent(event);
+	} while (event != NULL);
+	return NULL;
+}
+
 void settings_simple_init(struct settings_simple *set_r,
 			  const char *const settings[])
 {
