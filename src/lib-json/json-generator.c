@@ -432,8 +432,6 @@ int json_generator_flush(struct json_generator *generator)
 				return ret;
 		}
 
-		// FIXME: add indent
-
 		level = array_idx_get_space(&generator->level_stack,
 					    generator->level_stack_written);
 		if (level->object) {

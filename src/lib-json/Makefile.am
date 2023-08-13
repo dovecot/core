@@ -12,7 +12,8 @@ libjson_la_SOURCES = \
 	json-parser.new.c \
 	json-generator.c \
 	json-istream.c \
-	json-ostream.c
+	json-ostream.c \
+	json-text.c
 libjson_la_LIBADD = -lm
 
 headers = \
@@ -23,7 +24,8 @@ headers = \
 	json-parser.new.h \
 	json-generator.h \
 	json-istream.h \
-	json-ostream.h
+	json-ostream.h \
+	json-text.h
 
 test_programs = \
 	test-json-parser \
