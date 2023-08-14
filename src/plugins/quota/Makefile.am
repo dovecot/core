@@ -126,7 +126,7 @@ clean-generic:
 	if [ "$(top_srcdir)" != "$(top_builddir)" ]; then \
 	  rm -f $(top_builddir)/src/plugins/quota/rquota.x; \
 	fi; \
-	rm -f rquota_xdr.c rquota.h
+	rm -f rquota_xdr.c rquota_xdr.c.tmp rquota.h rquota.h.tmp
 
 test_programs = \
 	test-quota-util
