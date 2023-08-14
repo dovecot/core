@@ -81,6 +81,7 @@ struct settings_root {
 
 struct settings_instance {
 	pool_t pool;
+	struct settings_root *root;
 	struct settings_mmap *mmap;
 	ARRAY_TYPE(settings_override) overrides;
 };
@@ -1374,9 +1375,9 @@ settings_get_full(struct event *event,
 		  unsigned int source_linenum,
 		  const void **set_r, const char **error_r)
 {
-	struct settings_root *root = NULL;
+	struct settings_root *scan_root, *root = NULL;
 	struct settings_mmap *mmap = NULL;
-	struct settings_instance *instance = NULL;
+	struct settings_instance *scan_instance, *instance = NULL;
 	struct event *lookup_event, *scan_event = event;
 	const char *str, *filter_name = NULL;
 	bool filter_name_required = FALSE;
@@ -1399,12 +1400,23 @@ settings_get_full(struct event *event,
 	}
 
 	do {
+		scan_root = event_get_ptr(scan_event, SETTINGS_EVENT_ROOT);
+		scan_instance = event_get_ptr(scan_event,
+					      SETTINGS_EVENT_INSTANCE);
+
 		if (root == NULL)
-			root = event_get_ptr(scan_event, SETTINGS_EVENT_ROOT);
-		if (instance == NULL) {
-			instance = event_get_ptr(scan_event,
-						 SETTINGS_EVENT_INSTANCE);
+			root = scan_root;
+		else if ((scan_root != NULL && root != scan_root) ||
+			 (scan_instance != NULL && root != scan_instance->root)) {
+			/* settings root changed - ignore the rest of the
+			   event hierarchy. */
+			break;
 		}
+		if (instance == NULL && scan_instance != NULL) {
+			instance = scan_instance;
+			root = instance->root;
+		}
+
 		str = event_get_ptr(scan_event, SETTINGS_EVENT_FILTER_NAME);
 		if (str != NULL) {
 			event_strlist_append(lookup_event,
@@ -1590,6 +1602,7 @@ struct settings_instance *
 settings_instance_new(struct settings_root *root)
 {
 	struct settings_instance *instance = settings_instance_alloc();
+	instance->root = root;
 	instance->mmap = root->mmap;
 	return instance;
 }
@@ -1598,6 +1611,7 @@ struct settings_instance *
 settings_instance_dup(const struct settings_instance *src)
 {
 	struct settings_instance *dest = settings_instance_alloc();
+	dest->root = src->root;
 	dest->mmap = src->mmap;
 
 	if (!array_is_created(&src->overrides))

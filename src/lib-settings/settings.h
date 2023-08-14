@@ -45,7 +45,12 @@ enum settings_get_flags {
 #define SETTINGS_EVENT_INSTANCE "settings_instance"
 
 /* Used by settings_get() to find struct settings_root via the event.
-   This is set automatically by lib-master for all created root events. */
+   This is set automatically by lib-master for all created root events.
+
+   If a new root is created in the event hierarchy (or an instance with a new
+   root is used), only the settings under the new root are used. This allows
+   specifying the exact wanted settings in the code, and they can't be changed
+   with config file or command line options. */
 #define SETTINGS_EVENT_ROOT "settings_root"
 
 /* Used by settings_get() to access the named filter. This is copied to the
