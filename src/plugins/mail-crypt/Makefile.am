@@ -21,8 +21,7 @@ NOPLUGIN_LDFLAGS =
 module_LTLIBRARIES = \
 	lib10_mail_crypt_plugin.la \
 	lib05_mail_crypt_acl_plugin.la \
-	libfs_crypt.la \
-	libfs_mail_crypt.la
+	libfs_crypt.la
 
 doveadm_module_LTLIBRARIES = \
 	libdoveadm_mail_crypt_plugin.la
@@ -56,13 +55,6 @@ libfs_crypt_la_SOURCES = fs-crypt.c \
 libfs_crypt_la_LIBADD = $(LIBDOVECOT)
 libfs_crypt_la_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 libfs_crypt_la_LDFLAGS = -module -avoid-version
-
-libfs_mail_crypt_la_SOURCES = fs-mail-crypt.c \
-	mail-crypt-global-key.c \
-	mail-crypt-userenv.c
-libfs_mail_crypt_la_LIBADD = $(LIBDOVECOT)
-libfs_mail_crypt_la_DEPENDENCIES = $(LIBDOVECOT_DEPS)
-libfs_mail_crypt_la_LDFLAGS = -module -avoid-version
 
 libdoveadm_mail_crypt_plugin_la_SOURCES = \
 	doveadm-mail-crypt.c
