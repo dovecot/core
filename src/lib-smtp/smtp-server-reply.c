@@ -380,10 +380,17 @@ void smtp_server_reply_replace_path(struct smtp_server_reply *reply,
 		path_text = smtp_address_encode_path(path);
 		str_replace(reply->content->text, prefix_len, path_len,
 			    path_text);
+		if (reply->content->last_line > 0) {
+			i_assert(reply->content->last_line > path_len);
+			reply->content->last_line -= path_len;
+			reply->content->last_line += strlen(path_text);
+		}
 	} else if (add) {
 		path_text = t_strdup_printf(
 			"<%s> ", smtp_address_encode(path));
 		str_insert(reply->content->text, prefix_len, path_text);
+		if (reply->content->last_line > 0)
+			reply->content->last_line += strlen(path_text);
 	}
 }
 
