@@ -101,8 +101,6 @@ test_mail_key_DEPENDENCIES = $(LIBDOVECOT_DEPS)  $(LIBDOVECOT_STORAGE_DEPS)
 test_mail_key_LDFLAGS = $(DOVECOT_BINARY_LDFLAGS)
 test_mail_key_CFLAGS = $(AM_CPPFLAGS) $(DOVECOT_BINARY_CFLAGS) -Dtop_builddir=\"$(top_builddir)\"
 
-EXTRA_DIST = fs-crypt-common.c
-
 noinst_HEADERS = \
 	mail-crypt-plugin.h \
 	mail-crypt-common.h \
