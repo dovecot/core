@@ -29,6 +29,8 @@ struct settings_mmap_pool {
 struct settings_override {
 	pool_t pool;
 	int type;
+	/* Number of '/' characters in orig_key + 1 */
+	unsigned int path_element_count;
 	bool append;
 	bool filter_finished;
 	const char *key, *orig_key, *value;
@@ -970,7 +972,16 @@ settings_var_expand_init(struct event *event,
 static int settings_override_cmp(struct settings_override *const *set1,
 				 struct settings_override *const *set2)
 {
-	return (*set2)->type - (*set1)->type;
+	int ret = (*set2)->type - (*set1)->type;
+	if (ret != 0)
+		return ret;
+
+	/* Return more specific filters first. This is mainly necessary with
+	   hierarchical settings, e.g. fs_parent/fs_parent/fs_driver so the
+	   highest hierarchy count settings are returned first. */
+	return (int)(*set2)->path_element_count -
+		(int)(*set1)->path_element_count;
+
 }
 
 
@@ -1552,6 +1563,16 @@ settings_get_or_fatal(struct event *event,
 	return set;
 }
 
+static unsigned int path_element_count(const char *key)
+{
+	unsigned int count = 1;
+	while ((key = strchr(key, '/')) != NULL) {
+		key++;
+		count++;
+	}
+	return count;
+}
+
 void settings_override(struct settings_instance *instance,
 		       const char *key, const char *value,
 		       enum settings_override_type type)
@@ -1570,6 +1591,7 @@ void settings_override(struct settings_instance *instance,
 			key = t_strndup(key, len-1);
 		}
 		set->key = set->orig_key = p_strdup(instance->pool, key);
+		set->path_element_count = path_element_count(set->key);
 		set->value = p_strdup(instance->pool, value);
 	} T_END;
 }
@@ -1585,6 +1607,7 @@ void settings_root_override(struct settings_root *root,
 	set->pool = root->pool;
 	set->type = type;
 	set->key = set->orig_key = p_strdup(root->pool, key);
+	set->path_element_count = path_element_count(set->key);
 	set->value = p_strdup(root->pool, value);
 }
 
