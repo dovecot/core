@@ -1,6 +1,8 @@
 #ifndef MAIL_CRYPT_GLOBAL_KEY_H
 #define MAIL_CRYPT_GLOBAL_KEY_H
 
+struct crypt_settings;
+
 struct mail_crypt_global_private_key {
 	struct dcrypt_private_key *key;
 	char *key_id, *key_id_old;
@@ -12,6 +14,11 @@ struct mail_crypt_global_keys {
 };
 
 struct mail_user;
+
+int mail_crypt_global_keys_load(struct event *event,
+				const struct crypt_settings *set,
+				struct mail_crypt_global_keys *global_keys_r,
+				const char **error_r);
 
 int mail_crypt_global_keys_load_from_user(struct mail_user *user,
 					  const char *set_prefix,

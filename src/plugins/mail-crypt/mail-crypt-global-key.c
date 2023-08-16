@@ -5,6 +5,7 @@
 #include "str.h"
 #include "hex-binary.h"
 #include "base64.h"
+#include "settings.h"
 #include "mail-user.h"
 #include "mail-crypt-common.h"
 #include "mail-crypt-key.h"
@@ -101,7 +102,7 @@ int mail_crypt_load_global_private_key(const char *set_key, const char *key_data
 	if (enc_type == DCRYPT_KEY_ENCRYPTION_TYPE_PASSWORD) {
 		/* Fail here if password is not set since openssl will prompt
 		 * for it otherwise */
-		if (key_password == NULL) {
+		if (key_password == NULL || key_password[0] == '\0') {
 			*error_r = t_strdup_printf("%s: %s unset, no password to decrypt the key",
 						   set_key, set_pw);
 			return -1;
@@ -126,6 +127,47 @@ int mail_crypt_load_global_private_key(const char *set_key, const char *key_data
 	priv_key->key = key;
 	priv_key->key_id = i_strdup(key_id);
 	priv_key->key_id_old = i_strdup(key_id_old);
+	return 0;
+}
+
+int mail_crypt_global_keys_load(struct event *event,
+				const struct crypt_settings *set,
+				struct mail_crypt_global_keys *global_keys_r,
+				const char **error_r)
+{
+	const struct crypt_private_key_settings *key_set;
+	const char *key_name, *error;
+
+	mail_crypt_global_keys_init(global_keys_r);
+	if (set->crypt_global_public_key[0] != '\0') {
+		if (mail_crypt_load_global_public_key(
+				"crypt_global_public_key",
+				set->crypt_global_public_key, global_keys_r,
+				error_r) < 0)
+			return -1;
+	}
+
+	if (!array_is_created(&set->crypt_global_private_keys))
+		return 0;
+	array_foreach_elem(&set->crypt_global_private_keys, key_name) {
+		if (settings_get_filter(event, "crypt_global_private_key",
+					key_name,
+					&crypt_private_key_setting_parser_info,
+					0, &key_set, &error) < 0) {
+			*error_r = t_strdup_printf(
+				"Failed to get crypt_private_key %s: %s",
+				key_name, error);
+			return -1;
+		}
+		if (mail_crypt_load_global_private_key(
+				key_name, key_set->crypt_private_key,
+				key_name, key_set->crypt_private_key_password,
+				global_keys_r, error_r) < 0) {
+			settings_free(key_set);
+			return -1;
+		}
+		settings_free(key_set);
+	}
 	return 0;
 }
 

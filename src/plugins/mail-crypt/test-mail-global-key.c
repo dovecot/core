@@ -9,7 +9,6 @@
 
 #include "mail-crypt-common.h"
 #include "mail-crypt-key.h"
-#include "fs-crypt-settings.h"
 
 #include "mail-crypt-pluginenv.c"
 

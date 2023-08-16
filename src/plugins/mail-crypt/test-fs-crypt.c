@@ -8,21 +8,24 @@
 #include "randgen.h"
 #include "test-common.h"
 #include "hex-binary.h"
+#include "settings.h"
 #include "fs-api.h"
 #include "fs-api-private.h"
 #include "dcrypt.h"
 
 #include <unistd.h>
 
-const char *private_key_pem = "-----BEGIN PRIVATE KEY-----\n"
-"MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgYIufJZZe2Y6iFz5x\n"
-"koIoysb3dZLZWsyekjOc/GjsLd2hRANCAASnIWgQuhE8jqALcmfiunRyEk7vkq/y\n"
-"a9vYK50b3cFhCsLU4tfVTLkB1Y/6VlZj63QKMzXNvk5G5OD1ofElcpyj\n"
-"-----END PRIVATE KEY-----";
-const char *public_key_pem = "-----BEGIN PUBLIC KEY-----\n"
-"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpyFoELoRPI6gC3Jn4rp0chJO75Kv\n"
-"8mvb2CudG93BYQrC1OLX1Uy5AdWP+lZWY+t0CjM1zb5ORuTg9aHxJXKcow==\n"
-"-----END PUBLIC KEY-----";
+#define PRIVATE_KEY_PEM \
+"-----BEGIN PRIVATE KEY-----\n" \
+"MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgYIufJZZe2Y6iFz5x\n" \
+"koIoysb3dZLZWsyekjOc/GjsLd2hRANCAASnIWgQuhE8jqALcmfiunRyEk7vkq/y\n" \
+"a9vYK50b3cFhCsLU4tfVTLkB1Y/6VlZj63QKMzXNvk5G5OD1ofElcpyj\n" \
+"-----END PRIVATE KEY-----"
+#define PUBLIC_KEY_PEM \
+ "-----BEGIN PUBLIC KEY-----\n" \
+"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpyFoELoRPI6gC3Jn4rp0chJO75Kv\n" \
+"8mvb2CudG93BYQrC1OLX1Uy5AdWP+lZWY+t0CjM1zb5ORuTg9aHxJXKcow==\n" \
+"-----END PUBLIC KEY-----"
 
 extern const struct fs fs_class_crypt;
 
@@ -30,35 +33,11 @@ static struct fs_parameters test_fs_params;
 
 static void test_setup(void)
 {
-	struct fs *fs;
-	struct fs_file *file;
-	const char *error;
-
 	test_fs_params.base_dir = ".";
 	test_fs_params.temp_dir = ".";
 
-	i_unlink_if_exists("test_public_key.pem");
-	i_unlink_if_exists("test_private_key.pem");
-
 	fs_class_register(&fs_class_posix);
 	fs_class_register(&fs_class_crypt);
-
-	if (fs_legacy_init("posix", "", NULL, &test_fs_params, &fs, &error) < 0)
-		 i_fatal("fs_init(posix) failed: %s", error);
-	/* write keys to disk */
-	file = fs_file_init(fs, "test_public_key.pem", FS_OPEN_MODE_CREATE);
-	if (fs_write(file, public_key_pem, strlen(public_key_pem)) < 0) {
-		i_fatal("fs_write(test_public_key.pem) failed: %s",
-			fs_file_last_error(file));
-	}
-	fs_file_deinit(&file);
-	file = fs_file_init(fs, "test_private_key.pem", FS_OPEN_MODE_CREATE);
-	if (fs_write(file, private_key_pem, strlen(private_key_pem)) < 0) {
-		i_fatal("fs_write(test_private_key.pem) failed: %s",
-			fs_file_last_error(file));
-	}
-	fs_file_deinit(&file);
-	fs_deinit(&fs);
 }
 
 static void test_fs_crypt_read_write(void)
@@ -67,9 +46,17 @@ static void test_fs_crypt_read_write(void)
 	const char *error;
 	struct fs *fs;
 
-	if (fs_legacy_init("crypt", "public_key_path=test_public_key.pem:"
-			   "private_key_path=test_private_key.pem:posix",
-			   NULL, &test_fs_params, &fs, &error) < 0)
+	const char *const test_settings[] = {
+		"fs_parent/fs_driver", "posix",
+		"fs_driver", "crypt",
+		"crypt_global_public_key", PUBLIC_KEY_PEM,
+		"crypt_global_private_key", "main",
+		"crypt_global_private_key/main/crypt_private_key", PRIVATE_KEY_PEM,
+		NULL
+	};
+	struct settings_simple test_set;
+	settings_simple_init(&test_set, test_settings);
+	if (fs_init_auto(test_set.event, &test_fs_params, &fs, &error) <= 0)
 		i_fatal("fs_init(crypt:posix) failed: %s", error);
 
 	i_unlink_if_exists("test_file");
@@ -106,6 +93,7 @@ static void test_fs_crypt_read_write(void)
 
 	fs_file_deinit(&file);
 	fs_deinit(&fs);
+	settings_simple_deinit(&test_set);
 
 	test_end();
 }
@@ -116,9 +104,17 @@ static void test_fs_crypt_read_write_0(void)
 	const char *error;
 	struct fs *fs;
 
-	if (fs_legacy_init("crypt", "public_key_path=test_public_key.pem:"
-			   "private_key_path=test_private_key.pem:posix",
-			   NULL, &test_fs_params, &fs, &error) < 0)
+	const char *const test_settings[] = {
+		"fs_parent/fs_driver", "posix",
+		"fs_driver", "crypt",
+		"crypt_global_public_key", PUBLIC_KEY_PEM,
+		"crypt_global_private_key", "main",
+		"crypt_global_private_key/main/crypt_private_key", PRIVATE_KEY_PEM,
+		NULL
+	};
+	struct settings_simple test_set;
+	settings_simple_init(&test_set, test_settings);
+	if (fs_init_auto(test_set.event, &test_fs_params, &fs, &error) <= 0)
 		i_fatal("fs_init(crypt:posix) failed: %s", error);
 
 	i_unlink_if_exists("test_file");
@@ -147,6 +143,7 @@ static void test_fs_crypt_read_write_0(void)
 
 	fs_file_deinit(&file);
 	fs_deinit(&fs);
+	settings_simple_deinit(&test_set);
 
 	test_end();
 }
@@ -157,10 +154,17 @@ static void test_fs_crypt_read_write_unencrypted(void)
 	const char *error;
 	struct fs *fs;
 
-	if (fs_legacy_init("crypt", "public_key_path=:"
-			   "private_key_path=test_private_key.pem:"
-			   "maybe:posix",
-			   NULL, &test_fs_params, &fs, &error) < 0)
+	const char *const test_settings[] = {
+		"fs_parent/fs_driver", "posix",
+		"fs_driver", "crypt",
+		"crypt_plain_fallback", "yes",
+		"crypt_global_private_key", "main",
+		"crypt_global_private_key/main/crypt_private_key", PRIVATE_KEY_PEM,
+		NULL
+	};
+	struct settings_simple test_set;
+	settings_simple_init(&test_set, test_settings);
+	if (fs_init_auto(test_set.event, &test_fs_params, &fs, &error) <= 0)
 		i_fatal("fs_init(crypt:posix) failed: %s", error);
 
 	i_unlink_if_exists("test_file");
@@ -198,11 +202,19 @@ static void test_fs_crypt_read_write_unencrypted(void)
 
 	fs_file_deinit(&file);
 	fs_deinit(&fs);
+	settings_simple_deinit(&test_set);
 
-	if (fs_legacy_init("crypt", "public_key_path=test_public_key.pem:"
-			   "private_key_path=test_private_key.pem:"
-			   "maybe:posix",
-			   NULL, &test_fs_params, &fs, &error) < 0)
+	const char *const test_settings2[] = {
+		"fs_parent/fs_driver", "posix",
+		"fs_driver", "crypt",
+		"crypt_plain_fallback", "yes",
+		"crypt_global_public_key", PUBLIC_KEY_PEM,
+		"crypt_global_private_key", "main",
+		"crypt_global_private_key/main/crypt_private_key", PRIVATE_KEY_PEM,
+		NULL
+	};
+	settings_simple_init(&test_set, test_settings2);
+	if (fs_init_auto(test_set.event, &test_fs_params, &fs, &error) <= 0)
 		i_fatal("fs_init(crypt:posix) failed: %s", error);
 
 	i_unlink_if_exists("test_file");
@@ -236,14 +248,13 @@ static void test_fs_crypt_read_write_unencrypted(void)
 
 	fs_file_deinit(&file);
 	fs_deinit(&fs);
+	settings_simple_deinit(&test_set);
 
 	test_end();
 }
 
 static void test_teardown(void)
 {
-	i_unlink_if_exists("test_public_key.pem");
-	i_unlink_if_exists("test_private_key.pem");
 	i_unlink_if_exists("test_file");
 }
 

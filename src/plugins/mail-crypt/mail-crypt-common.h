@@ -2,6 +2,7 @@
 #define MAIL_CRYPT_COMMON_H
 
 #include "dcrypt.h"
+#include "crypt-settings.h"
 
 #define MAIL_CRYPT_PW_CIPHER "aes-256-ctr"
 #define MAIL_CRYPT_KEY_CIPHER "ecdh-aes-256-ctr"
