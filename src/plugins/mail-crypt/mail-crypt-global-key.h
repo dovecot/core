@@ -25,9 +25,6 @@ int mail_crypt_global_keys_load_from_user(struct mail_user *user,
 					  struct mail_crypt_global_keys *global_keys_r,
 					  bool ignore_privkey_errors,
 					  const char **error_r);
-int mail_crypt_global_keys_load_pluginenv(const char *set_prefix,
-				struct mail_crypt_global_keys *global_keys_r,
-				const char **error_r);
 void mail_crypt_global_keys_init(struct mail_crypt_global_keys *global_keys_r);
 void mail_crypt_global_keys_free(struct mail_crypt_global_keys *global_keys);
 
@@ -35,7 +32,7 @@ int mail_crypt_load_global_public_key(const char *set_key, const char *key_data,
 				      struct mail_crypt_global_keys *global_keys,
 				      const char **error_r);
 int mail_crypt_load_global_private_key(const char *set_key, const char *key_data,
-					const char *set_pw, const char *key_password,
+					const char *key_password,
 					struct mail_crypt_global_keys *global_keys,
 					const char **error_r);
 

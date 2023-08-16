@@ -15,6 +15,7 @@
 #include "istream-seekable.h"
 #include "ostream.h"
 #include "ostream-encrypt.h"
+#include "settings.h"
 #include "mail-user.h"
 #include "mail-copy.h"
 #include "index-storage.h"
@@ -22,6 +23,7 @@
 #include "mail-crypt-common.h"
 #include "mail-crypt-key.h"
 #include "mail-crypt-plugin.h"
+#include "crypt-settings.h"
 #include "sha2.h"
 #include "dcrypt-iostream.h"
 #include "hex-binary.h"
@@ -259,12 +261,12 @@ mail_crypt_mail_save_begin(struct mail_save_context *ctx,
 
 	enum io_stream_encrypt_flags enc_flags = 0;
 	if (muser != NULL) {
-		if (muser->save_version == 1) {
+		if (muser->set->crypt_write_version == 1) {
 			enc_flags = IO_STREAM_ENC_VERSION_1;
-		} else if (muser->save_version == 2) {
+		} else if (muser->set->crypt_write_version == 2) {
 			enc_flags = IO_STREAM_ENC_INTEGRITY_AEAD;
 		} else {
-			i_assert(muser->save_version == 0);
+			i_assert(muser->set->crypt_write_version == 0);
 		}
 	}
 
@@ -297,13 +299,13 @@ mail_crypt_mail_save_begin(struct mail_save_context *ctx,
 				return ret;
 			}
 
-			if (muser->save_version < 2) {
+			if (muser->set->crypt_write_version < 2) {
 				mail_storage_set_error(box->storage,
                                         MAIL_ERROR_PARAMS,
                                         t_strdup_printf("generate_keypair(%s) failed: "
-                                                        "unsupported save_version=%d",
+                                                        "unsupported crypt_write_version=%d",
                                                         mailbox_get_vname(box),
-                                                        muser->save_version));
+                                                        muser->set->crypt_write_version));
                                 return -1;
 			}
 
@@ -355,7 +357,7 @@ mail_crypt_mailbox_copy(struct mail_save_context *ctx, struct mail *mail)
 		/* Within same user, consider safe only the case where
 		   encryption is enabled and keys are global. */
 		raw_copy = muser != NULL &&
-			   muser->save_version != 0 &&
+			   muser->set->crypt_write_version != 0 &&
 			   muser->global_keys.public_key != NULL;
 	}
 
@@ -396,7 +398,7 @@ static void mail_crypt_mailbox_allocated(struct mailbox *box)
 		v->save_begin = mail_crypt_mail_save_begin;
 		v->copy = mail_crypt_mailbox_copy;
 
-		if (muser == NULL || muser->save_version == 0)
+		if (muser == NULL || muser->set->crypt_write_version == 0)
 			v->save_finish = mail_crypt_mail_save_finish;
 	}
 }
@@ -408,6 +410,7 @@ static void mail_crypt_mail_user_deinit(struct mail_user *user)
 	mail_crypt_key_cache_destroy(&muser->key_cache);
 	mail_crypt_global_keys_free(&muser->global_keys);
 	mail_crypt_cache_close(muser);
+	settings_free(muser->set);
 	muser->module_ctx.super.deinit(user);
 }
 
@@ -415,48 +418,42 @@ static void mail_crypt_mail_user_created(struct mail_user *user)
 {
 	struct mail_user_vfuncs *v = user->vlast;
 	struct mail_crypt_user *muser;
-	const char *error = NULL;
+	const char *error;
 
 	muser = p_new(user->pool, struct mail_crypt_user, 1);
 	muser->module_ctx.super = *v;
 	user->vlast = &muser->module_ctx.super;
 
-	const char *curve = mail_user_plugin_getenv(user, "mail_crypt_curve");
+	if (settings_get(user->event, &crypt_setting_parser_info, 0,
+			 &muser->set, &error) < 0) {
+		user->error = p_strdup(user->pool, error);
+		return;
+	}
+
 	buffer_t *tmp = t_str_new(64);
-	if (curve == NULL || *curve == '\0') {
-		e_debug(user->event, "mail_crypt_plugin: mail_crypt_curve setting "
+	if (muser->set->crypt_user_key_curve[0] == '\0') {
+		e_debug(user->event, "mail_crypt_plugin: crypt_user_key_curve setting "
 			"missing - generating EC keys disabled");
-	} else if (!dcrypt_name2oid(curve, tmp, &error)) {
+	} else if (!dcrypt_name2oid(muser->set->crypt_user_key_curve, tmp, &error)) {
 		user->error = p_strdup_printf(user->pool,
 			"mail_crypt_plugin: "
-			"invalid mail_crypt_curve setting %s: %s",
-			curve, error);
-	} else {
-		muser->curve = p_strdup(user->pool, curve);
+			"invalid crypt_user_key_curve setting %s: %s",
+			muser->set->crypt_user_key_curve, error);
 	}
 
-	const char *version = mail_user_plugin_getenv(user,
-			"mail_crypt_save_version");
-
-	if (version == NULL || *version == '\0') {
+	if (muser->set->crypt_write_version == UINT_MAX) {
 		user->error = p_strdup_printf(user->pool,
 				"mail_crypt_plugin: "
-				"mail_crypt_save_version setting missing");
-	} else if (version[0] == '0') {
-		muser->save_version = 0;
-	} else if (version[0] == '1') {
-		muser->save_version = 1;
-	} else if (version[0] == '2') {
-		muser->save_version = 2;
-	} else {
+				"crypt_write_version setting missing");
+	} else if (muser->set->crypt_write_version > 2) {
 		user->error = p_strdup_printf(user->pool,
 				"mail_crypt_plugin: Invalid "
-				"mail_crypt_save_version %s: use 0, 1, or 2 ",
-				version);
+				"crypt_write_version %u: use 0, 1, or 2 ",
+				muser->set->crypt_write_version);
 	}
 
-	if (mail_crypt_global_keys_load_from_user(user, "mail_crypt_global",
-					&muser->global_keys, FALSE, &error) < 0) {
+	if (mail_crypt_global_keys_load(user->event, muser->set,
+					&muser->global_keys, &error) < 0) {
 		user->error = p_strdup_printf(user->pool,
 				"mail_crypt_plugin: %s", error);
 	}

@@ -5,6 +5,7 @@
 #include "dict.h"
 #include "array.h"
 #include "var-expand.h"
+#include "settings.h"
 #include "mail-storage.h"
 #include "mailbox-attribute.h"
 #include "mail-crypt-common.h"
@@ -165,15 +166,52 @@ int mail_crypt_public_key_id_match(struct dcrypt_public_key *key,
 	return 1;
 }
 
+static int
+mail_crypt_user_encryption_keys_load(struct event *event,
+				     const struct crypt_settings *set,
+				     struct mail_crypt_global_keys *global_keys_r,
+				     const char **error_r)
+{
+	const struct crypt_private_key_settings *key_set;
+	const char *key_name, *error;
+
+	mail_crypt_global_keys_init(global_keys_r);
+	if (!array_is_created(&set->crypt_user_key_encryption_keys))
+		return 0;
+
+	array_foreach_elem(&set->crypt_user_key_encryption_keys, key_name) {
+		if (settings_get_filter(event, "crypt_user_key_encryption_key",
+					key_name,
+					&crypt_private_key_setting_parser_info,
+					0, &key_set, &error) < 0) {
+			*error_r = t_strdup_printf(
+				"Failed to get crypt_private_key %s: %s",
+				key_name, error);
+			return -1;
+		}
+		if (mail_crypt_load_global_private_key(
+				key_name, key_set->crypt_private_key,
+				key_set->crypt_private_key_password,
+				global_keys_r, &error) < 0) {
+			/* skip this key */
+			e_debug(event, "%s - skipping", error);
+		}
+		settings_free(key_set);
+	}
+	return 0;
+}
+
 static
 int mail_crypt_env_get_private_key(struct mail_user *user, const char *pubid,
 				   struct dcrypt_private_key **key_r,
 				   const char **error_r)
 {
+	struct mail_crypt_user *muser = mail_crypt_get_mail_crypt_user(user);
 	struct mail_crypt_global_keys global_keys;
 	int ret = 0;
-	if (mail_crypt_global_keys_load_from_user(user, "mail_crypt",
-			&global_keys, TRUE, error_r) < 0) {
+
+	if (mail_crypt_user_encryption_keys_load(user->event, muser->set,
+						 &global_keys, error_r) < 0) {
 		mail_crypt_global_keys_free(&global_keys);
 		return -1;
 	}
@@ -216,6 +254,7 @@ int mail_crypt_decrypt_private_key(struct mailbox *box, const char *pubid,
 	const char *enc_hash = NULL, *key_hash = NULL, *pw = NULL;
 	struct dcrypt_private_key *key = NULL, *dec_key = NULL;
 	struct mail_user *user = mail_storage_get_user(mailbox_get_storage(box));
+	struct mail_crypt_user *muser = mail_crypt_get_mail_crypt_user(user);
 	int ret = 0;
 
 	i_assert(pubid != NULL);
@@ -246,8 +285,8 @@ int mail_crypt_decrypt_private_key(struct mailbox *box, const char *pubid,
 	if (enc_type == DCRYPT_KEY_ENCRYPTION_TYPE_NONE) {
 		/* no key or password */
 	} else if (enc_type == DCRYPT_KEY_ENCRYPTION_TYPE_PASSWORD) {
-		pw = mail_user_plugin_getenv(user, MAIL_CRYPT_USERENV_PASSWORD);
-		if (pw == NULL) {
+		pw = muser->set->crypt_user_key_password;
+		if (pw[0] == '\0') {
 			*error_r = t_strdup_printf("Cannot decrypt key %s: "
 						   "Password not available",
 						   pubid);
@@ -421,15 +460,15 @@ int mail_crypt_set_private_key(struct mailbox_transaction_context *t,
 	struct mail_user *user = mail_storage_get_user(
 					mailbox_get_storage(
 						mailbox_transaction_get_mailbox(t)));
+	struct mail_crypt_user *muser = mail_crypt_get_mail_crypt_user(user);
 	const char *attr_name = mail_crypt_get_key_path(user_key, FALSE, pubid);
 	struct mail_attribute_value value;
 	int ret;
 
 	if (enc_key != NULL) {
 		algo = MAIL_CRYPT_KEY_CIPHER;
-	} else if (user_key &&
-		   (pw = mail_user_plugin_getenv(user,MAIL_CRYPT_USERENV_PASSWORD))
-			!= NULL) {
+	} else if (user_key && muser->set->crypt_user_key_password[0] != '\0') {
+		pw = muser->set->crypt_user_key_password;
 		algo = MAIL_CRYPT_PW_CIPHER;
 	}
 
@@ -466,6 +505,7 @@ int mail_crypt_user_set_private_key(struct mail_user *user, const char *pubid,
 				    struct dcrypt_private_key *key,
 				    const char **error_r)
 {
+	struct mail_crypt_user *muser = mail_crypt_get_mail_crypt_user(user);
 	struct dcrypt_private_key *env_key = NULL;
 	struct dcrypt_public_key *enc_key = NULL;
 	struct mailbox_transaction_context *t;
@@ -479,14 +519,11 @@ int mail_crypt_user_set_private_key(struct mail_user *user, const char *pubid,
 		dcrypt_key_unref_private(&env_key);
 	}
 
-	bool require_encrypted_user_key =
-		mail_user_plugin_getenv_bool(user, MAIL_CRYPT_REQUIRE_ENCRYPTED_USER_KEY);
-
-	if (require_encrypted_user_key &&
-	    mail_user_plugin_getenv(user, MAIL_CRYPT_USERENV_PASSWORD) == NULL &&
-	    mail_user_plugin_getenv(user, MAIL_CRYPT_USERENV_KEY) == NULL)
-	{
-		*error_r = MAIL_CRYPT_REQUIRE_ENCRYPTED_USER_KEY " set, cannot "
+	if (muser->set->crypt_user_key_require_encrypted &&
+	    muser->set->crypt_user_key_password[0] == '\0' &&
+	    (!array_is_created(&muser->set->crypt_user_key_encryption_keys) ||
+	     array_is_empty(&muser->set->crypt_user_key_encryption_keys))) {
+		*error_r = "crypt_user_key_require_encrypted set, cannot "
 			   "generate user keypair without password or key";
 		return -1;
 	}
@@ -966,8 +1003,8 @@ int mail_crypt_generate_keypair(const char *curve,
 				const char **pubid_r,
 				const char **error_r)
 {
-	if (curve == NULL) {
-		*error_r = MAIL_CRYPT_USERENV_CURVE " not set, cannot generate EC key";
+	if (curve[0] == '\0') {
+		*error_r = "crypt_user_key_curve not set, cannot generate EC key";
 		return -1;
 	}
 
@@ -993,9 +1030,9 @@ int mail_crypt_user_generate_keypair(struct mail_user *user,
 				     const char **error_r)
 {
 	struct mail_crypt_user *muser = mail_crypt_get_mail_crypt_user(user);
-	const char *curve = mail_user_plugin_getenv(user, MAIL_CRYPT_USERENV_CURVE);
 
-	if (mail_crypt_generate_keypair(curve, pair, pubid_r, error_r) < 0) {
+	if (mail_crypt_generate_keypair(muser->set->crypt_user_key_curve,
+					pair, pubid_r, error_r) < 0) {
 		return -1;
 	}
 
@@ -1019,8 +1056,6 @@ int mail_crypt_box_generate_keypair(struct mailbox *box,
 	int ret;
 	struct mail_user *user = mail_storage_get_user(mailbox_get_storage(box));
 	struct mail_crypt_user *muser = mail_crypt_get_mail_crypt_user(user);
-	const char *curve = mail_user_plugin_getenv(user,
-						    MAIL_CRYPT_USERENV_CURVE);
 
 	if (user_key == NULL) {
 		if ((ret = mail_crypt_user_get_public_key(user,
@@ -1047,7 +1082,9 @@ int mail_crypt_box_generate_keypair(struct mailbox *box,
 		dcrypt_key_ref_public(user_key);
 	}
 
-	if ((ret = mail_crypt_generate_keypair(curve, pair, pubid_r, error_r)) < 0) {
+	ret = mail_crypt_generate_keypair(muser->set->crypt_user_key_curve,
+					  pair, pubid_r, error_r);
+	if (ret < 0) {
 		/* failed */
 	} else if ((ret = mail_crypt_box_set_keys(box, *pubid_r,
 						pair->priv, user_key, pair->pub,

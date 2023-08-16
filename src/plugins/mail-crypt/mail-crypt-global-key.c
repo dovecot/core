@@ -75,7 +75,7 @@ mail_crypt_key_get_ids(struct dcrypt_private_key *key,
 }
 
 int mail_crypt_load_global_private_key(const char *set_key, const char *key_data,
-					const char *set_pw, const char *key_password,
+					const char *key_password,
 					struct mail_crypt_global_keys *global_keys,
 					const char **error_r)
 {
@@ -102,9 +102,9 @@ int mail_crypt_load_global_private_key(const char *set_key, const char *key_data
 	if (enc_type == DCRYPT_KEY_ENCRYPTION_TYPE_PASSWORD) {
 		/* Fail here if password is not set since openssl will prompt
 		 * for it otherwise */
-		if (key_password == NULL || key_password[0] == '\0') {
-			*error_r = t_strdup_printf("%s: %s unset, no password to decrypt the key",
-						   set_key, set_pw);
+		if (key_password[0] == '\0') {
+			*error_r = t_strdup_printf("%s: crypt_private_key_password unset, no password to decrypt the key",
+						   set_key);
 			return -1;
 		}
 	}
@@ -161,7 +161,7 @@ int mail_crypt_global_keys_load(struct event *event,
 		}
 		if (mail_crypt_load_global_private_key(
 				key_name, key_set->crypt_private_key,
-				key_name, key_set->crypt_private_key_password,
+				key_set->crypt_private_key_password,
 				global_keys_r, error_r) < 0) {
 			settings_free(key_set);
 			return -1;
