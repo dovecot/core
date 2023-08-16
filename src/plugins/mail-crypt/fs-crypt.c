@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "istream-try.h"
 #include "ostream.h"
+#include "settings.h"
 #include "dcrypt-iostream.h"
 #include "istream-decrypt.h"
 #include "ostream-encrypt.h"
@@ -22,13 +23,8 @@ struct crypt_fs {
 	struct fs fs;
 	struct mail_crypt_global_keys keys;
 	bool keys_loaded;
-	bool allow_missing_keys;
 
-	char *enc_algo;
-	char *set_prefix;
-	char *public_key_path;
-	char *private_key_path;
-	char *password;
+	const struct crypt_settings *set;
 };
 
 struct crypt_fs_file {
@@ -59,69 +55,20 @@ static struct fs *fs_crypt_alloc(void)
 }
 
 static int
-fs_crypt_init(struct fs *_fs, const char *args,
-	      const struct fs_parameters *params, const char **error_r)
+fs_crypt_init(struct fs *_fs, const struct fs_parameters *params,
+	      const char **error_r)
 {
 	struct crypt_fs *fs = CRYPT_FS(_fs);
-	const char *enc_algo, *set_prefix;
-	const char *p, *arg, *value, *error, *parent_name, *parent_args;
-	const char *public_key_path = "", *private_key_path = "", *password = "";
+	const char *error;
 
 	if (!dcrypt_initialize("openssl", NULL, &error))
 		i_fatal("dcrypt_initialize(): %s", error);
 
-	/* [algo=<s>:][set_prefix=<n>:][public_key_path=<s>:]
-	   [private_key_path=<s>:[password=<s>:]]<parent fs> */
-	set_prefix = "mail_crypt_global";
-	enc_algo = "aes-256-gcm-sha256";
-	for (;;) {
-		p = strchr(args, ':');
-		if (p == NULL)
-			break;
-		arg = t_strdup_until(args, p);
-		if (strcmp(arg, "maybe") == 0) {
-			fs->allow_missing_keys = TRUE;
-			args = p + 1;
-			continue;
-		} else if ((value = strchr(arg, '=')) == NULL)
-			break;
-		arg = t_strdup_until(arg, value++);
-		args = p+1;
-
-		if (strcmp(arg, "algo") == 0)
-			enc_algo = value;
-		else if (strcmp(arg, "set_prefix") == 0)
-			set_prefix = value;
-		else if (strcmp(arg, "public_key_path") == 0)
-			public_key_path = value;
-		else if (strcmp(arg, "private_key_path") == 0)
-			private_key_path = value;
-		else if (strcmp(arg, "password") == 0)
-			password = value;
-		else {
-			*error_r = t_strdup_printf(
-				"Invalid parameter '%s'", arg);
-			return -1;
-		}
-	}
-
-	parent_args = strchr(args, ':');
-	if (parent_args == NULL) {
-		parent_name = args;
-		parent_args = "";
-	} else {
-		parent_name = t_strdup_until(args, parent_args);
-		parent_args++;
-	}
-	if (fs_legacy_init(parent_name, parent_args, _fs->event, params,
-			   &_fs->parent, error_r) < 0)
+	if (settings_get(_fs->event, &crypt_setting_parser_info, 0,
+			 &fs->set, error_r) < 0)
 		return -1;
-	fs->enc_algo = i_strdup(enc_algo);
-	fs->set_prefix = i_strdup(set_prefix);
-	fs->public_key_path = i_strdup_empty(public_key_path);
-	fs->private_key_path = i_strdup_empty(private_key_path);
-	fs->password = i_strdup_empty(password);
-	return 0;
+
+	return fs_init_parent(_fs, params, error_r);
 }
 
 static void fs_crypt_free(struct fs *_fs)
@@ -129,11 +76,7 @@ static void fs_crypt_free(struct fs *_fs)
 	struct crypt_fs *fs = CRYPT_FS(_fs);
 
 	mail_crypt_global_keys_free(&fs->keys);
-	i_free(fs->enc_algo);
-	i_free(fs->set_prefix);
-	i_free(fs->public_key_path);
-	i_free(fs->private_key_path);
-	i_free(fs->password);
+	settings_free(fs->set);
 	i_free(fs);
 }
 
@@ -200,83 +143,14 @@ static void fs_crypt_set_metadata(struct fs_file *_file,
 		fs_set_metadata(file->super_read, key, value);
 }
 
-static int fs_crypt_read_file(const char *set_name, const char *path,
-			      char **key_data_r, const char **error_r)
-{
-	struct istream *input;
-	int ret;
-
-	input = i_stream_create_file(path, SIZE_MAX);
-	while (i_stream_read(input) > 0) ;
-	if (input->stream_errno != 0) {
-		*error_r = t_strdup_printf("%s: read(%s) failed: %s",
-			set_name, path, i_stream_get_error(input));
-		ret = -1;
-	} else {
-		size_t size;
-		const unsigned char *data = i_stream_get_data(input, &size);
-		*key_data_r = i_strndup(data, size);
-		ret = 0;
-	}
-	i_stream_unref(&input);
-	return ret;
-}
-
-static int
-fs_crypt_load_keys_from_path(struct crypt_fs *fs, const char **error_r)
-{
-	char *key_data;
-
-	mail_crypt_global_keys_init(&fs->keys);
-	if (fs->public_key_path != NULL) {
-		if (fs_crypt_read_file("crypt:public_key_path",
-					fs->public_key_path,
-					&key_data, error_r) < 0)
-			return -1;
-		if (mail_crypt_load_global_public_key("crypt:public_key_path",
-						      key_data, &fs->keys,
-						      error_r) < 0) {
-			i_free(key_data);
-			return -1;
-		}
-		i_free(key_data);
-	}
-	if (fs->private_key_path != NULL) {
-		if (fs_crypt_read_file("crypt:private_key_path",
-					fs->private_key_path,
-					&key_data, error_r) < 0)
-			return -1;
-		if (mail_crypt_load_global_private_key("crypt:private_key_path",
-							key_data, "crypt:password",
-							fs->password, &fs->keys,
-							error_r) < 0) {
-			i_free(key_data);
-			return -1;
-		}
-		i_free(key_data);
-	}
-	return 0;
-}
-
 static
 int fs_crypt_load_keys(struct crypt_fs *fs, const char **error_r)
 {
-	const char *error;
-
 	if (fs->keys_loaded)
 		return 0;
-	if (fs->public_key_path != NULL || fs->private_key_path != NULL) {
-		/* overrides using settings */
-		if (fs_crypt_load_keys_from_path(fs, error_r) < 0)
-			return -1;
-		fs->keys_loaded = TRUE;
-		return 0;
-	}
-	if (mail_crypt_global_keys_load_pluginenv(fs->set_prefix, &fs->keys,
-	    &error) < 0) {
-		*error_r = t_strdup_printf("%s: %s", fs->set_prefix, error);
+	if (mail_crypt_global_keys_load(fs->fs.event, fs->set,
+					&fs->keys, error_r) < 0)
 		return -1;
-	}
 	fs->keys_loaded = TRUE;
 	return 0;
 }
@@ -313,7 +187,7 @@ fs_crypt_read_stream(struct fs_file *_file, size_t max_buffer_size)
 	input = fs_read_stream(file->super_read,
 		I_MAX(FS_CRYPT_ISTREAM_MIN_BUFFER_SIZE, max_buffer_size));
 
-	if (file->fs->allow_missing_keys) {
+	if (file->fs->set->crypt_plain_fallback) {
 		struct istream *decrypted_input =
 			i_stream_create_decrypt_callback(input,
 					fs_crypt_istream_get_key, file);
@@ -353,7 +227,7 @@ static void fs_crypt_write_stream(struct fs_file *_file)
 	}
 
 	if (file->fs->keys.public_key == NULL) {
-		if (!file->fs->allow_missing_keys) {
+		if (!file->fs->set->crypt_plain_fallback) {
 			_file->output = o_stream_create_error_str(EINVAL,
 				"Encryption required, but no public key available");
 			return;
@@ -368,9 +242,10 @@ static void fs_crypt_write_stream(struct fs_file *_file)
 	}
 
 	enum io_stream_encrypt_flags flags;
-	if (strstr(file->fs->enc_algo, "gcm") != NULL ||
-	    strstr(file->fs->enc_algo, "ccm") != NULL ||
-	    str_begins_with(file->fs->enc_algo, "chacha20-poly1305")) {
+	if (strstr(file->fs->set->crypt_write_algorithm, "gcm") != NULL ||
+	    strstr(file->fs->set->crypt_write_algorithm, "ccm") != NULL ||
+	    str_begins_with(file->fs->set->crypt_write_algorithm,
+			    "chacha20-poly1305")) {
 		flags = IO_STREAM_ENC_INTEGRITY_AEAD;
 	} else {
 		flags = IO_STREAM_ENC_INTEGRITY_HMAC;
@@ -381,7 +256,7 @@ static void fs_crypt_write_stream(struct fs_file *_file)
 					   IOSTREAM_TEMP_FLAG_TRY_FD_DUP,
 					   fs_file_path(_file));
 	_file->output = o_stream_create_encrypt(file->temp_output,
-		file->fs->enc_algo, file->fs->keys.public_key,
+		file->fs->set->crypt_write_algorithm, file->fs->keys.public_key,
 		flags);
 }
 
@@ -435,7 +310,7 @@ const struct fs fs_class_crypt = {
 	.name = "crypt",
 	.v = {
 		.alloc = fs_crypt_alloc,
-		.legacy_init = fs_crypt_init,
+		.init = fs_crypt_init,
 		.deinit = NULL,
 		.free = fs_crypt_free,
 		.get_properties = fs_wrapper_get_properties,

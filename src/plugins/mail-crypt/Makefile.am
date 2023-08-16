@@ -39,6 +39,7 @@ lib05_mail_crypt_acl_plugin_la_LIBADD = \
 endif
 
 lib10_mail_crypt_plugin_la_SOURCES = \
+	crypt-settings.c \
 	mail-crypt-global-key.c \
 	mail-crypt-userenv.c \
 	mail-crypt-key.c \
@@ -48,6 +49,7 @@ lib05_mail_crypt_acl_plugin_la_SOURCES = \
 	mail-crypt-acl-plugin.c
 
 libfs_crypt_la_SOURCES = fs-crypt.c \
+	crypt-settings.c \
 	mail-crypt-global-key.c \
 	mail-crypt-pluginenv.c \
 	fs-crypt-settings.c
@@ -71,10 +73,12 @@ test_fs_crypt_SOURCES = \
 	test-fs-crypt.c \
 	fs-crypt-settings.c
 test_fs_crypt_LDADD = $(LIBDOVECOT) \
+	crypt-settings.lo \
 	fs-crypt.lo \
 	mail-crypt-global-key.lo \
 	mail-crypt-pluginenv.lo
 test_fs_crypt_DEPENDENCIES = $(LIBDOVECOT_DEPS) \
+	crypt-settings.lo \
 	fs-crypt.lo \
 	mail-crypt-global-key.lo \
 	mail-crypt-pluginenv.lo
@@ -83,6 +87,7 @@ test_fs_crypt_CFLAGS = $(AM_CPPFLAGS) $(DOVECOT_BINARY_CFLAGS) -Dtop_builddir=\"
 
 test_mail_global_key_SOURCES = \
 	test-mail-global-key.c \
+	crypt-settings.c \
 	fs-crypt-settings.c \
 	mail-crypt-global-key.c
 test_mail_global_key_LDADD = $(LIBDOVECOT)
@@ -92,6 +97,7 @@ test_mail_global_key_CFLAGS = $(AM_CPPFLAGS) $(DOVECOT_BINARY_CFLAGS) -Dtop_buil
 
 test_mail_key_SOURCES = \
 	test-mail-key.c \
+	crypt-settings.c \
 	mail-crypt-key.c \
 	mail-crypt-global-key.c \
 	mail-crypt-userenv.c
@@ -102,6 +108,7 @@ test_mail_key_LDFLAGS = $(DOVECOT_BINARY_LDFLAGS)
 test_mail_key_CFLAGS = $(AM_CPPFLAGS) $(DOVECOT_BINARY_CFLAGS) -Dtop_builddir=\"$(top_builddir)\"
 
 noinst_HEADERS = \
+	crypt-settings.h \
 	mail-crypt-plugin.h \
 	mail-crypt-common.h \
 	mail-crypt-global-key.h \
