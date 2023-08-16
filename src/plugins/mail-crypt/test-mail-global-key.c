@@ -7,74 +7,25 @@
 #include "str.h"
 #include "dcrypt.h"
 #include "hex-binary.h"
+#include "settings.h"
 
 #include "mail-crypt-common.h"
 #include "mail-crypt-key.h"
 
-struct test_settings {
-	ARRAY(const char *) plugin_envs;
-};
-
-static struct test_settings test_set;
-
 static const char *settings[] = {
-	"mail_crypt_global_private_key",
+	"crypt_global_private_key", "nopw pw",
+	"crypt_global_private_key/nopw/crypt_private_key",
 	"LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ1lJdWZKWlplMlk2aUZ6NXgKa29Jb3lzYjNkWkxaV3N5ZWtqT2MvR2pzTGQyaFJBTkNBQVNuSVdnUXVoRThqcUFMY21maXVuUnlFazd2a3EveQphOXZZSzUwYjNjRmhDc0xVNHRmVlRMa0IxWS82VmxaajYzUUtNelhOdms1RzVPRDFvZkVsY3B5agotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==",
-	"mail_crypt_global_public_key",
+	"crypt_global_public_key",
 	"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFcHlGb0VMb1JQSTZnQzNKbjRycDBjaEpPNzVLdgo4bXZiMkN1ZEc5M0JZUXJDMU9MWDFVeTVBZFdQK2xaV1krdDBDak0xemI1T1J1VGc5YUh4SlhLY293PT0KLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==",
-	"mail_crypt_global_private_key2",
+	"crypt_global_private_key/pw/crypt_private_key",
 	"LS0tLS1CRUdJTiBFTkNSWVBURUQgUFJJVkFURSBLRVktLS0tLQpNSUhlTUVrR0NTcUdTSWIzRFFFRkRUQThNQnNHQ1NxR1NJYjNEUUVGRERBT0JBaXA2cUpja1FET3F3SUNDQUF3CkhRWUpZSVpJQVdVREJBRXFCQkFXN09oUFRlU0xSOExLcGYwZjZHa3ZCSUdRZk5rYUpodnM2VWVWS2RkN2NzdFMKMURSNXJYTWtON09FbVNjTTljRlk2UDVrMzdnY1VJUFZudTQrOTFYZUE1MTU2cnBpUEpycEdkZnprcjhPNVFqZApsMWRycmR6Z0hqZHE4T2VmbUR1MEEzMjRZd25SS3hGRExUcjlHMkxVMkhoYmV6a0xjV1FwMVJISDZsNXRRcUtwCjZid05iMnc3OXhCb01YSjN6MVZqcElOZk9wRnJ6M3lucVlqUXhseTIrQjg2Ci0tLS0tRU5EIEVOQ1JZUFRFRCBQUklWQVRFIEtFWS0tLS0tCg==",
-	"mail_crypt_global_private_key2_password",
+	"crypt_global_private_key/pw/crypt_private_key_password",
 	"password",
+	NULL
 };
 
-static
-const char *mail_crypt_plugin_getenv(const struct test_settings *set,
-				     const char *name)
-{
-	const char *const *envs;
-	unsigned int i, count;
-
-	if (set == NULL)
-		return NULL;
-
-	if (!array_is_created(&set->plugin_envs))
-		return NULL;
-
-	envs = array_get(&set->plugin_envs, &count);
-	for (i = 0; i < count; i += 2) {
-		if (strcmp(envs[i], name) == 0)
-			return envs[i+1];
-	}
-	return NULL;
-}
-
-static int
-mail_crypt_load_global_private_keys(const struct test_settings *set,
-				    const char *set_prefix,
-				    struct mail_crypt_global_keys *global_keys,
-				    const char **error_r)
-{
-	string_t *set_key = t_str_new(64);
-	str_append(set_key, set_prefix);
-	str_append(set_key, "_private_key");
-	size_t prefix_len = str_len(set_key);
-
-	unsigned int i = 1;
-	const char *key_data;
-	while ((key_data = mail_crypt_plugin_getenv(set, str_c(set_key))) != NULL) {
-		const char *set_pw = t_strconcat(str_c(set_key), "_password", NULL);
-		const char *password = mail_crypt_plugin_getenv(set, set_pw);
-		if (*key_data != '\0' &&
-		    mail_crypt_load_global_private_key(str_c(set_key), key_data,
-							set_pw, password,
-							global_keys, error_r) < 0)
-			return -1;
-		str_truncate(set_key, prefix_len);
-		str_printfa(set_key, "%u", ++i);
-	}
-	return 0;
-}
+static struct settings_simple test_set;
 
 static void test_setup(void)
 {
@@ -86,8 +37,7 @@ static void test_setup(void)
 		i_info("No functional dcrypt backend found - skipping tests: %s", error);
 		test_exit(0);
 	}
-	i_array_init(&test_set.plugin_envs, 8);
-	array_append(&test_set.plugin_envs, settings, N_ELEMENTS(settings));
+	settings_simple_init(&test_set, settings);
 }
 
 static void test_try_load_keys(void)
@@ -99,45 +49,37 @@ static void test_try_load_keys(void)
 	const char *error = NULL;
 	test_begin("try_load_keys");
 
+	const struct crypt_settings *set;
+	if (settings_get(test_set.event, &crypt_setting_parser_info, 0,
+			 &set, &error) < 0)
+		i_fatal("%s", error);
+
 	struct mail_crypt_global_keys keys;
-	i_zero(&keys);
-	mail_crypt_global_keys_init(&keys);
+	if (mail_crypt_global_keys_load(test_set.event, set, &keys, &error) < 0)
+		i_fatal("%s", error);
 
-	const char *set_prefix = "mail_crypt_global";
-	const char *set_key = t_strconcat(set_prefix, "_public_key", NULL);
-	const char *key_data = mail_crypt_plugin_getenv(&test_set, set_key);
+	/* did we get two private keys? */
+	test_assert(array_count(&keys.private_keys) == 2);
 
-	test_assert(key_data != NULL);
+	/* public key id checks */
+	buffer_set_used_size(key_id, 0);
+	test_assert(dcrypt_key_id_public(keys.public_key, MAIL_CRYPT_KEY_ID_ALGORITHM, key_id, &error) == TRUE);
+	test_assert(strcmp(binary_to_hex(key_id->data, key_id->used), pubid1) == 0);
 
-	if (key_data != NULL) {
-		test_assert(mail_crypt_load_global_public_key(set_key, key_data,
-							      &keys, &error) == 0);
-		test_assert(mail_crypt_load_global_private_keys(&test_set, set_prefix,
-								&keys, &error) == 0);
-		/* did we get two private keys? */
-		test_assert(array_count(&keys.private_keys) == 2);
+	const struct mail_crypt_global_private_key *key =
+		array_front(&keys.private_keys);
 
-		/* public key id checks */
+	buffer_set_used_size(key_id, 0);
+	test_assert(dcrypt_key_id_private(key->key, MAIL_CRYPT_KEY_ID_ALGORITHM, key_id, &error) == TRUE);
+	test_assert(strcmp(binary_to_hex(key_id->data, key_id->used), pubid1) == 0);
 
-		buffer_set_used_size(key_id, 0);
-		test_assert(dcrypt_key_id_public(keys.public_key, MAIL_CRYPT_KEY_ID_ALGORITHM, key_id, &error) == TRUE);
-		test_assert(strcmp(binary_to_hex(key_id->data, key_id->used), pubid1) == 0);
-
-		const struct mail_crypt_global_private_key *key =
-			array_front(&keys.private_keys);
-
-		buffer_set_used_size(key_id, 0);
-		test_assert(dcrypt_key_id_private(key->key, MAIL_CRYPT_KEY_ID_ALGORITHM, key_id, &error) == TRUE);
-		test_assert(strcmp(binary_to_hex(key_id->data, key_id->used), pubid1) == 0);
-
-		key = array_idx(&keys.private_keys, 1);
-		buffer_set_used_size(key_id, 0);
-		test_assert(dcrypt_key_id_private(key->key, MAIL_CRYPT_KEY_ID_ALGORITHM, key_id, &error) == TRUE);
-		test_assert(strcmp(binary_to_hex(key_id->data, key_id->used), pubid2) == 0);
-
-	}
+	key = array_idx(&keys.private_keys, 1);
+	buffer_set_used_size(key_id, 0);
+	test_assert(dcrypt_key_id_private(key->key, MAIL_CRYPT_KEY_ID_ALGORITHM, key_id, &error) == TRUE);
+	test_assert(strcmp(binary_to_hex(key_id->data, key_id->used), pubid2) == 0);
 
 	mail_crypt_global_keys_free(&keys);
+	settings_free(set);
 
 	test_end();
 }
@@ -156,7 +98,7 @@ static void test_empty_keyset(void)
 
 static void test_teardown(void)
 {
-	array_free(&test_set.plugin_envs);
+	settings_simple_deinit(&test_set);
 	dcrypt_deinitialize();
 }
 

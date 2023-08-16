@@ -9,6 +9,7 @@
 #include "buffer.h"
 #include "ioloop.h"
 #include "ioloop-private.h"
+#include "settings.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
 #include "mail-storage-private.h"
@@ -787,13 +788,23 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 		ctx->new_password = p_strdup(_ctx->pool, passw);
 	}
 
-	if (ctx->clear_password &&
-	    (ctx->new_password != NULL ||
-	     mail_user_plugin_getenv(user, MAIL_CRYPT_USERENV_PASSWORD) != NULL)) {
-		doveadm_print("clear password and new password specified");
-		_ctx->exit_code = EX_USAGE;
+	const struct crypt_settings *set;
+	const char *error;
+	if (settings_get(user->event, &crypt_setting_parser_info, 0,
+			 &set, &error) < 0) {
+		e_error(cctx->event, "%s", error);
 		return -1;
 	}
+
+	if (ctx->clear_password &&
+	    (ctx->new_password != NULL ||
+	     set->crypt_user_key_password[0] != '\0')) {
+		doveadm_print("clear password and new password specified");
+		_ctx->exit_code = EX_USAGE;
+		settings_free(set);
+		return -1;
+	}
+	settings_free(set);
 
 	struct mail_namespace *ns = mail_namespace_find_inbox(user->namespaces);
 	struct mailbox *box = mailbox_alloc(ns->list, "INBOX", 0);
@@ -813,7 +824,6 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 					    MAIL_ATTRIBUTE_TYPE_PRIVATE,
 					    USER_CRYPT_PREFIX
 					    PRIVKEYS_PREFIX);
-	const char *error;
 	const char *key_id;
 	int ret = 1;
 	unsigned int count = 0;

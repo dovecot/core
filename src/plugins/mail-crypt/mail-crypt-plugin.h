@@ -15,11 +15,10 @@ struct mail_crypt_cache {
 struct mail_crypt_user {
 	union mail_user_module_context module_ctx;
 
+	const struct crypt_settings *set;
 	struct mail_crypt_global_keys global_keys;
 	struct mail_crypt_cache cache;
 	struct mail_crypt_key_cache_entry *key_cache;
-	const char *curve;
-	int save_version;
 };
 
 void mail_crypt_plugin_init(struct module *module);

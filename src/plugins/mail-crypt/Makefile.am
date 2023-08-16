@@ -41,7 +41,6 @@ endif
 lib10_mail_crypt_plugin_la_SOURCES = \
 	crypt-settings.c \
 	mail-crypt-global-key.c \
-	mail-crypt-userenv.c \
 	mail-crypt-key.c \
 	mail-crypt-plugin.c
 
@@ -93,8 +92,7 @@ test_mail_key_SOURCES = \
 	test-mail-key.c \
 	crypt-settings.c \
 	mail-crypt-key.c \
-	mail-crypt-global-key.c \
-	mail-crypt-userenv.c
+	mail-crypt-global-key.c
 
 test_mail_key_LDADD = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT)
 test_mail_key_DEPENDENCIES = $(LIBDOVECOT_DEPS)  $(LIBDOVECOT_STORAGE_DEPS)

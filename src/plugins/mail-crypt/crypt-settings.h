@@ -23,7 +23,7 @@ struct crypt_settings {
 	ARRAY_TYPE(const_string) crypt_user_key_encryption_keys;
 	const char *crypt_user_key_password;
 	const char *crypt_user_key_curve; /* for generating new user keys */
-	bool crypt_user_private_key_require_encrypted;
+	bool crypt_user_key_require_encrypted;
 };
 
 extern const struct setting_parser_info crypt_setting_parser_info;

@@ -49,7 +49,7 @@ static const struct setting_define crypt_setting_defines[] = {
 	   .filter_array_field_name = "crypt_private_key_name" },
 	DEF(STR, crypt_user_key_password),
 	DEF(STR, crypt_user_key_curve),
-	DEF(BOOL, crypt_user_private_key_require_encrypted),
+	DEF(BOOL, crypt_user_key_require_encrypted),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -65,7 +65,7 @@ static const struct crypt_settings crypt_default_settings = {
 	.crypt_user_key_encryption_keys = ARRAY_INIT,
 	.crypt_user_key_password = "",
 	.crypt_user_key_curve = "",
-	.crypt_user_private_key_require_encrypted = FALSE,
+	.crypt_user_key_require_encrypted = FALSE,
 };
 
 const struct setting_parser_info crypt_setting_parser_info = {
