@@ -50,9 +50,7 @@ lib05_mail_crypt_acl_plugin_la_SOURCES = \
 
 libfs_crypt_la_SOURCES = fs-crypt.c \
 	crypt-settings.c \
-	mail-crypt-global-key.c \
-	mail-crypt-pluginenv.c \
-	fs-crypt-settings.c
+	mail-crypt-global-key.c
 
 libfs_crypt_la_LIBADD = $(LIBDOVECOT)
 libfs_crypt_la_DEPENDENCIES = $(LIBDOVECOT_DEPS)
@@ -70,25 +68,21 @@ test_programs = \
 	test-mail-key
 
 test_fs_crypt_SOURCES = \
-	test-fs-crypt.c \
-	fs-crypt-settings.c
+	test-fs-crypt.c
 test_fs_crypt_LDADD = $(LIBDOVECOT) \
 	crypt-settings.lo \
 	fs-crypt.lo \
-	mail-crypt-global-key.lo \
-	mail-crypt-pluginenv.lo
+	mail-crypt-global-key.lo
 test_fs_crypt_DEPENDENCIES = $(LIBDOVECOT_DEPS) \
 	crypt-settings.lo \
 	fs-crypt.lo \
-	mail-crypt-global-key.lo \
-	mail-crypt-pluginenv.lo
+	mail-crypt-global-key.lo
 test_fs_crypt_LDFLAGS = $(DOVECOT_BINARY_LDFLAGS)
 test_fs_crypt_CFLAGS = $(AM_CPPFLAGS) $(DOVECOT_BINARY_CFLAGS) -Dtop_builddir=\"$(top_builddir)\"
 
 test_mail_global_key_SOURCES = \
 	test-mail-global-key.c \
 	crypt-settings.c \
-	fs-crypt-settings.c \
 	mail-crypt-global-key.c
 test_mail_global_key_LDADD = $(LIBDOVECOT)
 test_mail_global_key_DEPENDENCIES = $(LIBDOVECOT_DEPS)
@@ -112,8 +106,7 @@ noinst_HEADERS = \
 	mail-crypt-plugin.h \
 	mail-crypt-common.h \
 	mail-crypt-global-key.h \
-	mail-crypt-key.h \
-	fs-crypt-settings.h
+	mail-crypt-key.h
 
 check-local:
 	for bin in $(test_programs); do \
