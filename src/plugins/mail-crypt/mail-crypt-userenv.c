@@ -43,10 +43,10 @@ mail_crypt_load_global_private_keys(struct mail_user *user,
 	return 0;
 }
 
-int mail_crypt_global_keys_load(struct mail_user *user, const char *set_prefix,
-				struct mail_crypt_global_keys *global_keys_r,
-				bool ignore_privkey_errors,
-				const char **error_r)
+int mail_crypt_global_keys_load_from_user(struct mail_user *user, const char *set_prefix,
+					  struct mail_crypt_global_keys *global_keys_r,
+					  bool ignore_privkey_errors,
+					  const char **error_r)
 {
 	const char *set_key = t_strconcat(set_prefix, "_public_key", NULL);
 	const char *key_data = mail_user_plugin_getenv(user, set_key);

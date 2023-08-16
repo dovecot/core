@@ -172,8 +172,8 @@ int mail_crypt_env_get_private_key(struct mail_user *user, const char *pubid,
 {
 	struct mail_crypt_global_keys global_keys;
 	int ret = 0;
-	if (mail_crypt_global_keys_load(user, "mail_crypt", &global_keys,
-					TRUE, error_r) < 0) {
+	if (mail_crypt_global_keys_load_from_user(user, "mail_crypt",
+			&global_keys, TRUE, error_r) < 0) {
 		mail_crypt_global_keys_free(&global_keys);
 		return -1;
 	}

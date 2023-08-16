@@ -13,10 +13,11 @@ struct mail_crypt_global_keys {
 
 struct mail_user;
 
-int mail_crypt_global_keys_load(struct mail_user *user, const char *set_prefix,
-				struct mail_crypt_global_keys *global_keys_r,
-				bool ignore_privkey_errors,
-				const char **error_r);
+int mail_crypt_global_keys_load_from_user(struct mail_user *user,
+					  const char *set_prefix,
+					  struct mail_crypt_global_keys *global_keys_r,
+					  bool ignore_privkey_errors,
+					  const char **error_r);
 int mail_crypt_global_keys_load_pluginenv(const char *set_prefix,
 				struct mail_crypt_global_keys *global_keys_r,
 				const char **error_r);

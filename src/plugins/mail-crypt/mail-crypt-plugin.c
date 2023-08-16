@@ -455,7 +455,7 @@ static void mail_crypt_mail_user_created(struct mail_user *user)
 				version);
 	}
 
-	if (mail_crypt_global_keys_load(user, "mail_crypt_global",
+	if (mail_crypt_global_keys_load_from_user(user, "mail_crypt_global",
 					&muser->global_keys, FALSE, &error) < 0) {
 		user->error = p_strdup_printf(user->pool,
 				"mail_crypt_plugin: %s", error);
