@@ -4,15 +4,18 @@
 #include "test-common.h"
 #include "randgen.h"
 #include "array.h"
+#include "str.h"
 #include "dcrypt.h"
 #include "hex-binary.h"
 
 #include "mail-crypt-common.h"
 #include "mail-crypt-key.h"
 
-#include "mail-crypt-pluginenv.c"
+struct test_settings {
+	ARRAY(const char *) plugin_envs;
+};
 
-static struct fs_crypt_settings fs_set;
+static struct test_settings test_set;
 
 static const char *settings[] = {
 	"mail_crypt_global_private_key",
@@ -25,11 +28,53 @@ static const char *settings[] = {
 	"password",
 };
 
-int
-mail_crypt_load_global_private_keys(const struct fs_crypt_settings *set,
+static
+const char *mail_crypt_plugin_getenv(const struct test_settings *set,
+				     const char *name)
+{
+	const char *const *envs;
+	unsigned int i, count;
+
+	if (set == NULL)
+		return NULL;
+
+	if (!array_is_created(&set->plugin_envs))
+		return NULL;
+
+	envs = array_get(&set->plugin_envs, &count);
+	for (i = 0; i < count; i += 2) {
+		if (strcmp(envs[i], name) == 0)
+			return envs[i+1];
+	}
+	return NULL;
+}
+
+static int
+mail_crypt_load_global_private_keys(const struct test_settings *set,
 				    const char *set_prefix,
 				    struct mail_crypt_global_keys *global_keys,
-				    const char **error_r);
+				    const char **error_r)
+{
+	string_t *set_key = t_str_new(64);
+	str_append(set_key, set_prefix);
+	str_append(set_key, "_private_key");
+	size_t prefix_len = str_len(set_key);
+
+	unsigned int i = 1;
+	const char *key_data;
+	while ((key_data = mail_crypt_plugin_getenv(set, str_c(set_key))) != NULL) {
+		const char *set_pw = t_strconcat(str_c(set_key), "_password", NULL);
+		const char *password = mail_crypt_plugin_getenv(set, set_pw);
+		if (*key_data != '\0' &&
+		    mail_crypt_load_global_private_key(str_c(set_key), key_data,
+							set_pw, password,
+							global_keys, error_r) < 0)
+			return -1;
+		str_truncate(set_key, prefix_len);
+		str_printfa(set_key, "%u", ++i);
+	}
+	return 0;
+}
 
 static void test_setup(void)
 {
@@ -41,8 +86,8 @@ static void test_setup(void)
 		i_info("No functional dcrypt backend found - skipping tests: %s", error);
 		test_exit(0);
 	}
-	i_array_init(&fs_set.plugin_envs, 8);
-	array_append(&fs_set.plugin_envs, settings, N_ELEMENTS(settings));
+	i_array_init(&test_set.plugin_envs, 8);
+	array_append(&test_set.plugin_envs, settings, N_ELEMENTS(settings));
 }
 
 static void test_try_load_keys(void)
@@ -60,14 +105,14 @@ static void test_try_load_keys(void)
 
 	const char *set_prefix = "mail_crypt_global";
 	const char *set_key = t_strconcat(set_prefix, "_public_key", NULL);
-	const char *key_data = mail_crypt_plugin_getenv(&fs_set, set_key);
+	const char *key_data = mail_crypt_plugin_getenv(&test_set, set_key);
 
 	test_assert(key_data != NULL);
 
 	if (key_data != NULL) {
 		test_assert(mail_crypt_load_global_public_key(set_key, key_data,
 							      &keys, &error) == 0);
-		test_assert(mail_crypt_load_global_private_keys(&fs_set, set_prefix,
+		test_assert(mail_crypt_load_global_private_keys(&test_set, set_prefix,
 								&keys, &error) == 0);
 		/* did we get two private keys? */
 		test_assert(array_count(&keys.private_keys) == 2);
@@ -111,7 +156,7 @@ static void test_empty_keyset(void)
 
 static void test_teardown(void)
 {
-	array_free(&fs_set.plugin_envs);
+	array_free(&test_set.plugin_envs);
 	dcrypt_deinitialize();
 }
 
