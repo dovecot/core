@@ -112,13 +112,19 @@ mcp_update_shared_key(struct mailbox_transaction_context *t,
 {
 	const char *error;
 	struct mail_user *dest_user;
+	const struct crypt_acl_settings *set;
 	struct ioloop_context *cur_ioloop_ctx;
 	struct dcrypt_public_key *pkey;
 	const char *dest_username;
 	int ret = 0;
 
-	bool disallow_insecure =
-		mail_user_plugin_getenv_bool(user, MAIL_CRYPT_ACL_SECURE_SHARE_SETTING);
+	if (settings_get(user->event, &crypt_acl_setting_parser_info, 0,
+			 &set, &error) < 0) {
+		e_error(user->event, "%s", error);
+		return -1;
+	}
+	bool disallow_insecure = set->crypt_acl_require_secure_key_sharing;
+	settings_free(set);
 
 	ret = mcp_user_create(user, target_uid, &dest_user, &error);
 

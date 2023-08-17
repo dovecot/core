@@ -77,3 +77,26 @@ const struct setting_parser_info crypt_setting_parser_info = {
 	.struct_size = sizeof(struct crypt_settings),
 	.pool_offset1 = 1 + offsetof(struct crypt_settings, pool),
 };
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct crypt_acl_settings)
+static const struct setting_define crypt_acl_setting_defines[] = {
+	DEF(BOOL, crypt_acl_require_secure_key_sharing),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct crypt_acl_settings crypt_acl_default_settings = {
+	.crypt_acl_require_secure_key_sharing = FALSE,
+};
+
+const struct setting_parser_info crypt_acl_setting_parser_info = {
+	.name = "crypt_acl",
+
+	.defines = crypt_acl_setting_defines,
+	.defaults = &crypt_acl_default_settings,
+
+	.struct_size = sizeof(struct crypt_acl_settings),
+	.pool_offset1 = 1 + offsetof(struct crypt_acl_settings, pool),
+};
