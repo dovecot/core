@@ -26,7 +26,13 @@ struct crypt_settings {
 	bool crypt_user_key_require_encrypted;
 };
 
+struct crypt_acl_settings {
+	pool_t pool;
+	bool crypt_acl_require_secure_key_sharing;
+};
+
 extern const struct setting_parser_info crypt_setting_parser_info;
 extern const struct setting_parser_info crypt_private_key_setting_parser_info;
+extern const struct setting_parser_info crypt_acl_setting_parser_info;
 
 #endif
