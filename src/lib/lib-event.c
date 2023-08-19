@@ -4,6 +4,7 @@
 #include "lib-event-private.h"
 #include "event-filter.h"
 #include "array.h"
+#include "hash.h"
 #include "llist.h"
 #include "time-util.h"
 #include "str.h"
@@ -11,6 +12,8 @@
 #include "ioloop-private.h"
 
 #include <ctype.h>
+
+HASH_TABLE_DEFINE_TYPE(category_set, void *, const struct event_category *);
 
 enum event_code {
 	EVENT_CODE_ALWAYS_LOG_SOURCE	= 'a',
@@ -60,6 +63,11 @@ struct event_internal_category {
 
 struct event_reason {
 	struct event *event;
+};
+
+struct event_category_iterator {
+	HASH_TABLE_TYPE(category_set) hash;
+	struct hash_iterate_context *iter;
 };
 
 extern struct event_passthrough event_passthrough_vfuncs;
@@ -1255,6 +1263,67 @@ event_get_categories(const struct event *event, unsigned int *count_r)
 		return NULL;
 	}
 	return array_get(&event->categories, count_r);
+}
+
+static void
+insert_category(HASH_TABLE_TYPE(category_set) hash,
+		const struct event_category *const cat)
+{
+	/* insert this category (key == the unique internal pointer) */
+	hash_table_update(hash, cat->internal, cat);
+
+	/* insert parent's categories */
+	if (cat->parent != NULL)
+		insert_category(hash, cat->parent);
+}
+
+struct event_category_iterator *
+event_categories_iterate_init(const struct event *event)
+{
+	struct event_category_iterator *iter;
+	struct event_category *const *cats;
+	unsigned int count, i;
+
+	cats = event_get_categories(event, &count);
+	if (count == 0)
+		return NULL;
+
+	iter = i_new(struct event_category_iterator, 1);
+
+	hash_table_create_direct(&iter->hash, default_pool,
+				 3 * count /* estimate */);
+
+	/* Insert all the categories into the hash table */
+	for (i = 0; i < count; i++)
+		insert_category(iter->hash, cats[i]);
+
+	iter->iter = hash_table_iterate_init(iter->hash);
+
+	return iter;
+}
+
+bool event_categories_iterate(struct event_category_iterator *iter,
+			      const struct event_category **cat_r)
+{
+	void *key ATTR_UNUSED;
+
+	if (iter == NULL) {
+		*cat_r = NULL;
+		return FALSE;
+	}
+	return hash_table_iterate(iter->iter, iter->hash, &key, cat_r);
+}
+
+void event_categories_iterate_deinit(struct event_category_iterator **_iter)
+{
+	struct event_category_iterator *iter = *_iter;
+
+	if (iter == NULL)
+		return;
+	*_iter = NULL;
+
+	hash_table_iterate_deinit(&iter->iter);
+	hash_table_destroy(&iter->hash);
 }
 
 void event_send(struct event *event, struct failure_context *ctx,
