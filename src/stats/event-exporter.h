@@ -27,8 +27,7 @@ void event_export_helper_fmt_unix_time(string_t *dest, const struct timeval *tim
    The result has no duplicates regardless of if the array has any or if any
    of the categories' ancestors are implictly or explicitly duplicated. */
 void event_export_helper_fmt_categories(string_t *dest,
-					struct event_category *const *cats,
-					unsigned int count,
+					const struct event *event,
 					void (*append)(string_t *, const char *),
 					const char *separator);
 

@@ -146,18 +146,13 @@ static void json_export_timestamps(string_t *dest, struct event *event,
 static void json_export_categories(string_t *dest, struct event *event,
 				   const struct metric_export_info *info)
 {
-	struct event_category *const *cats;
-	unsigned int count;
-
 	if ((info->include & EVENT_EXPORTER_INCL_CATEGORIES) == 0)
 		return;
 
 	append_str(dest, "categories");
 	str_append(dest, ":[");
 
-	cats = event_get_categories(event, &count);
-	event_export_helper_fmt_categories(dest, cats, count,
-					   append_str, ",");
+	event_export_helper_fmt_categories(dest, event, append_str, ",");
 
 	str_append(dest, "],");
 }

@@ -133,15 +133,10 @@ static void append_category(string_t *dest, const char *cat)
 static void tabtext_export_categories(string_t *dest, struct event *event,
 				      const struct metric_export_info *info)
 {
-	struct event_category *const *cats;
-	unsigned int count;
-
 	if ((info->include & EVENT_EXPORTER_INCL_CATEGORIES) == 0)
 		return;
 
-	cats = event_get_categories(event, &count);
-	event_export_helper_fmt_categories(dest, cats, count,
-					   append_category, "\t");
+	event_export_helper_fmt_categories(dest, event, append_category, "\t");
 
 	str_append_c(dest, '\t'); /* extra \t to have something to remove later */
 }
