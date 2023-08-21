@@ -663,9 +663,28 @@ dcrypt_openssl_ctx_hmac_final(struct dcrypt_context_hmac *ctx, buffer_t *result,
 static const char *ec_key_get_pub_point_hex(const EVP_PKEY *pkey)
 {
 	/* get the public key */
+	EVP_PKEY *pkey2 = NULL;
 	unsigned char buf[EVP_PKEY_size(pkey)*2];
 	size_t len;
-	EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PUB_KEY, buf, sizeof(buf), &len);
+
+	/* force compressed format */
+	OSSL_PARAM *params = NULL;
+	if (EVP_PKEY_todata(pkey, EVP_PKEY_PUBLIC_KEY, &params) == 0)
+		i_unreached();
+	OSSL_PARAM *param = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_EC_POINT_CONVERSION_FORMAT);
+	if (param != NULL)
+		OSSL_PARAM_set_utf8_string(param, "compressed");
+	EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_get_id(pkey), NULL);
+	if (EVP_PKEY_fromdata_init(ctx) < 1 ||
+	    EVP_PKEY_fromdata(ctx, &pkey2, EVP_PKEY_PUBLIC_KEY, params) < 1) {
+		i_unreached();
+	}
+	EVP_PKEY_CTX_free(ctx);
+	OSSL_PARAM_free(params);
+
+	EVP_PKEY_get_octet_string_param(pkey2, OSSL_PKEY_PARAM_PUB_KEY, buf, sizeof(buf), &len);
+	EVP_PKEY_free(pkey2);
+
 	return binary_to_hex_ucase(buf, len);
 }
 
