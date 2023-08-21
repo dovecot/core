@@ -1600,7 +1600,7 @@ static bool load_jwk_ec_key(EVP_PKEY **key_r, bool want_private_key,
 				ERR_raise_data(ERR_R_EC_LIB, ERR_R_INVALID_PROPERTY_DEFINITION,
 					       "Private key did not match with public key");
 				EVP_PKEY_free(pkey);
-				res = FALSE;
+				res = dcrypt_openssl_error(error_r);
 			}
 			BN_free(cx);
 			BN_free(cy);
@@ -1616,10 +1616,9 @@ static bool load_jwk_ec_key(EVP_PKEY **key_r, bool want_private_key,
 	BN_free(px);
 	BN_free(py);
 
-	if (!res)
-		return dcrypt_openssl_error(error_r);
-	*key_r = pkey;
-	return TRUE;
+	if (res == TRUE)
+		*key_r = pkey;
+	return res;
 }
 
 /* Loads both public and private key */
