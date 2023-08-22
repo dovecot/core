@@ -2585,10 +2585,12 @@ dcrypt_openssl_private_to_public_key(struct dcrypt_private_key *priv_key,
 	i_assert(pk != NULL); /* we shouldn't get malloc() failures */
 
 	OSSL_PARAM *params = NULL;
-	EVP_PKEY_todata(pkey, EVP_PKEY_PUBLIC_KEY, &params);
+	if (EVP_PKEY_todata(pkey, EVP_PKEY_PUBLIC_KEY, &params) == 0)
+		i_unreached();
 	/* keep the key format compressed */
 	OSSL_PARAM *param = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_EC_POINT_CONVERSION_FORMAT);
-	OSSL_PARAM_set_utf8_string(param, "compressed");
+	if (param != NULL)
+		OSSL_PARAM_set_utf8_string(param, "compressed");
 	EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_from_pkey(NULL, pkey, NULL);
 	if (EVP_PKEY_fromdata_init(ctx) < 1 ||
 	    EVP_PKEY_fromdata(ctx, &pk, EVP_PKEY_PUBLIC_KEY, params) < 1) {
