@@ -201,6 +201,7 @@ fs_crypt_read_stream(struct fs_file *_file, size_t max_buffer_size)
 			NULL
 		};
 		file->input = istream_try_create(inputs, max_buffer_size);
+		i_stream_set_name(file->input, i_stream_get_name(inputs[0]));
 		i_stream_unref(&decrypted_input);
 		i_stream_unref(&plaintext_input);
 	} else {
