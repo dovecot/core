@@ -72,8 +72,9 @@ static void
 config_add_new_parser(struct config_parser_context *ctx,
 		      struct config_section_stack *cur_section, bool root);
 static int
-config_apply_exact_line(struct config_parser_context *ctx, const char *key,
-			const char *value);
+config_apply_exact_line(struct config_parser_context *ctx,
+			const struct config_line *line,
+			const char *key, const char *value);
 
 static void
 config_module_parser_init(struct config_parser_context *ctx,
@@ -99,7 +100,7 @@ config_parser_add_filter_array(struct config_parser_context *ctx,
 			       const char *filter_key, const char *name)
 {
 	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
-	if (config_apply_exact_line(ctx, filter_key, name) < 0) {
+	if (config_apply_exact_line(ctx, NULL, filter_key, name) < 0) {
 		i_panic("Failed to add %s %s: %s", filter_key, name,
 			ctx->error);
 	}
@@ -516,12 +517,20 @@ static int config_apply_boollist(struct config_parser_context *ctx,
 	return 0;
 }
 
-static void config_apply_filter_array(struct config_parser_context *ctx,
-				      const char *value,
-				      ARRAY_TYPE(const_string) **namesp)
+static int config_apply_filter_array(struct config_parser_context *ctx,
+				     const struct config_line *line,
+				     const char *value,
+				     ARRAY_TYPE(const_string) **namesp)
 {
 	const char *const *list = t_strsplit(value, ",\t ");
 	unsigned int i, count = str_array_length(list);
+
+	if (line != NULL && line->type != CONFIG_LINE_TYPE_SECTION_BEGIN) {
+		ctx->error = p_strdup_printf(ctx->pool,
+			"Setting is a named list filter, use '%s %s {'",
+			line->key, value);
+		return -1;
+	}
 
 	if (*namesp == NULL) {
 		*namesp = p_new(ctx->pool, ARRAY_TYPE(const_string), 1);
@@ -533,11 +542,13 @@ static void config_apply_filter_array(struct config_parser_context *ctx,
 			p_strdup(ctx->pool, settings_section_unescape(list[i]));
 		array_push_back(*namesp, &value);
 	}
+	return 0;
 }
 
 static int
-config_apply_exact_line(struct config_parser_context *ctx, const char *key,
-			const char *value)
+config_apply_exact_line(struct config_parser_context *ctx,
+			const struct config_line *line,
+			const char *key, const char *value)
 {
 	struct config_parser_key *config_key;
 
@@ -569,8 +580,9 @@ config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 				return -1;
 			break;
 		case SET_FILTER_ARRAY:
-			config_apply_filter_array(ctx, value,
-				&l->settings[config_key->define_idx].array);
+			if (config_apply_filter_array(ctx, line, value,
+					&l->settings[config_key->define_idx].array) < 0)
+				return -1;
 			break;
 		default:
 			l->settings[config_key->define_idx].str =
@@ -597,9 +609,11 @@ config_apply_exact_line(struct config_parser_context *ctx, const char *key,
 	return 1;
 }
 
-int config_apply_line(struct config_parser_context *ctx,
-		      const char *key_with_path,
-		      const char *value, const char **full_key_r)
+static int
+config_apply_line_full(struct config_parser_context *ctx,
+		       const struct config_line *line,
+		       const char *key_with_path,
+		       const char *value, const char **full_key_r)
 {
 	struct config_filter orig_filter = ctx->cur_section->filter;
 	struct config_module_parser *orig_module_parsers =
@@ -673,12 +687,12 @@ int config_apply_line(struct config_parser_context *ctx,
 		const char *filter_key =
 			t_strcut(ctx->cur_section->filter.filter_name, '/');
 		const char *key2 = t_strdup_printf("%s_%s", filter_key, key);
-		ret = config_apply_exact_line(ctx, key2, value);
+		ret = config_apply_exact_line(ctx, line, key2, value);
 		if (ret > 0 && full_key_r != NULL)
 			*full_key_r = key2;
 	}
 	if (ret == 0) {
-		ret = config_apply_exact_line(ctx, key, value);
+		ret = config_apply_exact_line(ctx, line, key, value);
 		if (full_key_r != NULL)
 			*full_key_r = key;
 	}
@@ -691,6 +705,14 @@ int config_apply_line(struct config_parser_context *ctx,
 		return -1;
 	}
 	return ret < 0 ? -1 : 0;
+}
+
+int config_apply_line(struct config_parser_context *ctx,
+		      const char *key_with_path,
+		      const char *value, const char **full_key_r)
+{
+	return config_apply_line_full(ctx, NULL, key_with_path,
+				      value, full_key_r);
 }
 
 static int
@@ -1799,8 +1821,9 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 		} else {
 			const char *key_with_path = t_strdup_printf("%s%s",
 				str_c(ctx->key_path), line->key);
-			if (config_apply_line(ctx, key_with_path,
-					      str_c(ctx->value), &full_key) == 0)
+			if (config_apply_line_full(ctx, line, key_with_path,
+						   str_c(ctx->value),
+						   &full_key) == 0)
 				config_parser_check_warnings(ctx, full_key);
 		}
 		break;
