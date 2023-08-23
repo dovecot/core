@@ -1646,6 +1646,8 @@ void settings_root_deinit(struct settings_root **_root)
 	struct settings_override *override;
 	struct settings_mmap_pool *mpool;
 
+	if (root == NULL)
+		return;
 	*_root = NULL;
 
 	if (array_is_created(&root->overrides)) {
