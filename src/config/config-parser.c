@@ -946,15 +946,6 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 				filter->filter_hierarchical = TRUE;
 			filter->filter_name = p_strdup(ctx->pool, key);
 		} else {
-			if (parent->filter_name != NULL &&
-			    !parent->filter_name_array) {
-				ctx->error = p_strdup_printf(ctx->pool,
-					"%s { %s { .. } } not allowed (use %s { %s { .. } } instead)",
-					parent->filter_name, key, key, parent->filter_name);
-				return FALSE;
-			}
-			i_assert(parent->filter_name != NULL ||
-				 !parent->filter_name_array);
 			if (strcmp(key, "namespace") == 0 &&
 			    parent->filter_name_array &&
 			    (str_begins_with(parent->filter_name, "namespace/") ||
