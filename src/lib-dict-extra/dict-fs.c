@@ -44,39 +44,6 @@ fs_dict_init(const struct dict *dict_driver, struct event *event,
 	return 0;
 }
 
-static int
-fs_dict_init_legacy(struct dict *driver, const char *uri,
-		    const struct dict_legacy_settings *set,
-		    struct dict **dict_r, const char **error_r)
-{
-	struct fs_parameters fs_param;
-	struct fs *fs;
-	struct fs_dict *dict;
-	const char *p, *fs_driver, *fs_args;
-
-	p = strchr(uri, ':');
-	if (p == NULL) {
-		fs_driver = uri;
-		fs_args = "";
-	} else {
-		fs_driver = t_strdup_until(uri, p);
-		fs_args = p+1;
-	}
-
-	i_zero(&fs_param);
-	fs_param.base_dir = set->base_dir;
-	if (fs_legacy_init(fs_driver, fs_args, set->event_parent, &fs_param,
-			   &fs, error_r) < 0)
-		return -1;
-
-	dict = i_new(struct fs_dict, 1);
-	dict->dict = *driver;
-	dict->fs = fs;
-
-	*dict_r = &dict->dict;
-	return 0;
-}
-
 static void fs_dict_deinit(struct dict *_dict)
 {
 	struct fs_dict *dict = (struct fs_dict *)_dict;
@@ -346,7 +313,6 @@ struct dict dict_driver_fs = {
 	.name = "fs",
 	.v = {
 		.init = fs_dict_init,
-		.init_legacy = fs_dict_init_legacy,
 		.deinit = fs_dict_deinit,
 		.lookup = fs_dict_lookup,
 		.iterate_init = fs_dict_iterate_init,
