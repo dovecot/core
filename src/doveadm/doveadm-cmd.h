@@ -6,6 +6,7 @@
 typedef void doveadm_command_t(int argc, char *argv[]);
 
 ARRAY_DEFINE_TYPE(doveadm_cmd_ver2, struct doveadm_cmd_ver2);
+ARRAY_DEFINE_TYPE(doveadm_cmd_ver2_p, const struct doveadm_cmd_ver2 *);
 extern ARRAY_TYPE(doveadm_cmd_ver2) doveadm_cmds_ver2;
 
 void doveadm_register_auth_commands(void);

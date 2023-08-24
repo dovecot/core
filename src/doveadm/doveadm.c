@@ -50,31 +50,19 @@ static void failure_exit_callback(int *status)
 }
 
 static void
-doveadm_usage_compress_lines(FILE *out, const char *str, const char *prefix)
+usage_commands_write(FILE *out, const ARRAY_TYPE(doveadm_cmd_ver2_p) *cmds,
+		     const char *prefix)
 {
-	const char *cmd, *args, *p, *short_name, *sub_name;
+	const struct doveadm_cmd_ver2 *cur_cmd;
+	const char *p, *short_name, *sub_name;
 	const char *prev_name = "", *prev_sub_name = "";
-	const char **lines;
-	unsigned int i, count;
 	size_t prefix_len = strlen(prefix);
 
-	/* split lines */
-	lines = (void *)p_strsplit(pool_datastack_create(), str, "\n");
-	for (count = 0; lines[count] != NULL; count++) ;
-
-	/* sort lines */
-	i_qsort(lines, count, sizeof(*lines), i_strcmp_p);
-
 	/* print lines, compress subcommands into a single line */
-	for (i = 0; i < count; i++) {
-		args = strchr(lines[i], '\t');
-		if (args == NULL) {
-			cmd = lines[i];
-			args = "";
-		} else {
-			cmd = t_strdup_until(lines[i], args);
-			args++;
-		}
+	array_foreach_elem(cmds, cur_cmd) {
+		const char *cmd = cur_cmd->name;
+		const char *args = cur_cmd->usage;
+
 		if (*prefix != '\0') {
 			if (strncmp(cmd, prefix, prefix_len) != 0 ||
 			    cmd[prefix_len] != ' ')
@@ -111,11 +99,19 @@ doveadm_usage_compress_lines(FILE *out, const char *str, const char *prefix)
 		fprintf(out, "\n");
 }
 
+static int doveadm_cmd_cmp(const struct doveadm_cmd_ver2 *const *cmd1,
+			   const struct doveadm_cmd_ver2 *const *cmd2)
+{
+	return strcmp((*cmd1)->name, (*cmd2)->name);
+}
+
 static void ATTR_NORETURN
 usage_prefix(FILE *out, const char *prefix, int return_code)
 {
 	const struct doveadm_cmd_ver2 *cmd2;
-	string_t *str = t_str_new(1024);
+	ARRAY_TYPE(doveadm_cmd_ver2_p) visible_cmds;
+
+	t_array_init(&visible_cmds, array_count(&doveadm_cmds_ver2));
 
 	fprintf(out, "usage: doveadm [-Dv] [-f <formatter>] ");
 	if (*prefix != '\0')
@@ -124,10 +120,12 @@ usage_prefix(FILE *out, const char *prefix, int return_code)
 
 	array_foreach(&doveadm_cmds_ver2, cmd2) {
 		if ((cmd2->flags & CMD_FLAG_HIDDEN) == 0)
-			str_printfa(str, "%s\t%s\n", cmd2->name, cmd2->usage);
+			array_push_back(&visible_cmds, &cmd2);
 	}
+	/* sort commands */
+	array_sort(&visible_cmds, doveadm_cmd_cmp);
 
-	doveadm_usage_compress_lines(out, str_c(str), prefix);
+	usage_commands_write(out, &visible_cmds, prefix);
 
 	lib_exit(return_code);
 }
