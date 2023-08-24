@@ -212,11 +212,6 @@ typedef void fs_file_async_callback_t(void *context);
    lookup or driver initialization failed. */
 int fs_init_auto(struct event *event, const struct fs_parameters *params,
 		 struct fs **fs_r, const char **error_r);
-/* event_parent can be overridden by fs_file_init_with_event() */
-int fs_legacy_init(const char *driver, const char *args,
-		   struct event *event_parent,
-		   const struct fs_parameters *params,
-		   struct fs **fs_r, const char **error_r);
 /* same as fs_unref() */
 void fs_deinit(struct fs **fs);
 
