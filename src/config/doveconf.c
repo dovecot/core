@@ -996,8 +996,11 @@ int main(int argc, char *argv[])
 		flags |= CONFIG_PARSE_FLAG_EXTERNAL_HOOKS;
 	if (hide_obsolete_warnings)
 		flags |= CONFIG_PARSE_FLAG_HIDE_OBSOLETE_WARNINGS;
-	if ((ret = config_parse_file(dump_defaults ? NULL : config_path,
-				     flags, &config, &error)) == 0 &&
+	T_BEGIN {
+		ret = config_parse_file(dump_defaults ? NULL : config_path,
+					flags, &config, &error);
+	} T_END_PASS_STR_IF(ret <= 0, &error);
+	if (ret == 0 &&
 	    access(EXAMPLE_CONFIG_DIR, X_OK) == 0) {
 		i_fatal("%s (copy example configs from "EXAMPLE_CONFIG_DIR"/)",
 			error);
