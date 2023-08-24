@@ -184,33 +184,6 @@ fs_alloc(const char *driver, struct event *event_parent,
 	return 0;
 }
 
-int fs_legacy_init(const char *driver, const char *args,
-		   struct event *event_parent,
-		   const struct fs_parameters *params,
-		   struct fs **fs_r, const char **error_r)
-{
-	struct fs *fs;
-	const char *error;
-	int ret;
-
-	if (fs_alloc(driver, event_parent, params, &fs, error_r) < 0)
-		return -1;
-
-	if (fs->v.legacy_init == NULL) {
-		error = "legacy_init() not supported";
-		ret = -1;
-	} else T_BEGIN {
-		ret = fs->v.legacy_init(fs, args, params, &error);
-	} T_END_PASS_STR_IF(ret < 0, &error);
-	if (ret < 0) {
-		*error_r = t_strdup_printf("%s: %s", fs->name, error);
-		fs_unref(&fs);
-		return -1;
-	}
-	*fs_r = fs;
-	return 0;
-}
-
 static bool fs_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 			      const char **error_r ATTR_UNUSED)
 {
