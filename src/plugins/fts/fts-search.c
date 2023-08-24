@@ -342,13 +342,12 @@ int fts_search_get_first_missing_uid(struct fts_backend *backend,
 				     struct mailbox *box,
 				     uint32_t *last_indexed_uid_r)
 {
-	uint32_t messages_count = mail_index_view_get_messages_count(box->view);
-	uint32_t uid, last_indexed_uid;
+	struct mailbox_status status;
+	if (fts_mailbox_get_status(box, STATUS_UIDNEXT, &status) < 0)
+		return -1;
 
-	if (messages_count == 0)
-		return 1;
-
-	mail_index_lookup_uid(box->view, messages_count, &uid);
+	uint32_t uid = status.uidnext > 1 ? status.uidnext - 1 : 1;
+	uint32_t last_indexed_uid;
 	for (bool refreshed = FALSE;; refreshed = TRUE) {
 		int ret = fts_backend_is_uid_indexed(backend, box, uid,
 						     &last_indexed_uid);
