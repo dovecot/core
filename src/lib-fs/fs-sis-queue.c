@@ -72,35 +72,6 @@ fs_sis_queue_init(struct fs *_fs, const struct fs_parameters *params,
 	return fs_init_parent(_fs, params, error_r);
 }
 
-static int
-fs_sis_queue_legacy_init(struct fs *_fs, const char *args,
-			 const struct fs_parameters *params, const char **error_r)
-{
-	struct sis_queue_fs *fs = SISQUEUE_FS(_fs);
-	const char *p, *parent_name, *parent_args;
-
-	/* <queue_dir>:<parent fs>[:<args>] */
-
-	p = strchr(args, ':');
-	if (p == NULL || p[1] == '\0') {
-		*error_r = "Parent filesystem not given as parameter";
-		return -1;
-	}
-
-	fs->queue_dir = i_strdup_until(args, p);
-	parent_name = p + 1;
-
-	parent_args = strchr(parent_name, ':');
-	if (parent_args == NULL)
-		parent_args = "";
-	else
-		parent_name = t_strdup_until(parent_name, parent_args++);
-	if (fs_legacy_init(parent_name, parent_args, _fs->event, params,
-			   &_fs->parent, error_r) < 0)
-		return -1;
-	return 0;
-}
-
 static void fs_sis_queue_free(struct fs *_fs)
 {
 	struct sis_queue_fs *fs = SISQUEUE_FS(_fs);
@@ -218,7 +189,6 @@ const struct fs fs_class_sis_queue = {
 	.v = {
 		.alloc = fs_sis_queue_alloc,
 		.init = fs_sis_queue_init,
-		.legacy_init = fs_sis_queue_legacy_init,
 		.deinit = NULL,
 		.free = fs_sis_queue_free,
 		.get_properties = fs_wrapper_get_properties,

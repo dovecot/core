@@ -24,14 +24,6 @@ fs_test_init(struct fs *_fs ATTR_UNUSED,
 	return 0;
 }
 
-static int
-fs_test_legacy_init(struct fs *_fs ATTR_UNUSED, const char *args ATTR_UNUSED,
-		    const struct fs_parameters *params ATTR_UNUSED,
-		    const char **error_r ATTR_UNUSED)
-{
-	return 0;
-}
-
 static void fs_test_free(struct fs *_fs)
 {
 	struct test_fs *fs = (struct test_fs *)_fs;
@@ -416,7 +408,6 @@ const struct fs fs_class_test = {
 	.v = {
 		.alloc = fs_test_alloc,
 		.init = fs_test_init,
-		.legacy_init = fs_test_legacy_init,
 		.deinit = NULL,
 		.free = fs_test_free,
 		.get_properties = fs_test_get_properties,

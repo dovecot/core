@@ -117,35 +117,6 @@ fs_dict_init(struct fs *_fs, const struct fs_parameters *params ATTR_UNUSED,
 	return ret <= 0 ? -1 : 0;
 }
 
-static int
-fs_dict_init_legacy(struct fs *_fs, const char *args,
-		    const struct fs_parameters *params, const char **error_r)
-{
-	struct dict_fs *fs = (struct dict_fs *)_fs;
-	struct dict_legacy_settings dict_set;
-	const char *p, *encoding_str, *error;
-
-	p = strchr(args, ':');
-	if (p == NULL) {
-		*error_r = "':' missing in args";
-		return -1;
-	}
-	encoding_str = t_strdup_until(args, p++);
-	if (fs_dict_value_encoding_parse(encoding_str, &fs->encoding, error_r) < 0)
-		return -1;
-
-	i_zero(&dict_set);
-	dict_set.base_dir = params->base_dir;
-	dict_set.event_parent = _fs->event;
-
-	if (dict_init_legacy(p, &dict_set, &fs->dict, &error) < 0) {
-		*error_r = t_strdup_printf("dict_init(%s) failed: %s",
-					   args, error);
-		return -1;
-	}
-	return 0;
-}
-
 static void fs_dict_free(struct fs *_fs)
 {
 	struct dict_fs *fs = (struct dict_fs *)_fs;
@@ -401,7 +372,6 @@ const struct fs fs_class_dict = {
 	.v = {
 		.alloc = fs_dict_alloc,
 		.init = fs_dict_init,
-		.legacy_init = fs_dict_init_legacy,
 		.deinit = NULL,
 		.free = fs_dict_free,
 		.get_properties = fs_dict_get_properties,

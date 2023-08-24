@@ -58,38 +58,6 @@ fs_sis_init(struct fs *_fs, const struct fs_parameters *params,
 	return 0;
 }
 
-static int
-fs_sis_legacy_init(struct fs *_fs, const char *args,
-		   const struct fs_parameters *params, const char **error_r)
-{
-	enum fs_properties props;
-	const char *parent_name, *parent_args;
-
-	if (*args == '\0') {
-		*error_r = "Parent filesystem not given as parameter";
-		return -1;
-	}
-
-	parent_args = strchr(args, ':');
-	if (parent_args == NULL) {
-		parent_name = args;
-		parent_args = "";
-	} else {
-		parent_name = t_strdup_until(args, parent_args);
-		parent_args++;
-	}
-	if (fs_legacy_init(parent_name, parent_args, _fs->event, params,
-			   &_fs->parent, error_r) < 0)
-		return -1;
-	props = fs_get_properties(_fs->parent);
-	if ((props & FS_SIS_REQUIRED_PROPS) != FS_SIS_REQUIRED_PROPS) {
-		*error_r = t_strdup_printf("%s backend can't be used with SIS",
-					   parent_name);
-		return -1;
-	}
-	return 0;
-}
-
 static void fs_sis_free(struct fs *_fs)
 {
 	struct sis_fs *fs = SIS_FS(_fs);
@@ -274,7 +242,6 @@ const struct fs fs_class_sis = {
 	.v = {
 		.alloc = fs_sis_alloc,
 		.init = fs_sis_init,
-		.legacy_init = fs_sis_legacy_init,
 		.deinit = NULL,
 		.free = fs_sis_free,
 		.get_properties = fs_wrapper_get_properties,

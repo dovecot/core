@@ -156,56 +156,6 @@ fs_posix_init(struct fs *_fs, const struct fs_parameters *params,
 	return 0;
 }
 
-static int
-fs_posix_legacy_init(struct fs *_fs, const char *args,
-		     const struct fs_parameters *params, const char **error_r)
-{
-	struct posix_fs *fs = container_of(_fs, struct posix_fs, fs);
-	const char *value, *const *tmp;
-
-	fs_posix_init_common(fs, params);
-
-	pool_t pool = pool_alloconly_create("fs_posix_settings", 128);
-	struct fs_posix_settings *set =
-		settings_defaults_dup(pool, &fs_posix_setting_parser_info);
-	set->parsed_lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
-	fs->set = set;
-
-	tmp = t_strsplit_spaces(args, ":");
-	for (; *tmp != NULL; tmp++) {
-		const char *arg = *tmp;
-
-		if (strcmp(arg, "lock=flock") == 0)
-			set->parsed_lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
-		else if (strcmp(arg, "lock=dotlock") == 0)
-			set->parsed_lock_method = FS_POSIX_LOCK_METHOD_DOTLOCK;
-		else if (str_begins(arg, "prefix=", &value))
-			set->fs_posix_prefix = p_strdup(pool, value);
-		else if (strcmp(arg, "dirs") == 0)
-			set->fs_posix_autodelete_empty_directories = FALSE;
-		else if (strcmp(arg, "no-fsync") == 0)
-			set->fs_posix_fsync = FALSE;
-		else if (strcmp(arg, "accurate-mtime") == 0)
-			set->fs_posix_accurate_mtime = TRUE;
-		else if (str_begins(arg, "mode=", &value)) {
-			unsigned int mode;
-			if (str_to_uint_oct(value, &mode) < 0) {
-				*error_r = t_strdup_printf("Invalid mode value: %s", value);
-				return -1;
-			}
-			set->fs_posix_mode = mode & 0666;
-			if (set->fs_posix_mode == 0) {
-				*error_r = t_strdup_printf("Invalid mode: %s", value);
-				return -1;
-			}
-		} else {
-			*error_r = t_strdup_printf("Unknown arg '%s'", arg);
-			return -1;
-		}
-	}
-	return 0;
-}
-
 static void fs_posix_free(struct fs *_fs)
 {
 	struct posix_fs *fs = container_of(_fs, struct posix_fs, fs);
@@ -1070,7 +1020,6 @@ const struct fs fs_class_posix = {
 	.v = {
 		.alloc = fs_posix_alloc,
 		.init = fs_posix_init,
-		.legacy_init = fs_posix_legacy_init,
 		.deinit = NULL,
 		.free = fs_posix_free,
 		.get_properties = fs_posix_get_properties,
