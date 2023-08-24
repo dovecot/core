@@ -105,69 +105,6 @@ fs_compress_init(struct fs *_fs, const struct fs_parameters *params,
 	return fs_init_parent(_fs, params, error_r);
 }
 
-static int
-fs_compress_legacy_init(struct fs *_fs, const char *args,
-			const struct fs_parameters *params,
-			const char **error_r)
-{
-	struct compress_fs *fs = COMPRESS_FS(_fs);
-	const char *p, *compression_name, *level_str;
-	const char *parent_name, *parent_args;
-	int ret;
-
-	/* get compression handler name */
-	if (str_begins(args, "maybe-", &args))
-		fs->try_plain = TRUE;
-
-	p = strchr(args, ':');
-	if (p == NULL) {
-		*error_r = "Compression method not given as parameter";
-		return -1;
-	}
-	compression_name = t_strdup_until(args, p++);
-	args = p;
-
-	/* get compression level */
-	p = strchr(args, ':');
-	if (p == NULL || p[1] == '\0') {
-		*error_r = "Parent filesystem not given as parameter";
-		return -1;
-	}
-
-	level_str = t_strdup_until(args, p++);
-	args = p;
-	ret = compression_lookup_handler(compression_name, &fs->compress_handler);
-	if (ret <= 0) {
-		*error_r = t_strdup_printf("Compression method '%s' %s.",
-					   compression_name, ret == 0 ?
-					   "not supported" : "unknown");
-		return -1;
-	}
-	if (str_to_int(level_str, &fs->compress_level) < 0 ||
-	    fs->compress_level < fs->compress_handler->get_min_level() ||
-	    fs->compress_level > fs->compress_handler->get_max_level()) {
-		 *error_r = t_strdup_printf(
-			"Invalid compression level parameter '%s': "
-			"Level must be between %d..%d", level_str,
-			fs->compress_handler->get_min_level(),
-			fs->compress_handler->get_max_level());
-		return -1;
-	}
-	if (fs->compress_level == 0)
-		fs->compress_handler = NULL;
-
-	parent_args = strchr(args, ':');
-	if (parent_args == NULL) {
-		parent_name = args;
-		parent_args = "";
-	} else {
-		parent_name = t_strdup_until(args, parent_args);
-		parent_args++;
-	}
-	return fs_legacy_init(parent_name, parent_args, _fs->event, params,
-			      &_fs->parent, error_r);
-}
-
 static void fs_compress_free(struct fs *_fs)
 {
 	struct compress_fs *fs = COMPRESS_FS(_fs);
@@ -337,7 +274,6 @@ const struct fs fs_class_compress = {
 	.v = {
 		.alloc = fs_compress_alloc,
 		.init = fs_compress_init,
-		.legacy_init = fs_compress_legacy_init,
 		.deinit = NULL,
 		.free = fs_compress_free,
 		.get_properties = fs_wrapper_get_properties,
