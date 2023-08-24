@@ -584,6 +584,7 @@ sasl_server_auth_cancel(struct client *client, const char *reason,
 	}
 
 	client->authenticating = FALSE;
+	client->final_response = FALSE;
 	if (client->auth_request != NULL)
 		auth_client_request_abort(&client->auth_request, reason);
 	if (client->master_auth_id != 0)
