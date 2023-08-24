@@ -88,9 +88,8 @@ static int fts_mailbox_get_last_indexed_uid(struct mailbox *box, uint32_t *uid_r
 	return 0;
 }
 
-static int
-fts_mailbox_get_status(struct mailbox *box, enum mailbox_status_items items,
-		       struct mailbox_status *status_r)
+int fts_mailbox_get_status(struct mailbox *box, enum mailbox_status_items items,
+			   struct mailbox_status *status_r)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT_REQUIRE(box);
 	if (fbox->module_ctx.super.get_status(
