@@ -129,6 +129,11 @@ int dict_init_legacy(const char *uri, const struct dict_legacy_settings *set,
 		*error_r = t_strdup_printf("Unknown dict module: %s", name);
 		return -1;
 	}
+	if (dict->v.init_legacy == NULL) {
+		*error_r = t_strdup_printf(
+			"dict %s doesn't support legacy_init()", name);
+		return -1;
+	}
 	struct event *event = event_create(set->event_parent);
 	event_add_category(event, &event_category_dict);
 	event_add_str(event, "driver", dict->name);
