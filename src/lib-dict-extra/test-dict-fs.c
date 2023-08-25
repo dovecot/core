@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "unlink-directory.h"
 #include "test-common.h"
+#include "settings.h"
 #include "dict-private.h"
 
 static void test_dict_set_get(struct dict *dict, const char *key,
@@ -37,10 +38,15 @@ static void test_dict_fs_set_get(void)
 	test_begin("dict-fs get/set");
 	const char *error;
 	struct dict *dict;
-	struct dict_legacy_settings set = {
-		.base_dir = ".",
+	const char *const settings[] = {
+		"dict_driver", "fs",
+		"fs_driver", "posix",
+		"fs_posix_prefix", ".test-dict/",
+		NULL
 	};
-	if (dict_init_legacy("fs:posix:prefix=.test-dict/", &set, &dict, &error) < 0)
+	struct settings_simple test_set;
+	settings_simple_init(&test_set, settings);
+	if (dict_init_auto(test_set.event, &dict, &error) <= 0)
 		i_fatal("dict_init() failed: %s", error);
 
 	/* shared paths */
@@ -89,6 +95,7 @@ static void test_dict_fs_set_get(void)
 
 	if (unlink_directory(".test-dict", UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0)
 		i_fatal("unlink_directory(.test_dict) failed: %s", error);
+	settings_simple_deinit(&test_set);
 	test_end();
 }
 
