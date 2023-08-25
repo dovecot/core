@@ -29,8 +29,6 @@
 static const char *const default_events[] = { "MessageNew", NULL };
 static const char *const default_mboxes[] = { "INBOX", NULL };
 #define DEFAULT_CACHE_LIFETIME_SECS 60
-#define DEFAULT_TIMEOUT_MSECS 2000
-#define DEFAULT_RETRY_COUNT 1
 
 /* This is data that is shared by all plugin users. */
 struct push_notification_driver_ox_global {
@@ -45,8 +43,6 @@ struct push_notification_driver_ox_config {
 	struct event *event;
 	unsigned int cached_ox_metadata_lifetime_secs;
 	bool use_unsafe_username;
-	unsigned int http_max_retries;
-	unsigned int http_timeout_msecs;
 
 	char *cached_ox_metadata;
 	time_t cached_ox_metadata_timestamp;
@@ -57,27 +53,20 @@ struct push_notification_driver_ox_txn {
 	const char *unsafe_user;
 };
 
-static void
-push_notification_driver_ox_init_global(
-	struct mail_user *user,
-	struct push_notification_driver_ox_config *config)
-{
-	struct http_client_settings *http_set;
-
+static bool
+push_notification_driver_ox_init_global(struct mail_user *user) {
 	if (ox_global->http_client == NULL) {
-		/* This is going to use the first user's settings, but these are
-		   unlikely to change between users so it shouldn't matter much.
-		 */
-		pool_t http_pool = pool_alloconly_create("ox push http settings",
-							 sizeof(*http_set));
-		http_set = p_new(http_pool, struct http_client_settings, 1);
-		http_client_settings_init(http_pool, http_set);
-		http_set->request_max_attempts = config->http_max_retries+1;
-		http_set->request_timeout_msecs = config->http_timeout_msecs;
-
-		ox_global->http_client = http_client_init(http_set, user->event);
-		pool_unref(&http_pool);
+		const char *error;
+		if (http_client_init_auto(user->event, &ox_global->http_client,
+					  &error) < 0) {
+			e_error(user->event,
+				"Unable to initialize the HTTP client: %s",
+				error);
+			return FALSE;
+		}
 	}
+
+	return TRUE;
 }
 
 static int
@@ -123,17 +112,6 @@ push_notification_driver_ox_init(struct push_notification_driver_config *config,
 		*error_r = t_strdup_printf(
 			"Failed to parse OX cache_lifetime %s: %s", tmp, error);
 		return -1;
-	}
-
-	tmp = hash_table_lookup(config->config, (const char *)"max_retries");
-	if ((tmp == NULL) ||
-	    (str_to_uint(tmp, &dconfig->http_max_retries) < 0)) {
-		dconfig->http_max_retries = DEFAULT_RETRY_COUNT;
-	}
-	tmp = hash_table_lookup(config->config, (const char *)"timeout_msecs");
-	if ((tmp == NULL) ||
-	    (str_to_uint(tmp, &dconfig->http_timeout_msecs) < 0)) {
-		dconfig->http_timeout_msecs = DEFAULT_TIMEOUT_MSECS;
 	}
 
 	e_debug(dconfig->event, "Using cache lifetime: %u",
@@ -382,7 +360,8 @@ push_notification_driver_ox_process_msg(
 	if (messagenew == NULL)
 		return;
 
-	push_notification_driver_ox_init_global(user, dconfig);
+	if (!push_notification_driver_ox_init_global(user))
+		return;
 
 	http_req = http_client_request_url(
 		ox_global->http_client, "PUT", dconfig->http_url,
