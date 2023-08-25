@@ -125,7 +125,6 @@ fts_mailbox_get_status(struct mailbox *box, enum mailbox_status_items items,
 	return 0;
 }
 
-
 static void fts_scores_unref(struct fts_scores **_scores)
 {
 	struct fts_scores *scores = *_scores;
