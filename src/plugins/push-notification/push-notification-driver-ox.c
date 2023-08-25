@@ -72,7 +72,7 @@ push_notification_driver_ox_init_global(
 							 sizeof(*http_set));
 		http_set = p_new(http_pool, struct http_client_settings, 1);
 		http_client_settings_init(http_pool, http_set);
-		http_set->max_attempts = config->http_max_retries+1;
+		http_set->request_max_attempts = config->http_max_retries+1;
 		http_set->request_timeout_msecs = config->http_timeout_msecs;
 
 		ox_global->http_client = http_client_init(http_set, user->event);

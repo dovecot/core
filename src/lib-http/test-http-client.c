@@ -392,9 +392,9 @@ int main(int argc, char *argv[])
 	http_set.max_idle_time_msecs = 5*1000;
 	http_set.max_parallel_connections = 4;
 	http_set.max_pipelined_requests = 4;
-	http_set.max_redirects = 2;
+	http_set.request_max_redirects = 2;
 	http_set.request_timeout_msecs = 10*1000;
-	http_set.max_attempts = 1;
+	http_set.request_max_attempts = 1;
 	http_set.rawlog_dir = "/tmp/http-test";
 
 	http_cctx = http_client_context_create();

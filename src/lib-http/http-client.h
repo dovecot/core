@@ -72,16 +72,16 @@ struct http_client_settings {
 	/* Maximum number of redirects for a request
 	   (default = 0; redirects refused)
 	 */
-	unsigned int max_redirects;
+	unsigned int request_max_redirects;
 
 	/* Maximum number of attempts for a request */
-	unsigned int max_attempts;
+	unsigned int request_max_attempts;
 	/* If non-zero, override max_attempts for GET/HEAD requests. */
-	unsigned int read_max_attempts;
+	unsigned int read_request_max_attempts;
 	/* If non-zero, override max_attempts for PUT/POST requests. */
-	unsigned int write_max_attempts;
+	unsigned int write_request_max_attempts;
 	/* If non-zero, override max_attempts for DELETE requests. */
-	unsigned int delete_max_attempts;
+	unsigned int delete_request_max_attempts;
 
 	/* Maximum number of connection attempts to a host before all associated
 	   requests fail.

@@ -43,11 +43,11 @@ static const struct setting_define http_client_setting_defines[] = {
 	DEF(BOOL_HIDDEN, auto_retry),
 	DEF(BOOL, ssl_tunnel),
 
-	DEF(UINT, max_redirects),
-	DEF(UINT, max_attempts),
-	DEF(UINT, read_max_attempts),
-	DEF(UINT, write_max_attempts),
-	DEF(UINT, delete_max_attempts),
+	DEF(UINT, request_max_redirects),
+	DEF(UINT, request_max_attempts),
+	DEF(UINT, read_request_max_attempts),
+	DEF(UINT, write_request_max_attempts),
+	DEF(UINT, delete_request_max_attempts),
 	DEF(UINT, max_connect_attempts),
 
 	DEF_MSECS(TIME_MSECS_HIDDEN, connect_backoff_time),
@@ -93,11 +93,11 @@ static const struct http_client_settings http_client_default_settings = {
 	.auto_retry = TRUE,
 	.ssl_tunnel = TRUE,
 
-	.max_redirects = 0,
-	.max_attempts = 0,
-	.read_max_attempts = 0,
-	.write_max_attempts = 0,
-	.delete_max_attempts = 0,
+	.request_max_redirects = 0,
+	.request_max_attempts = 0,
+	.read_request_max_attempts = 0,
+	.write_request_max_attempts = 0,
+	.delete_request_max_attempts = 0,
 	.max_connect_attempts = 0,
 
 	.connect_backoff_time_msecs = HTTP_CLIENT_DEFAULT_BACKOFF_TIME_MSECS,

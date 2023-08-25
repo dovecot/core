@@ -433,7 +433,7 @@ static void test_connection_lost_prematurely(void)
 
 	test_client_defaults(&http_client_set);
 	http_client_set.max_connect_attempts = 3;
-	http_client_set.max_attempts = 3;
+	http_client_set.request_max_attempts = 3;
 
 	test_begin("connection lost prematurely");
 	test_run_client_server(&http_client_set,
@@ -498,7 +498,7 @@ static void test_connection_timed_out(void)
 
 	test_client_defaults(&http_client_set);
 	http_client_set.connect_timeout_msecs = 1000;
-	http_client_set.max_attempts = 1;
+	http_client_set.request_max_attempts = 1;
 
 	test_begin("connection timed out");
 	test_run_client_server(&http_client_set,
@@ -611,21 +611,21 @@ static void test_invalid_redirect(void)
 	test_client_defaults(&http_client_set);
 
 	test_begin("invalid redirect: not accepted");
-	http_client_set.max_redirects = 0;
+	http_client_set.request_max_redirects = 0;
 	test_run_client_server(&http_client_set,
 			       test_client_invalid_redirect,
 			       test_server_invalid_redirect1, 1, NULL);
 	test_end();
 
 	test_begin("invalid redirect: bad location");
-	http_client_set.max_redirects = 1;
+	http_client_set.request_max_redirects = 1;
 	test_run_client_server(&http_client_set,
 			       test_client_invalid_redirect,
 			       test_server_invalid_redirect2, 1, NULL);
 	test_end();
 
 	test_begin("invalid redirect: too many");
-	http_client_set.max_redirects = 1;
+	http_client_set.request_max_redirects = 1;
 	test_run_client_server(&http_client_set,
 			       test_client_invalid_redirect,
 			       test_server_invalid_redirect3, 3, NULL);
@@ -700,7 +700,7 @@ static void test_unseekable_redirect(void)
 	struct http_client_settings http_client_set;
 
 	test_client_defaults(&http_client_set);
-	http_client_set.max_redirects = 1;
+	http_client_set.request_max_redirects = 1;
 
 	test_begin("unseekable redirect");
 	test_run_client_server(&http_client_set,
@@ -768,7 +768,7 @@ static void test_unseekable_retry(void)
 	struct http_client_settings http_client_set;
 
 	test_client_defaults(&http_client_set);
-	http_client_set.max_attempts = 3;
+	http_client_set.request_max_attempts = 3;
 
 	test_begin("unseekable retry");
 	test_run_client_server(&http_client_set,
@@ -996,7 +996,7 @@ static void test_retry_payload(void)
 	struct http_client_settings http_client_set;
 
 	test_client_defaults(&http_client_set);
-	http_client_set.max_attempts = 2;
+	http_client_set.request_max_attempts = 2;
 
 	server_read_max = 0;
 
@@ -1133,28 +1133,28 @@ static void test_connection_lost(void)
 	server_read_max = 0;
 
 	test_begin("connection lost: one attempt");
-	http_client_set.max_attempts = 1;
+	http_client_set.request_max_attempts = 1;
 	test_run_client_server(&http_client_set,
 			       test_client_connection_lost,
 			       test_server_connection_lost, 1, NULL);
 	test_end();
 
 	test_begin("connection lost: two attempts");
-	http_client_set.max_attempts = 2;
+	http_client_set.request_max_attempts = 2;
 	test_run_client_server(&http_client_set,
 			       test_client_connection_lost,
 			       test_server_connection_lost, 1, NULL);
 	test_end();
 
 	test_begin("connection lost: three attempts");
-	http_client_set.max_attempts = 3;
+	http_client_set.request_max_attempts = 3;
 	test_run_client_server(&http_client_set,
 			       test_client_connection_lost,
 			       test_server_connection_lost, 1, NULL);
 	test_end();
 
 	test_begin("connection lost: manual retry");
-	http_client_set.max_attempts = 3;
+	http_client_set.request_max_attempts = 3;
 	http_client_set.auto_retry = FALSE;
 	test_run_client_server(&http_client_set,
 			       test_client_connection_lost,
@@ -1254,7 +1254,7 @@ static void test_connection_lost_100(void)
 	server_read_max = 0;
 
 	test_begin("connection lost after 100-continue");
-	http_client_set.max_attempts = 1;
+	http_client_set.request_max_attempts = 1;
 	test_run_client_server(&http_client_set,
 			       test_client_connection_lost_100,
 			       test_server_connection_lost_100, 1, NULL);
@@ -1390,7 +1390,7 @@ static void test_connection_lost_sub_ioloop(void)
 	server_read_max = 0;
 
 	test_begin("connection lost while running sub-ioloop");
-	http_client_set.max_attempts = 1;
+	http_client_set.request_max_attempts = 1;
 	test_run_client_server(&http_client_set,
 			       test_client_connection_lost_sub_ioloop,
 			       test_server_connection_lost_sub_ioloop, 2, NULL);
@@ -1743,7 +1743,7 @@ static void test_request_timed_out(void)
 
 	test_begin("request timed out: one attempt");
 	http_client_set.request_timeout_msecs = 1000;
-	http_client_set.max_attempts = 1;
+	http_client_set.request_max_attempts = 1;
 	test_run_client_server(&http_client_set,
 			       test_client_request_timed_out1,
 			       test_server_request_timed_out, 1, NULL);
@@ -1751,7 +1751,7 @@ static void test_request_timed_out(void)
 
 	test_begin("request timed out: two attempts");
 	http_client_set.request_timeout_msecs = 1000;
-	http_client_set.max_attempts = 1;
+	http_client_set.request_max_attempts = 1;
 	test_run_client_server(&http_client_set,
 			       test_client_request_timed_out1,
 			       test_server_request_timed_out, 1, NULL);
@@ -1760,7 +1760,7 @@ static void test_request_timed_out(void)
 	test_begin("request absolutely timed out");
 	test_client_defaults(&http_client_set);
 	http_client_set.request_absolute_timeout_msecs = 2000;
-	http_client_set.max_attempts = 3;
+	http_client_set.request_max_attempts = 3;
 	test_run_client_server(&http_client_set,
 			       test_client_request_timed_out1,
 			       test_server_request_timed_out, 1, NULL);
@@ -1769,7 +1769,7 @@ static void test_request_timed_out(void)
 	test_begin("request double timed out");
 	http_client_set.request_timeout_msecs = 500;
 	http_client_set.request_absolute_timeout_msecs = 2000;
-	http_client_set.max_attempts = 3;
+	http_client_set.request_max_attempts = 3;
 	test_run_client_server(&http_client_set,
 			       test_client_request_timed_out1,
 			       test_server_request_timed_out, 1, NULL);
@@ -1778,7 +1778,7 @@ static void test_request_timed_out(void)
 	test_begin("request timed out: specific timeout");
 	test_client_defaults(&http_client_set);
 	http_client_set.request_timeout_msecs = 3000;
-	http_client_set.max_attempts = 1;
+	http_client_set.request_max_attempts = 1;
 	http_client_set.max_parallel_connections = 1;
 	test_run_client_server(&http_client_set,
 			       test_client_request_timed_out2,
@@ -1788,7 +1788,7 @@ static void test_request_timed_out(void)
 	test_begin("request timed out: specific timeout (parallel)");
 	test_client_defaults(&http_client_set);
 	http_client_set.request_timeout_msecs = 3000;
-	http_client_set.max_attempts = 1;
+	http_client_set.request_max_attempts = 1;
 	http_client_set.max_parallel_connections = 4;
 	test_run_client_server(&http_client_set,
 			       test_client_request_timed_out2,
@@ -2190,7 +2190,7 @@ static void test_retry_with_delay(void)
 	struct http_client_settings http_client_set;
 
 	test_client_defaults(&http_client_set);
-	http_client_set.max_attempts = 3;
+	http_client_set.request_max_attempts = 3;
 
 	test_begin("retry with delay");
 	test_run_client_server(&http_client_set,
@@ -2873,7 +2873,7 @@ static void test_reconnect_failure(void)
 	http_client_set.dns_client_socket_path = "./dns-test";
 	http_client_set.dns_ttl_msecs = 10000;
 	http_client_set.max_idle_time_msecs = 1000;
-	http_client_set.max_attempts = 1;
+	http_client_set.request_max_attempts = 1;
 	http_client_set.request_timeout_msecs = 1000;
 
 	test_begin("reconnect failure");
@@ -3424,7 +3424,7 @@ static void test_idle_hosts(void)
 	http_client_set.dns_ttl_msecs = 400;
 	http_client_set.max_parallel_connections = 1;
 	http_client_set.max_idle_time_msecs = 100;
-	http_client_set.max_attempts = 2;
+	http_client_set.request_max_attempts = 2;
 
 	test_begin("idle hosts");
 	test_run_client_server(&http_client_set,
@@ -3485,8 +3485,8 @@ static void test_client_defaults(struct http_client_settings *http_set)
 	http_set->max_idle_time_msecs = 5*1000;
 	http_set->max_parallel_connections = 1;
 	http_set->max_pipelined_requests = 1;
-	http_set->max_redirects = 0;
-	http_set->max_attempts = 1;
+	http_set->request_max_redirects = 0;
+	http_set->request_max_attempts = 1;
 }
 
 static void test_client_progress_timeout(void *context ATTR_UNUSED)
