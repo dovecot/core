@@ -104,8 +104,8 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 		http_set->max_idle_time_msecs = 5*1000;
 		http_set->max_parallel_connections = 1;
 		http_set->max_pipelined_requests = 1;
-		http_set->max_redirects = 1;
-		http_set->max_attempts = 3;
+		http_set->request_max_redirects = 1;
+		http_set->request_max_attempts = 3;
 		http_set->connect_timeout_msecs = 5*1000;
 		http_set->request_timeout_msecs = 60*1000;
 		http_set->rawlog_dir = p_strdup(http_pool, solr_set->rawlog_dir);

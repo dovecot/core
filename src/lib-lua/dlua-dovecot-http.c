@@ -487,8 +487,8 @@ static int parse_client_settings(lua_State *L, struct http_client_settings *set,
 */
 		CLIENT_SETTING_BOOL(auto_redirect)
 		CLIENT_SETTING_BOOL(auto_retry)
-		CLIENT_SETTING_UINT(max_redirects)
-		CLIENT_SETTING_UINT(max_attempts)
+		CLIENT_SETTING_UINT(request_max_redirects)
+		CLIENT_SETTING_UINT(request_max_attempts)
 		CLIENT_SETTING_UINT(max_connect_attempts)
 		CLIENT_SETTING_UINT(connect_backoff_time_msecs)
 		CLIENT_SETTING_UINT(connect_backoff_max_time_msecs)

@@ -35,7 +35,7 @@ end
 
 function script_init()
   http_client = dovecot.http.client({
-    max_attempts = 3,
+    request_max_attempts = 3,
     connect_timeout_msecs = 2000,
     request_timeout_msecs = 5000,
     request_absolute_timeout_msecs = 45000,
@@ -60,7 +60,7 @@ end
 
 function test_invalid_set_value_2()
   http_client = dovecot.http.client({
-    max_attempts = "three"
+    request_max_attempts = "three"
   })
   return 0
 end
