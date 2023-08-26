@@ -43,7 +43,6 @@ static const struct setting_define crypt_setting_defines[] = {
 	   .filter_array_field_name = "crypt_private_key_name" },
 
 	DEF(STR, crypt_write_algorithm),
-	DEF(UINT, crypt_write_version),
 
 	{ .type = SET_FILTER_ARRAY, .key = "crypt_user_key_encryption_key",
 	   .offset = offsetof(struct crypt_settings, crypt_user_key_encryption_keys),
@@ -62,7 +61,6 @@ static const struct crypt_settings crypt_default_settings = {
 	.crypt_global_private_keys = ARRAY_INIT,
 
 	.crypt_write_algorithm = "aes-256-gcm-sha256",
-	.crypt_write_version = UINT_MAX,
 
 	.crypt_user_key_encryption_keys = ARRAY_INIT,
 	.crypt_user_key_password = "",

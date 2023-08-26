@@ -18,7 +18,6 @@ struct crypt_settings {
 	ARRAY_TYPE(const_string) crypt_global_private_keys;
 
 	const char *crypt_write_algorithm;
-	unsigned int crypt_write_version;
 
 	/* for user-specific keys: */
 	ARRAY_TYPE(const_string) crypt_user_key_encryption_keys;
