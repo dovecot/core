@@ -12,12 +12,13 @@ struct crypt_private_key_settings {
 struct crypt_settings {
 	pool_t pool;
 
+	bool fs_crypt_read_plain_fallback;
+
 	const char *crypt_global_public_key;
 	ARRAY_TYPE(const_string) crypt_global_private_keys;
 
 	const char *crypt_write_algorithm;
 	unsigned int crypt_write_version;
-	bool crypt_plain_fallback;
 
 	/* for user-specific keys: */
 	ARRAY_TYPE(const_string) crypt_user_key_encryption_keys;

@@ -187,7 +187,7 @@ fs_crypt_read_stream(struct fs_file *_file, size_t max_buffer_size)
 	input = fs_read_stream(file->super_read,
 		I_MAX(FS_CRYPT_ISTREAM_MIN_BUFFER_SIZE, max_buffer_size));
 
-	if (file->fs->set->crypt_plain_fallback) {
+	if (file->fs->set->fs_crypt_read_plain_fallback) {
 		struct istream *decrypted_input =
 			i_stream_create_decrypt_callback(input,
 					fs_crypt_istream_get_key, file);
