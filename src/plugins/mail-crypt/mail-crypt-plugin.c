@@ -260,7 +260,7 @@ mail_crypt_mail_save_begin(struct mail_save_context *ctx,
 	struct mail_crypt_user *muser = MAIL_CRYPT_USER_CONTEXT(box->storage->user);
 
 	enum io_stream_encrypt_flags enc_flags = 0;
-	if (muser != NULL) {
+	if (muser != NULL && muser->set->crypt_write_algorithm[0] != '\0') {
 		if (muser->set->crypt_write_version == 1) {
 			enc_flags = IO_STREAM_ENC_VERSION_1;
 		} else if (muser->set->crypt_write_version == 2) {
@@ -275,6 +275,15 @@ mail_crypt_mail_save_begin(struct mail_save_context *ctx,
 
 	if (enc_flags == 0)
 		return 0;
+
+	if (muser->set->crypt_write_version != 2)
+		;
+	else if (strstr(muser->set->crypt_write_algorithm, "gcm") != NULL ||
+		 strstr(muser->set->crypt_write_algorithm, "ccm") != NULL) {
+		enc_flags = IO_STREAM_ENC_INTEGRITY_AEAD;
+	} else {
+		enc_flags = IO_STREAM_ENC_INTEGRITY_HMAC;
+	}
 
 	struct dcrypt_public_key *pub_key;
 	if (muser->global_keys.public_key != NULL)
@@ -327,7 +336,7 @@ mail_crypt_mail_save_begin(struct mail_save_context *ctx,
 
 	/* encryption is the outermost layer (mail-compress etc. are inside) */
 	struct ostream *output = o_stream_create_encrypt(ctx->data.output,
-			MAIL_CRYPT_ENC_ALGORITHM, pub_key, enc_flags);
+			muser->set->crypt_write_algorithm, pub_key, enc_flags);
 
 	o_stream_unref(&ctx->data.output);
 	ctx->data.output = output;
@@ -358,6 +367,7 @@ mail_crypt_mailbox_copy(struct mail_save_context *ctx, struct mail *mail)
 		   encryption is enabled and keys are global. */
 		raw_copy = muser != NULL &&
 			   muser->set->crypt_write_version != 0 &&
+			   muser->set->crypt_write_algorithm[0] != '\0' &&
 			   muser->global_keys.public_key != NULL;
 	}
 
@@ -398,7 +408,8 @@ static void mail_crypt_mailbox_allocated(struct mailbox *box)
 		v->save_begin = mail_crypt_mail_save_begin;
 		v->copy = mail_crypt_mailbox_copy;
 
-		if (muser == NULL || muser->set->crypt_write_version == 0)
+		if (muser == NULL || muser->set->crypt_write_version == 0 ||
+		    muser->set->crypt_write_algorithm[0] == '\0')
 			v->save_finish = mail_crypt_mail_save_finish;
 	}
 }
