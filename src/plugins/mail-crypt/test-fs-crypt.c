@@ -158,6 +158,7 @@ static void test_fs_crypt_read_write_unencrypted(void)
 		"fs_parent/fs_driver", "posix",
 		"fs_driver", "crypt",
 		"crypt_plain_fallback", "yes",
+		"crypt_write_algorithm", "",
 		"crypt_global_private_key", "main",
 		"crypt_global_private_key/main/crypt_private_key", PRIVATE_KEY_PEM,
 		NULL
@@ -208,6 +209,7 @@ static void test_fs_crypt_read_write_unencrypted(void)
 		"fs_parent/fs_driver", "posix",
 		"fs_driver", "crypt",
 		"crypt_plain_fallback", "yes",
+		"crypt_write_algorithm", "",
 		"crypt_global_public_key", PUBLIC_KEY_PEM,
 		"crypt_global_private_key", "main",
 		"crypt_global_private_key/main/crypt_private_key", PRIVATE_KEY_PEM,
