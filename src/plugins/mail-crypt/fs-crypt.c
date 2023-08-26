@@ -227,18 +227,15 @@ static void fs_crypt_write_stream(struct fs_file *_file)
 		return;
 	}
 
-	if (file->fs->keys.public_key == NULL) {
-		if (!file->fs->set->crypt_plain_fallback) {
-			_file->output = o_stream_create_error_str(EINVAL,
-				"Encryption required, but no public key available");
-			return;
-		} else {
-			e_debug(event,
-				"No public key provided, NOT encrypting stream %s",
-				 fs_file_path(_file));
-		}
+	if (file->fs->set->crypt_write_algorithm[0] == '\0') {
+		e_debug(event, "Empty crypt_write_algorithm, "
+			"NOT encrypting stream %s", fs_file_path(_file));
 		file->super_output = fs_write_stream(_file->parent);
 		_file->output = file->super_output;
+		return;
+	} else if (file->fs->keys.public_key == NULL) {
+		_file->output = o_stream_create_error_str(EINVAL,
+			"Encryption required, but no public key available");
 		return;
 	}
 
