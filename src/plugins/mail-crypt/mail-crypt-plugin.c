@@ -336,11 +336,32 @@ mail_crypt_mail_save_begin(struct mail_save_context *ctx,
 static int
 mail_crypt_mailbox_copy(struct mail_save_context *ctx, struct mail *mail)
 {
-	struct mail_crypt_mailbox *mbox = MAIL_CRYPT_CONTEXT(ctx->transaction->box);
+	struct mailbox *dest_box = ctx->transaction->box;
+	struct mail_crypt_mailbox *mbox = MAIL_CRYPT_CONTEXT(dest_box);
+	struct mail_crypt_user *muser =
+		MAIL_CRYPT_USER_CONTEXT(dest_box->storage->user);
 
-	if (ctx->transaction->box != mail->box)
-		return mail_storage_copy(ctx, mail);
-	return mbox->module_ctx.super.copy(ctx, mail);
+	bool raw_copy;
+	if (mailbox_backends_equal(dest_box, mail->box)) {
+		/* Copy to same box always have identical crypt profile */
+		raw_copy = TRUE;
+	} else if (strcmp(dest_box->storage->user->username,
+			  mail->box->storage->user->username) != 0) {
+		/* Always consider copies between different users unsafe
+		   as they may have different encryption level and/or
+		   different global keys */
+		raw_copy = FALSE;
+	} else {
+		/* Within same user, consider safe only the case where
+		   encryption is enabled and keys are global. */
+		raw_copy = muser != NULL &&
+			   muser->save_version != 0 &&
+			   muser->global_keys.public_key != NULL;
+	}
+
+	return raw_copy ?
+	       mbox->module_ctx.super.copy(ctx, mail) :
+	       mail_storage_copy(ctx, mail);
 }
 
 static void mail_crypt_mailbox_close(struct mailbox *box)
@@ -373,14 +394,8 @@ static void mail_crypt_mailbox_allocated(struct mailbox *box)
 
 	if ((class_flags & MAIL_STORAGE_CLASS_FLAG_BINARY_DATA) != 0) {
 		v->save_begin = mail_crypt_mail_save_begin;
+		v->copy = mail_crypt_mailbox_copy;
 
-		/* if global keys are used, re-encrypting on copy/move
-		   is not necessary, so do not attempt to do it.
-		   with per-folder keys, emails must be re-encrypted
-		   when moving to another folder */
-		if (muser == NULL || muser->save_version == 0 ||
-		    muser->global_keys.public_key == NULL)
-			v->copy = mail_crypt_mailbox_copy;
 		if (muser == NULL || muser->save_version == 0)
 			v->save_finish = mail_crypt_mail_save_finish;
 	}
