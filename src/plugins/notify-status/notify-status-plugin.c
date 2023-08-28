@@ -10,13 +10,11 @@
 #include "mail-storage-private.h"
 #include "mail-namespace.h"
 #include "mail-storage-hooks.h"
-#include "imap-match.h"
 #include "dict.h"
 #include "notify-plugin.h"
 #include "settings.h"
 #include "settings-parser.h"
 
-#define NOTIFY_STATUS_SETTING_MAILBOX_PREFIX "notify_status_mailbox"
 #define NOTIFY_STATUS_SETTING_VALUE_TEMPLATE_DEFAULT "{\"messages\":%{messages},\"unseen\":%{unseen}}"
 #define NOTIFY_STATUS_KEY "priv/status/%s"
 
@@ -32,7 +30,6 @@ void notify_status_plugin_deinit(void);
 const char *notify_status_plugin_version = DOVECOT_ABI_VERSION;
 const char *notify_status_plugin_dependencies[] = { "notify", NULL };
 
-ARRAY_DEFINE_TYPE(imap_match_glob, struct imap_match_glob*);
 struct notify_status_plugin_settings {
 	pool_t pool;
 
@@ -75,52 +72,33 @@ struct notify_status_mail_txn {
 struct notify_status_user {
 	union mail_user_module_context module_ctx;
 
-	ARRAY_TYPE(imap_match_glob) patterns;
 	struct dict *dict;
 	const struct notify_status_plugin_settings *set;
 	struct notify_context *context;
 };
 
-static void notify_status_mailbox_patterns_init(struct mail_user *user,
-						ARRAY_TYPE(imap_match_glob) *patterns)
-{
-	const char *value;
-	unsigned int i;
-
-	p_array_init(patterns, user->pool, 2);
-
-	for(i=1;;i++) {
-		struct imap_match_glob **glob;
-		const char *key = NOTIFY_STATUS_SETTING_MAILBOX_PREFIX;
-		if (i > 1)
-			key = t_strdup_printf("%s%u", key, i);
-		value = mail_user_plugin_getenv(user, key);
-		if (value == NULL)
-			return;
-		char sep = mail_namespace_get_sep(user->namespaces);
-		glob = array_append_space(patterns);
-		*glob = imap_match_init(user->pool, value, TRUE, sep);
-	}
-}
-
 static bool notify_status_mailbox_enabled(struct mailbox *box)
 {
 	struct mail_user *user = mail_storage_get_user(mailbox_get_storage(box));
 	struct notify_status_user *nuser = NOTIFY_STATUS_USER_CONTEXT(user);
-	struct imap_match_glob *glob;
+	const char *error;
+	const struct notify_status_plugin_settings *set;
+	bool notify_status_mailbox;
+
 	/* not enabled */
 	if (nuser == NULL)
 		return FALSE;
 
-	/* if no patterns defined, anything goes */
-	if (array_count(&nuser->patterns) == 0)
-		return TRUE;
-
-	array_foreach_elem(&nuser->patterns, glob) {
-		if ((imap_match(glob, mailbox_get_vname(box)) & IMAP_MATCH_YES) != 0)
-			return TRUE;
+	/* Get mailbox specific notify_status_mailbox setting */
+	if (settings_get(box->event, &notify_status_plugin_setting_parser_info,
+			 0, &set, &error) < 0) {
+		e_error(box->event, "%s", error);
+		return nuser->set->mailbox_notify_status;
 	}
-	return FALSE;
+
+	notify_status_mailbox = set->mailbox_notify_status;
+	settings_free(set);
+	return notify_status_mailbox;
 }
 
 static void notify_update_callback(const struct dict_commit_result *result,
@@ -364,7 +342,6 @@ notify_status_mail_namespaces_created(struct mail_namespace *namespaces)
 	struct notify_status_user *nuser = NOTIFY_STATUS_USER_CONTEXT(user);
 	if (nuser == NULL)
 		return;
-        notify_status_mailbox_patterns_init(user, &nuser->patterns);
 	nuser->context = notify_register(&notify_vfuncs);
 }
 
