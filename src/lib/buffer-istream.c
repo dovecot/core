@@ -28,7 +28,7 @@ buffer_append_full_istream(buffer_t *buf, struct istream *is, size_t max_read_si
 	i_assert(is->eof);
 
 	if (is->stream_errno != 0) {
-		*error_r = i_stream_get_error(is);
+		*error_r = t_strdup(i_stream_get_error(is));
 		return BUFFER_APPEND_READ_ERROR;
 	}
 	return BUFFER_APPEND_OK;
