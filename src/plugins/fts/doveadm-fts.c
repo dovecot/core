@@ -42,6 +42,7 @@ cmd_search_box(struct doveadm_mail_cmd_context *ctx,
 	}
 
 	i_zero(&result);
+	result.pool = pool_alloconly_create("doveadm", 512);
 	i_array_init(&result.definite_uids, 16);
 	i_array_init(&result.maybe_uids, 16);
 	i_array_init(&result.scores, 16);
@@ -72,6 +73,7 @@ cmd_search_box(struct doveadm_mail_cmd_context *ctx,
 	array_free(&result.definite_uids);
 	array_free(&result.maybe_uids);
 	array_free(&result.scores);
+	pool_unref(&result.pool);
 	return ret;
 }
 
