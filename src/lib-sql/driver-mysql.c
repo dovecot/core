@@ -317,9 +317,7 @@ static void driver_mysql_deinit_v(struct sql_db *_db)
 	_db->no_reconnect = TRUE;
 	sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
 
-	if (db->mysql != NULL)
-		mysql_close(db->mysql);
-	db->mysql = NULL;
+	driver_mysql_disconnect(_db);
 
 	sql_connection_log_finished(_db);
 	event_unref(&_db->event);
