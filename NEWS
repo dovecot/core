@@ -1,3 +1,106 @@
+v2.3.21 2023-09-15  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* lib-oauth2: Allow JWT tokens to be validated with missing typ field.
+	  The typ field is left out by some key issuers to conserve space,
+	  notably kubernetes. Now missing typ is tolerated, but if present, it
+	  still must be "jwt".
+	+ auth: Auth passdb and userdb reply can contain "event_<name>=value"
+	  which will be added to login event and mail user event respectively.
+	+ lib-master: Set process title during various initialization stages to
+	  clearly describe what the process is waiting on.
+	+ lib-storage: The mail_temp_scan_interval is now fuzzed incrementing it
+	  by 0..30% based on username's hash to reduce the chance of load spikes.
+	+ lib-storage: The temp file scan has been moved from the open of the
+	  mailbox to the close, to reduce the latency perceived by users.
+	+ stats: If metric has fields specified, all these fields are
+	  exported as counters to prometheus exposition.
+	  See https://doc.dovecot.org/configuration_manual/stats/openmetrics/.
+	- *-login: Processes might have crashed when a SSL connection disconnects
+	  uncleanly.
+	- acl: When plugin was loaded \HasChildren and \HasNoChildren flags
+	  were calculated incorrectly for mailboxes containing '*' and '%'
+	  in their names.
+	- auth: Crash occured if a connection to PostgreSQL database server
+	  failed during startup.
+	- auth: Logins with invalid passwords (e.g. unknown scheme) in passdb
+	  were failing with "password mismatch" instead of "internal error".
+	- auth: XOAUTH2 and OAUTHBEARER mechanisms were not giving out protocol
+	  specific error message on all errors. This especially broke OIDC
+	  discovery.
+	- dbox: When last_temp_file_scan header wasn't set (especially after
+	  dsync migration), the next mailbox open always triggers the temp file
+	  scan. This could have caused a load spike after migrations. Fixed by
+	  using the mailbox directory's atime when the header isn't set, which
+	  usually moves the scan time into the future.
+	- dict-redis: A crash would occur on transaction rollback.
+	- dsync: Incremental dsync failed for folder names ending with '%',
+	  unless BROKENCHAR was set. Also folder names with '%' elsewhere in
+	  them caused each incremental dsync to unnecessarily rename the folder
+	  to a temporary name and back. v2.3.19 regression.
+	- imap-hibernate: If an IMAP client unhibernation timed out with
+	  "(version received)", the unhibernation could still have successfully
+	  finished later on and continued working normally. This was rather
+	  confusing, because imap-hibernate already logged that the client got
+	  disconnected. Avoid this by forcing the connection to shutdown on
+	  unhibernation timeout.
+	- imapc: Crashed when a folder mapped through the virtual plugin
+	  disappears from the storage.
+	- imapc: EXPUNGE, EXISTS or FETCH replies from a server for a previously
+	  selected mailbox could have been processed as if they belonged to the
+	  new mailbox currently being selected. This could have caused warnings.
+	- lib-http: Dovecot HTTP server (doveadm, stats/openmetrics) may have
+	  disconnected HTTP clients before the response is fully sent. This
+	  happened only on busy servers where kernel's socket buffers were
+	  rather full.
+	- lib-http: Fixed a potential crash on http-server if a client
+	  disconnected early. v2.3.18 regression.
+	- lib-index: Index file corruption could have caused a crash. Fixes:
+	  Panic: file mail-transaction-log-view.c: line 165 (mail_transaction_log_view_set):
+	  assertion failed: (min_file_seq <= max_file_seq).
+	- lib-index: Purging an existing >1GB cache file can crash. Now cache
+	  files still above 1GB after purging are removed. Fixes:
+	  Panic: file mail-index-util.c: line 10 (mail_index_uint32_to_offset):
+	  assertion failed: (offset < 0x40000000)
+	- lib-lua: A HTTP client could not resolve DNS names in mail processes,
+	  because it expected "the dns-client" socket to exist in the current
+	  directory.
+	- lib-oauth2: Dovecot would send client_id and client_secret as POST
+	  parameters to the introspection server. These need to be optionally in
+	  Basic auth instead.
+	- lib-oauth2: JWT aud validation was not performed if aud was missing
+	  from a token, but was configured on Dovecot.
+	- lib-oauth2: JWT key type check was too strict.
+	- lib-oauth2: JWT token audience was not validated against client_id as
+	  required by the specification.
+	- lib-ssl-iostream: Using the ssl_require_crl=yes setting may have caused
+	  CRL check failures for outgoing SSL/TLS connections, although it was
+	  supposed to affect checking CRLs only for client-side SSL
+	  certificates. v2.3.17 regression.
+	- lib-storage: Various fixes when running into out of disk space.
+	- master: Service idle_kill setting didn't work properly on busy
+	  servers. It was very unlikely that any process was idling long enough
+	  to become killed. Also the idle_kill handling code was using quite a
+	  lot of CPU on the master process when there were a lot of processes
+	  (e.g. imap). The new behavior is to track the lowest number of idling
+	  processes every idle_kill time interval and then kill that many idling
+	  processes.
+	- mdbox: Temp file scan was done for always empty directories.
+	- mdbox: The fdatasync() call was done in wrong parent directory when
+	  writing mails. Also on a failure it crashed instead of logging an error.
+	- notify_status: The plugin crashes if any user initialization fails.
+	- pop3: Sending command with the ':' character caused an assert-crash.
+	  v2.3.18 regression. Fixes: Panic: event_reason_code_prefix(): name has ':'
+	- stats: Fix panic when a nonexistent event exporter was referenced while
+	  adding a new metric dynamically via doveadm stats add. This produces
+	  a proper error now.
+	- stats: If process exported a lot of events and then exited, some of
+	  the last events may have become lost.
+	- stats: Invalid Prometheus label names were created with specific
+	  histogram group_by configurations. Prometheus rejected these labels.
+	- welcome: The plugin didn't execute in some situations that created
+	  INBOX but didn't open it, e.g. if GETMETADATA was used before the
+	  INBOX was opened.
+
 v2.3.20 2022-12-22  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	+ Add dsync_features=no-header-hashes. When this setting is enabled and
