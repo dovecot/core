@@ -91,9 +91,6 @@ static int driver_mysql_connect(struct sql_db *_db)
 
 	sql_db_set_state(&db->api, SQL_DB_STATE_CONNECTING);
 
-	if (mysql_init(db->mysql) == NULL)
-		i_fatal("mysql_init() failed");
-
 	if (db->host == NULL) {
 		/* assume option_file overrides the host, or if not we'll just
 		   connect to localhost */
@@ -179,7 +176,6 @@ static void driver_mysql_disconnect(struct sql_db *_db)
 	struct mysql_db *db = container_of(_db, struct mysql_db, api);
 	if (db->mysql != NULL)
 		mysql_close(db->mysql);
-	db->mysql = NULL;
 }
 
 static int driver_mysql_parse_connect_string(struct mysql_db *db,
@@ -276,7 +272,12 @@ static int driver_mysql_parse_connect_string(struct mysql_db *db,
 		*error_r = "No hosts given in connect string";
 		return -1;
 	}
-	db->mysql = p_new(db->pool, MYSQL, 1);
+	if (db->mysql == NULL) {
+		db->mysql = p_new(db->pool, MYSQL, 1);
+		MYSQL *ptr = mysql_init(db->mysql);
+		if (ptr == NULL)
+			i_fatal_status(FATAL_OUTOFMEM, "mysql_init() failed");
+	}
 	return 0;
 }
 
