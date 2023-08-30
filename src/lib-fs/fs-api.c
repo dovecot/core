@@ -202,6 +202,7 @@ int fs_legacy_init(const char *driver, const char *args,
 
 static int fs_init(const char *fs_driver, struct event *event,
 		   const struct fs_parameters *params,
+		   unsigned int child_count,
 		   struct fs **fs_r, const char **error_r)
 {
 	struct fs *fs;
@@ -212,6 +213,7 @@ static int fs_init(const char *fs_driver, struct event *event,
 	if (ret < 0)
 		return -1;
 
+	fs->child_count = child_count;
 	T_BEGIN {
 		ret = fs->v.init(fs, params, &error);
 	} T_END_PASS_STR_IF(ret < 0, &error);
@@ -239,9 +241,46 @@ int fs_init_auto(struct event *event, const struct fs_parameters *params,
 		return 0;
 	}
 
-	ret = fs_init(fs_set->fs_driver, event, params, fs_r, error_r);
+	ret = fs_init(fs_set->fs_driver, event, params, 0, fs_r, error_r);
 	settings_free(fs_set);
 	return ret < 0 ? -1 : 1;
+}
+
+int fs_init_parent(struct fs *fs, const struct fs_parameters *params,
+		   const char **error_r)
+{
+	string_t *filter_path = t_str_new(64);
+	str_append(filter_path, "fs_parent");
+	for (unsigned int i = 0; i < fs->child_count; i++)
+		str_append(filter_path, "/fs_parent");
+
+	/* Lookup the fs_parent/.../fs_driver setting for the exact filter path.
+	   The settings used by the fs drivers don't need to use the exact same
+	   filter path. */
+	struct fs_settings *fs_set;
+	int ret = settings_try_get(fs->event, str_c(filter_path),
+				   &fs_setting_parser_info, 0,
+				   &fs_set, error_r);
+	if (ret < 0) {
+		settings_free(fs_set);
+		return -1;
+	}
+	if (ret == 0 || fs_set->fs_driver[0] == '\0') {
+		settings_free(fs_set);
+		*error_r = "fs_parent { fs_driver } missing";
+		return -1;
+	}
+
+	struct event *event = event_create(fs->event);
+	/* Drop the parent "fs-name: " prefix */
+	event_drop_parent_log_prefixes(event, 1);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
+		      p_strdup(event_get_pool(event), str_c(filter_path)));
+	ret = fs_init(fs_set->fs_driver, event, params,
+		      fs->child_count + 1, &fs->parent, error_r);
+	settings_free(fs_set);
+	event_unref(&event);
+	return ret;
 }
 
 void fs_deinit(struct fs **fs)
