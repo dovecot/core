@@ -268,6 +268,7 @@ convert_name_to_remote_sep(struct dsync_mailbox_tree *tree, const char *name)
 		const char *end = strchr(name, tree->sep);
 		const char *name_part = end == NULL ? name :
 			t_strdup_until(name, end++);
+		name = end;
 
 		if (tree->escape_char != '\0')
 			mailbox_list_name_unescape(&name_part, tree->escape_char);
