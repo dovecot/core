@@ -373,6 +373,7 @@ shared_mail_user_init(struct mail_storage *_storage,
 
 	/* We need to create a prefix="" namespace for the owner */
 	if (mail_namespaces_init_location(owner, str_c(location), &error) < 0) {
+		e_error(ns->user->event, "shared: %s: %s", new_ns->prefix, error);
 		/* owner gets freed by namespace deinit */
 		mail_namespace_destroy(new_ns);
 		return -1;
