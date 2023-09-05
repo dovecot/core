@@ -83,6 +83,11 @@ enum master_login_state {
 */
 #define MASTER_SERVICE_SOCKET_COUNT_ENV "SOCKET_COUNT"
 
+/* getenv(MASTER_SERVICE_LOG_SERVICE_ENV) will be set to '1' when
+   stderr is redirected to the log service.
+*/
+#define MASTER_SERVICE_LOG_SERVICE_ENV "LOG_SERVICE"
+
 /* getenv(DOVECOT_PRESERVE_ENVS_ENV) returns a space separated list of
    environments that should be preserved. */
 #define DOVECOT_PRESERVE_ENVS_ENV "DOVECOT_PRESERVE_ENVS"

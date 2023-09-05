@@ -554,7 +554,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 
 	/* set up some kind of logging until we know exactly how and where
 	   we want to log */
-	if (getenv("LOG_SERVICE") != NULL)
+	if (getenv(MASTER_SERVICE_LOG_SERVICE_ENV) != NULL)
 		i_set_failure_internal();
 	if (getenv("USER") != NULL) {
 		i_set_failure_prefix("%s(%s): ", service->configured_name,
@@ -707,7 +707,7 @@ master_service_try_init_log(struct master_service *service,
 		return TRUE;
 	}
 
-	if (getenv("LOG_SERVICE") != NULL && !service->log_directly) {
+	if (getenv(MASTER_SERVICE_LOG_SERVICE_ENV) != NULL && !service->log_directly) {
 		/* logging via log service */
 		i_set_failure_internal();
 		i_set_failure_prefix("%s", prefix);

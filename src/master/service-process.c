@@ -212,7 +212,7 @@ service_dup_fds(struct service *service)
 		   to be lost. */
 		i_assert(service->log_fd[1] != -1);
 
-		env_put("LOG_SERVICE", "1");
+		env_put(MASTER_SERVICE_LOG_SERVICE_ENV, "1");
 		if (dup2(service->log_fd[1], STDERR_FILENO) < 0)
 			i_fatal("dup2(log fd) failed: %m");
 		i_set_failure_internal();
