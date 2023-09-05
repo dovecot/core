@@ -42,6 +42,7 @@ void dsync_mailbox_tree_deinit(struct dsync_mailbox_tree **_tree)
 
 	*_tree = NULL;
 	hash_table_destroy(&tree->name128_hash);
+	hash_table_destroy(&tree->name128_remotesep_hash);
 	hash_table_destroy(&tree->guid_hash);
 	array_free(&tree->deletes);
 	pool_unref(&tree->pool);
