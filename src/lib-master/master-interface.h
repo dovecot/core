@@ -78,6 +78,11 @@ enum master_login_state {
    if dovecot was started with -p parameter. */
 #define MASTER_SSL_KEY_PASSWORD_ENV "SSL_KEY_PASSWORD"
 
+/* getenv(MASTER_SERVICE_SOCKET_COUNT_ENV) returns number of listener sockets
+   this process receives, starting from MASTER_LISTEN_FD_FIRST.
+*/
+#define MASTER_SERVICE_SOCKET_COUNT_ENV "SOCKET_COUNT"
+
 /* getenv(DOVECOT_PRESERVE_ENVS_ENV) returns a space separated list of
    environments that should be preserved. */
 #define DOVECOT_PRESERVE_ENVS_ENV "DOVECOT_PRESERVE_ENVS"

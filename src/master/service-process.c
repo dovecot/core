@@ -243,7 +243,7 @@ service_dup_fds(struct service *service)
 		i_fatal("service(%s): dup2s failed", service->set->name);
 
 	i_assert(fd == MASTER_LISTEN_FD_FIRST + (int)socket_listener_count);
-	env_put("SOCKET_COUNT", dec2str(socket_listener_count));
+	env_put(MASTER_SERVICE_SOCKET_COUNT_ENV, dec2str(socket_listener_count));
 }
 
 static void

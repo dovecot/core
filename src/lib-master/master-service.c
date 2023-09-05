@@ -443,7 +443,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 #ifdef DEBUG
 	if (getenv("GDB") == NULL &&
 	    (flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
-		value = getenv("SOCKET_COUNT");
+		value = getenv(MASTER_SERVICE_SOCKET_COUNT_ENV);
 		if (value == NULL || str_to_uint(value, &count) < 0)
 			count = 0;
 		fd_debug_verify_leaks(MASTER_LISTEN_FD_FIRST + count, 1024);
@@ -534,9 +534,9 @@ master_service_init(const char *name, enum master_service_flags flags,
 	if ((flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
 		service->version_string = getenv(MASTER_DOVECOT_VERSION_ENV);
 		/* listener configuration */
-		value = getenv("SOCKET_COUNT");
+		value = getenv(MASTER_SERVICE_SOCKET_COUNT_ENV);
 		if (value == NULL || str_to_uint(value, &service->socket_count) < 0)
-			i_fatal("Invalid SOCKET_COUNT environment");
+			i_fatal("Invalid "MASTER_SERVICE_SOCKET_COUNT_ENV" environment");
 		T_BEGIN {
 			master_service_init_socket_listeners(service);
 		} T_END;
