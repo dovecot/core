@@ -88,6 +88,11 @@ enum master_login_state {
 */
 #define MASTER_SERVICE_LOG_SERVICE_ENV "LOG_SERVICE"
 
+/* getenv(DOVECOT_LOG_STDERR_TIMESTAMP_ENV) returns the format for timestamps
+   when logging to stderr. Unset means no timestamps are added.
+*/
+#define DOVECOT_LOG_STDERR_TIMESTAMP_ENV "LOG_STDERR_TIMESTAMP"
+
 /* getenv(DOVECOT_PRESERVE_ENVS_ENV) returns a space separated list of
    environments that should be preserved. */
 #define DOVECOT_PRESERVE_ENVS_ENV "DOVECOT_PRESERVE_ENVS"

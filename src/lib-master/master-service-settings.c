@@ -195,7 +195,7 @@ master_service_exec_config(struct master_service *service,
 		if (input->preserve_user)
 			master_service_import_environment("USER");
 		if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0)
-			master_service_import_environment("LOG_STDERR_TIMESTAMP");
+			master_service_import_environment(DOVECOT_LOG_STDERR_TIMESTAMP_ENV);
 
 		/* doveconf empties the environment before exec()ing us back
 		   if DOVECOT_PRESERVE_ENVS is set, so make sure it is. */

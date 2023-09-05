@@ -700,7 +700,7 @@ master_service_try_init_log(struct master_service *service,
 
 	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0 &&
 	    (service->flags & MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR) == 0) {
-		timestamp = getenv("LOG_STDERR_TIMESTAMP");
+		timestamp = getenv(DOVECOT_LOG_STDERR_TIMESTAMP_ENV);
 		if (timestamp != NULL)
 			i_set_failure_timestamp_format(timestamp);
 		i_set_failure_file("/dev/stderr", "");

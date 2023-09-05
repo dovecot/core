@@ -350,7 +350,7 @@ int main(int argc, char *argv[])
 		/* read settings only after loading doveadm plugins, which
 		   may modify what settings are read */
 		doveadm_read_settings();
-		if (doveadm_debug && getenv("LOG_STDERR_TIMESTAMP") == NULL)
+		if (doveadm_debug && getenv(DOVECOT_LOG_STDERR_TIMESTAMP_ENV) == NULL)
 			i_set_failure_timestamp_format(master_service->set->log_timestamp);
 		master_service_init_stats_client(master_service, TRUE);
 		/* Load mail_plugins */
