@@ -627,6 +627,18 @@ master_service_init(const char *name, enum master_service_flags flags,
 	}
 
 	master_service_verify_version_string(service);
+
+	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
+		env_remove(MASTER_SERVICE_ENV);
+		env_remove(MASTER_SERVICE_SOCKET_COUNT_ENV);
+		env_remove(MASTER_UID_ENV);
+		env_remove(MASTER_CONFIG_FILE_ENV);
+		T_BEGIN {
+			for (unsigned int i = 0; i < service->socket_count; i++)
+				env_remove(t_strdup_printf("SOCKET%u_SETTINGS", i));
+		} T_END;
+	}
+
 	return service;
 }
 
