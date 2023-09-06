@@ -33,6 +33,8 @@ v2.3.21 2023-09-15  Aki Tuomi <aki.tuomi@open-xchange.com>
 	  using the mailbox directory's atime when the header isn't set, which
 	  usually moves the scan time into the future.
 	- dict-redis: A crash would occur on transaction rollback.
+	- dsync: Infinite loop causing out of memory would occur when handling
+	  mailbox deletion from remote end and hierarchy separators would differ.
 	- dsync: Incremental dsync failed for folder names ending with '%',
 	  unless BROKENCHAR was set. Also folder names with '%' elsewhere in
 	  them caused each incremental dsync to unnecessarily rename the folder
@@ -76,6 +78,7 @@ v2.3.21 2023-09-15  Aki Tuomi <aki.tuomi@open-xchange.com>
 	  CRL check failures for outgoing SSL/TLS connections, although it was
 	  supposed to affect checking CRLs only for client-side SSL
 	  certificates. v2.3.17 regression.
+	- lib-sql: MySQL driver leaked memory when connection failed.
 	- lib-storage: Various fixes when running into out of disk space.
 	- master: Service idle_kill setting didn't work properly on busy
 	  servers. It was very unlikely that any process was idling long enough
