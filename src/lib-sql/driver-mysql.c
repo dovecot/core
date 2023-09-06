@@ -371,7 +371,7 @@ driver_mysql_escape_string(struct sql_db *_db, const char *string)
 		(void)sql_connect(&db->api);
 	}
 
-	if (db->mysql == NULL) {
+	if (_db->state == SQL_DB_STATE_DISCONNECTED) {
 		/* FIXME: we don't have a valid connection, so fallback
 		   to using default escaping. the next query will most
 		   likely fail anyway so it shouldn't matter that much
