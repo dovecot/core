@@ -549,6 +549,11 @@ bool fts_index_get_header(struct mailbox *box, struct fts_index_header *hdr_r)
 	size_t data_size;
 	bool ret;
 
+	if (box->index == NULL && mailbox_open(box) < 0) {
+		i_zero(hdr_r);
+		return FALSE;
+	}
+
 	mail_index_refresh(box->index);
 	view = mail_index_view_open(box->index);
 	mail_index_get_header_ext(view, fts_index_get_ext_id(box),
