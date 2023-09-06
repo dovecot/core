@@ -88,7 +88,7 @@ struct mail_storage_settings {
 
 	const char *recipient_delimiter;
 
-	const char *mail_attachment_detection_options;
+	ARRAY_TYPE(const_string) mail_attachment_detection_options;
 
 	ARRAY_TYPE(const_string) namespaces;
 	ARRAY(const char *) plugin_envs;

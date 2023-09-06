@@ -38,7 +38,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(STR, mail_ext_attachment_path),
 	DEF(STR_NOVARS_HIDDEN, mail_ext_attachment_hash),
 	DEF(SIZE, mail_ext_attachment_min_size),
-	DEF(STR, mail_attachment_detection_options),
+	DEF(BOOLLIST, mail_attachment_detection_options),
 	{ .type = SET_FILTER_NAME, .key = "mail_attribute",
 	  .required_setting = "dict", },
 	DEF(UINT, mail_prefetch_count),
@@ -121,7 +121,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mail_ext_attachment_path = "",
 	.mail_ext_attachment_hash = "%{sha1}",
 	.mail_ext_attachment_min_size = 1024*128,
-	.mail_attachment_detection_options = "",
+	.mail_attachment_detection_options = ARRAY_INIT,
 	.mail_prefetch_count = 0,
 	.mail_cache_fields = "flags",
 	.mail_always_cache_fields = "",
@@ -721,12 +721,12 @@ mail_storage_settings_ext_check(struct event *event ATTR_UNUSED,
 	// FIXME: check set->mail_server_admin syntax (RFC 5464, Section 6.2.2)
 
 	/* parse mail_attachment_indicator_options */
-	if (*set->mail_attachment_detection_options != '\0') {
+	if (array_not_empty(&set->mail_attachment_detection_options)) {
 		ARRAY_TYPE(const_string) content_types;
 		p_array_init(&content_types, pool, 2);
 
 		const char *const *options =
-			t_strsplit_spaces(set->mail_attachment_detection_options, " ");
+			settings_boollist_get(&set->mail_attachment_detection_options);
 
 		while(*options != NULL) {
 			const char *opt = *options;
