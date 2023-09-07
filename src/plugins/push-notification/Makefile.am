@@ -41,6 +41,7 @@ lib20_push_notification_plugin_la_SOURCES = \
 	push-notification-events.c \
 	push-notification-events-rfc5423.c \
 	push-notification-plugin.c \
+	push-notification-settings.c \
 	push-notification-triggers.c \
 	push-notification-txn-mbox.c \
 	push-notification-txn-msg.c
@@ -63,6 +64,7 @@ headers = \
 	push-notification-events.h \
 	push-notification-events-rfc5423.h \
 	push-notification-plugin.h \
+	push-notification-settings.h \
 	push-notification-triggers.h \
 	push-notification-txn-mbox.h \
 	push-notification-txn-msg.h
