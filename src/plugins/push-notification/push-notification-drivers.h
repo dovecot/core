@@ -7,7 +7,6 @@
 #include "push-notification-triggers.h"
 
 struct mail_user;
-struct push_notification_driver_config;
 struct push_notification_driver_txn;
 struct push_notification_driver_user;
 struct push_notification_txn_mbox;
@@ -18,12 +17,11 @@ HASH_TABLE_DEFINE_TYPE(push_notification_msgs, void *,
 					   struct push_notification_txn_msg *);
 
 struct push_notification_driver_vfuncs {
-	/* Init driver. Config (from plugin configuration) is parsed once (no
-	   user variable substitutions). Return 0 on success, or -1 if this
-	   driver should be disabled (or on error). */
-	int (*init)(struct push_notification_driver_config *config,
-		    struct mail_user *user, pool_t pool, void **context,
-		    const char **error_r);
+	/* Init driver. Config should be read from settings via the name
+	   parameter. Return 0 on success, or -1 if this driver should be
+	   disabled (or on error). */
+	int (*init)(struct mail_user *user, pool_t pool, const char *name,
+		    void **context, const char **error_r);
 	/* Called at the beginning of a notification transaction. Return TRUE on
 	   success, or FALSE if this driver should be ignored for this
 	   transaction. */
@@ -46,11 +44,6 @@ struct push_notification_driver_vfuncs {
 struct push_notification_driver {
 	const char *name;
 	struct push_notification_driver_vfuncs v;
-};
-
-struct push_notification_driver_config {
-	HASH_TABLE_TYPE(push_notification_config) config;
-	const char *raw_config;
 };
 
 struct push_notification_driver_user {

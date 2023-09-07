@@ -7,6 +7,7 @@
 #include "hash.h"
 #include "dlua-script.h"
 #include "dlua-script-private.h"
+#include "settings.h"
 
 #include "mail-storage.h"
 #include "mail-user.h"
@@ -17,6 +18,7 @@
 #include "push-notification-drivers.h"
 #include "push-notification-events.h"
 #include "push-notification-event-message-common.h"
+#include "push-notification-settings.h"
 #include "push-notification-txn-mbox.h"
 #include "push-notification-txn-msg.h"
 
@@ -71,18 +73,26 @@ static const char *push_notification_driver_lua_to_fn(const char *evname);
 
 static int
 push_notification_driver_lua_init(
-	struct push_notification_driver_config *config, struct mail_user *user,
-	pool_t pool, void **context, const char **error_r)
+		struct mail_user *user, pool_t pool, const char *name,
+		void **context, const char **error_r)
 {
 	struct dlua_push_notification_context *ctx;
 	const char *path;
+
+	struct push_notification_lua_settings *lua_settings;
+	if (settings_get_filter(user->event, PUSH_NOTIFICATION_SETTINGS_FILTER_NAME,
+				name, &push_notification_lua_setting_parser_info,
+				0, &lua_settings, error_r) < 0)
+		return -1;
 
 	struct event *event = event_create(user->event);
 	event_add_category(event, push_notification_get_event_category());
 	event_set_append_log_prefix(event, "lua: ");
 
 	if ((path = mail_user_plugin_getenv(user, DLUA_LOG_USERENV_KEY)) == NULL)
-		path = hash_table_lookup(config->config, (const char *)"path");
+		path = t_strdup(lua_settings->path);
+
+	settings_free(lua_settings);
 
 	if (path == NULL) {
 		struct dlua_script *script;

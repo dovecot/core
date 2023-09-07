@@ -10,11 +10,14 @@
 #include "json-ostream.h"
 #include "mailbox-attribute.h"
 #include "mail-storage-private.h"
+#include "settings.h"
 #include "str.h"
 #include "strescape.h"
+#include "strnum.h"
 #include "str-parse.h"
 #include "iostream-ssl.h"
 
+#include "push-notification-settings.h"
 #include "push-notification-plugin.h"
 #include "push-notification-drivers.h"
 #include "push-notification-event-messagenew.h"
@@ -28,7 +31,6 @@
 /* Default values. */
 static const char *const default_events[] = { "MessageNew", NULL };
 static const char *const default_mboxes[] = { "INBOX", NULL };
-#define DEFAULT_CACHE_LIFETIME_SECS 60
 
 /* This is data that is shared by all plugin users. */
 struct push_notification_driver_ox_global {
@@ -70,52 +72,45 @@ push_notification_driver_ox_init_global(struct mail_user *user) {
 }
 
 static int
-push_notification_driver_ox_init(struct push_notification_driver_config *config,
-				 struct mail_user *user, pool_t pool,
-				 void **context, const char **error_r)
+push_notification_driver_ox_init(struct mail_user *user, pool_t pool,
+				 const char *name, void **context,
+				 const char **error_r)
 {
 	struct push_notification_driver_ox_config *dconfig;
-	const char *error, *tmp;
 
-	/* Valid config keys: cache_lifetime, url */
-	tmp = hash_table_lookup(config->config, (const char *)"url");
-	if (tmp == NULL) {
-		*error_r = "Driver requires the url parameter";
+	struct push_notification_ox_settings *ox_settings;
+	if (settings_get_filter(user->event, PUSH_NOTIFICATION_SETTINGS_FILTER_NAME,
+				name, &push_notification_ox_setting_parser_info,
+				0, &ox_settings, error_r) < 0)
 		return -1;
-	}
 
 	dconfig = p_new(pool, struct push_notification_driver_ox_config, 1);
 	dconfig->event = event_create(user->event);
 	event_add_category(dconfig->event, &event_category_push_notification);
 	event_set_append_log_prefix(dconfig->event, "push-notification-ox: ");
 
-	if (http_url_parse(tmp, NULL, HTTP_URL_ALLOW_USERINFO_PART, pool,
-			   &dconfig->http_url, &error) < 0) {
-		event_unref(&dconfig->event);
-		*error_r = t_strdup_printf("Failed to parse OX REST URL %s: %s",
-					   tmp, error);
-		return -1;
+	/* The settings check is deliberately only validating a url if it is   
+	   given in the settings. Otherwise any file that does not contain     
+	   push-notification specific settings would fail the validation.      
+	   Thus we need to check here, whether the parsed url exists. */       
+	if (ox_settings->parsed_url == NULL) {                            
+		*error_r = "push_notification_ox_url is missing or empty";
+		event_unref(&dconfig->event);                                  
+		settings_free(ox_settings);                               
+		return -1;                                                     
 	}
-	dconfig->use_unsafe_username =
-		hash_table_lookup(config->config,
-				  (const char *)"user_from_metadata") != NULL;
+	
+	dconfig->http_url = http_url_clone_with_userinfo(pool, ox_settings->parsed_url);
+	e_debug(dconfig->event, "Using URL %s",
+		http_url_create(dconfig->http_url));
 
-	e_debug(dconfig->event, "Using URL %s", tmp);
-
-	tmp = hash_table_lookup(config->config, (const char *)"cache_lifetime");
-	if (tmp == NULL) {
-		dconfig->cached_ox_metadata_lifetime_secs =
-			DEFAULT_CACHE_LIFETIME_SECS;
-	} else if (str_parse_get_interval(
-		tmp, &dconfig->cached_ox_metadata_lifetime_secs, &error) < 0) {
-		event_unref(&dconfig->event);
-		*error_r = t_strdup_printf(
-			"Failed to parse OX cache_lifetime %s: %s", tmp, error);
-		return -1;
-	}
-
+	dconfig->cached_ox_metadata_lifetime_secs = ox_settings->cache_ttl;
 	e_debug(dconfig->event, "Using cache lifetime: %u",
 		dconfig->cached_ox_metadata_lifetime_secs);
+
+	dconfig->use_unsafe_username = ox_settings->user_from_metadata;
+	e_debug(dconfig->event, "Using user %s",
+		dconfig->use_unsafe_username ? "stored in METADATA" : "sent by OX endpoint");
 
 	if (ox_global == NULL) {
 		ox_global = i_new(struct push_notification_driver_ox_global, 1);
@@ -125,6 +120,7 @@ push_notification_driver_ox_init(struct push_notification_driver_config *config,
 	++ox_global->refcount;
 	*context = dconfig;
 
+	settings_free(ox_settings);
 	return 0;
 }
 
