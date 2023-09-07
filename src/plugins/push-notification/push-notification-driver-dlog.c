@@ -2,11 +2,13 @@
 
 #include "lib.h"
 #include "array.h"
+#include "settings.h"
 
 #include "mail-storage-private.h"
 #include "push-notification-plugin.h"
 #include "push-notification-drivers.h"
 #include "push-notification-events.h"
+#include "push-notification-settings.h"
 #include "push-notification-txn-mbox.h"
 #include "push-notification-txn-msg.h"
 
@@ -31,23 +33,16 @@ static struct event *create_dlog_event(struct event *parent)
 
 static int
 push_notification_driver_dlog_init(
-	struct push_notification_driver_config *config,
-	struct mail_user *user, pool_t pool,
-	void **context, const char **error_r ATTR_UNUSED)
+	struct mail_user *user, pool_t pool, ATTR_UNUSED const char *name,
+	void **context_r, ATTR_UNUSED const char **error_r)
 {
 	struct event *log_event = create_dlog_event(user->event);
 	struct dlog_push_notification_txn_context *ctx = p_new(
 		pool, struct dlog_push_notification_txn_context, 1);
 	ctx->event = log_event;
-	*context = ctx;
+	*context_r = ctx;
 
 	e_debug(log_event, "Called init push_notification plugin hook.");
-	if (config->raw_config != NULL) {
-		e_debug(log_event,
-			"Config string for dlog push_notification driver: %s",
-			config->raw_config);
-	}
-
 	return 0;
 }
 

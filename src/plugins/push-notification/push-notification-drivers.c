@@ -4,9 +4,11 @@
 #include "array.h"
 #include "hash.h"
 #include "mail-user.h"
+#include "settings.h"
 
 #include "push-notification-drivers.h"
 #include "push-notification-events.h"
+#include "push-notification-settings.h"
 
 static ARRAY(const struct push_notification_driver *) push_notification_drivers;
 
@@ -27,47 +29,29 @@ push_notification_driver_find(const char *name, unsigned int *idx_r)
 	return FALSE;
 }
 
-static const struct push_notification_driver *
-push_notification_driver_find_class(const char *driver)
+static bool
+push_notification_driver_identify(struct mail_user *user, const char *name,
+				  const struct push_notification_driver **driver_r,
+				  const char **error_r)
 {
+	struct push_notification_settings *set;
 	unsigned int idx;
+	if (settings_get_filter(user->event, PUSH_NOTIFICATION_SETTINGS_FILTER_NAME,
+				name, &push_notification_setting_parser_info,
+				0, &set, error_r) < 0)
+		return FALSE;
 
-	if (!push_notification_driver_find(driver, &idx))
-		return NULL;
-
-	return array_idx_elem(&push_notification_drivers, idx);
-}
-
-static struct push_notification_driver_config *
-push_notification_driver_parse_config(const char *p)
-{
-	const char **args, *key, *p2, *value;
-	struct push_notification_driver_config *config;
-
-	config = t_new(struct push_notification_driver_config, 1);
-	config->raw_config = p;
-
-	hash_table_create(&config->config, unsafe_data_stack_pool, 0,
-			  str_hash, strcmp);
-
-	if (p == NULL)
-		return config;
-
-	args = t_strsplit_spaces(p, " ");
-
-	for (; *args != NULL; args++) {
-		p2 = strchr(*args, '=');
-		if (p2 != NULL) {
-			key = t_strdup_until(*args, p2);
-			value = t_strdup(p2 + 1);
-		} else {
-			key = *args;
-			value = "";
-		}
-		hash_table_update(config->config, key, value);
+	bool ret = FALSE;
+	if (push_notification_driver_find(set->driver, &idx)) {
+		*driver_r = array_idx_elem(&push_notification_drivers, idx);
+		ret = TRUE;
 	}
+	settings_free(set);
 
-	return config;
+	if (!ret)
+		*error_r = "Name does not match any registered drivers";
+
+	return ret;
 }
 
 int push_notification_driver_init(
@@ -76,40 +60,30 @@ int push_notification_driver_init(
 {
 	void *context = NULL;
 	const struct push_notification_driver *driver;
-	const char *driver_name, *error_r, *p;
+	const char *error;
 	struct push_notification_driver_user *duser;
 	int ret;
 
-	/* <driver>[:<driver config>] */
-	p = strchr(config_in, ':');
-	if (p == NULL)
-		driver_name = config_in;
-	else
-		driver_name = t_strdup_until(config_in, p);
-
-	driver = push_notification_driver_find_class(driver_name);
-	if (driver == NULL) {
+	bool found_driver = push_notification_driver_identify(user, config_in,
+							      &driver, &error);
+	if (!found_driver) {
 		e_error(user->event,
-			"Unknown push notification driver: %s", driver_name);
+			"Unable to identify push notification driver '%s': %s",
+			config_in, error);
 		return -1;
 	}
 
 	if (driver->v.init != NULL) {
 		T_BEGIN {
-			struct push_notification_driver_config *config;
+			ret = driver->v.init(user, pool, config_in, &context,
+					     &error);
+		} T_END_PASS_STR_IF(ret < 0, &error);
 
-			config = push_notification_driver_parse_config(
-					(p == NULL) ? p : p + 1);
-			ret = driver->v.init(config, user, pool,
-					     &context, &error_r);
-			if (ret < 0)
-				e_error(user->event, "%s: %s",
-					driver_name, error_r);
-			hash_table_destroy(&config->config);
-		} T_END;
-
-		if (ret < 0)
+		if (ret < 0) {
+			e_error(user->event, "%s: %s", driver->name,
+				error);
 			return -1;
+		}
 	}
 
 	duser = p_new(pool, struct push_notification_driver_user, 1);

@@ -7,17 +7,18 @@
 #include "mail-storage.h"
 #include "mail-storage-private.h"
 #include "notify-plugin.h"
+#include "settings.h"
 #include "str.h"
 
 #include "push-notification-drivers.h"
 #include "push-notification-events.h"
 #include "push-notification-events-rfc5423.h"
+#include "push-notification-settings.h"
 #include "push-notification-plugin.h"
 #include "push-notification-triggers.h"
 #include "push-notification-txn-mbox.h"
 #include "push-notification-txn-msg.h"
 
-#define PUSH_NOTIFICATION_CONFIG "push_notification_driver"
 #define PUSH_NOTIFICATION_EVENT_FINISHED "push_notification_finished"
 
 #define PUSH_NOTIFICATION_USER_CONTEXT(obj) \
@@ -248,32 +249,33 @@ static void push_notification_transaction_rollback(void *txn)
 }
 
 static void
-push_notification_config_init(const char *config_name, struct mail_user *user,
+push_notification_config_init(struct mail_user *user,
 			      struct push_notification_driver_list *dlist)
 {
+	const struct push_notification_settings *set;
 	struct push_notification_driver_user *duser;
-	const char *env;
-	unsigned int i;
-	string_t *root_name;
+	const char *error, *name;
 
-	root_name = t_str_new(32);
-	str_append(root_name, config_name);
-
-	for (i = 2;; i++) {
-		env = mail_user_plugin_getenv(user, str_c(root_name));
-		if ((env == NULL) || (*env == '\0'))
-			break;
-
-		if (push_notification_driver_init(
-			user, env, user->pool, &duser) < 0)
-			break;
-
-		/* Add driver. */
-		array_push_back(&dlist->drivers, &duser);
-
-		str_truncate(root_name, strlen(config_name));
-		str_printfa(root_name, "%d", i);
+	if (settings_get(user->event, &push_notification_setting_parser_info,
+			 0, &set, &error) < 0) {
+		e_error(user->event, "Failed to get push_notification settings: %s",
+			error);
+		return;
 	}
+
+	if (array_is_created(&set->push_notifications)) {
+		array_foreach_elem(&set->push_notifications, name) {
+			if (push_notification_driver_init(
+					user, name, user->pool,
+					&duser) < 0)
+				break;
+
+			/* Add driver. */
+			array_push_back(&dlist->drivers, &duser);
+		}
+
+	}
+	settings_free(set);
 }
 
 static struct push_notification_driver_list *
@@ -284,7 +286,7 @@ push_notification_driver_list_init(struct mail_user *user)
 	dlist = p_new(user->pool, struct push_notification_driver_list, 1);
 	p_array_init(&dlist->drivers, user->pool, 4);
 
-	push_notification_config_init(PUSH_NOTIFICATION_CONFIG, user, dlist);
+	push_notification_config_init(user, dlist);
 	return dlist;
 }
 
