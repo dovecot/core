@@ -962,7 +962,7 @@ struct mailbox virtual_mailbox = {
 };
 
 struct virtual_mailbox_vfuncs virtual_mailbox_vfuncs = {
-	virtual_get_virtual_uids,
-	virtual_get_virtual_uid_map,
-	virtual_get_virtual_backend_boxes
+	.get_virtual_uids = virtual_get_virtual_uids,
+	.get_virtual_uid_map = virtual_get_virtual_uid_map,
+	.get_virtual_backend_boxes = virtual_get_virtual_backend_boxes,
 };
