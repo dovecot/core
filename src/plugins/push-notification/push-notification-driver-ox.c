@@ -408,7 +408,7 @@ push_notification_driver_ox_process_msg(
 
 static void
 push_notification_driver_ox_deinit(
-	struct push_notification_driver_user *duser ATTR_UNUSED)
+	struct push_notification_driver_user *duser)
 {
 	struct push_notification_driver_ox_config *dconfig = duser->context;
 
