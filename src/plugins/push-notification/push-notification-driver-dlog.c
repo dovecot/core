@@ -84,7 +84,7 @@ push_notification_driver_dlog_process_mbox(
 
 static void
 push_notification_driver_dlog_process_msg(
-	struct push_notification_driver_txn *dtxn ATTR_UNUSED,
+	struct push_notification_driver_txn *dtxn,
 	struct push_notification_txn_msg *msg)
 {
 	struct dlog_push_notification_txn_context *tctx = dtxn->context;
