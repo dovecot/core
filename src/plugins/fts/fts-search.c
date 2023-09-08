@@ -113,11 +113,7 @@ multi_add_lookup_result(struct fts_search_context *fctx,
 			struct mail_search_arg *args,
 			struct fts_multi_result *result)
 {
-	ARRAY_TYPE(seq_range) vuids;
-	size_t orig_size;
-	unsigned int i;
-
-	orig_size = level->args_matches->used;
+	size_t orig_size = level->args_matches->used;
 	fts_search_serialize(level->args_matches, args);
 	if (orig_size > 0) {
 		if (level->args_matches->used != orig_size * 2 ||
@@ -128,11 +124,11 @@ multi_add_lookup_result(struct fts_search_context *fctx,
 		buffer_set_used_size(level->args_matches, orig_size);
 	}
 
-	t_array_init(&vuids, 64);
-	for (i = 0; result->box_results[i].box != NULL; i++) {
+	for (unsigned int i = 0; result->box_results[i].box != NULL; i++) T_BEGIN {
 		struct fts_result *br = &result->box_results[i];
+		ARRAY_TYPE(seq_range) vuids;
 
-		array_clear(&vuids);
+		t_array_init(&vuids, 64);
 		if (array_is_created(&br->definite_uids)) {
 			fctx->box->virtual_vfuncs->get_virtual_uids(fctx->box,
 				br->box, &br->definite_uids, &vuids);
@@ -148,7 +144,7 @@ multi_add_lookup_result(struct fts_search_context *fctx,
 
 		if (array_is_created(&br->scores))
 			level_scores_add_vuids(fctx->box, level, br);
-	}
+	} T_END;
 	return 0;
 }
 
