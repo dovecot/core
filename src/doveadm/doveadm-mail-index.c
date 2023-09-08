@@ -47,6 +47,7 @@ static int cmd_index_box_precache(struct doveadm_mail_cmd_context *dctx,
 		e_error(event, "Mailbox %s: Precache-fields lookup failed: %s",
 			mailbox_get_vname(box),
 			mailbox_get_last_internal_error(box, NULL));
+		return -1;
 	}
 	if (mailbox_get_status(box, STATUS_MESSAGES | STATUS_LAST_CACHED_SEQ,
 			       &status) < 0) {
