@@ -75,15 +75,16 @@ push_notification_driver_lua_init(
 	pool_t pool, void **context, const char **error_r)
 {
 	struct dlua_push_notification_context *ctx;
-	const char *tmp, *file;
+	const char *path;
+
 	struct event *event = event_create(user->event);
 	event_add_category(event, push_notification_get_event_category());
 	event_set_append_log_prefix(event, "lua: ");
 
-	if ((tmp = mail_user_plugin_getenv(user, DLUA_LOG_USERENV_KEY)) == NULL)
-		tmp = hash_table_lookup(config->config, (const char *)"path");
+	if ((path = mail_user_plugin_getenv(user, DLUA_LOG_USERENV_KEY)) == NULL)
+		path = hash_table_lookup(config->config, (const char *)"path");
 
-	if (tmp == NULL) {
+	if (path == NULL) {
 		struct dlua_script *script;
 		/* If there is a script loaded, use the same context */
 		if (mail_lua_plugin_get_script(user, &script)) {
@@ -101,14 +102,13 @@ push_notification_driver_lua_init(
 			   DLUA_LOG_USERENV_KEY " set";
 		return -1;
 	}
-	file = tmp;
 
 	ctx = p_new(pool, struct dlua_push_notification_context, 1);
 	ctx->event = event;
 
-	e_debug(ctx->event, "Loading %s", file);
+	e_debug(ctx->event, "Loading %s", path);
 
-	if (dlua_script_create_file(file, &ctx->script, event, error_r) < 0) {
+	if (dlua_script_create_file(path, &ctx->script, event, error_r) < 0) {
 		/* There is a T_POP after this, which will break errors */
 		event_unref(&event);
 		*error_r = p_strdup(pool, *error_r);
