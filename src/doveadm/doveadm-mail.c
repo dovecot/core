@@ -349,7 +349,8 @@ static int cmd_force_resync_run(struct doveadm_mail_cmd_context *_ctx,
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS |
 		MAILBOX_LIST_ITER_STAR_WITHIN_NS |
-		MAILBOX_LIST_ITER_RAW_LIST;
+		MAILBOX_LIST_ITER_RAW_LIST |
+		MAILBOX_LIST_ITER_FORCE_RESYNC;
 	const enum mail_namespace_type ns_mask = MAIL_NAMESPACE_TYPE_MASK_ALL;
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;

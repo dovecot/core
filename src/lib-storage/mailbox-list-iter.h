@@ -38,7 +38,9 @@ enum mailbox_list_iter_flags {
 	/* Return children flags */
 	MAILBOX_LIST_ITER_RETURN_CHILDREN	= 0x004000,
 	/* Return IMAP special use flags */
-	MAILBOX_LIST_ITER_RETURN_SPECIALUSE	= 0x008000
+	MAILBOX_LIST_ITER_RETURN_SPECIALUSE	= 0x008000,
+	/* This listing is done as part of a force resync */
+	MAILBOX_LIST_ITER_FORCE_RESYNC		= 0x010000,
 };
 
 struct mailbox_info {
