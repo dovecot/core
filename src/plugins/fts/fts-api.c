@@ -168,22 +168,23 @@ fts_backend_is_uid_indexed_virtual(struct mailbox *box,
 int fts_backend_is_uid_indexed(struct fts_backend *backend, struct mailbox *box,
 			       uint32_t uid, uint32_t *last_indexed_uid_r)
 {
+	int ret;
 	if (box->virtual_vfuncs != NULL)
-		return fts_backend_is_uid_indexed_virtual(box, last_indexed_uid_r);
+		ret = fts_backend_is_uid_indexed_virtual(box, last_indexed_uid_r);
+	else if (backend->v.is_uid_indexed != NULL)
+		ret = backend->v.is_uid_indexed(backend, box, uid, last_indexed_uid_r);
+	else {
+		uint32_t last_uid;
+		if (fts_backend_get_last_uid(backend, box, &last_uid) < 0)
+			return -1;
 
-	if (backend->v.is_uid_indexed != NULL)
-		return backend->v.is_uid_indexed(backend, box, uid,
-						 last_indexed_uid_r);
-
-	uint32_t last_uid;
-	if (fts_backend_get_last_uid(backend, box, &last_uid) < 0)
-		return -1;
-
-	if (uid > last_uid) {
 		*last_indexed_uid_r = last_uid;
-		return 0;
+		return uid > last_uid ? 0 : 1;
 	}
-	return 1;
+	if (ret > 0)
+		*last_indexed_uid_r = uid;
+	return ret;
+
 }
 
 bool fts_backend_is_updating(struct fts_backend *backend)
