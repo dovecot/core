@@ -880,11 +880,6 @@ void mailbox_refresh_permissions(struct mailbox *box);
 /* Open private index files for mailbox. Returns 1 if opened, 0 if there
    are no private indexes (or flags) in this mailbox, -1 if error. */
 int mailbox_open_index_pvt(struct mailbox *box);
-/* Create path's directory with proper permissions. The root directory is also
-   created if necessary. Returns 1 if created, 0 if it already existed,
-   -1 if error. */
-int mailbox_mkdir(struct mailbox *box, const char *path,
-		  enum mailbox_list_path_type type);
 /* Create a non-mailbox type directory for mailbox if it's missing (e.g. index).
    Optimized for case where the directory usually exists. */
 int mailbox_create_missing_dir(struct mailbox *box,

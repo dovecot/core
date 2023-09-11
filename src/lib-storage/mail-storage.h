@@ -569,6 +569,11 @@ int mailbox_open_stream(struct mailbox *box, struct istream *input);
 void mailbox_close(struct mailbox *box);
 /* Close and free the mailbox. */
 void mailbox_free(struct mailbox **box);
+/* Create path's directory with proper permissions. The root directory is also
+   created if necessary. Returns 1 if created, 0 if it already existed,
+   -1 if error. */
+int mailbox_mkdir(struct mailbox *box, const char *path,
+		  enum mailbox_list_path_type type);
 
 /* Returns TRUE if box1 points to the same mailbox as ns2/vname2. */
 bool mailbox_equals(const struct mailbox *box1,
