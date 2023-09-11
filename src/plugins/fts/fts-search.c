@@ -344,21 +344,20 @@ int fts_search_get_first_missing_uid(struct fts_backend *backend,
 {
 	uint32_t messages_count = mail_index_view_get_messages_count(box->view);
 	uint32_t uid, last_indexed_uid;
-	int ret;
 
 	if (messages_count == 0)
 		return 1;
 
 	mail_index_lookup_uid(box->view, messages_count, &uid);
 	for (bool refreshed = FALSE;; refreshed = TRUE) {
-		ret = fts_backend_is_uid_indexed(backend, box, uid,
-						 &last_indexed_uid);
-		if (ret != 0)
+		int ret = fts_backend_is_uid_indexed(backend, box, uid,
+						     &last_indexed_uid);
+		if (ret < 0)
 			return ret;
-		if (refreshed || backend->updating) {
-			*last_indexed_uid_r = last_indexed_uid;
-			return 0;
-		}
+
+		*last_indexed_uid_r = last_indexed_uid;
+		if (ret > 0 || refreshed || backend->updating)
+			return ret;
 
 		/* UID doesn't seem to be indexed yet.
 		   Refresh FTS and check again. */
