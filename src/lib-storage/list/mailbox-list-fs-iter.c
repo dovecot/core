@@ -257,12 +257,12 @@ fs_list_get_storage_path(struct fs_list_iterate_context *ctx,
 	if (*path != '/') {
 		/* non-absolute path. add the mailbox root dir as prefix. */
 		enum mailbox_list_path_type type =
-			ctx->ctx.list->set.iter_from_index_dir ?
+			ctx->ctx.iter_from_index_dir ?
 			MAILBOX_LIST_PATH_TYPE_INDEX :
 			MAILBOX_LIST_PATH_TYPE_MAILBOX;
 		if (!mailbox_list_get_root_path(ctx->ctx.list, type, &root))
 			return FALSE;
-		if (ctx->ctx.list->set.iter_from_index_dir &&
+		if (ctx->ctx.iter_from_index_dir &&
 		    ctx->ctx.list->set.mailbox_dir_name[0] != '\0') {
 			/* append "mailboxes/" to the index root */
 			root = t_strconcat(root, "/",
@@ -529,6 +529,7 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	ctx->info_pool = pool_alloconly_create("fs list", 1024);
 	ctx->sep = mail_namespace_get_sep(_list->ns);
 	ctx->info.ns = _list->ns;
+	ctx->ctx.iter_from_index_dir = ctx->ctx.list->set.iter_from_index_dir;
 
 	if (!fs_list_get_valid_patterns(ctx, patterns)) {
 		/* we've only invalid patterns (or INBOX). create a glob
