@@ -63,8 +63,12 @@ enum master_login_state {
    in seconds. */
 #define MASTER_SERVICE_IDLE_KILL_ENV "IDLE_KILL"
 
-/* getenv(MASTER_CONFIG_FILE_ENV) provides path to configuration file/socket */
+/* getenv(MASTER_CONFIG_FILE_ENV) provides path to configuration file. */
 #define MASTER_CONFIG_FILE_ENV "CONFIG_FILE"
+
+/* getenv(MASTER_CONFIG_FILE_SOCKET_ENV) provides path to Configuration
+   socket, if available. */
+#define MASTER_CONFIG_FILE_SOCKET_ENV "CONFIG_FILE_SOCKET"
 
 /* getenv(MASTER_VERBOSE_PROCTITLE_ENV) is non-NULL if verbose_proctitle=yes.
    This is used by lib-master during initialization. */

@@ -525,7 +525,9 @@ master_service_init(const char *name, enum master_service_flags flags,
 	service->service_count_left = UINT_MAX;
 	service->datastack_frame_id = datastack_frame_id;
 
-	service->config_path = i_strdup(getenv(MASTER_CONFIG_FILE_ENV));
+	service->config_path = i_strdup(getenv(MASTER_CONFIG_FILE_SOCKET_ENV));
+	if (service->config_path == NULL)
+		service->config_path = i_strdup(getenv(MASTER_CONFIG_FILE_ENV));
 	if (service->config_path == NULL)
 		service->config_path = i_strdup(DEFAULT_CONFIG_FILE_PATH);
 	else
@@ -632,7 +634,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 		env_remove(MASTER_SERVICE_ENV);
 		env_remove(MASTER_SERVICE_SOCKET_COUNT_ENV);
 		env_remove(MASTER_UID_ENV);
-		env_remove(MASTER_CONFIG_FILE_ENV);
+		env_remove(MASTER_CONFIG_FILE_SOCKET_ENV);
 		T_BEGIN {
 			for (unsigned int i = 0; i < service->socket_count; i++)
 				env_remove(t_strdup_printf("SOCKET%u_SETTINGS", i));

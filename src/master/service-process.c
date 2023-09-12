@@ -286,7 +286,8 @@ static void service_process_setup_config_environment(struct service *service)
 		env_put(MASTER_CONFIG_FILE_ENV, service->config_file_path);
 		break;
 	default:
-		env_put(MASTER_CONFIG_FILE_ENV,
+		env_put(MASTER_CONFIG_FILE_ENV, services->config->config_file_path);
+		env_put(MASTER_CONFIG_FILE_SOCKET_ENV,
 			services_get_config_socket_path(service->list));
 		break;
 	}
