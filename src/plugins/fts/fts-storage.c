@@ -509,39 +509,6 @@ static int fts_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 	return fmail->module_ctx.super.get_special(_mail, field, value_r);
 }
 
-static int
-fts_mail_precache_range(struct mailbox_transaction_context *trans,
-			struct fts_backend_update_context *update_ctx,
-			uint32_t seq1, uint32_t seq2, unsigned int *extra_count)
-{
-	struct mail_search_args *search_args;
-	struct mail_search_context *ctx;
-	struct mail *mail;
-	int ret = 0;
-
-	search_args = mail_search_build_init();
-	mail_search_build_add_seqset(search_args, seq1, seq2);
-	ctx = mailbox_search_init(trans, search_args, NULL,
-				  MAIL_FETCH_STREAM_HEADER |
-				  MAIL_FETCH_STREAM_BODY, NULL);
-	mail_search_args_unref(&search_args);
-
-	while (mailbox_search_next(ctx, &mail)) {
-		if (fts_build_mail(update_ctx, mail) < 0) {
-			ret = -1;
-			break;
-		}
-		if (mail_precache(mail) < 0) {
-			ret = -1;
-			break;
-		}
-		*extra_count += 1;
-	}
-	if (mailbox_search_deinit(&ctx) < 0)
-		ret = -1;
-	return ret;
-}
-
 static int fts_mail_precache_init(struct mail *_mail)
 {
 	struct fts_transaction_context *ft = FTS_CONTEXT_REQUIRE(_mail->transaction);
@@ -578,19 +545,6 @@ static int fts_mail_index(struct mail *_mail)
 	if (!ft->precached) {
 		if (fts_mail_precache_init(_mail) < 0)
 			return -1;
-	}
-
-	if (ft->next_index_seq < _mail->seq) {
-		/* we'll first need to index all the missing mails up to the
-		   current one. */
-		fts_backend_update_set_mailbox(flist->update_ctx, _mail->box);
-		if (fts_mail_precache_range(_mail->transaction,
-					    flist->update_ctx,
-					    ft->next_index_seq,
-					    _mail->seq-1,
-					    &ft->precache_extra_count) < 0)
-			return -1;
-		ft->next_index_seq = _mail->seq;
 	}
 
 	if (ft->next_index_seq == _mail->seq) {
