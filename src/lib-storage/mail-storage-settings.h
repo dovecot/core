@@ -23,9 +23,9 @@ struct mail_storage_settings {
 	const char *mail_ext_attachment_hash;
 	uoff_t mail_ext_attachment_min_size;
 	unsigned int mail_prefetch_count;
-	const char *mail_cache_fields;
-	const char *mail_always_cache_fields;
-	const char *mail_never_cache_fields;
+	ARRAY_TYPE(const_string) mail_cache_fields;
+	ARRAY_TYPE(const_string) mail_always_cache_fields;
+	ARRAY_TYPE(const_string) mail_never_cache_fields;
 	const char *mail_server_comment;
 	const char *mail_server_admin;
 	unsigned int mail_cache_min_mail_count;

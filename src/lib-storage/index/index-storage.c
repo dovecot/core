@@ -22,6 +22,7 @@
 #include "index-attachment.h"
 #include "index-thread-private.h"
 #include "index-mailbox-size.h"
+#include "settings-parser.h"
 
 #include <time.h>
 #include <unistd.h>
@@ -33,7 +34,7 @@ struct index_storage_module index_storage_module =
 	MODULE_CONTEXT_INIT(&mail_storage_module_register);
 
 static void set_cache_decisions(struct mailbox *box,
-				const char *set, const char *fields,
+				const char *set, const ARRAY_TYPE(const_string) *fields,
 				enum mail_cache_decision_type dec)
 {
 	struct mail_cache *cache = box->cache;
@@ -41,10 +42,7 @@ static void set_cache_decisions(struct mailbox *box,
 	const char *const *arr;
 	unsigned int idx;
 
-	if (fields == NULL || *fields == '\0')
-		return;
-
-	for (arr = t_strsplit_spaces(fields, " ,"); *arr != NULL; arr++) {
+	for (arr = settings_boollist_get(fields); *arr != NULL; arr++) {
 		const char *name = *arr;
 
 		idx = mail_cache_register_lookup(cache, name);
@@ -89,21 +87,21 @@ static void index_cache_register_defaults(struct mailbox *box)
 				   MAIL_INDEX_CACHE_FIELD_COUNT,
 				   MAIL_CACHE_TRUNCATE_NAME_FAIL);
 
-	if (strcmp(set->mail_never_cache_fields, "*") == 0) {
+	if (str_array_find(settings_boollist_get(&set->mail_never_cache_fields), "*")) {
 		/* all caching disabled for now */
 		box->mail_cache_disabled = TRUE;
 		return;
 	}
 
 	set_cache_decisions(box, "mail_cache_fields",
-			    set->mail_cache_fields,
+			    &set->mail_cache_fields,
 			    MAIL_CACHE_DECISION_TEMP);
 	set_cache_decisions(box, "mail_always_cache_fields",
-			    set->mail_always_cache_fields,
+			    &set->mail_always_cache_fields,
 			    MAIL_CACHE_DECISION_YES |
 			    MAIL_CACHE_DECISION_FORCED);
 	set_cache_decisions(box, "mail_never_cache_fields",
-			    set->mail_never_cache_fields,
+			    &set->mail_never_cache_fields,
 			    MAIL_CACHE_DECISION_NO |
 			    MAIL_CACHE_DECISION_FORCED);
 }
