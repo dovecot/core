@@ -54,7 +54,6 @@ struct fts_transaction_context {
 	union mailbox_transaction_module_context module_ctx;
 
 	struct fts_scores *scores;
-	uint32_t next_index_seq;
 	uint32_t highest_virtual_uid;
 	unsigned int precache_extra_count;
 
@@ -525,7 +524,6 @@ static int fts_mail_precache_init(struct mail *_mail)
 		mailbox_get_seq_range(_mail->box, 1, last_uid, &unused, &last_seq);
 
 	ft->precached = TRUE;
-	ft->next_index_seq = last_seq + 1;
 	if (flist->update_ctx == NULL)
 		flist->update_ctx = fts_backend_update_init(flist->backend);
 	flist->update_ctx_refcount++;
@@ -547,13 +545,8 @@ static int fts_mail_index(struct mail *_mail)
 			return -1;
 	}
 
-	if (ft->next_index_seq == _mail->seq) {
-		fts_backend_update_set_mailbox(flist->update_ctx, _mail->box);
-		if (fts_build_mail(flist->update_ctx, _mail) < 0)
-			return -1;
-		ft->next_index_seq = _mail->seq + 1;
-	}
-	return 0;
+	fts_backend_update_set_mailbox(flist->update_ctx, _mail->box);
+	return fts_build_mail(flist->update_ctx, _mail) < 0 ? -1 : 0;
 }
 
 static int fts_mail_precache(struct mail *_mail)
