@@ -42,9 +42,9 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "mail_attribute",
 	  .required_setting = "dict", },
 	DEF(UINT, mail_prefetch_count),
-	DEF(STR, mail_cache_fields),
-	DEF(STR, mail_always_cache_fields),
-	DEF(STR, mail_never_cache_fields),
+	DEF(BOOLLIST, mail_cache_fields),
+	DEF(BOOLLIST, mail_always_cache_fields),
+	DEF(BOOLLIST, mail_never_cache_fields),
 	DEF(STR, mail_server_comment),
 	DEF(STR, mail_server_admin),
 	DEF(TIME_HIDDEN, mail_cache_unaccessed_field_drop),
@@ -123,9 +123,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mail_ext_attachment_min_size = 1024*128,
 	.mail_attachment_detection_options = ARRAY_INIT,
 	.mail_prefetch_count = 0,
-	.mail_cache_fields = "flags",
-	.mail_always_cache_fields = "",
-	.mail_never_cache_fields = "imap.envelope",
+	.mail_always_cache_fields = ARRAY_INIT,
 	.mail_server_comment = "",
 	.mail_server_admin = "",
 	.mail_cache_min_mail_count = 0,
@@ -195,6 +193,8 @@ const struct mail_storage_settings mail_storage_default_settings = {
 
 static const struct setting_keyvalue mail_storage_default_settings_keyvalue[] = {
 	{ "layout_index/mailbox_list_storage_escape_char", "^" },
+	{ "mail_cache_fields", "flags" },
+	{ "mail_never_cache_fields", "imap.envelope" },
 	{ NULL, NULL }
 };
 
@@ -407,15 +407,15 @@ fix_base_path(struct mail_user_settings *set, pool_t pool, const char **str)
 }
 
 /* <settings checks> */
-static bool mail_cache_fields_parse(const char *key, const char *value,
+static bool mail_cache_fields_parse(const char *key,
+				    const ARRAY_TYPE(const_string) *value,
 				    const char **error_r)
 {
 	const char *const *arr;
+	bool has_asterisk = FALSE;
+	size_t fields_count = 0;
 
-	if (value == set_value_unknown)
-		return TRUE;
-
-	for (arr = t_strsplit_spaces(value, " ,"); *arr != NULL; arr++) {
+	for (arr = settings_boollist_get(value); *arr != NULL; arr++) {
 		const char *name = *arr;
 
 		if (str_begins_icase(name, "hdr.", &name) &&
@@ -424,7 +424,15 @@ static bool mail_cache_fields_parse(const char *key, const char *value,
 				"Invalid %s: %s is not a valid header name",
 				key, name);
 			return FALSE;
+		} else if (strcmp(name, "*") == 0) {
+			has_asterisk = TRUE;
 		}
+		fields_count++;
+	}
+	if (has_asterisk && fields_count > 1) {
+		*error_r = t_strdup_printf(
+			"Invalid %s: has multiple values while having \"*\" set", key);
+		return FALSE;
 	}
 	return TRUE;
 }
@@ -754,13 +762,13 @@ mail_storage_settings_ext_check(struct event *event ATTR_UNUSED,
 	}
 
 	if (!mail_cache_fields_parse("mail_cache_fields",
-				     set->mail_cache_fields, error_r))
+				     &set->mail_cache_fields, error_r))
 		return FALSE;
 	if (!mail_cache_fields_parse("mail_always_cache_fields",
-				     set->mail_always_cache_fields, error_r))
+				     &set->mail_always_cache_fields, error_r))
 		return FALSE;
 	if (!mail_cache_fields_parse("mail_never_cache_fields",
-				     set->mail_never_cache_fields, error_r))
+				     &set->mail_never_cache_fields, error_r))
 		return FALSE;
 
 	if ((fname = strrchr(set->mailbox_list_index_prefix, '/')) == NULL)
