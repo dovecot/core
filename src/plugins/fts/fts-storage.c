@@ -554,12 +554,13 @@ static int fts_mail_precache(struct mail *_mail)
 	struct mail_private *mail = (struct mail_private *)_mail;
 	struct fts_mail *fmail = FTS_MAIL_CONTEXT(mail);
 	struct fts_transaction_context *ft = FTS_CONTEXT_REQUIRE(_mail->transaction);
-	int ret = 0;
+	int ret;
 
 	i_assert(!fmail->virtual_mail);
 	fmail->module_ctx.super.precache(_mail);
-	if (!ft->indexing) T_BEGIN {
-		/* avoid recursing here from fts_mail_precache_range() */
+
+	i_assert(!ft->indexing);
+	T_BEGIN {
 		struct event_reason *reason =
 			event_reason_begin("fts:index");
 		ft->indexing = TRUE;
