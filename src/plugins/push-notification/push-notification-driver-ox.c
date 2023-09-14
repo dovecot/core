@@ -132,6 +132,10 @@ push_notification_driver_ox_init(struct mail_user *user, pool_t pool,
 	*context = dconfig;
 
 	settings_free(ox_settings);
+
+	if (!push_notification_driver_ox_init_global(user, name))
+		return -1;
+
 	return 0;
 }
 
@@ -365,9 +369,6 @@ push_notification_driver_ox_process_msg(
 
 	messagenew = push_notification_txn_msg_get_eventdata(msg, "MessageNew");
 	if (messagenew == NULL)
-		return;
-
-	if (!push_notification_driver_ox_init_global(user))
 		return;
 
 	http_req = http_client_request_url(
