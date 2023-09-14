@@ -202,9 +202,9 @@ array_count_i(const struct array *array)
 	array_count_i(&(array)->arr)
 /* No need for the real count if all we're doing is comparing against 0 */
 #define array_is_empty(array) \
-	((array)->arr.buffer->used == 0)
+	((!array_is_created(array)) || ((array)->arr.buffer->used == 0))
 #define array_not_empty(array) \
-	((array)->arr.buffer->used > 0)
+	((array_is_created(array)) && ((array)->arr.buffer->used > 0))
 
 static inline void
 array_append_i(struct array *array, const void *data, unsigned int count)
