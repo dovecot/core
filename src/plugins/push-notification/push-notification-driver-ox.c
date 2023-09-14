@@ -56,16 +56,27 @@ struct push_notification_driver_ox_txn {
 };
 
 static bool
-push_notification_driver_ox_init_global(struct mail_user *user) {
+push_notification_driver_ox_init_global(struct mail_user *user, const char *name)
+{
 	if (ox_global->http_client == NULL) {
 		const char *error;
-		if (http_client_init_auto(user->event, &ox_global->http_client,
+
+		struct event *event = event_create(user->event);
+		char *filter_name = p_strdup_printf(
+				event_get_pool(event), "%s/%s",
+				PUSH_NOTIFICATION_SETTINGS_FILTER_NAME,
+				settings_section_escape(name));
+		event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, filter_name);
+
+		if (http_client_init_auto(event, &ox_global->http_client,
 					  &error) < 0) {
 			e_error(user->event,
 				"Unable to initialize the HTTP client: %s",
 				error);
+			event_unref(&event);
 			return FALSE;
 		}
+		event_unref(&event);
 	}
 
 	return TRUE;
