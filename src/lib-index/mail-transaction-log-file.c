@@ -360,6 +360,7 @@ mail_transaction_log_file_undotlock(struct mail_transaction_log_file *file)
 
 int mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 {
+	struct mail_index *index = file->log->index;
 	unsigned int lock_timeout_secs;
 	int ret;
 
@@ -371,11 +372,11 @@ int mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 		return 0;
 	}
 
-	if (file->log->index->set.lock_method == FILE_LOCK_METHOD_DOTLOCK)
+	if (index->set.lock_method == FILE_LOCK_METHOD_DOTLOCK)
 		return mail_transaction_log_file_dotlock(file);
 
-	if (file->log->index->readonly) {
-		mail_index_set_error(file->log->index,
+	if (index->readonly) {
+		mail_index_set_error(index,
 			"Index is read-only, can't write-lock %s",
 			file->filepath);
 		return -1;
@@ -383,8 +384,8 @@ int mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 
 	i_assert(file->file_lock == NULL);
 	lock_timeout_secs = I_MIN(MAIL_TRANSACTION_LOG_LOCK_TIMEOUT,
-				  file->log->index->set.max_lock_timeout_secs);
-	ret = mail_index_lock_fd(file->log->index, file->filepath, file->fd,
+				  index->set.max_lock_timeout_secs);
+	ret = mail_index_lock_fd(index, file->filepath, file->fd,
 				 F_WRLCK, lock_timeout_secs,
 				 &file->file_lock);
 	if (ret > 0) {
@@ -397,11 +398,11 @@ int mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 		return -1;
 	}
 
-	mail_index_set_error(file->log->index,
+	mail_index_set_error(index,
 		"Timeout (%us) while waiting for lock for "
 		"transaction log file %s%s",
 		lock_timeout_secs, file->filepath,
-		file_lock_find(file->fd, file->log->index->set.lock_method, F_WRLCK));
+		file_lock_find(file->fd, index->set.lock_method, F_WRLCK));
 	return -1;
 }
 
