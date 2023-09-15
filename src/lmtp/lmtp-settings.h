@@ -33,7 +33,7 @@ struct lmtp_settings {
 	ARRAY_TYPE(const_string) lmtp_client_workarounds;
 
 	const char *login_greeting;
-	const char *login_trusted_networks;
+	ARRAY_TYPE(const_string) login_trusted_networks;
 
 	ARRAY_TYPE(const_string) mail_plugins;
 	const char *mail_plugin_dir;
