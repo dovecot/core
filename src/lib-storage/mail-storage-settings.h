@@ -161,7 +161,7 @@ struct mail_user_settings {
 	const char *mail_chroot;
 	ARRAY_TYPE(const_string) mail_access_groups;
 	const char *mail_privileged_group;
-	const char *valid_chroot_dirs;
+	ARRAY_TYPE(const_string) valid_chroot_dirs;
 
 	unsigned int first_valid_uid, last_valid_uid;
 	unsigned int first_valid_gid, last_valid_gid;

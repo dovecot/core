@@ -116,10 +116,10 @@ static bool validate_chroot(const struct mail_user_settings *user_set,
 	if (*dir == '\0')
 		return FALSE;
 
-	if (*user_set->valid_chroot_dirs == '\0')
+	if (array_is_empty(&user_set->valid_chroot_dirs))
 		return FALSE;
 
-	chroot_dirs = t_strsplit(user_set->valid_chroot_dirs, ":");
+	chroot_dirs = settings_boollist_get(&user_set->valid_chroot_dirs);
 	while (*chroot_dirs != NULL) {
 		if (**chroot_dirs != '\0' &&
 		    str_begins_with(dir, *chroot_dirs))
@@ -157,7 +157,7 @@ user_reply_handle(struct mail_storage_service_user *user,
 	}
 
 	if (home != NULL && chroot == NULL &&
-	    *user->user_set->valid_chroot_dirs != '\0' &&
+	    array_not_empty(&user->user_set->valid_chroot_dirs) &&
 	    (p = strstr(home, "/./")) != NULL) {
 		/* wu-ftpd like <chroot>/./<home> - check only if there's even
 		   a possibility of using them (non-empty valid_chroot_dirs) */

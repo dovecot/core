@@ -322,7 +322,7 @@ static const struct setting_define mail_user_setting_defines[] = {
 	DEF(STR, mail_chroot),
 	DEF(BOOLLIST, mail_access_groups),
 	DEF(STR, mail_privileged_group),
-	DEF(STR, valid_chroot_dirs),
+	DEF(BOOLLIST, valid_chroot_dirs),
 
 	DEF(UINT, first_valid_uid),
 	DEF(UINT, last_valid_uid),
@@ -352,7 +352,7 @@ static const struct mail_user_settings mail_user_default_settings = {
 	.mail_chroot = "",
 	.mail_access_groups = ARRAY_INIT,
 	.mail_privileged_group = "",
-	.valid_chroot_dirs = "",
+	.valid_chroot_dirs = ARRAY_INIT,
 
 	.first_valid_uid = 500,
 	.last_valid_uid = 0,
