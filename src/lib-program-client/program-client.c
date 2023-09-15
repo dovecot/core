@@ -706,7 +706,7 @@ program_client_run_callback(int result, int *context)
 	io_loop_stop(current_ioloop);
 }
 
-int program_client_run(struct program_client *pclient)
+enum program_client_exit_status program_client_run(struct program_client *pclient)
 {
 	int ret = -2;
 	struct ioloop *prev_ioloop = current_ioloop;
@@ -726,7 +726,7 @@ int program_client_run(struct program_client *pclient)
 	io_loop_destroy(&ioloop);
 
 	if (pclient->error != PROGRAM_CLIENT_ERROR_NONE)
-		return -1;
+		return PROGRAM_CLIENT_EXIT_STATUS_INTERNAL_FAILURE;
 
 	return pclient->exit_status;
 }
