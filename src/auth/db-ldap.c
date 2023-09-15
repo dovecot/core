@@ -639,7 +639,7 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 	char *name;
 	struct auth_request *auth_request = request->request.auth_request;
 	struct ldap_field_find_subquery_context ctx;
-	const struct var_expand_table *table =
+	const struct var_expand_table *var_expand_table =
 		auth_request_get_var_expand_table(auth_request, NULL);
 	const struct var_expand_func_table *ptr;
 	struct var_expand_func_table *ftable;
@@ -666,8 +666,10 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 	array_foreach(request->attr_map, field) {
 		if (field->ldap_attr_name[0] == '\0') {
 			str_truncate(tmp_str, 0);
-			if (var_expand_with_funcs(tmp_str, field->value, table,
-						  array_front(&var_funcs_table), &ctx, &error) <= 0) {
+			if (var_expand_with_funcs(tmp_str, field->value,
+						  var_expand_table,
+						  array_front(&var_funcs_table),
+						  &ctx, &error) <= 0) {
 				e_error(authdb_event(auth_request),
 					"Failed to expand subquery %s: %s",
 					field->value, error);
