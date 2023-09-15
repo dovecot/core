@@ -56,15 +56,24 @@ typedef unsigned long long uoff_t;
 #  define ST_ATIME_NSEC(st) ((unsigned long)(st).st_atim.tv_nsec)
 #  define ST_MTIME_NSEC(st) ((unsigned long)(st).st_mtim.tv_nsec)
 #  define ST_CTIME_NSEC(st) ((unsigned long)(st).st_ctim.tv_nsec)
+#  define ST_ATIME_SEC(st) ((unsigned long)(st).st_atim.tv_sec)
+#  define ST_MTIME_SEC(st) ((unsigned long)(st).st_mtim.tv_sec)
+#  define ST_CTIME_SEC(st) ((unsigned long)(st).st_ctim.tv_sec)
 #elif defined (HAVE_STAT_XTIMESPEC)
 #  define HAVE_ST_NSECS
 #  define ST_ATIME_NSEC(st) ((unsigned long)(st).st_atimespec.tv_nsec)
 #  define ST_MTIME_NSEC(st) ((unsigned long)(st).st_mtimespec.tv_nsec)
 #  define ST_CTIME_NSEC(st) ((unsigned long)(st).st_ctimespec.tv_nsec)
+#  define ST_ATIME_SEC(st) ((unsigned long)(st).st_atimespec.tv_sec)
+#  define ST_MTIME_SEC(st) ((unsigned long)(st).st_mtimespec.tv_sec)
+#  define ST_CTIME_SEC(st) ((unsigned long)(st).st_ctimespec.tv_sec)
 #else
 #  define ST_ATIME_NSEC(st) 0UL
 #  define ST_MTIME_NSEC(st) 0UL
 #  define ST_CTIME_NSEC(st) 0UL
+#  define ST_ATIME_SEC(st) 0UL
+#  define ST_MTIME_SEC(st) 0UL
+#  define ST_CTIME_SEC(st) 0UL
 #endif
 
 #ifdef HAVE_ST_NSECS
