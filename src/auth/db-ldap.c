@@ -642,7 +642,6 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 	const struct var_expand_table *var_expand_table =
 		auth_request_get_var_expand_table(auth_request, NULL);
 	const struct var_expand_func_table *ptr;
-	struct var_expand_func_table *ftable;
 	string_t *tmp_str = t_str_new(64);
 	ARRAY(struct var_expand_func_table) var_funcs_table;
 	t_array_init(&var_funcs_table, 8);
@@ -650,12 +649,18 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 	for(ptr = auth_request_var_funcs_table; ptr->key != NULL; ptr++) {
 		array_push_back(&var_funcs_table, ptr);
 	}
-	ftable = array_append_space(&var_funcs_table);
-	ftable->key = "ldap";
-	ftable->func = db_ldap_field_subquery_find;
-	ftable = array_append_space(&var_funcs_table);
-	ftable->key = "ldap_ptr";
-	ftable->func = db_ldap_field_subquery_find;
+
+	static struct var_expand_func_table subquery_table[] = {
+		{ "ldap", db_ldap_field_subquery_find },
+		{ "ldap_multi", db_ldap_field_subquery_find },
+		{ "ldap_ptr", db_ldap_field_subquery_find },
+		{ NULL, NULL }
+	};
+
+	for(ptr = subquery_table; ptr->key != NULL; ptr++) {
+		array_push_back(&var_funcs_table, ptr);
+	}
+
 	array_append_zero(&var_funcs_table);
 
 	i_zero(&ctx);
