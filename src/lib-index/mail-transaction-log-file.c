@@ -372,15 +372,16 @@ int mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 		return 0;
 	}
 
-	if (index->set.lock_method == FILE_LOCK_METHOD_DOTLOCK)
-		return mail_transaction_log_file_dotlock(file);
-
 	if (index->readonly) {
-		mail_index_set_error(index,
+		mail_index_set_error_code(
+			index, MAIL_INDEX_ERROR_CODE_NO_ACCESS,
 			"Index is read-only, can't write-lock %s",
 			file->filepath);
 		return -1;
 	}
+
+	if (index->set.lock_method == FILE_LOCK_METHOD_DOTLOCK)
+		return mail_transaction_log_file_dotlock(file);
 
 	i_assert(file->file_lock == NULL);
 	lock_timeout_secs = I_MIN(MAIL_TRANSACTION_LOG_LOCK_TIMEOUT,
