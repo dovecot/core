@@ -23,9 +23,10 @@ struct auth_lua_script_parameters {
 int auth_lua_script_init(const struct auth_lua_script_parameters *params,
 		         const char **error_r);
 
-int auth_lua_call_password_verify(struct dlua_script *script,
-				  struct auth_request *req, const char *password,
-				  const char **error_r);
+enum passdb_result
+auth_lua_call_password_verify(struct dlua_script *script,
+			      struct auth_request *req, const char *password,
+			      const char **error_r);
 
 enum passdb_result
 auth_lua_call_passdb_lookup(struct dlua_script *script,
