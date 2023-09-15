@@ -531,8 +531,8 @@ service_drop_privileges(struct mail_storage_service_user *user,
 			return -1;
 		}
 	}
-	if (*set->mail_access_groups != '\0') {
-		rset.extra_groups = t_strconcat(set->mail_access_groups, ",",
+	if (array_not_empty(&set->mail_access_groups)) {
+		rset.extra_groups = t_strconcat(t_array_const_string_join(&set->mail_access_groups, ","), ",",
 						rset.extra_groups, NULL);
 	}
 
