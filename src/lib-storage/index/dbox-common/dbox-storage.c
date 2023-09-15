@@ -305,8 +305,8 @@ int dbox_mailbox_list_cleanup(struct mail_user *user, const char *path,
 		   if the directory exists. In case, get also the ctime */
 		struct stat stats;
 		if (stat(path, &stats) == 0) {
-			last_temp_file_scan = stats.st_atim.tv_sec;
-			change_time = stats.st_ctim.tv_sec;
+			last_temp_file_scan = ST_ATIME_SEC(stats);
+			change_time = ST_CTIME_SEC(stats);
 		} else {
 			if (errno != ENOENT)
 				e_error(user->event, "stat(%s) failed: %m", path);
