@@ -13,7 +13,7 @@ static bool login_settings_check(void *_set, pool_t pool, const char **error_r);
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct login_settings)
 
 static const struct setting_define login_setting_defines[] = {
-	DEF(STR, login_trusted_networks),
+	DEF(BOOLLIST, login_trusted_networks),
 	DEF(STR, login_source_ips),
 	DEF(STR_HIDDEN, login_greeting),
 	DEF(STR_NOVARS, login_log_format_elements),
@@ -43,7 +43,7 @@ static const struct setting_define login_setting_defines[] = {
 };
 
 static const struct login_settings login_default_settings = {
-	.login_trusted_networks = "",
+	.login_trusted_networks = ARRAY_INIT,
 	.login_source_ips = "",
 	.login_greeting = PACKAGE_NAME" ready.",
 	.login_log_format_elements = "user=<%u> method=%m rip=%r lip=%l mpid=%e %c session=<%{session}>",

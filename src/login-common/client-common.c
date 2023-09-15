@@ -181,10 +181,7 @@ static bool client_is_trusted(struct client *client)
 	struct ip_addr net_ip;
 	unsigned int bits;
 
-	if (client->set->login_trusted_networks == NULL)
-		return FALSE;
-
-	net = t_strsplit_spaces(client->set->login_trusted_networks, ", ");
+	net = settings_boollist_get(&client->set->login_trusted_networks);
 	for (; *net != NULL; net++) {
 		if (net_parse_range(*net, &net_ip, &bits) < 0) {
 			e_error(client->event, "login_trusted_networks: "

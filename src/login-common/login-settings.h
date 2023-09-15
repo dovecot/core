@@ -3,7 +3,7 @@
 
 struct login_settings {
 	pool_t pool;
-	const char *login_trusted_networks;
+	ARRAY_TYPE(const_string) login_trusted_networks;
 	const char *login_source_ips;
 	const char *login_greeting;
 	const char *login_log_format_elements, *login_log_format;
