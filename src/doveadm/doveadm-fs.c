@@ -88,6 +88,7 @@ static void cmd_fs_put(struct doveadm_cmd_context *cctx)
 	struct fs *fs;
 	enum fs_properties props;
 	const char *hash_str, *src_path, *dest_path;
+	const char *const *metas;
 	struct fs_file *file;
 	struct istream *input;
 	struct ostream *output;
@@ -117,6 +118,19 @@ static void cmd_fs_put(struct doveadm_cmd_context *cctx)
 			i_fatal("fs backend doesn't support SHA256 hashes");
 		fs_write_set_hash(file,
 			hash_method_lookup(hash_method_sha256.name), hash->data);
+	}
+
+	if (doveadm_cmd_param_array(cctx, "metadata", &metas)) {
+		if ((props & FS_PROPERTY_METADATA) == 0)
+			i_fatal("No metadata support");
+		for (const char *const *meta = metas; *meta != NULL; meta++) {
+			const char *key, *value;
+			if (!t_split_key_value_eq(*meta, &key, &value)) {
+				i_fatal("Metadata must be in key=value format, got '%s'",
+					*meta);
+			}
+			fs_set_metadata(file, key, value);
+		};
 	}
 
 	output = fs_write_stream(file);
@@ -522,9 +536,10 @@ DOVEADM_CMD_PARAMS_END
 {
 	.name = "fs put",
 	.cmd = cmd_fs_put,
-	.usage = "[-h <hash>] <fs-driver> <fs-args> <input path> <path>",
+	.usage = "[-h <hash>] [-m <key>=<value>] <fs-driver> <fs-args> <input path> <path>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('h', "hash", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('m', "metadata", CMD_PARAM_ARRAY, 0)
 DOVEADM_CMD_PARAM('\0', "fs-driver", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "fs-args", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "input-path", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
