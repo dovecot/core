@@ -16,6 +16,8 @@
 #include "dcrypt-iostream.h"
 #include "fs-api-private.h"
 
+#define FS_CRYPT_ISTREAM_MIN_BUFFER_SIZE 1024
+
 struct crypt_fs {
 	struct fs fs;
 	struct mail_crypt_global_keys keys;
@@ -277,7 +279,8 @@ fs_crypt_read_stream(struct fs_file *_file, size_t max_buffer_size)
 		return file->input;
 	}
 
-	input = fs_read_stream(file->super_read, max_buffer_size);
+	input = fs_read_stream(file->super_read,
+		I_MAX(FS_CRYPT_ISTREAM_MIN_BUFFER_SIZE, max_buffer_size));
 
 	if (file->fs->allow_missing_keys) {
 		struct istream *decrypted_input =
