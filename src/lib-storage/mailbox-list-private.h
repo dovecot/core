@@ -7,6 +7,7 @@
 #include "mailbox-list.h"
 #include "mailbox-list-iter.h"
 #include "mail-storage-settings.h"
+#include "mail-index.h"
 
 #define MAILBOX_LIST_NAME_MAILDIRPLUSPLUS "maildir++"
 #define MAILBOX_LIST_NAME_IMAPDIR "imapdir"

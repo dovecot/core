@@ -28,6 +28,7 @@ void mailbox_list_index_set_index_error(struct mailbox_list *list)
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 
 	mailbox_list_set_internal_error(list);
+	mail_index_get_last_error(ilist->index, &ilist->index_error_code);
 	mail_index_reset_error(ilist->index);
 }
 

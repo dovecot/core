@@ -120,6 +120,8 @@ struct mailbox_list_index {
 	HASH_TABLE(void *, struct mailbox_list_index_node *) mailbox_hash;
 	struct mailbox_list_index_node *mailbox_tree;
 
+	enum mail_index_error_code index_error_code;
+
 	bool pending_init:1;
 	bool opened:1;
 	bool syncing:1;
