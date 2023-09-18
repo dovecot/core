@@ -285,18 +285,11 @@ config_dump_full_handle_error(struct dump_context *dump_ctx,
 		return -1;
 	}
 
-	string_t *str = t_str_new(256);
-	if (dump_ctx->filter != NULL) {
-		uint32_t filter_idx_be32 = cpu32_to_be(dump_ctx->filter_idx);
-		o_stream_nsend(output, &filter_idx_be32,
-			       sizeof(filter_idx_be32));
-	}
-	str_append(str, error);
-	str_append_c(str, '\0');
-
-	uint64_t blob_size = cpu64_to_be(str_len(str));
+	size_t error_len = strlen(error) + 1;
+	uint64_t blob_size = cpu64_to_be(error_len);
 	o_stream_nsend(output, &blob_size, sizeof(blob_size));
-	o_stream_nsend(output, str_data(str), str_len(str));
+	o_stream_nsend(output, error, error_len);
+	dump_ctx->filter_written = TRUE;
 	return 0;
 }
 
