@@ -10,6 +10,8 @@
 #include "compression.h"
 #include "fs-api-private.h"
 
+#define FS_COMPRESS_ISTREAM_MIN_BUFFER_SIZE 1024
+
 struct compress_fs {
 	struct fs fs;
 	const struct compression_handler *compress_handler;
@@ -173,7 +175,8 @@ fs_compress_read_stream(struct fs_file *_file, size_t max_buffer_size)
 		return file->input;
 	}
 
-	input = fs_read_stream(file->super_read, max_buffer_size);
+	input = fs_read_stream(file->super_read,
+		I_MAX(FS_COMPRESS_ISTREAM_MIN_BUFFER_SIZE, max_buffer_size));
 	if (file->fs->try_plain)
 		flags |= ISTREAM_DECOMPRESS_FLAG_TRY;
 	file->input = i_stream_create_decompress(input, flags);
