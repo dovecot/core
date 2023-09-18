@@ -86,6 +86,7 @@ static enum fs_properties fs_metawrap_get_properties(struct fs *_fs)
 
 	props = fs_get_properties(_fs->parent);
 	if (fs->wrap_metadata) {
+		props |= FS_PROPERTY_METADATA;
 		/* we don't have a quick stat() to see the file's size,
 		   because of the metadata header */
 		props &= ENUM_NEGATE(FS_PROPERTY_STAT);
