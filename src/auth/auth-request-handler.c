@@ -103,6 +103,8 @@ void auth_request_handler_unref(struct auth_request_handler **_handler)
 {
         struct auth_request_handler *handler = *_handler;
 
+	if (handler == NULL)
+		return;
 	*_handler = NULL;
 
 	i_assert(handler->refcount > 0);
