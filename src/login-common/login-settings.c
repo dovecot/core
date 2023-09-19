@@ -52,7 +52,7 @@ static const struct login_settings login_default_settings = {
 	.login_trusted_networks = "",
 	.login_source_ips = "",
 	.login_greeting = PACKAGE_NAME" ready.",
-	.login_log_format_elements = "user=<%u> method=%m rip=%r lip=%l mpid=%e %c session=<%{session}>",
+	.login_log_format_elements = "user=<%u> method=%m rip=%r lip=%l mpid=%e tls=<%{ssl_security}> session=<%{session}>",
 	.login_log_format = "%$: %s",
 	.login_proxy_notify_path = "proxy-notify",
 	.login_plugin_dir = MODULEDIR"/login",
