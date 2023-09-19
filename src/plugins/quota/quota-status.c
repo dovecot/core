@@ -100,7 +100,9 @@ quota_check(struct mail_user *user, uoff_t mail_size, const char **error_r)
 
 static int client_check_mta_state(struct quota_client *client)
 {
-	if (client->state == NULL || strcasecmp(client->state, "RCPT") == 0)
+	if (client->state == NULL ||
+	    strcasecmp(client->state, "RCPT") == 0 ||
+	    strcasecmp(client->state, "END-OF-MESSAGE") == 0)
 		return 0;
 
 	if (!client->warned_bad_state) {
@@ -123,6 +125,16 @@ static void client_handle_request(struct quota_client *client)
 	char delim ATTR_UNUSED;
 	string_t *resp;
 	int ret;
+
+	/* this comes in with multiple recipient, and we can reply
+	   dunno here. It provides the number of recipients that Postfix
+	   accepted for the current message */
+	if (client->state != NULL && client->recipient == NULL &&
+	    strcasecmp(client->state, "END-OF-MESSAGE") == 0) {
+		e_debug(client->event, "Response: action=DUNNO");
+		o_stream_nsend_str(client->conn.output, "action=DUNNO\n\n");
+		return;
+	}
 
 	if (client_check_mta_state(client) < 0 || client->recipient == NULL) {
 		e_debug(client->event, "Response: action=DUNNO");
@@ -229,7 +241,7 @@ static int client_input_line(struct connection *conn, const char *line)
 	}
 	if (str_begins(line, "recipient=", &value)) {
 		if (client->recipient == NULL)
-			client->recipient = i_strdup(value);
+			client->recipient = i_strdup_empty(value);
 	} else if (str_begins(line, "size=", &value)) {
 		if (str_to_uoff(value, &client->size) < 0)
 			client->size = 0;
