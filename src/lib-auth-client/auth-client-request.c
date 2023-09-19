@@ -284,6 +284,12 @@ void auth_client_request_continue(struct auth_client_request *request,
 	struct const_iovec iov[3];
 	const char *prefix;
 
+	if (!request->conn->connected) {
+		e_error(request->event,
+			"Error sending continue request to auth server: connection lost");
+		return;
+	}
+
 	prefix = t_strdup_printf("CONT\t%u\t", request->id);
 
 	iov[0].iov_base = prefix;
@@ -368,6 +374,11 @@ void auth_client_request_server_input(struct auth_client_request *request,
 
 void auth_client_send_cancel(struct auth_client *client, unsigned int id)
 {
+	if (!client->conn->connected) {
+		e_error(client->conn->conn.event,
+			"Error sending request to auth server: connection lost");
+		return;
+	}
 	const char *str = t_strdup_printf("CANCEL\t%u\n", id);
 
 	if (o_stream_send_str(client->conn->conn.output, str) < 0) {
