@@ -94,10 +94,72 @@ static void test_oauth2_json_valid(void)
 	test_end();
 }
 
+static void
+test_oauth_json_has_error(struct oauth2_request *req,
+			  const char *error)
+{
+	const char *expected_error = req->req_context;
+	test_assert(error != NULL);
+	test_assert_strcmp(expected_error, error);
+}
+
+static void test_oauth2_json_error(void)
+{
+	test_begin("oauth2 json error");
+
+	const char *test_input_1 =
+"{\"error\":\"invalid_request\"}";
+	const char *test_input_2 =
+"{\"error\":\"invalid_request\",\"error_description\":\"Access denied\"}";
+
+	/* Create mock request */
+	pool_t pool = pool_alloconly_create_clean("oauth2 json test", 1024);
+	struct oauth2_request *req = p_new(pool, struct oauth2_request, 1);
+	req->pool = pool;
+	p_array_init(&req->fields, req->pool, 1);
+	req->is = test_istream_create_data(test_input_1, strlen(test_input_1));
+	req->parser = json_parser_init(req->is);
+	req->req_context = "invalid_request";
+	req->json_parsed_cb = test_oauth_json_has_error;
+
+	/* Parse the JSON response */
+	for (size_t pos = 0; pos <= strlen(test_input_1); pos +=2) {
+		test_istream_set_size(req->is, pos);
+		oauth2_request_parse_json(req);
+		if (req->is == NULL)
+			break;
+	}
+
+			
+	pool_unref(&pool);
+
+	pool = pool_alloconly_create_clean("oauth2 json test", 1024);
+	req = p_new(pool, struct oauth2_request, 1);
+	req->pool = pool;
+	p_array_init(&req->fields, req->pool, 1);
+	req->is = test_istream_create_data(test_input_2, strlen(test_input_2));
+	req->parser = json_parser_init(req->is);
+	req->req_context = "Access denied";
+	req->json_parsed_cb = test_oauth_json_has_error;
+
+	/* Parse the JSON response */
+	for (size_t pos = 0; pos <= strlen(test_input_2); pos +=2) {
+		test_istream_set_size(req->is, pos);
+		oauth2_request_parse_json(req);
+		if (req->is == NULL)
+			break;
+	}
+
+	pool_unref(&pool);
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_oauth2_json_valid,
+		test_oauth2_json_error,
 		NULL
 	};
 	return test_run(test_functions);

@@ -78,6 +78,11 @@ oauth2_request_continue(struct oauth2_request *req, const char *error)
 	oauth2_request_callback(req, &res);
 }
 
+static int request_field_cmp(const char *key, const struct oauth2_field *field)
+{
+	return strcmp(key, field->name);
+}
+
 void oauth2_request_parse_json(struct oauth2_request *req)
 {
 	enum json_type type;
@@ -125,6 +130,19 @@ void oauth2_request_parse_json(struct oauth2_request *req)
 	}
 
 	i_stream_unref(&req->is);
+
+	/* check if fields contain error now */
+	const struct oauth2_field *error_field =
+		array_lsearch(&req->fields, "error", request_field_cmp);
+	if (error_field != NULL) {
+		/* seems it failed, though */
+		error = error_field->value;
+		/* check for detailed error */
+		error_field = array_lsearch(&req->fields, "error_description",
+					    request_field_cmp);
+		if (error_field != NULL)
+			error = error_field->value;
+	}
 
 	req->json_parsed_cb(req, error);
 }
