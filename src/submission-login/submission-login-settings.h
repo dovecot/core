@@ -15,7 +15,7 @@ struct submission_login_settings {
 	/* submission: */
 	uoff_t submission_max_mail_size;
 	ARRAY_TYPE(const_string) submission_client_workarounds;
-	const char *submission_backend_capabilities;
+	ARRAY_TYPE(const_string) submission_backend_capabilities;
 
 	enum submission_login_client_workarounds parsed_workarounds;
 };

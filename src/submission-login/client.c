@@ -2,6 +2,7 @@
 
 #include "login-common.h"
 #include "base64.h"
+#include "array.h"
 #include "buffer.h"
 #include "ioloop.h"
 #include "istream.h"
@@ -19,6 +20,7 @@
 #include "auth-client.h"
 #include "submission-proxy.h"
 #include "submission-login-settings.h"
+#include "settings-parser.h"
 
 /* Disconnect client when it sends too many bad commands */
 #define CLIENT_MAX_BAD_COMMANDS 10
@@ -33,13 +35,13 @@ client_parse_backend_capabilities(struct submission_client *subm_client )
 	const struct submission_login_settings *set = subm_client->set;
 	const char *const *str;
 
-	if (set->submission_backend_capabilities[0] == '\0') {
+	if (array_is_empty(&set->submission_backend_capabilities)) {
 		subm_client->backend_capabilities = SMTP_CAPABILITY_8BITMIME;
 		return;
 	}
 
 	subm_client->backend_capabilities = SMTP_CAPABILITY_NONE;
-	str = t_strsplit_spaces(set->submission_backend_capabilities, " ,");
+	str = settings_boollist_get(&set->submission_backend_capabilities);
 	for (; *str != NULL; str++) {
 		if (strcmp(*str, "none") == 0)
 			continue;

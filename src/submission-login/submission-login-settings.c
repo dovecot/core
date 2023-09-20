@@ -59,7 +59,7 @@ static const struct setting_define submission_login_setting_defines[] = {
 
 	DEF(SIZE, submission_max_mail_size),
 	DEF(BOOLLIST, submission_client_workarounds),
-	DEF(STR, submission_backend_capabilities),
+	DEF(BOOLLIST, submission_backend_capabilities),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -69,7 +69,7 @@ static const struct submission_login_settings submission_login_default_settings 
 
 	.submission_max_mail_size = 0,
 	.submission_client_workarounds = ARRAY_INIT,
-	.submission_backend_capabilities = "",
+	.submission_backend_capabilities = ARRAY_INIT,
 };
 
 const struct setting_parser_info submission_login_setting_parser_info = {
