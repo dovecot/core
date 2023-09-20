@@ -68,10 +68,10 @@ static void client_parse_backend_capabilities(struct client *client)
 	const char *const *str;
 
 	client->backend_capabilities = SMTP_CAPABILITY_NONE;
-	if (set->submission_backend_capabilities[0] == '\0')
+	if (array_is_empty(&set->submission_backend_capabilities))
 		return;
 
-	str = t_strsplit_spaces(set->submission_backend_capabilities, " ,");
+	str = settings_boollist_get(&set->submission_backend_capabilities);
 	for (; *str != NULL; str++) {
 		if (strcmp(*str, "none") == 0)
 			continue;

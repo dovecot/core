@@ -30,7 +30,7 @@ struct submission_settings {
 	bool submission_add_received_header;
 
 	/* submission backend: */
-	const char *submission_backend_capabilities;
+	ARRAY_TYPE(const_string) submission_backend_capabilities;
 
 	/* submission relay: */
 	const char *submission_relay_host;

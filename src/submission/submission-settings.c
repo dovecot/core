@@ -69,7 +69,7 @@ static const struct setting_define submission_setting_defines[] = {
 	DEF(STR_NOVARS, submission_logout_format),
 	DEF(BOOL, submission_add_received_header),
 
-	DEF(STR, submission_backend_capabilities),
+	DEF(BOOLLIST, submission_backend_capabilities),
 
 	DEF(STR, submission_relay_host),
 	DEF(IN_PORT, submission_relay_port),
@@ -111,7 +111,7 @@ static const struct submission_settings submission_default_settings = {
 	.submission_logout_format = "in=%i out=%o",
 	.submission_add_received_header = TRUE,
 
-	.submission_backend_capabilities = "",
+	.submission_backend_capabilities = ARRAY_INIT,
 
 	.submission_relay_host = "",
 	.submission_relay_port = 25,
