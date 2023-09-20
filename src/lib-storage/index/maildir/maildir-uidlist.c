@@ -173,6 +173,7 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 			if (ENOACCESS(errno)) {
 				mailbox_set_critical(box, "%s",
 					eacces_error_get_creating("file_dotlock_create", path));
+				return 0;
 			} else {
 				mailbox_set_critical(box,
 					"file_dotlock_create(%s) failed: %m",
