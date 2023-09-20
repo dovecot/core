@@ -29,6 +29,7 @@
 #include "auth-client.h"
 #include "dsasl-client.h"
 #include "login-proxy.h"
+#include "settings-parser.h"
 #include "client-common.h"
 
 struct client *clients = NULL;
