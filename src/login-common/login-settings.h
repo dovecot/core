@@ -10,7 +10,7 @@ struct login_settings {
 	const char *login_access_sockets;
 	const char *login_proxy_notify_path;
 	const char *login_plugin_dir;
-	const char *login_plugins;
+	ARRAY_TYPE(const_string) login_plugins;
 	unsigned int login_proxy_timeout;
 	unsigned int login_proxy_max_reconnects;
 	unsigned int login_proxy_max_disconnect_delay;

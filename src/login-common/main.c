@@ -20,6 +20,7 @@
 #include "dsasl-client.h"
 #include "master-service-settings.h"
 #include "login-proxy.h"
+#include "settings-parser.h"
 
 #include <unistd.h>
 #include <syslog.h>
@@ -313,7 +314,7 @@ static void login_load_modules(void)
 {
 	struct module_dir_load_settings mod_set;
 
-	if (global_login_settings->login_plugins[0] == '\0')
+	if (array_is_empty(&global_login_settings->login_plugins))
 		return;
 
 	i_zero(&mod_set);
@@ -324,7 +325,7 @@ static void login_load_modules(void)
 	mod_set.debug = login_debug;
 
 	modules = module_dir_load(global_login_settings->login_plugin_dir,
-				  t_strsplit_spaces(global_login_settings->login_plugins, ", "),
+				  settings_boollist_get(&global_login_settings->login_plugins),
 				  &mod_set);
 	module_dir_init(modules);
 }
