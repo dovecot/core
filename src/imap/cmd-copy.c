@@ -11,6 +11,7 @@
 #include "imap-storage-callbacks.h"
 #include "mail-storage.h"
 #include "time-util.h"
+#include "settings-parser.h"
 
 #include <time.h>
 
@@ -64,8 +65,8 @@ static void copy_update_trashed(struct client *client, struct mailbox *box,
 	const struct mailbox_settings *set;
 
 	set = mailbox_get_settings(box);
-	if (set != NULL && set->special_use[0] != '\0' &&
-	    str_array_icase_find(t_strsplit_spaces(set->special_use, " "),
+	if (set != NULL && array_not_empty(&set->special_use) &&
+	    str_array_icase_find(settings_boollist_get(&set->special_use),
 				 "\\Trash"))
 		client->trashed_count += count;
 }

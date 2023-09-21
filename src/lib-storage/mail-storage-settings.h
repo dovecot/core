@@ -142,7 +142,7 @@ struct mailbox_settings {
 	pool_t pool;
 	const char *name;
 	const char *autocreate;
-	const char *special_use;
+	ARRAY_TYPE(const_string) special_use;
 	const char *comment;
 	unsigned int autoexpunge;
 	unsigned int autoexpunge_max_mails;

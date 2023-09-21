@@ -983,8 +983,8 @@ static bool autocreate_iter_autobox(struct mailbox_list_iterate_context *ctx,
 	match = imap_match(ctx->glob, actx->new_info.vname);
 	if (match == IMAP_MATCH_YES) {
 		actx->new_info.special_use =
-			*autobox->set->special_use == '\0' ? NULL :
-			autobox->set->special_use;
+			array_is_empty(&autobox->set->special_use) ? NULL :
+			t_array_const_string_join(&autobox->set->special_use, " ");
 		return TRUE;
 	}
 	if ((match & IMAP_MATCH_PARENT) != 0 && !autobox->child_listed) {
@@ -1045,11 +1045,10 @@ mailbox_list_iter_next_call(struct mailbox_list_iterate_context *ctx)
 			ctx->failed = TRUE;
 			return NULL;
 		}
-		if (*set->special_use != '\0') {
+		if (array_not_empty(&set->special_use)) {
 			ctx->specialuse_info = *info;
 			ctx->specialuse_info.special_use =
-				*set->special_use == '\0' ? NULL :
-				set->special_use;
+				t_array_const_string_join(&set->special_use, " ");
 			info = &ctx->specialuse_info;
 		}
 		settings_free(set);

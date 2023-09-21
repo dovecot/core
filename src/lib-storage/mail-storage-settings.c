@@ -219,7 +219,7 @@ static const struct setting_define mailbox_setting_defines[] = {
 	DEF(STR, name),
 	{ .type = SET_ENUM, .key = "mailbox_auto",
 	  .offset = offsetof(struct mailbox_settings, autocreate) } ,
-	DEF(STR, special_use),
+	DEF(BOOLLIST, special_use),
 	DEF(STR, comment),
 	DEF(TIME, autoexpunge),
 	DEF(UINT, autoexpunge_max_mails),
@@ -232,7 +232,7 @@ const struct mailbox_settings mailbox_default_settings = {
 	.autocreate = MAILBOX_SET_AUTO_NO":"
 		MAILBOX_SET_AUTO_CREATE":"
 		MAILBOX_SET_AUTO_SUBSCRIBE,
-	.special_use = "",
+	.special_use = ARRAY_INIT,
 	.comment = "",
 	.autoexpunge = 0,
 	.autoexpunge_max_mails = 0
@@ -844,7 +844,7 @@ namespace_have_special_use_mailboxes(struct event *event,
 				box_name, error);
 			break;
 		}
-		bool have_special_use = box_set->special_use[0] != '\0';
+		bool have_special_use = array_not_empty(&box_set->special_use);
 		settings_free(box_set);
 		if (have_special_use) {
 			ret = 1;
@@ -908,12 +908,12 @@ static bool mailbox_special_use_exists(const char *name)
 }
 
 static void
-mailbox_special_use_check(struct mailbox_settings *set, pool_t pool)
+mailbox_special_use_check(struct mailbox_settings *set)
 {
-	const char *const *uses, *str;
+	const char *const *uses;
 	unsigned int i;
 
-	uses = t_strsplit_spaces(set->special_use, " ");
+	uses = settings_boollist_get(&set->special_use);
 	for (i = 0; uses[i] != NULL; i++) {
 		if (!mailbox_special_use_exists(uses[i])) {
 			i_warning("mailbox %s: special_use label %s is not an "
@@ -921,13 +921,9 @@ mailbox_special_use_check(struct mailbox_settings *set, pool_t pool)
 				  set->name, uses[i]);
 		}
 	}
-	/* make sure there are no extra spaces */
-	str = t_strarray_join(uses, " ");
-	if (strcmp(str, set->special_use) != 0)
-		set->special_use = p_strdup(pool, str);
 }
 
-static bool mailbox_settings_check(void *_set, pool_t pool,
+static bool mailbox_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				   const char **error_r)
 {
 	struct mailbox_settings *set = _set;
@@ -937,9 +933,7 @@ static bool mailbox_settings_check(void *_set, pool_t pool,
 					   set->name);
 		return FALSE;
 	}
-	if (*set->special_use != '\0') {
-		mailbox_special_use_check(set, pool);
-	}
+	mailbox_special_use_check(set);
 	return TRUE;
 }
 
