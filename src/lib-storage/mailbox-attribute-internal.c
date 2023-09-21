@@ -1,6 +1,7 @@
 /* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "mail-storage-private.h"
 #include "mailbox-attribute-internal.h"
 
@@ -17,10 +18,10 @@ mailbox_attribute_specialuse_get(struct mailbox *box,
 {
 	const struct mailbox_settings *set = box->set;
 
-	if (set == NULL || *set->special_use == '\0')
+	if (set == NULL || array_is_empty(&set->special_use))
 		return 0;
 
-	value_r->value = set->special_use;
+	value_r->value = t_array_const_string_join(&set->special_use, " ");
 	return 1;
 }
 

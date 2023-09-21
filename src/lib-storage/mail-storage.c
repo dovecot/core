@@ -1907,7 +1907,8 @@ bool mailbox_has_special_use(struct mailbox *box, const char *special_use)
 {
 	if (box->set == NULL)
 		return FALSE;
-	return str_contains_special_use(box->set->special_use, special_use);
+	return str_contains_special_use(t_array_const_string_join(&box->set->special_use, " "),
+					special_use);
 }
 
 static void mailbox_copy_cache_decisions_from_inbox(struct mailbox *box)
