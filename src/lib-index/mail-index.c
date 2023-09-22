@@ -876,21 +876,36 @@ struct mail_cache *mail_index_get_cache(struct mail_index *index)
 	return index->cache;
 }
 
-void mail_index_set_error(struct mail_index *index, const char *fmt, ...)
+static void ATTR_FORMAT(2,0)
+mail_index_set_verror(struct mail_index *index, const char *fmt, va_list args)
 {
-	va_list va;
-
 	i_free(index->last_error.text);
 
 	if (fmt == NULL)
 		index->last_error.text = NULL;
 	else {
-		va_start(va, fmt);
-		index->last_error.text = i_strdup_vprintf(fmt, va);
-		va_end(va);
-
+		index->last_error.text = i_strdup_vprintf(fmt, args);
 		e_error(index->event, "%s", index->last_error.text);
 	}
+}
+
+void mail_index_set_error(struct mail_index *index, const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	mail_index_set_verror(index, fmt, args);
+	va_end(args);
+}
+
+void mail_index_set_error_code(struct mail_index *index,
+			       enum mail_index_error_code code,
+			       const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	mail_index_set_verror(index, fmt, args);
+	index->last_error.code = code;
+	va_end(args);
 }
 
 void mail_index_set_error_nolog(struct mail_index *index, const char *str)
