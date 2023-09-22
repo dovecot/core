@@ -277,7 +277,7 @@ static void stats_category_registered(struct event_category *category)
 	if (client->conn.output == NULL)
 		return;
 
-	string_t *str = t_str_new(64);
+	string_t *str = t_str_new(256);
 	stats_category_append(str, category);
 	o_stream_nsend(client->conn.output, str_data(str), str_len(str));
 }
