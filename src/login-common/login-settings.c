@@ -155,14 +155,13 @@ login_setting_dup(pool_t pool, const struct setting_parser_info *info,
 	return dest;
 }
 
-struct login_settings *
-login_settings_read(pool_t pool,
-		    const struct ip_addr *local_ip,
-		    const struct ip_addr *remote_ip,
-		    const char *local_name,
-		    const struct master_service_ssl_settings **ssl_set_r,
-		    const struct master_service_ssl_server_settings **ssl_server_set_r,
-		    void ***other_settings_r)
+static struct login_settings *
+login_settings_read_real(
+	pool_t pool, const struct ip_addr *local_ip,
+	const struct ip_addr *remote_ip, const char *local_name,
+	const struct master_service_ssl_settings **ssl_set_r,
+	const struct master_service_ssl_server_settings **ssl_server_set_r,
+	void ***other_settings_r)
 {
 	struct master_service_settings_input input;
 	struct master_service_settings_output output;
@@ -203,4 +202,24 @@ login_settings_read(pool_t pool,
 				  parser);
 	*other_settings_r = sets + 1;
 	return sets[0];
+}
+
+struct login_settings *
+login_settings_read(
+	pool_t pool, const struct ip_addr *local_ip,
+	const struct ip_addr *remote_ip, const char *local_name,
+	const struct master_service_ssl_settings **ssl_set_r,
+	const struct master_service_ssl_server_settings **ssl_server_set_r,
+	void ***other_settings_r)
+{
+	struct login_settings *login_set;
+
+	T_BEGIN {
+		login_set = login_settings_read_real(pool, local_ip, remote_ip,
+						     local_name, ssl_set_r,
+						     ssl_server_set_r,
+						     other_settings_r);
+	} T_END;
+
+	return login_set;
 }
