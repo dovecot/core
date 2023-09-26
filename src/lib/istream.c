@@ -797,13 +797,9 @@ int i_stream_read_data(struct istream *stream, const unsigned char **data_r,
 		i_assert(!stream->blocking);
 		return 0;
 	}
-	if (stream->eof) {
-		if (read_more) {
-			/* we read at least some new data */
-			return 0;
-		}
-	} else {
-		i_assert(stream->stream_errno != 0);
+	if (stream->stream_errno == 0 && read_more) {
+		/* we read at least some new data */
+		return 0;
 	}
 	return -1;
 }
