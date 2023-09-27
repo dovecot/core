@@ -444,6 +444,7 @@ void fs_set_metadata(struct fs_file *file, const char *key, const char *value)
 {
 	i_assert(key != NULL);
 	i_assert(value != NULL);
+	i_assert(strchr(key, '_') == NULL);
 
 	if (file->fs->v.set_metadata != NULL) T_BEGIN {
 		file->fs->v.set_metadata(file, key, value);
