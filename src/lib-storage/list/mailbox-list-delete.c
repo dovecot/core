@@ -236,7 +236,7 @@ int mailbox_list_delete_mailbox_nonrecursive(struct mailbox_list *list,
 			i_sleep_msecs(100);
 			ret = rmdir(path);
 		}
-		if (rmdir(path) == 0)
+		if (ret == 0)
 			unlinked_something = TRUE;
 		else if (errno == ENOENT) {
 			/* race condition with another process, which finished
