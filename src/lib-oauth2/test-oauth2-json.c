@@ -75,10 +75,10 @@ static void test_oauth2_json_valid(void)
 	cb_got_called = FALSE;
 
 	/* Parse the JSON response */
-	for (pos = 0; pos <= strlen(test_input); pos +=2) {
+	for (pos = 0;; pos += 2) {
 		test_istream_set_size(req->is, pos);
 		oauth2_request_parse_json(req);
-		if (req->is == NULL)
+		if (pos >= strlen(test_input))
 			break;
 	}
 
@@ -130,10 +130,10 @@ static void test_oauth2_json_error(void)
 	cb_got_called = FALSE;
 
 	/* Parse the JSON response */
-	for (size_t pos = 0; pos <= strlen(test_input_1); pos +=2) {
+	for (size_t pos = 0;; pos += 2) {
 		test_istream_set_size(req->is, pos);
 		oauth2_request_parse_json(req);
-		if (req->is == NULL)
+		if (pos >= strlen(test_input_1))
 			break;
 	}
 
@@ -151,10 +151,10 @@ static void test_oauth2_json_error(void)
 	cb_got_called = FALSE;
 
 	/* Parse the JSON response */
-	for (size_t pos = 0; pos <= strlen(test_input_2); pos +=2) {
+	for (size_t pos = 0;; pos += 2) {
 		test_istream_set_size(req->is, pos);
 		oauth2_request_parse_json(req);
-		if (req->is == NULL)
+		if (pos >= strlen(test_input_2))
 			break;
 	}
 
