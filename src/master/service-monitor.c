@@ -114,6 +114,7 @@ static void service_status_more(struct service_process *process,
 		process->idle_start = 0;
 
 		i_assert(service->process_idling > 0);
+		i_assert(service->process_idling <= service->process_avail);
 		service->process_idling--;
 		service->process_idling_lowwater_since_kills =
 			I_MIN(service->process_idling_lowwater_since_kills,
@@ -128,6 +129,7 @@ static void service_status_more(struct service_process *process,
 	/* process used up all of its clients */
 	i_assert(service->process_avail > 0);
 	service->process_avail--;
+	i_assert(service->process_idling <= service->process_avail);
 
 	if (service->type == SERVICE_TYPE_LOGIN &&
 	    service->process_avail == 0 &&
@@ -150,6 +152,7 @@ static void service_check_idle(struct service_process *process)
 		/* busy process started idling */
 		DLLIST_REMOVE(&service->busy_processes, process);
 		service->process_idling++;
+		i_assert(service->process_idling <= service->process_avail);
 	} else {
 		/* Idling process updated its status again to be idling. Maybe
 		   it was busy for a little bit? Update its idle_start time. */

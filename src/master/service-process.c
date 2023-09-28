@@ -470,6 +470,7 @@ void service_process_destroy(struct service_process *process)
 		DLLIST2_REMOVE(&service->idle_processes_head,
 			       &service->idle_processes_tail, process);
 		i_assert(service->process_idling > 0);
+		i_assert(service->process_idling <= service->process_avail);
 		service->process_idling--;
 		service->process_idling_lowwater_since_kills =
 			I_MIN(service->process_idling_lowwater_since_kills,
@@ -480,6 +481,7 @@ void service_process_destroy(struct service_process *process)
 	if (process->available_count > 0) {
 		i_assert(service->process_avail > 0);
 		service->process_avail--;
+		i_assert(service->process_idling <= service->process_avail);
 	}
 	i_assert(service->process_count > 0);
 	service->process_count--;
