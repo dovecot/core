@@ -693,6 +693,11 @@ void service_list_unref(struct service_list *service_list)
 		return;
 
 	array_foreach_elem(&service_list->services, service) {
+		i_assert(service->busy_processes == NULL);
+		i_assert(service->idle_processes_head == NULL);
+		i_assert(service->process_count == 0);
+		i_assert(service->process_idling == 0);
+		i_assert(service->process_avail == 0);
 		array_foreach_elem(&service->listeners, listener)
 			i_close_fd(&listener->fd);
 		event_unref(&service->event);
