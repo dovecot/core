@@ -34,6 +34,8 @@ void auth_client_deinit(struct auth_client **_client)
 {
 	struct auth_client *client = *_client;
 
+	if (client == NULL)
+		return;
 	*_client = NULL;
 
 	auth_client_connection_deinit(&client->conn);
