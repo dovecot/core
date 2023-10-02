@@ -17,8 +17,6 @@ enum auth_request_flags {
 	AUTH_REQUEST_FLAG_VALID_CLIENT_CERT	= 0x02,
 	/* Skip penalty checks for this request */
 	AUTH_REQUEST_FLAG_NO_PENALTY		= 0x04,
-	/* Support final SASL response */
-	AUTH_REQUEST_FLAG_SUPPORT_FINAL_RESP	= 0x08,
 	/* Enable auth_debug=yes logging for this request */
 	AUTH_REQUEST_FLAG_DEBUG			= 0x10,
 	/* Connection from the previous hop is secured by TLS. */

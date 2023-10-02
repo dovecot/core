@@ -25,8 +25,6 @@ static void auth_server_send_new_request(struct auth_client_connection *conn,
 	event_add_str(request->event, "mechanism", info->mech);
 	event_add_str(request->event, "service", info->service);
 
-	if ((info->flags & AUTH_REQUEST_FLAG_SUPPORT_FINAL_RESP) != 0)
-		str_append(str, "\tfinal-resp-ok");
 	if ((info->flags & AUTH_REQUEST_FLAG_CONN_SECURED) != 0) {
 		str_append(str, "\tsecured");
 		if ((info->flags & AUTH_REQUEST_FLAG_CONN_SECURED_TLS) != 0) {

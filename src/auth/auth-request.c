@@ -271,14 +271,6 @@ void auth_request_success_continue(struct auth_policy_check_ctx *ctx)
 		return;
 	}
 
-	if (ctx->success_data->used > 0 && !request->fields.final_resp_ok) {
-		/* we'll need one more SASL round, since client doesn't support
-		   the final SASL response */
-		auth_request_handler_reply_continue(request,
-			ctx->success_data->data, ctx->success_data->used);
-		return;
-	}
-
 	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	auth_request_refresh_last_access(request);
 	auth_request_handler_reply(request, AUTH_CLIENT_RESULT_SUCCESS,

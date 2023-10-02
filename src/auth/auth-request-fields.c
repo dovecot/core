@@ -226,8 +226,6 @@ bool auth_request_import_auth(struct auth_request *request,
 			event_add_str(request->event, "transport", "secured");
 		}
 	}
-	else if (strcmp(key, "final-resp-ok") == 0)
-		fields->final_resp_ok = TRUE;
 	else if (strcmp(key, "no-penalty") == 0)
 		fields->no_penalty = TRUE;
 	else if (strcmp(key, "valid-client-cert") == 0)

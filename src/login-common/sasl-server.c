@@ -113,8 +113,6 @@ client_get_auth_flags(struct client *client)
 		auth_flags |= AUTH_REQUEST_FLAG_CONN_SECURED_TLS;
 	if (client->connection_secured)
 		auth_flags |= AUTH_REQUEST_FLAG_CONN_SECURED;
-	if (login_binary->sasl_support_final_reply)
-		auth_flags |= AUTH_REQUEST_FLAG_SUPPORT_FINAL_RESP;
 	return auth_flags;
 }
 
@@ -345,6 +343,7 @@ authenticate_callback(struct auth_client_request *request,
 		      const char *const *args, void *context)
 {
 	struct client *client = context;
+	const char *sasl_final_delayed_resp;
 	unsigned int i;
 
 	if (!client->authenticating) {
@@ -367,6 +366,7 @@ authenticate_callback(struct auth_client_request *request,
 		client->auth_passdb_args = p_strarray_dup(client->pool, args);
 		client->postlogin_socket_path = NULL;
 
+		sasl_final_delayed_resp = NULL;
 		for (i = 0; args[i] != NULL; i++) {
 			const char *key, *value;
 			t_split_key_value_eq(args[i], &key, &value);
@@ -385,10 +385,22 @@ authenticate_callback(struct auth_client_request *request,
 				client->auth_anonymous = TRUE;
 			} else if (str_begins(args[i], "event_", &key)) {
 				event_add_str(client->event_auth, key, value);
+			} else if (strcmp(key, "resp") == 0) {
+				sasl_final_delayed_resp =
+					p_strdup(client->preproxy_pool, value);
 			}
 		}
 
-		sasl_server_auth_success_finish(client, args);
+		if (sasl_final_delayed_resp != NULL &&
+		    !login_binary->sasl_support_final_reply) {
+			client->final_response = TRUE;
+			client->final_args = p_strarray_dup(client->preproxy_pool, args);
+			client->delayed_final_reply = SASL_SERVER_REPLY_SUCCESS;
+			client->sasl_callback(client, SASL_SERVER_REPLY_CONTINUE,
+					      sasl_final_delayed_resp, NULL);
+		} else {
+			sasl_server_auth_success_finish(client, args);
+		}
 		break;
 	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
 		client->auth_process_comm_fail = TRUE;
@@ -397,7 +409,7 @@ authenticate_callback(struct auth_client_request *request,
 	case AUTH_REQUEST_STATUS_ABORT:
 		client->auth_request = NULL;
 
-		const char *sasl_final_delayed_resp = NULL;
+		sasl_final_delayed_resp = NULL;
 		if (args != NULL) {
 			/* parse our username if it's there */
 			for (i = 0; args[i] != NULL; i++) {
@@ -640,8 +652,16 @@ bool sasl_server_auth_handle_delayed_final(struct client *client)
 	if (!client->final_response)
 		return FALSE;
 	client->final_response = FALSE;
-	client->authenticating = FALSE;
 	client->auth_client_continue_pending = FALSE;
+
+	if (client->delayed_final_reply == SASL_SERVER_REPLY_SUCCESS) {
+		const char *const *args = client->final_args;
+
+		sasl_server_auth_success_finish(client, args);
+		return TRUE;
+	}
+
+	client->authenticating = FALSE;
 	call_client_callback(client, client->delayed_final_reply,
 			     NULL, client->final_args);
 
