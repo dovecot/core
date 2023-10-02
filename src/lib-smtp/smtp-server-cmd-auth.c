@@ -9,9 +9,7 @@
 
 /* AUTH command (RFC 4954) */
 
-
-static bool
-cmd_auth_check_state(struct smtp_server_cmd_ctx *cmd)
+static bool cmd_auth_check_state(struct smtp_server_cmd_ctx *cmd)
 {
 	struct smtp_server_connection *conn = cmd->conn;
 
@@ -72,8 +70,9 @@ static void cmd_auth_input(struct smtp_server_cmd_ctx *cmd)
 	int ret;
 
 	/* parse response */
-	if ((ret=smtp_command_parse_auth_response(conn->smtp_parser,
-		&auth_response, &error_code, &error)) <= 0) {
+	ret = smtp_command_parse_auth_response(
+		conn->smtp_parser, &auth_response, &error_code, &error);
+	if (ret <= 0) {
 		/* check for disconnect */
 		if (conn->conn.input->eof) {
 			smtp_server_connection_close(&conn,
@@ -115,8 +114,9 @@ static void cmd_auth_input(struct smtp_server_cmd_ctx *cmd)
 	smtp_server_command_ref(command);
 	i_assert(callbacks != NULL &&
 		 callbacks->conn_cmd_auth_continue != NULL);
-	if ((ret=callbacks->conn_cmd_auth_continue(conn->context,
-		cmd, auth_response)) <= 0) {
+	ret = callbacks->conn_cmd_auth_continue(conn->context, cmd,
+						auth_response);
+	if (ret <= 0) {
 		/* command is waiting for external event or it failed */
 		i_assert(ret == 0 || smtp_server_command_is_replied(command));
 		smtp_server_command_unref(&command);
