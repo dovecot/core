@@ -41,7 +41,7 @@ while (( "$#" )); do
 
     -o|--core)
 
-      gdb=`which gdb`
+      gdb=$( which gdb || : )
       if [ "$gdb" = "" ]; then
         echo "gdb not found"
         exit 1
