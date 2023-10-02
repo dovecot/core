@@ -73,6 +73,9 @@ static void cmd_auth_input(struct smtp_server_cmd_ctx *cmd)
 	ret = smtp_command_parse_auth_response(
 		conn->smtp_parser, &auth_response, &error_code, &error);
 	if (ret <= 0) {
+		if (ret < 0)
+			smtp_command_parser_clear(conn->smtp_parser);
+
 		/* check for disconnect */
 		if (conn->conn.input->eof) {
 			smtp_server_connection_close(&conn,
@@ -116,6 +119,7 @@ static void cmd_auth_input(struct smtp_server_cmd_ctx *cmd)
 		 callbacks->conn_cmd_auth_continue != NULL);
 	ret = callbacks->conn_cmd_auth_continue(conn->context, cmd,
 						auth_response);
+	smtp_command_parser_clear(conn->smtp_parser);
 	if (ret <= 0) {
 		/* command is waiting for external event or it failed */
 		i_assert(ret == 0 || smtp_server_command_is_replied(command));
