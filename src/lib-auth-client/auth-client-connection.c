@@ -458,6 +458,8 @@ void auth_client_connection_deinit(struct auth_client_connection **_conn)
 {
         struct auth_client_connection *conn = *_conn;
 
+	if (conn == NULL)
+		return;
 	*_conn = NULL;
 
 	auth_client_connection_disconnect(conn, "deinitializing");
