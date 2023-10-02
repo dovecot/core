@@ -24,6 +24,13 @@ smtp_command_parser_init(struct istream *input,
 			 const struct smtp_command_limits *limits) ATTR_NULL(2);
 void smtp_command_parser_deinit(struct smtp_command_parser **_parser);
 
+/* Clear any sensitive data in the parser. Any returned auth response line will
+   be cleared now. Call this as soon as the returned auth response is not
+   needed anymore. It will be cleared eventually when the parser continues with
+   the next command/auth response and when it is deinitialized, but that is not
+   optimal. */
+void smtp_command_parser_clear(struct smtp_command_parser *parser);
+
 void smtp_command_parser_set_stream(struct smtp_command_parser *parser,
 				    struct istream *input);
 

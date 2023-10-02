@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "unichar.h"
+#include "safe-memset.h"
 #include "istream.h"
 #include "istream-failure-at.h"
 #include "istream-sized.h"
@@ -50,6 +51,7 @@ struct smtp_command_parser {
 	char *error;
 
 	bool auth_response:1;
+	bool auth_response_buffered:1;
 };
 
 static inline void ATTR_FORMAT(3, 4)
@@ -97,9 +99,24 @@ smtp_command_parser_init(struct istream *input,
 	return parser;
 }
 
+void smtp_command_parser_clear(struct smtp_command_parser *parser)
+{
+	if (parser->auth_response_buffered) {
+		if (parser->line_buffer != NULL)
+			buffer_clear_safe(parser->line_buffer);
+		if (parser->state.cmd_params != NULL) {
+			safe_memset(parser->state.cmd_params, 0,
+				    strlen(parser->state.cmd_params));
+		}
+	}
+	parser->auth_response_buffered = FALSE;
+}
+
 void smtp_command_parser_deinit(struct smtp_command_parser **_parser)
 {
 	struct smtp_command_parser *parser = *_parser;
+
+	smtp_command_parser_clear(parser);
 
 	i_stream_unref(&parser->data);
 	buffer_free(&parser->line_buffer);
@@ -113,6 +130,8 @@ void smtp_command_parser_deinit(struct smtp_command_parser **_parser)
 
 static void smtp_command_parser_restart(struct smtp_command_parser *parser)
 {
+	smtp_command_parser_clear(parser);
+
 	buffer_free(&parser->line_buffer);
 	i_free(parser->state.cmd_name);
 	i_free(parser->state.cmd_params);
@@ -238,6 +257,8 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 				parser->line_buffer = buffer_create_dynamic(
 					default_pool, buf_size);
 			}
+			if (parser->auth_response)
+				parser->auth_response_buffered = TRUE;
 			buffer_append(parser->line_buffer, parser->cur,
 				      (p - parser->cur));
 
@@ -267,6 +288,8 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 		return -1;
 	}
 
+	if (parser->auth_response)
+		parser->auth_response_buffered = TRUE;
 	if (parser->line_buffer == NULL) {
 		/* Buffered only in input stream */
 		parser->state.cmd_params = i_strdup_until(parser->cur, mp);
