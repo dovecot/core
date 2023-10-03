@@ -72,6 +72,8 @@ static void stats_exporters_add_set(struct stats_metrics *metrics,
 		exporter->transport = event_export_transport_log;
 		exporter->format_max_field_len =
 			LOG_EXPORTER_LONG_FIELD_TRUNCATE_LEN;
+	} else if (strcmp(set->transport, "file") == 0) {
+		exporter->transport = event_export_transport_file;
 	} else {
 		i_unreached();
 	}
@@ -317,6 +319,7 @@ static void stats_export_deinit(void)
 	/* no need for event_export_transport_drop_deinit() - no-op */
 	event_export_transport_http_post_deinit();
 	/* no need for event_export_transport_log_deinit() - no-op */
+	event_export_transport_file_deinit();
 }
 
 void stats_metrics_deinit(struct stats_metrics **_metrics)

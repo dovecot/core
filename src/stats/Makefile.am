@@ -42,6 +42,7 @@ libstats_local_la_SOURCES = \
 	event-exporter-transport-drop.c \
 	event-exporter-transport-http-post.c \
 	event-exporter-transport-log.c \
+	event-exporter-transport-file.c \
 	$(stats_services) \
 	stats-service.c \
 	stats-event-category.c \

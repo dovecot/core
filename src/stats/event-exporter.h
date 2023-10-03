@@ -13,6 +13,8 @@ void event_export_transport_drop(const struct exporter *exporter, const buffer_t
 void event_export_transport_http_post(const struct exporter *exporter, const buffer_t *buf);
 void event_export_transport_http_post_deinit(void);
 void event_export_transport_log(const struct exporter *exporter, const buffer_t *buf);
+void event_export_transport_file(const struct exporter *exporter, const buffer_t *buf);
+void event_export_transport_file_deinit(void);
 
 /* append a microsecond resolution RFC3339 UTC timestamp */
 void event_export_helper_fmt_rfc3339_time(string_t *dest, const struct timeval *time);
