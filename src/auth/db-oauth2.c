@@ -3,6 +3,7 @@
 #include "auth-common.h"
 #include "array.h"
 #include "str.h"
+#include "strescape.h"
 #include "var-expand.h"
 #include "env-util.h"
 #include "var-expand.h"
@@ -650,7 +651,8 @@ db_oauth2_token_in_scope(struct db_oauth2_request *req,
 	if (*req->db->set.scope != '\0') {
 		bool found = FALSE;
 		const char *value = auth_fields_find(req->fields, "scope");
-		if (value == NULL)
+		bool has_scope = value != NULL;
+		if (!has_scope)
 			value = auth_fields_find(req->fields, "aud");
 		e_debug(authdb_event(req->auth_request),
 			"Token scope(s): %s",
@@ -658,9 +660,11 @@ db_oauth2_token_in_scope(struct db_oauth2_request *req,
 		if (value != NULL) {
 			const char **wanted_scopes =
 				t_strsplit_spaces(req->db->set.scope, " ");
-			const char **scopes = t_strsplit_spaces(value, " ");
+			const char *const *entries = has_scope ?
+				t_strsplit_spaces(value, " ") :
+				t_strsplit_tabescaped(value);
 			for (; !found && *wanted_scopes != NULL; wanted_scopes++)
-				found = str_array_find(scopes, *wanted_scopes);
+				found = str_array_find(entries, *wanted_scopes);
 		}
 		if (!found) {
 			*error_r = t_strdup_printf("Token is not valid for scope '%s'",

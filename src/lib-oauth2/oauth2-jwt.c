@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "str.h"
+#include "strescape.h"
 #include "hmac.h"
 #include "array.h"
 #include "hash-method.h"
@@ -31,6 +32,29 @@ static const char *get_field(const struct json_tree *tree, const char *key,
 	if (type_r != NULL)
 		*type_r = value_node->value_type;
 	return json_tree_get_value_str(value_node);
+}
+
+static const char *get_field_multiple(const struct json_tree *tree, const char *key)
+{
+	const struct json_tree_node *root = json_tree_root(tree);
+	const struct json_tree_node *value_node = json_tree_find_key(root, key);
+	if (value_node == NULL || value_node->value_type == JSON_TYPE_OBJECT)
+		return NULL;
+	if (value_node->value_type != JSON_TYPE_ARRAY)
+		return json_tree_get_value_str(value_node);
+
+	const struct json_tree_node *entry_node = json_tree_get_child(value_node);
+	string_t *values = t_str_new(64);
+	for (; entry_node != NULL; entry_node = entry_node->next) {
+		if (entry_node->value_type == JSON_TYPE_OBJECT ||
+		    entry_node->value_type == JSON_TYPE_ARRAY)
+		    	continue;
+		const char *value_str = json_tree_get_value_str(entry_node);
+		if (str_len(values) > 0)
+			str_append_c(values, '\t');
+		str_append_tabescaped(values, value_str);
+	}
+	return str_c(values);
 }
 
 static int get_time_field(const struct json_tree *tree, const char *key,
@@ -433,7 +457,7 @@ oauth2_jwt_body_process(const struct oauth2_settings *set, const char *alg,
 		}
 	}
 
-	const char *aud = get_field(tree, "aud", NULL);
+	const char *aud = get_field_multiple(tree, "aud");
 	/* if there is client_id configured, then aud should be present */
 	if (set->client_id != NULL && *set->client_id != '\0') {
 		if (aud == NULL) {
@@ -441,7 +465,7 @@ oauth2_jwt_body_process(const struct oauth2_settings *set, const char *alg,
 			return -1;
 
 		}
-		const char *const *auds = t_strsplit_spaces(aud, " ");
+		const char *const *auds = t_strsplit_tabescaped(aud);
 		if (!str_array_find(auds, set->client_id)) {
 			*error_r = "client_id not found in aud field";
 			return -1;
