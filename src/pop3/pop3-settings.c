@@ -61,7 +61,7 @@ static const struct setting_define pop3_setting_defines[] = {
 	DEF(BOOL, pop3_save_uidl),
 	DEF(BOOL, pop3_lock_session),
 	DEF(BOOL, pop3_fast_size_lookups),
-	DEF(STR, pop3_client_workarounds),
+	DEF(BOOLLIST, pop3_client_workarounds),
 	DEF(STR_NOVARS, pop3_logout_format),
 	DEF(ENUM, pop3_uidl_duplicates),
 	DEF(STR, pop3_deleted_flag),
@@ -80,7 +80,7 @@ static const struct pop3_settings pop3_default_settings = {
 	.pop3_save_uidl = FALSE,
 	.pop3_lock_session = FALSE,
 	.pop3_fast_size_lookups = FALSE,
-	.pop3_client_workarounds = "",
+	.pop3_client_workarounds = ARRAY_INIT,
 	.pop3_logout_format = "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s",
 	.pop3_uidl_duplicates = "allow:rename",
 	.pop3_deleted_flag = "",
@@ -118,7 +118,7 @@ pop3_settings_parse_workarounds(struct pop3_settings *set,
 	const struct pop3_client_workaround_list *list;
 	const char *const *str;
 
-        str = t_strsplit_spaces(set->pop3_client_workarounds, " ,");
+	str = settings_boollist_get(&set->pop3_client_workarounds);
 	for (; *str != NULL; str++) {
 		list = pop3_client_workaround_list;
 		for (; list->name != NULL; list++) {
