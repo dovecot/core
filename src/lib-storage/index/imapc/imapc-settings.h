@@ -44,7 +44,7 @@ struct imapc_settings {
 	const char *imapc_ssl;
 	bool imapc_ssl_verify;
 
-	const char *imapc_features;
+	ARRAY_TYPE(const_string) imapc_features;
 	const char *imapc_rawlog_dir;
 	const char *imapc_list_prefix;
 	unsigned int imapc_cmd_timeout;
