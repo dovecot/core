@@ -59,7 +59,7 @@ static const struct setting_define lmtp_setting_defines[] = {
 	DEF(STR, lmtp_rawlog_dir),
 	DEF(STR, lmtp_proxy_rawlog_dir),
 
-	DEF(STR, lmtp_client_workarounds),
+	DEF(BOOLLIST, lmtp_client_workarounds),
 
 	DEF(STR_HIDDEN, login_greeting),
 	DEF(STR, login_trusted_networks),
@@ -81,7 +81,7 @@ static const struct lmtp_settings lmtp_default_settings = {
 	.lmtp_rawlog_dir = "",
 	.lmtp_proxy_rawlog_dir = "",
 
-	.lmtp_client_workarounds = "",
+	.lmtp_client_workarounds = ARRAY_INIT,
 
 	.login_greeting = PACKAGE_NAME" ready.",
 	.login_trusted_networks = "",
@@ -122,7 +122,7 @@ lmtp_settings_parse_workarounds(struct lmtp_settings *set,
         const struct lmtp_client_workaround_list *list;
 	const char *const *str;
 
-        str = t_strsplit_spaces(set->lmtp_client_workarounds, " ,");
+	str = settings_boollist_get(&set->lmtp_client_workarounds);
 	for (; *str != NULL; str++) {
 		list = lmtp_client_workaround_list;
 		for (; list->name != NULL; list++) {

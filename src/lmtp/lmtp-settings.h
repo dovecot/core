@@ -30,7 +30,7 @@ struct lmtp_settings {
 	const char *lmtp_rawlog_dir;
 	const char *lmtp_proxy_rawlog_dir;
 
-	const char *lmtp_client_workarounds;
+	ARRAY_TYPE(const_string) lmtp_client_workarounds;
 
 	const char *login_greeting;
 	const char *login_trusted_networks;
