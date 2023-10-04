@@ -163,3 +163,14 @@ void event_export_transport_unix(const struct exporter *exporter,
 		return;
 	event_export_transport_file_write(node, buf);
 }
+
+void event_export_transport_file_reopen(void)
+{
+	/* close all files, but not unix sockets */
+	struct exporter_file *node = exporter_file_list_head;
+	while (node != NULL) {
+		if (!node->unix_socket)
+			exporter_file_close(node);
+		node = node->next;
+	}
+}
