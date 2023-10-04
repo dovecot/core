@@ -143,8 +143,8 @@ static int
 imap_settings_parse_workarounds(struct imap_settings *set,
 				const char **error_r)
 {
-        enum imap_client_workarounds client_workarounds = 0;
-        const struct imap_client_workaround_list *list;
+	enum imap_client_workarounds client_workarounds = 0;
+	const struct imap_client_workaround_list *list;
 	const char *const *str;
 
 	str = settings_boollist_get(&set->imap_client_workarounds);

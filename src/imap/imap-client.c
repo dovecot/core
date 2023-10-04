@@ -127,7 +127,7 @@ struct client *client_create(int fd_in, int fd_out,
 	o_stream_set_flush_callback(client->output, client_output, client);
 
 	p_array_init(&client->module_contexts, client->pool, 5);
-        client->last_input = ioloop_time;
+	client->last_input = ioloop_time;
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
 				      client_idle_timeout, client);
 
@@ -1258,7 +1258,7 @@ static bool client_command_input(struct client_command_context *cmd)
 	const char *tag, *name;
 	int ret;
 
-        if (cmd->func != NULL) {
+	if (cmd->func != NULL) {
 		/* command is being executed - continue it */
 		if (command_exec(cmd)) {
 			/* command execution was finished */
