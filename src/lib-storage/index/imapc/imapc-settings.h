@@ -39,7 +39,7 @@ struct imapc_settings {
 	const char *imapc_user;
 	const char *imapc_master_user;
 	const char *imapc_password;
-	const char *imapc_sasl_mechanisms;
+	ARRAY_TYPE(const_string) imapc_sasl_mechanisms;
 
 	const char *imapc_ssl;
 	bool imapc_ssl_verify;
