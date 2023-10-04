@@ -28,7 +28,7 @@ struct imap_settings {
 	uoff_t imap_max_line_length;
 	unsigned int imap_idle_notify_interval;
 	const char *imap_capability;
-	const char *imap_client_workarounds;
+	ARRAY_TYPE(const_string) imap_client_workarounds;
 	const char *imap_logout_format;
 	const char *imap_fetch_failure;
 	bool imap_metadata;

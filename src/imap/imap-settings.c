@@ -61,7 +61,7 @@ static const struct setting_define imap_setting_defines[] = {
 	DEF(SIZE_HIDDEN, imap_max_line_length),
 	DEF(TIME_HIDDEN, imap_idle_notify_interval),
 	DEF(STR, imap_capability),
-	DEF(STR, imap_client_workarounds),
+	DEF(BOOLLIST, imap_client_workarounds),
 	DEF(STR_NOVARS, imap_logout_format),
 	DEF(ENUM, imap_fetch_failure),
 	DEF(BOOL, imap_metadata),
@@ -89,7 +89,7 @@ static const struct imap_settings imap_default_settings = {
 	.imap_max_line_length = 64*1024,
 	.imap_idle_notify_interval = 2*60,
 	.imap_capability = "",
-	.imap_client_workarounds = "",
+	.imap_client_workarounds = ARRAY_INIT,
 	.imap_logout_format = "in=%i out=%o deleted=%{deleted} "
 		"expunged=%{expunged} trashed=%{trashed} "
 		"hdr_count=%{fetch_hdr_count} hdr_bytes=%{fetch_hdr_bytes} "
@@ -146,7 +146,7 @@ imap_settings_parse_workarounds(struct imap_settings *set,
         const struct imap_client_workaround_list *list;
 	const char *const *str;
 
-        str = t_strsplit_spaces(set->imap_client_workarounds, " ,");
+	str = settings_boollist_get(&set->imap_client_workarounds);
 	for (; *str != NULL; str++) {
 		list = imap_client_workaround_list;
 		for (; list->name != NULL; list++) {
