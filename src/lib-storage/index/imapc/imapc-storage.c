@@ -349,7 +349,7 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 		settings_free(imapc_set);
 		return -1;
 	}
-	set.sasl_mechanisms = imapc_set->imapc_sasl_mechanisms;
+	set.sasl_mechanisms = t_array_const_string_join(&imapc_set->imapc_sasl_mechanisms, ",");
 	set.use_proxyauth = (imapc_set->parsed_features & IMAPC_FEATURE_PROXYAUTH) != 0;
 	set.no_qresync = (imapc_set->parsed_features & IMAPC_FEATURE_NO_QRESYNC) != 0;
 	set.cmd_timeout_msecs = imapc_set->imapc_cmd_timeout * 1000;
@@ -462,7 +462,8 @@ imapc_storage_create(struct mail_storage *_storage,
 						    storage->set->imapc_host,
 						    storage->set->imapc_port,
 						    storage->set->imapc_list_prefix,
-						    storage->set->imapc_sasl_mechanisms,
+						    t_array_const_string_join(&storage->set->imapc_sasl_mechanisms,
+									      ","),
 						    storage->set->imapc_features,
 						    storage->set->imapc_rawlog_dir,
 						    storage->set->imapc_cmd_timeout,
