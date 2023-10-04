@@ -35,6 +35,7 @@ struct exporter {
 	 */
 	const char *transport_args;
 	unsigned int transport_timeout;
+	void *transport_context;
 
 	/* function to send the event */
 	void (*transport)(const struct exporter *, const buffer_t *);

@@ -81,6 +81,13 @@ static void stats_exporters_add_set(struct stats_metrics *metrics,
 	array_push_back(&metrics->exporters, &exporter);
 }
 
+void event_export_transport_assign_context(const struct exporter *exporter,
+					   void *context)
+{
+	struct exporter *ptr = (struct exporter *)exporter;
+	ptr->transport_context = context;
+}
+
 static struct metric *
 stats_metric_alloc(pool_t pool, const char *name,
 		   const struct stats_metric_settings *set,

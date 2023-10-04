@@ -28,4 +28,8 @@ void event_export_helper_fmt_categories(string_t *dest,
 					void (*append)(string_t *, const char *),
 					const char *separator);
 
+/* assign transport context to a event exporter */
+void event_export_transport_assign_context(const struct exporter *exporter,
+					   void *context);
+
 #endif
