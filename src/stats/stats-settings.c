@@ -289,7 +289,8 @@ static bool stats_exporter_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	} else if (strcmp(set->transport, "drop") == 0 ||
 		   strcmp(set->transport, "http-post") == 0 ||
 		   strcmp(set->transport, "log") == 0 ||
-		   strcmp(set->transport, "file") == 0) {
+		   strcmp(set->transport, "file") == 0 ||
+		   strcmp(set->transport, "unix") == 0) {
 		/* no-op */
 	} else {
 		*error_r = t_strdup_printf("Unknown transport type '%s'",

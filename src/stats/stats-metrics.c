@@ -74,6 +74,8 @@ static void stats_exporters_add_set(struct stats_metrics *metrics,
 			LOG_EXPORTER_LONG_FIELD_TRUNCATE_LEN;
 	} else if (strcmp(set->transport, "file") == 0) {
 		exporter->transport = event_export_transport_file;
+	} else if (strcmp(set->transport, "unix") == 0) {
+		exporter->transport = event_export_transport_unix;
 	} else {
 		i_unreached();
 	}
