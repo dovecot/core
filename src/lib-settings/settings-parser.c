@@ -377,14 +377,16 @@ int settings_parse_boollist_string(const char *value, pool_t pool,
 
 const char *const *settings_boollist_get(const ARRAY_TYPE(const_string) *array)
 {
-	const char *const *strings;
+	const char *const *strings = empty_str_array;
 	unsigned int count;
 
-	strings = array_get(array, &count);
-	i_assert(strings[count] == NULL);
+	if (array_not_empty(array)) {
+		strings = array_get(array, &count);
+		i_assert(strings[count] == NULL);
 #ifdef DEBUG
-	i_assert(strings[count+1] == boollist_eol_sentry);
+		i_assert(strings[count+1] == boollist_eol_sentry);
 #endif
+	}
 	return strings;
 
 }
