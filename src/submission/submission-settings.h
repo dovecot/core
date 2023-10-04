@@ -25,7 +25,7 @@ struct submission_settings {
 	/* submission: */
 	uoff_t submission_max_mail_size;
 	unsigned int submission_max_recipients;
-	const char *submission_client_workarounds;
+	ARRAY_TYPE(const_string) submission_client_workarounds;
 	const char *submission_logout_format;
 	bool submission_add_received_header;
 

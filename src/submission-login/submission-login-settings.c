@@ -58,7 +58,7 @@ static const struct setting_define submission_login_setting_defines[] = {
 	DEF(STR, hostname),
 
 	DEF(SIZE, submission_max_mail_size),
-	DEF(STR, submission_client_workarounds),
+	DEF(BOOLLIST, submission_client_workarounds),
 	DEF(STR, submission_backend_capabilities),
 
 	SETTING_DEFINE_LIST_END
@@ -68,7 +68,7 @@ static const struct submission_login_settings submission_login_default_settings 
 	.hostname = "",
 
 	.submission_max_mail_size = 0,
-	.submission_client_workarounds = "",
+	.submission_client_workarounds = ARRAY_INIT,
 	.submission_backend_capabilities = "",
 };
 
@@ -112,7 +112,7 @@ submission_login_settings_parse_workarounds(
         const struct submission_login_client_workaround_list *list;
 	const char *const *str;
 
-        str = t_strsplit_spaces(set->submission_client_workarounds, " ,");
+	str = settings_boollist_get(&set->submission_client_workarounds);
 	for (; *str != NULL; str++) {
 		list = submission_login_client_workaround_list;
 		for (; list->name != NULL; list++) {
