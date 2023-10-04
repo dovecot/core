@@ -25,7 +25,7 @@ static const struct setting_define imapc_setting_defines[] = {
 	DEF(ENUM, imapc_ssl),
 	DEF(BOOL, imapc_ssl_verify),
 
-	DEF(STR, imapc_features),
+	DEF(BOOLLIST, imapc_features),
 	DEF(STR, imapc_rawlog_dir),
 	DEF(STR, imapc_list_prefix),
 	DEF(TIME, imapc_cmd_timeout),
@@ -51,7 +51,7 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_ssl = "no:imaps:starttls",
 	.imapc_ssl_verify = TRUE,
 
-	.imapc_features = "",
+	.imapc_features = ARRAY_INIT,
 	.imapc_rawlog_dir = "",
 	.imapc_list_prefix = "",
 	.imapc_cmd_timeout = 5*60,
@@ -139,7 +139,7 @@ imapc_settings_parse_features(struct imapc_settings *set,
         const struct imapc_feature_list *list;
 	const char *const *str, *value;
 
-        str = t_strsplit_spaces(set->imapc_features, " ,");
+	str = settings_boollist_get(&set->imapc_features);
 	for (; *str != NULL; str++) {
 		list = imapc_feature_list;
 		for (; list->name != NULL; list++) {
