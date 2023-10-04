@@ -114,7 +114,7 @@ static int
 pop3_settings_parse_workarounds(struct pop3_settings *set,
 				const char **error_r)
 {
-        enum pop3_client_workarounds client_workarounds = 0;
+	enum pop3_client_workarounds client_workarounds = 0;
 	const struct pop3_client_workaround_list *list;
 	const char *const *str;
 
