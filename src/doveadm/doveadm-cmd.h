@@ -43,6 +43,7 @@ extern struct doveadm_cmd_ver2 doveadm_cmd_reload_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_stats_dump_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_stats_add_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_stats_remove_ver2;
+extern struct doveadm_cmd_ver2 doveadm_cmd_stats_reopen_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_mailbox_mutf7;
 extern struct doveadm_cmd_ver2 doveadm_cmd_penalty_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_pw;

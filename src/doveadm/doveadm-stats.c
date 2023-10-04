@@ -51,6 +51,7 @@ struct stats_cmd_vfuncs {
 static int build_stats_dump_cmd(struct stats_cmd_context *ctx, const char **error_r);
 static int build_stats_add_cmd(struct stats_cmd_context *ctx, const char **error_r);
 static int build_stats_remove_cmd(struct stats_cmd_context *ctx, const char **error_r);
+static int build_stats_reopen_cmd(struct stats_cmd_context *ctx, const char **error_r);
 
 static void stats_dump_process_response(struct stats_cmd_context *ctx);
 static void stats_modify_process_response(struct stats_cmd_context *ctx);
@@ -69,6 +70,11 @@ static struct stats_cmd_vfuncs add_vfuncs = {
 
 static struct stats_cmd_vfuncs remove_vfuncs = {
 	.build_cmd = build_stats_remove_cmd,
+	.process_response = stats_modify_process_response
+};
+
+static struct stats_cmd_vfuncs reopen_vfuncs = {
+	.build_cmd = build_stats_reopen_cmd,
 	.process_response = stats_modify_process_response
 };
 
@@ -289,6 +295,15 @@ static int build_stats_remove_cmd(struct stats_cmd_context *ctx,
 	return 0;
 }
 
+static int build_stats_reopen_cmd(struct stats_cmd_context *ctx,
+				  const char **error_r ATTR_UNUSED)
+{
+	ctx->cmd = init_stats_cmd();
+	str_append(ctx->cmd, "REOPEN\n");
+
+	return 0;
+}
+
 static void doveadm_cmd_stats_dump(struct doveadm_cmd_context *cctx)
 {
 	stats_exec_cmd(cctx, &dump_vfuncs);
@@ -302,6 +317,11 @@ static void doveadm_cmd_stats_add(struct doveadm_cmd_context *cctx)
 static void doveadm_cmd_stats_remove(struct doveadm_cmd_context *cctx)
 {
 	stats_exec_cmd(cctx, &remove_vfuncs);
+}
+
+static void doveadm_cmd_stats_reopen(struct doveadm_cmd_context *cctx)
+{
+	stats_exec_cmd(cctx, &reopen_vfuncs);
 }
 
 struct doveadm_cmd_ver2 doveadm_cmd_stats_dump_ver2 = {
@@ -339,5 +359,13 @@ struct doveadm_cmd_ver2 doveadm_cmd_stats_remove_ver2 = {
 	.usage = "<name>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('\0', "name", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+};
+
+struct doveadm_cmd_ver2 doveadm_cmd_stats_reopen_ver2 = {
+	.cmd = doveadm_cmd_stats_reopen,
+	.name = "stats reopen",
+	.usage = "",
+DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAMS_END
 };
