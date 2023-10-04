@@ -65,7 +65,7 @@ static const struct setting_define submission_setting_defines[] = {
 
 	DEF(SIZE, submission_max_mail_size),
 	DEF(UINT, submission_max_recipients),
-	DEF(STR, submission_client_workarounds),
+	DEF(BOOLLIST, submission_client_workarounds),
 	DEF(STR_NOVARS, submission_logout_format),
 	DEF(BOOL, submission_add_received_header),
 
@@ -107,7 +107,7 @@ static const struct submission_settings submission_default_settings = {
 
 	.submission_max_mail_size = 40*1024*1024,
 	.submission_max_recipients = 0,
-	.submission_client_workarounds = "",
+	.submission_client_workarounds = ARRAY_INIT,
 	.submission_logout_format = "in=%i out=%o",
 	.submission_add_received_header = TRUE,
 
@@ -174,7 +174,7 @@ submission_settings_parse_workarounds(struct submission_settings *set,
         const struct submission_client_workaround_list *list;
 	const char *const *str;
 
-        str = t_strsplit_spaces(set->submission_client_workarounds, " ,");
+	str = settings_boollist_get(&set->submission_client_workarounds);
 	for (; *str != NULL; str++) {
 		list = submission_client_workaround_list;
 		for (; list->name != NULL; list++) {
