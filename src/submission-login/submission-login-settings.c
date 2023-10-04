@@ -109,7 +109,7 @@ submission_login_settings_parse_workarounds(
 	struct submission_login_settings *set, const char **error_r)
 {
 	enum submission_login_client_workarounds client_workarounds = 0;
-        const struct submission_login_client_workaround_list *list;
+	const struct submission_login_client_workaround_list *list;
 	const char *const *str;
 
 	str = settings_boollist_get(&set->submission_client_workarounds);
