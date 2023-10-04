@@ -24,7 +24,7 @@ static const struct setting_define pop3c_setting_defines[] = {
 	DEF(STR, pop3c_rawlog_dir),
 	DEF(BOOL, pop3c_quick_received_date),
 
-	DEF(STR, pop3c_features),
+	DEF(BOOLLIST, pop3c_features),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -43,7 +43,7 @@ static const struct pop3c_settings pop3c_default_settings = {
 	.pop3c_rawlog_dir = "",
 	.pop3c_quick_received_date = FALSE,
 
-	.pop3c_features = ""
+	.pop3c_features = ARRAY_INIT
 };
 
 /* <settings checks> */
@@ -65,7 +65,7 @@ pop3c_settings_parse_features(struct pop3c_settings *set,
 	const struct pop3c_feature_list *list;
 	const char *const *str;
 
-	str = t_strsplit_spaces(set->pop3c_features, " ,");
+	str = settings_boollist_get(&set->pop3c_features);
 	for (; *str != NULL; str++) {
 		list = pop3c_feature_list;
 		for (; list->name != NULL; list++) {

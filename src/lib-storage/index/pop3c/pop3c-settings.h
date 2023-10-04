@@ -25,7 +25,7 @@ struct pop3c_settings {
 	const char *pop3c_rawlog_dir;
 	bool pop3c_quick_received_date;
 
-	const char *pop3c_features;
+	ARRAY_TYPE(const_string) pop3c_features;
 	enum pop3c_features parsed_features;
 };
 
