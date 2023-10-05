@@ -987,7 +987,7 @@ char *dec2str_buf(char buffer[STATIC_ARRAY MAX_INT_STRLEN], uintmax_t number)
 char *p_array_const_string_join(pool_t pool, const ARRAY_TYPE(const_string) *arr,
 				const char *separator)
 {
-	if (array_count(arr) == 0)
+	if (array_is_empty(arr))
 		return "";
 	return p_strarray_join_n(pool, array_front(arr), array_count(arr),
 				 separator);
