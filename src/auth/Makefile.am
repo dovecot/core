@@ -93,7 +93,8 @@ sasl_server_mechanisms = \
 	sasl-server-mech-winbind.c
 
 sasl_sources = \
-	${sasl_server_mechanisms}
+	${sasl_server_mechanisms} \
+	sasl-server-mech.c
 
 auth_common_sources = \
 	auth.c \
