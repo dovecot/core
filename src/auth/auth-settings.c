@@ -350,7 +350,7 @@ static const struct setting_keyvalue auth_default_filter_settings_keyvalue[] = {
 	{ "oauth2/http_client_max_idle_time", "60s" },
 	{ "oauth2/http_client_max_parallel_connections", "10" },
 	{ "oauth2/http_client_max_pipelined_requests", "1" },
-	{ "oauth2/http_client_auto_retry", "no" },
+	{ "oauth2/http_client_request_max_attempts", "1" },
 	{ NULL, NULL }
 };
 
