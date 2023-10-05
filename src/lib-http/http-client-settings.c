@@ -146,6 +146,10 @@ http_client_settings_check(void *_set, pool_t pool, const char **error_r)
 			return FALSE;
 		}
 	}
+	if (set->request_max_attempts == 0) {
+		*error_r = "request_max_attempts must not be 0";
+		return FALSE;
+	}
 	if (set->max_pipelined_requests == 0) {
 		*error_r = "http_client_max_pipelined_requests must not be 0";
 		return FALSE;
