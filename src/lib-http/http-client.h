@@ -79,7 +79,7 @@ struct http_client_settings {
 	 */
 	unsigned int request_max_redirects;
 
-	/* Maximum number of attempts for a request */
+	/* Maximum number of attempts for a request. 0 means the same as 1. */
 	unsigned int request_max_attempts;
 	/* If non-zero, override max_attempts for GET/HEAD requests. */
 	unsigned int read_request_max_attempts;
