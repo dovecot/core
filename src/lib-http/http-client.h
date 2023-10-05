@@ -71,7 +71,7 @@ struct http_client_settings {
 
 	/* FALSE = If we use a proxy, delegate SSL negotiation to proxy, rather
 	   than creating a CONNECT tunnel through the proxy for the SSL link */
-	bool ssl_tunnel;
+	bool proxy_ssl_tunnel;
 
 	/* Maximum number of redirects for a request
 	   (default = 0; redirects result in

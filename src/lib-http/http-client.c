@@ -118,7 +118,7 @@ void http_client_settings_init(pool_t pool, struct http_client_settings *set_r)
 		HTTP_CLIENT_DEFAULT_REQUEST_TIMEOUT_MSECS;
 	set_r->auto_redirect = TRUE;
 	set_r->auto_retry = TRUE;
-	set_r->ssl_tunnel = TRUE;
+	set_r->proxy_ssl_tunnel = TRUE;
 }
 
 struct http_client *
