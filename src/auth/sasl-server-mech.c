@@ -14,3 +14,8 @@ void mech_generic_auth_initial(struct auth_request *request,
 		request->mech->auth_continue(request, data, data_size);
 	}
 }
+
+void mech_generic_auth_free(struct auth_request *request)
+{
+	pool_unref(&request->pool);
+}

@@ -50,11 +50,6 @@ const struct mech_module *mech_module_find(const char *name)
 	return NULL;
 }
 
-void mech_generic_auth_free(struct auth_request *request)
-{
-	pool_unref(&request->pool);
-}
-
 extern const struct mech_module mech_plain;
 extern const struct mech_module mech_login;
 extern const struct mech_module mech_apop;
