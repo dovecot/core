@@ -59,10 +59,14 @@ struct http_client_settings {
 	/* Maximum number of pipelined requests per connection (default = 1) */
 	unsigned int max_pipelined_requests;
 
-	/* FALSE = Don't automatically act upon redirect responses */
+	/* FALSE = Don't automatically act upon redirect responses. The
+	   redirects are returned as a regular response. TRUE = Handle
+	   redirects as long as request_max_redirects isn't reached. */
 	bool auto_redirect;
 
-	/* FALSE = Never automatically retry requests */
+	/* FALSE = Never automatically retry requests. Explicit
+	   http_client_request_try_retry() calls can still retry requests
+	   as long as request_max_attempts isn't reached. */
 	bool auto_retry;
 
 	/* FALSE = If we use a proxy, delegate SSL negotiation to proxy, rather
@@ -70,7 +74,8 @@ struct http_client_settings {
 	bool ssl_tunnel;
 
 	/* Maximum number of redirects for a request
-	   (default = 0; redirects refused)
+	   (default = 0; redirects result in
+	   HTTP_CLIENT_REQUEST_ERROR_INVALID_REDIRECT)
 	 */
 	unsigned int request_max_redirects;
 
