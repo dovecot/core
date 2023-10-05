@@ -43,37 +43,35 @@ static bool verify_credentials(struct apop_auth_request *request,
 }
 
 static void
-apop_credentials_callback(struct sasl_server_mech_request *auth_request,
+apop_credentials_callback(struct sasl_server_mech_request *req,
 			  const struct sasl_passdb_result *result)
 {
 	struct apop_auth_request *request =
-		container_of(auth_request, struct apop_auth_request,
-			     auth_request);
+		container_of(req, struct apop_auth_request, auth_request);
 
 	switch (result->status) {
 	case SASL_PASSDB_RESULT_OK:
 		if (verify_credentials(request, result->credentials.data,
 				       result->credentials.size))
-			sasl_server_request_success(auth_request, "", 0);
+			sasl_server_request_success(req, "", 0);
 		else
-			sasl_server_request_failure(auth_request);
+			sasl_server_request_failure(req);
 		break;
 	case SASL_PASSDB_RESULT_INTERNAL_FAILURE:
-		sasl_server_request_internal_failure(auth_request);
+		sasl_server_request_internal_failure(req);
 		break;
 	default:
-		sasl_server_request_failure(auth_request);
+		sasl_server_request_failure(req);
 		break;
 	}
 }
 
 static void
-mech_apop_auth_initial(struct sasl_server_mech_request *auth_request,
+mech_apop_auth_initial(struct sasl_server_mech_request *req,
 		       const unsigned char *data, size_t data_size)
 {
 	struct apop_auth_request *request =
-		container_of(auth_request, struct apop_auth_request,
-			     auth_request);
+		container_of(req, struct apop_auth_request, auth_request);
 	const unsigned char *tmp, *end, *username = NULL;
 	unsigned long pid, connect_uid, timestamp;
 
@@ -82,9 +80,9 @@ mech_apop_auth_initial(struct sasl_server_mech_request *auth_request,
 
 	if (data_size == 0) {
 		/* Should never happen */
-		e_info(auth_request->mech_event,
+		e_info(req->mech_event,
 		       "no initial response");
-		sasl_server_request_failure(auth_request);
+		sasl_server_request_failure(req);
 		return;
 	}
 
@@ -94,7 +92,7 @@ mech_apop_auth_initial(struct sasl_server_mech_request *auth_request,
 	/* get the challenge */
 	while (tmp != end && *tmp != '\0')
 		tmp++;
-	request->challenge = p_strdup_until(auth_request->pool, data, tmp);
+	request->challenge = p_strdup_until(req->pool, data, tmp);
 
 	if (tmp != end) {
 		/* get the username */
@@ -103,17 +101,17 @@ mech_apop_auth_initial(struct sasl_server_mech_request *auth_request,
 			tmp++;
 	} else {
 		/* should never happen */
-		e_info(auth_request->mech_event,
+		e_info(req->mech_event,
 		       "malformed data");
-		sasl_server_request_failure(auth_request);
+		sasl_server_request_failure(req);
 		return;
 	}
 
 	if (tmp + 1 + 16 != end) {
 		/* Should never happen */
-		e_info(auth_request->mech_event,
+		e_info(req->mech_event,
 		       "malformed data");
-		sasl_server_request_failure(auth_request);
+		sasl_server_request_failure(req);
 		return;
 	}
 	memcpy(request->response_digest, tmp + 1,
@@ -126,23 +124,23 @@ mech_apop_auth_initial(struct sasl_server_mech_request *auth_request,
 
 	if (sscanf(request->challenge, "<%lx.%lx.%lx.",
 		   &pid, &connect_uid, &timestamp) != 3 ||
-	    connect_uid != auth_request->request->connect_uid ||
+	    connect_uid != req->request->connect_uid ||
             pid != (unsigned long)getpid() ||
 	    (time_t)timestamp < process_start_time) {
-		e_info(auth_request->mech_event,
+		e_info(req->mech_event,
 		       "invalid challenge");
-		sasl_server_request_failure(auth_request);
+		sasl_server_request_failure(req);
 		return;
 	}
 
-	if (!sasl_server_request_set_authid(auth_request,
+	if (!sasl_server_request_set_authid(req,
 					    SASL_SERVER_AUTHID_TYPE_USERNAME,
 					    (const char *)username)) {
-		sasl_server_request_failure(auth_request);
+		sasl_server_request_failure(req);
 		return;
 	}
 
-	sasl_server_request_lookup_credentials(auth_request, "PLAIN",
+	sasl_server_request_lookup_credentials(req, "PLAIN",
 					       apop_credentials_callback);
 }
 
