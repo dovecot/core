@@ -94,7 +94,7 @@ static const struct http_client_settings http_client_default_settings = {
 	.ssl_tunnel = TRUE,
 
 	.request_max_redirects = 0,
-	.request_max_attempts = 0,
+	.request_max_attempts = 1,
 	.read_request_max_attempts = 0,
 	.write_request_max_attempts = 0,
 	.delete_request_max_attempts = 0,
