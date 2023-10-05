@@ -106,6 +106,8 @@ auth_common_sources = \
 	auth-request-fields.c \
 	auth-request-handler.c \
 	auth-request-var-expand.c \
+	auth-sasl-mech-apop.c \
+	auth-sasl-mech-dovecot-token.c \
 	auth-sasl.c \
 	auth-settings.c \
 	auth-fields.c \
@@ -116,8 +118,6 @@ auth_common_sources = \
 	db-sql.c \
 	db-passwd-file.c \
 	mech.c \
-	mech-apop.c \
-	mech-dovecot-token.c \
 	${sasl_sources} \
 	passdb.c \
 	passdb-blocking.c \
