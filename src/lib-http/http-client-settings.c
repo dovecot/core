@@ -41,7 +41,7 @@ static const struct setting_define http_client_setting_defines[] = {
 
 	DEF(BOOL_HIDDEN, auto_redirect),
 	DEF(BOOL_HIDDEN, auto_retry),
-	DEF(BOOL, ssl_tunnel),
+	DEF(BOOL, proxy_ssl_tunnel),
 
 	DEF(UINT, request_max_redirects),
 	DEF(UINT, request_max_attempts),
@@ -91,7 +91,7 @@ static const struct http_client_settings http_client_default_settings = {
 
 	.auto_redirect = TRUE,
 	.auto_retry = TRUE,
-	.ssl_tunnel = TRUE,
+	.proxy_ssl_tunnel = TRUE,
 
 	.request_max_redirects = 0,
 	.request_max_attempts = 1,

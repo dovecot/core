@@ -956,7 +956,7 @@ static void http_client_request_do_submit(struct http_client_request *req)
 			/* Specific normal proxy */
 			req->host_socket = NULL;
 		} else if (req->origin_url.have_ssl &&
-			   client->set->ssl_tunnel &&
+			   client->set->proxy_ssl_tunnel &&
 			   !req->connect_tunnel) {
 			/* Tunnel to origin server */
 			req->host_url = &req->origin_url;
