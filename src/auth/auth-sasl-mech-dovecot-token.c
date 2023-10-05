@@ -56,7 +56,6 @@ mech_dovecot_token_auth_continue(struct sasl_server_mech_request *request,
 
 		if (auth_token != NULL &&
 		    str_equals_timing_almost_safe(auth_token, valid_token)) {
-			request->request->passdb_success = TRUE;
 			auth_request_set_field(request->request, "userdb_client_service", service, "");
 			sasl_server_request_success(request, NULL, 0);
 		} else {

@@ -15,7 +15,6 @@ mech_anonymous_auth_continue(struct sasl_server_mech_request *request,
 		return;
 	}
 
-	request->request->passdb_success = TRUE;
 	sasl_server_request_success(request, "", 0);
 }
 

@@ -262,7 +262,6 @@ do_auth_continue(struct winbind_auth_request *request,
 				user))
 			return HR_FAIL;
 
-		request->auth_request.request->passdb_success = TRUE;
 		if (gss_spnego && strcmp(token[1], "*") != 0) {
 			buffer_t *buf;
 

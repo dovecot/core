@@ -152,6 +152,10 @@ auth_sasl_request_output(struct sasl_server_req_ctx *rctx,
 						    output->data_size);
 		break;
 	case SASL_SERVER_OUTPUT_SUCCESS:
+		if (sasl_server_mech_get_passdb_need(rctx->mech) ==
+				SASL_MECH_PASSDB_NEED_NOTHING)
+			request->passdb_success = TRUE;
+
 		auth_request_success(request, output->data, output->data_size);
 		break;
 	}
