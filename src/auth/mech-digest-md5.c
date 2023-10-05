@@ -180,9 +180,8 @@ verify_credentials(struct digest_auth_request *request,
 			/* verify response */
 			if (!mem_equals_timing_safe(response_hex,
 						    request->response, 32)) {
-				auth_request_log_info(
-					auth_request, AUTH_SUBSYS_MECH,
-					AUTH_LOG_MSG_PASSWORD_MISMATCH);
+				e_info(auth_request->mech_event,
+				       AUTH_LOG_MSG_PASSWORD_MISMATCH);
 				return FALSE;
 			}
 		} else {
