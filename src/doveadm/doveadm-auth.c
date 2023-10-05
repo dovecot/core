@@ -205,8 +205,11 @@ auth_callback(struct auth_client_request *request,
 
 	if (args != NULL && *args != NULL) {
 		printf("extra fields:\n");
-		for (; *args != NULL; args++)
+		for (; *args != NULL; args++) {
+			if (str_begins_with(*args, "resp="))
+				continue;
 			printf("  %s\n", *args);
+		}
 	}
 	io_loop_stop(current_ioloop);
 }
