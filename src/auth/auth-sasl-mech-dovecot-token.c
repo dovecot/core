@@ -6,6 +6,7 @@
 #include "auth-common.h"
 #include "safe-memset.h"
 #include "sasl-server-protected.h"
+#include "auth-sasl.h"
 #include "auth-token.h"
 
 static void
@@ -74,7 +75,7 @@ static const struct sasl_server_mech_funcs mech_dovecot_token_funcs = {
 };
 
 const struct sasl_server_mech_def mech_dovecot_token = {
-	.name = "DOVECOT-TOKEN",
+	.name = AUTH_SASL_MECH_NAME_DOVECOT_TOKEN,
 
 	.flags = SASL_MECH_SEC_PRIVATE | SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_NOTHING,

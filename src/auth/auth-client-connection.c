@@ -10,7 +10,6 @@
 #include "str-sanitize.h"
 #include "randgen.h"
 #include "master-service.h"
-#include "sasl-server-protected.h" // FIXME: remove
 #include "auth-sasl.h"
 #include "auth-request-handler.h"
 #include "auth-client-interface.h"
@@ -193,8 +192,8 @@ static void auth_client_finish_handshake(struct auth_client_connection *conn)
 		return;
 
 	if (conn->token_auth) {
-		mechanisms = t_strconcat("MECH\t",
-			mech_dovecot_token.name, "\tprivate\n", NULL);
+		mechanisms = "MECH\t"
+			AUTH_SASL_MECH_NAME_DOVECOT_TOKEN "\tprivate\n";
 	} else {
 		mechanisms = auth_sasl_mechs_get_handshake();
 		if (conn->conn.minor_version >= AUTH_CLIENT_MINOR_VERSION_CHANNEL_BINDING)

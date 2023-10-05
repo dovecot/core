@@ -108,7 +108,7 @@ static void test_mech_prepare_request(struct auth_request **request_r,
 
 	struct auth *auth = auth_default_protocol();
 	const struct sasl_server_mech *mech;
-	if (strcmp(mech_name, "DOVECOT-TOKEN") == 0)
+	if (strcmp(mech_name, AUTH_SASL_MECH_NAME_DOVECOT_TOKEN) == 0)
 		mech = auth->sasl_mech_dovecot_token;
 	else
 		mech = sasl_server_mech_find(auth->sasl_inst, mech_name);
