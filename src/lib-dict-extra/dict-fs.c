@@ -204,12 +204,12 @@ static bool fs_dict_iterate(struct dict_iterate_context *ctx,
 	}
 	iter->key_count++;
 
-	path = t_strconcat(iter->path, *key_r, NULL);
+	p_clear(iter->value_pool);
+	path = p_strconcat(iter->value_pool, iter->path, *key_r, NULL);
 	if ((iter->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0) {
 		*key_r = path;
 		return TRUE;
 	}
-	p_clear(iter->value_pool);
 	struct dict_op_settings set = {
 		.username = ctx->set.username,
 	};
