@@ -1798,6 +1798,19 @@ virtual_sync_apply_existing_expunges(struct virtual_mailbox *mbox,
 	}
 }
 
+static void virtual_sync_deinit(struct virtual_sync_context **_ctx)
+{
+	struct virtual_sync_context *ctx = *_ctx;
+	if (ctx == NULL)
+		return;
+	*_ctx = NULL;
+
+	array_free(&ctx->sync_expunges);
+	array_free(&ctx->all_adds);
+	array_free(&ctx->all_mails);
+	i_free(ctx);
+}
+
 static int virtual_sync_mail_mailbox_cmp(const struct virtual_sync_mail *m1,
 					 const struct virtual_sync_mail *m2)
 {
@@ -1876,9 +1889,6 @@ static int virtual_sync_backend_boxes(struct virtual_sync_context *ctx)
 			i_assert(uidmap->virtual_uid > 0);
 	}
 #endif
-	array_free(&ctx->all_adds);
-	if (array_is_created(&ctx->all_mails))
-		array_free(&ctx->all_mails);
 	return ret;
 }
 
@@ -1917,7 +1927,7 @@ static int virtual_sync_finish(struct virtual_sync_context *ctx, bool success)
 		}
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
-	i_free(ctx);
+	virtual_sync_deinit(&ctx);
 	return ret;
 }
 
@@ -1951,7 +1961,7 @@ static int virtual_sync(struct virtual_mailbox *mbox,
 	if (ret <= 0) {
 		if (ret < 0)
 			mailbox_set_index_error(&mbox->box);
-		i_free(ctx);
+		virtual_sync_deinit(&ctx);
 		return ret;
 	}
 
