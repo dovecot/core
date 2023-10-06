@@ -290,7 +290,7 @@ void sha256_result(struct sha256_ctx *ctx,
 {
 	size_t block_nb;
 	size_t pm_len;
-	size_t len_b;
+	uint64_t len_b;
 	int i;
 
 	block_nb = (1 + ((SHA256_BLOCK_SIZE - 9)
@@ -301,7 +301,7 @@ void sha256_result(struct sha256_ctx *ctx,
 
 	memset(ctx->block + ctx->len, 0, pm_len - ctx->len);
 	ctx->block[ctx->len] = 0x80;
-	UNPACK32(len_b, ctx->block + pm_len - 4);
+	UNPACK64(len_b, ctx->block + pm_len - 8);
 
 	sha256_transf(ctx, ctx->block, block_nb);
 
@@ -420,7 +420,7 @@ void sha384_result(struct sha384_ctx *ctx,
 {
 	unsigned int block_nb;
 	unsigned int pm_len;
-	size_t len_b;
+	uint64_t len_b;
 	int i;
 
 	block_nb = 1 + ((SHA384_BLOCK_SIZE - 17)
@@ -431,7 +431,7 @@ void sha384_result(struct sha384_ctx *ctx,
 
 	memset(ctx->block + ctx->len, 0, pm_len - ctx->len);
 	ctx->block[ctx->len] = 0x80;
-	UNPACK32(len_b, ctx->block + pm_len - 4);
+	UNPACK64(len_b, ctx->block + pm_len - 8);
 
 	sha384_transf(ctx, ctx->block, block_nb);
 
@@ -550,7 +550,7 @@ void sha512_result(struct sha512_ctx *ctx,
 {
 	unsigned int block_nb;
 	unsigned int pm_len;
-	size_t len_b;
+	uint64_t len_b;
 	int i;
 
 	block_nb = 1 + ((SHA512_BLOCK_SIZE - 17)
@@ -561,7 +561,7 @@ void sha512_result(struct sha512_ctx *ctx,
 
 	memset(ctx->block + ctx->len, 0, pm_len - ctx->len);
 	ctx->block[ctx->len] = 0x80;
-	UNPACK32(len_b, ctx->block + pm_len - 4);
+	UNPACK64(len_b, ctx->block + pm_len - 8);
 
 	sha512_transf(ctx, ctx->block, block_nb);
 

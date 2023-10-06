@@ -38,21 +38,21 @@
 #include "sha-common.h"
 
 struct sha256_ctx {
-	size_t tot_len;
+	uint64_t tot_len;
 	size_t len;
 	unsigned char block[2 * SHA256_BLOCK_SIZE];
 	uint32_t h[8];
 };
 
 struct sha384_ctx {
-	size_t tot_len;
+	uint64_t tot_len;
 	size_t len;
 	unsigned char block[2 * SHA384_BLOCK_SIZE];
 	uint64_t h[8];
 };
 
 struct sha512_ctx {
-	size_t tot_len;
+	uint64_t tot_len;
 	size_t len;
 	unsigned char block[2 * SHA512_BLOCK_SIZE];
 	uint64_t h[8];
