@@ -1,6 +1,7 @@
 /* Copyright (c) 2014-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
+#include "hex-binary.h"
 #include "mmap-util.h"
 #include "hash-method.h"
 
@@ -453,8 +454,42 @@ static void test_hash_methods_fips() {
 	test_end();
 }
 
+static void test_hash_methods_large(void)
+{
+	struct {
+		const char *method;
+		const char *hash;
+	} tests[] = {
+		{ "sha256", "1ad0598b790b3acb38876105cc8938c3365f3215fbee3412ac3cd5e96a7dad01" },
+		{ "sha384", "c187c084ffe516fea74b313340a540bc0bab306b1bdc564da21ecdc639e51f194460a0279c04aa40d65cec58698b10c0" },
+		{ "sha512", "556247cfeab056903a3f42cf8496019d9ad90911ded9aa1ede3046b803623e5e2cd2adbd0620e666a927436d125984de9199d643ff21ad1c76e29b116c13ffb2" },
+	};
+	unsigned char data[1024];
+	unsigned int i;
+
+	test_begin("hash method (large inputs)");
+	for (i = 0; i < sizeof(data); i++)
+		data[i] = i & 0xFF;
+
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		const struct hash_method *method =
+			hash_method_lookup(tests[i].method);
+		unsigned char context[method->context_size];
+		unsigned char result[method->digest_size];
+
+		method->init(context);
+		for (unsigned int j = 0; j < 600000; j++)
+			method->loop(context, data, sizeof(data));
+		method->result(context, result);
+		test_assert_strcmp_idx(binary_to_hex(result, method->digest_size),
+				       tests[i].hash, i);
+	}
+	test_end();
+}
+
 void test_hash_method(void)
 {
 	test_hash_method_boundary();
 	test_hash_methods_fips();
+	test_hash_methods_large();
 }
