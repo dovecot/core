@@ -878,8 +878,8 @@ static void client_auth_input(struct client *client)
 		return;
 
 	client_auth_respond(client, str_c(client->auth_response));
-	memset(str_c_modifiable(client->auth_response), 0,
-	       str_len(client->auth_response));
+	safe_memset(str_c_modifiable(client->auth_response), 0,
+		    str_len(client->auth_response));
 }
 
 void client_auth_send_challenge(struct client *client, const char *data)
