@@ -864,20 +864,22 @@ int client_auth_read_line(struct client *client)
 	return i < size ? 1 : 0;
 }
 
-void client_auth_parse_response(struct client *client)
+bool client_auth_parse_response(struct client *client)
 {
 	if (client_auth_read_line(client) <= 0)
-		return;
-
-	client_auth_respond(client, str_c(client->auth_response));
-	memset(str_c_modifiable(client->auth_response), 0,
-	       str_len(client->auth_response));
+		return FALSE;
+	return TRUE;
 }
 
 static void client_auth_input(struct client *client)
 {
 	i_assert(client->v.auth_parse_response != NULL);
-	client->v.auth_parse_response(client);
+	if (!client->v.auth_parse_response(client))
+		return;
+
+	client_auth_respond(client, str_c(client->auth_response));
+	memset(str_c_modifiable(client->auth_response), 0,
+	       str_len(client->auth_response));
 }
 
 void client_auth_send_challenge(struct client *client, const char *data)

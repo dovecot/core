@@ -131,7 +131,7 @@ struct client_vfuncs {
 				 struct auth_mech_desc *mech);
 	bool (*sasl_check_login)(struct client *client);
 	void (*auth_send_challenge)(struct client *client, const char *data);
-	void (*auth_parse_response)(struct client *client);
+	bool (*auth_parse_response)(struct client *client);
 	void (*auth_result)(struct client *client,
 			    enum client_auth_result result,
 			    const struct client_auth_reply *reply,
@@ -379,7 +379,7 @@ void client_common_proxy_failed(struct client *client,
 
 void client_set_auth_waiting(struct client *client);
 void client_auth_send_challenge(struct client *client, const char *data);
-void client_auth_parse_response(struct client *client);
+bool client_auth_parse_response(struct client *client);
 int client_auth_begin(struct client *client, const char *mech_name,
 		      const char *init_resp);
 int client_auth_begin_private(struct client *client, const char *mech_name,
