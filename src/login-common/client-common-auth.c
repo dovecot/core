@@ -806,6 +806,17 @@ void client_auth_respond(struct client *client, const char *response)
 	if (!client_does_custom_io(client))
 		io_remove(&client->io);
 
+	/* This has to happen before * handling, otherwise
+	   client can abort failed request. */
+	if (client->final_response) {
+		sasl_server_auth_delayed_final(client);
+		return;
+	}
+	if (strcmp(response, "*") == 0) {
+		sasl_server_auth_abort(client);
+		return;
+	}
+
 	client->auth_client_continue_pending = FALSE;
 	client_set_auth_waiting(client);
 	auth_client_request_continue(client->auth_request, response);
@@ -857,18 +868,6 @@ void client_auth_parse_response(struct client *client)
 {
 	if (client_auth_read_line(client) <= 0)
 		return;
-
-	/* This has to happen before * handling, otherwise
-	   client can abort failed request. */
-	if (client->final_response) {
-		sasl_server_auth_delayed_final(client);
-		return;
-	}
-
-	if (strcmp(str_c(client->auth_response), "*") == 0) {
-		sasl_server_auth_abort(client);
-		return;
-	}
 
 	client_auth_respond(client, str_c(client->auth_response));
 	memset(str_c_modifiable(client->auth_response), 0,

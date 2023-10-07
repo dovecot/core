@@ -269,11 +269,6 @@ int cmd_auth_continue(void *conn_ctx,
 	struct submission_client *subm_client = conn_ctx;
 	struct client *client = &subm_client->common;
 
-	if (strcmp(response, "*") == 0) {
-		client_auth_abort(client);
-		return 0;
-	}
-
 	client_auth_respond(client, response);
 	return 0;
 }
