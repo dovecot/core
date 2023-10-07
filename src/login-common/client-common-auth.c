@@ -803,11 +803,12 @@ client_auth_handle_reply(struct client *client,
 
 void client_auth_respond(struct client *client, const char *response)
 {
+	if (!client_does_custom_io(client))
+		io_remove(&client->io);
+
 	client->auth_client_continue_pending = FALSE;
 	client_set_auth_waiting(client);
 	auth_client_request_continue(client->auth_request, response);
-	if (!client_does_custom_io(client))
-		io_remove(&client->io);
 }
 
 void client_auth_abort(struct client *client)
