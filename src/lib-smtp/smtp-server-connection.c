@@ -1120,10 +1120,10 @@ bool smtp_server_connection_unref(struct smtp_server_connection **_conn)
 
 	e_debug(conn->event, "Connection destroy");
 
+	connection_deinit(&conn->conn);
+
 	if (conn->callbacks != NULL && conn->callbacks->conn_free != NULL)
 		conn->callbacks->conn_free(conn->context);
-
-	connection_deinit(&conn->conn);
 
 	i_free(conn->proxy_helo);
 	i_free(conn->helo_domain);
