@@ -621,11 +621,17 @@ void sasl_server_auth_abort(struct client *client)
 				SASL_SERVER_REPLY_AUTH_ABORTED);
 }
 
-void sasl_server_auth_delayed_final(struct client *client)
+bool sasl_server_auth_handle_delayed_final(struct client *client)
 {
+	/* This has to happen before * handling, otherwise
+	   client can abort failed request. */
+	if (!client->final_response)
+		return FALSE;
 	client->final_response = FALSE;
 	client->authenticating = FALSE;
 	client->auth_client_continue_pending = FALSE;
 	call_client_callback(client, client->delayed_final_reply,
 			     NULL, client->final_args);
+
+	return TRUE;
 }

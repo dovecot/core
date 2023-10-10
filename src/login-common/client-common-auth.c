@@ -806,12 +806,8 @@ void client_auth_respond(struct client *client, const char *response)
 	if (!client_does_custom_io(client))
 		io_remove(&client->io);
 
-	/* This has to happen before * handling, otherwise
-	   client can abort failed request. */
-	if (client->final_response) {
-		sasl_server_auth_delayed_final(client);
+	if (sasl_server_auth_handle_delayed_final(client))
 		return;
-	}
 	if (strcmp(response, "*") == 0) {
 		sasl_server_auth_abort(client);
 		return;
