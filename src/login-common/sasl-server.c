@@ -323,6 +323,24 @@ args_parse_user(struct client *client, const char *key, const char *value)
 }
 
 static void
+sasl_server_auth_success_finish(struct client *client,
+				bool nologin, const char *const *args)
+{
+	struct auth_client_request *request = client->auth_request;
+
+	client->auth_request = NULL;
+	if (nologin) {
+		client->authenticating = FALSE;
+		call_client_callback(client, SASL_SERVER_REPLY_SUCCESS,
+				     NULL, args);
+	} else if (!sasl_server_check_login(client)) {
+		i_assert(!client->authenticating);
+	} else {
+		anvil_check_too_many_connections(client, request);
+	}
+}
+
+static void
 authenticate_callback(struct auth_client_request *request,
 		      enum auth_request_status status, const char *data_base64,
 		      const char *const *args, void *context)
@@ -347,7 +365,6 @@ authenticate_callback(struct auth_client_request *request,
 		break;
 	case AUTH_REQUEST_STATUS_OK:
 		client->master_auth_id = auth_client_request_get_id(request);
-		client->auth_request = NULL;
 		client->auth_successes++;
 		client->auth_passdb_args = p_strarray_dup(client->pool, args);
 		client->postlogin_socket_path = NULL;
@@ -374,15 +391,7 @@ authenticate_callback(struct auth_client_request *request,
 			}
 		}
 
-		if (nologin) {
-			client->authenticating = FALSE;
-			call_client_callback(client, SASL_SERVER_REPLY_SUCCESS,
-					     NULL, args);
-		} else if (!sasl_server_check_login(client)) {
-			i_assert(!client->authenticating);
-		} else {
-			anvil_check_too_many_connections(client, request);
-		}
+		sasl_server_auth_success_finish(client, nologin, args);
 		break;
 	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
 		client->auth_process_comm_fail = TRUE;
