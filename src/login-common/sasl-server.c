@@ -603,6 +603,11 @@ sasl_server_auth_cancel(struct client *client, const char *reason,
 	call_client_callback(client, reply, reason, NULL);
 }
 
+void sasl_server_auth_continue(struct client *client, const char *response)
+{
+	auth_client_request_continue(client->auth_request, response);
+}
+
 void sasl_server_auth_failed(struct client *client, const char *reason,
 			     const char *code)
 {

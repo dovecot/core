@@ -815,7 +815,7 @@ void client_auth_respond(struct client *client, const char *response)
 
 	client->auth_client_continue_pending = FALSE;
 	client_set_auth_waiting(client);
-	auth_client_request_continue(client->auth_request, response);
+	sasl_server_auth_continue(client, response);
 }
 
 void client_auth_abort(struct client *client)
