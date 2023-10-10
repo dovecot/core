@@ -422,8 +422,9 @@ authenticate_callback(struct auth_client_request *request,
 	}
 }
 
-static bool get_cert_username(struct client *client, const char **username_r,
-			      const char **error_r)
+static bool
+get_cert_username(struct client *client, const char **username_r,
+		  const char **error_r)
 {
 	/* this was proxied connection, so we use the name here */
 	if (client->client_cert_common_name != NULL) {
@@ -603,9 +604,10 @@ sasl_server_auth_cancel(struct client *client, const char *reason,
 }
 
 void sasl_server_auth_failed(struct client *client, const char *reason,
-	const char *code)
+			     const char *code)
 {
-	sasl_server_auth_cancel(client, reason, code, SASL_SERVER_REPLY_AUTH_FAILED);
+	sasl_server_auth_cancel(client, reason, code,
+				SASL_SERVER_REPLY_AUTH_FAILED);
 }
 
 void sasl_server_auth_abort(struct client *client)
@@ -624,5 +626,6 @@ void sasl_server_auth_delayed_final(struct client *client)
 	client->final_response = FALSE;
 	client->authenticating = FALSE;
 	client->auth_client_continue_pending = FALSE;
-	call_client_callback(client, client->delayed_final_reply, NULL, client->final_args);
+	call_client_callback(client, client->delayed_final_reply,
+			     NULL, client->final_args);
 }
