@@ -395,6 +395,33 @@ client_connection_proxy_data_updated(void *context,
 		refresh_proctitle();
 }
 
+static int
+client_connection_tls_sni_callback(const char *name, const char **error_r,
+				   void *context)
+{
+	struct client *client = context;
+
+	const struct lda_settings *old_lda_set = client->lda_set;
+	const struct lmtp_settings *old_lmtp_set = client->lmtp_set;
+	client->lda_set = NULL;
+	client->lmtp_set = NULL;
+	event_add_str(client->event, "local_name", name);
+	if (settings_get(client->event, &lda_setting_parser_info, 0,
+			 &client->lda_set, error_r) < 0 ||
+	    settings_get(client->event, &lmtp_setting_parser_info, 0,
+			 &client->lmtp_set, error_r) < 0) {
+		settings_free(client->lda_set);
+		settings_free(client->lmtp_set);
+		client->lda_set = old_lda_set;
+		client->lmtp_set = old_lmtp_set;
+		return -1;
+	}
+	settings_free(old_lda_set);
+	settings_free(old_lmtp_set);
+
+	return 0;
+}
+
 static void client_connection_disconnect(void *context, const char *reason)
 {
 	struct client *client = context;
@@ -460,6 +487,8 @@ static const struct smtp_server_callbacks lmtp_callbacks = {
 	.conn_state_changed = client_connection_state_changed,
 
 	.conn_proxy_data_updated = client_connection_proxy_data_updated,
+
+	.conn_tls_sni_callback = client_connection_tls_sni_callback,
 
 	.conn_disconnect = client_connection_disconnect,
 	.conn_free = client_connection_free,
