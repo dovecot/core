@@ -342,6 +342,26 @@ smtp_server_connection_handle_command(struct smtp_server_connection *conn,
 	return (!smtp_server_command_unref(&cmd) || finished);
 }
 
+static int
+smtp_server_connection_sni_callback(const char *name, const char **error_r,
+				    void *context)
+{
+	struct smtp_server_connection *conn = context;
+	struct ssl_iostream_context *ssl_ctx;
+
+	if (conn->callbacks->conn_tls_sni_callback != NULL &&
+	    conn->callbacks->conn_tls_sni_callback(name, error_r, conn) < 0)
+		return -1;
+
+	if (ssl_iostream_server_context_cache_get(conn->set.ssl, &ssl_ctx,
+						  error_r) < 0)
+		return -1;
+
+	ssl_iostream_change_context(conn->ssl_iostream, ssl_ctx);
+	ssl_iostream_context_unref(&ssl_ctx);
+	return 0;
+}
+
 int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 {
 	struct ssl_iostream_context *ssl_ctx;
@@ -380,6 +400,8 @@ int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 			conn->conn.name, error);
 		return -1;
 	}
+	ssl_iostream_set_sni_callback(
+		conn->ssl_iostream, smtp_server_connection_sni_callback, conn);
 	smtp_server_connection_input_resume(conn);
 
 	conn->ssl_secured = TRUE;
