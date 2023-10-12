@@ -12,6 +12,7 @@ struct auth_client_request {
 	struct event *event;
 
 	struct auth_client_connection *conn;
+	struct timeout *to_fail;
 	unsigned int id;
 	time_t created;
 

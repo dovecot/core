@@ -8,6 +8,8 @@
 #include "auth-client-private.h"
 #include "strfuncs.h"
 
+static void auth_client_request_fail_conn_lost(struct auth_client_request *request);
+
 static void auth_server_send_new_request(struct auth_client_connection *conn,
 					 struct auth_client_request *request,
 					 const struct auth_request_info *info)
@@ -160,7 +162,13 @@ static void auth_server_send_new_request(struct auth_client_connection *conn,
 		set_name("auth_client_request_started");
 	e_debug(e->event(), "Started request");
 
-	if (o_stream_send(conn->conn.output, str_data(str), str_len(str)) < 0) {
+	if (!conn->connected) {
+		e_error(request->event,
+			"Error sending request to auth server: connection lost");
+		/* try to reconnect */
+		request->to_fail =
+			timeout_add_short(0, auth_client_request_fail_conn_lost, request);
+	} else if (o_stream_send(conn->conn.output, str_data(str), str_len(str)) < 0) {
 		e_error(request->event,
 			"Error sending request to auth server: %m");
 	}
@@ -211,12 +219,27 @@ call_callback(struct auth_client_request *request,
 	callback(request, status, data_base64, args, request->context);
 }
 
+static void auth_client_request_fail_conn_lost(struct auth_client_request *request)
+{
+	struct auth_client_connection *conn = request->conn;
+	timeout_remove(&request->to_fail);
+	struct event_passthrough *e =
+		event_create_passthrough(request->event)->
+		set_name("auth_client_request_finished");
+	e->add_str("error", "Lost connection to server");
+	e_debug(e->event(), "Lost connection to server");
+
+	call_callback(request, AUTH_REQUEST_STATUS_INTERNAL_FAIL, NULL, NULL);
+	conn->to = timeout_add_short(0, auth_server_reconnect_timeout, conn);
+}
+
 static void auth_client_request_free(struct auth_client_request **_request)
 {
 	struct auth_client_request *request = *_request;
 
 	*_request = NULL;
 
+	timeout_remove(&request->to_fail);
 	event_unref(&request->event);
 	pool_unref(&request->pool);
 }
