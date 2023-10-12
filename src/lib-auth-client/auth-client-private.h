@@ -48,6 +48,7 @@ struct auth_client {
 
 	struct connection_list *clist;
 	struct auth_client_connection *conn;
+	ARRAY(struct auth_mech_desc) available_auth_mechs;
 
 	auth_connect_notify_callback_t *connect_notify_callback;
 	void *connect_notify_context;
