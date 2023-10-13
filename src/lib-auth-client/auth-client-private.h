@@ -78,6 +78,7 @@ void auth_client_connection_deinit(struct auth_client_connection **conn);
 int auth_client_connection_connect(struct auth_client_connection *conn);
 void auth_client_connection_disconnect(struct auth_client_connection *conn,
 				       const char *reason);
+void auth_server_reconnect_timeout(struct auth_client_connection *conn);
 
 /* Queues a new request. Must not be called if connection is not connected. */
 unsigned int
