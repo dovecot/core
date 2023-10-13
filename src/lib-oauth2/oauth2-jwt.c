@@ -327,33 +327,68 @@ oauth2_validate_signature(const struct oauth2_settings *set, const char *azp,
 	return -1;
 }
 
+struct jwt_node {
+	const char *prefix;
+	const struct json_tree_node *root;
+	bool array:1;
+};
+
 static void
 oauth2_jwt_copy_fields(ARRAY_TYPE(oauth2_field) *fields, struct json_tree *tree)
 {
 	pool_t pool = array_get_pool(fields);
-	ARRAY(const struct json_tree_node*) nodes;
-	const struct json_tree_node *root = json_tree_root(tree);
-
+	ARRAY(struct jwt_node) nodes;
 	t_array_init(&nodes, 1);
-	array_push_back(&nodes, &root);
+	struct jwt_node *root = array_append_space(&nodes);
+	root->prefix = "";
+	root->root = json_tree_root(tree);
 
 	while (array_count(&nodes) > 0) {
-		const struct json_tree_node *const *pnode = array_front(&nodes);
-		const struct json_tree_node *node = *pnode;
-		array_pop_front(&nodes);
+		const struct jwt_node *subroot = array_front(&nodes);
+		const struct json_tree_node *node = subroot->root;
 		while (node != NULL) {
-			if (node->value_type == JSON_TYPE_OBJECT) {
-				root = node->value.child;
-				array_push_back(&nodes, &root);
-			} else if (node->key != NULL) {
-				struct oauth2_field *field =
-					array_append_space(fields);
-				field->name = p_strdup(pool, node->key);
-				field->value = p_strdup(
-					pool, json_tree_get_value_str(node));
+			if (node->value_type == JSON_TYPE_OBJECT ||
+			    node->value_type == JSON_TYPE_ARRAY) {
+				root = array_append_space(&nodes);
+				root->root = node->value.child;
+				root->array = node->value_type == JSON_TYPE_ARRAY;
+				if (node->key == NULL)
+					root->prefix = subroot->prefix;
+				else if (*subroot->prefix != '\0')
+					root->prefix = t_strconcat(subroot->prefix, node->key, "_", NULL);
+				else
+					root->prefix = t_strconcat(node->key, "_", NULL);
+			} else {
+				struct oauth2_field *field;
+				const char *name;
+				if (subroot->array) {
+					name = strrchr(subroot->prefix, '_');
+					if (name != NULL)
+						name = t_strdup_until(subroot->prefix, name);
+					else
+						name = subroot->prefix;
+					array_foreach_modifiable(fields, field) {
+						if (strcmp(field->name, name) == 0)
+							break;
+					}
+					if (field == NULL || field->name == NULL) {
+						field = array_append_space(fields);
+						field->name = p_strdup(pool, name);
+					}
+				} else {
+					field = array_append_space(fields);
+					field->name = p_strconcat(pool, subroot->prefix, node->key, NULL);
+				}
+				const char *value = str_tabescape(json_tree_get_value_str(node));
+				if (field->value != NULL) {
+					field->value = p_strconcat(pool, field->value, "\t", value, NULL);
+				} else {
+					field->value = p_strdup(pool, value);
+				}
 			}
 			node = node->next;
 		}
+		array_pop_front(&nodes);
 	}
 }
 
