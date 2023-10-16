@@ -184,7 +184,6 @@ int fts_backend_is_uid_indexed(struct fts_backend *backend, struct mailbox *box,
 	if (ret > 0)
 		*last_indexed_uid_r = uid;
 	return ret;
-
 }
 
 bool fts_backend_is_updating(struct fts_backend *backend)
