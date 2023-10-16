@@ -1382,6 +1382,47 @@ driver_cassandra_error_is_uncertain(CassError error)
 	}
 }
 
+static const char *
+get_consistency_error(struct cassandra_result *result,
+		      CassFuture *future, CassError error)
+{
+	switch (error) {
+	case CASS_ERROR_SERVER_READ_TIMEOUT:
+	case CASS_ERROR_SERVER_WRITE_TIMEOUT:
+	case CASS_ERROR_SERVER_READ_FAILURE:
+	case CASS_ERROR_SERVER_WRITE_FAILURE:
+	case CASS_ERROR_SERVER_UNAVAILABLE:
+		break;
+	default:
+		return t_strdup_printf(", %s consistency",
+			cass_consistency_string(result->consistency));
+	}
+	const CassErrorResult *error_result =
+		cass_future_get_error_result(future);
+	CassConsistency consistency =
+		cass_error_result_consistency(error_result);
+
+	string_t *str = t_str_new(128);
+	str_printfa(str, ", %s consistency, %u/%u responses received",
+		    cass_consistency_string(consistency),
+		    cass_error_result_responses_received(error_result),
+		    cass_error_result_responses_required(error_result));
+	if (error == CASS_ERROR_SERVER_READ_FAILURE ||
+	    error == CASS_ERROR_SERVER_WRITE_FAILURE) {
+		str_printfa(str, ", %u Cassandra node failures",
+			    cass_error_result_num_failures(error_result));
+	}
+	if (error == CASS_ERROR_SERVER_READ_FAILURE ||
+	    error == CASS_ERROR_SERVER_READ_TIMEOUT) {
+		str_printfa(str, ", data present=%s",
+			    cass_error_result_data_present(error_result) == 1 ?
+			    "yes" : "no");
+	}
+
+	cass_error_result_free(error_result);
+	return str_c(str);
+}
+
 static void query_callback(CassFuture *future, void *context)
 {
 	struct cassandra_result *result = context;
@@ -1403,11 +1444,12 @@ static void query_callback(CassFuture *future, void *context)
 		   enough copies of the data for the query to succeed. */
 		result->api.error_type = driver_cassandra_error_is_uncertain(error);
 		result->error = i_strdup_printf(
-			"Query '%s' failed: %.*s (in %u.%03u secs%s)",
+			"Query '%s' failed: %.*s (in %u.%03u secs%s%s)",
 			result->log_query, (int)errsize, errmsg, msecs/1000, msecs%1000,
 			result->page_num == 0 ?
 				"" :
-				t_strdup_printf(", page %u", result->page_num));
+				t_strdup_printf(", page %u", result->page_num),
+			get_consistency_error(result, future, error));
 
 		if (query_error_want_fallback(error) &&
 		    result->fallback_consistency != result->consistency) {
