@@ -7,6 +7,7 @@
 #include "sha1.h"
 #include "randgen.h"
 #include "safe-memset.h"
+#include "auth-master.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
 #include "mail-namespace.h"
@@ -259,6 +260,49 @@ imap_urlauth_check_hostport(struct imap_urlauth_context *uctx,
 	return TRUE;
 }
 
+static int
+imap_urlauth_verify_url_userid(struct imap_urlauth_context *uctx,
+			       const char *url_userid,
+			       const char **client_error_r)
+{
+	struct mail_user *user = uctx->user;
+	struct auth_user_info info;
+	pool_t userdb_pool;
+	const char *username, *const *fields;
+	int ret;
+
+	*client_error_r = NULL;
+
+	if (strcmp(url_userid, user->username) == 0)
+		return 1;
+
+	i_zero(&info);
+	info.service = user->service;
+	if (user->conn.local_ip != NULL)
+		info.local_ip = *user->conn.local_ip;
+	if (user->conn.remote_ip != NULL)
+		info.remote_ip = *user->conn.remote_ip;
+
+	userdb_pool = pool_alloconly_create("urlauth userdb lookup", 2048);
+	ret = auth_master_user_lookup(mail_user_auth_master_conn,
+				      url_userid, &info, userdb_pool,
+				      &username, &fields);
+	if (ret < 0) {
+		/* When lookup returns -1 and fields[0] isn't NULL, it
+		   contains an error message that should be shown to user. We
+		   amend the error, but retain this convention for this
+		   function. */
+		if (fields[0] != NULL) {
+			*client_error_r = t_strdup_printf(
+				"URLAUTH userid lookup failed: %s", fields[0]);
+		}
+	} else if (ret > 0) {
+		ret = (strcmp(user->username, username) == 0 ? 1 : 0);
+	}
+	pool_unref(&userdb_pool);
+	return ret;
+}
+
 int imap_urlauth_generate(struct imap_urlauth_context *uctx,
 			  const char *mechanism, const char *rumpurl,
 			  const char **urlauth_r, const char **client_error_r)
@@ -317,7 +361,19 @@ int imap_urlauth_generate(struct imap_urlauth_context *uctx,
 			"Anonymous logins not permitted to generate URLAUTH";
 		return 0;
 	}
-	if (strcmp(url->userid, user->username) != 0) {
+	ret = imap_urlauth_verify_url_userid(uctx, url->userid, client_error_r);
+	if (ret < 0) {
+		if (*client_error_r == NULL) {
+			/* Lookup failed: Internal error */
+			return -1;
+		}
+		/* Lookup failed: User error */
+		return 0;
+	}
+	if (ret == 0) {
+		/* Verification failed; URL userid not found in userdb or lookup
+		   did not translate it to the present username.
+		 */
 		*client_error_r = t_strdup_printf(
 			"Not permitted to generate URLAUTH for other user %s",
 			url->userid);
@@ -430,7 +486,19 @@ int imap_urlauth_fetch_parsed(struct imap_urlauth_context *uctx,
 		*error_code_r = MAIL_ERROR_PARAMS;
 		return 0;
 	}
-	if (strcmp(url->userid, user->username) != 0) {
+	ret = imap_urlauth_verify_url_userid(uctx, url->userid, client_error_r);
+	if (ret < 0) {
+		if (*client_error_r == NULL) {
+			/* Lookup failed: Internal error */
+			return -1;
+		}
+		/* Lookup failed: User error */
+		return 0;
+	}
+	if (ret == 0) {
+		/* Verification failed; URL userid not found in userdb or lookup
+		   did not translate it to the present username.
+		 */
 		*client_error_r = t_strdup_printf(
 			"Not permitted to fetch URLAUTH for other user %s",
 			url->userid);
