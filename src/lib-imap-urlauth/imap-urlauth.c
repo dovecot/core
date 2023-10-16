@@ -424,9 +424,15 @@ int imap_urlauth_fetch_parsed(struct imap_urlauth_context *uctx,
 	}
 
 	/* Validate target user */
-	if (user->anonymous || strcmp(url->userid, user->username) != 0) {
+	if (user->anonymous) {
+		*client_error_r =
+			"Anonymous logins not permitted to fetch URLAUTH";
+		*error_code_r = MAIL_ERROR_PARAMS;
+		return 0;
+	}
+	if (strcmp(url->userid, user->username) != 0) {
 		*client_error_r = t_strdup_printf(
-			"Not permitted to fetch URLAUTH for user %s",
+			"Not permitted to fetch URLAUTH for other user %s",
 			url->userid);
 		*error_code_r = MAIL_ERROR_PARAMS;
 		return 0;
