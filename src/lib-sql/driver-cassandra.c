@@ -1432,8 +1432,17 @@ static void query_callback(CassFuture *future, void *context)
 static void driver_cassandra_init_statement(struct cassandra_result *result)
 {
 	struct cassandra_db *db = container_of(result->api.db, struct cassandra_db, api);
+	CassError rc;
 
-	cass_statement_set_consistency(result->statement, result->consistency);
+	rc = cass_statement_set_consistency(result->statement,
+					    result->consistency);
+	if (rc != CASS_OK) {
+		e_error(db->api.event,
+			"Failed to set consistency %s for query '%s': %s",
+			cass_consistency_string(result->consistency),
+			result->log_query, cass_error_desc(rc));
+	}
+
 
 #ifdef HAVE_CASSANDRA_SPECULATIVE_POLICY
 	cass_statement_set_is_idempotent(result->statement, cass_true);
