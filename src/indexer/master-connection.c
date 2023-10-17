@@ -199,6 +199,9 @@ index_mailbox_precache_real(struct master_connection *conn, struct mailbox *box)
 }
 
 static int
+index_mailbox_precache(struct master_connection *conn, struct mailbox *box);
+
+static int
 index_mailbox_precache_virtual(struct master_connection *conn, struct mailbox *box)
 {
 	ARRAY_TYPE(mailboxes) mailboxes;
@@ -207,7 +210,7 @@ index_mailbox_precache_virtual(struct master_connection *conn, struct mailbox *b
 
 	struct mailbox *bbox;
 	array_foreach_elem(&mailboxes, bbox)
-		if (index_mailbox_precache_real(conn, bbox) < 0)
+		if (index_mailbox_precache(conn, bbox) < 0)
 			return -1;
 
 	return 0;
