@@ -31,6 +31,7 @@ struct fts_indexer_context {
 
 	bool notified:1;
 	bool failed:1;
+	bool started:1;
 	bool completed:1;
 };
 
@@ -95,6 +96,7 @@ int fts_indexer_more(struct fts_indexer_context *ctx)
 {
 	int ret;
 
+	ctx->started = TRUE;
 	if ((ret = fts_indexer_more_int(ctx)) < 0) {
 		/* If failed is already set, the code has had a chance to
 		 * set an internal error already, i.e. MAIL_ERROR_INUSE. */
@@ -115,7 +117,7 @@ static void fts_indexer_destroy(struct connection *conn)
 	struct fts_indexer_context *ctx =
 		container_of(conn, struct fts_indexer_context, conn);
 	connection_deinit(conn);
-	if (!ctx->completed)
+	if (ctx->started && !ctx->completed)
 		ctx->failed = TRUE;
 	ctx->completed = TRUE;
 }
@@ -125,7 +127,7 @@ int fts_indexer_deinit(struct fts_indexer_context **_ctx)
 	struct fts_indexer_context *ctx = *_ctx;
 	i_assert(ctx != NULL);
 	*_ctx = NULL;
-	if (!ctx->completed)
+	if (ctx->started && !ctx->completed)
 		ctx->failed = TRUE;
 	int ret = ctx->failed ? -1 : 0;
 	if (ctx->notified) {
@@ -206,7 +208,7 @@ static void fts_indexer_client_connected(struct connection *conn, bool success)
 		ctx->failed = TRUE;
 		return;
 	}
-	ctx->failed = ctx->completed = FALSE;
+	ctx->failed = ctx->started = ctx->completed = FALSE;
 	const char *cmd = t_strdup_printf("PREPEND\t1\t%s\t%s\t0\t%s\n",
 			      str_tabescape(ctx->box->storage->user->username),
 			      str_tabescape(ctx->box->vname),
