@@ -3,6 +3,7 @@
 #include "login-common.h"
 #include "settings-parser.h"
 #include "login-settings.h"
+#include "settings-parser.h"
 
 #include <unistd.h>
 
@@ -14,7 +15,7 @@ static bool login_settings_check(void *_set, pool_t pool, const char **error_r);
 
 static const struct setting_define login_setting_defines[] = {
 	DEF(BOOLLIST, login_trusted_networks),
-	DEF(STR, login_source_ips),
+	DEF(BOOLLIST, login_source_ips),
 	DEF(STR_HIDDEN, login_greeting),
 	DEF(STR_NOVARS, login_log_format_elements),
 	DEF(STR_NOVARS, login_log_format),
@@ -44,7 +45,7 @@ static const struct setting_define login_setting_defines[] = {
 
 static const struct login_settings login_default_settings = {
 	.login_trusted_networks = ARRAY_INIT,
-	.login_source_ips = "",
+	.login_source_ips = ARRAY_INIT,
 	.login_greeting = PACKAGE_NAME" ready.",
 	.login_log_format_elements = "user=<%u> method=%m rip=%r lip=%l mpid=%e %c session=<%{session}>",
 	.login_log_format = "%$: %s",
