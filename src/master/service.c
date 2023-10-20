@@ -188,13 +188,13 @@ static int service_get_groups(const ARRAY_TYPE(const_string) *groups, pool_t poo
 static struct service *
 service_create_real(pool_t pool, struct event *event,
 		    const struct service_settings *set,
-	            struct service_list *service_list, const char **error_r)
+		    struct service_list *service_list, const char **error_r)
 {
 	struct file_listener_settings *const *unix_listeners;
 	struct file_listener_settings *const *fifo_listeners;
 	struct inet_listener_settings *const *inet_listeners;
 	struct service *service;
-        struct service_listener *l;
+	struct service_listener *l;
 	unsigned int i, unix_count, fifo_count, inet_count;
 
 	service = p_new(pool, struct service, 1);
@@ -697,7 +697,7 @@ void service_list_unref(struct service_list *service_list)
 
 const char *services_get_config_socket_path(struct service_list *service_list)
 {
-        struct service_listener *const *listeners;
+	struct service_listener *const *listeners;
 	unsigned int count;
 
 	listeners = array_get(&service_list->config->listeners, &count);
