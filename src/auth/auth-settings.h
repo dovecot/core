@@ -66,7 +66,7 @@ struct auth_userdb_settings {
 struct auth_settings {
 	pool_t pool;
 	ARRAY_TYPE(const_string) mechanisms;
-	const char *realms;
+	ARRAY_TYPE(const_string) realms;
 	const char *default_domain;
 	uoff_t cache_size;
 	unsigned int cache_ttl;
@@ -120,7 +120,6 @@ struct auth_settings {
 	ARRAY(const struct auth_userdb_settings *) parsed_userdbs;
 	char username_chars_map[256];
 	char username_translation_map[256];
-	const char *const *realms_arr;
 	const struct ip_addr *proxy_self_ips;
 };
 

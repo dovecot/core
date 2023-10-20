@@ -336,7 +336,7 @@ const struct setting_parser_info auth_static_setting_parser_info = {
 
 static const struct setting_define auth_setting_defines[] = {
 	DEF(BOOLLIST, mechanisms),
-	DEF(STR, realms),
+	DEF(BOOLLIST, realms),
 	DEF(STR, default_domain),
 	DEF(SIZE, cache_size),
 	DEF(TIME, cache_ttl),
@@ -404,7 +404,7 @@ static const struct setting_define auth_setting_defines[] = {
 };
 
 static const struct auth_settings auth_default_settings = {
-	.realms = "",
+	.realms = ARRAY_INIT,
 	.default_domain = "",
 	.cache_size = 0,
 	.cache_ttl = 60*60,
@@ -630,8 +630,6 @@ static bool auth_settings_ext_check(struct event *event, void *_set,
 		for (; *p != '\0' && p[1] != '\0'; p += 2)
 			set->username_translation_map[(int)(uint8_t)*p] = p[1];
 	}
-	set->realms_arr =
-		(const char *const *)p_strsplit_spaces(pool, set->realms, " ");
 
 	if (*set->policy_server_url != '\0') {
 		if (*set->policy_hash_nonce == '\0') {
