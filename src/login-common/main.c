@@ -275,7 +275,7 @@ void login_anvil_init(void)
 }
 
 static void
-parse_login_source_ips(const char *ips_str)
+parse_login_source_ips(const ARRAY_TYPE(const_string) *ips_str)
 {
 	const char *const *tmp;
 	struct ip_addr *tmp_ips;
@@ -285,7 +285,7 @@ parse_login_source_ips(const char *ips_str)
 	i_array_init(&login_source_v4_ips_array, 4);
 	i_array_init(&login_source_v6_ips_array, 4);
 
-	for (tmp = t_strsplit_spaces(ips_str, ", "); *tmp != NULL; tmp++) {
+	for (tmp = settings_boollist_get(ips_str); *tmp != NULL; tmp++) {
 		ret = net_gethostbyname(*tmp, &tmp_ips, &tmp_ips_count);
 		if (ret != 0) {
 			i_error("login_source_ips: net_gethostbyname(%s) failed: %s",
@@ -383,7 +383,7 @@ static void main_preinit(void)
 
 	/* read the login_source_ips before chrooting so it can access
 	   /etc/hosts */
-	parse_login_source_ips(global_login_settings->login_source_ips);
+	parse_login_source_ips(&global_login_settings->login_source_ips);
 	if (login_source_v4_ips_count > 0) {
 		/* randomize the initial index in case restart_service_count=1
 		   (although in that case it's unlikely this setting is
