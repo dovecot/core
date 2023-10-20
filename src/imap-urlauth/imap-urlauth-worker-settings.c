@@ -18,7 +18,6 @@ struct service_settings imap_urlauth_worker_service_settings = {
 	.user = "",
 	.group = "",
 	.privileged_group = "",
-	.extra_groups = "$SET:default_internal_group",
 	.chroot = "",
 
 	.drop_priv_before_exec = FALSE,
@@ -38,6 +37,8 @@ const struct setting_keyvalue imap_urlauth_worker_service_settings_defaults[] = 
 	{ "unix_listener/"IMAP_URLAUTH_WORKER_SOCKET"/path", IMAP_URLAUTH_WORKER_SOCKET },
 	{ "unix_listener/"IMAP_URLAUTH_WORKER_SOCKET"/mode", "0600" },
 	{ "unix_listener/"IMAP_URLAUTH_WORKER_SOCKET"/user", "$SET:default_internal_user" },
+
+	{ "service_extra_groups", "$SET:default_internal_group" },
 
 	{ NULL, NULL }
 };

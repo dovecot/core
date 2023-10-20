@@ -165,7 +165,7 @@ service_create_inet_listeners(struct service *service,
 	return 0;
 }
 
-static int service_get_groups(const char *groups, pool_t pool,
+static int service_get_groups(const ARRAY_TYPE(const_string) *groups, pool_t pool,
 			      const char **gids_r, const char **error_r)
 {
 	const char *const *tmp;
@@ -173,7 +173,7 @@ static int service_get_groups(const char *groups, pool_t pool,
 	gid_t gid;
 
 	str = t_str_new(64);
-	for (tmp = t_strsplit(groups, ","); *tmp != NULL; tmp++) {
+	for (tmp = settings_boollist_get(groups); *tmp != NULL; tmp++) {
 		if (get_gid(*tmp, &gid, error_r) < 0)
 			return -1;
 
@@ -248,8 +248,8 @@ service_create_real(pool_t pool, struct event *event,
 		return NULL;
 	}
 
-	if (*set->extra_groups != '\0') {
-		if (service_get_groups(set->extra_groups, pool,
+	if (array_not_empty(&set->extra_groups)) {
+		if (service_get_groups(&set->extra_groups, pool,
 				       &service->extra_gids, error_r) < 0) {
 			*error_r = t_strdup_printf(
 				"%s (See service %s { extra_groups } setting)",
