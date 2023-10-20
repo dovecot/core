@@ -383,6 +383,8 @@ int dict_lookup_values(struct dict *dict, const struct dict_op_settings *set,
 	int ret;
 	i_assert(dict_key_prefix_is_valid(key, set->username));
 
+	*error_r = NULL;
+
 	e_debug(event, "Looking up '%s'", key);
 	event_add_str(event, "key", key);
 	ret = dict->v.lookup(dict, set, pool, key, values_r, error_r);
