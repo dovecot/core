@@ -323,13 +323,12 @@ args_parse_user(struct client *client, const char *key, const char *value)
 }
 
 static void
-sasl_server_auth_success_finish(struct client *client,
-				bool nologin, const char *const *args)
+sasl_server_auth_success_finish(struct client *client, const char *const *args)
 {
 	struct auth_client_request *request = client->auth_request;
 
 	client->auth_request = NULL;
-	if (nologin) {
+	if (client->auth_nologin) {
 		client->authenticating = FALSE;
 		call_client_callback(client, SASL_SERVER_REPLY_SUCCESS,
 				     NULL, args);
@@ -347,7 +346,6 @@ authenticate_callback(struct auth_client_request *request,
 {
 	struct client *client = context;
 	unsigned int i;
-	bool nologin;
 
 	if (!client->authenticating) {
 		/* client aborted */
@@ -369,7 +367,6 @@ authenticate_callback(struct auth_client_request *request,
 		client->auth_passdb_args = p_strarray_dup(client->pool, args);
 		client->postlogin_socket_path = NULL;
 
-		nologin = FALSE;
 		for (i = 0; args[i] != NULL; i++) {
 			const char *key, *value;
 			t_split_key_value_eq(args[i], &key, &value);
@@ -383,7 +380,7 @@ authenticate_callback(struct auth_client_request *request,
 			} else if (strcmp(key, "nologin") == 0 ||
 				   strcmp(key, "proxy") == 0) {
 				/* user can't login */
-				nologin = TRUE;
+				client->auth_nologin = TRUE;
 			} else if (strcmp(key, "anonymous") == 0) {
 				client->auth_anonymous = TRUE;
 			} else if (str_begins(args[i], "event_", &key)) {
@@ -391,7 +388,7 @@ authenticate_callback(struct auth_client_request *request,
 			}
 		}
 
-		sasl_server_auth_success_finish(client, nologin, args);
+		sasl_server_auth_success_finish(client, args);
 		break;
 	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
 		client->auth_process_comm_fail = TRUE;
@@ -535,6 +532,7 @@ void sasl_server_auth_begin(struct client *client, const char *mech_name,
 
 	client->auth_attempts++;
 	client->auth_aborted_by_client = FALSE;
+	client->auth_nologin = FALSE;
 	client->authenticating = TRUE;
 	client->master_auth_id = 0;
 	if (client->auth_first_started.tv_sec == 0)

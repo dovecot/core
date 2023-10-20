@@ -277,6 +277,7 @@ struct client {
 	bool auth_initializing:1;
 	bool auth_process_comm_fail:1;
 	bool auth_anonymous:1;
+	bool auth_nologin:1;
 	bool auth_nologin_referral:1;
 	bool proxy_auth_failed:1;
 	bool proxy_noauth:1;
