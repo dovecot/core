@@ -340,13 +340,13 @@ static int db_ldap_request_search(struct ldap_connection *conn,
 	i_assert(conn->conn_state == LDAP_CONN_STATE_BOUND_DEFAULT);
 	i_assert(request->msgid == -1);
 
-	request->msgid =
-		ldap_search(conn->ld, *srequest->base == '\0' ? NULL :
-			    srequest->base, conn->set.ldap_scope,
-			    srequest->filter, srequest->attributes, 0);
+	ldap_search_ext(
+		conn->ld, *srequest->base == '\0' ? NULL : srequest->base,
+		conn->set.ldap_scope, srequest->filter, srequest->attributes,
+		0, NULL, NULL, 0, 0, &request->msgid);
 	if (request->msgid == -1) {
 		e_error(authdb_event(request->auth_request),
-			"ldap_search(%s) parsing failed: %s",
+			"ldap_search_ext(%s) parsing failed: %s",
 			srequest->filter, ldap_get_error(conn));
 		if (ldap_handle_error(conn) < 0) {
 			/* broken request, remove it */
@@ -692,12 +692,13 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 	}
 	array_append_zero(&ctx.attr_names);
 
-	request->request.msgid =
-		ldap_search(conn->ld, named_res->dn, LDAP_SCOPE_BASE,
-			    NULL, array_front_modifiable(&ctx.attr_names), 0);
+	ldap_search_ext(
+		conn->ld, named_res->dn, LDAP_SCOPE_BASE, NULL,
+		array_front_modifiable(&ctx.attr_names), 0, NULL, NULL, 0, 0,
+		&request->request.msgid);
 	if (request->request.msgid == -1) {
 		e_error(authdb_event(auth_request),
-			"ldap_search(dn=%s) failed: %s",
+			"ldap_search_ext(dn=%s) failed: %s",
 			named_res->dn, ldap_get_error(conn));
 		return -1;
 	}
@@ -812,14 +813,14 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 
 		if (!array_is_created(&srequest->named_results)) {
 			e_error(authdb_event(request->auth_request),
-				"ldap_search(base=%s filter=%s) failed: %s",
+				"ldap_search_ext(base=%s filter=%s) failed: %s",
 				srequest->base, srequest->filter,
 				ldap_err2string(ret));
 		} else {
 			named_res = array_idx(&srequest->named_results,
 					      srequest->name_idx);
 			e_error(authdb_event(request->auth_request),
-				"ldap_search(base=%s) failed: %s",
+				"ldap_search_ext(base=%s) failed: %s",
 				named_res->dn, ldap_err2string(ret));
 		}
 		res = NULL;
