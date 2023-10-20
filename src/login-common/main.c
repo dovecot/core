@@ -279,17 +279,9 @@ parse_login_source_ips(const char *ips_str)
 {
 	const char *const *tmp;
 	struct ip_addr *tmp_ips;
-	bool skip_nonworking = FALSE;
 	unsigned int i, tmp_ips_count;
 	int ret;
 
-	if (ips_str[0] == '?') {
-		/* try binding to the IP immediately. if it doesn't
-		   work, skip it. (this allows using the same config file for
-		   all the servers.) */
-		skip_nonworking = TRUE;
-		ips_str++;
-	}
 	i_array_init(&login_source_v4_ips_array, 4);
 	i_array_init(&login_source_v6_ips_array, 4);
 
@@ -301,8 +293,6 @@ parse_login_source_ips(const char *ips_str)
 			continue;
 		}
 		for (i = 0; i < tmp_ips_count; i++) {
-			if (skip_nonworking && net_try_bind(&tmp_ips[i]) < 0)
-				continue;
 			if (tmp_ips[i].family == AF_INET)
 				array_push_back(&login_source_v4_ips_array, &tmp_ips[i]);
 			else if (tmp_ips[i].family == AF_INET6)
