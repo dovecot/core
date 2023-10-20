@@ -121,7 +121,7 @@ static const struct setting_define service_setting_defines[] = {
 	DEF(STR, user),
 	DEF(STR, group),
 	DEF(STR, privileged_group),
-	DEF(STR, extra_groups),
+	DEF(BOOLLIST, extra_groups),
 	DEF(STR, chroot),
 
 	DEF(BOOL, drop_priv_before_exec),
@@ -154,7 +154,7 @@ static const struct service_settings service_default_settings = {
 	.user = "",
 	.group = "",
 	.privileged_group = "",
-	.extra_groups = "",
+	.extra_groups = ARRAY_INIT,
 	.chroot = "",
 
 	.drop_priv_before_exec = FALSE,
@@ -275,6 +275,16 @@ expand_group(const char **group, const struct master_settings *set)
 	   them here */
 	if (strcmp(*group, "$SET:default_internal_group") == 0)
 		*group = set->default_internal_group;
+}
+
+static void
+expand_groups(ARRAY_TYPE(const_string) *groups, const struct master_settings *set)
+{
+	const char **group;
+	if (array_is_empty(groups))
+		return;
+	array_foreach_modifiable(groups, group)
+		expand_group(group, set);
 }
 
 static bool
@@ -651,7 +661,7 @@ master_settings_ext_check(struct event *event, void *_set,
 			}
 		}
 		expand_user(&service->user, &service->user_default, set);
-		expand_group(&service->extra_groups, set);
+		expand_groups(&service->extra_groups, set);
 		service_set_login_dump_core(service);
 	}
 

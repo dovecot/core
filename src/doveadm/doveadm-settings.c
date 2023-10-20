@@ -25,7 +25,6 @@ struct service_settings doveadm_service_settings = {
 	.user = "",
 	.group = "",
 	.privileged_group = "",
-	.extra_groups = "$SET:default_internal_group",
 	.chroot = "",
 
 	.drop_priv_before_exec = FALSE,
@@ -44,6 +43,8 @@ const struct setting_keyvalue doveadm_service_settings_defaults[] = {
 	{ "unix_listener/doveadm-server/path", "doveadm-server" },
 	{ "unix_listener/doveadm-server/type", "tcp" },
 	{ "unix_listener/doveadm-server/mode", "0600" },
+
+	{ "service_extra_groups", "$SET:default_internal_group" },
 
 	{ NULL, NULL }
 };

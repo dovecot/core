@@ -62,7 +62,7 @@ struct service_settings {
 	const char *user;
 	const char *group;
 	const char *privileged_group;
-	const char *extra_groups;
+	ARRAY_TYPE(const_string) extra_groups;
 	const char *chroot;
 
 	bool drop_priv_before_exec;

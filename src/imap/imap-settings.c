@@ -18,7 +18,6 @@ struct service_settings imap_service_settings = {
 	.user = "",
 	.group = "",
 	.privileged_group = "",
-	.extra_groups = "$SET:default_internal_group",
 	.chroot = "",
 
 	.drop_priv_before_exec = FALSE,
@@ -46,6 +45,8 @@ const struct setting_keyvalue imap_service_settings_defaults[] = {
 	{ "unix_listener/srv.imap\\s%{pid}/path", "srv.imap/%{pid}" },
 	{ "unix_listener/srv.imap\\s%{pid}/type", "admin" },
 	{ "unix_listener/srv.imap\\s%{pid}/mode", "0600" },
+
+	{ "service_extra_groups", "$SET:default_internal_group" },
 
 	{ NULL, NULL }
 };

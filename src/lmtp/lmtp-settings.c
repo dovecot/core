@@ -23,7 +23,6 @@ struct service_settings lmtp_service_settings = {
 	.user = "",
 	.group = "",
 	.privileged_group = "",
-	.extra_groups = "$SET:default_internal_group",
 	.chroot = "",
 
 	.drop_priv_before_exec = FALSE,
@@ -40,6 +39,8 @@ const struct setting_keyvalue lmtp_service_settings_defaults[] = {
 
 	{ "unix_listener/lmtp/path", "lmtp" },
 	{ "unix_listener/lmtp/mode", "0666" },
+
+	{ "service_extra_groups", "$SET:default_internal_group" },
 
 	{ NULL, NULL }
 };
