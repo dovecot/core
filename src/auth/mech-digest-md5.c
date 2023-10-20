@@ -13,6 +13,7 @@
 #include "str-sanitize.h"
 #include "mech.h"
 #include "passdb.h"
+#include "settings-parser.h"
 
 /* Linear whitespace */
 #define IS_LWS(c) ((c) == ' ' || (c) == '\t')
@@ -51,12 +52,12 @@ static string_t *get_digest_challenge(struct digest_auth_request *request)
 	request->nonce = p_strdup(request->pool, buf.data);
 
 	str = t_str_new(256);
-	if (*set->realms_arr == NULL) {
+	if (array_is_empty(&set->realms)) {
 		/* If no realms are given, at least Cyrus SASL client defaults
 		   to destination host name */
 		str_append(str, "realm=\"\",");
 	} else {
-		for (tmp = set->realms_arr; *tmp != NULL; tmp++)
+		for (tmp = settings_boollist_get(&set->realms); *tmp != NULL; tmp++)
 			str_printfa(str, "realm=\"%s\",", *tmp);
 	}
 
