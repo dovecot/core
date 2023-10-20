@@ -92,7 +92,7 @@ verify_credentials(struct digest_auth_request *request,
 
 	/* get the MD5 password */
 	if (size != MD5_RESULTLEN) {
-                e_error(auth_request->mech_event,
+		e_error(auth_request->mech_event,
 			"invalid credentials length");
 		return FALSE;
 	}
@@ -550,7 +550,7 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 	}
 
 	if (error != NULL)
-                e_info(auth_request->mech_event, "%s", error);
+		e_info(auth_request->mech_event, "%s", error);
 
 	auth_request_fail(auth_request);
 }
