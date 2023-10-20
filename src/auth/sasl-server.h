@@ -134,6 +134,8 @@ void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 				const struct sasl_server_mech *mech,
 				const char *protocol,
 				struct event *event_parent);
+void sasl_server_request_ref(struct sasl_server_req_ctx *rctx);
+void sasl_server_request_unref(struct sasl_server_req_ctx *rctx);
 void sasl_server_request_destroy(struct sasl_server_req_ctx *rctx);
 
 void sasl_server_request_initial(struct sasl_server_req_ctx *rctx,

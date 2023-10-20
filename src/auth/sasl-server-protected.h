@@ -102,6 +102,9 @@ void mech_deinit(const struct auth_settings *set);
  * Request
  */
 
+void sasl_server_mech_request_ref(struct sasl_server_mech_request *mreq);
+void sasl_server_mech_request_unref(struct sasl_server_mech_request **_mreq);
+
 bool sasl_server_request_set_authid(struct sasl_server_mech_request *mreq,
 				    enum sasl_server_authid_type authid_type,
 				    const char *authid);
