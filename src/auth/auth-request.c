@@ -524,16 +524,15 @@ auth_request_save_cache(struct auth_request *request,
 }
 
 static bool
-auth_request_mechanism_accepted(const char *const *mechs,
-				const struct sasl_server_mech_def *mech)
+auth_request_mechanism_accepted(const char *const *mechs, const char *mech_name)
 {
 	/* no filter specified, anything goes */
 	if (mechs == NULL) return TRUE;
 	/* request has no mechanism, see if lookup is accepted */
-	if (mech == NULL)
+	if (mech_name == NULL)
 		return str_array_icase_find(mechs, "lookup");
 	/* check if request mechanism is accepted */
-	return str_array_icase_find(mechs, mech->name);
+	return str_array_icase_find(mechs, mech_name);
 }
 
 /**
@@ -579,7 +578,7 @@ auth_request_want_skip_passdb(struct auth_request *request,
 
 	username = request->fields.user;
 
-	if (!auth_request_mechanism_accepted(mechs, request->mech)) {
+	if (!auth_request_mechanism_accepted(mechs, request->mech->name)) {
 		e_debug(request->event, "skipping passdb: mechanism filtered");
 		return TRUE;
 	}
