@@ -110,8 +110,8 @@ mech_otp_auth_phase1(struct auth_request *auth_request,
 					otp_credentials_callback);
 }
 
-static void mech_otp_verify(struct auth_request *auth_request,
-			    const char *data, bool hex)
+static void
+mech_otp_verify(struct auth_request *auth_request, const char *data, bool hex)
 {
 	struct otp_auth_request *request =
 		(struct otp_auth_request *)auth_request;
@@ -144,8 +144,9 @@ static void mech_otp_verify(struct auth_request *auth_request,
 				     otp_set_credentials_callback);
 }
 
-static void mech_otp_verify_init(struct auth_request *auth_request,
-				 const char *data, bool hex)
+static void
+mech_otp_verify_init(struct auth_request *auth_request, const char *data,
+		     bool hex)
 {
 	struct otp_auth_request *request =
 		(struct otp_auth_request *)auth_request;
@@ -183,15 +184,15 @@ mech_otp_auth_phase2(struct auth_request *auth_request,
 {
 	const char *value, *str = t_strndup(data, data_size);
 
-	if (str_begins(str, "hex:", &value)) {
+	if (str_begins(str, "hex:", &value))
 		mech_otp_verify(auth_request, value, TRUE);
-	} else if (str_begins(str, "word:", &value)) {
+	else if (str_begins(str, "word:", &value))
 		mech_otp_verify(auth_request, value, FALSE);
-	} else if (str_begins(str, "init-hex:", &value)) {
+	else if (str_begins(str, "init-hex:", &value))
 		mech_otp_verify_init(auth_request, value, TRUE);
-	} else if (str_begins(str, "init-word:", &value)) {
+	else if (str_begins(str, "init-word:", &value))
 		mech_otp_verify_init(auth_request, value, FALSE);
-	} else {
+	else {
 		e_error(auth_request->mech_event,
 			"unsupported response type");
 		auth_request_fail(auth_request);
@@ -203,11 +204,10 @@ static void
 mech_otp_auth_continue(struct auth_request *auth_request,
 		       const unsigned char *data, size_t data_size)
 {
-	if (auth_request->fields.user == NULL) {
+	if (auth_request->fields.user == NULL)
 		mech_otp_auth_phase1(auth_request, data, data_size);
-	} else {
+	else
 		mech_otp_auth_phase2(auth_request, data, data_size);
-	}
 }
 
 static struct auth_request *mech_otp_auth_new(void)
