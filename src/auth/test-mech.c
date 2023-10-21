@@ -62,10 +62,11 @@ request_handler_reply_mock_callback(struct auth_request *request,
 
 	if (request->passdb_result == PASSDB_RESULT_OK)
 		request->failed = FALSE;
-	else if (request->mech == &mech_otp) {
+	else if (strcmp(request->fields.mech_name, SASL_MECH_NAME_OTP) == 0) {
 		if (null_strcmp(request->fields.user, "otp_phase_2") == 0)
 			request->failed = FALSE;
-	} else if (request->mech == &mech_oauthbearer) {
+	} else if (strcmp(request->fields.mech_name,
+			  SASL_MECH_NAME_OAUTHBEARER) == 0) {
 	}
 };
 
@@ -113,7 +114,6 @@ static void test_mech_prepare_request(struct auth_request **request_r,
 	else
 		mech = sasl_server_mech_find(auth->sasl_inst, mech_name);
 	i_assert(mech != NULL);
-	request->mech = mech->def;
 
 	auth_request_init_sasl(request, mech);
 
@@ -143,7 +143,8 @@ test_mech_handle_challenge(struct auth_request *request,
 	string_t *out = t_str_new(16);
 	str_append_data(out, in, in_len);
 	const char *challenge = request->context;
-	if (request->mech == &mech_login) {
+
+	if (strcmp(request->fields.mech_name, SASL_MECH_NAME_LOGIN) == 0) {
 		/* We do not care about any specific password just give the
 		   username input as password also in case it's wanted. */
 		if (expected_success) {
@@ -153,10 +154,13 @@ test_mech_handle_challenge(struct auth_request *request,
 			test_assert_strcmp_idx(challenge, "Username:",
 					       running_test);
 		}
-	} else if (request->mech == &mech_cram_md5 && *in != '\0') {
+	} else if (strcmp(request->fields.mech_name,
+			  SASL_MECH_NAME_CRAM_MD5) == 0 &&
+		   *in != '\0') {
 		str_truncate(out, 0);
 		str_append(out, "testuser b913a602c7eda7a495b4e6e7334d3890");
-	} else if (request->mech == &mech_digest_md5) {
+	} else if (strcmp(request->fields.mech_name,
+			  SASL_MECH_NAME_DIGEST_MD5) == 0) {
 		mech_digest_test_set_nonce(request, "OA6MG9tEQGm2hh");
 	}
 	auth_request_continue(request, out->data, out->used);

@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "settings-parser.h"
-#include "sasl-server-private.h" // FIXME: remove
+#include "sasl-server-protected.h" // FIXME: remove
 #include "auth.h"
 #include "auth-common.h"
 #include "auth-sasl.h"

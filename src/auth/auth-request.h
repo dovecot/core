@@ -8,7 +8,6 @@
 #include "array.h"
 #include "net.h"
 #include "var-expand.h"
-#include "sasl-server-protected.h" // FIXME: Use public API only
 #include "userdb.h"
 #include "passdb.h"
 #include "auth-sasl.h"
@@ -135,7 +134,6 @@ struct auth_request {
 	   proxy DNS lookups) */
 	enum passdb_result passdb_result;
 
-	const struct sasl_server_mech_def *mech;
 	struct {
 		struct sasl_server_req_ctx req;
 		sasl_server_passdb_callback_t *passdb_callback;

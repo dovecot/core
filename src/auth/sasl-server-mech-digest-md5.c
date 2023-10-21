@@ -627,6 +627,6 @@ void mech_digest_test_set_nonce(struct auth_request *auth_request,
 		container_of(auth_request->sasl.req.request->mech,
 			     struct digest_auth_request, auth_request);
 
-	i_assert(auth_request->mech == &mech_digest_md5);
+	i_assert(request->auth_request.mech->def == &mech_digest_md5);
 	request->nonce = p_strdup(auth_request->pool, nonce);
 }
