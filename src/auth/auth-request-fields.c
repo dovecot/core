@@ -7,7 +7,6 @@
 #include "strescape.h"
 #include "str-sanitize.h"
 #include "base64.h"
-#include "sasl-server-protected.h" // FIXME: remove
 #include "auth-request.h"
 
 void auth_request_fields_alloc(struct auth_request *request)
@@ -19,10 +18,11 @@ void auth_request_fields_alloc(struct auth_request *request)
 
 void auth_request_fields_init(struct auth_request *request)
 {
-	if (request->mech != NULL) {
-		request->fields.mech_name = request->mech->name;
+	if (request->sasl.req.mech != NULL) {
+		request->fields.mech_name =
+			sasl_server_mech_get_name(request->sasl.req.mech);
 		event_add_str(request->event, "mechanism",
-			      request->mech->name);
+			      request->fields.mech_name);
 	}
 }
 
