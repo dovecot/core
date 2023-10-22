@@ -67,8 +67,7 @@ userdb_ldap_lookup_finish(struct auth_request *auth_request,
 		result = USERDB_RESULT_INTERNAL_FAILURE;
 	} else if (urequest->entries == 0) {
 		result = USERDB_RESULT_USER_UNKNOWN;
-		auth_request_log_unknown_user(auth_request,
-					      authdb_event(auth_request));
+		auth_request_db_log_unknown_user(auth_request);
 	} else if (urequest->entries > 1) {
 		e_error(authdb_event(auth_request),
 			"user_filter matched multiple objects, aborting");

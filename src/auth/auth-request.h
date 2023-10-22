@@ -386,6 +386,7 @@ void auth_request_log_unknown_user(struct auth_request *auth_request,
 void auth_request_log_login_failure(struct auth_request *request,
 				    struct event *event, const char *message);
 void auth_request_db_log_password_mismatch(struct auth_request *auth_request);
+void auth_request_db_log_unknown_user(struct auth_request *auth_request);
 void auth_request_db_log_login_failure(struct auth_request *request,
 				       const char *message);
 

@@ -2457,6 +2457,12 @@ void auth_request_db_log_password_mismatch(struct auth_request *request)
 				       AUTH_LOG_MSG_PASSWORD_MISMATCH);
 }
 
+void auth_request_db_log_unknown_user(struct auth_request *request)
+{
+	auth_request_log_login_failure(request, authdb_event(request),
+				       "unknown user");
+}
+
 void auth_request_db_log_login_failure(struct auth_request *request,
 				       const char *message)
 {

@@ -22,7 +22,7 @@ passwd_lookup(struct auth_request *request, struct passwd *pw_r)
 			"getpwnam() failed: %m");
 		return PASSDB_RESULT_INTERNAL_FAILURE;
 	case 0:
-		auth_request_log_unknown_user(request, authdb_event(request));
+		auth_request_db_log_unknown_user(request);
 		return PASSDB_RESULT_USER_UNKNOWN;
 	}
 

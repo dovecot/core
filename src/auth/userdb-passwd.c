@@ -101,8 +101,7 @@ static void passwd_lookup(struct auth_request *auth_request,
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 		return;
 	case 0:
-		auth_request_log_unknown_user(auth_request,
-					      authdb_event(auth_request));
+		auth_request_db_log_unknown_user(auth_request);
 		callback(USERDB_RESULT_USER_UNKNOWN, auth_request);
 		return;
 	}

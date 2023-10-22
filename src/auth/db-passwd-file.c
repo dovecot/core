@@ -484,7 +484,7 @@ int db_passwd_file_lookup(struct db_passwd_file *db,
 
 	*user_r = hash_table_lookup(pw->users, str_c(username));
 	if (*user_r == NULL) {
-		auth_request_log_unknown_user(request, authdb_event(request));
+		auth_request_db_log_unknown_user(request);
 		return 0;
 	}
 	return 1;
