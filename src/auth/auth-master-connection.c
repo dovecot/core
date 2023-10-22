@@ -337,7 +337,7 @@ master_input_user(struct auth_master_connection *conn, const char *args)
 	if (ret <= 0) {
 		if (ret < 0)
 			return FALSE;
-		auth_request_log_info(auth_request, "userdb", "%s", error);
+		e_info(auth_request->event, "userdb: %s", error);
 		user_callback(USERDB_RESULT_USER_UNKNOWN, auth_request);
 	} else {
 		auth_request_set_state(auth_request, AUTH_REQUEST_STATE_USERDB);
@@ -444,7 +444,7 @@ master_input_pass(struct auth_master_connection *conn, const char *args)
 	if (ret <= 0) {
 		if (ret < 0)
 			return FALSE;
-		auth_request_log_info(auth_request, "passdb", "%s", error);
+		e_info(auth_request->event, "passdb: %s", error);
 		pass_callback(PASSDB_RESULT_USER_UNKNOWN,
 			      uchar_empty_ptr, 0, auth_request);
 	} else if (conn->userdb_restricted_uid != 0) {
