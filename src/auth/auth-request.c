@@ -2451,6 +2451,12 @@ void auth_request_log_login_failure(struct auth_request *request,
 	event_set_min_log_level(event, orig_level);
 }
 
+void auth_request_db_log_password_mismatch(struct auth_request *request)
+{
+	auth_request_log_login_failure(request, authdb_event(request),
+				       AUTH_LOG_MSG_PASSWORD_MISMATCH);
+}
+
 void auth_request_db_log_login_failure(struct auth_request *request,
 				       const char *message)
 {
