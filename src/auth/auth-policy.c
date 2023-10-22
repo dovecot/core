@@ -625,13 +625,6 @@ static void auth_policy_url(struct policy_lookup_ctx *context,
 	}
 }
 
-static const char *auth_policy_get_prefix(struct auth_request *request)
-{
-	string_t *str = t_str_new(256);
-	auth_request_get_log_prefix(str, request, "policy");
-	return str_c(str);
-}
-
 void auth_policy_check(struct auth_request *request, const char *password,
 	auth_policy_callback_t cb, void *context)
 {
@@ -653,8 +646,7 @@ void auth_policy_check(struct auth_request *request, const char *password,
 	ctx->set = request->set;
 	ctx->event = event_create(request->event);
 	event_add_str(ctx->event, "mode", "allow");
-	event_set_append_log_prefix(ctx->event,
-				    auth_policy_get_prefix(request));
+	event_set_append_log_prefix(ctx->event, "policy: ");
 	auth_policy_url(ctx, "allow");
 	ctx->result = (ctx->set->policy_reject_on_fail ? -1 : 0);
 	e_debug(ctx->event, "Policy request %s", ctx->url);
@@ -682,8 +674,7 @@ void auth_policy_report(struct auth_request *request)
 	ctx->set = request->set;
 	ctx->event = event_create(request->event);
 	event_add_str(ctx->event, "mode", "report");
-	event_set_append_log_prefix(ctx->event,
-				    auth_policy_get_prefix(request));
+	event_set_append_log_prefix(ctx->event, "policy: ");
 	auth_policy_url(ctx, "report");
 	e_debug(ctx->event, "Policy request %s", ctx->url);
 	T_BEGIN {

@@ -13,6 +13,8 @@
 #include "strescape.h"
 #include "var-expand.h"
 #include "dns-lookup.h"
+#include "hostpid.h"
+#include "master-service.h"
 #include "auth-cache.h"
 #include "auth-request.h"
 #include "auth-request-handler.h"
@@ -31,13 +33,13 @@
 
 #include <sys/stat.h>
 
-#define AUTH_SUBSYS_PROXY "proxy"
 #define AUTH_DNS_WARN_MSECS 500
 #define AUTH_REQUEST_MAX_DELAY_SECS (60*5)
 #define CACHED_PASSWORD_SCHEME "SHA1"
 
 struct auth_request_proxy_dns_lookup_ctx {
 	struct auth_request *request;
+	struct event *event;
 	auth_request_proxy_cb_t *callback;
 	struct dns_lookup *dns_lookup;
 };
@@ -61,8 +63,6 @@ const char auth_default_subsystems[2];
 unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
 
 static void
-get_log_identifier(string_t *str, struct auth_request *auth_request);
-static void
 auth_request_userdb_import(struct auth_request *request, const char *args);
 
 static void auth_request_lookup_credentials_policy_continue(
@@ -70,9 +70,13 @@ static void auth_request_lookup_credentials_policy_continue(
 static void auth_request_policy_check_callback(int result, void *context);
 
 #define MAX_LOG_USERNAME_LEN 64
-static void get_log_identifier(string_t *str, struct auth_request *auth_request)
+static const char *get_log_prefix(struct auth_request *auth_request)
 {
+	string_t *str = t_str_new(64);
 	const char *ip;
+
+	str_append(str, master_service_get_configured_name(master_service));
+	str_append_c(str, '(');
 
 	if (auth_request->fields.user == NULL)
 	        str_append(str, "?");
@@ -87,22 +91,36 @@ static void get_log_identifier(string_t *str, struct auth_request *auth_request)
 	}
 	if (auth_request->fields.requested_login_user != NULL)
 	        str_append(str, ",master");
+	str_append_c(str, ')');
+	if (worker) {
+		str_append(str, "<");
+		str_append(str, my_pid);
+		str_append(str,">");
+	}
 	if (auth_request->fields.session_id != NULL)
-	        str_printfa(str, ",<%s>", auth_request->fields.session_id);
-}
+	        str_printfa(str, "<%s>", auth_request->fields.session_id);
+	str_append(str, ": ");
 
-static const char *get_log_prefix_mech(struct auth_request *auth_request)
-{
-	string_t *str = t_str_new(64);
-	auth_request_get_log_prefix(str, auth_request, AUTH_SUBSYS_MECH);
 	return str_c(str);
 }
 
 const char *auth_request_get_log_prefix_db(struct auth_request *auth_request)
 {
-	string_t *str = t_str_new(64);
-	auth_request_get_log_prefix(str, auth_request, AUTH_SUBSYS_DB);
-	return str_c(str);
+	const char *name;
+
+	if (!auth_request->userdb_lookup) {
+		i_assert(auth_request->passdb != NULL);
+		name = auth_request->passdb->set->name[0] != '\0' ?
+			auth_request->passdb->set->name :
+			auth_request->passdb->passdb->iface.name;
+	} else {
+		i_assert(auth_request->userdb != NULL);
+		name = auth_request->userdb->set->name[0] != '\0' ?
+			auth_request->userdb->set->name :
+			auth_request->userdb->userdb->iface->name;
+	}
+
+	return t_strconcat(name, ": ", NULL);
 }
 
 static struct event *get_request_event(struct auth_request *request,
@@ -110,7 +128,7 @@ static struct event *get_request_event(struct auth_request *request,
 {
 	if (subsystem == AUTH_SUBSYS_DB)
 		return authdb_event(request);
-	else if (subsystem == AUTH_SUBSYS_MECH)
+	else if (subsystem == AUTH_SUBSYS_MECH && request->mech_event != NULL)
 		return request->mech_event;
 	else
 		return request->event;
@@ -121,6 +139,7 @@ auth_request_post_alloc_init(struct auth_request *request,
 			     struct event *parent_event)
 {
 	enum log_type level;
+
 	request->state = AUTH_REQUEST_STATE_NEW;
 	auth_request_state_count[AUTH_REQUEST_STATE_NEW]++;
 	request->refcount = 1;
@@ -128,18 +147,16 @@ auth_request_post_alloc_init(struct auth_request *request,
 	request->session_pid = (pid_t)-1;
 	request->set = global_auth_settings;
 	request->event = event_create(parent_event);
-	request->mech_event = event_create(request->event);
 	auth_request_fields_init(request);
 
 	level = request->set->verbose ? LOG_TYPE_INFO : LOG_TYPE_WARNING;
 	event_set_min_log_level(request->event, level);
-	event_set_min_log_level(request->mech_event, level);
-
-	p_array_init(&request->authdb_event, request->pool, 2);
-	event_set_log_prefix_callback(request->mech_event, FALSE,
-				      get_log_prefix_mech, request);
 	event_set_forced_debug(request->event, request->set->debug);
 	event_add_category(request->event, &event_category_auth);
+	event_set_log_prefix_callback(request->event, TRUE,
+				      get_log_prefix, request);
+
+	p_array_init(&request->authdb_event, request->pool, 2);
 }
 
 struct auth_request *
@@ -150,6 +167,15 @@ auth_request_new(const struct mech_module *mech, struct event *parent_event)
 	request = mech->auth_new();
 	request->mech = mech;
 	auth_request_post_alloc_init(request, parent_event);
+
+	enum log_type level =
+		(request->set->verbose ? LOG_TYPE_INFO : LOG_TYPE_WARNING);
+	const char *prefix = t_strconcat(
+		t_str_lcase(request->mech->mech_name), ": ", NULL);
+
+	request->mech_event = event_create(request->event);
+	event_set_min_log_level(request->mech_event, level);
+	event_set_append_log_prefix(request->mech_event, prefix);
 
 	return request;
 }
@@ -260,12 +286,10 @@ void auth_request_log_finished(struct auth_request *request)
 	if (request->event_finished_sent)
 		return;
 	request->event_finished_sent = TRUE;
-	string_t *str = t_str_new(64);
-	auth_request_get_log_prefix(str, request, "auth");
 	struct event_passthrough *e =
 		auth_request_finished_event(request, request->event)->
 		set_name("auth_request_finished");
-	e_debug(e->event(), "%sAuth request finished", str_c(str));
+	e_debug(e->event(), "Auth request finished");
 }
 
 static void auth_request_success_continue(struct auth_policy_check_ctx *ctx)
@@ -1008,7 +1032,7 @@ static bool auth_request_is_disabled_master_user(struct auth_request *request)
 		return FALSE;
 
 	/* no masterdbs, master logins not supported */
-	e_info(request->mech_event,
+	e_info(request->event,
 	       "Attempted master login with no master passdbs "
 	       "(trying to log in as user: %s)",
 	       request->fields.requested_login_user);
@@ -1563,7 +1587,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 				"%suser not found from userdb",
 				auth_request_get_log_prefix_db(request));
 		} else {
-			e_error(request->mech_event,
+			e_error(request->event,
 				"user not found from any userdbs");
 		}
 		result = USERDB_RESULT_USER_UNKNOWN;
@@ -2190,15 +2214,16 @@ auth_request_proxy_dns_callback(const struct dns_lookup_result *result,
 	i_assert(host != NULL);
 
 	if (result->ret != 0) {
-		auth_request_log_error(request, AUTH_SUBSYS_PROXY,
-			"DNS lookup for %s failed: %s", host, result->error);
+		e_error(ctx->event, "DNS lookup for %s failed: %s",
+			host, result->error);
 		request->internal_failure = TRUE;
 		auth_request_proxy_finish_failure(request);
 	} else {
 		if (result->msecs > AUTH_DNS_WARN_MSECS) {
-			auth_request_log_warning(request, AUTH_SUBSYS_PROXY,
-				"DNS lookup for %s took %u.%03u s",
-				host, result->msecs/1000, result->msecs % 1000);
+			e_warning(ctx->event,
+				  "DNS lookup for %s took %u.%03u s",
+				  host, result->msecs/1000,
+				  result->msecs % 1000);
 		}
 		auth_fields_add(request->fields.extra_fields, "hostip",
 				net_ip2addr(&result->ips[0]), 0);
@@ -2214,6 +2239,7 @@ auth_request_proxy_dns_callback(const struct dns_lookup_result *result,
 	}
 	if (ctx->callback != NULL)
 		ctx->callback(result->ret == 0, request);
+	event_unref(&ctx->event);
 	auth_request_unref(&request);
 }
 
@@ -2223,25 +2249,30 @@ auth_request_proxy_host_lookup(struct auth_request *request,
 			       auth_request_proxy_cb_t *callback)
 {
 	struct auth *auth = auth_default_service();
+	struct event *proxy_event;
 	struct auth_request_proxy_dns_lookup_ctx *ctx;
 	const char *value;
 	unsigned int secs;
+
+	proxy_event = event_create(request->event);
+	event_set_append_log_prefix(proxy_event, "proxy: ");
 
 	/* need to do dns lookup for the host */
 	value = auth_fields_find(request->fields.extra_fields, "proxy_timeout");
 	if (value != NULL) {
 		if (str_to_uint(value, &secs) < 0) {
-			auth_request_log_error(request, AUTH_SUBSYS_PROXY,
-				"Invalid proxy_timeout value: %s", value);
+			e_error(proxy_event, "Invalid proxy_timeout value: %s",
+				value);
 		}
 	}
 
 	ctx = p_new(request->pool, struct auth_request_proxy_dns_lookup_ctx, 1);
 	ctx->request = request;
+	ctx->event = proxy_event;
 	auth_request_ref(request);
 	request->dns_lookup_ctx = ctx;
 
-	if (dns_client_lookup(auth->dns_client, host, request->event,
+	if (dns_client_lookup(auth->dns_client, host, proxy_event,
 			      auth_request_proxy_dns_callback, ctx,
 			      &ctx->dns_lookup) < 0) {
 		/* failed early */
@@ -2284,7 +2315,7 @@ int auth_request_proxy_finish(struct auth_request *request,
 		hostip = auth_fields_find(request->fields.extra_fields,
 					  "hostip");
 		if (hostip != NULL && net_addr2ip(hostip, &ip) < 0) {
-			auth_request_log_error(request, AUTH_SUBSYS_PROXY,
+			e_error(request->event, "proxy: "
 				"Invalid hostip in passdb: %s", hostip);
 			return -1;
 		}
@@ -2514,36 +2545,6 @@ enum passdb_result auth_request_password_missing(struct auth_request *request)
 	e_info(authdb_event(request),
 	       "No password returned (and no nopassword)");
 	return PASSDB_RESULT_PASSWORD_MISMATCH;
-}
-
-void auth_request_get_log_prefix(string_t *str,
-				 struct auth_request *auth_request,
-				 const char *subsystem)
-{
-	const char *name;
-
-	if (subsystem == AUTH_SUBSYS_DB) {
-		if (!auth_request->userdb_lookup) {
-			i_assert(auth_request->passdb != NULL);
-			name = auth_request->passdb->set->name[0] != '\0' ?
-				auth_request->passdb->set->name :
-				auth_request->passdb->passdb->iface.name;
-		} else {
-			i_assert(auth_request->userdb != NULL);
-			name = auth_request->userdb->set->name[0] != '\0' ?
-				auth_request->userdb->set->name :
-				auth_request->userdb->userdb->iface->name;
-		}
-	} else if (subsystem == AUTH_SUBSYS_MECH) {
-		i_assert(auth_request->mech != NULL);
-		name = t_str_lcase(auth_request->mech->mech_name);
-	} else {
-		name = subsystem;
-	}
-	str_append(str, name);
-	str_append_c(str, '(');
-	get_log_identifier(str, auth_request);
-	str_append(str, "): ");
 }
 
 void auth_request_log_debug(struct auth_request *auth_request,

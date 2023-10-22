@@ -353,10 +353,6 @@ auth_request_password_verify_log(struct auth_request *request,
 				 ATTR_WARN_UNUSED_RESULT;
 enum passdb_result auth_request_password_missing(struct auth_request *request);
 
-void auth_request_get_log_prefix(string_t *str,
-				 struct auth_request *auth_request,
-				 const char *subsystem);
-
 void auth_request_log_debug(struct auth_request *auth_request,
 			    const char *subsystem,
 			    const char *format, ...) ATTR_FORMAT(3, 4);
