@@ -2453,19 +2453,21 @@ void auth_request_log_login_failure(struct auth_request *request,
 
 enum passdb_result
 auth_request_password_verify(struct auth_request *request,
+			     struct event *event,
 			     const char *plain_password,
 			     const char *crypted_password,
-			     const char *scheme, const char *subsystem)
+			     const char *scheme)
 {
-	return auth_request_password_verify_log(request, plain_password,
-			crypted_password, scheme, subsystem, TRUE);
+	return auth_request_password_verify_log(request, event, plain_password,
+						crypted_password, scheme, TRUE);
 }
 
 enum passdb_result
 auth_request_password_verify_log(struct auth_request *request,
+				 struct event *event,
 				 const char *plain_password,
 				 const char *crypted_password,
-				 const char *scheme, const char *subsystem,
+				 const char *scheme,
 				 bool log_password_mismatch)
 {
 	enum passdb_result result;
@@ -2489,8 +2491,7 @@ auth_request_password_verify_log(struct auth_request *request,
 	}
 
 	if (auth_fields_exists(request->fields.extra_fields, "nopassword")) {
-		auth_request_log_debug(request, subsystem,
-					"Allowing any password");
+		e_debug(event, "Allowing any password");
 		return PASSDB_RESULT_OK;
 	}
 
@@ -2498,12 +2499,11 @@ auth_request_password_verify_log(struct auth_request *request,
 			      &raw_password, &raw_password_size, &error);
 	if (ret <= 0) {
 		if (ret < 0) {
-			auth_request_log_error(request, subsystem,
+			e_error(event,
 				"Password data is not valid for scheme %s: %s",
 				scheme, error);
 		} else {
-			auth_request_log_error(request, subsystem,
-						"Unknown scheme %s", scheme);
+			e_error(event, "Unknown scheme %s", scheme);
 			return PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
 		}
 		return PASSDB_RESULT_INTERNAL_FAILURE;
@@ -2517,23 +2517,19 @@ auth_request_password_verify_log(struct auth_request *request,
 	if (ret < 0) {
 		const char *password_str = request->set->debug_passwords ?
 			t_strdup_printf(" '%s'", crypted_password) : "";
-		auth_request_log_error(request, subsystem,
-					"Invalid password%s in passdb: %s",
-					password_str, error);
+		e_error(event, "Invalid password%s in passdb: %s",
+			password_str, error);
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (ret == 0) {
-		if (log_password_mismatch) {
-			auth_request_log_password_mismatch(
-				request, get_request_event(request, subsystem));
-		}
+		if (log_password_mismatch)
+			auth_request_log_password_mismatch(request, event);
 		result = PASSDB_RESULT_PASSWORD_MISMATCH;
 	} else {
 		result = PASSDB_RESULT_OK;
 	}
 	if (ret <= 0 && request->set->debug_passwords) T_BEGIN {
-		log_password_failure(get_request_event(request, subsystem),
-				     plain_password, crypted_password, scheme,
-				     &gen_params);
+		log_password_failure(event, plain_password, crypted_password,
+				     scheme, &gen_params);
 	} T_END;
 	return result;
 }

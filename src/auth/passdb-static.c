@@ -68,8 +68,9 @@ static_verify_plain(struct auth_request *request, const char *password,
 		return;
 	}
 
-	result = auth_request_password_verify(request, password, static_password,
-					      static_scheme, AUTH_SUBSYS_DB);
+	result = auth_request_password_verify(
+		request, authdb_event(request), password, static_password,
+		static_scheme);
 	callback(result, request);
 }
 

@@ -134,9 +134,9 @@ static void sql_query_callback(struct sql_result *result,
 		return;
 	}
 
-	passdb_result = auth_request_password_verify(auth_request,
-						     auth_request->mech_password,
-						     password, scheme, AUTH_SUBSYS_DB);
+	passdb_result = auth_request_password_verify(
+		auth_request, authdb_event(auth_request),
+		auth_request->mech_password, password, scheme);
 
 	sql_request->callback.verify_plain(passdb_result, auth_request);
 	i_assert(dup_password != NULL);

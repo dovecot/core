@@ -111,10 +111,9 @@ static void passdb_dict_lookup_pass(struct passdb_dict_request *dict_request)
 			auth_request);
 	} else {
 		if (password != NULL) {
-			passdb_result =
-				auth_request_password_verify(auth_request,
-					auth_request->mech_password,
-					password, scheme, AUTH_SUBSYS_DB);
+			passdb_result = auth_request_password_verify(
+				auth_request, authdb_event(auth_request),
+				auth_request->mech_password, password, scheme);
 		}
 
 		dict_request->callback.verify_plain(passdb_result,

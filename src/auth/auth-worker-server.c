@@ -347,8 +347,8 @@ auth_worker_handle_passw(struct auth_worker_command *cmd,
 
 	request->passdb = passdb;
 
-	ret = auth_request_password_verify(request, password,
-					   crypted, scheme, "cache");
+	ret = auth_request_password_verify(request, request->event, password,
+					   crypted, scheme);
 	str = t_str_new(128);
 	str_printfa(str, "%u\t", request->id);
 

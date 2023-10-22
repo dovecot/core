@@ -338,15 +338,17 @@ void auth_request_proxy_finish_failure(struct auth_request *request);
 
 enum passdb_result
 auth_request_password_verify(struct auth_request *request,
+			     struct event *event,
 			     const char *plain_password,
 			     const char *crypted_password,
-			     const char *scheme, const char *subsystem)
+			     const char *scheme)
 			     ATTR_WARN_UNUSED_RESULT;
 enum passdb_result
 auth_request_password_verify_log(struct auth_request *request,
+				 struct event *event,
 				 const char *plain_password,
 				 const char *crypted_password,
-				 const char *scheme, const char *subsystem,
+				 const char *scheme,
 				 bool log_password_mismatch)
 				 ATTR_WARN_UNUSED_RESULT;
 enum passdb_result auth_request_password_missing(struct auth_request *request);
