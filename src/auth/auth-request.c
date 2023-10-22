@@ -623,19 +623,13 @@ auth_request_want_skip_passdb(struct auth_request *request,
 	username = request->fields.user;
 
 	if (!auth_request_mechanism_accepted(mechs, request->mech)) {
-		auth_request_log_debug(request,
-				       request->mech != NULL ? AUTH_SUBSYS_MECH
-							      : "none",
-				       "skipping passdb: mechanism filtered");
+		e_debug(request->event, "skipping passdb: mechanism filtered");
 		return TRUE;
 	}
 
 	if (passdb->username_filter != NULL &&
 	    !auth_request_username_accepted(username_filter, username)) {
-		auth_request_log_debug(request,
-				       request->mech != NULL ? AUTH_SUBSYS_MECH
-							      : "none",
-				       "skipping passdb: username filtered");
+		e_debug(request->event, "skipping passdb: username filtered");
 		return TRUE;
 	}
 
@@ -1153,9 +1147,7 @@ void auth_request_default_verify_plain_continue(
 	request->passdb = passdb;
 
 	if (passdb == NULL) {
-		auth_request_log_error(request,
-			request->mech != NULL ? AUTH_SUBSYS_MECH : "none",
-			"All password databases were skipped");
+		e_error(request->event, "All password databases were skipped");
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
 		return;
 	}
@@ -1334,9 +1326,7 @@ auth_request_lookup_credentials_policy_continue(
 	request->passdb = passdb;
 
 	if (passdb == NULL) {
-		auth_request_log_error(request,
-			request->mech != NULL ? AUTH_SUBSYS_MECH : "none",
-			"All password databases were skipped");
+		e_error(request->event, "All password databases were skipped");
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, NULL, 0, request);
 		return;
 	}
