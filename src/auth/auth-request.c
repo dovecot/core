@@ -2350,13 +2350,10 @@ void auth_request_proxy_finish_failure(struct auth_request *request)
 }
 
 static void
-log_password_failure(struct auth_request *request,
-		     const char *plain_password, const char *crypted_password,
-		     const char *scheme,
-		     const struct password_generate_params *params,
-		     const char *subsystem)
+log_password_failure(struct event *event, const char *plain_password,
+		     const char *crypted_password, const char *scheme,
+		     const struct password_generate_params *params)
 {
-	struct event *event = get_request_event(request, subsystem);
 	static bool scheme_ok = FALSE;
 	string_t *str = t_str_new(256);
 	const char *working_scheme;
@@ -2534,10 +2531,9 @@ auth_request_password_verify_log(struct auth_request *request,
 		result = PASSDB_RESULT_OK;
 	}
 	if (ret <= 0 && request->set->debug_passwords) T_BEGIN {
-		log_password_failure(request, plain_password,
-				     crypted_password, scheme,
-				     &gen_params,
-				     subsystem);
+		log_password_failure(get_request_event(request, subsystem),
+				     plain_password, crypted_password, scheme,
+				     &gen_params);
 	} T_END;
 	return result;
 }
