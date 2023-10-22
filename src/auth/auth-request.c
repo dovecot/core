@@ -58,8 +58,6 @@ struct auth_policy_check_ctx {
 	lookup_credentials_callback_t *callback_lookup;
 };
 
-const char auth_default_subsystems[2];
-
 unsigned int auth_request_state_count[AUTH_REQUEST_STATE_MAX];
 
 static void
@@ -127,17 +125,6 @@ const char *auth_request_get_log_prefix_db(struct auth_request *auth_request)
 	}
 
 	return t_strconcat(name, ": ", NULL);
-}
-
-static struct event *get_request_event(struct auth_request *request,
-				       const char *subsystem)
-{
-	if (subsystem == AUTH_SUBSYS_DB)
-		return authdb_event(request);
-	else if (subsystem == AUTH_SUBSYS_MECH && request->mech_event != NULL)
-		return request->mech_event;
-	else
-		return request->event;
 }
 
 static void
@@ -2576,70 +2563,6 @@ enum passdb_result auth_request_password_missing(struct auth_request *request)
 	e_info(authdb_event(request),
 	       "No password returned (and no nopassword)");
 	return PASSDB_RESULT_PASSWORD_MISMATCH;
-}
-
-void auth_request_log_debug(struct auth_request *auth_request,
-			    const char *subsystem,
-			    const char *format, ...)
-{
-	struct event *event = get_request_event(auth_request, subsystem);
-	va_list va;
-
-	va_start(va, format);
-	T_BEGIN {
-		string_t *str = t_str_new(128);
-		str_vprintfa(str, format, va);
-		e_debug(event, "%s", str_c(str));
-	} T_END;
-	va_end(va);
-}
-
-void auth_request_log_info(struct auth_request *auth_request,
-			   const char *subsystem,
-			   const char *format, ...)
-{
-	struct event *event = get_request_event(auth_request, subsystem);
-	va_list va;
-
-	va_start(va, format);
-	T_BEGIN {
-		string_t *str = t_str_new(128);
-		str_vprintfa(str, format, va);
-		e_info(event, "%s", str_c(str));
-	} T_END;
-	va_end(va);
-}
-
-void auth_request_log_warning(struct auth_request *auth_request,
-			      const char *subsystem,
-			      const char *format, ...)
-{
-	struct event *event = get_request_event(auth_request, subsystem);
-	va_list va;
-
-	va_start(va, format);
-	T_BEGIN {
-		string_t *str = t_str_new(128);
-		str_vprintfa(str, format, va);
-		e_warning(event, "%s", str_c(str));
-	} T_END;
-	va_end(va);
-}
-
-void auth_request_log_error(struct auth_request *auth_request,
-			    const char *subsystem,
-			    const char *format, ...)
-{
-	struct event *event = get_request_event(auth_request, subsystem);
-	va_list va;
-
-	va_start(va, format);
-	T_BEGIN {
-		string_t *str = t_str_new(128);
-		str_vprintfa(str, format, va);
-		e_error(event, "%s", str_c(str));
-	} T_END;
-	va_end(va);
 }
 
 void auth_request_refresh_last_access(struct auth_request *request)
