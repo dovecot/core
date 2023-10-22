@@ -54,7 +54,7 @@ void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 	mreq->req = req;
 	mreq->set = &sinst->set;
 	mreq->mech = mech;
-	mreq->mech_event = req->event;
+	mreq->event = req->event;
 	mreq->protocol = p_strdup(pool, protocol);
 
 	req->mech = mreq;
@@ -143,7 +143,7 @@ sasl_server_request_fail_on_nuls(struct sasl_server_request *req,
 	if ((mech->def->flags & SASL_MECH_SEC_ALLOW_NULS) != 0)
 		return FALSE;
 	if (memchr(data, '\0', data_size) != NULL) {
-		e_debug(req->mech->mech_event, "Unexpected NUL in auth data");
+		e_debug(req->mech->event, "Unexpected NUL in auth data");
 		sasl_server_request_failure(req->mech);
 		return TRUE;
 	}

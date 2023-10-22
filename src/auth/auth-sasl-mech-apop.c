@@ -84,8 +84,7 @@ mech_apop_auth_initial(struct sasl_server_mech_request *req,
 
 	if (data_size == 0) {
 		/* Should never happen */
-		e_info(req->mech_event,
-		       "no initial response");
+		e_info(req->event, "no initial response");
 		sasl_server_request_failure(req);
 		return;
 	}
@@ -105,16 +104,14 @@ mech_apop_auth_initial(struct sasl_server_mech_request *req,
 			tmp++;
 	} else {
 		/* should never happen */
-		e_info(req->mech_event,
-		       "malformed data");
+		e_info(req->event, "malformed data");
 		sasl_server_request_failure(req);
 		return;
 	}
 
 	if (tmp + 1 + 16 != end) {
 		/* Should never happen */
-		e_info(req->mech_event,
-		       "malformed data");
+		e_info(req->event, "malformed data");
 		sasl_server_request_failure(req);
 		return;
 	}
@@ -131,8 +128,7 @@ mech_apop_auth_initial(struct sasl_server_mech_request *req,
 	    connect_uid != auth_request->connect_uid ||
             pid != (unsigned long)getpid() ||
 	    (time_t)timestamp < process_start_time) {
-		e_info(req->mech_event,
-		       "invalid challenge");
+		e_info(req->event, "invalid challenge");
 		sasl_server_request_failure(req);
 		return;
 	}

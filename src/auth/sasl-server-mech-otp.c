@@ -77,22 +77,19 @@ otp_send_challenge(struct otp_auth_request *request,
 
 	if (otp_parse_dbentry(t_strndup(credentials, size),
 			      &request->state) != 0) {
-		e_error(auth_request->mech_event,
-			"invalid OTP data in passdb");
+		e_error(auth_request->event, "invalid OTP data in passdb");
 		sasl_server_request_failure(auth_request);
 		return;
 	}
 
 	if (--request->state.seq < 1) {
-		e_error(auth_request->mech_event,
-			"sequence number < 1");
+		e_error(auth_request->event, "sequence number < 1");
 		sasl_server_request_failure(auth_request);
 		return;
 	}
 
 	if (!otp_try_lock(request)) {
-		e_error(auth_request->mech_event,
-			"user is locked, race attack?");
+		e_error(auth_request->event, "user is locked, race attack?");
 		sasl_server_request_failure(auth_request);
 		return;
 	}
@@ -147,7 +144,7 @@ mech_otp_auth_phase1(struct otp_auth_request *request,
 	}
 
 	if (count != 1) {
-		e_info(auth_request->mech_event, "invalid input");
+		e_info(auth_request->event, "invalid input");
 		sasl_server_request_failure(auth_request);
 		return;
 	}
@@ -189,7 +186,7 @@ mech_otp_verify(struct otp_auth_request *request, const char *data, bool hex)
 
 	ret = otp_parse_response(data, hash, hex);
 	if (ret < 0) {
-		e_info(auth_request->mech_event, "invalid response");
+		e_info(auth_request->event, "invalid response");
 		sasl_server_request_failure(auth_request);
 		otp_unlock(request);
 		return;
@@ -223,8 +220,7 @@ mech_otp_verify_init(struct otp_auth_request *request, const char *data,
 
 	ret = otp_parse_init_response(data, &new_state, cur_hash, hex, &error);
 	if (ret < 0) {
-		e_info(auth_request->mech_event,
-		       "invalid init response, %s", error);
+		e_info(auth_request->event, "invalid init response, %s", error);
 		sasl_server_request_failure(auth_request);
 		otp_unlock(request);
 		return;
@@ -260,8 +256,7 @@ mech_otp_auth_phase2(struct otp_auth_request *request,
 	else if (str_begins(str, "init-word:", &value))
 		mech_otp_verify_init(request, value, FALSE);
 	else {
-		e_info(auth_request->mech_event,
-		       "unsupported response type");
+		e_info(auth_request->event, "unsupported response type");
 		sasl_server_request_failure(auth_request);
 		otp_unlock(request);
 	}

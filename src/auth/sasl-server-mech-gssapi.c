@@ -90,8 +90,7 @@ mech_gssapi_log_error(struct gssapi_auth_request *request,
 					 status_type, GSS_C_NO_OID,
 					 &message_context, &status_string);
 
-		e_info(auth_request->mech_event,
-		       "While %s: %s", description,
+		e_info(auth_request->event, "While %s: %s", description,
 		       str_sanitize(status_string.value, SIZE_MAX));
 
 		(void)gss_release_buffer(&minor_status, &status_string);
@@ -125,8 +124,7 @@ obtain_service_credentials(struct gssapi_auth_request *request,
 	gss_name_t gss_principal;
 
 	if (strcmp(gss_mech->hostname, "$ALL") == 0) {
-		e_debug(auth_request->mech_event,
-			"Using all keytab entries");
+		e_debug(auth_request->event, "Using all keytab entries");
 		*ret_r = GSS_C_NO_CREDENTIAL;
 		return GSS_S_COMPLETE;
 	}
@@ -136,8 +134,8 @@ obtain_service_credentials(struct gssapi_auth_request *request,
 	str_append_c(principal_name, '@');
 	str_append(principal_name, gss_mech->hostname);
 
-	e_debug(auth_request->mech_event,
-		"Obtaining credentials for %s", str_c(principal_name));
+	e_debug(auth_request->event, "Obtaining credentials for %s",
+		str_c(principal_name));
 
 	inbuf.length = str_len(principal_name);
 	inbuf.value = str_c_modifiable(principal_name);
@@ -234,7 +232,7 @@ get_display_name(struct gssapi_auth_request *request, gss_name_t name,
 		return -1;
 	}
 	if (data_has_nuls(buf.value, buf.length)) {
-		e_info(auth_request->mech_event, "authn_name has NULs");
+		e_info(auth_request->event, "authn_name has NULs");
 		return -1;
 	}
 	*display_name_r = t_strndup(buf.value, buf.length);
@@ -287,7 +285,7 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 	switch (major_status) {
 	case GSS_S_COMPLETE:
 		if (!mech_gssapi_oid_cmp(mech_type, &mech_gssapi_krb5_oid)) {
-			e_info(auth_request->mech_event,
+			e_info(auth_request->event,
 			       "GSSAPI mechanism not Kerberos5");
 			ret = -1;
 		} else if (get_display_name(request, request->authn_name,
@@ -299,17 +297,17 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 			ret = -1;
 		} else {
 			request->sasl_gssapi_state = GSS_STATE_WRAP;
-			e_debug(auth_request->mech_event,
+			e_debug(auth_request->event,
 				"security context state completed.");
 		}
 		break;
 	case GSS_S_CONTINUE_NEEDED:
-		e_debug(auth_request->mech_event,
+		e_debug(auth_request->event,
 			"Processed incoming packet correctly, "
 			"waiting for another.");
 		break;
 	default:
-		e_error(auth_request->mech_event,
+		e_error(auth_request->event,
 			"Received unexpected major status %d", major_status);
 		break;
 	}
@@ -361,7 +359,7 @@ mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 		return -1;
 	}
 
-	e_debug(auth_request->mech_event, "Negotiated security layer");
+	e_debug(auth_request->event, "Negotiated security layer");
 
 	sasl_server_request_output(auth_request, outbuf.value, outbuf.length);
 
@@ -383,7 +381,7 @@ k5_principal_is_authorized(struct gssapi_auth_request *request, const char *name
 	authorized_names = t_strsplit_spaces(value, ",");
 	for (tmp = authorized_names; *tmp != NULL; tmp++) {
 		if (strcmp(*tmp, name) == 0) {
-			e_debug(auth_request->mech_event,
+			e_debug(auth_request->event,
 				"authorized by k5principals field: %s", name);
 			return TRUE;
 		}
@@ -411,16 +409,15 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 
 	if (!mech_gssapi_oid_cmp(name_type, GSS_KRB5_NT_PRINCIPAL_NAME) &&
 	    check_name_type) {
-		e_info(auth_request->mech_event,
-		       "OID not kerberos principal name");
+		e_info(auth_request->event, "OID not kerberos principal name");
 		return FALSE;
 	}
 
 	/* Init a krb5 context and parse the principal username */
 	krb5_err = krb5_init_context(&ctx);
 	if (krb5_err != 0) {
-		e_error(auth_request->mech_event,
-			"krb5_init_context() failed: %d", (int)krb5_err);
+		e_error(auth_request->event, "krb5_init_context() failed: %d",
+			(int)krb5_err);
 		return FALSE;
 	}
 	krb5_err = krb5_parse_name(ctx, princ_display_name, &princ);
@@ -428,8 +425,8 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 		/* writing the error string would be better, but we probably
 		   rarely get here and there doesn't seem to be a standard
 		   way of getting it */
-		e_info(auth_request->mech_event,
-		       "krb5_parse_name() failed: %d", (int)krb5_err);
+		e_info(auth_request->event, "krb5_parse_name() failed: %d",
+		       (int)krb5_err);
 	} else {
 		/* See if the principal is in the list of authorized principals
 		   for the user */
@@ -472,7 +469,7 @@ mech_gssapi_userok(struct gssapi_auth_request *request, const char *login_user)
 
 	if (!mech_gssapi_krb5_userok(request, request->authn_name,
 				     login_user, TRUE)) {
-		e_info(auth_request->mech_event,
+		e_info(auth_request->event,
 		       "User not authorized to log in as %s", login_user);
 		return -1;
 	}
@@ -519,7 +516,7 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	OM_uint32 major_status, minor_status;
 	gss_buffer_desc outbuf;
-	const char *login_user, *error;
+	const char *login_user;
 	unsigned char *name;
 	size_t name_len;
 
@@ -535,8 +532,7 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	/* outbuf[0] contains bitmask for selected security layer,
 	   outbuf[1..3] contains maximum output_message size */
 	if (outbuf.length < 4) {
-		e_error(auth_request->mech_event,
-			"Invalid response length");
+		e_error(auth_request->event, "Invalid response length");
 		(void)gss_release_buffer(&minor_status, &outbuf);
 		return -1;
 	}
@@ -546,8 +542,7 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 		name_len = outbuf.length - 4;
 
 		if (data_has_nuls(name, name_len)) {
-			e_info(auth_request->mech_event,
-			       "authz_name has NULs");
+			e_info(auth_request->event, "authz_name has NULs");
 			(void)gss_release_buffer(&minor_status, &outbuf);
 			return -1;
 		}
@@ -565,8 +560,7 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	}
 
 	if (request->authz_name == GSS_C_NO_NAME) {
-		e_info(auth_request->mech_event,
-		       "no authz_name");
+		e_info(auth_request->event, "no authz_name");
 		(void)gss_release_buffer(&minor_status, &outbuf);
 		return -1;
 	}
@@ -579,8 +573,6 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	if (!sasl_server_request_set_authid(auth_request,
 					    SASL_SERVER_AUTHID_TYPE_USERNAME,
 					    login_user)) {
-		e_info(auth_request->mech_event,
-		       "authz_name: %s", error);
 		(void)gss_release_buffer(&minor_status, &outbuf);
 		return -1;
 	}

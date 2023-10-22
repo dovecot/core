@@ -48,7 +48,7 @@ mech_dovecot_token_auth_continue(struct sasl_server_mech_request *request,
 
 	if (count != 4) {
 		/* invalid input */
-		e_info(request->mech_event, "invalid input");
+		e_info(request->event, "invalid input");
 		sasl_server_request_failure(request);
 	} else if (!sasl_server_request_set_authid(
 			request, SASL_SERVER_AUTHID_TYPE_USERNAME, username)) {

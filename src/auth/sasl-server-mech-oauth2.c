@@ -212,14 +212,14 @@ mech_oauthbearer_auth_continue(struct sasl_server_mech_request *request,
 
 	if (auth_gs2_header_decode(data, data_size, FALSE,
 				   &gs2_header, &gs2_header_end, &error) < 0) {
-		e_info(request->mech_event, "Invalid gs2-header in request: %s",
+		e_info(request->event, "Invalid gs2-header in request: %s",
 		       error);
 		oauth2_fail_invalid_request(oauth2_req);
 		return;
 	}
 
 	if (gs2_header.authzid == NULL) {
-		e_info(request->mech_event, "Missing username");
+		e_info(request->event, "Missing username");
 		oauth2_fail_invalid_request(oauth2_req);
 		return;
 	}
@@ -231,7 +231,7 @@ mech_oauthbearer_auth_continue(struct sasl_server_mech_request *request,
 	}
 	if (gs2_header.cbind.status == AUTH_GS2_CBIND_STATUS_PROVIDED) {
 		/* channel binding is not supported */
-		e_info(request->mech_event,
+		e_info(request->event,
 		       "Client requested and used channel-binding");
 		oauth2_fail_invalid_request(oauth2_req);
 		return;
@@ -241,12 +241,12 @@ mech_oauthbearer_auth_continue(struct sasl_server_mech_request *request,
 	size_t payload_size = data_size - gs2_header_size;
 
 	if (payload_size == 0) {
-		e_info(request->mech_event, "Response payload is missing");
+		e_info(request->event, "Response payload is missing");
 		oauth2_fail_invalid_request(oauth2_req);
 		return;
 	}
 	if (*gs2_header_end != '\x01') {
-		e_info(request->mech_event, "Invalid gs2-header in request: "
+		e_info(request->event, "Invalid gs2-header in request: "
 		       "Spurious data at end of header");
 		oauth2_fail_invalid_request(oauth2_req);
 		return;
@@ -265,7 +265,7 @@ mech_oauthbearer_auth_continue(struct sasl_server_mech_request *request,
 			    oauth2_valid_token(value)) {
 				token = value;
 			} else {
-				e_info(request->mech_event,
+				e_info(request->event,
 				       "Invalid response payload");
 				oauth2_fail_invalid_token(oauth2_req);
 				return;
@@ -274,7 +274,7 @@ mech_oauthbearer_auth_continue(struct sasl_server_mech_request *request,
 		/* do not fail on unexpected fields */
 	}
 	if (token == NULL) {
-		e_info(request->mech_event, "Missing token");
+		e_info(request->event, "Missing token");
 		oauth2_fail_invalid_token(oauth2_req);
 		return;
 	}
@@ -317,8 +317,7 @@ mech_xoauth2_auth_continue(struct sasl_server_mech_request *request,
 			    oauth2_valid_token(value)) {
 				token = value;
 			} else {
-				e_info(request->mech_event,
-				       "Invalid response data");
+				e_info(request->event, "Invalid response data");
 				oauth2_fail_invalid_token(oauth2_req);
 				return;
 			}
@@ -334,11 +333,11 @@ mech_xoauth2_auth_continue(struct sasl_server_mech_request *request,
 		return;
 	}
 	if (token == NULL) {
-		e_info(request->mech_event, "Missing token");
+		e_info(request->event, "Missing token");
 		oauth2_fail_invalid_request(oauth2_req);
 		return;
 	} else if (!user_given) {
-		e_info(request->mech_event, "Missing username");
+		e_info(request->event, "Missing username");
 		oauth2_fail_invalid_request(oauth2_req);
 		return;
 	}

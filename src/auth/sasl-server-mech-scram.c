@@ -51,7 +51,7 @@ credentials_callback(struct sasl_server_mech_request *auth_request,
 						 key_data->stored_key,
 						 key_data->server_key,
 						 &error) < 0) {
-			e_info(auth_request->mech_event, "%s", error);
+			e_info(auth_request->event, "%s", error);
 			sasl_server_request_failure(auth_request);
 			break;
 		}
@@ -165,14 +165,14 @@ mech_scram_auth_continue(struct sasl_server_mech_request *auth_request,
 		case AUTH_SCRAM_SERVER_ERROR_NONE:
 			i_unreached();
 		case AUTH_SCRAM_SERVER_ERROR_PROTOCOL_VIOLATION:
-			e_info(auth_request->mech_event, "%s", error);
+			e_info(auth_request->event, "%s", error);
 			break;
 		case AUTH_SCRAM_SERVER_ERROR_BAD_USERNAME:
 		case AUTH_SCRAM_SERVER_ERROR_BAD_LOGIN_USERNAME:
 		case AUTH_SCRAM_SERVER_ERROR_LOOKUP_FAILED:
 			break;
 		case AUTH_SCRAM_SERVER_ERROR_VERIFICATION_FAILED:
-			e_info(auth_request->mech_event,
+			e_info(auth_request->event,
 			       AUTH_LOG_MSG_PASSWORD_MISMATCH);
 			break;
 		}

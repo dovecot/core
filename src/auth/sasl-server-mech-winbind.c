@@ -184,7 +184,7 @@ do_auth_continue(struct winbind_auth_request *request,
 	if (o_stream_send(request->winbind->out_pipe,
 			  str_data(str), str_len(str)) < 0 ||
 	    o_stream_flush(request->winbind->out_pipe) < 0) {
-		e_error(auth_request->mech_event,
+		e_error(auth_request->event,
 			"write(out_pipe) failed: %s",
 			o_stream_get_error(request->winbind->out_pipe));
 		return HR_RESTART;
@@ -197,10 +197,10 @@ do_auth_continue(struct winbind_auth_request *request,
 	}
 	if (answer == NULL) {
 		if (in_pipe->stream_errno != 0) {
-			e_error(auth_request->mech_event,
+			e_error(auth_request->event,
 				"read(in_pipe) failed: %m");
 		} else {
-			e_error(auth_request->mech_event,
+			e_error(auth_request->event,
 				"read(in_pipe) failed: "
 				"unexpected end of file");
 		}
@@ -211,8 +211,8 @@ do_auth_continue(struct winbind_auth_request *request,
 	if (token[0] == NULL ||
 	    (token[1] == NULL && strcmp(token[0], "BH") != 0) ||
 	    (gss_spnego && (token[1] == NULL || token[2] == NULL))) {
-		e_error(auth_request->mech_event,
-			"Invalid input from helper: %s", answer);
+		e_error(auth_request->event, "Invalid input from helper: %s",
+			answer);
 		return HR_RESTART;
 	}
 
@@ -246,8 +246,8 @@ do_auth_continue(struct winbind_auth_request *request,
 	} else if (strcmp(token[0], "NA") == 0) {
 		const char *error = gss_spnego ? token[2] : token[1];
 
-		e_info(auth_request->mech_event,
-		       "user not authenticated: %s", error);
+		e_info(auth_request->event, "user not authenticated: %s",
+		       error);
 		return HR_FAIL;
 	} else if (strcmp(token[0], "AF") == 0) {
 		const char *user, *p;
@@ -280,12 +280,12 @@ do_auth_continue(struct winbind_auth_request *request,
 		}
 		return HR_OK;
 	} else if (strcmp(token[0], "BH") == 0) {
-		e_info(auth_request->mech_event,
+		e_info(auth_request->event,
 		       "ntlm_auth reports broken helper: %s",
 		       token[1] != NULL ? token[1] : "");
 		return HR_RESTART;
 	} else {
-		e_error(auth_request->mech_event,
+		e_error(auth_request->event,
 			"Invalid input from helper: %s", answer);
 		return HR_RESTART;
 	}
@@ -302,8 +302,7 @@ mech_winbind_auth_initial(struct sasl_server_mech_request *auth_request,
 		container_of(auth_request,
 			     struct winbind_auth_request, auth_request);
 
-	winbind_helper_connect(request->winbind, wb_mech,
-			       auth_request->mech_event);
+	winbind_helper_connect(request->winbind, wb_mech, auth_request->event);
 	sasl_server_mech_generic_auth_initial(auth_request, data, data_size);
 }
 

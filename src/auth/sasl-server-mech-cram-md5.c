@@ -57,7 +57,7 @@ verify_credentials(struct sasl_server_mech_request *auth_request,
 	const char *response_hex;
 
 	if (size != CRAM_MD5_CONTEXTLEN) {
-		e_error(auth_request->mech_event, "invalid credentials length");
+		e_error(auth_request->event, "invalid credentials length");
 		sasl_server_request_failure(auth_request);
 		return;
 	}
@@ -71,8 +71,7 @@ verify_credentials(struct sasl_server_mech_request *auth_request,
 
 	if (!mem_equals_timing_safe(response_hex, request->response,
 				    sizeof(digest) * 2)) {
-		e_info(auth_request->mech_event,
-		       AUTH_LOG_MSG_PASSWORD_MISMATCH);
+		e_info(auth_request->event, AUTH_LOG_MSG_PASSWORD_MISMATCH);
 		sasl_server_request_failure(auth_request);
 		return;
 	}
@@ -91,7 +90,7 @@ parse_cram_response(struct cram_auth_request *request,
 	   the rightmost space is the response separator. */
 	for (i = space = 0; i < size; i++) {
 		if (data[i] == '\0') {
-			e_info(auth_request->mech_event, "NULs in response");
+			e_info(auth_request->event, "NULs in response");
 			return FALSE;
 		}
 		if (data[i] == ' ')
@@ -99,7 +98,7 @@ parse_cram_response(struct cram_auth_request *request,
 	}
 
 	if (space == 0) {
-		e_info(auth_request->mech_event, "missing digest");
+		e_info(auth_request->event, "missing digest");
 		return FALSE;
 	}
 

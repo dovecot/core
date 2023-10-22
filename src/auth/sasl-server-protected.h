@@ -63,7 +63,7 @@ struct sasl_server_mech_request {
 	pool_t pool;
 	const struct sasl_server_mech *mech;
 	struct sasl_server_request *req;
-	struct event *mech_event;
+	struct event *event;
 
 	const char *protocol;
 	const char *authid;

@@ -124,8 +124,7 @@ verify_credentials(struct sasl_server_mech_request *auth_request,
 
 	/* get the MD5 password */
 	if (size != MD5_RESULTLEN) {
-		e_error(auth_request->mech_event,
-			"invalid credentials length");
+		e_error(auth_request->event, "invalid credentials length");
 		sasl_server_request_failure(auth_request);
 		return;
 	}
@@ -214,7 +213,7 @@ verify_credentials(struct sasl_server_mech_request *auth_request,
 			/* verify response */
 			if (!mem_equals_timing_safe(response_hex,
 						    request->response, 32)) {
-				e_info(auth_request->mech_event,
+				e_info(auth_request->event,
 				       AUTH_LOG_MSG_PASSWORD_MISMATCH);
 				sasl_server_request_failure(auth_request);
 				return;
@@ -556,7 +555,7 @@ mech_digest_md5_auth_continue(struct sasl_server_mech_request *auth_request,
 	const char *error;
 
 	if (!parse_digest_response(request, data, data_size, &error)) {
-		e_info(auth_request->mech_event, "%s", error);
+		e_info(auth_request->event, "%s", error);
 		sasl_server_request_failure(auth_request);
 		return;
 	}
