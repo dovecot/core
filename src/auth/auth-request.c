@@ -69,6 +69,28 @@ static void auth_request_lookup_credentials_policy_continue(
 	struct auth_request *request, lookup_credentials_callback_t *callback);
 static void auth_request_policy_check_callback(int result, void *context);
 
+#define MAX_LOG_USERNAME_LEN 64
+static void get_log_identifier(string_t *str, struct auth_request *auth_request)
+{
+	const char *ip;
+
+	if (auth_request->fields.user == NULL)
+	        str_append(str, "?");
+	else
+		str_sanitize_append(str, auth_request->fields.user,
+				    MAX_LOG_USERNAME_LEN);
+
+	ip = net_ip2addr(&auth_request->fields.remote_ip);
+	if (ip[0] != '\0') {
+	        str_append_c(str, ',');
+	        str_append(str, ip);
+	}
+	if (auth_request->fields.requested_login_user != NULL)
+	        str_append(str, ",master");
+	if (auth_request->fields.session_id != NULL)
+	        str_printfa(str, ",<%s>", auth_request->fields.session_id);
+}
+
 static const char *get_log_prefix_mech(struct auth_request *auth_request)
 {
 	string_t *str = t_str_new(64);
@@ -2522,28 +2544,6 @@ void auth_request_get_log_prefix(string_t *str,
 	str_append_c(str, '(');
 	get_log_identifier(str, auth_request);
 	str_append(str, "): ");
-}
-
-#define MAX_LOG_USERNAME_LEN 64
-static void get_log_identifier(string_t *str, struct auth_request *auth_request)
-{
-	const char *ip;
-
-	if (auth_request->fields.user == NULL)
-	        str_append(str, "?");
-	else
-		str_sanitize_append(str, auth_request->fields.user,
-				    MAX_LOG_USERNAME_LEN);
-
-	ip = net_ip2addr(&auth_request->fields.remote_ip);
-	if (ip[0] != '\0') {
-	        str_append_c(str, ',');
-	        str_append(str, ip);
-	}
-	if (auth_request->fields.requested_login_user != NULL)
-	        str_append(str, ",master");
-	if (auth_request->fields.session_id != NULL)
-	        str_printfa(str, ",<%s>", auth_request->fields.session_id);
 }
 
 void auth_request_log_debug(struct auth_request *auth_request,
