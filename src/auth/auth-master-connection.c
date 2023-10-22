@@ -257,7 +257,7 @@ user_verify_restricted_uid(struct auth_request *auth_request)
 		return 0;
 	}
 
-	auth_request_log_error(auth_request, "userdb",
+	e_error(auth_request->event, "userdb: "
 		"client doesn't have lookup permissions for this user: %s "
 		"(to bypass this check, set: service auth { unix_listener %s { mode=0777 } })",
 		reason, conn->path);
@@ -449,7 +449,7 @@ master_input_pass(struct auth_master_connection *conn, const char *args)
 			      uchar_empty_ptr, 0, auth_request);
 	} else if (conn->userdb_restricted_uid != 0) {
 		/* no permissions to do this lookup */
-		auth_request_log_error(auth_request, "passdb",
+		e_error(auth_request->event, "passdb: "
 			"Auth client doesn't have permissions to do "
 			"a PASS lookup: %s", auth_restricted_reason(conn));
 		pass_callback(PASSDB_RESULT_INTERNAL_FAILURE,
