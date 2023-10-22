@@ -271,8 +271,8 @@ static int passwd_file_sync(struct auth_request *request,
 			e_error(authdb_event(request),
 				"%s", eacces_error_get("stat", pw->path));
 		} else if (errno == ENOENT) {
-			auth_request_log_info(request, "passwd-file",
-					      "missing passwd file: %s", pw->path);
+			e_info(authdb_event(request),
+			       "missing passwd file: %s", pw->path);
 			ret = 0;
 		} else {
 			e_error(authdb_event(request),
