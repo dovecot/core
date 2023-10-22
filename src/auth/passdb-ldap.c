@@ -102,9 +102,9 @@ ldap_lookup_finish(struct auth_request *auth_request,
 			auth_request);
 	} else {
 		if (password != NULL) {
-			passdb_result = auth_request_password_verify(
-				auth_request, authdb_event(auth_request),
-				auth_request->mech_password, password, scheme);
+			passdb_result = auth_request_db_password_verify(
+				auth_request, auth_request->mech_password,
+				password, scheme);
 		}
 
 		ldap_request->callback.verify_plain(passdb_result,

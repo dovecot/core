@@ -96,9 +96,8 @@ passdb_lua_verify_plain(struct auth_request *request, const char *password,
 		if (result == PASSDB_RESULT_OK) {
 			if (lua_scheme == NULL)
 				lua_scheme = "PLAIN";
-			result = auth_request_password_verify(
-				request, authdb_event(request),
-				password, lua_password, lua_scheme);
+			result = auth_request_db_password_verify(
+				request, password, lua_password, lua_scheme);
 		}
 	}
 	callback(result, request);

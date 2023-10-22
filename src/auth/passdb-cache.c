@@ -125,9 +125,9 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 		scheme = password_get_scheme(&cached_pw);
 		i_assert(scheme != NULL);
 
-		ret = auth_request_password_verify_log(
-			request, authdb_event(request), password, cached_pw,
-			scheme,	!(node->last_success || neg_expired));
+		ret = auth_request_db_password_verify_log(
+			request, password, cached_pw, scheme,
+			!(node->last_success || neg_expired));
 
 		if (ret == PASSDB_RESULT_PASSWORD_MISMATCH &&
 		    (node->last_success || neg_expired)) {

@@ -351,6 +351,19 @@ auth_request_password_verify_log(struct auth_request *request,
 				 const char *scheme,
 				 bool log_password_mismatch)
 				 ATTR_WARN_UNUSED_RESULT;
+enum passdb_result
+auth_request_db_password_verify(struct auth_request *request,
+				const char *plain_password,
+				const char *crypted_password,
+				const char *scheme)
+				ATTR_WARN_UNUSED_RESULT;
+enum passdb_result
+auth_request_db_password_verify_log(struct auth_request *request,
+				    const char *plain_password,
+				    const char *crypted_password,
+				    const char *scheme,
+				    bool log_password_mismatch)
+				    ATTR_WARN_UNUSED_RESULT;
 enum passdb_result auth_request_password_missing(struct auth_request *request);
 
 void auth_request_log_debug(struct auth_request *auth_request,

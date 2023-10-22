@@ -51,9 +51,8 @@ passwd_verify_plain(struct auth_request *request, const char *password,
 		return;
 	}
 	/* check if the password is valid */
-	res = auth_request_password_verify(request, authdb_event(request),
-					   password, pw.pw_passwd,
-					   PASSWD_PASS_SCHEME);
+	res = auth_request_db_password_verify(request, password, pw.pw_passwd,
+					      PASSWD_PASS_SCHEME);
 
 	/* clear the passwords from memory */
 	safe_memset(pw.pw_passwd, 0, strlen(pw.pw_passwd));

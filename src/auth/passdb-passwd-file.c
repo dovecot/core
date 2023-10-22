@@ -95,8 +95,8 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 		return;
 	}
 
-	result = auth_request_password_verify(request, authdb_event(request),
-					      password, crypted_pass, scheme);
+	result = auth_request_db_password_verify(request, password,
+						 crypted_pass, scheme);
 
 	callback(result, request);
 }

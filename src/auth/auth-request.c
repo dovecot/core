@@ -2534,6 +2534,30 @@ auth_request_password_verify_log(struct auth_request *request,
 	return result;
 }
 
+enum passdb_result
+auth_request_db_password_verify(struct auth_request *request,
+				const char *plain_password,
+				const char *crypted_password,
+				const char *scheme)
+{
+	return auth_request_password_verify_log(
+		request, authdb_event(request),
+		plain_password, crypted_password, scheme, TRUE);
+}
+
+enum passdb_result
+auth_request_db_password_verify_log(struct auth_request *request,
+				    const char *plain_password,
+				    const char *crypted_password,
+				    const char *scheme,
+				    bool log_password_mismatch)
+{
+	return auth_request_password_verify_log(
+		request, authdb_event(request),
+		plain_password, crypted_password, scheme,
+		log_password_mismatch);
+}
+
 enum passdb_result auth_request_password_missing(struct auth_request *request)
 {
 	if (request->fields.skip_password_check) {
