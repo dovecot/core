@@ -25,7 +25,8 @@ passdb_lua_verify_password(struct dlua_passdb_module *module,
 		auth_lua_call_password_verify(module->script, request,
 					      password, &error);
 	if (result == PASSDB_RESULT_PASSWORD_MISMATCH) {
-		auth_request_log_password_mismatch(request, AUTH_SUBSYS_DB);
+		auth_request_log_password_mismatch(request,
+						   authdb_event(request));
 	} else if (result == PASSDB_RESULT_INTERNAL_FAILURE && error != NULL) {
 		e_error(authdb_event(request), "passdb-lua: %s",
 			error);

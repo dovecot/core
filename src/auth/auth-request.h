@@ -336,8 +336,6 @@ int auth_request_proxy_finish(struct auth_request *request,
 			      auth_request_proxy_cb_t *callback);
 void auth_request_proxy_finish_failure(struct auth_request *request);
 
-void auth_request_log_password_mismatch(struct auth_request *request,
-					const char *subsystem);
 enum passdb_result
 auth_request_password_verify(struct auth_request *request,
 			     const char *plain_password,
@@ -365,6 +363,9 @@ void auth_request_log_warning(struct auth_request *auth_request,
 void auth_request_log_error(struct auth_request *auth_request,
 			    const char *subsystem,
 			    const char *format, ...) ATTR_FORMAT(3, 4);
+
+void auth_request_log_password_mismatch(struct auth_request *request,
+					struct event *event);
 void auth_request_log_unknown_user(struct auth_request *auth_request,
 				   const char *subsystem);
 

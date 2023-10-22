@@ -2408,11 +2408,10 @@ auth_request_append_password(struct auth_request *request, string_t *str)
 }
 
 void auth_request_log_password_mismatch(struct auth_request *request,
-					const char *subsystem)
+					struct event *event)
 {
-	auth_request_log_login_failure(
-		request, get_request_event(request, subsystem),
-		AUTH_LOG_MSG_PASSWORD_MISMATCH);
+	auth_request_log_login_failure(request, event,
+				       AUTH_LOG_MSG_PASSWORD_MISMATCH);
 }
 
 void auth_request_log_unknown_user(struct auth_request *request,
@@ -2524,8 +2523,10 @@ auth_request_password_verify_log(struct auth_request *request,
 					password_str, error);
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (ret == 0) {
-		if (log_password_mismatch)
-			auth_request_log_password_mismatch(request, subsystem);
+		if (log_password_mismatch) {
+			auth_request_log_password_mismatch(
+				request, get_request_event(request, subsystem));
+		}
 		result = PASSDB_RESULT_PASSWORD_MISMATCH;
 	} else {
 		result = PASSDB_RESULT_OK;

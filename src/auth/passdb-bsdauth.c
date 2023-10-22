@@ -45,7 +45,8 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 	safe_memset(pw.pw_passwd, 0, strlen(pw.pw_passwd));
 
 	if (result == 0) {
-		auth_request_log_password_mismatch(request, AUTH_SUBSYS_DB);
+		auth_request_log_password_mismatch(request,
+						   authdb_event(request));
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 		return;
 	}
