@@ -45,7 +45,7 @@ oauth2_fail(struct oauth2_auth_request *oauth2_req,
 
 	i_assert(failure->status != NULL);
 	json_ostream_ndescend_object(joutput, NULL);
-	if (request->mech == &mech_xoauth2) {
+	if (request->mech->def == &mech_xoauth2) {
 		if (strcmp(failure->status, "invalid_token") == 0)
 			json_ostream_nwrite_string(joutput, "status", "401");
 		else if (strcmp(failure->status, "insufficient_scope") == 0)
@@ -54,7 +54,7 @@ oauth2_fail(struct oauth2_auth_request *oauth2_req,
 			json_ostream_nwrite_string(joutput, "status", "400");
 		json_ostream_nwrite_string(joutput, "schemes", "bearer");
 	} else {
-		i_assert(request->mech == &mech_oauthbearer);
+		i_assert(request->mech->def == &mech_oauthbearer);
 		json_ostream_nwrite_string(joutput, "status", failure->status);
 	}
 	if (failure->scope == NULL)
@@ -100,8 +100,8 @@ void sasl_server_oauth2_request_succeed(struct sasl_server_req_ctx *rctx)
 	struct sasl_server_mech_request *request =
 		sasl_server_request_get_mech_request(rctx);
 
-	i_assert(request->mech == &mech_oauthbearer ||
-		 request->mech == &mech_xoauth2);
+	i_assert(request->mech->def == &mech_oauthbearer ||
+		 request->mech->def == &mech_xoauth2);
 
 	struct oauth2_auth_request *oauth2_req =
 		container_of(request, struct oauth2_auth_request, request);
@@ -117,8 +117,8 @@ void sasl_server_oauth2_request_fail(
 	struct sasl_server_mech_request *request =
 		sasl_server_request_get_mech_request(rctx);
 
-	i_assert(request->mech == &mech_oauthbearer ||
-		 request->mech == &mech_xoauth2);
+	i_assert(request->mech->def == &mech_oauthbearer ||
+		 request->mech->def == &mech_xoauth2);
 
 	struct oauth2_auth_request *oauth2_req =
 		container_of(request, struct oauth2_auth_request, request);

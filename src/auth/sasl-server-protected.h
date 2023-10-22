@@ -7,6 +7,7 @@
 
 struct auth_request;
 struct sasl_server_mech_funcs;
+struct sasl_server_mech_def;
 struct sasl_server_mech_request;
 
 typedef void
@@ -57,7 +58,7 @@ struct sasl_server_mech {
 
 struct sasl_server_mech_request {
 	pool_t pool;
-	const struct sasl_server_mech_def *mech;
+	const struct sasl_server_mech *mech;
 	struct sasl_server_request *req;
 	struct event *mech_event;
 

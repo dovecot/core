@@ -290,11 +290,16 @@ auth_sasl_translate_protocol_name(struct auth_request *request)
 }
 
 void auth_sasl_request_init(struct auth_request *request,
-			    const struct sasl_server_mech_def *mech)
+			    const struct sasl_server_mech_def *mech_def)
 {
 	struct auth *auth = auth_request_get_auth(request);
+	const struct sasl_server_mech *mech;
 
-	sasl_server_request_create(&request->sasl.req, auth->sasl_inst, mech,
+	mech = sasl_server_mech_find(auth->sasl_inst, mech_def->name);
+	if (mech == NULL)
+		mech = sasl_server_mech_register(auth->sasl_inst, mech_def);
+	i_assert(mech != NULL);
+	sasl_server_request_create(&request->sasl.req, mech,
 				   auth_sasl_translate_protocol_name(request),
 				   request->mech_event);
 }

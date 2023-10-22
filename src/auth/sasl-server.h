@@ -93,7 +93,7 @@ enum sasl_server_authid_type {
 };
 
 struct sasl_server_req_ctx {
-	const struct sasl_server_mech_def *mech;
+	const struct sasl_server_mech *mech;
 	const char *mech_name;
 
 	struct sasl_server_request *request;
@@ -132,8 +132,7 @@ struct sasl_server_request_funcs {
 };
 
 void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
-				struct sasl_server_instance *sinst,
-				const struct sasl_server_mech_def *mech,
+				const struct sasl_server_mech *mech,
 				const char *protocol,
 				struct event *event_parent);
 void sasl_server_request_destroy(struct sasl_server_req_ctx *rctx);
