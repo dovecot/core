@@ -369,10 +369,11 @@ void auth_request_log_unknown_user(struct auth_request *auth_request,
 				   const char *subsystem);
 
 void auth_request_log_login_failure(struct auth_request *request,
-				    const char *subsystem,
-				    const char *message);
-void auth_request_verify_plain_callback_finish(enum passdb_result result,
-					       struct auth_request *request);
+				    struct event *event, const char *message);
+
+void
+auth_request_verify_plain_callback_finish(enum passdb_result result,
+                                          struct auth_request *request);
 void auth_request_verify_plain_callback(enum passdb_result result,
 					struct auth_request *request);
 void auth_request_lookup_credentials_callback(enum passdb_result result,

@@ -2410,21 +2410,21 @@ auth_request_append_password(struct auth_request *request, string_t *str)
 void auth_request_log_password_mismatch(struct auth_request *request,
 					const char *subsystem)
 {
-	auth_request_log_login_failure(request, subsystem,
-				       AUTH_LOG_MSG_PASSWORD_MISMATCH);
+	auth_request_log_login_failure(
+		request, get_request_event(request, subsystem),
+		AUTH_LOG_MSG_PASSWORD_MISMATCH);
 }
 
 void auth_request_log_unknown_user(struct auth_request *request,
 				   const char *subsystem)
 {
-	auth_request_log_login_failure(request, subsystem, "unknown user");
+	auth_request_log_login_failure(
+		request, get_request_event(request, subsystem), "unknown user");
 }
 
 void auth_request_log_login_failure(struct auth_request *request,
-				    const char *subsystem,
-				    const char *message)
+				    struct event *event, const char *message)
 {
-	struct event *event = get_request_event(request, subsystem);
 	string_t *str;
 
 	if (strcmp(request->set->verbose_passwords, "no") == 0) {
