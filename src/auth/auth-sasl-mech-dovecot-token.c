@@ -50,7 +50,7 @@ mech_dovecot_token_auth_continue(struct sasl_server_mech_request *request,
 		sasl_server_request_failure(request);
 	} else {
 		const char *valid_token =
-			auth_token_get(service, pid, request->request->fields.user,
+			auth_token_get(service, pid, request->authid,
 				       session_id);
 
 		if (auth_token != NULL &&
