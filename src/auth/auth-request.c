@@ -2451,6 +2451,13 @@ void auth_request_log_login_failure(struct auth_request *request,
 	event_set_min_log_level(event, orig_level);
 }
 
+void auth_request_db_log_login_failure(struct auth_request *request,
+				       const char *message)
+{
+	auth_request_log_login_failure(request, authdb_event(request),
+				       message);
+}
+
 enum passdb_result
 auth_request_password_verify(struct auth_request *request,
 			     struct event *event,
