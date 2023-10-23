@@ -199,6 +199,11 @@ void sasl_server_request_input(struct sasl_server_req_ctx *rctx,
 	sasl_server_mech_request_unref(&mreq);
 }
 
+bool sasl_server_request_has_failed(const struct sasl_server_req_ctx *rctx)
+{
+	return rctx->request->failed;
+}
+
 void sasl_server_request_test_set_authid(struct sasl_server_req_ctx *rctx,
 					 const char *authid)
 {

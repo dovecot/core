@@ -158,6 +158,9 @@ void sasl_server_request_initial(struct sasl_server_req_ctx *rctx,
 void sasl_server_request_input(struct sasl_server_req_ctx *rctx,
 			       const unsigned char *data, size_t data_size);
 
+bool ATTR_PURE
+sasl_server_request_has_failed(const struct sasl_server_req_ctx *rctx);
+
 /* Test */
 
 // FIXME: get rid of this
