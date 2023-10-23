@@ -123,7 +123,6 @@ struct auth_request {
 	pool_t pool;
 
 	struct event *event;
-	struct event *mech_event;
 	ARRAY(struct event *) authdb_event;
 
         enum auth_request_state state;

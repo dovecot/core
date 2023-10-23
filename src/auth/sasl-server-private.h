@@ -3,6 +3,8 @@
 
 #include "sasl-server-protected.h"
 
+extern struct event_category event_category_sasl_server;
+
 enum sasl_server_passdb_type {
 	SASL_SERVER_PASSDB_TYPE_VERIFY_PLAIN,
 	SASL_SERVER_PASSDB_TYPE_LOOKUP_CREDENTIALS,
@@ -15,6 +17,7 @@ struct sasl_server_request {
 	struct sasl_server_instance *sinst;
 	struct sasl_server_req_ctx *rctx;
 	struct sasl_server_mech_request *mech;
+	struct event *event;
 
 	enum sasl_server_passdb_type passdb_type;
 	sasl_server_mech_passdb_callback_t *passdb_callback;

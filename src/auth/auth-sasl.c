@@ -304,7 +304,7 @@ void auth_sasl_request_init(struct auth_request *request,
 {
 	sasl_server_request_create(&request->sasl.req, mech,
 				   auth_sasl_translate_protocol_name(request),
-				   request->mech_event);
+				   request->event);
 }
 
 void auth_sasl_request_deinit(struct auth_request *request)

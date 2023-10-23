@@ -194,14 +194,7 @@ void auth_request_init(struct auth_request *request)
 void auth_request_init_sasl(struct auth_request *request,
 			    const struct sasl_server_mech *mech)
 {
-	request->mech_event = event_create(request->event);
-
 	auth_sasl_request_init(request, mech);
-
-	const char *prefix = t_strconcat(
-		t_str_lcase(request->sasl.req.mech_name), ": ", NULL);
-	event_set_append_log_prefix(request->mech_event, prefix);
-
 	auth_request_init(request);
 }
 
@@ -375,7 +368,6 @@ void auth_request_unref(struct auth_request **_request)
 	if (request->handler_pending_reply)
 		auth_request_handler_abort(request);
 
-	event_unref(&request->mech_event);
 	event_unref(&request->event);
 	auth_request_state_count[request->state]--;
 	auth_refresh_proctitle();

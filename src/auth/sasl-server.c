@@ -5,7 +5,7 @@
 
 #include "sasl-server-private.h"
 
-static struct event_category event_category_sasl_server = {
+struct event_category event_category_sasl_server = {
 	.name = "sasl-server"
 };
 

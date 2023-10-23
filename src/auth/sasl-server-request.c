@@ -37,6 +37,16 @@ void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 	sinst->requests++;
 	server->requests++;
 
+	if (event_parent == NULL) {
+		req->event = event_create(sinst->event);
+		event_drop_parent_log_prefixes(req->event, 1);
+	} else {
+		req->event = event_create(event_parent);
+		event_add_category(req->event, &event_category_sasl_server);
+	}
+	event_set_append_log_prefix(req->event,
+		t_strdup_printf("sasl(%s): ", t_str_lcase(mech->def->name)));
+
 	struct sasl_server_mech_request *mreq;
 
 	if (mech->def->funcs->auth_new != NULL)
@@ -48,7 +58,7 @@ void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 	mreq->request = request;
 	mreq->set = &sinst->set;
 	mreq->mech = mech;
-	mreq->mech_event = event_parent;
+	mreq->mech_event = req->event;
 	mreq->protocol = p_strdup(pool, protocol);
 
 	req->mech = mreq;
@@ -90,6 +100,7 @@ void sasl_server_mech_request_unref(struct sasl_server_mech_request **_mreq)
 
 	if (req->rctx != NULL)
 		i_zero(req->rctx);
+	event_unref(&req->event);
 	pool_unref(&req->pool);
 }
 

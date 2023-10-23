@@ -72,16 +72,16 @@ mech_oauth2_verify_token_continue(struct oauth2_auth_request *oauth2_req,
 	/* OK result user fields */
 	if (args[0] == NULL || args[1] == NULL) {
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
-		e_error(request->mech_event,
+		e_error(request->event,
 			"BUG: Invalid auth worker response: empty");
 	} else if (str_to_int(args[1], &parsed) < 0) {
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
-		e_error(request->mech_event,
+		e_error(request->event,
 			"BUG: Invalid auth worker response: cannot parse '%s'",
 			args[1]);
 	} else if (args[2] == NULL) {
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
-		e_error(request->mech_event,
+		e_error(request->event,
 			"BUG: Invalid auth worker response: cannot parse '%s'",
 			args[1]);
 	} else {
@@ -130,9 +130,9 @@ mech_oauth2_verify_token_local_continue(struct db_oauth2_request *db_req,
 		pool_unref(&db_req->pool);
 		return;
 	} else if (result == PASSDB_RESULT_INTERNAL_FAILURE) {
-		e_error(request->mech_event, "oauth2 failed: %s", error);
+		e_error(request->event, "oauth2 failed: %s", error);
 	} else {
-		e_info(request->mech_event, "oauth2 failed: %s", error);
+		e_info(request->event, "oauth2 failed: %s", error);
 	}
 	oauth2_verify_finish(result, request);
 	auth_request_unref(&request);
