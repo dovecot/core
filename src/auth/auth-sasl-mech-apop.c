@@ -72,6 +72,10 @@ mech_apop_auth_initial(struct sasl_server_mech_request *req,
 {
 	struct apop_auth_request *request =
 		container_of(req, struct apop_auth_request, auth_request);
+	struct sasl_server_req_ctx *rctx =
+		sasl_server_request_get_req_ctx(req);
+	struct auth_request *auth_request =
+		container_of(rctx, struct auth_request, sasl.req);
 	const unsigned char *tmp, *end, *username = NULL;
 	unsigned long pid, connect_uid, timestamp;
 
@@ -124,7 +128,7 @@ mech_apop_auth_initial(struct sasl_server_mech_request *req,
 
 	if (sscanf(request->challenge, "<%lx.%lx.%lx.",
 		   &pid, &connect_uid, &timestamp) != 3 ||
-	    connect_uid != req->request->connect_uid ||
+	    connect_uid != auth_request->connect_uid ||
             pid != (unsigned long)getpid() ||
 	    (time_t)timestamp < process_start_time) {
 		e_info(req->mech_event,
