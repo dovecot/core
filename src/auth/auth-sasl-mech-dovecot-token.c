@@ -13,6 +13,10 @@ static void
 mech_dovecot_token_auth_continue(struct sasl_server_mech_request *request,
 				 const unsigned char *data, size_t data_size)
 {
+	struct sasl_server_req_ctx *rctx =
+		sasl_server_request_get_req_ctx(request);
+	struct auth_request *auth_request =
+		container_of(rctx, struct auth_request, sasl.req);
 	const char *session_id, *username, *pid, *service;
 	char *auth_token;
 	size_t i, len;
@@ -56,7 +60,9 @@ mech_dovecot_token_auth_continue(struct sasl_server_mech_request *request,
 
 		if (auth_token != NULL &&
 		    str_equals_timing_almost_safe(auth_token, valid_token)) {
-			auth_request_set_field(request->request, "userdb_client_service", service, "");
+			auth_request_set_field(
+				auth_request, "userdb_client_service",
+				service, "");
 			sasl_server_request_success(request, NULL, 0);
 		} else {
 			sasl_server_request_failure(request);
