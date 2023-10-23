@@ -298,8 +298,6 @@ static void auth_request_success_continue(struct auth_policy_check_ctx *ctx)
 	if (ctx->success_data->used > 0 && !request->fields.final_resp_ok) {
 		/* we'll need one more SASL round, since client doesn't support
 		   the final SASL response */
-		i_assert(!request->final_resp_sent);
-		request->final_resp_sent = TRUE;
 		auth_request_handler_reply_continue(request,
 			ctx->success_data->data, ctx->success_data->used);
 		return;
@@ -324,8 +322,6 @@ void auth_request_fail_with_reply(struct auth_request *request,
 	if (final_data_size > 0 && !request->fields.final_resp_ok) {
 		/* Otherwise, we need to send the data as part of a normal
 		   challenge and wait for a dummy client response. */
-		i_assert(!request->final_resp_sent);
-		request->final_resp_sent = TRUE;
 		auth_request_handler_reply_continue(request, final_data,
 						    final_data_size);
 		return;
@@ -417,15 +413,6 @@ void auth_request_continue(struct auth_request *request,
 			   const unsigned char *data, size_t data_size)
 {
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
-
-	if (request->final_resp_sent) {
-		if (!request->fields.successful) {
-			auth_request_fail(request);
-			return;
-		}
-		auth_request_success(request, "", 0);
-		return;
-	}
 
 	auth_request_refresh_last_access(request);
 	auth_sasl_request_continue(request, data, data_size);

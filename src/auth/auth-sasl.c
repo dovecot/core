@@ -145,7 +145,8 @@ auth_sasl_request_output(struct sasl_server_req_ctx *rctx,
 		auth_request_internal_failure(request);
 		break;
 	case SASL_SERVER_OUTPUT_FAILURE:
-		auth_request_fail(request);
+		auth_request_fail_with_reply(
+			request, output->data, output->data_size);
 		break;
 	case SASL_SERVER_OUTPUT_CONTINUE:
 		auth_request_handler_reply_continue(request, output->data,

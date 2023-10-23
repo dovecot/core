@@ -19,8 +19,14 @@ struct sasl_server_request {
 	struct sasl_server_mech_request *mech;
 	struct event *event;
 
+	enum sasl_server_request_state state;
+	unsigned int sequence;
+
 	enum sasl_server_passdb_type passdb_type;
 	sasl_server_mech_passdb_callback_t *passdb_callback;
+
+	bool failed:1;
+	bool finished_with_data:1;
 };
 
 struct sasl_server_mech_reg {

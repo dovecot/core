@@ -91,6 +91,21 @@ enum sasl_server_authid_type {
 	SASL_SERVER_AUTHID_TYPE_EXTERNAL,
 };
 
+enum sasl_server_request_state {
+	/* Request is newly created */
+	SASL_SERVER_REQUEST_STATE_NEW = 0,
+	/* Server needs to act next on this request */
+	SASL_SERVER_REQUEST_STATE_SERVER,
+	/* Client needs to act next on this request */
+	SASL_SERVER_REQUEST_STATE_CLIENT,
+	/* Server is waiting for passdb lookup */
+	SASL_SERVER_REQUEST_STATE_PASSDB,
+	/* Request is finished */
+	SASL_SERVER_REQUEST_STATE_FINISHED,
+	/* Request is aborted */
+	SASL_SERVER_REQUEST_STATE_ABORTED,
+};
+
 struct sasl_server_req_ctx {
 	const struct sasl_server_mech *mech;
 	const char *mech_name;

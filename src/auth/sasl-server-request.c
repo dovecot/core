@@ -158,6 +158,9 @@ void sasl_server_request_initial(struct sasl_server_req_ctx *rctx,
 	struct sasl_server_mech_request *mreq = req->mech;
 	const struct sasl_server_mech *mech = mreq->mech;
 
+	i_assert(req->state == SASL_SERVER_REQUEST_STATE_NEW);
+	req->state = SASL_SERVER_REQUEST_STATE_SERVER;
+
 	if (sasl_server_request_fail_on_nuls(req, data, data_size))
 		return;
 
@@ -173,6 +176,19 @@ void sasl_server_request_input(struct sasl_server_req_ctx *rctx,
 	struct sasl_server_request *req = rctx->request;
 	struct sasl_server_mech_request *mreq = req->mech;
 	const struct sasl_server_mech *mech = mreq->mech;
+
+	if (req->state == SASL_SERVER_REQUEST_STATE_FINISHED &&
+	    req->finished_with_data) {
+		req->state = SASL_SERVER_REQUEST_STATE_SERVER;
+		if (!req->failed)
+			sasl_server_request_success(mreq, "", 0);
+		else
+			sasl_server_request_failure(mreq);
+		return;
+	}
+	i_assert(req->state == SASL_SERVER_REQUEST_STATE_CLIENT);
+	i_assert(!req->finished_with_data);
+	req->state = SASL_SERVER_REQUEST_STATE_SERVER;
 
 	if (sasl_server_request_fail_on_nuls(req, data, data_size))
 		return;
@@ -207,7 +223,11 @@ bool sasl_server_request_set_authid(struct sasl_server_mech_request *mreq,
 
 	i_assert(req->rctx != NULL);
 	i_assert(funcs->request_set_authid != NULL);
-	return funcs->request_set_authid(req->rctx, authid_type, authid);
+	if (!funcs->request_set_authid(req->rctx, authid_type, authid)) {
+		req->failed = TRUE;
+		return FALSE;
+	}
+	return TRUE;
 }
 
 bool sasl_server_request_set_authzid(struct sasl_server_mech_request *mreq,
@@ -219,7 +239,11 @@ bool sasl_server_request_set_authzid(struct sasl_server_mech_request *mreq,
 
 	i_assert(req->rctx != NULL);
 	i_assert(funcs->request_set_authzid != NULL);
-	return funcs->request_set_authzid(req->rctx, authzid);
+	if (!funcs->request_set_authzid(req->rctx, authzid)) {
+		req->failed = TRUE;
+		return FALSE;
+	}
+	return TRUE;
 }
 
 void sasl_server_request_set_realm(struct sasl_server_mech_request *mreq,
@@ -286,6 +310,13 @@ void sasl_server_request_output(struct sasl_server_mech_request *mreq,
 
 	i_assert(req->rctx != NULL);
 
+	i_assert(!req->failed);
+	i_assert(req->state == SASL_SERVER_REQUEST_STATE_NEW ||
+		 req->state == SASL_SERVER_REQUEST_STATE_SERVER ||
+		 req->state == SASL_SERVER_REQUEST_STATE_PASSDB);
+	req->state = SASL_SERVER_REQUEST_STATE_CLIENT;
+	req->sequence++;
+
 	const struct sasl_server_output output = {
 		.status = SASL_SERVER_OUTPUT_CONTINUE,
 		.data = data,
@@ -303,6 +334,17 @@ void sasl_server_request_success(struct sasl_server_mech_request *mreq,
 	const struct sasl_server_request_funcs *funcs = server->funcs;
 
 	i_assert(req->rctx != NULL);
+
+	i_assert(!req->failed);
+	i_assert(req->state == SASL_SERVER_REQUEST_STATE_NEW ||
+		 req->state == SASL_SERVER_REQUEST_STATE_SERVER ||
+		 req->state == SASL_SERVER_REQUEST_STATE_PASSDB);
+	req->state = SASL_SERVER_REQUEST_STATE_FINISHED;
+	req->sequence++;
+	if (data_size > 0) {
+		i_assert(!req->finished_with_data);
+		req->finished_with_data = TRUE;
+	}
 
 	const struct sasl_server_output output = {
 		.status = SASL_SERVER_OUTPUT_SUCCESS,
@@ -323,6 +365,18 @@ sasl_server_request_failure_common(struct sasl_server_mech_request *mreq,
 	const struct sasl_server_request_funcs *funcs = server->funcs;
 
 	i_assert(req->rctx != NULL);
+
+	i_assert(req->state == SASL_SERVER_REQUEST_STATE_NEW ||
+		 req->state == SASL_SERVER_REQUEST_STATE_SERVER ||
+		 req->state == SASL_SERVER_REQUEST_STATE_PASSDB);
+	req->state = SASL_SERVER_REQUEST_STATE_FINISHED;
+	req->sequence++;
+	req->failed = TRUE;
+	if (data_size > 0) {
+		i_assert(status != SASL_SERVER_OUTPUT_INTERNAL_FAILURE);
+		i_assert(!req->finished_with_data);
+		req->finished_with_data = TRUE;
+	}
 
 	const struct sasl_server_output output = {
 		.status = status,
@@ -360,6 +414,11 @@ verify_plain_callback(struct sasl_server_req_ctx *rctx,
 {
 	struct sasl_server_request *req = rctx->request;
 
+	i_assert(req->state == SASL_SERVER_REQUEST_STATE_PASSDB);
+	req->state = SASL_SERVER_REQUEST_STATE_SERVER;
+	if (result->status == SASL_PASSDB_RESULT_INTERNAL_FAILURE)
+		req->failed = TRUE;
+
 	i_assert(req->passdb_type == SASL_SERVER_PASSDB_TYPE_VERIFY_PLAIN);
 	req->passdb_callback(req->mech, result);
 }
@@ -374,6 +433,11 @@ void sasl_server_request_verify_plain(
 
 	i_assert(req->rctx != NULL);
 
+	i_assert(!req->failed);
+	i_assert(req->state == SASL_SERVER_REQUEST_STATE_NEW ||
+		 req->state == SASL_SERVER_REQUEST_STATE_SERVER);
+	req->state = SASL_SERVER_REQUEST_STATE_PASSDB;
+
 	req->passdb_type = SASL_SERVER_PASSDB_TYPE_VERIFY_PLAIN;
 	req->passdb_callback = callback;
 
@@ -387,6 +451,11 @@ lookup_credentials_callback(struct sasl_server_req_ctx *rctx,
 			    const struct sasl_passdb_result *result)
 {
 	struct sasl_server_request *req = rctx->request;
+
+	i_assert(req->state == SASL_SERVER_REQUEST_STATE_PASSDB);
+	req->state = SASL_SERVER_REQUEST_STATE_SERVER;
+	if (result->status == SASL_PASSDB_RESULT_INTERNAL_FAILURE)
+		req->failed = TRUE;
 
 	i_assert(req->passdb_type ==
 		 SASL_SERVER_PASSDB_TYPE_LOOKUP_CREDENTIALS);
@@ -403,6 +472,11 @@ void sasl_server_request_lookup_credentials(
 
 	i_assert(req->rctx != NULL);
 
+	i_assert(!req->failed);
+	i_assert(req->state == SASL_SERVER_REQUEST_STATE_NEW ||
+		 req->state == SASL_SERVER_REQUEST_STATE_SERVER);
+	req->state = SASL_SERVER_REQUEST_STATE_PASSDB;
+
 	req->passdb_type = SASL_SERVER_PASSDB_TYPE_LOOKUP_CREDENTIALS;
 	req->passdb_callback = callback;
 
@@ -416,6 +490,11 @@ set_credentials_callback(struct sasl_server_req_ctx *rctx,
 			 const struct sasl_passdb_result *result)
 {
 	struct sasl_server_request *req = rctx->request;
+
+	i_assert(req->state == SASL_SERVER_REQUEST_STATE_PASSDB);
+	req->state = SASL_SERVER_REQUEST_STATE_SERVER;
+	if (result->status == SASL_PASSDB_RESULT_INTERNAL_FAILURE)
+		req->failed = TRUE;
 
 	i_assert(req->passdb_type == SASL_SERVER_PASSDB_TYPE_SET_CREDENTIALS);
 	req->passdb_callback(req->mech, result);
@@ -431,6 +510,11 @@ void sasl_server_request_set_credentials(
 	const struct sasl_server_request_funcs *funcs = server->funcs;
 
 	i_assert(req->rctx != NULL);
+
+	i_assert(!req->failed);
+	i_assert(req->state == SASL_SERVER_REQUEST_STATE_NEW ||
+		 req->state == SASL_SERVER_REQUEST_STATE_SERVER);
+	req->state = SASL_SERVER_REQUEST_STATE_PASSDB;
 
 	req->passdb_type = SASL_SERVER_PASSDB_TYPE_SET_CREDENTIALS;
 	req->passdb_callback = callback;
