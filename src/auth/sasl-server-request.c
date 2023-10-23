@@ -534,3 +534,10 @@ sasl_server_request_get_mech_request(struct sasl_server_req_ctx *rctx)
 {
 	return rctx->request->mech;
 }
+
+struct sasl_server_req_ctx *
+sasl_server_request_get_req_ctx(struct sasl_server_mech_request *mreq)
+{
+	i_assert(mreq->req->rctx != NULL);
+	return mreq->req->rctx;
+}

@@ -152,5 +152,11 @@ void sasl_server_request_set_credentials(
 */
 struct sasl_server_mech_request *
 sasl_server_request_get_mech_request(struct sasl_server_req_ctx *rctx);
+/* Obtains the request context struct (public) from the mechanism request
+   struct (protected). This can be used to create SASL mechanisms that have
+   broader access to the application. This is normally not needed and should
+   only be used for custom mechanisms for internal use. */
+struct sasl_server_req_ctx *
+sasl_server_request_get_req_ctx(struct sasl_server_mech_request *mreq);
 
 #endif
