@@ -367,8 +367,7 @@ void auth_request_log_error(struct auth_request *auth_request,
 void auth_request_log_password_mismatch(struct auth_request *request,
 					struct event *event);
 void auth_request_log_unknown_user(struct auth_request *auth_request,
-				   const char *subsystem);
-
+				   struct event *event);
 void auth_request_log_login_failure(struct auth_request *request,
 				    struct event *event, const char *message);
 

@@ -86,7 +86,7 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 
 	if (*value == '\0') {
 		/* negative cache entry */
-		auth_request_log_unknown_user(request, AUTH_SUBSYS_DB);
+		auth_request_log_unknown_user(request, authdb_event(request));
 		*result_r = PASSDB_RESULT_USER_UNKNOWN;
 		auth_request_verify_plain_callback_finish(*result_r, request);
 		return TRUE;

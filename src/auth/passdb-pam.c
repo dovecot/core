@@ -180,7 +180,8 @@ static int try_pam_auth(struct auth_request *request, pam_handle_t *pamh,
 			e_info(authdb_event(request), "%s", str);
 		} else {
 			if (status == PAM_USER_UNKNOWN)
-				auth_request_log_unknown_user(request, AUTH_SUBSYS_DB);
+				auth_request_log_unknown_user(
+					request, authdb_event(request));
 			else {
 				e_info(authdb_event(request),
 				       "%s", str);

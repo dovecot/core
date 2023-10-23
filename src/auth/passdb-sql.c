@@ -82,7 +82,8 @@ static void sql_query_callback(struct sql_result *result,
 				module->conn->set.password_query);
 		}
 	} else if (ret == 0) {
-		auth_request_log_unknown_user(auth_request, AUTH_SUBSYS_DB);
+		auth_request_log_unknown_user(auth_request,
+					      authdb_event(auth_request));
 		passdb_result = PASSDB_RESULT_USER_UNKNOWN;
 	} else {
 		sql_query_save_results(result, sql_request);

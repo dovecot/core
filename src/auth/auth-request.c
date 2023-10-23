@@ -2415,10 +2415,9 @@ void auth_request_log_password_mismatch(struct auth_request *request,
 }
 
 void auth_request_log_unknown_user(struct auth_request *request,
-				   const char *subsystem)
+				   struct event *event)
 {
-	auth_request_log_login_failure(
-		request, get_request_event(request, subsystem), "unknown user");
+	auth_request_log_login_failure(request, event, "unknown user");
 }
 
 void auth_request_log_login_failure(struct auth_request *request,

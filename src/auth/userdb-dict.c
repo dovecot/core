@@ -68,7 +68,8 @@ static void userdb_dict_lookup(struct auth_request *auth_request,
 	if (ret < 0)
 		userdb_result = USERDB_RESULT_INTERNAL_FAILURE;
 	else if (ret == 0) {
-		auth_request_log_unknown_user(auth_request, AUTH_SUBSYS_DB);
+		auth_request_log_unknown_user(auth_request,
+					      authdb_event(auth_request));
 		userdb_result = USERDB_RESULT_USER_UNKNOWN;
 	} else {
 		if (dict_query_save_results(auth_request, iter) < 0)

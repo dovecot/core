@@ -30,7 +30,7 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
 		return;
 	case 0:
-		auth_request_log_unknown_user(request, AUTH_SUBSYS_DB);
+		auth_request_log_unknown_user(request, authdb_event(request));
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
 	}
