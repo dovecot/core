@@ -933,7 +933,7 @@ static void test_do_init(void)
 {
 	const char *error;
 	struct dcrypt_settings dcrypt_set = {
-		.module_dir = "../lib-dcrypt/.libs",
+		.module_dir = TEST_DCRYPT_MODULE_DIR,
 	};
 	struct dict_settings dict_set = {
 		.base_dir = ".",

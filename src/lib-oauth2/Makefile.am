@@ -4,7 +4,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-http \
 	-I$(top_srcdir)/src/lib-dcrypt \
 	-I$(top_srcdir)/src/lib-dict \
-	-I$(top_srcdir)/src/lib-settings
+	-I$(top_srcdir)/src/lib-settings \
+	-DTEST_DCRYPT_MODULE_DIR=\""$(abs_top_builddir)/src/lib-dcrypt/.libs"\"
 
 noinst_LTLIBRARIES=liboauth2.la
 
