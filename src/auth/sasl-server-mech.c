@@ -127,7 +127,10 @@ sasl_server_mech_create(struct sasl_server_instance *sinst,
 {
 	struct sasl_server_mech *mech;
 
-	mech = p_new(sinst->pool, struct sasl_server_mech, 1);
+	if (def->funcs->mech_new != NULL)
+		mech = def->funcs->mech_new(sinst->pool);
+	else
+		mech = p_new(sinst->pool, struct sasl_server_mech, 1);
 	mech->pool = sinst->pool;
 	mech->sinst = sinst;
 	mech->def = def;
@@ -208,6 +211,10 @@ sasl_server_mech_find(struct sasl_server_instance *sinst, const char *name)
 static void sasl_server_mech_reg_free(struct sasl_server_mech_reg *mech_reg)
 {
 	struct sasl_server_mech *mech = mech_reg->mech;
+
+	if (mech->def->funcs->mech_free != NULL)
+		mech->def->funcs->mech_free(mech);
+
 	struct sasl_server_mech_def_reg *mech_dreg = mech_reg->def_reg;
 
 	i_assert(mech_dreg->def == mech->def);
@@ -261,6 +268,28 @@ void sasl_server_mech_unregister(struct sasl_server_instance *sinst,
 		return;
 
 	sasl_server_mech_reg_free(mech_reg);
+}
+
+static struct sasl_server_mech_reg *
+sasl_server_mech_reg_list_free(struct sasl_server_mech_reg *mech_reg_list)
+{
+	struct sasl_server_mech_reg *mech_reg;
+
+	mech_reg = mech_reg_list;
+	while (mech_reg != NULL) {
+		struct sasl_server_mech_reg *mech_reg_next = mech_reg->next;
+
+		sasl_server_mech_reg_free(mech_reg);
+		mech_reg = mech_reg_next;
+	}
+	return NULL;
+}
+
+void sasl_server_instance_mech_registry_free(
+	struct sasl_server_instance *sinst)
+{
+	sasl_server_mech_reg_list_free(sinst->mechs_head);
+	sasl_server_mech_reg_list_free(sinst->mechs_hidden);
 }
 
 /*

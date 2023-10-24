@@ -66,6 +66,8 @@ void sasl_server_instance_unref(struct sasl_server_instance **_sinst)
 
 	i_assert(sinst->requests == 0);
 
+	sasl_server_instance_mech_registry_free(sinst);
+
 	DLLIST_REMOVE(&server->instances, sinst);
 
 	event_unref(&sinst->event);

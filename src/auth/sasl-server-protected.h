@@ -21,6 +21,9 @@ struct sasl_server_mech_funcs {
 	void (*auth_continue)(struct sasl_server_mech_request *req,
 			      const unsigned char *data, size_t data_size);
 	void (*auth_free)(struct sasl_server_mech_request *req);
+
+	struct sasl_server_mech *(*mech_new)(pool_t pool);
+	void (*mech_free)(struct sasl_server_mech *mech);
 };
 
 struct sasl_server_mech_def {

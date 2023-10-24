@@ -73,4 +73,11 @@ struct sasl_server {
 	unsigned int requests;
 };
 
+/*
+ * Mechanism
+ */
+
+void sasl_server_instance_mech_registry_free(
+	struct sasl_server_instance *sinst);
+
 #endif
