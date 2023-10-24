@@ -16,7 +16,8 @@ sasl_server_mech_passdb_callback_t(struct sasl_server_mech_request *req,
 				   const struct sasl_passdb_result *result);
 
 struct sasl_server_mech_funcs {
-	struct sasl_server_mech_request *(*auth_new)(pool_t pool);
+	struct sasl_server_mech_request *
+	(*auth_new)(const struct sasl_server_mech *mech, pool_t pool);
 	void (*auth_initial)(struct sasl_server_mech_request *req,
 			     const unsigned char *data, size_t data_size);
 	void (*auth_continue)(struct sasl_server_mech_request *req,

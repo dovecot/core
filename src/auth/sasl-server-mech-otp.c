@@ -286,7 +286,8 @@ mech_otp_auth_continue(struct sasl_server_mech_request *auth_request,
 		mech_otp_auth_phase2(request, data, data_size);
 }
 
-static struct sasl_server_mech_request *mech_otp_auth_new(pool_t pool)
+static struct sasl_server_mech_request *
+mech_otp_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED, pool_t pool)
 {
 	struct otp_auth_request *request;
 

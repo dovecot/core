@@ -96,7 +96,9 @@ mech_gssapi_log_error(struct gssapi_auth_request *request,
 	} while (message_context != 0);
 }
 
-static struct sasl_server_mech_request *mech_gssapi_auth_new(pool_t pool)
+static struct sasl_server_mech_request *
+mech_gssapi_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED,
+		     pool_t pool)
 {
 	struct gssapi_auth_request *request;
 

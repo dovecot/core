@@ -178,7 +178,8 @@ void mech_scram_auth_continue(struct sasl_server_mech_request *auth_request,
 }
 
 struct sasl_server_mech_request *
-mech_scram_auth_new(pool_t pool, const struct hash_method *hash_method,
+mech_scram_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED,
+		    pool_t pool, const struct hash_method *hash_method,
 		    const char *password_scheme)
 {
 	struct scram_auth_request *request;
@@ -213,14 +214,18 @@ mech_scram_auth_new(pool_t pool, const struct hash_method *hash_method,
 	return &request->auth_request;
 }
 
-static struct sasl_server_mech_request *mech_scram_sha1_auth_new(pool_t pool)
+static struct sasl_server_mech_request *
+mech_scram_sha1_auth_new(const struct sasl_server_mech *mech, pool_t pool)
 {
-	return mech_scram_auth_new(pool, &hash_method_sha1, "SCRAM-SHA-1");
+	return mech_scram_auth_new(
+		mech, pool, &hash_method_sha1, "SCRAM-SHA-1");
 }
 
-static struct sasl_server_mech_request *mech_scram_sha256_auth_new(pool_t pool)
+static struct sasl_server_mech_request *
+mech_scram_sha256_auth_new(const struct sasl_server_mech *mech, pool_t pool)
 {
-	return mech_scram_auth_new(pool, &hash_method_sha256, "SCRAM-SHA-256");
+	return mech_scram_auth_new(
+		mech, pool, &hash_method_sha256, "SCRAM-SHA-256");
 }
 
 static void mech_scram_auth_free(struct sasl_server_mech_request *auth_request)

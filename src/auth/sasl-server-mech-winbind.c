@@ -327,13 +327,15 @@ do_auth_new(pool_t pool, struct winbind_helper *winbind)
 }
 
 static struct sasl_server_mech_request *
-mech_winbind_ntlm_auth_new(pool_t pool)
+mech_winbind_ntlm_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED,
+			   pool_t pool)
 {
 	return do_auth_new(pool, &winbind_ntlm_context);
 }
 
 static struct sasl_server_mech_request *
-mech_winbind_spnego_auth_new(pool_t pool)
+mech_winbind_spnego_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED,
+			     pool_t pool)
 {
 	return do_auth_new(pool, &winbind_spnego_context);
 }

@@ -148,7 +148,8 @@ mech_apop_auth_initial(struct sasl_server_mech_request *req,
 					       apop_credentials_callback);
 }
 
-static struct sasl_server_mech_request *mech_apop_auth_new(pool_t pool)
+static struct sasl_server_mech_request *
+mech_apop_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED, pool_t pool)
 {
 	struct apop_auth_request *request;
 

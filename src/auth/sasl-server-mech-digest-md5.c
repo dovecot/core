@@ -594,7 +594,9 @@ mech_digest_md5_auth_initial(struct sasl_server_mech_request *auth_request,
 				   str_len(challenge));
 }
 
-static struct sasl_server_mech_request *mech_digest_md5_auth_new(pool_t pool)
+static struct sasl_server_mech_request *
+mech_digest_md5_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED,
+			 pool_t pool)
 {
 	struct digest_auth_request *request;
 

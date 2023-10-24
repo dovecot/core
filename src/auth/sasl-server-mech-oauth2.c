@@ -302,7 +302,9 @@ mech_xoauth2_auth_continue(struct sasl_server_mech_request *request,
 	}
 }
 
-static struct sasl_server_mech_request *mech_oauth2_auth_new(pool_t pool)
+static struct sasl_server_mech_request *
+mech_oauth2_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED,
+		     pool_t pool)
 {
 	struct oauth2_auth_request *request;
 

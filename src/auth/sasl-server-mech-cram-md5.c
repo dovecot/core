@@ -164,7 +164,9 @@ mech_cram_md5_auth_initial(struct sasl_server_mech_request *auth_request,
 				   strlen(request->challenge));
 }
 
-static struct sasl_server_mech_request *mech_cram_md5_auth_new(pool_t pool)
+static struct sasl_server_mech_request *
+mech_cram_md5_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED,
+		       pool_t pool)
 {
 	struct cram_auth_request *request;
 
