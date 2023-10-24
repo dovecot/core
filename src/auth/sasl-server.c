@@ -109,6 +109,8 @@ void sasl_server_deinit(struct sasl_server **_server)
 	i_assert(server->instances == NULL);
 	i_assert(server->requests == 0);
 
+	sasl_server_mech_registry_free(server);
+
 	event_unref(&server->event);
 	pool_unref(&server->pool);
 }

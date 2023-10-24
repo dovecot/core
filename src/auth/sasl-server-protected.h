@@ -8,6 +8,7 @@
 struct auth_request;
 struct sasl_server_mech_funcs;
 struct sasl_server_mech_def;
+struct sasl_server_mech_data;
 struct sasl_server_mech_request;
 
 typedef void
@@ -21,6 +22,10 @@ struct sasl_server_mech_funcs {
 	void (*auth_continue)(struct sasl_server_mech_request *req,
 			      const unsigned char *data, size_t data_size);
 	void (*auth_free)(struct sasl_server_mech_request *req);
+
+	/* Global data shared between server instances */
+	struct sasl_server_mech_data *(*data_new)(pool_t pool);
+	void (*data_free)(struct sasl_server_mech_data *mdata);
 
 	struct sasl_server_mech *(*mech_new)(pool_t pool);
 	void (*mech_free)(struct sasl_server_mech *mech);
@@ -50,11 +55,19 @@ struct mechanisms_register {
 	buffer_t *handshake_cbind;
 };
 
+struct sasl_server_mech_data {
+	struct sasl_server *server;
+	pool_t pool;
+
+	const struct sasl_server_mech_def *def;
+};
+
 struct sasl_server_mech {
 	struct sasl_server_instance *sinst;
 	struct sasl_server_mech_reg *reg;
 	pool_t pool;
 	struct event *event;
+	struct sasl_server_mech_data *data;
 
 	const struct sasl_server_mech_def *def;
 };

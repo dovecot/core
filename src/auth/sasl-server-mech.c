@@ -46,6 +46,44 @@ void sasl_server_mech_generic_auth_initial(
 }
 
 /*
+ * Global data
+ */
+
+static struct sasl_server_mech_data *
+sasl_server_mech_data_init(struct sasl_server *server,
+			   struct sasl_server_mech_def_reg *mech_dreg)
+{
+	struct sasl_server_mech_data *mdata;
+	const struct sasl_server_mech_def *mech_def = mech_dreg->def;
+
+	if (mech_def->funcs->data_new == NULL)
+		return NULL;
+	if (mech_dreg->data != NULL)
+		return mech_dreg->data;
+
+	mech_dreg->data = mdata = mech_def->funcs->data_new(server->pool);
+	mdata->pool = server->pool;
+	mdata->server = server;
+	mdata->def = mech_def;
+
+	return mdata;
+}
+
+static void
+sasl_server_mech_data_deinit(struct sasl_server_mech_def_reg *mech_dreg)
+{
+	struct sasl_server_mech_data *mdata = mech_dreg->data;
+
+	if (mdata == NULL)
+		return;
+	mech_dreg->data = NULL;
+
+	if (mdata->def->funcs->data_free == NULL)
+		return;
+	mdata->def->funcs->data_free(mdata);
+}
+
+/*
  * Registry
  */
 
@@ -168,6 +206,7 @@ sasl_server_mech_register_common(struct sasl_server_instance *sinst,
 
 	mech = sasl_server_mech_create(sinst, def);
 	mech->reg = mech_reg;
+	mech->data = sasl_server_mech_data_init(sinst->server, mech_dreg);
 	mech_reg->mech = mech;
 
 	return mech;
@@ -227,6 +266,7 @@ static void sasl_server_mech_reg_free(struct sasl_server_mech_reg *mech_reg)
 
 		DLLIST2_REMOVE(&server->mechs_head, &server->mechs_tail,
 			       mech_dreg);
+		sasl_server_mech_data_deinit(mech_dreg);
 		mech_dreg->def = NULL;
 	}
 }
@@ -290,6 +330,11 @@ void sasl_server_instance_mech_registry_free(
 {
 	sasl_server_mech_reg_list_free(sinst->mechs_head);
 	sasl_server_mech_reg_list_free(sinst->mechs_hidden);
+}
+
+void sasl_server_mech_registry_free(struct sasl_server *server)
+{
+	i_assert(server->mechs_head == NULL);
 }
 
 /*

@@ -80,4 +80,6 @@ struct sasl_server {
 void sasl_server_instance_mech_registry_free(
 	struct sasl_server_instance *sinst);
 
+void sasl_server_mech_registry_free(struct sasl_server *server);
+
 #endif
