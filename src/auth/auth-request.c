@@ -89,6 +89,10 @@ static const char *get_log_prefix(struct auth_request *auth_request)
 	        str_append_c(str, ',');
 	        str_append(str, ip);
 	}
+	if (auth_request->mech != NULL) {
+		str_append(str, ",sasl:");
+		str_append(str, t_str_lcase(auth_request->mech->mech_name));
+	}
 	if (auth_request->fields.requested_login_user != NULL)
 	        str_append(str, ",master");
 	str_append_c(str, ')');
