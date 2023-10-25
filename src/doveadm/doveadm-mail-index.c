@@ -7,7 +7,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "mail-namespace.h"
-#include "mail-storage.h"
+#include "mail-storage-private.h"
 #include "mail-search-build.h"
 #include "mailbox-list-iter.h"
 #include "doveadm-settings.h"
@@ -28,8 +28,8 @@ struct index_cmd_context {
 	bool have_wildcards:1;
 };
 
-static int cmd_index_box_precache(struct doveadm_mail_cmd_context *dctx,
-				  struct mailbox *box)
+static int cmd_index_box_precache_real(struct doveadm_mail_cmd_context *dctx,
+				       struct mailbox *box)
 {
 	struct event *event = dctx->cctx->event;
 	struct mailbox_status status;
@@ -112,6 +112,31 @@ static int cmd_index_box_precache(struct doveadm_mail_cmd_context *dctx,
 		ret = -1;
 	}
 	return ret;
+}
+
+static int cmd_index_box_precache(struct doveadm_mail_cmd_context *dctx,
+				  struct mailbox *box);
+
+static int cmd_index_box_precache_virtual(struct doveadm_mail_cmd_context *dctx,
+					  struct mailbox *box)
+{
+	ARRAY_TYPE(mailboxes) mailboxes;
+	t_array_init(&mailboxes, 8);
+	box->virtual_vfuncs->get_virtual_backend_boxes(box, &mailboxes, TRUE);
+
+	struct mailbox *bbox;
+	array_foreach_elem(&mailboxes, bbox)
+		if (cmd_index_box_precache(dctx, bbox) < 0)
+			return -1;
+	return 0;
+}
+
+static int cmd_index_box_precache(struct doveadm_mail_cmd_context *dctx,
+				  struct mailbox *box)
+{
+	return box->virtual_vfuncs == NULL ?
+	       cmd_index_box_precache_real(dctx, box) :
+	       cmd_index_box_precache_virtual(dctx, box);
 }
 
 static int
