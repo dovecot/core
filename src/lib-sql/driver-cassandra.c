@@ -1403,7 +1403,7 @@ get_consistency_error(struct cassandra_result *result,
 		cass_error_result_consistency(error_result);
 
 	string_t *str = t_str_new(128);
-	str_printfa(str, ", %s consistency, %u/%u responses received",
+	str_printfa(str, ", %s consistency, %u of minimum %u responses received",
 		    cass_consistency_string(consistency),
 		    cass_error_result_responses_received(error_result),
 		    cass_error_result_responses_required(error_result));
