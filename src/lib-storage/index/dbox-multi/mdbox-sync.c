@@ -43,10 +43,11 @@ dbox_sync_verify_expunge_guid(struct mdbox_sync_context *ctx, uint32_t seq,
 	    memcmp(data, guid_128, GUID_128_SIZE) == 0)
 		return 1;
 
-	mdbox_set_mailbox_corrupted(&ctx->mbox->box, t_strdup_printf(
+	e_error(ctx->mbox->box.event,
 		"Expunged GUID mismatch for UID %u: %s vs %s",
-		uid, guid_128_to_string(data), guid_128_to_string(guid_128)));
-	return -1;
+		uid, guid_128_to_string(data), guid_128_to_string(guid_128));
+	/* ignore the expunge request */
+	return 0;
 }
 
 static int mdbox_sync_expunge(struct mdbox_sync_context *ctx, uint32_t seq,
