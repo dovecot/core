@@ -21,6 +21,7 @@
 #include "smtp-reply-parser.h"
 #include "smtp-command-parser.h"
 #include "smtp-server-private.h"
+#include "ssl-settings.h"
 
 const char *const smtp_server_state_names[] = {
 	"GREETING",
@@ -348,15 +349,39 @@ smtp_server_connection_sni_callback(const char *name, const char **error_r,
 {
 	struct smtp_server_connection *conn = context;
 	struct ssl_iostream_context *ssl_ctx;
+	const struct ssl_settings *ssl_set;
+	const struct ssl_server_settings *ssl_server_set;
+
+	event_add_str(conn->event, "local_name", name);
+	i_free(conn->local_name);
+	conn->local_name = i_strdup(name);
+	if (settings_get(conn->event, &ssl_setting_parser_info, 0, &ssl_set,
+			 error_r) < 0)
+		return -1;
+	if (settings_get(conn->event, &ssl_server_setting_parser_info, 0,
+			 &ssl_server_set, error_r) < 0) {
+		settings_free(ssl_set);
+		return -1;
+	}
 
 	if (conn->callbacks->conn_tls_sni_callback != NULL &&
-	    conn->callbacks->conn_tls_sni_callback(name, error_r, conn) < 0)
+	    conn->callbacks->conn_tls_sni_callback(name, error_r, conn) < 0) {
+		settings_free(ssl_set);
+		settings_free(ssl_server_set);
 		return -1;
+	}
+
+	ssl_server_settings_to_iostream_set(ssl_set, ssl_server_set,
+					    &conn->set.ssl);
 
 	if (ssl_iostream_server_context_cache_get(conn->set.ssl, &ssl_ctx,
-						  error_r) < 0)
+						  error_r) < 0) {
+		settings_free(ssl_set);
+		settings_free(ssl_server_set);
 		return -1;
-
+	}
+	settings_free(ssl_set);
+	settings_free(ssl_server_set);
 	ssl_iostream_change_context(conn->ssl_iostream, ssl_ctx);
 	ssl_iostream_context_unref(&ssl_ctx);
 	return 0;
