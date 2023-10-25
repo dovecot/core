@@ -4,6 +4,7 @@
 #include "auth.h"
 #include "str.h"
 #include "ioloop.h"
+#include "master-service.h"
 #include "auth-common.h"
 #include "auth-request.h"
 #include "auth-request-handler-private.h"
@@ -404,16 +405,29 @@ static void test_mechs(void)
 	i_unlink("auth-token-secret.dat");
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	static void (*const test_functions[])(void) = {
 		test_mechs,
 		NULL
 	};
+	const enum master_service_flags service_flags =
+		MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS |
+		MASTER_SERVICE_FLAG_STANDALONE |
+		MASTER_SERVICE_FLAG_STD_CLIENT |
+		MASTER_SERVICE_FLAG_DONT_SEND_STATS;
+	int ret;
+
+	master_service = master_service_init("test-mech",
+					     service_flags, &argc, &argv, "");
+
+	master_service_init_finish(master_service);
 
 	struct ioloop *ioloop = io_loop_create();
 	io_loop_set_current(ioloop);
-	int ret = test_run(test_functions);
+	ret = test_run(test_functions);
 	io_loop_destroy(&ioloop);
+
+	master_service_deinit(&master_service);
 	return ret;
 }
