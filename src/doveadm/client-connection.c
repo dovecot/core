@@ -1,6 +1,7 @@
 /* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "process-title.h"
 #include "settings.h"
 #include "master-service.h"
@@ -13,12 +14,12 @@ bool doveadm_client_is_allowed_command(const struct doveadm_settings *set,
 {
 	bool ret = FALSE;
 
-	if (*set->doveadm_allowed_commands == '\0')
+	if (array_is_empty(&set->doveadm_allowed_commands))
 		return TRUE;
 
 	T_BEGIN {
 		const char *const *cmds =
-			t_strsplit(set->doveadm_allowed_commands, ",");
+			settings_boollist_get(&set->doveadm_allowed_commands);
 		for (; *cmds != NULL; cmds++) {
 			if (strcmp(*cmds, cmd_name) == 0) {
 				ret = TRUE;
