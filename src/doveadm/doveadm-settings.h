@@ -29,7 +29,7 @@ struct doveadm_settings {
 	const char *doveadm_ssl;
 	const char *doveadm_username;
 	const char *doveadm_password;
-	const char *doveadm_allowed_commands;
+	ARRAY_TYPE(const_string) doveadm_allowed_commands;
 	const char *dsync_alt_char;
 	const char *dsync_remote_cmd;
 	const char *doveadm_api_key;
