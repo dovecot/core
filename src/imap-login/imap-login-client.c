@@ -94,25 +94,19 @@ static const char *get_capability(struct client *client)
 	struct imap_client *imap_client =
 		container_of(client, struct imap_client, common);
 	string_t *cap_str = t_str_new(256);
-	bool explicit_capability = FALSE;
 
 	if (*imap_client->set->imap_capability == '\0')
 		str_append(cap_str, CAPABILITY_BANNER_STRING);
-	else if (*imap_client->set->imap_capability != '+') {
-		explicit_capability = TRUE;
-		str_append(cap_str, imap_client->set->imap_capability);
-	} else {
+	else {
 		str_append(cap_str, CAPABILITY_BANNER_STRING);
 		str_append_c(cap_str, ' ');
 		str_append(cap_str, imap_client->set->imap_capability + 1);
 	}
 
-	if (!explicit_capability) {
-		if (imap_client->set->imap_literal_minus)
-			str_append(cap_str, " LITERAL-");
-		else
-			str_append(cap_str, " LITERAL+");
-	}
+	if (imap_client->set->imap_literal_minus)
+		str_append(cap_str, " LITERAL-");
+	else
+		str_append(cap_str, " LITERAL+");
 
 	if (client_is_tls_enabled(client) && !client->connection_tls_secured &&
 	    !client->haproxy_terminated_tls)
