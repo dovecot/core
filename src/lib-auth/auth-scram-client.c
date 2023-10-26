@@ -396,7 +396,7 @@ auth_scram_parse_server_final(struct auth_scram_client *client,
 
 	bool equal = (strcmp(verifier, str_c(str)) == 0);
 	str_clear_safe(str);
-	
+
 	if (!equal) {
 		*error_r = "Incorrect verifier field in final server message";
 		return -1;
