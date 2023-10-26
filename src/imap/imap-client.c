@@ -143,13 +143,8 @@ struct client *client_create(int fd_in, int fd_out,
 
 	if (*set->imap_capability == '\0')
 		str_append(client->capability_string, CAPABILITY_STRING);
-	else if (*set->imap_capability != '+') {
+	else
 		str_append(client->capability_string, set->imap_capability);
-	} else {
-		str_append(client->capability_string, CAPABILITY_STRING);
-		str_append_c(client->capability_string, ' ');
-		str_append(client->capability_string, set->imap_capability + 1);
-	}
 	if (client->set->imap_literal_minus)
 		client_add_capability(client, "LITERAL-");
 	else
@@ -596,8 +591,7 @@ void client_add_capability(struct client *client, const char *capability)
 	/* require a single capability at a time (feels cleaner) */
 	i_assert(strchr(capability, ' ') == NULL);
 
-	if (client->set->imap_capability[0] != '\0' &&
-	    client->set->imap_capability[0] != '+') {
+	if (client->set->imap_capability[0] != '\0') {
 		/* explicit capability - don't change it */
 		return;
 	}
