@@ -338,7 +338,6 @@ authenticate_callback(struct auth_client_request *request,
 		      const char *const *args, void *context)
 {
 	struct client *client = context;
-	const char *sasl_final_delayed_resp;
 	unsigned int i;
 
 	if (!client->authenticating) {
@@ -368,7 +367,6 @@ authenticate_callback(struct auth_client_request *request,
 		client->auth_passdb_args = p_strarray_dup(client->pool, args);
 		client->postlogin_socket_path = NULL;
 
-		sasl_final_delayed_resp = NULL;
 		for (i = 0; args[i] != NULL; i++) {
 			const char *key, *value;
 			t_split_key_value_eq(args[i], &key, &value);
@@ -387,19 +385,16 @@ authenticate_callback(struct auth_client_request *request,
 				client->auth_anonymous = TRUE;
 			} else if (str_begins(args[i], "event_", &key)) {
 				event_add_str(client->event_auth, key, value);
-			} else if (strcmp(key, "resp") == 0) {
-				sasl_final_delayed_resp =
-					p_strdup(client->preproxy_pool, value);
 			}
 		}
 
-		if (sasl_final_delayed_resp != NULL &&
+		if (data_base64 != NULL &&
 		    !login_binary->sasl_support_final_reply) {
 			client->final_response = TRUE;
 			client->final_args = p_strarray_dup(client->preproxy_pool, args);
 			client->delayed_final_reply = SASL_SERVER_REPLY_SUCCESS;
 			client->sasl_callback(client, SASL_SERVER_REPLY_CONTINUE,
-					      sasl_final_delayed_resp, NULL);
+					      data_base64, NULL);
 		} else {
 			sasl_server_auth_success_finish(client, args);
 		}
@@ -411,7 +406,6 @@ authenticate_callback(struct auth_client_request *request,
 	case AUTH_REQUEST_STATUS_ABORT:
 		client->auth_request = NULL;
 
-		sasl_final_delayed_resp = NULL;
 		if (args != NULL) {
 			/* parse our username if it's there */
 			for (i = 0; args[i] != NULL; i++) {
@@ -419,20 +413,16 @@ authenticate_callback(struct auth_client_request *request,
 				t_split_key_value_eq(args[i], &key, &value);
 				if (args_parse_user(client, key, value))
 					continue;
-				if (strcmp(key, "resp") == 0) {
-					sasl_final_delayed_resp =
-						p_strdup(client->preproxy_pool, value);
-				}
 			}
 		}
 
-		if (sasl_final_delayed_resp != NULL &&
+		if (data_base64 != NULL &&
 		    !login_binary->sasl_support_final_reply) {
 			client->final_response = TRUE;
 			client->final_args = p_strarray_dup(client->preproxy_pool, args);
 			client->delayed_final_reply = SASL_SERVER_REPLY_AUTH_FAILED;
 			client->sasl_callback(client, SASL_SERVER_REPLY_CONTINUE,
-					      sasl_final_delayed_resp, NULL);
+					      data_base64, NULL);
 		} else {
 			client->authenticating = FALSE;
 			call_client_callback(client, SASL_SERVER_REPLY_AUTH_FAILED,
