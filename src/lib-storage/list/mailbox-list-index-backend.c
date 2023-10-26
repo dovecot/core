@@ -773,7 +773,7 @@ index_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 		if (index_list_delete_entry(list, name, TRUE) < 0)
 			return -1;
 	}
-	if (!_list->set.keep_noselect && ret == 0)
+	if (_list->mail_set->mailbox_list_drop_noselect && ret == 0)
 		(void)index_list_try_delete_nonexistent_parent(_list, name);
 
 	return ret;
@@ -892,7 +892,7 @@ index_list_rename_mailbox(struct mailbox_list *_oldlist, const char *oldname,
 
 	ret = mailbox_list_index_sync_end(&sync_ctx, TRUE);
 
-	if (!_oldlist->set.keep_noselect && ret == 0)
+	if (_oldlist->mail_set->mailbox_list_drop_noselect && ret == 0)
                (void)index_list_try_delete_nonexistent_parent(_oldlist, oldname);
 
 	return ret;

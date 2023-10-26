@@ -153,7 +153,7 @@ int mailbox_list_create(const char *driver, struct event *event,
 	list->root_permissions.dir_create_mode = (mode_t)-1;
 	list->root_permissions.file_create_gid = (gid_t)-1;
 	list->changelog_timestamp = (time_t)-1;
-	if (!set->keep_noselect)
+	if (list->mail_set->mailbox_list_drop_noselect)
 		list->props |= MAILBOX_LIST_PROP_NO_NOSELECT;
 
 	/* copy settings */
@@ -190,7 +190,6 @@ int mailbox_list_create(const char *driver, struct event *event,
 	list->set.index_control_use_maildir_name =
 		set->index_control_use_maildir_name;
 	list->set.iter_from_index_dir = set->iter_from_index_dir;
-	list->set.keep_noselect = set->keep_noselect;
 
 	if (*set->mailbox_dir_name == '\0')
 		list->set.mailbox_dir_name = "";
@@ -368,13 +367,6 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 			continue;
 		} else if (strcmp(key, "ITERINDEX") == 0) {
 			set_r->iter_from_index_dir = TRUE;
-			continue;
-		} else if (strcmp(key, "KEEP-NOSELECT") == 0) {
-			set_r->keep_noselect = TRUE;
-			continue;
-		} else if (strcmp(key, "NO-NOSELECT") == 0) {
-			/* retained only for backward compatibility */
-			set_r->keep_noselect = FALSE;
 			continue;
 		} else {
 			*error_r = t_strdup_printf("Unknown setting: %s", key);

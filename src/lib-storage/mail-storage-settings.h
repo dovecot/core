@@ -55,6 +55,7 @@ struct mail_storage_settings {
 	bool mailbox_list_index;
 	bool mailbox_list_index_very_dirty_syncs;
 	bool mailbox_list_index_include_inbox;
+	bool mailbox_list_drop_noselect;
 	bool mailbox_list_validate_fs_names;
 	bool mail_full_filesystem_access;
 	bool maildir_stat_dirs;
