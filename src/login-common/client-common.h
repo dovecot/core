@@ -107,6 +107,10 @@ struct client_auth_reply {
 	unsigned int proxy_refresh_secs;
 	unsigned int proxy_host_immediate_failure_after_secs;
 
+	/* final SASL success reply (challenge) sent by server
+	   (only used when login_binary->sasl_support_final_reply == TRUE) */
+	const char *final_reply;
+
 	/* all the key=value fields returned by passdb */
 	const char *const *all_fields;
 

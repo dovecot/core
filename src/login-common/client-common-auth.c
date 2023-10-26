@@ -939,6 +939,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		if (!client_auth_reply_args(client, sasl_reply,
 					    data, args, &reply))
 			break;
+		reply.final_reply = data;
 
 		client_auth_result(client, CLIENT_AUTH_RESULT_SUCCESS,
 				   &reply, NULL);
