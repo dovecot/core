@@ -182,8 +182,6 @@ struct mailbox_list_settings {
 	bool iter_from_index_dir:1;
 	/* Control creation and listing of \NoSelect mailboxes. */
 	bool keep_noselect:1;
-	/* Do not validate names as fs names (allows weird names) */
-	bool no_fs_validation:1;
 };
 
 struct mailbox_permissions {
