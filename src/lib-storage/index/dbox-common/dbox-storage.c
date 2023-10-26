@@ -255,7 +255,8 @@ int dbox_mailbox_check_existence(struct mailbox *box)
 	}
 	if (ret < 0) {
 		ret = stat(box_path, &st);
-	} else if (ret == 0 && !box->list->set.iter_from_index_dir &&
+	} else if (ret == 0 &&
+		   !box->list->mail_set->mailbox_list_iter_from_index_dir &&
 		   *box->list->set.mailbox_dir_name == '\0') {
 		/* There are index files for this mailbox and no separate
 		mailboxes directory is configured. */

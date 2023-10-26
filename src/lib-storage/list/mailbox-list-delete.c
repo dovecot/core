@@ -278,10 +278,11 @@ void mailbox_list_delete_until_root(struct mailbox_list *list, const char *path,
 	const char *root_dir, *p;
 	size_t len;
 
-	if (list->set.iter_from_index_dir &&
+	if (list->mail_set->mailbox_list_iter_from_index_dir &&
 	    !list->mail_set->mailbox_list_drop_noselect &&
 	    mailbox_list_path_is_index(list, type)) {
-		/* Don't auto-rmdir parent index directories with ITERINDEX.
+		/* Don't auto-rmdir parent index directories with
+		   mailbox_list_iter_from_index_dir=yes.
 		   Otherwise it'll get us into inconsistent state with a
 		   \NoSelect mailbox in the mail directory but not in index
 		   directory. */
@@ -360,8 +361,8 @@ static int mailbox_list_try_delete(struct mailbox_list *list, const char *name,
 	    strcmp(index_path, path) == 0) {
 		/* CONTROL dir is the same as INDEX dir, which we already
 		   deleted. We don't want to continue especially with
-		   iter_from_index_dir=yes, because it could be deleting the
-		   index directory. */
+		   mailbox_list_iter_from_index_dir=yes, because it could be
+		   deleting the index directory. */
 		return 0;
 	}
 

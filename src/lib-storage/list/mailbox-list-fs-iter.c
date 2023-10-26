@@ -532,7 +532,8 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	ctx->info_pool = pool_alloconly_create("fs list", 1024);
 	ctx->sep = mail_namespace_get_sep(_list->ns);
 	ctx->info.ns = _list->ns;
-	ctx->ctx.iter_from_index_dir = ctx->ctx.list->set.iter_from_index_dir;
+	ctx->ctx.iter_from_index_dir =
+		ctx->ctx.list->mail_set->mailbox_list_iter_from_index_dir;
 
 	if ((flags & MAILBOX_LIST_ITER_FORCE_RESYNC) != 0) {
 		i_assert(!hash_table_is_created(ctx->ctx.found_mailboxes));
