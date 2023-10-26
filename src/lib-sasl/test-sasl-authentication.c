@@ -1,6 +1,7 @@
 /* Copyright (c) 2025 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "lib-signals.h"
 #include "str.h"
 #include "base64.h"
 #include "randgen.h"
@@ -9,6 +10,7 @@
 #include "sasl-server.h"
 #include "sasl-server-oauth2.h"
 #include "dsasl-client.h"
+#include "dsasl-client-mech-ntlm-dummy.h"
 
 #include <unistd.h>
 
@@ -408,7 +410,6 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 {
 	struct sasl_server *server;
 	struct sasl_server_instance *server_inst;
-	const struct sasl_server_mech *server_mech;
 
 	test_begin(t_strdup_printf("sasl %s %s%s",
 				   label, test->mech,
@@ -433,6 +434,13 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 					      NULL);
 	sasl_server_mech_register_xoauth2(server_inst, &server_oauth2_funcs,
 					  NULL);
+
+	struct sasl_server_winbind_settings winbind_set = {
+		.helper_path = TEST_WINBIND_HELPER_PATH,
+	};
+	sasl_server_mech_register_winbind_ntlm(server_inst, &winbind_set);
+
+	const struct sasl_server_mech *server_mech;
 
 	server_mech = sasl_server_mech_find(server_inst, test->mech);
 	i_assert(server_mech != NULL);
@@ -573,6 +581,16 @@ static const struct test_sasl success_tests[] = {
 		.authid_type = SASL_SERVER_AUTHID_TYPE_ANONYMOUS,
 		.server = {
 			.authid = "",
+			.authzid = "",
+			.password = "",
+		},
+	},
+	/* NTLM */
+	{
+		.mech = "NTLM",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user@EXAMPLE.COM",
 			.authzid = "",
 			.password = "",
 		},
@@ -1056,6 +1074,20 @@ static const struct test_sasl bad_creds_tests[] = {
 		},
 		.failure = TRUE,
 	},
+	/* NTLM */
+	{
+		.mech = "NTLM",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user@EXAMPLE.COM",
+			.authzid = "",
+			.password = "",
+		},
+		.client = {
+			.authid = "userb@EXAMPLE.COM",
+		},
+		.failure = TRUE,
+	},
 	/* XOAUTH2 */
 	{
 		.mech = "XOAUTH2",
@@ -1107,6 +1139,7 @@ int main(int argc, char *argv[])
 	int ret, c;
 
 	lib_init();
+	lib_signals_init();
 
 	while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
@@ -1122,12 +1155,14 @@ int main(int argc, char *argv[])
 	event_set_forced_debug(test_event, debug);
 	password_schemes_init();
 	dsasl_clients_init();
+	dsasl_client_mech_ntlm_init_dummy();
 
 	ret = test_run(test_functions);
 
 	dsasl_clients_deinit();
 	password_schemes_deinit();
 	event_unref(&test_event);
+	lib_signals_deinit();
 	lib_deinit();
 	return ret;
 }

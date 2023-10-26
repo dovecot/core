@@ -12,7 +12,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-json \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-otp \
-	-I$(top_srcdir)/src/lib-auth
+	-I$(top_srcdir)/src/lib-auth \
+	-DTEST_WINBIND_HELPER_PATH=\""$(abs_builddir)/ntlm_dummy"\"
 
 client_mechanisms = \
 	dsasl-client-mech-anonymous.c \
@@ -70,12 +71,15 @@ headers = \
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
+noinst_HEADERS =\
+	dsasl-client-mech-ntlm-dummy.h
+
 test_programs = \
 	test-sasl-oauth2 \
 	test-sasl-client \
 	test-sasl-authentication
 
-noinst_PROGRAMS = $(test_programs)
+noinst_PROGRAMS = $(test_programs) ntlm_dummy
 
 test_libs = \
 	libsasl.la \
@@ -97,9 +101,15 @@ test_sasl_client_SOURCES = test-sasl-client.c
 test_sasl_client_LDADD = $(test_libs)
 test_sasl_client_DEPENDENCIES = $(test_deps)
 
-test_sasl_authentication_SOURCES = test-sasl-authentication.c
+test_sasl_authentication_SOURCES = \
+	dsasl-client-mech-ntlm-dummy.c \
+	test-sasl-authentication.c
 test_sasl_authentication_LDADD = $(test_libs)
 test_sasl_authentication_DEPENDENCIES = $(test_deps)
+
+ntlm_dummy_SOURCES = ntlm_dummy.c
+ntlm_dummy_LDADD = ../lib/liblib.la
+ntlm_dummy_DEPENDENCIES = ../lib/liblib.la
 
 check-local:
 	for bin in $(test_programs); do \

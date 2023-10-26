@@ -138,3 +138,4 @@ src/plugins/quota/quota-status
 src/lib-var-expand/var-expand-parser.c
 src/lib-var-expand/var-expand-parser.h
 src/lib-var-expand/var-expand-lexer.c
+src/lib-sasl/ntlm_dummy
