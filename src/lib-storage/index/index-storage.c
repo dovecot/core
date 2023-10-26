@@ -216,7 +216,8 @@ int index_storage_mailbox_exists_full(struct mailbox *box, const char *subdir,
 		return 0;
 	}
 
-	ret = (subdir != NULL || !box->list->set.iter_from_index_dir) ? 0 :
+	ret = (subdir != NULL ||
+	       !box->list->mail_set->mailbox_list_iter_from_index_dir) ? 0 :
 		mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX, &index_path);
 	if (ret > 0 && strcmp(path, index_path) != 0) {
 		/* index directory is different - prefer looking it up first
@@ -660,7 +661,7 @@ int index_storage_mailbox_create(struct mailbox *box, bool directory)
 
 	if ((ret = mailbox_mkdir(box, path, type)) < 0)
 		return -1;
-	if (box->list->set.iter_from_index_dir) {
+	if (box->list->mail_set->mailbox_list_iter_from_index_dir) {
 		/* need to also create the directory to index path or
 		   iteration won't find it. */
 		int ret2;
@@ -1286,10 +1287,11 @@ int index_mailbox_fix_inconsistent_existence(struct mailbox *box,
 	const char *index_path;
 	struct stat st;
 
-	/* Could be a race condition or could be because ITERINDEX is used
-	   and the index directory exists, but the storage directory doesn't.
-	   Handle the existence inconsistency by creating this directory if
-	   the index directory exists (don't bother checking if ITERINDEX is
+	/* Could be a race condition or could be because
+	   mailbox_list_iter_from_index_dir=yes is used and the index directory
+	   exists, but the storage directory doesn't. Handle the existence
+	   inconsistency by creating this directory if the index directory
+	   exists (don't bother checking if mailbox_list_iter_from_index_dir is
 	   set or not - it doesn't matter since either both dirs should exist
 	   or not). */
 	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX,

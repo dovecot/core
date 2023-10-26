@@ -189,7 +189,6 @@ int mailbox_list_create(const char *driver, struct event *event,
 	list->set.volatile_dir = p_strdup(list->pool, set->volatile_dir);
 	list->set.index_control_use_maildir_name =
 		set->index_control_use_maildir_name;
-	list->set.iter_from_index_dir = set->iter_from_index_dir;
 
 	if (*set->mailbox_dir_name == '\0')
 		list->set.mailbox_dir_name = "";
@@ -365,9 +364,6 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 			}
 			set_r->vname_escape_char = value[0];
 			continue;
-		} else if (strcmp(key, "ITERINDEX") == 0) {
-			set_r->iter_from_index_dir = TRUE;
-			continue;
 		} else {
 			*error_r = t_strdup_printf("Unknown setting: %s", key);
 			return -1;
@@ -380,11 +376,6 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 
 	if (set_r->index_dir != NULL && strcmp(set_r->index_dir, "MEMORY") == 0)
 		set_r->index_dir = "";
-	if (set_r->iter_from_index_dir &&
-	    (set_r->index_dir == NULL || set_r->index_dir[0] == '\0')) {
-		*error_r = "ITERINDEX requires INDEX to be explicitly set";
-		return -1;
-	}
 	if (set_r->list_index_fname != NULL &&
 	    (fname = strrchr(set_r->list_index_fname, '/')) != NULL) {
 		/* non-default LISTINDEX directory */
@@ -1014,7 +1005,7 @@ mailbox_list_get_permissions_internal(struct mailbox_list *list,
 	permissions_r->file_create_gid = (gid_t)-1;
 	permissions_r->file_create_gid_origin = "defaults";
 
-	if (list->set.iter_from_index_dir ||
+	if (list->mail_set->mailbox_list_iter_from_index_dir ||
 	    (list->flags & MAILBOX_LIST_FLAG_NO_MAIL_FILES) != 0) {
 		/* a) iterating from index dir. Use the index dir's permissions
 		   as well, since they might be in a faster storage.
@@ -1600,7 +1591,7 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 		return mailbox_list_iter_deinit(&iter);
 	}
 
-	if (!list->set.iter_from_index_dir) {
+	if (!list->mail_set->mailbox_list_iter_from_index_dir) {
 		rootdir = mailbox_list_get_root_forced(list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 		if (mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR, &path) <= 0)
 			i_unreached();

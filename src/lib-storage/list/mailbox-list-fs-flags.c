@@ -118,7 +118,8 @@ int fs_list_get_mailbox_flags(struct mailbox_list *list,
 
 	*flags_r = 0;
 
-	if (*list->set.maildir_name != '\0' && !list->set.iter_from_index_dir) {
+	if (*list->set.maildir_name != '\0' &&
+	    !list->mail_set->mailbox_list_iter_from_index_dir) {
 		/* maildir_name is set: This is the simple case that works for
 		   all mail storage formats, because the only thing that
 		   matters for existence or child checks is whether the
@@ -136,7 +137,7 @@ int fs_list_get_mailbox_flags(struct mailbox_list *list,
 	   though maildir_name is set, it's not used for index directory.
 	*/
 
-	if (!list->set.iter_from_index_dir &&
+	if (!list->mail_set->mailbox_list_iter_from_index_dir &&
 	    list->v.is_internal_name != NULL &&
 	    list->v.is_internal_name(list, fname)) {
 		/* skip internal dirs. For example Maildir's cur/new/tmp */
@@ -224,7 +225,8 @@ int fs_list_get_mailbox_flags(struct mailbox_list *list,
 		return 1;
 	}
 
-	if (list->v.is_internal_name == NULL || list->set.iter_from_index_dir) {
+	if (list->v.is_internal_name == NULL ||
+	    list->mail_set->mailbox_list_iter_from_index_dir) {
 		/* This mailbox format doesn't use any special directories
 		   (e.g. Maildir's cur/new/tmp). In that case we can look at
 		   the directory's link count to determine whether there are

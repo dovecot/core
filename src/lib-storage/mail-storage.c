@@ -280,7 +280,7 @@ mail_storage_create_root(struct mailbox_list *list,
 	const char *root_dir, *type_name, *error;
 	enum mailbox_list_path_type type;
 
-	if (list->set.iter_from_index_dir) {
+	if (list->mail_set->mailbox_list_iter_from_index_dir) {
 		type = MAILBOX_LIST_PATH_TYPE_INDEX;
 		type_name = "index";
 	} else {

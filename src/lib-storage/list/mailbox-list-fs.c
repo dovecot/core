@@ -304,7 +304,7 @@ static int fs_list_delete_dir(struct mailbox_list *list, const char *name)
 				  &path) <= 0)
 		i_unreached();
 	ret = fs_list_rmdir(list, name, path);
-	if (!list->set.iter_from_index_dir) {
+	if (!list->mail_set->mailbox_list_iter_from_index_dir) {
 		/* it should exist only in the mail directory */
 		if (ret == 0)
 			return 0;
