@@ -144,6 +144,7 @@ login_callback(const struct login_reply *reply, void *context)
 		switch (reply->status) {
 		case LOGIN_REPLY_STATUS_OK:
 			sasl_reply = SASL_SERVER_REPLY_SUCCESS;
+			data = client->auth_success_data;
 			break;
 		case LOGIN_REPLY_STATUS_INTERNAL_ERROR:
 			sasl_reply = SASL_SERVER_REPLY_MASTER_FAILED;
@@ -319,15 +320,18 @@ args_parse_user(struct client *client, const char *key, const char *value)
 }
 
 static void
-sasl_server_auth_success_finish(struct client *client, const char *const *args)
+sasl_server_auth_success_finish(struct client *client, const char *data,
+				const char *const *args)
 {
 	if (client->auth_nologin) {
 		client->authenticating = FALSE;
 		call_client_callback(client, SASL_SERVER_REPLY_SUCCESS,
-				     NULL, args);
+				     data, args);
 	} else if (!sasl_server_check_login(client)) {
 		i_assert(!client->authenticating);
 	} else {
+		client->auth_success_data =
+			p_strdup(client->preproxy_pool, data);
 		anvil_check_too_many_connections(client);
 	}
 }
@@ -396,7 +400,7 @@ authenticate_callback(struct auth_client_request *request,
 			client->sasl_callback(client, SASL_SERVER_REPLY_CONTINUE,
 					      data_base64, NULL);
 		} else {
-			sasl_server_auth_success_finish(client, args);
+			sasl_server_auth_success_finish(client, data_base64, args);
 		}
 		break;
 	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
@@ -544,6 +548,7 @@ void sasl_server_auth_begin(struct client *client, const char *mech_name,
 	i_free(client->auth_mech_name);
 	client->auth_mech_name = str_ucase(i_strdup(mech_name));
 	client->auth_anonymous = FALSE;
+	client->auth_success_data = NULL;
 	client->auth_flags = flags;
 	client->sasl_callback = callback;
 
@@ -649,7 +654,7 @@ bool sasl_server_auth_handle_delayed_final(struct client *client)
 	if (client->delayed_final_reply == SASL_SERVER_REPLY_SUCCESS) {
 		const char *const *args = client->final_args;
 
-		sasl_server_auth_success_finish(client, args);
+		sasl_server_auth_success_finish(client, NULL, args);
 		return TRUE;
 	}
 

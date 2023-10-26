@@ -208,6 +208,7 @@ struct client {
 	enum sasl_server_reply delayed_final_reply;
 	const char *const *final_args;
 	const char *const *auth_passdb_args;
+	const char *auth_success_data;
 	struct anvil_query *anvil_query;
 	struct anvil_request *anvil_request;
 
