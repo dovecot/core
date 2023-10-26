@@ -426,6 +426,9 @@ int auth_scram_client_input(struct auth_scram_client *client,
 						    error_r);
 		break;
 	case AUTH_SCRAM_CLIENT_STATE_CLIENT_FINISH:
+		*error_r = "Server didn't finish authentication";
+		ret = -1;
+		break;
 	case AUTH_SCRAM_CLIENT_STATE_END:
 		i_unreached();
 	}
