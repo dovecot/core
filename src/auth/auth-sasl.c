@@ -3,10 +3,12 @@
 #include "lib.h"
 #include "str.h"
 #include "settings-parser.h"
-#include "sasl-server-protected.h" // FIXME: remove
+#include "llist.h"
+#include "sasl-server.h"
 #include "auth.h"
 #include "auth-common.h"
 #include "auth-sasl.h"
+#include "auth-sasl-gssapi.h"
 #include "auth-sasl-oauth2.h"
 #include "auth-request.h"
 #include "auth-request-handler.h"
@@ -331,54 +333,293 @@ void auth_sasl_request_continue(struct auth_request *request,
  */
 
 struct auth_sasl_mech_module_list {
-	struct auth_sasl_mech_module_list *next;
+	struct auth_sasl_mech_module_list *prev, *next;
 
-	struct auth_sasl_mech_module module;
+	const struct auth_sasl_mech_module *module;
+
+	bool mech_registered:1;
 };
 
-static struct auth_sasl_mech_module_list *auth_sasl_mech_modules;
-
-void auth_sasl_mech_register_module(
-	const struct auth_sasl_mech_module *module)
-{
-	struct auth_sasl_mech_module_list *list;
-
-	i_assert(strcmp(module->mech_name,
-			t_str_ucase(module->mech_name)) == 0);
-
-	list = i_new(struct auth_sasl_mech_module_list, 1);
-	list->module = *module;
-
-	list->next = auth_sasl_mech_modules;
-	auth_sasl_mech_modules = list;
-}
-
-void auth_sasl_mech_unregister_module(
-	const struct auth_sasl_mech_module *module)
-{
-	struct auth_sasl_mech_module_list **pos, *list;
-
-	for (pos = &auth_sasl_mech_modules; *pos != NULL; pos = &(*pos)->next) {
-		if (strcmp((*pos)->module.mech_name, module->mech_name) == 0) {
-			list = *pos;
-			*pos = (*pos)->next;
-			i_free(list);
-			break;
-		}
-	}
-}
+static struct auth_sasl_mech_module_list *mech_modules = NULL;
+static struct auth_sasl_mech_module_list *mech_modules_loaded_head = NULL;
+static struct auth_sasl_mech_module_list *mech_modules_loaded_tail = NULL;
 
 const struct auth_sasl_mech_module *
 auth_sasl_mech_module_find(const char *name)
 {
 	struct auth_sasl_mech_module_list *list;
-	name = t_str_ucase(name);
 
-	for (list = auth_sasl_mech_modules; list != NULL; list = list->next) {
-		if (strcmp(list->module.mech_name, name) == 0)
-			return &list->module;
+	name = t_str_ucase(name);
+	for (list = mech_modules; list != NULL; list = list->next) {
+		if (strcmp(list->module->mech_name, name) == 0)
+			return list->module;
 	}
 	return NULL;
+}
+
+void auth_sasl_mech_register_module(
+	const struct auth_sasl_mech_module *module)
+{
+	const struct auth_sasl_mech_module *existing;
+	struct auth_sasl_mech_module_list *list;
+
+	i_assert(strcmp(module->mech_name,
+			t_str_ucase(module->mech_name)) == 0);
+
+	existing = auth_sasl_mech_module_find(module->mech_name);
+	if (existing != NULL) {
+		i_assert(existing == module);
+		return;
+	}
+
+	list = i_new(struct auth_sasl_mech_module_list, 1);
+	list->module = module;
+
+	DLLIST_PREPEND(&mech_modules, list);
+}
+
+void auth_sasl_mech_unregister_module(
+	const struct auth_sasl_mech_module *module)
+{
+	struct auth_sasl_mech_module_list *list;
+
+	for (list = mech_modules; list != NULL; list = list->next) {
+		if (list->module != module)
+			continue;
+
+		DLLIST_REMOVE(&mech_modules, list);
+		i_free(list);
+		break;
+	}
+}
+
+static void
+auth_sasl_mech_module_add_loaded(const struct auth_sasl_mech_module *module)
+{
+	struct auth_sasl_mech_module_list *list;
+
+	for (list = mech_modules_loaded_head; list != NULL; list = list->next) {
+		if (list->module == module)
+			return;
+	}
+
+	list = i_new(struct auth_sasl_mech_module_list, 1);
+	list->module = module;
+
+	DLLIST2_APPEND(&mech_modules_loaded_head, &mech_modules_loaded_tail,
+		       list);
+}
+
+static bool auth_sasl_mech_module_load(const char *name)
+{
+	struct auth_sasl_mech_module_list *list;
+
+	name = t_str_ucase(name);
+	for (list = mech_modules; list != NULL; list = list->next) {
+		if (strcmp(list->module->mech_name, name) == 0) {
+			auth_sasl_mech_module_add_loaded(list->module);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+static void auth_sasl_mechs_deinit(void)
+{
+	struct auth_sasl_mech_module_list *list, *list_next;
+
+	list = mech_modules;
+	while (list != NULL) {
+		list_next = list->next;
+
+		i_free(list);
+		list = list_next;
+	}
+
+	list = mech_modules_loaded_head;
+	while (list != NULL) {
+		list_next = list->next;
+
+		i_free(list);
+		list = list_next;
+	}
+}
+
+/*
+ * Built-in Mechanisms
+ */
+
+#define MECH_SIMPLE_REGISTER__TEMPLATE(mech) \
+static bool \
+mech_ ## mech ## _register(struct sasl_server_instance *sasl_inst, \
+			   const struct auth_settings *set ATTR_UNUSED) \
+{ \
+	sasl_server_mech_register_ ## mech(sasl_inst); \
+	return TRUE; \
+}
+
+MECH_SIMPLE_REGISTER__TEMPLATE(anonymous)
+MECH_SIMPLE_REGISTER__TEMPLATE(cram_md5)
+MECH_SIMPLE_REGISTER__TEMPLATE(digest_md5)
+MECH_SIMPLE_REGISTER__TEMPLATE(external)
+MECH_SIMPLE_REGISTER__TEMPLATE(login)
+MECH_SIMPLE_REGISTER__TEMPLATE(oauthbearer)
+MECH_SIMPLE_REGISTER__TEMPLATE(xoauth2)
+MECH_SIMPLE_REGISTER__TEMPLATE(otp)
+MECH_SIMPLE_REGISTER__TEMPLATE(plain)
+MECH_SIMPLE_REGISTER__TEMPLATE(scram_sha1)
+MECH_SIMPLE_REGISTER__TEMPLATE(scram_sha1_plus)
+MECH_SIMPLE_REGISTER__TEMPLATE(scram_sha256)
+MECH_SIMPLE_REGISTER__TEMPLATE(scram_sha256_plus)
+
+static bool
+mech_winbind_ntlm_register(struct sasl_server_instance *sasl_inst,
+			   const struct auth_settings *set ATTR_UNUSED)
+{
+	sasl_server_mech_register_winbind_ntlm(sasl_inst);
+	return TRUE;
+}
+
+static bool
+mech_winbind_gss_spnego_register(struct sasl_server_instance *sasl_inst,
+				 const struct auth_settings *set ATTR_UNUSED)
+{
+	sasl_server_mech_register_winbind_gss_spnego(sasl_inst);
+	return TRUE;
+}
+
+static bool
+mech_apop_register(struct sasl_server_instance *sasl_inst,
+		   const struct auth_settings *set ATTR_UNUSED)
+{
+	auth_sasl_mech_register_apop(sasl_inst);
+	return TRUE;
+}
+
+static const struct auth_sasl_mech_module mech_anonymous = {
+	.mech_name = SASL_MECH_NAME_ANONYMOUS,
+
+	.mech_register = mech_anonymous_register,
+};
+
+static const struct auth_sasl_mech_module mech_cram_md5 = {
+	.mech_name = SASL_MECH_NAME_CRAM_MD5,
+
+	.mech_register = mech_cram_md5_register,
+};
+
+static const struct auth_sasl_mech_module mech_digest_md5 = {
+	.mech_name = SASL_MECH_NAME_DIGEST_MD5,
+
+	.mech_register = mech_digest_md5_register,
+};
+
+static const struct auth_sasl_mech_module mech_external = {
+	.mech_name = SASL_MECH_NAME_EXTERNAL,
+
+	.mech_register = mech_external_register,
+};
+
+static const struct auth_sasl_mech_module mech_login = {
+	.mech_name = SASL_MECH_NAME_LOGIN,
+
+	.mech_register = mech_login_register,
+};
+
+static const struct auth_sasl_mech_module mech_oauthbearer = {
+	.mech_name = SASL_MECH_NAME_OAUTHBEARER,
+
+	.mech_register = mech_oauthbearer_register,
+};
+
+static const struct auth_sasl_mech_module mech_otp = {
+	.mech_name = SASL_MECH_NAME_OTP,
+
+	.mech_register = mech_otp_register,
+};
+
+static const struct auth_sasl_mech_module mech_plain = {
+	.mech_name = SASL_MECH_NAME_PLAIN,
+
+	.mech_register = mech_plain_register,
+};
+
+static const struct auth_sasl_mech_module mech_scram_sha1 = {
+	.mech_name = SASL_MECH_NAME_SCRAM_SHA_1,
+
+	.mech_register = mech_scram_sha1_register,
+};
+
+static const struct auth_sasl_mech_module mech_scram_sha1_plus = {
+	.mech_name = SASL_MECH_NAME_SCRAM_SHA_1_PLUS,
+
+	.mech_register = mech_scram_sha1_plus_register,
+};
+
+static const struct auth_sasl_mech_module mech_scram_sha256 = {
+	.mech_name = SASL_MECH_NAME_SCRAM_SHA_256,
+
+	.mech_register = mech_scram_sha256_register,
+};
+
+static const struct auth_sasl_mech_module mech_scram_sha256_plus = {
+	.mech_name = SASL_MECH_NAME_SCRAM_SHA_256_PLUS,
+
+	.mech_register = mech_scram_sha256_plus_register,
+};
+
+static const struct auth_sasl_mech_module mech_winbind_ntlm = {
+	.mech_name = SASL_MECH_NAME_NTLM,
+
+	.mech_register = mech_winbind_ntlm_register,
+};
+
+static const struct auth_sasl_mech_module mech_winbind_gss_spnego = {
+	.mech_name = SASL_MECH_NAME_GSS_SPNEGO,
+
+	.mech_register = mech_winbind_gss_spnego_register,
+};
+
+static const struct auth_sasl_mech_module mech_xoauth2 = {
+	.mech_name = SASL_MECH_NAME_XOAUTH2,
+
+	.mech_register = mech_xoauth2_register,
+};
+
+static const struct auth_sasl_mech_module mech_apop = {
+	.mech_name = AUTH_SASL_MECH_NAME_APOP,
+
+	.mech_register = mech_apop_register,
+};
+
+static void auth_sasl_mechs_init(const struct auth_settings *set)
+{
+	auth_sasl_mech_register_module(&mech_anonymous);
+	auth_sasl_mech_register_module(&mech_cram_md5);
+	auth_sasl_mech_register_module(&mech_digest_md5);
+	auth_sasl_mech_register_module(&mech_external);
+#ifdef BUILTIN_GSSAPI
+	auth_sasl_mech_gssapi_register();
+#endif
+	if (set->use_winbind)
+		auth_sasl_mech_register_module(&mech_winbind_gss_spnego);
+#ifdef BUILTIN_GSSAPI
+	else
+		auth_sasl_mech_gss_spnego_register();
+#endif
+	auth_sasl_mech_register_module(&mech_login);
+	if (set->use_winbind)
+		auth_sasl_mech_register_module(&mech_winbind_ntlm);
+	auth_sasl_mech_register_module(&mech_oauthbearer);
+	auth_sasl_mech_register_module(&mech_otp);
+	auth_sasl_mech_register_module(&mech_plain);
+	auth_sasl_mech_register_module(&mech_scram_sha1);
+	auth_sasl_mech_register_module(&mech_scram_sha1_plus);
+	auth_sasl_mech_register_module(&mech_scram_sha256);
+	auth_sasl_mech_register_module(&mech_scram_sha256_plus);
+	auth_sasl_mech_register_module(&mech_xoauth2);
+
+	auth_sasl_mech_register_module(&mech_apop);
 }
 
 const char *auth_sasl_mechs_get_handshake(void)
@@ -395,8 +636,6 @@ const char *auth_sasl_mechs_get_handshake_cbind(void)
  * Instance
  */
 
-static const char *auth_sasl_mech_get_plugin_name(const char *name);
-
 void auth_sasl_instance_init(struct auth *auth,
 			     const struct auth_settings *set)
 {
@@ -409,34 +648,18 @@ void auth_sasl_instance_init(struct auth *auth,
 	auth->sasl_inst =
 		sasl_server_instance_create(auth_sasl_server, &sasl_set);
 
-	const struct sasl_server_mech_def *mech;
-	const char *name;
+	struct auth_sasl_mech_module_list *list;
 
-	if (array_is_empty(&set->mechanisms))
-		i_fatal("No authentication mechanisms configured");
+	for (list = mech_modules_loaded_head; list != NULL;
+	     list = list->next) {
+		const struct auth_sasl_mech_module *mech = list->module;
 
-	array_foreach_elem(&set->mechanisms, name) {
-		name = t_str_ucase(name);
-
-		if (strcmp(name, SASL_MECH_NAME_ANONYMOUS) == 0) {
-			if (*set->anonymous_username == '\0') {
-				i_fatal("ANONYMOUS listed in mechanisms, "
-					"but anonymous_username not set");
-			}
-		}
-		mech = mech_module_find(name);
-		if (mech == NULL) {
-			/* maybe it's a plugin. try to load it. */
-			auth_module_load(auth_sasl_mech_get_plugin_name(name));
-			mech = mech_module_find(name);
-		}
-		if (mech == NULL)
-			i_fatal("Unknown authentication mechanism '%s'", name);
-		sasl_server_mech_register(auth->sasl_inst, mech);
+		list->mech_registered =
+			mech->mech_register(auth->sasl_inst, set);
 	}
 
 	auth->sasl_mech_dovecot_token =
-		sasl_server_mech_register(auth->sasl_inst, &mech_dovecot_token);
+		auth_sasl_mech_register_dovecot_token(auth->sasl_inst);
 }
 
 static bool
@@ -490,6 +713,16 @@ void auth_sasl_instance_verify(const struct auth *auth)
 
 void auth_sasl_instance_deinit(struct auth *auth)
 {
+	struct auth_sasl_mech_module_list *list;
+
+	for (list = mech_modules_loaded_head; list != NULL;
+	     list = list->next) {
+		const struct auth_sasl_mech_module *mech = list->module;
+
+		if (list->mech_registered && mech->mech_unregister != NULL)
+			mech->mech_unregister(auth->sasl_inst);
+	}
+
 	sasl_server_instance_unref(&auth->sasl_inst);
 }
 
@@ -557,11 +790,38 @@ static const char *auth_sasl_mech_get_plugin_name(const char *name)
 	return str_c(str);
 }
 
-void auth_sasl_preinit(void)
+void auth_sasl_preinit(const struct auth_settings *set)
 {
 	auth_sasl_oauth2_initialize();
 	auth_sasl_server = sasl_server_init(auth_event,
 					    &auth_sasl_request_funcs);
+
+	auth_sasl_mechs_init(set);
+
+	const char *name;
+
+	if (array_is_empty(&set->mechanisms))
+		i_fatal("No authentication mechanisms configured");
+
+	array_foreach_elem(&set->mechanisms, name) {
+		name = t_str_ucase(name);
+
+		if (strcmp(name, SASL_MECH_NAME_ANONYMOUS) == 0) {
+			if (*set->anonymous_username == '\0') {
+				i_fatal("ANONYMOUS listed in mechanisms, "
+					"but anonymous_username not set");
+			}
+		}
+		if (!auth_sasl_mech_module_load(name)) {
+			/* maybe it's a plugin. try to load it. */
+			auth_module_load(auth_sasl_mech_get_plugin_name(name));
+		}
+		if (!auth_sasl_mech_module_load(name))
+			i_fatal("Unknown authentication mechanism '%s'", name);
+	}
+
+	if (mech_modules_loaded_head == NULL)
+		i_fatal("No authentication mechanisms configured");
 }
 
 void auth_sasl_init(void)
@@ -572,5 +832,6 @@ void auth_sasl_init(void)
 void auth_sasl_deinit(void)
 {
 	sasl_server_deinit(&auth_sasl_server);
+	auth_sasl_mechs_deinit();
 	auth_sasl_mechs_handshake_deinit();
 }

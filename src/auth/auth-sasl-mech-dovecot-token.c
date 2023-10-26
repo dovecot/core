@@ -79,7 +79,7 @@ static const struct sasl_server_mech_funcs mech_dovecot_token_funcs = {
 	.auth_continue = mech_dovecot_token_auth_continue,
 };
 
-const struct sasl_server_mech_def mech_dovecot_token = {
+static const struct sasl_server_mech_def mech_dovecot_token = {
 	.name = AUTH_SASL_MECH_NAME_DOVECOT_TOKEN,
 
 	.flags = SASL_MECH_SEC_PRIVATE | SASL_MECH_SEC_ALLOW_NULS,
@@ -87,3 +87,9 @@ const struct sasl_server_mech_def mech_dovecot_token = {
 
 	.funcs = &mech_dovecot_token_funcs,
 };
+
+const struct sasl_server_mech *
+auth_sasl_mech_register_dovecot_token(struct sasl_server_instance *sinst)
+{
+	return sasl_server_mech_register_hidden(sinst, &mech_dovecot_token);
+}

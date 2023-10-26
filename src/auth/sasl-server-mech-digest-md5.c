@@ -612,7 +612,7 @@ static const struct sasl_server_mech_funcs mech_digest_md5_funcs = {
 	.auth_continue = mech_digest_md5_auth_continue,
 };
 
-const struct sasl_server_mech_def mech_digest_md5 = {
+static const struct sasl_server_mech_def mech_digest_md5 = {
 	.name = SASL_MECH_NAME_DIGEST_MD5,
 
 	.flags = SASL_MECH_SEC_DICTIONARY | SASL_MECH_SEC_ACTIVE |
@@ -621,6 +621,11 @@ const struct sasl_server_mech_def mech_digest_md5 = {
 
 	.funcs = &mech_digest_md5_funcs,
 };
+
+void sasl_server_mech_register_digest_md5(struct sasl_server_instance *sinst)
+{
+	sasl_server_mech_register(sinst, &mech_digest_md5);
+}
 
 void mech_digest_test_set_nonce(struct auth_request *auth_request,
 				const char *nonce)

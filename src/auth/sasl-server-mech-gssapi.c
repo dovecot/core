@@ -20,6 +20,7 @@
 #include "safe-memset.h"
 
 #include "sasl-server-protected.h"
+#include "sasl-server-gssapi.h"
 
 #if defined(BUILTIN_GSSAPI) || defined(PLUGIN_BUILD)
 
@@ -680,7 +681,7 @@ static const struct sasl_server_mech_funcs mech_gssapi_funcs = {
 	.auth_free = mech_gssapi_auth_free,
 };
 
-const struct sasl_server_mech_def mech_gssapi = {
+static const struct sasl_server_mech_def mech_gssapi = {
 	.name = SASL_MECH_NAME_GSSAPI,
 
 	.flags = SASL_MECH_SEC_ALLOW_NULS,
@@ -692,7 +693,7 @@ const struct sasl_server_mech_def mech_gssapi = {
 /* MIT Kerberos v1.5+ and Heimdal v0.7+ support SPNEGO for Kerberos tickets
    internally. Nothing else needs to be done here. Note, however, that this does
    not support SPNEGO when the only available credential is NTLM. */
-const struct sasl_server_mech_def mech_gssapi_spnego = {
+static const struct sasl_server_mech_def mech_gss_spnego = {
 	.name = SASL_MECH_NAME_GSS_SPNEGO,
 
 	.flags = SASL_MECH_SEC_ALLOW_NULS,
@@ -716,31 +717,24 @@ static void mech_gssapi_initialize(const struct auth_settings *set)
 	}
 }
 
-#ifndef BUILTIN_GSSAPI
-void mech_gssapi_init(void);
-void mech_gssapi_deinit(void);
-
-void mech_gssapi_init(void)
+void sasl_server_mech_register_gssapi(struct sasl_server_instance *sinst)
 {
-	mech_register_module(&mech_gssapi);
-#ifdef HAVE_GSSAPI_SPNEGO
-	/* load if we already didn't load it using winbind */
-	if (mech_module_find(mech_gssapi_spnego.name) == NULL)
-		mech_register_module(&mech_gssapi_spnego);
-#endif
+	sasl_server_mech_register(sinst, &mech_gssapi);
 }
 
-void mech_gssapi_deinit(void)
+void sasl_server_mech_unregister_gssapi(struct sasl_server_instance *sinst)
 {
-#ifdef HAVE_GSSAPI_SPNEGO
-	const struct sasl_server_mech_def *mech;
-
-	mech = mech_module_find(mech_gssapi_spnego.name);
-	if (mech != NULL && mech == &mech_gssapi_spnego)
-		mech_unregister_module(&mech_gssapi_spnego);
-#endif
-	mech_unregister_module(&mech_gssapi);
+	sasl_server_mech_unregister(sinst, &mech_gssapi);
 }
-#endif
+
+void sasl_server_mech_register_gss_spnego(struct sasl_server_instance *sinst)
+{
+	sasl_server_mech_register(sinst, &mech_gss_spnego);
+}
+
+void sasl_server_mech_unregister_gss_spnego(struct sasl_server_instance *sinst)
+{
+	sasl_server_mech_unregister(sinst, &mech_gss_spnego);
+}
 
 #endif

@@ -41,21 +41,6 @@ struct sasl_server_mech_def {
 	const struct sasl_server_mech_funcs *funcs;
 };
 
-struct mech_module_list {
-	struct mech_module_list *next;
-
-	const struct sasl_server_mech_def *module;
-};
-
-struct mechanisms_register {
-	pool_t pool;
-	const struct auth_settings *set;
-
-	struct mech_module_list *modules;
-	buffer_t *handshake;
-	buffer_t *handshake_cbind;
-};
-
 struct sasl_server_mech_data {
 	struct sasl_server *server;
 	pool_t pool;
@@ -93,8 +78,6 @@ struct sasl_server_mech_request {
  * Mechanism
  */
 
-extern const struct sasl_server_mech_def mech_dovecot_token;
-
 struct sasl_server_mech * ATTR_NOWARN_UNUSED_RESULT
 sasl_server_mech_register(struct sasl_server_instance *sinst,
 			  const struct sasl_server_mech_def *def);
@@ -104,16 +87,9 @@ sasl_server_mech_register_hidden(struct sasl_server_instance *sinst,
 void sasl_server_mech_unregister(struct sasl_server_instance *sinst,
 				 const struct sasl_server_mech_def *def);
 
-void mech_register_module(const struct sasl_server_mech_def *module);
-void mech_unregister_module(const struct sasl_server_mech_def *module);
-const struct sasl_server_mech_def *mech_module_find(const char *name);
-
 void sasl_server_mech_generic_auth_initial(
 	struct sasl_server_mech_request *mreq,
 	const unsigned char *data, size_t data_size);
-
-void mech_init(const struct auth_settings *set);
-void mech_deinit(const struct auth_settings *set);
 
 /*
  * Request

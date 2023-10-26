@@ -319,7 +319,7 @@ static const struct sasl_server_mech_funcs mech_otp_funcs = {
 	.auth_free = mech_otp_auth_free,
 };
 
-const struct sasl_server_mech_def mech_otp = {
+static const struct sasl_server_mech_def mech_otp = {
 	.name = SASL_MECH_NAME_OTP,
 
 	.flags = SASL_MECH_SEC_DICTIONARY | SASL_MECH_SEC_ACTIVE |
@@ -332,4 +332,9 @@ const struct sasl_server_mech_def mech_otp = {
 void mech_otp_deinit(void)
 {
 	otp_lock_deinit();
+}
+
+void sasl_server_mech_register_otp(struct sasl_server_instance *sinst)
+{
+	sasl_server_mech_register(sinst, &mech_otp);
 }

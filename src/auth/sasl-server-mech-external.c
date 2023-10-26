@@ -33,7 +33,7 @@ static const struct sasl_server_mech_funcs mech_external_funcs = {
 	.auth_continue = mech_external_auth_continue,
 };
 
-const struct sasl_server_mech_def mech_external = {
+static const struct sasl_server_mech_def mech_external = {
 	.name = SASL_MECH_NAME_EXTERNAL,
 
 	.flags = 0,
@@ -41,3 +41,8 @@ const struct sasl_server_mech_def mech_external = {
 
 	.funcs = &mech_external_funcs,
 };
+
+void sasl_server_mech_register_external(struct sasl_server_instance *sinst)
+{
+	sasl_server_mech_register(sinst, &mech_external);
+}

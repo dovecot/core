@@ -23,7 +23,7 @@ static const struct sasl_server_mech_funcs mech_anonymous_funcs = {
 	.auth_continue = mech_anonymous_auth_continue,
 };
 
-const struct sasl_server_mech_def mech_anonymous = {
+static const struct sasl_server_mech_def mech_anonymous = {
 	.name = SASL_MECH_NAME_ANONYMOUS,
 
 	.flags = SASL_MECH_SEC_ANONYMOUS | SASL_MECH_SEC_ALLOW_NULS,
@@ -31,3 +31,8 @@ const struct sasl_server_mech_def mech_anonymous = {
 
 	.funcs = &mech_anonymous_funcs,
 };
+
+void sasl_server_mech_register_anonymous(struct sasl_server_instance *sinst)
+{
+	sasl_server_mech_register(sinst, &mech_anonymous);
+}

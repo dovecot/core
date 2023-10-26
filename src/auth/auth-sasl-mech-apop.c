@@ -163,7 +163,7 @@ static const struct sasl_server_mech_funcs mech_apop_funcs = {
 	.auth_initial = mech_apop_auth_initial,
 };
 
-const struct sasl_server_mech_def mech_apop = {
+static const struct sasl_server_mech_def mech_apop = {
 	.name = AUTH_SASL_MECH_NAME_APOP,
 
 	.flags = SASL_MECH_SEC_PRIVATE | SASL_MECH_SEC_DICTIONARY |
@@ -172,3 +172,8 @@ const struct sasl_server_mech_def mech_apop = {
 
 	.funcs = &mech_apop_funcs,
 };
+
+void auth_sasl_mech_register_apop(struct sasl_server_instance *sinst)
+{
+	sasl_server_mech_register(sinst, &mech_apop);
+}

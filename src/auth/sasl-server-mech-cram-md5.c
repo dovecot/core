@@ -181,7 +181,7 @@ static const struct sasl_server_mech_funcs mech_cram_md5_funcs = {
 	.auth_continue = mech_cram_md5_auth_continue,
 };
 
-const struct sasl_server_mech_def mech_cram_md5 = {
+static const struct sasl_server_mech_def mech_cram_md5 = {
 	.name = SASL_MECH_NAME_CRAM_MD5,
 
 	.flags = SASL_MECH_SEC_DICTIONARY | SASL_MECH_SEC_ACTIVE,
@@ -189,3 +189,8 @@ const struct sasl_server_mech_def mech_cram_md5 = {
 
 	.funcs = &mech_cram_md5_funcs,
 };
+
+void sasl_server_mech_register_cram_md5(struct sasl_server_instance *sinst)
+{
+	sasl_server_mech_register(sinst, &mech_cram_md5);
+}

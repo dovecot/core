@@ -67,7 +67,7 @@ static const struct sasl_server_mech_funcs mech_plain_funcs = {
 	.auth_continue = mech_plain_auth_continue,
 };
 
-const struct sasl_server_mech_def mech_plain = {
+static const struct sasl_server_mech_def mech_plain = {
 	.name = SASL_MECH_NAME_PLAIN,
 
 	.flags = SASL_MECH_SEC_PLAINTEXT | SASL_MECH_SEC_ALLOW_NULS,
@@ -75,3 +75,8 @@ const struct sasl_server_mech_def mech_plain = {
 
 	.funcs = &mech_plain_funcs,
 };
+
+void sasl_server_mech_register_plain(struct sasl_server_instance *sinst)
+{
+	sasl_server_mech_register(sinst, &mech_plain);
+}

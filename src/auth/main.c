@@ -19,7 +19,7 @@
 #include "dict.h"
 #include "password-scheme.h"
 #include "passdb-cache.h"
-#include "sasl-server-protected.h"
+#include "sasl-server.h"
 #include "otp.h"
 #include "mech-otp.h"
 #include "auth.h"
@@ -179,7 +179,7 @@ static void main_preinit(void)
 		auth_penalty = auth_penalty_init(AUTH_PENALTY_ANVIL_PATH);
 
 	dict_drivers_register_builtin();
-	auth_sasl_preinit();
+	auth_sasl_preinit(global_auth_settings);
 	auths_preinit(NULL, global_auth_settings, protocols);
 
 	listeners_init();
@@ -276,7 +276,6 @@ static void main_deinit(void)
 	auths_free();
 
 	mech_otp_deinit();
-	mech_deinit(global_auth_settings);
 
 	/* allow modules to unregister their dbs/drivers/etc. before freeing
 	   the whole data structures containing them. */

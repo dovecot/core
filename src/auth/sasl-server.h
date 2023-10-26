@@ -168,6 +168,40 @@ void sasl_server_request_test_set_authid(struct sasl_server_req_ctx *rctx,
 					 const char *authid);
 
 /*
+ * Mechanism definitions
+ */
+
+void sasl_server_mech_register_anonymous(struct sasl_server_instance *sinst);
+void sasl_server_mech_register_cram_md5(struct sasl_server_instance *sinst);
+void sasl_server_mech_register_digest_md5(struct sasl_server_instance *sinst);
+void sasl_server_mech_register_external(struct sasl_server_instance *sinst);
+void sasl_server_mech_register_login(struct sasl_server_instance *sinst);
+void sasl_server_mech_register_plain(struct sasl_server_instance *sinst);
+
+void sasl_server_mech_register_scram_sha1(
+	struct sasl_server_instance *sinst);
+void sasl_server_mech_register_scram_sha1_plus(
+	struct sasl_server_instance *sinst);
+void sasl_server_mech_register_scram_sha256(
+	struct sasl_server_instance *sinst);
+void sasl_server_mech_register_scram_sha256_plus(
+	struct sasl_server_instance *sinst);
+
+void sasl_server_mech_register_otp(struct sasl_server_instance *sinst);
+
+/* OAUTH2 */
+
+void sasl_server_mech_register_oauthbearer(struct sasl_server_instance *sinst);
+void sasl_server_mech_register_xoauth2(struct sasl_server_instance *sinst);
+
+/* Winbind */
+
+void sasl_server_mech_register_winbind_ntlm(
+	struct sasl_server_instance *sinst);
+void sasl_server_mech_register_winbind_gss_spnego(
+	struct sasl_server_instance *sinst);
+
+/*
  * Mechanism
  */
 

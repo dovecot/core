@@ -244,7 +244,7 @@ static const struct sasl_server_mech_funcs mech_scram_sha1_funcs = {
 	.auth_free = mech_scram_auth_free,
 };
 
-const struct sasl_server_mech_def mech_scram_sha1 = {
+static const struct sasl_server_mech_def mech_scram_sha1 = {
 	.name = SASL_MECH_NAME_SCRAM_SHA_1,
 
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH,
@@ -253,7 +253,7 @@ const struct sasl_server_mech_def mech_scram_sha1 = {
 	.funcs = &mech_scram_sha1_funcs,
 };
 
-const struct sasl_server_mech_def mech_scram_sha1_plus = {
+static const struct sasl_server_mech_def mech_scram_sha1_plus = {
 	.name = SASL_MECH_NAME_SCRAM_SHA_1_PLUS,
 
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH | SASL_MECH_SEC_CHANNEL_BINDING,
@@ -269,7 +269,7 @@ static const struct sasl_server_mech_funcs mech_scram_sha256_funcs = {
 	.auth_free = mech_scram_auth_free,
 };
 
-const struct sasl_server_mech_def mech_scram_sha256 = {
+static const struct sasl_server_mech_def mech_scram_sha256 = {
 	.name = SASL_MECH_NAME_SCRAM_SHA_256,
 
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH,
@@ -278,7 +278,7 @@ const struct sasl_server_mech_def mech_scram_sha256 = {
 	.funcs = &mech_scram_sha256_funcs,
 };
 
-const struct sasl_server_mech_def mech_scram_sha256_plus = {
+static const struct sasl_server_mech_def mech_scram_sha256_plus = {
 	.name = SASL_MECH_NAME_SCRAM_SHA_256_PLUS,
 
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH | SASL_MECH_SEC_CHANNEL_BINDING,
@@ -286,3 +286,27 @@ const struct sasl_server_mech_def mech_scram_sha256_plus = {
 
 	.funcs = &mech_scram_sha256_funcs,
 };
+
+void sasl_server_mech_register_scram_sha1(
+	struct sasl_server_instance *sinst)
+{
+	sasl_server_mech_register(sinst, &mech_scram_sha1);
+}
+
+void sasl_server_mech_register_scram_sha1_plus(
+	struct sasl_server_instance *sinst)
+{
+	sasl_server_mech_register(sinst, &mech_scram_sha1_plus);
+}
+
+void sasl_server_mech_register_scram_sha256(
+	struct sasl_server_instance *sinst)
+{
+	sasl_server_mech_register(sinst, &mech_scram_sha256);
+}
+
+void sasl_server_mech_register_scram_sha256_plus(
+	struct sasl_server_instance *sinst)
+{
+	sasl_server_mech_register(sinst, &mech_scram_sha256_plus);
+}

@@ -7,6 +7,10 @@
 
 #include "auth-sasl-oauth2.h"
 
+/*
+ * Token verification
+ */
+
 static void
 oauth2_verify_finish(enum passdb_result result,
 		     struct auth_request *auth_request)

@@ -6,7 +6,7 @@
 #include "auth-settings.h"
 #include "auth-token.h"
 #include "auth-penalty.h"
-#include "sasl-server-protected.h" // FIXME: remove
+#include "sasl-server.h"
 #include "otp.h"
 #include "mech-otp.h"
 #include "db-oauth2.h"
@@ -55,14 +55,13 @@ void test_auth_init(void)
 						     &auth_setting_parser_info);
 	/* this is needed to get oauth2 initialized */
 	auth_event = simple_set.event;
-	mech_init(global_auth_settings);
 	passdbs_init();
 	userdbs_init();
 	passdb_mock_mod_init();
 	password_schemes_register_all();
 	password_schemes_allow_weak(TRUE);
 
-	auth_sasl_preinit();
+	auth_sasl_preinit(global_auth_settings);
 	auths_preinit(simple_set.event, global_auth_settings, protocols);
 	auths_init();
 	auth_token_init();
@@ -83,7 +82,6 @@ void test_auth_deinit(void)
 	passdbs_deinit();
 	userdbs_deinit();
 	event_unref(&auth_event);
-	mech_deinit(global_auth_settings);
 	auths_free();
 	auth_sasl_deinit();
 	settings_free(global_auth_settings);

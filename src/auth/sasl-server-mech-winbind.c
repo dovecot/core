@@ -327,46 +327,57 @@ do_auth_new(pool_t pool, struct winbind_helper *winbind)
 }
 
 static struct sasl_server_mech_request *
-mech_winbind_ntlm_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED,
-			   pool_t pool)
+mech_winbind_ntlm_auth_new(
+	const struct sasl_server_mech *mech ATTR_UNUSED, pool_t pool)
 {
 	return do_auth_new(pool, &winbind_ntlm_context);
 }
 
 static struct sasl_server_mech_request *
-mech_winbind_spnego_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED,
-			     pool_t pool)
+mech_winbind_gss_spnego_auth_new(
+	const struct sasl_server_mech *mech ATTR_UNUSED, pool_t pool)
 {
 	return do_auth_new(pool, &winbind_spnego_context);
 }
 
-static const struct sasl_server_mech_funcs mech_winbind_ntlm_funcs = {
+static const struct sasl_server_mech_funcs mech_ntlm_funcs = {
 	.auth_new = mech_winbind_ntlm_auth_new,
 	.auth_initial = mech_winbind_auth_initial,
 	.auth_continue = mech_winbind_auth_continue,
 };
 
-const struct sasl_server_mech_def mech_winbind_ntlm = {
+static const struct sasl_server_mech_def mech_ntlm = {
 	.name = SASL_MECH_NAME_NTLM,
 
 	.flags = SASL_MECH_SEC_DICTIONARY | SASL_MECH_SEC_ACTIVE |
 		 SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_NOTHING,
 
-	.funcs = &mech_winbind_ntlm_funcs,
+	.funcs = &mech_ntlm_funcs,
 };
 
-static const struct sasl_server_mech_funcs mech_winbind_spnego_funcs = {
-	.auth_new = mech_winbind_spnego_auth_new,
+static const struct sasl_server_mech_funcs mech_gss_spnego_funcs = {
+	.auth_new = mech_winbind_gss_spnego_auth_new,
 	.auth_initial = mech_winbind_auth_initial,
 	.auth_continue = mech_winbind_auth_continue,
 };
 
-const struct sasl_server_mech_def mech_winbind_spnego = {
+static const struct sasl_server_mech_def mech_gss_spnego = {
 	.name = SASL_MECH_NAME_GSS_SPNEGO,
 
 	.flags = SASL_MECH_SEC_ALLOW_NULS,
 	.passdb_need = SASL_MECH_PASSDB_NEED_NOTHING,
 
-	.funcs = &mech_winbind_spnego_funcs,
+	.funcs = &mech_gss_spnego_funcs,
 };
+
+void sasl_server_mech_register_winbind_ntlm(struct sasl_server_instance *sinst)
+{
+	sasl_server_mech_register(sinst, &mech_ntlm);
+}
+
+void sasl_server_mech_register_winbind_gss_spnego(
+	struct sasl_server_instance *sinst)
+{
+	sasl_server_mech_register(sinst, &mech_gss_spnego);
+}

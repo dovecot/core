@@ -24,8 +24,8 @@ struct oauth2_auth_request {
 	bool verifying_token:1;
 };
 
-const struct sasl_server_mech_def mech_oauthbearer;
-const struct sasl_server_mech_def mech_xoauth2;
+static const struct sasl_server_mech_def mech_oauthbearer;
+static const struct sasl_server_mech_def mech_xoauth2;
 
 static struct db_oauth2 *db_oauth2 = NULL;
 
@@ -321,7 +321,7 @@ static const struct sasl_server_mech_funcs mech_oauthbearer_funcs = {
 	.auth_continue = mech_oauthbearer_auth_continue,
 };
 
-const struct sasl_server_mech_def mech_oauthbearer = {
+static const struct sasl_server_mech_def mech_oauthbearer = {
 	.name = SASL_MECH_NAME_OAUTHBEARER,
 
 	/* while this does not transfer plaintext password,
@@ -338,7 +338,7 @@ static const struct sasl_server_mech_funcs mech_xoauth2_funcs = {
 	.auth_continue = mech_xoauth2_auth_continue,
 };
 
-const struct sasl_server_mech_def mech_xoauth2 = {
+static const struct sasl_server_mech_def mech_xoauth2 = {
 	.name = SASL_MECH_NAME_XOAUTH2,
 
 	.flags = SASL_MECH_SEC_PLAINTEXT,
@@ -346,3 +346,13 @@ const struct sasl_server_mech_def mech_xoauth2 = {
 
 	.funcs = &mech_xoauth2_funcs,
 };
+
+void sasl_server_mech_register_oauthbearer(struct sasl_server_instance *sinst)
+{
+	sasl_server_mech_register(sinst, &mech_oauthbearer);
+}
+
+void sasl_server_mech_register_xoauth2(struct sasl_server_instance *sinst)
+{
+	sasl_server_mech_register(sinst, &mech_xoauth2);
+}
