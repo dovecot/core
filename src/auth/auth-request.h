@@ -91,6 +91,7 @@ struct auth_request_fields {
 	bool skip_password_check:1;
 
 	/* flags received from auth client: */
+	bool final_resp_ok:1;
 	bool no_penalty:1;
 	bool valid_client_cert:1;
 	bool cert_username:1;
