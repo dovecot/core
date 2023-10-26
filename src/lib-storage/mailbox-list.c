@@ -191,7 +191,6 @@ int mailbox_list_create(const char *driver, struct event *event,
 		set->index_control_use_maildir_name;
 	list->set.iter_from_index_dir = set->iter_from_index_dir;
 	list->set.keep_noselect = set->keep_noselect;
-	list->set.no_fs_validation = set->no_fs_validation;
 
 	if (*set->mailbox_dir_name == '\0')
 		list->set.mailbox_dir_name = "";
@@ -376,9 +375,6 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 		} else if (strcmp(key, "NO-NOSELECT") == 0) {
 			/* retained only for backward compatibility */
 			set_r->keep_noselect = FALSE;
-			continue;
-		} else if (strcmp(key, "NO-FS-VALIDATION") == 0) {
-			set_r->no_fs_validation = TRUE;
 			continue;
 		} else {
 			*error_r = t_strdup_printf("Unknown setting: %s", key);
@@ -1309,7 +1305,7 @@ mailbox_list_is_valid_fs_name(struct mailbox_list *list, const char *name,
 	*error_r = NULL;
 
 	if (list->mail_set->mail_full_filesystem_access ||
-	    list->set.no_fs_validation)
+	    !list->mail_set->mailbox_list_validate_fs_names)
 		return TRUE;
 
 	/* either the list backend uses '/' as the hierarchy separator or
