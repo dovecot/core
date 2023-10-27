@@ -157,8 +157,6 @@ struct mailbox_list_settings {
 	char vname_escape_char;
 	/* Use UTF-8 mailbox names on filesystem instead of mUTF-7 */
 	bool utf8:1;
-	/* Don't check/create the alt-dir symlink. */
-	bool alt_dir_nocheck:1;
 	/* Use maildir_name also for index/control directories. This should
 	   have been the default since the beginning, but for backwards
 	   compatibility it had to be made an option. */

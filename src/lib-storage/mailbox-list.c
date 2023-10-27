@@ -169,7 +169,6 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 	list->set.maildir_name =
 		p_strdup(list->pool, set->maildir_name);
 	list->set.alt_dir = p_strdup(list->pool, set->alt_dir);
-	list->set.alt_dir_nocheck = set->alt_dir_nocheck;
 	list->set.index_control_use_maildir_name =
 		set->index_control_use_maildir_name;
 
@@ -311,10 +310,7 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 			dest = &set_r->control_dir;
 		else if (strcmp(key, "ALT") == 0)
 			dest = &set_r->alt_dir;
-		else if (strcmp(key, "ALTNOCHECK") == 0) {
-			set_r->alt_dir_nocheck = TRUE;
-			continue;
-		} else if (strcmp(key, "DIRNAME") == 0)
+		else if (strcmp(key, "DIRNAME") == 0)
 			dest = &set_r->maildir_name;
 		else if (strcmp(key, "FULLDIRNAME") == 0) {
 			set_r->index_control_use_maildir_name = TRUE;
