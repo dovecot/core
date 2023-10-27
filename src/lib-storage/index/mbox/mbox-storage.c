@@ -210,8 +210,10 @@ static void mbox_storage_destroy(struct mail_storage *_storage)
 	index_storage_destroy(_storage);
 }
 
-static void mbox_storage_get_list_settings(const struct mail_namespace *ns,
-					   struct mailbox_list_settings *set)
+static void
+mbox_storage_get_list_settings(const struct mail_namespace *ns,
+			       struct mailbox_list_settings *set,
+			       const struct mail_storage_settings *mail_set ATTR_UNUSED)
 {
 	struct event *event = ns->user->event;
 	if (set->layout == NULL)

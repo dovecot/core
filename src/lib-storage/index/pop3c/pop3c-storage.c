@@ -107,7 +107,8 @@ pop3c_client_create_from_set(struct mail_storage *storage,
 
 static void
 pop3c_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
-				struct mailbox_list_settings *set)
+				struct mailbox_list_settings *set,
+				const struct mail_storage_settings *mail_set ATTR_UNUSED)
 {
 	set->layout = MAILBOX_LIST_NAME_FS;
 	if (set->root_dir != NULL && *set->root_dir != '\0' &&
