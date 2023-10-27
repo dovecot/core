@@ -588,7 +588,8 @@ const char *mail_user_get_volatile_dir(struct mail_user *user)
 	struct mailbox_list *inbox_list =
 		mail_namespace_find_inbox(user->namespaces)->list;
 
-	return inbox_list->set.volatile_dir;
+	const char *path = inbox_list->mail_set->mail_volatile_path;
+	return path[0] == '\0' ? NULL : path;
 }
 
 int mail_user_lock_file_create(struct mail_user *user, const char *lock_fname,
@@ -620,11 +621,12 @@ int mail_user_lock_file_create(struct mail_user *user, const char *lock_fname,
 	};
 	struct mailbox_list *inbox_list =
 		mail_namespace_find_inbox(user->namespaces)->list;
-	if (inbox_list->set.volatile_dir == NULL)
+	if (inbox_list->mail_set->mail_volatile_path[0] == '\0')
 		path = t_strdup_printf("%s/%s", home, lock_fname);
 	else {
-		path = t_strdup_printf("%s/%s", inbox_list->set.volatile_dir,
-				       lock_fname);
+		path = t_strdup_printf("%s/%s",
+				inbox_list->mail_set->mail_volatile_path,
+				lock_fname);
 		lock_set.mkdir_mode = 0700;
 	}
 	return mail_storage_lock_create(path, &lock_set, mail_set, lock_r, error_r);

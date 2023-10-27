@@ -182,7 +182,6 @@ int mailbox_list_create(const char *driver, struct event *event,
 		p_strdup(list->pool, set->mailbox_dir_name);
 	list->set.alt_dir = p_strdup(list->pool, set->alt_dir);
 	list->set.alt_dir_nocheck = set->alt_dir_nocheck;
-	list->set.volatile_dir = p_strdup(list->pool, set->volatile_dir);
 	list->set.index_control_use_maildir_name =
 		set->index_control_use_maildir_name;
 
@@ -345,8 +344,6 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 			dest = &set_r->maildir_name;
 		else if (strcmp(key, "MAILBOXDIR") == 0)
 			dest = &set_r->mailbox_dir_name;
-		else if (strcmp(key, "VOLATILEDIR") == 0)
-			dest = &set_r->volatile_dir;
 		else if (strcmp(key, "FULLDIRNAME") == 0) {
 			set_r->index_control_use_maildir_name = TRUE;
 			dest = &set_r->maildir_name;
@@ -2132,16 +2129,16 @@ int mailbox_list_lock(struct mailbox_list *list)
 	set.gid_origin = perm.file_create_gid_origin;
 
 	lock_fname = MAILBOX_LIST_LOCK_FNAME;
-	if (list->set.volatile_dir != NULL) {
-		/* Use VOLATILEDIR. It's shared with all mailbox_lists, so use
-		   hash of the namespace prefix as a way to make this lock name
-		   unique across the namespaces. */
+	if (list->mail_set->mail_volatile_path[0] != '\0') {
+		/* Use volatile directory. It's shared with all mailbox_lists,
+		   so use hash of the namespace prefix as a way to make this
+		   lock name unique across the namespaces. */
 		unsigned char ns_prefix_hash[SHA1_RESULTLEN];
 		sha1_get_digest(list->ns->prefix, list->ns->prefix_len,
 				ns_prefix_hash);
 		lock_fname = t_strconcat(MAILBOX_LIST_LOCK_FNAME,
 			binary_to_hex(ns_prefix_hash, sizeof(ns_prefix_hash)), NULL);
-		lock_dir = list->set.volatile_dir;
+		lock_dir = list->mail_set->mail_volatile_path;
 		set.mkdir_mode = 0700;
 	} else if (mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX,
 					      &lock_dir)) {
