@@ -259,6 +259,8 @@ fs_list_get_storage_path(struct fs_list_iterate_context *ctx,
 	}
 	if (*path != '/') {
 		/* non-absolute path. add the mailbox root dir as prefix. */
+		const struct mail_storage_settings *set =
+			ctx->ctx.list->mail_set;
 		enum mailbox_list_path_type type =
 			ctx->ctx.iter_from_index_dir ?
 			MAILBOX_LIST_PATH_TYPE_INDEX :
@@ -266,10 +268,10 @@ fs_list_get_storage_path(struct fs_list_iterate_context *ctx,
 		if (!mailbox_list_get_root_path(ctx->ctx.list, type, &root))
 			return FALSE;
 		if (ctx->ctx.iter_from_index_dir &&
-		    ctx->ctx.list->set.mailbox_dir_name[0] != '\0') {
+		    set->parsed_mailbox_root_directory_prefix[0] != '\0') {
 			/* append "mailboxes/" to the index root */
 			root = t_strconcat(root, "/",
-				ctx->ctx.list->set.mailbox_dir_name, NULL);
+				set->parsed_mailbox_root_directory_prefix, NULL);
 		}
 		path = *path == '\0' ? root :
 			t_strconcat(root, "/", path, NULL);

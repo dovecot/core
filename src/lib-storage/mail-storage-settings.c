@@ -80,6 +80,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(BOOL_HIDDEN, mailbox_list_iter_from_index_dir),
 	DEF(BOOL_HIDDEN, mailbox_list_drop_noselect),
 	DEF(BOOL_HIDDEN, mailbox_list_validate_fs_names),
+	DEF(STR_HIDDEN, mailbox_root_directory_name),
 	DEF(STR, mail_volatile_path),
 	DEF(BOOL_HIDDEN, mail_full_filesystem_access),
 	DEF(BOOL, maildir_stat_dirs),
@@ -145,6 +146,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mailbox_list_iter_from_index_dir = FALSE,
 	.mailbox_list_drop_noselect = TRUE,
 	.mailbox_list_validate_fs_names = TRUE,
+	.mailbox_root_directory_name = "",
 	.mail_volatile_path = "",
 	.mail_full_filesystem_access = FALSE,
 	.maildir_stat_dirs = FALSE,
@@ -727,6 +729,15 @@ mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool,
 		}
 #endif
 	}
+	if (set->mailbox_root_directory_name[0] == '\0')
+		set->parsed_mailbox_root_directory_prefix = "";
+	else if (strchr(set->mailbox_root_directory_name, '/') != NULL) {
+		*error_r = "mailbox_root_directory_name must not contain '/'";
+		return FALSE;
+	} else {
+		set->parsed_mailbox_root_directory_prefix = p_strconcat(pool,
+			set->mailbox_root_directory_name, "/", NULL);
+	}
 
 	if (!mail_storage_settings_check_namespaces(event, set, error_r))
 		return FALSE;
@@ -974,6 +985,7 @@ static const size_t mail_storage_2nd_reset_offsets[] = {
 	OFFSET(mail_location),
 	OFFSET(mailbox_list_index_prefix),
 	OFFSET(mailbox_list_iter_from_index_dir),
+	OFFSET(mailbox_root_directory_name),
 	OFFSET(mail_volatile_path),
 };
 

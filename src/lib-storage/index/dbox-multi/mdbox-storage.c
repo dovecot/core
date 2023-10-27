@@ -51,8 +51,8 @@ int mdbox_storage_create(struct mail_storage *_storage,
 
 	storage->preallocate_space = storage->set->mdbox_preallocate_space;
 
-	if (*ns->list->set.mailbox_dir_name == '\0') {
-		*error_r = "mdbox: MAILBOXDIR must not be empty";
+	if (*ns->list->mail_set->mailbox_root_directory_name == '\0') {
+		*error_r = "mdbox: mailbox_root_directory_name must not be empty";
 		return -1;
 	}
 

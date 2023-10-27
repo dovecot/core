@@ -60,6 +60,7 @@ struct mail_storage_settings {
 	bool mailbox_list_iter_from_index_dir;
 	bool mailbox_list_drop_noselect;
 	bool mailbox_list_validate_fs_names;
+	const char *mailbox_root_directory_name;
 	const char *mail_volatile_path;
 	bool mail_full_filesystem_access;
 	bool maildir_stat_dirs;
@@ -89,6 +90,9 @@ struct mail_storage_settings {
 	/* Directory part of mailbox_list_index_prefix. NULL defaults to index
 	   directory. The path may be relative to the index directory. */
 	const char *parsed_list_index_dir;
+	/* If set, store mailboxes under root_dir/mailbox_dir_name/.
+	   This setting contains either "" or "dir/" with trailing "/". */
+	const char *parsed_mailbox_root_directory_prefix;
 
 	const char *unexpanded_mailbox_list_path[MAILBOX_LIST_PATH_TYPE_COUNT];
 	bool unexpanded_mailbox_list_override[MAILBOX_LIST_PATH_TYPE_COUNT];

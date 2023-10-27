@@ -110,8 +110,8 @@ index_get_guid_path(struct mailbox_list *_list, const char *root_dir,
 		    const guid_128_t mailbox_guid)
 {
 	return t_strdup_printf("%s/%s%s", root_dir,
-			       _list->set.mailbox_dir_name,
-			       guid_128_to_string(mailbox_guid));
+		_list->mail_set->parsed_mailbox_root_directory_prefix,
+		guid_128_to_string(mailbox_guid));
 }
 
 static int

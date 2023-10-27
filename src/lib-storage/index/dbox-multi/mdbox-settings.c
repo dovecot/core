@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "settings-parser.h"
 #include "mail-storage-settings.h"
+#include "dbox-storage.h"
 #include "mdbox-settings.h"
 
 #undef DEF
@@ -24,11 +25,17 @@ static const struct mdbox_settings mdbox_default_settings = {
 	.mdbox_rotate_interval = 0
 };
 
+static const struct setting_keyvalue mdbox_default_filter_settings_keyvalue[] = {
+	{ "mdbox/mailbox_root_directory_name", DBOX_MAILBOX_DIR_NAME },
+	{ NULL, NULL }
+};
+
 const struct setting_parser_info mdbox_setting_parser_info = {
 	.name = "mdbox",
 
 	.defines = mdbox_setting_defines,
 	.defaults = &mdbox_default_settings,
+	.default_filter_settings = mdbox_default_filter_settings_keyvalue,
 
 	.struct_size = sizeof(struct mdbox_settings),
 	.pool_offset1 = 1 + offsetof(struct mdbox_settings, pool),
