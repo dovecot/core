@@ -146,7 +146,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 					 perm.file_create_gid_origin, &dotlock);
 	if (fd_out == -1 && errno == ENOENT) {
 		/* directory hasn't been created yet. */
-		type = list->set.control_dir != NULL ?
+		type = list->mail_set->mail_control_path[0] != '\0' ?
 			MAILBOX_LIST_PATH_TYPE_CONTROL :
 			MAILBOX_LIST_PATH_TYPE_DIR;
 		fname = strrchr(path, '/');

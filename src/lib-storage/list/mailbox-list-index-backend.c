@@ -224,8 +224,9 @@ static int index_list_set_subscribed(struct mailbox_list *_list,
 		return -1;
 	}
 
-	path = t_strconcat(_list->set.control_dir != NULL ?
-			   _list->set.control_dir : _list->set.root_dir,
+	path = t_strconcat(_list->mail_set->mail_control_path[0] != '\0' ?
+			   _list->mail_set->mail_control_path :
+			   _list->set.root_dir,
 			   "/", _list->mail_set->mailbox_subscriptions_filename,
 			   NULL);
 	return subsfile_set_subscribed(_list, path, list->temp_prefix,

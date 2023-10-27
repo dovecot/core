@@ -63,6 +63,7 @@ struct mail_storage_settings {
 	bool mailbox_list_validate_fs_names;
 	const char *mailbox_root_directory_name;
 	const char *mailbox_subscriptions_filename;
+	const char *mail_control_path;
 	const char *mail_volatile_path;
 	const char *mail_alt_path;
 	bool mail_alt_check;

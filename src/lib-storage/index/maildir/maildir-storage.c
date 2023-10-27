@@ -63,7 +63,8 @@ maildir_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	storage->temp_prefix = p_strdup(_storage->pool,
 					mailbox_list_get_temp_prefix(list));
 
-	if (list->set.control_dir == NULL && list->set.inbox_path == NULL &&
+	if (list->mail_set->mail_control_path[0] == '\0' &&
+	    list->set.inbox_path == NULL &&
 	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
 		/* put the temp files into tmp/ directory preferably */
 		storage->temp_prefix = p_strconcat(_storage->pool, "tmp/",

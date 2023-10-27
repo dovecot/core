@@ -2176,8 +2176,10 @@ mailbox_lists_rename_compatible(struct mailbox_list *list1,
 			list1->ns->set->name, list2->ns->set->name);
 		return FALSE;
 	}
-	if (!nullequals(list1->set.control_dir, list2->set.control_dir)) {
-		*error_r = t_strdup_printf("Namespace %s has control dir, %s doesn't",
+	if (!nullequals(list1->mail_set->mail_control_path,
+			list2->mail_set->mail_control_path)) {
+		*error_r = t_strdup_printf(
+			"Namespace %s has mail_control_path, %s doesn't",
 			list1->ns->set->name, list2->ns->set->name);
 		return FALSE;
 	}
