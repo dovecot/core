@@ -81,7 +81,6 @@ int mail_namespace_alloc(struct mail_user *user,
 	ns->set = ns_set;
 	if (ns_set->pool != NULL)
 		pool_ref(ns_set->pool);
-	ns->mail_set = mail_user_set_get_storage_set(user);
 	i_array_init(&ns->all_storages, 2);
 
 	if (strcmp(ns_set->type, "private") == 0) {
@@ -560,7 +559,6 @@ struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user)
 	ns->prefix = i_strdup("");
 	ns->flags = NAMESPACE_FLAG_INBOX_USER | NAMESPACE_FLAG_INBOX_ANY |
 		NAMESPACE_FLAG_LIST_PREFIX | NAMESPACE_FLAG_SUBSCRIPTIONS;
-	ns->mail_set = mail_user_set_get_storage_set(user);
 	i_array_init(&ns->all_storages, 2);
 	return ns;
 }

@@ -71,7 +71,6 @@ struct mail_namespace {
 	ARRAY(struct mail_storage *) all_storages;
 
 	const struct mail_namespace_settings *set;
-	const struct mail_storage_settings *mail_set;
 
 	bool destroyed:1;
 };
