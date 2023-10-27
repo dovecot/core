@@ -10,6 +10,7 @@
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct mbox_settings)
 
 static const struct setting_define mbox_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "mbox" },
 	DEF(STR, mbox_read_locks),
 	DEF(STR, mbox_write_locks),
 	DEF(TIME, mbox_lock_timeout),

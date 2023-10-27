@@ -17,12 +17,14 @@ libstorage_dbox_single_la_SOURCES = \
 	sdbox-file.c \
 	sdbox-mail.c \
 	sdbox-save.c \
+	sdbox-settings.c \
 	sdbox-sync.c \
 	sdbox-sync-rebuild.c \
 	sdbox-storage.c
 
 headers = \
 	sdbox-file.h \
+	sdbox-settings.h \
 	sdbox-storage.h \
 	sdbox-sync.h
 
