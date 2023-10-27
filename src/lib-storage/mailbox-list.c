@@ -143,7 +143,7 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	list->event = event_create(ns->user->event);
 	event_add_str(list->event, "namespace", ns->set->name);
 	list->ns = ns;
-	list->mail_set = ns->mail_set;
+	list->mail_set = mail_user_set_get_storage_set(ns->user);
 	list->flags = flags;
 	list->root_permissions.file_create_mode = (mode_t)-1;
 	list->root_permissions.dir_create_mode = (mode_t)-1;
