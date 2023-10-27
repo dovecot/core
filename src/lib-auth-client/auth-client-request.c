@@ -10,6 +10,11 @@
 
 static void
 auth_client_request_fail_conn_lost(struct auth_client_request *request);
+static void
+auth_client_request_handle_input(struct auth_client_request **_request,
+				 enum auth_request_status status,
+				 const char *base64_data,
+				 const char *const *args, bool final);
 
 static void
 auth_server_send_new_request(struct auth_client_connection *conn,
@@ -190,6 +195,8 @@ auth_client_request_new(struct auth_client *client,
 	request = p_new(pool, struct auth_client_request, 1);
 	request->pool = pool;
 	request->conn = client->conn;
+	request->flags = request_info->flags;
+	request->final_status = AUTH_REQUEST_STATUS_CONTINUE;
 
 	request->callback = callback;
 	request->context = context;
@@ -250,6 +257,7 @@ static void auth_client_request_free(struct auth_client_request **_request)
 	auth_client_connection_remove_request(request->conn, request);
 
 	timeout_remove(&request->to_fail);
+	timeout_remove(&request->to_final);
 	event_unref(&request->event);
 	pool_unref(&request->pool);
 }
@@ -310,11 +318,25 @@ args_parse_user(struct auth_client_request *request, const char *key,
 		event_add_str(request->event, "auth_user", value);
 }
 
+static void auth_client_request_final(struct auth_client_request *request)
+{
+	timeout_remove(&request->to_final);
+	i_assert(request->final_status != AUTH_REQUEST_STATUS_CONTINUE);
+	auth_client_request_handle_input(&request, request->final_status, NULL,
+					 request->final_args, FALSE);
+}
+
 void auth_client_request_continue(struct auth_client_request *request,
                                   const char *data_base64)
 {
 	struct const_iovec iov[3];
 	const char *prefix;
+
+	if (request->final_status != AUTH_REQUEST_STATUS_CONTINUE) {
+		request->to_final = timeout_add_short(
+			0, auth_client_request_final, request);
+		return;
+	}
 
 	if (!request->conn->connected) {
 		e_error(request->event,
@@ -343,18 +365,20 @@ void auth_client_request_continue(struct auth_client_request *request,
 	}
 }
 
-void auth_client_request_server_input(struct auth_client_request **_request,
-				      enum auth_request_status status,
-				      const char *const *args)
+static void
+auth_client_request_handle_input(struct auth_client_request **_request,
+				 enum auth_request_status status,
+				 const char *base64_data,
+				 const char *const *args, bool final)
 {
 	struct auth_client_request *request = *_request;
-	const char *const *tmp, *base64_data = NULL;
+	const char *const *tmp;
 	struct event_passthrough *e;
 
 	if (auth_client_request_is_aborted(request)) {
 		/* aborted already */
 		auth_client_request_free(_request);
-		return TRUE;
+		return;
 	}
 
 	switch (status) {
@@ -368,17 +392,14 @@ void auth_client_request_server_input(struct auth_client_request **_request,
 		break;
 	}
 
-	for (tmp = args; *tmp != NULL; tmp++) {
+	for (tmp = args; tmp != NULL && *tmp != NULL; tmp++) {
 		const char *key;
 		const char *value;
 		t_split_key_value_eq(*tmp, &key, &value);
-		if (str_begins(key, "event_", &key)) {
+		if (str_begins(key, "event_", &key))
 			event_add_str(request->event, key, value);
-		} else if (strcmp(key, "resp") == 0) {
-			base64_data = value;
-		} else {
+		else
 			args_parse_user(request, key, value);
-		}
 	}
 
 	switch (status) {
@@ -386,9 +407,10 @@ void auth_client_request_server_input(struct auth_client_request **_request,
 		e_debug(e->event(), "Finished");
 		break;
 	case AUTH_REQUEST_STATUS_CONTINUE:
-		base64_data = args[0];
-		args = NULL;
-		e_debug(e->event(), "Got challenge");
+		if (!final)
+			e_debug(e->event(), "Got challenge");
+		else
+			e_debug(e->event(), "Created final challenge");
 		break;
 	case AUTH_REQUEST_STATUS_FAIL:
 		e->add_str("error", "Authentication failed");
@@ -405,6 +427,54 @@ void auth_client_request_server_input(struct auth_client_request **_request,
 	call_callback(request, status, base64_data, args);
 	if (status != AUTH_REQUEST_STATUS_CONTINUE)
 		auth_client_request_free(_request);
+}
+
+void auth_client_request_server_input(struct auth_client_request **_request,
+				      enum auth_request_status status,
+				      const char *const *args)
+{
+	struct auth_client_request *request = *_request;
+	const char *const *tmp, *base64_data = NULL;
+	bool final = FALSE;
+
+	if (auth_client_request_is_aborted(request)) {
+		/* aborted already */
+		auth_client_request_free(_request);
+		return;
+	}
+
+	switch (status) {
+	case AUTH_REQUEST_STATUS_FAIL:
+	case AUTH_REQUEST_STATUS_OK:
+	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
+		for (tmp = args; *tmp != NULL; tmp++) {
+			const char *key;
+			const char *value;
+			t_split_key_value_eq(*tmp, &key, &value);
+			if (strcmp(key, "resp") == 0)
+				base64_data = value;
+		}
+		if (base64_data == NULL ||
+		    (status == AUTH_REQUEST_STATUS_OK &&
+		     HAS_ALL_BITS(request->flags,
+				  AUTH_REQUEST_FLAG_SUPPORT_FINAL_RESP)))
+			break;
+		request->final_status = status;
+		request->final_args = p_strarray_dup(request->pool, args);
+		status = AUTH_REQUEST_STATUS_CONTINUE;
+		args = NULL;
+		final = TRUE;
+		break;
+	case AUTH_REQUEST_STATUS_CONTINUE:
+		base64_data = args[0];
+		args = NULL;
+		break;
+	case AUTH_REQUEST_STATUS_ABORT:
+		i_unreached();
+	}
+
+	auth_client_request_handle_input(_request, status,
+					 base64_data, args, final);
 }
 
 void auth_client_send_cancel(struct auth_client *client, unsigned int id)

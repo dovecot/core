@@ -9,12 +9,16 @@
 
 struct auth_client_request {
 	pool_t pool;
+	enum auth_request_flags flags;
 	struct event *event;
 
 	struct auth_client_connection *conn;
-	struct timeout *to_fail;
+	struct timeout *to_fail, *to_final;
 	unsigned int id;
 	time_t created;
+
+	enum auth_request_status final_status;
+	const char *const *final_args;
 
 	auth_request_callback_t *callback;
 	void *context;
