@@ -233,13 +233,14 @@ static bool get_listindex_path(struct mail_namespace *ns, const char **path_r)
 {
 	const char *root;
 
-	if (ns->list->set.list_index_fname[0] == '\0' ||
+	if (ns->list->mail_set->parsed_list_index_fname[0] == '\0' ||
 	    !mailbox_list_get_root_path(ns->list,
 					MAILBOX_LIST_PATH_TYPE_LIST_INDEX,
 					&root))
 		return FALSE;
 
-	*path_r = t_strconcat(root, "/", ns->list->set.list_index_fname, NULL);
+	*path_r = t_strconcat(root, "/",
+			      ns->list->mail_set->parsed_list_index_fname, NULL);
 	return TRUE;
 }
 
@@ -270,9 +271,12 @@ namespace_has_duplicate_listindex(struct mail_namespace *ns,
 		if (strcmp(ns_list_index_path, ns2_list_index_path) == 0 &&
 		    strcmp(ns_mailboxes_root, ns2_mailboxes_root) != 0) {
 			*error_r = t_strdup_printf(
-				"Namespaces %s and %s have different mailboxes paths, but duplicate LISTINDEX path. "
-				"Add a unique LISTINDEX=<fname>",
-				ns->set->name, ns2->set->name);
+				"Namespaces %s and %s have different mailbox paths (%s vs %s), "
+				"but duplicate mailbox list index path (%s). "
+				"Add a unique mailbox_list_index_prefix=<fname>",
+				ns->set->name, ns2->set->name,
+				ns_mailboxes_root, ns2_mailboxes_root,
+				ns_list_index_path);
 			return TRUE;
 		}
 	}

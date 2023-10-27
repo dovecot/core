@@ -3,6 +3,7 @@
 
 #include "file-lock.h"
 #include "fsync-mode.h"
+#include "mailbox-list.h"
 
 struct mail_user;
 struct mail_namespace;
@@ -55,6 +56,7 @@ struct mail_storage_settings {
 	bool mailbox_list_index;
 	bool mailbox_list_index_very_dirty_syncs;
 	bool mailbox_list_index_include_inbox;
+	const char *mailbox_list_index_prefix;
 	bool mailbox_list_iter_from_index_dir;
 	bool mailbox_list_drop_noselect;
 	bool mailbox_list_validate_fs_names;
@@ -81,6 +83,14 @@ struct mail_storage_settings {
 	bool parsed_mail_attachment_detection_add_flags;
 	bool parsed_mail_attachment_detection_no_flags_on_fetch;
 	bool parsed_have_special_use_mailboxes;
+	/* Filename part of mailbox_list_index_prefix */
+	const char *parsed_list_index_fname;
+	/* Directory part of mailbox_list_index_prefix. NULL defaults to index
+	   directory. The path may be relative to the index directory. */
+	const char *parsed_list_index_dir;
+
+	const char *unexpanded_mailbox_list_path[MAILBOX_LIST_PATH_TYPE_COUNT];
+	bool unexpanded_mailbox_list_override[MAILBOX_LIST_PATH_TYPE_COUNT];
 };
 
 struct mail_namespace_settings {

@@ -1072,8 +1072,7 @@ static bool mailbox_list_index_is_enabled(struct mailbox_list *list)
 	    (list->props & MAILBOX_LIST_PROP_NO_LIST_INDEX) != 0)
 		return FALSE;
 
-	i_assert(list->set.list_index_fname != NULL);
-	if (list->set.list_index_fname[0] == '\0')
+	if (list->mail_set->parsed_list_index_fname[0] == '\0')
 		return FALSE;
 	return TRUE;
 }
@@ -1145,11 +1144,11 @@ static void mailbox_list_index_init_finish(struct mailbox_list *list)
 	}
 	i_assert(ilist->has_backing_store || dir != NULL);
 
-	i_assert(list->set.list_index_fname != NULL);
 	ilist->path = dir == NULL ? "(in-memory mailbox list index)" :
-		p_strdup_printf(list->pool, "%s/%s", dir, list->set.list_index_fname);
-	ilist->index = mail_index_alloc(list->event,
-					dir, list->set.list_index_fname);
+		p_strdup_printf(list->pool, "%s/%s", dir,
+				list->mail_set->parsed_list_index_fname);
+	ilist->index = mail_index_alloc(list->event, dir,
+					list->mail_set->parsed_list_index_fname);
 	ilist->rebuild_on_missing_inbox = !ilist->has_backing_store &&
 		(list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0;
 

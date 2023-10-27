@@ -76,6 +76,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(BOOL, mailbox_list_index),
 	DEF(BOOL, mailbox_list_index_very_dirty_syncs),
 	DEF(BOOL, mailbox_list_index_include_inbox),
+	DEF(STR, mailbox_list_index_prefix),
 	DEF(BOOL_HIDDEN, mailbox_list_iter_from_index_dir),
 	DEF(BOOL_HIDDEN, mailbox_list_drop_noselect),
 	DEF(BOOL_HIDDEN, mailbox_list_validate_fs_names),
@@ -139,6 +140,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mailbox_list_index = TRUE,
 	.mailbox_list_index_very_dirty_syncs = FALSE,
 	.mailbox_list_index_include_inbox = FALSE,
+	.mailbox_list_index_prefix = "dovecot.list.index",
 	.mailbox_list_iter_from_index_dir = FALSE,
 	.mailbox_list_drop_noselect = TRUE,
 	.mailbox_list_validate_fs_names = TRUE,
@@ -479,12 +481,31 @@ mail_storage_settings_check_namespaces(struct event *event,
 }
 
 static bool
+mailbox_list_get_path_setting(const char *key, const char **value,
+			      pool_t pool, enum mailbox_list_path_type *type_r)
+{
+	const char *fname;
+
+	if (strcmp(key, "mailbox_list_index_prefix") == 0) {
+		if ((fname = strrchr(*value, '/')) == NULL)
+			*value = NULL;
+		else
+			*value = p_strdup_until(pool, *value, fname);
+		*type_r = MAILBOX_LIST_PATH_TYPE_LIST_INDEX;
+		return TRUE;
+	}
+	return FALSE;
+}
+
+static bool
 mail_storage_settings_apply(struct event *event ATTR_UNUSED, void *_set,
 			    const char *key, const char **value,
 			    enum setting_apply_flags flags,
 			    const char **error_r)
 {
 	struct mail_storage_settings *set = _set;
+	enum mailbox_list_path_type type;
+	const char *unexpanded_value = *value;
 
 	unsigned int key_len = strlen(key);
 	if (key_len > 5 && strcmp(key + key_len - 5, "_path") == 0) {
@@ -533,6 +554,12 @@ mail_storage_settings_apply(struct event *event ATTR_UNUSED, void *_set,
 		set->unexpanded_mail_location_override =
 			(flags & SETTING_APPLY_FLAG_OVERRIDE) != 0;
 	}
+	if (mailbox_list_get_path_setting(key, &unexpanded_value,
+					  set->pool, &type)) {
+		set->unexpanded_mailbox_list_path[type] = unexpanded_value;
+		set->unexpanded_mailbox_list_override[type] =
+			(flags & SETTING_APPLY_FLAG_OVERRIDE) != 0;
+	}
 	return TRUE;
 }
 
@@ -542,7 +569,7 @@ mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool,
 {
 	struct mail_storage_settings *set = _set;
 	struct hash_format *format;
-	const char *p, *value, *error;
+	const char *p, *value, *fname, *error;
 	bool uidl_format_ok;
 	char c;
 
@@ -682,6 +709,22 @@ mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool,
 	if (!mail_cache_fields_parse("mail_never_cache_fields",
 				     set->mail_never_cache_fields, error_r))
 		return FALSE;
+
+	if ((fname = strrchr(set->mailbox_list_index_prefix, '/')) == NULL)
+		set->parsed_list_index_fname = set->mailbox_list_index_prefix;
+	else {
+		/* non-default list index directory */
+		set->parsed_list_index_dir =
+			p_strdup_until(pool, set->mailbox_list_index_prefix, fname);
+		set->parsed_list_index_fname = fname+1;
+#if 0 // FIXME: uncomment after mailbox_index_path is converted
+		if (set->parsed_list_index_dir[0] != '/' &&
+		    set->mailbox_index_path[0] == '\0') {
+			*error_r = "mailbox_list_index_prefix directory is relative, but mailbox_index_path is empty";
+			return FALSE;
+		}
+#endif
+	}
 
 	if (!mail_storage_settings_check_namespaces(event, set, error_r))
 		return FALSE;
@@ -927,6 +970,7 @@ bool mail_user_set_get_postmaster_smtp(const struct mail_user_settings *set,
 #define OFFSET(name) offsetof(struct mail_storage_settings, name)
 static const size_t mail_storage_2nd_reset_offsets[] = {
 	OFFSET(mail_location),
+	OFFSET(mailbox_list_index_prefix),
 	OFFSET(mailbox_list_iter_from_index_dir),
 };
 
