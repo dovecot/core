@@ -125,9 +125,9 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 		break;
 	case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
 	case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
-		if (_list->set.alt_dir == NULL)
+		if (_list->mail_set->mail_alt_path[0] == '\0')
 			return 0;
-		root_dir = _list->set.alt_dir;
+		root_dir = _list->mail_set->mail_alt_path;
 		break;
 	case MAILBOX_LIST_PATH_TYPE_CONTROL:
 		if (_list->set.control_dir != NULL) {

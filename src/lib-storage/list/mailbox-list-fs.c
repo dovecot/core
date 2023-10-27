@@ -98,24 +98,25 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 		}
 		break;
 	case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
-		if (set->alt_dir == NULL)
+		if (mail_set->mail_alt_path[0] == '\0')
 			return 0;
 		if (*set->maildir_name != '\0') {
 			/* maildir_name is for the mailbox, caller is asking
 			   for the directory name */
-			*path_r = t_strdup_printf("%s/%s%s", set->alt_dir,
+			*path_r = t_strdup_printf("%s/%s%s",
+				mail_set->mail_alt_path,
 				mail_set->parsed_mailbox_root_directory_prefix,
 				name);
 			return 1;
 		}
-		root_dir = set->alt_dir;
+		root_dir = mail_set->mail_alt_path;
 		break;
 	case MAILBOX_LIST_PATH_TYPE_MAILBOX:
 		break;
 	case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
-		if (set->alt_dir == NULL)
+		if (mail_set->mail_alt_path[0] == '\0')
 			return 0;
-		root_dir = set->alt_dir;
+		root_dir = mail_set->mail_alt_path;
 		break;
 	case MAILBOX_LIST_PATH_TYPE_CONTROL:
 		if (set->control_dir != NULL) {

@@ -41,8 +41,8 @@ dbox_alt_path_has_changed(const char *root_dir, const char *alt_path,
 	}
 
 	if (alt_path == NULL) {
-		e_warning(event,
-			  "%s: Original ALT=%s, but currently no ALT path set",
+		e_warning(event, "%s: Original mail_alt_path=%s, "
+			  "but currently mail_alt_path is empty",
 			  root_dir, linkpath);
 		return TRUE;
 	} else if (strcmp(linkpath, alt_path) != 0) {
@@ -53,7 +53,8 @@ dbox_alt_path_has_changed(const char *root_dir, const char *alt_path,
 			   mdbox. we'll silently replace the symlink. */
 			return TRUE;
 		}
-		e_warning(event, "%s: Original ALT=%s, but currently ALT=%s",
+		e_warning(event, "%s: Original mail_alt_path=%s, "
+			  "but currently mail_alt_path=%s",
 			  root_dir, linkpath, alt_path);
 		return TRUE;
 	}
