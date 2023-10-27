@@ -31,10 +31,12 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "str.h"
+#include "settings.h"
 #include "settings-parser.h"
 #include "imap-arg.h"
 #include "imap-match.h"
 #include "imap-utf7.h"
+#include "mail-storage-service.h"
 #include "mailbox-tree.h"
 #include "mailbox-list-subscriptions.h"
 #include "imapc-storage.h"
@@ -122,6 +124,7 @@ static void imapc_list_deinit(struct mailbox_list *_list)
 	}
 	if (list->index_list != NULL)
 		mailbox_list_destroy(&list->index_list);
+	settings_instance_free(&list->index_list_set_instance);
 	mailbox_tree_deinit(&list->mailboxes);
 	if (list->tmp_subscriptions != NULL)
 		mailbox_tree_deinit(&list->tmp_subscriptions);
@@ -425,7 +428,6 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 		/* indexes disabled */
 	} else if (list->index_list == NULL && !list->index_list_failed) {
 		mailbox_list_settings_init_defaults(&list_set);
-		list_set.layout = MAILBOX_LIST_NAME_MAILDIRPLUSPLUS;
 		list_set.root_dir = dir;
 		list_set.index_pvt_dir = p_strdup_empty(list->list.pool, list->list.set.index_pvt_dir);
 		/* Filesystem needs to be able to store any kind of a mailbox
@@ -433,16 +435,37 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 		list_set.storage_name_escape_char =
 			IMAPC_LIST_FS_NAME_ESCAPE_CHAR;
 
+		struct settings_instance *set_instance =
+			mail_storage_service_user_get_settings_instance(
+				list->list.ns->user->service_user);
+		list->index_list_set_instance =
+			settings_instance_dup(set_instance);
+		mail_storage_2nd_settings_reset(list->index_list_set_instance, "*/");
+		settings_override(list->index_list_set_instance,
+				  "*/mailbox_list_layout",
+				  MAILBOX_LIST_NAME_MAILDIRPLUSPLUS,
+				  SETTINGS_OVERRIDE_TYPE_CODE);
+
+		const struct mail_storage_settings *mail_set = NULL;
 		struct event *event = event_create(list->list.event);
-		if (mailbox_list_create(list_set.layout, event, list->list.ns,
-					&list_set, list->list.mail_set,
-					MAILBOX_LIST_FLAG_SECONDARY,
-					&list->index_list, &error) < 0) {
+		event_set_ptr(event, SETTINGS_EVENT_INSTANCE,
+			      list->index_list_set_instance);
+		event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
+			      MAILBOX_LIST_NAME_MAILDIRPLUSPLUS);
+		if (settings_get(event, &mail_storage_setting_parser_info, 0,
+				 &mail_set, &error) < 0) {
+			e_error(list->list.event, "%s", error);
+			list->index_list_failed = TRUE;
+		} else if (mailbox_list_create(event, list->list.ns,
+					       &list_set, mail_set,
+					       MAILBOX_LIST_FLAG_SECONDARY,
+					       &list->index_list, &error) < 0) {
 			e_error(list->list.event,
 				"imapc: Couldn't create %s mailbox list: %s",
-				list_set.layout, error);
+				MAILBOX_LIST_NAME_MAILDIRPLUSPLUS, error);
 			list->index_list_failed = TRUE;
 		}
+		settings_free(mail_set);
 		event_unref(&event);
 	}
 	return list->index_list;
@@ -973,7 +996,7 @@ int imapc_list_get_mailbox_flags(struct mailbox_list *_list, const char *name,
 	}
 
 	if (list->mailboxes == NULL) {
-		/* imapc list isn't used, but e.g. LAYOUT=none */
+		/* imapc list isn't used, but e.g. mailbox_list_layout=none */
 		*flags_r = 0;
 		return 0;
 	}

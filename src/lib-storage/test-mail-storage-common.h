@@ -14,7 +14,6 @@ struct test_mail_storage_ctx {
 struct test_mail_storage_settings {
 	const char *username;
 	const char *driver;
-	const char *driver_opts;
 	const char *hierarchy_sep;
 	const char *const *extra_input;
 };

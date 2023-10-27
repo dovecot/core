@@ -76,6 +76,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(BOOL, mailbox_list_index),
 	DEF(BOOL, mailbox_list_index_very_dirty_syncs),
 	DEF(BOOL, mailbox_list_index_include_inbox),
+	DEF(STR, mailbox_list_layout),
 	DEF(STR, mailbox_list_index_prefix),
 	DEF(BOOL_HIDDEN, mailbox_list_iter_from_index_dir),
 	DEF(BOOL_HIDDEN, mailbox_list_drop_noselect),
@@ -143,6 +144,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mailbox_list_index = TRUE,
 	.mailbox_list_index_very_dirty_syncs = FALSE,
 	.mailbox_list_index_include_inbox = FALSE,
+	.mailbox_list_layout = "fs",
 	.mailbox_list_index_prefix = "dovecot.list.index",
 	.mailbox_list_iter_from_index_dir = FALSE,
 	.mailbox_list_drop_noselect = TRUE,
@@ -985,6 +987,7 @@ bool mail_user_set_get_postmaster_smtp(const struct mail_user_settings *set,
 #define OFFSET(name) offsetof(struct mail_storage_settings, name)
 static const size_t mail_storage_2nd_reset_offsets[] = {
 	OFFSET(mail_location),
+	OFFSET(mailbox_list_layout),
 	OFFSET(mailbox_list_index_prefix),
 	OFFSET(mailbox_list_iter_from_index_dir),
 	OFFSET(mailbox_root_directory_name),

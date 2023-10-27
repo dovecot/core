@@ -44,7 +44,8 @@ enum mailbox_list_flags {
 	MAILBOX_LIST_FLAG_SECONDARY		= 0x02,
 	/* There are no mail files, only index and/or control files. */
 	MAILBOX_LIST_FLAG_NO_MAIL_FILES		= 0x04,
-	/* LAYOUT=index: Don't delete any files in delete_mailbox(). */
+	/* mailbox_list_layout=index: Don't delete any files in
+	   delete_mailbox(). */
 	MAILBOX_LIST_FLAG_NO_DELETES		= 0x08
 };
 
@@ -113,7 +114,6 @@ enum mailbox_list_get_storage_flags {
 };
 
 struct mailbox_list_settings {
-	const char *layout; /* FIXME: shouldn't be here */
 	const char *root_dir;
 	const char *index_dir;
 	const char *index_pvt_dir;
@@ -190,9 +190,7 @@ void mailbox_list_unregister(const struct mailbox_list *list);
 const struct mailbox_list *
 mailbox_list_find_class(const char *driver);
 
-/* Returns 0 if ok, -1 if driver was unknown. */
-int mailbox_list_create(const char *driver, struct event *event,
-			struct mail_namespace *ns,
+int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 			const struct mailbox_list_settings *set,
 			const struct mail_storage_settings *mail_set,
 			enum mailbox_list_flags flags,

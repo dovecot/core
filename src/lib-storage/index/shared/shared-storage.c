@@ -100,14 +100,6 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	return 0;
 }
 
-static void
-shared_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
-				 struct mailbox_list_settings *set,
-				 const struct mail_storage_settings *mail_set ATTR_UNUSED)
-{
-	set->layout = "shared";
-}
-
 static const char *
 get_nonexistent_user_location(struct shared_storage *storage,
 			      const char *username)
@@ -482,7 +474,7 @@ struct mail_storage shared_storage = {
 		shared_storage_create,
 		index_storage_destroy,
 		NULL,
-		shared_storage_get_list_settings,
+		NULL,
 		NULL,
 		fail_mailbox_alloc,
 		NULL,

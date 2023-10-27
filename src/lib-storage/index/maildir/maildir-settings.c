@@ -26,11 +26,17 @@ static const struct maildir_settings maildir_default_settings = {
 	.maildir_empty_new = FALSE
 };
 
+static const struct setting_keyvalue maildir_default_filter_settings_keyvalue[] = {
+	{ "maildir/mailbox_list_layout", "maildir++" },
+	{ NULL, NULL }
+};
+
 const struct setting_parser_info maildir_setting_parser_info = {
 	.name = "maildir",
 
 	.defines = maildir_setting_defines,
 	.defaults = &maildir_default_settings,
+	.default_filter_settings = maildir_default_filter_settings_keyvalue,
 
 	.struct_size = sizeof(struct maildir_settings),
 	.pool_offset1 = 1 + offsetof(struct maildir_settings, pool),

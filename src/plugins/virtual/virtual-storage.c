@@ -104,15 +104,6 @@ virtual_storage_create(struct mail_storage *_storage,
 	return 0;
 }
 
-static void
-virtual_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
-				  struct mailbox_list_settings *set,
-				  const struct mail_storage_settings *mail_set ATTR_UNUSED)
-{
-	if (set->layout == NULL)
-		set->layout = MAILBOX_LIST_NAME_FS;
-}
-
 struct virtual_backend_box *
 virtual_backend_box_lookup_name(struct virtual_mailbox *mbox, const char *name)
 {
@@ -931,7 +922,7 @@ struct mail_storage virtual_storage = {
 		virtual_storage_create,
 		index_storage_destroy,
 		NULL,
-		virtual_storage_get_list_settings,
+		NULL,
 		NULL,
 		virtual_mailbox_alloc,
 		NULL,

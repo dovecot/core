@@ -89,14 +89,11 @@ static void maildir_storage_destroy(struct mail_storage *_storage)
 static void
 maildir_storage_get_list_settings(const struct mail_namespace *ns,
 				  struct mailbox_list_settings *set,
-				  const struct mail_storage_settings *mail_set ATTR_UNUSED)
+				  const struct mail_storage_settings *mail_set)
 {
-	if (set->layout == NULL)
-		set->layout = MAILBOX_LIST_NAME_MAILDIRPLUSPLUS;
-
 	if (set->inbox_path == NULL && *set->maildir_name == '\0' &&
-	    (strcmp(set->layout, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0 ||
-	     strcmp(set->layout, MAILBOX_LIST_NAME_FS) == 0) &&
+	    (strcmp(mail_set->mailbox_list_layout, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0 ||
+	     strcmp(mail_set->mailbox_list_layout, MAILBOX_LIST_NAME_FS) == 0) &&
 	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
 		/* Maildir++ INBOX is the Maildir base itself */
 		set->inbox_path = set->root_dir;
@@ -571,7 +568,7 @@ maildir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 {
 	const char *root_dir, *shared_path;
 	/* allow physical location to exist when we rebuild list index, this
-	   happens with LAYOUT=INDEX only. */
+	   happens with mailbox_list_layout=index only. */
 	bool verify = box->storage->rebuilding_list_index;
 	struct stat st;
 	int ret;
