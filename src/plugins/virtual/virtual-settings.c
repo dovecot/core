@@ -13,11 +13,17 @@ static const struct setting_define virtual_setting_defines[] = {
 static const struct virtual_settings virtual_default_settings = {
 };
 
+static const struct setting_keyvalue virtual_default_filter_settings_keyvalue[] = {
+	{ "virtual/mailbox_subscriptions_filename", ".virtual-subscriptions" },
+	{ NULL, NULL }
+};
+
 const struct setting_parser_info virtual_setting_parser_info = {
 	.name = "virtual",
 
 	.defines = virtual_setting_defines,
 	.defaults = &virtual_default_settings,
+	.default_filter_settings = virtual_default_filter_settings_keyvalue,
 
 	.struct_size = sizeof(struct virtual_settings),
 	.pool_offset1 = 1 + offsetof(struct virtual_settings, pool),

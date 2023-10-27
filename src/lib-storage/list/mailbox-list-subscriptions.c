@@ -127,11 +127,13 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 	type = src_list->set.control_dir != NULL ?
 		MAILBOX_LIST_PATH_TYPE_CONTROL : MAILBOX_LIST_PATH_TYPE_DIR;
 	if (!mailbox_list_get_root_path(src_list, type, &path) ||
-	    src_list->set.subscription_fname == NULL) {
+	    src_list->mail_set->mailbox_subscriptions_filename[0] == '\0') {
 		/* no subscriptions (e.g. pop3c) */
 		return 0;
 	}
-	path = t_strconcat(path, "/", src_list->set.subscription_fname, NULL);
+	path = t_strconcat(path, "/",
+			   src_list->mail_set->mailbox_subscriptions_filename,
+			   NULL);
 	if (stat(path, &st) < 0) {
 		if (errno == ENOENT) {
 			/* no subscriptions */

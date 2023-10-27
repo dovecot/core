@@ -218,7 +218,7 @@ static int index_list_set_subscribed(struct mailbox_list *_list,
 	struct index_mailbox_list *list = (struct index_mailbox_list *)_list;
 	const char *path;
 
-	if (_list->set.subscription_fname == NULL) {
+	if (_list->mail_set->mailbox_subscriptions_filename[0] == '\0') {
 		mailbox_list_set_error(_list, MAIL_ERROR_NOTPOSSIBLE,
 				       "Subscriptions not supported");
 		return -1;
@@ -226,7 +226,8 @@ static int index_list_set_subscribed(struct mailbox_list *_list,
 
 	path = t_strconcat(_list->set.control_dir != NULL ?
 			   _list->set.control_dir : _list->set.root_dir,
-			   "/", _list->set.subscription_fname, NULL);
+			   "/", _list->mail_set->mailbox_subscriptions_filename,
+			   NULL);
 	return subsfile_set_subscribed(_list, path, list->temp_prefix,
 				       name, set);
 }

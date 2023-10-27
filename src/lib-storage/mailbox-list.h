@@ -121,7 +121,6 @@ struct mailbox_list_settings {
 	const char *alt_dir; /* FIXME: dbox-specific.. */
 
 	const char *inbox_path;
-	const char *subscription_fname;
 	/* If non-empty, it means that mails exist in a maildir_name
 	   subdirectory. eg. if you have a directory containing directories:
 
