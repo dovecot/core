@@ -205,8 +205,8 @@ mail_storage_list_remove_duplicate(struct mail_storage_list_index_rebuild_ctx *c
 	const char *delete_name, *keep_name;
 
 	if (strcmp(box->list->name, MAILBOX_LIST_NAME_INDEX) != 0) {
-		/* we're not using LAYOUT=index. not really supported now,
-		   but just ignore that in here. */
+		/* we're not using mailbox_list_layout=index. not really
+		   supported now, but just ignore that in here. */
 		return 0;
 	}
 	/* we'll need to delete one of these entries. if one of them begins with

@@ -103,8 +103,7 @@ mailbox_list_find_class(const char *driver)
 	return array_idx_elem(&mailbox_list_drivers, idx);
 }
 
-int mailbox_list_create(const char *driver, struct event *event,
-			struct mail_namespace *ns,
+int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 			const struct mailbox_list_settings *set,
 			const struct mail_storage_settings *mail_set,
 			enum mailbox_list_flags flags,
@@ -116,7 +115,7 @@ int mailbox_list_create(const char *driver, struct event *event,
 	i_assert(ns->list == NULL ||
 		 (flags & MAILBOX_LIST_FLAG_SECONDARY) != 0);
 
-	if ((class = mailbox_list_find_class(driver)) == NULL) {
+	if ((class = mailbox_list_find_class(mail_set->mailbox_list_layout)) == NULL) {
 		*error_r = "Unknown driver name";
 		return -1;
 	}
@@ -315,9 +314,7 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 		else if (strcmp(key, "ALTNOCHECK") == 0) {
 			set_r->alt_dir_nocheck = TRUE;
 			continue;
-		} else if (strcmp(key, "LAYOUT") == 0)
-			dest = &set_r->layout;
-		else if (strcmp(key, "DIRNAME") == 0)
+		} else if (strcmp(key, "DIRNAME") == 0)
 			dest = &set_r->maildir_name;
 		else if (strcmp(key, "FULLDIRNAME") == 0) {
 			set_r->index_control_use_maildir_name = TRUE;

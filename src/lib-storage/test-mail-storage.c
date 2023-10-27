@@ -402,25 +402,29 @@ test_mailbox_verify_name_continue(struct mailbox_verify_test_cases *test_cases,
 	}
 }
 
-static void test_mailbox_verify_name_driver_slash(const char *driver,
-						  const char *driver_opts,
-						  struct test_mail_storage_ctx *ctx)
+static void
+test_mailbox_verify_name_driver_slash(const char *driver,
+				      const char *mailbox_list_layout,
+				      struct test_mail_storage_ctx *ctx)
 {
+	const char *layout_option =
+		mailbox_list_layout[0] == '\0' ? NULL :
+		t_strdup_printf("mailbox_list_layout=%s", mailbox_list_layout);
 	const char *const ns2[] = {
 		"namespace=subspace",
 		"namespace/subspace/separator=/",
 		"namespace/subspace/prefix=SubSpace/",
+		layout_option,
 		NULL
 	};
 	struct test_mail_storage_settings set = {
 		.driver = driver,
-		.driver_opts = driver_opts,
 		.hierarchy_sep = "/",
 		.extra_input = ns2,
 	};
 	test_mail_storage_init_user(ctx, &set);
 
-	if (strcmp(driver_opts, ":LAYOUT=INDEX") == 0)
+	if (strcmp(mailbox_list_layout, "index") == 0)
 		test_mailbox_verify_name_continue(layout_index_test_cases, N_ELEMENTS(layout_index_test_cases), ctx);
 	else
 		test_mailbox_verify_name_continue(test_cases, N_ELEMENTS(test_cases), ctx);
@@ -428,25 +432,29 @@ static void test_mailbox_verify_name_driver_slash(const char *driver,
 	test_mail_storage_deinit_user(ctx);
 }
 
-static void test_mailbox_verify_name_driver_dot(const char *driver,
-						const char *driver_opts,
-						struct test_mail_storage_ctx *ctx)
+static void
+test_mailbox_verify_name_driver_dot(const char *driver,
+				    const char *mailbox_list_layout,
+				    struct test_mail_storage_ctx *ctx)
 {
+	const char *layout_option =
+		mailbox_list_layout[0] == '\0' ? NULL :
+		t_strdup_printf("mailbox_list_layout=%s", mailbox_list_layout);
 	const char *const ns2[] = {
 		"namespace=subspace",
 		"namespace/subspace/separator=.",
 		"namespace/subspace/prefix=SubSpace.",
+		layout_option,
 		NULL
 	};
 	struct test_mail_storage_settings set = {
 		.driver = driver,
-		.driver_opts = driver_opts,
 		.hierarchy_sep = ".",
 		.extra_input = ns2,
 	};
 	test_mail_storage_init_user(ctx, &set);
 
-	if (strcmp(driver_opts, ":LAYOUT=INDEX") == 0)
+	if (strcmp(mailbox_list_layout, "index") == 0)
 		test_mailbox_verify_name_continue(layout_index_test_cases, N_ELEMENTS(layout_index_test_cases), ctx);
 	else
 		test_mailbox_verify_name_continue(test_cases, N_ELEMENTS(test_cases), ctx);
@@ -459,27 +467,29 @@ static void test_mailbox_verify_name(void)
 	struct {
 		const char *name;
 		const char *driver;
-		const char *opts;
+		const char *mailbox_list_layout;
 	} test_cases[] = {
 		{ "mbox", "mbox", "" },
-		{ "mbox LAYOUT=FS", "mbox", ":LAYOUT=FS" },
-		{ "mbox LAYOUT=INDEX", "mbox", ":LAYOUT=INDEX" },
-		{ "maildir LAYOUT=INDEX", "maildir", ":LAYOUT=INDEX" },
+		{ "mbox mailbox_list_layout=fs", "mbox", "fs" },
+		{ "mbox mailbox_list_layout=index", "mbox", "index" },
+		{ "maildir mailbox_list_layout=index", "maildir", "index" },
 		{ "sdbox", "sdbox", "" },
-		{ "sdbox LAYOUT=FS", "sdbox", ":LAYOUT=FS" },
-		{ "sdbox LAYOUT=INDEX", "sdbox", ":LAYOUT=INDEX" },
+		{ "sdbox mailbox_list_layout=fs", "sdbox", "fs" },
+		{ "sdbox mailbox_list_layout=index", "sdbox", "index" },
 		{ "mdbox", "mdbox", "" },
-		{ "mdbox LAYOUT=FS", "mdbox", ":LAYOUT=FS" },
-		{ "mdbox LAYOUT=INDEX", "mdbox", ":LAYOUT=INDEX" },
+		{ "mdbox mailbox_list_layout=fs", "mdbox", "fs" },
+		{ "mdbox mailbox_list_layout=index", "mdbox", "index" },
 	};
 	struct test_mail_storage_ctx *ctx = test_mail_storage_init();
 
 	for(unsigned int i = 0; i < N_ELEMENTS(test_cases); i++) T_BEGIN {
 		test_begin(t_strdup_printf("mailbox_verify_name (%s SEP=.)", test_cases[i].name));
-		test_mailbox_verify_name_driver_dot(test_cases[i].driver, test_cases[i].opts, ctx);
+		test_mailbox_verify_name_driver_dot(test_cases[i].driver,
+			test_cases[i].mailbox_list_layout, ctx);
 		test_end();
 		test_begin(t_strdup_printf("mailbox_verify_name (%s SEP=/)", test_cases[i].name));
-		test_mailbox_verify_name_driver_slash(test_cases[i].driver, test_cases[i].opts, ctx);
+		test_mailbox_verify_name_driver_slash(test_cases[i].driver,
+			test_cases[i].mailbox_list_layout, ctx);
 		test_end();
 	} T_END;
 
@@ -537,19 +547,23 @@ static void test_mailbox_list_maildir_continue(struct test_mail_storage_ctx *ctx
 }
 
 static void test_mailbox_list_maildir_init(struct test_mail_storage_ctx *ctx,
-					   const char *driver_opts, const char *sep)
+					   const char *mailbox_list_layout,
+					   const char *sep)
 {
 	const char *error ATTR_UNUSED;
+	const char *layout_option =
+		mailbox_list_layout[0] == '\0' ? NULL :
+		t_strdup_printf("mailbox_list_layout=%s", mailbox_list_layout);
 	const char *const ns2[] = {
 		"namespace=subspace",
 		t_strdup_printf("namespace/subspace/separator=%s", sep),
 		t_strdup_printf("namespace/subspace/prefix=SubSpace%s", sep),
+		layout_option,
 		NULL
 	};
 
 	struct test_mail_storage_settings set = {
 		.driver = "maildir",
-		.driver_opts = driver_opts,
 		.hierarchy_sep = sep,
 		.extra_input = ns2,
 	};
@@ -590,20 +604,20 @@ static void test_mailbox_list_maildir(void)
 {
 	struct test_mail_storage_ctx *ctx = test_mail_storage_init();
 
-	test_begin("mailbox_verify_name (maildir SEP=.)");
+	test_begin("mailbox_verify_name (maildir separator=.)");
 	test_mailbox_list_maildir_init(ctx, "", ".");
 	test_end();
 
-	test_begin("mailbox_verify_name (maildir SEP=/)");
+	test_begin("mailbox_verify_name (maildir separator=/)");
 	test_mailbox_list_maildir_init(ctx, "", "/");
 	test_end();
 
-	test_begin("mailbox_verify_name (maildir SEP=. LAYOUT=FS)");
-	test_mailbox_list_maildir_init(ctx, "LAYOUT=FS", ".");
+	test_begin("mailbox_verify_name (maildir separator=. mailbox_list_layout=fs)");
+	test_mailbox_list_maildir_init(ctx, "fs", ".");
 	test_end();
 
-	test_begin("mailbox_verify_name (maildir SEP=/ LAYOUT=FS)");
-	test_mailbox_list_maildir_init(ctx, "LAYOUT=FS", "/");
+	test_begin("mailbox_verify_name (maildir separator=/ mailbox_list_layout=fs)");
+	test_mailbox_list_maildir_init(ctx, "fs", "/");
 	test_end();
 
 	test_mail_storage_deinit(&ctx);

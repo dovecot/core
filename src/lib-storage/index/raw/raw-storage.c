@@ -36,7 +36,8 @@ raw_storage_create_from_set(struct mail_storage_service_ctx *ctx,
 	const struct master_service_settings *service_set =
 		master_service_get_service_settings(master_service);
 	const char *const code_override_fields[] = {
-		"mail_location=raw::LAYOUT=none",
+		"mail_location=raw:",
+		"mailbox_list_layout=none",
 		/* use unwritable home directory */
 		t_strdup_printf("mail_home=%s/empty", service_set->base_dir),
 		/* absolute paths are ok with raw storage */
@@ -143,15 +144,6 @@ static struct mail_storage *raw_storage_alloc(void)
 	return &storage->storage;
 }
 
-static void
-raw_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
-			      struct mailbox_list_settings *set,
-			      const struct mail_storage_settings *mail_set ATTR_UNUSED)
-{
-	if (set->layout == NULL)
-		set->layout = MAILBOX_LIST_NAME_FS;
-}
-
 static struct mailbox *
 raw_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		  const char *vname, enum mailbox_flags flags)
@@ -241,7 +233,7 @@ struct mail_storage raw_storage = {
 		NULL,
 		index_storage_destroy,
 		NULL,
-		raw_storage_get_list_settings,
+		NULL,
 		NULL,
 		raw_mailbox_alloc,
 		NULL,

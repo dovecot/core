@@ -21,15 +21,6 @@ static void fail_storage_destroy(struct mail_storage *storage ATTR_UNUSED)
 {
 }
 
-static void
-fail_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
-			       struct mailbox_list_settings *set,
-			       const struct mail_storage_settings *mail_set ATTR_UNUSED)
-{
-	if (set->layout == NULL)
-		set->layout = "fail";
-}
-
 struct mail_storage fail_storage = {
 	.name = "fail",
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_NO_ROOT,
@@ -39,7 +30,7 @@ struct mail_storage fail_storage = {
 		NULL,
 		fail_storage_destroy,
 		NULL,
-		fail_storage_get_list_settings,
+		NULL,
 		NULL,
 		fail_mailbox_alloc,
 		NULL,

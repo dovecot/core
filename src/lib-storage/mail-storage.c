@@ -201,8 +201,8 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 		/* no root directory given. is this allowed? */
 		const struct mailbox_list *list;
 
-		list = list_set->layout == NULL ? NULL :
-			mailbox_list_find_class(list_set->layout);
+		list = mail_set->mailbox_list_layout[0] == '\0' ? NULL :
+			mailbox_list_find_class(mail_set->mailbox_list_layout);
 		if (storage_class == NULL &&
 		    (flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) == 0) {
 			/* autodetection should take care of this */
@@ -346,10 +346,25 @@ mail_storage_find(struct mail_user *user,
 	return NULL;
 }
 
+static void
+mail_storage_create_ns_instance(struct mail_namespace *ns,
+				struct event *set_event)
+{
+	if (ns->_set_instance != NULL)
+		return;
+
+	struct settings_instance *set_instance =
+		mail_storage_service_user_get_settings_instance(
+			ns->user->service_user);
+	ns->_set_instance = settings_instance_dup(set_instance);
+	event_set_ptr(set_event, SETTINGS_EVENT_INSTANCE, ns->_set_instance);
+}
+
 static int
 mail_storage_create_list(struct mail_namespace *ns,
 			 struct mail_storage *storage_class,
 			 struct event *set_event,
+			 enum mail_storage_flags flags,
 			 struct mailbox_list_settings *list_set,
 			 const char **error_r)
 {
@@ -369,6 +384,13 @@ mail_storage_create_list(struct mail_namespace *ns,
 		      (void *)storage_class->name);
 	event_add_str(set_event, "namespace", ns->set->name);
 
+	if ((flags & MAIL_STORAGE_FLAG_SHARED_DYNAMIC) != 0) {
+		mail_storage_create_ns_instance(ns, set_event);
+		settings_override(ns->_set_instance,
+				  "*/mailbox_list_layout", "shared",
+				  SETTINGS_OVERRIDE_TYPE_CODE);
+	}
+
 	const struct mail_storage_settings *mail_set;
 	if (settings_get(set_event, &mail_storage_setting_parser_info, 0,
 			 &mail_set, error_r) < 0) {
@@ -378,11 +400,13 @@ mail_storage_create_list(struct mail_namespace *ns,
 
 	struct event *event = event_create(ns->user->event);
 	event_add_str(event, "namespace", ns->set->name);
-	int ret = mailbox_list_create(list_set->layout, event, ns, list_set,
+	if (storage_class->v.get_list_settings != NULL)
+		storage_class->v.get_list_settings(ns, list_set, mail_set);
+	int ret = mailbox_list_create(event, ns, list_set,
 				      mail_set, list_flags, &list, error_r);
 	if (ret < 0) {
-		*error_r = t_strdup_printf("Mailbox list driver %s: %s",
-					   list_set->layout, *error_r);
+		*error_r = t_strdup_printf("mailbox_list_layout %s: %s",
+			mail_set->mailbox_list_layout, *error_r);
 	}
 	settings_free(mail_set);
 	event_unref(&event);
@@ -400,6 +424,9 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 	struct mailbox_list_settings list_set;
 	const char *p, *data, *driver = NULL;
 
+	/* Lookup initial mailbox list settings. Once they're found, another
+	   settings lookup is done with mailbox format as an additional
+	   filter. */
 	if (settings_get(set_event, &mail_storage_setting_parser_info, 0,
 			 &mail_set, error_r) < 0)
 		return -1;
@@ -425,13 +452,10 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 	if (storage_class == NULL)
 		return -1;
 
-	storage_class->v.get_list_settings(ns, &list_set, NULL);
-	i_assert(list_set.layout != NULL);
-
 	if (ns->list == NULL) {
 		/* first storage for namespace */
-		if (mail_storage_create_list(ns, storage_class, set_event, &list_set,
-					     error_r) < 0)
+		if (mail_storage_create_list(ns, storage_class, set_event,
+					     flags, &list_set, error_r) < 0)
 			return -1;
 		if ((storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) == 0) {
 			if (mail_storage_create_root(ns->list, flags, error_r) < 0)
@@ -1416,9 +1440,10 @@ static int mailbox_verify_name_int(struct mailbox *box)
 	/* If namespace { separator } differs from the mailbox_list separator,
 	   the list separator can't actually be used in the mailbox name
 	   unless it's escaped with storage_name_escape_char. For example if
-	   namespace separator is '/' and LAYOUT=Maildir++ has '.' as the
-	   separator, there's no way to use '.' in the mailbox name (without
-	   escaping) because it would end up becoming a hierarchy separator. */
+	   namespace separator is '/' and mailbox_list_layout=Maildir++ has '.'
+	   as the separator, there's no way to use '.' in the mailbox name
+	   (without escaping) because it would end up becoming a hierarchy
+	   separator. */
 	if (ns_sep != list_sep &&
 	    box->list->set.storage_name_escape_char == '\0' &&
 	    strchr(vname, list_sep) != NULL) {
@@ -1914,7 +1939,8 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	struct event_reason *reason = event_reason_begin("mailbox:create");
 
 	/* Avoid race conditions by keeping mailbox list locked during changes.
-	   This especially fixes a race during INBOX creation with LAYOUT=index
+	   This especially fixes a race during INBOX creation with
+	   mailbox_list_layout=index
 	   because it scans for missing mailboxes if INBOX doesn't exist. The
 	   second process's scan can find a half-created INBOX and add it,
 	   causing the first process to become confused. */
@@ -2073,7 +2099,7 @@ static int mailbox_delete_real(struct mailbox *box)
 	mailbox_close(box);
 
 	/* if mailbox is reopened, its path may be different with
-	   LAYOUT=index */
+	   mailbox_list_layout=index */
 	mailbox_close_reset_path(box);
 	event_reason_end(&reason);
 	return ret;

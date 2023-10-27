@@ -49,7 +49,7 @@ static struct mailbox_list *index_list_alloc(void)
 static int index_list_init(struct mailbox_list *_list, const char **error_r)
 {
 	if (!_list->mail_set->mailbox_list_index) {
-		*error_r = "LAYOUT=index requires mailbox_list_index=yes";
+		*error_r = "mailbox_list_layout=index requires mailbox_list_index=yes";
 		return -1;
 	}
 	return 0;

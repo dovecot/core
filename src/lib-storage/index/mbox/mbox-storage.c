@@ -213,14 +213,12 @@ static void mbox_storage_destroy(struct mail_storage *_storage)
 static void
 mbox_storage_get_list_settings(const struct mail_namespace *ns,
 			       struct mailbox_list_settings *set,
-			       const struct mail_storage_settings *mail_set ATTR_UNUSED)
+			       const struct mail_storage_settings *mail_set)
 {
 	struct event *event = ns->user->event;
-	if (set->layout == NULL)
-		set->layout = MAILBOX_LIST_NAME_FS;
 
 	if (set->inbox_path == NULL &&
-	    strcasecmp(set->layout, MAILBOX_LIST_NAME_FS) == 0) {
+	    strcasecmp(mail_set->mailbox_list_layout, MAILBOX_LIST_NAME_FS) == 0) {
 		set->inbox_path = t_strconcat(set->root_dir, "/inbox", NULL);
 		e_debug(event, "mbox: INBOX defaulted to %s", set->inbox_path);
 	}

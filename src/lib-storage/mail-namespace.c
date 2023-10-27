@@ -387,7 +387,9 @@ int mail_namespaces_init_finish(struct mail_namespace *namespaces,
 				user->service_user);
 		set_instance = settings_instance_dup(set_instance);
 		settings_override(set_instance,
-				  "mail_location", "fail::LAYOUT=none",
+				  "mail_location", "fail:",
+				  SETTINGS_OVERRIDE_TYPE_CODE);
+		settings_override(set_instance, "*/mailbox_list_layout", "none",
 				  SETTINGS_OVERRIDE_TYPE_CODE);
 
 		struct event *set_event = event_create(user->event);

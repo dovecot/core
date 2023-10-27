@@ -71,8 +71,8 @@ int mailbox_list_index_index_open(struct mailbox_list *list)
 
 	index_flags = mail_storage_settings_to_index_flags(set);
 	if (strcmp(list->name, MAILBOX_LIST_NAME_INDEX) == 0) {
-		/* LAYOUT=index. this is the only location for the mailbox
-		   data, so we must never move it into memory. */
+		/* mailbox_list_layout=index. This is the only location for
+		   the mailbox data, so we must never move it into memory. */
 		index_flags |= MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY;
 	}
 	lock_timeout = set->mail_max_lock_timeout == 0 ? UINT_MAX :
@@ -103,7 +103,7 @@ int mailbox_list_index_index_open(struct mailbox_list *list)
 		if (mail_index_move_to_memory(ilist->index) < 0) {
 			/* try opening once more. it should be created
 			   directly into memory now, except if it fails with
-			   LAYOUT=index backend. */
+			   mailbox_list_layout=index backend. */
 			if (mail_index_open_or_create(ilist->index,
 						      index_flags) < 0) {
 				mailbox_list_set_internal_error(list);

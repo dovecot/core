@@ -56,6 +56,7 @@ struct mail_storage_settings {
 	bool mailbox_list_index;
 	bool mailbox_list_index_very_dirty_syncs;
 	bool mailbox_list_index_include_inbox;
+	const char *mailbox_list_layout;
 	const char *mailbox_list_index_prefix;
 	bool mailbox_list_iter_from_index_dir;
 	bool mailbox_list_drop_noselect;
