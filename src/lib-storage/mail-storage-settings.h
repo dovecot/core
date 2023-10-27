@@ -5,6 +5,9 @@
 #include "fsync-mode.h"
 #include "mailbox-list.h"
 
+/* mail_index_path setting points to using in-memory indexes */
+#define MAIL_INDEX_PATH_MEMORY "MEMORY"
+
 struct mail_user;
 struct mail_namespace;
 struct mail_storage;
@@ -63,6 +66,7 @@ struct mail_storage_settings {
 	bool mailbox_list_validate_fs_names;
 	const char *mailbox_root_directory_name;
 	const char *mailbox_subscriptions_filename;
+	const char *mail_index_path;
 	const char *mail_index_private_path;
 	const char *mail_cache_path;
 	const char *mail_control_path;

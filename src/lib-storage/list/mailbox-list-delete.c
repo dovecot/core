@@ -266,7 +266,7 @@ static bool mailbox_list_path_is_index(struct mailbox_list *list,
 	if (type == MAILBOX_LIST_PATH_TYPE_INDEX)
 		return TRUE;
 
-	/* e.g. mail_control_path could point to the same INDEX dir. */
+	/* e.g. mail_control_path could point to the same as mail_index_path. */
 	type_root = mailbox_list_get_root_forced(list, type);
 	index_root = mailbox_list_get_root_forced(list, MAILBOX_LIST_PATH_TYPE_INDEX);
 	return strcmp(type_root, index_root) == 0;
@@ -359,15 +359,15 @@ static int mailbox_list_try_delete(struct mailbox_list *list, const char *name,
 	    mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_INDEX,
 				  &index_path) > 0 &&
 	    strcmp(index_path, path) == 0) {
-		/* mail_control_path is the same as INDEX dir, which we already
-		   deleted. We don't want to continue especially with
+		/* mail_control_path is the same as mail_index_path, which we
+		   already deleted. We don't want to continue especially with
 		   mailbox_list_iter_from_index_dir=yes, because it could be
 		   deleting the index directory. */
 		return 0;
 	}
 
 	/* Note that only mail_alt_path currently uses maildir_name in paths.
-	   INDEX and mail_control_path don't. */
+	   mail_index_path and mail_control_path don't. */
 	if (type != MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX ||
 	    *list->set.maildir_name == '\0') {
 		/* this directory may contain also child mailboxes' data.

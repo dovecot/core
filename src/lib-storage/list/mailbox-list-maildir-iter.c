@@ -444,7 +444,7 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		'\0' : list->sep;
 
 	if (_list->mail_set->mailbox_list_iter_from_index_dir)
-		ctx->dir = _list->set.index_dir;
+		ctx->dir = _list->mail_set->mail_index_path;
 	else
 		ctx->dir = _list->set.root_dir;
 

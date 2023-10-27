@@ -105,19 +105,6 @@ pop3c_client_create_from_set(struct mail_storage *storage,
 	return pop3c_client_init(&client_set, storage->event);
 }
 
-static void
-pop3c_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
-				struct mailbox_list_settings *set,
-				const struct mail_storage_settings *mail_set ATTR_UNUSED)
-{
-	if (set->root_dir != NULL && *set->root_dir != '\0' &&
-	    set->index_dir == NULL) {
-	       /* we don't really care about root_dir, but we
-		  just need to get index_dir autocreated. */
-		set->index_dir = set->root_dir;
-	}
-}
-
 static struct mailbox *
 pop3c_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		    const char *vname, enum mailbox_flags flags)
@@ -323,7 +310,7 @@ struct mail_storage pop3c_storage = {
 		pop3c_storage_create,
 		pop3c_storage_destroy,
 		NULL,
-		pop3c_storage_get_list_settings,
+		NULL,
 		NULL,
 		pop3c_mailbox_alloc,
 		NULL,

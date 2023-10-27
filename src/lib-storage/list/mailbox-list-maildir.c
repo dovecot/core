@@ -144,11 +144,12 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 		}
 		/* fall through */
 	case MAILBOX_LIST_PATH_TYPE_INDEX:
-		if (_list->set.index_dir != NULL) {
-			if (*_list->set.index_dir == '\0')
+		if (_list->mail_set->mail_index_path[0] != '\0') {
+			if (strcmp(_list->mail_set->mail_index_path,
+				   MAIL_INDEX_PATH_MEMORY) == 0)
 				return 0;
 			*path_r = maildir_list_get_dirname_path(_list,
-						_list->set.index_dir, name);
+				_list->mail_set->mail_index_path, name);
 			return 1;
 		}
 		break;

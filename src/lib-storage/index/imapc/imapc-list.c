@@ -420,11 +420,15 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 	struct mailbox_list_settings list_set;
 	const char *error, *dir;
 
-	dir = list->list.set.index_dir;
-	if (dir == NULL)
+	if (list->list.mail_set->mail_index_path[0] == '\0')
 		dir = list->list.set.root_dir;
+	else if (strcmp(list->list.mail_set->mail_index_path,
+			MAIL_INDEX_PATH_MEMORY) == 0)
+		dir = "";
+	else
+		dir = list->list.mail_set->mail_index_path;
 
-	if (dir == NULL || dir[0] == '\0') {
+	if (dir[0] == '\0') {
 		/* indexes disabled */
 	} else if (list->index_list == NULL && !list->index_list_failed) {
 		mailbox_list_settings_init_defaults(&list_set);
