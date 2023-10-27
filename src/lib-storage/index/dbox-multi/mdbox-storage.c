@@ -145,7 +145,6 @@ static bool mdbox_storage_autodetect(const struct mail_namespace *ns,
 	}
 
 	set->root_dir = root_dir;
-	dbox_storage_get_list_settings(ns, set);
 	return TRUE;
 }
 
