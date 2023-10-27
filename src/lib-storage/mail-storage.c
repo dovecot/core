@@ -367,15 +367,23 @@ mail_storage_create_list(struct mail_namespace *ns,
 	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
 		      (void *)storage_class->name);
 	event_add_str(event, "namespace", ns->set->name);
-	if (mailbox_list_create(list_set->layout, event, ns, list_set,
-				list_flags, &list, error_r) < 0) {
-		*error_r = t_strdup_printf("Mailbox list driver %s: %s",
-					   list_set->layout, *error_r);
+
+	const struct mail_storage_settings *mail_set;
+	if (settings_get(event, &mail_storage_setting_parser_info, 0,
+			 &mail_set, error_r) < 0) {
 		event_unref(&event);
 		return -1;
 	}
+
+	int ret = mailbox_list_create(list_set->layout, event, ns, list_set,
+				      mail_set, list_flags, &list, error_r);
+	if (ret < 0) {
+		*error_r = t_strdup_printf("Mailbox list driver %s: %s",
+					   list_set->layout, *error_r);
+	}
+	settings_free(mail_set);
 	event_unref(&event);
-	return 0;
+	return ret;
 }
 
 static int

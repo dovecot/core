@@ -13,6 +13,7 @@ struct fs;
 struct mail_namespace;
 struct mail_storage;
 struct mailbox_list;
+struct mail_storage_settings;
 
 enum mailbox_list_properties {
 	/* maildir_name must always be empty */
@@ -193,6 +194,7 @@ mailbox_list_find_class(const char *driver);
 int mailbox_list_create(const char *driver, struct event *event,
 			struct mail_namespace *ns,
 			const struct mailbox_list_settings *set,
+			const struct mail_storage_settings *mail_set,
 			enum mailbox_list_flags flags,
 			struct mailbox_list **list_r, const char **error_r);
 void mailbox_list_destroy(struct mailbox_list **list);
