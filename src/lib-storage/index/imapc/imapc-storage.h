@@ -10,8 +10,6 @@
 #define IMAPC_LIST_STORAGE_NAME_ESCAPE_CHAR '%'
 /* fs_name separator */
 #define IMAPC_LIST_FS_NAME_ESCAPE_CHAR '%'
-/* vname separator */
-#define IMAPC_LIST_VNAME_ESCAPE_CHAR '~'
 
 struct imap_arg;
 struct imapc_untagged_reply;
