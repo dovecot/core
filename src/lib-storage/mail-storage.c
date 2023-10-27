@@ -384,12 +384,16 @@ mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
 			list_flags |= MAILBOX_LIST_FLAG_NO_MAIL_FILES;
 		if ((storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_LIST_DELETES) != 0)
 			list_flags |= MAILBOX_LIST_FLAG_NO_DELETES;
-		if (mailbox_list_create(list_set.layout, ns, &list_set,
+		struct event *event = event_create(ns->user->event);
+		event_add_str(event, "namespace", ns->set->name);
+		if (mailbox_list_create(list_set.layout, event, ns, &list_set,
 					list_flags, &list, error_r) < 0) {
 			*error_r = t_strdup_printf("Mailbox list driver %s: %s",
 						   list_set.layout, *error_r);
+			event_unref(&event);
 			return -1;
 		}
+		event_unref(&event);
 		if ((storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) == 0) {
 			if (mail_storage_create_root(ns->list, flags, error_r) < 0)
 				return -1;
