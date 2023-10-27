@@ -102,7 +102,8 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 
 static void
 shared_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
-				 struct mailbox_list_settings *set)
+				 struct mailbox_list_settings *set,
+				 const struct mail_storage_settings *mail_set ATTR_UNUSED)
 {
 	set->layout = "shared";
 }

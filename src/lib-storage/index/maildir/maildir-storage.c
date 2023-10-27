@@ -86,8 +86,10 @@ static void maildir_storage_destroy(struct mail_storage *_storage)
 	index_storage_destroy(_storage);
 }
 
-static void maildir_storage_get_list_settings(const struct mail_namespace *ns,
-					      struct mailbox_list_settings *set)
+static void
+maildir_storage_get_list_settings(const struct mail_namespace *ns,
+				  struct mailbox_list_settings *set,
+				  const struct mail_storage_settings *mail_set ATTR_UNUSED)
 {
 	if (set->layout == NULL)
 		set->layout = MAILBOX_LIST_NAME_MAILDIRPLUSPLUS;
