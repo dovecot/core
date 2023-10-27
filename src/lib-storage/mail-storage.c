@@ -218,10 +218,8 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 		}
 	}
 
-	if (storage_class != NULL) {
-		storage_class->v.get_list_settings(ns, list_set);
+	if (storage_class != NULL)
 		return storage_class;
-	}
 
 	storage_class = mail_storage_autodetect(ns, list_set);
 	if (storage_class != NULL)
@@ -384,6 +382,8 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 	settings_free(mail_set);
 	if (storage_class == NULL)
 		return -1;
+
+	storage_class->v.get_list_settings(ns, &list_set);
 	i_assert(list_set.layout != NULL);
 
 	if (ns->list == NULL) {

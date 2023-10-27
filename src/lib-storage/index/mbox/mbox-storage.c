@@ -356,8 +356,6 @@ static bool mbox_storage_autodetect(const struct mail_namespace *ns,
 	}
 	set->root_dir = root_dir;
 	set->inbox_path = inbox_path;
-
-	mbox_storage_get_list_settings(ns, set);
 	return TRUE;
 }
 

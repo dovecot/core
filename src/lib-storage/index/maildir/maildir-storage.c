@@ -159,7 +159,6 @@ static bool maildir_storage_autodetect(const struct mail_namespace *ns,
 	}
 
 	set->root_dir = root_dir;
-	maildir_storage_get_list_settings(ns, set);
 	return TRUE;
 }
 
