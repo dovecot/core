@@ -347,15 +347,45 @@ mail_storage_find(struct mail_user *user,
 }
 
 static int
+mail_storage_create_list(struct mail_namespace *ns,
+			 struct mail_storage *storage_class,
+			 struct mailbox_list_settings *list_set,
+			 const char **error_r)
+{
+	enum mailbox_list_flags list_flags = 0;
+	if (mail_storage_is_mailbox_file(storage_class))
+		list_flags |= MAILBOX_LIST_FLAG_MAILBOX_FILES;
+	if ((storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) != 0)
+		list_flags |= MAILBOX_LIST_FLAG_NO_MAIL_FILES;
+	if ((storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_LIST_DELETES) != 0)
+		list_flags |= MAILBOX_LIST_FLAG_NO_DELETES;
+
+	struct mailbox_list *list;
+	struct event *event = event_create(ns->user->event);
+	/* Lookup storage-specific settings, especially to get
+	   storage-specific defaults for mailbox list settings. */
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
+		      (void *)storage_class->name);
+	event_add_str(event, "namespace", ns->set->name);
+	if (mailbox_list_create(list_set->layout, event, ns, list_set,
+				list_flags, &list, error_r) < 0) {
+		*error_r = t_strdup_printf("Mailbox list driver %s: %s",
+					   list_set->layout, *error_r);
+		event_unref(&event);
+		return -1;
+	}
+	event_unref(&event);
+	return 0;
+}
+
+static int
 mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 			 enum mail_storage_flags flags,
 			 struct mail_storage **storage_r, const char **error_r)
 {
 	struct mail_storage *storage_class, *storage = NULL;
-	struct mailbox_list *list;
 	const struct mail_storage_settings *mail_set;
 	struct mailbox_list_settings list_set;
-	enum mailbox_list_flags list_flags = 0;
 	const char *p, *data, *driver = NULL;
 
 	if (settings_get(set_event, &mail_storage_setting_parser_info, 0,
@@ -388,26 +418,9 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 
 	if (ns->list == NULL) {
 		/* first storage for namespace */
-		if (mail_storage_is_mailbox_file(storage_class))
-			list_flags |= MAILBOX_LIST_FLAG_MAILBOX_FILES;
-		if ((storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) != 0)
-			list_flags |= MAILBOX_LIST_FLAG_NO_MAIL_FILES;
-		if ((storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_LIST_DELETES) != 0)
-			list_flags |= MAILBOX_LIST_FLAG_NO_DELETES;
-		struct event *event = event_create(ns->user->event);
-		/* Lookup storage-specific settings, especially to get
-		   storage-specific defaults for mailbox list settings. */
-		event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
-			      (void *)storage_class->name);
-		event_add_str(event, "namespace", ns->set->name);
-		if (mailbox_list_create(list_set.layout, event, ns, &list_set,
-					list_flags, &list, error_r) < 0) {
-			*error_r = t_strdup_printf("Mailbox list driver %s: %s",
-						   list_set.layout, *error_r);
-			event_unref(&event);
+		if (mail_storage_create_list(ns, storage_class, &list_set,
+					     error_r) < 0)
 			return -1;
-		}
-		event_unref(&event);
 		if ((storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) == 0) {
 			if (mail_storage_create_root(ns->list, flags, error_r) < 0)
 				return -1;
