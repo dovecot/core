@@ -44,6 +44,4 @@ void sasl_server_auth_failed(struct client *client, const char *reason,
    "*" line. */
 void sasl_server_auth_abort(struct client *client);
 
-bool sasl_server_auth_handle_delayed_final(struct client *client);
-
 #endif

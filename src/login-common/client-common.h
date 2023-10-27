@@ -209,8 +209,6 @@ struct client {
 	struct auth_client_request *reauth_request;
 	string_t *auth_response;
 	struct timeval auth_first_started, auth_finished;
-	enum sasl_server_reply delayed_final_reply;
-	const char *const *final_args;
 	const char *const *auth_passdb_args;
 	const char *auth_success_data;
 	struct anvil_query *anvil_query;
@@ -284,7 +282,6 @@ struct client {
 	bool auth_initializing:1;
 	bool auth_process_comm_fail:1;
 	bool auth_anonymous:1;
-	bool auth_nologin:1;
 	bool auth_nologin_referral:1;
 	bool proxy_auth_failed:1;
 	bool proxy_noauth:1;
@@ -296,7 +293,6 @@ struct client {
 	bool fd_proxying:1;
 	bool shutting_down:1;
 	bool resource_constraint:1;
-	bool final_response:1;
 	/* ... */
 };
 

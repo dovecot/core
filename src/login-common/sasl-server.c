@@ -322,10 +322,10 @@ args_parse_user(struct client *client, const char *key, const char *value)
 }
 
 static void
-sasl_server_auth_success_finish(struct client *client, const char *data,
-				const char *const *args)
+sasl_server_auth_success_finish(struct client *client, bool nologin,
+				const char *data, const char *const *args)
 {
-	if (client->auth_nologin) {
+	if (nologin) {
 		client->authenticating = FALSE;
 		call_client_callback(client, SASL_SERVER_REPLY_SUCCESS,
 				     data, args);
@@ -344,6 +344,7 @@ authenticate_callback(struct auth_client_request *request,
 		      const char *const *args, void *context)
 {
 	struct client *client = context;
+	bool nologin;
 	unsigned int i;
 
 	if (!client->authenticating) {
@@ -373,6 +374,7 @@ authenticate_callback(struct auth_client_request *request,
 		client->auth_passdb_args = p_strarray_dup(client->pool, args);
 		client->postlogin_socket_path = NULL;
 
+		nologin = FALSE;
 		for (i = 0; args[i] != NULL; i++) {
 			const char *key, *value;
 			t_split_key_value_eq(args[i], &key, &value);
@@ -386,7 +388,7 @@ authenticate_callback(struct auth_client_request *request,
 			} else if (strcmp(key, "nologin") == 0 ||
 				   strcmp(key, "proxy") == 0) {
 				/* user can't login */
-				client->auth_nologin = TRUE;
+				nologin = TRUE;
 			} else if (strcmp(key, "anonymous") == 0) {
 				client->auth_anonymous = TRUE;
 			} else if (str_begins(args[i], "event_", &key)) {
@@ -394,16 +396,8 @@ authenticate_callback(struct auth_client_request *request,
 			}
 		}
 
-		if (data_base64 != NULL &&
-		    !login_binary->sasl_support_final_reply) {
-			client->final_response = TRUE;
-			client->final_args = p_strarray_dup(client->preproxy_pool, args);
-			client->delayed_final_reply = SASL_SERVER_REPLY_SUCCESS;
-			client->sasl_callback(client, SASL_SERVER_REPLY_CONTINUE,
-					      data_base64, NULL);
-		} else {
-			sasl_server_auth_success_finish(client, data_base64, args);
-		}
+		sasl_server_auth_success_finish(client, nologin,
+						data_base64, args);
 		break;
 	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
 		client->auth_process_comm_fail = TRUE;
@@ -422,18 +416,9 @@ authenticate_callback(struct auth_client_request *request,
 			}
 		}
 
-		if (data_base64 != NULL &&
-		    !login_binary->sasl_support_final_reply) {
-			client->final_response = TRUE;
-			client->final_args = p_strarray_dup(client->preproxy_pool, args);
-			client->delayed_final_reply = SASL_SERVER_REPLY_AUTH_FAILED;
-			client->sasl_callback(client, SASL_SERVER_REPLY_CONTINUE,
-					      data_base64, NULL);
-		} else {
-			client->authenticating = FALSE;
-			call_client_callback(client, SASL_SERVER_REPLY_AUTH_FAILED,
-					     NULL, args);
-		}
+		client->authenticating = FALSE;
+		call_client_callback(client, SASL_SERVER_REPLY_AUTH_FAILED,
+				     NULL, args);
 		break;
 	}
 }
@@ -542,7 +527,6 @@ void sasl_server_auth_begin(struct client *client, const char *mech_name,
 
 	client->auth_attempts++;
 	client->auth_aborted_by_client = FALSE;
-	client->auth_nologin = FALSE;
 	client->authenticating = TRUE;
 	client->master_auth_id = 0;
 	if (client->auth_first_started.tv_sec == 0)
@@ -603,7 +587,6 @@ sasl_server_auth_cancel(struct client *client, const char *reason,
 	}
 
 	client->authenticating = FALSE;
-	client->final_response = FALSE;
 	if (client->auth_request != NULL)
 		auth_client_request_abort(&client->auth_request, reason);
 	if (client->master_auth_id != 0)
@@ -642,27 +625,4 @@ void sasl_server_auth_abort(struct client *client)
 	}
 	sasl_server_auth_cancel(client, "Aborted", NULL,
 				SASL_SERVER_REPLY_AUTH_ABORTED);
-}
-
-bool sasl_server_auth_handle_delayed_final(struct client *client)
-{
-	/* This has to happen before * handling, otherwise
-	   client can abort failed request. */
-	if (!client->final_response)
-		return FALSE;
-	client->final_response = FALSE;
-	client->auth_client_continue_pending = FALSE;
-
-	if (client->delayed_final_reply == SASL_SERVER_REPLY_SUCCESS) {
-		const char *const *args = client->final_args;
-
-		sasl_server_auth_success_finish(client, NULL, args);
-		return TRUE;
-	}
-
-	client->authenticating = FALSE;
-	call_client_callback(client, client->delayed_final_reply,
-			     NULL, client->final_args);
-
-	return TRUE;
 }
