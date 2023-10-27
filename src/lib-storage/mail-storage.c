@@ -385,6 +385,10 @@ mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
 		if ((storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_LIST_DELETES) != 0)
 			list_flags |= MAILBOX_LIST_FLAG_NO_DELETES;
 		struct event *event = event_create(ns->user->event);
+		/* Lookup storage-specific settings, especially to get
+		   storage-specific defaults for mailbox list settings. */
+		event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
+			      (void *)storage_class->name);
 		event_add_str(event, "namespace", ns->set->name);
 		if (mailbox_list_create(list_set.layout, event, ns, &list_set,
 					list_flags, &list, error_r) < 0) {
