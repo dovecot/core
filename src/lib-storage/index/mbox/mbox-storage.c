@@ -126,7 +126,7 @@ mbox_list_get_path(struct mailbox_list *list, const char *name,
 	case MAILBOX_LIST_PATH_TYPE_INDEX_CACHE:
 	case MAILBOX_LIST_PATH_TYPE_LIST_INDEX:
 		if (name == NULL && type == MAILBOX_LIST_PATH_TYPE_CONTROL &&
-		    list->set.control_dir != NULL) {
+		    list->mail_set->mail_control_path[0] != '\0') {
 			/* kind of a kludge for backwards compatibility:
 			   the subscriptions file is in the root control_dir
 			   without .imap/ suffix */

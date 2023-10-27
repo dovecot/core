@@ -130,9 +130,9 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 		root_dir = _list->mail_set->mail_alt_path;
 		break;
 	case MAILBOX_LIST_PATH_TYPE_CONTROL:
-		if (_list->set.control_dir != NULL) {
+		if (_list->mail_set->mail_control_path[0] != '\0') {
 			*path_r = maildir_list_get_dirname_path(_list,
-					       _list->set.control_dir, name);
+				_list->mail_set->mail_control_path, name);
 			return 1;
 		}
 		break;
@@ -197,8 +197,9 @@ static int maildir_list_set_subscribed(struct mailbox_list *_list,
 		return -1;
 	}
 
-	path = t_strconcat(_list->set.control_dir != NULL ?
-			   _list->set.control_dir : _list->set.root_dir,
+	path = t_strconcat(_list->mail_set->mail_control_path[0] != '\0' ?
+			   _list->mail_set->mail_control_path :
+			   _list->set.root_dir,
 			   "/", _list->mail_set->mailbox_subscriptions_filename,
 			   NULL);
 

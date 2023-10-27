@@ -160,9 +160,6 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 		list->set.index_cache_dir = set->index_cache_dir == NULL ||
 			strcmp(set->index_cache_dir, set->root_dir) == 0 ? NULL :
 			p_strdup(list->pool, set->index_cache_dir);
-		list->set.control_dir = set->control_dir == NULL ||
-			strcmp(set->control_dir, set->root_dir) == 0 ? NULL :
-			p_strdup(list->pool, set->control_dir);
 	}
 
 	list->set.inbox_path = p_strdup(list->pool, set->inbox_path);
@@ -194,8 +191,7 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 		list->set.root_dir == NULL ? "" : list->set.root_dir,
 		list->set.index_dir == NULL ? "" : list->set.index_dir,
 		list->set.index_pvt_dir == NULL ? "" : list->set.index_pvt_dir,
-		list->set.control_dir == NULL ?
-		"" : list->set.control_dir,
+		mail_set->mail_control_path,
 		list->set.inbox_path == NULL ?
 		"" : list->set.inbox_path,
 		mail_set->mail_alt_path);
@@ -305,8 +301,6 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 			dest = &set_r->index_pvt_dir;
 		else if (strcmp(key, "INDEXCACHE") == 0)
 			dest = &set_r->index_cache_dir;
-		else if (strcmp(key, "CONTROL") == 0)
-			dest = &set_r->control_dir;
 		else if (strcmp(key, "DIRNAME") == 0)
 			dest = &set_r->maildir_name;
 		else if (strcmp(key, "FULLDIRNAME") == 0) {
@@ -378,6 +372,9 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 		return "";
 
 	switch (type) {
+	case MAILBOX_LIST_PATH_TYPE_CONTROL:
+		type = MAILBOX_LIST_PATH_TYPE_DIR;
+		break;
 	case MAILBOX_LIST_PATH_TYPE_LIST_INDEX:
 		type = MAILBOX_LIST_PATH_TYPE_INDEX;
 		break;
@@ -1407,8 +1404,6 @@ mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
 	case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
 		break;
 	case MAILBOX_LIST_PATH_TYPE_CONTROL:
-		path = set->control_dir != NULL ?
-			set->control_dir : set->root_dir;
 		break;
 	case MAILBOX_LIST_PATH_TYPE_LIST_INDEX:
 		break;
@@ -1458,6 +1453,10 @@ bool mailbox_list_default_get_root_path(struct mailbox_list *list,
 			path = t_strconcat(mail_set->mail_alt_path, "/",
 				mail_set->mailbox_root_directory_name, NULL);
 		}
+		break;
+	case MAILBOX_LIST_PATH_TYPE_CONTROL:
+		path = mail_set->mail_control_path[0] != '\0' ?
+			mail_set->mail_control_path : list->set.root_dir;
 		break;
 	case MAILBOX_LIST_PATH_TYPE_LIST_INDEX:
 		if (mail_set->parsed_list_index_dir != NULL) {
