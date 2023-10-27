@@ -104,5 +104,6 @@ AC_DEFUN([DOVECOT_WANT_GSSAPI], [
       ])
     ])
   ])
+  AM_CONDITIONAL(HAVE_GSSAPI, test "$have_gssapi" != "no")
   AM_CONDITIONAL(GSSAPI_PLUGIN, test "$have_gssapi_plugin" = "yes")
 ])
