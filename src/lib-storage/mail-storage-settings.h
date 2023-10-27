@@ -60,6 +60,7 @@ struct mail_storage_settings {
 	bool mailbox_list_iter_from_index_dir;
 	bool mailbox_list_drop_noselect;
 	bool mailbox_list_validate_fs_names;
+	const char *mail_volatile_path;
 	bool mail_full_filesystem_access;
 	bool maildir_stat_dirs;
 	bool mail_shared_explicit_inbox;

@@ -3538,7 +3538,7 @@ int mailbox_lock_file_create(struct mailbox *box, const char *lock_fname,
 	set.gid = perm->file_create_gid;
 	set.gid_origin = perm->file_create_gid_origin;
 
-	if (box->list->set.volatile_dir == NULL)
+	if (box->list->mail_set->mail_volatile_path[0] == '\0')
 		lock_path = t_strdup_printf("%s/%s", box->index->dir, lock_fname);
 	else {
 		unsigned char box_name_sha1[SHA1_RESULTLEN];
@@ -3550,7 +3550,7 @@ int mailbox_lock_file_create(struct mailbox *box, const char *lock_fname,
 		   structure would be pretty troublesome. It would also make
 		   it more difficult to perform the automated deletion of empty
 		   lock directories. */
-		str_printfa(str, "%s/%s.", box->list->set.volatile_dir,
+		str_printfa(str, "%s/%s.", box->list->mail_set->mail_volatile_path,
 			    lock_fname);
 		sha1_get_digest(box->name, strlen(box->name), box_name_sha1);
 		binary_to_hex_append(str, box_name_sha1, sizeof(box_name_sha1));

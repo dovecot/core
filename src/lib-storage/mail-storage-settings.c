@@ -80,6 +80,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(BOOL_HIDDEN, mailbox_list_iter_from_index_dir),
 	DEF(BOOL_HIDDEN, mailbox_list_drop_noselect),
 	DEF(BOOL_HIDDEN, mailbox_list_validate_fs_names),
+	DEF(STR, mail_volatile_path),
 	DEF(BOOL_HIDDEN, mail_full_filesystem_access),
 	DEF(BOOL, maildir_stat_dirs),
 	DEF(BOOL, mail_shared_explicit_inbox),
@@ -144,6 +145,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mailbox_list_iter_from_index_dir = FALSE,
 	.mailbox_list_drop_noselect = TRUE,
 	.mailbox_list_validate_fs_names = TRUE,
+	.mail_volatile_path = "",
 	.mail_full_filesystem_access = FALSE,
 	.maildir_stat_dirs = FALSE,
 	.mail_shared_explicit_inbox = FALSE,
@@ -972,6 +974,7 @@ static const size_t mail_storage_2nd_reset_offsets[] = {
 	OFFSET(mail_location),
 	OFFSET(mailbox_list_index_prefix),
 	OFFSET(mailbox_list_iter_from_index_dir),
+	OFFSET(mail_volatile_path),
 };
 
 static void
