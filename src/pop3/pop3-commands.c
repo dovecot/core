@@ -678,11 +678,13 @@ pop3_get_uid(struct client *client, struct mail *mail, string_t *str,
 	};
 	const char *error;
 
-	if (var_expand(str, client->inbox_ns->mail_set->pop3_uidl_format,
+	const struct mail_storage_settings *mail_set =
+		mail_user_set_get_storage_set(client->user);
+	if (var_expand(str, mail_set->pop3_uidl_format,
 		       tab, &error) <= 0) {
 		e_error(client->event,
 			"UIDL: Failed to expand pop3_uidl_format=%s: %s",
-			client->inbox_ns->mail_set->pop3_uidl_format, error);
+			mail_set->pop3_uidl_format, error);
 		return -1;
 	}
 	return 0;

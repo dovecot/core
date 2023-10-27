@@ -365,9 +365,11 @@ int pop3_lock_session(struct client *client)
 	}
 	path = t_strdup_printf("%s/"POP3_LOCK_FNAME, dir);
 
+	const struct mail_storage_settings *mail_set =
+		mail_user_set_get_storage_set(client->user);
 	dotlock_set = session_dotlock_set;
-	dotlock_set.use_excl_lock = client->inbox_ns->mail_set->dotlock_use_excl;
-	dotlock_set.nfs_flush = client->inbox_ns->mail_set->mail_nfs_storage;
+	dotlock_set.use_excl_lock = mail_set->dotlock_use_excl;
+	dotlock_set.nfs_flush = mail_set->mail_nfs_storage;
 
 	ret = file_dotlock_create(&dotlock_set, path, 0,
 				  &client->session_dotlock);

@@ -406,11 +406,11 @@ mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
 	}
 
 	if ((flags & MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) == 0 &&
-	    ns->mail_set->pop3_uidl_format != NULL) {
+	    ns->list->mail_set->pop3_uidl_format != NULL) {
 		/* if pop3_uidl_format contains %m, we want to keep the
 		   header MD5 sums stored even if we're not running POP3
 		   right now. */
-		p = ns->mail_set->pop3_uidl_format;
+		p = ns->list->mail_set->pop3_uidl_format;
 		while ((p = strchr(p, '%')) != NULL) {
 			if (p[1] == '%')
 				p += 2;
@@ -427,7 +427,8 @@ mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
 	storage->refcount = 1;
 	storage->storage_class = storage_class;
 	storage->user = ns->user;
-	storage->set = ns->mail_set;
+	storage->set = ns->list->mail_set;
+	pool_ref(storage->set->pool);
 	storage->flags = flags;
 	/* Set to UINT32_MAX manually to denote 'unset', as the default 0 is
 	   used for mails currently being saved. */
@@ -443,6 +444,7 @@ mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
 	if (storage->v.create != NULL &&
 	    storage->v.create(storage, ns, error_r) < 0) {
 		*error_r = t_strdup_printf("%s: %s", storage->name, *error_r);
+		settings_free(storage->set);
 		event_unref(&storage->event);
 		pool_unref(&storage->pool);
 		return -1;
@@ -544,6 +546,7 @@ void mail_storage_unref(struct mail_storage **_storage)
 	}
 	fs_unref(&storage->mailboxes_fs);
 	settings_instance_free(&storage->mailboxes_fs_set_instance);
+	settings_free(storage->set);
 	event_unref(&storage->event);
 
 	*_storage = NULL;
