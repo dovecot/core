@@ -128,7 +128,7 @@ int dbox_storage_create(struct mail_storage *_storage,
 		}
 	}
 
-	if (!ns->list->set.alt_dir_nocheck)
+	if (ns->list->mail_set->mail_alt_check)
 		dbox_verify_alt_path(ns->list, _storage->event);
 	return 0;
 }
