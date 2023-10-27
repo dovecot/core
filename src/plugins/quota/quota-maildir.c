@@ -236,7 +236,7 @@ maildirs_check_have_changed(struct maildir_quota_root *root,
 static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 {
 	const struct mail_storage_settings *set =
-		root->maildirsize_ns->mail_set;
+		mail_user_set_get_storage_set(root->root.quota->user);
 	struct quota_root *_root = &root->root;
 	struct mail_namespace *const *namespaces;
 	unsigned int i, count;

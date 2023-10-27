@@ -260,7 +260,7 @@ namespace_has_duplicate_listindex(struct mail_namespace *ns,
 	const char *ns_list_index_path, *ns_mailboxes_root;
 	const char *ns2_list_index_path, *ns2_mailboxes_root;
 
-	if (!ns->mail_set->mailbox_list_index) {
+	if (!ns->list->mail_set->mailbox_list_index) {
 		/* mailbox list indexes not in use */
 		return FALSE;
 	}
