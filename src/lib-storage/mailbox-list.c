@@ -399,6 +399,11 @@ int mailbox_list_settings_parse(struct mail_user *user, const char *data,
 						set_r, error_r);
 }
 
+static bool
+mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
+			       enum mailbox_list_path_type type,
+			       const char **path_r);
+
 const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 					     enum mailbox_list_path_type type)
 {
@@ -1415,9 +1420,10 @@ const char *mailbox_list_get_root_forced(struct mailbox_list *list,
 	return path;
 }
 
-bool mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
-				    enum mailbox_list_path_type type,
-				    const char **path_r)
+static bool
+mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
+			       enum mailbox_list_path_type type,
+			       const char **path_r)
 {
 	const char *path = NULL;
 
@@ -1490,6 +1496,13 @@ bool mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
 	}
 	*path_r = path;
 	return path != NULL;
+}
+
+bool mailbox_list_default_get_root_path(struct mailbox_list *list,
+					enum mailbox_list_path_type type,
+					const char **path_r)
+{
+	return mailbox_list_set_get_root_path(&list->set, type, path_r);
 }
 
 const char *mailbox_list_get_temp_prefix(struct mailbox_list *list)

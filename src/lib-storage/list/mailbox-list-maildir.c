@@ -108,8 +108,8 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 
 	if (name == NULL) {
 		/* return root directories */
-		return mailbox_list_set_get_root_path(&_list->set, type,
-						      path_r) ? 1 : 0;
+		return mailbox_list_default_get_root_path(_list, type,
+							  path_r) ? 1 : 0;
 	}
 
 	if (_list->mail_set->mail_full_filesystem_access &&
