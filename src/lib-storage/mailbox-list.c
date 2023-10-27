@@ -106,11 +106,11 @@ mailbox_list_find_class(const char *driver)
 int mailbox_list_create(const char *driver, struct event *event,
 			struct mail_namespace *ns,
 			const struct mailbox_list_settings *set,
+			const struct mail_storage_settings *mail_set,
 			enum mailbox_list_flags flags,
 			struct mailbox_list **list_r, const char **error_r)
 {
 	const struct mailbox_list *class;
-	const struct mail_storage_settings *mail_set;
 	struct mailbox_list *list;
 
 	i_assert(ns->list == NULL ||
@@ -131,10 +131,6 @@ int mailbox_list_create(const char *driver, struct event *event,
 		*error_r = "alt_dir not supported by this driver";
 		return -1;
 	}
-
-	if (settings_get(event, &mail_storage_setting_parser_info, 0,
-			 &mail_set, error_r) < 0)
-		return -1;
 
 	i_assert(set->root_dir == NULL || *set->root_dir != '\0' ||
 		 (class->props & MAILBOX_LIST_PROP_NO_ROOT) != 0);

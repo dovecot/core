@@ -435,7 +435,8 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 
 		struct event *event = event_create(list->list.event);
 		if (mailbox_list_create(list_set.layout, event, list->list.ns,
-					&list_set, MAILBOX_LIST_FLAG_SECONDARY,
+					&list_set, list->list.mail_set,
+					MAILBOX_LIST_FLAG_SECONDARY,
 					&list->index_list, &error) < 0) {
 			e_error(list->list.event,
 				"imapc: Couldn't create %s mailbox list: %s",
