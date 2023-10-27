@@ -230,7 +230,7 @@ int dbox_mailbox_check_existence(struct mailbox *box)
 	int ret = -1;
 	bool has_log_in_index_dir = FALSE;
 
-	if (box->list->set.index_dir != NULL) {
+	if (box->list->mail_set->mail_index_path[0] != '\0') {
 		/* Just because the index directory exists, it doesn't mean
 		   that the mailbox is selectable. Check that by seeing if
 		   dovecot.index.log exists. If it doesn't, fallback to

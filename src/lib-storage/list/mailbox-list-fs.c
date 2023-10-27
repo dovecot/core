@@ -81,7 +81,8 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 
 	if (mailbox_list_try_get_absolute_path(_list, &name)) {
 		if (type == MAILBOX_LIST_PATH_TYPE_INDEX &&
-		    *set->index_dir == '\0')
+		    strcmp(_list->mail_set->mail_index_path,
+			   MAIL_INDEX_PATH_MEMORY) == 0)
 			return 0;
 		*path_r = name;
 		return 1;
@@ -133,10 +134,12 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 		}
 		/* fall through */
 	case MAILBOX_LIST_PATH_TYPE_INDEX:
-		if (set->index_dir != NULL) {
-			if (*set->index_dir == '\0')
+		if (mail_set->mail_index_path[0] != '\0') {
+			if (strcmp(mail_set->mail_index_path,
+				   MAIL_INDEX_PATH_MEMORY) == 0)
 				return 0;
-			*path_r = fs_list_get_path_to(_list, set->index_dir, name);
+			*path_r = fs_list_get_path_to(_list,
+				mail_set->mail_index_path, name);
 			return 1;
 		}
 		break;

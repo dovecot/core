@@ -115,7 +115,6 @@ enum mailbox_list_get_storage_flags {
 
 struct mailbox_list_settings {
 	const char *root_dir;
-	const char *index_dir;
 
 	const char *inbox_path;
 	/* If non-empty, it means that mails exist in a maildir_name

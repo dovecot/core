@@ -351,8 +351,9 @@ static int sdbox_mailbox_open(struct mailbox *box)
 		return 0;
 	}
 
-	if (box->list->set.index_dir != NULL && existence_ret == 0) {
-		/* If there is an separate INDEX directory configured but no
+	if (box->list->mail_set->mail_index_path[0] != '\0' &&
+	    existence_ret == 0) {
+		/* If there is an separate mail_index_path configured but no
 		   index files found for this mailbox, do an index rebuild */
 		if (sdbox_sync(mbox, SDBOX_SYNC_FLAG_FORCE_REBUILD) < 0)
 			return -1;

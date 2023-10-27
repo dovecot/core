@@ -195,7 +195,7 @@ mail_cache_lookup_iter_next_record(struct mail_cache_lookup_iterate_ctx *ctx)
 		    view->trans_seq2 < ctx->seq)
 			return 0;
 		/* check data still in memory. this works for recent mails
-		   even with INDEX=MEMORY */
+		   even with mail_index_path=MEMORY */
 		if (!ctx->memory_appends_checked) {
 			if (mail_cache_lookup_iter_transaction(ctx))
 				return 1;

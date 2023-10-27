@@ -149,12 +149,8 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 		list->props |= MAILBOX_LIST_PROP_NO_NOSELECT;
 
 	/* copy settings */
-	if (set->root_dir != NULL) {
+	if (set->root_dir != NULL)
 		list->set.root_dir = p_strdup(list->pool, set->root_dir);
-		list->set.index_dir = set->index_dir == NULL ||
-			strcmp(set->index_dir, set->root_dir) == 0 ? NULL :
-			p_strdup(list->pool, set->index_dir);
-	}
 
 	list->set.inbox_path = p_strdup(list->pool, set->inbox_path);
 	list->set.maildir_name =
@@ -183,7 +179,7 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 		"%s: root=%s, index=%s, indexpvt=%s, control=%s, inbox=%s, alt=%s",
 		list->name,
 		list->set.root_dir == NULL ? "" : list->set.root_dir,
-		list->set.index_dir == NULL ? "" : list->set.index_dir,
+		mail_set->mail_index_path,
 		mail_set->mail_index_private_path,
 		mail_set->mail_control_path,
 		list->set.inbox_path == NULL ?
@@ -289,8 +285,6 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 
 		if (strcmp(key, "INBOX") == 0)
 			dest = &set_r->inbox_path;
-		else if (strcmp(key, "INDEX") == 0)
-			dest = &set_r->index_dir;
 		else if (strcmp(key, "DIRNAME") == 0)
 			dest = &set_r->maildir_name;
 		else if (strcmp(key, "FULLDIRNAME") == 0) {
@@ -312,9 +306,6 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 			return -1;
 		}
 	}
-
-	if (set_r->index_dir != NULL && strcmp(set_r->index_dir, "MEMORY") == 0)
-		set_r->index_dir = "";
 	return 0;
 }
 
@@ -363,6 +354,9 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 
 	switch (type) {
 	case MAILBOX_LIST_PATH_TYPE_CONTROL:
+		type = MAILBOX_LIST_PATH_TYPE_DIR;
+		break;
+	case MAILBOX_LIST_PATH_TYPE_INDEX:
 		type = MAILBOX_LIST_PATH_TYPE_DIR;
 		break;
 	case MAILBOX_LIST_PATH_TYPE_LIST_INDEX:
@@ -1400,15 +1394,6 @@ mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
 	case MAILBOX_LIST_PATH_TYPE_INDEX_CACHE:
 		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX:
-		if (set->index_dir != NULL) {
-			if (set->index_dir[0] == '\0') {
-				/* in-memory indexes */
-				return 0;
-			}
-			path = set->index_dir;
-		} else {
-			path = set->root_dir;
-		}
 		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
 		break;
@@ -1442,6 +1427,18 @@ bool mailbox_list_default_get_root_path(struct mailbox_list *list,
 		path = mail_set->mail_control_path[0] != '\0' ?
 			mail_set->mail_control_path : list->set.root_dir;
 		break;
+	case MAILBOX_LIST_PATH_TYPE_INDEX:
+		if (mail_set->mail_index_path[0] != '\0') {
+			if (strcmp(mail_set->mail_index_path,
+				   MAIL_INDEX_PATH_MEMORY) == 0) {
+				/* in-memory indexes */
+				return 0;
+			}
+			path = mail_set->mail_index_path;
+		} else {
+			path = list->set.root_dir;
+		}
+		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
 		path = mail_set->mail_index_private_path;
 		break;
@@ -1451,8 +1448,7 @@ bool mailbox_list_default_get_root_path(struct mailbox_list *list,
 			break;
 		}
 		/* default to index directory */
-		return mailbox_list_set_get_root_path(&list->set,
-			list->mail_set->parsed_mailbox_root_directory_prefix,
+		return mailbox_list_default_get_root_path(list,
 			MAILBOX_LIST_PATH_TYPE_INDEX, path_r);
 	case MAILBOX_LIST_PATH_TYPE_LIST_INDEX:
 		if (mail_set->parsed_list_index_dir != NULL) {
@@ -1461,16 +1457,14 @@ bool mailbox_list_default_get_root_path(struct mailbox_list *list,
 				break;
 			}
 			/* relative path */
-			if (!mailbox_list_set_get_root_path(&list->set,
-					list->mail_set->parsed_mailbox_root_directory_prefix,
+			if (!mailbox_list_default_get_root_path(list,
 					MAILBOX_LIST_PATH_TYPE_INDEX, &path))
 				i_unreached();
 			path = t_strconcat(path, "/",
 				mail_set->parsed_list_index_dir, NULL);
 		}
 		/* default to index directory */
-		return mailbox_list_set_get_root_path(&list->set,
-			list->mail_set->parsed_mailbox_root_directory_prefix,
+		return mailbox_list_default_get_root_path(list,
 			MAILBOX_LIST_PATH_TYPE_INDEX, path_r);
 	default:
 		return mailbox_list_set_get_root_path(&list->set,
