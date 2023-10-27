@@ -126,8 +126,9 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 		}
 		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX_CACHE:
-		if (set->index_cache_dir != NULL) {
-			*path_r = fs_list_get_path_to(_list, set->index_cache_dir, name);
+		if (mail_set->mail_cache_path[0] != '\0') {
+			*path_r = fs_list_get_path_to(_list,
+				mail_set->mail_cache_path, name);
 			return 1;
 		}
 		/* fall through */
