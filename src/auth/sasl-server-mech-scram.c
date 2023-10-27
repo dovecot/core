@@ -142,8 +142,9 @@ static const struct auth_scram_server_backend scram_server_backend = {
 	.credentials_lookup = mech_scram_credentials_lookup,
 };
 
-void mech_scram_auth_continue(struct sasl_server_mech_request *auth_request,
-			      const unsigned char *input, size_t input_len)
+static void
+mech_scram_auth_continue(struct sasl_server_mech_request *auth_request,
+			 const unsigned char *input, size_t input_len)
 {
 	struct scram_auth_request *request =
 		container_of(auth_request, struct scram_auth_request,
@@ -188,7 +189,7 @@ void mech_scram_auth_continue(struct sasl_server_mech_request *auth_request,
 	sasl_server_request_success(auth_request, output, output_len);
 }
 
-struct sasl_server_mech_request *
+static struct sasl_server_mech_request *
 mech_scram_auth_new(const struct sasl_server_mech *mech, pool_t pool)
 {
 	struct sasl_server_instance *sinst = mech->sinst;
@@ -232,7 +233,7 @@ static void mech_scram_auth_free(struct sasl_server_mech_request *auth_request)
 	auth_scram_server_deinit(&request->scram_server);
 }
 
-struct sasl_server_mech *mech_scram_mech_new(pool_t pool)
+static struct sasl_server_mech *mech_scram_mech_new(pool_t pool)
 {
 	struct scram_auth_mech *scram_mech;
 
@@ -241,7 +242,7 @@ struct sasl_server_mech *mech_scram_mech_new(pool_t pool)
 	return &scram_mech->mech;
 }
 
-static const struct sasl_server_mech_funcs mech_scram_sha1_funcs = {
+const struct sasl_server_mech_funcs sasl_server_mech_scram_funcs = {
 	.auth_new = mech_scram_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_scram_auth_continue,
@@ -256,7 +257,7 @@ static const struct sasl_server_mech_def mech_scram_sha1 = {
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH,
 	.passdb_need = SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
-	.funcs = &mech_scram_sha1_funcs,
+	.funcs = &sasl_server_mech_scram_funcs,
 };
 
 static const struct sasl_server_mech_def mech_scram_sha1_plus = {
@@ -265,14 +266,7 @@ static const struct sasl_server_mech_def mech_scram_sha1_plus = {
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH | SASL_MECH_SEC_CHANNEL_BINDING,
 	.passdb_need = SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
-	.funcs = &mech_scram_sha1_funcs,
-};
-
-static const struct sasl_server_mech_funcs mech_scram_sha256_funcs = {
-	.auth_new = mech_scram_auth_new,
-	.auth_initial = sasl_server_mech_generic_auth_initial,
-	.auth_continue = mech_scram_auth_continue,
-	.auth_free = mech_scram_auth_free,
+	.funcs = &sasl_server_mech_scram_funcs,
 };
 
 static const struct sasl_server_mech_def mech_scram_sha256 = {
@@ -281,7 +275,7 @@ static const struct sasl_server_mech_def mech_scram_sha256 = {
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH,
 	.passdb_need = SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
-	.funcs = &mech_scram_sha256_funcs,
+	.funcs = &sasl_server_mech_scram_funcs,
 };
 
 static const struct sasl_server_mech_def mech_scram_sha256_plus = {
@@ -290,7 +284,7 @@ static const struct sasl_server_mech_def mech_scram_sha256_plus = {
 	.flags = SASL_MECH_SEC_MUTUAL_AUTH | SASL_MECH_SEC_CHANNEL_BINDING,
 	.passdb_need = SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
 
-	.funcs = &mech_scram_sha256_funcs,
+	.funcs = &sasl_server_mech_scram_funcs,
 };
 
 void sasl_server_mech_register_scram(
@@ -300,6 +294,8 @@ void sasl_server_mech_register_scram(
 {
 	struct sasl_server_mech *mech;
 	struct scram_auth_mech *scram_mech;
+
+	i_assert(mech_def->funcs == &sasl_server_mech_scram_funcs);
 
 	mech = sasl_server_mech_register(sinst, mech_def);
 
