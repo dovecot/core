@@ -36,11 +36,17 @@ static const struct mbox_settings mbox_default_settings = {
 	.mbox_md5 = "apop3d:all"
 };
 
+static const struct setting_keyvalue mbox_default_filter_settings_keyvalue[] = {
+	{ "mbox/mailbox_subscriptions_filename", ".subscriptions" },
+	{ NULL, NULL }
+};
+
 const struct setting_parser_info mbox_setting_parser_info = {
 	.name = "mbox",
 
 	.defines = mbox_setting_defines,
 	.defaults = &mbox_default_settings,
+	.default_filter_settings = mbox_default_filter_settings_keyvalue,
 
 	.struct_size = sizeof(struct mbox_settings),
 	.pool_offset1 = 1 + offsetof(struct mbox_settings, pool),

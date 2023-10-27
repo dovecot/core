@@ -8,7 +8,6 @@ struct settings_instance;
 struct mail_storage_service_ctx;
 
 #define RAW_STORAGE_NAME "raw"
-#define RAW_SUBSCRIPTION_FILE_NAME "subscriptions"
 
 struct raw_storage {
 	struct mail_storage storage;

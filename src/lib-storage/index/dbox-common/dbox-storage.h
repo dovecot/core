@@ -8,7 +8,6 @@ struct dbox_mail;
 struct dbox_storage;
 struct dbox_save_context;
 
-#define DBOX_SUBSCRIPTION_FILE_NAME "subscriptions"
 #define DBOX_UIDVALIDITY_FILE_NAME "dovecot-uidvalidity"
 #define DBOX_TEMP_FILE_PREFIX ".temp."
 #define DBOX_ALT_SYMLINK_NAME "dbox-alt-root"

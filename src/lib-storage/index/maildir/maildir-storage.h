@@ -4,7 +4,6 @@
 #include "maildir-settings.h"
 
 #define MAILDIR_STORAGE_NAME "maildir"
-#define MAILDIR_SUBSCRIPTION_FILE_NAME "subscriptions"
 #define MAILDIR_UIDVALIDITY_FNAME "dovecot-uidvalidity"
 
 /* "base,S=123:2," means:

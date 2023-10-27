@@ -116,9 +116,6 @@ int mailbox_list_create(const char *driver, struct event *event,
 	i_assert(ns->list == NULL ||
 		 (flags & MAILBOX_LIST_FLAG_SECONDARY) != 0);
 
-	i_assert(set->subscription_fname == NULL ||
-		 *set->subscription_fname != '\0');
-
 	if ((class = mailbox_list_find_class(driver)) == NULL) {
 		*error_r = "Unknown driver name";
 		return -1;
@@ -174,8 +171,6 @@ int mailbox_list_create(const char *driver, struct event *event,
 	}
 
 	list->set.inbox_path = p_strdup(list->pool, set->inbox_path);
-	list->set.subscription_fname =
-		p_strdup(list->pool, set->subscription_fname);
 	list->set.maildir_name =
 		p_strdup(list->pool, set->maildir_name);
 	list->set.alt_dir = p_strdup(list->pool, set->alt_dir);
@@ -326,8 +321,6 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 			continue;
 		} else if (strcmp(key, "LAYOUT") == 0)
 			dest = &set_r->layout;
-		else if (strcmp(key, "SUBSCRIPTIONS") == 0)
-			dest = &set_r->subscription_fname;
 		else if (strcmp(key, "DIRNAME") == 0)
 			dest = &set_r->maildir_name;
 		else if (strcmp(key, "FULLDIRNAME") == 0) {

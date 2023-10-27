@@ -216,8 +216,6 @@ static void mbox_storage_get_list_settings(const struct mail_namespace *ns,
 	struct event *event = ns->user->event;
 	if (set->layout == NULL)
 		set->layout = MAILBOX_LIST_NAME_FS;
-	if (set->subscription_fname == NULL)
-		set->subscription_fname = MBOX_SUBSCRIPTION_FILE_NAME;
 
 	if (set->inbox_path == NULL &&
 	    strcasecmp(set->layout, MAILBOX_LIST_NAME_FS) == 0) {

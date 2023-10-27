@@ -110,8 +110,6 @@ virtual_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 {
 	if (set->layout == NULL)
 		set->layout = MAILBOX_LIST_NAME_FS;
-	if (set->subscription_fname == NULL)
-		set->subscription_fname = VIRTUAL_SUBSCRIPTION_FILE_NAME;
 }
 
 struct virtual_backend_box *

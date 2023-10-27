@@ -27,8 +27,6 @@ fail_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 {
 	if (set->layout == NULL)
 		set->layout = "fail";
-	if (set->subscription_fname == NULL)
-		set->subscription_fname = "subscriptions";
 }
 
 struct mail_storage fail_storage = {

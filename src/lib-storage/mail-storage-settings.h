@@ -61,6 +61,7 @@ struct mail_storage_settings {
 	bool mailbox_list_drop_noselect;
 	bool mailbox_list_validate_fs_names;
 	const char *mailbox_root_directory_name;
+	const char *mailbox_subscriptions_filename;
 	const char *mail_volatile_path;
 	bool mail_full_filesystem_access;
 	bool maildir_stat_dirs;

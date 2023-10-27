@@ -202,7 +202,7 @@ static int fs_list_set_subscribed(struct mailbox_list *_list,
 	enum mailbox_list_path_type type;
 	const char *path;
 
-	if (_list->set.subscription_fname == NULL) {
+	if (_list->mail_set->mailbox_subscriptions_filename[0] == '\0') {
 		mailbox_list_set_error(_list, MAIL_ERROR_NOTPOSSIBLE,
 				       "Subscriptions not supported");
 		return -1;
@@ -212,7 +212,8 @@ static int fs_list_set_subscribed(struct mailbox_list *_list,
 		MAILBOX_LIST_PATH_TYPE_CONTROL : MAILBOX_LIST_PATH_TYPE_DIR;
 
 	path = t_strconcat(mailbox_list_get_root_forced(_list, type),
-			   "/", _list->set.subscription_fname, NULL);
+			   "/", _list->mail_set->mailbox_subscriptions_filename,
+			   NULL);
 	return subsfile_set_subscribed(_list, path, list->temp_prefix,
 				       name, set);
 }
