@@ -83,6 +83,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(BOOL_HIDDEN, mailbox_list_validate_fs_names),
 	DEF(STR_HIDDEN, mailbox_root_directory_name),
 	DEF(STR_HIDDEN, mailbox_subscriptions_filename),
+	DEF(STR_HIDDEN, mail_cache_path),
 	DEF(STR, mail_control_path),
 	DEF(STR, mail_volatile_path),
 	DEF(STR, mail_alt_path),
@@ -154,6 +155,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mailbox_list_validate_fs_names = TRUE,
 	.mailbox_root_directory_name = "",
 	.mailbox_subscriptions_filename = "subscriptions",
+	.mail_cache_path = "",
 	.mail_control_path = "",
 	.mail_volatile_path = "",
 	.mail_alt_path = "",
@@ -512,6 +514,7 @@ mailbox_list_get_path_setting(const char *key, const char **value,
 		const char *set_name;
 		enum mailbox_list_path_type type;
 	} set_types[] = {
+		{ "mail_cache_path", MAILBOX_LIST_PATH_TYPE_INDEX_CACHE },
 		{ "mail_control_path", MAILBOX_LIST_PATH_TYPE_CONTROL },
 		{ "mail_alt_path", MAILBOX_LIST_PATH_TYPE_ALT_DIR },
 	};
@@ -1011,6 +1014,7 @@ static const size_t mail_storage_2nd_reset_offsets[] = {
 	OFFSET(mailbox_list_iter_from_index_dir),
 	OFFSET(mailbox_root_directory_name),
 	OFFSET(mailbox_subscriptions_filename),
+	OFFSET(mail_cache_path),
 	OFFSET(mail_control_path),
 	OFFSET(mail_volatile_path),
 	OFFSET(mail_alt_path),

@@ -157,9 +157,6 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 		list->set.index_pvt_dir = set->index_pvt_dir == NULL ||
 			strcmp(set->index_pvt_dir, set->root_dir) == 0 ? NULL :
 			p_strdup(list->pool, set->index_pvt_dir);
-		list->set.index_cache_dir = set->index_cache_dir == NULL ||
-			strcmp(set->index_cache_dir, set->root_dir) == 0 ? NULL :
-			p_strdup(list->pool, set->index_cache_dir);
 	}
 
 	list->set.inbox_path = p_strdup(list->pool, set->inbox_path);
@@ -299,8 +296,6 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 			dest = &set_r->index_dir;
 		else if (strcmp(key, "INDEXPVT") == 0)
 			dest = &set_r->index_pvt_dir;
-		else if (strcmp(key, "INDEXCACHE") == 0)
-			dest = &set_r->index_cache_dir;
 		else if (strcmp(key, "DIRNAME") == 0)
 			dest = &set_r->maildir_name;
 		else if (strcmp(key, "FULLDIRNAME") == 0) {
@@ -1408,12 +1403,7 @@ mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
 	case MAILBOX_LIST_PATH_TYPE_LIST_INDEX:
 		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX_CACHE:
-		if (set->index_cache_dir != NULL &&
-		    type == MAILBOX_LIST_PATH_TYPE_INDEX_CACHE) {
-			path = set->index_cache_dir;
-			break;
-		}
-		/* fall through */
+		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX:
 		if (set->index_dir != NULL) {
 			if (set->index_dir[0] == '\0') {
@@ -1458,6 +1448,15 @@ bool mailbox_list_default_get_root_path(struct mailbox_list *list,
 		path = mail_set->mail_control_path[0] != '\0' ?
 			mail_set->mail_control_path : list->set.root_dir;
 		break;
+	case MAILBOX_LIST_PATH_TYPE_INDEX_CACHE:
+		if (mail_set->mail_cache_path[0] != '\0') {
+			path = mail_set->mail_cache_path;
+			break;
+		}
+		/* default to index directory */
+		return mailbox_list_set_get_root_path(&list->set,
+			list->mail_set->parsed_mailbox_root_directory_prefix,
+			MAILBOX_LIST_PATH_TYPE_INDEX, path_r);
 	case MAILBOX_LIST_PATH_TYPE_LIST_INDEX:
 		if (mail_set->parsed_list_index_dir != NULL) {
 			if (mail_set->parsed_list_index_dir[0] == '/') {
