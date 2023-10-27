@@ -126,8 +126,8 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 		return -1;
 	}
 	if ((class->props & MAILBOX_LIST_PROP_NO_ALT_DIR) != 0 &&
-	    set->alt_dir != NULL) {
-		*error_r = "alt_dir not supported by this driver";
+	    mail_set->mail_alt_path[0] != '\0') {
+		*error_r = "mail_alt_path not supported by this driver";
 		return -1;
 	}
 
@@ -168,7 +168,6 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 	list->set.inbox_path = p_strdup(list->pool, set->inbox_path);
 	list->set.maildir_name =
 		p_strdup(list->pool, set->maildir_name);
-	list->set.alt_dir = p_strdup(list->pool, set->alt_dir);
 	list->set.index_control_use_maildir_name =
 		set->index_control_use_maildir_name;
 
@@ -199,7 +198,7 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 		"" : list->set.control_dir,
 		list->set.inbox_path == NULL ?
 		"" : list->set.inbox_path,
-		list->set.alt_dir == NULL ? "" : list->set.alt_dir);
+		mail_set->mail_alt_path);
 	if ((flags & MAILBOX_LIST_FLAG_SECONDARY) == 0)
 		mail_namespace_finish_list_init(ns, list);
 
@@ -308,8 +307,6 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 			dest = &set_r->index_cache_dir;
 		else if (strcmp(key, "CONTROL") == 0)
 			dest = &set_r->control_dir;
-		else if (strcmp(key, "ALT") == 0)
-			dest = &set_r->alt_dir;
 		else if (strcmp(key, "DIRNAME") == 0)
 			dest = &set_r->maildir_name;
 		else if (strcmp(key, "FULLDIRNAME") == 0) {
@@ -1397,7 +1394,6 @@ mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
 		path = set->root_dir;
 		break;
 	case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
-		path = set->alt_dir;
 		break;
 	case MAILBOX_LIST_PATH_TYPE_MAILBOX:
 		if (*parsed_mailbox_root_directory_prefix == '\0')
@@ -1409,13 +1405,6 @@ mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
 		}
 		break;
 	case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
-		if (*parsed_mailbox_root_directory_prefix == '\0')
-			path = set->alt_dir;
-		else if (set->alt_dir != NULL) {
-			path = t_strconcat(set->alt_dir, "/",
-				parsed_mailbox_root_directory_prefix, NULL);
-			path = t_strndup(path, strlen(path)-1);
-		}
 		break;
 	case MAILBOX_LIST_PATH_TYPE_CONTROL:
 		path = set->control_dir != NULL ?
@@ -1459,6 +1448,17 @@ bool mailbox_list_default_get_root_path(struct mailbox_list *list,
 	const char *path = NULL;
 
 	switch (type) {
+	case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
+		path = mail_set->mail_alt_path;
+		break;
+	case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
+		if (mail_set->mailbox_root_directory_name[0] == '\0')
+			path = mail_set->mail_alt_path;
+		else if (mail_set->mail_alt_path[0] != '\0') {
+			path = t_strconcat(mail_set->mail_alt_path, "/",
+				mail_set->mailbox_root_directory_name, NULL);
+		}
+		break;
 	case MAILBOX_LIST_PATH_TYPE_LIST_INDEX:
 		if (mail_set->parsed_list_index_dir != NULL) {
 			if (mail_set->parsed_list_index_dir[0] == '/') {
@@ -1482,6 +1482,8 @@ bool mailbox_list_default_get_root_path(struct mailbox_list *list,
 			list->mail_set->parsed_mailbox_root_directory_prefix,
 			type, path_r);
 	}
+	if (path != NULL && path[0] == '\0')
+		path = NULL;
 	*path_r = path;
 	return path != NULL;
 }

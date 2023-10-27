@@ -366,7 +366,7 @@ static int mailbox_list_try_delete(struct mailbox_list *list, const char *name,
 		return 0;
 	}
 
-	/* Note that only ALT currently uses maildir_name in paths.
+	/* Note that only mail_alt_path currently uses maildir_name in paths.
 	   INDEX and CONTROL don't. */
 	if (type != MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX ||
 	    *list->set.maildir_name == '\0') {

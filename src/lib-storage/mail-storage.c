@@ -2159,8 +2159,10 @@ mailbox_lists_rename_compatible(struct mailbox_list *list1,
 				struct mailbox_list *list2,
 				const char **error_r)
 {
-	if (!nullequals(list1->set.alt_dir, list2->set.alt_dir)) {
-		*error_r = t_strdup_printf("Namespace %s has alt dir, %s doesn't",
+	if (!nullequals(list1->mail_set->mail_alt_path,
+			list2->mail_set->mail_alt_path)) {
+		*error_r = t_strdup_printf(
+			"Namespace %s has mail_alt_path, %s doesn't",
 			list1->ns->set->name, list2->ns->set->name);
 		return FALSE;
 	}
