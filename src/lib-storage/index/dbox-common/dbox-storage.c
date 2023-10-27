@@ -27,8 +27,6 @@ void dbox_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 		set->subscription_fname = DBOX_SUBSCRIPTION_FILE_NAME;
 	if (*set->maildir_name == '\0')
 		set->maildir_name = DBOX_MAILDIR_NAME;
-	if (*set->mailbox_dir_name == '\0')
-		set->mailbox_dir_name = DBOX_MAILBOX_DIR_NAME;
 }
 
 static bool
@@ -257,7 +255,7 @@ int dbox_mailbox_check_existence(struct mailbox *box)
 		ret = stat(box_path, &st);
 	} else if (ret == 0 &&
 		   !box->list->mail_set->mailbox_list_iter_from_index_dir &&
-		   *box->list->set.mailbox_dir_name == '\0') {
+		   *box->list->mail_set->parsed_mailbox_root_directory_prefix == '\0') {
 		/* There are index files for this mailbox and no separate
 		mailboxes directory is configured. */
 		return 0;

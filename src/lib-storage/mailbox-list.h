@@ -135,9 +135,6 @@ struct mailbox_list_settings {
 	   If mailbox_name is "Maildir", you have a non-selectable mailbox
 	   "mail" and a selectable mailbox "mail/foo". */
 	const char *maildir_name;
-	/* if set, store mailboxes under root_dir/mailbox_dir_name/.
-	   this setting contains either "" or "dir/". */
-	const char *mailbox_dir_name;
 
 	/* Used for escaping the mailbox name in storage (storage_name). If the
 	   UTF-8 vname has characters that can't reversibly (or safely) be

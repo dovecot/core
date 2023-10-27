@@ -14,11 +14,17 @@ static const struct setting_define sdbox_setting_defines[] = {
 static const struct sdbox_settings sdbox_default_settings = {
 };
 
+static const struct setting_keyvalue sdbox_default_filter_settings_keyvalue[] = {
+	{ "sdbox/mailbox_root_directory_name", DBOX_MAILBOX_DIR_NAME },
+	{ NULL, NULL }
+};
+
 const struct setting_parser_info sdbox_setting_parser_info = {
 	.name = "sdbox",
 
 	.defines = sdbox_setting_defines,
 	.defaults = &sdbox_default_settings,
+	.default_filter_settings = sdbox_default_filter_settings_keyvalue,
 
 	.struct_size = sizeof(struct sdbox_settings),
 	.pool_offset1 = 1 + offsetof(struct sdbox_settings, pool),

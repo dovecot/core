@@ -681,7 +681,7 @@ int index_storage_mailbox_create(struct mailbox *box, bool directory)
 		/* directory already exists */
 		if (create_parent_dir)
 			return 1;
-		if (!directory && *box->list->set.mailbox_dir_name == '\0') {
+		if (!directory && *box->list->mail_set->mailbox_root_directory_name == '\0') {
 			/* For example: layout=fs, path=~/Maildir/foo
 			   might itself exist, but does it have the
 			   cur|new|tmp subdirs? */
