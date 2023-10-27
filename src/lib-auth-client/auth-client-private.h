@@ -18,6 +18,8 @@ struct auth_client_request {
 
 	auth_request_callback_t *callback;
 	void *context;
+
+	bool removed:1;
 };
 
 struct auth_client_connection {
@@ -86,6 +88,6 @@ unsigned int
 auth_client_connection_add_request(struct auth_client_connection *conn,
 				   struct auth_client_request *request);
 void auth_client_connection_remove_request(struct auth_client_connection *conn,
-					   unsigned int id);
+					   struct auth_client_request *request);
 
 #endif

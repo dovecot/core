@@ -247,6 +247,8 @@ static void auth_client_request_free(struct auth_client_request **_request)
 
 	*_request = NULL;
 
+	auth_client_connection_remove_request(request->conn, request);
+
 	timeout_remove(&request->to_fail);
 	event_unref(&request->event);
 	pool_unref(&request->pool);
@@ -267,8 +269,6 @@ void auth_client_request_abort(struct auth_client_request **_request,
 
 	auth_client_send_cancel(request->conn->client, request->id);
 	call_callback(request, AUTH_REQUEST_STATUS_ABORT, NULL, NULL);
-	/* remove the request */
-	auth_client_connection_remove_request(request->conn, request->id);
 	auth_client_request_free(&request);
 }
 

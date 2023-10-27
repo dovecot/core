@@ -239,7 +239,7 @@ auth_server_lookup_request(struct auth_client_connection *conn,
 		return 0;
 	}
 	if (remove || auth_client_request_is_aborted(request))
-		hash_table_remove(conn->requests, POINTER_CAST(id));
+		auth_client_connection_remove_request(request->conn, request);
 
 	*request_r = request;
 	return 1;
@@ -570,8 +570,11 @@ auth_client_connection_add_request(struct auth_client_connection *conn,
 }
 
 void auth_client_connection_remove_request(struct auth_client_connection *conn,
-					   unsigned int id)
+					   struct auth_client_request *request)
 {
+	if (request->removed)
+		return;
 	i_assert(conn->conn.handshake_received);
-	hash_table_remove(conn->requests, POINTER_CAST(id));
+	hash_table_remove(conn->requests, POINTER_CAST(request->id));
+	request->removed = TRUE;
 }
