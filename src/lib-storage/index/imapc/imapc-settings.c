@@ -12,6 +12,7 @@
 static bool imapc_settings_check(void *_set, pool_t pool, const char **error_r);
 
 static const struct setting_define imapc_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "imapc" },
 	DEF(STR, imapc_host),
 	DEF(IN_PORT, imapc_port),
 

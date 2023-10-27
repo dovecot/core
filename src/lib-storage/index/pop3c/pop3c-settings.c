@@ -10,6 +10,7 @@
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct pop3c_settings)
 
 static const struct setting_define pop3c_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "pop3c" },
 	DEF(STR, pop3c_host),
 	DEF(IN_PORT, pop3c_port),
 

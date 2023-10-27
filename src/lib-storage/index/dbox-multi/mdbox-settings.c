@@ -10,6 +10,7 @@
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct mdbox_settings)
 
 static const struct setting_define mdbox_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "mdbox" },
 	DEF(BOOL, mdbox_preallocate_space),
 	DEF(SIZE, mdbox_rotate_size),
 	DEF(TIME, mdbox_rotate_interval),

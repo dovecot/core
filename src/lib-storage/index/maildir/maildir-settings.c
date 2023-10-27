@@ -10,6 +10,7 @@
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct maildir_settings)
 
 static const struct setting_define maildir_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "maildir" },
 	DEF(BOOL, maildir_copy_with_hardlinks),
 	DEF(BOOL, maildir_very_dirty_syncs),
 	DEF(BOOL, maildir_broken_filename_sizes),
