@@ -127,10 +127,6 @@ struct mailbox_list_settings {
 
 	const char *inbox_path;
 	const char *subscription_fname;
-	const char *list_index_fname;
-	/* Mailbox list index directory. NULL defaults to index directory.
-	   The path may be relative to the index directory. */
-	const char *list_index_dir;
 	/* If non-empty, it means that mails exist in a maildir_name
 	   subdirectory. eg. if you have a directory containing directories:
 
