@@ -104,12 +104,14 @@ mailbox_list_find_class(const char *driver)
 	return array_idx_elem(&mailbox_list_drivers, idx);
 }
 
-int mailbox_list_create(const char *driver, struct mail_namespace *ns,
+int mailbox_list_create(const char *driver, struct event *event,
+			struct mail_namespace *ns,
 			const struct mailbox_list_settings *set,
 			enum mailbox_list_flags flags,
 			struct mailbox_list **list_r, const char **error_r)
 {
 	const struct mailbox_list *class;
+	const struct mail_storage_settings *mail_set;
 	struct mailbox_list *list;
 
 	i_assert(ns->list == NULL ||
@@ -134,16 +136,19 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 		return -1;
 	}
 
+	if (settings_get(event, &mail_storage_setting_parser_info, 0,
+			 &mail_set, error_r) < 0)
+		return -1;
+
 	i_assert(set->root_dir == NULL || *set->root_dir != '\0' ||
 		 (class->props & MAILBOX_LIST_PROP_NO_ROOT) != 0);
 
 	list = class->v.alloc();
 	array_create(&list->module_contexts, list->pool, sizeof(void *), 5);
 
-	list->event = event_create(ns->user->event);
-	event_add_str(list->event, "namespace", ns->set->name);
+	list->event = event;
 	list->ns = ns;
-	list->mail_set = mail_user_set_get_storage_set(ns->user);
+	list->mail_set = mail_set;
 	list->flags = flags;
 	list->root_permissions.file_create_mode = (mode_t)-1;
 	list->root_permissions.dir_create_mode = (mode_t)-1;
@@ -209,6 +214,11 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 			return -1;
 		}
 	}
+
+	/* Reference these only after init() has succeeded, because deinit()
+	   won't unreference them. */
+	event_ref(event);
+	pool_ref(mail_set->pool);
 
 	e_debug(list->event,
 		"%s: root=%s, index=%s, indexpvt=%s, control=%s, inbox=%s, alt=%s",
@@ -818,6 +828,7 @@ void mailbox_list_destroy(struct mailbox_list **_list)
 	}
 
 	struct event *event = list->event;
+	settings_free(list->mail_set);
 	list->v.deinit(list);
 	event_unref(&event);
 }

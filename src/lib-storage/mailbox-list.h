@@ -212,7 +212,8 @@ const struct mailbox_list *
 mailbox_list_find_class(const char *driver);
 
 /* Returns 0 if ok, -1 if driver was unknown. */
-int mailbox_list_create(const char *driver, struct mail_namespace *ns,
+int mailbox_list_create(const char *driver, struct event *event,
+			struct mail_namespace *ns,
 			const struct mailbox_list_settings *set,
 			enum mailbox_list_flags flags,
 			struct mailbox_list **list_r, const char **error_r);

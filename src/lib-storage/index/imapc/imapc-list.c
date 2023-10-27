@@ -433,7 +433,8 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 		list_set.storage_name_escape_char =
 			IMAPC_LIST_FS_NAME_ESCAPE_CHAR;
 
-		if (mailbox_list_create(list_set.layout, list->list.ns,
+		struct event *event = event_create(list->list.event);
+		if (mailbox_list_create(list_set.layout, event, list->list.ns,
 					&list_set, MAILBOX_LIST_FLAG_SECONDARY,
 					&list->index_list, &error) < 0) {
 			e_error(list->list.event,
@@ -441,6 +442,7 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 				list_set.layout, error);
 			list->index_list_failed = TRUE;
 		}
+		event_unref(&event);
 	}
 	return list->index_list;
 }
