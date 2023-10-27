@@ -13,6 +13,7 @@ static bool imapc_settings_check(void *_set, pool_t pool, const char **error_r);
 
 static const struct setting_define imapc_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "imapc" },
+	{ .type = SET_FILTER_NAME, .key = "layout_imapc" },
 	DEF(STR, imapc_host),
 	DEF(IN_PORT, imapc_port),
 
@@ -64,6 +65,9 @@ static const struct imapc_settings imapc_default_settings = {
 
 static const struct setting_keyvalue imapc_default_filter_settings_keyvalue[] = {
 	{ "imapc/mailbox_list_layout", "imapc" },
+	/* We want to have all imapc mailboxes accessible, so escape them if
+	   necessary. */
+	{ "layout_imapc/mailbox_list_visible_escape_char", "~" },
 	{ NULL, NULL }
 };
 

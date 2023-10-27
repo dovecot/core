@@ -139,17 +139,6 @@ struct mailbox_list_settings {
 	   { vname="A/B.C%D", storage_name_escape_char='%', namespace_sep='/',
 	   storage_sep='.' } -> storage_name="A.B%2eC%25D". */
 	char storage_name_escape_char;
-	/* Used for escaping the user/client-visible UTF-8 vname. If the
-	   storage_name can't be converted reversibly to the vname and back,
-	   encode the problematic parts using <vname_escape_char><hex>. The
-	   vname_escape_char itself also has to be encoded the same way. For
-	   example { storage_name="A/B.C%D", vname_escape_char='%',
-	   namespace_sep='/', storage_sep='.' } -> vname="A%2fB/C%25D".
-
-	   Note that it's possible for escape_char and broken_char to be the
-	   same character. They're just used for different directions in
-	   conversion. */
-	char vname_escape_char;
 	/* Use UTF-8 mailbox names on filesystem instead of mUTF-7 */
 	bool utf8:1;
 	/* Use maildir_name also for index/control directories. This should

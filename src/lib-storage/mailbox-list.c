@@ -160,7 +160,6 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 
 	if (set->storage_name_escape_char != '\0')
 		list->set.storage_name_escape_char = set->storage_name_escape_char;
-	list->set.vname_escape_char = set->vname_escape_char;
 	list->set.utf8 = set->utf8;
 
 	if (list->v.init != NULL) {
@@ -290,13 +289,6 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 		else if (strcmp(key, "FULLDIRNAME") == 0) {
 			set_r->index_control_use_maildir_name = TRUE;
 			dest = &set_r->maildir_name;
-		} else if (strcmp(key, "BROKENCHAR") == 0) {
-			if (strlen(value) != 1) {
-				*error_r = "BROKENCHAR value must be a single character";
-				return -1;
-			}
-			set_r->vname_escape_char = value[0];
-			continue;
 		} else {
 			*error_r = t_strdup_printf("Unknown setting: %s", key);
 			return -1;
@@ -506,13 +498,13 @@ mailbox_list_default_get_storage_name_part(struct mailbox_list *list,
 		/* UTF-8 -> mUTF-7 conversion */
 		str = t_str_new(strlen(storage_name)*2);
 		if (imap_escaped_utf8_to_utf7(storage_name,
-					      list->set.vname_escape_char,
-					      str) < 0)
+				list->mail_set->mailbox_list_visible_escape_char[0],
+				str) < 0)
 			i_panic("Mailbox name not UTF-8: %s", vname_part);
 		storage_name = str_c(str);
-	} else if (list->set.vname_escape_char != '\0') {
+	} else if (list->mail_set->mailbox_list_visible_escape_char[0] != '\0') {
 		mailbox_list_name_unescape(&storage_name,
-					   list->set.vname_escape_char);
+			list->mail_set->mailbox_list_visible_escape_char[0]);
 	}
 	if (list->set.storage_name_escape_char != '\0') {
 		storage_name = mailbox_list_escape_name_params(storage_name,
@@ -654,7 +646,7 @@ mailbox_list_default_get_vname_part(struct mailbox_list *list,
 {
 	const char *vname = storage_name_part;
 	char escape_chars[] = {
-		list->set.vname_escape_char,
+		list->mail_set->mailbox_list_visible_escape_char[0],
 		mail_namespace_get_sep(list->ns),
 		'\0'
 	};
@@ -679,7 +671,7 @@ mailbox_list_default_get_vname_part(struct mailbox_list *list,
 			   can't be accessible, so just return it as the
 			   original mUTF7 name. */
 		}
-	} else if (list->set.vname_escape_char != '\0') {
+	} else if (list->mail_set->mailbox_list_visible_escape_char[0] != '\0') {
 		string_t *str = t_str_new(strlen(vname));
 		mailbox_list_name_escape(vname, escape_chars, str);
 		vname = str_c(str);

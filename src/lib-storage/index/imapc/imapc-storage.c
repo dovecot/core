@@ -519,10 +519,6 @@ imapc_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 				const struct mail_storage_settings *mail_set ATTR_UNUSED)
 {
 	set->storage_name_escape_char = IMAPC_LIST_STORAGE_NAME_ESCAPE_CHAR;
-	/* We want to have all imapc mailboxes accessible, so escape them if
-	   necessary. */
-	if (set->vname_escape_char == '\0')
-		set->vname_escape_char = IMAPC_LIST_VNAME_ESCAPE_CHAR;
 }
 
 static struct mailbox *

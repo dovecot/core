@@ -19,7 +19,7 @@ dsync_mailbox_tree_name_unescape(struct mail_namespace *ns,
 {
 	const char ns_sep = mail_namespace_get_sep(ns);
 	const char escape_char =
-		mailbox_list_get_settings(ns->list)->vname_escape_char;
+		ns->list->mail_set->mailbox_list_visible_escape_char[0];
 	const char *const *old_vname_parts =
 		dsync_mailbox_name_to_parts(old_vname, ns_sep, escape_char);
 

@@ -23,7 +23,7 @@ static void dsync_brain_check_namespaces(struct dsync_brain *brain)
 			continue;
 
 		sep = mail_namespace_get_sep(ns);
-		escape_char = mailbox_list_get_settings(ns->list)->vname_escape_char;
+		escape_char = ns->list->mail_set->mailbox_list_visible_escape_char[0];
 		if (first_ns == NULL) {
 			brain->hierarchy_sep = sep;
 			brain->escape_char = escape_char;

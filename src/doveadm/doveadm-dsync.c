@@ -41,10 +41,11 @@
 #include <sys/wait.h>
 
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
-/* The default vname_escape_char to use unless overridden by BROKENCHAR
-   setting. Note that it's only used for internal dsync names, so it won't end
-   up in permanent storage names. The only requirement for it is that it's not
-   the same as the hierarchy separator. */
+/* The default vname_escape_char to use unless overridden by
+   mailbox_list_visible_escape_char setting. Note that it's only used for
+   internal dsync names, so it won't end up in permanent storage names. The
+   only requirement for it is that it's not the same as the hierarchy
+   separator. */
 #define DSYNC_LIST_VNAME_ESCAPE_CHAR '%'
 /* In case DSYNC_LIST_VNAME_ESCAPE_CHAR is the hierarchy separator,
    use this instead. */
@@ -367,6 +368,17 @@ static bool mirror_get_remote_cmd(struct dsync_cmd_context *ctx,
 	return TRUE;
 }
 
+static void
+doveadm_update_escape_char(struct mail_namespace *ns, char ns_sep)
+{
+	const struct mail_storage_settings *old_set = ns->list->mail_set;
+	struct mail_storage_settings *new_set =
+		p_memdup(old_set->pool, old_set, sizeof(*old_set));
+	new_set->mailbox_list_visible_escape_char =
+		p_strdup_printf(old_set->pool, "%c", ns_sep);
+	ns->list->mail_set = new_set;
+}
+
 static void doveadm_user_init_dsync(struct mail_user *user)
 {
 	struct mail_namespace *ns;
@@ -378,11 +390,11 @@ static void doveadm_user_init_dsync(struct mail_user *user)
 			p_new(ns->list->pool, struct dsync_mailbox_list, 1);
 		MODULE_CONTEXT_SET(ns->list, dsync_mailbox_list_module, dlist);
 
-		if (ns->list->set.vname_escape_char == '\0') {
-			ns->list->set.vname_escape_char =
+		if (ns->list->mail_set->mailbox_list_visible_escape_char[0] == '\0') {
+			doveadm_update_escape_char(ns,
 				ns_sep != DSYNC_LIST_VNAME_ESCAPE_CHAR ?
 				DSYNC_LIST_VNAME_ESCAPE_CHAR :
-				DSYNC_LIST_VNAME_ALT_ESCAPE_CHAR;
+				DSYNC_LIST_VNAME_ALT_ESCAPE_CHAR);
 		} else {
 			dlist->have_orig_escape_char = TRUE;
 		}
@@ -484,8 +496,10 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	if (mail_namespace_get_sep(ns) != mail_namespace_get_sep(ns2)) {
 		e_error(ctx->ctx.cctx->event,
 			"Mail locations must use the same hierarchy separator "
-			"(specify namespace %s { separator } explicitly)",
-			ns->set->name);
+			"(specify namespace %s { separator=%c } != "
+			"namespace %s { separator=%c })",
+			ns->set->name, mail_namespace_get_sep(ns),
+			ns2->set->name, mail_namespace_get_sep(ns2));
 		ctx->ctx.exit_code = EX_CONFIG;
 		mail_user_deinit(&user2);
 		return -1;

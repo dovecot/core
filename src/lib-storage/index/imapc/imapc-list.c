@@ -9,7 +9,7 @@
     - namespace separator = ':'
     - fs_list separator = '.'
     - mailbox_list storage_name_escape_char = '+'
-    - mailbox_list vname_escape_char = '~'
+    - mailbox_list mailbox_list_visible_escape_char = '~'
     - fs_list storage_name_escape_char = '%'
 
    remote_name = "prefix/~foo/bar^baz+_%_."
@@ -19,7 +19,7 @@
     - storage_name_escape character + is escaped as +2b
    vname = "~7efoo:bar.baz+_%_."
     - imapc_list_prefix is dropped
-    - vname_escape_character ~ is escaped into ~7e
+    - mailbox_list_visible_escape_char ~ is escaped into ~7e
     - separator is changed from ^ to :
     - storage_name_escape_characters are unescaped
    fs_name = "prefix.~foo.bar^baz+_%25_%2e"
