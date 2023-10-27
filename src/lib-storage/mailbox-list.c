@@ -154,9 +154,6 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 		list->set.index_dir = set->index_dir == NULL ||
 			strcmp(set->index_dir, set->root_dir) == 0 ? NULL :
 			p_strdup(list->pool, set->index_dir);
-		list->set.index_pvt_dir = set->index_pvt_dir == NULL ||
-			strcmp(set->index_pvt_dir, set->root_dir) == 0 ? NULL :
-			p_strdup(list->pool, set->index_pvt_dir);
 	}
 
 	list->set.inbox_path = p_strdup(list->pool, set->inbox_path);
@@ -187,7 +184,7 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 		list->name,
 		list->set.root_dir == NULL ? "" : list->set.root_dir,
 		list->set.index_dir == NULL ? "" : list->set.index_dir,
-		list->set.index_pvt_dir == NULL ? "" : list->set.index_pvt_dir,
+		mail_set->mail_index_private_path,
 		mail_set->mail_control_path,
 		list->set.inbox_path == NULL ?
 		"" : list->set.inbox_path,
@@ -294,8 +291,6 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 			dest = &set_r->inbox_path;
 		else if (strcmp(key, "INDEX") == 0)
 			dest = &set_r->index_dir;
-		else if (strcmp(key, "INDEXPVT") == 0)
-			dest = &set_r->index_pvt_dir;
 		else if (strcmp(key, "DIRNAME") == 0)
 			dest = &set_r->maildir_name;
 		else if (strcmp(key, "FULLDIRNAME") == 0) {
@@ -1416,7 +1411,6 @@ mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
 		}
 		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
-		path = set->index_pvt_dir;
 		break;
 	case MAILBOX_LIST_PATH_TYPE_COUNT:
 		i_unreached();
@@ -1447,6 +1441,9 @@ bool mailbox_list_default_get_root_path(struct mailbox_list *list,
 	case MAILBOX_LIST_PATH_TYPE_CONTROL:
 		path = mail_set->mail_control_path[0] != '\0' ?
 			mail_set->mail_control_path : list->set.root_dir;
+		break;
+	case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
+		path = mail_set->mail_index_private_path;
 		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX_CACHE:
 		if (mail_set->mail_cache_path[0] != '\0') {

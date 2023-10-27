@@ -690,7 +690,7 @@ static enum mail_flags maildir_get_private_flags_mask(struct mailbox *box)
 	mbox->private_flags_mask_set = TRUE;
 
 	path = mailbox_list_get_root_forced(box->list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (box->list->set.index_pvt_dir != NULL) {
+	if (box->list->mail_set->mail_index_private_path[0] != '\0') {
 		/* private index directory is set. we'll definitely have
 		   private flags. */
 		mbox->_private_flags_mask = MAIL_SEEN;

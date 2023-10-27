@@ -2442,7 +2442,7 @@ enum mail_flags mailbox_get_private_flags_mask(struct mailbox *box)
 {
 	if (box->v.get_private_flags_mask != NULL)
 		return box->v.get_private_flags_mask(box);
-	else if (box->list->set.index_pvt_dir != NULL)
+	else if (box->list->mail_set->mail_index_private_path[0] != '\0')
 		return MAIL_SEEN; /* FIXME */
 	else
 		return 0;

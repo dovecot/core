@@ -1184,7 +1184,7 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 			return -1;
 		/* If this mailbox has private indexes make sure to check
 		   STATUS_UNSEEN from there. */
-		if (box->list->set.index_pvt_dir != NULL &&
+		if (box->list->mail_set->mail_index_private_path[0] != '\0' &&
 		    (items & (STATUS_UNSEEN)) != 0) {
 			struct mailbox_status pvt_idx_status;
 			index_storage_get_status(box, STATUS_UNSEEN,

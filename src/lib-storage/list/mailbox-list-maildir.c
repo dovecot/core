@@ -153,10 +153,10 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 		}
 		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
-		if (_list->set.index_pvt_dir == NULL)
+		if (_list->mail_set->mail_index_private_path[0] == '\0')
 			return 0;
 		*path_r = maildir_list_get_dirname_path(_list,
-					_list->set.index_pvt_dir, name);
+			_list->mail_set->mail_index_private_path, name);
 		return 1;
 	case MAILBOX_LIST_PATH_TYPE_LIST_INDEX:
 	case MAILBOX_LIST_PATH_TYPE_COUNT:
