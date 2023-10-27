@@ -129,8 +129,8 @@ index_list_get_path(struct mailbox_list *_list, const char *name,
 
 	if (name == NULL) {
 		/* return root directories */
-		return mailbox_list_set_get_root_path(&_list->set, type,
-						      path_r) ? 1 : 0;
+		return mailbox_list_default_get_root_path(_list, type,
+							  path_r) ? 1 : 0;
 	}
 	/* consistently use mailbox_dir_name as part of all mailbox
 	   directories (index/control/etc) */
@@ -146,7 +146,7 @@ index_list_get_path(struct mailbox_list *_list, const char *name,
 	default:
 		break;
 	}
-	if (!mailbox_list_set_get_root_path(&_list->set, type, &root_dir))
+	if (!mailbox_list_default_get_root_path(_list, type, &root_dir))
 		return 0;
 
 	if (list->create_mailbox_name != NULL &&
@@ -454,9 +454,9 @@ index_list_mailbox_update(struct mailbox *box,
 
 	/* rename the directory */
 	if (!guid_128_is_empty(update->mailbox_guid) && old_path != NULL &&
-	    mailbox_list_set_get_root_path(&box->list->set,
-					   MAILBOX_LIST_PATH_TYPE_DIR,
-					   &root_dir)) {
+	    mailbox_list_default_get_root_path(box->list,
+					       MAILBOX_LIST_PATH_TYPE_DIR,
+					       &root_dir)) {
 		new_path = index_get_guid_path(box->list, root_dir,
 					       update->mailbox_guid);
 		if (strcmp(old_path, new_path) == 0)
