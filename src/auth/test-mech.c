@@ -10,7 +10,6 @@
 #include "auth-request.h"
 #include "auth-request-handler-private.h"
 #include "auth-settings.h"
-#include "mech-digest-md5-private.h"
 #include "auth-token.h"
 
 #include <unistd.h>
@@ -147,7 +146,8 @@ test_mech_handle_challenge(struct auth_request *request,
 		str_append(out, "testuser b913a602c7eda7a495b4e6e7334d3890");
 	} else if (strcmp(request->fields.mech_name,
 			  SASL_MECH_NAME_DIGEST_MD5) == 0) {
-		mech_digest_test_set_nonce(request, "OA6MG9tEQGm2hh");
+		sasl_server_mech_digest_md5_test_set_nonce(
+			&request->sasl.req, "OA6MG9tEQGm2hh");
 	}
 	auth_request_continue(request, out->data, out->used);
 }

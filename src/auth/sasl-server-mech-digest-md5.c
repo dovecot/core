@@ -6,14 +6,14 @@
 #include "base64.h"
 #include "buffer.h"
 #include "hex-binary.h"
-#include "mech-digest-md5-private.h"
 #include "md5.h"
 #include "randgen.h"
 #include "str.h"
 #include "str-sanitize.h"
 #include "settings-parser.h"
+#include "password-scheme.h"
 
-#include "sasl-server-private.h" // FIXME: Use protected API only
+#include "sasl-server-protected.h"
 
 /* Linear whitespace */
 #define IS_LWS(c) ((c) == ' ' || (c) == '\t')
@@ -627,13 +627,15 @@ void sasl_server_mech_register_digest_md5(struct sasl_server_instance *sinst)
 	sasl_server_mech_register(sinst, &mech_digest_md5);
 }
 
-void mech_digest_test_set_nonce(struct auth_request *auth_request,
-				const char *nonce)
+void sasl_server_mech_digest_md5_test_set_nonce(
+	struct sasl_server_req_ctx *rctx, const char *nonce)
 {
+	struct sasl_server_mech_request *auth_request =
+		sasl_server_request_get_mech_request(rctx);
 	struct digest_auth_request *request =
-		container_of(auth_request->sasl.req.request->mech,
-			     struct digest_auth_request, auth_request);
+		container_of(auth_request, struct digest_auth_request,
+			     auth_request);
 
-	i_assert(request->auth_request.mech->def == &mech_digest_md5);
+	i_assert(auth_request->mech->def == &mech_digest_md5);
 	request->nonce = p_strdup(auth_request->pool, nonce);
 }

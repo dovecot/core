@@ -166,6 +166,8 @@ sasl_server_request_has_failed(const struct sasl_server_req_ctx *rctx);
 // FIXME: get rid of this
 void sasl_server_request_test_set_authid(struct sasl_server_req_ctx *rctx,
 					 const char *authid);
+void sasl_server_mech_digest_md5_test_set_nonce(
+	struct sasl_server_req_ctx *rctx, const char *nonce);
 
 /*
  * Mechanism definitions
