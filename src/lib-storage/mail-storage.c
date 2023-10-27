@@ -356,22 +356,6 @@ mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
 	enum mailbox_list_flags list_flags = 0;
 	const char *p;
 
-	if ((flags & MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) == 0 &&
-	    ns->mail_set->pop3_uidl_format != NULL) {
-		/* if pop3_uidl_format contains %m, we want to keep the
-		   header MD5 sums stored even if we're not running POP3
-		   right now. */
-		p = ns->mail_set->pop3_uidl_format;
-		while ((p = strchr(p, '%')) != NULL) {
-			if (p[1] == '%')
-				p += 2;
-			else if (var_get_key(++p) == 'm') {
-				flags |= MAIL_STORAGE_FLAG_KEEP_HEADER_MD5;
-				break;
-			}
-		}
-	}
-
 	mailbox_list_settings_init_defaults(&list_set);
 	if (data == NULL) {
 		/* autodetect */
@@ -419,6 +403,22 @@ mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
 		mail_namespace_add_storage(ns, storage);
 		*storage_r = storage;
 		return 0;
+	}
+
+	if ((flags & MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) == 0 &&
+	    ns->mail_set->pop3_uidl_format != NULL) {
+		/* if pop3_uidl_format contains %m, we want to keep the
+		   header MD5 sums stored even if we're not running POP3
+		   right now. */
+		p = ns->mail_set->pop3_uidl_format;
+		while ((p = strchr(p, '%')) != NULL) {
+			if (p[1] == '%')
+				p += 2;
+			else if (var_get_key(++p) == 'm') {
+				flags |= MAIL_STORAGE_FLAG_KEEP_HEADER_MD5;
+				break;
+			}
+		}
 	}
 
 	storage = storage_class->v.alloc();
