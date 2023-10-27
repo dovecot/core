@@ -429,7 +429,6 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 	} else if (list->index_list == NULL && !list->index_list_failed) {
 		mailbox_list_settings_init_defaults(&list_set);
 		list_set.root_dir = dir;
-		list_set.index_pvt_dir = p_strdup_empty(list->list.pool, list->list.set.index_pvt_dir);
 		/* Filesystem needs to be able to store any kind of a mailbox
 		   name. */
 		list_set.storage_name_escape_char =
@@ -444,6 +443,10 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 		settings_override(list->index_list_set_instance,
 				  "*/mailbox_list_layout",
 				  MAILBOX_LIST_NAME_MAILDIRPLUSPLUS,
+				  SETTINGS_OVERRIDE_TYPE_CODE);
+		settings_override(list->index_list_set_instance,
+				  "*/mail_index_private_path",
+				  list->list.mail_set->mail_index_private_path,
 				  SETTINGS_OVERRIDE_TYPE_CODE);
 
 		const struct mail_storage_settings *mail_set = NULL;
