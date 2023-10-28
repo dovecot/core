@@ -474,17 +474,23 @@ MECH_SIMPLE_REGISTER__TEMPLATE(scram_sha256_plus)
 
 static bool
 mech_winbind_ntlm_register(struct sasl_server_instance *sasl_inst,
-			   const struct auth_settings *set ATTR_UNUSED)
+			   const struct auth_settings *set)
 {
-	sasl_server_mech_register_winbind_ntlm(sasl_inst);
+	const struct sasl_server_winbind_settings wb_set = {
+		.helper_path = set->winbind_helper_path,
+	};
+	sasl_server_mech_register_winbind_ntlm(sasl_inst, &wb_set);
 	return TRUE;
 }
 
 static bool
 mech_winbind_gss_spnego_register(struct sasl_server_instance *sasl_inst,
-				 const struct auth_settings *set ATTR_UNUSED)
+				 const struct auth_settings *set)
 {
-	sasl_server_mech_register_winbind_gss_spnego(sasl_inst);
+	const struct sasl_server_winbind_settings wb_set = {
+		.helper_path = set->winbind_helper_path,
+	};
+	sasl_server_mech_register_winbind_gss_spnego(sasl_inst, &wb_set);
 	return TRUE;
 }
 

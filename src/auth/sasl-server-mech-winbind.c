@@ -44,6 +44,12 @@ struct winbind_auth_request {
 	bool continued;
 };
 
+struct winbind_auth_mech {
+	struct sasl_server_mech mech;
+
+	const char *helper_path;
+};
+
 static struct winbind_helper winbind_ntlm_context = {
 	"--helper-protocol=squid-2.5-ntlmssp", -1, NULL, NULL
 };
@@ -95,8 +101,8 @@ static void sigchld_handler(const siginfo_t *si ATTR_UNUSED,
 }
 
 static void
-winbind_helper_connect(const struct auth_settings *set,
-		       struct winbind_helper *winbind,
+winbind_helper_connect(struct winbind_helper *winbind,
+		       const struct winbind_auth_mech *wb_mech,
 		       struct event *event)
 {
 	int infd[2], outfd[2];
@@ -133,7 +139,7 @@ winbind_helper_connect(const struct auth_settings *set,
 		    dup2(infd[1], STDOUT_FILENO) < 0)
 			i_fatal("dup2() failed: %m");
 
-		args[0] = set->winbind_helper_path;
+		args[0] = wb_mech->helper_path;
 		args[1] = winbind->param;
 		args[2] = NULL;
 		execv_const(args[0], args);
@@ -289,11 +295,14 @@ static void
 mech_winbind_auth_initial(struct sasl_server_mech_request *auth_request,
 			  const unsigned char *data, size_t data_size)
 {
+	const struct winbind_auth_mech *wb_mech =
+		container_of(auth_request->mech,
+			     const struct winbind_auth_mech, mech);
 	struct winbind_auth_request *request =
 		container_of(auth_request,
 			     struct winbind_auth_request, auth_request);
 
-	winbind_helper_connect(auth_request->request->set, request->winbind,
+	winbind_helper_connect(request->winbind, wb_mech,
 			       auth_request->mech_event);
 	sasl_server_mech_generic_auth_initial(auth_request, data, data_size);
 }
@@ -316,7 +325,7 @@ mech_winbind_auth_continue(struct sasl_server_mech_request *auth_request,
 }
 
 static struct sasl_server_mech_request *
-do_auth_new(pool_t pool, struct winbind_helper *winbind)
+mech_winbind_auth_new(struct winbind_helper *winbind, pool_t pool)
 {
 	struct winbind_auth_request *request;
 
@@ -330,20 +339,31 @@ static struct sasl_server_mech_request *
 mech_winbind_ntlm_auth_new(
 	const struct sasl_server_mech *mech ATTR_UNUSED, pool_t pool)
 {
-	return do_auth_new(pool, &winbind_ntlm_context);
+	return mech_winbind_auth_new(&winbind_ntlm_context, pool);
 }
 
 static struct sasl_server_mech_request *
 mech_winbind_gss_spnego_auth_new(
 	const struct sasl_server_mech *mech ATTR_UNUSED, pool_t pool)
 {
-	return do_auth_new(pool, &winbind_spnego_context);
+	return mech_winbind_auth_new(&winbind_spnego_context, pool);
+}
+
+static struct sasl_server_mech *mech_winbind_mech_new(pool_t pool)
+{
+	struct winbind_auth_mech *wb_mech;
+
+	wb_mech = p_new(pool, struct winbind_auth_mech, 1);
+
+	return &wb_mech->mech;
 }
 
 static const struct sasl_server_mech_funcs mech_ntlm_funcs = {
 	.auth_new = mech_winbind_ntlm_auth_new,
 	.auth_initial = mech_winbind_auth_initial,
 	.auth_continue = mech_winbind_auth_continue,
+
+	.mech_new = mech_winbind_mech_new,
 };
 
 static const struct sasl_server_mech_def mech_ntlm = {
@@ -360,6 +380,8 @@ static const struct sasl_server_mech_funcs mech_gss_spnego_funcs = {
 	.auth_new = mech_winbind_gss_spnego_auth_new,
 	.auth_initial = mech_winbind_auth_initial,
 	.auth_continue = mech_winbind_auth_continue,
+
+	.mech_new = mech_winbind_mech_new,
 };
 
 static const struct sasl_server_mech_def mech_gss_spnego = {
@@ -371,13 +393,33 @@ static const struct sasl_server_mech_def mech_gss_spnego = {
 	.funcs = &mech_gss_spnego_funcs,
 };
 
-void sasl_server_mech_register_winbind_ntlm(struct sasl_server_instance *sinst)
+static void
+sasl_server_mech_register_winbind(
+	struct sasl_server_instance *sinst,
+	const struct sasl_server_mech_def *mech_def,
+	const struct sasl_server_winbind_settings *set)
 {
-	sasl_server_mech_register(sinst, &mech_ntlm);
+	struct sasl_server_mech *mech;
+	struct winbind_auth_mech *wb_mech;
+
+	i_assert(set->helper_path != NULL);
+
+	mech = sasl_server_mech_register(sinst, mech_def);
+
+	wb_mech = container_of(mech, struct winbind_auth_mech, mech);
+	wb_mech->helper_path = p_strdup(mech->pool, set->helper_path);
+}
+
+void sasl_server_mech_register_winbind_ntlm(
+	struct sasl_server_instance *sinst,
+	const struct sasl_server_winbind_settings *set)
+{
+	sasl_server_mech_register_winbind(sinst, &mech_ntlm, set);
 }
 
 void sasl_server_mech_register_winbind_gss_spnego(
-	struct sasl_server_instance *sinst)
+	struct sasl_server_instance *sinst,
+	const struct sasl_server_winbind_settings *set)
 {
-	sasl_server_mech_register(sinst, &mech_gss_spnego);
+	sasl_server_mech_register_winbind(sinst, &mech_gss_spnego, set);
 }

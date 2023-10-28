@@ -198,10 +198,16 @@ void sasl_server_mech_register_xoauth2(struct sasl_server_instance *sinst);
 
 /* Winbind */
 
+struct sasl_server_winbind_settings {
+	const char *helper_path;
+};
+
 void sasl_server_mech_register_winbind_ntlm(
-	struct sasl_server_instance *sinst);
+	struct sasl_server_instance *sinst,
+	const struct sasl_server_winbind_settings *set);
 void sasl_server_mech_register_winbind_gss_spnego(
-	struct sasl_server_instance *sinst);
+	struct sasl_server_instance *sinst,
+	const struct sasl_server_winbind_settings *set);
 
 /*
  * Mechanism
