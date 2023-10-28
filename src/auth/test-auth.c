@@ -7,8 +7,6 @@
 #include "auth-token.h"
 #include "auth-penalty.h"
 #include "sasl-server.h"
-#include "otp.h"
-#include "mech-otp.h"
 #include "db-oauth2.h"
 #include "passdb.h"
 #include "userdb.h"
@@ -73,7 +71,6 @@ void test_auth_init(void)
 void test_auth_deinit(void)
 {
 	auth_penalty_deinit(&auth_penalty);
-	mech_otp_deinit();
 	db_oauth2_deinit();
 	auths_deinit();
 	auth_token_deinit();

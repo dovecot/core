@@ -182,7 +182,6 @@ headers = \
 	db-sql.h \
 	db-passwd-file.h \
 	db-oauth2.h \
-	mech-otp.h \
 	sasl-server.h \
 	sasl-server-gssapi.h \
 	sasl-server-oauth2.h \

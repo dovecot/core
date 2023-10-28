@@ -20,8 +20,6 @@
 #include "password-scheme.h"
 #include "passdb-cache.h"
 #include "sasl-server.h"
-#include "otp.h"
-#include "mech-otp.h"
 #include "auth.h"
 #include "auth-sasl.h"
 #include "auth-penalty.h"
@@ -274,8 +272,6 @@ static void main_deinit(void)
 
 	/* there are no more auth requests */
 	auths_free();
-
-	mech_otp_deinit();
 
 	/* allow modules to unregister their dbs/drivers/etc. before freeing
 	   the whole data structures containing them. */

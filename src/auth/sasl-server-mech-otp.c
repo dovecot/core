@@ -13,7 +13,6 @@
 #include "otp.h"
 
 #include "sasl-server-protected.h"
-#include "mech-otp.h"
 
 struct otp_auth_request {
 	struct sasl_server_mech_request auth_request;
@@ -23,35 +22,29 @@ struct otp_auth_request {
 	struct otp_state state;
 };
 
-static HASH_TABLE(const char *, struct sasl_server_mech_request *)
-otp_lock_table;
+struct otp_auth_mech_data {
+	struct sasl_server_mech_data data;
+
+	HASH_TABLE(const char *, struct otp_auth_request *) lock_table;
+};
 
 /*
  * Locking
  */
 
-static void otp_lock_init(void)
-{
-	if (hash_table_is_created(otp_lock_table))
-		return;
-
-	hash_table_create(&otp_lock_table, default_pool, 128,
-			  strcase_hash, strcasecmp);
-}
-
-static void otp_lock_deinit(void)
-{
-	hash_table_destroy(&otp_lock_table);
-}
-
 static bool otp_try_lock(struct otp_auth_request *request)
 {
 	struct sasl_server_mech_request *auth_request = &request->auth_request;
+	struct otp_auth_mech_data *otp_mdata =
+		container_of(auth_request->mech->data,
+			     struct otp_auth_mech_data, data);
 
-	if (hash_table_lookup(otp_lock_table, auth_request->authid) != NULL)
+	i_assert(auth_request->authid != NULL);
+	if (hash_table_lookup(otp_mdata->lock_table,
+			      auth_request->authid) != NULL)
 		return FALSE;
 
-	hash_table_insert(otp_lock_table, auth_request->authid, auth_request);
+	hash_table_insert(otp_mdata->lock_table, auth_request->authid, request);
 	request->lock = TRUE;
 	return TRUE;
 }
@@ -59,11 +52,15 @@ static bool otp_try_lock(struct otp_auth_request *request)
 static void otp_unlock(struct otp_auth_request *request)
 {
 	struct sasl_server_mech_request *auth_request = &request->auth_request;
+	struct otp_auth_mech_data *otp_mdata =
+		container_of(auth_request->mech->data,
+			     struct otp_auth_mech_data, data);
 
 	if (!request->lock)
 		return;
 
-	hash_table_remove(otp_lock_table, auth_request->authid);
+	i_assert(auth_request->authid != NULL);
+	hash_table_remove(otp_mdata->lock_table, auth_request->authid);
 	request->lock = FALSE;
 }
 
@@ -176,10 +173,8 @@ otp_set_credentials_callback(struct sasl_server_mech_request *auth_request,
 
 	if (result->status == SASL_PASSDB_RESULT_OK)
 		sasl_server_request_success(auth_request, "", 0);
-	else {
+	else
 		sasl_server_request_internal_failure(auth_request);
-		otp_unlock(request);
-	}
 
 	otp_unlock(request);
 }
@@ -291,8 +286,6 @@ mech_otp_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED, pool_t pool)
 {
 	struct otp_auth_request *request;
 
-	otp_lock_init();
-
 	request = p_new(pool, struct otp_auth_request, 1);
 	request->lock = FALSE;
 
@@ -312,11 +305,33 @@ static void mech_otp_auth_free(struct sasl_server_mech_request *auth_request)
  * Mechanism
  */
 
+static struct sasl_server_mech_data *mech_otp_data_new(pool_t pool)
+{
+	struct otp_auth_mech_data *otp_mdata;
+
+	otp_mdata = p_new(pool, struct otp_auth_mech_data, 1);
+	hash_table_create(&otp_mdata->lock_table, default_pool, 128,
+			  strcase_hash, strcasecmp);
+
+	return &otp_mdata->data;
+}
+
+static void mech_otp_data_free(struct sasl_server_mech_data *mdata)
+{
+	struct otp_auth_mech_data *otp_mdata =
+		container_of(mdata, struct otp_auth_mech_data, data);
+
+	hash_table_destroy(&otp_mdata->lock_table);
+}
+
 static const struct sasl_server_mech_funcs mech_otp_funcs = {
 	.auth_new = mech_otp_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_otp_auth_continue,
 	.auth_free = mech_otp_auth_free,
+
+	.data_new = mech_otp_data_new,
+	.data_free = mech_otp_data_free,
 };
 
 static const struct sasl_server_mech_def mech_otp = {
@@ -328,11 +343,6 @@ static const struct sasl_server_mech_def mech_otp = {
 
 	.funcs = &mech_otp_funcs,
 };
-
-void mech_otp_deinit(void)
-{
-	otp_lock_deinit();
-}
 
 void sasl_server_mech_register_otp(struct sasl_server_instance *sinst)
 {
