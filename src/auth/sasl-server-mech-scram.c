@@ -38,6 +38,7 @@ credentials_callback(struct sasl_server_mech_request *auth_request,
 	size_t output_len;
 	bool end;
 
+	request->key_data = NULL;
 	switch (result->status) {
 	case SASL_PASSDB_RESULT_OK:
 		if (auth_scram_credentials_parse(key_data->hmethod,
