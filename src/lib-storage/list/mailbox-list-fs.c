@@ -50,12 +50,11 @@ static const char *
 fs_list_get_path_to(struct mailbox_list *list,
 		    const char *root_dir, const char *name)
 {
-	const struct mailbox_list_settings *set = &list->set;
-
-	if (*set->maildir_name != '\0' && set->index_control_use_maildir_name) {
+	if (list->mail_set->mailbox_directory_name[0] != '\0' &&
+	    !list->mail_set->mailbox_directory_name_legacy) {
 		return t_strdup_printf("%s/%s%s/%s", root_dir,
 			list->mail_set->parsed_mailbox_root_directory_prefix,
-			name, set->maildir_name);
+			name, list->mail_set->mailbox_directory_name);
 	} else {
 		return t_strdup_printf("%s/%s%s", root_dir,
 			list->mail_set->parsed_mailbox_root_directory_prefix,
@@ -91,7 +90,7 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 	root_dir = set->root_dir;
 	switch (type) {
 	case MAILBOX_LIST_PATH_TYPE_DIR:
-		if (*set->maildir_name != '\0') {
+		if (mail_set->mailbox_directory_name[0] != '\0') {
 			*path_r = t_strdup_printf("%s/%s%s", set->root_dir,
 				mail_set->parsed_mailbox_root_directory_prefix,
 				name);
@@ -101,9 +100,9 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 	case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
 		if (mail_set->mail_alt_path[0] == '\0')
 			return 0;
-		if (*set->maildir_name != '\0') {
-			/* maildir_name is for the mailbox, caller is asking
-			   for the directory name */
+		if (mail_set->mailbox_directory_name[0] != '\0') {
+			/* mailbox_directory_name is for the mailbox, caller is
+			   asking for the directory name */
 			*path_r = t_strdup_printf("%s/%s%s",
 				mail_set->mail_alt_path,
 				mail_set->parsed_mailbox_root_directory_prefix,
@@ -170,13 +169,13 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 
 	if (root_dir == NULL)
 		return 0;
-	if (*set->maildir_name == '\0') {
+	if (mail_set->mailbox_directory_name[0] == '\0') {
 		*path_r = t_strdup_printf("%s/%s%s", root_dir,
 			mail_set->parsed_mailbox_root_directory_prefix, name);
 	} else {
 		*path_r = t_strdup_printf("%s/%s%s/%s", root_dir,
 			mail_set->parsed_mailbox_root_directory_prefix,
-			name, set->maildir_name);
+			name, mail_set->mailbox_directory_name);
 	}
 	return 1;
 }
@@ -241,7 +240,7 @@ fs_list_delete_maildir(struct mailbox_list *list, const char *name)
 	bool rmdir_path;
 	int ret;
 
-	if (*list->set.maildir_name != '\0' &&
+	if (list->mail_set->mailbox_directory_name[0] != '\0' &&
 	    *list->mail_set->parsed_mailbox_root_directory_prefix != '\0') {
 		trash_dir = mailbox_list_fs_get_trash_dir(list);
 		ret = mailbox_list_delete_maildir_via_trash(list, name,
@@ -264,7 +263,7 @@ fs_list_delete_maildir(struct mailbox_list *list, const char *name)
 		}
 	}
 
-	rmdir_path = *list->set.maildir_name != '\0';
+	rmdir_path = list->mail_set->mailbox_directory_name[0] != '\0';
 	if (mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_MAILBOX,
 				  &path) <= 0)
 		i_unreached();
@@ -386,16 +385,16 @@ static int rename_dir(struct mailbox_list *oldlist, const char *oldname,
 	    mailbox_list_get_path(newlist, newname, type, &newpath) <= 0)
 		return 0;
 
-	if (oldlist->set.maildir_name[0] != '\0' &&
-	    oldlist->set.index_control_use_maildir_name) {
+	if (oldlist->mail_set->mailbox_directory_name[0] != '\0' &&
+	    !oldlist->mail_set->mailbox_directory_name_legacy) {
 		/* Paths end with "/maildir_name". However, renaming wants to
 		   rename the full mailbox hierarchy, not just a single
 		   mailbox. So we need to drop away the "/maildir_name"
 		   suffix. */
 		oldpath = path_get_parent_dir(oldpath);
 	}
-	if (newlist->set.maildir_name[0] != '\0' &&
-	    newlist->set.index_control_use_maildir_name)
+	if (newlist->mail_set->mailbox_directory_name[0] != '\0' &&
+	    !newlist->mail_set->mailbox_directory_name_legacy)
 		newpath = path_get_parent_dir(newpath);
 
 	if (strcmp(oldpath, newpath) == 0)

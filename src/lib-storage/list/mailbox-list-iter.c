@@ -971,9 +971,9 @@ static bool autocreate_iter_autobox(struct mailbox_list_iterate_context *ctx,
 
 	if ((actx->new_info.flags & MAILBOX_CHILDREN) == 0) {
 		if ((ctx->list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0 &&
-		    ctx->list->set.maildir_name[0] == '\0') {
+		    ctx->list->mail_set->mailbox_directory_name[0] == '\0') {
 			/* mailbox format using files (e.g. mbox)
-			   without DIRNAME specified */
+			   without mailbox_directory_name specified */
 			actx->new_info.flags |= MAILBOX_NOINFERIORS;
 		} else {
 			actx->new_info.flags |= MAILBOX_NOCHILDREN;

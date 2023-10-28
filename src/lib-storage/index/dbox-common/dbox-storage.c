@@ -18,14 +18,6 @@
 #include <unistd.h>
 #include <utime.h>
 
-void dbox_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
-				    struct mailbox_list_settings *set,
-				    const struct mail_storage_settings *mail_set ATTR_UNUSED)
-{
-	if (*set->maildir_name == '\0')
-		set->maildir_name = DBOX_MAILDIR_NAME;
-}
-
 static bool
 dbox_alt_path_has_changed(const char *root_dir, const char *alt_path,
 			  const char *alt_path2, const char *alt_symlink_path,
