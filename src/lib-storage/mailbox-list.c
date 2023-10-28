@@ -158,8 +158,6 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 	list->set.index_control_use_maildir_name =
 		set->index_control_use_maildir_name;
 
-	list->set.utf8 = set->utf8;
-
 	if (list->v.init != NULL) {
 		if (list->v.init(list, error_r) < 0) {
 			list->v.deinit(list);
@@ -266,10 +264,6 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 
 	while (*tmp != NULL) {
 		str = split_next_arg(&tmp);
-		if (strcmp(str, "UTF-8") == 0) {
-			set_r->utf8 = TRUE;
-			continue;
-		}
 
 		value = strchr(str, '=');
 		if (value == NULL) {
@@ -492,7 +486,7 @@ mailbox_list_default_get_storage_name_part(struct mailbox_list *list,
 	const char *storage_name = vname_part;
 	string_t *str;
 
-	if (!list->set.utf8) {
+	if (!list->mail_set->mailbox_list_utf8) {
 		/* UTF-8 -> mUTF-7 conversion */
 		str = t_str_new(strlen(storage_name)*2);
 		if (imap_escaped_utf8_to_utf7(storage_name,
@@ -656,7 +650,7 @@ mailbox_list_default_get_vname_part(struct mailbox_list *list,
 				list->mail_set->mailbox_list_storage_escape_char[0]);
 	}
 
-	if (!list->set.utf8) {
+	if (!list->mail_set->mailbox_list_utf8) {
 		/* mUTF-7 -> UTF-8 conversion */
 		string_t *str = t_str_new(strlen(vname));
 		if (escape_chars[0] != '\0') {
