@@ -131,8 +131,6 @@ struct mailbox_list_settings {
 	   "mail" and a selectable mailbox "mail/foo". */
 	const char *maildir_name;
 
-	/* Use UTF-8 mailbox names on filesystem instead of mUTF-7 */
-	bool utf8:1;
 	/* Use maildir_name also for index/control directories. This should
 	   have been the default since the beginning, but for backwards
 	   compatibility it had to be made an option. */
