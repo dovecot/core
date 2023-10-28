@@ -158,8 +158,6 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 	list->set.index_control_use_maildir_name =
 		set->index_control_use_maildir_name;
 
-	if (set->storage_name_escape_char != '\0')
-		list->set.storage_name_escape_char = set->storage_name_escape_char;
 	list->set.utf8 = set->utf8;
 
 	if (list->v.init != NULL) {
@@ -458,13 +456,13 @@ mailbox_list_vname_prepare(struct mailbox_list *list, const char **_vname)
 			vname += ns->prefix_len;
 			if (strcmp(vname, "INBOX") == 0 &&
 			    (list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
-			    list->set.storage_name_escape_char != '\0') {
+			    list->mail_set->mailbox_list_storage_escape_char[0] != '\0') {
 				/* prefix/INBOX - this is troublesome, because
 				   it ends up conflicting with the INBOX name.
 				   Handle this in a bit kludgy way by escaping
 				   the initial "I" character. */
 				*_vname = t_strdup_printf("%c49NBOX",
-					list->set.storage_name_escape_char);
+					list->mail_set->mailbox_list_storage_escape_char[0]);
 				return TRUE;
 			}
 		} else if (strncmp(ns->prefix, vname, ns->prefix_len-1) == 0 &&
@@ -506,12 +504,12 @@ mailbox_list_default_get_storage_name_part(struct mailbox_list *list,
 		mailbox_list_name_unescape(&storage_name,
 			list->mail_set->mailbox_list_visible_escape_char[0]);
 	}
-	if (list->set.storage_name_escape_char != '\0') {
+	if (list->mail_set->mailbox_list_storage_escape_char[0] != '\0') {
 		storage_name = mailbox_list_escape_name_params(storage_name,
 				list->ns->prefix,
 				'\0', /* no separator conversion */
 				mailbox_list_get_hierarchy_sep(list),
-				list->set.storage_name_escape_char,
+				list->mail_set->mailbox_list_storage_escape_char[0],
 				list->set.maildir_name);
 	}
 	return storage_name;
@@ -529,7 +527,7 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 	if (list->ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
 	    (list->ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0 &&
 	    list_sep != ns_sep &&
-	    list->set.storage_name_escape_char == '\0') {
+	    list->mail_set->mailbox_list_storage_escape_char[0] == '\0') {
 		/* Accessing shared namespace root. This is just the initial
 		   lookup that ends up as parameter to
 		   shared_storage_get_namespace(). That then finds/creates the
@@ -651,11 +649,11 @@ mailbox_list_default_get_vname_part(struct mailbox_list *list,
 		'\0'
 	};
 
-	if (list->set.storage_name_escape_char != '\0') {
+	if (list->mail_set->mailbox_list_storage_escape_char[0] != '\0') {
 		vname = mailbox_list_unescape_name_params(vname,
 				list->ns->prefix,
 				'\0', '\0', /* no separator conversion */
-				list->set.storage_name_escape_char);
+				list->mail_set->mailbox_list_storage_escape_char[0]);
 	}
 
 	if (!list->set.utf8) {

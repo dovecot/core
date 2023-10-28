@@ -61,7 +61,8 @@ mailbox_list_index_node_add(struct mailbox_list_index_sync_context *ctx,
 {
 	struct mailbox_list_index_node *node;
 	char *dup_name;
-	mailbox_list_name_unescape(&name, ctx->list->set.storage_name_escape_char);
+	mailbox_list_name_unescape(&name,
+		ctx->list->mail_set->mailbox_list_storage_escape_char[0]);
 
 	node = p_new(ctx->ilist->mailbox_pool,
 		     struct mailbox_list_index_node, 1);

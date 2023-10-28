@@ -195,7 +195,7 @@ imapc_list_remote_to_storage_name(struct imapc_mailbox_list *list,
 	return mailbox_list_escape_name_params(remote_name, "",
 		list->root_sep,
 		mailbox_list_get_hierarchy_sep(&list->list),
-		list->list.set.storage_name_escape_char, "");
+		list->list.mail_set->mailbox_list_storage_escape_char[0], "");
 }
 
 static const char *
@@ -210,9 +210,9 @@ const char *
 imapc_list_storage_to_remote_name(struct imapc_mailbox_list *list,
 				  const char *storage_name)
 {
-	return mailbox_list_unescape_name_params(storage_name, "", list->root_sep,
-				mailbox_list_get_hierarchy_sep(&list->list),
-				list->list.set.storage_name_escape_char);
+	return mailbox_list_unescape_name_params(storage_name, "",
+		list->root_sep, mailbox_list_get_hierarchy_sep(&list->list),
+		list->list.mail_set->mailbox_list_storage_escape_char[0]);
 }
 
 static struct mailbox_node *
@@ -433,17 +433,18 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 	} else if (list->index_list == NULL && !list->index_list_failed) {
 		mailbox_list_settings_init_defaults(&list_set);
 		list_set.root_dir = dir;
-		/* Filesystem needs to be able to store any kind of a mailbox
-		   name. */
-		list_set.storage_name_escape_char =
-			IMAPC_LIST_FS_NAME_ESCAPE_CHAR;
-
 		struct settings_instance *set_instance =
 			mail_storage_service_user_get_settings_instance(
 				list->list.ns->user->service_user);
 		list->index_list_set_instance =
 			settings_instance_dup(set_instance);
 		mail_storage_2nd_settings_reset(list->index_list_set_instance, "*/");
+		/* Filesystem needs to be able to store any kind of a mailbox
+		   name. */
+		settings_override(list->index_list_set_instance,
+				  "*/mailbox_list_storage_escape_char",
+				  IMAPC_LIST_FS_NAME_ESCAPE_CHAR,
+				  SETTINGS_OVERRIDE_TYPE_CODE);
 		settings_override(list->index_list_set_instance,
 				  "*/mailbox_list_layout",
 				  MAILBOX_LIST_NAME_MAILDIRPLUSPLUS,
@@ -490,9 +491,8 @@ imapc_list_storage_to_fs_name(struct imapc_mailbox_list *list,
 
 	remote_name = imapc_list_storage_to_remote_name(list, storage_name);
 	return mailbox_list_escape_name_params(remote_name, "",
-			list->root_sep,
-			mailbox_list_get_hierarchy_sep(fs_list),
-			fs_list->set.storage_name_escape_char, "");
+		list->root_sep, mailbox_list_get_hierarchy_sep(fs_list),
+		fs_list->mail_set->mailbox_list_storage_escape_char[0], "");
 }
 
 static const char *
@@ -508,7 +508,7 @@ imapc_list_fs_to_storage_name(struct imapc_mailbox_list *list,
 	remote_name = mailbox_list_unescape_name_params(fs_name, "",
 			list->root_sep,
 			mailbox_list_get_hierarchy_sep(fs_list),
-			fs_list->set.storage_name_escape_char);
+			fs_list->mail_set->mailbox_list_storage_escape_char[0]);
 	return imapc_list_remote_to_storage_name(list, remote_name);
 }
 

@@ -122,7 +122,8 @@ mailbox_list_index_node_find_sibling(const struct mailbox_list *list,
 				     struct mailbox_list_index_node *node,
 				     const char *name)
 {
-	mailbox_list_name_unescape(&name, list->set.storage_name_escape_char);
+	mailbox_list_name_unescape(&name,
+		list->mail_set->mailbox_list_storage_escape_char[0]);
 
 	while (node != NULL) {
 		if (strcmp(node->raw_name, name) == 0)
@@ -535,10 +536,10 @@ mailbox_name_hdr_encode(struct mailbox_list *list, const char *storage_name,
 	};
 	const char **name_parts =
 		(const char **)p_strsplit(unsafe_data_stack_pool, storage_name, sep);
-	if (list->set.storage_name_escape_char != '\0') {
+	if (list->mail_set->mailbox_list_storage_escape_char[0] != '\0') {
 		for (unsigned int i = 0; name_parts[i] != NULL; i++) {
 			mailbox_list_name_unescape(&name_parts[i],
-				list->set.storage_name_escape_char);
+				list->mail_set->mailbox_list_storage_escape_char[0]);
 		}
 	}
 
@@ -559,7 +560,7 @@ mailbox_name_hdr_decode_storage_name(struct mailbox_list *list,
 				     size_t name_hdr_size)
 {
 	const char list_sep = mailbox_list_get_hierarchy_sep(list);
-	const char escape_char = list->set.storage_name_escape_char;
+	const char escape_char = list->mail_set->mailbox_list_storage_escape_char[0];
 	string_t *storage_name = t_str_new(name_hdr_size);
 	while (name_hdr_size > 0) {
 		const unsigned char *p = memchr(name_hdr, '\0', name_hdr_size);

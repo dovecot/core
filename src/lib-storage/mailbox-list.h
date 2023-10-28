@@ -131,14 +131,6 @@ struct mailbox_list_settings {
 	   "mail" and a selectable mailbox "mail/foo". */
 	const char *maildir_name;
 
-	/* Used for escaping the mailbox name in storage (storage_name). If the
-	   UTF-8 vname has characters that can't reversibly (or safely) be
-	   converted to storage_name and back, encode the problematic parts
-	   using <storage_name_escape_char><hex>. The storage_name_escape_char
-	   itself also has to be encoded the same way. For example
-	   { vname="A/B.C%D", storage_name_escape_char='%', namespace_sep='/',
-	   storage_sep='.' } -> storage_name="A.B%2eC%25D". */
-	char storage_name_escape_char;
 	/* Use UTF-8 mailbox names on filesystem instead of mUTF-7 */
 	bool utf8:1;
 	/* Use maildir_name also for index/control directories. This should

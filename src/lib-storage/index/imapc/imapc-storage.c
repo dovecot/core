@@ -513,14 +513,6 @@ void imapc_storage_client_unregister_untagged(struct imapc_storage_client *clien
 	i_unreached();
 }
 
-static void
-imapc_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
-				struct mailbox_list_settings *set,
-				const struct mail_storage_settings *mail_set ATTR_UNUSED)
-{
-	set->storage_name_escape_char = IMAPC_LIST_STORAGE_NAME_ESCAPE_CHAR;
-}
-
 static struct mailbox *
 imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 		    const char *vname, enum mailbox_flags flags)
@@ -1370,7 +1362,7 @@ struct mail_storage imapc_storage = {
 		imapc_storage_create,
 		imapc_storage_destroy,
 		NULL,
-		imapc_storage_get_list_settings,
+		NULL,
 		NULL,
 		imapc_mailbox_alloc,
 		NULL,

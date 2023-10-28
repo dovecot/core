@@ -885,7 +885,6 @@ src/plugins/fts-flatcurve/Makefile
 src/plugins/fts-solr/Makefile
 src/plugins/last-login/Makefile
 src/plugins/lazy-expunge/Makefile
-src/plugins/listescape/Makefile
 src/plugins/mail-log/Makefile
 src/plugins/mail-lua/Makefile
 src/plugins/notify/Makefile

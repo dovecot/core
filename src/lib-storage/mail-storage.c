@@ -77,6 +77,7 @@ void mail_storage_init(void)
 	i_array_init(&mail_storage_classes, 8);
 	mail_storage_register_all();
 	mailbox_list_register_all();
+	settings_info_register(&mail_storage_setting_parser_info);
 }
 
 void mail_storage_deinit(void)
@@ -1461,7 +1462,7 @@ static int mailbox_verify_name_int(struct mailbox *box)
 	   (without escaping) because it would end up becoming a hierarchy
 	   separator. */
 	if (ns_sep != list_sep &&
-	    box->list->set.storage_name_escape_char == '\0' &&
+	    box->list->mail_set->mailbox_list_storage_escape_char[0] == '\0' &&
 	    strchr(vname, list_sep) != NULL) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS, t_strdup_printf(
 			"Character not allowed in mailbox name: '%c'", list_sep));
