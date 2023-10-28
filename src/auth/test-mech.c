@@ -76,8 +76,9 @@ request_handler_reply_continue_mock_callback(struct auth_request *request,
 }
 
 static void
-auth_client_request_mock_callback(const char *reply ATTR_UNUSED,
-				  struct auth_client_connection *conn ATTR_UNUSED)
+auth_client_request_mock_callback(
+	const char *reply ATTR_UNUSED,
+	struct auth_client_connection *conn ATTR_UNUSED)
 {
 }
 
@@ -109,30 +110,35 @@ static void test_mech_prepare_request(struct auth_request **request_r,
 	request->failure_nodelay = TRUE;
 	auth_request_state_count[AUTH_REQUEST_STATE_NEW] = 1;
 
-	if (test_case->set_username_before_test || test_case->set_cert_username)
-		request->fields.user = p_strdup(request->pool, test_case->username);
+	if (test_case->set_username_before_test ||
+	    test_case->set_cert_username) {
+		request->fields.user =
+			p_strdup(request->pool, test_case->username);
+	}
 	if (test_case->set_cert_username)
 		request->fields.cert_username = TRUE;
 
 	*request_r = request;
 }
 
-static void test_mech_handle_challenge(struct auth_request *request,
-				       const unsigned char *in,
-				       size_t in_len,
-				       unsigned int running_test,
-				       bool expected_success)
+static void
+test_mech_handle_challenge(struct auth_request *request,
+			   const unsigned char *in, size_t in_len,
+			   unsigned int running_test, bool expected_success)
 {
 	string_t *out = t_str_new(16);
 	str_append_data(out, in, in_len);
 	const char *challenge = request->context;
 	if (request->mech == &mech_login) {
-		/* We do not care about any specific password just give
-		 * the username input as password also in case it's wanted. */
-		if (expected_success)
-			test_assert_strcmp_idx(challenge, "Password:", running_test);
-		else
-			test_assert_strcmp_idx(challenge, "Username:", running_test);
+		/* We do not care about any specific password just give the
+		   username input as password also in case it's wanted. */
+		if (expected_success) {
+			test_assert_strcmp_idx(challenge, "Password:",
+					       running_test);
+		} else {
+			test_assert_strcmp_idx(challenge, "Username:",
+					       running_test);
+		}
 	} else if (request->mech == &mech_cram_md5 && *in != '\0') {
 		str_truncate(out, 0);
 		str_append(out, "testuser b913a602c7eda7a495b4e6e7334d3890");
@@ -161,8 +167,10 @@ static void test_mechs(void)
 	static struct auth_request_handler handler = {
 		.callback = auth_client_request_mock_callback,
 		.reply_callback = request_handler_reply_mock_callback,
-		.reply_continue_callback = request_handler_reply_continue_mock_callback,
-		.verify_plain_continue_callback = verify_plain_continue_mock_callback,
+		.reply_continue_callback =
+			request_handler_reply_continue_mock_callback,
+		.verify_plain_continue_callback =
+			verify_plain_continue_mock_callback,
 	};
 
 	static struct test_case tests[] = {
@@ -270,8 +278,10 @@ static void test_mechs(void)
 	test_auth_init();
 
 	string_t *d_token = t_str_new(32);
-	str_append_data(d_token, UCHAR_LEN("service\0pid\0testuser\0session\0"));
-	str_append(d_token, auth_token_get("service","pid","testuser","session"));
+	str_append_data(d_token,
+			UCHAR_LEN("service\0pid\0testuser\0session\0"));
+	str_append(d_token,
+		   auth_token_get("service","pid","testuser","session"));
 
 	for (unsigned int running_test = 0; running_test < N_ELEMENTS(tests);
 	     running_test++) T_BEGIN {
@@ -284,13 +294,13 @@ static void test_mechs(void)
 						       N_ELEMENTS(tests));
 		test_begin(testname);
 
-		test_mech_prepare_request(&request, mech, &handler, running_test,
-					  test_case);
+		test_mech_prepare_request(&request, mech, &handler,
+					  running_test, test_case);
 
-		if (mech == &mech_apop && test_case->in == NULL)
-			test_case->in =
-				test_mech_construct_apop_challenge(request->connect_uid,
-								   &test_case->len);
+		if (mech == &mech_apop && test_case->in == NULL) {
+			test_case->in = test_mech_construct_apop_challenge(
+				request->connect_uid, &test_case->len);
+		}
 		if (mech == &mech_dovecot_token && test_case->in == NULL) {
 			test_case->in = d_token->data;
 			test_case->len = d_token->used;
@@ -320,16 +330,19 @@ static void test_mechs(void)
 		if (request->fields.master_user != NULL)
 			username = request->fields.master_user;
 
-		if (!test_case->set_username_before_test && test_case->success) {
+		if (!test_case->set_username_before_test &&
+		    test_case->success) {
 			/* If the username was set by the test logic, do not
-			 * compare it as it does not give any additional
-			 * information */
+			   compare it as it does not give any additional
+			   information */
 			test_assert_strcmp_idx(test_case->username, username,
 					       running_test);
-		} else if (!test_case->set_username_before_test && !test_case->success) {
+		} else if (!test_case->set_username_before_test &&
+			   !test_case->success) {
 			/* If the username is not set by the testlogic and we
-			 * expect failure, verify that the mechanism failed by
-			 * checking that the username is not set */
+			   expect failure, verify that the mechanism failed by
+			   checking that the username is not set
+			 */
 			test_assert_idx(username == NULL, running_test);
 		}
 
