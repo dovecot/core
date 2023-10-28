@@ -8,11 +8,13 @@
 #include "auth-client-private.h"
 #include "strfuncs.h"
 
-static void auth_client_request_fail_conn_lost(struct auth_client_request *request);
+static void
+auth_client_request_fail_conn_lost(struct auth_client_request *request);
 
-static void auth_server_send_new_request(struct auth_client_connection *conn,
-					 struct auth_client_request *request,
-					 const struct auth_request_info *info)
+static void
+auth_server_send_new_request(struct auth_client_connection *conn,
+			     struct auth_client_request *request,
+			     const struct auth_request_info *info)
 {
 	string_t *str;
 
@@ -118,13 +120,15 @@ static void auth_server_send_new_request(struct auth_client_connection *conn,
 	}
 	if (info->ssl_cipher_bits != 0 && info->ssl_cipher != NULL) {
 		event_add_str(request->event, "tls_cipher", info->ssl_cipher);
-		event_add_int(request->event, "tls_cipher_bits", info->ssl_cipher_bits);
+		event_add_int(request->event, "tls_cipher_bits",
+			      info->ssl_cipher_bits);
 		if (info->ssl_pfs != NULL) {
 			event_add_str(request->event, "tls_pfs", info->ssl_pfs);
 		}
 	}
 	if (info->ssl_protocol != NULL) {
-		event_add_str(request->event, "tls_protocol", info->ssl_protocol);
+		event_add_str(request->event, "tls_protocol",
+			      info->ssl_protocol);
 	}
 	if (info->client_id != NULL &&
 	    *info->client_id != '\0') {
@@ -164,9 +168,10 @@ static void auth_server_send_new_request(struct auth_client_connection *conn,
 		e_error(request->event,
 			"Error sending request to auth server: connection lost");
 		/* try to reconnect */
-		request->to_fail =
-			timeout_add_short(0, auth_client_request_fail_conn_lost, request);
-	} else if (o_stream_send(conn->conn.output, str_data(str), str_len(str)) < 0) {
+		request->to_fail = timeout_add_short(
+			0, auth_client_request_fail_conn_lost, request);
+	} else if (o_stream_send(conn->conn.output,
+				 str_data(str), str_len(str)) < 0) {
 		e_error(request->event,
 			"Error sending request to auth server: %m");
 	}
@@ -199,7 +204,8 @@ auth_client_request_new(struct auth_client *client,
 						    request->id));
 
 	T_BEGIN {
-		auth_server_send_new_request(request->conn, request, request_info);
+		auth_server_send_new_request(request->conn,
+					     request, request_info);
 	} T_END;
 	return request;
 }
@@ -217,10 +223,13 @@ call_callback(struct auth_client_request *request,
 	callback(request, status, data_base64, args, request->context);
 }
 
-static void auth_client_request_fail_conn_lost(struct auth_client_request *request)
+static void
+auth_client_request_fail_conn_lost(struct auth_client_request *request)
 {
 	struct auth_client_connection *conn = request->conn;
+
 	timeout_remove(&request->to_fail);
+
 	struct event_passthrough *e =
 		event_create_passthrough(request->event)->
 		set_name("auth_client_request_finished");
@@ -288,8 +297,9 @@ time_t auth_client_request_get_create_time(struct auth_client_request *request)
 	return request->created;
 }
 
-static void args_parse_user(struct auth_client_request *request, const char *key,
-			    const char *value)
+static void
+args_parse_user(struct auth_client_request *request, const char *key,
+		const char *value)
 {
 	if (strcmp(key, "user") == 0)
 		event_add_str(request->event, "user", value);
@@ -307,7 +317,8 @@ void auth_client_request_continue(struct auth_client_request *request,
 
 	if (!request->conn->connected) {
 		e_error(request->event,
-			"Error sending continue request to auth server: connection lost");
+			"Error sending continue request to auth server: "
+			"connection lost");
 		return;
 	}
 
@@ -397,7 +408,8 @@ void auth_client_send_cancel(struct auth_client *client, unsigned int id)
 {
 	if (!client->conn->connected) {
 		e_error(client->conn->conn.event,
-			"Error sending cancel request to auth server: connection lost");
+			"Error sending cancel request to auth server: "
+			"connection lost");
 		return;
 	}
 	const char *str = t_strdup_printf("CANCEL\t%u\n", id);
