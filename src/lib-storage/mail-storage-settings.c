@@ -86,6 +86,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(BOOL_HIDDEN, mailbox_list_drop_noselect),
 	DEF(BOOL_HIDDEN, mailbox_list_validate_fs_names),
 	DEF(STR, mailbox_list_visible_escape_char),
+	DEF(STR, mailbox_list_storage_escape_char),
 	DEF(STR_HIDDEN, mailbox_root_directory_name),
 	DEF(STR_HIDDEN, mailbox_subscriptions_filename),
 	DEF(STR, mail_index_path),
@@ -161,6 +162,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mailbox_list_drop_noselect = TRUE,
 	.mailbox_list_validate_fs_names = TRUE,
 	.mailbox_list_visible_escape_char = "",
+	.mailbox_list_storage_escape_char = "",
 	.mailbox_root_directory_name = "",
 	.mailbox_subscriptions_filename = "subscriptions",
 	.mail_index_path = "",
@@ -182,11 +184,17 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.plugin_envs = ARRAY_INIT,
 };
 
+static const struct setting_keyvalue mail_storage_default_filter_settings_keyvalue[] = {
+	{ "layout_index/mailbox_list_storage_escape_char", "^" },
+	{ NULL, NULL }
+};
+
 const struct setting_parser_info mail_storage_setting_parser_info = {
 	.name = "mail_storage",
 
 	.defines = mail_storage_setting_defines,
 	.defaults = &mail_storage_default_settings,
+	.default_filter_settings = mail_storage_default_filter_settings_keyvalue,
 
 	.struct_size = sizeof(struct mail_storage_settings),
 	.pool_offset1 = 1 + offsetof(struct mail_storage_settings, pool),
@@ -780,6 +788,11 @@ mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool,
 		*error_r = "mailbox_list_visible_escape_char value must be a single character";
 		return FALSE;
 	}
+	if (set->mailbox_list_storage_escape_char != set_value_unknown &&
+	    strlen(set->mailbox_list_storage_escape_char) > 1) {
+		*error_r = "mailbox_list_storage_escape_char value must be a single character";
+		return FALSE;
+	}
 
 	if (!mail_storage_settings_check_namespaces(event, set, error_r))
 		return FALSE;
@@ -1029,6 +1042,7 @@ static const size_t mail_storage_2nd_reset_offsets[] = {
 	OFFSET(mailbox_list_index_prefix),
 	OFFSET(mailbox_list_iter_from_index_dir),
 	OFFSET(mailbox_list_visible_escape_char),
+	OFFSET(mailbox_list_storage_escape_char),
 	OFFSET(mailbox_root_directory_name),
 	OFFSET(mailbox_subscriptions_filename),
 	OFFSET(mail_index_path),

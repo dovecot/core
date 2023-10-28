@@ -20,7 +20,6 @@ SUBDIRS = \
 	fts \
 	last-login \
 	lazy-expunge \
-	listescape \
 	notify \
 	notify-status \
 	push-notification \

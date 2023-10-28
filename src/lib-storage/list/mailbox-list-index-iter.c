@@ -72,7 +72,7 @@ mailbox_list_get_escaped_mailbox_name(struct mailbox_list *list,
 				      string_t *escaped_name)
 {
 	const char escape_chars[] = {
-		list->set.storage_name_escape_char,
+		list->mail_set->mailbox_list_storage_escape_char[0],
 		mailbox_list_get_hierarchy_sep(list),
 		'\0'
 	};
