@@ -20,7 +20,9 @@ static struct mech_module_list *mech_modules;
 void mech_register_module(const struct mech_module *module)
 {
 	struct mech_module_list *list;
-	i_assert(strcmp(module->mech_name, t_str_ucase(module->mech_name)) == 0);
+
+	i_assert(strcmp(module->mech_name,
+			t_str_ucase(module->mech_name)) == 0);
 
 	list = i_new(struct mech_module_list, 1);
 	list->module = *module;
