@@ -582,7 +582,7 @@ mailbox_name_hdr_decode_storage_name(struct mailbox_list *list,
 			str_append(storage_name,
 				   mailbox_list_escape_name_params(name_part,
 					"", '\0', list_sep, escape_char,
-					list->set.maildir_name));
+					list->mail_set->mailbox_directory_name));
 		}
 
 		if (p != NULL) {

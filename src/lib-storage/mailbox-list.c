@@ -121,8 +121,8 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 	}
 
 	if ((class->props & MAILBOX_LIST_PROP_NO_MAILDIR_NAME) != 0 &&
-	    *set->maildir_name != '\0') {
-		*error_r = "maildir_name not supported by this driver";
+	    mail_set->mailbox_directory_name[0] != '\0') {
+		*error_r = "mailbox_directory_name not supported by this driver";
 		return -1;
 	}
 	if ((class->props & MAILBOX_LIST_PROP_NO_ALT_DIR) != 0 &&
@@ -153,10 +153,6 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 		list->set.root_dir = p_strdup(list->pool, set->root_dir);
 
 	list->set.inbox_path = p_strdup(list->pool, set->inbox_path);
-	list->set.maildir_name =
-		p_strdup(list->pool, set->maildir_name);
-	list->set.index_control_use_maildir_name =
-		set->index_control_use_maildir_name;
 
 	if (list->v.init != NULL) {
 		if (list->v.init(list, error_r) < 0) {
@@ -231,7 +227,6 @@ static const char *split_next_arg(const char *const **_args)
 void mailbox_list_settings_init_defaults(struct mailbox_list_settings *set_r)
 {
 	i_zero(set_r);
-	set_r->maildir_name = "";
 }
 
 static int
@@ -276,12 +271,7 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 
 		if (strcmp(key, "INBOX") == 0)
 			dest = &set_r->inbox_path;
-		else if (strcmp(key, "DIRNAME") == 0)
-			dest = &set_r->maildir_name;
-		else if (strcmp(key, "FULLDIRNAME") == 0) {
-			set_r->index_control_use_maildir_name = TRUE;
-			dest = &set_r->maildir_name;
-		} else {
+		else {
 			*error_r = t_strdup_printf("Unknown setting: %s", key);
 			return -1;
 		}
@@ -504,7 +494,7 @@ mailbox_list_default_get_storage_name_part(struct mailbox_list *list,
 				'\0', /* no separator conversion */
 				mailbox_list_get_hierarchy_sep(list),
 				list->mail_set->mailbox_list_storage_escape_char[0],
-				list->set.maildir_name);
+				list->mail_set->mailbox_directory_name);
 	}
 	return storage_name;
 }
@@ -1249,7 +1239,7 @@ mailbox_list_is_valid_fs_name(struct mailbox_list *list, const char *name,
 	   Maildir's cur/new/tmp. if any of those would conflict with the
 	   mailbox directory name, it's not valid. */
 	allow_internal_dirs = list->v.is_internal_name == NULL ||
-		*list->set.maildir_name != '\0' ||
+		list->mail_set->mailbox_directory_name[0] != '\0' ||
 		(list->props & MAILBOX_LIST_PROP_NO_INTERNAL_NAMES) != 0;
 	T_BEGIN {
 		const char *const *names;
@@ -1272,8 +1262,8 @@ mailbox_list_is_valid_fs_name(struct mailbox_list *list, const char *name,
 					break; /* ../ */
 				}
 			}
-			if (*list->set.maildir_name != '\0' &&
-			    strcmp(list->set.maildir_name, n) == 0) {
+			if (list->mail_set->mailbox_directory_name[0] != '\0' &&
+			    strcmp(list->mail_set->mailbox_directory_name, n) == 0) {
 				/* don't allow maildir_name to be used as part
 				   of the mailbox name */
 				*error_r = "Contains reserved name";

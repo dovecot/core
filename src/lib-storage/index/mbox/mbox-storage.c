@@ -724,7 +724,7 @@ static void mbox_storage_add_list(struct mail_storage *storage ATTR_UNUSED,
 	mlist = p_new(list->pool, struct mbox_mailbox_list, 1);
 	mlist->module_ctx.super = list->v;
 
-	if (*list->set.maildir_name == '\0') {
+	if (list->mail_set->mailbox_directory_name[0] == '\0') {
 		/* have to use .imap/ directories */
 		list->v.get_path = mbox_list_get_path;
 	}

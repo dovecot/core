@@ -117,24 +117,6 @@ struct mailbox_list_settings {
 	const char *root_dir;
 
 	const char *inbox_path;
-	/* If non-empty, it means that mails exist in a maildir_name
-	   subdirectory. eg. if you have a directory containing directories:
-
-	   mail/
-	   mail/foo/
-	   mail/foo/Maildir
-
-	   If mailbox_name is empty, you have mailboxes "mail", "mail/foo" and
-	   "mail/foo/Maildir".
-
-	   If mailbox_name is "Maildir", you have a non-selectable mailbox
-	   "mail" and a selectable mailbox "mail/foo". */
-	const char *maildir_name;
-
-	/* Use maildir_name also for index/control directories. This should
-	   have been the default since the beginning, but for backwards
-	   compatibility it had to be made an option. */
-	bool index_control_use_maildir_name:1;
 };
 
 struct mailbox_permissions {

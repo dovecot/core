@@ -285,7 +285,7 @@ test_maibox_list_name_init(struct mailbox_list *list,
 	mail_set.mailbox_list_utf8 = !mutf7;
 	vname_escape_char[0] = test->vname_escape_char;
 	storage_escape_char[0] = test->storage_name_escape_char;
-	list->set.maildir_name = test->maildir_name == NULL ? "" :
+	mail_set.mailbox_directory_name = test->maildir_name == NULL ? "" :
 		test->maildir_name;
 }
 

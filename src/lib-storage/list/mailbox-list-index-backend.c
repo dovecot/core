@@ -640,11 +640,11 @@ index_list_try_delete(struct mailbox_list *_list, const char *name,
 	    strcmp(path, mailbox_path) == 0)
 		return;
 
-	if (*_list->set.maildir_name == '\0' &&
+	if (_list->mail_set->mailbox_directory_name[0] == '\0' &&
 	    (_list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) == 0) {
 		/* this directory may contain also child mailboxes' data.
 		   we don't want to delete that. */
-		bool rmdir_path = *_list->set.maildir_name != '\0';
+		bool rmdir_path = _list->mail_set->mailbox_directory_name[0] != '\0';
 		if (mailbox_list_delete_mailbox_nonrecursive(_list, name, path,
 							     rmdir_path) < 0)
 			return;

@@ -159,7 +159,7 @@ dir_entry_get(struct fs_list_iterate_context *ctx, const char *dir_path,
 	     (d->d_name[1] == '.' && d->d_name[2] == '\0')))
 		return 0;
 
-	if (strcmp(d->d_name, ctx->ctx.list->set.maildir_name) == 0) {
+	if (strcmp(d->d_name, ctx->ctx.list->mail_set->mailbox_directory_name) == 0) {
 		/* mail storage's internal directory (e.g. dbox-Mails).
 		   this also means that the parent is selectable */
 		dir->info_flags &= ENUM_NEGATE(MAILBOX_NOSELECT);

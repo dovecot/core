@@ -92,7 +92,8 @@ maildir_storage_get_list_settings(const struct mail_namespace *ns,
 				  struct mailbox_list_settings *set,
 				  const struct mail_storage_settings *mail_set)
 {
-	if (set->inbox_path == NULL && *set->maildir_name == '\0' &&
+	if (set->inbox_path == NULL &&
+	    mail_set->mailbox_directory_name[0] == '\0' &&
 	    (strcmp(mail_set->mailbox_list_layout, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0 ||
 	     strcmp(mail_set->mailbox_list_layout, MAILBOX_LIST_NAME_FS) == 0) &&
 	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
