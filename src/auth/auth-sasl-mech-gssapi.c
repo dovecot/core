@@ -8,9 +8,12 @@
 
 static bool
 mech_gssapi_register(struct sasl_server_instance *sasl_inst,
-		     const struct auth_settings *set ATTR_UNUSED)
+		     const struct auth_settings *set)
 {
-	sasl_server_mech_register_gssapi(sasl_inst);
+	struct sasl_server_gssapi_settings gss_set;
+
+	auth_sasl_mech_gssapi_settings_init(set, &gss_set);
+	sasl_server_mech_register_gssapi(sasl_inst, &gss_set);
 	return TRUE;
 }
 

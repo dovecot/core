@@ -152,7 +152,8 @@ if HAVE_GSSAPI
 if !GSSAPI_PLUGIN
 auth_common_sources += \
 	auth-sasl-mech-gssapi.c \
-	auth-sasl-mech-gss-spnego.c
+	auth-sasl-mech-gss-spnego.c \
+	auth-sasl-gssapi.c
 endif
 endif
 
@@ -201,6 +202,7 @@ libmech_gssapi_la_LIBADD = $(KRB5_LIBS)
 libmech_gssapi_la_CPPFLAGS = $(AM_CPPFLAGS) $(KRB5_CFLAGS) -DPLUGIN_BUILD
 libmech_gssapi_la_SOURCES = \
 	sasl-server-mech-gssapi.c \
+	auth-sasl-gssapi.c \
 	auth-sasl-mech-gssapi.c
 
 libmech_gss_spnego_la_LDFLAGS = -module -avoid-version
@@ -208,6 +210,7 @@ libmech_gss_spnego_la_LIBADD = $(KRB5_LIBS)
 libmech_gss_spnego_la_CPPFLAGS = $(AM_CPPFLAGS) $(KRB5_CFLAGS) -DPLUGIN_BUILD
 libmech_gss_spnego_la_SOURCES = \
 	sasl-server-mech-gssapi.c \
+	auth-sasl-gssapi.c \
 	auth-sasl-mech-gss-spnego.c
 endif
 

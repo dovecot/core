@@ -22,8 +22,6 @@
 #include "sasl-server-protected.h"
 #include "sasl-server-gssapi.h"
 
-#if defined(BUILTIN_GSSAPI) || defined(PLUGIN_BUILD)
-
 #ifdef HAVE_GSSAPI_GSSAPI_H
 #  include <gssapi/gssapi.h>
 #elif defined (HAVE_GSSAPI_H)
@@ -65,14 +63,17 @@ struct gssapi_auth_request {
 	gss_name_t authz_name;
 };
 
-static bool gssapi_initialized = FALSE;
+struct gssapi_auth_mech {
+	struct sasl_server_mech mech;
+
+	const char *hostname;
+};
 
 static gss_OID_desc mech_gssapi_krb5_oid =
 	{ 9, "\x2a\x86\x48\x86\xf7\x12\x01\x02\x02" };
 
 static int
 mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf);
-static void mech_gssapi_initialize(const struct auth_settings *set);
 
 static void
 mech_gssapi_log_error(struct gssapi_auth_request *request,
@@ -115,17 +116,15 @@ obtain_service_credentials(struct gssapi_auth_request *request,
 			   gss_cred_id_t *ret_r)
 {
 	struct sasl_server_mech_request *auth_request = &request->auth_request;
+	const struct gssapi_auth_mech *gss_mech =
+		container_of(auth_request->mech,
+			     const struct gssapi_auth_mech, mech);
 	OM_uint32 major_status, minor_status;
 	string_t *principal_name;
 	gss_buffer_desc inbuf;
 	gss_name_t gss_principal;
 
-	if (!gssapi_initialized) {
-		gssapi_initialized = TRUE;
-		mech_gssapi_initialize(auth_request->request->set);
-	}
-
-	if (strcmp(auth_request->request->set->gssapi_hostname, "$ALL") == 0) {
+	if (strcmp(gss_mech->hostname, "$ALL") == 0) {
 		e_debug(auth_request->mech_event,
 			"Using all keytab entries");
 		*ret_r = GSS_C_NO_CREDENTIAL;
@@ -135,7 +134,7 @@ obtain_service_credentials(struct gssapi_auth_request *request,
 	principal_name = t_str_new(128);
 	str_append(principal_name, auth_request->protocol);
 	str_append_c(principal_name, '@');
-	str_append(principal_name, auth_request->request->set->gssapi_hostname);
+	str_append(principal_name, gss_mech->hostname);
 
 	e_debug(auth_request->mech_event,
 		"Obtaining credentials for %s", str_c(principal_name));
@@ -674,11 +673,22 @@ mech_gssapi_auth_free(struct sasl_server_mech_request *auth_request)
 		(void)gss_release_name(&minor_status, &request->authz_name);
 }
 
+static struct sasl_server_mech *mech_gssapi_mech_new(pool_t pool)
+{
+	struct gssapi_auth_mech *gss_mech;
+
+	gss_mech = p_new(pool, struct gssapi_auth_mech, 1);
+
+	return &gss_mech->mech;
+}
+
 static const struct sasl_server_mech_funcs mech_gssapi_funcs = {
 	.auth_new = mech_gssapi_auth_new,
 	.auth_initial = mech_gssapi_auth_initial,
 	.auth_continue = mech_gssapi_auth_continue,
 	.auth_free = mech_gssapi_auth_free,
+
+	.mech_new = mech_gssapi_mech_new,
 };
 
 static const struct sasl_server_mech_def mech_gssapi = {
@@ -702,8 +712,19 @@ static const struct sasl_server_mech_def mech_gss_spnego = {
 	.funcs = &mech_gssapi_funcs,
 };
 
-static void mech_gssapi_initialize(const struct auth_settings *set)
+static void
+mech_gssapi_register(struct sasl_server_instance *sinst,
+		     const struct sasl_server_mech_def *mech_def,
+		     const struct sasl_server_gssapi_settings *set)
 {
+	struct sasl_server_mech *mech;
+	struct gssapi_auth_mech *gss_mech;
+
+	mech = sasl_server_mech_register(sinst, mech_def);
+
+	gss_mech = container_of(mech, struct gssapi_auth_mech, mech);
+	gss_mech->hostname = p_strdup(mech->pool, set->hostname);
+
 	const char *path = set->krb5_keytab;
 
 	if (*path != '\0') {
@@ -717,9 +738,11 @@ static void mech_gssapi_initialize(const struct auth_settings *set)
 	}
 }
 
-void sasl_server_mech_register_gssapi(struct sasl_server_instance *sinst)
+void sasl_server_mech_register_gssapi(
+	struct sasl_server_instance *sinst,
+	const struct sasl_server_gssapi_settings *set)
 {
-	sasl_server_mech_register(sinst, &mech_gssapi);
+	mech_gssapi_register(sinst, &mech_gssapi, set);
 }
 
 void sasl_server_mech_unregister_gssapi(struct sasl_server_instance *sinst)
@@ -727,14 +750,14 @@ void sasl_server_mech_unregister_gssapi(struct sasl_server_instance *sinst)
 	sasl_server_mech_unregister(sinst, &mech_gssapi);
 }
 
-void sasl_server_mech_register_gss_spnego(struct sasl_server_instance *sinst)
+void sasl_server_mech_register_gss_spnego(
+	struct sasl_server_instance *sinst,
+	const struct sasl_server_gssapi_settings *set)
 {
-	sasl_server_mech_register(sinst, &mech_gss_spnego);
+	mech_gssapi_register(sinst, &mech_gss_spnego, set);
 }
 
 void sasl_server_mech_unregister_gss_spnego(struct sasl_server_instance *sinst)
 {
 	sasl_server_mech_unregister(sinst, &mech_gss_spnego);
 }
-
-#endif
