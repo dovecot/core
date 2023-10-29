@@ -204,7 +204,7 @@ static void auth_userdb_deinit(struct auth_userdb *userdb)
 	settings_free(userdb->unexpanded_post_set);
 }
 
-static bool auth_passdb_list_have_verify_plain(const struct auth *auth)
+bool auth_passdb_list_have_verify_plain(const struct auth *auth)
 {
 	const struct auth_passdb *passdb;
 
@@ -215,7 +215,7 @@ static bool auth_passdb_list_have_verify_plain(const struct auth *auth)
 	return FALSE;
 }
 
-static bool auth_passdb_list_have_lookup_credentials(const struct auth *auth)
+bool auth_passdb_list_have_lookup_credentials(const struct auth *auth)
 {
 	const struct auth_passdb *passdb;
 
@@ -226,7 +226,7 @@ static bool auth_passdb_list_have_lookup_credentials(const struct auth *auth)
 	return FALSE;
 }
 
-static bool auth_passdb_list_have_set_credentials(const struct auth *auth)
+bool auth_passdb_list_have_set_credentials(const struct auth *auth)
 {
 	const struct auth_passdb *passdb;
 
