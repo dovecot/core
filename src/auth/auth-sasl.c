@@ -396,9 +396,9 @@ void auth_sasl_instance_init(struct auth *auth,
 
 static bool
 auth_sasl_mech_verify_passdb(const struct auth *auth,
-			     const struct sasl_server_mech_def *mech)
+			     enum sasl_mech_passdb_need passdb_need)
 {
-	switch (mech->passdb_need) {
+	switch (passdb_need) {
 	case SASL_MECH_PASSDB_NEED_NOTHING:
 		break;
 	case SASL_MECH_PASSDB_NEED_VERIFY_PLAIN:
@@ -425,7 +425,8 @@ void auth_sasl_instance_verify(const struct auth *auth)
 	const struct mech_module_list *list;
 
 	for (list = auth->reg->modules; list != NULL; list = list->next) {
-		if (!auth_sasl_mech_verify_passdb(auth, list->module))
+		if (!auth_sasl_mech_verify_passdb(
+				auth, list->module->passdb_need))
 			break;
 	}
 
