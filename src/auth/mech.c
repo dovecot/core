@@ -73,8 +73,10 @@ extern const struct sasl_server_mech_def mech_winbind_spnego;
 extern const struct sasl_server_mech_def mech_oauthbearer;
 extern const struct sasl_server_mech_def mech_xoauth2;
 
-static void mech_register_add(struct mechanisms_register *reg,
-			      const struct sasl_server_mech_def *mech)
+void mech_register_add(struct mechanisms_register *reg,
+		       const struct sasl_server_mech_def *mech);
+void mech_register_add(struct mechanisms_register *reg,
+		       const struct sasl_server_mech_def *mech)
 {
 	struct mech_module_list *list;
 	string_t *handshake;
