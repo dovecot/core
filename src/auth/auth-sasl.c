@@ -11,6 +11,8 @@
 #include "auth-request.h"
 #include "auth-request-handler.h"
 
+#include <ctype.h>
+
 static struct sasl_server *auth_sasl_server;
 
 /*
@@ -488,6 +490,21 @@ void mech_register_add(struct mechanisms_register *reg,
 
 	list->next = reg->modules;
 	reg->modules = list;
+}
+
+const char *mech_get_plugin_name(const char *name);
+const char *mech_get_plugin_name(const char *name)
+{
+	string_t *str = t_str_new(32);
+
+	str_append(str, "mech_");
+	for (; *name != '\0'; name++) {
+		if (*name == '-')
+			str_append_c(str, '_');
+		else
+			str_append_c(str, i_tolower(*name));
+	}
+	return str_c(str);
 }
 
 void auth_sasl_preinit(void)
