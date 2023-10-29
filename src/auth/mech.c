@@ -112,7 +112,8 @@ void mech_register_add(struct mechanisms_register *reg,
 	reg->modules = list;
 }
 
-static const char *mech_get_plugin_name(const char *name)
+const char *mech_get_plugin_name(const char *name);
+const char *mech_get_plugin_name(const char *name)
 {
 	string_t *str = t_str_new(32);
 
