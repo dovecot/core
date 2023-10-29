@@ -20,8 +20,6 @@
 struct apop_auth_request {
 	struct auth_request auth_request;
 
-	pool_t pool;
-
 	/* requested: */
 	char *challenge;
 
@@ -96,7 +94,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 	/* get the challenge */
 	while (tmp != end && *tmp != '\0')
 		tmp++;
-	request->challenge = p_strdup_until(request->pool, data, tmp);
+	request->challenge = p_strdup_until(auth_request->pool, data, tmp);
 
 	if (tmp != end) {
 		/* get the username */
@@ -155,7 +153,6 @@ static struct auth_request *mech_apop_auth_new(void)
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"apop_auth_request", 2048);
 	request = p_new(pool, struct apop_auth_request, 1);
-	request->pool = pool;
 
 	request->auth_request.pool = pool;
 	return &request->auth_request;
