@@ -9,7 +9,6 @@
 #include "auth-common.h"
 #include "safe-memset.h"
 #include "hash.h"
-#include "passdb.h"
 #include "hex-binary.h"
 #include "otp.h"
 

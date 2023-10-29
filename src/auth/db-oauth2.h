@@ -5,6 +5,8 @@ struct db_oauth2;
 struct oauth2_request;
 struct db_oauth2_request;
 
+#include "passdb.h"
+
 struct auth_oauth2_settings {
 	pool_t pool;
 	/* tokeninfo endpoint, format https://endpoint/somewhere?token= */

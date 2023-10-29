@@ -2,7 +2,6 @@
 
 #include "auth-common.h"
 #include "safe-memset.h"
-#include "passdb.h"
 
 #include "sasl-server-protected.h"
 #include "sasl-server-mech-plain-common.h"

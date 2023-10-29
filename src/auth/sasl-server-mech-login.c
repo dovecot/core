@@ -7,7 +7,6 @@
  */
 
 #include "auth-common.h"
-#include "passdb.h"
 #include "safe-memset.h"
 
 #include "sasl-server-protected.h"

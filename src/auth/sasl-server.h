@@ -3,8 +3,6 @@
 
 #include "auth-client-interface.h"
 
-#include "passdb.h"
-
 enum mech_passdb_need {
 	/* Mechanism doesn't need a passdb at all */
 	MECH_PASSDB_NEED_NOTHING = 0,

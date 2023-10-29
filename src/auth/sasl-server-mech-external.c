@@ -1,7 +1,6 @@
 /* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
-#include "passdb.h"
 
 #include "sasl-server-protected.h"
 #include "sasl-server-mech-plain-common.h"

@@ -11,7 +11,6 @@
 #include "hmac.h"
 #include "md5.h"
 #include "randgen.h"
-#include "passdb.h"
 #include "hostpid.h"
 
 #include "sasl-server-protected.h"

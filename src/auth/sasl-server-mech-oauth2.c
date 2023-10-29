@@ -7,7 +7,6 @@
 #include "str.h"
 #include "strescape.h"
 #include "json-ostream.h"
-#include "passdb.h"
 #include "auth-gs2.h"
 #include "db-oauth2.h"
 #include "oauth2.h"

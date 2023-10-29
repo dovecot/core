@@ -1,6 +1,7 @@
 #ifndef SASL_SERVER_PROTECTED_H
 #define SASL_SERVER_PROTECTED_H
 
+#include "passdb.h" // FIXME: remove
 #include "auth-request-handler.h"
 
 #include "sasl-server.h"

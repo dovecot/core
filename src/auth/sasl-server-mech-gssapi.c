@@ -18,7 +18,6 @@
 #include "str-sanitize.h"
 #include "hex-binary.h"
 #include "safe-memset.h"
-#include "passdb.h"
 
 #include "sasl-server-protected.h"
 
