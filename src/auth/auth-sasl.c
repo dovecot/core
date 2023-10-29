@@ -394,6 +394,52 @@ void auth_sasl_instance_init(struct auth *auth,
 		sasl_server_instance_create(auth_sasl_server, &sasl_set);
 }
 
+static bool
+auth_mech_verify_passdb(const struct auth *auth,
+			const struct sasl_server_mech_def *mech)
+{
+	switch (mech->passdb_need) {
+	case SASL_MECH_PASSDB_NEED_NOTHING:
+		break;
+	case SASL_MECH_PASSDB_NEED_VERIFY_PLAIN:
+		if (!auth_passdb_list_have_verify_plain(auth))
+			return FALSE;
+		break;
+	case SASL_MECH_PASSDB_NEED_VERIFY_RESPONSE:
+	case SASL_MECH_PASSDB_NEED_LOOKUP_CREDENTIALS:
+		if (!auth_passdb_list_have_lookup_credentials(auth))
+			return FALSE;
+		break;
+	case SASL_MECH_PASSDB_NEED_SET_CREDENTIALS:
+		if (!auth_passdb_list_have_lookup_credentials(auth))
+			return FALSE;
+		if (!auth_passdb_list_have_set_credentials(auth))
+			return FALSE;
+		break;
+	}
+	return TRUE;
+}
+
+void auth_mech_list_verify_passdb(const struct auth *auth)
+{
+	const struct mech_module_list *list;
+
+	for (list = auth->reg->modules; list != NULL; list = list->next) {
+		if (!auth_mech_verify_passdb(auth, list->module))
+			break;
+	}
+
+	if (list != NULL) {
+		if (auth->passdbs == NULL) {
+			i_fatal("No passdbs specified in configuration file. "
+				"%s mechanism needs one",
+				list->module->name);
+		}
+		i_fatal("%s mechanism can't be supported with given passdbs",
+			list->module->name);
+	}
+}
+
 void auth_sasl_instance_deinit(struct auth *auth)
 {
 	sasl_server_instance_unref(&auth->sasl_inst);
