@@ -127,6 +127,8 @@ static const char *mech_get_plugin_name(const char *name)
 }
 
 struct mechanisms_register *
+mech_register_init(const struct auth_settings *set);
+struct mechanisms_register *
 mech_register_init(const struct auth_settings *set)
 {
 	struct mechanisms_register *reg;
