@@ -502,7 +502,7 @@ void auths_preinit(struct event *parent_event,
 
 	array_foreach_elem(&auths, auth) {
 		if (auth->protocol != NULL || check_default)
-			auth_mech_list_verify_passdb(auth);
+			auth_sasl_instance_verify(auth);
 	}
 }
 

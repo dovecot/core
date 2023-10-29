@@ -420,7 +420,7 @@ auth_mech_verify_passdb(const struct auth *auth,
 	return TRUE;
 }
 
-void auth_mech_list_verify_passdb(const struct auth *auth)
+void auth_sasl_instance_verify(const struct auth *auth)
 {
 	const struct mech_module_list *list;
 
