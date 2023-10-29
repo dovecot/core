@@ -1,6 +1,7 @@
 /* Copyright (c) 2023 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "settings-parser.h"
 #include "sasl-server-private.h" // FIXME: remove
 #include "auth.h"
@@ -449,6 +450,45 @@ void auth_sasl_instance_deinit(struct auth *auth)
 /*
  * Global
  */
+
+void mech_register_add(struct mechanisms_register *reg,
+		       const struct sasl_server_mech_def *mech);
+void mech_register_add(struct mechanisms_register *reg,
+		       const struct sasl_server_mech_def *mech)
+{
+	struct mech_module_list *list;
+	string_t *handshake;
+
+	list = p_new(reg->pool, struct mech_module_list, 1);
+	list->module = mech;
+
+	if ((mech->flags & SASL_MECH_SEC_CHANNEL_BINDING) != 0)
+		handshake = reg->handshake_cbind;
+	else
+		handshake = reg->handshake;
+
+	str_printfa(handshake, "MECH\t%s", mech->name);
+	if ((mech->flags & SASL_MECH_SEC_PRIVATE) != 0)
+		str_append(handshake, "\tprivate");
+	if ((mech->flags & SASL_MECH_SEC_ANONYMOUS) != 0)
+		str_append(handshake, "\tanonymous");
+	if ((mech->flags & SASL_MECH_SEC_PLAINTEXT) != 0)
+		str_append(handshake, "\tplaintext");
+	if ((mech->flags & SASL_MECH_SEC_DICTIONARY) != 0)
+		str_append(handshake, "\tdictionary");
+	if ((mech->flags & SASL_MECH_SEC_ACTIVE) != 0)
+		str_append(handshake, "\tactive");
+	if ((mech->flags & SASL_MECH_SEC_FORWARD_SECRECY) != 0)
+		str_append(handshake, "\tforward-secrecy");
+	if ((mech->flags & SASL_MECH_SEC_MUTUAL_AUTH) != 0)
+		str_append(handshake, "\tmutual-auth");
+	if ((mech->flags & SASL_MECH_SEC_CHANNEL_BINDING) != 0)
+		str_append(handshake, "\tchannel-binding");
+	str_append_c(handshake, '\n');
+
+	list->next = reg->modules;
+	reg->modules = list;
+}
 
 void auth_sasl_preinit(void)
 {
