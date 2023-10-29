@@ -13,19 +13,25 @@ void sasl_server_request_create(struct auth_request *request,
 				const struct sasl_server_mech_def *mech,
 				struct event *event_parent)
 {
-	struct sasl_server_mech_request *mreq;
+	struct sasl_server_request *req;
 	pool_t pool;
 
 	pool = request->pool;
+	req = p_new(pool, struct sasl_server_request, 1);
+
+	struct sasl_server_mech_request *mreq;
+
 	if (mech->auth_new != NULL)
 		mreq = mech->auth_new(pool);
 	else
 		mreq = p_new(pool, struct sasl_server_mech_request, 1);
 	mreq->pool = pool;
+	mreq->req = req;
 	mreq->request = request;
 	mreq->mech = mech;
 	mreq->mech_event = event_parent;
 
+	req->mech = mreq;
 	request->sasl = mreq;
 }
 

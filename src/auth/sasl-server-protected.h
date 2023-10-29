@@ -53,6 +53,7 @@ struct mechanisms_register {
 struct sasl_server_mech_request {
 	pool_t pool;
 	const struct sasl_server_mech_def *mech;
+	struct sasl_server_request *req;
 	struct event *mech_event;
 
 	// FIXME: To be removed
