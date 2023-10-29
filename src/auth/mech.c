@@ -80,46 +80,6 @@ const char *mech_get_plugin_name(const char *name);
 
 struct mechanisms_register *
 mech_register_init(const struct auth_settings *set);
-struct mechanisms_register *
-mech_register_init(const struct auth_settings *set)
-{
-	struct mechanisms_register *reg;
-	const struct sasl_server_mech_def *mech;
-	const char *name;
-	pool_t pool;
-
-	pool = pool_alloconly_create("mechanisms register", 1024);
-	reg = p_new(pool, struct mechanisms_register, 1);
-	reg->pool = pool;
-	reg->set = set;
-	reg->handshake = str_new(pool, 512);
-	reg->handshake_cbind = str_new(pool, 256);
-
-	if (!array_is_created(&set->mechanisms) ||
-	    array_is_empty(&set->mechanisms))
-		i_fatal("No authentication mechanisms configured");
-
-	array_foreach_elem(&set->mechanisms, name) {
-		name = t_str_ucase(name);
-
-		if (strcmp(name, "ANONYMOUS") == 0) {
-			if (*set->anonymous_username == '\0') {
-				i_fatal("ANONYMOUS listed in mechanisms, "
-					"but anonymous_username not set");
-			}
-		}
-		mech = mech_module_find(name);
-		if (mech == NULL) {
-			/* maybe it's a plugin. try to load it. */
-			auth_module_load(mech_get_plugin_name(name));
-			mech = mech_module_find(name);
-		}
-		if (mech == NULL)
-			i_fatal("Unknown authentication mechanism '%s'", name);
-		mech_register_add(reg, mech);
-	}
-	return reg;
-}
 
 void mech_register_deinit(struct mechanisms_register **_reg)
 {
