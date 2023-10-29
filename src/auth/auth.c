@@ -267,7 +267,7 @@ auth_mech_verify_passdb(const struct auth *auth,
 	return TRUE;
 }
 
-static void auth_mech_list_verify_passdb(const struct auth *auth)
+void auth_mech_list_verify_passdb(const struct auth *auth)
 {
 	const struct mech_module_list *list;
 
