@@ -1,8 +1,6 @@
 /* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
-#include "auth-common.h"
-#include "auth-fields.h"
-#include "ioloop.h"
+#include "lib.h"
 #include "str.h"
 #include "buffer.h"
 #include "json-ostream.h"

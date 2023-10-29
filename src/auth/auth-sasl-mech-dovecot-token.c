@@ -7,6 +7,7 @@
 #include "safe-memset.h"
 #include "sasl-server-protected.h"
 #include "auth-sasl.h"
+#include "auth-request.h"
 #include "auth-token.h"
 
 static void

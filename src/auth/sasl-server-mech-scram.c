@@ -1,8 +1,9 @@
 /* Copyright (c) 2011-2023 Dovecot authors, see the included COPYING file */
 
-#include "auth-common.h"
+#include "lib.h"
 #include "sha1.h"
 #include "sha2.h"
+#include "password-scheme.h"
 #include "auth-scram-server.h"
 
 #include "sasl-server-protected.h"

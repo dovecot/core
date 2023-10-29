@@ -1,8 +1,6 @@
 #ifndef SASL_SERVER_PROTECTED_H
 #define SASL_SERVER_PROTECTED_H
 
-#include "auth-request.h" // FIXME: remove
-
 #include "sasl-server.h"
 
 struct sasl_server_mech_funcs;

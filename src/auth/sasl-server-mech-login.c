@@ -6,7 +6,7 @@
  * This software is released under the MIT license.
  */
 
-#include "auth-common.h"
+#include "lib.h"
 #include "safe-memset.h"
 
 #include "sasl-server-protected.h"

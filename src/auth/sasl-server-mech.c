@@ -1,6 +1,6 @@
 /* Copyright (c) 2023 Dovecot authors, see the included COPYING file */
 
-#include "auth-common.h"
+#include "lib.h"
 #include "llist.h"
 
 #include "sasl-server-private.h"
