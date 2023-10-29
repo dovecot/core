@@ -49,7 +49,8 @@ apop_credentials_callback(enum passdb_result result,
 			  struct auth_request *auth_request)
 {
 	struct apop_auth_request *request =
-		(struct apop_auth_request *)auth_request;
+		container_of(auth_request, struct apop_auth_request,
+			     auth_request);
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
@@ -72,7 +73,8 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 		       const unsigned char *data, size_t data_size)
 {
 	struct apop_auth_request *request =
-		(struct apop_auth_request *)auth_request;
+		container_of(auth_request, struct apop_auth_request,
+			     auth_request);
 	const unsigned char *tmp, *end, *username = NULL;
 	unsigned long pid, connect_uid, timestamp;
 	const char *error;
