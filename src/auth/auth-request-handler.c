@@ -11,6 +11,7 @@
 #include "strescape.h"
 #include "str-sanitize.h"
 #include "master-interface.h"
+#include "auth-sasl.h"
 #include "auth-penalty.h"
 #include "auth-request.h"
 #include "auth-token.h"
@@ -593,7 +594,8 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 			e_error(handler->conn->conn.event,
 				"BUG: Authentication client %u requested invalid "
 				"authentication mechanism %s (DOVECOT-TOKEN required)",
-				handler->client_pid, str_sanitize(args[1], MAX_MECH_NAME_LEN));
+				handler->client_pid,
+				str_sanitize(args[1], AUTH_SASL_MAX_MECH_NAME_LEN));
 			return -1;
 		}
 	} else {
@@ -604,7 +606,7 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 			e_error(handler->conn->conn.event,
 				"BUG: Authentication client %u requested unsupported "
 				"authentication mechanism %s", handler->client_pid,
-				str_sanitize(args[1], MAX_MECH_NAME_LEN));
+				str_sanitize(args[1], AUTH_SASL_MAX_MECH_NAME_LEN));
 			return -1;
 		}
 	}

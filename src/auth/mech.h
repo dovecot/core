@@ -9,9 +9,6 @@ struct auth_request;
 #include "auth-request.h"
 #include "auth-request-handler.h"
 
-/* Used only for string sanitization. */
-#define MAX_MECH_NAME_LEN 64
-
 enum mech_passdb_need {
 	/* Mechanism doesn't need a passdb at all */
 	MECH_PASSDB_NEED_NOTHING = 0,

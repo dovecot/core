@@ -1,6 +1,9 @@
 #ifndef AUTH_SASL_H
 #define AUTH_SASL_H
 
+/* Used only for string sanitization. */
+#define AUTH_SASL_MAX_MECH_NAME_LEN 64
+
 struct auth_sasl_mech_module {
 	const char *mech_name;
 };
