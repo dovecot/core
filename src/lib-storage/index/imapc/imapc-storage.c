@@ -461,7 +461,7 @@ imapc_storage_create(struct mail_storage *_storage,
 						    storage->set->imapc_max_idle_time,
 						    (size_t) storage->set->imapc_max_line_length,
 						    storage->set->pop3_deleted_flag,
-						    ns->list->set.root_dir);
+						    ns->list->mail_set->mail_path);
 
 	imapc_storage_client_register_untagged(storage->client, "STATUS",
 					       imapc_untagged_status);

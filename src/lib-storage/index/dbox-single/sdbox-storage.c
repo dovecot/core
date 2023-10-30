@@ -79,8 +79,8 @@ sdbox_storage_find_root_dir(const struct mail_namespace *ns)
 
 static bool
 sdbox_storage_autodetect(const struct mail_namespace *ns,
-			 struct mailbox_list_settings *set,
-			 const struct mail_storage_settings *mail_set ATTR_UNUSED,
+			 struct mailbox_list_settings *set ATTR_UNUSED,
+			 const struct mail_storage_settings *mail_set,
 			 const char **root_path_r,
 			 const char **inbox_path_r ATTR_UNUSED)
 {
@@ -88,8 +88,8 @@ sdbox_storage_autodetect(const struct mail_namespace *ns,
 	struct stat st;
 	const char *path, *root_dir;
 
-	if (set->root_dir != NULL)
-		root_dir = set->root_dir;
+	if (mail_set->mail_path[0] != '\0')
+		root_dir = mail_set->mail_path;
 	else {
 		root_dir = sdbox_storage_find_root_dir(ns);
 		if (root_dir == NULL) {

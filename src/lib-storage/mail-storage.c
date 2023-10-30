@@ -142,6 +142,7 @@ static struct mail_storage *
 mail_storage_autodetect(const struct mail_namespace *ns,
 			struct mailbox_list_settings *set,
 			const struct mail_storage_settings *mail_set,
+			const char **root_path_override,
 			const char **inbox_path_override)
 {
 	struct mail_storage *const *classes;
@@ -153,7 +154,7 @@ mail_storage_autodetect(const struct mail_namespace *ns,
 		if (classes[i]->v.autodetect != NULL) {
 			if (classes[i]->v.autodetect(ns, set, mail_set,
 						     &root_path, &inbox_path)) {
-				set->root_dir = root_path;
+				*root_path_override = root_path;
 				*inbox_path_override = inbox_path;
 				return classes[i];
 			}
@@ -182,6 +183,7 @@ static struct mail_storage *
 mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 		       const struct mail_storage_settings *mail_set,
 		       struct mailbox_list_settings *list_set,
+		       const char **root_path_override,
 		       const char **inbox_path_override, const char **error_r)
 {
 	struct mail_storage *storage_class = NULL;
@@ -191,11 +193,6 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 		/* no mail_location, autodetect */
 	} else if (strcmp(driver, "auto") == 0) {
 		/* explicit autodetection with "auto" driver. */
-		if (list_set->root_dir != NULL &&
-		    *list_set->root_dir == '\0') {
-			/* handle the same as with driver=NULL */
-			list_set->root_dir = NULL;
-		}
 	} else {
 		storage_class = mail_user_get_storage_class(ns->user, driver);
 		if (storage_class == NULL) {
@@ -209,6 +206,7 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 		return storage_class;
 
 	storage_class = mail_storage_autodetect(ns, list_set, mail_set,
+						root_path_override,
 						inbox_path_override);
 	if (storage_class != NULL)
 		return storage_class;
@@ -303,14 +301,13 @@ mail_storage_create_root(struct mailbox_list *list,
 static bool
 mail_storage_match_class(struct mail_storage *storage,
 			 const struct mail_storage *storage_class,
-			 const struct mailbox_list_settings *set)
+			 const struct mail_storage_settings *mail_set)
 {
 	if (strcmp(storage->name, storage_class->name) != 0)
 		return FALSE;
 
 	if ((storage->class_flags & MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT) != 0 &&
-	    strcmp(storage->unique_root_dir,
-		(set->root_dir != NULL ? set->root_dir : "")) != 0)
+	    strcmp(storage->unique_root_dir, mail_set->mail_path) != 0)
 		return FALSE;
 
 	if (strcmp(storage->name, "shared") == 0) {
@@ -323,12 +320,12 @@ mail_storage_match_class(struct mail_storage *storage,
 static struct mail_storage *
 mail_storage_find(struct mail_user *user,
 		  const struct mail_storage *storage_class,
-		  const struct mailbox_list_settings *set)
+		  const struct mail_storage_settings *mail_set)
 {
 	struct mail_storage *storage = user->storages;
 
 	for (; storage != NULL; storage = storage->next) {
-		if (mail_storage_match_class(storage, storage_class, set))
+		if (mail_storage_match_class(storage, storage_class, mail_set))
 			return storage;
 	}
 	return NULL;
@@ -354,6 +351,7 @@ mail_storage_create_list(struct mail_namespace *ns,
 			 struct event *set_event,
 			 enum mail_storage_flags flags,
 			 struct mailbox_list_settings *list_set,
+			 const char *root_path_override,
 			 const char *inbox_path_override,
 			 const char **error_r)
 {
@@ -397,6 +395,12 @@ mail_storage_create_list(struct mail_namespace *ns,
 	event_set_ptr(set_event, SETTINGS_EVENT_FILTER_NAME, layout_filter);
 	settings_free(mail_set);
 
+	if (root_path_override != NULL) {
+		mail_storage_create_ns_instance(ns, set_event);
+		settings_override(ns->_set_instance, "*/mail_path",
+				  root_path_override,
+				  SETTINGS_OVERRIDE_TYPE_CODE);
+	}
 	if (inbox_path_override != NULL) {
 		mail_storage_create_ns_instance(ns, set_event);
 		settings_override(ns->_set_instance, "*/mail_inbox_path",
@@ -410,7 +414,7 @@ mail_storage_create_list(struct mail_namespace *ns,
 		return -1;
 	}
 
-	if (list_set->root_dir == NULL || *list_set->root_dir == '\0') {
+	if (mail_set->mail_path[0] == '\0') {
 		/* no root directory given. is this allowed? */
 		const struct mailbox_list *list;
 
@@ -459,6 +463,7 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 	struct mailbox_list_settings list_set;
 	const char *p, *data, *driver = NULL;
 	const char *inbox_path_override = NULL;
+	const char *root_path_override = NULL;
 
 	/* Lookup initial mailbox list settings. Once they're found, another
 	   settings lookup is done with mailbox format as an additional
@@ -471,8 +476,8 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 	mailbox_list_settings_init_defaults(&list_set);
 	if ((flags & MAIL_STORAGE_FLAG_SHARED_DYNAMIC) != 0) {
 		/* internal shared namespace */
-		list_set.root_dir = ns->user->set->base_dir;
 		driver = MAIL_SHARED_STORAGE_NAME;
+		root_path_override = ns->user->set->base_dir;
 	} else {
 		mail_storage_set_autodetection(&data, &driver);
 		if (mailbox_list_settings_parse(ns->user, data, &list_set,
@@ -483,6 +488,7 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 	}
 
 	storage_class = mail_storage_get_class(ns, driver, mail_set, &list_set,
+					       &root_path_override,
 					       &inbox_path_override, error_r);
 	settings_free(mail_set);
 	if (storage_class == NULL)
@@ -492,6 +498,7 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 		/* first storage for namespace */
 		if (mail_storage_create_list(ns, storage_class, set_event,
 					     flags, &list_set,
+					     root_path_override,
 					     inbox_path_override, error_r) < 0)
 			return -1;
 		if ((storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) == 0) {
@@ -500,7 +507,8 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 		}
 	}
 
-	storage = mail_storage_find(ns->user, storage_class, &list_set);
+	storage = mail_storage_find(ns->user, storage_class,
+				    ns->list->mail_set);
 	if (storage != NULL) {
 		/* using an existing storage */
 		storage->refcount++;

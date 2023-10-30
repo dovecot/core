@@ -1040,12 +1040,12 @@ int main(int argc, char *argv[])
 						hide_key, hide_passwords);
 		}
 	} else {
-		const char *info, *mail_location, *version;
+		const char *info, *mail_path, *version;
 
-		mail_location = config_module_parsers_get_setting(
+		mail_path = config_module_parsers_get_setting(
 			config_parsed_get_module_parsers(config),
-			"mail_storage", "mail_location");
-		info = sysinfo_get(mail_location);
+			"mail_storage", "mail_path");
+		info = sysinfo_get(mail_path);
 		if (*info != '\0')
 			printf("# %s\n", info);
 		printf("# Hostname: %s\n", my_hostdomain());

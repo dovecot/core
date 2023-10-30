@@ -232,8 +232,8 @@ cmd_user_mail_print_fields(const struct authtest_input *input,
 				  user->set->mail_home, show_field);
 
 	mail_set = mail_user_set_get_storage_set(user);
-	cmd_user_mail_input_field(json_output, "mail",
-				  mail_set->mail_location, show_field);
+	cmd_user_mail_input_field(json_output, "mail_path",
+				  mail_set->mail_path, show_field);
 
 	if (userdb_fields != NULL) {
 		for (i = 0; userdb_fields[i] != NULL; i++) {
@@ -247,7 +247,7 @@ cmd_user_mail_print_fields(const struct authtest_input *input,
 			if (strcmp(key, "uid") != 0 &&
 			    strcmp(key, "gid") != 0 &&
 			    strcmp(key, "home") != 0 &&
-			    strcmp(key, "mail") != 0 &&
+			    strcmp(key, "mail_path") != 0 &&
 			    *key != '\0') {
 				cmd_user_mail_input_field(json_output,
 					key, value, show_field);

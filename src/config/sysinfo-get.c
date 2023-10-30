@@ -81,16 +81,10 @@ static const char *distro_get(void)
 	return "";
 }
 
-static const char *filesystem_get(const char *mail_location)
+static const char *filesystem_get(const char *path)
 {
 	struct mountpoint mp;
-	const char *path;
 
-	path = strchr(mail_location, ':');
-	if (path == NULL)
-		path = mail_location;
-	else
-		path = t_strcut(path + 1, ':');
 	if (*path == '~') {
 		/* we don't know where users' home dirs are */
 		return "";
@@ -105,7 +99,7 @@ static const char *filesystem_get(const char *mail_location)
 	return mp.type == NULL ? "" : mp.type;
 }
 
-const char *sysinfo_get(const char *mail_location)
+const char *sysinfo_get(const char *mail_path)
 {
 	const char *distro = "", *fs, *uname_info = "";
 #ifdef HAVE_SYS_UTSNAME_H
@@ -120,7 +114,7 @@ const char *sysinfo_get(const char *mail_location)
 	if (strcmp(u.sysname, "Linux") == 0)
 		distro = distro_get();
 #endif
-	fs = filesystem_get(mail_location);
+	fs = filesystem_get(mail_path);
 	if (*uname_info == '\0' && *distro == '\0' && *fs == '\0')
 		return "";
 	return t_strdup_printf("OS: %s %s %s %s %s", u.sysname, u.release, u.machine, distro, fs);

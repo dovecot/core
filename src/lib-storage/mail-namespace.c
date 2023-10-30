@@ -500,7 +500,8 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 static int
 mail_namespaces_init_location_full(struct mail_user *user,
 				   struct event *set_event,
-				   const char *override_location,
+				   const char *override_mail_driver,
+				   const char *override_mail_path,
 				   const char **error_r)
 {
 	struct mail_namespace_settings *inbox_set;
@@ -517,14 +518,24 @@ mail_namespaces_init_location_full(struct mail_user *user,
 	if ((ret = mail_namespace_alloc(user, inbox_set, &ns, error_r)) < 0)
 		return ret;
 
-	if (override_location[0] != '\0') {
+	if (override_mail_driver[0] != '\0' || override_mail_path[0] != '\0') {
 		struct settings_instance *set_instance =
 			mail_storage_service_user_get_settings_instance(
 				user->service_user);
 		i_assert(ns->_set_instance == NULL);
 		ns->_set_instance = settings_instance_dup(set_instance);
+	}
+
+	if (override_mail_driver[0] != '\0') {
+		const char *location =
+			t_strconcat(override_mail_driver, ":", NULL);
 		settings_override(ns->_set_instance,
-				  "mail_location", override_location,
+				  "mail_location", location,
+				  SETTINGS_OVERRIDE_TYPE_CODE);
+	}
+	if (override_mail_path[0] != '\0') {
+		settings_override(ns->_set_instance,
+				  "*/mail_path", override_mail_path,
 				  SETTINGS_OVERRIDE_TYPE_CODE);
 	}
 
@@ -540,29 +551,30 @@ mail_namespaces_init_default_location(struct mail_user *user,
 				      const char **error_r)
 {
 	const struct mail_storage_settings *mail_set;
-	const char *location, *location_source, *error;
+	const char *driver = "", *mail_path = "", *location_source, *error;
+	bool autodetect = FALSE;
 
 	struct event *set_event = event_create(user->event);
 	mail_set = mail_user_set_get_storage_set(user);
 	if (*mail_set->mail_location != '\0') {
 		location_source = "mail_location setting";
-		location = "";
-	} else if ((location = getenv("MAIL")) != NULL) {
+	} else if ((mail_path = getenv("MAIL")) != NULL) {
 		location_source = "environment MAIL";
-	} else if ((location = getenv("MAILDIR")) != NULL) {
-		location = p_strdup_printf(user->pool, "maildir:%s", location);
+	} else if ((mail_path = getenv("MAILDIR")) != NULL) {
+		driver = "maildir";
 		location_source = "environment MAILDIR";
 	} else {
-		location = "";
+		mail_path = "";
 		location_source = "autodetection";
+		autodetect = TRUE;
 	}
 	int ret = mail_namespaces_init_location_full(user, set_event,
-						     location, &error);
+						     driver, mail_path, &error);
 	event_unref(&set_event);
 
 	if (ret == 0)
 		return 0;
-	else if (location[0] != '\0') {
+	else if (!autodetect) {
 		*error_r = t_strdup_printf(
 			"Initializing mail storage from %s failed: %s",
 			location_source, error);
@@ -578,7 +590,8 @@ int mail_namespaces_init_location(struct mail_user *user,
 				  struct event *set_event,
 				  const char **error_r)
 {
-	return mail_namespaces_init_location_full(user, set_event, "", error_r);
+	return mail_namespaces_init_location_full(user, set_event,
+						  "", "", error_r);
 }
 
 struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user)

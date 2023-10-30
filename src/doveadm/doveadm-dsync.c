@@ -434,7 +434,7 @@ get_dsync_verify_namespace(struct dsync_cmd_context *ctx,
 	}
 
 	/* Prefer prefix="" namespace over inbox=yes namespace. Either it uses
-	   the global mail_location, which is good, or it might have
+	   the global mail_path, which is good, or it might have
 	   overwritten location in case of e.g. using subscriptions file for
 	   all namespaces. This isn't necessarily obvious, so lets make it
 	   clearer by failing if it happens. */

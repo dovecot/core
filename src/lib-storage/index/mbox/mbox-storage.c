@@ -192,11 +192,12 @@ mbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		_storage->temp_path_prefix = p_strconcat(_storage->pool, dir,
 			"/", mailbox_list_get_temp_prefix(ns->list), NULL);
 	}
-	if (stat(ns->list->set.root_dir, &st) == 0 && !S_ISDIR(st.st_mode)) {
+	if (stat(ns->list->mail_set->mail_path, &st) == 0 &&
+	    !S_ISDIR(st.st_mode)) {
 		*error_r = t_strdup_printf(
 			"mbox root directory can't be a file: %s "
 			"(https://doc.dovecot.org/configuration_manual/mail_location/mbox/)",
-			ns->list->set.root_dir);
+			ns->list->mail_set->mail_path);
 		return -1;
 	}
 	return 0;
@@ -314,26 +315,26 @@ mbox_storage_find_inbox_file(struct mail_user *user, struct event *event)
 
 static bool
 mbox_storage_autodetect(const struct mail_namespace *ns,
-			struct mailbox_list_settings *set,
+			struct mailbox_list_settings *set ATTR_UNUSED,
 			const struct mail_storage_settings *mail_set,
 			const char **root_path_r, const char **inbox_path_r)
 {
 	struct event *event = ns->user->event;
 	const char *root_dir, *inbox_path;
 
-	root_dir = set->root_dir;
+	root_dir = mail_set->mail_path;
 	inbox_path = mail_set->mail_inbox_path;
 
-	if (root_dir != NULL) {
+	if (root_dir[0] != '\0') {
 		if (inbox_path == NULL &&
 		    mbox_is_file(root_dir, "INBOX file", event)) {
 			/* using location=<INBOX> */
 			inbox_path = root_dir;
-			root_dir = NULL;
+			root_dir = "";
 		} else if (!mbox_storage_is_root_dir(root_dir, event))
 			return FALSE;
 	}
-	if (root_dir == NULL) {
+	if (root_dir[0] == '\0') {
 		root_dir = mbox_storage_find_root_dir(ns);
 		if (root_dir == NULL) {
 			e_debug(event, "mbox autodetect: couldn't find root dir");
