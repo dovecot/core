@@ -64,7 +64,7 @@ maildir_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 					mailbox_list_get_temp_prefix(list));
 
 	if (list->mail_set->mail_control_path[0] == '\0' &&
-	    list->set.inbox_path == NULL &&
+	    list->mail_set->mail_inbox_path[0] == '\0' &&
 	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
 		/* put the temp files into tmp/ directory preferably */
 		storage->temp_prefix = p_strconcat(_storage->pool, "tmp/",
@@ -85,21 +85,6 @@ static void maildir_storage_destroy(struct mail_storage *_storage)
 
 	settings_free(storage->set);
 	index_storage_destroy(_storage);
-}
-
-static void
-maildir_storage_get_list_settings(const struct mail_namespace *ns,
-				  struct mailbox_list_settings *set,
-				  const struct mail_storage_settings *mail_set)
-{
-	if (set->inbox_path == NULL &&
-	    mail_set->mailbox_directory_name[0] == '\0' &&
-	    (strcmp(mail_set->mailbox_list_layout, MAILBOX_LIST_NAME_MAILDIRPLUSPLUS) == 0 ||
-	     strcmp(mail_set->mailbox_list_layout, MAILBOX_LIST_NAME_FS) == 0) &&
-	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
-		/* Maildir++ INBOX is the Maildir base itself */
-		set->inbox_path = set->root_dir;
-	}
 }
 
 static const char *
@@ -741,7 +726,7 @@ struct mail_storage maildir_storage = {
 		maildir_storage_create,
 		maildir_storage_destroy,
 		maildir_storage_add_list,
-		maildir_storage_get_list_settings,
+		NULL,
 		maildir_storage_autodetect,
 		maildir_mailbox_alloc,
 		NULL,

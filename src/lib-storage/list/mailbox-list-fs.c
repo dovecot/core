@@ -156,13 +156,14 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 	if (type == MAILBOX_LIST_PATH_TYPE_ALT_DIR ||
 	    type == MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX) {
 		/* don't use inbox_path */
-	} else if (strcmp(name, "INBOX") == 0 && set->inbox_path != NULL) {
+	} else if (strcmp(name, "INBOX") == 0 &&
+		   mail_set->mail_inbox_path[0] != '\0') {
 		/* If INBOX is a file, index and control directories are
 		   located in root directory. */
 		if ((_list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) == 0 ||
 		    type == MAILBOX_LIST_PATH_TYPE_MAILBOX ||
 		    type == MAILBOX_LIST_PATH_TYPE_DIR) {
-			*path_r = set->inbox_path;
+			*path_r = mail_set->mail_inbox_path;
 			return 1;
 		}
 	}
