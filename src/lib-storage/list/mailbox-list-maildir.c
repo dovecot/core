@@ -167,8 +167,9 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 	if (type == MAILBOX_LIST_PATH_TYPE_ALT_DIR ||
 	    type == MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX) {
 		/* don't use inbox_path */
-	} else if (strcmp(name, "INBOX") == 0 && _list->set.inbox_path != NULL) {
-		*path_r = _list->set.inbox_path;
+	} else if (strcmp(name, "INBOX") == 0 &&
+		   _list->mail_set->mail_inbox_path[0] != '\0') {
+		*path_r = _list->mail_set->mail_inbox_path;
 		return 1;
 	}
 

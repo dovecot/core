@@ -92,6 +92,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(BOOL, mailbox_directory_name_legacy),
 	DEF(STR_HIDDEN, mailbox_root_directory_name),
 	DEF(STR_HIDDEN, mailbox_subscriptions_filename),
+	DEF(STR, mail_inbox_path),
 	DEF(STR, mail_index_path),
 	DEF(STR, mail_index_private_path),
 	DEF(STR_HIDDEN, mail_cache_path),
@@ -171,6 +172,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mailbox_directory_name_legacy = TRUE,
 	.mailbox_root_directory_name = "",
 	.mailbox_subscriptions_filename = "subscriptions",
+	.mail_inbox_path = "",
 	.mail_index_path = "",
 	.mail_index_private_path = "",
 	.mail_cache_path = "",
@@ -800,6 +802,20 @@ mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool,
 		return FALSE;
 	}
 
+	const char *mail_path = strchr(set->mail_location, ':');
+	if (mail_path != NULL)
+		mail_path = t_strcut(mail_path + 1, ':');
+	if (mail_path != NULL &&
+	    set->mail_inbox_path[0] != '\0' && set->mail_inbox_path[0] != '/') {
+		/* Convert to absolute path */
+		if (strcmp(set->mail_inbox_path, ".") == 0)
+			set->mail_inbox_path = mail_path;
+		else {
+			set->mail_inbox_path = p_strdup_printf(pool, "%s/%s",
+				mail_path, set->mail_inbox_path);
+		}
+	}
+
 	if (!mail_storage_settings_check_namespaces(event, set, error_r))
 		return FALSE;
 	return TRUE;
@@ -1054,6 +1070,7 @@ static const size_t mail_storage_2nd_reset_offsets[] = {
 	OFFSET(mailbox_directory_name_legacy),
 	OFFSET(mailbox_root_directory_name),
 	OFFSET(mailbox_subscriptions_filename),
+	OFFSET(mail_inbox_path),
 	OFFSET(mail_index_path),
 	OFFSET(mail_index_private_path),
 	OFFSET(mail_cache_path),

@@ -152,8 +152,6 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 	if (set->root_dir != NULL)
 		list->set.root_dir = p_strdup(list->pool, set->root_dir);
 
-	list->set.inbox_path = p_strdup(list->pool, set->inbox_path);
-
 	if (list->v.init != NULL) {
 		if (list->v.init(list, error_r) < 0) {
 			list->v.deinit(list);
@@ -173,8 +171,7 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 		mail_set->mail_index_path,
 		mail_set->mail_index_private_path,
 		mail_set->mail_control_path,
-		list->set.inbox_path == NULL ?
-		"" : list->set.inbox_path,
+		mail_set->mail_inbox_path,
 		mail_set->mail_alt_path);
 	if ((flags & MAILBOX_LIST_FLAG_SECONDARY) == 0)
 		mail_namespace_finish_list_init(ns, list);
@@ -235,7 +232,7 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 				 struct mailbox_list_settings *set_r,
 				 const char **error_r)
 {
-	const char *const *tmp, *key, *value, **dest, *str, *error;
+	const char *const *tmp, *key, *value, *str, *error;
 
 	*error_r = NULL;
 
@@ -269,16 +266,8 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 			value++;
 		}
 
-		if (strcmp(key, "INBOX") == 0)
-			dest = &set_r->inbox_path;
-		else {
-			*error_r = t_strdup_printf("Unknown setting: %s", key);
-			return -1;
-		}
-		if (fix_path(user, value, expand_home, dest, &error) < 0) {
-			*error_r = t_strconcat(error, key, " in: ", data, NULL);
-			return -1;
-		}
+		*error_r = t_strdup_printf("Unknown setting: %s", key);
+		return -1;
 	}
 	return 0;
 }

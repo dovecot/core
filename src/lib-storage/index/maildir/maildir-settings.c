@@ -28,6 +28,9 @@ static const struct maildir_settings maildir_default_settings = {
 
 static const struct setting_keyvalue maildir_default_filter_settings_keyvalue[] = {
 	{ "maildir/mailbox_list_layout", "maildir++" },
+	/* Use Maildir/ root as the INBOX, not Maildir/.INBOX/ */
+	{ "maildir/layout_maildir++/mail_inbox_path", "." },
+	{ "maildir/layout_fs/mail_inbox_path", "." },
 	{ NULL, NULL }
 };
 

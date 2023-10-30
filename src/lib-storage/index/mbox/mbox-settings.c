@@ -38,6 +38,8 @@ static const struct mbox_settings mbox_default_settings = {
 
 static const struct setting_keyvalue mbox_default_filter_settings_keyvalue[] = {
 	{ "mbox/mailbox_subscriptions_filename", ".subscriptions" },
+	/* Use $mail_path/inbox as the INBOX, not $mail_path/INBOX */
+	{ "mbox/layout_fs/mail_inbox_path", "inbox" },
 	{ NULL, NULL }
 };
 

@@ -210,20 +210,6 @@ static void mbox_storage_destroy(struct mail_storage *_storage)
 	index_storage_destroy(_storage);
 }
 
-static void
-mbox_storage_get_list_settings(const struct mail_namespace *ns,
-			       struct mailbox_list_settings *set,
-			       const struct mail_storage_settings *mail_set)
-{
-	struct event *event = ns->user->event;
-
-	if (set->inbox_path == NULL &&
-	    strcasecmp(mail_set->mailbox_list_layout, MAILBOX_LIST_NAME_FS) == 0) {
-		set->inbox_path = t_strconcat(set->root_dir, "/inbox", NULL);
-		e_debug(event, "mbox: INBOX defaulted to %s", set->inbox_path);
-	}
-}
-
 static bool mbox_is_file(const char *path, const char *name, struct event *event)
 {
 	struct stat st;
@@ -329,14 +315,14 @@ mbox_storage_find_inbox_file(struct mail_user *user, struct event *event)
 static bool
 mbox_storage_autodetect(const struct mail_namespace *ns,
 			struct mailbox_list_settings *set,
-			const struct mail_storage_settings *mail_set ATTR_UNUSED,
+			const struct mail_storage_settings *mail_set,
 			const char **root_path_r, const char **inbox_path_r)
 {
 	struct event *event = ns->user->event;
 	const char *root_dir, *inbox_path;
 
 	root_dir = set->root_dir;
-	inbox_path = set->inbox_path;
+	inbox_path = mail_set->mail_inbox_path;
 
 	if (root_dir != NULL) {
 		if (inbox_path == NULL &&
@@ -836,7 +822,7 @@ struct mail_storage mbox_storage = {
 		mbox_storage_create,
 		mbox_storage_destroy,
 		mbox_storage_add_list,
-		mbox_storage_get_list_settings,
+		NULL,
 		mbox_storage_autodetect,
 		mbox_mailbox_alloc,
 		NULL,
