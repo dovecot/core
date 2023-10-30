@@ -33,7 +33,8 @@ struct imap_getmetadata_context {
 	enum mail_error last_error;
 
 	unsigned int entry_idx;
-	bool first_entry_sent;
+	bool first_entry_sent:1;
+	bool iterating_boxes:1;
 };
 
 static bool
@@ -176,6 +177,17 @@ cmd_getmetadata_handle_error(struct imap_getmetadata_context *ctx)
 		   returned successfully. */
 		return FALSE;
 	}
+
+	/* When the acl plugin or imapc are involved, the decision to consider
+	   (iterate on) a mailbox is taken in a very distant moment from the
+	   one that decides the permission ACLs getmetadata. The denial of
+	   this access shows as either MAIL_ERROR_PERM or MAIL_ERROR_NOTFOUND,
+	   so we simply suppress them after the fact. This happens when we
+	   have a bare "l" (lookup) ACL right without another supporting ACL
+	   right beside it. */
+	if (ctx->iterating_boxes && (error == MAIL_ERROR_PERM ||
+				     error == MAIL_ERROR_NOTFOUND))
+		return TRUE;
 
 	cmd_getmetadata_handle_error_str(ctx, error_string, error);
 	return TRUE;
@@ -550,6 +562,7 @@ bool cmd_getmetadata(struct client_command_context *cmd)
 		const char *patterns[2];
 		patterns[0] = mailbox; patterns[1] = NULL;
 
+		ctx->iterating_boxes = TRUE;
 		ctx->list_iter =
 			mailbox_list_iter_init_namespaces(
 				cmd->client->user->namespaces,
