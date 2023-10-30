@@ -118,7 +118,7 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 		return 1;
 	}
 
-	root_dir = _list->set.root_dir;
+	root_dir = _list->mail_set->mail_path;
 	switch (type) {
 	case MAILBOX_LIST_PATH_TYPE_DIR:
 	case MAILBOX_LIST_PATH_TYPE_MAILBOX:
@@ -201,7 +201,7 @@ static int maildir_list_set_subscribed(struct mailbox_list *_list,
 
 	path = t_strconcat(_list->mail_set->mail_control_path[0] != '\0' ?
 			   _list->mail_set->mail_control_path :
-			   _list->set.root_dir,
+			   _list->mail_set->mail_path,
 			   "/", _list->mail_set->mailbox_subscriptions_filename,
 			   NULL);
 

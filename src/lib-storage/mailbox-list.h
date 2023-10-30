@@ -114,7 +114,6 @@ enum mailbox_list_get_storage_flags {
 };
 
 struct mailbox_list_settings {
-	const char *root_dir;
 };
 
 struct mailbox_permissions {

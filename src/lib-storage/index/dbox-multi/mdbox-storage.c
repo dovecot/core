@@ -57,7 +57,7 @@ int mdbox_storage_create(struct mail_storage *_storage,
 	}
 
 	_storage->unique_root_dir =
-		p_strdup(_storage->pool, ns->list->set.root_dir);
+		p_strdup(_storage->pool, ns->list->mail_set->mail_path);
 
 	dir = mailbox_list_get_root_forced(ns->list, MAILBOX_LIST_PATH_TYPE_DIR);
 	storage->storage_dir = p_strconcat(_storage->pool, dir,
@@ -117,8 +117,8 @@ mdbox_storage_find_root_dir(const struct mail_namespace *ns)
 
 static bool
 mdbox_storage_autodetect(const struct mail_namespace *ns,
-			 struct mailbox_list_settings *set,
-			 const struct mail_storage_settings *mail_set ATTR_UNUSED,
+			 struct mailbox_list_settings *set ATTR_UNUSED,
+			 const struct mail_storage_settings *mail_set,
 			 const char **root_path_r,
 			 const char **inbox_path_r ATTR_UNUSED)
 {
@@ -126,8 +126,8 @@ mdbox_storage_autodetect(const struct mail_namespace *ns,
 	struct stat st;
 	const char *path, *root_dir;
 
-	if (set->root_dir != NULL)
-		root_dir = set->root_dir;
+	if (mail_set->mail_path[0] != '\0')
+		root_dir = mail_set->mail_path;
 	else {
 		root_dir = mdbox_storage_find_root_dir(ns);
 		if (root_dir == NULL) {

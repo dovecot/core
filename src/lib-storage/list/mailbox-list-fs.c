@@ -66,7 +66,6 @@ static int
 fs_list_get_path(struct mailbox_list *_list, const char *name,
 		 enum mailbox_list_path_type type, const char **path_r)
 {
-	const struct mailbox_list_settings *set = &_list->set;
 	const struct mail_storage_settings *mail_set = _list->mail_set;
 	const char *root_dir, *error;
 
@@ -87,11 +86,12 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 		return 1;
 	}
 
-	root_dir = set->root_dir;
+	root_dir = mail_set->mail_path;
 	switch (type) {
 	case MAILBOX_LIST_PATH_TYPE_DIR:
 		if (mail_set->mailbox_directory_name[0] != '\0') {
-			*path_r = t_strdup_printf("%s/%s%s", set->root_dir,
+			*path_r = t_strdup_printf("%s/%s%s",
+				mail_set->mail_path,
 				mail_set->parsed_mailbox_root_directory_prefix,
 				name);
 			return 1;
@@ -168,7 +168,7 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 		}
 	}
 
-	if (root_dir == NULL)
+	if (root_dir[0] == '\0')
 		return 0;
 	if (mail_set->mailbox_directory_name[0] == '\0') {
 		*path_r = t_strdup_printf("%s/%s%s", root_dir,

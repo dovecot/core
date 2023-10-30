@@ -421,7 +421,7 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 	const char *error, *dir;
 
 	if (list->list.mail_set->mail_index_path[0] == '\0')
-		dir = list->list.set.root_dir;
+		dir = list->list.mail_set->mail_path;
 	else if (strcmp(list->list.mail_set->mail_index_path,
 			MAIL_INDEX_PATH_MEMORY) == 0)
 		dir = "";
@@ -432,7 +432,6 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 		/* indexes disabled */
 	} else if (list->index_list == NULL && !list->index_list_failed) {
 		mailbox_list_settings_init_defaults(&list_set);
-		list_set.root_dir = dir;
 		struct settings_instance *set_instance =
 			mail_storage_service_user_get_settings_instance(
 				list->list.ns->user->service_user);
@@ -448,6 +447,10 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 		settings_override(list->index_list_set_instance,
 				  "*/mailbox_list_layout",
 				  MAILBOX_LIST_NAME_MAILDIRPLUSPLUS,
+				  SETTINGS_OVERRIDE_TYPE_CODE);
+		settings_override(list->index_list_set_instance,
+				  "*/mail_path",
+				  list->list.mail_set->mail_path,
 				  SETTINGS_OVERRIDE_TYPE_CODE);
 		settings_override(list->index_list_set_instance,
 				  "*/mail_index_private_path",
