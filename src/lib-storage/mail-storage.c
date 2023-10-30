@@ -398,6 +398,22 @@ mail_storage_create_list(struct mail_namespace *ns,
 		return -1;
 	}
 
+	/* Lookup also layout-specific settings, especially defaults */
+	struct event *set_event2 = event_create(set_event);
+	event_unref(&set_event);
+	set_event = set_event2;
+	char *layout_filter =
+		p_strdup_printf(event_get_pool(set_event), "layout_%s",
+				t_str_lcase(mail_set->mailbox_list_layout));
+	event_set_ptr(set_event, SETTINGS_EVENT_FILTER_NAME, layout_filter);
+	settings_free(mail_set);
+
+	if (settings_get(set_event, &mail_storage_setting_parser_info, 0,
+			 &mail_set, error_r) < 0) {
+		event_unref(&set_event);
+		return -1;
+	}
+
 	struct event *event = event_create(ns->user->event);
 	event_add_str(event, "namespace", ns->set->name);
 	if (storage_class->v.get_list_settings != NULL)
