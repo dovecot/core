@@ -234,7 +234,6 @@ struct mail_storage raw_storage = {
 		index_storage_destroy,
 		NULL,
 		NULL,
-		NULL,
 		raw_mailbox_alloc,
 		NULL,
 		NULL,

@@ -475,7 +475,6 @@ struct mail_storage shared_storage = {
 		index_storage_destroy,
 		NULL,
 		NULL,
-		NULL,
 		fail_mailbox_alloc,
 		NULL,
 		NULL,

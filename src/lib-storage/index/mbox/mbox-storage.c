@@ -823,7 +823,6 @@ struct mail_storage mbox_storage = {
 		mbox_storage_create,
 		mbox_storage_destroy,
 		mbox_storage_add_list,
-		NULL,
 		mbox_storage_autodetect,
 		mbox_mailbox_alloc,
 		NULL,

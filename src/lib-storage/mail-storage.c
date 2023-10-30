@@ -439,8 +439,6 @@ mail_storage_create_list(struct mail_namespace *ns,
 
 	struct event *event = event_create(ns->user->event);
 	event_add_str(event, "namespace", ns->set->name);
-	if (storage_class->v.get_list_settings != NULL)
-		storage_class->v.get_list_settings(ns, list_set, mail_set);
 	int ret = mailbox_list_create(event, ns, list_set,
 				      mail_set, list_flags, &list, error_r);
 	if (ret < 0) {

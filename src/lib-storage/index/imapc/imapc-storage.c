@@ -1363,7 +1363,6 @@ struct mail_storage imapc_storage = {
 		imapc_storage_destroy,
 		NULL,
 		NULL,
-		NULL,
 		imapc_mailbox_alloc,
 		NULL,
 		NULL,

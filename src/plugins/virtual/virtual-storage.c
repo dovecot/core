@@ -923,7 +923,6 @@ struct mail_storage virtual_storage = {
 		index_storage_destroy,
 		NULL,
 		NULL,
-		NULL,
 		virtual_mailbox_alloc,
 		NULL,
 		NULL,
