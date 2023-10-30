@@ -104,7 +104,6 @@ mailbox_list_find_class(const char *driver)
 }
 
 int mailbox_list_create(struct event *event, struct mail_namespace *ns,
-			const struct mailbox_list_settings *set ATTR_UNUSED,
 			const struct mail_storage_settings *mail_set,
 			enum mailbox_list_flags flags,
 			struct mailbox_list **list_r, const char **error_r)
@@ -176,36 +175,6 @@ int mailbox_list_create(struct event *event, struct mail_namespace *ns,
 
 	hook_mailbox_list_created(list);
 	return 0;
-}
-
-void mailbox_list_settings_init_defaults(struct mailbox_list_settings *set_r)
-{
-	i_zero(set_r);
-}
-
-static int
-mailbox_list_settings_parse_full(struct mail_user *user ATTR_UNUSED,
-				 const char *data ATTR_UNUSED,
-				 bool expand_home ATTR_UNUSED,
-				 struct mailbox_list_settings *set_r,
-				 const char **error_r)
-{
-	*error_r = NULL;
-
-	mailbox_list_settings_init_defaults(set_r);
-	if (*data == '\0')
-		return 0;
-
-	*error_r = "Unknown settings";
-	return -1;
-}
-
-int mailbox_list_settings_parse(struct mail_user *user, const char *data,
-				struct mailbox_list_settings *set_r,
-				const char **error_r)
-{
-	return mailbox_list_settings_parse_full(user, data, TRUE,
-						set_r, error_r);
 }
 
 const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
@@ -593,12 +562,6 @@ void mailbox_list_destroy(struct mailbox_list **_list)
 const char *mailbox_list_get_driver_name(const struct mailbox_list *list)
 {
 	return list->name;
-}
-
-const struct mailbox_list_settings *
-mailbox_list_get_settings(const struct mailbox_list *list)
-{
-	return &list->set;
 }
 
 enum mailbox_list_flags mailbox_list_get_flags(const struct mailbox_list *list)

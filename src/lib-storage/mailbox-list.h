@@ -113,9 +113,6 @@ enum mailbox_list_get_storage_flags {
 	MAILBOX_LIST_GET_STORAGE_FLAG_SAVEONLY = BIT(0),
 };
 
-struct mailbox_list_settings {
-};
-
 struct mailbox_permissions {
 	/* The actual uid/gid of the mailbox */
 	uid_t file_uid;
@@ -142,7 +139,6 @@ const struct mailbox_list *
 mailbox_list_find_class(const char *driver);
 
 int mailbox_list_create(struct event *event, struct mail_namespace *ns,
-			const struct mailbox_list_settings *set,
 			const struct mail_storage_settings *mail_set,
 			enum mailbox_list_flags flags,
 			struct mailbox_list **list_r, const char **error_r);
@@ -150,8 +146,6 @@ void mailbox_list_destroy(struct mailbox_list **list);
 
 const char *
 mailbox_list_get_driver_name(const struct mailbox_list *list) ATTR_PURE;
-const struct mailbox_list_settings *
-mailbox_list_get_settings(const struct mailbox_list *list) ATTR_PURE;
 enum mailbox_list_flags
 mailbox_list_get_flags(const struct mailbox_list *list) ATTR_PURE;
 struct mail_namespace *

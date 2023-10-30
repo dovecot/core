@@ -113,7 +113,6 @@ struct mailbox_list {
 /* private: */
 	pool_t pool;
 	struct mail_namespace *ns;
-	struct mailbox_list_settings set;
 	const struct mail_storage_settings *mail_set;
 	enum mailbox_list_flags flags;
 
@@ -189,10 +188,6 @@ extern struct mailbox_list_module_register mailbox_list_module_register;
 void mailbox_lists_init(void);
 void mailbox_lists_deinit(void);
 
-void mailbox_list_settings_init_defaults(struct mailbox_list_settings *set_r);
-int mailbox_list_settings_parse(struct mail_user *user, const char *data,
-				struct mailbox_list_settings *set_r,
-				const char **error_r);
 const char *
 mailbox_list_escape_name_params(const char *vname, const char *ns_prefix,
 				char ns_sep, char list_sep, char escape_char,
