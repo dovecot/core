@@ -311,7 +311,6 @@ struct mail_storage pop3c_storage = {
 		pop3c_storage_destroy,
 		NULL,
 		NULL,
-		NULL,
 		pop3c_mailbox_alloc,
 		NULL,
 		NULL,

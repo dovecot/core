@@ -31,7 +31,6 @@ struct mail_storage fail_storage = {
 		fail_storage_destroy,
 		NULL,
 		NULL,
-		NULL,
 		fail_mailbox_alloc,
 		NULL,
 		NULL,

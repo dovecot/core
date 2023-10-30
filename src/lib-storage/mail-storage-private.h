@@ -58,9 +58,6 @@ struct mail_storage_vfuncs {
 	void (*add_list)(struct mail_storage *storage,
 			 struct mailbox_list *list);
 
-	void (*get_list_settings)(const struct mail_namespace *ns,
-				  struct mailbox_list_settings *set,
-				  const struct mail_storage_settings *mail_set);
 	/* Returns TRUE if mailbox path could be autodetected. root_path_r
 	   must be returned in that case. inbox_path_r is NULL already when
 	   calling, and means the default INBOX path is used. */

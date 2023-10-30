@@ -726,7 +726,6 @@ struct mail_storage maildir_storage = {
 		maildir_storage_create,
 		maildir_storage_destroy,
 		maildir_storage_add_list,
-		NULL,
 		maildir_storage_autodetect,
 		maildir_mailbox_alloc,
 		NULL,
