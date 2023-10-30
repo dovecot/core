@@ -143,6 +143,8 @@ struct sasl_server_request_funcs {
 		struct sasl_server_req_ctx *rctx,
 		const char *scheme, const char *data,
 		sasl_server_passdb_callback_t *callback);
+
+	void (*request_free)(struct sasl_server_req_ctx *rctx);
 };
 
 void sasl_server_request_create(struct sasl_server_req_ctx *rctx,

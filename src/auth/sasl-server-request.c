@@ -89,12 +89,15 @@ void sasl_server_mech_request_unref(struct sasl_server_mech_request **_mreq)
 
 	struct sasl_server_instance *sinst = req->sinst;
 	struct sasl_server *server = sinst->server;
+	const struct sasl_server_request_funcs *funcs = server->funcs;
 
 	i_assert(sinst->requests > 0);
 	sinst->requests--;
 	i_assert(server->requests > 0);
 	server->requests--;
 
+	if (funcs->request_free != NULL && req->rctx != NULL)
+		funcs->request_free(req->rctx);
 	if (mreq->mech->def->funcs->auth_free != NULL)
 		mreq->mech->def->funcs->auth_free(mreq);
 
