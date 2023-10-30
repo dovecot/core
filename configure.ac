@@ -613,6 +613,9 @@ if test "$want_shared_libs" = "yes"; then
   if test $want_lua != no; then
     LIBDOVECOT_LUA='$(top_builddir)/src/lib-lua/libdovecot-lua.la'
   fi
+  if test $want_gssapi != no; then
+    LIBDOVECOT_GSSAPI='$(top_builddir)/src/lib-dovecot/libdovecot-gssapi.la'
+  fi
 else
   LIBDOVECOT_DEPS="$LIBDOVECOT_LA_LIBS"
   LIBDOVECOT="$LIBDOVECOT_DEPS \$(MODULE_LIBS) \$(LIBPCRE_LIBS)"
@@ -622,7 +625,11 @@ else
   if test $want_lua != no; then
     LIBDOVECOT_LUA='$(top_builddir)/src/lib-lua/libdlua.la'
   fi
+  if test $want_gssapi != no; then
+    LIBDOVECOT_GSSAPI='$(top_builddir)/src/lib-sasl/libsasl-gssapi.la'
+  fi
 fi
+LIBDOVECOT_GSSAPI_DEPS="$LIBDOVECOT_GSSAPI"
 if test $want_ldap != no; then
   LIBDOVECOT_LDAP='$(top_builddir)/src/lib-ldap/libdldap.la'
 else
@@ -654,6 +661,8 @@ AC_SUBST(LIBDOVECOT_LUA)
 AC_SUBST(LIBDOVECOT_LUA_DEPS)
 AC_SUBST(LIBDOVECOT_OPENSSL)
 AC_SUBST(LIBDOVECOT_OPENSSL_DEPS)
+AC_SUBST(LIBDOVECOT_GSSAPI)
+AC_SUBST(LIBDOVECOT_GSSAPI_DEPS)
 
 dnl **
 dnl ** SQL drivers

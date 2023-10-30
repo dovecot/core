@@ -81,31 +81,6 @@ auth_SOURCES = main.c $(auth_common_sources)
 ldap_sources = db-ldap.c db-ldap-sasl.c db-ldap-settings.c passdb-ldap.c userdb-ldap.c
 lua_sources = db-lua.c passdb-lua.c userdb-lua.c
 
-sasl_server_mechanisms = \
-	sasl-server-mech-anonymous.c \
-	sasl-server-mech-cram-md5.c \
-	sasl-server-mech-digest-md5.c \
-	sasl-server-mech-external.c \
-	sasl-server-mech-login.c \
-	sasl-server-mech-oauth2.c \
-	sasl-server-mech-otp.c \
-	sasl-server-mech-plain.c \
-	sasl-server-mech-plain-common.c \
-	sasl-server-mech-scram.c \
-	sasl-server-mech-winbind.c
-if HAVE_GSSAPI
-if !GSSAPI_PLUGIN
-sasl_server_mechanisms += \
-	sasl-server-mech-gssapi.c
-endif
-endif
-
-sasl_sources = \
-	${sasl_server_mechanisms} \
-	sasl-server-request.c \
-	sasl-server-mech.c \
-	sasl-server.c
-
 auth_common_sources = \
 	auth.c \
 	auth-cache.c \
@@ -129,7 +104,6 @@ auth_common_sources = \
 	db-oauth2.c \
 	db-sql.c \
 	db-passwd-file.c \
-	${sasl_sources} \
 	passdb.c \
 	passdb-blocking.c \
 	passdb-bsdauth.c \
@@ -151,6 +125,7 @@ auth_common_sources = \
 	$(lua_sources)
 if HAVE_GSSAPI
 if !GSSAPI_PLUGIN
+auth_libs += $(LIBDOVECOT_GSSAPI)
 auth_common_sources += \
 	auth-sasl-mech-gssapi.c \
 	auth-sasl-mech-gss-spnego.c \
@@ -184,13 +159,6 @@ headers = \
 	db-sql.h \
 	db-passwd-file.h \
 	db-oauth2.h \
-	sasl-server.h \
-	sasl-server-gssapi.h \
-	sasl-server-oauth2.h \
-	sasl-server-private.h \
-	sasl-server-protected.h \
-	sasl-server-mech-plain-common.h \
-	sasl-server-mech-scram.h \
 	passdb.h \
 	passdb-blocking.h \
 	passdb-cache.h \
@@ -199,18 +167,18 @@ headers = \
 
 if GSSAPI_PLUGIN
 libmech_gssapi_la_LDFLAGS = -module -avoid-version
-libmech_gssapi_la_LIBADD = $(KRB5_LIBS)
-libmech_gssapi_la_CPPFLAGS = $(AM_CPPFLAGS) $(KRB5_CFLAGS) -DPLUGIN_BUILD
+libmech_gssapi_la_LIBADD = $(LIBDOVECOT_GSSAPI)
+libmech_gssapi_la_DEPENDENCIES = $(LIBDOVECOT_GSSAPI_DEPS)
+libmech_gssapi_la_CPPFLAGS = $(AM_CPPFLAGS)
 libmech_gssapi_la_SOURCES = \
-	sasl-server-mech-gssapi.c \
 	auth-sasl-gssapi.c \
 	auth-sasl-mech-gssapi.c
 
 libmech_gss_spnego_la_LDFLAGS = -module -avoid-version
-libmech_gss_spnego_la_LIBADD = $(KRB5_LIBS)
-libmech_gss_spnego_la_CPPFLAGS = $(AM_CPPFLAGS) $(KRB5_CFLAGS) -DPLUGIN_BUILD
+libmech_gss_spnego_la_LIBADD = $(LIBDOVECOT_GSSAPI)
+libmech_gss_spnego_la_DEPENDENCIES = $(LIBDOVECOT_GSSAPI_DEPS)
+libmech_gss_spnego_la_CPPFLAGS = $(AM_CPPFLAGS)
 libmech_gss_spnego_la_SOURCES = \
-	sasl-server-mech-gssapi.c \
 	auth-sasl-gssapi.c \
 	auth-sasl-mech-gss-spnego.c
 endif

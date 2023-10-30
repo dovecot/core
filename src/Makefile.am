@@ -26,8 +26,9 @@ LIBDOVECOT_SUBDIRS = \
 	lib-json \
 	lib-dcrypt \
 	lib-dict \
-	lib-sasl \
 	lib-http \
+	lib-oauth2 \
+	lib-sasl \
 	lib-fs \
 	lib-mail \
 	lib-program-client \
@@ -35,7 +36,6 @@ LIBDOVECOT_SUBDIRS = \
 	lib-pop3 \
 	lib-imap \
 	lib-imap-storage \
-	lib-oauth2 \
 	lib-doveadm \
 	lib-var-expand-crypt
 
