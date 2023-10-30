@@ -29,6 +29,10 @@ static bool mail_user_settings_check(void *_set, pool_t pool, const char **error
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct mail_storage_settings)
 
 static const struct setting_define mail_storage_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "layout_index" },
+	{ .type = SET_FILTER_NAME, .key = "layout_maildir++" },
+	{ .type = SET_FILTER_NAME, .key = "layout_imapdir" },
+	{ .type = SET_FILTER_NAME, .key = "layout_fs" },
 	DEF(STR, mail_location),
 	{ .type = SET_ALIAS, .key = "mail" },
 	{ .type = SET_FILTER_NAME, .key = "mail_attachment",
