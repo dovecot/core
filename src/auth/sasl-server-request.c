@@ -1,7 +1,6 @@
 /* Copyright (c) 2023 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "auth-request.h"
 
 #include "sasl-server-private.h"
 
@@ -16,8 +15,6 @@ void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 {
 	struct sasl_server_instance *sinst = mech->sinst;
 	struct sasl_server *server = sinst->server;
-	struct auth_request *request =
-		container_of(rctx, struct auth_request, sasl.req);
 	struct sasl_server_request *req;
 	pool_t pool;
 
@@ -55,7 +52,6 @@ void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 		mreq = p_new(pool, struct sasl_server_mech_request, 1);
 	mreq->pool = pool;
 	mreq->req = req;
-	mreq->request = request;
 	mreq->set = &sinst->set;
 	mreq->mech = mech;
 	mreq->mech_event = req->event;

@@ -5,7 +5,6 @@
 
 #include "sasl-server.h"
 
-struct auth_request;
 struct sasl_server_mech_funcs;
 struct sasl_server_mech_def;
 struct sasl_server_mech_data;
@@ -73,9 +72,6 @@ struct sasl_server_mech_request {
 	const char *realm;
 
 	const struct sasl_server_settings *set;
-
-	// FIXME: To be removed
-	struct auth_request *request;
 };
 
 /*
