@@ -417,7 +417,6 @@ imapc_list_get_vname(struct mailbox_list *_list, const char *storage_name)
 
 static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 {
-	struct mailbox_list_settings list_set;
 	const char *error, *dir;
 
 	if (list->list.mail_set->mail_index_path[0] == '\0')
@@ -431,7 +430,6 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 	if (dir[0] == '\0') {
 		/* indexes disabled */
 	} else if (list->index_list == NULL && !list->index_list_failed) {
-		mailbox_list_settings_init_defaults(&list_set);
 		struct settings_instance *set_instance =
 			mail_storage_service_user_get_settings_instance(
 				list->list.ns->user->service_user);
@@ -467,8 +465,7 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 				 &mail_set, &error) < 0) {
 			e_error(list->list.event, "%s", error);
 			list->index_list_failed = TRUE;
-		} else if (mailbox_list_create(event, list->list.ns,
-					       &list_set, mail_set,
+		} else if (mailbox_list_create(event, list->list.ns, mail_set,
 					       MAILBOX_LIST_FLAG_SECONDARY,
 					       &list->index_list, &error) < 0) {
 			e_error(list->list.event,

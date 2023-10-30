@@ -315,7 +315,6 @@ mbox_storage_find_inbox_file(struct mail_user *user, struct event *event)
 
 static bool
 mbox_storage_autodetect(const struct mail_namespace *ns,
-			struct mailbox_list_settings *set ATTR_UNUSED,
 			const struct mail_storage_settings *mail_set,
 			const char **root_path_r, const char **inbox_path_r)
 {

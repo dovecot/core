@@ -62,7 +62,6 @@ struct mail_storage_vfuncs {
 	   must be returned in that case. inbox_path_r is NULL already when
 	   calling, and means the default INBOX path is used. */
 	bool (*autodetect)(const struct mail_namespace *ns,
-			   struct mailbox_list_settings *set,
 			   const struct mail_storage_settings *mail_set,
 			   const char **root_path_r, const char **inbox_path_r);
 
