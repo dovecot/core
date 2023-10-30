@@ -72,12 +72,14 @@ pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
 	test-sasl-oauth2 \
-	test-sasl-client
+	test-sasl-client \
+	test-sasl-authentication
 
 noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
 	libsasl.la \
+	../lib-auth/libauth-crypt.la \
 	../lib-auth/libauth.la \
 	../lib-oauth2/liboauth2.la \
 	../lib-otp/libotp.la \
@@ -94,6 +96,10 @@ test_sasl_oauth2_DEPENDENCIES = $(test_deps)
 test_sasl_client_SOURCES = test-sasl-client.c
 test_sasl_client_LDADD = $(test_libs)
 test_sasl_client_DEPENDENCIES = $(test_deps)
+
+test_sasl_authentication_SOURCES = test-sasl-authentication.c
+test_sasl_authentication_LDADD = $(test_libs)
+test_sasl_authentication_DEPENDENCIES = $(test_deps)
 
 check-local:
 	for bin in $(test_programs); do \
