@@ -83,8 +83,7 @@ oauth2_verify_callback(enum passdb_result result,
 
 	switch (result) {
 	case PASSDB_RESULT_INTERNAL_FAILURE:
-		/* Non-standard response */
-		oauth2_fail(oauth2_req, 500, "internal_failure");
+		auth_request_internal_failure(request);
 		break;
 	case PASSDB_RESULT_USER_DISABLED:
 	case PASSDB_RESULT_PASS_EXPIRED:
@@ -227,7 +226,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 
 	if (oauth2_req->db == NULL) {
 		e_error(request->event, "BUG: oauth2 database missing");
-		oauth2_fail(oauth2_req, 500, "internal_failure");
+		auth_request_internal_failure(request);
 		return;
 	}
 	if (data_size == 0) {
@@ -331,7 +330,7 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 
 	if (oauth2_req->db == NULL) {
 		e_error(request->event, "BUG: oauth2 database missing");
-		oauth2_fail(oauth2_req, 500, "internal_failure");
+		auth_request_internal_failure(request);
 		return;
 	}
 	if (data_size == 0) {
