@@ -3,4 +3,6 @@
 
 void auth_sasl_oauth2_initialize(void);
 
+void auth_sasl_mech_oauth2_register(void);
+
 #endif

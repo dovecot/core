@@ -119,6 +119,7 @@ auth_common_sources = \
 	auth-request-var-expand.c \
 	auth-sasl-mech-apop.c \
 	auth-sasl-mech-dovecot-token.c \
+	auth-sasl-mech-oauth2.c \
 	auth-sasl.c \
 	auth-settings.c \
 	auth-fields.c \

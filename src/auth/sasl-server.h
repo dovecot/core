@@ -191,11 +191,6 @@ void sasl_server_mech_register_scram_sha256_plus(
 
 void sasl_server_mech_register_otp(struct sasl_server_instance *sinst);
 
-/* OAUTH2 */
-
-void sasl_server_mech_register_oauthbearer(struct sasl_server_instance *sinst);
-void sasl_server_mech_register_xoauth2(struct sasl_server_instance *sinst);
-
 /* Winbind */
 
 struct sasl_server_winbind_settings {

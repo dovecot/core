@@ -463,8 +463,6 @@ MECH_SIMPLE_REGISTER__TEMPLATE(cram_md5)
 MECH_SIMPLE_REGISTER__TEMPLATE(digest_md5)
 MECH_SIMPLE_REGISTER__TEMPLATE(external)
 MECH_SIMPLE_REGISTER__TEMPLATE(login)
-MECH_SIMPLE_REGISTER__TEMPLATE(oauthbearer)
-MECH_SIMPLE_REGISTER__TEMPLATE(xoauth2)
 MECH_SIMPLE_REGISTER__TEMPLATE(otp)
 MECH_SIMPLE_REGISTER__TEMPLATE(plain)
 MECH_SIMPLE_REGISTER__TEMPLATE(scram_sha1)
@@ -532,12 +530,6 @@ static const struct auth_sasl_mech_module mech_login = {
 	.mech_register = mech_login_register,
 };
 
-static const struct auth_sasl_mech_module mech_oauthbearer = {
-	.mech_name = SASL_MECH_NAME_OAUTHBEARER,
-
-	.mech_register = mech_oauthbearer_register,
-};
-
 static const struct auth_sasl_mech_module mech_otp = {
 	.mech_name = SASL_MECH_NAME_OTP,
 
@@ -586,12 +578,6 @@ static const struct auth_sasl_mech_module mech_winbind_gss_spnego = {
 	.mech_register = mech_winbind_gss_spnego_register,
 };
 
-static const struct auth_sasl_mech_module mech_xoauth2 = {
-	.mech_name = SASL_MECH_NAME_XOAUTH2,
-
-	.mech_register = mech_xoauth2_register,
-};
-
 static const struct auth_sasl_mech_module mech_apop = {
 	.mech_name = AUTH_SASL_MECH_NAME_APOP,
 
@@ -616,14 +602,13 @@ static void auth_sasl_mechs_init(const struct auth_settings *set)
 	auth_sasl_mech_register_module(&mech_login);
 	if (set->use_winbind)
 		auth_sasl_mech_register_module(&mech_winbind_ntlm);
-	auth_sasl_mech_register_module(&mech_oauthbearer);
+	auth_sasl_mech_oauth2_register();
 	auth_sasl_mech_register_module(&mech_otp);
 	auth_sasl_mech_register_module(&mech_plain);
 	auth_sasl_mech_register_module(&mech_scram_sha1);
 	auth_sasl_mech_register_module(&mech_scram_sha1_plus);
 	auth_sasl_mech_register_module(&mech_scram_sha256);
 	auth_sasl_mech_register_module(&mech_scram_sha256_plus);
-	auth_sasl_mech_register_module(&mech_xoauth2);
 
 	auth_sasl_mech_register_module(&mech_apop);
 }

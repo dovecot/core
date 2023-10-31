@@ -1,25 +1,34 @@
 /* Copyright (c) 2023 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
-#include "auth-sasl.h"
-#include "auth-sasl-oauth2.h"
+#include "str.h"
+#include "strescape.h"
+#include "sasl-server-oauth2.h"
+#include "auth-worker-connection.h"
 #include "auth-request.h"
-
+#include "db-oauth2.h"
+#include "auth-sasl.h"
 #include "auth-sasl-oauth2.h"
 
 /*
  * Token verification
  */
 
+static struct db_oauth2 *db_oauth2 = NULL;
+
+struct oauth2_token_lookup {
+	struct sasl_server_oauth2_request request;
+
+	struct db_oauth2 *db;
+	struct db_oauth2_request db_req;
+	lookup_credentials_callback_t *callback;
+};
+
 static void
 oauth2_verify_finish(enum passdb_result result,
 		     struct auth_request *auth_request)
 {
 	struct sasl_server_req_ctx *srctx = &auth_request->sasl.req;
-	struct sasl_server_mech_request *request =
-		sasl_server_request_get_mech_request(srctx);
-	struct oauth2_auth_request *oauth2_req =
-		container_of(request, struct oauth2_auth_request, request);
 	struct sasl_server_oauth2_failure failure;
 
 	i_zero(&failure);
@@ -47,10 +56,6 @@ oauth2_verify_finish(enum passdb_result result,
 		i_unreached();
 	}
 
-	if (oauth2_req->db != NULL) {
-		failure.openid_configuration =
-			db_oauth2_get_openid_configuration_url(oauth2_req->db);
-	}
 	sasl_server_oauth2_request_fail(srctx, &failure);
 }
 
@@ -66,10 +71,12 @@ oauth2_verify_callback(enum passdb_result result,
 }
 
 static void
-mech_oauth2_verify_token_continue(struct oauth2_auth_request *oauth2_req,
+mech_oauth2_verify_token_continue(struct oauth2_token_lookup *lookup,
 				  const char *const *args)
 {
-	struct auth_request *auth_request = oauth2_req->request.request;
+	struct sasl_server_req_ctx *srctx = lookup->request.rctx;
+	struct auth_request *auth_request =
+		container_of(srctx, struct auth_request, sasl.req);
 	int parsed;
 	enum passdb_result result;
 
@@ -111,9 +118,9 @@ mech_oauth2_verify_token_input_args(
 	struct auth_worker_connection *conn ATTR_UNUSED,
 	const char *const *args, void *context)
 {
-	struct oauth2_auth_request *oauth2_req = context;
+	struct oauth2_token_lookup *lookup = context;
 
-	mech_oauth2_verify_token_continue(oauth2_req, args);
+	mech_oauth2_verify_token_continue(lookup, args);
 	return TRUE;
 }
 
@@ -121,9 +128,11 @@ static void
 mech_oauth2_verify_token_local_continue(struct db_oauth2_request *db_req,
 					enum passdb_result result,
 					const char *error,
-					struct oauth2_auth_request *oauth2_req)
+					struct oauth2_token_lookup *lookup)
 {
-	struct auth_request *auth_request = oauth2_req->request.request;
+	struct sasl_server_req_ctx *srctx = lookup->request.rctx;
+	struct auth_request *auth_request =
+		container_of(srctx, struct auth_request, sasl.req);
 
 	if (result == PASSDB_RESULT_OK) {
 		auth_request_set_password_verified(auth_request);
@@ -144,14 +153,26 @@ mech_oauth2_verify_token_local_continue(struct db_oauth2_request *db_req,
 	pool_unref(&db_req->pool);
 }
 
-static void
-auth_sasl_oauth2_verify_token(struct oauth2_auth_request *oauth2_req,
-			      const char *token)
+static int
+oauth2_auth_new(struct sasl_server_req_ctx *srctx, pool_t pool,
+		const char *token, struct sasl_server_oauth2_request **req_r)
 {
-	struct auth_request *auth_request = oauth2_req->request.request;
+	struct auth_request *auth_request =
+		container_of(srctx, struct auth_request, sasl.req);
+	struct oauth2_token_lookup *lookup;
+
+	if (db_oauth2 == NULL) {
+		e_error(auth_request->event, "BUG: oauth2 database missing");
+		return -1;
+	}
+
+	lookup = p_new(pool, struct oauth2_token_lookup, 1);
+	sasl_server_oauth2_request_init(&lookup->request, pool, srctx);
+	lookup->db_req.pool = pool;
+	lookup->db = db_oauth2;
 
 	auth_request_ref(auth_request);
-	if (!db_oauth2_use_worker(oauth2_req->db)) {
+	if (!db_oauth2_use_worker(lookup->db)) {
 		pool_t pool = pool_alloconly_create(
 			MEMPOOL_GROWING"oauth2 request", 256);
 		struct db_oauth2_request *db_req =
@@ -159,8 +180,8 @@ auth_sasl_oauth2_verify_token(struct oauth2_auth_request *oauth2_req,
 		db_req->pool = pool;
 		db_req->auth_request = auth_request;
 		db_oauth2_lookup(
-			oauth2_req->db, db_req, token,	db_req->auth_request,
-			mech_oauth2_verify_token_local_continue, oauth2_req);
+			lookup->db, db_req, token, db_req->auth_request,
+			mech_oauth2_verify_token_local_continue, lookup);
 	} else {
 		string_t *str = t_str_new(128);
 		str_append(str, "TOKEN\tOAUTH2\t");
@@ -168,11 +189,18 @@ auth_sasl_oauth2_verify_token(struct oauth2_auth_request *oauth2_req,
 		str_append_c(str, '\t');
 		auth_request_export(auth_request, str);
 		auth_worker_call(
-			oauth2_req->db_req.pool,
+			lookup->db_req.pool,
 			auth_request->fields.user, str_c(str),
-			mech_oauth2_verify_token_input_args, oauth2_req);
+			mech_oauth2_verify_token_input_args, lookup);
 	}
+
+	*req_r = &lookup->request;
+	return 0;
 }
+
+static const struct sasl_server_oauth2_funcs mech_funcs = {
+	.auth_new = oauth2_auth_new,
+};
 
 void auth_sasl_oauth2_initialize(void)
 {
@@ -185,4 +213,60 @@ void auth_sasl_oauth2_initialize(void)
 				i_fatal("Cannot initialize oauth2: %s", error);
 		}
 	}
+}
+
+/*
+ * Mechanisms
+ */
+
+static void
+mech_oauth_init_settings(struct sasl_server_oauth2_settings *oauth2_set)
+{
+	i_assert(db_oauth2 != NULL);
+
+	i_zero(oauth2_set);
+	oauth2_set->openid_configuration_url =
+		db_oauth2_get_openid_configuration_url(db_oauth2);
+}
+
+static bool
+mech_oauthbearer_register(struct sasl_server_instance *sasl_inst,
+			  const struct auth_settings *set ATTR_UNUSED)
+{
+	struct sasl_server_oauth2_settings oauth2_set;
+
+	mech_oauth_init_settings(&oauth2_set);
+	sasl_server_mech_register_oauthbearer(sasl_inst, &mech_funcs,
+					      &oauth2_set);
+	return TRUE;
+}
+
+static bool
+mech_xoauth2_register(struct sasl_server_instance *sasl_inst,
+		      const struct auth_settings *set ATTR_UNUSED)
+{
+	struct sasl_server_oauth2_settings oauth2_set;
+
+	mech_oauth_init_settings(&oauth2_set);
+	sasl_server_mech_register_xoauth2(sasl_inst, &mech_funcs,
+					  &oauth2_set);
+	return TRUE;
+}
+
+static const struct auth_sasl_mech_module mech_oauthbearer = {
+	.mech_name = SASL_MECH_NAME_OAUTHBEARER,
+
+	.mech_register = mech_oauthbearer_register,
+};
+
+static const struct auth_sasl_mech_module mech_xoauth2 = {
+	.mech_name = SASL_MECH_NAME_XOAUTH2,
+
+	.mech_register = mech_xoauth2_register,
+};
+
+void auth_sasl_mech_oauth2_register(void)
+{
+	auth_sasl_mech_register_module(&mech_oauthbearer);
+	auth_sasl_mech_register_module(&mech_xoauth2);
 }

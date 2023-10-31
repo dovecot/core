@@ -2,13 +2,11 @@
 
 #include "auth-common.h"
 #include "auth-fields.h"
-#include "auth-worker-connection.h"
 #include "ioloop.h"
 #include "str.h"
-#include "strescape.h"
+#include "buffer.h"
 #include "json-ostream.h"
 #include "auth-gs2.h"
-#include "db-oauth2.h"
 #include "oauth2.h"
 
 #include "sasl-server-protected.h"
@@ -16,24 +14,32 @@
 
 struct oauth2_auth_request {
 	struct sasl_server_mech_request request;
-	struct db_oauth2 *db;
-	struct db_oauth2_request db_req;
-	lookup_credentials_callback_t *callback;
+	struct sasl_server_oauth2_request *backend;
 
 	bool failed:1;
 	bool verifying_token:1;
 };
 
+struct oauth2_auth_mech {
+	struct sasl_server_mech mech;
+	const struct sasl_server_oauth2_funcs *funcs;
+
+	struct sasl_server_oauth2_settings set;
+};
+
 static const struct sasl_server_mech_def mech_oauthbearer;
 static const struct sasl_server_mech_def mech_xoauth2;
-
-static struct db_oauth2 *db_oauth2 = NULL;
 
 static void
 oauth2_fail(struct oauth2_auth_request *oauth2_req,
 	    const struct sasl_server_oauth2_failure *failure)
 {
 	struct sasl_server_mech_request *request = &oauth2_req->request;
+	const struct oauth2_auth_mech *oauth2_mech =
+		container_of(request->mech,
+			     const struct oauth2_auth_mech, mech);
+
+	oauth2_req->verifying_token = FALSE;
 
 	if (failure == NULL) {
 		sasl_server_request_internal_failure(request);
@@ -61,11 +67,11 @@ oauth2_fail(struct oauth2_auth_request *oauth2_req,
 		json_ostream_nwrite_string(joutput, "scope", "mail");
 	else
 		json_ostream_nwrite_string(joutput, "scope", failure->scope);
-	if (failure->openid_configuration != NULL &&
-	    *failure->openid_configuration != '\0') {
+	if (oauth2_mech->set.openid_configuration_url != NULL &&
+	    *oauth2_mech->set.openid_configuration_url != '\0') {
 		json_ostream_nwrite_string(
 			joutput, "openid-configuration",
-			failure->openid_configuration);
+			oauth2_mech->set.openid_configuration_url);
 	}
 	json_ostream_nascend_object(joutput);
 	json_ostream_nfinish_destroy(&joutput);
@@ -107,7 +113,10 @@ void sasl_server_oauth2_request_succeed(struct sasl_server_req_ctx *rctx)
 		container_of(request, struct oauth2_auth_request, request);
 
 	i_assert(oauth2_req->verifying_token);
+	oauth2_req->verifying_token = FALSE;
 	sasl_server_request_success(request, "", 0);
+
+	sasl_server_mech_request_unref(&request);
 }
 
 void sasl_server_oauth2_request_fail(
@@ -124,18 +133,63 @@ void sasl_server_oauth2_request_fail(
 		container_of(request, struct oauth2_auth_request, request);
 
 	i_assert(oauth2_req->verifying_token);
+	oauth2_req->verifying_token = FALSE;
 	oauth2_fail(oauth2_req, failure);
+
+	sasl_server_mech_request_unref(&request);
 }
 
-#include "auth-sasl-mech-oauth2.c"
+struct sasl_server_oauth2_request *
+sasl_server_oauth2_request_get(struct sasl_server_req_ctx *rctx)
+{
+	struct sasl_server_mech_request *request =
+		sasl_server_request_get_mech_request(rctx);
+
+	i_assert(request->mech->def == &mech_oauthbearer ||
+		 request->mech->def == &mech_xoauth2);
+
+	struct oauth2_auth_request *oauth2_req =
+		container_of(request, struct oauth2_auth_request, request);
+
+	return oauth2_req->backend;
+}
 
 static void
 mech_oauth2_verify_token(struct oauth2_auth_request *oauth2_req,
 			 const char *token)
 {
+	struct sasl_server_mech_request *request = &oauth2_req->request;
+	struct sasl_server_req_ctx *rctx =
+		sasl_server_request_get_req_ctx(request);
+	const struct oauth2_auth_mech *oauth2_mech =
+		container_of(request->mech,
+			     const struct oauth2_auth_mech, mech);
+
+	/* Add reference for the lookup; dropped upon success/failure */
+	sasl_server_mech_request_ref(request);
+
 	i_assert(token != NULL);
+	i_assert(oauth2_mech->funcs != NULL &&
+		 oauth2_mech->funcs->auth_new != NULL);
 	oauth2_req->verifying_token = TRUE;
-	auth_sasl_oauth2_verify_token(oauth2_req, token);
+
+	/* Call the backend auth_new() function under an additional reference in
+	   case it fails the request immediately. */
+	sasl_server_mech_request_ref(request);
+	if (oauth2_mech->funcs->auth_new(rctx, request->pool, token,
+					 &oauth2_req->backend) < 0) {
+		if (!oauth2_req->failed)
+			sasl_server_oauth2_request_fail(rctx, NULL);
+		i_assert(oauth2_req->backend == NULL);
+	} else {
+		i_assert(!oauth2_req->verifying_token ||
+			 oauth2_req->backend != NULL);
+		i_assert(oauth2_req->backend == NULL ||
+			 oauth2_req->backend->pool != NULL);
+		i_assert(oauth2_req->backend == NULL ||
+			 oauth2_req->backend->rctx != NULL);
+	}
+	sasl_server_mech_request_unref(&request);
 }
 
 /* Input syntax for data:
@@ -149,11 +203,6 @@ mech_oauthbearer_auth_continue(struct sasl_server_mech_request *request,
 	struct oauth2_auth_request *oauth2_req =
 		container_of(request, struct oauth2_auth_request, request);
 
-	if (oauth2_req->db == NULL) {
-		e_error(request->mech_event, "BUG: oauth2 database missing");
-		sasl_server_request_internal_failure(request);
-		return;
-	}
 	if (data_size == 0) {
 		oauth2_fail_invalid_request(oauth2_req);
 		return;
@@ -245,11 +294,6 @@ mech_xoauth2_auth_continue(struct sasl_server_mech_request *request,
 	struct oauth2_auth_request *oauth2_req =
 		container_of(request, struct oauth2_auth_request, request);
 
-	if (oauth2_req->db == NULL) {
-		e_error(request->mech_event, "BUG: oauth2 database missing");
-		sasl_server_request_internal_failure(request);
-		return;
-	}
 	if (data_size == 0) {
 		oauth2_fail_invalid_request(oauth2_req);
 		return;
@@ -310,16 +354,40 @@ mech_oauth2_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED,
 	struct oauth2_auth_request *request;
 
 	request = p_new(pool, struct oauth2_auth_request, 1);
-	request->db_req.pool = pool;
-	request->db = db_oauth2;
 
 	return &request->request;
+}
+
+static void mech_oauth2_auth_free(struct sasl_server_mech_request *request)
+{
+	struct oauth2_auth_request *oauth2_req =
+		container_of(request, struct oauth2_auth_request, request);
+	const struct oauth2_auth_mech *oauth2_mech =
+		container_of(request->mech,
+			     const struct oauth2_auth_mech, mech);
+
+	i_assert(oauth2_mech->funcs != NULL);
+	if (oauth2_req->backend != NULL &&
+	    oauth2_mech->funcs->auth_free != NULL)
+		oauth2_mech->funcs->auth_free(oauth2_req->backend);
+}
+
+static struct sasl_server_mech *mech_oauth2_mech_new(pool_t pool)
+{
+	struct oauth2_auth_mech *oauth2_mech;
+
+	oauth2_mech = p_new(pool, struct oauth2_auth_mech, 1);
+
+	return &oauth2_mech->mech;
 }
 
 static const struct sasl_server_mech_funcs mech_oauthbearer_funcs = {
 	.auth_new = mech_oauth2_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_oauthbearer_auth_continue,
+	.auth_free = mech_oauth2_auth_free,
+
+	.mech_new = mech_oauth2_mech_new,
 };
 
 static const struct sasl_server_mech_def mech_oauthbearer = {
@@ -337,6 +405,9 @@ static const struct sasl_server_mech_funcs mech_xoauth2_funcs = {
 	.auth_new = mech_oauth2_auth_new,
 	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_xoauth2_auth_continue,
+	.auth_free = mech_oauth2_auth_free,
+
+	.mech_new = mech_oauth2_mech_new,
 };
 
 static const struct sasl_server_mech_def mech_xoauth2 = {
@@ -348,12 +419,41 @@ static const struct sasl_server_mech_def mech_xoauth2 = {
 	.funcs = &mech_xoauth2_funcs,
 };
 
-void sasl_server_mech_register_oauthbearer(struct sasl_server_instance *sinst)
+static void
+mech_oauth2_register(struct sasl_server_instance *sinst,
+		     const struct sasl_server_mech_def *mech_def,
+		     const struct sasl_server_oauth2_funcs *funcs,
+		     const struct sasl_server_oauth2_settings *set)
 {
-	sasl_server_mech_register(sinst, &mech_oauthbearer, NULL);
+	struct sasl_server_mech *mech;
+
+	i_assert(funcs != NULL && funcs->auth_new != NULL);
+
+	mech = sasl_server_mech_register(sinst, mech_def, NULL);
+
+	struct oauth2_auth_mech *oauth2_mech =
+		container_of(mech, struct oauth2_auth_mech, mech);
+
+	oauth2_mech->funcs = funcs;
+
+	if (set != NULL) {
+		oauth2_mech->set.openid_configuration_url =
+			p_strdup(mech->pool, set->openid_configuration_url);
+	}
 }
 
-void sasl_server_mech_register_xoauth2(struct sasl_server_instance *sinst)
+void sasl_server_mech_register_oauthbearer(
+	struct sasl_server_instance *sinst,
+	const struct sasl_server_oauth2_funcs *funcs,
+	const struct sasl_server_oauth2_settings *set)
 {
-	sasl_server_mech_register(sinst, &mech_xoauth2, NULL);
+	mech_oauth2_register(sinst, &mech_oauthbearer, funcs, set);
+}
+
+void sasl_server_mech_register_xoauth2(
+	struct sasl_server_instance *sinst,
+	const struct sasl_server_oauth2_funcs *funcs,
+	const struct sasl_server_oauth2_settings *set)
+{
+	mech_oauth2_register(sinst, &mech_xoauth2, funcs, set);
 }
