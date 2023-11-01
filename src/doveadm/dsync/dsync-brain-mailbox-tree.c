@@ -43,9 +43,9 @@ static void dsync_brain_check_namespaces(struct dsync_brain *brain)
 	if (brain->hierarchy_sep != '\0')
 		return;
 
-	i_fatal("All your namespaces have a location setting. "
-		"Only namespaces with empty location settings are converted. "
-		"(One namespace should default to mail_location setting)");
+	/* We get here only in some rare situations, since namespaces'
+	   existence is normally checked before already. */
+	i_fatal("No namespaces found for syncing");
 }
 
 void dsync_brain_mailbox_trees_init(struct dsync_brain *brain)
