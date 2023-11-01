@@ -355,6 +355,7 @@ int mdbox_sync(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags)
 
 		/* we'll need to rebuild storage.
 		   try again from the beginning. */
+		(void)mdbox_map_atomic_finish(&atomic);
 		return mdbox_sync(mbox, flags);
 	}
 
