@@ -63,7 +63,7 @@ raw_storage_create_from_set(struct mail_storage_service_ctx *ctx,
 
 	ns_set = p_new(user->pool, struct mail_namespace_settings, 1);
 	ns_set->name = "raw-storage";
-	ns_set->location = ":LAYOUT=none";
+	ns_set->location = "raw::LAYOUT=none";
 	ns_set->separator = "/";
 
 	ns = mail_namespaces_init_empty(user);
@@ -73,7 +73,7 @@ raw_storage_create_from_set(struct mail_storage_service_ctx *ctx,
 	ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
 	ns->set = ns_set;
 
-	if (mail_storage_create(ns, "raw", 0, &error) < 0)
+	if (mail_storage_create(ns, NULL, 0, &error) < 0)
 		i_fatal("Couldn't create internal raw storage: %s", error);
 	if (mail_namespaces_init_finish(ns, &error) < 0)
 		i_fatal("Couldn't create internal raw namespace: %s", error);
