@@ -484,7 +484,7 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 	struct mail_namespace_settings *inbox_set;
 	struct mail_namespace *ns;
 	const struct mail_storage_settings *mail_set;
-	const char *error, *driver, *location_source;
+	const char *error, *value, *location_source;
 	bool default_location = FALSE;
 	int ret;
 
@@ -497,7 +497,6 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 	inbox_set->type = "private";
 	inbox_set->list = "yes";
 
-	driver = NULL;
 	mail_set = mail_user_set_get_storage_set(user);
 	if (location != NULL) {
 		inbox_set->location = p_strdup(user->pool, location);
@@ -506,19 +505,16 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 		location_source = "mail_location setting";
 		inbox_set->location = mail_set->mail_location;
 		default_location = TRUE;
-	} else {
+	} else if ((value = getenv("MAIL")) != NULL) {
 		location_source = "environment MAIL";
-		inbox_set->location = getenv("MAIL");
-	}
-	if (inbox_set->location == NULL) {
-		/* support also maildir-specific environment */
-		inbox_set->location = getenv("MAILDIR");
-		if (inbox_set->location == NULL)
-			inbox_set->location = "";
-		else {
-			driver = "maildir";
-			location_source = "environment MAILDIR";
-		}
+		inbox_set->location = value;
+	} else if ((value = getenv("MAILDIR")) != NULL) {
+		inbox_set->location =
+			p_strdup_printf(user->pool, "maildir:%s", value);
+		location_source = "environment MAILDIR";
+	} else {
+		inbox_set->location = "";
+		location_source = "autodetection";
 	}
 	if (default_location) {
 		/* treat this the same as if a namespace was created with
@@ -533,7 +529,7 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 	if ((ret = mail_namespace_alloc(user, inbox_set, &ns, error_r)) < 0)
 		return ret;
 
-	if (mail_storage_create(ns, driver, 0, &error) < 0) {
+	if (mail_storage_create(ns, NULL, 0, &error) < 0) {
 		if (*inbox_set->location != '\0') {
 			*error_r = t_strdup_printf(
 				"Initializing mail storage from %s "
