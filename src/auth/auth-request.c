@@ -273,6 +273,8 @@ static void auth_request_success_continue(struct auth_policy_check_ctx *ctx)
 	if (ctx->success_data->used > 0 && !request->fields.final_resp_ok) {
 		/* we'll need one more SASL round, since client doesn't support
 		   the final SASL response */
+		i_assert(!request->final_resp_sent);
+		request->final_resp_sent = TRUE;
 		auth_request_handler_reply_continue(request,
 			ctx->success_data->data, ctx->success_data->used);
 		return;
@@ -288,6 +290,21 @@ void auth_request_fail_with_reply(struct auth_request *request,
 				  const void *final_data, size_t final_data_size)
 {
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
+
+	/* Sending challenge data (final_data_size > 0) as part of the final
+	   authentication command response is never an option in SASL, but when
+	   the authentication client sets the "final-resp-ok" field it indicates
+	   that it will handle the final protocol sequence, avoiding the need to
+	   do that here. */
+	if (final_data_size > 0 && !request->fields.final_resp_ok) {
+		/* Otherwise, we need to send the data as part of a normal
+		   challenge and wait for a dummy client response. */
+		i_assert(!request->final_resp_sent);
+		request->final_resp_sent = TRUE;
+		auth_request_handler_reply_continue(request, final_data,
+						    final_data_size);
+		return;
+	}
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	auth_request_refresh_last_access(request);
@@ -398,7 +415,11 @@ void auth_request_continue(struct auth_request *request,
 {
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	if (request->fields.successful) {
+	if (request->final_resp_sent) {
+		if (!request->fields.successful) {
+			auth_request_fail(request);
+			return;
+		}
 		auth_request_success(request, "", 0);
 		return;
 	}

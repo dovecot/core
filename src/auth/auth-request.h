@@ -231,6 +231,9 @@ struct auth_request {
 	   needs to be tracked outside regular extra fields, because they get
 	   rolled back on passdb failure. */
 	bool failure_nodelay:1;
+	/* Sent final response (challenge). Waiting for dummy client response.
+	 */
+	bool final_resp_sent:1;
 
 	bool event_finished_sent:1;
 
