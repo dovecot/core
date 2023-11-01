@@ -170,7 +170,6 @@ static const struct setting_define mailbox_setting_defines[] = {
 	{ .type = SET_ENUM, .key = "mailbox_auto",
 	  .offset = offsetof(struct mailbox_settings, autocreate) } ,
 	DEF(STR, special_use),
-	DEF(STR, driver),
 	DEF(STR, comment),
 	DEF(TIME, autoexpunge),
 	DEF(UINT, autoexpunge_max_mails),
@@ -184,7 +183,6 @@ const struct mailbox_settings mailbox_default_settings = {
 		MAILBOX_SET_AUTO_CREATE":"
 		MAILBOX_SET_AUTO_SUBSCRIBE,
 	.special_use = "",
-	.driver = "",
 	.comment = "",
 	.autoexpunge = 0,
 	.autoexpunge_max_mails = 0

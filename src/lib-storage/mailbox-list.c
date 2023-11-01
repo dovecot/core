@@ -876,6 +876,7 @@ mailbox_list_get_user(const struct mailbox_list *list)
 	return list->ns->user;
 }
 
+#if 0 //FIXME: add back later
 static int
 mailbox_list_get_storage_driver(struct mailbox_list *list, const char *driver,
 				struct mail_storage **storage_r)
@@ -902,12 +903,14 @@ mailbox_list_get_storage_driver(struct mailbox_list *list, const char *driver,
 	}
 	return 0;
 }
+#endif
 
 int mailbox_list_default_get_storage(struct mailbox_list **list,
-				     const char **vname,
+				     const char **vname ATTR_UNUSED,
 				     enum mailbox_list_get_storage_flags flags ATTR_UNUSED,
 				     struct mail_storage **storage_r)
 {
+#if 0 //FIXME: add back later
 	const struct mailbox_settings *set;
 	const char *error;
 	struct event *event =
@@ -930,6 +933,10 @@ int mailbox_list_default_get_storage(struct mailbox_list **list,
 	event_unref(&event);
 	settings_free(set);
 	return ret;
+#else
+	*storage_r = mail_namespace_get_default_storage((*list)->ns);
+	return 0;
+#endif
 }
 
 int mailbox_list_get_storage(struct mailbox_list **list, const char **vname,
