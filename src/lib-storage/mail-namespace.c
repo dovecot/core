@@ -28,6 +28,10 @@ static struct mail_namespace_settings prefixless_ns_set = {
 	.disabled = FALSE,
 };
 
+static int
+mail_namespaces_init_default_location(struct mail_user *user,
+				      const char **error_r);
+
 void mail_namespace_add_storage(struct mail_namespace *ns,
 				struct mail_storage *storage)
 {
@@ -473,22 +477,18 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 
 	if (namespaces == NULL) {
 		/* no namespaces defined, create a default one */
-		return mail_namespaces_init_location(user, NULL, error_r);
+		return mail_namespaces_init_default_location(user, error_r);
 	}
 	return mail_namespaces_init_finish(namespaces, error_r);
 }
 
-int mail_namespaces_init_location(struct mail_user *user, const char *location,
-				  const char **error_r)
+static int
+mail_namespaces_init_location_full(struct mail_user *user, const char *location,
+				   bool default_location, const char **error_r)
 {
 	struct mail_namespace_settings *inbox_set;
 	struct mail_namespace *ns;
-	const struct mail_storage_settings *mail_set;
-	const char *error, *value, *location_source;
-	bool default_location = FALSE;
 	int ret;
-
-	i_assert(location == NULL || *location != '\0');
 
 	inbox_set = p_new(user->pool, struct mail_namespace_settings, 1);
 	*inbox_set = mail_namespace_default_settings;
@@ -496,26 +496,8 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 	/* enums must be changed */
 	inbox_set->type = "private";
 	inbox_set->list = "yes";
+	inbox_set->location = p_strdup(user->pool, location);
 
-	mail_set = mail_user_set_get_storage_set(user);
-	if (location != NULL) {
-		inbox_set->location = p_strdup(user->pool, location);
-		location_source = "mail_location parameter";
-	} else if (*mail_set->mail_location != '\0') {
-		location_source = "mail_location setting";
-		inbox_set->location = mail_set->mail_location;
-		default_location = TRUE;
-	} else if ((value = getenv("MAIL")) != NULL) {
-		location_source = "environment MAIL";
-		inbox_set->location = value;
-	} else if ((value = getenv("MAILDIR")) != NULL) {
-		inbox_set->location =
-			p_strdup_printf(user->pool, "maildir:%s", value);
-		location_source = "environment MAILDIR";
-	} else {
-		inbox_set->location = "";
-		location_source = "autodetection";
-	}
 	if (default_location) {
 		/* treat this the same as if a namespace was created with
 		   default settings. dsync relies on finding a namespace
@@ -529,19 +511,55 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 	if ((ret = mail_namespace_alloc(user, inbox_set, &ns, error_r)) < 0)
 		return ret;
 
-	if (mail_storage_create(ns, NULL, 0, &error) < 0) {
-		if (*inbox_set->location != '\0') {
-			*error_r = t_strdup_printf(
-				"Initializing mail storage from %s "
-				"failed: %s", location_source, error);
-		} else {
-			*error_r = t_strdup_printf("mail_location not set and "
-					"autodetection failed: %s", error);
-		}
+	if (mail_storage_create(ns, NULL, 0, error_r) < 0) {
 		mail_namespace_free(ns);
 		return -1;
 	}
 	return mail_namespaces_init_finish(ns, error_r);
+}
+
+static int
+mail_namespaces_init_default_location(struct mail_user *user,
+				      const char **error_r)
+{
+	const struct mail_storage_settings *mail_set;
+	const char *location, *location_source, *error;
+	bool default_location = FALSE;
+
+	mail_set = mail_user_set_get_storage_set(user);
+	if (*mail_set->mail_location != '\0') {
+		location_source = "mail_location setting";
+		location = mail_set->mail_location;
+		default_location = TRUE;
+	} else if ((location = getenv("MAIL")) != NULL) {
+		location_source = "environment MAIL";
+	} else if ((location = getenv("MAILDIR")) != NULL) {
+		location = p_strdup_printf(user->pool, "maildir:%s", location);
+		location_source = "environment MAILDIR";
+	} else {
+		location = "";
+		location_source = "autodetection";
+	}
+	if (mail_namespaces_init_location_full(user, location,
+					       default_location, &error) == 0)
+		return 0;
+	else if (location[0] != '\0') {
+		*error_r = t_strdup_printf(
+			"Initializing mail storage from %s failed: %s",
+			location_source, error);
+		return -1;
+	} else {
+		*error_r = t_strdup_printf("mail_location not set and "
+					   "autodetection failed: %s", error);
+		return -1;
+	}
+}
+
+int mail_namespaces_init_location(struct mail_user *user, const char *location,
+				  const char **error_r)
+{
+	return mail_namespaces_init_location_full(user, location,
+						  FALSE, error_r);
 }
 
 struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user)
