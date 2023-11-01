@@ -359,9 +359,10 @@ mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
 	mailbox_list_settings_init_defaults(&list_set);
 	if (data == NULL) {
 		/* autodetect */
-	} else if (driver != NULL && strcmp(driver, "shared") == 0) {
+	} else if ((flags & MAIL_STORAGE_FLAG_SHARED_DYNAMIC) != 0) {
 		/* internal shared namespace */
 		list_set.root_dir = ns->user->set->base_dir;
+		driver = MAIL_SHARED_STORAGE_NAME;
 	} else {
 		if (driver == NULL)
 			mail_storage_set_autodetection(&data, &driver);

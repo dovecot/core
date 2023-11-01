@@ -34,7 +34,10 @@ enum mail_storage_flags {
 	MAIL_STORAGE_FLAG_NO_AUTOCREATE		= 0x04,
 	/* Don't verify existence or accessibility of any directories.
 	   Create the storage in any case. */
-	MAIL_STORAGE_FLAG_NO_AUTOVERIFY		= 0x08
+	MAIL_STORAGE_FLAG_NO_AUTOVERIFY		= 0x08,
+	/* Shared namespace root, under which new user-specific namespaces are
+	   created. */
+	MAIL_STORAGE_FLAG_SHARED_DYNAMIC	= 0x10,
 };
 
 enum mailbox_flags {

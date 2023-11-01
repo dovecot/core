@@ -314,6 +314,7 @@ shared_mail_user_init(struct mail_storage *_storage,
 {
 	struct mail_namespace *ns = *_ns;
 	struct shared_storage *storage = SHARED_STORAGE(_storage);
+	enum mail_storage_flags new_storage_flags = 0;
 	const char *error;
 	int ret;
 
@@ -387,8 +388,10 @@ shared_mail_user_init(struct mail_storage *_storage,
 		return -1;
 	}
 
-	if (mail_storage_create(new_ns, NULL, _storage->flags |
-				MAIL_STORAGE_FLAG_NO_AUTOVERIFY, &error) < 0) {
+	new_storage_flags = _storage->flags &
+		ENUM_NEGATE(MAIL_STORAGE_FLAG_SHARED_DYNAMIC);
+	new_storage_flags |= MAIL_STORAGE_FLAG_NO_AUTOVERIFY;
+	if (mail_storage_create(new_ns, NULL, new_storage_flags, &error) < 0) {
 		mailbox_list_set_critical(ns->list, "Namespace %s: %s",
 					  new_ns->prefix, error);
 		/* owner gets freed by namespace deinit */

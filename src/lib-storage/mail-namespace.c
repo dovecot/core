@@ -132,8 +132,9 @@ int mail_namespaces_init_add(struct mail_user *user,
 {
 	const struct mail_storage_settings *mail_set =
 		mail_user_set_get_storage_set(user);
+	enum mail_storage_flags flags = 0;
 	struct mail_namespace *ns;
-	const char *driver, *error;
+	const char *error;
 	int ret;
 
 	if (*ns_set->location == '\0') {
@@ -169,13 +170,11 @@ int mail_namespaces_init_add(struct mail_user *user,
 		/* dynamic shared namespace. the above check catches wrong
 		   mixed %% usage, but still allows for specifying a shared
 		   namespace to an explicit location without any %% */
+		flags |= MAIL_STORAGE_FLAG_SHARED_DYNAMIC;
 		ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
-		driver = MAIL_SHARED_STORAGE_NAME;
-	} else {
-		driver = NULL;
 	}
 
-	if (mail_storage_create(ns, driver, 0, &error) < 0) {
+	if (mail_storage_create(ns, NULL, flags, &error) < 0) {
 		*error_r = t_strdup_printf("Namespace %s: %s",
 					   ns->set->name, error);
 		mail_namespace_free(ns);
