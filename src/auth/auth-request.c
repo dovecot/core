@@ -185,23 +185,20 @@ void auth_request_success(struct auth_request *request,
 	if (request->fields.userdb_reply != NULL)
 		auth_fields_snapshot(request->fields.userdb_reply);
 
+	struct auth_policy_check_ctx *ctx;
+
+	ctx = p_new(request->pool, struct auth_policy_check_ctx, 1);
+	ctx->request = request;
+	ctx->success_data = buffer_create_dynamic(request->pool, data_size);
+	buffer_append(ctx->success_data, data, data_size);
+	ctx->type = AUTH_POLICY_CHECK_TYPE_SUCCESS;
+
 	if (!request->set->policy_check_after_auth) {
-		struct auth_policy_check_ctx *ctx =
-			p_new(request->pool, struct auth_policy_check_ctx, 1);
-		ctx->success_data = buffer_create_dynamic(request->pool, 1);
-		ctx->request = request;
-		ctx->type = AUTH_POLICY_CHECK_TYPE_SUCCESS;
 		auth_request_policy_check_callback(0, ctx);
 		return;
 	}
 
 	/* perform second policy lookup here */
-	struct auth_policy_check_ctx *ctx =
-		p_new(request->pool, struct auth_policy_check_ctx, 1);
-	ctx->request = request;
-	ctx->success_data = buffer_create_dynamic(request->pool, data_size);
-	buffer_append(ctx->success_data, data, data_size);
-	ctx->type = AUTH_POLICY_CHECK_TYPE_SUCCESS;
 	auth_policy_check(request, request->mech_password,
 			  auth_request_policy_check_callback, ctx);
 }
