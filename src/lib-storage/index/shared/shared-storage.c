@@ -390,7 +390,7 @@ shared_mail_user_init(struct mail_storage *_storage,
 	if (mail_storage_create(new_ns, NULL, _storage->flags |
 				MAIL_STORAGE_FLAG_NO_AUTOVERIFY, &error) < 0) {
 		mailbox_list_set_critical(ns->list, "Namespace %s: %s",
-					  new_ns->set->name, error);
+					  new_ns->prefix, error);
 		/* owner gets freed by namespace deinit */
 		mail_namespace_destroy(new_ns);
 		return -1;
