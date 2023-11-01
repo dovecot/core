@@ -884,10 +884,8 @@ bool dsync_brain_want_namespace(struct dsync_brain *brain,
 			return TRUE;
 		return FALSE;
 	} else {
-		/* By default sync only namespaces that have empty location.
-		   The unexpanded_location can be already expanded if it
-		   came from userdb or -o parameter. */
-		return ns->set->unexpanded_location[0] == '\0';
+		/* By default sync only the INBOX namespace. */
+		return (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0;
 	}
 }
 
