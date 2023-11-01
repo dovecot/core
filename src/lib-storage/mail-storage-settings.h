@@ -112,7 +112,6 @@ struct mailbox_settings {
 	const char *name;
 	const char *autocreate;
 	const char *special_use;
-	const char *driver;
 	const char *comment;
 	unsigned int autoexpunge;
 	unsigned int autoexpunge_max_mails;
