@@ -245,7 +245,8 @@ void auth_request_unref(struct auth_request **request);
 void auth_request_success(struct auth_request *request,
 			  const void *data, size_t data_size);
 void auth_request_fail_with_reply(struct auth_request *request,
-				  const void *final_data, size_t final_data_size);
+				  const void *final_data,
+				  size_t final_data_size);
 void auth_request_fail(struct auth_request *request);
 void auth_request_internal_failure(struct auth_request *request);
 
@@ -296,7 +297,8 @@ void auth_request_set_delayed_credentials(struct auth_request *request,
 void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
 			    const char *default_scheme) ATTR_NULL(4);
-void auth_request_set_null_field(struct auth_request *request, const char *name);
+void auth_request_set_null_field(struct auth_request *request,
+				 const char *name);
 void auth_request_set_field_keyvalue(struct auth_request *request,
 				     const char *field,
 				     const char *default_scheme) ATTR_NULL(3);
@@ -333,7 +335,8 @@ auth_request_password_verify_log(struct auth_request *request,
 				 ATTR_WARN_UNUSED_RESULT;
 enum passdb_result auth_request_password_missing(struct auth_request *request);
 
-void auth_request_get_log_prefix(string_t *str, struct auth_request *auth_request,
+void auth_request_get_log_prefix(string_t *str,
+				 struct auth_request *auth_request,
 				 const char *subsystem);
 
 void auth_request_log_debug(struct auth_request *auth_request,
@@ -354,9 +357,8 @@ void auth_request_log_unknown_user(struct auth_request *auth_request,
 void auth_request_log_login_failure(struct auth_request *request,
 				    const char *subsystem,
 				    const char *message);
-void
-auth_request_verify_plain_callback_finish(enum passdb_result result,
-                                          struct auth_request *request);
+void auth_request_verify_plain_callback_finish(enum passdb_result result,
+					       struct auth_request *request);
 void auth_request_verify_plain_callback(enum passdb_result result,
 					struct auth_request *request);
 void auth_request_lookup_credentials_callback(enum passdb_result result,
@@ -368,12 +370,13 @@ void auth_request_set_credentials(struct auth_request *request,
 				  set_credentials_callback_t *callback);
 void auth_request_userdb_callback(enum userdb_result result,
 				  struct auth_request *request);
-void auth_request_default_verify_plain_continue(struct auth_request *request,
-						verify_plain_callback_t *callback);
+void auth_request_default_verify_plain_continue(
+	struct auth_request *request, verify_plain_callback_t *callback);
 
 void auth_request_refresh_last_access(struct auth_request *request);
 void auth_str_append(string_t *dest, const char *key, const char *value);
-bool auth_request_username_accepted(const char *const *filter, const char *username);
+bool auth_request_username_accepted(const char *const *filter,
+				    const char *username);
 struct event_passthrough *
 auth_request_finished_event(struct auth_request *request, struct event *event);
 void auth_request_log_finished(struct auth_request *request);
