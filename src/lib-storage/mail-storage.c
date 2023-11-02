@@ -438,7 +438,7 @@ mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
 	   used for mails currently being saved. */
 	storage->last_internal_error_mail_uid = UINT32_MAX;
 
-	storage->event = event_create(ns->list->event);
+	storage->event = event_create(ns->user->event);
 	if (storage_class->event_category != NULL)
 		event_add_category(storage->event, storage_class->event_category);
 	event_set_append_log_prefix(
