@@ -322,6 +322,11 @@ mail_user_var_expand_table(struct mail_user *user)
 		{ '\0', user->set->hostname, "hostname" },
 		{ '\0', user->conn.local_name, "local_name" },
 		{ '\0', user->protocol, "protocol" },
+		/* default to owner being the same as user - these are
+		   overridden by shared storage */
+		{ '\0', user->username, "owner_user" },
+		{ '\0', username, "owner_username" },
+		{ '\0', domain, "owner_domain" },
 		/* aliases: */
 		{ '\0', local_ip, "local_ip" },
 		{ '\0', remote_ip, "remote_ip" },
@@ -827,6 +832,9 @@ mail_user_get_dict_op_settings(struct mail_user *user)
 static const struct var_expand_func_table mail_user_var_expand_func_table_arr[] = {
 	{ "h", mail_user_var_expand_func_home },
 	{ "home", mail_user_var_expand_func_home },
+	/* default to owner_home being the same as user's home - this is
+	   overridden by shared storage */
+	{ "owner_home", mail_user_var_expand_func_home },
 	{ "userdb", mail_user_var_expand_func_userdb },
 	{ NULL, NULL }
 };

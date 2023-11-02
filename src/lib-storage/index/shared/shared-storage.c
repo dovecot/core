@@ -5,6 +5,7 @@
 #include "str.h"
 #include "ioloop.h"
 #include "var-expand.h"
+#include "settings.h"
 #include "index-storage.h"
 #include "mail-storage-service.h"
 #include "mailbox-list-private.h"
@@ -43,7 +44,6 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		return -1;
 	}
 	driver = t_strdup_until(ns->set->location, p);
-	storage->location = p_strdup(_storage->pool, ns->set->location);
 	storage->unexpanded_location =
 		p_strdup(_storage->pool, ns->set->unexpanded_location);
 	storage->unexpanded_location_override =
@@ -104,19 +104,17 @@ shared_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 	set->layout = "shared";
 }
 
-static void
+static const char *
 get_nonexistent_user_location(struct shared_storage *storage,
-			      const char *username, string_t *location)
+			      const char *username)
 {
-	/* user wasn't found. we'll still need to create the storage
-	   to avoid exposing which users exist and which don't. */
-	str_append(location, storage->storage_class_name);
-	str_append_c(location, ':');
-
-	/* use a reachable but nonexistent path as the mail root directory */
-	str_append(location, storage->storage.user->set->base_dir);
-	str_append(location, "/user-not-found/");
-	str_append(location, username);
+	/* User wasn't found. We'll still need to create the storage
+	   to avoid exposing which users exist and which don't.
+	   Use a reachable but nonexistent path as the mail root directory. */
+	return t_strdup_printf("%s:%s/user-not-found/%s",
+			       storage->storage_class_name,
+			       storage->storage.user->set->base_dir,
+			       username);
 }
 
 static bool shared_namespace_exists(struct mail_namespace *ns)
@@ -135,8 +133,8 @@ static bool shared_namespace_exists(struct mail_namespace *ns)
 static int
 shared_mail_user_init(struct mail_storage *_storage,
 		      struct mail_user *user, struct mail_user *owner,
-		      struct mail_namespace **_ns, struct var_expand_table *tab,
-		      const char *new_ns_prefix);
+		      struct mail_namespace **_ns, const char *username,
+		      const char *domain, const char *new_ns_prefix);
 
 int shared_storage_get_namespace(struct mail_namespace **_ns,
 				 const char **_name)
@@ -294,7 +292,8 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	}
 
 	owner->creator = user;
-	int ret = shared_mail_user_init(_storage, user, owner, &ns, tab,
+	int ret = shared_mail_user_init(_storage, user, owner, &ns,
+					username, domain,
 					str_c(prefix));
 	if (ret == 0) {
 		*_ns = ns;
@@ -306,42 +305,80 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	return ret;
 }
 
+struct shared_mail_user_var_expand_ctx {
+	struct mail_user *owner;
+	bool nonexistent;
+};
+
+static int
+shared_mail_user_var_home(const char *data ATTR_UNUSED, void *context,
+			  const char **value_r,
+			  const char **error_r)
+{
+	struct shared_mail_user_var_expand_ctx *var_expand_ctx = context;
+
+	if (var_expand_ctx->nonexistent) {
+		/* No need to even bother looking up the home */
+		*value_r = NULL;
+		return 1;
+	}
+	int ret = mail_user_get_home(var_expand_ctx->owner, value_r);
+	if (ret < 0) {
+		*error_r = t_strdup_printf("Could not lookup home for user %s",
+					   var_expand_ctx->owner->username);
+		return -1;
+	}
+	if (ret == 0)
+		var_expand_ctx->nonexistent = TRUE;
+	return 1;
+}
+
 static int
 shared_mail_user_init(struct mail_storage *_storage,
 		      struct mail_user *user, struct mail_user *owner,
-		      struct mail_namespace **_ns, struct var_expand_table *tab,
-		      const char *new_ns_prefix)
+		      struct mail_namespace **_ns, const char *username,
+		      const char *domain, const char *new_ns_prefix)
 {
 	struct mail_namespace *ns = *_ns;
 	struct shared_storage *storage = SHARED_STORAGE(_storage);
 	enum mail_storage_flags new_storage_flags = 0;
-	const char *error;
-	int ret;
+	const char *location, *error;
 
-	if (owner->nonexistent)
-		ret = 0;
-	else if (!var_has_key(storage->location, 'h', "home")) {
-		ret = 1;
-	} else {
-		/* we'll need to look up the user's home directory */
-		if ((ret = mail_user_get_home(owner, &tab[3].value)) < 0) {
-			mailbox_list_set_critical(ns->list, "Namespace %s: "
-				"Could not lookup home for user %s",
-				ns->set->name, owner->username);
-			mail_user_deinit(&owner);
-			return -1;
-		}
-	}
+	struct shared_mail_user_var_expand_ctx var_expand_ctx = {
+		.owner = owner,
+		.nonexistent = owner->nonexistent,
+	};
 
-	string_t *location = t_str_new(256);
-	if (ret > 0 &&
-	    var_expand(location, storage->location, tab, &error) <= 0) {
-		mailbox_list_set_critical(ns->list,
-			"Failed to expand namespace location '%s': %s",
-			storage->location, error);
+	const char *userdomain = domain == NULL ? username :
+		t_strdup_printf("%s@%s", username, domain);
+	struct var_expand_table tab[] = {
+		{ '\0', userdomain, "owner_user" },
+		{ '\0', username, "owner_username" },
+		{ '\0', domain, "owner_domain" },
+		{ '\0', NULL, NULL },
+	};
+	struct var_expand_func_table func_tab[] = {
+		{ "owner_home", shared_mail_user_var_home },
+		{ NULL, NULL }
+	};
+
+	struct event *set_event = event_create(ns->list->event);
+	event_set_ptr(set_event, SETTINGS_EVENT_VAR_EXPAND_TABLE, tab);
+	event_set_ptr(set_event, SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE,
+		      func_tab);
+	event_set_ptr(set_event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT,
+		      &var_expand_ctx);
+
+	struct mail_namespace_settings *set;
+	if (settings_get(set_event, &mail_namespace_setting_parser_info, 0,
+			 &set, &error) < 0) {
+		mailbox_list_set_critical(ns->list, "Namespace %s: %s",
+					  ns->set->name, error);
 		mail_user_deinit(&owner);
+		event_unref(&set_event);
 		return -1;
 	}
+	event_unref(&set_event);
 
 	/* create the new namespace */
 	struct mail_namespace *new_ns = i_new(struct mail_namespace, 1);
@@ -355,13 +392,16 @@ shared_mail_user_init(struct mail_storage *_storage,
 		NAMESPACE_FLAG_AUTOCREATED | NAMESPACE_FLAG_INBOX_ANY;
 	i_array_init(&new_ns->all_storages, 2);
 
-	if (ret <= 0) {
-		get_nonexistent_user_location(storage, owner->username, location);
+	if (!var_expand_ctx.nonexistent)
+		location = t_strdup(set->location);
+	else {
+		location = get_nonexistent_user_location(storage, owner->username);
 		new_ns->flags |= NAMESPACE_FLAG_UNUSABLE;
 		e_debug(ns->user->event,
 			"shared: Tried to access mails of "
 			"nonexistent user %s", owner->username);
 	}
+	settings_free(set);
 
 	struct mail_namespace_settings *ns_set =
 		p_new(user->pool, struct mail_namespace_settings, 1);
@@ -369,7 +409,7 @@ shared_mail_user_init(struct mail_storage *_storage,
 	ns_set->separator = p_strdup_printf(user->pool, "%c",
 					    mail_namespace_get_sep(ns));
 	ns_set->prefix = new_ns->prefix;
-	ns_set->location = p_strdup(user->pool, str_c(location));
+	ns_set->location = p_strdup(user->pool, location);
 	ns_set->unexpanded_location =
 		p_strdup(user->pool, storage->unexpanded_location);
 	ns_set->unexpanded_location_override =
@@ -379,7 +419,7 @@ shared_mail_user_init(struct mail_storage *_storage,
 	new_ns->set = ns_set;
 
 	/* We need to create a prefix="" namespace for the owner */
-	if (mail_namespaces_init_location(owner, str_c(location), &error) < 0) {
+	if (mail_namespaces_init_location(owner, location, &error) < 0) {
 		e_error(ns->user->event,
 			"Failed to create shared namespace %s: %s",
 			new_ns->prefix, error);
