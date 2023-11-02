@@ -391,7 +391,7 @@ shared_mail_user_init(struct mail_storage *_storage,
 	new_storage_flags = _storage->flags &
 		ENUM_NEGATE(MAIL_STORAGE_FLAG_SHARED_DYNAMIC);
 	new_storage_flags |= MAIL_STORAGE_FLAG_NO_AUTOVERIFY;
-	if (mail_storage_create(new_ns, NULL, new_storage_flags, &error) < 0) {
+	if (mail_storage_create(new_ns, new_storage_flags, &error) < 0) {
 		mailbox_list_set_critical(ns->list, "Namespace %s: %s",
 					  new_ns->prefix, error);
 		/* owner gets freed by namespace deinit */
