@@ -357,9 +357,7 @@ mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
 	const char *p;
 
 	mailbox_list_settings_init_defaults(&list_set);
-	if (data == NULL) {
-		/* autodetect */
-	} else if ((flags & MAIL_STORAGE_FLAG_SHARED_DYNAMIC) != 0) {
+	if ((flags & MAIL_STORAGE_FLAG_SHARED_DYNAMIC) != 0) {
 		/* internal shared namespace */
 		list_set.root_dir = ns->user->set->base_dir;
 		driver = MAIL_SHARED_STORAGE_NAME;
@@ -503,26 +501,17 @@ mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
 	return 0;
 }
 
-int mail_storage_create_full(struct mail_namespace *ns, const char *driver,
-			     const char *data, enum mail_storage_flags flags,
-			     struct mail_storage **storage_r,
-			     const char **error_r)
-{
-	int ret;
-	T_BEGIN {
-		ret = mail_storage_create_full_real(ns, driver, data, flags,
-						    storage_r, error_r);
-	} T_END_PASS_STR_IF(ret < 0, error_r);
-	return ret;
-}
-
 int mail_storage_create(struct mail_namespace *ns, const char *driver,
 			enum mail_storage_flags flags, const char **error_r)
 {
 	struct mail_storage *storage;
-
-	return mail_storage_create_full(ns, driver, ns->set->location,
-					flags, &storage, error_r);
+	int ret;
+	T_BEGIN {
+		ret = mail_storage_create_full_real(ns, driver,
+						    ns->set->location, flags,
+						    &storage, error_r);
+	} T_END_PASS_STR_IF(ret < 0, error_r);
+	return ret;
 }
 
 void mail_storage_unref(struct mail_storage **_storage)
