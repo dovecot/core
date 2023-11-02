@@ -90,8 +90,22 @@ struct auth_request_fields {
 	   the result_* rules. */
 	bool skip_password_check:1;
 
-	/* flags received from auth client: */
+	/* Flags received from auth client: */
+
+	/* If this flag is set, the auth client (e.g. login service) handles the
+	   data in the final success or failure response from the SASL
+	   mechanism. In case of failure or a protocol that doesn't allow
+	   sending data in the success response, the auth client will add
+	   another SASL interaction cycle in which the server sends a final
+	   challenge and expects the user client to send a dummy response. If
+	   this flag is not set, this additional SASL cycle is created by the
+	   auth service instead, which is less efficient. This is why Dovecot
+	   auth clients always set this flag. Unfortunately, external auth
+	   clients like Postfix and Exim likely will not be updated to change
+	   their behavior and set this flag for some time, which is why this
+	   flag is retained for now. */
 	bool final_resp_ok:1;
+
 	bool no_penalty:1;
 	bool valid_client_cert:1;
 	bool cert_username:1;
