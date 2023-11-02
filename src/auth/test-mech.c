@@ -341,8 +341,8 @@ static void test_mechs(void)
 			test_expect_error_string(test_case->expect_error);
 
 		request->state = AUTH_REQUEST_STATE_NEW;
-		unsigned char *input_dup = test_case->len == 0 ? NULL :
-			i_memdup(test_case->in, test_case->len);
+		unsigned char *input_dup = i_malloc(I_MAX(test_case->len, 1));
+		memcpy(input_dup, test_case->in, test_case->len);
 		request->initial_response = input_dup;
 		request->initial_response_len = test_case->len;
 		auth_request_initial(request);
