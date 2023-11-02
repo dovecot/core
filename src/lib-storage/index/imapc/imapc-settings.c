@@ -97,6 +97,7 @@ static const struct imapc_feature_list imapc_feature_list[] = {
 	{ "fetch-empty-is-expunged", IMAPC_FEATURE_FETCH_EMPTY_IS_EXPUNGED },
 	{ "no-msn-updates", IMAPC_FEATURE_NO_MSN_UPDATES },
 	{ "no-acl", IMAPC_FEATURE_NO_ACL },
+	{ "no-metadata", IMAPC_FEATURE_NO_METADATA },
 	{ NULL, 0 }
 };
 
