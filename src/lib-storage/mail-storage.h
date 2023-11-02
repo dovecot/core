@@ -489,13 +489,9 @@ void mail_storage_class_unregister(struct mail_storage *storage_class);
 /* Find mail storage class by name */
 struct mail_storage *mail_storage_find_class(const char *name);
 
-/* Create a new instance of registered mail storage class with given
-   storage-specific data. If driver is NULL, it's tried to be autodetected
-   from ns location. If ns location is NULL, it uses the first storage that
-   exists. The storage is put into ns->storage. */
-int mail_storage_create(struct mail_namespace *ns, const char *driver,
-			enum mail_storage_flags flags, const char **error_r)
-	ATTR_NULL(2);
+/* Create a storage for the namespace. */
+int mail_storage_create(struct mail_namespace *ns,
+			enum mail_storage_flags flags, const char **error_r);
 void mail_storage_unref(struct mail_storage **storage);
 
 /* Returns the mail storage settings. */
