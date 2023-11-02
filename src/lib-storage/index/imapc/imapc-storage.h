@@ -73,6 +73,14 @@ struct imapc_storage_client {
 	bool destroying:1;
 };
 
+struct imapc_storage_attribute_context {
+	pool_t pool;
+	const char *const *keys;
+	const char *value;
+	const char *error;
+	bool iterating:1;
+};
+
 struct imapc_storage {
 	struct mail_storage storage;
 	const struct imapc_settings *set; /* points to client->set */
@@ -82,6 +90,7 @@ struct imapc_storage {
 
 	struct imapc_mailbox *cur_status_box;
 	struct mailbox_status *cur_status;
+	struct imapc_storage_attribute_context *cur_attribute_context;
 	unsigned int reopen_count;
 
 	ARRAY(struct imapc_namespace) remote_namespaces;

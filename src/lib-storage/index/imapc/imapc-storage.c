@@ -14,6 +14,7 @@
 #include "imapc-list.h"
 #include "imapc-search.h"
 #include "imapc-sync.h"
+#include "imapc-attribute.h"
 #include "imapc-settings.h"
 #include "imapc-storage.h"
 
@@ -1389,11 +1390,11 @@ struct mailbox imapc_mailbox = {
 		imapc_mailbox_get_status,
 		imapc_mailbox_get_metadata,
 		index_storage_set_subscribed,
-		index_storage_attribute_set,
-		index_storage_attribute_get,
-		index_storage_attribute_iter_init,
-		index_storage_attribute_iter_next,
-		index_storage_attribute_iter_deinit,
+		imapc_storage_attribute_set,
+		imapc_storage_attribute_get,
+		imapc_storage_attribute_iter_init,
+		imapc_storage_attribute_iter_next,
+		imapc_storage_attribute_iter_deinit,
 		NULL,
 		NULL,
 		imapc_mailbox_sync_init,
