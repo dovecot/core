@@ -110,6 +110,8 @@ master_service_avail_overflow_callback_t(bool kill, struct timeval *created_r);
 
 extern struct master_service *master_service;
 
+typedef void master_service_killed_callback_t(void *);
+
 extern const struct option master_service_helpopt;
 
 const char *master_service_getopt_string(void);
@@ -178,6 +180,16 @@ void master_service_set_die_callback(struct master_service *service,
    even called if the master service code knows that we're handling clients. */
 void master_service_set_idle_die_callback(struct master_service *service,
 					  bool (*callback)(void));
+/* Set a callback that gets called when the service is killed, but not dead yet. */
+void master_service_set_killed_callback(struct master_service *service,
+					master_service_killed_callback_t *callback,
+					void *context);
+#define master_service_set_killed_callback(service, callback, context) \
+	master_service_set_killed_callback(service, \
+		1 ? (master_service_killed_callback_t *)callback : \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
+		context)
+
 /* Call the given callback when there are no available connections and master
    has indicated that it can't create any more processes to handle requests. */
 void master_service_set_avail_overflow_callback(struct master_service *service,

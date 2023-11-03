@@ -61,6 +61,9 @@ struct master_service {
 
 	bool (*idle_die_callback)(void);
 	void (*die_callback)(void);
+	master_service_killed_callback_t *killed_callback;
+	void *killed_context;
+
 	struct timeout *to_die;
 
 	master_service_avail_overflow_callback_t *avail_overflow_callback;

@@ -132,6 +132,8 @@ static void sig_delayed_die(const siginfo_t *si, void *context)
 	   stopped in the middle. */
 	if (service->callback != NULL)
 		io_loop_stop(service->ioloop);
+	if (service->killed_callback != NULL)
+		service->killed_callback(service->killed_context);
 }
 
 static bool sig_term_buf_get_kick_user(char *buf, const char **user_r)
@@ -2089,4 +2091,13 @@ void master_service_set_last_kick_signal_user(struct master_service *service,
 		e_error(service->event,
 			"sigprocmask(SIG_SETMASK) failed: %m");
 	}
+}
+
+#undef master_service_set_killed_callback
+void master_service_set_killed_callback(struct master_service *service,
+					master_service_killed_callback_t *callback,
+					void *context)
+{
+	service->killed_callback = callback;
+	service->killed_context = context;
 }
