@@ -194,6 +194,7 @@ auth_callback(struct auth_client_request *request,
 			auth_client_request_abort(&request, error);
 			break;
 		}
+		input->request = request;
 		base64_output =
 			t_str_new(MAX_BASE64_ENCODED_SIZE(sasl_output_len)+2);
 		base64_encode(sasl_output, sasl_output_len, base64_output);
