@@ -350,7 +350,7 @@ void auth_client_request_server_input(struct auth_client_request *request,
 	const char *const *tmp, *base64_data = NULL;
 	struct event_passthrough *e;
 
-	if (request->callback == NULL) {
+	if (auth_client_request_is_aborted(request)) {
 		/* aborted already */
 		return;
 	}
