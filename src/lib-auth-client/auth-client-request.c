@@ -343,16 +343,18 @@ void auth_client_request_continue(struct auth_client_request *request,
 	}
 }
 
-void auth_client_request_server_input(struct auth_client_request *request,
+void auth_client_request_server_input(struct auth_client_request **_request,
 				      enum auth_request_status status,
 				      const char *const *args)
 {
+	struct auth_client_request *request = *_request;
 	const char *const *tmp, *base64_data = NULL;
 	struct event_passthrough *e;
 
 	if (auth_client_request_is_aborted(request)) {
 		/* aborted already */
-		return;
+		auth_client_request_free(_request);
+		return TRUE;
 	}
 
 	switch (status) {
@@ -402,7 +404,7 @@ void auth_client_request_server_input(struct auth_client_request *request,
 
 	call_callback(request, status, base64_data, args);
 	if (status != AUTH_REQUEST_STATUS_CONTINUE)
-		auth_client_request_free(&request);
+		auth_client_request_free(_request);
 }
 
 void auth_client_send_cancel(struct auth_client *client, unsigned int id)

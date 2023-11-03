@@ -220,7 +220,7 @@ static void auth_client_connection_handshake_ready(struct connection *_conn)
 
 static int
 auth_server_lookup_request(struct auth_client_connection *conn,
-			   const char *id_arg, bool remove,
+			   const char *id_arg, bool server_finished,
 			   struct auth_client_request **request_r)
 {
 	struct auth_client_request *request;
@@ -238,8 +238,13 @@ auth_server_lookup_request(struct auth_client_connection *conn,
 			"Authentication server sent unknown id %u", id);
 		return 0;
 	}
-	if (remove || auth_client_request_is_aborted(request))
-		auth_client_connection_remove_request(request->conn, request);
+	if (request->server_finished) {
+		e_error(conn->conn.event,
+			"Authentication server sent finished id %u", id);
+		return 0;
+	}
+	if (server_finished)
+		request->server_finished = TRUE;
 
 	*request_r = request;
 	return 1;
@@ -255,7 +260,7 @@ auth_server_input_ok(struct auth_client_connection *conn,
 	ret = auth_server_lookup_request(conn, args[0], TRUE, &request);
 	if (ret <= 0)
 		return ret;
-	auth_client_request_server_input(request, AUTH_REQUEST_STATUS_OK,
+	auth_client_request_server_input(&request, AUTH_REQUEST_STATUS_OK,
 					 args + 1);
 	return 0;
 }
@@ -276,7 +281,7 @@ auth_server_input_cont(struct auth_client_connection *conn,
 	ret = auth_server_lookup_request(conn, args[0], FALSE, &request);
 	if (ret <= 0)
 		return ret;
-	auth_client_request_server_input(request, AUTH_REQUEST_STATUS_CONTINUE,
+	auth_client_request_server_input(&request, AUTH_REQUEST_STATUS_CONTINUE,
 					 args + 1);
 	return 0;
 }
@@ -291,7 +296,7 @@ auth_server_input_fail(struct auth_client_connection *conn,
 	ret = auth_server_lookup_request(conn, args[0], TRUE, &request);
 	if (ret <= 0)
 		return ret;
-	auth_client_request_server_input(request, AUTH_REQUEST_STATUS_FAIL,
+	auth_client_request_server_input(&request, AUTH_REQUEST_STATUS_FAIL,
 					 args + 1);
 	return 0;
 }
@@ -386,7 +391,7 @@ auth_client_connection_remove_requests(struct auth_client_connection *conn,
 				oldest = created;
 		}
 
-		auth_client_request_server_input(request,
+		auth_client_request_server_input(&request,
 			AUTH_REQUEST_STATUS_INTERNAL_FAIL,
 			temp_failure_args);
 	}

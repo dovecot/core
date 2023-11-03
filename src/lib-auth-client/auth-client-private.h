@@ -19,6 +19,7 @@ struct auth_client_request {
 	auth_request_callback_t *callback;
 	void *context;
 
+	bool server_finished:1;
 	bool removed:1;
 };
 
@@ -68,7 +69,7 @@ extern struct event_category event_category_auth_client;
 bool auth_client_request_is_aborted(struct auth_client_request *request);
 time_t auth_client_request_get_create_time(struct auth_client_request *request);
 
-void auth_client_request_server_input(struct auth_client_request *request,
+void auth_client_request_server_input(struct auth_client_request **_request,
 				      enum auth_request_status status,
 				      const char *const *args);
 
