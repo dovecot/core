@@ -188,7 +188,8 @@ auth_client_connection_handshake_line(struct connection *_conn,
 		return auth_server_input_done(conn);
 	}
 
-	e_error(conn->conn.event, "Auth server sent unknown handshake: %s", line);
+	e_error(conn->conn.event,
+		"Auth server sent unknown handshake: %s", line);
 	return -1;
 }
 
@@ -198,7 +199,8 @@ static void auth_client_connection_handshake_ready(struct connection *_conn)
 		container_of(_conn, struct auth_client_connection, conn);
 
 	struct auth_mech_desc *mech_desc;
-	array_foreach_modifiable(&conn->client->available_auth_mechs, mech_desc) {
+	array_foreach_modifiable(&conn->client->available_auth_mechs,
+				 mech_desc) {
 		i_free(mech_desc->name);
 	}
 	array_clear(&conn->client->available_auth_mechs);
@@ -250,15 +252,17 @@ auth_server_input_ok(struct auth_client_connection *conn,
 	struct auth_client_request *request;
 	int ret;
 
-	if ((ret = auth_server_lookup_request(conn, args[0], TRUE, &request)) <= 0)
+	ret = auth_server_lookup_request(conn, args[0], TRUE, &request);
+	if (ret <= 0)
 		return ret;
 	auth_client_request_server_input(request, AUTH_REQUEST_STATUS_OK,
 					 args + 1);
 	return 0;
 }
 
-static int auth_server_input_cont(struct auth_client_connection *conn,
-				  const char *const *args)
+static int
+auth_server_input_cont(struct auth_client_connection *conn,
+		       const char *const *args)
 {
 	struct auth_client_request *request;
 	int ret;
@@ -269,20 +273,23 @@ static int auth_server_input_cont(struct auth_client_connection *conn,
 		return -1;
 	}
 
-	if ((ret = auth_server_lookup_request(conn, args[0], FALSE, &request)) <= 0)
+	ret = auth_server_lookup_request(conn, args[0], FALSE, &request);
+	if (ret <= 0)
 		return ret;
 	auth_client_request_server_input(request, AUTH_REQUEST_STATUS_CONTINUE,
 					 args + 1);
 	return 0;
 }
 
-static int auth_server_input_fail(struct auth_client_connection *conn,
-				  const char *const *args)
+static int
+auth_server_input_fail(struct auth_client_connection *conn,
+		       const char *const *args)
 {
 	struct auth_client_request *request;
 	int ret;
 
-	if ((ret = auth_server_lookup_request(conn, args[0], TRUE, &request)) <= 0)
+	ret = auth_server_lookup_request(conn, args[0], TRUE, &request);
+	if (ret <= 0)
 		return ret;
 	auth_client_request_server_input(request, AUTH_REQUEST_STATUS_FAIL,
 					 args + 1);
@@ -485,7 +492,8 @@ void auth_client_connection_deinit(struct auth_client_connection **_conn)
 
 static void auth_client_handshake_timeout(struct auth_client_connection *conn)
 {
-	e_error(conn->conn.event, "Timeout waiting for handshake from auth server. "
+	e_error(conn->conn.event,
+		"Timeout waiting for handshake from auth server. "
 		"my pid=%u, input bytes=%"PRIuUOFF_T,
 		conn->client->client_pid, conn->conn.input->v_offset);
 	auth_client_connection_reconnect(conn, "auth server timeout");
