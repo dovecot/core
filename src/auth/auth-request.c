@@ -103,6 +103,8 @@ static const char *get_log_prefix(struct auth_request *auth_request)
 	}
 	if (auth_request->fields.session_id != NULL)
 	        str_printfa(str, "<%s>", auth_request->fields.session_id);
+	if (worker)
+		str_printfa(str, ": request [%u]", auth_request->id);
 	str_append(str, ": ");
 
 	return str_c(str);
