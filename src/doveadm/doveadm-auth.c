@@ -185,11 +185,13 @@ auth_callback(struct auth_client_request *request,
 				       &error) < 0) {
 			printf("passdb: %s auth failed: %s\n",
 			       input->username, error);
+			auth_client_request_abort(&request, error);
 			break;
 		} else if (dsasl_client_output(input->sasl_client, &sasl_output,
 					       &sasl_output_len, &error) < 0) {
 			printf("passdb: %s auth failed: %s\n",
 			       input->username, error);
+			auth_client_request_abort(&request, error);
 			break;
 		}
 		base64_output =
