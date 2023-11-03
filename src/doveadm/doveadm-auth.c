@@ -304,7 +304,8 @@ cmd_auth_input(const char *auth_socket_path, struct authtest_input *input)
 
 	cmd_auth_init_sasl_client(input);
 
-	client = auth_client_init(auth_socket_path, getpid(), FALSE);
+	client = auth_client_init(auth_socket_path, getpid(),
+				  auth_want_log_debug());
 	auth_client_connect(client);
 	auth_client_set_connect_notify(client, auth_connected, input);
 
@@ -540,7 +541,8 @@ static void cmd_auth_login(struct doveadm_cmd_context *cctx)
 	input.pool = pool_alloconly_create("auth login", 256);
 	input.event = event_create(cctx->event);
 	/* authenticate */
-	auth_client = auth_client_init(auth_login_socket_path, getpid(), FALSE);
+	auth_client = auth_client_init(auth_login_socket_path, getpid(),
+				       auth_want_log_debug());
 	auth_client_connect(auth_client);
 	auth_client_set_connect_notify(auth_client, auth_connected, &input);
 	if (!auth_client_is_disconnected(auth_client))
