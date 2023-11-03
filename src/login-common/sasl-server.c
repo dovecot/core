@@ -250,21 +250,19 @@ anvil_lookup_callback(const char *reply, struct anvil_request *req)
 }
 
 static void
-anvil_check_too_many_connections(struct client *client,
-				 struct auth_client_request *request)
+anvil_check_too_many_connections(struct client *client)
 {
 	struct anvil_request *req;
-	const char *query, *cookie;
+	const char *query;
 	buffer_t buf;
 
 	req = i_new(struct anvil_request, 1);
 	req->client = client;
-	req->auth_pid = auth_client_request_get_server_pid(request);
+	req->auth_pid = client->auth_server_pid;
 
 	buffer_create_from_data(&buf, req->cookie, sizeof(req->cookie));
-	cookie = auth_client_request_get_cookie(request);
-	if (strlen(cookie) == LOGIN_REQUEST_COOKIE_SIZE*2)
-		(void)hex_to_binary(cookie, &buf);
+	if (strlen(client->auth_conn_cookie) == LOGIN_REQUEST_COOKIE_SIZE*2)
+		(void)hex_to_binary(client->auth_conn_cookie, &buf);
 
 	if (client->virtual_user == NULL ||
 	    client->set->mail_max_userip_connections == 0) {
@@ -323,9 +321,6 @@ args_parse_user(struct client *client, const char *key, const char *value)
 static void
 sasl_server_auth_success_finish(struct client *client, const char *const *args)
 {
-	struct auth_client_request *request = client->auth_request;
-
-	client->auth_request = NULL;
 	if (client->auth_nologin) {
 		client->authenticating = FALSE;
 		call_client_callback(client, SASL_SERVER_REPLY_SUCCESS,
@@ -333,7 +328,7 @@ sasl_server_auth_success_finish(struct client *client, const char *const *args)
 	} else if (!sasl_server_check_login(client)) {
 		i_assert(!client->authenticating);
 	} else {
-		anvil_check_too_many_connections(client, request);
+		anvil_check_too_many_connections(client);
 	}
 }
 
@@ -361,7 +356,14 @@ authenticate_callback(struct auth_client_request *request,
 				      data_base64, NULL);
 		break;
 	case AUTH_REQUEST_STATUS_OK:
+		client->auth_request = NULL;
 		client->master_auth_id = auth_client_request_get_id(request);
+		client->auth_server_pid =
+			auth_client_request_get_server_pid(request);
+		i_free(client->auth_conn_cookie);
+		client->auth_conn_cookie =
+			i_strdup(auth_client_request_get_cookie(request));
+
 		client->auth_successes++;
 		client->auth_passdb_args = p_strarray_dup(client->pool, args);
 		client->postlogin_socket_path = NULL;

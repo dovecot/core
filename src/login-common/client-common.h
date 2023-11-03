@@ -211,6 +211,8 @@ struct client {
 	struct anvil_query *anvil_query;
 	struct anvil_request *anvil_request;
 
+	char *auth_conn_cookie;
+	unsigned int auth_server_pid;
 	unsigned int master_auth_id;
 	/* Tag that can be used with login_client_request_abort() to abort
 	   sending client fd to mail process. authenticating is always TRUE
