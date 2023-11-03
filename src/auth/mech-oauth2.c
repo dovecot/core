@@ -26,7 +26,7 @@ static bool oauth2_find_oidc_url(struct auth_request *req, const char **url_r)
 	for (; db != NULL; db = db->next) {
 		if (strcmp(db->passdb->iface.name, "oauth2") == 0) {
 			const char *url =
-				passdb_oauth2_get_oidc_url(req->passdb->passdb);
+				passdb_oauth2_get_oidc_url(db->passdb);
 			if (url == NULL || *url == '\0')
 				continue;
 			*url_r = url;
