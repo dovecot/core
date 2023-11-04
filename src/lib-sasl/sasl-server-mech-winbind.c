@@ -59,21 +59,21 @@ static struct winbind_helper winbind_spnego_context = {
 
 static bool sigchld_handler_set = FALSE;
 
-static void winbind_helper_disconnect(struct winbind_helper *winbind)
+static void winbind_helper_disconnect(struct winbind_helper *helper)
 {
-	i_stream_destroy(&winbind->in_pipe);
-	o_stream_destroy(&winbind->out_pipe);
+	i_stream_destroy(&helper->in_pipe);
+	o_stream_destroy(&helper->out_pipe);
 }
 
-static void winbind_wait_pid(struct winbind_helper *winbind)
+static void winbind_wait_pid(struct winbind_helper *helper)
 {
 	int status, ret;
 
-	if (winbind->pid == -1)
+	if (helper->pid == -1)
 		return;
 
 	/* FIXME: use child-wait.h API */
-	if ((ret = waitpid(winbind->pid, &status, WNOHANG)) <= 0) {
+	if ((ret = waitpid(helper->pid, &status, WNOHANG)) <= 0) {
 		if (ret < 0 && errno != ECHILD && errno != EINTR)
 			i_error("waitpid() failed: %m");
 		return;
@@ -90,7 +90,7 @@ static void winbind_wait_pid(struct winbind_helper *winbind)
 		i_error("winbind: ntlm_auth exited with status %d",
 			status);
 	}
-	winbind->pid = -1;
+	helper->pid = -1;
 }
 
 static void sigchld_handler(const siginfo_t *si ATTR_UNUSED,
@@ -101,13 +101,13 @@ static void sigchld_handler(const siginfo_t *si ATTR_UNUSED,
 }
 
 static void
-winbind_helper_connect(struct winbind_helper *winbind, const char *path,
+winbind_helper_connect(struct winbind_helper *helper, const char *path,
 		       struct event *event)
 {
 	int infd[2], outfd[2];
 	pid_t pid;
 
-	if (winbind->in_pipe != NULL || winbind->pid != -1)
+	if (helper->in_pipe != NULL || helper->pid != -1)
 		return;
 
 	if (pipe(infd) < 0) {
@@ -139,7 +139,7 @@ winbind_helper_connect(struct winbind_helper *winbind, const char *path,
 			i_fatal("dup2() failed: %m");
 
 		args[0] = path;
-		args[1] = winbind->param;
+		args[1] = helper->param;
 		args[2] = NULL;
 		execv_const(args[0], args);
 	}
@@ -148,10 +148,10 @@ winbind_helper_connect(struct winbind_helper *winbind, const char *path,
 	i_close_fd(&infd[1]);
 	i_close_fd(&outfd[0]);
 
-	winbind->pid = pid;
-	winbind->in_pipe =
+	helper->pid = pid;
+	helper->in_pipe =
 		i_stream_create_fd_autoclose(&infd[0], MAX_LINE_LENGTH);
-	winbind->out_pipe =
+	helper->out_pipe =
 		o_stream_create_fd_autoclose(&outfd[1], SIZE_MAX);
 
 	if (!sigchld_handler_set) {
