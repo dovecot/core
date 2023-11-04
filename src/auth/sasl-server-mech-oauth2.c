@@ -211,8 +211,8 @@ mech_oauth2_verify_token_local_continue(struct db_oauth2_request *db_req,
 }
 
 static void
-mech_oauth2_verify_token(struct oauth2_auth_request *oauth2_req,
-			 const char *token)
+auth_sasl_oauth2_verify_token(struct oauth2_auth_request *oauth2_req,
+			     const char *token)
 {
 	struct auth_request *auth_request = &oauth2_req->request;
 
@@ -238,6 +238,14 @@ mech_oauth2_verify_token(struct oauth2_auth_request *oauth2_req,
 			auth_request->fields.user, str_c(str),
 			mech_oauth2_verify_token_input_args, oauth2_req);
 	}
+}
+
+static void
+mech_oauth2_verify_token(struct oauth2_auth_request *oauth2_req,
+			 const char *token)
+{
+	i_assert(token != NULL);
+	auth_sasl_oauth2_verify_token(oauth2_req, token);
 }
 
 /* Input syntax for data:
