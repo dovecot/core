@@ -19,7 +19,9 @@ struct oauth2_auth_request {
 	struct db_oauth2 *db;
 	struct db_oauth2_request db_req;
 	lookup_credentials_callback_t *callback;
+
 	bool failed:1;
+	bool verifying_token:1;
 };
 
 static struct db_oauth2 *db_oauth2 = NULL;
@@ -29,6 +31,12 @@ oauth2_fail(struct oauth2_auth_request *oauth2_req,
 	    const struct sasl_server_oauth2_failure *failure)
 {
 	struct auth_request *request = &oauth2_req->request;
+
+	if (failure == NULL) {
+		auth_request_internal_failure(request);
+		return;
+	}
+
 	string_t *reply = t_str_new(256);
 	struct json_ostream *joutput = json_ostream_create_str(reply, 0);
 
@@ -83,6 +91,32 @@ static void oauth2_fail_invalid_token(struct oauth2_auth_request *oauth2_req)
 	oauth2_fail_status(oauth2_req, "invalid_token");
 }
 
+void sasl_server_oauth2_request_succeed(struct auth_request *request)
+{
+	i_assert(strcmp(request->mech->mech_name, "OAUTHBEARER") == 0 ||
+		 strcmp(request->mech->mech_name, "XOAUTH2") == 0);
+
+	struct oauth2_auth_request *oauth2_req =
+		container_of(request, struct oauth2_auth_request, request);
+
+	i_assert(oauth2_req->verifying_token);
+	auth_request_success(request, "", 0);
+}
+
+void sasl_server_oauth2_request_fail(
+	struct auth_request *request,
+	const struct sasl_server_oauth2_failure *failure)
+{
+	i_assert(strcmp(request->mech->mech_name, "OAUTHBEARER") == 0 ||
+		 strcmp(request->mech->mech_name, "XOAUTH2") == 0);
+
+	struct oauth2_auth_request *oauth2_req =
+		container_of(request, struct oauth2_auth_request, request);
+
+	i_assert(oauth2_req->verifying_token);
+	oauth2_fail(oauth2_req, failure);
+}
+
 static void
 oauth2_verify_finish(enum passdb_result result, struct auth_request *request)
 {
@@ -94,7 +128,7 @@ oauth2_verify_finish(enum passdb_result result, struct auth_request *request)
 
 	switch (result) {
 	case PASSDB_RESULT_INTERNAL_FAILURE:
-		auth_request_internal_failure(request);
+		sasl_server_oauth2_request_fail(request, NULL);
 		return;
 	case PASSDB_RESULT_USER_DISABLED:
 	case PASSDB_RESULT_PASS_EXPIRED:
@@ -109,7 +143,7 @@ oauth2_verify_finish(enum passdb_result result, struct auth_request *request)
 	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
 	case PASSDB_RESULT_OK:
 		/* sending success */
-		auth_request_success(request, "", 0);
+		sasl_server_oauth2_request_succeed(request);
 		return;
 	default:
 		i_unreached();
@@ -119,7 +153,7 @@ oauth2_verify_finish(enum passdb_result result, struct auth_request *request)
 		failure.openid_configuration =
 			db_oauth2_get_openid_configuration_url(oauth2_req->db);
 	}
-	oauth2_fail(oauth2_req, &failure);
+	sasl_server_oauth2_request_fail(request, &failure);
 }
 
 static void
@@ -245,6 +279,7 @@ mech_oauth2_verify_token(struct oauth2_auth_request *oauth2_req,
 			 const char *token)
 {
 	i_assert(token != NULL);
+	oauth2_req->verifying_token = TRUE;
 	auth_sasl_oauth2_verify_token(oauth2_req, token);
 }
 
