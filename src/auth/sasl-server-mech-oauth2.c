@@ -12,6 +12,7 @@
 #include "oauth2.h"
 
 #include "sasl-server-protected.h"
+#include "sasl-server-oauth2.h"
 
 struct oauth2_auth_request {
 	struct auth_request request;
@@ -24,31 +25,36 @@ struct oauth2_auth_request {
 static struct db_oauth2 *db_oauth2 = NULL;
 
 static void
-oauth2_fail(struct oauth2_auth_request *oauth2_req, const char *status)
+oauth2_fail(struct oauth2_auth_request *oauth2_req,
+	    const struct sasl_server_oauth2_failure *failure)
 {
 	struct auth_request *request = &oauth2_req->request;
-	const char *oidc_url = (oauth2_req->db == NULL ? "" :
-		db_oauth2_get_openid_configuration_url(oauth2_req->db));
 	string_t *reply = t_str_new(256);
 	struct json_ostream *joutput = json_ostream_create_str(reply, 0);
 
+	i_assert(failure->status != NULL);
 	json_ostream_ndescend_object(joutput, NULL);
 	if (strcmp(request->mech->mech_name, "XOAUTH2") == 0) {
-		if (strcmp(status, "invalid_token") == 0)
+		if (strcmp(failure->status, "invalid_token") == 0)
 			json_ostream_nwrite_string(joutput, "status", "401");
-		else if (strcmp(status, "insufficient_scope") == 0)
+		else if (strcmp(failure->status, "insufficient_scope") == 0)
 			json_ostream_nwrite_string(joutput, "status", "403");
 		else
 			json_ostream_nwrite_string(joutput, "status", "400");
 		json_ostream_nwrite_string(joutput, "schemes", "bearer");
 	} else {
 		i_assert(strcmp(request->mech->mech_name, "OAUTHBEARER") == 0);
-		json_ostream_nwrite_string(joutput, "status", status);
+		json_ostream_nwrite_string(joutput, "status", failure->status);
 	}
-	json_ostream_nwrite_string(joutput, "scope", "mail");
-	if (*oidc_url != '\0') {
+	if (failure->scope == NULL)
+		json_ostream_nwrite_string(joutput, "scope", "mail");
+	else
+		json_ostream_nwrite_string(joutput, "scope", failure->scope);
+	if (failure->openid_configuration != NULL &&
+	    *failure->openid_configuration != '\0') {
 		json_ostream_nwrite_string(
-			joutput, "openid-configuration", oidc_url);
+			joutput, "openid-configuration",
+			failure->openid_configuration);
 	}
 	json_ostream_nascend_object(joutput);
 	json_ostream_nfinish_destroy(&joutput);
@@ -57,14 +63,24 @@ oauth2_fail(struct oauth2_auth_request *oauth2_req, const char *status)
 	auth_request_fail_with_reply(request, str_data(reply), str_len(reply));
 }
 
+static void
+oauth2_fail_status(struct oauth2_auth_request *oauth2_req, const char *status)
+{
+	const struct sasl_server_oauth2_failure failure = {
+		.status = status,
+	};
+
+	oauth2_fail(oauth2_req, &failure);
+}
+
 static void oauth2_fail_invalid_request(struct oauth2_auth_request *oauth2_req)
 {
-	oauth2_fail(oauth2_req, "invalid_request");
+	oauth2_fail_status(oauth2_req, "invalid_request");
 }
 
 static void oauth2_fail_invalid_token(struct oauth2_auth_request *oauth2_req)
 {
-	oauth2_fail(oauth2_req, "invalid_token");
+	oauth2_fail_status(oauth2_req, "invalid_token");
 }
 
 static void
@@ -72,29 +88,38 @@ oauth2_verify_finish(enum passdb_result result, struct auth_request *request)
 {
 	struct oauth2_auth_request *oauth2_req =
 		container_of(request, struct oauth2_auth_request, request);
+	struct sasl_server_oauth2_failure failure;
+
+	i_zero(&failure);
 
 	switch (result) {
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		auth_request_internal_failure(request);
-		break;
+		return;
 	case PASSDB_RESULT_USER_DISABLED:
 	case PASSDB_RESULT_PASS_EXPIRED:
 		/* user is explicitly disabled, don't allow it to log in */
-		oauth2_fail(oauth2_req, "insufficient_scope");
+		failure.status = "insufficient_scope";
 		break;
 	case PASSDB_RESULT_USER_UNKNOWN:
 	case PASSDB_RESULT_PASSWORD_MISMATCH:
-		oauth2_fail(oauth2_req, "invalid_token");
+		failure.status = "invalid_token";
 		break;
 	case PASSDB_RESULT_NEXT:
 	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
 	case PASSDB_RESULT_OK:
 		/* sending success */
 		auth_request_success(request, "", 0);
-		break;
+		return;
 	default:
 		i_unreached();
 	}
+
+	if (oauth2_req->db != NULL) {
+		failure.openid_configuration =
+			db_oauth2_get_openid_configuration_url(oauth2_req->db);
+	}
+	oauth2_fail(oauth2_req, &failure);
 }
 
 static void

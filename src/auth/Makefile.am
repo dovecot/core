@@ -167,6 +167,7 @@ headers = \
 	mech-otp.h \
 	mech-digest-md5-private.h \
 	sasl-server.h \
+	sasl-server-oauth2.h \
 	sasl-server-protected.h \
 	sasl-server-mech-plain-common.h \
 	sasl-server-mech-scram.h \
