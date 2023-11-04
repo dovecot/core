@@ -30,7 +30,6 @@ server_mechanisms = \
 	sasl-server-mech-login.c \
 	sasl-server-mech-oauth2.c \
 	sasl-server-mech-otp.c \
-	sasl-server-mech-plain-common.c \
 	sasl-server-mech-plain.c \
 	sasl-server-mech-scram.c \
 	sasl-server-mech-winbind.c
@@ -64,8 +63,7 @@ headers = \
 	sasl-server-oauth2.h \
 	sasl-server-protected.h \
 	sasl-server-private.h \
-	sasl-server-mech-scram.h \
-	sasl-server-mech-plain-common.h
+	sasl-server-mech-scram.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)

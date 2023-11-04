@@ -3,7 +3,6 @@
 #include "lib.h"
 
 #include "sasl-server-protected.h"
-#include "sasl-server-mech-plain-common.h"
 
 static void
 mech_external_auth_continue(struct sasl_server_mech_request *request,

@@ -4,7 +4,6 @@
 #include "safe-memset.h"
 
 #include "sasl-server-protected.h"
-#include "sasl-server-mech-plain-common.h"
 
 static void
 mech_plain_auth_continue(struct sasl_server_mech_request *request,

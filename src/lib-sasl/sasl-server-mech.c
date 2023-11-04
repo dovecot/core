@@ -45,6 +45,23 @@ void sasl_server_mech_generic_auth_initial(
 	}
 }
 
+void sasl_server_mech_plain_verify_callback(
+	struct sasl_server_mech_request *request,
+	const struct sasl_passdb_result *result)
+{
+	switch (result->status) {
+	case SASL_PASSDB_RESULT_OK:
+		sasl_server_request_success(request, "", 0);
+		break;
+	case SASL_PASSDB_RESULT_INTERNAL_FAILURE:
+		sasl_server_request_internal_failure(request);
+		break;
+	default:
+		sasl_server_request_failure(request);
+		break;
+	}
+}
+
 /*
  * Global data
  */
