@@ -11,6 +11,7 @@
 #include "lib-signals.h"
 #include "str.h"
 #include "buffer.h"
+#include "array.h"
 #include "base64.h"
 #include "execv-const.h"
 #include "istream.h"
@@ -30,6 +31,7 @@ enum helper_result {
 };
 
 struct winbind_helper {
+	const char *path;
 	const char *param;
 	pid_t pid;
 
@@ -43,26 +45,53 @@ struct winbind_auth_request {
 	bool continued;
 };
 
+struct winbind_auth_mech_data {
+	struct sasl_server_mech_data data;
+
+	ARRAY(struct winbind_helper *) helpers;
+};
+
 struct winbind_auth_mech {
 	struct sasl_server_mech mech;
 
-	const char *helper_path;
 	struct winbind_helper *helper;
 };
 
-static struct winbind_helper winbind_ntlm_context = {
-	"--helper-protocol=squid-2.5-ntlmssp", -1, NULL, NULL
-};
-static struct winbind_helper winbind_spnego_context = {
-	"--helper-protocol=gss-spnego", -1, NULL, NULL
-};
+static const struct sasl_server_mech_def mech_ntlm;
+static const struct sasl_server_mech_def mech_gss_spnego;
 
-static bool sigchld_handler_set = FALSE;
+static struct winbind_helper *
+winbind_helper_create(struct winbind_auth_mech_data *wb_mdata,
+		      const char *path, const char *param)
+{
+	struct winbind_helper *helper;
+	pool_t pool = wb_mdata->data.pool;
+
+	array_foreach_elem(&wb_mdata->helpers, helper) {
+		if (strcmp(helper->path, path) == 0 &&
+		    strcmp(helper->param, param) == 0)
+			return helper;
+	}
+
+	helper = p_new(pool, struct winbind_helper, 1);
+	helper->path = p_strdup(pool, path);
+	helper->param = p_strdup(pool, param);
+	helper->pid = -1;
+
+	array_append(&wb_mdata->helpers, &helper, 1);
+
+	return helper;
+}
 
 static void winbind_helper_disconnect(struct winbind_helper *helper)
 {
 	i_stream_destroy(&helper->in_pipe);
 	o_stream_destroy(&helper->out_pipe);
+}
+
+static void winbind_helper_destroy(struct winbind_helper *helper)
+{
+	winbind_helper_disconnect(helper);
 }
 
 static void winbind_wait_pid(struct winbind_helper *helper)
@@ -93,16 +122,16 @@ static void winbind_wait_pid(struct winbind_helper *helper)
 	helper->pid = -1;
 }
 
-static void sigchld_handler(const siginfo_t *si ATTR_UNUSED,
-			    void *context ATTR_UNUSED)
+static void
+sigchld_handler(const siginfo_t *si ATTR_UNUSED, void *context)
 {
-	winbind_wait_pid(&winbind_ntlm_context);
-	winbind_wait_pid(&winbind_spnego_context);
+	struct winbind_helper *helper = context;
+
+	winbind_wait_pid(helper);
 }
 
 static void
-winbind_helper_connect(struct winbind_helper *helper, const char *path,
-		       struct event *event)
+winbind_helper_connect(struct winbind_helper *helper, struct event *event)
 {
 	int infd[2], outfd[2];
 	pid_t pid;
@@ -138,7 +167,7 @@ winbind_helper_connect(struct winbind_helper *helper, const char *path,
 		    dup2(infd[1], STDOUT_FILENO) < 0)
 			i_fatal("dup2() failed: %m");
 
-		args[0] = path;
+		args[0] = helper->path;
 		args[1] = helper->param;
 		args[2] = NULL;
 		execv_const(args[0], args);
@@ -154,11 +183,8 @@ winbind_helper_connect(struct winbind_helper *helper, const char *path,
 	helper->out_pipe =
 		o_stream_create_fd_autoclose(&outfd[1], SIZE_MAX);
 
-	if (!sigchld_handler_set) {
-		sigchld_handler_set = TRUE;
-		lib_signals_set_handler(SIGCHLD, LIBSIG_FLAGS_SAFE,
-					sigchld_handler, NULL);
-	}
+	lib_signals_set_handler(SIGCHLD, LIBSIG_FLAGS_SAFE,
+				sigchld_handler, helper);
 }
 
 static enum helper_result
@@ -173,7 +199,7 @@ do_auth_continue(struct winbind_auth_request *request,
 	string_t *str;
 	char *answer;
 	const char **token;
-	bool gss_spnego = wb_mech->helper == &winbind_spnego_context;
+	bool gss_spnego = (auth_request->mech->def == &mech_gss_spnego);
 
 	if (wb_mech->helper->in_pipe == NULL)
 		return HR_RESTART;
@@ -301,8 +327,7 @@ mech_winbind_auth_initial(struct sasl_server_mech_request *auth_request,
 		container_of(auth_request->mech,
 			     const struct winbind_auth_mech, mech);
 
-	winbind_helper_connect(wb_mech->helper, wb_mech->helper_path,
-			       auth_request->event);
+	winbind_helper_connect(wb_mech->helper, auth_request->event);
 	sasl_server_mech_generic_auth_initial(auth_request, data, data_size);
 }
 
@@ -337,6 +362,27 @@ mech_winbind_auth_new(const struct sasl_server_mech *mech ATTR_UNUSED,
 	return &request->auth_request;
 }
 
+static struct sasl_server_mech_data *mech_winbind_data_new(pool_t pool)
+{
+	struct winbind_auth_mech_data *wb_mdata;
+
+	wb_mdata = p_new(pool, struct winbind_auth_mech_data, 1);
+	p_array_init(&wb_mdata->helpers, pool, 4);
+
+	return &wb_mdata->data;
+}
+
+static void mech_winbind_data_free(struct sasl_server_mech_data *mdata)
+{
+	struct winbind_auth_mech_data *wb_mdata =
+		container_of(mdata, struct winbind_auth_mech_data, data);
+	struct winbind_helper *helper;
+
+	array_foreach_elem(&wb_mdata->helpers, helper)
+		winbind_helper_destroy(helper);
+	array_clear(&wb_mdata->helpers);
+}
+
 static struct sasl_server_mech *mech_winbind_mech_new(pool_t pool)
 {
 	struct winbind_auth_mech *wb_mech;
@@ -350,6 +396,9 @@ static const struct sasl_server_mech_funcs mech_winbind_funcs = {
 	.auth_new = mech_winbind_auth_new,
 	.auth_initial = mech_winbind_auth_initial,
 	.auth_continue = mech_winbind_auth_continue,
+
+	.data_new = mech_winbind_data_new,
+	.data_free = mech_winbind_data_free,
 
 	.mech_new = mech_winbind_mech_new,
 };
@@ -376,8 +425,7 @@ static const struct sasl_server_mech_def mech_gss_spnego = {
 static void
 sasl_server_mech_register_winbind(
 	struct sasl_server_instance *sinst,
-	const struct sasl_server_mech_def *mech_def,
-	struct winbind_helper *helper,
+	const struct sasl_server_mech_def *mech_def, const char *helper_param,
 	const struct sasl_server_winbind_settings *set)
 {
 	struct sasl_server_mech *mech;
@@ -388,9 +436,11 @@ sasl_server_mech_register_winbind(
 
 	struct winbind_auth_mech *wb_mech =
 		container_of(mech, struct winbind_auth_mech, mech);
+	struct winbind_auth_mech_data *wb_mdata =
+		container_of(mech->data, struct winbind_auth_mech_data, data);
 
-	wb_mech->helper_path = p_strdup(mech->pool, set->helper_path);
-	wb_mech->helper = helper;
+	wb_mech->helper = winbind_helper_create(wb_mdata, set->helper_path,
+						helper_param);
 }
 
 void sasl_server_mech_register_winbind_ntlm(
@@ -398,7 +448,8 @@ void sasl_server_mech_register_winbind_ntlm(
 	const struct sasl_server_winbind_settings *set)
 {
 	sasl_server_mech_register_winbind(sinst, &mech_ntlm,
-					  &winbind_ntlm_context, set);
+					  "--helper-protocol=squid-2.5-ntlmssp",
+					  set);
 }
 
 void sasl_server_mech_register_winbind_gss_spnego(
@@ -406,5 +457,5 @@ void sasl_server_mech_register_winbind_gss_spnego(
 	const struct sasl_server_winbind_settings *set)
 {
 	sasl_server_mech_register_winbind(sinst, &mech_gss_spnego,
-					  &winbind_spnego_context, set);
+					  "--helper-protocol=gss-spnego", set);
 }
