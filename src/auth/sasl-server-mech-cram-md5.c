@@ -192,5 +192,5 @@ static const struct sasl_server_mech_def mech_cram_md5 = {
 
 void sasl_server_mech_register_cram_md5(struct sasl_server_instance *sinst)
 {
-	sasl_server_mech_register(sinst, &mech_cram_md5);
+	sasl_server_mech_register(sinst, &mech_cram_md5, NULL);
 }

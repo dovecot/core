@@ -91,5 +91,6 @@ static const struct sasl_server_mech_def mech_dovecot_token = {
 const struct sasl_server_mech *
 auth_sasl_mech_register_dovecot_token(struct sasl_server_instance *sinst)
 {
-	return sasl_server_mech_register_hidden(sinst, &mech_dovecot_token);
+	return sasl_server_mech_register_hidden(sinst, &mech_dovecot_token,
+						NULL);
 }

@@ -23,7 +23,7 @@ sasl_server_mech_get_security_flags(const struct sasl_server_mech *mech)
 enum sasl_mech_passdb_need
 sasl_server_mech_get_passdb_need(const struct sasl_server_mech *mech)
 {
-	return mech->def->passdb_need;
+	return mech->reg->set.passdb_need;
 }
 
 /*
@@ -119,9 +119,28 @@ sasl_server_mech_find_def_by_name(struct sasl_server *server,
 	return mech_dreg;
 }
 
+static void
+sasl_server_mech_def_merge_settings(
+	const struct sasl_server_mech_def *def,
+	struct sasl_server_mech_settings *set,
+	const struct sasl_server_mech_settings *new_set)
+{
+	if (new_set == NULL) {
+		if (def->passdb_need > set->passdb_need)
+			set->passdb_need = def->passdb_need;
+		return;
+	}
+	if (new_set->passdb_need > set->passdb_need &&
+	    new_set->passdb_need > def->passdb_need)
+		set->passdb_need = new_set->passdb_need;
+	else
+		set->passdb_need = def->passdb_need;
+}
+
 static struct sasl_server_mech_def_reg *
 sasl_server_mech_register_def(struct sasl_server *server,
-			      const struct sasl_server_mech_def *def)
+			      const struct sasl_server_mech_def *def,
+			      const struct sasl_server_mech_settings *set)
 {
 	struct sasl_server_mech_def_reg *mech_dreg;
 
@@ -132,6 +151,8 @@ sasl_server_mech_register_def(struct sasl_server *server,
 	if (mech_dreg != NULL) {
 		i_assert(mech_dreg->refcount > 0);
 		mech_dreg->refcount++;
+
+		sasl_server_mech_def_merge_settings(def, &mech_dreg->set, set);
 		return mech_dreg;
 	}
 
@@ -140,6 +161,7 @@ sasl_server_mech_register_def(struct sasl_server *server,
 	mech_dreg = p_new(server->pool, struct sasl_server_mech_def_reg, 1);
 	mech_dreg->def = def;
 	mech_dreg->refcount = 1;
+	sasl_server_mech_def_merge_settings(def, &mech_dreg->set, set);
 
 	DLLIST2_APPEND(&server->mechs_head, &server->mechs_tail, mech_dreg);
 	return mech_dreg;
@@ -189,7 +211,8 @@ static void sasl_server_mech_free(struct sasl_server_mech *mech)
 
 static struct sasl_server_mech *
 sasl_server_mech_register_common(struct sasl_server_instance *sinst,
-				 const struct sasl_server_mech_def *def)
+				 const struct sasl_server_mech_def *def,
+				 const struct sasl_server_mech_settings *set)
 {
 	struct sasl_server_mech_def_reg *mech_dreg;
 	struct sasl_server_mech_reg *mech_reg;
@@ -197,10 +220,11 @@ sasl_server_mech_register_common(struct sasl_server_instance *sinst,
 
 	i_assert(sasl_server_mech_reg_find(sinst, def->name) == NULL);
 
-	mech_dreg = sasl_server_mech_register_def(sinst->server, def);
+	mech_dreg = sasl_server_mech_register_def(sinst->server, def, set);
 
 	mech_reg = p_new(sinst->pool, struct sasl_server_mech_reg, 1);
 	mech_reg->def_reg = mech_dreg;
+	sasl_server_mech_def_merge_settings(def, &mech_reg->set, set);
 
 	DLLIST_PREPEND_FULL(&mech_dreg->insts, mech_reg, def_prev, def_next);
 
@@ -214,11 +238,12 @@ sasl_server_mech_register_common(struct sasl_server_instance *sinst,
 
 struct sasl_server_mech *
 sasl_server_mech_register(struct sasl_server_instance *sinst,
-			  const struct sasl_server_mech_def *def)
+			  const struct sasl_server_mech_def *def,
+			  const struct sasl_server_mech_settings *set)
 {
 	struct sasl_server_mech *mech;
 
-	mech = sasl_server_mech_register_common(sinst, def);
+	mech = sasl_server_mech_register_common(sinst, def, set);
 	DLLIST2_APPEND(&sinst->mechs_head, &sinst->mechs_tail, mech->reg);
 
 	return mech;
@@ -226,11 +251,12 @@ sasl_server_mech_register(struct sasl_server_instance *sinst,
 
 struct sasl_server_mech *
 sasl_server_mech_register_hidden(struct sasl_server_instance *sinst,
-				 const struct sasl_server_mech_def *def)
+				 const struct sasl_server_mech_def *def,
+				 const struct sasl_server_mech_settings *set)
 {
 	struct sasl_server_mech *mech;
 
-	mech = sasl_server_mech_register_common(sinst, def);
+	mech = sasl_server_mech_register_common(sinst, def, set);
 	DLLIST_PREPEND(&sinst->mechs_hidden, mech->reg);
 
 	return mech;
@@ -381,6 +407,7 @@ bool sasl_server_mech_iter_next(struct sasl_server_mech_iter *iter)
 	struct sasl_server_mech_iter_prv *iterp =
 		container_of(iter, struct sasl_server_mech_iter_prv, iter);
 	const struct sasl_server_mech_def *def;
+	const struct sasl_server_mech_settings *set;
 
 	if (!iterp->instance) {
 		if (iterp->def_reg == NULL) {
@@ -388,6 +415,7 @@ bool sasl_server_mech_iter_next(struct sasl_server_mech_iter *iter)
 			return FALSE;
 		}
 		def = iterp->def_reg->def;
+		set = &iterp->def_reg->set;
 		iterp->def_reg = iterp->def_reg->next;
 	} else {
 		if (iterp->reg == NULL) {
@@ -395,12 +423,13 @@ bool sasl_server_mech_iter_next(struct sasl_server_mech_iter *iter)
 			return FALSE;
 		}
 		def = iterp->reg->mech->def;
+		set = &iterp->reg->set;
 		iterp->reg = iterp->reg->next;
 	}
 
 	iterp->iter.name = def->name;
 	iterp->iter.flags = def->flags;
-	iterp->iter.passdb_need = def->passdb_need;
+	iterp->iter.passdb_need = set->passdb_need;
 
 	return TRUE;
 }

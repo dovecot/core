@@ -349,10 +349,10 @@ static const struct sasl_server_mech_def mech_xoauth2 = {
 
 void sasl_server_mech_register_oauthbearer(struct sasl_server_instance *sinst)
 {
-	sasl_server_mech_register(sinst, &mech_oauthbearer);
+	sasl_server_mech_register(sinst, &mech_oauthbearer, NULL);
 }
 
 void sasl_server_mech_register_xoauth2(struct sasl_server_instance *sinst)
 {
-	sasl_server_mech_register(sinst, &mech_xoauth2);
+	sasl_server_mech_register(sinst, &mech_xoauth2, NULL);
 }

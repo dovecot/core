@@ -346,5 +346,5 @@ static const struct sasl_server_mech_def mech_otp = {
 
 void sasl_server_mech_register_otp(struct sasl_server_instance *sinst)
 {
-	sasl_server_mech_register(sinst, &mech_otp);
+	sasl_server_mech_register(sinst, &mech_otp, NULL);
 }

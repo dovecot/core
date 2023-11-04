@@ -34,5 +34,5 @@ static const struct sasl_server_mech_def mech_anonymous = {
 
 void sasl_server_mech_register_anonymous(struct sasl_server_instance *sinst)
 {
-	sasl_server_mech_register(sinst, &mech_anonymous);
+	sasl_server_mech_register(sinst, &mech_anonymous, NULL);
 }

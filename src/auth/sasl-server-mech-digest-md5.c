@@ -624,7 +624,7 @@ static const struct sasl_server_mech_def mech_digest_md5 = {
 
 void sasl_server_mech_register_digest_md5(struct sasl_server_instance *sinst)
 {
-	sasl_server_mech_register(sinst, &mech_digest_md5);
+	sasl_server_mech_register(sinst, &mech_digest_md5, NULL);
 }
 
 void sasl_server_mech_digest_md5_test_set_nonce(

@@ -78,5 +78,5 @@ static const struct sasl_server_mech_def mech_plain = {
 
 void sasl_server_mech_register_plain(struct sasl_server_instance *sinst)
 {
-	sasl_server_mech_register(sinst, &mech_plain);
+	sasl_server_mech_register(sinst, &mech_plain, NULL);
 }

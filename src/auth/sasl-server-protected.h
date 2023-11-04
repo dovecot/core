@@ -41,6 +41,10 @@ struct sasl_server_mech_def {
 	const struct sasl_server_mech_funcs *funcs;
 };
 
+struct sasl_server_mech_settings {
+	enum sasl_mech_passdb_need passdb_need;
+};
+
 struct sasl_server_mech_data {
 	struct sasl_server *server;
 	pool_t pool;
@@ -80,10 +84,12 @@ struct sasl_server_mech_request {
 
 struct sasl_server_mech * ATTR_NOWARN_UNUSED_RESULT
 sasl_server_mech_register(struct sasl_server_instance *sinst,
-			  const struct sasl_server_mech_def *def);
+			  const struct sasl_server_mech_def *def,
+			  const struct sasl_server_mech_settings *set);
 struct sasl_server_mech * ATTR_NOWARN_UNUSED_RESULT
 sasl_server_mech_register_hidden(struct sasl_server_instance *sinst,
-				 const struct sasl_server_mech_def *def);
+				 const struct sasl_server_mech_def *def,
+				 const struct sasl_server_mech_settings *set);
 void sasl_server_mech_unregister(struct sasl_server_instance *sinst,
 				 const struct sasl_server_mech_def *def);
 

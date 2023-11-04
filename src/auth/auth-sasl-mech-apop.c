@@ -175,5 +175,5 @@ static const struct sasl_server_mech_def mech_apop = {
 
 void auth_sasl_mech_register_apop(struct sasl_server_instance *sinst)
 {
-	sasl_server_mech_register(sinst, &mech_apop);
+	sasl_server_mech_register(sinst, &mech_apop, NULL);
 }

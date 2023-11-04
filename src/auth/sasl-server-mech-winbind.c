@@ -404,7 +404,7 @@ sasl_server_mech_register_winbind(
 
 	i_assert(set->helper_path != NULL);
 
-	mech = sasl_server_mech_register(sinst, mech_def);
+	mech = sasl_server_mech_register(sinst, mech_def, NULL);
 
 	wb_mech = container_of(mech, struct winbind_auth_mech, mech);
 	wb_mech->helper_path = p_strdup(mech->pool, set->helper_path);

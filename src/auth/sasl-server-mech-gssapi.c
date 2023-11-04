@@ -720,7 +720,7 @@ mech_gssapi_register(struct sasl_server_instance *sinst,
 	struct sasl_server_mech *mech;
 	struct gssapi_auth_mech *gss_mech;
 
-	mech = sasl_server_mech_register(sinst, mech_def);
+	mech = sasl_server_mech_register(sinst, mech_def, NULL);
 
 	gss_mech = container_of(mech, struct gssapi_auth_mech, mech);
 	gss_mech->hostname = p_strdup(mech->pool, set->hostname);

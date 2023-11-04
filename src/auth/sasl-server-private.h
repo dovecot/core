@@ -33,6 +33,8 @@ struct sasl_server_mech_reg {
 	struct sasl_server_mech *mech;
 	struct sasl_server_mech_reg *prev, *next;
 
+	struct sasl_server_mech_settings set;
+
 	struct sasl_server_mech_def_reg *def_reg;
 	struct sasl_server_mech_reg *def_prev, *def_next;
 };
@@ -42,6 +44,7 @@ struct sasl_server_mech_def_reg {
 	unsigned int refcount;
 	struct sasl_server_mech_def_reg *prev, *next;
 
+	struct sasl_server_mech_settings set;
 	struct sasl_server_mech_data *data;
 
 	struct sasl_server_mech_reg *insts;

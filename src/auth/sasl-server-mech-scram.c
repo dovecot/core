@@ -298,7 +298,7 @@ void sasl_server_mech_register_scram(
 
 	i_assert(mech_def->funcs == &sasl_server_mech_scram_funcs);
 
-	mech = sasl_server_mech_register(sinst, mech_def);
+	mech = sasl_server_mech_register(sinst, mech_def, NULL);
 
 	scram_mech = container_of(mech, struct scram_auth_mech, mech);
 	scram_mech->hash_method = hash_method;

@@ -67,5 +67,5 @@ static const struct sasl_server_mech_def mech_login = {
 
 void sasl_server_mech_register_login(struct sasl_server_instance *sinst)
 {
-	sasl_server_mech_register(sinst, &mech_login);
+	sasl_server_mech_register(sinst, &mech_login, NULL);
 }
