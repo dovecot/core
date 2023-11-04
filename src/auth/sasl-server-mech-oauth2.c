@@ -291,15 +291,16 @@ mech_xoauth2_auth_continue(struct sasl_server_mech_request *request,
 		oauth2_fail_invalid_request(oauth2_req);
 		return;
 	}
-	if (user_given && token != NULL)
-		mech_oauth2_verify_token(oauth2_req, token);
-	else if (token == NULL) {
+	if (token == NULL) {
 		e_info(request->mech_event, "Missing token");
 		oauth2_fail_invalid_request(oauth2_req);
-	} else {
+		return;
+	} else if (!user_given) {
 		e_info(request->mech_event, "Missing username");
 		oauth2_fail_invalid_request(oauth2_req);
+		return;
 	}
+	mech_oauth2_verify_token(oauth2_req, token);
 }
 
 static struct sasl_server_mech_request *
