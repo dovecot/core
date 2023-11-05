@@ -7,6 +7,13 @@
 
 #define AUTH_SCRAM_DEFAULT_ITERATE_COUNT 4096
 
+/* The level of SCRAM channel binding support at the server */
+enum auth_scram_cbind_server_support {
+	AUTH_SCRAM_CBIND_SERVER_SUPPORT_NONE = 0,
+	AUTH_SCRAM_CBIND_SERVER_SUPPORT_AVAILABLE,
+	AUTH_SCRAM_CBIND_SERVER_SUPPORT_REQUIRED,
+};
+
 struct auth_scram_key_data {
 	pool_t pool;
 	const struct hash_method *hmethod;
