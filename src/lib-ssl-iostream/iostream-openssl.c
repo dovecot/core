@@ -828,6 +828,32 @@ openssl_iostream_get_protocol_name(struct ssl_iostream *ssl_io)
 	return SSL_get_version(ssl_io->ssl);
 }
 
+static enum ssl_iostream_protocol_version
+openssl_iostream_get_protocol_version(struct ssl_iostream *ssl_io)
+{
+	if (!ssl_io->handshaked)
+		return SSL_IOSTREAM_PROTOCOL_VERSION_UNKNOWN;
+
+	int version = SSL_version(ssl_io->ssl);
+
+	switch (version) {
+	case SSL3_VERSION:
+		return SSL_IOSTREAM_PROTOCOL_VERSION_SSL3;
+	case TLS1_VERSION:
+		return SSL_IOSTREAM_PROTOCOL_VERSION_TLS1;
+	case TLS1_1_VERSION:
+		return SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_1;
+	case TLS1_2_VERSION:
+		return SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_2;
+	case TLS1_3_VERSION:
+		return SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_3;
+	default:
+		break;
+	}
+	i_assert(version > TLS1_3_VERSION);
+	return SSL_IOSTREAM_PROTOCOL_VERSION_NEW;
+}
+
 static const char *
 openssl_iostream_get_ja3(struct ssl_iostream *ssl_io)
 {
@@ -881,6 +907,7 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.get_cipher = openssl_iostream_get_cipher,
 	.get_pfs = openssl_iostream_get_pfs,
 	.get_protocol_name = openssl_iostream_get_protocol_name,
+	.get_protocol_version = openssl_iostream_get_protocol_version,
 	.get_ja3 = openssl_iostream_get_ja3,
 
 	.get_application_protocol = openssl_iostream_get_application_protocol,
