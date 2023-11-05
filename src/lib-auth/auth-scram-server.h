@@ -35,6 +35,9 @@ enum auth_scram_server_state {
 
 struct auth_scram_server_settings {
 	const struct hash_method *hash_method;
+
+	/* The level of support for channel binding from the backend */
+	enum auth_scram_cbind_server_support cbind_support;
 };
 
 struct auth_scram_server_backend {
@@ -44,6 +47,14 @@ struct auth_scram_server_backend {
 			     const char *username, const char **error_r);
 	bool (*set_login_username)(struct auth_scram_server *server,
 				   const char *username, const char **error_r);
+
+	/* Start channel binding in backend with provided type. */
+	void (*start_channel_binding)(struct auth_scram_server *server,
+				      const char *type);
+	/* Accept channel binding from backend. Binding data is returned in
+	   data_r. */
+	int (*accept_channel_binding)(struct auth_scram_server *server,
+				      buffer_t **data_r);
 
 	/* Instruct the backend to perform credentials lookup. The acquired
 	   credentials are to be assigned to the provided key_data struct
