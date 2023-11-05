@@ -1,6 +1,8 @@
 #ifndef AUTH_SCRAM_CLIENT_H
 #define AUTH_SCRAM_CLIENT_H
 
+#include "auth-scram.h"
+
 enum auth_scram_client_state {
 	AUTH_SCRAM_CLIENT_STATE_INIT = 0,
 	AUTH_SCRAM_CLIENT_STATE_CLIENT_FIRST,
@@ -16,6 +18,11 @@ struct auth_scram_client_settings {
 
 	/* Credentials (not copied; must persist externally) */
 	const char *authid, *authzid, *password;
+
+	/* Channel binding (not copied; must persist externally) */
+	enum auth_scram_cbind_server_support cbind_support;
+	const char *cbind_type;
+	const buffer_t *cbind_data;
 };
 
 struct auth_scram_client {

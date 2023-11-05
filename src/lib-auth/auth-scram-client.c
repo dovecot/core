@@ -12,7 +12,6 @@
 #include "randgen.h"
 #include "safe-memset.h"
 
-#include "auth-scram.h"
 #include "auth-scram-client.h"
 
 /* c-nonce length */
@@ -83,6 +82,9 @@ static const char *auth_scram_escape_username(const char *in)
 
 static string_t *auth_scram_get_client_first(struct auth_scram_client *client)
 {
+	const char *cbind_type = client->set.cbind_type;
+	enum auth_scram_cbind_server_support cbind_support =
+		client->set.cbind_support;
 	const char *authzid_enc, *username_enc, *gs2_header, *cfm_bare;
 	string_t *str;
 	size_t cfm_bare_offset;
@@ -120,7 +122,17 @@ static string_t *auth_scram_get_client_first(struct auth_scram_client *client)
 	username_enc = auth_scram_escape_username(client->set.authid);
 
 	str = t_str_new(256);
-	str_append(str, "n,"); /* Channel binding not supported */
+	if (cbind_type == NULL) {
+		/* Channel binding not supported by client */
+		str_append(str, "n,");
+	} else if (cbind_support == AUTH_SCRAM_CBIND_SERVER_SUPPORT_NONE) {
+		/* Channel binding not supported by server */
+		str_append(str, "y,");
+	} else {
+		str_append(str, "p=");
+		str_append(str, cbind_type);
+		str_append_c(str, ',');
+	}
 	if (*authzid_enc != '\0') {
 		str_append(str, "a=");
 		str_append(str, authzid_enc);
@@ -229,6 +241,7 @@ auth_scram_parse_server_first(struct auth_scram_client *client,
 static string_t *auth_scram_get_client_final(struct auth_scram_client *client)
 {
 	const struct hash_method *hmethod = client->set.hash_method;
+	const buffer_t *cbind_data = client->set.cbind_data;
 	unsigned char salted_password[hmethod->digest_size];
 	unsigned char client_key[hmethod->digest_size];
 	unsigned char stored_key[hmethod->digest_size];
@@ -236,7 +249,8 @@ static string_t *auth_scram_get_client_final(struct auth_scram_client *client)
 	unsigned char client_proof[hmethod->digest_size];
 	unsigned char server_key[hmethod->digest_size];
 	struct hmac_context ctx;
-	const char *cbind_input;
+	const void *cbind_input;
+	size_t cbind_input_size;
 	string_t *auth_message, *str;
 	unsigned int k;
 
@@ -264,10 +278,23 @@ static string_t *auth_scram_get_client_final(struct auth_scram_client *client)
 	   s-nonce         = printable
 	 */
 
-	cbind_input = client->gs2_header;
+	if (client->gs2_header[0] != 'p') {
+		i_assert(cbind_data == NULL);
+		cbind_input = client->gs2_header;
+		cbind_input_size = strlen(client->gs2_header);
+	} else {
+		size_t gs2_header_len = strlen(client->gs2_header);
+		buffer_t *cbind_buf;
+		i_assert(cbind_data != NULL);
+		cbind_buf = t_buffer_create(gs2_header_len + cbind_data->used);
+		buffer_append(cbind_buf, client->gs2_header, gs2_header_len);
+		buffer_append_buf(cbind_buf, cbind_data, 0, SIZE_MAX);
+		cbind_input = cbind_buf->data;
+		cbind_input_size = cbind_buf->used;
+	}
 	str = t_str_new(256);
 	str_append(str, "c=");
-	base64_encode(cbind_input, strlen(cbind_input), str);
+	base64_encode(cbind_input, cbind_input_size, str);
 	str_append(str, ",r=");
 	str_append(str, client->nonce);
 
