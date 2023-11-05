@@ -114,3 +114,27 @@
    fun:_dl_catch_exception
    ...
 }
+{
+   <iconv_dlopen_origin_path_16>
+   Memcheck:Addr16
+   fun:strncmp
+   fun:is_dst
+   fun:_dl_dst_count
+   ...
+   fun:decompose_rpath
+   ...
+   fun:_dl_catch_exception
+   ...
+}
+{
+   <iconv_dlopen_origin_path2_16>
+   Memcheck:Addr16
+   fun:strncmp
+   fun:is_dst
+   fun:_dl_dst_substitute
+   ...
+   fun:decompose_rpath
+   ...
+   fun:_dl_catch_exception
+   ...
+}
