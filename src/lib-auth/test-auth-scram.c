@@ -4,12 +4,15 @@
 #include "str.h"
 #include "hmac.h"
 #include "randgen.h"
+#include "buffer.h"
 #include "hash-method.h"
 #include "sha1.h"
 #include "sha2.h"
 #include "base64.h"
 #include "auth-scram-server.h"
 #include "auth-scram-client.h"
+
+// FIXME: channel binding tests
 
 struct backend_context {
 	pool_t pool;
@@ -25,6 +28,9 @@ struct backend_context {
 
 	const char *username;
 	const char *login_username;
+
+	const char *cbind_type;
+	buffer_t *cbind_data;
 
 	enum auth_scram_server_error expect_error;
 	unsigned int test_id;
@@ -64,6 +70,27 @@ test_auth_set_login_username(struct auth_scram_server *asserver,
 	return TRUE;
 }
 
+static void
+test_auth_start_channel_binding(struct auth_scram_server *asserver,
+				const char *type)
+{
+	struct backend_context *bctx =
+		container_of(asserver, struct backend_context, asserver);
+
+	test_assert_strcmp(bctx->cbind_type, type);
+}
+
+static int
+test_auth_accept_channel_binding(struct auth_scram_server *asserver,
+				 buffer_t **data_r)
+{
+	struct backend_context *bctx =
+		container_of(asserver, struct backend_context, asserver);
+
+	*data_r = bctx->cbind_data;
+	return 0;
+}
+
 static int
 test_auth_credentials_lookup(struct auth_scram_server *asserver,
 			     struct auth_scram_key_data *key_data)
@@ -85,6 +112,8 @@ test_auth_credentials_lookup(struct auth_scram_server *asserver,
 static const struct auth_scram_server_backend backend = {
 	.set_username = test_auth_set_username,
 	.set_login_username = test_auth_set_login_username,
+	.start_channel_binding = test_auth_start_channel_binding,
+	.accept_channel_binding = test_auth_accept_channel_binding,
 	.credentials_lookup = test_auth_credentials_lookup,
 };
 
@@ -144,6 +173,12 @@ test_auth_client_output(struct backend_context *bctx,
 			break;
 		case 10:
 			output = "y,,n=user,q=frop";
+			break;
+		case 20:
+			output = "y,,n=frop,r=2342141234123";
+			break;
+		case 21:
+			output = "n,,n=frop,r=0980923401388";
 			break;
 		default:
 			auth_scram_client_output(&bctx->asclient, output_r,
@@ -206,7 +241,8 @@ test_auth_client_output(struct backend_context *bctx,
 
 static void
 test_auth_success_one(const struct hash_method *hmethod, const char *authid,
-		      const char *authzid, const char *password)
+		      const char *authzid, const char *password,
+		      const char *cbind_type)
 {
 	struct backend_context *bctx;
 	pool_t pool;
@@ -222,6 +258,16 @@ test_auth_success_one(const struct hash_method *hmethod, const char *authid,
 	bctx->password = password;
 	bctx->iterate_count = 4096;
 
+	if (cbind_type != NULL) {
+		buffer_t *cbind_buf = t_buffer_create(64);
+		unsigned char *cbind_data =
+			buffer_append_space_unsafe(cbind_buf, cbind_buf->used);
+
+		random_fill(cbind_data, cbind_buf->used);
+		bctx->cbind_type = cbind_type;
+		bctx->cbind_data = cbind_buf;
+	}
+
 	struct auth_scram_client_settings client_set;
 
 	i_zero(&client_set);
@@ -230,12 +276,24 @@ test_auth_success_one(const struct hash_method *hmethod, const char *authid,
 	client_set.authzid = authzid;
 	client_set.password = password;
 
+	if (cbind_type != NULL) {
+		client_set.cbind_support =
+			AUTH_SCRAM_CBIND_SERVER_SUPPORT_REQUIRED;
+		client_set.cbind_type = cbind_type;
+		client_set.cbind_data = bctx->cbind_data;
+	}
+
 	auth_scram_client_init(&bctx->asclient, pool, &client_set);
 
 	struct auth_scram_server_settings server_set;
 
 	i_zero(&server_set);
 	server_set.hash_method = hmethod;
+
+	if (cbind_type != NULL) {
+		server_set.cbind_support =
+			AUTH_SCRAM_CBIND_SERVER_SUPPORT_REQUIRED;
+	}
 
 	auth_scram_server_init(&bctx->asserver, pool, &server_set, &backend);
 
@@ -278,35 +336,59 @@ test_auth_success_one(const struct hash_method *hmethod, const char *authid,
 static void test_auth_success(void)
 {
 	test_begin("auth success sha1");
-	test_auth_success_one(&hash_method_sha1, "user", NULL, "frop");
+	test_auth_success_one(&hash_method_sha1, "user", NULL, "frop", NULL);
 	test_end();
 
 	test_begin("auth success sha1 master");
-	test_auth_success_one(&hash_method_sha1, "master", "user", "frop");
+	test_auth_success_one(&hash_method_sha1, "master", "user", "frop",
+			      NULL);
 	test_end();
 
 	test_begin("auth success sha256");
-	test_auth_success_one(&hash_method_sha256, "user", NULL, "frop");
+	test_auth_success_one(&hash_method_sha256, "user", NULL, "frop", NULL);
 	test_end();
 
 	test_begin("auth success sha256 master");
-	test_auth_success_one(&hash_method_sha256, "master", "user", "frop");
+	test_auth_success_one(&hash_method_sha256, "master", "user", "frop",
+			      NULL);
 	test_end();
 
 	test_begin("auth success sha1 ','");
-	test_auth_success_one(&hash_method_sha1, "u,er", NULL, "frop");
+	test_auth_success_one(&hash_method_sha1, "u,er", NULL, "frop", NULL);
 	test_end();
 
 	test_begin("auth success sha1 master ','");
-	test_auth_success_one(&hash_method_sha1, "m,ster", ",ser", "frop");
+	test_auth_success_one(&hash_method_sha1, "m,ster", ",ser", "frop",
+			      NULL);
 	test_end();
 
 	test_begin("auth success sha1 '='");
-	test_auth_success_one(&hash_method_sha1, "u=er", NULL, "frop");
+	test_auth_success_one(&hash_method_sha1, "u=er", NULL, "frop", NULL);
 	test_end();
 
 	test_begin("auth success sha1 master '='");
-	test_auth_success_one(&hash_method_sha1, "m=ster", "=ser", "frop");
+	test_auth_success_one(&hash_method_sha1, "m=ster", "=ser", "frop",
+			      NULL);
+	test_end();
+
+	test_begin("auth success sha1 cbind");
+	test_auth_success_one(&hash_method_sha1, "user", NULL, "frop",
+			      "tls-unique");
+	test_end();
+
+	test_begin("auth success sha1 master cbind");
+	test_auth_success_one(&hash_method_sha1, "master", "user", "frop",
+			      "tls-unique");
+	test_end();
+
+	test_begin("auth success sha256 cbind");
+	test_auth_success_one(&hash_method_sha1, "user", NULL, "frop",
+			      "tls-unique");
+	test_end();
+
+	test_begin("auth success sha256 master cbind");
+	test_auth_success_one(&hash_method_sha1, "master", "user", "frop",
+			      "tls-unique");
 	test_end();
 }
 
@@ -316,6 +398,7 @@ static void test_auth_success(void)
 
 static void
 test_auth_server_error_one(const struct hash_method *hmethod,
+			   enum auth_scram_cbind_server_support cbind_support,
 			   enum auth_scram_server_error expect_error,
 			   unsigned int test_id)
 {
@@ -365,6 +448,7 @@ test_auth_server_error_one(const struct hash_method *hmethod,
 
 	i_zero(&server_set);
 	server_set.hash_method = hmethod;
+	server_set.cbind_support = cbind_support;
 
 	auth_scram_server_init(&bctx->asserver, pool, &server_set, &backend);
 
@@ -413,45 +497,57 @@ static void test_auth_server_error(void)
 	for (i = 0; i <= 19; i++) {
 		test_begin("auth server error sha1 - protocol violation");
 		test_auth_server_error_one(
-			&hash_method_sha1,
+			&hash_method_sha1, AUTH_SCRAM_CBIND_SERVER_SUPPORT_NONE,
 			AUTH_SCRAM_SERVER_ERROR_PROTOCOL_VIOLATION, i);
 		test_end();
 	}
 
 	test_begin("auth server error sha1 - bad username");
 	test_auth_server_error_one(
-		&hash_method_sha1,
+		&hash_method_sha1, AUTH_SCRAM_CBIND_SERVER_SUPPORT_NONE,
 		AUTH_SCRAM_SERVER_ERROR_BAD_USERNAME, 0);
 	test_end();
 
 	test_begin("auth server error sha256 - bad login username");
 	test_auth_server_error_one(
-		&hash_method_sha256,
+		&hash_method_sha256, AUTH_SCRAM_CBIND_SERVER_SUPPORT_NONE,
 		AUTH_SCRAM_SERVER_ERROR_BAD_LOGIN_USERNAME, 0);
 	test_end();
 
 	test_begin("auth server error sha1 - lookup failed");
 	test_auth_server_error_one(
-		&hash_method_sha1,
+		&hash_method_sha1, AUTH_SCRAM_CBIND_SERVER_SUPPORT_NONE,
 		AUTH_SCRAM_SERVER_ERROR_LOOKUP_FAILED, 0);
 	test_end();
 
 	test_begin("auth server error sha256 - lookup failed");
 	test_auth_server_error_one(
-		&hash_method_sha256,
+		&hash_method_sha256, AUTH_SCRAM_CBIND_SERVER_SUPPORT_NONE,
 		AUTH_SCRAM_SERVER_ERROR_LOOKUP_FAILED, 0);
 	test_end();
 
 	test_begin("auth server error sha1 - password mismatch");
 	test_auth_server_error_one(
-		&hash_method_sha1,
+		&hash_method_sha1, AUTH_SCRAM_CBIND_SERVER_SUPPORT_NONE,
 		AUTH_SCRAM_SERVER_ERROR_VERIFICATION_FAILED, 0);
 	test_end();
 
 	test_begin("auth server error sha256 - password mismatch");
 	test_auth_server_error_one(
-		&hash_method_sha256,
+		&hash_method_sha256, AUTH_SCRAM_CBIND_SERVER_SUPPORT_NONE,
 		AUTH_SCRAM_SERVER_ERROR_VERIFICATION_FAILED, 0);
+	test_end();
+
+	test_begin("auth server error sha1 - channel bind downgrade attack");
+	test_auth_server_error_one(
+		&hash_method_sha1, AUTH_SCRAM_CBIND_SERVER_SUPPORT_AVAILABLE,
+		AUTH_SCRAM_SERVER_ERROR_PROTOCOL_VIOLATION, 20);
+	test_end();
+
+	test_begin("auth server error sha1 - channel bind required");
+	test_auth_server_error_one(
+		&hash_method_sha1, AUTH_SCRAM_CBIND_SERVER_SUPPORT_REQUIRED,
+		AUTH_SCRAM_SERVER_ERROR_PROTOCOL_VIOLATION, 21);
 	test_end();
 }
 
