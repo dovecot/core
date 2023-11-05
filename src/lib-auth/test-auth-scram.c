@@ -222,8 +222,15 @@ test_auth_success_one(const struct hash_method *hmethod, const char *authid,
 	bctx->password = password;
 	bctx->iterate_count = 4096;
 
-	auth_scram_client_init(&bctx->asclient, pool, hmethod,
-			       authid, authzid, password);
+	struct auth_scram_client_settings client_set;
+
+	i_zero(&client_set);
+	client_set.hash_method = hmethod;
+	client_set.authid = authid;
+	client_set.authzid = authzid;
+	client_set.password = password;
+
+	auth_scram_client_init(&bctx->asclient, pool, &client_set);
 
 	struct auth_scram_server_settings server_set;
 
@@ -344,8 +351,15 @@ test_auth_server_error_one(const struct hash_method *hmethod,
 	bctx->expect_error = expect_error;
 	bctx->test_id = test_id;
 
-	auth_scram_client_init(&bctx->asclient, pool, hmethod,
-			       authid, authzid, client_password);
+	struct auth_scram_client_settings client_set;
+
+	i_zero(&client_set);
+	client_set.hash_method = hmethod;
+	client_set.authid = authid;
+	client_set.authzid = authzid;
+	client_set.password = client_password;
+
+	auth_scram_client_init(&bctx->asclient, pool, &client_set);
 
 	struct auth_scram_server_settings server_set;
 

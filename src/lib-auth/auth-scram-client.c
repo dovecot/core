@@ -21,26 +21,21 @@
 #define SCRAM_MAX_ITERATE_COUNT (128 * 4096)
 
 void auth_scram_client_init(struct auth_scram_client *client_r, pool_t pool,
-			    const struct hash_method *hmethod,
-			    const char *authid, const char *authzid,
-			    const char *password)
+			    const struct auth_scram_client_settings *set)
 {
+	i_assert(set->hash_method != NULL);
+
 	i_zero(client_r);
 	client_r->pool = pool;
-	client_r->hmethod = hmethod;
-
-	/* Not copying credentials, so these must persist externally */
-	client_r->authid = authid;
-	client_r->authzid = authzid;
-	client_r->password = password;
+	client_r->set = *set;
 }
 
 void auth_scram_client_deinit(struct auth_scram_client *client)
 {
 	if (client->server_signature != NULL) {
-		i_assert(client->hmethod != NULL);
+		i_assert(client->set.hash_method != NULL);
 		safe_memset(client->server_signature, 0,
-			    client->hmethod->digest_size);
+			    client->set.hash_method->digest_size);
 	}
 }
 
@@ -119,10 +114,10 @@ static string_t *auth_scram_get_client_first(struct auth_scram_client *client)
 
 	auth_scram_generate_cnonce(client);
 
-	authzid_enc = ((client->authzid == NULL ||
-			*client->authzid == '\0') ?
-		       "" : auth_scram_escape_username(client->authzid));
-	username_enc = auth_scram_escape_username(client->authid);
+	authzid_enc = ((client->set.authzid == NULL ||
+			*client->set.authzid == '\0') ?
+		       "" : auth_scram_escape_username(client->set.authzid));
+	username_enc = auth_scram_escape_username(client->set.authid);
 
 	str = t_str_new(256);
 	str_append(str, "n,"); /* Channel binding not supported */
@@ -233,7 +228,7 @@ auth_scram_parse_server_first(struct auth_scram_client *client,
 
 static string_t *auth_scram_get_client_final(struct auth_scram_client *client)
 {
-	const struct hash_method *hmethod = client->hmethod;
+	const struct hash_method *hmethod = client->set.hash_method;
 	unsigned char salted_password[hmethod->digest_size];
 	unsigned char client_key[hmethod->digest_size];
 	unsigned char stored_key[hmethod->digest_size];
@@ -279,8 +274,8 @@ static string_t *auth_scram_get_client_final(struct auth_scram_client *client)
 	/* SaltedPassword  := Hi(Normalize(password), salt, i)
 	     FIXME: credentials should be SASLprepped UTF8 data here */
 	auth_scram_hi(hmethod,
-		      (const unsigned char *)client->password,
-		      strlen(client->password),
+		      (const unsigned char *)client->set.password,
+		      strlen(client->set.password),
 		      client->salt->data, client->salt->used,
 		      client->iter, salted_password);
 
@@ -347,6 +342,7 @@ auth_scram_parse_server_final(struct auth_scram_client *client,
 			      const unsigned char *input, size_t input_len,
 			      const char **error_r)
 {
+	const struct hash_method *hmethod = client->set.hash_method;
 	const char **fields;
 	unsigned int field_count;
 	const char *error, *verifier;
@@ -385,14 +381,11 @@ auth_scram_parse_server_final(struct auth_scram_client *client,
 	}
 	verifier += 2;
 
-	i_assert(client->hmethod != NULL);
+	i_assert(hmethod != NULL);
 	i_assert(client->server_signature != NULL);
-	str = t_str_new(
-		MAX_BASE64_ENCODED_SIZE(client->hmethod->digest_size));
-	base64_encode(client->server_signature,
-		      client->hmethod->digest_size, str);
-	safe_memset(client->server_signature, 0,
-		    client->hmethod->digest_size);
+	str = t_str_new(MAX_BASE64_ENCODED_SIZE(hmethod->digest_size));
+	base64_encode(client->server_signature, hmethod->digest_size, str);
+	safe_memset(client->server_signature, 0, hmethod->digest_size);
 
 	bool equal = str_equals_timing_almost_safe(verifier, str_c(str));
 	str_clear_safe(str);
