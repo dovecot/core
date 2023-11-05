@@ -33,7 +33,6 @@ struct auth_scram_client {
 	unsigned char *server_signature;
 };
 
-
 void auth_scram_client_init(struct auth_scram_client *client_r, pool_t pool,
 			    const struct hash_method *hmethod,
 			    const char *authid, const char *authzid,
