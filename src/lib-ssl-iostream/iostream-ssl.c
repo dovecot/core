@@ -404,6 +404,12 @@ const char *ssl_iostream_get_protocol_name(struct ssl_iostream *ssl_io)
 	return ssl_vfuncs->get_protocol_name(ssl_io);
 }
 
+enum ssl_iostream_protocol_version
+ssl_iostream_get_protocol_version(struct ssl_iostream *ssl_io)
+{
+	return ssl_vfuncs->get_protocol_version(ssl_io);
+}
+
 const char *ssl_iostream_get_ja3(struct ssl_iostream *ssl_io)
 {
 	return ssl_vfuncs->get_ja3(ssl_io);

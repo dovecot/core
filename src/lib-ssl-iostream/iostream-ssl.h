@@ -7,6 +7,23 @@
 struct ssl_iostream;
 struct ssl_iostream_context;
 
+enum ssl_iostream_protocol_version {
+	/* Version not yet known at this protocol stage */
+	SSL_IOSTREAM_PROTOCOL_VERSION_UNKNOWN = 0,
+	/* SSLv3 protocol */
+	SSL_IOSTREAM_PROTOCOL_VERSION_SSL3,
+	/* TLSv1.0 protocol */
+	SSL_IOSTREAM_PROTOCOL_VERSION_TLS1,
+	/* TLSv1.1 protocol */
+	SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_1,
+	/* TLSv1.2 protocol */
+	SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_2,
+	/* TLSv1.3 protocol */
+	SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_3,
+	/* Protocol version newer than Dovecot recognizes. */
+	SSL_IOSTREAM_PROTOCOL_VERSION_NEW,
+};
+
 enum ssl_iostream_flags {
 	/* Enable ssl_iostream_settings.allow_invalid_cert after context is
 	   already created. If the context already has
@@ -217,6 +234,9 @@ const char *ssl_iostream_get_pfs(struct ssl_iostream *ssl_io);
    This returns values like SSLv3, TLSv1, TLSv1.1, TLSv1.2
 */
 const char *ssl_iostream_get_protocol_name(struct ssl_iostream *ssl_io);
+/* Returns currently used SSL protocol version. */
+enum ssl_iostream_protocol_version
+ssl_iostream_get_protocol_version(struct ssl_iostream *ssl_io);
 
 const char *ssl_iostream_get_last_error(struct ssl_iostream *ssl_io);
 
