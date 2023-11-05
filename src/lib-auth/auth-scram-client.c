@@ -394,7 +394,7 @@ auth_scram_parse_server_final(struct auth_scram_client *client,
 	safe_memset(client->server_signature, 0,
 		    client->hmethod->digest_size);
 
-	bool equal = (strcmp(verifier, str_c(str)) == 0);
+	bool equal = str_equals_timing_almost_safe(verifier, str_c(str));
 	str_clear_safe(str);
 
 	if (!equal) {
