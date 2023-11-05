@@ -86,6 +86,28 @@ mech_scram_set_login_username(struct auth_scram_server *asserver,
 	return auth_request_set_login_username(auth_request, username, error_r);
 }
 
+static void
+mech_scram_start_channel_binding(struct auth_scram_server *asserver,
+				 const char *type)
+{
+	struct scram_auth_request *request =
+		container_of(asserver, struct scram_auth_request, scram_server);
+	struct auth_request *auth_request = &request->auth_request;
+
+	auth_request_start_channel_binding(auth_request, type);
+}
+
+static int
+mech_scram_accept_channel_binding(struct auth_scram_server *asserver,
+				  buffer_t **data_r)
+{
+	struct scram_auth_request *request =
+		container_of(asserver, struct scram_auth_request, scram_server);
+	struct auth_request *auth_request = &request->auth_request;
+
+	return auth_request_accept_channel_binding(auth_request, data_r);
+}
+
 static int
 mech_scram_credentials_lookup(struct auth_scram_server *asserver,
 			      struct auth_scram_key_data *key_data)
@@ -103,6 +125,9 @@ mech_scram_credentials_lookup(struct auth_scram_server *asserver,
 static const struct auth_scram_server_backend scram_server_backend = {
 	.set_username = mech_scram_set_username,
 	.set_login_username = mech_scram_set_login_username,
+
+	.start_channel_binding = mech_scram_start_channel_binding,
+	.accept_channel_binding = mech_scram_accept_channel_binding,
 
 	.credentials_lookup = mech_scram_credentials_lookup,
 };
@@ -157,10 +182,25 @@ mech_scram_auth_new(const struct hash_method *hash_method,
 	request->pool = pool;
 	request->password_scheme = password_scheme;
 
+	struct auth *auth = auth_default_protocol();
 	struct auth_scram_server_settings scram_set;
 
 	i_zero(&scram_set);
 	scram_set.hash_method = hash_method;
+
+	if (mech_register_find(auth->reg,
+			       t_strconcat(password_scheme,
+					   "-PLUS", NULL)) == NULL) {
+		scram_set.cbind_support =
+			AUTH_SCRAM_CBIND_SERVER_SUPPORT_NONE;
+	} else if (mech_register_find(auth->reg,
+				    request->password_scheme) == NULL) {
+		scram_set.cbind_support =
+			AUTH_SCRAM_CBIND_SERVER_SUPPORT_REQUIRED;
+	} else {
+		scram_set.cbind_support =
+			AUTH_SCRAM_CBIND_SERVER_SUPPORT_AVAILABLE;
+	}
 
 	auth_scram_server_init(&request->scram_server, pool,
 			       &scram_set, &scram_server_backend);
@@ -201,6 +241,18 @@ const struct mech_module mech_scram_sha1 = {
 	mech_scram_auth_free,
 };
 
+const struct mech_module mech_scram_sha1_plus = {
+	"SCRAM-SHA-1-PLUS",
+
+	.flags = MECH_SEC_MUTUAL_AUTH | MECH_SEC_CHANNEL_BINDING,
+	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
+
+	mech_scram_sha1_auth_new,
+	mech_generic_auth_initial,
+	mech_scram_auth_continue,
+	mech_scram_auth_free
+};
+
 const struct mech_module mech_scram_sha256 = {
 	"SCRAM-SHA-256",
 
@@ -211,4 +263,16 @@ const struct mech_module mech_scram_sha256 = {
 	mech_generic_auth_initial,
 	mech_scram_auth_continue,
 	mech_scram_auth_free,
+};
+
+const struct mech_module mech_scram_sha256_plus = {
+	"SCRAM-SHA-256-PLUS",
+
+	.flags = MECH_SEC_MUTUAL_AUTH | MECH_SEC_CHANNEL_BINDING,
+	.passdb_need = MECH_PASSDB_NEED_LOOKUP_CREDENTIALS,
+
+	mech_scram_sha256_auth_new,
+	mech_generic_auth_initial,
+	mech_scram_auth_continue,
+	mech_scram_auth_free
 };
