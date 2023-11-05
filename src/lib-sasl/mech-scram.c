@@ -27,9 +27,16 @@ static void mech_scram_init(struct scram_dsasl_client *sclient)
 		i_unreached();
 	}
 
-	auth_scram_client_init(&sclient->scram_client, client->pool, hmethod,
-			       client->set.authid, client->set.authzid,
-			       client->password);
+	struct auth_scram_client_settings scram_set;
+
+	i_zero(&scram_set);
+	scram_set.hash_method = hmethod;
+	scram_set.authid = client->set.authid;
+	scram_set.authzid = client->set.authzid;
+	scram_set.password = client->password;
+
+	auth_scram_client_init(&sclient->scram_client, client->pool,
+			       &scram_set);
 }
 
 static int

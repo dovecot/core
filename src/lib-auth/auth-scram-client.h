@@ -11,12 +11,17 @@ enum auth_scram_client_state {
 	AUTH_SCRAM_CLIENT_STATE_END,
 };
 
+struct auth_scram_client_settings {
+	const struct hash_method *hash_method;
+
+	/* Credentials (not copied; must persist externally) */
+	const char *authid, *authzid, *password;
+};
+
 struct auth_scram_client {
 	pool_t pool;
-	const struct hash_method *hmethod;
-	
-	/* Credentials */
-	const char *authid, *authzid, *password;
+
+	struct auth_scram_client_settings set;
 
 	enum auth_scram_client_state state;
 
@@ -34,9 +39,7 @@ struct auth_scram_client {
 };
 
 void auth_scram_client_init(struct auth_scram_client *client_r, pool_t pool,
-			    const struct hash_method *hmethod,
-			    const char *authid, const char *authzid,
-			    const char *password);
+			    const struct auth_scram_client_settings *set);
 void auth_scram_client_deinit(struct auth_scram_client *client);
 
 /* Returns TRUE if client is still due to send first output. */
