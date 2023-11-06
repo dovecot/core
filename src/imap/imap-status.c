@@ -115,8 +115,7 @@ int imap_status_get(struct client_command_context *cmd,
 	ret = imap_status_get_result(client, box, items, result_r);
 	if (ret < 0) {
 		errstr = mailbox_get_last_error(box, &result_r->error);
-		result_r->errstr = imap_get_error_string(cmd, errstr,
-							 result_r->error);
+		result_r->errstr = imap_get_error_string(errstr, result_r->error);
 	}
 	if (box != client->mailbox)
 		mailbox_free(&box);

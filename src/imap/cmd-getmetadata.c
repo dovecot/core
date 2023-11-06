@@ -348,7 +348,7 @@ static void cmd_getmetadata_deinit(struct imap_getmetadata_context *ctx)
 	else if (ctx->last_error != 0) {
 		i_assert(str_len(ctx->last_error_str) > 0);
 		const char *tagline =
-			imap_get_error_string(cmd, str_c(ctx->last_error_str),
+			imap_get_error_string(str_c(ctx->last_error_str),
 					      ctx->last_error);
 		client_send_tagline(cmd, tagline);
 	} else if (ctx->largest_seen_size != 0) {

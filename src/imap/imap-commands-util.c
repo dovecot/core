@@ -139,8 +139,7 @@ const char *imap_client_command_get_reason(struct client_command_context *cmd)
 }
 
 const char *
-imap_get_error_string(struct client_command_context *cmd,
-		      const char *error_string, enum mail_error error)
+imap_get_error_string(const char *error_string, enum mail_error error)
 {
 	const char *resp_code = NULL;
 
@@ -165,8 +164,7 @@ imap_get_error_string(struct client_command_context *cmd,
 		resp_code = IMAP_RESP_CODE_OVERQUOTA;
 		break;
 	case MAIL_ERROR_NOTFOUND:
-		if ((cmd->cmd_flags & COMMAND_FLAG_USE_NONEXISTENT) != 0)
-			resp_code = IMAP_RESP_CODE_NONEXISTENT;
+		resp_code = IMAP_RESP_CODE_NONEXISTENT;
 		break;
 	case MAIL_ERROR_EXISTS:
 		resp_code = IMAP_RESP_CODE_ALREADYEXISTS;
@@ -195,8 +193,7 @@ imap_get_error_string(struct client_command_context *cmd,
 void client_send_error(struct client_command_context *cmd,
 		       const char *error_string, enum mail_error error)
 {
-	client_send_tagline(cmd, imap_get_error_string(cmd, error_string,
-						       error));
+	client_send_tagline(cmd, imap_get_error_string(error_string, error));
 	client_disconnect_if_inconsistent(cmd->client);
 }
 
@@ -207,8 +204,7 @@ void client_send_list_error(struct client_command_context *cmd,
 	enum mail_error error;
 
 	error_string = mailbox_list_get_last_error(list, &error);
-	client_send_tagline(cmd, imap_get_error_string(cmd, error_string,
-						       error));
+	client_send_tagline(cmd, imap_get_error_string(error_string, error));
 }
 
 void client_disconnect_if_inconsistent(struct client *client)

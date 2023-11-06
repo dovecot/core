@@ -263,13 +263,13 @@ static bool cmd_setmetadata_continue(struct client_command_context *cmd)
 		client_error = imap_metadata_transaction_get_last_error
 			(ctx->trans, &error);
 		client_send_tagline(cmd,
-			imap_get_error_string(cmd, client_error, error));
+			imap_get_error_string(client_error, error));
 	} else if (imap_metadata_transaction_commit(&ctx->trans,
 						&error, &client_error) < 0) {
 		if (ctx->box == NULL)
 			client_disconnect_if_inconsistent(cmd->client);
 		client_send_tagline(cmd,
-			imap_get_error_string(cmd, client_error, error));
+			imap_get_error_string(client_error, error));
 	} else {
 		client_send_tagline(cmd, "OK Setmetadata completed.");
 	}
