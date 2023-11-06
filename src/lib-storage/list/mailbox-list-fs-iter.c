@@ -749,7 +749,15 @@ fs_list_entry(struct fs_list_iterate_context *ctx,
 	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_FORCE_RESYNC) == 0 &&
 	    mailbox_list_iter_try_delete_noselect(&ctx->ctx, &ctx->info, storage_name))
 		return 0;
-	return 1;
+       if ((ctx->info.flags & MAILBOX_NOINFERIORS) != 0 &&
+           ctx->ctx.iter_from_index_dir) {
+	       /* Index directory is only expected to contain child directories
+		  for mailboxes. Any files in there shouldn't be listed
+		  (e.g. especially various index files inside mbox format's
+		  .imap/ directory). */
+	       return 0;
+       }
+       return 1;
 }
 
 static int
