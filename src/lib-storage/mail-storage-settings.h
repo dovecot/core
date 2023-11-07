@@ -85,7 +85,6 @@ struct mail_namespace_settings {
 	const char *type;
 	const char *separator;
 	const char *prefix;
-	const char *location;
 	const char *alias_for;
 
 	bool inbox;
@@ -97,8 +96,6 @@ struct mail_namespace_settings {
 	unsigned int order;
 
 	ARRAY_TYPE(const_string) mailboxes;
-	const char *unexpanded_location;
-	bool unexpanded_location_override;
 	bool parsed_have_special_use_mailboxes;
 };
 

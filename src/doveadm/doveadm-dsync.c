@@ -495,7 +495,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 		e_error(ctx->ctx.cctx->event,
 			"Both source and destination mail_location "
 			"points to same directory: %s (namespace %s "
-			"{ location } is set explicitly?)",
+			"{ mail_location } is set explicitly?)",
 			mailbox_list_get_root_forced(user->namespaces->list,
 						     MAILBOX_LIST_PATH_TYPE_MAILBOX),
 			ns->set->name);

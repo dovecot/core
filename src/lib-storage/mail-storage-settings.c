@@ -19,7 +19,6 @@
 
 static bool mail_storage_settings_apply(struct event *event, void *_set, const char *key, const char *value, bool override, const char **error_r);
 static bool mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool, const char **error_r);
-static bool namespace_settings_apply(struct event *event, void *_set, const char *key, const char *value, bool override, const char **error_r);
 static bool namespace_settings_ext_check(struct event *event, void *_set, pool_t pool, const char **error_r);
 static bool mailbox_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool mail_user_settings_apply(struct event *event, void *_set, const char *key, const char *value, bool override, const char **error_r);
@@ -209,7 +208,6 @@ static const struct setting_define mail_namespace_setting_defines[] = {
 	DEF(ENUM, type),
 	DEF(STR, separator),
 	DEF(STR, prefix),
-	DEF(STR, location),
 	DEF(STR, alias_for),
 
 	DEF(BOOL, inbox),
@@ -232,7 +230,6 @@ const struct mail_namespace_settings mail_namespace_default_settings = {
 	.type = "private:shared:public",
 	.separator = "",
 	.prefix = "",
-	.location = "",
 	.alias_for = "",
 
 	.inbox = FALSE,
@@ -255,7 +252,6 @@ const struct setting_parser_info mail_namespace_setting_parser_info = {
 	.struct_size = sizeof(struct mail_namespace_settings),
 	.pool_offset1 = 1 + offsetof(struct mail_namespace_settings, pool),
 
-	.setting_apply = namespace_settings_apply,
 	.ext_check_func = namespace_settings_ext_check,
 };
 
@@ -665,30 +661,12 @@ namespace_have_special_use_mailboxes(struct event *event,
 	return ret;
 }
 
-static bool
-namespace_settings_apply(struct event *event ATTR_UNUSED, void *_set,
-			 const char *key, const char *value,
-			 bool override, const char **error_r ATTR_UNUSED)
-{
-	struct mail_namespace_settings *set = _set;
-
-	if (strcmp(key, "namespace_location") == 0) {
-		set->unexpanded_location = value;
-		set->unexpanded_location_override = override;
-	}
-	return TRUE;
-}
-
 static bool namespace_settings_ext_check(struct event *event,
 					 void *_set, pool_t pool ATTR_UNUSED,
 					 const char **error_r)
 {
 	struct mail_namespace_settings *ns = _set;
 	int ret;
-
-#ifndef CONFIG_BINARY
-	i_assert(ns->unexpanded_location != NULL);
-#endif
 
 	if (ns->separator[0] != '\0' && ns->separator[1] != '\0') {
 		*error_r = t_strdup_printf("Namespace %s: "

@@ -169,6 +169,7 @@ mail_storage_set_autodetection(const char **data, const char **driver)
 
 static struct mail_storage *
 mail_storage_get_class(struct mail_namespace *ns, const char *driver,
+		       const struct mail_storage_settings *mail_set,
 		       struct mailbox_list_settings *list_set,
 		       enum mail_storage_flags flags, const char **error_r)
 {
@@ -226,19 +227,19 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 	(void)mail_user_get_home(ns->user, &home);
 	if (home == NULL || *home == '\0') home = "(not set)";
 
-	if (ns->set->location == NULL || *ns->set->location == '\0') {
+	if (mail_set->mail_location[0] == '\0') {
 		*error_r = t_strdup_printf(
 			"Mail storage autodetection failed with home=%s", home);
-	} else if (str_begins_with(ns->set->location, "auto:")) {
+	} else if (str_begins_with(mail_set->mail_location, "auto:")) {
 		*error_r = t_strdup_printf(
 			"Autodetection failed for %s (home=%s)",
-			ns->set->location, home);
+			mail_set->mail_location, home);
 	} else {
 		*error_r = t_strdup_printf(
 			"Ambiguous mail location setting, "
 			"don't know what to do with it: %s "
 			"(try prefixing it with mbox: or maildir:)",
-			ns->set->location);
+			mail_set->mail_location);
 	}
 	return NULL;
 }
@@ -345,16 +346,21 @@ mail_storage_find(struct mail_user *user,
 }
 
 static int
-mail_storage_create_full_real(struct mail_namespace *ns,
-			      const char *data, enum mail_storage_flags flags,
-			      struct mail_storage **storage_r,
-			      const char **error_r)
+mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
+			 enum mail_storage_flags flags,
+			 struct mail_storage **storage_r, const char **error_r)
 {
 	struct mail_storage *storage_class, *storage = NULL;
 	struct mailbox_list *list;
+	const struct mail_storage_settings *mail_set;
 	struct mailbox_list_settings list_set;
 	enum mailbox_list_flags list_flags = 0;
-	const char *p, *driver = NULL;
+	const char *p, *data, *driver = NULL;
+
+	if (settings_get(set_event, &mail_storage_setting_parser_info, 0,
+			 &mail_set, error_r) < 0)
+		return -1;
+	data = mail_set->mail_location;
 
 	mailbox_list_settings_init_defaults(&list_set);
 	if ((flags & MAIL_STORAGE_FLAG_SHARED_DYNAMIC) != 0) {
@@ -364,12 +370,15 @@ mail_storage_create_full_real(struct mail_namespace *ns,
 	} else {
 		mail_storage_set_autodetection(&data, &driver);
 		if (mailbox_list_settings_parse(ns->user, data, &list_set,
-						error_r) < 0)
+						error_r) < 0) {
+			settings_free(mail_set);
 			return -1;
+		}
 	}
 
-	storage_class = mail_storage_get_class(ns, driver, &list_set, flags,
-					       error_r);
+	storage_class = mail_storage_get_class(ns, driver, mail_set, &list_set,
+					       flags, error_r);
+	settings_free(mail_set);
 	if (storage_class == NULL)
 		return -1;
 	i_assert(list_set.layout != NULL);
@@ -500,14 +509,14 @@ mail_storage_create_full_real(struct mail_namespace *ns,
 	return 0;
 }
 
-int mail_storage_create(struct mail_namespace *ns,
+int mail_storage_create(struct mail_namespace *ns, struct event *set_event,
 			enum mail_storage_flags flags, const char **error_r)
 {
 	struct mail_storage *storage;
 	int ret;
 	T_BEGIN {
-		ret = mail_storage_create_full_real(ns, ns->set->location,
-						    flags, &storage, error_r);
+		ret = mail_storage_create_real(ns, set_event, flags,
+					       &storage, error_r);
 	} T_END_PASS_STR_IF(ret < 0, error_r);
 	return ret;
 }

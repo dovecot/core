@@ -490,7 +490,7 @@ void mail_storage_class_unregister(struct mail_storage *storage_class);
 struct mail_storage *mail_storage_find_class(const char *name);
 
 /* Create a storage for the namespace. */
-int mail_storage_create(struct mail_namespace *ns,
+int mail_storage_create(struct mail_namespace *ns, struct event *event,
 			enum mail_storage_flags flags, const char **error_r);
 void mail_storage_unref(struct mail_storage **storage);
 
