@@ -69,6 +69,8 @@ struct mail_namespace {
 	struct mailbox_list *list;
 	struct mail_storage *storage; /* default storage */
 	ARRAY(struct mail_storage *) all_storages;
+	/* Instance used for overriding settings - may be NULL */
+	struct settings_instance *_set_instance;
 
 	const struct mail_namespace_settings *set;
 
@@ -92,8 +94,9 @@ int mail_namespace_alloc(struct mail_user *user,
 
 /* Add and initialize namespaces to user based on namespace settings. */
 int mail_namespaces_init(struct mail_user *user, const char **error_r);
-/* Add and initialize INBOX namespace to user based on the given location. */
-int mail_namespaces_init_location(struct mail_user *user, const char *location,
+/* Add and initialize INBOX namespace to user based on the settings event. */
+int mail_namespaces_init_location(struct mail_user *user,
+				  struct event *set_event,
 				  const char **error_r);
 /* Add an empty namespace to user. */
 struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user);
@@ -103,7 +106,7 @@ void mail_namespaces_deinit(struct mail_namespace **namespaces);
 
 /* Allocate a new namespace and initialize it. This is called automatically by
    mail_namespaces_init(). */
-int mail_namespaces_init_add(struct mail_user *user,
+int mail_namespaces_init_add(struct mail_user *user, struct event *set_event,
 			     const struct mail_namespace_settings *ns_set,
 			     struct mail_namespace **ns_p, const char **error_r);
 int mail_namespaces_init_finish(struct mail_namespace *namespaces,

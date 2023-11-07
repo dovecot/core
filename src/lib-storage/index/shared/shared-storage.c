@@ -37,18 +37,21 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	char *wildcardp, key;
 	bool have_username;
 
+	struct mail_storage_settings *set;
+	if (settings_get(ns->list->event, &mail_storage_setting_parser_info, 0,
+			 &set, error_r) < 0)
+		return -1;
+
 	/* location must begin with the actual mailbox driver */
-	p = strchr(ns->set->location, ':');
+	p = strchr(set->mail_location, ':');
 	if (p == NULL) {
-		*error_r = "Shared mailbox location not prefixed with driver";
+		*error_r = "Shared mailbox mail_location not prefixed with driver";
+		settings_free(set);
 		return -1;
 	}
-	driver = t_strdup_until(ns->set->location, p);
-	storage->unexpanded_location =
-		p_strdup(_storage->pool, ns->set->unexpanded_location);
-	storage->unexpanded_location_override =
-		ns->set->unexpanded_location_override;
+	driver = t_strdup_until(set->mail_location, p);
 	storage->storage_class_name = p_strdup(_storage->pool, driver);
+	settings_free(set);
 
 	if (mail_user_get_storage_class(_storage->user, driver) == NULL &&
 	    strcmp(driver, "auto") != 0) {
@@ -342,7 +345,7 @@ shared_mail_user_init(struct mail_storage *_storage,
 	struct mail_namespace *ns = *_ns;
 	struct shared_storage *storage = SHARED_STORAGE(_storage);
 	enum mail_storage_flags new_storage_flags = 0;
-	const char *location, *error;
+	const char *error;
 
 	struct shared_mail_user_var_expand_ctx var_expand_ctx = {
 		.owner = owner,
@@ -369,8 +372,12 @@ shared_mail_user_init(struct mail_storage *_storage,
 	event_set_ptr(set_event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT,
 		      &var_expand_ctx);
 
-	struct mail_namespace_settings *set;
-	if (settings_get(set_event, &mail_namespace_setting_parser_info, 0,
+	/* Expanding mail_location may verify whether the user exists by
+	   trying to access %{owner_home}. This sets
+	   var_expand_ctx.nonexistent flag. Otherwise we don't need these
+	   settings here. */
+	struct mail_storage_settings *set;
+	if (settings_get(set_event, &mail_storage_setting_parser_info, 0,
 			 &set, &error) < 0) {
 		mailbox_list_set_critical(ns->list, "Namespace %s: %s",
 					  ns->set->name, error);
@@ -378,7 +385,7 @@ shared_mail_user_init(struct mail_storage *_storage,
 		event_unref(&set_event);
 		return -1;
 	}
-	event_unref(&set_event);
+	settings_free(set);
 
 	/* create the new namespace */
 	struct mail_namespace *new_ns = i_new(struct mail_namespace, 1);
@@ -392,16 +399,26 @@ shared_mail_user_init(struct mail_storage *_storage,
 		NAMESPACE_FLAG_AUTOCREATED | NAMESPACE_FLAG_INBOX_ANY;
 	i_array_init(&new_ns->all_storages, 2);
 
-	if (!var_expand_ctx.nonexistent)
-		location = t_strdup(set->location);
-	else {
-		location = get_nonexistent_user_location(storage, owner->username);
+	if (var_expand_ctx.nonexistent) {
+		struct settings_instance *set_instance =
+			mail_storage_service_user_get_settings_instance(
+				user->service_user);
+		new_ns->_set_instance = settings_instance_dup(set_instance);
+		event_set_ptr(set_event, SETTINGS_EVENT_INSTANCE,
+			      new_ns->_set_instance);
+
+		const char *location =
+			get_nonexistent_user_location(storage,
+						      owner->username);
+		settings_override(new_ns->_set_instance,
+				  "mail_location", location,
+				  SETTINGS_OVERRIDE_TYPE_CODE);
+
 		new_ns->flags |= NAMESPACE_FLAG_UNUSABLE;
 		e_debug(ns->user->event,
 			"shared: Tried to access mails of "
 			"nonexistent user %s", owner->username);
 	}
-	settings_free(set);
 
 	struct mail_namespace_settings *ns_set =
 		p_new(user->pool, struct mail_namespace_settings, 1);
@@ -409,33 +426,30 @@ shared_mail_user_init(struct mail_storage *_storage,
 	ns_set->separator = p_strdup_printf(user->pool, "%c",
 					    mail_namespace_get_sep(ns));
 	ns_set->prefix = new_ns->prefix;
-	ns_set->location = p_strdup(user->pool, location);
-	ns_set->unexpanded_location =
-		p_strdup(user->pool, storage->unexpanded_location);
-	ns_set->unexpanded_location_override =
-		storage->unexpanded_location_override;
 	ns_set->hidden = TRUE;
 	ns_set->list = "yes";
 	new_ns->set = ns_set;
 
 	/* We need to create a prefix="" namespace for the owner */
-	if (mail_namespaces_init_location(owner, location, &error) < 0) {
+	if (mail_namespaces_init_location(owner, set_event, &error) < 0) {
 		e_error(ns->user->event,
 			"Failed to create shared namespace %s: %s",
 			new_ns->prefix, error);
 		/* owner gets freed by namespace deinit */
 		mail_namespace_destroy(new_ns);
+		event_unref(&set_event);
 		return -1;
 	}
 
 	new_storage_flags = _storage->flags &
 		ENUM_NEGATE(MAIL_STORAGE_FLAG_SHARED_DYNAMIC);
 	new_storage_flags |= MAIL_STORAGE_FLAG_NO_AUTOVERIFY;
-	if (mail_storage_create(new_ns, new_storage_flags, &error) < 0) {
+	if (mail_storage_create(new_ns, set_event, new_storage_flags, &error) < 0) {
 		mailbox_list_set_critical(ns->list, "Namespace %s: %s",
 					  new_ns->prefix, error);
 		/* owner gets freed by namespace deinit */
 		mail_namespace_destroy(new_ns);
+		event_unref(&set_event);
 		return -1;
 	}
 	if ((new_ns->flags & NAMESPACE_FLAG_UNUSABLE) == 0 &&
@@ -451,6 +465,7 @@ shared_mail_user_init(struct mail_storage *_storage,
 		_storage->class_flags =
 			mail_namespace_get_default_storage(new_ns)->class_flags;
 	}
+	event_unref(&set_event);
 
 	*_ns = new_ns;
 	return 0;

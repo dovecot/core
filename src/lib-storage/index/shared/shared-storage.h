@@ -6,9 +6,6 @@ struct shared_storage {
 	union mailbox_list_module_context list_module_ctx;
 
 	const char *ns_prefix_pattern;
-	const char *unexpanded_location;
-	bool unexpanded_location_override;
-
 	const char *storage_class_name;
 };
 

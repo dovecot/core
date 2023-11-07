@@ -433,22 +433,14 @@ int mailbox_list_settings_parse(struct mail_user *user, const char *data,
 const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 					     enum mailbox_list_path_type type)
 {
-	const struct mail_storage_settings *mail_set;
-	const char *location = list->ns->set->unexpanded_location;
+	const char *location = list->mail_set->unexpanded_mail_location;
 	struct mail_user *user = list->ns->user;
 	struct mailbox_list_settings set;
 	const char *p, *path, *error;
 
-	if (list->ns->set->unexpanded_location_override) {
+	if (list->mail_set->unexpanded_mail_location_override) {
 		/* set using -o or userdb lookup. */
 		return "";
-	}
-
-	if (*location == '\0') {
-		mail_set = mail_user_set_get_storage_set(user);
-		if (mail_set->unexpanded_mail_location_override)
-			return "";
-		location = mail_set->unexpanded_mail_location;
 	}
 
 	/* type:settings */
