@@ -378,6 +378,7 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 int mail_namespaces_init_finish(struct mail_namespace *namespaces,
 				const char **error_r)
 {
+	struct mail_user *user = namespaces->user;
 	struct mail_namespace *ns;
 	bool prefixless_found = FALSE;
 
@@ -388,32 +389,31 @@ int mail_namespaces_init_finish(struct mail_namespace *namespaces,
 			prefixless_found = TRUE;
 	}
 	if (!prefixless_found) {
-		if (mail_namespaces_init_add(namespaces->user,
+		if (mail_namespaces_init_add(user,
 					     &prefixless_ns_set,
 					     &ns, error_r) < 0)
 			i_unreached();
 		ns->next = namespaces;
 		namespaces = ns;
 	}
-	if (namespaces->user->autocreated) {
+	if (user->autocreated) {
 		/* e.g. raw user - don't check namespaces' validity */
 	} else if (!namespaces_check(namespaces, error_r)) {
-		namespaces->user->error =
-			t_strconcat("namespace configuration error: ",
-				    *error_r, NULL);
+		user->error = t_strconcat("namespace configuration error: ",
+					  *error_r, NULL);
 	}
 
-	if (namespaces->user->error == NULL) {
-		mail_user_add_namespace(namespaces->user, &namespaces);
+	if (user->error == NULL) {
+		mail_user_add_namespace(user, &namespaces);
 		T_BEGIN {
 			hook_mail_namespaces_created(namespaces);
 		} T_END;
 	}
 
 	/* allow namespace hooks to return failure via the user error */
-	if (namespaces->user->error != NULL) {
-		namespaces->user->namespaces = NULL;
-		*error_r = t_strdup(namespaces->user->error);
+	if (user->error != NULL) {
+		user->namespaces = NULL;
+		*error_r = t_strdup(user->error);
 		while (namespaces != NULL) {
 			ns = namespaces;
 			namespaces = ns->next;
@@ -422,7 +422,7 @@ int mail_namespaces_init_finish(struct mail_namespace *namespaces,
 		return -1;
 	}
 
-	namespaces->user->namespaces_created = TRUE;
+	user->namespaces_created = TRUE;
 	return 0;
 }
 
