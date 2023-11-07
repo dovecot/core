@@ -165,11 +165,11 @@ int mail_namespaces_init_add(struct mail_user *user,
 	}
 
 	if (ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
-	    (strchr(ns->prefix, '%') != NULL ||
-	     strchr(ns->set->location, '%') != NULL)) {
-		/* dynamic shared namespace. the above check catches wrong
-		   mixed %% usage, but still allows for specifying a shared
-		   namespace to an explicit location without any %% */
+	    strchr(ns->prefix, '%') != NULL) {
+		/* This is a dynamic shared namespace root under which new
+		   per-user shared namespaces are created. The '%' is checked
+		   to allow non-dynamic shared namespaces to be created with
+		   explicit locations. */
 		flags |= MAIL_STORAGE_FLAG_SHARED_DYNAMIC;
 		ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
 	}
