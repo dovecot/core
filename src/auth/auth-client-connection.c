@@ -183,6 +183,27 @@ auth_client_cancel(struct auth_client_connection *conn, const char *const *args)
 	return 1;
 }
 
+static void auth_client_finish_handshake(struct auth_client_connection *conn)
+{
+	const char *mechanisms;
+	string_t *str;
+
+	if (conn->token_auth) {
+		mechanisms = t_strconcat("MECH\t",
+			mech_dovecot_token.mech_name, "\tprivate\n", NULL);
+	} else {
+		mechanisms = str_c(conn->auth->reg->handshake);
+	}
+
+	str = t_str_new(128);
+	str_printfa(str, "%sSPID\t%s\nCUID\t%u\nCOOKIE\t",
+		    mechanisms, my_pid, conn->connect_uid);
+	binary_to_hex_append(str, conn->cookie, sizeof(conn->cookie));
+	str_append(str, "\nDONE\n");
+
+	o_stream_nsend(conn->conn.output, str_data(str), str_len(str));
+}
+
 static int auth_client_handshake_args(struct connection *conn, const char *const *args)
 {
 	struct auth_client_connection *aconn =
@@ -209,6 +230,7 @@ static int auth_client_handshake_args(struct connection *conn, const char *const
 		}
 		conn->minor_version = minor_version;
 		conn->version_received = TRUE;
+		auth_client_finish_handshake(aconn);
 		return 0;
 	} else if (conn->version_received && strcmp(args[0], "CPID") == 0) {
 		if (auth_client_input_cpid(aconn, args + 1) < 0)
@@ -299,7 +321,6 @@ void auth_client_connection_create(struct auth *auth, int fd, const char *name,
 {
 	static unsigned int connect_uid_counter = 0;
 	struct auth_client_connection *conn;
-	const char *mechanisms;
 	string_t *str;
 
 	if (auth_client_connections == NULL) {
@@ -319,21 +340,11 @@ void auth_client_connection_create(struct auth *auth, int fd, const char *name,
 
 	connection_init_server(auth_client_connections, &conn->conn, name, fd, fd);
 
-	if (conn->token_auth) {
-		mechanisms = t_strconcat("MECH\t",
-			mech_dovecot_token.mech_name, "\tprivate\n", NULL);
-	} else {
-		mechanisms = str_c(auth->reg->handshake);
-	}
-
 	/* send fields */
-	str = t_str_new(128);
-	str_printfa(str, "VERSION\t%u\t%u\n%sSPID\t%s\nCUID\t%u\nCOOKIE\t",
+	str = t_str_new(32);
+	str_printfa(str, "VERSION\t%u\t%u\n",
 		    conn->conn.list->set.major_version,
-		    conn->conn.list->set.minor_version,
-		    mechanisms, my_pid, conn->connect_uid);
-	binary_to_hex_append(str, conn->cookie, sizeof(conn->cookie));
-	str_append(str, "\nDONE\n");
+		    conn->conn.list->set.minor_version);
 	o_stream_nsend(conn->conn.output, str_data(str), str_len(str));
 }
 
