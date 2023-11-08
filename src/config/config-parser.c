@@ -1707,6 +1707,25 @@ static int config_write_value(struct config_parser_context *ctx,
 	return 0;
 }
 
+static bool
+config_section_has_non_named_filters(struct config_section_stack *section)
+{
+	struct config_filter *filter = &section->filter;
+
+	do {
+		if (filter->service != NULL ||
+		    filter->local_name != NULL ||
+		    filter->local_host != NULL ||
+		    filter->remote_host != NULL ||
+		    filter->local_bits > 0 ||
+		    filter->remote_bits > 0)
+			return TRUE;
+
+		filter = filter->parent;
+	} while (filter != NULL);
+	return FALSE;
+}
+
 static void
 config_parser_check_warnings(struct config_parser_context *ctx, const char *key)
 {
@@ -1732,6 +1751,13 @@ config_parser_check_warnings(struct config_parser_context *ctx, const char *key)
 	}
 	if (first_pos != NULL)
 		return;
+	if (!config_section_has_non_named_filters(ctx->cur_section)) {
+		/* Ignore all settings inside sections containing only named
+		   [list] filters. They aren't globals, and we don't want
+		   warnings about overriding them if there's a same global
+		   setting later on. It just complicates configs in tests. */
+		return;
+	}
 	first_pos = p_strdup_printf(ctx->pool, "%s line %u",
 				    ctx->cur_input->path, ctx->cur_input->linenum);
 	path = p_strdup(ctx->pool, key);
