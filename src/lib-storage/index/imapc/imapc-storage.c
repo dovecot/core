@@ -60,6 +60,8 @@ static void imapc_untagged_status(const struct imapc_untagged_reply *reply,
 				  struct imapc_storage_client *client);
 static void imapc_untagged_namespace(const struct imapc_untagged_reply *reply,
 				     struct imapc_storage_client *client);
+static void imapc_untagged_inprogress(const struct imapc_untagged_reply *reply,
+				      struct imapc_storage_client *client);
 static int imapc_mailbox_run_status(struct mailbox *box,
 				    enum mailbox_status_items items,
 				    struct mailbox_status *status_r);
@@ -460,7 +462,8 @@ imapc_storage_create(struct mail_storage *_storage,
 					       imapc_untagged_status);
 	imapc_storage_client_register_untagged(storage->client, "NAMESPACE",
 					       imapc_untagged_namespace);
-
+	imapc_storage_client_register_untagged(storage->client, "OK",
+					       imapc_untagged_inprogress);
 	return 0;
 }
 
@@ -994,6 +997,69 @@ static void imapc_untagged_namespace(const struct imapc_untagged_reply *reply,
 			ns->type = ns_types[i];
 		}
 	}
+}
+
+static void
+imapc_parse_inprogress_start_time(struct imapc_storage_client *client,
+				  const char *tag,
+				  struct mail_storage_progress_details *detail_r)
+{
+	struct imapc_command *cmd =
+		imapc_client_find_command_by_tag(client->client, tag);
+	if (cmd == NULL)
+		return;
+
+	struct timeval start_time = imapc_command_get_start_time(cmd);
+	if (start_time.tv_sec == 0)
+		return;
+
+	detail_r->start_time = start_time;
+	detail_r->now = ioloop_timeval;
+}
+
+static void imapc_parse_inprogress(const struct imapc_untagged_reply *reply,
+				   struct imapc_storage_client *client,
+				   struct mail_storage_progress_details *detail_r)
+{
+	unsigned int count;
+	const struct imap_arg *code_args;
+
+	i_zero(detail_r);
+	if (!imap_arg_get_list_full(&reply->args[1], &code_args, &count) || count != 3)
+		return;
+
+	const char *value;
+	if (!imap_arg_get_atom(&code_args[1], &value) ||
+	    str_to_uint32(value, &detail_r->processed) < 0)
+	    	detail_r->processed = 0;
+
+	if (detail_r->processed == 0 ||
+	    !imap_arg_get_atom(&code_args[2], &value) ||
+	    str_to_uint32(value, &detail_r->total) < 0)
+		detail_r->total = 0;
+
+	const char *tag;
+	if (detail_r->processed != 0 && imap_arg_get_astring(&code_args[0], &tag))
+		imapc_parse_inprogress_start_time(client, tag, detail_r);
+
+	detail_r->verb = "Processed";
+}
+
+static void imapc_untagged_inprogress(const struct imapc_untagged_reply *reply,
+				      struct imapc_storage_client *client)
+{
+	struct mail_storage *storage = &client->_storage->storage;
+	if (storage->callbacks.notify_progress == NULL ||
+	    reply->resp_text_key == NULL ||
+	    strcasecmp(reply->resp_text_key, "INPROGRESS") != 0)
+		return;
+
+	struct imapc_mailbox *mbox = reply->untagged_box_context;
+	struct mailbox *box = mbox == NULL ? NULL : &mbox->box;
+
+	struct mail_storage_progress_details dtl;
+	imapc_parse_inprogress(reply, client, &dtl);
+	storage->callbacks.notify_progress(box, &dtl, storage->callback_context);
 }
 
 static void imapc_mailbox_get_selected_status(struct imapc_mailbox *mbox,
