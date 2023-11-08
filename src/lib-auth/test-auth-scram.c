@@ -224,7 +224,13 @@ test_auth_success_one(const struct hash_method *hmethod, const char *authid,
 
 	auth_scram_client_init(&bctx->asclient, pool, hmethod,
 			       authid, authzid, password);
-	auth_scram_server_init(&bctx->asserver, pool, hmethod, &backend);
+
+	struct auth_scram_server_settings server_set;
+
+	i_zero(&server_set);
+	server_set.hash_method = hmethod;
+
+	auth_scram_server_init(&bctx->asserver, pool, &server_set, &backend);
 
 	while (!test_has_failed()) {
 		const unsigned char *data;
@@ -340,7 +346,13 @@ test_auth_server_error_one(const struct hash_method *hmethod,
 
 	auth_scram_client_init(&bctx->asclient, pool, hmethod,
 			       authid, authzid, client_password);
-	auth_scram_server_init(&bctx->asserver, pool, hmethod, &backend);
+
+	struct auth_scram_server_settings server_set;
+
+	i_zero(&server_set);
+	server_set.hash_method = hmethod;
+
+	auth_scram_server_init(&bctx->asserver, pool, &server_set, &backend);
 
 	while (!test_has_failed()) {
 		const unsigned char *data;

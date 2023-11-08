@@ -157,8 +157,13 @@ mech_scram_auth_new(const struct hash_method *hash_method,
 	request->pool = pool;
 	request->password_scheme = password_scheme;
 
+	struct auth_scram_server_settings scram_set;
+
+	i_zero(&scram_set);
+	scram_set.hash_method = hash_method;
+
 	auth_scram_server_init(&request->scram_server, pool,
-			       hash_method, &scram_server_backend);
+			       &scram_set, &scram_server_backend);
 
 	request->auth_request.pool = pool;
 	return &request->auth_request;
