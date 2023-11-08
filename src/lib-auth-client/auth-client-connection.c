@@ -408,7 +408,7 @@ auth_client_connection_remove_requests(struct auth_client_connection *conn,
 }
 
 void auth_client_connection_disconnect(struct auth_client_connection *conn,
-				       const char *reason) ATTR_NULL(2)
+				       const char *reason)
 {
 	if (reason == NULL)
 		reason = "Disconnected from auth server, aborting";
