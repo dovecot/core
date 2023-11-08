@@ -373,7 +373,7 @@ auth_scram_parse_client_final(struct auth_scram_server *server,
 	str_append(str, "c=");
 	base64_encode(cbind_input, strlen(cbind_input), str);
 
-	if (strcmp(fields[0], str_c(str)) != 0) {
+	if (!str_equals_timing_almost_safe(fields[0], str_c(str))) {
 		*error_r = "Invalid channel binding data";
 		return -1;
 	}
@@ -384,7 +384,7 @@ auth_scram_parse_client_final(struct auth_scram_server *server,
 	   s-nonce         = printable
 	 */
 	nonce_str = t_strconcat("r=", server->cnonce, server->snonce, NULL);
-	if (strcmp(fields[1], nonce_str) != 0) {
+	if (!str_equals_timing_almost_safe(fields[1], nonce_str)) {
 		*error_r = "Wrong nonce";
 		return -1;
 	}
