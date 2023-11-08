@@ -3,8 +3,10 @@ noinst_LTLIBRARIES = libsasl.la
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-auth \
-	-I$(top_srcdir)/src/lib-json
+	-I$(top_srcdir)/src/lib-json \
+	-I$(top_srcdir)/src/lib-ssl-iostream
 
 libsasl_la_SOURCES = \
 	mech-external.c \

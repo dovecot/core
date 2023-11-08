@@ -1,6 +1,8 @@
 #ifndef DSASL_CLIENT_H
 #define DSASL_CLIENT_H
 
+#include "iostream-ssl.h"
+
 struct dsasl_client_settings {
 	/* authentication ID - must be set with most mechanisms */
 	const char *authid;
@@ -11,6 +13,11 @@ struct dsasl_client_settings {
 	const char *password;
 };
 
+typedef int
+dsasl_client_channel_binding_callback_t(const char *type, void *context,
+					const buffer_t **data_r,
+					const char **error_r);
+
 /* PLAIN mechanism always exists and can be accessed directly via this. */
 extern const struct dsasl_client_mech dsasl_client_mech_plain;
 
@@ -20,6 +27,12 @@ const char *dsasl_client_mech_get_name(const struct dsasl_client_mech *mech);
 struct dsasl_client *dsasl_client_new(const struct dsasl_client_mech *mech,
 				      const struct dsasl_client_settings *set);
 void dsasl_client_free(struct dsasl_client **client);
+
+/* Enable channel binding support for this client. */
+void dsasl_client_enable_channel_binding(
+	struct dsasl_client *client,
+	enum ssl_iostream_protocol_version channel_version,
+	dsasl_client_channel_binding_callback_t *callback, void *context);
 
 /* Call for server input. */
 int dsasl_client_input(struct dsasl_client *client,
