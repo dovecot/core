@@ -91,6 +91,8 @@ auth_server_input_mech(struct auth_client_connection *conn,
 			mech_desc.flags |= MECH_SEC_FORWARD_SECRECY;
 		else if (strcmp(*args, "mutual-auth") == 0)
 			mech_desc.flags |= MECH_SEC_MUTUAL_AUTH;
+		else if (strcmp(*args, "channel-binding") == 0)
+			mech_desc.flags |= MECH_SEC_CHANNEL_BINDING;
 	}
 	array_push_back(&conn->available_auth_mechs, &mech_desc);
 	return 0;

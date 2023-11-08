@@ -26,6 +26,8 @@ enum mech_security_flags {
 	MECH_SEC_MUTUAL_AUTH		= 0x0040,
 	/* Allow NULs in input data */
 	MECH_SEC_ALLOW_NULS		= 0x0080,
+	/* Requires channel binding */
+	MECH_SEC_CHANNEL_BINDING        = 0x0100,
 };
 
 /* auth failure codes */

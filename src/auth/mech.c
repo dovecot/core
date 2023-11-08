@@ -109,6 +109,8 @@ static void mech_register_add(struct mechanisms_register *reg,
 		str_append(reg->handshake, "\tforward-secrecy");
 	if ((mech->flags & MECH_SEC_MUTUAL_AUTH) != 0)
 		str_append(reg->handshake, "\tmutual-auth");
+	if ((mech->flags & MECH_SEC_CHANNEL_BINDING) != 0)
+		str_append(reg->handshake, "\tchannel-binding");
 	str_append_c(reg->handshake, '\n');
 
 	list->next = reg->modules;
