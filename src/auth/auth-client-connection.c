@@ -185,7 +185,7 @@ auth_client_cancel(struct auth_client_connection *conn, const char *const *args)
 
 static void auth_client_finish_handshake(struct auth_client_connection *conn)
 {
-	const char *mechanisms;
+	const char *mechanisms, *mechanisms_cbind = "";
 	string_t *str;
 
 	if (conn->token_auth) {
@@ -193,11 +193,15 @@ static void auth_client_finish_handshake(struct auth_client_connection *conn)
 			mech_dovecot_token.mech_name, "\tprivate\n", NULL);
 	} else {
 		mechanisms = str_c(conn->auth->reg->handshake);
+		if (conn->conn.minor_version >= 3) {
+			mechanisms_cbind =
+				str_c(conn->auth->reg->handshake_cbind);
+		}
 	}
 
 	str = t_str_new(128);
-	str_printfa(str, "%sSPID\t%s\nCUID\t%u\nCOOKIE\t",
-		    mechanisms, my_pid, conn->connect_uid);
+	str_printfa(str, "%s%sSPID\t%s\nCUID\t%u\nCOOKIE\t",
+		    mechanisms, mechanisms_cbind, my_pid, conn->connect_uid);
 	binary_to_hex_append(str, conn->cookie, sizeof(conn->cookie));
 	str_append(str, "\nDONE\n");
 
