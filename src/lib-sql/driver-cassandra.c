@@ -2602,7 +2602,6 @@ driver_cassandra_statement_query(struct sql_statement *_stmt,
 	struct cassandra_sql_statement *stmt =
 		(struct cassandra_sql_statement *)_stmt;
 	struct cassandra_db *db = container_of(_stmt->db, struct cassandra_db, api);
-	const char *query = sql_statement_get_query(_stmt);
 	bool is_prepared = stmt->cass_stmt != NULL || stmt->prep != NULL;
 
 	stmt->result = driver_cassandra_query_init(db,
@@ -2617,7 +2616,10 @@ driver_cassandra_statement_query(struct sql_statement *_stmt,
 		/* wait for prepare to finish */
 		return;
 	} else {
-		stmt->result->statement = cass_statement_new(query, 0);
+		/* Not a prepared statement. Generate a statement from
+		   the query string. */
+		stmt->result->statement =
+			cass_statement_new(sql_statement_get_query(_stmt), 0);
 		stmt->result->timestamp = stmt->timestamp;
 		if (stmt->timestamp != 0) {
 			cass_statement_set_timestamp(stmt->result->statement,
