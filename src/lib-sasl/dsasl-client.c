@@ -85,6 +85,16 @@ void dsasl_client_free(struct dsasl_client **_client)
 	pool_unref(&client->pool);
 }
 
+void dsasl_client_enable_channel_binding(
+	struct dsasl_client *client,
+	enum ssl_iostream_protocol_version channel_version,
+	dsasl_client_channel_binding_callback_t *callback, void *context)
+{
+	client->channel_version = channel_version;
+	client->cbinding_callback = callback;
+	client->cbinding_context = context;
+}
+
 int dsasl_client_input(struct dsasl_client *client,
 		       const unsigned char *input, size_t input_len,
 		       const char **error_r)

@@ -10,6 +10,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-login \
 	-I$(top_srcdir)/src/login-common \
+	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-pop3 \
 	-I$(top_srcdir)/src/lib-var-expand \
 	$(BINARY_CFLAGS)
