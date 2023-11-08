@@ -218,7 +218,7 @@ auth_client_request_new(struct auth_client *client,
 	return request;
 }
 
-static void ATTR_NULL(3, 4)
+static void
 call_callback(struct auth_client_request *request,
 	      enum auth_request_status status,
 	      const char *data_base64,
