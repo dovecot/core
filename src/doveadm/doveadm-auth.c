@@ -446,10 +446,16 @@ static void cmd_auth_cache_flush(struct doveadm_cmd_context *cctx)
 static void authtest_input_init(struct authtest_input *input)
 {
 	i_zero(input);
+	input->pool = pool_alloconly_create("auth input", 256);
 	input->info.protocol = "doveadm";
 	input->info.debug = auth_want_log_debug();
 	/* start assuming any failure will be internal failure */
 	input->internal_failure = TRUE;
+}
+
+static void authtest_input_deinit(struct authtest_input *input)
+{
+	pool_unref(&input->pool);
 }
 
 static void cmd_auth_test(struct doveadm_cmd_context *cctx)
@@ -479,6 +485,7 @@ static void cmd_auth_test(struct doveadm_cmd_context *cctx)
 	else if (!input.success)
 		doveadm_exit_code = EX_NOPERM;
 	event_unref(&input.event);
+	authtest_input_deinit(&input);
 }
 
 static void
@@ -568,7 +575,6 @@ static void cmd_auth_login(struct doveadm_cmd_context *cctx)
 
 	cmd_auth_init_sasl_client(&input);
 
-	input.pool = pool_alloconly_create("auth login", 256);
 	input.event = event_create(cctx->event);
 	event_set_append_log_prefix(input.event,
 		t_strdup_printf("user %s: ", input.username));
@@ -591,7 +597,7 @@ static void cmd_auth_login(struct doveadm_cmd_context *cctx)
 	auth_client_deinit(&auth_client);
 	event_unref(&input.event);
 	cmd_auth_deinit_sasl_client(&input);
-	pool_unref(&input.pool);
+	authtest_input_deinit(&input);
 }
 
 static void cmd_auth_lookup(struct doveadm_cmd_context *cctx)
@@ -632,6 +638,7 @@ static void cmd_auth_lookup(struct doveadm_cmd_context *cctx)
 		}
 	}
 	auth_master_deinit(&conn);
+	authtest_input_deinit(&input);
 }
 
 static void cmd_user_mail_input_field(const char *key, const char *value,
@@ -758,11 +765,13 @@ static void cmd_user(struct doveadm_cmd_context *cctx)
 	if (expand_field != NULL && userdb_only) {
 		e_error(cctx->event, "-e can't be used with -u");
 		doveadm_exit_code = EX_USAGE;
+		authtest_input_deinit(&input);
 		return;
 	}
 	if (expand_field != NULL && show_field != NULL) {
 		e_error(cctx->event, "-e can't be used with -f");
 		doveadm_exit_code = EX_USAGE;
+		authtest_input_deinit(&input);
 		return;
 	}
 
@@ -780,6 +789,7 @@ static void cmd_user(struct doveadm_cmd_context *cctx)
 	if (have_wildcards) {
 		cmd_user_list(conn, &input, user_masks);
 		auth_master_deinit(&conn);
+		authtest_input_deinit(&input);
 		return;
 	}
 
@@ -824,6 +834,7 @@ static void cmd_user(struct doveadm_cmd_context *cctx)
 		mail_storage_service_deinit(&storage_service);
 	if (conn != NULL)
 		auth_master_deinit(&conn);
+	authtest_input_deinit(&input);
 }
 
 struct doveadm_cmd_ver2 doveadm_cmd_auth[] = {
