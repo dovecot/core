@@ -70,9 +70,9 @@ mech_scram_set_username(struct auth_scram_server *asserver,
 {
 	struct scram_auth_request *request =
 		container_of(asserver, struct scram_auth_request, scram_server);
+	struct auth_request *auth_request = &request->auth_request;
 
-	return auth_request_set_username(&request->auth_request,
-					 username, error_r);
+	return auth_request_set_username(auth_request, username, error_r);
 }
 
 static bool
@@ -81,9 +81,9 @@ mech_scram_set_login_username(struct auth_scram_server *asserver,
 {
 	struct scram_auth_request *request =
 		container_of(asserver, struct scram_auth_request, scram_server);
+	struct auth_request *auth_request = &request->auth_request;
 
-	return auth_request_set_login_username(&request->auth_request,
-					       username, error_r);
+	return auth_request_set_login_username(auth_request, username, error_r);
 }
 
 static int
@@ -92,10 +92,10 @@ mech_scram_credentials_lookup(struct auth_scram_server *asserver,
 {
 	struct scram_auth_request *request =
 		container_of(asserver, struct scram_auth_request, scram_server);
+	struct auth_request *auth_request = &request->auth_request;
 
 	request->key_data = key_data;
-	auth_request_lookup_credentials(&request->auth_request,
-					request->password_scheme,
+	auth_request_lookup_credentials(auth_request, request->password_scheme,
 					credentials_callback);
 	return 0;
 }
