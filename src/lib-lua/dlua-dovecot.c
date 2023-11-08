@@ -8,6 +8,7 @@
 #include "dlua-script-private.h"
 #include "dict-lua.h"
 #include "doveadm-client-lua.h"
+#include "strescape.h"
 
 #define LUA_SCRIPT_DOVECOT "dovecot"
 #define DLUA_EVENT_PASSTHROUGH "struct event_passthrough"
@@ -662,6 +663,53 @@ static int net_ip_family(lua_State *L)
 	return 1;
 }
 
+static int dlua_tabescape(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 1);
+	const char *string_to_escape = luaL_checkstring(L, 1);
+	const char *escaped_string;
+
+	T_BEGIN {
+		escaped_string = str_tabescape(string_to_escape);
+		lua_pushstring(L, escaped_string);
+	} T_END;
+	return 1;
+}
+
+static int dlua_tabunescape(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 1);
+	const char *string_to_unescape = luaL_checkstring(L, 1);
+	const char *unescaped_string;
+
+	T_BEGIN {
+		unescaped_string = t_str_tabunescape(string_to_unescape);
+		lua_pushstring(L, unescaped_string);
+	} T_END;
+	return 1;
+}
+
+static int dlua_split_tabescaped(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 1);
+	const char *tab_separated_list = luaL_checkstring(L, 1);
+	unsigned int i, list_len;
+
+	T_BEGIN {
+		const char *const *list = t_strsplit_tabescaped(tab_separated_list);
+		list_len = str_array_length(list);
+
+		/* Return the split fields as table */
+		lua_createtable(L, list_len, 0);
+		for (i = 0; i < list_len; i++) {
+			lua_pushstring(L, list[i]);
+			lua_rawseti(L, -2, i+1);
+		}
+	} T_END;
+
+	return 1;
+}
+
 static luaL_Reg lua_dovecot_methods[] = {
 	{ "i_debug", dlua_i_debug },
 	{ "i_info", dlua_i_info },
@@ -676,6 +724,9 @@ static luaL_Reg lua_dovecot_methods[] = {
 	{ "nanoseconds", dlua_nanoseconds },
 	{ "microseconds", dlua_microseconds },
 	{ "net_ip_family", net_ip_family },
+	{ "tabescape", dlua_tabescape},
+	{ "tabunescape", dlua_tabunescape},
+	{ "split_tabescaped", dlua_split_tabescaped},
 	{ NULL, NULL }
 };
 
