@@ -75,6 +75,19 @@ static const char *cassandra_query_type_names[] = {
 static_assert_array_size(cassandra_query_type_names,
 			 CASSANDRA_QUERY_TYPE_COUNT);
 
+enum cassandra_result_type {
+	CASSANDRA_RESULT_TYPE_QUERY,
+	CASSANDRA_RESULT_TYPE_PREPARED,
+
+	CASSANDRA_RESULT_TYPE_COUNT,
+};
+
+static const char *cassandra_result_type_prefixes[] = {
+	"", "prepared ",
+};
+static_assert_array_size(cassandra_result_type_prefixes,
+			 CASSANDRA_RESULT_TYPE_COUNT);
+
 struct cassandra_callback {
 	unsigned int id;
 	struct timeout *to;
@@ -139,6 +152,8 @@ struct cassandra_db {
 
 struct cassandra_result {
 	struct sql_result api;
+	enum cassandra_result_type type;
+
 	CassStatement *statement;
 	const CassResult *result;
 	CassIterator *iterator;
@@ -157,7 +172,6 @@ struct cassandra_result {
 	sql_query_callback_t *callback;
 	void *context;
 
-	bool is_prepared:1;
 	bool query_sent:1;
 	bool finished:1;
 	bool paging_continues:1;
@@ -1175,7 +1189,8 @@ static void driver_cassandra_log_result(struct cassandra_result *result,
 
 	string_t *str = t_str_new(128);
 	str_printfa(str, "Finished %squery '%s' (",
-		    result->is_prepared ? "prepared " : "", result->log_query);
+		    cassandra_result_type_prefixes[result->type],
+		    result->log_query);
 	if (result->timestamp != 0)
 		str_printfa(str, "timestamp=%"PRId64", ", result->timestamp);
 	if (all_pages) {
@@ -1616,7 +1631,7 @@ static void exec_callback(struct sql_result *_result ATTR_UNUSED,
 static struct cassandra_result *
 driver_cassandra_result_init(struct cassandra_db *db, const char *log_query,
 			     enum cassandra_query_type query_type,
-			     bool is_prepared,
+			     enum cassandra_result_type result_type,
 			     sql_query_callback_t *callback, void *context)
 {
 	struct cassandra_result *result;
@@ -1629,7 +1644,7 @@ driver_cassandra_result_init(struct cassandra_db *db, const char *log_query,
 	result->context = context;
 	result->query_type = query_type;
 	result->log_query = i_strdup(log_query);
-	result->is_prepared = is_prepared;
+	result->type = result_type;
 	result->api.event = event_create(db->api.event);
 	array_push_back(&db->results, &result);
 	return result;
@@ -1643,7 +1658,8 @@ driver_cassandra_query_full(struct sql_db *_db, const char *query,
 	struct cassandra_db *db = container_of(_db, struct cassandra_db, api);
 	struct cassandra_result *result;
 
-	result = driver_cassandra_result_init(db, query, query_type, FALSE,
+	result = driver_cassandra_result_init(db, query, query_type,
+					      CASSANDRA_RESULT_TYPE_QUERY,
 					      callback, context);
 	result->statement = cass_statement_new(query, 0);
 	(void)cassandra_result_connect_and_send_query(result);
@@ -1899,7 +1915,7 @@ driver_cassandra_result_more(struct sql_result **_result, bool async,
 	/* Initialize the next page as a new sql_result */
 	new_result = driver_cassandra_result_init(db, old_result->log_query,
 						 CASSANDRA_QUERY_TYPE_READ_MORE,
-						 old_result->is_prepared,
+						 old_result->type,
 						 callback, context);
 
 	/* Preserve the statement and update its paging state */
@@ -2106,10 +2122,13 @@ driver_cassandra_transaction_commit(struct sql_transaction_context *_ctx,
 	}
 
 	/* just a single query, send it */
+	enum cassandra_result_type result_type =
+		ctx->stmt->prep != NULL ? CASSANDRA_RESULT_TYPE_PREPARED :
+		CASSANDRA_RESULT_TYPE_QUERY;
 	struct cassandra_result *cass_result =
 		driver_cassandra_result_init(db,
 			sql_statement_get_log_query(&ctx->stmt->stmt),
-			ctx->query_type, ctx->stmt->prep != NULL,
+			ctx->query_type, result_type,
 			transaction_commit_callback, ctx);
 	if (ctx->stmt->prep == NULL) {
 		ctx->stmt->cass_stmt =
@@ -2593,12 +2612,14 @@ driver_cassandra_statement_query(struct sql_statement *_stmt,
 	struct cassandra_sql_statement *stmt =
 		(struct cassandra_sql_statement *)_stmt;
 	struct cassandra_db *db = container_of(_stmt->db, struct cassandra_db, api);
-	bool is_prepared = stmt->cass_stmt != NULL || stmt->prep != NULL;
+	enum cassandra_result_type result_type =
+		stmt->cass_stmt != NULL || stmt->prep != NULL ?
+		CASSANDRA_RESULT_TYPE_PREPARED : CASSANDRA_RESULT_TYPE_QUERY;
 
 	stmt->result = driver_cassandra_result_init(db,
 				sql_statement_get_log_query(_stmt),
 				CASSANDRA_QUERY_TYPE_READ,
-				is_prepared, callback, context);
+				result_type, callback, context);
 	if (stmt->cass_stmt != NULL) {
 		stmt->result->statement = stmt->cass_stmt;
 		stmt->result->timestamp = stmt->timestamp;
