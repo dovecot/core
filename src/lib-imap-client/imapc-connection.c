@@ -2544,3 +2544,28 @@ struct event *imapc_connection_get_event(struct imapc_connection *conn)
 {
 	return conn->event;
 }
+
+struct imapc_command *
+imapc_client_find_command_by_tag(struct imapc_client *client, const char *tag_str)
+{
+	unsigned int tag;
+	if (str_to_uint(tag_str, &tag) != 0) {
+		/* All the tags we use are numerical. If it can't be parsed
+		   into a number, then we won't find it anyway */
+		return NULL;
+	}
+
+	struct imapc_client_connection *conn;
+	array_foreach_elem(&client->conns, conn) {
+		struct imapc_command *cmd;
+		array_foreach_elem(&conn->conn->cmd_wait_list, cmd) {
+			if (cmd->tag == tag)
+				return cmd;
+		}
+		array_foreach_elem(&conn->conn->cmd_send_queue, cmd) {
+			if (cmd->tag == tag)
+				return cmd;
+		}
+	}
+	return NULL;
+}

@@ -210,6 +210,9 @@ void imapc_command_sendvf(struct imapc_command *cmd,
 const char *imapc_command_get_tag(struct imapc_command *cmd);
 void imapc_command_abort(struct imapc_command **cmd);
 
+struct imapc_command *
+imapc_client_find_command_by_tag(struct imapc_client *client, const char *tag);
+
 void imapc_client_register_untagged(struct imapc_client *client,
 				    imapc_untagged_callback_t *callback,
 				    void *context);
