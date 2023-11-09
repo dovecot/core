@@ -1615,10 +1615,10 @@ static void exec_callback(struct sql_result *_result ATTR_UNUSED,
 }
 
 static struct cassandra_result *
-driver_cassandra_query_init(struct cassandra_db *db, const char *log_query,
-			    enum cassandra_query_type query_type,
-			    bool is_prepared,
-			    sql_query_callback_t *callback, void *context)
+driver_cassandra_result_init(struct cassandra_db *db, const char *log_query,
+			     enum cassandra_query_type query_type,
+			     bool is_prepared,
+			     sql_query_callback_t *callback, void *context)
 {
 	struct cassandra_result *result;
 
@@ -1644,8 +1644,8 @@ driver_cassandra_query_full(struct sql_db *_db, const char *query,
 	struct cassandra_db *db = container_of(_db, struct cassandra_db, api);
 	struct cassandra_result *result;
 
-	result = driver_cassandra_query_init(db, query, query_type, FALSE,
-					     callback, context);
+	result = driver_cassandra_result_init(db, query, query_type, FALSE,
+					      callback, context);
 	result->statement = cass_statement_new(query, 0);
 	(void)driver_cassandra_send_query(result);
 }
@@ -1898,7 +1898,7 @@ driver_cassandra_result_more(struct sql_result **_result, bool async,
 		(struct cassandra_result *)*_result;
 
 	/* Initialize the next page as a new sql_result */
-	new_result = driver_cassandra_query_init(db, old_result->log_query,
+	new_result = driver_cassandra_result_init(db, old_result->log_query,
 						 CASSANDRA_QUERY_TYPE_READ_MORE,
 						 old_result->is_prepared,
 						 callback, context);
@@ -2120,7 +2120,7 @@ driver_cassandra_transaction_commit(struct sql_transaction_context *_ctx,
 	if (ctx->query != NULL) {
 		struct cassandra_result *cass_result;
 
-		cass_result = driver_cassandra_query_init(db, ctx->log_query,
+		cass_result = driver_cassandra_result_init(db, ctx->log_query,
 			query_type, FALSE, transaction_commit_callback, ctx);
 		cass_result->statement = cass_statement_new(query, 0);
 		if (ctx->query_timestamp != 0) {
@@ -2131,7 +2131,7 @@ driver_cassandra_transaction_commit(struct sql_transaction_context *_ctx,
 		(void)driver_cassandra_send_query(cass_result);
 	} else {
 		ctx->stmt->result =
-			driver_cassandra_query_init(db,
+			driver_cassandra_result_init(db,
 				sql_statement_get_log_query(&ctx->stmt->stmt),
 				query_type, TRUE, transaction_commit_callback,
 				ctx);
@@ -2609,11 +2609,10 @@ driver_cassandra_statement_query(struct sql_statement *_stmt,
 	struct cassandra_db *db = container_of(_stmt->db, struct cassandra_db, api);
 	bool is_prepared = stmt->cass_stmt != NULL || stmt->prep != NULL;
 
-	stmt->result = driver_cassandra_query_init(db,
-						   sql_statement_get_log_query(_stmt),
-						   CASSANDRA_QUERY_TYPE_READ,
-						   is_prepared,
-						   callback, context);
+	stmt->result = driver_cassandra_result_init(db,
+				sql_statement_get_log_query(_stmt),
+				CASSANDRA_QUERY_TYPE_READ,
+				is_prepared, callback, context);
 	if (stmt->cass_stmt != NULL) {
 		stmt->result->statement = stmt->cass_stmt;
 		stmt->result->timestamp = stmt->timestamp;
