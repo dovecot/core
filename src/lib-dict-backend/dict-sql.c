@@ -1060,6 +1060,9 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 	result.ret = DICT_COMMIT_RET_FAILED;
 	result.error = t_strdup(ctx->error);
 
+	if (_ctx->non_atomic)
+		sql_transaction_set_non_atomic(ctx->sql_ctx);
+
 	if (ctx->error != NULL) {
 		sql_transaction_rollback(&ctx->sql_ctx);
 	} else if (!_ctx->changed) {
