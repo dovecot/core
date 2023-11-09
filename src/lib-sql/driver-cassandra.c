@@ -1545,7 +1545,8 @@ driver_cassandra_want_fallback_query(struct cassandra_result *result)
 	return timeval_cmp(&ioloop_timeval, &tv) < 0;
 }
 
-static int driver_cassandra_send_query(struct cassandra_result *result)
+static int
+cassandra_result_connect_and_send_query(struct cassandra_result *result)
 {
 	struct cassandra_db *db = container_of(result->api.db, struct cassandra_db, api);
 	int ret;
@@ -1603,7 +1604,7 @@ static void driver_cassandra_send_queries(struct cassandra_db *db)
 	results = array_get(&db->results, &count);
 	for (i = 0; i < count; i++) {
 		if (!results[i]->query_sent && results[i]->statement != NULL) {
-			if (driver_cassandra_send_query(results[i]) <= 0)
+			if (cassandra_result_connect_and_send_query(results[i]) <= 0)
 				break;
 		}
 	}
@@ -1647,7 +1648,7 @@ driver_cassandra_query_full(struct sql_db *_db, const char *query,
 	result = driver_cassandra_result_init(db, query, query_type, FALSE,
 					      callback, context);
 	result->statement = cass_statement_new(query, 0);
-	(void)driver_cassandra_send_query(result);
+	(void)cassandra_result_connect_and_send_query(result);
 }
 
 static void driver_cassandra_exec(struct sql_db *db, const char *query)
@@ -1923,11 +1924,11 @@ driver_cassandra_result_more(struct sql_result **_result, bool async,
 	*_result = NULL;
 
 	if (async)
-		(void)driver_cassandra_send_query(new_result);
+		(void)cassandra_result_connect_and_send_query(new_result);
 	else {
 		i_assert(db->api.state == SQL_DB_STATE_IDLE);
 		driver_cassandra_sync_init(db);
-		(void)driver_cassandra_send_query(new_result);
+		(void)cassandra_result_connect_and_send_query(new_result);
 		if (new_result->result == NULL) {
 			db->io_pipe = io_loop_move_io(&db->io_pipe);
 			io_loop_run(db->ioloop);
@@ -2079,7 +2080,7 @@ cassandra_statement_send_query(struct cassandra_sql_statement **_stmt)
 	*_stmt = NULL;
 	stmt->result->statement = stmt->cass_stmt;
 	stmt->result->timestamp = stmt->timestamp;
-	(void)driver_cassandra_send_query(stmt->result);
+	(void)cassandra_result_connect_and_send_query(stmt->result);
 	pool_unref(&stmt->stmt.pool);
 }
 
@@ -2128,7 +2129,7 @@ driver_cassandra_transaction_commit(struct sql_transaction_context *_ctx,
 			cass_statement_set_timestamp(cass_result->statement,
 						     ctx->query_timestamp);
 		}
-		(void)driver_cassandra_send_query(cass_result);
+		(void)cassandra_result_connect_and_send_query(cass_result);
 	} else {
 		ctx->stmt->result =
 			driver_cassandra_result_init(db,
@@ -2630,7 +2631,7 @@ driver_cassandra_statement_query(struct sql_statement *_stmt,
 						     stmt->timestamp);
 		}
 	}
-	(void)driver_cassandra_send_query(stmt->result);
+	(void)cassandra_result_connect_and_send_query(stmt->result);
 	pool_unref(&_stmt->pool);
 }
 
