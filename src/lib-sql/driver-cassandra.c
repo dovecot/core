@@ -2198,7 +2198,9 @@ static void cassandra_transaction_finish(struct cassandra_transaction_context *c
 	switch (result_type) {
 	case CASSANDRA_RESULT_TYPE_BATCH: {
 		struct cassandra_sql_statement *stmt;
-		cass_result->batch = cass_batch_new(CASS_BATCH_TYPE_LOGGED);
+		cass_result->batch = cass_batch_new(ctx->ctx.non_atomic ?
+						    CASS_BATCH_TYPE_UNLOGGED :
+						    CASS_BATCH_TYPE_LOGGED);
 		array_foreach_elem(&ctx->statements, stmt) {
 			cass_batch_add_statement(cass_result->batch,
 						 stmt->cass_stmt);

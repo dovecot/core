@@ -239,6 +239,8 @@ struct sql_transaction_context {
 
 	/* commit() must use this query list if head is non-NULL. */
 	struct sql_transaction_query *head, *tail;
+
+	bool non_atomic;
 };
 
 ARRAY_DEFINE_TYPE(sql_drivers, const struct sql_db *);

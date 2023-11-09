@@ -227,6 +227,9 @@ enum sql_result_error_type sql_result_get_error_type(struct sql_result *result);
 /* Begin a new transaction. Currently you're limited to only one open
    transaction at a time. */
 struct sql_transaction_context *sql_transaction_begin(struct sql_db *db);
+/* Don't require transaction to be atomic. Currently this is implemented only
+   with Cassandra to use UNLOGGED BATCH operations. */
+void sql_transaction_set_non_atomic(struct sql_transaction_context *ctx);
 /* Commit transaction. */
 void sql_transaction_commit(struct sql_transaction_context **ctx,
 			    sql_commit_callback_t *callback, void *context);

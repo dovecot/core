@@ -718,6 +718,11 @@ struct sql_transaction_context *sql_transaction_begin(struct sql_db *db)
 	return db->v.transaction_begin(db);
 }
 
+void sql_transaction_set_non_atomic(struct sql_transaction_context *ctx)
+{
+	ctx->non_atomic = TRUE;
+}
+
 #undef sql_transaction_commit
 void sql_transaction_commit(struct sql_transaction_context **_ctx,
 			    sql_commit_callback_t *callback, void *context)
