@@ -2072,6 +2072,18 @@ transaction_commit_callback(struct sql_result *result, void *context)
 }
 
 static void
+cassandra_statement_send_query(struct cassandra_sql_statement **_stmt)
+{
+	struct cassandra_sql_statement *stmt = *_stmt;
+
+	*_stmt = NULL;
+	stmt->result->statement = stmt->cass_stmt;
+	stmt->result->timestamp = stmt->timestamp;
+	(void)driver_cassandra_send_query(stmt->result);
+	pool_unref(&stmt->stmt.pool);
+}
+
+static void
 driver_cassandra_transaction_commit(struct sql_transaction_context *_ctx,
 				    sql_commit_callback_t *callback, void *context)
 {
@@ -2126,10 +2138,7 @@ driver_cassandra_transaction_commit(struct sql_transaction_context *_ctx,
 		if (ctx->stmt->cass_stmt == NULL) {
 			/* wait for prepare to finish */
 		} else {
-			ctx->stmt->result->statement = ctx->stmt->cass_stmt;
-			ctx->stmt->result->timestamp = ctx->stmt->timestamp;
-			(void)driver_cassandra_send_query(ctx->stmt->result);
-			pool_unref(&ctx->stmt->stmt.pool);
+			cassandra_statement_send_query(&ctx->stmt);
 		}
 	}
 }
@@ -2320,12 +2329,8 @@ static void prepare_finish_statement(struct cassandra_sql_statement *stmt)
 		array_foreach(&stmt->pending_args, arg)
 			prepare_finish_arg(stmt, arg);
 	}
-	if (stmt->result != NULL) {
-		stmt->result->statement = stmt->cass_stmt;
-		stmt->result->timestamp = stmt->timestamp;
-		(void)driver_cassandra_send_query(stmt->result);
-		pool_unref(&stmt->stmt.pool);
-	}
+	if (stmt->result != NULL)
+		cassandra_statement_send_query(&stmt);
 }
 
 static void
