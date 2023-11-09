@@ -616,6 +616,11 @@ void dict_transaction_set_timestamp(struct dict_transaction_context *ctx,
 	} T_END;
 }
 
+void dict_transaction_set_non_atomic(struct dict_transaction_context *ctx)
+{
+	ctx->non_atomic = TRUE;
+}
+
 struct dict_commit_sync_result {
 	int ret;
 	char *error;

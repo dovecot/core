@@ -109,6 +109,7 @@ struct dict_transaction_context {
 	const char *error;
 
 	bool changed:1;
+	bool non_atomic:1;
 };
 
 void dict_transaction_commit_async_noop_callback(

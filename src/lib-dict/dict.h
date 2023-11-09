@@ -178,6 +178,9 @@ dict_transaction_begin(struct dict *dict, const struct dict_op_settings *set);
    dict-sql with Cassandra backend does anything with this. */
 void dict_transaction_set_timestamp(struct dict_transaction_context *ctx,
 				    const struct timespec *ts);
+/* Don't require changes in transaction to be atomic. It's fine if in a failure
+   case any set of the changes gets written. */
+void dict_transaction_set_non_atomic(struct dict_transaction_context *ctx);
 
 /* Set hide_log_values for the transaction. Currently only
    dict-sql with Cassandra backend does anything with this. */
