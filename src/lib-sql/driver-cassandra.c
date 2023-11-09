@@ -2660,12 +2660,12 @@ driver_cassandra_update_stmt(struct sql_transaction_context *_ctx,
 	else
 		ctx->query_type = CASSANDRA_QUERY_TYPE_WRITE;
 
+	ctx->query_timestamp = stmt->timestamp;
 	if (stmt->prep != NULL)
 		ctx->stmt = stmt;
 	else {
 		ctx->query = i_strdup(query);
 		ctx->log_query = i_strdup(sql_statement_get_log_query(_stmt));
-		ctx->query_timestamp = stmt->timestamp;
 		pool_unref(&_stmt->pool);
 	}
 }
