@@ -204,7 +204,8 @@ struct sql_statement {
 	const char *query_template;
 	ARRAY_TYPE(const_string) args;
 
-	/* Tell the driver to not log this query with expanded values. */
+	/* Tell the driver to not log this query with expanded values.
+	   This works only for prepared statements. */
 	bool no_log_expanded_values;
 };
 

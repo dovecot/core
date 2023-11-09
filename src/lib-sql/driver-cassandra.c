@@ -171,9 +171,6 @@ struct cassandra_transaction_context {
 	void *context;
 
 	struct cassandra_sql_statement *stmt;
-	char *query;
-	char *log_query;
-	cass_int64_t query_timestamp;
 	enum cassandra_query_type query_type;
 	char *error;
 
@@ -2033,8 +2030,6 @@ driver_cassandra_transaction_unref(struct cassandra_transaction_context **_ctx)
 		return;
 
 	event_unref(&ctx->ctx.event);
-	i_free(ctx->log_query);
-	i_free(ctx->query);
 	i_free(ctx->error);
 	i_free(ctx);
 }
@@ -2098,7 +2093,7 @@ driver_cassandra_transaction_commit(struct sql_transaction_context *_ctx,
 	ctx->callback = callback;
 	ctx->context = context;
 
-	if (ctx->failed || (ctx->query == NULL && ctx->stmt == NULL)) {
+	if (ctx->failed || ctx->stmt == NULL) {
 		if (ctx->failed)
 			result.error = ctx->error;
 
@@ -2111,32 +2106,26 @@ driver_cassandra_transaction_commit(struct sql_transaction_context *_ctx,
 	}
 
 	/* just a single query, send it */
-	if (ctx->query != NULL) {
-		struct cassandra_result *cass_result;
-
-		cass_result = driver_cassandra_result_init(db,
-			ctx->log_query, ctx->query_type, FALSE,
+	struct cassandra_result *cass_result =
+		driver_cassandra_result_init(db,
+			sql_statement_get_log_query(&ctx->stmt->stmt),
+			ctx->query_type, ctx->stmt->prep != NULL,
 			transaction_commit_callback, ctx);
-		cass_result->statement =
-			cass_statement_new(ctx->query, 0);
-		if (ctx->query_timestamp != 0) {
-			cass_result->timestamp = ctx->query_timestamp;
-			cass_statement_set_timestamp(cass_result->statement,
-						     ctx->query_timestamp);
+	if (ctx->stmt->prep == NULL) {
+		ctx->stmt->cass_stmt =
+			cass_statement_new(sql_statement_get_query(&ctx->stmt->stmt), 0);
+		if (ctx->stmt->timestamp != 0) {
+			cass_statement_set_timestamp(ctx->stmt->cass_stmt,
+				ctx->stmt->timestamp);
 		}
-		(void)cassandra_result_connect_and_send_query(cass_result);
 	} else {
-		ctx->stmt->result =
-			driver_cassandra_result_init(db,
-				sql_statement_get_log_query(&ctx->stmt->stmt),
-				ctx->query_type, TRUE, transaction_commit_callback,
-				ctx);
+		ctx->stmt->result = cass_result;
 		if (ctx->stmt->cass_stmt == NULL) {
 			/* wait for prepare to finish */
-		} else {
-			cassandra_statement_send_query(&ctx->stmt);
+			return;
 		}
 	}
+	cassandra_statement_send_query(&ctx->stmt);
 }
 
 static void
@@ -2148,7 +2137,9 @@ driver_cassandra_try_commit_s(struct cassandra_transaction_context *ctx)
 
 	/* just a single query, send it */
 	driver_cassandra_sync_init(db);
-	result = driver_cassandra_sync_query(db, ctx->query, ctx->query_type);
+	result = driver_cassandra_sync_query(db,
+			sql_statement_get_query(&ctx->stmt->stmt),
+			ctx->query_type);
 	driver_cassandra_sync_deinit(db);
 
 	if (sql_result_next_row(result) < 0)
@@ -2163,12 +2154,12 @@ driver_cassandra_transaction_commit_s(struct sql_transaction_context *_ctx,
 	struct cassandra_transaction_context *ctx =
 		(struct cassandra_transaction_context *)_ctx;
 
-	if (ctx->stmt != NULL) {
+	if (ctx->stmt != NULL && ctx->stmt->prep != NULL) {
 		/* nothing should be using this - don't bother implementing */
 		i_panic("cassandra: sql_transaction_commit_s() not supported for prepared statements");
 	}
 
-	if (ctx->query != NULL && !ctx->failed)
+	if (ctx->stmt != NULL && !ctx->failed)
 		driver_cassandra_try_commit_s(ctx);
 	*error_r = t_strdup(ctx->error);
 
@@ -2197,19 +2188,18 @@ driver_cassandra_update(struct sql_transaction_context *_ctx, const char *query,
 
 	i_assert(affected_rows == NULL);
 
-	if (ctx->query != NULL || ctx->stmt != NULL) {
+	if (ctx->stmt != NULL) {
 		transaction_set_failed(ctx, "Multiple changes in transaction not supported");
 		return;
 	}
-	ctx->query = i_strdup(query);
-	/* When log_query is set here it can contain expanded values even
-	   if stmt->no_log_expanded_values is set. */
-	ctx->log_query = i_strdup(query);
 
 	if (str_begins_icase_with(query, "DELETE "))
 		ctx->query_type = CASSANDRA_QUERY_TYPE_DELETE;
 	else
 		ctx->query_type = CASSANDRA_QUERY_TYPE_WRITE;
+
+	struct sql_statement *_stmt = sql_statement_init(_ctx->db, query);
+	ctx->stmt = container_of(_stmt, struct cassandra_sql_statement, stmt);
 }
 
 static const char *
@@ -2648,7 +2638,7 @@ driver_cassandra_update_stmt(struct sql_transaction_context *_ctx,
 
 	i_assert(affected_rows == NULL);
 
-	if (ctx->query != NULL || ctx->stmt != NULL) {
+	if (ctx->stmt != NULL) {
 		transaction_set_failed(ctx,
 			"Multiple changes in transaction not supported");
 		return;
@@ -2659,15 +2649,7 @@ driver_cassandra_update_stmt(struct sql_transaction_context *_ctx,
 		ctx->query_type = CASSANDRA_QUERY_TYPE_DELETE;
 	else
 		ctx->query_type = CASSANDRA_QUERY_TYPE_WRITE;
-
-	ctx->query_timestamp = stmt->timestamp;
-	if (stmt->prep != NULL)
-		ctx->stmt = stmt;
-	else {
-		ctx->query = i_strdup(query);
-		ctx->log_query = i_strdup(sql_statement_get_log_query(_stmt));
-		pool_unref(&_stmt->pool);
-	}
+	ctx->stmt = stmt;
 }
 
 static bool driver_cassandra_have_work(struct cassandra_db *db)
