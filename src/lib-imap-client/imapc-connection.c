@@ -58,6 +58,8 @@ struct imapc_command {
 	imapc_command_callback_t *callback;
 	void *context;
 
+	struct timeval start_time;
+
 	/* This is the AUTHENTICATE command */
 	bool authenticate:1;
 	/* This is the IDLE command */
@@ -2295,6 +2297,7 @@ static void imapc_connection_cmd_send(struct imapc_command *cmd)
 	unsigned int i, count;
 
 	imapc_connection_send_idle_done(conn);
+	cmd->start_time = ioloop_timeval;
 
 	i_assert((cmd->flags & IMAPC_COMMAND_FLAG_RECONNECTED) == 0);
 
@@ -2568,4 +2571,9 @@ imapc_client_find_command_by_tag(struct imapc_client *client, const char *tag_st
 		}
 	}
 	return NULL;
+}
+
+struct timeval imapc_command_get_start_time(struct imapc_command *cmd)
+{
+	return cmd->start_time;
 }
