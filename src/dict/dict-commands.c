@@ -195,6 +195,13 @@ static int cmd_lookup(struct dict_connection_cmd *cmd, const char *const *args)
 	dict_connection_cmd_async(cmd);
 	event_add_str(cmd->event, "key", args[0]);
 	event_add_str(cmd->event, "user", username);
+	if (username == NULL || username[0] == '\0') {
+		event_set_append_log_prefix(cmd->event, t_strdup_printf(
+			"LOOKUP %s: ", args[0]));
+	} else {
+		event_set_append_log_prefix(cmd->event, t_strdup_printf(
+			"LOOKUP %s (user %s): ", args[0], username));
+	}
 	const struct dict_op_settings set = {
 		.username = username,
 	};
@@ -337,6 +344,13 @@ static int cmd_iterate(struct dict_connection_cmd *cmd, const char *const *args)
 	flags |= DICT_ITERATE_FLAG_ASYNC;
 	event_add_str(cmd->event, "key", args[2]);
 	event_add_str(cmd->event, "user", username);
+	if (username == NULL || username[0] == '\0') {
+		event_set_append_log_prefix(cmd->event, t_strdup_printf(
+			"ITERATE %s: ", args[2]));
+	} else {
+		event_set_append_log_prefix(cmd->event, t_strdup_printf(
+			"ITERATE %s (user %s): ", args[2], username));
+	}
 	cmd->iter = dict_iterate_init(cmd->conn->dict, &set, args[2], flags);
 	cmd->iter_flags = flags;
 	if (max_rows > 0)
@@ -389,6 +403,8 @@ static int cmd_begin(struct dict_connection_cmd *cmd, const char *const *args)
 		e_error(cmd->event, "BEGIN: broken input");
 		return -1;
 	}
+	event_set_append_log_prefix(cmd->event, "BEGIN: ");
+
 	struct dict_op_settings set = {
 		.username = args[1],
 	};
@@ -500,6 +516,14 @@ cmd_commit(struct dict_connection_cmd *cmd, const char *const *args)
 		return -1;
 	cmd->trans_id = trans->id;
 	event_add_str(cmd->event, "user", trans->ctx->set.username);
+
+	if (trans->ctx->set.username == NULL ||
+	    trans->ctx->set.username[0] == '\0')
+		event_set_append_log_prefix(cmd->event, "COMMIT: ");
+	else {
+		event_set_append_log_prefix(cmd->event, t_strdup_printf(
+			"COMIT (user %s): ", trans->ctx->set.username));
+	}
 
 	dict_connection_cmd_async(cmd);
 	dict_transaction_commit_async(&trans->ctx, cmd_commit_callback, cmd);
