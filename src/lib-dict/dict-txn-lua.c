@@ -25,6 +25,7 @@ static int lua_dict_transaction_commit(lua_State *L);
 static int lua_dict_set(lua_State *L);
 static int lua_dict_unset(lua_State *L);
 static int lua_dict_set_timestamp(lua_State *L);
+static int lua_dict_set_non_atomic(lua_State *L);
 
 static luaL_Reg lua_dict_txn_methods[] = {
 	{ "rollback", lua_dict_transaction_rollback },
@@ -32,6 +33,7 @@ static luaL_Reg lua_dict_txn_methods[] = {
 	{ "set", lua_dict_set },
 	{ "unset", lua_dict_unset },
 	{ "set_timestamp", lua_dict_set_timestamp },
+	{ "set_non_atomic", lua_dict_set_non_atomic },
 	{ NULL, NULL },
 };
 
@@ -263,5 +265,22 @@ static int lua_dict_set_timestamp(lua_State *L)
 		.tv_nsec = tv_nsec
 	};
 	dict_transaction_set_timestamp(txn->txn, &ts);
+	return 0;
+}
+
+/*
+ * Set transaction to be non-atomic [-1,+0,e]
+ *
+ * Args:
+ *   1) userdata: struct lua_dict_txn *
+ */
+static int lua_dict_set_non_atomic(lua_State *L)
+{
+	struct lua_dict_txn *txn;
+
+	DLUA_REQUIRE_ARGS(L, 1);
+
+	txn = xlua_dict_txn_getptr(L, 1, NULL);
+	dict_transaction_set_non_atomic(txn->txn);
 	return 0;
 }
