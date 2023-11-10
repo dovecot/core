@@ -1,5 +1,5 @@
-#ifndef FTS_COMMON_H
-#define FTS_COMMON_H
+#ifndef LANG_COMMON_H
+#define LANG_COMMON_H
 
 /* Some might consider 0x02BB an apostrophe also. */
 #define IS_NONASCII_APOSTROPHE(c) \
@@ -8,9 +8,9 @@
 	((c) == 0x0027 || IS_NONASCII_APOSTROPHE(c))
 #define IS_WB5A_APOSTROPHE(c) \
 	((c) == 0x0027 || (c) == 0x2019)
-#define FTS_PREFIX_SPLAT_CHAR 0x002A /* '*' */
+#define LANG_PREFIX_SPLAT_CHAR 0x002A /* '*' */
 #define IS_PREFIX_SPLAT(c) \
-	((c) == FTS_PREFIX_SPLAT_CHAR)
+	((c) == LANG_PREFIX_SPLAT_CHAR)
 /* The h letters are included because it is an exception in French.
    A, E, H, I, O, U, Y, a, e, h, i, o, u, y */
 #define IS_ASCII_VOWEL(c) \

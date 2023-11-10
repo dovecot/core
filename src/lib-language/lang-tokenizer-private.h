@@ -1,35 +1,35 @@
-#ifndef FTS_TOKENIZER_PRIVATE_H
-#define FTS_TOKENIZER_PRIVATE_H
+#ifndef LANG_TOKENIZER_PRIVATE_H
+#define LANG_TOKENIZER_PRIVATE_H
 
 #include "lang-tokenizer.h"
 
-#define FTS_TOKENIZER_CLASSES_NR 2
+#define LANG_TOKENIZER_CLASSES_NR 2
 
-struct fts_tokenizer_vfuncs {
+struct lang_tokenizer_vfuncs {
 	int (*create)(const char *const *settings,
-		      struct fts_tokenizer **tokenizer_r, const char **error_r);
-	void (*destroy)(struct fts_tokenizer *tok);
+		      struct lang_tokenizer **tokenizer_r, const char **error_r);
+	void (*destroy)(struct lang_tokenizer *tok);
 
-	void (*reset)(struct fts_tokenizer *tok);
-	int (*next)(struct fts_tokenizer *tok, const unsigned char *data,
+	void (*reset)(struct lang_tokenizer *tok);
+	int (*next)(struct lang_tokenizer *tok, const unsigned char *data,
 		    size_t size, size_t *skip_r, const char **token_r,
 		    const char **error_r);
 };
 
-enum fts_tokenizer_parent_state {
-	FTS_TOKENIZER_PARENT_STATE_ADD_DATA = 0,
-	FTS_TOKENIZER_PARENT_STATE_NEXT_OUTPUT,
-	FTS_TOKENIZER_PARENT_STATE_FINALIZE
+enum lang_tokenizer_parent_state {
+	LANG_TOKENIZER_PARENT_STATE_ADD_DATA = 0,
+	LANG_TOKENIZER_PARENT_STATE_NEXT_OUTPUT,
+	LANG_TOKENIZER_PARENT_STATE_FINALIZE
 };
 
-struct fts_tokenizer {
+struct lang_tokenizer {
 	const char *name;
-	const struct fts_tokenizer_vfuncs *v;
+	const struct lang_tokenizer_vfuncs *v;
 	int refcount;
 
-	struct fts_tokenizer *parent;
+	struct lang_tokenizer *parent;
 	buffer_t *parent_input;
-	enum fts_tokenizer_parent_state parent_state;
+	enum lang_tokenizer_parent_state parent_state;
 
 	const unsigned char *prev_data;
 	size_t prev_size;
@@ -46,7 +46,7 @@ struct fts_tokenizer {
 	bool finalize_parent_pending;
 };
 
-void fts_tokenizer_register(const struct fts_tokenizer *tok_class);
-void fts_tokenizer_unregister(const struct fts_tokenizer *tok_class);
+void lang_tokenizer_register(const struct lang_tokenizer *tok_class);
+void lang_tokenizer_unregister(const struct lang_tokenizer *tok_class);
 
 #endif

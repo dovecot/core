@@ -1,7 +1,7 @@
-#ifndef FTS_LIBRARY_H
-#define FTS_LIBRARY_H
+#ifndef LANG_LIBRARY_H
+#define LANG_LIBRARY_H
 
-void fts_library_init(void);
-void fts_library_deinit(void);
+void lang_library_init(void);
+void lang_library_deinit(void);
 
 #endif

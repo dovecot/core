@@ -4,8 +4,8 @@
 #include "unichar.h"
 #include "lang-tokenizer-common.h"
 void
-fts_tokenizer_delete_trailing_partial_char(const unsigned char *data,
-					   size_t *len)
+lang_tokenizer_delete_trailing_partial_char(const unsigned char *data,
+					    size_t *len)
 {
 	size_t pos;
 	unsigned int char_bytes;
@@ -22,8 +22,8 @@ fts_tokenizer_delete_trailing_partial_char(const unsigned char *data,
 		*len = pos;
 	}
 }
-void fts_tokenizer_delete_trailing_invalid_char(const unsigned char *data,
-		   size_t *len)
+void lang_tokenizer_delete_trailing_invalid_char(const unsigned char *data,
+						 size_t *len)
 {
 	size_t pos = *len;
 

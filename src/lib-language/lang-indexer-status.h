@@ -1,5 +1,5 @@
-#ifndef FTS_INDEXER_STATUS_H
-#define FTS_INDEXER_STATUS_H
+#ifndef LANG_INDEXER_STATUS_H
+#define LANG_INDEXER_STATUS_H
 
 enum indexer_state {
 	INDEXER_STATE_PROCESSING =  0,

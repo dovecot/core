@@ -8,12 +8,12 @@
 #include "unichar.h"
 
 static int
-fts_filter_contractions_create(const struct fts_language *lang,
+lang_filter_contractions_create(const struct language *lang,
 			       const char *const *settings,
-			       struct fts_filter **filter_r,
+			       struct lang_filter **filter_r,
 			       const char **error_r)
 {
-	struct fts_filter *filter;
+	struct lang_filter *filter;
 
 	if (settings[0] != NULL) {
 		*error_r = t_strdup_printf("Unknown setting: %s", settings[0]);
@@ -24,15 +24,15 @@ fts_filter_contractions_create(const struct fts_language *lang,
 		return -1;
 	}
 
-	filter = i_new(struct fts_filter, 1);
-	*filter = *fts_filter_contractions;
+	filter = i_new(struct lang_filter, 1);
+	*filter = *lang_filter_contractions;
 	filter->token = str_new(default_pool, 64);
 	*filter_r = filter;
 	return 0;
 }
 
 static int
-fts_filter_contractions_filter(struct fts_filter *filter ATTR_UNUSED,
+lang_filter_contractions_filter(struct lang_filter *filter ATTR_UNUSED,
 			    const char **_token,
 			    const char **error_r ATTR_UNUSED)
 {
@@ -74,13 +74,13 @@ fts_filter_contractions_filter(struct fts_filter *filter ATTR_UNUSED,
 	return 1;
 }
 
-static const struct fts_filter fts_filter_contractions_real = {
+static const struct lang_filter lang_filter_contractions_real = {
 	.class_name = "contractions",
 	.v = {
-		fts_filter_contractions_create,
-		fts_filter_contractions_filter,
+		lang_filter_contractions_create,
+		lang_filter_contractions_filter,
 		NULL
 	}
 };
 
-const struct fts_filter *fts_filter_contractions = &fts_filter_contractions_real;
+const struct lang_filter *lang_filter_contractions = &lang_filter_contractions_real;

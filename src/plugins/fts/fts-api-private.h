@@ -117,7 +117,7 @@ void fts_backend_unregister(const char *name);
 bool fts_backend_default_can_lookup(struct fts_backend *backend,
 				    const struct mail_search_arg *args);
 
-void fts_filter_uids(ARRAY_TYPE(seq_range) *definite_dest,
+void lang_filter_uids(ARRAY_TYPE(seq_range) *definite_dest,
 		     const ARRAY_TYPE(seq_range) *definite_filter,
 		     ARRAY_TYPE(seq_range) *maybe_dest,
 		     const ARRAY_TYPE(seq_range) *maybe_filter);

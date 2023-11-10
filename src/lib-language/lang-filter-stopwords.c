@@ -14,16 +14,16 @@
 #define STOPWORDS_CUTCHARS "|#\t "
 #define STOPWORDS_DISALLOWED_CHARS "/\\<>.,\":()\t\n\r"
 
-struct fts_filter_stopwords {
-	struct fts_filter filter;
-	struct fts_language *lang;
+struct lang_filter_stopwords {
+	struct lang_filter filter;
+	struct language *lang;
 	pool_t pool;
 	HASH_TABLE(const char *, const char *) stopwords;
 	const char *stopwords_dir;
 };
 
-static int fts_filter_stopwords_read_list(struct fts_filter_stopwords *filter,
-					  const char **error_r)
+static int lang_filter_stopwords_read_list(struct lang_filter_stopwords *filter,
+					   const char **error_r)
 {
 	struct istream *input;
 	const char *line, *word, *path;
@@ -61,21 +61,21 @@ static int fts_filter_stopwords_read_list(struct fts_filter_stopwords *filter,
 	return ret;
 }
 
-static void fts_filter_stopwords_destroy(struct fts_filter *filter)
+static void lang_filter_stopwords_destroy(struct lang_filter *filter)
 {
-	struct fts_filter_stopwords *sp = (struct fts_filter_stopwords *)filter;
+	struct lang_filter_stopwords *sp = (struct lang_filter_stopwords *)filter;
 
 	hash_table_destroy(&sp->stopwords);
 	pool_unref(&sp->pool);
 }
 
 static int
-fts_filter_stopwords_create(const struct fts_language *lang,
-                            const char *const *settings,
-                            struct fts_filter **filter_r,
-                            const char **error_r)
+lang_filter_stopwords_create(const struct language *lang,
+                             const char *const *settings,
+                             struct lang_filter **filter_r,
+                             const char **error_r)
 {
-	struct fts_filter_stopwords *sp;
+	struct lang_filter_stopwords *sp;
 	pool_t pp;
 	const char *dir = NULL;
 	unsigned int i;
@@ -90,12 +90,12 @@ fts_filter_stopwords_create(const struct fts_language *lang,
 			return -1;
 		}
 	}
-	pp = pool_alloconly_create(MEMPOOL_GROWING"fts_filter_stopwords",
-	                           sizeof(struct fts_filter));
-	sp = p_new(pp, struct fts_filter_stopwords, 1);
-	sp->filter = *fts_filter_stopwords;
+	pp = pool_alloconly_create(MEMPOOL_GROWING"lang_filter_stopwords",
+	                           sizeof(struct lang_filter));
+	sp = p_new(pp, struct lang_filter_stopwords, 1);
+	sp->filter = *lang_filter_stopwords;
 	sp->pool = pp;
-	sp->lang = p_malloc(sp->pool, sizeof(struct fts_language));
+	sp->lang = p_malloc(sp->pool, sizeof(struct language));
 	sp->lang->name = p_strdup(sp->pool, lang->name);
 	if (dir != NULL)
 		sp->stopwords_dir = p_strdup(pp, dir);
@@ -106,26 +106,26 @@ fts_filter_stopwords_create(const struct fts_language *lang,
 }
 
 static int
-fts_filter_stopwords_filter(struct fts_filter *filter, const char **token,
-			    const char **error_r)
+lang_filter_stopwords_filter(struct lang_filter *filter, const char **token,
+			     const char **error_r)
 {
-	struct fts_filter_stopwords *sp =
-		(struct fts_filter_stopwords *) filter;
+	struct lang_filter_stopwords *sp =
+		(struct lang_filter_stopwords *) filter;
 
 	if (!hash_table_is_created(sp->stopwords)) {
 		hash_table_create(&sp->stopwords, sp->pool, 0, str_hash, strcmp);
-		if (fts_filter_stopwords_read_list(sp, error_r) < 0)
+		if (lang_filter_stopwords_read_list(sp, error_r) < 0)
 			return -1;
 	}
 	return hash_table_lookup(sp->stopwords, *token) == NULL ? 1 : 0;
 }
 
-const struct fts_filter fts_filter_stopwords_real = {
+const struct lang_filter lang_filter_stopwords_real = {
 	.class_name = "stopwords",
 	.v = {
-		fts_filter_stopwords_create,
-		fts_filter_stopwords_filter,
-		fts_filter_stopwords_destroy
+		lang_filter_stopwords_create,
+		lang_filter_stopwords_filter,
+		lang_filter_stopwords_destroy
 	}
 };
-const struct fts_filter *fts_filter_stopwords = &fts_filter_stopwords_real;
+const struct lang_filter *lang_filter_stopwords = &lang_filter_stopwords_real;

@@ -1,5 +1,5 @@
-#ifndef FTS_TOKENIZER_H
-#define FTS_TOKENIZER_H
+#ifndef LANG_TOKENIZER_H
+#define LANG_TOKENIZER_H
 
 /*
  Settings are given in the form of a const char * const *settings =
@@ -22,12 +22,12 @@
    "search" Remove addresses from parent data stream, so they are not processed
    further. Defaults to disabled. Enable by defining the keyword (and any
    value). */
-extern const struct fts_tokenizer *fts_tokenizer_email_address;
+extern const struct lang_tokenizer *lang_tokenizer_email_address;
 
 /* Generic email content tokenizer. Cuts text into tokens. */
 /* Settings:
    "maxlen" Maximum length of token, before an arbitrary cut off is made.
-   Defaults to FTS_DEFAULT_TOKEN_MAX_LENGTH.
+   Defaults to LANG_DEFAULT_TOKEN_MAX_LENGTH.
 
    "algorithm", accepted values are "simple" or "tr29". Defines the
    method for looking for word boundaries. Simple is faster and will
@@ -39,7 +39,7 @@ extern const struct fts_tokenizer *fts_tokenizer_email_address;
    is also significantly slower than simple. The algorithms also
    differ in some details, e.g. simple will cut "a.b" and tr29 will
    not. The default is "simple" */
-extern const struct fts_tokenizer *fts_tokenizer_generic;
+extern const struct lang_tokenizer *lang_tokenizer_generic;
 
 /*
  Tokenizing workflow, find --> create --> filter --> destroy.
@@ -47,41 +47,41 @@ extern const struct fts_tokenizer *fts_tokenizer_generic;
  */
 
 /* Register all built-in tokenizers. */
-void fts_tokenizers_init(void);
-void fts_tokenizers_deinit(void);
+void lang_tokenizers_init(void);
+void lang_tokenizers_deinit(void);
 
-const struct fts_tokenizer *fts_tokenizer_find(const char *name);
+const struct lang_tokenizer *lang_tokenizer_find(const char *name);
 
 /* Create a new tokenizer. The settings are described above. */
-int fts_tokenizer_create(const struct fts_tokenizer *tok_class,
-			 struct fts_tokenizer *parent,
-			 const char *const *settings,
-			 struct fts_tokenizer **tokenizer_r,
-			 const char **error_r);
-void fts_tokenizer_ref(struct fts_tokenizer *tok);
-void fts_tokenizer_unref(struct fts_tokenizer **tok);
+int lang_tokenizer_create(const struct lang_tokenizer *tok_class,
+			  struct lang_tokenizer *parent,
+			  const char *const *settings,
+			  struct lang_tokenizer **tokenizer_r,
+			  const char **error_r);
+void lang_tokenizer_ref(struct lang_tokenizer *tok);
+void lang_tokenizer_unref(struct lang_tokenizer **tok);
 
-/* Reset FTS tokenizer state */
-void fts_tokenizer_reset(struct fts_tokenizer *tok);
+/* Reset lang tokenizer state */
+void lang_tokenizer_reset(struct lang_tokenizer *tok);
 
 /*
    Returns 1 if *token_r was returned, 0 if more data is needed, -1 on error.
 
    This function should be called with the same data+size until it
-   returns 0. After that fts_tokenizer_final() should be called until it
+   returns 0. After that lang_tokenizer_final() should be called until it
    returns 0 to flush out the final token(s).
 
    data must contain only valid complete UTF-8 sequences, but otherwise it
    may be broken into however small pieces. (Input to this function typically
    comes from message-decoder, which returns only complete UTF-8 sequences.) */
 
-int fts_tokenizer_next(struct fts_tokenizer *tok,
-		       const unsigned char *data, size_t size,
-		       const char **token_r, const char **error_r);
-/* Returns same as fts_tokenizer_next(). */
-int fts_tokenizer_final(struct fts_tokenizer *tok, const char **token_r,
-			const char **error_r);
+int lang_tokenizer_next(struct lang_tokenizer *tok,
+		        const unsigned char *data, size_t size,
+		        const char **token_r, const char **error_r);
+/* Returns same as lang_tokenizer_next(). */
+int lang_tokenizer_final(struct lang_tokenizer *tok, const char **token_r,
+			 const char **error_r);
 
-const char *fts_tokenizer_name(const struct fts_tokenizer *tok);
+const char *lang_tokenizer_name(const struct lang_tokenizer *tok);
 
 #endif

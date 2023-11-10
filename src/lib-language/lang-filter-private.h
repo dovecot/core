@@ -1,9 +1,9 @@
-#ifndef FTS_FILTER_PRIVATE_H
-#define FTS_FILTER_PRIVATE_H
+#ifndef LANG_FILTER_PRIVATE_H
+#define LANG_FILTER_PRIVATE_H
 
 #include "lang-filter.h"
 
-#define FTS_FILTER_CLASSES_NR 6
+#define LANG_FILTER_CLASSES_NR 6
 
 /*
  API that stemming providers (classes) must provide: The create()
@@ -12,21 +12,21 @@
  The destroy function is called to destroy an instance of a filter.
 
 */
-struct fts_filter_vfuncs {
-	int (*create)(const struct fts_language *lang,
+struct lang_filter_vfuncs {
+	int (*create)(const struct language *lang,
 	              const char *const *settings,
-	              struct fts_filter **filter_r,
+	              struct lang_filter **filter_r,
 	              const char **error_r);
-	int (*filter)(struct fts_filter *filter, const char **token,
+	int (*filter)(struct lang_filter *filter, const char **token,
 		      const char **error_r);
 
-	void (*destroy)(struct fts_filter *filter);
+	void (*destroy)(struct lang_filter *filter);
 };
 
-struct fts_filter {
+struct lang_filter {
 	const char *class_name; /* name of the class this is based on */
-	struct fts_filter_vfuncs v;
-	struct fts_filter *parent;
+	struct lang_filter_vfuncs v;
+	struct lang_filter *parent;
 	string_t *token;
 	size_t max_length;
 	int refcount;

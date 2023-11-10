@@ -13,7 +13,7 @@
 
 static struct UCaseMap *icu_csm = NULL;
 
-static struct UCaseMap *fts_icu_csm(void)
+static struct UCaseMap *lang_icu_csm(void)
 {
 	UErrorCode err = U_ZERO_ERROR;
 
@@ -27,8 +27,8 @@ static struct UCaseMap *fts_icu_csm(void)
 	return icu_csm;
 }
 
-void fts_icu_utf8_to_utf16(ARRAY_TYPE(icu_utf16) *dest_utf16,
-			   const char *src_utf8)
+void lang_icu_utf8_to_utf16(ARRAY_TYPE(icu_utf16) *dest_utf16,
+			    const char *src_utf8)
 {
 	buffer_t *dest_buf = dest_utf16->arr.buffer;
 	UErrorCode err = U_ZERO_ERROR;
@@ -60,8 +60,8 @@ void fts_icu_utf8_to_utf16(ARRAY_TYPE(icu_utf16) *dest_utf16,
 	i_assert(retp == dest_data);
 }
 
-void fts_icu_utf16_to_utf8(string_t *dest_utf8, const UChar *src_utf16,
-			   unsigned int src_len)
+void lang_icu_utf16_to_utf8(string_t *dest_utf8, const UChar *src_utf16,
+			    unsigned int src_len)
 {
 	int32_t dest_len = 0;
 	int32_t sub_num = 0;
@@ -91,9 +91,9 @@ void fts_icu_utf16_to_utf8(string_t *dest_utf8, const UChar *src_utf16,
 	i_assert(retp == dest_data);
 }
 
-int fts_icu_translate(ARRAY_TYPE(icu_utf16) *dest_utf16, const UChar *src_utf16,
-		      unsigned int src_len, UTransliterator *transliterator,
-		      const char **error_r)
+int lang_icu_translate(ARRAY_TYPE(icu_utf16) *dest_utf16, const UChar *src_utf16,
+		       unsigned int src_len, UTransliterator *transliterator,
+		       const char **error_r)
 {
 	buffer_t *dest_buf = dest_utf16->arr.buffer;
 	UErrorCode err = U_ZERO_ERROR;
@@ -134,9 +134,9 @@ int fts_icu_translate(ARRAY_TYPE(icu_utf16) *dest_utf16, const UChar *src_utf16,
 	return 0;
 }
 
-void fts_icu_lcase(string_t *dest_utf8, const char *src_utf8)
+void lang_icu_lcase(string_t *dest_utf8, const char *src_utf8)
 {
-	struct UCaseMap *csm = fts_icu_csm();
+	struct UCaseMap *csm = lang_icu_csm();
 	size_t avail_bytes, dest_pos = dest_utf8->used;
 	char *dest_data;
 	int dest_full_len;
@@ -164,7 +164,7 @@ void fts_icu_lcase(string_t *dest_utf8, const char *src_utf8)
 	buffer_set_used_size(dest_utf8, dest_full_len);
 }
 
-void fts_icu_deinit(void)
+void lang_icu_deinit(void)
 {
 	if (icu_csm != NULL) {
 		ucasemap_close(icu_csm);
@@ -173,9 +173,9 @@ void fts_icu_deinit(void)
 	u_cleanup();
 }
 
-int fts_icu_transliterator_create(const char *id,
-                                  UTransliterator **transliterator_r,
-                                  const char **error_r)
+int lang_icu_transliterator_create(const char *id,
+                                   UTransliterator **transliterator_r,
+                                   const char **error_r)
 {
 	UErrorCode err = U_ZERO_ERROR;
 	UParseError perr;
@@ -183,7 +183,7 @@ int fts_icu_transliterator_create(const char *id,
 	i_zero(&perr);
 
 	t_array_init(&id_utf16, strlen(id));
-	fts_icu_utf8_to_utf16(&id_utf16, id);
+	lang_icu_utf8_to_utf16(&id_utf16, id);
 	*transliterator_r = utrans_openU(array_front(&id_utf16),
 					 array_count(&id_utf16),
 					 UTRANS_FORWARD, NULL, 0, &perr, &err);

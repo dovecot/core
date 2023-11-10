@@ -21,13 +21,13 @@ static struct mail_storage_hooks fts_mail_storage_hooks = {
 
 void fts_plugin_init(struct module *module)
 {
-	fts_library_init();
+	lang_library_init();
 	mail_storage_hooks_add(module, &fts_mail_storage_hooks);
 }
 
 void fts_plugin_deinit(void)
 {
-	fts_library_deinit();
+	lang_library_deinit();
 	fts_parsers_unload();
 	mail_storage_hooks_remove(&fts_mail_storage_hooks);
 }

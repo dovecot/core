@@ -1,8 +1,8 @@
-#ifndef FTS_FILTER_H
-#define FTS_FILTER_H
+#ifndef LANG_FILTER_H
+#define LANG_FILTER_H
 
-struct fts_language;
-struct fts_filter;
+struct language;
+struct lang_filter;
 /*
  Settings are given in the form of a const char * const *settings =
  {"key, "value", "key2", "value2", NULL} array of string pairs.
@@ -13,12 +13,12 @@ struct fts_filter;
   Stopword files are looked up in "<path>"/stopwords_<lang>.txt
 
  */
-extern const struct fts_filter *fts_filter_stopwords;
+extern const struct lang_filter *lang_filter_stopwords;
 
 /*
  Settings: "lang", language of the stemmed language.
  */
-extern const struct fts_filter *fts_filter_stemmer_snowball;
+extern const struct lang_filter *lang_filter_stemmer_snowball;
 
 /*
  Settings: "id", description of the normalizing/translitterating rules
@@ -29,43 +29,43 @@ extern const struct fts_filter *fts_filter_stemmer_snowball;
  "maxlen", maximum length of tokens that ICU normalizer will output.
   Defaults to 250.
  */
-extern const struct fts_filter *fts_filter_normalizer_icu;
+extern const struct lang_filter *lang_filter_normalizer_icu;
 
 /* Lowercases the input. Supports UTF8, if libicu is available. */
-extern const struct fts_filter *fts_filter_lowercase;
+extern const struct lang_filter *lang_filter_lowercase;
 
 /* Removes <'s> suffix from words. */
-extern const struct fts_filter *fts_filter_english_possessive;
+extern const struct lang_filter *lang_filter_english_possessive;
 
 /* Removes prefixing contractions from words. */
-extern const struct fts_filter *fts_filter_contractions;
+extern const struct lang_filter *lang_filter_contractions;
 
 /* Register all built-in filters. */
-void fts_filters_init(void);
-void fts_filters_deinit(void);
+void lang_filters_init(void);
+void lang_filters_deinit(void);
 
 /* Register a new class explicitly. Built-in classes are automatically
    registered. */
-void fts_filter_register(const struct fts_filter *filter_class);
+void lang_filter_register(const struct lang_filter *filter_class);
 
 /*
  Filtering workflow, find --> create --> filter --> destroy.
  */
-const struct fts_filter *fts_filter_find(const char *name);
-int fts_filter_create(const struct fts_filter *filter_class,
-                      struct fts_filter *parent,
-                      const struct fts_language *lang,
-                      const char *const *settings,
-                      struct fts_filter **filter_r,
-                      const char **error_r);
-void fts_filter_ref(struct fts_filter *filter);
-void fts_filter_unref(struct fts_filter **filter);
+const struct lang_filter *lang_filter_find(const char *name);
+int lang_filter_create(const struct lang_filter *filter_class,
+                       struct lang_filter *parent,
+                       const struct language *lang,
+                       const char *const *settings,
+                       struct lang_filter **filter_r,
+                       const char **error_r);
+void lang_filter_ref(struct lang_filter *filter);
+void lang_filter_unref(struct lang_filter **filter);
 
 /* Returns 1 if token is returned in *token, 0 if token was filtered
    out (*token is also set to NULL) and -1 on error.
    Input is also given via *token.
 */
-int fts_filter_filter(struct fts_filter *filter, const char **token,
-		      const char **error_r);
+int lang_filter(struct lang_filter *filter, const char **token,
+		const char **error_r);
 
 #endif

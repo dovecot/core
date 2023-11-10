@@ -10,54 +10,54 @@
 #  include "lang-icu.h"
 #endif
 
-static ARRAY(const struct fts_filter *) fts_filter_classes;
+static ARRAY(const struct lang_filter *) lang_filter_classes;
 
-void fts_filters_init(void)
+void lang_filters_init(void)
 {
-	i_array_init(&fts_filter_classes, FTS_FILTER_CLASSES_NR);
+	i_array_init(&lang_filter_classes, LANG_FILTER_CLASSES_NR);
 
-	fts_filter_register(fts_filter_stopwords);
-	fts_filter_register(fts_filter_stemmer_snowball);
-	fts_filter_register(fts_filter_normalizer_icu);
-	fts_filter_register(fts_filter_lowercase);
-	fts_filter_register(fts_filter_english_possessive);
-	fts_filter_register(fts_filter_contractions);
+	lang_filter_register(lang_filter_stopwords);
+	lang_filter_register(lang_filter_stemmer_snowball);
+	lang_filter_register(lang_filter_normalizer_icu);
+	lang_filter_register(lang_filter_lowercase);
+	lang_filter_register(lang_filter_english_possessive);
+	lang_filter_register(lang_filter_contractions);
 }
 
-void fts_filters_deinit(void)
+void lang_filters_deinit(void)
 {
 #ifdef HAVE_LIBICU
-	fts_icu_deinit();
+	lang_icu_deinit();
 #endif
-	array_free(&fts_filter_classes);
+	array_free(&lang_filter_classes);
 }
 
-void fts_filter_register(const struct fts_filter *filter_class)
+void lang_filter_register(const struct lang_filter *filter_class)
 {
-	i_assert(fts_filter_find(filter_class->class_name) == NULL);
+	i_assert(lang_filter_find(filter_class->class_name) == NULL);
 
-	array_push_back(&fts_filter_classes, &filter_class);
+	array_push_back(&lang_filter_classes, &filter_class);
 }
 
-const struct fts_filter *fts_filter_find(const char *name)
+const struct lang_filter *lang_filter_find(const char *name)
 {
-	const struct fts_filter *filter;
+	const struct lang_filter *filter;
 
-	array_foreach_elem(&fts_filter_classes, filter) {
+	array_foreach_elem(&lang_filter_classes, filter) {
 		if (strcmp(filter->class_name, name) == 0)
 			return filter;
 	}
 	return NULL;
 }
 
-int fts_filter_create(const struct fts_filter *filter_class,
-                      struct fts_filter *parent,
-                      const struct fts_language *lang,
-                      const char *const *settings,
-                      struct fts_filter **filter_r,
-                      const char **error_r)
+int lang_filter_create(const struct lang_filter *filter_class,
+                       struct lang_filter *parent,
+                       const struct language *lang,
+                       const char *const *settings,
+                       struct lang_filter **filter_r,
+                       const char **error_r)
 {
-	struct fts_filter *fp;
+	struct lang_filter *fp;
 	const char *empty_settings = NULL;
 
 	i_assert(settings == NULL || str_array_length(settings) % 2 == 0);
@@ -76,27 +76,27 @@ int fts_filter_create(const struct fts_filter *filter_class,
 			*error_r = t_strdup_printf("Unknown setting: %s", settings[0]);
 			return -1;
 		}
-		fp = i_new(struct fts_filter, 1);
+		fp = i_new(struct lang_filter, 1);
 		*fp = *filter_class;
 	}
 	fp->refcount = 1;
 	fp->parent = parent;
 	if (parent != NULL) {
-		fts_filter_ref(parent);
+		lang_filter_ref(parent);
 	}
 	*filter_r = fp;
 	return 0;
 }
-void fts_filter_ref(struct fts_filter *fp)
+void lang_filter_ref(struct lang_filter *fp)
 {
 	i_assert(fp->refcount > 0);
 
 	fp->refcount++;
 }
 
-void fts_filter_unref(struct fts_filter **_fpp)
+void lang_filter_unref(struct lang_filter **_fpp)
 {
-	struct fts_filter *fp = *_fpp;
+	struct lang_filter *fp = *_fpp;
 
 	i_assert(fp->refcount > 0);
 	*_fpp = NULL;
@@ -105,7 +105,7 @@ void fts_filter_unref(struct fts_filter **_fpp)
 		return;
 
 	if (fp->parent != NULL)
-		fts_filter_unref(&fp->parent);
+		lang_filter_unref(&fp->parent);
 	if (fp->v.destroy != NULL)
 		fp->v.destroy(fp);
 	else {
@@ -115,8 +115,8 @@ void fts_filter_unref(struct fts_filter **_fpp)
 	}
 }
 
-int fts_filter_filter(struct fts_filter *filter, const char **token,
-		      const char **error_r)
+int lang_filter(struct lang_filter *filter, const char **token,
+		const char **error_r)
 {
 	int ret = 0;
 
@@ -124,7 +124,7 @@ int fts_filter_filter(struct fts_filter *filter, const char **token,
 
 	/* Recurse to parent. */
 	if (filter->parent != NULL)
-		ret = fts_filter_filter(filter->parent, token, error_r);
+		ret = lang_filter(filter->parent, token, error_r);
 
 	/* Parent returned token or no parent. */
 	if (ret > 0 || filter->parent == NULL)

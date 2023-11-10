@@ -6,16 +6,16 @@
 #include "lang-filter.h"
 #include "lang-library.h"
 
-void fts_library_init(void)
+void lang_library_init(void)
 {
-	fts_languages_init();
-	fts_tokenizers_init();
-	fts_filters_init();
+	languages_init();
+	lang_tokenizers_init();
+	lang_filters_init();
 }
 
-void fts_library_deinit(void)
+void lang_library_deinit(void)
 {
-	fts_languages_deinit();
-	fts_tokenizers_deinit();
-	fts_filters_deinit();
+	languages_deinit();
+	lang_tokenizers_deinit();
+	lang_filters_deinit();
 }
