@@ -85,7 +85,7 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 	backend->set = set;
 
 	T_BEGIN {
-		if (backend->v->init(backend, data) < 0)
+		if (backend->v->init_legacy(backend, data) < 0)
 			i_fatal("acl: backend %s init failed with data: %s",
 				backend->v->name, data);
 	} T_END;
