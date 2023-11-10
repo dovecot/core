@@ -29,7 +29,7 @@ static struct acl_backend *acl_backend_vfile_alloc(void)
 }
 
 static int
-acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
+acl_backend_vfile_init_legacy(struct acl_backend *_backend, const char *data)
 {
 	struct event *event = _backend->event;
 	struct acl_backend_vfile *backend =
@@ -564,7 +564,7 @@ static int acl_backend_vfile_object_last_changed(struct acl_object *_aclobj,
 const struct acl_backend_vfuncs acl_backend_vfile = {
 	.name = "vfile",
 	.alloc = acl_backend_vfile_alloc,
-	.init = acl_backend_vfile_init,
+	.init_legacy = acl_backend_vfile_init_legacy,
 	.deinit = acl_backend_vfile_deinit,
 	.nonowner_lookups_iter_init = acl_backend_vfile_nonowner_iter_init,
 	.nonowner_lookups_iter_next = acl_backend_vfile_nonowner_iter_next,
