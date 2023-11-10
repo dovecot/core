@@ -52,6 +52,8 @@ void acl_global_file_deinit(struct acl_global_file **_file)
 {
 	struct acl_global_file *file = *_file;
 
+	if (file == NULL)
+		return;
 	*_file = NULL;
 
 	array_free(&file->rights);

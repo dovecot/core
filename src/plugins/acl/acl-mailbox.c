@@ -89,8 +89,7 @@ static void acl_mailbox_free(struct mailbox *box)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
 
-	if (abox->aclobj != NULL)
-		acl_object_deinit(&abox->aclobj);
+	acl_object_deinit(&abox->aclobj);
 	abox->module_ctx.super.free(box);
 }
 

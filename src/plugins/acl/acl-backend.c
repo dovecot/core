@@ -98,10 +98,11 @@ void acl_backend_deinit(struct acl_backend **_backend)
 {
 	struct acl_backend *backend = *_backend;
 
+	if (backend == NULL)
+		return;
 	*_backend = NULL;
 
-	if (backend->default_aclobj != NULL)
-		acl_object_deinit(&backend->default_aclobj);
+	acl_object_deinit(&backend->default_aclobj);
 	acl_cache_deinit(&backend->cache);
 	event_unref(&backend->event);
 	backend->v.deinit(backend);

@@ -57,6 +57,8 @@ void acl_cache_deinit(struct acl_cache **_cache)
 {
 	struct acl_cache *cache = *_cache;
 
+	if (cache == NULL)
+		return;
 	*_cache = NULL;
 
 	acl_cache_flush_all(cache);
