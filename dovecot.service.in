@@ -23,6 +23,7 @@ NonBlocking=yes
 ProtectSystem=full
 ProtectHome=no
 PrivateDevices=true
+OOMPolicy=continue
 
 # You can add environment variables with e.g.:
 #Environment='CORE_OUTOFMEM=1'
