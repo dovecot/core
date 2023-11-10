@@ -47,6 +47,8 @@ void acl_object_deinit(struct acl_object **_aclobj)
 {
 	struct acl_object *aclobj = *_aclobj;
 
+	if (aclobj == NULL)
+		return;
 	*_aclobj = NULL;
 	aclobj->backend->v.object_deinit(aclobj);
 }
