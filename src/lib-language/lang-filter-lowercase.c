@@ -11,12 +11,12 @@
 #endif
 
 static int
-fts_filter_lowercase_create(const struct fts_language *lang ATTR_UNUSED,
-                            const char *const *settings,
-                            struct fts_filter **filter_r,
-                            const char **error_r)
+lang_filter_lowercase_create(const struct language *lang ATTR_UNUSED,
+			     const char *const *settings,
+			     struct lang_filter **filter_r,
+			     const char **error_r)
 {
-	struct fts_filter *filter;
+	struct lang_filter *filter;
 	unsigned int i, max_length = 250;
 
 	for (i = 0; settings[i] != NULL; i += 2) {
@@ -34,8 +34,8 @@ fts_filter_lowercase_create(const struct fts_language *lang ATTR_UNUSED,
 			return -1;
 		}
 	}
-	filter = i_new(struct fts_filter, 1);
-	*filter = *fts_filter_lowercase;
+	filter = i_new(struct lang_filter, 1);
+	*filter = *lang_filter_lowercase;
 	filter->token = str_new(default_pool, 64);
 	filter->max_length = max_length;
 
@@ -44,14 +44,14 @@ fts_filter_lowercase_create(const struct fts_language *lang ATTR_UNUSED,
 }
 
 static int
-fts_filter_lowercase_filter(struct fts_filter *filter ATTR_UNUSED,
-                            const char **token,
-                            const char **error_r ATTR_UNUSED)
+lang_filter_lowercase_filter(struct lang_filter *filter ATTR_UNUSED,
+			     const char **token,
+			     const char **error_r ATTR_UNUSED)
 {
 #ifdef HAVE_LIBICU
 	str_truncate(filter->token, 0);
-	fts_icu_lcase(filter->token, *token);
-	fts_filter_truncate_token(filter->token, filter->max_length);
+	lang_icu_lcase(filter->token, *token);
+	lang_filter_truncate_token(filter->token, filter->max_length);
 	*token = str_c(filter->token);
 #else
 	*token = t_str_lcase(*token);
@@ -59,13 +59,13 @@ fts_filter_lowercase_filter(struct fts_filter *filter ATTR_UNUSED,
 	return 1;
 }
 
-static const struct fts_filter fts_filter_lowercase_real = {
+static const struct lang_filter lang_filter_lowercase_real = {
 	.class_name = "lowercase",
 	.v = {
-		fts_filter_lowercase_create,
-		fts_filter_lowercase_filter,
+		lang_filter_lowercase_create,
+		lang_filter_lowercase_filter,
 		NULL
 	}
 };
 
-const struct fts_filter *fts_filter_lowercase = &fts_filter_lowercase_real;
+const struct lang_filter *lang_filter_lowercase = &lang_filter_lowercase_real;

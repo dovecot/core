@@ -8,65 +8,65 @@
 #include "lang-tokenizer.h"
 #include "lang-tokenizer-private.h"
 
-static ARRAY(const struct fts_tokenizer *) fts_tokenizer_classes;
+static ARRAY(const struct lang_tokenizer *) lang_tokenizer_classes;
 
-void fts_tokenizers_init(void)
+void lang_tokenizers_init(void)
 {
-	if (!array_is_created(&fts_tokenizer_classes)) {
-		fts_tokenizer_register(fts_tokenizer_generic);
-		fts_tokenizer_register(fts_tokenizer_email_address);
+	if (!array_is_created(&lang_tokenizer_classes)) {
+		lang_tokenizer_register(lang_tokenizer_generic);
+		lang_tokenizer_register(lang_tokenizer_email_address);
 	}
 }
 
-void fts_tokenizers_deinit(void)
+void lang_tokenizers_deinit(void)
 {
-	if (array_is_created(&fts_tokenizer_classes))
-		array_free(&fts_tokenizer_classes);
+	if (array_is_created(&lang_tokenizer_classes))
+		array_free(&lang_tokenizer_classes);
 }
 
 /* private */
-void fts_tokenizer_register(const struct fts_tokenizer *tok_class)
+void lang_tokenizer_register(const struct lang_tokenizer *tok_class)
 {
-	if (!array_is_created(&fts_tokenizer_classes))
-		i_array_init(&fts_tokenizer_classes, FTS_TOKENIZER_CLASSES_NR);
-	array_push_back(&fts_tokenizer_classes, &tok_class);
+	if (!array_is_created(&lang_tokenizer_classes))
+		i_array_init(&lang_tokenizer_classes, LANG_TOKENIZER_CLASSES_NR);
+	array_push_back(&lang_tokenizer_classes, &tok_class);
 }
 
 /* private */
-void fts_tokenizer_unregister(const struct fts_tokenizer *tok_class)
+void lang_tokenizer_unregister(const struct lang_tokenizer *tok_class)
 {
-	const struct fts_tokenizer *const *tp;
+	const struct lang_tokenizer *const *tp;
 	unsigned int idx;
 
-	array_foreach(&fts_tokenizer_classes, tp) {
+	array_foreach(&lang_tokenizer_classes, tp) {
 		if (strcmp((*tp)->name, tok_class->name) == 0) {
-			idx = array_foreach_idx(&fts_tokenizer_classes, tp);
-			array_delete(&fts_tokenizer_classes, idx, 1);
-			if (array_count(&fts_tokenizer_classes) == 0)
-				array_free(&fts_tokenizer_classes);
+			idx = array_foreach_idx(&lang_tokenizer_classes, tp);
+			array_delete(&lang_tokenizer_classes, idx, 1);
+			if (array_count(&lang_tokenizer_classes) == 0)
+				array_free(&lang_tokenizer_classes);
 			return;
 		}
 	}
 	i_unreached();
 }
 
-const struct fts_tokenizer *fts_tokenizer_find(const char *name)
+const struct lang_tokenizer *lang_tokenizer_find(const char *name)
 {
-	const struct fts_tokenizer *tok;
+	const struct lang_tokenizer *tok;
 
-	array_foreach_elem(&fts_tokenizer_classes, tok) {
+	array_foreach_elem(&lang_tokenizer_classes, tok) {
 		if (strcmp(tok->name, name) == 0)
 			return tok;
 	}
 	return NULL;
 }
 
-const char *fts_tokenizer_name(const struct fts_tokenizer *tok)
+const char *lang_tokenizer_name(const struct lang_tokenizer *tok)
 {
 	return tok->name;
 }
 
-static void fts_tokenizer_self_reset(struct fts_tokenizer *tok)
+static void lang_tokenizer_self_reset(struct lang_tokenizer *tok)
 {
 	tok->prev_data = NULL;
 	tok->prev_size = 0;
@@ -74,13 +74,13 @@ static void fts_tokenizer_self_reset(struct fts_tokenizer *tok)
 	tok->prev_reply_finished = TRUE;
 }
 
-int fts_tokenizer_create(const struct fts_tokenizer *tok_class,
-			 struct fts_tokenizer *parent,
-			 const char *const *settings,
-			 struct fts_tokenizer **tokenizer_r,
-			 const char **error_r)
+int lang_tokenizer_create(const struct lang_tokenizer *tok_class,
+			  struct lang_tokenizer *parent,
+			  const char *const *settings,
+			  struct lang_tokenizer **tokenizer_r,
+			  const char **error_r)
 {
-	struct fts_tokenizer *tok;
+	struct lang_tokenizer *tok;
 	const char *empty_settings = NULL;
 
 	i_assert(settings == NULL || str_array_length(settings) % 2 == 0);
@@ -93,9 +93,9 @@ int fts_tokenizer_create(const struct fts_tokenizer *tok_class,
 		return -1;
 	}
 	tok->refcount = 1;
-	fts_tokenizer_self_reset(tok);
+	lang_tokenizer_self_reset(tok);
 	if (parent != NULL) {
-		fts_tokenizer_ref(parent);
+		lang_tokenizer_ref(parent);
 		tok->parent = parent;
 		tok->parent_input = buffer_create_dynamic(default_pool, 128);
 	}
@@ -104,16 +104,16 @@ int fts_tokenizer_create(const struct fts_tokenizer *tok_class,
 	return 0;
 }
 
-void fts_tokenizer_ref(struct fts_tokenizer *tok)
+void lang_tokenizer_ref(struct lang_tokenizer *tok)
 {
 	i_assert(tok->refcount > 0);
 
 	tok->refcount++;
 }
 
-void fts_tokenizer_unref(struct fts_tokenizer **_tok)
+void lang_tokenizer_unref(struct lang_tokenizer **_tok)
 {
-	struct fts_tokenizer *tok = *_tok;
+	struct lang_tokenizer *tok = *_tok;
 
 	i_assert(tok->refcount > 0);
 	*_tok = NULL;
@@ -123,14 +123,14 @@ void fts_tokenizer_unref(struct fts_tokenizer **_tok)
 
 	buffer_free(&tok->parent_input);
 	if (tok->parent != NULL)
-		fts_tokenizer_unref(&tok->parent);
+		lang_tokenizer_unref(&tok->parent);
 	tok->v->destroy(tok);
 }
 
 static int
-fts_tokenizer_next_self(struct fts_tokenizer *tok,
-                        const unsigned char *data, size_t size,
-                        const char **token_r, const char **error_r)
+lang_tokenizer_next_self(struct lang_tokenizer *tok,
+                         const unsigned char *data, size_t size,
+                         const char **token_r, const char **error_r)
 {
 	int ret = 0;
 	size_t skip = 0;
@@ -170,27 +170,27 @@ fts_tokenizer_next_self(struct fts_tokenizer *tok,
 	} else if (ret == 0) {
 		/* Need more data to get the next token. The next call will
 		   provide a whole new data block, so reset the prev_* state. */
-		fts_tokenizer_self_reset(tok);
+		lang_tokenizer_self_reset(tok);
 	}
 	return ret;
 }
 
-void fts_tokenizer_reset(struct fts_tokenizer *tok)
+void lang_tokenizer_reset(struct lang_tokenizer *tok)
 {
 	tok->v->reset(tok);
-	fts_tokenizer_self_reset(tok);
+	lang_tokenizer_self_reset(tok);
 }
 
-int fts_tokenizer_next(struct fts_tokenizer *tok,
-		       const unsigned char *data, size_t size,
-		       const char **token_r, const char **error_r)
+int lang_tokenizer_next(struct lang_tokenizer *tok,
+		        const unsigned char *data, size_t size,
+		        const char **token_r, const char **error_r)
 {
 	int ret;
 
 	switch (tok->parent_state) {
-	case FTS_TOKENIZER_PARENT_STATE_ADD_DATA:
+	case LANG_TOKENIZER_PARENT_STATE_ADD_DATA:
 		/* Try to get the next token using this tokenizer */
-		ret = fts_tokenizer_next_self(tok, data, size, token_r, error_r);
+		ret = lang_tokenizer_next_self(tok, data, size, token_r, error_r);
 		if (ret <= 0) {
 			/* error / more data needed */
 			if (ret == 0 && size == 0 &&
@@ -200,8 +200,8 @@ int fts_tokenizer_next(struct fts_tokenizer *tok,
 				   tokenizer still needs to be finalized. */
 				tok->finalize_parent_pending = FALSE;
 				tok->parent_state =
-					FTS_TOKENIZER_PARENT_STATE_FINALIZE;
-				return fts_tokenizer_next(tok, NULL, 0, token_r, error_r);
+					LANG_TOKENIZER_PARENT_STATE_FINALIZE;
+				return lang_tokenizer_next(tok, NULL, 0, token_r, error_r);
 			}
 			break;
 		}
@@ -221,19 +221,19 @@ int fts_tokenizer_next(struct fts_tokenizer *tok,
 		buffer_append(tok->parent_input, *token_r, strlen(*token_r));
 		tok->parent_state++;
 		/* fall through */
-	case FTS_TOKENIZER_PARENT_STATE_NEXT_OUTPUT:
+	case LANG_TOKENIZER_PARENT_STATE_NEXT_OUTPUT:
 		/* Return the next token from parent tokenizer */
-		ret = fts_tokenizer_next(tok->parent, tok->parent_input->data,
+		ret = lang_tokenizer_next(tok->parent, tok->parent_input->data,
 		                         tok->parent_input->used, token_r, error_r);
 		if (ret != 0)
 			break;
 		tok->parent_state++;
 		/* fall through */
-	case FTS_TOKENIZER_PARENT_STATE_FINALIZE:
+	case LANG_TOKENIZER_PARENT_STATE_FINALIZE:
 		/* No more input is coming from the child tokenizer. Return the
 		   final token(s) from the parent tokenizer. */
 		if (!tok->stream_to_parents || size == 0) {
-			ret = fts_tokenizer_next(tok->parent, NULL, 0,
+			ret = lang_tokenizer_next(tok->parent, NULL, 0,
 						 token_r, error_r);
 			if (ret != 0)
 				break;
@@ -243,8 +243,8 @@ int fts_tokenizer_next(struct fts_tokenizer *tok,
 		/* We're finished handling the previous child token. See if
 		   there are more child tokens available with this same data
 		   input. */
-		tok->parent_state = FTS_TOKENIZER_PARENT_STATE_ADD_DATA;
-		return fts_tokenizer_next(tok, data, size, token_r, error_r);
+		tok->parent_state = LANG_TOKENIZER_PARENT_STATE_ADD_DATA;
+		return lang_tokenizer_next(tok, data, size, token_r, error_r);
 	default:
 		i_unreached();
 	}
@@ -253,8 +253,8 @@ int fts_tokenizer_next(struct fts_tokenizer *tok,
 	return ret;
 }
 
-int fts_tokenizer_final(struct fts_tokenizer *tok, const char **token_r,
-			const char **error_r)
+int lang_tokenizer_final(struct lang_tokenizer *tok, const char **token_r,
+			 const char **error_r)
 {
-	return fts_tokenizer_next(tok, NULL, 0, token_r, error_r);
+	return lang_tokenizer_next(tok, NULL, 0, token_r, error_r);
 }

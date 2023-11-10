@@ -10,7 +10,7 @@
 #define IS_DTEXT(c) \
 	(rfc822_atext_chars[(int)(unsigned char)(c)] == 2)
 
-#define FTS_DEFAULT_ADDRESS_MAX_LENGTH 254
+#define LANG_DEFAULT_ADDRESS_MAX_LENGTH 254
 
 enum email_address_parser_state {
 	EMAIL_ADDRESS_PARSER_STATE_NONE = 0,
@@ -20,8 +20,8 @@ enum email_address_parser_state {
 	EMAIL_ADDRESS_PARSER_STATE_SKIP,
 };
 
-struct email_address_fts_tokenizer {
-	struct fts_tokenizer tokenizer;
+struct email_address_lang_tokenizer {
+	struct lang_tokenizer tokenizer;
 	enum email_address_parser_state state;
 	string_t *last_word;
 	string_t *parent_data; /* Copy of input data between tokens. */
@@ -30,13 +30,13 @@ struct email_address_fts_tokenizer {
 };
 
 static int
-fts_tokenizer_email_address_create(const char *const *settings,
-				   struct fts_tokenizer **tokenizer_r,
-				   const char **error_r)
+lang_tokenizer_email_address_create(const char *const *settings,
+				    struct lang_tokenizer **tokenizer_r,
+				    const char **error_r)
 {
-	struct email_address_fts_tokenizer *tok;
+	struct email_address_lang_tokenizer *tok;
 	bool search = FALSE;
-	unsigned int max_length = FTS_DEFAULT_ADDRESS_MAX_LENGTH;
+	unsigned int max_length = LANG_DEFAULT_ADDRESS_MAX_LENGTH;
 	unsigned int i;
 
 	for (i = 0; settings[i] != NULL; i += 2) {
@@ -56,8 +56,8 @@ fts_tokenizer_email_address_create(const char *const *settings,
 		}
 	}
 
-	tok = i_new(struct email_address_fts_tokenizer, 1);
-	tok->tokenizer = *fts_tokenizer_email_address;
+	tok = i_new(struct email_address_lang_tokenizer, 1);
+	tok->tokenizer = *lang_tokenizer_email_address;
 	tok->last_word = str_new(default_pool, 128);
 	tok->parent_data = str_new(default_pool, 128);
 	tok->max_length = max_length;
@@ -66,10 +66,10 @@ fts_tokenizer_email_address_create(const char *const *settings,
 	return 0;
 }
 
-static void fts_tokenizer_email_address_destroy(struct fts_tokenizer *_tok)
+static void lang_tokenizer_email_address_destroy(struct lang_tokenizer *_tok)
 {
-	struct email_address_fts_tokenizer *tok =
-		(struct email_address_fts_tokenizer *)_tok;
+	struct email_address_lang_tokenizer *tok =
+		(struct email_address_lang_tokenizer *)_tok;
 
 	str_free(&tok->last_word);
 	str_free(&tok->parent_data);
@@ -77,8 +77,8 @@ static void fts_tokenizer_email_address_destroy(struct fts_tokenizer *_tok)
 }
 
 static bool
-fts_tokenizer_address_current_token(struct email_address_fts_tokenizer *tok,
-                                    const char **token_r)
+lang_tokenizer_address_current_token(struct email_address_lang_tokenizer *tok,
+                                     const char **token_r)
 {
 	const unsigned char *data = tok->last_word->data;
 	size_t len = tok->last_word->used;
@@ -91,20 +91,20 @@ fts_tokenizer_address_current_token(struct email_address_fts_tokenizer *tok,
 		   IS_DTEXT() does not actually allow utf8 addresses
 		   yet though. */
 		len = tok->last_word->used;
-		fts_tokenizer_delete_trailing_partial_char(data, &len);
+		lang_tokenizer_delete_trailing_partial_char(data, &len);
 		i_assert(len <= tok->max_length);
 	}
 
 	if (len > 0)
-		fts_tokenizer_delete_trailing_invalid_char(data, &len);
+		lang_tokenizer_delete_trailing_invalid_char(data, &len);
 	*token_r = len == 0 ? "" :
 		t_strndup(data, len);
 	return len > 0;
 }
 
 static bool
-fts_tokenizer_address_parent_data(struct email_address_fts_tokenizer *tok,
-                                  const char **token_r)
+lang_tokenizer_address_parent_data(struct email_address_lang_tokenizer *tok,
+                                   const char **token_r)
 {
 	if (tok->tokenizer.parent == NULL || str_len(tok->parent_data) == 0)
 		return FALSE;
@@ -141,8 +141,8 @@ static size_t skip_nonlocal_part(const unsigned char *data, size_t size)
 }
 
 static bool
-fts_tokenizer_email_address_too_large(struct email_address_fts_tokenizer *tok,
-				      size_t pos)
+lang_tokenizer_email_address_too_large(struct email_address_lang_tokenizer *tok,
+				       size_t pos)
 {
 	if (str_len(tok->last_word) + pos <= tok->max_length)
 		return FALSE;
@@ -151,15 +151,15 @@ fts_tokenizer_email_address_too_large(struct email_address_fts_tokenizer *tok,
 
 	   Truncate the input that was added so far to the token, so all of it
 	   gets sent to the parent tokenizer in
-	   fts_tokenizer_address_parent_data(). */
+	   lang_tokenizer_address_parent_data(). */
 	str_truncate(tok->last_word, 0);
 	return TRUE;
 }
 
 static enum email_address_parser_state
-fts_tokenizer_email_address_parse_local(struct email_address_fts_tokenizer *tok,
-                                        const unsigned char *data, size_t size,
-                                        size_t *skip_r)
+lang_tokenizer_email_address_parse_local(struct email_address_lang_tokenizer *tok,
+                                         const unsigned char *data, size_t size,
+                                         size_t *skip_r)
 {
 	size_t pos = 0;
 	bool seen_at = FALSE;
@@ -175,7 +175,7 @@ fts_tokenizer_email_address_parse_local(struct email_address_fts_tokenizer *tok,
 			break;
 	}
 
-	if (fts_tokenizer_email_address_too_large(tok, pos)) {
+	if (lang_tokenizer_email_address_too_large(tok, pos)) {
 		*skip_r = 0;
 		return EMAIL_ADDRESS_PARSER_STATE_SKIP;
 	}
@@ -199,7 +199,7 @@ fts_tokenizer_email_address_parse_local(struct email_address_fts_tokenizer *tok,
 	return EMAIL_ADDRESS_PARSER_STATE_NONE;
 }
 
-static bool domain_is_empty(struct email_address_fts_tokenizer *tok)
+static bool domain_is_empty(struct email_address_lang_tokenizer *tok)
 {
 	const char *p, *str = str_c(tok->last_word);
 
@@ -209,16 +209,16 @@ static bool domain_is_empty(struct email_address_fts_tokenizer *tok)
 }
 
 static enum email_address_parser_state
-fts_tokenizer_email_address_parse_domain(struct email_address_fts_tokenizer *tok,
-                                         const unsigned char *data, size_t size,
-                                         size_t *skip_r)
+lang_tokenizer_email_address_parse_domain(struct email_address_lang_tokenizer *tok,
+                                          const unsigned char *data, size_t size,
+                                          size_t *skip_r)
 {
 	size_t pos = 0;
 
 	while (pos < size && (IS_DTEXT(data[pos]) || data[pos] == '.' || data[pos] == '-'))
 		pos++;
 
-	if (fts_tokenizer_email_address_too_large(tok, pos)) {
+	if (lang_tokenizer_email_address_too_large(tok, pos)) {
 		*skip_r = 0;
 		return EMAIL_ADDRESS_PARSER_STATE_SKIP;
 	}
@@ -242,8 +242,8 @@ fts_tokenizer_email_address_parse_domain(struct email_address_fts_tokenizer *tok
 }
 
 static bool
-fts_tokenizer_address_skip(const unsigned char *data, size_t size,
-			   size_t *skip_r)
+lang_tokenizer_address_skip(const unsigned char *data, size_t size,
+			    size_t *skip_r)
 {
 	for (size_t pos = 0; pos < size; pos++) {
 		if (!(IS_ATEXT(data[pos]) || data[pos] == '.' ||
@@ -258,17 +258,17 @@ fts_tokenizer_address_skip(const unsigned char *data, size_t size,
 
 /* Buffer raw data for parent. */
 static void
-fts_tokenizer_address_update_parent(struct email_address_fts_tokenizer *tok,
-                                    const unsigned char *data, size_t size)
+lang_tokenizer_address_update_parent(struct email_address_lang_tokenizer *tok,
+                                     const unsigned char *data, size_t size)
 {
 	if (tok->tokenizer.parent != NULL)
 		str_append_data(tok->parent_data, data, size);
 }
 
-static void fts_tokenizer_email_address_reset(struct fts_tokenizer *_tok)
+static void lang_tokenizer_email_address_reset(struct lang_tokenizer *_tok)
 {
-	struct email_address_fts_tokenizer *tok =
-		(struct email_address_fts_tokenizer *)_tok;
+	struct email_address_lang_tokenizer *tok =
+		(struct email_address_lang_tokenizer *)_tok;
 
 	tok->state = EMAIL_ADDRESS_PARSER_STATE_NONE;
 	str_truncate(tok->last_word, 0);
@@ -276,13 +276,13 @@ static void fts_tokenizer_email_address_reset(struct fts_tokenizer *_tok)
 }
 
 static int
-fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
-                                 const unsigned char *data, size_t size,
-				 size_t *skip_r, const char **token_r,
-				 const char **error_r ATTR_UNUSED)
+lang_tokenizer_email_address_next(struct lang_tokenizer *_tok,
+                                  const unsigned char *data, size_t size,
+				  size_t *skip_r, const char **token_r,
+				  const char **error_r ATTR_UNUSED)
 {
-	struct email_address_fts_tokenizer *tok =
-		(struct email_address_fts_tokenizer *)_tok;
+	struct email_address_lang_tokenizer *tok =
+		(struct email_address_lang_tokenizer *)_tok;
 	size_t pos = 0, local_skip;
 	bool finished;
 
@@ -291,7 +291,7 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 
 	if (tok->state == EMAIL_ADDRESS_PARSER_STATE_COMPLETE) {
 		*skip_r = pos;
-		if (fts_tokenizer_address_current_token(tok, token_r))
+		if (lang_tokenizer_address_current_token(tok, token_r))
 			return 1;
 	}
 
@@ -305,11 +305,11 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 			tok->state = EMAIL_ADDRESS_PARSER_STATE_NONE;
 		}
 
-		if (fts_tokenizer_address_parent_data(tok, token_r))
+		if (lang_tokenizer_address_parent_data(tok, token_r))
 			return 1;
 
 		if (tok->state == EMAIL_ADDRESS_PARSER_STATE_DOMAIN) {
-			if (fts_tokenizer_address_current_token(tok, token_r))
+			if (lang_tokenizer_address_current_token(tok, token_r))
 				return 1;
 		}
 		tok->state = EMAIL_ADDRESS_PARSER_STATE_NONE;
@@ -324,7 +324,7 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 			/* no part of address found yet. remove possible
 			   earlier data */
 			str_truncate(tok->last_word, 0);
-                        if (fts_tokenizer_address_parent_data(tok, token_r)) {
+                        if (lang_tokenizer_address_parent_data(tok, token_r)) {
                                *skip_r = pos;
                                return 1;
                         }
@@ -336,11 +336,11 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 			   the beginning of data to see if it contains a full
 			   local-part@ */
 			tok->state =
-				fts_tokenizer_email_address_parse_local(tok,
+				lang_tokenizer_email_address_parse_local(tok,
 				                                        data + pos,
 				                                        size - pos,
 				                                        &local_skip);
-			fts_tokenizer_address_update_parent(tok, data+pos,
+			lang_tokenizer_address_update_parent(tok, data+pos,
 			                                    local_skip);
 			pos += local_skip;
 
@@ -351,20 +351,20 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 			   to see if it contains a valid domain. */
 
 			tok->state =
-				fts_tokenizer_email_address_parse_domain(tok,
+				lang_tokenizer_email_address_parse_domain(tok,
 				                                        data + pos,
 				                                        size - pos,
 				                                        &local_skip);
-			fts_tokenizer_address_update_parent(tok, data+pos,
+			lang_tokenizer_address_update_parent(tok, data+pos,
 			                                    local_skip);
 			pos += local_skip;
 
 			break;
 		case EMAIL_ADDRESS_PARSER_STATE_COMPLETE:
 			*skip_r = pos;
-			if (fts_tokenizer_address_parent_data(tok, token_r))
+			if (lang_tokenizer_address_parent_data(tok, token_r))
 				return 1;
-			if (fts_tokenizer_address_current_token(tok, token_r))
+			if (lang_tokenizer_address_current_token(tok, token_r))
 				return 1;
 			break;
 		case EMAIL_ADDRESS_PARSER_STATE_SKIP:
@@ -373,18 +373,18 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 			   simply skipping over it, but the input is being
 			   passed to the parent tokenizer. */
 			*skip_r = pos;
-			if (fts_tokenizer_address_parent_data(tok, token_r))
+			if (lang_tokenizer_address_parent_data(tok, token_r))
 				return 1;
 
-			finished = fts_tokenizer_address_skip(data + pos,
+			finished = lang_tokenizer_address_skip(data + pos,
 							      size - pos,
 							      &local_skip);
-			fts_tokenizer_address_update_parent(tok, data+pos,
+			lang_tokenizer_address_update_parent(tok, data+pos,
 							    local_skip);
 			pos += local_skip;
 			if (finished) {
 				*skip_r = pos;
-				if (fts_tokenizer_address_parent_data(tok, token_r)) {
+				if (lang_tokenizer_address_parent_data(tok, token_r)) {
 					tok->state = EMAIL_ADDRESS_PARSER_STATE_NONE;
 					return 1;
 				}
@@ -400,17 +400,17 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 	return 0;
 }
 
-static const struct fts_tokenizer_vfuncs email_address_tokenizer_vfuncs = {
-	fts_tokenizer_email_address_create,
-	fts_tokenizer_email_address_destroy,
-	fts_tokenizer_email_address_reset,
-	fts_tokenizer_email_address_next
+static const struct lang_tokenizer_vfuncs email_address_tokenizer_vfuncs = {
+	lang_tokenizer_email_address_create,
+	lang_tokenizer_email_address_destroy,
+	lang_tokenizer_email_address_reset,
+	lang_tokenizer_email_address_next
 };
 
-static const struct fts_tokenizer fts_tokenizer_email_address_real = {
+static const struct lang_tokenizer lang_tokenizer_email_address_real = {
 	.name = "email-address",
 	.v = &email_address_tokenizer_vfuncs,
 	.stream_to_parents = TRUE,
 };
-const struct fts_tokenizer *fts_tokenizer_email_address =
-	&fts_tokenizer_email_address_real;
+const struct lang_tokenizer *lang_tokenizer_email_address =
+	&lang_tokenizer_email_address_real;

@@ -415,7 +415,7 @@ fts_merge_maybies(ARRAY_TYPE(seq_range) *dest_maybe,
 	}
 }
 
-void fts_filter_uids(ARRAY_TYPE(seq_range) *definite_dest,
+void lang_filter_uids(ARRAY_TYPE(seq_range) *definite_dest,
 		     const ARRAY_TYPE(seq_range) *definite_filter,
 		     ARRAY_TYPE(seq_range) *maybe_dest,
 		     const ARRAY_TYPE(seq_range) *maybe_filter)

@@ -1,8 +1,8 @@
-#ifndef FTS_TOKENIZER_GENERIC_PRIVATE_H
-#define FTS_TOKENIZER_GENERIC_PRIVATE_H
+#ifndef LANG_TOKENIZER_GENERIC_PRIVATE_H
+#define LANG_TOKENIZER_GENERIC_PRIVATE_H
 
-extern const struct fts_tokenizer_vfuncs generic_tokenizer_vfuncs_simple;
-extern const struct fts_tokenizer_vfuncs generic_tokenizer_vfuncs_tr29;
+extern const struct lang_tokenizer_vfuncs generic_tokenizer_vfuncs_simple;
+extern const struct lang_tokenizer_vfuncs generic_tokenizer_vfuncs_tr29;
 
 /* Word boundary letter type */
 enum letter_type {
@@ -38,8 +38,8 @@ enum boundary_algorithm {
 #define ALGORITHM_TR29_NAME "tr29"
 };
 
-struct generic_fts_tokenizer {
-	struct fts_tokenizer tokenizer;
+struct generic_lang_tokenizer {
+	struct lang_tokenizer tokenizer;
 	unsigned int max_length;
 	bool prefixsplat; /* for search strings, accept a trailing '*' for explicit prefix */
 	bool wb5a; /* TR29 rule for prefix separation

@@ -19,7 +19,7 @@ static unichar_t get_ending_utf8_char(const char *str, size_t *end_pos)
 }
 
 static int
-fts_filter_english_possessive_filter(struct fts_filter *filter ATTR_UNUSED,
+lang_filter_english_possessive_filter(struct lang_filter *filter ATTR_UNUSED,
 				     const char **token,
 				     const char **error_r ATTR_UNUSED)
 {
@@ -35,13 +35,13 @@ fts_filter_english_possessive_filter(struct fts_filter *filter ATTR_UNUSED,
 	return 1;
 }
 
-static const struct fts_filter fts_filter_english_possessive_real = {
+static const struct lang_filter lang_filter_english_possessive_real = {
 	.class_name = "english-possessive",
 	.v = {
 		NULL,
-		fts_filter_english_possessive_filter,
+		lang_filter_english_possessive_filter,
 		NULL
 	}
 };
 
-const struct fts_filter *fts_filter_english_possessive = &fts_filter_english_possessive_real;
+const struct lang_filter *lang_filter_english_possessive = &lang_filter_english_possessive_real;

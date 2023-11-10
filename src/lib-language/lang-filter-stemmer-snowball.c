@@ -8,17 +8,17 @@
 
 #include <libstemmer.h>
 
-struct fts_filter_stemmer_snowball {
-	struct fts_filter filter;
+struct lang_filter_stemmer_snowball {
+	struct lang_filter filter;
 	pool_t pool;
-	struct fts_language *lang;
+	struct language *lang;
 	struct sb_stemmer *stemmer;
 };
 
-static void fts_filter_stemmer_snowball_destroy(struct fts_filter *filter)
+static void lang_filter_stemmer_snowball_destroy(struct lang_filter *filter)
 {
-	struct fts_filter_stemmer_snowball *sp =
-		(struct fts_filter_stemmer_snowball *)filter;
+	struct lang_filter_stemmer_snowball *sp =
+		(struct lang_filter_stemmer_snowball *)filter;
 
 	if (sp->stemmer != NULL)
 		sb_stemmer_delete(sp->stemmer);
@@ -26,12 +26,12 @@ static void fts_filter_stemmer_snowball_destroy(struct fts_filter *filter)
 }
 
 static int
-fts_filter_stemmer_snowball_create(const struct fts_language *lang,
-                                   const char *const *settings,
-                                   struct fts_filter **filter_r,
-                                   const char **error_r)
+lang_filter_stemmer_snowball_create(const struct language *lang,
+                                    const char *const *settings,
+                                    struct lang_filter **filter_r,
+                                    const char **error_r)
 {
-	struct fts_filter_stemmer_snowball *sp;
+	struct lang_filter_stemmer_snowball *sp;
 	pool_t pp;
 
 	*filter_r = NULL;
@@ -40,42 +40,42 @@ fts_filter_stemmer_snowball_create(const struct fts_language *lang,
 		*error_r = t_strdup_printf("Unknown setting: %s", settings[0]);
 		return -1;
 	}
-	pp = pool_alloconly_create(MEMPOOL_GROWING"fts_filter_stemmer_snowball",
-	                           sizeof(struct fts_filter));
-	sp = p_new(pp, struct fts_filter_stemmer_snowball, 1);
+	pp = pool_alloconly_create(MEMPOOL_GROWING"lang_filter_stemmer_snowball",
+	                           sizeof(struct lang_filter));
+	sp = p_new(pp, struct lang_filter_stemmer_snowball, 1);
 	sp->pool = pp;
-	sp->filter = *fts_filter_stemmer_snowball;
-	sp->lang = p_malloc(sp->pool, sizeof(struct fts_language));
+	sp->filter = *lang_filter_stemmer_snowball;
+	sp->lang = p_malloc(sp->pool, sizeof(struct language));
 	sp->lang->name = p_strdup(sp->pool, lang->name);
 	*filter_r = &sp->filter;
 	return 0;
 }
 
 static int
-fts_filter_stemmer_snowball_create_stemmer(struct fts_filter_stemmer_snowball *sp,
-					   const char **error_r)
+lang_filter_stemmer_snowball_create_stemmer(struct lang_filter_stemmer_snowball *sp,
+					    const char **error_r)
 {
 	sp->stemmer = sb_stemmer_new(sp->lang->name, "UTF_8");
 	if (sp->stemmer == NULL) {
 		*error_r = t_strdup_printf(
 			"Creating a Snowball stemmer for language '%s' failed.",
 			sp->lang->name);
-		fts_filter_stemmer_snowball_destroy(&sp->filter);
+		lang_filter_stemmer_snowball_destroy(&sp->filter);
 		return -1;
 	}
 	return 0;
 }
 
 static int
-fts_filter_stemmer_snowball_filter(struct fts_filter *filter,
-                                   const char **token, const char **error_r)
+lang_filter_stemmer_snowball_filter(struct lang_filter *filter,
+                                    const char **token, const char **error_r)
 {
-	struct fts_filter_stemmer_snowball *sp =
-		(struct fts_filter_stemmer_snowball *) filter;
+	struct lang_filter_stemmer_snowball *sp =
+		(struct lang_filter_stemmer_snowball *) filter;
 	const sb_symbol *base;
 
 	if (sp->stemmer == NULL) {
-		if (fts_filter_stemmer_snowball_create_stemmer(sp, error_r) < 0)
+		if (lang_filter_stemmer_snowball_create_stemmer(sp, error_r) < 0)
 			return -1;
 	}
 
@@ -93,7 +93,7 @@ fts_filter_stemmer_snowball_filter(struct fts_filter *filter,
 	else {
 		/* If the stemmer returns an empty token, the return value
 		 * should be 0 instead of 1 (otherwise it causes an assertion
-		 * fault in fts_filter_filter() ).
+		 * fault in lang_filter() ).
 		 * However, removing tokens may bring the same kind of issues
 		 * and inconsistencies that stopwords cause when used with
 		 * multiple languages and negations.
@@ -106,36 +106,36 @@ fts_filter_stemmer_snowball_filter(struct fts_filter *filter,
 #else
 
 static int
-fts_filter_stemmer_snowball_create(const struct fts_language *lang ATTR_UNUSED,
-                                   const char *const *settings ATTR_UNUSED,
-                                   struct fts_filter **filter_r ATTR_UNUSED,
-                                   const char **error_r)
+lang_filter_stemmer_snowball_create(const struct language *lang ATTR_UNUSED,
+                                    const char *const *settings ATTR_UNUSED,
+                                    struct lang_filter **filter_r ATTR_UNUSED,
+                                    const char **error_r)
 {
 	*error_r = "Snowball support not built in";
 	return -1;
 }
 static void
-fts_filter_stemmer_snowball_destroy(struct fts_filter *stemmer ATTR_UNUSED)
+lang_filter_stemmer_snowball_destroy(struct lang_filter *stemmer ATTR_UNUSED)
 {
 }
 
 static int
-fts_filter_stemmer_snowball_filter(struct fts_filter *filter ATTR_UNUSED,
-				   const char **token ATTR_UNUSED,
-				   const char **error_r ATTR_UNUSED)
+lang_filter_stemmer_snowball_filter(struct lang_filter *filter ATTR_UNUSED,
+				    const char **token ATTR_UNUSED,
+				    const char **error_r ATTR_UNUSED)
 {
 	return -1;
 }
 
 #endif
 
-static const struct fts_filter fts_filter_stemmer_snowball_real = {
+static const struct lang_filter lang_filter_stemmer_snowball_real = {
 	.class_name = "snowball",
 	.v = {
-		fts_filter_stemmer_snowball_create,
-		fts_filter_stemmer_snowball_filter,
-		fts_filter_stemmer_snowball_destroy
+		lang_filter_stemmer_snowball_create,
+		lang_filter_stemmer_snowball_filter,
+		lang_filter_stemmer_snowball_destroy
 	}
 };
 
-const struct fts_filter *fts_filter_stemmer_snowball = &fts_filter_stemmer_snowball_real;
+const struct lang_filter *lang_filter_stemmer_snowball = &lang_filter_stemmer_snowball_real;

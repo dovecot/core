@@ -114,7 +114,7 @@ static void fts_mail_build_ctx_set_lang(struct fts_mail_build_context *ctx,
 	/* reset tokenizer between fields - just to be sure no state
 	   leaks between fields (especially if previous indexing had
 	   failed) */
-	fts_tokenizer_reset(user_lang->index_tokenizer);
+	lang_tokenizer_reset(user_lang->index_tokenizer);
 }
 
 static void
@@ -267,15 +267,15 @@ static int
 fts_build_add_tokens_with_filter(struct fts_mail_build_context *ctx,
 				 const unsigned char *data, size_t size)
 {
-	struct fts_tokenizer *tokenizer = ctx->cur_user_lang->index_tokenizer;
-	struct fts_filter *filter = ctx->cur_user_lang->filter;
+	struct lang_tokenizer *tokenizer = ctx->cur_user_lang->index_tokenizer;
+	struct lang_filter *filter = ctx->cur_user_lang->filter;
 	const char *token, *error;
 	int ret = 1, ret2;
 
 	while (ret > 0) T_BEGIN {
-		ret = ret2 = fts_tokenizer_next(tokenizer, data, size, &token, &error);
+		ret = ret2 = lang_tokenizer_next(tokenizer, data, size, &token, &error);
 		if (ret2 > 0 && filter != NULL)
-			ret2 = fts_filter_filter(filter, &token, &error);
+			ret2 = lang_filter(filter, &token, &error);
 		if (ret2 < 0) {
 			mail_set_critical(ctx->mail,
 				"fts: Couldn't create indexable tokens: %s",
@@ -296,31 +296,31 @@ fts_build_add_tokens_with_filter(struct fts_mail_build_context *ctx,
 static int
 fts_detect_language(struct fts_mail_build_context *ctx,
 		    const unsigned char *data, size_t size, bool last,
-		    const struct fts_language **lang_r)
+		    const struct language **lang_r)
 {
 	struct mail_user *user = ctx->update_ctx->backend->ns->user;
-	struct fts_language_list *lang_list = fts_user_get_language_list(user);
-	const struct fts_language *lang;
+	struct language_list *lang_list = fts_user_get_language_list(user);
+	const struct language *lang;
 	const char *error;
 
-	switch (fts_language_detect(lang_list, data, size, &lang, &error)) {
-	case FTS_LANGUAGE_RESULT_SHORT:
+	switch (language_detect(lang_list, data, size, &lang, &error)) {
+	case LANGUAGE_RESULT_SHORT:
 		/* save the input so far and try again later */
 		buffer_append(ctx->pending_input, data, size);
 		if (last) {
 			/* we've run out of data. use the default language. */
-			*lang_r = fts_language_list_get_first(lang_list);
+			*lang_r = language_list_get_first(lang_list);
 			return 1;
 		}
 		return 0;
-	case FTS_LANGUAGE_RESULT_UNKNOWN:
+	case LANGUAGE_RESULT_UNKNOWN:
 		/* use the default language */
-		*lang_r = fts_language_list_get_first(lang_list);
+		*lang_r = language_list_get_first(lang_list);
 		return 1;
-	case FTS_LANGUAGE_RESULT_OK:
+	case LANGUAGE_RESULT_OK:
 		*lang_r = lang;
 		return 1;
-	case FTS_LANGUAGE_RESULT_ERROR:
+	case LANGUAGE_RESULT_ERROR:
 		/* internal language detection library failure
 		   (e.g. invalid config). don't index anything. */
 		mail_set_critical(ctx->mail,
@@ -337,7 +337,7 @@ fts_build_tokenized(struct fts_mail_build_context *ctx,
 		    const unsigned char *data, size_t size, bool last)
 {
 	struct mail_user *user = ctx->update_ctx->backend->ns->user;
-	const struct fts_language *lang;
+	const struct language *lang;
 	int ret;
 
 	if (ctx->cur_user_lang != NULL) {
