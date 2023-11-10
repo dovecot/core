@@ -21,6 +21,8 @@ struct acl_backend *
 acl_backend_init(const char *data, struct mailbox_list *list,
 		 const char *acl_username, const struct acl_settings *set,
 		 bool owner);
+int acl_backend_init_auto(struct mailbox_list *list, struct acl_backend **backend_r,
+			  const char **error_r);
 void acl_backend_deinit(struct acl_backend **backend);
 
 /* Returns the acl_username passed to acl_backend_init(). Note that with
