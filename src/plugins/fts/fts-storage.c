@@ -9,7 +9,7 @@
 #include "mail-storage.h"
 #include "mailbox-list-private.h"
 #include "fts-api-private.h"
-#include "fts-tokenizer.h"
+#include "lang-tokenizer.h"
 #include "fts-indexer.h"
 #include "fts-build-mail.h"
 #include "fts-search-serialize.h"

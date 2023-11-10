@@ -5,8 +5,8 @@
 #include "mail-namespace.h"
 #include "mail-search.h"
 #include "fts-api-private.h"
-#include "fts-tokenizer.h"
-#include "fts-filter.h"
+#include "lang-tokenizer.h"
+#include "lang-filter.h"
 #include "fts-user.h"
 #include "fts-search-args.h"
 

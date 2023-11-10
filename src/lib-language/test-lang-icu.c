@@ -5,7 +5,7 @@
 #include "str.h"
 #include "unichar.h"
 #include "test-common.h"
-#include "fts-icu.h"
+#include "lang-icu.h"
 
 #include <unicode/uclean.h>
 

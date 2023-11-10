@@ -4,12 +4,12 @@
 #include "array.h"
 #include "str.h"
 #include "unichar.h" /* unicode replacement char */
-#include "fts-filter-common.h"
-#include "fts-filter-private.h"
-#include "fts-language.h"
+#include "lang-filter-common.h"
+#include "lang-filter-private.h"
+#include "language.h"
 
 #ifdef HAVE_LIBICU
-#include "fts-icu.h"
+#include "lang-icu.h"
 
 struct fts_filter_normalizer_icu {
 	struct fts_filter filter;

@@ -2,13 +2,13 @@
 
 #include "lib.h"
 #include "mail-storage-hooks.h"
-#include "fts-filter.h"
-#include "fts-tokenizer.h"
+#include "lang-filter.h"
+#include "lang-library.h"
+#include "lang-tokenizer.h"
 #include "fts-parser.h"
 #include "fts-storage.h"
 #include "fts-user.h"
 #include "fts-plugin.h"
-#include "fts-library.h"
 
 const char *fts_plugin_version = DOVECOT_ABI_VERSION;
 

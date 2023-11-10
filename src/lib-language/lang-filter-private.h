@@ -1,7 +1,7 @@
 #ifndef FTS_FILTER_PRIVATE_H
 #define FTS_FILTER_PRIVATE_H
 
-#include "fts-filter.h"
+#include "lang-filter.h"
 
 #define FTS_FILTER_CLASSES_NR 6
 

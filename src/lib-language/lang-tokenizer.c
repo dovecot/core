@@ -5,8 +5,8 @@
 #include "istream.h"
 #include "str.h"
 #include "strfuncs.h"
-#include "fts-tokenizer.h"
-#include "fts-tokenizer-private.h"
+#include "lang-tokenizer.h"
+#include "lang-tokenizer-private.h"
 
 static ARRAY(const struct fts_tokenizer *) fts_tokenizer_classes;
 

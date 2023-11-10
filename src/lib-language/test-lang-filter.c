@@ -5,8 +5,8 @@
 #include "str.h"
 #include "unichar.h"
 #include "test-common.h"
-#include "fts-language.h"
-#include "fts-filter.h"
+#include "language.h"
+#include "lang-filter.h"
 
 #include <stdio.h>
 

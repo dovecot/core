@@ -2,12 +2,12 @@
 
 #include "lib.h"
 #include "str.h"
-#include "fts-language.h"
-#include "fts-filter-private.h"
+#include "language.h"
+#include "lang-filter-private.h"
 
 #ifdef HAVE_LIBICU
-#  include "fts-icu.h"
-#  include "fts-filter-common.h"
+#  include "lang-icu.h"
+#  include "lang-filter-common.h"
 #endif
 
 static int

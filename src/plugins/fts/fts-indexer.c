@@ -14,7 +14,7 @@
 #include "fts-api.h"
 #include "fts-storage.h"
 #include "fts-indexer.h"
-#include "fts-indexer-status.h"
+#include "lang-indexer-status.h"
 
 #define INDEXER_SOCKET_NAME "indexer"
 #define INDEXER_WAIT_MSECS 250

@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "unichar.h"
-#include "fts-tokenizer-common.h"
+#include "lang-tokenizer-common.h"
 void
 fts_tokenizer_delete_trailing_partial_char(const unsigned char *data,
 					   size_t *len)

@@ -4,10 +4,10 @@
 #include "unichar.h"
 #include "str.h"
 #include "test-common.h"
-#include "fts-tokenizer.h"
-#include "fts-tokenizer-common.h"
-#include "fts-tokenizer-private.h"
-#include "fts-tokenizer-generic-private.h"
+#include "lang-tokenizer.h"
+#include "lang-tokenizer-common.h"
+#include "lang-tokenizer-private.h"
+#include "lang-tokenizer-generic-private.h"
 
 /*there should be a trailing space ' ' at the end of each string except the last one*/
 #define TEST_INPUT_ADDRESS \

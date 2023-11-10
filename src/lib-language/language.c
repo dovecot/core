@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "llist.h"
-#include "fts-language.h"
+#include "language.h"
 
 
 #ifdef HAVE_LIBEXTTEXTCAT_TEXTCAT_H

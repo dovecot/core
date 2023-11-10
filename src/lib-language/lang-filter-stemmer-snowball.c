@@ -1,8 +1,8 @@
 /* Copyright (c) 2014-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "fts-language.h"
-#include "fts-filter-private.h"
+#include "language.h"
+#include "lang-filter-private.h"
 
 #ifdef HAVE_FTS_STEMMER
 

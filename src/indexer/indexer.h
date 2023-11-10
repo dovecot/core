@@ -1,7 +1,7 @@
 #ifndef INDEXER_H
 #define INDEXER_H
 
-#include "fts-indexer-status.h"
+#include "lang-indexer-status.h"
 
 struct indexer_request;
 
