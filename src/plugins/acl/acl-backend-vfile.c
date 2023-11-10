@@ -33,7 +33,7 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
 {
 	struct event *event = _backend->event;
 	struct acl_backend_vfile *backend =
-		(struct acl_backend_vfile *)_backend;
+		container_of(_backend, struct acl_backend_vfile, backend);
 	struct stat st;
 	const char *value, *const *tmp;
 	const char *global_path;
@@ -85,7 +85,7 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
 static void acl_backend_vfile_deinit(struct acl_backend *_backend)
 {
 	struct acl_backend_vfile *backend =
-		(struct acl_backend_vfile *)_backend;
+		container_of(_backend, struct acl_backend_vfile, backend);
 
 	if (backend->acllist_pool != NULL) {
 		array_free(&backend->acllist);
@@ -420,7 +420,7 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 			  struct acl_vfile_validity *validity)
 {
 	struct acl_backend_vfile *backend =
-		(struct acl_backend_vfile *)aclobj->backend;
+		container_of(aclobj->backend, struct acl_backend_vfile, backend);
 	struct event *event = backend->backend.event;
 	struct stat st;
 	int ret;
@@ -469,7 +469,7 @@ acl_backend_global_file_refresh(struct acl_object *_aclobj,
 				struct acl_vfile_validity *validity)
 {
 	struct acl_backend_vfile *backend =
-		(struct acl_backend_vfile *)_aclobj->backend;
+		container_of(_aclobj->backend, struct acl_backend_vfile, backend);
 	struct stat st;
 
 	if (acl_global_file_refresh(_aclobj->backend->global_file) < 0)
@@ -483,9 +483,10 @@ acl_backend_global_file_refresh(struct acl_object *_aclobj,
 
 static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 {
-	struct acl_object_vfile *aclobj = (struct acl_object_vfile *)_aclobj;
+	struct acl_object_vfile *aclobj =
+		container_of(_aclobj, struct acl_object_vfile, aclobj);
 	struct acl_backend_vfile *backend =
-		(struct acl_backend_vfile *)_aclobj->backend;
+		container_of(_aclobj->backend, struct acl_backend_vfile, backend);
 	struct acl_backend_vfile_validity *old_validity;
 	struct acl_backend_vfile_validity validity;
 	time_t mtime;

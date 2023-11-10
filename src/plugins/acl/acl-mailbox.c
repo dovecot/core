@@ -277,7 +277,8 @@ static void
 acl_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 		      enum mail_flags flags)
 {
-	struct mail_private *mail = (struct mail_private *)_mail;
+	struct mail_private *mail =
+		container_of(_mail, struct mail_private, mail);
 	union mail_module_context *amail = ACL_MAIL_CONTEXT(mail);
 	bool acl_flags, acl_flag_seen, acl_flag_del;
 
@@ -336,7 +337,8 @@ acl_mail_update_keywords(struct mail *_mail, enum modify_type modify_type,
 
 static void acl_mail_expunge(struct mail *_mail)
 {
-	struct mail_private *mail = (struct mail_private *)_mail;
+	struct mail_private *mail =
+		container_of(_mail, struct mail_private, mail);
 	union mail_module_context *amail = ACL_MAIL_CONTEXT(mail);
 	int ret;
 
@@ -355,7 +357,8 @@ static void acl_mail_expunge(struct mail *_mail)
 void acl_mail_allocated(struct mail *_mail)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(_mail->box);
-	struct mail_private *mail = (struct mail_private *)_mail;
+	struct mail_private *mail =
+		container_of(_mail, struct mail_private, mail);
 	struct mail_vfuncs *v = mail->vlast;
 	union mail_module_context *amail;
 
