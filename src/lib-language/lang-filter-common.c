@@ -4,9 +4,9 @@
 #include "str.h"
 #include "buffer.h"
 #include "unichar.h"
-#include "fts-filter-private.h"
-#include "fts-filter-common.h"
-#include "fts-tokenizer-common.h"
+#include "lang-filter-private.h"
+#include "lang-filter-common.h"
+#include "lang-tokenizer-common.h"
 
 void fts_filter_truncate_token(string_t *token, size_t max_length)
 {

@@ -2,8 +2,8 @@
 
 #include "lib.h"
 #include "unichar.h"
-#include "fts-common.h"
-#include "fts-filter-private.h"
+#include "lang-common.h"
+#include "lang-filter-private.h"
 
 static unichar_t get_ending_utf8_char(const char *str, size_t *end_pos)
 {

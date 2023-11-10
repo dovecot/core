@@ -2,9 +2,9 @@
 
 #include "lib.h"
 #include "str.h"
-#include "fts-language.h"
-#include "fts-filter-private.h"
-#include "fts-common.h"
+#include "language.h"
+#include "lang-filter-private.h"
+#include "lang-common.h"
 #include "unichar.h"
 
 static int

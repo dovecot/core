@@ -1,10 +1,10 @@
 /* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "fts-language.h"
-#include "fts-tokenizer.h"
-#include "fts-filter.h"
-#include "fts-library.h"
+#include "language.h"
+#include "lang-tokenizer.h"
+#include "lang-filter.h"
+#include "lang-library.h"
 
 void fts_library_init(void)
 {

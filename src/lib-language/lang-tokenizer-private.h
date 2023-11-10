@@ -1,7 +1,7 @@
 #ifndef FTS_TOKENIZER_PRIVATE_H
 #define FTS_TOKENIZER_PRIVATE_H
 
-#include "fts-tokenizer.h"
+#include "lang-tokenizer.h"
 
 #define FTS_TOKENIZER_CLASSES_NR 2
 

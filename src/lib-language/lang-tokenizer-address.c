@@ -4,8 +4,8 @@
 #include "str.h"
 #include "buffer.h"
 #include "rfc822-parser.h"
-#include "fts-tokenizer-private.h"
-#include "fts-tokenizer-common.h"
+#include "lang-tokenizer-private.h"
+#include "lang-tokenizer-common.h"
 
 #define IS_DTEXT(c) \
 	(rfc822_atext_chars[(int)(unsigned char)(c)] == 2)

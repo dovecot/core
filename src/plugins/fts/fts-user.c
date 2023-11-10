@@ -6,9 +6,9 @@
 #include "mail-user.h"
 #include "mail-storage-private.h"
 #include "mailbox-match-plugin.h"
-#include "fts-language.h"
-#include "fts-filter.h"
-#include "fts-tokenizer.h"
+#include "language.h"
+#include "lang-filter.h"
+#include "lang-tokenizer.h"
 #include "fts-user.h"
 
 #define FTS_USER_CONTEXT(obj) \

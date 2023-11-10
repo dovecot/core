@@ -12,9 +12,9 @@
 #include "index-mail.h"
 #include "fts-parser.h"
 #include "fts-user.h"
-#include "fts-language.h"
-#include "fts-tokenizer.h"
-#include "fts-filter.h"
+#include "language.h"
+#include "lang-tokenizer.h"
+#include "lang-filter.h"
 #include "fts-api-private.h"
 #include "fts-build-mail.h"
 

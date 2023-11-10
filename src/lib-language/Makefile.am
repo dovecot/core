@@ -2,7 +2,7 @@ noinst_LTLIBRARIES = liblanguage.la
 
 # I$(top_srcdir)/src/lib-language needed to include
 # word-break-data.c and word-boundary-data.c
-# in fts-tokenizer-generic.c
+# in lang-tokenizer-generic.c
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
@@ -67,9 +67,9 @@ endif
 endif
 
 if BUILD_LIBICU
-ICU_SOURCES = fts-icu.c
+ICU_SOURCES = lang-icu.c
 NORMALIZER_LIBS = $(LIBICU_LIBS)
-ICU_TESTS = test-fts-icu
+ICU_TESTS = test-lang-icu
 endif
 
 liblanguage_la_LIBADD = \
@@ -78,35 +78,35 @@ liblanguage_la_LIBADD = \
 	$(NORMALIZER_LIBS)
 
 liblanguage_la_SOURCES = \
-	fts-filter.c \
-	fts-filter-contractions.c \
-	fts-filter-common.c \
-	fts-filter-english-possessive.c \
-	fts-filter-lowercase.c \
-	fts-filter-normalizer-icu.c \
-	fts-filter-stopwords.c \
-	fts-filter-stemmer-snowball.c \
-	fts-language.c \
-	fts-library.c \
-	fts-tokenizer.c \
-	fts-tokenizer-address.c \
-	fts-tokenizer-common.c \
-	fts-tokenizer-generic.c \
+	lang-filter.c \
+	lang-filter-contractions.c \
+	lang-filter-common.c \
+	lang-filter-english-possessive.c \
+	lang-filter-lowercase.c \
+	lang-filter-normalizer-icu.c \
+	lang-filter-stopwords.c \
+	lang-filter-stemmer-snowball.c \
+	language.c \
+	lang-library.c \
+	lang-tokenizer.c \
+	lang-tokenizer-address.c \
+	lang-tokenizer-common.c \
+	lang-tokenizer-generic.c \
 	$(ICU_SOURCES)
 
 headers = \
-	fts-common.h \
-	fts-filter.h \
-	fts-filter-common.h \
-	fts-filter-private.h \
-	fts-icu.h \
-	fts-language.h \
-	fts-library.h \
-	fts-tokenizer.h \
-	fts-tokenizer-common.h \
-	fts-tokenizer-private.h \
-	fts-tokenizer-generic-private.h \
-	fts-indexer-status.h
+	lang-common.h \
+	lang-filter.h \
+	lang-filter-common.h \
+	lang-filter-private.h \
+	lang-icu.h \
+	language.h \
+	lang-library.h \
+	lang-tokenizer.h \
+	lang-tokenizer-common.h \
+	lang-tokenizer-private.h \
+	lang-tokenizer-generic-private.h \
+	lang-indexer-status.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
@@ -119,9 +119,9 @@ libdovecot_language_la_LDFLAGS = -export-dynamic
 
 test_programs = \
 	$(ICU_TESTS) \
-	$(TEST_FTS_LANGUAGE) \
-	test-fts-filter \
-	test-fts-tokenizer
+	$(TEST_LANGUAGE) \
+	test-lang-filter \
+	test-lang-tokenizer
 
 noinst_PROGRAMS = $(test_programs)
 
@@ -130,24 +130,24 @@ test_libs = \
 	../lib/liblib.la
 test_deps = $(noinst_LTLIBRARIES) $(test_libs)
 
-test_fts_icu_SOURCES = test-fts-icu.c
-test_fts_icu_LDADD = fts-icu.lo $(LIBICU_LIBS) $(test_libs)
-test_fts_icu_DEPENDENCIES = fts-icu.lo $(test_deps)
+test_lang_icu_SOURCES = test-lang-icu.c
+test_lang_icu_LDADD = lang-icu.lo $(LIBICU_LIBS) $(test_libs)
+test_lang_icu_DEPENDENCIES = lang-icu.lo $(test_deps)
 
-test_fts_filter_SOURCES = test-fts-filter.c
-test_fts_filter_LDADD = liblanguage.la $(test_libs)
-test_fts_filter_DEPENDENCIES = liblanguage.la $(test_deps)
+test_lang_filter_SOURCES = test-lang-filter.c
+test_lang_filter_LDADD = liblanguage.la $(test_libs)
+test_lang_filter_DEPENDENCIES = liblanguage.la $(test_deps)
 
 if BUILD_FTS_EXTTEXTCAT
-TEST_FTS_LANGUAGE = test-fts-language
-test_fts_language_SOURCES = test-fts-language.c
-test_fts_language_LDADD = fts-language.lo $(test_libs) $(TEXTCAT_LIBS)
-test_fts_language_DEPENDENCIES = $(test_deps)
+TEST_LANGUAGE = test-language
+test_language_SOURCES = test-language.c
+test_language_LDADD = language.lo $(test_libs) $(TEXTCAT_LIBS)
+test_language_DEPENDENCIES = $(test_deps)
 endif
 
-test_fts_tokenizer_SOURCES = test-fts-tokenizer.c
-test_fts_tokenizer_LDADD = fts-tokenizer.lo fts-tokenizer-generic.lo fts-tokenizer-address.lo fts-tokenizer-common.lo ../lib-mail/libmail.la $(test_libs)
-test_fts_tokenizer_DEPENDENCIES = ../lib-mail/libmail.la $(test_deps)
+test_lang_tokenizer_SOURCES = test-lang-tokenizer.c
+test_lang_tokenizer_LDADD = lang-tokenizer.lo lang-tokenizer-generic.lo lang-tokenizer-address.lo lang-tokenizer-common.lo ../lib-mail/libmail.la $(test_libs)
+test_lang_tokenizer_DEPENDENCIES = ../lib-mail/libmail.la $(test_deps)
 
 check-local:
 	for bin in $(test_programs); do \
