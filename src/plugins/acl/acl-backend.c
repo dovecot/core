@@ -11,7 +11,7 @@
 #include "acl-api-private.h"
 
 
-extern struct acl_backend_vfuncs acl_backend_vfile;
+extern const struct acl_backend_vfuncs acl_backend_vfile;
 
 struct event_category event_category_acl = {
 	.name = "acl",
@@ -61,7 +61,7 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 	backend->event = event_create(user->event);
 	event_add_category(backend->event, &event_category_acl);
 
-	backend->v = acl_backend_vfile;
+	backend->v = &acl_backend_vfile;
 	backend->list = list;
 	backend->username = p_strdup(backend->pool, acl_username);
 	backend->owner = owner;
@@ -81,7 +81,7 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 	}
 
 	T_BEGIN {
-		if (acl_backend_vfile.init(backend, data) < 0)
+		if (backend->v->init(backend, data) < 0)
 			i_fatal("acl: backend vfile init failed with data: %s",
 				data);
 	} T_END;
@@ -105,7 +105,7 @@ void acl_backend_deinit(struct acl_backend **_backend)
 	acl_object_deinit(&backend->default_aclobj);
 	acl_cache_deinit(&backend->cache);
 	event_unref(&backend->event);
-	backend->v.deinit(backend);
+	backend->v->deinit(backend);
 }
 
 const char *acl_backend_get_acl_username(struct acl_backend *backend)
@@ -192,7 +192,7 @@ int acl_backend_get_default_rights(struct acl_backend *backend,
 {
 	struct acl_object *aclobj = acl_backend_get_default_object(backend);
 
-	if (backend->v.object_refresh_cache(aclobj) < 0)
+	if (backend->v->object_refresh_cache(aclobj) < 0)
 		return -1;
 
 	*mask_r = acl_cache_get_my_rights(backend->cache, aclobj->name);

@@ -34,13 +34,13 @@ static const struct acl_letter_map acl_letter_map[] = {
 struct acl_object *acl_object_init_from_name(struct acl_backend *backend,
 					     const char *name)
 {
-	return backend->v.object_init(backend, name);
+	return backend->v->object_init(backend, name);
 }
 
 struct acl_object *acl_object_init_from_parent(struct acl_backend *backend,
 					       const char *child_name)
 {
-	return backend->v.object_init_parent(backend, child_name);
+	return backend->v->object_init_parent(backend, child_name);
 }
 
 void acl_object_deinit(struct acl_object **_aclobj)
@@ -50,7 +50,7 @@ void acl_object_deinit(struct acl_object **_aclobj)
 	if (aclobj == NULL)
 		return;
 	*_aclobj = NULL;
-	aclobj->backend->v.object_deinit(aclobj);
+	aclobj->backend->v->object_deinit(aclobj);
 }
 
 int acl_object_have_right(struct acl_object *aclobj, unsigned int right_idx)
@@ -59,7 +59,7 @@ int acl_object_have_right(struct acl_object *aclobj, unsigned int right_idx)
 	const struct acl_mask *have_mask;
 	unsigned int read_idx;
 
-	if (backend->v.object_refresh_cache(aclobj) < 0)
+	if (backend->v->object_refresh_cache(aclobj) < 0)
 		return -1;
 
 	have_mask = acl_cache_get_my_rights(backend->cache, aclobj->name);
@@ -122,7 +122,7 @@ static int acl_object_get_my_rights_real(struct acl_object *aclobj, pool_t pool,
 	struct acl_backend *backend = aclobj->backend;
 	const struct acl_mask *mask;
 
-	if (backend->v.object_refresh_cache(aclobj) < 0)
+	if (backend->v->object_refresh_cache(aclobj) < 0)
 		return -1;
 
 	mask = acl_cache_get_my_rights(backend->cache, aclobj->name);
@@ -157,18 +157,18 @@ const char *const *acl_object_get_default_rights(struct acl_object *aclobj)
 
 int acl_object_last_changed(struct acl_object *aclobj, time_t *last_changed_r)
 {
-	return aclobj->backend->v.last_changed(aclobj, last_changed_r);
+	return aclobj->backend->v->last_changed(aclobj, last_changed_r);
 }
 
 int acl_object_update(struct acl_object *aclobj,
 		      const struct acl_rights_update *update)
 {
-	return aclobj->backend->v.object_update(aclobj, update);
+	return aclobj->backend->v->object_update(aclobj, update);
 }
 
 struct acl_object_list_iter *acl_object_list_init(struct acl_object *aclobj)
 {
-	return aclobj->backend->v.object_list_init(aclobj);
+	return aclobj->backend->v->object_list_init(aclobj);
 }
 
 bool acl_object_list_next(struct acl_object_list_iter *iter,
@@ -177,7 +177,7 @@ bool acl_object_list_next(struct acl_object_list_iter *iter,
 	if (iter->failed)
 		return FALSE;
 
-	return iter->aclobj->backend->v.object_list_next(iter, rights_r);
+	return iter->aclobj->backend->v->object_list_next(iter, rights_r);
 }
 
 int acl_object_list_deinit(struct acl_object_list_iter **_iter)
@@ -185,7 +185,7 @@ int acl_object_list_deinit(struct acl_object_list_iter **_iter)
 	struct acl_object_list_iter *iter = *_iter;
 
 	*_iter = NULL;
-	return iter->aclobj->backend->v.object_list_deinit(iter);
+	return iter->aclobj->backend->v->object_list_deinit(iter);
 }
 
 struct acl_object_list_iter *
@@ -207,7 +207,7 @@ acl_default_object_list_init(struct acl_object *aclobj)
 		acl_cache_flush(aclobj->backend->cache, aclobj->name);
 	}
 
-	if (aclobj->backend->v.object_refresh_cache(aclobj) < 0)
+	if (aclobj->backend->v->object_refresh_cache(aclobj) < 0)
 		iter->failed = TRUE;
 
 	aclobj_rights = array_get(&aclobj->rights, &iter->count);
@@ -249,13 +249,13 @@ int acl_default_object_list_deinit(struct acl_object_list_iter *iter)
 struct acl_mailbox_list_context *
 acl_backend_nonowner_lookups_iter_init(struct acl_backend *backend)
 {
-	return backend->v.nonowner_lookups_iter_init(backend);
+	return backend->v->nonowner_lookups_iter_init(backend);
 }
 
 bool acl_backend_nonowner_lookups_iter_next(struct acl_mailbox_list_context *ctx,
 					   const char **name_r)
 {
-	return ctx->backend->v.nonowner_lookups_iter_next(ctx, name_r);
+	return ctx->backend->v->nonowner_lookups_iter_next(ctx, name_r);
 }
 
 int acl_backend_nonowner_lookups_iter_deinit(struct acl_mailbox_list_context **_ctx)
@@ -263,12 +263,12 @@ int acl_backend_nonowner_lookups_iter_deinit(struct acl_mailbox_list_context **_
 	struct acl_mailbox_list_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	return ctx->backend->v.nonowner_lookups_iter_deinit(ctx);
+	return ctx->backend->v->nonowner_lookups_iter_deinit(ctx);
 }
 
 int acl_backend_nonowner_lookups_rebuild(struct acl_backend *backend)
 {
-	return backend->v.nonowner_lookups_rebuild(backend);
+	return backend->v->nonowner_lookups_rebuild(backend);
 }
 
 void acl_rights_write_id(string_t *dest, const struct acl_rights *right)

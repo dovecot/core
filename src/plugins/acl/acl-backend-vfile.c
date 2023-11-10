@@ -561,7 +561,7 @@ static int acl_backend_vfile_object_last_changed(struct acl_object *_aclobj,
 	return 0;
 }
 
-struct acl_backend_vfuncs acl_backend_vfile = {
+const struct acl_backend_vfuncs acl_backend_vfile = {
 	.alloc = acl_backend_vfile_alloc,
 	.init = acl_backend_vfile_init,
 	.deinit = acl_backend_vfile_deinit,

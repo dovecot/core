@@ -56,7 +56,7 @@ struct acl_backend {
 	struct acl_mask *default_aclmask;
 	const char *const *default_rights;
 
-	struct acl_backend_vfuncs v;
+	const struct acl_backend_vfuncs *v;
 
 	bool owner:1;
 	bool globals_only:1;
