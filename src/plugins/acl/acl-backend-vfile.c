@@ -5,6 +5,7 @@
 #include "array.h"
 #include "istream.h"
 #include "nfs-workarounds.h"
+#include "settings.h"
 #include "mailbox-list-private.h"
 #include "acl-global-file.h"
 #include "acl-cache.h"
@@ -26,6 +27,34 @@ static struct acl_backend *acl_backend_vfile_alloc(void)
 	backend = p_new(pool, struct acl_backend_vfile, 1);
 	backend->backend.pool = pool;
 	return &backend->backend;
+}
+
+static int
+acl_backend_vfile_init(struct acl_backend *_backend, const char **error_r)
+{
+	struct event *event = _backend->event;
+	struct stat st;
+
+	const char *global_path = _backend->set->acl_global_path;
+
+	if (*global_path != '\0') {
+		if (stat(global_path, &st) < 0) {
+			*error_r = t_strdup_printf("stat(%s) failed: %m", global_path);
+			return -1;
+		} else if (S_ISDIR(st.st_mode)) {
+			*error_r = t_strdup_printf("Global ACL directories are no longer supported");
+			return -1;
+		} else {
+			_backend->global_file =	acl_global_file_init(
+				global_path, _backend->set->acl_cache_ttl / 1000, event);
+			e_debug(event, "vfile: Deprecated Global ACL file: %s", global_path);
+		}
+	}
+
+	_backend->cache =
+		acl_cache_init(_backend,
+			       sizeof(struct acl_backend_vfile_validity));
+	return 0;
 }
 
 static int
@@ -564,6 +593,7 @@ static int acl_backend_vfile_object_last_changed(struct acl_object *_aclobj,
 const struct acl_backend_vfuncs acl_backend_vfile = {
 	.name = "vfile",
 	.alloc = acl_backend_vfile_alloc,
+	.init = acl_backend_vfile_init,
 	.init_legacy = acl_backend_vfile_init_legacy,
 	.deinit = acl_backend_vfile_deinit,
 	.nonowner_lookups_iter_init = acl_backend_vfile_nonowner_iter_init,

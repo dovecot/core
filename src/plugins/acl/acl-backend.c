@@ -5,8 +5,9 @@
 #include "array.h"
 #include "hash.h"
 #include "sort.h"
+#include "settings.h"
 #include "mail-storage-settings.h"
-#include "mailbox-list.h"
+#include "mailbox-list-private.h"
 #include "mail-namespace.h"
 #include "mail-user.h"
 #include "acl-cache.h"
@@ -40,6 +41,73 @@ static struct acl_backend_entry *acl_backend_find(const char *name)
 	if (be == NULL)
 		 i_fatal("Unknown ACL backend: %s", name);
 	return be;
+}
+
+
+int acl_backend_init_auto(struct mailbox_list *list, struct acl_backend **backend_r,
+			  const char **error_r)
+{
+	const struct acl_settings *set;
+	struct event *event = event_create(list->event);
+	event_add_category(event, &event_category_acl);
+	event_set_append_log_prefix(event, "acl: ");
+
+	/* try to get settings again */
+	if (settings_get(event, &acl_setting_parser_info, 0, &set, error_r) < 0) {
+		event_unref(&event);
+		return -1;
+	}
+
+	if (*set->acl_driver == '\0') {
+		e_debug(event, "No acl_driver setting - ACLs are disabled");
+		settings_free(set);
+		event_unref(&event);
+		return 0;
+	}
+
+	struct acl_backend_entry *be = acl_backend_find(set->acl_driver);
+	struct acl_backend *backend = be->v->alloc();
+
+	const char *owner_username = list->ns->user->username;
+	backend->username = set->acl_user;
+	if (*backend->username == '\0') {
+		backend->username = owner_username;
+		backend->owner = TRUE;
+	} else
+		backend->owner = strcmp(backend->username, owner_username) == 0;
+	if (list->ns->type != MAIL_NAMESPACE_TYPE_PRIVATE)
+		backend->owner = FALSE;
+
+	backend->v = be->v;
+	backend->list = list;
+	backend->set = set;
+	backend->event = event;
+
+	e_debug(backend->event, "initializing backend %s", backend->v->name);
+	e_debug(backend->event, "acl username = %s", backend->username);
+	e_debug(backend->event, "owner = %s", backend->owner ? "yes" : "no");
+	e_debug(backend->event, "ignore = %s", set->acl_ignore ? "yes" : "no");
+	if (event_want_debug(backend->event) && array_is_created(&set->acl_groups)) {
+		const char *group;
+		array_foreach_elem(&set->acl_groups, group)
+			e_debug(backend->event, "group added: %s", group);
+	}
+
+	if (backend->v->init(backend, error_r) < 0) {
+		*error_r = t_strdup_printf("acl %s: %s", backend->v->name, *error_r);
+		acl_backend_deinit(&backend);
+		return -1;
+	}
+
+	backend->default_rights = backend->owner ? owner_mailbox_rights :
+		non_owner_mailbox_rights;
+	backend->default_aclmask =
+		acl_cache_mask_init(backend->cache, backend->pool,
+				    backend->default_rights);
+
+	*backend_r = backend;
+
+	return 1;
 }
 
 struct acl_backend *
@@ -109,6 +177,7 @@ void acl_backend_deinit(struct acl_backend **_backend)
 	acl_object_deinit(&backend->default_aclobj);
 	acl_cache_deinit(&backend->cache);
 	event_unref(&backend->event);
+	settings_free(backend->set);
 	backend->v->deinit(backend);
 }
 
