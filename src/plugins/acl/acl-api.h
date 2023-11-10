@@ -9,18 +9,11 @@ struct mailbox_list;
 struct mail_storage;
 struct mailbox;
 struct acl_object;
-struct acl_settings;
+struct acl_backend;
 
 #define MAILBOX_ATTRIBUTE_PREFIX_ACL \
 	MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT"acl/"
 
-/* data contains the information needed to initialize ACL backend. If username
-   is NULL, it means the user is anonymous. Username and groups are matched
-   case-sensitively. */
-struct acl_backend *
-acl_backend_init(const char *data, struct mailbox_list *list,
-		 const char *acl_username, const struct acl_settings *set,
-		 bool owner);
 int acl_backend_init_auto(struct mailbox_list *list, struct acl_backend **backend_r,
 			  const char **error_r);
 void acl_backend_deinit(struct acl_backend **backend);

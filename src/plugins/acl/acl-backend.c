@@ -110,62 +110,6 @@ int acl_backend_init_auto(struct mailbox_list *list, struct acl_backend **backen
 	return 1;
 }
 
-struct acl_backend *
-acl_backend_init(const char *data, struct mailbox_list *list,
-		 const char *acl_username, const struct acl_settings *set,
-		 bool owner)
-{
-	struct mail_user *user = mailbox_list_get_user(list);
-	struct acl_backend_entry *be;
-	struct acl_backend *backend;
-	const char *be_name;
-
-	e_debug(user->event, "acl: initializing backend with data: %s", data);
-	e_debug(user->event, "acl: acl username = %s", acl_username);
-	e_debug(user->event, "acl: owner = %d", owner ? 1 : 0);
-
-	be_name = strchr(data, ':');
-	if (be_name == NULL)
-		be_name = data;
-	else {
-		be_name = t_strdup_until(data, be_name);
-		data = be_name++;
-	}
-
-	be = acl_backend_find(be_name);
-
-	backend = be->v->alloc();
-	backend->event = event_create(user->event);
-	event_add_category(backend->event, &event_category_acl);
-
-	backend->v = be->v;
-	backend->list = list;
-	backend->username = p_strdup(backend->pool, acl_username);
-	backend->owner = owner;
-
-	if (event_want_debug(user->event) && array_is_created(&set->acl_groups)) {
-		const char *group;
-		array_foreach_elem(&set->acl_groups, group) {
-			e_debug(user->event, "acl: group added: %s", group);
-		}
-	}
-
-	backend->set = set;
-
-	T_BEGIN {
-		if (backend->v->init_legacy(backend, data) < 0)
-			i_fatal("acl: backend %s init failed with data: %s",
-				backend->v->name, data);
-	} T_END;
-
-	backend->default_rights = owner ? owner_mailbox_rights :
-		non_owner_mailbox_rights;
-	backend->default_aclmask =
-		acl_cache_mask_init(backend->cache, backend->pool,
-				    backend->default_rights);
-	return backend;
-}
-
 void acl_backend_deinit(struct acl_backend **_backend)
 {
 	struct acl_backend *backend = *_backend;

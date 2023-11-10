@@ -8,7 +8,6 @@ struct acl_backend_vfuncs {
 	const char *name;
 	struct acl_backend *(*alloc)(void);
 	int (*init)(struct acl_backend *backend, const char **error_r);
-	int (*init_legacy)(struct acl_backend *backend, const char *data);
 	void (*deinit)(struct acl_backend *backend);
 
 	struct acl_mailbox_list_context *
