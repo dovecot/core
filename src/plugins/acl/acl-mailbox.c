@@ -8,6 +8,7 @@
 #include "array.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "settings.h"
 #include "mailbox-list-private.h"
 #include "acl-api-private.h"
 #include "acl-plugin.h"
@@ -43,7 +44,7 @@ int acl_mailbox_right_lookup(struct mailbox *box, unsigned int right_idx)
 
 	/* If acls are ignored for this namespace do not check if
 	   there are rights. */
-	if (alist->ignore_acls)
+	if (alist->rights.backend->set->acl_ignore)
 		return 1;
 
 	ret = acl_object_have_right(abox->aclobj,
@@ -617,20 +618,35 @@ static int acl_mailbox_get_status(struct mailbox *box,
 void acl_mailbox_allocated(struct mailbox *box)
 {
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(box->list);
+	struct acl_settings *set;
 	struct mailbox_vfuncs *v = box->vlast;
 	struct acl_mailbox *abox;
-	bool ignore_acls = (box->flags & MAILBOX_FLAG_IGNORE_ACLS) != 0;
+	const char *error;
+	bool ignore_acls = FALSE;
 
 	if (alist == NULL) {
 		/* ACLs disabled */
 		return;
 	}
 
-	if (mail_namespace_is_shared_user_root(box->list->ns) || alist->ignore_acls) {
+	/* get settings for mailbox */
+	if (settings_get(box->event, &acl_setting_parser_info, 0, &set,
+			 &error) < 0) {
+		mailbox_set_critical(box, "%s", error);
+		box->open_error = box->storage->error;
+		return;
+	}
+
+	if ((box->flags & MAILBOX_FLAG_IGNORE_ACLS) != 0 ||
+	    set->acl_ignore)
+		ignore_acls = TRUE;
+
+	if (mail_namespace_is_shared_user_root(box->list->ns)) {
 		/* this is the root shared namespace, which itself doesn't
 		   have any existing mailboxes. */
 		ignore_acls = TRUE;
 	}
+	settings_free(set);
 
 	abox = p_new(box->pool, struct acl_mailbox, 1);
 	abox->module_ctx.super = *v;

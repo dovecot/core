@@ -63,7 +63,7 @@ int acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,
 	struct acl_object *aclobj;
 	int ret, ret2;
 
-	if (alist->ignore_acls)
+	if (backend->set->acl_ignore)
 		return 1;
 
 	aclobj = !parent ?
@@ -110,7 +110,7 @@ acl_mailbox_try_list_fast(struct mailbox_list_iterate_context *_ctx)
 	}
 
 	/* If ACLs are ignored for this namespace don't try fast listing. */
-	if (alist->ignore_acls)
+	if (backend->set->acl_ignore)
 		return;
 
 	/* if this namespace's default rights contain LOOKUP, we'll need to
@@ -526,10 +526,25 @@ static void acl_storage_rights_ctx_init(struct acl_storage_rights_context *ctx,
 	}
 }
 
+static bool acl_list_init_backend(struct mailbox_list *list,
+				  struct acl_backend **backend_r)
+{
+	const char *error;
+	int ret;
+
+	if ((ret = acl_backend_init_auto(list, backend_r, &error)) < 0)
+		i_fatal("ACL backend initialization failed: %s", error);
+	return ret > 0;
+}
+
 static void acl_mailbox_list_init_shared(struct mailbox_list *list)
 {
 	struct acl_mailbox_list *alist;
 	struct mailbox_list_vfuncs *v = list->vlast;
+	struct acl_backend *backend;
+
+	if (!acl_list_init_backend(list, &backend))
+		return;
 
 	alist = p_new(list->pool, struct acl_mailbox_list, 1);
 	alist->module_ctx.super = *v;
@@ -537,26 +552,19 @@ static void acl_mailbox_list_init_shared(struct mailbox_list *list)
 	v->deinit = acl_mailbox_list_deinit;
 	v->iter_init = acl_mailbox_list_iter_init_shared;
 
-	MODULE_CONTEXT_SET(list, acl_mailbox_list_module, alist);
-}
+	acl_storage_rights_ctx_init(&alist->rights, backend);
 
-static bool acl_namespace_is_ignored(struct mailbox_list *list)
-{
-	const char *value =
-		mail_user_plugin_getenv(list->ns->user, "acl_ignore_namespace");
-	for (unsigned int i = 2; value != NULL; i++) {
-		if (wildcard_match(list->ns->prefix, value))
-			return TRUE;
-		value = mail_user_plugin_getenv(list->ns->user,
-			t_strdup_printf("acl_ignore_namespace%u", i));
-	}
-	return FALSE;
+	MODULE_CONTEXT_SET(list, acl_mailbox_list_module, alist);
 }
 
 static void acl_mailbox_list_init_default(struct mailbox_list *list)
 {
 	struct mailbox_list_vfuncs *v = list->vlast;
 	struct acl_mailbox_list *alist;
+	struct acl_backend *backend;
+
+	if (!acl_list_init_backend(list, &backend))
+		return;
 
 	if (list->mail_set->mail_full_filesystem_access) {
 		/* not necessarily, but safer to do this for now. */
@@ -571,8 +579,8 @@ static void acl_mailbox_list_init_default(struct mailbox_list *list)
 	v->iter_init = acl_mailbox_list_iter_init;
 	v->iter_next = acl_mailbox_list_iter_next;
 	v->iter_deinit = acl_mailbox_list_iter_deinit;
-	if (acl_namespace_is_ignored(list))
-		alist->ignore_acls = TRUE;
+
+	acl_storage_rights_ctx_init(&alist->rights, backend);
 
 	MODULE_CONTEXT_SET(list, acl_mailbox_list_module, alist);
 }

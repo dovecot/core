@@ -29,13 +29,19 @@ static void acl_mail_user_create(struct mail_user *user, const char *env)
 	struct mail_user_vfuncs *v = user->vlast;
 	struct acl_user *auser;
 	const char *error;
+	int ret;
 
 	auser = p_new(user->pool, struct acl_user, 1);
 	auser->module_ctx.super = *v;
 	user->vlast = &auser->module_ctx.super;
 	v->deinit = acl_user_deinit;
-	if (acl_lookup_dict_init(user, &auser->acl_lookup_dict, &error) < 0) {
+	if ((ret = acl_lookup_dict_init(user, &auser->acl_lookup_dict, &error)) < 0) {
 		e_error(user->event, "acl: dict_init() failed: %s", error);
+		user->error = p_strdup(user->pool, error);
+	} else if (ret == 0) {
+		e_debug(user->event, "acl: Shared mailbox listing disabled: %s", error);
+	} else {
+		e_debug(user->event, "acl: Shared mailbox listing enabled");
 	}
 
 	struct acl_settings *set = p_new(user->pool, struct acl_settings, 1);

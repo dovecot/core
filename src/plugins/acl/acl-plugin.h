@@ -44,6 +44,7 @@ struct acl_mailbox_list {
 struct acl_mailbox {
 	union mailbox_module_context module_ctx;
 	struct acl_object *aclobj;
+	const struct acl_settings *set;
 	bool skip_acl_checks;
 	bool acl_enabled;
 	bool no_read_right;

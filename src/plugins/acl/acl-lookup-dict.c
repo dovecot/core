@@ -4,6 +4,7 @@
 #include "array.h"
 #include "str.h"
 #include "dict.h"
+#include "settings.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
 #include "acl-api-private.h"
@@ -38,7 +39,6 @@ int acl_lookup_dict_init(struct mail_user *user, struct acl_lookup_dict **dict_r
 			 const char **error_r)
 {
 	struct acl_lookup_dict *dict;
-	const char *uri;
 
 	dict = i_new(struct acl_lookup_dict, 1);
 	dict->user = user;
@@ -47,21 +47,9 @@ int acl_lookup_dict_init(struct mail_user *user, struct acl_lookup_dict **dict_r
 
 	event_add_category(dict->event, &event_category_acl);
 	event_set_append_log_prefix(dict->event, "acl: ");
-
-	uri = mail_user_plugin_getenv(user, "acl_shared_dict");
-	if (uri != NULL) {
-		struct dict_legacy_settings dict_set;
-
-		i_zero(&dict_set);
-		dict_set.base_dir = user->set->base_dir;
-		dict_set.event_parent = user->event;
-		if (dict_init_legacy(uri, &dict_set, &dict->dict, error_r) < 0)
-			return -1;
-	} else {
-		e_debug(dict->event, "No acl_shared_dict setting - "
-			"shared mailbox listing is disabled");
-	}
-	return 0;
+	event_set_ptr(dict->event, SETTINGS_EVENT_FILTER_NAME,
+		      "acl_sharing_map");
+	return dict_init_auto(dict->event, &dict->dict, error_r);
 }
 
 void acl_lookup_dict_deinit(struct acl_lookup_dict **_dict)
@@ -114,7 +102,6 @@ acl_rights_is_same_user(const struct acl_rights *right, struct mail_user *user)
 static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 					       ARRAY_TYPE(const_string) *ids)
 {
-	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(ns->list);
 	struct acl_backend *backend;
 	struct acl_mailbox_list_context *ctx;
 	struct acl_object *aclobj;
@@ -125,11 +112,14 @@ static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 	int ret = 0;
 
 	if ((ns->flags & NAMESPACE_FLAG_NOACL) != 0 || ns->owner == NULL ||
-	    alist == NULL || alist->ignore_acls)
+	    ACL_LIST_CONTEXT(ns->list) == NULL)
+		return 0;
+
+	backend = acl_mailbox_list_get_backend(ns->list);
+	if (backend->set->acl_ignore)
 		return 0;
 
 	id = t_str_new(128);
-	backend = acl_mailbox_list_get_backend(ns->list);
 	ctx = acl_backend_nonowner_lookups_iter_init(backend);
 	while (acl_backend_nonowner_lookups_iter_next(ctx, &name)) {
 		aclobj = acl_object_init_from_name(backend, name);
