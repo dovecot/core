@@ -1,6 +1,7 @@
 /* Copyright (c) 2006-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "llist.h"
 #include "hash.h"
 #include "sort.h"
 #include "mail-storage-settings.h"
@@ -12,6 +13,10 @@
 
 
 extern const struct acl_backend_vfuncs acl_backend_vfile;
+static struct acl_backend_entry {
+	struct acl_backend_entry *prev, *next;
+	const struct acl_backend_vfuncs *v;
+} *acl_backend_list_head = NULL;
 
 struct event_category event_category_acl = {
 	.name = "acl",
@@ -35,13 +40,30 @@ const char *const all_mailbox_rights[] = {
 static const char *const *owner_mailbox_rights = all_mailbox_rights;
 static const char *const non_owner_mailbox_rights[] = { NULL };
 
+static struct acl_backend_entry *acl_backend_find(const char *name)
+{
+	struct acl_backend_entry *be = acl_backend_list_head;
+
+	while (be != NULL) {
+		if (strcmp(be->v->name, name) == 0)
+			break;
+		be = be->next;
+	}
+
+	if (be == NULL)
+		 i_fatal("Unknown ACL backend: %s", name);
+	return be;
+}
+
 struct acl_backend *
 acl_backend_init(const char *data, struct mailbox_list *list,
 		 const char *acl_username, const char *const *groups,
 		 bool owner)
 {
 	struct mail_user *user = mailbox_list_get_user(list);
+	struct acl_backend_entry *be;
 	struct acl_backend *backend;
+	const char *be_name;
 	unsigned int i, group_count;
 
 	e_debug(user->event, "acl: initializing backend with data: %s", data);
@@ -50,18 +72,21 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 
 	group_count = str_array_length(groups);
 
-	if (str_begins(data, "vfile:", &data))
-		;
-	else if (strcmp(data, "vfile") == 0)
-		data = "";
-	else
-		i_fatal("Unknown ACL backend: %s", t_strcut(data, ':'));
+	be_name = strchr(data, ':');
+	if (be_name == NULL)
+		be_name = data;
+	else {
+		be_name = t_strdup_until(data, be_name);
+		data = be_name++;
+	}
 
-	backend = acl_backend_vfile.alloc();
+	be = acl_backend_find(be_name);
+
+	backend = be->v->alloc();
 	backend->event = event_create(user->event);
 	event_add_category(backend->event, &event_category_acl);
 
-	backend->v = &acl_backend_vfile;
+	backend->v = be->v;
 	backend->list = list;
 	backend->username = p_strdup(backend->pool, acl_username);
 	backend->owner = owner;
@@ -82,8 +107,8 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 
 	T_BEGIN {
 		if (backend->v->init(backend, data) < 0)
-			i_fatal("acl: backend vfile init failed with data: %s",
-				data);
+			i_fatal("acl: backend %s init failed with data: %s",
+				backend->v->name, data);
 	} T_END;
 
 	backend->default_rights = owner ? owner_mailbox_rights :
@@ -199,4 +224,19 @@ int acl_backend_get_default_rights(struct acl_backend *backend,
 	if (*mask_r == NULL)
 		*mask_r = backend->default_aclmask;
 	return 0;
+}
+
+void acl_backend_register(const struct acl_backend_vfuncs *v)
+{
+	struct acl_backend_entry *be = i_new(struct acl_backend_entry, 1);
+	be->v = v;
+	DLLIST_PREPEND(&acl_backend_list_head, be);
+}
+
+void acl_backend_unregister(const char *name)
+{
+	struct acl_backend_entry *be = acl_backend_find(name);
+	i_assert(be != NULL);
+	DLLIST_REMOVE(&acl_backend_list_head, be);
+	i_free(be);
 }

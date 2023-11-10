@@ -11,6 +11,7 @@
 #define ACL_ID_NAME_GROUP_OVERRIDE_PREFIX "group-override="
 
 struct acl_backend_vfuncs {
+	const char *name;
 	struct acl_backend *(*alloc)(void);
 	int (*init)(struct acl_backend *backend, const char *data);
 	void (*deinit)(struct acl_backend *backend);
@@ -131,5 +132,8 @@ bool acl_right_names_modify(pool_t pool,
 void acl_object_rebuild_cache(struct acl_object *aclobj);
 void acl_object_remove_all_access(struct acl_object *aclobj);
 void acl_object_add_global_acls(struct acl_object *aclobj);
+
+void acl_backend_register(const struct acl_backend_vfuncs *v);
+void acl_backend_unregister(const char *name);
 
 #endif
