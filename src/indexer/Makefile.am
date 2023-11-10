@@ -10,7 +10,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
-	-I$(top_srcdir)/src/lib-fts \
+	-I$(top_srcdir)/src/lib-language \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	$(BINARY_CFLAGS)
 

@@ -4,7 +4,7 @@ doveadm_moduledir = $(moduledir)/doveadm
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
-	-I$(top_srcdir)/src/lib-fts \
+	-I$(top_srcdir)/src/lib-language \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-http \
 	-I$(top_srcdir)/src/lib-mail \
@@ -22,7 +22,7 @@ lib20_fts_plugin_la_LDFLAGS = -module -avoid-version
 module_LTLIBRARIES = \
 	lib20_fts_plugin.la
 
-lib20_fts_plugin_la_LIBADD = ../../lib-fts/libfts.la
+lib20_fts_plugin_la_LIBADD = ../../lib-language/libfts.la
 
 lib20_fts_plugin_la_SOURCES = \
 	fts-api.c \

@@ -607,7 +607,7 @@ LIBDOVECOT_STORAGE="$LIBDOVECOT_STORAGE_DEPS"
 LIBDOVECOT_DSYNC='$(top_builddir)/src/doveadm/dsync/libdovecot-dsync.la'
 LIBDOVECOT_SQL='$(top_builddir)/src/lib-sql/libsql.la'
 LIBDOVECOT_COMPRESS='$(top_builddir)/src/lib-compression/libcompression.la'
-LIBDOVECOT_LIBFTS='$(top_builddir)/src/lib-fts/libfts.la'
+LIBDOVECOT_LIBFTS='$(top_builddir)/src/lib-language/libfts.la'
 
 LIBDOVECOT_OPENSSL='$(top_builddir)/src/lib-ssl-iostream/libssl_iostream_openssl.la'
 LIBDOVECOT_OPENSSL_DEPS="$LIBDOVECOT_OPENSSL"
@@ -816,7 +816,7 @@ src/lib-dict-extra/Makefile
 src/lib-dns/Makefile
 src/lib-doveadm/Makefile
 src/lib-fs/Makefile
-src/lib-fts/Makefile
+src/lib-language/Makefile
 src/lib-http/Makefile
 src/lib-oauth2/Makefile
 src/lib-pop3/Makefile
