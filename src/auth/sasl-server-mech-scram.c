@@ -191,14 +191,13 @@ void mech_scram_auth_continue(struct sasl_server_mech_request *auth_request,
 struct sasl_server_mech_request *
 mech_scram_auth_new(const struct sasl_server_mech *mech, pool_t pool)
 {
+	struct sasl_server_instance *sinst = mech->sinst;
 	const struct scram_auth_mech *scram_mech =
 		container_of(mech, const struct scram_auth_mech, mech);
 	struct scram_auth_request *request;
 
 	request = p_new(pool, struct scram_auth_request, 1);
 
-	struct auth *auth = auth_default_protocol();
-	struct sasl_server_instance *sinst = auth->sasl_inst;
 	struct auth_scram_server_settings scram_set;
 
 	i_zero(&scram_set);
