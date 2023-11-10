@@ -1,4 +1,4 @@
-noinst_LTLIBRARIES = libfts.la
+noinst_LTLIBRARIES = liblanguage.la
 
 # I$(top_srcdir)/src/lib-language needed to include
 # word-break-data.c and word-boundary-data.c
@@ -72,12 +72,12 @@ NORMALIZER_LIBS = $(LIBICU_LIBS)
 ICU_TESTS = test-fts-icu
 endif
 
-libfts_la_LIBADD = \
+liblanguage_la_LIBADD = \
 	$(STEMMER_LIBS) \
 	$(TEXTCAT_LIBS) \
 	$(NORMALIZER_LIBS)
 
-libfts_la_SOURCES = \
+liblanguage_la_SOURCES = \
 	fts-filter.c \
 	fts-filter-contractions.c \
 	fts-filter-common.c \
@@ -111,11 +111,11 @@ headers = \
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
-pkglib_LTLIBRARIES = libdovecot-fts.la
-libdovecot_fts_la_SOURCES =
-libdovecot_fts_la_LIBADD = libfts.la $(LIBDOVECOT)
-libdovecot_fts_la_DEPENDENCIES = libfts.la $(LIBDOVECOT_DEPS)
-libdovecot_fts_la_LDFLAGS = -export-dynamic
+pkglib_LTLIBRARIES = libdovecot-language.la
+libdovecot_language_la_SOURCES =
+libdovecot_language_la_LIBADD = liblanguage.la $(LIBDOVECOT)
+libdovecot_language_la_DEPENDENCIES = liblanguage.la $(LIBDOVECOT_DEPS)
+libdovecot_language_la_LDFLAGS = -export-dynamic
 
 test_programs = \
 	$(ICU_TESTS) \
@@ -135,8 +135,8 @@ test_fts_icu_LDADD = fts-icu.lo $(LIBICU_LIBS) $(test_libs)
 test_fts_icu_DEPENDENCIES = fts-icu.lo $(test_deps)
 
 test_fts_filter_SOURCES = test-fts-filter.c
-test_fts_filter_LDADD = libfts.la $(test_libs)
-test_fts_filter_DEPENDENCIES = libfts.la $(test_deps)
+test_fts_filter_LDADD = liblanguage.la $(test_libs)
+test_fts_filter_DEPENDENCIES = liblanguage.la $(test_deps)
 
 if BUILD_FTS_EXTTEXTCAT
 TEST_FTS_LANGUAGE = test-fts-language
