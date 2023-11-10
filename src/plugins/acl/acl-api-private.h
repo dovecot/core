@@ -59,7 +59,6 @@ struct acl_backend {
 	struct acl_backend_vfuncs v;
 
 	bool owner:1;
-	bool debug:1;
 	bool globals_only:1;
 };
 
