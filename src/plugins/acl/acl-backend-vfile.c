@@ -57,60 +57,6 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char **error_r)
 	return 0;
 }
 
-static int
-acl_backend_vfile_init_legacy(struct acl_backend *_backend, const char *data)
-{
-	struct event *event = _backend->event;
-	struct acl_backend_vfile *backend =
-		container_of(_backend, struct acl_backend_vfile, backend);
-	struct stat st;
-	const char *value, *const *tmp;
-	const char *global_path;
-
-	tmp = t_strsplit(data, ":");
-	global_path = t_strdup_empty(*tmp);
-	backend->cache_secs = ACL_VFILE_DEFAULT_CACHE_SECS;
-
-	if (*tmp != NULL)
-		tmp++;
-	for (; *tmp != NULL; tmp++) {
-		if (str_begins(*tmp, "cache_secs=", &value)) {
-			if (str_to_uint(value, &backend->cache_secs) < 0) {
-				e_error(event,
-					"acl vfile: Invalid cache_secs value: %s",
-					*tmp + 11);
-				return -1;
-			}
-		} else {
-			e_error(event, "acl vfile: Unknown parameter: %s", *tmp);
-			return -1;
-		}
-	}
-	if (global_path != NULL) {
-		if (stat(global_path, &st) < 0) {
-			e_error(event,
-				"acl vfile: stat(%s) failed: %m", global_path);
-			return -1;
-		} else if (S_ISDIR(st.st_mode)) {
-			e_error(event,
-				"acl vfile: Global ACL directories are no longer supported");
-			return -1;
-		} else {
-			_backend->global_file =	acl_global_file_init(
-				global_path, backend->cache_secs, event);
-		}
-	}
-	if (_backend->global_file == NULL)
-		e_debug(event, "acl vfile: Global ACLs disabled");
-	else
-		e_debug(event, "acl vfile: Global ACL file: %s", global_path);
-
-	_backend->cache =
-		acl_cache_init(_backend,
-			       sizeof(struct acl_backend_vfile_validity));
-	return 0;
-}
-
 static void acl_backend_vfile_deinit(struct acl_backend *_backend)
 {
 	struct acl_backend_vfile *backend =
@@ -594,7 +540,6 @@ const struct acl_backend_vfuncs acl_backend_vfile = {
 	.name = "vfile",
 	.alloc = acl_backend_vfile_alloc,
 	.init = acl_backend_vfile_init,
-	.init_legacy = acl_backend_vfile_init_legacy,
 	.deinit = acl_backend_vfile_deinit,
 	.nonowner_lookups_iter_init = acl_backend_vfile_nonowner_iter_init,
 	.nonowner_lookups_iter_next = acl_backend_vfile_nonowner_iter_next,
