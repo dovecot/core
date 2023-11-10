@@ -23,7 +23,8 @@
 
 struct mail_crypt_acl_mailbox_list {
 	union mailbox_list_module_context module_ctx;
-	struct acl_backend_vfuncs acl_vprev;
+	const struct acl_backend_vfuncs *acl_vprev;
+	struct acl_backend_vfuncs v;
 };
 
 static MODULE_CONTEXT_DEFINE_INIT(mail_crypt_acl_mailbox_list_module,
@@ -246,7 +247,7 @@ static int mail_crypt_acl_object_update(struct acl_object *aclobj,
 	bool have_rights;
 	int ret = 0;
 
-	if (mlist->acl_vprev.object_update(aclobj, update) < 0)
+	if (mlist->acl_vprev->object_update(aclobj, update) < 0)
 		return -1;
 
 	if (settings_get(event, &crypt_acl_setting_parser_info, 0,
@@ -371,7 +372,9 @@ mail_crypt_acl_mail_namespace_storage_added(struct mail_namespace *ns)
 	   ACL core code would need some changing to make it work correctly. */
 	backend = alist->rights.backend;
 	mlist->acl_vprev = backend->v;
-	backend->v.object_update = mail_crypt_acl_object_update;
+	mlist->v = *backend->v;
+	mlist->v.object_update = mail_crypt_acl_object_update;
+	backend->v = &mlist->v;
 }
 
 static void mail_crypt_acl_mailbox_list_deinit(struct mailbox_list *list)

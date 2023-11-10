@@ -51,7 +51,7 @@ static int acl_backend_vfile_update_begin(struct acl_object_vfile *aclobj,
 	/* locked successfully, re-read the existing file to make sure we
 	   don't lose any changes. */
 	acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
-	if (_aclobj->backend->v.object_refresh_cache(_aclobj) < 0) {
+	if (_aclobj->backend->v->object_refresh_cache(_aclobj) < 0) {
 		file_dotlock_delete(dotlock_r);
 		return -1;
 	}
