@@ -41,7 +41,7 @@ SUBDIRS = \
 	lib-dovecot \
 	$(LIB_LDAP) \
 	$(LIB_LUA) \
-	lib-fts \
+	lib-language \
 	lib-imap-client \
 	lib-imap-urlauth \
 	lib-compression \

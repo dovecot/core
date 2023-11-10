@@ -1,18 +1,18 @@
 noinst_LTLIBRARIES = libfts.la
 
-# I$(top_srcdir)/src/lib-fts needed to include
+# I$(top_srcdir)/src/lib-language needed to include
 # word-break-data.c and word-boundary-data.c
 # in fts-tokenizer-generic.c
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-mail \
-	-I$(top_srcdir)/src/lib-fts \
+	-I$(top_srcdir)/src/lib-language \
 	$(LIBEXTTEXTCAT_CFLAGS) \
 	$(LIBICU_CFLAGS) \
-	-DUDHRDIR=\""$(top_srcdir)/src/lib-fts"\" \
+	-DUDHRDIR=\""$(top_srcdir)/src/lib-language"\" \
 	-DDATADIR=\"$(pkgdatadir)\" \
-	-DTEST_STOPWORDS_DIR=\""$(top_srcdir)/src/lib-fts/stopwords"\"
+	-DTEST_STOPWORDS_DIR=\""$(top_srcdir)/src/lib-language/stopwords"\"
 
 stopwordsdir = $(datadir)/${PACKAGE_TARNAME}/stopwords
 dist_stopwords_DATA = \

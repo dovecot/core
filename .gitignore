@@ -100,10 +100,10 @@ src/lib/event-filter-parser.h
 src/lib/unicodemap.c
 src/lib/UnicodeData.txt
 src/lib-compression/bench-compression
-src/lib-fts/PropList.txt
-src/lib-fts/WordBreakProperty.txt
-src/lib-fts/word-boundary-data.c
-src/lib-fts/word-break-data.c
+src/lib-language/PropList.txt
+src/lib-language/WordBreakProperty.txt
+src/lib-language/word-boundary-data.c
+src/lib-language/word-break-data.c
 src/lib-dict-backend/dict-drivers-register.c
 src/lib-json/json-format
 src/lib-sql/sql-drivers-register.c

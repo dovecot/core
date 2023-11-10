@@ -183,7 +183,7 @@ static void test_static_v2_input(void)
 
 /** this code is left here to show how the sample file is created
 	struct istream *is =
-		i_stream_create_file("../lib-fts/udhr_fra.txt", 8192);
+		i_stream_create_file("../lib-language/udhr_fra.txt", 8192);
 	struct istream *is_2 = i_stream_create_hash(is, hash, hash_ctx);
 	int fd = open("sample-v2.bin", O_CREAT|O_TRUNC|O_WRONLY, S_IRWXU);
 	struct ostream *os = o_stream_create_fd_file(fd, 0, TRUE);
