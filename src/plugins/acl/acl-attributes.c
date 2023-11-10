@@ -199,7 +199,7 @@ acl_attribute_iter_next_acl(struct acl_mailbox_attribute_iter *aiter)
 const char *acl_attribute_iter_next(struct mailbox_attribute_iter *iter)
 {
 	struct acl_mailbox_attribute_iter *aiter =
-		(struct acl_mailbox_attribute_iter *)iter;
+		container_of(iter, struct acl_mailbox_attribute_iter, iter);
 	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(iter->box);
 	const char *key;
 
@@ -215,7 +215,7 @@ const char *acl_attribute_iter_next(struct mailbox_attribute_iter *iter)
 int acl_attribute_iter_deinit(struct mailbox_attribute_iter *iter)
 {
 	struct acl_mailbox_attribute_iter *aiter =
-		(struct acl_mailbox_attribute_iter *)iter;
+		container_of(iter, struct acl_mailbox_attribute_iter, iter);
 	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(iter->box);
 	int ret = aiter->failed ? -1 : 0;
 

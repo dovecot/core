@@ -34,7 +34,8 @@ static void
 acl_shared_namespace_add(struct mail_namespace *ns,
 			 struct mail_storage *storage, const char *userdomain)
 {
-	struct shared_storage *sstorage = (struct shared_storage *)storage;
+	struct shared_storage *sstorage =
+		container_of(storage, struct shared_storage, storage);
 	struct mail_namespace *new_ns = ns;
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
