@@ -21,15 +21,26 @@
 
 #include <time.h>
 
-static const char *
-get_field(const struct json_tree *tree, const char *key,
-	  enum json_type *type_r)
+static const struct json_tree_node *
+get_field_node(const struct json_tree *tree, const char *key)
 {
 	const struct json_tree_node *root = json_tree_root(tree);
 	const struct json_tree_node *value_node = json_tree_find_key(root, key);
 
 	if (value_node == NULL || value_node->value_type == JSON_TYPE_OBJECT ||
 	    value_node->value_type == JSON_TYPE_ARRAY)
+		return NULL;
+
+	return value_node;
+}
+
+static const char *
+get_field(const struct json_tree *tree, const char *key,
+	  enum json_type *type_r)
+{
+	const struct json_tree_node *value_node = get_field_node(tree, key);
+
+	if (value_node == NULL)
 		return NULL;
 	if (type_r != NULL)
 		*type_r = value_node->value_type;
