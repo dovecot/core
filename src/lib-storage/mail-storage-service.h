@@ -59,7 +59,10 @@ struct mail_storage_service_input {
 	in_port_t local_port, remote_port;
 	const char *local_name;
 
+	/* SETTINGS_OVERRIDE_TYPE_USERDB fields */
 	const char *const *userdb_fields;
+	/* SETTINGS_OVERRIDE_TYPE_CODE fields */
+	const char *const *code_override_fields;
 
 	const char *const *forward_fields;
 
