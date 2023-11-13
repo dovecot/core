@@ -464,7 +464,7 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 	if (ctx->v.prerun != NULL) {
 		T_BEGIN {
 			ret = ctx->v.prerun(ctx, ctx->cur_service_user, error_r);
-		} T_END;
+		} T_END_PASS_STR_IF(ret < 0, error_r);
 		if (ret < 0) {
 			mail_storage_service_user_unref(&ctx->cur_service_user);
 			return -1;
