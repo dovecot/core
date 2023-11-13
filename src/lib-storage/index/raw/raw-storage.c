@@ -35,9 +35,9 @@ raw_storage_create_from_set(struct mail_storage_service_ctx *ctx,
 
 	const struct master_service_settings *service_set =
 		master_service_get_service_settings(master_service);
-	const char *const userdb_fields[] = {
+	const char *const code_override_fields[] = {
 		/* use unwritable home directory */
-		t_strdup_printf("home=%s/empty", service_set->base_dir),
+		t_strdup_printf("mail_home=%s/empty", service_set->base_dir),
 		/* absolute paths are ok with raw storage */
 		"mail_full_filesystem_access=yes",
 		NULL,
@@ -48,7 +48,7 @@ raw_storage_create_from_set(struct mail_storage_service_ctx *ctx,
 		.set_instance = set_instance,
 		.autocreated = TRUE,
 		.no_userdb_lookup = TRUE,
-		.userdb_fields = userdb_fields,
+		.code_override_fields = code_override_fields,
 		.flags_override_add =
 			MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS |
 			MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR |
