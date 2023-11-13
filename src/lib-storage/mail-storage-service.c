@@ -222,6 +222,19 @@ user_reply_handle(struct mail_storage_service_user *user,
 	return 0;
 }
 
+static void
+mail_storage_service_add_code_overrides(struct mail_storage_service_user *user,
+					const char *const *code_override_fields)
+{
+	for (unsigned int i = 0; code_override_fields[i] != NULL; i++) {
+		const char *key, *value;
+		t_split_key_value_eq(code_override_fields[i], &key, &value);
+
+		settings_override(user->set_instance, key, value,
+				  SETTINGS_OVERRIDE_TYPE_CODE);
+	}
+}
+
 static int
 service_auth_userdb_lookup(struct mail_storage_service_ctx *ctx,
 			   const struct mail_storage_service_input *input,
@@ -1221,6 +1234,10 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 				"Invalid settings in userdb: %s", error);
 			ret = -2;
 		}
+	}
+	if (input->code_override_fields != NULL) {
+		mail_storage_service_add_code_overrides(user,
+			input->code_override_fields);
 	}
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS) != 0 &&
 	    array_is_created(&user_set->mail_plugins) &&
