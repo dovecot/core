@@ -1,12 +1,14 @@
 /* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "settings.h"
 #include "module-context.h"
 #include "ioloop.h"
 #include "dict.h"
 #include "mail-storage-private.h"
 #include "quota.h"
 #include "quota-clone-plugin.h"
+#include "quota-clone-settings.h"
 
 /* If mailbox is kept open for this many milliseconds after quota update,
    flush quota-clone. */
@@ -30,11 +32,11 @@ static MODULE_CONTEXT_DEFINE_INIT(quota_clone_storage_module,
 
 struct quota_clone_user {
 	union mail_user_module_context module_ctx;
+	struct quota_clone_settings *set;
 	struct dict *dict;
 	struct timeout *to_quota_flush;
 	bool quota_changed;
 	bool quota_flushing;
-	bool unset;
 };
 
 static void
@@ -124,14 +126,14 @@ static bool quota_clone_flush_real(struct mail_user *user)
 	trans = dict_transaction_begin(quser->dict, set);
 	if (bytes_res == QUOTA_GET_RESULT_LIMITED ||
 	    bytes_res == QUOTA_GET_RESULT_UNLIMITED) {
-		if (quser->unset)
+		if (quser->set->unset)
 			dict_unset(trans, DICT_QUOTA_CLONE_BYTES_PATH);
 		dict_set(trans, DICT_QUOTA_CLONE_BYTES_PATH,
 			 t_strdup_printf("%"PRIu64, bytes_value));
 	}
 	if (count_res == QUOTA_GET_RESULT_LIMITED ||
 	    count_res == QUOTA_GET_RESULT_UNLIMITED) {
-		if (quser->unset)
+		if (quser->set->unset)
 			dict_unset(trans, DICT_QUOTA_CLONE_COUNT_PATH);
 		dict_set(trans, DICT_QUOTA_CLONE_COUNT_PATH,
 			 t_strdup_printf("%"PRIu64, count_value));
@@ -263,6 +265,7 @@ static void quota_clone_mail_user_deinit(struct mail_user *user)
 	dict_wait(quser->dict);
 	i_assert(quser->to_quota_flush == NULL);
 	dict_deinit(&quser->dict);
+	settings_free(quser->set);
 	quser->module_ctx.super.deinit(user);
 }
 
@@ -270,24 +273,27 @@ static void quota_clone_mail_user_created(struct mail_user *user)
 {
 	struct quota_clone_user *quser;
 	struct mail_user_vfuncs *v = user->vlast;
-	struct dict_legacy_settings dict_set;
 	struct dict *dict;
-	const char *uri, *error;
+	const char *error;
+	struct quota_clone_settings *set;
 
-	uri = mail_user_plugin_getenv(user, "quota_clone_dict");
-	if (uri == NULL || uri[0] == '\0') {
-		e_debug(user->event, "The quota_clone_dict setting is missing from configuration");
+	struct event *event = event_create(user->event);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "quota_clone");
+	if (settings_get(event, &quota_clone_setting_parser_info, 0,
+			 &set, &error) < 0) {
+		user->error = p_strdup(user->pool, error);
+		event_unref(&event);
 		return;
 	}
 
-	i_zero(&dict_set);
-	dict_set.base_dir = user->set->base_dir;
-	dict_set.event_parent = user->event;
-	if (dict_init_legacy(uri, &dict_set, &dict, &error) < 0) {
-		e_error(user->event, "quota_clone_dict: Failed to initialize '%s': %s",
-			uri, error);
+	if (dict_init_auto(event, &dict, &error) <= 0) {
+		user->error = p_strdup_printf(user->pool,
+			"quota_clone: dict_init_auto() failed: %s", error);
+		settings_free(set);
+		event_unref(&event);
 		return;
 	}
+	event_unref(&event);
 
 	quser = p_new(user->pool, struct quota_clone_user, 1);
 	quser->module_ctx.super = *v;
@@ -295,7 +301,7 @@ static void quota_clone_mail_user_created(struct mail_user *user)
 	v->deinit_pre = quota_clone_mail_user_deinit_pre;
 	v->deinit = quota_clone_mail_user_deinit;
 	quser->dict = dict;
-	quser->unset = mail_user_plugin_getenv_bool(user, "quota_clone_unset");
+	quser->set = set;
 	MODULE_CONTEXT_SET(user, quota_clone_user_module, quser);
 }
 
