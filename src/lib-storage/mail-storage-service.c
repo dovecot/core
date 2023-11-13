@@ -230,6 +230,8 @@ mail_storage_service_add_code_overrides(struct mail_storage_service_user *user,
 		const char *key, *value;
 		t_split_key_value_eq(code_override_fields[i], &key, &value);
 
+		if (strcmp(key, "mail_home") == 0)
+			user->home_from_userdb = TRUE;
 		settings_override(user->set_instance, key, value,
 				  SETTINGS_OVERRIDE_TYPE_CODE);
 	}
