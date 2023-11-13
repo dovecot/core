@@ -29,13 +29,32 @@ struct settings_mmap_pool {
 struct settings_override {
 	pool_t pool;
 	int type;
+
 	/* Number of '/' characters in orig_key + 1 */
 	unsigned int path_element_count;
+	/* key += value is used, i.e. append this value to existing value */
 	bool append;
+	/* TRUE once all the filter elements have been processed in "key",
+	   and it points to a non-filter suffix of the path. */
 	bool filter_finished;
-	const char *key, *orig_key, *value;
+	/* Original key for the overridden setting, e.g.
+	   namespace/inbox/mailbox/Sent/mail_attribute/dict_driver */
+	const char *orig_key;
+	/* key starts as orig_key, but it keeps being updated to skip over
+	   the filter elements, e.g. finally when filter_finished=TRUE, it's
+	   just "dict_driver" */
+	const char *key;
+	/* Value for the overridden setting */
+	const char *value;
 
+	/* Event filter being generated from the key as it's being processed. */
 	struct event_filter *filter;
+	/* Last filter element's key, and for list filters the value, while
+	   the key is being processed. In the above example:
+	   - "namespace", "inbox"
+	   - "mailbox", "Sent"
+	   - "mail_attribute", NULL
+	*/
 	const char *last_filter_key, *last_filter_value;
 };
 ARRAY_DEFINE_TYPE(settings_override, struct settings_override);
