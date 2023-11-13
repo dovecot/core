@@ -49,6 +49,10 @@ struct settings_override {
 
 	/* Event filter being generated from the key as it's being processed. */
 	struct event_filter *filter;
+	/* Event being generated from the key as it's being processed.
+	   The event contains every named list filter as key=value, and any
+	   named filter as settings_filter_name=name. */
+	struct event *filter_event;
 	/* Last filter element's key, and for list filters the value, while
 	   the key is being processed. In the above example:
 	   - "namespace", "inbox"
@@ -140,6 +144,11 @@ static_assert_array_size(settings_override_type_names,
 static struct event_filter event_filter_match_never, event_filter_match_always;
 #define EVENT_FILTER_MATCH_ALWAYS (&event_filter_match_always)
 #define EVENT_FILTER_MATCH_NEVER (&event_filter_match_never)
+
+static int
+settings_instance_override(struct settings_apply_ctx *ctx,
+			   struct event_filter *event_filter,
+			   const char **error_r);
 
 static int
 settings_block_read_uint32(struct settings_mmap *mmap,
@@ -772,12 +781,34 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 				    strcmp(ctx->filter_name, value) == 0)
 					seen_filter = TRUE;
 			}
+
+			if (event_filter != EVENT_FILTER_MATCH_ALWAYS) {
+				int ret = settings_instance_override(ctx,
+						event_filter, error_r);
+				if (ret < 0)
+					return -1;
+				if (ret > 0)
+					seen_filter = TRUE;
+			}
+
 			if (settings_mmap_apply_blob(ctx, block,
 					filter_offset, filter_end_offset,
 					error_r) < 0)
 				return -1;
 		}
 	}
+
+	/* Apply any leftover overrides after filters and
+	   filter overrides were already handled. This way global
+	   setting overrides don't override named filters' settings,
+	   unless the override is specifically using the filter name
+	   as prefix. */
+	int ret = settings_instance_override(ctx, NULL, error_r);
+	if (ret < 0)
+		return -1;
+	if (ret > 0)
+		seen_filter = TRUE;
+
 	/* apply the base settings last after all filters */
 	if (settings_mmap_apply_blob(ctx, block, block->base_start_offset,
 				     block->base_end_offset, error_r) < 0)
@@ -1094,12 +1125,17 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 			filter_string = t_str_new(64);
 		else
 			str_append(filter_string, " AND ");
+		if (set->filter_event == NULL)
+			set->filter_event = event_create(NULL);
 		switch (ctx->info->defines[key_idx].type) {
 		case SET_FILTER_NAME:
 			last_filter_key = part;
 			last_filter_value = NULL;
 			str_printfa(filter_string, SETTINGS_EVENT_FILTER_NAME"=\"%s\"",
 				    wildcard_str_escape(last_filter_key));
+			event_add_str(set->filter_event,
+				      SETTINGS_EVENT_FILTER_NAME,
+				      last_filter_key);
 			break;
 		case SET_FILTER_HIERARCHY: {
 			/* add the full repeated hierarchy here */
@@ -1118,6 +1154,9 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 
 			last_filter_key = t_strdup_until(set->key, p);
 			last_filter_value = NULL;
+			event_add_str(set->filter_event,
+				      SETTINGS_EVENT_FILTER_NAME,
+				      last_filter_key);
 			break;
 		}
 		case SET_FILTER_ARRAY: {
@@ -1137,6 +1176,8 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 			str_printfa(filter_string, "\"%s\"=\"%s\"",
 				    wildcard_str_escape(last_filter_key),
 				    str_escape(last_filter_value));
+			event_add_str(set->filter_event,
+				      last_filter_key, last_filter_value);
 			break;
 		}
 		default:
@@ -1252,14 +1293,28 @@ settings_instance_override_init(struct settings_apply_ctx *ctx)
 	array_sort(&ctx->overrides, settings_override_cmp);
 }
 
+static void settings_override_free(struct settings_override *override)
+{
+	event_filter_unref(&override->filter);
+	event_unref(&override->filter_event);
+}
+
 static int
 settings_instance_override(struct settings_apply_ctx *ctx,
+			   struct event_filter *event_filter,
 			   const char **error_r)
 {
-	struct settings_override *set;
+	struct settings_override *set, **set_elem;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
 
 	bool seen_filter = FALSE;
-	array_foreach_elem(&ctx->overrides, set) {
+	array_foreach_modifiable(&ctx->overrides, set_elem) {
+		if (*set_elem == NULL)
+			continue; /* already applied */
+		set = *set_elem;
+
 		const char *key = set->key, *value;
 		unsigned int key_idx;
 		int ret;
@@ -1270,6 +1325,15 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		if (ret < 0)
 			return -1;
 		if (ret == 0)
+			continue;
+
+		/* If we're being called while applying filters, only apply
+		   the overrides that have a matching filter. This preserves
+		   the expected order in which settings are applied. */
+		if (event_filter != NULL &&
+		    (set->filter_event == NULL ||
+		     !event_filter_match(event_filter, set->filter_event,
+					 &failure_ctx)))
 			continue;
 
 		if (ctx->filter_key != NULL && set->last_filter_key != NULL &&
@@ -1309,6 +1373,8 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			}
 			*setp = TRUE;
 		}
+		/* skip this setting the next time */
+		*set_elem = NULL;
 
 		if (value != set->value)
 			value = p_strdup(&ctx->mpool->pool, value);
@@ -1357,7 +1423,7 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 {
 	const char *error;
 	bool seen_filter = FALSE;
-	int ret;
+	int ret = 0;
 
 	i_assert(ctx->info->pool_offset1 != 0);
 
@@ -1386,19 +1452,20 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 		settings_var_expand_init(ctx);
 
 	settings_instance_override_init(ctx);
-	ret = settings_instance_override(ctx, error_r);
-	if (ret > 0)
-		seen_filter = TRUE;
 
-	if (ctx->instance->mmap != NULL && ret >= 0) {
+	if (ctx->instance->mmap != NULL) {
 		ret = settings_mmap_apply(ctx, &error);
 		if (ret < 0) {
 			*error_r = t_strdup_printf(
 				"Failed to parse configuration: %s", error);
 		}
-		if (ret > 0)
-			seen_filter = TRUE;
+	} else {
+		/* No configuration file - apply all overrides */
+		ret = settings_instance_override(ctx, NULL, error_r);
 	}
+	if (ret > 0)
+		seen_filter = TRUE;
+
 	if (ret >= 0)
 		ret = settings_mmap_apply_defaults(ctx, error_r);
 	if (ret < 0) {
@@ -1718,7 +1785,7 @@ void settings_instance_free(struct settings_instance **_instance)
 
 	if (array_is_created(&instance->overrides)) {
 		array_foreach_modifiable(&instance->overrides, override)
-			event_filter_unref(&override->filter);
+			settings_override_free(override);
 	}
 	pool_unref(&instance->pool);
 }
@@ -1743,7 +1810,7 @@ void settings_root_deinit(struct settings_root **_root)
 
 	if (array_is_created(&root->overrides)) {
 		array_foreach_modifiable(&root->overrides, override)
-			event_filter_unref(&override->filter);
+			settings_override_free(override);
 	}
 	settings_mmap_unref(&root->mmap);
 
