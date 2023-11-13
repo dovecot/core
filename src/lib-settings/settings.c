@@ -123,6 +123,7 @@ struct settings_apply_ctx {
 	struct settings_mmap_pool *mpool;
 	void *set_struct;
 	ARRAY_TYPE(bool) set_seen;
+	ARRAY_TYPE(settings_override_p) overrides;
 
 	string_t *str;
 	const struct var_expand_table *const *tables;
@@ -1233,27 +1234,32 @@ settings_override_get_value(struct settings_apply_ctx *ctx,
 	return 1;
 }
 
+static void
+settings_instance_override_init(struct settings_apply_ctx *ctx)
+{
+	struct settings_override *set;
+
+	t_array_init(&ctx->overrides, 64);
+	if (array_is_created(&ctx->instance->overrides)) {
+		array_foreach_modifiable(&ctx->instance->overrides, set)
+			array_push_back(&ctx->overrides, &set);
+	}
+	if (array_is_created(&ctx->root->overrides)) {
+		array_foreach_modifiable(&ctx->root->overrides, set)
+			array_push_back(&ctx->overrides, &set);
+	}
+	/* sort overrides so that the most specific ones are first */
+	array_sort(&ctx->overrides, settings_override_cmp);
+}
+
 static int
 settings_instance_override(struct settings_apply_ctx *ctx,
 			   const char **error_r)
 {
-	ARRAY_TYPE(settings_override_p) overrides;
 	struct settings_override *set;
 
-	t_array_init(&overrides, 64);
-	if (array_is_created(&ctx->instance->overrides)) {
-		array_foreach_modifiable(&ctx->instance->overrides, set)
-			array_push_back(&overrides, &set);
-	}
-	if (array_is_created(&ctx->root->overrides)) {
-		array_foreach_modifiable(&ctx->root->overrides, set)
-			array_push_back(&overrides, &set);
-	}
-	/* sort overrides so that the most specific ones are first */
-	array_sort(&overrides, settings_override_cmp);
-
 	bool seen_filter = FALSE;
-	array_foreach_elem(&overrides, set) {
+	array_foreach_elem(&ctx->overrides, set) {
 		const char *key = set->key, *value;
 		unsigned int key_idx;
 		int ret;
@@ -1379,6 +1385,7 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 	    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0)
 		settings_var_expand_init(ctx);
 
+	settings_instance_override_init(ctx);
 	ret = settings_instance_override(ctx, error_r);
 	if (ret > 0)
 		seen_filter = TRUE;
