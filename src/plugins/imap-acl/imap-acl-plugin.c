@@ -2,6 +2,7 @@
 
 #include "imap-common.h"
 #include "str.h"
+#include "settings.h"
 #include "imap-quote.h"
 #include "imap-resp-code.h"
 #include "imap-commands.h"
@@ -33,6 +34,38 @@
 	MODULE_CONTEXT(obj, imap_acl_storage_module)
 #define IMAP_ACL_CONTEXT_REQUIRE(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, imap_acl_storage_module)
+
+/* <settings checks> */
+struct imap_acl_settings {
+	pool_t pool;
+	bool allow_anyone;
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("imap_acl_" #name, name, \
+				     struct imap_acl_settings)
+
+static const struct setting_define imap_acl_setting_defines[] = {
+	DEF(BOOL, allow_anyone),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static struct imap_acl_settings imap_acl_default_settings = {
+	.allow_anyone = FALSE,
+};
+/* </settings checks> */
+
+const struct setting_parser_info imap_acl_setting_parser_info = {
+	.name = "imap_acl",
+
+	.defines = imap_acl_setting_defines,
+	.defaults = &imap_acl_default_settings,
+
+	.struct_size = sizeof(struct imap_acl_settings),
+	.pool_offset1 = 1 + offsetof(struct imap_acl_settings, pool),
+};
 
 struct imap_acl_letter_map {
 	char letter;
@@ -807,20 +840,23 @@ imap_acl_letters_parse(const char *letters, const char *const **rights_r,
 	return 0;
 }
 
-static bool acl_anyone_allow(struct mail_user *user)
-{
-	const char *env;
-
-	env = mail_user_plugin_getenv(user, "acl_anyone");
-	return env != NULL && strcmp(env, "allow") == 0;
-}
-
 static int
 imap_acl_identifier_parse(struct client_command_context *cmd,
 			  const char *id, struct acl_rights *rights,
 			  bool check_anyone, const char **client_error_r)
 {
+	const struct imap_acl_settings *set;
 	struct mail_user *user = cmd->client->user;
+	const char *error;
+	bool allow_anyone;
+	if (settings_get(user->event, &imap_acl_setting_parser_info, 0, &set,
+			 &error) < 0) {
+		e_error(user->event, "%s", error);
+		*client_error_r = MAIL_ERRSTR_CRITICAL_MSG;
+		return -1;
+	}
+	allow_anyone = set->allow_anyone;
+	settings_free(set);
 
 	if (str_begins_with(id, IMAP_ACL_GLOBAL_PREFIX)) {
 		*client_error_r = t_strdup_printf("Global ACLs can't be modified: %s",
@@ -829,14 +865,15 @@ imap_acl_identifier_parse(struct client_command_context *cmd,
 	}
 
 	if (strcmp(id, IMAP_ACL_ANYONE) == 0) {
-		if (check_anyone && !acl_anyone_allow(user)) {
+		if (check_anyone && !allow_anyone) {
 			*client_error_r = "'anyone' identifier is disallowed";
 			return -1;
 		}
 		rights->id_type = ACL_ID_ANYONE;
 	} else if (strcmp(id, IMAP_ACL_AUTHENTICATED) == 0) {
-		if (check_anyone && !acl_anyone_allow(user)) {
-			*client_error_r = "'authenticated' identifier is disallowed";
+		if (check_anyone && !allow_anyone) {
+			*client_error_r =
+				"'authenticated' identifier is disallowed";
 			return -1;
 		}
 		rights->id_type = ACL_ID_AUTHENTICATED;
