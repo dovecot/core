@@ -522,7 +522,7 @@ cmd_commit(struct dict_connection_cmd *cmd, const char *const *args)
 		event_set_append_log_prefix(cmd->event, "COMMIT: ");
 	else {
 		event_set_append_log_prefix(cmd->event, t_strdup_printf(
-			"COMIT (user %s): ", trans->ctx->set.username));
+			"COMMIT (user %s): ", trans->ctx->set.username));
 	}
 
 	dict_connection_cmd_async(cmd);
