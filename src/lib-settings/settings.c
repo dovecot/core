@@ -28,7 +28,7 @@ struct settings_mmap_pool {
 
 struct settings_override {
 	pool_t pool;
-	int type;
+	enum settings_override_type type;
 
 	/* Number of '/' characters in orig_key + 1 */
 	unsigned int path_element_count;
@@ -1016,7 +1016,7 @@ settings_var_expand_init(struct settings_apply_ctx *ctx)
 static int settings_override_cmp(struct settings_override *const *set1,
 				 struct settings_override *const *set2)
 {
-	int ret = (*set2)->type - (*set1)->type;
+	int ret = (int)(*set2)->type - (int)(*set1)->type;
 	if (ret != 0)
 		return ret;
 
