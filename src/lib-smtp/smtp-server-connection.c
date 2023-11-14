@@ -279,6 +279,8 @@ static void smtp_server_connection_ready(struct smtp_server_connection *conn)
 	conn->raw_input = conn->conn.input;
 	conn->raw_output = conn->conn.output;
 
+	conn->connect_succeeded = TRUE;
+
 	smtp_server_connection_update_rawlog(conn);
 
 	conn->smtp_parser = smtp_command_parser_init(conn->conn.input,
@@ -429,13 +431,21 @@ int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 		conn->ssl_iostream, smtp_server_connection_sni_callback, conn);
 	smtp_server_connection_input_resume(conn);
 
+	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
+		e_error(conn->event, "SSL handshake failed: %s",
+			ssl_iostream_get_last_error(conn->ssl_iostream));
+		return -1;
+	}
+
 	conn->ssl_secured = TRUE;
 	conn->set.capabilities &= ENUM_NEGATE(SMTP_CAPABILITY_STARTTLS);
 
-	if (conn->ssl_start)
-		smtp_server_connection_ready(conn);
-	else
+	if (conn->connect_succeeded)
 		smtp_server_connection_streams_changed(conn);
+	else if (conn->ssl_start &&
+		 ssl_iostream_is_handshaked(conn->ssl_iostream))
+		smtp_server_connection_ready(conn);
+
 	return 0;
 }
 
@@ -585,6 +595,7 @@ static void smtp_server_connection_input(struct connection *_conn)
 {
 	struct smtp_server_connection *conn =
 		(struct smtp_server_connection *)_conn;
+	int ret;
 
 	i_assert(!conn->input_broken);
 
@@ -606,6 +617,43 @@ static void smtp_server_connection_input(struct connection *_conn)
 	}
 	i_assert(!conn->halted);
 
+	/* If connection is established over secure line, wait for TLS
+	   handshake to finish. */
+	if (conn->ssl_iostream != NULL &&
+	    !ssl_iostream_is_handshaked(conn->ssl_iostream)) {
+		/* Finish SSL negotiating by reading from input stream. */
+		while ((ret = i_stream_read(conn->conn.input)) > 0 ||
+		       ret == -2) {
+			if (ssl_iostream_is_handshaked(conn->ssl_iostream))
+				break;
+		}
+		if (ret == -1) {
+			int stream_errno = conn->conn.input->stream_errno;
+
+			/* Failed somehow. */
+			i_assert(ret != -2);
+			const char *error = t_strdup_printf(
+				"SSL handshaking with %s failed: "
+				"read(%s) failed: %s",
+				_conn->name,
+				i_stream_get_name(conn->conn.input),
+				(stream_errno != 0 ?
+				 i_stream_get_error(conn->conn.input) : "EOF"));
+			e_error(conn->event, "%s", error);
+			smtp_server_connection_close(&conn, error);
+			return;
+		}
+		if (!ssl_iostream_is_handshaked(conn->ssl_iostream)) {
+			/* Not finished. */
+			i_assert(ret == 0);
+			return;
+		}
+	}
+
+	if (!conn->connect_succeeded &&
+	    (conn->ssl_iostream == NULL ||
+	     ssl_iostream_is_handshaked(conn->ssl_iostream)))
+		smtp_server_connection_ready(conn);
 
 	if (!smtp_server_connection_check_pipeline(conn)) {
 		smtp_server_connection_input_halt(conn);

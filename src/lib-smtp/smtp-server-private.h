@@ -195,6 +195,7 @@ struct smtp_server_connection {
 	bool handling_input:1;
 	bool rawlog_checked:1;
 	bool rawlog_enabled:1;
+	bool connect_succeeded:1;
 };
 
 struct smtp_server {
