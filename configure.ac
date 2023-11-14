@@ -146,17 +146,17 @@ AS_HELP_STRING([--with-cassandra], [Build with Cassandra driver support]),
   want_cassandra=no)
 
 AC_ARG_WITH(stemmer,
-AS_HELP_STRING([--with-stemmer], [Build with libstemmer support (for FTS) (auto)]),
+AS_HELP_STRING([--with-stemmer], [Build with libstemmer support (for lib-language) (auto)]),
   TEST_WITH(stemmer, $withval),
   want_stemmer=auto)
 
 AC_ARG_WITH(textcat,
-AS_HELP_STRING([--with-textcat], [Build with libtextcat support (for FTS) (auto)]),
+AS_HELP_STRING([--with-textcat], [Build with libtextcat support (for lib-language) (auto)]),
   TEST_WITH(textcat, $withval),
   want_textcat=auto)
 
 AC_ARG_WITH(icu,
-AS_HELP_STRING([--with-icu], [Build with libicu support (for FTS normalization) (auto)]),
+AS_HELP_STRING([--with-icu], [Build with libicu support (for lib-language normalization) (auto)]),
   want_icu=$withval,
   want_icu=auto)
 
@@ -607,7 +607,7 @@ LIBDOVECOT_STORAGE="$LIBDOVECOT_STORAGE_DEPS"
 LIBDOVECOT_DSYNC='$(top_builddir)/src/doveadm/dsync/libdovecot-dsync.la'
 LIBDOVECOT_SQL='$(top_builddir)/src/lib-sql/libsql.la'
 LIBDOVECOT_COMPRESS='$(top_builddir)/src/lib-compression/libcompression.la'
-LIBDOVECOT_LIBFTS='$(top_builddir)/src/lib-language/libdovecot-language.la'
+LIBDOVECOT_LIBLANG='$(top_builddir)/src/lib-language/libdovecot-language.la'
 
 LIBDOVECOT_OPENSSL='$(top_builddir)/src/lib-ssl-iostream/libssl_iostream_openssl.la'
 LIBDOVECOT_OPENSSL_DEPS="$LIBDOVECOT_OPENSSL"
@@ -623,8 +623,8 @@ AC_SUBST(LIBDOVECOT_COMPRESS)
 AC_SUBST(LIBDOVECOT_DSYNC)
 AC_SUBST(LIBDOVECOT_LDA)
 AC_SUBST(LIBDOVECOT_LDAP)
-AC_SUBST(LIBDOVECOT_LIBFTS)
-AC_SUBST(LIBDOVECOT_LIBFTS_DEPS)
+AC_SUBST(LIBDOVECOT_LIBLANG)
+AC_SUBST(LIBDOVECOT_LIBLANG_DEPS)
 AC_SUBST(LIBDOVECOT_LUA)
 AC_SUBST(LIBDOVECOT_LUA_DEPS)
 AC_SUBST(LIBDOVECOT_OPENSSL)

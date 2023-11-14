@@ -54,14 +54,14 @@ $(srcdir)/word-break-data.c: $(srcdir)/word-properties.pl $(srcdir)/PropList.txt
 	$(AM_V_at)perl $(srcdir)/word-properties.pl breaks $(srcdir)/PropList.txt > $@
 
 
-if BUILD_FTS_STEMMER
+if BUILD_LANG_STEMMER
 STEMMER_LIBS = -lstemmer
 endif
 
-if BUILD_FTS_EXTTEXTCAT
+if BUILD_LANG_EXTTEXTCAT
 TEXTCAT_LIBS = $(LIBEXTTEXTCAT_LIBS)
 else
-if BUILD_FTS_TEXTCAT
+if BUILD_LANG_TEXTCAT
 TEXTCAT_LIBS = -ltextcat
 endif
 endif
@@ -138,7 +138,7 @@ test_lang_filter_SOURCES = test-lang-filter.c
 test_lang_filter_LDADD = liblanguage.la $(test_libs)
 test_lang_filter_DEPENDENCIES = liblanguage.la $(test_deps)
 
-if BUILD_FTS_EXTTEXTCAT
+if BUILD_LANG_EXTTEXTCAT
 TEST_LANGUAGE = test-language
 test_language_SOURCES = test-language.c
 test_language_LDADD = language.lo $(test_libs) $(TEXTCAT_LIBS)

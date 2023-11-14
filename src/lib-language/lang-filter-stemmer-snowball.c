@@ -4,7 +4,7 @@
 #include "language.h"
 #include "lang-filter-private.h"
 
-#ifdef HAVE_FTS_STEMMER
+#ifdef HAVE_LANG_STEMMER
 
 #include <libstemmer.h>
 

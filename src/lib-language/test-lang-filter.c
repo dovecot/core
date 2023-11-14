@@ -14,7 +14,7 @@ static const char *const stopword_settings[] = {"stopwords_dir", TEST_STOPWORDS_
 static struct language english_language = { .name = "en" };
 static struct language french_language = { .name = "fr" };
 static struct language norwegian_language = { .name = "no" };
-#if defined(HAVE_LIBICU) && defined(HAVE_FTS_STEMMER)
+#if defined(HAVE_LIBICU) && defined(HAVE_LANG_STEMMER)
 static struct language swedish_language = { .name = "sv" };
 #endif
 
@@ -393,7 +393,7 @@ static void test_lang_filter_stopwords_malformed(void)
 
 }
 
-#ifdef HAVE_FTS_STEMMER
+#ifdef HAVE_LANG_STEMMER
 static void test_lang_filter_stemmer_snowball_stem_english(void)
 {
 	struct lang_filter *stemmer;
@@ -748,7 +748,7 @@ static void test_lang_filter_normalizer_truncation(void)
 	test_end();
 }
 
-#ifdef HAVE_FTS_STEMMER
+#ifdef HAVE_LANG_STEMMER
 static void test_lang_filter_normalizer_stopwords_stemmer_eng(void)
 {
 	int ret;
@@ -993,7 +993,7 @@ int main(void)
 		test_lang_filter_stopwords_no,
 		test_lang_filter_stopwords_fail_lazy_init,
 		test_lang_filter_stopwords_malformed,
-#ifdef HAVE_FTS_STEMMER
+#ifdef HAVE_LANG_STEMMER
 		test_lang_filter_stemmer_snowball_stem_english,
 		test_lang_filter_stemmer_snowball_stem_french,
 		test_lang_filter_stopwords_stemmer_eng,
@@ -1007,7 +1007,7 @@ int main(void)
 		test_lang_filter_normalizer_invalid_id,
 		test_lang_filter_normalizer_oversized,
 		test_lang_filter_normalizer_truncation,
-#ifdef HAVE_FTS_STEMMER
+#ifdef HAVE_LANG_STEMMER
 		test_lang_filter_normalizer_stopwords_stemmer_eng,
 		test_lang_filter_stopwords_normalizer_stemmer_no,
 		test_lang_filter_stopwords_normalizer_stemmer_sv,
