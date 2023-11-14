@@ -8,7 +8,7 @@
 
 #ifdef HAVE_LIBEXTTEXTCAT_TEXTCAT_H
 #  include <libexttextcat/textcat.h>
-#elif defined (HAVE_FTS_EXTTEXTCAT)
+#elif defined (HAVE_LANG_EXTTEXTCAT)
 #  include <textcat.h>
 #endif
 
@@ -36,7 +36,7 @@ struct language_list {
 
 pool_t languages_pool;
 ARRAY_TYPE(language) languages;
-#ifdef HAVE_FTS_EXTTEXTCAT
+#ifdef HAVE_LANG_EXTTEXTCAT
 static struct textcat *textcat_cache = NULL;
 #endif
 
@@ -62,7 +62,7 @@ const struct language language_data = {
 	"data"
 };
 
-#ifdef HAVE_FTS_EXTTEXTCAT
+#ifdef HAVE_LANG_EXTTEXTCAT
 static void textcat_unref(struct textcat *textcat)
 {
 	i_assert(textcat->refcount > 0);
@@ -97,7 +97,7 @@ void languages_init(void)
 
 void languages_deinit(void)
 {
-#ifdef HAVE_FTS_EXTTEXTCAT
+#ifdef HAVE_LANG_EXTTEXTCAT
 	if (textcat_cache != NULL)
 		textcat_unref(textcat_cache);
 #endif
@@ -170,7 +170,7 @@ void language_list_deinit(struct language_list **list)
 	struct language_list *lp = *list;
 
 	*list = NULL;
-#ifdef HAVE_FTS_EXTTEXTCAT
+#ifdef HAVE_LANG_EXTTEXTCAT
 	if (lp->textcat != NULL)
 		textcat_unref(lp->textcat);
 #endif
@@ -231,7 +231,7 @@ language_list_get_first(struct language_list *list)
 	return *langp;
 }
 
-#ifdef HAVE_FTS_EXTTEXTCAT
+#ifdef HAVE_LANG_EXTTEXTCAT
 static bool language_match_lists(struct language_list *list,
                                  candidate_t *candp, int candp_len,
                                  const struct language **lang_r)
@@ -253,7 +253,7 @@ static bool language_match_lists(struct language_list *list,
 }
 #endif
 
-#ifdef HAVE_FTS_EXTTEXTCAT
+#ifdef HAVE_LANG_EXTTEXTCAT
 static int language_textcat_init(struct language_list *list,
 				 const char **error_r)
 {
@@ -308,7 +308,7 @@ language_detect_textcat(struct language_list *list ATTR_UNUSED,
 			const struct language **lang_r ATTR_UNUSED,
 			const char **error_r ATTR_UNUSED)
 {
-#ifdef HAVE_FTS_EXTTEXTCAT
+#ifdef HAVE_LANG_EXTTEXTCAT
 	candidate_t *candp; /* textcat candidate result array pointer */
 	int cnt;
 	bool match = FALSE;
