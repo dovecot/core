@@ -1104,6 +1104,13 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 	if (set->filter_finished)
 		return 1;
 
+	struct event_field *set_filter_names =
+		event_find_field_nonrecursive(ctx->event,
+					      SETTINGS_EVENT_FILTER_NAME);
+	if (set_filter_names != NULL &&
+	    set_filter_names->value_type != EVENT_FIELD_VALUE_TYPE_STRLIST)
+		set_filter_names = NULL;
+
 	bool filter_finished = TRUE;
 	string_t *filter_string = NULL;
 	const char *last_filter_key = set->last_filter_key;
@@ -1112,13 +1119,26 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 	while ((p = strchr(set->key, SETTINGS_SEPARATOR)) != NULL) {
 		/* see if the info struct knows about the next part in the key. */
 		const char *part = t_strdup_until(set->key, p);
-		if (!settings_key_part_find(ctx, &part, last_filter_key,
-					    last_filter_value, &key_idx)) {
+		enum setting_type set_type;
+
+		if (settings_key_part_find(ctx, &part, last_filter_key,
+					   last_filter_value, &key_idx))
+			set_type = ctx->info->defines[key_idx].type;
+		else if (set_filter_names != NULL &&
+			 array_lsearch(&set_filter_names->value.strlist,
+				       &part, i_strcmp_p) != NULL) {
+			/* If SETTINGS_EVENT_FILTER_NAME is set, we can assume
+			   that any key prefix with the same name is of type
+			   SET_FILTER_NAME. This is mainly intended for
+			   "doveadm fs" filter-name parameter matching to work
+			   with all filters, which otherwise wouldn't be
+			   visible to the settings override code. */
+			set_type = SET_FILTER_NAME;
+		} else {
 			filter_finished = FALSE;
 			break;
 		}
-		if (ctx->info->defines[key_idx].type == SET_STRLIST ||
-		    ctx->info->defines[key_idx].type == SET_BOOLLIST)
+		if (set_type == SET_STRLIST || set_type == SET_BOOLLIST)
 			break;
 
 		if (filter_string == NULL)
@@ -1127,7 +1147,7 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 			str_append(filter_string, " AND ");
 		if (set->filter_event == NULL)
 			set->filter_event = event_create(NULL);
-		switch (ctx->info->defines[key_idx].type) {
+		switch (set_type) {
 		case SET_FILTER_NAME:
 			last_filter_key = part;
 			last_filter_value = NULL;
