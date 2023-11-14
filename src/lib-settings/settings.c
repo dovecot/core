@@ -1315,7 +1315,6 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			continue; /* already applied */
 		set = *set_elem;
 
-		const char *key = set->key, *value;
 		unsigned int key_idx;
 		int ret;
 
@@ -1341,6 +1340,9 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		    null_strcmp(ctx->filter_value, set->last_filter_value) == 0)
 			seen_filter = TRUE;
 
+		/* Set key only after settings_override_filter_match() has
+		   potentially changed it. */
+		const char *key = set->key, *value;
 		ret = settings_override_get_value(ctx, set, &key,
 						  &key_idx, &value, error_r);
 		if (ret < 0)
