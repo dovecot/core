@@ -304,7 +304,7 @@ fts_detect_language(struct fts_mail_build_context *ctx,
 	const char *error;
 
 	switch (language_detect(lang_list, data, size, &lang, &error)) {
-	case LANGUAGE_RESULT_SHORT:
+	case LANGUAGE_DETECT_RESULT_SHORT:
 		/* save the input so far and try again later */
 		buffer_append(ctx->pending_input, data, size);
 		if (last) {
@@ -313,14 +313,14 @@ fts_detect_language(struct fts_mail_build_context *ctx,
 			return 1;
 		}
 		return 0;
-	case LANGUAGE_RESULT_UNKNOWN:
+	case LANGUAGE_DETECT_RESULT_UNKNOWN:
 		/* use the default language */
 		*lang_r = language_list_get_first(lang_list);
 		return 1;
-	case LANGUAGE_RESULT_OK:
+	case LANGUAGE_DETECT_RESULT_OK:
 		*lang_r = lang;
 		return 1;
-	case LANGUAGE_RESULT_ERROR:
+	case LANGUAGE_DETECT_RESULT_ERROR:
 		/* internal language detection library failure
 		   (e.g. invalid config). don't index anything. */
 		mail_set_critical(ctx->mail,

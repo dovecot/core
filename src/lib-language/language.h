@@ -3,15 +3,15 @@
 
 struct language_list;
 
-enum language_result {
+enum language_detect_result {
 	/* Provided sample is too short. */
-	LANGUAGE_RESULT_SHORT,
+	LANGUAGE_DETECT_RESULT_SHORT,
 	/* Language is unknown or not in the provided list . */
-	LANGUAGE_RESULT_UNKNOWN,
+	LANGUAGE_DETECT_RESULT_UNKNOWN,
 
-	LANGUAGE_RESULT_OK,
+	LANGUAGE_DETECT_RESULT_OK,
 	/* textcat library initialization failed. */
-	LANGUAGE_RESULT_ERROR
+	LANGUAGE_DETECT_RESULT_ERROR
 };
 
 struct language {
@@ -62,7 +62,7 @@ language_list_get_first(struct language_list *list);
 /* If text was detected to be one of the languages in the list,
    returns LANGUAGE_RESULT_OK and (a pointer to) the language (in
    the list). error_r is set for LANGUAGE_RESULT_ERROR. */
-enum language_result
+enum language_detect_result
 language_detect(struct language_list *list,
 		const unsigned char *text, size_t size,
 		const struct language **lang_r,

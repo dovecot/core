@@ -201,7 +201,7 @@ cmd_fts_tokenize_run(struct doveadm_mail_cmd_context *_ctx,
 	if (ctx->language == NULL) {
 		struct language_list *lang_list =
 			fts_user_get_language_list(user);
-		enum language_result result;
+		enum language_detect_result result;
 		const char *error;
 
 		result = language_detect(lang_list,
@@ -210,19 +210,19 @@ cmd_fts_tokenize_run(struct doveadm_mail_cmd_context *_ctx,
 		if (lang == NULL)
 			lang = language_list_get_first(lang_list);
 		switch (result) {
-		case LANGUAGE_RESULT_SHORT:
+		case LANGUAGE_DETECT_RESULT_SHORT:
 			e_warning(user->event,
 				  "Text too short, can't detect its language - assuming %s",
 				  lang->name);
 			break;
-		case LANGUAGE_RESULT_UNKNOWN:
+		case LANGUAGE_DETECT_RESULT_UNKNOWN:
 			e_warning(user->event,
 				  "Can't detect its language - assuming %s",
 				  lang->name);
 			break;
-		case LANGUAGE_RESULT_OK:
+		case LANGUAGE_DETECT_RESULT_OK:
 			break;
-		case LANGUAGE_RESULT_ERROR:
+		case LANGUAGE_DETECT_RESULT_ERROR:
 			e_error(user->event,
 				"Language detection library initialization failed: %s",
 				error);

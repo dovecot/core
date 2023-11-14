@@ -301,7 +301,7 @@ static int language_textcat_init(struct language_list *list,
 }
 #endif
 
-static enum language_result
+static enum language_detect_result
 language_detect_textcat(struct language_list *list ATTR_UNUSED,
 			const unsigned char *text ATTR_UNUSED,
 			size_t size ATTR_UNUSED,
@@ -314,7 +314,7 @@ language_detect_textcat(struct language_list *list ATTR_UNUSED,
 	bool match = FALSE;
 
 	if (language_textcat_init(list, error_r) < 0)
-		return LANGUAGE_RESULT_ERROR;
+		return LANGUAGE_DETECT_RESULT_ERROR;
 
 	candp = textcat_GetClassifyFullOutput(list->textcat->handle);
 	if (candp == NULL)
@@ -327,27 +327,27 @@ language_detect_textcat(struct language_list *list ATTR_UNUSED,
 		} T_END;
 		textcat_ReleaseClassifyFullOutput(list->textcat->handle, candp);
 		if (match)
-			return LANGUAGE_RESULT_OK;
+			return LANGUAGE_DETECT_RESULT_OK;
 		else
-			return LANGUAGE_RESULT_UNKNOWN;
+			return LANGUAGE_DETECT_RESULT_UNKNOWN;
 	} else {
 		textcat_ReleaseClassifyFullOutput(list->textcat->handle, candp);
 		switch (cnt) {
 		case TEXTCAT_RESULT_SHORT:
 			i_assert(size < DETECT_STR_MAX_LEN);
-			return LANGUAGE_RESULT_SHORT;
+			return LANGUAGE_DETECT_RESULT_SHORT;
 		case TEXTCAT_RESULT_UNKNOWN:
-			return LANGUAGE_RESULT_UNKNOWN;
+			return LANGUAGE_DETECT_RESULT_UNKNOWN;
 		default:
 			i_unreached();
 		}
 	}
 #else
-	return LANGUAGE_RESULT_UNKNOWN;
+	return LANGUAGE_DETECT_RESULT_UNKNOWN;
 #endif
 }
 
-enum language_result
+enum language_detect_result
 language_detect(struct language_list *list,
 		const unsigned char *text ATTR_UNUSED,
 		size_t size ATTR_UNUSED,
@@ -361,7 +361,7 @@ language_detect(struct language_list *list,
 		const struct language *const *langp =
 			array_front(&list->languages);
 		*lang_r = *langp;
-		return LANGUAGE_RESULT_OK;
+		return LANGUAGE_DETECT_RESULT_OK;
 	}
 	return language_detect_textcat(list, text, size, lang_r, error_r);
 }
