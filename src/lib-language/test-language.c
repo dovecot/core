@@ -29,7 +29,7 @@ static void test_language_detect_finnish(void)
 	test_assert(language_list_init(settings, &lp, &error) == 0);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, finnish, sizeof(finnish)-1, &lang_r, &error)
-	            == LANGUAGE_RESULT_OK);
+	            == LANGUAGE_DETECT_RESULT_OK);
 	test_assert(strcmp(lang_r->name, "fi") == 0);
 	language_list_deinit(&lp);
 	test_end();
@@ -56,7 +56,7 @@ static void test_language_detect_english(void)
 	test_assert(language_list_init(settings, &lp, &error) == 0);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, english, sizeof(english)-1, &lang_r, &error)
-	            == LANGUAGE_RESULT_OK);
+	            == LANGUAGE_DETECT_RESULT_OK);
 	test_assert(strcmp(lang_r->name, "en") == 0);
 	language_list_deinit(&lp);
 	test_end();
@@ -91,7 +91,7 @@ static void test_language_detect_french(void)
 	test_assert(language_list_init(settings, &lp, &error) == 0);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, french, sizeof(french)-1, &lang_r, &error)
-	            == LANGUAGE_RESULT_OK);
+	            == LANGUAGE_DETECT_RESULT_OK);
 	test_assert(strcmp(lang_r->name, "fr") == 0);
 	language_list_deinit(&lp);
 	test_end();
@@ -128,7 +128,7 @@ static void test_language_detect_german(void)
 	test_assert(language_list_init(settings, &lp, &error) == 0);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, german, sizeof(german)-1, &lang_r, &error)
-	            == LANGUAGE_RESULT_OK);
+	            == LANGUAGE_DETECT_RESULT_OK);
 	test_assert(strcmp(lang_r->name, "de") == 0);
 	language_list_deinit(&lp);
 	test_end();
@@ -154,7 +154,7 @@ static void test_language_detect_swedish(void)
 	test_assert(language_list_init(settings, &lp, &error) == 0);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, swedish, sizeof(swedish)-1, &lang_r, &error)
-	            == LANGUAGE_RESULT_OK);
+	            == LANGUAGE_DETECT_RESULT_OK);
 	test_assert(strcmp(lang_r->name, "sv") == 0);
 	language_list_deinit(&lp);
 	test_end();
@@ -178,7 +178,7 @@ static void test_language_detect_bokmal(void)
 	test_assert(language_list_init(settings, &lp, &error) == 0);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, bokmal, sizeof(bokmal)-1, &lang_r, &error)
-	            == LANGUAGE_RESULT_OK);
+	            == LANGUAGE_DETECT_RESULT_OK);
 	test_assert(strcmp(lang_r->name, "no") == 0);
 	language_list_deinit(&lp);
 	test_end();
@@ -202,7 +202,7 @@ static void test_language_detect_nynorsk(void)
 	test_assert(language_list_init(settings, &lp, &error) == 0);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, nynorsk, sizeof(nynorsk)-1, &lang_r, &error)
-	            == LANGUAGE_RESULT_OK);
+	            == LANGUAGE_DETECT_RESULT_OK);
 	test_assert(strcmp(lang_r->name, "no") == 0);
 	language_list_deinit(&lp);
 	test_end();
@@ -227,7 +227,7 @@ static void test_language_detect_finnish_as_english(void)
 	test_assert(language_list_init(settings, &lp, &error) == 0);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, finnish, sizeof(finnish)-1, &lang_r, &error)
-	            == LANGUAGE_RESULT_OK);
+	            == LANGUAGE_DETECT_RESULT_OK);
 	test_assert(strcmp(lang_r->name, "en") == 0);
 	language_list_deinit(&lp);
 	test_end();
@@ -254,7 +254,7 @@ static void test_language_detect_na(void)
 	test_assert(language_list_init(settings, &lp, &error) == 0);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, english, sizeof(english)-1, &lang_r, &error)
-	            == LANGUAGE_RESULT_UNKNOWN);
+	            == LANGUAGE_DETECT_RESULT_UNKNOWN);
 	language_list_deinit(&lp);
 	test_end();
 }
@@ -274,7 +274,7 @@ static void test_language_detect_unknown(void)
 	test_assert(language_list_init(settings, &lp, &error) == 0);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, klingon, sizeof(klingon), &lang_r, &error)
-	            == LANGUAGE_RESULT_UNKNOWN);
+	            == LANGUAGE_DETECT_RESULT_UNKNOWN);
 	language_list_deinit(&lp);
 	test_end();
 }
