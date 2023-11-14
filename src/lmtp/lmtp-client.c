@@ -23,6 +23,7 @@
 #include "lmtp-local.h"
 #include "lmtp-proxy.h"
 #include "lmtp-commands.h"
+#include "smtp-server-private.h"
 
 #include <unistd.h>
 
@@ -399,7 +400,8 @@ static int
 client_connection_tls_sni_callback(const char *name, const char **error_r,
 				   void *context)
 {
-	struct client *client = context;
+	struct smtp_server_connection *conn = context;
+	struct client *client = conn->context;
 
 	const struct lda_settings *old_lda_set = client->lda_set;
 	const struct lmtp_settings *old_lmtp_set = client->lmtp_set;
@@ -418,6 +420,8 @@ client_connection_tls_sni_callback(const char *name, const char **error_r,
 	}
 	settings_free(old_lda_set);
 	settings_free(old_lmtp_set);
+
+	conn->set.login_greeting = client->lmtp_set->login_greeting;
 
 	return 0;
 }
