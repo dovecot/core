@@ -326,8 +326,10 @@ mbox_storage_find_inbox_file(struct mail_user *user, struct event *event)
 	return NULL;
 }
 
-static bool mbox_storage_autodetect(const struct mail_namespace *ns,
-				    struct mailbox_list_settings *set)
+static bool
+mbox_storage_autodetect(const struct mail_namespace *ns,
+			struct mailbox_list_settings *set,
+			const struct mail_storage_settings *mail_set ATTR_UNUSED)
 {
 	struct event *event = ns->user->event;
 	const char *root_dir, *inbox_path;

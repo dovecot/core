@@ -140,7 +140,8 @@ struct mail_storage *mail_storage_find_class(const char *name)
 
 static struct mail_storage *
 mail_storage_autodetect(const struct mail_namespace *ns,
-			struct mailbox_list_settings *set)
+			struct mailbox_list_settings *set,
+			const struct mail_storage_settings *mail_set)
 {
 	struct mail_storage *const *classes;
 	unsigned int i, count;
@@ -148,7 +149,7 @@ mail_storage_autodetect(const struct mail_namespace *ns,
 	classes = array_get(&mail_storage_classes, &count);
 	for (i = 0; i < count; i++) {
 		if (classes[i]->v.autodetect != NULL) {
-			if (classes[i]->v.autodetect(ns, set))
+			if (classes[i]->v.autodetect(ns, set, mail_set))
 				return classes[i];
 		}
 	}
@@ -222,7 +223,7 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 	if (storage_class != NULL)
 		return storage_class;
 
-	storage_class = mail_storage_autodetect(ns, list_set);
+	storage_class = mail_storage_autodetect(ns, list_set, mail_set);
 	if (storage_class != NULL)
 		return storage_class;
 
