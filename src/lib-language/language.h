@@ -14,6 +14,11 @@ enum language_detect_result {
 	LANGUAGE_DETECT_RESULT_ERROR
 };
 
+struct language_settings {
+	const char *textcat_config_path;
+	const char *textcat_data_path;
+};
+
 struct language {
 	/* Two-letter language name lowercased, e.g. "en" */
 	const char *name;
@@ -38,9 +43,7 @@ const struct language *language_find(const char *name);
 /*
   Language list API
 */
-int language_list_init(const char *const *settings,
-		       struct language_list **list_r,
-		       const char **error_r);
+struct language_list *language_list_init(const struct language_settings *settings);
 void language_list_deinit(struct language_list **list);
 
 /* Add a language to the list of wanted languages. */
