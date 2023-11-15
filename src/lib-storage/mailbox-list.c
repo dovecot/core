@@ -10,7 +10,6 @@
 #include "str.h"
 #include "sha1.h"
 #include "hash.h"
-#include "home-expand.h"
 #include "time-util.h"
 #include "unichar.h"
 #include "settings.h"
@@ -249,15 +248,6 @@ static int fix_path(struct mail_user *user, const char *path, bool expand_home,
 		path = t_strndup(path, len-1);
 	if (!expand_home) {
 		/* no ~ expansion */
-	} else if (path[0] == '~' && path[1] != '/' && path[1] != '\0') {
-		/* ~otheruser/dir */
-		if (home_try_expand(&path) < 0) {
-			*error_r = t_strconcat(
-				"No home directory for system user. "
-				"Can't expand ", t_strcut(path, '/'),
-				" for ", NULL);
-			return -1;
-		}
 	} else {
 		if (mail_user_try_home_expand(user, &path) < 0) {
 			*error_r = "Home directory not set for user. "
@@ -1894,21 +1884,6 @@ int mailbox_list_dirent_is_alias_symlink(struct mailbox_list *list,
 }
 
 
-static bool
-mailbox_list_try_get_home_path(struct mailbox_list *list, const char **name)
-{
-	if ((*name)[1] == '/') {
-		/* ~/dir - use the configured home directory */
-		if (mail_user_try_home_expand(list->ns->user, name) < 0)
-			return FALSE;
-	} else {
-		/* ~otheruser/dir - assume we're using system users */
-		if (home_try_expand(name) < 0)
-			return FALSE;
-	}
-	return TRUE;
-}
-
 bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
 					const char **name)
 {
@@ -1917,10 +1892,10 @@ bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
 	if (!list->mail_set->mail_full_filesystem_access)
 		return FALSE;
 
-	if (**name == '~') {
+	if (str_begins_with(*name, "~/")) {
 		/* try to expand home directory */
-		if (!mailbox_list_try_get_home_path(list, name)) {
-			/* fallback to using actual "~name" mailbox */
+		if (mail_user_try_home_expand(list->ns->user, name) < 0) {
+			/* fallback to using actual "~/name" mailbox */
 			return FALSE;
 		}
 	} else {
