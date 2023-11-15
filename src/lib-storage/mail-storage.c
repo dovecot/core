@@ -144,13 +144,19 @@ mail_storage_autodetect(const struct mail_namespace *ns,
 			const struct mail_storage_settings *mail_set)
 {
 	struct mail_storage *const *classes;
+	const char *root_path, *inbox_path = NULL;
 	unsigned int i, count;
 
 	classes = array_get(&mail_storage_classes, &count);
 	for (i = 0; i < count; i++) {
 		if (classes[i]->v.autodetect != NULL) {
-			if (classes[i]->v.autodetect(ns, set, mail_set))
+			if (classes[i]->v.autodetect(ns, set, mail_set,
+						     &root_path, &inbox_path)) {
+				set->root_dir = root_path;
+				if (inbox_path != NULL)
+					set->inbox_path = inbox_path;
 				return classes[i];
+			}
 		}
 	}
 	return NULL;
