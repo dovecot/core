@@ -386,8 +386,7 @@ int mail_namespaces_init_finish(struct mail_namespace *namespaces,
 			mail_storage_service_user_get_settings_instance(
 				user->service_user);
 		set_instance = settings_instance_dup(set_instance);
-		settings_override(set_instance,
-				  "mail_location", "fail:",
+		settings_override(set_instance, "*/mail_driver", "fail",
 				  SETTINGS_OVERRIDE_TYPE_CODE);
 		settings_override(set_instance, "*/mailbox_list_layout", "none",
 				  SETTINGS_OVERRIDE_TYPE_CODE);
@@ -527,10 +526,8 @@ mail_namespaces_init_location_full(struct mail_user *user,
 	}
 
 	if (override_mail_driver[0] != '\0') {
-		const char *location =
-			t_strconcat(override_mail_driver, ":", NULL);
 		settings_override(ns->_set_instance,
-				  "mail_location", location,
+				  "*/mail_driver", override_mail_driver,
 				  SETTINGS_OVERRIDE_TYPE_CODE);
 	}
 	if (override_mail_path[0] != '\0') {
@@ -556,8 +553,8 @@ mail_namespaces_init_default_location(struct mail_user *user,
 
 	struct event *set_event = event_create(user->event);
 	mail_set = mail_user_set_get_storage_set(user);
-	if (*mail_set->mail_location != '\0') {
-		location_source = "mail_location setting";
+	if (*mail_set->mail_driver != '\0') {
+		location_source = "mail_driver setting";
 	} else if ((mail_path = getenv("MAIL")) != NULL) {
 		location_source = "environment MAIL";
 	} else if ((mail_path = getenv("MAILDIR")) != NULL) {
@@ -580,7 +577,7 @@ mail_namespaces_init_default_location(struct mail_user *user,
 			location_source, error);
 		return -1;
 	} else {
-		*error_r = t_strdup_printf("mail_location not set and "
+		*error_r = t_strdup_printf("mail_driver not set and "
 					   "autodetection failed: %s", error);
 		return -1;
 	}
