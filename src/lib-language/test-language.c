@@ -6,9 +6,10 @@
 /* TODO: These checks will not work without proper libtextcat configuration.
    As such, they are not really unit test to be coupled with the build. */
 
-const char *const settings[] =
-	{"fts_language_config", TEXTCAT_DATADIR"/fpdb.conf",
-	 "fts_language_data", TEXTCAT_DATADIR"/", NULL};
+const struct language_settings settings = {
+	.textcat_config_path = TEXTCAT_DATADIR"/fpdb.conf",
+	.textcat_data_path = TEXTCAT_DATADIR"/",
+};
 
 /* Detect Finnish. fi--utf8 */
 static void test_language_detect_finnish(void)
@@ -26,7 +27,7 @@ static void test_language_detect_finnish(void)
 	const char names[] = "de, fi, en";
 	const char *unknown, *error;
 	test_begin("language detect Finnish");
-	test_assert(language_list_init(settings, &lp, &error) == 0);
+	lp = language_list_init(&settings);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, finnish, sizeof(finnish)-1, &lang_r, &error)
 	            == LANGUAGE_DETECT_RESULT_OK);
@@ -53,7 +54,7 @@ static void test_language_detect_english(void)
 	const char names[] = "fi, de, fr, en";
 	const char *unknown, *error;
 	test_begin("language detect English");
-	test_assert(language_list_init(settings, &lp, &error) == 0);
+	lp = language_list_init(&settings);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, english, sizeof(english)-1, &lang_r, &error)
 	            == LANGUAGE_DETECT_RESULT_OK);
@@ -88,7 +89,7 @@ static void test_language_detect_french(void)
 	const char names[] = "de, fi, fr, en";
 	const char *unknown, *error;
 	test_begin("language detect French");
-	test_assert(language_list_init(settings, &lp, &error) == 0);
+	lp = language_list_init(&settings);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, french, sizeof(french)-1, &lang_r, &error)
 	            == LANGUAGE_DETECT_RESULT_OK);
@@ -125,7 +126,7 @@ static void test_language_detect_german(void)
 	const char names[] = "fi, de, fr, en";
 	const char *unknown, *error;
 	test_begin("language detect German");
-	test_assert(language_list_init(settings, &lp, &error) == 0);
+	lp = language_list_init(&settings);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, german, sizeof(german)-1, &lang_r, &error)
 	            == LANGUAGE_DETECT_RESULT_OK);
@@ -151,7 +152,7 @@ static void test_language_detect_swedish(void)
 	const char names[] = "fi, de, sv, fr, en";
 	const char *unknown, *error;
 	test_begin("language detect Swedish");
-	test_assert(language_list_init(settings, &lp, &error) == 0);
+	lp = language_list_init(&settings);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, swedish, sizeof(swedish)-1, &lang_r, &error)
 	            == LANGUAGE_DETECT_RESULT_OK);
@@ -175,7 +176,7 @@ static void test_language_detect_bokmal(void)
 	const char names[] = "fi, de, sv, no, fr, en";
 	const char *unknown, *error;
 	test_begin("language detect Bokmal as Norwegian");
-	test_assert(language_list_init(settings, &lp, &error) == 0);
+	lp = language_list_init(&settings);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, bokmal, sizeof(bokmal)-1, &lang_r, &error)
 	            == LANGUAGE_DETECT_RESULT_OK);
@@ -199,7 +200,7 @@ static void test_language_detect_nynorsk(void)
 	const char names[] = "fi, de, sv, no, fr, en";
 	const char *unknown, *error;
 	test_begin("language detect Nynorsk as Norwegian");
-	test_assert(language_list_init(settings, &lp, &error) == 0);
+	lp = language_list_init(&settings);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, nynorsk, sizeof(nynorsk)-1, &lang_r, &error)
 	            == LANGUAGE_DETECT_RESULT_OK);
@@ -224,7 +225,7 @@ static void test_language_detect_finnish_as_english(void)
 	const char names[] = "en";
 	const char *unknown, *error;
 	test_begin("language detect Finnish as English");
-	test_assert(language_list_init(settings, &lp, &error) == 0);
+	lp = language_list_init(&settings);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, finnish, sizeof(finnish)-1, &lang_r, &error)
 	            == LANGUAGE_DETECT_RESULT_OK);
@@ -251,7 +252,7 @@ static void test_language_detect_na(void)
 	const char names[] = "fi, de, fr";
 	const char *unknown, *error;
 	test_begin("language detect not available");
-	test_assert(language_list_init(settings, &lp, &error) == 0);
+	lp = language_list_init(&settings);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, english, sizeof(english)-1, &lang_r, &error)
 	            == LANGUAGE_DETECT_RESULT_UNKNOWN);
@@ -271,7 +272,7 @@ static void test_language_detect_unknown(void)
 	const char names[] = "fi, de, fr";
 	const char *unknown, *error;
 	test_begin("language detect unknown");
-	test_assert(language_list_init(settings, &lp, &error) == 0);
+	lp = language_list_init(&settings);
 	test_assert(language_list_add_names(lp, names, &unknown) == TRUE);
 	test_assert(language_detect(lp, klingon, sizeof(klingon), &lang_r, &error)
 	            == LANGUAGE_DETECT_RESULT_UNKNOWN);

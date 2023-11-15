@@ -127,42 +127,18 @@ const struct language *language_find(const char *name)
 	return NULL;
 }
 
-int language_list_init(const char *const *settings,
-		       struct language_list **list_r,
-		       const char **error_r)
+struct language_list *language_list_init(const struct language_settings *settings)
 {
 	struct language_list *lp;
 	pool_t pool;
-	unsigned int i;
-	const char *conf = NULL, *data = NULL;
-
-	for (i = 0; settings[i] != NULL; i += 2) {
-		const char *key = settings[i], *value = settings[i+1];
-
-		if (strcmp(key, "fts_language_config") == 0)
-			conf = value;
-		else if (strcmp(key, "fts_language_data") == 0)
-			data = value;
-		else {
-			*error_r = t_strdup_printf("Unknown setting: %s", key);
-			return -1;
-		}
-	}
 
 	pool = pool_alloconly_create("language_list", 128);
 	lp = p_new(pool, struct language_list, 1);
 	lp->pool = pool;
-	if (conf != NULL)
-		lp->textcat_config = p_strdup(pool, conf);
-	else
-		lp->textcat_config = NULL;
-	if (data != NULL)
-		lp->textcat_datadir = p_strdup(pool, data);
-	else
-		lp->textcat_datadir = NULL;
+	lp->textcat_config = p_strdup_empty(pool, settings->textcat_config_path);
+	lp->textcat_datadir = p_strdup_empty(pool, settings->textcat_data_path);
 	p_array_init(&lp->languages, pool, 32);
-	*list_r = lp;
-	return 0;
+	return lp;
 }
 
 void language_list_deinit(struct language_list **list)

@@ -63,7 +63,6 @@ fts_user_init_languages(struct mail_user *user, struct fts_user *fuser,
 			const char **error_r)
 {
 	const char *languages, *unknown;
-	const char *lang_config[3] = {NULL, NULL, NULL};
 
 	languages = mail_user_plugin_getenv(user, "fts_languages");
 	if (languages == NULL) {
@@ -71,11 +70,10 @@ fts_user_init_languages(struct mail_user *user, struct fts_user *fuser,
 		return -1;
 	}
 
-	lang_config[1] = mail_user_plugin_getenv(user, "fts_language_config");
-	if (lang_config[1] != NULL)
-		lang_config[0] = "fts_language_config";
-	if (language_list_init(lang_config, &fuser->lang_list, error_r) < 0)
-		return -1;
+	struct language_settings lang_settings = {
+		.textcat_config_path = mail_user_plugin_getenv(user, "fts_language_config")
+	};
+	fuser->lang_list = language_list_init(&lang_settings);
 
 	if (!language_list_add_names(fuser->lang_list, languages, &unknown)) {
 		*error_r = t_strdup_printf(
