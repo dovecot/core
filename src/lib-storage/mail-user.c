@@ -557,7 +557,7 @@ int mail_user_try_home_expand(struct mail_user *user, const char **pathp)
 {
 	const char *home, *path = *pathp;
 
-	if (*path != '~') {
+	if (!str_begins_with(path, "~/") && strcmp(path, "~") != 0) {
 		/* no need to expand home */
 		return 0;
 	}
