@@ -607,7 +607,8 @@ static int
 config_apply_line_full(struct config_parser_context *ctx,
 		       const struct config_line *line,
 		       const char *key_with_path,
-		       const char *value, const char **full_key_r)
+		       const char *value, const char **full_key_r,
+		       bool *root_setting_r)
 {
 	struct config_filter_parser *filter_parser, *orig_filter_parser;
 	const char *p, *key;
@@ -670,21 +671,49 @@ config_apply_line_full(struct config_parser_context *ctx,
 	/* the only '/' left should be if key is under list/ */
 	key = key_with_path;
 
-	if (ctx->cur_section->filter_parser->filter.filter_name_array) {
+	if (ctx->cur_section->filter_parser->filter.filter_name != NULL) {
 		/* first try the filter name-specific prefix, so e.g.
 		   inet_listener { ssl=yes } won't try to change the global
 		   ssl setting. */
 		const char *filter_key =
 			t_strcut(ctx->cur_section->filter_parser->filter.filter_name, '/');
 		const char *key2 = t_strdup_printf("%s_%s", filter_key, key);
+		struct config_filter_parser *last_filter_parser =
+			ctx->cur_section->filter_parser;
+		if (!ctx->cur_section->filter_parser->filter.filter_name_array) {
+			/* For named non-list filters, if the setting name
+			   prefix equals the filter name, change the setting
+			   outside the filter. Otherwise it's rather confusing
+			   if foo_key=value is different from foo { key=value }.
+			   Also the latter would require settings_get() call to
+			   have "foo" filter named enabled in the event to be
+			   able to get foo_key's value, which isn't always done
+			   (or useful, or easy). */
+			ctx->cur_section->filter_parser =
+				ctx->cur_section->filter_parser->parent;
+			const char *suffix;
+			if (str_begins(key, filter_key, &suffix) &&
+			    suffix[0] == '_') {
+				/* don't try filter_filter_key, but do apply
+				   filter_key to the parent filter_parser */
+				key2 = key;
+			}
+		}
 		ret = config_apply_exact_line(ctx, line, key2, value);
-		if (ret > 0 && full_key_r != NULL)
+		if (ret > 0 && full_key_r != NULL) {
 			*full_key_r = key2;
+			*root_setting_r = config_filter_is_empty(
+				&ctx->cur_section->filter_parser->filter);
+		}
+		ctx->cur_section->filter_parser = last_filter_parser;
 	}
 	if (ret == 0) {
 		ret = config_apply_exact_line(ctx, line, key, value);
-		if (full_key_r != NULL)
+		if (full_key_r != NULL) {
+			*root_setting_r = config_filter_is_empty(
+				&ctx->cur_section->filter_parser->filter);
 			*full_key_r = key;
+		}
 	}
 	ctx->cur_section->filter_parser = orig_filter_parser;
 	if (ret == 0) {
@@ -699,8 +728,9 @@ int config_apply_line(struct config_parser_context *ctx,
 		      const char *key_with_path,
 		      const char *value, const char **full_key_r)
 {
+	bool root_setting;
 	return config_apply_line_full(ctx, NULL, key_with_path,
-				      value, full_key_r);
+				      value, full_key_r, &root_setting);
 }
 
 static int
@@ -771,6 +801,7 @@ config_add_new_parser(struct config_parser_context *ctx,
 	array_push_back(&ctx->all_filter_parsers, &filter_parser);
 
 	if (parent_filter_parser != NULL) {
+		filter_parser->parent = parent_filter_parser;
 		DLLIST2_APPEND(&parent_filter_parser->children_head,
 			       &parent_filter_parser->children_tail,
 			       filter_parser);
@@ -1708,7 +1739,8 @@ config_section_has_non_named_filters(struct config_section_stack *section)
 }
 
 static void
-config_parser_check_warnings(struct config_parser_context *ctx, const char *key)
+config_parser_check_warnings(struct config_parser_context *ctx, const char *key,
+			     bool root_setting)
 {
 	const char *path, *first_pos;
 
@@ -1719,7 +1751,7 @@ config_parser_check_warnings(struct config_parser_context *ctx, const char *key)
 	}
 
 	first_pos = hash_table_lookup(ctx->seen_settings, key);
-	if (ctx->cur_section->prev == NULL) {
+	if (root_setting) {
 		/* changing a root setting. if we've already seen it inside
 		   filters, log a warning. */
 		if (first_pos == NULL)
@@ -1809,6 +1841,7 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 			      const struct config_line *line)
 {
 	const char *full_key;
+	bool root_setting;
 
 	switch (line->type) {
 	case CONFIG_LINE_TYPE_SKIP:
@@ -1834,9 +1867,11 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 						line->key) :
 				line->key;
 			if (config_apply_line_full(ctx, line, key_with_path,
-						   str_c(ctx->value),
-						   &full_key) == 0)
-				config_parser_check_warnings(ctx, full_key);
+						   str_c(ctx->value), &full_key,
+						   &root_setting) == 0) {
+				config_parser_check_warnings(ctx, full_key,
+							     root_setting);
+			}
 		}
 		break;
 	case CONFIG_LINE_TYPE_SECTION_BEGIN:
