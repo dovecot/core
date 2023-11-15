@@ -722,7 +722,7 @@ static bool
 master_service_try_init_log(struct master_service *service,
 			    const char *prefix)
 {
-	const char *path, *timestamp;
+	const char *timestamp;
 
 	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0 &&
 	    (service->flags & MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR) == 0) {
@@ -748,8 +748,7 @@ master_service_try_init_log(struct master_service *service,
 
 	if (strcmp(service->set->log_path, "syslog") != 0) {
 		/* error logging goes to file or stderr */
-		path = home_expand(service->set->log_path);
-		i_set_failure_file(path, prefix);
+		i_set_failure_file(service->set->log_path, prefix);
 	}
 
 	if (strcmp(service->set->log_path, "syslog") == 0 ||
@@ -773,18 +772,12 @@ master_service_try_init_log(struct master_service *service,
 	}
 
 	if (*service->set->info_log_path != '\0' &&
-	    strcmp(service->set->info_log_path, "syslog") != 0) {
-		path = home_expand(service->set->info_log_path);
-		if (*path != '\0')
-			i_set_info_file(path);
-	}
+	    strcmp(service->set->info_log_path, "syslog") != 0)
+		i_set_info_file(service->set->info_log_path);
 
 	if (*service->set->debug_log_path != '\0' &&
-	    strcmp(service->set->debug_log_path, "syslog") != 0) {
-		path = home_expand(service->set->debug_log_path);
-		if (*path != '\0')
-			i_set_debug_file(path);
-	}
+	    strcmp(service->set->debug_log_path, "syslog") != 0)
+		i_set_debug_file(service->set->debug_log_path);
 	i_set_failure_timestamp_format(service->set->log_timestamp);
 	return TRUE;
 }
