@@ -33,8 +33,6 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "layout_maildir++" },
 	{ .type = SET_FILTER_NAME, .key = "layout_imapdir" },
 	{ .type = SET_FILTER_NAME, .key = "layout_fs" },
-	DEF(STR, mail_location),
-	{ .type = SET_ALIAS, .key = "mail" },
 	{ .type = SET_FILTER_NAME, .key = "mail_attachment",
 	  .required_setting = "fs_driver", },
 	DEF(STR, mail_attachment_dir),
@@ -92,6 +90,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(BOOL, mailbox_directory_name_legacy),
 	DEF(STR_HIDDEN, mailbox_root_directory_name),
 	DEF(STR_HIDDEN, mailbox_subscriptions_filename),
+	DEF(STR, mail_driver),
 	DEF(STR, mail_path),
 	DEF(STR, mail_inbox_path),
 	DEF(STR, mail_index_path),
@@ -119,7 +118,6 @@ static const struct setting_define mail_storage_setting_defines[] = {
 };
 
 const struct mail_storage_settings mail_storage_default_settings = {
-	.mail_location = "",
 	.mail_attachment_dir = "",
 	.mail_attachment_hash = "%{sha1}",
 	.mail_attachment_min_size = 1024*128,
@@ -173,6 +171,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mailbox_directory_name_legacy = TRUE,
 	.mailbox_root_directory_name = "",
 	.mailbox_subscriptions_filename = "subscriptions",
+	.mail_driver = "",
 	.mail_path = "",
 	.mail_inbox_path = "",
 	.mail_index_path = "",
@@ -610,11 +609,6 @@ mail_storage_settings_apply(struct event *event ATTR_UNUSED, void *_set,
 		}
 	}
 
-	if (strcmp(key, "mail_location") == 0) {
-		set->unexpanded_mail_location = *value;
-		set->unexpanded_mail_location_override =
-			(flags & SETTING_APPLY_FLAG_OVERRIDE) != 0;
-	}
 	if (mailbox_list_get_path_setting(key, &unexpanded_value,
 					  set->pool, &type)) {
 		set->unexpanded_mailbox_list_path[type] = unexpanded_value;
@@ -633,10 +627,6 @@ mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool,
 	const char *p, *value, *fname, *error;
 	bool uidl_format_ok;
 	char c;
-
-#ifndef CONFIG_BINARY
-	i_assert(set->unexpanded_mail_location != NULL);
-#endif
 
 	if (set->mailbox_idle_check_interval == 0) {
 		*error_r = "mailbox_idle_check_interval must not be 0";
@@ -1058,7 +1048,6 @@ bool mail_user_set_get_postmaster_smtp(const struct mail_user_settings *set,
 
 #define OFFSET(name) offsetof(struct mail_storage_settings, name)
 static const size_t mail_storage_2nd_reset_offsets[] = {
-	OFFSET(mail_location),
 	OFFSET(mailbox_list_layout),
 	OFFSET(mailbox_list_index_prefix),
 	OFFSET(mailbox_list_iter_from_index_dir),
@@ -1069,6 +1058,7 @@ static const size_t mail_storage_2nd_reset_offsets[] = {
 	OFFSET(mailbox_directory_name_legacy),
 	OFFSET(mailbox_root_directory_name),
 	OFFSET(mailbox_subscriptions_filename),
+	OFFSET(mail_driver),
 	OFFSET(mail_path),
 	OFFSET(mail_inbox_path),
 	OFFSET(mail_index_path),

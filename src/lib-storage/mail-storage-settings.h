@@ -18,7 +18,7 @@ struct settings_instance;
 
 struct mail_storage_settings {
 	pool_t pool;
-	const char *mail_location;
+	const char *mail_driver;
 	const char *mail_attachment_dir;
 	const char *mail_attachment_hash;
 	uoff_t mail_attachment_min_size;
@@ -95,8 +95,6 @@ struct mail_storage_settings {
 
 	enum file_lock_method parsed_lock_method;
 	enum fsync_mode parsed_fsync_mode;
-	const char *unexpanded_mail_location;
-	bool unexpanded_mail_location_override;
 
 	const char *const *parsed_mail_attachment_content_type_filter;
 	bool parsed_mail_attachment_exclude_inlined;

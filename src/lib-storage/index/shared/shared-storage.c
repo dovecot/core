@@ -33,7 +33,7 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		      const char **error_r)
 {
 	struct shared_storage *storage = SHARED_STORAGE(_storage);
-	const char *driver, *p;
+	const char *p;
 	char *wildcardp, key;
 	bool have_username;
 
@@ -43,22 +43,23 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		return -1;
 
 	/* location must begin with the actual mailbox driver */
-	p = strchr(set->mail_location, ':');
-	if (p == NULL) {
-		*error_r = "Shared mailbox mail_location not prefixed with driver";
+	if (set->mail_driver[0] == '\0') {
+		*error_r = "Shared mailbox mail_driver is empty";
 		settings_free(set);
 		return -1;
 	}
-	driver = t_strdup_until(set->mail_location, p);
-	storage->storage_class_name = p_strdup(_storage->pool, driver);
-	settings_free(set);
+	storage->storage_class_name =
+		p_strdup(_storage->pool, set->mail_driver);
 
-	if (mail_user_get_storage_class(_storage->user, driver) == NULL &&
-	    strcmp(driver, "auto") != 0) {
+	if (mail_user_get_storage_class(_storage->user,
+					set->mail_driver) == NULL &&
+	    strcmp(set->mail_driver, "auto") != 0) {
 		*error_r = t_strconcat("Unknown shared storage driver: ",
-				       driver, NULL);
+				       set->mail_driver, NULL);
+		settings_free(set);
 		return -1;
 	}
+	settings_free(set);
 
 	wildcardp = strchr(ns->prefix, '%');
 	if (wildcardp == NULL) {
@@ -101,14 +102,13 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 }
 
 static const char *
-get_nonexistent_user_location(struct shared_storage *storage,
-			      const char *username)
+get_nonexistent_user_path(struct shared_storage *storage,
+			  const char *username)
 {
 	/* User wasn't found. We'll still need to create the storage
 	   to avoid exposing which users exist and which don't.
 	   Use a reachable but nonexistent path as the mail root directory. */
-	return t_strdup_printf("%s:%s/user-not-found/%s",
-			       storage->storage_class_name,
+	return t_strdup_printf("%s/user-not-found/%s",
 			       storage->storage.user->set->base_dir,
 			       username);
 }
@@ -365,7 +365,7 @@ shared_mail_user_init(struct mail_storage *_storage,
 	event_set_ptr(set_event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT,
 		      &var_expand_ctx);
 
-	/* Expanding mail_location may verify whether the user exists by
+	/* Expanding mail_path may verify whether the user exists by
 	   trying to access %{owner_home}. This sets
 	   var_expand_ctx.nonexistent flag. Otherwise we don't need these
 	   settings here. */
@@ -400,11 +400,12 @@ shared_mail_user_init(struct mail_storage *_storage,
 		event_set_ptr(set_event, SETTINGS_EVENT_INSTANCE,
 			      new_ns->_set_instance);
 
-		const char *location =
-			get_nonexistent_user_location(storage,
-						      owner->username);
-		settings_override(new_ns->_set_instance,
-				  "mail_location", location,
+		settings_override(new_ns->_set_instance, "*/mail_path",
+				  get_nonexistent_user_path(storage,
+							    owner->username),
+				  SETTINGS_OVERRIDE_TYPE_CODE);
+		settings_override(new_ns->_set_instance, "*/mail_driver",
+				  storage->storage_class_name,
 				  SETTINGS_OVERRIDE_TYPE_CODE);
 
 		new_ns->flags |= NAMESPACE_FLAG_UNUSABLE;

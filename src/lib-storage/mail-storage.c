@@ -162,22 +162,6 @@ mail_storage_autodetect(const struct mail_namespace *ns,
 	return NULL;
 }
 
-static void
-mail_storage_set_autodetection(const char **data, const char **driver)
-{
-	const char *p;
-
-	/* check if data is in driver:data format (eg. mbox:~/mail) */
-	p = *data;
-	while (i_isalnum(*p) || *p == '_') p++;
-
-	if (*p == ':' && p != *data) {
-		/* no autodetection if the storage driver is given. */
-		*driver = t_strdup_until(*data, p);
-		*data = p + 1;
-	}
-}
-
 static struct mail_storage *
 mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 		       const struct mail_storage_settings *mail_set,
@@ -187,8 +171,8 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 	struct mail_storage *storage_class = NULL;
 	const char *home;
 
-	if (driver == NULL) {
-		/* no mail_location, autodetect */
+	if (driver[0] == '\0') {
+		/* empty mail_driver setting, autodetect */
 	} else if (strcmp(driver, "auto") == 0) {
 		/* explicit autodetection with "auto" driver. */
 	} else {
@@ -212,20 +196,9 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 	(void)mail_user_get_home(ns->user, &home);
 	if (home == NULL || *home == '\0') home = "(not set)";
 
-	if (mail_set->mail_location[0] == '\0') {
-		*error_r = t_strdup_printf(
-			"Mail storage autodetection failed with home=%s", home);
-	} else if (str_begins_with(mail_set->mail_location, "auto:")) {
-		*error_r = t_strdup_printf(
-			"Autodetection failed for %s (home=%s)",
-			mail_set->mail_location, home);
-	} else {
-		*error_r = t_strdup_printf(
-			"Ambiguous mail location setting, "
-			"don't know what to do with it: %s "
-			"(try prefixing it with mbox: or maildir:)",
-			mail_set->mail_location);
-	}
+	*error_r = t_strdup_printf(
+		"Mail storage autodetection failed (home=%s, mail_path=%s)",
+		home, mail_set->mail_path);
 	return NULL;
 }
 
@@ -455,7 +428,7 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 {
 	struct mail_storage *storage_class, *storage = NULL;
 	const struct mail_storage_settings *mail_set;
-	const char *p, *data, *driver = NULL;
+	const char *p, *driver = NULL;
 	const char *inbox_path_override = NULL;
 	const char *root_path_override = NULL;
 
@@ -465,14 +438,12 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 	if (settings_get(set_event, &mail_storage_setting_parser_info, 0,
 			 &mail_set, error_r) < 0)
 		return -1;
-	data = mail_set->mail_location;
+	driver = mail_set->mail_driver;
 
 	if ((flags & MAIL_STORAGE_FLAG_SHARED_DYNAMIC) != 0) {
 		/* internal shared namespace */
 		driver = MAIL_SHARED_STORAGE_NAME;
 		root_path_override = ns->user->set->base_dir;
-	} else {
-		mail_storage_set_autodetection(&data, &driver);
 	}
 
 	storage_class = mail_storage_get_class(ns, driver, mail_set,

@@ -36,7 +36,7 @@ raw_storage_create_from_set(struct mail_storage_service_ctx *ctx,
 	const struct master_service_settings *service_set =
 		master_service_get_service_settings(master_service);
 	const char *const code_override_fields[] = {
-		"mail_location=raw:",
+		"mail_driver=raw",
 		"mailbox_list_layout=none",
 		/* use unwritable home directory */
 		t_strdup_printf("mail_home=%s/empty", service_set->base_dir),
