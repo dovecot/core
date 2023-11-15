@@ -33,6 +33,7 @@ struct config_filter {
 struct config_filter_parser {
 	/* Filter parser tree. These are used only for doveconf's human output
 	   to write the filters in nice nested hierarchies. */
+	struct config_filter_parser *parent;
 	struct config_filter_parser *children_head, *children_tail, *prev, *next;
 
 	/* Filter for this parser. Its parent filters must also match. */
@@ -53,5 +54,7 @@ bool config_filter_match(const struct config_filter *mask,
 /* Returns TRUE if two filters are fully equal. */
 bool config_filters_equal(const struct config_filter *f1,
 			  const struct config_filter *f2);
+/* Returns TRUE if filter is empty, and it has no parent filters. */
+bool config_filter_is_empty(const struct config_filter *filter);
 
 #endif

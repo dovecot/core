@@ -124,3 +124,8 @@ bool config_filters_equal(const struct config_filter *f1,
 	}
 	return TRUE;
 }
+
+bool config_filter_is_empty(const struct config_filter *filter)
+{
+	return config_filters_equal(filter, &empty_filter);
+}
