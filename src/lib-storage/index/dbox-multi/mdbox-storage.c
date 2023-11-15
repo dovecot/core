@@ -115,8 +115,10 @@ mdbox_storage_find_root_dir(const struct mail_namespace *ns)
 	return NULL;
 }
 
-static bool mdbox_storage_autodetect(const struct mail_namespace *ns,
-				     struct mailbox_list_settings *set)
+static bool
+mdbox_storage_autodetect(const struct mail_namespace *ns,
+			 struct mailbox_list_settings *set,
+			 const struct mail_storage_settings *mail_set ATTR_UNUSED)
 {
 	struct event *event = ns->user->event;
 	struct stat st;

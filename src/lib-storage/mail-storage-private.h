@@ -62,7 +62,8 @@ struct mail_storage_vfuncs {
 				  struct mailbox_list_settings *set,
 				  const struct mail_storage_settings *mail_set);
 	bool (*autodetect)(const struct mail_namespace *ns,
-			   struct mailbox_list_settings *set);
+			   struct mailbox_list_settings *set,
+			   const struct mail_storage_settings *mail_set);
 
 	struct mailbox *(*mailbox_alloc)(struct mail_storage *storage,
 					 struct mailbox_list *list,
