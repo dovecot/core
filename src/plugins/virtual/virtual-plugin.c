@@ -2,6 +2,8 @@
 
 #include "lib.h"
 #include "mail-namespace.h"
+#include "settings.h"
+#include "virtual-settings.h"
 #include "virtual-storage.h"
 #include "virtual-plugin.h"
 
@@ -15,6 +17,8 @@ static struct mail_storage_hooks acl_mail_storage_hooks = {
 
 void virtual_plugin_init(struct module *module ATTR_UNUSED)
 {
+	settings_info_register(&virtual_setting_parser_info);
+
 	mail_storage_class_register(&virtual_storage);
 	mail_storage_hooks_add(module, &acl_mail_storage_hooks);
 }

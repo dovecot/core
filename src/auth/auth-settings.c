@@ -578,6 +578,7 @@ void auth_settings_read(struct master_service_settings_output *output_r)
 	};
 	const char *error;
 
+	settings_info_register(&auth_setting_parser_info);
 	if (master_service_settings_read(master_service, &input,
 					 output_r, &error) < 0)
 		i_fatal("%s", error);
