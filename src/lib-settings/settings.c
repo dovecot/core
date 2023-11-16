@@ -152,6 +152,16 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			   struct event_filter *event_filter,
 			   const char **error_r);
 
+static unsigned int path_element_count(const char *key)
+{
+	unsigned int count = 1;
+	while ((key = strchr(key, '/')) != NULL) {
+		key++;
+		count++;
+	}
+	return count;
+}
+
 static int
 settings_block_read_uint32(struct settings_mmap *mmap,
 			   size_t *offset, size_t end_offset,
@@ -1718,16 +1728,6 @@ settings_get_or_fatal(struct event *event,
 			 source_linenum, &set, &error) < 0)
 		i_fatal("%s", error);
 	return set;
-}
-
-static unsigned int path_element_count(const char *key)
-{
-	unsigned int count = 1;
-	while ((key = strchr(key, '/')) != NULL) {
-		key++;
-		count++;
-	}
-	return count;
 }
 
 void settings_override(struct settings_instance *instance,
