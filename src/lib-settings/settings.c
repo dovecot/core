@@ -500,7 +500,7 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 
 	/* call settings_apply() before variable expansion */
 	if (ctx->info->setting_apply != NULL &&
-	    !ctx->info->setting_apply(ctx->event, ctx->set_struct, key, value,
+	    !ctx->info->setting_apply(ctx->event, ctx->set_struct, key, &value,
 				      FALSE, error_r)) {
 		*error_r = t_strdup_printf("Invalid setting %s=%s: %s",
 					   key, orig_value, *error_r);
@@ -558,34 +558,35 @@ settings_mmap_apply_defaults(struct settings_apply_ctx *ctx,
 			continue; /* not needed for now */
 		const char *key = ctx->info->defines[key_idx].key;
 		const char *const *valuep = set;
-		if (*valuep == NULL)
+		const char *value = *valuep;
+		if (value == NULL)
 			continue;
 
 		if (ctx->info->setting_apply != NULL &&
 		    !ctx->info->setting_apply(ctx->event, ctx->set_struct, key,
-					      *valuep, TRUE, &error))
+					      &value, TRUE, &error))
 			i_panic("BUG: Failed to apply default setting %s=%s: %s",
-				key, *valuep, error);
+				key, value, error);
 
 		if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0) {
 			const char *error;
 			str_truncate(ctx->str, 0);
-			if (var_expand_with_arrays(ctx->str, *valuep, ctx->tables,
+			if (var_expand_with_arrays(ctx->str, value, ctx->tables,
 						   ctx->func_tables,
 						   ctx->func_contexts,
 						   &error) <= 0 &&
 			    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
 				i_panic("BUG: Failed to expand default setting %s=%s variables: %s",
-					key, *valuep, error);
+					key, value, error);
 				return -1;
 			}
-			if (strcmp(*valuep, str_c(ctx->str)) != 0) {
+			if (strcmp(value, str_c(ctx->str)) != 0) {
 				if (settings_parse_keyidx_value(
 						ctx->parser, key_idx,
 						key, str_c(ctx->str)) < 0) {
 					*error_r = get_invalid_setting_error(ctx,
 						"Invalid default setting",
-						key, str_c(ctx->str), *valuep);
+						key, str_c(ctx->str), value);
 					return -1;
 				}
 			}
@@ -1423,6 +1424,16 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			else if (ctx->instance->pool != NULL)
 				pool_add_external_ref(&ctx->mpool->pool, ctx->instance->pool);
 		}
+		if (ctx->info->setting_apply != NULL &&
+		    !ctx->info->setting_apply(ctx->event, ctx->set_struct, key,
+					      &value, TRUE, error_r)) {
+			*error_r = t_strdup_printf(
+				"Failed to override configuration from %s: "
+				"Invalid %s=%s: %s",
+				settings_override_type_names[set->type],
+				key, value, *error_r);
+			return -1;
+		}
 		if (settings_parse_keyidx_value_nodup(ctx->parser, key_idx, key,
 						      value) < 0) {
 			*error_r = t_strdup_printf(
@@ -1430,16 +1441,6 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 				"Invalid %s=%s: %s",
 				settings_override_type_names[set->type],
 				key, value, settings_parser_get_error(ctx->parser));
-			return -1;
-		}
-		if (ctx->info->setting_apply != NULL &&
-		    !ctx->info->setting_apply(ctx->event, ctx->set_struct, key,
-					      value, TRUE, error_r)) {
-			*error_r = t_strdup_printf(
-				"Failed to override configuration from %s: "
-				"Invalid %s=%s: %s",
-				settings_override_type_names[set->type],
-				key, value, *error_r);
 			return -1;
 		}
 	}
