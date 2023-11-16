@@ -695,13 +695,12 @@ again:
 		} else {
 			ctx->cur_section->filter_parser = filter_parser;
 		}
-		if (!filter.filter_name_array) {
+		if (!filter.filter_name_array)
 			key_with_path = p + 1;
-			break;
+		else {
+			i_assert(p2 != NULL);
+			key_with_path = p2 + 1;
 		}
-
-		i_assert(p2 != NULL);
-		key_with_path = p2 + 1;
 	}
 
 	if (ctx->filter_name_prefixes_count > 0 &&
