@@ -11,6 +11,10 @@ struct settings_mmap;
 struct settings_instance;
 
 enum settings_override_type {
+	/* Setting is a built-in default. This is used only when the defaults
+	   aren't coming from configuration (e.g. -O parameter or with unit
+	   tests). */
+	SETTINGS_OVERRIDE_TYPE_DEFAULT,
 	/* Setting is from userdb. */
 	SETTINGS_OVERRIDE_TYPE_USERDB,
 	/* Setting is from -o command line parameters. */
@@ -276,6 +280,11 @@ bool settings_has_mmap(struct settings_root *root);
 
 struct settings_root *settings_root_init(void);
 void settings_root_deinit(struct settings_root **root);
+
+/* Explicitly register settings info. This is needed if default_filter_settings
+   are specified to get the defaults to work when configuration isn't read
+   (-O parameter or unit tests). */
+void settings_info_register(const struct setting_parser_info *info);
 
 /* Return SETTINGS_EVENT_ROOT from the event or its parents. */
 struct settings_root *settings_root_find(const struct event *event);

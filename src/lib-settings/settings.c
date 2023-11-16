@@ -119,6 +119,7 @@ struct settings_apply_ctx {
 	struct settings_instance *instance;
 	const struct setting_parser_info *info;
 	enum settings_get_flags flags;
+	pool_t temp_pool;
 
 	const char *filter_key;
 	const char *filter_value;
@@ -137,8 +138,10 @@ struct settings_apply_ctx {
 	void *const *func_contexts;
 };
 
+static ARRAY(const struct setting_parser_info *) set_registered_infos;
+
 static const char *settings_override_type_names[] = {
-	"userdb", "-o parameter", "hardcoded"
+	"default", "userdb", "-o parameter", "hardcoded"
 };
 static_assert_array_size(settings_override_type_names,
 			 SETTINGS_OVERRIDE_TYPE_COUNT);
@@ -1321,6 +1324,27 @@ settings_override_get_value(struct settings_apply_ctx *ctx,
 }
 
 static void
+settings_instance_overrides_add_filters(struct settings_apply_ctx *ctx,
+					const struct setting_parser_info *info)
+{
+	const struct setting_keyvalue *defaults =
+		info->default_filter_settings;
+	struct settings_override *set;
+
+	if (defaults == NULL)
+		return;
+	for (unsigned int i = 0; defaults[i].key != NULL; i++) {
+		set = p_new(ctx->temp_pool, struct settings_override, 1);
+		set->pool = ctx->temp_pool;
+		set->type = SETTINGS_OVERRIDE_TYPE_DEFAULT;
+		set->key = set->orig_key = defaults[i].key;
+		set->path_element_count = path_element_count(set->key);
+		set->value = defaults[i].value;
+		array_push_back(&ctx->overrides, &set);
+	}
+}
+
+static void
 settings_instance_override_init(struct settings_apply_ctx *ctx)
 {
 	struct settings_override *set;
@@ -1334,6 +1358,16 @@ settings_instance_override_init(struct settings_apply_ctx *ctx)
 		array_foreach_modifiable(&ctx->root->overrides, set)
 			array_push_back(&ctx->overrides, &set);
 	}
+	if (ctx->instance->mmap == NULL &&
+	    array_is_created(&set_registered_infos)) {
+		/* No configuration - default_filter_settings won't be applied
+		   unless we add them here also. This isn't any production use,
+		   so performance doesn't matter. */
+		const struct setting_parser_info *info;
+		ctx->temp_pool = pool_alloconly_create("settings temp pool", 256);
+		array_foreach_elem(&set_registered_infos, info)
+			settings_instance_overrides_add_filters(ctx, info);
+	}
 	/* sort overrides so that the most specific ones are first */
 	array_sort(&ctx->overrides, settings_override_cmp);
 }
@@ -1342,6 +1376,17 @@ static void settings_override_free(struct settings_override *override)
 {
 	event_filter_unref(&override->filter);
 	event_unref(&override->filter_event);
+}
+
+static void
+settings_apply_ctx_overrides_deinit(struct settings_apply_ctx *ctx)
+{
+	struct settings_override *set;
+
+	array_foreach_elem(&ctx->overrides, set) {
+		if (set != NULL && set->pool == ctx->temp_pool)
+			settings_override_free(set);
+	}
 }
 
 static int
@@ -1426,6 +1471,8 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		}
 		/* skip this setting the next time */
 		*set_elem = NULL;
+		if (set->pool == ctx->temp_pool)
+			settings_override_free(set);
 
 		if (value != set->value)
 			value = p_strdup(&ctx->mpool->pool, value);
@@ -1516,6 +1563,7 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 	}
 	if (ret > 0)
 		seen_filter = TRUE;
+	settings_apply_ctx_overrides_deinit(ctx);
 
 	if (ret >= 0)
 		ret = settings_mmap_apply_defaults(ctx, error_r);
@@ -1638,6 +1686,7 @@ settings_get_full(struct event *event,
 	event_unref(&lookup_event);
 	array_free(&ctx.set_seen);
 	str_free(&ctx.str);
+	pool_unref(&ctx.temp_pool);
 	return ret;
 }
 
@@ -1873,6 +1922,29 @@ struct settings_root *settings_root_find(const struct event *event)
 		event = event_get_parent(event);
 	} while (event != NULL);
 	return NULL;
+}
+
+static void set_registered_infos_free(void)
+{
+	array_free(&set_registered_infos);
+}
+
+static int
+setting_parser_info_cmp(const struct setting_parser_info *info,
+			const struct setting_parser_info *const *info2)
+{
+	return *info2 == info ? 0 : -1;
+}
+
+void settings_info_register(const struct setting_parser_info *info)
+{
+	if (!array_is_created(&set_registered_infos)) {
+		i_array_init(&set_registered_infos, 16);
+		lib_atexit(set_registered_infos_free);
+	}
+	if (array_lsearch(&set_registered_infos, info,
+			  setting_parser_info_cmp) == NULL)
+		array_push_back(&set_registered_infos, &info);
 }
 
 struct settings_instance *settings_instance_find(const struct event *event)
