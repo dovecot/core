@@ -316,6 +316,7 @@ struct mail_storage pop3c_storage = {
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_NO_ROOT |
 		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS,
 	.event_category = &event_category_pop3c,
+	.set_info = &pop3c_setting_parser_info,
 
 	.v = {
 		pop3c_storage_alloc,

@@ -732,6 +732,7 @@ struct mail_storage maildir_storage = {
 		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_SAVE_GUIDS |
 		MAIL_STORAGE_CLASS_FLAG_BINARY_DATA,
 	.event_category = &event_category_maildir,
+	.set_info = &maildir_setting_parser_info,
 
 	.v = {
 		maildir_storage_alloc,

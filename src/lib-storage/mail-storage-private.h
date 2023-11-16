@@ -144,6 +144,8 @@ struct mail_storage {
 	   here avoids adding them to index_mail_data.access_part. */
 	enum mail_fetch_field nonbody_access_fields;
 	struct event_category *event_category;
+	/* Storage-specific settings */
+	const struct setting_parser_info *set_info;
 
         struct mail_storage_vfuncs v, *vlast;
 
