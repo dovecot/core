@@ -6,6 +6,8 @@
 #include "mail-storage-settings.h"
 #include "process-stat.h"
 
+#define SETTINGS_EVENT_MAIL_USER "mail_user"
+
 struct module;
 struct fs_parameters;
 struct ssl_iostream_settings;

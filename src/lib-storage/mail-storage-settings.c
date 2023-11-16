@@ -336,6 +336,18 @@ mail_user_set_get_storage_set(struct mail_user *user)
 	return user->_mail_set;
 }
 
+static struct mail_user *mail_storage_event_get_user(struct event *event)
+{
+	struct mail_user *user;
+
+	for (; event != NULL; event = event_get_parent(event)) {
+		user = event_get_ptr(event, SETTINGS_EVENT_MAIL_USER);
+		if (user != NULL)
+			return user;
+	}
+	i_panic("mail_user not found from event");
+}
+
 static void
 fix_base_path(struct mail_user_settings *set, pool_t pool, const char **str)
 {
@@ -464,9 +476,51 @@ static bool
 mail_storage_settings_apply(struct event *event ATTR_UNUSED, void *_set,
 			    const char *key, const char **value,
 			    enum setting_apply_flags flags,
-			    const char **error_r ATTR_UNUSED)
+			    const char **error_r)
 {
 	struct mail_storage_settings *set = _set;
+
+	unsigned int key_len = strlen(key);
+	if (key_len > 5 && strcmp(key + key_len - 5, "_path") == 0) {
+		unsigned int value_len = strlen(*value);
+		bool truncate = FALSE;
+
+		/* drop trailing '/' and convert ~/ to %{home}/ */
+		if (value_len > 0 && (*value)[value_len-1] == '/')
+			truncate = TRUE;
+		if ((str_begins_with(*value, "~/") ||
+		     strcmp(*value, "~") == 0) &&
+		    (flags & SETTING_APPLY_FLAG_NO_EXPAND) == 0) {
+#ifndef CONFIG_BINARY
+			struct mail_user *user =
+				mail_storage_event_get_user(event);
+			const char *home;
+			if (mail_user_get_home(user, &home) > 0)
+				;
+			else if (user->nonexistent) {
+				/* Nonexistent shared user. Don't fail the user
+				   creation due to this. */
+				home = "";
+			} else {
+				*error_r = t_strdup_printf(
+					"%s setting used home directory (~/) but there is no "
+					"mail_home and userdb didn't return it", key);
+				return FALSE;
+			}
+			if (!truncate)
+				*value = p_strconcat(set->pool, home, *value + 1, NULL);
+			else T_BEGIN {
+				*value = p_strconcat(set->pool, home,
+					t_strndup(*value + 1, value_len - 2), NULL);
+			} T_END;
+#else
+			*error_r = "~/ expansion not supported in config binary";
+			return FALSE;
+#endif
+		} else if (truncate) {
+			*value = p_strndup(set->pool, *value, value_len - 1);
+		}
+	}
 
 	if (strcmp(key, "mail_location") == 0) {
 		set->unexpanded_mail_location = *value;

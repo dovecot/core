@@ -95,6 +95,7 @@ mail_user_alloc(struct mail_storage_service_user *service_user)
 	user->session_create_time = ioloop_time;
 	user->event = event_create(parent_event);
 	event_add_category(user->event, &event_category_storage);
+	event_set_ptr(user->event, SETTINGS_EVENT_MAIL_USER, user);
 	event_add_str(user->event, "user", username);
 
 	/* Register %variable expansion callback function for settings
