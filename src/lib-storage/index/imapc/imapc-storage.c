@@ -1368,6 +1368,7 @@ struct mail_storage imapc_storage = {
 		       MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT |
 		       MAIL_STORAGE_CLASS_FLAG_SECONDARY_INDEX,
 	.event_category = &event_category_imapc,
+	.set_info = &imapc_setting_parser_info,
 
 	.v = {
 		imapc_storage_alloc,

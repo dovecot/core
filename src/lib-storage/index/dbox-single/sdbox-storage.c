@@ -11,6 +11,7 @@
 #include "dbox-save.h"
 #include "sdbox-file.h"
 #include "sdbox-sync.h"
+#include "sdbox-settings.h"
 #include "sdbox-storage.h"
 
 extern struct mail_storage dbox_storage, sdbox_storage;
@@ -466,6 +467,7 @@ struct mail_storage dbox_storage = {
 	.name = "dbox", /* alias */
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_FILE_PER_MSG,
 	.event_category = &event_category_sdbox,
+	.set_info = &sdbox_setting_parser_info,
 
 	.v = {
 		sdbox_storage_alloc,

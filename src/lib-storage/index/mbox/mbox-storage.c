@@ -830,6 +830,7 @@ struct mail_storage mbox_storage = {
 		MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS |
 		MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS,
 	.event_category = &event_category_mbox,
+	.set_info = &mbox_setting_parser_info,
 
 	.v = {
 		mbox_storage_alloc,
