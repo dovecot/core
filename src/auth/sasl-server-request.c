@@ -1,6 +1,8 @@
 /* Copyright (c) 2023 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str-sanitize.h"
+#include "buffer.h"
 
 #include "sasl-server-private.h"
 
@@ -61,6 +63,8 @@ void sasl_server_request_create(struct sasl_server_req_ctx *rctx,
 	rctx->mech = mech;
 	rctx->mech_name = mech->def->name;
 	rctx->request = req;
+
+	e_debug(req->event, "Request create");
 }
 
 void sasl_server_mech_request_ref(struct sasl_server_mech_request *mreq)
@@ -96,6 +100,8 @@ void sasl_server_mech_request_unref(struct sasl_server_mech_request **_mreq)
 		funcs->request_free(req->rctx);
 	if (mreq->mech->def->funcs->auth_free != NULL)
 		mreq->mech->def->funcs->auth_free(mreq);
+
+	e_debug(req->event, "Request destroy");
 
 	if (req->rctx != NULL)
 		i_zero(req->rctx);
@@ -143,7 +149,7 @@ sasl_server_request_fail_on_nuls(struct sasl_server_request *req,
 	if ((mech->def->flags & SASL_MECH_SEC_ALLOW_NULS) != 0)
 		return FALSE;
 	if (memchr(data, '\0', data_size) != NULL) {
-		e_debug(req->mech->event, "Unexpected NUL in auth data");
+		e_debug(req->event, "Unexpected NUL in auth data");
 		sasl_server_request_failure(req->mech);
 		return TRUE;
 	}
@@ -156,6 +162,15 @@ void sasl_server_request_initial(struct sasl_server_req_ctx *rctx,
 	struct sasl_server_request *req = rctx->request;
 	struct sasl_server_mech_request *mreq = req->mech;
 	const struct sasl_server_mech *mech = mreq->mech;
+
+	if (data == NULL) {
+		e_debug(req->event,
+			"Started interaction without initial response");
+	} else {
+		e_debug(req->event,
+			"Started interaction with initial response (size=%zu)",
+			data_size);
+	}
 
 	i_assert(req->state == SASL_SERVER_REQUEST_STATE_NEW);
 	req->state = SASL_SERVER_REQUEST_STATE_SERVER;
@@ -175,6 +190,10 @@ void sasl_server_request_input(struct sasl_server_req_ctx *rctx,
 	struct sasl_server_request *req = rctx->request;
 	struct sasl_server_mech_request *mreq = req->mech;
 	const struct sasl_server_mech *mech = mreq->mech;
+
+	e_debug(req->event,
+		"Client continued interaction with response (size=%zu)",
+		data_size);
 
 	if (req->state == SASL_SERVER_REQUEST_STATE_FINISHED &&
 	    req->finished_with_data) {
@@ -228,9 +247,13 @@ bool sasl_server_request_set_authid(struct sasl_server_mech_request *mreq,
 	i_assert(req->rctx != NULL);
 	i_assert(funcs->request_set_authid != NULL);
 	if (!funcs->request_set_authid(req->rctx, authid_type, authid)) {
+		e_debug(req->event, "Failed to set authid '%s'",
+			str_sanitize(authid, 256));
 		req->failed = TRUE;
 		return FALSE;
 	}
+
+	e_debug(req->event, "Set authid '%s'", str_sanitize(authid, 256));
 	return TRUE;
 }
 
@@ -244,9 +267,13 @@ bool sasl_server_request_set_authzid(struct sasl_server_mech_request *mreq,
 	i_assert(req->rctx != NULL);
 	i_assert(funcs->request_set_authzid != NULL);
 	if (!funcs->request_set_authzid(req->rctx, authzid)) {
+		e_debug(req->event, "Failed to set authzid '%s'",
+			str_sanitize(authzid, 256));
 		req->failed = TRUE;
 		return FALSE;
 	}
+
+	e_debug(req->event, "Set authzid '%s'", str_sanitize(authzid, 256));
 	return TRUE;
 }
 
@@ -263,6 +290,8 @@ void sasl_server_request_set_realm(struct sasl_server_mech_request *mreq,
 	i_assert(req->rctx != NULL);
 	i_assert(funcs->request_set_realm != NULL);
 	funcs->request_set_realm(req->rctx, realm);
+
+	e_debug(req->event, "Set realm '%s'", str_sanitize(realm, 256));
 }
 
 bool sasl_server_request_get_extra_field(struct sasl_server_mech_request *mreq,
@@ -288,6 +317,9 @@ void sasl_server_request_start_channel_binding(
 	struct sasl_server *server = req->sinst->server;
 	const struct sasl_server_request_funcs *funcs = server->funcs;
 
+	e_debug(req->event, "Request channel binding '%s'",
+		str_sanitize(type, 64));
+
 	i_assert(req->rctx != NULL);
 	i_assert(funcs->request_start_channel_binding != NULL);
 	funcs->request_start_channel_binding(req->rctx, type);
@@ -299,10 +331,19 @@ int sasl_server_request_accept_channel_binding(
 	struct sasl_server_request *req = mreq->req;
 	struct sasl_server *server = req->sinst->server;
 	const struct sasl_server_request_funcs *funcs = server->funcs;
+	int ret;
 
 	i_assert(req->rctx != NULL);
 	i_assert(funcs->request_accept_channel_binding != NULL);
-	return funcs->request_accept_channel_binding(req->rctx, data_r);
+	ret = funcs->request_accept_channel_binding(req->rctx, data_r);
+	if (ret < 0) {
+		e_debug(req->event, "Failed to obtain channel binding data");
+		return -1;
+	}
+
+	e_debug(req->event, "Obtained channel binding data (size=%zu)",
+		(*data_r)->used);
+	return 0;
 }
 
 void sasl_server_request_output(struct sasl_server_mech_request *mreq,
@@ -320,6 +361,10 @@ void sasl_server_request_output(struct sasl_server_mech_request *mreq,
 		 req->state == SASL_SERVER_REQUEST_STATE_PASSDB);
 	req->state = SASL_SERVER_REQUEST_STATE_CLIENT;
 	req->sequence++;
+
+	e_debug(req->event,
+		"Server continued interaction with challenge (size=%zu)",
+		data_size);
 
 	const struct sasl_server_output output = {
 		.status = SASL_SERVER_OUTPUT_CONTINUE,
@@ -346,8 +391,13 @@ void sasl_server_request_success(struct sasl_server_mech_request *mreq,
 	req->state = SASL_SERVER_REQUEST_STATE_FINISHED;
 	req->sequence++;
 	if (data_size > 0) {
+		e_debug(req->event,
+			"Interaction succeeded with final data (size=%zu)",
+			data_size);
 		i_assert(!req->finished_with_data);
 		req->finished_with_data = TRUE;
+	} else {
+		e_debug(req->event, "Interaction succeeded");
 	}
 
 	const struct sasl_server_output output = {
@@ -380,6 +430,13 @@ sasl_server_request_failure_common(struct sasl_server_mech_request *mreq,
 		i_assert(status != SASL_SERVER_OUTPUT_INTERNAL_FAILURE);
 		i_assert(!req->finished_with_data);
 		req->finished_with_data = TRUE;
+		e_debug(req->event,
+			"Interaction failed with final data (size=%zu)",
+			data_size);
+	} else if (status == SASL_SERVER_OUTPUT_INTERNAL_FAILURE) {
+		e_debug(req->event, "Interaction failed (internal failure)");
+	} else {
+		e_debug(req->event, "Interaction failed");
 	}
 
 	const struct sasl_server_output output = {
@@ -412,6 +469,28 @@ void sasl_server_request_internal_failure(
 		mreq, SASL_SERVER_OUTPUT_INTERNAL_FAILURE, "", 0);
 }
 
+static const char *
+sasl_passdb_result_to_string(enum sasl_passdb_result_status status)
+{
+	switch (status) {
+	case SASL_PASSDB_RESULT_INTERNAL_FAILURE:
+		return "internal-failure";
+	case SASL_PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
+		return "scheme-not-available";
+	case SASL_PASSDB_RESULT_USER_UNKNOWN:
+		return "user-unknown";
+	case SASL_PASSDB_RESULT_USER_DISABLED:
+		return "scheme-disabled";
+	case SASL_PASSDB_RESULT_PASS_EXPIRED:
+		return "pass-expired";
+	case SASL_PASSDB_RESULT_PASSWORD_MISMATCH:
+		return "password-mismatch";
+	case SASL_PASSDB_RESULT_OK:
+		return "ok";
+	}
+	i_unreached();
+}
+
 static void
 verify_plain_callback(struct sasl_server_req_ctx *rctx,
 		      const struct sasl_passdb_result *result)
@@ -422,6 +501,9 @@ verify_plain_callback(struct sasl_server_req_ctx *rctx,
 	req->state = SASL_SERVER_REQUEST_STATE_SERVER;
 	if (result->status == SASL_PASSDB_RESULT_INTERNAL_FAILURE)
 		req->failed = TRUE;
+
+	e_debug(req->event, "Finished plain passdb verification (status=%s)",
+		sasl_passdb_result_to_string(result->status));
 
 	i_assert(req->passdb_type == SASL_SERVER_PASSDB_TYPE_VERIFY_PLAIN);
 	req->passdb_callback(req->mech, result);
@@ -442,6 +524,8 @@ void sasl_server_request_verify_plain(
 		 req->state == SASL_SERVER_REQUEST_STATE_SERVER);
 	req->state = SASL_SERVER_REQUEST_STATE_PASSDB;
 
+	e_debug(req->event, "Performing plain passdb verification");
+
 	req->passdb_type = SASL_SERVER_PASSDB_TYPE_VERIFY_PLAIN;
 	req->passdb_callback = callback;
 
@@ -460,6 +544,9 @@ lookup_credentials_callback(struct sasl_server_req_ctx *rctx,
 	req->state = SASL_SERVER_REQUEST_STATE_SERVER;
 	if (result->status == SASL_PASSDB_RESULT_INTERNAL_FAILURE)
 		req->failed = TRUE;
+
+	e_debug(req->event, "Finished passdb credentials lookup (status=%s)",
+		sasl_passdb_result_to_string(result->status));
 
 	i_assert(req->passdb_type ==
 		 SASL_SERVER_PASSDB_TYPE_LOOKUP_CREDENTIALS);
@@ -481,6 +568,9 @@ void sasl_server_request_lookup_credentials(
 		 req->state == SASL_SERVER_REQUEST_STATE_SERVER);
 	req->state = SASL_SERVER_REQUEST_STATE_PASSDB;
 
+	e_debug(req->event, "Performing passdb credentials lookup (scheme=%s)",
+		scheme);
+
 	req->passdb_type = SASL_SERVER_PASSDB_TYPE_LOOKUP_CREDENTIALS;
 	req->passdb_callback = callback;
 
@@ -499,6 +589,9 @@ set_credentials_callback(struct sasl_server_req_ctx *rctx,
 	req->state = SASL_SERVER_REQUEST_STATE_SERVER;
 	if (result->status == SASL_PASSDB_RESULT_INTERNAL_FAILURE)
 		req->failed = TRUE;
+
+	e_debug(req->event, "Finished updating passdb credentials (status=%s)",
+		sasl_passdb_result_to_string(result->status));
 
 	i_assert(req->passdb_type == SASL_SERVER_PASSDB_TYPE_SET_CREDENTIALS);
 	req->passdb_callback(req->mech, result);
@@ -519,6 +612,9 @@ void sasl_server_request_set_credentials(
 	i_assert(req->state == SASL_SERVER_REQUEST_STATE_NEW ||
 		 req->state == SASL_SERVER_REQUEST_STATE_SERVER);
 	req->state = SASL_SERVER_REQUEST_STATE_PASSDB;
+
+	e_debug(req->event, "Updating passdb credentials (scheme=%s)",
+		scheme);
 
 	req->passdb_type = SASL_SERVER_PASSDB_TYPE_SET_CREDENTIALS;
 	req->passdb_callback = callback;

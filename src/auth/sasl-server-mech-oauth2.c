@@ -107,6 +107,8 @@ void sasl_server_oauth2_request_succeed(struct sasl_server_req_ctx *rctx)
 	i_assert(request->mech->def == &mech_oauthbearer ||
 		 request->mech->def == &mech_xoauth2);
 
+	e_debug(request->event, "Token verification succeeded");
+
 	struct oauth2_auth_request *oauth2_req =
 		container_of(request, struct oauth2_auth_request, request);
 
@@ -126,6 +128,15 @@ void sasl_server_oauth2_request_fail(
 
 	i_assert(request->mech->def == &mech_oauthbearer ||
 		 request->mech->def == &mech_xoauth2);
+
+	if (failure == NULL) {
+		e_debug(request->event,
+			"Token verification failed with internal error");
+	} else {
+		e_debug(request->event,
+			"Token verification failed (status = %s)",
+			failure->status);
+	}
 
 	struct oauth2_auth_request *oauth2_req =
 		container_of(request, struct oauth2_auth_request, request);
@@ -165,6 +176,7 @@ mech_oauth2_verify_token(struct oauth2_auth_request *oauth2_req,
 
 	/* Add reference for the lookup; dropped upon success/failure */
 	sasl_server_mech_request_ref(request);
+	e_debug(request->event, "Verify token");
 
 	i_assert(token != NULL);
 	i_assert(oauth2_mech->funcs != NULL &&
