@@ -500,6 +500,10 @@ static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 		validity.global_validity.last_mtime = st.st_mtime;
 		validity.global_validity.last_size = st.st_size;
 	}
+
+	if (acl_backend_get_mailbox_acl(_aclobj->backend, _aclobj) < 0)
+		return -1;
+
 	if (acl_backend_vfile_read_with_retry(_aclobj, aclobj->local_path,
 					      &validity.local_validity) < 0)
 		return -1;

@@ -102,6 +102,9 @@ void acl_object_rebuild_cache(struct acl_object *aclobj);
 void acl_object_remove_all_access(struct acl_object *aclobj);
 void acl_object_add_global_acls(struct acl_object *aclobj);
 
+int acl_backend_get_mailbox_acl(struct acl_backend *backend,
+				struct acl_object *aclobj);
+
 void acl_backend_register(const struct acl_backend_vfuncs *v);
 void acl_backend_unregister(const char *name);
 

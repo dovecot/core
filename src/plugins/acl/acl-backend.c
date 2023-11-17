@@ -8,6 +8,7 @@
 #include "settings.h"
 #include "mail-storage-settings.h"
 #include "mailbox-list-private.h"
+#include "mail-storage-private.h"
 #include "mail-namespace.h"
 #include "mail-user.h"
 #include "acl-cache.h"
@@ -217,6 +218,48 @@ int acl_backend_get_default_rights(struct acl_backend *backend,
 	if (*mask_r == NULL)
 		*mask_r = backend->default_aclmask;
 	return 0;
+}
+
+int acl_backend_get_mailbox_acl(struct acl_backend *backend, struct acl_object *aclobj)
+{
+	const char *error;
+	if (!mailbox_list_is_valid_name(backend->list, aclobj->name, &error)) {
+		e_debug(backend->event, "'%s' is not a valid mailbox name: %s",
+			aclobj->name, error);
+		return 0;
+	}
+
+	const char *vname = mailbox_list_get_vname(backend->list, aclobj->name);
+	struct event *event =
+		mail_storage_mailbox_create_event(backend->event, backend->list,
+						  vname);
+	struct acl_settings *aset;
+	const char *aname;
+	int ret;
+
+	if ((ret = settings_get(event, &acl_setting_parser_info, 0,
+			        &aset, &error)) < 0) {
+		e_error(event, "%s", error);
+	} else if (array_is_created(&aset->acl_rights)) {
+		array_foreach_elem(&aset->acl_rights, aname) {
+			struct acl_rights_settings *rset;
+			if ((ret = settings_get_filter(event, "acl", aname,
+						       &acl_rights_setting_parser_info,
+						       0, &rset, &error)) < 0) {
+				e_error(event, "%s", error);
+				break;
+			}
+
+			struct acl_rights *right = array_append_space(&aclobj->rights);
+			e_debug(event, "Using configured acl '%s'", rset->id);
+			acl_rights_dup(rset->parsed, aclobj->rights_pool, right);
+			settings_free(rset);
+		}
+	}
+
+	settings_free(aset);
+	event_unref(&event);
+	return ret < 0 ? -1 : 0;
 }
 
 void acl_backend_register(const struct acl_backend_vfuncs *v)
