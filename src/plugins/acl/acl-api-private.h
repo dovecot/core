@@ -2,6 +2,7 @@
 #define ACL_API_PRIVATE_H
 
 #include "acl-api.h"
+#include "acl-settings.h"
 
 struct acl_backend_vfuncs {
 	const char *name;
@@ -37,9 +38,8 @@ struct acl_backend_vfuncs {
 
 struct acl_backend {
 	pool_t pool;
+	const struct acl_settings *set;
 	const char *username;
-	const char **groups;
-	unsigned int group_count;
 
 	struct event *event;
 	struct mailbox_list *list;
@@ -53,7 +53,6 @@ struct acl_backend {
 	const struct acl_backend_vfuncs *v;
 
 	bool owner:1;
-	bool globals_only:1;
 };
 
 struct acl_mailbox_list_context {

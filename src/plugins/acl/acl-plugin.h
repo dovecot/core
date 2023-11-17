@@ -22,9 +22,8 @@
 struct acl_user {
 	union mail_user_module_context module_ctx;
 
-	const char *acl_user;
 	const char *acl_env;
-	const char *const *groups;
+	const struct acl_settings *set;
 
 	struct acl_lookup_dict *acl_lookup_dict;
 };

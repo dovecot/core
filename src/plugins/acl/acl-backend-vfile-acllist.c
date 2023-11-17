@@ -46,7 +46,7 @@ static bool acl_list_get_root_dir(struct acl_backend_vfile *backend,
 	const char *rootdir, *maildir;
 	enum mailbox_list_path_type type;
 
-	if (backend->backend.globals_only)
+	if (backend->backend.set->acl_globals_only)
 		return FALSE;
 
 	storage = mailbox_list_get_namespace(backend->backend.list)->storage;

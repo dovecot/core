@@ -109,7 +109,7 @@ acl_backend_vfile_get_local_dir(struct acl_backend *backend,
 	if (*name == '\0')
 		name = NULL;
 
-	if (backend->globals_only)
+	if (backend->set->acl_globals_only)
 		return NULL;
 
 	/* ACL files are very important. try to keep them among the main

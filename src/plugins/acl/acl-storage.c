@@ -35,15 +35,23 @@ static void acl_mail_user_create(struct mail_user *user, const char *env)
 	v->deinit = acl_user_deinit;
 	auser->acl_lookup_dict = acl_lookup_dict_init(user);
 
+	struct acl_settings *set = p_new(user->pool, struct acl_settings, 1);
 	auser->acl_env = env;
-	auser->acl_user = mail_user_plugin_getenv(user, "acl_user");
-	if (auser->acl_user == NULL)
-		auser->acl_user = mail_user_plugin_getenv(user, "master_user");
+	set->acl_globals_only =
+		mail_user_plugin_getenv_bool(user, "acl_globals_only");
+	set->acl_defaults_from_inbox =
+		mail_user_plugin_getenv_bool(user, "acl_defaults_from_inbox");
+	set->acl_user = mail_user_plugin_getenv(user, "acl_user");
+	if (set->acl_user == NULL)
+		set->acl_user = mail_user_plugin_getenv(user, "master_user");
 
 	env = mail_user_plugin_getenv(user, "acl_groups");
 	if (env != NULL) {
-		auser->groups =
-			(const char *const *)p_strsplit(user->pool, env, ",");
+		p_array_init(&set->acl_groups, user->pool, 1);
+		const char *const *groups = (const char *const *)
+			p_strsplit_spaces(user->pool, env, ", ");
+		array_append(&set->acl_groups, groups, str_array_length(groups));
+		array_sort(&set->acl_groups, i_strcmp_p);
 	}
 
 	MODULE_CONTEXT_SET(user, acl_user_module, auser);
