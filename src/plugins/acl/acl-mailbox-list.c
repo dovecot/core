@@ -589,7 +589,7 @@ void acl_mail_namespace_storage_added(struct mail_namespace *ns)
 	struct acl_user *auser = ACL_USER_CONTEXT_REQUIRE(ns->user);
 
 	owner_username = ns->user->username;
-	current_username = auser->acl_user;
+	current_username = auser->set->acl_user;
 	if (current_username == NULL)
 		current_username = owner_username;
 	else
@@ -603,7 +603,7 @@ void acl_mail_namespace_storage_added(struct mail_namespace *ns)
 
 	/* we need to know the storage when initializing backend */
 	backend = acl_backend_init(auser->acl_env, ns->list, current_username,
-				   auser->groups, owner);
+				   auser->set, owner);
 	if (backend == NULL)
 		i_fatal("ACL backend initialization failed");
 	acl_storage_rights_ctx_init(&alist->rights, backend);

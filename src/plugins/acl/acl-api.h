@@ -9,6 +9,7 @@ struct mailbox_list;
 struct mail_storage;
 struct mailbox;
 struct acl_object;
+struct acl_settings;
 
 #define MAILBOX_ATTRIBUTE_PREFIX_ACL \
 	MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT"acl/"
@@ -18,7 +19,7 @@ struct acl_object;
    case-sensitively. */
 struct acl_backend *
 acl_backend_init(const char *data, struct mailbox_list *list,
-		 const char *acl_username, const char *const *groups,
+		 const char *acl_username, const struct acl_settings *set,
 		 bool owner);
 void acl_backend_deinit(struct acl_backend **backend);
 

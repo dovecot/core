@@ -313,7 +313,6 @@ acl_lookup_dict_iterate_visible_init(struct acl_lookup_dict *dict)
 	struct acl_user *auser = ACL_USER_CONTEXT(dict->user);
 	struct acl_lookup_dict_iter *iter;
 	const char *id;
-	unsigned int i;
 	pool_t pool;
 
 	i_assert(auser != NULL);
@@ -334,9 +333,10 @@ acl_lookup_dict_iterate_visible_init(struct acl_lookup_dict *dict)
 		pool_alloconly_create("acl lookup dict iter values", 1024);
 
 	/* get all groups we belong to */
-	if (auser->groups != NULL) {
-		for (i = 0; auser->groups[i] != NULL; i++) {
-			id = p_strconcat(pool, "group/", auser->groups[i],
+	if (array_is_created(&auser->set->acl_groups)) {
+		const char *group;
+		array_foreach_elem(&auser->set->acl_groups, group) {
+			id = p_strconcat(pool, "group/", group,
 					 NULL);
 			array_push_back(&iter->iter_ids, &id);
 		}

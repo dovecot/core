@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "llist.h"
+#include "array.h"
 #include "hash.h"
 #include "sort.h"
 #include "mail-storage-settings.h"
@@ -43,20 +44,17 @@ static struct acl_backend_entry *acl_backend_find(const char *name)
 
 struct acl_backend *
 acl_backend_init(const char *data, struct mailbox_list *list,
-		 const char *acl_username, const char *const *groups,
+		 const char *acl_username, const struct acl_settings *set,
 		 bool owner)
 {
 	struct mail_user *user = mailbox_list_get_user(list);
 	struct acl_backend_entry *be;
 	struct acl_backend *backend;
 	const char *be_name;
-	unsigned int i, group_count;
 
 	e_debug(user->event, "acl: initializing backend with data: %s", data);
 	e_debug(user->event, "acl: acl username = %s", acl_username);
 	e_debug(user->event, "acl: owner = %d", owner ? 1 : 0);
-
-	group_count = str_array_length(groups);
 
 	be_name = strchr(data, ':');
 	if (be_name == NULL)
@@ -76,20 +74,15 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 	backend->list = list;
 	backend->username = p_strdup(backend->pool, acl_username);
 	backend->owner = owner;
-	backend->globals_only =
-		mail_user_plugin_getenv_bool(user, "acl_globals_only");
 
-	if (group_count > 0) {
-		backend->group_count = group_count;
-		backend->groups =
-			p_new(backend->pool, const char *, group_count);
-		for (i = 0; i < group_count; i++) {
-			backend->groups[i] = p_strdup(backend->pool, groups[i]);
-			e_debug(backend->event, "acl: group added: %s", groups[i]);
+	if (event_want_debug(user->event) && array_is_created(&set->acl_groups)) {
+		const char *group;
+		array_foreach_elem(&set->acl_groups, group) {
+			e_debug(user->event, "acl: group added: %s", group);
 		}
-		i_qsort(backend->groups, group_count, sizeof(const char *),
-			i_strcmp_p);
 	}
+
+	backend->set = set;
 
 	T_BEGIN {
 		if (backend->v->init(backend, data) < 0)
@@ -148,7 +141,9 @@ bool acl_backend_user_name_equals(struct acl_backend *backend,
 bool acl_backend_user_is_in_group(struct acl_backend *backend,
 				  const char *group_name)
 {
-	return i_bsearch(group_name, backend->groups, backend->group_count,
+	unsigned int group_count;
+	const char *const *groups = array_get(&backend->set->acl_groups, &group_count);
+	return i_bsearch(group_name, groups, group_count,
 			 sizeof(const char *), bsearch_strcmp) != NULL;
 }
 
@@ -181,14 +176,13 @@ unsigned int acl_backend_lookup_right(struct acl_backend *backend,
 
 struct acl_object *acl_backend_get_default_object(struct acl_backend *backend)
 {
-	struct mail_user *user = mailbox_list_get_user(backend->list);
 	struct mail_namespace *ns = mailbox_list_get_namespace(backend->list);
 	const char *default_name = "";
 
 	if (backend->default_aclobj != NULL)
 		return backend->default_aclobj;
 
-	if (mail_user_plugin_getenv_bool(user, "acl_defaults_from_inbox")) {
+	if (backend->set->acl_defaults_from_inbox) {
 		if (ns->type == MAIL_NAMESPACE_TYPE_PRIVATE ||
 		    ns->type == MAIL_NAMESPACE_TYPE_SHARED)
 			default_name = "INBOX";
