@@ -24,7 +24,7 @@ static void acl_user_deinit(struct mail_user *user)
 	auser->module_ctx.super.deinit(user);
 }
 
-static void acl_mail_user_create(struct mail_user *user, const char *env)
+void acl_mail_user_created(struct mail_user *user)
 {
 	struct mail_user_vfuncs *v = user->vlast;
 	struct acl_user *auser;
@@ -44,36 +44,5 @@ static void acl_mail_user_create(struct mail_user *user, const char *env)
 		e_debug(user->event, "acl: Shared mailbox listing enabled");
 	}
 
-	struct acl_settings *set = p_new(user->pool, struct acl_settings, 1);
-	auser->acl_env = env;
-	set->acl_globals_only =
-		mail_user_plugin_getenv_bool(user, "acl_globals_only");
-	set->acl_defaults_from_inbox =
-		mail_user_plugin_getenv_bool(user, "acl_defaults_from_inbox");
-	set->acl_user = mail_user_plugin_getenv(user, "acl_user");
-	if (set->acl_user == NULL)
-		set->acl_user = mail_user_plugin_getenv(user, "master_user");
-
-	env = mail_user_plugin_getenv(user, "acl_groups");
-	if (env != NULL) {
-		p_array_init(&set->acl_groups, user->pool, 1);
-		const char *const *groups = (const char *const *)
-			p_strsplit_spaces(user->pool, env, ", ");
-		array_append(&set->acl_groups, groups, str_array_length(groups));
-		array_sort(&set->acl_groups, i_strcmp_p);
-	}
-
 	MODULE_CONTEXT_SET(user, acl_user_module, auser);
-}
-
-void acl_mail_user_created(struct mail_user *user)
-{
-	const char *env;
-
-	env = mail_user_plugin_getenv(user, "acl");
-	if (env != NULL && *env != '\0')
-		acl_mail_user_create(user, env);
-	else {
-		e_debug(user->event, "acl: No acl setting - ACLs are disabled");
-	}
 }

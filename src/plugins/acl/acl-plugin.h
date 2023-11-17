@@ -22,9 +22,6 @@
 struct acl_user {
 	union mail_user_module_context module_ctx;
 
-	const char *acl_env;
-	const struct acl_settings *set;
-
 	struct acl_lookup_dict *acl_lookup_dict;
 };
 
@@ -38,7 +35,6 @@ struct acl_mailbox_list {
 	struct acl_storage_rights_context rights;
 
 	time_t last_shared_add_check;
-	bool ignore_acls;
 };
 
 struct acl_mailbox {
