@@ -636,7 +636,7 @@ mech_gssapi_auth_initial(struct sasl_server_mech_request *auth_request,
 
 	request->sasl_gssapi_state = GSS_STATE_SEC_CONTEXT;
 
-	if (data_size == 0) {
+	if (data == NULL) {
 		/* The client should go first */
 		sasl_server_request_output(auth_request, uchar_empty_ptr, 0);
 	} else {
