@@ -137,7 +137,7 @@ bool auth_worker_auth_request_new(struct auth_worker_command *cmd, unsigned int 
 	struct auth_request *auth_request;
 	const char *key, *value;
 
-	auth_request = auth_request_new_dummy(cmd->event);
+	auth_request = auth_request_new(cmd->event);
 
 	cmd->server->refcount++;
 	auth_request->context = cmd;

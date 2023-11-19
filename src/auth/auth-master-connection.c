@@ -195,7 +195,7 @@ static int master_input_auth_request(struct auth_master_connection *conn,
 		return -1;
 	}
 
-	auth_request = auth_request_new_dummy(auth_event);
+	auth_request = auth_request_new(auth_event);
 	auth_request->id = id;
 	auth_request->master = conn;
 	auth_master_connection_ref(conn);
@@ -618,7 +618,7 @@ static int master_input_list(struct auth_master_connection *conn,
 		return 1;
 	}
 
-	auth_request = auth_request_new_dummy(auth_event);
+	auth_request = auth_request_new(auth_event);
 	auth_request->id = id;
 	auth_request->master = conn;
 	auth_master_connection_ref(conn);

@@ -162,19 +162,6 @@ struct auth_request *auth_request_new(struct event *parent_event)
 	return request;
 }
 
-struct auth_request *auth_request_new_dummy(struct event *parent_event)
-{
-	struct auth_request *request;
-	pool_t pool;
-
-	pool = pool_alloconly_create(MEMPOOL_GROWING"auth_request", 1024);
-	request = p_new(pool, struct auth_request, 1);
-	request->pool = pool;
-
-	auth_request_post_alloc_init(request, parent_event);
-	return request;
-}
-
 void auth_request_set_state(struct auth_request *request,
 			    enum auth_request_state state)
 {
