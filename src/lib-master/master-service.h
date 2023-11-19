@@ -180,7 +180,10 @@ void master_service_set_die_callback(struct master_service *service,
    even called if the master service code knows that we're handling clients. */
 void master_service_set_idle_die_callback(struct master_service *service,
 					  bool (*callback)(void));
-/* Set a callback that gets called when the service is killed, but not dead yet. */
+/* Set a callback that gets called when the service is killed, but not dead yet.
+   The callback is currently called only when running in main ioloop and
+   receiving SIGINT or SIGTERM. Note that the ioloop is always stopped anyway
+   when this happens. */
 void master_service_set_killed_callback(struct master_service *service,
 					master_service_killed_callback_t *callback,
 					void *context);
