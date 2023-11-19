@@ -17,7 +17,10 @@ void sasl_server_request_create(struct auth_request *request,
 	pool_t pool;
 
 	pool = request->pool;
-	mreq = mech->auth_new(pool);
+	if (mech->auth_new != NULL)
+		mreq = mech->auth_new(pool);
+	else
+		mreq = p_new(pool, struct sasl_server_mech_request, 1);
 	mreq->pool = pool;
 	mreq->request = request;
 	mreq->mech = mech;
@@ -34,7 +37,8 @@ void sasl_server_request_destroy(struct auth_request *request)
 		return;
 	request->sasl = NULL;
 
-	mreq->mech->auth_free(mreq);
+	if (mreq->mech->auth_free != NULL)
+		mreq->mech->auth_free(mreq);
 }
 
 /*
