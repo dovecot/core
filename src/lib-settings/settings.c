@@ -487,7 +487,7 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 		str_truncate(ctx->str, 0);
 		if (var_expand_with_funcs(ctx->str, value, ctx->table,
 					  ctx->func_table, ctx->func_context,
-					  &error) < 0 &&
+					  &error) <= 0 &&
 		    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
 			*error_r = t_strdup_printf(
 				"Failed to expand %s setting variables: %s",
@@ -541,7 +541,7 @@ settings_mmap_apply_defaults(struct settings_apply_ctx *ctx,
 			str_truncate(ctx->str, 0);
 			if (var_expand_with_funcs(ctx->str, *valuep, ctx->table,
 						  ctx->func_table, ctx->func_context,
-						  &error) < 0 &&
+						  &error) <= 0 &&
 			    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
 				i_panic("BUG: Failed to expand default setting %s=%s variables: %s",
 					key, *valuep, error);
