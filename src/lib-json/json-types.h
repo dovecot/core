@@ -69,7 +69,7 @@ struct json_data {
 struct json_value {
 	enum json_content_type content_type;
 	union {
-		/* JSON2_CONTENT_TYPE_LIST */
+		/* JSON_CONTENT_TYPE_LIST */
 		struct json_tree_node_list *list; /* only used by trees */
 		/* JSON_CONTENT_TYPE_STRING */
 		const char *str;
@@ -79,7 +79,7 @@ struct json_value {
 		struct istream *stream;
 		/* JSON_CONTENT_TYPE_INTEGER */
 		intmax_t intnum;
-		/* JSON2_CONTENT_TYPE_TREE */
+		/* JSON_CONTENT_TYPE_TREE */
 		struct json_tree *tree;
 	} content;
 };
