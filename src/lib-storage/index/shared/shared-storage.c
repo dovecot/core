@@ -422,6 +422,7 @@ shared_mail_user_init(struct mail_storage *_storage,
 
 	struct mail_namespace_settings *ns_set =
 		p_new(user->pool, struct mail_namespace_settings, 1);
+	ns_set->name = ns->set->name;
 	ns_set->type = "shared";
 	ns_set->separator = p_strdup_printf(user->pool, "%c",
 					    mail_namespace_get_sep(ns));
