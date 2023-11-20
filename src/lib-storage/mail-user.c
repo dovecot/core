@@ -327,6 +327,7 @@ mail_user_var_expand_table(struct mail_user *user)
 		{ '\0', user->username, "owner_user" },
 		{ '\0', username, "owner_username" },
 		{ '\0', domain, "owner_domain" },
+		{ '\0', user->master_user, "master_user" },
 		/* aliases: */
 		{ '\0', local_ip, "local_ip" },
 		{ '\0', remote_ip, "remote_ip" },

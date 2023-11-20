@@ -67,6 +67,7 @@ struct mail_storage_service_user {
 	struct event *event;
 	struct ioloop_context *ioloop_ctx;
 	const char *log_prefix, *auth_mech, *auth_token, *auth_user;
+	const char *master_user;
 	const char *local_name;
 
 	const char *system_groups_user, *uid_source, *gid_source;
@@ -324,6 +325,15 @@ static bool parse_gid(const char *str, gid_t *gid_r, const char **error_r)
 	}
 }
 
+static const char *get_master_user(const char *const *fields)
+{
+	const char *value;
+	for (; *fields != NULL; fields++)
+		if (str_begins(*fields, "master=", &value))
+			return value;
+	return NULL;
+}
+
 static const struct var_expand_table *
 get_var_expand_table(struct master_service *service,
 		     struct mail_storage_service_user *user,
@@ -332,17 +342,23 @@ get_var_expand_table(struct master_service *service,
 	const char *username = t_strcut(input->username, '@');
 	const char *domain = i_strchr_to_next(input->username, '@');
 	const char *local_name = NULL;
-
+	const char *master_user;
 	const char *auth_user, *auth_username, *auth_domain;
+
 	if (user == NULL || user->auth_user == NULL) {
 		auth_user = input->username;
 		auth_username = username;
 		auth_domain = domain;
+		if (input->userdb_fields != NULL)
+			master_user = get_master_user(input->userdb_fields);
+		else
+			master_user = NULL;
 	} else {
 		auth_user = user->auth_user;
 		auth_username = t_strcut(user->auth_user, '@');
 		auth_domain = i_strchr_to_next(user->auth_user, '@');
 		local_name = user->local_name;
+		master_user = user->master_user;
 	}
 
 	const char *service_name = input->service != NULL ?
@@ -375,6 +391,7 @@ get_var_expand_table(struct master_service *service,
 		{ '\0', hostname, "hostname" },
 		{ '\0', local_name, "local_name" },
 		{ '\0', protocol, "protocol" },
+		{ '\0', master_user, "master_user" },
 		/* aliases: */
 		{ '\0', net_ip2addr(&input->local_ip), "local_ip" },
 		{ '\0', net_ip2addr(&input->remote_ip), "remote_ip" },
@@ -647,6 +664,8 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 
 	mail_user->userdb_fields = user->input.userdb_fields == NULL ? NULL :
 		p_strarray_dup(mail_user->pool, user->input.userdb_fields);
+	if (mail_user->userdb_fields != NULL)
+		mail_user->master_user = get_master_user(mail_user->userdb_fields);
 	mail_user_add_event_fields(mail_user);
 
 	string_t *str = t_str_new(64);
