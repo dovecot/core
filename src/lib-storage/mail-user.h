@@ -50,6 +50,7 @@ struct mail_user {
 	const char *session_id;
 	struct mail_user_connection_data conn;
 	const char *auth_mech, *auth_token, *auth_user;
+	const char *master_user;
 	const char *const *userdb_fields;
 	const char *const *_alt_usernames;
 	/* Timestamp when this session was initially created. Most importantly
