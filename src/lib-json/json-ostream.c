@@ -1285,6 +1285,8 @@ int json_ostream_open_string_stream(struct json_ostream *stream,
 {
 	int ret;
 
+	*ostream_r = NULL;
+
 	ret = json_ostream_write_init(stream, name, JSON_TYPE_NONE);
 	if (ret <= 0)
 		return ret;
