@@ -297,11 +297,11 @@ var_expand_hash(struct var_expand_context *ctx,
 			truncbits = I_MIN(truncbits, method->digest_size*8);
 		} else if (strcmp(k, "salt") == 0) {
 			str_truncate(salt, 0);
-			if (var_expand_with_funcs(salt, value, ctx->table,
-						  ctx->func_table, ctx->context,
-						  error_r) < 0) {
-				return -1;
-			}
+			ret = var_expand_with_funcs(salt, value, ctx->table,
+						    ctx->func_table,
+						    ctx->context, error_r);
+			if (ret <= 0)
+				return ret;
 			break;
 		} else if (strcmp(k, "format") == 0) {
 			if (strcmp(value, "hex") == 0) {
