@@ -106,9 +106,9 @@ struct settings_apply_ctx {
 	ARRAY_TYPE(bool) set_seen;
 
 	string_t *str;
-	const struct var_expand_table *table;
-	const struct var_expand_func_table *func_table;
-	void *func_context;
+	const struct var_expand_table *const *tables;
+	const struct var_expand_func_table *const *func_tables;
+	void *const *func_contexts;
 };
 
 static const char *settings_override_type_names[] = {
@@ -485,9 +485,9 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 	    ctx->info->defines[key_idx].type != SET_FILTER_ARRAY) {
 		const char *error;
 		str_truncate(ctx->str, 0);
-		if (var_expand_with_funcs(ctx->str, value, ctx->table,
-					  ctx->func_table, ctx->func_context,
-					  &error) <= 0 &&
+		if (var_expand_with_arrays(ctx->str, value, ctx->tables,
+					   ctx->func_tables, ctx->func_contexts,
+					   &error) <= 0 &&
 		    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
 			*error_r = t_strdup_printf(
 				"Failed to expand %s setting variables: %s",
@@ -539,9 +539,10 @@ settings_mmap_apply_defaults(struct settings_apply_ctx *ctx,
 		if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0) {
 			const char *error;
 			str_truncate(ctx->str, 0);
-			if (var_expand_with_funcs(ctx->str, *valuep, ctx->table,
-						  ctx->func_table, ctx->func_context,
-						  &error) <= 0 &&
+			if (var_expand_with_arrays(ctx->str, *valuep, ctx->tables,
+						   ctx->func_tables,
+						   ctx->func_contexts,
+						   &error) <= 0 &&
 			    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
 				i_panic("BUG: Failed to expand default setting %s=%s variables: %s",
 					key, *valuep, error);
@@ -941,32 +942,56 @@ settings_mmap_pool_create(struct settings_root *root,
 }
 
 static void
-settings_var_expand_init(struct event *event,
-			 const struct var_expand_table **tab_r,
-			 const struct var_expand_func_table **func_tab_r,
-			 void **func_context_r)
+settings_var_expand_init(struct settings_apply_ctx *ctx)
 {
-	*tab_r = NULL;
-	*func_tab_r = NULL;
+	struct event *event = ctx->event;
+	ARRAY(const struct var_expand_table *) tables;
+	ARRAY(const struct var_expand_func_table *) func_tables;
+	ARRAY(void *) func_contexts;
+	const struct var_expand_table *table;
+	const struct var_expand_func_table *func_table;
+	void *func_context;
+
+	t_array_init(&tables, 4);
+	t_array_init(&func_tables, 4);
+	t_array_init(&func_contexts, 4);
 
 	while (event != NULL) {
 		settings_var_expand_t *callback =
 			event_get_ptr(event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK);
 		if (callback != NULL) {
-			callback(event, tab_r, func_tab_r);
-			break;
+			callback(event, &table, &func_table);
+			if (table != NULL)
+				array_push_back(&tables, &table);
+			if (func_table != NULL) {
+				func_context = event_get_ptr(event,
+					SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT);
+				array_push_back(&func_tables, &func_table);
+				array_push_back(&func_contexts, &func_context);
+			}
 		}
 
-		*tab_r = event_get_ptr(event, SETTINGS_EVENT_VAR_EXPAND_TABLE);
-		*func_tab_r = event_get_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE);
-		if (*tab_r != NULL || *func_tab_r != NULL)
-			break;
+		table = event_get_ptr(event, SETTINGS_EVENT_VAR_EXPAND_TABLE);
+		if (table != NULL)
+			array_push_back(&tables, &table);
+
+		func_table = event_get_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE);
+		if (func_table != NULL) {
+			func_context = event_get_ptr(event,
+				SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT);
+			array_push_back(&func_tables, &func_table);
+			array_push_back(&func_contexts, &func_context);
+		}
+
 		event = event_get_parent(event);
 	}
-	if (*tab_r == NULL)
-		*tab_r = t_new(struct var_expand_table, 1);
-	*func_context_r = event == NULL ? NULL :
-		event_get_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT);
+	array_append_zero(&tables);
+	array_append_zero(&func_tables);
+
+	ctx->tables = array_front(&tables);
+	ctx->func_tables = array_front(&func_tables);
+	ctx->func_contexts = array_count(&func_contexts) == 0 ? NULL :
+		array_front(&func_contexts);
 }
 
 static int settings_override_cmp(struct settings_override *const *set1,
@@ -1332,10 +1357,8 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 	ctx->str = str_new(default_pool, 256);
 	i_array_init(&ctx->set_seen, 64);
 	if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0 &&
-	    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
-		settings_var_expand_init(ctx->event, &ctx->table,
-					 &ctx->func_table, &ctx->func_context);
-	}
+	    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0)
+		settings_var_expand_init(ctx);
 
 	ret = settings_instance_override(ctx, error_r);
 	if (ret > 0)
