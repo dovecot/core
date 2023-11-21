@@ -2170,7 +2170,6 @@ static int json_parser_continue(struct json_parser *parser)
 		return JSON_PARSE_OK;
 	}
 
-	ret = 0;
 	do {
 		if (!json_parser_have_data(parser))
 			continue;
