@@ -8,26 +8,17 @@
 #include "mail-user.h"
 #include "lib.h"
 #include "fts-api-private.h"
+#include "fts-flatcurve-settings.h"
 
 #define FTS_FLATCURVE_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, fts_flatcurve_user_module)
 #define FTS_FLATCURVE_USER_CONTEXT_REQUIRE(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, fts_flatcurve_user_module)
 
-struct fts_flatcurve_settings {
-	unsigned int commit_limit;
-	unsigned int max_term_size;
-	unsigned int min_term_size;
-	unsigned int optimize_limit;
-	unsigned int rotate_count;
-	unsigned int rotate_time;
-	bool substring_search;
-};
-
 struct fts_flatcurve_user {
 	union mail_user_module_context module_ctx;
 	struct flatcurve_fts_backend *backend;
-	struct fts_flatcurve_settings set;
+	struct fts_flatcurve_settings *set;
 };
 
 extern struct fts_backend fts_backend_flatcurve;
