@@ -84,10 +84,10 @@ enum settings_get_flags {
    event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE, func_table);
    event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT, func_context);
 
-   You can set either or both of SETTINGS_EVENT_VAR_EXPAND_TABLE and
-   SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE for the same event. The parent events
-   won't be searched for either of them if either one is set.
-*/
+   You can set any combination of SETTINGS_EVENT_VAR_EXPAND_TABLE,
+   SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE and SETTINGS_EVENT_VAR_EXPAND_CALLBACK
+   to the same event or parent events. They are all merged while expanding
+   the variables. */
 #define SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE \
 	"settings_var_expand_func_table"
 #define SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT \
@@ -96,8 +96,7 @@ enum settings_get_flags {
 /* Set a settings_var_expand_t callback that returns
    var_expand_[func_]table for settings expansion. This can be used instead of
    SETTINGS_EVENT_VAR_EXPAND_[FUNC_]TABLE to dynamically generate the table
-   on-demand. If this is found from the event, all other SETTINGS_EVENT_VAR_*
-   fields are ignored in this and the parent events. Usage:
+   on-demand. Usage:
 
    event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK, callback);
    event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT, func_context);
