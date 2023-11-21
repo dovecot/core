@@ -2,12 +2,13 @@
 #define VAR_EXPAND_PRIVATE_H 1
 
 struct var_expand_context {
-	/* current variables */
-	const struct var_expand_table *table;
-	/* caller provided function table */
-	const struct var_expand_func_table *func_table;
-	/* caller provided context */
-	void *context;
+	/* NULL-terminated array of variable tables */
+	const struct var_expand_table *const *tables;
+	/* NULL-terminated array of function tables */
+	const struct var_expand_func_table *const *func_tables;
+	/* contexts for each function table */
+	void *const *contexts;
+
 	/* last offset, negative counts from end*/
 	int offset;
 	/* last width, negative counts from end */

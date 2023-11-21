@@ -249,11 +249,11 @@ int var_expand_if(struct var_expand_context *ctx,
 	for(;*parms != NULL; parms++) {
 		/* expand the parameters */
 		string_t *param = t_str_new(64);
-		if ((ret = var_expand_with_funcs(param, *parms, ctx->table,
-						 ctx->func_table, ctx->context,
-						 error_r)) <= 0) {
+		ret = var_expand_with_arrays(param, *parms, ctx->tables,
+					     ctx->func_tables, ctx->contexts,
+					     error_r);
+		if (ret <= 0)
 			return ret;
-		}
 		const char *p = str_c(param);
 		array_push_back(&params, &p);
 	}

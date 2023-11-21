@@ -209,6 +209,66 @@ static void test_var_expand_with_funcs(void)
 	test_end();
 }
 
+static int
+test_var_expand_arrays_func1(const char *data ATTR_UNUSED, void *context,
+			     const char **value_r,
+			     const char **error_r ATTR_UNUSED)
+{
+	test_assert(strcmp(context, "context1") == 0);
+	*value_r = context;
+	return 1;
+}
+
+static int
+test_var_expand_arrays_func2(const char *data ATTR_UNUSED, void *context,
+			     const char **value_r,
+			     const char **error_r ATTR_UNUSED)
+{
+	test_assert(strcmp(context, "context2") == 0);
+	*value_r = context;
+	return 1;
+}
+
+static void test_var_expand_with_arrays(void)
+{
+	static const struct var_expand_table table1[] = {
+		{ 'f', "firstvalue", "first" },
+		{ '\0', NULL, NULL }
+	};
+	static const struct var_expand_table table2[] = {
+		{ 's', "secondvalue", "second" },
+		{ '\0', NULL, NULL }
+	};
+	static const struct var_expand_func_table func_table1[] = {
+		{ "func1", test_var_expand_arrays_func1 },
+		{ NULL, NULL }
+	};
+	static const struct var_expand_func_table func_table2[] = {
+		{ "func2", test_var_expand_arrays_func2 },
+		{ NULL, NULL }
+	};
+
+	static const struct var_expand_table *tables[] = {
+		table1, table2, NULL
+	};
+	static const struct var_expand_func_table *func_tables[] = {
+		func_table1, func_table2, NULL
+	};
+	static void *func_contexts[] = {
+		"context1", "context2",
+	};
+	const char *input = "%f, %s, %{first}, %{second}, %{func1}, %{func2}";
+	const char *output = "firstvalue, secondvalue, firstvalue, secondvalue, context1, context2";
+	string_t *str = t_str_new(128);
+	const char *error;
+
+	test_begin("var_expand_with_arrays");
+	test_assert(var_expand_with_arrays(str, input, tables, func_tables,
+					   func_contexts, &error) == 1);
+	test_assert_strcmp(str_c(str), output);
+	test_end();
+}
+
 static void test_var_get_key(void)
 {
 	static const struct {
@@ -512,6 +572,7 @@ void test_var_expand(void)
 	test_var_expand_builtin();
 	test_var_get_key_range();
 	test_var_expand_with_funcs();
+	test_var_expand_with_arrays();
 	test_var_get_key();
 	test_var_has_key();
 	test_var_expand_extensions();
