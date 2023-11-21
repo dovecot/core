@@ -3652,6 +3652,7 @@ static void test_json_istream_error(void)
 			      json_istream_get_error(jinput));
 	test_assert(json_node_is_array(&jnode));
 	ret = json_istream_read(jinput, &jnode);
+	test_assert(ret != 0);
 	ret = json_istream_read(jinput, &jnode);
 	error = json_istream_get_error(jinput);
 	test_out_reason("read failure", (ret < 0 && error != NULL), error);
