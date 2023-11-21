@@ -321,7 +321,7 @@ static void test_json_tree_walker(void)
 	test_begin("json tree walker - nested trees");
 	jtree = json_tree_create();
 	jtnode = json_tree_get_root(jtree);
-	jtnode = json_tree_node_add_object(jtnode, NULL);
+	(void)json_tree_node_add_object(jtnode, NULL);
 	jtree2 = json_tree_create();
 	jtnode = json_tree_get_root(jtree2);
 	jtnode = json_tree_node_add_array(jtnode, NULL);
@@ -402,10 +402,10 @@ static void test_json_tree_walker(void)
 	test_begin("json tree walker - doubly nested trees");
 	jtree = json_tree_create();
 	jtnode = json_tree_get_root(jtree);
-	jtnode = json_tree_node_add_object(jtnode, NULL);
+	(void)json_tree_node_add_object(jtnode, NULL);
 	jtree2 = json_tree_create();
 	jtnode = json_tree_get_root(jtree2);
-	jtnode = json_tree_node_add_array(jtnode, NULL);
+	(void)json_tree_node_add_array(jtnode, NULL);
 	jtree3 = json_tree_create();
 	jtnode = json_tree_get_root(jtree3);
 	jtnode = json_tree_node_add_object(jtnode, NULL);
@@ -418,7 +418,7 @@ static void test_json_tree_walker(void)
 	json_tree_unref(&jtree2);
 	jtree2 = json_tree_create();
 	jtnode = json_tree_get_root(jtree2);
-	jtnode = json_tree_node_add_array(jtnode, NULL);
+	(void)json_tree_node_add_array(jtnode, NULL);
 	jtree3 = json_tree_create();
 	jtnode = json_tree_get_root(jtree3);
 	jtnode = json_tree_node_add_object(jtnode, NULL);
@@ -431,7 +431,7 @@ static void test_json_tree_walker(void)
 	json_tree_unref(&jtree2);
 	jtree2 = json_tree_create();
 	jtnode = json_tree_get_root(jtree2);
-	jtnode = json_tree_node_add_array(jtnode, NULL);
+	(void)json_tree_node_add_array(jtnode, NULL);
 	jtree3 = json_tree_create();
 	jtnode = json_tree_get_root(jtree3);
 	jtnode = json_tree_node_add_object(jtnode, NULL);
