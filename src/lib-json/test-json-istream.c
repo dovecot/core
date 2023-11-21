@@ -3809,6 +3809,7 @@ static void test_json_istream_error(void)
 
 	ret = json_istream_read_stream(jinput, 0, IO_BLOCK_SIZE,
 					"/tmp/dovecot-test-json.", &jnode);
+	test_assert(ret != 0);
 	ret = json_istream_read(jinput, &jnode);	
 	error = json_istream_get_error(jinput);
 	test_out_reason("read failure", (ret < 0 && error != NULL), error);
