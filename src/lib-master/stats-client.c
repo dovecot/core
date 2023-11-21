@@ -10,8 +10,14 @@
 #include "connection.h"
 #include "stats-client.h"
 
-#define STATS_CLIENT_TIMEOUT_MSECS (5*1000)
+#define STATS_CLIENT_HANDSHAKE_TIMEOUT_MSECS (5*1000)
+#define STATS_CLIENT_DEINIT_TIMEOUT_MSECS (30*1000)
 #define STATS_CLIENT_RECONNECT_INTERVAL_MSECS (10*1000)
+
+enum stats_timeout_type {
+	STATS_CLIENT_HANDSHAKE_WAIT,
+	STATS_CLIENT_DEINIT_WAIT,
+};
 
 struct stats_client {
 	struct connection conn;
@@ -309,7 +315,7 @@ static void stats_global_deinit(void)
 	connection_list_deinit(&stats_clients);
 }
 
-static void stats_client_timeout(struct stats_client *client)
+static void stats_client_handshake_timeout(struct stats_client *client)
 {
 	int diff_msecs = timeval_diff_msecs(&ioloop_timeval,
 					    &client->wait_started);
@@ -319,7 +325,18 @@ static void stats_client_timeout(struct stats_client *client)
 	io_loop_stop(client->ioloop);
 }
 
-static void stats_client_wait(struct stats_client *client)
+static void stats_client_deinit_timeout(struct stats_client *client)
+{
+	int diff_msecs = timeval_diff_msecs(&ioloop_timeval,
+					    &client->wait_started);
+	e_error(client->conn.event, "Timeout waiting for flushing outputs"
+		"(waited %d.%03d secs) - discarding the rest of the queued statistics",
+		diff_msecs / 1000, diff_msecs % 1000);
+	io_loop_stop(client->ioloop);
+}
+
+static void stats_client_wait(struct stats_client *client,
+			      enum stats_timeout_type type)
 {
 	struct ioloop *prev_ioloop = current_ioloop;
 	struct timeout *to;
@@ -328,7 +345,13 @@ static void stats_client_wait(struct stats_client *client)
 
 	client->ioloop = io_loop_create();
 	client->wait_started = ioloop_timeval;
-	to = timeout_add(STATS_CLIENT_TIMEOUT_MSECS, stats_client_timeout, client);
+	if (type == STATS_CLIENT_HANDSHAKE_WAIT)
+		to = timeout_add(STATS_CLIENT_HANDSHAKE_TIMEOUT_MSECS,
+				 stats_client_handshake_timeout, client);
+	else
+		to = timeout_add(STATS_CLIENT_DEINIT_TIMEOUT_MSECS,
+				 stats_client_deinit_timeout, client);
+
 	connection_switch_ioloop(&client->conn);
 	io_loop_run(client->ioloop);
 	io_loop_set_current(prev_ioloop);
@@ -358,7 +381,7 @@ static void stats_client_connect(struct stats_client *client)
 		/* read the handshake so the global debug filter is updated */
 		stats_client_send_registered_categories(client);
 		if (!client->handshake_received_at_least_once)
-			stats_client_wait(client);
+			stats_client_wait(client, STATS_CLIENT_HANDSHAKE_WAIT);
 	} else if (!client->silent_notfound_errors ||
 		   (errno != ENOENT && errno != ECONNREFUSED)) {
 		e_error(client->conn.event,
@@ -427,7 +450,7 @@ void stats_client_deinit(struct stats_client **_client)
 					    stats_client_deinit_callback,
 					    &client->conn);
 		o_stream_uncork(client->conn.output);
-		stats_client_wait(client);
+		stats_client_wait(client, STATS_CLIENT_DEINIT_WAIT);
 	}
 
 	event_filter_unref(&client->filter);
