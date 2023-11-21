@@ -2906,6 +2906,7 @@ static void test_json_istream_read_stream(void)
 	test_begin("json istream read stream (array)");
 
 	pos = 0; state = 0; ret = 0;
+	val_input = NULL;
 	while (ret >= 0 && state <= 2) {
 		if (pos <= text_len)
 			pos++;
@@ -2949,7 +2950,8 @@ static void test_json_istream_read_stream(void)
 	}
 	test_assert(state == 2);
 
-	if (!test_has_failed()) {
+	test_assert(val_input != NULL);
+	if (!test_has_failed() && val_input != NULL) {
 		const unsigned char *data;
 		size_t size;
 
@@ -2997,6 +2999,7 @@ static void test_json_istream_read_stream(void)
 	test_begin("json istream read stream (object)");
 
 	pos = 0; state = 0; ret = 0;
+	val_input = NULL;
 	while (ret >= 0 && state <= 8) {
 		if (pos <= text_len)
 			pos++;
@@ -3097,7 +3100,8 @@ static void test_json_istream_read_stream(void)
 	}
 	test_assert(state == 8);
 
-	if (!test_has_failed()) {
+	test_assert(val_input != NULL);
+	if (!test_has_failed() && val_input != NULL) {
 		const unsigned char *data;
 		size_t size;
 
