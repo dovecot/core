@@ -663,13 +663,14 @@ json_generate_string_write_data(struct json_generator *generator,
 				const void *data, size_t size,
 				bool buffered, bool last)
 {
-	const unsigned char *p, *pbegin, *poffset, *pend;
+	const unsigned char *p, *pbegin, *pend;
 	size_t avail;
 	int ret;
 
-	p = pbegin = poffset = data;
+	p = pbegin = data;
 	pend = p + size;
 	while (p < pend) {
+		const unsigned char *poffset;
 		unsigned char esc_hex[6];
 		const char *esc = NULL;
 		unsigned int esc_len = 2;
