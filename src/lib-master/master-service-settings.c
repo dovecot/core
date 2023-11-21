@@ -332,6 +332,8 @@ master_service_open_config(struct master_service *service,
 	int ret = write_full(fd, str_data(str), str_len(str));
 	if (ret < 0)
 		*error_r = t_strdup_printf("write_full(%s) failed: %m", path);
+	else
+		*error_r = NULL;
 
 	int config_fd = -1;
 	if (ret == 0) {
@@ -361,6 +363,7 @@ master_service_open_config(struct master_service *service,
 	i_close_fd(&fd);
 
 	if (config_fd == -1) {
+		i_assert(*error_r != NULL);
 		config_exec_fallback(service, input, error_r);
 		return -1;
 	}
