@@ -114,6 +114,9 @@ struct doveadm_cmd_context {
 	struct istream *input;
 	struct ostream *output;
 	struct event *event;
+	/* Command should use this event to lookup settings. By default it's
+	   the same as event. */
+	struct event *set_event;
 
 	/* non-NULL if doveadm-server should return referral to another
 	   server instead. */
@@ -124,6 +127,9 @@ struct doveadm_cmd_context {
 struct doveadm_cmd_context*
 doveadm_cmd_context_create(enum doveadm_client_type conn_type, bool forced_debug);
 void doveadm_cmd_context_unref(struct doveadm_cmd_context **cctx);
+
+void doveadm_cmd_context_replace_set_event(struct doveadm_cmd_context *cctx,
+					   struct event *set_event);
 
 /* Returns 0 if success, -1 if parameters were invalid. */
 int doveadm_cmdline_run(int argc, const char *const argv[],
