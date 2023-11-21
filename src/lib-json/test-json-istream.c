@@ -2960,8 +2960,8 @@ static void test_json_istream_read_stream(void)
 		}
 		if (ret < 0) {
 			test_assert(!i_stream_have_bytes_left(val_input));
+			test_assert_cmp(val_input->stream_errno, ==, 0);
 			i_stream_unref(&val_input);
-			ret = 0;
 		}
 	}
 	test_out_quiet("stream output", strcmp(str_c(buffer), str_text) == 0);
@@ -3108,8 +3108,8 @@ static void test_json_istream_read_stream(void)
 		}
 		if (ret < 0) {
 			test_assert(!i_stream_have_bytes_left(val_input));
+			test_assert_cmp(val_input->stream_errno, ==, 0);
 			i_stream_unref(&val_input);
-			ret = 0;
 		}
 	}
 	test_out_quiet("stream output", strcmp(str_c(buffer), str_text) == 0);
