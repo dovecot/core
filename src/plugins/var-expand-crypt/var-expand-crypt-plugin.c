@@ -52,9 +52,11 @@ var_expand_crypt_settings(struct var_expand_crypt_context *ctx,
 
 		if (strcmp(k, "iv") == 0) {
 			str_truncate(ctx->iv, 0);
-			if ((ret = var_expand_with_funcs(ctx->iv, value, ctx->ctx->table,
-							 ctx->ctx->func_table,
-							 ctx->ctx->context, error_r)) <= 0) {
+			if ((ret = var_expand_with_arrays(ctx->iv, value,
+							  ctx->ctx->tables,
+							  ctx->ctx->func_tables,
+							  ctx->ctx->contexts,
+							  error_r)) <= 0) {
 				return ret;
 			}
 			const char *hexiv = t_strdup(str_c(ctx->iv));
@@ -67,11 +69,11 @@ var_expand_crypt_settings(struct var_expand_crypt_context *ctx,
 			ctx->algo = value;
 		} else if (strcmp(k, "key") == 0) {
 			str_truncate(ctx->enckey, 0);
-			if ((ret = var_expand_with_funcs(ctx->enckey, value,
-							 ctx->ctx->table,
-							 ctx->ctx->func_table,
-							 ctx->ctx->context,
-							 error_r)) <= 0) {
+			if ((ret = var_expand_with_arrays(ctx->enckey, value,
+							  ctx->ctx->tables,
+							  ctx->ctx->func_tables,
+							  ctx->ctx->contexts,
+							  error_r)) <= 0) {
 				return ret;
 			}
 			const char *hexkey = t_strdup(str_c(ctx->enckey));

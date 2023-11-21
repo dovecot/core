@@ -176,8 +176,8 @@ var_expand_short(const struct var_expand_context *ctx, char key,
 {
 	const struct var_expand_table *t;
 
-	if (ctx->table != NULL) {
-		for (t = ctx->table; !TABLE_LAST(t); t++) {
+	for (unsigned int i = 0; ctx->tables[i] != NULL; i++) {
+		for (t = ctx->tables[i]; !TABLE_LAST(t); t++) {
 			if (t->key == key) {
 				*var_r = t->value != NULL ? t->value : "";
 				return 1;
@@ -185,13 +185,14 @@ var_expand_short(const struct var_expand_context *ctx, char key,
 		}
 	}
 
-	if (ctx->func_table != NULL) {
-		for (unsigned int i = 0; ctx->func_table[i].key != NULL; i++) {
-			if (ctx->func_table[i].key[0] == key &&
-			    ctx->func_table[i].key[1] == '\0') {
+	for (unsigned int j = 0; ctx->func_tables[j] != NULL; j++) {
+		const struct var_expand_func_table *func_table = ctx->func_tables[j];
+		for (unsigned int i = 0; func_table[i].key != NULL; i++) {
+			if (func_table[i].key[0] == key &&
+			    func_table[i].key[1] == '\0') {
 				const char *value;
-				int ret = ctx->func_table->func(
-					"", ctx->context, &value, error_r);
+				int ret = func_table->func(
+					"", ctx->contexts[j], &value, error_r);
 				*var_r = value != NULL ? value : "";
 				return ret;
 			}
@@ -297,9 +298,9 @@ var_expand_hash(struct var_expand_context *ctx,
 			truncbits = I_MIN(truncbits, method->digest_size*8);
 		} else if (strcmp(k, "salt") == 0) {
 			str_truncate(salt, 0);
-			ret = var_expand_with_funcs(salt, value, ctx->table,
-						    ctx->func_table,
-						    ctx->context, error_r);
+			ret = var_expand_with_arrays(salt, value, ctx->tables,
+						     ctx->func_tables,
+						     ctx->contexts, error_r);
 			if (ret <= 0)
 				return ret;
 			break;
@@ -425,8 +426,8 @@ var_expand_system(struct var_expand_context *ctx ATTR_UNUSED,
 }
 
 static int
-var_expand_func(const struct var_expand_func_table *func_table,
-		const char *key, const char *data, void *context,
+var_expand_func(const struct var_expand_func_table *const *func_tables,
+		const char *key, const char *data, void *const *contexts,
 		const char **var_r, const char **error_r)
 {
 	const char *value = NULL;
@@ -437,10 +438,11 @@ var_expand_func(const struct var_expand_func_table *func_table,
 		*var_r = value != NULL ? value : "";
 		return 1;
 	}
-	if (func_table != NULL) {
+	for (unsigned int i = 0; func_tables[i] != NULL; i++) {
+		const struct var_expand_func_table *func_table = func_tables[i];
 		for (; func_table->key != NULL; func_table++) {
 			if (strcmp(func_table->key, key) == 0) {
-				ret = func_table->func(data, context, &value, error_r);
+				ret = func_table->func(data, contexts[i], &value, error_r);
 				if (*error_r == NULL)
 					*error_r = t_strdup_printf("Unknown variables in function %%%s", key);
 				*var_r = value != NULL ? value : "";
@@ -475,8 +477,8 @@ var_expand_try_extension(struct var_expand_context *ctx,
 			return ret;
 		}
 	}
-	return var_expand_func(ctx->func_table, key, data,
-			       ctx->context, var_r, error_r);
+	return var_expand_func(ctx->func_tables, key, data,
+			       ctx->contexts, var_r, error_r);
 }
 
 
@@ -489,8 +491,8 @@ var_expand_long(struct var_expand_context *ctx,
 	const char *key, *value = NULL;
 	int ret = 1;
 
-	if (ctx->table != NULL) {
-		for (t = ctx->table; !TABLE_LAST(t); t++) {
+	for (unsigned int i = 0; ctx->tables[i] != NULL; i++) {
+		for (t = ctx->tables[i]; !TABLE_LAST(t); t++) {
 			if (t->long_key != NULL &&
 			    strncmp(t->long_key, key_start, key_len) == 0 &&
 			    t->long_key[key_len] == '\0') {
@@ -522,6 +524,21 @@ int var_expand_with_funcs(string_t *dest, const char *str,
 			  const struct var_expand_func_table *func_table,
 			  void *context, const char **error_r)
 {
+	const struct var_expand_table *tables[2] = { table, NULL };
+	const struct var_expand_func_table *func_tables[2] = { func_table, NULL };
+	void *contexts[2] = { context, NULL };
+
+	return var_expand_with_arrays(dest, str, tables, func_tables,
+				      contexts, error_r);
+}
+
+int var_expand_with_arrays(string_t *dest, const char *str,
+			   const struct var_expand_table *const *tables,
+			   const struct var_expand_func_table *const *func_tables,
+			   void *const *func_contexts, const char **error_r)
+{
+	static const struct var_expand_table *empty_table = NULL;
+	static const struct var_expand_func_table *empty_func_table = NULL;
 	const struct var_expand_modifier *m;
 	const char *var;
 	struct var_expand_context ctx;
@@ -535,9 +552,9 @@ int var_expand_with_funcs(string_t *dest, const char *str,
 	*error_r = NULL;
 
 	i_zero(&ctx);
-	ctx.table = table;
-	ctx.func_table = func_table;
-	ctx.context = context;
+	ctx.tables = tables != NULL ? tables : &empty_table;
+	ctx.func_tables = func_tables != NULL ? func_tables : &empty_func_table;
+	ctx.contexts = func_contexts;
 
 	for (; *str != '\0'; str++) {
 		if (*str != '%')

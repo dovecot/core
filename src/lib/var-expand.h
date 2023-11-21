@@ -29,6 +29,12 @@ int var_expand_with_funcs(string_t *dest, const char *str,
 			  const struct var_expand_table *table,
 			  const struct var_expand_func_table *func_table,
 			  void *func_context, const char **error_r) ATTR_NULL(3, 4, 5);
+/* Like var_expand_with_funcs(), but multiple separate tables can be given.
+   Each func_table[n] has a matching func_context[n] */
+int var_expand_with_arrays(string_t *dest, const char *str,
+			   const struct var_expand_table *const *tables,
+			   const struct var_expand_func_table *const *func_tables,
+			   void *const *func_contexts, const char **error_r);
 
 /* Returns the actual key character for given string, ie. skip any modifiers
    that are before it. The string should be the data after the '%' character.
