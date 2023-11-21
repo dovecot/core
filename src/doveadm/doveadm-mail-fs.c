@@ -30,11 +30,12 @@ static void cmd_mail_fs_get_init(struct doveadm_mail_cmd_context *_cctx)
 }
 
 static int cmd_mail_fs_get_run(struct doveadm_mail_cmd_context *_cctx,
-			       struct mail_user *user ATTR_UNUSED)
+			       struct mail_user *user)
 {
 	struct mail_fs_cmd_context *cctx =
 		container_of(_cctx, struct mail_fs_cmd_context, ctx);
 
+	doveadm_cmd_context_replace_set_event(_cctx->cctx, user->event);
 	doveadm_fs_get(_cctx->cctx, cctx->path);
 	return 0;
 }
@@ -67,11 +68,12 @@ static void cmd_mail_fs_put_init(struct doveadm_mail_cmd_context *_cctx)
 }
 
 static int cmd_mail_fs_put_run(struct doveadm_mail_cmd_context *_cctx,
-			       struct mail_user *user ATTR_UNUSED)
+			       struct mail_user *user)
 {
 	struct mail_fs_cmd_context *cctx =
 		container_of(_cctx, struct mail_fs_cmd_context, ctx);
 
+	doveadm_cmd_context_replace_set_event(_cctx->cctx, user->event);
 	doveadm_fs_put(_cctx->cctx, cctx->src_path,
 		       cctx->dest_path, cctx->hash);
 	return 0;
@@ -98,11 +100,12 @@ static void cmd_mail_fs_copy_init(struct doveadm_mail_cmd_context *_cctx)
 }
 
 static int cmd_mail_fs_copy_run(struct doveadm_mail_cmd_context *_cctx,
-				struct mail_user *user ATTR_UNUSED)
+				struct mail_user *user)
 {
 	struct mail_fs_cmd_context *cctx =
 		container_of(_cctx, struct mail_fs_cmd_context, ctx);
 
+	doveadm_cmd_context_replace_set_event(_cctx->cctx, user->event);
 	doveadm_fs_copy(_cctx->cctx, cctx->src_path, cctx->dest_path);
 	return 0;
 }
@@ -130,11 +133,12 @@ static void cmd_mail_fs_stat_init(struct doveadm_mail_cmd_context *_cctx)
 }
 
 static int cmd_mail_fs_stat_run(struct doveadm_mail_cmd_context *_cctx,
-			       struct mail_user *user ATTR_UNUSED)
+				struct mail_user *user)
 {
 	struct mail_fs_cmd_context *cctx =
 		container_of(_cctx, struct mail_fs_cmd_context, ctx);
 
+	doveadm_cmd_context_replace_set_event(_cctx->cctx, user->event);
 	doveadm_fs_stat(_cctx->cctx, cctx->path);
 	return 0;
 }
@@ -164,11 +168,12 @@ static void cmd_mail_fs_metadata_init(struct doveadm_mail_cmd_context *_cctx)
 }
 
 static int cmd_mail_fs_metadata_run(struct doveadm_mail_cmd_context *_cctx,
-				    struct mail_user *user ATTR_UNUSED)
+				    struct mail_user *user)
 {
 	struct mail_fs_cmd_context *cctx =
 		container_of(_cctx, struct mail_fs_cmd_context, ctx);
 
+	doveadm_cmd_context_replace_set_event(_cctx->cctx, user->event);
 	doveadm_fs_metadata(_cctx->cctx, cctx->path);
 	return 0;
 }
@@ -198,11 +203,12 @@ static void cmd_mail_fs_delete_init(struct doveadm_mail_cmd_context *_cctx)
 }
 
 static int cmd_mail_fs_delete_run(struct doveadm_mail_cmd_context *_cctx,
-				  struct mail_user *user ATTR_UNUSED)
+				  struct mail_user *user)
 {
 	struct mail_fs_cmd_context *cctx =
 		container_of(_cctx, struct mail_fs_cmd_context, ctx);
 
+	doveadm_cmd_context_replace_set_event(_cctx->cctx, user->event);
 	if (cctx->recursive) {
 		doveadm_fs_delete_recursive(_cctx->cctx, cctx->paths,
 					    cctx->async_count);
@@ -243,11 +249,12 @@ static void cmd_mail_fs_iter_init(struct doveadm_mail_cmd_context *_cctx)
 }
 
 static int cmd_mail_fs_iter_run(struct doveadm_mail_cmd_context *_cctx,
-				struct mail_user *user ATTR_UNUSED)
+				struct mail_user *user)
 {
 	struct mail_fs_cmd_context *cctx =
 		container_of(_cctx, struct mail_fs_cmd_context, ctx);
 
+	doveadm_cmd_context_replace_set_event(_cctx->cctx, user->event);
 	doveadm_fs_iter(_cctx->cctx, cctx->iter_flags, cctx->path);
 	return 0;
 }

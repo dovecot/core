@@ -34,11 +34,11 @@ static struct fs *doveadm_fs_init(struct doveadm_cmd_context *cctx)
 	fs_param.temp_dir = doveadm_settings->mail_temp_dir;
 	fs_param.base_dir = doveadm_settings->base_dir;
 
-	event_set_ptr(cctx->event, SETTINGS_EVENT_FILTER_NAME,
+	event_set_ptr(cctx->set_event, SETTINGS_EVENT_FILTER_NAME,
 		      t_strdup_noconst(filter_name));
-	if (fs_init_auto(cctx->event, &fs_param, &fs, &error) <= 0)
+	if (fs_init_auto(cctx->set_event, &fs_param, &fs, &error) <= 0)
 		i_fatal("fs_init() failed: %s", error);
-	event_set_ptr(cctx->event, SETTINGS_EVENT_FILTER_NAME, NULL);
+	event_set_ptr(cctx->set_event, SETTINGS_EVENT_FILTER_NAME, NULL);
 	return fs;
 }
 

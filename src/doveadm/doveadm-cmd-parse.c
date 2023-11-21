@@ -31,6 +31,8 @@ doveadm_cmd_context_create(enum doveadm_client_type conn_type, bool forced_debug
 	struct doveadm_cmd_context *cctx = p_new(pool, struct doveadm_cmd_context, 1);
 	cctx->pool = pool;
 	cctx->event = event;
+	cctx->set_event = event;
+	event_ref(cctx->set_event);
 	cctx->conn_type = conn_type;
 	return cctx;
 }
@@ -41,7 +43,16 @@ void doveadm_cmd_context_unref(struct doveadm_cmd_context **_cctx)
 	*_cctx = NULL;
 
 	event_unref(&cctx->event);
+	event_unref(&cctx->set_event);
 	pool_unref(&cctx->pool);
+}
+
+void doveadm_cmd_context_replace_set_event(struct doveadm_cmd_context *cctx,
+					   struct event *set_event)
+{
+	event_unref(&cctx->set_event);
+	cctx->set_event = set_event;
+	event_ref(set_event);
 }
 
 static const struct doveadm_cmd_param *
