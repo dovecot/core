@@ -1377,9 +1377,9 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 		} else {
 			const char *key_with_path = t_strdup_printf("%s%s",
 				str_c(ctx->key_path), line->key);
-			(void)config_apply_line(ctx, key_with_path,
-						str_c(ctx->value), &full_key);
-			config_parser_check_warnings(ctx, full_key);
+			if (config_apply_line(ctx, key_with_path,
+					      str_c(ctx->value), &full_key) == 0)
+				config_parser_check_warnings(ctx, full_key);
 		}
 		break;
 	case CONFIG_LINE_TYPE_SECTION_BEGIN:
