@@ -33,7 +33,7 @@ static void test_json_generate_buffer(void)
 	generator = json_generator_init(output, 0);
 	ret = json_generate_number(generator, 23423);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("23423", str_c(buffer)) == 0);
@@ -46,7 +46,7 @@ static void test_json_generate_buffer(void)
 	generator = json_generator_init(output, 0);
 	ret = json_generate_number_raw(generator, "23423");
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("23423", str_c(buffer)) == 0);
@@ -59,7 +59,7 @@ static void test_json_generate_buffer(void)
 	generator = json_generator_init(output, 0);
 	ret = json_generate_false(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("false", str_c(buffer)) == 0);
@@ -72,7 +72,7 @@ static void test_json_generate_buffer(void)
 	generator = json_generator_init(output, 0);
 	ret = json_generate_null(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("null", str_c(buffer)) == 0);
@@ -85,7 +85,7 @@ static void test_json_generate_buffer(void)
 	generator = json_generator_init(output, 0);
 	ret = json_generate_true(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("true", str_c(buffer)) == 0);
@@ -98,7 +98,7 @@ static void test_json_generate_buffer(void)
 	generator = json_generator_init(output, 0);
 	ret = json_generate_string(generator, "frop!");
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("\"frop!\"", str_c(buffer)) == 0);
@@ -111,7 +111,7 @@ static void test_json_generate_buffer(void)
 	generator = json_generator_init(output, 0);
 	ret = json_generate_string(generator, "frop\tfriep");
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("\"frop\\tfriep\"", str_c(buffer)) == 0);
@@ -124,7 +124,7 @@ static void test_json_generate_buffer(void)
 	generator = json_generator_init(output, 0);
 	ret = json_generate_string(generator, "frop\nfriep");
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("\"frop\\nfriep\"", str_c(buffer)) == 0);
@@ -137,7 +137,7 @@ static void test_json_generate_buffer(void)
 	generator = json_generator_init(output, 0);
 	ret = json_generate_string(generator, "frop\r\n\tfriep");
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("\"frop\\r\\n\\tfriep\"", str_c(buffer)) == 0);
@@ -150,7 +150,7 @@ static void test_json_generate_buffer(void)
 	generator = json_generator_init(output, 0);
 	ret = json_generate_string(generator, "\"frop\"");
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("\"\\\"frop\\\"\"", str_c(buffer)) == 0);
@@ -163,7 +163,7 @@ static void test_json_generate_buffer(void)
 	generator = json_generator_init(output, 0);
 	ret = json_generate_string(generator, "frop\\friep/frml");
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("\"frop\\\\friep/frml\"", str_c(buffer)) == 0);
@@ -176,7 +176,7 @@ static void test_json_generate_buffer(void)
 	generator = json_generator_init(output, 0);
 	ret = json_generate_string(generator, "\x08\x0c");
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("\"\\b\\f\"", str_c(buffer)) == 0);
@@ -189,7 +189,7 @@ static void test_json_generate_buffer(void)
 	generator = json_generator_init(output, 0);
 	ret = json_generate_string(generator, "\xc3\x28");
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("\"\xEF\xBF\xBD(\"", str_c(buffer)) == 0);
@@ -202,7 +202,7 @@ static void test_json_generate_buffer(void)
 	generator = json_generator_init(output, 0);
 	ret = json_generate_string(generator, "\xed\xa0\xbd");
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	// FIXME: this should ideally produce just one replacement char
@@ -226,7 +226,7 @@ static void test_json_generate_buffer(void)
 		"frop", strlen("frop"), TRUE);
 	test_assert(sret > 0);
 	json_generate_string_close(generator);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("\"fropfropfrop\"", str_c(buffer)) == 0);
@@ -242,7 +242,7 @@ static void test_json_generate_buffer(void)
 	ret = json_generate_string_stream(generator, input);
 	test_assert(ret > 0);
 	i_stream_unref(&input);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("\"ABC\\tDEF\\nGHI\\tJKL\\nMNO\\u0019PQR\\nSTU\\tVWX\\nYZ\"", str_c(buffer)) == 0);
@@ -255,7 +255,7 @@ static void test_json_generate_buffer(void)
 	generator = json_generator_init(output, 0);
 	ret = json_generate_text(generator, "[\"frop!\"]");
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[\"frop!\"]", str_c(buffer)) == 0);
@@ -278,7 +278,7 @@ static void test_json_generate_buffer(void)
 	test_assert(sret > 0);
 	ret = json_generate_text_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("\"fropfropfrop\"", str_c(buffer)) == 0);
@@ -294,7 +294,7 @@ static void test_json_generate_buffer(void)
 	ret = json_generate_text_stream(generator, input);
 	test_assert(ret > 0);
 	i_stream_unref(&input);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp(data, str_c(buffer)) == 0);
@@ -308,7 +308,7 @@ static void test_json_generate_buffer(void)
 	json_generate_array_open(generator);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[]", str_c(buffer)) == 0);
@@ -324,7 +324,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[23423]", str_c(buffer)) == 0);
@@ -340,7 +340,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[\"frop\"]", str_c(buffer)) == 0);
@@ -356,7 +356,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[false]", str_c(buffer)) == 0);
@@ -372,7 +372,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[null]", str_c(buffer)) == 0);
@@ -388,7 +388,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[true]", str_c(buffer)) == 0);
@@ -405,7 +405,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[[]]", str_c(buffer)) == 0);
@@ -422,7 +422,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[{}]", str_c(buffer)) == 0);
@@ -438,7 +438,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[{\"a\":1,\"b\":2,\"c\":3}]", str_c(buffer)) == 0);
@@ -455,7 +455,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[\"frop\",{\"a\":1,\"b\":2,\"c\":3}]",
@@ -474,7 +474,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[true,true]", str_c(buffer)) == 0);
@@ -494,7 +494,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[true,true,true]", str_c(buffer)) == 0);
@@ -514,7 +514,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[\"frop\",\"friep\",\"frml\"]",
@@ -535,7 +535,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[1,2,3]", str_c(buffer)) == 0);
@@ -558,7 +558,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[[],[],[]]", str_c(buffer)) == 0);
@@ -581,7 +581,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[{},{},{}]", str_c(buffer)) == 0);
@@ -632,7 +632,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[[[],[],[]],[[],[],[]],[[],[],[]]]",
@@ -654,7 +654,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[true,1234234,\"frml\"]", str_c(buffer)) == 0);
@@ -674,7 +674,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("\"frop\",\"friep\",\"frml\"", str_c(buffer)) == 0);
@@ -693,7 +693,7 @@ static void test_json_generate_buffer(void)
 	i_stream_unref(&input);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp(
@@ -716,7 +716,7 @@ static void test_json_generate_buffer(void)
 	i_stream_unref(&input);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp(
@@ -737,7 +737,7 @@ static void test_json_generate_buffer(void)
 	i_stream_unref(&input);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[[\"frop!\",\"friep!\",\"frml!\"]]",
@@ -759,7 +759,7 @@ static void test_json_generate_buffer(void)
 	i_stream_unref(&input);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[\"frop\",[\"frop!\",\"friep!\",\"frml!\"]]",
@@ -774,7 +774,7 @@ static void test_json_generate_buffer(void)
 	json_generate_object_open(generator);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("{}", str_c(buffer)) == 0);
@@ -792,7 +792,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("{\"frop\":1}", str_c(buffer)) == 0);
@@ -810,7 +810,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("{\"frop\":\"friep\"}", str_c(buffer)) == 0);
@@ -828,7 +828,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("{\"frop\":false}", str_c(buffer)) == 0);
@@ -847,7 +847,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("{\"frop\":[]}", str_c(buffer)) == 0);
@@ -866,7 +866,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("{\"frop\":{}}", str_c(buffer)) == 0);
@@ -884,7 +884,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("{\"frop\":[\"friep\",1,true]}",
@@ -909,7 +909,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("{\"frop\":{},\"friep\":{}}", str_c(buffer)) == 0);
@@ -939,7 +939,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("{\"frop\":[],\"friep\":[],\"frml\":[]}",
@@ -976,7 +976,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("{\"frop\":[1],\"friep\":[true],\"frml\":[\"a\"]}",
@@ -998,6 +998,7 @@ static void test_json_generate_buffer(void)
 	ret = json_generate_object_member(generator, "d");
 	test_assert(ret > 0);
 	ret = json_generate_number(generator, 1);
+	test_assert(ret > 0);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
@@ -1009,6 +1010,7 @@ static void test_json_generate_buffer(void)
 	ret = json_generate_object_member(generator, "e");
 	test_assert(ret > 0);
 	ret = json_generate_number(generator, 2);
+	test_assert(ret > 0);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
@@ -1020,13 +1022,14 @@ static void test_json_generate_buffer(void)
 	ret = json_generate_object_member(generator, "f");
 	test_assert(ret > 0);
 	ret = json_generate_number(generator, 3);
+	test_assert(ret > 0);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("{\"a\":[{\"d\":1}],"
@@ -1063,7 +1066,7 @@ static void test_json_generate_buffer(void)
 	test_assert(ret > 0);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("\"frop\":[1],\"friep\":[true],\"frml\":[\"a\"]",
@@ -1085,7 +1088,7 @@ static void test_json_generate_buffer(void)
 	i_stream_unref(&input);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("{\"a\":\"ABC\\tDEF\\nGHI\\tJKL\\nMNO\\u0019PQR\\nSTU\\tVWX\\nYZ\"}", str_c(buffer)) == 0);
@@ -1106,7 +1109,7 @@ static void test_json_generate_buffer(void)
 	i_stream_unref(&input);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("{\"a\":[\"frop!\",\"friep!\",\"frml!\"]}",
@@ -2182,7 +2185,7 @@ static void test_json_generate_formatted(void)
 	json_generator_set_format(generator, &format);
 	ret = json_generate_number(generator, 23423);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("23423\n", str_c(buffer)) == 0);
@@ -2199,7 +2202,7 @@ static void test_json_generate_formatted(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[\n"
@@ -2222,7 +2225,7 @@ static void test_json_generate_formatted(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[\n"
@@ -2248,7 +2251,7 @@ static void test_json_generate_formatted(void)
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("[\n"
@@ -2275,6 +2278,7 @@ static void test_json_generate_formatted(void)
 	ret = json_generate_object_member(generator, "d");
 	test_assert(ret > 0);
 	ret = json_generate_number(generator, 1);
+	test_assert(ret > 0);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
@@ -2286,6 +2290,7 @@ static void test_json_generate_formatted(void)
 	ret = json_generate_object_member(generator, "e");
 	test_assert(ret > 0);
 	ret = json_generate_number(generator, 2);
+	test_assert(ret > 0);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
@@ -2297,13 +2302,14 @@ static void test_json_generate_formatted(void)
 	ret = json_generate_object_member(generator, "f");
 	test_assert(ret > 0);
 	ret = json_generate_number(generator, 3);
+	test_assert(ret > 0);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
 	ret = json_generate_array_close(generator);
 	test_assert(ret > 0);
 	ret = json_generate_object_close(generator);
 	test_assert(ret > 0);
-	json_generator_flush(generator);
+	ret = json_generator_flush(generator);
 	test_assert(ret > 0);
 	json_generator_deinit(&generator);
 	test_assert(strcmp("{\n"
