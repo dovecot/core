@@ -342,7 +342,6 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		key = t_strdup_until(strings[i], value++);
 
 		bool hide_passwords = default_hide_passwords;
-		p = strrchr(key, '/');
 		if (setting_name_filter_len > 0) {
 			/* See if this setting matches the name filter.
 			   If we're asking for a full specific setting,
