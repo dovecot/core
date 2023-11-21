@@ -1114,7 +1114,7 @@ int json_ostream_write_tree(struct json_ostream *stream, const char *name,
 		stream->tree = jtree;
 		json_tree_ref(jtree);
 	}
-	return 1;
+	return (ret < 0 ? -1 : 1);
 }
 
 void json_ostream_nwrite_tree(struct json_ostream *stream, const char *name,
