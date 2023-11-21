@@ -2726,7 +2726,7 @@ static void test_json_istream_read_into_tree(void)
 
 	/* sequence */
 	jtree = json_tree_create();
-	(void)json_tree_node_add_array(json_tree_get_root(jtree), NULL);
+	json_tree_node_add_array(json_tree_get_root(jtree), NULL);
 	text = "[\"frop\", {\"a\":1234, \"b\":[1, 2, 3, 4], "
 		"\"c\":1234}, \"frop\"]";
 	text_len = strlen(text);

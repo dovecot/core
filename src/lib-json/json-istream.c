@@ -412,7 +412,7 @@ json_istream_parse_value(void *context, void *parent_context, const char *name,
 			/* just starting; parent is not in the syntax tree */
 			parent = stream->tree_node;
 		}
-		(void)json_tree_node_add_value(parent, name, type, value);
+		json_tree_node_add_value(parent, name, type, value);
 		if (stream->node_level == stream->tree_node_level) {
 			stream->node_parsed = TRUE;
 			json_parser_interrupt(stream->parser);

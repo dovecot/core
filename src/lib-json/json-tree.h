@@ -14,64 +14,64 @@ ARRAY_DEFINE_TYPE(json_tree_node_const, const struct json_tree_node *);
  */
 
 /* node */
-struct json_tree_node *
+struct json_tree_node * ATTR_NOWARN_UNUSED_RESULT
 json_tree_node_add(struct json_tree_node *parent,
 		   const struct json_node *node);
 
 /* object, array */
-struct json_tree_node *
+struct json_tree_node * ATTR_NOWARN_UNUSED_RESULT
 json_tree_node_add_object(struct json_tree_node *parent, const char *name);
-struct json_tree_node *
+struct json_tree_node * ATTR_NOWARN_UNUSED_RESULT
 json_tree_node_add_array(struct json_tree_node *parent, const char *name);
 
 /* value */
-struct json_tree_node *
+struct json_tree_node * ATTR_NOWARN_UNUSED_RESULT
 json_tree_node_add_value(struct json_tree_node *parent, const char *name,
 			 enum json_type type,
 			 const struct json_value *value);
 
 /* string */
-struct json_tree_node *
+struct json_tree_node * ATTR_NOWARN_UNUSED_RESULT
 json_tree_node_add_string(struct json_tree_node *parent, const char *name,
 			  const char *str);
-struct json_tree_node *
+struct json_tree_node * ATTR_NOWARN_UNUSED_RESULT
 json_tree_node_add_data(struct json_tree_node *parent, const char *name,
 			const unsigned char *data, size_t size);
-struct json_tree_node *
+struct json_tree_node * ATTR_NOWARN_UNUSED_RESULT
 json_tree_node_add_string_stream(struct json_tree_node *parent,
 				 const char *name, struct istream *input);
 
 /* number */
-struct json_tree_node *
+struct json_tree_node * ATTR_NOWARN_UNUSED_RESULT
 json_tree_node_add_number_int(struct json_tree_node *parent, const char *name,
 			      uintmax_t num);
-struct json_tree_node *
+struct json_tree_node * ATTR_NOWARN_UNUSED_RESULT
 json_tree_node_add_number_str(struct json_tree_node *parent, const char *name,
 			      const char *num);
 
 /* false, true */
-struct json_tree_node *
+struct json_tree_node * ATTR_NOWARN_UNUSED_RESULT
 json_tree_node_add_false(struct json_tree_node *parent, const char *name);
-struct json_tree_node *
+struct json_tree_node * ATTR_NOWARN_UNUSED_RESULT
 json_tree_node_add_true(struct json_tree_node *parent, const char *name);
-struct json_tree_node *
+struct json_tree_node * ATTR_NOWARN_UNUSED_RESULT
 json_tree_node_add_boolean(struct json_tree_node *parent, const char *name,
 			   bool val);
 
 /* null */
-struct json_tree_node *
+struct json_tree_node * ATTR_NOWARN_UNUSED_RESULT
 json_tree_node_add_null(struct json_tree_node *parent, const char *name);
 
 /* JSON-text */
 
-struct json_tree_node *
+struct json_tree_node * ATTR_NOWARN_UNUSED_RESULT
 json_tree_node_add_text(struct json_tree_node *parent, const char *name,
 			const char *literal);
-struct json_tree_node *
+struct json_tree_node * ATTR_NOWARN_UNUSED_RESULT
 json_tree_node_add_text_data(struct json_tree_node *parent, const char *name,
 			     const unsigned char *data, size_t size);
 
-struct json_tree_node *
+struct json_tree_node * ATTR_NOWARN_UNUSED_RESULT
 json_tree_node_add_subtree(struct json_tree_node *parent, const char *name,
 			   struct json_tree *tree);
 
