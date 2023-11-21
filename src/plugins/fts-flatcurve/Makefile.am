@@ -30,12 +30,14 @@ lib21_fts_flatcurve_plugin_la_LIBADD = \
 
 lib21_fts_flatcurve_plugin_la_SOURCES = \
 	fts-flatcurve-plugin.c \
+	fts-flatcurve-settings.c \
 	fts-backend-flatcurve.c \
 	fts-backend-flatcurve-xapian.cc
 
 noinst_HEADERS = \
 	doveadm-dump-flatcurve.h \
 	fts-flatcurve-plugin.h \
+	fts-flatcurve-settings.h \
 	fts-backend-flatcurve.h \
 	fts-backend-flatcurve-xapian.h
 

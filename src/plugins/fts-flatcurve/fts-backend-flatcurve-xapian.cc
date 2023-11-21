@@ -494,8 +494,8 @@ static bool
 fts_flatcurve_xapian_need_optimize(struct flatcurve_fts_backend *backend)
 {
 	if (backend->fuser == NULL) return FALSE;
-	if (backend->fuser->set.optimize_limit == 0) return FALSE;
-	return backend->xapian->shards >= backend->fuser->set.optimize_limit;
+	if (backend->fuser->set->optimize_limit == 0) return FALSE;
+	return backend->xapian->shards >= backend->fuser->set->optimize_limit;
 }
 
 static void
@@ -1265,17 +1265,17 @@ fts_flatcurve_xapian_check_commit_limit(struct flatcurve_fts_backend *backend,
 	++xdb->changes;
 
 	if (xdb->type == FLATCURVE_XAPIAN_DB_TYPE_CURRENT &&
-	    fuser->set.rotate_count > 0 &&
-	    xdb->dbw->get_doccount() >= fuser->set.rotate_count) {
+	    fuser->set->rotate_count > 0 &&
+	    xdb->dbw->get_doccount() >= fuser->set->rotate_count) {
 		return fts_flatcurve_xapian_close_db(
 			backend, xdb, FLATCURVE_XAPIAN_DB_CLOSE_ROTATE, error_r);
 	}
 
-	if (fuser->set.commit_limit > 0 &&
-	    x->doc_updates >= fuser->set.commit_limit) {
+	if (fuser->set->commit_limit > 0 &&
+	    x->doc_updates >= fuser->set->commit_limit) {
 		e_debug(backend->event,
 			"Committing DB as update limit was reached; limit=%d",
-			fuser->set.commit_limit);
+			fuser->set->commit_limit);
 		return fts_flatcurve_xapian_close_dbs(
 			backend, FLATCURVE_XAPIAN_DB_CLOSE_WDB_COMMIT, error_r);
 	}
@@ -1398,8 +1398,8 @@ fts_flatcurve_xapian_close_db(struct flatcurve_fts_backend *backend,
 
 		if (xdb->type == FLATCURVE_XAPIAN_DB_TYPE_CURRENT) {
 			if (HAS_ALL_BITS(opts, FLATCURVE_XAPIAN_DB_CLOSE_ROTATE) ||
-				(backend->fuser->set.rotate_time > 0 &&
-				 elapsed > backend->fuser->set.rotate_time))
+				(backend->fuser->set->rotate_time > 0 &&
+				 elapsed > backend->fuser->set->rotate_time))
 				rotate = TRUE;
 		}
 	}
@@ -1668,7 +1668,7 @@ fts_flatcurve_xapian_index_header(struct flatcurve_fts_backend_update_context *c
 		const unsigned char *end = data + size;
 		for(; end > data; data += uni_utf8_char_bytes((unsigned char) *data)) {
 			size_t len = end - data;
-			if (len < fuser->set.min_term_size)
+			if (len < fuser->set->min_term_size)
 				break;
 
 			/* Capital ASCII letters at the beginning of a Xapian
@@ -1690,7 +1690,7 @@ fts_flatcurve_xapian_index_header(struct flatcurve_fts_backend_update_context *c
 				x->doc->add_term(str_c(hdr_term));
 			}
 
-			if (!fuser->set.substring_search)
+			if (!fuser->set->substring_search)
 				break;
 		}
 	} T_END;
@@ -1719,7 +1719,7 @@ fts_flatcurve_xapian_index_body(struct flatcurve_fts_backend_update_context *ctx
 		const char *end = data + str_len(term);
 		for(; end > data; data += uni_utf8_char_bytes((unsigned char) *data)) {
 			size_t len = end - data;
-			if (len < fuser->set.min_term_size)
+			if (len < fuser->set->min_term_size)
 				break;
 
 			/* Capital ASCII letters at the beginning of a Xapian term are
@@ -1729,7 +1729,7 @@ fts_flatcurve_xapian_index_body(struct flatcurve_fts_backend_update_context *ctx
 			*data = i_tolower(*data);
 			x->doc->add_term(data);
 
-			if (!fuser->set.substring_search)
+			if (!fuser->set->substring_search)
 				break;
 		}
 	} T_END;
