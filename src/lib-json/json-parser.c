@@ -2314,7 +2314,6 @@ static ssize_t json_string_istream_read(struct istream_private *stream)
 	i_assert(stream->pos == str_len(parser->buffer));
 	i_assert(stream->skip <= stream->pos);
 
-	read_data = FALSE;
 	do {
 		if (jstream->buffer_overflowed) {
 			stream->pos = str_len(parser->buffer);
