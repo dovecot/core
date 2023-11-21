@@ -340,9 +340,11 @@ master_service_open_config(struct master_service *service,
 		ret = fd_read(fd, buf, sizeof(buf)-1, &config_fd);
 		if (ret < 0)
 			*error_r = t_strdup_printf("fd_read() failed: %m");
-		else if (ret > 0 && buf[0] == '+' && buf[1] == '\n')
-			; /* success */
-		else if (ret > 0 && buf[0] == '-') {
+		else if (ret > 0 && buf[0] == '+' && buf[1] == '\n') {
+			/* success, if fd was received */
+			if (config_fd == -1)
+				*error_r = "Failed to read config: FD not received";
+		} else if (ret > 0 && buf[0] == '-') {
 			buf[ret] = '\0';
 			*error_r = t_strdup_printf("Failed to read config: %s",
 						   t_strcut(buf+1, '\n'));
