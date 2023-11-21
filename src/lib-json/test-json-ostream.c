@@ -1263,8 +1263,8 @@ static void test_json_ostream_write_tree(void)
 	test_begin("json ostream write tree - number");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	(void)json_tree_node_add_number_int(
-		json_tree_get_root(jtree), NULL, 23423);
+	(void)json_tree_node_add_number_int(json_tree_get_root(jtree),
+					    NULL, 23423);
 	ret = json_ostream_write_tree(joutput, NULL, jtree);
 	i_assert(ret > 0);
 	json_tree_unref(&jtree);
@@ -1280,8 +1280,7 @@ static void test_json_ostream_write_tree(void)
 	test_begin("json ostream write tree - false");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	(void)json_tree_node_add_false(
-		json_tree_get_root(jtree), NULL);
+	(void)json_tree_node_add_false(json_tree_get_root(jtree), NULL);
 	ret = json_ostream_write_tree(joutput, NULL, jtree);
 	i_assert(ret > 0);
 	json_tree_unref(&jtree);
@@ -1297,8 +1296,7 @@ static void test_json_ostream_write_tree(void)
 	test_begin("json ostream write tree - null");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	(void)json_tree_node_add_null(
-		json_tree_get_root(jtree), NULL);
+	(void)json_tree_node_add_null(json_tree_get_root(jtree), NULL);
 	ret = json_ostream_write_tree(joutput, NULL, jtree);
 	i_assert(ret > 0);
 	json_tree_unref(&jtree);
@@ -1314,8 +1312,7 @@ static void test_json_ostream_write_tree(void)
 	test_begin("json ostream write tree - true");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	(void)json_tree_node_add_true(
-		json_tree_get_root(jtree), NULL);
+	(void)json_tree_node_add_true(json_tree_get_root(jtree), NULL);
 	ret = json_ostream_write_tree(joutput, NULL, jtree);
 	i_assert(ret > 0);
 	json_tree_unref(&jtree);
@@ -1331,8 +1328,8 @@ static void test_json_ostream_write_tree(void)
 	test_begin("json ostream write tree - string");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	(void)json_tree_node_add_string(
-		json_tree_get_root(jtree), NULL, "frop");
+	(void)json_tree_node_add_string(json_tree_get_root(jtree),
+					NULL, "frop");
 	ret = json_ostream_write_tree(joutput, NULL, jtree);
 	i_assert(ret > 0);
 	json_tree_unref(&jtree);
@@ -1350,8 +1347,8 @@ static void test_json_ostream_write_tree(void)
 	jtree = json_tree_create();
 	data = "AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ";
 	input = i_stream_create_from_data(data, strlen(data));
-	(void)json_tree_node_add_string_stream(
-		json_tree_get_root(jtree), NULL, input);
+	(void)json_tree_node_add_string_stream(json_tree_get_root(jtree),
+					       NULL, input);
 	i_stream_unref(&input);
 	ret = json_ostream_write_tree(joutput, NULL, jtree);
 	i_assert(ret > 0);
@@ -1370,8 +1367,7 @@ static void test_json_ostream_write_tree(void)
 	test_begin("json ostream write tree - array");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	(void)json_tree_node_add_array(
-		json_tree_get_root(jtree), NULL);
+	(void)json_tree_node_add_array(json_tree_get_root(jtree), NULL);
 	ret = json_ostream_write_tree(joutput, NULL, jtree);
 	i_assert(ret > 0);
 	json_tree_unref(&jtree);
@@ -1387,8 +1383,7 @@ static void test_json_ostream_write_tree(void)
 	test_begin("json ostream write tree - array [ string ]");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	jtnode = json_tree_node_add_array(
-		json_tree_get_root(jtree), NULL);
+	jtnode = json_tree_node_add_array(json_tree_get_root(jtree), NULL);
 	(void)json_tree_node_add_string(jtnode, NULL, "frop");
 	ret = json_ostream_write_tree(joutput, NULL, jtree);
 	i_assert(ret > 0);
@@ -1405,8 +1400,7 @@ static void test_json_ostream_write_tree(void)
 	test_begin("json ostream write tree - array [ string stream ]");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	jtnode = json_tree_node_add_array(
-		json_tree_get_root(jtree), NULL);
+	jtnode = json_tree_node_add_array(json_tree_get_root(jtree), NULL);
 	data = "AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ";
 	input = i_stream_create_from_data(data, strlen(data));
 	(void)json_tree_node_add_string_stream(jtnode, NULL, input);
@@ -1428,8 +1422,7 @@ static void test_json_ostream_write_tree(void)
 	test_begin("json ostream write tree - object");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	(void)json_tree_node_add_object(
-		json_tree_get_root(jtree), NULL);
+	(void)json_tree_node_add_object(json_tree_get_root(jtree), NULL);
 	ret = json_ostream_write_tree(joutput, NULL, jtree);
 	i_assert(ret > 0);
 	json_tree_unref(&jtree);
@@ -1445,8 +1438,7 @@ static void test_json_ostream_write_tree(void)
 	test_begin("json ostream write tree - object { member: string }");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	jtnode = json_tree_node_add_object(
-		json_tree_get_root(jtree), NULL);
+	jtnode = json_tree_node_add_object(json_tree_get_root(jtree), NULL);
 	(void)json_tree_node_add_string(jtnode, "frop", "friep");
 	ret = json_ostream_write_tree(joutput, NULL, jtree);
 	i_assert(ret > 0);
@@ -1463,8 +1455,7 @@ static void test_json_ostream_write_tree(void)
 	test_begin("json ostream write tree - object { member: string stream }");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	jtnode = json_tree_node_add_object(
-		json_tree_get_root(jtree), NULL);
+	jtnode = json_tree_node_add_object(json_tree_get_root(jtree), NULL);
 	data = "AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ";
 	input = i_stream_create_from_data(data, strlen(data));
 	(void)json_tree_node_add_string_stream(jtnode, "frop", input);
@@ -1489,8 +1480,7 @@ static void test_json_ostream_write_tree(void)
 		     "\"c\": [{\"f\": 3}] }");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	jtnode = json_tree_node_add_object(
-		json_tree_get_root(jtree), NULL);
+	jtnode = json_tree_node_add_object(json_tree_get_root(jtree), NULL);
 	jtnode = json_tree_node_add_array(jtnode, "a");
 	jtnode = json_tree_node_add_object(jtnode, NULL);
 	(void)json_tree_node_add_number_int(jtnode, "d", 1);
@@ -1712,8 +1702,8 @@ static void test_json_ostream_write_tree(void)
 			jtnode = json_tree_get_root(jtree);
 			jtnode = json_tree_node_add_array(jtnode, NULL);
 			jtnode = json_tree_node_add_object(jtnode, NULL);
-			(void)json_tree_node_add_number_int(
-				jtnode, "dddddd", 1);
+			(void)json_tree_node_add_number_int(jtnode,
+							    "dddddd", 1);
 			state++;
 			/* fall through */
 		case 2:
@@ -1729,8 +1719,8 @@ static void test_json_ostream_write_tree(void)
 			jtnode = json_tree_get_root(jtree);
 			jtnode = json_tree_node_add_array(jtnode, NULL);
 			jtnode = json_tree_node_add_object(jtnode, NULL);
-			(void)json_tree_node_add_number_int(
-				jtnode, "eeeeee", 2);
+			(void)json_tree_node_add_number_int(jtnode,
+							    "eeeeee", 2);
 			state++;
 			/* fall through */
 		case 4:
@@ -1746,8 +1736,8 @@ static void test_json_ostream_write_tree(void)
 			jtnode = json_tree_get_root(jtree);
 			jtnode = json_tree_node_add_array(jtnode, NULL);
 			jtnode = json_tree_node_add_object(jtnode, NULL);
-			(void)json_tree_node_add_number_int(
-				jtnode, "ffffff", 3);
+			(void)json_tree_node_add_number_int(jtnode,
+							    "ffffff", 3);
 			state++;
 			/* fall through */
 		case 6:
@@ -1857,8 +1847,8 @@ static void test_json_ostream_write_tree(void)
 			jtnode = json_tree_get_root(jtree);
 			jtnode = json_tree_node_add_array(jtnode, NULL);
 			jtnode = json_tree_node_add_object(jtnode, NULL);
-			(void)json_tree_node_add_string(
-				jtnode, "dddddd", "gggggggggg");
+			(void)json_tree_node_add_string(jtnode, "dddddd",
+							"gggggggggg");
 			state++;
 			/* fall through */
 		case 2:
@@ -1874,8 +1864,8 @@ static void test_json_ostream_write_tree(void)
 			jtnode = json_tree_get_root(jtree);
 			jtnode = json_tree_node_add_array(jtnode, NULL);
 			jtnode = json_tree_node_add_object(jtnode, NULL);
-			(void)json_tree_node_add_string(
-				jtnode, "eeeeee", "hhhhhhhhhh");
+			(void)json_tree_node_add_string(jtnode, "eeeeee",
+							"hhhhhhhhhh");
 			state++;
 			/* fall through */
 		case 4:
@@ -1891,8 +1881,8 @@ static void test_json_ostream_write_tree(void)
 			jtnode = json_tree_get_root(jtree);
 			jtnode = json_tree_node_add_array(jtnode, NULL);
 			jtnode = json_tree_node_add_object(jtnode, NULL);
-			(void)json_tree_node_add_string(
-				jtnode, "ffffff", "iiiiiiiiii");
+			(void)json_tree_node_add_string(jtnode, "ffffff",
+							"iiiiiiiiii");
 			state++;
 			/* fall through */
 		case 6:
@@ -1942,8 +1932,8 @@ static void test_json_ostream_write_tree(void)
 			jtnode = json_tree_get_root(jtree);
 			jtnode = json_tree_node_add_array(jtnode, NULL);
 			jtnode = json_tree_node_add_object(jtnode, NULL);
-			(void)json_tree_node_add_text(
-				jtnode, "dddddd", "1234567");
+			(void)json_tree_node_add_text(jtnode, "dddddd",
+						      "1234567");
 			state++;
 			/* fall through */
 		case 2:
@@ -1959,8 +1949,8 @@ static void test_json_ostream_write_tree(void)
 			jtnode = json_tree_get_root(jtree);
 			jtnode = json_tree_node_add_array(jtnode, NULL);
 			jtnode = json_tree_node_add_object(jtnode, NULL);
-			(void)json_tree_node_add_text(
-				jtnode, "eeeeee", "[1,2,3,4,5,6,7]");
+			(void)json_tree_node_add_text(jtnode, "eeeeee",
+						      "[1,2,3,4,5,6,7]");
 			state++;
 			/* fall through */
 		case 4:
@@ -1976,8 +1966,8 @@ static void test_json_ostream_write_tree(void)
 			jtnode = json_tree_get_root(jtree);
 			jtnode = json_tree_node_add_array(jtnode, NULL);
 			jtnode = json_tree_node_add_object(jtnode, NULL);
-			(void)json_tree_node_add_text(
-				jtnode, "ffffff", "\"1234567\"");
+			(void)json_tree_node_add_text(jtnode, "ffffff",
+						      "\"1234567\"");
 			state++;
 			/* fall through */
 		case 6:
@@ -2011,8 +2001,7 @@ static void test_json_ostream_write_tree(void)
 	test_begin("json ostream write tree - object, trickle[6]");
 	o_stream_set_max_buffer_size(output, 0);
 	jtree = json_tree_create();
-	jtnode = json_tree_node_add_object(
-		json_tree_get_root(jtree), NULL);
+	jtnode = json_tree_node_add_object(json_tree_get_root(jtree), NULL);
 	jtnode = json_tree_node_add_array(jtnode, "aaaaaa");
 	jtnode = json_tree_node_add_object(jtnode, NULL);
 	data = "AAAAA";
@@ -2087,8 +2076,8 @@ static void test_json_ostream_nwrite_tree(void)
 	test_begin("json ostream nwrite tree - number");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	(void)json_tree_node_add_number_int(
-		json_tree_get_root(jtree), NULL, 23423);
+	(void)json_tree_node_add_number_int(json_tree_get_root(jtree),
+					    NULL, 23423);
 	json_ostream_nwrite_tree(joutput, NULL, jtree);
 	json_tree_unref(&jtree);
 	json_ostream_nfinish_destroy(&joutput);
@@ -2101,8 +2090,7 @@ static void test_json_ostream_nwrite_tree(void)
 	test_begin("json ostream nwrite tree - false");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	(void)json_tree_node_add_false(
-		json_tree_get_root(jtree), NULL);
+	(void)json_tree_node_add_false(json_tree_get_root(jtree), NULL);
 	json_ostream_nwrite_tree(joutput, NULL, jtree);
 	json_tree_unref(&jtree);
 	json_ostream_nfinish_destroy(&joutput);
@@ -2115,8 +2103,7 @@ static void test_json_ostream_nwrite_tree(void)
 	test_begin("json ostream nwrite tree - null");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	(void)json_tree_node_add_null(
-		json_tree_get_root(jtree), NULL);
+	(void)json_tree_node_add_null(json_tree_get_root(jtree), NULL);
 	json_ostream_nwrite_tree(joutput, NULL, jtree);
 	json_tree_unref(&jtree);
 	json_ostream_nfinish_destroy(&joutput);
@@ -2129,8 +2116,7 @@ static void test_json_ostream_nwrite_tree(void)
 	test_begin("json ostream nwrite tree - true");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	(void)json_tree_node_add_true(
-		json_tree_get_root(jtree), NULL);
+	(void)json_tree_node_add_true(json_tree_get_root(jtree), NULL);
 	json_ostream_nwrite_tree(joutput, NULL, jtree);
 	json_tree_unref(&jtree);
 	json_ostream_nfinish_destroy(&joutput);
@@ -2143,8 +2129,8 @@ static void test_json_ostream_nwrite_tree(void)
 	test_begin("json ostream nwrite tree - string");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	(void)json_tree_node_add_string(
-		json_tree_get_root(jtree), NULL, "frop");
+	(void)json_tree_node_add_string(json_tree_get_root(jtree),
+					NULL, "frop");
 	json_ostream_nwrite_tree(joutput, NULL, jtree);
 	json_tree_unref(&jtree);
 	json_ostream_nfinish_destroy(&joutput);
@@ -2159,8 +2145,8 @@ static void test_json_ostream_nwrite_tree(void)
 	jtree = json_tree_create();
 	data = "AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ";
 	input = i_stream_create_from_data(data, strlen(data));
-	(void)json_tree_node_add_string_stream(
-		json_tree_get_root(jtree), NULL, input);
+	(void)json_tree_node_add_string_stream(json_tree_get_root(jtree),
+					       NULL, input);
 	i_stream_unref(&input);
 	json_ostream_nwrite_tree(joutput, NULL, jtree);
 	json_tree_unref(&jtree);
@@ -2176,8 +2162,7 @@ static void test_json_ostream_nwrite_tree(void)
 	test_begin("json ostream nwrite tree - array");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	(void)json_tree_node_add_array(
-		json_tree_get_root(jtree), NULL);
+	(void)json_tree_node_add_array(json_tree_get_root(jtree), NULL);
 	json_ostream_nwrite_tree(joutput, NULL, jtree);
 	json_tree_unref(&jtree);
 	json_ostream_nfinish_destroy(&joutput);
@@ -2190,8 +2175,7 @@ static void test_json_ostream_nwrite_tree(void)
 	test_begin("json ostream nwrite tree - array [ string ]");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	jtnode = json_tree_node_add_array(
-		json_tree_get_root(jtree), NULL);
+	jtnode = json_tree_node_add_array(json_tree_get_root(jtree), NULL);
 	(void)json_tree_node_add_string(jtnode, NULL, "frop");
 	json_ostream_nwrite_tree(joutput, NULL, jtree);
 	json_tree_unref(&jtree);
@@ -2205,8 +2189,7 @@ static void test_json_ostream_nwrite_tree(void)
 	test_begin("json ostream nwrite tree - array [ string stream ]");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	jtnode = json_tree_node_add_array(
-		json_tree_get_root(jtree), NULL);
+	jtnode = json_tree_node_add_array(json_tree_get_root(jtree), NULL);
 	data = "AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ";
 	input = i_stream_create_from_data(data, strlen(data));
 	(void)json_tree_node_add_string_stream(jtnode, NULL, input);
@@ -2225,8 +2208,7 @@ static void test_json_ostream_nwrite_tree(void)
 	test_begin("json ostream nwrite tree - object");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	(void)json_tree_node_add_object(
-		json_tree_get_root(jtree), NULL);
+	(void)json_tree_node_add_object(json_tree_get_root(jtree), NULL);
 	json_ostream_nwrite_tree(joutput, NULL, jtree);
 	json_tree_unref(&jtree);
 	json_ostream_nfinish_destroy(&joutput);
@@ -2239,8 +2221,7 @@ static void test_json_ostream_nwrite_tree(void)
 	test_begin("json ostream nwrite tree - object { member: string }");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	jtnode = json_tree_node_add_object(
-		json_tree_get_root(jtree), NULL);
+	jtnode = json_tree_node_add_object(json_tree_get_root(jtree), NULL);
 	(void)json_tree_node_add_string(jtnode, "frop", "friep");
 	json_ostream_nwrite_tree(joutput, NULL, jtree);
 	json_tree_unref(&jtree);
@@ -2255,8 +2236,7 @@ static void test_json_ostream_nwrite_tree(void)
 		   "object { member: string stream }");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	jtnode = json_tree_node_add_object(
-		json_tree_get_root(jtree), NULL);
+	jtnode = json_tree_node_add_object(json_tree_get_root(jtree), NULL);
 	data = "AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ";
 	input = i_stream_create_from_data(data, strlen(data));
 	(void)json_tree_node_add_string_stream(jtnode, "frop", input);
@@ -2278,8 +2258,7 @@ static void test_json_ostream_nwrite_tree(void)
 		     "\"c\": [{\"f\": 3}] }");
 	joutput = json_ostream_create(output, 0);
 	jtree = json_tree_create();
-	jtnode = json_tree_node_add_object(
-		json_tree_get_root(jtree), NULL);
+	jtnode = json_tree_node_add_object(json_tree_get_root(jtree), NULL);
 	jtnode = json_tree_node_add_array(jtnode, "a");
 	jtnode = json_tree_node_add_object(jtnode, NULL);
 	(void)json_tree_node_add_number_int(jtnode, "d", 1);
