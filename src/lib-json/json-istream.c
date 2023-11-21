@@ -765,7 +765,8 @@ json_istream_handle_stream(struct json_istream *stream,
 			    size_t max_buffer_size,
 			    struct json_node *node)
 {
-	if (node->value.content_type == JSON_CONTENT_TYPE_STREAM) {
+	if (node != NULL &&
+	    node->value.content_type == JSON_CONTENT_TYPE_STREAM) {
 		if (temp_path_prefix != NULL) {
 			struct istream *input[2] = { NULL, NULL };
 
@@ -805,7 +806,8 @@ int json_istream_read_stream(struct json_istream *stream,
 	if (stream->node_parsed) {
 		if (node_r != NULL)
 			*node_r = stream->node;
-		if (node_r->value.content_type == JSON_CONTENT_TYPE_STREAM &&
+		if (node_r != NULL &&
+		    node_r->value.content_type == JSON_CONTENT_TYPE_STREAM &&
 		    stream->seekable_stream != NULL)
 			node_r->value.content.stream = stream->seekable_stream;
 		return 1;
@@ -852,7 +854,8 @@ int json_istream_walk_stream(struct json_istream *stream,
 	if (stream->node_parsed) {
 		if (node_r != NULL)
 			*node_r = stream->node;
-		if (node_r->value.content_type == JSON_CONTENT_TYPE_STREAM &&
+		if (node_r != NULL &&
+		    node_r->value.content_type == JSON_CONTENT_TYPE_STREAM &&
 		    stream->seekable_stream != NULL)
 			node_r->value.content.stream = stream->seekable_stream;
 		return 1;
