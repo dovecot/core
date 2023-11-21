@@ -52,6 +52,7 @@ json_format_file_io_run(struct istream *input, struct ostream *output,
 							16 * IO_BLOCK_SIZE,
 							IO_BLOCK_SIZE,
 							NULL, &jnode);
+			i_assert(rret != 0);
 			if (rret < 0)
 				break;
 		}
@@ -59,18 +60,21 @@ json_format_file_io_run(struct istream *input, struct ostream *output,
 			wret = 1;
 		else
 			wret = json_ostream_write_node(joutput, &jnode, TRUE);
-		if (wret == 0)
-			continue;
+		i_assert(wret != 0);
 		if (wret < 0)
 			break;
 		i_zero(&jnode);
 		rret = 0;
 	}
 	wret = json_ostream_flush(joutput);
-	json_ostream_destroy(&joutput);
 
 	if (json_istream_finish(&jinput, &error) < 0)
 		i_error("Failed to read JSON: %s", error);
+	if (wret < 0) {
+		i_error("Failed to write JSON: %s",
+			json_ostream_get_error(joutput));
+	}
+	json_ostream_destroy(&joutput);
 }
 
 static void
