@@ -2083,7 +2083,6 @@ static void test_json_generate_stream(void)
 	json_generate_array_open(generator);
 	str_stream = json_generate_string_open_stream(generator);
 	state = 0;
-	dpos = 0;
 	for (pos = 0; pos < 65535 && state < 3; pos++) {
 		o_stream_set_max_buffer_size(output, pos);
 		switch (state) {
@@ -2119,7 +2118,6 @@ static void test_json_generate_stream(void)
 	generator = json_generator_init(output, 0);
 	json_generate_object_open(generator);
 	state = 0;
-	dpos = 0;
 	for (pos = 0; pos < 65535 && state < 3; pos++) {
 		o_stream_set_max_buffer_size(output, pos);
 		switch (state) {
