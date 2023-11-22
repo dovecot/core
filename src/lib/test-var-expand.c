@@ -1,6 +1,7 @@
 /* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
+#include "cpu-count.h"
 #include "str.h"
 #include "env-util.h"
 #include "hostpid.h"
@@ -475,6 +476,31 @@ static void test_var_expand_merge_tables(void)
 	test_end();
 }
 
+static void test_var_expand_system()
+{
+	test_begin("var_expand_system");
+	int ncpus;
+	const char *error ATTR_UNUSED;
+	int ret = cpu_count_get(&ncpus, &error) == 0 ? 1 : -1;
+	const struct var_expand_test tests[] = {
+		{ "%{system:cpu_count}", dec2str(ncpus), ret },
+	};
+
+	const struct var_expand_table table[] = {
+		{ '\0', NULL, NULL }
+	};
+	string_t *dest = t_str_new(64);
+	for (size_t i = 0; i < N_ELEMENTS(tests); i++) {
+		const struct var_expand_test *test = &tests[i];
+		const char *error ATTR_UNUSED;
+		str_truncate(dest, 0);
+		int ret = var_expand(dest, test->in, table, &error);
+		test_assert_cmp_idx(ret, ==, test->ret, i);
+		test_assert_strcmp_idx(str_c(dest), test->out, i);
+	}
+	test_end();
+}
+
 void test_var_expand(void)
 {
 	test_var_expand_ranges();
@@ -486,4 +512,5 @@ void test_var_expand(void)
 	test_var_expand_extensions();
 	test_var_expand_if();
 	test_var_expand_merge_tables();
+	test_var_expand_system();
 }

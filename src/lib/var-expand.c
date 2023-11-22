@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "cpu-count.h"
 #include "md5.h"
 #include "hash.h"
 #include "hex-binary.h"
@@ -17,6 +18,8 @@
 
 #include <unistd.h>
 #include <ctype.h>
+
+#define ENV_CPU_COUNT "NCPU"
 
 #define TABLE_LAST(t) \
 	((t)->key == '\0' && (t)->long_key == NULL)
@@ -374,6 +377,29 @@ var_expand_hash(struct var_expand_context *ctx,
 	}
 
 	i_unreached();
+}
+
+static int
+var_expand_system(struct var_expand_context *ctx ATTR_UNUSED,
+		  const char *key, const char *field,
+		  const char **result_r, const char **error_r)
+{
+	i_assert(strcmp(key, "system") == 0);
+	if (strcmp(field, "cpu_count") == 0) {
+		int ncpus;
+		const char *cpuenv = getenv(ENV_CPU_COUNT);
+		if (cpuenv != NULL) {
+			*result_r = cpuenv;
+			return 1;
+		}
+		if (cpu_count_get(&ncpus, error_r) < 0)
+			return -1;
+		*result_r = dec2str(ncpus);
+		return 1;
+	}
+
+	*error_r = t_strdup_printf("Unsupported system key '%s'", field);
+	return 0;
 }
 
 static int
@@ -805,6 +831,11 @@ void var_expand_extensions_init(void)
 	func = array_append_space(&var_expand_extensions);
 	func->key = "if";
 	func->func = var_expand_if;
+
+	/* system */
+	func = array_append_space(&var_expand_extensions);
+	func->key = "system";
+	func->func = var_expand_system;
 }
 
 void
