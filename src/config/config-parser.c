@@ -70,6 +70,7 @@ static struct config_section_stack *
 config_add_new_section(struct config_parser_context *ctx);
 static void
 config_add_new_parser(struct config_parser_context *ctx,
+		      const struct config_filter *filter,
 		      struct config_section_stack *cur_section, bool root);
 static int
 config_apply_exact_line(struct config_parser_context *ctx,
@@ -108,13 +109,15 @@ config_parser_add_filter_array(struct config_parser_context *ctx,
 
 	struct config_section_stack *section;
 	section = config_add_new_section(ctx);
-	section->filter.filter_name =
-		p_strdup_printf(ctx->pool, "%s/%s", filter_key, name);
-	section->filter.filter_name_array = TRUE;
+	struct config_filter filter = {
+		.filter_name = p_strdup_printf(ctx->pool, "%s/%s",
+					       filter_key, name),
+		.filter_name_array = TRUE,
+	};
 	section->is_filter = TRUE;
 	/* use cur_section's filter_parser as parent */
 	section->filter_parser = ctx->cur_section->filter_parser;
-	config_add_new_parser(ctx, section, FALSE);
+	config_add_new_parser(ctx, &filter, section, FALSE);
 	section->filter_parser->filter_required_setting_seen = TRUE;
 	return section;
 }
@@ -179,15 +182,13 @@ config_parser_add_service_default_keyvalues(struct config_parser_context *ctx,
 			struct config_filter_parser *filter_parser =
 				config_filter_parser_find(ctx, &filter);
 			if (filter_parser == NULL) {
-				ctx->cur_section->filter = filter;
-				ctx->cur_section->filter.filter_name =
+				filter.filter_name =
 					p_strdup(ctx->pool, filter.filter_name);
 				ctx->cur_section->filter_parser = orig_filter_parser;
-				config_add_new_parser(ctx, ctx->cur_section, FALSE);
+				config_add_new_parser(ctx, &filter, ctx->cur_section, FALSE);
 				ctx->cur_section->filter_parser->filter_required_setting_seen = TRUE;
 			} else {
 				ctx->cur_section->filter_parser = filter_parser;
-				ctx->cur_section->filter = filter_parser->filter;
 			}
 			key = p + 1;
 		}
@@ -201,7 +202,6 @@ config_parser_add_service_default_keyvalues(struct config_parser_context *ctx,
 		config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
 
 		ctx->cur_section->filter_parser = orig_filter_parser;
-		ctx->cur_section->filter = orig_filter_parser->filter;
 	} T_END;
 }
 
@@ -258,7 +258,7 @@ static void config_parser_add_info_defaults(struct config_parser_context *ctx,
 static bool
 config_parser_is_in_localremote(struct config_section_stack *section)
 {
-	const struct config_filter *filter = &section->filter;
+	const struct config_filter *filter = &section->filter_parser->filter;
 
 	do {
 		if (filter->local_name != NULL || filter->local_bits > 0 ||
@@ -610,7 +610,6 @@ config_apply_line_full(struct config_parser_context *ctx,
 		       const char *key_with_path,
 		       const char *value, const char **full_key_r)
 {
-	struct config_filter orig_filter = ctx->cur_section->filter;
 	struct config_filter_parser *filter_parser, *orig_filter_parser;
 	const char *p, *key;
 	int ret = 0;
@@ -621,7 +620,7 @@ config_apply_line_full(struct config_parser_context *ctx,
 		   prefix here. These prefixes are used by default settings and
 		   old-set-parser. */
 		struct config_filter filter = {
-			.parent = &ctx->cur_section->filter,
+			.parent = &ctx->cur_section->filter_parser->filter,
 		};
 		/* find the type of the first prefix/ */
 		filter.filter_name = t_strdup_until(key_with_path, p);
@@ -652,12 +651,11 @@ config_apply_line_full(struct config_parser_context *ctx,
 			    l->info->defines[config_key->define_idx].type != SET_FILTER_HIERARCHY)
 				break;
 
-			ctx->cur_section->filter.filter_name =
+			filter.filter_name =
 				p_strdup(ctx->pool, filter.filter_name);
-			config_add_new_parser(ctx, ctx->cur_section, FALSE);
+			config_add_new_parser(ctx, &filter, ctx->cur_section, FALSE);
 		} else {
 			ctx->cur_section->filter_parser = filter_parser;
-			ctx->cur_section->filter = filter_parser->filter;
 		}
 		if (!filter.filter_name_array) {
 			key_with_path = p + 1;
@@ -671,12 +669,12 @@ config_apply_line_full(struct config_parser_context *ctx,
 	/* the only '/' left should be if key is under list/ */
 	key = key_with_path;
 
-	if (ctx->cur_section->filter.filter_name_array) {
+	if (ctx->cur_section->filter_parser->filter.filter_name_array) {
 		/* first try the filter name-specific prefix, so e.g.
 		   inet_listener { ssl=yes } won't try to change the global
 		   ssl setting. */
 		const char *filter_key =
-			t_strcut(ctx->cur_section->filter.filter_name, '/');
+			t_strcut(ctx->cur_section->filter_parser->filter.filter_name, '/');
 		const char *key2 = t_strdup_printf("%s_%s", filter_key, key);
 		ret = config_apply_exact_line(ctx, line, key2, value);
 		if (ret > 0 && full_key_r != NULL)
@@ -688,7 +686,6 @@ config_apply_line_full(struct config_parser_context *ctx,
 			*full_key_r = key;
 	}
 	ctx->cur_section->filter_parser = orig_filter_parser;
-	ctx->cur_section->filter = orig_filter;
 	if (ret == 0) {
 		ctx->error = p_strconcat(ctx->pool, "Unknown setting: ",
 					 get_setting_full_path(ctx, key), NULL);
@@ -760,12 +757,13 @@ config_module_parsers_init(pool_t pool)
 
 static void
 config_add_new_parser(struct config_parser_context *ctx,
+		      const struct config_filter *filter,
 		      struct config_section_stack *cur_section, bool root)
 {
 	struct config_filter_parser *filter_parser;
 
 	filter_parser = p_new(ctx->pool, struct config_filter_parser, 1);
-	filter_parser->filter = cur_section->filter;
+	filter_parser->filter = *filter;
 	filter_parser->module_parsers = root ?
 		ctx->root_module_parsers :
 		config_module_parsers_init(ctx->pool);
@@ -787,7 +785,6 @@ config_add_new_section(struct config_parser_context *ctx)
 
 	section = p_new(ctx->pool, struct config_section_stack, 1);
 	section->prev = ctx->cur_section;
-	section->filter = ctx->cur_section->filter;
 	section->filter_parser = ctx->cur_section->filter_parser;
 
 	section->open_path = p_strdup(ctx->pool, ctx->cur_input->path);
@@ -860,14 +857,14 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			     const struct config_line *line)
 {
 	const char *key = line->key, *value = line->value;
-	struct config_filter *filter = &ctx->cur_section->filter;
-	struct config_filter *parent = &ctx->cur_section->prev->filter;
+	struct config_filter filter;
+	struct config_filter *parent = &ctx->cur_section->prev->filter_parser->filter;
 	struct config_filter_parser *filter_parser;
 	const struct setting_define *filter_def = NULL;
 	const char *error;
 
-	i_zero(filter);
-	filter->parent = parent;
+	i_zero(&filter);
+	filter.parent = parent;
 
 	if (strcmp(key, "protocol") == 0) {
 		if (parent->service != NULL)
@@ -878,7 +875,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 				t_strcut(parent->filter_name, '/'),
 				t_strcut(parent->filter_name, '/'));
 		else
-			filter->service = p_strdup(ctx->pool, value);
+			filter.service = p_strdup(ctx->pool, value);
 	} else if (strcmp(key, "local") == 0) {
 		if (parent->remote_bits > 0)
 			ctx->error = "remote { local { .. } } not allowed (use local { remote { .. } } instead)";
@@ -891,17 +888,17 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 				"%s { local { .. } } not allowed (use local { %s { .. } } instead)",
 				t_strcut(parent->filter_name, '/'),
 				t_strcut(parent->filter_name, '/'));
-		else if (config_parse_net(value, &filter->local_net,
-					  &filter->local_bits, &error) < 0)
+		else if (config_parse_net(value, &filter.local_net,
+					  &filter.local_bits, &error) < 0)
 			ctx->error = p_strdup(ctx->pool, error);
-		else if (parent->local_bits > filter->local_bits ||
+		else if (parent->local_bits > filter.local_bits ||
 			 (parent->local_bits > 0 &&
-			  !net_is_in_network(&filter->local_net,
+			  !net_is_in_network(&filter.local_net,
 					     &parent->local_net,
 					     parent->local_bits)))
 			ctx->error = "local net1 { local net2 { .. } } requires net2 to be inside net1";
 		else
-			filter->local_host = p_strdup(ctx->pool, value);
+			filter.local_host = p_strdup(ctx->pool, value);
 	} else if (strcmp(key, "local_name") == 0) {
 		if (parent->remote_bits > 0)
 			ctx->error = "remote { local_name { .. } } not allowed (use local_name { remote { .. } } instead)";
@@ -913,7 +910,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 				t_strcut(parent->filter_name, '/'),
 				t_strcut(parent->filter_name, '/'));
 		else
-			filter->local_name = p_strdup(ctx->pool, value);
+			filter.local_name = p_strdup(ctx->pool, value);
 	} else if (strcmp(key, "remote") == 0) {
 		if (parent->service != NULL)
 			ctx->error = "protocol { remote { .. } } not allowed (use remote { protocol { .. } } instead)";
@@ -922,17 +919,17 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 				"%s { remote { .. } } not allowed (use remote { %s { .. } } instead)",
 				t_strcut(parent->filter_name, '/'),
 				t_strcut(parent->filter_name, '/'));
-		else if (config_parse_net(value, &filter->remote_net,
-					  &filter->remote_bits, &error) < 0)
+		else if (config_parse_net(value, &filter.remote_net,
+					  &filter.remote_bits, &error) < 0)
 			ctx->error = p_strdup(ctx->pool, error);
-		else if (parent->remote_bits > filter->remote_bits ||
+		else if (parent->remote_bits > filter.remote_bits ||
 			 (parent->remote_bits > 0 &&
-			  !net_is_in_network(&filter->remote_net,
+			  !net_is_in_network(&filter.remote_net,
 					     &parent->remote_net,
 					     parent->remote_bits)))
 			ctx->error = "remote net1 { remote net2 { .. } } requires net2 to be inside net1";
 		else
-			filter->remote_host = p_strdup(ctx->pool, value);
+			filter.remote_host = p_strdup(ctx->pool, value);
 	} else if (config_is_filter_name(ctx, key, &filter_def)) {
 		if (filter_def->type == SET_FILTER_NAME ||
 		    filter_def->type == SET_FILTER_HIERARCHY) {
@@ -943,8 +940,8 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 				return TRUE;
 			}
 			if (filter_def->type == SET_FILTER_HIERARCHY)
-				filter->filter_hierarchical = TRUE;
-			filter->filter_name = p_strdup(ctx->pool, key);
+				filter.filter_hierarchical = TRUE;
+			filter.filter_name = p_strdup(ctx->pool, key);
 		} else {
 			if (strcmp(key, "namespace") == 0 &&
 			    parent->filter_name_array &&
@@ -976,15 +973,15 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 					"%s { } is missing section name", key);
 				return TRUE;
 			}
-			filter->filter_name =
+			filter.filter_name =
 				p_strdup_printf(ctx->pool, "%s/%s", key, value);
-			filter->filter_name_array = TRUE;
+			filter.filter_name_array = TRUE;
 		}
 	} else {
 		return FALSE;
 	}
 
-	filter_parser = config_filter_parser_find(ctx, filter);
+	filter_parser = config_filter_parser_find(ctx, &filter);
 	if (filter_parser != NULL)
 		ctx->cur_section->filter_parser = filter_parser;
 	else {
@@ -1000,7 +997,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 					ctx->error);
 			}
 		}
-		config_add_new_parser(ctx, ctx->cur_section, FALSE);
+		config_add_new_parser(ctx, &filter, ctx->cur_section, FALSE);
 	}
 	ctx->cur_section->is_filter = TRUE;
 
@@ -1687,7 +1684,7 @@ static int config_write_value(struct config_parser_context *ctx,
 static bool
 config_section_has_non_named_filters(struct config_section_stack *section)
 {
-	struct config_filter *filter = &section->filter;
+	struct config_filter *filter = &section->filter_parser->filter;
 
 	do {
 		if (filter->service != NULL ||
@@ -1981,7 +1978,8 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 
 	p_array_init(&ctx.all_filter_parsers, ctx.pool, 128);
 	ctx.cur_section = p_new(ctx.pool, struct config_section_stack, 1);
-	config_add_new_parser(&ctx, ctx.cur_section, TRUE);
+	struct config_filter root_filter = { };
+	config_add_new_parser(&ctx, &root_filter, ctx.cur_section, TRUE);
 
 	ctx.key_path = str_new(ctx.pool, 256);
 	ctx.value = str_new(ctx.pool, 256);
