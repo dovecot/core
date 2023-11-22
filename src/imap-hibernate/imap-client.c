@@ -519,7 +519,6 @@ imap_client_get_var_expand_table(struct imap_client *client)
 		{ 'h', NULL /* we shouldn't need this */, "home" },
 		{ 'l', local_ip, "lip" },
 		{ 'r', remote_ip, "rip" },
-		{ 'p', my_pid, "pid" },
 		{ 'i', dec2str(client->state.uid), "uid" },
 		{ '\0', dec2str(client->state.gid), "gid" },
 		{ '\0', client->state.session_id, "session" },

@@ -51,7 +51,9 @@ static void test_var_expand_builtin(void)
 {
 	static struct var_expand_test tests[] = {
 		{ "%{system:hostname}", NULL, 1 },
-		{ "%{pid}", NULL, 1 },
+		{ "%{process:pid}", NULL, 1 },
+		{ "%{process:uid}", NULL, 1 },
+		{ "%{process:gid}", NULL, 1 },
 		{ "a%{env:FOO}b", "abaRb", 1 },
 		{ "%50Hv", "1f", 1 },
 		{ "%50Hw", "2e", 1 },
@@ -74,6 +76,8 @@ static void test_var_expand_builtin(void)
 
 	tests[0].out = my_hostname;
 	tests[1].out = my_pid;
+	tests[2].out = dec2str(geteuid());
+	tests[3].out = dec2str(getegid());
 	env_put("FOO", "baR");
 
 	test_begin("var_expand - builtin");
