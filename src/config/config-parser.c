@@ -776,15 +776,6 @@ config_add_new_parser(struct config_parser_context *ctx,
 
 	filter_parser = p_new(ctx->pool, struct config_filter_parser, 1);
 	filter_parser->filter = cur_section->filter;
-	if (ctx->cur_input->linenum == 0) {
-		filter_parser->file_and_line =
-			p_strdup(ctx->pool, ctx->cur_input->path);
-	} else {
-		filter_parser->file_and_line =
-			p_strdup_printf(ctx->pool, "%s:%d",
-					ctx->cur_input->path,
-					ctx->cur_input->linenum);
-	}
 	filter_parser->module_parsers = root ?
 		ctx->root_module_parsers :
 		config_module_parsers_init(ctx->pool);
