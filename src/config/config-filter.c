@@ -8,6 +8,8 @@
 #include "config-filter.h"
 #include "dns-util.h"
 
+static const struct config_filter empty_filter;
+
 static bool config_filter_match_service(const struct config_filter *mask,
 					const struct config_filter *filter)
 {
@@ -110,20 +112,15 @@ bool config_filters_equal(const struct config_filter *f1,
 
 	if (null_strcmp(f1->filter_name, f2->filter_name) != 0)
 		return FALSE;
-	for (;;) {
-		f1 = f1->parent;
-		f2 = f2->parent;
-		if (f1 != NULL && f1->filter_name_array) {
-			if (f2 == NULL || !f2->filter_name_array)
-				return FALSE;
-		} else if (f2 != NULL && f2->filter_name_array) {
-			return FALSE;
-		} else {
-			break;
-		}
-		if (strcmp(f1->filter_name, f2->filter_name) != 0)
-			return FALSE;
+	if (f1->filter_name_array != f2->filter_name_array)
+		return FALSE;
+	if (f1->parent != NULL || f2->parent != NULL) {
+		/* Check the parents' compatibility also. However, it's
+		   possible that one of these parents is the empty root filter,
+		   while the other parent is NULL. These are actually equal. */
+		return config_filters_equal(
+			f1->parent != NULL ? f1->parent : &empty_filter,
+			f2->parent != NULL ? f2->parent : &empty_filter);
 	}
-
 	return TRUE;
 }
