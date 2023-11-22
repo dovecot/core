@@ -5,15 +5,26 @@
 #include "config-filter.h"
 
 enum config_line_type {
+	/* empty line, or only a #comment in the line */
 	CONFIG_LINE_TYPE_SKIP,
+	/* line ended with '\' - need to continue parsing the next line */
 	CONFIG_LINE_TYPE_CONTINUE,
+	/* value contains the parser error string */
 	CONFIG_LINE_TYPE_ERROR,
+	/* key = value */
 	CONFIG_LINE_TYPE_KEYVALUE,
+	/* key = <value */
 	CONFIG_LINE_TYPE_KEYFILE,
+	/* key = $value */
 	CONFIG_LINE_TYPE_KEYVARIABLE,
+	/* key {
+	   key value { */
 	CONFIG_LINE_TYPE_SECTION_BEGIN,
+	/* } (key = "}", value = "") */
 	CONFIG_LINE_TYPE_SECTION_END,
+	/* !include value (key = "!include") */
 	CONFIG_LINE_TYPE_INCLUDE,
+	/* !include_try value (key = "!include_try") */
 	CONFIG_LINE_TYPE_INCLUDE_TRY
 };
 
@@ -21,6 +32,7 @@ struct config_line {
 	enum config_line_type type;
 	const char *key;
 	const char *value;
+	/* value is inside "quotes" */
 	bool value_quoted;
 };
 
@@ -28,16 +40,27 @@ struct config_line {
 #define config_section_is_in_list(section) \
 	(!(section)->is_filter && (section)->key != NULL)
 
+/* A section { .. } either in configuration file, or its equivalent in a
+   section/key setting path. */
 struct config_section_stack {
+	/* Parent section, or NULL if this is the root (not a section) */
 	struct config_section_stack *prev;
+	/* Section key, e.g. "foo" in "foo { .. }". This is used only for
+	   non-filters, i.e. strlist { .. } or boollist { .. } */
 	const char *key;
 
+	/* The filter_parser matches all the filters in this section stack. */
 	struct config_filter_parser *filter_parser;
 
+	/* Config file's filename and line number where this section was
+	   opened in. */
 	const char *open_path;
 	unsigned int open_linenum;
+	/* This section is a filter (instead of strlist or boollist) */
 	bool is_filter;
 
+	/* If this section begins a named [list] filter, this points to its
+	   definition. */
 	const struct setting_define *filter_def;
 };
 

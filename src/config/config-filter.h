@@ -3,7 +3,10 @@
 
 #include "net.h"
 
+/* A single filter in configuration. Only one of the fields should be set at
+   a time. Use parent-hierarchy to set multiple filters. */
 struct config_filter {
+	/* Parent filter, which is ANDed to this filter */
 	struct config_filter *parent;
 
 	const char *service;
@@ -17,6 +20,7 @@ struct config_filter {
 
 	/* named_filter { .. } */
 	const char *filter_name;
+	/* named_list_filter key { .. } */
 	bool filter_name_array;
 	/* This filter is hierarchical. If a child event is also hierarchical,
 	   their filter_names will be merged into one filter path when dumping
@@ -24,12 +28,22 @@ struct config_filter {
 	bool filter_hierarchical;
 };
 
+/* Each unique config_filter (including its parents in hierarchy) has its own
+   config_filter_parser. */
 struct config_filter_parser {
+	/* Filter parser tree. These are used only for doveconf's human output
+	   to write the filters in nice nested hierarchies. */
 	struct config_filter_parser *children_head, *children_tail, *prev, *next;
 
+	/* Filter for this parser. Its parent filters must also match. */
 	struct config_filter filter;
-	/* NULL-terminated array of parsers */
+	/* NULL-terminated array of parsers for settings. All parsers have the
+	   same number of module_parsers. Each module parser is initialized
+	   lazily after the first setting in the module is changed. */
 	struct config_module_parser *module_parsers;
+	/* Named [list] filters may have required_setting. If they do, this
+	   boolean tracks whether that setting has been changed in this
+	   filter. */
 	bool filter_required_setting_seen;
 };
 
