@@ -396,8 +396,10 @@ var_expand_system(struct var_expand_context *ctx ATTR_UNUSED,
 			return -1;
 		*result_r = dec2str(ncpus);
 		return 1;
+	} else if (strcmp(field, "hostname") == 0) {
+		*result_r = my_hostname;
+		return 1;
 	}
-
 	*error_r = t_strdup_printf("Unsupported system key '%s'", field);
 	return 0;
 }
@@ -488,10 +490,6 @@ var_expand_long(struct var_expand_context *ctx,
 			value = dec2str(geteuid());
 		else if (strcmp(key, "gid") == 0)
 			value = dec2str(getegid());
-		break;
-	case 8:
-		if (strcmp(key, "hostname") == 0)
-			value = my_hostname;
 		break;
 	}
 

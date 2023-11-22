@@ -50,7 +50,7 @@ static void test_var_expand_ranges(void)
 static void test_var_expand_builtin(void)
 {
 	static struct var_expand_test tests[] = {
-		{ "%{hostname}", NULL, 1 },
+		{ "%{system:hostname}", NULL, 1 },
 		{ "%{pid}", NULL, 1 },
 		{ "a%{env:FOO}b", "abaRb", 1 },
 		{ "%50Hv", "1f", 1 },
