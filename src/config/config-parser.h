@@ -25,8 +25,14 @@ enum config_parse_flags {
 	CONFIG_PARSE_FLAG_EXTERNAL_HOOKS = BIT(6),
 };
 
+/* Used to track changed settings for a setting_parser_info. Initially only
+   the "info" is set, while everything else is NULL. Once the first setting
+   is changed, the other fields are initialized. Each config_filter_parser
+   initializes new empty config_module_parsers. */
 struct config_module_parser {
 	const struct setting_parser_info *info;
+
+	/* The rest are filled only after the first setting is changed: */
 	unsigned int set_count;
 	union config_module_parser_setting {
 		const char *str;
