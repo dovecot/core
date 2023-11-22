@@ -24,12 +24,15 @@ struct config_line {
 	bool value_quoted;
 };
 
+/* Returns TRUE if section is inside strlist { .. } or boollist { .. } */
+#define config_section_is_in_list(section) \
+	(!(section)->is_filter && (section)->key != NULL)
+
 struct config_section_stack {
 	struct config_section_stack *prev;
 	const char *key;
 
 	struct config_filter_parser *filter_parser;
-	size_t pathlen;
 
 	const char *open_path;
 	unsigned int open_linenum;
@@ -57,7 +60,7 @@ struct config_parser_context {
 	struct input_stack *cur_input;
 	uint8_t change_counter;
 
-	string_t *key_path, *value;
+	string_t *value;
 	const char *error;
 
 	const char *dovecot_config_version;
