@@ -1108,18 +1108,22 @@ settings_get_full(struct event *event,
 	if (instance == NULL)
 		instance = &empty_instance;
 
-	const char *filter_name;
-	if (filter_value != NULL) {
-		filter_name = t_strdup_printf("%s/%s", filter_key,
-			settings_section_escape(filter_value));
-	} else if (filter_key != NULL)
-		filter_name = filter_key;
-	else
-		filter_name = NULL;
+	int ret;
+	T_BEGIN {
+		const char *filter_name;
+		if (filter_value != NULL) {
+			filter_name = t_strdup_printf("%s/%s", filter_key,
+				settings_section_escape(filter_value));
+		} else if (filter_key != NULL)
+			filter_name = filter_key;
+		else
+			filter_name = NULL;
 
-	return settings_instance_get(event, root, instance,
-		filter_key, filter_value, filter_name, info, flags,
-		source_filename, source_linenum, set_r, error_r);
+		ret = settings_instance_get(event, root, instance,
+			filter_key, filter_value, filter_name, info, flags,
+			source_filename, source_linenum, set_r, error_r);
+	} T_END_PASS_STR_IF(ret <= 0, error_r);
+	return ret;
 }
 
 #undef settings_get
