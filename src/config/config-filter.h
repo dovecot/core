@@ -28,7 +28,6 @@ struct config_filter_parser {
 	struct config_filter_parser *children_head, *children_tail, *prev, *next;
 
 	struct config_filter filter;
-	const char *file_and_line;
 	/* NULL-terminated array of parsers */
 	struct config_module_parser *module_parsers;
 	bool filter_required_setting_seen;
