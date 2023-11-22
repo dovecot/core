@@ -376,15 +376,15 @@ config_apply_login_set(struct config_parser_context *ctx,
 {
 	obsolete(ctx, "%s has been replaced by service { %s }", old_key, key);
 
-	if (config_filter_match(&old_section->filter, &imap_filter)) {
+	if (config_filter_match(&old_section->filter_parser->filter, &imap_filter)) {
 		config_apply_line(ctx,
 			t_strdup_printf("service/imap-login/%s", key), value);
 	}
-	if (config_filter_match(&old_section->filter, &pop3_filter)) {
+	if (config_filter_match(&old_section->filter_parser->filter, &pop3_filter)) {
 		config_apply_line(ctx,
 			t_strdup_printf("service/pop3-login/%s", key), value);
 	}
-	if (config_filter_match(&old_section->filter, &managesieve_filter)) {
+	if (config_filter_match(&old_section->filter_parser->filter, &managesieve_filter)) {
 		/* if pigeonhole isn't installed, this fails.
 		   just ignore it then.. */
 		config_apply_line(ctx,
@@ -400,15 +400,15 @@ config_apply_mail_set(struct config_parser_context *ctx,
 {
 	obsolete(ctx, "%s has been replaced by service { %s }", old_key, key);
 
-	if (config_filter_match(&old_section->filter, &imap_filter)) {
+	if (config_filter_match(&old_section->filter_parser->filter, &imap_filter)) {
 		config_apply_line(ctx,
 			t_strdup_printf("service/imap/%s", key), value);
 	}
-	if (config_filter_match(&old_section->filter, &pop3_filter)) {
+	if (config_filter_match(&old_section->filter_parser->filter, &pop3_filter)) {
 		config_apply_line(ctx,
 			t_strdup_printf("service/pop3/%s", key), value);
 	}
-	if (config_filter_match(&old_section->filter, &managesieve_filter)) {
+	if (config_filter_match(&old_section->filter_parser->filter, &managesieve_filter)) {
 		config_apply_line(ctx,
 			t_strdup_printf("service/managesieve/%s", key), value);
 		ctx->error = NULL;
@@ -454,7 +454,7 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 	while (ctx->cur_section->prev != NULL)
 		ctx->cur_section = ctx->cur_section->prev;
 
-	root = config_filter_match(&old_section->filter, &any_filter);
+	root = config_filter_match(&old_section->filter_parser->filter, &any_filter);
 
 	if (strcmp(key, "ssl_listen") == 0 ||
 	    (strcmp(key, "listen") == 0 &&
@@ -469,16 +469,16 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 		if (p != NULL && listen_has_port(value)) {
 			obsolete(ctx, "%s=..:port has been replaced by service { inet_listener { port } }", key);
 			value = t_strdup_until(value, p++);
-			if (config_filter_match(&old_section->filter, &imap_filter)) {
+			if (config_filter_match(&old_section->filter_parser->filter, &imap_filter)) {
 				config_apply_line(ctx, t_strdup_printf(
 					"service/imap-login/inet_listener/imap%s/port", ssl), p);
 			}
-			if (config_filter_match(&old_section->filter, &pop3_filter)) {
+			if (config_filter_match(&old_section->filter_parser->filter, &pop3_filter)) {
 				config_apply_line(ctx, t_strdup_printf(
 					"service/pop3-login/inet_listener/pop3%s/port", ssl), p);
 			}
 			if (*ssl == '\0' &&
-			    config_filter_match(&old_section->filter, &managesieve_filter)) {
+			    config_filter_match(&old_section->filter_parser->filter, &managesieve_filter)) {
 				config_apply_line(ctx,
 					"service/managesieve-login/inet_listener/managesieve/port", p);
 				ctx->error = NULL;
@@ -489,16 +489,16 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 					     key, value);
 		} else {
 			obsolete(ctx, "protocol { %s } has been replaced by service { inet_listener { address } }", key);
-			if (config_filter_match(&old_section->filter, &imap_filter)) {
+			if (config_filter_match(&old_section->filter_parser->filter, &imap_filter)) {
 				config_apply_line(ctx, t_strdup_printf(
 					"service/imap-login/inet_listener/imap%s/address", ssl), value);
 			}
-			if (config_filter_match(&old_section->filter, &pop3_filter)) {
+			if (config_filter_match(&old_section->filter_parser->filter, &pop3_filter)) {
 				config_apply_line(ctx, t_strdup_printf(
 					"service/pop3-login/inet_listener/pop3%s/address", ssl), value);
 			}
 			if (*ssl == '\0' &&
-			    config_filter_match(&old_section->filter, &managesieve_filter)) {
+			    config_filter_match(&old_section->filter_parser->filter, &managesieve_filter)) {
 				config_apply_line(ctx,
 					"service/managesieve-login/inet_listener/managesieve/address", value);
 				ctx->error = NULL;

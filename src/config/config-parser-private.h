@@ -28,7 +28,6 @@ struct config_section_stack {
 	struct config_section_stack *prev;
 	const char *key;
 
-	struct config_filter filter;
 	struct config_filter_parser *filter_parser;
 	size_t pathlen;
 
