@@ -30,8 +30,6 @@ struct config_section_stack {
 
 	struct config_filter filter;
 	struct config_filter_parser *filter_parser;
-	/* root=NULL-terminated list of parsers */
-	struct config_module_parser *module_parsers;
 	size_t pathlen;
 
 	const char *open_path;

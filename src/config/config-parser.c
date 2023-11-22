@@ -162,8 +162,6 @@ config_parser_add_service_default_keyvalues(struct config_parser_context *ctx,
 {
 	struct config_filter_parser *orig_filter_parser =
 		ctx->cur_section->filter_parser;
-	struct config_module_parser *orig_module_parsers =
-		ctx->cur_section->module_parsers;
 	const char *p;
 
 	for (unsigned int i = 0; defaults[i].key != NULL; i++) T_BEGIN {
@@ -189,8 +187,6 @@ config_parser_add_service_default_keyvalues(struct config_parser_context *ctx,
 				ctx->cur_section->filter_parser->filter_required_setting_seen = TRUE;
 			} else {
 				ctx->cur_section->filter_parser = filter_parser;
-				ctx->cur_section->module_parsers =
-					ctx->cur_section->filter_parser->module_parsers;
 				ctx->cur_section->filter = filter_parser->filter;
 			}
 			key = p + 1;
@@ -205,7 +201,6 @@ config_parser_add_service_default_keyvalues(struct config_parser_context *ctx,
 		config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
 
 		ctx->cur_section->filter_parser = orig_filter_parser;
-		ctx->cur_section->module_parsers = orig_module_parsers;
 		ctx->cur_section->filter = orig_filter_parser->filter;
 	} T_END;
 }
@@ -565,7 +560,7 @@ config_apply_exact_line(struct config_parser_context *ctx,
 
 	for (; config_key != NULL; config_key = config_key->next) {
 		struct config_module_parser *l =
-			&ctx->cur_section->module_parsers[config_key->info_idx];
+			&ctx->cur_section->filter_parser->module_parsers[config_key->info_idx];
 		if (l->settings == NULL)
 			config_module_parser_init(ctx, l);
 		switch (l->info->defines[config_key->define_idx].type) {
@@ -616,8 +611,6 @@ config_apply_line_full(struct config_parser_context *ctx,
 		       const char *value, const char **full_key_r)
 {
 	struct config_filter orig_filter = ctx->cur_section->filter;
-	struct config_module_parser *orig_module_parsers =
-		ctx->cur_section->module_parsers;
 	struct config_filter_parser *filter_parser, *orig_filter_parser;
 	const char *p, *key;
 	int ret = 0;
@@ -637,7 +630,7 @@ config_apply_line_full(struct config_parser_context *ctx,
 		if (config_key == NULL)
 			break;
 		struct config_module_parser *l =
-			&ctx->cur_section->module_parsers[config_key->info_idx];
+			&ctx->cur_section->filter_parser->module_parsers[config_key->info_idx];
 
 		const char *p2 = NULL;
 		if (l->info->defines[config_key->define_idx].type == SET_FILTER_ARRAY &&
@@ -664,8 +657,6 @@ config_apply_line_full(struct config_parser_context *ctx,
 			config_add_new_parser(ctx, ctx->cur_section, FALSE);
 		} else {
 			ctx->cur_section->filter_parser = filter_parser;
-			ctx->cur_section->module_parsers =
-				ctx->cur_section->filter_parser->module_parsers;
 			ctx->cur_section->filter = filter_parser->filter;
 		}
 		if (!filter.filter_name_array) {
@@ -697,7 +688,6 @@ config_apply_line_full(struct config_parser_context *ctx,
 			*full_key_r = key;
 	}
 	ctx->cur_section->filter_parser = orig_filter_parser;
-	ctx->cur_section->module_parsers = orig_module_parsers;
 	ctx->cur_section->filter = orig_filter;
 	if (ret == 0) {
 		ctx->error = p_strconcat(ctx->pool, "Unknown setting: ",
@@ -729,7 +719,7 @@ config_apply_error(struct config_parser_context *ctx, const char *key)
 
 	for (; config_key != NULL; config_key = config_key->next) {
 		struct config_module_parser *l =
-			&ctx->cur_section->module_parsers[config_key->info_idx];
+			&ctx->cur_section->filter_parser->module_parsers[config_key->info_idx];
 		if (l->delayed_error == NULL)
 			l->delayed_error = ctx->error;
 		ctx->error = NULL;
@@ -788,7 +778,6 @@ config_add_new_parser(struct config_parser_context *ctx,
 	}
 
 	cur_section->filter_parser = filter_parser;
-	cur_section->module_parsers = filter_parser->module_parsers;
 }
 
 static struct config_section_stack *
@@ -800,7 +789,6 @@ config_add_new_section(struct config_parser_context *ctx)
 	section->prev = ctx->cur_section;
 	section->filter = ctx->cur_section->filter;
 	section->filter_parser = ctx->cur_section->filter_parser;
-	section->module_parsers = ctx->cur_section->module_parsers;
 
 	section->open_path = p_strdup(ctx->pool, ctx->cur_input->path);
 	section->open_linenum = ctx->cur_input->linenum;
@@ -997,11 +985,9 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 	}
 
 	filter_parser = config_filter_parser_find(ctx, filter);
-	if (filter_parser != NULL) {
+	if (filter_parser != NULL)
 		ctx->cur_section->filter_parser = filter_parser;
-		ctx->cur_section->module_parsers =
-			ctx->cur_section->filter_parser->module_parsers;
-	} else {
+	else {
 		if (filter_def != NULL && filter_def->type == SET_FILTER_ARRAY) {
 			/* add it to the list of filter names */
 			const char *escaped_value =
@@ -1574,7 +1560,7 @@ config_get_value(struct config_section_stack *section,
 		 bool expand_parent, string_t *str)
 {
 	struct config_module_parser *l =
-		&section->module_parsers[config_key->info_idx];
+		&section->filter_parser->module_parsers[config_key->info_idx];
 	const struct setting_define *def =
 		&l->info->defines[config_key->define_idx];
 	if (def->type == SET_STRLIST || def->type == SET_BOOLLIST ||
