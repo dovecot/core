@@ -68,10 +68,10 @@ config_filter_parser_find(struct config_parser_context *ctx,
 			  const struct config_filter *filter);
 static struct config_section_stack *
 config_add_new_section(struct config_parser_context *ctx);
-static void
+static struct config_filter_parser *
 config_add_new_parser(struct config_parser_context *ctx,
 		      const struct config_filter *filter,
-		      struct config_section_stack *cur_section, bool root);
+		      struct config_filter_parser *parent_filter_parser);
 static int
 config_apply_exact_line(struct config_parser_context *ctx,
 			const struct config_line *line,
@@ -115,9 +115,8 @@ config_parser_add_filter_array(struct config_parser_context *ctx,
 		.filter_name_array = TRUE,
 	};
 	section->is_filter = TRUE;
-	/* use cur_section's filter_parser as parent */
-	section->filter_parser = ctx->cur_section->filter_parser;
-	config_add_new_parser(ctx, &filter, section, FALSE);
+	section->filter_parser =
+		config_add_new_parser(ctx, &filter, ctx->cur_section->filter_parser);
 	section->filter_parser->filter_required_setting_seen = TRUE;
 	return section;
 }
@@ -184,8 +183,8 @@ config_parser_add_service_default_keyvalues(struct config_parser_context *ctx,
 			if (filter_parser == NULL) {
 				filter.filter_name =
 					p_strdup(ctx->pool, filter.filter_name);
-				ctx->cur_section->filter_parser = orig_filter_parser;
-				config_add_new_parser(ctx, &filter, ctx->cur_section, FALSE);
+				ctx->cur_section->filter_parser =
+					config_add_new_parser(ctx, &filter, orig_filter_parser);
 				ctx->cur_section->filter_parser->filter_required_setting_seen = TRUE;
 			} else {
 				ctx->cur_section->filter_parser = filter_parser;
@@ -653,7 +652,9 @@ config_apply_line_full(struct config_parser_context *ctx,
 
 			filter.filter_name =
 				p_strdup(ctx->pool, filter.filter_name);
-			config_add_new_parser(ctx, &filter, ctx->cur_section, FALSE);
+			ctx->cur_section->filter_parser =
+				config_add_new_parser(ctx, &filter,
+					ctx->cur_section->filter_parser);
 		} else {
 			ctx->cur_section->filter_parser = filter_parser;
 		}
@@ -755,27 +756,27 @@ config_module_parsers_init(pool_t pool)
 	return dest;
 }
 
-static void
+static struct config_filter_parser *
 config_add_new_parser(struct config_parser_context *ctx,
 		      const struct config_filter *filter,
-		      struct config_section_stack *cur_section, bool root)
+		      struct config_filter_parser *parent_filter_parser)
 {
 	struct config_filter_parser *filter_parser;
 
 	filter_parser = p_new(ctx->pool, struct config_filter_parser, 1);
 	filter_parser->filter = *filter;
-	filter_parser->module_parsers = root ?
+	filter_parser->module_parsers = parent_filter_parser == NULL ?
 		ctx->root_module_parsers :
 		config_module_parsers_init(ctx->pool);
 	array_push_back(&ctx->all_filter_parsers, &filter_parser);
 
-	if (cur_section->filter_parser != NULL) {
-		DLLIST2_APPEND(&cur_section->filter_parser->children_head,
-			       &cur_section->filter_parser->children_tail,
+	if (parent_filter_parser != NULL) {
+		DLLIST2_APPEND(&parent_filter_parser->children_head,
+			       &parent_filter_parser->children_tail,
 			       filter_parser);
 	}
 
-	cur_section->filter_parser = filter_parser;
+	return filter_parser;
 }
 
 static struct config_section_stack *
@@ -997,7 +998,9 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 					ctx->error);
 			}
 		}
-		config_add_new_parser(ctx, &filter, ctx->cur_section, FALSE);
+		ctx->cur_section->filter_parser =
+			config_add_new_parser(ctx, &filter,
+					      ctx->cur_section->filter_parser);
 	}
 	ctx->cur_section->is_filter = TRUE;
 
@@ -1984,7 +1987,8 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	p_array_init(&ctx.all_filter_parsers, ctx.pool, 128);
 	ctx.cur_section = p_new(ctx.pool, struct config_section_stack, 1);
 	struct config_filter root_filter = { };
-	config_add_new_parser(&ctx, &root_filter, ctx.cur_section, TRUE);
+	ctx.cur_section->filter_parser =
+		config_add_new_parser(&ctx, &root_filter, NULL);
 
 	ctx.value = str_new(ctx.pool, 256);
 	full_line = str_new(default_pool, 512);
