@@ -13,6 +13,7 @@
 #include "json-generator.h"
 #include "json-istream.h"
 #include "json-ostream.h"
+#include "json-text.h"
 
 #include <stdio.h>
 #include <sys/stat.h>
@@ -1693,6 +1694,64 @@ static void test_json_stream_io_async(void)
 }
 
 /*
+ * Text I/O
+ */
+
+static void test_json_text_io(void)
+{
+	string_t *outbuf_format, *outbuf_compact;
+	struct json_format jformat;
+	unsigned int i;
+
+	outbuf_format = str_new(default_pool, 256);
+	outbuf_compact = str_new(default_pool, 256);
+
+	i_zero(&jformat);
+	jformat.indent_chars = 2;
+	jformat.whitespace = TRUE;
+	jformat.new_line = TRUE;
+	jformat.crlf = TRUE;
+
+	for (i = 0; i < tests_count; i++) T_BEGIN {
+		const struct json_io_test *test;
+		const char *text, *text_out, *error;
+		int ret;
+
+		buffer_set_used_size(outbuf_format, 0);
+		buffer_set_used_size(outbuf_compact, 0);
+
+		test = &tests[i];
+		text = test->input;
+		text_out = test->output;
+		if (text_out == NULL)
+			text_out = test->input;
+
+		test_begin(t_strdup_printf("json text io [%u]", i));
+
+		ret = json_text_format_cstr(text, 0, &test->limits, &jformat,
+					    outbuf_format, &error);
+		test_out_reason_quiet("format success", ret > 0, error);
+
+		ret = json_text_format_buffer(outbuf_format, 0, &test->limits,
+					      NULL, outbuf_compact, &error);
+		test_out_reason_quiet("format compact", ret > 0, error);
+
+		test_out_quiet("io match",
+			       strcmp(text_out, str_c(outbuf_compact)) == 0);
+		if (debug) {
+			i_debug("OUT: >%s<", text_out);
+			i_debug("OUT: >%s<", str_c(outbuf_format));
+			i_debug("OUT: >%s<", str_c(outbuf_compact));
+		}
+
+		test_end();
+	} T_END;
+
+	buffer_free(&outbuf_format);
+	buffer_free(&outbuf_compact);
+}
+
+/*
  * File I/O
  */
 
@@ -1841,6 +1900,7 @@ int main(int argc, char *argv[])
 		test_json_io_async,
 		test_json_stream_io,
 		test_json_stream_io_async,
+		test_json_text_io,
 		NULL
 	};
 
