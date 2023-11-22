@@ -1659,8 +1659,12 @@ static int config_write_value(struct config_parser_context *ctx,
 			str_append_c(ctx->value, '<');
 			str_append(ctx->value, line->value);
 		} else {
-			key_with_path = t_strconcat(str_c(ctx->key_path),
-						    line->key, NULL);
+			key_with_path =
+				config_section_is_in_list(ctx->cur_section) ?
+				t_strdup_printf("%s"SETTINGS_SEPARATOR_S"%s",
+						ctx->cur_section->key,
+						line->key) :
+				line->key;
 			path = fix_relative_path(line->value, ctx->cur_input);
 			if (str_append_file(ctx->value, key_with_path, path,
 					    &error) < 0) {
@@ -1819,8 +1823,13 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 			    config_apply_error(ctx, line->key) < 0)
 				break;
 		} else {
-			const char *key_with_path = t_strdup_printf("%s%s",
-				str_c(ctx->key_path), line->key);
+			/* Either a global key or list/key */
+			const char *key_with_path =
+				config_section_is_in_list(ctx->cur_section) ?
+				t_strdup_printf("%s"SETTINGS_SEPARATOR_S"%s",
+						ctx->cur_section->key,
+						line->key) :
+				line->key;
 			if (config_apply_line_full(ctx, line, key_with_path,
 						   str_c(ctx->value),
 						   &full_key) == 0)
@@ -1829,7 +1838,6 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 		break;
 	case CONFIG_LINE_TYPE_SECTION_BEGIN:
 		ctx->cur_section = config_add_new_section(ctx);
-		ctx->cur_section->pathlen = str_len(ctx->key_path);
 		ctx->cur_section->key = p_strdup(ctx->pool, line->key);
 
 		if (config_filter_add_new_filter(ctx, line)) {
@@ -1838,8 +1846,6 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 		}
 
 		/* This is SET_STRLIST or SET_BOOLLIST */
-		str_append(ctx->key_path, line->key);
-		str_append_c(ctx->key_path, SETTINGS_SEPARATOR);
 		break;
 	case CONFIG_LINE_TYPE_SECTION_END:
 		if (ctx->cur_section->prev == NULL)
@@ -1853,7 +1859,6 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 				ctx->cur_section->filter_def->key,
 				ctx->cur_section->filter_def->required_setting);
 		} else {
-			str_truncate(ctx->key_path, ctx->cur_section->pathlen);
 			ctx->cur_section = ctx->cur_section->prev;
 		}
 		break;
@@ -1981,7 +1986,6 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	struct config_filter root_filter = { };
 	config_add_new_parser(&ctx, &root_filter, ctx.cur_section, TRUE);
 
-	ctx.key_path = str_new(ctx.pool, 256);
 	ctx.value = str_new(ctx.pool, 256);
 	full_line = str_new(default_pool, 512);
 	ctx.cur_input->input = fd != -1 ?
