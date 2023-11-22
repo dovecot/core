@@ -166,13 +166,14 @@ config_dump_full_write_filters(struct ostream *output,
 
 	/* the first filter is the global empty filter */
 	o_stream_nsend(output, "", 1);
-	string_t *str = t_str_new(128);
-	for (i = 1; i < filter_count; i++) {
+	string_t *str = str_new(default_pool, 128);
+	for (i = 1; i < filter_count; i++) T_BEGIN {
 		str_truncate(str, 0);
 		config_dump_full_append_filter(str, &filters[i]->filter);
 		str_append_c(str, '\0');
 		o_stream_nsend(output, str_data(str), str_len(str));
-	}
+	} T_END;
+	str_free(&str);
 }
 
 static void
