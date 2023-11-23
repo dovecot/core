@@ -130,7 +130,8 @@ static struct prefix_stack prefix_stack_pop(ARRAY_TYPE(prefix_stack) *stack)
 }
 
 static struct config_dump_human_context *
-config_dump_human_init(enum config_dump_scope scope)
+config_dump_human_init(enum config_dump_scope scope,
+		       struct config_filter_parser *filter_parser)
 {
 	struct config_dump_human_context *ctx;
 	enum config_dump_flags flags;
@@ -145,6 +146,8 @@ config_dump_human_init(enum config_dump_scope scope)
 	flags = CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS;
 	ctx->export_ctx = config_export_init(scope, flags,
 					     config_request_get_strings, ctx);
+	config_export_set_module_parsers(ctx->export_ctx,
+					 filter_parser->module_parsers);
 	return ctx;
 }
 
@@ -640,12 +643,10 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 		bool sub_hide_passwords = set_name_filter != NULL ?
 			FALSE : hide_passwords;
 
-		ctx = config_dump_human_init(scope);
+		ctx = config_dump_human_init(scope, filter_parser);
 		sub_indent = hide_key ? 0 :
 			config_dump_filter_begin(list_prefix, indent,
 						 &filter_parser->filter);
-		config_export_set_module_parsers(ctx->export_ctx,
-						 filter_parser->module_parsers);
 		str_append_str(ctx->list_prefix, list_prefix);
 		const char *filter_key =
 			!filter_parser->filter.filter_name_array ? NULL :
@@ -698,9 +699,7 @@ config_dump_human(enum config_dump_scope scope,
 
 	/* Check for the setting always even with a filter - it might be
 	   e.g. plugin/key strlist */
-	ctx = config_dump_human_init(scope);
-	config_export_set_module_parsers(ctx->export_ctx,
-					 filter_parser->module_parsers);
+	ctx = config_dump_human_init(scope, filter_parser);
 	config_dump_human_output(ctx, output, 0, setting_name_filter, NULL,
 				 hide_key, hide_passwords, NULL);
 	config_dump_human_deinit(ctx);
