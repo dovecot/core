@@ -480,7 +480,8 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 	}
 
 	/* shared namespace. see if it's in acl lookup dict */
-	diter = acl_lookup_dict_iterate_visible_init(auser->acl_lookup_dict);
+	diter = acl_lookup_dict_iterate_visible_init(auser->acl_lookup_dict,
+						     &backend->set->acl_groups);
 	while ((name = acl_lookup_dict_iterate_visible_next(diter)) != NULL) {
 		if (strcmp(name, ns->owner->username) == 0)
 			break;
