@@ -13,15 +13,18 @@ struct http_request;
 struct http_server;
 struct http_server_resource;
 struct http_server_request;
+struct http_server_request_limits;
 struct http_server_response;
+
+#define HTTP_SERVER_DEFAULT_MAX_PAYLOAD_SIZE (1024 * 1024 * 1024 * 10ULL)
 
 /*
  * Server settings
  */
 
 struct http_server_settings {
-	const char *default_host;
-
+	pool_t pool;
+	const char *base_dir;
 	const char *rawlog_dir;
 
 	/* SSL settings; if NULL, settings_get() is used automatically */
@@ -42,6 +45,8 @@ struct http_server_settings {
 	uoff_t request_hdr_max_field_size;
 	unsigned int request_hdr_max_fields;
 
+	/* Hidden settings */
+	const char *default_host;
 	/* The kernel send/receive buffer sizes used for the connection sockets.
 	   Configuring this is mainly useful for the test suite. The kernel
 	   defaults are used when these settings are 0. */
@@ -54,6 +59,9 @@ struct http_server_settings {
 	/* Enable logging debug messages */
 	bool debug;
 };
+
+
+extern const struct setting_parser_info http_server_setting_parser_info;
 
 /*
  * Response
