@@ -416,6 +416,7 @@ stats_client_init_unittest(buffer_t *buf, const char *filter)
 	client = i_new(struct stats_client, 1);
 	connection_init_client_unix(stats_clients, &client->conn, "(unit test)");
 	client->conn.output = o_stream_create_buffer(buf);
+	o_stream_set_no_error_handling(client->conn.output, TRUE);
 	client->handshaked = TRUE;
 
 	client->filter = event_filter_create();
