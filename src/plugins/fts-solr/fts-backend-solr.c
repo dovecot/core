@@ -186,7 +186,7 @@ fts_backend_solr_init(struct fts_backend *_backend, const char **error_r)
 		*error_r = "Invalid fts_solr setting";
 		return -1;
 	}
-	return solr_connection_init(&fuser->set, _backend->event,
+	return solr_connection_init(fuser->set, _backend->event,
 				    &backend->solr_conn, error_r);
 }
 
@@ -382,7 +382,7 @@ static int fts_backend_solr_commit(struct solr_fts_backend_update_context *ctx)
 	struct fts_solr_user *fuser =
 		FTS_SOLR_USER_CONTEXT_REQUIRE(ctx->ctx.backend->ns->user);
 
-	if (!fuser->set.soft_commit)
+	if (!fuser->set->soft_commit)
 		return 0;
 
 	const char *str = t_strdup_printf(
@@ -499,7 +499,7 @@ fts_backend_solr_uid_changed(struct solr_fts_backend_update_context *ctx,
 	struct fts_solr_user *fuser =
 		FTS_SOLR_USER_CONTEXT_REQUIRE(ctx->ctx.backend->ns->user);
 
-	if (ctx->mails_since_flush >= fuser->set.batch_size) {
+	if (ctx->mails_since_flush >= fuser->set->batch_size) {
 		if (fts_backed_solr_build_flush(ctx) < 0)
 			ctx->ctx.failed = TRUE;
 	}
