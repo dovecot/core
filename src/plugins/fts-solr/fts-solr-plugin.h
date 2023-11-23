@@ -11,7 +11,7 @@
 	MODULE_CONTEXT_REQUIRE(obj, fts_solr_user_module)
 
 struct fts_solr_settings {
-	const char *url, *default_ns_prefix, *rawlog_dir;
+	const char *url, *rawlog_dir;
 	unsigned int batch_size;
 	bool use_libfts;
 	bool debug;
@@ -25,7 +25,6 @@ struct fts_solr_user {
 
 extern const char *fts_solr_plugin_dependencies[];
 extern struct fts_backend fts_backend_solr;
-extern struct fts_backend fts_backend_solr_old;
 extern MODULE_CONTEXT_DEFINE(fts_solr_user_module, &mail_user_module_register);
 extern struct http_client *solr_http_client;
 

@@ -36,8 +36,6 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 			set->debug = TRUE;
 		} else if (strcmp(*tmp, "use_libfts") == 0) {
 			set->use_libfts = TRUE;
-		} else if (str_begins(*tmp, "default_ns=", &value)) {
-			set->default_ns_prefix = p_strdup(user->pool, value);
 		} else if (str_begins(*tmp, "rawlog_dir=", &value)) {
 			set->rawlog_dir = p_strdup(user->pool, value);
 		} else if (str_begins(*tmp, "batch_size=", &value)) {
@@ -117,14 +115,12 @@ static struct mail_storage_hooks fts_solr_mail_storage_hooks = {
 void fts_solr_plugin_init(struct module *module)
 {
 	fts_backend_register(&fts_backend_solr);
-	fts_backend_register(&fts_backend_solr_old);
 	mail_storage_hooks_add(module, &fts_solr_mail_storage_hooks);
 }
 
 void fts_solr_plugin_deinit(void)
 {
 	fts_backend_unregister(fts_backend_solr.name);
-	fts_backend_unregister(fts_backend_solr_old.name);
 	mail_storage_hooks_remove(&fts_solr_mail_storage_hooks);
 	if (solr_http_client != NULL)
 		http_client_deinit(&solr_http_client);
