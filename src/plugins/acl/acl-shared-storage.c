@@ -8,6 +8,7 @@
 #include "acl-plugin.h"
 #include "acl-lookup-dict.h"
 #include "acl-shared-storage.h"
+#include "acl-api-private.h"
 #include "index/shared/shared-storage.h"
 
 #define SHARED_NS_RETRY_SECS (60*60)
@@ -82,6 +83,7 @@ int acl_shared_namespaces_add(struct mail_namespace *ns)
 	struct acl_user *auser = ACL_USER_CONTEXT(ns->user);
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(ns->list);
 	struct mail_storage *storage = mail_namespace_get_default_storage(ns);
+	struct acl_backend *backend = acl_mailbox_list_get_backend(ns->list);
 	struct acl_lookup_dict_iter *iter;
 	const char *name;
 
@@ -95,7 +97,8 @@ int acl_shared_namespaces_add(struct mail_namespace *ns)
 	}
 	alist->last_shared_add_check = ioloop_time;
 
-	iter = acl_lookup_dict_iterate_visible_init(auser->acl_lookup_dict);
+	iter = acl_lookup_dict_iterate_visible_init(auser->acl_lookup_dict,
+						    &backend->set->acl_groups);
 	while ((name = acl_lookup_dict_iterate_visible_next(iter)) != NULL) {
 		T_BEGIN {
 			acl_shared_namespace_add(ns, storage, name);
