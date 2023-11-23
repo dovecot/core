@@ -649,7 +649,7 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 						 &filter_parser->filter);
 		str_append_str(ctx->list_prefix, list_prefix);
 		const char *filter_key =
-			!filter_parser->filter.filter_name_array ? NULL :
+			filter_parser->filter.filter_name == NULL ? NULL :
 			t_strcut(filter_parser->filter.filter_name, '/');
 
 		const char *alt_set_name_filter =
@@ -875,7 +875,8 @@ int main(int argc, char *argv[])
 	bool simple_output = FALSE, check_full_config = FALSE;
 	bool hide_obsolete_warnings = FALSE;
 	bool dump_defaults = FALSE, host_verify = FALSE, dump_full = FALSE;
-	bool print_plugin_banner = FALSE, hide_passwords = TRUE;
+	bool print_banners = FALSE, hide_passwords = TRUE;
+	bool prefixes_in_filters = FALSE;
 
 	if (getenv("USE_SYSEXITS") != NULL) {
 		/* we're coming from (e.g.) LDA */
@@ -964,18 +965,19 @@ int main(int argc, char *argv[])
 		setting_name_filters = argv+optind;
 		if (scope == CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN)
 			scope = CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN;
+		prefixes_in_filters = TRUE;
 	} else if (!simple_output) {
 		/* print the config file path before parsing it, so in case
 		   of errors it's still shown */
 		printf("# "DOVECOT_VERSION_FULL": %s\n", config_path);
-		print_plugin_banner = TRUE;
+		print_banners = TRUE;
 		fflush(stdout);
 	}
 	master_service_init_finish(master_service);
 	set_config_binary(TRUE);
 	config_parse_load_modules();
 
-	if (print_plugin_banner) {
+	if (print_banners) {
 		struct module *m;
 
 		for (m = modules; m != NULL; m = m->next) {
@@ -995,6 +997,8 @@ int main(int argc, char *argv[])
 		flags |= CONFIG_PARSE_FLAG_EXTERNAL_HOOKS;
 	if (hide_obsolete_warnings)
 		flags |= CONFIG_PARSE_FLAG_HIDE_OBSOLETE_WARNINGS;
+	if (print_banners || prefixes_in_filters)
+		flags |= CONFIG_PARSE_FLAG_PREFIXES_IN_FILTERS;
 	T_BEGIN {
 		ret = config_parse_file(dump_defaults ? NULL : config_path,
 					flags, &config, &error);
