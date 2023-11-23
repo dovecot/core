@@ -23,6 +23,11 @@ enum config_parse_flags {
 	   Do this only when executing doveconf or config binary explicitly,
 	   not e.g. when executing doveadm. */
 	CONFIG_PARSE_FLAG_EXTERNAL_HOOKS = BIT(6),
+	/* By default filter_name { filter_name_key } is stored into the
+	   parent. With this option, this is reversed so that filter_name_key
+	   is stored under filter_name { filter_name_key }. This makes the
+	   output nicer for the human-readable doveconf. */
+	CONFIG_PARSE_FLAG_PREFIXES_IN_FILTERS = BIT(7),
 };
 
 /* Used to track changed settings for a setting_parser_info. Initially only

@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "bsearch-insert-pos.h"
 #include "str.h"
 #include "hash.h"
 #include "llist.h"
@@ -603,6 +604,40 @@ config_apply_exact_line(struct config_parser_context *ctx,
 	return 1;
 }
 
+static bool replace_filter_prefix(struct config_parser_context *ctx,
+				  const char **key)
+{
+	/* doveconf human-readable output only: replace filter_name_key with
+	   filter_name/key so it shows up inside filter_name { key } */
+	unsigned int filter_name_idx;
+	bsearch_insert_pos(key, ctx->filter_name_prefixes,
+			   ctx->filter_name_prefixes_count,
+			   sizeof(ctx->filter_name_prefixes[0]),
+			   i_strcmp_p, &filter_name_idx);
+	if (filter_name_idx == 0)
+		return FALSE;
+
+	const char *filter_name_prefix =
+		ctx->filter_name_prefixes[filter_name_idx-1];
+	size_t filter_name_prefix_len = strlen(filter_name_prefix);
+	if (strncmp(*key, filter_name_prefix, filter_name_prefix_len) != 0)
+		return FALSE;
+
+	const char *cur_filter_name =
+		ctx->cur_section->filter_parser->filter.filter_name;
+	if (cur_filter_name != NULL &&
+	    strncmp(filter_name_prefix, cur_filter_name,
+		    filter_name_prefix_len - 1) == 0 &&
+	    cur_filter_name[filter_name_prefix_len-1] == '\0') {
+		/* already inside the correct filter */
+		return FALSE;
+	}
+
+	*key = t_strdup_printf("%.*s/%s", (int)filter_name_prefix_len-1,
+			       filter_name_prefix, *key);
+	return TRUE;
+}
+
 static int
 config_apply_line_full(struct config_parser_context *ctx,
 		       const struct config_line *line,
@@ -615,6 +650,7 @@ config_apply_line_full(struct config_parser_context *ctx,
 	int ret = 0;
 
 	orig_filter_parser = ctx->cur_section->filter_parser;
+again:
 	while ((p = strchr(key_with_path, '/')) != NULL) {
 		/* Support e.g. service/imap/inet_listener/imap/ or auth_policy/
 		   prefix here. These prefixes are used by default settings and
@@ -668,6 +704,10 @@ config_apply_line_full(struct config_parser_context *ctx,
 		key_with_path = p2 + 1;
 	}
 
+	if (ctx->filter_name_prefixes_count > 0 &&
+	    replace_filter_prefix(ctx, &key_with_path))
+		goto again;
+
 	/* the only '/' left should be if key is under list/ */
 	key = key_with_path;
 
@@ -680,7 +720,8 @@ config_apply_line_full(struct config_parser_context *ctx,
 		const char *key2 = t_strdup_printf("%s_%s", filter_key, key);
 		struct config_filter_parser *last_filter_parser =
 			ctx->cur_section->filter_parser;
-		if (!ctx->cur_section->filter_parser->filter.filter_name_array) {
+		if (!ctx->cur_section->filter_parser->filter.filter_name_array &&
+		    ctx->filter_name_prefixes_count == 0) {
 			/* For named non-list filters, if the setting name
 			   prefix equals the filter name, change the setting
 			   outside the filter. Otherwise it's rather confusing
@@ -1956,6 +1997,31 @@ config_parser_add_info(struct config_parser_context *ctx,
 	}
 }
 
+static void
+config_parser_get_filter_name_prefixes(struct config_parser_context *ctx)
+{
+	/* Get a sorted list of all (non-list) filter names with '_' appended
+	   to them. The settings matching these prefixes will be listed inside
+	   the filters. */
+	ARRAY_TYPE(const_string) filter_name_prefixes;
+	p_array_init(&filter_name_prefixes, ctx->pool, 64);
+	for (unsigned int i = 0; ctx->root_module_parsers[i].info != NULL; i++) {
+		const struct setting_parser_info *info =
+			ctx->root_module_parsers[i].info;
+		for (unsigned int j = 0; info->defines[j].key != NULL; j++) {
+			if (info->defines[j].type == SET_FILTER_NAME) {
+				const char *prefix = p_strconcat(ctx->pool,
+					info->defines[j].key, "_", NULL);
+				array_push_back(&filter_name_prefixes, &prefix);
+			}
+		}
+	}
+	array_sort(&filter_name_prefixes, i_strcmp_p);
+	ctx->filter_name_prefixes_count = array_count(&filter_name_prefixes);
+	if (ctx->filter_name_prefixes_count > 0)
+		ctx->filter_name_prefixes = array_front(&filter_name_prefixes);
+}
+
 int config_parse_file(const char *path, enum config_parse_flags flags,
 		      struct config_parsed **config_r,
 		      const char **error_r)
@@ -2017,6 +2083,8 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	root.path = path;
 	ctx.cur_input = &root;
 	ctx.expand_values = (flags & CONFIG_PARSE_FLAG_EXPAND_VALUES) != 0;
+	if ((flags & CONFIG_PARSE_FLAG_PREFIXES_IN_FILTERS) != 0)
+		config_parser_get_filter_name_prefixes(&ctx);
 	hash_table_create(&ctx.seen_settings, ctx.pool, 0, str_hash, strcmp);
 
 	p_array_init(&ctx.all_filter_parsers, ctx.pool, 128);

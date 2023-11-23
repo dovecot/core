@@ -87,6 +87,10 @@ struct config_parser_context {
 	const char *error;
 
 	const char *dovecot_config_version;
+
+	const char *const *filter_name_prefixes;
+	unsigned int filter_name_prefixes_count;
+
 	struct old_set_parser *old;
 
 	HASH_TABLE(const char *, const char *) seen_settings;
