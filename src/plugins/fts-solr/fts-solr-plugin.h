@@ -4,22 +4,16 @@
 #include "module-context.h"
 #include "mail-user.h"
 #include "fts-api-private.h"
+#include "fts-solr-settings.h"
 
 #define FTS_SOLR_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, fts_solr_user_module)
 #define FTS_SOLR_USER_CONTEXT_REQUIRE(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, fts_solr_user_module)
 
-struct fts_solr_settings {
-	const char *url, *rawlog_dir;
-	unsigned int batch_size;
-	bool debug;
-	bool soft_commit;
-};
-
 struct fts_solr_user {
 	union mail_user_module_context module_ctx;
-	struct fts_solr_settings set;
+	const struct fts_solr_settings *set;
 };
 
 extern const char *fts_solr_plugin_dependencies[];

@@ -9,6 +9,7 @@
 #include "istream.h"
 #include "http-url.h"
 #include "http-client.h"
+#include "settings.h"
 #include "fts-solr-plugin.h"
 #include "solr-connection.h"
 
@@ -67,7 +68,6 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 			 struct event *event_parent,
 			 struct solr_connection **conn_r, const char **error_r)
 {
-	struct http_client_settings *http_set;
 	struct solr_connection *conn;
 	struct http_url *http_url;
 	const char *error;
@@ -96,28 +96,19 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 	conn->debug = solr_set->debug;
 
 	if (solr_http_client == NULL) {
-		pool_t http_pool = pool_alloconly_create("solr http settings",
-							 sizeof(*http_set));
-		http_set = p_new(http_pool, struct http_client_settings, 1);
-		http_client_settings_init(http_pool, http_set);
-
-		http_set->max_idle_time_msecs = 5*1000;
-		http_set->max_parallel_connections = 1;
-		http_set->max_pipelined_requests = 1;
-		http_set->request_max_redirects = 1;
-		http_set->request_max_attempts = 3;
-		http_set->connect_timeout_msecs = 5*1000;
-		http_set->request_timeout_msecs = 60*1000;
-		http_set->rawlog_dir = p_strdup(http_pool, solr_set->rawlog_dir);
-
 		/* FIXME: We should initialize a shared client instead. However,
 		          this is currently not possible due to an obscure bug
 		          in the blocking HTTP payload API, which causes
 		          conflicts with other HTTP applications like FTS Tika.
 		          Using a private client will provide a quick fix for
 		          now. */
-		solr_http_client = http_client_init_private(http_set, conn->event);
-		pool_unref(&http_pool);
+
+		event_set_ptr(conn->event, SETTINGS_EVENT_FILTER_NAME, FTS_SOLR_FILTER);
+		if (http_client_init_private_auto(conn->event, &solr_http_client,
+						  &error) < 0) {
+			*error_r = t_strdup(error);
+			return -1;
+		}
 	}
 
 	*conn_r = conn;
