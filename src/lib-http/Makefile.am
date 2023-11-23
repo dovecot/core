@@ -34,6 +34,7 @@ libhttp_la_SOURCES = \
 	http-server-request.c \
 	http-server-connection.c \
 	http-server-resource.c \
+	http-server-settings.c \
 	http-server.c
 
 headers = \
@@ -85,6 +86,7 @@ test_libs = \
 test_deps = \
 	$(noinst_LTLIBRARIES) \
 	../lib-test/libtest.la \
+	../lib-settings/libsettings.la \
 	../lib/liblib.la
 
 test_http_url_SOURCES = test-http-url.c
