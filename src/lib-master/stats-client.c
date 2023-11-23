@@ -457,6 +457,7 @@ void stats_client_deinit(struct stats_client **_client)
 	event_filter_unref(&client->filter);
 	connection_deinit(&client->conn);
 	timeout_remove(&client->to_reconnect);
+	o_stream_unref(&client->conn.output);
 	i_free(client);
 
 	if (stats_clients->connections == NULL)
