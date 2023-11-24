@@ -155,17 +155,6 @@ JSON_VALUE_GET_S__TEMPLATE(json_value_get_int32,
 JSON_VALUE_GET_S__TEMPLATE(json_value_get_int64,
 			   int64_t, INT64_MIN, INT64_MAX)
 
-#define JSON_VALUE_GET_F__TEMPLATE(name, type)                          \
-static inline int                                                       \
-name(const struct json_value *jvalue, type *num_r)                      \
-{                                                                       \
-	if (jvalue->content_type == JSON_CONTENT_TYPE_INTEGER)          \
-		*num_r = (type)jvalue->content.intnum;                  \
-	else                                                            \
-		i_unreached();                                          \
-	return 0;                                                       \
-}
-
 /* string */
 
 static inline ATTR_PURE const char *
