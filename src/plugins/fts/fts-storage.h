@@ -3,12 +3,7 @@
 
 #include "mail-storage-private.h"
 #include "fts-api.h"
-
-enum fts_enforced {
-	FTS_ENFORCED_NO,
-	FTS_ENFORCED_YES,
-	FTS_ENFORCED_BODY,
-};
+#include "fts-settings.h"
 
 struct fts_scores {
 	int refcount;
