@@ -961,6 +961,10 @@ int json_istream_read_tree(struct json_istream *stream,
 	}
 
 	ret = json_istream_read_tree_common(stream);
+	if (ret < 0) {
+		stream->tree_node = NULL;
+		json_tree_unref(&stream->tree);
+	}
 	if (ret <= 0) {
 		*tree_r = NULL;
 		return ret;
@@ -972,6 +976,7 @@ int json_istream_read_tree(struct json_istream *stream,
 	}
 
 	*tree_r = stream->tree;
+	stream->tree_node = NULL;
 	stream->tree = NULL;
 	json_istream_skip(stream);
 	return 1;
@@ -1015,6 +1020,10 @@ int json_istream_read_into_tree_node(struct json_istream *stream,
 	}
 
 	ret = json_istream_read_tree_common(stream);
+	if (ret != 0) {
+		stream->tree_node = NULL;
+		json_tree_unref(&stream->tree);
+	}
 	if (ret <= 0)
 		return ret;
 
