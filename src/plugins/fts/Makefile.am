@@ -36,6 +36,7 @@ lib20_fts_plugin_la_SOURCES = \
 	fts-search.c \
 	fts-search-args.c \
 	fts-search-serialize.c \
+	fts-settings.c \
 	fts-storage.c \
 	fts-user.c
 
@@ -43,6 +44,7 @@ pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = \
 	fts-api.h \
 	fts-api-private.h \
+	fts-settings.h \
 	fts-indexer.h \
 	fts-parser.h \
 	fts-storage.h \
