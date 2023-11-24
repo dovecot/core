@@ -593,7 +593,7 @@ auth_policy_create_json(struct policy_lookup_ctx *context,
 						   "success", "true");
 		} else {
 			json_ostream_nwrite_string(json_output,
-						   "success", "true");
+						   "success", "false");
 		}
 		json_ostream_nwrite_string(json_output, "policy_reject",
 					   (context->request->policy_refusal ?
