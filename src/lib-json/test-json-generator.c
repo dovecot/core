@@ -2023,7 +2023,7 @@ static void test_json_generate_stream(void)
 	json_generate_object_open(generator);
 	state = 0;
 	dpos = 0;
-	for (pos = 0; pos < 65535 && state < 4; pos++) {
+	for (pos = 0; pos < 65535 && state < 5; pos++) {
 		o_stream_set_max_buffer_size(output, pos);
 		switch (state) {
 		case 0:
@@ -2070,7 +2070,7 @@ static void test_json_generate_stream(void)
 		}
 	}
 	json_generator_deinit(&generator);
-	test_assert(state == 4);
+	test_assert(state == 5);
 	test_assert(strcmp("{\"a\":\"FROPFROPFROPFROPFROP\"}",
 			   str_c(buffer)) == 0);
 	test_end();
