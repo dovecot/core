@@ -434,7 +434,11 @@ static int parse_client_settings(lua_State *L, struct http_client_settings *set,
 	const struct master_service_settings *master_set =
 		master_service_get_service_settings(master_service);
 	/* need to figure out socket dir */
-	set->dns_client_socket_path = t_strconcat(master_set->base_dir, "/dns-client", NULL);
+	CLIENT_SETTING_STR(dns_client_socket_path);
+	if (set->dns_client_socket_path == NULL) {
+		set->dns_client_socket_path =
+			t_strconcat(master_set->base_dir, "/dns-client", NULL);
+	}
 	CLIENT_SETTING_STR(user_agent);
 	CLIENT_SETTING_STR(rawlog_dir);
 	CLIENT_SETTING_UINT(max_idle_time_msecs);
