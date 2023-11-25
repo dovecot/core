@@ -475,6 +475,10 @@ static int parse_client_settings(lua_State *L, struct http_client_settings *set,
 	lua_getfield(L, -1, "event_parent");
 	if (!lua_isnil(L, -1))
 		set->event_parent = dlua_check_event(L, -1);
+	else {
+		struct dlua_script *script = dlua_script_from_state(L);
+		set->event_parent = script->event;
+	}
 
 	return 0;
 }
