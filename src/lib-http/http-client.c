@@ -85,7 +85,7 @@
 
  */
 
-static struct event_category event_category_http_client = {
+struct event_category event_category_http_client = {
 	.name = "http-client"
 };
 

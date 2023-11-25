@@ -415,6 +415,12 @@ struct http_client_context {
 };
 
 /*
+ * Events
+ */
+
+extern struct event_category event_category_http_client;
+
+/*
  * Peer address
  */
 

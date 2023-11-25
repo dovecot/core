@@ -243,6 +243,7 @@ void http_client_request_set_event(struct http_client_request *req,
 {
 	event_unref(&req->event);
 	req->event = event_create(event);
+	event_add_category(req->event, &event_category_http_client);
 	event_set_forced_debug(req->event, req->client->set.debug);
 	event_strlist_copy_recursive(req->event, event_get_global(),
 				     EVENT_REASON_CODE);
