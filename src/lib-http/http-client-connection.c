@@ -1138,7 +1138,8 @@ static void http_client_connection_input(struct connection *_conn)
 				"Got unexpected %u response; ignoring",
 				response.status);
 			continue;
-		} else if (!req->payload_sync && !req->payload_finished &&
+		} else if ((!req->payload_sync || req->payload_sync_continue) &&
+			   !req->payload_finished &&
 			   req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT) {
 			/* Got early response from server while we're still
 			   sending request payload. we cannot recover from this
