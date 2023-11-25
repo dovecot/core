@@ -22,7 +22,7 @@ libdovecot_lua_la_SOURCES = \
 	dlua-table.c \
 	dlua-thread.c
 
-test_programs = test-lua
+test_programs = test-lua test-lua-http-client
 
 WITH_YIELDS_LUA=
 if DLUA_WITH_YIELDS
@@ -54,11 +54,16 @@ headers = \
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
+EXTRA_DIST = \
+	test-lua-http-client.lua
+
 noinst_PROGRAMS = $(test_programs)
 
 test_libs =\
  libdovecot-lua.la \
  ../lib-dovecot/libdovecot.la
+
+test_libs_ssl = ../lib-ssl-iostream/libssl_iostream_openssl.la
 
 test_lua_SOURCES = test-lua.c
 test_lua_CFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
@@ -73,6 +78,14 @@ test_dict_lua_DEPENDENCIES = $(test_libs)
 test_dns_lua_SOURCES = test-dns-lua.c
 test_dns_lua_LDADD = $(test_libs) $(LUA_LIBS)
 test_dns_lua_DEPENDENCIES = $(test_libs)
+
+test_lua_http_client_SOURCES = test-lua-http-client.c
+test_lua_http_client_LDADD = $(test_libs) $(test_libs_ssl) $(LUA_LIBS)
+test_lua_http_client_DEPENDENCIES = $(test_libs)
+test_lua_http_client_CFLAGS = \
+	$(AM_CPPFLAGS) \
+	$(DOVECOT_BINARY_CFLAGS) \
+	-DTEST_LUA_SCRIPT_DIR=\"$(abs_top_srcdir)/src/lib-lua\"
 
 check-local:
 	for bin in $(test_programs); do \
