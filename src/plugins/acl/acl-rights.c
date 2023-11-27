@@ -3,9 +3,12 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+/* <settings checks> */
 #include "strescape.h"
+/* </settings checks> */
 #include "acl-api-private.h"
 
+/* <settings checks> */
 const struct acl_letter_map acl_letter_map[] = {
 	{ 'l', MAIL_ACL_LOOKUP },
 	{ 'r', MAIL_ACL_READ },
@@ -38,6 +41,8 @@ const char *const all_mailbox_rights[] = {
 
 static_assert(N_ELEMENTS(acl_letter_map) == N_ELEMENTS(all_mailbox_rights),
 	     "acl_letter_map size differs from all_mailbox_rights");
+
+/* </settings checks> */
 
 void acl_rights_write_id(string_t *dest, const struct acl_rights *right)
 {
@@ -162,6 +167,7 @@ const char *acl_rights_export(const struct acl_rights *rights)
 	return str_c(str);
 }
 
+/* <settings checks> */
 int acl_rights_parse_line(const char *line, pool_t pool,
 			  struct acl_rights *rights_r, const char **error_r)
 {
@@ -207,6 +213,7 @@ int acl_rights_parse_line(const char *line, pool_t pool,
 	rights_r->identifier = p_strdup(pool, rights_r->identifier);
 	return 0;
 }
+/* </settings checks> */
 
 void acl_rights_dup(const struct acl_rights *src,
 		    pool_t pool, struct acl_rights *dest_r)
@@ -256,6 +263,7 @@ bool acl_rights_has_nonowner_lookup_changes(const struct acl_rights *rights)
 	return FALSE;
 }
 
+/* <settings checks> */
 int acl_identifier_parse(const char *line, struct acl_rights *rights)
 {
 	if (str_begins(line, ACL_ID_NAME_USER_PREFIX, &rights->identifier)) {
@@ -351,6 +359,7 @@ acl_right_names_parse(pool_t pool, const char *acl, const char **error_r)
 
 	return acl_right_names_alloc(pool, &rights, FALSE);
 }
+/* </settings checks> */
 
 void acl_right_names_write(string_t *dest, const char *const *rights)
 {
