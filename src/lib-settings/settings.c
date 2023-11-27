@@ -499,9 +499,12 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 		key = t_strdup_printf("%s/%s", key, list_key);
 
 	/* call settings_apply() before variable expansion */
+	enum setting_apply_flags apply_flags =
+		(ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0 ? 0 :
+		SETTING_APPLY_FLAG_NO_EXPAND;
 	if (ctx->info->setting_apply != NULL &&
 	    !ctx->info->setting_apply(ctx->event, ctx->set_struct, key, &value,
-				      0, error_r)) {
+				      apply_flags, error_r)) {
 		*error_r = t_strdup_printf("Invalid setting %s=%s: %s",
 					   key, orig_value, *error_r);
 		return -1;
@@ -544,6 +547,9 @@ static int
 settings_mmap_apply_defaults(struct settings_apply_ctx *ctx,
 			     const char **error_r)
 {
+	enum setting_apply_flags apply_flags = SETTING_APPLY_FLAG_OVERRIDE |
+		((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0 ? 0 :
+		 SETTING_APPLY_FLAG_NO_EXPAND);
 	const char *error;
 	unsigned int key_idx;
 
@@ -564,9 +570,7 @@ settings_mmap_apply_defaults(struct settings_apply_ctx *ctx,
 
 		if (ctx->info->setting_apply != NULL &&
 		    !ctx->info->setting_apply(ctx->event, ctx->set_struct, key,
-					      &value,
-					      SETTING_APPLY_FLAG_OVERRIDE,
-					      &error))
+					      &value, apply_flags, &error))
 			i_panic("BUG: Failed to apply default setting %s=%s: %s",
 				key, value, error);
 
@@ -1339,6 +1343,9 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 	const struct failure_context failure_ctx = {
 		.type = LOG_TYPE_DEBUG
 	};
+	enum setting_apply_flags apply_flags = SETTING_APPLY_FLAG_OVERRIDE |
+		((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0 ? 0 :
+		 SETTING_APPLY_FLAG_NO_EXPAND);
 
 	bool seen_filter = FALSE;
 	array_foreach_modifiable(&ctx->overrides, set_elem) {
@@ -1428,9 +1435,7 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		}
 		if (ctx->info->setting_apply != NULL &&
 		    !ctx->info->setting_apply(ctx->event, ctx->set_struct, key,
-					      &value,
-					      SETTING_APPLY_FLAG_OVERRIDE,
-					      error_r)) {
+					      &value, apply_flags, error_r)) {
 			*error_r = t_strdup_printf(
 				"Failed to override configuration from %s: "
 				"Invalid %s=%s: %s",
