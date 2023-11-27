@@ -501,7 +501,7 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 	/* call settings_apply() before variable expansion */
 	if (ctx->info->setting_apply != NULL &&
 	    !ctx->info->setting_apply(ctx->event, ctx->set_struct, key, &value,
-				      FALSE, error_r)) {
+				      0, error_r)) {
 		*error_r = t_strdup_printf("Invalid setting %s=%s: %s",
 					   key, orig_value, *error_r);
 		return -1;
@@ -564,7 +564,9 @@ settings_mmap_apply_defaults(struct settings_apply_ctx *ctx,
 
 		if (ctx->info->setting_apply != NULL &&
 		    !ctx->info->setting_apply(ctx->event, ctx->set_struct, key,
-					      &value, TRUE, &error))
+					      &value,
+					      SETTING_APPLY_FLAG_OVERRIDE,
+					      &error))
 			i_panic("BUG: Failed to apply default setting %s=%s: %s",
 				key, value, error);
 
@@ -1426,7 +1428,9 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		}
 		if (ctx->info->setting_apply != NULL &&
 		    !ctx->info->setting_apply(ctx->event, ctx->set_struct, key,
-					      &value, TRUE, error_r)) {
+					      &value,
+					      SETTING_APPLY_FLAG_OVERRIDE,
+					      error_r)) {
 			*error_r = t_strdup_printf(
 				"Failed to override configuration from %s: "
 				"Invalid %s=%s: %s",
