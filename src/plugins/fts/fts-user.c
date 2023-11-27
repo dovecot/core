@@ -357,6 +357,15 @@ bool fts_user_autoindex_exclude(struct mailbox *box)
 	return mailbox_match_plugin_exclude(fuser->autoindex_exclude, box);
 }
 
+int fts_user_try_get_settings(struct mail_user *user,
+			      const struct fts_settings **set_r)
+{
+	struct fts_user *fuser = FTS_USER_CONTEXT(user);
+	if (fuser == NULL) return -1;
+	*set_r = fuser->set;
+	return 0;
+}
+
 static void fts_user_language_free(struct fts_user_language *user_lang)
 {
 	if (user_lang->filter != NULL)
@@ -413,12 +422,9 @@ int fts_mail_user_init(struct mail_user *user, bool initialize_libfts,
 		return 0;
 	}
 
-	const char *error;
 	const struct fts_settings *set;
-	if (settings_get(user->event, &fts_setting_parser_info, 0, &set, &error) < 0) {
-		e_error(user->event, "%s", error);
+	if (settings_get(user->event, &fts_setting_parser_info, 0, &set, error_r) < 0)
 		return -1;
-	}
 
 	fuser = p_new(user->pool, struct fts_user, 1);
 	fuser->set = set;

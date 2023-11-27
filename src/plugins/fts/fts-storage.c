@@ -5,6 +5,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "write-full.h"
+#include "settings.h"
 #include "mail-search-build.h"
 #include "mail-storage.h"
 #include "mailbox-list-private.h"
@@ -17,6 +18,7 @@
 #include "fts-user.h"
 #include "fts-storage.h"
 #include "hash.h"
+#include "fts-user.h"
 
 
 #define FTS_CONTEXT(obj) \
@@ -36,8 +38,6 @@
 struct fts_mailbox_list {
 	union mailbox_list_module_context module_ctx;
 	struct fts_backend *backend;
-
-	const char *backend_name;
 	struct fts_backend_update_context *update_ctx;
 	unsigned int update_ctx_refcount;
 
@@ -875,49 +875,53 @@ static void fts_mailbox_list_deinit(struct mailbox_list *list)
 	flist->module_ctx.super.deinit(list);
 }
 
-static int
-fts_init_namespace(struct fts_mailbox_list *flist, struct mail_namespace *ns,
-		   const char **error_r)
+static void
+fts_init_namespace(struct fts_mailbox_list *flist, struct mail_namespace *ns)
 {
 	struct fts_backend *backend;
-	if (fts_backend_init(flist->backend_name, ns, error_r, &backend) < 0) {
+	const char *error;
+
+	const struct fts_settings *set;
+	if (fts_user_try_get_settings(ns->user, &set) < 0) {
 		flist->failed = TRUE;
-		return -1;
+		e_error(ns->list->event,
+			"fts: Failed to initialize backend, "
+			"could not retrieve settings.");
+	} else if (fts_backend_init(set->driver, ns, &error, &backend) < 0) {
+		flist->failed = TRUE;
+		e_error(ns->list->event,
+			"fts: Failed to initialize backend '%s': %s",
+			set->driver, error);
+	} else {
+		flist->backend = backend;
+		if ((flist->backend->flags & FTS_BACKEND_FLAG_FUZZY_SEARCH) != 0)
+			ns->user->fuzzy_search = TRUE;
 	}
-	flist->backend = backend;
-	if ((flist->backend->flags & FTS_BACKEND_FLAG_FUZZY_SEARCH) != 0)
-		ns->user->fuzzy_search = TRUE;
-	return 0;
 }
 
 void fts_mail_namespaces_added(struct mail_namespace *ns)
 {
-	while(ns != NULL) {
+	for(; ns != NULL; ns = ns->next) {
 		struct fts_mailbox_list *flist = FTS_LIST_CONTEXT(ns->list);
-		const char *error;
-
-		if (flist != NULL && !flist->failed && flist->backend == NULL &&
-		    fts_init_namespace(flist, ns, &error) < 0) {
-			e_error(ns->list->event,
-				"fts: Failed to initialize backend '%s': %s",
-				flist->backend_name, error);
-		}
-		ns = ns->next;
+		if (flist != NULL && !flist->failed && flist->backend == NULL)
+			fts_init_namespace(flist, ns);
 	}
 }
 
 void
 fts_mailbox_list_created(struct mailbox_list *list)
 {
-	const char *name = mail_user_plugin_getenv(list->ns->user, "fts");
-	const char *path;
-
-	if (name == NULL || name[0] == '\0') {
+	const struct fts_settings *set;
+	/* This specific check is only a quick bypass. The actual validity
+	   of the settings will be checked later in fts_init_namespace() */
+	if (fts_user_try_get_settings(list->ns->user, &set) == 0 &&
+	    *set->driver == '\0') {
 		e_debug(list->event,
-			"fts: No fts setting - plugin disabled");
+			"fts: No fts_driver setting - plugin disabled");
 		return;
 	}
 
+	const char *path;
 	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX, &path)) {
 		e_debug(list->event,
 			"fts: Indexes disabled for namespace %s",
@@ -930,7 +934,6 @@ fts_mailbox_list_created(struct mailbox_list *list)
 
 	flist = p_new(list->pool, struct fts_mailbox_list, 1);
 	flist->module_ctx.super = *v;
-	flist->backend_name = name;
 	list->vlast = &flist->module_ctx.super;
 	v->deinit = fts_mailbox_list_deinit;
 	MODULE_CONTEXT_SET(list, fts_mailbox_list_module, flist);
