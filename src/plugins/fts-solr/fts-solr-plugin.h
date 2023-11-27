@@ -13,7 +13,6 @@
 struct fts_solr_settings {
 	const char *url, *rawlog_dir;
 	unsigned int batch_size;
-	bool use_libfts;
 	bool debug;
 	bool soft_commit;
 };
