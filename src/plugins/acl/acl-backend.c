@@ -22,20 +22,6 @@ struct event_category event_category_acl = {
 	.name = "acl",
 };
 
-const char *const all_mailbox_rights[] = {
-	MAIL_ACL_LOOKUP,
-	MAIL_ACL_READ,
-	MAIL_ACL_WRITE,
-	MAIL_ACL_WRITE_SEEN,
-	MAIL_ACL_WRITE_DELETED,
-	MAIL_ACL_INSERT,
-	MAIL_ACL_POST,
-	MAIL_ACL_EXPUNGE,
-	MAIL_ACL_CREATE,
-	MAIL_ACL_DELETE,
-	MAIL_ACL_ADMIN,
-	NULL
-};
 
 static const char *const *owner_mailbox_rights = all_mailbox_rights;
 static const char *const non_owner_mailbox_rights[] = { NULL };
