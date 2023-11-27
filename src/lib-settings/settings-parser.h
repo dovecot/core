@@ -44,6 +44,8 @@ enum setting_flags {
 enum setting_apply_flags {
 	/* Used when applying override settings (e.g. userdb or -o parameter) */
 	SETTING_APPLY_FLAG_OVERRIDE = BIT(0),
+	/* SETTINGS_GET_FLAG_NO_EXPAND is being used. */
+	SETTING_APPLY_FLAG_NO_EXPAND = BIT(1),
 };
 
 #define SETTING_DEFINE_LIST_END { 0, 0, NULL, 0, NULL, NULL }
