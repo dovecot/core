@@ -13,9 +13,6 @@ struct fts_backend;
 enum fts_lookup_flags {
 	/* Specifies if the args should be ANDed or ORed together. */
 	FTS_LOOKUP_FLAG_AND_ARGS	= 0x01,
-	/* Require exact matching for non-fuzzy search args by returning all
-	   such matches as maybe_uids instead of definite_uids */
-	FTS_LOOKUP_FLAG_NO_AUTO_FUZZY	= 0x02
 };
 
 enum fts_backend_build_key_type {
