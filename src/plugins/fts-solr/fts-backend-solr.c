@@ -186,12 +186,6 @@ fts_backend_solr_init(struct fts_backend *_backend, const char **error_r)
 		*error_r = "Invalid fts_solr setting";
 		return -1;
 	}
-	if (fuser->set.use_libfts) {
-		/* change our flags so we get proper input */
-		_backend->flags &= ENUM_NEGATE(FTS_BACKEND_FLAG_FUZZY_SEARCH);
-		_backend->flags |= FTS_BACKEND_FLAG_TOKENIZED_INPUT;
-	}
-
 	return solr_connection_init(&fuser->set, _backend->event,
 				    &backend->solr_conn, error_r);
 }

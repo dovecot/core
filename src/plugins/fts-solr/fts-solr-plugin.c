@@ -34,8 +34,6 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 			set->url = p_strdup(user->pool, value);
 		} else if (strcmp(*tmp, "debug") == 0) {
 			set->debug = TRUE;
-		} else if (strcmp(*tmp, "use_libfts") == 0) {
-			set->use_libfts = TRUE;
 		} else if (str_begins(*tmp, "rawlog_dir=", &value)) {
 			set->rawlog_dir = p_strdup(user->pool, value);
 		} else if (str_begins(*tmp, "batch_size=", &value)) {
@@ -88,7 +86,7 @@ static void fts_solr_mail_user_create(struct mail_user *user, const char *env)
 		/* invalid settings, disabling */
 		return;
 	}
-	if (fts_mail_user_init(user, fuser->set.use_libfts, &error) < 0) {
+	if (fts_mail_user_init(user, FALSE, &error) < 0) {
 		e_error(user->event, "fts-solr: %s", error);
 		return;
 	}
