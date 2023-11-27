@@ -93,10 +93,6 @@ const struct setting_parser_info acl_setting_parser_info = {
 /* <settings checks> */
 static bool acl_rights_settings_check(void *_set, pool_t pool, const char **error_r)
 {
-#ifdef CONFIG_BINARY
-	/* FIXME: validate syntax */
-	return TRUE;
-#else
 	struct acl_rights_settings *set = _set;
 	const char *const *right_names;
 	const char *id_str = set->id;
@@ -127,7 +123,6 @@ static bool acl_rights_settings_check(void *_set, pool_t pool, const char **erro
 		set->parsed->rights = right_names;
 	}
 	return TRUE;
-#endif
 }
 
 static bool acl_settings_check(void *_set ATTR_UNUSED, pool_t pool ATTR_UNUSED,

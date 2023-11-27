@@ -1,6 +1,8 @@
 #ifndef ACL_RIGHTS_H
 #define ACL_RIGHTS_H
 
+/* <settings checks> */
+
 /* Show mailbox in mailbox list. Allow subscribing to it. */
 #define MAIL_ACL_LOOKUP		"lookup"
 /* Allow opening mailbox for reading */
@@ -88,6 +90,8 @@ struct acl_rights {
 };
 ARRAY_DEFINE_TYPE(acl_rights, struct acl_rights);
 
+/* </settings checks> */
+
 struct acl_rights_update {
 	/* Holder for rights */
 	struct acl_rights rights;
@@ -110,8 +114,10 @@ void acl_rights_write_id(string_t *dest, const struct acl_rights *right);
    right. */
 bool acl_rights_has_nonowner_lookup_changes(const struct acl_rights *rights);
 
+/* <settings checks> */
 /* Parses identifier from line */
 int acl_identifier_parse(const char *line, struct acl_rights *rights);
+/* </settings checks> */
 
 int acl_rights_update_import(struct acl_rights_update *update,
 			     const char *id, const char *const *rights,
@@ -120,9 +126,11 @@ int acl_rights_update_import(struct acl_rights_update *update,
 /* Exports ACL rights to string */
 const char *acl_rights_export(const struct acl_rights *rights);
 
+/* <settings checks> */
 /* Parses line containing identifier and rights */
 int acl_rights_parse_line(const char *line, pool_t pool,
 			  struct acl_rights *rights_r, const char **error_r);
+/* </settings checks> */
 
 /* Duplicates a right */
 void acl_rights_dup(const struct acl_rights *src,
@@ -131,9 +139,11 @@ void acl_rights_dup(const struct acl_rights *src,
 /* Comparison for rights */
 int acl_rights_cmp(const struct acl_rights *r1, const struct acl_rights *r2);
 
+/* <settings checks> */
 /* Parses acl letter string to names */
 const char *const *
 acl_right_names_parse(pool_t pool, const char *acl, const char **error_r);
+/* </settings checks> */
 
 /* Writes acl names to destination string as acl letters */
 void acl_right_names_write(string_t *dest, const char *const *rights);
