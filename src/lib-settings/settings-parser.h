@@ -41,6 +41,11 @@ enum setting_flags {
 	SET_FLAG_HIDDEN = BIT(0),
 };
 
+enum setting_apply_flags {
+	/* Used when applying override settings (e.g. userdb or -o parameter) */
+	SETTING_APPLY_FLAG_OVERRIDE = BIT(0),
+};
+
 #define SETTING_DEFINE_LIST_END { 0, 0, NULL, 0, NULL, NULL }
 
 struct setting_define {
@@ -127,11 +132,10 @@ struct setting_parser_info {
 
 	/* This is called for every setting that is parsed. *value is already
 	   the final pointer stored into the settings struct. If it's modified,
-	   it should usually be allocated from set->pool. override=TRUE for
-	   settings overridden via userdb/cli. */
+	   it should usually be allocated from set->pool. */
 	bool (*setting_apply)(struct event *event, void *set,
 			      const char *key, const char **value,
-			      bool override, const char **error_r);
+			      enum setting_apply_flags flags, const char **error_r);
 	/* This is called after %variable expansion. */
 	bool (*check_func)(void *set, pool_t pool, const char **error_r);
 	/* The event parameter can be used with settings_get*() to access other

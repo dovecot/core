@@ -17,11 +17,11 @@
 #include "mail-storage-settings.h"
 #include "iostream-ssl.h"
 
-static bool mail_storage_settings_apply(struct event *event, void *_set, const char *key, const char **value, bool override, const char **error_r);
+static bool mail_storage_settings_apply(struct event *event, void *_set, const char *key, const char **value, enum setting_apply_flags, const char **error_r);
 static bool mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool, const char **error_r);
 static bool namespace_settings_ext_check(struct event *event, void *_set, pool_t pool, const char **error_r);
 static bool mailbox_settings_check(void *_set, pool_t pool, const char **error_r);
-static bool mail_user_settings_apply(struct event *event, void *_set, const char *key, const char **value, bool override, const char **error_r);
+static bool mail_user_settings_apply(struct event *event, void *_set, const char *key, const char **value, enum setting_apply_flags, const char **error_r);
 static bool mail_user_settings_check(void *_set, pool_t pool, const char **error_r);
 
 #undef DEF
@@ -463,13 +463,15 @@ mail_storage_settings_check_namespaces(struct event *event,
 static bool
 mail_storage_settings_apply(struct event *event ATTR_UNUSED, void *_set,
 			    const char *key, const char **value,
-			    bool override, const char **error_r ATTR_UNUSED)
+			    enum setting_apply_flags flags,
+			    const char **error_r ATTR_UNUSED)
 {
 	struct mail_storage_settings *set = _set;
 
 	if (strcmp(key, "mail_location") == 0) {
 		set->unexpanded_mail_location = *value;
-		set->unexpanded_mail_location_override = override;
+		set->unexpanded_mail_location_override =
+			(flags & SETTING_APPLY_FLAG_OVERRIDE) != 0;
 	}
 	return TRUE;
 }
@@ -788,7 +790,7 @@ static bool parse_postmaster_address(const char *address, pool_t pool,
 static bool
 mail_user_settings_apply(struct event *event ATTR_UNUSED, void *_set,
 			 const char *key, const char **value,
-			 bool override ATTR_UNUSED,
+			 enum setting_apply_flags flags ATTR_UNUSED,
 			 const char **error_r ATTR_UNUSED)
 {
 	struct mail_user_settings *set = _set;
