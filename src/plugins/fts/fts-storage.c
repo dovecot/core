@@ -161,25 +161,6 @@ static bool fts_want_build_args(const struct mail_search_arg *args)
 	return FALSE;
 }
 
-static bool fts_args_have_fuzzy(const struct mail_search_arg *args)
-{
-	for (; args != NULL; args = args->next) {
-		if (args->fuzzy)
-			return TRUE;
-		switch (args->type) {
-		case SEARCH_OR:
-		case SEARCH_SUB:
-		case SEARCH_INTHREAD:
-			if (fts_args_have_fuzzy(args->value.subargs))
-				return TRUE;
-			break;
-		default:
-			break;
-		}
-	}
-	return FALSE;
-}
-
 static enum fts_enforced fts_enforced_parse(const char *str)
 {
 	if (str == NULL || strcmp(str, "no") == 0)
@@ -229,12 +210,6 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	i_array_init(&fctx->scores->score_map, 64);
 	MODULE_CONTEXT_SET(ctx, fts_storage_module, fctx);
 
-	/* FIXME: we'll assume that all the args are fuzzy. not good,
-	   but would require much more work to fix it. */
-	if (!fts_args_have_fuzzy(args->args) &&
-	    mail_user_plugin_getenv_bool(t->box->storage->user,
-				    "fts_no_autofuzzy"))
-		fctx->flags |= FTS_LOOKUP_FLAG_NO_AUTO_FUZZY;
 	/* transaction contains the last search's scores. they can be
 	   queried later with mail_get_special() */
 	if (ft->scores != NULL)

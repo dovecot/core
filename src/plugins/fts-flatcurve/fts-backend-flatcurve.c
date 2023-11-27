@@ -594,8 +594,7 @@ fts_backend_flatcurve_lookup_multi(struct fts_backend *_backend,
 			break;
 		}
 
-		if ((query->maybe) ||
-		    ((flags & FTS_LOOKUP_FLAG_NO_AUTO_FUZZY) != 0))
+		if (query->maybe)
 			r->maybe_uids = fresult->uids;
 		else
 			r->definite_uids = fresult->uids;

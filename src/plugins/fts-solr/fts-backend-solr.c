@@ -853,9 +853,7 @@ fts_backend_solr_lookup(struct fts_backend *_backend, struct mailbox *box,
 	prefix_len = str_len(str);
 
 	if (solr_add_definite_query_args(str, args, and_args)) {
-		ARRAY_TYPE(seq_range) *uids_arr =
-			(flags & FTS_LOOKUP_FLAG_NO_AUTO_FUZZY) == 0 ?
-			&result->definite_uids : &result->maybe_uids;
+		ARRAY_TYPE(seq_range) *uids_arr = &result->definite_uids;
 		if (solr_search(_backend, str, box_guid,
 				uids_arr, &result->scores) < 0)
 			return -1;
@@ -872,8 +870,7 @@ fts_backend_solr_lookup(struct fts_backend *_backend, struct mailbox *box,
 
 static int
 solr_search_multi(struct fts_backend *_backend, string_t *str,
-		  struct mailbox *const boxes[], enum fts_lookup_flags flags,
-		  struct fts_multi_result *result)
+		  struct mailbox *const boxes[], struct fts_multi_result *result)
 {
 	struct event *event = _backend->ns->list->event;
 	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
@@ -936,10 +933,7 @@ solr_search_multi(struct fts_backend *_backend, string_t *str,
 		}
 		fts_result = array_append_space(&fts_results);
 		fts_result->box = box;
-		if ((flags & FTS_LOOKUP_FLAG_NO_AUTO_FUZZY) == 0)
-			fts_result->definite_uids = solr_results[i]->uids;
-		else
-			fts_result->maybe_uids = solr_results[i]->uids;
+		fts_result->definite_uids = solr_results[i]->uids;
 		fts_result->scores = solr_results[i]->scores;
 		fts_result->scores_sorted = TRUE;
 	}
@@ -964,7 +958,7 @@ fts_backend_solr_lookup_multi(struct fts_backend *backend,
 		    SOLR_MAX_MULTI_ROWS);
 
 	if (solr_add_definite_query_args(str, args, and_args)) {
-		if (solr_search_multi(backend, str, boxes, flags, result) < 0)
+		if (solr_search_multi(backend, str, boxes, result) < 0)
 			return -1;
 	}
 	/* FIXME: maybe_uids could be handled also with some more work.. */
