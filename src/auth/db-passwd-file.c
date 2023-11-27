@@ -123,18 +123,8 @@ passwd_file_add(struct passwd_file *pw, const char *username,
 	if (*args != NULL)
 		args++;
 
-	if (*args != NULL && **args == '\0') {
-		/* old format, this field is empty and next field may
-		   contain MAIL */
-		args++;
-		if (*args != NULL && **args != '\0' && pw->db->userdb) {
-			extra_fields =
-                                t_strconcat("userdb_mail=",
-                                            t_strarray_join(args, ":"), NULL);
-		}
-	} else if (*args != NULL) {
-		/* new format, contains a space separated list of
-		   extra fields */
+	if (*args != NULL) {
+		/* space separated list of extra fields */
                 extra_fields = t_strarray_join(args, ":");
         }
 
