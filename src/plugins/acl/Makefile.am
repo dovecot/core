@@ -33,6 +33,7 @@ lib01_acl_plugin_la_SOURCES = \
 	acl-mailbox.c \
 	acl-mailbox-list.c \
 	acl-plugin.c \
+	acl-rights.c \
 	acl-settings.c \
 	acl-shared-storage.c \
 	acl-storage.c
@@ -49,6 +50,7 @@ pkginc_lib_HEADERS = \
 	acl-global-file.h \
 	acl-lookup-dict.h \
 	acl-plugin.h \
+	acl-rights.h \
 	acl-settings.h \
 	acl-storage.h
 

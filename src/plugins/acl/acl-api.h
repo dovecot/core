@@ -3,94 +3,15 @@
 
 #include <sys/stat.h>
 
+#include "acl-rights.h"
+
 struct mailbox_list;
 struct mail_storage;
 struct mailbox;
 struct acl_object;
 
-/* Show mailbox in mailbox list. Allow subscribing to it. */
-#define MAIL_ACL_LOOKUP		"lookup"
-/* Allow opening mailbox for reading */
-#define MAIL_ACL_READ		"read"
-/* Allow permanent flag changes (except for seen/deleted).
-   If not set, doesn't allow save/copy to set any flags either. */
-#define MAIL_ACL_WRITE		"write"
-/* Allow permanent seen-flag changes */
-#define MAIL_ACL_WRITE_SEEN	"write-seen"
-/* Allow permanent deleted-flag changes */
-#define MAIL_ACL_WRITE_DELETED	"write-deleted"
-/* Allow saving and copying mails into the mailbox */
-#define MAIL_ACL_INSERT		"insert"
-/* Allow posting mails to the mailbox (e.g. Sieve fileinto) */
-#define MAIL_ACL_POST		"post"
-/* Allow expunging mails */
-#define MAIL_ACL_EXPUNGE	"expunge"
-/* Allow creating child mailboxes */
-#define MAIL_ACL_CREATE		"create"
-/* Allow deleting this mailbox */
-#define MAIL_ACL_DELETE		"delete"
-/* Allow changing ACL state in this mailbox */
-#define MAIL_ACL_ADMIN		"admin"
-
 #define MAILBOX_ATTRIBUTE_PREFIX_ACL \
 	MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT"acl/"
-
-/* ACL identifiers in override order */
-enum acl_id_type {
-	/* Anyone's rights, including anonymous's.
-	   identifier name is ignored. */
-	ACL_ID_ANYONE,
-	/* Authenticate users' rights. identifier name is ignored. */
-	ACL_ID_AUTHENTICATED,
-	/* Group's rights */
-	ACL_ID_GROUP,
-	/* Owner's rights, used when user is the storage's owner.
-	   identifier name is ignored. */
-	ACL_ID_OWNER,
-	/* User's rights */
-	ACL_ID_USER,
-	/* Same as group's rights, but also overrides user's rights */
-	ACL_ID_GROUP_OVERRIDE,
-
-	ACL_ID_TYPE_COUNT
-};
-
-enum acl_modify_mode {
-	/* Remove rights from existing ACL */
-	ACL_MODIFY_MODE_REMOVE = 0,
-	/* Add rights to existing ACL (or create a new one) */
-	ACL_MODIFY_MODE_ADD,
-	/* Replace existing ACL with given rights */
-	ACL_MODIFY_MODE_REPLACE,
-	/* Clear all the rights from an existing ACL */
-	ACL_MODIFY_MODE_CLEAR
-};
-
-struct acl_rights {
-	/* Type of the identifier, user/group */
-	enum acl_id_type id_type;
-	/* Identifier, eg. username / group name */
-	const char *identifier;
-
-	/* Rights assigned. NULL entry can be ignored, but { NULL } means user
-	   has no rights. */
-	const char *const *rights;
-	/* Negative rights assigned */
-	const char *const *neg_rights;
-
-	/* These rights are global for all users */
-	bool global:1;
-};
-ARRAY_DEFINE_TYPE(acl_rights, struct acl_rights);
-
-struct acl_rights_update {
-	struct acl_rights rights;
-
-	enum acl_modify_mode modify_mode;
-	enum acl_modify_mode neg_modify_mode;
-	/* These changes' "last changed" timestamp */
-	time_t last_change;
-};
 
 /* data contains the information needed to initialize ACL backend. If username
    is NULL, it means the user is anonymous. Username and groups are matched
@@ -160,8 +81,5 @@ struct acl_object_list_iter *acl_object_list_init(struct acl_object *aclobj);
 bool acl_object_list_next(struct acl_object_list_iter *iter,
 			  struct acl_rights *rights_r);
 int acl_object_list_deinit(struct acl_object_list_iter **iter);
-
-/* Returns the canonical ID for the right. */
-const char *acl_rights_get_id(const struct acl_rights *right);
 
 #endif
