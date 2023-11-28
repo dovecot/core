@@ -12,7 +12,6 @@
 
 static bool auth_settings_ext_check(struct event *event, void *_set, pool_t pool, const char **error_r);
 static bool auth_passdb_settings_check(void *_set, pool_t pool, const char **error_r);
-static bool auth_userdb_settings_check(void *_set, pool_t pool, const char **error_r);
 
 struct service_settings auth_service_settings = {
 	.name = "auth",
@@ -212,7 +211,6 @@ const struct setting_parser_info auth_userdb_setting_parser_info = {
 
 	.struct_size = sizeof(struct auth_userdb_settings),
 	.pool_offset1 = 1 + offsetof(struct auth_userdb_settings, pool),
-	.check_func = auth_userdb_settings_check
 };
 
 /* we're kind of kludging here to avoid "auth_" prefix in the struct fields */
@@ -550,17 +548,6 @@ auth_passdb_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		*error_r = "Obsolete pass=yes setting mixed with non-default result_success";
 		return FALSE;
 	}
-	return TRUE;
-}
-
-static bool
-auth_userdb_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-			   const char **error_r ATTR_UNUSED)
-{
-	struct auth_userdb_settings *set = _set;
-
-	if (*set->driver == '\0')
-		return TRUE;
 	return TRUE;
 }
 /* </settings checks> */
