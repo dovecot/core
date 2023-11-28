@@ -112,8 +112,6 @@ struct dsync_cmd_context {
 	bool err_line_continues:1;
 };
 
-static bool legacy_dsync = FALSE;
-
 static void dsync_cmd_switch_ioloop_to(struct dsync_cmd_context *ctx,
 				       struct ioloop *ioloop)
 {
@@ -250,10 +248,7 @@ mirror_get_remote_cmd_line(const char *const *argv,
 		array_push_back(&cmd_args, &p);
 	}
 
-	if (legacy_dsync) {
-		/* we're executing dsync */
-		p = "server";
-	} else if (i > 0 && strcmp(argv[i-1], "dsync-server") == 0) {
+	if (i > 0 && strcmp(argv[i-1], "dsync-server") == 0) {
 		/* Caller already specified dsync-server in parameters.
 		   This is a common misconfiguration, so just allow it. */
 		p = NULL;
@@ -1065,8 +1060,6 @@ static void cmd_dsync_preinit(struct doveadm_mail_cmd_context *_ctx)
 		ctx->oneway = ctx->backup = TRUE;
 
 	(void)doveadm_cmd_param_str(cctx, "all-mailbox", &ctx->virtual_all_box);
-	if (doveadm_cmd_param_flag(cctx, "legacy-dsync"))
-		legacy_dsync = TRUE;
 
 	if (doveadm_cmd_param_flag(cctx, "full-sync"))
 		ctx->sync_type = DSYNC_BRAIN_SYNC_TYPE_FULL;
@@ -1246,9 +1239,6 @@ cmd_dsync_server_init(struct doveadm_mail_cmd_context *_ctx)
 	struct dsync_cmd_context *ctx =
 		container_of(_ctx, struct dsync_cmd_context, ctx);
 
-	legacy_dsync = legacy_dsync ||
-		       doveadm_cmd_param_flag(cctx, "legacy-dsync");
-
 	(void)doveadm_cmd_param_str(cctx, "rawlog", &ctx->rawlog_path);
 	(void)doveadm_cmd_param_uint32(cctx, "timeout", &ctx->io_timeout_secs);
 }
@@ -1287,7 +1277,6 @@ DOVEADM_CMD_PARAM('e', "sync-until-time", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('O', "sync-flags", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('I', "sync-max-size", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('T', "timeout", CMD_PARAM_INT64, CMD_PARAM_FLAG_UNSIGNED) \
-DOVEADM_CMD_PARAM('E', "legacy-dsync", CMD_PARAM_BOOL, 0) \
 DOVEADM_CMD_PARAM('\0', "destination", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 
 #define DSYNC_COMMON_USAGE \
@@ -1319,10 +1308,9 @@ DOVEADM_CMD_PARAMS_END
 struct doveadm_cmd_ver2 doveadm_cmd_dsync_server = {
 	.mail_cmd = cmd_dsync_server_alloc,
 	.name = "dsync-server",
-	.usage = "[-E] [-r <rawlog path>] [-T <timeout secs>] [-U]",
+	.usage = "[-r <rawlog path>] [-T <timeout secs>] [-U]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
-DOVEADM_CMD_PARAM('E', "legacy-dsync", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('r', "rawlog", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('T', "timeout", CMD_PARAM_INT64, CMD_PARAM_FLAG_UNSIGNED)
 /* previously dsync-server could have been added twice to the parameters */
