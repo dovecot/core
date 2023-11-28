@@ -67,26 +67,6 @@ const struct setting_parser_info imap_acl_setting_parser_info = {
 	.pool_offset1 = 1 + offsetof(struct imap_acl_settings, pool),
 };
 
-struct imap_acl_letter_map {
-	char letter;
-	const char *name;
-};
-
-static const struct imap_acl_letter_map imap_acl_letter_map[] = {
-	{ 'l', MAIL_ACL_LOOKUP },
-	{ 'r', MAIL_ACL_READ },
-	{ 'w', MAIL_ACL_WRITE },
-	{ 's', MAIL_ACL_WRITE_SEEN },
-	{ 't', MAIL_ACL_WRITE_DELETED },
-	{ 'i', MAIL_ACL_INSERT },
-	{ 'p', MAIL_ACL_POST },
-	{ 'e', MAIL_ACL_EXPUNGE },
-	{ 'k', MAIL_ACL_CREATE },
-	{ 'x', MAIL_ACL_DELETE },
-	{ 'a', MAIL_ACL_ADMIN },
-	{ '\0', NULL }
-};
-
 struct imap_acl_storage {
 	union mail_storage_module_context module_ctx;
 	struct imapc_acl_context *iacl_ctx;
@@ -150,14 +130,14 @@ acl_mailbox_open_as_admin(struct client_command_context *cmd,
 	return 0;
 }
 
-static const struct imap_acl_letter_map *
-imap_acl_letter_map_find(const char *name)
+static const struct acl_letter_map *
+acl_letter_map_find(const char *name)
 {
 	unsigned int i;
 
-	for (i = 0; imap_acl_letter_map[i].name != NULL; i++) {
-		if (strcmp(imap_acl_letter_map[i].name, name) == 0)
-			return &imap_acl_letter_map[i];
+	for (i = 0; acl_letter_map[i].name != NULL; i++) {
+		if (strcmp(acl_letter_map[i].name, name) == 0)
+			return &acl_letter_map[i];
 	}
 	return NULL;
 }
@@ -165,14 +145,14 @@ imap_acl_letter_map_find(const char *name)
 static void
 imap_acl_write_rights_list(string_t *dest, const char *const *rights)
 {
-	const struct imap_acl_letter_map *map;
+	const struct acl_letter_map *map;
 	unsigned int i;
 	size_t orig_len = str_len(dest);
 	bool append_c = FALSE, append_d = FALSE;
 
 	for (i = 0; rights[i] != NULL; i++) {
 		/* write only letters */
-		map = imap_acl_letter_map_find(rights[i]);
+		map = acl_letter_map_find(rights[i]);
 		if (map != NULL) {
 			str_append_c(dest, map->letter);
 			if (map->letter == 'k' || map->letter == 'x')
@@ -809,14 +789,14 @@ imap_acl_letters_parse(const char *letters, const char *const **rights_r,
 
 	t_array_init(&rights, 64);
 	for (; *letters != '\0'; letters++) {
-		for (i = 0; imap_acl_letter_map[i].name != NULL; i++) {
-			if (imap_acl_letter_map[i].letter == *letters) {
+		for (i = 0; acl_letter_map[i].name != NULL; i++) {
+			if (acl_letter_map[i].letter == *letters) {
 				array_push_back(&rights,
-						&imap_acl_letter_map[i].name);
+						&acl_letter_map[i].name);
 				break;
 			}
 		}
-		if (imap_acl_letter_map[i].name == NULL) {
+		if (acl_letter_map[i].name == NULL) {
 			/* Handling of obsolete rights as virtual
 			   rights according to RFC 4314 */
 			switch (*letters) {
