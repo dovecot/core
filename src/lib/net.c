@@ -696,10 +696,13 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips,
 	i_zero(&hints);
 	hints.ai_socktype = SOCK_STREAM;
 
+	ai = NULL;
 	/* save error to host_error for later use */
 	host_error = getaddrinfo(addr, NULL, &hints, &ai);
-	if (net_handle_gai_error("getaddrinfo", host_error, FALSE) != 0)
+	if (net_handle_gai_error("getaddrinfo", host_error, FALSE) != 0) {
+		i_assert(ai == NULL);
 		return host_error;
+	}
 
         /* get number of IPs */
         origai = ai;
