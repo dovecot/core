@@ -15,7 +15,6 @@
 #include "doveadm-dump.h"
 #include "doveadm-mail.h"
 #include "doveadm-settings.h"
-#include "doveadm-dsync.h"
 #include "doveadm.h"
 
 #include <getopt.h>
