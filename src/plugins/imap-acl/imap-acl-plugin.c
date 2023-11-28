@@ -106,7 +106,7 @@ acl_mailbox_open_as_admin(struct client_command_context *cmd,
 	enum mailbox_existence existence = MAILBOX_EXISTENCE_NONE;
 	int ret;
 
-	if (ACL_USER_CONTEXT(cmd->client->user) == NULL) {
+	if (ACL_LIST_CONTEXT(box->list) == NULL) {
 		client_send_command_error(cmd, "ACLs disabled.");
 		return 0;
 	}
@@ -674,9 +674,13 @@ static bool cmd_getacl(struct client_command_context *cmd)
 
 	box = mailbox_alloc(ns->list, mailbox,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
+
+	if (ACL_LIST_CONTEXT(box->list) == NULL)
+		client_send_command_error(cmd, "ACLS disabled.");
 	/* If the location is remote and imapc_feature acl is enabled, proxy the
 	   command to the configured imapc location. */
-	if (!imap_acl_proxy_cmd(box, orig_mailbox, NULL, ns, cmd, IMAP_ACL_CMD_GETACL))
+	else if (!imap_acl_proxy_cmd(box, orig_mailbox, NULL, ns, cmd,
+				     IMAP_ACL_CMD_GETACL))
 		imap_acl_cmd_getacl(box, ns, orig_mailbox, cmd);
 	mailbox_free(&box);
 	return TRUE;
@@ -735,10 +739,12 @@ static bool cmd_myrights(struct client_command_context *cmd)
 	box = mailbox_alloc(ns->list, mailbox,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
 
+	if (ACL_LIST_CONTEXT(box->list) == NULL)
+		client_send_command_error(cmd, "ACLS disabled.");
 	/* If the location is remote and imapc_feature acl is enabled, proxy the
 	   command to the configured imapc location. */
-	if (!imap_acl_proxy_cmd(box, orig_mailbox, NULL, ns,
-				cmd, IMAP_ACL_CMD_MYRIGHTS))
+	else if (!imap_acl_proxy_cmd(box, orig_mailbox, NULL, ns, cmd,
+				     IMAP_ACL_CMD_MYRIGHTS))
 		imap_acl_cmd_myrights(box, orig_mailbox, cmd);
 	mailbox_free(&box);
 	return TRUE;
@@ -1050,11 +1056,14 @@ static bool cmd_setacl(struct client_command_context *cmd)
 
 	box = mailbox_alloc(ns->list, mailbox,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
+	if (ACL_LIST_CONTEXT(box->list) == NULL)
+		client_send_command_error(cmd, "ACLS disabled.");
 	/* If the location is remote and imapc_feature acl is enabled, proxy the
 	   command to the configured imapc location. */
-	if (!imap_acl_proxy_cmd(box, orig_mailbox, str_c(proxy_cmd_args),
-				ns, cmd, IMAP_ACL_CMD_SETACL))
-		imap_acl_cmd_setacl(box, ns, orig_mailbox, identifier, rights, cmd);
+	else if (!imap_acl_proxy_cmd(box, orig_mailbox, str_c(proxy_cmd_args),
+				     ns, cmd, IMAP_ACL_CMD_SETACL))
+		imap_acl_cmd_setacl(box, ns, orig_mailbox, identifier, rights,
+				    cmd);
 	mailbox_free(&box);
 	return TRUE;
 }
@@ -1115,10 +1124,12 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 	box = mailbox_alloc(ns->list, mailbox,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
 
+	if (ACL_LIST_CONTEXT(box->list) == NULL)
+		client_send_command_error(cmd, "ACLS disabled.");
 	/* If the location is remote and imapc_feature acl is enabled, proxy the
 	   command to the configured imapc location. */
-	if (!imap_acl_proxy_cmd(box, orig_mailbox, str_c(proxy_cmd_args),
-				ns, cmd, IMAP_ACL_CMD_DELETEACL))
+	else if (!imap_acl_proxy_cmd(box, orig_mailbox, str_c(proxy_cmd_args),
+				     ns, cmd, IMAP_ACL_CMD_DELETEACL))
 		imap_acl_cmd_deleteacl(box, orig_mailbox, identifier, cmd);
 	mailbox_free(&box);
 	return TRUE;
