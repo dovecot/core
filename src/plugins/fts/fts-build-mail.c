@@ -489,40 +489,40 @@ static int fts_body_parser_finish(struct fts_mail_build_context *ctx,
 }
 
 static void
-load_header_filter(const char *key, struct fts_backend *backend,
-		   ARRAY_TYPE(const_string) list, bool *matches_all_r)
+parse_header_filter(const ARRAY_TYPE(const_string) *values, pool_t pool,
+		    ARRAY_TYPE(const_string) *list_r, bool *matches_all_r)
 {
-	const char *str = mail_user_plugin_getenv(backend->ns->user, key);
-
 	*matches_all_r = FALSE;
-	if (str == NULL || *str == '\0')
+	if (array_is_empty(values))
 		return;
 
-	char **entries = p_strsplit_spaces(backend->header_filters.pool, str, " ");
-	for (char **entry = entries; *entry != NULL; ++entry) {
-		const char *value = str_lcase(*entry);
-		array_push_back(&list, &value);
+	const char *entry;
+	array_foreach_elem(values, entry) {
+		const char *value = p_strdup(pool, t_str_lcase(entry));
+		array_push_back(list_r, &value);
 		if (*value == '*') {
 			*matches_all_r = TRUE;
 			break;
 		}
 	}
-	array_sort(&list, i_strcmp_p);
+	array_sort(list_r, i_strcmp_p);
 }
 
 static struct fts_header_filters *
 load_header_filters(struct fts_backend *backend)
 {
+	const struct fts_settings *set = fts_user_get_settings(backend->ns->user);
 	struct fts_header_filters *filters = &backend->header_filters;
 	if (!filters->loaded) {
 		bool match_all;
+		/* match_all used just as dummy output here */
+		parse_header_filter(&set->header_includes, filters->pool,
+				    &filters->includes, &match_all);
 
-		/* match_all return ignored in includes */
-		load_header_filter("fts_header_includes", backend,
-				   filters->includes, &match_all);
+		/* match_all from this call is relevant instead */
+		parse_header_filter(&set->header_excludes, filters->pool,
+				    &filters->excludes, &match_all);
 
-		load_header_filter("fts_header_excludes", backend,
-				   filters->excludes, &match_all);
 		filters->loaded = TRUE;
 		filters->exclude_is_default = match_all;
 	}
