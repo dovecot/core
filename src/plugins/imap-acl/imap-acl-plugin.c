@@ -315,7 +315,7 @@ imapc_acl_get_mailbox_error(struct imapc_mailbox *mbox)
 
 static void
 imapc_acl_myrights_untagged_cb(const struct imapc_untagged_reply *reply,
-			       struct imapc_storage_client *client)
+				struct imapc_storage_client *client)
 {
 	struct imap_acl_storage *iacl_storage =
 		IMAP_ACL_CONTEXT_REQUIRE(&client->_storage->storage);
@@ -670,34 +670,34 @@ static bool cmd_getacl(struct client_command_context *cmd)
 }
 
 static void imap_acl_cmd_myrights(struct mailbox *box, const char *mailbox,
-                                  struct client_command_context *cmd)
+				  struct client_command_context *cmd)
 {
-       const char *const *rights;
-       string_t *str = t_str_new(128);
+	const char *const *rights;
+	string_t *str = t_str_new(128);
 
-       if (acl_object_get_my_rights(acl_mailbox_get_aclobj(box),
-                                    pool_datastack_create(), &rights) < 0) {
-               client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
-               return;
-       }
+	if (acl_object_get_my_rights(acl_mailbox_get_aclobj(box),
+				     pool_datastack_create(), &rights) < 0) {
+		client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
+		return;
+	}
 
-       /* Post right alone doesn't give permissions to see if the mailbox
-          exists or not. Only mail deliveries care about that. */
-       if (*rights == NULL ||
-           (strcmp(*rights, MAIL_ACL_POST) == 0 && rights[1] == NULL)) {
-               client_send_tagline(cmd, t_strdup_printf(
-                                       "NO ["IMAP_RESP_CODE_NONEXISTENT"] "
-                                       MAIL_ERRSTR_MAILBOX_NOT_FOUND, mailbox));
-               return;
-       }
+	/* Post right alone doesn't give permissions to see if the mailbox
+	  exists or not. Only mail deliveries care about that. */
+	if (*rights == NULL ||
+	   (strcmp(*rights, MAIL_ACL_POST) == 0 && rights[1] == NULL)) {
+		client_send_tagline(cmd, t_strdup_printf(
+				   "NO ["IMAP_RESP_CODE_NONEXISTENT"] "
+				   MAIL_ERRSTR_MAILBOX_NOT_FOUND, mailbox));
+		return;
+	}
 
-       str_append(str, "* MYRIGHTS ");
-       imap_append_astring(str, mailbox);
-       str_append_c(str, ' ');
-       imap_acl_write_rights_list(str, rights);
+	str_append(str, "* MYRIGHTS ");
+	imap_append_astring(str, mailbox);
+	str_append_c(str, ' ');
+	imap_acl_write_rights_list(str, rights);
 
-       client_send_line(cmd->client, str_c(str));
-       client_send_tagline(cmd, "OK Myrights completed.");
+	client_send_line(cmd->client, str_c(str));
+	client_send_tagline(cmd, "OK Myrights completed.");
 }
 
 static bool cmd_myrights(struct client_command_context *cmd)
@@ -747,7 +747,7 @@ static bool cmd_listrights(struct client_command_context *cmd)
 		return TRUE;
 
 	box = mailbox_alloc(ns->list, mailbox,
-                           MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
+			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
 
 	str = t_str_new(128);
 	str_append(str, "* LISTRIGHTS ");
@@ -765,7 +765,7 @@ static bool cmd_listrights(struct client_command_context *cmd)
 
 static int
 imap_acl_letters_parse(const char *letters, const char *const **rights_r,
-		       const char **client_error_r)
+			const char **client_error_r)
 {
 	static const char *acl_k = MAIL_ACL_CREATE;
 	static const char *acl_x = MAIL_ACL_DELETE;
@@ -855,8 +855,8 @@ imap_acl_identifier_parse(struct client_command_context *cmd,
 }
 
 static void imap_acl_update_ensure_keep_admins(struct acl_backend *backend,
-					       struct acl_object *aclobj,
-					       struct acl_rights_update *update)
+						struct acl_object *aclobj,
+						struct acl_rights_update *update)
 {
 	static const char *acl_admin = MAIL_ACL_ADMIN;
 	const char *const *rights = update->rights.rights;
@@ -908,8 +908,8 @@ static void imap_acl_update_ensure_keep_admins(struct acl_backend *backend,
 
 static int
 cmd_acl_mailbox_update(struct mailbox *box,
-		       const struct acl_rights_update *update,
-		       const char **client_error_r)
+			const struct acl_rights_update *update,
+			const char **client_error_r)
 {
 	struct mailbox_transaction_context *t;
 	int ret;
