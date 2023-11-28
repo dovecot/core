@@ -249,6 +249,12 @@ http_server_request_get_response(struct http_server_request *req)
 	return req->response;
 }
 
+struct http_server *
+http_server_request_get_server(struct http_server_request *req)
+{
+	return req->server;
+}
+
 int http_server_request_get_auth(struct http_server_request *req,
 				 struct http_auth_credentials *credentials)
 {
