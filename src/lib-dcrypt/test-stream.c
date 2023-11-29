@@ -19,6 +19,11 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <stdio.h>
+#include <openssl/evp.h>
+
+#if defined(HAVE_EVP_PKEY_get_raw_private_key) && defined(NID_X25519)
+# define HAVE_X25519
+#endif
 
 static const char key_v1_priv[] =
 	"-----BEGIN PRIVATE KEY-----\n"
@@ -342,9 +347,8 @@ static void test_write_read_v1_empty(void)
 	test_end();
 }
 
-static void test_write_read_v2(void)
+static void test_write_read_v2_real(const struct dcrypt_keypair *pair)
 {
-	test_begin("test_write_read_v2");
 	unsigned char payload[IO_BLOCK_SIZE*10];
 	const unsigned char *ptr;
 	size_t pos = 0, siz;
@@ -353,7 +357,7 @@ static void test_write_read_v2(void)
 	buffer_t *buf = buffer_create_dynamic(default_pool, sizeof(payload));
 	struct ostream *os = o_stream_create_buffer(buf);
 	struct ostream *os_2 = o_stream_create_encrypt(os,
-		"aes-256-gcm-sha256", test_v1_kp.pub,
+		"aes-256-gcm-sha256", pair->pub,
 		IO_STREAM_ENC_INTEGRITY_AEAD);
 	o_stream_nsend(os_2, payload, sizeof(payload));
 	test_assert(o_stream_finish(os_2) > 0);
@@ -368,7 +372,7 @@ static void test_write_read_v2(void)
 	   when buffer is full before going to decrypt code */
 	i_stream_set_max_buffer_size(is, 8192);
 	test_assert(i_stream_read(is) > 0);
-	struct istream *is_2 = i_stream_create_decrypt(is, test_v1_kp.priv);
+	struct istream *is_2 = i_stream_create_decrypt(is, pair->priv);
 
 	size_t offset = 0;
 	test_istream_set_size(is, 0);
@@ -406,6 +410,42 @@ static void test_write_read_v2(void)
 
 	test_end();
 }
+
+static void test_write_read_v2(void)
+{
+	test_begin("test_write_read_v2");
+	test_write_read_v2_real(&test_v2_kp);
+}
+
+#ifdef HAVE_X25519
+static void test_write_read_v2_x25519(void)
+{
+	test_begin("test_write_read_v2 (x25519)");
+	struct dcrypt_keypair pair;
+	const char *error;
+	bool ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0,
+					   "X25519", &error);
+	if (!ret)
+		i_panic("%s", error);
+
+	test_write_read_v2_real(&pair);
+	dcrypt_keypair_unref(&pair);
+}
+
+static void test_write_read_v2_x448(void)
+{
+	test_begin("test_write_read_v2 (x448)");
+	struct dcrypt_keypair pair;
+	const char *error;
+	bool ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0,
+					   "X448", &error);
+	if (!ret)
+		i_panic("%s", error);
+
+	test_write_read_v2_real(&pair);
+	dcrypt_keypair_unref(&pair);
+}
+#endif
 
 static void test_write_read_v2_short(void)
 {
@@ -649,6 +689,10 @@ int main(void)
 		test_write_read_v2,
 		test_write_read_v2_short,
 		test_write_read_v2_empty,
+#ifdef HAVE_X25519
+		test_write_read_v2_x448,
+		test_write_read_v2_x25519,
+#endif
 		test_free_keys,
 		test_read_0_to_400_byte_garbage,
 		test_read_large_header,

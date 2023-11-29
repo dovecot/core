@@ -16,6 +16,11 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <stdio.h>
+#include <openssl/evp.h>
+
+#if defined(HAVE_EVP_PKEY_get_raw_private_key) && defined(NID_X25519)
+# define HAVE_X25519
+#endif
 
 static void test_cipher_test_vectors(void)
 {
@@ -1719,6 +1724,63 @@ static void test_static_verify_ecdsa_x962(void)
 	test_end();
 }
 
+#ifdef HAVE_X25519
+static void test_xd25519_keypair(void)
+{
+	test_begin("X25519 key exchange");
+	struct dcrypt_keypair pair;
+	const char *error = NULL;
+	if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "X25519", &error))
+		i_panic("%s", error);
+	/* perform ecdh */
+	buffer_t *R = t_buffer_create(64), *S = t_buffer_create(64);
+	buffer_t *S2 = t_buffer_create(64);
+	test_assert(dcrypt_ecdh_derive_secret_peer(pair.pub, R, S, &error));
+	test_assert(dcrypt_ecdh_derive_secret_local(pair.priv, R, S2, &error));
+	test_assert(S->used > 0);
+	test_assert(R->used > 0);
+	test_assert(buffer_cmp(S, S2));
+
+	/* try to store it as dovecot key */
+	string_t *pub = t_str_new(64);
+	string_t *priv = t_str_new(64);
+
+	dcrypt_key_store_public(pair.pub, DCRYPT_FORMAT_DOVECOT, pub, &error);
+	dcrypt_key_store_private(pair.priv, DCRYPT_FORMAT_DOVECOT, NULL, priv, NULL, NULL, &error);
+
+	struct dcrypt_keypair pair2;
+
+	dcrypt_key_load_public(&pair2.pub, str_c(pub), &error);
+
+	dcrypt_key_load_private(&pair2.priv, str_c(priv), NULL, NULL, &error);
+
+	struct dcrypt_public_key *pub2;
+	dcrypt_key_convert_private_to_public(pair2.priv, &pub2);
+
+	str_truncate(pub, 0);
+	dcrypt_key_store_public(pub2, DCRYPT_FORMAT_DOVECOT, pub, &error);
+
+	test_end();
+}
+
+static void test_xd448_keypair(void)
+{
+	test_begin("X448 key exchange");
+	struct dcrypt_keypair pair;
+	const char *error = NULL;
+	if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "X448", &error))
+		i_error("%s", error);
+	/* perform ecdh */
+	buffer_t *R = t_buffer_create(64), *S = t_buffer_create(64);
+	buffer_t *S2 = t_buffer_create(64);
+	test_assert(dcrypt_ecdh_derive_secret_peer(pair.pub, R, S, &error));
+	test_assert(dcrypt_ecdh_derive_secret_local(pair.priv, R, S2, &error));
+	test_assert(S->used > 0);
+	test_assert(R->used > 0);
+	test_assert(buffer_cmp(S, S2));
+	test_end();
+}
+#endif
 
 int main(void)
 {
@@ -1758,6 +1820,10 @@ int main(void)
 		test_static_verify_ecdsa,
 		test_static_verify_rsa,
 		test_static_verify_ecdsa_x962,
+#ifdef HAVE_X25519
+		test_xd25519_keypair,
+		test_xd448_keypair,
+#endif
 		NULL
 	};
 
