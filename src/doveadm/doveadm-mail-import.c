@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "settings.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
 #include "mail-namespace.h"

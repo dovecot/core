@@ -10,6 +10,7 @@ struct mail_storage;
 struct message_address;
 struct smtp_address;
 struct setting_parser_context;
+struct settings_instance;
 
 struct mail_storage_settings {
 	pool_t pool;
@@ -165,5 +166,14 @@ bool mail_user_set_get_postmaster_address(const struct mail_user_settings *set,
 bool mail_user_set_get_postmaster_smtp(const struct mail_user_settings *set,
 				       const struct smtp_address **address_r,
 				       const char **error_r);
+
+/* Reset "2nd storage" settings to defaults using
+   SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT, so the actually intended settings
+   can be overridden on top of them. For example with "doveadm import" command
+   the -o parameters should apply only to the import destination, not to the
+   import source. This allows clearing away such unwanted storage-specific
+   settings. */
+void mail_storage_2nd_settings_reset(struct settings_instance *instance,
+				     const char *key_prefix);
 
 #endif
