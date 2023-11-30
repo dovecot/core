@@ -216,8 +216,7 @@ void json_istream_get_location(struct json_istream *stream,
 
 static inline bool json_istream_parse_skip(struct json_istream *stream)
 {
-	if (stream->skip_to_end)
-		return TRUE;
+	i_assert(!stream->skip_to_end);
 	if (stream->skip_nodes > 0) {
 		if (stream->skip_nodes < UINT_MAX)
 			stream->skip_nodes--;
@@ -234,6 +233,9 @@ json_istream_parse_list_open(void *context, void *parent_context,
 	struct json_istream *stream = context;
 	struct json_tree_node *parent = parent_context;
 	unsigned int node_level = stream->node_level;
+
+	if (stream->skip_to_end)
+		return;
 
 	i_assert(!stream->node_parsed);
 	i_assert(stream->node_level >= stream->read_node_level);
@@ -297,6 +299,9 @@ json_istream_parse_list_close(void *context, void *list_context ATTR_UNUSED,
 {
 	struct json_istream *stream = context;
 
+	if (stream->skip_to_end)
+		return;
+
 	i_assert(!stream->node_parsed);
 
 	if (stream->node_level == 0) {
@@ -359,11 +364,14 @@ json_istream_parse_object_member(void *context,
 {
 	struct json_istream *stream = context;
 
+	if (stream->skip_to_end)
+		return;
+
 	i_assert(!stream->node_parsed && !stream->member_parsed);
 
 	if (!stream->read_member)
 		return;
-	if (stream->skip_to_end || stream->skip_nodes > 0)
+	if (stream->skip_nodes > 0)
 		return;
 
 	i_assert(stream->tree == NULL);
@@ -384,6 +392,9 @@ json_istream_parse_value(void *context, void *parent_context, const char *name,
 {
 	struct json_istream *stream = context;
 	struct json_tree_node *parent = parent_context;
+
+	if (stream->skip_to_end)
+		return;
 
 	i_assert(!stream->node_parsed);
 	i_assert(stream->node_level >= stream->read_node_level);
