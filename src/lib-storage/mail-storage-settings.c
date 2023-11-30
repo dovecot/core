@@ -863,3 +863,64 @@ bool mail_user_set_get_postmaster_smtp(const struct mail_user_settings *set,
 	get_postmaster_address_error(set, error_r);
 	return FALSE;
 }
+
+#define OFFSET(name) offsetof(struct mail_storage_settings, name)
+static const size_t mail_storage_2nd_reset_offsets[] = {
+	OFFSET(mail_location),
+};
+
+static void
+mail_storage_2nd_setting_reset_def(struct settings_instance *instance,
+				   const struct setting_define *def,
+				   const char *key_prefix)
+{
+	const char *value;
+
+	switch (def->type) {
+	case SET_BOOL: {
+		const bool *v = CONST_PTR_OFFSET(&mail_storage_default_settings,
+						 def->offset);
+		value = *v ? "yes" : "no";
+		break;
+	}
+	case SET_STR: {
+		const char *const *v =
+			CONST_PTR_OFFSET(&mail_storage_default_settings,
+					 def->offset);
+		value = *v;
+		break;
+	}
+	default:
+		i_panic("Unsupported type %d", def->type);
+	}
+	settings_override(instance,
+			  t_strdup_printf("%s%s", key_prefix, def->key),
+			  value, SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT);
+}
+
+static void
+mail_storage_2nd_setting_reset_offset(struct settings_instance *instance,
+				      size_t offset, const char *key_prefix)
+{
+	for (unsigned int i = 0; mail_storage_setting_defines[i].key != NULL; i++) {
+		if (mail_storage_setting_defines[i].offset == offset) {
+			mail_storage_2nd_setting_reset_def(instance,
+				&mail_storage_setting_defines[i], key_prefix);
+			return;
+		}
+	}
+	i_panic("mail_storage_setting_defines didn't have offset %zu", offset);
+}
+
+void mail_storage_2nd_settings_reset(struct settings_instance *instance,
+				     const char *key_prefix)
+{
+	unsigned int i;
+
+	T_BEGIN {
+		for (i = 0; i < N_ELEMENTS(mail_storage_2nd_reset_offsets); i++) {
+			mail_storage_2nd_setting_reset_offset(instance,
+				mail_storage_2nd_reset_offsets[i], key_prefix);
+		}
+	} T_END;
+}
