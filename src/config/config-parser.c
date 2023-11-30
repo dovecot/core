@@ -1572,12 +1572,23 @@ prevfile:
 	if (line == NULL && ctx.cur_input != NULL)
 		goto prevfile;
 
+	while (ctx.cur_input != NULL) {
+		i_stream_destroy(&ctx.cur_input->input);
+		ctx.cur_input = ctx.cur_input->prev;
+	}
+
 	old_settings_handle_post(&ctx);
 	hash_table_destroy(&ctx.seen_settings);
 	hash_table_destroy(&ctx.all_keys);
 	str_free(&full_line);
 	if (ret == 0)
 		ret = config_parse_finish(&ctx, flags, config_r, error_r);
+	else {
+		struct config_filter_parser *filter_parser;
+		array_foreach_elem(&ctx.all_filter_parsers, filter_parser)
+			config_module_parsers_free(filter_parser->module_parsers);
+		config_module_parsers_free(ctx.root_module_parsers);
+	}
 	pool_unref(&ctx.pool);
 	return ret < 0 ? ret : 1;
 }
@@ -1637,6 +1648,7 @@ void config_parsed_free(struct config_parsed **_config)
 
 	for (i = 0; config->filter_parsers[i] != NULL; i++)
 		config_module_parsers_free(config->filter_parsers[i]->module_parsers);
+	config_module_parsers_free(config->module_parsers);
 	pool_unref(&config->pool);
 }
 
