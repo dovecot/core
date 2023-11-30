@@ -1328,6 +1328,7 @@ void event_categories_iterate_deinit(struct event_category_iterator **_iter)
 
 	hash_table_iterate_deinit(&iter->iter);
 	hash_table_destroy(&iter->hash);
+	i_free(iter);
 }
 
 void event_send(struct event *event, struct failure_context *ctx,
