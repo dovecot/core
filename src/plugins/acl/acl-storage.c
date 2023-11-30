@@ -28,12 +28,15 @@ static void acl_mail_user_create(struct mail_user *user, const char *env)
 {
 	struct mail_user_vfuncs *v = user->vlast;
 	struct acl_user *auser;
+	const char *error;
 
 	auser = p_new(user->pool, struct acl_user, 1);
 	auser->module_ctx.super = *v;
 	user->vlast = &auser->module_ctx.super;
 	v->deinit = acl_user_deinit;
-	auser->acl_lookup_dict = acl_lookup_dict_init(user);
+	if (acl_lookup_dict_init(user, &auser->acl_lookup_dict, &error) < 0) {
+		e_error(user->event, "acl: dict_init() failed: %s", error);
+	}
 
 	struct acl_settings *set = p_new(user->pool, struct acl_settings, 1);
 	auser->acl_env = env;

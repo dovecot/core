@@ -1,7 +1,10 @@
 #ifndef ACL_LOOKUP_DICT_H
 #define ACL_LOOKUP_DICT_H
 
-struct acl_lookup_dict *acl_lookup_dict_init(struct mail_user *user);
+struct acl_lookup_dict;
+
+int acl_lookup_dict_init(struct mail_user *user, struct acl_lookup_dict **dict_r,
+			 const char **error_r);
 void acl_lookup_dict_deinit(struct acl_lookup_dict **dict);
 
 bool acl_lookup_dict_is_enabled(struct acl_lookup_dict *dict);
