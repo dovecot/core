@@ -346,10 +346,11 @@ static int auth_master_input_line(struct connection *_conn, const char *line)
 {
 	struct auth_master_connection *conn =
 		container_of(_conn, struct auth_master_connection, conn);
+	struct ioloop *cur_ioloop = conn->ioloop;
 	int ret;
 
 	ret = connection_input_line_default(_conn, line);
-	return (io_loop_is_running(conn->ioloop) ? ret : 0);
+	return (io_loop_is_running(cur_ioloop) ? ret : 0);
 }
 
 static void auth_master_connected(struct connection *_conn, bool success)
