@@ -34,14 +34,17 @@ struct acl_lookup_dict_iter {
 	bool failed:1;
 };
 
-struct acl_lookup_dict *acl_lookup_dict_init(struct mail_user *user)
+int acl_lookup_dict_init(struct mail_user *user, struct acl_lookup_dict **dict_r,
+			 const char **error_r)
 {
 	struct acl_lookup_dict *dict;
-	const char *uri, *error;
+	const char *uri;
 
 	dict = i_new(struct acl_lookup_dict, 1);
 	dict->user = user;
 	dict->event = event_create(user->event);
+	*dict_r = dict;
+
 	event_add_category(dict->event, &event_category_acl);
 	event_set_append_log_prefix(dict->event, "acl: ");
 
@@ -52,13 +55,13 @@ struct acl_lookup_dict *acl_lookup_dict_init(struct mail_user *user)
 		i_zero(&dict_set);
 		dict_set.base_dir = user->set->base_dir;
 		dict_set.event_parent = user->event;
-		if (dict_init_legacy(uri, &dict_set, &dict->dict, &error) < 0)
-			e_error(dict->event, "dict_init(%s) failed: %s", uri, error);
+		if (dict_init_legacy(uri, &dict_set, &dict->dict, error_r) < 0)
+			return -1;
 	} else {
 		e_debug(dict->event, "No acl_shared_dict setting - "
 			"shared mailbox listing is disabled");
 	}
-	return dict;
+	return 0;
 }
 
 void acl_lookup_dict_deinit(struct acl_lookup_dict **_dict)
