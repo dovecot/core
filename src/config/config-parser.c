@@ -666,6 +666,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			}
 			if (strcmp(key, "service") == 0 &&
 			    parent->filter_name_array) {
+				i_assert(parent->filter_name != NULL);
 				ctx->error = p_strdup_printf(ctx->pool,
 					"%s { .. } not allowed under %s { .. }",
 					key, t_strcut(parent->filter_name, '/'));
