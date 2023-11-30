@@ -14,7 +14,8 @@
 struct import_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 
-	const char *src_location;
+	const char *src_mail_driver, *src_mail_path;
+	const char *const *src_options;
 	const char *src_username;
 	struct mail_user *src_user;
 	const char *dest_parent;
@@ -162,6 +163,7 @@ cmd_import_box(struct import_cmd_context *ctx, struct mail_user *dest_user,
 static void cmd_import_init_source_user(struct import_cmd_context *ctx, struct mail_user *dest_user)
 {
 	struct mail_storage_service_input input;
+	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
 	const char *error;
 
@@ -171,20 +173,34 @@ static void cmd_import_init_source_user(struct import_cmd_context *ctx, struct m
 			 ctx->src_username :
 			 dest_user->username;
 
-	const char *const code_override_fields[] = {
-		t_strdup_printf("mail_location=%s", ctx->src_location),
-		NULL,
-	};
-	input.code_override_fields = code_override_fields;
-
 	mail_storage_service_io_deactivate_user(ctx->ctx.cur_service_user);
 	input.flags_override_add = MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES |
 		MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS;
-	if (mail_storage_service_lookup_next(ctx->ctx.storage_service, &input,
-					     &user, &error) < 0)
+	if (mail_storage_service_lookup(ctx->ctx.storage_service, &input,
+					&service_user, &error) < 0)
+		i_fatal("Import service user initialization failed: %s", error);
+
+	struct settings_instance *set_instance =
+		mail_storage_service_user_get_settings_instance(service_user);
+	mail_storage_2nd_settings_reset(set_instance, "*/");
+	for (unsigned int i = 0; ctx->src_options[i] != NULL; i++) {
+		const char *key, *value;
+		t_split_key_value_eq(ctx->src_options[i], &key, &value);
+		settings_override(set_instance, t_strconcat("*/", key, NULL),
+				  value, SETTINGS_OVERRIDE_TYPE_2ND_CLI_PARAM);
+	}
+	settings_override(set_instance, "*/mail_driver", ctx->src_mail_driver,
+			  SETTINGS_OVERRIDE_TYPE_2ND_CLI_PARAM);
+	settings_override(set_instance, "*/mail_path", ctx->src_mail_path,
+			  SETTINGS_OVERRIDE_TYPE_2ND_CLI_PARAM);
+
+	if (mail_storage_service_next(ctx->ctx.storage_service, service_user,
+				      &user, &error) < 0)
 		i_fatal("Import user initialization failed: %s", error);
+
 	if (mail_namespaces_init_location(user, user->event, &error) < 0)
 		i_fatal("Import namespace initialization failed: %s", error);
+	mail_storage_service_user_unref(&service_user);
 
 	ctx->src_user = user;
 	mail_storage_service_io_deactivate_user(user->service_user);
@@ -221,17 +237,33 @@ static void cmd_import_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct import_cmd_context *ctx =
 		container_of(_ctx, struct import_cmd_context, ctx);
-
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	const char *src_location;
 
 	(void)doveadm_cmd_param_str(cctx, "source-user", &ctx->src_username);
 	ctx->subscribe = doveadm_cmd_param_flag(cctx, "subscribe");
 
 	const char *const *query;
-	if (!doveadm_cmd_param_str(cctx, "source-location", &ctx->src_location) ||
+	if (!doveadm_cmd_param_str(cctx, "source-location", &src_location) ||
 	    !doveadm_cmd_param_str(cctx, "dest-parent-mailbox", &ctx->dest_parent) ||
 	    !doveadm_cmd_param_array(cctx, "query", &query))
 		doveadm_mail_help_name("import");
+
+	ctx->src_mail_path = strchr(src_location, ':');
+	if (ctx->src_mail_path == NULL ||
+	    strchr(ctx->src_mail_path + 1, ':') != NULL) {
+		e_error(_ctx->cctx->event,
+			"Source (%s) should be in mail_driver:mail_path syntax",
+			src_location);
+		ctx->ctx.exit_code = EX_USAGE;
+		return;
+	}
+	ctx->src_mail_driver =
+		p_strdup_until(_ctx->pool, src_location, ctx->src_mail_path++);
+
+	if (!doveadm_cmd_param_array(cctx, "source-option",
+				     &ctx->src_options))
+		ctx->src_options = empty_str_array;
 
 	_ctx->search_args = doveadm_mail_build_search_args(query);
 }
@@ -259,11 +291,15 @@ static struct doveadm_mail_cmd_context *cmd_import_alloc(void)
 struct doveadm_cmd_ver2 doveadm_cmd_import_ver2 = {
 	.name = "import",
 	.mail_cmd = cmd_import_alloc,
-	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "[-U source-user] [-s] <source mail location> <dest parent mailbox> <search query>",
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX
+		"[-U source-user] [-s] [-p <source option> [...]] "
+		"<source mail driver>:<source mail path> "
+		"<dest parent mailbox> <search query>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('U', "source-user", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('s', "subscribe", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('p', "source-option", CMD_PARAM_ARRAY, 0)
 DOVEADM_CMD_PARAM('\0', "source-location", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "dest-parent-mailbox", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "query", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
