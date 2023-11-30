@@ -28,6 +28,7 @@ static const struct mdbox_settings mdbox_default_settings = {
 static const struct setting_keyvalue mdbox_default_filter_settings_keyvalue[] = {
 	{ "mdbox/mailbox_root_directory_name", DBOX_MAILBOX_DIR_NAME },
 	{ "mdbox/mailbox_directory_name", DBOX_MAILDIR_NAME },
+	{ "mdbox/mail_path", "%{home}/mdbox" },
 	{ NULL, NULL }
 };
 
