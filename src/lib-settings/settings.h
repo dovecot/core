@@ -19,6 +19,14 @@ enum settings_override_type {
 	SETTINGS_OVERRIDE_TYPE_USERDB,
 	/* Setting is from -o command line parameters. */
 	SETTINGS_OVERRIDE_TYPE_CLI_PARAM,
+	/* Built-in default for a "2nd setting group". For example these are
+	   used by "doveadm import" to specify the import storage source
+	   settings. */
+	SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT,
+	/* This is intended to be used by a separate CLI parameter specific to
+	   the "2nd setting group". It overrides the 2ND_DEFAULT settings,
+	   or any other settings as well. */
+	SETTINGS_OVERRIDE_TYPE_2ND_CLI_PARAM,
 	/* Setting is hardcoded to be overridden in the code. */
 	SETTINGS_OVERRIDE_TYPE_CODE,
 

@@ -12,6 +12,17 @@
 #include "mmap-util.h"
 #include "settings.h"
 
+enum set_seen_type {
+	/* Setting has not been changed */
+	SET_SEEN_NO,
+	/* Setting has been changed */
+	SET_SEEN_YES,
+	/* Setting has been changed with SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT.
+	   If SETTINGS_OVERRIDE_TYPE_DEFAULT override is still found, use that
+	   instead. */
+	SET_SEEN_DEFAULT,
+};
+
 struct settings_mmap_pool {
 	struct pool pool;
 	int refcount;
@@ -129,7 +140,7 @@ struct settings_apply_ctx {
 	struct setting_parser_context *parser;
 	struct settings_mmap_pool *mpool;
 	void *set_struct;
-	ARRAY_TYPE(bool) set_seen;
+	ARRAY(enum set_seen_type) set_seen;
 	ARRAY_TYPE(settings_override_p) overrides;
 
 	string_t *str;
@@ -141,7 +152,8 @@ struct settings_apply_ctx {
 static ARRAY(const struct setting_parser_info *) set_registered_infos;
 
 static const char *settings_override_type_names[] = {
-	"default", "userdb", "-o parameter", "hardcoded"
+	"default", "userdb", "-o parameter",
+	"2nd default", "2nd parameter", "hardcoded"
 };
 static_assert_array_size(settings_override_type_names,
 			 SETTINGS_OVERRIDE_TYPE_COUNT);
@@ -567,8 +579,9 @@ settings_mmap_apply_defaults(struct settings_apply_ctx *ctx,
 	unsigned int key_idx;
 
 	for (key_idx = 0; ctx->info->defines[key_idx].key != NULL; key_idx++) {
-		bool *setp = array_idx_get_space(&ctx->set_seen, key_idx);
-		if (*setp)
+		enum set_seen_type *set_seenp =
+			array_idx_get_space(&ctx->set_seen, key_idx);
+		if (*set_seenp == SET_SEEN_YES)
 			continue;
 
 		void *set = PTR_OFFSET(ctx->info->defaults,
@@ -640,8 +653,9 @@ settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 		bool set_apply = TRUE;
 		const char *list_key = NULL;
 
-		bool *setp = array_idx_get_space(&ctx->set_seen, key_idx);
-		if (*setp) {
+		enum set_seen_type *set_seenp =
+			array_idx_get_space(&ctx->set_seen, key_idx);
+		if (*set_seenp != SET_SEEN_NO) {
 			/* Already seen this setting - don't set it again.
 			   This check is used also with boollists when the
 			   whole list is replaced. */
@@ -657,7 +671,7 @@ settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 		} else if (ctx->info->defines[key_idx].type == SET_FILTER_ARRAY)
 			set_apply = TRUE;
 		else if (set_apply)
-			*setp = TRUE;
+			*set_seenp = SET_SEEN_YES;
 
 		if (offset >= end_offset) {
 			/* if offset==end_offset, the value is missing. */
@@ -1348,21 +1362,31 @@ static void
 settings_instance_override_init(struct settings_apply_ctx *ctx)
 {
 	struct settings_override *set;
+	bool have_2nd_defaults = FALSE;
 
 	t_array_init(&ctx->overrides, 64);
 	if (array_is_created(&ctx->instance->overrides)) {
-		array_foreach_modifiable(&ctx->instance->overrides, set)
+		array_foreach_modifiable(&ctx->instance->overrides, set) {
+			if (set->type == SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT)
+				have_2nd_defaults = TRUE;
 			array_push_back(&ctx->overrides, &set);
+		}
 	}
 	if (array_is_created(&ctx->root->overrides)) {
-		array_foreach_modifiable(&ctx->root->overrides, set)
+		array_foreach_modifiable(&ctx->root->overrides, set) {
+			if (set->type == SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT)
+				have_2nd_defaults = TRUE;
 			array_push_back(&ctx->overrides, &set);
+		}
 	}
-	if (ctx->instance->mmap == NULL &&
+	if ((ctx->instance->mmap == NULL || have_2nd_defaults) &&
 	    array_is_created(&set_registered_infos)) {
-		/* No configuration - default_filter_settings won't be applied
-		   unless we add them here also. This isn't any production use,
-		   so performance doesn't matter. */
+		/* a) No configuration - default_filter_settings won't be
+		   applied unless we add them here also. This isn't for any
+		   production use, so performance doesn't matter.
+		   b) SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT has been used -
+		   defaults need to be applied on top of them. This is used
+		   only in initialization code. */
 		const struct setting_parser_info *info;
 		ctx->temp_pool = pool_alloconly_create("settings temp pool", 256);
 		array_foreach_elem(&set_registered_infos, info)
@@ -1462,12 +1486,24 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 				track_seen = FALSE;
 		}
 		if (track_seen) {
-			bool *setp = array_idx_get_space(&ctx->set_seen, key_idx);
-			if (*setp) {
+			enum set_seen_type *set_seenp =
+				array_idx_get_space(&ctx->set_seen, key_idx);
+			switch (*set_seenp) {
+			case SET_SEEN_NO:
+				break;
+			case SET_SEEN_YES:
 				/* already set - skip */
 				continue;
+			case SET_SEEN_DEFAULT:
+				/* already seen, but still apply defaults */
+				if (set->type != SETTINGS_OVERRIDE_TYPE_DEFAULT)
+					continue;
+				break;
 			}
-			*setp = TRUE;
+			if (set->type == SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT)
+				*set_seenp = SET_SEEN_DEFAULT;
+			else
+				*set_seenp = SET_SEEN_YES;
 		}
 		/* skip this setting the next time */
 		*set_elem = NULL;
