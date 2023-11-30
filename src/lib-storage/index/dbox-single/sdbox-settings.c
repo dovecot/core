@@ -17,6 +17,7 @@ static const struct sdbox_settings sdbox_default_settings = {
 static const struct setting_keyvalue sdbox_default_filter_settings_keyvalue[] = {
 	{ "sdbox/mailbox_root_directory_name", DBOX_MAILBOX_DIR_NAME },
 	{ "sdbox/mailbox_directory_name", DBOX_MAILDIR_NAME },
+	{ "sdbox/mail_path", "%{home}/sdbox" },
 	{ NULL, NULL }
 };
 
