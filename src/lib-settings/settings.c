@@ -830,6 +830,7 @@ settings_override_get_value(struct setting_parser_context *parser,
 	enum setting_type value_type;
 	const void *old_value = NULL;
 	if (set->last_filter_value != NULL) {
+		i_assert(set->last_filter_key != NULL);
 		/* Try filter/name/key -> filter_key. Do this before the
 		   non-prefixed check, so e.g. inet_listener/imap/ssl won't
 		   try to change the global ssl setting. */
