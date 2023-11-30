@@ -64,6 +64,7 @@ struct dsync_cmd_context {
 	enum dsync_brain_sync_type sync_type;
 	const char *mailbox;
 	const char *const *destination;
+	const char *const *destination_options;
 	const char *sync_flags;
 	const char *virtual_all_box;
 	guid_128_t mailbox_guid;
@@ -449,21 +450,41 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	struct dsync_brain *brain2;
 	struct mail_user *user2;
 	struct mail_namespace *ns, *ns2;
-	const char *error;
+	const char *mail_driver, *mail_path, *error;
 	bool brain1_running, brain2_running, changed1, changed2;
 	bool remote_only_changes;
 	int ret;
 
 	*mail_error_r = 0;
 
+	mail_path = strchr(ctx->destination[0], ':');
+	if (mail_path == NULL || strchr(mail_path + 1, ':') != NULL) {
+		e_error(ctx->ctx.cctx->event,
+			"Destination should be in mail_driver:mail_path syntax");
+		ctx->ctx.exit_code = EX_USAGE;
+		return -1;
+	}
+	mail_driver = t_strdup_until(ctx->destination[0], mail_path++);
+
 	i_set_failure_prefix("dsync(%s): ", user->username);
 
-	/* update mail_location and create another user for the
-	   second location. */
+	/* Create another user for the second location with its own
+	   storage settings. Override only the defaults, while preserving any
+	   namespace-specific settings. */
 	struct settings_instance *set_instance =
 		mail_storage_service_user_get_settings_instance(ctx->ctx.cur_service_user);
-	settings_override(set_instance, "mail_location", ctx->destination[0],
-			  SETTINGS_OVERRIDE_TYPE_CODE);
+	mail_storage_2nd_settings_reset(set_instance, "");
+	for (unsigned int i = 0; ctx->destination_options[i] != NULL; i++) {
+		const char *key, *value;
+		t_split_key_value_eq(ctx->destination_options[i], &key, &value);
+		settings_override(set_instance, key, value,
+				  SETTINGS_OVERRIDE_TYPE_2ND_CLI_PARAM);
+	}
+	settings_override(set_instance, "mail_driver", mail_driver,
+			  SETTINGS_OVERRIDE_TYPE_2ND_CLI_PARAM);
+	settings_override(set_instance, "mail_path", mail_path,
+			  SETTINGS_OVERRIDE_TYPE_2ND_CLI_PARAM);
+
 	ret = mail_storage_service_next(ctx->ctx.storage_service,
 					ctx->ctx.cur_service_user,
 					&user2, &error);
@@ -492,9 +513,9 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	if (paths_are_equal(ns, ns2, MAILBOX_LIST_PATH_TYPE_MAILBOX) &&
 	    paths_are_equal(ns, ns2, MAILBOX_LIST_PATH_TYPE_INDEX)) {
 		e_error(ctx->ctx.cctx->event,
-			"Both source and destination mail_location "
-			"points to same directory: %s (namespace %s "
-			"{ mail_location } is set explicitly?)",
+			"Both source and destination mail_path and mail_index_path "
+			"point to same directory: %s (namespace %s "
+			"{ mail_path } is set explicitly?)",
 			mailbox_list_get_root_forced(user->namespaces->list,
 						     MAILBOX_LIST_PATH_TYPE_MAILBOX),
 			ns->set->name);
@@ -1122,6 +1143,9 @@ static void cmd_dsync_preinit(struct doveadm_mail_cmd_context *_ctx)
 
 	(void)doveadm_cmd_param_uint32(cctx, "timeout", &ctx->io_timeout_secs);
 
+	if (!doveadm_cmd_param_array(cctx, "destination-option",
+				     &ctx->destination_options))
+		ctx->destination_options = empty_str_array;
 	if (!doveadm_cmd_param_array(cctx, "destination", &ctx->destination))
 		ctx->destination = empty_str_array;
 
@@ -1277,6 +1301,7 @@ DOVEADM_CMD_PARAM('e', "sync-until-time", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('O', "sync-flags", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('I', "sync-max-size", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('T', "timeout", CMD_PARAM_INT64, CMD_PARAM_FLAG_UNSIGNED) \
+DOVEADM_CMD_PARAM('p', "destination-option", CMD_PARAM_ARRAY, 0) \
 DOVEADM_CMD_PARAM('\0', "destination", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 
 #define DSYNC_COMMON_USAGE \
@@ -1284,7 +1309,7 @@ DOVEADM_CMD_PARAM('\0', "destination", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONA
 	"[-m <mailbox>] [-g <mailbox guid>] [-n <namespace> | -N] " \
 	"[-x <exclude>] [-a <all mailbox>] [-s <state>] [-T <secs>] " \
 	"[-t <start date>] [-e <end date>] [-O <sync flag>] [-I <max size>] " \
-	"<dest>"
+	"[-p <dest option> [...]] <destination>"
 
 struct doveadm_cmd_ver2 doveadm_cmd_dsync_mirror = {
 	.mail_cmd = cmd_dsync_alloc,
