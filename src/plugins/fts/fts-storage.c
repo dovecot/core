@@ -162,16 +162,6 @@ static bool fts_want_build_args(const struct mail_search_arg *args)
 	return FALSE;
 }
 
-static enum fts_enforced fts_enforced_parse(const char *str)
-{
-	if (str == NULL || strcmp(str, "no") == 0)
-		return FTS_ENFORCED_NO;
-	else if (strcmp(str, "body") == 0)
-		return FTS_ENFORCED_BODY;
-	else
-		return FTS_ENFORCED_YES;
-}
-
 static struct mail_search_context *
 fts_mailbox_search_init(struct mailbox_transaction_context *t,
 			struct mail_search_args *args,
@@ -203,8 +193,6 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 		hash_table_create(&fctx->last_indexed_virtual_uids,
 				  default_pool, 0, str_hash, strcmp);
 	}
-	fctx->enforced = fts_enforced_parse(
-		mail_user_plugin_getenv(t->box->storage->user, "fts_enforced"));
 	i_array_init(&fctx->levels, 8);
 	fctx->scores = i_new(struct fts_scores, 1);
 	fctx->scores->refcount = 1;
@@ -218,7 +206,7 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	ft->scores = fctx->scores;
 	ft->scores->refcount++;
 
-	if (fctx->enforced == FTS_ENFORCED_YES ||
+	if (fbox->set->parsed_enforced == FTS_ENFORCED_YES ||
 	    fts_want_build_args(args->args))
 		fts_try_build_init(ctx, fctx);
 	else
@@ -260,7 +248,8 @@ static bool
 fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 				 struct mail **mail_r, bool *tryagain_r)
 {
-	struct fts_mailbox *fbox = FTS_CONTEXT_REQUIRE(ctx->transaction->box);
+	struct mailbox *box = ctx->transaction->box;
+	struct fts_mailbox *fbox = FTS_CONTEXT_REQUIRE(box);
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
 
 	if (fctx != NULL && fctx->indexer_ctx != NULL) {
@@ -275,7 +264,7 @@ fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 		}
 	}
 	if (fctx != NULL && !fctx->fts_lookup_success &&
-	    fctx->enforced != FTS_ENFORCED_NO)
+	    fbox->set->parsed_enforced != FTS_ENFORCED_NO)
 		return FALSE;
 
 	return fbox->module_ctx.super.
@@ -415,7 +404,8 @@ static bool fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 
 static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 {
-	struct fts_mailbox *fbox = FTS_CONTEXT_REQUIRE(ctx->transaction->box);
+	struct mailbox *box = ctx->transaction->box;
+	struct fts_mailbox *fbox = FTS_CONTEXT_REQUIRE(box);
 	struct fts_transaction_context *ft = FTS_CONTEXT_REQUIRE(ctx->transaction);
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
 	int ret = 0;
@@ -430,14 +420,14 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 		if (fctx->indexing_timed_out || fctx->mailbox_failed)
 			ret = -1;
 		else if (fctx->mailbox_failed) {
-			mail_storage_set_internal_error(ctx->transaction->box->storage);
+			mail_storage_set_internal_error(box->storage);
 			ret = -1;
 		}
 		else if (!fctx->fts_lookup_success &&
-			 fctx->enforced != FTS_ENFORCED_NO) {
+			 fbox->set->parsed_enforced != FTS_ENFORCED_NO) {
 			/* FTS lookup failed and we didn't want to fallback to
 			   opening all the mails and searching manually */
-			mail_storage_set_internal_error(ctx->transaction->box->storage);
+			mail_storage_set_internal_error(box->storage);
 			ret = -1;
 		}
 
