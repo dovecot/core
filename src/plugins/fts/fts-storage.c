@@ -632,9 +632,9 @@ static void fts_transaction_rollback(struct mailbox_transaction_context *t)
 static void fts_queue_index(struct mailbox *box)
 {
 	struct mail_user *user = box->storage->user;
+	struct fts_mailbox *fbox = FTS_CONTEXT_REQUIRE(box);
 	string_t *str = t_str_new(256);
-	const char *path, *value;
-	unsigned int max_recent_msgs;
+	const char *path;
 	int fd;
 
 	path = t_strconcat(user->set->base_dir, "/"INDEXER_SOCKET_NAME, NULL);
@@ -644,16 +644,12 @@ static void fts_queue_index(struct mailbox *box)
 		return;
 	}
 
-	value = mail_user_plugin_getenv(user, "fts_autoindex_max_recent_msgs");
-	if (value == NULL || str_to_uint(value, &max_recent_msgs) < 0)
-		max_recent_msgs = 0;
-
 	str_append(str, INDEXER_HANDSHAKE);
 	str_append(str, "APPEND\t0\t");
 	str_append_tabescaped(str, user->username);
 	str_append_c(str, '\t');
 	str_append_tabescaped(str, box->vname);
-	str_printfa(str, "\t%u", max_recent_msgs);
+	str_printfa(str, "\t%u", fbox->set->autoindex_max_recent_msgs);
 	str_append_c(str, '\t');
 	str_append_tabescaped(str, box->storage->user->session_id);
 	str_append_c(str, '\n');
