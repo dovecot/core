@@ -182,7 +182,6 @@ static struct mail_storage *
 mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 		       const struct mail_storage_settings *mail_set,
 		       struct mailbox_list_settings *list_set,
-		       enum mail_storage_flags flags,
 		       const char **inbox_path_override, const char **error_r)
 {
 	struct mail_storage *storage_class = NULL;
@@ -202,27 +201,6 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 		if (storage_class == NULL) {
 			*error_r = t_strdup_printf(
 				"Unknown mail storage driver %s", driver);
-			return NULL;
-		}
-	}
-
-	if (list_set->root_dir == NULL || *list_set->root_dir == '\0') {
-		/* no root directory given. is this allowed? */
-		const struct mailbox_list *list;
-
-		list = mail_set->mailbox_list_layout[0] == '\0' ? NULL :
-			mailbox_list_find_class(mail_set->mailbox_list_layout);
-		if (storage_class == NULL &&
-		    (flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) == 0) {
-			/* autodetection should take care of this */
-		} else if (storage_class != NULL &&
-			   (storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) != 0) {
-			/* root not required for this storage */
-		} else if (list != NULL &&
-			   (list->props & MAILBOX_LIST_PROP_NO_ROOT) != 0) {
-			/* root not required for this layout */
-		} else {
-			*error_r = "Root mail directory not given";
 			return NULL;
 		}
 	}
@@ -432,6 +410,29 @@ mail_storage_create_list(struct mail_namespace *ns,
 		return -1;
 	}
 
+	if (list_set->root_dir == NULL || *list_set->root_dir == '\0') {
+		/* no root directory given. is this allowed? */
+		const struct mailbox_list *list;
+
+		list = mail_set->mailbox_list_layout[0] == '\0' ? NULL :
+			mailbox_list_find_class(mail_set->mailbox_list_layout);
+		if (storage_class == NULL &&
+		    (flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) == 0) {
+			/* autodetection should take care of this */
+		} else if (storage_class != NULL &&
+			   (storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) != 0) {
+			/* root not required for this storage */
+		} else if (list != NULL &&
+			   (list->props & MAILBOX_LIST_PROP_NO_ROOT) != 0) {
+			/* root not required for this layout */
+		} else {
+			*error_r = "Root mail directory not given";
+			settings_free(mail_set);
+			event_unref(&set_event);
+			return -1;
+		}
+	}
+
 	struct event *event = event_create(ns->user->event);
 	event_add_str(event, "namespace", ns->set->name);
 	if (storage_class->v.get_list_settings != NULL)
@@ -482,8 +483,7 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 	}
 
 	storage_class = mail_storage_get_class(ns, driver, mail_set, &list_set,
-					       flags, &inbox_path_override,
-					       error_r);
+					       &inbox_path_override, error_r);
 	settings_free(mail_set);
 	if (storage_class == NULL)
 		return -1;
