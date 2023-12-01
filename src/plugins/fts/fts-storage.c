@@ -662,16 +662,16 @@ static int
 fts_transaction_commit(struct mailbox_transaction_context *t,
 		       struct mail_transaction_commit_changes *changes_r)
 {
-	struct fts_transaction_context *ft = FTS_CONTEXT_REQUIRE(t);
-	struct fts_mailbox *fbox = FTS_CONTEXT_REQUIRE(t->box);
 	struct mailbox *box = t->box;
+	const struct fts_settings *set = fts_user_get_settings(box->storage->user);
+	struct fts_transaction_context *ft = FTS_CONTEXT_REQUIRE(t);
+	struct fts_mailbox *fbox = FTS_CONTEXT_REQUIRE(box);
 	bool autoindex;
 	int ret = 0;
 	const char *error;
 
-	autoindex = ft->mails_saved && !fbox->fts_mailbox_excluded &&
-		mail_user_plugin_getenv_bool(box->storage->user,
-					"fts_autoindex");
+	autoindex = set->autoindex && ft->mails_saved &&
+		    !fbox->fts_mailbox_excluded;
 
 	if (fts_transaction_end(t, &error) < 0) {
 		mail_storage_set_error(t->box->storage, MAIL_ERROR_TEMP,
