@@ -513,6 +513,19 @@ static void acl_mailbox_list_deinit(struct mailbox_list *list)
 	alist->module_ctx.super.deinit(list);
 }
 
+static void acl_storage_rights_ctx_init(struct acl_storage_rights_context *ctx,
+					struct acl_backend *backend)
+{
+	unsigned int i;
+
+	ctx->backend = backend;
+	for (i = 0; i < ACL_STORAGE_RIGHT_COUNT; i++) {
+		ctx->acl_storage_right_idx[i] =
+			acl_backend_lookup_right(backend,
+						 acl_storage_right_names[i]);
+	}
+}
+
 static void acl_mailbox_list_init_shared(struct mailbox_list *list)
 {
 	struct acl_mailbox_list *alist;
@@ -525,19 +538,6 @@ static void acl_mailbox_list_init_shared(struct mailbox_list *list)
 	v->iter_init = acl_mailbox_list_iter_init_shared;
 
 	MODULE_CONTEXT_SET(list, acl_mailbox_list_module, alist);
-}
-
-static void acl_storage_rights_ctx_init(struct acl_storage_rights_context *ctx,
-					struct acl_backend *backend)
-{
-	unsigned int i;
-
-	ctx->backend = backend;
-	for (i = 0; i < ACL_STORAGE_RIGHT_COUNT; i++) {
-		ctx->acl_storage_right_idx[i] =
-			acl_backend_lookup_right(backend,
-						 acl_storage_right_names[i]);
-	}
 }
 
 static bool acl_namespace_is_ignored(struct mailbox_list *list)
