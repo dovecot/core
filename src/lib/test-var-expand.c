@@ -65,6 +65,8 @@ static void test_var_expand_builtin(void)
 		{ "%1.2M{nonexistent:default}", "UNSUPPORTED_VARIABLE_nonexistent", 0 },
 		{ "%x", "UNSUPPORTED_VARIABLE_x", 0 },
 		{ "%5Mm", "UNSUPPORTED_VARIABLE_m", 0 },
+
+		{ "%", "", -1 },
 	};
 	static const struct var_expand_table table[] = {
 		{ 'v', "value", NULL },
@@ -85,7 +87,7 @@ static void test_var_expand_builtin(void)
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		str_truncate(str, 0);
 		test_assert_idx(var_expand(str, tests[i].in, table, &error) == tests[i].ret, i);
-		test_assert_idx(strcmp(tests[i].out, str_c(str)) == 0, i);
+		test_assert_strcmp_idx(tests[i].out, str_c(str), i);
 	}
 	test_end();
 }
