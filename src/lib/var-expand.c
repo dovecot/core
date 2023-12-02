@@ -626,10 +626,7 @@ int var_expand_with_arrays(string_t *dest, const char *str,
 				modifier_count++;
 			}
 
-			if (*str == '\0')
-				break;
-
-			var = NULL;
+			var = "";
 			if (*str == '{' && strchr(str, '}') != NULL) {
 				/* %{long_key} */
 				unsigned int ctr = 1;
@@ -662,6 +659,10 @@ int var_expand_with_arrays(string_t *dest, const char *str,
 			}
 			i_assert(var != NULL);
 
+			if (*str == '\0') {
+				*error_r = "%variable ends unexpectedly";
+				return -1;
+			}
 			if (final_ret > ret)
 				final_ret = ret;
 
