@@ -339,7 +339,11 @@ mail_storage_create_list(struct mail_namespace *ns,
 	   storage-specific defaults for mailbox list settings. */
 	event_set_ptr(set_event, SETTINGS_EVENT_FILTER_NAME,
 		      (void *)storage_class->name);
-	event_add_str(set_event, "namespace", ns->set->name);
+	/* Set namespace, but don't overwrite if it already is set.
+	   Shared storage uses the same shared namespace here also for the
+	   user's root prefix="" namespace. */
+	if (event_find_field_recursive(set_event, "namespace") == NULL)
+		event_add_str(set_event, "namespace", ns->set->name);
 
 	if ((flags & MAIL_STORAGE_FLAG_SHARED_DYNAMIC) != 0) {
 		mail_storage_create_ns_instance(ns, set_event);
