@@ -166,8 +166,15 @@ static void http_server_connection_ready(struct http_server_connection *conn)
 		base_url.host.name = my_hostname;
 	base_url.have_ssl = conn->ssl;
 
+	const struct http_request_limits limits = {
+		.max_target_length = set->request_max_target_length,
+		.max_payload_size = set->request_max_payload_size,
+		.header.max_size = set->request_hdr_max_size,
+		.header.max_field_size = set->request_hdr_max_field_size,
+		.header.max_fields = set->request_hdr_max_fields,
+	};
 	conn->http_parser = http_request_parser_init(
-		conn->conn.input, &base_url, &conn->server->set.request_limits,
+		conn->conn.input, &base_url, &limits,
 		HTTP_REQUEST_PARSE_FLAG_STRICT);
 	o_stream_set_finish_via_child(conn->conn.output, FALSE);
 	o_stream_set_flush_callback(conn->conn.output,
