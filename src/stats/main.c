@@ -59,7 +59,8 @@ static void main_init(void)
 	stats_event_categories_init();
 	client_readers_init();
 	client_writers_init();
-	client_http_init(stats_settings);
+	client_http_init(stats_settings,
+			 master_service_get_event(master_service));
 	stats_services_init();
 }
 

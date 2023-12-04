@@ -79,7 +79,7 @@ static void main_init(void)
 	   mail_plugins have been loaded. */
 	doveadm_load_modules();
 
-	doveadm_server_init();
+	doveadm_server_init(master_service_get_event(master_service));
 	if (doveadm_verbose_proctitle)
 		process_title_set("[idling]");
 }

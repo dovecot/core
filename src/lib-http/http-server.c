@@ -25,7 +25,8 @@ static struct event_category event_category_http_server = {
  * Server
  */
 
-struct http_server *http_server_init(const struct http_server_settings *set)
+struct http_server *http_server_init(const struct http_server_settings *set,
+				     struct event *event_parent)
 {
 	struct http_server *server;
 	pool_t pool;
@@ -56,7 +57,7 @@ struct http_server *http_server_init(const struct http_server_settings *set)
 	server->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
 	server->set.debug = set->debug;
 
-	server->event = event_create(set->event);
+	server->event = event_create(event_parent);
 	event_add_category(server->event, &event_category_http_server);
 	event_set_forced_debug(server->event, set->debug);
 	event_set_append_log_prefix(server->event, "http-server: ");

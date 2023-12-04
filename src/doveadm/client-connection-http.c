@@ -1207,13 +1207,13 @@ doveadm_http_server_connection_destroy(void *context,
  * Server
  */
 
-void doveadm_http_server_init(void)
+void doveadm_http_server_init(struct event *event)
 {
 	struct http_server_settings http_set = {
 		.rawlog_dir = doveadm_settings->doveadm_http_rawlog_dir,
 	};
 
-	doveadm_http_server = http_server_init(&http_set);
+	doveadm_http_server = http_server_init(&http_set, event);
 }
 
 void doveadm_http_server_deinit(void)
