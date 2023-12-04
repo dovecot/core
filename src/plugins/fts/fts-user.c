@@ -10,6 +10,8 @@
 #include "lang-filter.h"
 #include "lang-tokenizer.h"
 #include "fts-user.h"
+#include "settings.h"
+#include "fts-settings.h"
 
 #define FTS_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, fts_user_module)
@@ -18,6 +20,7 @@
 
 struct fts_user {
 	union mail_user_module_context module_ctx;
+	const struct fts_settings *set;
 	int refcount;
 
 	struct language_list *lang_list;
@@ -343,6 +346,12 @@ struct fts_user_language *fts_user_get_data_lang(struct mail_user *user)
 	return fuser->data_lang;
 }
 
+const struct fts_settings *fts_user_get_settings(struct mail_user *user)
+{
+	struct fts_user *fuser = FTS_USER_CONTEXT_REQUIRE(user);
+	return fuser->set;
+}
+
 bool fts_user_autoindex_exclude(struct mailbox *box)
 {
 	struct fts_user *fuser = FTS_USER_CONTEXT_REQUIRE(box->storage->user);
@@ -371,7 +380,8 @@ static void fts_user_free(struct fts_user *fuser)
 		array_foreach_elem(&fuser->languages, user_lang)
 			fts_user_language_free(user_lang);
 	}
-	mailbox_match_plugin_deinit(&fuser->autoindex_exclude);
+
+	settings_free(fuser->set);
 }
 
 static int
@@ -405,7 +415,15 @@ int fts_mail_user_init(struct mail_user *user, bool initialize_libfts,
 		return 0;
 	}
 
+	const char *error;
+	const struct fts_settings *set;
+	if (settings_get(user->event, &fts_setting_parser_info, 0, &set, &error) < 0) {
+		e_error(user->event, "%s", error);
+		return -1;
+	}
+
 	fuser = p_new(user->pool, struct fts_user, 1);
+	fuser->set = set;
 	fuser->refcount = 1;
 	if (initialize_libfts) {
 		if (fts_mail_user_init_libfts(user, fuser, error_r) < 0) {
