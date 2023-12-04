@@ -126,6 +126,7 @@ struct http_server_request {
 struct http_server_connection {
 	struct connection conn;
 	struct http_server *server;
+	struct http_server_settings *set;
 	struct ioloop *ioloop, *ioloop_switching;
 	struct event *event;
 	unsigned int refcount;
