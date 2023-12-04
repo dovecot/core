@@ -1,6 +1,8 @@
 #ifndef FTS_USER_H
 #define FTS_USER_H
 
+#include "fts-settings.h"
+
 struct fts_user_language {
 	const struct language *lang;
 	struct lang_filter *filter;
@@ -17,6 +19,8 @@ fts_user_get_all_languages(struct mail_user *user);
 struct fts_user_language *fts_user_get_data_lang(struct mail_user *user);
 const ARRAY_TYPE(fts_user_language) *
 fts_user_get_data_languages(struct mail_user *user);
+
+const struct fts_settings *fts_user_get_settings(struct mail_user *user);
 
 bool fts_user_autoindex_exclude(struct mailbox *box);
 size_t fts_mail_user_message_max_size(struct mail_user *user);
