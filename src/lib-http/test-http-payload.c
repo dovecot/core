@@ -1764,7 +1764,6 @@ test_init_server_settings(struct http_server_settings *server_set_r)
 {
 	i_zero(server_set_r);
 	server_set_r->request_max_payload_size = UOFF_T_MAX;
-	server_set_r->debug = debug;
 
 	if (small_socket_buffers) {
 		server_set_r->socket_send_buffer_size = 40960;
@@ -2433,6 +2432,7 @@ static void main_init(void)
 	event_set_append_log_prefix(client_event, "test client: ");
 	server_event = event_create(test_event);
 	event_set_append_log_prefix(server_event, "test server: ");
+	event_set_forced_debug(server_event, debug);
 }
 
 static void main_deinit(void)

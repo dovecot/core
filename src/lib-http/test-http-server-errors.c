@@ -842,7 +842,6 @@ static void test_server_defaults(struct http_server_settings *http_set)
 	i_zero(http_set);
 	http_set->max_client_idle_time_msecs = 5*1000;
 	http_set->max_pipelined_requests = 1;
-	http_set->debug = debug;
 }
 
 /* client connection */
@@ -885,6 +884,7 @@ static void test_server_run(const struct http_server_settings *http_set)
 {
 	struct timeout *to;
 	struct event *event = event_create(NULL);
+	event_set_forced_debug(event, debug);
 
 	to = timeout_add(SERVER_MAX_TIMEOUT_MSECS, test_server_timeout, NULL);
 

@@ -213,11 +213,10 @@ int main(int argc, char *argv[])
 	i_zero(&http_set);
 	http_set.max_client_idle_time_msecs = 20*1000; /* defaults to indefinite! */
 	http_set.max_pipelined_requests = 4;
-	http_set.debug = debug;
 
 	ioloop = io_loop_create();
 	struct event *event = event_create(NULL);
-
+	event_set_forced_debug(event, debug);
 	http_server = http_server_init(&http_set, event);
 
 	lib_signals_init();

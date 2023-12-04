@@ -52,9 +52,6 @@ struct http_server_settings {
 	   defaults are used when these settings are 0. */
 	size_t socket_send_buffer_size;
 	size_t socket_recv_buffer_size;
-
-	/* Enable logging debug messages */
-	bool debug;
 };
 
 
