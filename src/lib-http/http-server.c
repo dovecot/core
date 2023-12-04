@@ -47,7 +47,11 @@ struct http_server *http_server_init(const struct http_server_settings *set)
 	server->set.max_client_idle_time_msecs = set->max_client_idle_time_msecs;
 	server->set.max_pipelined_requests =
 		(set->max_pipelined_requests > 0 ? set->max_pipelined_requests : 1);
-	server->set.request_limits = set->request_limits;
+	server->set.request_max_target_length = set->request_max_target_length;
+	server->set.request_max_payload_size = set->request_max_payload_size;
+	server->set.request_hdr_max_size = set->request_hdr_max_size;
+	server->set.request_hdr_max_field_size = set->request_hdr_max_field_size;
+	server->set.request_hdr_max_fields = set->request_hdr_max_fields;
 	server->set.socket_send_buffer_size = set->socket_send_buffer_size;
 	server->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
 	server->set.debug = set->debug;

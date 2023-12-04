@@ -35,7 +35,12 @@ struct http_server_settings {
 	unsigned int max_pipelined_requests;
 
 	/* Request limits */
-	struct http_request_limits request_limits;
+	uoff_t request_max_target_length;
+	uoff_t request_max_payload_size;
+	/* Request header limits */
+	uoff_t request_hdr_max_size;
+	uoff_t request_hdr_max_field_size;
+	unsigned int request_hdr_max_fields;
 
 	/* The kernel send/receive buffer sizes used for the connection sockets.
 	   Configuring this is mainly useful for the test suite. The kernel
