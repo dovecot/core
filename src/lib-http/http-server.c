@@ -55,11 +55,9 @@ struct http_server *http_server_init(const struct http_server_settings *set,
 	server->set.request_hdr_max_fields = set->request_hdr_max_fields;
 	server->set.socket_send_buffer_size = set->socket_send_buffer_size;
 	server->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
-	server->set.debug = set->debug;
 
 	server->event = event_create(event_parent);
 	event_add_category(server->event, &event_category_http_server);
-	event_set_forced_debug(server->event, set->debug);
 	event_set_append_log_prefix(server->event, "http-server: ");
 
 	server->conn_list = http_server_connection_list_init();
