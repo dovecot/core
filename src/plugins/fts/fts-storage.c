@@ -48,7 +48,6 @@ struct fts_mailbox {
 	union mailbox_module_context module_ctx;
 	const struct fts_settings *set;
 	struct fts_backend_update_context *sync_update_ctx;
-	bool fts_mailbox_excluded;
 };
 
 struct fts_transaction_context {
@@ -663,15 +662,13 @@ fts_transaction_commit(struct mailbox_transaction_context *t,
 		       struct mail_transaction_commit_changes *changes_r)
 {
 	struct mailbox *box = t->box;
-	const struct fts_settings *set = fts_user_get_settings(box->storage->user);
 	struct fts_transaction_context *ft = FTS_CONTEXT_REQUIRE(t);
 	struct fts_mailbox *fbox = FTS_CONTEXT_REQUIRE(box);
 	bool autoindex;
 	int ret = 0;
 	const char *error;
 
-	autoindex = set->autoindex && ft->mails_saved &&
-		    !fbox->fts_mailbox_excluded;
+	autoindex = fbox->set->autoindex && ft->mails_saved;
 
 	if (fts_transaction_end(t, &error) < 0) {
 		mail_storage_set_error(t->box->storage, MAIL_ERROR_TEMP,
@@ -833,8 +830,6 @@ void fts_mailbox_allocated(struct mailbox *box)
 	v->free = fts_mailbox_free;
 	fbox->set = set;
 	box->vlast = &fbox->module_ctx.super;
-	fbox->fts_mailbox_excluded = fts_user_autoindex_exclude(box);
-
 	v->get_status = fts_mailbox_get_status;
 	v->search_init = fts_mailbox_search_init;
 	v->search_next_nonblock = fts_mailbox_search_next_nonblock;

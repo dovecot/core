@@ -60,7 +60,6 @@ libstorage_la_SOURCES = \
 	mailbox-list.c \
 	mailbox-list-notify.c \
 	mailbox-list-register.c \
-	mailbox-match-plugin.c \
 	mailbox-recent-flags.c \
 	mailbox-search-result.c \
 	mailbox-tree.c \
@@ -98,7 +97,6 @@ headers = \
 	mailbox-list-iter.h \
 	mailbox-list-private.h \
 	mailbox-list-notify.h \
-	mailbox-match-plugin.h \
 	mailbox-recent-flags.h \
 	mailbox-search-result-private.h \
 	mailbox-tree.h \
