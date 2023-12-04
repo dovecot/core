@@ -216,8 +216,9 @@ int main(int argc, char *argv[])
 	http_set.debug = debug;
 
 	ioloop = io_loop_create();
+	struct event *event = event_create(NULL);
 
-	http_server = http_server_init(&http_set);
+	http_server = http_server_init(&http_set, event);
 
 	lib_signals_init();
 	lib_signals_ignore(SIGPIPE, TRUE);
@@ -238,6 +239,7 @@ int main(int argc, char *argv[])
 	clients_destroy_all(); /* just an example; avoid doing this */
 
 	http_server_deinit(&http_server);
+	event_unref(&event);
 	lib_signals_deinit();
 	io_loop_destroy(&ioloop);
 	lib_deinit();

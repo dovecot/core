@@ -53,9 +53,6 @@ struct http_server_settings {
 	size_t socket_send_buffer_size;
 	size_t socket_recv_buffer_size;
 
-	/* Event to use for the http server. */
-	struct event *event;
-
 	/* Enable logging debug messages */
 	bool debug;
 };
@@ -427,7 +424,8 @@ void http_server_resource_set_destroy_callback(struct http_server_resource *res,
  * Server
  */
 
-struct http_server *http_server_init(const struct http_server_settings *set);
+struct http_server *http_server_init(const struct http_server_settings *set,
+				     struct event *event_parent);
 void http_server_deinit(struct http_server **_server);
 
 /* Shut down the server; accept no new requests and drop connections once

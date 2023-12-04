@@ -13,10 +13,10 @@ void client_connection_destroy(struct client_connection **_conn);
 void client_connection_set_proctitle(struct client_connection *conn,
 				     const char *text);
 
-void doveadm_http_server_init(void);
+void doveadm_http_server_init(struct event *event);
 void doveadm_http_server_deinit(void);
 
-void doveadm_server_init(void);
+void doveadm_server_init(struct event *event);
 void doveadm_server_deinit(void);
 
 #endif

@@ -884,13 +884,14 @@ static void test_server_timeout(void *context ATTR_UNUSED)
 static void test_server_run(const struct http_server_settings *http_set)
 {
 	struct timeout *to;
+	struct event *event = event_create(NULL);
 
 	to = timeout_add(SERVER_MAX_TIMEOUT_MSECS, test_server_timeout, NULL);
 
 	/* open server socket */
 	io_listen = io_add(fd_listen, IO_READ, server_connection_accept, NULL);
 
-	http_server = http_server_init(http_set);
+	http_server = http_server_init(http_set, event);
 
 	io_loop_run(ioloop);
 
@@ -899,6 +900,7 @@ static void test_server_run(const struct http_server_settings *http_set)
 	timeout_remove(&to);
 
 	http_server_deinit(&http_server);
+	event_unref(&event);
 }
 
 /*
