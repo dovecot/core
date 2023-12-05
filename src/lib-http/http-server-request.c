@@ -338,7 +338,7 @@ void http_server_request_received(struct http_server_request *req)
 		"(%u requests pending; %u maximum)",
 		http_server_request_label(req),
 		req->conn->request_queue_count,
-		req->conn->server->set.max_pipelined_requests);
+		req->conn->server->set->max_pipelined_requests);
 }
 
 void http_server_request_callback(struct http_server_request *req)

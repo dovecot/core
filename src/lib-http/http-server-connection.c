@@ -987,8 +987,8 @@ http_server_connection_create(struct http_server *server,
 	conn = i_new(struct http_server_connection, 1);
 	conn->refcount = 1;
 	conn->server = server;
-	conn->set = &server->set;
-	pool_ref(server->set.pool);
+	conn->set = server->set;
+	pool_ref(server->set->pool);
 	conn->ioloop = current_ioloop;
 	conn->ssl = ssl;
 	conn->callbacks = callbacks;
