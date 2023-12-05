@@ -1209,9 +1209,10 @@ doveadm_http_server_connection_destroy(void *context,
 
 void doveadm_http_server_init(struct event *event)
 {
-	struct http_server_settings http_set = {
-		.rawlog_dir = doveadm_settings->doveadm_http_rawlog_dir,
-	};
+	struct http_server_settings http_set;
+
+	http_server_settings_init(null_pool, &http_set);
+	http_set.rawlog_dir = doveadm_settings->doveadm_http_rawlog_dir;
 
 	doveadm_http_server = http_server_init(&http_set, event);
 }

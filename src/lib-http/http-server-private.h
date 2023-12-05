@@ -182,7 +182,7 @@ struct http_server_resource {
 struct http_server {
 	pool_t pool;
 
-	struct http_server_settings *set;
+	const struct http_server_settings *set;
 	const struct ssl_iostream_settings *ssl_set;
 
 	struct ioloop *ioloop;
