@@ -60,6 +60,7 @@ static int config_global_reload(const char **error_r)
 			      &new_config, error_r) <= 0)
 		return -1;
 
+	config_parsed_free(&global_config);
 	global_config = new_config;
 	i_close_fd(&global_config_fd);
 
@@ -170,9 +171,11 @@ void config_connection_destroy(struct config_connection *conn)
 	master_service_client_connection_destroyed(master_service);
 }
 
-void config_connections_init(struct config_parsed *config)
+void config_connections_init(struct config_parsed *config ATTR_UNUSED)
 {
-	global_config = config;
+	const char *error;
+	if (config_global_reload(&error) < 0)
+		i_fatal("%s", error);
 }
 
 void config_connections_destroy_all(void)
@@ -180,4 +183,5 @@ void config_connections_destroy_all(void)
 	while (config_connections != NULL)
 		config_connection_destroy(config_connections);
 	i_close_fd(&global_config_fd);
+	config_parsed_free(&global_config);
 }
