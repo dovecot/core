@@ -1644,6 +1644,8 @@ void config_parsed_free(struct config_parsed **_config)
 	struct config_parsed *config = *_config;
 	unsigned int i;
 
+	if (config == NULL)
+		return;
 	*_config = NULL;
 
 	for (i = 0; config->filter_parsers[i] != NULL; i++)
