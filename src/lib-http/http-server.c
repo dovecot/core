@@ -25,6 +25,16 @@ static struct event_category event_category_http_server = {
  * Server
  */
 
+void http_server_settings_init(pool_t pool, struct http_server_settings *set_r)
+{
+	i_zero(set_r);
+	set_r->pool = pool;
+	set_r->base_dir = PKG_RUNDIR;
+	set_r->default_host = "";
+	set_r->max_pipelined_requests = 1;
+	set_r->request_max_payload_size = HTTP_SERVER_DEFAULT_MAX_PAYLOAD_SIZE;
+}
+
 struct http_server *http_server_init(const struct http_server_settings *set,
 				     struct event *event_parent)
 {
@@ -33,25 +43,10 @@ struct http_server *http_server_init(const struct http_server_settings *set,
 
 	pool = pool_alloconly_create("http server", 1024);
 	server = p_new(pool, struct http_server, 1);
-	server->set = p_new(pool, struct http_server_settings, 1);
 	server->pool = pool;
 
-	if (server->set->pool == NULL)
-		server->set->pool = null_pool;
-	if (set->default_host != NULL && *set->default_host != '\0')
-		server->set->default_host = p_strdup(pool, set->default_host);
-	if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
-		server->set->rawlog_dir = p_strdup(pool, set->rawlog_dir);
-	server->set->max_client_idle_time_msecs = set->max_client_idle_time_msecs;
-	server->set->max_pipelined_requests =
-		(set->max_pipelined_requests > 0 ? set->max_pipelined_requests : 1);
-	server->set->request_max_target_length = set->request_max_target_length;
-	server->set->request_max_payload_size = set->request_max_payload_size;
-	server->set->request_hdr_max_size = set->request_hdr_max_size;
-	server->set->request_hdr_max_field_size = set->request_hdr_max_field_size;
-	server->set->request_hdr_max_fields = set->request_hdr_max_fields;
-	server->set->socket_send_buffer_size = set->socket_send_buffer_size;
-	server->set->socket_recv_buffer_size = set->socket_recv_buffer_size;
+	server->set = set;
+	pool_ref(set->pool);
 
 	server->event = event_create(event_parent);
 	event_add_category(server->event, &event_category_http_server);
@@ -80,6 +75,7 @@ void http_server_deinit(struct http_server **_server)
 	i_assert(array_count(&server->locations) == 0);
 
 	event_unref(&server->event);
+	settings_free(server->set);
 	pool_unref(&server->pool);
 }
 

@@ -1768,7 +1768,7 @@ test_run_client_server(
 static void
 test_init_server_settings(struct http_server_settings *server_set_r)
 {
-	i_zero(server_set_r);
+	http_server_settings_init(null_pool, server_set_r);
 	server_set_r->request_max_payload_size = UOFF_T_MAX;
 
 	if (small_socket_buffers) {
@@ -1810,7 +1810,6 @@ test_run_sequential(
 
 	/* server settings */
 	test_init_server_settings(&http_server_set);
-	http_server_set.max_pipelined_requests = 0;
 
 	/* client settings */
 	test_init_client_settings(&http_client_set);

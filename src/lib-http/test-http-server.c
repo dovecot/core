@@ -210,7 +210,7 @@ int main(int argc, char *argv[])
 	else if (net_addr2ip(argv[1], &my_ip) < 0)
 		i_fatal("Invalid IP parameter");
 
-	i_zero(&http_set);
+	http_server_settings_init(null_pool, &http_set);
 	http_set.max_client_idle_time_msecs = 20*1000; /* defaults to indefinite! */
 	http_set.max_pipelined_requests = 4;
 

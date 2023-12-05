@@ -839,7 +839,7 @@ static void test_client_run(unsigned int index)
 static void test_server_defaults(struct http_server_settings *http_set)
 {
 	/* server settings */
-	i_zero(http_set);
+	http_server_settings_init(null_pool, http_set);
 	http_set->max_client_idle_time_msecs = 5*1000;
 	http_set->max_pipelined_requests = 1;
 }
@@ -891,7 +891,7 @@ static void test_server_run(const struct http_server_settings *http_set)
 	/* open server socket */
 	io_listen = io_add(fd_listen, IO_READ, server_connection_accept, NULL);
 
-	http_server = http_server_init(http_set, event);
+	http_server = http_server_init((struct http_server_settings*) http_set, event);
 
 	io_loop_run(ioloop);
 
