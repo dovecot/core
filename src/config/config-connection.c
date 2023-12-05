@@ -50,25 +50,35 @@ config_connection_next_line(struct config_connection *conn)
 	return t_strsplit_tabescaped(line);
 }
 
+static int config_global_reload(const char **error_r)
+{
+	const char *path;
+	struct config_parsed *new_config;
+
+	path = master_service_get_config_path(master_service);
+	if (config_parse_file(path, CONFIG_PARSE_FLAG_EXPAND_VALUES,
+			      &new_config, error_r) <= 0)
+		return -1;
+
+	global_config = new_config;
+	i_close_fd(&global_config_fd);
+
+	return 0;
+}
+
 static int config_connection_request(struct config_connection *conn,
 				     const char *const *args)
 {
 	const char *import_environment;
-	struct config_parsed *new_config;
 
 	while (*args != NULL) {
 		if (strcmp(*args, "reload") == 0) {
-			const char *path, *error;
-
-			path = master_service_get_config_path(master_service);
-			if (config_parse_file(path, CONFIG_PARSE_FLAG_EXPAND_VALUES,
-					      &new_config, &error) <= 0) {
+			const char *error;
+			if (config_global_reload(&error) < 0) {
 				o_stream_nsend_str(conn->output,
 						   t_strconcat("-", error, "\n", NULL));
 				return 0;
 			}
-			global_config = new_config;
-			i_close_fd(&global_config_fd);
 		} else {
 			o_stream_nsend_str(conn->output, "-Unknown parameters\n");
 			return 0;
