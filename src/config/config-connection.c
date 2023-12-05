@@ -171,7 +171,7 @@ void config_connection_destroy(struct config_connection *conn)
 	master_service_client_connection_destroyed(master_service);
 }
 
-void config_connections_init(struct config_parsed *config ATTR_UNUSED)
+void config_connections_init(void)
 {
 	const char *error;
 	if (config_global_reload(&error) < 0)
