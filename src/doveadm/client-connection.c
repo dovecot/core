@@ -101,14 +101,8 @@ void client_connection_set_proctitle(struct client_connection *conn,
 	process_title_set(str);
 }
 
-void doveadm_server_init(struct event *event)
-{
-	doveadm_http_server_init(event);
-}
-
 void doveadm_server_deinit(void)
 {
 	if (doveadm_client != NULL)
 		client_connection_destroy(&doveadm_client);
-	doveadm_http_server_deinit();
 }
