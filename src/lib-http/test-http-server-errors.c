@@ -841,7 +841,6 @@ static void test_server_defaults(struct http_server_settings *http_set)
 	/* server settings */
 	http_server_settings_init(null_pool, http_set);
 	http_set->max_client_idle_time_msecs = 5*1000;
-	http_set->max_pipelined_requests = 1;
 }
 
 /* client connection */
