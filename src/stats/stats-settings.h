@@ -5,6 +5,8 @@
 	"name hostname timestamps categories fields"
 
 /* <settings checks> */
+#define STATS_SERVER_FILTER "stats_server"
+
 /*
  * We allow a selection of a timestamp format.
  *
@@ -119,7 +121,6 @@ struct stats_metric_settings {
 
 struct stats_settings {
 	pool_t pool;
-	const char *stats_http_rawlog_dir;
 
 	ARRAY_TYPE(const_string) exporters;
 	ARRAY_TYPE(const_string) metrics;

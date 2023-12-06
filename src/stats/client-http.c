@@ -12,6 +12,7 @@
 #include "stats-metrics.h"
 #include "stats-service.h"
 #include "client-http.h"
+#include "settings.h"
 
 struct stats_http_client;
 
@@ -213,18 +214,18 @@ stats_http_resource_root_request(void *context ATTR_UNUSED,
  * Server
  */
 
-void client_http_init(const struct stats_settings *set, struct event *event)
+void client_http_init(struct event *parent_event)
 {
-	struct http_server_settings http_set;
-
-	http_server_settings_init(null_pool, &http_set);
-	http_set.rawlog_dir = set->stats_http_rawlog_dir,
-
+	const char *error;
 	i_array_init(&stats_http_resources, 8);
 
-	stats_http_server = http_server_init(&http_set, event);
+	struct event *event = event_create(parent_event);
+	event_set_ptr(parent_event, SETTINGS_EVENT_FILTER_NAME, STATS_SERVER_FILTER);
+	if (http_server_init_auto(event, &stats_http_server, &error) < 0)
+		i_fatal("http_server_init() failed: %s", error);
 	stats_http_resource_add("/", NULL,
 				stats_http_resource_root_request, NULL);
+	event_unref(&event);
 }
 
 void client_http_deinit(void)
