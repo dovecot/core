@@ -11,6 +11,7 @@
 #include "ostream.h"
 #include "strescape.h"
 #include "settings-parser.h"
+#include "settings.h"
 #include "iostream-ssl.h"
 #include "iostream-temp.h"
 #include "istream-seekable.h"
@@ -1207,14 +1208,15 @@ doveadm_http_server_connection_destroy(void *context,
  * Server
  */
 
-void doveadm_http_server_init(struct event *event)
+void doveadm_http_server_init(struct event *parent_event)
 {
-	struct http_server_settings http_set;
+	const char *error;
 
-	http_server_settings_init(null_pool, &http_set);
-	http_set.rawlog_dir = doveadm_settings->doveadm_http_rawlog_dir;
-
-	doveadm_http_server = http_server_init(&http_set, event);
+	struct event *event = event_create(parent_event);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, DOVEADM_SERVER_FILTER);
+	if (http_server_init_auto(event, &doveadm_http_server, &error) < 0)
+		i_fatal("http_server_init() failed: %s", error);
+	event_unref(&event);
 }
 
 void doveadm_http_server_deinit(void)
