@@ -88,6 +88,8 @@ struct setting_define {
 	SETTING_DEFINE_STRUCT_TYPE(SET_ENUM, 0, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_BOOLLIST(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_BOOLLIST, 0, ARRAY_TYPE(const_string), key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_STRLIST(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_STRLIST, 0, ARRAY_TYPE(const_string), key, name, struct_name)
 
 #define SETTING_DEFINE_STRUCT_BOOL_HIDDEN(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_BOOL, SET_FLAG_HIDDEN, bool, key, name, struct_name)
@@ -111,6 +113,8 @@ struct setting_define {
 	SETTING_DEFINE_STRUCT_TYPE(SET_ENUM, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_BOOLLIST_HIDDEN(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_BOOLLIST, SET_FLAG_HIDDEN, ARRAY_TYPE(const_string), key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_STRLIST_HIDDEN(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_STRLIST, SET_FLAG_HIDDEN, ARRAY_TYPE(const_string), key, name, struct_name)
 
 struct setting_keyvalue {
 	const char *key;
