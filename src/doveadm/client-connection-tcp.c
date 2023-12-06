@@ -18,6 +18,7 @@
 #include "doveadm-print.h"
 #include "doveadm-protocol.h"
 #include "client-connection-private.h"
+#include "settings.h"
 
 #include <unistd.h>
 
@@ -575,6 +576,8 @@ client_connection_tcp_create(int fd, int listen_fd, bool ssl)
 	pool = pool_alloconly_create("doveadm client", 1024*16);
 	conn = p_new(pool, struct client_connection_tcp, 1);
 	conn->conn.event = event_create(NULL);
+	event_set_ptr(conn->conn.event, SETTINGS_EVENT_FILTER_NAME,
+		      DOVEADM_SERVER_FILTER);
 	event_set_append_log_prefix(conn->conn.event, "tcp: ");
 	conn->fd = fd;
 

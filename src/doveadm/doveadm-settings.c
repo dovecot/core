@@ -73,8 +73,9 @@ static const struct setting_define doveadm_setting_defines[] = {
 	DEF(STR, doveadm_api_key),
 	DEF(STR, dsync_features),
 	DEF(UINT, dsync_commit_msgs_interval),
-	DEF(STR, doveadm_http_rawlog_dir),
 	DEF(STR_HIDDEN, dsync_hashed_headers),
+
+	{ .type = SET_FILTER_NAME, .key = DOVEADM_SERVER_FILTER },
 
 	{ .type = SET_STRLIST, .key = "plugin",
 	  .offset = offsetof(struct doveadm_settings, plugin_envs) },
@@ -103,7 +104,6 @@ const struct doveadm_settings doveadm_default_settings = {
 	.dsync_hashed_headers = "Date Message-ID",
 	.dsync_commit_msgs_interval = 100,
 	.doveadm_api_key = "",
-	.doveadm_http_rawlog_dir = "",
 
 	.plugin_envs = ARRAY_INIT
 };

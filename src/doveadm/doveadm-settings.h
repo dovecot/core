@@ -10,6 +10,8 @@ enum dsync_features {
 	DSYNC_FEATURE_EMPTY_HDR_WORKAROUND = 0x1,
 	DSYNC_FEATURE_NO_HEADER_HASHES = 0x2,
 };
+
+#define DOVEADM_SERVER_FILTER "doveadm_server"
 /* </settings checks> */
 
 struct doveadm_settings {
@@ -34,7 +36,6 @@ struct doveadm_settings {
 	const char *dsync_features;
 	const char *dsync_hashed_headers;
 	unsigned int dsync_commit_msgs_interval;
-	const char *doveadm_http_rawlog_dir;
 	enum dsync_features parsed_features;
 	ARRAY(const char *) plugin_envs;
 };
