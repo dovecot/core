@@ -11,7 +11,6 @@
 #include "ostream.h"
 #include "strescape.h"
 #include "settings-parser.h"
-#include "settings.h"
 #include "iostream-ssl.h"
 #include "iostream-temp.h"
 #include "istream-seekable.h"
@@ -87,8 +86,6 @@ struct doveadm_http_server_mount {
 	doveadm_server_handler_t *handler;
 	bool auth;
 };
-
-static struct http_server *doveadm_http_server;
 
 static void doveadm_http_server_send_response(struct client_request_http *req);
 
@@ -950,7 +947,7 @@ doveadm_http_server_request_destroy(struct client_request_http *req)
 	i_stream_destroy(&req->input);
 
 	http_server_request_unref(&req->http_request);
-	http_server_switch_ioloop(doveadm_http_server);
+	http_server_switch_ioloop(http_server_request_get_server(http_sreq));
 
 	pool_unref(&req->pool);
 	conn->request = NULL;
@@ -1162,7 +1159,9 @@ static void client_connection_http_free(struct client_connection *_conn)
 	}
 }
 
-struct client_connection *client_connection_http_create(int fd, bool ssl)
+struct client_connection *
+client_connection_http_create(struct http_server *doveadm_http_server, int fd,
+			      bool ssl)
 {
 	struct client_connection_http *conn;
 	pool_t pool;
@@ -1202,24 +1201,4 @@ doveadm_http_server_connection_destroy(void *context,
 
 	/* destroy the connection itself */
 	client_connection_destroy(&bconn);
-}
-
-/*
- * Server
- */
-
-void doveadm_http_server_init(struct event *parent_event)
-{
-	const char *error;
-
-	struct event *event = event_create(parent_event);
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, DOVEADM_SERVER_FILTER);
-	if (http_server_init_auto(event, &doveadm_http_server, &error) < 0)
-		i_fatal("http_server_init() failed: %s", error);
-	event_unref(&event);
-}
-
-void doveadm_http_server_deinit(void)
-{
-	http_server_deinit(&doveadm_http_server);
 }

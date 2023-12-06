@@ -3,6 +3,7 @@
 
 #include "net.h"
 
+struct http_server;
 #define DOVEADM_LOG_CHANNEL_ID 'L'
 
 struct client_connection {
@@ -24,6 +25,7 @@ extern struct client_connection *doveadm_client;
 struct client_connection *
 client_connection_tcp_create(int fd, int listen_fd, bool ssl);
 struct client_connection *
-client_connection_http_create(int fd, bool ssl);
+client_connection_http_create(struct http_server *doveadm_http_server,
+			      int fd, bool ssl);
 
 #endif
