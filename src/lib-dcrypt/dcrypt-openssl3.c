@@ -3161,18 +3161,18 @@ dcrypt_openssl_sign(struct dcrypt_private_key *key, const char *algorithm,
 
 	/* NB! Padding is set only on RSA signatures
 	   ECDSA signatures use whatever is default */
-	if (EVP_DigestSignInit_ex(dctx, &pctx, algorithm, NULL, NULL, key->key, NULL) != 1 ||
+	if (EVP_DigestSignInit_ex(dctx, &pctx, algorithm, NULL, NULL, key->key,
+				  NULL) != 1 ||
 	    (EVP_PKEY_base_id(key->key) == EVP_PKEY_RSA &&
 	     EVP_PKEY_CTX_set_rsa_padding(pctx, pad) != 1) ||
-	    EVP_DigestSignUpdate(dctx, data, data_len) != 1 ||
-	    EVP_DigestSignFinal(dctx, NULL, &siglen) != 1) {
+	    EVP_DigestSign(dctx, NULL, &siglen, data, data_len) != 1) {
 		ret = dcrypt_openssl_error(error_r);
 	} else {
 		i_assert(siglen > 0);
 		/* @UNSAFE */
 		unsigned char *buf =
 			buffer_append_space_unsafe(signature_r, siglen);
-		if (EVP_DigestSignFinal(dctx, buf, &siglen) != 1) {
+		if (EVP_DigestSign(dctx, buf, &siglen, data, data_len) != 1) {
 			ret = dcrypt_openssl_error(error_r);
 		} else {
 			buffer_set_used_size(signature_r, siglen);
@@ -3234,11 +3234,12 @@ dcrypt_openssl_verify(struct dcrypt_public_key *key, const char *algorithm,
 
 	/* NB! Padding is set only on RSA signatures
 	   ECDSA signatures use whatever is default */
-	if (EVP_DigestVerifyInit_ex(dctx, &pctx, algorithm, NULL, NULL, key->key, NULL) != 1 ||
+	if (EVP_DigestVerifyInit_ex(dctx, &pctx, algorithm, NULL, NULL,
+				    key->key, NULL) != 1 ||
 	    (EVP_PKEY_base_id(key->key) == EVP_PKEY_RSA &&
 	     EVP_PKEY_CTX_set_rsa_padding(pctx, pad) != 1) ||
-	    EVP_DigestVerifyUpdate(dctx, data, data_len) != 1 ||
-	    (rc = EVP_DigestVerifyFinal(dctx, signature, signature_len)) < 0) {
+	    (rc = EVP_DigestVerify(dctx, signature, signature_len, data,
+				   data_len)) < 0) {
 		ret = dcrypt_openssl_error(error_r);
 	} else {
 		/* return code 1 means valid signature, otherwise invalid */
