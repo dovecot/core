@@ -3143,17 +3143,11 @@ dcrypt_openssl_sign(struct dcrypt_private_key *key, const char *algorithm,
 	}
 
 	bool ret;
-	const EVP_MD *md = EVP_get_digestbyname(algorithm);
 	size_t siglen;
 	int pad = dcrypt_openssl_padding_mode(padding, TRUE, error_r);
 
 	if (pad == -1)
 		return FALSE;
-
-	if (md == NULL) {
-		*error_r = t_strdup_printf("Unknown digest %s", algorithm);
-		return FALSE;
-	}
 
 	EVP_MD_CTX *dctx = EVP_MD_CTX_create();
 	/* do not preallocate - will cause memory leak */
