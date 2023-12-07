@@ -3051,7 +3051,7 @@ dcrypt_openssl_public_key_id_old(struct dcrypt_public_key *key,
 	i_assert(key != NULL && key->key != NULL);
 	EVP_PKEY *pub = key->key;
 
-	if (EVP_PKEY_base_id(pub) != EVP_PKEY_EC) {
+	if (dcrypt_openssl_public_key_type(key) != DCRYPT_KEY_EC) {
 		*error_r = "Only EC key supported";
 		return FALSE;
 	}
@@ -3074,7 +3074,7 @@ dcrypt_openssl_private_key_id_old(struct dcrypt_private_key *key,
 	i_assert(key != NULL && key->key != NULL);
 	EVP_PKEY *priv = key->key;
 
-	if (EVP_PKEY_base_id(priv) != EVP_PKEY_EC) {
+	if (dcrypt_openssl_private_key_type(key) != DCRYPT_KEY_EC) {
 		*error_r = "Only EC key supported";
 		return FALSE;
 	}
