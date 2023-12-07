@@ -96,7 +96,10 @@
 	ERR_get_error_line_data(NULL, NULL, data, flags)
 #endif
 
-#define IS_XD_CURVE(nid) ((nid) == NID_X25519 || (nid) == NID_X448)
+#define IS_XD_CURVE(nid) \
+	((nid) == NID_X25519 || (nid) == NID_X448)
+#define IS_ED_CURVE(nid) \
+	((nid) == NID_ED25519 || (nid) == NID_ED448)
 
 struct dcrypt_context_symmetric {
 	pool_t pool;
@@ -1086,9 +1089,8 @@ dcrypt_openssl_generate_keypair(struct dcrypt_keypair *pair_r,
 			*error_r = t_strdup_printf("Unknown EC curve %s", curve);
 			return FALSE;
 		}
-		if (IS_XD_CURVE(nid)) {
-			if (!dcrypt_openssl_generate_xd_key(curve, &pkey,
-							    error_r))
+		if (IS_XD_CURVE(nid) || IS_ED_CURVE(nid)) {
+			if (!dcrypt_openssl_generate_xd_key(curve, &pkey, error_r))
 				return dcrypt_openssl_error(error_r);
 		} else if (!dcrypt_openssl_generate_ec_key(nid, &pkey,
 							   error_r)) {
@@ -1477,9 +1479,10 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 		*key_r = i_new(struct dcrypt_private_key, 1);
 		(*key_r)->key = pkey;
 		(*key_r)->ref++;
-	} else if (IS_XD_CURVE(nid)) {
-		EVP_PKEY *pkey = EVP_PKEY_new_raw_private_key(
-			nid, NULL, key_data->data, key_data->used);
+	} else if (IS_XD_CURVE(nid) || IS_ED_CURVE(nid)) {
+		EVP_PKEY *pkey =
+			EVP_PKEY_new_raw_private_key(nid, NULL, key_data->data,
+						     key_data->used);
 		if (pkey == NULL)
 			return dcrypt_openssl_error(error_r);
 
@@ -2665,7 +2668,8 @@ dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key,
 		ptr = buffer_append_space_unsafe(buf, len);
 		BN_bn2mpi(pk, ptr);
 		BN_free(pk);
-	} else if (IS_XD_CURVE(EVP_PKEY_base_id(pkey))) {
+	} else if (IS_XD_CURVE(EVP_PKEY_base_id(pkey)) ||
+		   IS_ED_CURVE(EVP_PKEY_base_id(pkey))) {
 		size_t len;
 		unsigned char *ptr = buffer_append_space_unsafe(buf, 64);
 		EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY,
@@ -3305,7 +3309,7 @@ dcrypt_openssl_private_key_type(struct dcrypt_private_key *key)
 	int id = EVP_PKEY_base_id(priv);
 	if (id == EVP_PKEY_RSA)
 		return DCRYPT_KEY_RSA;
-	else if (id == EVP_PKEY_EC || IS_XD_CURVE(id))
+	else if (id == EVP_PKEY_EC || IS_XD_CURVE(id) || IS_ED_CURVE(id))
 		return DCRYPT_KEY_EC;
 	else i_unreached();
 }
@@ -3318,7 +3322,7 @@ dcrypt_openssl_public_key_type(struct dcrypt_public_key *key)
 	int id = EVP_PKEY_base_id(pub);
 	if (id == EVP_PKEY_RSA)
 		return DCRYPT_KEY_RSA;
-	else if (id == EVP_PKEY_EC || IS_XD_CURVE(id))
+	else if (id == EVP_PKEY_EC || IS_XD_CURVE(id) || IS_ED_CURVE(id))
 		return DCRYPT_KEY_EC;
 	else i_unreached();
 }
@@ -3521,6 +3525,9 @@ dcrypt_openssl_sign(struct dcrypt_private_key *key, const char *algorithm,
 	if (pad == -1)
 		return FALSE;
 
+	if (IS_ED_CURVE(EVP_PKEY_base_id(key->key)))
+		algorithm = NULL;
+
 	EVP_MD_CTX *dctx = EVP_MD_CTX_create();
 	/* do not preallocate - will cause memory leak */
 	EVP_PKEY_CTX *pctx = NULL;
@@ -3594,9 +3601,15 @@ dcrypt_openssl_verify(struct dcrypt_public_key *key, const char *algorithm,
 	if (pad == -1)
 		return FALSE;
 
+	if (IS_ED_CURVE(EVP_PKEY_base_id(key->key)))
+		algorithm = NULL;
+
 	EVP_MD_CTX *dctx = EVP_MD_CTX_create();
 	/* do not preallocate, causes memory leak */
 	EVP_PKEY_CTX *pctx = NULL;
+
+	if (IS_ED_CURVE(EVP_PKEY_base_id(key->key)))
+		algorithm = NULL;
 
 	/* NB! Padding is set only on RSA signatures
 	   ECDSA signatures use whatever is default */

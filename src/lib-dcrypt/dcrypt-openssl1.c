@@ -124,6 +124,8 @@
 #  define HAVE_X25519
 #  define IS_XD_CURVE(nid) \
 	((nid) == NID_X25519 || (nid) == NID_X448)
+# define IS_ED_CURVE(nid) \
+	((nid) == NID_ED25519 || (nid) == NID_ED448)
 #endif
 
 struct dcrypt_context_symmetric {
@@ -1029,9 +1031,8 @@ dcrypt_openssl_generate_keypair(struct dcrypt_keypair *pair_r,
 			return FALSE;
 		}
 #ifdef HAVE_X25519
-		if (IS_XD_CURVE(nid)) {
-			if (!dcrypt_openssl_generate_xd_key(nid, &pkey,
-							    error_r))
+		if (IS_XD_CURVE(nid) || IS_ED_CURVE(nid)) {
+			if (!dcrypt_openssl_generate_xd_key(nid, &pkey, error_r))
 				return dcrypt_openssl_error(error_r);
 		} else
 #endif
@@ -1471,7 +1472,7 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 		(*key_r)->key = pkey;
 		(*key_r)->ref++;
 #ifdef HAVE_X25519
-	} else if (IS_XD_CURVE(nid)) {
+	} else if (IS_XD_CURVE(nid) || IS_ED_CURVE(nid)) {
 		size_t len;
 		const unsigned char *ptr = buffer_get_data(key_data, &len);
 		EVP_PKEY *pkey =
@@ -3094,7 +3095,7 @@ dcrypt_openssl_private_to_public_key(struct dcrypt_private_key *priv_key,
 		EVP_PKEY_set1_RSA(pk, rsa);
 		RSA_free(rsa);
 #ifdef HAVE_X25519
-	} else if (IS_XD_CURVE(nid)) {
+	} else if (IS_XD_CURVE(nid) || IS_ED_CURVE(nid)) {
 		unsigned char buffer[128];
 		size_t len = 128;
 		EVP_PKEY_get_raw_public_key(pkey, buffer, &len);
@@ -3727,6 +3728,12 @@ dcrypt_openssl_sign(struct dcrypt_private_key *key, const char *algorithm,
 		return FALSE;
 	}
 
+#ifdef HAVE_X25519
+	if (EVP_PKEY_base_id(key->key) == NID_ED25519 ||
+	    EVP_PKEY_base_id(key->key) == NID_ED448)
+		md = NULL;
+#endif
+
 	dctx = EVP_MD_CTX_create();
 
 	/* NB! Padding is set only on RSA signatures
@@ -3844,6 +3851,12 @@ dcrypt_openssl_verify(struct dcrypt_public_key *key, const char *algorithm,
 		*error_r = t_strdup_printf("Unknown digest %s", algorithm);
 		return FALSE;
 	}
+
+#ifdef HAVE_X25519
+	if (EVP_PKEY_base_id(key->key) == NID_ED25519 ||
+	    EVP_PKEY_base_id(key->key) == NID_ED448)
+		md = NULL;
+#endif
 
 	dctx = EVP_MD_CTX_create();
 

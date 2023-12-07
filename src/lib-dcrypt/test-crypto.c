@@ -1725,6 +1725,131 @@ static void test_static_verify_ecdsa_x962(void)
 }
 
 #ifdef HAVE_X25519
+static void test_sign_verify_ed25519(void)
+{
+	const char *error = NULL;
+	bool valid, ret;
+	struct dcrypt_keypair pair;
+	buffer_t *signature =
+		buffer_create_dynamic(pool_datastack_create(), 128);
+	const char *data = "signed data";
+
+	test_begin("sign and verify (ed25519)");
+
+	ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "ED25519", &error);
+	if (!ret)
+		i_panic("%s", error);
+
+	test_assert(dcrypt_sign(pair.priv, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+		 data, strlen(data), signature, 0, &error));
+	/* verify signature */
+	test_assert(dcrypt_verify(pair.pub, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+		 data, strlen(data),
+		 signature->data, signature->used, &valid, 0, &error) && valid);
+
+	dcrypt_keypair_unref(&pair);
+
+	test_end();
+}
+
+static void test_static_verify_ed25519(void)
+{
+	const char *error = NULL;
+	bool valid, ret;
+	struct dcrypt_public_key *pub;
+	const char *data = "signed data";
+	const unsigned char sig[] = {
+		0xf6,0xc5,0xf9,0x6e,0x6c,0x42,0x6d,0xa8,0xbc,0x9f,0xc8,0xbe,
+		0x87,0x17,0x38,0x40,0xd9,0x5b,0x4b,0xee,0xba,0x64,0x1a,0xba,
+		0xb2,0xac,0x94,0x8c,0x25,0xd5,0x2b,0x1f,0x98,0x73,0x98,0x40,
+		0x85,0x33,0xfa,0xb9,0x40,0xd6,0x75,0x61,0x29,0xaa,0xcb,0xf7,
+		0x69,0xa4,0x93,0x21,0xa2,0x64,0x9b,0xc2,0xcd,0x62,0x95,0x42,
+		0xea,0x93,0x6f,0x07,
+	};
+	const char *key =
+"-----BEGIN PUBLIC KEY-----\n"
+"MCowBQYDK2VwAyEAPfeu6ItbVmVPUV/nYYHvV/aVheD7iVUWO9/POgcCyYM=\n"
+"-----END PUBLIC KEY-----";
+	test_begin("static verify (ed25519)");
+
+	ret = dcrypt_key_load_public(&pub, key, &error);
+	if (!ret)
+		i_panic("%s", error);
+
+	/* verify signature */
+	test_assert(dcrypt_verify(pub, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+		 data, strlen(data),
+		 sig, sizeof(sig), &valid, 0, &error) && valid);
+	dcrypt_key_unref_public(&pub);
+
+	test_end();
+}
+
+static void test_static_verify_ed448(void)
+{
+	const char *error = NULL;
+	bool valid, ret;
+	struct dcrypt_public_key *pub;
+	const char *data = "signed data";
+	const unsigned char sig[] = {
+		0x9d,0x90,0x9b,0xe9,0x40,0xf5,0xee,0x4e,0x42,0x34,0xa5,0x90,
+		0x85,0x0d,0x6a,0xea,0x60,0xae,0xd2,0x49,0x39,0x5f,0x61,0x64,
+		0x16,0x22,0x36,0xa4,0x14,0x8b,0x61,0x4e,0x4e,0xfa,0x74,0x45,
+		0xcb,0xf8,0x8b,0x15,0xc1,0x59,0x99,0xaa,0x26,0x20,0x45,0x32,
+		0x8a,0xa0,0xed,0x21,0xce,0x39,0xa4,0x06,0x00,0x75,0xb1,0x70,
+		0x6e,0xe6,0xb6,0x89,0x94,0x72,0xcb,0x3a,0xe8,0x1d,0xaf,0x18,
+		0x01,0xde,0x58,0xbe,0x1f,0x72,0x5b,0x0c,0xc4,0x98,0xfb,0xba,
+		0x51,0x26,0x89,0x01,0xc3,0xea,0xa7,0xe6,0xb2,0xf6,0xe5,0xee,
+		0xa2,0x5a,0x72,0x84,0xc4,0xfc,0x81,0x1f,0x48,0x45,0x9f,0xd1,
+		0x44,0x1f,0x77,0x5c,0x3b,0x00,
+	};
+	const char *key =
+"-----BEGIN PUBLIC KEY-----\n"
+"MEMwBQYDK2VxAzoAnWMyXj/1VTCDWIyx0IKbezYsUI0dl80fAkQ3IK+U5+SqR2gw\n"
+"zhHZ7ewPFgiEiP/KY3qKLWJHSDcA\n"
+"-----END PUBLIC KEY-----";
+	test_begin("static verify (ed448)");
+
+	ret = dcrypt_key_load_public(&pub, key, &error);
+	if (!ret)
+		i_panic("%s", error);
+
+	/* verify signature */
+	test_assert(dcrypt_verify(pub, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+		 data, strlen(data),
+		 sig, sizeof(sig), &valid, 0, &error) && valid);
+	dcrypt_key_unref_public(&pub);
+
+	test_end();
+}
+
+static void test_sign_verify_ed448(void)
+{
+	const char *error = NULL;
+	bool valid, ret;
+	struct dcrypt_keypair pair;
+	buffer_t *signature =
+		buffer_create_dynamic(pool_datastack_create(), 128);
+	const char *data = "signed data";
+
+	test_begin("sign and verify (ed448)");
+
+	ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "ED448", &error);
+	if (!ret)
+		i_panic("%s", error);
+
+	test_assert(dcrypt_sign(pair.priv, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+		 data, strlen(data), signature, 0, &error));
+	/* verify signature */
+	test_assert(dcrypt_verify(pair.pub, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
+		 data, strlen(data),
+		 signature->data, signature->used, &valid, 0, &error) && valid);
+
+	dcrypt_keypair_unref(&pair);
+
+	test_end();
+}
+
 static void test_xd25519_keypair(void)
 {
 	test_begin("X25519 key exchange");
@@ -1821,6 +1946,10 @@ int main(void)
 		test_static_verify_rsa,
 		test_static_verify_ecdsa_x962,
 #ifdef HAVE_X25519
+		test_sign_verify_ed25519,
+		test_sign_verify_ed448,
+		test_static_verify_ed25519,
+		test_static_verify_ed448,
 		test_xd25519_keypair,
 		test_xd448_keypair,
 #endif
