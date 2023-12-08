@@ -25,6 +25,18 @@ static struct event_category event_category_http_server = {
  * Server
  */
 
+int http_server_init_auto(struct event *event_parent,
+                          struct http_server **server_r, const char **error_r)
+{
+       const struct http_server_settings *set;
+       if (settings_get(event_parent, &http_server_setting_parser_info,
+                        0, &set, error_r) < 0)
+               return -1;
+       *server_r = http_server_init(set, event_parent);
+       settings_free(set);
+       return 0;
+}
+
 void http_server_settings_init(pool_t pool, struct http_server_settings *set_r)
 {
 	i_zero(set_r);
