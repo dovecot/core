@@ -424,6 +424,8 @@ void http_server_resource_set_destroy_callback(struct http_server_resource *res,
  */
 
 void http_server_settings_init(pool_t pool, struct http_server_settings *set_r);
+int http_server_init_auto(struct event *event_parent,
+			  struct http_server **server_r, const char **error_r);
 struct http_server *http_server_init(const struct http_server_settings *set,
 				     struct event *event_parent);
 void http_server_deinit(struct http_server **_server);
