@@ -1510,6 +1510,25 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		if (set->pool == ctx->temp_pool)
 			settings_override_free(set);
 
+		if (set->type == SETTINGS_OVERRIDE_TYPE_DEFAULT &&
+		    (ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0) {
+			/* Expand %variables only for default settings.
+			   These defaults are usually handled already by the
+			   config process, but we get here with -O parameter
+			   or with SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT. */
+			const char *error;
+			str_truncate(ctx->str, 0);
+			if (var_expand_with_arrays(ctx->str, value, ctx->tables,
+						   ctx->func_tables,
+						   ctx->func_contexts,
+						   &error) <= 0 &&
+			    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
+				i_panic("BUG: Failed to expand default setting %s=%s variables: %s",
+					key, value, error);
+			}
+			value = str_c(ctx->str);
+		}
+
 		if (value != set->value)
 			value = p_strdup(&ctx->mpool->pool, value);
 		else {
