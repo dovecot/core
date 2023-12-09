@@ -531,6 +531,11 @@ int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 	T_BEGIN {
 		ctx->v.init(ctx);
 	} T_END;
+	if (ctx->exit_code != 0) {
+		/* return success, so caller won't overwrite exit_code */
+		return 1;
+	}
+
 	doveadm_print_header_disallow(TRUE);
 	if (hook_doveadm_mail_init != NULL)
 		hook_doveadm_mail_init(ctx);
@@ -556,6 +561,8 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 	T_BEGIN {
 		ctx->v.init(ctx);
 	} T_END;
+	if (ctx->exit_code != 0)
+		return;
 	doveadm_print_header_disallow(TRUE);
 
 	if (wildcard_user != NULL) {
