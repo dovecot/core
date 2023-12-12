@@ -844,7 +844,7 @@ static void test_client_deinit(void)
  */
 
 struct test_server_data {
-	const struct smtp_server_settings *set;
+	const struct smtp_server_settings *server_set;
 };
 
 static void test_open_server_fd(void)
@@ -861,7 +861,7 @@ static void test_open_server_fd(void)
 
 static int test_run_server(struct test_server_data *data)
 {
-	const struct smtp_server_settings *server_set = data->set;
+	const struct smtp_server_settings *server_set = data->server_set;
 	struct ioloop *ioloop;
 
 	i_set_failure_prefix("SERVER: ");
@@ -925,7 +925,7 @@ test_run_client_server(
 	failure = NULL;
 
 	i_zero(&data);
-	data.set = server_set;
+	data.server_set = server_set;
 
 	test_files_init();
 
