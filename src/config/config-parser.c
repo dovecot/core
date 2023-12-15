@@ -1826,7 +1826,7 @@ static int config_write_value(struct config_parser_context *ctx,
 }
 
 static bool
-config_section_has_non_named_filters(struct config_section_stack *section)
+config_section_has_non_named_list_filters(struct config_section_stack *section)
 {
 	struct config_filter *filter = &section->filter_parser->filter;
 
@@ -1836,7 +1836,8 @@ config_section_has_non_named_filters(struct config_section_stack *section)
 		    filter->local_host != NULL ||
 		    filter->remote_host != NULL ||
 		    filter->local_bits > 0 ||
-		    filter->remote_bits > 0)
+		    filter->remote_bits > 0 ||
+		    (filter->filter_name != NULL && !filter->filter_name_array))
 			return TRUE;
 
 		filter = filter->parent;
@@ -1870,9 +1871,9 @@ config_parser_check_warnings(struct config_parser_context *ctx, const char *key,
 	}
 	if (first_pos != NULL)
 		return;
-	if (!config_section_has_non_named_filters(ctx->cur_section)) {
+	if (!config_section_has_non_named_list_filters(ctx->cur_section)) {
 		/* Ignore all settings inside sections containing only named
-		   [list] filters. They aren't globals, and we don't want
+		   list filters. They aren't globals, and we don't want
 		   warnings about overriding them if there's a same global
 		   setting later on. It just complicates configs in tests. */
 		return;
