@@ -585,38 +585,6 @@ static void acl_mailbox_list_init_default(struct mailbox_list *list)
 	MODULE_CONTEXT_SET(list, acl_mailbox_list_module, alist);
 }
 
-void acl_mail_namespace_storage_added(struct mail_namespace *ns)
-{
-	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(ns->list);
-	struct acl_backend *backend;
-	const char *current_username, *owner_username;
-	bool owner = TRUE;
-
-	if (alist == NULL)
-		return;
-	struct acl_user *auser = ACL_USER_CONTEXT_REQUIRE(ns->user);
-
-	owner_username = ns->user->username;
-	current_username = auser->set->acl_user;
-	if (current_username == NULL)
-		current_username = owner_username;
-	else
-		owner = strcmp(current_username, owner_username) == 0;
-
-	/* We don't care about the username for non-private mailboxes.
-	   It's used only when checking if we're the mailbox owner. We never
-	   are for shared/public mailboxes. */
-	if (ns->type != MAIL_NAMESPACE_TYPE_PRIVATE)
-		owner = FALSE;
-
-	/* we need to know the storage when initializing backend */
-	backend = acl_backend_init(auser->acl_env, ns->list, current_username,
-				   auser->set, owner);
-	if (backend == NULL)
-		i_fatal("ACL backend initialization failed");
-	acl_storage_rights_ctx_init(&alist->rights, backend);
-}
-
 void acl_mailbox_list_created(struct mailbox_list *list)
 {
 	struct acl_user *auser = ACL_USER_CONTEXT(list->ns->user);
