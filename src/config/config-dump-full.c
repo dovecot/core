@@ -24,7 +24,9 @@
    <64bit big-endian: settings full size>
 
    <32bit big-endian: event filter strings count>
-   <NUL-terminated string: event filter string>[count]
+   Repeat for "event filter strings count":
+     <NUL-terminated string: event filter string>
+     <NUL-terminated string: override event filter string>
 
    Repeat until "settings full size" is reached:
      <64bit big-endian: settings block size>
@@ -98,7 +100,8 @@ config_filter_write_hierarchical(string_t *str,
 static void
 config_dump_full_append_filter_query(string_t *str,
 				     const struct config_filter *filter,
-				     bool leaf, bool parent_hierarchical)
+				     bool leaf, bool parent_hierarchical,
+				     bool write_named_filters)
 {
 	if (filter->service != NULL) {
 		if (filter->service[0] != '!') {
@@ -158,27 +161,32 @@ config_dump_full_append_filter_query(string_t *str,
 			return;
 		}
 
-		str_printfa(str, SETTINGS_EVENT_FILTER_NAME"=\"%s\" AND ",
-			    wildcard_str_escape(filter_name));
+		if (write_named_filters || filter->filter_hierarchical) {
+			str_printfa(str, SETTINGS_EVENT_FILTER_NAME"=\"%s\" AND ",
+				    wildcard_str_escape(filter_name));
+		}
 	}
 }
 
 static void
 config_dump_full_append_filter(string_t *str,
-			       const struct config_filter *filter)
+			       const struct config_filter *filter,
+			       bool write_named_filters)
 {
 	bool leaf = TRUE;
 	bool parent_hierarchical = FALSE;
 
 	do {
 		config_dump_full_append_filter_query(str, filter, leaf,
-						     parent_hierarchical);
+						     parent_hierarchical,
+						     write_named_filters);
 		leaf = FALSE;
 		parent_hierarchical = filter->filter_hierarchical;
 		filter = filter->parent;
 	} while (filter != NULL);
 
-	str_truncate(str, str_len(str) - 5);
+	if (str_len(str) > 0)
+		str_truncate(str, str_len(str) - 5);
 }
 
 static void
@@ -196,10 +204,16 @@ config_dump_full_write_filters(struct ostream *output,
 
 	/* the first filter is the global empty filter */
 	o_stream_nsend(output, "", 1);
+	o_stream_nsend(output, "", 1);
 	string_t *str = str_new(default_pool, 128);
 	for (i = 1; i < filter_count; i++) T_BEGIN {
 		str_truncate(str, 0);
-		config_dump_full_append_filter(str, &filters[i]->filter);
+		config_dump_full_append_filter(str, &filters[i]->filter, TRUE);
+		str_append_c(str, '\0');
+		o_stream_nsend(output, str_data(str), str_len(str));
+
+		str_truncate(str, 0);
+		config_dump_full_append_filter(str, &filters[i]->filter, FALSE);
 		str_append_c(str, '\0');
 		o_stream_nsend(output, str_data(str), str_len(str));
 	} T_END;
@@ -233,7 +247,7 @@ config_dump_full_stdout_callback(const struct config_export_setting *set,
 	if (!ctx->filter_written) {
 		string_t *str = t_str_new(128);
 		str_append(str, ":FILTER ");
-		config_dump_full_append_filter(str, ctx->filter);
+		config_dump_full_append_filter(str, ctx->filter, TRUE);
 		str_append_c(str, '\n');
 		o_stream_nsend(ctx->output, str_data(str), str_len(str));
 		ctx->filter_written = TRUE;

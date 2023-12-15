@@ -103,6 +103,7 @@ struct settings_mmap {
 	size_t mmap_size;
 
 	struct event_filter **event_filters;
+	struct event_filter **override_event_filters;
 	unsigned int event_filters_count;
 
 	HASH_TABLE(const char *, struct settings_mmap_block *) blocks;
@@ -252,14 +253,19 @@ settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 
 	mmap->event_filters = mmap->event_filters_count == 0 ? NULL :
 		p_new(mmap->pool, struct event_filter *, mmap->event_filters_count);
+	mmap->override_event_filters = mmap->event_filters_count == 0 ? NULL :
+		p_new(mmap->pool, struct event_filter *, mmap->event_filters_count);
 
-	for (uint32_t i = 0; i < mmap->event_filters_count; i++) {
+	for (uint32_t i = 0; i < 2 * mmap->event_filters_count; i++) {
+		struct event_filter **filter_dest =
+			i % 2 == 0 ? &mmap->event_filters[i / 2] :
+			&mmap->override_event_filters[i / 2];
 		if (settings_block_read_str(mmap, offset, mmap->mmap_size,
 					    "filter string", &filter_string,
 					    error_r) < 0)
 			return -1;
 		if (filter_string[0] == '\0') {
-			mmap->event_filters[i] = EVENT_FILTER_MATCH_ALWAYS;
+			*filter_dest = EVENT_FILTER_MATCH_ALWAYS;
 			continue;
 		}
 
@@ -287,7 +293,7 @@ settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 			    (strcmp(mmap->root->protocol_name, value) == 0) == op_not &&
 			    (flags & SETTINGS_READ_NO_PROTOCOL_FILTER) == 0) {
 				/* protocol doesn't match */
-				mmap->event_filters[i] = EVENT_FILTER_MATCH_NEVER;
+				*filter_dest = EVENT_FILTER_MATCH_NEVER;
 				event_filter_unref(&tmp_filter);
 				continue;
 			}
@@ -296,14 +302,14 @@ settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 		if (value != NULL && service_name != NULL &&
 		    (strcmp(value, service_name) == 0) == op_not) {
 			/* service name doesn't match */
-			mmap->event_filters[i] = EVENT_FILTER_MATCH_NEVER;
+			*filter_dest = EVENT_FILTER_MATCH_NEVER;
 			event_filter_unref(&tmp_filter);
 			continue;
 		}
 
-		mmap->event_filters[i] = event_filter_create_with_pool(mmap->pool);
+		*filter_dest = event_filter_create_with_pool(mmap->pool);
 		pool_ref(mmap->pool);
-		event_filter_merge(mmap->event_filters[i], tmp_filter,
+		event_filter_merge(*filter_dest, tmp_filter,
 				   EVENT_FILTER_MERGE_OP_OR);
 		event_filter_unref(&tmp_filter);
 	}
@@ -821,7 +827,8 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 
 			if (event_filter != EVENT_FILTER_MATCH_ALWAYS) {
 				int ret = settings_instance_override(ctx,
-						event_filter, error_r);
+						mmap->override_event_filters[event_filter_idx],
+						error_r);
 				if (ret < 0)
 					return -1;
 				if (ret > 0)
@@ -876,6 +883,9 @@ static void settings_mmap_unref(struct settings_mmap **_mmap)
 		if (mmap->event_filters[i] != EVENT_FILTER_MATCH_ALWAYS &&
 		    mmap->event_filters[i] != EVENT_FILTER_MATCH_NEVER)
 			event_filter_unref(&mmap->event_filters[i]);
+		if (mmap->override_event_filters[i] != EVENT_FILTER_MATCH_ALWAYS &&
+		    mmap->override_event_filters[i] != EVENT_FILTER_MATCH_NEVER)
+			event_filter_unref(&mmap->override_event_filters[i]);
 	}
 	hash_table_destroy(&mmap->blocks);
 
@@ -1448,6 +1458,7 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		   the overrides that have a matching filter. This preserves
 		   the expected order in which settings are applied. */
 		if (event_filter != NULL && !set->always_match &&
+		    event_filter != EVENT_FILTER_MATCH_ALWAYS &&
 		    (set->filter_event == NULL ||
 		     !event_filter_match(event_filter, set->filter_event,
 					 &failure_ctx)))
