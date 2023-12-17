@@ -709,8 +709,10 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 
 	if ((ret = mail_storage_service_lookup_next(storage_service, &service_input,
 						    &user, &error)) <= 0) {
-		if (ret < 0)
+		if (ret < 0) {
+			fprintf(stderr, "\nuserdb lookup: %s\n", error);
 			return -1;
+		}
 		fprintf(show_field == NULL && expand_field == NULL ? stdout : stderr,
 			"\nuserdb lookup: user %s doesn't exist\n",
 			input->username);
