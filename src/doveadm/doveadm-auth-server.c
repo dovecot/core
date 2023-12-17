@@ -278,8 +278,11 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 
 	if ((ret = mail_storage_service_lookup_next(storage_service, &service_input,
 						    &user, &error)) <= 0) {
-		if (ret < 0)
+		if (ret < 0) {
+			json_ostream_nwritef_string(json_output, "error",
+				"userdb lookup: %s", error);
 			return -1;
+		}
 		json_ostream_nwritef_string(json_output, "error",
 			"userdb lookup: user %s doesn't exist",
 			input->username);
