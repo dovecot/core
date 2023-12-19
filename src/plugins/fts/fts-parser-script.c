@@ -12,6 +12,7 @@
 #include "mail-user.h"
 #include "fts-parser.h"
 #include "fts-api.h"
+#include "fts-user.h"
 
 #define SCRIPT_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, fts_parser_script_user_module)
@@ -47,16 +48,15 @@ static MODULE_CONTEXT_DEFINE_INIT(fts_parser_script_user_module,
 static int
 script_connect(struct mail_user *user, const char **path_r, struct event *event)
 {
-	const char *path;
-	int fd;
-
-	path = mail_user_plugin_getenv(user, "fts_decoder");
-	if (path == NULL)
+	const struct fts_settings *set = fts_user_get_settings(user);
+	if (set->parsed_decoder_driver != FTS_DECODER_SCRIPT)
 		return -1;
+
+	const char *path = set->decoder_script_socket_path;
 
 	if (*path != '/')
 		path = t_strconcat(user->set->base_dir, "/", path, NULL);
-	fd = net_connect_unix_with_retries(path, 1000);
+	int fd = net_connect_unix_with_retries(path, 1000);
 	if (fd == -1)
 		e_error(event, "net_connect_unix(%s) failed: %m", path);
 	else

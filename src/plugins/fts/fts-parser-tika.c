@@ -7,9 +7,11 @@
 #include "iostream-ssl.h"
 #include "http-url.h"
 #include "http-client.h"
+#include "settings.h"
 #include "message-parser.h"
 #include "mail-user.h"
 #include "fts-parser.h"
+#include "fts-user.h"
 
 #define TIKA_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, fts_parser_tika_user_module)
@@ -40,15 +42,14 @@ tika_get_http_client_url(struct fts_parser_context *parser_context, struct http_
 {
 	struct mail_user *user = parser_context->user;
 	struct event *event = parser_context->event;
+	const struct fts_settings *set = fts_user_get_settings(user);
 	struct fts_parser_tika_user *tuser = TIKA_USER_CONTEXT(user);
-	struct http_client_settings *http_set;
 	const char *url, *error;
 
-	url = mail_user_plugin_getenv(user, "fts_tika");
-	if (url == NULL) {
-		/* fts_tika disabled */
+	if (set->parsed_decoder_driver != FTS_DECODER_TIKA)
 		return -1;
-	}
+
+	url = set->decoder_tika_url;
 
 	if (tuser != NULL) {
 		*http_url_r = tuser->http_url;
@@ -65,26 +66,24 @@ tika_get_http_client_url(struct fts_parser_context *parser_context, struct http_
 	}
 
 	if (tika_http_client == NULL) {
-		pool_t http_pool = pool_alloconly_create("solr http settings",
-							 sizeof(*http_set));
-		http_set = p_new(http_pool, struct http_client_settings, 1);
-		http_client_settings_init(http_pool, http_set);
-		http_set->max_idle_time_msecs = 100;
-		http_set->max_parallel_connections = 1;
-		http_set->max_pipelined_requests = 1;
-		http_set->request_max_redirects = 1;
-		http_set->request_max_attempts = 3;
-		http_set->connect_timeout_msecs = 5*1000;
-		http_set->request_timeout_msecs = 60*1000;
-
 		/* FIXME: We should initialize a shared client instead. However,
 		          this is currently not possible due to an obscure bug
 		          in the blocking HTTP payload API, which causes
 		          conflicts with other HTTP applications like FTS Solr.
 		          Using a private client will provide a quick fix for
 		          now. */
-		tika_http_client = http_client_init_private(http_set, user->event);
-		pool_unref(&http_pool);
+
+		struct event *event_fts = event_create(user->event);
+		event_set_ptr(event_fts, SETTINGS_EVENT_FILTER_NAME, FTS_FILTER);
+		struct event *event_tika = event_create(event_fts);
+		event_set_ptr(event_tika, SETTINGS_EVENT_FILTER_NAME, FTS_FILTER_DECODER_TIKA);
+		int ret = http_client_init_private_auto(event, &tika_http_client, &error);
+		event_unref(&event_tika);
+		event_unref(&event_fts);
+		if (ret < 0) {
+			e_error(user->event, "%s", error);
+			return -1;
+		}
 	}
 	*http_url_r = tuser->http_url;
 	return 0;
@@ -96,6 +95,7 @@ fts_tika_parser_response(const struct http_response *response,
 {
 	i_assert(parser->payload == NULL);
 	struct event *event = parser->user->event;
+	const struct fts_settings *set = fts_user_get_settings(parser->user);
 
 	switch (response->status) {
 	case 200:
@@ -111,7 +111,7 @@ fts_tika_parser_response(const struct http_response *response,
 	case 415: /* Unsupported Media Type */
 	case 422: /* Unprocessable Entity */
 		e_debug(parser->user->event, "fts_tika: PUT %s failed: %s",
-			mail_user_plugin_getenv(parser->user, "fts_tika"),
+			set->decoder_tika_url,
 			http_response_get_message(response));
 		parser->payload = i_stream_create_from_data("", 0);
 		break;
@@ -125,12 +125,12 @@ fts_tika_parser_response(const struct http_response *response,
 			i_free(parser->parser.retriable_error_msg);
 			parser->parser.retriable_error_msg =
 				i_strdup_printf("fts_tika: PUT %s failed: %s",
-						mail_user_plugin_getenv(parser->user, "fts_tika"),
+						set->decoder_tika_url,
 						http_response_get_message(response));
 			parser->payload = i_stream_create_from_data("", 0);
 		} else {
 			e_error(event, "fts_tika: PUT %s failed: %s",
-				mail_user_plugin_getenv(parser->user, "fts_tika"),
+				set->decoder_tika_url,
 				http_response_get_message(response));
 			parser->failed = TRUE;
 		}
