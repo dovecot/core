@@ -688,14 +688,22 @@ static const char *ec_key_get_pub_point_hex(const EVP_PKEY *pkey)
 	return binary_to_hex_ucase(buf, len);
 }
 
-static int dcrypt_EVP_PKEY_get_nid(const EVP_PKEY *pkey)
+static const char *dcrypt_EVP_PKEY_get_group_name(const EVP_PKEY *pkey)
 {
-	char buf[128];
-	size_t len;
-	int ec = EVP_PKEY_get_group_name(pkey, buf, sizeof(buf), &len);
+	const char *group = EVP_PKEY_get0_type_name(pkey);
+	if (strcmp(group, "EC") != 0)
+		return group;
+	char *buf = t_malloc0(128);
+	size_t len = 128;
+	int ec = EVP_PKEY_get_group_name(pkey, buf, 128, &len);
 	i_assert(ec == 1 && len > 0);
 	buf[len] = '\0';
-	return OBJ_txt2nid(buf);
+	return buf;
+}
+
+static int dcrypt_EVP_PKEY_get_nid(const EVP_PKEY *pkey)
+{
+	return OBJ_txt2nid(dcrypt_EVP_PKEY_get_group_name(pkey));
 }
 
 static OSSL_PARAM dcrypt_construct_param_BN(const char *key, const BIGNUM *bn)
@@ -912,20 +920,19 @@ dcrypt_openssl_ecdh_derive_secret_local(struct dcrypt_private_key *local_key,
 	i_assert(local_key != NULL && local_key->key != NULL);
 
 	EVP_PKEY *local = local_key->key;
-
-	char buf[128];
-	size_t len;
-	int ec;
-	ec = EVP_PKEY_get_group_name(local, buf, sizeof(buf), &len);
-	i_assert(ec == 1 && len > 0);
-	buf[len] = '\0';
+	const char *group = dcrypt_EVP_PKEY_get_group_name(local);
 
 	/* create OSSL PARAMS */
 	OSSL_PARAM params[] = {
-		OSSL_PARAM_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME, buf, len),
-		OSSL_PARAM_utf8_string(OSSL_PKEY_PARAM_EC_ENCODING, "named_curve", 11),
-		OSSL_PARAM_utf8_string(OSSL_PKEY_PARAM_EC_POINT_CONVERSION_FORMAT, "compressed", 10),
-		OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_PUB_KEY, (void*)R->data, R->used),
+		OSSL_PARAM_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME,
+				       (void *)group, 0),
+		OSSL_PARAM_utf8_string(OSSL_PKEY_PARAM_EC_ENCODING,
+				       "named_curve", 11),
+		OSSL_PARAM_utf8_string(
+			OSSL_PKEY_PARAM_EC_POINT_CONVERSION_FORMAT,
+			"compressed", 10),
+		OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_PUB_KEY,
+					(void *)R->data, R->used),
 		OSSL_PARAM_END
 	};
 
@@ -1959,13 +1966,7 @@ static bool store_jwk_ec_key(EVP_PKEY *pkey, bool is_private_key,
 	    EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_EC_PUB_Y, &y) != 1)
 		i_unreached();
 
-	char int_curve[128];
-	size_t ncurve;
-	if (EVP_PKEY_get_group_name(pkey, int_curve, sizeof(int_curve), &ncurve) != 1)
-		i_unreached();
-	int_curve[ncurve] = '\0';
-
-	int nid = OBJ_txt2nid(int_curve);
+	int nid = dcrypt_EVP_PKEY_get_nid(pkey);
 	const char *curve = nid_to_jwk_curve(nid);
 	const char *use = key_usage_to_jwk_use(usage);
 	string_t *temp = t_str_new(256);
