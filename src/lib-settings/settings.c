@@ -608,7 +608,8 @@ settings_mmap_apply_defaults(struct settings_apply_ctx *ctx,
 						   ctx->func_contexts,
 						   &error) <= 0 &&
 			    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
-				i_panic("BUG: Failed to expand default setting %s=%s variables: %s",
+				*error_r = t_strdup_printf(
+					"Failed to expand default setting %s=%s variables: %s",
 					key, value, error);
 				return -1;
 			}
@@ -1523,8 +1524,10 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 						   ctx->func_contexts,
 						   &error) <= 0 &&
 			    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
-				i_panic("BUG: Failed to expand default setting %s=%s variables: %s",
+				*error_r = t_strdup_printf(
+					"Failed to expand default setting %s=%s variables: %s",
 					key, value, error);
+				return -1;
 			}
 			value = str_c(ctx->str);
 		}
