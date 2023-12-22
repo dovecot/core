@@ -238,8 +238,7 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	const struct mail_storage_settings *set =
 		mail_user_set_get_storage_set(root->root.quota->user);
 	struct quota_root *_root = &root->root;
-	struct mail_namespace *const *namespaces;
-	unsigned int i, count;
+	struct mail_namespace *inbox_ns;
 	struct mailbox_permissions perm;
 	const char *p, *dir;
 	string_t *str, *temp_path;
@@ -248,20 +247,9 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	i_assert(root->fd == -1);
 
 	/* figure out what permissions we should use for maildirsize.
-	   use the inbox namespace's permissions if possible. */
-	perm.file_create_mode = 0600; perm.dir_create_mode = 0700;
-	perm.file_create_gid = (gid_t)-1;
-	perm.file_create_gid_origin = "default";
-	namespaces = array_get(&root->root.quota->namespaces, &count);
-	i_assert(count > 0);
-	for (i = 0; i < count; i++) {
-		if ((namespaces[i]->flags & NAMESPACE_FLAG_INBOX_USER) == 0)
-			continue;
-
-		mailbox_list_get_root_permissions(namespaces[i]->list,
-						  &perm);
-		break;
-	}
+	   use the inbox namespace's permissions. */
+	inbox_ns = mail_namespace_find_inbox(root->root.quota->user->namespaces);
+	mailbox_list_get_root_permissions(inbox_ns->list, &perm);
 
 	dotlock_settings.use_excl_lock = set->dotlock_use_excl;
 	dotlock_settings.nfs_flush = set->mail_nfs_storage;
