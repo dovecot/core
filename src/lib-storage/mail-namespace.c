@@ -678,6 +678,11 @@ void mail_namespace_destroy(struct mail_namespace *ns)
 	mail_namespace_unref(&ns);
 }
 
+struct event *mail_namespace_get_event(const struct mail_namespace *ns)
+{
+	return ns->list->event;
+}
+
 struct mail_storage *
 mail_namespace_get_default_storage(struct mail_namespace *ns)
 {
