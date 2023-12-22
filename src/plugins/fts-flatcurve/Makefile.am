@@ -10,7 +10,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-doveadm \
 	-I$(top_srcdir)/src/doveadm \
 	-I$(top_srcdir)/src/plugins/fts \
-	$(XAPIAN_CXXFLAGS)
+	$(XAPIAN_CFLAGS)
 
 AM_CXXFLAGS = \
 	$(XAPIAN_CXXFLAGS)
