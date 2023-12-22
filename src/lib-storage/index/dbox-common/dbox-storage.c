@@ -158,14 +158,12 @@ void dbox_notify_changes(struct mailbox *box)
 	}
 }
 
-static time_t cleanup_interval(struct mail_user *user)
+static time_t cleanup_interval(struct mail_storage *storage)
 {
-	const struct mail_storage_settings *set =
-		mail_user_set_get_storage_set(user);
-	time_t interval = set->mail_temp_scan_interval;
+	time_t interval = storage->set->mail_temp_scan_interval;
 
 	/* No need for a cryptographic-quality hash here. */
-	unsigned int hash = crc32_str(user->username);
+	unsigned int hash = crc32_str(storage->user->username);
 
 	/* spread from 0.00 to to 30.00% more than the base interval */
 	unsigned int spread_factor = 100000 + hash % 30001;
@@ -173,11 +171,11 @@ static time_t cleanup_interval(struct mail_user *user)
 }
 
 static bool
-dbox_cleanup_temp_files(struct mail_user *user, const char *path,
+dbox_cleanup_temp_files(struct mail_storage *storage, const char *path,
 			time_t last_scan_time, time_t last_change_time)
 {
 	/* check once in a while if there are temp files to clean up */
-	time_t interval = cleanup_interval(user);
+	time_t interval = cleanup_interval(storage);
 	if (interval == 0) {
 		/* disabled */
 		return FALSE;
@@ -195,7 +193,7 @@ dbox_cleanup_temp_files(struct mail_user *user, const char *path,
 		struct stat st;
 		if (stat(path, &st) < 0) {
 			if (errno != ENOENT)
-				e_error(user->event, "stat(%s) failed: %m", path);
+				e_error(storage->event, "stat(%s) failed: %m", path);
 			return FALSE;
 		}
 		last_change_time = st.st_ctime;
@@ -280,7 +278,7 @@ int dbox_mailbox_open(struct mailbox *box)
 	return 0;
 }
 
-int dbox_mailbox_list_cleanup(struct mail_user *user, const char *path,
+int dbox_mailbox_list_cleanup(struct mail_storage *storage, const char *path,
 			      time_t last_temp_file_scan)
 {
 	time_t change_time = -1;
@@ -294,12 +292,13 @@ int dbox_mailbox_list_cleanup(struct mail_user *user, const char *path,
 			change_time = ST_CTIME_SEC(stats);
 		} else {
 			if (errno != ENOENT)
-				e_error(user->event, "stat(%s) failed: %m", path);
+				e_error(storage->event, "stat(%s) failed: %m", path);
 			return -1;
 		}
 	}
 
-	if (dbox_cleanup_temp_files(user, path, last_temp_file_scan, change_time) ||
+	if (dbox_cleanup_temp_files(storage, path, last_temp_file_scan,
+				    change_time) ||
 	    last_temp_file_scan == 0) {
 		/* temp files were scanned. update the last scan timestamp. */
 		return 1;
@@ -314,8 +313,7 @@ void dbox_mailbox_close_cleanup(struct mailbox *box)
 
 	const struct mail_index_header *hdr =
 		mail_index_get_header(box->view);
-	if (dbox_mailbox_list_cleanup(box->storage->user,
-				      mailbox_get_path(box),
+	if (dbox_mailbox_list_cleanup(box->storage, mailbox_get_path(box),
 				      hdr->last_temp_file_scan) > 0)
 		index_mailbox_update_last_temp_file_scan(box);
 }
