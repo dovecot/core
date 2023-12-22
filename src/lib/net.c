@@ -1014,7 +1014,7 @@ int net_addr2ip(const char *addr, struct ip_addr *ip_r)
 			freeaddrinfo(res);
 		ret = net_handle_gai_error("getaddrinfo", ret, TRUE);
 	} T_END;
-	return ret < 0 ? -1 : 0;
+	return ret != 0 ? -1 : 0;
 }
 
 int net_str2port(const char *str, in_port_t *port_r)
