@@ -103,6 +103,12 @@ static int imapc_list_init(struct mailbox_list *_list, const char **error_r)
 	list->client->_list = list;
 	list->set = list->client->set;
 
+	if ((_list->ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0) {
+		/* Avoid connecting to imapc just to access mailbox names.
+		   There are no mailboxes, so the separator doesn't matter. */
+		list->root_sep = '/';
+	}
+
 	imapc_storage_client_register_untagged(list->client, "LIST",
 					       imapc_untagged_list);
 	imapc_storage_client_register_untagged(list->client, "LSUB",
@@ -599,6 +605,11 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 		return -1;
 	if (list->refreshed_mailboxes)
 		return 0;
+	if ((list->list.ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0) {
+		list->refreshed_mailboxes = TRUE;
+		list->refreshed_mailboxes_recently = TRUE;
+		return 0;
+	}
 
 	if (*list->set->imapc_list_prefix == '\0')
 		pattern = "*";
@@ -850,7 +861,8 @@ imapc_list_subscriptions_refresh(struct mailbox_list *_src_list,
 	if (imapc_list_try_get_root_sep(src_list, &list_sep) < 0)
 		return -1;
 
-	if (src_list->refreshed_subscriptions) {
+	if (src_list->refreshed_subscriptions ||
+	    (src_list->list.ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0) {
 		if (dest_list->subscriptions == NULL)
 			dest_list->subscriptions = mailbox_tree_init(dest_sep);
 		return 0;

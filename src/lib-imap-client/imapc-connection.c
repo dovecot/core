@@ -1922,6 +1922,10 @@ void imapc_connection_connect(struct imapc_connection *conn)
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_CONNECTING);
 	if (conn->ips_count > 0) {
 		/* do nothing */
+	} else if (conn->client->set.host[0] == '\0') {
+		e_error(conn->event, "imapc host is empty");
+		imapc_connection_set_disconnected(conn);
+		return;
 	} else if (net_addr2ip(conn->client->set.host, &ip) == 0) {
 		conn->ips_count = 1;
 		conn->ips = i_new(struct ip_addr, conn->ips_count);
