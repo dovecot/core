@@ -2,16 +2,20 @@ AC_DEFUN([DOVECOT_WANT_LUA], [
   have_lua=no
 
   AS_IF([test "$want_lua" != "no"], [
-    for LUAPC in lua5.3 lua-5.3 lua53 lua5.1 lua-5.1 lua51 lua; do
-      PKG_CHECK_MODULES([LUA], [$LUAPC >= 5.1 $LUAPC != 5.2], [
-        have_lua=yes
-        AC_MSG_NOTICE([using library $LUAPC])
-        break
-      ], [
-        :
-      ])
-    done
-
+    AS_IF([test "$LUA_CFLAGS" = ""], [
+      dnl Use pkgconfig to first find out all luas that are there
+      LUAPCS=$($PKG_CONFIG --list-all | $EGREP "lua-?...? " | sort -r)
+      dnl Then we pick suitable one
+      for LUAPC in $LUAPCS lua; do
+        PKG_CHECK_MODULES([LUA], [$LUAPC >= 5.1 $LUAPC != 5.2], [
+          have_lua=yes
+          AC_MSG_NOTICE([using library $LUAPC])
+          break
+        ], [
+          :
+        ])
+      done
+    ], [have_lua=yes])
     AS_IF([test "$want_lua" = "yes" && test "$have_lua" = "no"], [
       AC_MSG_ERROR([cannot build with Lua support: lua not found])
     ])
@@ -40,6 +44,8 @@ AC_DEFUN([DOVECOT_WANT_LUA], [
     CFLAGS="$CFLAGS $LUA_CFLAGS"
     old_LIBS="$LIBS"
     LIBS="$LIBS $LUA_LIBS"
+
+    AC_CHECK_FUNC([lua_newstate],,AC_MSG_ERROR([cannot build with Lua support: missing critical function]))
 
     AC_CHECK_FUNCS([luaL_setfuncs])
     AC_CHECK_FUNCS([luaL_setmetatable])
