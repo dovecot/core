@@ -85,13 +85,6 @@ static void client_init_urlauth(struct client *client)
 	client->urlauth_ctx = imap_urlauth_init(client->user, &config);
 }
 
-static bool user_has_special_use_mailboxes(struct mail_user *user)
-{
-	const struct mail_storage_settings *mail_set =
-		mail_user_set_get_storage_set(user);
-	return mail_set->parsed_have_special_use_mailboxes;
-}
-
 struct client *client_create(int fd_in, int fd_out,
 			     enum client_create_flags flags,
 			     struct event *event, struct mail_user *user,
@@ -190,7 +183,7 @@ struct client *client_create(int fd_in, int fd_out,
 	}
 	if (set->imap_metadata && have_mailbox_attribute_dict)
 		client_add_capability(client, "METADATA");
-	if (user_has_special_use_mailboxes(user)) {
+	if (user->have_special_use_mailboxes) {
 		/* Advertise SPECIAL-USE only if there are actually some
 		   SPECIAL-USE flags in mailbox configuration. */
 		client_add_capability(client, "SPECIAL-USE");

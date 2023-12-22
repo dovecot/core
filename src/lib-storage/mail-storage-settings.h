@@ -100,7 +100,6 @@ struct mail_storage_settings {
 	bool parsed_mail_attachment_exclude_inlined;
 	bool parsed_mail_attachment_detection_add_flags;
 	bool parsed_mail_attachment_detection_no_flags_on_fetch;
-	bool parsed_have_special_use_mailboxes;
 	/* Filename part of mailbox_list_index_prefix */
 	const char *parsed_list_index_fname;
 	/* Directory part of mailbox_list_index_prefix. NULL defaults to index
@@ -210,8 +209,8 @@ bool mail_user_set_get_postmaster_smtp(const struct mail_user_settings *set,
 void mail_storage_2nd_settings_reset(struct settings_instance *instance,
 				     const char *key_prefix);
 
-bool mail_storage_settings_check_namespaces(struct event *event,
-					    struct mail_storage_settings *set,
-					    const char **error_r);
+bool mail_user_check_namespace_settings(struct mail_user *user,
+					const struct mail_storage_settings *set,
+					const char **error_r);
 
 #endif

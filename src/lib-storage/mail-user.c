@@ -147,8 +147,7 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 
 	if (settings_get(user->event, &mail_storage_setting_parser_info, 0,
 			 &user->_mail_set, &error) < 0 ||
-	    !mail_storage_settings_check_namespaces(user->event,
-						    user->_mail_set, &error))
+	    !mail_user_check_namespace_settings(user, user->_mail_set, &error))
 		user->error = p_strdup(user->pool, error);
 	else
 		mail_user_expand_plugins_envs(user, user->_mail_set);

@@ -428,10 +428,11 @@ static bool mail_cache_fields_parse(const char *key, const char *value,
 	}
 	return TRUE;
 }
+/* </settings checks> */
 
 static int
 mail_storage_settings_find_ns(struct event *event,
-			      struct mail_storage_settings *set,
+			      const struct mail_storage_settings *set,
 			      const char *wanted_name,
 			      const struct mail_namespace_settings **ns_r,
 			      const char **error_r)
@@ -460,9 +461,9 @@ mail_storage_settings_find_ns(struct event *event,
 	return 0;
 }
 
-bool mail_storage_settings_check_namespaces(struct event *event,
-					    struct mail_storage_settings *set,
-					    const char **error_r)
+bool mail_user_check_namespace_settings(struct mail_user *user,
+					const struct mail_storage_settings *set,
+					const char **error_r)
 {
 	const struct mail_namespace_settings *ns, *alias_ns;
 	const char *ns_name, *error;
@@ -471,7 +472,7 @@ bool mail_storage_settings_check_namespaces(struct event *event,
 		return TRUE;
 
 	array_foreach_elem(&set->namespaces, ns_name) {
-		if (settings_get_filter(event, "namespace", ns_name,
+		if (settings_get_filter(user->event, "namespace", ns_name,
 					&mail_namespace_setting_parser_info,
 					SETTINGS_GET_FLAG_FAKE_EXPAND,
 					&ns, &error) < 0) {
@@ -487,14 +488,14 @@ bool mail_storage_settings_check_namespaces(struct event *event,
 		}
 
 		if (ns->parsed_have_special_use_mailboxes)
-			set->parsed_have_special_use_mailboxes = TRUE;
+			user->have_special_use_mailboxes = TRUE;
 
 		if (ns->alias_for[0] == '\0') {
 			settings_free(ns);
 			continue;
 		}
 
-		if (mail_storage_settings_find_ns(event, set,
+		if (mail_storage_settings_find_ns(user->event, set,
 				ns->alias_for, &alias_ns, error_r) < 0) {
 			settings_free(ns);
 			return FALSE;
@@ -522,6 +523,7 @@ bool mail_storage_settings_check_namespaces(struct event *event,
 	return TRUE;
 }
 
+/* <settings checks> */
 static bool
 mailbox_list_get_path_setting(const char *key, const char **value,
 			      pool_t pool, enum mailbox_list_path_type *type_r)

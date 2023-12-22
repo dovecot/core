@@ -108,6 +108,8 @@ struct mail_user {
 	bool stats_enabled:1;
 	/* This session was restored (e.g. IMAP unhibernation) */
 	bool session_restored:1;
+	/* TRUE if any mailboxes have special_use flags */
+	bool have_special_use_mailboxes;
 };
 
 struct mail_user_module_register {
