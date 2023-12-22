@@ -10,6 +10,12 @@ struct test_net_is_in_network_input {
 	bool ret;
 };
 
+#ifdef __FreeBSD__
+#  define NET_LOOPBACK "lo0"
+#else
+#  define NET_LOOPBACK "lo"
+#endif
+
 static void test_net_is_in_network(void)
 {
 	static const struct test_net_is_in_network_input input[] = {
@@ -32,8 +38,8 @@ static void test_net_is_in_network(void)
 		{ "::ffff:1.2.3.4", "1.2.3.4", 32, TRUE },
 		{ "::ffff:1.2.3.4", "1.2.3.3", 32, FALSE },
 		{ "::ffff:1.2.3.4", "::ffff:1.2.3.4", 0, FALSE },
-		{ "fe80::1%lo", "fe80::%lo", 8, TRUE },
-		{ "fe80::1%lo", "fe80::", 8, TRUE },
+		{ "fe80::1%"NET_LOOPBACK, "fe80::%"NET_LOOPBACK, 8, TRUE },
+		{ "fe80::1%"NET_LOOPBACK, "fe80::", 8, TRUE },
 	};
 	struct ip_addr ip, net_ip;
 	unsigned int i;
@@ -58,8 +64,8 @@ static void test_net_is_in_network(void)
 	test_assert(!net_is_in_network(&net_ip, &ip, 0));
 
 	/* make sure a changed scope_id won't match */
-	test_assert(net_addr2ip("fe80::1%lo", &ip) == 0);
-	test_assert(net_addr2ip("fe80::1%lo", &net_ip) == 0);
+	test_assert(net_addr2ip("fe80::1%"NET_LOOPBACK, &ip) == 0);
+	test_assert(net_addr2ip("fe80::1%"NET_LOOPBACK, &net_ip) == 0);
 	test_assert(net_is_in_network(&ip, &net_ip, 1));
 	net_ip.scope_id++;
 	test_assert(!net_is_in_network(&ip, &net_ip, 1));
@@ -95,8 +101,8 @@ static void test_net_ip2addr(void)
 		    ip.family == 123);
 	test_assert(net_addr2ip("fe80::1", &ip) == 0);
 	test_assert_strcmp(net_ip2addr(&ip), "fe80::1");
-	test_assert(net_addr2ip("fe80::1%lo", &ip) == 0);
-	test_assert_strcmp(net_ip2addr(&ip), "fe80::1%lo");
+	test_assert(net_addr2ip("fe80::%"NET_LOOPBACK, &ip) == 0);
+	test_assert_strcmp(net_ip2addr(&ip), "fe80::%"NET_LOOPBACK);
 	test_end();
 }
 
@@ -215,7 +221,7 @@ static void test_net_addr2ip(void)
 		{ "::ffff:1.2.3.4", TRUE, AF_INET6 },
 		{ "fe80:0:0:0:5054:ff:fe0a:fdb3", TRUE, AF_INET6 },
 		{ "fe80:0000:0000:0000:5054:00ff:fe0a:fdb3", TRUE, AF_INET6 },
-		{ "fe80::1%lo", TRUE, AF_INET6 },
+		{ "fe80::1%"NET_LOOPBACK, TRUE, AF_INET6 },
 		{ "[fe80::1]", TRUE, AF_INET6 },
 		{ "[fe80::1]:80", FALSE, AF_UNSPEC },
 		/* garbages */

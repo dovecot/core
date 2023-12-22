@@ -4,6 +4,12 @@
 #include "ioloop.h"
 #include "event-filter-private.h"
 
+#ifdef __FreeBSD__
+#  define NET_LOOPBACK "lo0"
+#else
+#  define NET_LOOPBACK "lo"
+#endif
+
 static void test_event_filter_strings(void)
 {
 	struct event_filter *filter;
@@ -19,6 +25,8 @@ static void test_event_filter_strings(void)
 
 	struct event *e2 = event_create(NULL);
 	event_add_str(e2, "str", "hello *world");
+
+	error = NULL;
 
 	/* "quoting" works with \escaping */
 	filter = event_filter_create();
@@ -846,7 +854,8 @@ static void test_event_filter_ips(void)
 		{ "ip = 2001:1190:c02a:130:a87a:ad7:5b76:3310",
 		  test_addr2ip("2000:1190:c02a:130:a87a:ad7:5b76:3310"), FALSE },
 
-		{ "ip = fe80::1%lo", test_addr2ip("fe80::1%lo"), TRUE },
+		{ t_strdup_printf("ip = %s", "fe80::1%"NET_LOOPBACK),
+		  test_addr2ip("fe80::1%"NET_LOOPBACK), TRUE },
 	};
 	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
 		filter = event_filter_create();
