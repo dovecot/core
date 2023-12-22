@@ -225,7 +225,7 @@ static void test_dns_lookup_timeout(void)
 	};
 	struct dns_lookup *lookup;
 	struct test_expect_result ctx = {
-		.ret = -4,
+		.ret = EAI_FAIL,
 		.result = NULL,
 	};
 
