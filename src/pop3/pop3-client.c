@@ -365,11 +365,9 @@ int pop3_lock_session(struct client *client)
 	}
 	path = t_strdup_printf("%s/"POP3_LOCK_FNAME, dir);
 
-	const struct mail_storage_settings *mail_set =
-		mail_user_set_get_storage_set(client->user);
 	dotlock_set = session_dotlock_set;
-	dotlock_set.use_excl_lock = mail_set->dotlock_use_excl;
-	dotlock_set.nfs_flush = mail_set->mail_nfs_storage;
+	dotlock_set.use_excl_lock = client->mail_set->dotlock_use_excl;
+	dotlock_set.nfs_flush = client->mail_set->mail_nfs_storage;
 
 	ret = file_dotlock_create(&dotlock_set, path, 0,
 				  &client->session_dotlock);
@@ -418,13 +416,6 @@ struct client *client_create(int fd_in, int fd_out,
 
 	client->user = user;
 
-	const struct mail_storage_settings *mail_set =
-		mail_user_set_get_storage_set(client->user);
-	client->uidl_keymask =
-		parse_uidl_keymask(mail_set->pop3_uidl_format);
-	if (client->uidl_keymask == 0)
-		i_fatal("Invalid pop3_uidl_format");
-
 	if (var_has_key(set->pop3_logout_format, 'u', "uidl_change")) {
 		/* logging uidl_change. we need hashes of the UIDLs */
 		client->message_uidls_save = TRUE;
@@ -459,6 +450,11 @@ int client_init_mailbox(struct client *client, const char **error_r)
 
 	/* refresh proctitle before a potentially long-running init_mailbox() */
 	pop3_refresh_proctitle();
+
+	client->uidl_keymask =
+		parse_uidl_keymask(client->mail_set->pop3_uidl_format);
+	if (client->uidl_keymask == 0)
+		i_fatal("Invalid pop3_uidl_format");
 
 	flags = MAILBOX_FLAG_POP3_SESSION;
 	if (!client->set->pop3_no_flag_updates)
@@ -655,6 +651,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 	mail_user_autoexpunge(client->user);
 	mail_user_deinit(&client->user);
 	settings_free(client->set);
+	settings_free(client->mail_set);
 
 	pop3_client_count--;
 	DLLIST_REMOVE(&pop3_clients, client);

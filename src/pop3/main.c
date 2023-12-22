@@ -187,9 +187,21 @@ static int lock_session(struct client *client)
 static int init_namespaces(struct client *client, bool already_logged_in)
 {
 	const char *error;
+	int ret;
 
 	/* finish initializing the user (see comment in main()) */
-	if (mail_namespaces_init(client->user, &error) < 0) {
+	ret = mail_namespaces_init(client->user, &error);
+	if (ret == 0) {
+		i_assert(client->inbox_ns == NULL);
+		client->inbox_ns = mail_namespace_find_inbox(client->user->namespaces);
+		i_assert(client->inbox_ns != NULL);
+
+		ret = settings_get(mail_namespace_get_event(client->inbox_ns),
+			 &mail_storage_setting_parser_info, 0,
+			 &client->mail_set, &error);
+	}
+
+	if (ret < 0) {
 		if (!already_logged_in)
 			client_send_line(client, MSG_BYE_INTERNAL_ERROR);
 
@@ -197,11 +209,6 @@ static int init_namespaces(struct client *client, bool already_logged_in)
 		client_destroy(client, error);
 		return -1;
 	}
-
-	i_assert(client->inbox_ns == NULL);
-	client->inbox_ns = mail_namespace_find_inbox(client->user->namespaces);
-	i_assert(client->inbox_ns != NULL);
-
 	return 0;
 }
 
