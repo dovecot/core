@@ -284,7 +284,7 @@ settings_parse_strlist(struct setting_parser_context *ctx,
 	key = strchr(key, SETTINGS_SEPARATOR);
 	if (key == NULL)
 		return;
-	key++;
+	key = settings_section_unescape(key + 1);
 	vvalue = p_strdup(ctx->set_pool, value);
 
 	if (!array_is_created(array))
@@ -338,7 +338,8 @@ int settings_parse_boollist_string(const char *value, pool_t pool,
 			}
 
 			if (quoted || str_len(elem) > 0) {
-				elem_dup = p_strdup(pool, str_c(elem));
+				elem_dup = p_strdup(pool,
+					settings_section_unescape(str_c(elem)));
 				array_push_back(dest, &elem_dup);
 				str_truncate(elem, 0);
 			}
@@ -368,7 +369,7 @@ int settings_parse_boollist_string(const char *value, pool_t pool,
 		return -1;
 	}
 	if (quoted || str_len(elem) > 0) {
-		elem_dup = p_strdup(pool, str_c(elem));
+		elem_dup = settings_section_unescape(p_strdup(pool, str_c(elem)));
 		array_push_back(dest, &elem_dup);
 	}
 	return 0;
@@ -421,7 +422,7 @@ settings_parse_boollist(struct setting_parser_context *ctx,
 		boollist_null_terminate(array);
 		return 0;
 	}
-	key++;
+	key = settings_section_unescape(key + 1);
 
 	bool value_bool;
 	if (get_bool(ctx, value, &value_bool) < 0)
@@ -461,6 +462,7 @@ settings_parse(struct setting_parser_context *ctx,
 	void *ptr;
 	const void *ptr2;
 	const char *error;
+	int ret;
 
 	if (value == set_value_unknown) {
 		/* setting value is unknown - preserve the exact pointer */
@@ -537,10 +539,15 @@ settings_parse(struct setting_parser_context *ctx,
 			return -1;
 		break;
 	case SET_STRLIST:
-		settings_parse_strlist(ctx, ptr, key, value);
+		T_BEGIN {
+			settings_parse_strlist(ctx, ptr, key, value);
+		} T_END;
 		break;
 	case SET_BOOLLIST:
-		if (settings_parse_boollist(ctx, ptr, key, value) < 0)
+		T_BEGIN {
+			ret = settings_parse_boollist(ctx, ptr, key, value);
+		} T_END;
+		if (ret < 0)
 			return -1;
 		break;
 	case SET_FILTER_ARRAY: {

@@ -152,13 +152,15 @@ static void test_settings_parse_boollist_string(void)
 		{ "foo", (const char *const []) { "foo", NULL } },
 		{ "foo bar", (const char *const []) { "foo", "bar", NULL } },
 		{ "foo bar,baz", (const char *const []) { "foo", "bar", "baz", NULL } },
-		{ ", foo, ,  b\\\\ar  ", (const char *const []) { "foo", "b\\\\ar", NULL } },
+		{ ", foo, ,  b\\\\sa  ", (const char *const []) { "foo", "b\\sa", NULL } },
+		{ ", a\\s\\e\\_\\+, ", (const char *const []) { "a/= ,", NULL } },
 
 		{ "\"\"", (const char *const []) { "", NULL } },
 		{ "\",.\"", (const char *const []) { ",.", NULL } },
-		{ "\"esc\\\\str\"", (const char *const []) { "esc\\str", NULL } },
+		{ "\"esc\\\\\\\\str\"", (const char *const []) { "esc\\str", NULL } },
 		{ "\"quotes\\\"str\"", (const char *const []) { "quotes\"str", NULL } },
 		{ "\"val1\", \"val2\" \"val3\"", (const char *const []) { "val1", "val2", "val3", NULL } },
+		{ "\"a\\\\s\\\\e\\\\_\\\\+\"", (const char *const []) { "a/= ,", NULL } },
 	};
 	const struct {
 		const char *input;

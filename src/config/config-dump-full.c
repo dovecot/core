@@ -225,6 +225,11 @@ static void
 config_dump_full_stdout_callback(const struct config_export_setting *set,
 				 struct dump_context *ctx)
 {
+	if (set->type == CONFIG_KEY_LIST) {
+		/* these aren't needed */
+		return;
+	}
+
 	if (!ctx->filter_written) {
 		string_t *str = t_str_new(128);
 		str_append(str, ":FILTER ");
@@ -234,8 +239,25 @@ config_dump_full_stdout_callback(const struct config_export_setting *set,
 		ctx->filter_written = TRUE;
 	}
 	T_BEGIN {
-		o_stream_nsend_str(ctx->output, t_strdup_printf(
-			"%s=%s\n", set->key, str_tabescape(set->value)));
+		const struct setting_define *def =
+			&ctx->info->defines[set->key_define_idx];
+		if (def->type == SET_STRLIST || def->type == SET_BOOLLIST) {
+			const char *suffix;
+			if (!str_begins(set->key, def->key, &suffix) ||
+			    suffix[0] != '/')
+				i_unreached();
+
+			suffix++;
+			o_stream_nsend_str(ctx->output,
+					   t_strdup_until(set->key, suffix));
+			o_stream_nsend_str(ctx->output,
+					   settings_section_escape(suffix));
+		} else {
+			o_stream_nsend_str(ctx->output, set->key);
+		}
+		o_stream_nsend_str(ctx->output, "=");
+		o_stream_nsend_str(ctx->output, str_tabescape(set->value));
+		o_stream_nsend_str(ctx->output, "\n");
 	} T_END;
 }
 
@@ -278,7 +300,7 @@ static void config_dump_full_callback(const struct config_export_setting *set,
 			    suffix[0] != '/')
 				i_unreached();
 			else {
-				suffix++;
+				suffix = settings_section_escape(suffix + 1);
 				o_stream_nsend(ctx->output, suffix,
 					       strlen(suffix) + 1);
 			}
