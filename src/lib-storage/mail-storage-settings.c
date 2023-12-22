@@ -460,10 +460,9 @@ mail_storage_settings_find_ns(struct event *event,
 	return 0;
 }
 
-static bool
-mail_storage_settings_check_namespaces(struct event *event,
-				       struct mail_storage_settings *set,
-				       const char **error_r)
+bool mail_storage_settings_check_namespaces(struct event *event,
+					    struct mail_storage_settings *set,
+					    const char **error_r)
 {
 	const struct mail_namespace_settings *ns, *alias_ns;
 	const char *ns_name, *error;
@@ -619,8 +618,8 @@ mail_storage_settings_apply(struct event *event ATTR_UNUSED, void *_set,
 }
 
 static bool
-mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool,
-				const char **error_r)
+mail_storage_settings_ext_check(struct event *event ATTR_UNUSED,
+				void *_set, pool_t pool, const char **error_r)
 {
 	struct mail_storage_settings *set = _set;
 	struct hash_format *format;
@@ -804,9 +803,6 @@ mail_storage_settings_ext_check(struct event *event, void *_set, pool_t pool,
 				set->mail_path, set->mail_inbox_path);
 		}
 	}
-
-	if (!mail_storage_settings_check_namespaces(event, set, error_r))
-		return FALSE;
 	return TRUE;
 }
 
