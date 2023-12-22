@@ -235,8 +235,6 @@ maildirs_check_have_changed(struct maildir_quota_root *root,
 
 static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 {
-	const struct mail_storage_settings *set =
-		mail_user_set_get_storage_set(root->root.quota->user);
 	struct quota_root *_root = &root->root;
 	struct mail_namespace *inbox_ns;
 	struct mailbox_permissions perm;
@@ -251,8 +249,10 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	inbox_ns = mail_namespace_find_inbox(root->root.quota->user->namespaces);
 	mailbox_list_get_root_permissions(inbox_ns->list, &perm);
 
-	dotlock_settings.use_excl_lock = set->dotlock_use_excl;
-	dotlock_settings.nfs_flush = set->mail_nfs_storage;
+	dotlock_settings.use_excl_lock =
+		inbox_ns->list->mail_set->dotlock_use_excl;
+	dotlock_settings.nfs_flush =
+		inbox_ns->list->mail_set->mail_nfs_storage;
 
 	temp_path = t_str_new(128);
 	str_append(temp_path, path);
