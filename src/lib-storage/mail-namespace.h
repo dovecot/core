@@ -126,6 +126,8 @@ void mail_namespace_add_storage(struct mail_namespace *ns,
 /* Destroy a single namespace and remove it from user's namespaces list. */
 void mail_namespace_destroy(struct mail_namespace *ns);
 
+/* Returns ns->list->event. */
+struct event *mail_namespace_get_event(const struct mail_namespace *ns);
 /* Returns the default storage to use for newly created mailboxes. */
 struct mail_storage *
 mail_namespace_get_default_storage(struct mail_namespace *ns);
