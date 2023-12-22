@@ -633,7 +633,7 @@ settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 			offset += strlen(list_key)+1;
 			set_apply = set_apply &&
 				!settings_parse_list_has_key(ctx->parser,
-							     key_idx, list_key);
+					key_idx, settings_section_unescape(list_key));
 		} else if (ctx->info->defines[key_idx].type == SET_FILTER_ARRAY)
 			set_apply = TRUE;
 		else if (set_apply)
@@ -1390,7 +1390,8 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 				   (invalid for strlist) */
 				i_assert(suffix[0] == '\0');
 			} else if (settings_parse_list_has_key(ctx->parser,
-						key_idx, suffix + 1))
+					key_idx,
+					settings_section_unescape(suffix + 1)))
 				continue;
 			else
 				track_seen = FALSE;
