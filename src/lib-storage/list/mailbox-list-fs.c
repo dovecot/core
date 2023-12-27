@@ -564,7 +564,9 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 
 struct mailbox_list fs_mailbox_list = {
 	.name = MAILBOX_LIST_NAME_FS,
-	.props = 0,
+	/* Allow using with empty mail path. Especially useful with pop3c,
+	   which can optionally use index files. */
+	.props = MAILBOX_LIST_PROP_NO_ROOT,
 	.mailbox_name_max_length = MAILBOX_LIST_NAME_MAX_LENGTH,
 
 	.v = {
