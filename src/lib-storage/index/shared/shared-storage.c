@@ -113,19 +113,6 @@ get_nonexistent_user_path(struct shared_storage *storage,
 			       username);
 }
 
-static bool shared_namespace_exists(struct mail_namespace *ns)
-{
-	const char *path;
-	struct stat st;
-
-	if (!mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_DIR,
-					&path)) {
-		/* we can't know if this exists */
-		return TRUE;
-	}
-	return stat(path, &st) == 0;
-}
-
 static int
 shared_mail_user_init(struct mail_storage *_storage,
 		      struct mail_user *user, struct mail_user *owner,
@@ -444,11 +431,6 @@ shared_mail_user_init(struct mail_storage *_storage,
 		mail_namespace_destroy(new_ns);
 		event_unref(&set_event);
 		return -1;
-	}
-	if ((new_ns->flags & NAMESPACE_FLAG_UNUSABLE) == 0 &&
-	    !shared_namespace_exists(new_ns)) {
-		/* this user doesn't have a usable storage */
-		new_ns->flags |= NAMESPACE_FLAG_UNUSABLE;
 	}
 	/* mark the shared namespace root as usable, since it now has
 	   child namespaces */
