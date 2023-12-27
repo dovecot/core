@@ -15,6 +15,14 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+struct dcrypt_dump_context {
+	const char *key;
+	struct dcrypt_private_key *dec_key;
+	const char *password;
+	enum dcrypt_key_format dump_format;
+	bool dump_key;
+};
+
 static int load_key_from_file(const char *file, const char **data_r,
 			      const char **error_r)
 {
@@ -29,8 +37,10 @@ static int load_key_from_file(const char *file, const char **data_r,
 	return 0;
 }
 
-static void dcrypt_dump_public_key_metadata(struct doveadm_cmd_context *cctx,
-					    const char *buf)
+static void
+dcrypt_dump_public_key_metadata(struct doveadm_cmd_context *cctx,
+				const char *buf,
+				const struct dcrypt_dump_context *ctx)
 {
 	const char *error = NULL;
 	struct dcrypt_public_key *pub_key;
@@ -66,17 +76,69 @@ static void dcrypt_dump_public_key_metadata(struct doveadm_cmd_context *cctx,
 			}
 		}
 	}
+
+	if (ctx->dump_key) {
+		string_t *keybuf = t_str_new(512);
+		if (!dcrypt_key_store_public(pub_key, ctx->dump_format, keybuf,
+					     &error))
+			i_fatal("%s", error);
+		printf("Key:\n\n%s\n", str_c(keybuf));
+	}
+
 	dcrypt_key_unref_public(&pub_key);
 }
 
-static void dcrypt_dump_private_key_metadata(struct doveadm_cmd_context *cctx,
-					     const char *buf)
+static void
+dcrypt_dump_private_key_metadata(struct doveadm_cmd_context *cctx,
+				 const char *buf,
+				 const struct dcrypt_dump_context *ctx)
 {
 	const char *error = NULL;
-	struct dcrypt_private_key *priv_key;
+	struct dcrypt_private_key *priv_key, *dec_priv_key = NULL;
 
-	bool ret = dcrypt_key_load_private(&priv_key, buf, NULL, NULL,
-			&error);
+	if (ctx->key != NULL) {
+		enum dcrypt_key_kind kind;
+		enum dcrypt_key_encryption_type encryption_type;
+		const char *dec_priv_key_data;
+
+		if (load_key_from_file(ctx->key, &dec_priv_key_data, &error) <
+		    0) {
+			e_error(cctx->event, "%s", error);
+			return;
+		}
+
+		if (!dcrypt_key_string_get_info(dec_priv_key_data, NULL, NULL,
+						&kind, &encryption_type, NULL,
+						NULL, &error)) {
+			e_error(cctx->event, "%s: %s", ctx->key, error);
+			return;
+		}
+		if (kind != DCRYPT_KEY_KIND_PRIVATE) {
+			e_error(cctx->event,
+				"Decryption key %s is not private key",
+				ctx->key);
+			return;
+		}
+
+		const char *dec_key_pw =
+			encryption_type == DCRYPT_KEY_ENCRYPTION_TYPE_NONE ?
+				      NULL :
+				      ctx->password;
+		/* load key */
+		if (!dcrypt_key_load_private(&dec_priv_key, dec_priv_key_data,
+					     dec_key_pw, NULL, &error)) {
+			e_error(cctx->event,
+				"crypt_key_load_private failed for %s: %s",
+				ctx->key, error);
+			return;
+		}
+	}
+
+	const char *dec_pw = dec_priv_key == NULL ? ctx->password : NULL;
+
+	bool ret = dcrypt_key_load_private(&priv_key, buf, dec_pw, dec_priv_key,
+					   &error);
+	dcrypt_key_unref_private(&dec_priv_key);
 	if (ret == FALSE) {
 		e_error(cctx->event, "dcrypt_key_load_private failed: %s", error);
 		return;
@@ -106,11 +168,21 @@ static void dcrypt_dump_private_key_metadata(struct doveadm_cmd_context *cctx,
 			}
 		}
 	}
+
+	if (ctx->dump_key) {
+		string_t *keybuf = t_str_new(512);
+		if (!dcrypt_key_store_private(priv_key, ctx->dump_format, NULL,
+					      keybuf, NULL, NULL, &error))
+			i_fatal("%s", error);
+		printf("Key:\n\n%s\n", str_c(keybuf));
+	}
+
 	dcrypt_key_unref_private(&priv_key);
 }
 
 static bool dcrypt_key_dump_metadata(struct doveadm_cmd_context *cctx,
-				     const char *filename, bool print)
+				     const char *filename, bool print,
+				     const struct dcrypt_dump_context *ctx)
 {
 	bool ret = TRUE;
 	enum dcrypt_key_format format;
@@ -189,11 +261,12 @@ static bool dcrypt_key_dump_metadata(struct doveadm_cmd_context *cctx,
 
 	switch (kind) {
 	case DCRYPT_KEY_KIND_PUBLIC:
-		dcrypt_dump_public_key_metadata(cctx, data);
+		dcrypt_dump_public_key_metadata(cctx, data, ctx);
 		break;
 	case DCRYPT_KEY_KIND_PRIVATE:
-		if (encryption_type == DCRYPT_KEY_ENCRYPTION_TYPE_NONE)
-			dcrypt_dump_private_key_metadata(cctx, data);
+		if (encryption_type == DCRYPT_KEY_ENCRYPTION_TYPE_NONE ||
+		    (ctx->key != NULL || ctx->password != NULL))
+			dcrypt_dump_private_key_metadata(cctx, data, ctx);
 		break;
 	}
 	return TRUE;
@@ -203,22 +276,49 @@ static bool test_dump_dcrypt_key(struct doveadm_cmd_context *cctx,
 				 const char *path)
 {
 	const char *error;
+	struct dcrypt_dump_context ctx;
+	i_zero(&ctx);
+
 	if (!dcrypt_initialize("openssl", NULL, &error)) {
 		e_error(cctx->event, "%s", error);
 		return FALSE;
 	}
-	bool ret = dcrypt_key_dump_metadata(cctx, path, FALSE);
+	bool ret = dcrypt_key_dump_metadata(cctx, path, FALSE, &ctx);
 	return ret;
 }
 
-static void
-cmd_dump_dcrypt_key(struct doveadm_cmd_context *cctx,
-		    const char *path, const char *const *args ATTR_UNUSED)
+static void cmd_dump_dcrypt_key(struct doveadm_cmd_context *cctx,
+				const char *path, const char *const *args)
 {
 	const char *error = NULL;
+	struct dcrypt_dump_context ctx;
+	i_zero(&ctx);
+
 	if (!dcrypt_initialize("openssl", NULL, &error))
 		i_fatal("dcrypt_initialize: %s", error);
-	(void)dcrypt_key_dump_metadata(cctx, path, TRUE);
+	for (; *args != NULL; args++) {
+		const char *key, *value;
+		if (!t_split_key_value_eq(*args, &key, &value))
+			i_fatal("Invalid argument '%s': Missing '='", *args);
+		if (strcmp(key, "private_key") == 0)
+			ctx.key = value;
+		else if (strcmp(key, "password") == 0)
+			ctx.password = value;
+		else if (strcmp(key, "dump") == 0) {
+			ctx.dump_key = TRUE;
+			if (strcasecmp(value, "pem") == 0)
+				ctx.dump_format = DCRYPT_FORMAT_PEM;
+			else if (strcasecmp(value, "dovecot") == 0)
+				ctx.dump_format = DCRYPT_FORMAT_DOVECOT;
+			else if (strcasecmp(value, "jwk") == 0)
+				ctx.dump_format = DCRYPT_FORMAT_JWK;
+			else
+				i_fatal("Unsupported dump format '%s'", value);
+		} else
+			i_fatal("Unsupported argument '%s'", key);
+	}
+
+	(void)dcrypt_key_dump_metadata(cctx, path, TRUE, &ctx);
 }
 
 struct doveadm_cmd_dump doveadm_cmd_dump_dcrypt_key = {
