@@ -2015,7 +2015,7 @@ static bool store_jwk_ec_key(EVP_PKEY *pkey, bool is_private_key,
 	bn2base64url(y, b64url_temp);
 	json_ostream_nwrite_string_buffer(joutput, "y", b64url_temp);
 
-	if (use != NULL)
+	if (usage != DCRYPT_KEY_USAGE_NONE)
 		json_ostream_nwrite_string(joutput, "use", use);
 	if (key_id != NULL)
 		json_ostream_nwrite_string(joutput, "kid", key_id);
