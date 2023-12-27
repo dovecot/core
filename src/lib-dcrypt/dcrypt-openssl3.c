@@ -2172,7 +2172,75 @@ static int bn2base64url(const BIGNUM *bn, string_t *dest)
 	return 0;
 }
 
-/* FIXME: Add encryption support */
+static bool store_jwk_rsa_key(EVP_PKEY *pkey, bool is_private_key,
+			      enum dcrypt_key_usage usage, const char *key_id,
+			      const char *cipher ATTR_UNUSED,
+			      const char *password ATTR_UNUSED,
+			      struct dcrypt_public_key *enc_key ATTR_UNUSED,
+			      string_t *dest, const char **error_r)
+{
+	i_assert(cipher == NULL && password == NULL && enc_key == NULL);
+
+	const char *use = key_usage_to_jwk_use(usage);
+	string_t *temp = t_str_new(256);
+	string_t *b64url_temp = t_str_new(256);
+	struct json_ostream *joutput = json_ostream_create_str(temp, 0);
+
+	json_ostream_ndescend_object(joutput, NULL);
+	json_ostream_nwrite_string(joutput, "kty", "RSA");
+	BIGNUM *bn = BN_secure_new();
+	EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_N, &bn);
+	bn2base64url(bn, b64url_temp);
+	json_ostream_nwrite_string_buffer(joutput, "n", b64url_temp);
+	str_truncate(b64url_temp, 0);
+	EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_E, &bn);
+	bn2base64url(bn, b64url_temp);
+	json_ostream_nwrite_string_buffer(joutput, "e", b64url_temp);
+	str_truncate(b64url_temp, 0);
+	if (usage != DCRYPT_KEY_USAGE_NONE)
+		json_ostream_nwrite_string(joutput, "use", use);
+	if (key_id != NULL)
+		json_ostream_nwrite_string(joutput, "kid", key_id);
+	if (is_private_key) {
+		if (EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_D, &bn) !=
+		    1) {
+			json_ostream_nfinish_destroy(&joutput);
+			BN_free(bn);
+			return dcrypt_openssl_error(error_r);
+		}
+		bn2base64url(bn, b64url_temp);
+		json_ostream_nwrite_string_buffer(joutput, "d", b64url_temp);
+		str_truncate(b64url_temp, 0);
+		EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_FACTOR1, &bn);
+		bn2base64url(bn, b64url_temp);
+		json_ostream_nwrite_string_buffer(joutput, "p", b64url_temp);
+		str_truncate(b64url_temp, 0);
+		EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_FACTOR2, &bn);
+		bn2base64url(bn, b64url_temp);
+		json_ostream_nwrite_string_buffer(joutput, "q", b64url_temp);
+		str_truncate(b64url_temp, 0);
+		EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_EXPONENT1, &bn);
+		bn2base64url(bn, b64url_temp);
+		json_ostream_nwrite_string_buffer(joutput, "dp", b64url_temp);
+		str_truncate(b64url_temp, 0);
+		EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_EXPONENT2, &bn);
+		bn2base64url(bn, b64url_temp);
+		json_ostream_nwrite_string_buffer(joutput, "dq", b64url_temp);
+		str_truncate(b64url_temp, 0);
+		EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_COEFFICIENT1, &bn);
+		bn2base64url(bn, b64url_temp);
+		json_ostream_nwrite_string_buffer(joutput, "qi", b64url_temp);
+		str_truncate(b64url_temp, 0);
+
+	}
+
+	json_ostream_nascend_object(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	str_append_str(dest, temp);
+	BN_free(bn);
+	return TRUE;
+}
+
 /* FIXME: Add support for 'algo' field */
 static bool store_jwk_ec_key(EVP_PKEY *pkey, bool is_private_key,
 			     enum dcrypt_key_usage usage,
@@ -2231,8 +2299,6 @@ static bool store_jwk_ec_key(EVP_PKEY *pkey, bool is_private_key,
 	return TRUE;
 }
 
-/* FIXME: Add RSA support */
-
 static bool store_jwk_key(EVP_PKEY *pkey, bool is_private_key,
 			  enum dcrypt_key_usage usage,
 			  const char *key_id,
@@ -2241,8 +2307,16 @@ static bool store_jwk_key(EVP_PKEY *pkey, bool is_private_key,
 			  struct dcrypt_public_key *enc_key,
 			  string_t *dest, const char **error_r)
 {
-	i_assert(cipher == NULL && password == NULL && enc_key == NULL);
-	if (EVP_PKEY_base_id(pkey) == EVP_PKEY_EC) {
+	if (cipher != NULL || password != NULL || enc_key != NULL) {
+		*error_r = "Encryption not supported";
+		return FALSE;
+	}
+	int nid = EVP_PKEY_base_id(pkey);
+	if (nid == EVP_PKEY_RSA) {
+		return store_jwk_rsa_key(pkey, is_private_key, usage, key_id,
+					 cipher, password, enc_key, dest,
+					 error_r);
+	} else if (nid == EVP_PKEY_EC) {
 		return store_jwk_ec_key(pkey, is_private_key, usage, key_id,
 					cipher, password, enc_key, dest, error_r);
 	}

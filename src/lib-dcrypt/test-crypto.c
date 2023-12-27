@@ -1461,30 +1461,16 @@ static void test_static_verify_ecdsa(void)
 	test_end();
 }
 
-static void test_jwk_keys(void)
+static void test_jwk_key(const char *jwk_key_json_in, const char *jwk_key_json_out,
+			 const char *pem_key)
 {
-	/* Make sure this matches what comes out from store private */
-	const char *jwk_key_json = "{\"kty\":\"EC\","
-	  "\"crv\":\"P-256\","
-	  "\"x\":\"Kp0Y4-Wpt-D9t_2XenFIj0LmvaZByLG69yOisek4aMI\","
-	  "\"y\":\"wjEPB5BhH5SRPw1cCN5grWrLCphrW19fCFR8p7c9O5o\","
-	  "\"use\":\"sig\","
-	  "\"kid\":\"123\","
-	  "\"d\":\"Po2z9rs86J2Qb_xWprr4idsWNPlgKf3G8-mftnE2ync\"}";
-	/* Acquired using another tool */
-	const char *pem_key =
-"-----BEGIN PUBLIC KEY-----\n"
-"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEKp0Y4+Wpt+D9t/2XenFIj0LmvaZB\n"
-"yLG69yOisek4aMLCMQ8HkGEflJE/DVwI3mCtassKmGtbX18IVHyntz07mg==\n"
-"-----END PUBLIC KEY-----\n";
-	test_begin("test_jwk_keys");
 	const char *error ATTR_UNUSED;
 	struct dcrypt_keypair pair;
 	buffer_t *pem = t_buffer_create(256);
 	i_zero(&pair);
 
-	test_assert(dcrypt_key_load_public(&pair.pub, jwk_key_json, &error));
-	test_assert(dcrypt_key_load_private(&pair.priv, jwk_key_json, NULL, NULL, &error));
+	test_assert(dcrypt_key_load_public(&pair.pub, jwk_key_json_in, &error));
+	test_assert(dcrypt_key_load_private(&pair.priv, jwk_key_json_in, NULL, NULL, &error));
 
 	/* test accessors */
 	test_assert_strcmp(dcrypt_key_get_id_public(pair.pub), "123");
@@ -1501,45 +1487,153 @@ static void test_jwk_keys(void)
 
 	str_truncate(pem, 0);
 	test_assert(dcrypt_key_store_private(pair.priv, DCRYPT_FORMAT_JWK, NULL, pem, NULL, NULL, &error));
-	test_assert_strcmp(str_c(pem), jwk_key_json);
+	test_assert_strcmp(str_c(pem), jwk_key_json_out);
 
 	dcrypt_keypair_unref(&pair);
+}
 
-	/* try loading RSA keys */
+static void test_jwk_keys(void)
+{
+	/* Make sure to get PEM output using something else */
+	struct {
+		const char *json_in;
+		const char *json_out;
+		const char *pem;
+	} cases[] = {
+		{
+			.json_in = "{\"kty\":\"EC\","
+				"\"crv\":\"P-256\","
+				"\"x\":\"Kp0Y4-Wpt-D9t_2XenFIj0LmvaZByLG69yOisek4aMI\","
+				"\"y\":\"wjEPB5BhH5SRPw1cCN5grWrLCphrW19fCFR8p7c9O5o\","
+				"\"use\":\"sig\","
+				"\"kid\":\"123\","
+				"\"d\":\"Po2z9rs86J2Qb_xWprr4idsWNPlgKf3G8-mftnE2ync\"}",
+			.json_out = "{\"kty\":\"EC\","
+				"\"crv\":\"P-256\","
+				"\"x\":\"Kp0Y4-Wpt-D9t_2XenFIj0LmvaZByLG69yOisek4aMI\","
+				"\"y\":\"wjEPB5BhH5SRPw1cCN5grWrLCphrW19fCFR8p7c9O5o\","
+				"\"use\":\"sig\","
+				"\"kid\":\"123\","
+				"\"d\":\"Po2z9rs86J2Qb_xWprr4idsWNPlgKf3G8-mftnE2ync\"}",
+			.pem = "-----BEGIN PUBLIC KEY-----\n"
+			       "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEKp0Y4+Wpt+D9t/2XenFIj0LmvaZB\n"
+			       "yLG69yOisek4aMLCMQ8HkGEflJE/DVwI3mCtassKmGtbX18IVHyntz07mg==\n"
+			       "-----END PUBLIC KEY-----\n",
+		},
+		{ .json_in = "{\"kty\":\"RSA\","
+			  "\"n\":\"vvznTCNpPXQW_HND7U3gGEzSiu_kgRrv2fUCD1HqycgLlz2bToo"
+			  "OQjPLnx-2I1d6kw4PjSCGnLxVRMkFF7IK0SoJ1pN5vYbTX3R3Ns"
+			  "D2WnQQubjLiQKlj7S18n-jyL7T4-hDGRG4tqEa_5LwAptooOD64"
+			  "3JeJJYF8scVeKNYtR8\","
+			  "\"e\":\"AQAB\","
+			  "\"use\":\"sig\","
+			  "\"kid\":\"123\","
+			  "\"d\":\"igf0DpYFKHHvbvLLZAWFcWqMO_fW2Owj7w1hOLtGiiD3J45R4Xhr"
+			  "h7MxdcaQd4hwwTlHSgL45uxCYB08ffyiTXq9RQyiA9bZC8Xz9gP"
+			  "MzjzztG7uCY8us24wu_B0vdi-UPcV8Qe3P7zu2nlpvJFMmnW5C9"
+			  "0sWZO--MwshVWtjlk\"}",
+		  .json_out = "{\"kty\":\"RSA\","
+			  "\"n\":\"vvznTCNpPXQW_HND7U3gGEzSiu_kgRrv2fUCD1HqycgLlz2bTooOQjPLnx"
+			  "-2I1d6kw4PjSCGnLxVRMkFF7IK0SoJ1pN5vYbTX3R3NsD2WnQQubjLiQKlj7S18n-j"
+			  "yL7T4-hDGRG4tqEa_5LwAptooOD643JeJJYF8scVeKNYtR8\","
+			  "\"e\":\"AQAB\",\"use\":\"sig\",\"kid\":\"123\","
+			  "\"d\":\"igf0DpYFKHHvbvLLZAWFcWqMO_fW2Owj7w1hOLtGiiD3J45R4Xhrh7Mxdca"
+			  "Qd4hwwTlHSgL45uxCYB08ffyiTXq9RQyiA9bZC8Xz9gPMzjzztG7uCY8us24wu_B0vd"
+			  "i-UPcV8Qe3P7zu2nlpvJFMmnW5C90sWZO--MwshVWtjlk\",\"p\":\"7WD6fHlqSGf"
+			  "ukEULSrEwD77Roxlhzmb-FuCq-wNUUvphOlxIzWzT3p0et1PkgSWhmax2QAzLRaS1ee"
+			  "XhjJYWOw\",\"q\":\"zfhOeQ-TN1hrAsyxtWTrNe45HxThb_He8xJm5cOiGa85gEZF"
+			  "6mmawWsZiXMmJ9UTMC0j8ZJ09Y3U8bUU2lnabQ\",\"dp\":\"mB2WRt_TYPThJqhoF"
+			  "QQ4xU5FrtvcFlVfrC9qwhIfHlF-rtRmfuWnW7eZ8GcdPjlsNjsTR_Yq6MUk2imbAOlI"
+			  "8w\",\"dq\":\"Xe9t0paA3I_tlgRG0-SnxRvVX1CFlClqNc9hsE4toqsgfVkPT95D3"
+			  "wx6RA6JC0eJDcK4jtbtkoPR5z5fuUmbbQ\",\"qi\":\"YAowniOLomk52oiRbA3o0B"
+			  "QwRKAPbXtRBYJbxsLL4XuISWcvQ6II54D6uziqyjKc4VifvngRC3mEmEyGaEudFA\"}",
+		  .pem = "-----BEGIN PUBLIC KEY-----\n"
+			 "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC+/OdMI2k9dBb8c0PtTeAYTNKK\n"
+			 "7+SBGu/Z9QIPUerJyAuXPZtOig5CM8ufH7YjV3qTDg+NIIacvFVEyQUXsgrRKgnW\n"
+			 "k3m9htNfdHc2wPZadBC5uMuJAqWPtLXyf6PIvtPj6EMZEbi2oRr/kvACm2ig4Prj\n"
+			 "cl4klgXyxxV4o1i1HwIDAQAB\n"
+			 "-----END PUBLIC KEY-----\n" },
+		{.json_in = "{" \
+			"\"p\": \"3sx9h7zkPBGs0cnvEFLABeEZ8ew4Jdh1y2r-coJRmPy2rX"
+			"0fh4kw2trqYZirGUqOj4Gz6yf6-_nB3W4QHZamLdl1zADHuV-OM6Tk2"
+			"DTVctgbwasXnFjvIgOh6FZZyWXhgSnoLdwUTRjDyDzQqOZ0ttb8mnPD"
+			"ZmXFyM2GnAu4CSk\","
+			"\"kty\": \"RSA\","
+			"\"q\": \"lMrUzcLmjz_yUbFx7c4rdO0KYQ6GU7hZ5K2LjEOM4l3OLw"
+			"EBMxm_CeS5_qZhiOgbKklovlu6hGuxzn0asPax9EhpDt8W3PYZoQjYc"
+			"2SwtOuB7wudtZMFHX_L19Tv6Q3EN8fkqQFGoiiRDrPi4MePy-MNBbBD"
+			"3otbWIg65fmqbkk\","
+			"\"d\": \"O5jrumGNlc3BOfyTUxYGlZPvgYA-qII64dsDwXtTwbqmwi"
+			"63km_ij7yVZiMX8oSOkR5UVwK0VsdX4Zq6LPCjeg80Xjd-noYwQ9A5h"
+			"AW1YNKDN5IMYqIPXSF0rPpbwaGzLUPToZORblqKkrOfCuvkUB9RY7A1"
+			"fyYxad7b9I178R3RiT9pyfC_8axEBnkXjfo_HehBkGKK-8I9cetxzDA"
+			"8xEJekja1V5nnzWq7_fO2VtEu5L_W-JxAtPWT-Hh484OzZrOmZo93HW"
+			"vml5D7ezJMslTx90hHkxqf66c0x7gmmLsU8GmI5yBsZitz5lQrYR6jY"
+			"nfsm3Ye87VcfwMMUa1qgQ\","
+			"\"e\": \"AQAB\","
+			"\"use\": \"sig\","
+			"\"kid\": \"123\","
+			"\"qi\": \"JWvEuWge1CB6lrFsBHtco3pfC-xUOBtQArH7H3bGH5I_b"
+			"Ewxqvtnau3WH89DOXDoZsKBIuuoIl_rW9640pRpp9UOoLrE7jGqevDj"
+			"mcq2ZwKMIGp9XeAs2zMm08-sQmFp6NAfhjFhBhvH2ITqrLs49cHNvtL"
+			"g8WVpiDJRnHEgKSQ\","
+			"\"dp\": \"ICgdmiDOREk8y068_XskEfUqXHt-ox-56LE5pmdexZj7-"
+			"NBNY6-OaJgeKhXx5AWZy-aphDBSDlo---mt08dxlr6DPP2D1iKPkK6l"
+			"BPujLx836lz6XGuNoDgr_y-vZ90Xjh_xTeUs3O_NGjKE30vb3qPq85P"
+			"vyPC5ekEHw7ABUPk\","
+			"\"alg\": \"RS256\","
+			"\"dq\": \"RipUKefkA9967O1JtYPI2G3DvDs2OxqvQXhZWz6rnD_yM"
+			"BZAM5HLleXHk_9v9TjHPqy5eTMWhMWoZqB2Ssc66eCPslSfmnlvYpIi"
+			"SGBOODLq5ghLScnX2q5eORyQOg2k300jVlNktKl-pjlMHwXcmKAsjuc"
+			"tSi_bVqd_Zt3Scgk\","
+			"\"n\": \"gX6_IfGjjHZozSzXlGPTwoEE6v_zTyDGB_Xc1P6aAZUHFe"
+			"1gV8pD_6c6-i6HeWR79zbtL6QGH6OCQdnn_pkVh7zmxS4yMfsz6NmqL"
+			"S5NftG-Uw1tRhxMG-nypPRyPd6IO4ozeujAt25_htnfOdMlQp-uAJc5"
+			"Lu7pM_8qr-g9O-Q1ih-FBhGp8xbyEvDw4VRtr1OyZsHDPV9f35QXyny"
+			"PqO-oeCEqqDoWEnwSgbDRek93m3gnsYjvti_3VsaH1YtjfU6K-ZXhbC"
+			"xNxhhOo8Zr-ZxEVIs_Ck6dXttuCPA5enf0fREsw4fP_gY2RR5b6Lv7E"
+			"mdR2MjOB9Pg87RUYaQ6sQ\""
+			"}",
+		.json_out = "{\"kty\":\"RSA\",\"n\":\"gX6_IfGjjHZozSzXlGPTwoEE6v_zTyDGB_Xc1P6aA"
+			"ZUHFe1gV8pD_6c6-i6HeWR79zbtL6QGH6OCQdnn_pkVh7zmxS4yMfsz6NmqLS5NftG-Uw1"
+			"tRhxMG-nypPRyPd6IO4ozeujAt25_htnfOdMlQp-uAJc5Lu7pM_8qr-g9O-Q1ih-FBhGp8"
+			"xbyEvDw4VRtr1OyZsHDPV9f35QXynyPqO-oeCEqqDoWEnwSgbDRek93m3gnsYjvti_3Vsa"
+			"H1YtjfU6K-ZXhbCxNxhhOo8Zr-ZxEVIs_Ck6dXttuCPA5enf0fREsw4fP_gY2RR5b6Lv7E"
+			"mdR2MjOB9Pg87RUYaQ6sQ\","
+			"\"e\":\"AQAB\",\"use\":\"sig\",\"kid\":\"123\","
+			"\"d\":\"O5jrumGNlc3BOfyTUxYGlZPvgYA-qII64dsDwXtTwbqmwi63km_ij7yVZiMX8o"
+			"SOkR5UVwK0VsdX4Zq6LPCjeg80Xjd-noYwQ9A5hAW1YNKDN5IMYqIPXSF0rPpbwaGzLUPT"
+			"oZORblqKkrOfCuvkUB9RY7A1fyYxad7b9I178R3RiT9pyfC_8axEBnkXjfo_HehBkGKK-8"
+			"I9cetxzDA8xEJekja1V5nnzWq7_fO2VtEu5L_W-JxAtPWT-Hh484OzZrOmZo93HWvml5D7"
+			"ezJMslTx90hHkxqf66c0x7gmmLsU8GmI5yBsZitz5lQrYR6jYnfsm3Ye87VcfwMMUa1qgQ\","
+			"\"p\":\"3sx9h7zkPBGs0cnvEFLABeEZ8ew4Jdh1y2r-coJRmPy2rX0fh4kw2trqYZirGU"
+			"qOj4Gz6yf6-_nB3W4QHZamLdl1zADHuV-OM6Tk2DTVctgbwasXnFjvIgOh6FZZyWXhgSno"
+			"LdwUTRjDyDzQqOZ0ttb8mnPDZmXFyM2GnAu4CSk\",\"q\":\"lMrUzcLmjz_yUbFx7c4r"
+			"dO0KYQ6GU7hZ5K2LjEOM4l3OLwEBMxm_CeS5_qZhiOgbKklovlu6hGuxzn0asPax9EhpDt"
+			"8W3PYZoQjYc2SwtOuB7wudtZMFHX_L19Tv6Q3EN8fkqQFGoiiRDrPi4MePy-MNBbBD3otb"
+			"WIg65fmqbkk\",\"dp\":\"ICgdmiDOREk8y068_XskEfUqXHt-ox-56LE5pmdexZj7-NB"
+			"NY6-OaJgeKhXx5AWZy-aphDBSDlo---mt08dxlr6DPP2D1iKPkK6lBPujLx836lz6XGuNo"
+			"Dgr_y-vZ90Xjh_xTeUs3O_NGjKE30vb3qPq85PvyPC5ekEHw7ABUPk\",\"dq\":\"RipU"
+			"KefkA9967O1JtYPI2G3DvDs2OxqvQXhZWz6rnD_yMBZAM5HLleXHk_9v9TjHPqy5eTMWhM"
+			"WoZqB2Ssc66eCPslSfmnlvYpIiSGBOODLq5ghLScnX2q5eORyQOg2k300jVlNktKl-pjlM"
+			"HwXcmKAsjuctSi_bVqd_Zt3Scgk\",\"qi\":\"JWvEuWge1CB6lrFsBHtco3pfC-xUOBt"
+			"QArH7H3bGH5I_bEwxqvtnau3WH89DOXDoZsKBIuuoIl_rW9640pRpp9UOoLrE7jGqevDjm"
+			"cq2ZwKMIGp9XeAs2zMm08-sQmFp6NAfhjFhBhvH2ITqrLs49cHNvtLg8WVpiDJRnHEgKSQ\"}",
+		.pem = "-----BEGIN PUBLIC KEY-----\n" \
+			"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAgX6/IfGjjHZozSzXlGPT\n" \
+			"woEE6v/zTyDGB/Xc1P6aAZUHFe1gV8pD/6c6+i6HeWR79zbtL6QGH6OCQdnn/pkV\n" \
+			"h7zmxS4yMfsz6NmqLS5NftG+Uw1tRhxMG+nypPRyPd6IO4ozeujAt25/htnfOdMl\n" \
+			"Qp+uAJc5Lu7pM/8qr+g9O+Q1ih+FBhGp8xbyEvDw4VRtr1OyZsHDPV9f35QXynyP\n" \
+			"qO+oeCEqqDoWEnwSgbDRek93m3gnsYjvti/3VsaH1YtjfU6K+ZXhbCxNxhhOo8Zr\n" \
+			"+ZxEVIs/Ck6dXttuCPA5enf0fREsw4fP/gY2RR5b6Lv7EmdR2MjOB9Pg87RUYaQ6\n" \
+			"sQIDAQAB\n" \
+			"-----END PUBLIC KEY-----\n", },
+	};
 
-	jwk_key_json = "{" \
-"\"p\": \"0Il4JCQvWtDxyVEHd18rqxhXzdzIaJ3Xq5311ppIXs-oNCe2G2eTAE-CRiePOE0aQ0rl0fjkEeL8kRZZa17npQ\"," \
-"\"kty\": \"RSA\"," \
-"\"q\": \"stp6wLoE3XI3oITZO73DkhpDpuNpZ4uMHCg8GCcj784xhLtlPF_hiPgNMgT7tS4JFHFwn7V5GEG3Rk8ThDVvPQ\"," \
-"\"d\": \"CqxINudXPRiYWEU3HVAxHz9IeiKOXXcdzsJR8hwsparXnvwrJqOMyQ85ww0TQZFRBS09J29QDOaLipDRbuQ19q0c7k0ek_sIrrzx9iulSCPdrbhdw0LS48HfsJxoD5xFg8E5BtDAjnd0P3eUrtG3R1rZXpvnlMd6-kLW-WAyGnE\"," \
-"\"e\": \"AQAB\"," \
-"\"use\": \"sig\"," \
-"\"qi\": \"PuEkPmG12QTnyYd0DXcNJTD-aq8CCl3alpSn_ra4V-2p3r__auYVm-Z_DvxFmGQNPWf6ENA7i4ETTXJ29V8O1A\"," \
-"\"dp\": \"fKJ8tJUP3GZe6-RK4xR1Y_fTmo0nFieoW8C3yoBBWrEfpbRKScy4dgoPIWDJX2vtk2RzQPBRV0Njkk9aOCrrpQ\"," \
-"\"dq\": \"Ugph8HHjtWilF56Yvwym3yfpDG6YdQTP-kKCflnF5ERi9o23PGCG5ftSojUi-NLrG1OF49ysdXH_jeLMAwM3yQ\"," \
-"\"n\": \"kbGOl_HS6aYs8Ya2Y-OMlK8YcaGldcLanU6wF8nCI0WnedR_DnzZllDhWr7o8h0J5BKuL7Hop_8rn5zSEva213_Zpy3cE5DdrWtdpGyyz9cTceuhukvFSBfw_D4HOQdigRYwerl8Oq6kqCYDL5ui-TmYDLbL_oVdXshfMsU2vVE\"" \
-"}";
+	test_begin("test_jwk_keys");
 
-	test_assert(dcrypt_key_load_private(&pair.priv, jwk_key_json, NULL, NULL, &error));
-	dcrypt_keypair_unref(&pair);
-
-	jwk_key_json = "{" \
-"\"kty\": \"RSA\"," \
-"\"d\": \"CqxINudXPRiYWEU3HVAxHz9IeiKOXXcdzsJR8hwsparXnvwrJqOMyQ85ww0TQZFRBS09J29QDOaLipDRbuQ19q0c7k0ek_sIrrzx9iulSCPdrbhdw0LS48HfsJxoD5xFg8E5BtDAjnd0P3eUrtG3R1rZXpvnlMd6-kLW-WAyGnE\"," \
-"\"e\": \"AQAB\"," \
-"\"use\": \"sig\"," \
-"\"n\": \"kbGOl_HS6aYs8Ya2Y-OMlK8YcaGldcLanU6wF8nCI0WnedR_DnzZllDhWr7o8h0J5BKuL7Hop_8rn5zSEva213_Zpy3cE5DdrWtdpGyyz9cTceuhukvFSBfw_D4HOQdigRYwerl8Oq6kqCYDL5ui-TmYDLbL_oVdXshfMsU2vVE\"" \
-"}";
-
-	test_assert(dcrypt_key_load_private(&pair.priv, jwk_key_json, NULL, NULL, &error));
-	jwk_key_json = "{" \
-"\"kty\": \"RSA\"," \
-"\"e\": \"AQAB\"," \
-"\"use\": \"sig\"," \
-"\"n\": \"kbGOl_HS6aYs8Ya2Y-OMlK8YcaGldcLanU6wF8nCI0WnedR_DnzZllDhWr7o8h0J5BKuL7Hop_8rn5zSEva213_Zpy3cE5DdrWtdpGyyz9cTceuhukvFSBfw_D4HOQdigRYwerl8Oq6kqCYDL5ui-TmYDLbL_oVdXshfMsU2vVE\"" \
-"}";
-	test_assert(dcrypt_key_load_public(&pair.pub, jwk_key_json, &error));
-	dcrypt_keypair_unref(&pair);
+	for (size_t i = 0; i < N_ELEMENTS(cases); i++)
+		test_jwk_key(cases[i].json_in, cases[i].json_out, cases[i].pem);
 
 	test_end();
 }
