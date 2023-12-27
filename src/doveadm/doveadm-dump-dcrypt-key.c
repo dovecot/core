@@ -15,7 +15,19 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#define KEY_BUF_SIZE 4096
+static int load_key_from_file(const char *file, const char **data_r,
+			      const char **error_r)
+{
+	const char *error;
+	string_t *keybuf = t_buffer_create(256);
+	if (buffer_append_full_file(keybuf, file, SIZE_MAX, &error) !=
+	    BUFFER_APPEND_OK) {
+		*error_r = t_strdup_printf("read(%s) failed: %s", file, error);
+		return -1;
+	}
+	*data_r = t_str_rtrim(str_c(keybuf), "\r\n\t ");
+	return 0;
+}
 
 static void dcrypt_dump_public_key_metadata(struct doveadm_cmd_context *cctx,
 					    const char *buf)
@@ -101,22 +113,6 @@ static bool dcrypt_key_dump_metadata(struct doveadm_cmd_context *cctx,
 				     const char *filename, bool print)
 {
 	bool ret = TRUE;
-	int fd = open(filename, O_RDONLY);
-	if (fd < 0) {
-		if (print) e_error(cctx->event, "open(%s) failed: %m", filename);
-		return FALSE;
-	}
-
-	char buf[KEY_BUF_SIZE+1];
-	ssize_t res = read(fd, buf, KEY_BUF_SIZE);
-	if (res < 0) {
-		if (print) e_error(cctx->event, "read(%s) failed: %m", filename);
-		i_close_fd(&fd);
-		return FALSE;
-	}
-	i_close_fd(&fd);
-
-	buf[res] = '\0';
 	enum dcrypt_key_format format;
 	enum dcrypt_key_version version;
 	enum dcrypt_key_kind kind;
@@ -124,10 +120,17 @@ static bool dcrypt_key_dump_metadata(struct doveadm_cmd_context *cctx,
 	const char *encryption_key_hash;
 	const char *key_hash;
 	const char *error;
+	const char *data;
 
-	ret = dcrypt_key_string_get_info(buf, &format, &version,
-			&kind, &encryption_type, &encryption_key_hash,
-			&key_hash, &error);
+	if (load_key_from_file(filename, &data, &error) < 0) {
+		if (print)
+			e_error(cctx->event, "%s", error);
+		return FALSE;
+	}
+
+	ret = dcrypt_key_string_get_info(data, &format, &version, &kind,
+					 &encryption_type, &encryption_key_hash,
+					 &key_hash, &error);
 	if (ret == FALSE) {
 		if (print) e_error(cctx->event,
 			   "dcrypt_key_string_get_info failed: %s", error);
@@ -184,7 +187,6 @@ static bool dcrypt_key_dump_metadata(struct doveadm_cmd_context *cctx,
 	if (key_hash != NULL)
 		printf("key_hash: %s\n", key_hash);
 
-	const char *data = t_str_rtrim(buf, "\r\n\t ");
 	switch (kind) {
 	case DCRYPT_KEY_KIND_PUBLIC:
 		dcrypt_dump_public_key_metadata(cctx, data);
