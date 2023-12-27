@@ -1851,6 +1851,18 @@ dcrypt_openssl_load_private_key_jwk(struct dcrypt_private_key **key_r,
 		ret = FALSE;
 	}
 
+	/* Ensure the key we loaded was good */
+	if (ret) {
+		EVP_PKEY_CTX *pctx =
+			EVP_PKEY_CTX_new_from_pkey(NULL, pkey, NULL);
+		int ec = EVP_PKEY_pairwise_check(pctx);
+		EVP_PKEY_CTX_free(pctx);
+		if (ec != 1) {
+			ret = dcrypt_openssl_error(&error);
+			EVP_PKEY_free(pkey);
+		}
+	}
+
 	i_assert(ret || error != NULL);
 
 	if (!ret)
@@ -1911,6 +1923,18 @@ dcrypt_openssl_load_public_key_jwk(struct dcrypt_public_key **key_r,
 	} else {
 		error = "Unsupported key type";
 		ret = FALSE;
+	}
+
+	/* Ensure the key we loaded was good */
+	if (ret) {
+		EVP_PKEY_CTX *pctx =
+			EVP_PKEY_CTX_new_from_pkey(NULL, pkey, NULL);
+		int ec = EVP_PKEY_public_check_quick(pctx);
+		EVP_PKEY_CTX_free(pctx);
+		if (ec != 1) {
+			ret = dcrypt_openssl_error(&error);
+			EVP_PKEY_free(pkey);
+		}
 	}
 
 	i_assert(ret || error != NULL);

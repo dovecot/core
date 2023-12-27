@@ -1877,6 +1877,17 @@ dcrypt_openssl_load_private_key_jwk(struct dcrypt_private_key **key_r,
 
 	i_assert(ret || error != NULL);
 
+	if (ret) {
+		EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(pkey, NULL);
+		int ec = EVP_PKEY_check(pctx);
+		if (ec == -2) {
+			/* ignore */
+		} else if (ec != 1) {
+			ret = dcrypt_openssl_error(&error);
+			EVP_PKEY_free(pkey);
+		}
+	}
+
 	if (!ret)
 		*error_r = t_strdup_printf("Cannot load JWK private key: %s", error);
 	else {

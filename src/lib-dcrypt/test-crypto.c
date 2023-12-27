@@ -715,7 +715,18 @@ static void test_get_info_invalid_keys(void)
 		{
 			.key = "2",
 			.error = "Unknown",
-		}
+		},
+		{
+			.key = "{"
+			       "\"kty\":\"invalid\""
+			       "}",
+			.error = "Unsupported JWK key type",
+		},
+		{
+			.key = "{"
+			       "}",
+			.error = "Missing kty parameter",
+		},
 	};
 
 	for (size_t i = 0; i < N_ELEMENTS(invalid_keys); i++) {
@@ -905,6 +916,161 @@ static void test_load_invalid_keys(void)
 			       "b69d1f640011a65d26a42f2ba20a619173644e1cc7475eb1d9"
 			       "0966e84dc",
 			.error = "key is not private",
+			.public = FALSE,
+		},
+		/* JWT ECDSA: Missing kty */
+		{
+			.key = "{"
+			       "\"d\":\"gSGuVf7wU1eT_QTyIuT57UgKm8gh5NYi6TaGTLOOZ28\","
+			       "\"use\":\"sig\","
+			       "\"crv\":\"P-256\","
+			       "\"x\":\"-TjShNC76Uconyoo25WUmm9BuuDn5gmx2T14d6i5vgQ\","
+			       "\"y\":\"V3zIBTnVTKY14HZP9a2lXgReyq6-EeOrCoZf76KUlEc\","
+			       "\"alg\":\"ES256\""
+			       "}",
+			.error = "Missing kty parameter",
+			.public = FALSE,
+		},
+		/* JWT ECDSA: Missing curve */
+		{
+			.key = "{"
+			       "\"kty\":\"EC\","
+			       "\"d\":\"gSGuVf7wU1eT_QTyIuT57UgKm8gh5NYi6TaGTLOOZ28\","
+			       "\"use\":\"sig\","
+			       "\"x\":\"-TjShNC76Uconyoo25WUmm9BuuDn5gmx2T14d6i5vgQ\","
+			       "\"y\":\"V3zIBTnVTKY14HZP9a2lXgReyq6-EeOrCoZf76KUlEc\","
+			       "\"alg\":\"ES256\""
+			       "}",
+			.error = "Missing crv parameter",
+			.public = FALSE,
+		},
+		/* JWT ECDSA: Unsupported curve */
+		{
+			.key = "{"
+			       "\"kty\":\"EC\","
+			       "\"d\":\"gSGuVf7wU1eT_QTyIuT57UgKm8gh5NYi6TaGTLOOZ28\","
+			       "\"use\":\"sig\","
+			       "\"crv\":\"secp384k5\","
+			       "\"x\":\"-TjShNC76Uconyoo25WUmm9BuuDn5gmx2T14d6i5vgQ\","
+			       "\"y\":\"V3zIBTnVTKY14HZP9a2lXgReyq6-EeOrCoZf76KUlEc\","
+			       "\"alg\":\"ES256\""
+			       "}",
+			.error = "Unsupported curve: secp384k5",
+			.public = FALSE,
+		},
+		/* JWT ECDSA: Wrong curve for key */
+		{
+			.key = "{"
+			       "\"kty\":\"EC\","
+			       "\"d\":\"gSGuVf7wU1eT_QTyIuT57UgKm8gh5NYi6TaGTLOOZ28\","
+			       "\"use\":\"sig\","
+			       "\"crv\":\"P-384\","
+			       "\"x\":\"-TjShNC76Uconyoo25WUmm9BuuDn5gmx2T14d6i5vgQ\","
+			       "\"y\":\"V3zIBTnVTKY14HZP9a2lXgReyq6-EeOrCoZf76KUlEc\","
+			       "\"alg\":\"ES256\""
+			       "}",
+			.error = "point is not on curve",
+			.public = FALSE,
+		},
+		/* JWT ECDSA: Missing private key */
+		{
+			.key = "{"
+			       "\"kty\":\"EC\","
+			       "\"use\":\"sig\","
+			       "\"crv\":\"P-256\","
+			       "\"x\":\"-TjShNC76Uconyoo25WUmm9BuuDn5gmx2T14d6i5vgQ\","
+			       "\"y\":\"V3zIBTnVTKY14HZP9a2lXgReyq6-EeOrCoZf76KUlEc\","
+			       "\"alg\":\"ES256\""
+			       "}",
+			.error = "key is not private",
+			.public = FALSE,
+		},
+		/* JWT ECDSA: Missing public key */
+		{
+			.key = "{"
+			       "\"kty\":\"EC\","
+			       "\"d\":\"gSGuVf7wU1eT_QTyIuT57UgKm8gh5NYi6TaGTLOOZ28\","
+			       "\"use\":\"sig\","
+			       "\"crv\":\"P-256\","
+			       "\"alg\":\"ES256\""
+			       "}",
+			.error = "Missing x parameter",
+			.public = FALSE,
+		},
+		/* JWT ECDSA: Missing x */
+		{
+			.key = "{"
+			       "\"kty\":\"EC\","
+			       "\"d\":\"gSGuVf7wU1eT_QTyIuT57UgKm8gh5NYi6TaGTLOOZ28\","
+			       "\"use\":\"sig\","
+			       "\"crv\":\"P-256\","
+			       "\"y\":\"V3zIBTnVTKY14HZP9a2lXgReyq6-EeOrCoZf76KUlEc\","
+			       "\"alg\":\"ES256\""
+			       "}",
+			.error = "Missing x parameter",
+			.public = FALSE,
+		},
+		/* JWT ECDSA: Missing y */
+		{
+			.key = "{"
+			       "\"kty\":\"EC\","
+			       "\"d\":\"gSGuVf7wU1eT_QTyIuT57UgKm8gh5NYi6TaGTLOOZ28\","
+			       "\"use\":\"sig\","
+			       "\"crv\":\"P-256\","
+			       "\"x\":\"-TjShNC76Uconyoo25WUmm9BuuDn5gmx2T14d6i5vgQ\","
+			       "\"alg\":\"ES256\""
+			       "}",
+			.error = "Missing y parameter",
+			.public = FALSE,
+		},
+		/* JWT ECDSA: d does not match x,y */
+		{
+			.key = "{"
+			       "\"kty\":\"EC\","
+			       "\"d\":\"I_HrrKbVygrMsHcF3jDmQzXorfnzWb9ZGgZshvjOo9k\","
+			       "\"use\":\"sig\","
+			       "\"crv\":\"P-256\","
+			       "\"x\":\"-TjShNC76Uconyoo25WUmm9BuuDn5gmx2T14d6i5vgQ\","
+			       "\"y\":\"V3zIBTnVTKY14HZP9a2lXgReyq6-EeOrCoZf76KUlEc\","
+			       "\"alg\":\"ES256\""
+			       "}",
+#ifdef HAVE_OPENSSL3
+			.error = "Private key did not match with public key",
+#else
+			.error = "invalid private key",
+#endif
+			.public = FALSE,
+		},
+		/* JWT ECDSA: x,y does not match d */
+		{
+			.key = "{"
+			       "\"kty\":\"EC\","
+			       "\"d\":\"gSGuVf7wU1eT_QTyIuT57UgKm8gh5NYi6TaGTLOOZ28\","
+			       "\"use\":\"sig\","
+			       "\"crv\":\"P-256\","
+			       "\"x\":\"YlM4gDHMvdBUG7jD9rle5H2xQrYFdd2CeL_UnF9TyVQ\","
+			       "\"y\":\"GNg7QEUgyjyE7DBc8ciuu9JAg9bJlaFvP2gLpexrjsw\","
+			       "\"alg\":\"ES256\""
+			       "}",
+#ifdef HAVE_OPENSSL3
+			.error = "Private key did not match with public key",
+#else
+			.error = "invalid private key",
+#endif
+			.public = FALSE,
+		},
+		/* JWT ECDSA: y does not match d, x */
+		{
+			.key = "{"
+			       "\"kty\":\"EC\","
+			       "\"d\":\"gSGuVf7wU1eT_QTyIuT57UgKm8gh5NYi6TaGTLOOZ28\","
+			       "\"use\":\"sig\","
+			       "\"crv\":\"P-256\","
+			       "\"x\":\"-TjShNC76Uconyoo25WUmm9BuuDn5gmx2T14d6i5vgQ\","
+			       "\"y\":\"GNg7QEUgyjyE7DBc8ciuu9JAg9bJlaFvP2gLpexrjsw\","
+			       "\"alg\":\"ES256\""
+			       "}",
+			.error = "point is not on curve",
 			.public = FALSE,
 		},
 	};
