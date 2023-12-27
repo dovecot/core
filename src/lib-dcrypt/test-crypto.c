@@ -1073,13 +1073,95 @@ static void test_load_invalid_keys(void)
 			.error = "point is not on curve",
 			.public = FALSE,
 		},
+		/* JWT RSA: Missing d */
+		{
+			.key = "{" \
+				"\"p\": \"0Il4JCQvWtDxyVEHd18rqxhXzdzIaJ3Xq5311ppIXs-oNCe2G2eTAE-CRiePOE0aQ0rl0fjkEeL8kRZZa17npQ\"," \
+				"\"kty\": \"RSA\"," \
+				"\"q\": \"stp6wLoE3XI3oITZO73DkhpDpuNpZ4uMHCg8GCcj784xhLtlPF_hiPgNMgT7tS4JFHFwn7V5GEG3Rk8ThDVvPQ\"," \
+				"\"e\": \"AQAB\"," \
+				"\"use\": \"sig\"," \
+				"\"n\": \"kbGOl_HS6aYs8Ya2Y-OMlK8YcaGldcLanU6wF8nCI0WnedR_DnzZllDhWr7o8h0J5BKuL7Hop_8rn5zSEva213_Zpy3cE5DdrWtdpGyyz9cTceuhukvFSBfw_D4HOQdigRYwerl8Oq6kqCYDL5ui-TmYDLbL_oVdXshfMsU2vVE\"" \
+			"}",
+			.error = "key is not private",
+			.public = FALSE,
+		},
+		/* JWT RSA: Missing e */
+		{
+			.key = "{" \
+				"\"p\": \"0Il4JCQvWtDxyVEHd18rqxhXzdzIaJ3Xq5311ppIXs-oNCe2G2eTAE-CRiePOE0aQ0rl0fjkEeL8kRZZa17npQ\"," \
+				"\"kty\": \"RSA\"," \
+				"\"q\": \"stp6wLoE3XI3oITZO73DkhpDpuNpZ4uMHCg8GCcj784xhLtlPF_hiPgNMgT7tS4JFHFwn7V5GEG3Rk8ThDVvPQ\"," \
+				"\"d\": \"CqxINudXPRiYWEU3HVAxHz9IeiKOXXcdzsJR8hwsparXnvwrJqOMyQ85ww0TQZFRBS09J29QDOaLipDRbuQ19q0c7k0ek_sIrrzx9iulSCPdrbhdw0LS48HfsJxoD5xFg8E5BtDAjnd0P3eUrtG3R1rZXpvnlMd6-kLW-WAyGnE\"," \
+				"\"use\": \"sig\"," \
+				"\"n\": \"kbGOl_HS6aYs8Ya2Y-OMlK8YcaGldcLanU6wF8nCI0WnedR_DnzZllDhWr7o8h0J5BKuL7Hop_8rn5zSEva213_Zpy3cE5DdrWtdpGyyz9cTceuhukvFSBfw_D4HOQdigRYwerl8Oq6kqCYDL5ui-TmYDLbL_oVdXshfMsU2vVE\"" \
+			"}",
+			.error = "Missing e parameter",
+			.public = FALSE,
+		},
+		/* JWT RSA: Missing n */
+		{
+			.key = "{" \
+				"\"p\": \"0Il4JCQvWtDxyVEHd18rqxhXzdzIaJ3Xq5311ppIXs-oNCe2G2eTAE-CRiePOE0aQ0rl0fjkEeL8kRZZa17npQ\"," \
+				"\"kty\": \"RSA\"," \
+				"\"q\": \"stp6wLoE3XI3oITZO73DkhpDpuNpZ4uMHCg8GCcj784xhLtlPF_hiPgNMgT7tS4JFHFwn7V5GEG3Rk8ThDVvPQ\"," \
+				"\"d\": \"CqxINudXPRiYWEU3HVAxHz9IeiKOXXcdzsJR8hwsparXnvwrJqOMyQ85ww0TQZFRBS09J29QDOaLipDRbuQ19q0c7k0ek_sIrrzx9iulSCPdrbhdw0LS48HfsJxoD5xFg8E5BtDAjnd0P3eUrtG3R1rZXpvnlMd6-kLW-WAyGnE\"," \
+				"\"e\": \"AQAB\"," \
+				"\"use\": \"sig\"" \
+			"}",
+			.error = "Missing n parameter",
+			.public = FALSE,
+		},
+		/* JWT RSA: Mismatch p,q and d */
+		{
+			.key = "{" \
+				"\"p\": \"7v5Z9uz-SES2yQ1lWTvYIqxW7B6avGJcI6W_t5c5JDzLxmT3OQ-kw9oJV7oYvFVagIVgmTgP1ymvbcfYzDSKKQ\"," \
+				"\"kty\": \"RSA\"," \
+				"\"q\": \"sdZWMrIiOa8XJFtRkHKZE5sp6PTvTH1H52Zcr7O14j39zMmR-i9GL1-uI_EQGBA0TK-zxnZ-incUm2cWirwVbw\"," \
+				"\"d\": \"CqxINudXPRiYWEU3HVAxHz9IeiKOXXcdzsJR8hwsparXnvwrJqOMyQ85ww0TQZFRBS09J29QDOaLipDRbuQ19q0c7k0ek_sIrrzx9iulSCPdrbhdw0LS48HfsJxoD5xFg8E5BtDAjnd0P3eUrtG3R1rZXpvnlMd6-kLW-WAyGnE\"," \
+				"\"e\": \"AQAB\"," \
+				"\"use\": \"sig\"," \
+				"\"n\": \"kbGOl_HS6aYs8Ya2Y-OMlK8YcaGldcLanU6wF8nCI0WnedR_DnzZllDhWr7o8h0J5BKuL7Hop_8rn5zSEva213_Zpy3cE5DdrWtdpGyyz9cTceuhukvFSBfw_D4HOQdigRYwerl8Oq6kqCYDL5ui-TmYDLbL_oVdXshfMsU2vVE\"" \
+			"}",
+			.error = "Cannot derive rsa primes",
+			.public = FALSE,
+		},
+		/* JWT RSA: Mismatch n and p,q,d */
+		{
+			.key = "{" \
+				"\"p\": \"0Il4JCQvWtDxyVEHd18rqxhXzdzIaJ3Xq5311ppIXs-oNCe2G2eTAE-CRiePOE0aQ0rl0fjkEeL8kRZZa17npQ\"," \
+				"\"kty\": \"RSA\"," \
+				"\"q\": \"stp6wLoE3XI3oITZO73DkhpDpuNpZ4uMHCg8GCcj784xhLtlPF_hiPgNMgT7tS4JFHFwn7V5GEG3Rk8ThDVvPQ\"," \
+				"\"d\": \"CqxINudXPRiYWEU3HVAxHz9IeiKOXXcdzsJR8hwsparXnvwrJqOMyQ85ww0TQZFRBS09J29QDOaLipDRbuQ19q0c7k0ek_sIrrzx9iulSCPdrbhdw0LS48HfsJxoD5xFg8E5BtDAjnd0P3eUrtG3R1rZXpvnlMd6-kLW-WAyGnE\"," \
+				"\"e\": \"AQAB\"," \
+				"\"use\": \"sig\"," \
+				"\"n\": \"pgX1S7R5QI9c2Y7X6KXgUyJdOLJP3DZWBR-NR7w96rHOayKeAHKPiyg9vyGzV8rB_uePbmrnhBAZ42IDlXW_AieJGhPLYkH34d4FX8cC7mmWWXXjolajZWoW5pCg2Ilkk47R1osXGkS6Ta97ODtAvzw7PAJq1jFFPjYXVmo5RMc\"" \
+			"}",
+			.error = "Cannot derive rsa primes",
+			.public = FALSE,
+		},
+		/* JWT RSA: Mismatch e */
+		{
+			.key = "{" \
+				"\"p\": \"0Il4JCQvWtDxyVEHd18rqxhXzdzIaJ3Xq5311ppIXs-oNCe2G2eTAE-CRiePOE0aQ0rl0fjkEeL8kRZZa17npQ\"," \
+				"\"kty\": \"RSA\"," \
+				"\"q\": \"stp6wLoE3XI3oITZO73DkhpDpuNpZ4uMHCg8GCcj784xhLtlPF_hiPgNMgT7tS4JFHFwn7V5GEG3Rk8ThDVvPQ\"," \
+				"\"d\": \"CqxINudXPRiYWEU3HVAxHz9IeiKOXXcdzsJR8hwsparXnvwrJqOMyQ85ww0TQZFRBS09J29QDOaLipDRbuQ19q0c7k0ek_sIrrzx9iulSCPdrbhdw0LS48HfsJxoD5xFg8E5BtDAjnd0P3eUrtG3R1rZXpvnlMd6-kLW-WAyGnE\"," \
+				"\"e\": \"AQAC\"," \
+				"\"use\": \"sig\"," \
+				"\"n\": \"kbGOl_HS6aYs8Ya2Y-OMlK8YcaGldcLanU6wF8nCI0WnedR_DnzZllDhWr7o8h0J5BKuL7Hop_8rn5zSEva213_Zpy3cE5DdrWtdpGyyz9cTceuhukvFSBfw_D4HOQdigRYwerl8Oq6kqCYDL5ui-TmYDLbL_oVdXshfMsU2vVE\"" \
+			"}",
+			.error = "Cannot derive rsa primes",
+			.public = FALSE,
+		},
+
 	};
 
 	for (size_t i = 0; i < N_ELEMENTS(invalid_keys); i++) {
 		struct dcrypt_keypair pair;
 		i_zero(&pair);
 		bool ret;
-		const char *error;
+		const char *error = NULL;
 		if (invalid_keys[i].public) {
 			ret = dcrypt_key_load_public(
 				&pair.pub, invalid_keys[i].key, &error);
@@ -1090,7 +1172,7 @@ static void test_load_invalid_keys(void)
 		}
 		test_assert_idx(ret == FALSE, i);
 		test_assert_idx(error != NULL, i);
-		test_assert_idx(strstr(error, invalid_keys[i].error) != NULL,
+		test_assert_idx(error != NULL && strstr(error, invalid_keys[i].error) != NULL,
 				i);
 		if (ret)
 			dcrypt_keypair_unref(&pair);
@@ -1421,6 +1503,42 @@ static void test_jwk_keys(void)
 	test_assert(dcrypt_key_store_private(pair.priv, DCRYPT_FORMAT_JWK, NULL, pem, NULL, NULL, &error));
 	test_assert_strcmp(str_c(pem), jwk_key_json);
 
+	dcrypt_keypair_unref(&pair);
+
+	/* try loading RSA keys */
+
+	jwk_key_json = "{" \
+"\"p\": \"0Il4JCQvWtDxyVEHd18rqxhXzdzIaJ3Xq5311ppIXs-oNCe2G2eTAE-CRiePOE0aQ0rl0fjkEeL8kRZZa17npQ\"," \
+"\"kty\": \"RSA\"," \
+"\"q\": \"stp6wLoE3XI3oITZO73DkhpDpuNpZ4uMHCg8GCcj784xhLtlPF_hiPgNMgT7tS4JFHFwn7V5GEG3Rk8ThDVvPQ\"," \
+"\"d\": \"CqxINudXPRiYWEU3HVAxHz9IeiKOXXcdzsJR8hwsparXnvwrJqOMyQ85ww0TQZFRBS09J29QDOaLipDRbuQ19q0c7k0ek_sIrrzx9iulSCPdrbhdw0LS48HfsJxoD5xFg8E5BtDAjnd0P3eUrtG3R1rZXpvnlMd6-kLW-WAyGnE\"," \
+"\"e\": \"AQAB\"," \
+"\"use\": \"sig\"," \
+"\"qi\": \"PuEkPmG12QTnyYd0DXcNJTD-aq8CCl3alpSn_ra4V-2p3r__auYVm-Z_DvxFmGQNPWf6ENA7i4ETTXJ29V8O1A\"," \
+"\"dp\": \"fKJ8tJUP3GZe6-RK4xR1Y_fTmo0nFieoW8C3yoBBWrEfpbRKScy4dgoPIWDJX2vtk2RzQPBRV0Njkk9aOCrrpQ\"," \
+"\"dq\": \"Ugph8HHjtWilF56Yvwym3yfpDG6YdQTP-kKCflnF5ERi9o23PGCG5ftSojUi-NLrG1OF49ysdXH_jeLMAwM3yQ\"," \
+"\"n\": \"kbGOl_HS6aYs8Ya2Y-OMlK8YcaGldcLanU6wF8nCI0WnedR_DnzZllDhWr7o8h0J5BKuL7Hop_8rn5zSEva213_Zpy3cE5DdrWtdpGyyz9cTceuhukvFSBfw_D4HOQdigRYwerl8Oq6kqCYDL5ui-TmYDLbL_oVdXshfMsU2vVE\"" \
+"}";
+
+	test_assert(dcrypt_key_load_private(&pair.priv, jwk_key_json, NULL, NULL, &error));
+	dcrypt_keypair_unref(&pair);
+
+	jwk_key_json = "{" \
+"\"kty\": \"RSA\"," \
+"\"d\": \"CqxINudXPRiYWEU3HVAxHz9IeiKOXXcdzsJR8hwsparXnvwrJqOMyQ85ww0TQZFRBS09J29QDOaLipDRbuQ19q0c7k0ek_sIrrzx9iulSCPdrbhdw0LS48HfsJxoD5xFg8E5BtDAjnd0P3eUrtG3R1rZXpvnlMd6-kLW-WAyGnE\"," \
+"\"e\": \"AQAB\"," \
+"\"use\": \"sig\"," \
+"\"n\": \"kbGOl_HS6aYs8Ya2Y-OMlK8YcaGldcLanU6wF8nCI0WnedR_DnzZllDhWr7o8h0J5BKuL7Hop_8rn5zSEva213_Zpy3cE5DdrWtdpGyyz9cTceuhukvFSBfw_D4HOQdigRYwerl8Oq6kqCYDL5ui-TmYDLbL_oVdXshfMsU2vVE\"" \
+"}";
+
+	test_assert(dcrypt_key_load_private(&pair.priv, jwk_key_json, NULL, NULL, &error));
+	jwk_key_json = "{" \
+"\"kty\": \"RSA\"," \
+"\"e\": \"AQAB\"," \
+"\"use\": \"sig\"," \
+"\"n\": \"kbGOl_HS6aYs8Ya2Y-OMlK8YcaGldcLanU6wF8nCI0WnedR_DnzZllDhWr7o8h0J5BKuL7Hop_8rn5zSEva213_Zpy3cE5DdrWtdpGyyz9cTceuhukvFSBfw_D4HOQdigRYwerl8Oq6kqCYDL5ui-TmYDLbL_oVdXshfMsU2vVE\"" \
+"}";
+	test_assert(dcrypt_key_load_public(&pair.pub, jwk_key_json, &error));
 	dcrypt_keypair_unref(&pair);
 
 	test_end();

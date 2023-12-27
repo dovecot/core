@@ -1684,6 +1684,165 @@ static int RSA_set0_crt_params(RSA *r, BIGNUM *dmp1, BIGNUM *dmq1, BIGNUM *iqmp)
 }
 #endif
 
+/* This function calculates missing parameters. The only required values
+ * are e, n, d. If p_r and q_r are provided, they can be used directly
+ * instead of deriving them. */
+static bool dcrypt_openssl_derive_rsa_param(BIGNUM *e, BIGNUM *n, BIGNUM *d,
+					    BIGNUM *p_r, BIGNUM *q_r,
+					    BIGNUM *dmp1_r, BIGNUM *dmq1_r,
+					    BIGNUM *iqmp_r)
+{
+	BIGNUM *p = NULL, *q = NULL;
+	BIGNUM *dmp1 = NULL, *dmq1 = NULL, *iqmp = NULL;
+	BIGNUM *mphi;
+	BN_CTX *ctx;
+	BIGNUM *two, *a, *limit, *t;
+	BIGNUM *cand, *k, *n1, *tmp;
+
+	bool found = FALSE;
+	bool ret = FALSE;
+
+	ctx = BN_CTX_new();
+	if (ctx == NULL)
+		i_fatal_status(FATAL_OUTOFMEM, "Cannot allocate BN_CTX");
+	p = BN_secure_new();
+	BN_set_flags(p, BN_FLG_CONSTTIME);
+	q = BN_secure_new();
+	BN_set_flags(q, BN_FLG_CONSTTIME);
+	mphi = BN_secure_new();
+	BN_set_flags(mphi, BN_FLG_CONSTTIME);
+	t = BN_secure_new();
+	BN_set_flags(mphi, BN_FLG_CONSTTIME);
+	a = BN_new();
+	BN_set_flags(a, BN_FLG_CONSTTIME);
+	two = BN_new();
+	BN_set_flags(two, BN_FLG_CONSTTIME);
+	limit = BN_new();
+	k = BN_secure_new();
+	BN_set_flags(k, BN_FLG_CONSTTIME);
+	cand = BN_secure_new();
+	BN_set_flags(cand, BN_FLG_CONSTTIME);
+	n1 = BN_new();
+	BN_set_flags(n1, BN_FLG_CONSTTIME);
+	tmp = BN_secure_new();
+	BN_set_flags(tmp, BN_FLG_CONSTTIME);
+
+	BN_dec2bn(&two, "2");
+	BN_copy(a, two);
+	BN_dec2bn(&limit, "100");
+	BN_sub(n1, n, BN_value_one());
+
+	if (BN_is_zero(p_r) != 1 && BN_is_zero(q_r) != 1) {
+		/* Make sure n is actually related to p and q*/
+		if (BN_mul(tmp, p_r, q_r, ctx) != 1 ||
+		    BN_cmp(tmp, n) != 0) {
+			ret = FALSE;
+			goto finally;
+		}
+		/* Then check that d is related to p and q */
+		BIGNUM *p_1 = BN_secure_new();
+		BN_set_flags(p_1, BN_FLG_CONSTTIME);
+		BN_sub(p_1, p_r, BN_value_one());
+		BIGNUM *q_1 = BN_secure_new();
+		BN_set_flags(q_1, BN_FLG_CONSTTIME);
+		BN_sub(q_1, q_r, BN_value_one());
+		BN_mul(tmp, p_1, q_1, ctx);
+		BIGNUM *tmp2 = BN_secure_new();
+		BN_set_flags(tmp2, BN_FLG_CONSTTIME);
+		BN_mod_mul(tmp2, d, e, tmp, ctx);
+		ret = BN_cmp(tmp2, BN_value_one()) == 0;
+		BN_free(tmp2);
+		BN_free(p_1);
+		BN_free(q_1);
+		if (!ret)
+			goto finally;
+		BN_copy(p, p_r);
+		BN_copy(q, q_r);
+		goto have_pq;
+	}
+
+	/* calculate e*d - 1 */
+	if (BN_mul(mphi, d, e, ctx) != 1)
+		goto finally;
+	if (BN_sub(mphi, mphi, BN_value_one()) != 1)
+		goto finally;
+
+	/* this is a multiple of phi(n), even */
+	if (BN_copy(t, mphi) == NULL)
+		goto finally;
+
+	while (BN_is_odd(t) != 1)
+		if (BN_rshift1(t, t) != 1)
+			goto finally;
+
+	/* Go through all multiplicative inverses in Zn. */
+	for (; BN_cmp(a, limit) < 0; BN_add(a, a, two)) {
+		if (BN_copy(k, t) == NULL)
+			goto finally;
+		while (BN_cmp(k, mphi) < 0) {
+			if (BN_mod_exp(cand, a, k, n, ctx) != 1)
+				goto finally;
+			if (BN_cmp(cand, BN_value_one()) != 0 &&
+			    BN_cmp(cand, n1) != 0) {
+				if (BN_mod_exp(tmp, cand, two, n, ctx) != 1)
+					goto finally;
+				if (BN_cmp(tmp, BN_value_one()) == 0) {
+					if (BN_add(tmp, cand, BN_value_one()) !=
+						    1 ||
+					    BN_gcd(q, tmp, n, ctx) != 1 ||
+					    BN_div(p, tmp, n, q, ctx) != 1 ||
+					    BN_is_zero(tmp) != 1) {
+						ret = FALSE;
+						goto finally;
+					}
+					found = TRUE;
+					break;
+				}
+			}
+			if (BN_lshift1(k, k) != 1)
+				goto finally;
+		}
+		if (found)
+			break;
+	}
+
+	if (!found)
+		goto finally;
+have_pq:
+	dmp1 = BN_secure_new();
+	dmq1 = BN_secure_new();
+	iqmp = BN_secure_new();
+	if (BN_sub(tmp, p, BN_value_one()) == 1 &&
+	    BN_mod(dmp1, d, tmp, ctx) == 1 &&
+	    BN_sub(tmp, q, BN_value_one()) == 1 &&
+	    BN_mod(dmq1, d, tmp, ctx) == 1 &&
+	    BN_mod_inverse(iqmp, q, p, ctx) != NULL) {
+		BN_copy(p_r, p);
+		BN_copy(q_r, q);
+		BN_copy(dmp1_r, dmp1);
+		BN_copy(dmq1_r, dmq1);
+		BN_copy(iqmp_r, iqmp);
+		ret = TRUE;
+	}
+	BN_free(dmp1);
+	BN_free(dmq1);
+	BN_free(iqmp);
+finally:
+	BN_free(p);
+	BN_free(q);
+	BN_free(tmp);
+	BN_free(t);
+	BN_free(k);
+	BN_free(a);
+	BN_free(limit);
+	BN_free(cand);
+	BN_free(two);
+	BN_free(n1);
+	BN_free(mphi);
+	BN_CTX_free(ctx);
+	return ret;
+}
+
 /* Loads both public and private key */
 static bool load_jwk_rsa_key(EVP_PKEY **key_r, bool want_private_key,
 			     const struct json_tree_node *root,
@@ -1691,8 +1850,8 @@ static bool load_jwk_rsa_key(EVP_PKEY **key_r, bool want_private_key,
 			     struct dcrypt_private_key *dec_key ATTR_UNUSED,
 			     const char **error_r)
 {
-	const char *n, *e, *d = NULL, *p = NULL, *q = NULL, *dp = NULL;
-	const char *dq = NULL, *qi = NULL;
+	const char *n, *e, *d = NULL, *p = NULL, *q = NULL;
+	const char *dp = NULL, *dq = NULL, *qi = NULL;
 	const struct json_tree_node *node;
 
 	/* n and e must be present */
@@ -1714,48 +1873,76 @@ static bool load_jwk_rsa_key(EVP_PKEY **key_r, bool want_private_key,
 			*error_r = "Missing d parameter";
 			return FALSE;
 		}
-
-		if ((node = json_tree_node_get_member(root, "p")) == NULL ||
-		    (p = json_tree_node_get_str(node)) == NULL) {
-			*error_r = "Missing p parameter";
+		if ((node = json_tree_node_get_member(root, "p")) != NULL)
+			p = json_tree_node_get_str(node);
+		if ((node = json_tree_node_get_member(root, "q")) != NULL)
+			q = json_tree_node_get_str(node);
+		if ((p != NULL && q == NULL) || (p == NULL && q != NULL)) {
+			*error_r = "p and q have to be both present";
 			return FALSE;
 		}
 
-		if ((node = json_tree_node_get_member(root, "q")) == NULL ||
-		    (q = json_tree_node_get_str(node)) == NULL) {
-			*error_r = "Missing q parameter";
-			return FALSE;
-		}
-
-		if ((node = json_tree_node_get_member(root, "dp")) == NULL ||
-		    (dp = json_tree_node_get_str(node)) == NULL) {
-			*error_r = "Missing dp parameter";
-			return FALSE;
-		}
-
-		if ((node = json_tree_node_get_member(root, "dq")) == NULL ||
-		    (dq = json_tree_node_get_str(node)) == NULL) {
-			*error_r = "Missing dq parameter";
-			return FALSE;
-		}
-
-		if ((node = json_tree_node_get_member(root, "qi")) == NULL ||
-		    (qi = json_tree_node_get_str(node)) == NULL) {
-			*error_r = "Missing qi parameter";
+	        if ((node = json_tree_node_get_member(root, "dp")) != NULL)
+			dp = json_tree_node_get_str(node);
+	        if ((node = json_tree_node_get_member(root, "dq")) != NULL)
+			dq = json_tree_node_get_str(node);
+	        if ((node = json_tree_node_get_member(root, "qi")) != NULL)
+			qi = json_tree_node_get_str(node);
+		if ((dq != NULL || dp != NULL || qi != NULL) &&
+		    (dp == NULL || dq == NULL || qi == NULL)) {
+			*error_r = "dp, dq, and qi must be present together";
 			return FALSE;
 		}
 	}
 
 	/* convert into BIGNUMs */
-	BIGNUM *pn, *pe, *pd, *pp, *pq, *pdp, *pdq, *pqi;
+	BIGNUM *pn, *pe, *pd;
+	BIGNUM *pp = NULL, *pq = NULL, *pdp = NULL, *pdq = NULL, *pqi = NULL;
 	buffer_t *bn = t_base64url_decode_str(n);
 	buffer_t *be = t_base64url_decode_str(e);
 	if (want_private_key) {
 		pd = BN_secure_new();
+		BN_set_flags(pd, BN_FLG_CONSTTIME);
 		buffer_t *bd = t_base64url_decode_str(d);
 		if (BN_bin2bn(bd->data, bd->used, pd) == NULL) {
 			BN_free(pd);
 			return dcrypt_openssl_error(error_r);
+		}
+		pp = BN_secure_new();
+		BN_set_flags(pp, BN_FLG_CONSTTIME);
+		pq = BN_secure_new();
+		BN_set_flags(pq, BN_FLG_CONSTTIME);
+		if (p != NULL) {
+			buffer_t *bp = t_base64url_decode_str(p);
+			buffer_t *bq = t_base64url_decode_str(q);
+
+			if (BN_bin2bn(bp->data, bp->used, pp) == NULL ||
+			    BN_bin2bn(bq->data, bq->used, pq) == NULL) {
+				BN_free(pd);
+				BN_free(pp);
+				BN_free(pq);
+				return dcrypt_openssl_error(error_r);
+			}
+		}
+		pdp = BN_secure_new();
+		pdq = BN_secure_new();
+		pqi = BN_secure_new();
+		if (dp != NULL) {
+			buffer_t *bdp = t_base64url_decode_str(dp);
+			buffer_t *bdq = t_base64url_decode_str(dq);
+			buffer_t *bqi = t_base64url_decode_str(qi);
+
+			if (BN_bin2bn(bdp->data, bdp->used, pdp) == NULL ||
+			    BN_bin2bn(bdq->data, bdq->used, pdq) == NULL ||
+			    BN_bin2bn(bqi->data, bqi->used, pqi) == NULL) {
+				BN_free(pd);
+				BN_free(pp);
+				BN_free(pq);
+				BN_free(pdp);
+				BN_free(pdq);
+				BN_free(pqi);
+				return dcrypt_openssl_error(error_r);
+			}
 		}
 	} else {
 		pd = NULL;
@@ -1766,62 +1953,77 @@ static bool load_jwk_rsa_key(EVP_PKEY **key_r, bool want_private_key,
 
 	if (BN_bin2bn(bn->data, bn->used, pn) == NULL ||
 	    BN_bin2bn(be->data, be->used, pe) == NULL) {
-		if (pd != NULL)
-			BN_free(pd);
 		BN_free(pn);
 		BN_free(pe);
-		return dcrypt_openssl_error(error_r);
-	}
-
-	RSA *rsa_key = RSA_new();
-	if (rsa_key == NULL) {
-		if (pd != NULL)
+		if (want_private_key) {
 			BN_free(pd);
-		BN_free(pn);
-		BN_free(pe);
-		return dcrypt_openssl_error(error_r);
-	}
-
-	if (RSA_set0_key(rsa_key, pn, pe, pd) != 1) {
-		if (pd != NULL)
-			BN_free(pd);
-		BN_free(pn);
-		BN_free(pe);
-		RSA_free(rsa_key);
-		return dcrypt_openssl_error(error_r);
-	}
-
-	if (want_private_key) {
-		pp = BN_secure_new();
-		pq = BN_secure_new();
-		pdp = BN_secure_new();
-		pdq = BN_secure_new();
-		pqi = BN_secure_new();
-
-		buffer_t *bp = t_base64url_decode_str(p);
-		buffer_t *bq = t_base64url_decode_str(q);
-		buffer_t *bdp = t_base64url_decode_str(dp);
-		buffer_t *bdq = t_base64url_decode_str(dq);
-		buffer_t *bqi = t_base64url_decode_str(qi);
-
-		if (BN_bin2bn(bp->data, bp->used, pp) == NULL ||
-		    BN_bin2bn(bq->data, bq->used, pq) == NULL ||
-		    BN_bin2bn(bdp->data, bdp->used, pdp) == NULL ||
-		    BN_bin2bn(bdq->data, bdq->used, pdq) == NULL ||
-		    BN_bin2bn(bqi->data, bqi->used, pqi) == NULL ||
-		    RSA_set0_factors(rsa_key, pp, pq) != 1) {
-			RSA_free(rsa_key);
 			BN_free(pp);
 			BN_free(pq);
 			BN_free(pdp);
 			BN_free(pdq);
 			BN_free(pqi);
-			return dcrypt_openssl_error(error_r);
-		} else if (RSA_set0_crt_params(rsa_key, pdp, pdq, pqi) != 1) {
-			RSA_free(rsa_key);
+		}
+		return dcrypt_openssl_error(error_r);
+	}
+
+	RSA *rsa_key = RSA_new();
+	if (rsa_key == NULL) {
+		BN_free(pn);
+		BN_free(pe);
+		if (want_private_key) {
+			BN_free(pd);
+			BN_free(pp);
+			BN_free(pq);
 			BN_free(pdp);
 			BN_free(pdq);
 			BN_free(pqi);
+		}
+		return dcrypt_openssl_error(error_r);
+	}
+
+	if (RSA_set0_key(rsa_key, pn, pe, pd) != 1) {
+		BN_free(pn);
+		BN_free(pe);
+		RSA_free(rsa_key);
+		if (want_private_key) {
+			BN_free(pd);
+			BN_free(pp);
+			BN_free(pq);
+			BN_free(pdp);
+			BN_free(pdq);
+			BN_free(pqi);
+		}
+		return dcrypt_openssl_error(error_r);
+	}
+
+	if (want_private_key) {
+		if (dp == NULL &&
+		    !dcrypt_openssl_derive_rsa_param(pe, pn, pd, pp, pq, pdp,
+						     pdq, pqi)) {
+			*error_r = "Cannot derive rsa primes";
+			BN_free(pp);
+			BN_free(pq);
+			BN_free(pdp);
+			BN_free(pdq);
+			BN_free(pqi);
+			RSA_free(rsa_key);
+			return FALSE;
+		} else if (RSA_set0_factors(rsa_key, pp, pq) != 1) {
+			BN_free(pp);
+			BN_free(pq);
+			BN_free(pdp);
+			BN_free(pdq);
+			BN_free(pqi);
+			RSA_free(rsa_key);
+			return dcrypt_openssl_error(error_r);
+		} else if (RSA_set0_crt_params(rsa_key, pdp, pdq, pqi) != 1) {
+			BN_free(pdp);
+			BN_free(pdq);
+			BN_free(pqi);
+			RSA_free(rsa_key);
+			return dcrypt_openssl_error(error_r);
+		} else if (RSA_check_key(rsa_key) != 1) {
+			RSA_free(rsa_key);
 			return dcrypt_openssl_error(error_r);
 		}
 	}
@@ -2043,7 +2245,7 @@ static bool store_jwk_ec_key(EVP_PKEY *pkey, bool is_private_key,
 		const BIGNUM *d = EC_KEY_get0_private_key(ec_key);
 		if (d == NULL) {
 			*error_r = "No private key available";
-			json_ostream_destroy(&joutput);
+			json_ostream_nfinish_destroy(&joutput);
 			return FALSE;
 		}
 		str_truncate(b64url_temp, 0);
