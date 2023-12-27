@@ -1554,12 +1554,17 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 static const struct jwk_to_ssl_map_entry {
 	const char *jwk_curve;
 	int nid;
-} jwk_to_ssl_curves[] =
-{
+} jwk_to_ssl_curves[] = {
 	/* See https://tools.ietf.org/search/rfc8422#appendix-A */
 	{ .jwk_curve = "P-256", .nid = NID_X9_62_prime256v1 },
 	{ .jwk_curve = "P-384", .nid = NID_secp384r1 },
 	{ .jwk_curve = "P-521", .nid = NID_secp521r1 },
+#ifdef HAVE_X25519
+	{ .jwk_curve = "Ed25519", .nid = NID_ED25519 },
+	{ .jwk_curve = "Ed448", .nid = NID_ED448 },
+	{ .jwk_curve = "X25519", .nid = NID_X25519 },
+	{ .jwk_curve = "X448", .nid = NID_X448 },
+#endif
 	{ .jwk_curve = NULL, .nid = 0 }
 };
 
@@ -1603,6 +1608,35 @@ static const char *nid_to_jwk_curve(int nid)
 			return entry->jwk_curve;
 	return NULL;
 }
+
+#ifdef HAVE_X25519
+static bool load_jwk_ed_key(EVP_PKEY **key_r, bool want_private_key, int nid,
+			    const char *x, const char *y, const char *d,
+			    const char **error_r)
+{
+	if (y != NULL) {
+		*error_r = "Unexpected y parameter";
+		return FALSE;
+	}
+
+	if (want_private_key) {
+		buffer_t *pd = t_base64url_decode_str(d);
+		EVP_PKEY *pkey = EVP_PKEY_new_raw_private_key(
+			nid, NULL, pd->data, pd->used);
+		if (pkey == NULL)
+			return dcrypt_openssl_error(error_r);
+		*key_r = pkey;
+	} else {
+		buffer_t *px = t_base64url_decode_str(x);
+		EVP_PKEY *pkey = EVP_PKEY_new_raw_public_key(
+			nid, NULL, px->data, px->used);
+		if (pkey == NULL)
+			return dcrypt_openssl_error(error_r);
+		*key_r = pkey;
+	}
+	return TRUE;
+}
+#endif
 
 /* Loads both public and private key */
 static bool load_jwk_ec_key(EVP_PKEY **key_r, bool want_private_key, int nid,
@@ -1716,8 +1750,17 @@ static bool load_jwk_curve_key(EVP_PKEY **key_r, bool want_private_key,
 		*error_r = t_strdup_printf("Unsupported curve: %s", crv);
 		return FALSE;
 	}
-
+#ifdef HAVE_X25519
+	if (IS_XD_CURVE(nid) || IS_ED_CURVE(nid)) {
+		return load_jwk_ed_key(key_r, want_private_key, nid, x, y, d,
+				       error_r);
+	} else {
+		return load_jwk_ec_key(key_r, want_private_key, nid, x, y, d,
+				       error_r);
+	}
+#else
 	return load_jwk_ec_key(key_r, want_private_key, nid, x, y, d, error_r);
+#endif
 }
 
 /* RSA helpers */
@@ -2155,7 +2198,7 @@ dcrypt_openssl_load_private_key_jwk(struct dcrypt_private_key **key_r,
 	if (kty == NULL) {
 		error = "Missing key type";
 		ret = FALSE;
-	} else if (strcmp(kty, "EC") == 0) {
+	} else if (strcmp(kty, "EC") == 0 || strcmp(kty, "OKP") == 0) {
 		ret = load_jwk_curve_key(&pkey, TRUE, root, password, dec_key,
 					 &error);
 	} else if (strcmp(kty, "RSA") == 0) {
@@ -2232,10 +2275,11 @@ dcrypt_openssl_load_public_key_jwk(struct dcrypt_public_key **key_r,
 	if (kty == NULL) {
 		error = "Missing key type";
 		ret = false;
-	} else if (strcmp(kty, "EC") == 0) {
-		ret = load_jwk_curve_key(&pkey, FALSE, root, NULL, NULL, &error);
+	} else if (strcmp(kty, "EC") == 0 || strcmp(kty, "OKP") == 0) {
+		ret = load_jwk_curve_key(&pkey, FALSE, root, NULL, NULL,
+					 &error);
 	} else if (strcmp(kty, "RSA") == 0) {
-	      ret = load_jwk_rsa_key(&pkey, FALSE, root, NULL, NULL, &error);
+		ret = load_jwk_rsa_key(&pkey, FALSE, root, NULL, NULL, &error);
 	} else {
 		error = "Unsupported key type";
 		ret = FALSE;
@@ -2345,6 +2389,72 @@ static bool store_jwk_rsa_key(EVP_PKEY *pkey, bool is_private_key,
 	return TRUE;
 }
 
+#ifdef HAVE_X25519
+static bool store_jwk_ed_key(EVP_PKEY *pkey, bool is_private_key,
+			     enum dcrypt_key_usage usage ATTR_UNUSED,
+			     const char *key_id, const char *cipher ATTR_UNUSED,
+			     const char *password ATTR_UNUSED,
+			     struct dcrypt_public_key *enc_key ATTR_UNUSED,
+			     string_t *dest, const char **error_r)
+{
+	i_assert(cipher == NULL && password == NULL && enc_key == NULL);
+	buffer_t *bx;
+	buffer_t *bd;
+	size_t len;
+
+	if (EVP_PKEY_get_raw_public_key(pkey, NULL, &len) != 1)
+		return dcrypt_openssl_error(error_r);
+	bx = t_buffer_create(len);
+	unsigned char *buf = buffer_append_space_unsafe(bx, len);
+	if (EVP_PKEY_get_raw_public_key(pkey, buf, &len) != 1)
+		return dcrypt_openssl_error(error_r);
+	i_assert(bx->used == len);
+
+	if (is_private_key) {
+		if (EVP_PKEY_get_raw_private_key(pkey, NULL, &len) != 1)
+			return dcrypt_openssl_error(error_r);
+		bd = t_buffer_create(len);
+		buf = buffer_append_space_unsafe(bd, len);
+		if (EVP_PKEY_get_raw_private_key(pkey, buf, &len) != 1)
+			return dcrypt_openssl_error(error_r);
+		i_assert(bd->used == len);
+	}
+
+	int nid = EVP_PKEY_id(pkey);
+	const char *curve = nid_to_jwk_curve(nid);
+	string_t *temp = t_str_new(256);
+	string_t *b64url_temp = t_str_new(256);
+	struct json_ostream *joutput = json_ostream_create_str(temp, 0);
+
+	json_ostream_ndescend_object(joutput, NULL);
+	json_ostream_nwrite_string(joutput, "kty", "OKP");
+	json_ostream_nwrite_string(joutput, "crv", curve);
+	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, 0, bx->data, bx->used,
+			 b64url_temp);
+	json_ostream_nwrite_string_buffer(joutput, "x", b64url_temp);
+	str_truncate(b64url_temp, 0);
+
+	if (IS_XD_CURVE(nid))
+		json_ostream_nwrite_string(joutput, "use", "enc");
+	else if (IS_ED_CURVE(nid))
+		json_ostream_nwrite_string(joutput, "use", "sig");
+	else
+		i_unreached();
+	if (key_id != NULL)
+		json_ostream_nwrite_string(joutput, "kid", key_id);
+
+	if (is_private_key) {
+		base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, 0, bd->data,
+				 bd->used, b64url_temp);
+		json_ostream_nwrite_string_buffer(joutput, "d", b64url_temp);
+	}
+	json_ostream_nascend_object(joutput);
+	json_ostream_nfinish_destroy(&joutput);
+	str_append_str(dest, temp);
+	return TRUE;
+}
+#endif
+
 /* FIXME: Add encryption support */
 /* FIXME: Add support for 'algo' field */
 static bool store_jwk_ec_key(EVP_PKEY *pkey, bool is_private_key,
@@ -2428,6 +2538,12 @@ static bool store_jwk_key(EVP_PKEY *pkey, bool is_private_key,
 		return store_jwk_rsa_key(pkey, is_private_key, usage, key_id,
 					 cipher, password, enc_key, dest,
 					 error_r);
+#ifdef HAVE_X25519
+	} else if (IS_XD_CURVE(nid) || IS_ED_CURVE(nid)) {
+		return store_jwk_ed_key(pkey, is_private_key, usage, key_id,
+					cipher, password, enc_key, dest,
+					error_r);
+#endif
 	} else if (nid == EVP_PKEY_EC) {
 		return store_jwk_ec_key(pkey, is_private_key, usage, key_id,
 					cipher, password, enc_key, dest, error_r);
@@ -3038,7 +3154,8 @@ dcrypt_openssl_store_public_key(struct dcrypt_public_key *key,
 		return ret;
 	}
 
-	if (EVP_PKEY_base_id(pkey) == EVP_PKEY_EC)
+	int nid = EVP_PKEY_base_id(pkey);
+	if (nid == EVP_PKEY_EC && !IS_XD_CURVE(nid) && !IS_ED_CURVE(nid))
 		EC_KEY_set_conv_form(EVP_PKEY_get0_EC_KEY(pkey),
 				     POINT_CONVERSION_UNCOMPRESSED);
 
@@ -3047,7 +3164,7 @@ dcrypt_openssl_store_public_key(struct dcrypt_public_key *key,
 		return dcrypt_openssl_error(error_r);
 
 	BIO *b64;
-	if (EVP_PKEY_base_id(pkey) == EVP_PKEY_RSA)
+	if (nid == EVP_PKEY_RSA || IS_XD_CURVE(nid) || IS_ED_CURVE(nid))
 		ec = PEM_write_bio_PUBKEY(key_out, pkey);
 	else if ((b64 = BIO_new(BIO_f_base64())) == NULL)
 		ec = -1;
@@ -3177,7 +3294,8 @@ dcrypt_openssl_key_string_get_info(
 				kind = DCRYPT_KEY_KIND_PRIVATE;
 			else
 				kind = DCRYPT_KEY_KIND_PUBLIC;
-		} else if (strcmp(value, "EC") == 0) {
+		} else if (strcmp(value, "EC") == 0 ||
+			   strcmp(value, "OKP") == 0) {
 			if (json_tree_node_get_member(root, "d") != NULL)
 				kind = DCRYPT_KEY_KIND_PRIVATE;
 			else
