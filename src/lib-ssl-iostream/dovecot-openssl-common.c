@@ -27,12 +27,14 @@ static void *dovecot_openssl_malloc(size_t size, const char *u0 ATTR_UNUSED, int
 static void *dovecot_openssl_malloc(size_t size)
 #endif
 {
+	if (size == 0)
+		return NULL;
 	/* this may be performance critical, so don't use
 	   i_malloc() or calloc() */
 	void *mem = malloc(size);
-	if (mem == NULL) {
+	if (unlikely(mem == NULL)) {
 		i_fatal_status(FATAL_OUTOFMEM,
-			"OpenSSL: malloc(%zu): Out of memory", size);
+			       "OpenSSL: malloc(%zu): Out of memory", size);
 	}
 	return mem;
 }
@@ -43,10 +45,14 @@ static void *dovecot_openssl_realloc(void *ptr, size_t size, const char *u0 ATTR
 static void *dovecot_openssl_realloc(void *ptr, size_t size)
 #endif
 {
+	if (size == 0) {
+		free(ptr);
+		return NULL;
+	}
 	void *mem = realloc(ptr, size);
-	if (mem == NULL) {
+	if (unlikely(mem == NULL)) {
 		i_fatal_status(FATAL_OUTOFMEM,
-			"OpenSSL: realloc(%zu): Out of memory", size);
+			       "OpenSSL: realloc(%zu): Out of memory", size);
 	}
 	return mem;
 }
