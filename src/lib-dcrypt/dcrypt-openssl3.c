@@ -1535,40 +1535,14 @@ static const char *nid_to_jwk_curve(int nid)
 }
 
 /* Loads both public and private key */
-static bool load_jwk_ec_key(EVP_PKEY **key_r, bool want_private_key,
-			    const struct json_tree_node *root,
-			    const char *password ATTR_UNUSED,
-			    struct dcrypt_private_key *dec_key ATTR_UNUSED,
+static bool load_jwk_ec_key(EVP_PKEY **key_r, bool want_private_key, int nid,
+			    const char *x, const char *y, const char *d,
 			    const char **error_r)
 {
-	i_assert(password == NULL && dec_key == NULL);
-	const char *crv, *x, *y, *d;
-	const struct json_tree_node *node;
-
-	if ((node = json_tree_node_get_member(root, "crv")) == NULL ||
-	    (crv = json_tree_node_get_str(node)) == NULL) {
-		*error_r = "Missing crv parameter";
-		return FALSE;
-	}
-
-	if ((node = json_tree_node_get_member(root, "x")) == NULL ||
-	    (x = json_tree_node_get_str(node)) == NULL) {
-		*error_r = "Missing x parameter";
-		return FALSE;
-	}
-
-	if ((node = json_tree_node_get_member(root, "y")) == NULL ||
-	    (y = json_tree_node_get_str(node)) == NULL) {
+	if (y == NULL) {
 		*error_r = "Missing y parameter";
 		return FALSE;
 	}
-
-	int nid = jwk_curve_to_nid(crv);
-	if (nid == 0) {
-		*error_r = "Invalid curve";
-		return FALSE;
-	}
-
 	/* base64 decode x and y */
 	buffer_t *bx = t_base64url_decode_str(x);
 	buffer_t *by = t_base64url_decode_str(y);
@@ -1576,8 +1550,7 @@ static bool load_jwk_ec_key(EVP_PKEY **key_r, bool want_private_key,
 
 	/* FIXME: Support decryption */
 	if (want_private_key) {
-		if ((node = json_tree_node_get_member(root, "d")) == NULL ||
-		    (d = json_tree_node_get_str(node)) == NULL) {
+		if (d == NULL) {
 			*error_r = "Missing d parameter";
 			return FALSE;
 		}
@@ -2005,6 +1978,48 @@ static bool load_jwk_rsa_key(EVP_PKEY **key_r, bool want_private_key,
 }
 
 
+static bool load_jwk_curve_key(EVP_PKEY **key_r, bool want_private_key,
+			       const struct json_tree_node *root,
+			       const char *password ATTR_UNUSED,
+			       struct dcrypt_private_key *dec_key ATTR_UNUSED,
+			       const char **error_r)
+{
+	i_assert(password == NULL && dec_key == NULL);
+	const char *crv, *x, *y = NULL, *d = NULL;
+	const struct json_tree_node *node;
+
+	if ((node = json_tree_node_get_member(root, "crv")) == NULL ||
+	    (crv = json_tree_node_get_str(node)) == NULL) {
+		*error_r = "Missing crv parameter";
+		return FALSE;
+	}
+
+	if ((node = json_tree_node_get_member(root, "x")) == NULL ||
+	    (x = json_tree_node_get_str(node)) == NULL) {
+		*error_r = "Missing x parameter";
+		return FALSE;
+	}
+
+	if ((node = json_tree_node_get_member(root, "y")) != NULL)
+		y = json_tree_node_get_str(node);
+
+	if (want_private_key) {
+		if ((node = json_tree_node_get_member(root, "d")) == NULL ||
+		    (d = json_tree_node_get_str(node)) == NULL) {
+			*error_r = "Missing d parameter";
+			return FALSE;
+		}
+	}
+
+	int nid = jwk_curve_to_nid(crv);
+	if (nid == 0) {
+		*error_r = t_strdup_printf("Unsupported curve: %s", crv);
+		return FALSE;
+	}
+
+	return load_jwk_ec_key(key_r, want_private_key, nid, x, y, d, error_r);
+}
+
 static bool
 dcrypt_openssl_load_private_key_jwk(struct dcrypt_private_key **key_r,
 				    const char *data, const char *password,
@@ -2039,7 +2054,8 @@ dcrypt_openssl_load_private_key_jwk(struct dcrypt_private_key **key_r,
 		error = "Missing key type";
 		ret = false;
 	} else if (strcmp(kty, "EC") == 0) {
-		ret = load_jwk_ec_key(&pkey, TRUE, root, password, dec_key, &error);
+		ret = load_jwk_curve_key(&pkey, TRUE, root, password, dec_key,
+					 &error);
 	} else if (strcmp(kty, "RSA") == 0) {
 		ret = load_jwk_rsa_key(&pkey, TRUE, root, password, dec_key, &error);
 	} else {
@@ -2116,7 +2132,8 @@ dcrypt_openssl_load_public_key_jwk(struct dcrypt_public_key **key_r,
 		error = "Missing key type";
 		ret = false;
 	} else if (strcmp(kty, "EC") == 0) {
-		ret = load_jwk_ec_key(&pkey, FALSE, root, NULL, NULL, &error);
+		ret = load_jwk_curve_key(&pkey, FALSE, root, NULL, NULL,
+					 &error);
 	} else if (strcmp(kty, "RSA") == 0) {
 	      ret = load_jwk_rsa_key(&pkey, FALSE, root, NULL, NULL, &error);
 	} else {
