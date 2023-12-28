@@ -465,7 +465,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 		const char *value = t_strdup_printf("%us",
 				       proxy_data.timeout_secs <= 1 ? 1 :
 				       proxy_data.timeout_secs-1);
-		settings_override(set_instance, "mail_max_lock_timeout",
+		settings_override(set_instance, "*/mail_max_lock_timeout",
 				  value, SETTINGS_OVERRIDE_TYPE_CODE);
 	}
 	settings_free(mail_set);

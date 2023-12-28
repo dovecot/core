@@ -338,7 +338,7 @@ static int cmd_force_resync_prerun(struct doveadm_mail_cmd_context *ctx ATTR_UNU
 	struct settings_instance *set_instance =
 		mail_storage_service_user_get_settings_instance(service_user);
 	settings_override(set_instance,
-			  "mailbox_list_index_very_dirty_syncs", "no",
+			  "*/mailbox_list_index_very_dirty_syncs", "no",
 			  SETTINGS_OVERRIDE_TYPE_CODE);
 	return 0;
 }
