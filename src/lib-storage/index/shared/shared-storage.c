@@ -275,16 +275,13 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	};
 	if (mail_storage_service_lookup_next(storage_service, &input,
 					     &owner, &error) < 0) {
-		if (owner == NULL || !owner->nonexistent) {
-			mailbox_list_set_critical(list,
-				"Couldn't create namespace %s for user %s: %s",
-				ns->set->name, userdomain, error);
-			if (owner != NULL)
-				mail_user_deinit(&owner);
-			io_loop_context_switch(old_ioloop_ctx);
-			return -1;
-		}
-		/* owner is a nonexistent user */
+		mailbox_list_set_critical(list,
+			"Couldn't create namespace %s for user %s: %s",
+			ns->set->name, userdomain, error);
+		if (owner != NULL)
+			mail_user_deinit(&owner);
+		io_loop_context_switch(old_ioloop_ctx);
+		return -1;
 	}
 
 	owner->creator = user;

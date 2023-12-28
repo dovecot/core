@@ -151,9 +151,7 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 	else
 		mail_user_expand_plugins_envs(user, user->_mail_set);
 
-	/* autocreated users for shared mailboxes need to be fully initialized
-	   if they don't exist, since they're going to be used anyway */
-	if (user->error == NULL || user->nonexistent) {
+	if (user->error == NULL) {
 		user->initialized = TRUE;
 		hook_mail_user_created(user);
 	}
