@@ -349,6 +349,9 @@ static bool mail_cache_fields_parse(const char *key, const char *value,
 {
 	const char *const *arr;
 
+	if (value == set_value_unknown)
+		return TRUE;
+
 	for (arr = t_strsplit_spaces(value, " ,"); *arr != NULL; arr++) {
 		const char *name = *arr;
 
