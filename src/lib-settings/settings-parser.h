@@ -149,6 +149,11 @@ enum settings_parser_flags {
 
 struct setting_parser_context;
 
+/* If a string setting value has this pointer, it means the setting isn't
+   actually known because it contained %{variables}. [ext_]check_func() can use
+   this to not give early errors when the variable value isn't known. */
+extern const char *set_value_unknown;
+
 struct setting_parser_context *
 settings_parser_init(pool_t set_pool, const struct setting_parser_info *root,
 		     enum settings_parser_flags flags);
