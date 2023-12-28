@@ -25,6 +25,8 @@ struct setting_parser_context {
 	char *error;
 };
 
+const char *set_value_unknown = "UNKNOWN_VALUE_WITH_VARIABLES";
+
 #ifdef DEBUG
 static const char *boollist_eol_sentry = "boollist-eol";
 #endif
@@ -459,6 +461,11 @@ settings_parse(struct setting_parser_context *ctx,
 	void *ptr;
 	const void *ptr2;
 	const char *error;
+
+	if (value == set_value_unknown) {
+		/* setting value is unknown - preserve the exact pointer */
+		dup_value = FALSE;
+	}
 
 	i_free(ctx->error);
 

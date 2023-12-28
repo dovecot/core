@@ -1125,10 +1125,18 @@ config_module_parser_get_set_parser(const struct config_module_parser *p,
 			} T_END;
 			break;
 		}
-		default:
+		default: {
+			const char *value = p->settings[i].str;
+			if (p->info->defines[i].type != SET_STR_NOVARS &&
+			    strchr(p->settings[i].str, '%') != NULL) {
+				/* We don't know what the variables would
+				   expand to. */
+				value = set_value_unknown;
+			}
 			(void)settings_parse_keyidx_value_nodup(parser, i,
-				p->info->defines[i].key, p->settings[i].str);
+				p->info->defines[i].key, value);
 			break;
+		}
 		}
 	}
 	return parser;
