@@ -167,6 +167,8 @@ void hook_mail_user_created(struct mail_user *user)
 			hooks->mail_user_created(user);
 			hook_build_update(ctx, user->vlast);
 		} T_END;
+		if (user->error != NULL)
+			break;
 	}
 	user->vlast = NULL;
 	hook_build_deinit(&ctx);
