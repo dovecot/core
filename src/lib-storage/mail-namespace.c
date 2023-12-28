@@ -554,12 +554,15 @@ mail_namespaces_init_default_location(struct mail_user *user,
 	struct event *set_event = event_create(user->event);
 	mail_set = mail_user_set_get_storage_set(user);
 	if (*mail_set->mail_driver != '\0') {
-		location_source = "mail_driver setting";
+		location_source = t_strdup_printf("mail_driver=%s setting",
+						  mail_set->mail_driver);
 	} else if ((mail_path = getenv("MAIL")) != NULL) {
-		location_source = "environment MAIL";
+		location_source = t_strdup_printf("environment MAIL=%s",
+						  mail_path);
 	} else if ((mail_path = getenv("MAILDIR")) != NULL) {
 		driver = "maildir";
-		location_source = "environment MAILDIR";
+		location_source = t_strdup_printf("environment MAILDIR=%s",
+						  mail_path);
 	} else {
 		mail_path = "";
 		location_source = "autodetection";
