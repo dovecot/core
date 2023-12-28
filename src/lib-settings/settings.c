@@ -37,6 +37,8 @@ struct settings_override {
 	/* TRUE once all the filter elements have been processed in "key",
 	   and it points to a non-filter suffix of the path. */
 	bool filter_finished;
+	/* Always apply this override, regardless of any filters. */
+	bool always_match;
 	/* Original key for the overridden setting, e.g.
 	   namespace/inbox/mailbox/Sent/mail_attribute/dict_driver */
 	const char *orig_key;
@@ -1134,6 +1136,12 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 			   with all filters, which otherwise wouldn't be
 			   visible to the settings override code. */
 			set_type = SET_FILTER_NAME;
+		} else if (strcmp(part, "*") == 0 && set->filter == NULL) {
+			/* always match, also for any named list filters */
+			set->filter_finished = TRUE;
+			set->always_match = TRUE;
+			set->key = p + 1;
+			return 1;
 		} else {
 			filter_finished = FALSE;
 			break;
@@ -1349,7 +1357,7 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		/* If we're being called while applying filters, only apply
 		   the overrides that have a matching filter. This preserves
 		   the expected order in which settings are applied. */
-		if (event_filter != NULL &&
+		if (event_filter != NULL && !set->always_match &&
 		    (set->filter_event == NULL ||
 		     !event_filter_match(event_filter, set->filter_event,
 					 &failure_ctx)))
