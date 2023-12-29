@@ -569,13 +569,13 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 }
 
 int mail_storage_create(struct mail_namespace *ns, struct event *set_event,
-			enum mail_storage_flags flags, const char **error_r)
+			enum mail_storage_flags flags,
+			struct mail_storage **storage_r, const char **error_r)
 {
-	struct mail_storage *storage;
 	int ret;
 	T_BEGIN {
 		ret = mail_storage_create_real(ns, set_event, flags,
-					       &storage, error_r);
+					       storage_r, error_r);
 	} T_END_PASS_STR_IF(ret < 0, error_r);
 	return ret;
 }

@@ -132,6 +132,7 @@ int mail_namespaces_init_add(struct mail_user *user, struct event *set_event,
 {
 	enum mail_storage_flags flags = 0;
 	struct mail_namespace *ns;
+	struct mail_storage *storage;
 	const char *error;
 	int ret;
 
@@ -163,7 +164,7 @@ int mail_namespaces_init_add(struct mail_user *user, struct event *set_event,
 		ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
 	}
 
-	if (mail_storage_create(ns, set_event, flags, &error) < 0) {
+	if (mail_storage_create(ns, set_event, flags, &storage, &error) < 0) {
 		*error_r = t_strdup_printf("Namespace %s: %s",
 					   ns->set->name, error);
 		mail_namespace_free(ns);
@@ -505,6 +506,7 @@ mail_namespaces_init_location_full(struct mail_user *user,
 {
 	struct mail_namespace_settings *inbox_set;
 	struct mail_namespace *ns;
+	struct mail_storage *storage;
 	int ret;
 
 	inbox_set = p_new(user->pool, struct mail_namespace_settings, 1);
@@ -536,7 +538,7 @@ mail_namespaces_init_location_full(struct mail_user *user,
 				  SETTINGS_OVERRIDE_TYPE_CODE);
 	}
 
-	if (mail_storage_create(ns, set_event, 0, error_r) < 0) {
+	if (mail_storage_create(ns, set_event, 0, &storage, error_r) < 0) {
 		mail_namespace_free(ns);
 		return -1;
 	}
