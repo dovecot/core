@@ -60,8 +60,8 @@
    can be used as a single statement, as in
    if (x) STMT_START { ... } STMT_END; else ... */
 #if !(defined (STMT_START) && defined (STMT_END))
-#  define STMT_START do
-#  define STMT_END while (0)
+#  define STMT_START do // NOLINT(readability-braces-around-statements)
+#  define STMT_END while (0) // NOLINT(readability-braces-around-statements)
 #endif
 
 /* Provide macros to feature the GCC function attribute. */

@@ -24,6 +24,7 @@ void hash_table_create(struct hash_table **table_r, pool_t node_pool,
 		       hash_cmp_callback_t *key_compare_cb);
 #define hash_table_create(table, pool, size, hash_cb, key_cmp_cb) \
 	TYPE_CHECKS(void, \
+	/* NOLINTBEGIN(bugprone-sizeof-expression) */ \
 	COMPILE_ERROR_IF_TRUE( \
 		sizeof((*table)._key) != sizeof(void *) || \
 		sizeof((*table)._value) != sizeof(void *)) || \
@@ -37,6 +38,7 @@ void hash_table_create(struct hash_table **table_r, pool_t node_pool,
 			unsigned int (*)(typeof((*table)._key))) && \
 		!__builtin_types_compatible_p(typeof(&hash_cb), \
 		unsigned int (*)(typeof((*table)._const_key)))), \
+	/* NOLINTEND(bugprone-sizeof-expression) */ \
 	hash_table_create(&(*table)._table, pool, size, \
 		(hash_callback_t *)hash_cb, \
 		(hash_cmp_callback_t *)key_cmp_cb))
@@ -46,9 +48,11 @@ void hash_table_create_direct(struct hash_table **table_r, pool_t node_pool,
 			      unsigned int initial_size);
 #define hash_table_create_direct(table, pool, size) \
 	TYPE_CHECKS(void, \
+	/* NOLINTBEGIN(bugprone-sizeof-expression) */ \
 	COMPILE_ERROR_IF_TRUE( \
 		sizeof((*table)._key) != sizeof(void *) || \
 		sizeof((*table)._value) != sizeof(void *)), \
+	/* NOLINTEND(bugprone-sizeof-expression) */ \
 	hash_table_create_direct(&(*table)._table, pool, size))
 
 #define hash_table_is_created(table) \
@@ -76,11 +80,13 @@ bool hash_table_lookup_full(const struct hash_table *table,
 #ifndef __cplusplus
 #  define hash_table_lookup_full(table, lookup_key, orig_key_r, value_r) \
 	TYPE_CHECKS(bool, \
+	/* NOLINTBEGIN(bugprone-sizeof-expression) */ \
 	COMPILE_ERROR_IF_TYPES2_NOT_COMPATIBLE((table)._const_key, (table)._key, lookup_key) || \
 	COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._keyp, orig_key_r) || \
 	COMPILE_ERROR_IF_TRUE(sizeof(*(orig_key_r)) != sizeof(void *)) || \
 	COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._valuep, value_r) || \
 	COMPILE_ERROR_IF_TRUE(sizeof(*(value_r)) != sizeof(void *)), \
+	/* NOLINTEND(bugprone-sizeof-expression) */ \
 	hash_table_lookup_full((table)._table, \
 		(lookup_key), (void *)(orig_key_r), (void *)(value_r)))
 #else
@@ -132,10 +138,12 @@ bool hash_table_iterate(struct hash_iterate_context *ctx,
 #ifndef __cplusplus
 #  define hash_table_iterate(ctx, table, key_r, value_r) \
 	TYPE_CHECKS(bool, \
+	/* NOLINTBEGIN(bugprone-sizeof-expression) */ \
 	COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._keyp, key_r) || \
 	COMPILE_ERROR_IF_TRUE(sizeof(*(key_r)) != sizeof(void *)) || \
 	COMPILE_ERROR_IF_TRUE(sizeof(*(value_r)) != sizeof(void *)) || \
 	COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE((table)._valuep, value_r), \
+	/* NOLINTEND(bugprone-sizeof-expression) */ \
 	hash_table_iterate(ctx, (void *)(key_r), (void *)(value_r)))
 #else
 /* C++ requires (void **) casting, but that's not possible with strict

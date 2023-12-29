@@ -94,12 +94,15 @@ void pool_add_external_ref(pool_t pool, pool_t ref_pool);
 /* We require sizeof(type) to be <= UINT_MAX. This allows compiler to optimize
    away the entire MALLOC_MULTIPLY() call on 64bit systems. */
 #define p_new(pool, type, count) \
+	/* NOLINTNEXTLINE(bugprone-sizeof-expression) */ \
 	((type *) p_malloc(pool, MALLOC_MULTIPLY((unsigned int)sizeof(type), (count))) + \
 	 COMPILE_ERROR_IF_TRUE(sizeof(type) > UINT_MAX))
 
 #define p_realloc_type(pool, mem, type, old_count, new_count) \
 	((type *) p_realloc(pool, mem, \
+	/* NOLINTNEXTLINE(bugprone-sizeof-expression) */ \
 	 MALLOC_MULTIPLY((unsigned int)sizeof(type), (old_count)), \
+	 /* NOLINTNEXTLINE(bugprone-sizeof-expression) */ \
 	 MALLOC_MULTIPLY((unsigned int)sizeof(type), (new_count))) + \
 		COMPILE_ERROR_IF_TRUE(sizeof(type) > UINT_MAX))
 

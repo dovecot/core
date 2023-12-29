@@ -24,11 +24,15 @@ void buffer_create_from_const_data(buffer_t *buffer,
 				   const void *data, size_t size);
 #define buffer_create_from_data(b,d,s) \
 	TYPE_CHECKS(void, \
+	/* NOLINTBEGIN(bugprone-sizeof-expression) */ \
 	COMPILE_ERROR_IF_TRUE(__builtin_object_size((d),1) < ((s)>0?(s):1)), \
+	/* NOLINTEND(bugprone-sizeof-expression) */ \
 	buffer_create_from_data((b), (d), (s)))
 #define buffer_create_from_const_data(b,d,s) \
 	TYPE_CHECKS(void, \
+	/* NOLINTBEGIN(bugprone-sizeof-expression) */ \
 	COMPILE_ERROR_IF_TRUE(__builtin_object_size((d),1) < ((s)>0?(s):1)), \
+	/* NOLINTEND(bugprone-sizeof-expression) */ \
 	buffer_create_from_const_data((b), (d), (s)))
 
 /* Creates a dynamically growing buffer. Whenever write would exceed the
