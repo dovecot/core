@@ -44,8 +44,9 @@ struct inet_listener_settings {
 	pool_t pool;
 	const char *name;
 	const char *type;
-	const char *address;
 	in_port_t port;
+	/* copied from master_settings: */
+	const char *listen;
 	bool ssl;
 	bool reuse_port;
 	bool haproxy;

@@ -140,8 +140,8 @@ service_create_inet_listeners(struct service *service,
 		return 0;
 	}
 
-	if (*set->address != '\0')
-		addresses = set->address;
+	if (*set->listen != '\0')
+		addresses = set->listen;
 	else {
 		/* use the default listen address */
 		addresses = service->list->set->listen;
