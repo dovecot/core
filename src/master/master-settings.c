@@ -82,7 +82,6 @@ const struct setting_parser_info fifo_listener_setting_parser_info = {
 static const struct setting_define inet_listener_setting_defines[] = {
 	DEF(STR, name),
 	DEF(STR, type),
-	DEF(STR_NOVARS, address), /* NOVARS to avoid expanding %scope */
 	DEF(IN_PORT, port),
 	DEF(BOOL, ssl),
 	DEF(BOOL, reuse_port),
@@ -94,7 +93,6 @@ static const struct setting_define inet_listener_setting_defines[] = {
 static const struct inet_listener_settings inet_listener_default_settings = {
 	.name = "",
 	.type = "",
-	.address = "",
 	.port = 0,
 	.ssl = FALSE,
 	.reuse_port = FALSE,
@@ -326,7 +324,7 @@ static void add_inet_listeners(ARRAY_TYPE(inet_listener_settings) *l,
 
 	array_foreach_elem(l, set) {
 		if (set->port != 0) {
-			str = t_strdup_printf("%u:%s", set->port, set->address);
+			str = t_strdup_printf("%u:%s", set->port, set->listen);
 			array_push_back(all_listeners, &str);
 		}
 	}
@@ -459,6 +457,7 @@ master_service_get_inet_listeners(struct service_settings *service_set,
 				  const char **error_r)
 {
 	const struct inet_listener_settings *listener_set;
+	const struct master_settings *master_set;
 	const char *name, *error;
 	bool ret = TRUE;
 
@@ -480,10 +479,26 @@ master_service_get_inet_listeners(struct service_settings *service_set,
 			ret = FALSE;
 			break;
 		}
+
+		event_add_str(event, "inet_listener", name);
+		if (settings_get(event, &master_setting_parser_info,
+				 SETTINGS_GET_FLAG_NO_CHECK,
+				 &master_set, &error) < 0) {
+			*error_r = t_strdup_printf(
+				"Failed to get inet_listener %s: %s",
+				name, error);
+			ret = FALSE;
+			settings_free(listener_set);
+			break;
+		}
+
 		struct inet_listener_settings *listener_set_dup =
 			p_memdup(pool, listener_set, sizeof(*listener_set));
 
 		pool_add_external_ref(pool, listener_set->pool);
+		listener_set_dup->listen = p_strdup(pool, master_set->listen);
+		settings_free(master_set);
+
 		array_push_back(&service_set->parsed_inet_listeners,
 				&listener_set_dup);
 		settings_free(listener_set);
