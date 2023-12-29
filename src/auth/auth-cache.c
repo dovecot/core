@@ -8,7 +8,6 @@
 #include "var-expand.h"
 #include "auth-request.h"
 #include "auth-cache.h"
-#include "auth-common.h"
 
 #include <time.h>
 
