@@ -15,6 +15,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/time.h>
+#ifdef HAVE_FACCESSAT2
+#  include <asm/unistd.h>
+#endif
 
 /* Mainly for including the full version information in core dumps.
    NOTE: Don't set this const - otherwise it won't end up in core dumps. */
@@ -30,6 +33,26 @@ struct atexit_callback {
 
 static ARRAY(struct atexit_callback) atexit_callbacks = ARRAY_INIT;
 static bool lib_clean_exit;
+
+/* The original faccessat() syscall didn't handle the flags parameter.  glibc
+   v2.33's faccessat() started using the new Linux faccessat2() syscall for that
+   reason.  However, we can still use the faccessat2() syscall directly in some
+   Linux distros to avoid this problem, so just do it here when possible. */
+int i_faccessat2(int dirfd, const char *pathname, int mode, int flags)
+{
+#ifdef HAVE_FACCESSAT2
+	static bool faccessat2_unavailable = FALSE;
+	if (!faccessat2_unavailable) {
+		/* On bullseye the syscall is available,
+		   but the glibc wrapping function is not. */
+		long ret = syscall(__NR_faccessat2, dirfd, pathname, mode, flags);
+		faccessat2_unavailable = ret == -1 && errno == ENOSYS;
+		if (!faccessat2_unavailable)
+			return (int)ret;
+	}
+#endif
+	return faccessat(dirfd, pathname, mode, flags);
+}
 
 #undef i_unlink
 int i_unlink(const char *path, const char *source_fname,
