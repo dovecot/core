@@ -27,18 +27,18 @@ static inline long long timeval_diff_msecs(const struct timeval *tv1,
 }
 
 static inline void
-timeval_from_usecs(struct timeval *tv_r, unsigned long long usecs)
+timeval_from_usecs(struct timeval *tv_r, unsigned long usecs)
 {
 	i_assert(usecs != ULLONG_MAX);
-	tv_r->tv_sec = usecs / 1000000;
+	tv_r->tv_sec = (time_t)(usecs / 1000000);
 	tv_r->tv_usec = usecs % 1000000;
 }
 
 static inline void
-timeval_add_usecs(struct timeval *tv, long long usecs)
+timeval_add_usecs(struct timeval *tv, suseconds_t usecs)
 {
 	i_assert(usecs >= 0);
-	tv->tv_sec += usecs / 1000000;
+	tv->tv_sec += (time_t)(usecs / 1000000);
 	tv->tv_usec += (usecs % 1000000);
 	if (tv->tv_usec >= 1000000) {
 		tv->tv_sec++;
@@ -47,10 +47,10 @@ timeval_add_usecs(struct timeval *tv, long long usecs)
 }
 
 static inline void
-timeval_sub_usecs(struct timeval *tv, long long usecs)
+timeval_sub_usecs(struct timeval *tv, suseconds_t usecs)
 {
 	i_assert(usecs >= 0);
-	tv->tv_sec -= usecs / 1000000;
+	tv->tv_sec -= (time_t)(usecs / 1000000);
 	tv->tv_usec -= (usecs % 1000000);
 	if (tv->tv_usec < 0) {
 		tv->tv_sec--;
@@ -62,7 +62,7 @@ static inline void
 timeval_add_msecs(struct timeval *tv, unsigned int msecs)
 {
 	tv->tv_sec += msecs / 1000;
-	tv->tv_usec += (msecs % 1000) * 1000;
+	tv->tv_usec += (long)(msecs % 1000) * 1000;
 	if (tv->tv_usec >= 1000000) {
 		tv->tv_sec++;
 		tv->tv_usec -= 1000000;
@@ -73,7 +73,7 @@ static inline void
 timeval_sub_msecs(struct timeval *tv, unsigned int msecs)
 {
 	tv->tv_sec -= msecs / 1000;
-	tv->tv_usec -= (msecs % 1000) * 1000;
+	tv->tv_usec -= (long)(msecs % 1000) * 1000;
 	if (tv->tv_usec < 0) {
 		tv->tv_sec--;
 		tv->tv_usec += 1000000;

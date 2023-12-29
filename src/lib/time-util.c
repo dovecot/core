@@ -72,7 +72,7 @@ long long timeval_diff_usecs(const struct timeval *tv1,
 			     const struct timeval *tv2)
 {
 	time_t secs;
-	int usecs;
+	suseconds_t usecs;
 
 	secs = tv1->tv_sec - tv2->tv_sec;
 	usecs = tv1->tv_usec - tv2->tv_usec;
