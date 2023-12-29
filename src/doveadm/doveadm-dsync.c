@@ -470,9 +470,12 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 
 	/* Create another user for the second location with its own
 	   storage settings. Override only the defaults, while preserving any
-	   namespace-specific settings. */
+	   namespace-specific settings. The service user needs to be duplicated
+	   also to avoid updating the first user's settings. */
+	struct mail_storage_service_user *service_user2 =
+		mail_storage_service_user_dup(ctx->ctx.cur_service_user);
 	struct settings_instance *set_instance =
-		mail_storage_service_user_get_settings_instance(ctx->ctx.cur_service_user);
+		mail_storage_service_user_get_settings_instance(service_user2);
 	mail_storage_2nd_settings_reset(set_instance, "");
 	for (unsigned int i = 0; ctx->destination_options[i] != NULL; i++) {
 		const char *key, *value;
@@ -485,9 +488,9 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	settings_override(set_instance, "mail_path", mail_path,
 			  SETTINGS_OVERRIDE_TYPE_2ND_CLI_PARAM);
 
-	ret = mail_storage_service_next(ctx->ctx.storage_service,
-					ctx->ctx.cur_service_user,
+	ret = mail_storage_service_next(ctx->ctx.storage_service, service_user2,
 					&user2, &error);
+	mail_storage_service_user_unref(&service_user2);
 	if (ret < 0) {
 		e_error(ctx->ctx.cctx->event,
 			"Failed to initialize user: %s", error);
