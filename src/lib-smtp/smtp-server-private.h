@@ -337,9 +337,6 @@ int smtp_server_connection_ssl_init(struct smtp_server_connection *conn);
 
 void smtp_server_connection_clear(struct smtp_server_connection *conn);
 
-struct smtp_server_transaction *
-smtp_server_connection_get_transaction(struct smtp_server_connection *conn);
-
 /*
  * Recipient
  */
