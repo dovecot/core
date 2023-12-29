@@ -139,6 +139,9 @@ int settings_get(struct event *event,
 		__FILE__, __LINE__, (void *)set_r, error_r)
 #endif
 
+/* Same as settings_get(), but looks up settings for a specific named
+   (non-list) filter. Use e.g. { filter_name="oauth2" }. Returns 1 if settings
+   for the filter are found, 0 if not (set_r is not set), -1 if error. */
 int settings_try_get(struct event *event, const char *filter_name,
 		     const struct setting_parser_info *info,
 		     enum settings_get_flags flags,
@@ -157,9 +160,16 @@ int settings_try_get(struct event *event, const char *filter_name,
 		__FILE__, __LINE__, (void *)set_r, error_r)
 #endif
 
-/* Same as settings_get(), but looks up settings for a specific named array
+/* Same as settings_get(), but looks up settings for a specific named list
    filter. Use e.g. { filter_key="namespace", filter_value="inbox" }.
-   Returns 0 on success, -1 on error. */
+   Returns 0 on success, -1 on error.
+
+   Settings for the requested "info" must exist inside the specified filter,
+   or this lookup fails. This means that you can safely call this to lookup
+   e.g. mail_namespace_setting_parser_info for a given namespace, because it's
+   required to exist. Using it to lookup any other infos for a namespace will
+   fail if settings in it haven't been explicitly used within the namespace
+   filter. */
 int settings_get_filter(struct event *event,
 			const char *filter_key, const char *filter_value,
 			const struct setting_parser_info *info,
@@ -182,7 +192,7 @@ int settings_get_filter(struct event *event,
 #endif
 
 /* Same as settings_get_filter(), but doesn't fail if the filter doesn't exist.
-   Returns 1 if filter exists, 0 if not, -1 if error. */
+   Returns 1 if filter exists, 0 if not (set_r is not set), -1 if error. */
 int settings_try_get_filter(struct event *event,
 			    const char *filter_key, const char *filter_value,
 			    const struct setting_parser_info *info,
