@@ -349,6 +349,7 @@ mail_storage_find(struct mail_user *user,
 static int
 mail_storage_create_list(struct mail_namespace *ns,
 			 struct mail_storage *storage_class,
+			 struct event *set_event,
 			 struct mailbox_list_settings *list_set,
 			 const char **error_r)
 {
@@ -361,20 +362,22 @@ mail_storage_create_list(struct mail_namespace *ns,
 		list_flags |= MAILBOX_LIST_FLAG_NO_DELETES;
 
 	struct mailbox_list *list;
-	struct event *event = event_create(ns->user->event);
+	set_event = event_create(set_event);
 	/* Lookup storage-specific settings, especially to get
 	   storage-specific defaults for mailbox list settings. */
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
+	event_set_ptr(set_event, SETTINGS_EVENT_FILTER_NAME,
 		      (void *)storage_class->name);
-	event_add_str(event, "namespace", ns->set->name);
+	event_add_str(set_event, "namespace", ns->set->name);
 
 	const struct mail_storage_settings *mail_set;
-	if (settings_get(event, &mail_storage_setting_parser_info, 0,
+	if (settings_get(set_event, &mail_storage_setting_parser_info, 0,
 			 &mail_set, error_r) < 0) {
-		event_unref(&event);
+		event_unref(&set_event);
 		return -1;
 	}
 
+	struct event *event = event_create(ns->user->event);
+	event_add_str(event, "namespace", ns->set->name);
 	int ret = mailbox_list_create(list_set->layout, event, ns, list_set,
 				      mail_set, list_flags, &list, error_r);
 	if (ret < 0) {
@@ -383,6 +386,7 @@ mail_storage_create_list(struct mail_namespace *ns,
 	}
 	settings_free(mail_set);
 	event_unref(&event);
+	event_unref(&set_event);
 	return ret;
 }
 
@@ -426,7 +430,7 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 
 	if (ns->list == NULL) {
 		/* first storage for namespace */
-		if (mail_storage_create_list(ns, storage_class, &list_set,
+		if (mail_storage_create_list(ns, storage_class, set_event, &list_set,
 					     error_r) < 0)
 			return -1;
 		if ((storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) == 0) {
