@@ -1502,6 +1502,28 @@ void mail_storage_service_user_unref(struct mail_storage_service_user **_user)
 	pool_unref(&user->pool);
 }
 
+struct mail_storage_service_user *
+mail_storage_service_user_dup(const struct mail_storage_service_user *user)
+{
+	struct mail_storage_service_user *dest =
+		p_memdup(user->pool, user, sizeof(*user));
+	pool_ref(dest->pool);
+	dest->refcount = 1;
+
+	dest->set_instance = settings_instance_dup(user->set_instance);
+	dest->event = event_create(event_get_parent(user->event));
+	event_set_ptr(dest->event, SETTINGS_EVENT_INSTANCE, dest->set_instance);
+
+	dest->ioloop_ctx = io_loop_context_new(current_ioloop);
+	io_loop_context_add_callbacks(dest->ioloop_ctx,
+				      mail_storage_service_io_activate_user_cb,
+				      mail_storage_service_io_deactivate_user_cb,
+				      dest);
+	io_loop_context_switch(dest->ioloop_ctx);
+	pool_ref(dest->user_set->pool);
+	return dest;
+}
+
 const char *const *
 mail_storage_service_user_get_userdb_fields(struct mail_storage_service_user *user)
 {
