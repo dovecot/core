@@ -596,13 +596,13 @@ mailbox_list_get_user(const struct mailbox_list *list)
 	return list->ns->user;
 }
 
-#if 0 //FIXME: add back later
 static int
-mailbox_list_get_storage_driver(struct mailbox_list *list, const char *driver,
+mailbox_list_get_storage_driver(struct mailbox_list *list,
+				struct event *set_event, const char *driver,
 				struct mail_storage **storage_r)
 {
 	struct mail_storage *storage;
-	const char *error, *data;
+	const char *error;
 
 	array_foreach_elem(&list->ns->all_storages, storage) {
 		if (strcmp(storage->name, driver) == 0) {
@@ -611,11 +611,8 @@ mailbox_list_get_storage_driver(struct mailbox_list *list, const char *driver,
 		}
 	}
 
-	data = i_strchr_to_next(list->ns->set->location, ':');
-	if (data == NULL)
-		data = "";
-	if (mail_storage_create_full(list->ns, driver, data, 0,
-				     storage_r, &error) < 0) {
+	if (mail_storage_create(list->ns, set_event, 0,
+				storage_r, &error) < 0) {
 		mailbox_list_set_critical(list,
 			"Namespace %s: Failed to create storage '%s': %s",
 			list->ns->set->name, driver, error);
@@ -623,19 +620,17 @@ mailbox_list_get_storage_driver(struct mailbox_list *list, const char *driver,
 	}
 	return 0;
 }
-#endif
 
 int mailbox_list_default_get_storage(struct mailbox_list **list,
 				     const char **vname ATTR_UNUSED,
 				     enum mailbox_list_get_storage_flags flags ATTR_UNUSED,
 				     struct mail_storage **storage_r)
 {
-#if 0 //FIXME: add back later
-	const struct mailbox_settings *set;
+	const struct mail_storage_settings *set;
 	const char *error;
 	struct event *event =
 		mail_storage_mailbox_create_event((*list)->event, *list, *vname);
-	if (settings_get(event, &mailbox_setting_parser_info, 0,
+	if (settings_get(event, &mail_storage_setting_parser_info, 0,
 			 &set, &error) < 0) {
 		mailbox_list_set_critical(*list, "%s", error);
 		event_unref(&event);
@@ -643,8 +638,9 @@ int mailbox_list_default_get_storage(struct mailbox_list **list,
 	}
 
 	int ret;
-	if (set->driver != NULL && set->driver[0] != '\0') {
-		ret = mailbox_list_get_storage_driver(*list, set->driver,
+	if (set->mail_driver[0] != '\0') {
+		ret = mailbox_list_get_storage_driver(*list, event,
+						      set->mail_driver,
 						      storage_r);
 	} else {
 		*storage_r = mail_namespace_get_default_storage((*list)->ns);
@@ -653,10 +649,6 @@ int mailbox_list_default_get_storage(struct mailbox_list **list,
 	event_unref(&event);
 	settings_free(set);
 	return ret;
-#else
-	*storage_r = mail_namespace_get_default_storage((*list)->ns);
-	return 0;
-#endif
 }
 
 int mailbox_list_get_storage(struct mailbox_list **list, const char **vname,
