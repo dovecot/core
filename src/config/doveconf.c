@@ -871,12 +871,11 @@ int main(int argc, char *argv[])
 	char **exec_args = NULL, **setting_name_filters = NULL;
 	unsigned int i;
 	int c, ret, ret2;
-	bool config_path_specified, expand_vars = FALSE, hide_key = FALSE;
+	bool config_path_specified, hide_key = FALSE;
 	bool simple_output = FALSE, check_full_config = FALSE;
-	bool hide_obsolete_warnings = FALSE;
 	bool dump_defaults = FALSE, host_verify = FALSE, dump_full = FALSE;
 	bool print_banners = FALSE, hide_passwords = TRUE;
-	bool prefixes_in_filters = FALSE;
+	enum config_parse_flags flags = CONFIG_PARSE_FLAG_RETURN_BROKEN_CONFIG;
 
 	if (getenv("USE_SYSEXITS") != NULL) {
 		/* we're coming from (e.g.) LDA */
@@ -903,7 +902,7 @@ int main(int argc, char *argv[])
 		case 'F':
 			dump_full = TRUE;
 			simple_output = TRUE;
-			expand_vars = TRUE;
+			flags |= CONFIG_PARSE_FLAG_EXPAND_VALUES;
 			break;
 		case 'h':
 			hide_key = TRUE;
@@ -928,10 +927,10 @@ int main(int argc, char *argv[])
 			scope = CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN;
 			break;
 		case 'w':
-			hide_obsolete_warnings = TRUE;
+			flags |= CONFIG_PARSE_FLAG_HIDE_OBSOLETE_WARNINGS;
 			break;
 		case 'x':
-			expand_vars = TRUE;
+			flags |= CONFIG_PARSE_FLAG_EXPAND_VALUES;
 			break;
 		default:
 			return FATAL_DEFAULT;
@@ -965,11 +964,12 @@ int main(int argc, char *argv[])
 		setting_name_filters = argv+optind;
 		if (scope == CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN)
 			scope = CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN;
-		prefixes_in_filters = TRUE;
+		flags |= CONFIG_PARSE_FLAG_PREFIXES_IN_FILTERS;
 	} else if (!simple_output) {
 		/* print the config file path before parsing it, so in case
 		   of errors it's still shown */
 		printf("# "DOVECOT_VERSION_FULL": %s\n", config_path);
+		flags |= CONFIG_PARSE_FLAG_PREFIXES_IN_FILTERS;
 		print_banners = TRUE;
 		fflush(stdout);
 	}
@@ -988,17 +988,10 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	enum config_parse_flags flags = CONFIG_PARSE_FLAG_RETURN_BROKEN_CONFIG;
-	if (expand_vars)
-		flags |= CONFIG_PARSE_FLAG_EXPAND_VALUES;
 	if (dump_full && exec_args != NULL && !check_full_config)
 		flags |= CONFIG_PARSE_FLAG_DELAY_ERRORS;
 	if (exec_args == NULL)
 		flags |= CONFIG_PARSE_FLAG_EXTERNAL_HOOKS;
-	if (hide_obsolete_warnings)
-		flags |= CONFIG_PARSE_FLAG_HIDE_OBSOLETE_WARNINGS;
-	if (print_banners || prefixes_in_filters)
-		flags |= CONFIG_PARSE_FLAG_PREFIXES_IN_FILTERS;
 	T_BEGIN {
 		ret = config_parse_file(dump_defaults ? NULL : config_path,
 					flags, &config, &error);
