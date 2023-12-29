@@ -83,7 +83,6 @@ struct auth {
 	struct dns_client *dns_client;
 };
 
-extern struct auth_penalty *auth_penalty;
 
 struct auth *auth_find_service(const char *name);
 struct auth *auth_default_service(void);
