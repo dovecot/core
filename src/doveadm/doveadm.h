@@ -16,7 +16,6 @@ enum doveadm_client_type {
 
 #include "doveadm-cmd.h"
 
-extern bool doveadm_verbose_proctitle;
 extern int doveadm_exit_code;
 
 void usage(void) ATTR_NORETURN;
