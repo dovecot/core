@@ -22,6 +22,7 @@ raw_storage_create_from_set(struct mail_storage_service_ctx *ctx,
 	struct mail_user *user;
 	struct mail_namespace *ns;
 	struct mail_namespace_settings *ns_set;
+	struct mail_storage *storage;
 	struct event *event;
 	const char *error;
 
@@ -74,7 +75,7 @@ raw_storage_create_from_set(struct mail_storage_service_ctx *ctx,
 	ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
 	ns->set = ns_set;
 
-	if (mail_storage_create(ns, user->event, 0, &error) < 0)
+	if (mail_storage_create(ns, user->event, 0, &storage, &error) < 0)
 		i_fatal("Couldn't create internal raw storage: %s", error);
 	if (mail_namespaces_init_finish(ns, &error) < 0)
 		i_fatal("Couldn't create internal raw namespace: %s", error);
