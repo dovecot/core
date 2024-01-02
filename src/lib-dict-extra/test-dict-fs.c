@@ -40,7 +40,8 @@ static void test_dict_fs_set_get(void)
 	struct dict *dict;
 	const char *const settings[] = {
 		"dict_driver", "fs",
-		"fs_driver", "posix",
+		"fs", "posix",
+		"fs/posix/fs_driver", "posix",
 		"fs_posix_prefix", ".test-dict/",
 		NULL
 	};

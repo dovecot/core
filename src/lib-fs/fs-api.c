@@ -15,18 +15,24 @@
 #include "istream-fs-stats.h"
 #include "fs-api-private.h"
 
+static bool fs_settings_check(void *_set, pool_t pool, const char **error_r);
+
 #undef DEF
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct fs_settings)
 static const struct setting_define fs_setting_defines[] = {
+	DEF(STR, fs_name),
 	DEF(STR, fs_driver),
-	{ .type = SET_FILTER_HIERARCHY, .key = "fs_parent",
-	  .required_setting = "fs_driver", },
+	{ .type = SET_FILTER_ARRAY, .key = "fs",
+	  .offset = offsetof(struct fs_settings, fs),
+	  .filter_array_field_name = "fs_name", },
 
 	SETTING_DEFINE_LIST_END
 };
 static const struct fs_settings fs_default_settings = {
+	.fs_name = "",
 	.fs_driver = "",
+	.fs = ARRAY_INIT,
 };
 const struct setting_parser_info fs_setting_parser_info = {
 	.name = "fs",
@@ -36,6 +42,8 @@ const struct setting_parser_info fs_setting_parser_info = {
 
 	.struct_size = sizeof(struct fs_settings),
 	.pool_offset1 = 1 + offsetof(struct fs_settings, pool),
+
+	.check_func = fs_settings_check,
 };
 
 static struct event_category event_category_fs = {
@@ -203,20 +211,50 @@ int fs_legacy_init(const char *driver, const char *args,
 	return 0;
 }
 
-static int fs_init(const char *fs_driver, struct event *event,
+static bool fs_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+			      const char **error_r ATTR_UNUSED)
+{
+	struct fs_settings *set = _set;
+
+	if (set->fs_driver[0] == '\0' && set->fs_name[0] != '\0') {
+		/* default an empty fs_driver to fs_name, so it's possible to
+		   configure simply: fs driver { .. }, but to still allow the
+		   same driver to be used multiple times if necessary. */
+		set->fs_driver = set->fs_name;
+	}
+	return TRUE;
+}
+
+static int fs_init(struct event *event,
 		   const struct fs_parameters *params,
-		   unsigned int child_count,
+		   const ARRAY_TYPE(const_string) *fs_list,
+		   unsigned int fs_list_idx,
 		   struct fs **fs_r, const char **error_r)
 {
+	const struct fs_settings *fs_set;
 	struct fs *fs;
-	const char *error;
+	const char *fs_name, *error;
 	int ret;
 
-	ret = fs_alloc(fs_driver, event, params, &fs, error_r);
+	fs_name = array_idx_elem(fs_list, fs_list_idx);
+	if (settings_get_filter(event, "fs", fs_name, &fs_setting_parser_info,
+				0, &fs_set, error_r) < 0)
+		return -1;
+
+	if (fs_set->fs_driver[0] == '\0') {
+		*error_r = "fs_driver is empty";
+		settings_free(fs_set);
+		return -1;
+	}
+
+	event_add_str(event, "fs", fs_name);
+	ret = fs_alloc(fs_set->fs_driver, event, params, &fs, error_r);
+	settings_free(fs_set);
 	if (ret < 0)
 		return -1;
 
-	fs->child_count = child_count;
+	fs->init_fs_list = fs_list;
+	fs->init_fs_list_idx = fs_list_idx;
 	T_BEGIN {
 		ret = fs->v.init(fs, params, &error);
 	} T_END_PASS_STR_IF(ret < 0, &error);
@@ -225,6 +263,7 @@ static int fs_init(const char *fs_driver, struct event *event,
 		fs_unref(&fs);
 		return -1;
 	}
+	fs->init_fs_list = NULL;
 	*fs_r = fs;
 	return 0;
 }
@@ -232,19 +271,19 @@ static int fs_init(const char *fs_driver, struct event *event,
 int fs_init_auto(struct event *event, const struct fs_parameters *params,
 		 struct fs **fs_r, const char **error_r)
 {
-	struct fs_settings *fs_set;
+	const struct fs_settings *fs_set;
 	int ret;
 
 	if (settings_get(event, &fs_setting_parser_info, 0,
 			 &fs_set, error_r) < 0)
 		return -1;
-	if (fs_set->fs_driver[0] == '\0') {
+	if (array_is_empty(&fs_set->fs)) {
 		settings_free(fs_set);
-		*error_r = "fs_driver is empty";
+		*error_r = "fs { .. } named list filter is missing";
 		return 0;
 	}
 
-	ret = fs_init(fs_set->fs_driver, event, params, 0, fs_r, error_r);
+	ret = fs_init(event, params, &fs_set->fs, 0, fs_r, error_r);
 	settings_free(fs_set);
 	return ret < 0 ? -1 : 1;
 }
@@ -252,36 +291,17 @@ int fs_init_auto(struct event *event, const struct fs_parameters *params,
 int fs_init_parent(struct fs *fs, const struct fs_parameters *params,
 		   const char **error_r)
 {
-	string_t *filter_path = t_str_new(64);
-	str_append(filter_path, "fs_parent");
-	for (unsigned int i = 0; i < fs->child_count; i++)
-		str_append(filter_path, "/fs_parent");
-
-	/* Lookup the fs_parent/.../fs_driver setting for the exact filter path.
-	   The settings used by the fs drivers don't need to use the exact same
-	   filter path. */
-	struct fs_settings *fs_set;
-	int ret = settings_try_get(fs->event, str_c(filter_path),
-				   &fs_setting_parser_info, 0,
-				   &fs_set, error_r);
-	if (ret < 0) {
-		settings_free(fs_set);
-		return -1;
-	}
-	if (ret == 0 || fs_set->fs_driver[0] == '\0') {
-		settings_free(fs_set);
-		*error_r = "fs_parent { fs_driver } missing";
+	if (fs->init_fs_list_idx + 1 >= array_count(fs->init_fs_list)) {
+		*error_r = "Next fs { .. } named list filter is missing";
 		return -1;
 	}
 
 	struct event *event = event_create(fs->event);
 	/* Drop the parent "fs-name: " prefix */
 	event_drop_parent_log_prefixes(event, 1);
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
-		      p_strdup(event_get_pool(event), str_c(filter_path)));
-	ret = fs_init(fs_set->fs_driver, event, params,
-		      fs->child_count + 1, &fs->parent, error_r);
-	settings_free(fs_set);
+	int ret = fs_init(event, params,
+			  fs->init_fs_list, fs->init_fs_list_idx + 1,
+			  &fs->parent, error_r);
 	event_unref(&event);
 	return ret;
 }

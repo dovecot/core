@@ -12,8 +12,9 @@ static const struct fs_parameters fs_params;
 static struct settings_simple test_set;
 
 static const char *const set_metawrap_test[] = {
-	"fs_parent/fs_driver", "test",
-	"fs_driver", "metawrap",
+	"fs", "metawrap test",
+	"fs/metawrap/fs_driver", "metawrap",
+	"fs/test/fs_driver", "test",
 	NULL
 };
 
@@ -57,9 +58,10 @@ static void test_fs_metawrap_stat(void)
 static void test_fs_metawrap_async(void)
 {
 	static const char *const set_metawrap_metawrap_test[] = {
-		"fs_parent/fs_parent/fs_driver", "test",
-		"fs_parent/fs_driver", "metawrap",
-		"fs_driver", "metawrap",
+		"fs", "metawrap1 metawrap2 test",
+		"fs/metawrap1/fs_driver", "metawrap",
+		"fs/metawrap2/fs_driver", "metawrap",
+		"fs/test/fs_name", "test",
 		NULL
 	};
 
