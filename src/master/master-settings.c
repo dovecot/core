@@ -191,7 +191,7 @@ static const struct setting_define master_setting_defines[] = {
 	DEF(STR_HIDDEN, libexec_dir),
 	DEF(STR, instance_name),
 	DEF(BOOLLIST, protocols),
-	DEF(STR_NOVARS, listen), /* NOVARS to avoid expanding %scope */
+	DEF(BOOLLIST, listen),
 	DEF(ENUM, ssl),
 	DEF(STR, default_internal_user),
 	DEF(STR, default_internal_group),
@@ -216,7 +216,6 @@ static const struct master_settings master_default_settings = {
 	.state_dir = PKG_STATEDIR,
 	.libexec_dir = PKG_LIBEXECDIR,
 	.instance_name = PACKAGE,
-	.listen = "*, ::",
 	.ssl = "yes:no:required",
 	.default_internal_user = "dovecot",
 	.default_internal_group = "dovecot",
@@ -233,6 +232,7 @@ static const struct master_settings master_default_settings = {
 };
 static const struct setting_keyvalue master_default_settings_keyvalue[] = {
 	{ "protocols", "imap pop3 lmtp" },
+	{ "listen", "* ::" },
 	{ NULL, NULL }
 };
 
@@ -318,14 +318,17 @@ static void add_inet_listeners(ARRAY_TYPE(inet_listener_settings) *l,
 {
 	struct inet_listener_settings *set;
 	const char *str;
+	const char *address;
 
 	if (!array_is_created(l))
 		return;
 
 	array_foreach_elem(l, set) {
 		if (set->port != 0) {
-			str = t_strdup_printf("%u:%s", set->port, set->listen);
-			array_push_back(all_listeners, &str);
+			array_foreach_elem(&set->listen, address) {
+				str = t_strdup_printf("%u:%s", set->port, address);
+				array_push_back(all_listeners, &str);
+			}
 		}
 	}
 }
@@ -494,9 +497,16 @@ master_service_get_inet_listeners(struct service_settings *service_set,
 
 		struct inet_listener_settings *listener_set_dup =
 			p_memdup(pool, listener_set, sizeof(*listener_set));
+		unsigned int listeners = array_count(&master_set->listen);
+		p_array_init(&listener_set_dup->listen, pool, listeners);
 
 		pool_add_external_ref(pool, listener_set->pool);
-		listener_set_dup->listen = p_strdup(pool, master_set->listen);
+		const char *address;
+		array_foreach_elem(&master_set->listen, address) {
+			const char **address_copy =
+				array_append_space(&listener_set_dup->listen);
+			*address_copy = p_strdup(listener_set_dup->pool, address);
+		}
 		settings_free(master_set);
 
 		array_push_back(&service_set->parsed_inet_listeners,
@@ -575,10 +585,6 @@ master_settings_ext_check(struct event *event, void *_set,
 	unsigned int max_client_limit = 0;
 #endif
 
-	if (*set->listen == '\0') {
-		*error_r = "listen can't be set empty";
-		return FALSE;
-	}
 
 	len = strlen(set->base_dir);
 	if (len > 0 && set->base_dir[len-1] == '/') {
@@ -618,6 +624,10 @@ master_settings_ext_check(struct event *event, void *_set,
 		*error_r = "No services defined";
 		return FALSE;
 #endif
+	}
+	if (array_is_empty(&set->listen)) {
+		*error_r = "listen can't be set empty";
+		return FALSE;
 	}
 	if (!master_settings_get_services(set, pool, event, error_r))
 		return FALSE;

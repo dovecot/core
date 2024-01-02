@@ -10,7 +10,7 @@ struct master_settings {
 	const char *libexec_dir;
 	const char *instance_name;
 	ARRAY_TYPE(const_string) protocols;
-	const char *listen;
+	ARRAY_TYPE(const_string) listen;
 	const char *ssl;
 	const char *default_internal_user;
 	const char *default_internal_group;
