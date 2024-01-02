@@ -411,7 +411,7 @@ test_mailbox_verify_name_driver_slash(const char *driver,
 		mailbox_list_layout[0] == '\0' ? NULL :
 		t_strdup_printf("mailbox_list_layout=%s", mailbox_list_layout);
 	const char *const ns2[] = {
-		"namespace=subspace",
+		"namespace+=subspace",
 		"namespace/subspace/separator=/",
 		"namespace/subspace/prefix=SubSpace/",
 		layout_option,
@@ -441,7 +441,7 @@ test_mailbox_verify_name_driver_dot(const char *driver,
 		mailbox_list_layout[0] == '\0' ? NULL :
 		t_strdup_printf("mailbox_list_layout=%s", mailbox_list_layout);
 	const char *const ns2[] = {
-		"namespace=subspace",
+		"namespace+=subspace",
 		"namespace/subspace/separator=.",
 		"namespace/subspace/prefix=SubSpace.",
 		layout_option,
@@ -555,7 +555,7 @@ static void test_mailbox_list_maildir_init(struct test_mail_storage_ctx *ctx,
 		mailbox_list_layout[0] == '\0' ? NULL :
 		t_strdup_printf("mailbox_list_layout=%s", mailbox_list_layout);
 	const char *const ns2[] = {
-		"namespace=subspace",
+		"namespace+=subspace",
 		t_strdup_printf("namespace/subspace/separator=%s", sep),
 		t_strdup_printf("namespace/subspace/prefix=SubSpace%s", sep),
 		layout_option,

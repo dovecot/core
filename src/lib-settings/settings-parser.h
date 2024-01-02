@@ -205,6 +205,9 @@ int settings_parse_keyvalue_nodup(struct setting_parser_context *ctx,
 int settings_parse_keyidx_value_nodup(struct setting_parser_context *ctx,
 				      unsigned int key_idx, const char *key,
 				      const char *value);
+/* Ignore any further attempts to add to the named list filter. */
+void settings_parse_array_stop(struct setting_parser_context *ctx,
+			       unsigned int key_idx);
 /* Returns TRUE if list has the specific key. The key must NOT include the
    list/ prefix. */
 bool settings_parse_list_has_key(struct setting_parser_context *ctx,

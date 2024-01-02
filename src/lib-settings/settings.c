@@ -1292,7 +1292,8 @@ settings_override_get_value(struct settings_apply_ctx *ctx,
 	else
 		key = t_strconcat(ctx->info->defines[key_idx].key, list, NULL);
 
-	if (!set->append) {
+	if (!set->append ||
+	    ctx->info->defines[key_idx].type == SET_FILTER_ARRAY) {
 		*_key = key;
 		*key_idx_r = key_idx;
 		*value_r = set->value;
@@ -1301,7 +1302,7 @@ settings_override_get_value(struct settings_apply_ctx *ctx,
 
 	if (ctx->info->defines[key_idx].type != SET_STR) {
 		*error_r = t_strdup_printf(
-			"%s setting is not a string - can't use '+'", key);
+			"%s setting is not a string or named list filter - can't use '+'", key);
 		return -1;
 	}
 	const char *const *strp =
@@ -1540,6 +1541,14 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 				settings_override_type_names[set->type],
 				key, value, settings_parser_get_error(ctx->parser));
 			return -1;
+		}
+
+		if (!set->append &&
+		    ctx->info->defines[key_idx].type == SET_FILTER_ARRAY) {
+			/* The named list filter is filled in reverse order.
+			   Mark it now as "stopped", so following filters won't
+			   try to insert anything more into it. */
+			settings_parse_array_stop(ctx->parser, key_idx);
 		}
 	}
 	return seen_filter ? 1 : 0;
@@ -1812,15 +1821,12 @@ settings_get_or_fatal(struct event *event,
 	return set;
 }
 
-void settings_override(struct settings_instance *instance,
+static void
+settings_override_fill(struct settings_override *set, pool_t pool,
 		       const char *key, const char *value,
 		       enum settings_override_type type)
 {
-	if (!array_is_created(&instance->overrides))
-		p_array_init(&instance->overrides, instance->pool, 16);
-	struct settings_override *set =
-		array_append_space(&instance->overrides);
-	set->pool = instance->pool;
+	set->pool = pool;
 	set->type = type;
 	size_t len = strlen(key);
 	T_BEGIN {
@@ -1829,10 +1835,21 @@ void settings_override(struct settings_instance *instance,
 			set->append = TRUE;
 			key = t_strndup(key, len-1);
 		}
-		set->key = set->orig_key = p_strdup(instance->pool, key);
+		set->key = set->orig_key = p_strdup(pool, key);
 		set->path_element_count = path_element_count(set->key);
-		set->value = p_strdup(instance->pool, value);
+		set->value = p_strdup(pool, value);
 	} T_END;
+}
+
+void settings_override(struct settings_instance *instance,
+		       const char *key, const char *value,
+		       enum settings_override_type type)
+{
+	if (!array_is_created(&instance->overrides))
+		p_array_init(&instance->overrides, instance->pool, 16);
+	struct settings_override *set =
+		array_append_space(&instance->overrides);
+	settings_override_fill(set, instance->pool, key, value, type);
 }
 
 void settings_root_override(struct settings_root *root,
@@ -1843,11 +1860,7 @@ void settings_root_override(struct settings_root *root,
 		p_array_init(&root->overrides, root->pool, 16);
 	struct settings_override *set =
 		array_append_space(&root->overrides);
-	set->pool = root->pool;
-	set->type = type;
-	set->key = set->orig_key = p_strdup(root->pool, key);
-	set->path_element_count = path_element_count(set->key);
-	set->value = p_strdup(root->pool, value);
+	settings_override_fill(set, root->pool, key, value, type);
 }
 
 static struct settings_instance *
