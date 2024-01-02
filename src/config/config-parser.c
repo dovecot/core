@@ -1090,6 +1090,12 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 					filter_def->filter_array_field_name,
 					value, ctx->error);
 			}
+			struct config_section_stack *prev_section =
+				ctx->cur_section->prev;
+			if (prev_section->filter_def != NULL &&
+			    prev_section->filter_def->required_setting != NULL &&
+			    strcmp(key, prev_section->filter_def->required_setting) == 0)
+				prev_section->filter_parser->filter_required_setting_seen = TRUE;
 		}
 	}
 	return TRUE;
