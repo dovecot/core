@@ -33,11 +33,11 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "layout_maildir++" },
 	{ .type = SET_FILTER_NAME, .key = "layout_imapdir" },
 	{ .type = SET_FILTER_NAME, .key = "layout_fs" },
-	{ .type = SET_FILTER_NAME, .key = "mail_attachment",
+	{ .type = SET_FILTER_NAME, .key = "mail_ext_attachment",
 	  .required_setting = "fs_driver", },
-	DEF(STR, mail_attachment_dir),
-	DEF(STR_NOVARS_HIDDEN, mail_attachment_hash),
-	DEF(SIZE, mail_attachment_min_size),
+	DEF(STR, mail_ext_attachment_path),
+	DEF(STR_NOVARS_HIDDEN, mail_ext_attachment_hash),
+	DEF(SIZE, mail_ext_attachment_min_size),
 	DEF(STR, mail_attachment_detection_options),
 	{ .type = SET_FILTER_NAME, .key = "mail_attribute",
 	  .required_setting = "dict_driver", },
@@ -118,9 +118,9 @@ static const struct setting_define mail_storage_setting_defines[] = {
 };
 
 const struct mail_storage_settings mail_storage_default_settings = {
-	.mail_attachment_dir = "",
-	.mail_attachment_hash = "%{sha1}",
-	.mail_attachment_min_size = 1024*128,
+	.mail_ext_attachment_path = "",
+	.mail_ext_attachment_hash = "%{sha1}",
+	.mail_ext_attachment_min_size = 1024*128,
 	.mail_attachment_detection_options = "",
 	.mail_prefetch_count = 0,
 	.mail_cache_fields = "flags",
@@ -700,17 +700,18 @@ mail_storage_settings_ext_check(struct event *event ATTR_UNUSED,
 		return FALSE;
 	}
 
-	if (strchr(set->mail_attachment_hash, '/') != NULL) {
+	if (strchr(set->mail_ext_attachment_hash, '/') != NULL) {
 		*error_r = "mail_attachment_hash setting "
 			"must not contain '/' characters";
 		return FALSE;
 	}
-	if (hash_format_init(set->mail_attachment_hash, &format, &error) < 0) {
+	if (hash_format_init(set->mail_ext_attachment_hash,
+			     &format, &error) < 0) {
 		*error_r = t_strconcat("Invalid mail_attachment_hash setting: ",
 				       error, NULL);
 		return FALSE;
 	}
-	if (strchr(set->mail_attachment_hash, '-') != NULL) {
+	if (strchr(set->mail_ext_attachment_hash, '-') != NULL) {
 		*error_r = "mail_attachment_hash setting "
 			"must not contain '-' characters";
 		return FALSE;

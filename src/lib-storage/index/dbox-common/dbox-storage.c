@@ -94,28 +94,28 @@ int dbox_storage_create(struct mail_storage *_storage,
 	const struct mail_storage_settings *set = _storage->set;
 	const char *error;
 
-	if (*set->mail_attachment_dir != '\0') {
+	if (*set->mail_ext_attachment_path != '\0') {
 		const char *dir;
 		int ret;
 
 		dir = mail_user_home_expand(_storage->user,
-					    set->mail_attachment_dir);
+					    set->mail_ext_attachment_path);
 		storage->attachment_dir = p_strdup(_storage->pool, dir);
 
 		struct event *event = event_create(_storage->event);
 		event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
-			      "mail_attachment");
+			      "mail_ext_attachment");
 		ret = mailbox_list_init_fs(ns->list, event,
 					   storage->attachment_dir,
 					   &storage->attachment_fs, &error);
 		event_unref(&event);
 		if (ret == 0) {
-			*error_r = "mail_attachment_dir is set, "
-				"but mail_attachment { fs_driver } is missing";
+			*error_r = "mail_ext_attachment_path is set, "
+				"but mail_ext_attachment { fs_driver } is missing";
 			return -1;
 		}
 		if (ret < 0) {
-			*error_r = t_strdup_printf("mail_attachment: %s",
+			*error_r = t_strdup_printf("mail_ext_attachment: %s",
 						   error);
 			return -1;
 		}
