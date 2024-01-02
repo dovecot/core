@@ -103,6 +103,7 @@ void test_subprocess_fork(int (*func)(void *context), void *context,
 		/* cannot include this in the list to avoid accidental
 		 * kill of PID 0, so just free it here explicitly. */
 		i_free(subprocess);
+		io_loop_recreate(current_ioloop);
 		test_subprocess_free_all();
 
 		test_subprocess_child(func, context, continue_test);

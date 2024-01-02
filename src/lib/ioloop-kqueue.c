@@ -56,6 +56,19 @@ void io_loop_handler_deinit(struct ioloop *ioloop)
 	i_free(ioloop->handler_context);
 }
 
+void io_loop_recreate(struct ioloop *ioloop)
+{
+	if (ioloop == NULL ||
+	    ioloop->handler_context == NULL)
+		return;
+	struct ioloop_handler_context *ctx = ioloop->handler_context;
+	ctx->kq = kqueue();
+	array_clear(&ctx->events);
+	ctx->deleted_count = 0;
+	for (struct io_file *io = ioloop->io_files; io != NULL; io = io->next)
+		io_loop_handle_add(io);
+}
+
 void io_loop_handle_add(struct io_file *io)
 {
 	struct ioloop_handler_context *ctx = io->io.ioloop->handler_context;

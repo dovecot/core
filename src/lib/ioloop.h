@@ -321,4 +321,10 @@ uint64_t io_loop_get_wait_usecs(struct ioloop *ioloop);
    all the file ios in the ioloop. */
 enum io_condition io_loop_find_fd_conditions(struct ioloop *ioloop, int fd);
 
+#ifdef IOLOOP_KQUEUE
+void io_loop_recreate(struct ioloop *ioloop);
+#else
+#  define io_loop_recreate(x)
+#endif
+
 #endif
