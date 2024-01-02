@@ -533,7 +533,10 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 		storage->mailboxes_fs_set_instance =
 			settings_instance_dup(set_instance);
 		settings_override(storage->mailboxes_fs_set_instance,
-				  "*/fs_driver", "posix",
+				  "*/fs", "__posix",
+				  SETTINGS_OVERRIDE_TYPE_CODE);
+		settings_override(storage->mailboxes_fs_set_instance,
+				  "fs/__posix/fs_driver", "posix",
 				  SETTINGS_OVERRIDE_TYPE_CODE);
 
 		struct event *event = event_create(storage->event);

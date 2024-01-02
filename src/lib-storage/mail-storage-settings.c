@@ -34,7 +34,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "layout_imapdir" },
 	{ .type = SET_FILTER_NAME, .key = "layout_fs" },
 	{ .type = SET_FILTER_NAME, .key = "mail_ext_attachment",
-	  .required_setting = "fs_driver", },
+	  .required_setting = "fs", },
 	DEF(STR, mail_ext_attachment_path),
 	DEF(STR_NOVARS_HIDDEN, mail_ext_attachment_hash),
 	DEF(SIZE, mail_ext_attachment_min_size),

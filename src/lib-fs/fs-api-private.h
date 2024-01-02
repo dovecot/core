@@ -92,7 +92,10 @@ struct fs {
 	struct fs_vfuncs v;
 	char *temp_path_prefix;
 	int refcount;
-	unsigned int child_count;
+
+	/* Set only during initialization: */
+	const ARRAY_TYPE(const_string) *init_fs_list;
+	unsigned int init_fs_list_idx;
 
 	char *username, *session_id;
 

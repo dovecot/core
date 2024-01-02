@@ -47,8 +47,9 @@ static void test_fs_crypt_read_write(void)
 	struct fs *fs;
 
 	const char *const test_settings[] = {
-		"fs_parent/fs_driver", "posix",
-		"fs_driver", "crypt",
+		"fs", "crypt posix",
+		"fs/crypt/fs_driver", "crypt",
+		"fs/posix/fs_driver", "posix",
 		"crypt_global_public_key", PUBLIC_KEY_PEM,
 		"crypt_global_private_key", "main",
 		"crypt_global_private_key/main/crypt_private_key", PRIVATE_KEY_PEM,
@@ -105,8 +106,9 @@ static void test_fs_crypt_read_write_0(void)
 	struct fs *fs;
 
 	const char *const test_settings[] = {
-		"fs_parent/fs_driver", "posix",
-		"fs_driver", "crypt",
+		"fs", "crypt posix",
+		"fs/crypt/fs_driver", "crypt",
+		"fs/posix/fs_driver", "posix",
 		"crypt_global_public_key", PUBLIC_KEY_PEM,
 		"crypt_global_private_key", "main",
 		"crypt_global_private_key/main/crypt_private_key", PRIVATE_KEY_PEM,
@@ -155,8 +157,9 @@ static void test_fs_crypt_read_write_unencrypted(void)
 	struct fs *fs;
 
 	const char *const test_settings[] = {
-		"fs_parent/fs_driver", "posix",
-		"fs_driver", "crypt",
+		"fs", "crypt posix",
+		"fs/crypt/fs_driver", "crypt",
+		"fs/posix/fs_driver", "posix",
 		"fs_crypt_read_plain_fallback", "yes",
 		"crypt_write_algorithm", "",
 		"crypt_global_private_key", "main",
@@ -206,8 +209,9 @@ static void test_fs_crypt_read_write_unencrypted(void)
 	settings_simple_deinit(&test_set);
 
 	const char *const test_settings2[] = {
-		"fs_parent/fs_driver", "posix",
-		"fs_driver", "crypt",
+		"fs", "crypt posix",
+		"fs/crypt/fs_driver", "crypt",
+		"fs/posix/fs_driver", "posix",
 		"fs_crypt_read_plain_fallback", "yes",
 		"crypt_write_algorithm", "",
 		"crypt_global_public_key", PUBLIC_KEY_PEM,

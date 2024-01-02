@@ -152,7 +152,9 @@ struct fs_parameters {
 
 struct fs_settings {
 	pool_t pool;
+	const char *fs_name;
 	const char *fs_driver;
+	ARRAY_TYPE(const_string) fs;
 };
 extern const struct setting_parser_info fs_setting_parser_info;
 
@@ -206,8 +208,8 @@ typedef void fs_file_async_callback_t(void *context);
 
 /* Initialize the fs by pulling settings automatically using the event.
    The event parameter is used as the parent event. Returns 1 if ok, 0 if
-   fs_driver setting is empty (error_r is also set), -1 if settings lookup or
-   driver initialization failed. */
+   fs { .. } named list filter is missing (error_r is also set), -1 if settings
+   lookup or driver initialization failed. */
 int fs_init_auto(struct event *event, const struct fs_parameters *params,
 		 struct fs **fs_r, const char **error_r);
 /* event_parent can be overridden by fs_file_init_with_event() */

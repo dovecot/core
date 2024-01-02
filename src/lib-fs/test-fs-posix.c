@@ -35,7 +35,8 @@ static void test_fs_posix(void)
 	i_zero(&fs_params);
 
 	const char *const settings[] = {
-		"fs_driver", "posix",
+		"fs", "posix",
+		"fs/posix/fs_driver", "posix",
 		"fs_posix_prefix", t_strconcat(testdir, "/", NULL),
 		NULL
 	};
