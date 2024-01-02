@@ -130,7 +130,8 @@ service_create_inet_listeners(struct service *service,
 			      const char **error_r)
 {
 	static struct service_listener *l;
-	const char *const *tmp, *addresses;
+	const char *address;
+	ARRAY_TYPE(const_string) addresses;
 	const struct ip_addr *ips;
 	unsigned int i, ips_count;
 	bool ssl_disabled = strcmp(service->list->set->ssl, "no") == 0;
@@ -140,17 +141,14 @@ service_create_inet_listeners(struct service *service,
 		return 0;
 	}
 
-	if (*set->listen != '\0')
+	if (!array_is_empty(&set->listen))
 		addresses = set->listen;
 	else {
 		/* use the default listen address */
 		addresses = service->list->set->listen;
 	}
 
-	tmp = t_strsplit_spaces(addresses, ", ");
-	for (; *tmp != NULL; tmp++) {
-		const char *address = *tmp;
-
+	array_foreach_elem(&addresses, address) {
 		if (set->ssl && ssl_disabled)
 			continue;
 
