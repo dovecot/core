@@ -30,6 +30,7 @@ const char *set_value_unknown = "UNKNOWN_VALUE_WITH_VARIABLES";
 #ifdef DEBUG
 static const char *boollist_eol_sentry = "boollist-eol";
 #endif
+static const char *set_array_stop = "array-stop";
 
 static void
 setting_parser_copy_defaults(struct setting_parser_context *ctx,
@@ -536,13 +537,23 @@ settings_parse(struct setting_parser_context *ctx,
 		break;
 	case SET_FILTER_ARRAY: {
 		/* Add filter names to the array. Userdb can add more simply
-		   by giving e.g. "namespace=newname" without it removing the
+		   by giving e.g. "namespace+=newname" without it removing the
 		   existing ones. */
 		ARRAY_TYPE(const_string) *arr = ptr;
 		const char *const *list = t_strsplit(value, ",\t ");
 		unsigned int i, count = str_array_length(list);
 		if (!array_is_created(arr))
 			p_array_init(arr, ctx->set_pool, count);
+		else {
+			/* If the next element after the visible array is
+			   set_array_stop, then the named list filter
+			   should not be modified any further. */
+			unsigned int old_count;
+			const char *const *old_values =
+				array_get(arr, &old_count);
+			if (old_values[old_count] == set_array_stop)
+				break;
+		}
 		unsigned int insert_pos = 0;
 		for (i = 0; i < count; i++) {
 			const char *value = p_strdup(ctx->set_pool,
@@ -552,6 +563,10 @@ settings_parse(struct setting_parser_context *ctx,
 			else
 				array_push_back(arr, &value);
 		}
+		/* Make sure the next element after the array is accessible for
+		   the set_array_stop check. */
+		array_append_zero(arr);
+		array_pop_back(arr);
 		break;
 	}
 	case SET_FILTER_NAME:
@@ -639,6 +654,20 @@ int settings_parse_keyidx_value_nodup(struct setting_parser_context *ctx,
 {
 	return settings_parse(ctx, &ctx->info->defines[key_idx],
 			      key, value, FALSE);
+}
+
+void settings_parse_array_stop(struct setting_parser_context *ctx,
+			       unsigned int key_idx)
+{
+	i_assert(ctx->info->defines[key_idx].type == SET_FILTER_ARRAY);
+
+	ARRAY_TYPE(const_string) *arr =
+		PTR_OFFSET(ctx->set_struct, ctx->info->defines[key_idx].offset);
+	if (!array_is_created(arr))
+		p_array_init(arr, ctx->set_pool, 1);
+	/* Use the next element hidden after the array to keep the stop-state */
+	array_push_back(arr, &set_array_stop);
+	array_pop_back(arr);
 }
 
 static int boollist_removal_cmp(const struct boollist_removal *r1,
