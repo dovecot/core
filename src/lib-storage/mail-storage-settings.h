@@ -19,9 +19,9 @@ struct settings_instance;
 struct mail_storage_settings {
 	pool_t pool;
 	const char *mail_driver;
-	const char *mail_attachment_dir;
-	const char *mail_attachment_hash;
-	uoff_t mail_attachment_min_size;
+	const char *mail_ext_attachment_path;
+	const char *mail_ext_attachment_hash;
+	uoff_t mail_ext_attachment_min_size;
 	unsigned int mail_prefetch_count;
 	const char *mail_cache_fields;
 	const char *mail_always_cache_fields;

@@ -49,7 +49,7 @@ static int sdbox_storage_create(struct mail_storage *_storage,
 	if (storage->attachment_fs != NULL) {
 		props = fs_get_properties(storage->attachment_fs);
 		if ((props & FS_PROPERTY_RENAME) == 0) {
-			*error_r = "mail_attachment: "
+			*error_r = "mail_ext_attachment: "
 				"FS driver doesn't support renaming";
 			return -1;
 		}

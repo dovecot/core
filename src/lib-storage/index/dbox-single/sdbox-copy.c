@@ -31,8 +31,8 @@ sdbox_file_copy_attachments(struct sdbox_file *src_file,
 		   dest_storage->attachment_dir) != 0 ||
 	    strcmp(fs_get_driver(src_storage->attachment_fs),
 		   fs_get_driver(dest_storage->attachment_fs)) != 0 ||
-	    strcmp(src_storage->storage.set->mail_attachment_hash,
-		   dest_storage->storage.set->mail_attachment_hash) != 0) {
+	    strcmp(src_storage->storage.set->mail_ext_attachment_hash,
+		   dest_storage->storage.set->mail_ext_attachment_hash) != 0) {
 		/* different attachment dirs/settings between storages.
 		   have to copy the slow way. */
 		return 0;

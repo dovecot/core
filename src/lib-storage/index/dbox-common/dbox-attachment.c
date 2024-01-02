@@ -33,7 +33,8 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 	if (file->storage->attachment_dir == NULL) {
 		mail_storage_set_critical(&file->storage->storage,
 			"%s contains references to external attachments, "
-			"but mail_attachment_dir is unset", file->cur_path);
+			"but mail_ext_attachment_path is unset",
+			file->cur_path);
 		return -1;
 	}
 

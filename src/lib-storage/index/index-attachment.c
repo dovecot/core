@@ -32,12 +32,6 @@ struct mail_save_attachment {
 	ARRAY_TYPE(mail_attachment_extref) extrefs;
 };
 
-static const char *index_attachment_dir_get(struct mail_storage *storage)
-{
-	return mail_user_home_expand(storage->user,
-				     storage->set->mail_attachment_dir);
-}
-
 static bool index_attachment_want(const struct istream_attachment_header *hdr,
 				  void *context)
 {
@@ -91,7 +85,7 @@ index_attachment_open_ostream(struct istream_attachment_info *info,
 	struct mail_storage *storage = ctx->transaction->box->storage;
 	struct mail_attachment_extref *extref;
 	enum fs_open_flags flags = 0;
-	const char *attachment_dir, *path, *digest = info->hash;
+	const char *path, *digest = info->hash;
 	guid_128_t guid_128;
 
 	i_assert(attach->cur_file == NULL);
@@ -106,8 +100,8 @@ index_attachment_open_ostream(struct istream_attachment_info *info,
 	}
 
 	guid_128_generate(guid_128);
-	attachment_dir = index_attachment_dir_get(storage);
-	path = t_strdup_printf("%s/%c%c/%c%c/%s-%s", attachment_dir,
+	path = t_strdup_printf("%s/%c%c/%c%c/%s-%s",
+			       storage->set->mail_ext_attachment_path,
 			       digest[0], digest[1],
 			       digest[2], digest[3], digest,
 			       guid_128_to_string(guid_128));
@@ -117,8 +111,8 @@ index_attachment_open_ostream(struct istream_attachment_info *info,
 	extref = array_append_space(&attach->extrefs);
 	extref->start_offset = info->start_offset;
 	extref->size = info->encoded_size;
-	extref->path = p_strdup(attach->pool,
-				path + strlen(attachment_dir) + 1);
+	extref->path = p_strdup(attach->pool, path +
+			strlen(storage->set->mail_ext_attachment_path) + 1);
 	extref->base64_blocks_per_line = info->base64_blocks_per_line;
 	extref->base64_have_crlf = info->base64_have_crlf;
 
@@ -163,16 +157,16 @@ void index_attachment_save_begin(struct mail_save_context *ctx,
 
 	i_assert(ctx->data.attach == NULL);
 
-	if (*storage->set->mail_attachment_dir == '\0')
+	if (*storage->set->mail_ext_attachment_path == '\0')
 		return;
 
 	i_zero(&set);
-	set.min_size = storage->set->mail_attachment_min_size;
-	if (hash_format_init(storage->set->mail_attachment_hash,
+	set.min_size = storage->set->mail_ext_attachment_min_size;
+	if (hash_format_init(storage->set->mail_ext_attachment_hash,
 			     &set.hash_format, &error) < 0) {
 		/* we already checked this when verifying settings */
 		i_panic("mail_attachment_hash=%s unexpectedly failed: %s",
-			storage->set->mail_attachment_hash, error);
+			storage->set->mail_ext_attachment_hash, error);
 	}
 	set.want_attachment = index_attachment_want;
 	set.open_temp_fd = index_attachment_open_temp_fd;
@@ -275,7 +269,7 @@ index_attachment_delete_real(struct mail_storage *storage,
 	const char *path;
 	int ret;
 
-	path = t_strdup_printf("%s/%s", index_attachment_dir_get(storage), name);
+	path = t_strdup_printf("%s/%s", storage->set->mail_ext_attachment_path, name);
 	file = fs_file_init(fs, path, FS_OPEN_MODE_READONLY);
 	if ((ret = fs_delete(file)) < 0)
 		mail_storage_set_critical(storage, "%s", fs_file_last_error(file));
