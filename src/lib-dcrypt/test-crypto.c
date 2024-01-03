@@ -878,32 +878,53 @@ static void test_load_invalid_keys(void)
 {
 	test_begin("test_load_invalid_keys");
 
-	const char *error = NULL;
-	const char *key =
-		"1:716:0301EB00973C4EFC8FCECA4EA33E941F50B561199A51"
-		"59BCB6C2EED9DD1D62D65E38A254979D89E28F0C28883E71EE"
-		"2AD264CD16B863FA094A8F6F69A56B62E8918040:7c9a1039e"
-		"a2e4fed73e81dd3ffc3fa22ea4a28352939adde7bf8ea858b0"
-		"0fa4f";
-	struct dcrypt_public_key *pub_key = NULL;
+	static const struct {
+		const char *key;
+		const char *error;
+		bool public;
+	} invalid_keys[] = {
+		{
+			.key = "1:716:0301EB00973C4EFC8FCECA4EA33E941F50B561199A51"
+			       "59BCB6C2EED9DD1D62D65E38A254979D89E28F0C28883E71EE"
+			       "2AD264CD16B863FA094A8F6F69A56B62E8918040:7c9a1039e"
+			       "a2e4fed73e81dd3ffc3fa22ea4a28352939adde7bf8ea858b0"
+			       "0fa4f",
+			.error =
+				"Dovecot v1 key format uses tab to separate fields",
+			.public = TRUE,
+		},
+		{
+			.key = "2:305e301006072a8648ce3d020106052b81040026034a0002"
+			       "03fcc90034fa03d6fb79a0fc8b3b43c3398f68e76029307360"
+			       "cdcb9e27bb7e84b3c19dfb7244763bc4d442d216f09b7b7945"
+			       "ed9d182f3156550e9ee30b237a0217dbf79d28975f31:86706"
+			       "b69d1f640011a65d26a42f2ba20a619173644e1cc7475eb1d9"
+			       "0966e84dc",
+			.error = "key is not private",
+			.public = FALSE,
+		},
+	};
 
-	bool ret = dcrypt_key_load_public(&pub_key, key, &error);
-	test_assert(ret == FALSE);
-	test_assert(error != NULL);
-
-	error = NULL;
-	key =
-		"2:305e301006072a8648ce3d020106052b81040026034a0002"
-		"03fcc90034fa03d6fb79a0fc8b3b43c3398f68e76029307360"
-		"cdcb9e27bb7e84b3c19dfb7244763bc4d442d216f09b7b7945"
-		"ed9d182f3156550e9ee30b237a0217dbf79d28975f31:86706"
-		"b69d1f640011a65d26a42f2ba20a619173644e1cc7475eb1d9"
-		"0966e84dc";
-	struct dcrypt_private_key *priv_key = NULL;
-
-	ret = dcrypt_key_load_private(&priv_key, key, NULL, NULL, &error);
-	test_assert(ret == FALSE);
-	test_assert(error != NULL);
+	for (size_t i = 0; i < N_ELEMENTS(invalid_keys); i++) {
+		struct dcrypt_keypair pair;
+		i_zero(&pair);
+		bool ret;
+		const char *error;
+		if (invalid_keys[i].public) {
+			ret = dcrypt_key_load_public(
+				&pair.pub, invalid_keys[i].key, &error);
+		} else {
+			ret = dcrypt_key_load_private(&pair.priv,
+						      invalid_keys[i].key, NULL,
+						      NULL, &error);
+		}
+		test_assert_idx(ret == FALSE, i);
+		test_assert_idx(error != NULL, i);
+		test_assert_idx(strstr(error, invalid_keys[i].error) != NULL,
+				i);
+		if (ret)
+			dcrypt_keypair_unref(&pair);
+	}
 
 	test_end();
 }
