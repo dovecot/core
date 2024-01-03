@@ -422,7 +422,9 @@ void buffer_clear_safe(buffer_t *_buf)
 {
 	struct real_buffer *buf = container_of(_buf, struct real_buffer, buf);
 
-	safe_memset(buf->w_buffer, 0, I_MAX(buf->used, buf->dirty));
+	/* Can be NULL with const data based buffers */
+	if (buf->w_buffer != NULL)
+		safe_memset(buf->w_buffer, 0, I_MAX(buf->used, buf->dirty));
 	buffer_clear(_buf);
 }
 
