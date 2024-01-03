@@ -58,7 +58,7 @@ tika_get_http_client_url(struct fts_parser_context *parser_context, struct http_
 	tuser = p_new(user->pool, struct fts_parser_tika_user, 1);
 	MODULE_CONTEXT_SET(user, fts_parser_tika_user_module, tuser);
 
-	if (http_url_parse(url, NULL, 0, user->pool,
+	if (http_url_parse(url, NULL, HTTP_URL_ALLOW_USERINFO_PART, user->pool,
 			   &tuser->http_url, &error) < 0) {
 		e_error(event, "fts_tika: Failed to parse HTTP url %s: %s", url, error);
 		return -1;
@@ -159,6 +159,11 @@ fts_parser_tika_try_init(struct fts_parser_context *parser_context)
 			http_url->host.name,
 			t_strconcat(http_url->path, http_url->enc_query, NULL),
 			fts_tika_parser_response, parser);
+	if (http_url->user != NULL) {
+		http_client_request_set_auth_simple(
+			http_req, http_url->user, http_url->password);
+	}
+
 	http_client_request_set_port(http_req, http_url->port);
 	http_client_request_set_ssl(http_req, http_url->have_ssl);
 	if (parser_context->content_type != NULL)
