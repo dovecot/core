@@ -691,37 +691,41 @@ static void test_get_info_invalid_keys(void)
 {
 	test_begin("test_get_info_invalid_keys");
 
-	const char *key =
-		"1:716:030131D8A5FD5167947A0AE9CB112ADED6526654635A"
-		"A5887051EE2364414B60FF32EBA8FA0BBE9485DBDE8794BBBC"
-		"B44BBFC0D662A4287A848BA570D4E5E45A11FE0F:d0cfaca5d"
-		"335f9edc41c84bb47465184cb0e2ec3931bebfcea4dd433615"
-		"e77a0";
-	const char *error = NULL;
+	static const struct {
+		const char *key;
+		const char *error;
+	} invalid_keys[] = {
+		{
+			.key = "1:716:030131D8A5FD5167947A0AE9CB112ADED6526654635A"
+			       "A5887051EE2364414B60FF32EBA8FA0BBE9485DBDE8794BBBC"
+			       "B44BBFC0D662A4287A848BA570D4E5E45A11FE0F:d0cfaca5d"
+			       "335f9edc41c84bb47465184cb0e2ec3931bebfcea4dd433615"
+			       "e77a0",
+			.error = "tab",
+		},
+		{
+			.key = "2\t305e301006072a8648ce3d020106052b81040026034a000"
+			       "203fcc90034fa03d6fb79a0fc8b3b43c3398f68e7602930736"
+			       "0cdcb9e27bb7e84b3c19dfb7244763bc4d442d216f09b7b794"
+			       "5ed9d182f3156550e9ee30b237a0217dbf79d28975f31\t867"
+			       "06b69d1f640011a65d26a42f2ba20a619173644e1cc7475eb1"
+			       "d90966e84dc",
+			.error = "colon",
+		},
+		{
+			.key = "2",
+			.error = "Unknown",
+		}
+	};
 
-	test_assert(dcrypt_key_string_get_info(key, NULL, NULL,
-			NULL, NULL, NULL, NULL, &error) == FALSE);
-	test_assert(error != NULL && strstr(error, "tab") != NULL);
-
-	key =
-		"2\t305e301006072a8648ce3d020106052b81040026034a000"
-		"203fcc90034fa03d6fb79a0fc8b3b43c3398f68e7602930736"
-		"0cdcb9e27bb7e84b3c19dfb7244763bc4d442d216f09b7b794"
-		"5ed9d182f3156550e9ee30b237a0217dbf79d28975f31\t867"
-		"06b69d1f640011a65d26a42f2ba20a619173644e1cc7475eb1"
-		"d90966e84dc";
-	error = NULL;
-
-	test_assert(dcrypt_key_string_get_info(key, NULL, NULL,
-			NULL, NULL, NULL, NULL, &error) == FALSE);
-	test_assert(error != NULL && strstr(error, "colon") != NULL);
-
-	key = "2";
-	error = NULL;
-
-	test_assert(dcrypt_key_string_get_info(key, NULL, NULL,
-			NULL, NULL, NULL, NULL, &error) == FALSE);
-	test_assert(error != NULL && strstr(error, "Unknown") != NULL);
+	for (size_t i = 0; i < N_ELEMENTS(invalid_keys); i++) {
+		const char *error = NULL;
+		test_assert(dcrypt_key_string_get_info(
+				    invalid_keys[i].key, NULL, NULL, NULL, NULL,
+				    NULL, NULL, &error) == FALSE);
+		test_assert(error != NULL &&
+			    strstr(error, invalid_keys[i].error) != NULL);
+	}
 
 	test_end();
 }
