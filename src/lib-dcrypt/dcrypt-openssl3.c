@@ -1091,8 +1091,7 @@ dcrypt_openssl_decrypt_point_v1(buffer_t *data, buffer_t *key, BIGNUM **point_r,
 	dcrypt_openssl_ctx_sym_destroy(&dctx);
 
 	*point_r = BN_bin2bn(tmp->data, tmp->used, NULL);
-	safe_memset(buffer_get_modifiable_data(tmp, NULL), 0, tmp->used);
-	buffer_set_used_size(key, 0);
+	buffer_clear_safe(key);
 
 	if (*point_r == NULL)
 		return dcrypt_openssl_error(error_r);
@@ -1123,8 +1122,7 @@ dcrypt_openssl_decrypt_point_ec_v1(struct dcrypt_private_key *dec_key,
 	/* run it thru SHA256 once */
 	unsigned char digest[SHA256_DIGEST_LENGTH];
 	SHA256(secret->data, secret->used, digest);
-	safe_memset(buffer_get_modifiable_data(secret, NULL), 0, secret->used);
-	buffer_set_used_size(secret, 0);
+	buffer_clear_safe(secret);
 	buffer_create_from_const_data(&key, digest, SHA256_DIGEST_LENGTH);
 
 	/* then use this as key */
@@ -1370,7 +1368,7 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 		peer_key = t_buffer_create(strlen(input[8])/2);
 		secret = t_buffer_create(128);
 
-		buffer_set_used_size(data, 0);
+		buffer_clear_safe(data);
 		hex_to_binary(input[4], salt);
 		hex_to_binary(input[8], peer_key);
 		hex_to_binary(input[7], data);
@@ -2247,7 +2245,7 @@ dcrypt_openssl_encrypt_private_key_dovecot(buffer_t *key, int enctype,
 				     peer_key->data, peer_key->used);
 		str_append_c(destination, ':');
 
-		buffer_set_used_size(peer_key, 0);
+		buffer_clear_safe(peer_key);
 		if (!dcrypt_openssl_public_key_id(enc_key, "sha256",
 						  peer_key, error_r))
 			return FALSE;
@@ -2344,7 +2342,7 @@ dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key,
 
 	/* append public key id */
 	str_append_c(destination, ':');
-	buffer_set_used_size(buf, 0);
+	buffer_clear_safe(buf);
 	bool res = dcrypt_openssl_private_key_id(key, "sha256", buf, error_r);
 	binary_to_hex_append(destination, buf->data, buf->used);
 
@@ -3085,7 +3083,7 @@ static void dcrypt_x962_remove_der(buffer_t *signature_r)
 	if (len_s < len_r)
 		buffer_append_c(new_sig, 0x0);
 	buffer_append(new_sig, data + offset_s, len_s);
-	buffer_set_used_size(signature_r, 0);
+	buffer_clear_safe(signature_r);
 	buffer_append_buf(signature_r, new_sig, 0, new_sig->used);
 }
 
@@ -3112,7 +3110,7 @@ static bool dcrypt_x962_add_der(buffer_t *signature_r)
 	sk_ASN1_TYPE_unshift(seq, t_s);
 	unsigned char *ptr = NULL;
 	len = i2d_ASN1_SEQUENCE_ANY(seq, &ptr);
-	buffer_set_used_size(signature_r, 0);
+	buffer_clear_safe(signature_r);
 	buffer_append(signature_r, ptr, len);
 	OPENSSL_free(ptr);
 	sk_ASN1_TYPE_free(seq);

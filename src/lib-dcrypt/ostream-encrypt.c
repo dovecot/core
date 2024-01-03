@@ -513,7 +513,7 @@ o_stream_encrypt_sendv(struct ostream_private *stream,
 		size_t bl, off = 0, len = iov[i].iov_len;
 		const unsigned char *ptr = iov[i].iov_base;
 		while(len > 0) {
-			buffer_set_used_size(&buf, 0);
+			buffer_clear_safe(&buf);
 			/* update can emite twice the size of input */
 			bl = I_MIN(sizeof(ciphertext)/2, len);
 
@@ -591,7 +591,7 @@ o_stream_encrypt_finalize(struct ostream_private *stream)
 	}
 
 	/* write last mac bytes */
-	buffer_set_used_size(buf, 0);
+	buffer_clear_safe(buf);
 	if ((estream->flags & IO_STREAM_ENC_INTEGRITY_HMAC) ==
 		IO_STREAM_ENC_INTEGRITY_HMAC) {
 		if (!dcrypt_ctx_hmac_final(estream->ctx_mac, buf, &error)) {

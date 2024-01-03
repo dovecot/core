@@ -671,8 +671,7 @@ i_stream_decrypt_header_contents(struct decrypt_istream *stream,
 		stream->use_mac = FALSE;
 	}
 	/* destroy private key data */
-	safe_memset(buffer_get_modifiable_data(keydata, 0), 0, keydata->used);
-	buffer_set_used_size(keydata, 0);
+	buffer_clear_safe(keydata);
 	return failed ? -1 : 1;
 }
 
@@ -900,9 +899,7 @@ i_stream_decrypt_read(struct istream_private *stream)
 				continue;
 			} else {
 				/* clean up buffer */
-				safe_memset(buffer_get_modifiable_data(dstream->buf, 0),
-					    0, dstream->buf->used);
-				buffer_set_used_size(dstream->buf, 0);
+				buffer_clear_safe(dstream->buf);
 				i_stream_skip(stream->parent, hret);
 			}
 
