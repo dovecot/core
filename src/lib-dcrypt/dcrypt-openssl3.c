@@ -1842,7 +1842,10 @@ dcrypt_openssl_load_private_key_jwk(struct dcrypt_private_key **key_r,
 
 	kty = json_tree_node_get_str(node);
 
-	if (null_strcmp(kty, "EC") == 0) {
+	if (kty == NULL) {
+		error = "Missing key type";
+		ret = false;
+	} else if (strcmp(kty, "EC") == 0) {
 		ret = load_jwk_ec_key(&pkey, TRUE, root, password, dec_key, &error);
 	} else if (strcmp(kty, "RSA") == 0) {
 		ret = load_jwk_rsa_key(&pkey, TRUE, root, password, dec_key, &error);
@@ -1916,7 +1919,10 @@ dcrypt_openssl_load_public_key_jwk(struct dcrypt_public_key **key_r,
 
 	kty = json_tree_node_get_str(node);
 
-	if (null_strcmp(kty, "EC") == 0) {
+	if (kty == NULL) {
+		error = "Missing key type";
+		ret = false;
+	} else if (strcmp(kty, "EC") == 0) {
 		ret = load_jwk_ec_key(&pkey, FALSE, root, NULL, NULL, &error);
 	} else if (strcmp(kty, "RSA") == 0) {
 	      ret = load_jwk_rsa_key(&pkey, FALSE, root, NULL, NULL, &error);
