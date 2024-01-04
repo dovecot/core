@@ -1559,6 +1559,7 @@ static const struct jwk_to_ssl_map_entry {
 	{ .jwk_curve = "P-256", .nid = NID_X9_62_prime256v1 },
 	{ .jwk_curve = "P-384", .nid = NID_secp384r1 },
 	{ .jwk_curve = "P-521", .nid = NID_secp521r1 },
+	{ .jwk_curve = "secp256k1", .nid = NID_secp256k1 },
 #ifdef HAVE_X25519
 	{ .jwk_curve = "Ed25519", .nid = NID_ED25519 },
 	{ .jwk_curve = "Ed448", .nid = NID_ED448 },
