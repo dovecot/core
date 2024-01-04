@@ -1007,7 +1007,7 @@ static void http_client_connection_input(struct connection *_conn)
 			if (ssl_iostream_is_handshaked(conn->ssl_iostream))
 				break;
 		}
-		if (ret < 0) {
+		if (ret == -1) {
 			int stream_errno = conn->conn.input->stream_errno;
 
 			/* Failed somehow */
