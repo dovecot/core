@@ -304,7 +304,8 @@ oauth2_validate_rsa_ecdsa(const struct oauth2_settings *set,
 		i_unreached();
 	}
 
-	if (strcmp(alg+2, "256") == 0) {
+	if (strcmp(alg+2, "256") == 0 ||
+	    strcmp(alg+2, "256K") == 0) {
 		method = "sha256";
 	} else if (strcmp(alg+2, "384") == 0) {
 		method = "sha384";
