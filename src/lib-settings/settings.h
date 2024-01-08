@@ -151,27 +151,6 @@ int settings_get(struct event *event,
 		__FILE__, __LINE__, (void *)set_r, error_r)
 #endif
 
-/* Same as settings_get(), but looks up settings for a specific named
-   (non-list) filter. Use e.g. { filter_name="oauth2" }. Returns 1 if settings
-   for the filter are found, 0 if not (set_r is not set), -1 if error. */
-int settings_try_get(struct event *event, const char *filter_name,
-		     const struct setting_parser_info *info,
-		     enum settings_get_flags flags,
-		     const char *source_filename,
-		     unsigned int source_linenum,
-		     const void **set_r, const char **error_r);
-#ifdef HAVE_TYPE_CHECKS
-#  define settings_try_get(event, filter_name, info, flags, set_r, error_r) \
-	settings_try_get(event, filter_name, info, flags, \
-		__FILE__, __LINE__, (void *)set_r, 1 ? (error_r) : \
-	COMPILE_ERROR_IF_TRUE( \
-		!__builtin_types_compatible_p(typeof((*set_r)->pool), pool_t)))
-#else
-#  define settings_try_get(event, filter_name, info, flags, set_r, error_r) \
-	settings_try_get(event, filter_name, info, flags, \
-		__FILE__, __LINE__, (void *)set_r, error_r)
-#endif
-
 /* Same as settings_get(), but looks up settings for a specific named list
    filter. Use e.g. { filter_key="namespace", filter_value="inbox" }.
    Returns 0 on success, -1 on error.
