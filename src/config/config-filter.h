@@ -22,10 +22,6 @@ struct config_filter {
 	const char *filter_name;
 	/* named_list_filter key { .. } */
 	bool filter_name_array;
-	/* This filter is hierarchical. If a child event is also hierarchical,
-	   their filter_names will be merged into one filter path when dumping
-	   the config. */
-	bool filter_hierarchical;
 
 	/* TRUE if default settings are being accessed. These will be stored in
 	   separate filters so they can be ordered before global settings. */

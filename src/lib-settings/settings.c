@@ -1174,28 +1174,6 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 				      SETTINGS_EVENT_FILTER_NAME,
 				      last_filter_key);
 			break;
-		case SET_FILTER_HIERARCHY: {
-			/* add the full repeated hierarchy here */
-			const char *next;
-
-			str_printfa(filter_string, SETTINGS_EVENT_FILTER_NAME"=\"%s",
-				    wildcard_str_escape(part));
-			while (str_begins(p + 1, part, &next) &&
-			       next[0] == SETTINGS_SEPARATOR) {
-				str_append_c(filter_string, '/');
-				str_append(filter_string,
-					   wildcard_str_escape(part));
-				p = next;
-			}
-			str_append_c(filter_string, '"');
-
-			last_filter_key = t_strdup_until(set->key, p);
-			last_filter_value = NULL;
-			event_add_str(set->filter_event,
-				      SETTINGS_EVENT_FILTER_NAME,
-				      last_filter_key);
-			break;
-		}
 		case SET_FILTER_ARRAY: {
 			const char *value = p + 1;
 			p = strchr(value, SETTINGS_SEPARATOR);

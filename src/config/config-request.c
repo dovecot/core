@@ -312,7 +312,6 @@ settings_export(struct config_export_context *ctx,
 			break;
 		}
 		case SET_FILTER_NAME:
-		case SET_FILTER_HIERARCHY:
 		case SET_ALIAS:
 			break;
 		}
