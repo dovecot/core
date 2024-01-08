@@ -1725,19 +1725,6 @@ int settings_get(struct event *event,
 	return ret < 0 ? -1 : 0;
 }
 
-#undef settings_try_get
-int settings_try_get(struct event *event, const char *filter_name,
-		     const struct setting_parser_info *info,
-		     enum settings_get_flags flags,
-		     const char *source_filename,
-		     unsigned int source_linenum,
-		     const void **set_r, const char **error_r)
-{
-	return settings_get_full(event, filter_name, NULL, info, flags,
-				 source_filename, source_linenum,
-				 set_r, error_r);
-}
-
 #undef settings_get_filter
 int settings_get_filter(struct event *event,
 			const char *filter_key, const char *filter_value,
