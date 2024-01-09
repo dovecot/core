@@ -390,19 +390,12 @@ mail_storage_create_list(struct mail_namespace *ns,
 
 	if (mail_set->mail_path[0] == '\0') {
 		/* no root directory given. is this allowed? */
-		const struct mailbox_list *list;
-
-		list = mail_set->mailbox_list_layout[0] == '\0' ? NULL :
-			mailbox_list_find_class(mail_set->mailbox_list_layout);
 		if (storage_class == NULL &&
 		    (flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) == 0) {
 			/* autodetection should take care of this */
 		} else if (storage_class != NULL &&
 			   (storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) != 0) {
 			/* root not required for this storage */
-		} else if (list != NULL &&
-			   (list->props & MAILBOX_LIST_PROP_NO_ROOT) != 0) {
-			/* root not required for this layout */
 		} else {
 			*error_r = "Root mail directory not given";
 			settings_free(mail_set);
