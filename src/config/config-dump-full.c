@@ -43,7 +43,7 @@
 			       NUL = no error, followed by settings>
        Repeat until "filter settings size" is reached:
          <32bit big-endian: key index number>
-	 [<strlist/boollist key>]
+	 [+|$ <strlist/boollist key>]
 	 <NUL-terminated string: value>
      Repeat for "filter count":
        <32bit big-endian: event filter string index number>
@@ -203,7 +203,12 @@ static void
 config_dump_full_stdout_callback(const struct config_export_setting *set,
 				 struct dump_context *ctx)
 {
-	if (set->type == CONFIG_KEY_LIST) {
+	if (set->type != CONFIG_KEY_LIST)
+		;
+	else if (set->list_count == 0 && set->value_stop_list &&
+		 set->def_type == SET_BOOLLIST) {
+		/* filter empties a boollist setting */
+	} else {
 		/* these aren't needed */
 		return;
 	}
@@ -222,20 +227,27 @@ config_dump_full_stdout_callback(const struct config_export_setting *set,
 			&ctx->info->defines[set->key_define_idx];
 		if (def->type == SET_STRLIST || def->type == SET_BOOLLIST) {
 			const char *suffix;
-			if (!str_begins(set->key, def->key, &suffix) ||
-			    suffix[0] != '/')
+			if (!str_begins(set->key, def->key, &suffix))
 				i_unreached();
-
-			suffix++;
-			o_stream_nsend_str(ctx->output,
-					   t_strdup_until(set->key, suffix));
-			o_stream_nsend_str(ctx->output,
-					   settings_section_escape(suffix));
+			else if (suffix[0] == '/') {
+				suffix++;
+				o_stream_nsend_str(ctx->output,
+					t_strdup_until(set->key, suffix));
+				o_stream_nsend_str(ctx->output,
+					settings_section_escape(suffix));
+			} else {
+				/* emptying boollist */
+				i_assert(suffix[0] == '\0');
+				i_assert(set->type == CONFIG_KEY_LIST);
+				o_stream_nsend_str(ctx->output, set->key);
+			}
 		} else {
 			o_stream_nsend_str(ctx->output, set->key);
 		}
 		o_stream_nsend_str(ctx->output, "=");
 		o_stream_nsend_str(ctx->output, str_tabescape(set->value));
+		if (set->value_stop_list)
+			o_stream_nsend_str(ctx->output, " # stop boollist");
 		o_stream_nsend_str(ctx->output, "\n");
 	} T_END;
 }
@@ -245,7 +257,12 @@ static void config_dump_full_callback(const struct config_export_setting *set,
 {
 	const char *suffix;
 
-	if (set->type == CONFIG_KEY_LIST) {
+	if (set->type != CONFIG_KEY_LIST)
+		;
+	else if (set->list_count == 0 && set->value_stop_list &&
+		 set->def_type == SET_BOOLLIST) {
+		/* filter empties a boollist setting */
+	} else {
 		/* these aren't needed */
 		return;
 	}
@@ -275,13 +292,22 @@ static void config_dump_full_callback(const struct config_export_setting *set,
 			&ctx->info->defines[set->key_define_idx];
 		if (def->type == SET_STRLIST || def->type == SET_BOOLLIST) {
 			const char *suffix;
-			if (!str_begins(set->key, def->key, &suffix) ||
-			    suffix[0] != '/')
+			if (!str_begins(set->key, def->key, &suffix))
 				i_unreached();
-			else {
+			else if (suffix[0] == '/') {
 				suffix = settings_section_escape(suffix + 1);
+				o_stream_nsend(ctx->output,
+					       set->value_stop_list ?
+					       SET_BOOLLIST_REPLACE :
+					       SET_BOOLLIST_APPEND, 1);
 				o_stream_nsend(ctx->output, suffix,
 					       strlen(suffix) + 1);
+			} else {
+				/* emptying boollist */
+				i_assert(suffix[0] == '\0');
+				i_assert(set->type == CONFIG_KEY_LIST);
+				o_stream_nsend(ctx->output,
+					       SET_BOOLLIST_CLEAR, 1 + 1);
 			}
 		}
 		o_stream_nsend(ctx->output, set->value, strlen(set->value)+1);

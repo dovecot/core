@@ -201,6 +201,7 @@ settings_export(struct config_export_context *ctx,
 			break;
 		}
 
+		bool value_stop_list = FALSE;
 		dump = FALSE;
 		str_truncate(ctx->value, 0);
 		switch (def->type) {
@@ -254,9 +255,10 @@ settings_export(struct config_export_context *ctx,
 		case SET_STRLIST:
 		case SET_BOOLLIST: {
 			const ARRAY_TYPE(const_string) *val =
-				module_parser->settings[define_idx].array;
+				module_parser->settings[define_idx].array.values;
 			const char *const *strings;
 
+			value_stop_list = module_parser->settings[define_idx].array.stop_list;
 			if (hash_table_is_created(ctx->keys) &&
 			    hash_table_lookup(ctx->keys, def->key) != NULL) {
 				/* already added all of these */
@@ -281,6 +283,7 @@ settings_export(struct config_export_context *ctx,
 				.key_define_idx = define_idx,
 				.value = "",
 				.list_count = count / 2,
+				.value_stop_list = value_stop_list,
 			};
 			ctx->callback(&export_set, ctx->context);
 
@@ -293,13 +296,21 @@ settings_export(struct config_export_context *ctx,
 						      strings[i]);
 				export_set.list_idx = i / 2;
 				export_set.value = strings[i+1];
-				ctx->callback(&export_set, ctx->context);
+				/* only the last element stops the list */
+				export_set.value_stop_list = value_stop_list &&
+					i + 2 == count;
+				if (def->type == SET_BOOLLIST &&
+				    strcmp(export_set.value, "no") == 0 &&
+				    value_stop_list)
+					; /* ignore */
+				else
+					ctx->callback(&export_set, ctx->context);
 			} T_END;
 			break;
 		}
 		case SET_FILTER_ARRAY: {
 			const ARRAY_TYPE(const_string) *val =
-				module_parser->settings[define_idx].array;
+				module_parser->settings[define_idx].array.values;
 			const char *name;
 
 			if (val == NULL)

@@ -92,6 +92,10 @@ config_request_get_strings(const struct config_export_setting *set,
 			value = p_strdup_printf(ctx->pool, "%s=", set->key);
 			break;
 		}
+		if (set->value_stop_list && set->def_type == SET_BOOLLIST) {
+			value = p_strdup_printf(ctx->pool, "%s=", set->key);
+			array_push_back(&ctx->strings, &value);
+		}
 		value = p_strdup_printf(ctx->pool, LIST_KEY_PREFIX"%s=%s",
 					set->key, set->value);
 		break;

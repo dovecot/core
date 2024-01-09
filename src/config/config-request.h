@@ -42,6 +42,7 @@ struct config_export_setting {
 	unsigned int list_idx;
 	unsigned int list_count;
 	const char *value;
+	bool value_stop_list;
 };
 
 typedef void config_request_callback_t(const struct config_export_setting *set,

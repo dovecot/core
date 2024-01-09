@@ -659,6 +659,25 @@ settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 			   whole list is replaced. */
 			set_apply = FALSE;
 		}
+		bool list_stop = FALSE, list_clear = FALSE;
+		if (ctx->info->defines[key_idx].type == SET_BOOLLIST ||
+		    ctx->info->defines[key_idx].type == SET_STRLIST) {
+			const char *type =
+				(const char *)mmap->mmap_base + offset;
+			if (type[0] == SET_BOOLLIST_REPLACE[0])
+				list_stop = TRUE;
+			else if (type[0] == SET_BOOLLIST_CLEAR[0]) {
+				list_stop = TRUE;
+				list_clear = TRUE;
+			} else if (type[0] != SET_BOOLLIST_APPEND[0]) {
+				*error_r = t_strdup_printf(
+					"List type is invalid (offset=%zu)",
+					offset);
+				return -1;
+			}
+			offset++;
+		}
+
 		if (ctx->info->defines[key_idx].type == SET_STRLIST ||
 		    ctx->info->defines[key_idx].type == SET_BOOLLIST) {
 			list_key = (const char *)mmap->mmap_base + offset;
@@ -692,8 +711,18 @@ settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 		if (!set_apply)
 			ret = 0;
 		else T_BEGIN {
-			ret = settings_mmap_apply_key(ctx, key_idx, list_key,
-						      value, error_r);
+			if (list_clear)
+				ret = 0;
+			else {
+				ret = settings_mmap_apply_key(ctx, key_idx,
+					list_key, value, error_r);
+			}
+			if (list_stop) {
+				/* The lists are filled in reverse order.
+				   Mark it now as "stopped", so the following
+				   list settings won't modify it. */
+				settings_parse_array_stop(ctx->parser, key_idx);
+			}
 		} T_END_PASS_STR_IF(ret < 0, error_r);
 		if (ret < 0)
 			return -1;
