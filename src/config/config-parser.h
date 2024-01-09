@@ -44,7 +44,10 @@ struct config_module_parser {
 	unsigned int set_count;
 	union config_module_parser_setting {
 		const char *str;
-		ARRAY_TYPE(const_string) *array;
+		struct {
+			ARRAY_TYPE(const_string) *values;
+			bool stop_list;
+		} array;
 	} *settings; /* [set_count] */
 	uint8_t *change_counters; /* [set_count] */
 	/* Set if CONFIG_PARSE_FLAG_DELAY_ERRORS is enabled. The error won't
