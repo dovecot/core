@@ -1484,6 +1484,14 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			}
 			value = str_c(ctx->str);
 		}
+		if (ctx->info->defines[key_idx].type == SET_FILTER_ARRAY &&
+		    set->type <= SETTINGS_OVERRIDE_TYPE_CLI_PARAM &&
+		    str_begins_with(value, "__")) {
+			*error_r = t_strdup_printf(
+				"Named list filter name must not begin with '__': %s",
+				value);
+			return -1;
+		}
 
 		if (value != set->value)
 			value = p_strdup(&ctx->mpool->pool, value);
