@@ -244,7 +244,8 @@ dir_entry_get(struct fs_list_iterate_context *ctx, const char *dir_path,
 
 static bool
 fs_list_get_storage_path(struct fs_list_iterate_context *ctx,
-			 const char *storage_name, const char **path_r)
+			 const char *storage_name, bool iter_from_index_dir,
+			 const char **path_r)
 {
 	const char *root, *path = storage_name;
 
@@ -262,12 +263,12 @@ fs_list_get_storage_path(struct fs_list_iterate_context *ctx,
 		const struct mail_storage_settings *set =
 			ctx->ctx.list->mail_set;
 		enum mailbox_list_path_type type =
-			ctx->ctx.iter_from_index_dir ?
+			iter_from_index_dir ?
 			MAILBOX_LIST_PATH_TYPE_INDEX :
 			MAILBOX_LIST_PATH_TYPE_MAILBOX;
 		if (!mailbox_list_get_root_path(ctx->ctx.list, type, &root))
 			return FALSE;
-		if (ctx->ctx.iter_from_index_dir &&
+		if (iter_from_index_dir &&
 		    set->parsed_mailbox_root_directory_prefix[0] != '\0') {
 			/* append "mailboxes/" to the index root */
 			root = t_strconcat(root, "/",
@@ -289,7 +290,8 @@ fs_list_dir_read(struct fs_list_iterate_context *ctx,
 	const char *path;
 	int ret = 0;
 
-	if (!fs_list_get_storage_path(ctx, dir->storage_name, &path))
+	if (!fs_list_get_storage_path(ctx, dir->storage_name,
+				      ctx->ctx.iter_from_index_dir, &path))
 		return 0;
 	if (path == NULL) {
 		/* no mailbox root dir */
@@ -630,7 +632,7 @@ list_file_is_any_inbox(struct fs_list_iterate_context *ctx,
 {
 	const char *path, *inbox_path;
 
-	if (!fs_list_get_storage_path(ctx, storage_name, &path))
+	if (!fs_list_get_storage_path(ctx, storage_name, FALSE, &path))
 		return FALSE;
 
 	if (mailbox_list_get_path(ctx->ctx.list, "INBOX",
