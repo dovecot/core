@@ -24,10 +24,6 @@ struct old_set_parser {
 	bool post_auth_debug:1;
 };
 
-static const struct config_filter any_filter = {
-	.service = NULL
-};
-
 static const struct config_filter imap_filter = {
 	.service = "imap"
 };
@@ -439,16 +435,13 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 	struct config_section_stack *old_section = ctx->cur_section;
 	const char *p;
 	uoff_t size;
-	bool root;
 
 	while (ctx->cur_section->prev != NULL)
 		ctx->cur_section = ctx->cur_section->prev;
 
-	root = config_filter_match(&old_section->filter_parser->filter, &any_filter);
-
 	if (strcmp(key, "ssl_listen") == 0 ||
 	    (strcmp(key, "listen") == 0 &&
-	     (listen_has_port(value) || !root))) {
+	     listen_has_port(value))) {
 		const char *ssl = strcmp(key, "ssl_listen") == 0 ? "s" : "";
 
 		if (*value == '\0') {
@@ -474,26 +467,8 @@ old_settings_handle_proto(struct config_parser_context *ctx,
 				ctx->error = NULL;
 			}
 		}
-		if (root && *ssl == '\0') {
-			old_set_parser_apply(ctx, CONFIG_LINE_TYPE_KEYVALUE,
-					     key, value);
-		} else {
-			obsolete(ctx, "protocol { %s } has been replaced by service { inet_listener { address } }", key);
-			if (config_filter_match(&old_section->filter_parser->filter, &imap_filter)) {
-				config_apply_line(ctx, t_strdup_printf(
-					"service/imap-login/inet_listener/imap%s/address", ssl), value);
-			}
-			if (config_filter_match(&old_section->filter_parser->filter, &pop3_filter)) {
-				config_apply_line(ctx, t_strdup_printf(
-					"service/pop3-login/inet_listener/pop3%s/address", ssl), value);
-			}
-			if (*ssl == '\0' &&
-			    config_filter_match(&old_section->filter_parser->filter, &managesieve_filter)) {
-				config_apply_line(ctx,
-					"service/managesieve-login/inet_listener/managesieve/address", value);
-				ctx->error = NULL;
-			}
-		}
+		old_set_parser_apply(ctx, CONFIG_LINE_TYPE_KEYVALUE,
+				     key, value);
 		return TRUE;
 	}
 	if (strcmp(key, "login_chroot") == 0) {
