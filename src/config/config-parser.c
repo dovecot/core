@@ -572,6 +572,13 @@ config_apply_exact_line(struct config_parser_context *ctx,
 				return -1;
 			break;
 		case SET_FILTER_ARRAY:
+			if (str_begins_with(value, "__")) {
+				/* These are reserved for internal filters */
+				ctx->error = p_strdup_printf(ctx->pool,
+					"Named list filter name must not begin with '__': %s",
+					value);
+				return -1;
+			}
 			if (config_apply_filter_array(ctx, line, value,
 					&l->settings[config_key->define_idx].array) < 0)
 				return -1;
