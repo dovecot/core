@@ -436,7 +436,9 @@ const char *const *settings_boollist_get(const ARRAY_TYPE(const_string) *array)
 		strings = array_get(array, &count);
 		i_assert(strings[count] == NULL);
 #ifdef DEBUG
-		i_assert(strings[count+1] == boollist_eol_sentry);
+	i_assert(strings[count+1] == boollist_eol_sentry ||
+		 (strings[count+1] == set_array_stop &&
+		  strings[count+2] == boollist_eol_sentry));
 #endif
 	}
 	return strings;
@@ -475,13 +477,17 @@ const char *settings_file_get_value(pool_t pool,
 	return value;
 }
 
-static void boollist_null_terminate(ARRAY_TYPE(const_string) *array)
+static void boollist_null_terminate(ARRAY_TYPE(const_string) *array, bool stop)
 {
 	array_append_zero(array);
+	if (stop)
+		array_push_back(array, &set_array_stop);
 #ifdef DEBUG
 	array_push_back(array, &boollist_eol_sentry);
 	array_pop_back(array);
 #endif
+	if (stop)
+		array_pop_back(array);
 	array_pop_back(array);
 }
 
@@ -494,6 +500,17 @@ settings_parse_boollist(struct setting_parser_context *ctx,
 
 	if (!array_is_created(array))
 		p_array_init(array, ctx->set_pool, 5);
+	else {
+		/* The first element after the visible array is NULL. If the
+		   next element after the NULL is set_array_stop, then the
+		   boollist should not be modified any further. */
+		unsigned int old_count;
+		const char *const *old_values =
+			array_get(array, &old_count);
+		i_assert(old_values[old_count] == NULL);
+		if (old_values[old_count + 1] == set_array_stop)
+			return 0;
+	}
 
 	key = strrchr(key, SETTINGS_SEPARATOR);
 	if (key == NULL) {
@@ -505,7 +522,7 @@ settings_parse_boollist(struct setting_parser_context *ctx,
 			return -1;
 		}
 		/* keep it NULL-terminated for each access */
-		boollist_null_terminate(array);
+		boollist_null_terminate(array, FALSE);
 		return 0;
 	}
 	key = settings_section_unescape(key + 1);
@@ -536,7 +553,7 @@ settings_parse_boollist(struct setting_parser_context *ctx,
 		removal->key_suffix = key;
 	}
 	/* keep it NULL-terminated for each access */
-	boollist_null_terminate(array);
+	boollist_null_terminate(array, FALSE);
 	return 0;
 }
 
@@ -770,15 +787,22 @@ int settings_parse_keyidx_value_nodup(struct setting_parser_context *ctx,
 void settings_parse_array_stop(struct setting_parser_context *ctx,
 			       unsigned int key_idx)
 {
-	i_assert(ctx->info->defines[key_idx].type == SET_FILTER_ARRAY);
+	i_assert(ctx->info->defines[key_idx].type == SET_FILTER_ARRAY ||
+		 ctx->info->defines[key_idx].type == SET_BOOLLIST);
 
 	ARRAY_TYPE(const_string) *arr =
 		PTR_OFFSET(ctx->set_struct, ctx->info->defines[key_idx].offset);
 	if (!array_is_created(arr))
 		p_array_init(arr, ctx->set_pool, 1);
-	/* Use the next element hidden after the array to keep the stop-state */
-	array_push_back(arr, &set_array_stop);
-	array_pop_back(arr);
+
+	if (ctx->info->defines[key_idx].type == SET_BOOLLIST)
+		boollist_null_terminate(arr, TRUE);
+	else {
+		/* Use the next element hidden after the array to keep
+		   the stop-state */
+		array_push_back(arr, &set_array_stop);
+		array_pop_back(arr);
+	}
 }
 
 static int boollist_removal_cmp(const struct boollist_removal *r1,
