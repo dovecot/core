@@ -40,9 +40,6 @@ struct auth_passdb {
 	/* The caching key for this passdb, or NULL if caching isn't wanted. */
 	const char *cache_key;
 
-	struct passdb_template *default_fields_tmpl;
-	struct passdb_template *override_fields_tmpl;
-
 	/* Supported authentication mechanisms, NULL is all, {NULL} is none */
 	const char *const *mechanisms;
 	/* Username filter, NULL is no filter */

@@ -323,6 +323,9 @@ void auth_request_set_field_keyvalue(struct auth_request *request,
 void auth_request_set_fields(struct auth_request *request,
 			     const char *const *fields,
 			     const char *default_scheme) ATTR_NULL(3);
+void auth_request_set_strlist(struct auth_request *request,
+			      const ARRAY_TYPE(const_string) *strlist,
+			      const char *default_scheme);
 
 void auth_request_init_userdb_reply(struct auth_request *request);
 void auth_request_set_userdb_field(struct auth_request *request,

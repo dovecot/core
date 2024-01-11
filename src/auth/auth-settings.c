@@ -106,8 +106,6 @@ static const struct setting_define auth_passdb_setting_defines[] = {
 	DEF(STR, name),
 	DEF(STR, driver),
 	DEF(STR_NOVARS, args),
-	DEF(STR_NOVARS, default_fields),
-	DEF(STR_NOVARS, override_fields),
 	DEF(BOOLLIST, mechanisms),
 	DEF(STR, username_filter),
 
@@ -126,8 +124,6 @@ static const struct auth_passdb_settings auth_passdb_default_settings = {
 	.name = "",
 	.driver = "",
 	.args = "",
-	.default_fields = "",
-	.override_fields = "",
 	.mechanisms = ARRAY_INIT,
 	.username_filter = "",
 
@@ -150,6 +146,48 @@ const struct setting_parser_info auth_passdb_setting_parser_info = {
 	.pool_offset1 = 1 + offsetof(struct auth_passdb_settings, pool),
 
 	.check_func = auth_passdb_settings_check
+};
+
+static const struct setting_define auth_passdb_pre_setting_defines[] = {
+	{ .type = SET_STRLIST, .key = "passdb_default_fields",
+	  .offset = offsetof(struct auth_passdb_pre_settings, default_fields) },
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct auth_passdb_pre_settings auth_passdb_pre_default_settings = {
+	.default_fields = ARRAY_INIT,
+};
+
+const struct setting_parser_info auth_passdb_pre_setting_parser_info = {
+	.name = "auth_passdb_pre",
+
+	.defines = auth_passdb_pre_setting_defines,
+	.defaults = &auth_passdb_pre_default_settings,
+
+	.struct_size = sizeof(struct auth_passdb_pre_settings),
+	.pool_offset1 = 1 + offsetof(struct auth_passdb_pre_settings, pool),
+};
+
+static const struct setting_define auth_passdb_post_setting_defines[] = {
+	{ .type = SET_STRLIST, .key = "passdb_override_fields",
+	  .offset = offsetof(struct auth_passdb_post_settings, override_fields) },
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct auth_passdb_post_settings auth_passdb_post_default_settings = {
+	.override_fields = ARRAY_INIT,
+};
+
+const struct setting_parser_info auth_passdb_post_setting_parser_info = {
+	.name = "auth_passdb_post",
+
+	.defines = auth_passdb_post_setting_defines,
+	.defaults = &auth_passdb_post_default_settings,
+
+	.struct_size = sizeof(struct auth_passdb_post_settings),
+	.pool_offset1 = 1 + offsetof(struct auth_passdb_post_settings, pool),
 };
 
 #undef DEF

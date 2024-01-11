@@ -92,7 +92,6 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
 	auth_passdb = p_new(auth->pool, struct auth_passdb, 1);
 	auth_passdb->auth_set =
 		settings_get_or_fatal(event, &auth_setting_parser_info);
-	event_unref(&event);
 
 	auth_passdb->name = set->name;
 	auth_passdb->set = set;
@@ -103,11 +102,6 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
 		auth_db_rule_parse(set->result_failure);
 	auth_passdb->result_internalfail =
 		auth_db_rule_parse(set->result_internalfail);
-
-	auth_passdb->default_fields_tmpl =
-		passdb_template_build(auth->pool, set->default_fields);
-	auth_passdb->override_fields_tmpl =
-		passdb_template_build(auth->pool, set->override_fields);
 
 	if (!array_is_created(&set->mechanisms) ||
 	    array_is_empty(&set->mechanisms)) {
@@ -130,13 +124,22 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
 	auth_passdb->passdb = passdb_preinit(auth->pool, set);
 	/* make sure any %variables in default_fields exist in cache_key */
 	if (auth_passdb->passdb->default_cache_key != NULL) {
-		auth_passdb->cache_key =
-			p_strconcat(auth->pool, auth_passdb->passdb->default_cache_key,
-				set->default_fields, NULL);
-	}
-	else {
+		struct auth_passdb_pre_settings *passdb_pre_set;
+		const char *error;
+		if (settings_get(event, &auth_passdb_pre_setting_parser_info,
+				 SETTINGS_GET_FLAG_NO_EXPAND,
+				 &passdb_pre_set, &error) < 0)
+			i_fatal("%s", error);
+		auth_passdb->cache_key = p_strconcat(
+			auth->pool,
+			auth_passdb->passdb->default_cache_key,
+			t_array_const_string_join(&passdb_pre_set->default_fields, ""),
+			NULL);
+		settings_free(passdb_pre_set);
+	} else {
 		auth_passdb->cache_key = NULL;
 	}
+	event_unref(&event);
 }
 
 static void auth_passdb_deinit(struct auth_passdb *passdb)
