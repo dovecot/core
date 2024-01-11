@@ -1606,14 +1606,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 	} else if (request->client_pid != 0) {
 		/* this was an actual login attempt, the user should
 		   have been found. */
-		if (auth_request_get_auth(request)->userdbs->next == NULL) {
-			e_error(request->event,
-				"%suser not found from userdb",
-				auth_request_get_log_prefix_db(request));
-		} else {
-			e_error(request->event,
-				"user not found from any userdbs");
-		}
+		e_error(request->event, "user not found from any userdbs");
 		result = USERDB_RESULT_USER_UNKNOWN;
 	} else {
 		result = USERDB_RESULT_USER_UNKNOWN;
