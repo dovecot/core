@@ -260,7 +260,7 @@ auth_preinit(const struct auth_settings *set, const char *protocol,
 	auth = p_new(pool, struct auth, 1);
 	auth->pool = pool;
 	auth->protocol = p_strdup(pool, protocol);
-	auth->set = set;
+	auth->protocol_set = set;
 	pool_ref(set->pool);
 	auth->reg = reg;
 
@@ -471,7 +471,7 @@ void auths_free(void)
 	struct auth *auth;
 
 	array_foreach_elem(&auths, auth) {
-		settings_free(auth->set);
+		settings_free(auth->protocol_set);
 		pool_unref(&auth->pool);
 	}
 	array_free(&auths);
