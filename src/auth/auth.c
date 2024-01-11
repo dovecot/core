@@ -151,7 +151,19 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
 {
         struct auth_userdb *auth_userdb, **dest;
 
+	/* Lookup userdb-specific auth_settings */
+	struct event *event = event_create(auth_event);
+	event_add_str(event, "protocol", auth->protocol);
+	event_add_str(event, "userdb", set->name);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
+		      p_strconcat(event_get_pool(event), "userdb_",
+				  set->driver, NULL));
+
 	auth_userdb = p_new(auth->pool, struct auth_userdb, 1);
+	auth_userdb->auth_set =
+		settings_get_or_fatal(event, &auth_setting_parser_info);
+	event_unref(&event);
+
 	auth_userdb->set = set;
 	auth_userdb->skip = auth_userdb_skip_parse(set->skip);
 	auth_userdb->result_success =
@@ -181,6 +193,12 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
 	else {
 		auth_userdb->cache_key = NULL;
 	}
+}
+
+static void auth_userdb_deinit(struct auth_userdb *userdb)
+{
+	settings_free(userdb->auth_set);
+	userdb_deinit(userdb->userdb);
 }
 
 static bool auth_passdb_list_have_verify_plain(const struct auth *auth)
@@ -381,7 +399,7 @@ static void auth_deinit(struct auth *auth)
 	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next)
 		auth_passdb_deinit(passdb);
 	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)
-		userdb_deinit(userdb->userdb);
+		auth_userdb_deinit(userdb);
 
 	dns_client_deinit(&auth->dns_client);
 }
