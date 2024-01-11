@@ -283,7 +283,7 @@ bool auth_request_import(struct auth_request *request,
 		auth_fields_add(fields->extra_fields, key, value, 0);
 	else if (str_begins(key, "userdb_", &key)) {
 		if (fields->userdb_reply == NULL)
-			auth_request_init_userdb_reply(request, FALSE);
+			auth_request_init_userdb_reply(request);
 		auth_fields_add(fields->userdb_reply, key, value, 0);
 	} else
 		return FALSE;
@@ -506,19 +506,9 @@ void auth_request_set_password_verified(struct auth_request *request)
 	request->fields.skip_password_check = TRUE;
 }
 
-void auth_request_init_userdb_reply(struct auth_request *request,
-				    bool add_default_fields)
+void auth_request_init_userdb_reply(struct auth_request *request)
 {
-	const char *error;
-
 	request->fields.userdb_reply = auth_fields_init(request->pool);
-	if (add_default_fields) {
-		if (userdb_template_export(request->userdb->default_fields_tmpl,
-					   request, &error) < 0) {
-			e_error(authdb_event(request),
-				"Failed to expand default_fields: %s", error);
-		}
-	}
 }
 
 void auth_request_set_delayed_credentials(struct auth_request *request,

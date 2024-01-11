@@ -13,6 +13,7 @@
 #include "process-title.h"
 #include "master-service.h"
 #include "auth-request.h"
+#include "userdb-template.h"
 #include "auth-worker-server.h"
 
 
@@ -568,6 +569,7 @@ auth_worker_handle_user(struct auth_worker_command *cmd,
 	/* lookup user */
 	struct auth_request *auth_request;
 	unsigned int userdb_id;
+	const char *error;
 
 	/* <userdb id> [<args>] */
 	if (str_to_uint(args[0], &userdb_id) < 0) {
@@ -589,9 +591,18 @@ auth_worker_handle_user(struct auth_worker_command *cmd,
 		return FALSE;
 	}
 
-	if (auth_request->fields.userdb_reply == NULL)
-		auth_request_init_userdb_reply(auth_request, TRUE);
 	auth_request_userdb_lookup_begin(auth_request);
+	if (auth_request->fields.userdb_reply == NULL)
+		auth_request_init_userdb_reply(auth_request);
+	if (userdb_template_export(auth_request->userdb->default_fields_tmpl,
+				   auth_request, &error) < 0) {
+		e_error(authdb_event(auth_request),
+			"Failed to expand default_fields: %s", error);
+		lookup_user_callback(USERDB_RESULT_INTERNAL_FAILURE,
+				     auth_request);
+		return TRUE;
+	}
+
 	auth_request->userdb->userdb->iface->
 		lookup(auth_request, lookup_user_callback);
 	return TRUE;

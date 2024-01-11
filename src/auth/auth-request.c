@@ -1458,7 +1458,7 @@ auth_request_lookup_user_cache(struct auth_request *request, const char *key,
 	   Don't add userdb's default_fields, because the entire userdb part of
 	   the result comes from the cache. */
 	if (request->fields.userdb_reply == NULL)
-		auth_request_init_userdb_reply(request, FALSE);
+		auth_request_init_userdb_reply(request);
 	auth_request_userdb_import(request, value);
 	return TRUE;
 }
@@ -1607,19 +1607,17 @@ void auth_request_lookup_user(struct auth_request *request,
 	request->userdb_lookup = TRUE;
 	request->userdb_cache_result = AUTH_REQUEST_CACHE_NONE;
 	if (request->fields.userdb_reply == NULL)
-		auth_request_init_userdb_reply(request, TRUE);
-	else {
-		/* we still want to set default_fields. these override any
-		   existing fields set by previous userdbs (because if that is
-		   unwanted, ":protected" can be used). */
-		if (userdb_template_export(userdb->default_fields_tmpl,
-					   request, &error) < 0) {
-			e_error(authdb_event(request),
-				"Failed to expand default_fields: %s", error);
-			auth_request_userdb_callback(
-				USERDB_RESULT_INTERNAL_FAILURE, request);
-			return;
-		}
+		auth_request_init_userdb_reply(request);
+	/* we still want to set default_fields. these override any
+	   existing fields set by previous userdbs (because if that is
+	   unwanted, ":protected" can be used). */
+	if (userdb_template_export(userdb->default_fields_tmpl,
+				   request, &error) < 0) {
+		e_error(authdb_event(request),
+			"Failed to expand default_fields: %s", error);
+		auth_request_userdb_callback(
+			USERDB_RESULT_INTERNAL_FAILURE, request);
+		return;
 	}
 
 	auth_request_userdb_lookup_begin(request);
@@ -1878,7 +1876,7 @@ void auth_request_set_field(struct auth_request *request,
 		/* for prefetch userdb */
 		request->userdb_prefetch_set = TRUE;
 		if (request->fields.userdb_reply == NULL)
-			auth_request_init_userdb_reply(request, TRUE);
+			auth_request_init_userdb_reply(request);
 		if (strcmp(name, "userdb_userdb_import") == 0) {
 			/* we can't put the whole userdb_userdb_import
 			   value to extra_cache_fields or it doesn't work
