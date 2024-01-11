@@ -117,7 +117,6 @@ static const struct setting_define auth_passdb_setting_defines[] = {
 	DEF(ENUM, result_internalfail),
 
 	DEF(BOOL, deny),
-	DEF(BOOL, pass),
 	DEF(BOOL, master),
 	DEF(ENUM, auth_verbose),
 
@@ -139,7 +138,6 @@ static const struct auth_passdb_settings auth_passdb_default_settings = {
 	.result_internalfail = "continue:return:return-ok:return-fail:continue-ok:continue-fail",
 
 	.deny = FALSE,
-	.pass = FALSE,
 	.master = FALSE,
 	.auth_verbose = "default:yes:no"
 };
@@ -550,16 +548,12 @@ static bool auth_settings_ext_check(struct event *event, void *_set,
 
 static bool
 auth_passdb_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-			   const char **error_r)
+			   const char **error_r ATTR_UNUSED)
 {
 	struct auth_passdb_settings *set = _set;
 
 	if (*set->driver == '\0')
 		return TRUE;
-	if (set->pass && strcmp(set->result_success, "return-ok") != 0) {
-		*error_r = "Obsolete pass=yes setting mixed with non-default result_success";
-		return FALSE;
-	}
 	return TRUE;
 }
 /* </settings checks> */

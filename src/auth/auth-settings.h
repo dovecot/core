@@ -19,7 +19,6 @@ struct auth_passdb_settings {
 	const char *result_failure;
 	const char *result_internalfail;
 	bool deny;
-	bool pass; /* deprecated, use result_success=continue instead */
 	bool master;
 	const char *auth_verbose;
 };
