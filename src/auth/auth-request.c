@@ -108,7 +108,8 @@ static const char *get_log_prefix(struct auth_request *auth_request)
 	return str_c(str);
 }
 
-const char *auth_request_get_log_prefix_db(struct auth_request *auth_request)
+static const char *
+auth_request_get_log_prefix_db(struct auth_request *auth_request)
 {
 	const char *name;
 
