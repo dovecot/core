@@ -16,6 +16,8 @@ struct http_server_request;
 struct http_server_request_limits;
 struct http_server_response;
 
+struct ssl_iostream_settings;
+
 #define HTTP_SERVER_DEFAULT_MAX_PAYLOAD_SIZE (1024 * 1024 * 1024 * 10ULL)
 
 /*
@@ -26,9 +28,6 @@ struct http_server_settings {
 	pool_t pool;
 	const char *base_dir;
 	const char *rawlog_dir;
-
-	/* SSL settings; if NULL, settings_get() is used automatically */
-	const struct ssl_iostream_settings *ssl;
 
 	/* The maximum time in milliseconds a client is allowed to be idle
 	   before it is disconnected. */
@@ -432,4 +431,8 @@ void http_server_shut_down(struct http_server *server);
 /* Switch this server to the current ioloop */
 void http_server_switch_ioloop(struct http_server *server);
 
+/* Specify the SSL settings. By default lib-ssl-iostream automatically looks
+   them up from settings. */
+void http_server_set_ssl_settings(struct http_server *server,
+				  const struct ssl_iostream_settings *ssl);
 #endif

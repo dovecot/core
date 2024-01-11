@@ -30,10 +30,8 @@ struct http_server *http_server_init(const struct http_server_settings *set,
 {
 	struct http_server *server;
 	pool_t pool;
-	size_t pool_size;
 
-	pool_size = (set->ssl != NULL) ? 10240 : 1024; /* ca/cert/key will be >8K */
-	pool = pool_alloconly_create("http server", pool_size);
+	pool = pool_alloconly_create("http server", 1024);
 	server = p_new(pool, struct http_server, 1);
 	server->set = p_new(pool, struct http_server_settings, 1);
 	server->pool = pool;
@@ -44,10 +42,6 @@ struct http_server *http_server_init(const struct http_server_settings *set,
 		server->set->default_host = p_strdup(pool, set->default_host);
 	if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
 		server->set->rawlog_dir = p_strdup(pool, set->rawlog_dir);
-	if (set->ssl != NULL) {
-		server->set->ssl = set->ssl;
-		pool_ref(server->set->ssl->pool);
-	}
 	server->set->max_client_idle_time_msecs = set->max_client_idle_time_msecs;
 	server->set->max_pipelined_requests =
 		(set->max_pipelined_requests > 0 ? set->max_pipelined_requests : 1);
@@ -65,6 +59,7 @@ struct http_server *http_server_init(const struct http_server_settings *set,
 
 	server->conn_list = http_server_connection_list_init();
 
+	settings_free(server->ssl_set);
 	p_array_init(&server->resources, pool, 4);
 	p_array_init(&server->locations, pool, 4);
 
@@ -84,7 +79,6 @@ void http_server_deinit(struct http_server **_server)
 		http_server_resource_free(&res);
 	i_assert(array_count(&server->locations) == 0);
 
-	settings_free(server->set->ssl);
 	event_unref(&server->event);
 	pool_unref(&server->pool);
 }
@@ -119,4 +113,12 @@ void http_server_shut_down(struct http_server *server)
 		_next = _conn->next;
 		(void)http_server_connection_shut_down(conn);
 	}
+}
+
+void http_server_set_ssl_settings(struct http_server *server,
+				  const struct ssl_iostream_settings *ssl)
+{
+	settings_free(server->ssl_set);
+	server->ssl_set = ssl;
+	pool_ref(server->ssl_set->pool);
 }

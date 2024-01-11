@@ -369,13 +369,13 @@ http_server_connection_ssl_init(struct http_server_connection *conn)
 	e_debug(conn->event, "Starting SSL handshake");
 
 	http_server_connection_input_halt(conn);
-	if (conn->set->ssl == NULL) {
+	if (server->ssl_set == NULL) {
 		ret = io_stream_autocreate_ssl_server(server->event,
 						      &conn->conn.input,
 						      &conn->conn.output,
 						      &conn->ssl_iostream,
 						      &error);
-	} else if (ssl_iostream_server_context_cache_get(conn->set->ssl,
+	} else if (ssl_iostream_server_context_cache_get(server->ssl_set,
 							 &ssl_ctx, &error) < 0)
 		ret = -1;
 	else {
