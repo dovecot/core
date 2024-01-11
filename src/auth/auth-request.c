@@ -1480,6 +1480,22 @@ void auth_request_userdb_callback(enum userdb_result result,
 		auth_request_userdb_save_cache(request, result);
 	}
 
+	if (result == USERDB_RESULT_OK) {
+		/* this userdb lookup succeeded, preserve its extra fields */
+		if (userdb_template_export(userdb->override_fields_tmpl,
+					   request, &error) < 0) {
+			e_error(authdb_event(request),
+				"Failed to expand override_fields: %s", error);
+			result = USERDB_RESULT_INTERNAL_FAILURE;
+		} else {
+			auth_fields_snapshot(request->fields.userdb_reply);
+		}
+	} else {
+		/* this userdb lookup failed, remove any extra fields
+		   it set */
+		auth_fields_rollback(request->fields.userdb_reply);
+	}
+
 	switch (result) {
 	case USERDB_RESULT_OK:
 		result_rule = userdb->result_success;
@@ -1527,25 +1543,6 @@ void auth_request_userdb_callback(enum userdb_result result,
 		if (result == USERDB_RESULT_INTERNAL_FAILURE)
 			request->userdbs_seen_internal_failure = TRUE;
 
-		if (result == USERDB_RESULT_OK) {
-			/* this userdb lookup succeeded, preserve its extra
-			   fields */
-			if (userdb_template_export(userdb->override_fields_tmpl,
-						   request, &error) < 0) {
-				e_error(request->event,
-					"%sFailed to expand override_fields: %s",
-					auth_request_get_log_prefix_db(request),
-					error);
-				request->private_callback.userdb(
-					USERDB_RESULT_INTERNAL_FAILURE, request);
-				return;
-			}
-			auth_fields_snapshot(request->fields.userdb_reply);
-		} else {
-			/* this userdb lookup failed, remove any extra fields
-			   it set */
-			auth_fields_rollback(request->fields.userdb_reply);
-		}
 		request->user_changed_by_lookup = FALSE;
 
 		request->userdb = next_userdb;
@@ -1554,18 +1551,10 @@ void auth_request_userdb_callback(enum userdb_result result,
 		return;
 	}
 
-	if (request->userdb_success) {
-		if (userdb_template_export(userdb->override_fields_tmpl,
-					   request, &error) < 0) {
-			e_error(request->event,
-				"%sFailed to expand override_fields: %s",
-				auth_request_get_log_prefix_db(request), error);
-			result = USERDB_RESULT_INTERNAL_FAILURE;
-		} else {
-			result = USERDB_RESULT_OK;
-		}
-	} else if (request->userdbs_seen_internal_failure ||
-		   result == USERDB_RESULT_INTERNAL_FAILURE) {
+	if (request->userdb_success)
+		result = USERDB_RESULT_OK;
+	else if (request->userdbs_seen_internal_failure ||
+		 result == USERDB_RESULT_INTERNAL_FAILURE) {
 		/* one of the userdb lookups failed. the user might have been
 		   in there, so this is an internal failure */
 		result = USERDB_RESULT_INTERNAL_FAILURE;
