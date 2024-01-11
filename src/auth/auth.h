@@ -32,6 +32,7 @@ enum auth_db_rule {
 struct auth_passdb {
 	struct auth_passdb *next;
 
+	const struct auth_settings *auth_set;
 	const struct auth_passdb_settings *set;
 	struct passdb_module *passdb;
 

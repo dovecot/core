@@ -139,6 +139,7 @@ auth_request_post_alloc_init(struct auth_request *request,
 	request->last_access = ioloop_time;
 	request->session_pid = (pid_t)-1;
 	request->set = global_auth_settings;
+	request->protocol_set = global_auth_settings;
 	request->event = event_create(parent_event);
 	auth_request_fields_init(request);
 
@@ -208,6 +209,7 @@ void auth_request_init(struct auth_request *request)
 
 	auth = auth_request_get_auth(request);
 	request->set = auth->protocol_set;
+	request->protocol_set = auth->protocol_set;
 	request->passdb = auth->passdbs;
 	request->userdb = auth->userdbs;
 }
@@ -674,6 +676,9 @@ void auth_request_passdb_lookup_begin(struct auth_request *request)
 
 	request->passdb_cache_result = AUTH_REQUEST_CACHE_NONE;
 
+	/* use passdb-specific settings during the passdb lookup */
+	request->set = request->passdb->auth_set;
+
 	event = event_create(request->event);
 	event_add_str(event, "passdb", request->passdb->set->name);
 	event_add_str(event, "passdb_id", dec2str(request->passdb->passdb->id));
@@ -711,6 +716,9 @@ void auth_request_passdb_lookup_end(struct auth_request *request,
 	e_debug(e->event(), "Finished passdb lookup");
 	event_unref(&event);
 	array_pop_back(&request->authdb_event);
+
+	/* restore protocol-specific settings */
+	request->set = request->protocol_set;
 }
 
 void auth_request_userdb_lookup_begin(struct auth_request *request)

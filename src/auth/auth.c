@@ -83,7 +83,19 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
 {
 	struct auth_passdb *auth_passdb, **dest;
 
+	/* Lookup passdb-specific auth_settings */
+	struct event *event = event_create(auth_event);
+	event_add_str(event, "protocol", auth->protocol);
+	event_add_str(event, "passdb", set->name);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
+		      p_strconcat(event_get_pool(event), "passdb_",
+				  set->driver, NULL));
+
 	auth_passdb = p_new(auth->pool, struct auth_passdb, 1);
+	auth_passdb->auth_set =
+		settings_get_or_fatal(event, &auth_setting_parser_info);
+	event_unref(&event);
+
 	auth_passdb->set = set;
 	auth_passdb->skip = auth_passdb_skip_parse(set->skip);
 	auth_passdb->result_success =
@@ -126,6 +138,12 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
 	else {
 		auth_passdb->cache_key = NULL;
 	}
+}
+
+static void auth_passdb_deinit(struct auth_passdb *passdb)
+{
+	settings_free(passdb->auth_set);
+	passdb_deinit(passdb->passdb);
 }
 
 static void
@@ -359,9 +377,9 @@ static void auth_deinit(struct auth *auth)
 	struct auth_userdb *userdb;
 
 	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next)
-		passdb_deinit(passdb->passdb);
+		auth_passdb_deinit(passdb);
 	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next)
-		passdb_deinit(passdb->passdb);
+		auth_passdb_deinit(passdb);
 	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)
 		userdb_deinit(userdb->userdb);
 

@@ -129,6 +129,10 @@ struct auth_request {
 	enum passdb_result passdb_result;
 
 	const struct mech_module *mech;
+	/* Protocol-specific settings */
+	const struct auth_settings *protocol_set;
+	/* Currently active settings. May be the same as protocol_set, but
+	   changes to passdb and userdb specific settings. */
 	const struct auth_settings *set;
         struct auth_passdb *passdb;
         struct auth_userdb *userdb;
