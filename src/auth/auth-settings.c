@@ -198,8 +198,6 @@ static const struct setting_define auth_userdb_setting_defines[] = {
 	DEF(STR, name),
 	DEF(STR, driver),
 	DEF(STR_NOVARS, args),
-	DEF(STR_NOVARS, default_fields),
-	DEF(STR_NOVARS, override_fields),
 
 	DEF(ENUM, skip),
 	DEF(ENUM, result_success),
@@ -214,8 +212,6 @@ static const struct auth_userdb_settings auth_userdb_default_settings = {
 	.name = "",
 	.driver = "",
 	.args = "",
-	.default_fields = "",
-	.override_fields = "",
 
 	.skip = "never:found:notfound",
 	.result_success = "return-ok:return:return-fail:continue:continue-ok:continue-fail",
@@ -232,6 +228,49 @@ const struct setting_parser_info auth_userdb_setting_parser_info = {
 	.struct_size = sizeof(struct auth_userdb_settings),
 	.pool_offset1 = 1 + offsetof(struct auth_userdb_settings, pool),
 };
+
+static const struct setting_define auth_userdb_pre_setting_defines[] = {
+	{ .type = SET_STRLIST, .key = "userdb_default_fields",
+	  .offset = offsetof(struct auth_userdb_pre_settings, default_fields) },
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct auth_userdb_pre_settings auth_userdb_pre_default_settings = {
+	.default_fields = ARRAY_INIT,
+};
+
+const struct setting_parser_info auth_userdb_pre_setting_parser_info = {
+	.name = "auth_userdb_pre",
+
+	.defines = auth_userdb_pre_setting_defines,
+	.defaults = &auth_userdb_pre_default_settings,
+
+	.struct_size = sizeof(struct auth_userdb_pre_settings),
+	.pool_offset1 = 1 + offsetof(struct auth_userdb_pre_settings, pool),
+};
+
+static const struct setting_define auth_userdb_post_setting_defines[] = {
+	{ .type = SET_STRLIST, .key = "userdb_override_fields",
+	  .offset = offsetof(struct auth_userdb_post_settings, override_fields) },
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct auth_userdb_post_settings auth_userdb_post_default_settings = {
+	.override_fields = ARRAY_INIT,
+};
+
+const struct setting_parser_info auth_userdb_post_setting_parser_info = {
+	.name = "auth_userdb_post",
+
+	.defines = auth_userdb_post_setting_defines,
+	.defaults = &auth_userdb_post_default_settings,
+
+	.struct_size = sizeof(struct auth_userdb_post_settings),
+	.pool_offset1 = 1 + offsetof(struct auth_userdb_post_settings, pool),
+};
+
 
 /* we're kind of kludging here to avoid "auth_" prefix in the struct fields */
 #undef DEF

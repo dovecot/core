@@ -25,8 +25,6 @@ static const struct auth_userdb_settings userdb_dummy_set = {
 	.name = "",
 	.driver = "static",
 	.args = "",
-	.default_fields = "",
-	.override_fields = "",
 
 	.skip = "never",
 	.result_success = "return-ok",
@@ -164,7 +162,6 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
 	auth_userdb = p_new(auth->pool, struct auth_userdb, 1);
 	auth_userdb->auth_set =
 		settings_get_or_fatal(event, &auth_setting_parser_info);
-	event_unref(&event);
 
 	auth_userdb->name = set->name;
 	auth_userdb->set = set;
@@ -176,26 +173,29 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
 	auth_userdb->result_internalfail =
 		auth_db_rule_parse(set->result_internalfail);
 
-	auth_userdb->default_fields_tmpl =
-		userdb_template_build(auth->pool, set->driver,
-				      set->default_fields);
-	auth_userdb->override_fields_tmpl =
-		userdb_template_build(auth->pool, set->driver,
-				      set->override_fields);
-
 	for (dest = &auth->userdbs; *dest != NULL; dest = &(*dest)->next) ;
 	*dest = auth_userdb;
 
 	auth_userdb->userdb = userdb_preinit(auth->pool, set);
 	/* make sure any %variables in default_fields exist in cache_key */
 	if (auth_userdb->userdb->default_cache_key != NULL) {
-		auth_userdb->cache_key =
-			p_strconcat(auth->pool, auth_userdb->userdb->default_cache_key,
-				    set->default_fields, NULL);
-	}
-	else {
+		struct auth_userdb_pre_settings *userdb_pre_set;
+		const char *error;
+		if (settings_get(event, &auth_userdb_pre_setting_parser_info,
+				 SETTINGS_GET_FLAG_NO_EXPAND,
+				 &userdb_pre_set, &error) < 0)
+			i_fatal("%s", error);
+		auth_userdb->cache_key = p_strconcat(
+			auth->pool,
+			auth_userdb->userdb->default_cache_key,
+			t_array_const_string_join(
+				&userdb_pre_set->default_fields, ""),
+			NULL);
+		settings_free(userdb_pre_set);
+	} else {
 		auth_userdb->cache_key = NULL;
 	}
+	event_unref(&event);
 }
 
 static void auth_userdb_deinit(struct auth_userdb *userdb)
