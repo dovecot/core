@@ -846,12 +846,14 @@ static void test_http_server_connection_init(struct connection *conn)
 
 /* */
 
-static void test_server_init(const struct http_server_settings *server_set)
+static void test_server_init(const struct http_server_settings *server_set,
+			     const struct ssl_iostream_settings *ssl)
 {
 	/* open server socket */
 	io_listen = io_add(fd_listen, IO_READ, client_accept, NULL);
 
 	http_server = http_server_init(server_set, server_event);
+	http_server_set_ssl_settings(http_server, ssl);
 	http_server->conn_list->v.init = test_http_server_connection_init;
 }
 
@@ -1666,6 +1668,7 @@ static void test_client_echo(const struct http_client_settings *client_set,
 
 struct test_server_data {
 	const struct http_server_settings *set;
+	const struct ssl_iostream_settings *ssl_set;
 };
 
 static void test_open_server_fd(void)
@@ -1682,6 +1685,7 @@ static void test_open_server_fd(void)
 static int test_run_server(struct test_server_data *data)
 {
 	const struct http_server_settings *server_set = data->set;
+	const struct ssl_iostream_settings *ssl_set = data->ssl_set;
 	struct ioloop *ioloop;
 
 	i_set_failure_prefix("SERVER: ");
@@ -1691,7 +1695,7 @@ static int test_run_server(struct test_server_data *data)
 	ioloop_nested = NULL;
 	ioloop_nested_depth = 0;
 	ioloop = io_loop_create();
-	test_server_init(server_set);
+	test_server_init(server_set, ssl_set);
 	io_loop_run(ioloop);
 	test_server_deinit();
 	io_loop_destroy(&ioloop);
@@ -1734,6 +1738,7 @@ test_run_client_server(
 	const struct http_client_settings *client_set,
 	const struct ssl_iostream_settings *ssl_client_set,
 	const struct http_server_settings *server_set,
+	const struct ssl_iostream_settings *ssl_server_set,
 	void (*client_init)(const struct http_client_settings *client_set,
 			    const struct ssl_iostream_settings *ssl_client_set))
 {
@@ -1745,6 +1750,7 @@ test_run_client_server(
 
 	i_zero(&data);
 	data.set = server_set;
+	data.ssl_set = ssl_server_set;
 
 	/* Fork server */
 	test_open_server_fd();
@@ -1804,7 +1810,6 @@ test_run_sequential(
 
 	/* server settings */
 	test_init_server_settings(&http_server_set);
-	http_server_set.ssl = &ssl_server_set;
 	http_server_set.max_pipelined_requests = 0;
 
 	/* client settings */
@@ -1813,7 +1818,8 @@ test_run_sequential(
 	http_client_set.max_pipelined_requests = 1;
 
 	test_run_client_server(&http_client_set, &ssl_client_set,
-			       &http_server_set, client_init);
+			       &http_server_set, &ssl_server_set,
+			       client_init);
 	ssl_iostream_context_cache_free();
 
 	test_out_reason("sequential", (failure == NULL), failure);
@@ -1836,7 +1842,6 @@ test_run_pipeline(
 
 	/* server settings */
 	test_init_server_settings(&http_server_set);
-	http_server_set.ssl = &ssl_server_set;
 	http_server_set.max_pipelined_requests = 4;
 
 	/* client settings */
@@ -1845,7 +1850,8 @@ test_run_pipeline(
 	http_client_set.max_pipelined_requests = 8;
 
 	test_run_client_server(&http_client_set, &ssl_client_set,
-			       &http_server_set, client_init);
+			       &http_server_set, &ssl_server_set,
+			       client_init);
 	ssl_iostream_context_cache_free();
 
 	test_out_reason("pipeline", (failure == NULL), failure);
@@ -1868,7 +1874,6 @@ test_run_parallel(
 
 	/* server settings */
 	test_init_server_settings(&http_server_set);
-	http_server_set.ssl = &ssl_server_set;
 	http_server_set.max_pipelined_requests = 4;
 
 	/* client settings */
@@ -1877,7 +1882,8 @@ test_run_parallel(
 	http_client_set.max_pipelined_requests = 8;
 
 	test_run_client_server(&http_client_set, &ssl_client_set,
-			       &http_server_set, client_init);
+			       &http_server_set, &ssl_server_set,
+			       client_init);
 	ssl_iostream_context_cache_free();
 
 	test_out_reason("parallel", (failure == NULL), failure);
