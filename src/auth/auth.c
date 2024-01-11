@@ -94,6 +94,7 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
 		settings_get_or_fatal(event, &auth_setting_parser_info);
 	event_unref(&event);
 
+	auth_passdb->name = set->name;
 	auth_passdb->set = set;
 	auth_passdb->skip = auth_passdb_skip_parse(set->skip);
 	auth_passdb->result_success =
@@ -162,6 +163,7 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
 		settings_get_or_fatal(event, &auth_setting_parser_info);
 	event_unref(&event);
 
+	auth_userdb->name = set->name;
 	auth_userdb->set = set;
 	auth_userdb->skip = auth_userdb_skip_parse(set->skip);
 	auth_userdb->result_success =

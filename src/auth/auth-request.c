@@ -114,10 +114,10 @@ const char *auth_request_get_log_prefix_db(struct auth_request *auth_request)
 
 	if (!auth_request->userdb_lookup) {
 		i_assert(auth_request->passdb != NULL);
-		name = auth_request->passdb->set->name;
+		name = auth_request->passdb->name;
 	} else {
 		i_assert(auth_request->userdb != NULL);
-		name = auth_request->userdb->set->name;
+		name = auth_request->userdb->name;
 	}
 
 	return t_strconcat(name, ": ", NULL);
@@ -676,7 +676,7 @@ void auth_request_passdb_lookup_begin(struct auth_request *request)
 	request->set = request->passdb->auth_set;
 
 	event = event_create(request->event);
-	event_add_str(event, "passdb", request->passdb->set->name);
+	event_add_str(event, "passdb", request->passdb->name);
 	event_add_str(event, "passdb_id", dec2str(request->passdb->passdb->id));
 	event_add_str(event, "passdb_driver", request->passdb->passdb->iface.name);
 	event_set_log_prefix_callback(event, FALSE,
@@ -728,7 +728,7 @@ void auth_request_userdb_lookup_begin(struct auth_request *request)
 	request->set = request->userdb->auth_set;
 
 	event = event_create(request->event);
-	event_add_str(event, "userdb", request->userdb->set->name);
+	event_add_str(event, "userdb", request->userdb->name);
 	event_add_str(event, "userdb_id", dec2str(request->userdb->userdb->id));
 	event_add_str(event, "userdb_driver", request->userdb->userdb->iface->name);
 	event_set_log_prefix_callback(event, FALSE,
