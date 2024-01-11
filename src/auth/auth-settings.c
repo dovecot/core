@@ -118,7 +118,6 @@ static const struct setting_define auth_passdb_setting_defines[] = {
 
 	DEF(BOOL, deny),
 	DEF(BOOL, master),
-	DEF(ENUM, auth_verbose),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -139,7 +138,6 @@ static const struct auth_passdb_settings auth_passdb_default_settings = {
 
 	.deny = FALSE,
 	.master = FALSE,
-	.auth_verbose = "default:yes:no"
 };
 
 const struct setting_parser_info auth_passdb_setting_parser_info = {
@@ -170,8 +168,6 @@ static const struct setting_define auth_userdb_setting_defines[] = {
 	DEF(ENUM, result_failure),
 	DEF(ENUM, result_internalfail),
 
-	DEF(ENUM, auth_verbose),
-
 	SETTING_DEFINE_LIST_END
 };
 
@@ -187,8 +183,6 @@ static const struct auth_userdb_settings auth_userdb_default_settings = {
 	.result_success = "return-ok:return:return-fail:continue:continue-ok:continue-fail",
 	.result_failure = "continue:return:return-ok:return-fail:continue-ok:continue-fail",
 	.result_internalfail = "continue:return:return-ok:return-fail:continue-ok:continue-fail",
-
-	.auth_verbose = "default:yes:no"
 };
 
 const struct setting_parser_info auth_userdb_setting_parser_info = {

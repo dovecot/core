@@ -57,7 +57,6 @@ struct auth_passdb_settings mock_passdb_set = {
 	.result_internalfail = "continue",
 	.deny = FALSE,
 	.master = FALSE,
-	.auth_verbose = "default"
 };
 
 void passdb_mock_mod_init(void)
@@ -85,7 +84,6 @@ void passdb_mock_mod_init(void)
 
 		.deny = FALSE,
 		.master = FALSE,
-		.auth_verbose = "default"
 	};
 	mock_passdb_mod = passdb_preinit(mock_pool, &set);
 	passdb_init(mock_passdb_mod);

@@ -687,10 +687,8 @@ void auth_request_passdb_lookup_begin(struct auth_request *request)
 		auth_request_get_log_prefix_db, request);
 
 	/* check if we should enable verbose logging here */
-	if (*request->passdb->set->auth_verbose == 'y')
-		event_set_min_log_level(event, LOG_TYPE_INFO);
-	else if (*request->passdb->set->auth_verbose == 'n')
-		event_set_min_log_level(event, LOG_TYPE_WARNING);
+	event_set_min_log_level(event, request->passdb->auth_set->verbose ?
+				LOG_TYPE_INFO : LOG_TYPE_WARNING);
 
 	e_debug(event_create_passthrough(event)->
 			set_name("auth_passdb_request_started")->
@@ -741,10 +739,8 @@ void auth_request_userdb_lookup_begin(struct auth_request *request)
 		auth_request_get_log_prefix_db, request);
 
 	/* check if we should enable verbose logging here*/
-	if (*request->userdb->set->auth_verbose == 'y')
-		event_set_min_log_level(event, LOG_TYPE_INFO);
-	else if (*request->userdb->set->auth_verbose == 'n')
-		event_set_min_log_level(event, LOG_TYPE_WARNING);
+	event_set_min_log_level(event, request->userdb->auth_set->verbose ?
+				LOG_TYPE_INFO : LOG_TYPE_WARNING);
 
 	e_debug(event_create_passthrough(event)->
 			set_name("auth_userdb_request_started")->
