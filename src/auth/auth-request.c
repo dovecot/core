@@ -114,14 +114,10 @@ const char *auth_request_get_log_prefix_db(struct auth_request *auth_request)
 
 	if (!auth_request->userdb_lookup) {
 		i_assert(auth_request->passdb != NULL);
-		name = auth_request->passdb->set->name[0] != '\0' ?
-			auth_request->passdb->set->name :
-			auth_request->passdb->passdb->iface.name;
+		name = auth_request->passdb->set->name;
 	} else {
 		i_assert(auth_request->userdb != NULL);
-		name = auth_request->userdb->set->name[0] != '\0' ?
-			auth_request->userdb->set->name :
-			auth_request->userdb->userdb->iface->name;
+		name = auth_request->userdb->set->name;
 	}
 
 	return t_strconcat(name, ": ", NULL);
