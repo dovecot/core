@@ -333,6 +333,8 @@ void auth_request_set_userdb_field(struct auth_request *request,
 void auth_request_set_userdb_field_values(struct auth_request *request,
 					  const char *name,
 					  const char *const *values);
+void auth_request_set_userdb_strlist(struct auth_request *request,
+				     const ARRAY_TYPE(const_string) *strlist);
 /* returns -1 = failed, 0 = callback is called later, 1 = finished */
 int auth_request_proxy_finish(struct auth_request *request,
 			      auth_request_proxy_cb_t *callback);
@@ -412,6 +414,8 @@ void auth_request_passdb_lookup_end(struct auth_request *request,
 void auth_request_userdb_lookup_begin(struct auth_request *request);
 void auth_request_userdb_lookup_end(struct auth_request *request,
 				    enum userdb_result result);
+
+int auth_request_set_userdb_default_fields(struct auth_request *request);
 
 /* Fetches the current authdb event, this is done because
    some lookups can recurse into new lookups, requiring new event,

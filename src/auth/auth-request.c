@@ -737,7 +737,11 @@ void auth_request_userdb_lookup_begin(struct auth_request *request)
 	event = event_create(request->event);
 	event_add_str(event, "userdb", request->userdb->name);
 	event_add_str(event, "userdb_id", dec2str(request->userdb->userdb->id));
-	event_add_str(event, "userdb_driver", request->userdb->userdb->iface->name);
+	const char *userdb_driver = request->userdb->userdb->iface->name;
+	event_add_str(event, "userdb_driver", userdb_driver);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
+		      p_strconcat(event_get_pool(event), "userdb_",
+				  userdb_driver, NULL));
 	event_set_log_prefix_callback(event, FALSE,
 		auth_request_get_log_prefix_db, request);
 
@@ -829,6 +833,38 @@ static int auth_request_set_override_fields(struct auth_request *request)
 	}
 	auth_request_set_strlist(request, &post_set->override_fields,
 				 STATIC_PASS_SCHEME);
+	settings_free(post_set);
+	return 0;
+}
+
+int auth_request_set_userdb_default_fields(struct auth_request *request)
+{
+	struct event *event = authdb_event(request);
+	const struct auth_userdb_pre_settings *pre_set;
+	const char *error;
+
+	if (settings_get(event, &auth_userdb_pre_setting_parser_info, 0,
+			 &pre_set, &error) < 0) {
+		e_error(event, "%s", error);
+		return -1;
+	}
+	auth_request_set_userdb_strlist(request, &pre_set->default_fields);
+	settings_free(pre_set);
+	return 0;
+}
+
+static int auth_request_set_userdb_override_fields(struct auth_request *request)
+{
+	struct event *event = authdb_event(request);
+	const struct auth_userdb_post_settings *post_set;
+	const char *error;
+
+	if (settings_get(event, &auth_userdb_post_setting_parser_info, 0,
+			 &post_set, &error) < 0) {
+		e_error(event, "%s", error);
+		return -1;
+	}
+	auth_request_set_userdb_strlist(request, &post_set->override_fields);
 	settings_free(post_set);
 	return 0;
 }
@@ -1562,7 +1598,6 @@ void auth_request_userdb_callback(enum userdb_result result,
 	struct auth_userdb *userdb = request->userdb;
 	struct auth_userdb *next_userdb;
 	enum auth_db_rule result_rule;
-	const char *error;
 	bool userdb_continue = FALSE;
 
 	if (!request->userdb_lookup_tempfailed &&
@@ -1575,14 +1610,10 @@ void auth_request_userdb_callback(enum userdb_result result,
 
 	if (result == USERDB_RESULT_OK) {
 		/* this userdb lookup succeeded, preserve its extra fields */
-		if (userdb_template_export(userdb->override_fields_tmpl,
-					   request, &error) < 0) {
-			e_error(authdb_event(request),
-				"Failed to expand override_fields: %s", error);
+		if (auth_request_set_userdb_override_fields(request) < 0)
 			result = USERDB_RESULT_INTERNAL_FAILURE;
-		} else {
+		else
 			auth_fields_snapshot(request->fields.userdb_reply);
-		}
 	} else {
 		/* this userdb lookup failed, remove any extra fields
 		   it set */
@@ -1700,7 +1731,7 @@ void auth_request_lookup_user(struct auth_request *request,
 			      userdb_callback_t *callback)
 {
 	struct auth_userdb *userdb = request->userdb;
-	const char *cache_key, *error;
+	const char *cache_key;
 
 	request->private_callback.userdb = callback;
 	request->user_returned_by_lookup = FALSE;
@@ -1708,19 +1739,17 @@ void auth_request_lookup_user(struct auth_request *request,
 	request->userdb_cache_result = AUTH_REQUEST_CACHE_NONE;
 	if (request->fields.userdb_reply == NULL)
 		auth_request_init_userdb_reply(request);
+
+	auth_request_userdb_lookup_begin(request);
+
 	/* we still want to set default_fields. these override any
 	   existing fields set by previous userdbs (because if that is
 	   unwanted, ":protected" can be used). */
-	if (userdb_template_export(userdb->default_fields_tmpl,
-				   request, &error) < 0) {
-		e_error(authdb_event(request),
-			"Failed to expand default_fields: %s", error);
+	if (auth_request_set_userdb_default_fields(request) < 0) {
 		auth_request_userdb_callback(
 			USERDB_RESULT_INTERNAL_FAILURE, request);
 		return;
 	}
-
-	auth_request_userdb_lookup_begin(request);
 
 	/* (for now) auth_cache is shared between passdb and userdb */
 	cache_key = passdb_cache == NULL ? NULL : userdb->cache_key;
@@ -2222,6 +2251,21 @@ void auth_request_set_userdb_field_values(struct auth_request *request,
 				  "using value '%s'", name, *values);
 		}
 		auth_request_set_userdb_field(request, name, *values);
+	}
+}
+
+void auth_request_set_userdb_strlist(struct auth_request *request,
+				     const ARRAY_TYPE(const_string) *strlist)
+{
+	if (!array_is_created(strlist))
+		return;
+
+	unsigned int i, count;
+	const char *const *fields = array_get(strlist, &count);
+	i_assert(count % 2 == 0);
+	for (i = 0; i < count; i += 2) {
+		auth_request_set_userdb_field(request, fields[i],
+					      fields[i + 1]);
 	}
 }
 
