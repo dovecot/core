@@ -4,13 +4,21 @@
 struct master_service;
 struct master_service_settings_output;
 
+struct auth_passdb_pre_settings {
+	pool_t pool;
+	ARRAY_TYPE(const_string) default_fields;
+};
+
+struct auth_passdb_post_settings {
+	pool_t pool;
+	ARRAY_TYPE(const_string) override_fields;
+};
+
 struct auth_passdb_settings {
 	pool_t pool;
 	const char *name;
 	const char *driver;
 	const char *args;
-	const char *default_fields;
-	const char *override_fields;
 	ARRAY_TYPE(const_string) mechanisms;
 	const char *username_filter;
 
@@ -98,6 +106,8 @@ struct auth_settings {
 };
 
 extern const struct setting_parser_info auth_setting_parser_info;
+extern const struct setting_parser_info auth_passdb_pre_setting_parser_info;
+extern const struct setting_parser_info auth_passdb_post_setting_parser_info;
 extern const struct auth_settings *global_auth_settings;
 
 void auth_settings_read(struct master_service_settings_output *output_r);

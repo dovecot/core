@@ -14,6 +14,7 @@
 #include "var-expand.h"
 #include "dns-lookup.h"
 #include "hostpid.h"
+#include "settings.h"
 #include "master-service.h"
 #include "auth-cache.h"
 #include "auth-request.h"
@@ -680,7 +681,11 @@ void auth_request_passdb_lookup_begin(struct auth_request *request)
 	event = event_create(request->event);
 	event_add_str(event, "passdb", request->passdb->name);
 	event_add_str(event, "passdb_id", dec2str(request->passdb->passdb->id));
-	event_add_str(event, "passdb_driver", request->passdb->passdb->iface.name);
+	const char *passdb_driver = request->passdb->passdb->iface.name;
+	event_add_str(event, "passdb_driver", passdb_driver);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
+		      p_strconcat(event_get_pool(event), "passdb_",
+				  passdb_driver, NULL));
 	event_set_log_prefix_callback(event, FALSE,
 		auth_request_get_log_prefix_db, request);
 
@@ -792,6 +797,40 @@ static void auth_request_passdb_internal_failure(struct auth_request *request)
 						       request);
 	}
 	auth_request_unref(&request);
+}
+
+static int auth_request_set_default_fields(struct auth_request *request)
+{
+	struct event *event = authdb_event(request);
+	const struct auth_passdb_pre_settings *pre_set;
+	const char *error;
+
+	if (settings_get(event, &auth_passdb_pre_setting_parser_info, 0,
+			 &pre_set, &error) < 0) {
+		e_error(event, "%s", error);
+		return -1;
+	}
+	auth_request_set_strlist(request, &pre_set->default_fields,
+				 STATIC_PASS_SCHEME);
+	settings_free(pre_set);
+	return 0;
+}
+
+static int auth_request_set_override_fields(struct auth_request *request)
+{
+	struct event *event = authdb_event(request);
+	const struct auth_passdb_post_settings *post_set;
+	const char *error;
+
+	if (settings_get(event, &auth_passdb_post_setting_parser_info, 0,
+			 &post_set, &error) < 0) {
+		e_error(event, "%s", error);
+		return -1;
+	}
+	auth_request_set_strlist(request, &post_set->override_fields,
+				 STATIC_PASS_SCHEME);
+	settings_free(post_set);
+	return 0;
 }
 
 static int
@@ -997,15 +1036,11 @@ void
 auth_request_verify_plain_callback_finish(enum passdb_result result,
 					  struct auth_request *request)
 {
-	const char *error;
 	int ret;
 
-	if (passdb_template_export(request->passdb->override_fields_tmpl,
-				   request, &error) < 0) {
-		e_error(authdb_event(request),
-			"Failed to expand override_fields: %s", error);
+	if (auth_request_set_override_fields(request) < 0)
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
-	}
+
 	if ((ret = auth_request_handle_passdb_callback(&result, request)) == 0) {
 		/* try next passdb */
 		auth_request_verify_plain(request, request->mech_password,
@@ -1168,7 +1203,7 @@ void auth_request_default_verify_plain_continue(
 {
 	struct auth_passdb *passdb;
 	enum passdb_result result;
-	const char *cache_key, *error;
+	const char *cache_key;
 	const char *password = request->mech_password;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
@@ -1220,10 +1255,7 @@ void auth_request_default_verify_plain_continue(
 			PASSDB_RESULT_INTERNAL_FAILURE, request);
 	} else if (passdb->passdb->blocking) {
 		passdb_blocking_verify_plain(request);
-	} else if (passdb_template_export(passdb->default_fields_tmpl,
-					  request, &error) < 0) {
-		e_error(authdb_event(request),
-			"Failed to expand default_fields: %s", error);
+	} else if (auth_request_set_default_fields(request) < 0) {
 		auth_request_verify_plain_callback(
 			PASSDB_RESULT_INTERNAL_FAILURE, request);
 	} else {
@@ -1238,15 +1270,11 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 				       size_t size,
 				       struct auth_request *request)
 {
-	const char *error;
 	int ret;
 
-	if (passdb_template_export(request->passdb->override_fields_tmpl,
-				   request, &error) < 0) {
-		e_error(authdb_event(request),
-			"Failed to expand override_fields: %s", error);
+	if (auth_request_set_override_fields(request) < 0)
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
-	}
+
 	if ((ret = auth_request_handle_passdb_callback(&result, request)) == 0) {
 		/* try next passdb */
 		if (request->fields.skip_password_check &&
@@ -1359,7 +1387,7 @@ auth_request_lookup_credentials_policy_continue(
 	struct auth_request *request, lookup_credentials_callback_t *callback)
 {
 	struct auth_passdb *passdb;
-	const char *cache_key, *cache_cred, *cache_scheme, *error;
+	const char *cache_key, *cache_cred, *cache_scheme;
 	enum passdb_result result;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
@@ -1408,10 +1436,7 @@ auth_request_lookup_credentials_policy_continue(
 					uchar_empty_ptr, 0, request);
 	} else if (passdb->passdb->blocking) {
 		passdb_blocking_lookup_credentials(request);
-	} else if (passdb_template_export(passdb->default_fields_tmpl,
-					  request, &error) < 0) {
-		e_error(authdb_event(request),
-			"Failed to expand default_fields: %s", error);
+	} else if (auth_request_set_default_fields(request) < 0) {
 		auth_request_lookup_credentials_callback(
 					PASSDB_RESULT_INTERNAL_FAILURE,
 					uchar_empty_ptr, 0, request);
@@ -2037,6 +2062,22 @@ void auth_request_set_fields(struct auth_request *request,
 			continue;
 		auth_request_set_field_keyvalue(request, *fields,
 						default_scheme);
+	}
+}
+
+void auth_request_set_strlist(struct auth_request *request,
+			      const ARRAY_TYPE(const_string) *strlist,
+			      const char *default_scheme)
+{
+	if (!array_is_created(strlist))
+		return;
+
+	unsigned int i, count;
+	const char *const *fields = array_get(strlist, &count);
+	i_assert(count % 2 == 0);
+	for (i = 0; i < count; i += 2) {
+		auth_request_set_field(request, fields[i], fields[i + 1],
+				       default_scheme);
 	}
 }
 
