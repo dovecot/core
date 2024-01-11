@@ -793,19 +793,22 @@ static void auth_request_passdb_internal_failure(struct auth_request *request)
 }
 
 static int
-auth_request_handle_passdb_callback(enum passdb_result *result,
-				    struct auth_request *request)
+auth_request_finish_passdb_lookup(enum passdb_result *result,
+				  struct auth_request *request,
+				  struct auth_passdb **next_passdb_r,
+				  bool *master_login_r)
 {
 	struct auth_passdb *next_passdb;
 	enum auth_db_rule result_rule;
 	bool passdb_continue = FALSE;
 
+	*master_login_r = FALSE;
+	*next_passdb_r = NULL;
+
 	if (request->passdb_password != NULL) {
 		safe_memset(request->passdb_password, 0,
 			    strlen(request->passdb_password));
 	}
-
-	auth_request_passdb_lookup_end(request, *result);
 
 	if (request->passdb->set->deny &&
 	    *result != PASSDB_RESULT_USER_UNKNOWN) {
@@ -894,7 +897,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 
 	if (request->fields.requested_login_user != NULL &&
 	    *result == PASSDB_RESULT_OK) {
-		auth_request_master_user_login_finish(request);
+		*master_login_r = TRUE;
 		/* if the passdb lookup continues, it continues with non-master
 		   passdbs for the requested_login_user. */
 		next_passdb = auth_request_get_auth(request)->passdbs;
@@ -925,7 +928,6 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 
 	if (passdb_continue && next_passdb != NULL) {
 		/* try next passdb. */
-		  request->passdb = next_passdb;
 		request->passdb_password = NULL;
 
 		if (*result == PASSDB_RESULT_USER_UNKNOWN) {
@@ -938,13 +940,13 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			   successfully login. */
 			request->passdbs_seen_internal_failure = TRUE;
 		}
+		*next_passdb_r = next_passdb;
 		return 0;
 	} else if (*result == PASSDB_RESULT_NEXT) {
 		/* admin forgot to put proper passdb last */
-		e_error(request->event,
-			"%sLast passdb had noauthenticate field, "
-			"cannot authenticate user",
-			auth_request_get_log_prefix_db(request));
+		e_error(authdb_event(request),
+			"Last passdb had noauthenticate field, "
+			"cannot authenticate user");
 		*result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (request->passdb_success) {
 		/* either this or a previous passdb lookup succeeded. */
@@ -968,6 +970,25 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		}
 	}
 	return 1;
+}
+
+static int
+auth_request_handle_passdb_callback(enum passdb_result *result,
+				    struct auth_request *request)
+{
+	enum passdb_result orig_result = *result;
+	struct auth_passdb *next_passdb;
+	bool master_login;
+	int ret;
+
+	ret = auth_request_finish_passdb_lookup(result, request,
+						&next_passdb, &master_login);
+	auth_request_passdb_lookup_end(request, orig_result);
+	if (master_login)
+		auth_request_master_user_login_finish(request);
+	if (ret == 0)
+		request->passdb = next_passdb;
+	return ret;
 }
 
 void
