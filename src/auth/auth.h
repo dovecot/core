@@ -56,6 +56,7 @@ struct auth_passdb {
 struct auth_userdb {
 	struct auth_userdb *next;
 
+	const struct auth_settings *auth_set;
 	const struct auth_userdb_settings *set;
 	struct userdb_module *userdb;
 

@@ -730,6 +730,9 @@ void auth_request_userdb_lookup_begin(struct auth_request *request)
 
 	request->userdb_cache_result = AUTH_REQUEST_CACHE_NONE;
 
+	/* use userdb-specific settings during the userdb lookup */
+	request->set = request->userdb->auth_set;
+
 	event = event_create(request->event);
 	event_add_str(event, "userdb", request->userdb->set->name);
 	event_add_str(event, "userdb_id", dec2str(request->userdb->userdb->id));
@@ -767,6 +770,9 @@ void auth_request_userdb_lookup_end(struct auth_request *request,
 	e_debug(e->event(), "Finished userdb lookup");
 	event_unref(&event);
 	array_pop_back(&request->authdb_event);
+
+	/* restore protocol-specific settings */
+	request->set = request->protocol_set;
 }
 
 static unsigned int
