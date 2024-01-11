@@ -291,8 +291,10 @@ auth_preinit(const struct auth_settings *set, const char *protocol,
 		passdb_count++;
 		last_passdb = i;
 	}
-	if (passdb_count != 0 && passdbs[last_passdb]->pass)
-		i_fatal("Last passdb can't have pass=yes");
+	if (passdb_count != 0 &&
+	    (passdbs[last_passdb]->pass ||
+	     strcmp(passdbs[last_passdb]->result_success, "continue") == 0))
+		i_fatal("Last passdb can't have result_success=continue");
 
 	for (i = 0; i < db_count; i++) {
 		if (!passdbs[i]->master)
@@ -305,8 +307,10 @@ auth_preinit(const struct auth_settings *set, const char *protocol,
 
 		if (passdbs[i]->deny)
 			i_fatal("Master passdb can't have deny=yes");
-		if (passdbs[i]->pass && passdb_count == 0) {
-			i_fatal("Master passdb can't have pass=yes "
+		if (passdb_count == 0 &&
+		    (passdbs[i]->pass ||
+		     strcmp(passdbs[i]->result_success, "continue") == 0)) {
+			i_fatal("Master passdb can't have result_success=continue "
 				"if there are no passdbs");
 		}
 		auth_passdb_preinit(auth, passdbs[i], &auth->masterdbs);
