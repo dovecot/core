@@ -49,7 +49,7 @@ auth_master_reply_hide_passwords(struct auth_master_connection *conn,
 	char **args, *p, *p2;
 	unsigned int i;
 
-	if (conn->auth->set->debug_passwords)
+	if (conn->auth->protocol_set->debug_passwords)
 		return str;
 
 	/* hide all parameters that have "pass" in their key */

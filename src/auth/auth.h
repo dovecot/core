@@ -73,7 +73,7 @@ struct auth_userdb {
 struct auth {
 	pool_t pool;
 	const char *protocol;
-	const struct auth_settings *set;
+	const struct auth_settings *protocol_set;
 
 	const struct mechanisms_register *reg;
 	struct auth_passdb *masterdbs;

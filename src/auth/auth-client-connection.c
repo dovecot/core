@@ -67,7 +67,7 @@ static void auth_client_send(struct auth_client_connection *conn,
 	o_stream_nsendv(conn->conn.output, iov, N_ELEMENTS(iov));
 
 	e_debug(conn->conn.event, "client passdb out: %s",
-		conn->auth->set->debug_passwords ?
+		conn->auth->protocol_set->debug_passwords ?
 		cmd : reply_line_hide_pass(cmd));
 }
 
@@ -140,7 +140,7 @@ auth_line_hide_pass(struct auth_client_connection *conn, const char *const *args
 		if (arg != args)
 			str_append_c(newline, '\t');
 		if (str_begins_with(*arg, "resp=")) {
-			if (conn->auth->set->debug_passwords) {
+			if (conn->auth->protocol_set->debug_passwords) {
 				str_append_tabescaped(newline, *arg);
 				str_append(newline, AUTH_DEBUG_SENSITIVE_SUFFIX);
 				break;
@@ -161,7 +161,7 @@ cont_line_hide_pass(struct auth_client_connection *conn, const char *const *args
 	if (args[1] == NULL)
 		return args[0];
 
-	if (conn->auth->set->debug_passwords) {
+	if (conn->auth->protocol_set->debug_passwords) {
 		return t_strconcat(t_strarray_join(args, "\t"),
 				   AUTH_DEBUG_SENSITIVE_SUFFIX, NULL);
 	}

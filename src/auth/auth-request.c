@@ -207,7 +207,7 @@ void auth_request_init(struct auth_request *request)
 	struct auth *auth;
 
 	auth = auth_request_get_auth(request);
-	request->set = auth->set;
+	request->set = auth->protocol_set;
 	request->passdb = auth->passdbs;
 	request->userdb = auth->userdbs;
 }
