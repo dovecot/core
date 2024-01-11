@@ -459,9 +459,7 @@ bool auth_request_set_login_username(struct auth_request *request,
 	}
 	auth_request_set_login_username_forced(request, username);
 
-	e_debug(request->event,
-		"%sMaster user lookup for login: %s",
-		auth_request_get_log_prefix_db(request),
+	e_debug(request->event, "Master user lookup for login: %s",
 		request->fields.requested_login_user);
 	return TRUE;
 }
