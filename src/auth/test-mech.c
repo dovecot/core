@@ -95,6 +95,7 @@ static void test_mech_prepare_request(struct auth_request **request_r,
 	request->mech_password = NULL;
 	request->state = AUTH_REQUEST_STATE_NEW;
 	request->set = global_auth_settings;
+	request->protocol_set = global_auth_settings;
 	request->connect_uid = running_test;
 	request->passdb = auth->passdbs;
 	request->userdb = auth->userdbs;
