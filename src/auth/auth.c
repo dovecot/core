@@ -32,8 +32,6 @@ static const struct auth_userdb_settings userdb_dummy_set = {
 	.result_success = "return-ok",
 	.result_failure = "continue",
 	.result_internalfail = "continue",
-
-	.auth_verbose = "default",
 };
 
 ARRAY_TYPE(auth) auths;
