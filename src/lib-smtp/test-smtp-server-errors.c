@@ -86,7 +86,7 @@ static void
 test_run_client_server(const struct smtp_server_settings *server_set,
 		       test_server_init_t server_test,
 		       test_client_init_t client_test,
-		       unsigned int client_tests_count) ATTR_NULL(3);
+		       unsigned int client_tests_count, bool wait_for_clients);
 
 /*
  * Slow server
@@ -187,7 +187,7 @@ static void test_slow_server(void)
 	test_begin("slow server");
 	test_run_client_server(&smtp_server_set,
 			       test_server_slow_server,
-			       test_client_slow_server, 1);
+			       test_client_slow_server, 1, FALSE);
 	test_end();
 }
 
@@ -321,7 +321,7 @@ static void test_slow_client(void)
 	test_begin("slow client");
 	test_run_client_server(&smtp_server_set,
 			       test_server_slow_client,
-			       test_client_slow_client, 1);
+			       test_client_slow_client, 1, FALSE);
 	test_end();
 }
 
@@ -463,7 +463,7 @@ static void test_hanging_command_payload(void)
 	test_begin("hanging command payload");
 	test_run_client_server(&smtp_server_set,
 			       test_server_hanging_command_payload,
-			       test_client_hanging_command_payload, 1);
+			       test_client_hanging_command_payload, 1, FALSE);
 	test_end();
 }
 
@@ -557,7 +557,7 @@ static void test_bad_command(void)
 	test_begin("bad command");
 	test_run_client_server(&smtp_server_set,
 			       test_server_bad_command,
-			       test_client_bad_command, 1);
+			       test_client_bad_command, 1, FALSE);
 	test_end();
 }
 
@@ -725,7 +725,7 @@ static void test_many_bad_commands(void)
 	test_begin("many bad commands");
 	test_run_client_server(&smtp_server_set,
 		test_server_many_bad_commands,
-		test_client_many_bad_commands, 2);
+		test_client_many_bad_commands, 2, FALSE);
 	test_end();
 }
 
@@ -821,7 +821,7 @@ static void test_long_command(void)
 	test_begin("long command");
 	test_run_client_server(&smtp_server_set,
 			       test_server_long_command,
-			       test_client_long_command, 1);
+			       test_client_long_command, 1, FALSE);
 	test_end();
 }
 
@@ -1152,7 +1152,7 @@ static void test_long_auth_line(void)
 	test_begin("long auth line");
 	test_run_client_server(&smtp_server_set,
 			       test_server_long_auth_line,
-			       test_client_long_auth_line, 3);
+			       test_client_long_auth_line, 3, TRUE);
 	test_end();
 }
 
@@ -1167,7 +1167,7 @@ static void test_long_auth_line_small_buf(void)
 	test_begin("long auth line (small i/o buffers)");
 	test_run_client_server(&smtp_server_set,
 			       test_server_long_auth_line_small_buf,
-			       test_client_long_auth_line, 3);
+			       test_client_long_auth_line, 3, TRUE);
 	test_end();
 }
 
@@ -1319,7 +1319,7 @@ static void test_big_data(void)
 	test_begin("big_data");
 	test_run_client_server(&smtp_server_set,
 			       test_server_big_data,
-			       test_client_big_data, 1);
+			       test_client_big_data, 1, FALSE);
 	test_end();
 }
 
@@ -1497,7 +1497,7 @@ static void test_bad_helo(void)
 	test_begin("bad HELO");
 	test_run_client_server(&smtp_server_set,
 			       test_server_bad_helo,
-			       test_client_bad_helo, 4);
+			       test_client_bad_helo, 4, TRUE);
 	test_end();
 }
 
@@ -1680,7 +1680,7 @@ static void test_bad_mail(void)
 	test_begin("bad MAIL");
 	test_run_client_server(&smtp_server_set,
 			       test_server_bad_mail,
-			       test_client_bad_mail, 9);
+			       test_client_bad_mail, 9, TRUE);
 	test_end();
 }
 
@@ -1863,7 +1863,7 @@ static void test_bad_rcpt(void)
 	test_begin("bad RCPT");
 	test_run_client_server(&smtp_server_set,
 			       test_server_bad_rcpt,
-			       test_client_bad_rcpt, 7);
+			       test_client_bad_rcpt, 7, TRUE);
 	test_end();
 }
 
@@ -2018,7 +2018,7 @@ static void test_bad_vrfy(void)
 	test_begin("bad VRFY");
 	test_run_client_server(&smtp_server_set,
 			       test_server_bad_vrfy,
-			       test_client_bad_vrfy, 4);
+			       test_client_bad_vrfy, 4, TRUE);
 	test_end();
 }
 
@@ -2173,7 +2173,7 @@ static void test_bad_noop(void)
 	test_begin("bad NOOP");
 	test_run_client_server(&smtp_server_set,
 			       test_server_bad_noop,
-			       test_client_bad_noop, 4);
+			       test_client_bad_noop, 4, TRUE);
 	test_end();
 }
 
@@ -2374,7 +2374,7 @@ static void test_mail_workarounds(void)
 	test_begin("MAIL workarounds");
 	test_run_client_server(&smtp_server_set,
 			       test_server_mail_workarounds,
-			       test_client_mail_workarounds, 11);
+			       test_client_mail_workarounds, 11, TRUE);
 	test_end();
 }
 
@@ -2574,7 +2574,7 @@ static void test_rcpt_workarounds(void)
 	test_begin("RCPT workarounds");
 	test_run_client_server(&smtp_server_set,
 			       test_server_rcpt_workarounds,
-			       test_client_rcpt_workarounds, 9);
+			       test_client_rcpt_workarounds, 9, TRUE);
 	test_end();
 }
 
@@ -2676,7 +2676,7 @@ static void test_too_many_recipients(void)
 	test_begin("too many recipients");
 	test_run_client_server(&smtp_server_set,
 			       test_server_too_many_recipients,
-			       test_client_too_many_recipients, 1);
+			       test_client_too_many_recipients, 1, FALSE);
 	test_end();
 }
 
@@ -2759,7 +2759,7 @@ static void test_data_no_mail(void)
 	test_begin("DATA without MAIL");
 	test_run_client_server(&smtp_server_set,
 			       test_server_data_no_mail,
-			       test_client_data_no_mail, 1);
+			       test_client_data_no_mail, 1, FALSE);
 	test_end();
 }
 
@@ -2843,7 +2843,7 @@ static void test_data_no_rcpt(void)
 	test_begin("DATA without RCPT");
 	test_run_client_server(&smtp_server_set,
 			       test_server_data_no_rcpt,
-			       test_client_data_no_rcpt, 1);
+			       test_client_data_no_rcpt, 1, FALSE);
 	test_end();
 }
 
@@ -2931,7 +2931,7 @@ static void test_bad_pipelined_data(void)
 	test_begin("Bad pipelined DATA");
 	test_run_client_server(&smtp_server_set,
 			       test_server_bad_pipelined_data,
-			       test_client_bad_pipelined_data, 1);
+			       test_client_bad_pipelined_data, 1, FALSE);
 	test_end();
 }
 
@@ -3058,7 +3058,7 @@ static void test_bad_pipelined_data2(void)
 	test_begin("Bad pipelined DATA #2");
 	test_run_client_server(&smtp_server_set,
 			       test_server_bad_pipelined_data2,
-			       test_client_bad_pipelined_data2, 1);
+			       test_client_bad_pipelined_data2, 1, FALSE);
 	test_end();
 }
 
@@ -3145,7 +3145,7 @@ static void test_data_binarymime(void)
 	test_begin("DATA with BINARYMIME");
 	test_run_client_server(&smtp_server_set,
 			       test_server_data_binarymime,
-			       test_client_data_binarymime, 1);
+			       test_client_data_binarymime, 1, FALSE);
 	test_end();
 }
 
@@ -3380,7 +3380,7 @@ static void test_mail_broken_path(void)
 	test_begin("MAIL broken path");
 	test_run_client_server(&smtp_server_set,
 			       test_server_mail_broken_path,
-			       test_client_mail_broken_path, 18);
+			       test_client_mail_broken_path, 18, TRUE);
 	test_end();
 }
 
@@ -3510,7 +3510,7 @@ static void test_bad_pipelined_mail(void)
 	test_begin("Bad pipelined MAIL");
 	test_run_client_server(&smtp_server_set,
 			       test_server_bad_pipelined_mail,
-			       test_client_bad_pipelined_mail, 1);
+			       test_client_bad_pipelined_mail, 1, FALSE);
 	test_end();
 }
 
@@ -3817,7 +3817,7 @@ static void
 test_run_client_server(const struct smtp_server_settings *server_set,
 		       test_server_init_t server_test,
 		       test_client_init_t client_test,
-		       unsigned int client_tests_count)
+		       unsigned int client_tests_count, bool wait_for_clients)
 {
 	unsigned int i;
 
@@ -3842,6 +3842,8 @@ test_run_client_server(const struct smtp_server_settings *server_set,
 	/* Run server */
 	test_run_server(server_set, server_test, client_tests_count);
 
+	if (wait_for_clients)
+		test_subprocess_wait_all(CLIENT_KILL_TIMEOUT_SECS);
 	i_unset_failure_prefix();
 	i_close_fd(&fd_listen);
 	test_subprocess_kill_all(CLIENT_KILL_TIMEOUT_SECS);
