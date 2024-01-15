@@ -308,6 +308,8 @@ DOVECOT_NOTIFY
 
 DOVECOT_GLIBC
 
+DOVECOT_SCHED
+
 dnl * OS specific options
 DC_PLUGIN_DEPS
 case "$host_os" in

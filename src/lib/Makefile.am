@@ -50,6 +50,7 @@ liblib_la_SOURCES = \
 	buffer-istream.c \
 	child-wait.c \
 	connection.c \
+	cpu-count.c \
 	cpu-limit.c \
 	crc32.c \
 	data-stack.c \
@@ -213,6 +214,7 @@ headers = \
 	child-wait.h \
 	compat.h \
 	connection.h \
+	cpu-count.h \
 	cpu-limit.h \
 	crc32.h \
 	data-stack.h \
