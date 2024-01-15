@@ -307,7 +307,6 @@ mail_user_var_expand_table(struct mail_user *user)
 		{ 's', user->service, "service" },
 		{ 'l', local_ip, "lip" },
 		{ 'r', remote_ip, "rip" },
-		{ 'p', my_pid, "pid" },
 		{ 'i', p_strdup(user->pool, dec2str(user->uid)), "uid" },
 		{ '\0', p_strdup(user->pool, dec2str(user->gid)), "gid" },
 		{ '\0', user->session_id, "session" },
