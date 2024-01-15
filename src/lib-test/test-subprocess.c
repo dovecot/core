@@ -6,6 +6,7 @@
 #include "array.h"
 #include "ioloop.h"
 #include "sleep.h"
+#include "time-util.h"
 #include "test-common.h"
 #include "test-subprocess.h"
 
@@ -145,6 +146,91 @@ static void test_subprocess_kill_forced(struct test_subprocess *subp)
 	(void)waitpid(subp->pid, NULL, 0);
 }
 
+static void
+test_subprocess_wait_for_children(unsigned int timeout_secs,
+				  unsigned int *subps_left_r)
+{
+	struct timeval tv_now;
+	struct test_subprocess **subps;
+	unsigned int subps_count, subps_left, i;
+	time_t deadline;
+	
+	subps = array_get_modifiable(&test_subprocesses, &subps_count);
+	subps_left = 0;
+	for (i = 0; i < subps_count; i++) {
+		if (subps[i] == NULL ||
+		    subps[i]->pid == (pid_t)-1)
+			continue;
+		subps_left++;
+	}
+	if (timeout_secs == 0 || subps_left == 0) {
+		*subps_left_r = subps_left;
+		return;
+	}
+	
+	i_gettimeofday(&tv_now);
+	deadline = tv_now.tv_sec + timeout_secs;
+			
+	while (subps_left > 0) {
+		i_gettimeofday(&tv_now);
+		if (tv_now.tv_sec >= deadline)
+			break;
+		
+		unsigned int timeout_left = deadline - tv_now.tv_sec;
+		int status;
+		pid_t wret = (pid_t)-1;
+
+		alarm(timeout_left);
+		wret = waitpid(-1, &status, 0);
+		alarm(0);
+
+		i_assert(wret != 0);
+		test_assert(wret > 0 || errno == ECHILD);
+		if (wret < 0) {
+			if (errno == EINTR) {
+				e_warning(test_subprocess_event,
+					  "Wait for sub-processes timed out");
+				break;
+			}			
+			if (errno == ECHILD) {
+				/* No more children apparently */
+				for (i = 0; i < subps_count; i++) {
+					if (subps[i] == NULL ||
+					   subps[i]->pid == (pid_t)-1)
+						continue;
+					i_assert(subps_left > 0);
+					i_free(subps[i]);
+					subps_left--;
+				}
+				i_assert(subps_left == 0);
+				break;
+			}
+			e_warning(test_subprocess_event,
+				  "Wait for sub-processes failed: %m");
+			break;
+		}
+		if (wret > 0)
+			test_subprocess_verify_exit_status(status);
+		for (i = 0; i < subps_count; i++) {
+			if (subps[i] == NULL || subps[i]->pid != wret)
+				continue;
+			e_debug(test_subprocess_event,
+				"Terminated sub-process [%u]", i);
+			i_free(subps[i]);
+			subps_left--;
+		}
+	}
+	
+	*subps_left_r = subps_left;
+}
+
+void test_subprocess_wait_all(unsigned int timeout_secs)
+{
+	unsigned int subps_left ATTR_UNUSED;
+	
+	test_subprocess_wait_for_children(timeout_secs, &subps_left);
+}
+
 void test_subprocess_kill_all(unsigned int timeout_secs)
 {
 	struct test_subprocess **subps;
@@ -167,40 +253,7 @@ void test_subprocess_kill_all(unsigned int timeout_secs)
 	}
 
 	/* Wait for children */
-	subps_left = subps_count;
-	while (subps_left > 0) {
-		int status;
-		pid_t wret = (pid_t)-1;
-
-		alarm(timeout_secs);
-		wret = waitpid(-1, &status, 0);
-		alarm(0);
-
-		test_assert(wret > 0);
-		if (wret < 0 && errno == EINTR)
-			e_warning(test_subprocess_event,
-				  "Wait for sub-processes timed out");
-		if (wret > 0)
-			test_subprocess_verify_exit_status(status);
-
-		if (wret == 0)
-			break;
-		if (wret < 0) {
-			if (errno == ECHILD)
-				continue;
-			e_warning(test_subprocess_event,
-				  "Wait for sub-processes failed: %m");
-			break;
-		}
-		for (i = 0; i < subps_count; i++) {
-			if (subps[i] == NULL || subps[i]->pid != wret)
-				continue;
-			e_debug(test_subprocess_event,
-				"Terminated sub-process [%u]", i);
-			i_free(subps[i]);
-			subps_left--;
-		}
-	}
+	test_subprocess_wait_for_children(timeout_secs, &subps_left);
 
 	/* Kill disobedient ones with fire */
 	for (i = 0; i < subps_count; i++) {

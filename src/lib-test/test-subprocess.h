@@ -19,6 +19,12 @@ void test_subprocess_fork(int (*func)(void *), void *context,
 		 CALLBACK_TYPECHECK(func, int(*)(typeof(context)))), \
 		continue_test)
 
+/* Wait for all sub-processes to terminate voluntarily within the provided
+   timeout. */
+void test_subprocess_wait_all(unsigned int timeout_secs);
+/* Kill all sub-processes initially with SIGTERM and subsequently with SIGKILL
+   when any sub-processes are not terminated gracefully within the provided
+   timeout. */
 void test_subprocess_kill_all(unsigned int timeout_secs);
 
 /* Set a cleanup callback that is executed even when the test program crashes or
