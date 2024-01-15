@@ -76,14 +76,14 @@
 **/
 
 #ifndef HAVE_EVP_PKEY_get0_EC_KEY
-#define EVP_PKEY_get0_EC_KEY(x) x->pkey.ec
+#  define EVP_PKEY_get0_EC_KEY(x) x->pkey.ec
 #endif
 #ifndef HAVE_EVP_PKEY_get0_RSA
-#define EVP_PKEY_get0_RSA(x) x->pkey.rsa
+#  define EVP_PKEY_get0_RSA(x) x->pkey.rsa
 #endif
 
 #ifndef HAVE_OBJ_length
-#define OBJ_length(o) ((o)->length)
+#  define OBJ_length(o) ((o)->length)
 #endif
 
 #ifndef HAVE_EVP_MD_CTX_new
@@ -113,10 +113,10 @@
 #define t_base64url_decode_str(x) t_base64url_decode_str(BASE64_DECODE_FLAG_IGNORE_PADDING, (x))
 
 #ifdef HAVE_ERR_get_error_all
-# define openssl_get_error_data(data, flags) \
+#  define openssl_get_error_data(data, flags) \
 	ERR_get_error_all(NULL, NULL, NULL, data, flags)
 #else
-# define openssl_get_error_data(data, flags) \
+#  define openssl_get_error_data(data, flags) \
 	ERR_get_error_line_data(NULL, NULL, data, flags)
 #endif
 
