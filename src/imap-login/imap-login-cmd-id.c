@@ -287,8 +287,6 @@ static void cmd_id_copy_params(struct imap_client *client,
 
 static void cmd_id_finish(struct imap_client *client)
 {
-	const char *id_param_string;
-
 	if (!client->id_logged) {
 		client->id_logged = TRUE;
 
@@ -301,10 +299,9 @@ static void cmd_id_finish(struct imap_client *client)
 		}
 	}
 
-	id_param_string = t_array_const_string_join(&client->set->imap_id_send, " ");
 	client_send_raw(&client->common,
 		t_strdup_printf("* ID %s\r\n",
-			imap_id_reply_generate(id_param_string)));
+			imap_id_reply_generate(&client->set->imap_id_send)));
 	const char *msg = "ID completed.";
 	if (client->common.connection_trusted) {
 		if (client->cmd_id->params->multiplex &&

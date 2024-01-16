@@ -30,11 +30,11 @@ struct imap_settings {
 	const char *imap_capability;
 	const char *imap_client_workarounds;
 	const char *imap_logout_format;
-	const char *imap_id_send;
 	const char *imap_fetch_failure;
 	bool imap_metadata;
 	bool imap_literal_minus;
 	unsigned int imap_hibernate_timeout;
+	ARRAY_TYPE(const_string) imap_id_send;
 
 	/* imap urlauth: */
 	const char *imap_urlauth_host;

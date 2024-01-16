@@ -63,7 +63,6 @@ static const struct setting_define imap_setting_defines[] = {
 	DEF(STR, imap_capability),
 	DEF(STR, imap_client_workarounds),
 	DEF(STR_NOVARS, imap_logout_format),
-	DEF(STR, imap_id_send),
 	DEF(ENUM, imap_fetch_failure),
 	DEF(BOOL, imap_metadata),
 	DEF(BOOL, imap_literal_minus),
@@ -73,6 +72,9 @@ static const struct setting_define imap_setting_defines[] = {
 
 	DEF(STR, imap_urlauth_host),
 	DEF(IN_PORT, imap_urlauth_port),
+
+	{ .type = SET_STRLIST, .key = "imap_id_send",
+	  .offset = offsetof(struct imap_settings, imap_id_send) },
 
 	SETTING_DEFINE_LIST_END
 };
@@ -92,7 +94,7 @@ static const struct imap_settings imap_default_settings = {
 		"expunged=%{expunged} trashed=%{trashed} "
 		"hdr_count=%{fetch_hdr_count} hdr_bytes=%{fetch_hdr_bytes} "
 		"body_count=%{fetch_body_count} body_bytes=%{fetch_body_bytes}",
-	.imap_id_send = "name *",
+	.imap_id_send = ARRAY_INIT,
 	.imap_fetch_failure = "disconnect-immediately:disconnect-after:no-after",
 	.imap_metadata = FALSE,
 	.imap_literal_minus = FALSE,
@@ -106,11 +108,17 @@ static const struct imap_settings imap_default_settings = {
 	.imap_urlauth_port = 143
 };
 
+static const struct setting_keyvalue imap_default_settings_keyvalue[] = {
+	{ "imap_id_send/name", DOVECOT_NAME },
+	{ NULL, NULL },
+};
+
 const struct setting_parser_info imap_setting_parser_info = {
 	.name = "imap",
 
 	.defines = imap_setting_defines,
 	.defaults = &imap_default_settings,
+	.default_settings = imap_default_settings_keyvalue,
 
 	.struct_size = sizeof(struct imap_settings),
 	.pool_offset1 = 1 + offsetof(struct imap_settings, pool),

@@ -51,79 +51,32 @@ static const char *imap_id_get_default(const char *key)
 	return imap_id_get_uname(key);
 }
 
-static const char *
-imap_id_reply_generate_from_imap_args(const struct imap_arg *args)
+const char *imap_id_reply_generate(const ARRAY_TYPE(const_string) *args)
 {
-	string_t *str;
-	const char *key, *value;
-
-	if (IMAP_ARG_IS_EOL(args))
+	if (array_is_empty(args))
 		return "NIL";
 
-	str = t_str_new(256);
+	string_t *str = t_str_new(256);
 	str_append_c(str, '(');
-	for (; !IMAP_ARG_IS_EOL(args); args++) {
-		if (!imap_arg_get_astring(args, &key)) {
-			/* broken input */
-			if (IMAP_ARG_IS_EOL(&args[1]))
-				break;
-			args++;
-		} else {
-			/* key */
-			if (str_len(str) > 1)
-				str_append_c(str, ' ');
-			imap_append_quoted(str, key);
+	unsigned int count;
+	const char *const *kv = array_get(args, &count);
+	for (unsigned int i = 0; i < count; i += 2) {
+		if (i > 0)
 			str_append_c(str, ' ');
-			/* value */
-			if (IMAP_ARG_IS_EOL(&args[1])) {
-				str_append(str, "NIL");
-				break;
-			}
-			args++;
-			if (!imap_arg_get_astring(args, &value))
-				value = NULL;
-			else {
-				if (strcmp(value, "*") == 0)
-					value = imap_id_get_default(key);
+		imap_append_quoted(str, kv[i]);
+		str_append_c(str, ' ');
+		const char *value = kv[i + 1];
+		if (strcmp(value, "*") == 0)
+			value = imap_id_get_default(kv[i]);
 #if defined(DOVECOT_EDITION)
-				else if (strcasecmp(key, "name") == 0 &&
-					 strcmp(DOVECOT_EDITION, "Pro") == 0)
-					value = imap_id_get_default(key);
+		else if (strcasecmp(kv[i], "name") == 0 &&
+			 strcmp(DOVECOT_EDITION, "Pro") == 0)
+			value = imap_id_get_default(kv[i]);
 #endif
-			}
-			imap_append_nstring(str, value);
-		}
-	}
-	if (str_len(str) == 1) {
-		/* broken */
-		return "NIL";
+		imap_append_nstring(str, value);
 	}
 	str_append_c(str, ')');
 	return str_c(str);
-}
-
-const char *imap_id_reply_generate(const char *settings)
-{
-	struct istream *input;
-	struct imap_parser *parser;
-	const struct imap_arg *args;
-	const char *ret;
-
-	if (settings == NULL)
-		return "NIL";
-
-	input = i_stream_create_from_data(settings, strlen(settings));
-	(void)i_stream_read(input);
-
-	parser = imap_parser_create(input, NULL, SIZE_MAX);
-	if (imap_parser_finish_line(parser, 0, 0, &args) <= 0)
-		ret = "NIL";
-	else
-		ret = imap_id_reply_generate_from_imap_args(args);
-
-	imap_parser_unref(&parser);
-	i_stream_destroy(&input);
-	return ret;
 }
 
 void
