@@ -81,7 +81,6 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 
 	conn = i_new(struct solr_connection, 1);
 	conn->event = event_create(event_parent);
-	event_set_forced_debug(conn->event, solr_set->debug);
 	conn->http_host = i_strdup(http_url->host.name);
 	conn->http_port = http_url->port;
 	conn->http_base_url = solr_connection_create_http_base_url(http_url);
@@ -92,8 +91,6 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 		conn->http_password = i_strdup(http_url->password != NULL ?
 					       http_url->password : "");
 	}
-
-	conn->debug = solr_set->debug;
 
 	if (solr_http_client == NULL) {
 		/* FIXME: We should initialize a shared client instead. However,
