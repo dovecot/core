@@ -15,6 +15,7 @@
 #include "strescape.h"
 #include "var-expand.h"
 #include "var-expand-private.h"
+#include "dovecot-version.h"
 
 #include <unistd.h>
 #include <ctype.h>
@@ -422,6 +423,34 @@ var_expand_system(struct var_expand_context *ctx ATTR_UNUSED,
 		return 1;
 	}
 	*error_r = t_strdup_printf("Unsupported system key '%s'", field);
+	return 0;
+}
+
+static int
+var_expand_dovecot(struct var_expand_context *ctx ATTR_UNUSED,
+		   const char *key, const char *field,
+		   const char **result_r, const char **error_r)
+{
+	i_assert(strcmp(key, "dovecot") == 0);
+
+	if (strcmp(field, "name") == 0) {
+		*result_r = PACKAGE_NAME;
+		return 1;
+	} else if (strcmp(field, "version") == 0) {
+		*result_r = PACKAGE_VERSION;
+		return 1;
+	} else if (strcmp(field, "support-url") == 0) {
+		*result_r = PACKAGE_WEBPAGE;
+		return 1;
+	} else if (strcmp(field, "support-email") == 0) {
+		*result_r = PACKAGE_BUGREPORT;
+		return 1;
+	} else if (strcmp(field, "revision") == 0) {
+		*result_r = DOVECOT_REVISION;
+		return 1;
+	}
+
+	*error_r = t_strdup_printf("Unsupported dovecot key '%s'", field);
 	return 0;
 }
 
@@ -863,6 +892,11 @@ void var_expand_extensions_init(void)
 	func = array_append_space(&var_expand_extensions);
 	func->key = "process";
 	func->func = var_expand_process;
+
+	/* dovecot */
+	func = array_append_space(&var_expand_extensions);
+	func->key = "dovecot";
+	func->func = var_expand_dovecot;
 }
 
 void
