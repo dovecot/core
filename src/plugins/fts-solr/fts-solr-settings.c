@@ -14,7 +14,6 @@ static const struct setting_define fts_solr_setting_defines[] = {
 	DEF(STR,  url),
 	DEF(UINT, batch_size),
 	DEF(BOOL, soft_commit),
-	DEF(BOOL, debug),
 	SETTING_DEFINE_LIST_END
 };
 
@@ -22,7 +21,6 @@ static const struct fts_solr_settings fts_solr_default_settings = {
 	.url               = "",
 	.batch_size        = 1000,
 	.soft_commit       = TRUE,
-	.debug             = FALSE,
 };
 
 static const struct setting_keyvalue fts_solr_default_settings_keyvalue[] = {

@@ -10,7 +10,6 @@ struct fts_solr_settings {
 	const char *url;
 	unsigned int batch_size;
 	bool soft_commit;
-	bool debug;
 };
 
 extern const struct setting_parser_info fts_solr_setting_parser_info;
