@@ -7,7 +7,12 @@
 #include "hostpid.h"
 #include "var-expand.h"
 #include "var-expand-private.h"
+#include "dovecot-version.h"
+
 #include <unistd.h>
+#ifdef HAVE_SYS_UTSNAME_H
+#  include <sys/utsname.h>
+#endif
 
 struct var_expand_test {
 	const char *in;
@@ -568,6 +573,43 @@ static void test_var_expand_system()
 	test_end();
 }
 
+static void
+test_var_expand_dovecot(void)
+{
+	static const struct var_expand_table table[] = {
+		{ '\0', NULL, NULL }
+	};
+
+	int ret;
+	const char *error;
+	string_t *dest = t_str_new(64);
+	test_begin("var_expand_dovecot");
+
+	/* Available keys should be correctly expanded. */
+	static const struct var_expand_test tests[] = {
+		{ "%{dovecot:name}", PACKAGE_NAME, 1 },
+		{ "%{dovecot:version}", PACKAGE_VERSION, 1 },
+		{ "%{dovecot:support-url}", PACKAGE_WEBPAGE, 1 },
+		{ "%{dovecot:support-email}", PACKAGE_BUGREPORT, 1 },
+		{ "%{dovecot:revision}", DOVECOT_REVISION, 1 },
+	};
+
+	for (size_t i = 0; i < N_ELEMENTS(tests); i++) {
+		str_truncate(dest, 0);
+
+		ret = var_expand(dest, tests[i].in, table, &error);
+		test_assert_idx(tests[i].ret == ret, i);
+		test_assert_idx(strcmp(tests[i].out, str_c(dest)) == 0, i);
+	}
+
+	/* Make sure invalid keys are rejected. */
+	str_truncate(dest, 0);
+	test_assert(var_expand(dest, "%{dovecot:invalid}", table, &error) == 0);
+	test_assert(strcmp(error, "Unsupported dovecot key 'invalid'") == 0);
+
+	test_end();
+}
+
 void test_var_expand(void)
 {
 	test_var_expand_ranges();
@@ -581,4 +623,5 @@ void test_var_expand(void)
 	test_var_expand_if();
 	test_var_expand_merge_tables();
 	test_var_expand_system();
+	test_var_expand_dovecot();
 }
