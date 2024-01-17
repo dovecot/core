@@ -1352,8 +1352,7 @@ static void
 settings_instance_overrides_add_filters(struct settings_apply_ctx *ctx,
 					const struct setting_parser_info *info)
 {
-	const struct setting_keyvalue *defaults =
-		info->default_filter_settings;
+	const struct setting_keyvalue *defaults = info->default_settings;
 	struct settings_override *set;
 
 	if (defaults == NULL)
@@ -1392,7 +1391,7 @@ settings_instance_override_init(struct settings_apply_ctx *ctx)
 	}
 	if ((ctx->instance->mmap == NULL || have_2nd_defaults) &&
 	    array_is_created(&set_registered_infos)) {
-		/* a) No configuration - default_filter_settings won't be
+		/* a) No configuration - default_settings won't be
 		   applied unless we add them here also. This isn't for any
 		   production use, so performance doesn't matter.
 		   b) SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT has been used -

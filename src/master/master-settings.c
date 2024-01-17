@@ -243,7 +243,7 @@ const struct setting_parser_info master_setting_parser_info = {
 
 	.defines = master_setting_defines,
 	.defaults = &master_default_settings,
-	.default_filter_settings = master_default_settings_keyvalue,
+	.default_settings = master_default_settings_keyvalue,
 
 	.struct_size = sizeof(struct master_settings),
 	.pool_offset1 = 1 + offsetof(struct master_settings, pool),

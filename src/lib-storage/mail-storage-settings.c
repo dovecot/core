@@ -193,7 +193,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.plugin_envs = ARRAY_INIT,
 };
 
-static const struct setting_keyvalue mail_storage_default_filter_settings_keyvalue[] = {
+static const struct setting_keyvalue mail_storage_default_settings_keyvalue[] = {
 	{ "layout_index/mailbox_list_storage_escape_char", "^" },
 	{ NULL, NULL }
 };
@@ -203,7 +203,7 @@ const struct setting_parser_info mail_storage_setting_parser_info = {
 
 	.defines = mail_storage_setting_defines,
 	.defaults = &mail_storage_default_settings,
-	.default_filter_settings = mail_storage_default_filter_settings_keyvalue,
+	.default_settings = mail_storage_default_settings_keyvalue,
 
 	.struct_size = sizeof(struct mail_storage_settings),
 	.pool_offset1 = 1 + offsetof(struct mail_storage_settings, pool),

@@ -123,9 +123,8 @@ struct setting_parser_info {
 
 	const struct setting_define *defines;
 	const void *defaults;
-	/* Add defaults to named filters. These are applied while parsing
-	   the configuration. */
-	const struct setting_keyvalue *default_filter_settings;
+	/* Add defaults via strings on top of the of defaults struct. */
+	const struct setting_keyvalue *default_settings;
 
 	size_t struct_size;
 	size_t pool_offset1; /* 1 + offset to pool_t field */

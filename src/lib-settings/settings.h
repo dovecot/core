@@ -289,7 +289,7 @@ bool settings_has_mmap(struct settings_root *root);
 struct settings_root *settings_root_init(void);
 void settings_root_deinit(struct settings_root **root);
 
-/* Explicitly register settings info. This is needed if default_filter_settings
+/* Explicitly register settings info. This is needed if default_settings
    are specified to get the defaults to work when configuration isn't read
    (-O parameter or unit tests). */
 void settings_info_register(const struct setting_parser_info *info);

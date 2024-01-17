@@ -63,7 +63,7 @@ static const struct imapc_settings imapc_default_settings = {
 	.pop3_deleted_flag = ""
 };
 
-static const struct setting_keyvalue imapc_default_filter_settings_keyvalue[] = {
+static const struct setting_keyvalue imapc_default_settings_keyvalue[] = {
 	{ "imapc/mailbox_list_layout", "imapc" },
 	/* We want to have all imapc mailboxes accessible, so escape them if
 	   necessary. */
@@ -77,7 +77,7 @@ const struct setting_parser_info imapc_setting_parser_info = {
 
 	.defines = imapc_setting_defines,
 	.defaults = &imapc_default_settings,
-	.default_filter_settings = imapc_default_filter_settings_keyvalue,
+	.default_settings = imapc_default_settings_keyvalue,
 
 	.struct_size = sizeof(struct imapc_settings),
 	.pool_offset1 = 1 + offsetof(struct imapc_settings, pool),
