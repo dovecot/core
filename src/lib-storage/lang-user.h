@@ -11,18 +11,18 @@ struct language_user {
 ARRAY_DEFINE_TYPE(language_user, struct language_user *);
 
 struct language_user *
-fts_user_language_find(struct mail_user *user, const struct language *lang);
-struct language_list *fts_user_get_language_list(struct mail_user *user);
+lang_user_language_find(struct mail_user *user, const struct language *lang);
+struct language_list *lang_user_get_language_list(struct mail_user *user);
 const ARRAY_TYPE(language_user) *
-fts_user_get_all_languages(struct mail_user *user);
-struct language_user *fts_user_get_data_lang(struct mail_user *user);
+lang_user_get_all_languages(struct mail_user *user);
+struct language_user *lang_user_get_data_lang(struct mail_user *user);
 const ARRAY_TYPE(language_user) *
-fts_user_get_data_languages(struct mail_user *user);
+lang_user_get_data_languages(struct mail_user *user);
 
-const struct langs_settings *fts_user_get_settings(struct mail_user *user);
+const struct langs_settings *lang_user_get_settings(struct mail_user *user);
 
-int fts_mail_user_init(struct mail_user *user, bool initialize_libfts,
+int lang_user_init(struct mail_user *user, bool initialize_libfts,
 		       const char **error_r);
-void fts_mail_user_deinit(struct mail_user *user);
+void lang_user_deinit(struct mail_user *user);
 
 #endif
