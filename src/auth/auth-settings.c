@@ -210,6 +210,8 @@ static const struct setting_define auth_userdb_setting_defines[] = {
 	DEF(ENUM, result_failure),
 	DEF(ENUM, result_internalfail),
 
+	DEF(BOOL, use_worker),
+
 	SETTING_DEFINE_LIST_END
 };
 
@@ -223,6 +225,8 @@ static const struct auth_userdb_settings auth_userdb_default_settings = {
 	.result_success = "return-ok:return:return-fail:continue:continue-ok:continue-fail",
 	.result_failure = "continue:return:return-ok:return-fail:continue-ok:continue-fail",
 	.result_internalfail = "continue:return:return-ok:return-fail:continue-ok:continue-fail",
+
+	.use_worker = FALSE,
 };
 
 const struct setting_parser_info auth_userdb_setting_parser_info = {
