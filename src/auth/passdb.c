@@ -207,7 +207,7 @@ passdb_preinit(pool_t pool, const struct auth_passdb_settings *set)
 		i_fatal("Support not compiled in for passdb driver '%s'",
 			set->driver);
 	}
-	if (iface->preinit == NULL && iface->init == NULL &&
+	if (iface->preinit_legacy == NULL && iface->init == NULL &&
 	    *set->args != '\0') {
 		i_fatal("passdb %s: No args are supported: %s",
 			set->driver, set->args);
@@ -217,10 +217,10 @@ passdb_preinit(pool_t pool, const struct auth_passdb_settings *set)
 	if (passdb != NULL)
 		return passdb;
 
-	if (iface->preinit == NULL)
+	if (iface->preinit_legacy == NULL)
 		passdb = p_new(pool, struct passdb_module, 1);
 	else
-		passdb = iface->preinit(pool, set->args);
+		passdb = iface->preinit_legacy(pool, set->args);
 	passdb->id = ++auth_passdb_id;
 	passdb->iface = *iface;
 	passdb->args = p_strdup(pool, set->args);
