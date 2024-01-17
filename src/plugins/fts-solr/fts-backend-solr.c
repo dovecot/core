@@ -29,8 +29,13 @@
 
 #define SOLR_QUERY_MAX_MAILBOX_COUNT 10
 
+struct event_category event_category_fts_solr = {
+	.name = "fts-solr",
+	.parent = &event_category_fts
+};
 struct solr_fts_backend {
 	struct fts_backend backend;
+	struct event *event;
 	struct solr_connection *solr_conn;
 };
 
@@ -186,7 +191,11 @@ fts_backend_solr_init(struct fts_backend *_backend, const char **error_r)
 		*error_r = "Invalid fts_solr setting";
 		return -1;
 	}
-	return solr_connection_init(fuser->set, _backend->event,
+
+	backend->event = event_create(_backend->event);
+	event_add_category(backend->event, &event_category_fts_solr);
+
+	return solr_connection_init(fuser->set, backend->event,
 				    &backend->solr_conn, error_r);
 }
 
@@ -196,6 +205,7 @@ static void fts_backend_solr_deinit(struct fts_backend *_backend)
 
 	if (backend->solr_conn != NULL)
 		solr_connection_deinit(&backend->solr_conn);
+	event_unref(&backend->event);
 	i_free(backend);
 }
 
