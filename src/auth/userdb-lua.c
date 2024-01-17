@@ -141,17 +141,17 @@ struct userdb_module_interface userdb_lua =
 struct userdb_module_interface userdb_lua_plugin =
 #endif
 {
-	"lua",
+	.name = "lua",
 
-	userdb_lua_preinit,
-	userdb_lua_init,
-	userdb_lua_deinit,
+	.preinit_legacy = userdb_lua_preinit,
+	.init = userdb_lua_init,
+	.deinit = userdb_lua_deinit,
 
-	userdb_lua_lookup,
+	.lookup = userdb_lua_lookup,
 
-	userdb_lua_iterate_init,
-	userdb_lua_iterate_next,
-	userdb_lua_iterate_deinit
+	.iterate_init = userdb_lua_iterate_init,
+	.iterate_next = userdb_lua_iterate_next,
+	.iterate_deinit = userdb_lua_iterate_deinit
 };
 #else
 struct userdb_module_interface userdb_lua = {

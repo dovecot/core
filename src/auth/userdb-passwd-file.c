@@ -226,17 +226,17 @@ static void passwd_file_deinit(struct userdb_module *_module)
 }
 
 struct userdb_module_interface userdb_passwd_file = {
-	"passwd-file",
+	.name = "passwd-file",
 
-	passwd_file_preinit,
-	passwd_file_init,
-	passwd_file_deinit,
+	.preinit_legacy = passwd_file_preinit,
+	.init = passwd_file_init,
+	.deinit = passwd_file_deinit,
 
-	passwd_file_lookup,
+	.lookup = passwd_file_lookup,
 
-	passwd_file_iterate_init,
-	passwd_file_iterate_next,
-	passwd_file_iterate_deinit
+	.iterate_init = passwd_file_iterate_init,
+	.iterate_next = passwd_file_iterate_next,
+	.iterate_deinit = passwd_file_iterate_deinit
 };
 #else
 struct userdb_module_interface userdb_passwd_file = {

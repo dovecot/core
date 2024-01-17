@@ -236,17 +236,15 @@ passwd_passwd_preinit(pool_t pool, const char *args)
 }
 
 struct userdb_module_interface userdb_passwd = {
-	"passwd",
+	.name = "passwd",
 
-	passwd_passwd_preinit,
-	NULL,
-	NULL,
+	.preinit_legacy = passwd_passwd_preinit,
 
-	passwd_lookup,
+	.lookup = passwd_lookup,
 
-	passwd_iterate_init,
-	passwd_iterate_next,
-	passwd_iterate_deinit
+	.iterate_init = passwd_iterate_init,
+	.iterate_next = passwd_iterate_next,
+	.iterate_deinit = passwd_iterate_deinit
 };
 #else
 struct userdb_module_interface userdb_passwd = {
