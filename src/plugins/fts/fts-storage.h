@@ -70,4 +70,6 @@ void fts_mailbox_list_created(struct mailbox_list *list);
 int fts_mailbox_get_status(struct mailbox *box, enum mailbox_status_items items,
 			   struct mailbox_status *status_r);
 
+const struct fts_settings *fts_mailbox_get_settings(struct mailbox *box);
+
 #endif
