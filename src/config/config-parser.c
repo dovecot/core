@@ -250,7 +250,7 @@ static void config_parser_add_info_defaults(struct config_parser_context *ctx,
 					    const struct setting_parser_info *info)
 {
 	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
-	config_parser_add_info_defaults_arr(ctx, info, info->default_filter_settings);
+	config_parser_add_info_defaults_arr(ctx, info, info->default_settings);
 	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
 }
 
@@ -1642,7 +1642,7 @@ config_filter_parser_drop_overridden_default_settings(
 }
 
 static void
-config_drop_overridden_default_filter_settings(struct config_parser_context *ctx)
+config_drop_overridden_default_settings(struct config_parser_context *ctx)
 {
 	struct config_filter_parser *filter_parser;
 
@@ -1669,7 +1669,7 @@ config_parse_finish(struct config_parser_context *ctx,
 	new_config->dovecot_config_version = ctx->dovecot_config_version;
 	p_array_init(&new_config->errors, ctx->pool, 1);
 
-	config_drop_overridden_default_filter_settings(ctx);
+	config_drop_overridden_default_settings(ctx);
 
 	array_append_zero(&ctx->all_filter_parsers);
 	new_config->filter_parsers = array_front(&ctx->all_filter_parsers);
