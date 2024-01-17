@@ -1,5 +1,5 @@
-#ifndef FTS_USER_H
-#define FTS_USER_H
+#ifndef LANG_USER_H
+#define LANG_USER_H
 
 #include "fts-settings.h"
 
