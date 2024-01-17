@@ -194,15 +194,9 @@ passdb_imap_preinit(pool_t pool, const char *args)
 }
 
 static struct passdb_module_interface passdb_imap_plugin = {
-	"imap",
-
-	passdb_imap_preinit,
-	NULL,
-	NULL,
-
-	passdb_imap_verify_plain,
-	NULL,
-	NULL
+	.name = "imap",
+	.preinit_legacy = passdb_imap_preinit,
+	.verify_plain = passdb_imap_verify_plain,
 };
 
 void authdb_imap_init(void);

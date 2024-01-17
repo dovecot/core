@@ -81,15 +81,11 @@ static void bsdauth_deinit(struct passdb_module *module ATTR_UNUSED)
 }
 
 struct passdb_module_interface passdb_bsdauth = {
-	"bsdauth",
+	.name = "bsdauth",
 
-	bsdauth_preinit,
-	NULL,
-	bsdauth_deinit,
-
-	bsdauth_verify_plain,
-	NULL,
-	NULL
+	.preinit_legacy = bsdauth_preinit,
+	.deinit = bsdauth_deinit,
+	.verify_plain = bsdauth_verify_plain,
 };
 #else
 struct passdb_module_interface passdb_bsdauth = {

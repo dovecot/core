@@ -78,13 +78,9 @@ const char *passdb_oauth2_get_oidc_url(struct passdb_module *passdb)
 }
 
 struct passdb_module_interface passdb_oauth2 = {
-	"oauth2",
+	.name = "oauth2",
 
-	oauth2_preinit,
-	NULL,
-	oauth2_deinit,
-
-	oauth2_verify_plain,
-	NULL,
-	NULL
+	.preinit_legacy = oauth2_preinit,
+	.deinit = oauth2_deinit,
+	.verify_plain = oauth2_verify_plain,
 };

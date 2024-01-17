@@ -193,15 +193,14 @@ static void passwd_file_deinit(struct passdb_module *_module)
 }
 
 struct passdb_module_interface passdb_passwd_file = {
-	"passwd-file",
+	.name = "passwd-file",
 
-	passwd_file_preinit,
-	passwd_file_init,
-	passwd_file_deinit,
+	.preinit_legacy = passwd_file_preinit,
+	.init = passwd_file_init,
+	.deinit = passwd_file_deinit,
 
-	passwd_file_verify_plain,
-	passwd_file_lookup_credentials,
-	NULL
+	.verify_plain = passwd_file_verify_plain,
+	.lookup_credentials = passwd_file_lookup_credentials,
 };
 #else
 struct passdb_module_interface passdb_passwd_file = {

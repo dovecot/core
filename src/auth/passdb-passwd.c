@@ -109,15 +109,13 @@ static void passwd_deinit(struct passdb_module *module ATTR_UNUSED)
 }
 
 struct passdb_module_interface passdb_passwd = {
-	"passwd",
+	.name = "passwd",
 
-	passwd_preinit,
-	NULL,
-	passwd_deinit,
+	.preinit_legacy = passwd_preinit,
+	.deinit = passwd_deinit,
 
-	passwd_verify_plain,
-	passwd_lookup_credentials,
-	NULL
+	.verify_plain = passwd_verify_plain,
+	.lookup_credentials = passwd_lookup_credentials,
 };
 
 #else

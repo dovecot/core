@@ -101,13 +101,9 @@ static_preinit(pool_t pool, const char *args)
 }
 
 struct passdb_module_interface passdb_static = {
-	"static",
+	.name = "static",
 
-	static_preinit,
-	NULL,
-	NULL,
-
-	static_verify_plain,
-	static_lookup_credentials,
-	NULL
+	.preinit_legacy = static_preinit,
+	.verify_plain = static_verify_plain,
+	.lookup_credentials = static_lookup_credentials,
 };

@@ -497,15 +497,14 @@ struct passdb_module_interface passdb_ldap =
 struct passdb_module_interface passdb_ldap_plugin =
 #endif
 {
-	"ldap",
+	.name = "ldap",
 
-	passdb_ldap_preinit,
-	passdb_ldap_init,
-	passdb_ldap_deinit,
+	.preinit_legacy = passdb_ldap_preinit,
+	.init = passdb_ldap_init,
+	.deinit = passdb_ldap_deinit,
 
-	ldap_verify_plain,
-	ldap_lookup_credentials,
-	NULL
+	.verify_plain = ldap_verify_plain,
+	.lookup_credentials = ldap_lookup_credentials,
 };
 #else
 struct passdb_module_interface passdb_ldap = {

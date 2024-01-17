@@ -196,15 +196,14 @@ struct passdb_module_interface passdb_lua =
 struct passdb_module_interface passdb_lua_plugin =
 #endif
 {
-	"lua",
+	.name = "lua",
 
-	passdb_lua_preinit,
-	passdb_lua_init,
-	passdb_lua_deinit,
+	.preinit_legacy = passdb_lua_preinit,
+	.init = passdb_lua_init,
+	.deinit = passdb_lua_deinit,
 
-	passdb_lua_verify_plain,
-	passdb_lua_lookup_credentials,
-	NULL
+	.verify_plain = passdb_lua_verify_plain,
+	.lookup_credentials = passdb_lua_lookup_credentials,
 };
 #else
 struct passdb_module_interface passdb_lua = {
