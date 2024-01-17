@@ -171,11 +171,13 @@ void passdb_handle_credentials(enum passdb_result result,
 }
 
 struct passdb_module *
-passdb_preinit(pool_t pool, const struct auth_passdb_settings *set)
+passdb_preinit(pool_t pool, struct event *event,
+	       const struct auth_passdb_settings *set)
 {
 	static unsigned int auth_passdb_id = 0;
 	struct passdb_module_interface *iface;
 	struct passdb_module *passdb;
+	const char *error;
 
 	iface = passdb_interface_find(set->driver);
 	if (iface == NULL || iface->verify_plain == NULL) {
@@ -195,10 +197,20 @@ passdb_preinit(pool_t pool, const struct auth_passdb_settings *set)
 			set->driver, set->args);
 	}
 
-	if (iface->preinit_legacy == NULL)
-		passdb = p_new(pool, struct passdb_module, 1);
-	else
-		passdb = iface->preinit_legacy(pool, set->args);
+	if (iface->preinit != NULL) {
+		if (set->args[0] != '\0')
+			i_fatal("passdb %s: passdb_args must be empty", set->name);
+		if (iface->preinit(pool, event, &passdb, &error) < 0)
+			i_fatal("passdb %s: %s", set->name, error);
+		passdb->default_pass_scheme =
+			set->default_password_scheme;
+		passdb->blocking = set->use_worker;
+	} else {
+		if (iface->preinit_legacy == NULL)
+			passdb = p_new(pool, struct passdb_module, 1);
+		else
+			passdb = iface->preinit_legacy(pool, set->args);
+	}
 	passdb->id = ++auth_passdb_id;
 	passdb->iface = *iface;
 	passdb->args = p_strdup(pool, set->args);

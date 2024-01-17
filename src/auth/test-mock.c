@@ -81,7 +81,9 @@ void passdb_mock_mod_init(void)
 		.deny = FALSE,
 		.master = FALSE,
 	};
-	mock_passdb_mod = passdb_preinit(mock_pool, &set);
+	struct event *event = event_create(NULL);
+	mock_passdb_mod = passdb_preinit(mock_pool, event, &set);
+	event_unref(&event);
 	passdb_init(mock_passdb_mod);
 }
 
