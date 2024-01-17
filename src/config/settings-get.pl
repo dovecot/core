@@ -53,7 +53,6 @@ foreach my $file (@ARGV) {
       if (/struct .*_settings \{/ ||
           /struct setting_define.*\{/ ||
           /struct .*_default_settings = \{/ ||
-          /struct setting_keyvalue.*_default_settings_keyvalue\[\] = \{/ ||
           /struct setting_keyvalue.*_default_filter_settings_keyvalue\[\] = \{/) {
         # settings-related structure - copy.
         $state = "copy-to-end-of-block";
