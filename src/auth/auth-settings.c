@@ -335,12 +335,8 @@ static const struct auth_settings auth_default_settings = {
 	.first_valid_gid = 1,
 	.last_valid_gid = 0,
 };
-static const struct setting_keyvalue auth_default_settings_keyvalue[] = {
-	{ "auth_mechanisms", "plain" },
-	{ NULL, NULL }
-};
-
 static const struct setting_keyvalue auth_default_filter_settings_keyvalue[] = {
+	{ "auth_mechanisms", "plain" },
 	{ "auth_policy/http_client_request_absolute_timeout", "2s" },
 	{ "auth_policy/http_client_max_idle_time", "10s" },
 	{ "auth_policy/http_client_max_parallel_connections", "100" },
@@ -359,7 +355,6 @@ const struct setting_parser_info auth_setting_parser_info = {
 
 	.defines = auth_setting_defines,
 	.defaults = &auth_default_settings,
-	.default_settings = auth_default_settings_keyvalue,
 	.default_filter_settings = auth_default_filter_settings_keyvalue,
 
 	.struct_size = sizeof(struct auth_settings),
