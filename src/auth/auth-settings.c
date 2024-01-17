@@ -109,6 +109,8 @@ static const struct setting_define auth_passdb_setting_defines[] = {
 	DEF(BOOLLIST, mechanisms),
 	DEF(STR, username_filter),
 
+	DEF(STR, default_password_scheme),
+
 	DEF(ENUM, skip),
 	DEF(ENUM, result_success),
 	DEF(ENUM, result_failure),
@@ -116,6 +118,7 @@ static const struct setting_define auth_passdb_setting_defines[] = {
 
 	DEF(BOOL, deny),
 	DEF(BOOL, master),
+	DEF(BOOL, use_worker),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -127,6 +130,8 @@ static const struct auth_passdb_settings auth_passdb_default_settings = {
 	.mechanisms = ARRAY_INIT,
 	.username_filter = "",
 
+	.default_password_scheme = "PLAIN",
+
 	.skip = "never:authenticated:unauthenticated",
 	.result_success = "return-ok:return:return-fail:continue:continue-ok:continue-fail",
 	.result_failure = "continue:return:return-ok:return-fail:continue-ok:continue-fail",
@@ -134,6 +139,7 @@ static const struct auth_passdb_settings auth_passdb_default_settings = {
 
 	.deny = FALSE,
 	.master = FALSE,
+	.use_worker = FALSE,
 };
 
 const struct setting_parser_info auth_passdb_setting_parser_info = {

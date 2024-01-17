@@ -22,12 +22,15 @@ struct auth_passdb_settings {
 	ARRAY_TYPE(const_string) mechanisms;
 	const char *username_filter;
 
+	const char *default_password_scheme;
+
 	const char *skip;
 	const char *result_success;
 	const char *result_failure;
 	const char *result_internalfail;
 	bool deny;
 	bool master;
+	bool use_worker;
 };
 
 struct auth_userdb_pre_settings {
