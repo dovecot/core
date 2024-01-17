@@ -46,6 +46,7 @@ struct fts_mailbox_list {
 
 struct fts_mailbox {
 	union mailbox_module_context module_ctx;
+	const struct fts_settings *set;
 	struct fts_backend_update_context *sync_update_ctx;
 	bool fts_mailbox_excluded;
 };
@@ -818,6 +819,13 @@ static int fts_mailbox_search_next_match_mail(struct mail_search_context *ctx,
 	return fbox->module_ctx.super.search_next_match_mail(ctx, mail);
 }
 
+static void fts_mailbox_free(struct mailbox *box)
+{
+	struct fts_mailbox *fbox = FTS_CONTEXT_REQUIRE(box);
+	settings_free(fbox->set);
+	fbox->module_ctx.super.free(box);
+}
+
 void fts_mailbox_allocated(struct mailbox *box)
 {
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT(box->list);
@@ -827,8 +835,17 @@ void fts_mailbox_allocated(struct mailbox *box)
 	if (flist == NULL || flist->failed)
 		return;
 
+	const struct fts_settings *set;
+	const char *error;
+	if (settings_get(box->event, &fts_setting_parser_info, 0, &set, &error) < 0) {
+		e_error(box->event, "%s", error);
+		return;
+	}
+
 	fbox = p_new(box->pool, struct fts_mailbox, 1);
 	fbox->module_ctx.super = *v;
+	v->free = fts_mailbox_free;
+	fbox->set = set;
 	box->vlast = &fbox->module_ctx.super;
 	fbox->fts_mailbox_excluded = fts_user_autoindex_exclude(box);
 
@@ -931,4 +948,10 @@ struct fts_backend *fts_list_backend(struct mailbox_list *list)
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT(list);
 
 	return flist == NULL ? NULL : flist->backend;
+}
+
+const struct fts_settings *fts_mailbox_get_settings(struct mailbox *box)
+{
+	struct fts_mailbox *fbox = FTS_CONTEXT_REQUIRE(box);
+	return fbox->set;
 }
