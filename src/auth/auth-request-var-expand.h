@@ -41,4 +41,6 @@ int t_auth_request_var_expand(const char *str,
 const char *auth_request_str_escape(const char *string,
 				    const struct auth_request *request);
 
+void auth_request_event_set_var_expand(struct auth_request *auth_request);
+
 #endif

@@ -146,6 +146,7 @@ auth_request_post_alloc_init(struct auth_request *request,
 	event_add_category(request->event, &event_category_auth);
 	event_set_log_prefix_callback(request->event, TRUE,
 				      get_log_prefix, request);
+	auth_request_event_set_var_expand(request);
 
 	p_array_init(&request->authdb_event, request->pool, 2);
 }
