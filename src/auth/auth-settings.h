@@ -53,6 +53,8 @@ struct auth_userdb_settings {
 	const char *result_success;
 	const char *result_failure;
 	const char *result_internalfail;
+
+	bool use_worker;
 };
 
 struct auth_settings {
