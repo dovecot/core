@@ -52,7 +52,7 @@ struct userdb_iterate_context {
 struct userdb_module_interface {
 	const char *name;
 
-	struct userdb_module *(*preinit)(pool_t pool, const char *args);
+	struct userdb_module *(*preinit_legacy)(pool_t pool, const char *args);
 	void (*init)(struct userdb_module *module);
 	void (*deinit)(struct userdb_module *module);
 

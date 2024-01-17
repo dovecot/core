@@ -141,7 +141,7 @@ userdb_preinit(pool_t pool, const struct auth_userdb_settings *set)
 		i_fatal("Support not compiled in for userdb driver '%s'",
 			set->driver);
 	}
-	if (iface->preinit == NULL && iface->init == NULL &&
+	if (iface->preinit_legacy == NULL && iface->init == NULL &&
 	    *set->args != '\0') {
 		i_fatal("userdb %s: No args are supported: %s",
 			set->driver, set->args);
@@ -151,10 +151,10 @@ userdb_preinit(pool_t pool, const struct auth_userdb_settings *set)
 	if (userdb != NULL)
 		return userdb;
 
-	if (iface->preinit == NULL)
+	if (iface->preinit_legacy == NULL)
 		userdb = p_new(pool, struct userdb_module, 1);
 	else
-		userdb = iface->preinit(pool, set->args);
+		userdb = iface->preinit_legacy(pool, set->args);
 	userdb->id = ++auth_userdb_id;
 	userdb->iface = iface;
 	userdb->args = p_strdup(pool, set->args);
