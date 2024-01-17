@@ -48,6 +48,10 @@ struct userdb_iterate_context {
 struct userdb_module_interface {
 	const char *name;
 
+	/* Create a new userdb_module based on the settings looked up via the
+	   given event. */
+	int (*preinit)(pool_t pool, struct event *event,
+		       struct userdb_module **module_r, const char **error_r);
 	struct userdb_module *(*preinit_legacy)(pool_t pool, const char *args);
 	void (*init)(struct userdb_module *module);
 	void (*deinit)(struct userdb_module *module);
@@ -71,7 +75,8 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 	ATTR_NULL(1);
 
 struct userdb_module *
-userdb_preinit(pool_t pool, const struct auth_userdb_settings *set);
+userdb_preinit(pool_t pool, struct event *event,
+	       const struct auth_userdb_settings *set);
 void userdb_init(struct userdb_module *userdb);
 void userdb_deinit(struct userdb_module *userdb);
 

@@ -105,11 +105,13 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 }
 
 struct userdb_module *
-userdb_preinit(pool_t pool, const struct auth_userdb_settings *set)
+userdb_preinit(pool_t pool, struct event *event,
+	       const struct auth_userdb_settings *set)
 {
 	static unsigned int auth_userdb_id = 0;
 	struct userdb_module_interface *iface;
 	struct userdb_module *userdb;
+	const char *error;
 
 	iface = userdb_interface_find(set->driver);
 	if (iface == NULL || iface->lookup == NULL) {
@@ -129,10 +131,18 @@ userdb_preinit(pool_t pool, const struct auth_userdb_settings *set)
 			set->driver, set->args);
 	}
 
-	if (iface->preinit_legacy == NULL)
-		userdb = p_new(pool, struct userdb_module, 1);
-	else
-		userdb = iface->preinit_legacy(pool, set->args);
+	if (iface->preinit != NULL) {
+		if (set->args[0] != '\0')
+			i_fatal("userdb %s: userdb_args must be empty", set->name);
+		if (iface->preinit(pool, event, &userdb, &error) < 0)
+			i_fatal("userdb %s: %s", set->name, error);
+		userdb->blocking = set->use_worker;
+	} else {
+		if (iface->preinit_legacy == NULL)
+			userdb = p_new(pool, struct userdb_module, 1);
+		else
+			userdb = iface->preinit_legacy(pool, set->args);
+	}
 	userdb->id = ++auth_userdb_id;
 	userdb->iface = iface;
 	userdb->args = p_strdup(pool, set->args);
