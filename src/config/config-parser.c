@@ -250,7 +250,6 @@ static void config_parser_add_info_defaults(struct config_parser_context *ctx,
 					    const struct setting_parser_info *info)
 {
 	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
-	config_parser_add_info_defaults_arr(ctx, info, info->default_settings);
 	config_parser_add_info_defaults_arr(ctx, info, info->default_filter_settings);
 	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
 }
