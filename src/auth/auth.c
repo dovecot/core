@@ -119,7 +119,7 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
 	for (dest = passdbs; *dest != NULL; dest = &(*dest)->next) ;
 	*dest = auth_passdb;
 
-	auth_passdb->passdb = passdb_preinit(auth->pool, set);
+	auth_passdb->passdb = passdb_preinit(auth->pool, event, set);
 	/* make sure any %variables in default_fields exist in cache_key */
 	if (auth_passdb->passdb->default_cache_key != NULL) {
 		struct auth_passdb_pre_settings *passdb_pre_set;

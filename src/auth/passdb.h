@@ -8,6 +8,7 @@
 
 struct auth_request;
 struct auth_passdb_settings;
+struct passdb_module;
 
 enum passdb_result {
 	PASSDB_RESULT_INTERNAL_FAILURE = -1,
@@ -36,6 +37,10 @@ typedef void set_credentials_callback_t(bool success,
 struct passdb_module_interface {
 	const char *name;
 
+	/* Create a new passdb_module based on the settings looked up via the
+	   given event. */
+	int (*preinit)(pool_t pool, struct event *event,
+		       struct passdb_module **module_r, const char **error_r);
 	struct passdb_module *(*preinit_legacy)(pool_t pool, const char *args);
 	void (*init)(struct passdb_module *module);
 	void (*deinit)(struct passdb_module *module);
@@ -96,7 +101,8 @@ void passdb_handle_credentials(enum passdb_result result,
                                struct auth_request *auth_request);
 
 struct passdb_module *
-passdb_preinit(pool_t pool, const struct auth_passdb_settings *set);
+passdb_preinit(pool_t pool, struct event *event,
+	       const struct auth_passdb_settings *set);
 void passdb_init(struct passdb_module *passdb);
 void passdb_deinit(struct passdb_module *passdb);
 
