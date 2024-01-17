@@ -16,14 +16,14 @@
 #define LANG_USER_CONTEXT_REQUIRE(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, lang_user_module)
 
-struct fts_user {
+struct lang_user {
 	union mail_user_module_context module_ctx;
-	const struct fts_settings *set;
+	const struct langs_settings *set;
 	int refcount;
 
 	struct language_list *lang_list;
-	struct fts_user_language *data_lang;
-	ARRAY_TYPE(fts_user_language) languages, data_languages;
+	struct language_user *data_lang;
+	ARRAY_TYPE(language_user) languages, data_languages;
 };
 
 static MODULE_CONTEXT_DEFINE_INIT(lang_user_module,
@@ -56,7 +56,7 @@ static const char *const *str_keyvalues_to_array(const char *str)
 }
 
 static int
-fts_user_init_languages(struct mail_user *user, struct fts_user *fuser,
+fts_user_init_languages(struct mail_user *user, struct lang_user *fuser,
 			const char **error_r)
 {
 	const char *languages, *unknown;
@@ -215,7 +215,7 @@ fts_user_create_tokenizer(struct mail_user *user,
 
 static int
 fts_user_language_init_tokenizers(struct mail_user *user,
-				  struct fts_user_language *user_lang,
+				  struct language_user *user_lang,
 				  const char **error_r)
 {
 	int ret;
@@ -235,12 +235,12 @@ fts_user_language_init_tokenizers(struct mail_user *user,
 	return ret;
 }
 
-struct fts_user_language *
+struct language_user *
 fts_user_language_find(struct mail_user *user,
 		       const struct language *lang)
 {
-	struct fts_user_language *user_lang;
-	struct fts_user *fuser = LANG_USER_CONTEXT_REQUIRE(user);
+	struct language_user *user_lang;
+	struct lang_user *fuser = LANG_USER_CONTEXT_REQUIRE(user);
 
 	array_foreach_elem(&fuser->languages, user_lang) {
 		if (strcmp(user_lang->lang->name, lang->name) == 0)
@@ -250,13 +250,13 @@ fts_user_language_find(struct mail_user *user,
 }
 
 static int fts_user_language_create(struct mail_user *user,
-                                    struct fts_user *fuser,
+                                    struct lang_user *fuser,
 				    const struct language *lang,
 				    const char **error_r)
 {
-	struct fts_user_language *user_lang;
+	struct language_user *user_lang;
 
-	user_lang = p_new(user->pool, struct fts_user_language, 1);
+	user_lang = p_new(user->pool, struct language_user, 1);
 	user_lang->lang = lang;
 	array_push_back(&fuser->languages, &user_lang);
 
@@ -268,7 +268,7 @@ static int fts_user_language_create(struct mail_user *user,
 }
 
 static int fts_user_languages_fill_all(struct mail_user *user,
-                                       struct fts_user *fuser,
+                                       struct lang_user *fuser,
                                        const char **error_r)
 {
 	const struct language *lang;
@@ -281,13 +281,13 @@ static int fts_user_languages_fill_all(struct mail_user *user,
 }
 
 static int
-fts_user_init_data_language(struct mail_user *user, struct fts_user *fuser,
+fts_user_init_data_language(struct mail_user *user, struct lang_user *fuser,
 			    const char **error_r)
 {
-	struct fts_user_language *user_lang;
+	struct language_user *user_lang;
 	const char *error;
 
-	user_lang = p_new(user->pool, struct fts_user_language, 1);
+	user_lang = p_new(user->pool, struct language_user, 1);
 	user_lang->lang = &language_data;
 
 	if (fts_user_language_init_tokenizers(user, user_lang, error_r) < 0)
@@ -308,41 +308,41 @@ fts_user_init_data_language(struct mail_user *user, struct fts_user *fuser,
 
 struct language_list *fts_user_get_language_list(struct mail_user *user)
 {
-	struct fts_user *fuser = LANG_USER_CONTEXT_REQUIRE(user);
+	struct lang_user *fuser = LANG_USER_CONTEXT_REQUIRE(user);
 
 	return fuser->lang_list;
 }
 
-const ARRAY_TYPE(fts_user_language) *
+const ARRAY_TYPE(language_user) *
 fts_user_get_all_languages(struct mail_user *user)
 {
-	struct fts_user *fuser = LANG_USER_CONTEXT_REQUIRE(user);
+	struct lang_user *fuser = LANG_USER_CONTEXT_REQUIRE(user);
 
 	return &fuser->languages;
 }
 
-const ARRAY_TYPE(fts_user_language) *
+const ARRAY_TYPE(language_user) *
 fts_user_get_data_languages(struct mail_user *user)
 {
-	struct fts_user *fuser = LANG_USER_CONTEXT_REQUIRE(user);
+	struct lang_user *fuser = LANG_USER_CONTEXT_REQUIRE(user);
 
 	return &fuser->data_languages;
 }
 
-struct fts_user_language *fts_user_get_data_lang(struct mail_user *user)
+struct language_user *fts_user_get_data_lang(struct mail_user *user)
 {
-	struct fts_user *fuser = LANG_USER_CONTEXT_REQUIRE(user);
+	struct lang_user *fuser = LANG_USER_CONTEXT_REQUIRE(user);
 
 	return fuser->data_lang;
 }
 
-const struct fts_settings *fts_user_get_settings(struct mail_user *user)
+const struct langs_settings *fts_user_get_settings(struct mail_user *user)
 {
-	struct fts_user *fuser = LANG_USER_CONTEXT_REQUIRE(user);
+	struct lang_user *fuser = LANG_USER_CONTEXT_REQUIRE(user);
 	return fuser->set;
 }
 
-static void fts_user_language_free(struct fts_user_language *user_lang)
+static void fts_user_language_free(struct language_user *user_lang)
 {
 	if (user_lang->filter != NULL)
 		lang_filter_unref(&user_lang->filter);
@@ -352,9 +352,9 @@ static void fts_user_language_free(struct fts_user_language *user_lang)
 		lang_tokenizer_unref(&user_lang->search_tokenizer);
 }
 
-static void fts_user_free(struct fts_user *fuser)
+static void fts_user_free(struct lang_user *fuser)
 {
-	struct fts_user_language *user_lang;
+	struct language_user *user_lang;
 
 	if (fuser->lang_list != NULL)
 		language_list_deinit(&fuser->lang_list);
@@ -368,7 +368,7 @@ static void fts_user_free(struct fts_user *fuser)
 }
 
 static int
-fts_mail_user_init_libfts(struct mail_user *user, struct fts_user *fuser,
+fts_mail_user_init_libfts(struct mail_user *user, struct lang_user *fuser,
 			  const char **error_r)
 {
 	p_array_init(&fuser->languages, user->pool, 4);
@@ -384,7 +384,7 @@ fts_mail_user_init_libfts(struct mail_user *user, struct fts_user *fuser,
 int fts_mail_user_init(struct mail_user *user, bool initialize_libfts,
 		       const char **error_r)
 {
-	struct fts_user *fuser = LANG_USER_CONTEXT(user);
+	struct lang_user *fuser = LANG_USER_CONTEXT(user);
 
 	if (fuser != NULL) {
 		/* multiple fts plugins are loaded */
@@ -396,7 +396,7 @@ int fts_mail_user_init(struct mail_user *user, bool initialize_libfts,
 	if (settings_get(user->event, &langs_setting_parser_info, 0, &set, error_r) < 0)
 		return -1;
 
-	fuser = p_new(user->pool, struct fts_user, 1);
+	fuser = p_new(user->pool, struct lang_user, 1);
 	fuser->set = set;
 	fuser->refcount = 1;
 	if (initialize_libfts) {
@@ -412,7 +412,7 @@ int fts_mail_user_init(struct mail_user *user, bool initialize_libfts,
 
 void fts_mail_user_deinit(struct mail_user *user)
 {
-	struct fts_user *fuser = LANG_USER_CONTEXT(user);
+	struct lang_user *fuser = LANG_USER_CONTEXT(user);
 
 	if (fuser != NULL) {
 		i_assert(fuser->refcount > 0);
