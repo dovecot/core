@@ -36,7 +36,7 @@ typedef void set_credentials_callback_t(bool success,
 struct passdb_module_interface {
 	const char *name;
 
-	struct passdb_module *(*preinit)(pool_t pool, const char *args);
+	struct passdb_module *(*preinit_legacy)(pool_t pool, const char *args);
 	void (*init)(struct passdb_module *module);
 	void (*deinit)(struct passdb_module *module);
 
