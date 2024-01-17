@@ -3,6 +3,7 @@
 #include "auth-common.h"
 #include "str.h"
 #include "strescape.h"
+#include "settings.h"
 #include "auth-request.h"
 
 struct auth_request_var_expand_ctx {
@@ -307,4 +308,30 @@ int t_auth_request_var_expand(const char *str,
 					  escape_func, error_r);
 	*value_r = str_c(dest);
 	return ret;
+}
+
+static void
+auth_request_event_var_expand_callback(struct event *event,
+	const struct var_expand_table **tab_r,
+	const struct var_expand_func_table **func_tab_r)
+{
+	struct auth_request_var_expand_ctx *ctx =
+		event_get_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT);
+
+	*tab_r = auth_request_get_var_expand_table(ctx->auth_request,
+						   ctx->escape_func);
+	*func_tab_r = auth_request_var_funcs_table;
+}
+
+void auth_request_event_set_var_expand(struct auth_request *auth_request)
+{
+	struct auth_request_var_expand_ctx *ctx =
+		p_new(auth_request->pool, struct auth_request_var_expand_ctx, 1);
+	ctx->auth_request = auth_request;
+	ctx->escape_func = escape_none;
+
+	event_set_ptr(auth_request->event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK,
+		      auth_request_event_var_expand_callback);
+	event_set_ptr(auth_request->event,
+		      SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT, ctx);
 }
