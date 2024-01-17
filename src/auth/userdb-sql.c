@@ -300,17 +300,17 @@ static void userdb_sql_deinit(struct userdb_module *_module)
 }
 
 struct userdb_module_interface userdb_sql = {
-	"sql",
+	.name = "sql",
 
-	userdb_sql_preinit,
-	userdb_sql_init,
-	userdb_sql_deinit,
+	.preinit_legacy = userdb_sql_preinit,
+	.init = userdb_sql_init,
+	.deinit = userdb_sql_deinit,
 
-	userdb_sql_lookup,
+	.lookup = userdb_sql_lookup,
 
-	userdb_sql_iterate_init,
-	userdb_sql_iterate_next,
-	userdb_sql_iterate_deinit
+	.iterate_init = userdb_sql_iterate_init,
+	.iterate_next = userdb_sql_iterate_next,
+	.iterate_deinit = userdb_sql_iterate_deinit
 };
 #else
 struct userdb_module_interface userdb_sql = {

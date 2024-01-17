@@ -40,17 +40,8 @@ static void prefetch_lookup(struct auth_request *auth_request,
 }
 
 struct userdb_module_interface userdb_prefetch = {
-	"prefetch",
-
-	NULL,
-	NULL,
-	NULL,
-
-	prefetch_lookup,
-
-	NULL,
-	NULL,
-	NULL
+	.name = "prefetch",
+	.lookup = prefetch_lookup,
 };
 #else
 struct userdb_module_interface userdb_prefetch = {

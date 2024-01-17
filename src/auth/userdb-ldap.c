@@ -324,17 +324,17 @@ struct userdb_module_interface userdb_ldap =
 struct userdb_module_interface userdb_ldap_plugin =
 #endif
 {
-	"ldap",
+	.name = "ldap",
 
-	userdb_ldap_preinit,
-	userdb_ldap_init,
-	userdb_ldap_deinit,
+	.preinit_legacy = userdb_ldap_preinit,
+	.init = userdb_ldap_init,
+	.deinit = userdb_ldap_deinit,
 
-	userdb_ldap_lookup,
+	.lookup = userdb_ldap_lookup,
 
-	userdb_ldap_iterate_init,
-	userdb_ldap_iterate_next,
-	userdb_ldap_iterate_deinit
+	.iterate_init = userdb_ldap_iterate_init,
+	.iterate_next = userdb_ldap_iterate_next,
+	.iterate_deinit = userdb_ldap_iterate_deinit
 };
 #else
 struct userdb_module_interface userdb_ldap = {

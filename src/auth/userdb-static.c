@@ -131,15 +131,8 @@ static_preinit(pool_t pool, const char *args)
 }
 
 struct userdb_module_interface userdb_static = {
-	"static",
+	.name = "static",
 
-	static_preinit,
-	NULL,
-	NULL,
-
-	static_lookup,
-
-	NULL,
-	NULL,
-	NULL
+	.preinit_legacy = static_preinit,
+	.lookup = static_lookup,
 };
