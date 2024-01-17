@@ -383,15 +383,9 @@ pam_preinit(pool_t pool, const char *args)
 }
 
 struct passdb_module_interface passdb_pam = {
-	"pam",
-
-	pam_preinit,
-	NULL,
-	NULL,
-
-	pam_verify_plain,
-	NULL,
-	NULL
+	.name = "pam",
+	.preinit_legacy = pam_preinit,
+	.verify_plain = pam_verify_plain,
 };
 #else
 struct passdb_module_interface passdb_pam = {

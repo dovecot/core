@@ -299,15 +299,15 @@ static void passdb_sql_deinit(struct passdb_module *_module)
 }
 
 struct passdb_module_interface passdb_sql = {
-	"sql",
+	.name = "sql",
 
-	passdb_sql_preinit,
-	passdb_sql_init,
-	passdb_sql_deinit,
+	.preinit_legacy = passdb_sql_preinit,
+	.init = passdb_sql_init,
+	.deinit = passdb_sql_deinit,
 
-	sql_verify_plain,
-	sql_lookup_credentials,
-	sql_set_credentials
+	.verify_plain = sql_verify_plain,
+	.lookup_credentials = sql_lookup_credentials,
+	.set_credentials = sql_set_credentials
 };
 #else
 struct passdb_module_interface passdb_sql = {
