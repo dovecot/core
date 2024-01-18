@@ -7,6 +7,7 @@
 
 #include "istream.h"
 #include "str.h"
+#include "settings.h"
 #include "auth-cache.h"
 #include "db-passwd-file.h"
 
@@ -24,7 +25,6 @@ struct passwd_file_userdb_module {
         struct userdb_module module;
 
 	struct db_passwd_file *pwf;
-	const char *username_format;
 };
 
 static int
@@ -71,7 +71,7 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 	int ret;
 
 	ret = db_passwd_file_lookup(module->pwf, auth_request,
-				    module->username_format, &pu);
+				    auth_request->set->username_format, &pu);
 	if (ret <= 0 || pu->uid == 0) {
 		callback(ret < 0 ? USERDB_RESULT_INTERNAL_FAILURE :
 			 USERDB_RESULT_USER_UNKNOWN, auth_request);
@@ -181,32 +181,24 @@ static int passwd_file_iterate_deinit(struct userdb_iterate_context *_ctx)
 	return ret;
 }
 
-static struct userdb_module *
-passwd_file_preinit(pool_t pool, const char *args)
+static int
+passwd_file_preinit(pool_t pool, struct event *event,
+		    struct userdb_module **module_r, const char **error_r)
 {
 	struct passwd_file_userdb_module *module;
-	const char *format = PASSWD_FILE_DEFAULT_USERNAME_FORMAT;
-	const char *p;
+	const struct passwd_file_settings *set;
 
-	if (str_begins(args, "username_format=", &args)) {
-		p = strchr(args, ' ');
-		if (p == NULL) {
-			format = p_strdup(pool, args);
-			args = "";
-		} else {
-			format = p_strdup_until(pool, args, p);
-			args = p + 1;
-		}
-	}
-
-	if (*args == '\0')
-		i_fatal("userdb passwd-file: Missing args");
+	if (settings_get(event, &passwd_file_setting_parser_info, 0,
+			 &set, error_r) < 0)
+		return -1;
 
 	module = p_new(pool, struct passwd_file_userdb_module, 1);
-	module->pwf = db_passwd_file_init(args, TRUE,
+	module->pwf = db_passwd_file_init(set->passwd_file_path, TRUE,
 					  global_auth_settings->debug);
-	module->username_format = format;
-	return &module->module;
+	settings_free(set);
+
+	*module_r = &module->module;
+	return 0;
 }
 
 static void passwd_file_init(struct userdb_module *_module)
@@ -228,7 +220,7 @@ static void passwd_file_deinit(struct userdb_module *_module)
 struct userdb_module_interface userdb_passwd_file = {
 	.name = "passwd-file",
 
-	.preinit_legacy = passwd_file_preinit,
+	.preinit = passwd_file_preinit,
 	.init = passwd_file_init,
 	.deinit = passwd_file_deinit,
 

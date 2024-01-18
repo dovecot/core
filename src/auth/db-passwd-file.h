@@ -3,9 +3,6 @@
 
 #include "hash.h"
 
-#define PASSWD_FILE_DEFAULT_USERNAME_FORMAT "%u"
-#define PASSWD_FILE_DEFAULT_SCHEME "CRYPT"
-
 struct passwd_user {
 	uid_t uid;
 	gid_t gid;
@@ -44,6 +41,13 @@ struct db_passwd_file {
 	bool userdb:1;
 	bool userdb_warn_missing:1;
 };
+
+struct passwd_file_settings {
+	pool_t pool;
+	const char *passwd_file_path;
+};
+
+extern const struct setting_parser_info passwd_file_setting_parser_info;
 
 int db_passwd_file_lookup(struct db_passwd_file *db,
 			  struct auth_request *request,

@@ -14,6 +14,7 @@
 #include "str.h"
 #include "eacces-error.h"
 #include "ioloop.h"
+#include "settings.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -22,6 +23,38 @@
 
 #define PARSE_TIME_STARTUP_WARN_SECS 60
 #define PARSE_TIME_RELOAD_WARN_SECS 10
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct passwd_file_settings)
+
+static const struct setting_define passwd_file_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "passdb_passwd_file", },
+	{ .type = SET_FILTER_NAME, .key = "userdb_passwd_file", },
+	DEF(STR_NOVARS, passwd_file_path),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct passwd_file_settings passwd_file_default_settings = {
+	.passwd_file_path = "",
+};
+
+static const struct setting_keyvalue passwd_file_default_settings_keyvalue[] = {
+	{ "passdb_passwd_file/passdb_default_password_scheme", "CRYPT" },
+	{ NULL, NULL }
+};
+
+const struct setting_parser_info passwd_file_setting_parser_info = {
+	.name = "passwd_file",
+
+	.defines = passwd_file_setting_defines,
+	.defaults = &passwd_file_default_settings,
+	.default_settings = passwd_file_default_settings_keyvalue,
+
+	.struct_size = sizeof(struct passwd_file_settings),
+	.pool_offset1 = 1 + offsetof(struct passwd_file_settings, pool),
+};
 
 static struct db_passwd_file *passwd_files;
 
