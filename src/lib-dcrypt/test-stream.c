@@ -349,7 +349,7 @@ static void test_write_read_v1_empty(void)
 
 static void test_write_read_v2_real(const struct dcrypt_keypair *pair)
 {
-	unsigned char payload[IO_BLOCK_SIZE*10];
+	unsigned char payload[IO_BLOCK_SIZE*10] = {0};
 	const unsigned char *ptr;
 	size_t pos = 0, siz;
 	random_fill(payload, IO_BLOCK_SIZE*10);
