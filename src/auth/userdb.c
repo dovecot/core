@@ -104,30 +104,12 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 	}
 }
 
-static struct userdb_module *
-userdb_find(const char *driver, const char *args, unsigned int *idx_r)
-{
-	struct userdb_module *const *userdbs;
-	unsigned int i, count;
-
-	userdbs = array_get(&userdb_modules, &count);
-	for (i = 0; i < count; i++) {
-		if (strcmp(userdbs[i]->iface->name, driver) == 0 &&
-		    strcmp(userdbs[i]->args, args) == 0) {
-			*idx_r = i;
-			return userdbs[i];
-		}
-	}
-	return NULL;
-}
-
 struct userdb_module *
 userdb_preinit(pool_t pool, const struct auth_userdb_settings *set)
 {
 	static unsigned int auth_userdb_id = 0;
 	struct userdb_module_interface *iface;
 	struct userdb_module *userdb;
-	unsigned int idx;
 
 	iface = userdb_interface_find(set->driver);
 	if (iface == NULL || iface->lookup == NULL) {
@@ -147,10 +129,6 @@ userdb_preinit(pool_t pool, const struct auth_userdb_settings *set)
 			set->driver, set->args);
 	}
 
-	userdb = userdb_find(set->driver, set->args, &idx);
-	if (userdb != NULL)
-		return userdb;
-
 	if (iface->preinit_legacy == NULL)
 		userdb = p_new(pool, struct userdb_module, 1);
 	else
@@ -158,8 +136,6 @@ userdb_preinit(pool_t pool, const struct auth_userdb_settings *set)
 	userdb->id = ++auth_userdb_id;
 	userdb->iface = iface;
 	userdb->args = p_strdup(pool, set->args);
-	/* NOTE: if anything else than driver & args are added here,
-	   userdb_find() also needs to be updated. */
 	array_push_back(&userdb_modules, &userdb);
 	return userdb;
 }
@@ -173,16 +149,22 @@ void userdb_init(struct userdb_module *userdb)
 
 void userdb_deinit(struct userdb_module *userdb)
 {
-	unsigned int idx;
-
 	i_assert(userdb->init_refcount > 0);
 
 	if (--userdb->init_refcount > 0)
 		return;
 
-	if (userdb_find(userdb->iface->name, userdb->args, &idx) == NULL)
-		i_unreached();
-	array_delete(&userdb_modules, idx, 1);
+	struct userdb_module *const *userdbs;
+	unsigned int i, count;
+
+	userdbs = array_get(&userdb_modules, &count);
+	for (i = 0; i < count; i++) {
+		if (userdbs[i] == userdb) {
+			array_delete(&userdb_modules, i, 1);
+			break;
+		}
+	}
+	i_assert(i < count);
 
 	if (userdb->iface->deinit != NULL)
 		userdb->iface->deinit(userdb);

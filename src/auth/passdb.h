@@ -73,10 +73,6 @@ struct passdb_module {
 	/* number of time init() has been called */
 	int init_refcount;
 
-	/* WARNING: avoid adding anything here that isn't based on args.
-	   if you do, you need to change passdb.c:passdb_find() also to avoid
-	   accidentally merging wrong passdbs. */
-
 	struct passdb_module_interface iface;
 };
 
