@@ -1911,6 +1911,8 @@ static void test_xd25519_keypair(void)
 	test_begin("X25519 key exchange");
 	struct dcrypt_keypair pair;
 	const char *error = NULL;
+	bool ret;
+
 	if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "X25519", &error))
 		i_panic("%s", error);
 	/* perform ecdh */
@@ -1931,15 +1933,18 @@ static void test_xd25519_keypair(void)
 
 	struct dcrypt_keypair pair2;
 
-	dcrypt_key_load_public(&pair2.pub, str_c(pub), &error);
+	ret = dcrypt_key_load_public(&pair2.pub, str_c(pub), &error);
+	test_assert(ret == TRUE);
 
-	dcrypt_key_load_private(&pair2.priv, str_c(priv), NULL, NULL, &error);
+	ret = dcrypt_key_load_private(&pair2.priv, str_c(priv), NULL, NULL, &error);
+	test_assert(ret == TRUE);
 
 	struct dcrypt_public_key *pub2;
 	dcrypt_key_convert_private_to_public(pair2.priv, &pub2);
 
 	str_truncate(pub, 0);
-	dcrypt_key_store_public(pub2, DCRYPT_FORMAT_DOVECOT, pub, &error);
+	ret = dcrypt_key_store_public(pub2, DCRYPT_FORMAT_DOVECOT, pub, &error);
+	test_assert(ret == TRUE);
 
 	test_end();
 }
