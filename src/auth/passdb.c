@@ -170,30 +170,12 @@ void passdb_handle_credentials(enum passdb_result result,
 	callback(result, credentials, size, auth_request);
 }
 
-static struct passdb_module *
-passdb_find(const char *driver, const char *args, unsigned int *idx_r)
-{
-	struct passdb_module *const *passdbs;
-	unsigned int i, count;
-
-	passdbs = array_get(&passdb_modules, &count);
-	for (i = 0; i < count; i++) {
-		if (strcmp(passdbs[i]->iface.name, driver) == 0 &&
-		    strcmp(passdbs[i]->args, args) == 0) {
-			*idx_r = i;
-			return passdbs[i];
-		}
-	}
-	return NULL;
-}
-
 struct passdb_module *
 passdb_preinit(pool_t pool, const struct auth_passdb_settings *set)
 {
 	static unsigned int auth_passdb_id = 0;
 	struct passdb_module_interface *iface;
 	struct passdb_module *passdb;
-	unsigned int idx;
 
 	iface = passdb_interface_find(set->driver);
 	if (iface == NULL || iface->verify_plain == NULL) {
@@ -213,10 +195,6 @@ passdb_preinit(pool_t pool, const struct auth_passdb_settings *set)
 			set->driver, set->args);
 	}
 
-	passdb = passdb_find(set->driver, set->args, &idx);
-	if (passdb != NULL)
-		return passdb;
-
 	if (iface->preinit_legacy == NULL)
 		passdb = p_new(pool, struct passdb_module, 1);
 	else
@@ -224,8 +202,6 @@ passdb_preinit(pool_t pool, const struct auth_passdb_settings *set)
 	passdb->id = ++auth_passdb_id;
 	passdb->iface = *iface;
 	passdb->args = p_strdup(pool, set->args);
-	/* NOTE: if anything else than driver & args are added here,
-	   passdb_find() also needs to be updated. */
 	array_push_back(&passdb_modules, &passdb);
 	return passdb;
 }
@@ -239,16 +215,22 @@ void passdb_init(struct passdb_module *passdb)
 
 void passdb_deinit(struct passdb_module *passdb)
 {
-	unsigned int idx;
-
 	i_assert(passdb->init_refcount > 0);
 
 	if (--passdb->init_refcount > 0)
 		return;
 
-	if (passdb_find(passdb->iface.name, passdb->args, &idx) == NULL)
-		i_unreached();
-	array_delete(&passdb_modules, idx, 1);
+	struct passdb_module *const *passdbs;
+	unsigned int i, count;
+
+	passdbs = array_get(&passdb_modules, &count);
+	for (i = 0; i < count; i++) {
+		if (passdbs[i] == passdb) {
+			array_delete(&passdb_modules, i, 1);
+			break;
+		}
+	}
+	i_assert(i < count);
 
 	if (passdb->iface.deinit != NULL)
 		passdb->iface.deinit(passdb);
