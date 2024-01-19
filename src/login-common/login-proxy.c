@@ -649,6 +649,8 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
 	struct login_proxy *proxy = *_proxy;
 	struct client *client = proxy->client;
 	unsigned int delay_ms = 0;
+	const char *human_reason ATTR_UNUSED;
+	const char *event_reason;
 
 	*_proxy = NULL;
 
@@ -660,6 +662,9 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
 		add_str("disconnect_reason", disconnect_reason)->
 		add_str("disconnect_side", disconnect_side)->
 		set_name("proxy_session_finished");
+
+	if (client_get_extra_disconnect_reason(client, &human_reason, &event_reason))
+		e->add_str("error_code", event_reason);
 
 	if (proxy->detached) {
 		struct timeval proxy_tv = proxy_last_io_timeval(proxy);

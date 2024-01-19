@@ -564,20 +564,8 @@ void client_common_proxy_failed(struct client *client,
 	if (reconnecting)
 		return;
 
-	switch (type) {
-	case LOGIN_PROXY_FAILURE_TYPE_CONNECT:
-	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL:
-	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL_CONFIG:
-	case LOGIN_PROXY_FAILURE_TYPE_REMOTE:
-	case LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG:
-	case LOGIN_PROXY_FAILURE_TYPE_PROTOCOL:
-		break;
-	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
-	case LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL:
-	case LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT:
-		client->proxy_auth_failed = TRUE;
-		break;
-	}
+	client->proxy_last_failure = type;
+	client->proxy_failed = TRUE;
 	client_proxy_failed(client);
 }
 

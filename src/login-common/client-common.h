@@ -226,6 +226,7 @@ struct client {
 	unsigned int bad_counter;
 	unsigned int auth_attempts, auth_successes;
 	enum client_auth_fail_code last_auth_fail;
+	enum login_proxy_failure_type proxy_last_failure;
 	pid_t mail_pid;
 
 	/* Module-specific contexts. */
@@ -283,7 +284,7 @@ struct client {
 	bool auth_process_comm_fail:1;
 	bool auth_anonymous:1;
 	bool auth_nologin_referral:1;
-	bool proxy_auth_failed:1;
+	bool proxy_failed:1;
 	bool proxy_noauth:1;
 	bool proxy_nopipelining:1;
 	bool proxy_not_trusted:1;

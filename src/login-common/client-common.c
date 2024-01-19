@@ -1310,10 +1310,45 @@ bool client_get_extra_disconnect_reason(struct client *client,
 		   further auth attempts. */
 		*event_reason_r = "auth_nologin_referral";
 		last_reason = "auth referral";
-	} else if (client->proxy_auth_failed) {
+	} else if (client->proxy_failed) {
+		const char *event_reason;
+		switch (client->proxy_last_failure) {
+		case LOGIN_PROXY_FAILURE_TYPE_CONNECT:
+			event_reason = "connect_failed";
+			last_reason = "connection failed";
+			break;
+		case LOGIN_PROXY_FAILURE_TYPE_INTERNAL:
+		case LOGIN_PROXY_FAILURE_TYPE_INTERNAL_CONFIG:
+			event_reason = "internal_failure";
+			last_reason = "internal failure";
+			break;
+		case LOGIN_PROXY_FAILURE_TYPE_REMOTE:
+		case LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG:
+			event_reason = "remote_failure";
+			last_reason = "remote failure";
+			break;
+		case LOGIN_PROXY_FAILURE_TYPE_PROTOCOL:
+			event_reason = "protocol_failure";
+			last_reason = "protocol failure";
+			break;
+		case LOGIN_PROXY_FAILURE_TYPE_AUTH:
+			event_reason = "auth_failed";
+			last_reason = "authentication failure";
+			break;
+		case LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL:
+			event_reason = "auth_temp_failed";
+			last_reason = "temporary authentication failure";
+			break;
+		case LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT:
+			event_reason = "redirected";
+			last_reason = "redirected";
+			break;
+		default:
+			i_unreached();
+		}
 		/* Authentication to the next hop failed. */
-		*event_reason_r = "proxy_dest_auth_failed";
-		last_reason = "proxy dest auth failed";
+		*event_reason_r = t_strdup_printf("proxy_dest_%s", event_reason);
+		last_reason = t_strdup_printf("proxy dest %s", last_reason);
 	} else {
 		*event_reason_r = client_auth_fail_code_event_reasons[client->last_auth_fail];
 		last_reason = client_auth_fail_code_reasons[client->last_auth_fail];
