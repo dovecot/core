@@ -39,8 +39,8 @@ static void
 imapc_storage_attribute_context_destroy(struct imapc_storage_attribute_context **_actx)
 {
 	struct imapc_storage_attribute_context *actx = *_actx;
-	pool_unref(&actx->pool);
 	*_actx = NULL;
+	pool_unref(&actx->pool);
 }
 
 static struct imapc_storage_attribute_iter *imapc_storage_attribute_iter_create()
