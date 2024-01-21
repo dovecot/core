@@ -147,6 +147,7 @@ struct client *client_create(int fd_in, int fd_out,
 
 	pool = pool_alloconly_create("lmtp client", 2048);
 	client = p_new(pool, struct client, 1);
+	client->refcount = 1;
 	client->pool = pool;
 	client->v = lmtp_client_vfuncs;
 	client->remote_ip = conn->remote_ip;
@@ -238,6 +239,27 @@ void client_state_reset(struct client *client)
 
 	i_zero(&client->state);
 	p_clear(client->state_pool);
+}
+
+void client_ref(struct client *client)
+{
+	i_assert(client->refcount > 0);
+	client->refcount++;
+}
+
+void client_unref(struct client **_client)
+{
+	struct client *client = *_client;
+
+	if (client == NULL)
+		return;
+	*_client = NULL;
+
+	i_assert(client->refcount > 0);
+	if (--client->refcount > 0)
+		return;
+
+	client->v.destroy(client);
 }
 
 void client_destroy(struct client **_client, const char *enh_code,
@@ -383,7 +405,7 @@ static void client_connection_free(void *context)
 {
 	struct client *client = context;
 
-	client->v.destroy(client);
+	client_unref(&client);
 }
 
 static bool client_connection_is_trusted(void *context)

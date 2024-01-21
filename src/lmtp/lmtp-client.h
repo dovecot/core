@@ -67,6 +67,7 @@ struct lmtp_client_vfuncs {
 
 struct client {
 	struct client *prev, *next;
+	int refcount;
 	pool_t pool;
 
 	struct lmtp_client_vfuncs v;
@@ -112,6 +113,8 @@ extern struct lmtp_module_register lmtp_module_register;
 
 struct client *client_create(int fd_in, int fd_out,
 			     const struct master_service_connection *conn);
+void client_ref(struct client *client);
+void client_unref(struct client **_client);
 void client_destroy(struct client **client, const char *enh_code,
 		    const char *reason) ATTR_NULL(2, 3);
 
