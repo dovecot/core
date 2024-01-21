@@ -270,12 +270,14 @@ void client_destroy(struct client **_client, const char *enh_code,
 
 	*_client = NULL;
 
+	client_ref(client);
 	smtp_server_connection_terminate(&conn,
 		(enh_code == NULL ? "4.0.0" : enh_code), reason);
 	/* smtp_server_connection_terminate() calls
 	   client_connection_state_changed(), which may still access
 	   client->conn. Don't clear it before that. */
 	client->conn = NULL;
+	client_unref(&client);
 }
 
 static void
