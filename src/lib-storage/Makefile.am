@@ -13,6 +13,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-charset \
+	-I$(top_srcdir)/src/lib-language \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-smtp \
 	-I$(top_srcdir)/src/lib-imap \
@@ -65,6 +66,7 @@ libstorage_la_SOURCES = \
 	mailbox-tree.c \
 	mailbox-uidvalidity.c \
 	mailbox-watch.c \
+	lang-user.c \
 	test-mail-storage-common.c
 
 headers = \
@@ -102,6 +104,7 @@ headers = \
 	mailbox-tree.h \
 	mailbox-uidvalidity.h \
 	mailbox-watch.h \
+	lang-user.h \
 	test-mail-storage-common.h
 
 shlibs = \
@@ -118,7 +121,8 @@ shlibs = \
 	list/libstorage_list.la \
 	index/libstorage_index.la \
 	../lib-index/libindex.la \
-	../lib-imap-storage/libimap-storage.la
+	../lib-imap-storage/libimap-storage.la \
+	../lib-language/liblanguage.la
 
 libstorage_la_LIBADD = $(shlibs)
 libstorage_la_DEPENDENCIES = $(shlibs)

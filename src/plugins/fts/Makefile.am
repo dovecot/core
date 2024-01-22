@@ -22,7 +22,7 @@ lib20_fts_plugin_la_LDFLAGS = -module -avoid-version
 module_LTLIBRARIES = \
 	lib20_fts_plugin.la
 
-lib20_fts_plugin_la_LIBADD = ../../lib-language/liblanguage.la
+lib20_fts_plugin_la_LIBADD = ../../lib-language/libdovecot-language.la
 
 lib20_fts_plugin_la_SOURCES = \
 	fts-api.c \
