@@ -2052,6 +2052,7 @@ static bool load_jwk_rsa_key(EVP_PKEY **key_r, bool want_private_key,
 		/* pass */
 	}
 	EVP_PKEY_CTX_free(ctx);
+	OSSL_PARAM_free(params);
 	OSSL_PARAM_BLD_free(build);
 	BN_free(pn);
 	BN_free(pe);
