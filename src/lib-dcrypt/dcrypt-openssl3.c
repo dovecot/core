@@ -1627,6 +1627,7 @@ static bool load_jwk_ed_key(EVP_PKEY **key_r, bool want_private_key, int nid,
 	} else {
 		ret = TRUE;
 	}
+	EVP_PKEY_CTX_free(pctx);
 
 	return ret;
 }

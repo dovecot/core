@@ -730,12 +730,18 @@ static bool dcrypt_openssl_generate_xd_key(int nid, EVP_PKEY **key,
 {
 	EVP_PKEY *pkey = NULL;
 	EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_id(nid, NULL);
+	bool ret;
 
-	if (pctx == NULL || EVP_PKEY_keygen_init(pctx) != 1 ||
+	if (EVP_PKEY_keygen_init(pctx) != 1 ||
 	    EVP_PKEY_keygen(pctx, &pkey) != 1)
-		return dcrypt_openssl_error(error_r);
-	*key = pkey;
-	return TRUE;
+		ret = dcrypt_openssl_error(error_r);
+	else {
+		ret = TRUE;
+		*key = pkey;
+	}
+
+	EVP_PKEY_CTX_free(pctx);
+	return ret;
 }
 #endif
 
@@ -2214,6 +2220,8 @@ dcrypt_openssl_load_private_key_jwk(struct dcrypt_private_key **key_r,
 	if (ret) {
 		EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(pkey, NULL);
 		int ec = EVP_PKEY_check(pctx);
+		EVP_PKEY_CTX_free(pctx);
+
 		if (ec == -2) {
 			/* ignore */
 		} else if (ec != 1) {
