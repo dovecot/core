@@ -4,6 +4,9 @@ endif
 if HAVE_LUA
 LIB_LUA=lib-lua
 endif
+if BUILD_IMAP_HIBERNATE
+IMAP_HIBERNATE=imap-hibernate
+endif
 
 LIBDOVECOT_SUBDIRS = \
 	lib-test \
@@ -54,7 +57,7 @@ SUBDIRS = \
 	indexer \
 	master \
 	login-common \
-	imap-hibernate \
+	$(IMAP_HIBERNATE) \
 	imap-login \
 	imap \
 	imap-urlauth \
