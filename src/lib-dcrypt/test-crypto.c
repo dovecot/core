@@ -1946,6 +1946,10 @@ static void test_xd25519_keypair(void)
 	ret = dcrypt_key_store_public(pub2, DCRYPT_FORMAT_DOVECOT, pub, &error);
 	test_assert(ret == TRUE);
 
+	dcrypt_key_unref_public(&pub2);
+	dcrypt_keypair_unref(&pair);
+	dcrypt_keypair_unref(&pair2);
+
 	test_end();
 }
 
@@ -1964,6 +1968,7 @@ static void test_xd448_keypair(void)
 	test_assert(S->used > 0);
 	test_assert(R->used > 0);
 	test_assert(buffer_cmp(S, S2));
+	dcrypt_keypair_unref(&pair);
 	test_end();
 }
 #endif
