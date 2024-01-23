@@ -26,6 +26,7 @@
 #include "master-service-ssl.h"
 #include "master-service-settings.h"
 #include "iostream-ssl.h"
+#include "var-expand.h"
 
 #include <getopt.h>
 #include <unistd.h>
@@ -1016,6 +1017,12 @@ static void master_service_import_environment_real(const char *import_environmen
 {
 	const char *const *envs, *key, *value;
 	ARRAY_TYPE(const_string) keys;
+	const char *error;
+	string_t *expanded;
+
+	static const struct var_expand_table table[] = {
+		{ '\0', NULL, NULL },
+	};
 
 	if (*import_environment == '\0')
 		return;
@@ -1033,13 +1040,20 @@ static void master_service_import_environment_real(const char *import_environmen
 #endif
 	/* add new environments */
 	envs = t_strsplit_spaces(import_environment, " ");
+	expanded = t_str_new(64);
 	for (; *envs != NULL; envs++) {
 		value = strchr(*envs, '=');
 		if (value == NULL)
 			key = *envs;
 		else {
 			key = t_strdup_until(*envs, value++);
-			env_put(key, value);
+			if (var_expand(expanded, value, table, &error) <= 0)
+				i_fatal("Cannot expand variable %s", value);
+			if (str_len(expanded) > 0) {
+				value = str_c(expanded);
+				env_put(key, value);
+				str_clear(expanded);
+			}
 		}
 		array_push_back(&keys, &key);
 	}
