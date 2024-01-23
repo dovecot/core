@@ -307,15 +307,10 @@ static bool parse_gid(const char *str, gid_t *gid_r, const char **error_r)
 static const struct var_expand_table *
 get_var_expand_table(struct master_service *service,
 		     struct mail_storage_service_user *user,
-		     const struct mail_storage_service_input *input,
-		     const struct mail_storage_service_privileges *priv)
+		     const struct mail_storage_service_input *input)
 {
 	const char *username = t_strcut(input->username, '@');
 	const char *domain = i_strchr_to_next(input->username, '@');
-	const char *uid = priv == NULL ? NULL :
-		dec2str(priv->uid == (uid_t)-1 ? geteuid() : priv->uid);
-	const char *gid = priv == NULL ? NULL :
-		dec2str(priv->gid == (gid_t)-1 ? getegid() : priv->gid);
 	const char *local_name = NULL;
 
 	const char *auth_user, *auth_username, *auth_domain;
@@ -341,8 +336,6 @@ get_var_expand_table(struct master_service *service,
 		{ 's', service_name, "service" },
 		{ 'l', net_ip2addr(&input->local_ip), "lip" },
 		{ 'r', net_ip2addr(&input->remote_ip), "rip" },
-		{ 'i', uid, "uid" },
-		{ '\0', gid, "gid" },
 		{ '\0', input->session_id, "session" },
 		{ '\0', auth_user, "auth_user" },
 		{ '\0', auth_username, "auth_username" },
@@ -365,12 +358,7 @@ const struct var_expand_table *
 mail_storage_service_get_var_expand_table(struct mail_storage_service_ctx *ctx,
 					  struct mail_storage_service_input *input)
 {
-	struct mail_storage_service_privileges priv;
-
-	i_zero(&priv);
-	priv.uid = (uid_t)-1;
-	priv.gid = (gid_t)-1;
-	return get_var_expand_table(ctx->service, NULL, input, &priv);
+	return get_var_expand_table(ctx->service, NULL, input);
 }
 
 static int
@@ -744,7 +732,7 @@ mail_storage_service_var_expand_callback(struct event *event,
 
 	*tab_r = get_var_expand_table(var_expand_ctx->ctx->service,
 				      var_expand_ctx->user,
-				      var_expand_ctx->input, NULL);
+				      var_expand_ctx->input);
 	*func_tab_r = mail_storage_service_var_expand_func_table;
 }
 
