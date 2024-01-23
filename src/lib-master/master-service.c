@@ -1035,7 +1035,8 @@ static void master_service_import_environment_real(const char *import_environmen
 #ifdef HAVE_LIBSYSTEMD
 	/* Always import systemd variables, otherwise it is possible to break
 	   systemd startup in obscure ways. */
-	value = "NOTIFY_SOCKET LISTEN_FDS LISTEN_PID";
+	value = "NOTIFY_SOCKET=%{env:NOTIFY_SOCKET} "
+		"LISTEN_FDS=%{env:LISTEN_FDS} LISTEN_PID=%{env:LISTEN_PID}";
 	array_push_back(&keys, &value);
 #endif
 	/* add new environments */

@@ -18,6 +18,7 @@
 #include "config-request.h"
 #include "config-dump-full.h"
 #include "config-parser-private.h"
+#include "strfuncs.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -2322,6 +2323,25 @@ config_module_parsers_get_setting(const struct config_module_parser *module_pars
 	}
 
 	const struct setting_define *def = &l->info->defines[key_idx];
+
+	/* Custom handler for the import_environment strlist setting. The
+	   calling function expects a string of key=value pairs. See
+	   master_service_get_import_environment_keyvals() for the original
+	   implementation. */
+	if (strcmp(key, "import_environment") == 0) {
+		unsigned int len = array_count(l->settings[key_idx].array);
+		string_t *keyvals = t_str_new(64);
+		for (unsigned int i = 0; i < len; i += 2) {
+			const char *const *key = array_idx(l->settings[key_idx].array, i);
+			const char *const *val = array_idx(l->settings[key_idx].array, i + 1);
+			str_append(keyvals, t_strdup_printf("%s=%s", *key, *val));
+
+			if (i + 2 < len)
+				str_append_c(keyvals, ' ');
+		}
+		return str_c(keyvals);
+	}
+
 	i_assert(def->type != SET_STRLIST && def->type != SET_BOOLLIST &&
 		 def->type != SET_FILTER_ARRAY);
 	if (l->change_counters[key_idx] != 0)
