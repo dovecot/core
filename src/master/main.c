@@ -930,9 +930,9 @@ int main(int argc, char *argv[])
 	master_settings_do_fixes(set);
 	fatal_log_check(set);
 
-	const struct master_service_settings *service_set =
-		master_service_get_service_settings(master_service);
-	master_service_import_environment(service_set->import_environment);
+	const char *import_environment =
+		master_service_get_import_environment_keyvals(master_service);
+	master_service_import_environment(import_environment);
 	master_service_env_clean();
 
 	/* create service structures from settings. if there are any errors in

@@ -45,7 +45,6 @@ static const struct setting_define master_service_setting_defines[] = {
 	DEF(STR, log_core_filter),
 	DEF(STR, process_shutdown_filter),
 	DEF(STR, syslog_facility),
-	DEF(STR, import_environment),
 	DEF(STR, stats_writer_socket_path),
 	DEF(STR, dovecot_storage_version),
 	DEF(BOOL, version_ignore),
@@ -55,21 +54,11 @@ static const struct setting_define master_service_setting_defines[] = {
 	DEF(STR, haproxy_trusted_networks),
 	DEF(TIME, haproxy_timeout),
 
+	{ .type = SET_STRLIST, .key = "import_environment",
+	  .offset = offsetof(struct master_service_settings, import_environment) },
+
 	SETTING_DEFINE_LIST_END
 };
-
-/* <settings checks> */
-#ifdef HAVE_LIBSYSTEMD
-#  define ENV_SYSTEMD " LISTEN_PID LISTEN_FDS NOTIFY_SOCKET"
-#else
-#  define ENV_SYSTEMD ""
-#endif
-#ifdef DEBUG
-#  define ENV_GDB " GDB DEBUG_SILENT"
-#else
-#  define ENV_GDB ""
-#endif
-/* </settings checks> */
 
 static const struct master_service_settings master_service_default_settings = {
 	.base_dir = PKG_RUNDIR,
@@ -83,7 +72,7 @@ static const struct master_service_settings master_service_default_settings = {
 	.log_core_filter = "",
 	.process_shutdown_filter = "",
 	.syslog_facility = "mail",
-	.import_environment = "TZ CORE_OUTOFMEM CORE_ERROR PATH" ENV_SYSTEMD ENV_GDB,
+	.import_environment = ARRAY_INIT,
 	.stats_writer_socket_path = "stats-writer",
 	.dovecot_storage_version = "",
 	.version_ignore = FALSE,
@@ -94,11 +83,29 @@ static const struct master_service_settings master_service_default_settings = {
 	.haproxy_timeout = 3
 };
 
+static const struct setting_keyvalue master_service_default_settings_keyvalue[] = {
+	{ "import_environment/TZ", "%{env:TZ}" },
+	{ "import_environment/CORE_OUTOFMEM", "%{env:CORE_OUTOFMEM}" },
+	{ "import_environment/CORE_ERROR", "%{env:CORE_ERROR}" },
+	{ "import_environment/PATH", "%{env:PATH}" },
+#ifdef HAVE_LIBSYSTEMD
+	{ "import_environment/LISTEN_PID", "%{env:LISTEN_PID}" },
+	{ "import_environment/LISTEN_FDS", "%{env:LISTEN_FDS}" },
+	{ "import_environment/NOTIFY_SOCKET", "%{env:NOTIFY_SOCKET}" },
+#endif
+#ifdef DEBUG
+	{ "import_environment/GDB", "%{env:GDB}" },
+	{ "import_environment/DEBUG_SILENT", "%{env:DEBUG_SILENT}" },
+#endif
+	{ NULL, NULL },
+};
+
 const struct setting_parser_info master_service_setting_parser_info = {
 	.name = "master_service",
 
 	.defines = master_service_setting_defines,
 	.defaults = &master_service_default_settings,
+	.default_settings = master_service_default_settings_keyvalue,
 
 	.pool_offset1 = 1 + offsetof(struct master_service_settings, pool),
 	.struct_size = sizeof(struct master_service_settings),
@@ -554,4 +561,21 @@ const struct master_service_settings *
 master_service_get_service_settings(struct master_service *service)
 {
 	return service->set;
+}
+
+const char *
+master_service_get_import_environment_keyvals(struct master_service *service)
+{
+	ARRAY_TYPE(const_string) arr = service->set->import_environment;
+	unsigned int len = array_count(&arr);
+	string_t *keyvals = t_str_new(64);
+	for (unsigned int i = 0; i < len; i += 2) {
+		const char *const *key = array_idx(&arr, i);
+		const char *const *val = array_idx(&arr, i + 1);
+		str_append(keyvals, t_strdup_printf("%s=%s", *key, *val));
+
+		if (i + 2 < len)
+			str_append_c(keyvals, ' ');
+	}
+	return str_c(keyvals);
 }
