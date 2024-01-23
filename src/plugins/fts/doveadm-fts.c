@@ -8,6 +8,7 @@
 #include "mailbox-list-iter.h"
 #include "lang-tokenizer.h"
 #include "lang-filter.h"
+#include "lang-user.h"
 #include "language.h"
 #include "fts-storage.h"
 #include "fts-search-args.h"
@@ -186,7 +187,7 @@ cmd_fts_tokenize_run(struct doveadm_mail_cmd_context *_ctx,
 
 	struct mail_namespace *ns = mail_namespace_find_inbox(user->namespaces);
 	struct fts_backend *backend;
-	struct fts_user_language *user_lang;
+	struct language_user *user_lang;
 	const struct language *lang = NULL;
 	int ret, ret2;
 	bool final = FALSE;
@@ -200,7 +201,7 @@ cmd_fts_tokenize_run(struct doveadm_mail_cmd_context *_ctx,
 
 	if (ctx->language == NULL) {
 		struct language_list *lang_list =
-			fts_user_get_language_list(user);
+			lang_user_get_language_list(user);
 		enum language_detect_result result;
 		const char *error;
 
@@ -240,7 +241,7 @@ cmd_fts_tokenize_run(struct doveadm_mail_cmd_context *_ctx,
 			return -1;
 		}
 	}
-	user_lang = fts_user_language_find(user, lang);
+	user_lang = lang_user_language_find(user, lang);
 	if (user_lang == NULL) {
 		e_error(user->event,
 			"Language not enabled for user: %s", ctx->language);

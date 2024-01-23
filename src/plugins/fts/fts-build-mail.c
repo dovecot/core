@@ -15,6 +15,7 @@
 #include "language.h"
 #include "lang-tokenizer.h"
 #include "lang-filter.h"
+#include "lang-user.h"
 #include "fts-api-private.h"
 #include "fts-build-mail.h"
 
@@ -33,7 +34,7 @@ struct fts_mail_build_context {
 	struct fts_parser *body_parser;
 
 	buffer_t *word_buf, *pending_input;
-	struct fts_user_language *cur_user_lang;
+	struct language_user *cur_user_lang;
 };
 
 static int fts_build_data(struct fts_mail_build_context *ctx,
@@ -106,7 +107,7 @@ fts_build_unstructured_header(struct fts_mail_build_context *ctx,
 }
 
 static void fts_mail_build_ctx_set_lang(struct fts_mail_build_context *ctx,
-					struct fts_user_language *user_lang)
+					struct language_user *user_lang)
 {
 	i_assert(user_lang != NULL);
 
@@ -130,7 +131,7 @@ fts_build_tokenized_hdr_update_lang(struct fts_mail_build_context *ctx,
 		ctx->cur_user_lang = NULL;
 	else {
 		fts_mail_build_ctx_set_lang(ctx,
-			fts_user_get_data_lang(ctx->update_ctx->backend->ns->user));
+			lang_user_get_data_lang(ctx->update_ctx->backend->ns->user));
 	}
 }
 
@@ -182,10 +183,10 @@ static int fts_build_mail_header(struct fts_mail_build_context *ctx,
 	if ((ctx->update_ctx->backend->flags &
 	     FTS_BACKEND_FLAG_TOKENIZED_INPUT) != 0) {
 		/* index the header name itself using data-language. */
-		struct fts_user_language *prev_lang = ctx->cur_user_lang;
+		struct language_user *prev_lang = ctx->cur_user_lang;
 
 		fts_mail_build_ctx_set_lang(ctx,
-			fts_user_get_data_lang(ctx->update_ctx->backend->ns->user));
+			lang_user_get_data_lang(ctx->update_ctx->backend->ns->user));
 		key.hdr_name = "";
 		if (fts_backend_update_set_build_key(ctx->update_ctx, &key)) {
 			if (fts_build_data(ctx, (const void *)hdr->name,
@@ -299,7 +300,7 @@ fts_detect_language(struct fts_mail_build_context *ctx,
 		    const struct language **lang_r)
 {
 	struct mail_user *user = ctx->update_ctx->backend->ns->user;
-	struct language_list *lang_list = fts_user_get_language_list(user);
+	struct language_list *lang_list = lang_user_get_language_list(user);
 	const struct language *lang;
 	const char *error;
 
@@ -348,7 +349,7 @@ fts_build_tokenized(struct fts_mail_build_context *ctx,
 		/* wait for more data */
 		return 0;
 	} else {
-		fts_mail_build_ctx_set_lang(ctx, fts_user_language_find(user, lang));
+		fts_mail_build_ctx_set_lang(ctx, lang_user_language_find(user, lang));
 
 		if (ctx->pending_input->used > 0) {
 			if (fts_build_add_tokens_with_filter(ctx,
