@@ -83,10 +83,15 @@ dovecot_storage_version = @DOVECOT_CONFIG_VERSION@
 # UNIX socket or host:port used for connecting to doveadm server
 #doveadm_socket_path = doveadm-server
 
-# Space separated list of environment variables that are preserved on Dovecot
-# startup and passed down to all of its child processes. You can also give
-# key=value pairs to always set specific settings.
-#import_environment = TZ
+# List of environment variables that are preserved on Dovecot startup and
+# passed down to all of its child processes. There are two options to set
+# variables: You can either import variables from the environment using
+# %{env:<key>} or alternatively using key=value pairs to always set specific
+# settings.
+#import_environment {
+#  GDB = 1
+#  TZ = %{env:TZ}
+#}
 
 ##
 ## Dictionary server settings
