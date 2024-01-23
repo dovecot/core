@@ -20,6 +20,10 @@
 #include <unistd.h>
 #include <ctype.h>
 
+#ifdef HAVE_SYS_UTSNAME_H
+#  include <sys/utsname.h>
+#endif
+
 #define ENV_CPU_COUNT "NCPU"
 
 #define TABLE_LAST(t) \
@@ -31,6 +35,11 @@ struct var_expand_modifier {
 };
 
 static ARRAY(struct var_expand_extension_func_table) var_expand_extensions;
+
+enum os_default_type {
+	OS_DEFAULT_TYPE_SYSNAME,
+	OS_DEFAULT_TYPE_RELEASE,
+};
 
 static const char *
 m_str_lcase(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
@@ -401,6 +410,37 @@ var_expand_process(struct var_expand_context *ctx ATTR_UNUSED,
 	return 1;
 }
 
+static struct utsname utsname_result;
+static bool utsname_set = FALSE;
+
+static int
+var_expand_system_os(enum os_default_type type,
+		     const char **value_r, const char **error_r)
+{
+	if (!utsname_set) {
+		utsname_set = TRUE;
+
+		if (uname(&utsname_result) < 0) {
+			*error_r = t_strdup_printf("uname() failed: %m");
+			i_zero(&utsname_result);
+			return -1;
+		}
+	}
+
+	switch (type) {
+	case OS_DEFAULT_TYPE_SYSNAME:
+		*value_r = utsname_result.sysname;
+		return 1;
+	case OS_DEFAULT_TYPE_RELEASE:
+		*value_r = utsname_result.release;
+		return 1;
+	default:
+		break;
+	}
+
+	i_unreached();
+}
+
 static int
 var_expand_system(struct var_expand_context *ctx ATTR_UNUSED,
 		  const char *key, const char *field,
@@ -421,7 +461,12 @@ var_expand_system(struct var_expand_context *ctx ATTR_UNUSED,
 	} else if (strcmp(field, "hostname") == 0) {
 		*result_r = my_hostname;
 		return 1;
-	}
+	} else if (strcmp(field, "os") == 0)
+		return var_expand_system_os(OS_DEFAULT_TYPE_SYSNAME, result_r,
+					    error_r);
+	else if (strcmp(field, "os-version") == 0)
+		return var_expand_system_os(OS_DEFAULT_TYPE_RELEASE, result_r,
+					    error_r);
 	*error_r = t_strdup_printf("Unsupported system key '%s'", field);
 	return 0;
 }

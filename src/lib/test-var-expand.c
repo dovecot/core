@@ -570,6 +570,20 @@ static void test_var_expand_system()
 		test_assert_cmp_idx(ret, ==, test->ret, i);
 		test_assert_strcmp_idx(str_c(dest), test->out, i);
 	}
+
+	/* Check the expansion of os/os-version depending on whether uname()
+	   succeeds. */
+	struct utsname utsname_result;
+	if (uname(&utsname_result) == 0) {
+		str_truncate(dest, 0);
+		test_assert(var_expand(dest, "%{system:os}", table, &error) == 1);
+		test_assert(strcmp(utsname_result.sysname, str_c(dest)) == 0);
+
+		str_truncate(dest, 0);
+		test_assert(var_expand(dest, "%{system:os-version}", table, &error) == 1);
+		test_assert(strcmp(utsname_result.release, str_c(dest)) == 0);
+	}
+
 	test_end();
 }
 
