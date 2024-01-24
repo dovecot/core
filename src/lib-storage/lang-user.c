@@ -385,7 +385,7 @@ int lang_user_init(struct mail_user *user, bool initialize_libfts,
 	struct lang_user *luser = LANG_USER_CONTEXT(user);
 
 	if (luser != NULL) {
-		/* multiple fts plugins are loaded */
+		/* language user confs loaded multiple times */
 		luser->refcount++;
 		return 0;
 	}
@@ -397,14 +397,15 @@ int lang_user_init(struct mail_user *user, bool initialize_libfts,
 	luser = p_new(user->pool, struct lang_user, 1);
 	luser->set = set;
 	luser->refcount = 1;
+
+	MODULE_CONTEXT_SET(user, lang_user_module, luser);
 	if (initialize_libfts) {
 		if (lang_user_init_libfts(user, luser, error_r) < 0) {
+			MODULE_CONTEXT_UNSET(user, lang_user_module);
 			lang_user_free(luser);
 			return -1;
 		}
 	}
-
-	MODULE_CONTEXT_SET(user, lang_user_module, luser);
 	return 0;
 }
 
