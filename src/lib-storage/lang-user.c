@@ -56,8 +56,7 @@ static const char *const *str_keyvalues_to_array(const char *str)
 }
 
 static int
-lang_user_init_languages(struct mail_user *user, struct lang_user *luser,
-			 const char **error_r)
+lang_user_init_languages(struct lang_user *luser, const char **error_r)
 {
 	const char *languages, *unknown;
 
@@ -68,7 +67,7 @@ lang_user_init_languages(struct mail_user *user, struct lang_user *luser,
 	}
 
 	struct language_settings lang_settings = {
-		.textcat_config_path = mail_user_plugin_getenv(user, "fts_language_config")
+		.textcat_config_path = luser->set->textcat_config_path,
 	};
 	luser->lang_list = language_list_init(&lang_settings);
 
@@ -372,7 +371,7 @@ lang_user_init_libfts(struct mail_user *user, struct lang_user *luser,
 {
 	p_array_init(&luser->languages, user->pool, 4);
 
-	if (lang_user_init_languages(user, luser, error_r) < 0 ||
+	if (lang_user_init_languages(luser, error_r) < 0 ||
 	    lang_user_init_data_language(user, luser, error_r) < 0 ||
 	    lang_user_languages_fill_all(user, luser, error_r) < 0)
 		return -1;
