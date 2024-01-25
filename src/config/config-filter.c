@@ -91,8 +91,9 @@ bool config_filter_match(const struct config_filter *mask,
 	return mask == NULL && filter == NULL;
 }
 
-bool config_filters_equal(const struct config_filter *f1,
-			  const struct config_filter *f2)
+static bool
+config_filters_equal_without_defaults(const struct config_filter *f1,
+				      const struct config_filter *f2)
 {
 	if (null_strcmp(f1->service, f2->service) != 0)
 		return FALSE;
@@ -118,11 +119,23 @@ bool config_filters_equal(const struct config_filter *f1,
 		/* Check the parents' compatibility also. However, it's
 		   possible that one of these parents is the empty root filter,
 		   while the other parent is NULL. These are actually equal. */
-		return config_filters_equal(
+		return config_filters_equal_without_defaults(
 			f1->parent != NULL ? f1->parent : &empty_filter,
 			f2->parent != NULL ? f2->parent : &empty_filter);
 	}
 	return TRUE;
+}
+
+bool config_filters_equal(const struct config_filter *f1,
+			  const struct config_filter *f2)
+{
+	if (f1->default_settings != f2->default_settings)
+		return FALSE;
+
+	/* For the rest of the settings don't check if the parents'
+	   default_settings are equal. This makes it easier for callers to
+	   do lookups with the wanted default_settings flag. */
+	return config_filters_equal_without_defaults(f1, f2);
 }
 
 bool config_filter_is_empty(const struct config_filter *filter)

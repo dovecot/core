@@ -26,6 +26,10 @@ struct config_filter {
 	   their filter_names will be merged into one filter path when dumping
 	   the config. */
 	bool filter_hierarchical;
+
+	/* TRUE if default settings are being accessed. These will be stored in
+	   separate filters so they can be ordered before global settings. */
+	bool default_settings;
 };
 
 /* Each unique config_filter (including its parents in hierarchy) has its own
