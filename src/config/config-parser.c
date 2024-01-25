@@ -1617,62 +1617,6 @@ config_parse_line(struct config_parser_context *ctx,
 	config_line_r->type = CONFIG_LINE_TYPE_SECTION_BEGIN;
 }
 
-static bool
-config_filter_parser_has_changed_recursive(
-	struct config_filter_parser *filter_parser,
-	unsigned int module_idx, unsigned int set_idx)
-{
-	while (filter_parser != NULL) {
-		struct config_module_parser *p =
-			&filter_parser->module_parsers[module_idx];
-		if (p->change_counters != NULL &&
-		    p->change_counters[set_idx] == CONFIG_PARSER_CHANGE_EXPLICIT)
-			return TRUE;
-		filter_parser = filter_parser->parent;
-	}
-	return FALSE;
-}
-
-static void
-config_filter_parser_drop_overridden_default_settings(
-	struct config_filter_parser *filter_parser)
-{
-	unsigned int module_idx, set_idx;
-
-	if (filter_parser->filter.filter_name == NULL ||
-	    filter_parser->filter.filter_name_array)
-		return;
-
-	/* This is a SET_FILTER_NAME filter */
-	module_idx = 0;
-	for (; filter_parser->module_parsers[module_idx].info != NULL; module_idx++) {
-		struct config_module_parser *p =
-			&filter_parser->module_parsers[module_idx];
-		if (p->change_counters == NULL)
-			continue;
-		for (set_idx = 0; set_idx < p->set_count; set_idx++) {
-			if (p->change_counters[set_idx] != CONFIG_PARSER_CHANGE_DEFAULTS)
-				continue;
-
-			/* Found a default setting. If the same setting is
-			   changed by the parent filters, drop this setting. */
-			if (config_filter_parser_has_changed_recursive(
-					filter_parser->parent,
-					module_idx, set_idx))
-				p->change_counters[set_idx] = 0;
-		}
-	}
-}
-
-static void
-config_drop_overridden_default_settings(struct config_parser_context *ctx)
-{
-	struct config_filter_parser *filter_parser;
-
-	array_foreach_elem(&ctx->all_filter_parsers, filter_parser)
-		config_filter_parser_drop_overridden_default_settings(filter_parser);
-}
-
 static int
 config_parse_finish(struct config_parser_context *ctx,
 		    enum config_parse_flags flags,
@@ -1691,8 +1635,6 @@ config_parse_finish(struct config_parser_context *ctx,
 	pool_ref(new_config->pool);
 	new_config->dovecot_config_version = ctx->dovecot_config_version;
 	p_array_init(&new_config->errors, ctx->pool, 1);
-
-	config_drop_overridden_default_settings(ctx);
 
 	array_append_zero(&ctx->all_filter_parsers);
 	array_pop_back(&ctx->all_filter_parsers);
