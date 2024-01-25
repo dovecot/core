@@ -35,19 +35,12 @@
      <32bit big-endian: settings count>
      <NUL-terminated string: key>[settings count]
 
-     <64bit big-endian: base settings size>
-     <NUL-terminated string: error string - if client attempts to access this
-                             settings block, it must fail with this error.
-			     NUL = no error, followed by settings>
-     Repeat until "base settings size" is reached:
-       <32bit big-endian: key index number>
-       [<strlist/boollist key>]
-       <NUL-terminated string: value>
-
      <32bit big-endian: filter count>
      Repeat for "filter count":
        <64bit big-endian: filter settings size>
-       <NUL-terminated string: error string>
+       <NUL-terminated string: error string - if client attempts to access this
+			       settings block, it must fail with this error.
+			       NUL = no error, followed by settings>
        Repeat until "filter settings size" is reached:
          <32bit big-endian: key index number>
 	 [<strlist/boollist key>]
@@ -568,7 +561,20 @@ int config_dump_full(struct config_parsed *config,
 		}
 		ctx.filter_output_count = 0;
 
+		uoff_t filter_count_offset = output->offset;
+		uint32_t filter_count = 0;
+		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
+			o_stream_nsend(output, &filter_count,
+				       sizeof(filter_count));
+		}
+
 		uoff_t blob_size_offset = output->offset;
+		/* Write base settings - add it as an empty filter */
+		ctx.filter_indexes_be32[ctx.filter_output_count] = 0;
+		ctx.filter_offsets_be64[ctx.filter_output_count] =
+			cpu64_to_be(blob_size_offset);
+		ctx.filter_output_count++;
+
 		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
 			o_stream_nsend(output, &blob_size, sizeof(blob_size));
 			o_stream_nsend(output, "", 1); /* no error */
@@ -583,12 +589,7 @@ int config_dump_full(struct config_parsed *config,
 			if (output_blob_size(output, blob_size_offset) < 0)
 				break;
 		}
-		uoff_t filter_count_offset = output->offset;
-		uint32_t filter_count = 0;
-		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
-			o_stream_nsend(output, &filter_count,
-				       sizeof(filter_count));
-		}
+
 		int ret;
 		T_BEGIN {
 			ret = config_dump_full_sections(&ctx, i, info,

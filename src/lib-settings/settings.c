@@ -81,9 +81,6 @@ struct settings_mmap_block {
 	const char *name;
 	size_t block_end_offset;
 
-	const char *error; /* if non-NULL, accessing the block must fail */
-	size_t base_start_offset, base_end_offset;
-
 	uint32_t filter_count;
 	size_t filter_indexes_start_offset;
 	size_t filter_offsets_start_offset;
@@ -373,27 +370,6 @@ settings_block_read(struct settings_mmap *mmap, size_t *_offset,
 					    "setting key", &key, error_r) < 0)
 			return -1;
 	}
-
-	/* <base settings size> */
-	uint64_t base_settings_size;
-	if (settings_block_read_size(mmap, &offset, block_end_offset,
-				     "base settings size", &base_settings_size,
-				     error_r) < 0)
-		return -1;
-	block->base_end_offset = offset + base_settings_size;
-
-	/* <base settings error string> */
-	if (settings_block_read_str(mmap, &offset,
-				    block->base_end_offset,
-				    "base settings error", &error,
-				    error_r) < 0)
-		return -1;
-	if (error[0] != '\0')
-		block->error = error;
-	block->base_start_offset = offset;
-
-	/* skip over the key-value pairs */
-	offset = block->base_end_offset;
 
 	/* <filter count> */
 	if (settings_block_read_uint32(mmap, &offset, block_end_offset,
@@ -756,10 +732,6 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 			ctx->info->name);
 		return -1;
 	}
-	if (block->error != NULL) {
-		*error_r = block->error;
-		return -1;
-	}
 
 	if (!block->settings_validated &&
 	    (ctx->flags & SETTINGS_GET_NO_KEY_VALIDATION) == 0) {
@@ -772,8 +744,9 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 		.type = LOG_TYPE_DEBUG,
 	};
 
-	/* go through the filters in reverse sorted order, so we always set the
-	   setting just once, never overriding anything. */
+	/* So through the filters in reverse sorted order, so we always set the
+	   setting just once, never overriding anything. A filter for the base
+	   settings is expected to always exist. */
 	bool seen_filter = FALSE;
 	for (uint32_t i = block->filter_count; i > 0; ) {
 		i--;
@@ -811,7 +784,8 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 			}
 			filter_offset += strlen(filter_error) + 1;
 
-			if (ctx->filter_name != NULL && !seen_filter) {
+			if (ctx->filter_name != NULL && !seen_filter &&
+			    event_filter != EVENT_FILTER_MATCH_ALWAYS) {
 				bool op_not;
 				const char *value =
 					event_filter_find_field_exact(
@@ -825,15 +799,21 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 					seen_filter = TRUE;
 			}
 
-			if (event_filter != EVENT_FILTER_MATCH_ALWAYS) {
-				int ret = settings_instance_override(ctx,
-						mmap->override_event_filters[event_filter_idx],
-						error_r);
-				if (ret < 0)
-					return -1;
-				if (ret > 0)
-					seen_filter = TRUE;
-			}
+			/* Apply overrides specific to this filter before the
+			   filter settings themselves. For base settings the
+			   filter is EVENT_FILTER_MATCH_ALWAYS, which applies
+			   the rest of the overrides that weren't already
+			   handled. This way global setting overrides don't
+			   override named filters' settings, unless the
+			   override is specifically using the filter name
+			   as prefix. */
+			int ret = settings_instance_override(ctx,
+					mmap->override_event_filters[event_filter_idx],
+					error_r);
+			if (ret < 0)
+				return -1;
+			if (ret > 0)
+				seen_filter = TRUE;
 
 			if (settings_mmap_apply_blob(ctx, block,
 					filter_offset, filter_end_offset,
@@ -841,22 +821,6 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 				return -1;
 		}
 	}
-
-	/* Apply any leftover overrides after filters and
-	   filter overrides were already handled. This way global
-	   setting overrides don't override named filters' settings,
-	   unless the override is specifically using the filter name
-	   as prefix. */
-	int ret = settings_instance_override(ctx, NULL, error_r);
-	if (ret < 0)
-		return -1;
-	if (ret > 0)
-		seen_filter = TRUE;
-
-	/* apply the base settings last after all filters */
-	if (settings_mmap_apply_blob(ctx, block, block->base_start_offset,
-				     block->base_end_offset, error_r) < 0)
-		return -1;
 	return seen_filter ? 1 : 0;
 
 }
@@ -1456,7 +1420,7 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		/* If we're being called while applying filters, only apply
 		   the overrides that have a matching filter. This preserves
 		   the expected order in which settings are applied. */
-		if (event_filter != NULL && !set->always_match &&
+		if (!set->always_match &&
 		    event_filter != EVENT_FILTER_MATCH_ALWAYS &&
 		    (set->filter_event == NULL ||
 		     !event_filter_match(event_filter, set->filter_event,
@@ -1627,7 +1591,8 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 		}
 	} else {
 		/* No configuration file - apply all overrides */
-		ret = settings_instance_override(ctx, NULL, error_r);
+		ret = settings_instance_override(ctx, EVENT_FILTER_MATCH_ALWAYS,
+						 error_r);
 	}
 	if (ret > 0)
 		seen_filter = TRUE;
