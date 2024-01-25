@@ -1,6 +1,8 @@
 #ifndef LANGUAGE_H
 #define LANGUAGE_H
 
+#include "lang-settings.h"
+
 struct language_list;
 
 enum language_detect_result {
@@ -53,7 +55,7 @@ void language_list_add(struct language_list *list,
    Duplicates are ignored. Returns TRUE if ok, FALSE and unknown_name if an
    unknown language was found from the list. */
 bool language_list_add_names(struct language_list *list,
-			     const char *names,
+			     const ARRAY_TYPE(lang_settings) *names,
 			     const char **unknown_name_r);
 
 /* Return an array of all wanted languages. */
