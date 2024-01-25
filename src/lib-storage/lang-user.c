@@ -58,28 +58,22 @@ static const char *const *str_keyvalues_to_array(const char *str)
 static int
 lang_user_init_languages(struct lang_user *luser, const char **error_r)
 {
-	const char *languages, *unknown;
-
-	languages = mail_user_plugin_getenv(user, "fts_languages");
-	if (languages == NULL) {
-		*error_r = "fts_languages setting is missing";
-		return -1;
-	}
+	const ARRAY_TYPE(lang_settings) *langs = &luser->set->parsed_languages;
+	i_assert(!array_is_empty(langs));
 
 	struct language_settings lang_settings = {
 		.textcat_config_path = luser->set->textcat_config_path,
 	};
 	luser->lang_list = language_list_init(&lang_settings);
 
-	if (!language_list_add_names(luser->lang_list, languages, &unknown)) {
+	const char *unknown_lang;
+	if (!language_list_add_names(luser->lang_list, langs, &unknown_lang)) {
 		*error_r = t_strdup_printf(
-			"fts_languages: Unknown language '%s'", unknown);
+			"language %s: Unknown language", unknown_lang);
 		return -1;
 	}
-	if (array_count(language_list_get_all(luser->lang_list)) == 0) {
-		*error_r = "fts_languages setting is empty";
-		return -1;
-	}
+
+	i_assert(!array_is_empty(language_list_get_all(luser->lang_list)));
 	return 0;
 }
 

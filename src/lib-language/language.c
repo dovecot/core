@@ -58,7 +58,7 @@ const struct language languages_builtin [] = {
 };
 
 const struct language language_data = {
-	"data"
+	LANGUAGE_DATA
 };
 
 #ifdef HAVE_LANG_EXTTEXTCAT
@@ -172,17 +172,20 @@ void language_list_add(struct language_list *list,
 }
 
 bool language_list_add_names(struct language_list *list,
-			     const char *names,
+			     const ARRAY_TYPE(lang_settings) *languages,
 			     const char **unknown_name_r)
 {
-	const char *const *langs;
-	const struct language *lang;
+	struct lang_settings *entry;
+	array_foreach_elem(languages, entry) {
+		/* Data pseudo-language does not belong to the constructed list,
+		   skip it. */
+		if (strcmp(entry->name, LANGUAGE_DATA) == 0)
+			continue;
 
-	for (langs = t_strsplit_spaces(names, ", "); *langs != NULL; langs++) {
-		lang = language_find(*langs);
+		const struct language *lang = language_find(entry->name);
 		if (lang == NULL) {
 			/* unknown language */
-			*unknown_name_r = *langs;
+			*unknown_name_r = entry->name;
 			return FALSE;
 		}
 		if (language_list_find(list, lang->name) == NULL)
