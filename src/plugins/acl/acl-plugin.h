@@ -59,8 +59,7 @@ void acl_mail_allocated(struct mail *mail);
 
 struct acl_backend *acl_mailbox_list_get_backend(struct mailbox_list *list);
 int acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,
-				bool parent, unsigned int acl_storage_right_idx,
-				bool *can_see_r) ATTR_NULL(5);
+				bool parent, unsigned int acl_storage_right_idx);
 
 void acl_plugin_init(struct module *module);
 void acl_plugin_deinit(void);

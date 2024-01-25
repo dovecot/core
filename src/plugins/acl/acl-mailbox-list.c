@@ -54,14 +54,13 @@ struct acl_backend *acl_mailbox_list_get_backend(struct mailbox_list *list)
 }
 
 int acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,
-				bool parent, unsigned int acl_storage_right_idx,
-				bool *can_see_r)
+				bool parent, unsigned int acl_storage_right_idx)
 {
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT_REQUIRE(list);
 	struct acl_backend *backend = alist->rights.backend;
 	const unsigned int *idx_arr = alist->rights.acl_storage_right_idx;
 	struct acl_object *aclobj;
-	int ret, ret2;
+	int ret;
 
 	if (backend->set->acl_ignore)
 		return 1;
@@ -71,13 +70,6 @@ int acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,
 		acl_object_init_from_parent(backend, name);
 	ret = acl_object_have_right(aclobj, idx_arr[acl_storage_right_idx]);
 
-	if (can_see_r != NULL) {
-		ret2 = acl_object_have_right(aclobj,
-					     idx_arr[ACL_STORAGE_RIGHT_LOOKUP]);
-		if (ret2 < 0)
-			ret = -1;
-		*can_see_r = ret2 > 0;
-	}
 	acl_object_deinit(&aclobj);
 
 	if (ret < 0)
@@ -370,8 +362,7 @@ acl_mailbox_list_info_is_visible(struct mailbox_list_iterate_context *_ctx)
 
 	acl_name = acl_mailbox_list_iter_get_name(_ctx, info->vname);
 	ret = acl_mailbox_list_have_right(_ctx->list, acl_name, FALSE,
-					  ACL_STORAGE_RIGHT_LOOKUP,
-					  NULL);
+					  ACL_STORAGE_RIGHT_LOOKUP);
 	if (ret != 0) {
 		if ((_ctx->flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) != 0) {
 			/* don't waste time checking if there are visible
@@ -443,8 +434,7 @@ acl_mailbox_list_iter_check_autocreate_acls(struct mailbox_list_iterate_context 
 		const char *acl_name =
 			acl_mailbox_list_iter_get_name(_ctx, box_sets[i]->name);
 		ret = acl_mailbox_list_have_right(_ctx->list, acl_name, FALSE,
-						  ACL_STORAGE_RIGHT_LOOKUP,
-						  NULL);
+						  ACL_STORAGE_RIGHT_LOOKUP);
 		if (ret > 0)
 			i++;
 		else if (ret == 0) {
