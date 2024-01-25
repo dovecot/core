@@ -358,40 +358,35 @@ config_dump_full_handle_error(struct dump_context *dump_ctx,
 	return 0;
 }
 
+struct config_dump_full_context {
+	struct ostream *output;
+	enum config_dump_full_dest dest;
+
+	struct config_filter_parser *const *filters;
+	uint32_t filter_output_count;
+
+	uint32_t *filter_indexes_be32;
+	uint64_t *filter_offsets_be64;
+};
+
 static int
-config_dump_full_sections(struct config_parsed *config,
-			  struct ostream *output,
-			  enum config_dump_full_dest dest,
+config_dump_full_sections(struct config_dump_full_context *ctx,
 			  unsigned int parser_idx,
 			  const struct setting_parser_info *info,
 			  const string_t *delayed_filter)
 {
-	struct config_filter_parser *const *filters;
+	struct ostream *output = ctx->output;
+	enum config_dump_full_dest dest = ctx->dest;
 	struct config_export_context *export_ctx;
-	uint32_t max_filter_count = 0, filter_count = 0;
 	int ret = 0;
-
-	filters = config_parsed_get_filter_parsers(config);
-
-	/* first filter should be the global one */
-	i_assert(filters[0] != NULL && filters[0]->filter.service == NULL);
 
 	struct dump_context dump_ctx = {
 		.output = output,
 		.info = info,
 	};
 
-	uoff_t filter_count_offset = output->offset;
-	if (dest != CONFIG_DUMP_FULL_DEST_STDOUT)
-		o_stream_nsend(output, &filter_count, sizeof(filter_count));
-
-	while (filters[max_filter_count] != NULL) max_filter_count++;
-
-	uint32_t filter_indexes_be32[max_filter_count];
-	uint64_t filter_offsets_be64[max_filter_count];
-
-	for (unsigned int i = 1; filters[i] != NULL && ret == 0; i++) {
-		const struct config_filter_parser *filter = filters[i];
+	for (unsigned int i = 1; ctx->filters[i] != NULL && ret == 0; i++) {
+		const struct config_filter_parser *filter = ctx->filters[i];
 		uoff_t start_offset = output->offset;
 
 		if (filter->module_parsers[parser_idx].settings == NULL &&
@@ -431,42 +426,28 @@ config_dump_full_sections(struct config_parsed *config,
 		}
 		config_export_free(&export_ctx);
 		if (dump_ctx.filter_written) {
-			filter_indexes_be32[filter_count] = cpu32_to_be(i);
-			filter_offsets_be64[filter_count] =
+			ctx->filter_indexes_be32[ctx->filter_output_count] =
+				cpu32_to_be(i);
+			ctx->filter_offsets_be64[ctx->filter_output_count] =
 				cpu64_to_be(start_offset);
-			filter_count++;
+			ctx->filter_output_count++;
 		}
 	}
 
 	if (str_len(delayed_filter) > 0) {
-		filter_indexes_be32[filter_count] = 0; /* empty/global filter */
-		filter_offsets_be64[filter_count] = cpu64_to_be(output->offset);
+		ctx->filter_indexes_be32[ctx->filter_output_count] =
+			0; /* empty/global filter */
+		ctx->filter_offsets_be64[ctx->filter_output_count] =
+			cpu64_to_be(output->offset);
 
 		uint64_t blob_size = cpu64_to_be(1 + str_len(delayed_filter));
 		o_stream_nsend(output, &blob_size, sizeof(blob_size));
 		o_stream_nsend(output, "", 1); /* no error */
 		o_stream_nsend(output, str_data(delayed_filter),
 			       str_len(delayed_filter));
-		filter_count++;
+		ctx->filter_output_count++;
 	}
 
-	if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
-		o_stream_nsend(output, filter_indexes_be32,
-			       sizeof(filter_indexes_be32[0]) * filter_count);
-		o_stream_nsend(output, filter_offsets_be64,
-			       sizeof(filter_offsets_be64[0]) * filter_count);
-		o_stream_nsend(output, "", 1);
-	}
-
-	filter_count = cpu32_to_be(filter_count);
-	if (dest != CONFIG_DUMP_FULL_DEST_STDOUT &&
-	    o_stream_pwrite(output, &filter_count, sizeof(filter_count),
-			    filter_count_offset) < 0) {
-		i_error("o_stream_pwrite(%s) failed: %s",
-			o_stream_get_name(output),
-			o_stream_get_error(output));
-		return -1;
-	}
 	return ret;
 }
 
@@ -551,6 +532,22 @@ int config_dump_full(struct config_parsed *config,
 		config_dump_full_write_filters(output, config);
 	}
 
+	struct config_dump_full_context ctx = {
+		.output = output,
+		.dest = dest,
+		.filters = config_parsed_get_filter_parsers(config),
+	};
+
+	/* first filter should be the global one */
+	i_assert(ctx.filters[0] != NULL &&
+		 ctx.filters[0]->filter.service == NULL);
+
+	uint32_t max_filter_count = 0;
+	while (ctx.filters[max_filter_count] != NULL) max_filter_count++;
+
+	ctx.filter_indexes_be32 = t_new(uint32_t, max_filter_count);
+	ctx.filter_offsets_be64 = t_new(uint64_t, max_filter_count);
+
 	unsigned int i, parser_count =
 		config_export_get_parser_count(export_ctx);
 	for (i = 0; i < parser_count; i++) {
@@ -569,6 +566,7 @@ int config_dump_full(struct config_parsed *config,
 			o_stream_nsend_str(output,
 				t_strdup_printf("# %s\n", info->name));
 		}
+		ctx.filter_output_count = 0;
 
 		uoff_t blob_size_offset = output->offset;
 		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
@@ -585,14 +583,40 @@ int config_dump_full(struct config_parsed *config,
 			if (output_blob_size(output, blob_size_offset) < 0)
 				break;
 		}
+		uoff_t filter_count_offset = output->offset;
+		uint32_t filter_count = 0;
+		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
+			o_stream_nsend(output, &filter_count,
+				       sizeof(filter_count));
+		}
 		int ret;
 		T_BEGIN {
-			ret = config_dump_full_sections(config, output,
-				dest, i, info, dump_ctx.delayed_output);
+			ret = config_dump_full_sections(&ctx, i, info,
+				dump_ctx.delayed_output);
 		} T_END;
 		if (ret < 0)
 			break;
+
 		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
+			o_stream_nsend(output, ctx.filter_indexes_be32,
+				       sizeof(ctx.filter_indexes_be32[0]) *
+				       ctx.filter_output_count);
+			o_stream_nsend(output, ctx.filter_offsets_be64,
+				       sizeof(ctx.filter_offsets_be64[0]) *
+				       ctx.filter_output_count);
+			o_stream_nsend(output, "", 1);
+		}
+
+		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
+			filter_count = cpu32_to_be(ctx.filter_output_count);
+			if (o_stream_pwrite(output, &filter_count,
+					    sizeof(filter_count),
+					    filter_count_offset) < 0) {
+				i_error("o_stream_pwrite(%s) failed: %s",
+					o_stream_get_name(output),
+					o_stream_get_error(output));
+				break;
+			}
 			if (output_blob_size(output, settings_block_size_offset) < 0)
 				break;
 		}
