@@ -129,7 +129,7 @@ acl_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	if (!mailbox_is_autocreated(box)) {
 		/* we're looking up CREATE permission from our parent's rights */
 		ret = acl_mailbox_list_have_right(box->list, box->name, TRUE,
-						  ACL_STORAGE_RIGHT_CREATE, NULL);
+						  ACL_STORAGE_RIGHT_CREATE);
 	} else {
 		/* mailbox is autocreated, so we need to treat it as if it
 		   already exists. ignore the "create" ACL here. */
@@ -225,7 +225,7 @@ acl_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 	/* and create the new one under the parent mailbox */
 	T_BEGIN {
 		ret = acl_mailbox_list_have_right(dest->list, dest->name, TRUE,
-						ACL_STORAGE_RIGHT_CREATE, NULL);
+						ACL_STORAGE_RIGHT_CREATE);
 	} T_END;
 
 	if (ret <= 0) {
