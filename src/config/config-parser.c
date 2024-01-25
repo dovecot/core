@@ -656,6 +656,8 @@ again:
 		   old-set-parser. */
 		struct config_filter filter = {
 			.parent = &ctx->cur_section->filter_parser->filter,
+			.default_settings = (ctx->change_counter ==
+					     CONFIG_PARSER_CHANGE_DEFAULTS),
 		};
 		/* find the type of the first prefix/ */
 		filter.filter_name = t_strdup_until(key_with_path, p);
@@ -676,13 +678,16 @@ again:
 
 		filter_parser = config_filter_parser_find(ctx, &filter);
 		if (filter_parser == NULL) {
-			if (filter.filter_name_array) {
-				/* don't create new arrays */
+			if (filter.filter_name_array &&
+			    !filter.default_settings) {
+				/* don't create new arrays, except for
+				   default settings */
 				break;
 			}
 			/* Verify that this is a filter_name/ prefix. If not,
 			   it should be a list/ */
 			if (l->info->defines[config_key->define_idx].type != SET_FILTER_NAME &&
+			    l->info->defines[config_key->define_idx].type != SET_FILTER_ARRAY &&
 			    l->info->defines[config_key->define_idx].type != SET_FILTER_HIERARCHY)
 				break;
 
@@ -1093,6 +1098,9 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 void config_fill_set_parser(struct setting_parser_context *parser,
 			    const struct config_module_parser *p)
 {
+	if (p->change_counters == NULL)
+		return;
+
 	for (unsigned int i = 0; p->info->defines[i].key != NULL; i++) {
 		if (p->change_counters[i] == 0)
 			continue;
@@ -1143,7 +1151,7 @@ config_filter_parser_check(struct config_parser_context *ctx,
 			   struct event *event,
 			   struct config_filter_parser *filter_parser)
 {
-	struct config_module_parser *p;
+	struct config_module_parser *p, *default_p, *next_default_p;
 	const struct config_filter *filter;
 	const char *error = NULL;
 	pool_t tmp_pool;
@@ -1161,14 +1169,30 @@ config_filter_parser_check(struct config_parser_context *ctx,
 			event_add_ip(event, "remote_ip", &filter->remote_net);
 	}
 
+	/* Defaults are in a separate filter. Merge them with the non-defaults
+	   filter before calling check_func()s. */
+	struct config_filter default_filter = filter_parser->filter;
+	default_filter.default_settings = TRUE;
+	struct config_filter_parser *default_filter_parser =
+		config_filter_parser_find(ctx, &default_filter);
+	default_p = default_filter_parser == NULL ? NULL :
+		default_filter_parser->module_parsers;
+
 	tmp_pool = pool_alloconly_create(MEMPOOL_GROWING"config parsers check", 1024);
-	for (p = filter_parser->module_parsers; p->info != NULL; p++) {
+	for (p = filter_parser->module_parsers; p->info != NULL;
+	     p++, default_p = next_default_p) {
+		next_default_p = default_p == NULL ? NULL : default_p + 1;
 		if (p->settings == NULL)
 			continue;
+
+		i_assert(default_p == NULL || default_p->info == p->info);
+
 		p_clear(tmp_pool);
 		struct setting_parser_context *tmp_parser =
 			settings_parser_init(tmp_pool, p->info,
 					     settings_parser_flags);
+		if (default_p != NULL)
+			config_fill_set_parser(tmp_parser, default_p);
 		config_fill_set_parser(tmp_parser, p);
 		T_BEGIN {
 			ok = settings_parser_check(tmp_parser, tmp_pool,
@@ -1273,6 +1297,8 @@ config_all_parsers_check(struct config_parser_context *ctx,
 	   the config code, so at least for now it's not done. */
 	global_ssl_set = get_str_setting(parsers[0], "ssl", "");
 	for (i = 0; i < count; i++) {
+		if (parsers[i]->filter.default_settings)
+			continue;
 		ssl_set = get_str_setting(parsers[i], "ssl", global_ssl_set);
 		if (strcmp(ssl_set, "no") != 0 &&
 		    strcmp(global_ssl_set, "no") == 0 && !ssl_warned) {

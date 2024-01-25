@@ -240,7 +240,8 @@ config_dump_full_stdout_callback(const struct config_export_setting *set,
 	if (!ctx->filter_written) {
 		string_t *str = t_str_new(128);
 		str_append(str, ":FILTER ");
-		config_dump_full_append_filter(str, ctx->filter, TRUE);
+		if (ctx->filter != NULL)
+			config_dump_full_append_filter(str, ctx->filter, TRUE);
 		str_append_c(str, '\n');
 		o_stream_nsend(ctx->output, str_data(str), str_len(str));
 		ctx->filter_written = TRUE;
@@ -366,7 +367,8 @@ static int
 config_dump_full_sections(struct config_dump_full_context *ctx,
 			  unsigned int parser_idx,
 			  const struct setting_parser_info *info,
-			  const string_t *delayed_filter)
+			  const string_t *delayed_filter,
+			  bool dump_defaults)
 {
 	struct ostream *output = ctx->output;
 	enum config_dump_full_dest dest = ctx->dest;
@@ -382,6 +384,8 @@ config_dump_full_sections(struct config_dump_full_context *ctx,
 		const struct config_filter_parser *filter = ctx->filters[i];
 		uoff_t start_offset = output->offset;
 
+		if (filter->filter.default_settings != dump_defaults)
+			continue;
 		if (filter->module_parsers[parser_idx].settings == NULL &&
 		    filter->module_parsers[parser_idx].delayed_error == NULL)
 			continue;
@@ -427,7 +431,7 @@ config_dump_full_sections(struct config_dump_full_context *ctx,
 		}
 	}
 
-	if (str_len(delayed_filter) > 0) {
+	if (delayed_filter != NULL && str_len(delayed_filter) > 0) {
 		ctx->filter_indexes_be32[ctx->filter_output_count] =
 			0; /* empty/global filter */
 		ctx->filter_offsets_be64[ctx->filter_output_count] =
@@ -455,7 +459,6 @@ int config_dump_full(struct config_parsed *config,
 
 	struct dump_context dump_ctx = {
 		.delayed_output = str_new(default_pool, 256),
-		.filter_written = TRUE,
 	};
 
 	if (dest == CONFIG_DUMP_FULL_DEST_STDOUT) {
@@ -568,6 +571,14 @@ int config_dump_full(struct config_parsed *config,
 				       sizeof(filter_count));
 		}
 
+		/* Write default settings filters */
+		int ret;
+		T_BEGIN {
+			ret = config_dump_full_sections(&ctx, i, info, NULL, TRUE);
+		} T_END;
+		if (ret < 0)
+			break;
+
 		uoff_t blob_size_offset = output->offset;
 		/* Write base settings - add it as an empty filter */
 		ctx.filter_indexes_be32[ctx.filter_output_count] = 0;
@@ -576,8 +587,16 @@ int config_dump_full(struct config_parsed *config,
 		ctx.filter_output_count++;
 
 		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
+			/* Write a filter for the base settings, even if there
+			   are no settings. This allows lib-settings to apply
+			   setting overrides at the proper position before
+			   defaults. */
 			o_stream_nsend(output, &blob_size, sizeof(blob_size));
 			o_stream_nsend(output, "", 1); /* no error */
+			dump_ctx.filter_written = TRUE;
+		} else {
+			/* Make :FILTER visible */
+			dump_ctx.filter_written = FALSE;
 		}
 		dump_ctx.info = info;
 		if (config_export_parser(export_ctx, i, &error) < 0) {
@@ -590,10 +609,10 @@ int config_dump_full(struct config_parsed *config,
 				break;
 		}
 
-		int ret;
+		/* Write non-default settings filters */
 		T_BEGIN {
 			ret = config_dump_full_sections(&ctx, i, info,
-				dump_ctx.delayed_output);
+				dump_ctx.delayed_output, FALSE);
 		} T_END;
 		if (ret < 0)
 			break;
