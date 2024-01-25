@@ -101,7 +101,7 @@ static struct config_section_stack *
 config_parser_add_filter_array(struct config_parser_context *ctx,
 			       const char *filter_key, const char *name)
 {
-	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
+	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_SERVICE_DEFAULTS);
 	if (config_apply_exact_line(ctx, NULL, filter_key, name) < 0) {
 		i_panic("Failed to add %s %s: %s", filter_key, name,
 			ctx->error);
@@ -133,7 +133,7 @@ config_parser_add_service_default_struct(struct config_parser_context *ctx,
 	const struct setting_parser_info *info = all_infos[service_info_idx];
 	string_t *value_str = t_str_new(64);
 
-	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
+	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_SERVICE_DEFAULTS);
 	for (unsigned int i = 0; info->defines[i].key != NULL; i++) {
 		const void *value = CONST_PTR_OFFSET(default_set,
 						     info->defines[i].offset);
@@ -193,7 +193,7 @@ config_parser_add_service_default_keyvalues(struct config_parser_context *ctx,
 			key = p + 1;
 		}
 
-		config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
+		config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_SERVICE_DEFAULTS);
 		if (config_apply_line(ctx, key, defaults[i].value, NULL) < 0) {
 			i_panic("Failed to add default setting %s=%s for service %s: %s",
 				defaults[i].key, defaults[i].value,
@@ -249,7 +249,7 @@ config_parser_add_info_defaults_arr(struct config_parser_context *ctx,
 static void config_parser_add_info_defaults(struct config_parser_context *ctx,
 					    const struct setting_parser_info *info)
 {
-	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_INTERNAL);
+	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_DEFAULTS);
 	config_parser_add_info_defaults_arr(ctx, info, info->default_settings);
 	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
 }
@@ -1603,7 +1603,7 @@ config_filter_parser_has_changed_recursive(
 		struct config_module_parser *p =
 			&filter_parser->module_parsers[module_idx];
 		if (p->change_counters != NULL &&
-		    p->change_counters[set_idx] > CONFIG_PARSER_CHANGE_INTERNAL)
+		    p->change_counters[set_idx] == CONFIG_PARSER_CHANGE_EXPLICIT)
 			return TRUE;
 		filter_parser = filter_parser->parent;
 	}
@@ -1628,7 +1628,7 @@ config_filter_parser_drop_overridden_default_settings(
 		if (p->change_counters == NULL)
 			continue;
 		for (set_idx = 0; set_idx < p->set_count; set_idx++) {
-			if (p->change_counters[set_idx] != CONFIG_PARSER_CHANGE_INTERNAL)
+			if (p->change_counters[set_idx] != CONFIG_PARSER_CHANGE_DEFAULTS)
 				continue;
 
 			/* Found a default setting. If the same setting is

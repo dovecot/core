@@ -185,7 +185,7 @@ settings_export(struct config_export_context *ctx,
 			dump_default = TRUE;
 			break;
 		case CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES:
-			if (change_value < CONFIG_PARSER_CHANGE_INTERNAL) {
+			if (change_value == 0) {
 				/* setting is completely unchanged */
 				continue;
 			}
