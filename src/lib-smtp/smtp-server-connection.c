@@ -1130,6 +1130,7 @@ bool smtp_server_connection_unref(struct smtp_server_connection **_conn)
 	i_free(conn->username);
 	i_free(conn->session_id);
 	i_free(conn->client_transport);
+	i_free(conn->local_name);
 	event_unref(&conn->next_trans_event);
 	pool_unref(&conn->pool);
 	return FALSE;
