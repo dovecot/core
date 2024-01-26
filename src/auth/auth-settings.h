@@ -55,6 +55,7 @@ struct auth_userdb_settings {
 	const char *result_failure;
 	const char *result_internalfail;
 
+	bool use_cache;
 	bool use_worker;
 };
 

@@ -178,7 +178,7 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
 
 	auth_userdb->userdb = userdb_preinit(auth->pool, event, set);
 	/* make sure any %variables in default_fields exist in cache_key */
-	if (auth_userdb->userdb->default_cache_key != NULL) {
+	if (auth_userdb->userdb->default_cache_key != NULL && set->use_cache) {
 		struct auth_userdb_pre_settings *userdb_pre_set;
 		const char *error;
 		if (settings_get(event, &auth_userdb_pre_setting_parser_info,
