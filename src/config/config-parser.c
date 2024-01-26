@@ -1258,8 +1258,7 @@ config_all_parsers_check(struct config_parser_context *ctx,
 	}
 
 	parsers = array_get(&ctx->all_filter_parsers, &count);
-	i_assert(count > 0 && parsers[count-1] == NULL);
-	count--;
+	i_assert(parsers[count] == NULL);
 
 	struct event *event = event_create(NULL);
 	event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
@@ -1670,6 +1669,7 @@ config_parse_finish(struct config_parser_context *ctx,
 	config_drop_overridden_default_settings(ctx);
 
 	array_append_zero(&ctx->all_filter_parsers);
+	array_pop_back(&ctx->all_filter_parsers);
 	new_config->filter_parsers = array_front(&ctx->all_filter_parsers);
 	new_config->module_parsers = ctx->root_module_parsers;
 
