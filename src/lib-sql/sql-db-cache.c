@@ -113,7 +113,7 @@ int sql_db_cache_new(struct sql_db_cache *cache, const struct sql_settings *set,
 	} else {
 		sql_db_cache_drop_oldest(cache);
 
-		if (sql_init_full(set, &db, error_r) < 0) {
+		if (sql_init_legacy_full(set, &db, error_r) < 0) {
 			i_free(key);
 			return -1;
 		}

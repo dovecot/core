@@ -94,9 +94,10 @@ void sql_driver_unregister(const struct sql_db *driver);
 
 /* Initialize database connections. db_driver is the database driver name,
    eg. "mysql" or "pgsql". connect_string is driver-specific. */
-struct sql_db *sql_init(const char *db_driver, const char *connect_string);
-int sql_init_full(const struct sql_settings *set, struct sql_db **db_r,
-		  const char **error_r);
+struct sql_db *
+sql_init_legacy(const char *db_driver, const char *connect_string);
+int sql_init_legacy_full(const struct sql_settings *set, struct sql_db **db_r,
+			 const char **error_r);
 
 void sql_ref(struct sql_db *db);
 void sql_unref(struct sql_db **db);

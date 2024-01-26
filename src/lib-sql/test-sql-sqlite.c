@@ -34,7 +34,7 @@ static void test_sql_sqlite(void)
 	sql_drivers_init_without_drivers();
 	driver_sqlite_init();
 
-	test_assert(sql_init_full(&set, &sql, &error) == 0 &&
+	test_assert(sql_init_legacy_full(&set, &sql, &error) == 0 &&
 		    sql != NULL &&
 		    error == NULL);
 	setup_database(sql);

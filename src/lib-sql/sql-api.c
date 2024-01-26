@@ -75,7 +75,8 @@ void sql_driver_unregister(const struct sql_db *driver)
 	}
 }
 
-struct sql_db *sql_init(const char *db_driver, const char *connect_string)
+struct sql_db *
+sql_init_legacy(const char *db_driver, const char *connect_string)
 {
 	const char *error;
 	struct sql_db *db;
@@ -84,13 +85,13 @@ struct sql_db *sql_init(const char *db_driver, const char *connect_string)
 		.connect_string = connect_string,
 	};
 
-	if (sql_init_full(&set, &db, &error) < 0)
+	if (sql_init_legacy_full(&set, &db, &error) < 0)
 		i_fatal("%s", error);
 	return db;
 }
 
-int sql_init_full(const struct sql_settings *set, struct sql_db **db_r,
-		  const char **error_r)
+int sql_init_legacy_full(const struct sql_settings *set, struct sql_db **db_r,
+			 const char **error_r)
 {
 	const struct sql_db *driver;
 	struct sql_db *db;
