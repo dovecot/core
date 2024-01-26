@@ -10,6 +10,7 @@
 #include "strfuncs.h"
 #include "str-parse.h"
 #include "settings.h"
+#include "settings-parser.h"
 
 #ifdef BUILD_SQLITE
 #include <sqlite3.h>
@@ -51,10 +52,29 @@ struct sqlite_settings {
 	bool parsed_journal_use_wal;
 };
 
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("sqlite_"#name, name, struct sqlite_settings)
+static const struct setting_define sqlite_setting_defines[] = {
+	DEF(STR, path),
+	DEF(ENUM, journal_mode),
+	DEF(BOOL, readonly),
+
+	SETTING_DEFINE_LIST_END
+};
 static const struct sqlite_settings sqlite_default_settings = {
 	.path = "",
 	.journal_mode = "delete:wal",
 	.readonly = FALSE,
+};
+const struct setting_parser_info sqlite_setting_parser_info = {
+	.name = "sqlite",
+
+	.defines = sqlite_setting_defines,
+	.defaults = &sqlite_default_settings,
+
+	.struct_size = sizeof(struct sqlite_settings),
+	.pool_offset1 = 1 + offsetof(struct sqlite_settings, pool),
 };
 
 extern const struct sql_db driver_sqlite_db;
@@ -140,6 +160,19 @@ driver_sqlite_init_common(struct event *event,
 	event_add_category(db->api.event, &event_category_sqlite);
 	event_set_append_log_prefix(db->api.event, "sqlite: ");
 	return &db->api;
+}
+
+static int
+driver_sqlite_init_v(struct event *event, struct sql_db **db_r,
+		     const char **error_r)
+{
+	const struct sqlite_settings *set;
+
+	if (settings_get(event, &sqlite_setting_parser_info, 0,
+			 &set, error_r) < 0)
+		return -1;
+	*db_r = driver_sqlite_init_common(event, set);
+	return 0;
 }
 
 static int
@@ -678,6 +711,7 @@ const struct sql_db driver_sqlite_db = {
 		SQL_DB_FLAG_BLOCKING,
 
 	.v = {
+		.init = driver_sqlite_init_v,
 		.init_legacy_full = driver_sqlite_init_full_v,
 		.deinit = driver_sqlite_deinit_v,
 		.connect = driver_sqlite_connect,
