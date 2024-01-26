@@ -7,16 +7,34 @@
 #include "test-common.h"
 #include "language.h"
 #include "lang-filter.h"
+#include "settings.h"
+#include "lang-settings.h"
 
 #include <stdio.h>
 
-static const char *const stopword_settings[] = {"stopwords_dir", TEST_STOPWORDS_DIR, NULL};
-static struct language english_language = { .name = "en" };
-static struct language french_language = { .name = "fr" };
-static struct language norwegian_language = { .name = "no" };
-#if defined(HAVE_LIBICU) && defined(HAVE_LANG_STEMMER)
-static struct language swedish_language = { .name = "sv" };
-#endif
+#define MALFORMED "malformed"
+#define UNKNOWN "bebobidoop"
+#define LANG_EN "en"
+#define LANG_FI "fi"
+#define LANG_FR "fr"
+#define LANG_NO "no"
+#define LANG_SV "sv"
+
+static struct lang_settings stopword_settings;
+static void init_lang_settings(void)
+{
+	stopword_settings = lang_default_settings;
+	stopword_settings.filter_stopwords_dir = TEST_STOPWORDS_DIR;
+}
+
+static struct lang_settings *make_settings(const char *lang,
+					   const struct lang_settings *template)
+{
+	struct lang_settings *set = t_new(struct lang_settings, 1);
+	*set = template != NULL ? *template : lang_default_settings;
+	set->name = lang;
+	return set;
+}
 
 static void test_lang_filter_find(void)
 {
@@ -29,7 +47,6 @@ static void test_lang_filter_find(void)
 	test_end();
 }
 
-
 static void test_lang_filter_contractions_fail(void)
 {
 
@@ -37,7 +54,7 @@ static void test_lang_filter_contractions_fail(void)
 	const char *error;
 
 	test_begin("lang filter contractions, unsupported language");
-	test_assert(lang_filter_create(lang_filter_contractions, NULL, &english_language, NULL, &filter, &error) != 0);
+	test_assert(lang_filter_create(lang_filter_contractions, NULL, make_settings(LANG_EN, NULL), &filter, &error) != 0);
 	test_assert(error != NULL);
 	test_end();
 }
@@ -75,7 +92,7 @@ static void test_lang_filter_contractions_fr(void)
 	int ret;
 
 	test_begin("lang filter contractions, French");
-	test_assert(lang_filter_create(lang_filter_contractions, NULL, &french_language, NULL, &filter, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_contractions, NULL, make_settings(LANG_FR, NULL), &filter, &error) == 0);
 
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		token = tests[i].input;
@@ -106,7 +123,7 @@ static void test_lang_filter_lowercase(void)
 	unsigned int i;
 
 	test_begin("lang filter lowercase");
-	test_assert(lang_filter_create(lang_filter_lowercase, NULL, &english_language, NULL, &filter, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_lowercase, NULL, make_settings(LANG_EN, NULL), &filter, &error) == 0);
 
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		token = tests[i].input;
@@ -134,7 +151,7 @@ static void test_lang_filter_lowercase_utf8(void)
 	unsigned int i;
 
 	test_begin("lang filter lowercase, UTF8");
-	test_assert(lang_filter_create(lang_filter_lowercase, NULL, &english_language, NULL, &filter, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_lowercase, NULL, make_settings(LANG_EN, NULL), &filter, &error) == 0);
 
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		token = tests[i].input;
@@ -159,11 +176,12 @@ static void test_lang_filter_lowercase_too_long_utf8(void)
 	struct lang_filter *filter;
 	const char *error;
 	const char *token;
-	const char * const settings[] = {"maxlen", "25", NULL};
+	struct lang_settings set = lang_default_settings;
+	set.filter_lowercase_token_maxlen = 25;
 	unsigned int i;
 
 	test_begin("lang filter lowercase, too long UTF8");
-	test_assert(lang_filter_create(lang_filter_lowercase, NULL, &english_language, settings, &filter, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_lowercase, NULL, make_settings(LANG_EN, &set), &filter, &error) == 0);
 
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		token = tests[i].input;
@@ -190,7 +208,7 @@ static void test_lang_filter_stopwords_eng(void)
 	const char *token;
 
 	test_begin("lang filter stopwords, English");
-	test_assert(lang_filter_create(lang_filter_stopwords, NULL, &english_language, stopword_settings, &filter, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_stopwords, NULL, make_settings(LANG_EN, &stopword_settings), &filter, &error) == 0);
 
 	ip = input;
 	op = output;
@@ -215,7 +233,6 @@ static void test_lang_filter_stopwords_eng(void)
 
 static void test_lang_filter_stopwords_fin(void)
 {
-	const struct language finnish = { .name = "fi" };
 	struct lang_filter *filter;
 	const char *error;
 	int ret;
@@ -231,7 +248,7 @@ static void test_lang_filter_stopwords_fin(void)
 	const char *token;
 
 	test_begin("lang filter stopwords, Finnish");
-	test_assert(lang_filter_create(lang_filter_stopwords, NULL, &finnish, stopword_settings, &filter, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_stopwords, NULL, make_settings(LANG_FI, &stopword_settings), &filter, &error) == 0);
 
 	ip = input;
 	op = output;
@@ -252,7 +269,7 @@ static void test_lang_filter_stopwords_fin(void)
 	lang_filter_unref(&filter);
 	test_assert(filter == NULL);
 
-	test_assert(lang_filter_create(lang_filter_stopwords, NULL, &finnish, stopword_settings, &filter, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_stopwords, NULL, make_settings(LANG_FI, &stopword_settings), &filter, &error) == 0);
 	ip = input2;
 	op = output2;
 	while (*ip != NULL) {
@@ -291,7 +308,7 @@ static void test_lang_filter_stopwords_fra(void)
 	const char *token;
 
 	test_begin("lang filter stopwords, French");
-	test_assert(lang_filter_create(lang_filter_stopwords, NULL, &french_language, stopword_settings, &filter, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_stopwords, NULL, make_settings(LANG_FR, &stopword_settings), &filter, &error) == 0);
 
 	ip = input;
 	op = output;
@@ -339,7 +356,7 @@ static void test_lang_filter_stopwords_no(void)
 	const char *token;
 
 	test_begin("lang filter stopwords, Norwegian");
-	test_assert(lang_filter_create(lang_filter_stopwords, NULL, &norwegian_language, stopword_settings, &filter, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_stopwords, NULL, make_settings(LANG_NO, &stopword_settings), &filter, &error) == 0);
 
 	ip = input;
 	op = output;
@@ -364,12 +381,11 @@ static void test_lang_filter_stopwords_no(void)
 
 static void test_lang_filter_stopwords_fail_lazy_init(void)
 {
-	const struct language unknown = { .name = "bebobidoop" };
 	struct lang_filter *filter = NULL;
 	const char *error = NULL, *token = "foobar";
 
 	test_begin("lang filter stopwords, fail filter() (lazy init)");
-	test_assert(lang_filter_create(lang_filter_stopwords, NULL, &unknown, stopword_settings, &filter, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_stopwords, NULL, make_settings(UNKNOWN, &stopword_settings), &filter, &error) == 0);
 	test_assert(filter != NULL && error == NULL);
 	test_assert(lang_filter(filter, &token, &error) < 0 && error != NULL);
 	lang_filter_unref(&filter);
@@ -379,12 +395,11 @@ static void test_lang_filter_stopwords_fail_lazy_init(void)
 
 static void test_lang_filter_stopwords_malformed(void)
 {
-	const struct language malformed = { .name = "malformed" };
 	struct lang_filter *filter = NULL;
 	const char *error = NULL, *token = "foobar";
 
 	test_begin("lang filter stopwords, malformed list");
-	test_assert(lang_filter_create(lang_filter_stopwords, NULL, &malformed, stopword_settings, &filter, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_stopwords, NULL, make_settings(MALFORMED, &stopword_settings), &filter, &error) == 0);
 	test_assert(lang_filter(filter, &token, &error) < 0);
 	test_assert(strstr(error, "seems empty. Is the file correctly formatted?") != NULL);
 	test_expect_no_more_errors();
@@ -415,7 +430,7 @@ static void test_lang_filter_stemmer_snowball_stem_english(void)
 	const char * const *bpp;
 
 	test_begin("lang filter stem English");
-	test_assert(lang_filter_create(lang_filter_stemmer_snowball, NULL, &english_language, NULL, &stemmer, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_stemmer_snowball, NULL, make_settings(LANG_EN, NULL), &stemmer, &error) == 0);
 	bpp = bases;
 	for (tpp=tokens; *tpp != NULL; tpp++) {
 		token = *tpp;
@@ -445,7 +460,7 @@ static void test_lang_filter_stemmer_snowball_stem_french(void)
 	const char * const *bpp;
 
 	test_begin("lang filter stem French");
-	test_assert(lang_filter_create(lang_filter_stemmer_snowball, NULL, &french_language, NULL, &stemmer, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_stemmer_snowball, NULL, make_settings(LANG_FR, NULL), &stemmer, &error) == 0);
 	bpp = bases;
 	for (tpp=tokens; *tpp != NULL; tpp++) {
 		token = *tpp;
@@ -483,8 +498,8 @@ static void test_lang_filter_stopwords_stemmer_eng(void)
 
 	test_begin("lang filters stopwords and stemming chained, English");
 
-	test_assert(lang_filter_create(lang_filter_stopwords, NULL, &english_language, stopword_settings, &filter, &error) == 0);
-	test_assert(lang_filter_create(lang_filter_stemmer_snowball, filter, &english_language, NULL, &stemmer, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_stopwords, NULL, make_settings(LANG_EN, &stopword_settings), &filter, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_stemmer_snowball, filter, make_settings(LANG_EN, NULL), &stemmer, &error) == 0);
 
 	bpp = bases;
 	for (tpp=tokens; *tpp != NULL; tpp++) {
@@ -524,15 +539,15 @@ static void test_lang_filter_normalizer_swedish_short(void)
 		"aao",
 		"vem kan segla forutan vind?\naaooaa"
 	};
-	const char * const settings[] =
-		{"id", "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC", NULL};
+	struct lang_settings set = lang_default_settings;
+	set.filter_normalizer_icu_id = "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC";
 	const char *error = NULL;
 	const char *token = NULL;
 	unsigned int i;
 
 	test_begin("lang filter normalizer Swedish short text");
 
-	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, NULL, settings, &norm, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, make_settings(NULL, &set), &norm, &error) == 0);
 	for (i = 0; i < N_ELEMENTS(input); i++) {
 		token = input[i];
 		test_assert_idx(lang_filter(norm, &token, &error) == 1, i);
@@ -565,7 +580,7 @@ static void test_lang_filter_normalizer_swedish_short_default_id(void)
 
 	test_begin("lang filter normalizer Swedish short text using default ID");
 
-	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, NULL, NULL, &norm, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, make_settings(NULL, NULL), &norm, &error) == 0);
 	for (i = 0; i < N_ELEMENTS(input); i++) {
 		token = input[i];
 		test_assert_idx(lang_filter(norm, &token, &error) == 1, i);
@@ -582,8 +597,8 @@ static void test_lang_filter_normalizer_french(void)
 {
 	struct lang_filter *norm = NULL;
 	FILE *input;
-	const char * const settings[] =
-		{"id", "Any-Lower; NFKD; [: Nonspacing Mark :] Remove", NULL};
+	struct lang_settings set = lang_default_settings;
+	set.filter_normalizer_icu_id = "Any-Lower; NFKD; [: Nonspacing Mark :] Remove";
 	char buf[250] = {0};
 	const char *error = NULL;
 	const char *tokens;
@@ -603,7 +618,7 @@ static void test_lang_filter_normalizer_french(void)
 	test_begin("lang filter normalizer French UDHR");
 
 	udhr_path = t_strconcat(UDHRDIR, UDHR_FRA_NAME, NULL);
-	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, NULL, settings, &norm, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, make_settings(NULL, &set), &norm, &error) == 0);
 	input = fopen(udhr_path, "r");
 	test_assert(input != NULL);
 	sha512_init(&ctx);
@@ -632,14 +647,14 @@ static void test_lang_filter_normalizer_empty(void)
 		"\xF3\xA0\x87\xAF", /* U+E01EF */
 		"\xCC\x80\xF3\xA0\x87\xAF" /* U+0300 U+E01EF */
 	};
-	const char * const settings[] =
-		{"id", "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; [\\x20] Remove", NULL};
+	struct lang_settings set = lang_default_settings;
+	set.filter_normalizer_icu_id = "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; [\\x20] Remove";
 	struct lang_filter *norm;
 	const char *error;
 	unsigned int i;
 
 	test_begin("lang filter normalizer empty tokens");
-	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, NULL, settings, &norm, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, make_settings(NULL, &set), &norm, &error) == 0);
 	for (i = 0; i < N_ELEMENTS(empty_tokens); i++) {
 		const char *token = empty_tokens[i];
 		test_assert_idx(lang_filter(norm, &token, &error) == 0, i);
@@ -650,8 +665,8 @@ static void test_lang_filter_normalizer_empty(void)
 
 static void test_lang_filter_normalizer_baddata(void)
 {
-	const char * const settings[] =
-		{"id", "Any-Lower; NFKD; [: Nonspacing Mark :] Remove", NULL};
+	struct lang_settings set = lang_default_settings;
+	set.filter_normalizer_icu_id = "Any-Lower; NFKD; [: Nonspacing Mark :] Remove";
 	struct lang_filter *norm;
 	const char *token, *error;
 	string_t *str;
@@ -659,7 +674,7 @@ static void test_lang_filter_normalizer_baddata(void)
 
 	test_begin("lang filter normalizer bad data");
 
-	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, NULL, settings, &norm, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, make_settings(NULL, &set), &norm, &error) == 0);
 	str = t_str_new(128);
 	for (i = 1; i < 0x1ffff; i++) {
 		if (!uni_is_valid_ucs4(i)) continue;
@@ -683,13 +698,12 @@ static void test_lang_filter_normalizer_baddata(void)
 static void test_lang_filter_normalizer_invalid_id(void)
 {
 	struct lang_filter *norm = NULL;
-	const char *settings[] =
-		{"id", "Any-One-Out-There; DKFN; [: Nonspacing Mark :] Remove",
-		 NULL};
+	struct lang_settings set = lang_default_settings;
+	set.filter_normalizer_icu_id = "Any-One-Out-There; DKFN; [: Nonspacing Mark :] Remove";
 	const char *error = NULL, *token = "foo";
 
 	test_begin("lang filter normalizer invalid id");
-	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, NULL, settings, &norm, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, make_settings(NULL, &set), &norm, &error) == 0);
 	test_assert(error == NULL);
 	test_assert(lang_filter(norm, &token, &error) < 0 && error != NULL);
 	lang_filter_unref(&norm);
@@ -699,9 +713,9 @@ static void test_lang_filter_normalizer_invalid_id(void)
 static void test_lang_filter_normalizer_oversized(void)
 {
 	struct lang_filter *norm = NULL;
-	const char *settings[] =
-		{"id", "Any-Lower; NFKD; [: Nonspacing Mark :] Remove", "maxlen", "250",
-		 NULL};
+	struct lang_settings set = lang_default_settings;
+	set.filter_normalizer_icu_id = "Any-Lower; NFKD; [: Nonspacing Mark :] Remove";
+	set.filter_normalizer_token_maxlen = 250;
 	const char *error = NULL;
 	const char *token = "\xe4\x95\x91\x25\xe2\x94\xad\xe1\x90\xad\xee\x94\x81\xe2\x8e\x9e"
 						"\xe7\x9a\xb7\xea\xbf\x97\xe3\xb2\x8f\xe4\x9c\xbe\xee\xb4\x98\xe1"
@@ -721,7 +735,7 @@ static void test_lang_filter_normalizer_oversized(void)
 						"\x9c\xe5\xa6\xae\xe9\x93\x91\xe8\x87\xa1";
 
 	test_begin("lang filter normalizer over-sized token");
-	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, NULL, settings, &norm, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, make_settings(NULL, &set), &norm, &error) == 0);
 	test_assert(error == NULL);
 	test_assert(lang_filter(norm, &token, &error) >= 0);
 	test_assert(strlen(token) <= 250);
@@ -732,15 +746,14 @@ static void test_lang_filter_normalizer_oversized(void)
 static void test_lang_filter_normalizer_truncation(void)
 {
 	struct lang_filter *norm = NULL;
-	const char *settings[] =
-		{"id", "Any-Lower;", "maxlen", "10",
-		 NULL};
+	struct lang_settings set = lang_default_settings;
+	set.filter_normalizer_icu_id = "Any-Lower;";
+	set.filter_normalizer_token_maxlen = 10;
 	const char *error = NULL;
 	const char *token = "abcdefghi\xC3\x85";
 
 	test_begin("lang filter normalizer token truncated mid letter");
-	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, NULL,
-	                              settings, &norm, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, make_settings(NULL, &set), &norm, &error) == 0);
 	test_assert(error == NULL);
 	test_assert(lang_filter(norm, &token, &error) >= 0);
 	test_assert(strcmp(token, "abcdefghi") == 0);
@@ -756,9 +769,9 @@ static void test_lang_filter_normalizer_stopwords_stemmer_eng(void)
 	struct lang_filter *stemmer;
 	struct lang_filter *filter;
 	const char *error;
-	const char * const id_settings[] =
-		//{"id", "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC", NULL};
-		{"id", "Lower", NULL};
+	struct lang_settings set = lang_default_settings;
+	// set.filter_normalizer_icu_id = "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC"
+	set.filter_normalizer_icu_id = "Lower";
 	const char *token = NULL;
 	const char * const tokens[] = {
 		"dries" ,"friendlies", "All", "human", "beings", "are",
@@ -778,9 +791,9 @@ static void test_lang_filter_normalizer_stopwords_stemmer_eng(void)
 
 	test_begin("lang filters normalizer, stopwords and stemming chained, English");
 
-	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, NULL, id_settings, &normalizer, &error) == 0);
-	test_assert(lang_filter_create(lang_filter_stopwords, normalizer, &english_language, stopword_settings, &filter, &error) == 0);
-	test_assert(lang_filter_create(lang_filter_stemmer_snowball, filter, &english_language, NULL, &stemmer, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, make_settings(NULL, &set), &normalizer, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_stopwords, normalizer, make_settings(LANG_EN, &stopword_settings), &filter, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_stemmer_snowball, filter, make_settings(LANG_EN, NULL), &stemmer, &error) == 0);
 
 	bpp = bases;
 	for (tpp = tokens; *tpp != NULL; tpp++) {
@@ -840,9 +853,9 @@ static void test_lang_filter_stopwords_normalizer_stemmer_no(void)
 
 	test_begin("lang filters with stopwords, default normalizer and stemming chained, Norwegian");
 
-	test_assert(lang_filter_create(lang_filter_stopwords, NULL, &norwegian_language, stopword_settings, &filter, &error) == 0);
-	test_assert(lang_filter_create(lang_filter_normalizer_icu, filter, NULL, NULL, &normalizer, &error) == 0);
-	test_assert(lang_filter_create(lang_filter_stemmer_snowball, normalizer, &norwegian_language, NULL, &stemmer, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_stopwords, NULL, make_settings(LANG_NO, &stopword_settings), &filter, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_normalizer_icu, filter, make_settings(NULL, NULL), &normalizer, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_stemmer_snowball, normalizer, make_settings(LANG_NO, NULL), &stemmer, &error) == 0);
 
 	bpp = bases;
 	for (tpp = tokens; *tpp != NULL; tpp++) {
@@ -891,9 +904,9 @@ static void test_lang_filter_stopwords_normalizer_stemmer_sv(void)
 	test_begin("lang filters with stopwords, default normalizer and stemming chained, Swedish");
 
 
-	test_assert(lang_filter_create(lang_filter_stopwords, NULL, &swedish_language, stopword_settings, &filter, &error) == 0);
-	test_assert(lang_filter_create(lang_filter_normalizer_icu, filter, NULL, NULL, &normalizer, &error) == 0);
-	test_assert(lang_filter_create(lang_filter_stemmer_snowball, normalizer, &swedish_language, NULL, &stemmer, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_stopwords, NULL, make_settings(LANG_SV, &stopword_settings), &filter, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_normalizer_icu, filter, make_settings(NULL, NULL), &normalizer, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_stemmer_snowball, normalizer, make_settings(LANG_SV, NULL), &stemmer, &error) == 0);
 
 	bpp = bases;
 	for (tpp = tokens; *tpp != NULL; tpp++) {
@@ -962,7 +975,7 @@ static void test_lang_filter_english_possessive(void)
 
 	test_begin("lang filter english possessive");
 
-	test_assert(lang_filter_create(lang_filter_english_possessive, NULL, NULL, NULL, &norm, &error) == 0);
+	test_assert(lang_filter_create(lang_filter_english_possessive, NULL, make_settings(NULL, NULL), &norm, &error) == 0);
 	for (i = 0; i < N_ELEMENTS(input); i++) {
 		token = input[i];
 		test_assert_idx(lang_filter(norm, &token, &error) == 1, i);
@@ -978,6 +991,7 @@ static void test_lang_filter_english_possessive(void)
 
 int main(void)
 {
+	init_lang_settings();
 	static void (*const test_functions[])(void) = {
 		test_lang_filter_find,
 		test_lang_filter_contractions_fail,

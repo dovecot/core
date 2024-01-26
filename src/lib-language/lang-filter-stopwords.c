@@ -8,6 +8,7 @@
 #include "unichar.h"
 #include "language.h"
 #include "lang-filter-private.h"
+#include "lang-settings.h"
 
 #define STOPWORDS_FILE_FORMAT "%s/stopwords_%s.txt"
 
@@ -70,37 +71,21 @@ static void lang_filter_stopwords_destroy(struct lang_filter *filter)
 }
 
 static int
-lang_filter_stopwords_create(const struct language *lang,
-                             const char *const *settings,
+lang_filter_stopwords_create(const struct lang_settings *set,
                              struct lang_filter **filter_r,
-                             const char **error_r)
+                             const char **error_r ATTR_UNUSED)
 {
 	struct lang_filter_stopwords *sp;
 	pool_t pp;
-	const char *dir = NULL;
-	unsigned int i;
 
-	for (i = 0; settings[i] != NULL; i += 2) {
-		const char *key = settings[i], *value = settings[i+1];
-
-		if (strcmp(key, "stopwords_dir") == 0) {
-			dir = value;
-		} else {
-			*error_r = t_strdup_printf("Unknown setting: %s", key);
-			return -1;
-		}
-	}
 	pp = pool_alloconly_create(MEMPOOL_GROWING"lang_filter_stopwords",
 	                           sizeof(struct lang_filter));
 	sp = p_new(pp, struct lang_filter_stopwords, 1);
 	sp->filter = *lang_filter_stopwords;
 	sp->pool = pp;
 	sp->lang = p_malloc(sp->pool, sizeof(struct language));
-	sp->lang->name = p_strdup(sp->pool, lang->name);
-	if (dir != NULL)
-		sp->stopwords_dir = p_strdup(pp, dir);
-	else
-		sp->stopwords_dir = DATADIR"/stopwords";
+	sp->lang->name = set->name;
+	sp->stopwords_dir = set->filter_stopwords_dir;
 	*filter_r = &sp->filter;
 	return 0;
 }

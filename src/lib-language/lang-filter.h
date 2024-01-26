@@ -3,6 +3,8 @@
 
 struct language;
 struct lang_filter;
+struct lang_settings;
+
 /*
  Settings are given in the form of a const char * const *settings =
  {"key, "value", "key2", "value2", NULL} array of string pairs.
@@ -54,8 +56,7 @@ void lang_filter_register(const struct lang_filter *filter_class);
 const struct lang_filter *lang_filter_find(const char *name);
 int lang_filter_create(const struct lang_filter *filter_class,
                        struct lang_filter *parent,
-                       const struct language *lang,
-                       const char *const *settings,
+                       const struct lang_settings *set,
                        struct lang_filter **filter_r,
                        const char **error_r);
 void lang_filter_ref(struct lang_filter *filter);

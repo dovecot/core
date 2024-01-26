@@ -55,6 +55,25 @@ static const char *const *str_keyvalues_to_array(const char *str)
 	return array_front(&arr);
 }
 
+/* Returns the setting for the given language, or, if the langauge is not
+   defined, the settings for the default language (which is always the first
+   in the array) */
+const struct lang_settings *
+lang_user_settings_get(struct mail_user *user, const char *lang)
+{
+	struct lang_settings *set;
+	struct lang_user *luser = LANG_USER_CONTEXT_REQUIRE(user);
+	const ARRAY_TYPE(lang_settings) *langs = &luser->set->parsed_languages;
+
+	array_foreach_elem(langs, set) {
+		if (strcmp(set->name, lang) == 0)
+			return set;
+	}
+
+	i_assert(!(array_is_empty(langs)));
+	return array_idx_elem(langs, 0);
+}
+
 static int
 lang_user_init_languages(struct lang_user *luser, const char **error_r)
 {
@@ -81,51 +100,34 @@ static int
 lang_user_create_filters(struct mail_user *user, const struct language *lang,
 			 struct lang_filter **filter_r, const char **error_r)
 {
-	const struct lang_filter *filter_class;
-	struct lang_filter *filter = NULL, *parent = NULL;
-	const char *filters_key, *const *filters, *filter_set_name;
-	const char *str, *error, *set_key;
-	unsigned int i;
-	int ret = 0;
 
-	/* try to get the language-specific filters first */
-	filters_key = t_strconcat("fts_filters_", lang->name, NULL);
-	str = mail_user_plugin_getenv(user, filters_key);
-	if (str == NULL) {
-		/* fallback to global filters */
-		filters_key = "fts_filters";
-		str = mail_user_plugin_getenv(user, filters_key);
-		if (str == NULL) {
-			/* No filters */
-			*filter_r = NULL;
-			return 0;
-		}
+	const struct lang_settings *set = lang_user_settings_get(user, lang->name);
+	if (array_is_empty(&set->filters)) {
+		/* No filters */
+		*filter_r = NULL;
+		return 0;
 	}
 
-	filters = t_strsplit_spaces(str, " ");
-	for (i = 0; filters[i] != NULL; i++) {
-		filter_class = lang_filter_find(filters[i]);
-		if (filter_class == NULL) {
-			*error_r = t_strdup_printf("%s: Unknown filter '%s'",
-						   filters_key, filters[i]);
+	int ret = 0;
+	struct lang_filter *filter = NULL, *parent = NULL;
+	const char *entry_name;
+	array_foreach_elem(&set->filters, entry_name) {
+		const struct lang_filter *entry_class =
+			lang_filter_find(entry_name);
+
+		if (entry_class == NULL) {
+			*error_r = t_strdup_printf(
+				"%s: Unknown filter '%s'",
+				set->name, entry_name);
 			ret = -1;
 			break;
 		}
 
-		/* try the language-specific setting first */
-		filter_set_name = t_str_replace(filters[i], '-', '_');
-		set_key = t_strdup_printf("fts_filter_%s_%s",
-					  lang->name, filter_set_name);
-		str = mail_user_plugin_getenv(user, set_key);
-		if (str == NULL) {
-			set_key = t_strdup_printf("fts_filter_%s", filter_set_name);
-			str = mail_user_plugin_getenv(user, set_key);
-		}
-
-		if (lang_filter_create(filter_class, parent, lang,
-				       str_keyvalues_to_array(str),
-				       &filter, &error) < 0) {
-			*error_r = t_strdup_printf("%s: %s", set_key, error);
+		const char *error;
+		if (lang_filter_create(entry_class, parent, set,
+					&filter, &error) < 0) {
+			*error_r = t_strdup_printf(
+				"%s:%s %s", set->name, entry_name, error);
 			ret = -1;
 			break;
 		}
@@ -281,11 +283,12 @@ lang_user_init_data_language(struct mail_user *user, struct lang_user *luser,
 
 	user_lang = p_new(user->pool, struct language_user, 1);
 	user_lang->lang = &language_data;
+	const struct lang_settings *set = lang_user_settings_get(user, language_data.name);
 
 	if (lang_user_language_init_tokenizers(user, user_lang, error_r) < 0)
 		return -1;
 
-	if (lang_filter_create(lang_filter_lowercase, NULL, user_lang->lang, NULL,
+	if (lang_filter_create(lang_filter_lowercase, NULL, set,
 			       &user_lang->filter, &error) < 0)
 		i_unreached();
 	i_assert(user_lang->filter != NULL);

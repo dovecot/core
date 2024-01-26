@@ -5,6 +5,8 @@
 
 #define LANG_FILTER_CLASSES_NR 6
 
+struct lang_settings;
+
 /*
  API that stemming providers (classes) must provide: The create()
  function is called to get an instance of a registered filter class.
@@ -13,8 +15,7 @@
 
 */
 struct lang_filter_vfuncs {
-	int (*create)(const struct language *lang,
-	              const char *const *settings,
+	int (*create)(const struct lang_settings *set,
 	              struct lang_filter **filter_r,
 	              const char **error_r);
 	int (*filter)(struct lang_filter *filter, const char **token,
