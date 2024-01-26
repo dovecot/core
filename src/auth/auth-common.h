@@ -3,6 +3,7 @@
 
 #include "lib.h"
 #include "auth.h"
+#include "connection.h"
 
 extern bool worker, worker_restart_request;
 extern time_t process_start_time;

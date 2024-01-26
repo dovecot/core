@@ -4,17 +4,12 @@
 #include "login-interface.h"
 
 struct auth_client_connection {
+	struct connection conn;
 	struct auth_client_connection *prev, *next;
 	struct auth *auth;
 	struct event *event;
 	int refcount;
 
-	int fd;
-	struct io *io;
-	struct istream *input;
-	struct ostream *output;
-
-	unsigned int version_minor;
 	unsigned int pid;
 	unsigned int connect_uid;
 	uint8_t cookie[LOGIN_REQUEST_COOKIE_SIZE];

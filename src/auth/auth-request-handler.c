@@ -533,7 +533,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	list = t_strsplit_tabescaped(args);
 	if (list[0] == NULL || list[1] == NULL ||
 	    str_to_uint(list[0], &id) < 0 || id == 0) {
-		e_error(handler->conn->event,
+		e_error(handler->conn->conn.event,
 			"BUG: Authentication client %u "
 			"sent broken AUTH request", handler->client_pid);
 		return FALSE;
@@ -543,7 +543,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		mech = &mech_dovecot_token;
 		if (strcmp(list[1], mech->mech_name) != 0) {
 			/* unsupported mechanism */
-			e_error(handler->conn->event,
+			e_error(handler->conn->conn.event,
 				"BUG: Authentication client %u requested invalid "
 				"authentication mechanism %s (DOVECOT-TOKEN required)",
 				handler->client_pid, str_sanitize(list[1], MAX_MECH_NAME_LEN));
@@ -554,7 +554,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		mech = mech_register_find(auth_default->reg, list[1]);
 		if (mech == NULL) {
 			/* unsupported mechanism */
-			e_error(handler->conn->event,
+			e_error(handler->conn->conn.event,
 				"BUG: Authentication client %u requested unsupported "
 				"authentication mechanism %s", handler->client_pid,
 				str_sanitize(list[1], MAX_MECH_NAME_LEN));
@@ -562,7 +562,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		}
 	}
 
-	request = auth_request_new(mech, handler->conn->event);
+	request = auth_request_new(mech, handler->conn->conn.event);
 	request->handler = handler;
 	request->connect_uid = handler->connect_uid;
 	request->client_pid = handler->client_pid;
@@ -592,7 +592,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	}
 
 	if (*list != NULL) {
-		e_error(handler->conn->event,
+		e_error(handler->conn->conn.event,
 			"BUG: Authentication client %u "
 			"sent AUTH parameters after 'resp'",
 			handler->client_pid);
@@ -601,7 +601,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	}
 
 	if (request->fields.service == NULL) {
-		e_error(handler->conn->event,
+		e_error(handler->conn->conn.event,
 			"BUG: Authentication client %u "
 			"didn't specify service in request",
 			handler->client_pid);
@@ -609,7 +609,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		return FALSE;
 	}
 	if (hash_table_lookup(handler->requests, POINTER_CAST(id)) != NULL) {
-		e_error(handler->conn->event,
+		e_error(handler->conn->conn.event,
 			"BUG: Authentication client %u "
 			"sent a duplicate ID %u", handler->client_pid, id);
 		auth_request_unref(&request);
@@ -642,7 +642,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		/* No initial response */
 		request->initial_response = NULL;
 		request->initial_response_len = 0;
-	} else if (handler->conn->version_minor < 2 && *initial_resp == '\0') {
+	} else if (handler->conn->conn.minor_version < 2 && *initial_resp == '\0') {
 		/* Some authentication clients like Exim send and empty initial
 		   response field when it is in fact absent in the
 		   authentication command. This was allowed for older versions
@@ -698,7 +698,7 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 
 	data = strchr(args, '\t');
 	if (data == NULL || str_to_uint(t_strdup_until(args, data), &id) < 0) {
-		e_error(handler->conn->event,
+		e_error(handler->conn->conn.event,
 			"BUG: Authentication client sent broken CONT request");
 		return FALSE;
 	}
