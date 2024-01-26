@@ -17,7 +17,7 @@ static struct sql_db *setup_sql(void)
 	sql_drivers_init_without_drivers();
 	sql_driver_test_register();
 
-	test_assert(sql_init_full(&set, &sql, &error) == 0 &&
+	test_assert(sql_init_legacy_full(&set, &sql, &error) == 0 &&
 		    sql != NULL &&
 		    error == NULL);
 
