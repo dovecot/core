@@ -6,12 +6,35 @@
 #include "hash.h"
 #include "str.h"
 #include "time-util.h"
+#include "settings.h"
+#include "settings-parser.h"
 #include "sql-api-private.h"
 
 #include <time.h>
 
 struct event_category event_category_sql = {
 	.name = "sql",
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct sql_settings)
+static const struct setting_define sql_setting_defines[] = {
+	DEF(STR, sql_driver),
+
+	SETTING_DEFINE_LIST_END
+};
+static const struct sql_settings sql_default_settings = {
+	.sql_driver = "",
+};
+const struct setting_parser_info sql_setting_parser_info = {
+	.name = "sql",
+
+	.defines = sql_setting_defines,
+	.defaults = &sql_default_settings,
+
+	.struct_size = sizeof(struct sql_settings),
+	.pool_offset1 = 1 + offsetof(struct sql_settings, pool),
 };
 
 struct sql_db_module_register sql_db_module_register = { 0 };
@@ -74,6 +97,55 @@ void sql_driver_unregister(const struct sql_db *driver)
 		}
 	}
 }
+
+int sql_init_auto(struct event *event, struct sql_db **db_r,
+		  const char **error_r)
+{
+	const struct sql_db *driver;
+	struct sql_db *db;
+	struct sql_settings *sql_set;
+	const char *error;
+
+	i_assert(event != NULL);
+
+	if (settings_get(event, &sql_setting_parser_info, 0,
+			 &sql_set, error_r) < 0)
+		return -1;
+
+	if (sql_set->sql_driver[0] == '\0') {
+		*error_r = "sql_driver setting is empty";
+		settings_free(sql_set);
+		return 0;
+	}
+	driver = sql_driver_lookup(sql_set->sql_driver);
+	if (driver == NULL) {
+		*error_r = t_strdup_printf("Unknown database driver '%s'",
+					   sql_set->sql_driver);
+		settings_free(sql_set);
+		return -1;
+	}
+
+	if (driver->v.init == NULL) {
+		*error_r = t_strdup_printf(
+			"Database driver '%s' only supports legacy init() API",
+			sql_set->sql_driver);
+		settings_free(sql_set);
+		return -1;
+	}
+
+	if (driver->v.init(event, &db, &error) < 0) {
+		*error_r = t_strdup_printf("sql %s: %s",
+					   sql_set->sql_driver, error);
+		settings_free(sql_set);
+		return -1;
+	}
+
+	sql_init_common(db);
+	settings_free(sql_set);
+	*db_r = db;
+	return 1;
+}
+
 
 struct sql_db *
 sql_init_legacy(const char *db_driver, const char *connect_string)
