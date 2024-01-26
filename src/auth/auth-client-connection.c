@@ -319,7 +319,7 @@ static void auth_client_input(struct auth_client_connection *conn)
 	auth_client_connection_unref(&conn);
 }
 
-void auth_client_connection_create(struct auth *auth, int fd,
+void auth_client_connection_create(struct auth *auth, int fd, const char *name,
 				   bool login_requests, bool token_auth)
 {
 	static unsigned int connect_uid_counter = 0;
@@ -340,6 +340,7 @@ void auth_client_connection_create(struct auth *auth, int fd,
 	conn->conn.fd_in = fd;
 	conn->conn.input = i_stream_create_fd(fd, AUTH_CLIENT_MAX_LINE_LENGTH);
 	conn->conn.output = o_stream_create_fd(fd, SIZE_MAX);
+	conn->conn.base_name = i_strdup(name);
 	o_stream_set_no_error_handling(conn->conn.output, TRUE);
 	o_stream_set_flush_callback(conn->conn.output, auth_client_output, conn);
 	conn->conn.io = io_add(fd, IO_READ, auth_client_input, conn);
@@ -428,6 +429,7 @@ static void auth_client_connection_unref(struct auth_client_connection **_conn)
 	event_unref(&conn->conn.event);
 	i_stream_unref(&conn->conn.input);
 	o_stream_unref(&conn->conn.output);
+	i_free(conn->conn.base_name);
 	i_free(conn);
 }
 

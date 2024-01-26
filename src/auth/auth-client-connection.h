@@ -20,7 +20,7 @@ struct auth_client_connection {
 	bool token_auth:1;
 };
 
-void auth_client_connection_create(struct auth *auth, int fd,
+void auth_client_connection_create(struct auth *auth, int fd, const char *name,
 				   bool login_requests, bool token_auth);
 void auth_client_connection_destroy(struct auth_client_connection **conn);
 

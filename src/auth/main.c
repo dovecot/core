@@ -323,16 +323,20 @@ static void client_connected(struct master_service_connection *conn)
 						    l->path, &l->st, TRUE);
 		break;
 	case AUTH_SOCKET_LOGIN:
-		auth_client_connection_create(auth, conn->fd, TRUE, FALSE);
+		auth_client_connection_create(auth, conn->fd, conn->name,
+					      TRUE, FALSE);
 		break;
 	case AUTH_SOCKET_AUTH:
-		auth_client_connection_create(auth, conn->fd, FALSE, FALSE);
+		auth_client_connection_create(auth, conn->fd, conn->name,
+					      FALSE, FALSE);
 		break;
 	case AUTH_SOCKET_TOKEN_LOGIN:
-		auth_client_connection_create(auth, conn->fd, TRUE, TRUE);
+		auth_client_connection_create(auth, conn->fd, conn->name,
+					      TRUE, TRUE);
 		break;
 	case AUTH_SOCKET_TOKEN:
-		auth_client_connection_create(auth, conn->fd, FALSE, TRUE);
+		auth_client_connection_create(auth, conn->fd, conn->name,
+					      FALSE, TRUE);
 		break;
 	default:
 		i_unreached();
