@@ -1954,6 +1954,11 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 			/* new filter */
 			break;
 		}
+		if (hash_table_lookup(ctx->all_keys, line->key) == NULL) {
+			ctx->error = p_strdup_printf(ctx->pool,
+				"Unknown section name: %s", line->key);
+			break;
+		}
 
 		/* This is SET_STRLIST or SET_BOOLLIST */
 		break;
