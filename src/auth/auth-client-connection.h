@@ -5,7 +5,6 @@
 
 struct auth_client_connection {
 	struct connection conn;
-	struct auth_client_connection *prev, *next;
 	struct auth *auth;
 	struct event *event;
 	int refcount;
@@ -22,7 +21,6 @@ struct auth_client_connection {
 
 void auth_client_connection_create(struct auth *auth, int fd, const char *name,
 				   bool login_requests, bool token_auth);
-void auth_client_connection_destroy(struct auth_client_connection **conn);
 
 struct auth_client_connection *
 auth_client_connection_lookup(unsigned int pid);

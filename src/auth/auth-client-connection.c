@@ -1,21 +1,16 @@
 /* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
-#include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
-#include "net.h"
 #include "hex-binary.h"
 #include "hostpid.h"
-#include "llist.h"
 #include "str.h"
 #include "strescape.h"
 #include "str-sanitize.h"
 #include "randgen.h"
-#include "safe-memset.h"
 #include "master-service.h"
 #include "mech.h"
-#include "auth-fields.h"
 #include "auth-request-handler.h"
 #include "auth-client-interface.h"
 #include "auth-client-connection.h"
@@ -27,11 +22,9 @@
 #define AUTH_DEBUG_SENSITIVE_SUFFIX \
 	" (previous base64 data may contain sensitive data)"
 
-static void auth_client_disconnected(struct auth_client_connection **_conn);
 static void auth_client_connection_unref(struct auth_client_connection **_conn);
-static void auth_client_input(struct auth_client_connection *conn);
 
-static struct auth_client_connection *auth_client_connections;
+static struct connection_list *auth_client_connections = NULL;
 
 static const char *reply_line_hide_pass(const char *line)
 {
@@ -65,6 +58,8 @@ static const char *reply_line_hide_pass(const char *line)
 static void auth_client_send(struct auth_client_connection *conn,
 			     const char *cmd)
 {
+	if(conn->conn.disconnected)
+		return;
 	struct const_iovec iov[2];
 
 	iov[0].iov_base = cmd;
@@ -72,13 +67,6 @@ static void auth_client_send(struct auth_client_connection *conn,
 	iov[1].iov_base = "\n";
 	iov[1].iov_len = 1;
 	o_stream_nsendv(conn->conn.output, iov, 2);
-
-	if (o_stream_get_buffer_used_size(conn->conn.output) >=
-	    OUTBUF_THROTTLE_SIZE) {
-		/* stop reading new requests until client has read the pending
-		   replies. */
-		io_remove(&conn->conn.io);
-	}
 
 	e_debug(conn->conn.event, "client passdb out: %s",
 		conn->auth->set->debug_passwords ?
@@ -123,10 +111,8 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *const *a
 		/* already exists. it's possible that it just reconnected,
 		   see if the old connection is still there. */
 		i_assert(old != conn);
-		if (i_stream_read(old->conn.input) == -1) {
-			auth_client_disconnected(&old);
-			old = NULL;
-		}
+		if (i_stream_read(old->conn.input) == -1)
+			auth_client_connection_unref(&old);
 	}
 
 	if (old != NULL) {
@@ -146,21 +132,6 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *const *a
 	conn->pid = pid;
 	e_debug(conn->conn.event, "auth client connected (pid=%u)", conn->pid);
 	return 0;
-}
-
-static int auth_client_output(struct auth_client_connection *conn)
-{
-	if (o_stream_flush(conn->conn.output) < 0) {
-		auth_client_disconnected(&conn);
-		return 1;
-	}
-
-	if (o_stream_get_buffer_used_size(conn->conn.output) <=
-	    OUTBUF_THROTTLE_SIZE/3 && conn->conn.io == NULL) {
-		/* allow input again */
-		conn->conn.io = io_add(conn->conn.fd_in, IO_READ, auth_client_input, conn);
-	}
-	return 1;
 }
 
 static const char *
@@ -232,10 +203,10 @@ static int auth_client_handshake_args(struct connection *conn, const char *const
 			return -1;
 		}
 
-		if (major_version != AUTH_CLIENT_PROTOCOL_MAJOR_VERSION) {
+		if (major_version != conn->list->set.major_version) {
 			e_error(conn->event, "Socket supports major version %u, "
 				"but we support only %u (mixed old and new binaries?)",
-				major_version, AUTH_CLIENT_PROTOCOL_MAJOR_VERSION);
+				major_version, conn->list->set.major_version);
 			return -1;
 		}
 		conn->minor_version = minor_version;
@@ -251,7 +222,6 @@ static int auth_client_handshake_args(struct connection *conn, const char *const
 	}
 	return -1;
 }
-
 
 static int
 auth_client_input_args(struct connection *conn, const char *const *args)
@@ -281,6 +251,51 @@ auth_client_input_args(struct connection *conn, const char *const *args)
 	return -1;
 }
 
+static void auth_client_connection_destroy(struct connection *conn)
+{
+	struct auth_client_connection *aconn =
+		container_of(conn, struct auth_client_connection, conn);
+
+	if (conn->disconnected)
+		return;
+
+	if (aconn->request_handler != NULL) {
+		auth_request_handler_abort_requests(aconn->request_handler);
+		auth_request_handler_destroy(&aconn->request_handler);
+	}
+
+	unsigned int request_count = aconn->request_handler == NULL ? 0 :
+		auth_request_handler_get_request_count(aconn->request_handler);
+
+	if (request_count > 0) {
+		e_error(conn->event, "auth client %u disconnected with %u "
+			  "pending requests: %s", aconn->pid, request_count,
+			  connection_disconnect_reason(conn));
+	}
+
+	connection_disconnect(conn);
+	master_service_client_connection_destroyed(master_service);
+	auth_client_connection_unref(&aconn);
+}
+
+static const struct connection_vfuncs auth_client_connection_vfuncs = {
+	.input_args = auth_client_input_args,
+	.handshake_args = auth_client_handshake_args,
+	.destroy = auth_client_connection_destroy,
+};
+
+static const struct connection_settings auth_client_connection_set = {
+	.dont_send_version = TRUE,
+	.service_name_in = "auth-client",
+	.service_name_out = "auth-client",
+	.major_version = AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
+	.minor_version = AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
+	.input_max_size = AUTH_CLIENT_MAX_LINE_LENGTH,
+	.output_throttle_size = OUTBUF_THROTTLE_SIZE,
+	.output_max_size = SIZE_MAX,
+	.log_connection_id = TRUE,
+};
+
 void auth_client_connection_create(struct auth *auth, int fd, const char *name,
 				   bool login_requests, bool token_auth)
 {
@@ -289,153 +304,39 @@ void auth_client_connection_create(struct auth *auth, int fd, const char *name,
 	const char *mechanisms;
 	string_t *str;
 
+	if (auth_client_connections == NULL) {
+		auth_client_connections =
+			connection_list_init(&auth_client_connection_set,
+					     &auth_client_connection_vfuncs);
+	}
+
 	conn = i_new(struct auth_client_connection, 1);
 	conn->auth = auth;
 	conn->refcount = 1;
 	conn->connect_uid = ++connect_uid_counter;
 	conn->login_requests = login_requests;
 	conn->token_auth = token_auth;
-	conn->conn.event = event_create(auth_event);
-	event_set_forced_debug(conn->conn.event, auth->set->debug);
+	conn->conn.event_parent = auth_event;
 	random_fill(conn->cookie, sizeof(conn->cookie));
 
-	conn->conn.fd_in = fd;
-	conn->conn.input = i_stream_create_fd(fd, AUTH_CLIENT_MAX_LINE_LENGTH);
-	conn->conn.output = o_stream_create_fd(fd, SIZE_MAX);
-	conn->conn.base_name = i_strdup(name);
-	o_stream_set_no_error_handling(conn->conn.output, TRUE);
-	o_stream_set_flush_callback(conn->conn.output, auth_client_output, conn);
-	conn->conn.io = io_add(fd, IO_READ, auth_client_input, conn);
+	connection_init_server(auth_client_connections, &conn->conn, name, fd, fd);
 
-	DLLIST_PREPEND(&auth_client_connections, conn);
-
-	if (token_auth) {
+	if (conn->token_auth) {
 		mechanisms = t_strconcat("MECH\t",
 			mech_dovecot_token.mech_name, "\tprivate\n", NULL);
 	} else {
 		mechanisms = str_c(auth->reg->handshake);
 	}
 
+	/* send fields */
 	str = t_str_new(128);
 	str_printfa(str, "VERSION\t%u\t%u\n%sSPID\t%s\nCUID\t%u\nCOOKIE\t",
-		    AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
-		    AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
+		    conn->conn.list->set.major_version,
+		    conn->conn.list->set.minor_version,
 		    mechanisms, my_pid, conn->connect_uid);
 	binary_to_hex_append(str, conn->cookie, sizeof(conn->cookie));
 	str_append(str, "\nDONE\n");
-
-	if (o_stream_send(conn->conn.output, str_data(str), str_len(str)) < 0)
-		auth_client_disconnected(&conn);
-}
-
-static void auth_client_input(struct auth_client_connection *conn)
-{
-	char *line;
-
-	switch (i_stream_read(conn->conn.input)) {
-	case 0:
-		return;
-	case -1:
-		/* disconnected */
-		auth_client_disconnected(&conn);
-		return;
-	case -2:
-		/* buffer full */
-		e_error(conn->conn.event, "BUG: Auth client %u sent us more than %d bytes",
-			conn->pid, (int)AUTH_CLIENT_MAX_LINE_LENGTH);
-		auth_client_connection_destroy(&conn);
-		return;
-	}
-
-	while (conn->request_handler == NULL) {
-		/* still handshaking */
-		line = i_stream_next_line(conn->conn.input);
-		if (line == NULL)
-			return;
-
-		const char *const *args = t_strsplit_tabescaped(line);
-		int ret = auth_client_handshake_args(&conn->conn, args);
-		if (ret < 0) {
-			auth_client_connection_destroy(&conn);
-			return;
-		} else if (ret > 1) {
-			i_assert(conn->request_handler != NULL);
-		}
-	}
-
-	conn->refcount++;
-	while ((line = i_stream_next_line(conn->conn.input)) != NULL) {
-		int ret;
-		T_BEGIN {
-			const char *const *args = t_strsplit_tabescaped(line);
-			safe_memset(line, 0, strlen(line));
-			if (args[0] == NULL) {
-				e_error(conn->conn.event, "BUG: Authentication client sent empty line");
-				ret = -1;
-			} else {
-				ret = auth_client_input_args(&conn->conn, args);
-			}
-		} T_END;
-
-		if (ret < 1) {
-			struct auth_client_connection *tmp_conn = conn;
-			auth_client_connection_destroy(&tmp_conn);
-			break;
-		}
-	}
-	auth_client_connection_unref(&conn);
-}
-
-void auth_client_connection_destroy(struct auth_client_connection **_conn)
-{
-	struct auth_client_connection *conn = *_conn;
-
-	*_conn = NULL;
-	if (conn->conn.fd_in == -1)
-		return;
-
-	DLLIST_REMOVE(&auth_client_connections, conn);
-
-	i_stream_close(conn->conn.input);
-	o_stream_close(conn->conn.output);
-
-	io_remove(&conn->conn.io);
-
-	net_disconnect(conn->conn.fd_in);
-	conn->conn.fd_in = -1;
-
-	if (conn->request_handler != NULL) {
-		auth_request_handler_abort_requests(conn->request_handler);
-		auth_request_handler_destroy(&conn->request_handler);
-	}
-
-	master_service_client_connection_destroyed(master_service);
-	auth_client_connection_unref(&conn);
-}
-
-static void auth_client_disconnected(struct auth_client_connection **_conn)
-{
-	struct auth_client_connection *conn = *_conn;
-	unsigned int request_count;
-	int err;
-
-	*_conn = NULL;
-
-	if (conn->conn.input->stream_errno != 0)
-		err = conn->conn.input->stream_errno;
-	else if (conn->conn.output->stream_errno != 0)
-		err = conn->conn.output->stream_errno;
-	else
-		err = 0;
-
-	request_count = conn->request_handler == NULL ? 0 :
-		auth_request_handler_get_request_count(conn->request_handler);
-	if (request_count > 0) {
-		e_error(conn->conn.event, "auth client %u disconnected with %u "
-			  "pending requests: %s", conn->pid, request_count,
-			  err == 0 ? "EOF" : strerror(err));
-	}
-	auth_client_connection_destroy(&conn);
+	o_stream_nsend(conn->conn.output, str_data(str), str_len(str));
 }
 
 static void auth_client_connection_unref(struct auth_client_connection **_conn)
@@ -446,31 +347,30 @@ static void auth_client_connection_unref(struct auth_client_connection **_conn)
 	if (--conn->refcount > 0)
 		return;
 
-	event_unref(&conn->conn.event);
-	i_stream_unref(&conn->conn.input);
-	o_stream_unref(&conn->conn.output);
-	i_free(conn->conn.base_name);
+	auth_client_connection_destroy(&conn->conn);
+	connection_deinit(&conn->conn);
 	i_free(conn);
 }
 
 struct auth_client_connection *
 auth_client_connection_lookup(unsigned int pid)
 {
-	struct auth_client_connection *conn;
+	struct connection *conn;
 
-	for (conn = auth_client_connections; conn != NULL; conn = conn->next) {
-		if (conn->pid == pid)
-			return conn;
+	if (auth_client_connections == NULL)
+		return NULL;
+
+	for (conn = auth_client_connections->connections; conn != NULL; conn = conn->next) {
+		struct auth_client_connection *aconn =
+			container_of(conn, struct auth_client_connection, conn);
+		if (aconn->pid == pid)
+			return aconn;
 	}
 	return NULL;
 }
 
 void auth_client_connections_destroy_all(void)
 {
-	struct auth_client_connection *conn;
-
-	while (auth_client_connections != NULL) {
-		conn = auth_client_connections;
-		auth_client_connection_destroy(&conn);
-	}
+	if (auth_client_connections != NULL)
+		connection_list_deinit(&auth_client_connections);
 }
