@@ -5,22 +5,18 @@
 #include "language.h"
 #include "lang-filter-private.h"
 #include "lang-common.h"
+#include "lang-settings.h"
 #include "unichar.h"
 
 static int
-lang_filter_contractions_create(const struct language *lang,
-			       const char *const *settings,
-			       struct lang_filter **filter_r,
-			       const char **error_r)
+lang_filter_contractions_create(const struct lang_settings *set,
+			        struct lang_filter **filter_r,
+			        const char **error_r)
 {
 	struct lang_filter *filter;
 
-	if (settings[0] != NULL) {
-		*error_r = t_strdup_printf("Unknown setting: %s", settings[0]);
-		return -1;
-	}
-	if (strcmp(lang->name, "fr") != 0) {
-		*error_r = t_strdup_printf("Unsupported language: %s", lang->name);
+	if (strcmp(set->name, "fr") != 0) {
+		*error_r = t_strdup_printf("Unsupported language: %s", set->name);
 		return -1;
 	}
 

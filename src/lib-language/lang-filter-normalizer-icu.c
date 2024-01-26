@@ -6,6 +6,7 @@
 #include "unichar.h" /* unicode replacement char */
 #include "lang-filter-common.h"
 #include "lang-filter-private.h"
+#include "lang-settings.h"
 #include "language.h"
 
 #ifdef HAVE_LIBICU
@@ -32,43 +33,23 @@ static void lang_filter_normalizer_icu_destroy(struct lang_filter *filter)
 }
 
 static int
-lang_filter_normalizer_icu_create(const struct language *lang ATTR_UNUSED,
-				  const char *const *settings,
+lang_filter_normalizer_icu_create(const struct lang_settings *set,
 				  struct lang_filter **filter_r,
-				  const char **error_r)
+				  const char **error_r ATTR_UNUSED)
 {
 	struct lang_filter_normalizer_icu *np;
 	pool_t pp;
-	unsigned int i, max_length = 250;
-	const char *id = "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC; [\\x20] Remove";
-
-	for (i = 0; settings[i] != NULL; i += 2) {
-		const char *key = settings[i], *value = settings[i+1];
-
-		if (strcmp(key, "id") == 0) {
-			id = value;
-		} else if (strcmp(key, "maxlen") == 0) {
-			if (str_to_uint(value, &max_length) < 0 ||
-			    max_length == 0) {
-				*error_r = t_strdup_printf("Invalid icu maxlen setting: %s", value);
-				return -1;
-			}
-		} else {
-			*error_r = t_strdup_printf("Unknown setting: %s", key);
-			return -1;
-		}
-	}
 
 	pp = pool_alloconly_create(MEMPOOL_GROWING"lang_filter_normalizer_icu",
 	                           sizeof(struct lang_filter_normalizer_icu));
 	np = p_new(pp, struct lang_filter_normalizer_icu, 1);
 	np->pool = pp;
 	np->filter = *lang_filter_normalizer_icu;
-	np->transliterator_id = p_strdup(pp, id);
+	np->transliterator_id = set->filter_normalizer_icu_id;
 	p_array_init(&np->utf16_token, pp, 64);
 	p_array_init(&np->trans_token, pp, 64);
 	np->utf8_token = buffer_create_dynamic(pp, 128);
-	np->filter.max_length = max_length;
+	np->filter.max_length = set->filter_normalizer_token_maxlen;
 	*filter_r = &np->filter;
 	return 0;
 }

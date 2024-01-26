@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "language.h"
 #include "lang-filter-private.h"
+#include "lang-settings.h"
 
 #ifdef HAVE_LANG_STEMMER
 
@@ -26,27 +27,20 @@ static void lang_filter_stemmer_snowball_destroy(struct lang_filter *filter)
 }
 
 static int
-lang_filter_stemmer_snowball_create(const struct language *lang,
-                                    const char *const *settings,
+lang_filter_stemmer_snowball_create(const struct lang_settings *set,
                                     struct lang_filter **filter_r,
-                                    const char **error_r)
+                                    const char **error_r ATTR_UNUSED)
 {
 	struct lang_filter_stemmer_snowball *sp;
 	pool_t pp;
 
-	*filter_r = NULL;
-
-	if (settings[0] != NULL) {
-		*error_r = t_strdup_printf("Unknown setting: %s", settings[0]);
-		return -1;
-	}
 	pp = pool_alloconly_create(MEMPOOL_GROWING"lang_filter_stemmer_snowball",
 	                           sizeof(struct lang_filter));
 	sp = p_new(pp, struct lang_filter_stemmer_snowball, 1);
 	sp->pool = pp;
 	sp->filter = *lang_filter_stemmer_snowball;
 	sp->lang = p_malloc(sp->pool, sizeof(struct language));
-	sp->lang->name = p_strdup(sp->pool, lang->name);
+	sp->lang->name = p_strdup(sp->pool, set->name);
 	*filter_r = &sp->filter;
 	return 0;
 }
@@ -106,8 +100,7 @@ lang_filter_stemmer_snowball_filter(struct lang_filter *filter,
 #else
 
 static int
-lang_filter_stemmer_snowball_create(const struct language *lang ATTR_UNUSED,
-                                    const char *const *settings ATTR_UNUSED,
+lang_filter_stemmer_snowball_create(const struct lang_settings *set ATTR_UNUSED,
                                     struct lang_filter **filter_r ATTR_UNUSED,
                                     const char **error_r)
 {

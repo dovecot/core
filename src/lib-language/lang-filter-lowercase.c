@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "language.h"
+#include "lang-settings.h"
 #include "lang-filter-private.h"
 
 #ifdef HAVE_LIBICU
@@ -11,33 +12,15 @@
 #endif
 
 static int
-lang_filter_lowercase_create(const struct language *lang ATTR_UNUSED,
-			     const char *const *settings,
+lang_filter_lowercase_create(const struct lang_settings *set,
 			     struct lang_filter **filter_r,
-			     const char **error_r)
+			     const char **error_r ATTR_UNUSED)
 {
 	struct lang_filter *filter;
-	unsigned int i, max_length = 250;
-
-	for (i = 0; settings[i] != NULL; i += 2) {
-		const char *key = settings[i], *value = settings[i+1];
-
-		if (strcmp(key, "maxlen") == 0) {
-			if (str_to_uint(value, &max_length) < 0 ||
-			    max_length == 0) {
-				*error_r = t_strdup_printf("Invalid lowercase filter maxlen setting: %s", value);
-				return -1;
-			}
-		}
-		else {
-			*error_r = t_strdup_printf("Unknown setting: %s", key);
-			return -1;
-		}
-	}
 	filter = i_new(struct lang_filter, 1);
 	*filter = *lang_filter_lowercase;
 	filter->token = str_new(default_pool, 64);
-	filter->max_length = max_length;
+	filter->max_length = set->filter_lowercase_token_maxlen;
 
 	*filter_r = filter;
 	return 0;

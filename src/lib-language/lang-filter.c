@@ -52,30 +52,17 @@ const struct lang_filter *lang_filter_find(const char *name)
 
 int lang_filter_create(const struct lang_filter *filter_class,
                        struct lang_filter *parent,
-                       const struct language *lang,
-                       const char *const *settings,
+                       const struct lang_settings *set,
                        struct lang_filter **filter_r,
                        const char **error_r)
 {
 	struct lang_filter *fp;
-	const char *empty_settings = NULL;
-
-	i_assert(settings == NULL || str_array_length(settings) % 2 == 0);
-
-	if (settings == NULL)
-		settings = &empty_settings;
-
 	if (filter_class->v.create != NULL) {
-		if (filter_class->v.create(lang, settings, &fp, error_r) < 0) {
+		if (filter_class->v.create(set, &fp, error_r) < 0) {
 			*filter_r = NULL;
 			return -1;
 		}
 	} else {
-		/* default implementation */
-		if (settings[0] != NULL) {
-			*error_r = t_strdup_printf("Unknown setting: %s", settings[0]);
-			return -1;
-		}
 		fp = i_new(struct lang_filter, 1);
 		*fp = *filter_class;
 	}
