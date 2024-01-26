@@ -342,8 +342,8 @@ mail_storage_create_list(struct mail_namespace *ns,
 	/* Set namespace, but don't overwrite if it already is set.
 	   Shared storage uses the same shared namespace here also for the
 	   user's root prefix="" namespace. */
-	if (event_find_field_recursive(set_event, "namespace") == NULL)
-		event_add_str(set_event, "namespace", ns->set->name);
+	if (event_find_field_recursive(set_event, SETTINGS_EVENT_NAMESPACE_NAME) == NULL)
+		event_add_str(set_event, SETTINGS_EVENT_NAMESPACE_NAME, ns->set->name);
 
 	if ((flags & MAIL_STORAGE_FLAG_SHARED_DYNAMIC) != 0) {
 		mail_storage_create_ns_instance(ns, set_event);
@@ -405,7 +405,7 @@ mail_storage_create_list(struct mail_namespace *ns,
 	}
 
 	struct event *event = event_create(ns->user->event);
-	event_add_str(event, "namespace", ns->set->name);
+	event_add_str(event, SETTINGS_EVENT_NAMESPACE_NAME, ns->set->name);
 	int ret = mailbox_list_create(event, ns, mail_set, list_flags,
 				      &list, error_r);
 	if (ret < 0) {
@@ -3461,7 +3461,7 @@ mail_storage_mailbox_create_event(struct event *parent,
 	event_add_str(event, SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX, vname);
 	event_add_str(event, SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX,
 		      mailbox_get_name_without_prefix(list->ns, vname));
-	event_add_str(event, "namespace", list->ns->set->name);
+	event_add_str(event, SETTINGS_EVENT_NAMESPACE_NAME, list->ns->set->name);
 
 	event_drop_parent_log_prefixes(event, 1);
 	event_set_append_log_prefix(event, t_strdup_printf(
