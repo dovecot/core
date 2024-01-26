@@ -30,6 +30,7 @@ struct auth_passdb_settings {
 	const char *result_internalfail;
 	bool deny;
 	bool master;
+	bool use_cache;
 	bool use_worker;
 };
 

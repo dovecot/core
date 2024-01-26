@@ -118,6 +118,7 @@ static const struct setting_define auth_passdb_setting_defines[] = {
 
 	DEF(BOOL, deny),
 	DEF(BOOL, master),
+	DEF(BOOL, use_cache),
 	DEF(BOOL, use_worker),
 
 	SETTING_DEFINE_LIST_END
@@ -139,6 +140,7 @@ static const struct auth_passdb_settings auth_passdb_default_settings = {
 
 	.deny = FALSE,
 	.master = FALSE,
+	.use_cache = TRUE,
 	.use_worker = FALSE,
 };
 
