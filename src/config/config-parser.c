@@ -1090,12 +1090,9 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 	return TRUE;
 }
 
-struct setting_parser_context *
-config_module_parser_get_set_parser(const struct config_module_parser *p,
-				    pool_t pool)
+void config_fill_set_parser(struct setting_parser_context *parser,
+			    const struct config_module_parser *p)
 {
-	struct setting_parser_context *parser =
-		settings_parser_init(pool, p->info, settings_parser_flags);
 	for (unsigned int i = 0; p->info->defines[i].key != NULL; i++) {
 		if (p->change_counters[i] == 0)
 			continue;
@@ -1138,7 +1135,6 @@ config_module_parser_get_set_parser(const struct config_module_parser *p,
 		}
 		}
 	}
-	return parser;
 }
 
 static void
@@ -1171,7 +1167,9 @@ config_filter_parser_check(struct config_parser_context *ctx,
 			continue;
 		p_clear(tmp_pool);
 		struct setting_parser_context *tmp_parser =
-			config_module_parser_get_set_parser(p, tmp_pool);
+			settings_parser_init(tmp_pool, p->info,
+					     settings_parser_flags);
+		config_fill_set_parser(tmp_parser, p);
 		T_BEGIN {
 			ok = settings_parser_check(tmp_parser, tmp_pool,
 						   event, &error);
