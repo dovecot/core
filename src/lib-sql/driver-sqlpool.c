@@ -282,14 +282,14 @@ sqlpool_add_connection(struct sqlpool_db *db, struct sqlpool_host *host,
 
 	e_debug(db->api.event, "Creating new connection");
 
-	if (db->driver->v.init_full == NULL) {
-		conndb = db->driver->v.init(host->connect_string);
+	if (db->driver->v.init_legacy_full == NULL) {
+		conndb = db->driver->v.init_legacy(host->connect_string);
 	} else {
 		struct sql_settings set = {
 			.connect_string = host->connect_string,
 			.event_parent = event_get_parent(db->api.event),
 		};
-		ret = db->driver->v.init_full(&set, &conndb, &error);
+		ret = db->driver->v.init_legacy_full(&set, &conndb, &error);
 	}
 	if (ret < 0)
 		i_fatal("sqlpool: %s", error);

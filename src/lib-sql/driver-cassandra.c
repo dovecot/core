@@ -2871,7 +2871,7 @@ const struct sql_db driver_cassandra_db = {
 	.flags = SQL_DB_FLAG_PREP_STATEMENTS,
 
 	.v = {
-		.init_full = driver_cassandra_init_full_v,
+		.init_legacy_full = driver_cassandra_init_full_v,
 		.deinit = driver_cassandra_deinit_v,
 		.connect = driver_cassandra_connect,
 		.disconnect = driver_cassandra_disconnect,

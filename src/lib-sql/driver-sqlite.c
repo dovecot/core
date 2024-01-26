@@ -647,7 +647,7 @@ const struct sql_db driver_sqlite_db = {
 		SQL_DB_FLAG_BLOCKING,
 
 	.v = {
-		.init_full = driver_sqlite_init_full_v,
+		.init_legacy_full = driver_sqlite_init_full_v,
 		.deinit = driver_sqlite_deinit_v,
 		.connect = driver_sqlite_connect,
 		.disconnect = driver_sqlite_disconnect,

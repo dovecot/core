@@ -65,9 +65,9 @@ struct sql_transaction_query {
 };
 
 struct sql_db_vfuncs {
-	struct sql_db *(*init)(const char *connect_string);
-	int (*init_full)(const struct sql_settings *set, struct sql_db **db_r,
-			 const char **error);
+	struct sql_db *(*init_legacy)(const char *connect_string);
+	int (*init_legacy_full)(const struct sql_settings *set,
+				struct sql_db **db_r, const char **error);
 	void (*deinit)(struct sql_db *db);
 	void (*unref)(struct sql_db *db);
 	void (*wait) (struct sql_db *db);

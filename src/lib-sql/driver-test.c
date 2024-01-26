@@ -88,7 +88,7 @@ const struct sql_db driver_test_mysql_db = {
 	.flags = SQL_DB_FLAG_BLOCKING | SQL_DB_FLAG_ON_DUPLICATE_KEY,
 
 	.v = {
-		.init = driver_test_mysql_init,
+		.init_legacy = driver_test_mysql_init,
 		.deinit = driver_test_deinit,
 		.connect = driver_test_connect,
 		.disconnect = driver_test_disconnect,
@@ -111,7 +111,7 @@ const struct sql_db driver_test_cassandra_db = {
 	.name = "cassandra",
 
 	.v = {
-		.init = driver_test_cassandra_init,
+		.init_legacy = driver_test_cassandra_init,
 		.deinit = driver_test_deinit,
 		.connect = driver_test_connect,
 		.disconnect = driver_test_disconnect,
@@ -135,7 +135,7 @@ const struct sql_db driver_test_sqlite_db = {
 	.flags = SQL_DB_FLAG_ON_CONFLICT_DO | SQL_DB_FLAG_BLOCKING,
 
 	.v = {
-		.init = driver_test_sqlite_init,
+		.init_legacy = driver_test_sqlite_init,
 		.deinit = driver_test_deinit,
 		.connect = driver_test_connect,
 		.disconnect = driver_test_disconnect,
