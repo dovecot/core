@@ -285,7 +285,7 @@ sqlpool_add_connection(struct sqlpool_db *db, struct sqlpool_host *host,
 	if (db->driver->v.init_legacy_full == NULL) {
 		conndb = db->driver->v.init_legacy(host->connect_string);
 	} else {
-		struct sql_settings set = {
+		struct sql_legacy_settings set = {
 			.connect_string = host->connect_string,
 			.event_parent = event_get_parent(db->api.event),
 		};
@@ -524,7 +524,8 @@ static void sqlpool_add_all_once(struct sqlpool_db *db)
 	}
 }
 
-int driver_sqlpool_init_full(const struct sql_settings *set, const struct sql_db *driver,
+int driver_sqlpool_init_full(const struct sql_legacy_settings *set,
+			     const struct sql_db *driver,
 			     struct sql_db **db_r, const char **error_r)
 {
 	struct sqlpool_db *db;

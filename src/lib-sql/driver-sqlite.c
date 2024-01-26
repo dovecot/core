@@ -156,8 +156,8 @@ static int driver_sqlite_parse_connect_string(struct sqlite_db *db,
 	return 0;
 }
 
-static int driver_sqlite_init_full_v(const struct sql_settings *set, struct sql_db **db_r,
-				     const char **error_r)
+static int driver_sqlite_init_full_v(const struct sql_legacy_settings *set,
+				     struct sql_db **db_r, const char **error_r)
 {
 	struct sqlite_db *db;
 	pool_t pool;

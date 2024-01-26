@@ -80,7 +80,7 @@ sql_init_legacy(const char *db_driver, const char *connect_string)
 {
 	const char *error;
 	struct sql_db *db;
-	struct sql_settings set = {
+	struct sql_legacy_settings set = {
 		.driver = db_driver,
 		.connect_string = connect_string,
 	};
@@ -90,7 +90,8 @@ sql_init_legacy(const char *db_driver, const char *connect_string)
 	return db;
 }
 
-int sql_init_legacy_full(const struct sql_settings *set, struct sql_db **db_r,
+int sql_init_legacy_full(const struct sql_legacy_settings *set,
+			 struct sql_db **db_r,
 			 const char **error_r)
 {
 	const struct sql_db *driver;

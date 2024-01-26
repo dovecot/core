@@ -331,7 +331,7 @@ static enum sql_db_flags driver_pgsql_get_flags(struct sql_db *db)
 	return db->flags;
 }
 
-static int driver_pgsql_init_full_v(const struct sql_settings *set,
+static int driver_pgsql_init_full_v(const struct sql_legacy_settings *set,
 				    struct sql_db **db_r, const char **error_r ATTR_UNUSED)
 {
 	struct pgsql_db *db;

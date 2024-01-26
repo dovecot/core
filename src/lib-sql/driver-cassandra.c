@@ -1045,7 +1045,7 @@ static int driver_cassandra_init_ssl(struct cassandra_db *db, const char **error
 	return 0;
 }
 
-static int driver_cassandra_init_full_v(const struct sql_settings *set,
+static int driver_cassandra_init_full_v(const struct sql_legacy_settings *set,
 					struct sql_db **db_r,
 					const char **error_r)
 {
