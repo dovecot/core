@@ -9,6 +9,7 @@
 #include "hostpid.h"
 #include "llist.h"
 #include "str.h"
+#include "strescape.h"
 #include "str-sanitize.h"
 #include "randgen.h"
 #include "safe-memset.h"
@@ -42,13 +43,13 @@ static const char *reply_line_hide_pass(const char *line)
 
 	newline = t_str_new(strlen(line));
 
-	const char *const *fields = t_strsplit(line, "\t");
+	const char *const *fields = t_strsplit_tabescaped(line);
 
 	while(*fields != NULL) {
 		p = strstr(*fields, "pass");
 		p2 = strchr(*fields, '=');
 		if (p == NULL || p2 == NULL || p2 < p) {
-			str_append(newline, *fields);
+			str_append_tabescaped(newline, *fields);
 		} else {
 			/* include = */
 			str_append_data(newline, *fields, (p2 - *fields)+1);
@@ -163,44 +164,48 @@ static int auth_client_output(struct auth_client_connection *conn)
 }
 
 static const char *
-auth_line_hide_pass(struct auth_client_connection *conn, const char *line)
+auth_line_hide_pass(struct auth_client_connection *conn, const char *const *args)
 {
-	const char *p, *p2;
+	string_t *newline = t_str_new(128);
+	for (const char *const *arg = args; *arg != NULL; arg++) {
+		if (arg != args)
+			str_append_c(newline, '\t');
+		if (str_begins_with(*arg, "resp=")) {
+			if (conn->auth->set->debug_passwords) {
+				str_append_tabescaped(newline, *arg);
+				str_append(newline, AUTH_DEBUG_SENSITIVE_SUFFIX);
+				break;
+			} else {
+				str_append_tabescaped(newline, "resp="PASSWORD_HIDDEN_STR);
+			}
+		} else {
+			str_append_tabescaped(newline, *arg);
+		}
+	}
 
-	p = strstr(line, "\tresp=");
-	if (p == NULL)
-		return line;
-	p += 6;
-
-	if (conn->auth->set->debug_passwords)
-		return t_strconcat(line, AUTH_DEBUG_SENSITIVE_SUFFIX, NULL);
-
-	p2 = strchr(p, '\t');
-	return t_strconcat(t_strdup_until(line, p), PASSWORD_HIDDEN_STR,
-			   p2, NULL);
+	return str_c(newline);
 }
 
 static const char *
-cont_line_hide_pass(struct auth_client_connection *conn, const char *line)
+cont_line_hide_pass(struct auth_client_connection *conn, const char *const *args)
 {
-	const char *p;
+	if (args[1] == NULL)
+		return args[0];
 
-	if (conn->auth->set->debug_passwords)
-		return t_strconcat(line, AUTH_DEBUG_SENSITIVE_SUFFIX, NULL);
+	if (conn->auth->set->debug_passwords) {
+		return t_strconcat(t_strarray_join(args, "\t"),
+				   AUTH_DEBUG_SENSITIVE_SUFFIX, NULL);
+	}
 
-	p = strchr(line, '\t');
-	if (p == NULL)
-		return line;
-
-	return t_strconcat(t_strdup_until(line, p), PASSWORD_HIDDEN_STR, NULL);
+	return t_strconcat(args[0], PASSWORD_HIDDEN_STR, NULL);
 }
 
 static int
-auth_client_cancel(struct auth_client_connection *conn, const char *line)
+auth_client_cancel(struct auth_client_connection *conn, const char *const *args)
 {
 	unsigned int client_id;
 
-	if (str_to_uint(line, &client_id) < 0) {
+	if (args[0] == NULL || str_to_uint(args[0], &client_id) < 0) {
 		e_error(conn->conn.event, "BUG: Authentication client sent broken CANCEL");
 		return -1;
 	}
@@ -210,29 +215,30 @@ auth_client_cancel(struct auth_client_connection *conn, const char *line)
 }
 
 static int
-auth_client_handle_line(struct auth_client_connection *conn, const char *line)
+auth_client_input_args(struct connection *conn, const char *const *args)
 {
-	const char *args;
+	struct auth_client_connection *aconn =
+		container_of(conn, struct auth_client_connection, conn);
 
-	if (str_begins(line, "AUTH\t", &args)) {
-		e_debug(conn->conn.event, "client in: %s",
-			auth_line_hide_pass(conn, line));
-		return auth_request_handler_auth_begin(conn->request_handler,
-						       args);
+	if (strcmp(args[0], "AUTH") == 0) {
+		e_debug(conn->event, "client in: %s",
+			auth_line_hide_pass(aconn, args));
+		return auth_request_handler_auth_begin(aconn->request_handler,
+						       args + 1);
 	}
-	if (str_begins(line, "CONT\t", &args)) {
-		e_debug(conn->conn.event, "client in: %s",
-			cont_line_hide_pass(conn, line));
-		return auth_request_handler_auth_continue(conn->request_handler,
-							  args);
+	if (strcmp(args[0], "CONT") == 0) {
+		e_debug(conn->event, "client in: %s",
+			cont_line_hide_pass(aconn, args));
+		return auth_request_handler_auth_continue(aconn->request_handler,
+							  args + 1);
 	}
-	if (str_begins(line, "CANCEL\t", &args)) {
-		e_debug(conn->conn.event, "client in: %s", line);
-		return auth_client_cancel(conn, args);
+	if (strcmp(args[0], "CANCEL") == 0) {
+		e_debug(conn->event, "client in: %s", args[1]);
+		return auth_client_cancel(aconn, args + 1);
 	}
 
-	e_error(conn->conn.event, "BUG: Authentication client sent unknown command: %s",
-		str_sanitize(line, 80));
+	e_error(conn->event, "BUG: Authentication client sent unknown command: %s",
+		str_sanitize(args[0], 80));
 	return -1;
 }
 
@@ -287,7 +293,6 @@ static void auth_client_input(struct auth_client_connection *conn)
 {
 	const char *args;
 	char *line;
-	int ret;
 
 	switch (i_stream_read(conn->conn.input)) {
 	case 0:
@@ -352,9 +357,16 @@ static void auth_client_input(struct auth_client_connection *conn)
 
 	conn->refcount++;
 	while ((line = i_stream_next_line(conn->conn.input)) != NULL) {
+		int ret;
 		T_BEGIN {
-			ret = auth_client_handle_line(conn, line);
+			const char *const *args = t_strsplit_tabescaped(line);
 			safe_memset(line, 0, strlen(line));
+			if (args[0] == NULL) {
+				e_error(conn->conn.event, "BUG: Authentication client sent empty line");
+				ret = -1;
+			} else {
+				ret = auth_client_input_args(&conn->conn, args);
+			}
 		} T_END;
 
 		if (ret < 1) {

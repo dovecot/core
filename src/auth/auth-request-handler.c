@@ -518,11 +518,11 @@ auth_penalty_callback(unsigned int penalty, struct auth_request *request)
 }
 
 int auth_request_handler_auth_begin(struct auth_request_handler *handler,
-				    const char *args_str)
+				    const char *const *args)
 {
 	const struct mech_module *mech;
 	struct auth_request *request;
-	const char *const *args, *name, *arg, *initial_resp;
+	const char *name, *arg, *initial_resp;
 	void *initial_resp_data;
 	unsigned int id;
 	buffer_t *buf;
@@ -530,7 +530,6 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	i_assert(!handler->destroyed);
 
 	/* <id> <mechanism> [...] */
-	args = t_strsplit_tabescaped(args_str);
 	if (args[0] == NULL || args[1] == NULL ||
 	    str_to_uint(args[0], &id) < 0 || id == 0) {
 		e_error(handler->conn->conn.event,
@@ -688,15 +687,13 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 }
 
 int auth_request_handler_auth_continue(struct auth_request_handler *handler,
-				       const char *args_str)
+				       const char *const *args)
 {
 	struct auth_request *request;
-	const char *const *args;
 	size_t data_len;
 	buffer_t *buf;
 	unsigned int id;
 
-	args = t_strsplit_tabescaped(args_str);
 	if (args[0] == NULL || str_to_uint(args[0], &id) < 0) {
 		e_error(handler->conn->conn.event,
 			"BUG: Authentication client sent broken CONT request");
@@ -717,6 +714,12 @@ int auth_request_handler_auth_continue(struct auth_request_handler *handler,
 					       "Unexpected continuation");
 		return 1;
 	}
+	if (args[1] == NULL) {
+		e_error(handler->conn->conn.event,
+			"BUG: Authentication client sent broken CONT request");
+		return -1;
+	}
+
 	request->accept_cont_input = FALSE;
 
 	data_len = strlen(args[1]);
