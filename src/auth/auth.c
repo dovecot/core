@@ -121,7 +121,7 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
 
 	auth_passdb->passdb = passdb_preinit(auth->pool, event, set);
 	/* make sure any %variables in default_fields exist in cache_key */
-	if (auth_passdb->passdb->default_cache_key != NULL) {
+	if (auth_passdb->passdb->default_cache_key != NULL && set->use_cache) {
 		struct auth_passdb_pre_settings *passdb_pre_set;
 		const char *error;
 		if (settings_get(event, &auth_passdb_pre_setting_parser_info,
