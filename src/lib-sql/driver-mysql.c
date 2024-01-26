@@ -281,7 +281,7 @@ static int driver_mysql_parse_connect_string(struct mysql_db *db,
 	return 0;
 }
 
-static int driver_mysql_init_full_v(const struct sql_settings *set,
+static int driver_mysql_init_full_v(const struct sql_legacy_settings *set,
 				    struct sql_db **db_r, const char **error_r)
 {
 	struct mysql_db *db;

@@ -7,7 +7,7 @@
 
 static struct sql_db *setup_sql(void)
 {
-	const struct sql_settings set = {
+	const struct sql_legacy_settings set = {
 		.driver = "sqlite",
 		.connect_string = "",
 	};

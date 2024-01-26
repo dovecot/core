@@ -62,7 +62,7 @@ static const char *parse_setting(const char *key, const char *value,
 struct db_sql_connection *db_sql_init(const char *config_path, bool userdb)
 {
 	struct db_sql_connection *conn;
-	struct sql_settings set;
+	struct sql_legacy_settings set;
 	const char *error;
 	pool_t pool;
 

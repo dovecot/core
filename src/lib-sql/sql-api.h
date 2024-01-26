@@ -77,7 +77,7 @@ struct sql_commit_result {
 	enum sql_result_error_type error_type;
 };
 
-struct sql_settings {
+struct sql_legacy_settings {
 	const char *driver;
 	const char *connect_string;
 	struct event *event_parent;
@@ -96,8 +96,8 @@ void sql_driver_unregister(const struct sql_db *driver);
    eg. "mysql" or "pgsql". connect_string is driver-specific. */
 struct sql_db *
 sql_init_legacy(const char *db_driver, const char *connect_string);
-int sql_init_legacy_full(const struct sql_settings *set, struct sql_db **db_r,
-			 const char **error_r);
+int sql_init_legacy_full(const struct sql_legacy_settings *set,
+			 struct sql_db **db_r, const char **error_r);
 
 void sql_ref(struct sql_db *db);
 void sql_unref(struct sql_db **db);

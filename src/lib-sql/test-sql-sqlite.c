@@ -24,7 +24,7 @@ static void test_sql_sqlite(void)
 {
 	test_begin("test sql api");
 
-	const struct sql_settings set = {
+	const struct sql_legacy_settings set = {
 		.driver = "sqlite",
 		.connect_string = "test-database.db journal_mode=wal",
 	};

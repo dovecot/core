@@ -66,7 +66,7 @@ struct sql_transaction_query {
 
 struct sql_db_vfuncs {
 	struct sql_db *(*init_legacy)(const char *connect_string);
-	int (*init_legacy_full)(const struct sql_settings *set,
+	int (*init_legacy_full)(const struct sql_legacy_settings *set,
 				struct sql_db **db_r, const char **error);
 	void (*deinit)(struct sql_db *db);
 	void (*unref)(struct sql_db *db);
@@ -251,7 +251,8 @@ extern struct sql_result sql_not_connected_result;
 void sql_init_common(struct sql_db *db);
 struct sql_db *
 driver_sqlpool_init(const char *connect_string, const struct sql_db *driver);
-int driver_sqlpool_init_full(const struct sql_settings *set, const struct sql_db *driver,
+int driver_sqlpool_init_full(const struct sql_legacy_settings *set,
+			     const struct sql_db *driver,
 			     struct sql_db **db_r, const char **error_r);
 
 void sql_db_set_state(struct sql_db *db, enum sql_db_state state);
