@@ -77,11 +77,18 @@ struct sql_commit_result {
 	enum sql_result_error_type error_type;
 };
 
+struct sql_settings {
+	pool_t pool;
+	const char *sql_driver;
+};
+
 struct sql_legacy_settings {
 	const char *driver;
 	const char *connect_string;
 	struct event *event_parent;
 };
+
+extern const struct setting_parser_info sql_setting_parser_info;
 
 typedef void sql_query_callback_t(struct sql_result *result, void *context);
 typedef void sql_commit_callback_t(const struct sql_commit_result *result, void *context);
@@ -91,6 +98,13 @@ void sql_drivers_deinit(void);
 
 void sql_driver_register(const struct sql_db *driver);
 void sql_driver_unregister(const struct sql_db *driver);
+
+/* Initialize the sql db by pulling settings automatically using the event.
+   The event parameter is used as the parent event. Returns 1 if ok, 0 if
+   sql_driver setting is empty (error_r is also set), -1 if settings lookup or
+   driver initialization failed. */
+int sql_init_auto(struct event *event, struct sql_db **db_r,
+		  const char **error_r);
 
 /* Initialize database connections. db_driver is the database driver name,
    eg. "mysql" or "pgsql". connect_string is driver-specific. */
