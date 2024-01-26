@@ -106,10 +106,10 @@ int sql_init_legacy_full(const struct sql_settings *set, struct sql_db **db_r,
 	}
 
 	if ((driver->flags & SQL_DB_FLAG_POOLED) == 0) {
-		if (driver->v.init_full == NULL) {
-			db = driver->v.init(set->connect_string);
+		if (driver->v.init_legacy_full == NULL) {
+			db = driver->v.init_legacy(set->connect_string);
 		} else
-			ret = driver->v.init_full(set, &db, error_r);
+			ret = driver->v.init_legacy_full(set, &db, error_r);
 	} else
 		ret = driver_sqlpool_init_full(set, driver, &db, error_r);
 

@@ -1311,7 +1311,7 @@ const struct sql_db driver_pgsql_db = {
 
 	.v = {
 		.get_flags = driver_pgsql_get_flags,
-		.init_full = driver_pgsql_init_full_v,
+		.init_legacy_full = driver_pgsql_init_full_v,
 		.deinit = driver_pgsql_deinit_v,
 		.connect = driver_pgsql_connect,
 		.disconnect = driver_pgsql_disconnect,

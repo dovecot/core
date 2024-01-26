@@ -778,7 +778,7 @@ const struct sql_db driver_mysql_db = {
 		 SQL_DB_FLAG_ON_DUPLICATE_KEY,
 
 	.v = {
-		.init_full = driver_mysql_init_full_v,
+		.init_legacy_full = driver_mysql_init_full_v,
 		.deinit = driver_mysql_deinit_v,
 		.connect = driver_mysql_connect,
 		.disconnect = driver_mysql_disconnect,
