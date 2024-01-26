@@ -343,7 +343,7 @@ shared_mail_user_init(struct mail_storage *_storage,
 	};
 
 	struct event *set_event = event_create(user->event);
-	event_add_str(set_event, "namespace", ns->set->name);
+	event_add_str(set_event, SETTINGS_EVENT_NAMESPACE_NAME, ns->set->name);
 	event_set_ptr(set_event, SETTINGS_EVENT_VAR_EXPAND_TABLE, tab);
 	event_set_ptr(set_event, SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE,
 		      func_tab);

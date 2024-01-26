@@ -457,7 +457,7 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 		count = 0;
 	}
 	for (i = 0; i < count; i++) {
-		if (settings_get_filter(user->event, "namespace", ns_names[i],
+		if (settings_get_filter(user->event, SETTINGS_EVENT_NAMESPACE_NAME, ns_names[i],
 					&mail_namespace_setting_parser_info,
 					0, &ns_set, &error) < 0) {
 			*error_r = t_strdup_printf(
@@ -471,7 +471,7 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 		}
 
 		struct event *set_event = event_create(user->event);
-		event_add_str(set_event, "namespace", ns_names[i]);
+		event_add_str(set_event, SETTINGS_EVENT_NAMESPACE_NAME, ns_names[i]);
 
 		if (mail_namespaces_init_add(user, set_event, ns_set,
 					     ns_p, error_r) < 0) {
