@@ -30,6 +30,7 @@ enum setting_type {
 	SET_STR, /* string with %variables */
 	SET_STR_NOVARS, /* string explicitly without %variables */
 	SET_ENUM,
+	SET_FILE, /* string: <path> [<LF> file contents] */
 	SET_STRLIST, /* of type ARRAY_TYPE(const_string) */
 	SET_BOOLLIST, /* of type ARRAY_TYPE(const_string) - guaranteed NULL-terminted */
 	SET_ALIAS, /* alias name for above setting definition */
@@ -85,6 +86,8 @@ struct setting_define {
 	SETTING_DEFINE_STRUCT_TYPE(SET_STR_NOVARS, 0, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_ENUM(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_ENUM, 0, const char *, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_FILE(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_FILE, 0, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_BOOLLIST(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_BOOLLIST, 0, ARRAY_TYPE(const_string), key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_STRLIST(key, name, struct_name) \
@@ -110,10 +113,20 @@ struct setting_define {
 	SETTING_DEFINE_STRUCT_TYPE(SET_STR_NOVARS, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_ENUM_HIDDEN(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_ENUM, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_FILE_HIDDEN(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_FILE, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_BOOLLIST_HIDDEN(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_BOOLLIST, SET_FLAG_HIDDEN, ARRAY_TYPE(const_string), key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_STRLIST_HIDDEN(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_STRLIST, SET_FLAG_HIDDEN, ARRAY_TYPE(const_string), key, name, struct_name)
+
+struct settings_file {
+	/* Path to the file. May be "" if the content is inlined. */
+	const char *path;
+	/* File contents - always available. NULs inside the file are not
+	   supported. */
+	const char *content;
+};
 
 struct setting_keyvalue {
 	const char *key;
@@ -219,6 +232,11 @@ bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
 bool settings_check(struct event *event, const struct setting_parser_info *info,
 		    pool_t pool, void *set, const char **error_r);
 
+/* Read a SET_FILE from the given path and write "value_path\ncontents" to
+   output_r. Returns 0 on success, -1 on error. */
+int settings_parse_read_file(const char *path, const char *value_path,
+			     pool_t pool,
+			     const char **output_r, const char **error_r);
 int settings_parse_boollist_string(const char *value, pool_t pool,
 				   ARRAY_TYPE(const_string) *dest,
 				   const char **error_r);
@@ -227,6 +245,15 @@ int settings_parse_boollist_string(const char *value, pool_t pool,
    terminated arrays, use this function instead. Also, it includes some sanity
    checks to try to make sure it's used only for boollists. */
 const char *const *settings_boollist_get(const ARRAY_TYPE(const_string) *array);
+
+/* Split the settings value into path and content. The path is allocated from
+   the path_pool, while content points directly to the value string. */
+void settings_file_get(const char *value, pool_t path_pool,
+		       struct settings_file *file_r);
+/* Convert settings_file into a value (path LF content). The file path may be
+   NULL, but the content must exist. */
+const char *settings_file_get_value(pool_t pool,
+				    const struct settings_file *file);
 
 /* Return section name escaped */
 const char *settings_section_escape(const char *name);
