@@ -88,7 +88,7 @@ static void test_auth_request_var_expand_shortlong(void)
 	static const char *test_input_long =
 		"%{user}\n%{username}\n%{domain}\n%{service}\n%{home}\n"
 		"%{lip}\n%{rip}\n%{local_ip}\n%{remote_ip}\n"
-		"%{pid}\n%{password}\n%{mech}\n%{secured}\n"
+		"%{client_pid}\n%{password}\n%{mech}\n%{secured}\n"
 		"%{lport}\n%{rport}\n%{local_port}\n%{remote_port}\n%{cert}\n";
 	static const char *test_output =
 		/* %{home} is intentionally always expanding to empty */

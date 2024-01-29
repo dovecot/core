@@ -21,7 +21,7 @@ auth_request_var_expand_static_tab[] = {
 	{ 'h', NULL, "home" },
 	{ 'l', NULL, "lip" },
 	{ 'r', NULL, "rip" },
-	{ 'p', NULL, "pid" },
+	{ 'p', NULL, "client_pid" },
 	{ 'w', NULL, "password" },
 	{ '!', NULL, NULL },
 	{ 'm', NULL, "mech" },
