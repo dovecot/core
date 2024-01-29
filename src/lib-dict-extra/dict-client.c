@@ -32,6 +32,7 @@ struct client_dict_cmd {
 	struct client_dict *dict;
 	struct timeval start_time;
 	char *query;
+	struct timeout *to_request;
 	unsigned int async_id;
 	struct timeval async_id_received_time;
 
@@ -74,7 +75,6 @@ struct client_dict {
 
 	struct io_wait_timer *wait_timer;
 	uint64_t last_timer_switch_usecs;
-	struct timeout *to_requests;
 	struct timeout *to_idle;
 
 	ARRAY(struct client_dict_cmd *) cmds;
@@ -220,6 +220,7 @@ dict_cmd_callback_line(struct client_dict_cmd *cmd, const char *const *args)
 		args++;
 	}
 
+	timeout_remove(&cmd->to_request);
 	cmd->unfinished = FALSE;
 	cmd->callback(cmd, reply, value, args, NULL, FALSE);
 	return !cmd->unfinished;
@@ -230,6 +231,7 @@ dict_cmd_callback_error(struct client_dict_cmd *cmd, const char *error,
 			bool disconnected)
 {
 	cmd->unfinished = FALSE;
+	timeout_remove(&cmd->to_request);
 	if (cmd->callback != NULL) {
 		cmd->callback(cmd, DICT_PROTOCOL_REPLY_ERROR,
 			      "", empty_str_array, error, disconnected);
@@ -237,42 +239,11 @@ dict_cmd_callback_error(struct client_dict_cmd *cmd, const char *error,
 	i_assert(!cmd->unfinished);
 }
 
-static struct client_dict_cmd *
-client_dict_cmd_first_nonbg(struct client_dict *dict)
+static void client_dict_input_timeout(struct client_dict_cmd *cmd)
 {
-	struct client_dict_cmd *const *cmds;
-	unsigned int i, count;
-
-	cmds = array_get(&dict->cmds, &count);
-	for (i = 0; i < count; i++) {
-		if (!cmds[i]->background)
-			return cmds[i];
-	}
-	return NULL;
-}
-
-static void client_dict_input_timeout(struct client_dict *dict)
-{
-	struct client_dict_cmd *cmd;
+	struct client_dict *dict = cmd->dict;
 	const char *error;
 	uint64_t msecs_in_last_dict_ioloop_wait;
-	int cmd_diff;
-
-	/* find the first non-background command. there must be at least one. */
-	cmd = client_dict_cmd_first_nonbg(dict);
-	i_assert(cmd != NULL);
-
-	cmd_diff = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
-	if (cmd_diff < DICT_CLIENT_REQUEST_TIMEOUT_MSECS) {
-		/* need to re-create this timeout. the currently-oldest
-		   command was added when another command was still
-		   running with an older timeout. */
-		timeout_remove(&dict->to_requests);
-		dict->to_requests =
-			timeout_add(DICT_CLIENT_REQUEST_TIMEOUT_MSECS - cmd_diff,
-				    client_dict_input_timeout, dict);
-		return;
-	}
 
 	/* If we've gotten here because all the time was spent in other ioloops
 	   or locks, make sure there's a bit of time waiting for the dict
@@ -281,14 +252,15 @@ static void client_dict_input_timeout(struct client_dict *dict)
 		(io_wait_timer_get_usecs(dict->wait_timer) -
 		 dict->last_timer_switch_usecs + 999) / 1000;
 	if (msecs_in_last_dict_ioloop_wait < DICT_CLIENT_REQUEST_TIMEOUT_MIN_LAST_IOLOOP_WAIT_MSECS) {
-		timeout_remove(&dict->to_requests);
-		dict->to_requests =
+		timeout_remove(&cmd->to_request);
+		cmd->to_request =
 			timeout_add(DICT_CLIENT_REQUEST_TIMEOUT_MIN_LAST_IOLOOP_WAIT_MSECS -
 				    msecs_in_last_dict_ioloop_wait,
-				    client_dict_input_timeout, dict);
+				    client_dict_input_timeout, cmd);
 		return;
 	}
 
+	int cmd_diff = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
 	(void)client_dict_reconnect(dict, t_strdup_printf(
 		"Dict server timeout: %s "
 		"(%u commands pending, oldest sent %u.%03u secs ago: %s, %s)",
@@ -365,10 +337,11 @@ client_dict_cmd_send(struct client_dict *dict, struct client_dict_cmd **_cmd,
 			*error_r = error;
 		return FALSE;
 	} else {
-		if (dict->to_requests == NULL && !cmd->background) {
-			dict->to_requests =
+		i_assert(cmd->to_request == NULL);
+		if (!cmd->background) {
+			cmd->to_request =
 				timeout_add(DICT_CLIENT_REQUEST_TIMEOUT_MSECS,
-					    client_dict_input_timeout, dict);
+					    client_dict_input_timeout, cmd);
 		}
 		array_push_back(&dict->cmds, &cmd);
 		return TRUE;
@@ -442,17 +415,6 @@ static void client_dict_timeout(struct client_dict *dict)
 		timeout_remove(&dict->to_idle);
 }
 
-static bool client_dict_have_nonbackground_cmds(struct client_dict *dict)
-{
-	struct client_dict_cmd *cmd;
-
-	array_foreach_elem(&dict->cmds, cmd) {
-		if (!cmd->background)
-			return TRUE;
-	}
-	return FALSE;
-}
-
 static void client_dict_add_timeout(struct client_dict *dict)
 {
 	if (dict->to_idle != NULL) {
@@ -461,24 +423,6 @@ static void client_dict_add_timeout(struct client_dict *dict)
 	} else if (client_dict_is_finished(dict)) {
 		dict->to_idle = timeout_add(dict->set->dict_proxy_idle_timeout,
 					    client_dict_timeout, dict);
-		timeout_remove(&dict->to_requests);
-	} else if (dict->transactions == NULL &&
-		   !client_dict_have_nonbackground_cmds(dict)) {
-		/* we had non-background commands, but now we're back to
-		   having only background commands. remove timeouts. */
-		timeout_remove(&dict->to_requests);
-	}
-}
-
-static void client_dict_cmd_backgrounded(struct client_dict *dict)
-{
-	if (dict->to_requests == NULL)
-		return;
-
-	if (!client_dict_have_nonbackground_cmds(dict)) {
-		/* we only have background-commands.
-		   remove the request timeout. */
-		timeout_remove(&dict->to_requests);
 	}
 }
 
@@ -547,9 +491,6 @@ static int dict_conn_input_line(struct connection *_conn, const char *line)
 	unsigned int i, count;
 	bool finished;
 
-	if (dict->to_requests != NULL)
-		timeout_reset(dict->to_requests);
-
 	if (line[0] == DICT_PROTOCOL_REPLY_ASYNC_ID)
 		return dict_conn_assign_next_async_id(conn, line) < 0 ? -1 : 1;
 
@@ -571,6 +512,8 @@ static int dict_conn_input_line(struct connection *_conn, const char *line)
 	i_assert(!cmds[i]->no_replies);
 
 	client_dict_cmd_ref(cmds[i]);
+	if (cmds[i]->to_request != NULL)
+		timeout_reset(cmds[i]->to_request);
 	finished = dict_cmd_callback_line(cmds[i], args);
 	if (!client_dict_cmd_unref(cmds[i])) {
 		/* disconnected during command handling */
@@ -655,7 +598,6 @@ static void client_dict_disconnect(struct client_dict *dict, const char *reason)
 	}
 
 	timeout_remove(&dict->to_idle);
-	timeout_remove(&dict->to_requests);
 	connection_disconnect(&dict->conn.conn);
 }
 
@@ -680,6 +622,8 @@ static int client_dict_reconnect(struct client_dict *dict, const char *reason,
 			i++;
 		} else {
 			array_push_back(&retry_cmds, &cmd);
+			/* timeout is added back after reconnecting */
+			timeout_remove(&cmd->to_request);
 			array_delete(&dict->cmds, i, 1);
 		}
 	}
@@ -910,8 +854,15 @@ static bool client_dict_switch_ioloop(struct dict *_dict)
 	dict->wait_timer = io_wait_timer_move(&dict->wait_timer);
 	if (dict->to_idle != NULL)
 		dict->to_idle = io_loop_move_timeout(&dict->to_idle);
-	if (dict->to_requests != NULL)
-		dict->to_requests = io_loop_move_timeout(&dict->to_requests);
+
+	struct client_dict_cmd *cmd;
+	array_foreach_elem(&dict->cmds, cmd) {
+		if (cmd->to_request != NULL) {
+			cmd->to_request =
+				io_loop_move_timeout(&cmd->to_request);
+		}
+	}
+
 	connection_switch_ioloop(&dict->conn.conn);
 	return array_count(&dict->cmds) > 0;
 }
@@ -1180,10 +1131,8 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd,
 	struct client_dict_iter_result *result;
 	const char *iter_key = NULL, *const *iter_values = NULL;
 
-	if (ctx->deinit) {
+	if (ctx->deinit)
 		cmd->background = TRUE;
-		client_dict_cmd_backgrounded(dict);
-	}
 
 	if (error != NULL) {
 		/* failed */
