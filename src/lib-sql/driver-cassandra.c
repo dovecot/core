@@ -1636,7 +1636,9 @@ static void driver_cassandra_send_queries(struct cassandra_db *db)
 
 	results = array_get(&db->results, &count);
 	for (i = 0; i < count; i++) {
-		if (!results[i]->query_sent && results[i]->statement != NULL) {
+		if (!results[i]->query_sent &&
+		    (results[i]->batch != NULL ||
+		     results[i]->statement != NULL)) {
 			if (cassandra_result_connect_and_send_query(results[i]) <= 0)
 				break;
 		}
