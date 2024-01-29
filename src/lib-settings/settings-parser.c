@@ -4,7 +4,12 @@
 #include "array.h"
 #include "str.h"
 #include "str-parse.h"
+#include "read-full.h"
 #include "settings-parser.h"
+
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 struct boollist_removal {
 	ARRAY_TYPE(const_string) *array;
@@ -244,6 +249,27 @@ static int get_enum(struct setting_parser_context *ctx, const char *value,
 }
 
 static int
+get_file(struct setting_parser_context *ctx, bool dup_value, const char **value)
+{
+	if (**value == '\0')
+		return 0;
+	const char *content = strchr(*value, '\n');
+	if (content != NULL) {
+		if (dup_value)
+			*value = p_strdup(ctx->set_pool, *value);
+		return 0;
+	}
+
+	const char *error;
+	if (settings_parse_read_file(*value, *value, ctx->set_pool,
+				     value, &error) < 0) {
+		settings_parser_set_error(ctx, error);
+		return -1;
+	}
+	return 0;
+}
+
+static int
 get_in_port_zero(struct setting_parser_context *ctx, const char *value,
 	 in_port_t *result_r)
 {
@@ -252,6 +278,49 @@ get_in_port_zero(struct setting_parser_context *ctx, const char *value,
 			"Invalid port number %s", value));
 		return -1;
 	}
+	return 0;
+}
+
+int settings_parse_read_file(const char *path, const char *value_path,
+			     pool_t pool,
+			     const char **output_r, const char **error_r)
+{
+	struct stat st;
+	int fd;
+
+	if ((fd = open(path, O_RDONLY)) == -1) {
+		*error_r = t_strdup_printf("open(%s) failed: %m", path);
+		return -1;
+	}
+	if (fstat(fd, &st) < 0) {
+		*error_r = t_strdup_printf("fstat(%s) failed: %m", path);
+		i_close_fd(&fd);
+		return -1;
+	}
+	size_t value_path_len = strlen(value_path);
+	char *buf = p_malloc(pool, value_path_len + 1 + st.st_size + 1);
+	memcpy(buf, value_path, value_path_len);
+	buf[value_path_len] = '\n';
+
+	int ret = read_full(fd, buf + value_path_len + 1, st.st_size);
+	i_close_fd(&fd);
+	if (ret < 0) {
+		*error_r = t_strdup_printf("read(%s) failed: %m", path);
+		return -1;
+	}
+	if (ret == 0) {
+		*error_r = t_strdup_printf(
+			"read(%s) failed: Unexpected EOF", path);
+		return -1;
+	}
+	if (memchr(buf + value_path_len + 1, '\0', st.st_size) != NULL) {
+		*error_r = t_strdup_printf(
+			"%s contains NUL characters - This is not supported",
+			path);
+		return -1;
+	}
+
+	*output_r = buf;
 	return 0;
 }
 
@@ -372,6 +441,38 @@ const char *const *settings_boollist_get(const ARRAY_TYPE(const_string) *array)
 	}
 	return strings;
 
+}
+
+void settings_file_get(const char *value, pool_t path_pool,
+		       struct settings_file *file_r)
+{
+	const char *p;
+
+	if (*value == '\0') {
+		file_r->path = "";
+		file_r->content = "";
+		return;
+	}
+
+	p = strchr(value, '\n');
+	if (p == NULL)
+		i_panic("Settings file value is missing LF");
+	file_r->path = p_strdup_until(path_pool, value, p);
+	file_r->content = p + 1;
+}
+
+const char *settings_file_get_value(pool_t pool,
+				    const struct settings_file *file)
+{
+	const char *path = file->path != NULL ? file->path : "";
+	size_t path_len = strlen(path);
+	size_t content_len = strlen(file->content);
+
+	char *value = p_malloc(pool, path_len + 1 + content_len + 1);
+	memcpy(value, path, path_len);
+	value[path_len] = '\n';
+	memcpy(value + path_len + 1, file->content, content_len);
+	return value;
 }
 
 static void boollist_null_terminate(ARRAY_TYPE(const_string) *array)
@@ -515,6 +616,18 @@ settings_parse(struct setting_parser_context *ctx,
 			value = p_strdup(ctx->set_pool, value);
 		*((const char **)ptr) = value;
 		break;
+	case SET_FILE: {
+		/* Read the file directly to get the content */
+		if (get_file(ctx, dup_value, &value) < 0) {
+			/* We may be running settings_check()s in doveconf at a
+			   time when the file couldn't yet be opened. To avoid
+			   unnecessary errors, set the value unknown. */
+			*((const char **)ptr) = set_value_unknown;
+			return -1;
+		}
+		*((const char **)ptr) = value;
+		break;
+	}
 	case SET_ENUM:
 		/* get the available values from default string */
 		i_assert(ctx->info->defaults != NULL);

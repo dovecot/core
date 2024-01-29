@@ -500,6 +500,7 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 			const char *list_key, const char *value,
 			const char **error_r)
 {
+	struct settings_file file;
 	const char *key = ctx->info->defines[key_idx].key;
 	const char *orig_value = value;
 	if (list_key != NULL)
@@ -526,6 +527,11 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 	    ctx->info->defines[key_idx].type != SET_FILTER_ARRAY) {
 		const char *error;
 		str_truncate(ctx->str, 0);
+		if (ctx->info->defines[key_idx].type == SET_FILE) {
+			settings_file_get(value, &ctx->mpool->pool, &file);
+			/* Make sure only the file path is var-expanded. */
+			value = file.path;
+		}
 		if (var_expand_with_arrays(ctx->str, value, ctx->tables,
 					   ctx->func_tables, ctx->func_contexts,
 					   &error) <= 0 &&
@@ -535,7 +541,16 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 				key, error);
 			return -1;
 		}
-		if (strcmp(value, str_c(ctx->str)) != 0)
+		if (strcmp(value, str_c(ctx->str)) == 0) {
+			/* unchanged value */
+			if (ctx->info->defines[key_idx].type == SET_FILE) {
+				/* Restore full SET_FILE value */
+				value = settings_file_get_value(&ctx->mpool->pool, &file);
+			}
+		} else if (ctx->info->defines[key_idx].type == SET_FILE) {
+			file.path = p_strdup(&ctx->mpool->pool, str_c(ctx->str));
+			value = settings_file_get_value(&ctx->mpool->pool, &file);
+		} else
 			value = p_strdup(&ctx->mpool->pool, str_c(ctx->str));
 	}
 	/* value points to mmap()ed memory, which is kept
