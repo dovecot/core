@@ -137,6 +137,7 @@ bool config_export_type(string_t *str, const void *value,
 	}
 	case SET_STR:
 	case SET_STR_NOVARS:
+	case SET_FILE:
 	case SET_ENUM: {
 		const char *const *val = value;
 
@@ -203,6 +204,7 @@ settings_export(struct config_export_context *ctx,
 		dump = FALSE;
 		str_truncate(ctx->value, 0);
 		switch (def->type) {
+		case SET_FILE:
 		case SET_BOOL:
 		case SET_SIZE:
 		case SET_UINT:
@@ -326,6 +328,7 @@ settings_export(struct config_export_context *ctx,
 					type = CONFIG_KEY_NORMAL;
 				struct config_export_setting export_set = {
 					.type = type,
+					.def_type = def->type,
 					.key = def->key,
 					.key_define_idx = define_idx,
 					.value = str_c(ctx->value),
