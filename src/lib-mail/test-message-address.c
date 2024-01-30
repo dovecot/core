@@ -19,8 +19,9 @@ static bool cmp_addr(const struct message_address *a1,
 		a1->invalid_syntax == a2->invalid_syntax;
 }
 
-static const struct message_address *
-test_parse_address(const char *input, bool fill_missing)
+static void
+test_parse_address_full(const char *input, bool fill_missing,
+			struct message_address_list *list_r)
 {
 	const enum message_address_parse_flags flags =
 		fill_missing ? MESSAGE_ADDRESS_PARSE_FLAG_FILL_MISSING : 0;
@@ -28,11 +29,18 @@ test_parse_address(const char *input, bool fill_missing)
 	   if there's any out-of-bounds access */
 	size_t input_len = strlen(input);
 	unsigned char *input_dup = i_memdup(input, input_len);
-	const struct message_address *addr =
-		message_address_parse(pool_datastack_create(),
-				      input_dup, input_len, UINT_MAX, flags);
+	message_address_parse_full(pool_datastack_create(),
+				   input_dup, input_len, UINT_MAX, flags,
+				   list_r);
 	i_free(input_dup);
-	return addr;
+}
+
+static const struct message_address *
+test_parse_address(const char *input, bool fill_missing)
+{
+	struct message_address_list list;
+	test_parse_address_full(input, fill_missing, &list);
+	return list.head;
 }
 
 static void test_message_address(void)
@@ -322,6 +330,33 @@ static void test_message_address(void)
 	test_end();
 }
 
+static void test_message_address_list(void)
+{
+	test_begin("message address list");
+
+	const char *test_input =
+		"user1@example1.com, user2@example2.com, user3@example3.com";
+	const struct message_address wanted_addrs[] = {
+		{ NULL, NULL, NULL, NULL, "user1", "example1.com", FALSE },
+		{ NULL, NULL, NULL, NULL, "user2", "example2.com", FALSE },
+		{ NULL, NULL, NULL, NULL, "user3", "example3.com", FALSE },
+	};
+
+	struct message_address_list list;
+	struct message_address *addr, *scanned_last_addr;
+	test_parse_address_full(test_input, FALSE, &list);
+	addr = list.head;
+	for (unsigned int i = 0; i < N_ELEMENTS(wanted_addrs); i++) {
+		test_assert_idx(cmp_addr(addr, &wanted_addrs[i]), i);
+		scanned_last_addr = addr;
+		addr = addr->next;
+	}
+	test_assert(list.tail == scanned_last_addr);
+	test_assert(addr == NULL);
+
+	test_end();
+}
+
 static void test_message_address_nuls(void)
 {
 	const unsigned char input[] =
@@ -521,6 +556,7 @@ int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_message_address,
+		test_message_address_list,
 		test_message_address_nuls,
 		test_message_address_nuls_display_name,
 		test_message_address_non_strict_dots,

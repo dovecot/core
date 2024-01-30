@@ -31,12 +31,22 @@ struct message_address {
 	bool invalid_syntax;
 };
 
+struct message_address_list {
+	struct message_address *head, *tail;
+};
+
 /* Parse message addresses from given data. Note that giving an empty string
    will return NULL since there are no addresses. */
 struct message_address *
 message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 		      unsigned int max_addresses,
 		      enum message_address_parse_flags flags);
+/* Same as message_address_parse(), but return message_address_list containing
+   both the first and the last address in the linked list. */
+void message_address_parse_full(pool_t pool, const unsigned char *data,
+				size_t size, unsigned int max_addresses,
+				enum message_address_parse_flags flags,
+				struct message_address_list *list_r);
 
 /* Parse RFC 5322 "path" (Return-Path header) from given data. Returns -1 if
    the path is invalid and 0 otherwise.
