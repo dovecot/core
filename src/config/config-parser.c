@@ -930,9 +930,9 @@ int config_parse_net(const char *value, struct ip_addr *ip_r,
 
 static bool
 config_filter_add_new_filter(struct config_parser_context *ctx,
-			     const struct config_line *line)
+			     const char *key, const char *value,
+			     bool value_quoted)
 {
-	const char *key = line->key, *value = line->value;
 	struct config_filter filter;
 	struct config_filter *parent = &ctx->cur_section->prev->filter_parser->filter;
 	struct config_filter_parser *filter_parser;
@@ -1009,7 +1009,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 	} else if (config_is_filter_name(ctx, key, &filter_def)) {
 		if (filter_def->type == SET_FILTER_NAME ||
 		    filter_def->type == SET_FILTER_HIERARCHY) {
-			if (value[0] != '\0' || line->value_quoted) {
+			if (value[0] != '\0' || value_quoted) {
 				ctx->error = p_strdup_printf(ctx->pool,
 					"%s { } must not have a section name",
 					key);
@@ -1044,7 +1044,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 					key, t_strcut(parent->filter_name, '/'));
 				return FALSE;
 			}
-			if (value[0] == '\0' && !line->value_quoted) {
+			if (value[0] == '\0' && !value_quoted) {
 				ctx->error = p_strdup_printf(ctx->pool,
 					"%s { } is missing section name", key);
 				return TRUE;
@@ -1946,22 +1946,37 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 			}
 		}
 		break;
-	case CONFIG_LINE_TYPE_SECTION_BEGIN:
-		ctx->cur_section = config_add_new_section(ctx);
-		ctx->cur_section->key = p_strdup(ctx->pool, line->key);
+	case CONFIG_LINE_TYPE_SECTION_BEGIN: {
+		/* See if we need to prefix the key with filter name */
+		const struct config_filter *cur_filter =
+			&ctx->cur_section->filter_parser->filter;
+		const char *key = line->key;
+		if (cur_filter->filter_name != NULL) {
+			const char *filter_key =
+				t_strcut(cur_filter->filter_name, '/');
+			const char *key2 = t_strdup_printf("%s_%s",
+							   filter_key, key);
+			if (hash_table_lookup(ctx->all_keys, key2) != NULL)
+				key = key2;
+		}
 
-		if (config_filter_add_new_filter(ctx, line)) {
+		ctx->cur_section = config_add_new_section(ctx);
+		ctx->cur_section->key = p_strdup(ctx->pool, key);
+
+		if (config_filter_add_new_filter(ctx, key, line->value,
+						 line->value_quoted)) {
 			/* new filter */
 			break;
 		}
-		if (hash_table_lookup(ctx->all_keys, line->key) == NULL) {
+		if (hash_table_lookup(ctx->all_keys, key) == NULL) {
 			ctx->error = p_strdup_printf(ctx->pool,
-				"Unknown section name: %s", line->key);
+				"Unknown section name: %s", key);
 			break;
 		}
 
 		/* This is SET_STRLIST or SET_BOOLLIST */
 		break;
+	}
 	case CONFIG_LINE_TYPE_SECTION_END:
 		if (ctx->cur_section->prev == NULL)
 			ctx->error = "Unexpected '}'";
