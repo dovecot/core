@@ -1947,7 +1947,10 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 				line->key;
 			if (config_apply_line_full(ctx, line, key_with_path,
 						   str_c(ctx->value), &full_key,
-						   &root_setting) == 0) {
+						   &root_setting) < 0) {
+				ctx->error = p_strdup_printf(ctx->pool,
+					"%s: %s", line->key, ctx->error);
+			} else {
 				config_parser_check_warnings(ctx, full_key,
 							     root_setting);
 			}
