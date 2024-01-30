@@ -440,6 +440,8 @@ settings_value_check(struct config_parser_context *ctx,
 			return -1;
 		}
 		break;
+	case SET_FILE:
+		break;
 	case SET_STRLIST:
 	case SET_BOOLLIST:
 	case SET_FILTER_ARRAY:
@@ -577,6 +579,34 @@ static int config_apply_filter_array(struct config_parser_context *ctx,
 	return 0;
 }
 
+static int config_apply_file(struct config_parser_context *ctx,
+			     const struct config_line *line,
+			     const char *path, const char **output_r)
+{
+	const char *full_path, *error;
+
+	if (path[0] == '\0') {
+		*output_r = "";
+		return 0;
+	}
+	if (!ctx->expand_values) {
+		*output_r = p_strdup(ctx->pool, path);
+		return 0;
+	}
+	full_path = fix_relative_path(path, ctx->cur_input);
+	/* preserve original relative path in doveconf output */
+	if (full_path != path && ctx->expand_values)
+		path = full_path;
+	if (settings_parse_read_file(full_path, path, ctx->pool, output_r, &error) < 0) {
+		ctx->error = p_strdup(ctx->pool, error);
+		if (config_apply_error(ctx, line->key) < 0)
+			return -1;
+		/* delayed error */
+		*output_r = "";
+	}
+	return 0;
+}
+
 static int
 config_apply_exact_line(struct config_parser_context *ctx,
 			const struct config_line *line,
@@ -621,6 +651,11 @@ config_apply_exact_line(struct config_parser_context *ctx,
 			}
 			if (config_apply_filter_array(ctx, line, value,
 					&l->settings[config_key->define_idx].array) < 0)
+				return -1;
+			break;
+		case SET_FILE:
+			if (config_apply_file(ctx, line, value,
+					&l->settings[config_key->define_idx].str) < 0)
 				return -1;
 			break;
 		default:
@@ -1142,6 +1177,7 @@ void config_fill_set_parser(struct setting_parser_context *parser,
 		default: {
 			const char *value = p->settings[i].str;
 			if (p->info->defines[i].type != SET_STR_NOVARS &&
+			    p->info->defines[i].type != SET_FILE &&
 			    strchr(p->settings[i].str, '%') != NULL) {
 				/* We don't know what the variables would
 				   expand to. */

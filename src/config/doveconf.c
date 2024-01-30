@@ -66,7 +66,11 @@ config_request_get_strings(const struct config_export_setting *set,
 
 	switch (set->type) {
 	case CONFIG_KEY_NORMAL:
-		value = p_strdup_printf(ctx->pool, "%s=%s", set->key, set->value);
+		if (set->def_type != SET_FILE)
+			value = set->value;
+		else
+			value = t_strcut(set->value, '\n');
+		value = p_strdup_printf(ctx->pool, "%s=%s", set->key, value);
 		break;
 	case CONFIG_KEY_BOOLLIST_ELEM:
 		/* add list index as the prefix to preserve the configured
