@@ -6,11 +6,10 @@
 #include "rfc822-parser.h"
 #include "lang-tokenizer-private.h"
 #include "lang-tokenizer-common.h"
+#include "lang-settings.h"
 
 #define IS_DTEXT(c) \
 	(rfc822_atext_chars[(int)(unsigned char)(c)] == 2)
-
-#define LANG_DEFAULT_ADDRESS_MAX_LENGTH 254
 
 enum email_address_parser_state {
 	EMAIL_ADDRESS_PARSER_STATE_NONE = 0,
@@ -30,37 +29,18 @@ struct email_address_lang_tokenizer {
 };
 
 static int
-lang_tokenizer_email_address_create(const char *const *settings,
+lang_tokenizer_email_address_create(const struct lang_settings *set,
 				    enum lang_tokenizer_flags flags,
 				    struct lang_tokenizer **tokenizer_r,
-				    const char **error_r)
+				    const char **error_r ATTR_UNUSED)
 {
 	struct email_address_lang_tokenizer *tok;
-	bool search = HAS_ALL_BITS(flags, LANG_TOKENIZER_FLAG_SEARCH);
-	unsigned int max_length = LANG_DEFAULT_ADDRESS_MAX_LENGTH;
-	unsigned int i;
-
-	for (i = 0; settings[i] != NULL; i += 2) {
-		const char *key = settings[i], *value = settings[i+1];
-
-		if (strcmp(key, "maxlen") == 0) {
-			if (str_to_uint(value, &max_length) < 0 ||
-			    max_length == 0) {
-				*error_r = t_strdup_printf("Invalid maxlen setting: %s", value);
-				return -1;
-			}
-		} else {
-			*error_r = t_strdup_printf("Unknown setting: %s", key);
-			return -1;
-		}
-	}
-
 	tok = i_new(struct email_address_lang_tokenizer, 1);
 	tok->tokenizer = *lang_tokenizer_email_address;
 	tok->last_word = str_new(default_pool, 128);
 	tok->parent_data = str_new(default_pool, 128);
-	tok->max_length = max_length;
-	tok->search = search;
+	tok->max_length = set->tokenizer_address_token_maxlen;
+	tok->search = HAS_ALL_BITS(flags, LANG_TOKENIZER_FLAG_SEARCH);
 	*tokenizer_r = &tok->tokenizer;
 	return 0;
 }

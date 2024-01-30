@@ -29,36 +29,10 @@ struct lang_user {
 static MODULE_CONTEXT_DEFINE_INIT(lang_user_module,
 				  &mail_user_module_register);
 
-static const char *const *str_keyvalues_to_array(const char *str)
-{
-	const char *key, *value, *const *keyvalues;
-	ARRAY_TYPE(const_string) arr;
-	unsigned int i;
-
-	if (str == NULL)
-		return NULL;
-
-	t_array_init(&arr, 8);
-	keyvalues = t_strsplit_spaces(str, " ");
-	for (i = 0; keyvalues[i] != NULL; i++) {
-		value = strchr(keyvalues[i], '=');
-		if (value != NULL)
-			key = t_strdup_until(keyvalues[i], value++);
-		else {
-			key = keyvalues[i];
-			value = "";
-		}
-		array_push_back(&arr, &key);
-		array_push_back(&arr, &value);
-	}
-	array_append_zero(&arr);
-	return array_front(&arr);
-}
-
 /* Returns the setting for the given language, or, if the langauge is not
    defined, the settings for the default language (which is always the first
    in the array) */
-const struct lang_settings *
+static const struct lang_settings *
 lang_user_settings_get(struct mail_user *user, const char *lang)
 {
 	struct lang_settings *set;
@@ -150,48 +124,34 @@ lang_user_create_tokenizer(struct mail_user *user,
 			   struct lang_tokenizer **tokenizer_r, bool search,
 			   const char **error_r)
 {
-	const struct lang_tokenizer *tokenizer_class;
-	struct lang_tokenizer *tokenizer = NULL, *parent = NULL;
-	const char *tokenizers_key, *const *tokenizers, *tokenizer_set_name;
-	const char *str, *error, *set_key;
-	unsigned int i;
-	int ret = 0;
-
-	tokenizers_key = t_strconcat("fts_tokenizers_", lang->name, NULL);
-	str = mail_user_plugin_getenv(user, tokenizers_key);
-	if (str == NULL) {
-		str = mail_user_plugin_getenv(user, "fts_tokenizers");
-		if (str == NULL) {
-			*error_r = t_strdup_printf("%s or fts_tokenizers setting must exist", tokenizers_key);
-			return -1;
-		}
-		tokenizers_key = "fts_tokenizers";
+	const struct lang_settings *set = lang_user_settings_get(user, lang->name);
+	if (array_is_empty(&set->tokenizers)) {
+		/* No tokenizers */
+		*error_r = "Empty language_tokenizers { .. } list";
+		return -1;
 	}
 
-	tokenizers = t_strsplit_spaces(str, " ");
+	int ret = 0;
+	struct lang_tokenizer *tokenizer = NULL, *parent = NULL;
+	const char *entry_name;
+	array_foreach_elem(&set->tokenizers, entry_name) {
+		const struct lang_tokenizer *entry_class =
+			lang_tokenizer_find(entry_name);
 
-	for (i = 0; tokenizers[i] != NULL; i++) {
-		tokenizer_class = lang_tokenizer_find(tokenizers[i]);
-		if (tokenizer_class == NULL) {
-			*error_r = t_strdup_printf("%s: Unknown tokenizer '%s'",
-						   tokenizers_key, tokenizers[i]);
+		if (entry_class == NULL) {
+			*error_r = t_strdup_printf(
+				"%s: Unknown tokenizer '%s'",
+				set->name, entry_name);
 			ret = -1;
 			break;
 		}
 
-		tokenizer_set_name = t_str_replace(tokenizers[i], '-', '_');
-		set_key = t_strdup_printf("fts_tokenizer_%s_%s", tokenizer_set_name, lang->name);
-		str = mail_user_plugin_getenv(user, set_key);
-		if (str == NULL) {
-			set_key = t_strdup_printf("fts_tokenizer_%s", tokenizer_set_name);
-			str = mail_user_plugin_getenv(user, set_key);
-		}
-
-		if (lang_tokenizer_create(tokenizer_class, parent,
-					  str_keyvalues_to_array(str),
-					  search ? LANG_TOKENIZER_FLAG_SEARCH : 0,
-					  &tokenizer, &error) < 0) {
-			*error_r = t_strdup_printf("%s: %s", set_key, error);
+		const char *error;
+		if (lang_tokenizer_create(entry_class, parent, set,
+						search ? LANG_TOKENIZER_FLAG_SEARCH : 0,
+						&tokenizer, &error) < 0) {
+			*error_r = t_strdup_printf(
+				"%s:%s %s", set->name, entry_name, error);
 			ret = -1;
 			break;
 		}

@@ -8,6 +8,24 @@
 #include "lang-tokenizer-common.h"
 #include "lang-tokenizer-private.h"
 #include "lang-tokenizer-generic-private.h"
+#include "lang-settings.h"
+
+static struct lang_settings simple_settings;
+static struct lang_settings tr29_settings;
+static struct lang_settings tr29_wb5a_settings;
+
+static void init_lang_settings(void)
+{
+	simple_settings = lang_default_settings;
+	simple_settings.tokenizer_generic_algorithm = "simple";
+
+	tr29_settings = lang_default_settings;
+	tr29_settings.tokenizer_generic_algorithm = "tr29";
+
+	tr29_wb5a_settings = lang_default_settings;
+	tr29_wb5a_settings.tokenizer_generic_algorithm = "tr29";
+	tr29_wb5a_settings.tokenizer_generic_wb5a = TRUE;
+}
 
 /*there should be a trailing space ' ' at the end of each string except the last one*/
 #define TEST_INPUT_ADDRESS \
@@ -192,15 +210,13 @@ static void test_lang_tokenizer_generic_only(void)
 	const char *error;
 
 	test_begin("lang tokenizer generic simple");
-	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, NULL, 0, &tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, &lang_default_settings, 0, &tok, &error) == 0);
 	test_assert(((struct generic_lang_tokenizer *) tok)->algorithm == BOUNDARY_ALGORITHM_SIMPLE);
 
 	test_tokenizer_inputs(tok, test_inputs, N_ELEMENTS(test_inputs), expected_output);
 	lang_tokenizer_unref(&tok);
 	test_end();
 }
-
-const char *const tr29_settings[] = {"algorithm", "tr29", NULL};
 
 /* TODO: U+206F is in "Format" and therefore currently not word break.
    This definitely needs to be remapped. */
@@ -250,13 +266,11 @@ static void test_lang_tokenizer_generic_tr29_only(void)
 	const char *error;
 
 	test_begin("lang tokenizer generic TR29");
-	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, tr29_settings, 0, &tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, &tr29_settings, 0, &tok, &error) == 0);
 	test_tokenizer_inputs(tok, test_inputs, N_ELEMENTS(test_inputs), expected_output);
 	lang_tokenizer_unref(&tok);
 	test_end();
 }
-
-const char *const tr29_settings_wb5a[] = {"algorithm", "tr29", "wb5a", "yes", NULL};
 
 /* TODO: U+206F is in "Format" and therefore currently not word break.
    This definitely needs to be remapped. */
@@ -307,7 +321,7 @@ static void test_lang_tokenizer_generic_tr29_wb5a(void)
 	const char *error;
 
 	test_begin("lang tokenizer generic TR29 with WB5a");
-	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, tr29_settings_wb5a, 0, &tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, &tr29_wb5a_settings, 0, &tok, &error) == 0);
 	test_tokenizer_inputs(tok, test_inputs, N_ELEMENTS(test_inputs), expected_output);
 	lang_tokenizer_unref(&tok);
 	test_end();
@@ -330,13 +344,13 @@ static void test_lang_tokenizer_address_only(void)
 	const char *error;
 
 	test_begin("lang tokenizer email address only");
-	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, NULL, NULL, 0, &tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, NULL, &lang_default_settings, 0, &tok, &error) == 0);
 	test_tokenizer_inputoutput(tok, input, expected_output, 0);
 	lang_tokenizer_unref(&tok);
 	test_end();
 }
 
-static void test_lang_tokenizer_address_parent(const char *name, const char * const *settings, unsigned int flags)
+static void test_lang_tokenizer_address_parent(const char *name, struct lang_settings *set, enum lang_tokenizer_flags flags)
 {
 	static const char input[] = TEST_INPUT_ADDRESS;
 	static const char *const expected_output[] = {
@@ -366,23 +380,22 @@ static void test_lang_tokenizer_address_parent(const char *name, const char * co
 	const char *error;
 
 	test_begin(t_strdup_printf("lang tokenizer email address + parent %s", name));
-	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, settings, flags, &gen_tok, &error) == 0);
-	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, gen_tok, NULL, 0, &tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, set, flags, &gen_tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, gen_tok, &lang_default_settings, 0, &tok, &error) == 0);
 	test_tokenizer_inputoutput(tok, input, expected_output, 0);
 	lang_tokenizer_unref(&tok);
 	lang_tokenizer_unref(&gen_tok);
 	test_end();
 }
 
-const char *const simple_settings[] = {"algorithm", "simple", NULL};
 static void test_lang_tokenizer_address_parent_simple(void)
 {
-	test_lang_tokenizer_address_parent("simple", simple_settings, 0);
+	test_lang_tokenizer_address_parent("simple", &simple_settings, 0);
 }
 
 static void test_lang_tokenizer_address_parent_tr29(void)
 {
-	test_lang_tokenizer_address_parent("tr29", tr29_settings, 0);
+	test_lang_tokenizer_address_parent("tr29", &tr29_settings, 0);
 }
 
 static void test_lang_tokenizer_address_search(void)
@@ -415,8 +428,8 @@ static void test_lang_tokenizer_address_search(void)
 	const char *token, *error;
 
 	test_begin("lang tokenizer search email address + parent");
-	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, NULL, 0, &gen_tok, &error) == 0);
-	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, gen_tok, NULL, LANG_TOKENIZER_FLAG_SEARCH, &tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, &lang_default_settings, 0, &gen_tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, gen_tok, &lang_default_settings, LANG_TOKENIZER_FLAG_SEARCH, &tok, &error) == 0);
 	test_tokenizer_inputoutput(tok, input, expected_output, 0);
 
 	/* make sure state is forgotten at EOF */
@@ -478,13 +491,15 @@ static void test_lang_tokenizer_delete_trailing_partial_char(void)
 
 static void test_lang_tokenizer_address_maxlen(void)
 {
-	const char *const settings[] = {"maxlen", "5", NULL};
+	struct lang_settings set = lang_default_settings;
+	set.tokenizer_address_token_maxlen = 5;
+
 	const char *input = "...\357\277\275@a";
 	struct lang_tokenizer *tok;
 	const char *token, *error;
 
 	test_begin("lang tokenizer address maxlen");
-	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, NULL, settings, 0, &tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, NULL, &set, 0, &tok, &error) == 0);
 
 	while (lang_tokenizer_next(tok, (const unsigned char *)input,
 				  strlen(input), &token, &error) > 0) ;
@@ -496,8 +511,13 @@ static void test_lang_tokenizer_address_maxlen(void)
 static void test_lang_tokenizer_random(void)
 {
 	const unsigned char test_chars[] = { 0, ' ', '.', 'a', 'b', 'c', '-', '@', '\xC3', '\xA4' };
-	const char *const settings[] = {"algorithm", "simple", NULL};
-	const char *const email_settings[] = {"maxlen", "9", NULL};
+
+	struct lang_settings set = lang_default_settings;
+	set.tokenizer_generic_algorithm = "simple";
+
+	struct lang_settings email_set = lang_default_settings;
+	email_set.tokenizer_address_token_maxlen = 9;
+
 	unsigned int i;
 	unsigned char addr[10] = { 0 };
 	string_t *str = t_str_new(20);
@@ -505,8 +525,8 @@ static void test_lang_tokenizer_random(void)
 	const char *token, *error;
 
 	test_begin("lang tokenizer random");
-	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, settings, 0, &gen_tok, &error) == 0);
-	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, gen_tok, email_settings, 0, &tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, &set, 0, &gen_tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, gen_tok, &email_set, 0, &tok, &error) == 0);
 
 	for (i = 0; i < 10000; i++) T_BEGIN {
 		for (unsigned int j = 0; j < sizeof(addr); j++)
@@ -539,32 +559,37 @@ test_lang_tokenizer_explicit_prefix(void)
 						"twopre", "twoboth", "twopost",
 						NULL, NULL };
 
-	const char *settings[9] = { "algorithm", "tr29", "wb5a", "yes" };
-	const char **setptr;
+	const struct algo {
+		const char *name;
+		bool wb5a;
+	} algos[] = {
+		{ ALGORITHM_SIMPLE_NAME, FALSE },
+		{ ALGORITHM_TR29_NAME,   FALSE },
+		{ ALGORITHM_TR29_NAME,   TRUE  },
+	};
 
-	const char *algos[] = { ALGORITHM_SIMPLE_NAME,
-				ALGORITHM_TR29_NAME,
-				ALGORITHM_TR29_NAME "+wb5a" };
-	const char *searches[] = { "indexing", "searching" };
-	const char *prefixes[] = { "fixed", "prefix" };
+	struct lang_settings set = lang_default_settings;
+	for (unsigned int algo_index = 0; algo_index < N_ELEMENTS(algos); algo_index++) {
+		const struct algo *algo = &algos[algo_index];
+		set.tokenizer_generic_wb5a = algo->wb5a;
+		set.tokenizer_generic_algorithm = algo->name;
+		const char *algo_str = t_strdup_printf("%s%s", algo->name, algo->wb5a ? "+wb5a" : "");
 
-	for (int algo = 2; algo >= 0; algo--) { /* We overwrite the settings over time */
 		for (int search = 0; search < 2; search++) {
 			enum lang_tokenizer_flags flags = search > 0 ? LANG_TOKENIZER_FLAG_SEARCH : 0;
+			const char *search_str = search > 0 ? "searching" : "indexing";
+
 			for (int explicitprefix = 0; explicitprefix < 2; explicitprefix++) {
-				setptr = &settings[algo*2]; /* 4, 2, or 0 settings strings preserved */
-				if (explicitprefix > 0) { *setptr++ = "explicitprefix"; *setptr++ = "y"; }
-				*setptr++ = NULL;
+				set.tokenizer_generic_explicit_prefix = explicitprefix > 0;
+				const char *prefix_str = explicitprefix > 0 ? "prefix" : "fixed";
 
 				test_begin(t_strdup_printf("prefix search %s:%s:%s",
-							   algos[algo],
-							   searches[search],
-							   prefixes[explicitprefix]));
+							   algo_str, search_str, prefix_str));
 				struct lang_tokenizer *tok;
 				const char *error;
 
-				test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, settings,
-								  flags, &tok, &error) == 0);
+				test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL,
+								  &set, flags, &tok, &error) == 0);
 				test_tokenizer_inputs(
 					tok, &input, 1,
 					(search!=0) && (explicitprefix!=0)
@@ -635,7 +660,7 @@ static void test_lang_tokenizer_skip_base64(void)
 	};
 
 	test_begin("lang tokenizer skip base64");
-	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, tr29_settings, 0, &tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, &tr29_settings, 0, &tok, &error) == 0);
 
 	size_t index = 0;
 	while (lang_tokenizer_next(tok, (const unsigned char *) input, strlen(input), &token, &error) > 0) {
@@ -657,6 +682,7 @@ static void test_lang_tokenizer_skip_base64(void)
 
 int main(void)
 {
+	init_lang_settings();
 	static void (*const test_functions[])(void) = {
 		test_lang_tokenizer_skip_base64,
 		test_lang_tokenizer_find,

@@ -10,14 +10,13 @@
 #include "lang-tokenizer-private.h"
 #include "lang-tokenizer-generic-private.h"
 #include "lang-tokenizer-common.h"
+#include "lang-settings.h"
 #include "word-boundary-data.c"
 #include "word-break-data.c"
 
 /* see comments below between is_base64() and skip_base64() */
 #define LANG_SKIP_BASE64_MIN_SEQUENCES 1
 #define LANG_SKIP_BASE64_MIN_CHARS 50
-
-#define LANG_DEFAULT_TOKEN_MAX_LENGTH 30
 #define LANG_WB5A_PREFIX_MAX_LENGTH 3 /* Including apostrophe */
 
 static unsigned char lang_ascii_word_breaks[128] = {
@@ -32,71 +31,56 @@ static unsigned char lang_ascii_word_breaks[128] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0  /* 112-127: {|}~ */
 };
 
+struct algorithm {
+	const char *name;
+	enum boundary_algorithm id;
+	const struct lang_tokenizer_vfuncs *v;
+};
+
+static const struct algorithm algorithms[] = {
+	{ ALGORITHM_SIMPLE_NAME, BOUNDARY_ALGORITHM_SIMPLE, &generic_tokenizer_vfuncs_simple },
+	{ ALGORITHM_TR29_NAME,   BOUNDARY_ALGORITHM_TR29,   &generic_tokenizer_vfuncs_tr29 },
+	{ NULL, 0, NULL }
+};
+
+static const struct algorithm *parse_algorithm(const char *name)
+{
+	for (const struct algorithm *entry = algorithms; entry->name != NULL; entry++)
+		if (strcmp(name, entry->name) == 0)
+			return entry;
+	return NULL;
+}
+
 static int
-lang_tokenizer_generic_create(const char *const *settings,
+lang_tokenizer_generic_create(const struct lang_settings *set,
 			      enum lang_tokenizer_flags flags,
 			      struct lang_tokenizer **tokenizer_r,
 			      const char **error_r)
 {
-	struct generic_lang_tokenizer *tok;
-	unsigned int max_length = LANG_DEFAULT_TOKEN_MAX_LENGTH;
-	enum boundary_algorithm algo = BOUNDARY_ALGORITHM_SIMPLE;
-	bool wb5a = FALSE;
-	bool search = HAS_ALL_BITS(flags, LANG_TOKENIZER_FLAG_SEARCH);
-	bool explicitprefix = FALSE;
-	unsigned int i;
-
-	for (i = 0; settings[i] != NULL; i += 2) {
-		const char *key = settings[i], *value = settings[i+1];
-
-		if (strcmp(key, "maxlen") == 0) {
-			if (str_to_uint(value, &max_length) < 0 ||
-			    max_length == 0) {
-				*error_r = t_strdup_printf(
-					"Invalid maxlen setting: %s", value);
-				return -1;
-			}
-		} else if (strcmp(key, "algorithm") == 0) {
-			if (strcmp(value, ALGORITHM_TR29_NAME) == 0)
-				algo = BOUNDARY_ALGORITHM_TR29;
-			else if (strcmp(value, ALGORITHM_SIMPLE_NAME) == 0)
-				;
-			else {
-				*error_r = t_strdup_printf(
-				        "Invalid algorithm: %s", value);
-				return -1;
-			}
-		} else if (strcasecmp(key, "wb5a") == 0) {
-			if (strcasecmp(value, "no") == 0)
-				wb5a = FALSE;
-			else
-				wb5a = TRUE;
-		} else if (strcasecmp(key, "explicitprefix") == 0) {
-			explicitprefix = TRUE;
-		} else {
-			*error_r = t_strdup_printf("Unknown setting: %s", key);
-			return -1;
-		}
-	}
-
-	/* Tokenise normally unless tokenising an explicit prefix query */
-	if (!search)
-		explicitprefix = FALSE;
-
-	if (wb5a && algo != BOUNDARY_ALGORITHM_TR29) {
-		*error_r = "Can not use WB5a for algorithms other than TR29.";
+	const struct algorithm *algo = parse_algorithm(set->tokenizer_generic_algorithm);
+	if (algo == NULL) {
+		*error_r = t_strdup_printf(
+			"Unknown language_tokenizer_generic_algorithm: %s",
+			set->tokenizer_generic_algorithm);
 		return -1;
 	}
 
+	bool wb5a = set->tokenizer_generic_wb5a;
+	if (wb5a && algo->id != BOUNDARY_ALGORITHM_TR29) {
+		*error_r = "Can not use language_tokenizer_generic_wb5a for "
+			   "algorithms other than language_tokenizer_generic_algorithm = tr29";
+		return -1;
+	}
+
+	bool search = HAS_ALL_BITS(flags, LANG_TOKENIZER_FLAG_SEARCH);
+
+	struct generic_lang_tokenizer *tok;
 	tok = i_new(struct generic_lang_tokenizer, 1);
-	if (algo == BOUNDARY_ALGORITHM_TR29)
-		tok->tokenizer.v = &generic_tokenizer_vfuncs_tr29;
-	else
-		tok->tokenizer.v = &generic_tokenizer_vfuncs_simple;
-	tok->max_length = max_length;
-	tok->algorithm = algo;
+	tok->tokenizer.v = algo->v;
+	tok->max_length = set->tokenizer_generic_token_maxlen;
+	tok->algorithm = algo->id;
 	tok->wb5a = wb5a;
-	tok->prefixsplat = explicitprefix;
+	tok->prefixsplat = search && set->tokenizer_generic_explicit_prefix;
 	tok->token = buffer_create_dynamic(default_pool, 64);
 
 	*tokenizer_r = &tok->tokenizer;

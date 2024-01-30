@@ -1,6 +1,8 @@
 #ifndef LANG_TOKENIZER_H
 #define LANG_TOKENIZER_H
 
+struct lang_settings;
+
 /*
  Settings are given in the form of a const char * const *settings =
  {"key, "value", "key2", "value2", NULL} array of string pairs. Some
@@ -53,7 +55,7 @@ const struct lang_tokenizer *lang_tokenizer_find(const char *name);
 /* Create a new tokenizer. The settings are described above. */
 int lang_tokenizer_create(const struct lang_tokenizer *tok_class,
 			  struct lang_tokenizer *parent,
-			  const char *const *settings,
+			  const struct lang_settings *set,
 			  enum lang_tokenizer_flags flags,
 			  struct lang_tokenizer **tokenizer_r,
 			  const char **error_r);
