@@ -951,7 +951,7 @@ const char *client_get_session_id(struct client *client)
 
 /* increment index if new proper login variables are added
  * make sure the aliases stay in the current order */
-#define VAR_EXPAND_ALIAS_INDEX_START 28
+#define VAR_EXPAND_ALIAS_INDEX_START 27
 
 static struct var_expand_table login_var_expand_empty_tab[] = {
 	{ 'u', NULL, "user" },
@@ -962,7 +962,6 @@ static struct var_expand_table login_var_expand_empty_tab[] = {
 	{ 'h', NULL, "home" },
 	{ 'l', NULL, "lip" },
 	{ 'r', NULL, "rip" },
-	{ 'p', NULL, "pid" },
 	{ 'm', NULL, "mech" },
 	{ 'a', NULL, "lport" },
 	{ 'b', NULL, "rport" },
@@ -1031,20 +1030,19 @@ get_var_expand_table(struct client *client)
 		net_ip2addr(&client->local_ip);
 	tab[VAR_EXPAND_ALIAS_INDEX_START + 1].value = tab[6].value =
 		net_ip2addr(&client->ip);
-	tab[7].value = my_pid;
-	tab[VAR_EXPAND_ALIAS_INDEX_START + 8].value = tab[8].value =
+	tab[VAR_EXPAND_ALIAS_INDEX_START + 8].value = tab[7].value =
 		client->auth_mech_name == NULL ? NULL :
 			str_sanitize(client->auth_mech_name, MAX_MECH_NAME);
-	tab[VAR_EXPAND_ALIAS_INDEX_START + 2].value = tab[9].value =
+	tab[VAR_EXPAND_ALIAS_INDEX_START + 2].value = tab[8].value =
 		dec2str(client->local_port);
-	tab[VAR_EXPAND_ALIAS_INDEX_START + 3].value = tab[10].value =
+	tab[VAR_EXPAND_ALIAS_INDEX_START + 3].value = tab[9].value =
 		dec2str(client->remote_port);
 	if (client->haproxy_terminated_tls) {
-		tab[11].value = "TLS";
-		tab[12].value = "(proxied)";
+		tab[10].value = "TLS";
+		tab[11].value = "(proxied)";
 	} else if (!client->connection_tls_secured) {
-		tab[11].value = client->connection_secured ? "secured" : NULL;
-		tab[12].value = "";
+		tab[10].value = client->connection_secured ? "secured" : NULL;
+		tab[11].value = "";
 	} else if (client->ssl_iostream != NULL) {
 		const char *ssl_state =
 			ssl_iostream_is_handshaked(client->ssl_iostream) ?
@@ -1052,43 +1050,43 @@ get_var_expand_table(struct client *client)
 		const char *ssl_error =
 			ssl_iostream_get_last_error(client->ssl_iostream);
 
-		tab[11].value = ssl_error == NULL ? ssl_state :
+		tab[10].value = ssl_error == NULL ? ssl_state :
 			t_strdup_printf("%s: %s", ssl_state, ssl_error);
-		tab[12].value =
+		tab[11].value =
 			ssl_iostream_get_security_string(client->ssl_iostream);
-		tab[27].value =
+		tab[26].value =
 			ssl_iostream_get_ja3(client->ssl_iostream);
 	} else {
-		tab[11].value = "TLS";
-		tab[12].value = "";
+		tab[10].value = "TLS";
+		tab[11].value = "";
 	}
-	tab[13].value = client->mail_pid == 0 ? "" :
+	tab[12].value = client->mail_pid == 0 ? "" :
 		dec2str(client->mail_pid);
-	tab[14].value = client_get_session_id(client);
-	tab[VAR_EXPAND_ALIAS_INDEX_START + 4].value = tab[15].value =
+	tab[13].value = client_get_session_id(client);
+	tab[VAR_EXPAND_ALIAS_INDEX_START + 4].value = tab[14].value =
 		net_ip2addr(&client->real_local_ip);
-	tab[VAR_EXPAND_ALIAS_INDEX_START + 5].value = tab[16].value =
+	tab[VAR_EXPAND_ALIAS_INDEX_START + 5].value = tab[15].value =
 		net_ip2addr(&client->real_remote_ip);
-	tab[VAR_EXPAND_ALIAS_INDEX_START + 6].value = tab[17].value =
+	tab[VAR_EXPAND_ALIAS_INDEX_START + 6].value = tab[16].value =
 		dec2str(client->real_local_port);
-	tab[VAR_EXPAND_ALIAS_INDEX_START + 7].value = tab[18].value =
+	tab[VAR_EXPAND_ALIAS_INDEX_START + 7].value = tab[17].value =
 		dec2str(client->real_remote_port);
 	if (client->virtual_user_orig != NULL)
-		get_var_expand_users(tab+19, client->virtual_user_orig);
+		get_var_expand_users(tab+18, client->virtual_user_orig);
 	else {
-		tab[VAR_EXPAND_ALIAS_INDEX_START + 9].value = tab[19].value = tab[0].value;
-		tab[VAR_EXPAND_ALIAS_INDEX_START + 10].value = tab[20].value = tab[1].value;
-		tab[VAR_EXPAND_ALIAS_INDEX_START + 11].value = tab[21].value = tab[2].value;
+		tab[VAR_EXPAND_ALIAS_INDEX_START + 9].value = tab[18].value = tab[0].value;
+		tab[VAR_EXPAND_ALIAS_INDEX_START + 10].value = tab[19].value = tab[1].value;
+		tab[VAR_EXPAND_ALIAS_INDEX_START + 11].value = tab[20].value = tab[2].value;
 	}
 	if (client->virtual_auth_user != NULL)
-		get_var_expand_users(tab+22, client->virtual_auth_user);
+		get_var_expand_users(tab+21, client->virtual_auth_user);
 	else {
+		tab[21].value = tab[18].value;
 		tab[22].value = tab[19].value;
 		tab[23].value = tab[20].value;
-		tab[24].value = tab[21].value;
 	}
-	tab[25].value = client->listener_name;
-	tab[26].value = str_sanitize(client->local_name, 256);
+	tab[24].value = client->listener_name;
+	tab[25].value = str_sanitize(client->local_name, 256);
 	return tab;
 }
 
