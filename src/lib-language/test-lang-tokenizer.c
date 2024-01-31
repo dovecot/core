@@ -192,7 +192,7 @@ static void test_lang_tokenizer_generic_only(void)
 	const char *error;
 
 	test_begin("lang tokenizer generic simple");
-	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, NULL, &tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, NULL, 0, &tok, &error) == 0);
 	test_assert(((struct generic_lang_tokenizer *) tok)->algorithm == BOUNDARY_ALGORITHM_SIMPLE);
 
 	test_tokenizer_inputs(tok, test_inputs, N_ELEMENTS(test_inputs), expected_output);
@@ -250,7 +250,7 @@ static void test_lang_tokenizer_generic_tr29_only(void)
 	const char *error;
 
 	test_begin("lang tokenizer generic TR29");
-	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, tr29_settings, &tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, tr29_settings, 0, &tok, &error) == 0);
 	test_tokenizer_inputs(tok, test_inputs, N_ELEMENTS(test_inputs), expected_output);
 	lang_tokenizer_unref(&tok);
 	test_end();
@@ -307,7 +307,7 @@ static void test_lang_tokenizer_generic_tr29_wb5a(void)
 	const char *error;
 
 	test_begin("lang tokenizer generic TR29 with WB5a");
-	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, tr29_settings_wb5a, &tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, tr29_settings_wb5a, 0, &tok, &error) == 0);
 	test_tokenizer_inputs(tok, test_inputs, N_ELEMENTS(test_inputs), expected_output);
 	lang_tokenizer_unref(&tok);
 	test_end();
@@ -330,13 +330,13 @@ static void test_lang_tokenizer_address_only(void)
 	const char *error;
 
 	test_begin("lang tokenizer email address only");
-	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, NULL, NULL, &tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, NULL, NULL, 0, &tok, &error) == 0);
 	test_tokenizer_inputoutput(tok, input, expected_output, 0);
 	lang_tokenizer_unref(&tok);
 	test_end();
 }
 
-static void test_lang_tokenizer_address_parent(const char *name, const char * const *settings)
+static void test_lang_tokenizer_address_parent(const char *name, const char * const *settings, unsigned int flags)
 {
 	static const char input[] = TEST_INPUT_ADDRESS;
 	static const char *const expected_output[] = {
@@ -366,8 +366,8 @@ static void test_lang_tokenizer_address_parent(const char *name, const char * co
 	const char *error;
 
 	test_begin(t_strdup_printf("lang tokenizer email address + parent %s", name));
-	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, settings, &gen_tok, &error) == 0);
-	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, gen_tok, NULL, &tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, settings, flags, &gen_tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, gen_tok, NULL, 0, &tok, &error) == 0);
 	test_tokenizer_inputoutput(tok, input, expected_output, 0);
 	lang_tokenizer_unref(&tok);
 	lang_tokenizer_unref(&gen_tok);
@@ -377,12 +377,12 @@ static void test_lang_tokenizer_address_parent(const char *name, const char * co
 const char *const simple_settings[] = {"algorithm", "simple", NULL};
 static void test_lang_tokenizer_address_parent_simple(void)
 {
-	test_lang_tokenizer_address_parent("simple", simple_settings);
+	test_lang_tokenizer_address_parent("simple", simple_settings, 0);
 }
 
 static void test_lang_tokenizer_address_parent_tr29(void)
 {
-	test_lang_tokenizer_address_parent("tr29", tr29_settings);
+	test_lang_tokenizer_address_parent("tr29", tr29_settings, 0);
 }
 
 static void test_lang_tokenizer_address_search(void)
@@ -411,13 +411,12 @@ static void test_lang_tokenizer_address_search(void)
 		"hypen@hypen-hypen-sick.com",
 		NULL
 	};
-	static const char *const settings[] = { "search", "", NULL };
 	struct lang_tokenizer *tok, *gen_tok;
 	const char *token, *error;
 
 	test_begin("lang tokenizer search email address + parent");
-	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, NULL, &gen_tok, &error) == 0);
-	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, gen_tok, settings, &tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, NULL, 0, &gen_tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, gen_tok, NULL, LANG_TOKENIZER_FLAG_SEARCH, &tok, &error) == 0);
 	test_tokenizer_inputoutput(tok, input, expected_output, 0);
 
 	/* make sure state is forgotten at EOF */
@@ -485,7 +484,7 @@ static void test_lang_tokenizer_address_maxlen(void)
 	const char *token, *error;
 
 	test_begin("lang tokenizer address maxlen");
-	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, NULL, settings, &tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, NULL, settings, 0, &tok, &error) == 0);
 
 	while (lang_tokenizer_next(tok, (const unsigned char *)input,
 				  strlen(input), &token, &error) > 0) ;
@@ -506,8 +505,8 @@ static void test_lang_tokenizer_random(void)
 	const char *token, *error;
 
 	test_begin("lang tokenizer random");
-	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, settings, &gen_tok, &error) == 0);
-	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, gen_tok, email_settings, &tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, settings, 0, &gen_tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_email_address, gen_tok, email_settings, 0, &tok, &error) == 0);
 
 	for (i = 0; i < 10000; i++) T_BEGIN {
 		for (unsigned int j = 0; j < sizeof(addr); j++)
@@ -550,17 +549,12 @@ test_lang_tokenizer_explicit_prefix(void)
 	const char *prefixes[] = { "fixed", "prefix" };
 
 	for (int algo = 2; algo >= 0; algo--) { /* We overwrite the settings over time */
-		setptr = &settings[algo*2]; /* 4, 2, or 0 settings strings preserved */
-
 		for (int search = 0; search < 2; search++) {
-			const char **setptr2 = setptr;
-			if (search > 0) { *setptr2++ = "search"; *setptr2++ = "yes"; }
-
+			enum lang_tokenizer_flags flags = search > 0 ? LANG_TOKENIZER_FLAG_SEARCH : 0;
 			for (int explicitprefix = 0; explicitprefix < 2; explicitprefix++) {
-				const char **setptr3 = setptr2;
-				if (explicitprefix > 0) { *setptr3++ = "explicitprefix"; *setptr3++ = "y"; }
-
-				*setptr3++ = NULL;
+				setptr = &settings[algo*2]; /* 4, 2, or 0 settings strings preserved */
+				if (explicitprefix > 0) { *setptr++ = "explicitprefix"; *setptr++ = "y"; }
+				*setptr++ = NULL;
 
 				test_begin(t_strdup_printf("prefix search %s:%s:%s",
 							   algos[algo],
@@ -570,7 +564,7 @@ test_lang_tokenizer_explicit_prefix(void)
 				const char *error;
 
 				test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, settings,
-								 &tok, &error) == 0);
+								  flags, &tok, &error) == 0);
 				test_tokenizer_inputs(
 					tok, &input, 1,
 					(search!=0) && (explicitprefix!=0)
@@ -641,7 +635,7 @@ static void test_lang_tokenizer_skip_base64(void)
 	};
 
 	test_begin("lang tokenizer skip base64");
-	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, tr29_settings, &tok, &error) == 0);
+	test_assert(lang_tokenizer_create(lang_tokenizer_generic, NULL, tr29_settings, 0, &tok, &error) == 0);
 
 	size_t index = 0;
 	while (lang_tokenizer_next(tok, (const unsigned char *) input, strlen(input), &token, &error) > 0) {

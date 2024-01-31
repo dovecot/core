@@ -4,9 +4,8 @@
 /*
  Settings are given in the form of a const char * const *settings =
  {"key, "value", "key2", "value2", NULL} array of string pairs. Some
- keys, like "no_parent" and "search" are a sort of boolean and the
- value does not matter, just mentioning the key enables the functionality.
- The array has to be NULL terminated.
+ keys are a sort of boolean and the value does not matter, just mentioning
+ the key enables the functionality. The array has to be NULL terminated.
 */
 /* Email address header tokenizer that returns "user@domain.org" input as
    "user@domain.org" token as well as passing it through to the parent
@@ -15,13 +14,6 @@
    allows doing an explicit "user@domain" search, which returns only mails
    matching that exact address (instead of e.g. a mail with both user@domain2
    and user2@domain words). */
-/* Settings:
-   "no_parent", Return only our tokens, no data for parent to process.
-   Defaults to disabled. Should normally not be needed.
-
-   "search" Remove addresses from parent data stream, so they are not processed
-   further. Defaults to disabled. Enable by defining the keyword (and any
-   value). */
 extern const struct lang_tokenizer *lang_tokenizer_email_address;
 
 /* Generic email content tokenizer. Cuts text into tokens. */
@@ -41,6 +33,12 @@ extern const struct lang_tokenizer *lang_tokenizer_email_address;
    not. The default is "simple" */
 extern const struct lang_tokenizer *lang_tokenizer_generic;
 
+enum lang_tokenizer_flags {
+	/* Remove addresses from parent data stream, so they are not
+	   processed further. */
+	LANG_TOKENIZER_FLAG_SEARCH = 0x01,
+};
+
 /*
  Tokenizing workflow, find --> create --> filter --> destroy.
  Do init before first use and deinit after all done.
@@ -56,6 +54,7 @@ const struct lang_tokenizer *lang_tokenizer_find(const char *name);
 int lang_tokenizer_create(const struct lang_tokenizer *tok_class,
 			  struct lang_tokenizer *parent,
 			  const char *const *settings,
+			  enum lang_tokenizer_flags flags,
 			  struct lang_tokenizer **tokenizer_r,
 			  const char **error_r);
 void lang_tokenizer_ref(struct lang_tokenizer *tok);

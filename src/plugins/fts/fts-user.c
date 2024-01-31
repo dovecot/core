@@ -193,13 +193,9 @@ fts_user_create_tokenizer(struct mail_user *user,
 			str = mail_user_plugin_getenv(user, set_key);
 		}
 
-		/* tell the tokenizers that we're tokenizing a search string
-		   (instead of tokenizing indexed data) */
-		if (search)
-			str = t_strconcat("search=yes ", str, NULL);
-
 		if (lang_tokenizer_create(tokenizer_class, parent,
 					  str_keyvalues_to_array(str),
+					  search ? LANG_TOKENIZER_FLAG_SEARCH : 0,
 					  &tokenizer, &error) < 0) {
 			*error_r = t_strdup_printf("%s: %s", set_key, error);
 			ret = -1;

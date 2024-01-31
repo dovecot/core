@@ -31,20 +31,19 @@ struct email_address_lang_tokenizer {
 
 static int
 lang_tokenizer_email_address_create(const char *const *settings,
+				    enum lang_tokenizer_flags flags,
 				    struct lang_tokenizer **tokenizer_r,
 				    const char **error_r)
 {
 	struct email_address_lang_tokenizer *tok;
-	bool search = FALSE;
+	bool search = HAS_ALL_BITS(flags, LANG_TOKENIZER_FLAG_SEARCH);
 	unsigned int max_length = LANG_DEFAULT_ADDRESS_MAX_LENGTH;
 	unsigned int i;
 
 	for (i = 0; settings[i] != NULL; i += 2) {
 		const char *key = settings[i], *value = settings[i+1];
 
-		if (strcmp(key, "search") == 0) {
-			search = TRUE;
-		} else if (strcmp(key, "maxlen") == 0) {
+		if (strcmp(key, "maxlen") == 0) {
 			if (str_to_uint(value, &max_length) < 0 ||
 			    max_length == 0) {
 				*error_r = t_strdup_printf("Invalid maxlen setting: %s", value);
