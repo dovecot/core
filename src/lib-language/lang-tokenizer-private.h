@@ -6,7 +6,7 @@
 #define LANG_TOKENIZER_CLASSES_NR 2
 
 struct lang_tokenizer_vfuncs {
-	int (*create)(const char *const *settings,
+	int (*create)(const char *const *settings, unsigned int flags,
 		      struct lang_tokenizer **tokenizer_r, const char **error_r);
 	void (*destroy)(struct lang_tokenizer *tok);
 
