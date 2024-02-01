@@ -71,7 +71,7 @@ static const struct setting_define ssl_server_setting_defines[] = {
 	DEF(FILE, ssl_alt_cert_file),
 	DEF(FILE, ssl_alt_key_file),
 	DEF(STR, ssl_key_password),
-	DEF(STR, ssl_dh),
+	DEF(FILE, ssl_dh_file),
 	DEF(STR, ssl_cert_username_field),
 
 	DEF(BOOL, ssl_require_crl),
@@ -89,7 +89,7 @@ static const struct ssl_server_settings ssl_server_default_settings = {
 	.ssl_alt_cert_file = "",
 	.ssl_alt_key_file = "",
 	.ssl_key_password = "",
-	.ssl_dh = "",
+	.ssl_dh_file = "",
 	.ssl_cert_username_field = "commonName",
 
 	.ssl_require_crl = TRUE,
@@ -227,7 +227,7 @@ void ssl_server_settings_to_iostream_set(
 				  set->pool, &set->alt_cert.key);
 		set->alt_cert.key_password = ssl_server_set->ssl_key_password;
 	}
-	set->dh = ssl_server_set->ssl_dh;
+	settings_file_get(ssl_server_set->ssl_dh_file, set->pool, &set->dh);
 	set->cert_username_field =
 		ssl_server_set->ssl_cert_username_field;
 	set->prefer_server_ciphers = ssl_server_set->ssl_prefer_server_ciphers;

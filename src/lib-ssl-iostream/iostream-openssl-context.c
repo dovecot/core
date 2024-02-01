@@ -34,7 +34,7 @@ static DH *ssl_tmp_dh_callback(SSL *ssl,
 		SSL_get_ex_data(ssl, dovecot_ssl_extdata_index);
 
 	e_error(ssl_io->event, "Diffie-Hellman key exchange requested, "
-		"but no DH parameters provided. Set ssl_dh=</path/to/dh.pem");
+		"but no DH parameters provided. Set ssl_dh_file=/path/to/dh.pem");
 	return NULL;
 }
 #endif
@@ -100,7 +100,7 @@ int openssl_iostream_load_dh(const struct ssl_iostream_settings *set,
 	BIO *bio;
 	EVP_PKEY *pkey = NULL;
 
-	bio = BIO_new_mem_buf(set->dh, strlen(set->dh));
+	bio = BIO_new_mem_buf(set->dh.content, strlen(set->dh.content));
 
 	if (bio == NULL) {
 		*error_r = t_strdup_printf("BIO_new_mem_buf() failed: %s",
@@ -145,7 +145,7 @@ ssl_iostream_ctx_use_dh(struct ssl_iostream_context *ctx,
 {
 	EVP_PKEY *pkey_dh;
 	int ret = 0;
-	if (*set->dh == '\0') {
+	if (*set->dh.content == '\0') {
 		return 0;
 	}
 	if (openssl_iostream_load_dh(set, &pkey_dh, error_r) < 0)
@@ -158,7 +158,7 @@ ssl_iostream_ctx_use_dh(struct ssl_iostream_context *ctx,
 #endif
 	{
 		 *error_r = t_strdup_printf(
-			"Can't load DH parameters (ssl_dh setting): %s",
+			"Can't load DH parameters (ssl_dh_file setting): %s",
 			openssl_iostream_key_load_error());
 		ret = -1;
 	}
@@ -624,7 +624,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			return -1;
 	}
 
-	if (set->dh != NULL && *set->dh != '\0') {
+	if (set->dh.content != NULL && *set->dh.content != '\0') {
 		if (ssl_iostream_ctx_use_dh(ctx, set, error_r) < 0)
 			return -1;
 	}
@@ -660,9 +660,8 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 				const struct ssl_iostream_settings *set ATTR_UNUSED,
 				const char **error_r ATTR_UNUSED)
 {
-
 #ifdef SSL_CTX_set_tmp_dh_callback
-	if (set->dh == NULL || *set->dh == '\0')
+	if (set->dh.content == NULL || *set->dh.content == '\0')
 		SSL_CTX_set_tmp_dh_callback(ssl_ctx, ssl_tmp_dh_callback);
 #endif
 	/* In the non-recommended situation where ECDH cipher suites are being
