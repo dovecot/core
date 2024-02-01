@@ -38,7 +38,7 @@ struct ssl_iostream_settings {
 	/* alternative cert is for providing certificate using
 	   different key algorithm */
 	struct ssl_iostream_cert alt_cert;
-	const char *dh;
+	struct settings_file dh;
 	/* Field which contains the username returned by
 	   ssl_iostream_get_peer_username() */
 	const char *cert_username_field;

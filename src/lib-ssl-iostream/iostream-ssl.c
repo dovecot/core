@@ -369,7 +369,7 @@ bool ssl_iostream_settings_equals(const struct ssl_iostream_settings *set1,
 	    !quick_strcmp(set1->cipher_list, set2->cipher_list) ||
 	    !quick_strcmp(set1->ciphersuites, set2->ciphersuites) ||
 	    !quick_strcmp(set1->curve_list, set2->curve_list) ||
-	    !quick_strcmp(set1->dh, set2->dh) ||
+	    !quick_strcmp(set1->dh.content, set2->dh.content) ||
 	    !quick_strcmp(set1->cert_username_field,
 			  set2->cert_username_field) ||
 	    !quick_strcmp(set1->crypto_device, set2->crypto_device))
