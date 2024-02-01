@@ -265,28 +265,15 @@ static int load_ca(X509_STORE *store, const char *ca,
 }
 
 static int
-load_ca_locations(struct ssl_iostream_context *ctx, const char *ca_file,
+load_ca_locations(struct ssl_iostream_context *ctx,
 		  const char *ca_dir, const char **error_r)
 {
-	if (SSL_CTX_load_verify_locations(ctx->ssl_ctx, ca_file, ca_dir) != 0)
+	if (SSL_CTX_load_verify_locations(ctx->ssl_ctx, NULL, ca_dir) != 0)
 		return 0;
 
-	if (ca_dir == NULL) {
-		*error_r = t_strdup_printf(
-			"Can't load CA certs from %s "
-			"(ssl_client_ca_file setting): %s",
-			ca_file, openssl_iostream_error());
-	} else if (ca_file == NULL) {
-		*error_r = t_strdup_printf(
-			"Can't load CA certs from directory %s "
-			"(ssl_client_ca_dir setting): %s",
-			ca_dir, openssl_iostream_error());
-	} else {
-		*error_r = t_strdup_printf(
-			"Can't load CA certs from file %s and directory %s "
-			"(ssl_client_ca_* settings): %s",
-			ca_file, ca_dir, openssl_iostream_error());
-	}
+	*error_r = t_strdup_printf("Can't load CA certs from directory %s "
+				   "(ssl_client_ca_dir setting): %s",
+				   ca_dir, openssl_iostream_error());
 	return -1;
 }
 
@@ -512,7 +499,6 @@ ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 {
 	X509_STORE *store;
 	STACK_OF(X509_NAME) *xnames = NULL;
-	const char *ca_file, *ca_dir;
 	bool have_ca = FALSE;
 
 	if (set->ca.content != NULL && set->ca.content[0] != '\0') {
@@ -525,12 +511,8 @@ ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 		ssl_iostream_ctx_verify_remote_cert(ctx, set, xnames);
 		have_ca = TRUE;
 	}
-	ca_file = set->ca_file == NULL || *set->ca_file == '\0' ?
-		NULL : set->ca_file;
-	ca_dir = set->ca_dir == NULL || *set->ca_dir == '\0' ?
-		NULL : set->ca_dir;
-	if (ca_file != NULL || ca_dir != NULL) {
-		if (load_ca_locations(ctx, ca_file, ca_dir, error_r) < 0)
+	if (set->ca_dir != NULL && *set->ca_dir != '\0') {
+		if (load_ca_locations(ctx, set->ca_dir, error_r) < 0)
 			return -1;
 		have_ca = TRUE;
 	}

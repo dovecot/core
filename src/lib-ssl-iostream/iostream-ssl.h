@@ -34,7 +34,7 @@ struct ssl_iostream_settings {
 	const char *ciphersuites; /* TLSv1.3 only */
 	const char *curve_list;
 	struct settings_file ca;
-	const char *ca_file, *ca_dir;
+	const char *ca_dir;
 	struct ssl_iostream_cert cert;
 	/* alternative cert is for providing certificate using
 	   different key algorithm */
