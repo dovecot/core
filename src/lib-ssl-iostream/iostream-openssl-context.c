@@ -593,7 +593,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 		SSL_CTX_set_min_proto_version(ctx->ssl_ctx, min_protocol);
 	}
 
-	/* Client can ignore an empty ssl_client_cert, but server will fail
+	/* Client can ignore an empty ssl_client_cert_file, but server will fail
 	   if ssl_cert_file is empty. */
 	if (set->cert.cert.content != NULL &&
 	    (set->cert.cert.content[0] != '\0' || !ctx->client_ctx) &&

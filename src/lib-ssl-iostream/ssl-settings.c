@@ -17,8 +17,8 @@ static const struct setting_define ssl_setting_defines[] = {
 	DEF(STR, ssl_client_ca),
 	DEF(STR, ssl_client_ca_file),
 	DEF(STR, ssl_client_ca_dir),
-	DEF(STR, ssl_client_cert),
-	DEF(STR, ssl_client_key),
+	DEF(FILE, ssl_client_cert_file),
+	DEF(FILE, ssl_client_key_file),
 
 	DEF(STR, ssl_cipher_list),
 	DEF(STR, ssl_cipher_suites),
@@ -36,8 +36,8 @@ static const struct ssl_settings ssl_default_settings = {
 	.ssl_client_ca = "",
 	.ssl_client_ca_file = "",
 	.ssl_client_ca_dir = "",
-	.ssl_client_cert = "",
-	.ssl_client_key = "",
+	.ssl_client_cert_file = "",
+	.ssl_client_key_file = "",
 
 	.ssl_cipher_list = "ALL:!kRSA:!SRP:!kDHd:!DSS:!aNULL:!eNULL:!EXPORT:!DES:!3DES:!MD5:!PSK:!RC4:!ADH:!LOW@STRENGTH",
 	.ssl_cipher_suites = "", /* Use TLS library provided value */
@@ -193,8 +193,10 @@ void ssl_client_settings_to_iostream_set(
 	set->ca = ssl_set->ssl_client_ca;
 	set->ca_file = ssl_set->ssl_client_ca_file;
 	set->ca_dir = ssl_set->ssl_client_ca_dir;
-	set->cert.cert.content = ssl_set->ssl_client_cert;
-	set->cert.key.content = ssl_set->ssl_client_key;
+	settings_file_get(ssl_set->ssl_client_cert_file,
+			  set->pool, &set->cert.cert);
+	settings_file_get(ssl_set->ssl_client_key_file,
+			  set->pool, &set->cert.key);
 	set->verify_remote_cert = ssl_set->ssl_client_require_valid_cert;
 	set->allow_invalid_cert = !set->verify_remote_cert;
 	/* client-side CRL checking not supported currently */

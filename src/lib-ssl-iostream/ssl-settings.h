@@ -9,8 +9,8 @@ struct ssl_settings {
 	const char *ssl_client_ca;
 	const char *ssl_client_ca_file;
 	const char *ssl_client_ca_dir;
-	const char *ssl_client_cert;
-	const char *ssl_client_key;
+	const char *ssl_client_cert_file;
+	const char *ssl_client_key_file;
 
 	const char *ssl_cipher_list;
 	const char *ssl_cipher_suites;
