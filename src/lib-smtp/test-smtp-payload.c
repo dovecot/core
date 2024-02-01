@@ -938,7 +938,8 @@ test_run_client_server(
 		"ssl_ca", server_set->ssl->ca,
 		"ssl_cert_file", settings_file_get_value(unsafe_data_stack_pool,
 							 &server_set->ssl->cert.cert),
-		"ssl_key", server_set->ssl->cert.key,
+		"ssl_key_file", settings_file_get_value(unsafe_data_stack_pool,
+							&server_set->ssl->cert.key),
 		NULL,
 	};
 	struct settings_simple test_set;

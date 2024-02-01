@@ -184,7 +184,7 @@ const char *openssl_iostream_use_certificate_error(const char *cert)
 		return openssl_iostream_error();
 	else if (is_pem_key(cert)) {
 		return "The file contains a private key "
-			"(you've mixed ssl_cert_file and ssl_key settings)";
+			"(you've mixed ssl_cert_file and ssl_key_file settings)";
 	} else {
 		return "There is no valid PEM certificate.";
 	}

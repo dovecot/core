@@ -78,8 +78,8 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 #ifdef LDAP_OPT_X_TLS_CERT
 	if (conn->ssl_set.cert.cert.content != NULL)
 		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CERT, conn->ssl_set.cert.cert.content);
-	if (conn->ssl_set.cert.key != NULL)
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_KEYFILE, conn->ssl_set.cert.key);
+	if (conn->ssl_set.cert.key.content != NULL)
+		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_KEYFILE, conn->ssl_set.cert.key.content);
 #endif
 	if (conn->ssl_set.cipher_list != NULL) {
 		/* NOTE: OpenLDAP's CIPHER_SUITE is actually using OpenSSL's
@@ -140,7 +140,8 @@ bool ldap_connection_have_settings(struct ldap_connection *conn,
 	if (null_strcmp(conn->ssl_set.cert.cert.content,
 			set->ssl_set->cert.cert.content) != 0)
 		return FALSE;
-	if (null_strcmp(conn->ssl_set.cert.key, set->ssl_set->cert.key) != 0)
+	if (null_strcmp(conn->ssl_set.cert.key.content,
+			set->ssl_set->cert.key.content) != 0)
 		return FALSE;
 	return TRUE;
 }
@@ -189,7 +190,10 @@ int ldap_connection_init(struct ldap_client *client,
 			p_strdup(pool, set->ssl_set->cert.cert.path);
 		conn->ssl_set.cert.cert.content =
 			p_strdup(pool, set->ssl_set->cert.cert.content);
-		conn->ssl_set.cert.key = p_strdup(pool, set->ssl_set->cert.key);
+		conn->ssl_set.cert.key.path =
+			p_strdup(pool, set->ssl_set->cert.key.path);
+		conn->ssl_set.cert.key.content =
+			p_strdup(pool, set->ssl_set->cert.key.content);
 	}
 	i_assert(ldap_connection_have_settings(conn, set));
 

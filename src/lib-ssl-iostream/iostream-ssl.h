@@ -20,7 +20,7 @@ enum ssl_iostream_flags {
 
 struct ssl_iostream_cert {
 	struct settings_file cert;
-	const char *key;
+	struct settings_file key;
 	const char *key_password;
 };
 

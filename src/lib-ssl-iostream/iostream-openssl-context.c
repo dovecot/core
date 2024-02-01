@@ -66,7 +66,7 @@ int openssl_iostream_load_key(const struct ssl_iostream_cert *set,
 	EVP_PKEY *pkey;
 	BIO *bio;
 
-	bio = BIO_new_mem_buf(set->key, strlen(set->key));
+	bio = BIO_new_mem_buf(set->key.content, strlen(set->key.content));
 	if (bio == NULL) {
 		*error_r = t_strdup_printf("BIO_new_mem_buf() failed: %s",
 					   openssl_iostream_error());
@@ -603,8 +603,9 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			openssl_iostream_use_certificate_error(set->cert.cert.content));
 		return -1;
 	}
-	if (set->cert.key != NULL && set->cert.key[0] != '\0') {
-		if (ssl_iostream_ctx_use_key(ctx, "ssl_key", &set->cert, error_r) < 0)
+	if (set->cert.key.content != NULL && set->cert.key.content[0] != '\0') {
+		if (ssl_iostream_ctx_use_key(ctx, "ssl_key_file",
+					     &set->cert, error_r) < 0)
 			return -1;
 	}
 	if (set->alt_cert.cert.content != NULL &&
@@ -616,8 +617,10 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			openssl_iostream_use_certificate_error(set->alt_cert.cert.content));
 		return -1;
 	}
-	if (set->alt_cert.key != NULL && set->alt_cert.key[0] != '\0') {
-		if (ssl_iostream_ctx_use_key(ctx, "ssl_alt_key", &set->alt_cert, error_r) < 0)
+	if (set->alt_cert.key.content != NULL &&
+	    set->alt_cert.key.content[0] != '\0') {
+		if (ssl_iostream_ctx_use_key(ctx, "ssl_alt_key_file",
+					     &set->alt_cert, error_r) < 0)
 			return -1;
 	}
 

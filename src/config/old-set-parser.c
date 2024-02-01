@@ -211,8 +211,7 @@ old_settings_handle_root(struct config_parser_context *ctx,
 		old_set_parser_apply(ctx, CONFIG_LINE_TYPE_KEYVALUE, key, value);
 		return TRUE;
 	}
-	if (strcmp(key, "ssl_key_file") == 0 ||
-	    strcmp(key, "ssl_ca_file") == 0) {
+	if (strcmp(key, "ssl_ca_file") == 0) {
 		if (*value == '\0')
 			return TRUE;
 		p = t_strdup_until(key, strrchr(key, '_'));

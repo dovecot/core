@@ -52,7 +52,7 @@ struct config_module_parser {
 	   is forwarded to the config client process, which errors out only if
 	   the settings struct is attempted to be used. This allows for example
 	   doveadm to be called non-root and not fail even if it can't access
-	   ssl_key file. */
+	   ssl_key_file. */
 	const char *delayed_error;
 };
 ARRAY_DEFINE_TYPE(config_module_parsers, struct config_module_parser *);
