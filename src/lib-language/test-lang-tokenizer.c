@@ -524,7 +524,6 @@ static void test_lang_tokenizer_random(void)
 	test_end();
 }
 
-
 static void
 test_lang_tokenizer_explicit_prefix(void)
 {
