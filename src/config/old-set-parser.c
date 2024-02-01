@@ -156,7 +156,7 @@ static bool
 old_settings_handle_root(struct config_parser_context *ctx,
 			 const char *key, const char *value)
 {
-	const char *p, *suffix;
+	const char *suffix;
 	size_t len;
 
 	if (strcmp(key, "base_dir") == 0) {
@@ -209,14 +209,6 @@ old_settings_handle_root(struct config_parser_context *ctx,
 
 		if (*value == ' ') value++;
 		old_set_parser_apply(ctx, CONFIG_LINE_TYPE_KEYVALUE, key, value);
-		return TRUE;
-	}
-	if (strcmp(key, "ssl_ca_file") == 0) {
-		if (*value == '\0')
-			return TRUE;
-		p = t_strdup_until(key, strrchr(key, '_'));
-		obsolete(ctx, "%s has been replaced by %s = <file", key, p);
-		old_set_parser_apply(ctx, CONFIG_LINE_TYPE_KEYFILE, p, value);
 		return TRUE;
 	}
 	if (strcmp(key, "ssl_disable") == 0) {

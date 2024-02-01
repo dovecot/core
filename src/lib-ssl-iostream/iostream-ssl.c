@@ -360,7 +360,7 @@ bool ssl_iostream_settings_equals(const struct ssl_iostream_settings *set1,
 			  set2->alt_cert.key_password))
 		return FALSE;
 
-	if (!quick_strcmp(set1->ca, set2->ca) ||
+	if (!quick_strcmp(set1->ca.content, set2->ca.content) ||
 	    !quick_strcmp(set1->ca_file, set2->ca_file) ||
 	    !quick_strcmp(set1->ca_dir, set2->ca_dir))
 		return FALSE;
