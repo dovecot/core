@@ -14,8 +14,7 @@ static bool
 ssl_server_settings_check(void *_set, pool_t pool, const char **error_r);
 
 static const struct setting_define ssl_setting_defines[] = {
-	DEF(STR, ssl_client_ca),
-	DEF(STR, ssl_client_ca_file),
+	DEF(FILE, ssl_client_ca_file),
 	DEF(STR, ssl_client_ca_dir),
 	DEF(FILE, ssl_client_cert_file),
 	DEF(FILE, ssl_client_key_file),
@@ -33,7 +32,6 @@ static const struct setting_define ssl_setting_defines[] = {
 };
 
 static const struct ssl_settings ssl_default_settings = {
-	.ssl_client_ca = "",
 	.ssl_client_ca_file = "",
 	.ssl_client_ca_dir = "",
 	.ssl_client_cert_file = "",
@@ -190,8 +188,8 @@ void ssl_client_settings_to_iostream_set(
 	struct ssl_iostream_settings *set =
 		ssl_common_settings_to_iostream_set(ssl_set);
 
-	set->ca.content = ssl_set->ssl_client_ca;
-	set->ca_file = ssl_set->ssl_client_ca_file;
+	settings_file_get(ssl_set->ssl_client_ca_file,
+			  set->pool, &set->ca);
 	set->ca_dir = ssl_set->ssl_client_ca_dir;
 	settings_file_get(ssl_set->ssl_client_cert_file,
 			  set->pool, &set->cert.cert);
