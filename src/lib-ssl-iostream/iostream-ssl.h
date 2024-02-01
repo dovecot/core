@@ -1,6 +1,7 @@
 #ifndef IOSTREAM_SSL_H
 #define IOSTREAM_SSL_H
 
+#include "settings-parser.h"
 #include "ssl-settings.h"
 
 struct ssl_iostream;
@@ -18,7 +19,7 @@ enum ssl_iostream_flags {
 };
 
 struct ssl_iostream_cert {
-	const char *cert;
+	struct settings_file cert;
 	const char *key;
 	const char *key_password;
 };

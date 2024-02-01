@@ -66,9 +66,9 @@ const struct setting_parser_info ssl_setting_parser_info = {
 static const struct setting_define ssl_server_setting_defines[] = {
 	DEF(ENUM, ssl),
 	DEF(STR, ssl_ca),
-	DEF(STR, ssl_cert),
+	DEF(FILE, ssl_cert_file),
 	DEF(STR, ssl_key),
-	DEF(STR, ssl_alt_cert),
+	DEF(FILE, ssl_alt_cert_file),
 	DEF(STR, ssl_alt_key),
 	DEF(STR, ssl_key_password),
 	DEF(STR, ssl_dh),
@@ -84,9 +84,9 @@ static const struct setting_define ssl_server_setting_defines[] = {
 static const struct ssl_server_settings ssl_server_default_settings = {
 	.ssl = "yes:no:required",
 	.ssl_ca = "",
-	.ssl_cert = "",
+	.ssl_cert_file = "",
 	.ssl_key = "",
-	.ssl_alt_cert = "",
+	.ssl_alt_cert_file = "",
 	.ssl_alt_key = "",
 	.ssl_key_password = "",
 	.ssl_dh = "",
@@ -193,7 +193,7 @@ void ssl_client_settings_to_iostream_set(
 	set->ca = ssl_set->ssl_client_ca;
 	set->ca_file = ssl_set->ssl_client_ca_file;
 	set->ca_dir = ssl_set->ssl_client_ca_dir;
-	set->cert.cert = ssl_set->ssl_client_cert;
+	set->cert.cert.content = ssl_set->ssl_client_cert;
 	set->cert.key = ssl_set->ssl_client_key;
 	set->verify_remote_cert = ssl_set->ssl_client_require_valid_cert;
 	set->allow_invalid_cert = !set->verify_remote_cert;
@@ -212,12 +212,14 @@ void ssl_server_settings_to_iostream_set(
 	pool_add_external_ref(set->pool, ssl_server_set->pool);
 
 	set->ca = ssl_server_set->ssl_ca;
-	set->cert.cert = ssl_server_set->ssl_cert;
+	settings_file_get(ssl_server_set->ssl_cert_file,
+			  set->pool, &set->cert.cert);
 	set->cert.key = ssl_server_set->ssl_key;
 	set->cert.key_password = ssl_server_set->ssl_key_password;
-	if (ssl_server_set->ssl_alt_cert != NULL &&
-	    *ssl_server_set->ssl_alt_cert != '\0') {
-		set->alt_cert.cert = ssl_server_set->ssl_alt_cert;
+	if (ssl_server_set->ssl_alt_cert_file != NULL &&
+	    *ssl_server_set->ssl_alt_cert_file != '\0') {
+		settings_file_get(ssl_server_set->ssl_alt_cert_file,
+				  set->pool, &set->alt_cert.cert);
 		set->alt_cert.key = ssl_server_set->ssl_alt_key;
 		set->alt_cert.key_password = ssl_server_set->ssl_key_password;
 	}

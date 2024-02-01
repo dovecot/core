@@ -594,25 +594,26 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 	}
 
 	/* Client can ignore an empty ssl_client_cert, but server will fail
-	   if ssl_cert is empty. */
-	if (set->cert.cert != NULL &&
-	    (set->cert.cert[0] != '\0' || !ctx->client_ctx) &&
-	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->cert.cert) == 0) {
+	   if ssl_cert_file is empty. */
+	if (set->cert.cert.content != NULL &&
+	    (set->cert.cert.content[0] != '\0' || !ctx->client_ctx) &&
+	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->cert.cert.content) == 0) {
 		*error_r = t_strdup_printf(
-			"Can't load SSL certificate (ssl_cert setting): %s",
-			openssl_iostream_use_certificate_error(set->cert.cert, NULL));
+			"Can't load SSL certificate (ssl_cert_file setting): %s",
+			openssl_iostream_use_certificate_error(set->cert.cert.content));
 		return -1;
 	}
 	if (set->cert.key != NULL && set->cert.key[0] != '\0') {
 		if (ssl_iostream_ctx_use_key(ctx, "ssl_key", &set->cert, error_r) < 0)
 			return -1;
 	}
-	if (set->alt_cert.cert != NULL && set->alt_cert.cert[0] != '\0' &&
-	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->alt_cert.cert) == 0) {
+	if (set->alt_cert.cert.content != NULL &&
+	    set->alt_cert.cert.content[0] != '\0' &&
+	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->alt_cert.cert.content) == 0) {
 		*error_r = t_strdup_printf(
 			"Can't load alternative SSL certificate "
-			"(ssl_alt_cert setting): %s",
-			openssl_iostream_use_certificate_error(set->alt_cert.cert, NULL));
+			"(ssl_alt_cert_file setting): %s",
+			openssl_iostream_use_certificate_error(set->alt_cert.cert.content));
 		return -1;
 	}
 	if (set->alt_cert.key != NULL && set->alt_cert.key[0] != '\0') {

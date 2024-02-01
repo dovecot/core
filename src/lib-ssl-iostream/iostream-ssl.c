@@ -347,12 +347,13 @@ bool ssl_iostream_settings_equals(const struct ssl_iostream_settings *set1,
 	if (set1 == set2)
 		return TRUE;
 
-	if (!quick_strcmp(set1->cert.cert, set2->cert.cert) ||
+	if (!quick_strcmp(set1->cert.cert.content, set2->cert.cert.content) ||
 	    !quick_strcmp(set1->cert.key, set2->cert.key) ||
 	    !quick_strcmp(set1->cert.key_password, set2->cert.key_password))
 		return FALSE;
 
-	if (!quick_strcmp(set1->alt_cert.cert, set2->alt_cert.cert) ||
+	if (!quick_strcmp(set1->alt_cert.cert.content,
+			  set2->alt_cert.cert.content) ||
 	    !quick_strcmp(set1->alt_cert.key, set2->alt_cert.key) ||
 	    !quick_strcmp(set1->alt_cert.key_password,
 			  set2->alt_cert.key_password))
