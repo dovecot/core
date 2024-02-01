@@ -336,7 +336,7 @@ static void test_iostream_ssl_handshake(void)
 
 	/* missing server credentials */
 	ssl_iostream_test_settings_server(&server_set);
-	server_set.cert.key = NULL;
+	i_zero(&server_set.cert.key);
 	ssl_iostream_test_settings_client(&client_set);
 	client_set.verify_remote_cert = TRUE;
 	test_expect_error_string("client(failhost): SSL certificate not received");

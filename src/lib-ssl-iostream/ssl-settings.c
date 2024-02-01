@@ -67,9 +67,9 @@ static const struct setting_define ssl_server_setting_defines[] = {
 	DEF(ENUM, ssl),
 	DEF(STR, ssl_ca),
 	DEF(FILE, ssl_cert_file),
-	DEF(STR, ssl_key),
+	DEF(FILE, ssl_key_file),
 	DEF(FILE, ssl_alt_cert_file),
-	DEF(STR, ssl_alt_key),
+	DEF(FILE, ssl_alt_key_file),
 	DEF(STR, ssl_key_password),
 	DEF(STR, ssl_dh),
 	DEF(STR, ssl_cert_username_field),
@@ -85,9 +85,9 @@ static const struct ssl_server_settings ssl_server_default_settings = {
 	.ssl = "yes:no:required",
 	.ssl_ca = "",
 	.ssl_cert_file = "",
-	.ssl_key = "",
+	.ssl_key_file = "",
 	.ssl_alt_cert_file = "",
-	.ssl_alt_key = "",
+	.ssl_alt_key_file = "",
 	.ssl_key_password = "",
 	.ssl_dh = "",
 	.ssl_cert_username_field = "commonName",
@@ -194,7 +194,7 @@ void ssl_client_settings_to_iostream_set(
 	set->ca_file = ssl_set->ssl_client_ca_file;
 	set->ca_dir = ssl_set->ssl_client_ca_dir;
 	set->cert.cert.content = ssl_set->ssl_client_cert;
-	set->cert.key = ssl_set->ssl_client_key;
+	set->cert.key.content = ssl_set->ssl_client_key;
 	set->verify_remote_cert = ssl_set->ssl_client_require_valid_cert;
 	set->allow_invalid_cert = !set->verify_remote_cert;
 	/* client-side CRL checking not supported currently */
@@ -214,13 +214,15 @@ void ssl_server_settings_to_iostream_set(
 	set->ca = ssl_server_set->ssl_ca;
 	settings_file_get(ssl_server_set->ssl_cert_file,
 			  set->pool, &set->cert.cert);
-	set->cert.key = ssl_server_set->ssl_key;
+	settings_file_get(ssl_server_set->ssl_key_file,
+			  set->pool, &set->cert.key);
 	set->cert.key_password = ssl_server_set->ssl_key_password;
 	if (ssl_server_set->ssl_alt_cert_file != NULL &&
 	    *ssl_server_set->ssl_alt_cert_file != '\0') {
 		settings_file_get(ssl_server_set->ssl_alt_cert_file,
 				  set->pool, &set->alt_cert.cert);
-		set->alt_cert.key = ssl_server_set->ssl_alt_key;
+		settings_file_get(ssl_server_set->ssl_alt_key_file,
+				  set->pool, &set->alt_cert.key);
 		set->alt_cert.key_password = ssl_server_set->ssl_key_password;
 	}
 	set->dh = ssl_server_set->ssl_dh;

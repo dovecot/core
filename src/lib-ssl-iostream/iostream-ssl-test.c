@@ -157,7 +157,7 @@ void ssl_iostream_test_settings_server(struct ssl_iostream_settings *test_set)
 	test_set->pool = null_pool;
 	test_set->ca = test_ca_cert;
 	test_set->cert.cert.content = test_server_cert;
-	test_set->cert.key = test_server_key;
+	test_set->cert.key.content = test_server_key;
 	test_set->dh = test_server_dh;
 	test_set->skip_crl_check = TRUE;
 }
