@@ -32,7 +32,7 @@ struct ssl_server_settings {
 	pool_t pool;
 
 	const char *ssl;
-	const char *ssl_ca;
+	const char *ssl_ca_file;
 	const char *ssl_cert_file;
 	const char *ssl_alt_cert_file;
 	const char *ssl_key_file;

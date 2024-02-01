@@ -175,7 +175,7 @@ int ldap_connection_init(struct ldap_client *client,
 		ber_str2bv(conn->set.password, strlen(conn->set.password), 0, &conn->cred);
 	}
 	/* cannot use these */
-	conn->ssl_set.ca = NULL;
+	i_zero(&conn->ssl_set.ca);
 	conn->ssl_set.cert.key_password = NULL;
 	conn->ssl_set.cert_username_field = NULL;
 	conn->ssl_set.crypto_device = NULL;

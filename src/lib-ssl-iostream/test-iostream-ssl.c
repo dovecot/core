@@ -318,7 +318,7 @@ static void test_iostream_ssl_handshake(void)
 	ssl_iostream_test_settings_server(&server_set);
 	ssl_iostream_test_settings_client(&client_set);
 	client_set.verify_remote_cert = TRUE;
-	client_set.ca = NULL;
+	i_zero(&client_set.ca);
 	test_expect_error_string("client: Received invalid SSL certificate");
 	test_assert_idx(test_iostream_ssl_handshake_real(&server_set, &client_set,
 							 "127.0.0.1") != 0, idx);

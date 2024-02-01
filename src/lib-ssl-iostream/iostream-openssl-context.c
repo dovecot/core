@@ -515,10 +515,10 @@ ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 	const char *ca_file, *ca_dir;
 	bool have_ca = FALSE;
 
-	if (set->ca != NULL && set->ca[0] != '\0') {
+	if (set->ca.content != NULL && set->ca.content[0] != '\0') {
 		store = SSL_CTX_get_cert_store(ctx->ssl_ctx);
-		if (load_ca(store, set->ca, &xnames) < 0) {
-			*error_r = t_strdup_printf("Couldn't parse ssl_ca: %s",
+		if (load_ca(store, set->ca.content, &xnames) < 0) {
+			*error_r = t_strdup_printf("Couldn't parse ssl_ca_file: %s",
 						   openssl_iostream_error());
 			return -1;
 		}
@@ -542,7 +542,7 @@ ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 			return -1;
 		}
 	} else if (!have_ca) {
-		*error_r = "Can't verify remote client certs without CA (ssl_ca setting)";
+		*error_r = "Can't verify remote client certs without CA (ssl_ca_file setting)";
 		return -1;
 	}
 	return 0;
