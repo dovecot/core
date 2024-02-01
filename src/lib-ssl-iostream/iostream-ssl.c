@@ -151,7 +151,6 @@ int io_stream_autocreate_ssl_client(
 			p_memdup(pool, set, sizeof(*set));
 		set_copy->pool = pool;
 		pool_add_external_ref(pool, set->pool);
-		set_copy->ca_file = NULL;
 		set_copy->ca_dir = NULL;
 		settings_free(set);
 		set = set_copy;
@@ -361,7 +360,6 @@ bool ssl_iostream_settings_equals(const struct ssl_iostream_settings *set1,
 		return FALSE;
 
 	if (!quick_strcmp(set1->ca.content, set2->ca.content) ||
-	    !quick_strcmp(set1->ca_file, set2->ca_file) ||
 	    !quick_strcmp(set1->ca_dir, set2->ca_dir))
 		return FALSE;
 
