@@ -6,7 +6,6 @@ struct ssl_iostream_settings;
 struct ssl_settings {
 	pool_t pool;
 
-	const char *ssl_client_ca;
 	const char *ssl_client_ca_file;
 	const char *ssl_client_ca_dir;
 	const char *ssl_client_cert_file;
