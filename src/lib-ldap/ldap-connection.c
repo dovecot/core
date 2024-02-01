@@ -70,8 +70,15 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 	/* timelimit */
 	ldap_set_option(conn->conn, LDAP_OPT_TIMELIMIT, &opt);
 
-	if (conn->ssl_set.ca_file != NULL)
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CACERTFILE, conn->ssl_set.ca_file);
+	if (conn->ssl_set.ca.content != NULL &&
+	    conn->ssl_set.ca.content[0] != '\0') {
+		if (conn->ssl_set.ca.path[0] == '\0') {
+			*error_r = "LDAP doesn't support inline ssl_client_ca_file - use a path";
+			return -1;
+		}
+		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CACERTFILE,
+				conn->ssl_set.ca.path);
+	}
 	if (conn->ssl_set.ca_dir != NULL)
 		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CACERTDIR, conn->ssl_set.ca_dir);
 
@@ -135,7 +142,7 @@ bool ldap_connection_have_settings(struct ldap_connection *conn,
 		return FALSE;
 	if (null_strcmp(conn->ssl_set.curve_list, set->ssl_set->curve_list) != 0)
 		return FALSE;
-	if (null_strcmp(conn->ssl_set.ca_file, set->ssl_set->ca_file) != 0)
+	if (null_strcmp(conn->ssl_set.ca.path, set->ssl_set->ca.path) != 0)
 		return FALSE;
 	if (null_strcmp(conn->ssl_set.cert.cert.content,
 			set->ssl_set->cert.cert.content) != 0)
@@ -185,7 +192,9 @@ int ldap_connection_init(struct ldap_client *client,
 		conn->set.ssl_set = &conn->ssl_set;
 		conn->ssl_set.min_protocol = p_strdup(pool, set->ssl_set->min_protocol);
 		conn->ssl_set.cipher_list = p_strdup(pool, set->ssl_set->cipher_list);
-		conn->ssl_set.ca_file = p_strdup(pool, set->ssl_set->ca_file);
+		conn->ssl_set.ca.path = p_strdup(pool, set->ssl_set->ca.path);
+		conn->ssl_set.ca.content =
+			p_strdup(pool, set->ssl_set->ca.content);
 		conn->ssl_set.cert.cert.path =
 			p_strdup(pool, set->ssl_set->cert.cert.path);
 		conn->ssl_set.cert.cert.content =
