@@ -5,7 +5,6 @@
 #include "llist.h"
 #include "language.h"
 
-
 #ifdef HAVE_LIBEXTTEXTCAT_TEXTCAT_H
 #  include <libexttextcat/textcat.h>
 #elif defined (HAVE_LANG_EXTTEXTCAT)

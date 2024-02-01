@@ -76,8 +76,8 @@ void lang_tokenizer_reset(struct lang_tokenizer *tok);
    comes from message-decoder, which returns only complete UTF-8 sequences.) */
 
 int lang_tokenizer_next(struct lang_tokenizer *tok,
-		        const unsigned char *data, size_t size,
-		        const char **token_r, const char **error_r);
+			const unsigned char *data, size_t size,
+			const char **token_r, const char **error_r);
 /* Returns same as lang_tokenizer_next(). */
 int lang_tokenizer_final(struct lang_tokenizer *tok, const char **token_r,
 			 const char **error_r);
