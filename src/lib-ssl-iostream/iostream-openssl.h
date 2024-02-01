@@ -120,7 +120,7 @@ void openssl_iostream_set_error(struct ssl_iostream *ssl_io, const char *str);
 const char *openssl_iostream_error(void);
 const char *openssl_iostream_key_load_error(void);
 const char *
-openssl_iostream_use_certificate_error(const char *cert, const char *set_name);
+openssl_iostream_use_certificate_error(const char *cert);
 void openssl_iostream_clear_errors(void);
 
 void ssl_iostream_openssl_init(void);

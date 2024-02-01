@@ -2,6 +2,7 @@ noinst_LTLIBRARIES = libdoveadm.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-auth-client \
 	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-mail \

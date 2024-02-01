@@ -33,8 +33,8 @@ struct ssl_server_settings {
 
 	const char *ssl;
 	const char *ssl_ca;
-	const char *ssl_cert;
-	const char *ssl_alt_cert;
+	const char *ssl_cert_file;
+	const char *ssl_alt_cert_file;
 	const char *ssl_key;
 	const char *ssl_alt_key;
 	const char *ssl_key_password;

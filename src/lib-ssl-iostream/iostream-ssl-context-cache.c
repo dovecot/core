@@ -18,7 +18,10 @@ static unsigned int
 ssl_iostream_context_cache_hash(const struct ssl_iostream_context_cache *cache)
 {
 	unsigned int n, i, g, h = 0;
-	const char *const cert[] = { cache->set->cert.cert, cache->set->alt_cert.cert };
+	const char *const cert[] = {
+		cache->set->cert.cert.content,
+		cache->set->alt_cert.cert.content
+	};
 
 	/* checking for different certs is typically good enough,
 	   and it should be enough to check only the first few bytes (after the

@@ -76,8 +76,8 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CACERTDIR, conn->ssl_set.ca_dir);
 
 #ifdef LDAP_OPT_X_TLS_CERT
-	if (conn->ssl_set.cert.cert != NULL)
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CERT, conn->ssl_set.cert.cert);
+	if (conn->ssl_set.cert.cert.content != NULL)
+		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CERT, conn->ssl_set.cert.cert.content);
 	if (conn->ssl_set.cert.key != NULL)
 		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_KEYFILE, conn->ssl_set.cert.key);
 #endif
@@ -137,7 +137,8 @@ bool ldap_connection_have_settings(struct ldap_connection *conn,
 		return FALSE;
 	if (null_strcmp(conn->ssl_set.ca_file, set->ssl_set->ca_file) != 0)
 		return FALSE;
-	if (null_strcmp(conn->ssl_set.cert.cert, set->ssl_set->cert.cert) != 0)
+	if (null_strcmp(conn->ssl_set.cert.cert.content,
+			set->ssl_set->cert.cert.content) != 0)
 		return FALSE;
 	if (null_strcmp(conn->ssl_set.cert.key, set->ssl_set->cert.key) != 0)
 		return FALSE;
@@ -184,7 +185,10 @@ int ldap_connection_init(struct ldap_client *client,
 		conn->ssl_set.min_protocol = p_strdup(pool, set->ssl_set->min_protocol);
 		conn->ssl_set.cipher_list = p_strdup(pool, set->ssl_set->cipher_list);
 		conn->ssl_set.ca_file = p_strdup(pool, set->ssl_set->ca_file);
-		conn->ssl_set.cert.cert = p_strdup(pool, set->ssl_set->cert.cert);
+		conn->ssl_set.cert.cert.path =
+			p_strdup(pool, set->ssl_set->cert.cert.path);
+		conn->ssl_set.cert.cert.content =
+			p_strdup(pool, set->ssl_set->cert.cert.content);
 		conn->ssl_set.cert.key = p_strdup(pool, set->ssl_set->cert.key);
 	}
 	i_assert(ldap_connection_have_settings(conn, set));
