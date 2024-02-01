@@ -385,8 +385,17 @@ int main(int argc, char *argv[])
 	ssl_set.allow_invalid_cert = TRUE;
 	if (stat("/etc/ssl/certs", &st) == 0 && S_ISDIR(st.st_mode))
 		ssl_set.ca_dir = "/etc/ssl/certs"; /* debian */
-	if (stat("/etc/ssl/certs", &st) == 0 && S_ISREG(st.st_mode))
-		ssl_set.ca_file = "/etc/pki/tls/cert.pem"; /* redhat */
+	if (stat("/etc/ssl/certs", &st) == 0 && S_ISREG(st.st_mode)) {
+		/* redhat */
+		const char *ca_value;
+		if (settings_parse_read_file("/etc/pki/tls/cert.pem",
+					     "/etc/pki/tls/cert.pem",
+					     unsafe_data_stack_pool,
+					     &ca_value, &error) < 0)
+			i_fatal("%s", error);
+		settings_file_get(ca_value, unsafe_data_stack_pool,
+				  &ssl_set.ca);
+	}
 
 	http_client_settings_init(null_pool, &http_set);
 	http_set.max_idle_time_msecs = 5*1000;
