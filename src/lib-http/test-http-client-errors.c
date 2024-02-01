@@ -1535,6 +1535,9 @@ static void test_connection_lost_sub_ioloop(void)
 	test_end();
 }
 
+/* FreeBSD discards the network output at close() instead
+ * of trying to finish sending it. This makes this test fail. */
+#ifndef __FreeBSD__
 /*
  * Early success
  */
@@ -1651,6 +1654,7 @@ static void test_early_success(void)
 			       test_server_early_success, 1, NULL);
 	test_end();
 }
+#endif
 
 /*
  * Bad response
@@ -3588,7 +3592,9 @@ static void (*const test_functions[])(void) = {
 	test_connection_lost,
 	test_connection_lost_100,
 	test_connection_lost_sub_ioloop,
+#ifndef __FreeBSD__
 	test_early_success,
+#endif
 	test_bad_response,
 	test_request_timed_out,
 	test_request_aborted_early,
