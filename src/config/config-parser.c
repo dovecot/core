@@ -305,6 +305,28 @@ fix_relative_path(const char *path, struct input_stack *input)
 }
 
 static int
+config_apply_error(struct config_parser_context *ctx, const char *key)
+{
+	struct config_parser_key *config_key;
+
+	/* Couldn't get value for the setting, but we're delaying error
+	   handling. Mark all settings parsers containing this key as failed.
+	   See config-parser.h for details. */
+	config_key = hash_table_lookup(ctx->all_keys, t_strcut(key, '/'));
+	if (config_key == NULL)
+		return -1;
+
+	for (; config_key != NULL; config_key = config_key->next) {
+		struct config_module_parser *l =
+			&ctx->cur_section->filter_parser->module_parsers[config_key->info_idx];
+		if (l->delayed_error == NULL)
+			l->delayed_error = ctx->error;
+		ctx->error = NULL;
+	}
+	return 0;
+}
+
+static int
 settings_value_check(struct config_parser_context *ctx,
 		     const struct setting_parser_info *info,
 		     const struct setting_define *def,
@@ -794,28 +816,6 @@ int config_apply_line(struct config_parser_context *ctx,
 	bool root_setting;
 	return config_apply_line_full(ctx, NULL, key_with_path,
 				      value, full_key_r, &root_setting);
-}
-
-static int
-config_apply_error(struct config_parser_context *ctx, const char *key)
-{
-	struct config_parser_key *config_key;
-
-	/* Couldn't get value for the setting, but we're delaying error
-	   handling. Mark all settings parsers containing this key as failed.
-	   See config-parser.h for details. */
-	config_key = hash_table_lookup(ctx->all_keys, t_strcut(key, '/'));
-	if (config_key == NULL)
-		return -1;
-
-	for (; config_key != NULL; config_key = config_key->next) {
-		struct config_module_parser *l =
-			&ctx->cur_section->filter_parser->module_parsers[config_key->info_idx];
-		if (l->delayed_error == NULL)
-			l->delayed_error = ctx->error;
-		ctx->error = NULL;
-	}
-	return 0;
 }
 
 static struct config_module_parser *
