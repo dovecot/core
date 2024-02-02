@@ -62,15 +62,19 @@ static void
 config_request_get_strings(const struct config_export_setting *set,
 			   struct config_dump_human_context *ctx)
 {
-	const char *p, *value;
+	const char *p, *key, *value;
 
 	switch (set->type) {
 	case CONFIG_KEY_NORMAL:
+		key = set->key;
 		if (set->def_type != SET_FILE)
 			value = set->value;
-		else
+		else if (set->value[0] != '\n')
 			value = t_strcut(set->value, '\n');
-		value = p_strdup_printf(ctx->pool, "%s=%s", set->key, value);
+		else
+			value = t_strconcat(SET_FILE_INLINE_PREFIX,
+					    set->value + 1, NULL);
+		value = p_strdup_printf(ctx->pool, "%s=%s", key, value);
 		break;
 	case CONFIG_KEY_BOOLLIST_ELEM:
 		/* add list index as the prefix to preserve the configured

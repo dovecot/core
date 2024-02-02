@@ -1289,7 +1289,13 @@ settings_override_get_value(struct settings_apply_ctx *ctx,
 	    ctx->info->defines[key_idx].type == SET_FILTER_ARRAY) {
 		*_key = key;
 		*key_idx_r = key_idx;
-		*value_r = set->value;
+
+		const char *inline_value;
+		if (!str_begins(set->value, SET_FILE_INLINE_PREFIX,
+				&inline_value))
+			*value_r = set->value;
+		else
+			*value_r = t_strconcat("\n", inline_value, NULL);
 		return 1;
 	}
 
