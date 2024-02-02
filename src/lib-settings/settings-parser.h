@@ -19,6 +19,8 @@ struct var_expand_func_table;
 #define SET_TIME_INFINITE UINT_MAX
 #define SET_TIME_MSECS_INFINITE UINT_MAX
 
+#define SET_FILE_INLINE_PREFIX "inline:"
+
 enum setting_type {
 	SET_BOOL,
 	SET_UINT,

@@ -621,7 +621,8 @@ config_apply_exact_line(struct config_parser_context *ctx,
 		ctx->cur_section->filter_parser->filter_required_setting_seen = TRUE;
 
 	/* if key is list/key, lookup only "list" */
-	config_key = hash_table_lookup(ctx->all_keys, t_strcut(key, '/'));
+	const char *lookup_key = t_strcut(key, '/');
+	config_key = hash_table_lookup(ctx->all_keys, lookup_key);
 	if (config_key == NULL)
 		return 0;
 
@@ -653,11 +654,20 @@ config_apply_exact_line(struct config_parser_context *ctx,
 					&l->settings[config_key->define_idx].array) < 0)
 				return -1;
 			break;
-		case SET_FILE:
+		case SET_FILE: {
+			const char *inline_value;
+			if (str_begins(value, SET_FILE_INLINE_PREFIX,
+				       &inline_value)) {
+				l->settings[config_key->define_idx].str =
+					value[0] == '\0' ? "" :
+					p_strconcat(ctx->pool, "\n", inline_value, NULL);
+				break;
+			}
 			if (config_apply_file(ctx, line, value,
 					&l->settings[config_key->define_idx].str) < 0)
 				return -1;
 			break;
+		}
 		default:
 			l->settings[config_key->define_idx].str =
 				p_strdup(ctx->pool, value);
