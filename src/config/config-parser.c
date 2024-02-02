@@ -289,6 +289,21 @@ get_setting_full_path(struct config_parser_context *ctx, const char *key)
 	return str_c(str);
 }
 
+static const char *
+fix_relative_path(const char *path, struct input_stack *input)
+{
+	const char *p;
+
+	if (*path == '/')
+		return path;
+
+	p = strrchr(input->path, '/');
+	if (p == NULL)
+		return path;
+
+	return t_strconcat(t_strdup_until(input->path, p+1), path, NULL);
+}
+
 static int
 settings_value_check(struct config_parser_context *ctx,
 		     const struct setting_parser_info *info,
@@ -801,21 +816,6 @@ config_apply_error(struct config_parser_context *ctx, const char *key)
 		ctx->error = NULL;
 	}
 	return 0;
-}
-
-static const char *
-fix_relative_path(const char *path, struct input_stack *input)
-{
-	const char *p;
-
-	if (*path == '/')
-		return path;
-
-	p = strrchr(input->path, '/');
-	if (p == NULL)
-		return path;
-
-	return t_strconcat(t_strdup_until(input->path, p+1), path, NULL);
 }
 
 static struct config_module_parser *
