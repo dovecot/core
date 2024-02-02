@@ -97,14 +97,14 @@ static void auth_callback(const char *reply,
 }
 
 static int
-auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
+auth_client_input_cpid(struct auth_client_connection *conn, const char *const *args)
 {
 	struct auth_client_connection *old;
 	unsigned int pid;
 
 	i_assert(conn->pid == 0);
 
-	if (str_to_uint(args, &pid) < 0 || pid == 0) {
+	if (args[0] == NULL || str_to_uint(args[0], &pid) < 0 || pid == 0) {
 		e_error(conn->conn.event, "BUG: Authentication client said it's PID 0");
 		return -1;
 	}
@@ -214,6 +214,45 @@ auth_client_cancel(struct auth_client_connection *conn, const char *const *args)
 	return 1;
 }
 
+static int auth_client_handshake_args(struct connection *conn, const char *const *args)
+{
+	struct auth_client_connection *aconn =
+		container_of(conn, struct auth_client_connection, conn);
+
+	if (!conn->version_received && strcmp(args[0], "VERSION") == 0) {
+		unsigned int major_version, minor_version;
+
+		/* VERSION <tab> service_name <tab> major version <tab> minor version */
+		if (str_array_length(args) != 3 ||
+		    strcmp(args[0], "VERSION") != 0 ||
+		    str_to_uint(args[1], &major_version) < 0 ||
+		    str_to_uint(args[2], &minor_version) < 0) {
+			e_error(conn->event, "didn't reply with a valid VERSION line: %s",
+				t_strarray_join(args, "\t"));
+			return -1;
+		}
+
+		if (major_version != AUTH_CLIENT_PROTOCOL_MAJOR_VERSION) {
+			e_error(conn->event, "Socket supports major version %u, "
+				"but we support only %u (mixed old and new binaries?)",
+				major_version, AUTH_CLIENT_PROTOCOL_MAJOR_VERSION);
+			return -1;
+		}
+		conn->minor_version = minor_version;
+		conn->version_received = TRUE;
+		return 0;
+	} else if (conn->version_received && strcmp(args[0], "CPID") == 0) {
+		if (auth_client_input_cpid(aconn, args + 1) < 0)
+			return -1;
+		return 1;
+	} else {
+		e_error(conn->event, "BUG: Authentication client sent unknown handshake command %s",
+			args[0]);
+	}
+	return -1;
+}
+
+
 static int
 auth_client_input_args(struct connection *conn, const char *const *args)
 {
@@ -291,7 +330,6 @@ void auth_client_connection_create(struct auth *auth, int fd, const char *name,
 
 static void auth_client_input(struct auth_client_connection *conn)
 {
-	const char *args;
 	char *line;
 
 	switch (i_stream_read(conn->conn.input)) {
@@ -315,43 +353,13 @@ static void auth_client_input(struct auth_client_connection *conn)
 		if (line == NULL)
 			return;
 
-		if (!conn->conn.version_received) {
-			unsigned int vmajor, vminor;
-			const char *p;
-
-			/* split the version line */
-			if (!str_begins(line, "VERSION\t", &args) ||
-			    str_parse_uint(args, &vmajor, &p) < 0 ||
-			    *(p++) != '\t' || str_to_uint(p, &vminor) < 0) {
-				e_error(conn->conn.event, "Authentication client "
-					"sent invalid VERSION line: %s", line);
-				auth_client_connection_destroy(&conn);
-				return;
-			}
-			/* make sure the major version matches */
-			if (vmajor != AUTH_CLIENT_PROTOCOL_MAJOR_VERSION) {
-				e_error(conn->conn.event, "Authentication client "
-					"not compatible with this server "
-					"(mixed old and new binaries?)");
-				auth_client_connection_destroy(&conn);
-				return;
-			}
-			conn->conn.minor_version = vminor;
-			conn->conn.version_received = TRUE;
-			continue;
-		}
-
-		if (str_begins(line, "CPID\t", &args)) {
-			if (auth_client_input_cpid(conn, args) < 0) {
-				auth_client_connection_destroy(&conn);
-				return;
-			}
-		} else {
-			e_error(conn->conn.event, "BUG: Authentication client sent "
-				"unknown handshake command: %s",
-				str_sanitize(line, 80));
+		const char *const *args = t_strsplit_tabescaped(line);
+		int ret = auth_client_handshake_args(&conn->conn, args);
+		if (ret < 0) {
 			auth_client_connection_destroy(&conn);
 			return;
+		} else if (ret > 1) {
+			i_assert(conn->request_handler != NULL);
 		}
 	}
 
