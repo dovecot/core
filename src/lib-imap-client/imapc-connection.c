@@ -1808,13 +1808,15 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 		/* failed to connect to one of the IPs immediately
 		   (e.g. IPv6 address without connectivity). try all IPs
 		   before failing completely. */
-		e_error(conn->event, "net_connect_ip(%s:%u) failed: %m",
+		const char *error = t_strdup_printf(
+			"net_connect_ip(%s:%u) failed: %m",
 			net_ip2addr(ip), conn->client->set.port);
 		if (conn->prev_connect_idx+1 == conn->ips_count) {
-			imapc_connection_try_reconnect(conn, "No more IP address(es) to try",
+			imapc_connection_try_reconnect(conn, error,
 				conn->client->set.connect_retry_interval_msecs, TRUE);
 			return;
 		}
+		e_error(conn->event, "%s", error);
 	}
 
 	i_assert(ip != NULL);

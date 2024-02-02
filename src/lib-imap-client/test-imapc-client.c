@@ -297,9 +297,9 @@ static void test_imapc_connect_failed_client(void)
 {
 	imapc_client_set_login_callback(imapc_client,
 					imapc_login_callback, NULL);
+	test_expect_errors(2);
 	imapc_client_login(imapc_client);
 	/* connection refused & one reconnect */
-	test_expect_errors(2);
 	imapc_client_run(imapc_client);
 	test_expect_no_more_errors();
 	test_assert(imapc_login_last_reply == IMAPC_COMMAND_STATE_DISCONNECTED);
