@@ -173,6 +173,7 @@ mail_crypt_user_encryption_keys_load(struct event *event,
 				     const char **error_r)
 {
 	const struct crypt_private_key_settings *key_set;
+	struct settings_file file;
 	const char *key_name, *error;
 
 	mail_crypt_global_keys_init(global_keys_r);
@@ -189,8 +190,10 @@ mail_crypt_user_encryption_keys_load(struct event *event,
 				key_name, error);
 			return -1;
 		}
+		settings_file_get(key_set->crypt_private_key_file,
+				  unsafe_data_stack_pool, &file);
 		if (mail_crypt_load_global_private_key(
-				key_name, key_set->crypt_private_key,
+				key_name, &file,
 				key_set->crypt_private_key_password,
 				global_keys_r, &error) < 0) {
 			/* skip this key */

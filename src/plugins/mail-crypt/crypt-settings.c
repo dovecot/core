@@ -9,7 +9,7 @@
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct crypt_private_key_settings)
 static const struct setting_define crypt_private_key_setting_defines[] = {
 	DEF(STR, crypt_private_key_name),
-	DEF(STR, crypt_private_key),
+	DEF(FILE, crypt_private_key_file),
 	DEF(STR, crypt_private_key_password),
 
 	SETTING_DEFINE_LIST_END
@@ -17,7 +17,7 @@ static const struct setting_define crypt_private_key_setting_defines[] = {
 
 static const struct crypt_private_key_settings crypt_private_key_default_settings = {
 	.crypt_private_key_name = "",
-	.crypt_private_key = "",
+	.crypt_private_key_file = "",
 	.crypt_private_key_password = "",
 };
 
@@ -37,7 +37,7 @@ const struct setting_parser_info crypt_private_key_setting_parser_info = {
 static const struct setting_define crypt_setting_defines[] = {
 	DEF(BOOL, fs_crypt_read_plain_fallback),
 
-	DEF(STR, crypt_global_public_key),
+	DEF(FILE, crypt_global_public_key_file),
 	{ .type = SET_FILTER_ARRAY, .key = "crypt_global_private_key",
 	   .offset = offsetof(struct crypt_settings, crypt_global_private_keys),
 	   .filter_array_field_name = "crypt_private_key_name" },
@@ -57,7 +57,7 @@ static const struct setting_define crypt_setting_defines[] = {
 static const struct crypt_settings crypt_default_settings = {
 	.fs_crypt_read_plain_fallback = FALSE,
 
-	.crypt_global_public_key = "",
+	.crypt_global_public_key_file = "",
 	.crypt_global_private_keys = ARRAY_INIT,
 
 	.crypt_write_algorithm = "aes-256-gcm-sha256",

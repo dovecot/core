@@ -5,7 +5,7 @@ struct crypt_private_key_settings {
 	pool_t pool;
 
 	const char *crypt_private_key_name;
-	const char *crypt_private_key;
+	const char *crypt_private_key_file;
 	const char *crypt_private_key_password;
 };
 
@@ -14,7 +14,7 @@ struct crypt_settings {
 
 	bool fs_crypt_read_plain_fallback;
 
-	const char *crypt_global_public_key;
+	const char *crypt_global_public_key_file;
 	ARRAY_TYPE(const_string) crypt_global_private_keys;
 
 	const char *crypt_write_algorithm;

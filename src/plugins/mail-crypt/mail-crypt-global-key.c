@@ -11,11 +11,12 @@
 #include "mail-crypt-key.h"
 #include "mail-crypt-plugin.h"
 
-int mail_crypt_load_global_public_key(const char *set_key, const char *key_data,
+int mail_crypt_load_global_public_key(const char *set_key,
+				      const struct settings_file *file,
 				      struct mail_crypt_global_keys *global_keys,
 				      const char **error_r)
 {
-	const char *error;
+	const char *error, *key_data = file->content;
 	enum dcrypt_key_format format;
 	enum dcrypt_key_kind kind;
 	if (!dcrypt_key_string_get_info(key_data, &format, NULL,
@@ -23,18 +24,19 @@ int mail_crypt_load_global_public_key(const char *set_key, const char *key_data,
 		key_data = str_c(t_base64_decode_str(key_data));
 		if (!dcrypt_key_string_get_info(key_data, &format, NULL,
 						&kind, NULL, NULL, NULL, &error)) {
-			*error_r = t_strdup_printf("%s: Couldn't parse public key: %s",
-						   set_key, error);
+			*error_r = t_strdup_printf("%s: Couldn't parse public key file %s: %s",
+						   set_key, file->path, error);
 			return -1;
 		}
 	}
 	if (kind != DCRYPT_KEY_KIND_PUBLIC) {
-		*error_r = t_strdup_printf("%s: key is not public", set_key);
+		*error_r = t_strdup_printf("%s: key file %s is not public",
+					   set_key, file->path);
 		return -1;
 	}
 	if (!dcrypt_key_load_public(&global_keys->public_key, key_data, &error)) {
-		*error_r = t_strdup_printf("%s: Couldn't load public key: %s",
-					   set_key, error);
+		*error_r = t_strdup_printf("%s: Couldn't load public key file %s: %s",
+					   set_key, file->path, error);
 		return -1;
 	}
 	return 0;
@@ -74,11 +76,13 @@ mail_crypt_key_get_ids(struct dcrypt_private_key *key,
 	return 0;
 }
 
-int mail_crypt_load_global_private_key(const char *set_key, const char *key_data,
-					const char *key_password,
-					struct mail_crypt_global_keys *global_keys,
-					const char **error_r)
+int mail_crypt_load_global_private_key(const char *set_key,
+				       const struct settings_file *file,
+				       const char *key_password,
+				       struct mail_crypt_global_keys *global_keys,
+				       const char **error_r)
 {
+	const char *key_data = file->content;
 	enum dcrypt_key_format format;
 	enum dcrypt_key_kind kind;
 	enum dcrypt_key_encryption_type enc_type;
@@ -89,13 +93,16 @@ int mail_crypt_load_global_private_key(const char *set_key, const char *key_data
 		key_data = str_c(t_base64_decode_str(key_data));
 		if (!dcrypt_key_string_get_info(key_data, &format, NULL, &kind,
 					&enc_type, NULL, NULL, &error)) {
-			*error_r = t_strdup_printf("%s: Couldn't parse private"
-					" key: %s", set_key, error);
+			*error_r = t_strdup_printf(
+				"%s: Couldn't parse private key %s: %s",
+				set_key, file->path, error);
 			return -1;
 		}
 	}
 	if (kind != DCRYPT_KEY_KIND_PRIVATE) {
-		*error_r = t_strdup_printf("%s: key is not private", set_key);
+		*error_r = t_strdup_printf(
+			"%s: file %s is not a private key",
+			set_key, file->path);
 		return -1;
 	}
 
@@ -103,16 +110,18 @@ int mail_crypt_load_global_private_key(const char *set_key, const char *key_data
 		/* Fail here if password is not set since openssl will prompt
 		 * for it otherwise */
 		if (key_password[0] == '\0') {
-			*error_r = t_strdup_printf("%s: crypt_private_key_password unset, no password to decrypt the key",
-						   set_key);
+			*error_r = t_strdup_printf(
+				"%s: crypt_private_key_password unset, no password to decrypt the key file %s",
+				set_key, file->path);
 			return -1;
 		}
 	}
 
 	struct dcrypt_private_key *key = NULL;
 	if (!dcrypt_key_load_private(&key, key_data, key_password, NULL, &error)) {
-		*error_r = t_strdup_printf("%s: Couldn't load private key: %s",
-					   set_key, error);
+		*error_r = t_strdup_printf(
+			"%s: Couldn't load private key file %s: %s",
+			set_key, file->path, error);
 		return -1;
 	}
 
@@ -136,13 +145,15 @@ int mail_crypt_global_keys_load(struct event *event,
 				const char **error_r)
 {
 	const struct crypt_private_key_settings *key_set;
+	struct settings_file file;
 	const char *key_name, *error;
 
 	mail_crypt_global_keys_init(global_keys_r);
-	if (set->crypt_global_public_key[0] != '\0') {
+	if (set->crypt_global_public_key_file[0] != '\0') {
+		settings_file_get(set->crypt_global_public_key_file,
+				  unsafe_data_stack_pool, &file);
 		if (mail_crypt_load_global_public_key(
-				"crypt_global_public_key",
-				set->crypt_global_public_key, global_keys_r,
+				"crypt_global_public_key", &file, global_keys_r,
 				error_r) < 0)
 			return -1;
 	}
@@ -159,8 +170,10 @@ int mail_crypt_global_keys_load(struct event *event,
 				key_name, error);
 			return -1;
 		}
+		settings_file_get(key_set->crypt_private_key_file,
+				  unsafe_data_stack_pool, &file);
 		if (mail_crypt_load_global_private_key(
-				key_name, key_set->crypt_private_key,
+				key_name, &file,
 				key_set->crypt_private_key_password,
 				global_keys_r, error_r) < 0) {
 			settings_free(key_set);
