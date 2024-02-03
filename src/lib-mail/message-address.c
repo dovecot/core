@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "llist.h"
 #include "str.h"
 #include "strescape.h"
 #include "smtp-address.h"
@@ -27,11 +28,7 @@ static void add_address(struct message_address_parser_context *ctx)
 	memcpy(addr, &ctx->addr, sizeof(ctx->addr));
 	i_zero(&ctx->addr);
 
-	if (ctx->first_addr == NULL)
-		ctx->first_addr = addr;
-	else
-		ctx->last_addr->next = addr;
-	ctx->last_addr = addr;
+	DLLIST2_APPEND(&ctx->first_addr, &ctx->last_addr, addr);
 }
 
 /* quote with "" and escape all '\', '"' and "'" characters if need */
@@ -633,6 +630,7 @@ const char *message_address_first_to_string(const struct message_address *addr)
 	struct message_address first_addr;
 
 	first_addr = *addr;
+	first_addr.prev = NULL;
 	first_addr.next = NULL;
 	first_addr.route = NULL;
 	return message_address_to_string(&first_addr);
