@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "llist.h"
 #include "istream.h"
 #include "str.h"
 #include "message-address.h"
@@ -127,7 +128,7 @@ static bool
 imap_envelope_parse_addresses(const struct imap_arg *arg,
 	pool_t pool, struct message_address **addrs_r)
 {
-	struct message_address *first, *addr, *prev;
+	struct message_address *first, *last, *addr;
 	const struct imap_arg *list_args;
 
 	if (arg->type == IMAP_ARG_NIL) {
@@ -138,16 +139,12 @@ imap_envelope_parse_addresses(const struct imap_arg *arg,
 	if (!imap_arg_get_list(arg, &list_args))
 		return FALSE;
 
-	first = addr = prev = NULL;
+	first = last = addr = NULL;
 	for (; !IMAP_ARG_IS_EOL(list_args); list_args++) {
 		if (!imap_envelope_parse_address
 			(list_args, pool, &addr))
 			return FALSE;
-		if (first == NULL)
-			first = addr;
-		if (prev != NULL)
-			prev->next = addr;
-		prev = addr;
+		DLLIST2_APPEND(&first, &last, addr);
 	}
 
 	*addrs_r = first;

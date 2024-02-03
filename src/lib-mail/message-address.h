@@ -18,7 +18,7 @@ enum message_address_parse_flags {
    {name = NULL, NULL, "group", NULL}, ..., {NULL, NULL, NULL, NULL}
 */
 struct message_address {
-	struct message_address *next;
+	struct message_address *prev, *next;
 
 	/* display-name */
 	const char *name;
