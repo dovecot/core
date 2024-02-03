@@ -309,6 +309,9 @@ config_apply_error(struct config_parser_context *ctx, const char *key)
 {
 	struct config_parser_key *config_key;
 
+	if (!ctx->delay_errors)
+		return -1;
+
 	/* Couldn't get value for the setting, but we're delaying error
 	   handling. Mark all settings parsers containing this key as failed.
 	   See config-parser.h for details. */
@@ -1934,8 +1937,7 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 	case CONFIG_LINE_TYPE_KEYFILE:
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
 		if (config_write_value(ctx, line) < 0) {
-			if (!ctx->delay_errors ||
-			    config_apply_error(ctx, line->key) < 0)
+			if (config_apply_error(ctx, line->key) < 0)
 				break;
 		} else {
 			/* Either a global key or list/key */
