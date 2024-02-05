@@ -98,7 +98,7 @@ static void auth_callback(const char *reply,
 static bool
 auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 {
-        struct auth_client_connection *old;
+	struct auth_client_connection *old;
 	unsigned int pid;
 
 	i_assert(conn->pid == 0);
@@ -135,7 +135,7 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 	}
 
 	/* handshake complete, we can now actually start serving requests */
-        conn->refcount++;
+	conn->refcount++;
 	conn->request_handler =
 		auth_request_handler_create(conn->token_auth, auth_callback, conn,
 					    !conn->login_requests ? NULL :
@@ -303,7 +303,7 @@ static void auth_client_input(struct auth_client_connection *conn)
 		}
 	}
 
-        conn->refcount++;
+	conn->refcount++;
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
 		T_BEGIN {
 			ret = auth_client_handle_line(conn, line);
@@ -355,8 +355,8 @@ void auth_client_connection_create(struct auth *auth, int fd,
 
 	str = t_str_new(128);
 	str_printfa(str, "VERSION\t%u\t%u\n%sSPID\t%s\nCUID\t%u\nCOOKIE\t",
-                    AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
-                    AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
+		    AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
+		    AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
 		    mechanisms, my_pid, conn->connect_uid);
 	binary_to_hex_append(str, conn->cookie, sizeof(conn->cookie));
 	str_append(str, "\nDONE\n");
@@ -367,7 +367,7 @@ void auth_client_connection_create(struct auth *auth, int fd,
 
 void auth_client_connection_destroy(struct auth_client_connection **_conn)
 {
-        struct auth_client_connection *conn = *_conn;
+	struct auth_client_connection *conn = *_conn;
 
 	*_conn = NULL;
 	if (conn->fd == -1)
@@ -388,8 +388,8 @@ void auth_client_connection_destroy(struct auth_client_connection **_conn)
 		auth_request_handler_destroy(&conn->request_handler);
 	}
 
-        master_service_client_connection_destroyed(master_service);
-        auth_client_connection_unref(&conn);
+	master_service_client_connection_destroyed(master_service);
+	auth_client_connection_unref(&conn);
 }
 
 static void auth_client_disconnected(struct auth_client_connection **_conn)
@@ -419,7 +419,7 @@ static void auth_client_disconnected(struct auth_client_connection **_conn)
 
 static void auth_client_connection_unref(struct auth_client_connection **_conn)
 {
-        struct auth_client_connection *conn = *_conn;
+	struct auth_client_connection *conn = *_conn;
 
 	*_conn = NULL;
 	if (--conn->refcount > 0)
