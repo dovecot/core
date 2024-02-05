@@ -41,10 +41,10 @@ void auth_request_handler_set(struct auth_request_handler *handler,
 			      unsigned int connect_uid,
 			      unsigned int client_pid);
 
-bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
-				     const char *args);
-bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
-					const char *args);
+int auth_request_handler_auth_begin(struct auth_request_handler *handler,
+				    const char *args);
+int auth_request_handler_auth_continue(struct auth_request_handler *handler,
+				       const char *args);
 void auth_request_handler_reply(struct auth_request *request,
 				enum auth_client_result result,
 				const void *reply, size_t reply_size);

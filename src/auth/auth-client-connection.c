@@ -95,7 +95,7 @@ static void auth_callback(const char *reply,
 	}
 }
 
-static bool
+static int
 auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 {
 	struct auth_client_connection *old;
@@ -105,7 +105,7 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 
 	if (str_to_uint(args, &pid) < 0 || pid == 0) {
 		e_error(conn->conn.event, "BUG: Authentication client said it's PID 0");
-		return FALSE;
+		return -1;
 	}
 
 	if (conn->login_requests)
@@ -131,7 +131,7 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 	if (old != NULL) {
 		e_error(conn->conn.event, "BUG: Authentication client gave a PID "
 			"%u of existing connection", pid);
-		return FALSE;
+		return -1;
 	}
 
 	/* handshake complete, we can now actually start serving requests */
@@ -144,7 +144,7 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 
 	conn->pid = pid;
 	e_debug(conn->conn.event, "auth client connected (pid=%u)", conn->pid);
-	return TRUE;
+	return 0;
 }
 
 static int auth_client_output(struct auth_client_connection *conn)
@@ -195,21 +195,21 @@ cont_line_hide_pass(struct auth_client_connection *conn, const char *line)
 	return t_strconcat(t_strdup_until(line, p), PASSWORD_HIDDEN_STR, NULL);
 }
 
-static bool
+static int
 auth_client_cancel(struct auth_client_connection *conn, const char *line)
 {
 	unsigned int client_id;
 
 	if (str_to_uint(line, &client_id) < 0) {
 		e_error(conn->conn.event, "BUG: Authentication client sent broken CANCEL");
-		return FALSE;
+		return -1;
 	}
 
 	auth_request_handler_cancel_request(conn->request_handler, client_id);
-	return TRUE;
+	return 1;
 }
 
-static bool
+static int
 auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 {
 	const char *args;
@@ -233,14 +233,14 @@ auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 
 	e_error(conn->conn.event, "BUG: Authentication client sent unknown command: %s",
 		str_sanitize(line, 80));
-	return FALSE;
+	return -1;
 }
 
 static void auth_client_input(struct auth_client_connection *conn)
 {
 	const char *args;
 	char *line;
-	bool ret;
+	int ret;
 
 	switch (i_stream_read(conn->conn.input)) {
 	case 0:
@@ -290,7 +290,7 @@ static void auth_client_input(struct auth_client_connection *conn)
 		}
 
 		if (str_begins(line, "CPID\t", &args)) {
-			if (!auth_client_input_cpid(conn, args)) {
+			if (auth_client_input_cpid(conn, args) < 0) {
 				auth_client_connection_destroy(&conn);
 				return;
 			}
@@ -310,7 +310,7 @@ static void auth_client_input(struct auth_client_connection *conn)
 			safe_memset(line, 0, strlen(line));
 		} T_END;
 
-		if (!ret) {
+		if (ret < 1) {
 			struct auth_client_connection *tmp_conn = conn;
 			auth_client_connection_destroy(&tmp_conn);
 			break;

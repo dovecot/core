@@ -517,8 +517,8 @@ auth_penalty_callback(unsigned int penalty, struct auth_request *request)
 	}
 }
 
-bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
-				     const char *args)
+int auth_request_handler_auth_begin(struct auth_request_handler *handler,
+				    const char *args)
 {
 	const struct mech_module *mech;
 	struct auth_request *request;
@@ -536,7 +536,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		e_error(handler->conn->conn.event,
 			"BUG: Authentication client %u "
 			"sent broken AUTH request", handler->client_pid);
-		return FALSE;
+		return -1;
 	}
 
 	if (handler->token_auth) {
@@ -547,7 +547,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 				"BUG: Authentication client %u requested invalid "
 				"authentication mechanism %s (DOVECOT-TOKEN required)",
 				handler->client_pid, str_sanitize(list[1], MAX_MECH_NAME_LEN));
-			return FALSE;
+			return -1;
 		}
 	} else {
 		struct auth *auth_default = auth_default_service();
@@ -558,7 +558,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 				"BUG: Authentication client %u requested unsupported "
 				"authentication mechanism %s", handler->client_pid,
 				str_sanitize(list[1], MAX_MECH_NAME_LEN));
-			return FALSE;
+			return -1;
 		}
 	}
 
@@ -597,7 +597,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 			"sent AUTH parameters after 'resp'",
 			handler->client_pid);
 		auth_request_unref(&request);
-		return FALSE;
+		return -1;
 	}
 
 	if (request->fields.service == NULL) {
@@ -606,14 +606,14 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 			"didn't specify service in request",
 			handler->client_pid);
 		auth_request_unref(&request);
-		return FALSE;
+		return -1;
 	}
 	if (hash_table_lookup(handler->requests, POINTER_CAST(id)) != NULL) {
 		e_error(handler->conn->conn.event,
 			"BUG: Authentication client %u "
 			"sent a duplicate ID %u", handler->client_pid, id);
 		auth_request_unref(&request);
-		return FALSE;
+		return -1;
 	}
 	auth_request_init(request);
 
@@ -626,7 +626,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		/* we fail without valid certificate */
                 auth_request_handler_auth_fail(handler, request,
 			"Client didn't present valid SSL certificate");
-		return TRUE;
+		return 1;
 	}
 
 	 if (request->set->ssl_require_client_cert &&
@@ -634,7 +634,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	     !request->fields.cert_username) {
 		  auth_request_handler_auth_fail(handler, request,
 			 "SSL certificate didn't contain username");
-		 return TRUE;
+		 return 1;
 	 }
 
 	/* Handle initial response */
@@ -668,7 +668,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 			auth_request_handler_auth_fail_code(handler, request,
 				AUTH_CLIENT_FAIL_CODE_INVALID_BASE64,
 				"Invalid base64 data in initial response");
-			return TRUE;
+			return 1;
 		}
 		initial_resp_data =
 			p_malloc(request->pool, I_MAX(buf->used, 1));
@@ -684,11 +684,11 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 
 	/* before we start authenticating, see if we need to wait first */
 	auth_penalty_lookup(auth_penalty, request, auth_penalty_callback);
-	return TRUE;
+	return 1;
 }
 
-bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
-					const char *args)
+int auth_request_handler_auth_continue(struct auth_request_handler *handler,
+				       const char *args)
 {
 	struct auth_request *request;
 	const char *data;
@@ -700,7 +700,7 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 	if (data == NULL || str_to_uint(t_strdup_until(args, data), &id) < 0) {
 		e_error(handler->conn->conn.event,
 			"BUG: Authentication client sent broken CONT request");
-		return FALSE;
+		return -1;
 	}
 	data++;
 
@@ -709,14 +709,14 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 		const char *reply = t_strdup_printf(
 			"FAIL\t%u\treason=Authentication request timed out", id);
 		handler->callback(reply, handler->conn);
-		return TRUE;
+		return 1;
 	}
 
 	/* accept input only once after mechanism has sent a CONT reply */
 	if (!request->accept_cont_input) {
 		auth_request_handler_auth_fail(handler, request,
 					       "Unexpected continuation");
-		return TRUE;
+		return 1;
 	}
 	request->accept_cont_input = FALSE;
 
@@ -726,14 +726,14 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 		auth_request_handler_auth_fail_code(handler, request,
 			AUTH_CLIENT_FAIL_CODE_INVALID_BASE64,
 			"Invalid base64 data in continued response");
-		return TRUE;
+		return 1;
 	}
 
 	/* handler is referenced until auth_request_handler_reply()
 	   is called. */
 	handler->refcount++;
 	auth_request_continue(request, buf->data, buf->used);
-	return TRUE;
+	return 1;
 }
 
 static void auth_str_append_userdb_extra_fields(struct auth_request *request,
