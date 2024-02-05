@@ -518,11 +518,11 @@ auth_penalty_callback(unsigned int penalty, struct auth_request *request)
 }
 
 int auth_request_handler_auth_begin(struct auth_request_handler *handler,
-				    const char *args)
+				    const char *args_str)
 {
 	const struct mech_module *mech;
 	struct auth_request *request;
-	const char *const *list, *name, *arg, *initial_resp;
+	const char *const *args, *name, *arg, *initial_resp;
 	void *initial_resp_data;
 	unsigned int id;
 	buffer_t *buf;
@@ -530,9 +530,9 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	i_assert(!handler->destroyed);
 
 	/* <id> <mechanism> [...] */
-	list = t_strsplit_tabescaped(args);
-	if (list[0] == NULL || list[1] == NULL ||
-	    str_to_uint(list[0], &id) < 0 || id == 0) {
+	args = t_strsplit_tabescaped(args_str);
+	if (args[0] == NULL || args[1] == NULL ||
+	    str_to_uint(args[0], &id) < 0 || id == 0) {
 		e_error(handler->conn->conn.event,
 			"BUG: Authentication client %u "
 			"sent broken AUTH request", handler->client_pid);
@@ -541,23 +541,23 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 
 	if (handler->token_auth) {
 		mech = &mech_dovecot_token;
-		if (strcmp(list[1], mech->mech_name) != 0) {
+		if (strcmp(args[1], mech->mech_name) != 0) {
 			/* unsupported mechanism */
 			e_error(handler->conn->conn.event,
 				"BUG: Authentication client %u requested invalid "
 				"authentication mechanism %s (DOVECOT-TOKEN required)",
-				handler->client_pid, str_sanitize(list[1], MAX_MECH_NAME_LEN));
+				handler->client_pid, str_sanitize(args[1], MAX_MECH_NAME_LEN));
 			return -1;
 		}
 	} else {
 		struct auth *auth_default = auth_default_service();
-		mech = mech_register_find(auth_default->reg, list[1]);
+		mech = mech_register_find(auth_default->reg, args[1]);
 		if (mech == NULL) {
 			/* unsupported mechanism */
 			e_error(handler->conn->conn.event,
 				"BUG: Authentication client %u requested unsupported "
 				"authentication mechanism %s", handler->client_pid,
-				str_sanitize(list[1], MAX_MECH_NAME_LEN));
+				str_sanitize(args[1], MAX_MECH_NAME_LEN));
 			return -1;
 		}
 	}
@@ -571,13 +571,13 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 
 	/* parse optional parameters */
 	initial_resp = NULL;
-	for (list += 2; *list != NULL; list++) {
-		arg = strchr(*list, '=');
+	for (args += 2; *args != NULL; args++) {
+		arg = strchr(*args, '=');
 		if (arg == NULL) {
-			name = *list;
+			name = *args;
 			arg = "";
 		} else {
-			name = t_strdup_until(*list, arg);
+			name = t_strdup_until(*args, arg);
 			arg++;
 		}
 
@@ -586,12 +586,12 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		else if (strcmp(name, "resp") == 0) {
 			initial_resp = arg;
 			/* this must be the last parameter */
-			list++;
+			args++;
 			break;
 		}
 	}
 
-	if (*list != NULL) {
+	if (*args != NULL) {
 		e_error(handler->conn->conn.event,
 			"BUG: Authentication client %u "
 			"sent AUTH parameters after 'resp'",
@@ -688,21 +688,20 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 }
 
 int auth_request_handler_auth_continue(struct auth_request_handler *handler,
-				       const char *args)
+				       const char *args_str)
 {
 	struct auth_request *request;
-	const char *data;
+	const char *const *args;
 	size_t data_len;
 	buffer_t *buf;
 	unsigned int id;
 
-	data = strchr(args, '\t');
-	if (data == NULL || str_to_uint(t_strdup_until(args, data), &id) < 0) {
+	args = t_strsplit_tabescaped(args_str);
+	if (args[0] == NULL || str_to_uint(args[0], &id) < 0) {
 		e_error(handler->conn->conn.event,
 			"BUG: Authentication client sent broken CONT request");
 		return -1;
 	}
-	data++;
 
 	request = hash_table_lookup(handler->requests, POINTER_CAST(id));
 	if (request == NULL) {
@@ -720,9 +719,9 @@ int auth_request_handler_auth_continue(struct auth_request_handler *handler,
 	}
 	request->accept_cont_input = FALSE;
 
-	data_len = strlen(data);
+	data_len = strlen(args[1]);
 	buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(data_len));
-	if (base64_decode(data, data_len, buf) < 0) {
+	if (base64_decode(args[1], data_len, buf) < 0) {
 		auth_request_handler_auth_fail_code(handler, request,
 			AUTH_CLIENT_FAIL_CODE_INVALID_BASE64,
 			"Invalid base64 data in continued response");
