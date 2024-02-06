@@ -64,9 +64,11 @@ http_request_parser_init(struct istream *input,
 	if (limits != NULL) {
 		hdr_limits = limits->header;
 		max_payload_size = limits->max_payload_size;
+		parser->max_target_length = limits->max_target_length;
 	} else {
 		i_zero(&hdr_limits);
 		max_payload_size = 0;
+		parser->max_target_length = 0;
 	}
 
 	/* substitute default limits */
