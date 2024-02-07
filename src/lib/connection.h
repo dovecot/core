@@ -81,6 +81,8 @@ struct connection_settings {
 	   be created. */
 	size_t input_max_size;
 	size_t output_max_size;
+	/* Stop accepting input if output size reaches this. */
+	size_t output_throttle_size;
 	enum connection_behavior input_full_behavior;
 
 	/* Set to TRUE if this is a client */
@@ -152,6 +154,10 @@ struct connection {
 
 	/* handlers */
 	struct connection_vfuncs v;
+
+	/* original ostream flush callback */
+	void *flush_callback;
+	void *flush_context;
 
 	int connect_failed_errno;
 	enum connection_disconnect_reason disconnect_reason;

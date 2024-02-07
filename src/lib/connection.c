@@ -40,6 +40,53 @@ static void connection_connect_timeout(struct connection *conn)
 	connection_closed(conn, CONNECTION_DISCONNECT_CONNECT_TIMEOUT);
 }
 
+static int connection_flush_callback(struct connection *conn)
+{
+	int ret;
+	stream_flush_callback_t *callback = conn->flush_callback;
+	if (conn->flush_callback != NULL) {
+		ret = callback(conn->flush_context);
+	} else {
+		ret = o_stream_flush(conn->output);
+	}
+	if (ret < 0) {
+		e_error(conn->event, "write(%s) failed: %s", conn->name,
+			o_stream_get_error(conn->output));
+	} else if (o_stream_get_buffer_used_size(conn->output) <=
+		   conn->list->set.output_throttle_size / 3) {
+		/* resume connection reading */
+		e_debug(conn->event, "Output buffer has flushed enough - "
+			"resuming input");
+		connection_input_resume(conn);
+		o_stream_unset_flush_callback(conn->output);
+		if (callback != NULL)
+			o_stream_set_flush_callback(conn->output, *callback,
+						    conn->flush_context);
+		conn->flush_context = NULL;
+		conn->flush_callback = NULL;
+	}
+	return ret;
+}
+
+static inline bool connection_output_throttle(struct connection *conn)
+{
+	/* not enabled */
+	if (conn->list->set.output_throttle_size != 0 &&
+	    conn->output != NULL &&
+	    o_stream_get_buffer_used_size(conn->output) >=
+	    conn->list->set.output_throttle_size) {
+		conn->flush_callback =
+			o_stream_get_flush_callback(conn->output, &conn->flush_context);
+		o_stream_set_flush_callback(conn->output,
+					    connection_flush_callback, conn);
+		e_debug(conn->event, "Output buffer has reached throttle limit - "
+			"halting input");
+		connection_input_halt(conn);
+		return TRUE;
+	}
+	return FALSE;
+}
+
 static int connection_input_parse_lines(struct connection *conn)
 {
 	const char *line;
@@ -71,6 +118,9 @@ static int connection_input_parse_lines(struct connection *conn)
 				ret = conn->v.input_line(conn, line);
 			}
 		} T_END;
+		/* If throttled, stop reading */
+		if (ret > 0 && connection_output_throttle(conn))
+			ret = 0;
 		if (ret <= 0)
 			break;
 		if (conn->input != input) {

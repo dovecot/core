@@ -9,6 +9,7 @@
 #include "strescape.h"
 
 #include <unistd.h>
+#include <stdio.h>
 
 static const struct connection_settings client_set =
 {
@@ -779,6 +780,101 @@ static void test_connection_is_valid_dns_name(void)
 	test_end();
 }
 
+/* BEGIN OUTPUT THROTTLE TEST */
+
+static const struct connection_settings output_throttle_client_set = {
+	.major_version = 0,
+	.minor_version = 0,
+	.client = TRUE,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
+	.dont_send_version = TRUE,
+};
+
+static const struct connection_settings output_throttle_server_set = {
+	.major_version = 0,
+	.minor_version = 0,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
+	.output_throttle_size = 1024,
+	.dont_send_version = TRUE,
+};
+
+static int output_throttle_counter = 0;
+static bool output_throttle_cb_set = FALSE;
+
+static int output_throttle_flush_callback(struct connection *conn)
+{
+	if (conn->flush_callback != NULL)
+		output_throttle_counter++;
+	return o_stream_flush(conn->output);
+}
+
+static int
+output_throttle_client_input_line(struct connection *conn, const char *line ATTR_UNUSED)
+{
+	test_assert_cmp(output_throttle_counter, >=, 1);
+	o_stream_nsend_str(conn->output, "QUIT\n");
+	return -1;
+}
+
+static int
+output_throttle_server_input_line(struct connection *conn, const char *line)
+{
+	if (!output_throttle_cb_set) {
+		/* set the send buffer artificially small to cause buffering */
+		net_set_send_buffer_size(conn->fd_out, 1);
+		o_stream_set_flush_callback(conn->output,
+					    output_throttle_flush_callback, conn);
+		output_throttle_cb_set = TRUE;
+	}
+	if (strcmp(line, "QUIT") == 0)
+		return -1;
+
+	/* helper for making much data */
+	#define BLOCK(b) b b b b b b b b b b
+	const char *block = BLOCK(BLOCK(BLOCK(BLOCK(BLOCK("1234567890"))))) "\n";
+
+	o_stream_nsend_str(conn->output, block);
+
+	return 1;
+}
+
+static void
+test_connection_output_throttle_client_connected(struct connection *conn, bool success)
+{
+	test_assert(success);
+	output_throttle_counter = 0;
+	output_throttle_cb_set = FALSE;
+	/* bootstrap */
+	o_stream_nsend_str(conn->output, "DATA\n");
+}
+
+static const struct connection_vfuncs output_throttle_client_v = {
+	.client_connected = test_connection_output_throttle_client_connected,
+	.input = connection_input_default,
+	.input_line = output_throttle_client_input_line,
+	.destroy = test_connection_simple_destroy,
+};
+
+static const struct connection_vfuncs output_throttle_server_v = {
+	.input_line = output_throttle_server_input_line,
+	.destroy = test_connection_simple_destroy,
+};
+
+static void test_connection_output_throttle(void)
+{
+	test_begin("connection output throttle");
+
+	test_connection_run(&output_throttle_server_set, &output_throttle_client_set,
+			    &output_throttle_server_v, &output_throttle_client_v,
+			    10);
+
+	test_end();
+}
+
+/* END OUTPUT THROTTLE TEST */
+
 void test_connection(void)
 {
 	test_connection_simple();
@@ -796,4 +892,5 @@ void test_connection(void)
 	test_connection_input_error_reason();
 	test_connection_no_version();
 	test_connection_is_valid_dns_name();
+	test_connection_output_throttle();
 }
