@@ -342,6 +342,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 	unsigned int prefix_idx = UINT_MAX;
 	size_t len, skip_len, setting_name_filter_len;
 	size_t alt_setting_name_filter_len;
+	bool bool_list_elem = FALSE;
 
 	setting_name_filter_len = setting_name_filter == NULL ? 0 :
 		strlen(setting_name_filter);
@@ -358,7 +359,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 	for (i = 0; i < count && strings[i][0] == LIST_KEY_PREFIX[0]; i++) T_BEGIN {
 		p = strchr(strings[i], '=');
 		i_assert(p != NULL && p[1] == '\0');
-		/* "strlist=" */
+		/* "strlist=" or "boollist=" */
 		str = p_strdup_printf(ctx->pool, "%s/",
 				      t_strcut(strings[i]+1, '='));
 		array_push_back(&prefixes_arr, &str);
@@ -452,6 +453,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		key = strings[i] + skip_len;
 		if (skip_len > 0 && key[0] == BOOLLIST_ELEM_KEY_PREFIX[0]) {
 			/* skip the boollist order index */
+			bool_list_elem = TRUE;
 			key = strchr(key, SETTINGS_SEPARATOR);
 			i_assert(key != NULL);
 			key++;
@@ -462,7 +464,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			key++;
 		value = strchr(key, '=');
 		i_assert(value != NULL);
-		if (!hide_key) {
+		if (!hide_key || bool_list_elem) {
 			key = t_strdup_until(key, value);
 			if (strpbrk(key, " \"\\#") == NULL)
 				o_stream_nsend_str(output, key);
@@ -472,9 +474,14 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 				o_stream_nsend(output, "\"", 1);
 			}
 			o_stream_nsend_str(output, " = ");
-		} else {
+		} else if (!bool_list_elem) {
 			if (output->offset != 0)
 				i_fatal("Multiple settings matched with -h parameter");
+		}
+		if (hide_key && value[0] == '=' && value[1] == '\0') {
+			/* There is no value that would need printing here,
+			   continue with the next. */
+			goto end;
 		}
 		if (hide_passwords &&
 		    hide_secrets_from_value(output, full_key, value+1))
@@ -487,6 +494,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			o_stream_nsend_str(output, str_escape(value+1));
 			o_stream_nsend(output, "\"", 1);
 		}
+		bool_list_elem = FALSE;
 		o_stream_nsend(output, "\n", 1);
 	end: ;
 	} T_END;
@@ -688,6 +696,8 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 			*list_prefix_sent = TRUE;
 			config_dump_filter_end(output, sub_indent, indent);
 		}
+		if (hide_key && output->offset == 0)
+			o_stream_nsend(output, "\n", 1);
 		str_truncate(list_prefix, parent_list_prefix_len);
 	}
 }
@@ -730,6 +740,8 @@ config_dump_human(enum config_dump_scope scope,
 				      list_prefix, &list_prefix_sent,
 				      hide_key, hide_passwords);
 
+	if (hide_key && output->offset == 0)
+		o_stream_nsend(output, "\n", 1);
 	/* flush output before writing errors */
 	o_stream_uncork(output);
 	array_foreach_elem(config_parsed_get_errors(config), str) {
