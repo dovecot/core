@@ -236,6 +236,53 @@ auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 	return -1;
 }
 
+void auth_client_connection_create(struct auth *auth, int fd, const char *name,
+				   bool login_requests, bool token_auth)
+{
+	static unsigned int connect_uid_counter = 0;
+	struct auth_client_connection *conn;
+	const char *mechanisms;
+	string_t *str;
+
+	conn = i_new(struct auth_client_connection, 1);
+	conn->auth = auth;
+	conn->refcount = 1;
+	conn->connect_uid = ++connect_uid_counter;
+	conn->login_requests = login_requests;
+	conn->token_auth = token_auth;
+	conn->conn.event = event_create(auth_event);
+	event_set_forced_debug(conn->conn.event, auth->set->debug);
+	random_fill(conn->cookie, sizeof(conn->cookie));
+
+	conn->conn.fd_in = fd;
+	conn->conn.input = i_stream_create_fd(fd, AUTH_CLIENT_MAX_LINE_LENGTH);
+	conn->conn.output = o_stream_create_fd(fd, SIZE_MAX);
+	conn->conn.base_name = i_strdup(name);
+	o_stream_set_no_error_handling(conn->conn.output, TRUE);
+	o_stream_set_flush_callback(conn->conn.output, auth_client_output, conn);
+	conn->conn.io = io_add(fd, IO_READ, auth_client_input, conn);
+
+	DLLIST_PREPEND(&auth_client_connections, conn);
+
+	if (token_auth) {
+		mechanisms = t_strconcat("MECH\t",
+			mech_dovecot_token.mech_name, "\tprivate\n", NULL);
+	} else {
+		mechanisms = str_c(auth->reg->handshake);
+	}
+
+	str = t_str_new(128);
+	str_printfa(str, "VERSION\t%u\t%u\n%sSPID\t%s\nCUID\t%u\nCOOKIE\t",
+		    AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
+		    AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
+		    mechanisms, my_pid, conn->connect_uid);
+	binary_to_hex_append(str, conn->cookie, sizeof(conn->cookie));
+	str_append(str, "\nDONE\n");
+
+	if (o_stream_send(conn->conn.output, str_data(str), str_len(str)) < 0)
+		auth_client_disconnected(&conn);
+}
+
 static void auth_client_input(struct auth_client_connection *conn)
 {
 	const char *args;
@@ -317,53 +364,6 @@ static void auth_client_input(struct auth_client_connection *conn)
 		}
 	}
 	auth_client_connection_unref(&conn);
-}
-
-void auth_client_connection_create(struct auth *auth, int fd, const char *name,
-				   bool login_requests, bool token_auth)
-{
-	static unsigned int connect_uid_counter = 0;
-	struct auth_client_connection *conn;
-	const char *mechanisms;
-	string_t *str;
-
-	conn = i_new(struct auth_client_connection, 1);
-	conn->auth = auth;
-	conn->refcount = 1;
-	conn->connect_uid = ++connect_uid_counter;
-	conn->login_requests = login_requests;
-	conn->token_auth = token_auth;
-	conn->conn.event = event_create(auth_event);
-	event_set_forced_debug(conn->conn.event, auth->set->debug);
-	random_fill(conn->cookie, sizeof(conn->cookie));
-
-	conn->conn.fd_in = fd;
-	conn->conn.input = i_stream_create_fd(fd, AUTH_CLIENT_MAX_LINE_LENGTH);
-	conn->conn.output = o_stream_create_fd(fd, SIZE_MAX);
-	conn->conn.base_name = i_strdup(name);
-	o_stream_set_no_error_handling(conn->conn.output, TRUE);
-	o_stream_set_flush_callback(conn->conn.output, auth_client_output, conn);
-	conn->conn.io = io_add(fd, IO_READ, auth_client_input, conn);
-
-	DLLIST_PREPEND(&auth_client_connections, conn);
-
-	if (token_auth) {
-		mechanisms = t_strconcat("MECH\t",
-			mech_dovecot_token.mech_name, "\tprivate\n", NULL);
-	} else {
-		mechanisms = str_c(auth->reg->handshake);
-	}
-
-	str = t_str_new(128);
-	str_printfa(str, "VERSION\t%u\t%u\n%sSPID\t%s\nCUID\t%u\nCOOKIE\t",
-		    AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
-		    AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
-		    mechanisms, my_pid, conn->connect_uid);
-	binary_to_hex_append(str, conn->cookie, sizeof(conn->cookie));
-	str_append(str, "\nDONE\n");
-
-	if (o_stream_send(conn->conn.output, str_data(str), str_len(str)) < 0)
-		auth_client_disconnected(&conn);
 }
 
 void auth_client_connection_destroy(struct auth_client_connection **_conn)
