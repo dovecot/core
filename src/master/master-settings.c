@@ -164,7 +164,7 @@ static const struct service_settings service_default_settings = {
 	.process_min_avail = 0,
 	.process_limit = 100,
 	.client_limit = 1000,
-	.restart_request_count = 0,
+	.restart_request_count = SET_UINT_UNLIMITED,
 	.idle_kill = 60,
 	.vsz_limit = 256*1024*1024,
 
@@ -684,6 +684,12 @@ master_settings_ext_check(struct event *event, void *_set,
 		if (service->client_limit == 0) {
 			*error_r = t_strdup_printf("service(%s): "
 				"client_limit must be higher than 0",
+				service->name);
+			return FALSE;
+		}
+		if (service->restart_request_count == 0) {
+			*error_r = t_strdup_printf("service(%s): "
+				"restart_request_count must be higher than 0",
 				service->name);
 			return FALSE;
 		}
