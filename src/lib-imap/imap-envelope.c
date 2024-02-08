@@ -67,17 +67,17 @@ void imap_envelope_write(struct message_part_envelope *data,
 	}
 
 	str_append_c(str, ' ');
-	imap_write_address(str, data->from);
+	imap_write_address(str, data->from.head);
 	str_append_c(str, ' ');
-	imap_write_address(str, NVL(data->sender, data->from));
+	imap_write_address(str, NVL(data->sender.head, data->from.head));
 	str_append_c(str, ' ');
-	imap_write_address(str, NVL(data->reply_to, data->from));
+	imap_write_address(str, NVL(data->reply_to.head, data->from.head));
 	str_append_c(str, ' ');
-	imap_write_address(str, data->to);
+	imap_write_address(str, data->to.head);
 	str_append_c(str, ' ');
-	imap_write_address(str, data->cc);
+	imap_write_address(str, data->cc.head);
 	str_append_c(str, ' ');
-	imap_write_address(str, data->bcc);
+	imap_write_address(str, data->bcc.head);
 
 	str_append_c(str, ' ');
 	imap_append_nstring_nolf(str, data->in_reply_to);
@@ -126,28 +126,25 @@ imap_envelope_parse_address(const struct imap_arg *arg,
 
 static bool
 imap_envelope_parse_addresses(const struct imap_arg *arg,
-	pool_t pool, struct message_address **addrs_r)
+	pool_t pool, struct message_address_list *addrs_r)
 {
-	struct message_address *first, *last, *addr;
+	struct message_address *addr;
 	const struct imap_arg *list_args;
 
-	if (arg->type == IMAP_ARG_NIL) {
-		*addrs_r = NULL;
+	i_zero(addrs_r);
+	if (arg->type == IMAP_ARG_NIL)
 		return TRUE;
-	}
 
 	if (!imap_arg_get_list(arg, &list_args))
 		return FALSE;
 
-	first = last = addr = NULL;
+	addr = NULL;
 	for (; !IMAP_ARG_IS_EOL(list_args); list_args++) {
 		if (!imap_envelope_parse_address
 			(list_args, pool, &addr))
 			return FALSE;
-		DLLIST2_APPEND(&first, &last, addr);
+		DLLIST2_APPEND(&addrs_r->head, &addrs_r->tail, addr);
 	}
-
-	*addrs_r = first;
 	return TRUE;
 }
 

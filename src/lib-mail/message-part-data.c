@@ -4,6 +4,7 @@
 #include "str.h"
 #include "wildcard-match.h"
 #include "array.h"
+#include "llist.h"
 #include "rfc822-parser.h"
 #include "rfc2231-parser.h"
 #include "message-address.h"
@@ -176,7 +177,7 @@ void message_part_envelope_parse_from_header(pool_t pool,
 {
 	struct message_part_envelope *d;
 	enum envelope_field field;
-	struct message_address **addr_p, *addr;
+	struct message_address_list *addr_p, new_addr;
 	const char **str_p;
 
 	if (*data == NULL) {
@@ -234,18 +235,18 @@ void message_part_envelope_parse_from_header(pool_t pool,
 	}
 
 	if (addr_p != NULL) {
-		addr = message_address_parse(pool, hdr->full_value,
-					     hdr->full_value_len,
-					     UINT_MAX,
-					     MESSAGE_ADDRESS_PARSE_FLAG_FILL_MISSING);
+		message_address_parse_full(pool, hdr->full_value,
+					   hdr->full_value_len,
+					   UINT_MAX,
+					   MESSAGE_ADDRESS_PARSE_FLAG_FILL_MISSING,
+					   &new_addr);
 		/* Merge multiple headers the same as if they were comma
 		   separated in a single line. This is better from security
 		   point of view, because attacker could intentionally write
 		   addresses in a way that e.g. the first From header is
 		   validated while MUA only shows the second From header. */
-		while (*addr_p != NULL)
-			addr_p = &(*addr_p)->next;
-		*addr_p = addr;
+		DLLIST2_JOIN(&addr_p->head, &addr_p->tail,
+			     &new_addr.head, &new_addr.tail);
 	} else if (str_p != NULL) {
 		*str_p = message_header_strdup(pool, hdr->full_value,
 					       hdr->full_value_len);
