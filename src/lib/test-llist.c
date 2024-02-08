@@ -71,7 +71,7 @@ static void test_dllist2(void)
 	l2 = t_new(struct dllist, 1);
 	l1 = t_new(struct dllist, 1);
 
-	test_begin("dllist");
+	test_begin("dllist2");
 	/* prepend to empty */
 	DLLIST2_PREPEND(&head, &tail, l3);
 	test_assert(head == l3 && tail == l3);
