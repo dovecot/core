@@ -143,6 +143,10 @@ void o_stream_set_flush_callback(struct ostream *stream,
 		CALLBACK_TYPECHECK(callback, int (*)(typeof(context))), \
 		(stream_flush_callback_t *)callback, context)
 void o_stream_unset_flush_callback(struct ostream *stream);
+/* Get the current flush callback, returns NULL if none set. */
+stream_flush_callback_t *
+o_stream_get_flush_callback(struct ostream *stream, void **context_r);
+
 /* Change the maximum size for stream's output buffer to grow. */
 void o_stream_set_max_buffer_size(struct ostream *stream, size_t max_size);
 /* Returns the current max. buffer size. */

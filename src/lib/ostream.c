@@ -148,6 +148,14 @@ void o_stream_unset_flush_callback(struct ostream *stream)
 	_stream->set_flush_callback(_stream, NULL, NULL);
 }
 
+stream_flush_callback_t *
+o_stream_get_flush_callback(struct ostream *stream, void **context_r)
+{
+	struct ostream_private *_stream = stream->real_stream;
+	*context_r = _stream->context;
+	return _stream->callback;
+}
+
 void o_stream_set_max_buffer_size(struct ostream *stream, size_t max_size)
 {
 	io_stream_set_max_buffer_size(&stream->real_stream->iostream, max_size);
