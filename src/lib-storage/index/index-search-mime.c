@@ -205,7 +205,7 @@ seach_arg_mime_envelope_address_match(
 	enum mail_search_mime_arg_type type, const char *key,
 	const struct message_part_envelope *envelope)
 {
-	const struct message_address *addrs;
+	struct message_address_list addrs;
 	string_t *addrs_enc;
 
 	if (envelope == NULL)
@@ -239,7 +239,7 @@ seach_arg_mime_envelope_address_match(
 	   probably be normalized directly in the struct message_address. */
 
 	addrs_enc = t_str_new(128);
-	message_address_write(addrs_enc, addrs);
+	message_address_write(addrs_enc, addrs.head);
 	return (strstr(str_c(addrs_enc), key) != NULL ? 1 : 0);
 }
 

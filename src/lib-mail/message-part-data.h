@@ -2,6 +2,7 @@
 #define MESSAGE_PART_DATA_H
 
 #include "message-part.h"
+#include "message-address.h"
 
 #define MESSAGE_PART_DEFAULT_CHARSET "us-ascii"
 
@@ -14,8 +15,9 @@ struct message_part_param {
 
 struct message_part_envelope {
 	const char *date, *subject;
-	struct message_address *from, *sender, *reply_to;
-	struct message_address *to, *cc, *bcc;
+
+	struct message_address_list from, sender, reply_to;
+	struct message_address_list to, cc, bcc;
 
 	const char *in_reply_to, *message_id;
 };
