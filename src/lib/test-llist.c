@@ -131,8 +131,47 @@ static void test_dllist2(void)
 	test_end();
 }
 
+static void test_dllist2_join(void)
+{
+	struct dllist *head, *tail, *elem[4];
+	struct dllist *head2, *tail2, *elem2[N_ELEMENTS(elem)];
+
+	test_begin("dllist2 join");
+	for (unsigned int i = 0; i < N_ELEMENTS(elem); i++) {
+		elem[i] = t_new(struct dllist, 1);
+		elem2[i] = t_new(struct dllist, 1);
+	}
+	for (unsigned int i = 0; i < N_ELEMENTS(elem); i++) {
+		for (unsigned int j = 0; j < N_ELEMENTS(elem2); j++) {
+			head = tail = head2 = tail2 = NULL;
+			for (unsigned int n = 0; n < i; n++)
+				DLLIST2_APPEND(&head, &tail, elem[n]);
+			for (unsigned int n = 0; n < j; n++)
+				DLLIST2_APPEND(&head2, &tail2, elem2[n]);
+			DLLIST2_JOIN(&head, &tail, &head2, &tail2);
+
+			/* verify */
+			struct dllist *tmp = head, *last = NULL;
+			for (unsigned int n = 0; n < i; n++) {
+				test_assert(tmp == elem[n]);
+				last = tmp;
+				tmp = tmp->next;
+			}
+			for (unsigned int n = 0; n < j; n++) {
+				test_assert(tmp == elem2[n]);
+				last = tmp;
+				tmp = tmp->next;
+			}
+			test_assert(tmp == NULL);
+			test_assert(tail == last);
+		}
+	}
+	test_end();
+}
+
 void test_llist(void)
 {
 	test_dllist();
 	test_dllist2();
+	test_dllist2_join();
 }
