@@ -298,7 +298,7 @@ int main(int argc, char *argv[])
 	restrict_access_allow_coredumps(TRUE);
 
 	master_service_init_finish(master_service);
-	master_service_set_service_count(master_service, 1);
+	master_service_set_restart_request_count(master_service, 1);
 
 	if (argv[0][0] == '/')
 		binary = argv[0];

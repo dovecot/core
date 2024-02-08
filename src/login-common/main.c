@@ -36,7 +36,7 @@ struct login_client_list *login_client_list;
 bool closing_down, login_debug;
 struct anvil_client *anvil;
 const char *login_rawlog_dir = NULL;
-unsigned int initial_service_count;
+unsigned int initial_restart_request_count;
 struct login_module_register login_module_register;
 ARRAY_TYPE(string) global_alt_usernames;
 bool login_ssl_initialized;
@@ -395,7 +395,7 @@ static void main_preinit(void)
 	   /etc/hosts */
 	parse_login_source_ips(global_login_settings->login_source_ips);
 	if (login_source_v4_ips_count > 0) {
-		/* randomize the initial index in case service_count=1
+		/* randomize the initial index in case restart_service_count=1
 		   (although in that case it's unlikely this setting is
 		   even used..) */
 		login_source_v4_ips_idx = i_rand_limit(login_source_v4_ips_count);
@@ -408,7 +408,7 @@ static void main_preinit(void)
 	restrict_access_by_env(0, NULL);
 	if (login_debug)
 		restrict_access_allow_coredumps(TRUE);
-	initial_service_count = master_service_get_service_count(master_service);
+	initial_restart_request_count = master_service_get_restart_request_count(master_service);
 
 	if (restrict_access_get_current_chroot() == NULL) {
 		if (chdir("login") < 0)

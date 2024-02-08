@@ -131,7 +131,7 @@ static const struct setting_define service_setting_defines[] = {
 	DEF(UINT, process_min_avail),
 	DEF(UINT, process_limit),
 	DEF(UINT, client_limit),
-	DEF(UINT, service_count),
+	DEF(UINT, restart_request_count),
 	DEF(TIME, idle_kill),
 	DEF(SIZE, vsz_limit),
 
@@ -164,7 +164,7 @@ static const struct service_settings service_default_settings = {
 	.process_min_avail = 0,
 	.process_limit = 100,
 	.client_limit = 1000,
-	.service_count = 0,
+	.restart_request_count = 0,
 	.idle_kill = 60,
 	.vsz_limit = 256*1024*1024,
 
@@ -718,9 +718,9 @@ master_settings_ext_check(struct event *event, void *_set,
 
 		if (*service->protocol != '\0') {
 			/* each imap/pop3/lmtp process can use up a connection,
-			   although if service_count=1 it's only temporary.
+			   although if restart_request_count=1 it's only temporary.
 			   imap-hibernate doesn't do any auth lookups. */
-			if ((service->service_count != 1 ||
+			if ((service->restart_request_count != 1 ||
 			     strcmp(service->type, "login") == 0) &&
 			    strcmp(service->name, "imap-hibernate") != 0) {
 				str_printfa(max_auth_client_processes_reason,
@@ -758,7 +758,7 @@ master_settings_ext_check(struct event *event, void *_set,
 		str_delete(max_auth_client_processes_reason, 0, 3);
 		i_warning("service auth { client_limit=%u } is lower than "
 			  "required under max. load (%u). "
-			  "Counted for protocol services with service_count != 1: %s",
+			  "Counted for protocol services with restart_request_count != 1: %s",
 			  client_limit, max_auth_client_processes,
 			  str_c(max_auth_client_processes_reason));
 	}

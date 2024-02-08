@@ -72,8 +72,8 @@ static void service_kill_idle(struct service *service)
 
 	   (It's actually not important which processes get killed. A better
 	   way could be to kill the oldest processes since they might have to
-	   be restarted anyway soon due to reaching service_count, but we'd
-	   have to use priority queue for tracking that, which is more
+	   be restarted anyway soon due to reaching restart_request_count, but
+	   we'd have to use priority queue for tracking that, which is more
 	   expensive and probably not worth it.) */
 	for (; processes_to_kill > 0; processes_to_kill--) {
 		struct service_process *process = service->idle_processes_head;
@@ -282,9 +282,9 @@ static void service_log_drop_warning(struct service *service)
 		if (service->process_limit > 1) {
 			limit_name = "process_limit";
 			limit = service->process_limit;
-		} else if (service->set->service_count == 1) {
+		} else if (service->set->restart_request_count == 1) {
 			i_assert(service->client_limit == 1);
-			limit_name = "client_limit/service_count";
+			limit_name = "client_limit/restart_request_count";
 			limit = 1;
 		} else {
 			limit_name = "client_limit";

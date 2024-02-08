@@ -31,7 +31,7 @@ struct service_settings doveadm_service_settings = {
 	.drop_priv_before_exec = FALSE,
 
 	.client_limit = 1,
-	.service_count = 1,
+	.restart_request_count = 1,
 
 	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,

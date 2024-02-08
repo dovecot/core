@@ -267,7 +267,7 @@ static void login_server_auth_finish(struct login_server_request *request,
 	bool close_sockets;
 
 	close_sockets = service->master_status.available_count == 0 &&
-		service->service_count_left == 1;
+		service->restart_request_count_left == 1;
 
 	request->conn->login_success = TRUE;
 	server->callback(request, auth_args[0], auth_args+1);

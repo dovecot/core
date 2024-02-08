@@ -47,7 +47,7 @@ struct master_service {
 	unsigned int socket_count;
 
 	struct io *io_status_write, *io_status_error;
-	unsigned int service_count_left;
+	unsigned int restart_request_count_left;
 	unsigned int total_available_count;
 	unsigned int process_limit;
 	unsigned int process_min_avail;
