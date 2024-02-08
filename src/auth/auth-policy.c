@@ -58,6 +58,7 @@ struct policy_lookup_ctx {
 	struct event *event;
 
 	bool parse_error;
+	bool have_status;
 };
 
 struct policy_template_keyvalue {
@@ -300,6 +301,7 @@ static void auth_policy_parse_response(struct policy_lookup_ctx *context)
 		if (strcmp(jnode.name, "status") == 0) {
 			if (json_node_get_int(&jnode, &context->result) != 0)
 				break;
+			context->have_status = TRUE;
 		} else if (strcmp(jnode.name, "msg") == 0) {
 			if (!json_node_is_string(&jnode))
 				break;
@@ -329,12 +331,15 @@ static void auth_policy_parse_response(struct policy_lookup_ctx *context)
 
 		ret = json_istream_finish(&context->json_input, &error);
 		i_assert(ret != 0);
-		if (ret > 0)
-			context->parse_error = FALSE;
-		else {
+		if (ret < 0) {
 			e_error(context->event,
 				"Policy server response JSON parse error: %s",
 				error);
+		} else if (!context->have_status) {
+			e_error(context->event,
+				"Policy server response is missing status field");
+		} else {
+			context->parse_error = FALSE;
 		}
 	}
 	json_istream_destroy(&context->json_input);
