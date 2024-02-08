@@ -25,7 +25,7 @@ struct service_settings imap_urlauth_worker_service_settings = {
 
 	.process_limit = 1024,
 	.client_limit = 1,
-	.service_count = 1,
+	.restart_request_count = 1,
 
 	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,

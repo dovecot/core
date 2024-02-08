@@ -307,9 +307,9 @@ service_process_setup_environment(struct service *service, unsigned int uid,
 	env_put(MASTER_PROCESS_MIN_AVAIL_ENV,
 		dec2str(service->set->process_min_avail));
 	env_put(MASTER_SERVICE_IDLE_KILL_ENV, dec2str(service->idle_kill));
-	if (service->set->service_count != 0) {
+	if (service->set->restart_request_count != 0) {
 		env_put(MASTER_SERVICE_COUNT_ENV,
-			dec2str(service->set->service_count));
+			dec2str(service->set->restart_request_count));
 	}
 	env_put(MASTER_UID_ENV, dec2str(uid));
 	env_put(MY_HOSTNAME_ENV, my_hostname);

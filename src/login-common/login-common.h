@@ -52,7 +52,7 @@ extern struct login_client_list *login_client_list;
 extern bool closing_down, login_debug;
 extern struct anvil_client *anvil;
 extern const char *login_rawlog_dir;
-extern unsigned int initial_service_count;
+extern unsigned int initial_restart_request_count;
 /* NULL-terminated array of all alt_usernames seen so far. Existing fields are
    never removed. */
 extern ARRAY_TYPE(string) global_alt_usernames;

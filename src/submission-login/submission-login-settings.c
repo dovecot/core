@@ -24,7 +24,7 @@ struct service_settings submission_login_service_settings = {
 
 	.drop_priv_before_exec = FALSE,
 
-	.service_count = 1,
+	.restart_request_count = 1,
 
 	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,

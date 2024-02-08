@@ -138,7 +138,7 @@ int main(void) {
 	struct master_service local_master_service = {
 		.stopping = TRUE,
 		.total_available_count = 100,
-		.service_count_left = 100,
+		.restart_request_count_left = 100,
 	};
 	void (*const test_functions[])(void) = {
 		test_client_writer,

@@ -206,9 +206,9 @@ service_create_real(pool_t pool, struct event *event,
 	service->throttle_msecs = SERVICE_STARTUP_FAILURE_THROTTLE_MIN_MSECS;
 
 	service->client_limit = set->client_limit;
-	if (set->service_count > 0 &&
-	    service->client_limit > set->service_count)
-		service->client_limit = set->service_count;
+	if (set->restart_request_count > 0 &&
+	    service->client_limit > set->restart_request_count)
+		service->client_limit = set->restart_request_count;
 
 	service->vsz_limit = set->vsz_limit;
 	service->idle_kill = set->idle_kill;

@@ -24,6 +24,6 @@ void auth_worker_server_send_shutdown(void);
 void auth_worker_connections_destroy_all(void);
 
 /* Stop master service after this many requests. 0 is unlimited. */
-void auth_worker_set_max_service_count(unsigned int count);
+void auth_worker_set_max_restart_request_count(unsigned int count);
 
 #endif

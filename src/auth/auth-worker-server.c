@@ -24,8 +24,8 @@
 #define WORKER_STATE_IDLE "idling"
 #define WORKER_STATE_STOP "waiting for shutdown"
 
-static unsigned int auth_worker_max_service_count = 0;
-static unsigned int auth_worker_service_count = 0;
+static unsigned int auth_worker_max_restart_request_count = 0;
+static unsigned int auth_worker_restart_request_count = 0;
 
 struct auth_worker_server {
 	struct connection conn;
@@ -59,9 +59,9 @@ static int auth_worker_output(struct auth_worker_server *server);
 static void auth_worker_server_destroy(struct connection *conn);
 static void auth_worker_server_unref(struct auth_worker_server **_client);
 
-void auth_worker_set_max_service_count(unsigned int count)
+void auth_worker_set_max_restart_request_count(unsigned int count)
 {
-	auth_worker_max_service_count = count;
+	auth_worker_max_restart_request_count = count;
 }
 
 static struct auth_worker_server *auth_worker_get_client(void)
@@ -817,10 +817,10 @@ auth_worker_server_input_args(struct connection *conn, const char *const *args)
 	server->refcount++;
 	e_debug(cmd->event, "Handling %s request", args[1]);
 
-	/* Check if we have reached service_count */
-	if (auth_worker_max_service_count > 0) {
-		auth_worker_service_count++;
-		if (auth_worker_service_count >= auth_worker_max_service_count)
+	/* Check if we have reached restart_request_count */
+	if (auth_worker_max_restart_request_count > 0) {
+		auth_worker_restart_request_count++;
+		if (auth_worker_restart_request_count >= auth_worker_max_restart_request_count)
 			worker_restart_request = TRUE;
 	}
 

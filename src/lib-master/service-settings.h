@@ -69,7 +69,7 @@ struct service_settings {
 	unsigned int process_min_avail;
 	unsigned int process_limit;
 	unsigned int client_limit;
-	unsigned int service_count;
+	unsigned int restart_request_count;
 	unsigned int idle_kill;
 	uoff_t vsz_limit;
 

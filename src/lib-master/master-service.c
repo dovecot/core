@@ -535,7 +535,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 		i_strconcat(getopt_str, master_service_getopt_string(), NULL);
 	service->flags = flags;
 	service->ioloop = io_loop_create();
-	service->service_count_left = UINT_MAX;
+	service->restart_request_count_left = UINT_MAX;
 	service->datastack_frame_id = datastack_frame_id;
 
 	service->config_path = i_strdup(getenv(MASTER_CONFIG_FILE_SOCKET_ENV));
@@ -624,7 +624,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 		value = getenv(MASTER_SERVICE_COUNT_ENV);
 		if (value != NULL && str_to_uint(value, &count) == 0 &&
 		    count > 0)
-			master_service_set_service_count(service, count);
+			master_service_set_restart_request_count(service, count);
 
 		/* set the idle kill timeout */
 		value = getenv(MASTER_SERVICE_IDLE_KILL_ENV);
@@ -632,7 +632,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 			service->idle_kill_secs = count;
 	} else {
 		master_service_set_client_limit(service, 1);
-		master_service_set_service_count(service, 1);
+		master_service_set_restart_request_count(service, 1);
 	}
 	if ((flags & MASTER_SERVICE_FLAG_DONT_SEND_STATS) == 0) {
 		/* Initialize stats-client early so it can see all events. */
@@ -1119,8 +1119,8 @@ unsigned int master_service_get_idle_kill_secs(struct master_service *service)
 	return service->idle_kill_secs;
 }
 
-void master_service_set_service_count(struct master_service *service,
-				      unsigned int count)
+void master_service_set_restart_request_count(struct master_service *service,
+					      unsigned int count)
 {
 	unsigned int used;
 
@@ -1132,12 +1132,12 @@ void master_service_set_service_count(struct master_service *service,
 		service->total_available_count = count;
 		service->master_status.available_count = count - used;
 	}
-	service->service_count_left = count;
+	service->restart_request_count_left = count;
 }
 
-unsigned int master_service_get_service_count(struct master_service *service)
+unsigned int master_service_get_restart_request_count(struct master_service *service)
 {
-	return service->service_count_left;
+	return service->restart_request_count_left;
 }
 
 unsigned int master_service_get_socket_count(struct master_service *service)
@@ -1235,7 +1235,7 @@ void master_service_stop_new_connections(struct master_service *service)
 	/* make sure we stop after servicing current connections */
 	current_count = service->total_available_count -
 		service->master_status.available_count;
-	service->service_count_left = current_count;
+	service->restart_request_count_left = current_count;
 	service->total_available_count = current_count;
 
 	if (current_count == 0)
@@ -1413,7 +1413,7 @@ static bool master_service_want_listener(struct master_service *service)
 		/* more concurrent clients can still be added */
 		return TRUE;
 	}
-	if (service->service_count_left == 1) {
+	if (service->restart_request_count_left == 1) {
 		/* after handling this client, the whole process will stop. */
 		return FALSE;
 	}
@@ -1442,7 +1442,7 @@ void master_service_client_connection_handled(struct master_service *service,
 	if (!master_service_want_listener(service)) {
 		i_assert(service->listeners != NULL);
 		master_service_io_listeners_remove(service);
-		if (service->service_count_left == 1 &&
+		if (service->restart_request_count_left == 1 &&
 		   service->avail_overflow_callback == NULL) {
 			/* we're not going to accept any more connections after
 			   this. go ahead and close the connection early. don't
@@ -1451,11 +1451,12 @@ void master_service_client_connection_handled(struct master_service *service,
 			   permissions).
 
 			   Don't do this if overflow callback is set, because
-			   otherwise it's never called with service_count=1.
-			   Actually this isn't important anymore to do with
-			   any service, since nowadays master can request the
-			   listeners to be closed via SIGQUIT. Still, closing
-			   the fd when possible saves a little bit of memory. */
+			   otherwise it's never called with
+			   restart_request_count=1. Actually this isn't
+			   important anymore to do with any service, since
+			   nowadays master can request the listeners to be
+			   closed via SIGQUIT. Still, closing the fd when
+			   possible saves a little bit of memory. */
 			master_service_io_listeners_close(service);
 		}
 	}
@@ -1480,21 +1481,21 @@ void master_service_client_connection_destroyed(struct master_service *service)
 	master_service_io_listeners_add(service);
 
 	i_assert(service->total_available_count > 0);
-	i_assert(service->service_count_left > 0);
+	i_assert(service->restart_request_count_left > 0);
 
-	if (service->service_count_left == service->total_available_count) {
+	if (service->restart_request_count_left == service->total_available_count) {
 		service->total_available_count--;
-		service->service_count_left--;
+		service->restart_request_count_left--;
 	} else {
-		if (service->service_count_left != UINT_MAX)
-			service->service_count_left--;
+		if (service->restart_request_count_left != UINT_MAX)
+			service->restart_request_count_left--;
 
 		i_assert(service->master_status.available_count <
 			 service->total_available_count);
 		service->master_status.available_count++;
 	}
 
-	if (service->service_count_left == 0) {
+	if (service->restart_request_count_left == 0) {
 		i_assert(service->master_status.available_count ==
 			 service->total_available_count);
 		master_service_stop(service);
@@ -1696,11 +1697,11 @@ static void master_service_overflow(struct master_service *service)
 		return;
 	}
 	if (service->master_status.available_count == 0) {
-		/* Client was destroyed, but service_count is now 0.
+		/* Client was destroyed, but restart_request_count is now 0.
 		   The servive was already stopped, so the process will
 		   shutdown and a new process can handle the waiting client
 		   connection. */
-		i_assert(service->service_count_left == 0);
+		i_assert(service->restart_request_count_left == 0);
 		i_assert(!io_loop_is_running(service->ioloop));
 		return;
 	}
@@ -1756,12 +1757,12 @@ static bool master_service_full(struct master_service *service)
 	}
 
 	/* This process can't create more than a single client. Most likely
-	   running with service_count=1. Check the overflow again after a short
-	   delay before killing anything. This way only some of the connections
-	   get killed instead of all of them. The delay is based on the
-	   connection age with a bit of randomness, so the oldest connections
-	   should die first, but even if all the connections have time same
-	   timestamp they still don't all die at once. */
+	   running with restart_request_count=1. Check the overflow again after
+	   a short delay before killing anything. This way only some of the
+	   connections get killed instead of all of them. The delay is based on
+	   the connection age with a bit of randomness, so the oldest
+	   connections should die first, but even if all the connections have
+	   time same timestamp they still don't all die at once. */
 	if (!service->avail_overflow_callback(FALSE, &created)) {
 		/* can't kill any clients */
 		return TRUE;

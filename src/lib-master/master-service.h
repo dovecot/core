@@ -217,11 +217,11 @@ unsigned int master_service_get_idle_kill_secs(struct master_service *service);
 
 /* Set maximum number of client connections we will handle before shutting
    down. */
-void master_service_set_service_count(struct master_service *service,
-				      unsigned int count);
+void master_service_set_restart_request_count(struct master_service *service,
+					      unsigned int count);
 /* Returns the number of client connections we will handle before shutting
    down. The value is decreased only after connection has been closed. */
-unsigned int master_service_get_service_count(struct master_service *service);
+unsigned int master_service_get_restart_request_count(struct master_service *service);
 /* Return the number of listener sockets. */
 unsigned int master_service_get_socket_count(struct master_service *service);
 /* Returns the name of the listener socket, or "" if none is specified. */
