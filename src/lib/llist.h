@@ -78,4 +78,18 @@
 #define DLLIST2_REMOVE(head, tail, item) \
 	DLLIST2_REMOVE_FULL(head, tail, item, prev, next)
 
+#define DLLIST2_JOIN_FULL(head1, tail1, head2, tail2, prev, next) STMT_START { \
+	if (*(head1) == NULL) { \
+		*(head1) = *(head2); \
+		*(tail1) = *(tail2); \
+	} else if (*(head2) != NULL) { \
+		(*(tail1))->next = *(head2); \
+		(*(head2))->prev = *(tail1); \
+		(*tail1) = (*tail2); \
+	} \
+	} STMT_END
+
+#define DLLIST2_JOIN(head1, tail1, head2, tail2) \
+	DLLIST2_JOIN_FULL(head1, tail1, head2, tail2, prev, next)
+
 #endif
