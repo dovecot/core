@@ -48,6 +48,8 @@ struct ssl_server_settings {
 extern const struct setting_parser_info ssl_setting_parser_info;
 extern const struct setting_parser_info ssl_server_setting_parser_info;
 
+extern const struct ssl_settings ssl_default_settings;
+
 void ssl_client_settings_to_iostream_set(
 	const struct ssl_settings *ssl_set,
 	const struct ssl_iostream_settings **set_r);

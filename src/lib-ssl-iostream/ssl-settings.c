@@ -31,7 +31,7 @@ static const struct setting_define ssl_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
-static const struct ssl_settings ssl_default_settings = {
+const struct ssl_settings ssl_default_settings = {
 	.ssl_client_ca_file = "",
 	.ssl_client_ca_dir = "",
 	.ssl_client_cert_file = "",
