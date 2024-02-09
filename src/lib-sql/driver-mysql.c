@@ -89,8 +89,6 @@ static int driver_mysql_connect(struct sql_db *_db)
 
 	i_assert(db->api.state == SQL_DB_STATE_DISCONNECTED);
 
-	sql_db_set_state(&db->api, SQL_DB_STATE_CONNECTING);
-
 	if (db->host == NULL) {
 		/* assume option_file overrides the host, or if not we'll just
 		   connect to localhost */
@@ -112,8 +110,6 @@ static int driver_mysql_connect(struct sql_db *_db)
 	if (db->host != NULL)
 		event_set_append_log_prefix(_db->event, t_strdup_printf("mysql(%s): ", db->host));
 
-	e_debug(_db->event, "Connecting");
-
 	mysql_options(db->mysql, MYSQL_OPT_CONNECT_TIMEOUT, &db->connect_timeout);
 	mysql_options(db->mysql, MYSQL_OPT_READ_TIMEOUT, &db->read_timeout);
 	mysql_options(db->mysql, MYSQL_OPT_WRITE_TIMEOUT, &db->write_timeout);
@@ -134,10 +130,17 @@ static int driver_mysql_connect(struct sql_db *_db)
 #endif
 		db->ssl_set = TRUE;
 #else
-		i_fatal("mysql: SSL support not compiled in "
-			"(remove ssl_ca and ssl_ca_path settings)");
+		const char *error = "SSL support not compiled in "
+			"(remove ssl_ca and ssl_ca_path settings)";
+		i_free(_db->last_connect_error);
+		_db->last_connect_error = i_strdup(error);
+		e_error(_db->event, "%s", error);
+		return -1;
 #endif
 	}
+
+	sql_db_set_state(&db->api, SQL_DB_STATE_CONNECTING);
+	e_debug(_db->event, "Connecting");
 
 #ifdef CLIENT_MULTI_RESULTS
 	client_flags |= CLIENT_MULTI_RESULTS;
