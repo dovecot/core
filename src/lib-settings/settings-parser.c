@@ -422,7 +422,7 @@ int settings_parse_boollist_string(const char *value, pool_t pool,
 		return -1;
 	}
 	if (quoted || str_len(elem) > 0) {
-		elem_dup = settings_section_unescape(p_strdup(pool, str_c(elem)));
+		elem_dup = p_strdup(pool, settings_section_unescape(str_c(elem)));
 		array_push_back(dest, &elem_dup);
 	}
 	return 0;
