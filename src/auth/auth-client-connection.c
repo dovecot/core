@@ -60,13 +60,11 @@ static void auth_client_send(struct auth_client_connection *conn,
 {
 	if(conn->conn.disconnected)
 		return;
-	struct const_iovec iov[2];
-
-	iov[0].iov_base = cmd;
-	iov[0].iov_len = strlen(cmd);
-	iov[1].iov_base = "\n";
-	iov[1].iov_len = 1;
-	o_stream_nsendv(conn->conn.output, iov, 2);
+	const struct const_iovec iov[] = {
+		{ .iov_base = cmd, .iov_len = strlen(cmd), },
+		{ .iov_base = "\n", .iov_len = 1 },
+	};
+	o_stream_nsendv(conn->conn.output, iov, N_ELEMENTS(iov));
 
 	e_debug(conn->conn.event, "client passdb out: %s",
 		conn->auth->set->debug_passwords ?
