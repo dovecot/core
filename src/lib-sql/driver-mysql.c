@@ -9,6 +9,7 @@
 #include "time-util.h"
 #include "settings.h"
 #include "settings-parser.h"
+#include "settings.h"
 #include "ssl-settings.h"
 #include "sql-api-private.h"
 
@@ -49,6 +50,31 @@ struct mysql_settings {
 	unsigned int write_timeout_secs;
 };
 
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("mysql_"#name, name, struct mysql_settings)
+#undef DEF_SECS
+#define DEF_SECS(type, name) \
+	SETTING_DEFINE_STRUCT_##type("mysql_"#name, name##_secs, struct mysql_settings)
+static const struct setting_define mysql_setting_defines[] = {
+	DEF(STR, host),
+	DEF(IN_PORT, port),
+	DEF(STR, user),
+	DEF(STR, password),
+	DEF(STR, dbname),
+
+	DEF(BOOL, ssl),
+	DEF(STR, option_file),
+	DEF(STR, option_group),
+	DEF(UINT, client_flags),
+
+	DEF_SECS(TIME, connect_timeout),
+	DEF_SECS(TIME, read_timeout),
+	DEF_SECS(TIME, write_timeout),
+
+	SETTING_DEFINE_LIST_END
+};
+
 static struct mysql_settings mysql_default_settings = {
 	.host = "",
 	.port = 0,
@@ -64,6 +90,16 @@ static struct mysql_settings mysql_default_settings = {
 	.connect_timeout_secs = SQL_CONNECT_TIMEOUT_SECS,
 	.read_timeout_secs = MYSQL_DEFAULT_READ_TIMEOUT_SECS,
 	.write_timeout_secs = MYSQL_DEFAULT_WRITE_TIMEOUT_SECS,
+};
+
+const struct setting_parser_info mysql_setting_parser_info = {
+	.name = "mysql",
+
+	.defines = mysql_setting_defines,
+	.defaults = &mysql_default_settings,
+
+	.struct_size = sizeof(struct mysql_settings),
+	.pool_offset1 = 1 + offsetof(struct mysql_settings, pool),
 };
 
 struct mysql_db {
@@ -364,6 +400,49 @@ driver_mysql_init_common(pool_t pool, struct event *event_parent,
 	if (mysql_init(db->mysql) == NULL)
 		i_fatal_status(FATAL_OUTOFMEM, "mysql_init() failed");
 	return &db->api;
+}
+
+static int
+driver_mysql_init_v(struct event *event, struct sql_db **db_r,
+		    const char **error_r)
+{
+	const struct mysql_settings *set;
+	const struct ssl_settings *ssl_set = NULL;
+
+	*error_r = NULL;
+
+	if (settings_get(event, &mysql_setting_parser_info, 0,
+			 &set, error_r) < 0)
+		return -1;
+
+	if (set->ssl) {
+		if (settings_get(event, &ssl_setting_parser_info, 0,
+				 &ssl_set, error_r) < 0) {
+			settings_free(set);
+			return -1;
+		}
+		/* Verify that inline SSL certs/keys aren't attempted
+		   to be used */
+		if (ssl_set->ssl_client_key_file[0] != '\0' &&
+		    !settings_file_has_path(ssl_set->ssl_client_key_file))
+			*error_r = "MySQL doesn't support inline content for ssl_client_key_file";
+		else if (ssl_set->ssl_client_cert_file[0] != '\0' &&
+			 !settings_file_has_path(ssl_set->ssl_client_cert_file))
+			*error_r = "MySQL doesn't support inline content for ssl_client_cert_file";
+		else if (ssl_set->ssl_client_ca_file[0] != '\0' &&
+			 !settings_file_has_path(ssl_set->ssl_client_ca_file))
+			*error_r = "MySQL doesn't support inline content for ssl_client_ca_file";
+
+		if (*error_r != NULL) {
+			settings_free(set);
+			settings_free(ssl_set);
+			return -1;
+		}
+	}
+
+	pool_t pool = pool_alloconly_create("mysql driver", 1024);
+	*db_r = driver_mysql_init_common(pool, event, set, ssl_set);
+	return 0;
 }
 
 static int driver_mysql_init_full_v(const struct sql_legacy_settings *legacy_set,
@@ -851,6 +930,7 @@ const struct sql_db driver_mysql_db = {
 		 SQL_DB_FLAG_ON_DUPLICATE_KEY,
 
 	.v = {
+		.init = driver_mysql_init_v,
 		.init_legacy_full = driver_mysql_init_full_v,
 		.deinit = driver_mysql_deinit_v,
 		.connect = driver_mysql_connect,
