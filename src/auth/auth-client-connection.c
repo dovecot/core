@@ -410,7 +410,7 @@ static void auth_client_disconnected(struct auth_client_connection **_conn)
 	request_count = conn->request_handler == NULL ? 0 :
 		auth_request_handler_get_request_count(conn->request_handler);
 	if (request_count > 0) {
-		e_error(conn->event, "auth client %u disconnected with %u "
+		e_warning(conn->event, "auth client %u disconnected with %u "
 			  "pending requests: %s", conn->pid, request_count,
 			  err == 0 ? "EOF" : strerror(err));
 	}
