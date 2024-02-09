@@ -463,6 +463,15 @@ void settings_file_get(const char *value, pool_t path_pool,
 	file_r->content = p + 1;
 }
 
+bool settings_file_has_path(const char *value)
+{
+	/* value must be in <path><LF><content> format */
+	const char *p = strchr(value, '\n');
+	if (p == NULL)
+		i_panic("Settings file value is missing LF");
+	return p != value;
+}
+
 const char *settings_file_get_value(pool_t pool,
 				    const struct settings_file *file)
 {
