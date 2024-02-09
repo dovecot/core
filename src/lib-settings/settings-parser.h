@@ -256,6 +256,9 @@ const char *const *settings_boollist_get(const ARRAY_TYPE(const_string) *array);
    the path_pool, while content points directly to the value string. */
 void settings_file_get(const char *value, pool_t path_pool,
 		       struct settings_file *file_r);
+/* Returns TRUE if the settings value contains a non-empty path. The value
+   is expected to be in the SET_FILE format (path LF content). */
+bool settings_file_has_path(const char *value);
 /* Convert settings_file into a value (path LF content). The file path may be
    NULL, but the content must exist. */
 const char *settings_file_get_value(pool_t pool,
