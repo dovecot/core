@@ -589,20 +589,18 @@ auth_policy_create_json(struct policy_lookup_ctx *context,
 		if (!context->request->failed &&
 		    context->request->fields.successful &&
 		    !context->request->internal_failure) {
-			json_ostream_nwrite_string(json_output,
-						   "success", "true");
+			json_ostream_nwrite_true(json_output,
+						   "success");
 		} else {
-			json_ostream_nwrite_string(json_output,
-						   "success", "false");
+			json_ostream_nwrite_false(json_output,
+						   "success");
 		}
-		json_ostream_nwrite_string(json_output, "policy_reject",
-					   (context->request->policy_refusal ?
-					    "true" : "false"));
+		json_ostream_nwrite_bool(json_output, "policy_reject",
+					 context->request->policy_refusal);
 	}
-	json_ostream_nwrite_string(
-		json_output, "tls",
-		(context->request->fields.conn_secured ==
-			AUTH_REQUEST_CONN_SECURED_TLS ? "true" : "false"));
+	json_ostream_nwrite_bool(json_output, "tls",
+				 context->request->fields.conn_secured ==
+				 AUTH_REQUEST_CONN_SECURED_TLS);
 	json_ostream_nascend_object(json_output);
 	json_ostream_nfinish_destroy(&json_output);
 
