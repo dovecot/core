@@ -343,6 +343,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 	size_t len, skip_len, setting_name_filter_len;
 	size_t alt_setting_name_filter_len;
 	bool bool_list_elem = FALSE;
+	bool str_list_elem = FALSE;
 
 	setting_name_filter_len = setting_name_filter == NULL ? 0 :
 		strlen(setting_name_filter);
@@ -448,6 +449,13 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		skip_len = prefix_idx == UINT_MAX ? 0 : strlen(prefixes[prefix_idx]);
 		i_assert(skip_len == 0 ||
 			 strncmp(prefixes[prefix_idx], strings[i], skip_len) == 0);
+		if (skip_len > 0 && hide_key &&
+		    setting_name_filter_len < skip_len) {
+			/* Add the "key = " prefix when asking for the whole
+			   "strlist", but not when asking for a specific
+			   "strlist/key" */
+			str_list_elem = TRUE;
+		}
 		if (!hide_key)
 			o_stream_nsend(output, indent_str, indent*2);
 		key = strings[i] + skip_len;
@@ -464,7 +472,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			key++;
 		value = strchr(key, '=');
 		i_assert(value != NULL);
-		if (!hide_key || bool_list_elem) {
+		if (!hide_key || bool_list_elem || str_list_elem) {
 			key = t_strdup_until(key, value);
 			if (strpbrk(key, " \"\\#") == NULL)
 				o_stream_nsend_str(output, key);
@@ -474,7 +482,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 				o_stream_nsend(output, "\"", 1);
 			}
 			o_stream_nsend_str(output, " = ");
-		} else if (!bool_list_elem) {
+		} else if (!bool_list_elem || !str_list_elem) {
 			if (output->offset != 0)
 				i_fatal("Multiple settings matched with -h parameter");
 		}
@@ -494,7 +502,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			o_stream_nsend_str(output, str_escape(value+1));
 			o_stream_nsend(output, "\"", 1);
 		}
-		bool_list_elem = FALSE;
+		bool_list_elem = str_list_elem = FALSE;
 		o_stream_nsend(output, "\n", 1);
 	end: ;
 	} T_END;
