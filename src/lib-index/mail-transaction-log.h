@@ -421,7 +421,7 @@ void mail_transaction_log_view_clear(struct mail_transaction_log_view *view,
 				     uint32_t oldest_file_seq);
 
 /* Read next transaction record from current position. The position is updated.
-   Returns -1 if error, 0 if we're at end of the view, 1 if ok. */
+   Returns -1 if log is corrupted, 0 if we're at end of the view, 1 if ok. */
 int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 				   const struct mail_transaction_header **hdr_r,
 				   const void **data_r);

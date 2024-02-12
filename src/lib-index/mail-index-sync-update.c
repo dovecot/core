@@ -1002,6 +1002,10 @@ int mail_index_sync_map(struct mail_index_map **_map,
 	}
 	map = NULL;
 
+	/* mail_transaction_log_view_next() returns -1 on corruption.
+	   Since the log file content before the corruption was found can be
+	   useful and important, we don't fail this sync entirely. Instead,
+	   we'll just mark the rest of the log file as synced. */
 	while ((ret = mail_transaction_log_view_next(view->log_view, &thdr,
 						     &tdata)) > 0) {
 		mail_transaction_log_view_get_prev_pos(view->log_view,

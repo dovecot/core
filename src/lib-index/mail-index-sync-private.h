@@ -54,6 +54,9 @@ void mail_index_sync_map_init(struct mail_index_sync_map_ctx *sync_map_ctx,
 void mail_index_sync_map_deinit(struct mail_index_sync_map_ctx *sync_map_ctx);
 bool mail_index_sync_map_want_index_reopen(struct mail_index_map *map,
 					   enum mail_index_sync_handler_type type);
+/* Returns 1 if synced, 0 if map's log file is lost (or more likely, seq number
+   is corrupted), -1 on I/O error. Corrupted records inside the transaction log
+   file doesn't cause this function to fail. */
 int mail_index_sync_map(struct mail_index_map **_map,
 			enum mail_index_sync_handler_type type,
 			const char **reason_r);
