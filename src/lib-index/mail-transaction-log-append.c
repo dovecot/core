@@ -143,10 +143,6 @@ log_append_sync_offset_if_needed(struct mail_transaction_log_append_ctx *ctx)
 			return;
 		}
 
-		/* FIXME: when we remove exclusive log locking, we
-		   can't rely on this. then write non-changed offset + check
-		   real offset + rewrite the new offset if other transactions
-		   weren't written in the middle */
 		offset = file->max_tail_offset + ctx->output->used +
 			sizeof(*hdr) + sizeof(*u) + sizeof(offset);
 		ctx->sync_includes_this = TRUE;

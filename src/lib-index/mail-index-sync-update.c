@@ -1002,11 +1002,6 @@ int mail_index_sync_map(struct mail_index_map **_map,
 	}
 	map = NULL;
 
-	/* FIXME: when transaction sync lock is removed, we'll need to handle
-	   the case when a transaction is committed while mailbox is being
-	   synced ([synced transactions][new transaction][ext transaction]).
-	   this means int_offset contains [synced] and ext_offset contains
-	   all */
 	while ((ret = mail_transaction_log_view_next(view->log_view, &thdr,
 						     &tdata)) > 0) {
 		mail_transaction_log_view_get_prev_pos(view->log_view,
