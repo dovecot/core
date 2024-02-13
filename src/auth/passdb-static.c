@@ -4,45 +4,38 @@
 #include "passdb.h"
 #include "passdb-template.h"
 #include "password-scheme.h"
-
-struct static_passdb_module {
-	struct passdb_module module;
-	struct passdb_template *tmpl;
-	const char *static_password_tmpl;
-};
+#include "settings.h"
+#include "auth-settings.h"
 
 static enum passdb_result
 static_save_fields(struct auth_request *request, const char **password_r,
 		   const char **scheme_r)
 {
-	struct static_passdb_module *module =
-		(struct static_passdb_module *)request->passdb->passdb;
+	const struct auth_static_settings *set;
 	const char *error;
 
 	*password_r = NULL;
 	*scheme_r = NULL;
 
 	e_debug(authdb_event(request), "lookup");
-	if (passdb_template_export(module->tmpl, request, &error) < 0) {
-		e_error(authdb_event(request),
-			"Failed to expand template: %s", error);
+	if (settings_get(authdb_event(request),
+			 &auth_static_setting_parser_info, 0, &set,
+			 &error) < 0)
+		return -1;
+	if (auth_request_set_passdb_fields(request, NULL) < 0) {
+		settings_free(set);
 		return PASSDB_RESULT_INTERNAL_FAILURE;
 	}
-
-	if (module->static_password_tmpl != NULL) {
-		if (t_auth_request_var_expand(module->static_password_tmpl,
-				request, NULL, password_r, &error) <= 0) {
-			e_error(authdb_event(request),
-				"Failed to expand password=%s: %s",
-				module->static_password_tmpl, error);
-			return PASSDB_RESULT_INTERNAL_FAILURE;
-		}
+	if (set->passdb_static_password[0] != '\0') {
+		*password_r = p_strdup(request->pool, set->passdb_static_password);
 	} else if (auth_fields_exists(request->fields.extra_fields, "nopassword")) {
 		*password_r = "";
 	} else {
+		settings_free(set);
 		return auth_request_password_missing(request);
 	}
 
+	settings_free(set);
 	*scheme_r = password_get_scheme(password_r);
 
 	if (*scheme_r == NULL)
@@ -86,24 +79,10 @@ static_lookup_credentials(struct auth_request *request,
 				  static_scheme, callback, request);
 }
 
-static struct passdb_module *
-static_preinit(pool_t pool, const char *args)
-{
-	struct static_passdb_module *module;
-	const char *value;
-
-	module = p_new(pool, struct static_passdb_module, 1);
-	module->tmpl = passdb_template_build(pool, args);
-
-	if (passdb_template_remove(module->tmpl, "password", &value))
-		module->static_password_tmpl = value;
-	return &module->module;
-}
-
 struct passdb_module_interface passdb_static = {
 	.name = "static",
+	.fields_supported = TRUE,
 
-	.preinit_legacy = static_preinit,
 	.verify_plain = static_verify_plain,
 	.lookup_credentials = static_lookup_credentials,
 };
