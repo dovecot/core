@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "settings-parser.h"
-#include "mail-storage-settings.h"
 #include "imapc-settings.h"
 
 #undef DEF
