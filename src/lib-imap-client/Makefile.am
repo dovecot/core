@@ -13,13 +13,15 @@ AM_CPPFLAGS = \
 libimap_client_la_SOURCES = \
 	imapc-client.c \
 	imapc-connection.c \
-	imapc-msgmap.c
+	imapc-msgmap.c \
+	imapc-settings.c
 
 headers = \
 	imapc-client.h \
 	imapc-client-private.h \
 	imapc-connection.h \
-	imapc-msgmap.h
+	imapc-msgmap.h \
+	imapc-settings.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
