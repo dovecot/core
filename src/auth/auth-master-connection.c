@@ -103,7 +103,7 @@ auth_master_event_log_callback(struct auth_master_connection *conn,
 	return str_c(str);
 }
 
-static bool master_input_request(struct auth_master_connection *conn,
+static int master_input_request(struct auth_master_connection *conn,
 				 const char *const *args)
 {
 	struct auth_client_connection *client_conn;
@@ -117,14 +117,14 @@ static bool master_input_request(struct auth_master_connection *conn,
 	    str_to_uint(args[1], &client_pid) < 0 ||
 	    str_to_uint(args[2], &client_id) < 0) {
 		e_error(conn->conn.event, "BUG: Master sent broken REQUEST");
-		return FALSE;
+		return -1;
 	}
 
 	buffer_create_from_data(&buf, cookie, sizeof(cookie));
 	if (strlen(args[3]) != sizeof(cookie) * 2 ||
 	    hex_to_binary(args[3], &buf) < 0) {
 		e_error(conn->conn.event, "BUG: Master sent broken REQUEST cookie");
-		return FALSE;
+		return -1;
 	}
 	params = args + 4;
 
@@ -151,10 +151,10 @@ static bool master_input_request(struct auth_master_connection *conn,
 		o_stream_nsend_str(conn->conn.output,
 				   t_strdup_printf("FAIL\t%u\n", id));
 	}
-	return TRUE;
+	return 1;
 }
 
-static bool master_input_cache_flush(struct auth_master_connection *conn,
+static int master_input_cache_flush(struct auth_master_connection *conn,
 				     const char *const *args)
 {
 	unsigned int count;
@@ -162,7 +162,7 @@ static bool master_input_cache_flush(struct auth_master_connection *conn,
 	/* <id> [<user> [<user> [..]] */
 	if (args[0] == NULL) {
 		e_error(conn->conn.event, "BUG: doveadm sent broken CACHE-FLUSH");
-		return FALSE;
+		return -1;
 	}
 
 	if (passdb_cache == NULL) {
@@ -176,7 +176,7 @@ static bool master_input_cache_flush(struct auth_master_connection *conn,
 	}
 	o_stream_nsend_str(conn->conn.output,
 			   t_strdup_printf("OK\t%s\t%u\n", args[0], count));
-	return TRUE;
+	return 1;
 }
 
 static int master_input_auth_request(struct auth_master_connection *conn,
@@ -324,7 +324,7 @@ static void user_callback(enum userdb_result result,
 	auth_master_connection_unref(&conn);
 }
 
-static bool master_input_user(struct auth_master_connection *conn,
+static int master_input_user(struct auth_master_connection *conn,
 			      const char *const *args)
 {
 	struct auth_request *auth_request;
@@ -335,14 +335,14 @@ static bool master_input_user(struct auth_master_connection *conn,
 					&error);
 	if (ret <= 0) {
 		if (ret < 0)
-			return FALSE;
+			return -1;
 		e_info(auth_request->event, "userdb: %s", error);
 		user_callback(USERDB_RESULT_USER_UNKNOWN, auth_request);
 	} else {
 		auth_request_set_state(auth_request, AUTH_REQUEST_STATE_USERDB);
 		auth_request_lookup_user(auth_request, user_callback);
 	}
-	return TRUE;
+	return 1;
 }
 
 static void pass_callback_finish(struct auth_request *auth_request,
@@ -433,7 +433,7 @@ static const char *auth_restricted_reason(struct auth_master_connection *conn)
 			       namestr);
 }
 
-static bool master_input_pass(struct auth_master_connection *conn,
+static int master_input_pass(struct auth_master_connection *conn,
 			      const char *const *args)
 {
 	struct auth_request *auth_request;
@@ -444,7 +444,7 @@ static bool master_input_pass(struct auth_master_connection *conn,
 					&error);
 	if (ret <= 0) {
 		if (ret < 0)
-			return FALSE;
+			return -1;
 		e_info(auth_request->event, "passdb: %s", error);
 		pass_callback(PASSDB_RESULT_USER_UNKNOWN, uchar_empty_ptr, 0,
 			      auth_request);
@@ -463,7 +463,7 @@ static bool master_input_pass(struct auth_master_connection *conn,
 		auth_request_lookup_credentials(auth_request, "",
 						pass_callback);
 	}
-	return TRUE;
+	return 1;
 }
 
 static void master_input_list_finish(struct master_list_iter_ctx *ctx)
@@ -551,7 +551,7 @@ static void master_input_list_callback(const char *user, void *context)
 		o_stream_uncork(ctx->conn->conn.output);
 }
 
-static bool master_input_list(struct auth_master_connection *conn,
+static int master_input_list(struct auth_master_connection *conn,
 			      const char *const *args)
 {
 	struct auth_userdb *userdb = conn->auth->userdbs;
@@ -563,7 +563,7 @@ static bool master_input_list(struct auth_master_connection *conn,
 	/* <id> [<parameters>] */
 	if (args[0] == NULL || str_to_uint(args[0], &id) < 0) {
 		e_error(conn->conn.event, "BUG: Master sent broken LIST");
-		return FALSE;
+		return -1;
 	}
 	args++;
 
@@ -571,7 +571,7 @@ static bool master_input_list(struct auth_master_connection *conn,
 		e_error(conn->conn.event, "Auth client is already iterating users");
 		str = t_strdup_printf("DONE\t%u\tfail\n", id);
 		o_stream_nsend_str(conn->conn.output, str);
-		return TRUE;
+		return 1;
 	}
 
 	if (conn->userdb_restricted_uid != 0) {
@@ -580,7 +580,7 @@ static bool master_input_list(struct auth_master_connection *conn,
 			auth_restricted_reason(conn));
 		str = t_strdup_printf("DONE\t%u\tfail\n", id);
 		o_stream_nsend_str(conn->conn.output, str);
-		return TRUE;
+		return 1;
 	}
 
 	while (userdb != NULL && userdb->userdb->iface->iterate_init == NULL)
@@ -590,7 +590,7 @@ static bool master_input_list(struct auth_master_connection *conn,
 			"Trying to iterate users, but userdbs don't support it");
 		str = t_strdup_printf("DONE\t%u\tfail\n", id);
 		o_stream_nsend_str(conn->conn.output, str);
-		return TRUE;
+		return 1;
 	}
 
 	auth_request = auth_request_new_dummy(auth_event);
@@ -635,10 +635,10 @@ static bool master_input_list(struct auth_master_connection *conn,
 	ctx->iter = userdb_blocking_iter_init(auth_request,
 					      master_input_list_callback, ctx);
 	conn->iter_ctx = ctx;
-	return TRUE;
+	return 1;
 }
 
-static bool auth_master_input_args(struct auth_master_connection *conn,
+static int auth_master_input_args(struct auth_master_connection *conn,
 				   const char *const *args)
 {
 	e_debug(auth_event, "master in: %s", t_strarray_join(args, "\t"));
@@ -660,21 +660,21 @@ static bool auth_master_input_args(struct auth_master_connection *conn,
 			e_error(conn->conn.event,
 				"Authentication client trying to connect to "
 				"master socket");
-			return FALSE;
+			return -1;
 		}
 	}
 
 	e_error(conn->conn.event, "BUG: Unknown command in %s socket: %s",
 		conn->userdb_only ? "userdb" : "master",
 		str_sanitize(args[0], 80));
-	return FALSE;
+	return -1;
 }
 
 static void master_input(struct auth_master_connection *conn)
 {
 	const char *args;
 	char *line;
-	bool ret;
+	int ret;
 
 	switch (i_stream_read(conn->conn.input)) {
 	case 0:
@@ -721,7 +721,7 @@ static void master_input(struct auth_master_connection *conn)
 				ret = auth_master_input_args(conn, args);
 			}
 		} T_END;
-		if (!ret) {
+		if (ret < 0) {
 			auth_master_connection_destroy(&conn);
 			return;
 		}
