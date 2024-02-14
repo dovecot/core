@@ -104,30 +104,30 @@ auth_master_event_log_callback(struct auth_master_connection *conn,
 }
 
 static bool master_input_request(struct auth_master_connection *conn,
-				 const char *args)
+				 const char *line)
 {
 	struct auth_client_connection *client_conn;
-	const char *const *list, *const *params;
+	const char *const *args, *const *params;
 	unsigned int id, client_pid, client_id;
 	uint8_t cookie[LOGIN_REQUEST_COOKIE_SIZE];
 	buffer_t buf;
 
 	/* <id> <client-pid> <client-id> <cookie> [<parameters>] */
-	list = t_strsplit_tabescaped(args);
-	if (str_array_length(list) < 4 || str_to_uint(list[0], &id) < 0 ||
-	    str_to_uint(list[1], &client_pid) < 0 ||
-	    str_to_uint(list[2], &client_id) < 0) {
+	args = t_strsplit_tabescaped(line);
+	if (str_array_length(args) < 4 || str_to_uint(args[0], &id) < 0 ||
+	    str_to_uint(args[1], &client_pid) < 0 ||
+	    str_to_uint(args[2], &client_id) < 0) {
 		e_error(conn->conn.event, "BUG: Master sent broken REQUEST");
 		return FALSE;
 	}
 
 	buffer_create_from_data(&buf, cookie, sizeof(cookie));
-	if (strlen(list[3]) != sizeof(cookie) * 2 ||
-	    hex_to_binary(list[3], &buf) < 0) {
+	if (strlen(args[3]) != sizeof(cookie) * 2 ||
+	    hex_to_binary(args[3], &buf) < 0) {
 		e_error(conn->conn.event, "BUG: Master sent broken REQUEST cookie");
 		return FALSE;
 	}
-	params = list + 4;
+	params = args + 4;
 
 	client_conn = auth_client_connection_lookup(client_pid);
 	if (client_conn == NULL) {
@@ -156,14 +156,14 @@ static bool master_input_request(struct auth_master_connection *conn,
 }
 
 static bool master_input_cache_flush(struct auth_master_connection *conn,
-				     const char *args)
+				     const char *line)
 {
-	const char *const *list;
+	const char *const *args;
 	unsigned int count;
 
 	/* <id> [<user> [<user> [..]] */
-	list = t_strsplit_tabescaped(args);
-	if (list[0] == NULL) {
+	args = t_strsplit_tabescaped(line);
+	if (args[0] == NULL) {
 		e_error(conn->conn.event, "BUG: doveadm sent broken CACHE-FLUSH");
 		return FALSE;
 	}
@@ -171,30 +171,30 @@ static bool master_input_cache_flush(struct auth_master_connection *conn,
 	if (passdb_cache == NULL) {
 		/* cache disabled */
 		count = 0;
-	} else if (list[1] == NULL) {
+	} else if (args[1] == NULL) {
 		/* flush the whole cache */
 		count = auth_cache_clear(passdb_cache);
 	} else {
-		count = auth_cache_clear_users(passdb_cache, list + 1);
+		count = auth_cache_clear_users(passdb_cache, args + 1);
 	}
 	o_stream_nsend_str(conn->conn.output,
-			   t_strdup_printf("OK\t%s\t%u\n", list[0], count));
+			   t_strdup_printf("OK\t%s\t%u\n", args[0], count));
 	return TRUE;
 }
 
 static int master_input_auth_request(struct auth_master_connection *conn,
-				     const char *args, const char *cmd,
+				     const char *line, const char *cmd,
 				     struct auth_request **request_r,
 				     const char **error_r)
 {
 	struct auth_request *auth_request;
-	const char *const *list, *name, *arg, *username;
+	const char *const *args, *name, *arg, *username;
 	unsigned int id;
 
 	/* <id> <userid> [<parameters>] */
-	list = t_strsplit_tabescaped(args);
-	if (list[0] == NULL || list[1] == NULL ||
-	    str_to_uint(list[0], &id) < 0) {
+	args = t_strsplit_tabescaped(line);
+	if (args[0] == NULL || args[1] == NULL ||
+	    str_to_uint(args[0], &id) < 0) {
 		e_error(conn->conn.event, "BUG: Master sent broken %s", cmd);
 		return -1;
 	}
@@ -203,15 +203,15 @@ static int master_input_auth_request(struct auth_master_connection *conn,
 	auth_request->id = id;
 	auth_request->master = conn;
 	auth_master_connection_ref(conn);
-	username = list[1];
+	username = args[1];
 
-	for (list += 2; *list != NULL; list++) {
-		arg = strchr(*list, '=');
+	for (args += 2; *args != NULL; args++) {
+		arg = strchr(*args, '=');
 		if (arg == NULL) {
-			name = *list;
+			name = *args;
 			arg = "";
 		} else {
-			name = t_strdup_until(*list, arg);
+			name = t_strdup_until(*args, arg);
 			arg++;
 		}
 
@@ -556,21 +556,21 @@ static void master_input_list_callback(const char *user, void *context)
 }
 
 static bool master_input_list(struct auth_master_connection *conn,
-			      const char *args)
+			      const char *line)
 {
 	struct auth_userdb *userdb = conn->auth->userdbs;
 	struct auth_request *auth_request;
 	struct master_list_iter_ctx *ctx;
-	const char *str, *name, *arg, *const *list;
+	const char *str, *name, *arg, *const *args;
 	unsigned int id;
 
 	/* <id> [<parameters>] */
-	list = t_strsplit_tabescaped(args);
-	if (list[0] == NULL || str_to_uint(list[0], &id) < 0) {
+	args = t_strsplit_tabescaped(line);
+	if (args[0] == NULL || str_to_uint(args[0], &id) < 0) {
 		e_error(conn->conn.event, "BUG: Master sent broken LIST");
 		return FALSE;
 	}
-	list++;
+	args++;
 
 	if (conn->iter_ctx != NULL) {
 		e_error(conn->conn.event, "Auth client is already iterating users");
@@ -581,7 +581,7 @@ static bool master_input_list(struct auth_master_connection *conn,
 
 	if (conn->userdb_restricted_uid != 0) {
 		e_error(conn->conn.event,
-			"Auth client doesn't have permissions to list users: %s",
+			"Auth client doesn't have permissions to args users: %s",
 			auth_restricted_reason(conn));
 		str = t_strdup_printf("DONE\t%u\tfail\n", id);
 		o_stream_nsend_str(conn->conn.output, str);
@@ -603,13 +603,13 @@ static bool master_input_list(struct auth_master_connection *conn,
 	auth_request->master = conn;
 	auth_master_connection_ref(conn);
 
-	for (; *list != NULL; list++) {
-		arg = strchr(*list, '=');
+	for (; *args != NULL; args++) {
+		arg = strchr(*args, '=');
 		if (arg == NULL) {
-			name = *list;
+			name = *args;
 			arg = "";
 		} else {
-			name = t_strdup_until(*list, arg);
+			name = t_strdup_until(*args, arg);
 			arg++;
 		}
 
