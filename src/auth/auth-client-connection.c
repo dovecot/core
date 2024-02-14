@@ -361,7 +361,7 @@ auth_client_connection_lookup(unsigned int pid)
 	for (conn = auth_client_connections->connections; conn != NULL; conn = conn->next) {
 		struct auth_client_connection *aconn =
 			container_of(conn, struct auth_client_connection, conn);
-		if (aconn->pid == pid)
+		if (aconn->pid == pid && !conn->disconnected)
 			return aconn;
 	}
 	return NULL;
