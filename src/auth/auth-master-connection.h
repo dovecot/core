@@ -23,7 +23,6 @@ struct auth_master_connection *
 auth_master_connection_create(struct auth *auth, int fd,
 			      const char *path, const struct stat *socket_st,
 			      bool userdb_only) ATTR_NULL(4);
-void auth_master_connection_destroy(struct auth_master_connection **conn);
 
 void auth_master_connection_ref(struct auth_master_connection *conn);
 void auth_master_connection_unref(struct auth_master_connection **conn);

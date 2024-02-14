@@ -3,8 +3,6 @@
 #include "auth-common.h"
 #include "buffer.h"
 #include "connection.h"
-#include "hash.h"
-#include "llist.h"
 #include "str.h"
 #include "strescape.h"
 #include "str-sanitize.h"
@@ -12,19 +10,17 @@
 #include "hostpid.h"
 #include "hex-binary.h"
 #include "ioloop.h"
-#include "net.h"
-#include "istream.h"
 #include "ostream.h"
 #include "ipwd.h"
 #include "master-service.h"
 #include "userdb.h"
 #include "userdb-blocking.h"
-#include "master-interface.h"
 #include "passdb-cache.h"
 #include "auth-request-handler.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
 
+#include <sys/stat.h>
 #include <unistd.h>
 
 #define MAX_INBUF_SIZE 1024
@@ -42,9 +38,9 @@ struct master_list_iter_ctx {
 	bool failed;
 };
 
-static void master_input(struct auth_master_connection *conn);
+static void auth_master_connection_destroy(struct connection *conn);
 
-static struct auth_master_connection *auth_master_connections;
+static struct connection_list *auth_master_connections = NULL;
 
 static const char *
 auth_master_reply_hide_passwords(struct auth_master_connection *conn,
@@ -73,6 +69,9 @@ auth_master_reply_hide_passwords(struct auth_master_connection *conn,
 void auth_master_request_callback(const char *reply,
 				  struct auth_master_connection *conn)
 {
+	if (conn->destroyed)
+		return;
+
 	e_debug(auth_event, "master userdb out: %s",
 		auth_master_reply_hide_passwords(conn, reply));
 
@@ -471,8 +470,7 @@ static void master_input_list_finish(struct master_list_iter_ctx *ctx)
 	i_assert(ctx->conn->iter_ctx == ctx);
 
 	ctx->conn->iter_ctx = NULL;
-	ctx->conn->conn.io = io_add(ctx->conn->conn.fd_in, IO_READ,
-				    master_input, ctx->conn);
+	connection_input_resume(&ctx->conn->conn);
 
 	if (ctx->iter != NULL)
 		(void)userdb_blocking_iter_deinit(&ctx->iter);
@@ -628,9 +626,7 @@ static int master_input_list(struct auth_master_connection *conn,
 	ctx->conn = conn;
 	ctx->auth_request = auth_request;
 	ctx->auth_request->userdb = userdb;
-
-	io_remove(&conn->conn.io);
-	o_stream_cork(conn->conn.output);
+	connection_input_halt(&ctx->conn->conn);
 	o_stream_set_flush_callback(conn->conn.output, master_output_list, ctx);
 	ctx->iter = userdb_blocking_iter_init(auth_request,
 					      master_input_list_callback, ctx);
@@ -638,9 +634,12 @@ static int master_input_list(struct auth_master_connection *conn,
 	return 1;
 }
 
-static int auth_master_input_args(struct auth_master_connection *conn,
+static int auth_master_input_args(struct connection *_conn,
 				   const char *const *args)
 {
+	struct auth_master_connection *conn =
+		container_of(_conn, struct auth_master_connection, conn);
+
 	e_debug(auth_event, "master in: %s", t_strarray_join(args, "\t"));
 
 	if (strcmp(args[0], "USER") == 0)
@@ -657,14 +656,14 @@ static int auth_master_input_args(struct auth_master_connection *conn,
 		if (strcmp(args[0], "CACHE-FLUSH") == 0)
 			return master_input_cache_flush(conn, args + 1);
 		if (strcmp(args[0], "CPID") == 0) {
-			e_error(conn->conn.event,
+			e_error(_conn->event,
 				"Authentication client trying to connect to "
 				"master socket");
 			return -1;
 		}
 	}
 
-	e_error(conn->conn.event, "BUG: Unknown command in %s socket: %s",
+	e_error(_conn->event, "BUG: Unknown command in %s socket: %s",
 		conn->userdb_only ? "userdb" : "master",
 		str_sanitize(args[0], 80));
 	return -1;
@@ -684,10 +683,10 @@ static int auth_master_handshake_args(struct connection *conn,
 		    str_to_uint(args[2], &minor_version) < 0) {
 			e_error(conn->event, "didn't reply with a valid VERSION line: %s",
 				t_strarray_join(args, "\t"));
-		} else if (major_version != AUTH_CLIENT_PROTOCOL_MAJOR_VERSION) {
+		} else if (major_version != conn->list->set.major_version) {
 			e_error(conn->event, "Socket supports major version %u, "
 				"but we support only %u (mixed old and new binaries?)",
-				major_version, AUTH_CLIENT_PROTOCOL_MAJOR_VERSION);
+				major_version, conn->list->set.major_version);
 		} else {
 			conn->minor_version = minor_version;
 			conn->version_received = TRUE;
@@ -700,70 +699,27 @@ static int auth_master_handshake_args(struct connection *conn,
 	return -1;
 }
 
-static void master_input(struct auth_master_connection *conn)
-{
-	char *line;
-	int ret;
+static const struct connection_vfuncs auth_master_connection_vfuncs = {
+	.input_args = auth_master_input_args,
+	.handshake_args = auth_master_handshake_args,
+	.destroy = auth_master_connection_destroy,
+};
 
-	switch (i_stream_read(conn->conn.input)) {
-	case 0:
-		return;
-	case -1:
-		/* disconnected */
-		auth_master_connection_destroy(&conn);
-		return;
-	case -2:
-		/* buffer full */
-		e_error(conn->conn.event, "BUG: Master sent us more than %d bytes",
-			(int)MAX_INBUF_SIZE);
-		auth_master_connection_destroy(&conn);
-		return;
-	}
-
-	while ((line = i_stream_next_line(conn->conn.input)) != NULL) {
-		T_BEGIN {
-			const char *const *args = t_strsplit_tabescaped(line);
-			if (args[0] == NULL) {
-				e_error(conn->conn.event,
-					"Unexpectedly received empty line");
-				ret = FALSE;
-			} else if (!conn->conn.version_received) {
-				ret = auth_master_handshake_args(&conn->conn, args);
-				if (ret > 0)
-					connection_set_handshake_ready(&conn->conn);
-			} else {
-				ret = auth_master_input_args(conn, args);
-			}
-		} T_END;
-		if (ret < 0) {
-			auth_master_connection_destroy(&conn);
-			return;
-		}
-	}
-}
-
-static int master_output(struct auth_master_connection *conn)
-{
-	if (o_stream_flush(conn->conn.output) < 0) {
-		/* transmit error, probably master died */
-		auth_master_connection_destroy(&conn);
-		return 1;
-	}
-
-	if (conn->conn.io == NULL &&
-	    o_stream_get_buffer_used_size(conn->conn.output) <= MAX_OUTBUF_SIZE / 2) {
-		/* allow input again */
-		conn->conn.io = io_add(conn->conn.fd_in, IO_READ, master_input, conn);
-	}
-	return 1;
-}
+static const struct connection_settings auth_master_connection_set = {
+	.service_name_in = "auth-master",
+	.service_name_out = "auth-master",
+	.major_version = AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
+	.minor_version = AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
+	.dont_send_version = TRUE,
+	.input_max_size = MAX_INBUF_SIZE,
+	.output_max_size = SIZE_MAX,
+	.output_throttle_size = MAX_OUTBUF_SIZE,
+};
 
 static int
 auth_master_connection_set_permissions(struct auth_master_connection *conn,
 				       const struct stat *st)
 {
-	struct net_unix_cred cred;
-
 	if (st == NULL)
 		return 0;
 
@@ -775,19 +731,20 @@ auth_master_connection_set_permissions(struct auth_master_connection *conn,
 		return 0;
 	}
 
-	if (net_getunixcred(conn->conn.fd_in, &cred) < 0) {
+	connection_update_properties(&conn->conn);
+	if (!conn->conn.have_unix_credentials) {
 		e_error(conn->conn.event,
 			"userdb connection: Failed to get peer's credentials");
 		return -1;
 	}
 
-	if (cred.uid == st->st_uid || cred.gid == st->st_gid) {
+	if (conn->conn.remote_uid == st->st_uid || conn->conn.remote_gid == st->st_gid) {
 		/* full permissions */
 		return 0;
 	} else {
 		/* restrict permissions: return only lookups whose returned
 		   uid matches the peer's uid */
-		conn->userdb_restricted_uid = cred.uid;
+		conn->userdb_restricted_uid = conn->conn.remote_uid;
 		return 0;
 	}
 }
@@ -801,53 +758,45 @@ auth_master_connection_create(struct auth *auth, int fd, const char *path,
 
 	i_assert(path != NULL);
 
+	if (auth_master_connections == NULL) {
+		auth_master_connections =
+			connection_list_init(&auth_master_connection_set,
+					     &auth_master_connection_vfuncs);
+	}
+
 	conn = i_new(struct auth_master_connection, 1);
 	conn->refcount = 1;
-	conn->conn.fd_in = fd;
-	conn->conn.connect_finished = ioloop_timeval;
-	conn->conn.base_name = i_strdup(path);
+	conn->conn.event_parent = auth_event;
 	conn->auth = auth;
-	conn->conn.input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
-	conn->conn.output = o_stream_create_fd(fd, SIZE_MAX);
-	o_stream_set_no_error_handling(conn->conn.output, TRUE);
-	o_stream_set_flush_callback(conn->conn.output, master_output, conn);
-	conn->conn.io = io_add(fd, IO_READ, master_input, conn);
 	conn->userdb_only = userdb_only;
-	conn->conn.event = event_create(auth_event);
+
+	connection_init_server(auth_master_connections, &conn->conn, path,
+			       fd, fd);
+
 	event_set_log_message_callback(conn->conn.event,
 				       auth_master_event_log_callback, conn);
 
 	line = t_strdup_printf("VERSION\t%u\t%u\nSPID\t%s\n",
-			       AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
-			       AUTH_CLIENT_PROTOCOL_MINOR_VERSION, my_pid);
+			       conn->conn.list->set.major_version,
+			       conn->conn.list->set.minor_version, my_pid);
 	o_stream_nsend_str(conn->conn.output, line);
-	DLLIST_PREPEND(&auth_master_connections, conn);
 
 	if (auth_master_connection_set_permissions(conn, socket_st) < 0) {
-		auth_master_connection_destroy(&conn);
+		auth_master_connection_unref(&conn);
 		return NULL;
 	}
 	return conn;
 }
 
-void auth_master_connection_destroy(struct auth_master_connection **_conn)
+static void auth_master_connection_destroy(struct connection *_conn)
 {
-	struct auth_master_connection *conn = *_conn;
-
-	*_conn = NULL;
+	struct auth_master_connection *conn =
+		container_of(_conn, struct auth_master_connection, conn);
 	if (conn->destroyed)
 		return;
 	conn->destroyed = TRUE;
 
-	DLLIST_REMOVE(&auth_master_connections, conn);
-
-	if (conn->iter_ctx != NULL)
-		master_input_list_finish(conn->iter_ctx);
-	i_stream_close(conn->conn.input);
-	o_stream_close(conn->conn.output);
-	io_remove(&conn->conn.io);
-	i_close_fd_path(&conn->conn.fd_in, conn->conn.base_name);
-
+	connection_disconnect(_conn);
 	master_service_client_connection_destroyed(master_service);
 	auth_master_connection_unref(&conn);
 }
@@ -869,20 +818,13 @@ void auth_master_connection_unref(struct auth_master_connection **_conn)
 	if (--conn->refcount > 0)
 		return;
 
-	i_stream_unref(&conn->conn.input);
-	o_stream_unref(&conn->conn.output);
-
-	event_unref(&conn->conn.event);
-	i_free(conn->conn.base_name);
+	auth_master_connection_destroy(&conn->conn);
+	connection_deinit(&conn->conn);
 	i_free(conn);
 }
 
 void auth_master_connections_destroy_all(void)
 {
-	struct auth_master_connection *conn;
-
-	while (auth_master_connections != NULL) {
-		conn = auth_master_connections;
-		auth_master_connection_destroy(&conn);
-	}
+	if (auth_master_connections != NULL)
+		connection_list_deinit(&auth_master_connections);
 }
