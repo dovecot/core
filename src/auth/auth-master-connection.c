@@ -73,17 +73,15 @@ auth_master_reply_hide_passwords(struct auth_master_connection *conn,
 void auth_master_request_callback(const char *reply,
 				  struct auth_master_connection *conn)
 {
-	struct const_iovec iov[2];
-
 	e_debug(auth_event, "master userdb out: %s",
 		auth_master_reply_hide_passwords(conn, reply));
 
-	iov[0].iov_base = reply;
-	iov[0].iov_len = strlen(reply);
-	iov[1].iov_base = "\n";
-	iov[1].iov_len = 1;
+	const struct const_iovec iov[] = {
+		{ .iov_base = reply, .iov_len = strlen(reply) },
+		{ .iov_base = "\n", .iov_len = 1 },
+	};
 
-	o_stream_nsendv(conn->conn.output, iov, 2);
+	o_stream_nsendv(conn->conn.output, iov, N_ELEMENTS(iov));
 }
 
 static const char *
