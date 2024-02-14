@@ -670,9 +670,38 @@ static int auth_master_input_args(struct auth_master_connection *conn,
 	return -1;
 }
 
+static int auth_master_handshake_args(struct connection *conn,
+				      const char *const *args)
+{
+	i_assert(!conn->version_received);
+	if (strcmp(args[0], "VERSION") == 0) {
+		unsigned int major_version, minor_version;
+
+		/* VERSION <tab> service_name <tab> major version <tab> minor version */
+		if (str_array_length(args) != 3 ||
+		    strcmp(args[0], "VERSION") != 0 ||
+		    str_to_uint(args[1], &major_version) < 0 ||
+		    str_to_uint(args[2], &minor_version) < 0) {
+			e_error(conn->event, "didn't reply with a valid VERSION line: %s",
+				t_strarray_join(args, "\t"));
+		} else if (major_version != AUTH_CLIENT_PROTOCOL_MAJOR_VERSION) {
+			e_error(conn->event, "Socket supports major version %u, "
+				"but we support only %u (mixed old and new binaries?)",
+				major_version, AUTH_CLIENT_PROTOCOL_MAJOR_VERSION);
+		} else {
+			conn->minor_version = minor_version;
+			conn->version_received = TRUE;
+			return 1;
+		}
+	} else {
+		e_error(conn->event, "BUG: Authentication client sent unknown handshake command %s",
+			args[0]);
+	}
+	return -1;
+}
+
 static void master_input(struct auth_master_connection *conn)
 {
-	const char *args;
 	char *line;
 	int ret;
 
@@ -691,25 +720,6 @@ static void master_input(struct auth_master_connection *conn)
 		return;
 	}
 
-	if (!conn->conn.version_received) {
-		line = i_stream_next_line(conn->conn.input);
-		if (line == NULL)
-			return;
-
-		/* make sure the major version matches */
-		if (!str_begins(line, "VERSION\t", &args) ||
-		    !str_uint_equals(t_strcut(args, '\t'),
-				     AUTH_CLIENT_PROTOCOL_MAJOR_VERSION)) {
-			e_error(conn->conn.event,
-				"Master not compatible with this server "
-				"(mixed old and new binaries?)");
-			auth_master_connection_destroy(&conn);
-			return;
-		}
-		conn->conn.version_received = TRUE;
-		conn->conn.handshake_finished = ioloop_timeval;
-	}
-
 	while ((line = i_stream_next_line(conn->conn.input)) != NULL) {
 		T_BEGIN {
 			const char *const *args = t_strsplit_tabescaped(line);
@@ -717,6 +727,10 @@ static void master_input(struct auth_master_connection *conn)
 				e_error(conn->conn.event,
 					"Unexpectedly received empty line");
 				ret = FALSE;
+			} else if (!conn->conn.version_received) {
+				ret = auth_master_handshake_args(&conn->conn, args);
+				if (ret > 0)
+					connection_set_handshake_ready(&conn->conn);
 			} else {
 				ret = auth_master_input_args(conn, args);
 			}
