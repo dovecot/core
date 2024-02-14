@@ -580,6 +580,7 @@ int smtp_server_connection_data_chunk_add(struct smtp_server_cmd_ctx *cmd,
 	struct cmd_data_context *data_cmd = command->data;
 	uoff_t new_size;
 
+	i_assert(chunk != NULL);
 	i_assert(data_cmd != NULL);
 
 	if (trans != NULL)
