@@ -822,8 +822,10 @@ static int
 output_throttle_server_input_line(struct connection *conn, const char *line)
 {
 	if (!output_throttle_cb_set) {
+		int ret;
 		/* set the send buffer artificially small to cause buffering */
-		net_set_send_buffer_size(conn->fd_out, 1);
+		ret = net_set_send_buffer_size(conn->fd_out, 1);
+		test_assert(ret == 0);
 		o_stream_set_flush_callback(conn->output,
 					    output_throttle_flush_callback, conn);
 		output_throttle_cb_set = TRUE;
