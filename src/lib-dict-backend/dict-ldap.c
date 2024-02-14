@@ -204,6 +204,7 @@ ldap_dict_build_query(const struct dict_op_settings *set,
 
 	t_array_init(&exp, 8);
 	if (priv) {
+		i_assert(set->username != NULL);
 		entry.key = '\0';
 		entry.value = ldap_escape(set->username);
 		entry.long_key = "username";
