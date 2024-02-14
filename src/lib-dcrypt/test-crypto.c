@@ -1928,8 +1928,10 @@ static void test_xd25519_keypair(void)
 	string_t *pub = t_str_new(64);
 	string_t *priv = t_str_new(64);
 
-	dcrypt_key_store_public(pair.pub, DCRYPT_FORMAT_DOVECOT, pub, &error);
-	dcrypt_key_store_private(pair.priv, DCRYPT_FORMAT_DOVECOT, NULL, priv, NULL, NULL, &error);
+	ret = dcrypt_key_store_public(pair.pub, DCRYPT_FORMAT_DOVECOT, pub, &error);
+	test_assert(ret == TRUE);
+	ret = dcrypt_key_store_private(pair.priv, DCRYPT_FORMAT_DOVECOT, NULL, priv, NULL, NULL, &error);
+	test_assert(ret == TRUE);
 
 	struct dcrypt_keypair pair2;
 
