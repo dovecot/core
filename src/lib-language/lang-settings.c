@@ -17,6 +17,7 @@ static bool langs_settings_ext_check(struct event *event, void *_set,
 
 static const struct setting_define lang_setting_defines[] = {
 	DEF(STR, name),
+	SETTING_DEFINE_STRUCT_BOOL("language_default", is_default, struct lang_settings),
 	DEF(BOOLLIST, filters),
 	DEF(UINT, filter_lowercase_token_maxlen),
 	DEF(STR,  filter_normalizer_icu_id),
@@ -33,6 +34,7 @@ static const struct setting_define lang_setting_defines[] = {
 
 const struct lang_settings lang_default_settings = {
 	.name = "",
+	.is_default = FALSE,
 	.filters = ARRAY_INIT,
 	.filter_lowercase_token_maxlen = 250,
 	.filter_normalizer_token_maxlen = 250,
@@ -98,6 +100,7 @@ static bool langs_settings_ext_check(struct event *event, void *_set,
 #endif
 	}
 
+	const char *lang_default = NULL;
 	const char *filter_name;
 	unsigned int nondata_languages = 0;
 	p_array_init(&set->parsed_languages, pool, array_count(&set->languages));
@@ -115,18 +118,45 @@ static bool langs_settings_ext_check(struct event *event, void *_set,
 		}
 
 		bool is_data = strcmp(lang_set->name, LANGUAGE_DATA) == 0;
+
+		if (lang_set->is_default) {
+			if (is_data) {
+				*error_r = "language "LANGUAGE_DATA" cannot have { default = yes }";
+				settings_free(lang_set);
+				return FALSE;
+			}
+
+			if (lang_default != NULL) {
+				*error_r = t_strdup_printf(
+					"Only one language with with { default = yes } is allowed"
+					" (default is '%s', cannot set '%s' too)",
+					lang_default, lang_set->name);
+				settings_free(lang_set);
+				return FALSE;
+			}
+			lang_default = t_strdup(lang_set->name);
+		}
+
 		if (!is_data)
 			nondata_languages++;
 
 		struct lang_settings *lang_set_dup =
 			p_memdup(pool, lang_set, sizeof(*lang_set));
 		pool_add_external_ref(pool, lang_set->pool);
-		array_push_back(&set->parsed_languages, &lang_set_dup);
+		if (lang_set->is_default)
+			array_push_front(&set->parsed_languages, &lang_set_dup);
+		else
+			array_push_back(&set->parsed_languages, &lang_set_dup);
 		settings_free(lang_set);
 	}
 
 	if (nondata_languages == 0) {
 		*error_r = "No valid languages";
+		return FALSE;
+	}
+
+	if (lang_default == NULL) {
+		*error_r = "No language with { default = yes } found";
 		return FALSE;
 	}
 

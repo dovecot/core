@@ -22,6 +22,7 @@ struct lang_settings {
 	unsigned int tokenizer_generic_token_maxlen;
 	bool tokenizer_generic_explicit_prefix;
 	bool tokenizer_generic_wb5a;
+	bool is_default;
 };
 
 struct langs_settings {
