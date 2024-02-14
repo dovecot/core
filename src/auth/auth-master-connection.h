@@ -5,25 +5,16 @@ struct stat;
 struct auth_stream_reply;
 
 struct auth_master_connection {
+	struct connection conn;
 	struct auth_master_connection *prev, *next;
 	struct auth *auth;
-	struct event *event;
 	int refcount;
-
-	struct timeval create_time, handshake_time;
-
-	int fd;
-	char *path;
-	struct istream *input;
-	struct ostream *output;
-	struct io *io;
 
 	struct master_list_iter_ctx *iter_ctx;
 	/* If non-zero, allow only USER lookups whose returned uid matches
 	   this uid. Don't allow LIST/PASS lookups. */
 	uid_t userdb_restricted_uid;
 
-	bool version_received:1;
 	bool destroyed:1;
 	bool userdb_only:1;
 };

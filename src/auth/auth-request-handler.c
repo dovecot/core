@@ -844,7 +844,7 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 
 	request = hash_table_lookup(handler->requests, POINTER_CAST(client_id));
 	if (request == NULL) {
-		e_error(master->event, "Master request %u.%u not found",
+		e_error(master->conn.event, "Master request %u.%u not found",
 			handler->client_pid, client_id);
 		return auth_master_request_failed(handler, master, id);
 	}
@@ -868,9 +868,9 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 
 	/* verify session pid if specified and possible */
 	if (request->session_pid != (pid_t)-1 &&
-	    net_getunixcred(master->fd, &cred) == 0 &&
+	    net_getunixcred(master->conn.fd_in, &cred) == 0 &&
 	    cred.pid != (pid_t)-1 && request->session_pid != cred.pid) {
-		e_error(master->event,
+		e_error(master->conn.event,
 			"Session pid %ld provided by master for request %u.%u "
 			"did not match peer credentials (pid=%ld, uid=%ld)",
 			(long)request->session_pid,
@@ -881,7 +881,7 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 
 	if (request->state != AUTH_REQUEST_STATE_FINISHED ||
 	    !request->fields.successful) {
-		e_error(master->event,
+		e_error(master->conn.event,
 			"Master requested unfinished authentication request "
 			"%u.%u", handler->client_pid, client_id);
 		handler->master_callback(t_strdup_printf("FAIL\t%u", id),
