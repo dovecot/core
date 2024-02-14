@@ -168,6 +168,8 @@ struct connection {
 	pid_t remote_pid;
 	/* Remote user id, UNIX socket only. */
 	uid_t remote_uid;
+	/* Remote group id, UNIX socket only. */
+	gid_t remote_gid;
 
 	/* received minor version */
 	unsigned int minor_version;

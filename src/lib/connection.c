@@ -451,6 +451,8 @@ void connection_update_event(struct connection *conn)
 		event_add_int(conn->event, "remote_pid", conn->remote_pid);
 	if (conn->remote_uid != (uid_t)-1)
 		event_add_int(conn->event, "remote_uid", conn->remote_uid);
+	if (conn->remote_gid != (gid_t)-1)
+		event_add_int(conn->event, "remote_gid", conn->remote_gid);
 }
 
 void connection_update_properties(struct connection *conn)
@@ -480,6 +482,7 @@ void connection_update_properties(struct connection *conn)
 		} else if (net_getunixcred(fd, &cred) == 0) {
 			conn->remote_pid = cred.pid;
 			conn->remote_uid = cred.uid;
+			conn->remote_gid = cred.gid;
 		}
 		conn->unix_peer_checked = TRUE;
 	}
@@ -594,6 +597,7 @@ connection_init_full(struct connection_list *list, struct connection *conn,
 	conn->fd_out = fd_out;
 	conn->disconnected = TRUE;
 	conn->remote_uid = (uid_t)-1;
+	conn->remote_gid = (gid_t)-1;
 	conn->remote_pid = (pid_t)-1;
 
 	i_free(conn->base_name);
