@@ -104,16 +104,15 @@ auth_master_event_log_callback(struct auth_master_connection *conn,
 }
 
 static bool master_input_request(struct auth_master_connection *conn,
-				 const char *line)
+				 const char *const *args)
 {
 	struct auth_client_connection *client_conn;
-	const char *const *args, *const *params;
+	const char *const *params;
 	unsigned int id, client_pid, client_id;
 	uint8_t cookie[LOGIN_REQUEST_COOKIE_SIZE];
 	buffer_t buf;
 
 	/* <id> <client-pid> <client-id> <cookie> [<parameters>] */
-	args = t_strsplit_tabescaped(line);
 	if (str_array_length(args) < 4 || str_to_uint(args[0], &id) < 0 ||
 	    str_to_uint(args[1], &client_pid) < 0 ||
 	    str_to_uint(args[2], &client_id) < 0) {
@@ -156,13 +155,11 @@ static bool master_input_request(struct auth_master_connection *conn,
 }
 
 static bool master_input_cache_flush(struct auth_master_connection *conn,
-				     const char *line)
+				     const char *const *args)
 {
-	const char *const *args;
 	unsigned int count;
 
 	/* <id> [<user> [<user> [..]] */
-	args = t_strsplit_tabescaped(line);
 	if (args[0] == NULL) {
 		e_error(conn->conn.event, "BUG: doveadm sent broken CACHE-FLUSH");
 		return FALSE;
@@ -183,16 +180,15 @@ static bool master_input_cache_flush(struct auth_master_connection *conn,
 }
 
 static int master_input_auth_request(struct auth_master_connection *conn,
-				     const char *line, const char *cmd,
+				     const char *const *args, const char *cmd,
 				     struct auth_request **request_r,
 				     const char **error_r)
 {
 	struct auth_request *auth_request;
-	const char *const *args, *name, *arg, *username;
+	const char *name, *arg, *username;
 	unsigned int id;
 
 	/* <id> <userid> [<parameters>] */
-	args = t_strsplit_tabescaped(line);
 	if (args[0] == NULL || args[1] == NULL ||
 	    str_to_uint(args[0], &id) < 0) {
 		e_error(conn->conn.event, "BUG: Master sent broken %s", cmd);
@@ -329,7 +325,7 @@ static void user_callback(enum userdb_result result,
 }
 
 static bool master_input_user(struct auth_master_connection *conn,
-			      const char *args)
+			      const char *const *args)
 {
 	struct auth_request *auth_request;
 	const char *error;
@@ -438,7 +434,7 @@ static const char *auth_restricted_reason(struct auth_master_connection *conn)
 }
 
 static bool master_input_pass(struct auth_master_connection *conn,
-			      const char *args)
+			      const char *const *args)
 {
 	struct auth_request *auth_request;
 	const char *error;
@@ -556,16 +552,15 @@ static void master_input_list_callback(const char *user, void *context)
 }
 
 static bool master_input_list(struct auth_master_connection *conn,
-			      const char *line)
+			      const char *const *args)
 {
 	struct auth_userdb *userdb = conn->auth->userdbs;
 	struct auth_request *auth_request;
 	struct master_list_iter_ctx *ctx;
-	const char *str, *name, *arg, *const *args;
+	const char *str, *name, *arg;
 	unsigned int id;
 
 	/* <id> [<parameters>] */
-	args = t_strsplit_tabescaped(line);
 	if (args[0] == NULL || str_to_uint(args[0], &id) < 0) {
 		e_error(conn->conn.event, "BUG: Master sent broken LIST");
 		return FALSE;
@@ -643,27 +638,25 @@ static bool master_input_list(struct auth_master_connection *conn,
 	return TRUE;
 }
 
-static bool auth_master_input_line(struct auth_master_connection *conn,
-				   const char *line)
+static bool auth_master_input_args(struct auth_master_connection *conn,
+				   const char *const *args)
 {
-	const char *args;
+	e_debug(auth_event, "master in: %s", t_strarray_join(args, "\t"));
 
-	e_debug(auth_event, "master in: %s", line);
-
-	if (str_begins(line, "USER\t", &args))
-		return master_input_user(conn, args);
-	if (str_begins(line, "LIST\t", &args))
-		return master_input_list(conn, args);
-	if (str_begins(line, "PASS\t", &args))
-		return master_input_pass(conn, args);
+	if (strcmp(args[0], "USER") == 0)
+		return master_input_user(conn, args + 1);
+	if (strcmp(args[0], "LIST") == 0)
+		return master_input_list(conn, args + 1);
+	if (strcmp(args[0], "PASS") == 0)
+		return master_input_pass(conn, args + 1);
 
 	if (!conn->userdb_only) {
 		i_assert(conn->userdb_restricted_uid == 0);
-		if (str_begins(line, "REQUEST\t", &args))
-			return master_input_request(conn, args);
-		if (str_begins(line, "CACHE-FLUSH\t", &args))
-			return master_input_cache_flush(conn, args);
-		if (str_begins_with(line, "CPID\t")) {
+		if (strcmp(args[0], "REQUEST") == 0)
+			return master_input_request(conn, args + 1);
+		if (strcmp(args[0], "CACHE-FLUSH") == 0)
+			return master_input_cache_flush(conn, args + 1);
+		if (strcmp(args[0], "CPID") == 0) {
 			e_error(conn->conn.event,
 				"Authentication client trying to connect to "
 				"master socket");
@@ -673,7 +666,7 @@ static bool auth_master_input_line(struct auth_master_connection *conn,
 
 	e_error(conn->conn.event, "BUG: Unknown command in %s socket: %s",
 		conn->userdb_only ? "userdb" : "master",
-		str_sanitize(line, 80));
+		str_sanitize(args[0], 80));
 	return FALSE;
 }
 
@@ -719,7 +712,14 @@ static void master_input(struct auth_master_connection *conn)
 
 	while ((line = i_stream_next_line(conn->conn.input)) != NULL) {
 		T_BEGIN {
-			ret = auth_master_input_line(conn, line);
+			const char *const *args = t_strsplit_tabescaped(line);
+			if (args[0] == NULL) {
+				e_error(conn->conn.event,
+					"Unexpectedly received empty line");
+				ret = FALSE;
+			} else {
+				ret = auth_master_input_args(conn, args);
+			}
 		} T_END;
 		if (!ret) {
 			auth_master_connection_destroy(&conn);
