@@ -1906,20 +1906,16 @@ static void test_sign_verify_ed448(void)
 	test_end();
 }
 
-static void test_xd25519_keypair(void)
+static void test_xd_keypair(struct dcrypt_keypair *pair)
 {
-	test_begin("X25519 key exchange");
-	struct dcrypt_keypair pair;
 	const char *error = NULL;
 	bool ret;
 
-	if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "X25519", &error))
-		i_panic("%s", error);
 	/* perform ecdh */
 	buffer_t *R = t_buffer_create(64), *S = t_buffer_create(64);
 	buffer_t *S2 = t_buffer_create(64);
-	test_assert(dcrypt_ecdh_derive_secret_peer(pair.pub, R, S, &error));
-	test_assert(dcrypt_ecdh_derive_secret_local(pair.priv, R, S2, &error));
+	test_assert(dcrypt_ecdh_derive_secret_peer(pair->pub, R, S, &error));
+	test_assert(dcrypt_ecdh_derive_secret_local(pair->priv, R, S2, &error));
 	test_assert(S->used > 0);
 	test_assert(R->used > 0);
 	test_assert(buffer_cmp(S, S2));
@@ -1928,9 +1924,9 @@ static void test_xd25519_keypair(void)
 	string_t *pub = t_str_new(64);
 	string_t *priv = t_str_new(64);
 
-	ret = dcrypt_key_store_public(pair.pub, DCRYPT_FORMAT_DOVECOT, pub, &error);
+	ret = dcrypt_key_store_public(pair->pub, DCRYPT_FORMAT_DOVECOT, pub, &error);
 	test_assert(ret == TRUE);
-	ret = dcrypt_key_store_private(pair.priv, DCRYPT_FORMAT_DOVECOT, NULL, priv, NULL, NULL, &error);
+	ret = dcrypt_key_store_private(pair->priv, DCRYPT_FORMAT_DOVECOT, NULL, priv, NULL, NULL, &error);
 	test_assert(ret == TRUE);
 
 	struct dcrypt_keypair pair2;
@@ -1949,8 +1945,20 @@ static void test_xd25519_keypair(void)
 	test_assert(ret == TRUE);
 
 	dcrypt_key_unref_public(&pub2);
-	dcrypt_keypair_unref(&pair);
+	dcrypt_keypair_unref(pair);
 	dcrypt_keypair_unref(&pair2);
+}
+
+static void test_xd25519_keypair(void)
+{
+	test_begin("X25519 key exchange");
+	struct dcrypt_keypair pair;
+	const char *error = NULL;
+
+	if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "X25519", &error))
+		i_panic("%s", error);
+
+	test_xd_keypair(&pair);
 
 	test_end();
 }
@@ -1960,17 +1968,12 @@ static void test_xd448_keypair(void)
 	test_begin("X448 key exchange");
 	struct dcrypt_keypair pair;
 	const char *error = NULL;
+
 	if (!dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "X448", &error))
-		i_error("%s", error);
-	/* perform ecdh */
-	buffer_t *R = t_buffer_create(64), *S = t_buffer_create(64);
-	buffer_t *S2 = t_buffer_create(64);
-	test_assert(dcrypt_ecdh_derive_secret_peer(pair.pub, R, S, &error));
-	test_assert(dcrypt_ecdh_derive_secret_local(pair.priv, R, S2, &error));
-	test_assert(S->used > 0);
-	test_assert(R->used > 0);
-	test_assert(buffer_cmp(S, S2));
-	dcrypt_keypair_unref(&pair);
+		i_panic("%s", error);
+
+	test_xd_keypair(&pair);
+
 	test_end();
 }
 #endif
