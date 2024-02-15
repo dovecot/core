@@ -62,11 +62,9 @@ imapc_client_init(const struct imapc_client_settings *set,
 	client->pool = pool;
 	client->refcount = 1;
 	client->event = event_create(event_parent);
-	event_set_forced_debug(client->event, set->debug);
 	event_set_append_log_prefix(client->event, t_strdup_printf(
 		"imapc(%s:%u): ", set->host, set->port));
 
-	client->set.debug = set->debug;
 	client->set.host = p_strdup(pool, set->host);
 	client->set.port = set->port;
 	client->set.master_user = p_strdup_empty(pool, set->master_user);

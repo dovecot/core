@@ -884,7 +884,6 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	}
 
 	test_subprocesses_init(debug);
-	test_imapc_default_settings.debug = debug;
 
 	/* listen on localhost */
 	i_zero(&bind_ip);
