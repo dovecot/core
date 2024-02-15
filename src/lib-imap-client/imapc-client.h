@@ -101,7 +101,6 @@ struct imapc_client_settings {
 	bool ssl_allow_invalid_cert;
 
 	const char *rawlog_dir;
-	bool debug;
 
 	/* Timeout for logging in. 0 = default. */
 	unsigned int connect_timeout_msecs;
