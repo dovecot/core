@@ -114,6 +114,8 @@ auth_master_init(const char *auth_socket_path, enum auth_master_flags flags)
 	connection_init_client_unix(conn->clist, &conn->conn,
 				    conn->auth_socket_path);
 
+	if ((flags & AUTH_MASTER_FLAG_NO_INNER_IOLOOP) != 0)
+		conn->ioloop = current_ioloop;
 	return conn;
 }
 
@@ -422,7 +424,8 @@ static void auth_master_unset_io(struct auth_master_connection *conn)
 	if (conn->prev_ioloop != NULL) {
 		io_loop_set_current(conn->prev_ioloop);
 	}
-	if (conn->ioloop != NULL) {
+	if (conn->ioloop != NULL &&
+	    (conn->flags & AUTH_MASTER_FLAG_NO_INNER_IOLOOP) == 0) {
 		io_loop_set_current(conn->ioloop);
 		connection_switch_ioloop_to(&conn->conn, conn->ioloop);
 		connection_input_halt(&conn->conn);
