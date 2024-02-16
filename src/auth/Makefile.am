@@ -238,6 +238,7 @@ test_auth_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
 test_auth_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 test_mech_SOURCES = \
+	test-auth.c \
 	test-mock.c \
 	test-mech.c
 

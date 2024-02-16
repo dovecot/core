@@ -35,9 +35,6 @@ extern const struct mech_module mech_scram_sha1;
 extern const struct mech_module mech_scram_sha256;
 extern const struct mech_module mech_xoauth2;
 
-static struct auth_settings set;
-static struct mechanisms_register *mech_reg;
-
 struct test_case {
 	const struct mech_module *mech;
 	const unsigned char *in;
@@ -88,56 +85,13 @@ auth_client_request_mock_callback(const char *reply ATTR_UNUSED,
 {
 }
 
-static void test_mechs_init(void)
-{
-	const char *const services[] = {NULL};
-	process_start_time = time(NULL);
-
-	/* Copy default settings */
-	set = *(const struct auth_settings *)auth_setting_parser_info.defaults;
-	set.pool = pool_alloconly_create("test settings", 128);
-	set.base_dir = ".";
-	global_auth_settings = &set;
-	memset((&set)->username_chars_map, 1, sizeof((&set)->username_chars_map));
-	set.username_format = "";
-
-	t_array_init(&set.parsed_passdbs, 2);
-	struct auth_passdb_settings *mock_set = t_new(struct auth_passdb_settings, 1);
-	*mock_set = mock_passdb_set;
-	const struct auth_passdb_settings *const_mock_set = mock_set;
-	array_push_back(&set.parsed_passdbs, &const_mock_set);
-	mock_set = t_new(struct auth_passdb_settings, 1);
-	*mock_set = mock_passdb_set;
-	mock_set->master = TRUE;
-	const_mock_set = mock_set;
-	array_push_back(&set.parsed_passdbs, &const_mock_set);
-	t_array_init(&set.parsed_userdbs, 1);
-
-	/* For tests of digest-md5. */
-	set.realms_arr = t_strsplit_spaces("example.com ", " ");
-	/* For tests of mech-anonymous. */
-	set.anonymous_username = "anonuser";
-
-	mech_init(global_auth_settings);
-	mech_reg = mech_register_init(global_auth_settings);
-	passdbs_init();
-	userdbs_init();
-	passdb_mock_mod_init();
-	password_schemes_init();
-	password_schemes_allow_weak(TRUE);
-
-	auths_preinit(&set, mech_reg, services);
-	auths_init();
-	auth_token_init();
-}
-
 static void test_mech_prepare_request(struct auth_request **request_r,
 				      const struct mech_module *mech,
 				      struct auth_request_handler *handler,
 				      unsigned int running_test,
 				      const struct test_case *test_case)
 {
-	set.ssl_username_from_cert = test_case->set_cert_username;
+	test_auth_set.ssl_username_from_cert = test_case->set_cert_username;
 	struct auth *auth = auth_default_service();
 
 	struct auth_request *request = auth_request_new(mech,  NULL);
@@ -312,7 +266,7 @@ static void test_mechs(void)
 		{&mech_scram_sha256, UCHAR_LEN("broken\0input"), NULL, NULL, FALSE, FALSE, FALSE},
 	};
 
-	test_mechs_init();
+	test_auth_init();
 
 	string_t *d_token = t_str_new(32);
 	str_append_data(d_token, UCHAR_LEN("service\0pid\0testuser\0session\0"));
@@ -390,19 +344,8 @@ static void test_mechs(void)
 
 		test_end();
 	} T_END;
-	mech_otp_deinit();
-	auths_deinit();
-	auth_token_deinit();
-	password_schemes_deinit();
-	passdb_mock_mod_deinit();
-	passdbs_deinit();
-	userdbs_deinit();
-	event_unref(&auth_event);
-	mech_deinit(global_auth_settings);
-	mech_register_deinit(&mech_reg);
-	auths_free();
-	pool_unref(&set.pool);
-	i_unlink("auth-token-secret.dat");
+
+	test_auth_deinit();
 }
 
 int main(int argc, char *argv[])

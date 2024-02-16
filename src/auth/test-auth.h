@@ -11,6 +11,7 @@
 struct auth_passdb;
 
 extern struct auth_passdb_settings mock_passdb_set;
+extern struct auth_settings test_auth_set;
 
 void test_auth_request_var_expand(void);
 void test_auth_request_fields(void);
@@ -23,6 +24,9 @@ void passdb_mock_mod_deinit(void);
 
 void test_db_ldap_parse_attrs(void);
 void test_db_ldap_field_multi_expand_parse_data(void);
+
+void test_auth_init(void);
+void test_auth_deinit(void);
 
 #endif
 
