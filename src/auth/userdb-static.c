@@ -7,6 +7,7 @@
 #include "var-expand.h"
 #include "userdb.h"
 #include "userdb-template.h"
+#include "settings.h"
 
 
 struct static_context {
@@ -16,27 +17,9 @@ struct static_context {
 
 struct static_userdb_module {
 	struct userdb_module module;
-	struct userdb_template *tmpl;
 
 	bool allow_all_users:1;
 };
-
-static void static_lookup_real(struct auth_request *auth_request,
-			       userdb_callback_t *callback)
-{
-	struct userdb_module *_module = auth_request->userdb->userdb;
-	struct static_userdb_module *module =
-		(struct static_userdb_module *)_module;
-	const char *error;
-
-	if (userdb_template_export(module->tmpl, auth_request, &error) < 0) {
-		e_error(authdb_event(auth_request),
-			"Failed to expand template: %s", error);
-		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
-		return;
-	}
-	callback(USERDB_RESULT_OK, auth_request);
-}
 
 static void
 static_credentials_callback(enum passdb_result result,
@@ -52,9 +35,15 @@ static_credentials_callback(enum passdb_result result,
 	auth_request->context = ctx->old_context;
 	auth_request_set_state(auth_request, AUTH_REQUEST_STATE_USERDB);
 
+	if (auth_request_set_userdb_fields(auth_request, NULL) < 0) {
+		ctx->callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
+		i_free(ctx);
+		return;
+	}
+
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		static_lookup_real(auth_request, ctx->callback);
+		ctx->callback(USERDB_RESULT_OK, auth_request);
 		break;
 	case PASSDB_RESULT_USER_UNKNOWN:
 	case PASSDB_RESULT_USER_DISABLED:
@@ -110,29 +99,37 @@ static void static_lookup(struct auth_request *auth_request,
 				uchar_empty_ptr, 0, auth_request);
 		}
 	} else {
-		static_lookup_real(auth_request, callback);
+		if (auth_request_set_userdb_fields(auth_request, NULL) < 0)
+			callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
+		else
+			callback(USERDB_RESULT_OK, auth_request);
 	}
 }
 
-static struct userdb_module *
-static_preinit(pool_t pool, const char *args)
+static int static_preinit(pool_t pool, struct event *event,
+			  struct userdb_module **module_r, const char **error_r)
+
 {
+	struct auth_static_settings *set;
 	struct static_userdb_module *module;
-	const char *value;
+
+	if (settings_get(event, &auth_static_setting_parser_info, 0,
+			 &set, error_r) < 0)
+		return -1;
 
 	module = p_new(pool, struct static_userdb_module, 1);
-	module->tmpl = userdb_template_build(pool, "static", args);
+	module->allow_all_users = set->userdb_static_allow_all_users;
 
-	if (userdb_template_remove(module->tmpl, "allow_all_users", &value)) {
-		module->allow_all_users = value == NULL ||
-			strcasecmp(value, "yes") == 0;
-	}
-	return &module->module;
+	settings_free(set);
+
+	*module_r = &module->module;
+	return 0;
 }
 
 struct userdb_module_interface userdb_static = {
 	.name = "static",
+	.fields_supported = TRUE,
 
-	.preinit_legacy = static_preinit,
+	.preinit = static_preinit,
 	.lookup = static_lookup,
 };
