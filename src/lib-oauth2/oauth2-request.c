@@ -416,6 +416,9 @@ void oauth2_request_abort(struct oauth2_request **_req)
 	struct oauth2_request *req = *_req;
 	*_req = NULL;
 
+	if (req == NULL)
+		return;
+
 	http_client_request_abort(&req->req);
 	oauth2_request_free(req);
 }
