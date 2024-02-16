@@ -215,7 +215,7 @@ test_programs = \
 
 noinst_PROGRAMS = $(test_programs)
 
-noinst_HEADERS = test-auth.h db-lua.h
+noinst_HEADERS = test-auth.h db-lua.h test-auth-master.h
 
 test_libs = \
 	../lib-dovecot/libdovecot.la
@@ -254,6 +254,16 @@ test_auth_client_SOURCES = \
 
 test_auth_client_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
 test_auth_client_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
+
+test_auth_master_SOURCES = \
+	test-auth.c \
+	test-mock.c \
+	test-auth-master.c \
+	test-auth-master-server.c
+
+test_auth_master_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
+test_auth_master_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
+
 
 check-local:
 	for bin in $(test_programs); do \
