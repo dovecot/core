@@ -24,7 +24,8 @@ AM_CPPFLAGS = \
 	-DMODULEDIR=\""$(moduledir)"\" \
 	-DSSLDIR=\""$(ssldir)\"" \
 	-DSYSCONFDIR=\""$(pkgsysconfdir)"\" \
-	$(BINARY_CFLAGS)
+	$(BINARY_CFLAGS) \
+	$(SQL_CFLAGS)
 
 noinst_LTLIBRARIES = libconfig.la
 
