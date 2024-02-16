@@ -706,17 +706,17 @@ driver_cassandra_escape_string(struct sql_db *db ATTR_UNUSED,
 	return str_c(escaped);
 }
 
-static int driver_cassandra_parse_connect_string(struct cassandra_db *db,
-						 const char *connect_string,
-						 const char **error_r)
+static int
+driver_cassandra_parse_connect_string(pool_t pool, const char *connect_string,
+				      const struct cassandra_settings **set_r,
+				      const struct ssl_settings **ssl_set_r,
+				      const char **error_r)
 {
 	struct cassandra_settings *set;
-	pool_t pool;
 	const char *const *args, *key, *value, *error;
 	bool read_fallback_set = FALSE, write_fallback_set = FALSE;
 	bool delete_fallback_set = FALSE;
 
-	pool = pool_alloconly_create("cassandra settings", 1024);
 	set = p_new(pool, struct cassandra_settings, 1);
 	*set = cassandra_default_settings;
 	set->pool = pool;
@@ -979,9 +979,6 @@ static int driver_cassandra_parse_connect_string(struct cassandra_db *db,
 	if (set->keyspace[0] == '\0') {
 		*error_r = t_strdup_printf("No dbname given in connect string");
 		return -1;
-	} else {
-		i_free(db->table_prefix);
-		db->table_prefix = i_strdup_printf("%s.", set->keyspace);
 	}
 
 	if ((ssl_set->ssl_client_cert_file[0] != '\0' &&
@@ -991,6 +988,9 @@ static int driver_cassandra_parse_connect_string(struct cassandra_db *db,
 		*error_r = "ssl_cert_file and ssl_private_key_file need to be both set";
 		return -1;
 	}
+
+	*set_r = set;
+	*ssl_set_r = ssl_set;
 	return 0;
 }
 
@@ -1130,31 +1130,22 @@ static int driver_cassandra_init_ssl(struct cassandra_db *db, const char **error
 }
 
 static int
-driver_cassandra_init_full_v(const struct sql_legacy_settings *legacy_set,
-			     struct sql_db **db_r,
-			     const char **error_r)
+driver_cassandra_init_common(struct event *event_parent,
+			     const struct cassandra_settings *set,
+			     const struct ssl_settings *ssl_set,
+			     struct cassandra_db **db_r, const char **error_r)
 {
 	struct cassandra_db *db;
-	int ret;
 
 	db = i_new(struct cassandra_db, 1);
 	db->api = driver_cassandra_db;
+	db->set = set;
+	db->ssl_set = ssl_set;
 	db->fd_pipe[0] = db->fd_pipe[1] = -1;
-	db->api.event = event_create(legacy_set->event_parent);
+	db->api.event = event_create(event_parent);
 	event_add_category(db->api.event, &event_category_cassandra);
 	event_set_append_log_prefix(db->api.event, "cassandra: ");
 
-	T_BEGIN {
-		ret = driver_cassandra_parse_connect_string(db,
-			legacy_set->connect_string, error_r);
-	} T_END_PASS_STR_IF(ret < 0, error_r);
-
-	if (ret < 0) {
-		driver_cassandra_free(&db);
-		return -1;
-	}
-
-	const struct cassandra_settings *set = db->set;
 	if (set->parsed_use_ssl && driver_cassandra_init_ssl(db, error_r) < 0) {
 		driver_cassandra_free(&db);
 		return -1;
@@ -1219,11 +1210,40 @@ driver_cassandra_init_full_v(const struct sql_legacy_settings *legacy_set,
 	i_array_init(&db->results, 16);
 	i_array_init(&db->callbacks, 16);
 	i_array_init(&db->pending_prepares, 16);
+	db->table_prefix = i_strdup_printf("%s.", set->keyspace);
 	if (!main_thread_id_set) {
 		main_thread_id = pthread_self();
 		main_thread_id_set = TRUE;
 	}
 
+	*db_r = db;
+	return 0;
+}
+
+static int
+driver_cassandra_init_full_v(const struct sql_legacy_settings *legacy_set,
+			     struct sql_db **db_r,
+			     const char **error_r)
+{
+	const struct cassandra_settings *set;
+	const struct ssl_settings *ssl_set;
+	struct cassandra_db *db;
+	int ret;
+
+	pool_t pool = pool_alloconly_create("cassandra settings", 1024);
+	T_BEGIN {
+		ret = driver_cassandra_parse_connect_string(pool,
+			legacy_set->connect_string, &set, &ssl_set, error_r);
+	} T_END_PASS_STR_IF(ret < 0, error_r);
+
+	if (ret < 0) {
+		pool_unref(&pool);
+		return -1;
+	}
+
+	if (driver_cassandra_init_common(legacy_set->event_parent,
+					 set, ssl_set, &db, error_r) < 0)
+		return -1;
 	*db_r = &db->api;
 	return 0;
 }
