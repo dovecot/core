@@ -208,6 +208,8 @@ pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
 	test-auth-cache \
+	test-auth-client \
+	test-auth-master \
 	test-auth \
 	test-mech
 
@@ -244,6 +246,14 @@ test_mech_SOURCES = \
 
 test_mech_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
 test_mech_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
+
+test_auth_client_SOURCES = \
+	test-auth.c \
+	test-mock.c \
+	test-auth-client.c
+
+test_auth_client_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
+test_auth_client_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 check-local:
 	for bin in $(test_programs); do \

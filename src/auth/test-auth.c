@@ -5,6 +5,7 @@
 #include "settings-parser.h"
 #include "auth-settings.h"
 #include "auth-token.h"
+#include "auth-penalty.h"
 #include "mech.h"
 #include "otp.h"
 #include "mech-otp-common.h"
@@ -60,10 +61,13 @@ void test_auth_init(void)
 	auths_preinit(&test_auth_set, mech_reg, protocols);
 	auths_init();
 	auth_token_init();
+
+	auth_penalty = auth_penalty_init("missing");
 }
 
 void test_auth_deinit(void)
 {
+	auth_penalty_deinit(&auth_penalty);
 	mech_otp_deinit();
 	auths_deinit();
 	auth_token_deinit();
