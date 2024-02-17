@@ -22,9 +22,29 @@ struct pgsql_settings {
 	ARRAY_TYPE(const_string) parameters;
 };
 
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("pgsql_"#name, name, struct pgsql_settings)
+static const struct setting_define pgsql_setting_defines[] = {
+	DEF(STR, host),
+	DEF(STRLIST, parameters),
+
+	SETTING_DEFINE_LIST_END
+};
+
 static const struct pgsql_settings pgsql_default_settings = {
 	.host = "",
 	.parameters = ARRAY_INIT,
+};
+
+const struct setting_parser_info pgsql_setting_parser_info = {
+	.name = "pgsql",
+
+	.defines = pgsql_setting_defines,
+	.defaults = &pgsql_default_settings,
+
+	.struct_size = sizeof(struct pgsql_settings),
+	.pool_offset1 = 1 + offsetof(struct pgsql_settings, pool),
 };
 
 struct pgsql_db {
@@ -259,7 +279,32 @@ static int driver_pgsql_connect(struct sql_db *_db)
 	io_loop_time_refresh();
 	tv_start = ioloop_timeval;
 
-	db->pg = PQconnectStart(db->legacy_connect_string);
+	if (db->legacy_connect_string != NULL)
+		db->pg = PQconnectStart(db->legacy_connect_string);
+	else {
+		ARRAY_TYPE(const_string) keywords, values;
+		t_array_init(&keywords, 16);
+		t_array_init(&values, 16);
+
+		const char *host_str = "host";
+		array_push_back(&keywords, &host_str);
+		array_push_back(&values, &db->set->host);
+
+		unsigned int i, count;
+		const char *const *strings =
+			array_get(&db->set->parameters, &count);
+		for (i = 0; i < count; i += 2) {
+			array_push_back(&keywords, &strings[i]);
+			array_push_back(&values, &strings[i + 1]);
+		}
+
+		array_append_zero(&keywords);
+		array_append_zero(&values);
+		db->pg = PQconnectStartParams(array_front(&keywords),
+					      array_front(&values), 0);
+
+	}
+
 	if (db->pg == NULL) {
 		i_fatal_status(FATAL_OUTOFMEM, "pgsql: PQconnectStart() failed (out of memory)");
 	}
@@ -346,24 +391,47 @@ static enum sql_db_flags driver_pgsql_get_flags(struct sql_db *db)
 	return db->flags;
 }
 
+static struct pgsql_db *
+driver_pgsql_init_common(struct event *event_parent,
+			 const struct pgsql_settings *set)
+{
+	struct pgsql_db *db;
+
+	db = i_new(struct pgsql_db, 1);
+	db->api = driver_pgsql_db;
+	db->api.event = event_create(event_parent);
+	db->set = set;
+	event_add_category(db->api.event, &event_category_pgsql);
+	event_set_append_log_prefix(db->api.event,
+				    t_strdup_printf("pgsql(%s): ", set->host));
+	return db;
+}
+
+static int
+driver_pgsql_init_v(struct event *event, struct sql_db **db_r,
+		    const char **error_r)
+{
+	const struct pgsql_settings *set;
+
+	if (settings_get(event, &pgsql_setting_parser_info, 0,
+			 &set, error_r) < 0)
+		return -1;
+
+	struct pgsql_db *db = driver_pgsql_init_common(event, set);
+	*db_r = &db->api;
+	return 0;
+}
+
 static int
 driver_pgsql_init_full_v(const struct sql_legacy_settings *legacy_set,
 			 struct sql_db **db_r, const char **error_r ATTR_UNUSED)
 {
-	struct pgsql_db *db;
 	const char *value;
-
-	db = i_new(struct pgsql_db, 1);
-	db->legacy_connect_string = i_strdup(legacy_set->connect_string);
-	db->api = driver_pgsql_db;
-	db->api.event = event_create(legacy_set->event_parent);
-	event_add_category(db->api.event, &event_category_pgsql);
 
 	pool_t pool = pool_alloconly_create("pgsql settings", 128);
 	struct pgsql_settings *set = p_new(pool, struct pgsql_settings, 1);
 	*set = pgsql_default_settings;
 	set->pool = pool;
-	db->set = set;
 
 	/* NOTE: Connection string will be parsed by pgsql itself
 		 We only pick the host part here */
@@ -377,10 +445,9 @@ driver_pgsql_init_full_v(const struct sql_legacy_settings *legacy_set,
 
 		}
 	} T_END;
-
-	event_set_append_log_prefix(db->api.event,
-				    t_strdup_printf("pgsql(%s): ", set->host));
-
+	struct pgsql_db *db =
+		driver_pgsql_init_common(legacy_set->event_parent, set);
+	db->legacy_connect_string = i_strdup(legacy_set->connect_string);
 	*db_r = &db->api;
 	return 0;
 }
@@ -1335,6 +1402,7 @@ const struct sql_db driver_pgsql_db = {
 
 	.v = {
 		.get_flags = driver_pgsql_get_flags,
+		.init = driver_pgsql_init_v,
 		.init_legacy_full = driver_pgsql_init_full_v,
 		.deinit = driver_pgsql_deinit_v,
 		.connect = driver_pgsql_connect,
