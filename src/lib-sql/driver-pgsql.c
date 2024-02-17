@@ -17,7 +17,6 @@
 struct pgsql_db {
 	struct sql_db api;
 
-	pool_t pool;
 	char *connect_string;
 	char *host;
 	PGconn *pg;
