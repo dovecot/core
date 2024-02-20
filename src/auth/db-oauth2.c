@@ -600,9 +600,18 @@ static void db_oauth2_process_fields(struct db_oauth2_request *req,
 
 	if (db_oauth2_user_is_enabled(req, result_r, error_r) &&
 	    db_oauth2_validate_username(req, result_r, error_r) &&
-	    db_oauth2_token_in_scope(req, result_r, error_r) &&
-	    db_oauth2_template_export(req, result_r, error_r)) {
+	    db_oauth2_token_in_scope(req, result_r, error_r)) {
+		/* The user has now been successfully authenticated,
+		   mark the request as such. This allows having no
+		   passdb in config. */
+		req->auth_request->passdb_success = TRUE;
 		*result_r = PASSDB_RESULT_OK;
+		auth_fields_snapshot(req->auth_request->fields.extra_fields);
+		if (!db_oauth2_template_export(req, result_r, error_r)) {
+			auth_fields_rollback(req->auth_request->fields.extra_fields);
+			req->auth_request->passdb_success = FALSE;
+			*result_r = PASSDB_RESULT_INTERNAL_FAILURE;
+		}
 	} else {
 		i_assert(*result_r != PASSDB_RESULT_OK && *error_r != NULL);
 	}
