@@ -263,6 +263,9 @@ int master_service_get_kill_signal(struct master_service *service);
 /* Returns the timestamp when the stop signal was received. */
 void master_service_get_kill_time(struct master_service *service,
 				  struct timeval *tv_r);
+/* Returns TRUE if we've received USER-KILL-SIGNAL that matched the current
+   user. */
+bool master_service_is_user_kicked(struct master_service *service);
 /* Returns TRUE if our master process is already stopped. This process may or
    may not be dying itself. Returns FALSE always if the process was started
    standalone. */

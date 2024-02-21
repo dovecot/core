@@ -82,6 +82,7 @@ struct master_service {
 	char *last_kick_signal_user;
 	siginfo_t killed_signal_info;
 	volatile sig_atomic_t last_kick_signal_user_accessed;
+	volatile sig_atomic_t last_kick_signal_user_matched;
 	volatile sig_atomic_t killed_signal;
 	volatile struct timeval killed_time;
 
