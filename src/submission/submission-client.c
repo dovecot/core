@@ -289,15 +289,16 @@ static void client_state_reset(struct client *client)
 }
 
 void client_destroy(struct client **_client, const char *prefix,
-		    const char *reason)
+		    const char *reply_reason, const char *log_reason)
 {
 	struct client *client = *_client;
 	struct smtp_server_connection *conn = client->conn;
 
 	*_client = NULL;
 
-	smtp_server_connection_terminate(
-		&conn, (prefix == NULL ? "4.0.0" : prefix), reason);
+	smtp_server_connection_terminate_full(
+		&conn, (prefix == NULL ? "4.0.0" : prefix),
+		reply_reason, log_reason);
 }
 
 static void
@@ -509,7 +510,8 @@ void client_add_extra_capability(struct client *client, const char *capability,
 void client_kick(struct client *client)
 {
 	mail_storage_service_io_activate_user(client->user->service_user);
-	client_destroy(&client, "4.3.2", MASTER_SERVICE_SHUTTING_DOWN_MSG);
+	client_destroy(&client, "4.3.2", MASTER_SERVICE_SHUTTING_DOWN_MSG,
+		       MASTER_SERVICE_SHUTTING_DOWN_MSG);
 }
 
 void clients_destroy_all(void)
