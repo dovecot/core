@@ -89,7 +89,8 @@ static int block_sigterm(sigset_t *oldmask_r)
 static void
 log_killed_signal(struct master_service *service, const siginfo_t *si)
 {
-	if (service->killed_signal_logged)
+	if (service->killed_signal_logged ||
+	    master_service_is_user_kicked(service))
 		return;
 
 	e_warning(service->event,
