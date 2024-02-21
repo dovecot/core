@@ -65,21 +65,21 @@ static void log_prefix_add(const struct failure_context *ctx, string_t *str);
 static int i_failure_send_option_forced(const char *key, const char *value);
 static int internal_send_split(string_t *full_str, size_t prefix_len);
 
-static string_t * ATTR_FORMAT(3, 0) default_format(const struct failure_context *ctx,
-						   size_t *prefix_len_r ATTR_UNUSED,
-						   const char *format,
-						   va_list args)
+static string_t * ATTR_FORMAT(3, 0)
+default_format(const struct failure_context *ctx, size_t *prefix_len_r,
+	       const char *format, va_list args)
 {
 	string_t *str = t_str_new(256);
 	log_timestamp_add(ctx, str);
 	log_prefix_add(ctx, str);
+	*prefix_len_r = str_len(str);
 
 	/* make sure there's no %n in there and fix %m */
 	str_vprintfa(str, printf_format_fix(format), args);
 	return str;
 }
 
-static int default_write(enum log_type type, string_t *data, size_t prefix_len ATTR_UNUSED)
+static int default_write(enum log_type type, string_t *data, size_t prefix_len)
 {
 	int fd;
 
@@ -94,6 +94,16 @@ static int default_write(enum log_type type, string_t *data, size_t prefix_len A
 		fd = log_fd;
 		break;
 	}
+
+	const char *p;
+	while ((p = strchr(str_c(data), '\n')) != NULL) {
+		size_t line_len = p - str_c(data) + 1;
+		if (log_fd_write(fd, str_data(data), line_len) < 0)
+			return -1;
+		/* delete the written line, not including the log prefix */
+		str_delete(data, prefix_len, line_len - prefix_len);
+	}
+
 	str_append_c(data, '\n');
 	return log_fd_write(fd, str_data(data), str_len(data));
 }
@@ -121,10 +131,9 @@ static void default_post_handler(const struct failure_context *ctx)
 		abort();
 }
 
-static string_t * ATTR_FORMAT(3, 0) syslog_format(const struct failure_context *ctx,
-						  size_t *prefix_len_r ATTR_UNUSED,
-						  const char *format,
-						  va_list args)
+static string_t * ATTR_FORMAT(3, 0)
+syslog_format(const struct failure_context *ctx, size_t *prefix_len_r,
+	      const char *format, va_list args)
 {
 	string_t *str = t_str_new(128);
 	if (ctx->type == LOG_TYPE_INFO) {
@@ -135,6 +144,8 @@ static string_t * ATTR_FORMAT(3, 0) syslog_format(const struct failure_context *
 	} else {
 		log_prefix_add(ctx, str);
 	}
+	*prefix_len_r = str_len(str);
+
 	str_vprintfa(str, format, args);
 	return str;
 }
@@ -164,6 +175,15 @@ static int syslog_write(enum log_type type, string_t *data, size_t prefix_len AT
 	case LOG_TYPE_OPTION:
 		i_unreached();
 	}
+	char *p;
+	while ((p = strchr(str_c_modifiable(data), '\n')) != NULL) {
+		size_t line_len = p - str_c_modifiable(data) + 1;
+		*p = '\0';
+		syslog(level, "%s", str_c(data));
+		/* delete the written line, not including the log prefix */
+		str_delete(data, prefix_len, line_len - prefix_len);
+	}
+
 	syslog(level, "%s", str_c(data));
 	return 0;
 }
@@ -213,7 +233,8 @@ static string_t * ATTR_FORMAT(3, 0) internal_format(const struct failure_context
 
 static int internal_write(enum log_type type ATTR_UNUSED, string_t *data, size_t prefix_len)
 {
-	if (str_len(data)+1 <= PIPE_BUF) {
+	if (str_len(data)+1 <= PIPE_BUF && strchr(str_c(data), '\n') == NULL) {
+		/* fast path: Log line is short enough and has no LFs */
 		str_append_c(data, '\n');
 		return log_fd_write(STDERR_FILENO,
 				    str_data(data), str_len(data));
@@ -794,12 +815,22 @@ static int internal_send_split(string_t *full_str, size_t prefix_len)
 
 	while (pos < str_len(full_str)) {
 		str_truncate(str, prefix_len);
-		str_append_max(str, str_c(full_str) + pos, max_text_len);
-		str_append_c(str, '\n');
+		const char *text = str_c(full_str) + pos;
+		const char *lf = strchr(text, '\n');
+		size_t line_len;
+		if (lf == NULL || (size_t)(lf - text) > max_text_len) {
+			str_append_max(str, text, max_text_len);
+			str_append_c(str, '\n');
+			line_len = max_text_len;
+		} else {
+			/* write up to and including the LF */
+			line_len = lf - text + 1;
+			str_append_data(str, text, line_len);
+		}
 		if (log_fd_write(STDERR_FILENO,
 				 str_data(str), str_len(str)) < 0)
 			return -1;
-		pos += max_text_len;
+		pos += line_len;
 	}
 	return 0;
 }
