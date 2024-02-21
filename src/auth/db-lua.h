@@ -3,8 +3,6 @@
 
 #include "dlua-script.h"
 
-#define DB_LUA_CACHE_KEY "%u"
-
 #define AUTH_LUA_PASSWORD_VERIFY "auth_password_verify"
 
 struct dlua_script;
@@ -25,9 +23,15 @@ enum auth_lua_script_type {
 struct auth_lua_script_parameters {
 	enum auth_lua_script_type stype;
 	struct dlua_script *script;
+	pool_t pool;
+	struct userdb_module *userdb_module;
+	struct passdb_module *passdb_module;
 	const char *const *arguments;
 };
 
+int
+auth_lua_script_get_default_cache_key(const struct auth_lua_script_parameters *params,
+				      const char **error_r);
 int
 auth_lua_script_auth_db_init(const struct auth_lua_script_parameters *params,
 			     const char **error_r);
