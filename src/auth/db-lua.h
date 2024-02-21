@@ -28,6 +28,9 @@ struct auth_lua_script_parameters {
 	const char *const *arguments;
 };
 
+int
+auth_lua_script_auth_db_init(const struct auth_lua_script_parameters *params,
+			     const char **error_r);
 int auth_lua_script_init(const struct auth_lua_script_parameters *params,
 		         const char **error_r);
 

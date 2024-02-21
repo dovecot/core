@@ -77,6 +77,8 @@ static void userdb_lua_init(struct userdb_module *_module)
 		.arguments = module->arguments,
 	};
 	if (auth_lua_script_init(&params, &error) < 0)
+		i_fatal("userdb-lua: script_init() failed: %s", error);
+	if (auth_lua_script_auth_db_init(&params, &error) < 0)
 		i_fatal("userdb-lua: auth_userdb_init() failed: %s", error);
 }
 

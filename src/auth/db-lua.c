@@ -478,6 +478,14 @@ int auth_lua_script_init(const struct auth_lua_script_parameters *params,
 	auth_lua_auth_request_register(script->L);
 	if (dlua_script_init(script, error_r) < 0)
 		return -1;
+
+	return 0;
+}
+
+int auth_lua_script_auth_db_init(const struct auth_lua_script_parameters *params,
+			         const char **error_r)
+{
+	struct dlua_script *script = params->script;
 	const char *fn;
 	switch (params->stype) {
 	case AUTH_LUA_SCRIPT_TYPE_PASSDB:

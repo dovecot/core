@@ -153,6 +153,8 @@ static void passdb_lua_init(struct passdb_module *_module)
 		.arguments = module->arguments,
 	};
 	if (auth_lua_script_init(&params, &error) < 0)
+		i_fatal("passdb-lua: script_init() failed: %s", error);
+	if (auth_lua_script_auth_db_init(&params, &error) < 0)
 		i_fatal("passdb-lua: auth_passdb_init() failed: %s", error);
 
 	module->has_password_verify =
