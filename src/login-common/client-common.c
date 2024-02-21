@@ -654,7 +654,7 @@ void clients_destroy_all_reason(const char *reason)
 
 void clients_destroy_all(void)
 {
-	clients_destroy_all_reason("Shutting down");
+	clients_destroy_all_reason(MASTER_SERVICE_SHUTTING_DOWN_MSG);
 }
 
 static int client_sni_callback(const char *name, const char **error_r,

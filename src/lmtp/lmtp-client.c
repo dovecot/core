@@ -438,7 +438,7 @@ void clients_destroy(void)
 {
 	while (clients != NULL) {
 		struct client *client = clients;
-		client_destroy(&client, "4.3.2", "Shutting down");
+		client_destroy(&client, "4.3.2", MASTER_SERVICE_SHUTTING_DOWN_MSG);
 	}
 }
 
