@@ -517,8 +517,9 @@ void client_kick(struct client *client, bool shutdown)
 
 void clients_destroy_all(void)
 {
+	bool shutdown = !master_service_is_user_kicked(master_service);
 	while (submission_clients != NULL)
-		client_kick(submission_clients, TRUE);
+		client_kick(submission_clients, shutdown);
 }
 
 static const struct smtp_server_callbacks smtp_callbacks = {

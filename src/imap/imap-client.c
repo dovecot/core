@@ -1668,8 +1668,9 @@ void client_kick(struct client *client, bool shutdown)
 
 void clients_destroy_all(void)
 {
+	bool shutdown = !master_service_is_user_kicked(master_service);
 	while (imap_clients != NULL)
-		client_kick(imap_clients, TRUE);
+		client_kick(imap_clients, shutdown);
 }
 
 struct imap_client_vfuncs imap_client_vfuncs = {

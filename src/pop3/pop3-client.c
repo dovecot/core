@@ -923,8 +923,9 @@ void client_kick(struct client *client, bool shutdown)
 
 void clients_destroy_all(void)
 {
+	bool shutdown = !master_service_is_user_kicked(master_service);
 	while (pop3_clients != NULL)
-		client_kick(pop3_clients, TRUE);
+		client_kick(pop3_clients, shutdown);
 }
 
 struct pop3_client_vfuncs pop3_client_vfuncs = {
