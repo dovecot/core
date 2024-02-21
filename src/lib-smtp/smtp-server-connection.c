@@ -1314,6 +1314,14 @@ void smtp_server_connection_close(struct smtp_server_connection **_conn,
 void smtp_server_connection_terminate(struct smtp_server_connection **_conn,
 				      const char *enh_code, const char *reason)
 {
+	smtp_server_connection_terminate_full(_conn, enh_code, reason, reason);
+}
+
+void smtp_server_connection_terminate_full(struct smtp_server_connection **_conn,
+					   const char *enh_code,
+					   const char *reply_reason,
+					   const char *log_reason)
+{
 	struct smtp_server_connection *conn = *_conn;
 	const char **reason_lines;
 
@@ -1326,14 +1334,14 @@ void smtp_server_connection_terminate(struct smtp_server_connection **_conn,
 
 	T_BEGIN {
 		/* Add hostname prefix */
-		reason_lines = t_strsplit_spaces(reason, "\r\n");
+		reason_lines = t_strsplit_spaces(reply_reason, "\r\n");
 		reason_lines[0] = t_strconcat(conn->set.hostname, " ",
 					      reason_lines[0], NULL);
 
 		smtp_server_connection_reply_lines(conn, 421, enh_code,
 						   reason_lines);
 
-		smtp_server_connection_close(&conn, reason);
+		smtp_server_connection_close(&conn, log_reason);
 	} T_END;
 }
 
