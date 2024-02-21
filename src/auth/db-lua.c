@@ -16,14 +16,17 @@
 #include "userdb-template.h"
 #include "passdb-template.h"
 #include "password-scheme.h"
+#include "auth-cache.h"
 #include "auth-request-var-expand.h"
 #include "settings.h"
 
 #define AUTH_LUA_PASSDB_INIT "auth_passdb_init"
 #define AUTH_LUA_PASSDB_LOOKUP "auth_passdb_lookup"
+#define AUTH_LUA_PASSDB_GET_CACHE_KEY "auth_passdb_get_cache_key"
 #define AUTH_LUA_USERDB_INIT "auth_userdb_init"
 #define AUTH_LUA_USERDB_LOOKUP "auth_userdb_lookup"
 #define AUTH_LUA_USERDB_ITERATE "auth_userdb_iterate"
+#define AUTH_LUA_USERDB_GET_CACHE_KEY "auth_userdb_get_cache_key"
 
 #define AUTH_LUA_DOVECOT_AUTH "dovecot_auth"
 #define AUTH_LUA_AUTH_REQUEST "auth_request*"
@@ -479,6 +482,71 @@ int auth_lua_script_init(const struct auth_lua_script_parameters *params,
 	if (dlua_script_init(script, error_r) < 0)
 		return -1;
 
+	return 0;
+}
+
+int
+auth_lua_script_get_default_cache_key(const struct auth_lua_script_parameters *params,
+				      const char **error_r)
+{
+	const struct auth_passdb_post_settings *post_set;
+	struct dlua_script *script = params->script;
+
+	const char *cache_fn;
+	switch (params->stype) {
+	case AUTH_LUA_SCRIPT_TYPE_PASSDB:
+		cache_fn = AUTH_LUA_PASSDB_GET_CACHE_KEY;
+		break;
+	case AUTH_LUA_SCRIPT_TYPE_USERDB:
+		cache_fn = AUTH_LUA_USERDB_GET_CACHE_KEY;
+		break;
+	default:
+		i_unreached();
+	}
+
+	if (dlua_script_has_function(script, cache_fn)) {
+		if (dlua_pcall(script->L, cache_fn, 0, 1, error_r) < 0)
+			return -1;
+
+		if (!lua_isstring(script->L, -1)) {
+			*error_r = t_strdup_printf("db-lua: %s invalid return value "
+					"(expected string, got %s)",
+					cache_fn,
+					luaL_typename(script->L, -1));
+			return -1;
+		}
+
+		if (settings_get(script->event,
+				 &auth_passdb_post_setting_parser_info,
+				 SETTINGS_GET_FLAG_NO_CHECK |
+				 SETTINGS_GET_FLAG_NO_EXPAND,
+				 &post_set, error_r) < 0) {
+			return -1;
+		}
+
+		switch (params->stype) {
+		case AUTH_LUA_SCRIPT_TYPE_PASSDB:
+			i_assert(params->passdb_module != NULL);
+			params->passdb_module->default_cache_key =
+				auth_cache_parse_key_and_fields(params->pool,
+						lua_tostring(script->L, -1),
+						&post_set->fields, "lua");
+			break;
+		case AUTH_LUA_SCRIPT_TYPE_USERDB:
+			i_assert(params->userdb_module != NULL);
+			params->userdb_module->default_cache_key =
+				auth_cache_parse_key_and_fields(params->pool,
+						lua_tostring(script->L, -1),
+						&post_set->fields, "lua");
+			break;
+		default:
+			i_unreached();
+		}
+		settings_free(post_set);
+		lua_pop(script->L, 1);
+		lua_gc(script->L, LUA_GCCOLLECT, 0);
+		i_assert(lua_gettop(script->L) == 0);
+	}
 	return 0;
 }
 
