@@ -910,20 +910,21 @@ static int client_output(struct client *client)
 	}
 }
 
-void client_kick(struct client *client)
+void client_kick(struct client *client, bool shutdown)
 {
 	mail_storage_service_io_activate_user(client->user->service_user);
 	if (client->cmd == NULL) {
 		client_send_line(client,
 			"-ERR [SYS/TEMP] "MASTER_SERVICE_SHUTTING_DOWN_MSG".");
 	}
-	client_destroy(client, MASTER_SERVICE_SHUTTING_DOWN_MSG);
+	client_destroy(client, shutdown ? MASTER_SERVICE_SHUTTING_DOWN_MSG :
+		       MASTER_SERVICE_USER_KICKED_MSG);
 }
 
 void clients_destroy_all(void)
 {
 	while (pop3_clients != NULL)
-		client_kick(pop3_clients);
+		client_kick(pop3_clients, TRUE);
 }
 
 struct pop3_client_vfuncs pop3_client_vfuncs = {

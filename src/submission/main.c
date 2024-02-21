@@ -323,7 +323,7 @@ master_admin_cmd_kick_user(const char *user, const guid_128_t conn_guid)
 		if (strcmp(client->user->username, user) == 0 &&
 		    (guid_128_is_empty(conn_guid) ||
 		     guid_128_cmp(client->anvil_conn_guid, conn_guid) == 0))
-			client_kick(client);
+			client_kick(client, FALSE);
 	}
 	return count;
 }

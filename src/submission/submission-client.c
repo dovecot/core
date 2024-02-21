@@ -507,17 +507,18 @@ void client_add_extra_capability(struct client *client, const char *capability,
 	array_push_back(&client->extra_capabilities, &cap);
 }
 
-void client_kick(struct client *client)
+void client_kick(struct client *client, bool shutdown)
 {
 	mail_storage_service_io_activate_user(client->user->service_user);
 	client_destroy(&client, "4.3.2", MASTER_SERVICE_SHUTTING_DOWN_MSG,
-		       MASTER_SERVICE_SHUTTING_DOWN_MSG);
+		       shutdown ? MASTER_SERVICE_SHUTTING_DOWN_MSG :
+		       MASTER_SERVICE_USER_KICKED_MSG);
 }
 
 void clients_destroy_all(void)
 {
 	while (submission_clients != NULL)
-		client_kick(submission_clients);
+		client_kick(submission_clients, TRUE);
 }
 
 static const struct smtp_server_callbacks smtp_callbacks = {

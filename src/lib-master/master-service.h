@@ -8,6 +8,7 @@
 #include <stdio.h> /* for getopt() opt* variables in Solaris */
 
 #define MASTER_SERVICE_SHUTTING_DOWN_MSG "Server shutting down"
+#define MASTER_SERVICE_USER_KICKED_MSG "User kicked"
 
 enum master_service_flags {
 	/* stdin/stdout already contains a client which we want to serve */

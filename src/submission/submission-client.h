@@ -140,7 +140,7 @@ client_create(int fd_in, int fd_out, struct event *event,
 	      bool no_greeting);
 void client_destroy(struct client **_client, const char *prefix,
 		    const char *reply_reason, const char *log_reason);
-void client_kick(struct client *client);
+void client_kick(struct client *client, bool shutdown);
 
 typedef void (*client_input_callback_t)(struct client *context);
 

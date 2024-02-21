@@ -1654,20 +1654,22 @@ void clients_init(void)
 				      imap_client_enable_qresync);
 }
 
-void client_kick(struct client *client)
+void client_kick(struct client *client, bool shutdown)
 {
 	mail_storage_service_io_activate_user(client->user->service_user);
 	if (client->output_cmd_lock == NULL) {
 		client_send_line(client,
 				 "* BYE "MASTER_SERVICE_SHUTTING_DOWN_MSG".");
 	}
-	client_destroy(client, MASTER_SERVICE_SHUTTING_DOWN_MSG);
+	client_destroy(client, shutdown ?
+		       MASTER_SERVICE_SHUTTING_DOWN_MSG :
+		       MASTER_SERVICE_USER_KICKED_MSG);
 }
 
 void clients_destroy_all(void)
 {
 	while (imap_clients != NULL)
-		client_kick(imap_clients);
+		client_kick(imap_clients, TRUE);
 }
 
 struct imap_client_vfuncs imap_client_vfuncs = {

@@ -785,12 +785,14 @@ static void imap_clients_unhibernate(void *context ATTR_UNUSED)
 	timeout_remove(&to_unhibernate);
 }
 
-static void imap_client_kick(struct imap_client *client)
+static void imap_client_kick(struct imap_client *client, bool shutdown)
 {
 	imap_client_io_activate_user(client);
 	o_stream_nsend_str(client->output,
 			   "* BYE "MASTER_SERVICE_SHUTTING_DOWN_MSG".\r\n");
-	imap_client_destroy(&client, MASTER_SERVICE_SHUTTING_DOWN_MSG);
+	imap_client_destroy(&client, shutdown ?
+			    MASTER_SERVICE_SHUTTING_DOWN_MSG :
+			    MASTER_SERVICE_USER_KICKED_MSG);
 }
 
 unsigned int imap_clients_kick(const char *user, const guid_128_t conn_guid)
@@ -803,7 +805,7 @@ unsigned int imap_clients_kick(const char *user, const guid_128_t conn_guid)
 		if (strcmp(client->state.username, user) == 0 &&
 		    (guid_128_is_empty(conn_guid) ||
 		     guid_128_cmp(client->state.anvil_conn_guid, conn_guid) == 0))
-			imap_client_kick(client);
+			imap_client_kick(client, FALSE);
 	}
 	return count;
 }
@@ -816,7 +818,7 @@ void imap_clients_init(void)
 void imap_clients_deinit(void)
 {
 	while (imap_clients != NULL)
-		imap_client_kick(imap_clients);
+		imap_client_kick(imap_clients, TRUE);
 
 	timeout_remove(&to_unhibernate);
 	priorityq_deinit(&unhibernate_queue);
