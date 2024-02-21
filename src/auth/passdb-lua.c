@@ -132,6 +132,24 @@ passdb_lua_preinit(pool_t pool, struct event *event,
 	if (!array_is_empty(&set->auth_lua_config))
 		module->arguments = array_get(&set->auth_lua_config, &count);
 
+	if (dlua_script_create_file(module->set->auth_lua_file, &module->script,
+				    event, error_r) < 0)
+		i_fatal("passdb-lua: failed to load '%s': %s",
+			module->set->auth_lua_file, *error_r);
+
+	const struct auth_lua_script_parameters params = {
+		.script = module->script,
+		.stype = AUTH_LUA_SCRIPT_TYPE_PASSDB,
+		.arguments = module->arguments,
+		.passdb_module = &module->module,
+		.pool = pool,
+	};
+	if (auth_lua_script_init(&params, error_r) < 0)
+		i_fatal("passdb-lua: script_init() failed: %s", *error_r);
+	if (auth_lua_script_get_default_cache_key(&params, error_r) < 0)
+		i_fatal("passdb-lua: auth_passdb_get_cache_key() failed: %s",
+			*error_r);
+
 	*module_r = &module->module;
 	return 0;
 }
@@ -142,18 +160,11 @@ static void passdb_lua_init(struct passdb_module *_module)
 		(struct dlua_passdb_module *)_module;
 	const char *error;
 
-	if (dlua_script_create_file(module->set->auth_lua_file, &module->script,
-				    auth_event, &error) < 0)
-		i_fatal("passdb-lua: failed to load '%s': %s",
-			module->set->auth_lua_file, error);
-
 	const struct auth_lua_script_parameters params = {
 		.script = module->script,
 		.stype = AUTH_LUA_SCRIPT_TYPE_PASSDB,
 		.arguments = module->arguments,
 	};
-	if (auth_lua_script_init(&params, &error) < 0)
-		i_fatal("passdb-lua: script_init() failed: %s", error);
 	if (auth_lua_script_auth_db_init(&params, &error) < 0)
 		i_fatal("passdb-lua: auth_passdb_init() failed: %s", error);
 
