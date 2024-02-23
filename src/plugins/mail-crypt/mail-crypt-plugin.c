@@ -262,7 +262,9 @@ mail_crypt_mail_save_begin(struct mail_save_context *ctx,
 	enum io_stream_encrypt_flags enc_flags = 0;
 	if (muser != NULL && muser->set->crypt_write_algorithm[0] != '\0') {
 		if (strstr(muser->set->crypt_write_algorithm, "gcm") != NULL ||
-		    strstr(muser->set->crypt_write_algorithm, "ccm") != NULL)
+		    strstr(muser->set->crypt_write_algorithm, "ccm") != NULL ||
+		    strcasecmp(muser->set->crypt_write_algorithm,
+		       "chacha20-poly1305") == 0)
 			enc_flags = IO_STREAM_ENC_INTEGRITY_AEAD;
 		else
 			enc_flags = IO_STREAM_ENC_INTEGRITY_HMAC;
