@@ -77,12 +77,13 @@ static void lang_tokenizer_self_reset(struct lang_tokenizer *tok)
 int lang_tokenizer_create(const struct lang_tokenizer *tok_class,
 			  struct lang_tokenizer *parent,
 			  const struct lang_settings *set,
+			  struct event *event,
 			  enum lang_tokenizer_flags flags,
 			  struct lang_tokenizer **tokenizer_r,
 			  const char **error_r)
 {
 	struct lang_tokenizer *tok;
-	if (tok_class->v->create(set, flags, &tok, error_r) < 0) {
+	if (tok_class->v->create(set, event, flags, &tok, error_r) < 0) {
 		*tokenizer_r = NULL;
 		return -1;
 	}

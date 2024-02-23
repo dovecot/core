@@ -13,6 +13,7 @@
 
 static int
 lang_filter_lowercase_create(const struct lang_settings *set,
+			     struct event *event ATTR_UNUSED,
 			     struct lang_filter **filter_r,
 			     const char **error_r ATTR_UNUSED)
 {

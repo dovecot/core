@@ -72,6 +72,7 @@ static void lang_filter_stopwords_destroy(struct lang_filter *filter)
 
 static int
 lang_filter_stopwords_create(const struct lang_settings *set,
+			     struct event *event ATTR_UNUSED,
                              struct lang_filter **filter_r,
                              const char **error_r ATTR_UNUSED)
 {

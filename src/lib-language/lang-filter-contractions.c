@@ -10,6 +10,7 @@
 
 static int
 lang_filter_contractions_create(const struct lang_settings *set,
+				struct event *event ATTR_UNUSED,
 			        struct lang_filter **filter_r,
 			        const char **error_r)
 {

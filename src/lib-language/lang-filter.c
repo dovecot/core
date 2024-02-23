@@ -53,12 +53,13 @@ const struct lang_filter *lang_filter_find(const char *name)
 int lang_filter_create(const struct lang_filter *filter_class,
                        struct lang_filter *parent,
                        const struct lang_settings *set,
+		       struct event *event,
                        struct lang_filter **filter_r,
                        const char **error_r)
 {
 	struct lang_filter *fp;
 	if (filter_class->v.create != NULL) {
-		if (filter_class->v.create(set, &fp, error_r) < 0) {
+		if (filter_class->v.create(set, event, &fp, error_r) < 0) {
 			*filter_r = NULL;
 			return -1;
 		}

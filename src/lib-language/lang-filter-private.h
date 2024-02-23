@@ -16,6 +16,7 @@ struct lang_settings;
 */
 struct lang_filter_vfuncs {
 	int (*create)(const struct lang_settings *set,
+		      struct event *event,
 	              struct lang_filter **filter_r,
 	              const char **error_r);
 	int (*filter)(struct lang_filter *filter, const char **token,

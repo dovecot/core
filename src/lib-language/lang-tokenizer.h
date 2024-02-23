@@ -56,6 +56,7 @@ const struct lang_tokenizer *lang_tokenizer_find(const char *name);
 int lang_tokenizer_create(const struct lang_tokenizer *tok_class,
 			  struct lang_tokenizer *parent,
 			  const struct lang_settings *set,
+           		  struct event *event,
 			  enum lang_tokenizer_flags flags,
 			  struct lang_tokenizer **tokenizer_r,
 			  const char **error_r);

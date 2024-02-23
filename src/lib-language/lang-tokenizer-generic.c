@@ -53,6 +53,7 @@ static const struct algorithm *parse_algorithm(const char *name)
 
 static int
 lang_tokenizer_generic_create(const struct lang_settings *set,
+			      struct event *event ATTR_UNUSED,
 			      enum lang_tokenizer_flags flags,
 			      struct lang_tokenizer **tokenizer_r,
 			      const char **error_r)
