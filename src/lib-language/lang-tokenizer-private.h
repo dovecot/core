@@ -7,6 +7,7 @@
 
 struct lang_tokenizer_vfuncs {
 	int (*create)(const struct lang_settings *set,
+		      struct event *event,
 		      enum lang_tokenizer_flags flags,
 		      struct lang_tokenizer **tokenizer_r,
 		      const char **error_r);

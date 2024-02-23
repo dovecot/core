@@ -28,6 +28,7 @@ static void lang_filter_stemmer_snowball_destroy(struct lang_filter *filter)
 
 static int
 lang_filter_stemmer_snowball_create(const struct lang_settings *set,
+				    struct event *event ATTR_UNUSED,
                                     struct lang_filter **filter_r,
                                     const char **error_r ATTR_UNUSED)
 {
@@ -101,6 +102,7 @@ lang_filter_stemmer_snowball_filter(struct lang_filter *filter,
 
 static int
 lang_filter_stemmer_snowball_create(const struct lang_settings *set ATTR_UNUSED,
+				    struct event *event ATTR_UNUSED,
                                     struct lang_filter **filter_r ATTR_UNUSED,
                                     const char **error_r)
 {

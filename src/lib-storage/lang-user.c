@@ -98,8 +98,12 @@ lang_user_create_filters(struct mail_user *user, const struct language *lang,
 		}
 
 		const char *error;
-		if (lang_filter_create(entry_class, parent, set,
-					&filter, &error) < 0) {
+		struct event *event = event_create(user->event);
+		event_add_str(event, "language", lang->name);
+		ret = lang_filter_create(entry_class, parent, set, event,
+					 &filter, &error);
+		event_unref(&event);
+		if (ret < 0) {
 			*error_r = t_strdup_printf(
 				"%s:%s %s", set->name, entry_name, error);
 			ret = -1;
@@ -119,8 +123,7 @@ lang_user_create_filters(struct mail_user *user, const struct language *lang,
 }
 
 static int
-lang_user_create_tokenizer(struct mail_user *user,
-			   const struct language *lang,
+lang_user_create_tokenizer(struct mail_user *user, const struct language *lang,
 			   struct lang_tokenizer **tokenizer_r, bool search,
 			   const char **error_r)
 {
@@ -147,9 +150,13 @@ lang_user_create_tokenizer(struct mail_user *user,
 		}
 
 		const char *error;
-		if (lang_tokenizer_create(entry_class, parent, set,
-						search ? LANG_TOKENIZER_FLAG_SEARCH : 0,
-						&tokenizer, &error) < 0) {
+		struct event *event = event_create(user->event);
+		event_add_str(event, "language", set->name);
+		ret = lang_tokenizer_create(entry_class, parent, set, event,
+					    search ? LANG_TOKENIZER_FLAG_SEARCH : 0,
+					    &tokenizer, &error);
+		event_unref(&event);
+		if (ret < 0) {
 			*error_r = t_strdup_printf(
 				"%s:%s %s", set->name, entry_name, error);
 			ret = -1;
@@ -248,10 +255,12 @@ lang_user_init_data_language(struct mail_user *user, struct lang_user *luser,
 	if (lang_user_language_init_tokenizers(user, user_lang, error_r) < 0)
 		return -1;
 
-	if (lang_filter_create(lang_filter_lowercase, NULL, set,
+	struct event *event = event_create(user->event);
+	event_add_str(event, "language", language_data.name);
+	if (lang_filter_create(lang_filter_lowercase, NULL, set, event,
 			       &user_lang->filter, &error) < 0)
 		i_unreached();
-	i_assert(user_lang->filter != NULL);
+	event_unref(&event);
 
 	p_array_init(&luser->data_languages, user->pool, 1);
 	array_push_back(&luser->data_languages, &user_lang);

@@ -57,6 +57,7 @@ const struct lang_filter *lang_filter_find(const char *name);
 int lang_filter_create(const struct lang_filter *filter_class,
                        struct lang_filter *parent,
                        const struct lang_settings *set,
+		       struct event *event,
                        struct lang_filter **filter_r,
                        const char **error_r);
 void lang_filter_ref(struct lang_filter *filter);

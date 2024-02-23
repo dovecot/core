@@ -30,6 +30,7 @@ struct email_address_lang_tokenizer {
 
 static int
 lang_tokenizer_email_address_create(const struct lang_settings *set,
+				    struct event *event ATTR_UNUSED,
 				    enum lang_tokenizer_flags flags,
 				    struct lang_tokenizer **tokenizer_r,
 				    const char **error_r ATTR_UNUSED)

@@ -34,6 +34,7 @@ static void lang_filter_normalizer_icu_destroy(struct lang_filter *filter)
 
 static int
 lang_filter_normalizer_icu_create(const struct lang_settings *set,
+				  struct event *event ATTR_UNUSED,
 				  struct lang_filter **filter_r,
 				  const char **error_r ATTR_UNUSED)
 {
@@ -89,8 +90,8 @@ lang_filter_normalizer_icu_filter(struct lang_filter *filter, const char **token
 #else
 
 static int
-lang_filter_normalizer_icu_create(const struct language *lang ATTR_UNUSED,
-				  const char *const *settings ATTR_UNUSED,
+lang_filter_normalizer_icu_create(const struct lang_settings *set ATTR_UNUSED,
+				  struct event *event ATTR_UNUSED,
 				  struct lang_filter **filter_r ATTR_UNUSED,
 				  const char **error_r)
 {
