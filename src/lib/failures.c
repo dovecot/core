@@ -120,10 +120,8 @@ static void default_on_handler_failure(const struct failure_context *ctx)
 	}
 }
 
-static void default_post_handler(const struct failure_context *ctx)
+static void default_post_handler(const struct failure_context *ctx ATTR_UNUSED)
 {
-	if (ctx->type == LOG_TYPE_ERROR && coredump_on_error)
-		abort();
 }
 
 static int ATTR_FORMAT(2, 0)
@@ -285,6 +283,8 @@ static void error_handler_real(const struct failure_context *ctx,
 {
 	if (common_handler(ctx, format, args) < 0)
 		failure_handler.v->on_handler_failure(ctx);
+	if (ctx->type == LOG_TYPE_ERROR && coredump_on_error)
+		abort();
 	failure_handler.v->post_handler(ctx);
 }
 
