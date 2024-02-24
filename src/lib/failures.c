@@ -120,10 +120,6 @@ static void default_on_handler_failure(const struct failure_context *ctx)
 	}
 }
 
-static void default_post_handler(const struct failure_context *ctx ATTR_UNUSED)
-{
-}
-
 static int ATTR_FORMAT(2, 0)
 syslog_write(const struct failure_context *ctx,
 	     const char *format, va_list args)
@@ -180,10 +176,6 @@ static void syslog_on_handler_failure(const struct failure_context *ctx ATTR_UNU
 	failure_exit(FATAL_LOGERROR);
 }
 
-static void syslog_post_handler(const struct failure_context *ctx ATTR_UNUSED)
-{
-}
-
 static int ATTR_FORMAT(2, 0)
 internal_write(const struct failure_context *ctx,
 	       const char *format, va_list args)
@@ -229,26 +221,19 @@ static void internal_on_handler_failure(const struct failure_context *ctx ATTR_U
 	failure_exit(FATAL_LOGERROR);
 }
 
-static void internal_post_handler(const struct failure_context *ctx ATTR_UNUSED)
-{
-}
-
 static struct failure_handler_vfuncs default_handler_vfuncs = {
 	.write = &default_write,
 	.on_handler_failure = &default_on_handler_failure,
-	.post_handler = &default_post_handler
 };
 
 static struct failure_handler_vfuncs syslog_handler_vfuncs = {
 	.write = &syslog_write,
 	.on_handler_failure = &syslog_on_handler_failure,
-	.post_handler = &syslog_post_handler
 };
 
 static struct failure_handler_vfuncs internal_handler_vfuncs = {
 	.write = &internal_write,
 	.on_handler_failure = &internal_on_handler_failure,
-	.post_handler = &internal_post_handler
 };
 
 struct failure_handler_config failure_handler = { .fatal_err_reset = FATAL_LOGWRITE,
@@ -285,7 +270,6 @@ static void error_handler_real(const struct failure_context *ctx,
 		failure_handler.v->on_handler_failure(ctx);
 	if (ctx->type == LOG_TYPE_ERROR && coredump_on_error)
 		abort();
-	failure_handler.v->post_handler(ctx);
 }
 
 static void ATTR_FORMAT(2, 0)

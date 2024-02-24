@@ -10,7 +10,6 @@ typedef void failure_post_handler_t(const struct failure_context *ctx);
 struct failure_handler_vfuncs {
 	failure_write_to_file_t *write;
 	failure_on_handler_failure_t *on_handler_failure;
-	failure_post_handler_t *post_handler;
 };
 
 struct failure_handler_config {
