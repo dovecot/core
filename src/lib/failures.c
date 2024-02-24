@@ -65,6 +65,12 @@ static void log_prefix_add(const struct failure_context *ctx, string_t *str);
 static int i_failure_send_option_forced(const char *key, const char *value);
 static int internal_send_split(string_t *full_str, size_t prefix_len);
 
+static const char *log_prefix_sanitize(const char *str)
+{
+	/* we really only care about LFs, which can break everything. */
+	return t_str_replace(str, '\n', ' ');
+}
+
 static int ATTR_FORMAT(2, 0)
 default_write(const struct failure_context *ctx,
 	      const char *format, va_list args)
@@ -127,7 +133,7 @@ syslog_write(const struct failure_context *ctx,
 	string_t *data = t_str_new(128);
 	if (ctx->type == LOG_TYPE_INFO) {
 		if (ctx->log_prefix != NULL)
-			str_append(data, ctx->log_prefix);
+			str_append(data, log_prefix_sanitize(ctx->log_prefix));
 		else if (log_prefix != NULL)
 			str_append(data, log_prefix);
 	} else {
@@ -203,7 +209,7 @@ internal_write(const struct failure_context *ctx,
 	if ((log_type & LOG_TYPE_FLAG_PREFIX_LEN) != 0)
 		str_printfa(data, "%u ", ctx->log_prefix_type_pos);
 	if (ctx->log_prefix != NULL)
-		str_append(data, ctx->log_prefix);
+		str_append(data, log_prefix_sanitize(ctx->log_prefix));
 	size_t prefix_len = str_len(data);
 
 	str_vprintfa(data, format, args);
@@ -330,13 +336,14 @@ static void log_prefix_add(const struct failure_context *ctx, string_t *str)
 			str_append(str, log_prefix);
 		str_append(str, failure_log_type_prefixes[ctx->type]);
 	} else if (ctx->log_prefix_type_pos == 0) {
-		str_append(str, ctx->log_prefix);
+		str_append(str, log_prefix_sanitize(ctx->log_prefix));
 		str_append(str, failure_log_type_prefixes[ctx->type]);
 	} else {
-		i_assert(ctx->log_prefix_type_pos <= strlen(ctx->log_prefix));
-		str_append_data(str, ctx->log_prefix, ctx->log_prefix_type_pos);
+		const char *prefix = log_prefix_sanitize(ctx->log_prefix);
+		i_assert(ctx->log_prefix_type_pos <= strlen(prefix));
+		str_append_data(str, prefix, ctx->log_prefix_type_pos);
 		str_append(str, failure_log_type_prefixes[ctx->type]);
-		str_append(str, ctx->log_prefix + ctx->log_prefix_type_pos);
+		str_append(str, prefix + ctx->log_prefix_type_pos);
 	}
 }
 
@@ -731,7 +738,10 @@ void i_set_failure_prefix(const char *prefix_fmt, ...)
 
 	va_start(args, prefix_fmt);
 	i_free(log_prefix);
-	log_prefix = i_strdup_vprintf(prefix_fmt, args);
+	T_BEGIN {
+		log_prefix = i_strdup(log_prefix_sanitize(
+			t_strdup_vprintf(prefix_fmt, args)));
+	} T_END;
 	va_end(args);
 
 	log_prefix_sent = FALSE;
