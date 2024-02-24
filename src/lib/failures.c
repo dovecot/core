@@ -159,11 +159,12 @@ syslog_write(const struct failure_context *ctx,
 		i_unreached();
 	}
 	char *p;
-	while ((p = strchr(str_c_modifiable(data), '\n')) != NULL) {
+	while ((p = strchr(str_c_modifiable(data) + prefix_len, '\n')) != NULL) {
 		size_t line_len = p - str_c_modifiable(data) + 1;
 		*p = '\0';
 		syslog(level, "%s", str_c(data));
 		/* delete the written line, not including the log prefix */
+		i_assert(line_len > prefix_len);
 		str_delete(data, prefix_len, line_len - prefix_len);
 	}
 
