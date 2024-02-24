@@ -25,9 +25,12 @@ passwd_file_add_extra_fields(struct auth_request *request,
         const struct var_expand_table *table;
 	const char *key, *value, *error;
 	unsigned int i;
+	int ret = 0;
 
 	table = auth_request_get_var_expand_table(request, NULL);
 
+	pool_t pool = pool_alloconly_create("passwd-file fields", 256);
+	struct auth_fields *pwd_fields = auth_fields_init(pool);
 	for (i = 0; fields[i] != NULL; i++) {
 		value = strchr(fields[i], '=');
 		if (value != NULL) {
@@ -38,16 +41,24 @@ passwd_file_add_extra_fields(struct auth_request *request,
 				e_error(authdb_event(request),
 					"Failed to expand extra field %s: %s",
 					fields[i], error);
-				return -1;
+				ret = -1;
+				break;
 			}
 			value = str_c(str);
 		} else {
 			key = fields[i];
 			value = "";
 		}
-		auth_request_set_field(request, key, value, NULL);
+		if (request->passdb->set->fields_import_all)
+			auth_request_set_field(request, key, value, NULL);
+		if (!str_begins_with(fields[i], "userdb_"))
+			auth_fields_add(pwd_fields, key, value, 0);
 	}
-	return 0;
+
+	if (ret == 0 && auth_request_set_passdb_fields(request, pwd_fields) < 0)
+		ret = -1;
+	pool_unref(&pool);
+	return ret;
 }
 
 static int passwd_file_save_results(struct auth_request *request,
@@ -64,10 +75,10 @@ static int passwd_file_save_results(struct auth_request *request,
 	auth_request_set_field(request, "password",
 			       *crypted_pass_r, *scheme_r);
 
-	if (pu->extra_fields != NULL) {
-		if (passwd_file_add_extra_fields(request, pu->extra_fields) < 0)
-			return -1;
-	}
+	const char *const *extra_fields = pu->extra_fields != NULL ?
+		pu->extra_fields : empty_str_array;
+	if (passwd_file_add_extra_fields(request, extra_fields) < 0)
+		return -1;
 	return 0;
 }
 
@@ -168,6 +179,7 @@ static void passwd_file_deinit(struct passdb_module *_module)
 
 struct passdb_module_interface passdb_passwd_file = {
 	.name = "passwd-file",
+	.fields_supported = TRUE,
 
 	.preinit = passwd_file_preinit,
 	.init = passwd_file_init,
