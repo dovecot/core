@@ -29,12 +29,14 @@ struct passwd_file_userdb_module {
 
 static int
 passwd_file_add_extra_fields(struct auth_request *request,
-			     const char *const *fields)
+			     const char *const *fields,
+			     struct auth_fields *pwd_fields)
 {
 	string_t *str = t_str_new(512);
         const struct var_expand_table *table;
 	const char *key, *value, *error;
 	unsigned int i;
+	int ret = 0;
 
 	table = auth_request_get_var_expand_table(request, NULL);
 
@@ -51,15 +53,20 @@ passwd_file_add_extra_fields(struct auth_request *request,
 				e_error(authdb_event(request),
 					"Failed to expand extra field %s: %s",
 					fields[i], error);
-				return -1;
+				ret = -1;
+				break;
 			}
 			value = str_c(str);
 		} else {
 			value = "";
 		}
-		auth_request_set_userdb_field(request, key, value);
+		if (request->userdb->set->fields_import_all)
+			auth_request_set_userdb_field(request, key, value);
+		auth_fields_add(pwd_fields, key, value, 0);
 	}
-	return 0;
+	if (ret == 0 && auth_request_set_userdb_fields(request, pwd_fields) < 0)
+		ret = -1;
+	return ret;
 }
 
 static void passwd_file_lookup(struct auth_request *auth_request,
@@ -79,25 +86,45 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 		return;
 	}
 
+	pool_t pool = pool_alloconly_create("passwd-file fields", 256);
+	struct auth_fields *pwd_fields = auth_fields_init(pool);
+
 	if (pu->uid != (uid_t)-1) {
-		auth_request_set_userdb_field(auth_request, "uid",
-					      dec2str(pu->uid));
+		const char *value = dec2str(pu->uid);
+		if (auth_request->userdb->set->fields_import_all) {
+			auth_request_set_userdb_field(auth_request, "uid",
+						      value);
+		}
+		auth_fields_add(pwd_fields, "uid", value, 0);
 	}
 	if (pu->gid != (gid_t)-1) {
-		auth_request_set_userdb_field(auth_request, "gid",
-					      dec2str(pu->gid));
+		const char *value = dec2str(pu->gid);
+		if (auth_request->userdb->set->fields_import_all) {
+			auth_request_set_userdb_field(auth_request, "gid",
+						      value);
+		}
+		auth_fields_add(pwd_fields, "gid", value, 0);
 	}
 
-	if (pu->home != NULL)
-		auth_request_set_userdb_field(auth_request, "home", pu->home);
+	if (pu->home != NULL) {
+		if (auth_request->userdb->set->fields_import_all) {
+			auth_request_set_userdb_field(auth_request,
+						      "home", pu->home);
+		}
+		auth_fields_add(pwd_fields, "home", pu->home, 0);
+	}
 
-	if (pu->extra_fields != NULL &&
-	    passwd_file_add_extra_fields(auth_request, pu->extra_fields) < 0) {
+	const char *const *extra_fields = pu->extra_fields != NULL ?
+		pu->extra_fields : empty_str_array;
+	if (passwd_file_add_extra_fields(auth_request, extra_fields,
+					 pwd_fields) < 0) {
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
+		pool_unref(&pool);
 		return;
 	}
 
 	callback(USERDB_RESULT_OK, auth_request);
+	pool_unref(&pool);
 }
 
 static struct userdb_iterate_context *
@@ -220,6 +247,7 @@ static void passwd_file_deinit(struct userdb_module *_module)
 
 struct userdb_module_interface userdb_passwd_file = {
 	.name = "passwd-file",
+	.fields_supported = TRUE,
 
 	.preinit = passwd_file_preinit,
 	.init = passwd_file_init,
