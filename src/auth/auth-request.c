@@ -803,6 +803,93 @@ static void auth_request_passdb_internal_failure(struct auth_request *request)
 	auth_request_unref(&request);
 }
 
+static int
+auth_request_fields_var_expand_lookup(const char *data, void *context,
+				      const char **value_r,
+				      const char **error_r ATTR_UNUSED)
+{
+	struct auth_fields *fields = context;
+	*value_r = NULL;
+
+	const char *default_value = strchr(data, ':');
+	if (default_value == NULL) {
+		if (fields != NULL)
+			*value_r = auth_fields_find(fields, data);
+		else
+			*value_r = "";
+		return 1;
+	}
+	/* If the fields are not initialized do not try to find fields. */
+	if (fields != NULL)
+		*value_r = auth_fields_find(fields,
+				t_strdup_until(data, default_value));
+	default_value++;
+	if (*value_r == NULL)
+		*value_r = default_value;
+	return 1;
+}
+
+int auth_request_set_passdb_fields(struct auth_request *request,
+				   struct auth_fields *fields)
+{
+	struct event *event = event_create(authdb_event(request));
+	const struct auth_passdb_post_settings *post_set;
+	const char *error;
+
+	const char *driver_name =
+		t_str_replace(request->passdb->passdb->iface.name, '-', '_');
+	struct var_expand_func_table auth_request_fields_funcs[] = {
+		{ driver_name, auth_request_fields_var_expand_lookup },
+		{ NULL, NULL }
+	};
+
+	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE,
+		      auth_request_fields_funcs);
+	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT, fields);
+
+	if (settings_get(event, &auth_passdb_post_setting_parser_info, 0,
+			 &post_set, &error) < 0) {
+		e_error(event, "%s", error);
+		event_unref(&event);
+		return -1;
+	}
+	auth_request_set_strlist(request, &post_set->fields,
+				 STATIC_PASS_SCHEME);
+	settings_free(post_set);
+	event_unref(&event);
+	return 0;
+}
+
+int auth_request_set_userdb_fields(struct auth_request *request,
+				   struct auth_fields *fields)
+{
+	struct event *event = event_create(authdb_event(request));
+	const struct auth_userdb_post_settings *post_set;
+	const char *error;
+
+	const char *driver_name =
+		t_str_replace(request->userdb->userdb->iface->name, '-', '_');
+	struct var_expand_func_table auth_request_fields_funcs[] = {
+		{ driver_name, auth_request_fields_var_expand_lookup },
+		{ NULL, NULL }
+	};
+
+	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE,
+		      auth_request_fields_funcs);
+	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT, fields);
+
+	if (settings_get(event, &auth_userdb_post_setting_parser_info, 0,
+			 &post_set, &error) < 0) {
+		e_error(event, "%s", error);
+		event_unref(&event);
+		return -1;
+	}
+	auth_request_set_userdb_strlist(request, &post_set->fields);
+	settings_free(post_set);
+	event_unref(&event);
+	return 0;
+}
+
 static int auth_request_set_default_fields(struct auth_request *request)
 {
 	struct event *event = authdb_event(request);
@@ -825,6 +912,15 @@ static int auth_request_set_override_fields(struct auth_request *request)
 	struct event *event = authdb_event(request);
 	const struct auth_passdb_post_settings *post_set;
 	const char *error;
+
+	if (request->passdb->passdb->iface.fields_supported) {
+		/* passdb_fields was already processed. It may be referring to
+		   %{driver:*} fields that are not available currently, so just
+		   skip processing the passdb_override_fields. This setting
+		   will go away anyway once all passdbs are converted to use
+		   fields. */
+		return 0;
+	}
 
 	if (settings_get(event, &auth_passdb_post_setting_parser_info, 0,
 			 &post_set, &error) < 0) {
@@ -858,6 +954,16 @@ static int auth_request_set_userdb_override_fields(struct auth_request *request)
 	struct event *event = authdb_event(request);
 	const struct auth_userdb_post_settings *post_set;
 	const char *error;
+
+	if (request->userdb->userdb->iface->fields_supported) {
+		/* userdb_fields was already processed. It may be referring to
+		   %{driver:*} fields that are not available currently, so just
+		   skip processing the userdb_override_fields. This setting
+		   will go away anyway once all userdbs are converted to use
+		   fields. */
+		return 0;
+	}
+
 
 	if (settings_get(event, &auth_userdb_post_setting_parser_info, 0,
 			 &post_set, &error) < 0) {

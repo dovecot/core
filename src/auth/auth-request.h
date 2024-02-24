@@ -327,6 +327,11 @@ void auth_request_set_strlist(struct auth_request *request,
 			      const ARRAY_TYPE(const_string) *strlist,
 			      const char *default_scheme);
 
+int auth_request_set_passdb_fields(struct auth_request *request,
+				   struct auth_fields *fields);
+int auth_request_set_userdb_fields(struct auth_request *request,
+				   struct auth_fields *fields);
+
 void auth_request_init_userdb_reply(struct auth_request *request);
 void auth_request_set_userdb_field(struct auth_request *request,
 				   const char *name, const char *value);
