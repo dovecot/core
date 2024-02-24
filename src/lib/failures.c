@@ -69,14 +69,14 @@ static string_t * ATTR_FORMAT(3, 0)
 default_format(const struct failure_context *ctx, size_t *prefix_len_r,
 	       const char *format, va_list args)
 {
-	string_t *str = t_str_new(256);
-	log_timestamp_add(ctx, str);
-	log_prefix_add(ctx, str);
-	*prefix_len_r = str_len(str);
+	string_t *data = t_str_new(256);
+	log_timestamp_add(ctx, data);
+	log_prefix_add(ctx, data);
+	*prefix_len_r = str_len(data);
 
 	/* make sure there's no %n in there and fix %m */
-	str_vprintfa(str, printf_format_fix(format), args);
-	return str;
+	str_vprintfa(data, printf_format_fix(format), args);
+	return data;
 }
 
 static int default_write(enum log_type type, string_t *data, size_t prefix_len)
@@ -135,19 +135,19 @@ static string_t * ATTR_FORMAT(3, 0)
 syslog_format(const struct failure_context *ctx, size_t *prefix_len_r,
 	      const char *format, va_list args)
 {
-	string_t *str = t_str_new(128);
+	string_t *data = t_str_new(128);
 	if (ctx->type == LOG_TYPE_INFO) {
 		if (ctx->log_prefix != NULL)
-			str_append(str, ctx->log_prefix);
+			str_append(data, ctx->log_prefix);
 		else if (log_prefix != NULL)
-			str_append(str, log_prefix);
+			str_append(data, log_prefix);
 	} else {
-		log_prefix_add(ctx, str);
+		log_prefix_add(ctx, data);
 	}
-	*prefix_len_r = str_len(str);
+	*prefix_len_r = str_len(data);
 
-	str_vprintfa(str, format, args);
-	return str;
+	str_vprintfa(data, format, args);
+	return data;
 }
 
 static int syslog_write(enum log_type type, string_t *data, size_t prefix_len ATTR_UNUSED)
@@ -202,7 +202,7 @@ static string_t * ATTR_FORMAT(3, 0) internal_format(const struct failure_context
 						    const char *format,
 						    va_list args)
 {
-	string_t *str;
+	string_t *data;
 	unsigned char log_type = ctx->type + 1;
 
 	if (ctx->log_prefix != NULL) {
@@ -219,16 +219,16 @@ static string_t * ATTR_FORMAT(3, 0) internal_format(const struct failure_context
 		log_prefix_sent = TRUE;
 	}
 
-	str = t_str_new(128);
-	str_printfa(str, "\001%c%s ", log_type, my_pid);
+	data = t_str_new(128);
+	str_printfa(data, "\001%c%s ", log_type, my_pid);
 	if ((log_type & LOG_TYPE_FLAG_PREFIX_LEN) != 0)
-		str_printfa(str, "%u ", ctx->log_prefix_type_pos);
+		str_printfa(data, "%u ", ctx->log_prefix_type_pos);
 	if (ctx->log_prefix != NULL)
-		str_append(str, ctx->log_prefix);
-	*prefix_len_r = str_len(str);
+		str_append(data, ctx->log_prefix);
+	*prefix_len_r = str_len(data);
 
-	str_vprintfa(str, format, args);
-	return str;
+	str_vprintfa(data, format, args);
+	return data;
 }
 
 static int internal_write(enum log_type type ATTR_UNUSED, string_t *data, size_t prefix_len)
