@@ -11,6 +11,7 @@ struct auth_passdb_pre_settings {
 
 struct auth_passdb_post_settings {
 	pool_t pool;
+	ARRAY_TYPE(const_string) fields;
 	ARRAY_TYPE(const_string) override_fields;
 };
 
@@ -19,6 +20,7 @@ struct auth_passdb_settings {
 	const char *name;
 	const char *driver;
 	const char *args;
+	bool fields_import_all;
 	ARRAY_TYPE(const_string) mechanisms;
 	const char *username_filter;
 
@@ -41,6 +43,7 @@ struct auth_userdb_pre_settings {
 
 struct auth_userdb_post_settings {
 	pool_t pool;
+	ARRAY_TYPE(const_string) fields;
 	ARRAY_TYPE(const_string) override_fields;
 };
 
@@ -49,6 +52,7 @@ struct auth_userdb_settings {
 	const char *name;
 	const char *driver;
 	const char *args;
+	bool fields_import_all;
 
 	const char *skip;
 	const char *result_success;

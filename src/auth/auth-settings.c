@@ -107,6 +107,7 @@ static const struct setting_define auth_passdb_setting_defines[] = {
 	DEF(STR, name),
 	DEF(STR, driver),
 	DEF(STR_NOVARS, args),
+	DEF(BOOL, fields_import_all),
 	DEF(BOOLLIST, mechanisms),
 	DEF(STR, username_filter),
 
@@ -129,6 +130,7 @@ static const struct auth_passdb_settings auth_passdb_default_settings = {
 	.name = "",
 	.driver = "",
 	.args = "",
+	.fields_import_all = TRUE,
 	.mechanisms = ARRAY_INIT,
 	.username_filter = "",
 
@@ -179,6 +181,8 @@ const struct setting_parser_info auth_passdb_pre_setting_parser_info = {
 };
 
 static const struct setting_define auth_passdb_post_setting_defines[] = {
+	{ .type = SET_STRLIST, .key = "passdb_fields",
+	  .offset = offsetof(struct auth_passdb_post_settings, fields) },
 	{ .type = SET_STRLIST, .key = "passdb_override_fields",
 	  .offset = offsetof(struct auth_passdb_post_settings, override_fields) },
 
@@ -186,6 +190,7 @@ static const struct setting_define auth_passdb_post_setting_defines[] = {
 };
 
 static const struct auth_passdb_post_settings auth_passdb_post_default_settings = {
+	.fields = ARRAY_INIT,
 	.override_fields = ARRAY_INIT,
 };
 
@@ -207,6 +212,7 @@ static const struct setting_define auth_userdb_setting_defines[] = {
 	DEF(STR, name),
 	DEF(STR, driver),
 	DEF(STR_NOVARS, args),
+	DEF(BOOL, fields_import_all),
 
 	DEF(ENUM, skip),
 	DEF(ENUM, result_success),
@@ -224,6 +230,7 @@ static const struct auth_userdb_settings auth_userdb_default_settings = {
 	.name = "",
 	.driver = "",
 	.args = "",
+	.fields_import_all = TRUE,
 
 	.skip = "never:found:notfound",
 	.result_success = "return-ok:return:return-fail:continue:continue-ok:continue-fail",
@@ -268,6 +275,8 @@ const struct setting_parser_info auth_userdb_pre_setting_parser_info = {
 };
 
 static const struct setting_define auth_userdb_post_setting_defines[] = {
+	{ .type = SET_STRLIST, .key = "userdb_fields",
+	  .offset = offsetof(struct auth_userdb_post_settings, fields) },
 	{ .type = SET_STRLIST, .key = "userdb_override_fields",
 	  .offset = offsetof(struct auth_userdb_post_settings, override_fields) },
 
@@ -275,6 +284,7 @@ static const struct setting_define auth_userdb_post_setting_defines[] = {
 };
 
 static const struct auth_userdb_post_settings auth_userdb_post_default_settings = {
+	.fields = ARRAY_INIT,
 	.override_fields = ARRAY_INIT,
 };
 
