@@ -6,6 +6,7 @@
 #include "failures-private.h"
 
 #include <unistd.h>
+#include <fcntl.h>
 
 enum test_log_event_type {
 	TYPE_END,
@@ -44,40 +45,7 @@ struct test_log {
 	enum test_log_flag flags;
 };
 
-static char *test_output = NULL;
-
-static void ATTR_FORMAT(2, 0)
-info_handler(const struct failure_context *ctx,
-	     const char *format, va_list args)
-{
-	size_t prefix_len;
-
-	i_assert(ctx->type == LOG_TYPE_INFO);
-
-	i_free(test_output);
-	T_BEGIN {
-		string_t *str = failure_handler.v->format(ctx, &prefix_len,
-							  format, args);
-		test_output = i_strdup(str_c(str));
-	} T_END;
-}
-
-static void ATTR_FORMAT(2, 0)
-error_handler(const struct failure_context *ctx,
-	     const char *format, va_list args)
-{
-	size_t prefix_len;
-
-	i_assert(ctx->type == LOG_TYPE_WARNING ||
-		 ctx->type == LOG_TYPE_ERROR);
-
-	i_free(test_output);
-	T_BEGIN {
-		string_t *str = failure_handler.v->format(ctx, &prefix_len,
-							  format, args);
-		test_output = i_strdup(str_c(str));
-	} T_END;
-}
+static const char *temp_log_file = ".temp.log_file";
 
 static const char *
 test_event_log_prefix_cb(char *prefix)
@@ -93,7 +61,32 @@ test_event_log_message_cb(char *prefix,
 	return t_strdup_printf("[%s%s]", prefix, message);
 }
 
-static void test_event_log_message(void)
+static int temp_log_file_init(void)
+{
+	int log_fd = open(temp_log_file, O_CREAT | O_TRUNC | O_RDWR, 0600);
+	if (log_fd == -1)
+		i_fatal("open(%s) failed: %m", temp_log_file);
+	i_set_failure_file(temp_log_file, "");
+	return log_fd;
+}
+
+static const char *read_log_line(int log_fd)
+{
+	static char line[1024];
+
+	ssize_t ret = read(log_fd, line, sizeof(line)-1);
+	if (ret < 0)
+		i_fatal("read(%s) failed: %m", temp_log_file);
+	if (ret == 0)
+		return NULL;
+
+	if (ret > 0 && line[ret-1] == '\n')
+		ret--;
+	line[ret] = '\0';
+	return line;
+}
+
+static void test_event_log_message(int log_fd)
 {
 	struct test_log tests[] = {
 		{
@@ -2389,9 +2382,6 @@ static void test_event_log_message(void)
 
 	test_begin("event log message");
 
-	failure_callback_t *orig_fatal, *orig_error, *orig_info, *orig_debug;
-	i_get_failure_handlers(&orig_fatal, &orig_error, &orig_info, &orig_debug);
-	i_set_info_handler(info_handler);
 	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) T_BEGIN {
 		const struct test_log *test = &tests[i];
 		struct event_log_params params = {
@@ -2401,7 +2391,6 @@ static void test_event_log_message(void)
 			.no_send = ((test->flags & FLAG_NO_SEND) != 0),
 		};
 
-		i_free(test_output);
 		if (test->global_log_prefix != NULL)
 			i_set_failure_prefix("%s", test->global_log_prefix);
 		else
@@ -2471,16 +2460,14 @@ static void test_event_log_message(void)
 		}
 		event_log(event, &params, "TEXT");
 
-		test_assert_strcmp(test->result, test_output);
+		test_assert_strcmp(test->result, read_log_line(log_fd));
 		if (test->result_str_out != NULL) {
 			test_assert_strcmp(test->result_str_out,
 					   str_c(params.base_str_out));
 		}
 		event_unref(&event);
 	} T_END;
-	i_set_info_handler(orig_info);
 	i_unset_failure_prefix();
-	i_free(test_output);
 	test_end();
 }
 
@@ -2497,32 +2484,38 @@ static void test_event_duration()
 	test_end();
 }
 
-static void test_event_log_level(void)
+static void test_event_log_level(int log_fd)
 {
 	test_begin("event log level");
-	failure_callback_t *orig_fatal, *orig_error, *orig_info, *orig_debug;
-	i_get_failure_handlers(&orig_fatal, &orig_error, &orig_info, &orig_debug);
-	i_set_info_handler(info_handler);
-	i_set_error_handler(error_handler);
 
 	struct event *event = event_create(NULL);
 	event_set_min_log_level(event, LOG_TYPE_WARNING);
 	errno = EACCES;
 	e_info(event, "Info event");
+	const char *test_output = read_log_line(log_fd);
 	test_assert(test_output == NULL);
 	e_warning(event, "Warning event");
+	test_output = read_log_line(log_fd);
 	test_assert_strcmp(test_output, "Warning: Warning event");
 	event_unref(&event);
-	i_set_info_handler(orig_info);
-	i_set_error_handler(orig_error);
-	i_free(test_output);
 	test_assert(errno == EACCES);
 	test_end();
 }
 
 void test_event_log(void)
 {
-	test_event_log_message();
 	test_event_duration();
-	test_event_log_level();
+
+	failure_callback_t *orig_fatal;
+	failure_callback_t *orig_error, *orig_info, *orig_debug;
+	i_get_failure_handlers(&orig_fatal, &orig_error,
+			       &orig_info, &orig_debug);
+	int log_fd = temp_log_file_init();
+	test_event_log_message(log_fd);
+	test_event_log_level(log_fd);
+
+	i_set_failure_file("/dev/stderr", "");
+	i_set_error_handler(orig_error);
+	i_close_fd(&log_fd);
+	i_unlink(temp_log_file);
 }
