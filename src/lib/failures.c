@@ -65,25 +65,20 @@ static void log_prefix_add(const struct failure_context *ctx, string_t *str);
 static int i_failure_send_option_forced(const char *key, const char *value);
 static int internal_send_split(string_t *full_str, size_t prefix_len);
 
-static string_t * ATTR_FORMAT(3, 0)
-default_format(const struct failure_context *ctx, size_t *prefix_len_r,
-	       const char *format, va_list args)
+static int ATTR_FORMAT(2, 0)
+default_write(const struct failure_context *ctx,
+	      const char *format, va_list args)
 {
 	string_t *data = t_str_new(256);
 	log_timestamp_add(ctx, data);
 	log_prefix_add(ctx, data);
-	*prefix_len_r = str_len(data);
+	size_t prefix_len = str_len(data);
 
 	/* make sure there's no %n in there and fix %m */
 	str_vprintfa(data, printf_format_fix(format), args);
-	return data;
-}
 
-static int default_write(enum log_type type, string_t *data, size_t prefix_len)
-{
 	int fd;
-
-	switch (type) {
+	switch (ctx->type) {
 	case LOG_TYPE_DEBUG:
 		fd = log_debug_fd;
 		break;
@@ -131,9 +126,9 @@ static void default_post_handler(const struct failure_context *ctx)
 		abort();
 }
 
-static string_t * ATTR_FORMAT(3, 0)
-syslog_format(const struct failure_context *ctx, size_t *prefix_len_r,
-	      const char *format, va_list args)
+static int ATTR_FORMAT(2, 0)
+syslog_write(const struct failure_context *ctx,
+	     const char *format, va_list args)
 {
 	string_t *data = t_str_new(128);
 	if (ctx->type == LOG_TYPE_INFO) {
@@ -144,17 +139,11 @@ syslog_format(const struct failure_context *ctx, size_t *prefix_len_r,
 	} else {
 		log_prefix_add(ctx, data);
 	}
-	*prefix_len_r = str_len(data);
-
+	size_t prefix_len = str_len(data);
 	str_vprintfa(data, format, args);
-	return data;
-}
 
-static int syslog_write(enum log_type type, string_t *data, size_t prefix_len ATTR_UNUSED)
-{
 	int level = LOG_ERR;
-
-	switch (type) {
+	switch (ctx->type) {
 	case LOG_TYPE_DEBUG:
 		level = LOG_DEBUG;
 		break;
@@ -197,10 +186,9 @@ static void syslog_post_handler(const struct failure_context *ctx ATTR_UNUSED)
 {
 }
 
-static string_t * ATTR_FORMAT(3, 0) internal_format(const struct failure_context *ctx,
-						    size_t *prefix_len_r,
-						    const char *format,
-						    va_list args)
+static int ATTR_FORMAT(2, 0)
+internal_write(const struct failure_context *ctx,
+	       const char *format, va_list args)
 {
 	string_t *data;
 	unsigned char log_type = ctx->type + 1;
@@ -214,7 +202,7 @@ static string_t * ATTR_FORMAT(3, 0) internal_format(const struct failure_context
 			/* Failed to write log prefix. The log message writing
 			   would likely fail as well, but don't even try since
 			   the log prefix would be wrong. */
-			return NULL;
+			return -1;
 		}
 		log_prefix_sent = TRUE;
 	}
@@ -225,14 +213,10 @@ static string_t * ATTR_FORMAT(3, 0) internal_format(const struct failure_context
 		str_printfa(data, "%u ", ctx->log_prefix_type_pos);
 	if (ctx->log_prefix != NULL)
 		str_append(data, ctx->log_prefix);
-	*prefix_len_r = str_len(data);
+	size_t prefix_len = str_len(data);
 
 	str_vprintfa(data, format, args);
-	return data;
-}
 
-static int internal_write(enum log_type type ATTR_UNUSED, string_t *data, size_t prefix_len)
-{
 	if (str_len(data)+1 <= PIPE_BUF && strchr(str_c(data), '\n') == NULL) {
 		/* fast path: Log line is short enough and has no LFs */
 		str_append_c(data, '\n');
@@ -253,21 +237,18 @@ static void internal_post_handler(const struct failure_context *ctx ATTR_UNUSED)
 
 static struct failure_handler_vfuncs default_handler_vfuncs = {
 	.write = &default_write,
-	.format = &default_format,
 	.on_handler_failure = &default_on_handler_failure,
 	.post_handler = &default_post_handler
 };
 
 static struct failure_handler_vfuncs syslog_handler_vfuncs = {
 	.write = &syslog_write,
-	.format = &syslog_format,
 	.on_handler_failure = &syslog_on_handler_failure,
 	.post_handler = &syslog_post_handler
 };
 
 static struct failure_handler_vfuncs internal_handler_vfuncs = {
 	.write = &internal_write,
-	.format = &internal_format,
 	.on_handler_failure = &internal_on_handler_failure,
 	.post_handler = &internal_post_handler
 };
@@ -280,7 +261,6 @@ static int common_handler(const struct failure_context *ctx,
 {
 	static int recursed = 0;
 	int ret;
-	size_t prefix_len = 0;
 
 	if (recursed >= 2) {
 		/* we're being called from some signal handler or we ran
@@ -290,9 +270,7 @@ static int common_handler(const struct failure_context *ctx,
 	recursed++;
 
 	T_BEGIN {
-		string_t *str = failure_handler.v->format(ctx, &prefix_len, format, args);
-		ret = str == NULL ? -1 :
-			failure_handler.v->write(ctx->type, str, prefix_len);
+		ret = failure_handler.v->write(ctx, format, args);
 	} T_END;
 
 	if (ret < 0 && failure_ignore_errors)
