@@ -310,7 +310,13 @@ imap_urlauth_fetch_request_callback(struct imap_urlauth_fetch_reply *reply,
 	imap_urlauth_fetch_ref(ufetch);
 
 	if (!ufetch->failed) {
+		struct imap_urlauth_fetch_reply error_reply;
 		bool last = ufetch->pending_requests == 0 || reply == NULL;
+
+		if (reply == NULL) {
+			i_zero(&error_reply);
+			reply = &error_reply;
+		}
 		ret = ufetch->callback(reply, last, ufetch->context);
 	}
 
