@@ -353,7 +353,7 @@ static void test_event_filter_strlist(void)
 
 	filter = event_filter_create();
 	/* should match empty list */
-	event_filter_parse("abc=\"\"", filter, NULL);
+	test_assert(event_filter_parse("abc=\"\"", filter, NULL) == 0);
 	test_assert(event_filter_match(filter, e, &failure_ctx));
 	/* should still be empty */
 	event_strlist_append(e, "abc", NULL);
@@ -367,18 +367,18 @@ static void test_event_filter_strlist(void)
 	/* should match non-empty list that has value 'one' */
 	filter = event_filter_create();
 	event_strlist_append(e, "abc", "two");
-	event_filter_parse("abc=one", filter, NULL);
+	test_assert(event_filter_parse("abc=one", filter, NULL) == 0);
 	test_assert(event_filter_match(filter, e, &failure_ctx));
 	event_filter_unref(&filter);
 
 	/* should match non-empty list that has no value 'three' */
 	filter = event_filter_create();
-	event_filter_parse("abc=one AND NOT abc=three", filter, NULL);
+	test_assert(event_filter_parse("abc=one AND NOT abc=three", filter, NULL) == 0);
 	test_assert(event_filter_match(filter, e, &failure_ctx));
 	event_filter_unref(&filter);
 
 	filter = event_filter_create();
-	event_filter_parse("abc>one", filter, NULL);
+	test_assert(event_filter_parse("abc>one", filter, NULL) == 0);
 	test_expect_error_string("Event filter for string list field 'abc' only "
 				 "supports equality operation '=' not '>'.");
 	test_assert(!event_filter_match(filter, e, &failure_ctx));
@@ -403,7 +403,7 @@ static void test_event_filter_strlist_recursive(void)
 
 	/* empty filter: parent is non-empty */
 	filter = event_filter_create();
-	event_filter_parse("list1=\"\"", filter, NULL);
+	test_assert(event_filter_parse("list1=\"\"", filter, NULL) == 0);
 	test_assert(event_filter_match(filter, e, &failure_ctx));
 	event_strlist_append(parent, "list1", "foo");
 	test_assert(!event_filter_match(filter, e, &failure_ctx));
@@ -411,7 +411,7 @@ static void test_event_filter_strlist_recursive(void)
 
 	/* matching filter: matches parent */
 	filter = event_filter_create();
-	event_filter_parse("list2=parent", filter, NULL);
+	test_assert(event_filter_parse("list2=parent", filter, NULL) == 0);
 	/* empty: */
 	test_assert(!event_filter_match(filter, e, &failure_ctx));
 	/* set parent but no child: */
@@ -424,7 +424,7 @@ static void test_event_filter_strlist_recursive(void)
 
 	/* matching filter: matches child */
 	filter = event_filter_create();
-	event_filter_parse("list3=child", filter, NULL);
+	test_assert(event_filter_parse("list3=child", filter, NULL) == 0);
 	/* empty: */
 	test_assert(!event_filter_match(filter, e, &failure_ctx));
 	/* set child but no parent: */
@@ -456,7 +456,7 @@ static void test_event_filter_strlist_global_events(void)
 
 	/* empty filter: global is non-empty */
 	filter = event_filter_create();
-	event_filter_parse("list1=\"\"", filter, NULL);
+	test_assert(event_filter_parse("list1=\"\"", filter, NULL) == 0);
 	test_assert(event_filter_match(filter, e, &failure_ctx));
 	event_strlist_append(global, "list1", "foo");
 	test_assert(!event_filter_match(filter, e, &failure_ctx));
@@ -464,7 +464,7 @@ static void test_event_filter_strlist_global_events(void)
 
 	/* matching filter: matches global */
 	filter = event_filter_create();
-	event_filter_parse("list2=global", filter, NULL);
+	test_assert(event_filter_parse("list2=global", filter, NULL) == 0);
 	/* empty: */
 	test_assert(!event_filter_match(filter, e, &failure_ctx));
 	/* set global but no local: */
@@ -477,7 +477,7 @@ static void test_event_filter_strlist_global_events(void)
 
 	/* matching filter: matches local */
 	filter = event_filter_create();
-	event_filter_parse("list3=local", filter, NULL);
+	test_assert(event_filter_parse("list3=local", filter, NULL) == 0);
 	/* empty: */
 	test_assert(!event_filter_match(filter, e, &failure_ctx));
 	/* set local but no global: */
