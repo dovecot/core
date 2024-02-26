@@ -7,9 +7,9 @@ struct passwd_user {
 	uid_t uid;
 	gid_t gid;
 
-	char *home;
-        char *password;
-        char **extra_fields;
+	const char *home;
+	const char *password;
+	const char *const *extra_fields;
 };
 
 struct passwd_file {

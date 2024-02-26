@@ -28,7 +28,8 @@ struct passwd_file_userdb_module {
 };
 
 static int
-passwd_file_add_extra_fields(struct auth_request *request, char *const *fields)
+passwd_file_add_extra_fields(struct auth_request *request,
+			     const char *const *fields)
 {
 	string_t *str = t_str_new(512);
         const struct var_expand_table *table;
