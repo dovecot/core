@@ -162,8 +162,8 @@ passwd_file_add(struct passwd_file *pw, const char *username,
         }
 
         if (extra_fields != NULL) {
-                pu->extra_fields =
-                        p_strsplit_spaces(pw->pool, extra_fields, " ");
+		pu->extra_fields = (const char *const *)
+			p_strsplit_spaces(pw->pool, extra_fields, " ");
         }
 
 	hash_table_insert(pw->users, user, pu);
