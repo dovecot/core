@@ -11,6 +11,7 @@
 
 static bool auth_settings_ext_check(struct event *event, void *_set, pool_t pool, const char **error_r);
 static bool auth_passdb_settings_check(void *_set, pool_t pool, const char **error_r);
+static bool auth_userdb_settings_check(void *_set, pool_t pool, const char **error_r);
 
 struct service_settings auth_service_settings = {
 	.name = "auth",
@@ -241,6 +242,8 @@ const struct setting_parser_info auth_userdb_setting_parser_info = {
 
 	.struct_size = sizeof(struct auth_userdb_settings),
 	.pool_offset1 = 1 + offsetof(struct auth_userdb_settings, pool),
+
+	.check_func = auth_userdb_settings_check,
 };
 
 static const struct setting_define auth_userdb_pre_setting_defines[] = {
@@ -350,12 +353,10 @@ static const struct setting_define auth_setting_defines[] = {
 
 	{ .type = SET_FILTER_ARRAY, .key = "passdb",
 	  .offset = offsetof(struct auth_settings, passdbs),
-	  .filter_array_field_name = "name",
-	  .required_setting = "passdb_driver", },
+	  .filter_array_field_name = "name", },
 	{ .type = SET_FILTER_ARRAY, .key = "userdb",
 	  .offset = offsetof(struct auth_settings, userdbs),
-	  .filter_array_field_name = "name",
-	  .required_setting = "userdb_driver", },
+	  .filter_array_field_name = "name", },
 
 	DEF_NOPREFIX(STR_HIDDEN, base_dir),
 	DEF_NOPREFIX(BOOL, verbose_proctitle),
@@ -638,7 +639,18 @@ auth_passdb_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	struct auth_passdb_settings *set = _set;
 
 	if (*set->driver == '\0')
-		return TRUE;
+		set->driver = set->name;
+	return TRUE;
+}
+
+static bool
+auth_userdb_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+			   const char **error_r ATTR_UNUSED)
+{
+	struct auth_userdb_settings *set = _set;
+
+	if (*set->driver == '\0')
+		set->driver = set->name;
 	return TRUE;
 }
 /* </settings checks> */
