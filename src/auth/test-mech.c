@@ -10,10 +10,6 @@
 #include "auth-request-handler-private.h"
 #include "auth-settings.h"
 #include "mech-digest-md5-private.h"
-#include "otp.h"
-#include "mech-otp-common.h"
-#include "settings-parser.h"
-#include "password-scheme.h"
 #include "auth-token.h"
 
 #include <unistd.h>
@@ -25,7 +21,6 @@ extern const struct mech_module mech_anonymous;
 extern const struct mech_module mech_apop;
 extern const struct mech_module mech_cram_md5;
 extern const struct mech_module mech_digest_md5;
-extern const struct mech_module mech_dovecot_token;
 extern const struct mech_module mech_external;
 extern const struct mech_module mech_login;
 extern const struct mech_module mech_oauthbearer;
