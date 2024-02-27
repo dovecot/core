@@ -284,6 +284,7 @@ imap_urlauth_fetch_request_callback(struct imap_urlauth_fetch_reply *reply,
 {
 	struct imap_urlauth_fetch *ufetch =
 		(struct imap_urlauth_fetch *)context;
+	struct imap_urlauth_fetch_reply error_reply;
 	int ret = 1;
 
 	if (ufetch->waiting_local && reply != NULL) {
@@ -310,7 +311,6 @@ imap_urlauth_fetch_request_callback(struct imap_urlauth_fetch_reply *reply,
 	imap_urlauth_fetch_ref(ufetch);
 
 	if (!ufetch->failed) {
-		struct imap_urlauth_fetch_reply error_reply;
 		bool last = ufetch->pending_requests == 0 || reply == NULL;
 
 		if (reply == NULL) {
