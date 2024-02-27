@@ -19,6 +19,7 @@
 static void connection_handshake_ready(struct connection *conn)
 {
 	conn->handshake_received = TRUE;
+	conn->handshake_finished = ioloop_timeval;
 	if (conn->v.handshake_ready != NULL)
 		conn->v.handshake_ready(conn);
 }
@@ -506,6 +507,7 @@ static void connection_init_streams(struct connection *conn)
 	i_assert(conn->output == NULL);
 	i_assert(conn->to == NULL);
 
+	i_zero(&conn->handshake_finished);
 	conn->handshake_received = FALSE;
 	conn->version_received = set->major_version == 0;
 

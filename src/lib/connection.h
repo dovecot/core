@@ -152,6 +152,8 @@ struct connection {
 	/* Client has started to connect. This is client-only
 	   value. */
 	struct timeval connect_started;
+	/* Timestamp when client has finished handshake successfully. */
+	struct timeval handshake_finished;
 	/* Client has finished connecting. This is recorded for
 	   both server and client. */
 	struct timeval connect_finished;
