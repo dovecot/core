@@ -76,6 +76,12 @@ struct settings_override {
 ARRAY_DEFINE_TYPE(settings_override, struct settings_override);
 ARRAY_DEFINE_TYPE(settings_override_p, struct settings_override *);
 
+struct settings_group {
+	const char *label;
+	const char *name;
+};
+ARRAY_DEFINE_TYPE(settings_group, struct settings_group);
+
 struct settings_mmap_block {
 	const char *name;
 	size_t block_end_offset;
@@ -388,6 +394,7 @@ settings_block_read(struct settings_mmap *mmap, size_t *_offset,
 				&filter_settings_size, error_r) < 0)
 			return -1;
 
+		/* <error string> */
 		size_t tmp_offset = offset;
 		size_t filter_end_offset = offset + filter_settings_size;
 		if (settings_block_read_str(mmap, &tmp_offset,
@@ -395,6 +402,31 @@ settings_block_read(struct settings_mmap *mmap, size_t *_offset,
 					    "filter error string", &error,
 					    error_r) < 0)
 			return -1;
+
+		uint32_t include_count;
+		if (settings_block_read_uint32(mmap, &tmp_offset,
+					       filter_end_offset,
+					       "include group count",
+					       &include_count, error_r) < 0)
+			return -1;
+
+		for (uint32_t i = 0; i < include_count; i++) {
+			/* <group label> */
+			const char *group_label;
+			if (settings_block_read_str(mmap, &tmp_offset,
+						    filter_end_offset,
+						    "group label string",
+						    &group_label, error_r) < 0)
+				return -1;
+
+			/* <group name> */
+			const char *group_name;
+			if (settings_block_read_str(mmap, &tmp_offset,
+						    filter_end_offset,
+						    "group name string",
+						    &group_name, error_r) < 0)
+				return -1;
+		}
 
 		/* skip over the filter contents for now */
 		offset += filter_settings_size;
@@ -784,9 +816,15 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 		.type = LOG_TYPE_DEBUG,
 	};
 
+	ARRAY_TYPE(settings_group) include_groups;
+	t_array_init(&include_groups, 4);
+
 	/* So through the filters in reverse sorted order, so we always set the
 	   setting just once, never overriding anything. A filter for the base
 	   settings is expected to always exist. */
+	struct event *event = ctx->event;
+	bool filters_matched[block->filter_count + 1];
+	memset(filters_matched, 0, block->filter_count + 1);
 	for (uint32_t i = block->filter_count; i > 0; ) {
 		i--;
 		uint32_t event_filter_idx = be32_to_cpu_unaligned(
@@ -802,8 +840,11 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 			mmap->event_filters[event_filter_idx];
 		if (event_filter == EVENT_FILTER_MATCH_NEVER)
 			;
-		else if (event_filter == EVENT_FILTER_MATCH_ALWAYS ||
-			 event_filter_match(event_filter, ctx->event, &failure_ctx)) {
+		else if (filters_matched[i]) {
+			/* Group include restarted the filter matching. We
+			   already applied this filter, so skip checking it. */
+		} else if (event_filter == EVENT_FILTER_MATCH_ALWAYS ||
+			   event_filter_match(event_filter, event, &failure_ctx)) {
 			uint64_t filter_offset = be64_to_cpu_unaligned(
 				CONST_PTR_OFFSET(mmap->mmap_base,
 						 block->filter_offsets_start_offset +
@@ -822,6 +863,25 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 				return -1;
 			}
 			filter_offset += strlen(filter_error) + 1;
+
+			uint32_t include_count = be32_to_cpu_unaligned(
+				CONST_PTR_OFFSET(mmap->mmap_base, filter_offset));
+			filter_offset += sizeof(include_count);
+
+			array_clear(&include_groups);
+			for (uint32_t j = 0; j < include_count; j++) {
+				struct settings_group *include_group =
+					array_append_space(&include_groups);
+				include_group->label =
+					CONST_PTR_OFFSET(mmap->mmap_base,
+							 filter_offset);
+				filter_offset += strlen(include_group->label) + 1;
+
+				include_group->name =
+					CONST_PTR_OFFSET(mmap->mmap_base,
+							 filter_offset);
+				filter_offset += strlen(include_group->name) + 1;
+			}
 
 			if (ctx->filter_name != NULL && !ctx->seen_filter &&
 			    event_filter != EVENT_FILTER_MATCH_ALWAYS) {
@@ -858,6 +918,23 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 					filter_offset, filter_end_offset,
 					error_r) < 0)
 				return -1;
+
+			/* Don't try to apply this filter again if group
+			   including restarts the filter processing */
+			filters_matched[i] = TRUE;
+			const struct settings_group *include_group;
+			array_foreach(&include_groups, include_group) {
+				/* Add @<group label>/<group name> to
+				   matching filters and restart the filter
+				   processing. */
+				char *filter_value = p_strdup_printf(
+					event_get_pool(ctx->event), "@%s/%s",
+					include_group->label, include_group->name);
+				event_strlist_append(ctx->event,
+						     SETTINGS_EVENT_FILTER_NAME,
+						     filter_value);
+				i = block->filter_count;
+			}
 		}
 	}
 	return ctx->seen_filter ? 1 : 0;

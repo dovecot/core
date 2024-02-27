@@ -1,6 +1,8 @@
 #ifndef CONFIG_PARSER_H
 #define CONFIG_PARSER_H
 
+#include "config-filter.h"
+
 #define CONFIG_MODULE_DIR MODULEDIR"/settings"
 
 #define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
@@ -94,6 +96,13 @@ config_module_parsers_get_setting(const struct config_module_parser *module_pars
 /* Lookup setting with the specified key. */
 const struct setting_define *
 config_parsed_key_lookup(struct config_parsed *config, const char *key);
+/* Get the list of filter's include groups that have any settings in the given
+   module parser index. Returns TRUE if any groups were returned. */
+bool config_parsed_get_includes(struct config_parsed *config,
+				const struct config_filter_parser *filter,
+				unsigned int parser_idx,
+				ARRAY_TYPE(config_include_group) *groups);
+
 void config_parsed_free(struct config_parsed **config);
 
 void config_parse_load_modules(void);

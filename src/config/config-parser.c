@@ -44,6 +44,11 @@ struct config_parser_key {
 	unsigned int define_idx;
 };
 
+struct config_include_group_filters {
+	const char *label;
+	ARRAY(struct config_filter_parser *) filters;
+};
+
 struct config_parsed {
 	pool_t pool;
 	const char *dovecot_config_version;
@@ -51,6 +56,7 @@ struct config_parsed {
 	struct config_module_parser *module_parsers;
 	ARRAY_TYPE(const_string) errors;
 	HASH_TABLE(const char *, const struct setting_define *) key_hash;
+	HASH_TABLE(const char *, struct config_include_group_filters *) include_groups;
 };
 
 ARRAY_DEFINE_TYPE(setting_parser_info_p, const struct setting_parser_info *);
@@ -329,6 +335,16 @@ config_apply_error(struct config_parser_context *ctx, const char *key)
 		ctx->error = NULL;
 	}
 	return 0;
+}
+
+static bool config_filter_has_include_group(const struct config_filter *filter)
+{
+	for (; filter != NULL; filter = filter->parent) {
+		if (filter->filter_name_array &&
+		    filter->filter_name[0] == SETTINGS_INCLUDE_GROUP_PREFIX)
+			return TRUE;
+	}
+	return FALSE;
 }
 
 static int
@@ -737,6 +753,11 @@ static bool replace_filter_prefix(struct config_parser_context *ctx,
 	return TRUE;
 }
 
+static const char *filter_key_skip_group_prefix(const char *key)
+{
+	return key[0] == SETTINGS_INCLUDE_GROUP_PREFIX ? key + 1 : key;
+}
+
 static int
 config_apply_line_full(struct config_parser_context *ctx,
 		       const struct config_line *line,
@@ -817,8 +838,8 @@ again:
 	    ctx->cur_section->filter_parser->filter.filter_name_array) {
 		/* For named list filters, try filter name { key } ->
 		   filter_name_key first before anything else. */
-		const char *filter_key =
-			t_str_replace(ctx->cur_section->filter_parser->filter.filter_name, '/', '_');
+		const char *filter_key = filter_key_skip_group_prefix(
+			t_str_replace(ctx->cur_section->filter_parser->filter.filter_name, '/', '_'));
 		const char *key2 = t_strdup_printf("%s_%s", filter_key, key);
 		struct config_filter_parser *last_filter_parser =
 			ctx->cur_section->filter_parser;
@@ -835,8 +856,8 @@ again:
 		/* first try the filter name-specific prefix, so e.g.
 		   inet_listener { ssl=yes } won't try to change the global
 		   ssl setting. */
-		const char *filter_key =
-			t_strcut(ctx->cur_section->filter_parser->filter.filter_name, '/');
+		const char *filter_key = filter_key_skip_group_prefix(
+			t_strcut(ctx->cur_section->filter_parser->filter.filter_name, '/'));
 		const char *key2 = t_strdup_printf("%s_%s", filter_key, key);
 		struct config_filter_parser *last_filter_parser =
 			ctx->cur_section->filter_parser;
@@ -1023,7 +1044,15 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 	i_zero(&filter);
 	filter.parent = parent;
 
-	if (strcmp(key, "protocol") == 0) {
+	if (key[0] == SETTINGS_INCLUDE_GROUP_PREFIX) {
+		if (!config_filter_is_empty(parent)) {
+			ctx->error = "groups must defined at top-level, not under filters";
+			return TRUE;
+		}
+		filter.filter_name =
+			p_strdup_printf(ctx->pool, "%s/%s", key, value);
+		filter.filter_name_array = TRUE;
+	} else if (strcmp(key, "protocol") == 0) {
 		if (parent->service != NULL)
 			ctx->error = "Nested protocol { protocol { .. } } block not allowed";
 		else if (parent->filter_name != NULL)
@@ -1667,9 +1696,42 @@ config_parse_line(struct config_parser_context *ctx,
 	/* b) + errors */
 	line[-1] = '\0';
 
-	if (*line == '{')
+	if (*line == '{') {
 		config_line_r->value = "";
-	else {
+		config_line_r->type = CONFIG_LINE_TYPE_SECTION_BEGIN;
+	} else if (strcmp(key, "group") == 0) {
+		/* group @group name { */
+		config_line_r->key = line;
+		while (!IS_WHITE(*line) && *line != '\0')
+			line++;
+		if (*line == '\0') {
+			config_line_r->value = "Expecting group name";
+			config_line_r->type = CONFIG_LINE_TYPE_ERROR;
+			return;
+		}
+		*line++ = '\0';
+		while (IS_WHITE(*line))
+			line++;
+
+		config_line_r->value = line;
+		while (!IS_WHITE(*line) && *line != '\0')
+			line++;
+		if (*line == '\0') {
+			config_line_r->value = "Expecting '{'";
+			config_line_r->type = CONFIG_LINE_TYPE_ERROR;
+			return;
+		}
+		*line++ = '\0';
+		while (IS_WHITE(*line))
+			line++;
+		if (*line != '{') {
+			config_line_r->value = "Expecting '{'";
+			config_line_r->type = CONFIG_LINE_TYPE_ERROR;
+			return;
+		}
+
+		config_line_r->type = CONFIG_LINE_TYPE_GROUP_SECTION_BEGIN;
+	} else {
 		/* get section name */
 		if (*line != '"') {
 			config_line_r->value = line;
@@ -1697,13 +1759,46 @@ config_parse_line(struct config_parser_context *ctx,
 			config_line_r->type = CONFIG_LINE_TYPE_ERROR;
 			return;
 		}
+		config_line_r->type = CONFIG_LINE_TYPE_SECTION_BEGIN;
 	}
 	if (line[1] != '\0') {
 		config_line_r->value = "Garbage after '{'";
 		config_line_r->type = CONFIG_LINE_TYPE_ERROR;
-		return;
 	}
-	config_line_r->type = CONFIG_LINE_TYPE_SECTION_BEGIN;
+}
+
+static void config_parse_finish_includes(struct config_parsed *config)
+{
+	hash_table_create(&config->include_groups, config->pool, 0,
+			  str_hash, strcmp);
+
+	for (unsigned int i = 0; config->filter_parsers[i] != NULL; i++) {
+		struct config_filter_parser *filter = config->filter_parsers[i];
+
+		if (!filter->filter.filter_name_array ||
+		    filter->filter.filter_name[0] != SETTINGS_INCLUDE_GROUP_PREFIX)
+			continue;
+
+		/* This is a group filter's root (which may have child
+		   filters) */
+		T_BEGIN {
+			const char *include_group =
+				t_strcut(filter->filter.filter_name + 1, '/');
+			struct config_include_group_filters *group =
+				hash_table_lookup(config->include_groups,
+						  include_group);
+			if (group == NULL) {
+				group = p_new(config->pool,
+					      struct config_include_group_filters, 1);
+				group->label = p_strdup(config->pool,
+							include_group);
+				p_array_init(&group->filters, config->pool, 4);
+				hash_table_insert(config->include_groups,
+						  group->label, group);
+			}
+			array_push_back(&group->filters, &filter);
+		} T_END;
+	}
 }
 
 static int
@@ -1729,6 +1824,8 @@ config_parse_finish(struct config_parser_context *ctx,
 	array_pop_back(&ctx->all_filter_parsers);
 	new_config->filter_parsers = array_front(&ctx->all_filter_parsers);
 	new_config->module_parsers = ctx->root_module_parsers;
+
+	config_parse_finish_includes(new_config);
 
 	if (ret < 0)
 		;
@@ -2000,6 +2097,28 @@ static bool config_parser_get_version(struct config_parser_context *ctx,
 	return TRUE;
 }
 
+static void
+config_parser_include_add_or_update(struct config_parser_context *ctx,
+				    const char *group, const char *name)
+{
+	struct config_filter_parser *filter_parser =
+		ctx->cur_section->filter_parser;
+	struct config_include_group *include_group;
+
+	if (!array_is_created(&filter_parser->include_groups))
+		p_array_init(&filter_parser->include_groups, ctx->pool, 4);
+	array_foreach_modifiable(&filter_parser->include_groups, include_group) {
+		if (strcmp(include_group->label, group) == 0) {
+			/* preserve original position */
+			include_group->name = p_strdup(ctx->pool, name);
+			return;
+		}
+	}
+	include_group = array_append_space(&filter_parser->include_groups);
+	include_group->label = p_strdup(ctx->pool, group);
+	include_group->name = p_strdup(ctx->pool, name);
+}
+
 void config_parser_apply_line(struct config_parser_context *ctx,
 			      const struct config_line *line)
 {
@@ -2020,6 +2139,13 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 		if (config_write_value(ctx, line) < 0) {
 			if (config_apply_error(ctx, line->key) < 0)
 				break;
+		} else if (line->key[0] == SETTINGS_INCLUDE_GROUP_PREFIX) {
+			if (config_filter_has_include_group(&ctx->cur_section->filter_parser->filter)) {
+				ctx->error = "Recursive include groups not allowed";
+				break;
+			}
+			config_parser_include_add_or_update(ctx, line->key + 1,
+							    str_c(ctx->value));
 		} else {
 			/* Either a global key or list/key */
 			const char *key_with_path =
@@ -2038,6 +2164,13 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 							     root_setting);
 			}
 		}
+		break;
+	case CONFIG_LINE_TYPE_GROUP_SECTION_BEGIN:
+		ctx->cur_section = config_add_new_section(ctx);
+		ctx->cur_section->key = "group";
+
+		(void)config_filter_add_new_filter(ctx, line->key, line->value,
+						   FALSE);
 		break;
 	case CONFIG_LINE_TYPE_SECTION_BEGIN: {
 		/* See if we need to prefix the key with filter name */
@@ -2408,6 +2541,60 @@ config_parsed_key_lookup(struct config_parsed *config, const char *key)
 	return hash_table_lookup(config->key_hash, key);
 }
 
+static bool config_filter_tree_has_settings(struct config_filter_parser *filter,
+					    unsigned int parser_idx)
+{
+	if (filter->module_parsers[parser_idx].settings != NULL)
+		return TRUE;
+	for (filter = filter->children_head; filter != NULL; filter = filter->next) {
+		if (config_filter_tree_has_settings(filter, parser_idx))
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static bool
+config_include_group_filters_have_settings(
+	struct config_include_group_filters *group_filters,
+	unsigned int parser_idx)
+{
+	struct config_filter_parser *group_filter;
+
+	/* See if this group modifies the wanted parser. Check the group's
+	   root filter and all of its child filters. For example
+	   group @foo bar { namespace inbox { separator=/ } } needs to
+	   returns TRUE for namespace parser, which is modified in the child
+	   namespace filter. */
+	array_foreach_elem(&group_filters->filters, group_filter) {
+		if (config_filter_tree_has_settings(group_filter, parser_idx))
+			return TRUE;
+	}
+	return FALSE;
+}
+
+bool config_parsed_get_includes(struct config_parsed *config,
+				const struct config_filter_parser *filter,
+				unsigned int parser_idx,
+				ARRAY_TYPE(config_include_group) *groups)
+{
+	array_clear(groups);
+
+	if (!array_is_created(&filter->include_groups))
+		return FALSE;
+
+	const struct config_include_group *group;
+	array_foreach(&filter->include_groups, group) {
+		struct config_include_group_filters *group_filters =
+			hash_table_lookup(config->include_groups, group->label);
+		if (group_filters == NULL)
+			continue;
+
+		if (config_include_group_filters_have_settings(group_filters, parser_idx))
+			array_push_back(groups, group);
+	}
+	return array_count(groups) > 0;
+}
+
 void config_parsed_free(struct config_parsed **_config)
 {
 	struct config_parsed *config = *_config;
@@ -2416,6 +2603,7 @@ void config_parsed_free(struct config_parsed **_config)
 		return;
 	*_config = NULL;
 
+	hash_table_destroy(&config->include_groups);
 	hash_table_destroy(&config->key_hash);
 	pool_unref(&config->pool);
 }

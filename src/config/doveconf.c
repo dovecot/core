@@ -12,6 +12,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "settings-parser.h"
+#include "settings.h"
 #include "master-interface.h"
 #include "master-service.h"
 #include "all-settings.h"
@@ -139,6 +140,29 @@ static struct prefix_stack prefix_stack_pop(ARRAY_TYPE(prefix_stack) *stack)
 	}
 	array_delete(stack, count-1, 1);
 	return sc;
+}
+
+static bool
+config_dump_human_include_group(struct config_filter_parser *filter_parser,
+				struct ostream *output,
+				const string_t *list_prefix,
+				unsigned int indent)
+{
+	const struct config_include_group *group;
+
+	if (array_is_empty(&filter_parser->include_groups))
+		return FALSE;
+
+	if (list_prefix != NULL) {
+		o_stream_nsend(output, str_data(list_prefix),
+			       str_len(list_prefix));
+	}
+	array_foreach(&filter_parser->include_groups, group) {
+		o_stream_nsend(output, indent_str, indent*2);
+		o_stream_nsend_str(output, t_strdup_printf(
+			"@%s = %s\n", group->label, group->name));
+	}
+	return TRUE;
 }
 
 static struct config_dump_human_context *
@@ -620,6 +644,8 @@ config_dump_named_filters(string_t *str, unsigned int *indent,
 		str_printfa(str, "%s {\n", filter->filter_name);
 	else {
 		/* SET_FILTER_ARRAY */
+		if (filter->filter_name[0] == SETTINGS_INCLUDE_GROUP_PREFIX)
+			str_append(str, "group ");
 		str_printfa(str, "%s %s {\n",
 			    t_strdup_until(filter->filter_name, p),
 			    filter_name_escaped(p+1));
@@ -776,6 +802,12 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 					 strip_prefix, strip_prefix2);
 
 		bool sub_list_prefix_sent = ctx->list_prefix_sent;
+		if (set_name_filter == NULL) {
+			if (config_dump_human_include_group(filter_parser, output,
+							    sub_list_prefix_sent ? NULL :
+							    list_prefix, sub_indent))
+				sub_list_prefix_sent = TRUE;
+		}
 		if (sub_list_prefix_sent) {
 			*list_prefix_sent = TRUE;
 			str_truncate(list_prefix, 0);
@@ -834,6 +866,8 @@ config_dump_human(enum config_dump_scope scope,
 				      list_prefix, &list_prefix_sent,
 				      hide_key, hide_passwords);
 
+	if (setting_name_filter == NULL)
+		config_dump_human_include_group(filter_parser, output, NULL, 0);
 	if (hide_key && output->offset == 0)
 		o_stream_nsend(output, "\n", 1);
 	/* flush output before writing errors */

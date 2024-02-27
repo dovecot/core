@@ -22,6 +22,8 @@ enum config_line_type {
 	CONFIG_LINE_TYPE_SECTION_BEGIN,
 	/* } (key = "}", value = "") */
 	CONFIG_LINE_TYPE_SECTION_END,
+	/* group @key value { */
+	CONFIG_LINE_TYPE_GROUP_SECTION_BEGIN,
 	/* !include value (key = "!include") */
 	CONFIG_LINE_TYPE_INCLUDE,
 	/* !include_try value (key = "!include_try") */
