@@ -273,21 +273,6 @@ static void db_oauth2_free(struct db_oauth2 **_db)
 	pool_unref(&db->pool);
 }
 
-static void
-db_oauth2_add_openid_config_url(struct db_oauth2_request *req)
-{
-	/* FIXME: HORRIBLE HACK - REMOVE ME!!!
-	   It is because the mech has not been implemented properly
-	   that we need to pass the config url in this strange way.
-
-	   This **must** be moved to mech-oauth2 once the validation
-	   result et al is handled there.
-	*/
-	req->auth_request->openid_config_url =
-		p_strdup_empty(req->auth_request->pool,
-			       req->db->set.openid_configuration_url);
-}
-
 const char *db_oauth2_get_openid_configuration_url(const struct db_oauth2 *db)
 {
 	return db->set.openid_configuration_url;
@@ -457,9 +442,6 @@ static void db_oauth2_callback(struct db_oauth2_request *req,
 	req->callback = NULL;
 
 	i_assert(result == PASSDB_RESULT_OK || error != NULL);
-
-	if (result != PASSDB_RESULT_OK)
-		db_oauth2_add_openid_config_url(req);
 
 	/* Successful lookups were logged by the caller. Failed lookups will be
 	   logged either with e_error() or e_info() by the callback. */
