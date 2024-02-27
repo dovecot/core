@@ -641,6 +641,7 @@ bool old_settings_handle(struct config_parser_context *ctx,
 	case CONFIG_LINE_TYPE_INCLUDE:
 	case CONFIG_LINE_TYPE_INCLUDE_TRY:
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
+	case CONFIG_LINE_TYPE_GROUP_SECTION_BEGIN:
 		break;
 	case CONFIG_LINE_TYPE_KEYFILE:
 	case CONFIG_LINE_TYPE_KEYVALUE:

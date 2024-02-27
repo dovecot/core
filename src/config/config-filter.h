@@ -28,6 +28,12 @@ struct config_filter {
 	bool default_settings;
 };
 
+struct config_include_group {
+	const char *label;
+	const char *name;
+};
+ARRAY_DEFINE_TYPE(config_include_group, struct config_include_group);
+
 /* Each unique config_filter (including its parents in hierarchy) has its own
    config_filter_parser. */
 struct config_filter_parser {
@@ -36,6 +42,8 @@ struct config_filter_parser {
 	struct config_filter_parser *parent;
 	struct config_filter_parser *children_head, *children_tail, *prev, *next;
 
+	/* When this filter is used, it includes settings from these groups. */
+	ARRAY_TYPE(config_include_group) include_groups;
 	/* Filter for this parser. Its parent filters must also match. */
 	struct config_filter filter;
 	/* NULL-terminated array of parsers for settings. All parsers have the

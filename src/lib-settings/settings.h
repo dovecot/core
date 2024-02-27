@@ -58,6 +58,9 @@ struct settings_get_params {
 	enum settings_get_flags flags;
 };
 
+/* Setting name prefix that is used as include group. */
+#define SETTINGS_INCLUDE_GROUP_PREFIX '@'
+
 /* Set struct settings_instance to events so settings_get() can
    use it to get instance-specific settings. */
 #define SETTINGS_EVENT_INSTANCE "settings_instance"

@@ -1,6 +1,7 @@
 /* Copyright (c) 2022 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "str.h"
 #include "strescape.h"
 #include "wildcard-match.h"
@@ -41,6 +42,10 @@
        <NUL-terminated string: error string - if client attempts to access this
 			       settings block, it must fail with this error.
 			       NUL = no error, followed by settings>
+       <32bit big-endian: include group count>
+       Repeat for "include group count":
+         <NUL-terminated string: group label>
+         <NUL-terminated string: group name>
        Repeat until "filter settings size" is reached:
          <32bit big-endian: key index number>
 	 [+|$ <strlist/boollist key>]
@@ -50,6 +55,37 @@
      Repeat for "filter count":
        <64bit big-endian: filter settings offset>
      <trailing safety NUL>
+
+   The order of filters is important in the output. lib-settings applies the
+   settings in the same order. The applying is done in reverse order, so last
+   filter is applied first. Note that lib-settings uses the value from the
+   first matching filter and won't change it afterwards. (This is especially
+   important because we want to avoid expanding %variables multiple times for
+   the same setting. And what to do then if the expansion fails? A later value
+   expansion could still work. This is avoided by doing the expansion always
+   just once.)
+
+   The filters are written in the same order as they are defined in the config
+   file. This automatically causes the more specific filters to be written
+   after the less specific ones.
+
+   Groups
+   ------
+
+   The group definition order is different from group include order. They can't
+   be the same, because the same groups can be included from different places,
+   and also the groups can be changed by -o / userdb overrides.
+
+   The group definitions are placed all at the end of the written filters. When
+   the parsing code sees a filter that includes groups, it immediately
+   processes all the group filters and applies any matches. This is needed,
+   because group includes can exist hierarchically so that the most specific
+   (innermost filter) includes are fully applied before the less epecific
+   (outermost filter / global) includes. So if there is e.g. a global
+   @group=foo and namespace { @group=bar } which both modify the same setting,
+   the @group=bar must be applied first to get the expected value. If the same
+   filter has multiple group includes, their include order doesn't matter much,
+   but the behavior should be consistent.
 */
 
 struct dump_context {
@@ -58,6 +94,7 @@ struct dump_context {
 
 	const struct setting_parser_info *info;
 
+	const ARRAY_TYPE(config_include_group) *include_groups;
 	const struct config_filter *filter;
 	unsigned int filter_idx;
 	bool filter_written;
@@ -111,15 +148,21 @@ config_dump_full_append_filter_query(string_t *str,
 		const char *p = strchr(filter->filter_name, '/');
 		i_assert(p != NULL);
 		const char *filter_key = t_strdup_until(filter->filter_name, p);
+		bool group = filter_key[0] == SETTINGS_INCLUDE_GROUP_PREFIX;
 		if (strcmp(filter_key, SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX) == 0)
 			filter_key = SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX;
-		str_printfa(str, "(%s=\"%s\"", filter_key, str_escape(p + 1));
+		if (!group) {
+			str_printfa(str, "(%s=\"%s\" OR ",
+				    filter_key, str_escape(p + 1));
+		}
 		/* the filter_name is used by settings_get_filter() for
 		   finding a specific filter without wildcards messing
 		   up the lookups. */
-		str_printfa(str, " OR "SETTINGS_EVENT_FILTER_NAME
-			    "=\"%s/%s\")", filter_key,
+		str_printfa(str, SETTINGS_EVENT_FILTER_NAME
+			    "=\"%s/%s\"", filter_key,
 			    wildcard_str_escape(settings_section_escape(p + 1)));
+		if (!group)
+			str_append_c(str, ')');
 		str_append(str, " AND ");
 	} else if (filter->filter_name != NULL) {
 		const char *filter_name = filter->filter_name;
@@ -203,6 +246,14 @@ static void config_dump_full_stdout_write_filter(struct dump_context *ctx)
 	if (ctx->filter != NULL)
 		config_dump_full_append_filter(str, ctx->filter, TRUE);
 	str_append_c(str, '\n');
+
+	if (ctx->include_groups != NULL) {
+		const struct config_include_group *group;
+		array_foreach(ctx->include_groups, group) {
+			str_printfa(str, ":INCLUDE @%s %s\n",
+				    group->label, group->name);
+		}
+	}
 	o_stream_nsend(ctx->output, str_data(str), str_len(str));
 }
 
@@ -251,6 +302,27 @@ config_dump_full_stdout_callback(const struct config_export_setting *set,
 	} T_END;
 }
 
+static void config_include_groups_dump(struct dump_context *ctx)
+{
+	uint32_t include_count_be32 = 0;
+	if (ctx->include_groups == NULL) {
+		o_stream_nsend(ctx->output, &include_count_be32,
+			       sizeof(include_count_be32));
+	} else {
+		include_count_be32 = cpu32_to_be(array_count(ctx->include_groups));
+		o_stream_nsend(ctx->output, &include_count_be32,
+			       sizeof(include_count_be32));
+
+		const struct config_include_group *group;
+		array_foreach(ctx->include_groups, group) {
+			o_stream_nsend(ctx->output, group->label,
+				       strlen(group->label) + 1);
+			o_stream_nsend(ctx->output, group->name,
+				       strlen(group->name) + 1);
+		}
+	}
+}
+
 static void config_dump_full_write_filter(struct dump_context *ctx)
 {
 	if (ctx->filter_written)
@@ -262,6 +334,8 @@ static void config_dump_full_write_filter(struct dump_context *ctx)
 	/* Start by assuming there is no error. If there is, the error
 	   handling code path truncates the file and writes the error. */
 	o_stream_nsend(ctx->output, "", 1);
+
+	config_include_groups_dump(ctx);
 }
 
 static void config_dump_full_callback(const struct config_export_setting *set,
@@ -349,14 +423,18 @@ config_dump_full_handle_error(struct dump_context *dump_ctx,
 	}
 
 	size_t error_len = strlen(error) + 1;
-	uint64_t blob_size = cpu64_to_be(error_len);
+	uint64_t blob_size = cpu64_to_be(error_len + 4);
 	o_stream_nsend(output, &blob_size, sizeof(blob_size));
 	o_stream_nsend(output, error, error_len);
+	uint32_t include_group_count = 0;
+	o_stream_nsend(output, &include_group_count,
+		       sizeof(include_group_count));
 	dump_ctx->filter_written = TRUE;
 	return 0;
 }
 
 struct config_dump_full_context {
+	struct config_parsed *config;
 	struct ostream *output;
 	enum config_dump_full_dest dest;
 
@@ -367,12 +445,28 @@ struct config_dump_full_context {
 	uint64_t *filter_offsets_be64;
 };
 
+enum config_dump_type {
+	CONFIG_DUMP_TYPE_DEFAULTS,
+	CONFIG_DUMP_TYPE_EXPLICIT,
+	CONFIG_DUMP_TYPE_GROUPS,
+};
+
+static bool filter_is_group(const struct config_filter *filter)
+{
+	for (; filter != NULL; filter = filter->parent) {
+		if (filter->filter_name_array &&
+		    filter->filter_name[0] == SETTINGS_INCLUDE_GROUP_PREFIX)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static int
 config_dump_full_sections(struct config_dump_full_context *ctx,
 			  unsigned int parser_idx,
 			  const struct setting_parser_info *info,
 			  const string_t *delayed_filter,
-			  bool dump_defaults)
+			  enum config_dump_type dump_type)
 {
 	struct ostream *output = ctx->output;
 	enum config_dump_full_dest dest = ctx->dest;
@@ -383,16 +477,45 @@ config_dump_full_sections(struct config_dump_full_context *ctx,
 		.output = output,
 		.info = info,
 	};
+	ARRAY_TYPE(config_include_group) groups;
+	t_array_init(&groups, 8);
 
 	for (unsigned int i = 1; ctx->filters[i] != NULL && ret == 0; i++) {
 		const struct config_filter_parser *filter = ctx->filters[i];
 		uoff_t start_offset = output->offset;
 
-		if (filter->filter.default_settings != dump_defaults)
+		if (filter_is_group(&filter->filter)) {
+			/* This is a group filter. Are we dumping groups?
+			   Handle default groups the same as non-default
+			   groups. */
+			if (dump_type != CONFIG_DUMP_TYPE_GROUPS)
+				continue;
+		} else {
+			/* This is not a group filter. */
+			switch (dump_type) {
+			case CONFIG_DUMP_TYPE_DEFAULTS:
+				if (!filter->filter.default_settings)
+					continue;
+				break;
+			case CONFIG_DUMP_TYPE_EXPLICIT:
+				if (filter->filter.default_settings)
+					continue;
+				break;
+			case CONFIG_DUMP_TYPE_GROUPS:
+				continue;
+			}
+		}
+
+		if (config_parsed_get_includes(ctx->config, filter,
+					       parser_idx, &groups)) {
+			dump_ctx.include_groups = &groups;
+		} else if (filter->module_parsers[parser_idx].settings == NULL &&
+			   filter->module_parsers[parser_idx].delayed_error == NULL) {
+			/* nothing to export in this filter */
 			continue;
-		if (filter->module_parsers[parser_idx].settings == NULL &&
-		    filter->module_parsers[parser_idx].delayed_error == NULL)
-			continue;
+		} else {
+			dump_ctx.include_groups = NULL;
+		}
 
 		dump_ctx.filter = &filter->filter;
 		dump_ctx.filter_idx = i;
@@ -417,6 +540,12 @@ config_dump_full_sections(struct config_dump_full_context *ctx,
 
 		const char *error;
 		ret = config_export_parser(export_ctx, parser_idx, &error);
+		if (ret == 0 && dump_ctx.include_groups != NULL) {
+			if (dest == CONFIG_DUMP_FULL_DEST_STDOUT)
+				config_dump_full_stdout_write_filter(&dump_ctx);
+			else
+				config_dump_full_write_filter(&dump_ctx);
+		}
 		if (ret < 0) {
 			/* Delay the failure until the filter is accessed by
 			   the config client. The error is written to the
@@ -444,9 +573,12 @@ config_dump_full_sections(struct config_dump_full_context *ctx,
 		ctx->filter_offsets_be64[ctx->filter_output_count] =
 			cpu64_to_be(output->offset);
 
-		uint64_t blob_size = cpu64_to_be(1 + str_len(delayed_filter));
+		uint64_t blob_size = cpu64_to_be(5 + str_len(delayed_filter));
 		o_stream_nsend(output, &blob_size, sizeof(blob_size));
 		o_stream_nsend(output, "", 1); /* no error */
+		uint32_t include_group_count = 0;
+		o_stream_nsend(output, &include_group_count,
+			       sizeof(include_group_count));
 		o_stream_nsend(output, str_data(delayed_filter),
 			       str_len(delayed_filter));
 		ctx->filter_output_count++;
@@ -536,6 +668,7 @@ int config_dump_full(struct config_parsed *config,
 	}
 
 	struct config_dump_full_context ctx = {
+		.config = config,
 		.output = output,
 		.dest = dest,
 		.filters = config_parsed_get_filter_parsers(config),
@@ -550,6 +683,9 @@ int config_dump_full(struct config_parsed *config,
 
 	ctx.filter_indexes_be32 = t_new(uint32_t, max_filter_count);
 	ctx.filter_offsets_be64 = t_new(uint64_t, max_filter_count);
+
+	ARRAY_TYPE(config_include_group) groups;
+	t_array_init(&groups, 8);
 
 	unsigned int i, parser_count =
 		config_export_get_parser_count(export_ctx);
@@ -578,23 +714,30 @@ int config_dump_full(struct config_parsed *config,
 				       sizeof(filter_count));
 		}
 
-		/* Write default settings filters */
+		/* 1. Write built-in default settings */
 		int ret;
 		T_BEGIN {
-			ret = config_dump_full_sections(&ctx, i, info, NULL, TRUE);
+			ret = config_dump_full_sections(&ctx, i, info, NULL,
+					CONFIG_DUMP_TYPE_DEFAULTS);
 		} T_END;
 		if (ret < 0)
 			break;
 
 		uoff_t blob_size_offset = output->offset;
-		/* Write base settings - add it as an empty filter */
+		/* 2. Write global settings in config - use an empty filter */
 		ctx.filter_indexes_be32[ctx.filter_output_count] = 0;
 		ctx.filter_offsets_be64[ctx.filter_output_count] =
 			cpu64_to_be(blob_size_offset);
 		ctx.filter_output_count++;
 
+		if (config_parsed_get_includes(config, filter_parser,
+					       i, &groups))
+			dump_ctx.include_groups = &groups;
+		else
+			dump_ctx.include_groups = NULL;
+
 		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
-			/* Write a filter for the base settings, even if there
+			/* Write a filter for the global settings, even if there
 			   are no settings. This allows lib-settings to apply
 			   setting overrides at the proper position before
 			   defaults. */
@@ -603,6 +746,7 @@ int config_dump_full(struct config_parsed *config,
 			   the error handling code path truncates the file
 			   and writes the error. */
 			o_stream_nsend(output, "", 1);
+			config_include_groups_dump(&dump_ctx);
 			dump_ctx.filter_written = TRUE;
 		} else {
 			/* Make :FILTER visible */
@@ -614,15 +758,31 @@ int config_dump_full(struct config_parsed *config,
 					blob_size_offset, error) < 0)
 				break;
 		}
+		if (dump_ctx.include_groups != NULL) {
+			if (dest == CONFIG_DUMP_FULL_DEST_STDOUT)
+				config_dump_full_stdout_write_filter(&dump_ctx);
+			else
+				config_dump_full_write_filter(&dump_ctx);
+		}
 		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
 			if (output_blob_size(output, blob_size_offset) < 0)
 				break;
 		}
 
-		/* Write non-default settings filters */
+		/* 3. Write filter settings in config */
 		T_BEGIN {
 			ret = config_dump_full_sections(&ctx, i, info,
-				dump_ctx.delayed_output, FALSE);
+					dump_ctx.delayed_output,
+					CONFIG_DUMP_TYPE_EXPLICIT);
+		} T_END;
+		if (ret < 0)
+			break;
+
+		/* 4. Write group filters */
+		T_BEGIN {
+			ret = config_dump_full_sections(&ctx, i, info,
+					dump_ctx.delayed_output,
+					CONFIG_DUMP_TYPE_GROUPS);
 		} T_END;
 		if (ret < 0)
 			break;
