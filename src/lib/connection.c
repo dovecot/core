@@ -655,6 +655,10 @@ void connection_init_server(struct connection_list *list,
 	e_debug(e->event(), "Server accepted connection (fd=%d)", fd_in);
 
 	connection_init_streams(conn);
+	/* Client has finished connecting to server, so record it
+	   here. */
+	conn->connect_finished = ioloop_timeval;
+
 	if (conn->v.init != NULL)
 		conn->v.init(conn);
 }
