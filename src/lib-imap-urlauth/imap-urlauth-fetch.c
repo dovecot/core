@@ -208,7 +208,8 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 		imap_msgpart_url_set_decode_to_binary(mpurl);
 	if (success &&
 	    (url_flags & IMAP_URLAUTH_FETCH_FLAG_BODYPARTSTRUCTURE) != 0) {
-		ret = imap_msgpart_url_get_bodypartstructure(mpurl, &bpstruct, &error);
+		ret = imap_msgpart_url_get_bodypartstructure(
+			mpurl, &bpstruct, &error);
 		if (ret <= 0) {
 			errormsg = t_strdup_printf(
 				"Failed to read URLAUTH \"%s\": %s",
@@ -233,17 +234,19 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 	}
 
 	if (success) {
-		if (bpstruct != NULL)
+		if (bpstruct != NULL) {
 			e_debug(event,
 				"Fetched URLAUTH yielded BODYPARTSTRUCTURE (%s)",
-			bpstruct);
+				bpstruct);
+		}
 		if (mpresult.size == 0 || mpresult.input == NULL)
 			e_debug(event, "Fetched URLAUTH yielded empty result");
 		else {
 			e_debug(event,
 				"Fetched URLAUTH yielded %"PRIuUOFF_T" bytes "
 				"of %smessage data", mpresult.size,
-				(mpresult.binary_decoded_input_has_nuls ? "binary " : ""));
+				(mpresult.binary_decoded_input_has_nuls ?
+				 "binary " : ""));
 		}
 	}
 
@@ -351,8 +354,8 @@ int imap_urlauth_fetch_url(struct imap_urlauth_fetch *ufetch, const char *url,
 }
 
 int imap_urlauth_fetch_url_parsed(struct imap_urlauth_fetch *ufetch,
-			   const char *url, struct imap_url *imap_url,
-			   enum imap_urlauth_fetch_flags url_flags)
+				  const char *url, struct imap_url *imap_url,
+				  enum imap_urlauth_fetch_flags url_flags)
 {
 	struct imap_urlauth_context *uctx = ufetch->uctx;
 	struct mail_user *mail_user = uctx->user;
@@ -394,9 +397,9 @@ int imap_urlauth_fetch_url_parsed(struct imap_urlauth_fetch *ufetch,
 	/* create request for url */
 	if (imap_url != NULL && imap_url->userid != NULL) {
 		i_assert(uctx->conn != NULL);
-		(void)imap_urlauth_request_new(uctx->conn, imap_url->userid,
-				url, url_flags,
-				imap_urlauth_fetch_request_callback, ufetch);
+		(void)imap_urlauth_request_new(
+			uctx->conn, imap_url->userid, url, url_flags,
+			imap_urlauth_fetch_request_callback, ufetch);
 		i_assert(uctx->conn != NULL);
 		if (imap_urlauth_connection_connect(uctx->conn) < 0)
 			ret = -1;
