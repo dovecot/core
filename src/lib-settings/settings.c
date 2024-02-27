@@ -106,6 +106,7 @@ struct settings_mmap {
 
 	struct event_filter **event_filters;
 	struct event_filter **override_event_filters;
+	bool *event_filters_are_groups;
 	unsigned int event_filters_count;
 
 	HASH_TABLE(const char *, struct settings_mmap_block *) blocks;
@@ -149,6 +150,7 @@ struct settings_apply_ctx {
 	void *set_struct;
 	ARRAY(enum set_seen_type) set_seen;
 	ARRAY_TYPE(settings_override_p) overrides;
+	ARRAY_TYPE(settings_group) include_groups;
 
 	string_t *str;
 	struct var_expand_params var_params;
@@ -259,6 +261,8 @@ settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 		p_new(mmap->pool, struct event_filter *, mmap->event_filters_count);
 	mmap->override_event_filters = mmap->event_filters_count == 0 ? NULL :
 		p_new(mmap->pool, struct event_filter *, mmap->event_filters_count);
+	mmap->event_filters_are_groups = mmap->event_filters_count == 0 ? NULL :
+		p_new(mmap->pool, bool, mmap->event_filters_count);
 
 	for (uint32_t i = 0; i < 2 * mmap->event_filters_count; i++) {
 		struct event_filter **filter_dest =
@@ -310,6 +314,10 @@ settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 			event_filter_unref(&tmp_filter);
 			continue;
 		}
+		mmap->event_filters_are_groups[i / 2] =
+			event_filter_has_field_prefix(tmp_filter,
+				SETTINGS_EVENT_FILTER_NAME,
+				SETTINGS_INCLUDE_GROUP_PREFIX_S);
 
 		*filter_dest = event_filter_create_with_pool(mmap->pool);
 		pool_ref(mmap->pool);
@@ -793,6 +801,171 @@ static int settings_mmap_validate(struct settings_mmap *mmap,
 }
 
 static int
+settings_mmap_get_filter_idx(struct settings_mmap *mmap,
+			     struct settings_mmap_block *block,
+			     uint32_t filter_idx, uint32_t *event_filter_idx_r,
+			     const char **error_r)
+{
+	uint32_t event_filter_idx = be32_to_cpu_unaligned(
+		CONST_PTR_OFFSET(mmap->mmap_base,
+				 block->filter_indexes_start_offset +
+				 sizeof(uint32_t) * filter_idx));
+	if (event_filter_idx >= mmap->event_filters_count) {
+		*error_r = t_strdup_printf("event filter idx %u >= %u",
+			event_filter_idx, mmap->event_filters_count);
+		return -1;
+	}
+	*event_filter_idx_r = event_filter_idx;
+	return 0;
+}
+
+static int settings_mmap_apply_filter(struct settings_apply_ctx *ctx,
+				      struct settings_mmap_block *block,
+				      uint32_t filter_idx,
+				      struct event_filter *event_filter,
+				      uint32_t event_filter_idx,
+				      const char **error_r)
+{
+	struct settings_mmap *mmap = ctx->instance->mmap;
+	uint64_t filter_offset = be64_to_cpu_unaligned(
+		CONST_PTR_OFFSET(mmap->mmap_base,
+				 block->filter_offsets_start_offset +
+				 sizeof(uint64_t) * filter_idx));
+	uint64_t filter_set_size = be64_to_cpu_unaligned(
+		CONST_PTR_OFFSET(mmap->mmap_base, filter_offset));
+	filter_offset += sizeof(filter_set_size);
+	uint64_t filter_end_offset = filter_offset + filter_set_size;
+
+	const char *filter_error =
+		CONST_PTR_OFFSET(mmap->mmap_base, filter_offset);
+	if (filter_error[0] != '\0') {
+		*error_r = filter_error;
+		return -1;
+	}
+	filter_offset += strlen(filter_error) + 1;
+
+	uint32_t include_count = be32_to_cpu_unaligned(
+		CONST_PTR_OFFSET(mmap->mmap_base, filter_offset));
+	filter_offset += sizeof(include_count);
+
+	if (ctx->filter_name != NULL && !ctx->seen_filter &&
+	    event_filter != EVENT_FILTER_MATCH_ALWAYS) {
+		bool op_not;
+		const char *value =
+			event_filter_find_field_exact(event_filter,
+				SETTINGS_EVENT_FILTER_NAME, &op_not);
+		/* NOTE: The event filter is using
+		   EVENT_FIELD_EXACT, so the value has already
+		   removed wildcard escapes. */
+		if (value != NULL && !op_not &&
+		    strcmp(ctx->filter_name, value) == 0)
+			ctx->seen_filter = TRUE;
+	}
+
+	array_clear(&ctx->include_groups);
+	for (uint32_t j = 0; j < include_count; j++) {
+		struct settings_group *include_group =
+			array_append_space(&ctx->include_groups);
+		include_group->label =
+			CONST_PTR_OFFSET(mmap->mmap_base, filter_offset);
+		filter_offset += strlen(include_group->label) + 1;
+
+		include_group->name =
+			CONST_PTR_OFFSET(mmap->mmap_base, filter_offset);
+		filter_offset += strlen(include_group->name) + 1;
+	}
+	/* Apply overrides specific to this filter before the
+	   filter settings themselves. For base settings the
+	   filter is EVENT_FILTER_MATCH_ALWAYS, which applies
+	   the rest of the overrides that weren't already
+	   handled. This way global setting overrides don't
+	   override named filters' settings, unless the
+	   override is specifically using the filter name
+	   as prefix. */
+	int ret = settings_instance_override(ctx,
+			mmap->override_event_filters[event_filter_idx],
+			error_r);
+	if (ret < 0)
+		return -1;
+
+	if (ret > 0)
+		ctx->seen_filter = TRUE;
+
+	if (settings_mmap_apply_blob(ctx, block,
+				     filter_offset, filter_end_offset,
+				     error_r) < 0)
+		return -1;
+	return 0;
+}
+
+static struct event *settings_group_event_create(struct settings_apply_ctx *ctx)
+{
+	struct event *event = event_create(ctx->event);
+	const struct settings_group *include_group;
+	array_foreach(&ctx->include_groups, include_group) {
+		/* Add @<group label>/<group name> to matching filters and
+		   restart the filter processing. */
+		const char *filter_value = t_strdup_printf(
+			SETTINGS_INCLUDE_GROUP_PREFIX_S"%s/%s",
+			include_group->label, include_group->name);
+		event_strlist_append(event, SETTINGS_EVENT_FILTER_NAME,
+				     filter_value);
+	}
+	return event;
+}
+
+static int
+settings_apply_groups(struct settings_apply_ctx *ctx,
+		      struct settings_mmap *mmap,
+		      struct settings_mmap_block *block,
+		      uint32_t include_filter_idx, const char **error_r)
+{
+	struct event *event = NULL;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG,
+	};
+
+	/* All group filters are at the end. When we see a non-group filter,
+	   we can stop. */
+	int ret = 0;
+	for (uint32_t i = block->filter_count; i > 0; ) {
+		i--;
+		uint32_t event_filter_idx;
+		if (settings_mmap_get_filter_idx(mmap, block, i,
+						 &event_filter_idx, error_r) < 0) {
+			ret = -1;
+			break;
+		}
+
+		if (!mmap->event_filters_are_groups[event_filter_idx])
+			break;
+
+		i_assert(i > include_filter_idx);
+		struct event_filter *event_filter =
+			mmap->event_filters[event_filter_idx];
+		i_assert(event_filter != EVENT_FILTER_MATCH_ALWAYS);
+		if (event_filter == EVENT_FILTER_MATCH_NEVER)
+			continue;
+
+		if (event == NULL) T_BEGIN {
+			event = settings_group_event_create(ctx);
+		} T_END;
+		if (event_filter_match(event_filter, event, &failure_ctx)) {
+			if (settings_mmap_apply_filter(ctx, block, i,
+						       event_filter,
+						       event_filter_idx,
+						       error_r) < 0) {
+				ret = -1;
+				break;
+			}
+		}
+	}
+
+	event_unref(&event);
+	return ret;
+}
+
+static int
 settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 {
 	struct settings_mmap *mmap = ctx->instance->mmap;
@@ -816,125 +989,33 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 		.type = LOG_TYPE_DEBUG,
 	};
 
-	ARRAY_TYPE(settings_group) include_groups;
-	t_array_init(&include_groups, 4);
-
 	/* So through the filters in reverse sorted order, so we always set the
 	   setting just once, never overriding anything. A filter for the base
 	   settings is expected to always exist. */
 	struct event *event = ctx->event;
-	bool filters_matched[block->filter_count + 1];
-	memset(filters_matched, 0, block->filter_count + 1);
 	for (uint32_t i = block->filter_count; i > 0; ) {
 		i--;
-		uint32_t event_filter_idx = be32_to_cpu_unaligned(
-			CONST_PTR_OFFSET(mmap->mmap_base,
-					 block->filter_indexes_start_offset +
-					 sizeof(uint32_t) * i));
-		if (event_filter_idx >= mmap->event_filters_count) {
-			*error_r = t_strdup_printf("event filter idx %u >= %u",
-				event_filter_idx, mmap->event_filters_count);
+		uint32_t event_filter_idx;
+		if (settings_mmap_get_filter_idx(mmap, block, i,
+						 &event_filter_idx, error_r) < 0)
 			return -1;
-		}
 		struct event_filter *event_filter =
 			mmap->event_filters[event_filter_idx];
 		if (event_filter == EVENT_FILTER_MATCH_NEVER)
 			;
-		else if (filters_matched[i]) {
-			/* Group include restarted the filter matching. We
-			   already applied this filter, so skip checking it. */
-		} else if (event_filter == EVENT_FILTER_MATCH_ALWAYS ||
-			   event_filter_match(event_filter, event, &failure_ctx)) {
-			uint64_t filter_offset = be64_to_cpu_unaligned(
-				CONST_PTR_OFFSET(mmap->mmap_base,
-						 block->filter_offsets_start_offset +
-						 sizeof(uint64_t) * i));
-			uint64_t filter_set_size = be64_to_cpu_unaligned(
-				CONST_PTR_OFFSET(mmap->mmap_base, filter_offset));
-			filter_offset += sizeof(filter_set_size);
-			uint64_t filter_end_offset =
-				filter_offset + filter_set_size;
-
-			const char *filter_error =
-				CONST_PTR_OFFSET(mmap->mmap_base,
-						 filter_offset);
-			if (filter_error[0] != '\0') {
-				*error_r = filter_error;
-				return -1;
-			}
-			filter_offset += strlen(filter_error) + 1;
-
-			uint32_t include_count = be32_to_cpu_unaligned(
-				CONST_PTR_OFFSET(mmap->mmap_base, filter_offset));
-			filter_offset += sizeof(include_count);
-
-			array_clear(&include_groups);
-			for (uint32_t j = 0; j < include_count; j++) {
-				struct settings_group *include_group =
-					array_append_space(&include_groups);
-				include_group->label =
-					CONST_PTR_OFFSET(mmap->mmap_base,
-							 filter_offset);
-				filter_offset += strlen(include_group->label) + 1;
-
-				include_group->name =
-					CONST_PTR_OFFSET(mmap->mmap_base,
-							 filter_offset);
-				filter_offset += strlen(include_group->name) + 1;
-			}
-
-			if (ctx->filter_name != NULL && !ctx->seen_filter &&
-			    event_filter != EVENT_FILTER_MATCH_ALWAYS) {
-				bool op_not;
-				const char *value =
-					event_filter_find_field_exact(
-						event_filter,
-						SETTINGS_EVENT_FILTER_NAME, &op_not);
-				/* NOTE: The event filter is using
-				   EVENT_FIELD_EXACT, so the value has already
-				   removed wildcard escapes. */
-				if (value != NULL && !op_not &&
-				    strcmp(ctx->filter_name, value) == 0)
-					ctx->seen_filter = TRUE;
-			}
-
-			/* Apply overrides specific to this filter before the
-			   filter settings themselves. For base settings the
-			   filter is EVENT_FILTER_MATCH_ALWAYS, which applies
-			   the rest of the overrides that weren't already
-			   handled. This way global setting overrides don't
-			   override named filters' settings, unless the
-			   override is specifically using the filter name
-			   as prefix. */
-			int ret = settings_instance_override(ctx,
-					mmap->override_event_filters[event_filter_idx],
-					error_r);
-			if (ret < 0)
-				return -1;
-			if (ret > 0)
-				ctx->seen_filter = TRUE;
-
-			if (settings_mmap_apply_blob(ctx, block,
-					filter_offset, filter_end_offset,
-					error_r) < 0)
+		else if (event_filter == EVENT_FILTER_MATCH_ALWAYS ||
+			 event_filter_match(event_filter, event, &failure_ctx)) {
+			i_assert(!mmap->event_filters_are_groups[event_filter_idx]);
+			if (settings_mmap_apply_filter(ctx, block, i,
+						       event_filter,
+						       event_filter_idx,
+						       error_r) < 0)
 				return -1;
 
-			/* Don't try to apply this filter again if group
-			   including restarts the filter processing */
-			filters_matched[i] = TRUE;
-			const struct settings_group *include_group;
-			array_foreach(&include_groups, include_group) {
-				/* Add @<group label>/<group name> to
-				   matching filters and restart the filter
-				   processing. */
-				char *filter_value = p_strdup_printf(
-					event_get_pool(ctx->event), "@%s/%s",
-					include_group->label, include_group->name);
-				event_strlist_append(ctx->event,
-						     SETTINGS_EVENT_FILTER_NAME,
-						     filter_value);
-				i = block->filter_count;
-			}
+			/* Apply all group includes */
+			if (settings_apply_groups(ctx, mmap, block,
+						  i, error_r) < 0)
+				return -1;
 		}
 	}
 	return ctx->seen_filter ? 1 : 0;
@@ -1511,6 +1592,25 @@ settings_apply_ctx_overrides_deinit(struct settings_apply_ctx *ctx)
 	}
 }
 
+static void
+settings_include_group_add_or_update(ARRAY_TYPE(settings_group) *include_groups,
+				     const struct settings_override *set)
+{
+	struct settings_group *include_group;
+
+	/* we assume that the key/value pointers in "set" exist at least as
+	   long as "includes" array */
+	array_foreach_modifiable(include_groups, include_group) {
+		if (strcmp(include_group->label, set->key + 1) == 0) {
+			include_group->name = set->value;
+			return;
+		}
+	}
+	include_group = array_append_space(include_groups);
+	include_group->label = set->key + 1;
+	include_group->name = set->value;
+}
+
 static int
 settings_instance_override(struct settings_apply_ctx *ctx,
 			   struct event_filter *event_filter,
@@ -1559,6 +1659,11 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		/* Set key only after settings_override_filter_match() has
 		   potentially changed it. */
 		const char *key = set->key, *value;
+		if (key[0] == SETTINGS_INCLUDE_GROUP_PREFIX) {
+			settings_include_group_add_or_update(
+				&ctx->include_groups, set);
+			continue;
+		}
 		ret = settings_override_get_value(ctx, set, &key,
 						  &key_idx, &value, error_r);
 		if (ret < 0)
@@ -1712,6 +1817,7 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 				    ctx->info->pool_offset1 - 1);
 	*pool_p = set_pool;
 
+	t_array_init(&ctx->include_groups, 4);
 	ctx->str = str_new(default_pool, 256);
 	i_array_init(&ctx->set_seen, 64);
 	if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0 &&
