@@ -60,6 +60,7 @@ struct settings_get_params {
 
 /* Setting name prefix that is used as include group. */
 #define SETTINGS_INCLUDE_GROUP_PREFIX '@'
+#define SETTINGS_INCLUDE_GROUP_PREFIX_S "@"
 
 /* Set struct settings_instance to events so settings_get() can
    use it to get instance-specific settings. */
