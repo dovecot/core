@@ -263,7 +263,10 @@ static void config_dump_full_callback(const struct config_export_setting *set,
 	if (!ctx->filter_written) {
 		uint64_t blob_size = UINT64_MAX;
 		o_stream_nsend(ctx->output, &blob_size, sizeof(blob_size));
-		o_stream_nsend(ctx->output, "", 1); /* no error */
+		/* Start by assuming there is no error. If there is, the error
+		   handling code path truncates the file and writes the
+		   error. */
+		o_stream_nsend(ctx->output, "", 1);
 		ctx->filter_written = TRUE;
 	}
 
@@ -404,10 +407,13 @@ config_dump_full_sections(struct config_dump_full_context *ctx,
 		const char *error;
 		ret = config_export_parser(export_ctx, parser_idx, &error);
 		if (ret < 0) {
+			/* Delay the failure until the filter is accessed by
+			   the config client. The error is written to the
+			   filter's error string. */
 			ret = config_dump_full_handle_error(&dump_ctx, dest, start_offset, error);
 		} else if (dest != CONFIG_DUMP_FULL_DEST_STDOUT &&
 			   output->offset > start_offset) {
-			/* write the filter blob size */
+			/* We know the filter's blob size now - write it */
 			if (output_blob_size(output, start_offset) < 0)
 				ret = -1;
 		}
@@ -582,7 +588,10 @@ int config_dump_full(struct config_parsed *config,
 			   setting overrides at the proper position before
 			   defaults. */
 			o_stream_nsend(output, &blob_size, sizeof(blob_size));
-			o_stream_nsend(output, "", 1); /* no error */
+			/* Start by assuming there is no error. If there is,
+			   the error handling code path truncates the file
+			   and writes the error. */
+			o_stream_nsend(output, "", 1);
 			dump_ctx.filter_written = TRUE;
 		} else {
 			/* Make :FILTER visible */
@@ -614,6 +623,7 @@ int config_dump_full(struct config_parsed *config,
 			o_stream_nsend(output, ctx.filter_offsets_be64,
 				       sizeof(ctx.filter_offsets_be64[0]) *
 				       ctx.filter_output_count);
+			/* safety NUL at the end of the block */
 			o_stream_nsend(output, "", 1);
 		}
 
