@@ -51,6 +51,9 @@
 ## Enable debug logging
 # debug = no
 
+## Use worker to verify token
+# blocking = yes
+
 ## Max parallel connections (how many simultaneous connections to open)
 # max_parallel_connections = 10
 
