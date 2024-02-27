@@ -1543,6 +1543,14 @@ auth_request_lookup_credentials_policy_continue(
 	request->passdb = passdb;
 
 	if (passdb == NULL) {
+		if (request->passdb_success) {
+			/* This is coming from mech that has already validated
+			   credentials, so we can just continue as success. */
+			result = PASSDB_RESULT_OK;
+			request->passdb_result = result;
+			callback(result, NULL, 0, request);
+			return;
+		}
 		e_error(request->event, "All password databases were skipped");
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, NULL, 0, request);
 		return;
@@ -2032,7 +2040,10 @@ void auth_request_set_field(struct auth_request *request,
 	i_assert(*name != '\0');
 	i_assert(value != NULL);
 
-	i_assert(request->passdb != NULL);
+	/* Allow passdb to be NULL if it has already succeeded,
+	   this happens mostly with mechs that already know the user
+	   account is valid. */
+	i_assert(request->passdb != NULL || request->passdb_success);
 
 	if (name_len > 10 && strcmp(name+name_len-10, ":protected") == 0) {
 		/* set this field only if it hasn't been set before */
