@@ -190,8 +190,6 @@ struct connection {
 
 	/* We have received a version from remote end. */
 	bool version_received:1;
-	/* Handshake has been done and completed. */
-	bool handshake_received:1;
 	/* Set if this is a unix socket. */
 	bool unix_socket:1;
 	/* Unix peer credentials have been attempted to look up. */
