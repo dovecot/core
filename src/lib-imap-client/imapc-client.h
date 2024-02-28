@@ -165,6 +165,22 @@ struct imapc_untagged_reply {
 	void *untagged_box_context;
 };
 
+enum imapc_parameter_flags {
+	IMAPC_PARAMETER_CLIENT_DISABLED = BIT(1),
+};
+
+struct imapc_parameters {
+	const char *session_id_prefix;
+	const char *temp_path_prefix;
+
+	/* imapc-storage creates custom paths based on the namespace user,
+	   this cannot be read from the config directly. */
+	const char *override_dns_client_socket_path;
+	const char *override_rawlog_dir;
+
+	enum imapc_parameter_flags flags;
+};
+
 enum imapc_state_change_event {
 	IMAPC_STATE_CHANGE_AUTH_OK,
 	IMAPC_STATE_CHANGE_AUTH_FAILED,
