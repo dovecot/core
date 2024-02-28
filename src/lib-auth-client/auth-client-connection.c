@@ -562,7 +562,7 @@ auth_client_connection_add_request(struct auth_client_connection *conn,
 {
 	unsigned int id;
 
-	i_assert(conn->conn.handshake_received);
+	i_assert(connection_handshake_received(&conn->conn));
 
 	id = ++conn->client->request_id_counter;
 	if (id == 0) {
@@ -579,7 +579,7 @@ void auth_client_connection_remove_request(struct auth_client_connection *conn,
 {
 	if (request->removed)
 		return;
-	i_assert(conn->conn.handshake_received);
+	i_assert(connection_handshake_received(&conn->conn));
 	hash_table_remove(conn->requests, POINTER_CAST(request->id));
 	request->removed = TRUE;
 }

@@ -654,10 +654,10 @@ anvil_connection_input_line(struct connection *_conn, const char *line)
 	}
 
 	args = t_strsplit_tabescaped(line);
-	if (!conn->conn.handshake_received && !conn->fifo) {
+	if (!connection_handshake_received(&conn->conn) && !conn->fifo) {
 		if (anvil_connection_handshake(conn, args) < 0)
 			return -1;
-		conn->conn.handshake_received = TRUE;
+		connection_set_handshake_ready(&conn->conn);
 		return 1;
 	}
 

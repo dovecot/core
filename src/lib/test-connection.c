@@ -156,9 +156,9 @@ test_connection_no_input_input(struct connection *conn)
 	i_stream_set_blocking(is, FALSE);
 	while ((input = i_stream_read_next_line(is)) != NULL) {
 		const char *const *args = t_strsplit_tabescaped(input);
-		if (!conn->handshake_received) {
+		if (!connection_handshake_received(conn)) {
 			if (connection_handshake_args_default(conn, args) > -1)
-				conn->handshake_received = TRUE;
+				connection_set_handshake_ready(conn);
 			continue;
 		}
 		if (strcmp(args[0], "QUIT") == 0) {
@@ -206,7 +206,7 @@ static int test_connection_custom_handshake_args(struct connection *conn,
 			return -1;
 		return 0;
 	}
-	if (!conn->handshake_received) {
+	if (!connection_handshake_received(conn)) {
 		if (strcmp(args[0], "HANDSHAKE") == 0 &&
 		    strcmp(args[1], "FRIEND") == 0) {
 			if (!conn->list->set.client)

@@ -110,7 +110,7 @@ static int connection_input_parse_lines(struct connection *conn)
 	}
 	while (!input->closed && (line = i_stream_next_line(input)) != NULL) {
 		T_BEGIN {
-			if (!conn->handshake_received &&
+			if (!connection_handshake_received(conn) &&
 			    conn->v.handshake_line != NULL) {
 				ret = conn->v.handshake_line(conn, line);
 				if (ret > 0)
@@ -157,7 +157,7 @@ void connection_input_default(struct connection *conn)
 {
 	int ret;
 
-	if (!conn->handshake_received &&
+	if (!connection_handshake_received(conn) &&
 	    conn->v.handshake != NULL) {
 		if ((ret = conn->v.handshake(conn)) < 0) {
 			connection_closed(
@@ -243,7 +243,7 @@ int connection_input_line_default(struct connection *conn, const char *line)
 		return -1;
 	}
 
-	if (!conn->handshake_received &&
+	if (!connection_handshake_received(conn) &&
 	    (conn->v.handshake_args != connection_handshake_args_default ||
 	     conn->list->set.major_version != 0)) {
 		int ret;
@@ -256,7 +256,7 @@ int connection_input_line_default(struct connection *conn, const char *line)
 				CONNECTION_DISCONNECT_HANDSHAKE_FAILED;
 		}
 		return ret;
-	} else if (!conn->handshake_received) {
+	} else if (!connection_handshake_received(conn)) {
 		/* we don't do handshakes */
 		connection_set_handshake_ready(conn);
 	}

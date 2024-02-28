@@ -518,7 +518,7 @@ auth_request_check_spid(struct login_server_auth *auth,
 			struct login_server_auth_request *req)
 {
 	if (auth->auth_server_pid != req->auth_pid &&
-	    auth->conn.handshake_received) {
+	    connection_handshake_received(&auth->conn)) {
 		/* auth server was restarted. don't even attempt a login. */
 		e_warning(auth->event,
 			  "Auth server restarted (pid %u -> %u), aborting auth",

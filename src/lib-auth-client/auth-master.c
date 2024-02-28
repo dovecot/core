@@ -388,7 +388,7 @@ static int auth_master_connect(struct auth_master_connection *conn)
 
 static void auth_request_timeout(struct auth_master_connection *conn)
 {
-	if (!conn->conn.handshake_received)
+	if (!connection_handshake_received(&conn->conn))
 		e_error(conn->event, "Connecting timed out");
 	else
 		e_error(conn->event, "Request timed out");
