@@ -30,7 +30,6 @@ struct lang_filter {
 	struct lang_filter_vfuncs v;
 	struct lang_filter *parent;
 	string_t *token;
-	size_t max_length;
 	int refcount;
 };
 

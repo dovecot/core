@@ -16,8 +16,6 @@ struct lang_settings {
 	const char *tokenizer_generic_algorithm;
 	ARRAY_TYPE(const_string) filters;
 	ARRAY_TYPE(const_string) tokenizers;
-	unsigned int filter_lowercase_token_maxlen;
-	unsigned int filter_normalizer_token_maxlen;
 	unsigned int tokenizer_address_token_maxlen;
 	unsigned int tokenizer_generic_token_maxlen;
 	bool tokenizer_generic_explicit_prefix;
