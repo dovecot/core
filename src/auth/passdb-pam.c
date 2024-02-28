@@ -17,6 +17,7 @@
 #include "net.h"
 #include "safe-memset.h"
 #include "auth-cache.h"
+#include "settings.h"
 
 #include <sys/stat.h>
 
@@ -34,12 +35,9 @@
 
 typedef pam_const void *pam_item_t;
 
-#define PASSDB_PAM_DEFAULT_MAX_REQUESTS 100
-
 struct pam_passdb_module {
 	struct passdb_module module;
 
-	const char *service_name, *pam_cache_key;
 	unsigned int requests_left;
 
 	bool pam_setcred:1;
@@ -51,6 +49,54 @@ struct pam_conv_context {
 	struct auth_request *request;
 	const char *pass;
 	const char *failure_msg;
+};
+
+struct auth_pam_settings {
+	pool_t pool;
+
+	bool session;
+	bool setcred;
+	const char *service_name;
+	unsigned int max_requests;
+	bool failure_show_msg;
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("passdb_pam_"#name, name, struct auth_pam_settings)
+
+static const struct setting_define auth_pam_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "passdb_pam", },
+	DEF(BOOL, session),
+	DEF(BOOL, setcred),
+	DEF(STR, service_name),
+	DEF(UINT, max_requests),
+	DEF(BOOL, failure_show_msg),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct auth_pam_settings auth_pam_default_settings = {
+	.session = FALSE,
+	.setcred = FALSE,
+	.service_name = "dovecot",
+	.max_requests = 100,
+	.failure_show_msg = FALSE,
+};
+
+static const struct setting_keyvalue auth_pam_default_settings_keyvalue[] = {
+	{ "passdb_pam/passdb_use_worker", "yes"},
+	{ NULL, NULL }
+};
+const struct setting_parser_info auth_pam_setting_parser_info = {
+	.name = "auth_pam",
+
+	.defines = auth_pam_setting_defines,
+	.defaults = &auth_pam_default_settings,
+	.default_settings = auth_pam_default_settings_keyvalue,
+
+	.struct_size = sizeof(struct auth_pam_settings),
+	.pool_offset1 = 1 + offsetof(struct auth_pam_settings, pool),
 };
 
 static int
@@ -311,80 +357,80 @@ pam_verify_plain(struct auth_request *request, const char *password,
 {
         struct passdb_module *_module = request->passdb->passdb;
         struct pam_passdb_module *module = (struct pam_passdb_module *)_module;
+	const struct auth_pam_settings *set;
 	enum passdb_result result;
-	const char *service, *error;
+	const char *error;
+
+	if (settings_get(authdb_event(request), &auth_pam_setting_parser_info, 0,
+			 &set, &error) < 0) {
+		e_error(request->event, "%s", error);
+		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
+		return;
+	}
 
 	if (module->requests_left > 0) {
 		if (--module->requests_left == 0)
 			worker_restart_request = TRUE;
 	}
 
-	if (t_auth_request_var_expand(module->service_name, request, NULL,
-				      &service, &error) <= 0) {
-		e_debug(authdb_event(request),
-			"Failed to expand service %s: %s",
-			module->service_name, error);
+	if (auth_request_set_passdb_fields(request, NULL) < 0) {
+		settings_free(set);
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
 		return;
 	}
 
 	e_debug(authdb_event(request),
-		"lookup service=%s", service);
+		"lookup service=%s", set->service_name);
 
-	result = pam_verify_plain_call(request, service, password);
+	result = pam_verify_plain_call(request, set->service_name, password);
 	callback(result, request);
+	settings_free(set);
 }
 
-static struct passdb_module *
-pam_preinit(pool_t pool, const char *args)
+
+static int pam_preinit(pool_t pool, struct event *event,
+		       struct passdb_module **module_r, const char **error_r)
 {
+	const struct auth_pam_settings *set;
+	const struct auth_passdb_post_settings *post_set;
 	struct pam_passdb_module *module;
-	const char *value, *const *t_args;
-	int i;
+
+	if (settings_get(event, &auth_pam_setting_parser_info,
+			 SETTINGS_GET_FLAG_NO_EXPAND,
+			 &set, error_r) < 0)
+		return -1;
+
+	if (settings_get(event,
+			 &auth_passdb_post_setting_parser_info,
+			 SETTINGS_GET_FLAG_NO_CHECK |
+			 SETTINGS_GET_FLAG_NO_EXPAND,
+			 &post_set, error_r) < 0) {
+		settings_free(set);
+		return -1;
+	}
 
 	module = p_new(pool, struct pam_passdb_module, 1);
-	module->service_name = "dovecot";
-	/* we're caching the password by using directly the plaintext password
-	   given by the auth mechanism */
-	module->module.default_pass_scheme = "PLAIN";
-	module->module.blocking = TRUE;
-	module->requests_left = PASSDB_PAM_DEFAULT_MAX_REQUESTS;
+	module->module.default_cache_key =
+		auth_cache_parse_key_and_fields(pool,
+						t_strdup_printf("%%u/%s", set->service_name),
+						&post_set->fields, "pam");
+	module->requests_left = set->max_requests;
+	module->pam_setcred = set->setcred;
+	module->pam_session = set->session;
+	module->failure_show_msg = set->failure_show_msg;
 
-	t_args = t_strsplit_spaces(args, " ");
-	for(i = 0; t_args[i] != NULL; i++) {
-		/* -session for backwards compatibility */
-		if (strcmp(t_args[i], "-session") == 0 ||
-		    strcmp(t_args[i], "session=yes") == 0)
-			module->pam_session = TRUE;
-		else if (strcmp(t_args[i], "setcred=yes") == 0)
-			module->pam_setcred = TRUE;
-		else if (str_begins(t_args[i], "cache_key=", &value)) {
-			module->module.default_cache_key =
-				auth_cache_parse_key(pool, value);
-		} else if (strcmp(t_args[i], "blocking=yes") == 0) {
-			/* ignore, for backwards compatibility */
-		} else if (strcmp(t_args[i], "failure_show_msg=yes") == 0) {
-			module->failure_show_msg = TRUE;
-		} else if (strcmp(t_args[i], "*") == 0) {
-			/* for backwards compatibility */
-			module->service_name = "%Ls";
-		} else if (str_begins(t_args[i], "max_requests=", &value)) {
-			if (str_to_uint(value, &module->requests_left) < 0) {
-				i_error("pam: Invalid requests_left value: %s",
-					value);
-			}
-		} else if (t_args[i+1] == NULL) {
-			module->service_name = p_strdup(pool, t_args[i]);
-		} else {
-			i_fatal("pam: Unknown setting: %s", t_args[i]);
-		}
-	}
-	return &module->module;
+	settings_free(post_set);
+	settings_free(set);
+
+	*module_r = &module->module;
+	return 0;
 }
 
 struct passdb_module_interface passdb_pam = {
 	.name = "pam",
-	.preinit_legacy = pam_preinit,
+	.fields_supported = TRUE,
+
+	.preinit = pam_preinit,
 	.verify_plain = pam_verify_plain,
 };
 #else
