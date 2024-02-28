@@ -586,6 +586,9 @@ connection_init_full(struct connection_list *list, struct connection *conn,
 		conn->id = list->id_counter++;
 	}
 
+	i_zero(&conn->connect_started);
+	i_zero(&conn->connect_finished);
+
 	conn->ioloop = current_ioloop;
 	conn->fd_in = fd_in;
 	conn->fd_out = fd_out;
