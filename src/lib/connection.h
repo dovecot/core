@@ -122,31 +122,51 @@ struct connection {
 	   composed from the connection properties; e.g., "ip:port". */
 	const char *name;
 
+	/* Label for the connection, formed from base_name,
+	 * property_label, id and file descriptors. */
 	char *label;
+	/* Property part of the label (pid, uid, etc.) */
 	char *property_label;
+	/* Connection ID. Incremented each time connection is formed. */
 	unsigned int id;
 
+	/* Connection file descriptors. */
 	int fd_in, fd_out;
+	/* Associated ioloop. */
 	struct ioloop *ioloop;
+	/* Input handler (removed when connection is halted). */
 	struct io *io;
+	/* IO streams. */
 	struct istream *input;
 	struct ostream *output;
 
+	/* How long to wait until disconnecting with no input.
+	   0 = unlimited. connection_init*() copies it from
+	   connection_list. */
 	unsigned int input_idle_timeout_secs;
 	struct timeout *to;
+	/* Last input timestamps. */
 	time_t last_input;
 	struct timeval last_input_tv;
+
+	/* Client has started to connect. This is client-only
+	   value. */
 	struct timeval connect_started;
+	/* Client has finished connecting. This is recorded for
+	   both server and client. */
 	struct timeval connect_finished;
 
-	/* set to parent event before calling init */
+	/* Set to parent event before calling init. */
 	struct event *event_parent;
 	struct event *event;
 
-	/* connection properties */
+	/* Local and remote IP for TCP connections. */
 	struct ip_addr local_ip, remote_ip;
+	/* Remote port for TCP connections. */
 	in_port_t remote_port;
+	/* Remote pid, UNIX socket only. */
 	pid_t remote_pid;
+	/* Remote user id, UNIX socket only. */
 	uid_t remote_uid;
 
 	/* received minor version */
@@ -159,13 +179,20 @@ struct connection {
 	void *flush_callback;
 	void *flush_context;
 
+	/* Errno for connect() failure. */
 	int connect_failed_errno;
+	/* Reason for disconnection */
 	enum connection_disconnect_reason disconnect_reason;
 
+	/* We have received a version from remote end. */
 	bool version_received:1;
+	/* Handshake has been done and completed. */
 	bool handshake_received:1;
+	/* Set if this is a unix socket. */
 	bool unix_socket:1;
+	/* Unix peer credentials have been attempted to look up. */
 	bool unix_peer_checked:1;
+	/* Connection is disconnected. */
 	bool disconnected:1;
 };
 
