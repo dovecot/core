@@ -194,6 +194,8 @@ struct connection {
 	bool unix_socket:1;
 	/* Unix peer credentials have been attempted to look up. */
 	bool unix_peer_checked:1;
+	/* Unix peer credentials were successfully looked up. */
+	bool have_unix_credentials:1;
 	/* Connection is disconnected. */
 	bool disconnected:1;
 };

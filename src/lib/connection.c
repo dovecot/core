@@ -483,6 +483,7 @@ void connection_update_properties(struct connection *conn)
 			conn->remote_pid = cred.pid;
 			conn->remote_uid = cred.uid;
 			conn->remote_gid = cred.gid;
+			conn->have_unix_credentials = TRUE;
 		}
 		conn->unix_peer_checked = TRUE;
 	}
