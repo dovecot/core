@@ -43,7 +43,7 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_host = "",
 	.imapc_port = 143,
 
-	.imapc_user = "",
+	.imapc_user = "%{owner_user}",
 	.imapc_master_user = "",
 	.imapc_password = "",
 	.imapc_sasl_mechanisms = ARRAY_INIT,
