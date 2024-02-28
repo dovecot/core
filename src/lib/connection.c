@@ -25,6 +25,11 @@ void connection_set_handshake_ready(struct connection *conn)
 		conn->v.handshake_ready(conn);
 }
 
+bool connection_handshake_received(struct connection *conn)
+{
+	return conn->handshake_finished.tv_sec != 0;
+}
+
 static void connection_closed(struct connection *conn,
 			      enum connection_disconnect_reason reason)
 {

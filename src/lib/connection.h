@@ -280,6 +280,9 @@ void connection_streams_changed(struct connection *conn);
    vfunctions return success and will call the handshake_ready() vfunction. */
 void connection_set_handshake_ready(struct connection *conn);
 
+/* Returns TRUE if handshake has been done */
+bool connection_handshake_received(struct connection *conn);
+
 /* Returns -1 = disconnected, 0 = nothing new, 1 = something new.
    If input_full_behavior is ALLOW, may return also -2 = buffer full. */
 int connection_input_read(struct connection *conn);
