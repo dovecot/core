@@ -49,11 +49,14 @@ struct imapc_settings {
 	const char *imapc_list_prefix;
 	unsigned int imapc_cmd_timeout;
 	unsigned int imapc_max_idle_time;
+	unsigned int imapc_connection_timeout_interval;
 	unsigned int imapc_connection_retry_count;
 	unsigned int imapc_connection_retry_interval;
 	uoff_t imapc_max_line_length;
 
 	const char *pop3_deleted_flag;
+
+	const char *dns_client_socket_path;
 
 	enum imapc_features parsed_features;
 	unsigned int throttle_init_msecs;
