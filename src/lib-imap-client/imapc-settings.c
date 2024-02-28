@@ -29,11 +29,14 @@ static const struct setting_define imapc_setting_defines[] = {
 	DEF(STR, imapc_list_prefix),
 	DEF(TIME, imapc_cmd_timeout),
 	DEF(TIME, imapc_max_idle_time),
+	DEF(TIME_MSECS, imapc_connection_timeout_interval),
 	DEF(UINT, imapc_connection_retry_count),
 	DEF(TIME_MSECS, imapc_connection_retry_interval),
 	DEF(SIZE, imapc_max_line_length),
 
 	DEF(STR, pop3_deleted_flag),
+
+	DEF(STR_HIDDEN, dns_client_socket_path),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -55,11 +58,14 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_list_prefix = "",
 	.imapc_cmd_timeout = 5*60,
 	.imapc_max_idle_time = 60*29,
+	.imapc_connection_timeout_interval = 1000*30,
 	.imapc_connection_retry_count = 1,
 	.imapc_connection_retry_interval = 1000,
 	.imapc_max_line_length = 0,
 
-	.pop3_deleted_flag = ""
+	.pop3_deleted_flag = "",
+
+	.dns_client_socket_path = "dns-client",
 };
 
 static const struct setting_keyvalue imapc_default_settings_keyvalue[] = {
