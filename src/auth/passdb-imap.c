@@ -9,6 +9,25 @@
 
 #define DNS_CLIENT_SOCKET_NAME "dns-client"
 
+struct passdb_imap_settings {
+	pool_t pool;
+};
+
+static const struct setting_define passdb_imap_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "passdb_imapc" },
+
+	SETTING_DEFINE_LIST_END,
+};
+
+const struct setting_parser_info passdb_imap_setting_parser_info = {
+	.name = "auth_imapc",
+
+	.defines = passdb_imap_setting_defines,
+
+	.struct_size = sizeof(struct passdb_imap_settings),
+	.pool_offset1 = 1 + offsetof(struct passdb_imap_settings, pool),
+};
+
 struct imap_auth_request {
 	struct imapc_client *client;
 	struct auth_request *auth_request;
@@ -79,6 +98,11 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 		.override_password = password,
 	};
 
+	if (auth_request_set_passdb_fields(auth_request, NULL) < 0) {
+		callback(PASSDB_RESULT_INTERNAL_FAILURE, auth_request);
+		return;
+	}
+
 	request = p_new(auth_request->pool, struct imap_auth_request, 1);
 	request->client = imapc_client_init(&params, authdb_event(auth_request));
 	request->auth_request = auth_request;
@@ -91,6 +115,7 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 
 static struct passdb_module_interface passdb_imap_plugin = {
 	.name = "imap",
+	.fields_supported = TRUE,
 	.verify_plain = passdb_imap_verify_plain,
 };
 
