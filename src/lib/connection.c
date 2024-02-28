@@ -16,8 +16,9 @@
 
 #include <unistd.h>
 
-static void connection_handshake_ready(struct connection *conn)
+void connection_set_handshake_ready(struct connection *conn)
 {
+	i_assert(conn->handshake_finished.tv_sec == 0);
 	conn->handshake_received = TRUE;
 	conn->handshake_finished = ioloop_timeval;
 	if (conn->v.handshake_ready != NULL)
@@ -108,7 +109,7 @@ static int connection_input_parse_lines(struct connection *conn)
 			    conn->v.handshake_line != NULL) {
 				ret = conn->v.handshake_line(conn, line);
 				if (ret > 0)
-					connection_handshake_ready(conn);
+					connection_set_handshake_ready(conn);
 				else if (ret == 0)
 					/* continue reading */
 					ret = 1;
@@ -160,7 +161,7 @@ void connection_input_default(struct connection *conn)
 		} else if (ret == 0) {
 			return;
 		} else {
-			connection_handshake_ready(conn);
+			connection_set_handshake_ready(conn);
 		}
 	}
 
@@ -244,7 +245,7 @@ int connection_input_line_default(struct connection *conn, const char *line)
 		if ((ret = conn->v.handshake_args(conn, args)) == 0)
 			ret = 1; /* continue reading */
 		else if (ret > 0)
-			connection_handshake_ready(conn);
+			connection_set_handshake_ready(conn);
 		else {
 			conn->disconnect_reason =
 				CONNECTION_DISCONNECT_HANDSHAKE_FAILED;
@@ -252,7 +253,7 @@ int connection_input_line_default(struct connection *conn, const char *line)
 		return ret;
 	} else if (!conn->handshake_received) {
 		/* we don't do handshakes */
-		connection_handshake_ready(conn);
+		connection_set_handshake_ready(conn);
 	}
 
 	/* version must be handled though, by something */

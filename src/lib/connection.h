@@ -275,6 +275,11 @@ void connection_update_counters(struct connection *conn);
 /* This needs to be called if the input/output streams are changed */
 void connection_streams_changed(struct connection *conn);
 
+/* This function must be called if handshaking is handled without
+   connection API. This is automatically called once handshake
+   vfunctions return success and will call the handshake_ready() vfunction. */
+void connection_set_handshake_ready(struct connection *conn);
+
 /* Returns -1 = disconnected, 0 = nothing new, 1 = something new.
    If input_full_behavior is ALLOW, may return also -2 = buffer full. */
 int connection_input_read(struct connection *conn);
