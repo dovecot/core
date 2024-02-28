@@ -8,11 +8,10 @@
 
 #ifdef HAVE_LIBICU
 #  include "lang-icu.h"
-#  include "lang-filter-common.h"
 #endif
 
 static int
-lang_filter_lowercase_create(const struct lang_settings *set,
+lang_filter_lowercase_create(const struct lang_settings *set ATTR_UNUSED,
 			     struct event *event ATTR_UNUSED,
 			     struct lang_filter **filter_r,
 			     const char **error_r ATTR_UNUSED)
@@ -21,7 +20,6 @@ lang_filter_lowercase_create(const struct lang_settings *set,
 	filter = i_new(struct lang_filter, 1);
 	*filter = *lang_filter_lowercase;
 	filter->token = str_new(default_pool, 64);
-	filter->max_length = set->filter_lowercase_token_maxlen;
 
 	*filter_r = filter;
 	return 0;
@@ -35,7 +33,6 @@ lang_filter_lowercase_filter(struct lang_filter *filter ATTR_UNUSED,
 #ifdef HAVE_LIBICU
 	str_truncate(filter->token, 0);
 	lang_icu_lcase(filter->token, *token);
-	lang_filter_truncate_token(filter->token, filter->max_length);
 	*token = str_c(filter->token);
 #else
 	*token = t_str_lcase(*token);

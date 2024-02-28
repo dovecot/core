@@ -81,7 +81,6 @@ liblanguage_la_LIBADD = \
 liblanguage_la_SOURCES = \
 	lang-filter.c \
 	lang-filter-contractions.c \
-	lang-filter-common.c \
 	lang-filter-english-possessive.c \
 	lang-filter-lowercase.c \
 	lang-filter-normalizer-icu.c \
@@ -99,7 +98,6 @@ liblanguage_la_SOURCES = \
 headers = \
 	lang-common.h \
 	lang-filter.h \
-	lang-filter-common.h \
 	lang-filter-private.h \
 	lang-icu.h \
 	language.h \

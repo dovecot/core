@@ -4,7 +4,6 @@
 #include "array.h"
 #include "str.h"
 #include "unichar.h" /* unicode replacement char */
-#include "lang-filter-common.h"
 #include "lang-filter-private.h"
 #include "lang-settings.h"
 #include "language.h"
@@ -50,7 +49,6 @@ lang_filter_normalizer_icu_create(const struct lang_settings *set,
 	p_array_init(&np->utf16_token, pp, 64);
 	p_array_init(&np->trans_token, pp, 64);
 	np->utf8_token = buffer_create_dynamic(pp, 128);
-	np->filter.max_length = set->filter_normalizer_token_maxlen;
 	*filter_r = &np->filter;
 	return 0;
 }
@@ -82,7 +80,6 @@ lang_filter_normalizer_icu_filter(struct lang_filter *filter, const char **token
 
 	lang_icu_utf16_to_utf8(np->utf8_token, array_front(&np->trans_token),
 			      array_count(&np->trans_token));
-	lang_filter_truncate_token(np->utf8_token, np->filter.max_length);
 	*token = str_c(np->utf8_token);
 	return 1;
 }

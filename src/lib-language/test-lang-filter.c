@@ -165,35 +165,6 @@ static void test_lang_filter_lowercase_utf8(void)
 	test_end();
 }
 
-static void test_lang_filter_lowercase_too_long_utf8(void)
-{
-	static const struct {
-		const char *input;
-		const char *output;
-	} tests[] = {
-		{ "f\xC3\x85\xC3\x85", "f\xC3\xA5\xC3\xA5" },
-		{ "abcdefghijklmnopqrstuvwxyz", "abcdefghijklmnopqrstuvwxy" },
-		{ "abc\xC3\x85""defghijklmnopqrstuvwxyz", "abc\xC3\xA5""defghijklmnopqrstuvw" },
-		{ "abcdefghijklmnopqrstuvwx\xC3\x85", "abcdefghijklmnopqrstuvwx" }
-	};
-	struct lang_filter *filter;
-	const char *error;
-	const char *token;
-	struct lang_settings set = lang_default_settings;
-	set.filter_lowercase_token_maxlen = 25;
-	unsigned int i;
-
-	test_begin("lang filter lowercase, too long UTF8");
-	test_assert(lang_filter_create(lang_filter_lowercase, NULL, make_settings(LANG_EN, &set), event, &filter, &error) == 0);
-
-	for (i = 0; i < N_ELEMENTS(tests); i++) {
-		token = tests[i].input;
-		test_assert_idx(lang_filter(filter, &token, &error) > 0 &&
-		                strcmp(token, tests[i].output) == 0, 0);
-	}
-	lang_filter_unref(&filter);
-	test_end();
-}
 #endif
 
 static void test_lang_filter_stopwords_eng(void)
@@ -713,57 +684,6 @@ static void test_lang_filter_normalizer_invalid_id(void)
 	test_end();
 }
 
-static void test_lang_filter_normalizer_oversized(void)
-{
-	struct lang_filter *norm = NULL;
-	struct lang_settings set = lang_default_settings;
-	set.filter_normalizer_icu_id = "Any-Lower; NFKD; [: Nonspacing Mark :] Remove";
-	set.filter_normalizer_token_maxlen = 250;
-	const char *error = NULL;
-	const char *token = "\xe4\x95\x91\x25\xe2\x94\xad\xe1\x90\xad\xee\x94\x81\xe2\x8e\x9e"
-						"\xe7\x9a\xb7\xea\xbf\x97\xe3\xb2\x8f\xe4\x9c\xbe\xee\xb4\x98\xe1"
-						"\x8d\x99\xe2\x91\x83\xe3\xb1\xb8\xef\xbf\xbd\xe8\xbb\x9c\xef\xbf"
-						"\xbd\xea\xbb\x98\xea\xb5\xac\xe4\x87\xae\xe4\x88\x93\xe9\x86\x8f"
-						"\xe9\x86\x83\xe6\x8f\x8d\xe7\xa3\x9d\xed\x89\x96\xe2\x89\x85\xe6"
-						"\x8c\x82\xec\x80\x98\xee\x91\x96\xe7\xa8\x8a\xec\xbc\x85\xeb\x9c"
-						"\xbd\xeb\x97\x95\xe3\xa4\x9d\xd7\xb1\xea\xa7\x94\xe0\xbb\xac\xee"
-						"\x95\x87\xd5\x9d\xe8\xba\x87\xee\x8b\xae\xe5\xb8\x80\xe9\x8d\x82"
-						"\xe7\xb6\x8c\xe7\x9b\xa0\xef\x82\x9f\xed\x96\xa4\xe3\x8d\xbc\xe1"
-						"\x81\xbd\xe9\x81\xb2\xea\xac\xac\xec\x9b\x98\xe7\x84\xb2\xee\xaf"
-						"\xbc\xeb\xa2\x9d\xe9\x86\xb3\xe0\xb0\x89\xeb\x80\xb6\xe3\x8c\x9d"
-						"\xe9\x8f\x9e\xe2\xae\x8a\xee\x9e\x9a\xef\xbf\xbd\xe7\xa3\x9b\xe4"
-						"\xa3\x8b\xe4\x82\xb9\xeb\x8e\x93\xec\xb5\x82\xe5\xa7\x81\xe2\x8c"
-						"\x97\xea\xbb\xb4\xe5\x85\xb7\xeb\x96\xbe\xe7\x97\x91\xea\xbb\x98"
-						"\xe6\xae\xb4\xe9\x8a\x85\xc4\xb9\xe4\x90\xb2\xe9\x96\xad\xef\x90"
-						"\x9c\xe5\xa6\xae\xe9\x93\x91\xe8\x87\xa1";
-
-	test_begin("lang filter normalizer over-sized token");
-	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, make_settings(NULL, &set), event, &norm, &error) == 0);
-	test_assert(error == NULL);
-	test_assert(lang_filter(norm, &token, &error) >= 0);
-	test_assert(strlen(token) <= 250);
-	lang_filter_unref(&norm);
-	test_end();
-}
-
-static void test_lang_filter_normalizer_truncation(void)
-{
-	struct lang_filter *norm = NULL;
-	struct lang_settings set = lang_default_settings;
-	set.filter_normalizer_icu_id = "Any-Lower;";
-	set.filter_normalizer_token_maxlen = 10;
-	const char *error = NULL;
-	const char *token = "abcdefghi\xC3\x85";
-
-	test_begin("lang filter normalizer token truncated mid letter");
-	test_assert(lang_filter_create(lang_filter_normalizer_icu, NULL, make_settings(NULL, &set), event, &norm, &error) == 0);
-	test_assert(error == NULL);
-	test_assert(lang_filter(norm, &token, &error) >= 0);
-	test_assert(strcmp(token, "abcdefghi") == 0);
-	lang_filter_unref(&norm);
-	test_end();
-}
-
 #ifdef HAVE_LANG_STEMMER
 static void test_lang_filter_normalizer_stopwords_stemmer_eng(void)
 {
@@ -1002,7 +922,6 @@ int main(void)
 		test_lang_filter_lowercase,
 #ifdef HAVE_LIBICU
 		test_lang_filter_lowercase_utf8,
-		test_lang_filter_lowercase_too_long_utf8,
 #endif
 		test_lang_filter_stopwords_eng,
 		test_lang_filter_stopwords_fin,
@@ -1022,8 +941,6 @@ int main(void)
 		test_lang_filter_normalizer_empty,
 		test_lang_filter_normalizer_baddata,
 		test_lang_filter_normalizer_invalid_id,
-		test_lang_filter_normalizer_oversized,
-		test_lang_filter_normalizer_truncation,
 #ifdef HAVE_LANG_STEMMER
 		test_lang_filter_normalizer_stopwords_stemmer_eng,
 		test_lang_filter_stopwords_normalizer_stemmer_no,
