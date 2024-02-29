@@ -17,6 +17,7 @@ struct imapc_client {
 
 	struct event *event;
 	struct imapc_client_settings set;
+	struct imapc_parameters params;
 
 	imapc_untagged_callback_t *untagged_callback;
 	void *untagged_context;

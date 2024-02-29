@@ -51,7 +51,6 @@ static struct imapc_client_settings test_imapc_default_settings = {
 	.password = "testpass",
 
 	.dns_client_socket_path = "",
-	.temp_path_prefix = ".test-tmp/",
 	.rawlog_dir = "",
 
 	.connect_timeout_msecs = 5000,
@@ -59,6 +58,10 @@ static struct imapc_client_settings test_imapc_default_settings = {
 	.connect_retry_interval_msecs = 10,
 
 	.max_idle_time = 10000,
+};
+
+static const struct imapc_parameters imapc_params = {
+	.temp_path_prefix = ".test-tmp/",
 };
 
 static enum imapc_command_state test_imapc_cmd_last_reply_pop(void)
@@ -240,7 +243,7 @@ test_run_client(const struct imapc_client_settings *client_set,
 	i_sleep_msecs(100); /* wait a little for server setup */
 
 	ioloop = io_loop_create();
-	imapc_client = imapc_client_init(client_set, NULL);
+	imapc_client = imapc_client_init(client_set, &imapc_params, NULL);
 	client_test();
 	imapc_client_logout(imapc_client);
 	test_assert(array_count(&imapc_cmd_last_replies) == 0);
@@ -270,8 +273,8 @@ test_run_client_server(const struct imapc_client_settings *client_set,
 	server.fd_listen = test_open_server_fd(&server.port);
 	client_set_copy.port = server.port;
 
-	if (mkdir(client_set->temp_path_prefix, 0700) < 0 && errno != EEXIST)
-		i_fatal("mkdir(%s) failed: %m", client_set->temp_path_prefix);
+	if (mkdir(imapc_params.temp_path_prefix, 0700) < 0 && errno != EEXIST)
+		i_fatal("mkdir(%s) failed: %m", imapc_params.temp_path_prefix);
 
 	if (server_test != NULL) {
 		/* Fork server */
@@ -284,7 +287,7 @@ test_run_client_server(const struct imapc_client_settings *client_set,
 
 	i_unset_failure_prefix();
 	test_subprocess_kill_all(SERVER_KILL_TIMEOUT_SECS);
-	if (unlink_directory(client_set->temp_path_prefix,
+	if (unlink_directory(imapc_params.temp_path_prefix,
 			     UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0)
 		i_fatal("%s", error);
 }

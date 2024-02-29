@@ -87,6 +87,7 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 		(struct imap_passdb_module *)_module;
 	struct imap_auth_request *request;
 	struct imapc_client_settings set;
+	struct imapc_parameters params = {};
 	const char *error;
 	string_t *str;
 
@@ -124,7 +125,7 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 		"lookup host=%s port=%d", set.host, set.port);
 
 	request = p_new(auth_request->pool, struct imap_auth_request, 1);
-	request->client = imapc_client_init(&set, authdb_event(auth_request));
+	request->client = imapc_client_init(&set, &params, authdb_event(auth_request));
 	request->auth_request = auth_request;
 	request->verify_callback = callback;
 

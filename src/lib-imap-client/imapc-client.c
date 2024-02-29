@@ -49,6 +49,7 @@ default_untagged_callback(const struct imapc_untagged_reply *reply ATTR_UNUSED,
 
 struct imapc_client *
 imapc_client_init(const struct imapc_client_settings *set,
+		  const struct imapc_parameters *params,
 		  struct event *event_parent)
 {
 	struct imapc_client *client;
@@ -101,6 +102,20 @@ imapc_client_init(const struct imapc_client_settings *set,
 		client->set.throttle_set.shrink_min_msecs = IMAPC_THROTTLE_DEFAULT_SHRINK_MIN_MSECS;
 
 	client->untagged_callback = default_untagged_callback;
+
+	client->params.session_id_prefix =
+		p_strdup(pool, params->session_id_prefix);
+	client->params.temp_path_prefix =
+		p_strdup(pool, params->temp_path_prefix);
+	client->params.flags = params->flags;
+
+	/* Only override if the parameter is set. */
+	if (params->override_dns_client_socket_path != NULL)
+		client->set.dns_client_socket_path =
+			p_strdup(pool, params->override_dns_client_socket_path);
+	if (params->override_rawlog_dir != NULL)
+		client->set.rawlog_dir =
+			p_strdup(pool, params->override_rawlog_dir);
 
 	p_array_init(&client->conns, pool, 8);
 	return client;
@@ -535,14 +550,14 @@ int imapc_client_create_temp_fd(struct imapc_client *client,
 	string_t *path;
 	int fd;
 
-	if (client->set.temp_path_prefix == NULL) {
+	if (client->params.temp_path_prefix == NULL) {
 		e_error(client->event,
 			"temp_path_prefix not set, can't create temp file");
 		return -1;
 	}
 
 	path = t_str_new(128);
-	str_append(path, client->set.temp_path_prefix);
+	str_append(path, client->params.temp_path_prefix);
 	fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
 	if (fd == -1) {
 		e_error(client->event,
