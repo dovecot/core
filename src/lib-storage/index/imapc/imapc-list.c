@@ -97,7 +97,7 @@ static int imapc_list_init(struct mailbox_list *_list, const char **error_r)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
 
-	if (imapc_storage_client_create(_list->ns,
+	if (imapc_storage_client_create(_list,
 					&list->client, error_r) < 0)
 		return -1;
 	list->client->_list = list;
