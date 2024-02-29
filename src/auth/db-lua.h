@@ -15,6 +15,19 @@ struct auth_lua_settings {
 
 extern const struct setting_parser_info auth_lua_setting_parser_info;
 
+struct dlua_passdb_module {
+	struct passdb_module module;
+	struct dlua_script *script;
+	const struct auth_lua_settings *set;
+	bool has_password_verify;
+};
+
+struct dlua_userdb_module {
+	struct userdb_module module;
+	const struct auth_lua_settings *set;
+	struct dlua_script *script;
+};
+
 enum auth_lua_script_type {
 	AUTH_LUA_SCRIPT_TYPE_PASSDB,
 	AUTH_LUA_SCRIPT_TYPE_USERDB,
@@ -24,9 +37,8 @@ struct auth_lua_script_parameters {
 	enum auth_lua_script_type stype;
 	struct dlua_script *script;
 	pool_t pool;
-	struct userdb_module *userdb_module;
-	struct passdb_module *passdb_module;
-	const char *const *arguments;
+	struct dlua_userdb_module *userdb_module;
+	struct dlua_passdb_module *passdb_module;
 };
 
 int
