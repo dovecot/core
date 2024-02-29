@@ -38,6 +38,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-settings \
+	-I$(top_srcdir)/src/lib-ssl-iostream \
 	$(SQL_CFLAGS)
 
 dist_sources = \
