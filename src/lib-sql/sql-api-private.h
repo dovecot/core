@@ -15,6 +15,7 @@ enum sql_db_state {
 	SQL_DB_STATE_BUSY
 };
 
+/* <settings checks> */
 /* Minimum delay between reconnecting to same server */
 #define SQL_CONNECT_MIN_DELAY 1
 /* Maximum time to avoiding reconnecting to same server */
@@ -30,6 +31,7 @@ enum sql_db_state {
 #define SQL_QUERY_TIMEOUT_SECS 60
 /* Default max. number of connections to create per host */
 #define SQL_DEFAULT_CONNECTION_LIMIT 5
+/* </settings checks> */
 
 #define SQL_DB_IS_READY(db) \
 	((db)->state == SQL_DB_STATE_IDLE)
