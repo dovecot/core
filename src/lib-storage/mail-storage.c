@@ -404,7 +404,7 @@ mail_storage_create_list(struct mail_namespace *ns,
 		}
 	}
 
-	struct event *event = event_create(ns->user->event);
+	struct event *event = event_create(set_event);
 	event_add_str(event, SETTINGS_EVENT_NAMESPACE_NAME, ns->set->name);
 	int ret = mailbox_list_create(event, ns, mail_set, list_flags,
 				      &list, error_r);

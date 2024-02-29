@@ -325,20 +325,22 @@ shared_mail_user_init(struct mail_storage *_storage,
 	enum mail_storage_flags new_storage_flags = 0;
 	const char *error;
 
-	struct shared_mail_user_var_expand_ctx var_expand_ctx = {
-		.owner = owner,
-		.nonexistent = owner->nonexistent,
-	};
+	struct shared_mail_user_var_expand_ctx *var_expand_ctx =
+		p_new(user->pool, struct shared_mail_user_var_expand_ctx, 1);
+	var_expand_ctx->owner = owner;
+	var_expand_ctx->nonexistent = owner->nonexistent;
 
 	const char *userdomain = domain == NULL ? username :
 		t_strdup_printf("%s@%s", username, domain);
-	struct var_expand_table tab[] = {
-		{ '\0', userdomain, "owner_user" },
-		{ '\0', username, "owner_username" },
-		{ '\0', domain, "owner_domain" },
+	struct var_expand_table stack_tab[] = {
+		{ '\0', p_strdup(user->pool, userdomain), "owner_user" },
+		{ '\0', p_strdup(user->pool, username), "owner_username" },
+		{ '\0', p_strdup(user->pool, domain), "owner_domain" },
 		{ '\0', NULL, NULL },
 	};
-	struct var_expand_func_table func_tab[] = {
+	struct var_expand_table *tab =
+		p_memdup(user->pool, stack_tab, sizeof(stack_tab));
+	static struct var_expand_func_table func_tab[] = {
 		{ "owner_home", shared_mail_user_var_home },
 		{ NULL, NULL }
 	};
@@ -346,7 +348,7 @@ shared_mail_user_init(struct mail_storage *_storage,
 		p_new(user->pool, struct var_expand_params, 1);
 	params->table = tab;
 	params->func_table = func_tab;
-	params->func_context = &var_expand_ctx;
+	params->func_context = var_expand_ctx;
 
 	struct event *set_event = event_create(user->event);
 	event_add_str(set_event, SETTINGS_EVENT_NAMESPACE_NAME, ns->set->name);
@@ -354,7 +356,7 @@ shared_mail_user_init(struct mail_storage *_storage,
 
 	/* Expanding mail_path may verify whether the user exists by
 	   trying to access %{owner_home}. This sets
-	   var_expand_ctx.nonexistent flag. Otherwise we don't need these
+	   var_expand_ctx->nonexistent flag. Otherwise we don't need these
 	   settings here. */
 	struct mail_storage_settings *set;
 	if (settings_get(set_event, &mail_storage_setting_parser_info, 0,
@@ -379,7 +381,7 @@ shared_mail_user_init(struct mail_storage *_storage,
 		NAMESPACE_FLAG_AUTOCREATED | NAMESPACE_FLAG_INBOX_ANY;
 	i_array_init(&new_ns->all_storages, 2);
 
-	if (var_expand_ctx.nonexistent) {
+	if (var_expand_ctx->nonexistent) {
 		struct settings_instance *set_instance =
 			mail_storage_service_user_get_settings_instance(
 				user->service_user);
