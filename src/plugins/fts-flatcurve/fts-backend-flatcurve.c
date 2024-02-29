@@ -58,6 +58,7 @@ fts_backend_flatcurve_init(struct fts_backend *_backend, const char **error_r)
 	backend->boxname = str_new(backend->pool, 128);
 	backend->db_path = str_new(backend->pool, 256);
 	backend->fuser = fuser;
+	backend->volatile_dir = str_new(backend->pool, 128);
 
 	fuser->backend = backend;
 
@@ -77,6 +78,7 @@ fts_backend_flatcurve_close_mailbox(struct flatcurve_fts_backend *backend,
 
 		str_truncate(backend->boxname, 0);
 		str_truncate(backend->db_path, 0);
+		str_truncate(backend->volatile_dir, 0);
 	}
 
 	event_set_append_log_prefix(backend->event, FTS_FLATCURVE_DEBUG_PREFIX);
@@ -117,8 +119,9 @@ int
 fts_backend_flatcurve_set_mailbox(struct flatcurve_fts_backend *backend,
                                   struct mailbox *box, const char **error_r)
 {
-	const char *path;
+	const char *path, *volatile_dir;
 	struct mail_storage *storage;
+	struct mail_user *user;
 
 	if (str_len(backend->boxname) > 0 &&
 	    strcasecmp(box->vname, str_c(backend->boxname)) == 0)
@@ -143,6 +146,11 @@ fts_backend_flatcurve_set_mailbox(struct flatcurve_fts_backend *backend,
 
 	storage = mailbox_get_storage(box);
 	backend->parsed_lock_method = storage->set->parsed_lock_method;
+
+	user = mail_storage_get_user(storage);
+	volatile_dir = mail_user_get_volatile_dir(user);
+	if (volatile_dir != NULL)
+		str_append(backend->volatile_dir, volatile_dir);
 
 	fts_flatcurve_xapian_set_mailbox(backend);
 	return 0;
