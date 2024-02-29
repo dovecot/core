@@ -9,6 +9,14 @@
 
 struct dlua_script;
 
+struct auth_lua_settings {
+	pool_t pool;
+	const char *auth_lua_file;
+	ARRAY_TYPE(const_string) auth_lua_config;
+};
+
+extern const struct setting_parser_info auth_lua_setting_parser_info;
+
 enum auth_lua_script_type {
 	AUTH_LUA_SCRIPT_TYPE_PASSDB,
 	AUTH_LUA_SCRIPT_TYPE_USERDB,
