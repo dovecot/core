@@ -46,6 +46,10 @@ enum sql_db_state {
 
 #define SQL_QUERY_FINISHED_FMT "Finished query '%s' in %u msecs"
 
+/* Used by sqlpool to set event_set_ptr(), so sql drivers' init() functions can
+   check if the caller is sqlpool. */
+#define SQLPOOL_EVENT_PTR "sqlpool_event"
+
 struct sql_db_module_register {
 	unsigned int id;
 };
@@ -253,6 +257,12 @@ extern ARRAY_TYPE(sql_drivers) sql_drivers;
 extern struct sql_result sql_not_connected_result;
 
 void sql_init_common(struct sql_db *db);
+
+struct sql_db *driver_sqlpool_init(const struct sql_db *driver,
+				   struct event *event_parent,
+				   const char *filter_name,
+				   const ARRAY_TYPE(const_string) *hostnames,
+				   unsigned int connection_limit);
 int driver_sqlpool_legacy_init_full(const struct sql_legacy_settings *set,
 				    const struct sql_db *driver,
 				    struct sql_db **db_r, const char **error_r);
