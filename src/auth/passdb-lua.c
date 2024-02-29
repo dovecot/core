@@ -9,14 +9,6 @@
 
 #include "db-lua.h"
 
-struct dlua_passdb_module {
-	struct passdb_module module;
-	struct dlua_script *script;
-	const struct auth_lua_settings *set;
-	const char *const *arguments;
-	bool has_password_verify;
-};
-
 static enum passdb_result
 passdb_lua_verify_password(struct dlua_passdb_module *module,
 			   struct auth_request *request, const char *password)
@@ -116,7 +108,6 @@ static int
 passdb_lua_preinit(pool_t pool, struct event *event,
 		   struct passdb_module **module_r, const char **error_r)
 {
-	unsigned int count;
 	const struct auth_lua_settings *set;
 	struct dlua_passdb_module *module;
 
@@ -129,9 +120,6 @@ passdb_lua_preinit(pool_t pool, struct event *event,
 	module = p_new(pool, struct dlua_passdb_module, 1);
 	module->set = set;
 
-	if (!array_is_empty(&set->auth_lua_config))
-		module->arguments = array_get(&set->auth_lua_config, &count);
-
 	if (dlua_script_create_file(module->set->auth_lua_file, &module->script,
 				    event, error_r) < 0)
 		i_fatal("passdb-lua: failed to load '%s': %s",
@@ -140,8 +128,7 @@ passdb_lua_preinit(pool_t pool, struct event *event,
 	const struct auth_lua_script_parameters params = {
 		.script = module->script,
 		.stype = AUTH_LUA_SCRIPT_TYPE_PASSDB,
-		.arguments = module->arguments,
-		.passdb_module = &module->module,
+		.passdb_module = module,
 		.pool = pool,
 	};
 	if (auth_lua_script_init(&params, error_r) < 0)
@@ -163,7 +150,7 @@ static void passdb_lua_init(struct passdb_module *_module)
 	const struct auth_lua_script_parameters params = {
 		.script = module->script,
 		.stype = AUTH_LUA_SCRIPT_TYPE_PASSDB,
-		.arguments = module->arguments,
+		.passdb_module = module,
 	};
 	if (auth_lua_script_auth_db_init(&params, &error) < 0)
 		i_fatal("passdb-lua: auth_passdb_init() failed: %s", error);

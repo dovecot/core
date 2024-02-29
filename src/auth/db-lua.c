@@ -527,14 +527,14 @@ auth_lua_script_get_default_cache_key(const struct auth_lua_script_parameters *p
 		switch (params->stype) {
 		case AUTH_LUA_SCRIPT_TYPE_PASSDB:
 			i_assert(params->passdb_module != NULL);
-			params->passdb_module->default_cache_key =
+			params->passdb_module->module.default_cache_key =
 				auth_cache_parse_key_and_fields(params->pool,
 						lua_tostring(script->L, -1),
 						&post_set->fields, "lua");
 			break;
 		case AUTH_LUA_SCRIPT_TYPE_USERDB:
 			i_assert(params->userdb_module != NULL);
-			params->userdb_module->default_cache_key =
+			params->userdb_module->module.default_cache_key =
 				auth_cache_parse_key_and_fields(params->pool,
 						lua_tostring(script->L, -1),
 						&post_set->fields, "lua");
@@ -554,7 +554,9 @@ int auth_lua_script_auth_db_init(const struct auth_lua_script_parameters *params
 			         const char **error_r)
 {
 	struct dlua_script *script = params->script;
+	const struct auth_lua_settings *set;
 	const char *fn;
+
 	switch (params->stype) {
 	case AUTH_LUA_SCRIPT_TYPE_PASSDB:
 		fn = AUTH_LUA_PASSDB_INIT;
@@ -567,19 +569,29 @@ int auth_lua_script_auth_db_init(const struct auth_lua_script_parameters *params
 	}
 	if (!dlua_script_has_function(script, fn))
 		return 0;
-	i_assert(params->arguments == NULL ||
-		 (str_array_length(params->arguments) % 2 == 0));
-	if (params->arguments != NULL) {
+
+	if (settings_get(script->event, &auth_lua_setting_parser_info, 0,
+			 &set, error_r) < 0)
+		return -1;
+
+	i_assert(array_is_empty(&set->auth_lua_config) ||
+		 (array_count(&set->auth_lua_config) % 2 == 0));
+	if (!array_is_empty(&set->auth_lua_config)) {
 		/* prepare a table for arguments */
-		lua_createtable(script->L, 0, str_array_length(params->arguments) / 2);
-		for (const char *const *p = params->arguments; *p != NULL; p += 2) {
-			lua_pushstring(script->L, p[1]);
-			lua_setfield(script->L, -2, p[0]);
+		lua_createtable(script->L, 0,
+				array_count(&set->auth_lua_config) / 2);
+		unsigned int count;
+		const char *const *str_array = array_get(&set->auth_lua_config,
+							 &count);
+		for (unsigned int i = 0; i < count; i += 2) {
+			lua_pushstring(script->L, str_array[i + 1]);
+			lua_setfield(script->L, -2, str_array[i]);
 		}
 	} else {
 		lua_newtable(script->L);
 	}
 
+	settings_free(set);
 	/* call the function */
 	if (dlua_pcall(script->L, fn, 1, 0, error_r) < 0)
 		return -1;
