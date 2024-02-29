@@ -31,8 +31,15 @@
 #define MYSQL_DEFAULT_READ_TIMEOUT_SECS 30
 #define MYSQL_DEFAULT_WRITE_TIMEOUT_SECS 30
 
+/* <settings checks> */
+#define MYSQL_SQLPOOL_SET_NAME "mysql"
+/* </settings checks> */
+
 struct mysql_settings {
 	pool_t pool;
+
+	ARRAY_TYPE(const_string) sqlpool_hosts;
+	unsigned int connection_limit;
 
 	const char *host;
 	in_port_t port;
@@ -57,6 +64,11 @@ struct mysql_settings {
 #define DEF_SECS(type, name) \
 	SETTING_DEFINE_STRUCT_##type("mysql_"#name, name##_secs, struct mysql_settings)
 static const struct setting_define mysql_setting_defines[] = {
+	{ .type = SET_FILTER_ARRAY, .key = MYSQL_SQLPOOL_SET_NAME,
+	  .offset = offsetof(struct mysql_settings, sqlpool_hosts),
+	  .filter_array_field_name = "host", },
+	DEF(UINT, connection_limit),
+
 	DEF(STR, host),
 	DEF(IN_PORT, port),
 	DEF(STR, user),
@@ -76,6 +88,9 @@ static const struct setting_define mysql_setting_defines[] = {
 };
 
 static struct mysql_settings mysql_default_settings = {
+	.sqlpool_hosts = ARRAY_INIT,
+	.connection_limit = SQL_DEFAULT_CONNECTION_LIMIT,
+
 	.host = "",
 	.port = 0,
 	.user = "",
@@ -414,6 +429,11 @@ driver_mysql_init_v(struct event *event, struct sql_db **db_r,
 	if (settings_get(event, &mysql_setting_parser_info, 0,
 			 &set, error_r) < 0)
 		return -1;
+	if (array_is_empty(&set->sqlpool_hosts)) {
+		*error_r = "mysql { .. } named list filter is missing";
+		settings_free(set);
+		return -1;
+	}
 
 	if (set->ssl) {
 		if (settings_get(event, &ssl_setting_parser_info, 0,
@@ -440,8 +460,22 @@ driver_mysql_init_v(struct event *event, struct sql_db **db_r,
 		}
 	}
 
+	if (event_get_ptr(event, SQLPOOL_EVENT_PTR) == NULL) {
+		/* Use sqlpool for managing multiple connections */
+		*db_r = driver_sqlpool_init(&driver_mysql_db, event,
+					    MYSQL_SQLPOOL_SET_NAME,
+					    &set->sqlpool_hosts,
+					    set->connection_limit);
+		settings_free(set);
+		settings_free(ssl_set);
+		return 0;
+	}
+	/* We're being initialized by sqlpool - create a real mysql
+	 connection. */
+
 	pool_t pool = pool_alloconly_create("mysql driver", 1024);
 	*db_r = driver_mysql_init_common(pool, event, set, ssl_set);
+	event_drop_parent_log_prefixes((*db_r)->event, 1);
 	sql_init_common(*db_r);
 	return 0;
 }

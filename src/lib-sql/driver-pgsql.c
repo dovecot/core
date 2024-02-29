@@ -15,8 +15,15 @@
 
 #define PGSQL_DNS_WARN_MSECS 500
 
+/* <settings checks> */
+#define PGSQL_SQLPOOL_SET_NAME "pgsql"
+/* </settings checks> */
+
 struct pgsql_settings {
 	pool_t pool;
+
+	ARRAY_TYPE(const_string) sqlpool_hosts;
+	unsigned int connection_limit;
 
 	const char *host;
 	ARRAY_TYPE(const_string) parameters;
@@ -26,6 +33,11 @@ struct pgsql_settings {
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type("pgsql_"#name, name, struct pgsql_settings)
 static const struct setting_define pgsql_setting_defines[] = {
+	{ .type = SET_FILTER_ARRAY, .key = PGSQL_SQLPOOL_SET_NAME,
+	  .offset = offsetof(struct pgsql_settings, sqlpool_hosts),
+	  .filter_array_field_name = "host", },
+	DEF(UINT, connection_limit),
+
 	DEF(STR, host),
 	DEF(STRLIST, parameters),
 
@@ -33,6 +45,9 @@ static const struct setting_define pgsql_setting_defines[] = {
 };
 
 static const struct pgsql_settings pgsql_default_settings = {
+	.sqlpool_hosts = ARRAY_INIT,
+	.connection_limit = SQL_DEFAULT_CONNECTION_LIMIT,
+
 	.host = "",
 	.parameters = ARRAY_INIT,
 };
@@ -416,8 +431,26 @@ driver_pgsql_init_v(struct event *event, struct sql_db **db_r,
 	if (settings_get(event, &pgsql_setting_parser_info, 0,
 			 &set, error_r) < 0)
 		return -1;
+	if (array_is_empty(&set->sqlpool_hosts)) {
+		*error_r = "pgsql { .. } named list filter is missing";
+		settings_free(set);
+		return -1;
+	}
+
+	if (event_get_ptr(event, SQLPOOL_EVENT_PTR) == NULL) {
+		/* Use sqlpool for managing multiple connections */
+		*db_r = driver_sqlpool_init(&driver_pgsql_db, event,
+					    PGSQL_SQLPOOL_SET_NAME,
+					    &set->sqlpool_hosts,
+					    set->connection_limit);
+		settings_free(set);
+		return 0;
+	}
+	/* We're being initialized by sqlpool - create a real pgsql
+	 connection. */
 
 	struct pgsql_db *db = driver_pgsql_init_common(event, set);
+	event_drop_parent_log_prefixes(db->api.event, 1);
 	sql_init_common(&db->api);
 	*db_r = &db->api;
 	return 0;
