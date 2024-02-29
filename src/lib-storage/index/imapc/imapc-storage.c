@@ -307,16 +307,17 @@ static void imapc_storage_client_login(struct imapc_storage_client *client,
 	}
 }
 
-int imapc_storage_client_create(struct mail_namespace *ns,
+int imapc_storage_client_create(struct mailbox_list *list,
 				struct imapc_storage_client **client_r,
 				const char **error_r)
 {
+	struct mail_namespace *ns = list->ns;
 	const struct imapc_settings *imapc_set;
 	struct imapc_storage_client *client;
 	struct imapc_client_settings set;
 	string_t *str;
 
-	if (settings_get(ns->user->event, &imapc_setting_parser_info, 0,
+	if (settings_get(list->event, &imapc_setting_parser_info, 0,
 			 &imapc_set, error_r) < 0)
 		return -1;
 
@@ -388,9 +389,7 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	client->refcount = 1;
 	client->set = imapc_set;
 	i_array_init(&client->untagged_callbacks, 16);
-	/* FIXME: storage->event would be better, but we first get here when
-	   creating mailbox_list, and storage doesn't even exist yet. */
-	client->client = imapc_client_init(&set, ns->user->event);
+	client->client = imapc_client_init(&set, list->event);
 	imapc_client_register_untagged(client->client,
 				       imapc_storage_client_untagged_cb, client);
 
@@ -438,7 +437,7 @@ imapc_storage_create(struct mail_storage *_storage,
 		storage->client = imapc_list->client;
 		storage->client->refcount++;
 	} else {
-		if (imapc_storage_client_create(ns, &storage->client, error_r) < 0)
+		if (imapc_storage_client_create(ns->list, &storage->client, error_r) < 0)
 			return -1;
 	}
 	storage->client->_storage = storage;

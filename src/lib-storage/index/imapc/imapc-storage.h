@@ -204,7 +204,7 @@ struct imapc_simple_context {
 #define IMAPC_STORAGE(s)	container_of(s, struct imapc_storage, storage)
 #define IMAPC_MAILBOX(s)	container_of(s, struct imapc_mailbox, box)
 
-int imapc_storage_client_create(struct mail_namespace *ns,
+int imapc_storage_client_create(struct mailbox_list *list,
 				struct imapc_storage_client **client_r,
 				const char **error_r);
 void imapc_storage_client_unref(struct imapc_storage_client **client);
