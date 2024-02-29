@@ -524,9 +524,9 @@ static void sqlpool_add_all_once(struct sqlpool_db *db)
 	}
 }
 
-int driver_sqlpool_init_full(const struct sql_legacy_settings *set,
-			     const struct sql_db *driver,
-			     struct sql_db **db_r, const char **error_r)
+int driver_sqlpool_legacy_init_full(const struct sql_legacy_settings *set,
+				    const struct sql_db *driver,
+				    struct sql_db **db_r, const char **error_r)
 {
 	struct sqlpool_db *db;
 	int ret;

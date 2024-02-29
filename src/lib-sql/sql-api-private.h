@@ -253,9 +253,9 @@ extern ARRAY_TYPE(sql_drivers) sql_drivers;
 extern struct sql_result sql_not_connected_result;
 
 void sql_init_common(struct sql_db *db);
-int driver_sqlpool_init_full(const struct sql_legacy_settings *set,
-			     const struct sql_db *driver,
-			     struct sql_db **db_r, const char **error_r);
+int driver_sqlpool_legacy_init_full(const struct sql_legacy_settings *set,
+				    const struct sql_db *driver,
+				    struct sql_db **db_r, const char **error_r);
 
 void sql_db_set_state(struct sql_db *db, enum sql_db_state state);
 
