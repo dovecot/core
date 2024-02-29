@@ -17,7 +17,7 @@ static struct event_category event_category_sqlpool = {
 };
 
 struct sqlpool_host {
-	char *connect_string;
+	char *legacy_connect_string;
 
 	unsigned int connection_count;
 };
@@ -283,10 +283,10 @@ sqlpool_add_connection(struct sqlpool_db *db, struct sqlpool_host *host,
 	e_debug(db->api.event, "Creating new connection");
 
 	if (db->driver->v.init_legacy_full == NULL) {
-		conndb = db->driver->v.init_legacy(host->connect_string);
+		conndb = db->driver->v.init_legacy(host->legacy_connect_string);
 	} else {
 		struct sql_legacy_settings set = {
-			.connect_string = host->connect_string,
+			.connect_string = host->legacy_connect_string,
 			.event_parent = event_get_parent(db->api.event),
 		};
 		ret = db->driver->v.init_legacy_full(&set, &conndb, &error);
@@ -493,14 +493,14 @@ driver_sqlpool_parse_hosts(struct sqlpool_db *db, const char *connect_string,
 	if (array_count(&hostnames) == 0) {
 		/* no hosts specified. create a default one. */
 		host = array_append_space(&db->hosts);
-		host->connect_string = i_strdup(connect_string);
+		host->legacy_connect_string = i_strdup(connect_string);
 	} else {
 		if (*connect_string == '\0')
 			connect_string = NULL;
 
 		array_foreach_elem(&hostnames, hostname) {
 			host = array_append_space(&db->hosts);
-			host->connect_string =
+			host->legacy_connect_string =
 				i_strconcat("host=", hostname, " ",
 					    connect_string, NULL);
 		}
@@ -581,7 +581,7 @@ static void driver_sqlpool_deinit(struct sql_db *_db)
 	driver_sqlpool_abort_requests(db);
 
 	array_foreach_modifiable(&db->hosts, host)
-		i_free(host->connect_string);
+		i_free(host->legacy_connect_string);
 
 	i_assert(array_count(&db->all_connections) == 0);
 	array_free(&db->hosts);
