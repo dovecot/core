@@ -7,6 +7,7 @@
 #include "str.h"
 #include "net.h"
 #include "time-util.h"
+#include "settings.h"
 #include "settings-parser.h"
 #include "ssl-settings.h"
 #include "sql-api-private.h"
@@ -239,6 +240,7 @@ driver_mysql_parse_connect_string(pool_t pool, const char *connect_string,
 	set = p_new(pool, struct mysql_settings, 1);
 	*set = mysql_default_settings;
 	set->pool = pool;
+
 	ssl_set = p_new(pool, struct ssl_settings, 1);
 	*ssl_set = ssl_default_settings;
 	ssl_set->pool = pool;
@@ -329,39 +331,54 @@ driver_mysql_parse_connect_string(pool_t pool, const char *connect_string,
 		*error_r = "No hosts given in connect string";
 		return -1;
 	}
+
+	pool_ref(set->pool);
+	pool_ref(ssl_set->pool);
 	*set_r = set;
 	*ssl_set_r = ssl_set;
 	return 0;
 }
 
-static int driver_mysql_init_full_v(const struct sql_legacy_settings *set,
-				    struct sql_db **db_r, const char **error_r)
+static struct sql_db *
+driver_mysql_init_common(pool_t pool, struct event *event_parent,
+			 const struct mysql_settings *set,
+			 const struct ssl_settings *ssl_set)
 {
 	struct mysql_db *db;
-	const char *error = NULL;
-	pool_t pool;
-	int ret;
 
-	pool = pool_alloconly_create("mysql driver", 1024);
 	db = p_new(pool, struct mysql_db, 1);
 	db->pool = pool;
 	db->api = driver_mysql_db;
-	db->api.event = event_create(set->event_parent);
+	db->api.event = event_create(event_parent);
+	db->set = set;
+	db->ssl_set = ssl_set;
 	event_add_category(db->api.event, &event_category_mysql);
-	event_set_append_log_prefix(db->api.event, "mysql: ");
-	T_BEGIN {
-		ret = driver_mysql_parse_connect_string(pool,
-			set->connect_string, &db->set, &db->ssl_set, error_r);
-		error = p_strdup(db->pool, error);
-	} T_END;
-
-	if (ret < 0) {
-		*error_r = t_strdup(error);
-		pool_unref(&db->pool);
-		return ret;
+	if (set->host[0] != '\0') {
+		event_set_append_log_prefix(db->api.event, t_strdup_printf(
+			"mysql(%s): ", set->host));
+	} else {
+		event_set_append_log_prefix(db->api.event, "mysql: ");
 	}
 
-	*db_r = &db->api;
+	db->mysql = p_new(db->pool, MYSQL, 1);
+	if (mysql_init(db->mysql) == NULL)
+		i_fatal_status(FATAL_OUTOFMEM, "mysql_init() failed");
+	return &db->api;
+}
+
+static int driver_mysql_init_full_v(const struct sql_legacy_settings *legacy_set,
+				    struct sql_db **db_r, const char **error_r)
+{
+	const struct mysql_settings *set;
+	const struct ssl_settings *ssl_set;
+	pool_t pool = pool_alloconly_create("mysql driver", 1024);
+	if (driver_mysql_parse_connect_string(pool, legacy_set->connect_string,
+					      &set, &ssl_set, error_r) < 0) {
+		pool_unref(&pool);
+		return -1;
+	}
+	*db_r = driver_mysql_init_common(pool, legacy_set->event_parent,
+					 set, ssl_set);
 	return 0;
 }
 
@@ -375,6 +392,8 @@ static void driver_mysql_deinit_v(struct sql_db *_db)
 	driver_mysql_disconnect(_db);
 
 	sql_connection_log_finished(_db);
+	settings_free(db->set);
+	settings_free(db->ssl_set);
 	event_unref(&_db->event);
 	array_free(&_db->module_contexts);
 	pool_unref(&db->pool);
