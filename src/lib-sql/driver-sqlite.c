@@ -9,6 +9,7 @@
 #include "sql-api-private.h"
 #include "strfuncs.h"
 #include "str-parse.h"
+#include "settings.h"
 
 #ifdef BUILD_SQLITE
 #include <sqlite3.h>
@@ -20,7 +21,6 @@ static const int sqlite_busy_timeout = 1000;
 struct sqlite_db {
 	struct sql_db api;
 
-	pool_t pool;
 	sqlite3 *sqlite;
 	const struct sqlite_settings *set;
 	bool connected:1;
@@ -126,13 +126,30 @@ static int driver_sqlite_connect(struct sql_db *_db)
 	return -1;
 }
 
-static int driver_sqlite_parse_connect_string(struct sqlite_db *db,
-					      const char *connect_string,
-					      const char **error_r)
+static struct sql_db *
+driver_sqlite_init_common(struct event *event,
+			  const struct sqlite_settings *set)
+{
+	struct sqlite_db *db;
+
+	db = i_new(struct sqlite_db, 1);
+	db->api = driver_sqlite_db;
+	db->set = set;
+	db->connected = FALSE;
+	db->api.event = event_create(event);
+	event_add_category(db->api.event, &event_category_sqlite);
+	event_set_append_log_prefix(db->api.event, "sqlite: ");
+	return &db->api;
+}
+
+static int
+driver_sqlite_parse_connect_string(pool_t pool,
+				   const char *connect_string,
+				   const struct sqlite_settings **set_r,
+				   const char **error_r)
 {
 	const char *const *params = t_strsplit_spaces(connect_string, " ");
 	const char *arg, *file = NULL;
-	pool_t pool = db->pool;
 
 	if (str_array_length(params) < 1) {
 		*error_r = "Empty connect_string";
@@ -171,30 +188,24 @@ static int driver_sqlite_parse_connect_string(struct sqlite_db *db,
 	}
 
 	set->path = p_strdup(pool, file);
-	db->set = set;
+	*set_r = set;
 	return 0;
 }
 
-static int driver_sqlite_init_full_v(const struct sql_legacy_settings *set,
-				     struct sql_db **db_r, const char **error_r)
+static int
+driver_sqlite_init_full_v(const struct sql_legacy_settings *legacy_set,
+			  struct sql_db **db_r, const char **error_r)
 {
-	struct sqlite_db *db;
-	pool_t pool;
+	const struct sqlite_settings *set;
+	pool_t pool = pool_alloconly_create("sqlite_settings", 128);
 
-	pool = pool_alloconly_create("sqlite driver", 512);
-	db = p_new(pool, struct sqlite_db, 1);
-	db->pool = pool;
-	db->api = driver_sqlite_db;
-	if (driver_sqlite_parse_connect_string(db, set->connect_string, error_r) < 0) {
-		pool_unref(&db->pool);
+	if (driver_sqlite_parse_connect_string(pool, legacy_set->connect_string,
+					       &set, error_r) < 0) {
+		pool_unref(&pool);
 		return -1;
 	}
-	db->connected = FALSE;
-	db->api.event = event_create(set->event_parent);
-	event_add_category(db->api.event, &event_category_sqlite);
-	event_set_append_log_prefix(db->api.event, "sqlite: ");
 
-	*db_r = &db->api;
+	*db_r = driver_sqlite_init_common(legacy_set->event_parent, set);
 	return 0;
 }
 
@@ -206,9 +217,10 @@ static void driver_sqlite_deinit_v(struct sql_db *_db)
 	sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
 
 	driver_sqlite_disconnect(_db);
+	settings_free(db->set);
 	event_unref(&_db->event);
 	array_free(&_db->module_contexts);
-	pool_unref(&db->pool);
+	i_free(db);
 }
 
 static const char *
