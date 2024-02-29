@@ -4,13 +4,21 @@
 #include "istream-private.h"
 #include "istream-dot.h"
 
+enum dot_state {
+	DOT_STATE_SEEN_NONE	    = 0,
+	DOT_STATE_SEEN_CR	    = 1,
+	DOT_STATE_SEEN_CR_LF	    = 2,
+	DOT_STATE_SEEN_CR_LF_DOT    = 3,
+	DOT_STATE_SEEN_CR_LF_DOT_CR = 4,
+};
+
 struct dot_istream {
 	struct istream_private istream;
 
 	char pending[3]; /* max. \r\n */
 
 	/* how far in string "\r\n.\r" are we */
-	unsigned int state;
+	enum dot_state state;
 	/* state didn't actually start with \r */
 	bool state_no_cr:1;
 	/* state didn't contain \n either (only at the beginnign of stream) */
@@ -74,15 +82,15 @@ static bool flush_dot_state(struct dot_istream *dstream, size_t *destp)
 		dstream->pending[i++] = '\r';
 	if (dstream->state_no_lf)
 		dstream->state_no_lf = FALSE;
-	else if (dstream->state > 1)
+	else if (dstream->state > DOT_STATE_SEEN_CR)
 		dstream->pending[i++] = '\n';
 	dstream->pending[i] = '\0';
 
-	if (dstream->state != 4)
-		dstream->state = 0;
+	if (dstream->state != DOT_STATE_SEEN_CR_LF_DOT_CR)
+		dstream->state = DOT_STATE_SEEN_NONE;
 	else {
 		/* \r\n.\r seen, go back to \r state */
-		dstream->state = 1;
+		dstream->state = DOT_STATE_SEEN_CR;
 	}
 	return flush_pending(dstream, destp);
 }
@@ -90,7 +98,7 @@ static bool flush_dot_state(struct dot_istream *dstream, size_t *destp)
 static void i_stream_dot_eof(struct dot_istream *dstream, size_t *destp)
 {
 	if (dstream->send_last_lf) {
-		dstream->state = 2;
+		dstream->state = DOT_STATE_SEEN_CR_LF;
 		(void)flush_dot_state(dstream, destp);
 	}
 	dstream->dot_eof = TRUE;
@@ -137,7 +145,7 @@ static ssize_t i_stream_dot_read(struct istream_private *stream)
 		if (ret1 != 0)
 			return ret1;
 		dest = stream->pos;
-		if (ret == -1 && dstream->state != 0)
+		if (ret == -1 && dstream->state != DOT_STATE_SEEN_NONE)
 			(void)flush_dot_state(dstream, &dest);
 		return i_stream_dot_return(stream, dest, ret);
 	}
@@ -146,30 +154,30 @@ static ssize_t i_stream_dot_read(struct istream_private *stream)
 	data = i_stream_get_data(stream->parent, &size);
 	for (i = 0; i < size && dest < stream->buffer_size; i++) {
 		switch (dstream->state) {
-		case 0:
+		case DOT_STATE_SEEN_NONE:
 			break;
-		case 1:
+		case DOT_STATE_SEEN_CR:
 			/* CR seen */
 			if (data[i] == '\n')
-				dstream->state++;
+				dstream->state = DOT_STATE_SEEN_CR_LF;
 			else {
 				if (!flush_dot_state(dstream, &dest))
 					goto end;
 			}
 			break;
-		case 2:
+		case DOT_STATE_SEEN_CR_LF:
 			/* [CR]LF seen */
 			if (data[i] == '.')
-				dstream->state++;
+				dstream->state = DOT_STATE_SEEN_CR_LF_DOT;
 			else {
 				if (!flush_dot_state(dstream, &dest))
 					goto end;
 			}
 			break;
-		case 3:
+		case DOT_STATE_SEEN_CR_LF_DOT:
 			/* [CR]LF. seen */
 			if (data[i] == '\r')
-				dstream->state++;
+				dstream->state = DOT_STATE_SEEN_CR_LF_DOT_CR;
 			else if (data[i] == '\n') {
 				/* EOF */
 				i_stream_dot_eof(dstream, &dest);
@@ -181,7 +189,7 @@ static ssize_t i_stream_dot_read(struct istream_private *stream)
 					goto end;
 			}
 			break;
-		case 4:
+		case DOT_STATE_SEEN_CR_LF_DOT_CR:
 			/* [CR]LF.CR seen */
 			if (data[i] == '\n') {
 				/* EOF */
@@ -194,12 +202,12 @@ static ssize_t i_stream_dot_read(struct istream_private *stream)
 					goto end;
 			}
 		}
-		if (dstream->state == 0) {
+		if (dstream->state == DOT_STATE_SEEN_NONE) {
 			if (data[i] == '\r') {
-				dstream->state = 1;
+				dstream->state = DOT_STATE_SEEN_CR;
 				dstream->state_no_cr = FALSE;
 			} else if (data[i] == '\n') {
-				dstream->state = 2;
+				dstream->state = DOT_STATE_SEEN_CR_LF;
 				dstream->state_no_cr = TRUE;
 			} else {
 				stream->w_buffer[dest++] = data[i];
@@ -228,7 +236,7 @@ struct istream *i_stream_create_dot(struct istream *input, bool send_last_lf)
 	dstream->istream.istream.blocking = input->blocking;
 	dstream->istream.istream.seekable = FALSE;
 	dstream->send_last_lf = send_last_lf;
-	dstream->state = 2;
+	dstream->state = DOT_STATE_SEEN_CR_LF;
 	dstream->state_no_cr = TRUE;
 	dstream->state_no_lf = TRUE;
 	return i_stream_create(&dstream->istream, input,
