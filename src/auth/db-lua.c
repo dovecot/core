@@ -17,6 +17,7 @@
 #include "passdb-template.h"
 #include "password-scheme.h"
 #include "auth-request-var-expand.h"
+#include "settings.h"
 
 #define AUTH_LUA_PASSDB_INIT "auth_passdb_init"
 #define AUTH_LUA_PASSDB_LOOKUP "auth_passdb_lookup"
@@ -35,6 +36,41 @@ struct auth_lua_userdb_iterate_context {
 	pool_t pool;
 	unsigned int idx;
 	ARRAY_TYPE(const_string) users;
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct auth_lua_settings)
+
+static const struct setting_define auth_lua_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "passdb_lua", },
+	{ .type = SET_FILTER_NAME, .key = "userdb_lua", },
+	DEF(STRLIST, auth_lua_config),
+	DEF(STR, auth_lua_file),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct auth_lua_settings auth_lua_default_settings = {
+	.auth_lua_file = "",
+	.auth_lua_config = ARRAY_INIT,
+};
+
+static const struct setting_keyvalue auth_lua_default_settings_keyvalue[] = {
+	{ "passdb_lua/passdb_use_worker", "yes"},
+	{ "userdb_lua/userdb_use_worker", "yes"},
+	{ NULL, NULL }
+};
+
+const struct setting_parser_info auth_lua_setting_parser_info = {
+	.name = "auth_lua",
+
+	.defines = auth_lua_setting_defines,
+	.defaults = &auth_lua_default_settings,
+	.default_settings = auth_lua_default_settings_keyvalue,
+
+	.struct_size = sizeof(struct auth_lua_settings),
+	.pool_offset1 = 1 + offsetof(struct auth_lua_settings, pool),
 };
 
 static struct auth_request *
