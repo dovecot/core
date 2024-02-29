@@ -315,6 +315,7 @@ int imapc_storage_client_create(struct mailbox_list *list,
 	const struct imapc_settings *imapc_set;
 	struct imapc_storage_client *client;
 	struct imapc_client_settings set;
+	struct imapc_parameters params = {};
 	string_t *str;
 
 	if (settings_get(list->event, &imapc_setting_parser_info, 0,
@@ -358,17 +359,17 @@ int imapc_storage_client_create(struct mailbox_list *list,
 	set.connect_retry_interval_msecs = imapc_set->imapc_connection_retry_interval;
 	set.max_idle_time = imapc_set->imapc_max_idle_time;
 	set.max_line_length = imapc_set->imapc_max_line_length;
-	set.dns_client_socket_path = *ns->user->set->base_dir == '\0' ? "" :
+	params.override_dns_client_socket_path = *ns->user->set->base_dir == '\0' ? "" :
 		t_strconcat(ns->user->set->base_dir, "/",
 			    DNS_CLIENT_SOCKET_NAME, NULL);
-	set.rawlog_dir = mail_user_home_expand(ns->user,
-					       imapc_set->imapc_rawlog_dir);
+	params.override_rawlog_dir = mail_user_home_expand(ns->user,
+			imapc_set->imapc_rawlog_dir);
 	if ((imapc_set->parsed_features & IMAPC_FEATURE_SEND_ID) != 0)
-		set.session_id_prefix = ns->user->session_id;
+		params.session_id_prefix = ns->user->session_id;
 
 	str = t_str_new(128);
 	mail_user_set_get_temp_prefix(str, ns->user->set);
-	set.temp_path_prefix = str_c(str);
+	params.temp_path_prefix = str_c(str);
 
 	if (!imapc_set->imapc_ssl_verify)
 		set.ssl_allow_invalid_cert = TRUE;
@@ -388,7 +389,7 @@ int imapc_storage_client_create(struct mailbox_list *list,
 	client->refcount = 1;
 	client->set = imapc_set;
 	i_array_init(&client->untagged_callbacks, 16);
-	client->client = imapc_client_init(&set, list->event);
+	client->client = imapc_client_init(&set, &params, list->event);
 	imapc_client_register_untagged(client->client,
 				       imapc_storage_client_untagged_cb, client);
 
@@ -397,7 +398,7 @@ int imapc_storage_client_create(struct mailbox_list *list,
 	if ((ns->flags & NAMESPACE_FLAG_LIST_PREFIX) != 0 &&
 	    (imapc_set->parsed_features & IMAPC_FEATURE_NO_DELAY_LOGIN) != 0) {
 		/* start logging in immediately */
-		imapc_storage_client_login(client, ns->user, set.host);
+		imapc_storage_client_login(client, ns->user, imapc_set->imapc_host);
 	}
 
 	*client_r = client;

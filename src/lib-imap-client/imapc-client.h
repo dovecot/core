@@ -198,6 +198,7 @@ typedef void imapc_state_change_callback_t(void *context,
 
 struct imapc_client *
 imapc_client_init(const struct imapc_client_settings *set,
+		  const struct imapc_parameters *params,
 		  struct event *event_parent);
 void imapc_client_disconnect(struct imapc_client *client);
 void imapc_client_deinit(struct imapc_client **client);
