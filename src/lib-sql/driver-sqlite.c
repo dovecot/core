@@ -21,11 +21,9 @@ struct sqlite_db {
 	struct sql_db api;
 
 	pool_t pool;
-	const char *dbfile;
 	sqlite3 *sqlite;
+	const struct sqlite_settings *set;
 	bool connected:1;
-	bool use_wal:1;
-	bool use_ro:1;
 	int rc;
 };
 
@@ -40,6 +38,23 @@ struct sqlite_transaction_context {
 	struct sql_transaction_context ctx;
 	int rc;
 	char *error;
+};
+
+struct sqlite_settings {
+	pool_t pool;
+
+	const char *path;
+	const char *journal_mode;
+	bool readonly;
+
+	/* generated: */
+	bool parsed_journal_use_wal;
+};
+
+static const struct sqlite_settings sqlite_default_settings = {
+	.path = "",
+	.journal_mode = "delete:wal",
+	.readonly = FALSE,
 };
 
 extern const struct sql_db driver_sqlite_db;
@@ -70,15 +85,15 @@ static int driver_sqlite_connect(struct sql_db *_db)
 
 	if (db->connected)
 		return 1;
-	if (db->use_ro)
+	if (db->set->readonly)
 		flags = SQLITE_OPEN_READONLY;
 	else
 		flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
 
-	if (db->use_wal)
+	if (db->set->parsed_journal_use_wal)
 		flags |= SQLITE_OPEN_WAL;
 
-	db->rc = sqlite3_open_v2(db->dbfile, &db->sqlite, flags, NULL);
+	db->rc = sqlite3_open_v2(db->set->path, &db->sqlite, flags, NULL);
 
 	switch (db->rc) {
 	case SQLITE_OK:
@@ -88,20 +103,20 @@ static int driver_sqlite_connect(struct sql_db *_db)
 	case SQLITE_READONLY:
 	case SQLITE_CANTOPEN:
 	case SQLITE_PERM:
-		if (stat(db->dbfile, &st) == -1 && errno == ENOENT)
-			err = eacces_error_get_creating("creat", db->dbfile);
+		if (stat(db->set->path, &st) == -1 && errno == ENOENT)
+			err = eacces_error_get_creating("creat", db->set->path);
 		else
-			err = eacces_error_get("open", db->dbfile);
+			err = eacces_error_get("open", db->set->path);
 		i_free(_db->last_connect_error);
 		_db->last_connect_error = i_strdup(err);
 		e_error(_db->event, "%s", err);
 		break;
 	case SQLITE_NOMEM:
 		i_fatal_status(FATAL_OUTOFMEM, "open(%s) failed: %s",
-			       db->dbfile, sqlite3_errmsg(db->sqlite));
+			       db->set->path, sqlite3_errmsg(db->sqlite));
 	default:
 		i_free(_db->last_connect_error);
-		_db->last_connect_error = i_strdup_printf("open(%s) failed: %s", db->dbfile,
+		_db->last_connect_error = i_strdup_printf("open(%s) failed: %s", db->set->path,
 							  sqlite3_errmsg(db->sqlite));
 		e_error(_db->event, "%s", _db->last_connect_error);
 		break;
@@ -117,30 +132,33 @@ static int driver_sqlite_parse_connect_string(struct sqlite_db *db,
 {
 	const char *const *params = t_strsplit_spaces(connect_string, " ");
 	const char *arg, *file = NULL;
-	bool val;
+	pool_t pool = db->pool;
 
 	if (str_array_length(params) < 1) {
 		*error_r = "Empty connect_string";
 		return -1;
 	}
 
+	struct sqlite_settings *set = p_new(pool, struct sqlite_settings, 1);
+	*set = sqlite_default_settings;
+	set->pool = pool;
+
 	for (; *params != NULL; params++) {
 		if (str_begins(*params, "journal_mode=", &arg)) {
 			if (strcmp(arg, "delete") == 0)
-				db->use_wal = FALSE;
+				set->parsed_journal_use_wal = FALSE;
 			else if (strcmp(arg, "wal") == 0)
-				db->use_wal = TRUE;
+				set->parsed_journal_use_wal = TRUE;
 			else {
 				*error_r = t_strdup_printf("journal_mode: Unsupported mode '%s', "
 							   "use either 'delete' or 'wal'", arg);
 				return -1;
 			}
 		} else if (str_begins(*params, "readonly=", &arg)) {
-			 if (str_parse_get_bool(arg, &val, error_r) < 0) {
+			 if (str_parse_get_bool(arg, &set->readonly, error_r) < 0) {
 				*error_r = t_strdup_printf("readonly: %s", *error_r);
 				return -1;
-			}
-			db->use_ro = val;
+			 }
 		} else if (strchr(*params, '=') != NULL) {
 			*error_r = t_strdup_printf("Unsupported parameter '%s'", *params);
 			return -1;
@@ -152,7 +170,8 @@ static int driver_sqlite_parse_connect_string(struct sqlite_db *db,
 		}
 	}
 
-	db->dbfile = p_strdup(db->pool, file);
+	set->path = p_strdup(pool, file);
+	db->set = set;
 	return 0;
 }
 
@@ -245,7 +264,7 @@ driver_sqlite_result_log(const struct sql_result *result, const char *query)
 		i_fatal_status(FATAL_OUTOFMEM, SQL_QUERY_FINISHED_FMT"%s", query,
 			       duration, suffix);
 	} else if (db->rc == SQLITE_READONLY || db->rc == SQLITE_CANTOPEN) {
-		const char *eacces_err = eacces_error_get("write", db->dbfile);
+		const char *eacces_err = eacces_error_get("write", db->set->path);
 		suffix = t_strconcat(": ", eacces_err, NULL);
 		e->add_str("error", eacces_err);
 		e->add_int("error_code", db->rc);
@@ -481,15 +500,15 @@ static const char *driver_sqlite_result_get_error(struct sql_result *_result)
 		const char *err = sqlite3_errmsg(db->sqlite);
 		if (db->rc == SQLITE_READONLY || db->rc == SQLITE_CANTOPEN)
 			err = t_strconcat(err, ": ",
-					  eacces_error_get("write", db->dbfile), NULL);
+					  eacces_error_get("write", db->set->path), NULL);
 		return err;
 	} else if (db->rc == SQLITE_CANTOPEN) {
 		struct stat st;
 		const char *err;
-		if (stat(db->dbfile, &st) == -1 && errno == ENOENT) {
-			err = eacces_error_get_creating("creat", db->dbfile);
+		if (stat(db->set->path, &st) == -1 && errno == ENOENT) {
+			err = eacces_error_get_creating("creat", db->set->path);
 		} else {
-			err = eacces_error_get("open", db->dbfile);
+			err = eacces_error_get("open", db->set->path);
 		}
 		return t_strconcat("Cannot connect to database: ", err, NULL);
 	} else {
