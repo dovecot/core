@@ -8,6 +8,14 @@
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct imapc_settings)
 
+#undef DEF_MSECS
+#define DEF_MSECS(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name##_msecs, struct imapc_settings)
+
+#undef DEF_SECS
+#define DEF_SECS(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name##_secs, struct imapc_settings)
+
 static bool imapc_settings_check(void *_set, pool_t pool, const char **error_r);
 
 static const struct setting_define imapc_setting_defines[] = {
@@ -26,11 +34,11 @@ static const struct setting_define imapc_setting_defines[] = {
 	DEF(BOOLLIST, imapc_features),
 	DEF(STR, imapc_rawlog_dir),
 	DEF(STR, imapc_list_prefix),
-	DEF(TIME, imapc_cmd_timeout),
-	DEF(TIME, imapc_max_idle_time),
-	DEF(TIME_MSECS, imapc_connection_timeout_interval),
+	DEF_SECS(TIME, imapc_cmd_timeout),
+	DEF_SECS(TIME, imapc_max_idle_time),
+	DEF_MSECS(TIME_MSECS, imapc_connection_timeout_interval),
 	DEF(UINT, imapc_connection_retry_count),
-	DEF(TIME_MSECS, imapc_connection_retry_interval),
+	DEF_MSECS(TIME_MSECS, imapc_connection_retry_interval),
 	DEF(SIZE, imapc_max_line_length),
 
 	DEF(STR, pop3_deleted_flag),
@@ -54,11 +62,11 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_features = ARRAY_INIT,
 	.imapc_rawlog_dir = "",
 	.imapc_list_prefix = "",
-	.imapc_cmd_timeout = 5*60,
-	.imapc_max_idle_time = IMAPC_DEFAULT_MAX_IDLE_TIME,
-	.imapc_connection_timeout_interval = 1000*30,
+	.imapc_cmd_timeout_secs = 5*60,
+	.imapc_max_idle_time_secs = IMAPC_DEFAULT_MAX_IDLE_TIME,
+	.imapc_connection_timeout_interval_msecs = 1000*30,
 	.imapc_connection_retry_count = 1,
-	.imapc_connection_retry_interval = 1000,
+	.imapc_connection_retry_interval_msecs = 1000,
 	.imapc_max_line_length = SET_SIZE_UNLIMITED,
 
 	.pop3_deleted_flag = "",
@@ -171,7 +179,7 @@ static bool imapc_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 {
 	struct imapc_settings *set = _set;
 
-	if (set->imapc_max_idle_time == 0) {
+	if (set->imapc_max_idle_time_secs == 0) {
 		*error_r = "imapc_max_idle_time must not be 0";
 		return FALSE;
 	}

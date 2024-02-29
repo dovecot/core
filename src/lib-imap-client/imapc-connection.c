@@ -1729,7 +1729,7 @@ static int imapc_connection_connected(struct imapc_connection *conn)
 		imapc_connection_try_reconnect(conn, t_strdup_printf(
 			"connect(%s, %u) failed: %s",
 			net_ip2addr(ip), conn->client->set->imapc_port,
-			strerror(err)), conn->client->set->imapc_connection_retry_interval, TRUE);
+			strerror(err)), conn->client->set->imapc_connection_retry_interval_msecs, TRUE);
 		return -1;
 	}
 	if (net_getsockname(conn->fd, &local_ip, &local_port) < 0)
@@ -1760,12 +1760,12 @@ static void imapc_connection_timeout(struct imapc_connection *conn)
 	case IMAPC_CONNECTION_STATE_CONNECTING:
 		errstr = t_strdup_printf("connect(%s, %u) timed out after %u seconds",
 			net_ip2addr(ip), conn->client->set->imapc_port,
-			conn->client->set->imapc_connection_timeout_interval/1000);
+			conn->client->set->imapc_connection_timeout_interval_msecs/1000);
 		connect_error = TRUE;
 		break;
 	case IMAPC_CONNECTION_STATE_AUTHENTICATING:
 		errstr = t_strdup_printf("Authentication timed out after %u seconds",
-			conn->client->set->imapc_connection_timeout_interval/1000);
+			conn->client->set->imapc_connection_timeout_interval_msecs/1000);
 		break;
 	default:
 		i_unreached();
@@ -1809,7 +1809,7 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 	unsigned int i;
 	int fd;
 
-	i_assert(conn->client->set->imapc_max_idle_time > 0);
+	i_assert(conn->client->set->imapc_max_idle_time_secs > 0);
 
 	for (i = 0; i<conn->ips_count;) {
 		conn->prev_connect_idx = (conn->prev_connect_idx+1) % conn->ips_count;
@@ -1826,7 +1826,7 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 			net_ip2addr(ip), conn->client->set->imapc_port);
 		if (conn->prev_connect_idx+1 == conn->ips_count) {
 			imapc_connection_try_reconnect(conn, error,
-				conn->client->set->imapc_connection_retry_interval, TRUE);
+				conn->client->set->imapc_connection_retry_interval_msecs, TRUE);
 			return;
 		}
 		e_error(conn->event, "%s", error);
@@ -1851,9 +1851,9 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 				    conn);
 	conn->parser = imap_parser_create(conn->input, NULL,
 					  conn->client->set->imapc_max_line_length);
-	conn->to = timeout_add(conn->client->set->imapc_connection_timeout_interval,
+	conn->to = timeout_add(conn->client->set->imapc_connection_timeout_interval_msecs,
 			       imapc_connection_timeout, conn);
-	conn->to_output = timeout_add(conn->client->set->imapc_max_idle_time*1000,
+	conn->to_output = timeout_add(conn->client->set->imapc_max_idle_time_secs*1000,
 				      imapc_connection_reset_idle, conn);
 	e_debug(conn->event, "Connecting to %s:%u", net_ip2addr(ip),
 		conn->client->set->imapc_port);
@@ -1915,7 +1915,7 @@ void imapc_connection_connect(struct imapc_connection *conn)
 
 	i_zero(&dns_set);
 	dns_set.dns_client_socket_path = conn->client->dns_client_socket_path;
-	dns_set.timeout_msecs = conn->client->set->imapc_connection_timeout_interval;
+	dns_set.timeout_msecs = conn->client->set->imapc_connection_timeout_interval_msecs;
 	dns_set.event_parent = conn->event;
 
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_CONNECTING);
@@ -2268,7 +2268,7 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 		conn->to = timeout_add(IMAPC_LOGOUT_TIMEOUT_MSECS,
 				       imapc_command_timeout, conn);
 	} else if (conn->to == NULL) {
-		conn->to = timeout_add(conn->client->set->imapc_cmd_timeout * 1000,
+		conn->to = timeout_add(conn->client->set->imapc_cmd_timeout_secs * 1000,
 				       imapc_command_timeout, conn);
 	}
 
@@ -2329,7 +2329,7 @@ static void imapc_connection_send_idle_done(struct imapc_connection *conn)
 		o_stream_nsend_str(conn->output, "DONE\r\n");
 		if (conn->to == NULL) {
 			conn->to = timeout_add(
-				conn->client->set->imapc_cmd_timeout * 1000,
+				conn->client->set->imapc_cmd_timeout_secs * 1000,
 				imapc_command_timeout, conn);
 		}
 	}

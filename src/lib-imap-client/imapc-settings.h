@@ -49,11 +49,11 @@ struct imapc_settings {
 	ARRAY_TYPE(const_string) imapc_features;
 	const char *imapc_rawlog_dir;
 	const char *imapc_list_prefix;
-	unsigned int imapc_cmd_timeout;
-	unsigned int imapc_max_idle_time;
-	unsigned int imapc_connection_timeout_interval;
+	unsigned int imapc_cmd_timeout_secs;
+	unsigned int imapc_max_idle_time_secs;
+	unsigned int imapc_connection_timeout_interval_msecs;
 	unsigned int imapc_connection_retry_count;
-	unsigned int imapc_connection_retry_interval;
+	unsigned int imapc_connection_retry_interval_msecs;
 	uoff_t imapc_max_line_length;
 
 	const char *pop3_deleted_flag;
