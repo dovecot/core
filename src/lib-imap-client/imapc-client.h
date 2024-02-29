@@ -59,54 +59,6 @@ enum imapc_command_flags {
 	IMAPC_COMMAND_FLAG_RECONNECTED	= 0x10
 };
 
-struct imapc_throttling_settings {
-	unsigned int init_msecs;
-	unsigned int max_msecs;
-	unsigned int shrink_min_msecs;
-};
-
-struct imapc_client_settings {
-	const char *host;
-	in_port_t port;
-
-	const char *master_user;
-	const char *username;
-	const char *password;
-	/* Space-separated list of SASL mechanisms to try (in the specified
-	   order). The default is to use only LOGIN command or SASL PLAIN. */
-	const char *sasl_mechanisms;
-	bool use_proxyauth; /* Use Sun/Oracle PROXYAUTH command */
-	bool no_qresync; /* Don't use QRESYNC extension */
-	unsigned int max_idle_time;
-	/* If ID capability is advertised, send a unique "x-session-ext-id",
-	   which begins with this prefix. */
-	const char *session_id_prefix;
-
-	const char *dns_client_socket_path;
-	const char *temp_path_prefix;
-
-	bool ssl_allow_invalid_cert;
-
-	const char *rawlog_dir;
-
-	/* Timeout for logging in. 0 = default. */
-	unsigned int connect_timeout_msecs;
-	/* Number of retries, -1 = infinity */
-	unsigned int connect_retry_count;
-	/* Interval between retries, must be > 0 if retries > 0 */
-	unsigned int connect_retry_interval_msecs;
-
-	/* Timeout for IMAP commands. Reset every time more data is being
-	   sent or received. 0 = default. */
-	unsigned int cmd_timeout_msecs;
-
-	/* Maximum allowed line length (not including literals read as
-	   streams). 0 = unlimited. */
-	size_t max_line_length;
-
-	struct imapc_throttling_settings throttle_set;
-};
-
 struct imapc_command_reply {
 	enum imapc_command_state state;
 	/* "[RESP TEXT]" produces key=RESP, value=TEXT.
