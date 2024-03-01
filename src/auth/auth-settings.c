@@ -298,6 +298,33 @@ const struct setting_parser_info auth_userdb_post_setting_parser_info = {
 	.pool_offset1 = 1 + offsetof(struct auth_userdb_post_settings, pool),
 };
 
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct auth_static_settings)
+
+static const struct setting_define auth_static_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "passdb_static", },
+	{ .type = SET_FILTER_NAME, .key = "userdb_static", },
+	DEF(STR, passdb_static_password),
+	DEF(BOOL, userdb_static_allow_all_users),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct auth_static_settings auth_static_default_settings = {
+	.passdb_static_password = "",
+	.userdb_static_allow_all_users = FALSE,
+};
+
+const struct setting_parser_info auth_static_setting_parser_info = {
+	.name = "auth_static",
+
+	.defines = auth_static_setting_defines,
+	.defaults = &auth_static_default_settings,
+
+	.struct_size = sizeof(struct auth_static_settings),
+	.pool_offset1 = 1 + offsetof(struct auth_static_settings, pool),
+};
 
 /* we're kind of kludging here to avoid "auth_" prefix in the struct fields */
 #undef DEF
