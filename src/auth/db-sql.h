@@ -24,10 +24,6 @@ struct db_sql_connection {
 	struct db_sql_settings set;
 	struct sql_db *db;
 
-	bool default_password_query:1;
-	bool default_user_query:1;
-	bool default_update_query:1;
-	bool default_iterate_query:1;
 	bool userdb_used:1;
 };
 

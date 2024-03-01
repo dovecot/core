@@ -64,17 +64,8 @@ static void sql_query_callback(struct sql_result *sql_result,
 	if (ret >= 0)
 		db_sql_success(module->conn);
 	if (ret < 0) {
-		if (!module->conn->default_user_query) {
-			e_error(authdb_event(auth_request),
-				"User query failed: %s",
-				sql_result_get_error(sql_result));
-		} else {
-			e_error(authdb_event(auth_request),
-				"User query failed: %s "
-				"(using built-in default user_query: %s)",
-				sql_result_get_error(sql_result),
-				module->conn->set.user_query);
-		}
+		e_error(authdb_event(auth_request), "User query failed: %s",
+			sql_result_get_error(sql_result));
 	} else if (ret == 0) {
 		result = USERDB_RESULT_USER_UNKNOWN;
 		auth_request_db_log_unknown_user(auth_request);
@@ -231,17 +222,9 @@ static void userdb_sql_iterate_next(struct userdb_iterate_context *_ctx)
 		}
 		_ctx->failed = TRUE;
 	} else if (ret < 0) {
-		if (!module->conn->default_iterate_query) {
-			e_error(authdb_event(_ctx->auth_request),
-				"sql: Iterate query failed: %s",
-				sql_result_get_error(ctx->result));
-		} else {
-			e_error(authdb_event(_ctx->auth_request),
-				"sql: Iterate query failed: %s "
-				"(using built-in default iterate_query: %s)",
-				sql_result_get_error(ctx->result),
-				module->conn->set.iterate_query);
-		}
+		e_error(authdb_event(_ctx->auth_request),
+			"sql: Iterate query failed: %s",
+			sql_result_get_error(ctx->result));
 		_ctx->failed = TRUE;
 	}
 	_ctx->callback(NULL, _ctx->context);
