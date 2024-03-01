@@ -1013,7 +1013,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	const struct dsasl_client_mech *sasl_mech = NULL;
 	const char *error;
 
-	if (set->imapc_master_user == NULL) {
+	if (*set->imapc_master_user == '\0') {
 		e_debug(conn->event, "Authenticating as %s", set->imapc_user);
 	} else {
 		e_debug(conn->event, "Authenticating as %s for user %s",
@@ -1033,7 +1033,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	}
 
 	if ((set->parsed_features & IMAPC_FEATURE_PROXYAUTH) != 0 &&
-	    set->imapc_master_user != NULL) {
+	    *set->imapc_master_user != '\0') {
 		/* We can use LOGIN command */
 		cmd = imapc_connection_cmd(conn, imapc_connection_proxyauth_login_cb,
 					   conn);
@@ -1043,7 +1043,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		return;
 	}
 	if (sasl_mech == NULL &&
-	    ((set->imapc_master_user == NULL &&
+	    ((*set->imapc_master_user == '\0' &&
 	      !need_literal(set->imapc_user) && !need_literal(set->imapc_password)) ||
 	     (conn->capabilities & IMAPC_CAPABILITY_AUTH_PLAIN) == 0)) {
 		/* We can use LOGIN command */
@@ -1056,7 +1056,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	}
 
 	i_zero(&sasl_set);
-	if (set->imapc_master_user == NULL)
+	if (*set->imapc_master_user == '\0')
 		sasl_set.authid = set->imapc_user;
 	else {
 		sasl_set.authid = set->imapc_master_user;
@@ -2271,7 +2271,7 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 		conn->to = timeout_add(IMAPC_LOGOUT_TIMEOUT_MSECS,
 				       imapc_command_timeout, conn);
 	} else if (conn->to == NULL) {
-		conn->to = timeout_add(conn->client->set->imapc_cmd_timeout,
+		conn->to = timeout_add(conn->client->set->imapc_cmd_timeout * 1000,
 				       imapc_command_timeout, conn);
 	}
 
@@ -2331,8 +2331,9 @@ static void imapc_connection_send_idle_done(struct imapc_connection *conn)
 		conn->idle_stopping = TRUE;
 		o_stream_nsend_str(conn->output, "DONE\r\n");
 		if (conn->to == NULL) {
-			conn->to = timeout_add(conn->client->set->imapc_cmd_timeout,
-					       imapc_command_timeout, conn);
+			conn->to = timeout_add(
+				conn->client->set->imapc_cmd_timeout * 1000,
+				imapc_command_timeout, conn);
 		}
 	}
 }

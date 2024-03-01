@@ -2,8 +2,15 @@
 #define IMAPC_CLIENT_PRIVATE_H
 
 #include "imapc-client.h"
+#include "imapc-settings.h"
 
 #define IMAPC_CLIENT_IDLE_SEND_DELAY_MSECS 100
+
+enum imapc_client_ssl_mode {
+	IMAPC_CLIENT_SSL_MODE_NONE,
+	IMAPC_CLIENT_SSL_MODE_IMMEDIATE,
+	IMAPC_CLIENT_SSL_MODE_STARTTLS
+};
 
 struct imapc_client_connection {
 	struct imapc_connection *conn;

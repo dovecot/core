@@ -351,7 +351,7 @@ int imapc_storage_client_create(struct mailbox_list *list,
 	client->refcount = 1;
 	client->set = imapc_set;
 	i_array_init(&client->untagged_callbacks, 16);
-	client->client = imapc_client_init(client->set, &params, list->event);
+	client->client = imapc_client_init(&params, list->event);
 	imapc_client_register_untagged(client->client,
 				       imapc_storage_client_untagged_cb, client);
 
