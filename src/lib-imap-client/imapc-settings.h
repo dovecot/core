@@ -3,6 +3,9 @@
 
 #include "net.h"
 
+/* IMAP RFC defines this to be at least 30 minutes. */
+#define IMAPC_DEFAULT_MAX_IDLE_TIME (60*29)
+
 /* <settings checks> */
 enum imapc_features {
 	IMAPC_FEATURE_NO_FETCH_SIZE		= 0x01,

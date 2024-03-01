@@ -12,6 +12,7 @@
 #include "test-common.h"
 #include "test-subprocess.h"
 #include "imapc-client-private.h"
+#include "settings.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -39,27 +40,36 @@ static enum imapc_command_state imapc_login_last_reply;
 static ARRAY(enum imapc_command_state) imapc_cmd_last_replies;
 static bool debug = FALSE;
 
+static struct settings_simple test_set;
+
 static void main_deinit(void);
 
 /*
  * Test client
  */
 
-static struct imapc_settings test_imapc_default_settings = {
-	.imapc_host = "127.0.0.1",
-	.imapc_user = "testuser",
-	.imapc_password = "testpass",
+static const char **
+test_generate_settings(const char *port, const char *connection_timeout_interval)
+{
+	static const char *settings[] = {
+		"imapc_host", "127.0.0.1",
+		"imapc_port", "",
+		"imapc_user", "testuser",
+		"imapc_password", "testpass",
+		"imapc_connection_timeout_interval", "5s",
+		"imapc_connection_retry_count", "3",
+		"imapc_connection_retry_interval", "10ms",
+		"imapc_max_idle_time", "10s",
 
-	.dns_client_socket_path = "",
-	.imapc_rawlog_dir = "",
+		NULL,
+	};
+	if (port != NULL)
+		settings[3] = port;
+	if (connection_timeout_interval != NULL)
+		settings[9] = connection_timeout_interval;
 
-	.imapc_connection_timeout_interval = 5000,
-	.imapc_connection_retry_count = 3,
-	.imapc_connection_retry_interval = 10,
-
-	.imapc_max_idle_time = 10000,
-	.imapc_ssl = "no",
-};
+	return settings;
+}
 
 static const struct imapc_parameters imapc_params = {
 	.temp_path_prefix = ".test-tmp/",
@@ -227,12 +237,16 @@ static int test_run_server(test_server_init_t *server_test)
 
 	i_close_fd(&server.fd_listen);
 	main_deinit();
+
+	/* Cleanup the test settings in the server process as well.
+	   See test_run_client_server() for the appropriate cleanup call in the
+	   main process. */
+	settings_simple_deinit(&test_set);
 	return 0;
 }
 
 static void
-test_run_client(struct imapc_settings *client_set,
-		test_client_init_t *client_test)
+test_run_client(test_client_init_t *client_test)
 {
 	struct ioloop *ioloop;
 
@@ -244,7 +258,7 @@ test_run_client(struct imapc_settings *client_set,
 	i_sleep_msecs(100); /* wait a little for server setup */
 
 	ioloop = io_loop_create();
-	imapc_client = imapc_client_init(client_set, &imapc_params, NULL);
+	imapc_client = imapc_client_init(&imapc_params, test_set.event);
 	client_test();
 	imapc_client_logout(imapc_client);
 	test_assert(array_count(&imapc_cmd_last_replies) == 0);
@@ -257,11 +271,10 @@ test_run_client(struct imapc_settings *client_set,
 }
 
 static void
-test_run_client_server(struct imapc_settings *client_set,
-		       test_client_init_t *client_test,
-		       test_server_init_t *server_test)
+test_run_client_server(test_client_init_t *client_test,
+		       test_server_init_t *server_test,
+		       bool reduce_timeout)
 {
-	struct imapc_settings client_set_copy = *client_set;
 	const char *error;
 
 	imapc_client_cmd_tag_counter = 0;
@@ -272,7 +285,10 @@ test_run_client_server(struct imapc_settings *client_set,
 	server.pid = (pid_t)-1;
 	server.fd = -1;
 	server.fd_listen = test_open_server_fd(&server.port);
-	client_set_copy.imapc_port = server.port;
+
+	const char **settings = test_generate_settings(dec2str(server.port),
+						       reduce_timeout ? "500ms" : "5s");
+	settings_simple_init(&test_set, settings);
 
 	if (mkdir(imapc_params.temp_path_prefix, 0700) < 0 && errno != EEXIST)
 		i_fatal("mkdir(%s) failed: %m", imapc_params.temp_path_prefix);
@@ -284,13 +300,20 @@ test_run_client_server(struct imapc_settings *client_set,
 	i_close_fd(&server.fd_listen);
 
 	/* Run client */
-	test_run_client(&client_set_copy, client_test);
+	test_run_client(client_test);
 
 	i_unset_failure_prefix();
 	test_subprocess_kill_all(SERVER_KILL_TIMEOUT_SECS);
 	if (unlink_directory(imapc_params.temp_path_prefix,
 			     UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0)
 		i_fatal("%s", error);
+
+	/* Cleanup the test settings in the main process.
+	   Note: This needs to be called as well in the server process,
+	   otherwise it will leak it's event and the looked up settings
+	   struct. See test_run_server() for the appropriate cleanup call in
+	   the server process. */
+	settings_simple_deinit(&test_set);
 }
 
 /*
@@ -311,10 +334,8 @@ static void test_imapc_connect_failed_client(void)
 
 static void test_imapc_connect_failed(void)
 {
-	struct imapc_settings set = test_imapc_default_settings;
-
 	test_begin("imapc connect failed");
-	test_run_client_server(&set, test_imapc_connect_failed_client, NULL);
+	test_run_client_server(test_imapc_connect_failed_client, NULL, FALSE);
 	test_end();
 }
 
@@ -345,12 +366,10 @@ static void test_imapc_banner_hangs_server(void)
 
 static void test_imapc_banner_hangs(void)
 {
-	struct imapc_settings set = test_imapc_default_settings;
-	set.imapc_connection_timeout_interval = 500;
-
 	test_begin("imapc banner hangs");
-	test_run_client_server(&set, test_imapc_banner_hangs_client,
-			       test_imapc_banner_hangs_server);
+	test_run_client_server(test_imapc_banner_hangs_client,
+			       test_imapc_banner_hangs_server,
+			       TRUE);
 	test_end();
 }
 
@@ -393,12 +412,10 @@ static void test_imapc_login_hangs_server(void)
 
 static void test_imapc_login_hangs(void)
 {
-	struct imapc_settings set = test_imapc_default_settings;
-	set.imapc_connection_timeout_interval = 500;
-
 	test_begin("imapc login hangs");
-	test_run_client_server(&set, test_imapc_login_hangs_client,
-			       test_imapc_login_hangs_server);
+	test_run_client_server(test_imapc_login_hangs_client,
+			       test_imapc_login_hangs_server,
+			       TRUE);
 	test_end();
 }
 
@@ -427,11 +444,10 @@ static void test_imapc_login_fails_server(void)
 
 static void test_imapc_login_fails(void)
 {
-	struct imapc_settings set = test_imapc_default_settings;
-
 	test_begin("imapc login fails");
-	test_run_client_server(&set, test_imapc_login_fails_client,
-			       test_imapc_login_fails_server);
+	test_run_client_server(test_imapc_login_fails_client,
+			       test_imapc_login_fails_server,
+			       FALSE);
 	test_end();
 }
 
@@ -492,11 +508,10 @@ static void test_imapc_reconnect_server(void)
 
 static void test_imapc_reconnect(void)
 {
-	struct imapc_settings set = test_imapc_default_settings;
-
 	test_begin("imapc reconnect");
-	test_run_client_server(&set, test_imapc_reconnect_client,
-			       test_imapc_reconnect_server);
+	test_run_client_server(test_imapc_reconnect_client,
+			       test_imapc_reconnect_server,
+			       FALSE);
 	test_end();
 }
 
@@ -566,11 +581,10 @@ static void test_imapc_reconnect_resend_cmds_server(void)
 
 static void test_imapc_reconnect_resend_commands(void)
 {
-	struct imapc_settings set = test_imapc_default_settings;
-
 	test_begin("imapc reconnect resend commands");
-	test_run_client_server(&set, test_imapc_reconnect_resend_cmds_client,
-			       test_imapc_reconnect_resend_cmds_server);
+	test_run_client_server(test_imapc_reconnect_resend_cmds_client,
+			       test_imapc_reconnect_resend_cmds_server,
+			       FALSE);
 	test_end();
 }
 
@@ -631,12 +645,10 @@ static void test_imapc_reconnect_resend_cmds_failed_server(void)
 
 static void test_imapc_reconnect_resend_commands_failed(void)
 {
-	struct imapc_settings set = test_imapc_default_settings;
-	set.imapc_connection_timeout_interval = 500;
-
 	test_begin("imapc reconnect resend commands failed");
-	test_run_client_server(&set, test_imapc_reconnect_resend_cmds_failed_client,
-			       test_imapc_reconnect_resend_cmds_failed_server);
+	test_run_client_server(test_imapc_reconnect_resend_cmds_failed_client,
+			       test_imapc_reconnect_resend_cmds_failed_server,
+			       TRUE);
 	test_end();
 }
 
@@ -718,11 +730,10 @@ static void test_imapc_reconnect_mailbox_server(void)
 
 static void test_imapc_reconnect_mailbox(void)
 {
-	struct imapc_settings set = test_imapc_default_settings;
-
 	test_begin("imapc reconnect mailbox");
-	test_run_client_server(&set, test_imapc_reconnect_mailbox_client,
-			       test_imapc_reconnect_mailbox_server);
+	test_run_client_server(test_imapc_reconnect_mailbox_client,
+			       test_imapc_reconnect_mailbox_server,
+			       FALSE);
 	test_end();
 }
 
@@ -755,11 +766,10 @@ static void test_imapc_client_get_capabilities_server(void)
 
 static void test_imapc_client_get_capabilities(void)
 {
-	struct imapc_settings set = test_imapc_default_settings;
-
 	test_begin("imapc_client_get_capabilities()");
-	test_run_client_server(&set, test_imapc_client_get_capabilities_client,
-			       test_imapc_client_get_capabilities_server);
+	test_run_client_server(test_imapc_client_get_capabilities_client,
+			       test_imapc_client_get_capabilities_server,
+			       FALSE);
 	test_end();
 }
 
@@ -797,13 +807,12 @@ static void test_imapc_client_get_capabilities_reconnected_server(void)
 
 static void test_imapc_client_get_capabilities_reconnected(void)
 {
-	struct imapc_settings set = test_imapc_default_settings;
-
 	test_begin("imapc_client_get_capabilities() reconnected");
 
 	test_run_client_server(
-		&set, test_imapc_client_get_capabilities_reconnected_client,
-		test_imapc_client_get_capabilities_reconnected_server);
+		test_imapc_client_get_capabilities_reconnected_client,
+		test_imapc_client_get_capabilities_reconnected_server,
+		FALSE);
 	test_end();
 }
 
@@ -829,13 +838,12 @@ static void test_imapc_client_get_capabilities_disconnected_server(void)
 
 static void test_imapc_client_get_capabilities_disconnected(void)
 {
-	struct imapc_settings set = test_imapc_default_settings;
-
 	test_begin("imapc_client_get_capabilities() disconnected");
 
 	test_run_client_server(
-		&set, test_imapc_client_get_capabilities_disconnected_client,
-		test_imapc_client_get_capabilities_disconnected_server);
+		test_imapc_client_get_capabilities_disconnected_client,
+		test_imapc_client_get_capabilities_disconnected_server,
+		FALSE);
 	test_end();
 }
 

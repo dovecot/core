@@ -5,9 +5,6 @@
 #include "iostream-ssl.h"
 #include "imapc-settings.h"
 
-/* IMAP RFC defines this to be at least 30 minutes. */
-#define IMAPC_DEFAULT_MAX_IDLE_TIME (60*29)
-
 enum imapc_command_state {
 	IMAPC_COMMAND_STATE_OK = 0,
 	IMAPC_COMMAND_STATE_NO,
@@ -62,16 +59,6 @@ enum imapc_command_flags {
 	IMAPC_COMMAND_FLAG_RECONNECTED	= 0x10
 };
 
-enum imapc_client_ssl_mode {
-	IMAPC_CLIENT_SSL_MODE_NONE,
-	IMAPC_CLIENT_SSL_MODE_IMMEDIATE,
-	IMAPC_CLIENT_SSL_MODE_STARTTLS
-};
-
-#define IMAPC_DEFAULT_CONNECT_TIMEOUT_MSECS (1000*30)
-#define IMAPC_DEFAULT_COMMAND_TIMEOUT_MSECS (1000*60*5)
-#define IMAPC_DEFAULT_MAX_LINE_LENGTH (SIZE_MAX)
-
 struct imapc_throttling_settings {
 	unsigned int init_msecs;
 	unsigned int max_msecs;
@@ -98,7 +85,6 @@ struct imapc_client_settings {
 	const char *dns_client_socket_path;
 	const char *temp_path_prefix;
 
-	enum imapc_client_ssl_mode ssl_mode;
 	bool ssl_allow_invalid_cert;
 
 	const char *rawlog_dir;
@@ -198,8 +184,7 @@ typedef void imapc_state_change_callback_t(void *context,
 					   const char *error);
 
 struct imapc_client *
-imapc_client_init(const struct imapc_settings *set,
-		  const struct imapc_parameters *params,
+imapc_client_init(const struct imapc_parameters *params,
 		  struct event *event_parent);
 void imapc_client_disconnect(struct imapc_client *client);
 void imapc_client_deinit(struct imapc_client **client);

@@ -9,6 +9,7 @@
 #include "imapc-msgmap.h"
 #include "imapc-connection.h"
 #include "imapc-client-private.h"
+#include "imapc-settings.h"
 
 #include <unistd.h>
 
@@ -48,55 +49,22 @@ default_untagged_callback(const struct imapc_untagged_reply *reply ATTR_UNUSED,
 }
 
 struct imapc_client *
-imapc_client_init(const struct imapc_settings *set,
-		  const struct imapc_parameters *params,
+imapc_client_init(const struct imapc_parameters *params,
 		  struct event *event_parent)
 {
 	struct imapc_client *client;
 	pool_t pool;
-
-	i_assert(set->imapc_connection_retry_count == 0 ||
-		 set->imapc_connection_retry_interval > 0);
 
 	pool = pool_alloconly_create("imapc client", 1024);
 	client = p_new(pool, struct imapc_client, 1);
 	client->pool = pool;
 	client->refcount = 1;
 	client->event = event_create(event_parent);
-	event_set_append_log_prefix(client->event, t_strdup_printf(
-		"imapc(%s:%u): ", set->imapc_host, set->imapc_port));
+	client->untagged_callback = default_untagged_callback;
 
-	client->set = p_new(pool, struct imapc_settings, 1);
-	client->set->imapc_host = p_strdup(pool, set->imapc_host);
-	client->set->imapc_port = set->imapc_port;
-	client->set->imapc_master_user = p_strdup_empty(pool, set->imapc_master_user);
-	client->set->imapc_user = p_strdup(pool, set->imapc_user);
-	client->set->imapc_password = p_strdup(pool, set->imapc_password);
-	client->set->imapc_sasl_mechanisms = p_strdup(pool, set->imapc_sasl_mechanisms);
-	client->set->parsed_features = set->parsed_features;
-	client->set->dns_client_socket_path =
-		p_strdup(pool, set->dns_client_socket_path);
-	client->set->imapc_rawlog_dir = p_strdup(pool, set->imapc_rawlog_dir);
-	client->set->imapc_max_idle_time = set->imapc_max_idle_time;
-	client->set->imapc_connection_timeout_interval = set->imapc_connection_timeout_interval != 0 ?
-		set->imapc_connection_timeout_interval :
-		IMAPC_DEFAULT_CONNECT_TIMEOUT_MSECS;
-	client->set->imapc_connection_retry_count = set->imapc_connection_retry_count;
-	client->set->imapc_connection_retry_interval = set->imapc_connection_retry_interval;
-	client->set->imapc_cmd_timeout = set->imapc_cmd_timeout != 0 ?
-		(set->imapc_cmd_timeout * 1000) : IMAPC_DEFAULT_COMMAND_TIMEOUT_MSECS;
-	client->set->imapc_max_line_length = set->imapc_max_line_length != 0 ?
-		set->imapc_max_line_length : IMAPC_DEFAULT_MAX_LINE_LENGTH;
-	client->set->imapc_ssl = p_strdup(pool, set->imapc_ssl);
-	client->set->imapc_ssl_verify = set->imapc_ssl_verify;
-
-	client->set->throttle_init_msecs = set->throttle_init_msecs != 0 ?
-		set->throttle_init_msecs : IMAPC_THROTTLE_DEFAULT_INIT_MSECS;
-	client->set->throttle_max_msecs = set->throttle_max_msecs != 0 ?
-		set->throttle_max_msecs : IMAPC_THROTTLE_DEFAULT_MAX_MSECS;
-	client->set->throttle_shrink_min_msecs = set->throttle_shrink_min_msecs != 0 ?
-		set->throttle_shrink_min_msecs : IMAPC_THROTTLE_DEFAULT_SHRINK_MIN_MSECS;
-
+	/* Explicitly cast to drop const modifier. */
+	client->set = (struct imapc_settings *) settings_get_or_fatal(
+		client->event, &imapc_setting_parser_info);
 	client->params.session_id_prefix =
 		p_strdup(pool, params->session_id_prefix);
 	client->params.temp_path_prefix =
@@ -111,12 +79,13 @@ imapc_client_init(const struct imapc_settings *set,
 		client->set->imapc_rawlog_dir =
 			p_strdup(pool, params->override_rawlog_dir);
 
-	client->untagged_callback = default_untagged_callback;
+	event_set_append_log_prefix(client->event, t_strdup_printf(
+		"imapc(%s:%u): ", client->set->imapc_host, client->set->imapc_port));
 
 	client->ssl_mode = IMAPC_CLIENT_SSL_MODE_NONE;
-	if (strcmp(set->imapc_ssl, "imaps") == 0) {
+	if (strcmp(client->set->imapc_ssl, "imaps") == 0) {
 		client->ssl_mode = IMAPC_CLIENT_SSL_MODE_IMMEDIATE;
-	} else if (strcmp(set->imapc_ssl, "starttls") == 0) {
+	} else if (strcmp(client->set->imapc_ssl, "starttls") == 0) {
 		client->ssl_mode = IMAPC_CLIENT_SSL_MODE_STARTTLS;
 	}
 
@@ -140,6 +109,8 @@ void imapc_client_unref(struct imapc_client **_client)
 	i_assert(client->refcount > 0);
 	if (--client->refcount > 0)
 		return;
+
+	settings_free(client->set);
 
 	event_unref(&client->event);
 	pool_unref(&client->pool);
