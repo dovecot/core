@@ -6,7 +6,15 @@
 #include "istream-dot.h"
 #include "test-common.h"
 
+enum outcome {
+	END_OF_TESTS,
+	NO_EOT,
+	STRICT_EOT,
+	LOOSE_EOT,
+};
+
 struct dot_test {
+	enum outcome expected_outcome;
 	const char *input;
 	const char *output;
 	const char *parent_input;
@@ -110,7 +118,9 @@ static void test_istream_dot_one(const struct dot_test *test,
 	i_stream_unref(&input);
 }
 
-static void test_istream_dot_error(const char *input_str, bool test_bufsize)
+static void test_istream_dot_error(const char *input_str,
+				   enum istream_dot_flags flags,
+				   bool test_bufsize)
 {
 	struct istream *test_input, *input;
 	unsigned int i;
@@ -119,8 +129,8 @@ static void test_istream_dot_error(const char *input_str, bool test_bufsize)
 	int ret;
 
 	test_input = test_istream_create(input_str);
-	input = i_stream_create_dot(test_input, ISTREAM_DOT_TRIM_TRAIL |
-						ISTREAM_DOT_LOOSE_EOT);
+	input = i_stream_create_dot(test_input, flags);
+
 	input_len = strlen(input_str);
 
 	if (!test_bufsize) {
@@ -166,66 +176,96 @@ static void test_istream_dot_error(const char *input_str, bool test_bufsize)
 	i_stream_unref(&input);
 }
 
-static void test_istream_dot(void)
-{
-	static struct dot_test tests[] = {
-		{ "..foo\n..\n.foo\n.\nfoo", ".foo\n.\nfoo\n", "foo" },
-		{ "..foo\r\n..\r\n.foo\r\n.\r\nfoo", ".foo\r\n.\r\nfoo\r\n", "foo" },
-		{ "\r.\r\n.\r\n", "\r.\r\n", "" },
-		{ "\n\r.\r\r\n.\r\n", "\n\r.\r\r\n", "" },
-		{ "\r\n.\rfoo\n.\n", "\r\n\rfoo\n", "" },
-		{ "\r\n.\r\n", "\r\n", "" },
-		{ "\n.\r\n", "\n", "" },
-		{ "\n.\n", "\n", "" },
-		{ ".\r\n", "", "" },
-		{ ".\n", "", "" }
-	};
-	static const char *error_tests[] = {
-		"",
-		".",
-		"..",
-		".\r",
-		".\rx",
-		"..\r\n",
-		"\r.",
-		"\r.\r",
-		"\r.\rx",
-		"\r.\r\n",
-		"\r.\n",
-		"\r..\n",
-		"\r\n",
-		"\r\n.",
-		"\r\n.\r",
-		"\r\n.\rx",
-		"\r\n.\rx\n",
-		"\r\n..\r\n",
-		"\n",
-		"\n.",
-		"\n.\r",
-		"\n.\rx",
-		"\n..\r\n"
-	};
-	unsigned int i;
+static const struct dot_test tests[] = {
+	{ LOOSE_EOT, "..foo\n..\n.foo\n.\nfoo", ".foo\n.\nfoo\n", "foo" },
+	{ LOOSE_EOT, "\r\n.\rfoo\n.\n", "\r\n\rfoo\n", "" },
+	{ LOOSE_EOT, "\n.\r\n", "\n", "" },
+	{ LOOSE_EOT, "\n.\n", "\n", "" },
+	{ LOOSE_EOT, ".\n", "", "" },
 
-	test_begin("dot istream");
-	for (i = 0; i < N_ELEMENTS(tests); i++) {
-		test_istream_dot_one(&tests[i], ISTREAM_DOT_NO_TRIM    | ISTREAM_DOT_LOOSE_EOT, TRUE);
-		test_istream_dot_one(&tests[i], ISTREAM_DOT_NO_TRIM    | ISTREAM_DOT_LOOSE_EOT, FALSE);
-		test_istream_dot_one(&tests[i], ISTREAM_DOT_TRIM_TRAIL | ISTREAM_DOT_LOOSE_EOT, TRUE);
-		test_istream_dot_one(&tests[i], ISTREAM_DOT_TRIM_TRAIL | ISTREAM_DOT_LOOSE_EOT, FALSE);
-	}
-	for (i = 0; i < N_ELEMENTS(error_tests); i++) {
-		test_istream_dot_error(error_tests[i], FALSE);
-		test_istream_dot_error(error_tests[i], TRUE);
+	{ STRICT_EOT, "..foo\r\n..\r\n.foo\r\n.\r\nfoo", ".foo\r\n.\r\nfoo\r\n", "foo" },
+	{ STRICT_EOT, "\r.\r\n.\r\n", "\r.\r\n", "" },
+	{ STRICT_EOT, "\n\r.\r\r\n.\r\n", "\n\r.\r\r\n", "" },
+	{ STRICT_EOT, "\r\n.\r\n", "\r\n", "" },
+	{ STRICT_EOT, ".\r\n", "", "" },
+
+	{ NO_EOT, "", NULL, NULL },
+	{ NO_EOT, ".", NULL, NULL },
+	{ NO_EOT, "..", NULL, NULL },
+	{ NO_EOT, ".\r", NULL, NULL },
+	{ NO_EOT, ".\rx", NULL, NULL },
+	{ NO_EOT, "..\r\n", NULL, NULL },
+	{ NO_EOT, "\r.", NULL, NULL },
+	{ NO_EOT, "\r.\r", NULL, NULL },
+	{ NO_EOT, "\r.\rx", NULL, NULL },
+	{ NO_EOT, "\r.\r\n", NULL, NULL },
+	{ NO_EOT, "\r.\n", NULL, NULL },
+	{ NO_EOT, "\r..\n", NULL, NULL },
+	{ NO_EOT, "\r\n", NULL, NULL },
+	{ NO_EOT, "\r\n.", NULL, NULL },
+	{ NO_EOT, "\r\n.\r", NULL, NULL },
+	{ NO_EOT, "\r\n.\rx", NULL, NULL },
+	{ NO_EOT, "\r\n.\rx\n", NULL, NULL },
+	{ NO_EOT, "\r\n..\r\n", NULL, NULL },
+	{ NO_EOT, "\n", NULL, NULL },
+	{ NO_EOT, "\n.", NULL, NULL },
+	{ NO_EOT, "\n.\r", NULL, NULL },
+	{ NO_EOT, "\n.\rx", NULL, NULL },
+	{ NO_EOT, "\n..\r\n", NULL, NULL },
+	{ NO_EOT, "..foo\r\nbar\r\nbaz", NULL, NULL },
+
+	{ END_OF_TESTS, NULL, NULL, NULL }
+};
+
+static void test_istream_dot(const char *test_name, enum istream_dot_flags flags)
+{
+
+	test_begin(test_name);
+	for (const struct dot_test *test = tests; test->expected_outcome != END_OF_TESTS; test++) {
+		bool expect_error;
+		switch (test->expected_outcome) {
+		case NO_EOT:
+			expect_error = TRUE;
+			break;
+		case STRICT_EOT:
+			expect_error = FALSE;
+			break;
+		case LOOSE_EOT:
+			expect_error = !HAS_ANY_BITS(flags, ISTREAM_DOT_LOOSE_EOT);
+			break;
+		default:
+			i_unreached();
+		}
+
+		if (expect_error) {
+			test_istream_dot_error(test->input, flags, FALSE);
+			test_istream_dot_error(test->input, flags, TRUE);
+		} else {
+			test_istream_dot_one(test, flags | ISTREAM_DOT_NO_TRIM, TRUE);
+			test_istream_dot_one(test, flags | ISTREAM_DOT_NO_TRIM, FALSE);
+			test_istream_dot_one(test, flags | ISTREAM_DOT_TRIM_TRAIL, TRUE);
+			test_istream_dot_one(test, flags | ISTREAM_DOT_TRIM_TRAIL, FALSE);
+		}
 	}
 	test_end();
+}
+
+static void test_istream_dot_accept_bare_lf(void)
+{
+	test_istream_dot("dot istream accept bare lf", ISTREAM_DOT_LOOSE_EOT);
+}
+
+static void test_istream_dot_strict(void)
+{
+	test_istream_dot("dot istream strict", ISTREAM_DOT_STRICT_EOT);
 }
 
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
-		test_istream_dot,
-		NULL
+		test_istream_dot_accept_bare_lf,
+		test_istream_dot_strict,
+		NULL,
 	};
 	return test_run(test_functions);
 }

@@ -179,7 +179,7 @@ static ssize_t i_stream_dot_read(struct istream_private *stream)
 			/* [CR]LF. seen */
 			if (data[i] == '\r')
 				dstream->state = DOT_STATE_SEEN_CR_LF_DOT_CR;
-			else if (data[i] == '\n') {
+			else if (data[i] == '\n' && dstream->accept_bare_lf) {
 				/* EOF */
 				i_stream_dot_eof(dstream, &dest);
 				i++;
@@ -207,7 +207,7 @@ static ssize_t i_stream_dot_read(struct istream_private *stream)
 			if (data[i] == '\r') {
 				dstream->state = DOT_STATE_SEEN_CR;
 				dstream->state_no_cr = FALSE;
-			} else if (data[i] == '\n') {
+			} else if (data[i] == '\n' && dstream->accept_bare_lf) {
 				dstream->state = DOT_STATE_SEEN_CR_LF;
 				dstream->state_no_cr = TRUE;
 			} else {

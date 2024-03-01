@@ -577,7 +577,7 @@ smtp_command_parse_data_with_dot(struct smtp_command_parser *parser)
 	i_assert(parser->data == NULL);
 
 	data = i_stream_create_dot(parser->input, ISTREAM_DOT_NO_TRIM |
-						  ISTREAM_DOT_LOOSE_EOT);
+						  ISTREAM_DOT_STRICT_EOT);
 	if (parser->limits.max_data_size != UOFF_T_MAX) {
 		parser->data = i_stream_create_failure_at(
 			data, parser->limits.max_data_size, EMSGSIZE,
