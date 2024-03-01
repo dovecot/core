@@ -13,7 +13,7 @@
 
 struct imap_passdb_module {
 	struct passdb_module module;
-	struct imapc_client_settings set;
+	struct imapc_settings set;
 	bool set_have_vars;
 };
 
@@ -86,7 +86,7 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 	struct imap_passdb_module *module =
 		(struct imap_passdb_module *)_module;
 	struct imap_auth_request *request;
-	struct imapc_client_settings set;
+	struct imapc_settings set;
 	struct imapc_parameters params = {};
 	const char *error;
 	string_t *str;
@@ -95,34 +95,34 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 	set.dns_client_socket_path =
 		t_strconcat(auth_request->set->base_dir, "/",
 			    DNS_CLIENT_SOCKET_NAME, NULL);
-	set.password = password;
-	set.max_idle_time = IMAPC_DEFAULT_MAX_IDLE_TIME;
+	set.imapc_password = password;
+	set.imapc_max_idle_time = IMAPC_DEFAULT_MAX_IDLE_TIME;
 
 	if (module->set_have_vars) {
 		str = t_str_new(128);
-		if (auth_request_var_expand(str, set.username, auth_request,
+		if (auth_request_var_expand(str, set.imapc_user, auth_request,
 					    NULL, &error) <= 0) {
 			e_error(authdb_event(auth_request),
 				"Failed to expand username=%s: %s",
-				set.username, error);
+				set.imapc_user, error);
 			callback(PASSDB_RESULT_INTERNAL_FAILURE, auth_request);
 			return;
 		}
-		set.username = t_strdup(str_c(str));
+		set.imapc_user = t_strdup(str_c(str));
 
 		str_truncate(str, 0);
-		if (auth_request_var_expand(str, set.host, auth_request,
+		if (auth_request_var_expand(str, set.imapc_host, auth_request,
 					    NULL, &error) <= 0) {
 			e_error(authdb_event(auth_request),
 				"Failed to expand host=%s: %s",
-				set.host, error);
+				set.imapc_host, error);
 			callback(PASSDB_RESULT_INTERNAL_FAILURE, auth_request);
 			return;
 		}
-		set.host = t_strdup(str_c(str));
+		set.imapc_host = t_strdup(str_c(str));
 	}
 	e_debug(authdb_event(auth_request),
-		"lookup host=%s port=%d", set.host, set.port);
+		"lookup host=%s port=%d", set.imapc_host, set.imapc_port);
 
 	request = p_new(auth_request->pool, struct imap_auth_request, 1);
 	request->client = imapc_client_init(&set, &params, authdb_event(auth_request));
@@ -144,10 +144,10 @@ passdb_imap_preinit(pool_t pool, const char *args)
 
 	module = p_new(pool, struct imap_passdb_module, 1);
 	module->module.default_pass_scheme = "PLAIN";
-	module->set.port = IMAP_DEFAULT_PORT;
-	module->set.ssl_mode = IMAPC_CLIENT_SSL_MODE_NONE;
-	module->set.username = "%u";
-	module->set.rawlog_dir = "";
+	module->set.imapc_port = IMAP_DEFAULT_PORT;
+	module->set.imapc_ssl = "no";
+	module->set.imapc_user = "%u";
+	module->set.imapc_rawlog_dir = "";
 
 	for (tmp = p_strsplit(pool, args, " "); *tmp != NULL; tmp++) {
 		key = *tmp;
@@ -157,24 +157,22 @@ passdb_imap_preinit(pool_t pool, const char *args)
 		else
 			key = t_strdup_until(key, value++);
 		if (strcmp(key, "host") == 0)
-			module->set.host = value;
+			module->set.imapc_host = value;
 		else if (strcmp(key, "port") == 0) {
-			if (net_str2port(value, &module->set.port) < 0)
+			if (net_str2port(value, &module->set.imapc_port) < 0)
 				i_fatal("passdb imap: Invalid port: %s", value);
 			port_set = TRUE;
 		} else if (strcmp(key, "username") == 0)
-			module->set.username = value;
+			module->set.imapc_user = value;
 		else if (strcmp(key, "rawlog_dir") == 0)
-			module->set.rawlog_dir = value;
+			module->set.imapc_rawlog_dir = value;
 		else if (strcmp(key, "ssl") == 0) {
 			if (strcmp(value, "imaps") == 0) {
 				if (!port_set)
-					module->set.port = IMAPS_DEFAULT_PORT;
-				module->set.ssl_mode =
-					IMAPC_CLIENT_SSL_MODE_IMMEDIATE;
+					module->set.imapc_port = IMAPS_DEFAULT_PORT;
+				module->set.imapc_ssl = "imaps";
 			} else if (strcmp(value, "starttls") == 0) {
-				module->set.ssl_mode =
-					IMAPC_CLIENT_SSL_MODE_STARTTLS;
+				module->set.imapc_ssl = "starttls";
 			} else {
 				i_fatal("passdb imap: Invalid ssl mode: %s",
 					value);
@@ -184,12 +182,12 @@ passdb_imap_preinit(pool_t pool, const char *args)
 		}
 	}
 
-	if (module->set.host == NULL)
+	if (module->set.imapc_host == NULL)
 		i_fatal("passdb imap: Missing host parameter");
 
 	module->set_have_vars =
-		strchr(module->set.username, '%') != NULL ||
-		strchr(module->set.host, '%') != NULL;
+		strchr(module->set.imapc_user, '%') != NULL ||
+		strchr(module->set.imapc_host, '%') != NULL;
 	return &module->module;
 }
 

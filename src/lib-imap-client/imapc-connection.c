@@ -221,7 +221,7 @@ imapc_connection_init(struct imapc_client *client,
 	conn->login_context = login_context;
 	conn->fd = -1;
 	conn->literal.fd = -1;
-	conn->reconnect_ok = (client->set.connect_retry_count>0);
+	conn->reconnect_ok = (client->set->imapc_connection_retry_count>0);
 	i_array_init(&conn->cmd_send_queue, 8);
 	i_array_init(&conn->cmd_wait_list, 32);
 	i_array_init(&conn->literal_files, 4);
@@ -526,9 +526,9 @@ static bool imapc_connection_can_reconnect(struct imapc_connection *conn)
 {
 	if (conn->client->logging_out)
 		return FALSE;
-	if (conn->client->set.connect_retry_count == 0 ||
-	    (conn->client->set.connect_retry_count < UINT_MAX &&
-	     conn->reconnect_count >= conn->client->set.connect_retry_count))
+	if (conn->client->set->imapc_connection_retry_count == 0 ||
+	    (conn->client->set->imapc_connection_retry_count < UINT_MAX &&
+	     conn->reconnect_count >= conn->client->set->imapc_connection_retry_count))
 		return FALSE;
 
 	if (conn->selected_box != NULL)
@@ -783,7 +783,7 @@ imapc_connection_parse_capability(struct imapc_connection *conn,
 			"CAPABILITY list is missing IMAP4REV1");
 		return -1;
 	}
-	if (conn->client->set.no_qresync)
+	if ((conn->client->set->parsed_features & IMAPC_FEATURE_NO_QRESYNC) != 0)
 		conn->capabilities &= ENUM_NEGATE(IMAPC_CAPABILITY_QRESYNC);
 	return 0;
 }
@@ -912,14 +912,14 @@ imapc_connection_proxyauth_login_cb(const struct imapc_command_reply *reply,
 				    void *context)
 {
 	struct imapc_connection *conn = context;
-	const struct imapc_client_settings *set = &conn->client->set;
+	const struct imapc_settings *set = conn->client->set;
 	struct imapc_command *cmd;
 
 	if (reply->state == IMAPC_COMMAND_STATE_OK) {
 		cmd = imapc_connection_cmd(conn, imapc_connection_login_cb,
 					   conn);
 		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
-		imapc_command_sendf(cmd, "PROXYAUTH %s", set->username);
+		imapc_command_sendf(cmd, "PROXYAUTH %s", set->imapc_user);
 		imapc_command_send_more(conn);
 	} else {
 		imapc_connection_auth_finish(conn, reply);
@@ -984,9 +984,9 @@ imapc_connection_get_sasl_mech(struct imapc_connection *conn,
 			       const struct dsasl_client_mech **mech_r,
 			       const char **error_r)
 {
-	const struct imapc_client_settings *set = &conn->client->set;
+	const struct imapc_settings *set = conn->client->set;
 	const char *const *mechanisms =
-		t_strsplit_spaces(set->sasl_mechanisms, ", ");
+		settings_boollist_get(&set->imapc_sasl_mechanisms);
 
 	/* find one of the specified SASL mechanisms */
 	for (; *mechanisms != NULL; mechanisms++) {
@@ -1001,26 +1001,26 @@ imapc_connection_get_sasl_mech(struct imapc_connection *conn,
 		}
 	}
 	*error_r = t_strdup_printf("IMAP server doesn't support any of the requested SASL mechanisms: %s",
-				   set->sasl_mechanisms);
+				   t_strarray_join(mechanisms, ", "));
 	return -1;
 }
 
 static void imapc_connection_authenticate(struct imapc_connection *conn)
 {
-	const struct imapc_client_settings *set = &conn->client->set;
+	const struct imapc_settings *set = conn->client->set;
 	struct imapc_command *cmd;
 	struct dsasl_client_settings sasl_set;
 	const struct dsasl_client_mech *sasl_mech = NULL;
 	const char *error;
 
-	if (set->master_user == NULL) {
-		e_debug(conn->event, "Authenticating as %s", set->username);
+	if (set->imapc_master_user == NULL) {
+		e_debug(conn->event, "Authenticating as %s", set->imapc_user);
 	} else {
 		e_debug(conn->event, "Authenticating as %s for user %s",
-			set->master_user, set->username);
+			set->imapc_master_user, set->imapc_user);
 	}
 
-	if (set->sasl_mechanisms != NULL && set->sasl_mechanisms[0] != '\0') {
+	if (array_not_empty(&set->imapc_sasl_mechanisms)) {
 		if (imapc_connection_get_sasl_mech(conn, &sasl_mech, &error) < 0) {
 			struct imapc_command_reply reply;
 			i_zero(&reply);
@@ -1032,36 +1032,37 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		}
 	}
 
-	if (set->use_proxyauth && set->master_user != NULL) {
+	if ((set->parsed_features & IMAPC_FEATURE_PROXYAUTH) != 0 &&
+	    set->imapc_master_user != NULL) {
 		/* We can use LOGIN command */
 		cmd = imapc_connection_cmd(conn, imapc_connection_proxyauth_login_cb,
 					   conn);
 		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
 		imapc_command_sendf(cmd, "LOGIN %s %s",
-				    set->master_user, set->password);
+				    set->imapc_master_user, set->imapc_password);
 		return;
 	}
 	if (sasl_mech == NULL &&
-	    ((set->master_user == NULL &&
-	      !need_literal(set->username) && !need_literal(set->password)) ||
+	    ((set->imapc_master_user == NULL &&
+	      !need_literal(set->imapc_user) && !need_literal(set->imapc_password)) ||
 	     (conn->capabilities & IMAPC_CAPABILITY_AUTH_PLAIN) == 0)) {
 		/* We can use LOGIN command */
 		cmd = imapc_connection_cmd(conn, imapc_connection_login_cb,
 					   conn);
 		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
 		imapc_command_sendf(cmd, "LOGIN %s %s",
-				    set->username, set->password);
+				    set->imapc_user, set->imapc_password);
 		return;
 	}
 
 	i_zero(&sasl_set);
-	if (set->master_user == NULL)
-		sasl_set.authid = set->username;
+	if (set->imapc_master_user == NULL)
+		sasl_set.authid = set->imapc_user;
 	else {
-		sasl_set.authid = set->master_user;
-		sasl_set.authzid = set->username;
+		sasl_set.authid = set->imapc_master_user;
+		sasl_set.authzid = set->imapc_user;
 	}
-	sasl_set.password = set->password;
+	sasl_set.password = set->imapc_password;
 
 	if (sasl_mech == NULL)
 		sasl_mech = &dsasl_client_mech_plain;
@@ -1147,7 +1148,7 @@ static void imapc_connection_starttls(struct imapc_connection *conn)
 {
 	struct imapc_command *cmd;
 
-	if (conn->client->set.ssl_mode == IMAPC_CLIENT_SSL_MODE_STARTTLS &&
+	if (conn->client->ssl_mode == IMAPC_CLIENT_SSL_MODE_STARTTLS &&
 	    conn->ssl_iostream == NULL) {
 		if ((conn->capabilities & IMAPC_CAPABILITY_STARTTLS) == 0) {
 			e_error(conn->event, "Requested STARTTLS, "
@@ -1347,7 +1348,7 @@ imapc_connection_throttle_shrink_timeout(struct imapc_connection *conn)
 	else
 		conn->throttle_msecs = conn->throttle_msecs*3 / 4;
 
-	if (conn->throttle_shrink_msecs <= conn->client->set.throttle_set.shrink_min_msecs)
+	if (conn->throttle_shrink_msecs <= conn->client->set->throttle_shrink_min_msecs)
 		conn->throttle_shrink_msecs = 0;
 	else
 		conn->throttle_shrink_msecs = conn->throttle_shrink_msecs*3 / 4;
@@ -1372,16 +1373,16 @@ imapc_connection_throttle(struct imapc_connection *conn,
 	   it as resp-text-code also in here if it's uppercased). */
 	if (strstr(reply->text_full, "[THROTTLED]") != NULL) {
 		if (conn->throttle_msecs == 0)
-			conn->throttle_msecs = conn->client->set.throttle_set.init_msecs;
+			conn->throttle_msecs = conn->client->set->throttle_init_msecs;
 		else if (conn->throttle_msecs < conn->last_successful_throttle_msecs)
 			conn->throttle_msecs = conn->last_successful_throttle_msecs;
 		else {
 			conn->throttle_msecs *= 2;
-			if (conn->throttle_msecs > conn->client->set.throttle_set.max_msecs)
-				conn->throttle_msecs = conn->client->set.throttle_set.max_msecs;
+			if (conn->throttle_msecs > conn->client->set->throttle_max_msecs)
+				conn->throttle_msecs = conn->client->set->throttle_max_msecs;
 		}
 		if (conn->throttle_shrink_msecs == 0)
-			conn->throttle_shrink_msecs = conn->client->set.throttle_set.shrink_min_msecs;
+			conn->throttle_shrink_msecs = conn->client->set->throttle_shrink_min_msecs;
 		else
 			conn->throttle_shrink_msecs *= 2;
 		if (conn->to_throttle_shrink != NULL)
@@ -1655,7 +1656,7 @@ static int imapc_connection_ssl_handshaked(const char **error_r, void *context)
 	const char *error;
 
 	if (ssl_iostream_check_cert_validity(conn->ssl_iostream,
-					     conn->client->set.host, &error) == 0) {
+					     conn->client->set->imapc_host, &error) == 0) {
 		e_debug(conn->event, "SSL handshake successful");
 		return 0;
 	} else if (ssl_iostream_get_allow_invalid_cert(conn->ssl_iostream)) {
@@ -1686,9 +1687,10 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 
 	io_remove(&conn->io);
 	enum ssl_iostream_flags ssl_flags = 0;
-	if (conn->client->set.ssl_allow_invalid_cert)
+	if (!conn->client->set->imapc_ssl_verify)
 		ssl_flags |= SSL_IOSTREAM_FLAG_ALLOW_INVALID_CERT;
-	if (io_stream_autocreate_ssl_client(conn->event, conn->client->set.host,
+	if (io_stream_autocreate_ssl_client(conn->event,
+					    conn->client->set->imapc_host,
 					    ssl_flags,
 					    &conn->input, &conn->output,
 					    &conn->ssl_iostream, &error) < 0) {
@@ -1706,8 +1708,8 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 		return -1;
 	}
 
-	if (*conn->client->set.rawlog_dir != '\0') {
-		iostream_rawlog_create(conn->client->set.rawlog_dir,
+	if (*conn->client->set->imapc_rawlog_dir != '\0') {
+		iostream_rawlog_create(conn->client->set->imapc_rawlog_dir,
 				       &conn->input, &conn->output);
 	}
 
@@ -1728,20 +1730,20 @@ static int imapc_connection_connected(struct imapc_connection *conn)
 	if (err != 0) {
 		imapc_connection_try_reconnect(conn, t_strdup_printf(
 			"connect(%s, %u) failed: %s",
-			net_ip2addr(ip), conn->client->set.port,
-			strerror(err)), conn->client->set.connect_retry_interval_msecs, TRUE);
+			net_ip2addr(ip), conn->client->set->imapc_port,
+			strerror(err)), conn->client->set->imapc_connection_retry_interval, TRUE);
 		return -1;
 	}
 	if (net_getsockname(conn->fd, &local_ip, &local_port) < 0)
 		local_port = 0;
 	e_info(conn->event, "Connected to %s:%u (local %s:%u)",
-	       net_ip2addr(ip), conn->client->set.port,
+	       net_ip2addr(ip), conn->client->set->imapc_port,
 	       net_ip2addr(&local_ip), local_port);
 	conn->io = io_add(conn->fd, IO_READ, imapc_connection_input, conn);
 	o_stream_set_flush_callback(conn->output, imapc_connection_output,
 				    conn);
 
-	if (conn->client->set.ssl_mode == IMAPC_CLIENT_SSL_MODE_IMMEDIATE) {
+	if (conn->client->ssl_mode == IMAPC_CLIENT_SSL_MODE_IMMEDIATE) {
 		if (imapc_connection_ssl_init(conn) < 0) {
 			imapc_connection_disconnect(conn);
 			return -1;
@@ -1759,13 +1761,13 @@ static void imapc_connection_timeout(struct imapc_connection *conn)
 	switch (conn->state) {
 	case IMAPC_CONNECTION_STATE_CONNECTING:
 		errstr = t_strdup_printf("connect(%s, %u) timed out after %u seconds",
-			net_ip2addr(ip), conn->client->set.port,
-			conn->client->set.connect_timeout_msecs/1000);
+			net_ip2addr(ip), conn->client->set->imapc_port,
+			conn->client->set->imapc_connection_timeout_interval/1000);
 		connect_error = TRUE;
 		break;
 	case IMAPC_CONNECTION_STATE_AUTHENTICATING:
 		errstr = t_strdup_printf("Authentication timed out after %u seconds",
-			conn->client->set.connect_timeout_msecs/1000);
+			conn->client->set->imapc_connection_timeout_interval/1000);
 		break;
 	default:
 		i_unreached();
@@ -1809,12 +1811,12 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 	unsigned int i;
 	int fd;
 
-	i_assert(conn->client->set.max_idle_time > 0);
+	i_assert(conn->client->set->imapc_max_idle_time > 0);
 
 	for (i = 0; i<conn->ips_count;) {
 		conn->prev_connect_idx = (conn->prev_connect_idx+1) % conn->ips_count;
 		ip = &conn->ips[conn->prev_connect_idx];
-		fd = net_connect_ip(ip, conn->client->set.port, NULL);
+		fd = net_connect_ip(ip, conn->client->set->imapc_port, NULL);
 		if (fd != -1)
 			break;
 
@@ -1823,10 +1825,10 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 		   before failing completely. */
 		const char *error = t_strdup_printf(
 			"net_connect_ip(%s:%u) failed: %m",
-			net_ip2addr(ip), conn->client->set.port);
+			net_ip2addr(ip), conn->client->set->imapc_port);
 		if (conn->prev_connect_idx+1 == conn->ips_count) {
 			imapc_connection_try_reconnect(conn, error,
-				conn->client->set.connect_retry_interval_msecs, TRUE);
+				conn->client->set->imapc_connection_retry_interval, TRUE);
 			return;
 		}
 		e_error(conn->event, "%s", error);
@@ -1836,13 +1838,13 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 
 	conn->fd = fd;
 	conn->input = conn->raw_input =
-		i_stream_create_fd(fd, conn->client->set.max_line_length);
+		i_stream_create_fd(fd, conn->client->set->imapc_max_line_length);
 	conn->output = conn->raw_output = o_stream_create_fd(fd, SIZE_MAX);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 
-	if (*conn->client->set.rawlog_dir != '\0' &&
-	    conn->client->set.ssl_mode != IMAPC_CLIENT_SSL_MODE_IMMEDIATE) {
-		iostream_rawlog_create(conn->client->set.rawlog_dir,
+	if (*conn->client->set->imapc_rawlog_dir != '\0' &&
+	    conn->client->ssl_mode != IMAPC_CLIENT_SSL_MODE_IMMEDIATE) {
+		iostream_rawlog_create(conn->client->set->imapc_rawlog_dir,
 				       &conn->input, &conn->output);
 	}
 
@@ -1850,13 +1852,13 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 	o_stream_set_flush_callback(conn->output, imapc_connection_connected,
 				    conn);
 	conn->parser = imap_parser_create(conn->input, NULL,
-					  conn->client->set.max_line_length);
-	conn->to = timeout_add(conn->client->set.connect_timeout_msecs,
+					  conn->client->set->imapc_max_line_length);
+	conn->to = timeout_add(conn->client->set->imapc_connection_timeout_interval,
 			       imapc_connection_timeout, conn);
-	conn->to_output = timeout_add(conn->client->set.max_idle_time*1000,
+	conn->to_output = timeout_add(conn->client->set->imapc_max_idle_time*1000,
 				      imapc_connection_reset_idle, conn);
 	e_debug(conn->event, "Connecting to %s:%u", net_ip2addr(ip),
-		conn->client->set.port);
+		conn->client->set->imapc_port);
 }
 
 static void
@@ -1867,7 +1869,7 @@ imapc_connection_dns_callback(const struct dns_lookup_result *result,
 
 	if (result->ret != 0) {
 		e_error(conn->event, "dns_lookup(%s) failed: %s",
-			conn->client->set.host, result->error);
+			conn->client->set->imapc_host, result->error);
 		imapc_connection_set_disconnected(conn);
 		return;
 	}
@@ -1915,8 +1917,8 @@ void imapc_connection_connect(struct imapc_connection *conn)
 
 	i_zero(&dns_set);
 	dns_set.dns_client_socket_path =
-		conn->client->set.dns_client_socket_path;
-	dns_set.timeout_msecs = conn->client->set.connect_timeout_msecs;
+		conn->client->set->dns_client_socket_path;
+	dns_set.timeout_msecs = conn->client->set->imapc_connection_timeout_interval;
 	dns_set.event_parent = conn->event;
 
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_CONNECTING);
@@ -1926,16 +1928,16 @@ void imapc_connection_connect(struct imapc_connection *conn)
 		e_error(conn->event, "imapc host is empty");
 		imapc_connection_set_disconnected(conn);
 		return;
-	} else if (net_addr2ip(conn->client->set.host, &ip) == 0) {
+	} else if (net_addr2ip(conn->client->set->imapc_host, &ip) == 0) {
 		conn->ips_count = 1;
 		conn->ips = i_new(struct ip_addr, conn->ips_count);
 		conn->ips[0] = ip;
 	} else if (*dns_set.dns_client_socket_path == '\0') {
-		ret = net_gethostbyname(conn->client->set.host,
+		ret = net_gethostbyname(conn->client->set->imapc_host,
 					&ips, &ips_count);
 		if (ret != 0) {
 			e_error(conn->event, "net_gethostbyname(%s) failed: %s",
-				conn->client->set.host,
+				conn->client->set->imapc_host,
 				net_gethosterror(ret));
 			imapc_connection_set_disconnected(conn);
 			return;
@@ -1944,7 +1946,7 @@ void imapc_connection_connect(struct imapc_connection *conn)
 		conn->ips = i_new(struct ip_addr, ips_count);
 		memcpy(conn->ips, ips, ips_count * sizeof(*ips));
 	} else {
-		(void)dns_lookup(conn->client->set.host, &dns_set,
+		(void)dns_lookup(conn->client->set->imapc_host, &dns_set,
 				 imapc_connection_dns_callback, conn,
 				 &conn->dns_lookup);
 		return;
@@ -2269,7 +2271,7 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 		conn->to = timeout_add(IMAPC_LOGOUT_TIMEOUT_MSECS,
 				       imapc_command_timeout, conn);
 	} else if (conn->to == NULL) {
-		conn->to = timeout_add(conn->client->set.cmd_timeout_msecs,
+		conn->to = timeout_add(conn->client->set->imapc_cmd_timeout,
 				       imapc_command_timeout, conn);
 	}
 
@@ -2329,7 +2331,7 @@ static void imapc_connection_send_idle_done(struct imapc_connection *conn)
 		conn->idle_stopping = TRUE;
 		o_stream_nsend_str(conn->output, "DONE\r\n");
 		if (conn->to == NULL) {
-			conn->to = timeout_add(conn->client->set.cmd_timeout_msecs,
+			conn->to = timeout_add(conn->client->set->imapc_cmd_timeout,
 					       imapc_command_timeout, conn);
 		}
 	}

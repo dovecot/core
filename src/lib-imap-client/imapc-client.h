@@ -3,6 +3,7 @@
 
 #include "net.h"
 #include "iostream-ssl.h"
+#include "imapc-settings.h"
 
 /* IMAP RFC defines this to be at least 30 minutes. */
 #define IMAPC_DEFAULT_MAX_IDLE_TIME (60*29)
@@ -197,7 +198,7 @@ typedef void imapc_state_change_callback_t(void *context,
 					   const char *error);
 
 struct imapc_client *
-imapc_client_init(const struct imapc_client_settings *set,
+imapc_client_init(const struct imapc_settings *set,
 		  const struct imapc_parameters *params,
 		  struct event *event_parent);
 void imapc_client_disconnect(struct imapc_client *client);

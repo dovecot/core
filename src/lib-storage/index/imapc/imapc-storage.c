@@ -314,7 +314,6 @@ int imapc_storage_client_create(struct mailbox_list *list,
 	struct mail_namespace *ns = list->ns;
 	const struct imapc_settings *imapc_set;
 	struct imapc_storage_client *client;
-	struct imapc_client_settings set;
 	struct imapc_parameters params = {};
 	string_t *str;
 
@@ -322,42 +321,25 @@ int imapc_storage_client_create(struct mailbox_list *list,
 			 &imapc_set, error_r) < 0)
 		return -1;
 
-	i_zero(&set);
-	set.host = imapc_set->imapc_host;
-	if ((ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0 || *set.host == '\0') {
+	if ((ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0 ||
+	    *imapc_set->imapc_host == '\0')
 		/* Shared namespace user doesn't actually exist. Don't try to
 		   access the user via imapc, but also don't make this a
 		   visible error. If any code path tries to connect to imapc,
 		   it's a bug. */
 		params.flags |= IMAPC_PARAMETER_CLIENT_DISABLED;
-	}
-	set.port = imapc_set->imapc_port;
-	if (imapc_set->imapc_user[0] != '\0')
-		set.username = imapc_set->imapc_user;
-	else if (ns->owner != NULL)
-		set.username = ns->owner->username;
-	else
-		set.username = ns->user->username;
-	set.master_user = imapc_set->imapc_master_user;
-	set.password = imapc_set->imapc_password;
-	if (*set.password == '\0') {
+
+	if (*imapc_set->imapc_password == '\0') {
 		*error_r = "missing imapc_password";
 		settings_free(imapc_set);
 		return -1;
 	}
-	set.sasl_mechanisms = t_array_const_string_join(&imapc_set->imapc_sasl_mechanisms, ",");
-	set.use_proxyauth = (imapc_set->parsed_features & IMAPC_FEATURE_PROXYAUTH) != 0;
-	set.no_qresync = (imapc_set->parsed_features & IMAPC_FEATURE_NO_QRESYNC) != 0;
-	set.cmd_timeout_msecs = imapc_set->imapc_cmd_timeout * 1000;
-	set.connect_retry_count = imapc_set->imapc_connection_retry_count;
-	set.connect_retry_interval_msecs = imapc_set->imapc_connection_retry_interval;
-	set.max_idle_time = imapc_set->imapc_max_idle_time;
-	set.max_line_length = imapc_set->imapc_max_line_length;
 	params.override_dns_client_socket_path = *ns->user->set->base_dir == '\0' ? "" :
 		t_strconcat(ns->user->set->base_dir, "/",
 			    DNS_CLIENT_SOCKET_NAME, NULL);
 	params.override_rawlog_dir = mail_user_home_expand(ns->user,
 			imapc_set->imapc_rawlog_dir);
+
 	if ((imapc_set->parsed_features & IMAPC_FEATURE_SEND_ID) != 0)
 		params.session_id_prefix = ns->user->session_id;
 
@@ -365,25 +347,11 @@ int imapc_storage_client_create(struct mailbox_list *list,
 	mail_user_set_get_temp_prefix(str, ns->user->set);
 	params.temp_path_prefix = str_c(str);
 
-	if (!imapc_set->imapc_ssl_verify)
-		set.ssl_allow_invalid_cert = TRUE;
-
-	if (strcmp(imapc_set->imapc_ssl, "imaps") == 0)
-		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_IMMEDIATE;
-	else if (strcmp(imapc_set->imapc_ssl, "starttls") == 0)
-		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_STARTTLS;
-	else
-		set.ssl_mode = IMAPC_CLIENT_SSL_MODE_NONE;
-
-	set.throttle_set.init_msecs = imapc_set->throttle_init_msecs;
-	set.throttle_set.max_msecs = imapc_set->throttle_max_msecs;
-	set.throttle_set.shrink_min_msecs = imapc_set->throttle_shrink_min_msecs;
-
 	client = i_new(struct imapc_storage_client, 1);
 	client->refcount = 1;
 	client->set = imapc_set;
 	i_array_init(&client->untagged_callbacks, 16);
-	client->client = imapc_client_init(&set, &params, list->event);
+	client->client = imapc_client_init(client->set, &params, list->event);
 	imapc_client_register_untagged(client->client,
 				       imapc_storage_client_untagged_cb, client);
 
