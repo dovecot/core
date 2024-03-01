@@ -4,10 +4,10 @@
 #include "array.h"
 #include "hash.h"
 #include "sql-api-private.h"
-#include "sql-db-cache.h"
+#include "sql-db-cache-legacy.h"
 
 #define SQL_DB_CACHE_CONTEXT(obj) \
-	MODULE_CONTEXT_REQUIRE(obj, sql_db_cache_module)
+	MODULE_CONTEXT_REQUIRE(obj, sql_db_cache_module_legacy)
 
 struct sql_db_cache_context {
 	union sql_db_module_context module_ctx;
@@ -25,7 +25,8 @@ struct sql_db_cache {
 	struct sql_db *unused_tail, *unused_head;
 };
 
-static MODULE_CONTEXT_DEFINE_INIT(sql_db_cache_module, &sql_db_module_register);
+static MODULE_CONTEXT_DEFINE_INIT(sql_db_cache_module_legacy,
+				  &sql_db_module_register);
 
 static void sql_db_cache_db_unref(struct sql_db *db)
 {
@@ -94,9 +95,9 @@ static void sql_db_cache_drop_oldest(struct sql_db_cache *cache)
 		sql_db_cache_free_tail(cache);
 }
 
-int sql_db_cache_new(struct sql_db_cache *cache,
-		     const struct sql_legacy_settings *set,
-		     struct sql_db **db_r, const char **error_r)
+int sql_db_cache_new_legacy(struct sql_db_cache *cache,
+			    const struct sql_legacy_settings *set,
+			    struct sql_db **db_r, const char **error_r)
 {
 	struct sql_db_cache_context *ctx;
 	struct sql_db *db;
@@ -125,7 +126,7 @@ int sql_db_cache_new(struct sql_db_cache *cache,
 		ctx->orig_deinit = db->v.deinit;
 		db->v.unref = sql_db_cache_db_unref;
 
-		MODULE_CONTEXT_SET(db, sql_db_cache_module, ctx);
+		MODULE_CONTEXT_SET(db, sql_db_cache_module_legacy, ctx);
 		hash_table_insert(cache->dbs, ctx->key, db);
 	}
 
@@ -135,7 +136,8 @@ int sql_db_cache_new(struct sql_db_cache *cache,
 	return 0;
 }
 
-struct sql_db_cache *sql_db_cache_init(unsigned int max_unused_connections)
+struct sql_db_cache *
+sql_db_cache_init_legacy(unsigned int max_unused_connections)
 {
 	struct sql_db_cache *cache;
 
@@ -145,7 +147,7 @@ struct sql_db_cache *sql_db_cache_init(unsigned int max_unused_connections)
 	return cache;
 }
 
-void sql_db_cache_deinit(struct sql_db_cache **_cache)
+void sql_db_cache_deinit_legacy(struct sql_db_cache **_cache)
 {
 	struct sql_db_cache *cache = *_cache;
 
