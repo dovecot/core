@@ -125,8 +125,15 @@ struct auth_settings {
 	const struct ip_addr *proxy_self_ips;
 };
 
+struct auth_static_settings {
+	pool_t pool;
+	const char *passdb_static_password;
+	bool userdb_static_allow_all_users;
+};
+
 extern const struct setting_parser_info auth_setting_parser_info;
 extern const struct setting_parser_info auth_passdb_setting_parser_info;
+extern const struct setting_parser_info auth_static_setting_parser_info;
 extern const struct setting_parser_info auth_passdb_pre_setting_parser_info;
 extern const struct setting_parser_info auth_passdb_post_setting_parser_info;
 extern const struct setting_parser_info auth_userdb_setting_parser_info;
