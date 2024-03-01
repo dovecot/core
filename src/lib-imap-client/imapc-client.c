@@ -48,15 +48,15 @@ default_untagged_callback(const struct imapc_untagged_reply *reply ATTR_UNUSED,
 }
 
 struct imapc_client *
-imapc_client_init(const struct imapc_client_settings *set,
+imapc_client_init(const struct imapc_settings *set,
 		  const struct imapc_parameters *params,
 		  struct event *event_parent)
 {
 	struct imapc_client *client;
 	pool_t pool;
 
-	i_assert(set->connect_retry_count == 0 ||
-		 set->connect_retry_interval_msecs > 0);
+	i_assert(set->imapc_connection_retry_count == 0 ||
+		 set->imapc_connection_retry_interval > 0);
 
 	pool = pool_alloconly_create("imapc client", 1024);
 	client = p_new(pool, struct imapc_client, 1);
@@ -64,44 +64,38 @@ imapc_client_init(const struct imapc_client_settings *set,
 	client->refcount = 1;
 	client->event = event_create(event_parent);
 	event_set_append_log_prefix(client->event, t_strdup_printf(
-		"imapc(%s:%u): ", set->host, set->port));
+		"imapc(%s:%u): ", set->imapc_host, set->imapc_port));
 
-	client->set.host = p_strdup(pool, set->host);
-	client->set.port = set->port;
-	client->set.master_user = p_strdup_empty(pool, set->master_user);
-	client->set.username = p_strdup(pool, set->username);
-	client->set.password = p_strdup(pool, set->password);
-	client->set.sasl_mechanisms = p_strdup(pool, set->sasl_mechanisms);
-	client->set.session_id_prefix = p_strdup(pool, set->session_id_prefix);
-	client->set.use_proxyauth = set->use_proxyauth;
-	client->set.no_qresync = set->no_qresync;
-	client->set.dns_client_socket_path =
+	client->set = p_new(pool, struct imapc_settings, 1);
+	client->set->imapc_host = p_strdup(pool, set->imapc_host);
+	client->set->imapc_port = set->imapc_port;
+	client->set->imapc_master_user = p_strdup_empty(pool, set->imapc_master_user);
+	client->set->imapc_user = p_strdup(pool, set->imapc_user);
+	client->set->imapc_password = p_strdup(pool, set->imapc_password);
+	client->set->imapc_sasl_mechanisms = p_strdup(pool, set->imapc_sasl_mechanisms);
+	client->set->parsed_features = set->parsed_features;
+	client->set->dns_client_socket_path =
 		p_strdup(pool, set->dns_client_socket_path);
-	client->set.temp_path_prefix =
-		p_strdup(pool, set->temp_path_prefix);
-	client->set.rawlog_dir = p_strdup(pool, set->rawlog_dir);
-	client->set.max_idle_time = set->max_idle_time;
-	client->set.connect_timeout_msecs = set->connect_timeout_msecs != 0 ?
-		set->connect_timeout_msecs :
+	client->set->imapc_rawlog_dir = p_strdup(pool, set->imapc_rawlog_dir);
+	client->set->imapc_max_idle_time = set->imapc_max_idle_time;
+	client->set->imapc_connection_timeout_interval = set->imapc_connection_timeout_interval != 0 ?
+		set->imapc_connection_timeout_interval :
 		IMAPC_DEFAULT_CONNECT_TIMEOUT_MSECS;
-	client->set.connect_retry_count = set->connect_retry_count;
-	client->set.connect_retry_interval_msecs = set->connect_retry_interval_msecs;
-	client->set.cmd_timeout_msecs = set->cmd_timeout_msecs != 0 ?
-		set->cmd_timeout_msecs : IMAPC_DEFAULT_COMMAND_TIMEOUT_MSECS;
-	client->set.max_line_length = set->max_line_length != 0 ?
-		set->max_line_length : IMAPC_DEFAULT_MAX_LINE_LENGTH;
-	client->set.throttle_set = set->throttle_set;
-	client->set.ssl_mode = set->ssl_mode;
-	client->set.ssl_allow_invalid_cert = set->ssl_allow_invalid_cert;
+	client->set->imapc_connection_retry_count = set->imapc_connection_retry_count;
+	client->set->imapc_connection_retry_interval = set->imapc_connection_retry_interval;
+	client->set->imapc_cmd_timeout = set->imapc_cmd_timeout != 0 ?
+		(set->imapc_cmd_timeout * 1000) : IMAPC_DEFAULT_COMMAND_TIMEOUT_MSECS;
+	client->set->imapc_max_line_length = set->imapc_max_line_length != 0 ?
+		set->imapc_max_line_length : IMAPC_DEFAULT_MAX_LINE_LENGTH;
+	client->set->imapc_ssl = p_strdup(pool, set->imapc_ssl);
+	client->set->imapc_ssl_verify = set->imapc_ssl_verify;
 
-	if (client->set.throttle_set.init_msecs == 0)
-		client->set.throttle_set.init_msecs = IMAPC_THROTTLE_DEFAULT_INIT_MSECS;
-	if (client->set.throttle_set.max_msecs == 0)
-		client->set.throttle_set.max_msecs = IMAPC_THROTTLE_DEFAULT_MAX_MSECS;
-	if (client->set.throttle_set.shrink_min_msecs == 0)
-		client->set.throttle_set.shrink_min_msecs = IMAPC_THROTTLE_DEFAULT_SHRINK_MIN_MSECS;
-
-	client->untagged_callback = default_untagged_callback;
+	client->set->throttle_init_msecs = set->throttle_init_msecs != 0 ?
+		set->throttle_init_msecs : IMAPC_THROTTLE_DEFAULT_INIT_MSECS;
+	client->set->throttle_max_msecs = set->throttle_max_msecs != 0 ?
+		set->throttle_max_msecs : IMAPC_THROTTLE_DEFAULT_MAX_MSECS;
+	client->set->throttle_shrink_min_msecs = set->throttle_shrink_min_msecs != 0 ?
+		set->throttle_shrink_min_msecs : IMAPC_THROTTLE_DEFAULT_SHRINK_MIN_MSECS;
 
 	client->params.session_id_prefix =
 		p_strdup(pool, params->session_id_prefix);
@@ -111,11 +105,20 @@ imapc_client_init(const struct imapc_client_settings *set,
 
 	/* Only override if the parameter is set. */
 	if (params->override_dns_client_socket_path != NULL)
-		client->set.dns_client_socket_path =
+		client->set->dns_client_socket_path =
 			p_strdup(pool, params->override_dns_client_socket_path);
 	if (params->override_rawlog_dir != NULL)
-		client->set.rawlog_dir =
+		client->set->imapc_rawlog_dir =
 			p_strdup(pool, params->override_rawlog_dir);
+
+	client->untagged_callback = default_untagged_callback;
+
+	client->ssl_mode = IMAPC_CLIENT_SSL_MODE_NONE;
+	if (strcmp(set->imapc_ssl, "imaps") == 0) {
+		client->ssl_mode = IMAPC_CLIENT_SSL_MODE_IMMEDIATE;
+	} else if (strcmp(set->imapc_ssl, "starttls") == 0) {
+		client->ssl_mode = IMAPC_CLIENT_SSL_MODE_STARTTLS;
+	}
 
 	p_array_init(&client->conns, pool, 8);
 	return client;

@@ -45,19 +45,20 @@ static void main_deinit(void);
  * Test client
  */
 
-static struct imapc_client_settings test_imapc_default_settings = {
-	.host = "127.0.0.1",
-	.username = "testuser",
-	.password = "testpass",
+static struct imapc_settings test_imapc_default_settings = {
+	.imapc_host = "127.0.0.1",
+	.imapc_user = "testuser",
+	.imapc_password = "testpass",
 
 	.dns_client_socket_path = "",
-	.rawlog_dir = "",
+	.imapc_rawlog_dir = "",
 
-	.connect_timeout_msecs = 5000,
-	.connect_retry_count = 3,
-	.connect_retry_interval_msecs = 10,
+	.imapc_connection_timeout_interval = 5000,
+	.imapc_connection_retry_count = 3,
+	.imapc_connection_retry_interval = 10,
 
-	.max_idle_time = 10000,
+	.imapc_max_idle_time = 10000,
+	.imapc_ssl = "no",
 };
 
 static const struct imapc_parameters imapc_params = {
@@ -230,7 +231,7 @@ static int test_run_server(test_server_init_t *server_test)
 }
 
 static void
-test_run_client(const struct imapc_client_settings *client_set,
+test_run_client(struct imapc_settings *client_set,
 		test_client_init_t *client_test)
 {
 	struct ioloop *ioloop;
@@ -256,11 +257,11 @@ test_run_client(const struct imapc_client_settings *client_set,
 }
 
 static void
-test_run_client_server(const struct imapc_client_settings *client_set,
+test_run_client_server(struct imapc_settings *client_set,
 		       test_client_init_t *client_test,
 		       test_server_init_t *server_test)
 {
-	struct imapc_client_settings client_set_copy = *client_set;
+	struct imapc_settings client_set_copy = *client_set;
 	const char *error;
 
 	imapc_client_cmd_tag_counter = 0;
@@ -271,7 +272,7 @@ test_run_client_server(const struct imapc_client_settings *client_set,
 	server.pid = (pid_t)-1;
 	server.fd = -1;
 	server.fd_listen = test_open_server_fd(&server.port);
-	client_set_copy.port = server.port;
+	client_set_copy.imapc_port = server.port;
 
 	if (mkdir(imapc_params.temp_path_prefix, 0700) < 0 && errno != EEXIST)
 		i_fatal("mkdir(%s) failed: %m", imapc_params.temp_path_prefix);
@@ -310,7 +311,7 @@ static void test_imapc_connect_failed_client(void)
 
 static void test_imapc_connect_failed(void)
 {
-	struct imapc_client_settings set = test_imapc_default_settings;
+	struct imapc_settings set = test_imapc_default_settings;
 
 	test_begin("imapc connect failed");
 	test_run_client_server(&set, test_imapc_connect_failed_client, NULL);
@@ -344,8 +345,8 @@ static void test_imapc_banner_hangs_server(void)
 
 static void test_imapc_banner_hangs(void)
 {
-	struct imapc_client_settings set = test_imapc_default_settings;
-	set.connect_timeout_msecs = 500;
+	struct imapc_settings set = test_imapc_default_settings;
+	set.imapc_connection_timeout_interval = 500;
 
 	test_begin("imapc banner hangs");
 	test_run_client_server(&set, test_imapc_banner_hangs_client,
@@ -392,8 +393,8 @@ static void test_imapc_login_hangs_server(void)
 
 static void test_imapc_login_hangs(void)
 {
-	struct imapc_client_settings set = test_imapc_default_settings;
-	set.connect_timeout_msecs = 500;
+	struct imapc_settings set = test_imapc_default_settings;
+	set.imapc_connection_timeout_interval = 500;
 
 	test_begin("imapc login hangs");
 	test_run_client_server(&set, test_imapc_login_hangs_client,
@@ -426,7 +427,7 @@ static void test_imapc_login_fails_server(void)
 
 static void test_imapc_login_fails(void)
 {
-	struct imapc_client_settings set = test_imapc_default_settings;
+	struct imapc_settings set = test_imapc_default_settings;
 
 	test_begin("imapc login fails");
 	test_run_client_server(&set, test_imapc_login_fails_client,
@@ -491,7 +492,7 @@ static void test_imapc_reconnect_server(void)
 
 static void test_imapc_reconnect(void)
 {
-	struct imapc_client_settings set = test_imapc_default_settings;
+	struct imapc_settings set = test_imapc_default_settings;
 
 	test_begin("imapc reconnect");
 	test_run_client_server(&set, test_imapc_reconnect_client,
@@ -565,7 +566,7 @@ static void test_imapc_reconnect_resend_cmds_server(void)
 
 static void test_imapc_reconnect_resend_commands(void)
 {
-	struct imapc_client_settings set = test_imapc_default_settings;
+	struct imapc_settings set = test_imapc_default_settings;
 
 	test_begin("imapc reconnect resend commands");
 	test_run_client_server(&set, test_imapc_reconnect_resend_cmds_client,
@@ -630,12 +631,11 @@ static void test_imapc_reconnect_resend_cmds_failed_server(void)
 
 static void test_imapc_reconnect_resend_commands_failed(void)
 {
-	struct imapc_client_settings set = test_imapc_default_settings;
-	set.connect_timeout_msecs = 500;
+	struct imapc_settings set = test_imapc_default_settings;
+	set.imapc_connection_timeout_interval = 500;
 
 	test_begin("imapc reconnect resend commands failed");
-	test_run_client_server(&set,
-			       test_imapc_reconnect_resend_cmds_failed_client,
+	test_run_client_server(&set, test_imapc_reconnect_resend_cmds_failed_client,
 			       test_imapc_reconnect_resend_cmds_failed_server);
 	test_end();
 }
@@ -718,7 +718,7 @@ static void test_imapc_reconnect_mailbox_server(void)
 
 static void test_imapc_reconnect_mailbox(void)
 {
-	struct imapc_client_settings set = test_imapc_default_settings;
+	struct imapc_settings set = test_imapc_default_settings;
 
 	test_begin("imapc reconnect mailbox");
 	test_run_client_server(&set, test_imapc_reconnect_mailbox_client,
@@ -755,7 +755,7 @@ static void test_imapc_client_get_capabilities_server(void)
 
 static void test_imapc_client_get_capabilities(void)
 {
-	struct imapc_client_settings set = test_imapc_default_settings;
+	struct imapc_settings set = test_imapc_default_settings;
 
 	test_begin("imapc_client_get_capabilities()");
 	test_run_client_server(&set, test_imapc_client_get_capabilities_client,
@@ -797,7 +797,7 @@ static void test_imapc_client_get_capabilities_reconnected_server(void)
 
 static void test_imapc_client_get_capabilities_reconnected(void)
 {
-	struct imapc_client_settings set = test_imapc_default_settings;
+	struct imapc_settings set = test_imapc_default_settings;
 
 	test_begin("imapc_client_get_capabilities() reconnected");
 
@@ -829,7 +829,7 @@ static void test_imapc_client_get_capabilities_disconnected_server(void)
 
 static void test_imapc_client_get_capabilities_disconnected(void)
 {
-	struct imapc_client_settings set = test_imapc_default_settings;
+	struct imapc_settings set = test_imapc_default_settings;
 
 	test_begin("imapc_client_get_capabilities() disconnected");
 

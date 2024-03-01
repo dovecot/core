@@ -16,8 +16,9 @@ struct imapc_client {
 	int refcount;
 
 	struct event *event;
-	struct imapc_client_settings set;
+	struct imapc_settings *set;
 	struct imapc_parameters params;
+	enum imapc_client_ssl_mode ssl_mode;
 
 	imapc_untagged_callback_t *untagged_callback;
 	void *untagged_context;
