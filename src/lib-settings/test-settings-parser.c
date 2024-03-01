@@ -221,12 +221,173 @@ static void test_settings_section_escape(void)
 	test_end();
 }
 
+struct test_settings {
+	bool b;
+	unsigned int i;
+	uoff_t size;
+	in_port_t port;
+	const char *str;
+	const char *file;
+	ARRAY_TYPE(const_string) strlist;
+};
+
+static void test_settings_hash_equals(void)
+{
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct test_settings)
+	const struct setting_define defines[] = {
+		DEF(BOOL, b),
+		DEF(UINT, i),
+		DEF(SIZE, size),
+		DEF(IN_PORT, port),
+		DEF(STR, str),
+		DEF(FILE, file),
+		DEF(STRLIST, strlist),
+
+		SETTING_DEFINE_LIST_END
+	};
+	const struct setting_parser_info info = {
+		.defines = defines,
+	};
+	struct test_settings set1 = {
+		.str = "",
+		.file = "\n",
+	};
+	struct test_settings set2 = set1;
+
+	test_begin("settings_hash() and settings_equal()");
+
+	test_assert(settings_equal(&info, &set1, &set2, NULL));
+
+	/* boolean */
+	set1.b = TRUE;
+	test_assert(settings_hash(&info, &set1, NULL) !=
+		    settings_hash(&info, &set2, NULL));
+	test_assert(!settings_equal(&info, &set1, &set2, NULL));
+	set2.b = TRUE;
+	test_assert(settings_hash(&info, &set1, NULL) ==
+		    settings_hash(&info, &set2, NULL));
+	test_assert(settings_equal(&info, &set1, &set2, NULL));
+
+	/* uint */
+	set1.i = 1234567;
+	set2.i = 1234568;
+	test_assert(settings_hash(&info, &set1, NULL) !=
+		    settings_hash(&info, &set2, NULL));
+	test_assert(!settings_equal(&info, &set1, &set2, NULL));
+	set2.i = 1234567;
+	test_assert(settings_hash(&info, &set1, NULL) ==
+		    settings_hash(&info, &set2, NULL));
+	test_assert(settings_equal(&info, &set1, &set2, NULL));
+
+	/* size */
+	set1.size = 0x500000000ULL;
+	set2.size = 0x600000000ULL;
+	test_assert(settings_hash(&info, &set1, NULL) !=
+		    settings_hash(&info, &set2, NULL));
+	test_assert(!settings_equal(&info, &set1, &set2, NULL));
+	set2.size = 0x500000000ULL;
+	test_assert(settings_hash(&info, &set1, NULL) ==
+		    settings_hash(&info, &set2, NULL));
+	test_assert(settings_equal(&info, &set1, &set2, NULL));
+
+	/* port */
+	set1.port = 65535;
+	set2.port = 65534;
+	test_assert(settings_hash(&info, &set1, NULL) !=
+		    settings_hash(&info, &set2, NULL));
+	test_assert(!settings_equal(&info, &set1, &set2, NULL));
+	set2.port = 65535;
+	test_assert(settings_hash(&info, &set1, NULL) ==
+		    settings_hash(&info, &set2, NULL));
+	test_assert(settings_equal(&info, &set1, &set2, NULL));
+
+	/* string */
+	set1.str = "foo1";
+	set2.str = "foo2";
+	test_assert(settings_hash(&info, &set1, NULL) !=
+		    settings_hash(&info, &set2, NULL));
+	test_assert(!settings_equal(&info, &set1, &set2, NULL));
+	set2.str = "foo1";
+	test_assert(settings_hash(&info, &set1, NULL) ==
+		    settings_hash(&info, &set2, NULL));
+	test_assert(settings_equal(&info, &set1, &set2, NULL));
+
+	/* file with filename */
+	set1.file = "fname\ncontent";
+	set2.file = "fname2\ncontent";
+	test_assert(settings_hash(&info, &set1, NULL) !=
+		    settings_hash(&info, &set2, NULL));
+	test_assert(!settings_equal(&info, &set1, &set2, NULL));
+	set2.file = "fname\ncontent-with-different";
+	test_assert(settings_hash(&info, &set1, NULL) ==
+		    settings_hash(&info, &set2, NULL));
+	test_assert(!settings_equal(&info, &set1, &set2, NULL));
+	set2.file = "fname\ncontent";
+	test_assert(settings_hash(&info, &set1, NULL) ==
+		    settings_hash(&info, &set2, NULL));
+	test_assert(settings_equal(&info, &set1, &set2, NULL));
+
+	/* file without filename */
+	set1.file = "\ncontent";
+	set2.file = "\ncontent2";
+	test_assert(settings_hash(&info, &set1, NULL) !=
+		    settings_hash(&info, &set2, NULL));
+	test_assert(!settings_equal(&info, &set1, &set2, NULL));
+	set2.file = "\ncontent";
+	test_assert(settings_hash(&info, &set1, NULL) ==
+		    settings_hash(&info, &set2, NULL));
+	test_assert(settings_equal(&info, &set1, &set2, NULL));
+
+	/* string list */
+	const char *str;
+	t_array_init(&set1.strlist, 4);
+	str = "list1"; array_push_back(&set1.strlist, &str);
+	str = "list2"; array_push_back(&set1.strlist, &str);
+	str = "list3"; array_push_back(&set1.strlist, &str);
+	str = "list4"; array_push_back(&set1.strlist, &str);
+	t_array_init(&set2.strlist, 4);
+	str = "list1"; array_push_back(&set2.strlist, &str);
+	str = "list2"; array_push_back(&set2.strlist, &str);
+	test_assert(settings_hash(&info, &set1, NULL) !=
+		    settings_hash(&info, &set2, NULL));
+	test_assert(!settings_equal(&info, &set1, &set2, NULL));
+	str = "list3"; array_push_back(&set2.strlist, &str);
+	str = "list4"; array_push_back(&set2.strlist, &str);
+	test_assert(settings_hash(&info, &set1, NULL) ==
+		    settings_hash(&info, &set2, NULL));
+	test_assert(settings_equal(&info, &set1, &set2, NULL));
+
+	/* test exceptions */
+	const char *const except_fields1[] = { "b", NULL };
+	set1.b = FALSE;
+	test_assert(settings_hash(&info, &set1, NULL) !=
+		    settings_hash(&info, &set2, NULL));
+	test_assert(!settings_equal(&info, &set1, &set2, NULL));
+	test_assert(settings_hash(&info, &set1, except_fields1) ==
+		    settings_hash(&info, &set2, except_fields1));
+	test_assert(settings_equal(&info, &set1, &set2, except_fields1));
+
+	const char *const except_fields2[] = { "b", "i", NULL };
+	set1.i = 3535;
+	test_assert(settings_hash(&info, &set1, except_fields1) !=
+		    settings_hash(&info, &set2, except_fields1));
+	test_assert(!settings_equal(&info, &set1, &set2, except_fields1));
+	test_assert(settings_hash(&info, &set1, except_fields2) ==
+		    settings_hash(&info, &set2, except_fields2));
+	test_assert(settings_equal(&info, &set1, &set2, except_fields2));
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_settings_parser,
 		test_settings_parse_boollist_string,
 		test_settings_section_escape,
+		test_settings_hash_equals,
 		NULL
 	};
 	return test_run(test_functions);
