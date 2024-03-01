@@ -68,4 +68,9 @@ int rfc822_parse_content_type(struct rfc822_parser_context *ctx, string_t *str);
 int rfc822_parse_content_param(struct rfc822_parser_context *ctx,
 			       const char **key_r, string_t *value);
 
+/* Decode a punycode-encoded domain name and return the UTF8
+   form. Return a beft-effort form if some labels cannot be decoded
+   and others can. */
+string_t *rfc822_decode_punycode(string_t *);
+
 #endif

@@ -199,6 +199,28 @@ static void test_rfc822_parse_domain_literal(void)
 	test_end();
 }
 
+static void test_rfc822_decode_punycode(void)
+{
+        const char *tests[] = {
+                "xn--gr-zia.org", "grå.org",
+                "xn--gr-zia", "grå",
+                "org.xn--gr-zia", "org.grå",
+                "org.xn--gr-zia.org", "org.grå.org",
+                "org.xn--zz-zzzz.org", "org.xn--zz-zzzz.org"
+	};
+	string_t *str = t_str_new(64);
+	unsigned int i = 0;
+
+	test_begin("rfc822 decode punycode");
+	for (i = 0; i < N_ELEMENTS(tests); i += 2) {
+		str_truncate(str, 0);
+		str_append(str, tests[i]);
+		test_assert_strcmp_idx(str_c(rfc822_decode_punycode(str)),
+				       tests[i+1], i/2);
+	}
+	test_end();
+}
+
 #undef TEST_STRING
 #define TEST_STRING(a) .input = (const unsigned char*)a, .input_len = sizeof(a)-1
 
@@ -436,6 +458,7 @@ int main(void)
 		test_rfc822_parse_quoted_string,
 		test_rfc822_parse_dot_atom,
 		test_rfc822_parse_domain_literal,
+		test_rfc822_decode_punycode,
 		test_rfc822_parse_content_type,
 		test_rfc822_parse_content_param,
 		test_rfc822_parse_content_type_param,

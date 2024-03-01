@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "punycode.h"
 #include "strescape.h"
 #include "rfc822-parser.h"
 
@@ -412,6 +413,50 @@ rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 	return -1;
 }
 
+string_t *rfc822_decode_punycode(string_t *input)
+{
+	string_t *ace;
+	string_t *result;
+	const char *s;
+	uint b;
+	uint e;
+
+	ace = NULL;
+	result = t_str_new(str_len(input));
+	s = str_c(input);
+	b = 0;
+	e = str_len(input);
+
+	while (b <= e) {
+		uint d = b;
+		while (d < e && s[d] != '.')
+			d++;
+		if (d > b+4 &&
+		    s[b] == 'x' && s[b+1] == 'n' &&
+		    s[b+2] == '-' && s[b+3] == '-') {
+			if(ace == NULL)
+				ace = t_str_new(d-b);
+			else
+				str_truncate(ace, 0);
+			str_append_data(ace, s+b+4, d-b-4);
+			string_t *decoded = punycode_decode(ace);
+			if(ace == decoded)
+				str_append_data(result, s+b, d-b);
+			else
+				str_append(result, str_c(decoded));
+		} else {
+			str_append_data(result, s+b, d-b);
+		}
+		if (d < e)
+			str_append_c(result, '.');
+		b = d + 1;
+	}
+
+	if (ace)
+		str_free(&ace);
+	return result;
+}
+
 int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str)
 {
 	/*
@@ -426,10 +471,22 @@ int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str)
 	if (rfc822_skip_lwsp(ctx) <= 0)
 		return -1;
 
-	if (*ctx->data == '[')
+	if (*ctx->data == '[') {
 		return rfc822_parse_domain_literal(ctx, str);
-	else
-		return rfc822_parse_dot_atom(ctx, str);
+	} else {
+		int r;
+		string_t *u;
+		r = rfc822_parse_dot_atom(ctx, str);
+		if (!r) {
+			u = rfc822_decode_punycode(str);
+			if (strcmp(str_c(u), str_c(str))) {
+				str_truncate(str, 0);
+				str_append(str, str_c(u));
+			}
+			str_free(&u);
+		}
+		return r;
+	}
 }
 
 int rfc822_parse_content_type(struct rfc822_parser_context *ctx, string_t *str)

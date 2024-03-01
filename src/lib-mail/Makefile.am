@@ -36,6 +36,7 @@ libmail_la_SOURCES = \
 	message-size.c \
 	message-snippet.c \
 	ostream-dot.c \
+	punycode.c \
 	qp-decoder.c \
 	qp-encoder.c \
 	quoted-printable.c \
@@ -109,6 +110,7 @@ test_programs = \
 	test-message-size \
 	test-message-snippet \
 	test-ostream-dot \
+	test-punycode \
 	test-qp-decoder \
 	test-qp-encoder \
 	test-quoted-printable \
@@ -227,6 +229,10 @@ test_mail_html2text_DEPENDENCIES = $(test_deps)
 test_ostream_dot_SOURCES = test-ostream-dot.c
 test_ostream_dot_LDADD = $(test_libs)
 test_ostream_dot_DEPENDENCIES = $(test_deps)
+
+test_punycode_SOURCES = test-punycode.c
+test_punycode_LDADD = $(test_libs)
+test_punycode_DEPENDENCIES = $(test_deps)
 
 test_qp_decoder_SOURCES = test-qp-decoder.c
 test_qp_decoder_LDADD = $(test_libs)
