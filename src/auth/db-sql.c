@@ -22,7 +22,6 @@ static struct setting_def setting_defs[] = {
  	DEF_STR(update_query),
  	DEF_STR(iterate_query),
 	DEF_STR(default_pass_scheme),
-	DEF_BOOL(userdb_warning_disable),
 
 	{ 0, NULL, 0 }
 };
@@ -35,7 +34,6 @@ static struct db_sql_settings default_db_sql_settings = {
 	.update_query = "",
 	.iterate_query = "",
 	.default_pass_scheme = "MD5",
-	.userdb_warning_disable = FALSE
 };
 
 static struct db_sql_connection *connections = NULL;
@@ -59,7 +57,7 @@ static const char *parse_setting(const char *key, const char *value,
 				       &conn->set, key, value);
 }
 
-struct db_sql_connection *db_sql_init(const char *config_path, bool userdb)
+struct db_sql_connection *db_sql_init(const char *config_path)
 {
 	struct db_sql_connection *conn;
 	struct sql_legacy_settings set;
@@ -68,8 +66,6 @@ struct db_sql_connection *db_sql_init(const char *config_path, bool userdb)
 
 	conn = sql_conn_find(config_path);
 	if (conn != NULL) {
-		if (userdb)
-			conn->userdb_used = TRUE;
 		conn->refcount++;
 		return conn;
 	}
@@ -80,7 +76,6 @@ struct db_sql_connection *db_sql_init(const char *config_path, bool userdb)
 	pool = pool_alloconly_create("db_sql_connection", 1024);
 	conn = p_new(pool, struct db_sql_connection, 1);
 	conn->pool = pool;
-	conn->userdb_used = userdb;
 
 	conn->refcount = 1;
 
@@ -143,28 +138,6 @@ void db_sql_success(struct db_sql_connection *conn ATTR_UNUSED)
 {
 	if (worker)
 		auth_worker_server_send_success();
-}
-
-void db_sql_check_userdb_warning(struct db_sql_connection *conn)
-{
-	if (worker || conn->userdb_used || conn->set.userdb_warning_disable)
-		return;
-
-	if (strcmp(conn->set.user_query,
-		   default_db_sql_settings.user_query) != 0) {
-		e_warning(auth_event,
-			  "sql: Ignoring changed user_query in %s, "
-			  "because userdb sql not used. "
-			  "(If this is intentional, set userdb_warning_disable=yes)",
-			  conn->config_path);
-	} else if (strcmp(conn->set.iterate_query,
-			  default_db_sql_settings.iterate_query) != 0) {
-		e_warning(auth_event,
-			  "sql: Ignoring changed iterate_query in %s, "
-			  "because userdb sql not used. "
-			  "(If this is intentional, set userdb_warning_disable=yes)",
-			  conn->config_path);
-	}
 }
 
 #endif

@@ -11,7 +11,6 @@ struct db_sql_settings {
 	const char *update_query;
 	const char *iterate_query;
 	const char *default_pass_scheme;
-	bool userdb_warning_disable;
 };
 
 struct db_sql_connection {
@@ -23,16 +22,12 @@ struct db_sql_connection {
 	char *config_path;
 	struct db_sql_settings set;
 	struct sql_db *db;
-
-	bool userdb_used:1;
 };
 
-struct db_sql_connection *db_sql_init(const char *config_path, bool userdb);
+struct db_sql_connection *db_sql_init(const char *config_path);
 void db_sql_unref(struct db_sql_connection **conn);
 
 void db_sql_connect(struct db_sql_connection *conn);
 void db_sql_success(struct db_sql_connection *conn);
-
-void db_sql_check_userdb_warning(struct db_sql_connection *conn);
 
 #endif
