@@ -70,17 +70,8 @@ static void sql_query_callback(struct sql_result *result,
 	if (ret >= 0)
 		db_sql_success(module->conn);
 	if (ret < 0) {
-		if (!module->conn->default_password_query) {
-			e_error(authdb_event(auth_request),
-				"Password query failed: %s",
-				sql_result_get_error(result));
-		} else {
-			e_error(authdb_event(auth_request),
-				"Password query failed: %s "
-				"(using built-in default password_query: %s)",
-				sql_result_get_error(result),
-				module->conn->set.password_query);
-		}
+		e_error(authdb_event(auth_request), "Password query failed: %s",
+			sql_result_get_error(result));
 	} else if (ret == 0) {
 		auth_request_db_log_unknown_user(auth_request);
 		passdb_result = PASSDB_RESULT_USER_UNKNOWN;
@@ -206,22 +197,10 @@ static void sql_set_credentials_callback(const struct sql_commit_result *sql_res
 					 struct passdb_sql_request *sql_request)
 {
 	struct auth_request *auth_request = sql_request->auth_request;
-	struct passdb_module *_module =
-		sql_request->auth_request->passdb->passdb;
-	struct sql_passdb_module *module = (struct sql_passdb_module *)_module;
 
 	if (sql_result->error != NULL) {
-		if (!module->conn->default_update_query) {
-			e_error(authdb_event(auth_request),
-				"Set credentials query failed: %s",
-				sql_result->error);
-		} else {
-			e_error(authdb_event(auth_request),
-				"Set credentials query failed: %s"
-				"(using built-in default update_query: %s)",
-				sql_result->error,
-				module->conn->set.update_query);
-		}
+		e_error(authdb_event(auth_request),
+			"Set credentials query failed: %s", sql_result->error);
 	}
 
 	sql_request->callback.

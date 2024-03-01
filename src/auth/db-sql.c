@@ -30,10 +30,10 @@ static struct setting_def setting_defs[] = {
 static struct db_sql_settings default_db_sql_settings = {
 	.driver = NULL,
 	.connect = NULL,
-	.password_query = "SELECT username, domain, password FROM users WHERE username = '%n' AND domain = '%d'",
-	.user_query = "SELECT home, uid, gid FROM users WHERE username = '%n' AND domain = '%d'",
-	.update_query = "UPDATE users SET password = '%w' WHERE username = '%n' AND domain = '%d'",
-	.iterate_query = "SELECT username, domain FROM users",
+	.password_query = "",
+	.user_query = "",
+	.update_query = "",
+	.iterate_query = "",
 	.default_pass_scheme = "MD5",
 	.userdb_warning_disable = FALSE
 };
@@ -88,15 +88,6 @@ struct db_sql_connection *db_sql_init(const char *config_path, bool userdb)
 	conn->set = default_db_sql_settings;
 	if (!settings_read_nosection(config_path, parse_setting, conn, &error))
 		i_fatal("sql %s: %s", config_path, error);
-
-	if (conn->set.password_query == default_db_sql_settings.password_query)
-		conn->default_password_query = TRUE;
-	if (conn->set.user_query == default_db_sql_settings.user_query)
-		conn->default_user_query = TRUE;
-	if (conn->set.update_query == default_db_sql_settings.update_query)
-		conn->default_update_query = TRUE;
-	if (conn->set.iterate_query == default_db_sql_settings.iterate_query)
-		conn->default_iterate_query = TRUE;
 
 	if (conn->set.driver == NULL) {
 		i_fatal("sql: driver not set in configuration file %s",
