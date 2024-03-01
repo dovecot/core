@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "crc32.h"
 #include "str.h"
 #include "str-parse.h"
 #include "read-full.h"
@@ -913,6 +914,160 @@ bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
 {
 	return settings_check(event, ctx->info, pool,
 			      ctx->set_struct, error_r);
+}
+
+unsigned int settings_hash(const struct setting_parser_info *info,
+			   const void *set, const char *const *except_fields)
+{
+	unsigned int crc = 0;
+
+	for (unsigned int i = 0; info->defines[i].key != NULL; i++) {
+		if (except_fields != NULL &&
+		    str_array_find(except_fields, info->defines[i].key))
+			continue;
+
+		const void *p = CONST_PTR_OFFSET(set, info->defines[i].offset);
+		switch (info->defines[i].type) {
+		case SET_BOOL: {
+			const bool *b = p;
+			crc = crc32_data_more(crc, b, sizeof(*b));
+			break;
+		}
+		case SET_UINT:
+		case SET_UINT_OCT:
+		case SET_TIME:
+		case SET_TIME_MSECS: {
+			const unsigned int *i = p;
+			crc = crc32_data_more(crc, i, sizeof(*i));
+			break;
+		}
+		case SET_SIZE: {
+			const uoff_t *s = p;
+			crc = crc32_data_more(crc, s, sizeof(*s));
+			break;
+		}
+		case SET_IN_PORT: {
+			const in_port_t *port = p;
+			crc = crc32_data_more(crc, port, sizeof(*port));
+			break;
+		}
+		case SET_STR:
+		case SET_STR_NOVARS:
+		case SET_ENUM: {
+			const char *const *str = p;
+			crc = crc32_str_more(crc, *str);
+			break;
+		}
+		case SET_FILE: {
+			const char *const *str = p;
+			const char *lf = strchr(*str, '\n');
+			if (lf == NULL)
+				i_panic("Settings file value is missing LF");
+			if (lf == *str) {
+				/* no filename - need to hash the content */
+				crc = crc32_str_more(crc, *str + 1);
+			} else {
+				/* hashing the filename is enough */
+				crc = crc32_data_more(crc, *str, lf - *str);
+			}
+			break;
+		}
+		case SET_STRLIST:
+		case SET_BOOLLIST:
+		case SET_FILTER_ARRAY: {
+			const ARRAY_TYPE(const_string) *list = p;
+			if (array_is_created(list)) {
+				const char *str;
+				array_foreach_elem(list, str)
+					crc = crc32_str_more(crc, str);
+			}
+			break;
+		}
+		case SET_ALIAS:
+		case SET_FILTER_NAME:
+			break;
+		}
+	}
+	return crc;
+}
+
+bool settings_equal(const struct setting_parser_info *info,
+		    const void *set1, const void *set2,
+		    const char *const *except_fields)
+{
+	for (unsigned int i = 0; info->defines[i].key != NULL; i++) {
+		if (except_fields != NULL &&
+		    str_array_find(except_fields, info->defines[i].key))
+			continue;
+
+		const void *p1 = CONST_PTR_OFFSET(set1, info->defines[i].offset);
+		const void *p2 = CONST_PTR_OFFSET(set2, info->defines[i].offset);
+		switch (info->defines[i].type) {
+		case SET_BOOL: {
+			const bool *b1 = p1, *b2 = p2;
+			if (*b1 != *b2)
+				return FALSE;
+			break;
+		}
+		case SET_UINT:
+		case SET_UINT_OCT:
+		case SET_TIME:
+		case SET_TIME_MSECS: {
+			const unsigned int *i1 = p1, *i2 = p2;
+			if (*i1 != *i2)
+				return FALSE;
+			break;
+		}
+		case SET_SIZE: {
+			const uoff_t *s1 = p1, *s2 = p2;
+			if (*s1 != *s2)
+				return FALSE;
+			break;
+		}
+		case SET_IN_PORT: {
+			const in_port_t *port1 = p1, *port2 = p2;
+			if (*port1 != *port2)
+				return FALSE;
+			break;
+		}
+		case SET_STR:
+		case SET_STR_NOVARS:
+		case SET_ENUM:
+		case SET_FILE: {
+			const char *const *str1 = p1, *const *str2 = p2;
+			if (strcmp(*str1, *str2) != 0)
+				return FALSE;
+			break;
+		}
+		case SET_STRLIST:
+		case SET_BOOLLIST:
+		case SET_FILTER_ARRAY: {
+			const ARRAY_TYPE(const_string) *list1 = p1, *list2 = p2;
+			if (array_is_empty(list1)) {
+				if (!array_is_empty(list2))
+					return FALSE;
+				break;
+			}
+			if (array_is_empty(list2))
+				return FALSE;
+
+			unsigned int i, count1, count2;
+			const char *const *str1 = array_get(list1, &count1);
+			const char *const *str2 = array_get(list2, &count2);
+			if (count1 != count2)
+				return FALSE;
+			for (i = 0; i < count1; i++) {
+				if (strcmp(str1[i], str2[i]) != 0)
+					return FALSE;
+			}
+			break;
+		}
+		case SET_ALIAS:
+		case SET_FILTER_NAME:
+			break;
+		}
+	}
+	return TRUE;
 }
 
 const char *settings_section_escape(const char *name)

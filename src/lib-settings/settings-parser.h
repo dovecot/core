@@ -264,6 +264,16 @@ bool settings_file_has_path(const char *value);
 const char *settings_file_get_value(pool_t pool,
 				    const struct settings_file *file);
 
+/* Return hash of all the settings, except the specified fields
+   (NULL = no exceptions). */
+unsigned int settings_hash(const struct setting_parser_info *info,
+			   const void *set, const char *const *except_fields);
+/* Returns TRUE if the two settings structs are equal, except for the
+   specified fields (NULL = no exceptions). */
+bool settings_equal(const struct setting_parser_info *info,
+		    const void *set1, const void *set2,
+		    const char *const *except_fields);
+
 /* Return section name escaped */
 const char *settings_section_escape(const char *name);
 const char *settings_section_unescape(const char *name);
