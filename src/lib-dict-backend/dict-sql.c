@@ -8,7 +8,7 @@
 #include "hash.h"
 #include "str.h"
 #include "sql-api-private.h"
-#include "sql-db-cache.h"
+#include "sql-db-cache-legacy.h"
 #include "dict-private.h"
 #include "dict-sql-settings.h"
 #include "dict-sql.h"
@@ -118,7 +118,8 @@ sql_dict_init_legacy(struct dict *driver, const char *uri,
 	sql_set.connect_string = dict->set->connect;
 	sql_set.event_parent = set->event_parent;
 
-	if (sql_db_cache_new(dict_sql_db_cache, &sql_set, &dict->db, error_r) < 0) {
+	if (sql_db_cache_new_legacy(dict_sql_db_cache, &sql_set,
+				    &dict->db, error_r) < 0) {
 		pool_unref(&pool);
 		return -1;
 	}
@@ -1676,7 +1677,7 @@ void dict_sql_register(void)
         const struct sql_db *const *drivers;
 	unsigned int i, count;
 
-	dict_sql_db_cache = sql_db_cache_init(DICT_SQL_MAX_UNUSED_CONNECTIONS);
+	dict_sql_db_cache = sql_db_cache_init_legacy(DICT_SQL_MAX_UNUSED_CONNECTIONS);
 
 	/* @UNSAFE */
 	drivers = array_get(&sql_drivers, &count);
@@ -1697,6 +1698,6 @@ void dict_sql_unregister(void)
 	for (i = 0; dict_sql_drivers[i].name != NULL; i++)
 		dict_driver_unregister(&dict_sql_drivers[i]);
 	i_free(dict_sql_drivers);
-	sql_db_cache_deinit(&dict_sql_db_cache);
+	sql_db_cache_deinit_legacy(&dict_sql_db_cache);
 	dict_sql_settings_deinit();
 }
