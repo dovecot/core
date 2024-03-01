@@ -235,12 +235,15 @@ void doveadm_mail_get_input(struct doveadm_mail_cmd_context *ctx)
 		return;
 
 	if (!cli && cctx->input == NULL) {
-		ctx->cmd_input = i_stream_create_error_str(EINVAL, "Input stream missing (provide with file parameter)");
+		ctx->cmd_input = i_stream_create_error_str(EINVAL,
+			"Input stream missing (provide with file parameter)");
 		return;
 	}
 
 	if (!cli)
-		inputs[0] = i_stream_create_dot(cctx->input, FALSE);
+		inputs[0] = i_stream_create_dot(cctx->input,
+						ISTREAM_DOT_TRIM_TRAIL |
+						ISTREAM_DOT_LOOSE_EOT);
 	else {
 		inputs[0] = i_stream_create_fd(STDIN_FILENO, 1024*1024);
 		i_stream_set_name(inputs[0], "stdin");

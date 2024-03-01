@@ -27,6 +27,7 @@ struct dot_istream {
 	bool dot_eof:1;
 
 	bool send_last_lf:1;
+	bool accept_bare_lf:1;
 };
 
 static int i_stream_dot_read_some(struct dot_istream *dstream)
@@ -224,7 +225,8 @@ end:
 	return ret;
 }
 
-struct istream *i_stream_create_dot(struct istream *input, bool send_last_lf)
+struct istream *
+i_stream_create_dot(struct istream *input, enum istream_dot_flags flags)
 {
 	struct dot_istream *dstream;
 
@@ -235,7 +237,8 @@ struct istream *i_stream_create_dot(struct istream *input, bool send_last_lf)
 	dstream->istream.istream.readable_fd = FALSE;
 	dstream->istream.istream.blocking = input->blocking;
 	dstream->istream.istream.seekable = FALSE;
-	dstream->send_last_lf = send_last_lf;
+	dstream->send_last_lf = HAS_NO_BITS(flags, ISTREAM_DOT_TRIM_TRAIL);
+	dstream->accept_bare_lf = HAS_ANY_BITS(flags, ISTREAM_DOT_LOOSE_EOT);
 	dstream->state = DOT_STATE_SEEN_CR_LF;
 	dstream->state_no_cr = TRUE;
 	dstream->state_no_lf = TRUE;

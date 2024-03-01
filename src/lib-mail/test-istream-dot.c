@@ -13,7 +13,8 @@ struct dot_test {
 };
 
 static void test_istream_dot_one(const struct dot_test *test,
-				 bool send_last_lf, bool test_bufsize)
+				 enum istream_dot_flags flags,
+				 bool test_bufsize)
 {
 	struct istream *test_input, *input;
 	const unsigned char *data;
@@ -25,11 +26,11 @@ static void test_istream_dot_one(const struct dot_test *test,
 	int ret;
 
 	test_input = test_istream_create(test->input);
-	input = i_stream_create_dot(test_input, send_last_lf);
+	input = i_stream_create_dot(test_input, flags);
 
 	input_len = strlen(test->input);
 	output_len = strlen(test->output);
-	if (!send_last_lf &&
+	if (HAS_ANY_BITS(flags, ISTREAM_DOT_TRIM_TRAIL) &&
 	    (test->input[input_len-1] == '\n' ||
 	     strstr(test->input, "\n.\n") != NULL ||
 	     strstr(test->input, "\n.\r\n") != NULL)) {
@@ -118,8 +119,8 @@ static void test_istream_dot_error(const char *input_str, bool test_bufsize)
 	int ret;
 
 	test_input = test_istream_create(input_str);
-	input = i_stream_create_dot(test_input, FALSE);
-
+	input = i_stream_create_dot(test_input, ISTREAM_DOT_TRIM_TRAIL |
+						ISTREAM_DOT_LOOSE_EOT);
 	input_len = strlen(input_str);
 
 	if (!test_bufsize) {
@@ -208,10 +209,10 @@ static void test_istream_dot(void)
 
 	test_begin("dot istream");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
-		test_istream_dot_one(&tests[i], TRUE, TRUE);
-		test_istream_dot_one(&tests[i], TRUE, FALSE);
-		test_istream_dot_one(&tests[i], FALSE, TRUE);
-		test_istream_dot_one(&tests[i], FALSE, FALSE);
+		test_istream_dot_one(&tests[i], ISTREAM_DOT_NO_TRIM    | ISTREAM_DOT_LOOSE_EOT, TRUE);
+		test_istream_dot_one(&tests[i], ISTREAM_DOT_NO_TRIM    | ISTREAM_DOT_LOOSE_EOT, FALSE);
+		test_istream_dot_one(&tests[i], ISTREAM_DOT_TRIM_TRAIL | ISTREAM_DOT_LOOSE_EOT, TRUE);
+		test_istream_dot_one(&tests[i], ISTREAM_DOT_TRIM_TRAIL | ISTREAM_DOT_LOOSE_EOT, FALSE);
 	}
 	for (i = 0; i < N_ELEMENTS(error_tests); i++) {
 		test_istream_dot_error(error_tests[i], FALSE);

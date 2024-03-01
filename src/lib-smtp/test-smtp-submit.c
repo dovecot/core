@@ -1314,7 +1314,10 @@ static void test_successful_delivery_input(struct server_connection *conn)
 				int fd;
 
 				ctx->dot_input =
-					i_stream_create_dot(conn->conn.input, TRUE);
+					i_stream_create_dot(
+						conn->conn.input,
+						ISTREAM_DOT_NO_TRIM |
+						ISTREAM_DOT_LOOSE_EOT);
 				ctx->file_path = p_strdup_printf(
 					conn->pool, "%s/message-%u.eml",
 					test_tmp_dir_get(), server_port);

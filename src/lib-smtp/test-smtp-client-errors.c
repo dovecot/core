@@ -3980,7 +3980,8 @@ server_connection_input(struct connection *_conn)
 
 			if (conn->dot_input == NULL) {
 				conn->dot_input = i_stream_create_dot(
-					conn->conn.input, TRUE);
+					conn->conn.input, ISTREAM_DOT_NO_TRIM |
+							  ISTREAM_DOT_LOOSE_EOT);
 			}
 			while ((ret = i_stream_read_more(conn->dot_input,
 							 &data, &size)) > 0) {

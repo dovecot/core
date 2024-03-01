@@ -134,7 +134,9 @@ test_program_input_handle(struct test_client *client, const char *line)
 				".dovecot.test.", 0, "test_program_input body");
 		}
 		if (client->is_body == NULL)
-			client->is_body = i_stream_create_dot(client->in, FALSE);
+			client->is_body = i_stream_create_dot(client->in,
+							      ISTREAM_DOT_TRIM_TRAIL |
+							      ISTREAM_DOT_LOOSE_EOT);
 		switch (o_stream_send_istream(client->os_body,
 					      client->is_body)) {
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:

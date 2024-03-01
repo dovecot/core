@@ -402,7 +402,8 @@ void program_client_connected(struct program_client *pclient)
 
 		/* initialize dot input stream if required */
 		if (pclient->set.use_dotstream)
-			input = i_stream_create_dot(input, FALSE);
+			input = i_stream_create_dot(input, ISTREAM_DOT_TRIM_TRAIL |
+							   ISTREAM_DOT_LOOSE_EOT);
 		else
 			i_stream_ref(input);
 		pclient->program_input = input;

@@ -497,7 +497,8 @@ dsync_ibc_stream_input_stream(struct dsync_ibc_stream *ibc)
 {
 	struct istream *inputs[2];
 
-	inputs[0] = i_stream_create_dot(ibc->input, FALSE);
+	inputs[0] = i_stream_create_dot(ibc->input, ISTREAM_DOT_TRIM_TRAIL |
+						    ISTREAM_DOT_LOOSE_EOT);
 	inputs[1] = NULL;
 	ibc->value_input = i_stream_create_seekable(inputs, MAIL_READ_FULL_BLOCK_SIZE,
 						    seekable_fd_callback, ibc);

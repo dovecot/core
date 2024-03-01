@@ -881,7 +881,8 @@ pop3c_client_cmd_stream_async(struct pop3c_client *client, const char *cmdline,
 	cmd = pop3c_client_cmd_line_async(client, cmdline, callback, context);
 
 	input = i_stream_create_chain(&cmd->chain, POP3C_MAX_INBUF_SIZE);
-	inputs[0] = i_stream_create_dot(input, TRUE);
+	inputs[0] = i_stream_create_dot(input, ISTREAM_DOT_NO_TRIM |
+					       ISTREAM_DOT_LOOSE_EOT);
 	inputs[1] = NULL;
 	cmd->input = i_stream_create_seekable(inputs, POP3C_MAX_INBUF_SIZE,
 					      seekable_fd_callback, client);
