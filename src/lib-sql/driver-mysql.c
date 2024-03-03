@@ -153,9 +153,19 @@ struct mysql_transaction_context {
 	bool commit_started:1;
 };
 
+struct mysql_db_cache {
+	/* Contains the sqlpool connection */
+	struct sql_db *db;
+
+	const struct mysql_settings *set;
+	const struct ssl_settings *ssl_set;
+};
+
 extern const struct sql_db driver_mysql_db;
 extern const struct sql_result driver_mysql_result;
 extern const struct sql_result driver_mysql_error_result;
+
+static ARRAY(struct mysql_db_cache) mysql_db_cache;
 
 static struct event_category event_category_mysql = {
 	.parent = &event_category_sql,
@@ -390,6 +400,23 @@ driver_mysql_parse_connect_string(pool_t pool, const char *connect_string,
 	return 0;
 }
 
+static struct mysql_db_cache *
+driver_mysql_db_cache_find(const struct mysql_settings *set,
+			   const struct ssl_settings *ssl_set)
+{
+	struct mysql_db_cache *cache;
+
+	array_foreach_modifiable(&mysql_db_cache, cache) {
+		if (settings_equal(&mysql_setting_parser_info,
+				   set, cache->set, NULL) &&
+		    (!set->ssl ||
+		     settings_equal(&ssl_setting_parser_info,
+				    ssl_set, cache->ssl_set, NULL)))
+			return cache;
+	}
+	return NULL;
+}
+
 static struct sql_db *
 driver_mysql_init_common(pool_t pool, struct event *event_parent,
 			 const struct mysql_settings *set,
@@ -461,13 +488,28 @@ driver_mysql_init_v(struct event *event, struct sql_db **db_r,
 	}
 
 	if (event_get_ptr(event, SQLPOOL_EVENT_PTR) == NULL) {
-		/* Use sqlpool for managing multiple connections */
-		*db_r = driver_sqlpool_init(&driver_mysql_db, event,
-					    MYSQL_SQLPOOL_SET_NAME,
-					    &set->sqlpool_hosts,
-					    set->connection_limit);
-		settings_free(set);
-		settings_free(ssl_set);
+		/* See if there is already such a database */
+		struct mysql_db_cache *cache =
+			driver_mysql_db_cache_find(set, ssl_set);
+		if (cache != NULL) {
+			settings_free(set);
+			settings_free(ssl_set);
+		} else {
+			/* Use sqlpool for managing multiple connections.
+			   Leave an extra reference to it, so it won't be freed
+			   while it's still in the cache array. */
+			struct sql_db *db =
+				driver_sqlpool_init(&driver_mysql_db, event,
+						    MYSQL_SQLPOOL_SET_NAME,
+						    &set->sqlpool_hosts,
+						    set->connection_limit);
+			cache = array_append_space(&mysql_db_cache);
+			cache->db = db;
+			cache->set = set;
+			cache->ssl_set = ssl_set;
+		}
+		sql_ref(cache->db);
+		*db_r = cache->db;
 		return 0;
 	}
 	/* We're being initialized by sqlpool - create a real mysql
@@ -1020,11 +1062,20 @@ const char *driver_mysql_version = DOVECOT_ABI_VERSION;
 
 void driver_mysql_init(void)
 {
+	i_array_init(&mysql_db_cache, 4);
 	sql_driver_register(&driver_mysql_db);
 }
 
 void driver_mysql_deinit(void)
 {
+	struct mysql_db_cache *cache;
+
+	array_foreach_modifiable(&mysql_db_cache, cache) {
+		settings_free(cache->set);
+		settings_free(cache->ssl_set);
+		sql_unref(&cache->db);
+	}
+	array_free(&mysql_db_cache);
 	sql_driver_unregister(&driver_mysql_db);
 }
 
