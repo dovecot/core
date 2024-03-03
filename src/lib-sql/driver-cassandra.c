@@ -421,6 +421,7 @@ static struct event_category event_category_cassandra = {
 
 static pthread_t main_thread_id;
 static bool main_thread_id_set;
+static ARRAY(struct cassandra_db *) cassandra_db_cache;
 
 static void driver_cassandra_prepare_pending(struct cassandra_db *db);
 static void
@@ -1272,6 +1273,23 @@ static int driver_cassandra_init_ssl(struct cassandra_db *db, const char **error
 	return 0;
 }
 
+static struct cassandra_db *
+driver_cassandra_db_cache_find(const struct cassandra_settings *set,
+			       const struct ssl_settings *ssl_set)
+{
+	struct cassandra_db *db;
+
+	array_foreach_elem(&cassandra_db_cache, db) {
+		if (settings_equal(&cassandra_setting_parser_info,
+				   set, db->set, NULL) &&
+		    (strcmp(set->ssl, "no") == 0 ||
+		     settings_equal(&ssl_setting_parser_info,
+				    ssl_set, db->set, NULL)))
+			return db;
+	}
+	return NULL;
+}
+
 static int
 driver_cassandra_init_common(struct event *event_parent,
 			     const struct cassandra_settings *set,
@@ -1368,7 +1386,7 @@ driver_cassandra_init_v(struct event *event, struct sql_db **db_r,
 			const char **error_r)
 {
 	const struct cassandra_settings *set;
-	const struct ssl_settings *ssl_set;
+	const struct ssl_settings *ssl_set = NULL;
 
 	if (settings_get(event, &cassandra_setting_parser_info, 0,
 			 &set, error_r) < 0)
@@ -1382,9 +1400,22 @@ driver_cassandra_init_v(struct event *event, struct sql_db **db_r,
 		}
 	}
 
-	if (driver_cassandra_init_common(event, set, ssl_set, db_r, error_r) < 0)
-		return -1;
-	sql_init_common(*db_r);
+	struct cassandra_db *db =
+		driver_cassandra_db_cache_find(set, ssl_set);
+	if (db != NULL) {
+		settings_free(set);
+		settings_free(ssl_set);
+	} else {
+		if (driver_cassandra_init_common(event, set, ssl_set,
+						 &db, error_r) < 0)
+			return -1;
+		sql_init_common(&db->api);
+		array_push_back(&cassandra_db_cache, &db);
+		/* Add an extra reference to the db, so it won't be freed while
+		   it's still in the cache array. */
+	}
+	db->api.refcount++;
+	*db_r = &db->api;
 	return 0;
 }
 
@@ -3209,11 +3240,19 @@ const char *driver_cassandra_version = DOVECOT_ABI_VERSION;
 
 void driver_cassandra_init(void)
 {
+	i_array_init(&cassandra_db_cache, 4);
 	sql_driver_register(&driver_cassandra_db);
 }
 
 void driver_cassandra_deinit(void)
 {
+	struct cassandra_db *db;
+
+	array_foreach_elem(&cassandra_db_cache, db) {
+		struct sql_db *_db = &db->api;
+		sql_unref(&_db);
+	}
+	array_free(&cassandra_db_cache);
 	sql_driver_unregister(&driver_cassandra_db);
 }
 
