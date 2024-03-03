@@ -127,8 +127,17 @@ struct pgsql_transaction_context {
 	bool failed:1;
 };
 
+struct pgsql_db_cache {
+	/* Contains the sqlpool connection */
+	struct sql_db *db;
+
+	const struct pgsql_settings *set;
+};
+
 extern const struct sql_db driver_pgsql_db;
 extern const struct sql_result driver_pgsql_result;
+
+static ARRAY(struct pgsql_db_cache) pgsql_db_cache;
 
 static void result_finish(struct pgsql_result *result);
 static void
@@ -406,6 +415,19 @@ static enum sql_db_flags driver_pgsql_get_flags(struct sql_db *db)
 	return db->flags;
 }
 
+static struct pgsql_db_cache *
+driver_pgsql_db_cache_find(const struct pgsql_settings *set)
+{
+	struct pgsql_db_cache *cache;
+
+	array_foreach_modifiable(&pgsql_db_cache, cache) {
+		if (settings_equal(&pgsql_setting_parser_info,
+				   set, cache->set, NULL))
+			return cache;
+	}
+	return NULL;
+}
+
 static struct pgsql_db *
 driver_pgsql_init_common(struct event *event_parent,
 			 const struct pgsql_settings *set)
@@ -438,12 +460,26 @@ driver_pgsql_init_v(struct event *event, struct sql_db **db_r,
 	}
 
 	if (event_get_ptr(event, SQLPOOL_EVENT_PTR) == NULL) {
-		/* Use sqlpool for managing multiple connections */
-		*db_r = driver_sqlpool_init(&driver_pgsql_db, event,
-					    PGSQL_SQLPOOL_SET_NAME,
-					    &set->sqlpool_hosts,
-					    set->connection_limit);
-		settings_free(set);
+		/* See if there is already such a database */
+		struct pgsql_db_cache *cache =
+			driver_pgsql_db_cache_find(set);
+		if (cache != NULL)
+			settings_free(set);
+		else {
+			/* Use sqlpool for managing multiple connections.
+			   Leave an extra reference to it, so it won't be freed
+			   while it's still in the cache array. */
+			struct sql_db *db =
+				driver_sqlpool_init(&driver_pgsql_db, event,
+						    PGSQL_SQLPOOL_SET_NAME,
+						    &set->sqlpool_hosts,
+						    set->connection_limit);
+			cache = array_append_space(&pgsql_db_cache);
+			cache->db = db;
+			cache->set = set;
+		}
+		sql_ref(cache->db);
+		*db_r = cache->db;
 		return 0;
 	}
 	/* We're being initialized by sqlpool - create a real pgsql
@@ -1477,11 +1513,19 @@ const char *driver_pgsql_version = DOVECOT_ABI_VERSION;
 
 void driver_pgsql_init(void)
 {
+	i_array_init(&pgsql_db_cache, 4);
 	sql_driver_register(&driver_pgsql_db);
 }
 
 void driver_pgsql_deinit(void)
 {
+	struct pgsql_db_cache *cache;
+
+	array_foreach_modifiable(&pgsql_db_cache, cache) {
+		settings_free(cache->set);
+		sql_unref(&cache->db);
+	}
+	array_free(&pgsql_db_cache);
 	sql_driver_unregister(&driver_pgsql_db);
 }
 
