@@ -81,6 +81,8 @@ extern const struct sql_db driver_sqlite_db;
 extern const struct sql_result driver_sqlite_result;
 extern const struct sql_result driver_sqlite_error_result;
 
+static ARRAY(struct sqlite_db *) sqlite_db_cache;
+
 static struct event_category event_category_sqlite = {
 	.parent = &event_category_sql,
 	.name = "sqlite"
@@ -146,7 +148,20 @@ static int driver_sqlite_connect(struct sql_db *_db)
 	return -1;
 }
 
-static struct sql_db *
+static struct sqlite_db *
+driver_sqlite_db_cache_find(const struct sqlite_settings *set)
+{
+	struct sqlite_db *db;
+
+	array_foreach_elem(&sqlite_db_cache, db) {
+		if (settings_equal(&sqlite_setting_parser_info,
+				   set, db->set, NULL))
+			return db;
+	}
+	return NULL;
+}
+
+static struct sqlite_db *
 driver_sqlite_init_common(struct event *event,
 			  const struct sqlite_settings *set)
 {
@@ -159,7 +174,7 @@ driver_sqlite_init_common(struct event *event,
 	db->api.event = event_create(event);
 	event_add_category(db->api.event, &event_category_sqlite);
 	event_set_append_log_prefix(db->api.event, "sqlite: ");
-	return &db->api;
+	return db;
 }
 
 static int
@@ -171,8 +186,20 @@ driver_sqlite_init_v(struct event *event, struct sql_db **db_r,
 	if (settings_get(event, &sqlite_setting_parser_info, 0,
 			 &set, error_r) < 0)
 		return -1;
-	*db_r = driver_sqlite_init_common(event, set);
-	sql_init_common(*db_r);
+
+	struct sqlite_db *db = driver_sqlite_db_cache_find(set);
+	if (db != NULL)
+		settings_free(set);
+	else {
+		db = driver_sqlite_init_common(event, set);
+		sql_init_common(&db->api);
+		array_push_back(&sqlite_db_cache, &db);
+		/* Add an extra reference to the db, so it won't be freed while
+		   it's still in the cache array. */
+	}
+	db->api.refcount++;
+
+	*db_r = &db->api;
 	return 0;
 }
 
@@ -239,7 +266,9 @@ driver_sqlite_init_full_v(const struct sql_legacy_settings *legacy_set,
 		return -1;
 	}
 
-	*db_r = driver_sqlite_init_common(legacy_set->event_parent, set);
+	struct sqlite_db *db =
+		driver_sqlite_init_common(legacy_set->event_parent, set);
+	*db_r = &db->api;
 	return 0;
 }
 
@@ -766,11 +795,19 @@ const char *driver_sqlite_version = DOVECOT_ABI_VERSION;
 
 void driver_sqlite_init(void)
 {
+	i_array_init(&sqlite_db_cache, 4);
 	sql_driver_register(&driver_sqlite_db);
 }
 
 void driver_sqlite_deinit(void)
 {
+	struct sqlite_db *db;
+
+	array_foreach_elem(&sqlite_db_cache, db) {
+		struct sql_db *_db = &db->api;
+		sql_unref(&_db);
+	}
+	array_free(&sqlite_db_cache);
 	sql_driver_unregister(&driver_sqlite_db);
 }
 
