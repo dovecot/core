@@ -230,6 +230,7 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 		e_error(authdb_event(auth_request),
 			"Failed to expand base=%s: %s", conn->set.base, error);
 		ctx->ctx.failed = TRUE;
+		return &ctx->ctx;
 	}
 	request->request.base = p_strdup(auth_request->pool, str_c(str));
 
@@ -240,6 +241,7 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 			"Failed to expand iterate_filter=%s: %s",
 			conn->set.iterate_filter, error);
 		ctx->ctx.failed = TRUE;
+		return &ctx->ctx;
 	}
 	request->request.filter = p_strdup(auth_request->pool, str_c(str));
 	request->request.attr_map = &conn->iterate_attr_map;
@@ -260,6 +262,10 @@ static void userdb_ldap_iterate_next(struct userdb_iterate_context *_ctx)
 	struct ldap_userdb_iterate_context *ctx =
 		(struct ldap_userdb_iterate_context *)_ctx;
 
+	if (_ctx->failed) {
+		_ctx->callback(NULL, _ctx->context);
+		return;
+	}
 	ctx->continued = TRUE;
 	if (!ctx->in_callback)
 		db_ldap_enable_input(ctx->conn, TRUE);
