@@ -141,19 +141,21 @@ userdb_sql_iterate_init(struct auth_request *auth_request,
 	struct sql_userdb_iterate_context *ctx;
 	const char *query, *error;
 
+	ctx = i_new(struct sql_userdb_iterate_context, 1);
+	ctx->ctx.auth_request = auth_request;
+	ctx->ctx.callback = callback;
+	ctx->ctx.context = context;
+	auth_request_ref(auth_request);
+
 	if (t_auth_request_var_expand(module->conn->set.iterate_query,
 				      auth_request, userdb_sql_escape,
 				      &query, &error) <= 0) {
 		e_error(authdb_event(auth_request),
 			"Failed to expand iterate_query=%s: %s",
 			module->conn->set.iterate_query, error);
+		ctx->ctx.failed = TRUE;
+		return &ctx->ctx;
 	}
-
-	ctx = i_new(struct sql_userdb_iterate_context, 1);
-	ctx->ctx.auth_request = auth_request;
-	ctx->ctx.callback = callback;
-	ctx->ctx.context = context;
-	auth_request_ref(auth_request);
 
 	sql_query(module->conn->db, query,
 		  sql_iter_query_callback, ctx);
@@ -200,6 +202,10 @@ static void userdb_sql_iterate_next(struct userdb_iterate_context *_ctx)
 	const char *user;
 	int ret;
 
+	if (_ctx->failed) {
+		_ctx->callback(NULL, _ctx->context);
+		return;
+	}
 	if (ctx->result == NULL) {
 		/* query not finished yet */
 		ctx->call_iter = TRUE;
