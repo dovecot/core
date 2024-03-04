@@ -459,7 +459,7 @@ passdb_ldap_preinit(pool_t pool, const char *args)
 	struct ldap_connection *conn;
 
 	module = p_new(pool, struct ldap_passdb_module, 1);
-	module->conn = conn = db_ldap_init(args, FALSE);
+	module->conn = conn = db_ldap_init(args);
 	p_array_init(&conn->pass_attr_map, pool, 16);
 	db_ldap_set_attrs(conn, conn->set.pass_attrs, &conn->pass_attr_names,
 			  &conn->pass_attr_map,

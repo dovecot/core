@@ -2011,7 +2011,7 @@ static struct ldap_connection *ldap_conn_find(const char *config_path)
 	return NULL;
 }
 
-struct ldap_connection *db_ldap_init(const char *config_path, bool userdb)
+struct ldap_connection *db_ldap_init(const char *config_path)
 {
 	struct ldap_connection *conn;
 	const char *str, *error;
@@ -2020,8 +2020,6 @@ struct ldap_connection *db_ldap_init(const char *config_path, bool userdb)
 	/* see if it already exists */
 	conn = ldap_conn_find(config_path);
 	if (conn != NULL) {
-		if (userdb)
-			conn->userdb_used = TRUE;
 		conn->refcount++;
 		return conn;
 	}
@@ -2034,7 +2032,6 @@ struct ldap_connection *db_ldap_init(const char *config_path, bool userdb)
 	conn->pool = pool;
 	conn->refcount = 1;
 
-	conn->userdb_used = userdb;
 	conn->conn_state = LDAP_CONN_STATE_DISCONNECTED;
 	conn->default_bind_msgid = -1;
 	conn->fd = -1;
