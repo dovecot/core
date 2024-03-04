@@ -283,7 +283,7 @@ userdb_ldap_preinit(pool_t pool, const char *args)
 	struct ldap_connection *conn;
 
 	module = p_new(pool, struct ldap_userdb_module, 1);
-	module->conn = conn = db_ldap_init(args, TRUE);
+	module->conn = conn = db_ldap_init(args);
 	p_array_init(&conn->user_attr_map, pool, 16);
 	p_array_init(&conn->iterate_attr_map, pool, 16);
 

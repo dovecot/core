@@ -185,7 +185,6 @@ struct ldap_connection {
 
 	char **pass_attr_names, **user_attr_names, **iterate_attr_names;
 	ARRAY_TYPE(ldap_field) pass_attr_map, user_attr_map, iterate_attr_map;
-	bool userdb_used;
 	bool delayed_connect;
 };
 
@@ -197,7 +196,7 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		       char ***attr_names_r, ARRAY_TYPE(ldap_field) *attr_map,
 		       const char *skip_attr) ATTR_NULL(5);
 
-struct ldap_connection *db_ldap_init(const char *config_path, bool userdb);
+struct ldap_connection *db_ldap_init(const char *config_path);
 void db_ldap_unref(struct ldap_connection **conn);
 
 int db_ldap_connect(struct ldap_connection *conn);
