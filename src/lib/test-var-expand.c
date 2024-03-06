@@ -47,7 +47,7 @@ static void test_var_expand_ranges(void)
 	test_begin("var_expand - ranges");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		str_truncate(str, 0);
-		test_assert(var_expand(str, tests[i].in, table, &error) == tests[i].ret);
+		test_assert(var_expand_with_table(str, tests[i].in, table, &error) == tests[i].ret);
 		test_assert(strcmp(tests[i].out, str_c(str)) == 0);
 	}
 	test_end();
@@ -91,7 +91,7 @@ static void test_var_expand_builtin(void)
 	test_begin("var_expand - builtin");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		str_truncate(str, 0);
-		test_assert_idx(var_expand(str, tests[i].in, table, &error) == tests[i].ret, i);
+		test_assert_idx(var_expand_with_table(str, tests[i].in, table, &error) == tests[i].ret, i);
 		test_assert_strcmp_idx(tests[i].out, str_c(str), i);
 	}
 	test_end();
@@ -504,7 +504,7 @@ static void test_var_expand_if(void)
 		int ret;
 		error = NULL;
 		str_truncate(dest, 0);
-		ret = var_expand(dest, tests[i].in, table, &error);
+		ret = var_expand_with_table(dest, tests[i].in, table, &error);
 		test_assert_idx(tests[i].ret == ret, i);
 		test_assert_idx(strcmp(tests[i].out, str_c(dest)) == 0, i);
 	}
@@ -566,7 +566,7 @@ static void test_var_expand_system()
 		const struct var_expand_test *test = &tests[i];
 		const char *error ATTR_UNUSED;
 		str_truncate(dest, 0);
-		int ret = var_expand(dest, test->in, table, &error);
+		int ret = var_expand_with_table(dest, test->in, table, &error);
 		test_assert_cmp_idx(ret, ==, test->ret, i);
 		test_assert_strcmp_idx(str_c(dest), test->out, i);
 	}
@@ -576,11 +576,11 @@ static void test_var_expand_system()
 	struct utsname utsname_result;
 	if (uname(&utsname_result) == 0) {
 		str_truncate(dest, 0);
-		test_assert(var_expand(dest, "%{system:os}", table, &error) == 1);
+		test_assert(var_expand_with_table(dest, "%{system:os}", table, &error) == 1);
 		test_assert(strcmp(utsname_result.sysname, str_c(dest)) == 0);
 
 		str_truncate(dest, 0);
-		test_assert(var_expand(dest, "%{system:os-version}", table, &error) == 1);
+		test_assert(var_expand_with_table(dest, "%{system:os-version}", table, &error) == 1);
 		test_assert(strcmp(utsname_result.release, str_c(dest)) == 0);
 	}
 
@@ -611,14 +611,14 @@ test_var_expand_dovecot(void)
 	for (size_t i = 0; i < N_ELEMENTS(tests); i++) {
 		str_truncate(dest, 0);
 
-		ret = var_expand(dest, tests[i].in, table, &error);
+		ret = var_expand_with_table(dest, tests[i].in, table, &error);
 		test_assert_idx(tests[i].ret == ret, i);
 		test_assert_idx(strcmp(tests[i].out, str_c(dest)) == 0, i);
 	}
 
 	/* Make sure invalid keys are rejected. */
 	str_truncate(dest, 0);
-	test_assert(var_expand(dest, "%{dovecot:invalid}", table, &error) == 0);
+	test_assert(var_expand_with_table(dest, "%{dovecot:invalid}", table, &error) == 0);
 	test_assert(strcmp(error, "Unsupported dovecot key 'invalid'") == 0);
 
 	test_end();

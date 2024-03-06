@@ -494,7 +494,8 @@ db_oauth2_validate_username(struct db_oauth2_request *req,
 	string_t *username_val = t_str_new(strlen(username_value));
 
 	if (auth_request_var_expand(username_req, req->db->set.username_format, req->auth_request, escape_none, &error) <= 0 ||
-	    var_expand(username_val, req->db->set.username_format, table, &error) <= 0) {
+	    var_expand_with_table(username_val, req->db->set.username_format,
+				  table, &error) <= 0) {
 		*error_r = t_strdup_printf("var_expand(%s) failed: %s",
 					req->db->set.username_format, error);
 		*result_r = PASSDB_RESULT_INTERNAL_FAILURE;

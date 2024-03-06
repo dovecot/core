@@ -221,7 +221,8 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 
 	prefix = t_str_new(128);
 	str_append(prefix, ns->prefix);
-	if (var_expand(prefix, storage->ns_prefix_pattern, tab, &error) <= 0) {
+	if (var_expand_with_table(prefix, storage->ns_prefix_pattern, tab,
+				  &error) <= 0) {
 		mailbox_list_set_critical(list,
 			"Failed to expand namespace prefix '%s': %s",
 			storage->ns_prefix_pattern, error);

@@ -441,7 +441,8 @@ parse_metric_group_by_mod(pool_t pool,
 	};
 	const char *error;
 	string_t *str = t_str_new(128);
-	if (var_expand(str, group_by->discrete_modifier, table, &error) <= 0) {
+	if (var_expand_with_table(str, group_by->discrete_modifier,
+				  table, &error) <= 0) {
 		*error_r = t_strdup_printf(
 			"Failed to expand discrete modifier for %s: %s",
 			group_by->field, error);

@@ -47,7 +47,8 @@ static void test_var_expand_crypt(void)
 	for(i=0; i < N_ELEMENTS(test_cases); i++) T_BEGIN {
 		const char *error;
 		string_t *dest = t_str_new(32);
-		int ret = var_expand(dest, test_cases[i].input, table, &error);
+		int ret = var_expand_with_table(dest, test_cases[i].input,
+						table, &error);
 		if (ret < 0) {
 			if (test_cases[i].expect_ret == -1)
 				i_info("Expected: var_expand(%s): %s", test_cases[i].input, error);
@@ -70,9 +71,9 @@ static void test_var_expand_crypt(void)
 		str_truncate(input, 0);
 		str_truncate(output, 0);
 
-		test_assert_idx(var_expand(input, "%{encrypt;algo=aes-128-cbc,key=%{key}:decrypted}", table, &error) == 1, i);
+		test_assert_idx(var_expand_with_table(input, "%{encrypt;algo=aes-128-cbc,key=%{key}:decrypted}", table, &error) == 1, i);
 		table[5].value = str_c(input);
-		test_assert_idx(var_expand(output, "%{decrypt;algo=aes-128-cbc,key=%{key}:encrypted2}", table, &error) == 1, i);
+		test_assert_idx(var_expand_with_table(output, "%{decrypt;algo=aes-128-cbc,key=%{key}:encrypted2}", table, &error) == 1, i);
 		test_assert_idx(strcmp(str_c(output), table[4].value)==0, i);
 	};
 

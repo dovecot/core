@@ -62,7 +62,8 @@ service_unix_pid_listener_get_path(struct service_listener *l, pid_t pid,
 	};
 
 	str_truncate(path, 0);
-	return var_expand(path, l->set.fileset.set->path, var_table, error_r);
+	return var_expand_with_table(path, l->set.fileset.set->path, var_table,
+				     error_r);
 }
 
 static void

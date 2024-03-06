@@ -1048,7 +1048,8 @@ static void master_service_import_environment_real(const char *import_environmen
 			key = *envs;
 		else {
 			key = t_strdup_until(*envs, value++);
-			if (var_expand(expanded, value, table, &error) <= 0)
+			if (var_expand_with_table(expanded, value, table,
+						  &error) <= 0)
 				i_fatal("Cannot expand variable %s", value);
 			if (str_len(expanded) > 0) {
 				value = str_c(expanded);
