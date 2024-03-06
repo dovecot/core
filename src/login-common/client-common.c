@@ -1195,19 +1195,19 @@ client_get_log_str(struct client *client, const char *msg)
 		{ NULL, NULL }
 	};
 	static bool expand_error_logged = FALSE;
-	const struct var_expand_table *var_expand_table;
+	const struct var_expand_table *client_tab;
 	char *const *e;
 	const char *error;
 	string_t *str, *str2;
 	unsigned int pos;
 
-	var_expand_table = get_var_expand_table(client);
+	client_tab = get_var_expand_table(client);
 
 	str = t_str_new(256);
 	str2 = t_str_new(128);
 	for (e = client->set->log_format_elements_split; *e != NULL; e++) {
 		pos = str_len(str);
-		if (var_expand_with_funcs(str, *e, var_expand_table,
+		if (var_expand_with_funcs(str, *e, client_tab,
 					  func_table, client, &error) <= 0 &&
 		    !expand_error_logged) {
 			/* NOTE: Don't log via client->event - it would cause
