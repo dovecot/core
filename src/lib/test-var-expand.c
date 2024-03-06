@@ -258,11 +258,10 @@ static void test_var_expand_with_arrays(void)
 	static const struct var_expand_table *tables[] = {
 		table1, table2, NULL
 	};
-	static const struct var_expand_func_table *func_tables[] = {
-		func_table1, func_table2, NULL
-	};
-	static void *func_contexts[] = {
-		"context1", "context2",
+	static const struct var_expand_params_func funcs[] = {
+		{ func_table1, "context1", },
+		{ func_table2, "context2", },
+		{ NULL, NULL }
 	};
 	const char *input = "%f, %s, %{first}, %{second}, %{func1}, %{func2}";
 	const char *output = "firstvalue, secondvalue, firstvalue, secondvalue, context1, context2";
@@ -270,8 +269,7 @@ static void test_var_expand_with_arrays(void)
 	const char *error;
 
 	test_begin("var_expand_with_arrays");
-	test_assert(var_expand_with_arrays(str, input, tables, func_tables,
-					   func_contexts, &error) == 1);
+	test_assert(var_expand_with_arrays(str, input, tables, funcs, &error) == 1);
 	test_assert_strcmp(str_c(str), output);
 	test_end();
 }

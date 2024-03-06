@@ -250,8 +250,7 @@ int var_expand_if(struct var_expand_context *ctx,
 		/* expand the parameters */
 		string_t *param = t_str_new(64);
 		ret = var_expand_with_arrays(param, *parms, ctx->tables,
-					     ctx->func_tables, ctx->contexts,
-					     error_r);
+					     ctx->funcs, error_r);
 		if (ret <= 0)
 			return ret;
 		const char *p = str_c(param);
