@@ -1194,7 +1194,8 @@ static void driver_cassandra_metrics_write(struct cassandra_db *db)
 	const char *error;
 	int fd;
 
-	if (var_expand(path, db->set->metrics_path, tab, &error) <= 0) {
+	if (var_expand_with_table(path, db->set->metrics_path,
+				  tab, &error) <= 0) {
 		e_error(db->api.event, "Failed to expand metrics_path=%s: %s",
 			db->set->metrics_path, error);
 		return;

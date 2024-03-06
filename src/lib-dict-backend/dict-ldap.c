@@ -226,7 +226,8 @@ ldap_dict_build_query(const struct dict_op_settings *set,
 
 	array_append_zero(&exp);
 
-	if (var_expand(query_r, template, array_front(&exp), &error) <= 0) {
+	if (var_expand_with_table(query_r, template,
+				  array_front(&exp), &error) <= 0) {
 		*error_r = t_strdup_printf("Failed to expand %s: %s", template, error);
 		return FALSE;
 	}

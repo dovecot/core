@@ -167,7 +167,8 @@ static void notify_update_mailbox_status(struct mailbox *box)
 		const char *key =
 			t_strdup_printf(NOTIFY_STATUS_KEY, mailbox_get_vname(box));
 		string_t *dest = t_str_new(64);
-		if (var_expand(dest, nuser->set->notify_status_value, values, &error) <= 0) {
+		if (var_expand_with_table(dest, nuser->set->notify_status_value,
+					  values, &error) <= 0) {
 			e_error(box->event, "notify-status: var_expand(%s) failed: %s",
 				nuser->set->notify_status_value, error);
 		} else {

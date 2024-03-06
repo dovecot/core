@@ -76,7 +76,7 @@ static bool test_empty_request(string_t *str, const char *input)
 	const char *error;
 
 	str_truncate(str, 0);
-	test_assert(var_expand(str, input, tab, &error) == 1);
+	test_assert(var_expand_with_table(str, input, tab, &error) == 1);
 	return strspn(str_c(str), "\n0") == str_len(str);
 }
 
@@ -104,11 +104,11 @@ static void test_auth_request_var_expand_shortlong(void)
 	test_begin("auth request var expand short and long");
 
 	tab = auth_request_get_var_expand_table(&test_request, test_escape);
-	test_assert(var_expand(str, test_input_short, tab, &error) == 1);
+	test_assert(var_expand_with_table(str, test_input_short, tab, &error) == 1);
 	test_assert(strcmp(str_c(str), test_output) == 0);
 
 	str_truncate(str, 0);
-	test_assert(var_expand(str, test_input_long, tab, &error) == 1);
+	test_assert(var_expand_with_table(str, test_input_long, tab, &error) == 1);
 	test_assert(strcmp(str_c(str), test_output) == 0);
 
 	/* test with empty input that it won't crash */
@@ -129,7 +129,7 @@ static void test_auth_request_var_expand_flags(void)
 	test_request.userdb_lookup = FALSE;
 	test_request.fields.conn_secured = AUTH_REQUEST_CONN_SECURED_NONE;
 	test_request.fields.valid_client_cert = FALSE;
-	test_assert(var_expand(str, test_input,
+	test_assert(var_expand_with_table(str, test_input,
 		auth_request_get_var_expand_table(&test_request, test_escape),
 		&error) == 1);
 	test_assert(strcmp(str_c(str), "40\n\n\n") == 0);
@@ -139,7 +139,7 @@ static void test_auth_request_var_expand_flags(void)
 	test_request.fields.valid_client_cert = TRUE;
 
 	str_truncate(str, 0);
-	test_assert(var_expand(str, test_input,
+	test_assert(var_expand_with_table(str, test_input,
 		auth_request_get_var_expand_table(&test_request, test_escape),
 		&error) == 1);
 	test_assert(strcmp(str_c(str), "41\nsecured\nvalid\n") == 0);
@@ -169,7 +169,7 @@ static void test_auth_request_var_expand_long(void)
 
 	test_begin("auth request var expand long-only");
 
-	test_assert(var_expand(str, test_input,
+	test_assert(var_expand_with_table(str, test_input,
 		auth_request_get_var_expand_table(&test_request, test_escape),
 		&error) == 1);
 	test_assert(strcmp(str_c(str), test_output) == 0);
@@ -197,7 +197,7 @@ static void test_auth_request_var_expand_usernames(void)
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		test_request.fields.user = t_strdup_noconst(tests[i].username);
 		str_truncate(str, 0);
-		test_assert(var_expand(str, test_input,
+		test_assert(var_expand_with_table(str, test_input,
 			auth_request_get_var_expand_table(&test_request, test_escape),
 			&error) == 1);
 		test_assert_idx(strcmp(str_c(str), tests[i].output) == 0, i);

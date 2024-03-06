@@ -519,7 +519,8 @@ label_by_mod_str(const struct stats_metric_settings_group_by *group_by,
 		{ '\0', NULL, NULL }
 	};
 	string_t *str = t_str_new(128);
-	if (var_expand(str, group_by->discrete_modifier, table, &error) < 0) {
+	if (var_expand_with_table(str, group_by->discrete_modifier,
+				  table, &error) < 0) {
 		i_error("Failed to expand discrete modifier for %s: %s",
 			group_by->field, error);
 	}

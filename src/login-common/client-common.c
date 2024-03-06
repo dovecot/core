@@ -1220,8 +1220,9 @@ client_get_log_str(struct client *client, const char *msg)
 			/* username is added even if it's empty */
 		} else {
 			str_truncate(str2, 0);
-			if (var_expand(str2, *e, login_var_expand_empty_tab,
-				       &error) <= 0) {
+			if (var_expand_with_table(str2, *e,
+						  login_var_expand_empty_tab,
+						  &error) <= 0) {
 				/* we just logged this error above. no need
 				   to do it again. */
 			}
@@ -1246,7 +1247,8 @@ client_get_log_str(struct client *client, const char *msg)
 	};
 
 	str_truncate(str, 0);
-	if (var_expand(str, client->set->login_log_format, tab, &error) <= 0) {
+	if (var_expand_with_table(str, client->set->login_log_format, tab,
+				  &error) <= 0) {
 		/* NOTE: Don't log via client->event - it would cause
 		   recursion */
 		i_error("Failed to expand login_log_format=%s: %s",

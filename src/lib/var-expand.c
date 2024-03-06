@@ -781,8 +781,9 @@ int var_expand_with_arrays(string_t *dest, const char *str,
 	return final_ret;
 }
 
-int var_expand(string_t *dest, const char *str,
-	       const struct var_expand_table *table, const char **error_r)
+int var_expand_with_table(string_t *dest, const char *str,
+			  const struct var_expand_table *table,
+			  const char **error_r)
 {
 	return var_expand_with_funcs(dest, str, table, NULL, NULL, error_r);
 }

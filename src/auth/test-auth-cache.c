@@ -36,7 +36,9 @@ int auth_request_var_expand_with_table(string_t *dest, const char *str,
 				       auth_request_escape_func_t *escape_func ATTR_UNUSED,
 				       const char **error_r ATTR_UNUSED)
 {
-	return var_expand(dest, str, auth_request_var_expand_static_tab, error_r);
+	return var_expand_with_table(dest, str,
+				     auth_request_var_expand_static_tab,
+				     error_r);
 }
 
 static void test_auth_cache_parse_key(void)

@@ -298,8 +298,8 @@ get_ssh_cmd_args(const char *host, const char *login, const char *mail_user,
 			   text in the parameter, skip it. */
 			str_truncate(str, 0);
 			str_truncate(str2, 0);
-			if (var_expand(str, *args, tab, &error) <= 0 ||
-			    var_expand(str2, *args, static_tab, &error) <= 0) {
+			if (var_expand_with_table(str, *args, tab, &error) <= 0 ||
+			    var_expand_with_table(str2, *args, static_tab, &error) <= 0) {
 				e_error(event,
 					"Failed to expand dsync_remote_cmd=%s: %s",
 					*args, error);

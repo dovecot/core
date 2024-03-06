@@ -195,7 +195,8 @@ void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 
 	str = t_str_new(256);
 	tab = mail_deliver_ctx_get_log_var_expand_table(ctx, msg);
-	if (var_expand(str, ctx->set->deliver_log_format, tab, &error) <= 0) {
+	if (var_expand_with_table(str, ctx->set->deliver_log_format,
+				  tab, &error) <= 0) {
 		e_error(ctx->event,
 			"Failed to expand deliver_log_format=%s: %s",
 			ctx->set->deliver_log_format, error);

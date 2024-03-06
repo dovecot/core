@@ -20,10 +20,10 @@ struct var_expand_func_table {
    contained invalid/unknown %variables, -1 if one of the functions returned
    temporary error. Even in case of errors the dest string is still written as
    fully as possible. */
-int var_expand(string_t *dest, const char *str,
-	       const struct var_expand_table *table,
-	       const char **error_r);
-/* Like var_expand(), but support also callback functions for
+int var_expand_with_table(string_t *dest, const char *str,
+			  const struct var_expand_table *table,
+			  const char **error_r);
+/* Like var_expand_with_table(), but support also callback functions for
    variable expansion. */
 int var_expand_with_funcs(string_t *dest, const char *str,
 			  const struct var_expand_table *table,

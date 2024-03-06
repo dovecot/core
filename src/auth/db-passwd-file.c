@@ -380,7 +380,7 @@ db_passwd_file_init(const char *path, bool userdb, bool debug)
 		const char *error;
 
 		dest = t_str_new(256);
-		if (var_expand(dest, path, empty_table, &error) <= 0)
+		if (var_expand_with_table(dest, path, empty_table, &error) <= 0)
 			i_unreached();
 		path = str_c(dest);
 	}
