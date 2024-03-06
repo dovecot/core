@@ -75,7 +75,7 @@ lib22_push_notification_lua_plugin_la_CFLAGS = $(AM_CPPFLAGS) \
 	-I$(top_srcdir)/src/lib-lua \
 	-I$(top_srcdir)/src/plugins/mail-lua \
 	$(LUA_CFLAGS)
-lib22_push_notification_lua_plugin_la_LDFLAGS = module -avoid-version
+lib22_push_notification_lua_plugin_la_LDFLAGS = -module -avoid-version
 module_LTLIBRARIES += \
 	lib22_push_notification_lua_plugin.la
 lib22_push_notification_lua_plugin_la_LIBADD = $(notify_deps) $(LUA_LIBS)
