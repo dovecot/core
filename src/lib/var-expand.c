@@ -195,14 +195,14 @@ var_expand_short(const struct var_expand_context *ctx, char key,
 		}
 	}
 
-	for (unsigned int j = 0; ctx->func_tables[j] != NULL; j++) {
-		const struct var_expand_func_table *func_table = ctx->func_tables[j];
+	for (unsigned int j = 0; ctx->funcs[j].table != NULL; j++) {
+		const struct var_expand_func_table *func_table = ctx->funcs[j].table;
 		for (unsigned int i = 0; func_table[i].key != NULL; i++) {
 			if (func_table[i].key[0] == key &&
 			    func_table[i].key[1] == '\0') {
 				const char *value;
 				int ret = func_table->func(
-					"", ctx->contexts[j], &value, error_r);
+					"", ctx->funcs[j].context, &value, error_r);
 				*var_r = value != NULL ? value : "";
 				return ret;
 			}
@@ -309,8 +309,7 @@ var_expand_hash(struct var_expand_context *ctx,
 		} else if (strcmp(k, "salt") == 0) {
 			str_truncate(salt, 0);
 			ret = var_expand_with_arrays(salt, value, ctx->tables,
-						     ctx->func_tables,
-						     ctx->contexts, error_r);
+						     ctx->funcs, error_r);
 			if (ret <= 0)
 				return ret;
 			break;
@@ -500,8 +499,8 @@ var_expand_dovecot(struct var_expand_context *ctx ATTR_UNUSED,
 }
 
 static int
-var_expand_func(const struct var_expand_func_table *const *func_tables,
-		const char *key, const char *data, void *const *contexts,
+var_expand_func(const struct var_expand_params_func *funcs,
+		const char *key, const char *data,
 		const char **var_r, const char **error_r)
 {
 	const char *value = NULL;
@@ -512,11 +511,11 @@ var_expand_func(const struct var_expand_func_table *const *func_tables,
 		*var_r = value != NULL ? value : "";
 		return 1;
 	}
-	for (unsigned int i = 0; func_tables[i] != NULL; i++) {
-		const struct var_expand_func_table *func_table = func_tables[i];
+	for (unsigned int i = 0; funcs[i].table != NULL; i++) {
+		const struct var_expand_func_table *func_table = funcs[i].table;
 		for (; func_table->key != NULL; func_table++) {
 			if (strcmp(func_table->key, key) == 0) {
-				ret = func_table->func(data, contexts[i], &value, error_r);
+				ret = func_table->func(data, funcs[i].context, &value, error_r);
 				if (*error_r == NULL)
 					*error_r = t_strdup_printf("Unknown variables in function %%%s", key);
 				*var_r = value != NULL ? value : "";
@@ -551,8 +550,7 @@ var_expand_try_extension(struct var_expand_context *ctx,
 			return ret;
 		}
 	}
-	return var_expand_func(ctx->func_tables, key, data,
-			       ctx->contexts, var_r, error_r);
+	return var_expand_func(ctx->funcs, key, data, var_r, error_r);
 }
 
 
@@ -599,20 +597,21 @@ int var_expand_with_funcs(string_t *dest, const char *str,
 			  void *context, const char **error_r)
 {
 	const struct var_expand_table *tables[2] = { table, NULL };
-	const struct var_expand_func_table *func_tables[2] = { func_table, NULL };
-	void *contexts[2] = { context, NULL };
+	const struct var_expand_params_func funcs[] = {
+		{ func_table, context },
+		{ NULL, NULL }
+	};
 
-	return var_expand_with_arrays(dest, str, tables, func_tables,
-				      contexts, error_r);
+	return var_expand_with_arrays(dest, str, tables, funcs, error_r);
 }
 
 int var_expand_with_arrays(string_t *dest, const char *str,
 			   const struct var_expand_table *const *tables,
-			   const struct var_expand_func_table *const *func_tables,
-			   void *const *func_contexts, const char **error_r)
+			   const struct var_expand_params_func *funcs,
+			   const char **error_r)
 {
 	static const struct var_expand_table *empty_table = NULL;
-	static const struct var_expand_func_table *empty_func_table = NULL;
+	static const struct var_expand_params_func empty_funcs = { NULL, NULL };
 	const struct var_expand_modifier *m;
 	const char *var;
 	struct var_expand_context ctx;
@@ -627,8 +626,7 @@ int var_expand_with_arrays(string_t *dest, const char *str,
 
 	i_zero(&ctx);
 	ctx.tables = tables != NULL ? tables : &empty_table;
-	ctx.func_tables = func_tables != NULL ? func_tables : &empty_func_table;
-	ctx.contexts = func_contexts;
+	ctx.funcs = funcs != NULL ? funcs : &empty_funcs;
 
 	for (; *str != '\0'; str++) {
 		if (*str != '%')

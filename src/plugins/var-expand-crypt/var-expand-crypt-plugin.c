@@ -54,8 +54,7 @@ var_expand_crypt_settings(struct var_expand_crypt_context *ctx,
 			str_truncate(ctx->iv, 0);
 			if ((ret = var_expand_with_arrays(ctx->iv, value,
 							  ctx->ctx->tables,
-							  ctx->ctx->func_tables,
-							  ctx->ctx->contexts,
+							  ctx->ctx->funcs,
 							  error_r)) <= 0) {
 				return ret;
 			}
@@ -71,8 +70,7 @@ var_expand_crypt_settings(struct var_expand_crypt_context *ctx,
 			str_truncate(ctx->enckey, 0);
 			if ((ret = var_expand_with_arrays(ctx->enckey, value,
 							  ctx->ctx->tables,
-							  ctx->ctx->func_tables,
-							  ctx->ctx->contexts,
+							  ctx->ctx->funcs,
 							  error_r)) <= 0) {
 				return ret;
 			}

@@ -4,10 +4,8 @@
 struct var_expand_context {
 	/* NULL-terminated array of variable tables */
 	const struct var_expand_table *const *tables;
-	/* NULL-terminated array of function tables */
-	const struct var_expand_func_table *const *func_tables;
-	/* contexts for each function table */
-	void *const *contexts;
+	/* table=NULL-terminated array of function tables */
+	const struct var_expand_params_func *funcs;
 
 	/* last offset, negative counts from end*/
 	int offset;

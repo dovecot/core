@@ -15,6 +15,11 @@ struct var_expand_func_table {
 		    const char **value_r, const char **error_r);
 };
 
+struct var_expand_params_func {
+	const struct var_expand_func_table *table;
+	void *context;
+};
+
 /* Expand % variables in src and append the string in dest.
    table must end with key = 0. Returns 1 on success, 0 if the format string
    contained invalid/unknown %variables, -1 if one of the functions returned
@@ -33,8 +38,8 @@ int var_expand_with_funcs(string_t *dest, const char *str,
    Each func_table[n] has a matching func_context[n] */
 int var_expand_with_arrays(string_t *dest, const char *str,
 			   const struct var_expand_table *const *tables,
-			   const struct var_expand_func_table *const *func_tables,
-			   void *const *func_contexts, const char **error_r);
+			   const struct var_expand_params_func *funcs,
+			   const char **error_r);
 
 /* Returns the actual key character for given string, ie. skip any modifiers
    that are before it. The string should be the data after the '%' character.
