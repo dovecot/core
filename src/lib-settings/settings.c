@@ -2507,6 +2507,50 @@ void settings_root_override(struct settings_root *root,
 	settings_override_fill(set, root->pool, key, value, type);
 }
 
+static bool
+settings_override_equals(struct settings_override *set, const char *key,
+			 enum settings_override_type type)
+{
+	size_t key_len = strlen(key);
+	bool key_append = (key_len > 0 && key[key_len-1] == '+');
+
+	if (set->type != type)
+		return FALSE;
+	if (set->append != key_append)
+		return FALSE;
+
+	if (key_append) {
+		size_t set_len = strlen(set->key);
+
+		if (set_len != key_len - 1)
+			return FALSE;
+		return (strncmp(key, set->key, key_len - 1) == 0);
+	}
+	return (strcmp(key, set->key) == 0);
+}
+
+bool settings_root_override_remove(struct settings_root *root,
+				   const char *key,
+				   enum settings_override_type type)
+{
+	if (!array_is_created(&root->overrides))
+		return FALSE;
+
+	struct settings_override *set;
+
+	array_foreach_modifiable(&root->overrides, set) {
+		if (!settings_override_equals(set, key, type))
+			continue;
+
+		settings_override_free(set);
+		array_delete(&root->overrides,
+			     array_foreach_idx(&root->overrides, set), 1);
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
 static struct settings_instance *
 settings_instance_alloc(void)
 {
