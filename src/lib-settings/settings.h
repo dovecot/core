@@ -263,6 +263,11 @@ void settings_root_override(struct settings_root *root,
 			    const char *key, const char *value,
 			    enum settings_override_type type);
 
+/* Remove a setting root override by key and type. */
+bool ATTR_NOWARN_UNUSED_RESULT
+settings_root_override_remove(struct settings_root *root, const char *key,
+			      enum settings_override_type type);
+
 /* Return a new instance for settings. */
 struct settings_instance *
 settings_instance_new(struct settings_root *root);
