@@ -20,6 +20,23 @@ struct var_expand_params_func {
 	void *context;
 };
 
+struct var_expand_params {
+	/* Single table: */
+	const struct var_expand_table *table;
+	const struct var_expand_func_table *func_table;
+	void *func_context;
+
+	/* Alternatively, multiple tables: */
+	const struct var_expand_table *const *tables_arr;
+	const struct var_expand_params_func *funcs_arr;
+};
+
+/* Expand % variables in src and append the string in dest. Returns 1 on
+   success, 0 if the format string contained invalid/unknown %variables, -1 if
+   one of the functions returned temporary error. Even in case of errors the
+   dest string is still written as fully as possible. */
+int var_expand(string_t *dest, const char *str,
+	       const struct var_expand_params *params, const char **error_r);
 /* Expand % variables in src and append the string in dest.
    table must end with key = 0. Returns 1 on success, 0 if the format string
    contained invalid/unknown %variables, -1 if one of the functions returned

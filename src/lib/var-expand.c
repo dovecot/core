@@ -596,13 +596,12 @@ int var_expand_with_funcs(string_t *dest, const char *str,
 			  const struct var_expand_func_table *func_table,
 			  void *context, const char **error_r)
 {
-	const struct var_expand_table *tables[2] = { table, NULL };
-	const struct var_expand_params_func funcs[] = {
-		{ func_table, context },
-		{ NULL, NULL }
+	const struct var_expand_params params = {
+		.table = table,
+		.func_table = func_table,
+		.func_context = context,
 	};
-
-	return var_expand_with_arrays(dest, str, tables, funcs, error_r);
+	return var_expand(dest, str, &params, error_r);
 }
 
 int var_expand_with_arrays(string_t *dest, const char *str,
@@ -610,8 +609,21 @@ int var_expand_with_arrays(string_t *dest, const char *str,
 			   const struct var_expand_params_func *funcs,
 			   const char **error_r)
 {
+	const struct var_expand_params params = {
+		.tables_arr = tables,
+		.funcs_arr = funcs,
+	};
+	return var_expand(dest, str, &params, error_r);
+}
+
+int var_expand(string_t *dest, const char *str,
+	       const struct var_expand_params *params, const char **error_r)
+{
 	static const struct var_expand_table *empty_table = NULL;
 	static const struct var_expand_params_func empty_funcs = { NULL, NULL };
+	const struct var_expand_table *tables[2] = { NULL, NULL };
+	struct var_expand_params_func funcs[2] = {
+		{ NULL, NULL }, { NULL, NULL } };
 	const struct var_expand_modifier *m;
 	const char *var;
 	struct var_expand_context ctx;
@@ -625,8 +637,24 @@ int var_expand_with_arrays(string_t *dest, const char *str,
 	*error_r = NULL;
 
 	i_zero(&ctx);
-	ctx.tables = tables != NULL ? tables : &empty_table;
-	ctx.funcs = funcs != NULL ? funcs : &empty_funcs;
+	if (params->table != NULL) {
+		i_assert(params->tables_arr == NULL);
+		tables[0] = params->table;
+		ctx.tables = tables;
+	} else if (params->tables_arr != NULL)
+		ctx.tables = params->tables_arr;
+	else
+		ctx.tables = &empty_table;
+
+	if (params->func_table != NULL) {
+		i_assert(params->funcs_arr == NULL);
+		funcs[0].table = params->func_table;
+		funcs[0].context = params->func_context;
+		ctx.funcs = funcs;
+	} else if (params->funcs_arr != NULL)
+		ctx.funcs = params->funcs_arr;
+	else
+		ctx.funcs = &empty_funcs;
 
 	for (; *str != '\0'; str++) {
 		if (*str != '%')
@@ -783,7 +811,10 @@ int var_expand_with_table(string_t *dest, const char *str,
 			  const struct var_expand_table *table,
 			  const char **error_r)
 {
-	return var_expand_with_funcs(dest, str, table, NULL, NULL, error_r);
+	const struct var_expand_params params = {
+		.table = table,
+	};
+	return var_expand(dest, str, &params, error_r);
 }
 
 static bool
