@@ -199,13 +199,10 @@ static bool client_is_trusted(struct client *client)
 }
 
 static void
-client_var_expand_callback(struct event *event,
-			   const struct var_expand_table **tab_r,
-			   const struct var_expand_func_table **func_tab_r ATTR_UNUSED)
+client_var_expand_callback(void *context, struct var_expand_params *params_r)
 {
-	struct client *client = event_get_ptr(event, "client");
-
-	*tab_r = get_var_expand_table(client);
+	struct client *client = context;
+	params_r->table = get_var_expand_table(client);
 }
 
 static int client_settings_get(struct client *client, const char **error_r)
@@ -270,7 +267,8 @@ int client_alloc(int fd, const struct master_service_connection *conn,
 	/* Get settings before using log callback */
 	event_set_ptr(client->event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK,
 		      client_var_expand_callback);
-	event_set_ptr(client->event, "client", client);
+	event_set_ptr(client->event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK_CONTEXT,
+		      client);
 	if (client_settings_get(client, &error) < 0) {
 		e_error(client->event, "%s", error);
 		event_unref(&client->event);

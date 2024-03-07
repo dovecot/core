@@ -3,8 +3,7 @@
 
 #include "settings-parser.h"
 
-struct var_expand_table;
-struct var_expand_func_table;
+struct var_expand_params;
 
 struct settings_root;
 struct settings_mmap;
@@ -81,47 +80,33 @@ enum settings_get_flags {
 #define SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX "mailbox"
 #define SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX "mailbox_subname"
 
-/* Set struct var_expand_table to be used for settings expansion. The table is
-   expected to be accessible until the event is freed or the table is cleared
+/* Set struct var_expand_params to be used for settings expansion. The struct is
+   expected to be accessible until the event is freed or the params is removed
    from the event. Usage:
 
-   event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_TABLE, var_expand_table);
-*/
-#define SETTINGS_EVENT_VAR_EXPAND_TABLE \
-	"settings_var_expand_table"
-/* Set struct var_expand_func_table and its function context pointer to be used
-   for settings expansion. The table is expected to be accessible until the
-   event is freed or the table is cleared from the event. Usage:
+   event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, var_expand_params);
 
-   event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE, func_table);
-   event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT, func_context);
+   You can set any combination of SETTINGS_EVENT_VAR_EXPAND_PARAMS
+   and SETTINGS_EVENT_VAR_EXPAND_CALLBACK to the same event or parent events.
+   They are all merged while expanding the variables. */
+#define SETTINGS_EVENT_VAR_EXPAND_PARAMS \
+	"settings_var_expand_params"
 
-   You can set any combination of SETTINGS_EVENT_VAR_EXPAND_TABLE,
-   SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE and SETTINGS_EVENT_VAR_EXPAND_CALLBACK
-   to the same event or parent events. They are all merged while expanding
-   the variables. */
-#define SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE \
-	"settings_var_expand_func_table"
-#define SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT \
-	"settings_var_expand_func_context"
-
-/* Set a settings_var_expand_t callback that returns
-   var_expand_[func_]table for settings expansion. This can be used instead of
-   SETTINGS_EVENT_VAR_EXPAND_[FUNC_]TABLE to dynamically generate the table
+/* Set a settings_var_expand_t callback that returns var_expand_params for
+   settings expansion. This can be used instead of
+   SETTINGS_EVENT_VAR_EXPAND_PARAMS to dynamically generate the tables
    on-demand. Usage:
 
    event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK, callback);
-   event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT, func_context);
+   event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK_CONTEXT, context);
 */
 #define SETTINGS_EVENT_VAR_EXPAND_CALLBACK \
 	"settings_var_expand_callback"
-/* Callback function used with SETTINGS_EVENT_VAR_EXPAND_CALLBACK. The function
-   can return either or both of tab_r and func_tab_r, using NULL for the field
-   that isn't needed. */
+#define SETTINGS_EVENT_VAR_EXPAND_CALLBACK_CONTEXT \
+	"settings_var_expand_callback_context"
+/* Callback function used with SETTINGS_EVENT_VAR_EXPAND_CALLBACK. */
 typedef void
-settings_var_expand_t(struct event *event,
-		      const struct var_expand_table **tab_r,
-		      const struct var_expand_func_table **func_tab_r);
+settings_var_expand_t(void *context, struct var_expand_params *params_r);
 
 /* Get the wanted settings and check that the settings are valid.
    The settings struct must have pool_t (info->pool_offset1), which the caller
