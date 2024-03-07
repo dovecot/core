@@ -842,10 +842,11 @@ int auth_request_set_passdb_fields(struct auth_request *request,
 		{ driver_name, auth_request_fields_var_expand_lookup },
 		{ NULL, NULL }
 	};
-
-	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE,
-		      auth_request_fields_funcs);
-	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT, fields);
+	struct var_expand_params params = {
+		.func_table = auth_request_fields_funcs,
+		.func_context = fields,
+	};
+	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, &params);
 
 	if (settings_get(event, &auth_passdb_post_setting_parser_info, 0,
 			 &post_set, &error) < 0) {
@@ -873,10 +874,11 @@ int auth_request_set_userdb_fields(struct auth_request *request,
 		{ driver_name, auth_request_fields_var_expand_lookup },
 		{ NULL, NULL }
 	};
-
-	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE,
-		      auth_request_fields_funcs);
-	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT, fields);
+	struct var_expand_params params = {
+		.func_table = auth_request_fields_funcs,
+		.func_context = fields,
+	};
+	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, &params);
 
 	if (settings_get(event, &auth_userdb_post_setting_parser_info, 0,
 			 &post_set, &error) < 0) {

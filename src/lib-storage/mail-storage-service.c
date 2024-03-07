@@ -799,18 +799,16 @@ mail_storage_service_var_expand_func_table[] = {
 };
 
 static void
-mail_storage_service_var_expand_callback(struct event *event,
-					 const struct var_expand_table **tab_r,
-					 const struct var_expand_func_table **func_tab_r)
+mail_storage_service_var_expand_callback(void *context,
+					 struct var_expand_params *params_r)
 {
-	struct mail_storage_service_init_var_expand_ctx *var_expand_ctx =
-		event_get_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT);
-	i_assert(var_expand_ctx != NULL);
+	struct mail_storage_service_init_var_expand_ctx *var_expand_ctx = context;
 
-	*tab_r = get_var_expand_table(var_expand_ctx->ctx->service,
-				      var_expand_ctx->user,
-				      var_expand_ctx->input);
-	*func_tab_r = mail_storage_service_var_expand_func_table;
+	params_r->table = get_var_expand_table(var_expand_ctx->ctx->service,
+					       var_expand_ctx->user,
+					       var_expand_ctx->input);
+	params_r->func_table = mail_storage_service_var_expand_func_table;
+	params_r->func_context = var_expand_ctx;
 }
 
 const char *
@@ -1145,7 +1143,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	   settings lookups are expected to be using mail_user.event. */
 	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK,
 		      mail_storage_service_var_expand_callback);
-	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT,
+	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK_CONTEXT,
 		      &var_expand_ctx);
 	if (settings_get(event, &mail_user_setting_parser_info,
 			 0, &user_set, error_r) < 0) {
@@ -1304,7 +1302,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		/* The context points to a variable in stack, so it can't be
 		   used anymore. */
 		event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK, NULL);
-		event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT, NULL);
+		event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK_CONTEXT, NULL);
 	}
 	*user_r = user;
 	return ret;

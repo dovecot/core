@@ -342,14 +342,15 @@ shared_mail_user_init(struct mail_storage *_storage,
 		{ "owner_home", shared_mail_user_var_home },
 		{ NULL, NULL }
 	};
+	struct var_expand_params *params =
+		p_new(user->pool, struct var_expand_params, 1);
+	params->table = tab;
+	params->func_table = func_tab;
+	params->func_context = &var_expand_ctx;
 
 	struct event *set_event = event_create(user->event);
 	event_add_str(set_event, SETTINGS_EVENT_NAMESPACE_NAME, ns->set->name);
-	event_set_ptr(set_event, SETTINGS_EVENT_VAR_EXPAND_TABLE, tab);
-	event_set_ptr(set_event, SETTINGS_EVENT_VAR_EXPAND_FUNC_TABLE,
-		      func_tab);
-	event_set_ptr(set_event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT,
-		      &var_expand_ctx);
+	event_set_ptr(set_event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, params);
 
 	/* Expanding mail_path may verify whether the user exists by
 	   trying to access %{owner_home}. This sets

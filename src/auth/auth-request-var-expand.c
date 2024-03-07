@@ -311,16 +311,15 @@ int t_auth_request_var_expand(const char *str,
 }
 
 static void
-auth_request_event_var_expand_callback(struct event *event,
-	const struct var_expand_table **tab_r,
-	const struct var_expand_func_table **func_tab_r)
+auth_request_event_var_expand_callback(void *context,
+				       struct var_expand_params *params_r)
 {
-	struct auth_request_var_expand_ctx *ctx =
-		event_get_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT);
+	struct auth_request_var_expand_ctx *ctx = context;
 
-	*tab_r = auth_request_get_var_expand_table(ctx->auth_request,
-						   ctx->escape_func);
-	*func_tab_r = auth_request_var_funcs_table;
+	params_r->table = auth_request_get_var_expand_table(ctx->auth_request,
+							    ctx->escape_func);
+	params_r->func_table = auth_request_var_funcs_table;
+	params_r->func_context = ctx;
 }
 
 void auth_request_event_set_var_expand(struct auth_request *auth_request)
@@ -333,5 +332,5 @@ void auth_request_event_set_var_expand(struct auth_request *auth_request)
 	event_set_ptr(auth_request->event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK,
 		      auth_request_event_var_expand_callback);
 	event_set_ptr(auth_request->event,
-		      SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT, ctx);
+		      SETTINGS_EVENT_VAR_EXPAND_CALLBACK_CONTEXT, ctx);
 }

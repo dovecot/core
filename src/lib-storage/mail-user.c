@@ -60,16 +60,13 @@ void mail_user_add_event_fields(struct mail_user *user)
 }
 
 static void
-mail_user_var_expand_callback(struct event *event,
-			      const struct var_expand_table **tab_r,
-			      const struct var_expand_func_table **func_tab_r)
+mail_user_var_expand_callback(void *context, struct var_expand_params *params_r)
 {
-	struct mail_user *user =
-		event_get_ptr(event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT);
-	i_assert(user != NULL);
+	struct mail_user *user = context;
 
-	*tab_r = mail_user_var_expand_table(user);
-	*func_tab_r = mail_user_var_expand_func_table;
+	params_r->table = mail_user_var_expand_table(user);
+	params_r->func_table = mail_user_var_expand_func_table;
+	params_r->func_context = user;
 }
 
 struct mail_user *
@@ -102,7 +99,8 @@ mail_user_alloc(struct mail_storage_service_user *service_user)
 	   lookups. */
 	event_set_ptr(user->event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK,
 		      mail_user_var_expand_callback);
-	event_set_ptr(user->event, SETTINGS_EVENT_VAR_EXPAND_FUNC_CONTEXT, user);
+	event_set_ptr(user->event,
+		      SETTINGS_EVENT_VAR_EXPAND_CALLBACK_CONTEXT, user);
 
 	user->v.deinit = mail_user_deinit_base;
 	user->v.deinit_pre = mail_user_deinit_pre_base;
