@@ -1,6 +1,8 @@
 #ifndef VAR_EXPAND_H
 #define VAR_EXPAND_H
 
+typedef const char *var_expand_escape_t(const char *str, void *context);
+
 struct var_expand_table {
 	char key;
 	const char *value;
@@ -21,6 +23,10 @@ struct var_expand_params_func {
 };
 
 struct var_expand_params {
+	/* If non-NULL, all variables are escaped with this function. */
+	var_expand_escape_t *escape_func;
+	void *escape_context;
+
 	/* Single table: */
 	const struct var_expand_table *table;
 	const struct var_expand_func_table *func_table;

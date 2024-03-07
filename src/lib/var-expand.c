@@ -766,6 +766,11 @@ int var_expand(string_t *dest, const char *str,
 			if (final_ret > ret)
 				final_ret = ret;
 
+			if (params->escape_func != NULL) {
+				var = params->escape_func(var,
+					params->escape_context);
+			}
+
 			if (ret <= 0)
 				str_append(dest, var);
 			else {
