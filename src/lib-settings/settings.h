@@ -1,9 +1,8 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
+#include "var-expand.h"
 #include "settings-parser.h"
-
-struct var_expand_params;
 
 struct settings_root;
 struct settings_mmap;
@@ -49,6 +48,14 @@ enum settings_get_flags {
 	/* For unit tests: Don't validate that settings struct keys match
 	   th binary config file. */
 	SETTINGS_GET_NO_KEY_VALIDATION = BIT(3),
+};
+
+struct settings_get_params {
+	/* If non-NULL, all %variables are escaped with this function. */
+	var_expand_escape_t *escape_func;
+	void *escape_context;
+
+	enum settings_get_flags flags;
 };
 
 /* Set struct settings_instance to events so settings_get() can
@@ -133,6 +140,25 @@ int settings_get(struct event *event,
 #else
 #  define settings_get(event, info, flags, set_r, error_r) \
 	settings_get(event, info, flags, \
+		__FILE__, __LINE__, (void *)set_r, error_r)
+#endif
+
+/* Like settings_get(), but support additional parameters. */
+int settings_get_params(struct event *event,
+			const struct setting_parser_info *info,
+			const struct settings_get_params *params,
+			const char *source_filename,
+			unsigned int source_linenum,
+			const void **set_r, const char **error_r);
+#ifdef HAVE_TYPE_CHECKS
+#  define settings_get_params(event, info, params, set_r, error_r) \
+	settings_get_params(event, info, params, \
+		__FILE__, __LINE__, (void *)set_r, 1 ? (error_r) : \
+	COMPILE_ERROR_IF_TRUE( \
+		!__builtin_types_compatible_p(typeof((*set_r)->pool), pool_t)))
+#else
+#  define settings_get_params(event, info, params, set_r, error_r) \
+	settings_get_params(event, info, params, \
 		__FILE__, __LINE__, (void *)set_r, error_r)
 #endif
 

@@ -7,7 +7,6 @@
 #include "str.h"
 #include "strescape.h"
 #include "event-filter-private.h"
-#include "var-expand.h"
 #include "wildcard-match.h"
 #include "mmap-util.h"
 #include "settings.h"
@@ -129,6 +128,9 @@ struct settings_apply_ctx {
 	const struct setting_parser_info *info;
 	enum settings_get_flags flags;
 	pool_t temp_pool;
+
+	var_expand_escape_t *escape_func;
+	void *escape_context;
 
 	const char *filter_key;
 	const char *filter_value;
@@ -1102,6 +1104,9 @@ settings_var_expand_init(struct settings_apply_ctx *ctx)
 
 	ctx->var_params.tables_arr = array_front(&init_ctx.tables);
 	ctx->var_params.funcs_arr = array_front(&init_ctx.funcs);
+
+	ctx->var_params.escape_func = ctx->escape_func;
+	ctx->var_params.escape_context = ctx->escape_context;
 }
 
 static int settings_override_cmp(struct settings_override *const *set1,
@@ -1675,7 +1680,7 @@ static int
 settings_get_full(struct event *event,
 		  const char *filter_key, const char *filter_value,
 		  const struct setting_parser_info *info,
-		  enum settings_get_flags flags,
+		  const struct settings_get_params *params,
 		  const char *source_filename,
 		  unsigned int source_linenum,
 		  const void **set_r, const char **error_r)
@@ -1749,7 +1754,9 @@ settings_get_full(struct event *event,
 		.root = root,
 		.instance = instance,
 		.info = info,
-		.flags = flags,
+		.flags = params->flags,
+		.escape_func = params->escape_func,
+		.escape_context = params->escape_context,
 		.filter_name = filter_name,
 		.filter_key = filter_key,
 		.filter_value = filter_value,
@@ -1783,7 +1790,25 @@ int settings_get(struct event *event,
 		 unsigned int source_linenum,
 		 const void **set_r, const char **error_r)
 {
-	int ret = settings_get_full(event, NULL, NULL, info, flags,
+	const struct settings_get_params params = {
+		.flags = flags,
+	};
+	int ret = settings_get_full(event, NULL, NULL, info, &params,
+				    source_filename, source_linenum,
+				    set_r, error_r);
+	i_assert(ret != 0);
+	return ret < 0 ? -1 : 0;
+}
+
+#undef settings_get_params
+int settings_get_params(struct event *event,
+			const struct setting_parser_info *info,
+			const struct settings_get_params *params,
+			const char *source_filename,
+			unsigned int source_linenum,
+			const void **set_r, const char **error_r)
+{
+	int ret = settings_get_full(event, NULL, NULL, info, params,
 				    source_filename, source_linenum,
 				    set_r, error_r);
 	i_assert(ret != 0);
@@ -1802,8 +1827,11 @@ int settings_get_filter(struct event *event,
 	i_assert(filter_key != NULL);
 	i_assert(filter_value != NULL);
 
+	const struct settings_get_params params = {
+		.flags = flags,
+	};
 	int ret = settings_get_full(event, filter_key, filter_value, info,
-				    flags, source_filename, source_linenum,
+				    &params, source_filename, source_linenum,
 				    set_r, error_r);
 	if (ret < 0)
 		return -1;
@@ -1830,8 +1858,11 @@ int settings_try_get_filter(struct event *event,
 	i_assert(filter_key != NULL);
 	i_assert(filter_value != NULL);
 
+	const struct settings_get_params params = {
+		.flags = flags,
+	};
 	return settings_get_full(event, filter_key, filter_value, info,
-				 flags, source_filename, source_linenum,
+				 &params, source_filename, source_linenum,
 				 set_r, error_r);
 }
 
