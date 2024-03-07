@@ -58,11 +58,12 @@ const struct setting_parser_info passdb_sql_setting_parser_info = {
 	.pool_offset1 = 1 + offsetof(struct passdb_sql_settings, pool),
 };
 
-static void sql_query_save_results(struct sql_result *result,
-				   struct passdb_sql_request *sql_request)
+static int sql_query_save_results(struct sql_result *result,
+				  struct passdb_sql_request *sql_request)
 {
 	struct auth_request *auth_request = sql_request->auth_request;
 	struct passdb_module *_module = auth_request->passdb->passdb;
+	struct auth_fields *fields = auth_fields_init(auth_request->pool);
 	unsigned int i, fields_count;
 	const char *name, *value;
 
@@ -72,6 +73,10 @@ static void sql_query_save_results(struct sql_result *result,
 		value = sql_result_get_field_value(result, i);
 
 		if (*name == '\0')
+			continue;
+
+		auth_fields_add(fields, name, value, 0);
+		if (!auth_request->passdb->set->fields_import_all)
 			;
 		else if (value == NULL)
 			auth_request_set_null_field(auth_request, name);
@@ -80,6 +85,7 @@ static void sql_query_save_results(struct sql_result *result,
 				_module->default_pass_scheme);
 		}
 	}
+	return auth_request_set_passdb_fields(auth_request, fields);
 }
 
 static void sql_query_callback(struct sql_result *result,
@@ -103,9 +109,9 @@ static void sql_query_callback(struct sql_result *result,
 	} else if (ret == 0) {
 		auth_request_db_log_unknown_user(auth_request);
 		passdb_result = PASSDB_RESULT_USER_UNKNOWN;
-	} else {
-		sql_query_save_results(result, sql_request);
-
+	} else if (sql_query_save_results(result, sql_request) < 0)
+		;
+	else {
 		/* Note that we really want to check if the password field is
 		   found. Just checking if password is set isn't enough,
 		   because with proxies we might want to return NULL as
@@ -276,22 +282,33 @@ passdb_sql_preinit(pool_t pool, struct event *event,
 {
 	struct sql_passdb_module *module;
 	const struct passdb_sql_settings *set;
+	const struct auth_passdb_post_settings *post_set;
 
 	if (settings_get(event, &passdb_sql_setting_parser_info,
 			 SETTINGS_GET_FLAG_NO_CHECK |
 			 SETTINGS_GET_FLAG_NO_EXPAND,
 			 &set, error_r) < 0)
 		return -1;
-
-	module = p_new(pool, struct sql_passdb_module, 1);
-	if (sql_init_auto(event, &module->db, error_r) <= 0) {
+	if (settings_get(event, &auth_passdb_post_setting_parser_info,
+			 SETTINGS_GET_FLAG_NO_CHECK |
+			 SETTINGS_GET_FLAG_NO_EXPAND,
+			 &post_set, error_r) < 0) {
 		settings_free(set);
 		return -1;
 	}
 
+	module = p_new(pool, struct sql_passdb_module, 1);
+	if (sql_init_auto(event, &module->db, error_r) <= 0) {
+		settings_free(set);
+		settings_free(post_set);
+		return -1;
+	}
+
 	module->module.default_cache_key =
-		auth_cache_parse_key(pool, set->query);
+		auth_cache_parse_key_and_fields(pool, set->query,
+						&post_set->fields, "sql");
 	settings_free(set);
+	settings_free(post_set);
 
 	*module_r = &module->module;
 	return 0;

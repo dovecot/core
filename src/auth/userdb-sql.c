@@ -61,10 +61,11 @@ const struct setting_parser_info userdb_sql_setting_parser_info = {
 static void userdb_sql_iterate_next(struct userdb_iterate_context *_ctx);
 static int userdb_sql_iterate_deinit(struct userdb_iterate_context *_ctx);
 
-static void
+static int
 sql_query_get_result(struct sql_result *result,
 		     struct auth_request *auth_request)
 {
+	struct auth_fields *fields = auth_fields_init(auth_request->pool);
 	const char *name, *value;
 	unsigned int i, fields_count;
 
@@ -73,11 +74,16 @@ sql_query_get_result(struct sql_result *result,
 		name = sql_result_get_field_name(result, i);
 		value = sql_result_get_field_value(result, i);
 
-		if (*name != '\0' && value != NULL) {
+		if (*name == '\0' || value == NULL)
+			continue;
+
+		auth_fields_add(fields, name, value, 0);
+		if (auth_request->userdb->set->fields_import_all) {
 			auth_request_set_userdb_field(auth_request,
 						      name, value);
 		}
 	}
+	return auth_request_set_userdb_fields(auth_request, fields);
 }
 
 static void sql_query_callback(struct sql_result *sql_result,
@@ -96,8 +102,7 @@ static void sql_query_callback(struct sql_result *sql_result,
 	} else if (ret == 0) {
 		result = USERDB_RESULT_USER_UNKNOWN;
 		auth_request_db_log_unknown_user(auth_request);
-	} else {
-		sql_query_get_result(sql_result, auth_request);
+	} else if (sql_query_get_result(sql_result, auth_request) == 0) {
 		result = USERDB_RESULT_OK;
 	}
 
@@ -283,22 +288,33 @@ userdb_sql_preinit(pool_t pool, struct event *event,
 {
 	struct sql_userdb_module *module;
 	const struct userdb_sql_settings *set;
+	const struct auth_userdb_post_settings *post_set;
 
 	if (settings_get(event, &userdb_sql_setting_parser_info,
 			 SETTINGS_GET_FLAG_NO_CHECK |
 			 SETTINGS_GET_FLAG_NO_EXPAND,
 			 &set, error_r) < 0)
 		return -1;
-
-	module = p_new(pool, struct sql_userdb_module, 1);
-	if (sql_init_auto(event, &module->db, error_r) <= 0) {
+	if (settings_get(event, &auth_userdb_post_setting_parser_info,
+			 SETTINGS_GET_FLAG_NO_CHECK |
+			 SETTINGS_GET_FLAG_NO_EXPAND,
+			 &post_set, error_r) < 0) {
 		settings_free(set);
 		return -1;
 	}
 
+	module = p_new(pool, struct sql_userdb_module, 1);
+	if (sql_init_auto(event, &module->db, error_r) <= 0) {
+		settings_free(set);
+		settings_free(post_set);
+		return -1;
+	}
+
 	module->module.default_cache_key =
-		auth_cache_parse_key(pool, set->query);
+		auth_cache_parse_key_and_fields(pool, set->query,
+						&post_set->fields, "sql");
 	settings_free(set);
+	settings_free(post_set);
 	*module_r = &module->module;
 	return 0;
 }
@@ -329,6 +345,7 @@ static void userdb_sql_deinit(struct userdb_module *_module)
 
 struct userdb_module_interface userdb_sql = {
 	.name = "sql",
+	.fields_supported = TRUE,
 
 	.preinit = userdb_sql_preinit,
 	.init = userdb_sql_init,
