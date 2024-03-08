@@ -172,6 +172,7 @@ driver_sqlite_init_v(struct event *event, struct sql_db **db_r,
 			 &set, error_r) < 0)
 		return -1;
 	*db_r = driver_sqlite_init_common(event, set);
+	sql_init_common(*db_r);
 	return 0;
 }
 

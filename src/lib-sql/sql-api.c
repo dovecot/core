@@ -140,7 +140,6 @@ int sql_init_auto(struct event *event, struct sql_db **db_r,
 		return -1;
 	}
 
-	sql_init_common(db);
 	settings_free(sql_set);
 	*db_r = db;
 	return 1;

@@ -442,6 +442,7 @@ driver_mysql_init_v(struct event *event, struct sql_db **db_r,
 
 	pool_t pool = pool_alloconly_create("mysql driver", 1024);
 	*db_r = driver_mysql_init_common(pool, event, set, ssl_set);
+	sql_init_common(*db_r);
 	return 0;
 }
 

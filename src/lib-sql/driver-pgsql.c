@@ -418,6 +418,7 @@ driver_pgsql_init_v(struct event *event, struct sql_db **db_r,
 		return -1;
 
 	struct pgsql_db *db = driver_pgsql_init_common(event, set);
+	sql_init_common(&db->api);
 	*db_r = &db->api;
 	return 0;
 }
