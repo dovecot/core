@@ -255,8 +255,11 @@ static int driver_pgsql_connect(struct sql_db *_db)
 	(void)PQsetNoticeProcessor(db->pg, pgsql_notice_processor, db);
 
 	if (PQstatus(db->pg) == CONNECTION_BAD) {
+		const char *name = PQdb(db->pg);
+		if (name == NULL)
+			name = db->host;
 		e_error(_db->event, "Connect failed to database %s: %s",
-			PQdb(db->pg), last_error(db));
+			name, last_error(db));
 		i_free(db->api.last_connect_error);
 		db->api.last_connect_error = i_strdup(last_error(db));
 		driver_pgsql_close(db);
