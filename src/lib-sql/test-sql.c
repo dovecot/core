@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "test-common.h"
-#include "sql-api.h"
+#include "sql-api-private.h"
 #include "driver-test.h"
 
 static struct sql_db *setup_sql(void)
@@ -14,7 +14,7 @@ static struct sql_db *setup_sql(void)
 	struct sql_db *sql = NULL;
 	const char *error = NULL;
 
-	sql_drivers_init();
+	sql_drivers_init_without_drivers();
 	sql_driver_test_register();
 
 	test_assert(sql_init_full(&set, &sql, &error) == 0 &&
@@ -37,7 +37,7 @@ static void deinit_sql(struct sql_db **_sql)
 	sql_unref(&sql);
 
 	sql_driver_test_unregister();
-	sql_drivers_deinit();
+	sql_drivers_deinit_without_drivers();
 }
 
 #define setup_result_1(sql) \

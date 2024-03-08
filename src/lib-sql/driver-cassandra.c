@@ -2926,9 +2926,6 @@ const struct sql_result driver_cassandra_result = {
 
 const char *driver_cassandra_version = DOVECOT_ABI_VERSION;
 
-void driver_cassandra_init(void);
-void driver_cassandra_deinit(void);
-
 void driver_cassandra_init(void)
 {
 	sql_driver_register(&driver_cassandra_db);

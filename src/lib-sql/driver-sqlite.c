@@ -698,9 +698,6 @@ const struct sql_result driver_sqlite_error_result = {
 
 const char *driver_sqlite_version = DOVECOT_ABI_VERSION;
 
-void driver_sqlite_init(void);
-void driver_sqlite_deinit(void);
-
 void driver_sqlite_init(void)
 {
 	sql_driver_register(&driver_sqlite_db);
