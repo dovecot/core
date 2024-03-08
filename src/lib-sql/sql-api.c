@@ -17,14 +17,26 @@ struct event_category event_category_sql = {
 struct sql_db_module_register sql_db_module_register = { 0 };
 ARRAY_TYPE(sql_drivers) sql_drivers;
 
-void sql_drivers_init(void)
+void sql_drivers_init_without_drivers(void)
 {
 	i_array_init(&sql_drivers, 8);
 }
 
-void sql_drivers_deinit(void)
+void sql_drivers_deinit_without_drivers(void)
 {
 	array_free(&sql_drivers);
+}
+
+void sql_drivers_init(void)
+{
+	sql_drivers_init_without_drivers();
+	sql_drivers_init_all();
+}
+
+void sql_drivers_deinit(void)
+{
+	sql_drivers_deinit_all();
+	sql_drivers_deinit_without_drivers();
 }
 
 static const struct sql_db *sql_driver_lookup(const char *name)

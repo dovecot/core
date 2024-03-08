@@ -270,4 +270,20 @@ struct event_passthrough *
 sql_query_finished_event(struct sql_db *db, struct event *event, const char *query,
 			 bool success, int *duration_r);
 struct event_passthrough *sql_transaction_finished_event(struct sql_transaction_context *ctx);
+
+void sql_drivers_init_without_drivers(void);
+void sql_drivers_deinit_without_drivers(void);
+
+void sql_drivers_init_all(void);
+void sql_drivers_deinit_all(void);
+
+void driver_cassandra_init(void);
+void driver_cassandra_deinit(void);
+void driver_mysql_init(void);
+void driver_mysql_deinit(void);
+void driver_pgsql_init(void);
+void driver_pgsql_deinit(void);
+void driver_sqlite_init(void);
+void driver_sqlite_deinit(void);
+
 #endif

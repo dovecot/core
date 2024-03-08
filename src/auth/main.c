@@ -154,7 +154,6 @@ static void main_preinit(void)
 
 	/* Load built-in SQL drivers (if any) */
 	sql_drivers_init();
-	sql_drivers_register_all();
 
 	/* Initialize databases so their configuration files can be readable
 	   only by root. Also load all modules here. */

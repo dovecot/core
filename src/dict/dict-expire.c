@@ -94,7 +94,6 @@ static void main_preinit(void)
 {
 	/* Load built-in SQL drivers (if any) */
 	sql_drivers_init();
-	sql_drivers_register_all();
 #ifdef HAVE_CDB
 	dict_driver_register(&dict_driver_cdb);
 #endif

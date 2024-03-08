@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "sql-api-private.h"
 #include "test-common.h"
-#include "sql-api.h"
+#include "sql-api-private.h"
 
 void driver_sqlite_init(void);
 void driver_sqlite_deinit(void);
@@ -31,7 +31,7 @@ static void test_sql_sqlite(void)
 	struct sql_db *sql = NULL;
 	const char *error = NULL;
 
-	sql_drivers_init();
+	sql_drivers_init_without_drivers();
 	driver_sqlite_init();
 
 	test_assert(sql_init_full(&set, &sql, &error) == 0 &&
@@ -61,7 +61,7 @@ static void test_sql_sqlite(void)
 	sql_unref(&sql);
 
 	driver_sqlite_deinit();
-	sql_drivers_deinit();
+	sql_drivers_deinit_without_drivers();
 
 	test_end();
 }

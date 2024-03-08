@@ -89,9 +89,6 @@ typedef void sql_commit_callback_t(const struct sql_commit_result *result, void 
 void sql_drivers_init(void);
 void sql_drivers_deinit(void);
 
-/* register all built-in SQL drivers */
-void sql_drivers_register_all(void);
-
 void sql_driver_register(const struct sql_db *driver);
 void sql_driver_unregister(const struct sql_db *driver);
 
