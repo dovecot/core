@@ -1382,7 +1382,10 @@ driver_cassandra_init_v(struct event *event, struct sql_db **db_r,
 		}
 	}
 
-	return driver_cassandra_init_common(event, set, ssl_set, db_r, error_r);
+	if (driver_cassandra_init_common(event, set, ssl_set, db_r, error_r) < 0)
+		return -1;
+	sql_init_common(*db_r);
+	return 0;
 }
 
 static int
