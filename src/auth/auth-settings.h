@@ -126,6 +126,7 @@ struct auth_settings {
 };
 
 extern const struct setting_parser_info auth_setting_parser_info;
+extern const struct setting_parser_info auth_passdb_setting_parser_info;
 extern const struct setting_parser_info auth_passdb_pre_setting_parser_info;
 extern const struct setting_parser_info auth_passdb_post_setting_parser_info;
 extern const struct setting_parser_info auth_userdb_setting_parser_info;

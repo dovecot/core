@@ -74,18 +74,20 @@ static enum auth_db_rule auth_db_rule_parse(const char *str)
 }
 
 static void
-auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
+auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *_set,
 		    struct auth_passdb **passdbs)
 {
 	struct auth_passdb *auth_passdb, **dest;
+	const struct auth_passdb_settings *set;
 
 	/* Lookup passdb-specific auth_settings */
 	struct event *event = event_create(auth_event);
 	event_add_str(event, "protocol", auth->protocol);
-	event_add_str(event, "passdb", set->name);
+	event_add_str(event, "passdb", _set->name);
 	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
 		      p_strconcat(event_get_pool(event), "passdb_",
-				  set->driver, NULL));
+				  _set->driver, NULL));
+	set = settings_get_or_fatal(event, &auth_passdb_setting_parser_info);
 
 	auth_passdb = p_new(auth->pool, struct auth_passdb, 1);
 	auth_passdb->auth_set =
@@ -142,6 +144,7 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
 
 static void auth_passdb_deinit(struct auth_passdb *passdb)
 {
+	settings_free(passdb->set);
 	settings_free(passdb->auth_set);
 	passdb_deinit(passdb->passdb);
 }
