@@ -1,10 +1,8 @@
 /* Copyright (c) 2024 Dovecot authors, see the included COPYING file */
 
 #include "test-auth.h"
-#include "ostream.h"
 #include "auth-common.h"
 #include "settings.h"
-#include "settings-parser.h"
 #include "auth-settings.h"
 #include "auth-token.h"
 #include "auth-penalty.h"
@@ -17,11 +15,9 @@
 
 #include <time.h>
 
-#define TEST_OAUTH2_CONFIG_FILE "test-oauth2-config"
-
 static const char *const settings[] = {
 	"base_dir", ".",
-	"auth_mechanisms", "plain",
+	"auth_mechanisms", "plain xoauth2",
 	"auth_username_chars", "",
 	"auth_username_format", "",
 	/* For tests of digest-md5. */
@@ -29,7 +25,11 @@ static const char *const settings[] = {
 	/* For tests of mech-anonymous. */
 	"auth_anonymous_username", "anonuser",
 	/* For oauth2 tests */
-	"auth_oauth2_config_file", TEST_OAUTH2_CONFIG_FILE,
+	"oauth2_introspection_mode", "auth",
+	"oauth2_tokeninfo_url", "http://localhost",
+	"oauth2_client_id", "foo",
+	"oauth2_client_secret", "foo",
+	"oauth2_use_worker", "no",
 
 	"passdb", "mock1 mock2",
 	"passdb/mock1/name", "mock1",
@@ -49,17 +49,11 @@ void test_auth_init(void)
 	const char *const protocols[] = {NULL};
 	process_start_time = time(NULL);
 
-	/* create oauth2 config file */
-	struct ostream *os =
-		o_stream_create_file(TEST_OAUTH2_CONFIG_FILE, 0, 0600, 0);
-	o_stream_nsend_str(os, "tokeninfo_url = http://localhost\nclient_id=foo\nblocking=no\n");
-	test_assert(o_stream_finish(os) == 1);
-	o_stream_unref(&os);
-
 	settings_simple_init(&simple_set, settings);
 	global_auth_settings = settings_get_or_fatal(simple_set.event,
 						     &auth_setting_parser_info);
-
+	/* this is needed to get oauth2 initialized */
+	auth_event = simple_set.event;
 	mech_init(global_auth_settings);
 	mech_reg = mech_register_init(global_auth_settings);
 	passdbs_init();
@@ -93,5 +87,4 @@ void test_auth_deinit(void)
 	settings_free(global_auth_settings);
 	settings_simple_deinit(&simple_set);
 	i_unlink_if_exists("auth-token-secret.dat");
-	i_unlink_if_exists(TEST_OAUTH2_CONFIG_FILE);
 }

@@ -5,6 +5,54 @@ struct db_oauth2;
 struct oauth2_request;
 struct db_oauth2_request;
 
+struct auth_oauth2_settings {
+	pool_t pool;
+	/* tokeninfo endpoint, format https://endpoint/somewhere?token= */
+	const char *tokeninfo_url;
+	/* password grant endpoint, format https://endpoint/somewhere */
+	const char *grant_url;
+	/* introspection endpoint, format https://endpoint/somewhere */
+	const char *introspection_url;
+	/* expected scope(s), optional */
+	ARRAY_TYPE(const_string) scope;
+	/* mode of introspection, one of auth, get, post, local
+	   - auth: send token with header Authorization: Bearer token
+	   - get: append token to url
+	   - post: send token=<token> as POST request
+	   - local: perform local validation
+	*/
+	const char *introspection_mode;
+	/* normalization var-expand template for username, defaults to %Lu */
+	const char *username_format;
+	/* name of username attribute to lookup, mandatory */
+	const char *username_attribute;
+	/* name of account is active attribute, optional */
+	const char *active_attribute;
+	/* expected active value for active attribute, optional */
+	const char *active_value;
+	/* client identificator for oauth2 server */
+	const char *client_id;
+	/* not really used, but have to present by oauth2 specs */
+	const char *client_secret;
+	/* template to expand into passdb */
+	const char *pass_attrs;
+	/* valid token issuers */
+	ARRAY_TYPE(const_string) issuers;
+	/* The URL for a document following the OpenID Provider Configuration
+	   Information schema, see
+
+	   https://datatracker.ietf.org/doc/html/rfc7628#section-3.2.2
+	*/
+	const char *openid_configuration_url;
+
+	/* Should introspection be done even if not necessary */
+	bool force_introspection;
+	/* Should we send service and local/remote endpoints as X-Dovecot-Auth headers */
+	bool send_auth_headers;
+	bool use_grant_password;
+	bool use_worker_with_mech;
+};
+
 typedef void db_oauth2_lookup_callback_t(struct db_oauth2_request *request,
 					 enum passdb_result result,
 					 const char *error,
@@ -30,7 +78,7 @@ struct db_oauth2_request {
 };
 
 
-int db_oauth2_init(const char *config_path, struct db_oauth2 **db_r,
+int db_oauth2_init(struct event *event, struct db_oauth2 **db_r,
 		   const char **error_r);
 
 bool db_oauth2_uses_password_grant(const struct db_oauth2 *db);
@@ -45,5 +93,7 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req, const
 		request, (db_oauth2_lookup_callback_t*)callback, (void*)context)
 
 void db_oauth2_deinit(void);
+
+extern const struct setting_parser_info auth_oauth2_setting_parser_info;
 
 #endif

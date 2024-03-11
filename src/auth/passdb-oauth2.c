@@ -43,15 +43,15 @@ oauth2_verify_plain(struct auth_request *request, const char *password,
 	db_oauth2_lookup(module->db, req, password, request, oauth2_verify_plain_continue, request);
 }
 
-static struct passdb_module *
-oauth2_preinit(pool_t pool, const char *args)
+static int
+oauth2_preinit(pool_t pool, struct event *event, struct passdb_module **module_r,
+	       const char **error_r)
 {
 	struct oauth2_passdb_module *module;
-	const char *error;
 
 	module = p_new(pool, struct oauth2_passdb_module, 1);
-	if (db_oauth2_init(args, &module->db, &error) < 0)
-		i_fatal("%s", error);
+	if (db_oauth2_init(event, &module->db, error_r) < 0)
+		return -1;
 	module->module.default_pass_scheme = "PLAIN";
 
 	if (db_oauth2_uses_password_grant(module->db)) {
@@ -60,7 +60,8 @@ oauth2_preinit(pool_t pool, const char *args)
 		module->module.default_cache_key = "%u%w";
 	}
 
-	return &module->module;
+	*module_r = &module->module;
+	return 0;
 }
 
 static void oauth2_deinit(struct passdb_module *passdb ATTR_UNUSED)
@@ -70,7 +71,8 @@ static void oauth2_deinit(struct passdb_module *passdb ATTR_UNUSED)
 struct passdb_module_interface passdb_oauth2 = {
 	.name = "oauth2",
 
-	.preinit_legacy = oauth2_preinit,
+	.preinit = oauth2_preinit,
 	.deinit = oauth2_deinit,
 	.verify_plain = oauth2_verify_plain,
+	.fields_supported = TRUE,
 };

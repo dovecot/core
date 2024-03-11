@@ -8,7 +8,6 @@
 #include "env-util.h"
 #include "var-expand.h"
 #include "settings.h"
-#include "settings-legacy.h"
 #include "oauth2.h"
 #include "http-client.h"
 #include "http-url.h"
@@ -22,53 +21,127 @@
 #include "dcrypt.h"
 #include "dict.h"
 
-struct passdb_oauth2_settings {
-	/* tokeninfo endpoint, format https://endpoint/somewhere?token= */
-	const char *tokeninfo_url;
-	/* password grant endpoint, format https://endpoint/somewhere */
-	const char *grant_url;
-	/* introspection endpoint, format https://endpoint/somewhere */
-	const char *introspection_url;
-	/* expected scope, optional */
-	const char *scope;
-	/* mode of introspection, one of get, get-auth, post
-	   - get: append token to url
-	   - get-auth: send token with header Authorization: Bearer token
-	   - post: send token=<token> as POST request
-	*/
-	const char *introspection_mode;
-	/* normalization var-expand template for username, defaults to %Lu */
-	const char *username_format;
-	/* name of username attribute to lookup, mandatory */
-	const char *username_attribute;
-	/* name of account is active attribute, optional */
-	const char *active_attribute;
-	/* expected active value for active attribute, optional */
-	const char *active_value;
-	/* client identificator for oauth2 server */
-	const char *client_id;
-	/* not really used, but have to present by oauth2 specs */
-	const char *client_secret;
-	/* template to expand into passdb */
-	const char *pass_attrs;
-	/* template to expand into key path, turns on local validation support */
-	const char *local_validation_key_dict;
-	/* valid token issuers */
-	const char *issuers;
-	/* The URL for a document following the OpenID Provider Configuration
-	   Information schema, see
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("oauth2_"#name, name, struct auth_oauth2_settings)
 
-	   https://datatracker.ietf.org/doc/html/rfc7628#section-3.2.2
-	*/
-	const char *openid_configuration_url;
+static const struct setting_define auth_oauth2_setting_defines[] = {
+	DEF(STR, tokeninfo_url),
+	DEF(STR, grant_url),
+	DEF(STR, introspection_url),
+	DEF(BOOLLIST, scope),
+	DEF(ENUM, introspection_mode),
+	DEF(STR_NOVARS, username_format),
+	DEF(STR, username_attribute),
+	DEF(STR, active_attribute),
+	DEF(STR, active_value),
+	DEF(STR, client_id),
+	DEF(STR, client_secret),
+	DEF(STR_NOVARS, pass_attrs),
+	DEF(BOOLLIST, issuers),
+	DEF(STR, openid_configuration_url),
+	DEF(BOOL, force_introspection),
+	DEF(BOOL, send_auth_headers),
+	DEF(BOOL, use_grant_password),
+	DEF(BOOL, use_worker_with_mech),
+	{ .type = SET_FILTER_NAME, .key = "oauth2_local_validation",
+		.required_setting = "dict", },
+	{ .type = SET_FILTER_NAME, .key = "oauth2", },
+	SETTING_DEFINE_LIST_END
+};
 
-	bool debug;
-	/* Should introspection be done even if not necessary */
-	bool force_introspection;
-	/* Should we send service and local/remote endpoints as X-Dovecot-Auth headers */
-	bool send_auth_headers;
-	bool use_grant_password;
-	bool blocking;
+static const struct auth_oauth2_settings auth_oauth2_default_settings = {
+	.tokeninfo_url = "",
+	.grant_url = "",
+	.introspection_url = "",
+	.scope = ARRAY_INIT,
+	.force_introspection = FALSE,
+	.introspection_mode = ":auth:get:post:local",
+	.username_format = "%u",
+	.username_attribute = "email",
+	.active_attribute = "",
+	.active_value = "",
+	.client_id = "",
+	.client_secret = "",
+	.issuers = ARRAY_INIT,
+	.openid_configuration_url = "",
+	.pass_attrs = "",
+	.send_auth_headers = FALSE,
+	.use_grant_password = FALSE,
+	.use_worker_with_mech = FALSE,
+};
+
+/* <settings checks> */
+
+static bool auth_oauth2_settings_check(struct event *event ATTR_UNUSED, void *_set,
+				       pool_t pool ATTR_UNUSED, const char **error_r)
+{
+	const struct auth_oauth2_settings *set = _set;
+
+	if (*set->introspection_mode == '\0') {
+		if (*set->grant_url != '\0' ||
+		    *set->tokeninfo_url != '\0' ||
+		    *set->introspection_url != '\0') {
+			*error_r = "Missing oauth2_introspection_mode";
+			return FALSE;
+		}
+	} else if (strcmp(set->introspection_mode, "auth") == 0 ||
+		 strcmp(set->introspection_mode, "get") == 0 ||
+		 strcmp(set->introspection_mode, "post") == 0) {
+		if (*set->tokeninfo_url == '\0' &&
+		    *set->introspection_url == '\0') {
+			*error_r = "Need at least one of oauth2_tokeninfo_url or oauth2_introspection_url";
+			return FALSE;
+		}
+	}
+
+	if (*set->grant_url != '\0' && *set->client_id == '\0') {
+		*error_r = "oauth2_client_id is required with oauth2_grant_url";
+		return FALSE;
+	}
+
+	if ((*set->client_id != '\0' && *set->client_secret == '\0') ||
+	    (*set->client_id == '\0' && *set->client_secret != '\0')) {
+		*error_r = "oauth2_client_id and oauth2_client_secret must be provided together";
+		return FALSE;
+	}
+
+	if (*set->active_attribute == '\0' &&
+	    *set->active_value != '\0') {
+		*error_r = "Cannot have empty active_attribute if active_value is set";
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+/* </settings checks> */
+
+static const struct setting_keyvalue auth_oauth2_default_settings_keyvalue[] = {
+	{ "oauth2/ssl_prefer_server_ciphers", "yes" },
+	{ "oauth2/http_client_user_agent", "dovecot-oauth2-passdb/"DOVECOT_VERSION },
+	{ "oauth2/http_client_max_idle_time", "60s" },
+	{ "oauth2/http_client_max_parallel_connections", "10" },
+	{ "oauth2/http_client_max_pipelined_requests", "1" },
+	{ "oauth2/http_client_request_max_attempts", "1" },
+	{ NULL, NULL }
+};
+
+const struct setting_parser_info auth_oauth2_setting_parser_info = {
+	.name = "auth_oauth2",
+
+	.defines = auth_oauth2_setting_defines,
+	.defaults = &auth_oauth2_default_settings,
+	.default_settings = auth_oauth2_default_settings_keyvalue,
+
+	.struct_size = sizeof(struct auth_oauth2_settings),
+	.pool_offset1 = 1 + offsetof(struct auth_oauth2_settings, pool),
+	.ext_check_func = auth_oauth2_settings_check,
+};
+
+static struct event_category event_category_oauth2 = {
+	.parent = &event_category_auth,
+	.name = "oauth2",
 };
 
 struct db_oauth2 {
@@ -76,9 +149,8 @@ struct db_oauth2 {
 
 	pool_t pool;
 
-	const char *config_path;
-	const struct passdb_oauth2_settings *set;
-	struct passdb_oauth2_settings set_store;
+	struct event *event;
+	const struct auth_oauth2_settings *set;
 	struct http_client *client;
 	struct passdb_template *tmpl;
 	struct oauth2_settings oauth2_set;
@@ -88,99 +160,22 @@ struct db_oauth2 {
 
 static struct db_oauth2 *db_oauth2_head = NULL;
 
-#undef DEF_STR
-#undef DEF_BOOL
-#undef DEF_INT
-
-#define DEF_STR(name) DEF_STRUCT_STR(name, passdb_oauth2_settings)
-#define DEF_BOOL(name) DEF_STRUCT_BOOL(name, passdb_oauth2_settings)
-#define DEF_INT(name) DEF_STRUCT_INT(name, passdb_oauth2_settings)
-
-static struct setting_def setting_defs[] = {
-	DEF_STR(tokeninfo_url),
-	DEF_STR(grant_url),
-	DEF_STR(introspection_url),
-	DEF_STR(scope),
-	DEF_BOOL(force_introspection),
-	DEF_STR(introspection_mode),
-	DEF_STR(username_format),
-	DEF_STR(username_attribute),
-	DEF_STR(pass_attrs),
-	DEF_STR(local_validation_key_dict),
-	DEF_STR(active_attribute),
-	DEF_STR(active_value),
-	DEF_STR(client_id),
-	DEF_STR(client_secret),
-	DEF_STR(issuers),
-	DEF_STR(openid_configuration_url),
-	DEF_BOOL(send_auth_headers),
-	DEF_BOOL(use_grant_password),
-	DEF_BOOL(blocking),
-	DEF_BOOL(debug),
-
-	{ 0, NULL, 0 }
-};
-
-static struct passdb_oauth2_settings default_oauth2_settings = {
-	.tokeninfo_url = "",
-	.grant_url = "",
-	.introspection_url = "",
-	.scope = "",
-	.force_introspection = FALSE,
-	.introspection_mode = "",
-	.username_format = "%Lu",
-	.username_attribute = "email",
-	.active_attribute = "",
-	.active_value = "",
-	.client_id = "",
-	.client_secret = "",
-	.issuers = "",
-	.openid_configuration_url = "",
-	.pass_attrs = "",
-	.local_validation_key_dict = "",
-	.send_auth_headers = FALSE,
-	.use_grant_password = FALSE,
-	.blocking = TRUE,
-	.debug = FALSE,
-};
-
 static void db_oauth2_callback(struct db_oauth2_request *req,
 			       enum passdb_result result,
 			       const char *error_prefix, const char *error);
 static void db_oauth2_free(struct db_oauth2 **_db);
 
-static const char *parse_setting(const char *key, const char *value,
-				 struct db_oauth2 *db)
-{
-	return parse_setting_from_defs(db->pool, setting_defs,
-				       &db->set_store, key, value);
-}
-
 static int db_oauth2_setup(struct db_oauth2 *db, const char **error_r)
 {
-	const char *error;
-	if (!settings_read_nosection(db->config_path, parse_setting, db, &error)) {
-		*error_r = t_strdup_printf("oauth2 %s: %s", db->config_path, error);
+	if (*db->set->introspection_mode == '\0') {
+		*error_r = "Missing oauth2_introspection_mode setting";
 		return -1;
 	}
+
+	if (http_client_init_auto(db->event, &db->client, error_r) < 0)
+		return -1;
 
 	db->tmpl = passdb_template_build(db->pool, db->set->pass_attrs);
-
-	if (*db->set->local_validation_key_dict == '\0' &&
-	    *db->set->tokeninfo_url == '\0' &&
-	    (*db->set->grant_url == '\0' || *db->set->client_id == '\0') &&
-	    *db->set->introspection_url == '\0') {
-		*error_r = "oauth2: Password grant, tokeninfo, introspection URL or validation key dictionary must be given";
-		return -1;
-	}
-
-	struct event *event = event_create(auth_event);
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "oauth2");
-	if (http_client_init_auto(event, &db->client, &error) < 0) {
-		*error_r = t_strdup_printf("%s", error);
-		return -1;
-	}
-	event_unref(&event);
 
 	i_zero(&db->oauth2_set);
 	db->oauth2_set.client = db->client;
@@ -191,7 +186,31 @@ static int db_oauth2_setup(struct db_oauth2 *db, const char **error_r)
 	db->oauth2_set.client_secret = db->set->client_secret;
 	db->oauth2_set.send_auth_headers = db->set->send_auth_headers;
 	db->oauth2_set.use_grant_password = db->set->use_grant_password;
-	db->oauth2_set.scope = db->set->scope;
+	if (!array_is_empty(&db->set->scope)) {
+		db->oauth2_set.scope =
+			p_array_const_string_join(db->pool, &db->set->scope, " ");
+	} else
+		db->oauth2_set.scope = "";
+	if (!array_is_empty(&db->set->issuers)) {
+		const char *elem;
+		ARRAY_TYPE(const_string) dup;
+		p_array_init(&dup, db->pool, array_count(&db->set->issuers));
+		array_foreach_elem(&db->set->issuers, elem) {
+			array_push_back(&dup, &elem);
+		}
+		array_append_space(&dup);
+		db->oauth2_set.issuers = array_front(&dup);
+	}
+
+	if (strcmp(db->set->introspection_mode, "local") == 0) {
+		struct event *event = event_create(db->event);
+	        event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
+			      "oauth2_local_validation");
+		int ret = dict_init_auto(event, &db->oauth2_set.key_dict, error_r);
+		event_unref(&event);
+		if (ret < 0)
+			return ret;
+	}
 
 	if (*db->set->active_attribute == '\0' &&
 	    *db->set->active_value != '\0') {
@@ -199,18 +218,13 @@ static int db_oauth2_setup(struct db_oauth2 *db, const char **error_r)
 		return -1;
 	}
 
-	if (*db->set->introspection_mode == '\0' ||
-	    strcmp(db->set->introspection_mode, "auth") == 0) {
+	if (strcmp(db->set->introspection_mode, "auth") == 0) {
 		db->oauth2_set.introspection_mode = INTROSPECTION_MODE_GET_AUTH;
 	} else if (strcmp(db->set->introspection_mode, "get") == 0) {
 		db->oauth2_set.introspection_mode = INTROSPECTION_MODE_GET;
 	} else if (strcmp(db->set->introspection_mode, "post") == 0) {
 		db->oauth2_set.introspection_mode = INTROSPECTION_MODE_POST;
 	} else if (strcmp(db->set->introspection_mode, "local") == 0) {
-		if (*db->set->local_validation_key_dict == '\0') {
-			*error_r = "oauth2: local_validation_key_dict is required for local introspection.";
-			return -1;
-		}
 		db->oauth2_set.introspection_mode = INTROSPECTION_MODE_LOCAL;
 	} else {
 		*error_r = t_strdup_printf("oauth2: Invalid value '%s' for introspection mode, must be on auth, get, post or local",
@@ -219,16 +233,7 @@ static int db_oauth2_setup(struct db_oauth2 *db, const char **error_r)
 	}
 
 	if (db->oauth2_set.introspection_mode == INTROSPECTION_MODE_LOCAL) {
-		struct dict_legacy_settings dict_set = {
-			.base_dir = global_auth_settings->base_dir,
-			.event_parent = auth_event,
-		};
-		if (dict_init_legacy(db->set->local_validation_key_dict, &dict_set,
-				     &db->oauth2_set.key_dict, &error) < 0) {
-			*error_r = t_strdup_printf("Cannot initialize key dict: %s",
-						   error);
-			return -1;
-		}
+		const char *error ATTR_UNUSED;
 		/* failure to initialize dcrypt is not fatal - we can still
 		   validate HMAC based keys */
 		(void)dcrypt_initialize(NULL, NULL, &error);
@@ -236,12 +241,9 @@ static int db_oauth2_setup(struct db_oauth2 *db, const char **error_r)
 		db->oauth2_set.key_cache = oauth2_validation_key_cache_init();
 	}
 
-	if (*db->set->issuers != '\0')
-		db->oauth2_set.issuers = (const char *const *)
-			p_strsplit_spaces(db->pool, db->set->issuers, " ");
-
 	if (*db->set->openid_configuration_url != '\0') {
 		struct http_url *parsed_url ATTR_UNUSED;
+		const char *error;
 		if (http_url_parse(db->set->openid_configuration_url, NULL, 0,
 				   pool_datastack_create(), &parsed_url,
 				   &error) < 0) {
@@ -254,23 +256,38 @@ static int db_oauth2_setup(struct db_oauth2 *db, const char **error_r)
 	return 0;
 }
 
-int db_oauth2_init(const char *config_path, struct db_oauth2 **db_r,
+int db_oauth2_init(struct event *event, struct db_oauth2 **db_r,
 		   const char **error_r)
 {
 	struct db_oauth2 *db;
+	const struct auth_oauth2_settings *db_set;
+	struct event *db_event = event_create(event);
+	event_add_category(db_event, &event_category_oauth2);
+	event_set_ptr(db_event, SETTINGS_EVENT_FILTER_NAME, "oauth2");
+	if (settings_get(db_event, &auth_oauth2_setting_parser_info, 0, &db_set,
+			 error_r) < 0) {
+		event_unref(&db_event);
+		return -1;
+	}
 
-	for(db = db_oauth2_head; db != NULL; db = db->next) {
-		if (strcmp(db->config_path, config_path) == 0) {
-			*db_r = db;
-			return 0;
-		}
+	for (db = db_oauth2_head; db != NULL; db = db->next) {
+		if (settings_equal(&auth_oauth2_setting_parser_info, db->set,
+				   db_set, NULL))
+			break;
+	}
+
+	if (db != NULL) {
+		settings_free(db_set);
+		event_unref(&db_event);
+		*db_r = db;
+		return 0;
 	}
 
 	pool_t pool = pool_alloconly_create("db_oauth2", 128);
 	db = p_new(pool, struct db_oauth2, 1);
 	db->pool = pool;
-	db->config_path = p_strdup(pool, config_path);
-	db->set = &default_oauth2_settings;
+	db->event = db_event;
+	db->set = db_set;
 	DLLIST_PREPEND(&db_oauth2_head, db);
 
 	if (db_oauth2_setup(db, error_r) < 0) {
@@ -311,6 +328,8 @@ static void db_oauth2_free(struct db_oauth2 **_db)
 	if (db->oauth2_set.key_dict != NULL)
 		dict_deinit(&db->oauth2_set.key_dict);
 	oauth2_validation_key_cache_deinit(&db->oauth2_set.key_cache);
+	settings_free(db->set);
+	event_unref(&db->event);
 	pool_unref(&db->pool);
 }
 
@@ -521,9 +540,10 @@ db_oauth2_validate_username(struct db_oauth2_request *req,
 	string_t *username_req = t_str_new(32);
 	string_t *username_val = t_str_new(strlen(username_value));
 
-	if (auth_request_var_expand(username_req, req->db->set->username_format, req->auth_request, escape_none, &error) <= 0 ||
-	    var_expand_with_table(username_val, req->db->set->username_format,
-				  table, &error) <= 0) {
+	if (auth_request_var_expand(username_req, req->db->set->username_format,
+				    req->auth_request, escape_none, &error) <= 0 ||
+	    var_expand_with_table(username_val, req->db->set->username_format, table,
+				  &error) <= 0) {
 		*error_r = t_strdup_printf("var_expand(%s) failed: %s",
 					req->db->set->username_format, error);
 		*result_r = PASSDB_RESULT_INTERNAL_FAILURE;
@@ -588,8 +608,9 @@ static bool
 db_oauth2_token_in_scope(struct db_oauth2_request *req,
 			 enum passdb_result *result_r, const char **error_r)
 {
-	if (*req->db->set->scope != '\0') {
-		bool found = FALSE;
+	bool found = TRUE;
+	if (!array_is_empty(&req->db->set->scope)) {
+		found = FALSE;
 		const char *value = auth_fields_find(req->fields, "scope");
 		bool has_scope = value != NULL;
 		if (!has_scope)
@@ -598,22 +619,22 @@ db_oauth2_token_in_scope(struct db_oauth2_request *req,
 			"Token scope(s): %s",
 			value);
 		if (value != NULL) {
-			const char **wanted_scopes =
-				t_strsplit_spaces(req->db->set->scope, " ");
+			const char *wanted_scope;
 			const char *const *entries = has_scope ?
 				t_strsplit_spaces(value, " ") :
 				t_strsplit_tabescaped(value);
-			for (; !found && *wanted_scopes != NULL; wanted_scopes++)
-				found = str_array_find(entries, *wanted_scopes);
+			array_foreach_elem(&req->db->set->scope, wanted_scope) {
+				if ((found = str_array_find(entries, wanted_scope)))
+					break;
+			}
 		}
 		if (!found) {
 			*error_r = t_strdup_printf("Token is not valid for scope '%s'",
-						   req->db->set->scope);
+						   req->db->oauth2_set.scope);
 			*result_r = PASSDB_RESULT_USER_DISABLED;
-			return FALSE;
 		}
 	}
-	return TRUE;
+	return found;
 }
 
 static void db_oauth2_process_fields(struct db_oauth2_request *req,
@@ -869,7 +890,7 @@ bool db_oauth2_uses_password_grant(const struct db_oauth2 *db)
 
 bool db_oauth2_use_worker(const struct db_oauth2 *db)
 {
-	return db->set->blocking;
+	return db->set->use_worker_with_mech;
 }
 
 void db_oauth2_deinit(void)

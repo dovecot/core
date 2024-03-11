@@ -3,6 +3,7 @@
 #include "auth-common.h"
 #include "auth-fields.h"
 #include "auth-worker-connection.h"
+#include "ioloop.h"
 #include "str.h"
 #include "strescape.h"
 #include "json-generator.h"
@@ -423,8 +424,7 @@ void mech_oauth2_initialize(void)
 	array_foreach_elem(&global_auth_settings->mechanisms, mech) {
 		if (strcasecmp(mech, mech_xoauth2.mech_name) == 0 ||
 		    strcasecmp(mech, mech_oauthbearer.mech_name) == 0) {
-			if (db_oauth2_init(global_auth_settings->oauth2_config_file,
-					   &db_oauth2, &error) < 0)
+			if (db_oauth2_init(auth_event, &db_oauth2, &error) < 0)
 				i_fatal("Cannot initialize oauth2: %s", error);
 		}
 	}
