@@ -2,11 +2,9 @@
 #
 # https://doc.dovecot.org/configuration_manual/authentication/sql/
 
-passdb {
-  driver = sql
-
-  # Path for SQL configuration file, see example-config/dovecot-sql.conf.ext
-  args = /etc/dovecot/dovecot-sql.conf.ext
+passdb sql {
+  sql_driver = mysql
+  #sql_query = SELECT userid AS user, password FROM users where userid = '%u'
 }
 
 # "prefetch" user database means that the passdb already provided the
@@ -16,9 +14,9 @@ passdb {
 #  driver = prefetch
 #}
 
-userdb {
-  driver = sql
-  args = /etc/dovecot/dovecot-sql.conf.ext
+userdb sql {
+  sql_driver = mysql
+  #sql_query = SELECT userid AS user FROM users where userid = '%u'
 }
 
 # If you don't have any user-specific settings, you can avoid the user_query
