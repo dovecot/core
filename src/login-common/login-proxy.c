@@ -663,9 +663,6 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
 		add_str("disconnect_side", disconnect_side)->
 		set_name("proxy_session_finished");
 
-	if (client_get_extra_disconnect_reason(client, &human_reason, &event_reason))
-		e->add_str("error_code", event_reason);
-
 	if (proxy->detached) {
 		struct timeval proxy_tv = proxy_last_io_timeval(proxy);
 		intmax_t idle_usecs = timeval_diff_usecs(&ioloop_timeval, &proxy_tv);
@@ -673,6 +670,10 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
 		e->add_int("idle_usecs", idle_usecs);
 		e->add_int("net_in_bytes", proxy->server_output->offset);
 		e->add_int("net_out_bytes", proxy->client_output->offset);
+	} else {
+		if (client_get_extra_disconnect_reason(client, &human_reason,
+						       &event_reason))
+			e->add_str("error_code", event_reason);
 	}
 
 	/* we'll disconnect server side in any case. */
