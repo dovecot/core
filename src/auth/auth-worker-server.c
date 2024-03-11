@@ -798,11 +798,7 @@ static bool
 auth_worker_handler_oauth2_token(struct auth_worker_command *cmd, unsigned int id,
 				 const char *const *args, const char **error_r)
 {
-	if (cmd->server->oauth2 == NULL) {
-		*error_r = "BUG: oauth2 not available";
-		return FALSE;
-	}
-
+	const char *error;
 	const char *token = *args;
 	pool_t pool = pool_alloconly_create(MEMPOOL_GROWING"oauth2 request", 256);
 	struct db_oauth2_request *db_req =
@@ -814,8 +810,18 @@ auth_worker_handler_oauth2_token(struct auth_worker_command *cmd, unsigned int i
 		pool_unref(&pool);
 		return FALSE;
 	}
-	connection_input_halt(&cmd->server->conn);
 
+	if (cmd->server->oauth2 == NULL) {
+		if (db_oauth2_init(cmd->event, &cmd->server->oauth2, &error) < 0) {
+			e_error(cmd->event, "%s", error);
+			auth_worker_handle_token_continue(db_req,
+					PASSDB_RESULT_INTERNAL_FAILURE, error,
+					db_req->auth_request);
+			return TRUE;
+		}
+	}
+
+	connection_input_halt(&cmd->server->conn);
 	db_oauth2_lookup(cmd->server->oauth2, db_req, token, db_req->auth_request,
 			 auth_worker_handle_token_continue, db_req->auth_request);
 	return TRUE;
@@ -1006,7 +1012,6 @@ auth_worker_server_create(struct auth *auth,
 			  const struct master_service_connection *master_conn)
 {
 	struct auth_worker_server *server;
-	const char *error;
 
 	if (clients == NULL)
 		clients = connection_list_init(&auth_worker_server_set,
@@ -1023,14 +1028,6 @@ auth_worker_server_create(struct auth *auth,
 
 	auth_worker_refresh_proctitle(WORKER_STATE_HANDSHAKE);
 
-	if (*auth->protocol_set->oauth2_config_file != '\0') {
-		if (db_oauth2_init(auth->protocol_set->oauth2_config_file,
-				   &server->oauth2, &error) < 0) {
-			e_error(auth_event, "Cannot initialize oauth2: %s",
-				error);
-			auth_worker_server_error = TRUE;
-		}
-	}
 	if (auth_worker_server_error)
 		auth_worker_server_send_error();
 	return server;

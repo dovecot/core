@@ -75,4 +75,5 @@ void mech_init(const struct auth_settings *set);
 void mech_deinit(const struct auth_settings *set);
 
 void mech_oauth2_initialize(void);
+
 #endif
