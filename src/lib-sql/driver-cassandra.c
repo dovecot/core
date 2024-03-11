@@ -124,7 +124,7 @@ struct cassandra_settings {
 	unsigned int warn_timeout_msecs;
 
 	unsigned int protocol_version;
-	unsigned int num_threads;
+	unsigned int io_thread_count;
 	unsigned int heartbeat_interval_secs;
 	unsigned int idle_timeout_secs;
 	unsigned int execution_retry_interval_msecs;
@@ -182,7 +182,7 @@ static const struct setting_define cassandra_setting_defines[] = {
 	DEF_MSECS(warn_timeout),
 
 	DEF(UINT, protocol_version),
-	DEF(UINT, num_threads),
+	DEF(UINT, io_thread_count),
 	DEF_SECS(heartbeat_interval),
 	DEF_SECS(idle_timeout),
 	DEF_MSECS(execution_retry_interval),
@@ -219,7 +219,7 @@ static struct cassandra_settings cassandra_default_settings = {
 	.warn_timeout_msecs = CASS_QUERY_DEFAULT_WARN_TIMEOUT_MSECS,
 
 	.protocol_version = 0,
-	.num_threads = 1,
+	.io_thread_count = 1,
 	.heartbeat_interval_secs = 30,
 	.idle_timeout_secs = 60,
 	.execution_retry_interval_msecs = 0,
@@ -965,7 +965,7 @@ driver_cassandra_parse_connect_string(pool_t pool, const char *connect_string,
 				return -1;
 			}
 		} else if (strcmp(key, "num_threads") == 0) {
-			if (str_to_uint(value, &set->num_threads) < 0) {
+			if (str_to_uint(value, &set->io_thread_count) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid num_threads: %s", value);
 				return -1;
@@ -1338,7 +1338,7 @@ driver_cassandra_init_common(struct event *event_parent,
 	cass_cluster_set_port(db->cluster, set->port);
 	if (set->protocol_version != 0)
 		cass_cluster_set_protocol_version(db->cluster, set->protocol_version);
-	cass_cluster_set_num_threads_io(db->cluster, set->num_threads);
+	cass_cluster_set_num_threads_io(db->cluster, set->io_thread_count);
 	if (set->latency_aware_routing)
 		cass_cluster_set_latency_aware_routing(db->cluster, cass_true);
 	cass_cluster_set_connection_heartbeat_interval(db->cluster,
