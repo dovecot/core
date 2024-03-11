@@ -18,8 +18,7 @@ example_DATA = \
 	dovecot-dict-auth.conf.ext \
 	dovecot-dict-sql.conf.ext \
 	dovecot-ldap.conf.ext \
-	dovecot-oauth2.conf.ext \
-	dovecot-sql.conf.ext
+	dovecot-oauth2.conf.ext
 
 EXTRA_DIST = \
 	$(example_DATA) \
