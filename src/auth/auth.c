@@ -147,17 +147,25 @@ static void auth_passdb_deinit(struct auth_passdb *passdb)
 }
 
 static void
-auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
+auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *_set)
 {
-        struct auth_userdb *auth_userdb, **dest;
+	struct auth_userdb *auth_userdb, **dest;
+	const struct auth_userdb_settings *set;
 
 	/* Lookup userdb-specific auth_settings */
 	struct event *event = event_create(auth_event);
 	event_add_str(event, "protocol", auth->protocol);
-	event_add_str(event, "userdb", set->name);
+	event_add_str(event, "userdb", _set->name);
 	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
 		      p_strconcat(event_get_pool(event), "userdb_",
-				  set->driver, NULL));
+				  _set->driver, NULL));
+	if (_set == &userdb_dummy_set) {
+		/* If this is the dummy set do not try to lookup settings. */
+		set = _set;
+	} else {
+		set = settings_get_or_fatal(event,
+					    &auth_userdb_setting_parser_info);
+	}
 
 	auth_userdb = p_new(auth->pool, struct auth_userdb, 1);
 	auth_userdb->auth_set =
@@ -200,6 +208,8 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
 
 static void auth_userdb_deinit(struct auth_userdb *userdb)
 {
+	if (userdb->set != &userdb_dummy_set)
+		settings_free(userdb->set);
 	settings_free(userdb->auth_set);
 	userdb_deinit(userdb->userdb);
 }
