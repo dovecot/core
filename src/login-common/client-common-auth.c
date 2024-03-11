@@ -916,7 +916,8 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 
 	i_assert(!client->destroyed ||
 		 sasl_reply == SASL_SERVER_REPLY_AUTH_ABORTED ||
-		 sasl_reply == SASL_SERVER_REPLY_MASTER_FAILED);
+		 sasl_reply == SASL_SERVER_REPLY_MASTER_FAILED ||
+		 sasl_reply == SASL_SERVER_REPLY_MASTER_FAILED_LIMIT);
 
 	client->last_auth_fail = CLIENT_AUTH_FAIL_CODE_NONE;
 	i_zero(&reply);
@@ -954,11 +955,17 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 			client_auth_failed(client);
 		break;
 	case SASL_SERVER_REPLY_MASTER_FAILED:
-		if (data != NULL) {
+	case SASL_SERVER_REPLY_MASTER_FAILED_LIMIT:
+		if (data == NULL)
+			;
+		else if (sasl_reply == SASL_SERVER_REPLY_MASTER_FAILED) {
 			/* authentication itself succeeded, we just hit some
 			   internal failure. */
 			client_auth_result(client, CLIENT_AUTH_RESULT_TEMPFAIL,
 					   &reply, data);
+		} else {
+			client_auth_result(client,
+				CLIENT_AUTH_RESULT_LIMIT_REACHED, &reply, data);
 		}
 
 		/* the fd may still be hanging somewhere in kernel or another

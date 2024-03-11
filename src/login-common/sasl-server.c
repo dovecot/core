@@ -224,7 +224,7 @@ anvil_lookup_callback(const char *reply, struct anvil_request *req)
 	const struct login_settings *set = client->set;
 	const char *errmsg;
 	unsigned int conn_count;
-	int ret;
+	enum sasl_server_reply sasl_reply = SASL_SERVER_REPLY_SUCCESS;
 
 	client->anvil_query = NULL;
 	client->anvil_request = NULL;
@@ -236,18 +236,18 @@ anvil_lookup_callback(const char *reply, struct anvil_request *req)
 	/* reply=NULL if we didn't need to do anvil lookup,
 	   or if the anvil lookup failed. allow failed anvil lookups in. */
 	if (reply == NULL || conn_count < set->mail_max_userip_connections) {
-		ret = master_send_request(req);
+		if (master_send_request(req) < 0)
+			sasl_reply = SASL_SERVER_REPLY_MASTER_FAILED;
 		errmsg = NULL; /* client will see internal error */
 	} else {
-		ret = -1;
+		sasl_reply = SASL_SERVER_REPLY_MASTER_FAILED_LIMIT;
 		errmsg = t_strdup_printf(ERR_TOO_MANY_USERIP_CONNECTIONS,
 					 set->mail_max_userip_connections);
 	}
-	if (ret < 0) {
+	if (sasl_reply != SASL_SERVER_REPLY_SUCCESS) {
 		client->authenticating = FALSE;
 		auth_client_send_cancel(auth_client, client->master_auth_id);
-		call_client_callback(client, SASL_SERVER_REPLY_MASTER_FAILED,
-				     errmsg, NULL);
+		call_client_callback(client, sasl_reply, errmsg, NULL);
 	}
 	i_free(req);
 }

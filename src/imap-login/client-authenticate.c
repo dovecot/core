@@ -96,6 +96,10 @@ void imap_client_auth_result(struct client *client,
 		client_send_reply_code(client, IMAP_CMD_REPLY_NO,
 				       IMAP_RESP_CODE_UNAVAILABLE, text);
 		break;
+	case CLIENT_AUTH_RESULT_LIMIT_REACHED:
+		client_send_reply_code(client, IMAP_CMD_REPLY_NO,
+				       IMAP_RESP_CODE_LIMIT, text);
+		break;
 	case CLIENT_AUTH_RESULT_SSL_REQUIRED:
 	case CLIENT_AUTH_RESULT_MECH_SSL_REQUIRED:
 		client_send_reply_code(client, IMAP_CMD_REPLY_NO,
