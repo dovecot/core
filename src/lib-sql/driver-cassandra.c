@@ -196,7 +196,7 @@ static const struct setting_define cassandra_setting_defines[] = {
 
 static struct cassandra_settings cassandra_default_settings = {
 	.hosts = ARRAY_INIT,
-	.port = 0,
+	.port = 9042,
 	.keyspace = "",
 	.user = "",
 	.password = "",
@@ -219,9 +219,9 @@ static struct cassandra_settings cassandra_default_settings = {
 	.warn_timeout_msecs = CASS_QUERY_DEFAULT_WARN_TIMEOUT_MSECS,
 
 	.protocol_version = 0,
-	.num_threads = 0,
-	.heartbeat_interval_secs = 0,
-	.idle_timeout_secs = 0,
+	.num_threads = 1,
+	.heartbeat_interval_secs = 30,
+	.idle_timeout_secs = 60,
 	.execution_retry_interval_msecs = 0,
 	.execution_retry_times = 0,
 	.page_size = 0,
@@ -1335,25 +1335,21 @@ driver_cassandra_init_common(struct event *event_parent,
 					  &set->hosts, ","));
 	if (set->user[0] != '\0' && set->password[0] != '\0')
 		cass_cluster_set_credentials(db->cluster, set->user, set->password);
-	if (set->port != 0)
-		cass_cluster_set_port(db->cluster, set->port);
+	cass_cluster_set_port(db->cluster, set->port);
 	if (set->protocol_version != 0)
 		cass_cluster_set_protocol_version(db->cluster, set->protocol_version);
-	if (set->num_threads != 0)
-		cass_cluster_set_num_threads_io(db->cluster, set->num_threads);
+	cass_cluster_set_num_threads_io(db->cluster, set->num_threads);
 	if (set->latency_aware_routing)
 		cass_cluster_set_latency_aware_routing(db->cluster, cass_true);
-	if (set->heartbeat_interval_secs != 0)
-		cass_cluster_set_connection_heartbeat_interval(db->cluster,
-			set->heartbeat_interval_secs);
+	cass_cluster_set_connection_heartbeat_interval(db->cluster,
+		set->heartbeat_interval_secs);
 	if (set->log_retries) {
 		db->default_policy = cass_retry_policy_default_new();
 		db->logging_policy = cass_retry_policy_logging_new(db->default_policy);
 		cass_cluster_set_retry_policy(db->cluster, db->logging_policy);
 	}
-	if (set->idle_timeout_secs != 0)
-		cass_cluster_set_connection_idle_timeout(db->cluster,
-			set->idle_timeout_secs);
+	cass_cluster_set_connection_idle_timeout(db->cluster,
+						 set->idle_timeout_secs);
 #ifdef HAVE_CASSANDRA_SPECULATIVE_POLICY
 	if (set->execution_retry_times > 0 && set->execution_retry_interval_msecs > 0)
 		cass_cluster_set_constant_speculative_execution_policy(
