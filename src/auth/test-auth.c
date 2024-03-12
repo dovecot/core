@@ -3,6 +3,7 @@
 #include "test-auth.h"
 #include "ostream.h"
 #include "auth-common.h"
+#include "settings.h"
 #include "settings-parser.h"
 #include "auth-settings.h"
 #include "auth-token.h"
@@ -16,10 +17,32 @@
 
 #include <time.h>
 
-struct auth_settings test_auth_set;
-static struct mechanisms_register *mech_reg;
-
 #define TEST_OAUTH2_CONFIG_FILE "test-oauth2-config"
+
+static const char *const settings[] = {
+	"base_dir", ".",
+	"auth_mechanisms", "plain",
+	"auth_username_chars", "",
+	"auth_username_format", "",
+	/* For tests of digest-md5. */
+	"auth_realms", "example.com",
+	/* For tests of mech-anonymous. */
+	"auth_anonymous_username", "anonuser",
+	/* For oauth2 tests */
+	"auth_oauth2_config_file", TEST_OAUTH2_CONFIG_FILE,
+
+	"passdb", "mock1 mock2",
+	"passdb/mock1/name", "mock1",
+	"passdb/mock1/driver", "mock",
+	"passdb/mock2/name", "mock1",
+	"passdb/mock2/driver", "mock",
+	"passdb/mock2/master", "yes",
+
+	NULL
+};
+
+static struct mechanisms_register *mech_reg;
+static struct settings_simple simple_set;
 
 void test_auth_init(void)
 {
@@ -33,36 +56,9 @@ void test_auth_init(void)
 	test_assert(o_stream_finish(os) == 1);
 	o_stream_unref(&os);
 
-	/* Copy default settings */
-	test_auth_set = *(const struct auth_settings *)auth_setting_parser_info.defaults;
-	test_auth_set.pool = pool_alloconly_create("test settings", 128);
-	test_auth_set.base_dir = ".";
-	p_array_init(&test_auth_set.mechanisms, test_auth_set.pool, 1);
-	const char *plain = "plain";
-	array_push_back(&test_auth_set.mechanisms, &plain);
-	global_auth_settings = &test_auth_set;
-	memset((&test_auth_set)->username_chars_map, 1,
-	       sizeof((&test_auth_set)->username_chars_map));
-	test_auth_set.username_format = "";
-
-	p_array_init(&test_auth_set.parsed_passdbs, test_auth_set.pool, 2);
-	struct auth_passdb_settings *mock_set = t_new(struct auth_passdb_settings, 1);
-	*mock_set = mock_passdb_set;
-	const struct auth_passdb_settings *const_mock_set = mock_set;
-	array_push_back(&test_auth_set.parsed_passdbs, &const_mock_set);
-	mock_set = p_new(test_auth_set.pool, struct auth_passdb_settings, 1);
-	*mock_set = mock_passdb_set;
-	mock_set->master = TRUE;
-	const_mock_set = mock_set;
-	array_push_back(&test_auth_set.parsed_passdbs, &const_mock_set);
-	p_array_init(&test_auth_set.parsed_userdbs, test_auth_set.pool, 1);
-
-	/* For tests of digest-md5. */
-	test_auth_set.realms_arr = t_strsplit_spaces("example.com ", " ");
-	/* For tests of mech-anonymous. */
-	test_auth_set.anonymous_username = "anonuser";
-	/* For oauth2 tests */
-	test_auth_set.oauth2_config_file = TEST_OAUTH2_CONFIG_FILE;
+	settings_simple_init(&simple_set, settings);
+	global_auth_settings = settings_get_or_fatal(simple_set.event,
+						     &auth_setting_parser_info);
 
 	mech_init(global_auth_settings);
 	mech_reg = mech_register_init(global_auth_settings);
@@ -72,7 +68,7 @@ void test_auth_init(void)
 	password_schemes_init();
 	password_schemes_allow_weak(TRUE);
 
-	auths_preinit(NULL, &test_auth_set, mech_reg, protocols);
+	auths_preinit(simple_set.event, global_auth_settings, mech_reg, protocols);
 	auths_init();
 	auth_token_init();
 
@@ -94,7 +90,8 @@ void test_auth_deinit(void)
 	mech_deinit(global_auth_settings);
 	mech_register_deinit(&mech_reg);
 	auths_free();
-	pool_unref(&test_auth_set.pool);
+	settings_free(global_auth_settings);
+	settings_simple_deinit(&simple_set);
 	i_unlink_if_exists("auth-token-secret.dat");
 	i_unlink_if_exists(TEST_OAUTH2_CONFIG_FILE);
 }

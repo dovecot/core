@@ -87,15 +87,19 @@ static void test_mech_prepare_request(struct auth_request **request_r,
 				      unsigned int running_test,
 				      const struct test_case *test_case)
 {
-	test_auth_set.ssl_username_from_cert = test_case->set_cert_username;
 	struct auth *auth = auth_default_protocol();
 
 	struct auth_request *request = auth_request_new(mech,  NULL);
+	struct auth_settings *new_set =
+		p_memdup(request->pool, global_auth_settings,
+			 sizeof(*global_auth_settings));
+	new_set->ssl_username_from_cert = test_case->set_cert_username;
+
 	request->handler = handler;
 	request->id = running_test+1;
 	request->mech_password = NULL;
 	request->state = AUTH_REQUEST_STATE_NEW;
-	request->set = global_auth_settings;
+	request->set = new_set;
 	request->protocol_set = global_auth_settings;
 	request->connect_uid = running_test;
 	request->passdb = auth->passdbs;
