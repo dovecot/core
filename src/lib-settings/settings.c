@@ -1659,8 +1659,8 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 	if ((ctx->flags & SETTINGS_GET_FLAG_NO_CHECK) == 0) {
 		if (!settings_check(ctx->event, ctx->info, *pool_p,
 				    ctx->set_struct, error_r)) {
-			*error_r = t_strdup_printf("Invalid %s settings: %s",
-						   ctx->info->name, *error_r);
+			*error_r = t_strdup_printf("Invalid settings: %s",
+						   *error_r);
 			pool_unref(&set_pool);
 			return -1;
 		}
@@ -1760,6 +1760,12 @@ settings_get_full(struct event *event,
 		ret = settings_instance_get(&ctx, source_filename, source_linenum,
 					    set_r, error_r);
 	} T_END_PASS_STR_IF(ret < 0, error_r);
+	if (ret < 0) {
+		*error_r = t_strdup_printf("%s settings%s: %s", info->name,
+			filter_name == NULL ? "" :
+			t_strdup_printf(" (filter=%s)", filter_name),
+			*error_r);
+	}
 	settings_parser_unref(&ctx.parser);
 	event_unref(&lookup_event);
 	array_free(&ctx.set_seen);
