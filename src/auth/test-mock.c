@@ -43,20 +43,6 @@ static struct passdb_module_interface mock_interface = {
 	.lookup_credentials = passdb_mock_lookup_credentials,
 };
 
-struct auth_passdb_settings mock_passdb_set = {
-	.name = "mock",
-	.driver = "mock",
-	.args = "",
-	.mechanisms = ARRAY_INIT,
-	.username_filter = "",
-	.skip = "never",
-	.result_success = "return-ok",
-	.result_failure = "continue",
-	.result_internalfail = "continue",
-	.deny = FALSE,
-	.master = FALSE,
-};
-
 void passdb_mock_mod_init(void)
 {
 	if (mock_passdb_mod != NULL)
