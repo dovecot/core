@@ -178,7 +178,7 @@ static void main_preinit(void)
 	mech_init(global_auth_settings);
 	mech_reg = mech_register_init(global_auth_settings);
 	dict_drivers_register_builtin();
-	auths_preinit(global_auth_settings, mech_reg, protocols);
+	auths_preinit(NULL, global_auth_settings, mech_reg, protocols);
 
 	listeners_init();
 	if (!worker)
