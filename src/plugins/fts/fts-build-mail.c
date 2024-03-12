@@ -17,6 +17,7 @@
 #include "fts-filter.h"
 #include "fts-api-private.h"
 #include "fts-build-mail.h"
+#include "settings-parser.h"
 
 /* there are other characters as well, but this doesn't have to be exact */
 #define IS_WORD_WHITESPACE(c) \
@@ -585,6 +586,18 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 	bool binary_body;
 	const char *error;
 	int ret;
+	uoff_t msg_size;
+	uoff_t fts_max_size = 0;
+	const char * fts_max_size_setting;
+	bool oversized_msg;
+
+	fts_max_size_setting = mail_user_plugin_getenv(update_ctx->backend->ns->user, "fts_max_size");
+	if (fts_max_size_setting != NULL) {
+		if (settings_get_size(fts_max_size_setting, &fts_max_size, &error) < 0) {
+		i_error("%s",error);
+			fts_max_size = 0;
+		}
+	}
 
 	*may_need_retry_r = FALSE;
 	if (mail_get_stream_because(mail, NULL, NULL, "fts indexing", &input) < 0) {
@@ -594,6 +607,14 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 			mail_get_last_internal_error(mail, NULL));
 		return -1;
 	}
+
+	oversized_msg = FALSE;
+	i_stream_get_size(input,TRUE,&msg_size);
+	if (fts_max_size > 0 && msg_size > fts_max_size) {
+		i_info("Skipping message body indexing because size %"PRIuUOFF_T" exceeds setting fts_max_size %s",msg_size,fts_max_size_setting);
+		oversized_msg = TRUE;
+	}
+
 
 	i_zero(&ctx);
 	ctx.update_ctx = update_ctx;
@@ -653,7 +674,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 				message_decoder_set_return_binary(decoder, TRUE);
 			body_part = TRUE;
 		} else {
-			if (skip_body)
+			if (skip_body||oversized_msg)
 				continue;
 		}
 
@@ -688,7 +709,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 		else
 			(void)fts_parser_deinit(&ctx.body_parser, NULL);
 	}
-	if (ret == 0 && body_part && !skip_body && !body_added) {
+	if (ret == 0 && body_part && !skip_body && !oversized_msg && !body_added) {
 		/* make sure body is added even when it doesn't exist */
 		block.data = NULL; block.size = 0;
 		ret = fts_build_body_block(&ctx, &block, TRUE);
