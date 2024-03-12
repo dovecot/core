@@ -34,8 +34,6 @@ struct auth_oauth2_settings {
 	const char *client_id;
 	/* not really used, but have to present by oauth2 specs */
 	const char *client_secret;
-	/* template to expand into passdb */
-	const char *pass_attrs;
 	/* valid token issuers */
 	ARRAY_TYPE(const_string) issuers;
 	/* The URL for a document following the OpenID Provider Configuration
@@ -51,6 +49,11 @@ struct auth_oauth2_settings {
 	bool send_auth_headers;
 	bool use_grant_password;
 	bool use_worker_with_mech;
+};
+
+struct auth_oauth2_post_settings {
+	pool_t pool;
+	ARRAY_TYPE(const_string) fields;
 };
 
 typedef void db_oauth2_lookup_callback_t(struct db_oauth2_request *request,

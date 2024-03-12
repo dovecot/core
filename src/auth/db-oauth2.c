@@ -6,7 +6,6 @@
 #include "strescape.h"
 #include "var-expand.h"
 #include "env-util.h"
-#include "var-expand.h"
 #include "settings.h"
 #include "oauth2.h"
 #include "http-client.h"
@@ -15,7 +14,6 @@
 #include "auth-request.h"
 #include "auth-settings.h"
 #include "passdb.h"
-#include "passdb-template.h"
 #include "llist.h"
 #include "db-oauth2.h"
 #include "dcrypt.h"
@@ -37,7 +35,6 @@ static const struct setting_define auth_oauth2_setting_defines[] = {
 	DEF(STR, active_value),
 	DEF(STR, client_id),
 	DEF(STR, client_secret),
-	DEF(STR_NOVARS, pass_attrs),
 	DEF(BOOLLIST, issuers),
 	DEF(STR, openid_configuration_url),
 	DEF(BOOL, force_introspection),
@@ -65,7 +62,6 @@ static const struct auth_oauth2_settings auth_oauth2_default_settings = {
 	.client_secret = "",
 	.issuers = ARRAY_INIT,
 	.openid_configuration_url = "",
-	.pass_attrs = "",
 	.send_auth_headers = FALSE,
 	.use_grant_password = FALSE,
 	.use_worker_with_mech = FALSE,
@@ -139,6 +135,25 @@ const struct setting_parser_info auth_oauth2_setting_parser_info = {
 	.ext_check_func = auth_oauth2_settings_check,
 };
 
+static const struct setting_define auth_oauth2_post_setting_defines[] = {
+	{ .type = SET_STRLIST, .key = "oauth2_fields",
+	  .offset = offsetof(struct auth_oauth2_post_settings, fields) },
+};
+
+static const struct auth_oauth2_post_settings auth_oauth2_post_default_settings = {
+	.fields = ARRAY_INIT,
+};
+
+const struct setting_parser_info auth_oauth2_post_setting_parser_info = {
+	.name = "auth_oauth2_fields",
+
+	.defines = auth_oauth2_post_setting_defines,
+	.defaults = &auth_oauth2_post_default_settings,
+
+	.struct_size = sizeof(struct auth_oauth2_post_settings),
+	.pool_offset1 = 1 + offsetof(struct auth_oauth2_post_settings, pool),
+};
+
 static struct event_category event_category_oauth2 = {
 	.parent = &event_category_auth,
 	.name = "oauth2",
@@ -152,7 +167,6 @@ struct db_oauth2 {
 	struct event *event;
 	const struct auth_oauth2_settings *set;
 	struct http_client *client;
-	struct passdb_template *tmpl;
 	struct oauth2_settings oauth2_set;
 
 	struct db_oauth2_request *head;
@@ -174,8 +188,6 @@ static int db_oauth2_setup(struct db_oauth2 *db, const char **error_r)
 
 	if (http_client_init_auto(db->event, &db->client, error_r) < 0)
 		return -1;
-
-	db->tmpl = passdb_template_build(db->pool, db->set->pass_attrs);
 
 	i_zero(&db->oauth2_set);
 	db->oauth2_set.client = db->client;
@@ -341,31 +353,6 @@ const char *db_oauth2_get_openid_configuration_url(const struct db_oauth2 *db)
 static bool
 db_oauth2_have_all_fields(struct db_oauth2_request *req)
 {
-	unsigned int n,i;
-	unsigned int size,idx;
-	const char *const *args = passdb_template_get_args(req->db->tmpl, &n);
-
-	if (req->fields == NULL)
-		return FALSE;
-
-	for(i=1;i<n;i+=2) {
-		const char *ptr = args[i];
-		while(ptr != NULL) {
-			ptr = strchr(ptr, '%');
-			if (ptr != NULL) {
-				const char *field, *suffix;
-				ptr++;
-				var_get_key_range(ptr, &idx, &size);
-				ptr = ptr+idx;
-				field = t_strndup(ptr,size);
-				if (str_begins(field, "oauth2:", &suffix) &&
-				    !auth_fields_exists(req->fields, suffix))
-					return FALSE;
-				ptr = ptr+size;
-			}
-		}
-	}
-
 	if (!auth_fields_exists(req->fields, req->db->set->username_attribute))
 		return FALSE;
 	if (*req->db->set->active_attribute != '\0' && !auth_fields_exists(req->fields, req->db->set->active_attribute))
@@ -407,62 +394,36 @@ static const char *escape_none(const char *value, const struct auth_request *req
 	return value;
 }
 
-static const struct var_expand_table *
-db_oauth2_value_get_var_expand_table(struct auth_request *auth_request,
-				     const char *oauth2_value)
-{
-	struct var_expand_table *table;
-	unsigned int count = 1;
-
-	table = auth_request_get_var_expand_table_full(auth_request,
-			auth_request->fields.user, NULL, &count);
-	table[0].key = '$';
-	table[0].value = oauth2_value;
-	return table;
-}
-
 static bool
-db_oauth2_template_export(struct db_oauth2_request *req,
-			  enum passdb_result *result_r, const char **error_r)
+db_oauth2_add_extra_fields(struct db_oauth2_request *req, const char **error_r)
 {
-	/* var=$ expands into var=${oauth2:var} */
-	const struct var_expand_func_table funcs_table[] = {
+	struct var_expand_func_table func_table[] = {
 		{ "oauth2", db_oauth2_var_expand_func_oauth2 },
 		{ NULL, NULL }
 	};
-	string_t *dest;
-	const char *const *args, *value, *error;
-	struct passdb_template *tmpl = req->db->tmpl;
-	unsigned int i, count;
-
-	if (passdb_template_is_empty(tmpl))
-		return TRUE;
-
-	dest = t_str_new(256);
-	args = passdb_template_get_args(tmpl, &count);
-	i_assert((count % 2) == 0);
-	for (i = 0; i < count; i += 2) {
-		if (args[i+1] == NULL)
-			value = "";
-		else {
-			str_truncate(dest, 0);
-			const struct var_expand_table *
-				table = db_oauth2_value_get_var_expand_table(req->auth_request,
-									     auth_fields_find(req->fields, args[i]));
-			if (var_expand_with_funcs(dest, args[i+1], table, funcs_table,
-						  req, &error) <= 0) {
-				*error_r = t_strdup_printf(
-					"var_expand(%s) failed: %s",
-					args[i+1], error);
-				*result_r = PASSDB_RESULT_INTERNAL_FAILURE;
-				return FALSE;
-			}
-			value = str_c(dest);
-		}
-
-		auth_request_set_field(req->auth_request, args[i], value,
-				       STATIC_PASS_SCHEME);
+	struct var_expand_params params = {
+		.table = auth_request_get_var_expand_table(req->auth_request, NULL),
+		.func_table = func_table,
+		.func_context = req,
+	};
+	struct auth_request *request = req->auth_request;
+	const struct auth_oauth2_post_settings *set;
+	struct event *event = event_create(req->auth_request->event);
+	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, &params);
+	if (settings_get(event, &auth_oauth2_post_setting_parser_info, 0, &set, error_r) < 0) {
+		event_unref(&event);
+		return FALSE;
 	}
+	if (!array_is_empty(&set->fields)) {
+		unsigned int n;
+		const char *const *fields = array_get(&set->fields, &n);
+		i_assert(n % 2 == 0);
+
+		for (unsigned int i = 0; i < n; i += 2)
+			auth_request_set_field(request, fields[i], fields[i + 1], NULL);
+	}
+	settings_free(set);
+	event_unref(&event);
 	return TRUE;
 }
 
@@ -652,7 +613,7 @@ static void db_oauth2_process_fields(struct db_oauth2_request *req,
 		req->auth_request->passdb_success = TRUE;
 		*result_r = PASSDB_RESULT_OK;
 		auth_fields_snapshot(req->auth_request->fields.extra_fields);
-		if (!db_oauth2_template_export(req, result_r, error_r)) {
+		if (!db_oauth2_add_extra_fields(req, error_r)) {
 			auth_fields_rollback(req->auth_request->fields.extra_fields);
 			req->auth_request->passdb_success = FALSE;
 			*result_r = PASSDB_RESULT_INTERNAL_FAILURE;
