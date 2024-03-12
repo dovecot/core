@@ -72,7 +72,7 @@ auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS) $(BINARY_LDFLAGS) $(AUTH_LU
 auth_DEPENDENCIES = $(auth_libs) $(LIBDOVECOT_DEPS)
 auth_SOURCES = main.c
 
-ldap_sources = db-ldap.c passdb-ldap.c userdb-ldap.c
+ldap_sources = db-ldap.c db-ldap-settings.c passdb-ldap.c userdb-ldap.c
 lua_sources = db-lua.c passdb-lua.c userdb-lua.c
 
 libauth_la_DEPENDENCIES = $(LIBDOVECOT_DEPS)
@@ -155,6 +155,7 @@ headers = \
 	auth-worker-connection.h \
 	auth-worker-server.h \
 	db-ldap.h \
+	db-ldap-settings.h \
 	db-sql.h \
 	db-passwd-file.h \
 	db-oauth2.h \
