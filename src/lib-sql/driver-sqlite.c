@@ -64,7 +64,7 @@ static const struct setting_define sqlite_setting_defines[] = {
 };
 static const struct sqlite_settings sqlite_default_settings = {
 	.path = "",
-	.journal_mode = "delete:wal",
+	.journal_mode = "wal:delete",
 	.readonly = FALSE,
 };
 const struct setting_parser_info sqlite_setting_parser_info = {
