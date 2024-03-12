@@ -450,7 +450,8 @@ struct auth *auth_default_protocol(void)
 	return a[0];
 }
 
-void auths_preinit(const struct auth_settings *set,
+void auths_preinit(struct event *parent_event,
+		   const struct auth_settings *set,
 		   const struct mechanisms_register *reg,
 		   const char *const *protocols)
 {
@@ -460,7 +461,7 @@ void auths_preinit(const struct auth_settings *set,
 	const char *not_protocol = NULL;
 	bool check_default = TRUE;
 
-	auth_event = event_create(NULL);
+	auth_event = event_create(parent_event);
 	event_set_forced_debug(auth_event, set->debug);
 	event_add_category(auth_event, &event_category_auth);
 	i_array_init(&auths, 8);

@@ -72,7 +72,7 @@ void test_auth_init(void)
 	password_schemes_init();
 	password_schemes_allow_weak(TRUE);
 
-	auths_preinit(&test_auth_set, mech_reg, protocols);
+	auths_preinit(NULL, &test_auth_set, mech_reg, protocols);
 	auths_init();
 	auth_token_init();
 

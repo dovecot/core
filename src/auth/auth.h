@@ -85,7 +85,8 @@ struct auth {
 struct auth *auth_find_protocol(const char *name);
 struct auth *auth_default_protocol(void);
 
-void auths_preinit(const struct auth_settings *set,
+void auths_preinit(struct event *parent_event,
+		   const struct auth_settings *set,
 		   const struct mechanisms_register *reg,
 		   const char *const *protocols);
 void auths_init(void);
