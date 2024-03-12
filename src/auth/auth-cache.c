@@ -80,14 +80,17 @@ static void auth_cache_key_add_tab_idx(string_t *str, unsigned int i)
 	}
 }
 
-char *auth_cache_parse_key(pool_t pool, const char *query)
+static char *auth_cache_parse_key_exclude(pool_t pool, const char *query,
+					  const char *exclude_driver)
 {
 	string_t *str;
 	bool key_seen[AUTH_REQUEST_VAR_TAB_COUNT];
 	const char *extra_vars;
-	unsigned int i, idx, size, tab_idx;
+	unsigned int i, idx, size, tab_idx, exclude_driver_len;
 
 	memset(key_seen, 0, sizeof(key_seen));
+	exclude_driver_len = exclude_driver == NULL ? 0 :
+		strlen(exclude_driver);
 
 	str = t_str_new(32);
 	for (; *query != '\0'; ) {
@@ -107,7 +110,10 @@ char *auth_cache_parse_key(pool_t pool, const char *query)
 			/* just add the key. it would be nice to prevent
 			   duplicates here as well, but that's just too
 			   much trouble and probably very rare. */
-			auth_cache_key_add_var(str, query, size);
+			if (exclude_driver_len == 0 ||
+			    size < exclude_driver_len ||
+			    memcmp(query, exclude_driver, exclude_driver_len) != 0)
+				auth_cache_key_add_var(str, query, size);
 		} else {
 			i_assert(tab_idx < N_ELEMENTS(key_seen));
 			key_seen[tab_idx] = TRUE;
@@ -142,6 +148,31 @@ char *auth_cache_parse_key(pool_t pool, const char *query)
 	}
 
 	return p_strdup(pool, str_c(str));
+}
+
+char *auth_cache_parse_key(pool_t pool, const char *query)
+{
+	return auth_cache_parse_key_exclude(pool, query, NULL);
+}
+
+char *auth_cache_parse_key_and_fields(pool_t pool, const char *query,
+				      const ARRAY_TYPE(const_string) *fields,
+				      const char *exclude_driver)
+{
+	if (array_is_empty(fields))
+		return auth_cache_parse_key_exclude(pool, query, exclude_driver);
+
+	string_t *full_query = t_str_new(128);
+	str_append(full_query, query);
+
+	unsigned int i, count;
+	const char *const *str = array_get(fields, &count);
+	for (i = 0; i < count; i += 2) {
+		str_append_c(full_query, '\t');
+		str_append(full_query, str[i + 1]);
+	}
+	return auth_cache_parse_key_exclude(pool, str_c(full_query),
+					    exclude_driver);
 }
 
 static void
