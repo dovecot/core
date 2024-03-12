@@ -558,6 +558,20 @@ void doveadm_mail_server_handle(struct doveadm_server *server,
 				struct doveadm_mail_cmd_context *cmd_ctx,
 				const char *username, bool print_username)
 {
+	const char *const *args = doveadm_cmdv2_wrapper_generate_args(cmd_ctx);
+	doveadm_mail_server_handle_full(server, conn, cmd_ctx, username,
+					cmd_ctx->cmd->name, args,
+					print_username);
+}
+
+void doveadm_mail_server_handle_full(struct doveadm_server *server,
+				     struct doveadm_client *conn,
+				     struct doveadm_mail_cmd_context *cmd_ctx,
+				     const char *username,
+				     const char *cmd_name,
+				     const char *const *cmd_args,
+				     bool print_username)
+{
 	struct doveadm_mail_server_cmd *servercmd;
 	string_t *cmd;
 
@@ -571,12 +585,11 @@ void doveadm_mail_server_handle(struct doveadm_server *server,
 
 	str_append_tabescaped(cmd, username);
 	str_append_c(cmd, '\t');
-	str_append_tabescaped(cmd, cmd_ctx->cmd->name);
+	str_append_tabescaped(cmd, cmd_name);
 
-	const char *const *args = doveadm_cmdv2_wrapper_generate_args(cmd_ctx);
-	for (; *args != NULL; args++) {
-	 	str_append_c(cmd, '\t');
-	 	str_append_tabescaped(cmd, *args);
+	for (; *cmd_args != NULL; cmd_args++) {
+		str_append_c(cmd, '\t');
+		str_append_tabescaped(cmd, *cmd_args);
 	}
 	str_append_c(cmd, '\n');
 

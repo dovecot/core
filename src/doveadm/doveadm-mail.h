@@ -130,6 +130,13 @@ void doveadm_mail_server_handle(struct doveadm_server *server,
 				struct doveadm_client *conn,
 				struct doveadm_mail_cmd_context *cmd_ctx,
 				const char *username, bool print_username);
+void doveadm_mail_server_handle_full(struct doveadm_server *server,
+				     struct doveadm_client *conn,
+				     struct doveadm_mail_cmd_context *cmd_ctx,
+				     const char *username,
+				     const char *cmd_name,
+				     const char *const *cmd_args,
+				     bool print_username);
 void doveadm_mail_server_flush(struct doveadm_mail_cmd_context *ctx);
 
 int doveadm_cmd_pass_lookup(struct doveadm_mail_cmd_context *ctx,
