@@ -135,8 +135,8 @@ static const char *dict_sql_fields_map(struct setting_parser_ctx *ctx)
 		}
 	}
 
-	if (ctx->set->max_pattern_fields_count < count)
-		ctx->set->max_pattern_fields_count = count;
+	if (ctx->set->map_set.max_pattern_fields_count < count)
+		ctx->set->map_set.max_pattern_fields_count = count;
 	ctx->cur_map.pattern = p_strdup(ctx->pool, str_c(pattern));
 	return NULL;
 }
@@ -200,7 +200,7 @@ static const char *dict_sql_map_finish(struct setting_parser_ctx *ctx)
 		if (strchr(ctx->cur_map.pattern, '$') != NULL)
 			return "Missing fields for pattern variables";
 	}
-	array_push_back(&ctx->set->maps, &ctx->cur_map);
+	array_push_back(&ctx->set->map_set.maps, &ctx->cur_map);
 	i_zero(&ctx->cur_map);
 	return NULL;
 }
@@ -312,7 +312,7 @@ dict_sql_legacy_settings_read(const char *path, const char **error_r)
 	ctx.pool = pool;
 	ctx.set = p_new(pool, struct dict_sql_legacy_settings, 1);
 	t_array_init(&ctx.cur_fields, 16);
-	p_array_init(&ctx.set->maps, pool, 8);
+	p_array_init(&ctx.set->map_set.maps, pool, 8);
 
 	if (!settings_read(path, NULL, parse_setting, parse_section,
 			   &ctx, error_r)) {
@@ -333,6 +333,9 @@ dict_sql_legacy_settings_read(const char *path, const char **error_r)
 	cache->set = ctx.set;
 
 	hash_table_insert(dict_sql_legacy_settings_cache, cache->path, cache);
+
+	ctx.set->map_set.pool = pool;
+	pool_ref(pool);
 	return ctx.set;
 }
 

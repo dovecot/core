@@ -101,21 +101,25 @@ sql_dict_init_legacy(struct dict *driver, const char *uri,
 		     struct dict **dict_r, const char **error_r)
 {
 	struct sql_legacy_settings sql_set;
+	struct dict_sql_legacy_settings *dict_sql_set;
 	struct sql_dict *dict;
 	pool_t pool;
 
 	pool = pool_alloconly_create("sql dict", 2048);
-	dict = p_new(pool, struct sql_dict, 1);
-	dict->pool = pool;
-	dict->dict = *driver;
-	dict->set = dict_sql_legacy_settings_read(uri, error_r);
-	if (dict->set == NULL) {
+	dict_sql_set = dict_sql_legacy_settings_read(uri, error_r);
+	if (dict_sql_set == NULL) {
 		pool_unref(&pool);
 		return -1;
 	}
+
+	dict = p_new(pool, struct sql_dict, 1);
+	dict->pool = pool;
+	dict->dict = *driver;
+	dict->set = &dict_sql_set->map_set;
+
 	i_zero(&sql_set);
 	sql_set.driver = driver->name;
-	sql_set.connect_string = dict->set->connect;
+	sql_set.connect_string = dict_sql_set->connect;
 	sql_set.event_parent = set->event_parent;
 
 	if (sql_db_cache_new_legacy(dict_sql_db_cache, &sql_set,
@@ -132,6 +136,7 @@ static void sql_dict_deinit(struct dict *_dict)
 {
 	struct sql_dict *dict = (struct sql_dict *)_dict;
 
+	pool_unref(&dict->set->pool);
 	sql_unref(&dict->db);
 	pool_unref(&dict->pool);
 }
