@@ -1755,47 +1755,49 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 				    const char *key, const char *value,
 				    string_t *str)
 {
-	const char *var_end, *p_start = value;
+	const char *var_end;
 	while (value != NULL) {
-		const char *var_name, *env_name;
-		bool expand_parent;
+		const char *var_name, *env_name, *set_name;
+		bool var_is_set, expand_parent;
 		var_end = strchr(value, ' ');
 
-		/* expand_parent=TRUE for "key = $key stuff".
+		/* expand_parent=TRUE for "key = $SET:key stuff".
 		   we'll always expand it so that doveconf -n can give
 		   usable output */
 		if (var_end == NULL)
 			var_name = value;
 		else
 			var_name = t_strdup_until(value, var_end);
-		expand_parent = strcmp(key, var_name +
-				       (*var_name == '$' ? 1 : 0)) == 0;
+		var_is_set = str_begins(var_name, "$SET:", &set_name);
+		expand_parent = var_is_set && strcmp(key, set_name) == 0;
 
-		if (!str_begins_with(var_name, "$") ||
-		    (value > p_start && !IS_WHITE(value[-1]))) {
-			str_append(str, var_name);
-		} else if (!ctx->expand_values && !expand_parent) {
+		if (!ctx->expand_values && !expand_parent) {
 			str_append(str, var_name);
 		} else if (str_begins(var_name, "$ENV:", &env_name)) {
 			/* use environment variable */
 			const char *envval = getenv(env_name);
 			if (envval != NULL)
 				str_append(str, envval);
-		} else {
+		} else if (var_is_set) {
 			struct config_parser_key *config_key;
 
-			i_assert(var_name[0] == '$');
-			var_name++;
-
-			config_key = hash_table_lookup(ctx->all_keys, var_name);
-			if (config_key == NULL ||
-			    !config_get_value(ctx->cur_section, config_key,
-					      var_name, expand_parent, str)) {
+			config_key = hash_table_lookup(ctx->all_keys, set_name);
+			if (config_key == NULL) {
 				ctx->error = p_strconcat(ctx->pool,
-							 "Unknown variable: $",
-							 var_name, NULL);
+							 "Unknown setting: ",
+							 set_name, NULL);
 				return -1;
 			}
+			if (!config_get_value(ctx->cur_section, config_key,
+					      set_name, expand_parent, str)) {
+				ctx->error = p_strdup_printf(ctx->pool,
+					"Failed to expand $SET:%s: "
+					"Setting type can't be expanded to string",
+					set_name);
+				return -1;
+			}
+		} else {
+			str_append(str, var_name);
 		}
 
 		if (var_end == NULL)
