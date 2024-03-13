@@ -168,9 +168,9 @@ static const char *dict_sql_map_finish(struct setting_parser_ctx *ctx)
 	if (ctx->cur_map.expire_field != NULL &&
 	    ctx->cur_map.expire_field[0] == '\0')
 		ctx->cur_map.expire_field = NULL;
-	ctx->cur_map.value_fields = (const char *const *)
-		p_strsplit_spaces(ctx->pool, ctx->cur_map.value_field, ",");
-	ctx->cur_map.values_count = str_array_length(ctx->cur_map.value_fields);
+	const char *const *value_fields =
+		t_strsplit_spaces(ctx->cur_map.value_field, ",");
+	ctx->cur_map.values_count = str_array_length(value_fields);
 
 	enum dict_sql_type *value_types =
 		p_new(ctx->pool, enum dict_sql_type, ctx->cur_map.values_count);
