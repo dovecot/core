@@ -34,16 +34,16 @@ struct dict_sql_map {
 	const enum dict_sql_type *value_types;
 };
 
-struct dict_sql_settings {
+struct dict_sql_legacy_settings {
 	const char *connect;
 
 	unsigned int max_pattern_fields_count;
 	ARRAY(struct dict_sql_map) maps;
 };
 
-struct dict_sql_settings *
-dict_sql_settings_read(const char *path, const char **error_r);
+struct dict_sql_legacy_settings *
+dict_sql_legacy_settings_read(const char *path, const char **error_r);
 
-void dict_sql_settings_deinit(void);
+void dict_sql_legacy_settings_deinit(void);
 
 #endif

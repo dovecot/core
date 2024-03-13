@@ -22,7 +22,7 @@ struct dict_sql_map_field {
 
 struct setting_parser_ctx {
 	pool_t pool;
-	struct dict_sql_settings *set;
+	struct dict_sql_legacy_settings *set;
 	enum section_type type;
 
 	struct dict_sql_map cur_map;
@@ -43,13 +43,13 @@ static const struct setting_def dict_sql_map_setting_defs[] = {
 	{ 0, NULL, 0 }
 };
 
-struct dict_sql_settings_cache {
+struct dict_sql_legacy_settings_cache {
 	pool_t pool;
 	const char *path;
-	struct dict_sql_settings *set;
+	struct dict_sql_legacy_settings *set;
 };
 
-static HASH_TABLE(const char *, struct dict_sql_settings_cache *) dict_sql_settings_cache;
+static HASH_TABLE(const char *, struct dict_sql_legacy_settings_cache *) dict_sql_legacy_settings_cache;
 
 static const char *dict_sql_type_names[] = {
 	"string",
@@ -291,26 +291,26 @@ parse_section(const char *type, const char *name ATTR_UNUSED,
 	return FALSE;
 }
 
-struct dict_sql_settings *
-dict_sql_settings_read(const char *path, const char **error_r)
+struct dict_sql_legacy_settings *
+dict_sql_legacy_settings_read(const char *path, const char **error_r)
 {
 	struct setting_parser_ctx ctx;
-	struct dict_sql_settings_cache *cache;
+	struct dict_sql_legacy_settings_cache *cache;
 	pool_t pool;
 
-	if (!hash_table_is_created(dict_sql_settings_cache)) {
-		hash_table_create(&dict_sql_settings_cache, default_pool, 0,
+	if (!hash_table_is_created(dict_sql_legacy_settings_cache)) {
+		hash_table_create(&dict_sql_legacy_settings_cache, default_pool, 0,
 				  str_hash, strcmp);
 	}
 
-	cache = hash_table_lookup(dict_sql_settings_cache, path);
+	cache = hash_table_lookup(dict_sql_legacy_settings_cache, path);
 	if (cache != NULL)
 		return cache->set;
 
 	i_zero(&ctx);
 	pool = pool_alloconly_create("dict sql settings", 1024);
 	ctx.pool = pool;
-	ctx.set = p_new(pool, struct dict_sql_settings, 1);
+	ctx.set = p_new(pool, struct dict_sql_legacy_settings, 1);
 	t_array_init(&ctx.cur_fields, 16);
 	p_array_init(&ctx.set->maps, pool, 8);
 
@@ -327,27 +327,27 @@ dict_sql_settings_read(const char *path, const char **error_r)
 		return NULL;
 	}
 
-	cache = p_new(pool, struct dict_sql_settings_cache, 1);
+	cache = p_new(pool, struct dict_sql_legacy_settings_cache, 1);
 	cache->pool = pool;
 	cache->path = p_strdup(pool, path);
 	cache->set = ctx.set;
 
-	hash_table_insert(dict_sql_settings_cache, cache->path, cache);
+	hash_table_insert(dict_sql_legacy_settings_cache, cache->path, cache);
 	return ctx.set;
 }
 
-void dict_sql_settings_deinit(void)
+void dict_sql_legacy_settings_deinit(void)
 {
 	struct hash_iterate_context *iter;
-	struct dict_sql_settings_cache *cache;
+	struct dict_sql_legacy_settings_cache *cache;
 	const char *key;
 
-	if (!hash_table_is_created(dict_sql_settings_cache))
+	if (!hash_table_is_created(dict_sql_legacy_settings_cache))
 		return;
 
-	iter = hash_table_iterate_init(dict_sql_settings_cache);
-	while (hash_table_iterate(iter, dict_sql_settings_cache, &key, &cache))
+	iter = hash_table_iterate_init(dict_sql_legacy_settings_cache);
+	while (hash_table_iterate(iter, dict_sql_legacy_settings_cache, &key, &cache))
 		pool_unref(&cache->pool);
 	hash_table_iterate_deinit(&iter);
-	hash_table_destroy(&dict_sql_settings_cache);
+	hash_table_destroy(&dict_sql_legacy_settings_cache);
 }
