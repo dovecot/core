@@ -256,10 +256,10 @@ expand_user(const char **user, enum service_user_default *default_r,
 	/* $variable expansion is typically done by doveconf, but these
 	   variables can come from built-in settings, so we need to expand
 	   them here */
-	if (strcmp(*user, "$default_internal_user") == 0) {
+	if (strcmp(*user, "$SET:default_internal_user") == 0) {
 		*user = set->default_internal_user;
 		*default_r = SERVICE_USER_DEFAULT_INTERNAL;
-	} else if (strcmp(*user, "$default_login_user") == 0) {
+	} else if (strcmp(*user, "$SET:default_login_user") == 0) {
 		*user = set->default_login_user;
 		*default_r = SERVICE_USER_DEFAULT_LOGIN;
 	} else {
@@ -273,7 +273,7 @@ expand_group(const char **group, const struct master_settings *set)
 	/* $variable expansion is typically done by doveconf, but these
 	   variables can come from built-in settings, so we need to expand
 	   them here */
-	if (strcmp(*group, "$default_internal_group") == 0)
+	if (strcmp(*group, "$SET:default_internal_group") == 0)
 		*group = set->default_internal_group;
 }
 

@@ -23,7 +23,7 @@ struct service_settings stats_service_settings = {
 	.protocol = "",
 	.type = "",
 	.executable = "stats",
-	.user = "$default_internal_user",
+	.user = "$SET:default_internal_user",
 	.group = "",
 	.privileged_group = "",
 	.extra_groups = "",
@@ -44,7 +44,7 @@ const struct setting_keyvalue stats_service_settings_defaults[] = {
 	{ "unix_listener/login\\sstats-writer/path", "login/stats-writer" },
 	{ "unix_listener/login\\sstats-writer/type", "writer" },
 	{ "unix_listener/login\\sstats-writer/mode", "0600" },
-	{ "unix_listener/login\\sstats-writer/user", "$default_login_user" },
+	{ "unix_listener/login\\sstats-writer/user", "$SET:default_login_user" },
 
 	{ "unix_listener/stats-reader/path", "stats-reader" },
 	{ "unix_listener/stats-reader/type", "reader" },
@@ -53,7 +53,7 @@ const struct setting_keyvalue stats_service_settings_defaults[] = {
 	{ "unix_listener/stats-writer/path", "stats-writer" },
 	{ "unix_listener/stats-writer/type", "writer" },
 	{ "unix_listener/stats-writer/mode", "0660" },
-	{ "unix_listener/stats-writer/group", "$default_internal_group" },
+	{ "unix_listener/stats-writer/group", "$SET:default_internal_group" },
 
 	{ NULL, NULL }
 };
