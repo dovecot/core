@@ -97,20 +97,20 @@ static void test_config_parser(void)
 "# comment\n"
 "key=value\n"
 "key2 = \\$escape \\escape \\\"escape\\\"\n"
-"key3 = value\n"
-"key3 = $key3 nothervalue\n"
-"key3 = yetanother value $key3 right here\n"
-"key4 = \" $key3 \"\n"
-"key5 = ' $key4 '\n"
+"key3 = $value\n"
+"key3 = $SET:key3 nothervalue\n"
+"key3 = yetanother value $SET:key3 right here\n"
+"key4 = \" $SET:key3 \"\n"
+"key5 = ' $SET:key4 '\n"
 "pop3_deleted_flag = \"$Deleted\"\n"
 "env_key=$ENV:foo\n"
-"env_key=$env_key $ENV:bar\n"
-"env_key=$env_key \"$env_key\"\n"
+"env_key=$SET:env_key $ENV:bar\n"
+"env_key=$SET:env_key \"$SET:env_key\"\n"
 "env_key2 = foo$ENV:FOO bar\n"
 "env_key3 = $ENV:FOO$ENV:FOO bar\n"
-"env_key4 = $ENV:foo $ENV:bar $key\n"
+"env_key4 = $ENV:foo $ENV:bar $SET:key\n"
 "env_key5 = $ENV:foo $ENV:foo\n"
-"protocols = $protocols imap\n"
+"protocols = $SET:protocols imap\n"
 	);
 
 	putenv("foo=test1");
@@ -134,11 +134,11 @@ static void test_config_parser(void)
 	const struct test_settings *set = settings_parser_get_set(set_parser);
 	test_assert_strcmp(set->key, "value");
 	test_assert_strcmp(set->key2, "\\$escape \\escape \\\"escape\\\"");
-	test_assert_strcmp(set->key3, "yetanother value value nothervalue right here");
-	test_assert_strcmp(set->key4, " $key3 ");
-	test_assert_strcmp(set->key5, " $key4 ");
+	test_assert_strcmp(set->key3, "yetanother value $value nothervalue right here");
+	test_assert_strcmp(set->key4, " $SET:key3 ");
+	test_assert_strcmp(set->key5, " $SET:key4 ");
 	test_assert_strcmp(set->pop3_deleted_flag, "$Deleted");
-	test_assert_strcmp(set->env_key, "test1 test2 \"$env_key\"");
+	test_assert_strcmp(set->env_key, "test1 test2 \"$SET:env_key\"");
 	test_assert_strcmp(set->env_key2, "foo$ENV:FOO bar");
 	test_assert_strcmp(set->env_key3, "works bar");
 	test_assert_strcmp(set->env_key4, "test1 test2 value");
@@ -160,14 +160,14 @@ static void test_config_parser(void)
 
 	test_assert_strcmp(set->key, "value");
 	test_assert_strcmp(set->key2, "\\$escape \\escape \\\"escape\\\"");
-	test_assert_strcmp(set->key3, "yetanother value value nothervalue right here");
-	test_assert_strcmp(set->key4, " $key3 ");
-	test_assert_strcmp(set->key5, " $key4 ");
+	test_assert_strcmp(set->key3, "yetanother value $value nothervalue right here");
+	test_assert_strcmp(set->key4, " $SET:key3 ");
+	test_assert_strcmp(set->key5, " $SET:key4 ");
 	test_assert_strcmp(set->pop3_deleted_flag, "$Deleted");
-	test_assert_strcmp(set->env_key, "$ENV:foo $ENV:bar \"$env_key\"");
+	test_assert_strcmp(set->env_key, "$ENV:foo $ENV:bar \"$SET:env_key\"");
 	test_assert_strcmp(set->env_key2, "foo$ENV:FOO bar");
 	test_assert_strcmp(set->env_key3, "$ENV:FOO$ENV:FOO bar");
-	test_assert_strcmp(set->env_key4, "$ENV:foo $ENV:bar $key");
+	test_assert_strcmp(set->env_key4, "$ENV:foo $ENV:bar $SET:key");
 	test_assert_strcmp(set->env_key5, "$ENV:foo $ENV:foo");
 	test_assert_strcmp(set->protocols, "pop3 imap");
 
