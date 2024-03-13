@@ -108,7 +108,7 @@ sql_dict_init_legacy(struct dict *driver, const char *uri,
 	dict = p_new(pool, struct sql_dict, 1);
 	dict->pool = pool;
 	dict->dict = *driver;
-	dict->set = dict_sql_settings_read(uri, error_r);
+	dict->set = dict_sql_legacy_settings_read(uri, error_r);
 	if (dict->set == NULL) {
 		pool_unref(&pool);
 		return -1;
@@ -1699,5 +1699,5 @@ void dict_sql_unregister(void)
 		dict_driver_unregister(&dict_sql_drivers[i]);
 	i_free(dict_sql_drivers);
 	sql_db_cache_deinit_legacy(&dict_sql_db_cache);
-	dict_sql_settings_deinit();
+	dict_sql_legacy_settings_deinit();
 }
