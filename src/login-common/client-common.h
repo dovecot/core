@@ -131,6 +131,14 @@ struct client_vfuncs {
 	void (*notify_starttls)(struct client *client,
 				bool success, const char *text);
 	void (*starttls)(struct client *client);
+
+	/* Called just before client iostreams are changed (e.g. STARTTLS).
+	   iostream_change_post() is guaranteed to be called. */
+	void (*iostream_change_pre)(struct client *client);
+	/* Called just after client iostreams may have changed. Nothing may
+	   have happened in case of unexpected errors. */
+	void (*iostream_change_post)(struct client *client);
+
 	void (*input)(struct client *client);
 	bool (*sasl_filter_mech)(struct client *client,
 				 struct auth_mech_desc *mech);

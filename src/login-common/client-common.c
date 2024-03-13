@@ -727,9 +727,14 @@ int client_init_ssl(struct client *client)
 			"Failed to initialize SSL server context: %s", error);
 		return -1;
 	}
-	if (io_stream_create_ssl_server(ssl_ctx, &ssl_set, client->event,
-					&client->input, &client->output,
-					&client->ssl_iostream, &error) < 0) {
+	if (client->v.iostream_change_pre != NULL)
+		client->v.iostream_change_pre(client);
+	int ret = io_stream_create_ssl_server(ssl_ctx, &ssl_set, client->event,
+					      &client->input, &client->output,
+					      &client->ssl_iostream, &error);
+	if (client->v.iostream_change_post != NULL)
+		client->v.iostream_change_post(client);
+	if (ret < 0) {
 		e_error(client->event,
 			"Failed to initialize SSL connection: %s", error);
 		ssl_iostream_context_unref(&ssl_ctx);
