@@ -62,22 +62,26 @@ imapc_client_init(const struct imapc_parameters *params,
 	client->event = event_create(event_parent);
 	client->untagged_callback = default_untagged_callback;
 
-	/* Explicitly cast to drop const modifier. */
-	client->set = (struct imapc_settings *) settings_get_or_fatal(
-		client->event, &imapc_setting_parser_info);
+	client->set = settings_get_or_fatal(client->event, &imapc_setting_parser_info);
 	client->params.session_id_prefix =
 		p_strdup(pool, params->session_id_prefix);
 	client->params.temp_path_prefix =
 		p_strdup(pool, params->temp_path_prefix);
 	client->params.flags = params->flags;
 
-	/* Only override if the parameter is set. */
-	if (params->override_dns_client_socket_path != NULL)
-		client->set->dns_client_socket_path =
-			p_strdup(pool, params->override_dns_client_socket_path);
-	if (params->override_rawlog_dir != NULL)
-		client->set->imapc_rawlog_dir =
-			p_strdup(pool, params->override_rawlog_dir);
+	/* Set the overriden parameter only if it is set. */
+	client->dns_client_socket_path =
+		(params->override_dns_client_socket_path != NULL) ?
+			p_strdup(pool, params->override_dns_client_socket_path) :
+			p_strdup(pool, client->set->dns_client_socket_path);
+	client->imapc_rawlog_dir =
+		(params->override_rawlog_dir != NULL) ?
+			p_strdup(pool, params->override_rawlog_dir) :
+			p_strdup(pool, client->set->imapc_rawlog_dir);
+	client->password =
+		(params->override_password != NULL) ?
+			p_strdup(pool, params->override_password) :
+			p_strdup(pool, client->set->imapc_password);
 
 	event_set_append_log_prefix(client->event, t_strdup_printf(
 		"imapc(%s:%u): ", client->set->imapc_host, client->set->imapc_port));

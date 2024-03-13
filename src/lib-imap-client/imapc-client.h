@@ -164,6 +164,7 @@ struct imapc_parameters {
 	   this cannot be read from the config directly. */
 	const char *override_dns_client_socket_path;
 	const char *override_rawlog_dir;
+	const char *override_password;
 
 	enum imapc_parameter_flags flags;
 };
