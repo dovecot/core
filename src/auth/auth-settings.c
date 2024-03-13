@@ -18,7 +18,7 @@ struct service_settings auth_service_settings = {
 	.protocol = "",
 	.type = "",
 	.executable = "auth",
-	.user = "$default_internal_user",
+	.user = "$SET:default_internal_user",
 	.group = "",
 	.privileged_group = "",
 	.extra_groups = "",
@@ -41,12 +41,12 @@ const struct setting_keyvalue auth_service_settings_defaults[] = {
 	{ "unix_listener/auth-client/path", "auth-client" },
 	{ "unix_listener/auth-client/type", "auth" },
 	{ "unix_listener/auth-client/mode", "0600" },
-	{ "unix_listener/auth-client/user", "$default_internal_user" },
+	{ "unix_listener/auth-client/user", "$SET:default_internal_user" },
 
 	{ "unix_listener/auth-login/path", "auth-login" },
 	{ "unix_listener/auth-login/type", "login" },
 	{ "unix_listener/auth-login/mode", "0600" },
-	{ "unix_listener/auth-login/user", "$default_internal_user" },
+	{ "unix_listener/auth-login/user", "$SET:default_internal_user" },
 
 	{ "unix_listener/auth-master/path", "auth-master" },
 	{ "unix_listener/auth-master/type", "master" },
@@ -55,7 +55,7 @@ const struct setting_keyvalue auth_service_settings_defaults[] = {
 	{ "unix_listener/auth-userdb/path", "auth-userdb" },
 	{ "unix_listener/auth-userdb/type", "userdb" },
 	{ "unix_listener/auth-userdb/mode", "0666" },
-	{ "unix_listener/auth-userdb/user", "$default_internal_user" },
+	{ "unix_listener/auth-userdb/user", "$SET:default_internal_user" },
 
 	{ "unix_listener/login\\slogin/path", "login/login" },
 	{ "unix_listener/login\\slogin/type", "login" },
@@ -94,7 +94,7 @@ const struct setting_keyvalue auth_worker_service_settings_defaults[] = {
 
 	{ "unix_listener/auth-worker/path", "auth-worker" },
 	{ "unix_listener/auth-worker/mode", "0600" },
-	{ "unix_listener/auth-worker/user", "$default_internal_user" },
+	{ "unix_listener/auth-worker/user", "$SET:default_internal_user" },
 
 	{ NULL, NULL }
 };

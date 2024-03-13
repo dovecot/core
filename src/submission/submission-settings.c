@@ -21,7 +21,7 @@ struct service_settings submission_service_settings = {
 	.user = "",
 	.group = "",
 	.privileged_group = "",
-	.extra_groups = "$default_internal_group",
+	.extra_groups = "$SET:default_internal_group",
 	.chroot = "",
 
 	.drop_priv_before_exec = FALSE,

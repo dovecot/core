@@ -11,7 +11,7 @@ struct service_settings dict_service_settings = {
 	.protocol = "",
 	.type = "",
 	.executable = "dict",
-	.user = "$default_internal_user",
+	.user = "$SET:default_internal_user",
 	.group = "",
 	.privileged_group = "",
 	.extra_groups = "",
@@ -31,7 +31,7 @@ const struct setting_keyvalue dict_service_settings_defaults[] = {
 
 	{ "unix_listener/dict/path", "dict" },
 	{ "unix_listener/dict/mode", "0660" },
-	{ "unix_listener/dict/group", "$default_internal_group" },
+	{ "unix_listener/dict/group", "$SET:default_internal_group" },
 
 	{ NULL, NULL }
 };
@@ -41,7 +41,7 @@ struct service_settings dict_async_service_settings = {
 	.protocol = "",
 	.type = "",
 	.executable = "dict",
-	.user = "$default_internal_user",
+	.user = "$SET:default_internal_user",
 	.group = "",
 	.privileged_group = "",
 	.extra_groups = "",
@@ -59,7 +59,7 @@ const struct setting_keyvalue dict_async_service_settings_defaults[] = {
 
 	{ "unix_listener/dict-async/path", "dict-async" },
 	{ "unix_listener/dict-async/mode", "0660" },
-	{ "unix_listener/dict-async/group", "$default_internal_group" },
+	{ "unix_listener/dict-async/group", "$SET:default_internal_group" },
 
 	{ NULL, NULL }
 };
@@ -69,7 +69,7 @@ struct service_settings dict_expire_service_settings = {
 	.protocol = "",
 	.type = "",
 	.executable = "dict-expire",
-	.user = "$default_internal_user",
+	.user = "$SET:default_internal_user",
 	.group = "",
 	.privileged_group = "",
 	.extra_groups = "",
