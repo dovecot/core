@@ -51,16 +51,6 @@ struct dict_sql_legacy_settings_cache {
 
 static HASH_TABLE(const char *, struct dict_sql_legacy_settings_cache *) dict_sql_legacy_settings_cache;
 
-static const char *dict_sql_type_names[] = {
-	"string",
-	"int",
-	"uint",
-	"double",
-	"hexblob",
-	"uuid",
-};
-static_assert_array_size(dict_sql_type_names, DICT_SQL_TYPE_COUNT);
-
 static const char *pattern_read_name(const char **pattern)
 {
 	const char *p = *pattern, *name;

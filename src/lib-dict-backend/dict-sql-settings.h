@@ -34,6 +34,34 @@ struct dict_sql_map {
 	const enum dict_sql_type *value_types;
 };
 
+struct dict_map_key_field_settings {
+	pool_t pool;
+
+	const char *name;
+	const char *type;
+	const char *value;
+};
+
+struct dict_map_value_field_settings {
+	pool_t pool;
+
+	const char *name;
+	const char *type;
+};
+
+struct dict_map_settings {
+	pool_t pool;
+
+	const char *pattern;
+	const char *sql_table;
+	const char *username_field;
+	const char *expire_field;
+	ARRAY_TYPE(const_string) fields;
+	ARRAY_TYPE(const_string) values;
+
+	ARRAY_TYPE(const_string) maps;
+};
+
 struct dict_sql_map_settings {
 	pool_t pool;
 	unsigned int max_pattern_fields_count;
@@ -44,6 +72,15 @@ struct dict_sql_legacy_settings {
 	const char *connect;
 	struct dict_sql_map_settings map_set;
 };
+
+extern const char *dict_sql_type_names[];
+extern const struct setting_parser_info dict_map_key_field_setting_parser_info;
+extern const struct setting_parser_info dict_map_value_field_setting_parser_info;
+extern const struct setting_parser_info dict_map_setting_parser_info;
+
+int dict_sql_settings_get(struct event *event,
+			  struct dict_sql_map_settings **set_r,
+			  const char **error_r);
 
 struct dict_sql_legacy_settings *
 dict_sql_legacy_settings_read(const char *path, const char **error_r);

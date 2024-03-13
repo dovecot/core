@@ -96,6 +96,30 @@ static void sql_dict_prev_inc_free(struct sql_dict_transaction_context *ctx);
 static void sql_dict_prev_set_free(struct sql_dict_transaction_context *ctx);
 
 static int
+sql_dict_init(const struct dict *dict_driver, struct event *event,
+	      struct dict **dict_r, const char **error_r)
+{
+	struct dict_sql_map_settings *map_set;
+
+	if (dict_sql_settings_get(event, &map_set, error_r) < 0)
+		return -1;
+
+	pool_t pool = pool_alloconly_create("sql dict", 2048);
+	struct sql_dict *dict = p_new(pool, struct sql_dict, 1);
+	dict->pool = pool;
+	dict->dict = *dict_driver;
+	dict->set = map_set;
+
+	if (sql_init_auto(event, &dict->db, error_r) <= 0) {
+		pool_unref(&map_set->pool);
+		pool_unref(&pool);
+		return -1;
+	}
+	*dict_r = &dict->dict;
+	return 0;
+}
+
+static int
 sql_dict_init_legacy(struct dict *driver, const char *uri,
 		     const struct dict_legacy_settings *set,
 		     struct dict **dict_r, const char **error_r)
@@ -1657,6 +1681,7 @@ static struct dict sql_dict = {
 	.name = "sql",
 	.flags = DICT_DRIVER_FLAG_SUPPORT_EXPIRE_SECS,
 	.v = {
+		.init = sql_dict_init,
 		.init_legacy = sql_dict_init_legacy,
 		.deinit = sql_dict_deinit,
 		.wait = sql_dict_wait,
@@ -1684,7 +1709,9 @@ void dict_sql_register(void)
 
 	dict_sql_db_cache = sql_db_cache_init_legacy(DICT_SQL_MAX_UNUSED_CONNECTIONS);
 
-	/* @UNSAFE */
+	dict_driver_register(&sql_dict);
+
+	/* @UNSAFE - FIXME: remove these when dict_legacy is dropped */
 	drivers = array_get(&sql_drivers, &count);
 	dict_sql_drivers = i_new(struct dict, count + 1);
 
@@ -1700,6 +1727,7 @@ void dict_sql_unregister(void)
 {
 	int i;
 
+	dict_driver_unregister(&sql_dict);
 	for (i = 0; dict_sql_drivers[i].name != NULL; i++)
 		dict_driver_unregister(&dict_sql_drivers[i]);
 	i_free(dict_sql_drivers);
