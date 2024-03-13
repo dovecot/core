@@ -31,7 +31,6 @@ struct dict_sql_map {
 
 	/* generated: */
 	unsigned int values_count;
-	const char *const *value_fields;
 	const enum dict_sql_type *value_types;
 };
 
