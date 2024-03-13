@@ -39,7 +39,6 @@ static const struct setting_def dict_sql_map_setting_defs[] = {
 	DEF_STR(value_field),
 	DEF_STR(value_type),
 	DEF_STR(expire_field),
-	DEF_BOOL(value_hexblob),
 
 	{ 0, NULL, 0 }
 };
@@ -185,10 +184,8 @@ static const char *dict_sql_map_finish(struct setting_parser_ctx *ctx)
 				return t_strdup_printf("Invalid value %s in value_type", types[i]);
 		}
 	} else {
-		for (i = 0; i < ctx->cur_map.values_count; i++) {
-			value_types[i] = ctx->cur_map.value_hexblob ?
-				DICT_SQL_TYPE_HEXBLOB : DICT_SQL_TYPE_STRING;
-		}
+		for (i = 0; i < ctx->cur_map.values_count; i++)
+			value_types[i] = DICT_SQL_TYPE_STRING;
 	}
 	ctx->cur_map.value_types = value_types;
 
