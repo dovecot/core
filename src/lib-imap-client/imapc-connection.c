@@ -1039,19 +1039,19 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 					   conn);
 		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
 		imapc_command_sendf(cmd, "LOGIN %s %s",
-				    set->imapc_master_user, set->imapc_password);
+				    set->imapc_master_user, conn->client->password);
 		return;
 	}
 	if (sasl_mech == NULL &&
 	    ((*set->imapc_master_user == '\0' &&
-	      !need_literal(set->imapc_user) && !need_literal(set->imapc_password)) ||
+	      !need_literal(set->imapc_user) && !need_literal(conn->client->password)) ||
 	     (conn->capabilities & IMAPC_CAPABILITY_AUTH_PLAIN) == 0)) {
 		/* We can use LOGIN command */
 		cmd = imapc_connection_cmd(conn, imapc_connection_login_cb,
 					   conn);
 		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
 		imapc_command_sendf(cmd, "LOGIN %s %s",
-				    set->imapc_user, set->imapc_password);
+				    set->imapc_user, conn->client->password);
 		return;
 	}
 
@@ -1062,7 +1062,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		sasl_set.authid = set->imapc_master_user;
 		sasl_set.authzid = set->imapc_user;
 	}
-	sasl_set.password = set->imapc_password;
+	sasl_set.password = conn->client->password;
 
 	if (sasl_mech == NULL)
 		sasl_mech = &dsasl_client_mech_plain;
@@ -1708,8 +1708,8 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 		return -1;
 	}
 
-	if (*conn->client->set->imapc_rawlog_dir != '\0') {
-		iostream_rawlog_create(conn->client->set->imapc_rawlog_dir,
+	if (*conn->client->imapc_rawlog_dir != '\0') {
+		iostream_rawlog_create(conn->client->imapc_rawlog_dir,
 				       &conn->input, &conn->output);
 	}
 
@@ -1842,9 +1842,9 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 	conn->output = conn->raw_output = o_stream_create_fd(fd, SIZE_MAX);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 
-	if (*conn->client->set->imapc_rawlog_dir != '\0' &&
+	if (*conn->client->imapc_rawlog_dir != '\0' &&
 	    conn->client->ssl_mode != IMAPC_CLIENT_SSL_MODE_IMMEDIATE) {
-		iostream_rawlog_create(conn->client->set->imapc_rawlog_dir,
+		iostream_rawlog_create(conn->client->imapc_rawlog_dir,
 				       &conn->input, &conn->output);
 	}
 
@@ -1916,8 +1916,7 @@ void imapc_connection_connect(struct imapc_connection *conn)
 		(long)conn->last_connect.tv_sec);
 
 	i_zero(&dns_set);
-	dns_set.dns_client_socket_path =
-		conn->client->set->dns_client_socket_path;
+	dns_set.dns_client_socket_path = conn->client->dns_client_socket_path;
 	dns_set.timeout_msecs = conn->client->set->imapc_connection_timeout_interval;
 	dns_set.event_parent = conn->event;
 

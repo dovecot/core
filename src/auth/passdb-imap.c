@@ -71,11 +71,13 @@ passdb_imap_login_callback(const struct imapc_command_reply *reply,
 
 static void
 passdb_imap_verify_plain(struct auth_request *auth_request,
-			 const char *password ATTR_UNUSED,
+			 const char *password,
 			 verify_plain_callback_t *callback)
 {
 	struct imap_auth_request *request;
-	struct imapc_parameters params = {};
+	struct imapc_parameters params = {
+		.override_password = password,
+	};
 
 	request = p_new(auth_request->pool, struct imap_auth_request, 1);
 	request->client = imapc_client_init(&params, authdb_event(auth_request));

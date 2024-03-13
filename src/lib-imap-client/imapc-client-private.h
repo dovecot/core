@@ -23,7 +23,7 @@ struct imapc_client {
 	int refcount;
 
 	struct event *event;
-	struct imapc_settings *set;
+	const struct imapc_settings *set;
 	struct imapc_parameters params;
 	enum imapc_client_ssl_mode ssl_mode;
 
@@ -41,6 +41,12 @@ struct imapc_client {
 
 	struct ioloop *ioloop;
 	bool stop_on_state_finish;
+
+	/* Set to imapc_settings attributes with possible override by the
+	   imapc_parameters. */
+	const char *dns_client_socket_path;
+	const char *imapc_rawlog_dir;
+	const char *password;
 };
 
 struct imapc_client_mailbox {
