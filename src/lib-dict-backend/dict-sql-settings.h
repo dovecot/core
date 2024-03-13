@@ -25,7 +25,6 @@ struct dict_sql_map {
 	const char *value_field;
 	const char *value_type;
 	const char *expire_field;
-	bool value_hexblob;
 
 	/* SQL field names, one for each $ variable in the pattern */
 	ARRAY(struct dict_sql_field) pattern_fields;
