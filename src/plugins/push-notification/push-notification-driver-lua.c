@@ -36,8 +36,6 @@
 #include "push-notification-event-messageread.h"
 #include "push-notification-event-messagetrash.h"
 
-#define DLUA_LOG_USERENV_KEY "push_notification_lua_script_path"
-
 #define DLUA_FN_BEGIN_TXN "dovecot_lua_notify_begin_txn"
 #define DLUA_FN_EVENT_PREFIX "dovecot_lua_notify_event"
 #define DLUA_FN_END_TXN "dovecot_lua_notify_end_txn"
@@ -77,48 +75,20 @@ push_notification_driver_lua_init(
 		void **context, const char **error_r)
 {
 	struct dlua_push_notification_context *ctx;
-	const char *path;
-
-	struct push_notification_lua_settings *lua_settings;
-	if (settings_get_filter(user->event, PUSH_NOTIFICATION_SETTINGS_FILTER_NAME,
-				name, &push_notification_lua_setting_parser_info,
-				0, &lua_settings, error_r) < 0)
-		return -1;
 
 	struct event *event = event_create(user->event);
+	char *filter_name = p_strdup_printf(
+			event_get_pool(event), "%s/%s",
+			PUSH_NOTIFICATION_SETTINGS_FILTER_NAME,
+			settings_section_escape(name));
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, filter_name);
 	event_add_category(event, push_notification_get_event_category());
 	event_set_append_log_prefix(event, "lua: ");
-
-	if ((path = mail_user_plugin_getenv(user, DLUA_LOG_USERENV_KEY)) == NULL)
-		path = t_strdup(lua_settings->path);
-
-	settings_free(lua_settings);
-
-	if (path == NULL) {
-		struct dlua_script *script;
-		/* If there is a script loaded, use the same context */
-		if (mail_lua_plugin_get_script(user, &script)) {
-			dlua_script_ref(script);
-			ctx = p_new(
-				pool, struct dlua_push_notification_context, 1);
-			ctx->script = script;
-			ctx->event = event;
-			*context = ctx;
-			return 0;
-		}
-
-		event_unref(&event);
-		*error_r = "No path in config and no "
-			   DLUA_LOG_USERENV_KEY " set";
-		return -1;
-	}
 
 	ctx = p_new(pool, struct dlua_push_notification_context, 1);
 	ctx->event = event;
 
-	e_debug(ctx->event, "Loading %s", path);
-
-	if (dlua_script_create_file(path, &ctx->script, event, error_r) < 0) {
+	if (dlua_script_create_auto(event, &ctx->script, error_r) <= 0) {
 		/* There is a T_POP after this, which will break errors */
 		event_unref(&event);
 		*error_r = p_strdup(pool, *error_r);
