@@ -6,9 +6,10 @@
 #include "mail-storage-lua.h"
 #include "mail-storage-private.h"
 #include "mail-storage-hooks.h"
+#include "settings.h"
+#include "mail-lua-settings.h"
 #include "dlua-script-private.h"
 
-#define MAIL_LUA_SCRIPT "mail_lua_script"
 #define MAIL_LUA_USER_CREATED_FN "mail_user_created"
 #define MAIL_LUA_USER_DEINIT_FN "mail_user_deinit"
 #define MAIL_LUA_USER_DEINIT_PRE_FN "mail_user_deinit_pre"
@@ -96,25 +97,29 @@ static void mail_lua_user_created(struct mail_user *user)
 	struct mail_user_vfuncs *v = user->vlast;
 	struct dlua_script *script;
 	const char *error;
-	const char *script_fn = mail_user_plugin_getenv(user, MAIL_LUA_SCRIPT);
+	struct event *event;
 	int ret;
 
-	if (script_fn == NULL)
-		return;
-
-	if (dlua_script_create_file(script_fn, &script, user->event, &error) < 0) {
-		user->error = p_strdup_printf(user->pool, "dlua_script_create_file(%s) failed: %s",
-					      script_fn, error);
+	event = event_create(user->event);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, MAIL_LUA_FILTER);
+	if ((ret = dlua_script_create_auto(event, &script, &error)) < 0) {
+		user->error = p_strdup_printf(user->pool,
+					      "dlua_script_create_auto() failed: %s",
+					      error);
+		event_unref(&event);
 		return;
 	}
-
+	event_unref(&event);
+	if (ret == 0)
+		return;
 	dlua_dovecot_register(script);
 	dlua_register_mail_storage(script);
 
 	/* init */
 	if (dlua_script_init(script, &error) < 0) {
-		user->error = p_strdup_printf(user->pool, "dlua_script_init(%s) failed: %s",
-					      script_fn, error);
+		user->error = p_strdup_printf(user->pool,
+					      "dlua_script_init(%s) failed: %s",
+					      script->filename, error);
 		dlua_script_unref(&script);
 		return;
 	}
