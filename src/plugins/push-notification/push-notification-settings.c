@@ -15,34 +15,8 @@
 
 #define PUSH_NOTIFICATION_DRIVER_OX_DEFAULT_CACHE_TTL_MSECS (60 * 1000)
 
-static bool push_notification_lua_settings_check(void *, pool_t, const char **);
 static bool push_notification_settings_check(void *, pool_t, const char **);
 static bool push_notification_ox_settings_check(void *, pool_t, const char **);
-
-#undef DEF
-#define DEF(type, name) \
-	SETTING_DEFINE_STRUCT_##type("push_notification_lua_"#name, name, struct push_notification_lua_settings)
-
-static const struct setting_define push_notification_lua_setting_defines[] = {
-	DEF(STR, path),
-
-	SETTING_DEFINE_LIST_END,
-};
-
-static const struct push_notification_lua_settings push_notification_lua_default_settings = {
-	.path = "",
-};
-
-const struct setting_parser_info push_notification_lua_setting_parser_info = {
-	.name = "push_notification_lua",
-
-	.defines = push_notification_lua_setting_defines,
-	.defaults = &push_notification_lua_default_settings,
-
-	.struct_size = sizeof(struct push_notification_lua_settings),
-	.pool_offset1 = 1 + offsetof(struct push_notification_lua_settings, pool),
-	.check_func = push_notification_lua_settings_check,
-};
 
 #undef DEF
 #define DEF(type, name) \
@@ -109,21 +83,6 @@ const struct setting_parser_info push_notification_setting_parser_info = {
 };
 
 /* <settings checks> */
-static bool
-push_notification_lua_settings_check(void *_set, pool_t ATTR_UNUSED pool,
-				     const char **error_r)
-{
-	struct push_notification_lua_settings *set = _set;
-
-	if (set->path[0] != '\0' && access(set->path, F_OK) != 0) {
-		*error_r = t_strdup_printf(
-				"push_notification_lua_path: access(%s) failed: %m",
-				set->path);
-		return FALSE;
-	}
-	return TRUE;
-}
-
 static bool
 push_notification_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				 const char **error_r ATTR_UNUSED)
