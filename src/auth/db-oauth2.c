@@ -839,7 +839,7 @@ bool db_oauth2_uses_password_grant(const struct db_oauth2 *db)
 	return db->set.use_grant_password;
 }
 
-bool db_oauth2_is_blocking(const struct db_oauth2 *db)
+bool db_oauth2_use_worker(const struct db_oauth2 *db)
 {
 	return db->set.blocking;
 }
