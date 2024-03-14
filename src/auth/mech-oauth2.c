@@ -177,7 +177,7 @@ mech_oauth2_verify_token(struct oauth2_auth_request *oauth2_req, const char *tok
 	struct auth_request *auth_request = &oauth2_req->auth;
 	auth_request_ref(auth_request);
 
-	if (!db_oauth2_is_blocking(oauth2_req->db)) {
+	if (!db_oauth2_use_worker(oauth2_req->db)) {
 		pool_t pool = pool_alloconly_create(MEMPOOL_GROWING"oauth2 request", 256);
 		struct db_oauth2_request *db_req =
 			p_new(pool, struct db_oauth2_request, 1);
