@@ -3,7 +3,18 @@
 
 struct dlua_script;
 
+extern const struct setting_parser_info dlua_setting_parser_info;
+
+struct dlua_settings {
+	pool_t pool;
+
+	const char *file;
+};
+
 /* Parse and load a lua script, without actually running it. */
+int dlua_script_create_auto(struct event *event_parent,
+			    struct dlua_script **script_r,
+			    const char **error_r);
 int dlua_script_create_string(const char *str, struct dlua_script **script_r,
 			      struct event *event_parent, const char **error_r);
 int dlua_script_create_file(const char *file, struct dlua_script **script_r,
