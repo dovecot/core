@@ -8,6 +8,7 @@
 #include "dlua-script-private.h"
 #include "dns-lookup.h"
 #include "dns-lua.h"
+#include "settings.h"
 #include "test-common.h"
 
 #define TEST_DNS_SERVER_SOCKET_PATH ".test-dns-server"
@@ -42,11 +43,14 @@ static void test_dns_lua_common(const char *luascript)
 		.timeout_msecs = 1000,
 	};
 
+	struct settings_simple test_set;
+	settings_simple_init(&test_set, NULL);
+
 	struct dns_client *client = dns_client_init(&set);
 
 	struct dlua_script *script;
 	const char *error;
-	if (dlua_script_create_string(luascript, &script, NULL, &error) < 0)
+	if (dlua_script_create_string(luascript, &script, test_set.event, &error) < 0)
 		i_fatal("dlua_script_create_string() failed: %s", error);
 	if (dlua_script_init(script, &error) < 0)
 		i_fatal("dlua_script_init() failed: %s", error);
@@ -62,6 +66,7 @@ static void test_dns_lua_common(const char *luascript)
 
 	dlua_script_unref(&script);
 	dns_client_deinit(&client);
+	settings_simple_deinit(&test_set);
 }
 
 static void test_dns_server_close(struct istream *input)

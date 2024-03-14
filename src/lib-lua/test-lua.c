@@ -1,6 +1,7 @@
 /* Copyright (c) 2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
+#include "settings.h"
 #include "dlua-script-private.h"
 
 #include <math.h>
@@ -197,10 +198,13 @@ static void test_lua(void)
 
 	const char *error = NULL;
 	struct dlua_script *script = NULL;
+	struct settings_simple test_set;
 
 	test_begin("lua script");
+	settings_simple_init(&test_set, NULL);
 
-	test_assert(dlua_script_create_string(luascript, &script, NULL, &error) == 0);
+	test_assert(dlua_script_create_string(luascript, &script,
+					      test_set.event, &error) == 0);
 	if (error != NULL)
 		i_fatal("dlua_script_init failed: %s", error);
 
@@ -352,6 +356,7 @@ static void test_lua(void)
 	lua_pop(script->L, 1);
 
 	dlua_script_unref(&script);
+	settings_simple_deinit(&test_set);
 
 	test_end();
 }
