@@ -8,7 +8,9 @@
 #include "hex-binary.h"
 #include "eacces-error.h"
 #include "ioloop.h"
+#include "settings.h"
 #include "dlua-script-private.h"
+#include "settings.h"
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -24,6 +26,30 @@ struct event_category event_category_lua = {
 };
 
 static struct dlua_script *dlua_scripts = NULL;
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("lua_"#name, name, struct dlua_settings)
+
+static const struct setting_define dlua_setting_defines[] = {
+	DEF(FILE, file),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct dlua_settings dlua_default_settings = {
+	.file = "",
+};
+
+const struct setting_parser_info dlua_setting_parser_info = {
+	.name = "dlua",
+
+	.defines = dlua_setting_defines,
+	.defaults = &dlua_default_settings,
+
+	.struct_size = sizeof(struct dlua_settings),
+	.pool_offset1 = 1 + offsetof(struct dlua_settings, pool),
+};
 
 static int
 dlua_script_create_finish(struct dlua_script *script, const char **error_r);
@@ -325,6 +351,43 @@ int dlua_script_create_stream(struct istream *is, struct dlua_script **script_r,
 
 	*script_r = script;
 	return 0;
+}
+
+int dlua_script_create_auto(struct event *event_parent,
+			    struct dlua_script **script_r,
+			    const char **error_r)
+{
+	const struct dlua_settings *set;
+	struct settings_file file;
+	int ret = 1;
+
+	if (settings_get(event_parent, &dlua_setting_parser_info, 0, &set,
+			 error_r) < 0)
+		return -1;
+
+	settings_file_get(set->file, set->pool, &file);
+	if (set->file[0] == '\0') {
+		*error_r = "lua_file setting is empty";
+		ret = 0;
+	} else if (file.path[0] == '\0') {
+		*error_r = "Lua doesn't support inline content for lua_file";
+		ret = -1;
+	}
+	if (ret < 1)  {
+		settings_free(set);
+		return ret;
+	}
+
+	ret = dlua_script_create_file(file.path, script_r, event_parent,
+				      error_r);
+	if (ret < 0) {
+		i_assert(*error_r != NULL);
+		*error_r = t_strdup_printf("Lua script '%s': %s", file.path,
+					   *error_r);
+	} else
+		ret = 1;
+	settings_free(set);
+	return ret;
 }
 
 static void dlua_script_destroy(struct dlua_script *script)
