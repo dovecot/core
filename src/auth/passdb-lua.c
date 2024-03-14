@@ -108,22 +108,11 @@ static int
 passdb_lua_preinit(pool_t pool, struct event *event,
 		   struct passdb_module **module_r, const char **error_r)
 {
-	const struct auth_lua_settings *set;
 	struct dlua_passdb_module *module;
-
-	if (settings_get(event, &auth_lua_setting_parser_info, 0, &set,
-			 error_r) < 0) {
-		event_unref(&event);
-		return -1;
-	}
-
 	module = p_new(pool, struct dlua_passdb_module, 1);
-	module->set = set;
 
-	if (dlua_script_create_file(module->set->auth_lua_file, &module->script,
-				    event, error_r) < 0)
-		i_fatal("passdb-lua: failed to load '%s': %s",
-			module->set->auth_lua_file, *error_r);
+	if (dlua_script_create_auto(event, &module->script, error_r) <= 0)
+		i_fatal("passdb-lua: %s", *error_r);
 
 	const struct auth_lua_script_parameters params = {
 		.script = module->script,
@@ -164,7 +153,6 @@ static void passdb_lua_deinit(struct passdb_module *_module)
 	struct dlua_passdb_module *module =
 		(struct dlua_passdb_module *)_module;
 	dlua_script_unref(&module->script);
-	settings_free(module->set);
 }
 
 #ifndef PLUGIN_BUILD

@@ -33,22 +33,12 @@ static int
 userdb_lua_preinit(pool_t pool, struct event *event,
 		   struct userdb_module **module_r, const char **error_r)
 {
-	const struct auth_lua_settings *set;
 	struct dlua_userdb_module *module;
 
-	if (settings_get(event, &auth_lua_setting_parser_info, 0, &set,
-			 error_r) < 0) {
-		event_unref(&event);
-		return -1;
-	}
-
 	module = p_new(pool, struct dlua_userdb_module, 1);
-	module->set = set;
 
-	if (dlua_script_create_file(module->set->auth_lua_file, &module->script,
-				    event, error_r) < 0)
-		i_fatal("userdb-lua: failed to load '%s': %s",
-			module->set->auth_lua_file, *error_r);
+	if (dlua_script_create_auto(event, &module->script, error_r) <= 0)
+		i_fatal("userdb-lua: %s", *error_r);
 
 	const struct auth_lua_script_parameters params = {
 		.script = module->script,
@@ -86,7 +76,6 @@ static void userdb_lua_deinit(struct userdb_module *_module)
 	struct dlua_userdb_module *module =
 		(struct dlua_userdb_module *)_module;
 	dlua_script_unref(&module->script);
-	settings_free(module->set);
 }
 
 static struct userdb_iterate_context *

@@ -49,13 +49,11 @@ static const struct setting_define auth_lua_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "passdb_lua", },
 	{ .type = SET_FILTER_NAME, .key = "userdb_lua", },
 	DEF(STRLIST, auth_lua_config),
-	DEF(STR, auth_lua_file),
 
 	SETTING_DEFINE_LIST_END
 };
 
 static const struct auth_lua_settings auth_lua_default_settings = {
-	.auth_lua_file = "",
 	.auth_lua_config = ARRAY_INIT,
 };
 
