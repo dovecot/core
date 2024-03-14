@@ -9,7 +9,6 @@ struct dlua_script;
 
 struct auth_lua_settings {
 	pool_t pool;
-	const char *auth_lua_file;
 	ARRAY_TYPE(const_string) auth_lua_config;
 };
 
@@ -18,13 +17,11 @@ extern const struct setting_parser_info auth_lua_setting_parser_info;
 struct dlua_passdb_module {
 	struct passdb_module module;
 	struct dlua_script *script;
-	const struct auth_lua_settings *set;
 	bool has_password_verify;
 };
 
 struct dlua_userdb_module {
 	struct userdb_module module;
-	const struct auth_lua_settings *set;
 	struct dlua_script *script;
 };
 
