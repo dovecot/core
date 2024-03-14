@@ -65,6 +65,7 @@ auth_request_var_expand_static_tab[] = {
 	{ '\0', NULL, "original_user" },
 	{ '\0', NULL, "original_username" },
 	{ '\0', NULL, "original_domain" },
+	{ '\0', NULL, "owner_user" },
 
 	/* be sure to update AUTH_REQUEST_VAR_TAB_COUNT */
 	{ '\0', NULL, NULL }
@@ -113,7 +114,7 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 
 	if (username == NULL)
 		username = "";
-	tab[0].value = escape_func(username, auth_request);
+	tab[0].value = tab[ALIAS(12)].value = escape_func(username, auth_request);
 	tab[1].value = escape_func(t_strcut(username, '@'),
 				   auth_request);
 	tab[2].value = i_strchr_to_next(username, '@');
