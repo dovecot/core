@@ -6,11 +6,8 @@ struct ldap_settings {
 	const char *uris;
 	const char *dn;
 	const char *dnpass;
-	bool auth_bind;
 	const char *auth_bind_userdn;
 
-	bool tls;
-	bool sasl_bind;
 	const char *sasl_mech;
 	const char *sasl_realm;
 	const char *sasl_authz_id;
@@ -25,7 +22,6 @@ struct ldap_settings {
 	const char *deref;
 	const char *scope;
 	const char *base;
-	unsigned int ldap_version;
 
 	const char *ldaprc_path;
 	const char *debug_level;
@@ -38,12 +34,20 @@ struct ldap_settings {
 	const char *iterate_filter;
 
 	const char *default_pass_scheme;
-	bool blocking;
 
-	/* ... */
-	int ldap_deref, ldap_scope, ldap_tls_require_cert_parsed;
+	unsigned int ldap_version;
+
+	int ldap_deref;
+	int ldap_scope;
+	int ldap_tls_require_cert_parsed;
+
 	uid_t uid;
 	gid_t gid;
+
+	bool auth_bind;
+	bool tls;
+	bool sasl_bind;
+	bool blocking;
 };
 
 #endif
