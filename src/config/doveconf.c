@@ -429,10 +429,15 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 
 				str_append_max(ctx->list_prefix, indent_str, indent*2);
 				p = strchr(key2, '/');
+				const char *key_prefix;
 				if (p != NULL)
-					str_append_data(ctx->list_prefix, key2, p - key2);
+					key_prefix = t_strndup(key2, p - key2);
 				else
-					str_append(ctx->list_prefix, key2);
+					key_prefix = key2;
+				if (strip_prefix != NULL &&
+				    str_begins(key_prefix, strip_prefix, &key_prefix))
+					key_prefix++;
+				str_append(ctx->list_prefix, key_prefix);
 				str_append(ctx->list_prefix, " {\n");
 				indent++;
 
