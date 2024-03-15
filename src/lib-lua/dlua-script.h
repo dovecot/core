@@ -9,6 +9,7 @@ struct dlua_settings {
 	pool_t pool;
 
 	const char *file;
+	ARRAY_TYPE(const_string) settings;
 };
 
 /* Parse and load a lua script, without actually running it. */

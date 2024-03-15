@@ -56,21 +56,6 @@ userdb_lua_preinit(pool_t pool, struct event *event,
 	return 0;
 }
 
-static void userdb_lua_init(struct userdb_module *_module)
-{
-	struct dlua_userdb_module *module =
-		(struct dlua_userdb_module *)_module;
-	const char *error;
-
-	const struct auth_lua_script_parameters params = {
-		.script = module->script,
-		.stype = AUTH_LUA_SCRIPT_TYPE_USERDB,
-		.userdb_module = module,
-	};
-	if (auth_lua_script_auth_db_init(&params, &error) < 0)
-		i_fatal("userdb-lua: auth_userdb_init() failed: %s", error);
-}
-
 static void userdb_lua_deinit(struct userdb_module *_module)
 {
 	struct dlua_userdb_module *module =
@@ -109,7 +94,6 @@ struct userdb_module_interface userdb_lua_plugin =
 	.name = "lua",
 
 	.preinit = userdb_lua_preinit,
-	.init = userdb_lua_init,
 	.deinit = userdb_lua_deinit,
 
 	.lookup = userdb_lua_lookup,

@@ -20,10 +20,8 @@
 #include "auth-request-var-expand.h"
 #include "settings.h"
 
-#define AUTH_LUA_PASSDB_INIT "auth_passdb_init"
 #define AUTH_LUA_PASSDB_LOOKUP "auth_passdb_lookup"
 #define AUTH_LUA_PASSDB_GET_CACHE_KEY "auth_passdb_get_cache_key"
-#define AUTH_LUA_USERDB_INIT "auth_userdb_init"
 #define AUTH_LUA_USERDB_LOOKUP "auth_userdb_lookup"
 #define AUTH_LUA_USERDB_ITERATE "auth_userdb_iterate"
 #define AUTH_LUA_USERDB_GET_CACHE_KEY "auth_userdb_get_cache_key"
@@ -48,13 +46,8 @@ struct auth_lua_userdb_iterate_context {
 static const struct setting_define auth_lua_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "passdb_lua", },
 	{ .type = SET_FILTER_NAME, .key = "userdb_lua", },
-	DEF(STRLIST, auth_lua_config),
 
 	SETTING_DEFINE_LIST_END
-};
-
-static const struct auth_lua_settings auth_lua_default_settings = {
-	.auth_lua_config = ARRAY_INIT,
 };
 
 static const struct setting_keyvalue auth_lua_default_settings_keyvalue[] = {
@@ -67,7 +60,6 @@ const struct setting_parser_info auth_lua_setting_parser_info = {
 	.name = "auth_lua",
 
 	.defines = auth_lua_setting_defines,
-	.defaults = &auth_lua_default_settings,
 	.default_settings = auth_lua_default_settings_keyvalue,
 
 	.struct_size = sizeof(struct auth_lua_settings),
@@ -545,56 +537,6 @@ auth_lua_script_get_default_cache_key(const struct auth_lua_script_parameters *p
 		lua_gc(script->L, LUA_GCCOLLECT, 0);
 		i_assert(lua_gettop(script->L) == 0);
 	}
-	return 0;
-}
-
-int auth_lua_script_auth_db_init(const struct auth_lua_script_parameters *params,
-			         const char **error_r)
-{
-	struct dlua_script *script = params->script;
-	const struct auth_lua_settings *set;
-	const char *fn;
-
-	switch (params->stype) {
-	case AUTH_LUA_SCRIPT_TYPE_PASSDB:
-		fn = AUTH_LUA_PASSDB_INIT;
-		break;
-	case AUTH_LUA_SCRIPT_TYPE_USERDB:
-		fn = AUTH_LUA_USERDB_INIT;
-		break;
-	default:
-		i_unreached();
-	}
-	if (!dlua_script_has_function(script, fn))
-		return 0;
-
-	if (settings_get(script->event, &auth_lua_setting_parser_info, 0,
-			 &set, error_r) < 0)
-		return -1;
-
-	i_assert(array_is_empty(&set->auth_lua_config) ||
-		 (array_count(&set->auth_lua_config) % 2 == 0));
-	if (!array_is_empty(&set->auth_lua_config)) {
-		/* prepare a table for arguments */
-		lua_createtable(script->L, 0,
-				array_count(&set->auth_lua_config) / 2);
-		unsigned int count;
-		const char *const *str_array = array_get(&set->auth_lua_config,
-							 &count);
-		for (unsigned int i = 0; i < count; i += 2) {
-			lua_pushstring(script->L, str_array[i + 1]);
-			lua_setfield(script->L, -2, str_array[i]);
-		}
-	} else {
-		lua_newtable(script->L);
-	}
-
-	settings_free(set);
-	/* call the function */
-	if (dlua_pcall(script->L, fn, 1, 0, error_r) < 0)
-		return -1;
-
-	i_assert(lua_gettop(script->L) == 0);
 	return 0;
 }
 

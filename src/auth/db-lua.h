@@ -9,7 +9,6 @@ struct dlua_script;
 
 struct auth_lua_settings {
 	pool_t pool;
-	ARRAY_TYPE(const_string) auth_lua_config;
 };
 
 extern const struct setting_parser_info auth_lua_setting_parser_info;
@@ -41,9 +40,6 @@ struct auth_lua_script_parameters {
 int
 auth_lua_script_get_default_cache_key(const struct auth_lua_script_parameters *params,
 				      const char **error_r);
-int
-auth_lua_script_auth_db_init(const struct auth_lua_script_parameters *params,
-			     const char **error_r);
 int auth_lua_script_init(const struct auth_lua_script_parameters *params,
 		         const char **error_r);
 
