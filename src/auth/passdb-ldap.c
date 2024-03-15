@@ -452,14 +452,15 @@ static void ldap_lookup_credentials(struct auth_request *request,
         ldap_lookup_pass(request, ldap_request, require_password);
 }
 
-static struct passdb_module *
-passdb_ldap_preinit(pool_t pool, const char *args)
+static int passdb_ldap_preinit(pool_t pool, struct event *event,
+		   	       struct passdb_module **module_r,
+			       const char **error_r ATTR_UNUSED)
 {
 	struct ldap_passdb_module *module;
 	struct ldap_connection *conn;
 
 	module = p_new(pool, struct ldap_passdb_module, 1);
-	module->conn = conn = db_ldap_init(args);
+	module->conn = conn = db_ldap_init(event);
 	p_array_init(&conn->pass_attr_map, pool, 16);
 	db_ldap_set_attrs(conn, conn->set->pass_attrs, &conn->pass_attr_names,
 			  &conn->pass_attr_map,
@@ -471,7 +472,8 @@ passdb_ldap_preinit(pool_t pool, const char *args)
 						 conn->set->pass_attrs,
 						 conn->set->pass_filter, NULL));
 	module->module.default_pass_scheme = conn->set->default_pass_scheme;
-	return &module->module;
+	*module_r = &module->module;
+	return 0;
 }
 
 static void passdb_ldap_init(struct passdb_module *_module)
@@ -499,7 +501,7 @@ struct passdb_module_interface passdb_ldap_plugin =
 {
 	.name = "ldap",
 
-	.preinit_legacy = passdb_ldap_preinit,
+	.preinit = passdb_ldap_preinit,
 	.init = passdb_ldap_init,
 	.deinit = passdb_ldap_deinit,
 

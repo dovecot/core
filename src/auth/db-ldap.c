@@ -13,7 +13,7 @@
 #include "time-util.h"
 #include "env-util.h"
 #include "var-expand.h"
-#include "settings-legacy.h"
+#include "settings.h"
 #include "userdb.h"
 #include "db-ldap.h"
 
@@ -100,53 +100,6 @@ static bool db_ldap_abort_requests(struct ldap_connection *conn,
 				   unsigned int timeout_secs,
 				   bool error, const char *reason);
 static void db_ldap_request_free(struct ldap_request *request);
-
-static int deref2str(const char *str, int *ref_r)
-{
-	if (strcasecmp(str, "never") == 0)
-		*ref_r = LDAP_DEREF_NEVER;
-	else if (strcasecmp(str, "searching") == 0)
-		*ref_r = LDAP_DEREF_SEARCHING;
-	else if (strcasecmp(str, "finding") == 0)
-		*ref_r = LDAP_DEREF_FINDING;
-	else if (strcasecmp(str, "always") == 0)
-		*ref_r = LDAP_DEREF_ALWAYS;
-	else
-		return -1;
-	return 0;
-}
-
-static int scope2str(const char *str, int *scope_r)
-{
-	if (strcasecmp(str, "base") == 0)
-		*scope_r = LDAP_SCOPE_BASE;
-	else if (strcasecmp(str, "onelevel") == 0)
-		*scope_r = LDAP_SCOPE_ONELEVEL;
-	else if (strcasecmp(str, "subtree") == 0)
-		*scope_r = LDAP_SCOPE_SUBTREE;
-	else
-		return -1;
-	return 0;
-}
-
-#ifdef OPENLDAP_TLS_OPTIONS
-static int tls_require_cert2str(const char *str, int *value_r)
-{
-	if (strcasecmp(str, "never") == 0)
-		*value_r = LDAP_OPT_X_TLS_NEVER;
-	else if (strcasecmp(str, "hard") == 0)
-		*value_r = LDAP_OPT_X_TLS_HARD;
-	else if (strcasecmp(str, "demand") == 0)
-		*value_r = LDAP_OPT_X_TLS_DEMAND;
-	else if (strcasecmp(str, "allow") == 0)
-		*value_r = LDAP_OPT_X_TLS_ALLOW;
-	else if (strcasecmp(str, "try") == 0)
-		*value_r = LDAP_OPT_X_TLS_TRY;
-	else
-		return -1;
-	return 0;
-}
-#endif
 
 static int ldap_get_errno(struct ldap_connection *conn)
 {
@@ -886,7 +839,7 @@ db_ldap_set_opt(LDAP *ld, int opt, const void *value, const char *optname,
 static void ATTR_NULL(0)
 db_ldap_set_opt_str(LDAP *ld, int opt, const char *value, const char *optname)
 {
-	if (value != NULL)
+	if (*value != '\0')
 		db_ldap_set_opt(ld, opt, value, optname, value);
 }
 
@@ -931,12 +884,12 @@ static void db_ldap_set_options(struct ldap_connection *conn)
 #endif
 
 	db_ldap_set_opt(conn->ld, LDAP_OPT_DEREF, &conn->set->ldap_deref,
-			"deref", conn->set->deref);
+			"ldap_deref", conn->set->deref);
 #ifdef LDAP_OPT_DEBUG_LEVEL
 	int debug_level;
 	if (str_to_int(conn->set->debug_level, &debug_level) >= 0 && debug_level != 0) {
 		db_ldap_set_opt(NULL, LDAP_OPT_DEBUG_LEVEL, &debug_level,
-				"debug_level", conn->set->debug_level);
+				"ldap_debug_level", conn->set->debug_level);
 		event_set_forced_debug(conn->event, TRUE);
 	}
 #endif
@@ -1713,104 +1666,75 @@ void db_ldap_result_iterate_deinit(struct db_ldap_result_iterate_context **_ctx)
 	pool_unref(&ctx->pool);
 }
 
-static const char *parse_setting(const char *key, const char *value,
-				 struct ldap_connection *conn)
-{
-	return parse_setting_from_defs(conn->pool, setting_defs,
-				       &conn->set, key, value);
-}
-
-static struct ldap_connection *ldap_conn_find(const char *config_path)
+static struct ldap_connection *
+db_ldap_conn_find(const struct ldap_settings *set)
 {
 	struct ldap_connection *conn;
-
 	for (conn = ldap_connections; conn != NULL; conn = conn->next) {
-		if (strcmp(conn->config_path, config_path) == 0)
+		if (settings_equal(&ldap_setting_parser_info, set, conn->set, NULL))
 			return conn;
 	}
-
 	return NULL;
 }
 
-struct ldap_connection *db_ldap_init(const char *config_path)
+struct ldap_connection *db_ldap_init(struct event *event)
 {
-	struct ldap_connection *conn;
-	const char *str, *error;
-	pool_t pool;
+        const struct ldap_settings *set;
+	set = settings_get_or_fatal(event, &ldap_setting_parser_info);
 
 	/* see if it already exists */
-	conn = ldap_conn_find(config_path);
+	struct ldap_connection *conn = db_ldap_conn_find(set);
 	if (conn != NULL) {
+		settings_free(set);
 		conn->refcount++;
 		return conn;
 	}
 
-	if (*config_path == '\0')
-		i_fatal("LDAP: Configuration file path not given");
-
-	pool = pool_alloconly_create("ldap_connection", 1024);
+	pool_t pool = pool_alloconly_create("ldap_connection", 1024);
 	conn = p_new(pool, struct ldap_connection, 1);
 	conn->pool = pool;
 	conn->refcount = 1;
 
+	conn->set = set;
 	conn->conn_state = LDAP_CONN_STATE_DISCONNECTED;
 	conn->default_bind_msgid = -1;
 	conn->fd = -1;
-	conn->config_path = p_strdup(pool, config_path);
-
-	conn->set = p_new(pool, struct ldap_settings, 1);
-	*conn->set = default_ldap_settings;
-	if (!settings_read_nosection(config_path, parse_setting, conn, &error))
-		i_fatal("LDAP: %s", error);
 
 	if (conn->set->base == NULL)
-		i_fatal("LDAP: No base given");
+		i_fatal("LDAP: No ldap_base given");
 
 	if (conn->set->uris == NULL && conn->set->hosts == NULL)
-		i_fatal("LDAP: No uris or hosts set");
+		i_fatal("LDAP: Neither ldap_uris nor ldap_hosts set");
 #ifndef LDAP_HAVE_INITIALIZE
 	if (conn->set->uris != NULL) {
-		i_fatal("LDAP: uris set, but Dovecot compiled without support for LDAP uris "
+		i_fatal("LDAP: ldap_uris set, but Dovecot compiled without support for LDAP uris "
 			"(ldap_initialize() not supported by LDAP library)");
 	}
 #endif
 #ifndef LDAP_HAVE_START_TLS_S
 	if (conn->set->tls)
-		i_fatal("LDAP: tls=yes, but your LDAP library doesn't support TLS");
+		i_fatal("LDAP: ldap_tls=yes, but your LDAP library doesn't support TLS");
 #endif
 #ifndef HAVE_LDAP_SASL
 	if (conn->set->sasl_bind)
-		i_fatal("LDAP: sasl_bind=yes but no SASL support compiled in");
+		i_fatal("LDAP: ldap_sasl_bind=yes but no SASL support compiled in");
 #endif
 	if (conn->set->ldap_version < 3) {
 		if (conn->set->sasl_bind)
-			i_fatal("LDAP: sasl_bind=yes requires ldap_version=3");
+			i_fatal("LDAP: ldap_sasl_bind=yes requires ldap_version=3");
 		if (conn->set->tls)
-			i_fatal("LDAP: tls=yes requires ldap_version=3");
+			i_fatal("LDAP: ldap_tls=yes requires ldap_version=3");
 	}
-#ifdef OPENLDAP_TLS_OPTIONS
-	if (conn->set->tls_require_cert != NULL) {
-		if (tls_require_cert2str(conn->set->tls_require_cert,
-					 &conn->set->ldap_tls_require_cert_parsed) < 0)
-			i_fatal("LDAP: Unknown tls_require_cert value '%s'",
-				conn->set->tls_require_cert);
-	}
-#endif
 
 	if (*conn->set->ldaprc_path != '\0') {
-		str = getenv("LDAPRC");
+		const char *str = getenv("LDAPRC");
 		if (str != NULL && strcmp(str, conn->set->ldaprc_path) != 0) {
-			i_fatal("LDAP: Multiple different ldaprc_path "
+			i_fatal("LDAP: Multiple different ldap_ldaprc_path "
 				"settings not allowed (%s and %s)",
 				str, conn->set->ldaprc_path);
 		}
 		env_put("LDAPRC", conn->set->ldaprc_path);
 	}
-
-        if (deref2str(conn->set->deref, &conn->set->ldap_deref) < 0)
-		i_fatal("LDAP: Unknown deref option '%s'", conn->set->deref);
-	if (scope2str(conn->set->scope, &conn->set->ldap_scope) < 0)
-		i_fatal("LDAP: Unknown scope option '%s'", conn->set->scope);
 
 	conn->event = event_create(auth_event);
 	event_set_append_log_prefix(conn->event, "ldap: ");
@@ -1849,6 +1773,8 @@ void db_ldap_unref(struct ldap_connection **_conn)
 
 	array_free(&conn->request_array);
 	aqueue_deinit(&conn->request_queue);
+
+	settings_free(conn->set);
 
 	event_unref(&conn->event);
 	pool_unref(&conn->pool);

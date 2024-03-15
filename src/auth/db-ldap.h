@@ -115,8 +115,7 @@ struct ldap_connection {
 	int refcount;
 	struct event *event;
 
-	char *config_path;
-	struct ldap_settings *set;
+        const struct ldap_settings *set;
 
 	LDAP *ld;
 	enum ldap_connection_state conn_state;
@@ -149,7 +148,7 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		       char ***attr_names_r, ARRAY_TYPE(ldap_field) *attr_map,
 		       const char *skip_attr) ATTR_NULL(5);
 
-struct ldap_connection *db_ldap_init(const char *config_path);
+struct ldap_connection *db_ldap_init(struct event *event);
 void db_ldap_unref(struct ldap_connection **conn);
 
 int db_ldap_connect(struct ldap_connection *conn);
