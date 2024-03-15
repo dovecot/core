@@ -259,10 +259,12 @@ hide_secrets_from_value(struct ostream *output, const char *key,
 {
 	bool ret = FALSE, quote = value_need_quote(value);
 	const char *ptr, *optr, *secret;
+
 	if (*value != '\0' &&
 	    (key_ends_with(key, value, "_password") ||
 	     key_ends_with(key, value, "_key") ||
 	     key_ends_with(key, value, "_nonce") ||
+	     key_ends_with(key, value, "_secret") ||
 	     str_begins_with(key, "ssl_dh"))) {
 		o_stream_nsend_str(output, "# hidden, use -P to show it");
 		return TRUE;
