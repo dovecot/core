@@ -282,14 +282,15 @@ static int userdb_ldap_iterate_deinit(struct userdb_iterate_context *_ctx)
 	return ret;
 }
 
-static struct userdb_module *
-userdb_ldap_preinit(pool_t pool, const char *args)
+static int userdb_ldap_preinit(pool_t pool, struct event *event,
+			       struct userdb_module **module_r,
+			       const char **error_r ATTR_UNUSED)
 {
 	struct ldap_userdb_module *module;
 	struct ldap_connection *conn;
 
 	module = p_new(pool, struct ldap_userdb_module, 1);
-	module->conn = conn = db_ldap_init(args);
+	module->conn = conn = db_ldap_init(event);
 	p_array_init(&conn->user_attr_map, pool, 16);
 	p_array_init(&conn->iterate_attr_map, pool, 16);
 
@@ -304,7 +305,8 @@ userdb_ldap_preinit(pool_t pool, const char *args)
 				     t_strconcat(conn->set->base,
 						 conn->set->user_attrs,
 						 conn->set->user_filter, NULL));
-	return &module->module;
+	*module_r = &module->module;
+	return 0;
 }
 
 static void userdb_ldap_init(struct userdb_module *_module)
@@ -332,7 +334,7 @@ struct userdb_module_interface userdb_ldap_plugin =
 {
 	.name = "ldap",
 
-	.preinit_legacy = userdb_ldap_preinit,
+	.preinit = userdb_ldap_preinit,
 	.init = userdb_ldap_init,
 	.deinit = userdb_ldap_deinit,
 

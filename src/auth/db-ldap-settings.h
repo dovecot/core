@@ -2,6 +2,8 @@
 #define DB_LDAP_SETTINGS_H
 
 struct ldap_settings {
+	pool_t pool;
+
 	const char *hosts;
 	const char *uris;
 	const char *dn;
@@ -49,5 +51,7 @@ struct ldap_settings {
 	bool sasl_bind;
 	bool blocking;
 };
+
+extern const struct setting_parser_info ldap_setting_parser_info;
 
 #endif
