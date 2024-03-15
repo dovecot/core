@@ -25,7 +25,6 @@ struct ldap_settings {
 	const char *scope;
 	const char *base;
 
-	const char *ldaprc_path;
 	const char *debug_level;
 
 	const char *user_attrs;

@@ -1726,16 +1726,6 @@ struct ldap_connection *db_ldap_init(struct event *event)
 			i_fatal("LDAP: ldap_tls=yes requires ldap_version=3");
 	}
 
-	if (*conn->set->ldaprc_path != '\0') {
-		const char *str = getenv("LDAPRC");
-		if (str != NULL && strcmp(str, conn->set->ldaprc_path) != 0) {
-			i_fatal("LDAP: Multiple different ldap_ldaprc_path "
-				"settings not allowed (%s and %s)",
-				str, conn->set->ldaprc_path);
-		}
-		env_put("LDAPRC", conn->set->ldaprc_path);
-	}
-
 	conn->event = event_create(auth_event);
 	event_set_append_log_prefix(conn->event, "ldap: ");
 
