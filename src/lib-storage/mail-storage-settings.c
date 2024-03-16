@@ -40,7 +40,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(SIZE, mail_ext_attachment_min_size),
 	DEF(STR, mail_attachment_detection_options),
 	{ .type = SET_FILTER_NAME, .key = "mail_attribute",
-	  .required_setting = "dict_driver", },
+	  .required_setting = "dict", },
 	DEF(UINT, mail_prefetch_count),
 	DEF(STR, mail_cache_fields),
 	DEF(STR, mail_always_cache_fields),

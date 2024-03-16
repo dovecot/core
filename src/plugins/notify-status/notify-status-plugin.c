@@ -44,7 +44,7 @@ static const struct setting_define notify_status_plugin_setting_defines[] = {
        DEF(BOOL, mailbox_notify_status),
        DEF(STR_NOVARS, notify_status_value),
        { .type = SET_FILTER_NAME, .key = "notify_status",
-	 .required_setting = "dict_driver", },
+	 .required_setting = "dict", },
 
        SETTING_DEFINE_LIST_END
 };

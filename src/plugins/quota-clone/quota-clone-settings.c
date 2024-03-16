@@ -12,7 +12,7 @@
 	SETTING_DEFINE_STRUCT_##type("quota_clone_"#name, name, struct quota_clone_settings)
 
 static const struct setting_define quota_clone_setting_defines[] = {
-	{ .type = SET_FILTER_NAME, .key = "quota_clone", .required_setting = "dict_driver" },
+	{ .type = SET_FILTER_NAME, .key = "quota_clone", .required_setting = "dict" },
 	DEF(BOOL, unset),
 	SETTING_DEFINE_LIST_END
 };

@@ -483,7 +483,7 @@ int mailbox_attribute_dict_is_enabled(struct mail_user *user,
 	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "mail_attribute");
 	int ret = settings_get(event, &dict_setting_parser_info, 0,
 			       &dict_set, error_r);
-	if (ret == 0 && dict_set->dict_driver[0] != '\0')
+	if (ret == 0 && array_not_empty(&dict_set->dicts))
 		ret = 1;
 	settings_free(dict_set);
 	event_unref(&event);

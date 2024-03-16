@@ -39,7 +39,9 @@ struct dict_legacy_settings {
 
 struct dict_settings {
 	pool_t pool;
+	const char *dict_name;
 	const char *dict_driver;
+	ARRAY_TYPE(const_string) dicts;
 };
 extern const struct setting_parser_info dict_setting_parser_info;
 
