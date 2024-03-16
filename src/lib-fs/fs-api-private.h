@@ -96,6 +96,7 @@ struct fs {
 	/* Set only during initialization: */
 	const ARRAY_TYPE(const_string) *init_fs_list;
 	unsigned int init_fs_list_idx;
+	unsigned int *init_fs_last_list_idx;
 
 	char *username, *session_id;
 
