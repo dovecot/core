@@ -53,7 +53,7 @@ static const struct setting_define acl_setting_defines[] = {
 	DEF(BOOL, acl_defaults_from_inbox),
 	DEF(BOOL, acl_ignore),
 	{ .type = SET_FILTER_NAME, .key = "acl_sharing_map",
-		.required_setting = "dict_driver", },
+		.required_setting = "dict", },
 	{ .type = SET_FILTER_ARRAY,
 		.key = "acl",
 		.filter_array_field_name = "acl_id",

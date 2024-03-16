@@ -375,7 +375,8 @@ static void test_setup(void)
 	test_ctx = test_mail_storage_init();
 	const char *username = "mcp_test@example.com";
 	const char *const extra_input[] = {
-		"mail_attribute/dict_driver=file",
+		"mail_attribute/dict=file",
+		"mail_attribute/dict/file/driver=file",
 		t_strdup_printf("dict_file_path=%s/%s/dovecot-attributes",
 				test_ctx->home_root, username),
 		NULL

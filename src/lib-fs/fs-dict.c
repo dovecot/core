@@ -113,7 +113,7 @@ fs_dict_init(struct fs *_fs, const struct fs_parameters *params ATTR_UNUSED,
 	ret = dict_init_auto(event, &fs->dict, error_r);
 	event_unref(&event);
 	if (ret == 0)
-		*error_r = "fs_dict { dict_driver } not set";
+		*error_r = "fs_dict { dict { .. } } not set";
 	return ret <= 0 ? -1 : 0;
 }
 
