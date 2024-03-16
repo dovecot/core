@@ -1133,14 +1133,23 @@ settings_key_part_find(struct settings_apply_ctx *ctx, const char **key,
 {
 	if (last_filter_value != NULL) {
 		i_assert(last_filter_key != NULL);
-		/* Try filter/name/key -> filter_key. Do this before the
-		   non-prefixed check, so e.g. inet_listener/imap/ssl won't
-		   try to change the global ssl setting. */
+		/* Try filter/name/key -> filter_name_key, and fallback to
+		   filter_key. Do this before the non-prefixed check, so e.g.
+		   inet_listener/imap/ssl won't try to change the global ssl
+		   setting. */
 		const char *key_prefix = last_filter_key;
 		if (strcmp(key_prefix, SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX) == 0)
 			key_prefix = SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX;
 		const char *prefixed_key =
-			t_strdup_printf("%s_%s", key_prefix, *key);
+			t_strdup_printf("%s_%s_%s", key_prefix,
+					last_filter_value, *key);
+		if (setting_parser_info_find_key(ctx->info, prefixed_key,
+						 key_idx_r)) {
+			*key = prefixed_key;
+			return TRUE;
+		}
+
+		prefixed_key = t_strdup_printf("%s_%s", key_prefix, *key);
 		if (setting_parser_info_find_key(ctx->info, prefixed_key,
 						 key_idx_r)) {
 			*key = prefixed_key;
