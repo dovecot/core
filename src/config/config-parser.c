@@ -810,7 +810,25 @@ again:
 	/* the only '/' left should be if key is under list/ */
 	key = key_with_path;
 
-	if (ctx->cur_section->filter_parser->filter.filter_name != NULL) {
+	if (ctx->cur_section->filter_parser->filter.filter_name != NULL &&
+	    ctx->cur_section->filter_parser->filter.filter_name_array) {
+		/* For named list filters, try filter name { key } ->
+		   filter_name_key first before anything else. */
+		const char *filter_key =
+			t_str_replace(ctx->cur_section->filter_parser->filter.filter_name, '/', '_');
+		const char *key2 = t_strdup_printf("%s_%s", filter_key, key);
+		struct config_filter_parser *last_filter_parser =
+			ctx->cur_section->filter_parser;
+		ret = config_apply_exact_line(ctx, line, key2, value);
+		if (ret > 0 && full_key_r != NULL) {
+			*full_key_r = key2;
+			*root_setting_r = config_filter_is_empty(
+				&ctx->cur_section->filter_parser->filter);
+		}
+		ctx->cur_section->filter_parser = last_filter_parser;
+	}
+	if (ret == 0 &&
+	    ctx->cur_section->filter_parser->filter.filter_name != NULL) {
 		/* first try the filter name-specific prefix, so e.g.
 		   inet_listener { ssl=yes } won't try to change the global
 		   ssl setting. */

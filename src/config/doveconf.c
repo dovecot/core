@@ -325,13 +325,27 @@ hide_secrets_from_value(struct ostream *output, const char *key,
 	return ret;
 }
 
+static void
+try_strip_prefix(const char **key_prefix, const char *strip_prefix,
+		 const char *strip_prefix2)
+{
+	if (strip_prefix == NULL)
+		return;
+	if (str_begins(*key_prefix, strip_prefix, key_prefix))
+		return;
+	if (strip_prefix2 == NULL)
+		return;
+	(void)str_begins(*key_prefix, strip_prefix2, key_prefix);
+}
+
 static void ATTR_NULL(4)
 config_dump_human_output(struct config_dump_human_context *ctx,
 			 struct ostream *output, unsigned int indent,
 			 const char *setting_name_filter,
 			 const char *alt_setting_name_filter,
+			 const char *alt_setting_name_filter2,
 			 bool hide_key, bool default_hide_passwords,
-			 const char *strip_prefix)
+			 const char *strip_prefix, const char *strip_prefix2)
 {
 	ARRAY_TYPE(const_string) prefixes_arr;
 	ARRAY_TYPE(prefix_stack) prefix_stack;
@@ -341,7 +355,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 	unsigned int i, j, count, prefix_count;
 	unsigned int prefix_idx = UINT_MAX;
 	size_t len, skip_len, setting_name_filter_len;
-	size_t alt_setting_name_filter_len;
+	size_t alt_setting_name_filter_len, alt_setting_name_filter2_len;
 	bool bool_list_elem = FALSE;
 	bool str_list_elem = FALSE;
 
@@ -349,6 +363,8 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		strlen(setting_name_filter);
 	alt_setting_name_filter_len = alt_setting_name_filter == NULL ? 0 :
 		strlen(alt_setting_name_filter);
+	alt_setting_name_filter2_len = alt_setting_name_filter2 == NULL ? 0 :
+		strlen(alt_setting_name_filter2);
 	if (config_export_all_parsers(&ctx->export_ctx) < 0)
 		i_unreached(); /* settings aren't checked - this can't happen */
 
@@ -394,6 +410,14 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 				/* alt match */
 				if (key[alt_setting_name_filter_len] == '\0')
 					hide_passwords = FALSE;
+			} else if (alt_setting_name_filter2_len > 0 &&
+				   (strncmp(alt_setting_name_filter2, key,
+					    alt_setting_name_filter2_len) == 0 &&
+				    (key[alt_setting_name_filter2_len] == '/' ||
+				     key[alt_setting_name_filter2_len] == '\0'))) {
+				/* alt match */
+				if (key[alt_setting_name_filter2_len] == '\0')
+					hide_passwords = FALSE;
 			} else
 				goto end;
 		}
@@ -434,9 +458,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 					key_prefix = t_strndup(key2, p - key2);
 				else
 					key_prefix = key2;
-				if (strip_prefix != NULL &&
-				    str_begins(key_prefix, strip_prefix, &key_prefix))
-					key_prefix++;
+				try_strip_prefix(&key_prefix, strip_prefix, strip_prefix2);
 				str_append(ctx->list_prefix, key_prefix);
 				str_append(ctx->list_prefix, " {\n");
 				indent++;
@@ -473,8 +495,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		}
 
 		const char *full_key = key;
-		if (strip_prefix != NULL && str_begins(key, strip_prefix, &key))
-			key++;
+		try_strip_prefix(&key, strip_prefix, strip_prefix2);
 		value = strchr(key, '=');
 		i_assert(value != NULL);
 		if (!hide_key || bool_list_elem || str_list_elem) {
@@ -681,18 +702,30 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 			config_dump_filter_begin(list_prefix, indent,
 						 &filter_parser->filter);
 		str_append_str(ctx->list_prefix, list_prefix);
-		const char *filter_key =
-			filter_parser->filter.filter_name == NULL ? NULL :
-			t_strcut(filter_parser->filter.filter_name, '/');
-
+		const char *filter_name = filter_parser->filter.filter_name;
+		const char *strip_prefix, *strip_prefix2 = NULL;
+		strip_prefix = filter_name == NULL ? NULL :
+			t_strconcat(t_strcut(filter_name, '/'), "_", NULL);
 		const char *alt_set_name_filter =
-			set_name_filter != NULL && filter_key != NULL ?
-			t_strdup_printf("%s_%s", filter_key, set_name_filter) :
+			set_name_filter != NULL && strip_prefix != NULL ?
+			t_strdup_printf("%s%s", strip_prefix, set_name_filter) :
 			NULL;
+
+		const char *alt_set_name_filter2 = NULL;
+		if (filter_parser->filter.filter_name_array) {
+			strip_prefix2 = strip_prefix;
+			strip_prefix = t_strconcat(
+				t_str_replace(filter_name, '/', '_'), "_", NULL);
+			alt_set_name_filter2 =
+				set_name_filter == NULL ? NULL :
+				t_strdup_printf("%s%s", strip_prefix, set_name_filter);
+		}
 		config_dump_human_output(ctx, output, sub_indent,
 					 set_name_filter,
-					 alt_set_name_filter, hide_key,
-					 sub_hide_passwords, filter_key);
+					 alt_set_name_filter,
+					 alt_set_name_filter2,
+					 hide_key, sub_hide_passwords,
+					 strip_prefix, strip_prefix2);
 
 		bool sub_list_prefix_sent = ctx->list_prefix_sent;
 		if (sub_list_prefix_sent) {
@@ -735,8 +768,8 @@ config_dump_human(enum config_dump_scope scope,
 	/* Check for the setting always even with a filter - it might be
 	   e.g. plugin/key strlist */
 	ctx = config_dump_human_init(scope, filter_parser);
-	config_dump_human_output(ctx, output, 0, setting_name_filter, NULL,
-				 hide_key, hide_passwords, NULL);
+	config_dump_human_output(ctx, output, 0, setting_name_filter, NULL, NULL,
+				 hide_key, hide_passwords, NULL, NULL);
 	config_dump_human_deinit(ctx);
 
 	string_t *list_prefix = t_str_new(128);
