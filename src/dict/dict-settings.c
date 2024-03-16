@@ -92,7 +92,7 @@ struct service_settings dict_expire_service_settings = {
 static const struct setting_define dict_setting_defines[] = {
 	DEF(STR_HIDDEN, base_dir),
 	DEF(BOOL, verbose_proctitle),
-	{ .type = SET_STRLIST, .key = "dict",
+	{ .type = SET_STRLIST, .key = "dict_legacy",
 	  .offset = offsetof(struct dict_server_settings, dicts) },
 
 	SETTING_DEFINE_LIST_END
