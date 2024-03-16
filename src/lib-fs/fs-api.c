@@ -229,6 +229,7 @@ static int fs_init(struct event *event,
 		   const struct fs_parameters *params,
 		   const ARRAY_TYPE(const_string) *fs_list,
 		   unsigned int fs_list_idx,
+		   unsigned int *init_fs_last_list_idx,
 		   struct fs **fs_r, const char **error_r)
 {
 	const struct fs_settings *fs_set;
@@ -255,6 +256,8 @@ static int fs_init(struct event *event,
 
 	fs->init_fs_list = fs_list;
 	fs->init_fs_list_idx = fs_list_idx;
+	fs->init_fs_last_list_idx = init_fs_last_list_idx;
+	*init_fs_last_list_idx = fs_list_idx;
 	T_BEGIN {
 		ret = fs->v.init(fs, params, &error);
 	} T_END_PASS_STR_IF(ret < 0, &error);
@@ -272,6 +275,8 @@ int fs_init_auto(struct event *event, const struct fs_parameters *params,
 		 struct fs **fs_r, const char **error_r)
 {
 	const struct fs_settings *fs_set;
+	struct fs *fs;
+	unsigned int last_list_idx;
 	int ret;
 
 	if (settings_get(event, &fs_setting_parser_info, 0,
@@ -283,9 +288,26 @@ int fs_init_auto(struct event *event, const struct fs_parameters *params,
 		return 0;
 	}
 
-	ret = fs_init(event, params, &fs_set->fs, 0, fs_r, error_r);
+	ret = fs_init(event, params, &fs_set->fs, 0,
+		      &last_list_idx, &fs, error_r);
+	if (ret == 0 && last_list_idx + 1 < array_count(&fs_set->fs)) {
+		const char *fs_name_last =
+			array_idx_elem(&fs_set->fs, last_list_idx);
+		const char *fs_name_extra =
+			array_idx_elem(&fs_set->fs, last_list_idx + 1);
+		*error_r = t_strdup_printf(
+			"Extra fs %s { .. } named list filter - "
+			"the parent fs %s { .. } doesn't support a child fs",
+			fs_name_extra, fs_name_last);
+		settings_free(fs_set);
+		fs_unref(&fs);
+		return -1;
+	}
 	settings_free(fs_set);
-	return ret < 0 ? -1 : 1;
+	if (ret < 0)
+		return -1;
+	*fs_r = fs;
+	return 1;
 }
 
 int fs_init_parent(struct fs *fs, const struct fs_parameters *params,
@@ -301,6 +323,7 @@ int fs_init_parent(struct fs *fs, const struct fs_parameters *params,
 	event_drop_parent_log_prefixes(event, 1);
 	int ret = fs_init(event, params,
 			  fs->init_fs_list, fs->init_fs_list_idx + 1,
+			  fs->init_fs_last_list_idx,
 			  &fs->parent, error_r);
 	event_unref(&event);
 	return ret;
