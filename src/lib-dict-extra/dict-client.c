@@ -721,6 +721,11 @@ client_dict_init(const struct dict *dict_driver, struct event *event,
 	if (settings_get(event, &dict_proxy_setting_parser_info,
 			 0, &set, error_r) < 0)
 		return -1;
+	if (set->dict_proxy_name[0] == '\0') {
+		*error_r = "dict_proxy_name setting is empty";
+		settings_free(set);
+		return -1;
+	}
 	const struct master_service_settings *master_set =
 		master_service_get_service_settings(master_service);
 
