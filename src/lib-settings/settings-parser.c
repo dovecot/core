@@ -698,6 +698,8 @@ settings_parse(struct setting_parser_context *ctx,
 		for (i = 0; i < count; i++) {
 			const char *value = p_strdup(ctx->set_pool,
 				settings_section_unescape(list[i]));
+			if (array_lsearch(arr, &value, i_strcmp_p) != NULL)
+				continue; /* ignore duplicates */
 			if ((ctx->flags & SETTINGS_PARSER_FLAG_INSERT_FILTERS) != 0)
 				array_insert(arr, insert_pos++, &value, 1);
 			else
