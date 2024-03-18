@@ -242,7 +242,7 @@ settings_get_or_fatal(struct event *event,
 #define settings_free(set) \
 	STMT_START { \
 		if ((set) != NULL) { \
-			pool_t pool_copy = set->pool; \
+			pool_t pool_copy = (set)->pool; \
 			pool_unref(&pool_copy); \
 			(set) = NULL; \
 		} \
