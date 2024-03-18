@@ -77,7 +77,8 @@ fts_header_filters_deinit(struct fts_backend *backend)
 }
 
 int fts_backend_init(const char *backend_name, struct mail_namespace *ns,
-		     const char **error_r, struct fts_backend **backend_r)
+		     struct event *event, const char **error_r,
+		     struct fts_backend **backend_r)
 {
 	const struct fts_backend *be;
 	struct fts_backend *backend;
@@ -90,15 +91,16 @@ int fts_backend_init(const char *backend_name, struct mail_namespace *ns,
 
 	backend = be->v.alloc();
 	backend->ns = ns;
-	if (backend->v.init(backend, error_r) < 0) {
-		backend->v.deinit(backend);
-		return -1;
-	}
-
-	backend->event = event_create(mailbox_list_get_event(ns->list));
+	backend->event = event_create(event);
 	event_add_category(backend->event, &event_category_fts);
 	event_set_append_log_prefix(backend->event, t_strdup_printf(
 		"fts-%s: ", backend->name));
+
+	if (backend->v.init(backend, error_r) < 0) {
+		event_unref(&backend->event);
+		backend->v.deinit(backend);
+		return -1;
+	}
 
 	fts_header_filters_init(backend);
 	*backend_r = backend;

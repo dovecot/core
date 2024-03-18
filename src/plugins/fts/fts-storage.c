@@ -871,7 +871,8 @@ fts_init_namespace(struct fts_mailbox_list *flist, struct mail_namespace *ns)
 	} else if (set->driver[0] == '\0') {
 		e_debug(ns->list->event,
 			"fts: No fts_driver setting - plugin disabled");
-	} else if (fts_backend_init(set->driver, ns, &error, &backend) < 0) {
+	} else if (fts_backend_init(set->driver, ns, ns->list->event,
+				    &error, &backend) < 0) {
 		flist->failed = TRUE;
 		e_error(ns->list->event,
 			"fts: Failed to initialize backend '%s': %s",

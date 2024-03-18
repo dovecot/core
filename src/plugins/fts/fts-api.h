@@ -91,7 +91,8 @@ struct fts_multi_result {
 extern struct event_category event_category_fts;
 
 int fts_backend_init(const char *backend_name, struct mail_namespace *ns,
-		     const char **error_r, struct fts_backend **backend_r);
+		     struct event *event, const char **error_r,
+		     struct fts_backend **backend_r);
 void fts_backend_deinit(struct fts_backend **backend);
 
 /* Get the last_uid for the mailbox. */
