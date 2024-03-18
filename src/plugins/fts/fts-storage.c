@@ -816,7 +816,7 @@ void fts_mailbox_allocated(struct mailbox *box)
 	struct mailbox_vfuncs *v = box->vlast;
 	struct fts_mailbox *fbox;
 
-	if (flist == NULL || flist->failed)
+	if (flist == NULL || flist->failed || flist->backend == NULL)
 		return;
 
 	const struct fts_settings *set;
@@ -863,12 +863,14 @@ fts_init_namespace(struct fts_mailbox_list *flist, struct mail_namespace *ns)
 	struct fts_backend *backend;
 	const char *error;
 
-	const struct fts_settings *set;
-	if (fts_user_try_get_settings(ns->user, &set) < 0) {
+	const struct fts_settings *set = NULL;
+	if (settings_get(ns->list->event, &fts_setting_parser_info, 0,
+			 &set, &error) < 0) {
 		flist->failed = TRUE;
-		e_error(ns->list->event,
-			"fts: Failed to initialize backend, "
-			"could not retrieve settings.");
+		e_error(ns->list->event, "fts: %s", error);
+	} else if (set->driver[0] == '\0') {
+		e_debug(ns->list->event,
+			"fts: No fts_driver setting - plugin disabled");
 	} else if (fts_backend_init(set->driver, ns, &error, &backend) < 0) {
 		flist->failed = TRUE;
 		e_error(ns->list->event,
@@ -879,6 +881,7 @@ fts_init_namespace(struct fts_mailbox_list *flist, struct mail_namespace *ns)
 		if ((flist->backend->flags & FTS_BACKEND_FLAG_FUZZY_SEARCH) != 0)
 			ns->user->fuzzy_search = TRUE;
 	}
+	settings_free(set);
 }
 
 void fts_mail_namespaces_added(struct mail_namespace *ns)
@@ -893,16 +896,6 @@ void fts_mail_namespaces_added(struct mail_namespace *ns)
 void
 fts_mailbox_list_created(struct mailbox_list *list)
 {
-	const struct fts_settings *set;
-	/* This specific check is only a quick bypass. The actual validity
-	   of the settings will be checked later in fts_init_namespace() */
-	if (fts_user_try_get_settings(list->ns->user, &set) == 0 &&
-	    *set->driver == '\0') {
-		e_debug(list->event,
-			"fts: No fts_driver setting - plugin disabled");
-		return;
-	}
-
 	const char *path;
 	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX, &path)) {
 		e_debug(list->event,

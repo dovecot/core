@@ -33,15 +33,6 @@ const struct fts_settings *fts_user_get_settings(struct mail_user *user)
 	return fuser->set;
 }
 
-int fts_user_try_get_settings(struct mail_user *user,
-			      const struct fts_settings **set_r)
-{
-	struct fts_user *fuser = FTS_USER_CONTEXT(user);
-	if (fuser == NULL) return -1;
-	*set_r = fuser->set;
-	return 0;
-}
-
 size_t fts_mail_user_message_max_size(struct mail_user *user)
 {
 	struct fts_user *fuser = FTS_USER_CONTEXT_REQUIRE(user);
