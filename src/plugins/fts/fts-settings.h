@@ -15,6 +15,7 @@ enum fts_decoder {
 
 struct fts_settings {
 	pool_t pool;
+	ARRAY_TYPE(const_string) fts;
 	ARRAY_TYPE(const_string) header_excludes;
 	ARRAY_TYPE(const_string) header_includes;
 	const char *decoder_driver;
