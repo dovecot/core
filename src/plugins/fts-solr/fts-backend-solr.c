@@ -187,11 +187,14 @@ fts_backend_solr_init(struct fts_backend *_backend, const char **error_r)
 	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
 	struct fts_solr_user *fuser;
 
-	if (fts_solr_mail_user_get(_backend->ns->user, &fuser, error_r) < 0)
-		return -1;
-
 	backend->event = event_create(_backend->event);
 	event_add_category(backend->event, &event_category_fts_solr);
+
+	if (fts_solr_mail_user_get(_backend->ns->user, backend->event,
+				   &fuser, error_r) < 0) {
+		event_unref(&backend->event);
+		return -1;
+	}
 
 	return solr_connection_init(fuser->set, backend->event,
 				    &backend->solr_conn, error_r);

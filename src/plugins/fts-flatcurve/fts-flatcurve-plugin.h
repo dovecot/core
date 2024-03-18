@@ -24,7 +24,7 @@ struct fts_flatcurve_user {
 extern struct fts_backend fts_backend_flatcurve;
 extern MODULE_CONTEXT_DEFINE(fts_flatcurve_user_module, &mail_user_module_register);
 
-int fts_flatcurve_mail_user_get(struct mail_user *user,
+int fts_flatcurve_mail_user_get(struct mail_user *user, struct event *event,
 				struct fts_flatcurve_user **fuser_r,
 				const char **error_r);
 

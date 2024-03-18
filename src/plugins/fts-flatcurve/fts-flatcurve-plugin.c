@@ -24,19 +24,19 @@ static void fts_flatcurve_mail_user_deinit(struct mail_user *user)
 	fuser->module_ctx.super.deinit(user);
 }
 
-int fts_flatcurve_mail_user_get(struct mail_user *user,
+int fts_flatcurve_mail_user_get(struct mail_user *user, struct event *event,
 				struct fts_flatcurve_user **fuser_r,
 				const char **error_r)
 {
 	struct fts_flatcurve_user *fuser = FTS_FLATCURVE_USER_CONTEXT(user);
 	struct fts_flatcurve_settings *set;
 
-	if (settings_get(user->event, &fts_flatcurve_setting_parser_info, 0,
+	if (settings_get(event, &fts_flatcurve_setting_parser_info, 0,
 			 &set, error_r) < 0)
 		return -1;
 
 	/* Reference the user even when fuser is already initialized */
-	if (fts_mail_user_init(user, TRUE, error_r) < 0) {
+	if (fts_mail_user_init(user, event, TRUE, error_r) < 0) {
 		settings_free(set);
 		return -1;
 	}
