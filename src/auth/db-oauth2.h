@@ -47,7 +47,6 @@ struct auth_oauth2_settings {
 	bool force_introspection;
 	/* Should we send service and local/remote endpoints as X-Dovecot-Auth headers */
 	bool send_auth_headers;
-	bool use_grant_password;
 	bool use_worker_with_mech;
 };
 
@@ -81,10 +80,9 @@ struct db_oauth2_request {
 };
 
 
-int db_oauth2_init(struct event *event, struct db_oauth2 **db_r,
+int db_oauth2_init(struct event *event, bool use_grant_password, struct db_oauth2 **db_r,
 		   const char **error_r);
 
-bool db_oauth2_uses_password_grant(const struct db_oauth2 *db);
 bool db_oauth2_use_worker(const struct db_oauth2 *db);
 
 const char *db_oauth2_get_openid_configuration_url(const struct db_oauth2 *db);

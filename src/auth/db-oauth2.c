@@ -39,7 +39,6 @@ static const struct setting_define auth_oauth2_setting_defines[] = {
 	DEF(STR, openid_configuration_url),
 	DEF(BOOL, force_introspection),
 	DEF(BOOL, send_auth_headers),
-	DEF(BOOL, use_grant_password),
 	DEF(BOOL, use_worker_with_mech),
 	{ .type = SET_FILTER_NAME, .key = "oauth2_local_validation",
 		.required_setting = "dict", },
@@ -63,7 +62,6 @@ static const struct auth_oauth2_settings auth_oauth2_default_settings = {
 	.issuers = ARRAY_INIT,
 	.openid_configuration_url = "",
 	.send_auth_headers = FALSE,
-	.use_grant_password = FALSE,
 	.use_worker_with_mech = FALSE,
 };
 
@@ -197,7 +195,6 @@ static int db_oauth2_setup(struct db_oauth2 *db, const char **error_r)
 	db->oauth2_set.client_id = db->set->client_id;
 	db->oauth2_set.client_secret = db->set->client_secret;
 	db->oauth2_set.send_auth_headers = db->set->send_auth_headers;
-	db->oauth2_set.use_grant_password = db->set->use_grant_password;
 	if (!array_is_empty(&db->set->scope)) {
 		db->oauth2_set.scope =
 			p_array_const_string_join(db->pool, &db->set->scope, " ");
@@ -268,7 +265,7 @@ static int db_oauth2_setup(struct db_oauth2 *db, const char **error_r)
 	return 0;
 }
 
-int db_oauth2_init(struct event *event, struct db_oauth2 **db_r,
+int db_oauth2_init(struct event *event, bool use_grant_password, struct db_oauth2 **db_r,
 		   const char **error_r)
 {
 	struct db_oauth2 *db;
@@ -283,8 +280,11 @@ int db_oauth2_init(struct event *event, struct db_oauth2 **db_r,
 	}
 
 	for (db = db_oauth2_head; db != NULL; db = db->next) {
+		/* Ensure we do not match a db with one that is using
+		   grant password, as that does not work with mech oauth2. */
 		if (settings_equal(&auth_oauth2_setting_parser_info, db->set,
-				   db_set, NULL))
+				   db_set, NULL) &&
+		    use_grant_password == db->oauth2_set.use_grant_password)
 			break;
 	}
 
@@ -306,6 +306,7 @@ int db_oauth2_init(struct event *event, struct db_oauth2 **db_r,
 		db_oauth2_free(&db);
 		return -1;
 	}
+	db->oauth2_set.use_grant_password = use_grant_password;
 
 	*db_r = db;
 	return 0;
@@ -802,7 +803,7 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 	input.protocol = req->auth_request->fields.protocol;
 
 	if (db->oauth2_set.introspection_mode == INTROSPECTION_MODE_LOCAL &&
-	    !db_oauth2_uses_password_grant(db)) {
+	    !db->oauth2_set.use_grant_password) {
 		/* try to validate token locally */
 		e_debug(authdb_event(req->auth_request),
 			"Attempting to locally validate token");
@@ -834,11 +835,6 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 	}
 	i_assert(req->req != NULL);
 	DLLIST_PREPEND(&db->head, req);
-}
-
-bool db_oauth2_uses_password_grant(const struct db_oauth2 *db)
-{
-	return db->set->use_grant_password;
 }
 
 bool db_oauth2_use_worker(const struct db_oauth2 *db)
