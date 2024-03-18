@@ -185,12 +185,10 @@ static int
 fts_backend_solr_init(struct fts_backend *_backend, const char **error_r)
 {
 	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
-	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT(_backend->ns->user);
+	struct fts_solr_user *fuser;
 
-	if (fuser == NULL) {
-		*error_r = "Invalid fts_solr setting";
+	if (fts_solr_mail_user_get(_backend->ns->user, &fuser, error_r) < 0)
 		return -1;
-	}
 
 	backend->event = event_create(_backend->event);
 	event_add_category(backend->event, &event_category_fts_solr);
