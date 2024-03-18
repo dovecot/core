@@ -21,6 +21,7 @@ struct lang_user {
 	const struct langs_settings *set;
 	int refcount;
 
+	struct event *event;
 	struct language_list *lang_list;
 	struct language_user *data_lang;
 	ARRAY_TYPE(language_user) languages, data_languages;
@@ -74,7 +75,7 @@ static int
 lang_user_create_filters(struct mail_user *user, const struct language *lang,
 			 struct lang_filter **filter_r, const char **error_r)
 {
-
+	struct lang_user *luser = LANG_USER_CONTEXT_REQUIRE(user);
 	const struct lang_settings *set = lang_user_settings_get(user, lang->name);
 	if (array_is_empty(&set->filters)) {
 		/* No filters */
@@ -98,7 +99,7 @@ lang_user_create_filters(struct mail_user *user, const struct language *lang,
 		}
 
 		const char *error;
-		struct event *event = event_create(user->event);
+		struct event *event = event_create(luser->event);
 		event_add_str(event, "language", lang->name);
 		ret = lang_filter_create(entry_class, parent, set, event,
 					 &filter, &error);
@@ -127,6 +128,7 @@ lang_user_create_tokenizer(struct mail_user *user, const struct language *lang,
 			   struct lang_tokenizer **tokenizer_r, bool search,
 			   const char **error_r)
 {
+	struct lang_user *luser = LANG_USER_CONTEXT_REQUIRE(user);
 	const struct lang_settings *set = lang_user_settings_get(user, lang->name);
 	if (array_is_empty(&set->tokenizers)) {
 		/* No tokenizers */
@@ -150,7 +152,7 @@ lang_user_create_tokenizer(struct mail_user *user, const struct language *lang,
 		}
 
 		const char *error;
-		struct event *event = event_create(user->event);
+		struct event *event = event_create(luser->event);
 		event_add_str(event, "language", set->name);
 		ret = lang_tokenizer_create(entry_class, parent, set, event,
 					    search ? LANG_TOKENIZER_FLAG_SEARCH : 0,
@@ -255,7 +257,7 @@ lang_user_init_data_language(struct mail_user *user, struct lang_user *luser,
 	if (lang_user_language_init_tokenizers(user, user_lang, error_r) < 0)
 		return -1;
 
-	struct event *event = event_create(user->event);
+	struct event *event = event_create(luser->event);
 	event_add_str(event, "language", language_data.name);
 	if (lang_filter_create(lang_filter_lowercase, NULL, set, event,
 			       &user_lang->filter, &error) < 0)
@@ -329,6 +331,7 @@ static void lang_user_free(struct lang_user *luser)
 	}
 
 	settings_free(luser->set);
+	event_unref(&luser->event);
 }
 
 static int
@@ -344,8 +347,8 @@ lang_user_init_libfts(struct mail_user *user, struct lang_user *luser,
 	return 0;
 }
 
-int lang_user_init(struct mail_user *user, bool initialize_libfts,
-		   const char **error_r)
+int lang_user_init(struct mail_user *user, struct event *event,
+		   bool initialize_libfts, const char **error_r)
 {
 	struct lang_user *luser = LANG_USER_CONTEXT(user);
 
@@ -356,12 +359,14 @@ int lang_user_init(struct mail_user *user, bool initialize_libfts,
 	}
 
 	const struct langs_settings *set;
-	if (settings_get(user->event, &langs_setting_parser_info, 0, &set, error_r) < 0)
+	if (settings_get(event, &langs_setting_parser_info, 0, &set, error_r) < 0)
 		return -1;
 
 	luser = p_new(user->pool, struct lang_user, 1);
 	luser->set = set;
 	luser->refcount = 1;
+	luser->event = event;
+	event_ref(luser->event);
 
 	MODULE_CONTEXT_SET(user, lang_user_module, luser);
 	if (initialize_libfts) {
