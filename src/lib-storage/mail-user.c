@@ -280,6 +280,10 @@ void mail_user_set_vars(struct mail_user *user, const char *service,
 const struct var_expand_table *
 mail_user_var_expand_table(struct mail_user *user)
 {
+	/* use a cached table if possible */
+	if (user->var_expand_table != NULL)
+		return user->var_expand_table;
+
 	const char *username =
 		p_strdup(user->pool, t_strcut(user->username, '@'));
 	const char *domain = i_strchr_to_next(user->username, '@');
