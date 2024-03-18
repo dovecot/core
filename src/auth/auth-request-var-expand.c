@@ -193,7 +193,7 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	tab[28].value = tab[ALIAS(10)].value = escape_func(t_strcut(orig_user, '@'), auth_request);
 	tab[29].value = tab[ALIAS(11)].value = i_strchr_to_next(orig_user, '@');
 	if (tab[29].value != NULL)
-		tab[29].value = tab[ALIAS(12)].value =
+		tab[29].value = tab[ALIAS(11)].value =
 			escape_func(tab[29].value, auth_request);
 
 	if (fields->master_user != NULL)
