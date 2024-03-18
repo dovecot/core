@@ -38,8 +38,8 @@ size_t fts_mail_user_message_max_size(struct mail_user *user)
 	return fuser->set->message_max_size;
 }
 
-int fts_mail_user_init(struct mail_user *user, bool initialize_libfts,
-		       const char **error_r)
+int fts_mail_user_init(struct mail_user *user, struct event *event,
+		       bool initialize_libfts, const char **error_r)
 {
 	struct fts_user *fuser = FTS_USER_CONTEXT(user);
 
@@ -47,10 +47,10 @@ int fts_mail_user_init(struct mail_user *user, bool initialize_libfts,
 		return 0;
 
 	const struct fts_settings *set;
-	if (settings_get(user->event, &fts_setting_parser_info, 0, &set, error_r) < 0)
+	if (settings_get(event, &fts_setting_parser_info, 0, &set, error_r) < 0)
 		return -1;
 
-	if (lang_user_init(user, user->event, initialize_libfts, error_r) < 0) {
+	if (lang_user_init(user, event, initialize_libfts, error_r) < 0) {
 		settings_free(set);
 		return -1;
 	}

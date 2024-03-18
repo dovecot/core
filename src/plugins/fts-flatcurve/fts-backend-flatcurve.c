@@ -44,8 +44,14 @@ fts_backend_flatcurve_init(struct fts_backend *_backend, const char **error_r)
 		container_of(_backend, struct flatcurve_fts_backend, backend);
 	struct fts_flatcurve_user *fuser;
 
-	if (fts_flatcurve_mail_user_get(_backend->ns->user, &fuser, error_r) < 0)
+	backend->event = event_create(_backend->event);
+	event_add_category(backend->event, &event_category_fts_flatcurve);
+
+	if (fts_flatcurve_mail_user_get(_backend->ns->user, backend->event,
+					&fuser, error_r) < 0) {
+		event_unref(&backend->event);
 		return -1;
+	}
 
 	backend->boxname = str_new(backend->pool, 128);
 	backend->db_path = str_new(backend->pool, 256);
@@ -54,9 +60,6 @@ fts_backend_flatcurve_init(struct fts_backend *_backend, const char **error_r)
 	fuser->backend = backend;
 
 	fts_flatcurve_xapian_init(backend);
-
-	backend->event = event_create(_backend->event);
-	event_add_category(backend->event, &event_category_fts_flatcurve);
 
 	return fts_backend_flatcurve_close_mailbox(backend, error_r);
 }

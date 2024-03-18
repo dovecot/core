@@ -25,19 +25,19 @@ static void fts_solr_mail_user_deinit(struct mail_user *user)
 	fuser->module_ctx.super.deinit(user);
 }
 
-int fts_solr_mail_user_get(struct mail_user *user,
+int fts_solr_mail_user_get(struct mail_user *user, struct event *event,
 			   struct fts_solr_user **fuser_r,
 			   const char **error_r)
 {
 	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT(user);
 	const struct fts_solr_settings *set;
 
-	if (fts_solr_settings_get(user->event, &fts_solr_setting_parser_info,
+	if (fts_solr_settings_get(event, &fts_solr_setting_parser_info,
 				  &set, error_r) < 0)
 		return -1;
 
 	/* Reference the user even when fuser is already initialized */
-	if (fts_mail_user_init(user, FALSE, error_r) < 0) {
+	if (fts_mail_user_init(user, event, FALSE, error_r) < 0) {
 		settings_free(set);
 		return -1;
 	}
