@@ -63,7 +63,7 @@ int fts_mail_user_init(struct mail_user *user, bool initialize_libfts,
 	if (settings_get(user->event, &fts_setting_parser_info, 0, &set, error_r) < 0)
 		return -1;
 
-	if (lang_user_init(user, initialize_libfts, error_r) < 0) {
+	if (lang_user_init(user, user->event, initialize_libfts, error_r) < 0) {
 		settings_free(set);
 		return -1;
 	}

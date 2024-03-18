@@ -21,8 +21,8 @@ lang_user_get_data_languages(struct mail_user *user);
 
 const struct langs_settings *lang_user_get_settings(struct mail_user *user);
 
-int lang_user_init(struct mail_user *user, bool initialize_libfts,
-		       const char **error_r);
+int lang_user_init(struct mail_user *user, struct event *event,
+		   bool initialize_libfts, const char **error_r);
 void lang_user_deinit(struct mail_user *user);
 
 #endif
