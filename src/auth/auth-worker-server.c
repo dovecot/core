@@ -812,7 +812,7 @@ auth_worker_handler_oauth2_token(struct auth_worker_command *cmd, unsigned int i
 	}
 
 	if (cmd->server->oauth2 == NULL) {
-		if (db_oauth2_init(cmd->event, &cmd->server->oauth2, &error) < 0) {
+		if (db_oauth2_init(cmd->event, FALSE, &cmd->server->oauth2, &error) < 0) {
 			e_error(cmd->event, "%s", error);
 			auth_worker_handle_token_continue(db_req,
 					PASSDB_RESULT_INTERNAL_FAILURE, error,

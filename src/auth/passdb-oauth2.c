@@ -50,16 +50,10 @@ oauth2_preinit(pool_t pool, struct event *event, struct passdb_module **module_r
 	struct oauth2_passdb_module *module;
 
 	module = p_new(pool, struct oauth2_passdb_module, 1);
-	if (db_oauth2_init(event, &module->db, error_r) < 0)
+	if (db_oauth2_init(event, TRUE, &module->db, error_r) < 0)
 		return -1;
 	module->module.default_pass_scheme = "PLAIN";
-
-	if (db_oauth2_uses_password_grant(module->db)) {
-		module->module.default_cache_key = "%u";
-	} else {
-		module->module.default_cache_key = "%u%w";
-	}
-
+	module->module.default_cache_key = "%u";
 	*module_r = &module->module;
 	return 0;
 }
