@@ -389,11 +389,6 @@ static int db_oauth2_var_expand_func_oauth2(const char *data, void *context,
 	return 1;
 }
 
-static const char *escape_none(const char *value, const struct auth_request *req ATTR_UNUSED)
-{
-	return value;
-}
-
 static bool
 db_oauth2_add_extra_fields(struct db_oauth2_request *req, const char **error_r)
 {
@@ -498,20 +493,17 @@ db_oauth2_validate_username(struct db_oauth2_request *req,
 	table[1].value = t_strcut(username_value, '@');
 	table[2].value = i_strchr_to_next(username_value, '@');
 
-	string_t *username_req = t_str_new(32);
 	string_t *username_val = t_str_new(strlen(username_value));
 
-	if (auth_request_var_expand(username_req, req->db->set->username_format,
-				    req->auth_request, escape_none, &error) <= 0 ||
-	    var_expand_with_table(username_val, req->db->set->username_format, table,
+	if (var_expand_with_table(username_val, req->db->set->username_format, table,
 				  &error) <= 0) {
 		*error_r = t_strdup_printf("var_expand(%s) failed: %s",
 					req->db->set->username_format, error);
 		*result_r = PASSDB_RESULT_INTERNAL_FAILURE;
 		return FALSE;
-	} else if (!str_equals(username_req, username_val)) {
+	} else if (strcmp(req->auth_request->fields.user, str_c(username_val)) != 0) {
 		*error_r = t_strdup_printf("Username '%s' did not match '%s'",
-					str_c(username_req), str_c(username_val));
+					   req->auth_request->fields.user, str_c(username_val));
 		*result_r = PASSDB_RESULT_USER_UNKNOWN;
 		return FALSE;
 	} else {
