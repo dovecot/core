@@ -24,27 +24,37 @@ static void fts_flatcurve_mail_user_deinit(struct mail_user *user)
 	fuser->module_ctx.super.deinit(user);
 }
 
-static void fts_flatcurve_mail_user_created(struct mail_user *user)
+int fts_flatcurve_mail_user_get(struct mail_user *user,
+				struct fts_flatcurve_user **fuser_r,
+				const char **error_r)
 {
-	struct mail_user_vfuncs *v = user->vlast;
-	struct fts_flatcurve_user *fuser;
-	const char *error;
+	struct fts_flatcurve_user *fuser = FTS_FLATCURVE_USER_CONTEXT(user);
 	struct fts_flatcurve_settings *set;
 
 	if (settings_get(user->event, &fts_flatcurve_setting_parser_info, 0,
-			 &set, &error) < 0) {
-		e_error(user->event, "%s", error);
-		return;
-	}
+			 &set, error_r) < 0)
+		return -1;
 
-	if (fts_mail_user_init(user, TRUE, &error) < 0) {
-		e_error(user->event, FTS_FLATCURVE_DEBUG_PREFIX "%s", error);
+	/* Reference the user even when fuser is already initialized */
+	if (fts_mail_user_init(user, TRUE, error_r) < 0) {
 		settings_free(set);
-		return;
+		return -1;
 	}
+	if (fuser->set == NULL)
+		fuser->set = set;
+	else
+		settings_free(set);
+
+	*fuser_r = fuser;
+	return 0;
+}
+
+static void fts_flatcurve_mail_user_created(struct mail_user *user)
+{
+	struct fts_flatcurve_user *fuser;
+	struct mail_user_vfuncs *v = user->vlast;
 
 	fuser = p_new(user->pool, struct fts_flatcurve_user, 1);
-	fuser->set = set;
 	fuser->module_ctx.super = *v;
 	user->vlast = &fuser->module_ctx.super;
 	v->deinit = fts_flatcurve_mail_user_deinit;
@@ -55,7 +65,7 @@ static struct mail_storage_hooks fts_backend_mail_storage_hooks = {
 	.mail_user_created = fts_flatcurve_mail_user_created
 };
 
-void fts_flatcurve_plugin_init(struct module *module)
+void fts_flatcurve_plugin_init(struct module *module ATTR_UNUSED)
 {
 	fts_backend_register(&fts_backend_flatcurve);
 	mail_storage_hooks_add(module, &fts_backend_mail_storage_hooks);

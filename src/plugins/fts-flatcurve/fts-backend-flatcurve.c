@@ -42,13 +42,10 @@ fts_backend_flatcurve_init(struct fts_backend *_backend, const char **error_r)
 {
 	struct flatcurve_fts_backend *backend =
 		container_of(_backend, struct flatcurve_fts_backend, backend);
-	struct fts_flatcurve_user *fuser =
-		FTS_FLATCURVE_USER_CONTEXT(_backend->ns->user);
+	struct fts_flatcurve_user *fuser;
 
-	if (fuser == NULL) {
-		*error_r = "Invalid fts-flatcurve settings";
+	if (fts_flatcurve_mail_user_get(_backend->ns->user, &fuser, error_r) < 0)
 		return -1;
-	}
 
 	backend->boxname = str_new(backend->pool, 128);
 	backend->db_path = str_new(backend->pool, 256);
