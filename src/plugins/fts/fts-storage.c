@@ -869,11 +869,43 @@ fts_init_namespace(struct fts_mailbox_list *flist, struct mail_namespace *ns)
 			 &set, &error) < 0) {
 		flist->failed = TRUE;
 		e_error(ns->list->event, "fts: %s", error);
-	} else if (set->driver[0] == '\0') {
+		return;
+	}
+	if (array_is_empty(&set->fts)) {
 		e_debug(ns->list->event,
-			"fts: No fts_driver setting - plugin disabled");
-	} else if (fts_backend_init(set->driver, ns, ns->list->event,
-				    &error, &backend) < 0) {
+			"fts: No fts { .. } named list filter - plugin disabled");
+		settings_free(set);
+		return;
+	}
+
+	const char *fts_name_first =
+		t_strdup(array_idx_elem(&set->fts, 0));
+	if (array_count(&set->fts) > 1) {
+		/* Currently only a single fts is supported */
+		const char *fts_name_extra = array_idx_elem(&set->fts, 1);
+		e_error(ns->list->event,
+			"fts: Extra fts %s { .. } named list filter - "
+			"only one is currently supported, and "
+			"fts %s { .. } is already set",
+			fts_name_extra, fts_name_first);
+		flist->failed = TRUE;
+		settings_free(set);
+		return;
+	}
+
+	/* Get settings for the first fts list filter */
+	struct event *event = event_create(ns->list->event);
+	event_add_str(event, "fts", fts_name_first);
+	settings_free(set);
+	if (settings_get(event, &fts_setting_parser_info, 0,
+			 &set, &error) < 0) {
+		flist->failed = TRUE;
+		e_error(ns->list->event, "fts: %s", error);
+		event_unref(&event);
+		return;
+	}
+
+	if (fts_backend_init(set->driver, ns, event, &error, &backend) < 0) {
 		flist->failed = TRUE;
 		e_error(ns->list->event,
 			"fts: Failed to initialize backend '%s': %s",
@@ -883,6 +915,7 @@ fts_init_namespace(struct fts_mailbox_list *flist, struct mail_namespace *ns)
 		if ((flist->backend->flags & FTS_BACKEND_FLAG_FUZZY_SEARCH) != 0)
 			ns->user->fuzzy_search = TRUE;
 	}
+	event_unref(&event);
 	settings_free(set);
 }
 

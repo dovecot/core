@@ -11,7 +11,9 @@
 	FTS_FILTER"_"#name, name, struct fts_settings)
 
 static const struct setting_define fts_setting_defines[] = {
-	{ .type = SET_FILTER_NAME, .key = FTS_FILTER },
+	{ .type = SET_FILTER_ARRAY, .key = FTS_FILTER,
+	  .offset = offsetof(struct fts_settings, fts),
+	  .filter_array_field_name = "fts_driver", },
 	DEF(BOOL,    autoindex),
 	DEF(UINT,    autoindex_max_recent_msgs),
 	DEF(ENUM,    decoder_driver),
@@ -42,6 +44,7 @@ static bool fts_settings_check(void *set, pool_t pool, const char **error_r);
 /* </settings checks> */
 
 static const struct fts_settings fts_default_settings = {
+	.fts = ARRAY_INIT,
 	.autoindex = FALSE,
 	.autoindex_max_recent_msgs = 0,
 	.decoder_driver = FTS_DECODER_KEYWORD_NONE
