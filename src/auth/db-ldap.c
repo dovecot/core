@@ -942,14 +942,14 @@ int db_ldap_connect(struct ldap_connection *conn)
 	if (conn->ld == NULL)
 		db_ldap_init_ld(conn);
 
-	if (conn->set->tls) {
+	if (conn->set->starttls) {
 #ifdef LDAP_HAVE_START_TLS_S
 		ret = ldap_start_tls_s(conn->ld, NULL, NULL);
 		if (ret != LDAP_SUCCESS) {
 			if (ret == LDAP_OPERATIONS_ERROR &&
 			    conn->set->uris != NULL &&
 			    str_begins_with(conn->set->uris, "ldaps:")) {
-				i_fatal("LDAP: Don't use both tls=yes and ldaps URI");
+				i_fatal("LDAP: Don't use both ldap_starttls=yes and ldaps URI");
 			}
 			e_error(conn->event, "ldap_start_tls_s() failed: %s",
 				ldap_err2string(ret));
@@ -1712,8 +1712,8 @@ struct ldap_connection *db_ldap_init(struct event *event)
 	}
 #endif
 #ifndef LDAP_HAVE_START_TLS_S
-	if (conn->set->tls)
-		i_fatal("LDAP: ldap_tls=yes, but your LDAP library doesn't support TLS");
+	if (conn->set->starttls)
+		i_fatal("LDAP: ldap_starttls=yes, but your LDAP library doesn't support TLS");
 #endif
 #ifndef HAVE_LDAP_SASL
 	if (conn->set->sasl_bind)
@@ -1722,8 +1722,8 @@ struct ldap_connection *db_ldap_init(struct event *event)
 	if (conn->set->version < 3) {
 		if (conn->set->sasl_bind)
 			i_fatal("LDAP: ldap_sasl_bind=yes requires ldap_version=3");
-		if (conn->set->tls)
-			i_fatal("LDAP: ldap_tls=yes requires ldap_version=3");
+		if (conn->set->starttls)
+			i_fatal("LDAP: ldap_starttls=yes requires ldap_version=3");
 	}
 
 	conn->event = event_create(auth_event);

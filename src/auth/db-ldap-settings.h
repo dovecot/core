@@ -46,7 +46,7 @@ struct ldap_settings {
 	gid_t gid;
 
 	bool auth_bind;
-	bool tls;
+	bool starttls;
 	bool sasl_bind;
 	bool blocking;
 };
