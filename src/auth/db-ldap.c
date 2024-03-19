@@ -934,54 +934,51 @@ static void db_ldap_get_fd(struct ldap_connection *conn)
 	/* get the connection's fd */
 	ret = ldap_get_option(conn->ld, LDAP_OPT_DESC, (void *)&conn->fd);
 	if (ret != LDAP_SUCCESS) {
-		i_fatal("LDAP %s: Can't get connection fd: %s",
-			conn->config_path, ldap_err2string(ret));
+		i_fatal("LDAP: Can't get connection fd: %s", ldap_err2string(ret));
 	}
 	if (conn->fd <= STDERR_FILENO) {
 		/* Solaris LDAP library seems to be broken */
-		i_fatal("LDAP %s: Buggy LDAP library returned wrong fd: %d",
-			conn->config_path, conn->fd);
+		i_fatal("LDAP: Buggy LDAP library returned wrong fd: %d", conn->fd);
 	}
 	i_assert(conn->fd != -1);
 	net_set_nonblock(conn->fd, TRUE);
 }
 
-static void ATTR_NULL(1)
-db_ldap_set_opt(struct ldap_connection *conn, LDAP *ld, int opt,
-		const void *value, const char *optname, const char *value_str)
+static void ATTR_NULL(0)
+db_ldap_set_opt(LDAP *ld, int opt, const void *value, const char *optname,
+		const char *value_str)
 {
 	int ret;
 
 	ret = ldap_set_option(ld, opt, value);
 	if (ret != LDAP_SUCCESS) {
-		i_fatal("LDAP %s: Can't set option %s to %s: %s",
-			conn->config_path, optname, value_str, ldap_err2string(ret));
+		i_fatal("LDAP: Can't set option %s to %s: %s",
+			optname, value_str, ldap_err2string(ret));
 	}
 }
 
-static void ATTR_NULL(1)
-db_ldap_set_opt_str(struct ldap_connection *conn, LDAP *ld, int opt,
-		    const char *value, const char *optname)
+static void ATTR_NULL(0)
+db_ldap_set_opt_str(LDAP *ld, int opt, const char *value, const char *optname)
 {
 	if (value != NULL)
-		db_ldap_set_opt(conn, ld, opt, value, optname, value);
+		db_ldap_set_opt(ld, opt, value, optname, value);
 }
 
 static void db_ldap_set_tls_options(struct ldap_connection *conn)
 {
 #ifdef OPENLDAP_TLS_OPTIONS
-	db_ldap_set_opt_str(conn, NULL, LDAP_OPT_X_TLS_CACERTFILE,
+	db_ldap_set_opt_str(NULL, LDAP_OPT_X_TLS_CACERTFILE,
 			    conn->set.tls_ca_cert_file, "tls_ca_cert_file");
-	db_ldap_set_opt_str(conn, NULL, LDAP_OPT_X_TLS_CACERTDIR,
+	db_ldap_set_opt_str(NULL, LDAP_OPT_X_TLS_CACERTDIR,
 			    conn->set.tls_ca_cert_dir, "tls_ca_cert_dir");
-	db_ldap_set_opt_str(conn, NULL, LDAP_OPT_X_TLS_CERTFILE,
+	db_ldap_set_opt_str(NULL, LDAP_OPT_X_TLS_CERTFILE,
 			    conn->set.tls_cert_file, "tls_cert_file");
-	db_ldap_set_opt_str(conn, NULL, LDAP_OPT_X_TLS_KEYFILE,
+	db_ldap_set_opt_str(NULL, LDAP_OPT_X_TLS_KEYFILE,
 			    conn->set.tls_key_file, "tls_key_file");
-	db_ldap_set_opt_str(conn, NULL, LDAP_OPT_X_TLS_CIPHER_SUITE,
+	db_ldap_set_opt_str(NULL, LDAP_OPT_X_TLS_CIPHER_SUITE,
 			    conn->set.tls_cipher_suite, "tls_cipher_suite");
 	if (conn->set.tls_require_cert != NULL) {
-		db_ldap_set_opt(conn, NULL, LDAP_OPT_X_TLS_REQUIRE_CERT, &conn->set.ldap_tls_require_cert_parsed,
+		db_ldap_set_opt(NULL, LDAP_OPT_X_TLS_REQUIRE_CERT, &conn->set.ldap_tls_require_cert_parsed,
 				"tls_require_cert", conn->set.tls_require_cert);
 	}
 #else
@@ -990,8 +987,7 @@ static void db_ldap_set_tls_options(struct ldap_connection *conn)
 	    conn->set.tls_cert_file != NULL ||
 	    conn->set.tls_key_file != NULL ||
 	    conn->set.tls_cipher_suite != NULL) {
-		i_fatal("LDAP %s: tls_* settings aren't supported by your LDAP library - they must not be set",
-			conn->config_path);
+		i_fatal("LDAP: tls_* settings aren't supported by your LDAP library - they must not be set");
 	}
 #endif
 }
@@ -1007,24 +1003,22 @@ static void db_ldap_set_options(struct ldap_connection *conn)
 
 	tv.tv_sec = DB_LDAP_CONNECT_TIMEOUT_SECS; tv.tv_usec = 0;
 	ret = ldap_set_option(conn->ld, LDAP_OPT_NETWORK_TIMEOUT, &tv);
-	if (ret != LDAP_SUCCESS) {
-		i_fatal("LDAP %s: Can't set network-timeout: %s",
-			conn->config_path, ldap_err2string(ret));
-	}
+	if (ret != LDAP_SUCCESS)
+		i_fatal("LDAP: Can't set network-timeout: %s", ldap_err2string(ret));
 #endif
 
-	db_ldap_set_opt(conn, conn->ld, LDAP_OPT_DEREF, &conn->set.ldap_deref,
+	db_ldap_set_opt(conn->ld, LDAP_OPT_DEREF, &conn->set.ldap_deref,
 			"deref", conn->set.deref);
 #ifdef LDAP_OPT_DEBUG_LEVEL
 	if (str_to_int(conn->set.debug_level, &value) >= 0 && value != 0) {
-		db_ldap_set_opt(conn, NULL, LDAP_OPT_DEBUG_LEVEL, &value,
+		db_ldap_set_opt(NULL, LDAP_OPT_DEBUG_LEVEL, &value,
 				"debug_level", conn->set.debug_level);
 		event_set_forced_debug(conn->event, TRUE);
 	}
 #endif
 
 	ldap_version = conn->set.ldap_version;
-	db_ldap_set_opt(conn, conn->ld, LDAP_OPT_PROTOCOL_VERSION, &ldap_version,
+	db_ldap_set_opt(conn->ld, LDAP_OPT_PROTOCOL_VERSION, &ldap_version,
 			"protocol_version", dec2str(ldap_version));
 	db_ldap_set_tls_options(conn);
 }
@@ -1037,9 +1031,8 @@ static void db_ldap_init_ld(struct ldap_connection *conn)
 #ifdef LDAP_HAVE_INITIALIZE
 		ret = ldap_initialize(&conn->ld, conn->set.uris);
 		if (ret != LDAP_SUCCESS) {
-			i_fatal("LDAP %s: ldap_initialize() failed with uris %s: %s",
-				conn->config_path, conn->set.uris,
-				ldap_err2string(ret));
+			i_fatal("LDAP: ldap_initialize() failed with uris %s: %s",
+				conn->set.uris, ldap_err2string(ret));
 		}
 #else
 		i_unreached(); /* already checked at init */
@@ -1047,8 +1040,8 @@ static void db_ldap_init_ld(struct ldap_connection *conn)
 	} else {
 		conn->ld = ldap_init(conn->set.hosts, LDAP_PORT);
 		if (conn->ld == NULL) {
-			i_fatal("LDAP %s: ldap_init() failed with hosts: %s",
-				conn->config_path, conn->set.hosts);
+			i_fatal("LDAP: ldap_init() failed with hosts: %s",
+				conn->set.hosts);
 		}
 	}
 	db_ldap_set_options(conn);
@@ -1079,8 +1072,7 @@ int db_ldap_connect(struct ldap_connection *conn)
 			if (ret == LDAP_OPERATIONS_ERROR &&
 			    conn->set.uris != NULL &&
 			    str_begins_with(conn->set.uris, "ldaps:")) {
-				i_fatal("LDAP %s: Don't use both tls=yes "
-					"and ldaps URI", conn->config_path);
+				i_fatal("LDAP: Don't use both tls=yes and ldaps URI");
 			}
 			e_error(conn->event, "ldap_start_tls_s() failed: %s",
 				ldap_err2string(ret));
@@ -1843,60 +1835,59 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 	conn->config_path = p_strdup(pool, config_path);
 	conn->set = default_ldap_settings;
 	if (!settings_read_nosection(config_path, parse_setting, conn, &error))
-		i_fatal("ldap %s: %s", config_path, error);
+		i_fatal("LDAP: %s", error);
 
 	if (conn->set.base == NULL)
-		i_fatal("LDAP %s: No base given", config_path);
+		i_fatal("LDAP: No base given");
 
 	if (conn->set.uris == NULL && conn->set.hosts == NULL)
-		i_fatal("LDAP %s: No uris or hosts set", config_path);
+		i_fatal("LDAP: No uris or hosts set");
 #ifndef LDAP_HAVE_INITIALIZE
 	if (conn->set.uris != NULL) {
-		i_fatal("LDAP %s: uris set, but Dovecot compiled without support for LDAP uris "
-			"(ldap_initialize() not supported by LDAP library)", config_path);
+		i_fatal("LDAP: uris set, but Dovecot compiled without support for LDAP uris "
+			"(ldap_initialize() not supported by LDAP library)");
 	}
 #endif
 #ifndef LDAP_HAVE_START_TLS_S
 	if (conn->set.tls)
-		i_fatal("LDAP %s: tls=yes, but your LDAP library doesn't support TLS", config_path);
+		i_fatal("LDAP: tls=yes, but your LDAP library doesn't support TLS");
 #endif
 #ifndef HAVE_LDAP_SASL
 	if (conn->set.sasl_bind)
-		i_fatal("LDAP %s: sasl_bind=yes but no SASL support compiled in", conn->config_path);
+		i_fatal("LDAP: sasl_bind=yes but no SASL support compiled in");
 #endif
 	if (conn->set.ldap_version < 3) {
 		if (conn->set.sasl_bind)
-			i_fatal("LDAP %s: sasl_bind=yes requires ldap_version=3", config_path);
+			i_fatal("LDAP: sasl_bind=yes requires ldap_version=3");
 		if (conn->set.tls)
-			i_fatal("LDAP %s: tls=yes requires ldap_version=3", config_path);
+			i_fatal("LDAP: tls=yes requires ldap_version=3");
 	}
 #ifdef OPENLDAP_TLS_OPTIONS
 	if (conn->set.tls_require_cert != NULL) {
 		if (tls_require_cert2str(conn->set.tls_require_cert,
 					 &conn->set.ldap_tls_require_cert_parsed) < 0)
-			i_fatal("LDAP %s: Unknown tls_require_cert value '%s'",
-				config_path, conn->set.tls_require_cert);
+			i_fatal("LDAP: Unknown tls_require_cert value '%s'",
+				conn->set.tls_require_cert);
 	}
 #endif
 
 	if (*conn->set.ldaprc_path != '\0') {
 		str = getenv("LDAPRC");
 		if (str != NULL && strcmp(str, conn->set.ldaprc_path) != 0) {
-			i_fatal("LDAP %s: Multiple different ldaprc_path "
+			i_fatal("LDAP: Multiple different ldaprc_path "
 				"settings not allowed (%s and %s)",
-				config_path, str, conn->set.ldaprc_path);
+				str, conn->set.ldaprc_path);
 		}
 		env_put("LDAPRC", conn->set.ldaprc_path);
 	}
 
         if (deref2str(conn->set.deref, &conn->set.ldap_deref) < 0)
-		i_fatal("LDAP %s: Unknown deref option '%s'", config_path, conn->set.deref);
+		i_fatal("LDAP: Unknown deref option '%s'", conn->set.deref);
 	if (scope2str(conn->set.scope, &conn->set.ldap_scope) < 0)
-		i_fatal("LDAP %s: Unknown scope option '%s'", config_path, conn->set.scope);
+		i_fatal("LDAP: Unknown scope option '%s'", conn->set.scope);
 
 	conn->event = event_create(auth_event);
-	event_set_append_log_prefix(conn->event, t_strdup_printf(
-		"ldap(%s): ", conn->config_path));
+	event_set_append_log_prefix(conn->event, "ldap: ");
 
 	i_array_init(&conn->request_array, 512);
 	conn->request_queue = aqueue_init(&conn->request_array.arr);
