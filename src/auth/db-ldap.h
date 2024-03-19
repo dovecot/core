@@ -116,6 +116,7 @@ struct ldap_connection {
 	struct event *event;
 
         const struct ldap_settings *set;
+	const struct ssl_settings *ssl_set;
 
 	LDAP *ld;
 	enum ldap_connection_state conn_state;

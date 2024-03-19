@@ -14,6 +14,7 @@
 #include "env-util.h"
 #include "var-expand.h"
 #include "settings.h"
+#include "ssl-settings.h"
 #include "userdb.h"
 #include "db-ldap.h"
 
@@ -846,28 +847,28 @@ db_ldap_set_opt_str(LDAP *ld, int opt, const char *value, const char *optname)
 static void db_ldap_set_tls_options(struct ldap_connection *conn)
 {
 #ifdef OPENLDAP_TLS_OPTIONS
+	if (!conn->set->starttls && strstr(conn->set->uris, "ldaps:") == NULL)
+		return;
+
 	db_ldap_set_opt_str(NULL, LDAP_OPT_X_TLS_CACERTFILE,
-			    conn->set->tls_ca_cert_file, "tls_ca_cert_file");
+			    conn->ssl_set->ssl_client_ca_file, "ssl_client_ca_file");
 	db_ldap_set_opt_str(NULL, LDAP_OPT_X_TLS_CACERTDIR,
-			    conn->set->tls_ca_cert_dir, "tls_ca_cert_dir");
+			    conn->ssl_set->ssl_client_ca_dir, "ssl_client_ca_dir");
 	db_ldap_set_opt_str(NULL, LDAP_OPT_X_TLS_CERTFILE,
-			    conn->set->tls_cert_file, "tls_cert_file");
+			    conn->ssl_set->ssl_client_cert_file, "ssl_client_cert_file");
 	db_ldap_set_opt_str(NULL, LDAP_OPT_X_TLS_KEYFILE,
-			    conn->set->tls_key_file, "tls_key_file");
+			    conn->ssl_set->ssl_client_key_file, "ssl_client_key_file");
 	db_ldap_set_opt_str(NULL, LDAP_OPT_X_TLS_CIPHER_SUITE,
-			    conn->set->tls_cipher_suite, "tls_cipher_suite");
-	if (conn->set->tls_require_cert != NULL) {
-		db_ldap_set_opt(NULL, LDAP_OPT_X_TLS_REQUIRE_CERT, &conn->set->ldap_tls_require_cert_parsed,
-				"tls_require_cert", conn->set->tls_require_cert);
-	}
-#else
-	if (conn->set->tls_ca_cert_file != NULL ||
-	    conn->set->tls_ca_cert_dir != NULL ||
-	    conn->set->tls_cert_file != NULL ||
-	    conn->set->tls_key_file != NULL ||
-	    conn->set->tls_cipher_suite != NULL) {
-		i_fatal("LDAP: tls_* settings aren't supported by your LDAP library - they must not be set");
-	}
+			    conn->ssl_set->ssl_cipher_list, "ssl_cipher_list");
+	db_ldap_set_opt_str(NULL, LDAP_OPT_X_TLS_PROTOCOL_MIN,
+			    conn->ssl_set->ssl_min_protocol, "ssl_min_protocol");
+	db_ldap_set_opt_str(NULL, LDAP_OPT_X_TLS_ECNAME,
+			    conn->ssl_set->ssl_curve_list, "ssl_curve_list");
+
+	bool requires = conn->ssl_set->ssl_client_require_valid_cert;
+	int opt = requires ? LDAP_OPT_X_TLS_HARD : LDAP_OPT_X_TLS_ALLOW;
+	db_ldap_set_opt(NULL, LDAP_OPT_X_TLS_REQUIRE_CERT, &opt,
+			"ssl_client_require_valid_cert", requires ? "yes" : "no" );
 #endif
 }
 
@@ -1667,11 +1668,12 @@ void db_ldap_result_iterate_deinit(struct db_ldap_result_iterate_context **_ctx)
 }
 
 static struct ldap_connection *
-db_ldap_conn_find(const struct ldap_settings *set)
+db_ldap_conn_find(const struct ldap_settings *set, const struct ssl_settings *ssl_set)
 {
 	struct ldap_connection *conn;
 	for (conn = ldap_connections; conn != NULL; conn = conn->next) {
-		if (settings_equal(&ldap_setting_parser_info, set, conn->set, NULL))
+		if (settings_equal(&ldap_setting_parser_info, set, conn->set, NULL) &&
+		    settings_equal(&ssl_setting_parser_info, ssl_set, conn->ssl_set, NULL))
 			return conn;
 	}
 	return NULL;
@@ -1680,11 +1682,15 @@ db_ldap_conn_find(const struct ldap_settings *set)
 struct ldap_connection *db_ldap_init(struct event *event)
 {
         const struct ldap_settings *set;
-	set = settings_get_or_fatal(event, &ldap_setting_parser_info);
+	const struct ssl_settings *ssl_set;
+
+	set     = settings_get_or_fatal(event, &ldap_setting_parser_info);
+	ssl_set = settings_get_or_fatal(event, &ssl_setting_parser_info);
 
 	/* see if it already exists */
-	struct ldap_connection *conn = db_ldap_conn_find(set);
+	struct ldap_connection *conn = db_ldap_conn_find(set, ssl_set);
 	if (conn != NULL) {
+		settings_free(ssl_set);
 		settings_free(set);
 		conn->refcount++;
 		return conn;
@@ -1695,7 +1701,9 @@ struct ldap_connection *db_ldap_init(struct event *event)
 	conn->pool = pool;
 	conn->refcount = 1;
 
-	conn->set = set;
+        conn->set = set;
+	conn->ssl_set = ssl_set;
+
 	conn->conn_state = LDAP_CONN_STATE_DISCONNECTED;
 	conn->default_bind_msgid = -1;
 	conn->fd = -1;
@@ -1738,6 +1746,7 @@ void db_ldap_unref(struct ldap_connection **_conn)
 	array_free(&conn->request_array);
 	aqueue_deinit(&conn->request_queue);
 
+	settings_free(conn->ssl_set);
 	settings_free(conn->set);
 
 	event_unref(&conn->event);
