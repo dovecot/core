@@ -29,12 +29,6 @@ static const struct setting_define ldap_setting_defines[] = {
 	DEF(STR, sasl_mech),
 	DEF(STR, sasl_realm),
 	DEF(STR, sasl_authz_id),
-	DEF(STR, tls_ca_cert_file),
-	DEF(STR, tls_ca_cert_dir),
-	DEF(STR, tls_cert_file),
-	DEF(STR, tls_key_file),
-	DEF(STR, tls_cipher_suite),
-	DEF(STR, tls_require_cert),
 	DEF(STR, deref),
 	DEF(STR, scope),
 	DEF(STR, base),
@@ -63,12 +57,6 @@ static const struct ldap_settings ldap_default_settings = {
 	.sasl_mech = "",
 	.sasl_realm = "",
 	.sasl_authz_id = "",
-	.tls_ca_cert_file = "",
-	.tls_ca_cert_dir = "",
-	.tls_cert_file = "",
-	.tls_key_file = "",
-	.tls_cipher_suite = "",
-	.tls_require_cert = "",
 	.deref = "never",
 	.scope = "subtree",
 	.base = "",
@@ -96,25 +84,6 @@ const struct setting_parser_info ldap_setting_parser_info = {
 };
 
 /* <settings checks> */
-
-#ifdef OPENLDAP_TLS_OPTIONS
-static int ldap_parse_tls_require_cert(const char *str, int *value_r)
-{
-	if (strcasecmp(str, "never") == 0)
-		*value_r = LDAP_OPT_X_TLS_NEVER;
-	else if (strcasecmp(str, "hard") == 0)
-		*value_r = LDAP_OPT_X_TLS_HARD;
-	else if (strcasecmp(str, "demand") == 0)
-		*value_r = LDAP_OPT_X_TLS_DEMAND;
-	else if (strcasecmp(str, "allow") == 0)
-		*value_r = LDAP_OPT_X_TLS_ALLOW;
-	else if (strcasecmp(str, "try") == 0)
-		*value_r = LDAP_OPT_X_TLS_TRY;
-	else
-		return -1;
-	return 1;
-}
-#endif
 
 static int ldap_parse_deref(const char *str, int *ref_r)
 {
@@ -160,15 +129,6 @@ static bool ldap_setting_check(void *_set, pool_t pool ATTR_UNUSED,
 					   set->scope);
 		return FALSE;
 	}
-
-#ifdef OPENLDAP_TLS_OPTIONS
-	if (ldap_parse_tls_require_cert(set->tls_require_cert,
-					     &set->ldap_tls_require_cert_parsed) < 0) {
-		*error_r = t_strdup_printf("Unknown tls_require_cert value '%s'",
-					   set->tls_require_cert);
-		return FALSE;
-	}
-#endif
 
 	if (*set->base == '\0') {
 		*error_r = "No ldap_base given";

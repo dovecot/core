@@ -14,13 +14,6 @@ struct ldap_settings {
 	const char *sasl_realm;
 	const char *sasl_authz_id;
 
-	const char *tls_ca_cert_file;
-	const char *tls_ca_cert_dir;
-	const char *tls_cert_file;
-	const char *tls_key_file;
-	const char *tls_cipher_suite;
-	const char *tls_require_cert;
-
 	const char *deref;
 	const char *scope;
 	const char *base;
@@ -37,8 +30,6 @@ struct ldap_settings {
 	const char *default_pass_scheme;
 
 	unsigned int version;
-
-	int ldap_tls_require_cert_parsed;
 
 	uid_t uid;
 	gid_t gid;
