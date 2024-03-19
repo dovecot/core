@@ -235,10 +235,14 @@ static int lang_user_languages_fill_all(struct mail_user *user,
                                         const char **error_r)
 {
 	const struct language *lang;
+	const char *error;
 
 	array_foreach_elem(language_list_get_all(luser->lang_list), lang) {
-		if (lang_user_language_create(user, luser, lang, error_r) < 0)
+		if (lang_user_language_create(user, luser, lang, &error) < 0) {
+			*error_r = t_strdup_printf("language %s: %s",
+						   lang->name, error);
 			return -1;
+		}
 	}
 	return 0;
 }
@@ -254,8 +258,11 @@ lang_user_init_data_language(struct mail_user *user, struct lang_user *luser,
 	user_lang->lang = &language_data;
 	const struct lang_settings *set = lang_user_settings_get(user, language_data.name);
 
-	if (lang_user_language_init_tokenizers(user, user_lang, error_r) < 0)
+	if (lang_user_language_init_tokenizers(user, user_lang, &error) < 0) {
+		*error_r = t_strdup_printf("language %s: %s",
+					   user_lang->lang->name, error);
 		return -1;
+	}
 
 	struct event *event = event_create(luser->event);
 	event_add_str(event, "language", language_data.name);
