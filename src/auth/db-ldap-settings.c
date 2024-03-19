@@ -170,6 +170,49 @@ static bool ldap_setting_check(void *_set, pool_t pool ATTR_UNUSED,
 	}
 #endif
 
+	if (*set->base == '\0') {
+		*error_r = "No ldap_base given";
+		return FALSE;
+	}
+
+	if (*set->uris == '\0' && *set->hosts == '\0') {
+		*error_r = "Neither ldap_uris nor ldap_hosts set";
+		return FALSE;
+	}
+
+#ifndef LDAP_HAVE_INITIALIZE
+	if (*set->uris != '\0') {
+		*error_r = "ldap_uris set, but Dovecot compiled without support for LDAP uris "
+			   "(ldap_initialize() not supported by LDAP library)";
+		return FALSE;
+	}
+#endif
+
+#ifndef LDAP_HAVE_START_TLS_S
+	if (set->starttls) {
+		*error_r = "ldap_starttls=yes, but your LDAP library doesn't support TLS";
+		return FALSE;
+	}
+#endif
+
+#ifndef HAVE_LDAP_SASL
+	if (set->sasl_bind) {
+		*error_r = "ldap_sasl_bind=yes but no SASL support compiled in";
+		return FALSE;
+	}
+#endif
+
+	if (set->version < 3) {
+		if (set->sasl_bind) {
+			*error_r = "ldap_sasl_bind=yes requires ldap_version=3";
+			return FALSE;
+		}
+		if (set->starttls) {
+			*error_r = "ldap_starttls=yes requires ldap_version=3";
+			return FALSE;
+		}
+	}
+
 	return TRUE;
 }
 
