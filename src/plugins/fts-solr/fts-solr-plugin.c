@@ -21,7 +21,6 @@ static void fts_solr_mail_user_deinit(struct mail_user *user)
 {
 	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT_REQUIRE(user);
 
-	fts_mail_user_deinit(user);
 	settings_free(fuser->set);
 	fuser->module_ctx.super.deinit(user);
 }

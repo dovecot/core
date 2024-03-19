@@ -21,7 +21,6 @@
 struct fts_user {
 	union mail_user_module_context module_ctx;
 	const struct fts_settings *set;
-	int refcount;
 };
 
 static MODULE_CONTEXT_DEFINE_INIT(fts_user_module,
@@ -44,11 +43,8 @@ int fts_mail_user_init(struct mail_user *user, bool initialize_libfts,
 {
 	struct fts_user *fuser = FTS_USER_CONTEXT(user);
 
-	if (fuser != NULL) {
-		/* multiple fts plugins are loaded */
-		fuser->refcount++;
+	if (fuser->set != NULL)
 		return 0;
-	}
 
 	const struct fts_settings *set;
 	if (settings_get(user->event, &fts_setting_parser_info, 0, &set, error_r) < 0)
@@ -59,23 +55,27 @@ int fts_mail_user_init(struct mail_user *user, bool initialize_libfts,
 		return -1;
 	}
 
-	fuser = p_new(user->pool, struct fts_user, 1);
 	fuser->set = set;
-	fuser->refcount = 1;
-
-	MODULE_CONTEXT_SET(user, fts_user_module, fuser);
 	return 0;
 }
 
-void fts_mail_user_deinit(struct mail_user *user)
+static void fts_mail_user_deinit(struct mail_user *user)
 {
-	struct fts_user *fuser = FTS_USER_CONTEXT(user);
+	struct fts_user *fuser = FTS_USER_CONTEXT_REQUIRE(user);
 
-	if (fuser != NULL) {
-		i_assert(fuser->refcount > 0);
-		if (--fuser->refcount == 0) {
-			settings_free(fuser->set);
-			lang_user_deinit(user);
-		}
-	}
+	settings_free(fuser->set);
+	lang_user_deinit(user);
+	fuser->module_ctx.super.deinit(user);
+}
+
+void fts_mail_user_created(struct mail_user *user)
+{
+	struct mail_user_vfuncs *v = user->vlast;
+	struct fts_user *fuser;
+
+	fuser = p_new(user->pool, struct fts_user, 1);
+	fuser->module_ctx.super = *v;
+	user->vlast = &fuser->module_ctx.super;
+	v->deinit = fts_mail_user_deinit;
+	MODULE_CONTEXT_SET(user, fts_user_module, fuser);
 }
