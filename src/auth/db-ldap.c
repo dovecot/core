@@ -1700,32 +1700,6 @@ struct ldap_connection *db_ldap_init(struct event *event)
 	conn->default_bind_msgid = -1;
 	conn->fd = -1;
 
-	if (conn->set->base == NULL)
-		i_fatal("LDAP: No ldap_base given");
-
-	if (conn->set->uris == NULL && conn->set->hosts == NULL)
-		i_fatal("LDAP: Neither ldap_uris nor ldap_hosts set");
-#ifndef LDAP_HAVE_INITIALIZE
-	if (conn->set->uris != NULL) {
-		i_fatal("LDAP: ldap_uris set, but Dovecot compiled without support for LDAP uris "
-			"(ldap_initialize() not supported by LDAP library)");
-	}
-#endif
-#ifndef LDAP_HAVE_START_TLS_S
-	if (conn->set->starttls)
-		i_fatal("LDAP: ldap_starttls=yes, but your LDAP library doesn't support TLS");
-#endif
-#ifndef HAVE_LDAP_SASL
-	if (conn->set->sasl_bind)
-		i_fatal("LDAP: ldap_sasl_bind=yes but no SASL support compiled in");
-#endif
-	if (conn->set->version < 3) {
-		if (conn->set->sasl_bind)
-			i_fatal("LDAP: ldap_sasl_bind=yes requires ldap_version=3");
-		if (conn->set->starttls)
-			i_fatal("LDAP: ldap_starttls=yes requires ldap_version=3");
-	}
-
 	conn->event = event_create(auth_event);
 	event_set_append_log_prefix(conn->event, "ldap: ");
 
