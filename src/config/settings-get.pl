@@ -46,10 +46,18 @@ foreach my $file (@ARGV) {
   my $file_contents = "";
   my $externs = "";
   my $code = "";
+  my @ifdefs = ();
+  my $ifdefs_open = 0;
   
   while (<$f>) {
     my $write = 0;
     if ($state eq "root") {
+      if (/(^#ifdef .*)$/ || /^(#if .*)$/) {
+        push @ifdefs, $1;
+      } elsif (/^#endif/) {
+        pop @ifdefs;
+      }
+
       if (/struct .*_settings \{/ ||
           /struct setting_define.*\{/ ||
           /struct .*_default_settings = \{/ ||
@@ -68,7 +76,7 @@ foreach my $file (@ARGV) {
       } elsif (/^const struct setting_parser_info (.*) = \{/) {
         # info structure for settings
         my $cur_name = $1;
-        $infos{$cur_name} = 1;
+        $infos{$cur_name} = join("\n", @ifdefs)."\n\t&$cur_name,\n"."#endif\n" x scalar(@ifdefs);
         # Add forward declaration for the info struct. This may be needed by
         # the ext_check() functions.
         $externs .= "extern const struct setting_parser_info $cur_name;\n";
@@ -76,6 +84,8 @@ foreach my $file (@ARGV) {
       } elsif (/\/\* <settings checks> \*\//) {
         # Anything inside <settings check> ... </settings check> is copied.
         $state = "copy-to-end-of-settings-checks";
+        $code .= join("\n", @ifdefs)."\n";
+        $ifdefs_open = scalar @ifdefs;
         $code .= $_;
       }
       
@@ -93,7 +103,11 @@ foreach my $file (@ARGV) {
       $state = "root" if (!/\\$/);
     } elsif ($state eq "copy-to-end-of-settings-checks") {
       $code .= $_;
-      $state = "root" if (/\/\* <\/settings checks> \*\//);
+      if (/\/\* <\/settings checks> \*\//) {
+        $state = "root";
+        $code .= "#endif\n" x $ifdefs_open;
+        $ifdefs_open = 0;
+      }
     }
 
     if ($state eq "copy-to-end-of-block") {
@@ -102,8 +116,18 @@ foreach my $file (@ARGV) {
         $state = "root";
       }
     }
-  
-    $file_contents .= $_ if ($write);
+
+    if ($write) {
+      if (scalar @ifdefs > 0 && $ifdefs_open == 0) {
+        $file_contents .= join("\n", @ifdefs)."\n";
+        $ifdefs_open = scalar @ifdefs;
+      }
+      $file_contents .= $_;
+      if ($state eq "root" && $ifdefs_open > 0) {
+        $file_contents .= "#endif\n" x $ifdefs_open;
+        $ifdefs_open = 0;
+      }
+    }
   }
   
   print "/* $file */\n";
@@ -140,7 +164,7 @@ print "};\n";
 # Write a list of all settings infos.
 print "const struct setting_parser_info *all_default_infos[] = {\n";
 foreach my $name (sort(keys %infos)) {
-  print "\t&".$name.", \n";
+  print $infos{$name};
 }
 print "\tNULL\n";
 print "};\n";
