@@ -81,7 +81,7 @@ static int output_blob_size(struct ostream *output, uoff_t blob_size_offset)
 static void
 config_dump_full_append_filter_query(string_t *str,
 				     const struct config_filter *filter,
-				     bool leaf, bool write_named_filters)
+				     bool write_named_filters)
 {
 	if (filter->service != NULL) {
 		if (filter->service[0] != '!') {
@@ -110,20 +110,16 @@ config_dump_full_append_filter_query(string_t *str,
 	if (filter->filter_name_array) {
 		const char *p = strchr(filter->filter_name, '/');
 		i_assert(p != NULL);
-		if (leaf)
-			str_append_c(str, '(');
 		const char *filter_key = t_strdup_until(filter->filter_name, p);
 		if (strcmp(filter_key, SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX) == 0)
 			filter_key = SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX;
-		str_printfa(str, "%s=\"%s\"", filter_key, str_escape(p + 1));
-		if (leaf) {
-			/* the filter_name is used by settings_get_filter() for
-			   finding a specific filter without wildcards messing
-			   up the lookups. */
-			str_printfa(str, " OR "SETTINGS_EVENT_FILTER_NAME
-				    "=\"%s/%s\")", filter_key,
-				    wildcard_str_escape(settings_section_escape(p + 1)));
-		}
+		str_printfa(str, "(%s=\"%s\"", filter_key, str_escape(p + 1));
+		/* the filter_name is used by settings_get_filter() for
+		   finding a specific filter without wildcards messing
+		   up the lookups. */
+		str_printfa(str, " OR "SETTINGS_EVENT_FILTER_NAME
+			    "=\"%s/%s\")", filter_key,
+			    wildcard_str_escape(settings_section_escape(p + 1)));
 		str_append(str, " AND ");
 	} else if (filter->filter_name != NULL) {
 		const char *filter_name = filter->filter_name;
@@ -140,12 +136,9 @@ config_dump_full_append_filter(string_t *str,
 			       const struct config_filter *filter,
 			       bool write_named_filters)
 {
-	bool leaf = TRUE;
-
 	do {
-		config_dump_full_append_filter_query(str, filter, leaf,
+		config_dump_full_append_filter_query(str, filter,
 						     write_named_filters);
-		leaf = FALSE;
 		filter = filter->parent;
 	} while (filter != NULL);
 
