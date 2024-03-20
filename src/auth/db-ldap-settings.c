@@ -40,7 +40,6 @@ static const struct setting_define ldap_setting_defines[] = {
 	DEF(STR, pass_filter),
 	DEF(STR, iterate_attrs),
 	DEF(STR, iterate_filter),
-	DEF(BOOL, blocking),
 	SETTING_DEFINE_LIST_END
 };
 
@@ -67,7 +66,6 @@ static const struct ldap_settings ldap_default_settings = {
 	.pass_filter = "(&(objectClass=posixAccount)(uid=%u))",
 	.iterate_attrs = "uid=user",
 	.iterate_filter = "(objectClass=posixAccount)",
-	.blocking = FALSE
 };
 
 static const struct setting_keyvalue ldap_default_settings_keyvalue[] = {

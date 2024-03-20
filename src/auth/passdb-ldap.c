@@ -466,7 +466,6 @@ static int passdb_ldap_preinit(pool_t pool, struct event *event,
 	db_ldap_set_attrs(conn, conn->set->pass_attrs, &conn->pass_attr_names,
 			  &conn->pass_attr_map,
 			  conn->set->auth_bind ? "password" : NULL);
-	module->module.blocking = conn->set->blocking;
 	module->module.default_cache_key =
 		auth_cache_parse_key(pool,
 				     t_strconcat(conn->set->base,
