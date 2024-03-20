@@ -460,6 +460,7 @@ settings_value_check(struct config_parser_context *ctx,
 
 static bool
 config_is_filter_name(struct config_parser_context *ctx, const char *key,
+		      const struct setting_parser_info **info_r,
 		      const struct setting_define **def_r)
 {
 	struct config_parser_key *config_key;
@@ -474,6 +475,7 @@ config_is_filter_name(struct config_parser_context *ctx, const char *key,
 	    def->type != SET_FILTER_ARRAY)
 		return FALSE;
 
+	*info_r = all_infos[config_key->info_idx];
 	*def_r = def;
 	return TRUE;
 }
@@ -1014,6 +1016,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 	struct config_filter filter;
 	struct config_filter *parent = &ctx->cur_section->prev->filter_parser->filter;
 	struct config_filter_parser *filter_parser;
+	const struct setting_parser_info *filter_info = NULL;
 	const struct setting_define *filter_def = NULL;
 	const char *error;
 
@@ -1084,7 +1087,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			ctx->error = "remote net1 { remote net2 { .. } } requires net2 to be inside net1";
 		else
 			filter.remote_host = p_strdup(ctx->pool, value);
-	} else if (config_is_filter_name(ctx, key, &filter_def)) {
+	} else if (config_is_filter_name(ctx, key, &filter_info, &filter_def)) {
 		if (filter_def->type == SET_FILTER_NAME) {
 			if (value[0] != '\0' || value_quoted) {
 				ctx->error = p_strdup_printf(ctx->pool,
@@ -1140,12 +1143,13 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			/* add it to the list of filter names */
 			const char *escaped_value =
 				settings_section_escape(value);
+			i_assert(filter_info != NULL);
 			if (config_apply_line(ctx, filter_def->key,
 					      escaped_value, NULL) < 0) {
 				i_panic("BUG: Invalid setting definitions: "
-					"Failed to set %s=%s: %s",
+					"Failed to set %s=%s for struct %s: %s",
 					filter_def->key, escaped_value,
-					ctx->error);
+					filter_info->name, ctx->error);
 			}
 		}
 		ctx->cur_section->filter_parser =
@@ -1161,9 +1165,9 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			if (config_apply_line(ctx, filter_def->filter_array_field_name,
 					      value, NULL) < 0) {
 				i_panic("BUG: Invalid setting definitions: "
-					"Failed to set %s=%s: %s",
+					"Failed to set %s=%s for struct %s: %s",
 					filter_def->filter_array_field_name,
-					value, ctx->error);
+					value, filter_info->name, ctx->error);
 			}
 			struct config_section_stack *prev_section =
 				ctx->cur_section->prev;
