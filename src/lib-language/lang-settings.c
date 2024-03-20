@@ -61,7 +61,7 @@ const struct setting_parser_info lang_setting_parser_info = {
 static const struct setting_define langs_setting_defines[] = {
 	{ .type = SET_FILTER_ARRAY, .key = "language",
 	  .offset = offsetof(struct langs_settings, languages),
-	  .filter_array_field_name = "name", },
+	  .filter_array_field_name = "language_name", },
 	DEF(STR, textcat_config_path),
 	SETTING_DEFINE_LIST_END
 };

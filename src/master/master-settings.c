@@ -135,13 +135,13 @@ static const struct setting_define service_setting_defines[] = {
 
 	{ .type = SET_FILTER_ARRAY, .key = "unix_listener",
 	  .offset = offsetof(struct service_settings, unix_listeners),
-	  .filter_array_field_name = "path", },
+	  .filter_array_field_name = "unix_listener_path", },
 	{ .type = SET_FILTER_ARRAY, .key = "fifo_listener",
 	  .offset = offsetof(struct service_settings, fifo_listeners),
-	  .filter_array_field_name = "path", },
+	  .filter_array_field_name = "fifo_listener_path", },
 	{ .type = SET_FILTER_ARRAY, .key = "inet_listener",
 	  .offset = offsetof(struct service_settings, inet_listeners),
-	  .filter_array_field_name = "name", },
+	  .filter_array_field_name = "inet_listener_name", },
 
 	SETTING_DEFINE_LIST_END
 };
@@ -206,7 +206,7 @@ static const struct setting_define master_setting_defines[] = {
 
 	{ .type = SET_FILTER_ARRAY, .key = "service",
 	  .offset = offsetof(struct master_settings, services),
-	  .filter_array_field_name = "name", },
+	  .filter_array_field_name = "service_name", },
 
 	SETTING_DEFINE_LIST_END
 };
