@@ -363,6 +363,7 @@ try_strip_prefix(const char **key_prefix, const char *strip_prefix,
 static void ATTR_NULL(4)
 config_dump_human_output(struct config_dump_human_context *ctx,
 			 struct ostream *output, unsigned int indent,
+			 const char *filter_name,
 			 const char *setting_name_filter,
 			 const char *alt_setting_name_filter,
 			 const char *alt_setting_name_filter2,
@@ -373,7 +374,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 	ARRAY_TYPE(prefix_stack) prefix_stack;
 	struct prefix_stack prefix;
 	const char *const *strings, *p, *str, *const *prefixes;
-	const char *key, *key2, *value;
+	const char *key, *key2, *value, *ignore_key = NULL, *ignore_value = NULL;
 	unsigned int i, j, count, prefix_count;
 	unsigned int prefix_idx = UINT_MAX;
 	size_t len, skip_len, setting_name_filter_len;
@@ -392,6 +393,17 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 
 	array_sort(&ctx->strings, config_string_cmp);
 	strings = array_get(&ctx->strings, &count);
+
+	p = filter_name == NULL ? NULL : strchr(filter_name, '/');
+	if (p != NULL) {
+		const struct setting_define *def =
+			config_parsed_key_lookup(config,
+				t_strdup_until(filter_name, p++));
+		if (def != NULL && def->type == SET_FILTER_ARRAY) {
+			ignore_key = def->filter_array_field_name;
+			ignore_value = p;
+		}
+	}
 
 	/* strings are sorted so that all lists come first */
 	p_array_init(&prefixes_arr, ctx->pool, 32);
@@ -443,6 +455,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			} else
 				goto end;
 		}
+
 	again:
 		j = 0;
 		/* if there are open sections and this key isn't in it,
@@ -494,6 +507,17 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		}
 		str_truncate(ctx->list_prefix, 0);
 		ctx->list_prefix_sent = TRUE;
+
+		if (ignore_key != NULL && strcmp(key, ignore_key) == 0 &&
+		    strcmp(value, ignore_value) == 0) {
+			/* key=value is already visible list_prefix - don't
+			   duplicate it here. For example hide the name in:
+			   dict foo {
+			     name = foo
+			   }
+			*/
+			goto end;
+		}
 
 		skip_len = prefix_idx == UINT_MAX ? 0 : strlen(prefixes[prefix_idx]);
 		i_assert(skip_len == 0 ||
@@ -743,7 +767,7 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 				t_strdup_printf("%s%s", strip_prefix, set_name_filter);
 		}
 		config_dump_human_output(ctx, output, sub_indent,
-					 set_name_filter,
+					 filter_name, set_name_filter,
 					 alt_set_name_filter,
 					 alt_set_name_filter2,
 					 hide_key, sub_hide_passwords,
@@ -790,7 +814,7 @@ config_dump_human(enum config_dump_scope scope,
 	/* Check for the setting always even with a filter - it might be
 	   e.g. plugin/key strlist */
 	ctx = config_dump_human_init(scope, filter_parser);
-	config_dump_human_output(ctx, output, 0, setting_name_filter, NULL, NULL,
+	config_dump_human_output(ctx, output, 0, NULL, setting_name_filter, NULL, NULL,
 				 hide_key, hide_passwords, NULL, NULL);
 	config_dump_human_deinit(ctx);
 
