@@ -335,7 +335,29 @@ try_strip_prefix(const char **key_prefix, const char *strip_prefix,
 		return;
 	if (strip_prefix2 == NULL)
 		return;
-	(void)str_begins(*key_prefix, strip_prefix2, key_prefix);
+
+	const char *suffix;
+	if (str_begins(*key_prefix, strip_prefix2, &suffix)) {
+		/* Prefix isn't stripped in all situations or it would result
+		   in wrong output. For example:
+
+		   *key_prefix = "dict_name"
+		   strip_prefix = "dict_proxy_"
+		   strip_prefix2 = "dict_"
+		   suffix = "name"
+
+		   Now if we return "name", it conflicts with "dict_proxy_name"
+		   setting. So if such conflicting setting name exists, don't
+		   strip the prefix.
+		*/
+		const char *conflict_key =
+			t_strconcat(strip_prefix, t_strcut(suffix, '='), NULL);
+		if (config_parsed_key_lookup(config, conflict_key) == NULL) {
+			*key_prefix = suffix;
+			return;
+		}
+
+	}
 }
 
 static void ATTR_NULL(4)

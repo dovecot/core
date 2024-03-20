@@ -91,6 +91,9 @@ void config_fill_set_parser(struct setting_parser_context *parser,
 const char *
 config_module_parsers_get_setting(const struct config_module_parser *module_parsers,
 				  const char *info_name, const char *key);
+/* Lookup setting with the specified key. */
+const struct setting_define *
+config_parsed_key_lookup(struct config_parsed *config, const char *key);
 void config_parsed_free(struct config_parsed **config);
 
 void config_parse_load_modules(void);
