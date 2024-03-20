@@ -894,9 +894,9 @@ static void db_ldap_set_options(struct ldap_connection *conn)
 	}
 #endif
 
-	unsigned int ldap_version = conn->set->ldap_version;
-	db_ldap_set_opt(conn->ld, LDAP_OPT_PROTOCOL_VERSION, &ldap_version,
-			"protocol_version", dec2str(ldap_version));
+	db_ldap_set_opt(conn->ld, LDAP_OPT_PROTOCOL_VERSION,
+			&conn->set->version,
+			"protocol_version", dec2str(conn->set->version));
 	db_ldap_set_tls_options(conn);
 }
 
@@ -1719,7 +1719,7 @@ struct ldap_connection *db_ldap_init(struct event *event)
 	if (conn->set->sasl_bind)
 		i_fatal("LDAP: ldap_sasl_bind=yes but no SASL support compiled in");
 #endif
-	if (conn->set->ldap_version < 3) {
+	if (conn->set->version < 3) {
 		if (conn->set->sasl_bind)
 			i_fatal("LDAP: ldap_sasl_bind=yes requires ldap_version=3");
 		if (conn->set->tls)
