@@ -42,5 +42,6 @@ struct ldap_settings {
 };
 
 extern const struct setting_parser_info ldap_setting_parser_info;
+int ldap_setting_post_check(const struct ldap_settings *set, const char **error_r);
 
 #endif

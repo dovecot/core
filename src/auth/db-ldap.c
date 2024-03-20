@@ -1683,9 +1683,12 @@ struct ldap_connection *db_ldap_init(struct event *event)
 {
         const struct ldap_settings *set;
 	const struct ssl_settings *ssl_set;
+	const char *error;
 
 	set     = settings_get_or_fatal(event, &ldap_setting_parser_info);
 	ssl_set = settings_get_or_fatal(event, &ssl_setting_parser_info);
+	if (ldap_setting_post_check(set, &error) < 0)
+		i_fatal("LDAP: %s", error);
 
 	/* see if it already exists */
 	struct ldap_connection *conn = db_ldap_conn_find(set, ssl_set);
