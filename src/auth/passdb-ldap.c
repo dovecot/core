@@ -43,6 +43,7 @@ ldap_query_save_result(struct ldap_connection *conn,
 		       struct ldap_request_search *ldap_request,
 		       LDAPMessage *res)
 {
+	struct passdb_module *_module = auth_request->passdb->passdb;
 	struct db_ldap_result_iterate_context *ldap_iter;
 	const char *name, *const *values;
 
@@ -58,7 +59,7 @@ ldap_query_save_result(struct ldap_connection *conn,
 				  "using value '%s'", name, values[0]);
 		}
 		auth_request_set_field(auth_request, name, values[0],
-				       conn->set->default_pass_scheme);
+				       _module->default_pass_scheme);
 	}
 	db_ldap_result_iterate_deinit(&ldap_iter);
 }
@@ -471,7 +472,6 @@ static int passdb_ldap_preinit(pool_t pool, struct event *event,
 				     t_strconcat(conn->set->base,
 						 conn->set->pass_attrs,
 						 conn->set->pass_filter, NULL));
-	module->module.default_pass_scheme = conn->set->default_pass_scheme;
 	*module_r = &module->module;
 	return 0;
 }
