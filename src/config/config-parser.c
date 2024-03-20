@@ -742,7 +742,7 @@ config_apply_line_full(struct config_parser_context *ctx,
 		       const struct config_line *line,
 		       const char *key_with_path,
 		       const char *value, const char **full_key_r,
-		       bool *root_setting_r)
+		       bool autoprefix, bool *root_setting_r)
 {
 	struct config_filter_parser *filter_parser, *orig_filter_parser;
 	const char *p, *key;
@@ -830,7 +830,7 @@ again:
 		}
 		ctx->cur_section->filter_parser = last_filter_parser;
 	}
-	if (ret == 0 &&
+	if (ret == 0 && autoprefix &&
 	    ctx->cur_section->filter_parser->filter.filter_name != NULL) {
 		/* first try the filter name-specific prefix, so e.g.
 		   inet_listener { ssl=yes } won't try to change the global
@@ -891,7 +891,7 @@ int config_apply_line(struct config_parser_context *ctx,
 {
 	bool root_setting;
 	return config_apply_line_full(ctx, NULL, key_with_path,
-				      value, full_key_r, &root_setting);
+				      value, full_key_r, TRUE, &root_setting);
 }
 
 static struct config_module_parser *
@@ -1159,11 +1159,14 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 	ctx->cur_section->is_filter = TRUE;
 
 	if (filter_def != NULL) {
+		i_assert(filter_info != NULL);
 		ctx->cur_section->filter_def = filter_def;
 		if (filter_def->type == SET_FILTER_ARRAY) {
 			/* add the name field for the filter */
-			if (config_apply_line(ctx, filter_def->filter_array_field_name,
-					      value, NULL) < 0) {
+			bool root_setting;
+			if (config_apply_line_full(ctx, NULL,
+					filter_def->filter_array_field_name,
+					value, NULL, FALSE, &root_setting) < 0) {
 				i_panic("BUG: Invalid setting definitions: "
 					"Failed to set %s=%s for struct %s: %s",
 					filter_def->filter_array_field_name,
@@ -2027,7 +2030,7 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 				line->key;
 			if (config_apply_line_full(ctx, line, key_with_path,
 						   str_c(ctx->value), &full_key,
-						   &root_setting) < 0) {
+						   TRUE, &root_setting) < 0) {
 				ctx->error = p_strdup_printf(ctx->pool,
 					"%s: %s", line->key, ctx->error);
 			} else {
