@@ -132,16 +132,6 @@ static bool ldap_setting_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	}
 
-	if (*set->base == '\0') {
-		*error_r = "No ldap_base given";
-		return FALSE;
-	}
-
-	if (*set->uris == '\0' && *set->hosts == '\0') {
-		*error_r = "Neither ldap_uris nor ldap_hosts set";
-		return FALSE;
-	}
-
 #ifndef LDAP_HAVE_INITIALIZE
 	if (*set->uris != '\0') {
 		*error_r = "ldap_uris set, but Dovecot compiled without support for LDAP uris "
@@ -164,18 +154,33 @@ static bool ldap_setting_check(void *_set, pool_t pool ATTR_UNUSED,
 	}
 #endif
 
-	if (set->version < 3) {
-		if (set->sasl_bind) {
-			*error_r = "ldap_sasl_bind=yes requires ldap_version=3";
-			return FALSE;
-		}
-		if (set->starttls) {
-			*error_r = "ldap_starttls=yes requires ldap_version=3";
-			return FALSE;
-		}
-	}
-
 	return TRUE;
 }
 
 /* </settings checks> */
+
+int ldap_setting_post_check(const struct ldap_settings *set, const char **error_r)
+{
+	if (*set->base == '\0') {
+		*error_r = "No ldap_base given";
+		return -1;
+	}
+
+	if (*set->uris == '\0' && *set->hosts == '\0') {
+		*error_r = "Neither ldap_uris nor ldap_hosts set";
+		return -1;
+	}
+
+	if (set->version < 3) {
+		if (set->sasl_bind) {
+			*error_r = "ldap_sasl_bind=yes requires ldap_version=3";
+			return -1;
+		}
+		if (set->starttls) {
+			*error_r = "ldap_starttls=yes requires ldap_version=3";
+			return -1;
+		}
+	}
+
+	return 0;
+}
