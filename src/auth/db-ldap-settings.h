@@ -27,8 +27,6 @@ struct ldap_settings {
 	const char *iterate_attrs;
 	const char *iterate_filter;
 
-	const char *default_pass_scheme;
-
 	unsigned int version;
 
 	uid_t uid;
