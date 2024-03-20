@@ -36,7 +36,7 @@ struct ldap_settings {
 
 	const char *default_pass_scheme;
 
-	unsigned int ldap_version;
+	unsigned int version;
 
 	int ldap_deref;
 	int ldap_scope;
