@@ -66,7 +66,7 @@ struct mysql_settings {
 static const struct setting_define mysql_setting_defines[] = {
 	{ .type = SET_FILTER_ARRAY, .key = MYSQL_SQLPOOL_SET_NAME,
 	  .offset = offsetof(struct mysql_settings, sqlpool_hosts),
-	  .filter_array_field_name = "host", },
+	  .filter_array_field_name = "mysql_host", },
 	DEF(UINT, connection_limit),
 
 	DEF(STR, host),

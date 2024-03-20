@@ -35,7 +35,7 @@ struct pgsql_settings {
 static const struct setting_define pgsql_setting_defines[] = {
 	{ .type = SET_FILTER_ARRAY, .key = PGSQL_SQLPOOL_SET_NAME,
 	  .offset = offsetof(struct pgsql_settings, sqlpool_hosts),
-	  .filter_array_field_name = "host", },
+	  .filter_array_field_name = "pgsql_host", },
 	DEF(UINT, connection_limit),
 
 	DEF(STR, host),

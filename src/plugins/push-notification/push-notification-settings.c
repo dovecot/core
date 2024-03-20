@@ -58,7 +58,7 @@ static const struct setting_define push_notification_setting_defines[] = {
 		.type = SET_FILTER_ARRAY,
 		.key = PUSH_NOTIFICATION_SETTINGS_FILTER_NAME,
 		.offset = offsetof(struct push_notification_settings, push_notifications),
-		.filter_array_field_name = "name",
+		.filter_array_field_name = "push_notification_name",
 	},
 
 	SETTING_DEFINE_LIST_END,

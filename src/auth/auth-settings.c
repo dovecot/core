@@ -364,10 +364,10 @@ static const struct setting_define auth_setting_defines[] = {
 
 	{ .type = SET_FILTER_ARRAY, .key = "passdb",
 	  .offset = offsetof(struct auth_settings, passdbs),
-	  .filter_array_field_name = "name", },
+	  .filter_array_field_name = "passdb_name", },
 	{ .type = SET_FILTER_ARRAY, .key = "userdb",
 	  .offset = offsetof(struct auth_settings, userdbs),
-	  .filter_array_field_name = "name", },
+	  .filter_array_field_name = "userdb_name", },
 
 	DEF_NOPREFIX(STR_HIDDEN, base_dir),
 	DEF_NOPREFIX(BOOL, verbose_proctitle),
