@@ -35,7 +35,6 @@ struct ldap_settings {
 	bool auth_bind;
 	bool starttls;
 	bool sasl_bind;
-	bool blocking;
 
 	/* parsed */
 	int parsed_deref;
