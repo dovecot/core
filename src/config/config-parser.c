@@ -1335,6 +1335,12 @@ config_parser_check_warnings(struct config_parser_context *ctx, const char *key)
 {
 	const char *path, *first_pos;
 
+	if (ctx->cur_input == NULL) {
+		/* coming from old_settings_handle_post() - we don't need to
+		   track seen settings in there. */
+		return;
+	}
+
 	first_pos = hash_table_lookup(ctx->seen_settings, key);
 	if (ctx->cur_section->prev == NULL) {
 		/* changing a root setting. if we've already seen it inside
