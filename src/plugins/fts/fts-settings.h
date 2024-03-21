@@ -6,11 +6,6 @@
 #define FTS_FILTER		"fts"
 #define FTS_FILTER_DECODER_TIKA	"fts_decoder_tika"
 
-enum fts_enforced {
-	FTS_ENFORCED_NO,
-	FTS_ENFORCED_YES,
-	FTS_ENFORCED_BODY,
-};
 enum fts_decoder {
 	FTS_DECODER_NO,
 	FTS_DECODER_TIKA,
@@ -26,14 +21,15 @@ struct fts_settings {
 	const char *decoder_script_socket_path;
 	const char *decoder_tika_url;
 	const char *driver;
-	const char *enforced;
+	const char *search_add_missing;
+	bool search_read_fallback;
 	unsigned int autoindex_max_recent_msgs;
 	unsigned int index_timeout;
 	uoff_t message_max_size;
 	bool autoindex;
 
-	enum fts_enforced parsed_enforced;
 	enum fts_decoder parsed_decoder_driver;
+	bool parsed_search_add_missing_body_only;
 };
 
 extern const struct setting_parser_info fts_setting_parser_info;
