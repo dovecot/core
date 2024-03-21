@@ -38,8 +38,6 @@ struct ldap_settings {
 
 	unsigned int version;
 
-	int ldap_deref;
-	int ldap_scope;
 	int ldap_tls_require_cert_parsed;
 
 	uid_t uid;
@@ -49,6 +47,10 @@ struct ldap_settings {
 	bool starttls;
 	bool sasl_bind;
 	bool blocking;
+
+	/* parsed */
+	int parsed_deref;
+	int parsed_scope;
 };
 
 extern const struct setting_parser_info ldap_setting_parser_info;

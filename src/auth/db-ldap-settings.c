@@ -149,13 +149,13 @@ static bool ldap_setting_check(void *_set, pool_t pool ATTR_UNUSED,
 {
 	struct ldap_settings *set = _set;
 
-        if (ldap_parse_deref(set->deref, &set->ldap_deref) < 0) {
+        if (ldap_parse_deref(set->deref, &set->parsed_deref) < 0) {
 		*error_r = t_strdup_printf("Unknown ldap_deref option '%s'",
 					   set->deref);
 		return FALSE;
 	}
 
-	if (ldap_parse_scope(set->scope, &set->ldap_scope) < 0) {
+	if (ldap_parse_scope(set->scope, &set->parsed_scope) < 0) {
 		*error_r = t_strdup_printf("Unknown ldap_scope option '%s'",
 					   set->scope);
 		return FALSE;

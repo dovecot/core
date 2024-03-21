@@ -218,7 +218,7 @@ static int db_ldap_request_search(struct ldap_connection *conn,
 
 	ldap_search_ext(
 		conn->ld, *srequest->base == '\0' ? NULL : srequest->base,
-		conn->set->ldap_scope, srequest->filter, srequest->attributes,
+		conn->set->parsed_scope, srequest->filter, srequest->attributes,
 		0, NULL, NULL, 0, 0, &request->msgid);
 	if (request->msgid == -1) {
 		e_error(authdb_event(request->auth_request),
@@ -883,7 +883,7 @@ static void db_ldap_set_options(struct ldap_connection *conn)
 		i_fatal("LDAP: Can't set network-timeout: %s", ldap_err2string(ret));
 #endif
 
-	db_ldap_set_opt(conn->ld, LDAP_OPT_DEREF, &conn->set->ldap_deref,
+	db_ldap_set_opt(conn->ld, LDAP_OPT_DEREF, &conn->set->parsed_deref,
 			"ldap_deref", conn->set->deref);
 #ifdef LDAP_OPT_DEBUG_LEVEL
 	int debug_level;
