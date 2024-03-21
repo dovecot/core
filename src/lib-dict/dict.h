@@ -115,6 +115,10 @@ int dict_init_legacy(const char *uri, const struct dict_legacy_settings *set,
    driver initialization failed. */
 int dict_init_auto(struct event *event, struct dict **dict_r,
 		   const char **error_r);
+/* Initialize a specific named dict. This is intended to be used only by the
+   dict server. */
+int dict_init_filter_auto(struct event *event, const char *dict_name,
+			  struct dict **dict_r, const char **error_r);
 /* Close dictionary. */
 void dict_deinit(struct dict **dict);
 /* Wait for all pending asynchronous operations to finish. */
