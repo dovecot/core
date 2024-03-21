@@ -177,7 +177,7 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	ctx = fbox->module_ctx.super.search_init(t, args, sort_program,
 						 wanted_fields, wanted_headers);
 
-	if (*fbox->set->driver == '\0' ||
+	if (!fbox->set->search ||
 	    !fts_backend_can_lookup(flist->backend, args->args))
 		return ctx;
 
@@ -669,7 +669,8 @@ fts_transaction_commit(struct mailbox_transaction_context *t,
 	int ret = 0;
 	const char *error;
 
-	autoindex = ft->mails_saved && fbox->set->autoindex && *fbox->set->driver != '\0';
+	autoindex = ft->mails_saved && fbox->set->autoindex &&
+		fbox->set->search;
 
 	if (fts_transaction_end(t, &error) < 0) {
 		mail_storage_set_error(t->box->storage, MAIL_ERROR_TEMP,
