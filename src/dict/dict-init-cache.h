@@ -1,6 +1,8 @@
 #ifndef DICT_INIT_CACHE_H
 #define DICT_INIT_CACHE_H
 
+int dict_init_cache_get(struct event *event, const char *dict_name,
+			struct dict **dict_r, const char **error_r);
 int dict_init_cache_get_legacy(const char *dict_name, const char *uri,
 			       const struct dict_legacy_settings *set,
 			       struct dict **dict_r, const char **error_r);

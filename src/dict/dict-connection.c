@@ -7,6 +7,7 @@
 #include "ostream.h"
 #include "llist.h"
 #include "strescape.h"
+#include "settings.h"
 #include "master-service.h"
 #include "dict-client.h"
 #include "dict-settings.h"
@@ -21,10 +22,6 @@
 static int dict_connection_dict_init(struct dict_connection *conn);
 static void dict_connection_destroy(struct connection *_conn);
 struct connection_list *dict_connections = NULL;
-
-static  struct event_category dict_server_event_category = {
-	.name = "dict-server",
-};
 
 static int dict_connection_handshake_args(struct connection *_conn,
 					  const char *const *args)
@@ -66,28 +63,23 @@ static int dict_connection_handshake_line(struct connection *conn,
 	return dict_connection_handshake_args(conn, args);
 }
 
-static int dict_connection_dict_init(struct dict_connection *conn)
+static int dict_connection_dict_init_legacy(struct dict_connection *conn)
 {
 	struct dict_legacy_settings dict_set;
 	const char *const *strlist;
 	unsigned int i, count;
 	const char *uri, *error;
 
-	if (!array_is_created(&server_settings->legacy_dicts)) {
-		e_error(conn->conn.event, "No dictionaries configured");
-		return -1;
-	}
+	if (!array_is_created(&server_settings->legacy_dicts))
+		return 0;
 	strlist = array_get(&server_settings->legacy_dicts, &count);
 	for (i = 0; i < count; i += 2) {
 		if (strcmp(strlist[i], conn->name) == 0)
 			break;
 	}
 
-	if (i == count) {
-		e_error(conn->conn.event, "Unconfigured dictionary name '%s'",
-			conn->name);
-		return -1;
-	}
+	if (i == count)
+		return 0;
 	event_set_append_log_prefix(conn->conn.event,
 				    t_strdup_printf("%s: ", conn->name));
 	event_add_str(conn->conn.event, "dict_name", conn->name);
@@ -101,6 +93,57 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 		/* dictionary initialization failed */
 		e_error(conn->conn.event, "Failed to initialize dictionary '%s': %s",
 			conn->name, error);
+		return -1;
+	}
+	return 1;
+}
+
+static int dict_connection_dict_init_name(struct dict_connection *conn)
+{
+	struct event *event;
+	const char *error;
+
+	event_set_append_log_prefix(conn->conn.event,
+				    t_strdup_printf("%s: ", conn->name));
+
+	/* The dict is persistently cached, so don't use connection's event. */
+	event = event_create(master_service_get_event(master_service));
+	event_set_append_log_prefix(event, t_strdup_printf("%s: ", conn->name));
+	event_add_str(event, "dict_name", conn->name);
+
+	if (dict_init_cache_get(event, conn->name, &conn->dict, &error) < 0) {
+		e_error(conn->conn.event, "Failed to initialize dictionary '%s': %s",
+			conn->name, error);
+		event_unref(&event);
+		return -1;
+	}
+	event_unref(&event);
+	return 0;
+}
+
+static int dict_connection_dict_init(struct dict_connection *conn)
+{
+	int ret = 0;
+
+	if (array_is_created(&dict_settings->dicts)) {
+		const char *dict_name;
+		array_foreach_elem(&dict_settings->dicts, dict_name) {
+			if (strcmp(conn->name, dict_name) == 0) {
+				if (dict_connection_dict_init_name(conn) < 0)
+					return -1;
+				ret = 1;
+				break;
+			}
+		}
+	}
+
+	if (ret == 0) {
+		if ((ret = dict_connection_dict_init_legacy(conn)) < 0)
+			return -1;
+	}
+	if (ret == 0) {
+		e_error(conn->conn.event, "Unconfigured dictionary name '%s'",
+			conn->name);
 		return -1;
 	}
 	return 0;

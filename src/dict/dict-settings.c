@@ -90,6 +90,8 @@ struct service_settings dict_expire_service_settings = {
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct dict_server_settings)
 
 static const struct setting_define dict_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "dict_server" },
+
 	DEF(STR_HIDDEN, base_dir),
 	DEF(BOOL, verbose_proctitle),
 	{ .type = SET_STRLIST, .key = "dict_legacy",
@@ -115,3 +117,8 @@ const struct setting_parser_info dict_server_setting_parser_info = {
 };
 
 const struct dict_server_settings *server_settings;
+const struct dict_settings *dict_settings;
+
+struct event_category dict_server_event_category = {
+	.name = "dict-server",
+};

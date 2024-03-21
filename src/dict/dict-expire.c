@@ -63,7 +63,7 @@ static void client_connected(struct master_service_connection *conn ATTR_UNUSED)
 	dict_expire_run();
 }
 
-static void dict_expire_init(void)
+static void dict_expire_init_legacy(void)
 {
 	struct dict_legacy_settings dict_set = {
 		.base_dir = server_settings->base_dir,
@@ -72,7 +72,8 @@ static void dict_expire_init(void)
 	const char *const *strlist, *error;
 	unsigned int i, count;
 
-	i_array_init(&expire_dicts, 16);
+	if (!array_is_created(&server_settings->legacy_dicts))
+		return;
 	strlist = array_get(&server_settings->legacy_dicts, &count);
 	for (i = 0; i < count; i += 2) {
 		const char *name = strlist[i];
@@ -90,6 +91,30 @@ static void dict_expire_init(void)
 	}
 }
 
+static void dict_expire_init(struct event *event)
+{
+	i_array_init(&expire_dicts, 16);
+	dict_expire_init_legacy();
+
+	if (!array_is_created(&dict_settings->dicts))
+		return;
+
+	struct dict *dict;
+	const char *dict_name, *error;
+	array_foreach_elem(&dict_settings->dicts, dict_name) {
+		if (dict_init_filter_auto(event, dict_name, &dict, &error) < 0) {
+			i_error("Failed to initialize dictionary '%s': %s - skipping",
+				dict_name, error);
+		} else {
+			struct expire_dict *expire_dict =
+				array_append_space(&expire_dicts);
+			expire_dict->name = dict_name;
+			expire_dict->dict = dict;
+		}
+	}
+
+}
+
 static void main_preinit(void)
 {
 	/* Load built-in SQL drivers (if any) */
@@ -105,10 +130,14 @@ static void main_preinit(void)
 static void main_init(void)
 {
 	struct module_dir_load_settings mod_set;
+	struct event *event = master_service_get_event(master_service);
 
+	event_add_category(event, &dict_server_event_category);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "dict_server");
 	server_settings =
-		settings_get_or_fatal(master_service_get_event(master_service),
-				      &dict_server_setting_parser_info);
+		settings_get_or_fatal(event, &dict_server_setting_parser_info);
+	dict_settings =
+		settings_get_or_fatal(event, &dict_setting_parser_info);
 
 	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
@@ -121,7 +150,7 @@ static void main_init(void)
 	   which we'll need to register. */
 	dict_drivers_register_all();
 
-	dict_expire_init();
+	dict_expire_init(event);
 	to_expire = timeout_add(DICT_EXPIRE_RUN_INTERVAL_MSECS,
 				dict_expire_timeout, NULL);
 }
@@ -140,6 +169,7 @@ static void main_deinit(void)
 	sql_drivers_deinit();
 	timeout_remove(&to_expire);
 	settings_free(server_settings);
+	settings_free(dict_settings);
 }
 
 int main(int argc, char *argv[])
