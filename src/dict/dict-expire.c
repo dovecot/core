@@ -36,7 +36,7 @@ static void dict_expire_run(void)
 	for (i = count; i > 0; i--) {
 		struct expire_dict *dict = &dicts[i-1];
 
-		if (dict_settings->verbose_proctitle)
+		if (server_settings->verbose_proctitle)
 			process_title_set(t_strdup_printf("[running dict %s]", dict->name));
 		ret = dict_expire_scan(dict->dict, &error);
 		if (ret < 0)
@@ -46,7 +46,7 @@ static void dict_expire_run(void)
 			array_delete(&expire_dicts, i-1, 1);
 		}
 	}
-	if (dict_settings->verbose_proctitle)
+	if (server_settings->verbose_proctitle)
 		process_title_set("[idling]");
 }
 
@@ -66,14 +66,14 @@ static void client_connected(struct master_service_connection *conn ATTR_UNUSED)
 static void dict_expire_init(void)
 {
 	struct dict_legacy_settings dict_set = {
-		.base_dir = dict_settings->base_dir,
+		.base_dir = server_settings->base_dir,
 	};
 	struct dict *dict;
 	const char *const *strlist, *error;
 	unsigned int i, count;
 
 	i_array_init(&expire_dicts, 16);
-	strlist = array_get(&dict_settings->legacy_dicts, &count);
+	strlist = array_get(&server_settings->legacy_dicts, &count);
 	for (i = 0; i < count; i += 2) {
 		const char *name = strlist[i];
 		const char *uri = strlist[i+1];
@@ -106,7 +106,7 @@ static void main_init(void)
 {
 	struct module_dir_load_settings mod_set;
 
-	dict_settings =
+	server_settings =
 		settings_get_or_fatal(master_service_get_event(master_service),
 				      &dict_server_setting_parser_info);
 
@@ -139,7 +139,7 @@ static void main_deinit(void)
 
 	sql_drivers_deinit();
 	timeout_remove(&to_expire);
-	settings_free(dict_settings);
+	settings_free(server_settings);
 }
 
 int main(int argc, char *argv[])

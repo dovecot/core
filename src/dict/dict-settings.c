@@ -114,4 +114,4 @@ const struct setting_parser_info dict_server_setting_parser_info = {
 	.pool_offset1 = 1 + offsetof(struct dict_server_settings, pool),
 };
 
-const struct dict_server_settings *dict_settings;
+const struct dict_server_settings *server_settings;

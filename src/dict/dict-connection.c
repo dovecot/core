@@ -73,11 +73,11 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 	unsigned int i, count;
 	const char *uri, *error;
 
-	if (!array_is_created(&dict_settings->legacy_dicts)) {
+	if (!array_is_created(&server_settings->legacy_dicts)) {
 		e_error(conn->conn.event, "No dictionaries configured");
 		return -1;
 	}
-	strlist = array_get(&dict_settings->legacy_dicts, &count);
+	strlist = array_get(&server_settings->legacy_dicts, &count);
 	for (i = 0; i < count; i += 2) {
 		if (strcmp(strlist[i], conn->name) == 0)
 			break;
@@ -94,7 +94,7 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 	uri = strlist[i+1];
 
 	i_zero(&dict_set);
-	dict_set.base_dir = dict_settings->base_dir;
+	dict_set.base_dir = server_settings->base_dir;
 	dict_set.event_parent = conn->conn.event;
 	if (dict_init_cache_get_legacy(conn->name, uri, &dict_set,
 				       &conn->dict, &error) < 0) {

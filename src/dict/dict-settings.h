@@ -9,6 +9,6 @@ struct dict_server_settings {
 };
 
 extern const struct setting_parser_info dict_server_setting_parser_info;
-extern const struct dict_server_settings *dict_settings;
+extern const struct dict_server_settings *server_settings;
 
 #endif
