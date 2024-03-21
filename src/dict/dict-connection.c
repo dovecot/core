@@ -96,7 +96,8 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 	i_zero(&dict_set);
 	dict_set.base_dir = dict_settings->base_dir;
 	dict_set.event_parent = conn->conn.event;
-	if (dict_init_cache_get(conn->name, uri, &dict_set, &conn->dict, &error) < 0) {
+	if (dict_init_cache_get_legacy(conn->name, uri, &dict_set,
+				       &conn->dict, &error) < 0) {
 		/* dictionary initialization failed */
 		e_error(conn->conn.event, "Failed to initialize dictionary '%s': %s",
 			conn->name, error);
