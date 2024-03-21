@@ -100,11 +100,15 @@ static void main_preinit(void)
 
 static void main_init(void)
 {
+	struct event *event = master_service_get_event(master_service);
 	struct module_dir_load_settings mod_set;
 
+	event_add_category(event, &dict_server_event_category);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "dict_server");
 	server_settings =
-		settings_get_or_fatal(master_service_get_event(master_service),
-				      &dict_server_setting_parser_info);
+		settings_get_or_fatal(event, &dict_server_setting_parser_info);
+	dict_settings =
+		settings_get_or_fatal(event, &dict_setting_parser_info);
 
 	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
@@ -138,6 +142,7 @@ static void main_deinit(void)
 
 	sql_drivers_deinit();
 	timeout_remove(&to_proctitle);
+	settings_free(dict_settings);
 	settings_free(server_settings);
 }
 

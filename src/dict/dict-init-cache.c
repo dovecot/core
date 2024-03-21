@@ -75,6 +75,25 @@ static struct dict_init_cache_list *dict_init_cache_find(const char *dict_name)
 	return match;
 }
 
+int dict_init_cache_get(struct event *event, const char *dict_name,
+			struct dict **dict_r, const char **error_r)
+{
+	struct dict_init_cache_list *match;
+	int ret = 0;
+
+	match = dict_init_cache_find(dict_name);
+	if (match == NULL) {
+		if (dict_init_filter_auto(event, dict_name, dict_r, error_r) <= 0)
+			return -1;
+		match = dict_init_cache_add(dict_name, *dict_r);
+	} else {
+		match->refcount++;
+		*dict_r = match->dict;
+	}
+	i_assert(match->dict != NULL);
+	return ret;
+}
+
 int dict_init_cache_get_legacy(const char *dict_name, const char *uri,
 			       const struct dict_legacy_settings *set,
 			       struct dict **dict_r, const char **error_r)
