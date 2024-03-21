@@ -181,9 +181,7 @@ static bool dict_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 int dict_init_auto(struct event *event, struct dict **dict_r,
 		   const char **error_r)
 {
-	const struct dict *dict_driver;
 	struct dict_settings *dict_set;
-	const char *error;
 
 	i_assert(event != NULL);
 
@@ -209,10 +207,21 @@ int dict_init_auto(struct event *event, struct dict **dict_r,
 		return -1;
 	}
 
+	int ret = dict_init_filter_auto(event, dict_name_first, dict_r, error_r);
+	settings_free(dict_set);
+	return ret;
+}
+
+int dict_init_filter_auto(struct event *event, const char *dict_name,
+			  struct dict **dict_r, const char **error_r)
+{
+	struct dict_settings *dict_set;
+	const struct dict *dict_driver;
+	const char *error;
+
 	/* Get settings for the first dict list filter */
 	event = event_create(event);
-	event_add_str(event, "dict", dict_name_first);
-	settings_free(dict_set);
+	event_add_str(event, "dict", dict_name);
 	if (settings_get(event, &dict_setting_parser_info, 0,
 			 &dict_set, error_r) < 0) {
 		event_unref(&event);
