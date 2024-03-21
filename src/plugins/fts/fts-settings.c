@@ -19,7 +19,8 @@ static const struct setting_define fts_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = FTS_FILTER_DECODER_TIKA },
 	DEF(STR,     decoder_tika_url),
 	DEF(STR,     driver),
-	DEF(ENUM,    enforced),
+	DEF(ENUM,    search_add_missing),
+	DEF(BOOL,    search_read_fallback),
 	DEF(BOOLLIST,header_excludes),
 	DEF(BOOLLIST,header_includes),
 	DEF(TIME,    index_timeout),
@@ -29,9 +30,7 @@ static const struct setting_define fts_setting_defines[] = {
 
 /* <settings checks> */
 
-#define FTS_ENFORCE_KEYWORD_NO     "no"
-#define FTS_ENFORCE_KEYWORD_YES    "yes"
-#define FTS_ENFORCE_KEYWORD_BODY   "body"
+#define FTS_SEARCH_ADD_MISSING_BODY_SEARCH_ONLY "body-search-only"
 
 #define FTS_DECODER_KEYWORD_NONE   ""
 #define FTS_DECODER_KEYWORD_TIKA   "tika"
@@ -50,9 +49,9 @@ static const struct fts_settings fts_default_settings = {
 	.decoder_script_socket_path = "",
 	.decoder_tika_url = "",
 	.driver = "",
-	.enforced = FTS_ENFORCE_KEYWORD_NO
-		 ":"FTS_ENFORCE_KEYWORD_YES
-		 ":"FTS_ENFORCE_KEYWORD_BODY,
+	.search_add_missing = FTS_SEARCH_ADD_MISSING_BODY_SEARCH_ONLY":yes",
+	.search_read_fallback = TRUE,
+
 	.index_timeout = 0,
 	.message_max_size = SET_SIZE_UNLIMITED,
 };
@@ -107,17 +106,6 @@ static enum fts_decoder fts_settings_parse_decoder(const char *key)
 	return fts_settings_parse_enum(table, key);
 }
 
-static enum fts_enforced fts_settings_parse_enforced(const char *key)
-{
-	static struct fts_settings_enum_table table[] = {
-		{ FTS_ENFORCE_KEYWORD_NO,   FTS_ENFORCED_NO },
-		{ FTS_ENFORCE_KEYWORD_YES,  FTS_ENFORCED_YES },
-		{ FTS_ENFORCE_KEYWORD_BODY, FTS_ENFORCED_BODY },
-		{ NULL, 0 }
-	};
-	return fts_settings_parse_enum(table, key);
-}
-
 static bool fts_settings_check_decoder(struct fts_settings *set,
 				       const char **error_r)
 {
@@ -153,7 +141,9 @@ static bool fts_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 			       const char **error_r)
 {
 	struct fts_settings *set = _set;
-	set->parsed_enforced = fts_settings_parse_enforced(set->enforced);
+	set->parsed_search_add_missing_body_only =
+		strcmp(set->search_add_missing,
+		       FTS_SEARCH_ADD_MISSING_BODY_SEARCH_ONLY) == 0;
 	set->parsed_decoder_driver = fts_settings_parse_decoder(set->decoder_driver);
 	return fts_settings_check_decoder(set, error_r);
 }

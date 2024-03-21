@@ -206,7 +206,7 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	ft->scores = fctx->scores;
 	ft->scores->refcount++;
 
-	if (fbox->set->parsed_enforced == FTS_ENFORCED_YES ||
+	if (!fbox->set->parsed_search_add_missing_body_only ||
 	    fts_want_build_args(args->args))
 		fts_try_build_init(ctx, fctx);
 	else
@@ -264,7 +264,7 @@ fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 		}
 	}
 	if (fctx != NULL && !fctx->fts_lookup_success &&
-	    fbox->set->parsed_enforced != FTS_ENFORCED_NO)
+	    !fbox->set->search_read_fallback)
 		return FALSE;
 
 	return fbox->module_ctx.super.
@@ -424,7 +424,7 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 			ret = -1;
 		}
 		else if (!fctx->fts_lookup_success &&
-			 fbox->set->parsed_enforced != FTS_ENFORCED_NO) {
+			 !fbox->set->search_read_fallback) {
 			/* FTS lookup failed and we didn't want to fallback to
 			   opening all the mails and searching manually */
 			mail_storage_set_internal_error(box->storage);
