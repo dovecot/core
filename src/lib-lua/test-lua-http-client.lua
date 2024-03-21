@@ -9,7 +9,7 @@ function http_request_post(url)
 
   request:add_header("Cache-Control", "no-cache")
   request:add_header("Content-Type", "application/x-www-form-urlencoded")
-  request:set_payload("some+foolish+payload+for+funsies")
+  request:set_payload("some+foolish+payload+for+funsies", true)
   local response = request:submit()
 
   e = dovecot.event()

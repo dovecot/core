@@ -89,15 +89,18 @@ static int dlua_http_request_remove_header(lua_State *L)
 
 static int dlua_http_request_set_payload(lua_State *L)
 {
-	DLUA_REQUIRE_ARGS(L, 2);
+	DLUA_REQUIRE_ARGS_IN(L, 2, 3);
 
 	struct http_client_request *req = dlua_check_http_request(L, 1);
 	struct istream *payload_istream;
 
 	const char *payload = luaL_checkstring(L, 2);
+	bool do_sync = FALSE;
+	if (lua_gettop(L) >= 3)
+		do_sync = lua_toboolean(L, 3);
 	payload_istream = i_stream_create_copy_from_data(payload,
 			strlen(payload));
-	http_client_request_set_payload(req, payload_istream, TRUE);
+	http_client_request_set_payload(req, payload_istream, do_sync);
 	i_stream_unref(&payload_istream);
 	return 0;
 }
