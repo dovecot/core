@@ -107,7 +107,7 @@ cmd_stats_update(struct dict_connection_cmd *cmd, struct stats_dist *stats)
 {
 	long long diff;
 
-	if (!dict_settings->verbose_proctitle)
+	if (!server_settings->verbose_proctitle)
 		return;
 
 	diff = timeval_diff_usecs(&ioloop_timeval, &cmd->start_timeval);

@@ -67,7 +67,7 @@ static void dict_proctitle_update(void *context ATTR_UNUSED)
 
 void dict_proctitle_update_later(void)
 {
-	if (!dict_settings->verbose_proctitle)
+	if (!server_settings->verbose_proctitle)
 		return;
 
 	if (to_proctitle == NULL)
@@ -102,7 +102,7 @@ static void main_init(void)
 {
 	struct module_dir_load_settings mod_set;
 
-	dict_settings =
+	server_settings =
 		settings_get_or_fatal(master_service_get_event(master_service),
 				      &dict_server_setting_parser_info);
 
@@ -119,7 +119,7 @@ static void main_init(void)
 	dict_commands_init();
 	dict_connections_init();
 
-	if (dict_settings->verbose_proctitle)
+	if (server_settings->verbose_proctitle)
 		dict_proctitle_update(NULL);
 }
 
@@ -138,7 +138,7 @@ static void main_deinit(void)
 
 	sql_drivers_deinit();
 	timeout_remove(&to_proctitle);
-	settings_free(dict_settings);
+	settings_free(server_settings);
 }
 
 int main(int argc, char *argv[])
