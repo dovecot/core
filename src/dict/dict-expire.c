@@ -73,7 +73,7 @@ static void dict_expire_init(void)
 	unsigned int i, count;
 
 	i_array_init(&expire_dicts, 16);
-	strlist = array_get(&dict_settings->dicts, &count);
+	strlist = array_get(&dict_settings->legacy_dicts, &count);
 	for (i = 0; i < count; i += 2) {
 		const char *name = strlist[i];
 		const char *uri = strlist[i+1];
