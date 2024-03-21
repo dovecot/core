@@ -21,6 +21,7 @@ struct fts_settings {
 	const char *decoder_script_socket_path;
 	const char *decoder_tika_url;
 	const char *driver;
+	bool search;
 	const char *search_add_missing;
 	bool search_read_fallback;
 	unsigned int autoindex_max_recent_msgs;

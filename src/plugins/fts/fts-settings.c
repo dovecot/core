@@ -19,6 +19,7 @@ static const struct setting_define fts_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = FTS_FILTER_DECODER_TIKA },
 	DEF(STR,     decoder_tika_url),
 	DEF(STR,     driver),
+	DEF(BOOL,    search),
 	DEF(ENUM,    search_add_missing),
 	DEF(BOOL,    search_read_fallback),
 	DEF(BOOLLIST,header_excludes),
@@ -49,6 +50,7 @@ static const struct fts_settings fts_default_settings = {
 	.decoder_script_socket_path = "",
 	.decoder_tika_url = "",
 	.driver = "",
+	.search = TRUE,
 	.search_add_missing = FTS_SEARCH_ADD_MISSING_BODY_SEARCH_ONLY":yes",
 	.search_read_fallback = TRUE,
 
