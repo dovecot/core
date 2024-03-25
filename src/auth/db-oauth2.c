@@ -155,27 +155,13 @@ static const char *parse_setting(const char *key, const char *value,
 				       &db->set_store, key, value);
 }
 
-struct db_oauth2 *db_oauth2_init(const char *config_path)
+static void db_oauth2_setup(struct db_oauth2 *db)
 {
-	struct db_oauth2 *db;
 	const char *error;
+	if (!settings_read_nosection(db->config_path, parse_setting, db, &error))
+		i_fatal("oauth2 %s: %s", db->config_path, error);
 
-	for(db = db_oauth2_head; db != NULL; db = db->next) {
-		if (strcmp(db->config_path, config_path) == 0) {
-			return db;
-		}
-	}
-
-	pool_t pool = pool_alloconly_create("db_oauth2", 128);
-	db = p_new(pool, struct db_oauth2, 1);
-	db->pool = pool;
-	db->config_path = p_strdup(pool, config_path);
-	db->set = &default_oauth2_settings;
-
-	if (!settings_read_nosection(config_path, parse_setting, db, &error))
-		i_fatal("oauth2 %s: %s", config_path, error);
-
-	db->tmpl = passdb_template_build(pool, db->set->pass_attrs);
+	db->tmpl = passdb_template_build(db->pool, db->set->pass_attrs);
 
 	if (*db->set->local_validation_key_dict == '\0' &&
 	    *db->set->tokeninfo_url == '\0' &&
@@ -239,7 +225,7 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 
 	if (*db->set->issuers != '\0')
 		db->oauth2_set.issuers = (const char *const *)
-			p_strsplit_spaces(pool, db->set->issuers, " ");
+			p_strsplit_spaces(db->pool, db->set->issuers, " ");
 
 	if (*db->set->openid_configuration_url != '\0') {
 		struct http_url *parsed_url ATTR_UNUSED;
@@ -250,8 +236,25 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 				error);
 		}
 	}
+}
 
+struct db_oauth2 *db_oauth2_init(const char *config_path)
+{
+	struct db_oauth2 *db;
+
+	for(db = db_oauth2_head; db != NULL; db = db->next) {
+		if (strcmp(db->config_path, config_path) == 0) {
+			return db;
+		}
+	}
+
+	pool_t pool = pool_alloconly_create("db_oauth2", 128);
+	db = p_new(pool, struct db_oauth2, 1);
+	db->pool = pool;
+	db->config_path = p_strdup(pool, config_path);
+	db->set = &default_oauth2_settings;
 	DLLIST_PREPEND(&db_oauth2_head, db);
+	db_oauth2_setup(db);
 
 	return db;
 }
