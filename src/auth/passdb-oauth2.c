@@ -47,9 +47,11 @@ static struct passdb_module *
 oauth2_preinit(pool_t pool, const char *args)
 {
 	struct oauth2_passdb_module *module;
+	const char *error;
 
 	module = p_new(pool, struct oauth2_passdb_module, 1);
-	module->db = db_oauth2_init(args);
+	if (db_oauth2_init(args, &module->db, &error) < 0)
+		i_fatal("%s", error);
 	module->module.default_pass_scheme = "PLAIN";
 
 	if (db_oauth2_uses_password_grant(module->db)) {

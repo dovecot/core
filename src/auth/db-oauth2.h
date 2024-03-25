@@ -30,7 +30,8 @@ struct db_oauth2_request {
 };
 
 
-struct db_oauth2 *db_oauth2_init(const char *config_path);
+int db_oauth2_init(const char *config_path, struct db_oauth2 **db_r,
+		   const char **error_r);
 
 bool db_oauth2_uses_password_grant(const struct db_oauth2 *db);
 bool db_oauth2_use_worker(const struct db_oauth2 *db);
