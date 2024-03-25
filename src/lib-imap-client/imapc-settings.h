@@ -45,7 +45,6 @@ struct imapc_settings {
 	ARRAY_TYPE(const_string) imapc_sasl_mechanisms;
 
 	const char *imapc_ssl;
-	bool imapc_ssl_verify;
 
 	ARRAY_TYPE(const_string) imapc_features;
 	const char *imapc_rawlog_dir;

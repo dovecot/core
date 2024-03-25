@@ -22,7 +22,6 @@ static const struct setting_define imapc_setting_defines[] = {
 	DEF(BOOLLIST, imapc_sasl_mechanisms),
 
 	DEF(ENUM, imapc_ssl),
-	DEF(BOOL, imapc_ssl_verify),
 
 	DEF(BOOLLIST, imapc_features),
 	DEF(STR, imapc_rawlog_dir),
@@ -51,7 +50,6 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_sasl_mechanisms = ARRAY_INIT,
 
 	.imapc_ssl = "no:imaps:starttls",
-	.imapc_ssl_verify = TRUE,
 
 	.imapc_features = ARRAY_INIT,
 	.imapc_rawlog_dir = "",
