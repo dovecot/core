@@ -200,15 +200,18 @@ mech_oauth2_verify_token(struct oauth2_auth_request *oauth2_req, const char *tok
 
 static void oauth2_init_db(struct oauth2_auth_request *oauth2_req)
 {
+	const char *error;
 	if (oauth2_req->db != NULL)
 		return;
-	if (*oauth2_req->auth.set->oauth2_config_file != '\0')
-		oauth2_req->db = db_oauth2_init(oauth2_req->auth.set->oauth2_config_file);
-	else {
-		e_error(oauth2_req->auth.mech_event, "Cannot initialize oauth2");
-		oauth2_req->failed = TRUE;
-		auth_request_internal_failure(&oauth2_req->auth);
-	}
+	if (*oauth2_req->auth.set->oauth2_config_file != '\0') {
+		if (db_oauth2_init(oauth2_req->auth.set->oauth2_config_file,
+				   &oauth2_req->db, &error) >= 0)
+			return;
+	} else
+		error = "No config file specified";
+	e_error(oauth2_req->auth.mech_event, "Cannot initialize oauth2: %s", error);
+	oauth2_req->failed = TRUE;
+	auth_request_internal_failure(&oauth2_req->auth);
 }
 
 /* Input syntax:
@@ -421,5 +424,3 @@ const struct mech_module mech_xoauth2 = {
 	mech_xoauth2_auth_continue,
 	mech_generic_auth_free
 };
-
-

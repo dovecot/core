@@ -1006,6 +1006,7 @@ auth_worker_server_create(struct auth *auth,
 			  const struct master_service_connection *master_conn)
 {
 	struct auth_worker_server *server;
+	const char *error;
 
 	if (clients == NULL)
 		clients = connection_list_init(&auth_worker_server_set,
@@ -1022,8 +1023,14 @@ auth_worker_server_create(struct auth *auth,
 
 	auth_worker_refresh_proctitle(WORKER_STATE_HANDSHAKE);
 
-	if (*auth->protocol_set->oauth2_config_file != '\0')
-		server->oauth2 = db_oauth2_init(auth->protocol_set->oauth2_config_file);
+	if (*auth->protocol_set->oauth2_config_file != '\0') {
+		if (db_oauth2_init(auth->protocol_set->oauth2_config_file,
+				   &server->oauth2, &error) < 0) {
+			e_error(auth_event, "Cannot initialize oauth2: %s",
+				error);
+			auth_worker_server_error = TRUE;
+		}
+	}
 	if (auth_worker_server_error)
 		auth_worker_server_send_error();
 	return server;
