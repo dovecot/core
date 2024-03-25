@@ -8,7 +8,6 @@
 #include "ioloop.h"
 #include "ipwd.h"
 #include "time-util.h"
-#include "userdb-template.h"
 
 #define USER_CACHE_KEY "%u"
 #define PASSWD_SLOW_WARN_MSECS (10*1000)
@@ -18,7 +17,6 @@
 
 struct passwd_userdb_module {
 	struct userdb_module module;
-	struct userdb_template *tmpl;
 
 	unsigned int fast_count, slow_count;
 	bool slow_warned:1;
@@ -85,7 +83,6 @@ static void passwd_lookup(struct auth_request *auth_request,
 		(struct passwd_userdb_module *)_module;
 	struct passwd pw;
 	struct timeval start_tv;
-	const char *error;
 	int ret;
 
 	e_debug(authdb_event(auth_request), "lookup");
@@ -95,6 +92,7 @@ static void passwd_lookup(struct auth_request *auth_request,
 	if (start_tv.tv_sec != 0)
 		passwd_check_warnings(auth_request, module, &start_tv);
 
+	struct auth_fields *pwd_fields = auth_fields_init(auth_request->pool);
 	switch (ret) {
 	case -1:
 		e_error(authdb_event(auth_request),
@@ -109,15 +107,19 @@ static void passwd_lookup(struct auth_request *auth_request,
 
 	auth_request_set_field(auth_request, "user", pw.pw_name, NULL);
 
-	auth_request_set_userdb_field(auth_request, "system_groups_user",
-				      pw.pw_name);
-	auth_request_set_userdb_field(auth_request, "uid", dec2str(pw.pw_uid));
-	auth_request_set_userdb_field(auth_request, "gid", dec2str(pw.pw_gid));
-	auth_request_set_userdb_field(auth_request, "home", pw.pw_dir);
+	if (auth_request->userdb->set->fields_import_all) {
+		auth_request_set_userdb_field(auth_request, "system_groups_user",
+					      pw.pw_name);
+		auth_request_set_userdb_field(auth_request, "uid", dec2str(pw.pw_uid));
+		auth_request_set_userdb_field(auth_request, "home", pw.pw_dir);
+		auth_request_set_userdb_field(auth_request, "gid", dec2str(pw.pw_gid));
+	}
+	auth_fields_add(pwd_fields, "system_groups_user", pw.pw_name, 0);
+	auth_fields_add(pwd_fields, "uid", dec2str(pw.pw_uid), 0);
+	auth_fields_add(pwd_fields, "home", pw.pw_dir, 0);
+	auth_fields_add(pwd_fields, "gid", dec2str(pw.pw_gid), 0);
 
-	if (userdb_template_export(module->tmpl, auth_request, &error) < 0) {
-		e_error(authdb_event(auth_request),
-			"Failed to expand template: %s", error);
+	if (auth_request_set_userdb_fields(auth_request, pwd_fields) < 0) {
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 		return;
 	}
@@ -216,29 +218,23 @@ static int passwd_iterate_deinit(struct userdb_iterate_context *_ctx)
 	return ret;
 }
 
-static struct userdb_module *
-passwd_passwd_preinit(pool_t pool, const char *args)
+static int passwd_preinit(pool_t pool, struct event *event ATTR_UNUSED,
+			  struct userdb_module **module_r,
+			  const char **error_r ATTR_UNUSED)
 {
-	struct passwd_userdb_module *module;
-	const char *value;
+	struct passwd_userdb_module *module =
+		p_new(pool, struct passwd_userdb_module, 1);
 
-	module = p_new(pool, struct passwd_userdb_module, 1);
 	module->module.default_cache_key = USER_CACHE_KEY;
-	module->tmpl = userdb_template_build(pool, "passwd", args);
-	module->module.blocking = TRUE;
-
-	if (userdb_template_remove(module->tmpl, "blocking", &value))
-		module->module.blocking = strcasecmp(value, "yes") == 0;
-	/* FIXME: backwards compatibility */
-	if (!userdb_template_is_empty(module->tmpl))
-		i_warning("userdb passwd: Move templates args to override_fields setting");
-	return &module->module;
+	*module_r = &module->module;
+	return 0;
 }
 
 struct userdb_module_interface userdb_passwd = {
 	.name = "passwd",
+	.fields_supported = TRUE,
 
-	.preinit_legacy = passwd_passwd_preinit,
+	.preinit = passwd_preinit,
 
 	.lookup = passwd_lookup,
 
