@@ -1687,8 +1687,6 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 
 	io_remove(&conn->io);
 	enum ssl_iostream_flags ssl_flags = 0;
-	if (!conn->client->set->imapc_ssl_verify)
-		ssl_flags |= SSL_IOSTREAM_FLAG_ALLOW_INVALID_CERT;
 	if (io_stream_autocreate_ssl_client(conn->event,
 					    conn->client->set->imapc_host,
 					    ssl_flags,
