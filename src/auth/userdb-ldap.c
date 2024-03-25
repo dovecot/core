@@ -9,6 +9,8 @@
 #include "array.h"
 #include "str.h"
 #include "auth-cache.h"
+#include "settings.h"
+#include "auth-settings.h"
 #include "db-ldap.h"
 
 #include <ldap.h>
@@ -23,6 +25,7 @@ struct userdb_ldap_request {
 	struct ldap_request_search request;
 	userdb_callback_t *userdb_callback;
 	unsigned int entries;
+	bool failed:1;
 };
 
 struct userdb_iter_ldap_request {
@@ -39,21 +42,26 @@ struct ldap_userdb_iterate_context {
 	bool continued, in_callback, deinitialized;
 };
 
-static void
+static int
 ldap_query_get_result(struct ldap_connection *conn,
 		      struct auth_request *auth_request,
 		      struct ldap_request_search *ldap_request,
 		      LDAPMessage *res)
 {
+	struct auth_fields *fields = auth_fields_init(auth_request->pool);
 	struct db_ldap_result_iterate_context *ldap_iter;
 	const char *name, *const *values;
 
 	ldap_iter = db_ldap_result_iterate_init(conn, ldap_request, res, TRUE);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
+		auth_fields_add(fields, name, values[0], 0);
+		if (!auth_request->userdb->set->fields_import_all)
+			continue;
 		auth_request_set_userdb_field_values(auth_request,
 						     name, values);
 	}
 	db_ldap_result_iterate_deinit(&ldap_iter);
+	return auth_request_set_userdb_fields(auth_request, fields);
 }
 
 static void
@@ -63,7 +71,7 @@ userdb_ldap_lookup_finish(struct auth_request *auth_request,
 {
 	enum userdb_result result = USERDB_RESULT_INTERNAL_FAILURE;
 
-	if (res == NULL) {
+	if (res == NULL || urequest->failed) {
 		result = USERDB_RESULT_INTERNAL_FAILURE;
 	} else if (urequest->entries == 0) {
 		result = USERDB_RESULT_USER_UNKNOWN;
@@ -96,8 +104,9 @@ static void userdb_ldap_lookup_callback(struct ldap_connection *conn,
 
 	if (urequest->entries++ == 0) {
 		/* first entry */
-		ldap_query_get_result(conn, auth_request,
-				      &urequest->request, res);
+		if (ldap_query_get_result(conn, auth_request,
+					  &urequest->request, res) < 0)
+			urequest->failed = TRUE;
 	}
 }
 
@@ -286,6 +295,7 @@ static int userdb_ldap_preinit(pool_t pool, struct event *event,
 			       struct userdb_module **module_r,
 			       const char **error_r ATTR_UNUSED)
 {
+	const struct auth_passdb_post_settings *set;
 	struct ldap_userdb_module *module;
 	struct ldap_connection *conn;
 
@@ -293,17 +303,20 @@ static int userdb_ldap_preinit(pool_t pool, struct event *event,
 	module->conn = conn = db_ldap_init(event);
 	p_array_init(&conn->user_attr_map, pool, 16);
 	p_array_init(&conn->iterate_attr_map, pool, 16);
+	if (settings_get(event, &auth_passdb_post_setting_parser_info,
+			 SETTINGS_GET_FLAG_NO_CHECK | SETTINGS_GET_FLAG_NO_EXPAND,
+			 &set, error_r) < 0)
+		return -1;
 
-	db_ldap_set_attrs(conn, conn->set->user_attrs, &conn->user_attr_names,
+	db_ldap_set_attrs(conn, &set->fields, &conn->user_attr_names,
 			  &conn->user_attr_map, NULL);
-	db_ldap_set_attrs(conn, conn->set->iterate_attrs,
+	db_ldap_set_attrs(conn, &conn->set->iterate_attrs,
 			  &conn->iterate_attr_names,
 			  &conn->iterate_attr_map, NULL);
-	module->module.default_cache_key =
-		auth_cache_parse_key(pool,
-				     t_strconcat(conn->set->base,
-						 conn->set->user_attrs,
-						 conn->set->user_filter, NULL));
+	module->module.default_cache_key = auth_cache_parse_key_and_fields(
+		pool, conn->set->base, &set->fields, NULL);
+
+	settings_free(set);
 	*module_r = &module->module;
 	return 0;
 }
@@ -332,6 +345,7 @@ struct userdb_module_interface userdb_ldap_plugin =
 #endif
 {
 	.name = "ldap",
+	.fields_supported = TRUE,
 
 	.preinit = userdb_ldap_preinit,
 	.init = userdb_ldap_init,

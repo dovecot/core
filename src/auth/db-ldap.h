@@ -145,7 +145,8 @@ struct ldap_connection {
 void db_ldap_request(struct ldap_connection *conn,
 		     struct ldap_request *request);
 
-void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
+void db_ldap_set_attrs(struct ldap_connection *conn,
+		       const ARRAY_TYPE(const_string) *attrlist,
 		       char ***attr_names_r, ARRAY_TYPE(ldap_field) *attr_map,
 		       const char *skip_attr) ATTR_NULL(5);
 

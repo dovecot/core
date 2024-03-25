@@ -35,11 +35,9 @@ static const struct setting_define ldap_setting_defines[] = {
 	DEF(STR, base),
 	DEF(UINT, version),
 	DEF(STR, debug_level),
-	DEF(STR, user_attrs),
 	DEF(STR, user_filter),
-	DEF(STR, pass_attrs),
 	DEF(STR, pass_filter),
-	DEF(STR, iterate_attrs),
+	DEF(STRLIST, iterate_attrs),
 	DEF(STR, iterate_filter),
 	SETTING_DEFINE_LIST_END
 };
@@ -60,16 +58,16 @@ static const struct ldap_settings ldap_default_settings = {
 	.base = "",
 	.version = 3,
 	.debug_level = "0",
-	.user_attrs = "homeDirectory=home,uidNumber=uid,gidNumber=gid",
-	.user_filter = "(&(objectClass=posixAccount)(uid=%u))",
-	.pass_attrs = "uid=user,userPassword=password",
-	.pass_filter = "(&(objectClass=posixAccount)(uid=%u))",
-	.iterate_attrs = "uid=user",
-	.iterate_filter = "(objectClass=posixAccount)",
+	.user_filter = "",
+	.pass_filter = "",
+	.iterate_attrs = ARRAY_INIT,
+	.iterate_filter = "",
 };
 
 static const struct setting_keyvalue ldap_default_settings_keyvalue[] = {
 	{ "passdb_ldap/passdb_default_password_scheme", "crypt" },
+	{ "passdb_ldap/passdb_fields_import_all", "no" },
+	{ "userdb_ldap/userdb_fields_import_all", "no" },
 	{ NULL, NULL }
 };
 

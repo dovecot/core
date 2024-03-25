@@ -1072,49 +1072,8 @@ db_ldap_field_find(const char *data, void *context,
 	return 1;
 }
 
-const char *const *db_ldap_parse_attrs(const char *cstr)
-{
-	ARRAY_TYPE(const_string) entries;
-	t_array_init(&entries, 32);
-
-	char *ptr = t_strdup_noconst(cstr);
-	const char *start = ptr;
-	unsigned int nesting = 0;
-	while (*ptr != '\0') {
-		switch (*ptr) {
-		case '{':
-			nesting++;
-			ptr++;
-			break;
-		case '}':
-			if (nesting > 0)
-				nesting--;
-			ptr++;
-			break;
-		case ',':
-			if (nesting > 0)
-				ptr++;
-			else {
-				*ptr = '\0';
-				if (*start != '\0')
-					array_push_back(&entries, &start);
-				start = ++ptr;
-			}
-			break;
-		default:
-			ptr++;
-			break;
-		}
-	}
-	if (*start != '\0')
-		array_push_back(&entries, &start);
-
-	unsigned int count ATTR_UNUSED;
-	array_append_zero(&entries);
-	return array_get(&entries, &count);
-}
-
-void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
+void db_ldap_set_attrs(struct ldap_connection *conn,
+		       const ARRAY_TYPE(const_string) *attrlist,
 		       char ***attr_names_r, ARRAY_TYPE(ldap_field) *attr_map,
 		       const char *skip_attr)
 {
@@ -1124,40 +1083,38 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		{ "ldap_ptr", db_ldap_field_find },
 		{ NULL, NULL }
 	};
+
+	unsigned int count = array_is_empty(attrlist) ? 0 : array_count(attrlist);
+	i_assert(count % 2 == 0);
+
 	struct ldap_field_find_context ctx;
-	struct ldap_field *field;
-	string_t *tmp_str;
-	const char *const *attr, *attr_data, *p, *error;
-	char *ldap_attr, *name, *templ;
-	unsigned int i;
-
-	attr = db_ldap_parse_attrs(attrlist);
-	if (*attr == NULL)
-		return;
-
-	tmp_str = t_str_new(128);
 	ctx.pool = conn->pool;
-	p_array_init(&ctx.attr_names, conn->pool, 16);
-	for (i = 0; attr[i] != NULL; i++) {
-		/* allow spaces here so "foo=1, bar=2" works */
-		attr_data = attr[i];
-		while (*attr_data == ' ') attr_data++;
+	p_array_init(&ctx.attr_names, conn->pool, count / 2);
+	string_t *tmp_str = t_str_new(128);
 
-		p = strchr(attr_data, '=');
-		if (p == NULL)
-			ldap_attr = name = p_strdup(conn->pool, attr_data);
-		else {
-			ldap_attr = p_strdup_until(conn->pool, attr_data, p);
-			name = p_strdup(conn->pool, p + 1);
+	for (unsigned int index = 0; index < count; ) {
+		char *key = p_strdup(conn->pool, array_idx_elem(attrlist, index++));
+		char *value = p_strdup(conn->pool, array_idx_elem(attrlist, index++));
+		char *ldap_attr, *name;
+
+		switch (*value) {
+		case '\0':
+			ldap_attr = key;
+			name = key;
+			break;
+		default:
+			ldap_attr = key;
+			name = value;
 		}
 
-		templ = strchr(name, '=');
+		char *templ = strchr(name, '=');
 		if (templ == NULL) {
 			if (*ldap_attr == '\0') {
 				/* =foo static value */
 				templ = "";
 			}
 		} else {
+			const char *error ATTR_UNUSED;
 			*templ++ = '\0';
 			str_truncate(tmp_str, 0);
 			if (var_expand_with_funcs(tmp_str, templ, NULL,
@@ -1179,9 +1136,9 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		}
 
 		if (*name == '\0')
-			e_error(conn->event, "Invalid attrs entry: %s", attr_data);
+			e_error(conn->event, "Invalid empty attribute name");
 		else if (skip_attr == NULL || strcmp(skip_attr, name) != 0) {
-			field = array_append_space(attr_map);
+			struct ldap_field *field = array_append_space(attr_map);
 			if (name[0] == '!' && name == ldap_attr) {
 				/* !ldapAttr */
 				name = "";
@@ -1681,7 +1638,7 @@ db_ldap_conn_find(const struct ldap_settings *set, const struct ssl_settings *ss
 
 struct ldap_connection *db_ldap_init(struct event *event)
 {
-        const struct ldap_settings *set;
+	const struct ldap_settings *set;
 	const struct ssl_settings *ssl_set;
 	const char *error;
 

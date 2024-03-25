@@ -19,7 +19,6 @@ int main(int argc, char *argv[])
 	int ret;
 	static const struct named_test test_functions[] = {
 #if defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD)
-		TEST_NAMED(test_db_ldap_parse_attrs)
 		TEST_NAMED(test_db_ldap_field_multi_expand_parse_data)
 #endif
 		TEST_NAMED(test_auth_request_var_expand)
