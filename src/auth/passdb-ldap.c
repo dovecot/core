@@ -10,6 +10,8 @@
 #include "str.h"
 #include "password-scheme.h"
 #include "auth-cache.h"
+#include "settings.h"
+#include "auth-settings.h"
 #include "db-ldap.h"
 
 #include <ldap.h>
@@ -34,21 +36,26 @@ struct passdb_ldap_request {
 	} callback;
 
 	unsigned int entries;
-	bool require_password;
+	bool require_password:1;
+	bool failed:1;
 };
 
-static void
+static int
 ldap_query_save_result(struct ldap_connection *conn,
 		       struct auth_request *auth_request,
 		       struct ldap_request_search *ldap_request,
 		       LDAPMessage *res)
 {
 	struct passdb_module *_module = auth_request->passdb->passdb;
+	struct auth_fields *fields = auth_fields_init(auth_request->pool);
 	struct db_ldap_result_iterate_context *ldap_iter;
 	const char *name, *const *values;
 
 	ldap_iter = db_ldap_result_iterate_init(conn, ldap_request, res, FALSE);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
+		auth_fields_add(fields, name, values[0], 0);
+		if (!auth_request->passdb->set->fields_import_all)
+			continue;
 		if (values[0] == NULL) {
 			auth_request_set_null_field(auth_request, name);
 			continue;
@@ -62,6 +69,7 @@ ldap_query_save_result(struct ldap_connection *conn,
 				       _module->default_pass_scheme);
 	}
 	db_ldap_result_iterate_deinit(&ldap_iter);
+	return auth_request_set_passdb_fields(auth_request, fields);
 }
 
 static void
@@ -72,7 +80,7 @@ ldap_lookup_finish(struct auth_request *auth_request,
 	enum passdb_result passdb_result;
 	const char *password = NULL, *scheme;
 
-	if (res == NULL) {
+	if (res == NULL || ldap_request->failed) {
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (ldap_request->entries == 0) {
 		passdb_result = PASSDB_RESULT_USER_UNKNOWN;
@@ -128,8 +136,9 @@ ldap_lookup_pass_callback(struct ldap_connection *conn,
 
 	if (ldap_request->entries++ == 0) {
 		/* first entry */
-		ldap_query_save_result(conn, auth_request,
-				       &ldap_request->request.search, res);
+		if (ldap_query_save_result(conn, auth_request,
+					   &ldap_request->request.search, res) < 0)
+			ldap_request->failed = TRUE;
 	}
 }
 
@@ -455,22 +464,27 @@ static void ldap_lookup_credentials(struct auth_request *request,
 
 static int passdb_ldap_preinit(pool_t pool, struct event *event,
 		   	       struct passdb_module **module_r,
-			       const char **error_r ATTR_UNUSED)
+			       const char **error_r)
 {
+	const struct auth_passdb_post_settings *set;
 	struct ldap_passdb_module *module;
 	struct ldap_connection *conn;
 
 	module = p_new(pool, struct ldap_passdb_module, 1);
 	module->conn = conn = db_ldap_init(event);
 	p_array_init(&conn->pass_attr_map, pool, 16);
-	db_ldap_set_attrs(conn, conn->set->pass_attrs, &conn->pass_attr_names,
+	if (settings_get(event, &auth_passdb_post_setting_parser_info,
+			 SETTINGS_GET_FLAG_NO_CHECK | SETTINGS_GET_FLAG_NO_EXPAND,
+			 &set, error_r) < 0)
+		return -1;
+
+	db_ldap_set_attrs(conn, &set->fields, &conn->pass_attr_names,
 			  &conn->pass_attr_map,
 			  conn->set->passdb_ldap_bind ? "password" : NULL);
-	module->module.default_cache_key =
-		auth_cache_parse_key(pool,
-				     t_strconcat(conn->set->base,
-						 conn->set->pass_attrs,
-						 conn->set->pass_filter, NULL));
+	module->module.default_cache_key = auth_cache_parse_key_and_fields(
+		pool, conn->set->base, &set->fields, NULL);
+
+	settings_free(set);
 	*module_r = &module->module;
 	return 0;
 }
@@ -499,6 +513,7 @@ struct passdb_module_interface passdb_ldap_plugin =
 #endif
 {
 	.name = "ldap",
+	.fields_supported = TRUE,
 
 	.preinit = passdb_ldap_preinit,
 	.init = passdb_ldap_init,
