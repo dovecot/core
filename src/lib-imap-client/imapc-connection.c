@@ -575,6 +575,7 @@ void imapc_connection_try_reconnect(struct imapc_connection *conn,
 		imapc_connection_disconnect(conn);
 	} else {
 		conn->reconnecting = TRUE;
+		conn->reconnect_count++;
 		e_warning(conn->event, "%s - reconnecting (delay %u ms)",
 			  errstr, delay_msecs);
 		if (delay_msecs == 0)
@@ -582,7 +583,6 @@ void imapc_connection_try_reconnect(struct imapc_connection *conn,
 		else {
 			imapc_connection_disconnect_full(conn, TRUE);
 			conn->to = timeout_add(delay_msecs, imapc_connection_reconnect, conn);
-			conn->reconnect_count++;
 			conn->reconnect_waiting = TRUE;
 		}
 	}
