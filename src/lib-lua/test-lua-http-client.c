@@ -614,8 +614,6 @@ static int test_open_server_fd(in_port_t *bind_port)
 
 static int test_run_server(struct test_server_data *data)
 {
-	master_service_deinit_forked(&master_service);
-
 	i_set_failure_prefix("SERVER[%u]: ", data->index + 1);
 
 	e_debug(test_event, "PID=%s", my_pid);
@@ -633,13 +631,12 @@ static int test_run_server(struct test_server_data *data)
 	i_free(bind_ports);
 	event_unref(&test_event);
 	main_deinit();
+	master_service_deinit_forked(&master_service);
 	return 0;
 }
 
 static int test_run_dns(test_dns_init_t dns_test)
 {
-	master_service_deinit_forked(&master_service);
-
 	test_server_ssl = FALSE;
 
 	i_set_failure_prefix("DNS: ");
@@ -657,6 +654,7 @@ static int test_run_dns(test_dns_init_t dns_test)
 	i_free(bind_ports);
 	event_unref(&test_event);
 	main_deinit();
+	master_service_deinit_forked(&master_service);
 	return 0;
 }
 
