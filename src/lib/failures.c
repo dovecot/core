@@ -65,6 +65,11 @@ static void log_prefix_add(const struct failure_context *ctx, string_t *str);
 static int i_failure_send_option_forced(const char *key, const char *value);
 static int internal_send_split(string_t *full_str, size_t prefix_len);
 
+static bool log_fd_can_close(int fd)
+{
+	return fd != STDOUT_FILENO && fd != STDERR_FILENO;
+}
+
 static const char *log_prefix_sanitize(const char *str)
 {
 	/* we really only care about LFs, which can break everything. */
@@ -664,7 +669,7 @@ static void open_log_file(int *fd, const char *path)
 {
 	const char *str;
 
-	if (*fd != STDERR_FILENO) {
+	if (log_fd_can_close(*fd)) {
 		if (close(*fd) < 0) {
 			str = t_strdup_printf("close(%d) failed: %m\n", *fd);
 			(void)write_full(STDERR_FILENO, str, strlen(str));
@@ -673,6 +678,8 @@ static void open_log_file(int *fd, const char *path)
 
 	if (path == NULL || strcmp(path, "/dev/stderr") == 0)
 		*fd = STDERR_FILENO;
+	else if (strcmp(path, "/dev/stdout") == 0)
+		*fd = STDOUT_FILENO;
 	else {
 		*fd = open(path, O_CREAT | O_APPEND | O_WRONLY, 0600);
 		if (*fd == -1) {
@@ -693,12 +700,12 @@ void i_set_failure_file(const char *path, const char *prefix)
 {
 	i_set_failure_prefix("%s", prefix);
 
-	if (log_info_fd != STDERR_FILENO && log_info_fd != log_fd) {
+	if (log_fd_can_close(log_info_fd) && log_info_fd != log_fd) {
 		if (close(log_info_fd) < 0)
 			i_error("close(%d) failed: %m", log_info_fd);
 	}
 
-	if (log_debug_fd != STDERR_FILENO && log_debug_fd != log_info_fd &&
+	if (log_fd_can_close(log_debug_fd) && log_debug_fd != log_info_fd &&
 	    log_debug_fd != log_fd) {
 		if (close(log_debug_fd) < 0)
 			i_error("close(%d) failed: %m", log_debug_fd);
@@ -974,17 +981,17 @@ void failures_deinit(void)
 	if (log_info_fd == log_fd)
 		log_info_fd = STDERR_FILENO;
 
-	if (log_fd != STDERR_FILENO) {
+	if (log_fd_can_close(log_fd)) {
 		i_close_fd(&log_fd);
 		log_fd = STDERR_FILENO;
 	}
 
-	if (log_info_fd != STDERR_FILENO) {
+	if (log_fd_can_close(log_info_fd)) {
 		i_close_fd(&log_info_fd);
 		log_info_fd = STDERR_FILENO;
 	}
 
-	if (log_debug_fd != STDERR_FILENO) {
+	if (log_fd_can_close(log_debug_fd)) {
 		i_close_fd(&log_debug_fd);
 		log_debug_fd = STDERR_FILENO;
 	}
