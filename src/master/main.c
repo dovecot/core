@@ -908,16 +908,18 @@ int main(int argc, char *argv[])
 			t_askpass("Give the password for SSL keys: ");
 	}
 
-	if (dup2(dev_null_fd, STDIN_FILENO) < 0)
-		i_fatal("dup2(dev_null_fd) failed: %m");
-	if (!foreground && dup2(dev_null_fd, STDOUT_FILENO) < 0)
-		i_fatal("dup2(dev_null_fd) failed: %m");
-
 	pidfile_path =
 		i_strconcat(set->base_dir, "/"MASTER_PID_FILE_NAME, NULL);
 
 	lib_set_clean_exit(TRUE);
 	master_service_init_log(master_service);
+
+	if (dup2(dev_null_fd, STDIN_FILENO) < 0)
+		i_fatal("dup2(dev_null_fd) failed: %m");
+	if (!i_failure_have_stdout_logs() &&
+	    dup2(dev_null_fd, STDOUT_FILENO) < 0)
+		i_fatal("dup2(dev_null_fd) failed: %m");
+
 	startup_early_errors_flush();
 	i_get_failure_handlers(&orig_fatal_callback, &orig_error_callback,
 			       &orig_info_callback, &orig_debug_callback);
