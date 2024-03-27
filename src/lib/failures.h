@@ -149,6 +149,9 @@ void i_set_failure_exit_callback(void (*callback)(int *status));
 /* Call the exit callback and exit() */
 void failure_exit(int status) ATTR_NORETURN ATTR_COLD;
 
+/* Returns TRUE if any of the logging is configured to /dev/stdout. */
+bool i_failure_have_stdout_logs(void);
+
 /* Parse a line logged using internal failure handler */
 void i_failure_parse_line(const char *line, struct failure_line *failure);
 

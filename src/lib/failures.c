@@ -942,6 +942,13 @@ void i_set_debug_file(const char *path)
 	debug_handler = default_error_handler;
 }
 
+bool i_failure_have_stdout_logs(void)
+{
+	return log_fd == STDOUT_FILENO ||
+		log_info_fd == STDOUT_FILENO ||
+		log_debug_fd == STDOUT_FILENO;
+}
+
 void i_set_failure_timestamp_format(const char *fmt)
 {
 	const char *p;
