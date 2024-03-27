@@ -78,7 +78,7 @@ userdb_ldap_lookup_finish(struct auth_request *auth_request,
 		auth_request_db_log_unknown_user(auth_request);
 	} else if (urequest->entries > 1) {
 		e_error(authdb_event(auth_request),
-			"user_filter matched multiple objects, aborting");
+			"ldap_filter matched multiple objects, aborting");
 		result = USERDB_RESULT_INTERNAL_FAILURE;
 	} else {
 		result = USERDB_RESULT_OK;
@@ -137,11 +137,11 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	request->request.base = p_strdup(auth_request->pool, str_c(str));
 
 	str_truncate(str, 0);
-	if (auth_request_var_expand(str, conn->set->user_filter, auth_request,
+	if (auth_request_var_expand(str, conn->set->filter, auth_request,
 				    ldap_escape, &error) <= 0) {
 		e_error(authdb_event(auth_request),
-			"Failed to expand user_filter=%s: %s",
-			conn->set->user_filter, error);
+			"Failed to expand ldap_filter=%s: %s",
+			conn->set->filter, error);
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 		return;
 	}

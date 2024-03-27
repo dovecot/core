@@ -35,8 +35,7 @@ static const struct setting_define ldap_setting_defines[] = {
 	DEF(STR, base),
 	DEF(UINT, version),
 	DEF(STR, debug_level),
-	DEF(STR, user_filter),
-	DEF(STR, pass_filter),
+	DEF(STR, filter),
 	DEF(STRLIST, iterate_attrs),
 	DEF(STR, iterate_filter),
 	SETTING_DEFINE_LIST_END
@@ -58,8 +57,7 @@ static const struct ldap_settings ldap_default_settings = {
 	.base = "",
 	.version = 3,
 	.debug_level = "0",
-	.user_filter = "",
-	.pass_filter = "",
+	.filter = "",
 	.iterate_attrs = ARRAY_INIT,
 	.iterate_filter = "",
 };
