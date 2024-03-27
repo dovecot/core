@@ -215,6 +215,7 @@ void mech_init(const struct auth_settings *set)
 #endif
 	mech_register_module(&mech_oauthbearer);
 	mech_register_module(&mech_xoauth2);
+	mech_oauth2_initialize();
 }
 
 void mech_deinit(const struct auth_settings *set)
