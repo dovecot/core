@@ -29,7 +29,7 @@ static const struct setting_define auth_oauth2_setting_defines[] = {
 	DEF(STR, introspection_url),
 	DEF(BOOLLIST, scope),
 	DEF(ENUM, introspection_mode),
-	DEF(STR_NOVARS, username_format),
+	DEF(STR_NOVARS, username_validation_format),
 	DEF(STR, username_attribute),
 	DEF(STR, active_attribute),
 	DEF(STR, active_value),
@@ -53,7 +53,7 @@ static const struct auth_oauth2_settings auth_oauth2_default_settings = {
 	.scope = ARRAY_INIT,
 	.force_introspection = FALSE,
 	.introspection_mode = ":auth:get:post:local",
-	.username_format = "%u",
+	.username_validation_format = "%u",
 	.username_attribute = "email",
 	.active_attribute = "",
 	.active_value = "",
@@ -496,10 +496,10 @@ db_oauth2_validate_username(struct db_oauth2_request *req,
 
 	string_t *username_val = t_str_new(strlen(username_value));
 
-	if (var_expand_with_table(username_val, req->db->set->username_format, table,
+	if (var_expand_with_table(username_val, req->db->set->username_validation_format, table,
 				  &error) <= 0) {
 		*error_r = t_strdup_printf("var_expand(%s) failed: %s",
-					req->db->set->username_format, error);
+					req->db->set->username_validation_format, error);
 		*result_r = PASSDB_RESULT_INTERNAL_FAILURE;
 		return FALSE;
 	} else if (strcmp(req->auth_request->fields.user, str_c(username_val)) != 0) {
