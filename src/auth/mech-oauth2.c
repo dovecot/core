@@ -19,6 +19,8 @@ struct oauth2_auth_request {
 	bool failed:1;
 };
 
+static struct db_oauth2 *db_oauth2 = NULL;
+
 /* RFC5801 based unescaping */
 static bool oauth2_unescape_username(const char *in, const char **username_r)
 {
@@ -48,7 +50,9 @@ oauth2_send_failure(struct oauth2_auth_request *oauth2_req, int code,
 		    const char *status)
 {
 	struct auth_request *request = &oauth2_req->auth;
-	const char *oidc_url = db_oauth2_get_openid_configuration_url(oauth2_req->db);
+	const char *oidc_url = "";
+	if (oauth2_req->db != NULL)
+		oidc_url = db_oauth2_get_openid_configuration_url(oauth2_req->db);
 	string_t *str = t_str_new(256);
 	struct json_generator *gen = json_generator_init_str(str, 0);
 	json_generate_object_open(gen);
@@ -198,22 +202,6 @@ mech_oauth2_verify_token(struct oauth2_auth_request *oauth2_req, const char *tok
 	}
 }
 
-static void oauth2_init_db(struct oauth2_auth_request *oauth2_req)
-{
-	const char *error;
-	if (oauth2_req->db != NULL)
-		return;
-	if (*oauth2_req->auth.set->oauth2_config_file != '\0') {
-		if (db_oauth2_init(oauth2_req->auth.set->oauth2_config_file,
-				   &oauth2_req->db, &error) >= 0)
-			return;
-	} else
-		error = "No config file specified";
-	e_error(oauth2_req->auth.mech_event, "Cannot initialize oauth2: %s", error);
-	oauth2_req->failed = TRUE;
-	auth_request_internal_failure(&oauth2_req->auth);
-}
-
 /* Input syntax:
  user=Username^Aauth=Bearer token^A^A
 */
@@ -224,11 +212,11 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 {
 	struct oauth2_auth_request *oauth2_req =
 		container_of(request, struct oauth2_auth_request, auth);
-	oauth2_init_db(oauth2_req);
-	/* Specification says that client is sent "invalid token" challenge
-	   which the client is supposed to ack with empty response */
-	if (oauth2_req->failed)
+	if (oauth2_req->db == NULL) {
+		e_error(request->event, "BUG: oauth2 database missing");
+		oauth2_send_failure(oauth2_req, 500, "internal_failure");
 		return;
+	}
 
 	if (data_size == 0) {
 		 oauth2_send_failure(oauth2_req, 401, "invalid_token");
@@ -292,9 +280,12 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 {
 	struct oauth2_auth_request *oauth2_req =
 		container_of(request, struct oauth2_auth_request, auth);
-	oauth2_init_db(oauth2_req);
-	if (oauth2_req->failed)
+	if (oauth2_req->db == NULL) {
+		e_error(request->event, "BUG: oauth2 database missing");
+		oauth2_send_failure(oauth2_req, 500, "internal_failure");
 		return;
+	}
+
 	if (data_size == 0) {
 		 oauth2_send_failure(oauth2_req, 401, "invalid_token");
 		 return;
@@ -396,6 +387,7 @@ static struct auth_request *mech_oauth2_auth_new(void)
 	request = p_new(pool, struct oauth2_auth_request, 1);
 	request->auth.pool = pool;
 	request->db_req.pool = pool;
+	request->db = db_oauth2;
 	return &request->auth;
 }
 
@@ -424,3 +416,16 @@ const struct mech_module mech_xoauth2 = {
 	mech_xoauth2_auth_continue,
 	mech_generic_auth_free
 };
+
+void mech_oauth2_initialize(void)
+{
+	const char *mech, *error;
+	array_foreach_elem(&global_auth_settings->mechanisms, mech) {
+		if (strcasecmp(mech, mech_xoauth2.mech_name) == 0 ||
+		    strcasecmp(mech, mech_oauthbearer.mech_name) == 0) {
+			if (db_oauth2_init(global_auth_settings->oauth2_config_file,
+					   &db_oauth2, &error) < 0)
+				i_fatal("Cannot initialize oauth2: %s", error);
+		}
+	}
+}
