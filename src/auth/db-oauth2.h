@@ -23,7 +23,7 @@ struct auth_oauth2_settings {
 	*/
 	const char *introspection_mode;
 	/* normalization var-expand template for username, defaults to %Lu */
-	const char *username_format;
+	const char *username_validation_format;
 	/* name of username attribute to lookup, mandatory */
 	const char *username_attribute;
 	/* name of account is active attribute, optional */
