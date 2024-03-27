@@ -20,8 +20,7 @@ struct ldap_settings {
 
 	const char *debug_level;
 
-	const char *user_filter;
-	const char *pass_filter;
+	const char *filter;
 	const char *iterate_filter;
 
 	ARRAY_TYPE(const_string) iterate_attrs;

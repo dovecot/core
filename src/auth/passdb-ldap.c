@@ -87,7 +87,7 @@ ldap_lookup_finish(struct auth_request *auth_request,
 		auth_request_db_log_unknown_user(auth_request);
 	} else if (ldap_request->entries > 1) {
 		e_error(authdb_event(auth_request),
-			"pass_filter matched multiple objects, aborting");
+			"ldap_filter matched multiple objects, aborting");
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (auth_request->passdb_password == NULL &&
 		   ldap_request->require_password &&
@@ -229,7 +229,7 @@ ldap_bind_lookup_dn_fail(struct auth_request *auth_request,
 	} else {
 		i_assert(request->entries > 1);
 		e_error(authdb_event(auth_request),
-			"pass_filter matched multiple objects, aborting");
+			"ldap_filter matched multiple objects, aborting");
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 	}
 
@@ -310,11 +310,11 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 	srequest->base = p_strdup(auth_request->pool, str_c(str));
 
 	str_truncate(str, 0);
-	if (auth_request_var_expand(str, conn->set->pass_filter,
+	if (auth_request_var_expand(str, conn->set->filter,
 				    auth_request, ldap_escape, &error) <= 0) {
 		e_error(authdb_event(auth_request),
-			"Failed to expand pass_filter=%s: %s",
-			conn->set->pass_filter, error);
+			"Failed to expand ldap_filter=%s: %s",
+			conn->set->filter, error);
 		passdb_ldap_request_fail(request, PASSDB_RESULT_INTERNAL_FAILURE);
 		return;
 	}
@@ -356,11 +356,11 @@ static void ldap_bind_lookup_dn(struct auth_request *auth_request,
 	srequest->base = p_strdup(auth_request->pool, str_c(str));
 
 	str_truncate(str, 0);
-	if (auth_request_var_expand(str, conn->set->pass_filter,
+	if (auth_request_var_expand(str, conn->set->filter,
 				    auth_request, ldap_escape, &error) <= 0) {
 		e_error(authdb_event(auth_request),
-			"Failed to expand pass_filter=%s: %s",
-			conn->set->pass_filter, error);
+			"Failed to expand filter=%s: %s",
+			conn->set->filter, error);
 		passdb_ldap_request_fail(request, PASSDB_RESULT_INTERNAL_FAILURE);
 		return;
 	}
