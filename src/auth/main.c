@@ -175,9 +175,10 @@ static void main_preinit(void)
 
 	if (!worker)
 		auth_penalty = auth_penalty_init(AUTH_PENALTY_ANVIL_PATH);
+
+	dict_drivers_register_builtin();
 	mech_init(global_auth_settings);
 	mech_reg = mech_register_init(global_auth_settings);
-	dict_drivers_register_builtin();
 	auths_preinit(NULL, global_auth_settings, mech_reg, protocols);
 
 	listeners_init();
