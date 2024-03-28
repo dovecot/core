@@ -144,6 +144,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 		if (write(fd_out, lookup_error_str, strlen(lookup_error_str)) < 0) {
 			/* ignored */
 		}
+		event_unref(&event);
 		return -1;
 	}
 	restrict_access_allow_coredumps(TRUE);
