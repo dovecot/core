@@ -163,8 +163,10 @@ mech_oauth2_verify_token_local_continue(struct db_oauth2_request *db_req,
 		auth_request_unref(&request);
 		pool_unref(&db_req->pool);
 		return;
-	} else {
+	} else if (result == PASSDB_RESULT_INTERNAL_FAILURE) {
 		e_error(request->mech_event, "Token verification failed: %s", error);
+	} else {
+		e_info(request->mech_event, "Token verification failed: %s", error);
 	}
 	oauth2_verify_callback(result, uchar_empty_ptr, 0, request);
 	auth_request_unref(&request);
