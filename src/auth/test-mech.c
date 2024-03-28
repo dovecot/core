@@ -343,7 +343,7 @@ static void test_mechs(void)
 		test_end();
 	} T_END;
 
-	test_expect_error_string("Token verification failed: aborted");
+	test_expect_error_string("oauth2 failed: aborted");
 	test_auth_deinit();
 }
 
