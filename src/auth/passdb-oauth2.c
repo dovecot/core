@@ -58,15 +58,10 @@ oauth2_preinit(pool_t pool, struct event *event, struct passdb_module **module_r
 	return 0;
 }
 
-static void oauth2_deinit(struct passdb_module *passdb ATTR_UNUSED)
-{
-}
-
 struct passdb_module_interface passdb_oauth2 = {
 	.name = "oauth2",
 
 	.preinit = oauth2_preinit,
-	.deinit = oauth2_deinit,
 	.verify_plain = oauth2_verify_plain,
 	.fields_supported = TRUE,
 };
