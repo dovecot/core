@@ -25,7 +25,8 @@ struct multiplex_istream {
 
 	/* channel 0 is main channel */
 	uint8_t cur_channel;
-	unsigned int remain;
+	/* Number of bytes still unread in this packet. */
+	unsigned int packet_bytes_left;
 	size_t bufsize;
 	ARRAY(struct multiplex_ichannel *) channels;
 
@@ -62,11 +63,11 @@ static void propagate_eof(struct multiplex_istream *mstream)
 			continue;
 
 		channel->istream.istream.eof = TRUE;
-		if (mstream->remain > 0) {
+		if (mstream->packet_bytes_left > 0) {
 			channel->istream.istream.stream_errno = EPIPE;
 			io_stream_set_error(&channel->istream.iostream,
 				"Unexpected EOF - %u bytes remaining in packet",
-				mstream->remain);
+				mstream->packet_bytes_left);
 		}
 	}
 }
@@ -91,8 +92,8 @@ i_stream_multiplex_read(struct multiplex_istream *mstream,
 		return -1;
 	}
 
-	if (((mstream->remain > 0 && len == 0) ||
-	     (mstream->remain == 0 && len < 5)) &&
+	if (((mstream->packet_bytes_left > 0 && len == 0) ||
+	     (mstream->packet_bytes_left == 0 && len < 5)) &&
 	    (ret = i_stream_read_memarea(mstream->parent)) <= 0) {
 		propagate_error(mstream, mstream->parent->stream_errno);
 		if (mstream->parent->eof)
@@ -111,10 +112,10 @@ i_stream_multiplex_read(struct multiplex_istream *mstream,
 			break;
 		}
 
-		if (mstream->remain > 0) {
+		if (mstream->packet_bytes_left > 0) {
 			struct multiplex_ichannel *channel =
 				get_channel(mstream, mstream->cur_channel);
-			wanted = I_MIN(len, mstream->remain);
+			wanted = I_MIN(len, mstream->packet_bytes_left);
 			/* is it open? */
 			if (channel != NULL && !channel->closed) {
 				struct istream_private *stream = &channel->istream;
@@ -148,12 +149,12 @@ i_stream_multiplex_read(struct multiplex_istream *mstream,
 			} else {
 				used = wanted;
 			}
-			mstream->remain -= used;
+			mstream->packet_bytes_left -= used;
 			i_stream_skip(mstream->parent, used);
 			/* see if there is more to read */
 			continue;
 		}
-		if (mstream->remain == 0) {
+		if (mstream->packet_bytes_left == 0) {
 			/* need more data */
 			if (len < 5) {
 				ret = i_stream_multiplex_ichannel_read(&req_channel->istream);
@@ -164,7 +165,8 @@ i_stream_multiplex_read(struct multiplex_istream *mstream,
 			/* channel ID */
 			mstream->cur_channel = data[0];
 			/* data length */
-			mstream->remain = be32_to_cpu_unaligned(data+1);
+			mstream->packet_bytes_left =
+				be32_to_cpu_unaligned(data+1);
 			i_stream_skip(mstream->parent, 5);
 		}
 	}
