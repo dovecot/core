@@ -82,11 +82,37 @@ static struct multiplex_ochannel *get_next_channel(struct multiplex_ostream *mst
 	return oldest_channel;
 }
 
+static ssize_t
+o_stream_multiplex_send_packet(struct multiplex_ostream *mstream,
+			       struct multiplex_ochannel *channel)
+{
+	/* check parent stream capacity */
+	size_t tmp = o_stream_get_buffer_avail_size(mstream->parent) - 5;
+	/* ensure it fits into 32 bit int */
+	size_t amt = I_MIN(UINT_MAX, I_MIN(tmp, channel->buf->used));
+	/* delay corking here now that we are going to send something */
+	if (!o_stream_is_corked(mstream->parent))
+		o_stream_cork(mstream->parent);
+	uint32_t len = cpu32_to_be(amt);
+	const struct const_iovec vec[] = {
+		{ &channel->cid, 1 },
+		{ &len, 4 },
+		{ channel->buf->data, amt }
+	};
+	ssize_t ret;
+	if ((ret = o_stream_sendv(mstream->parent, vec, N_ELEMENTS(vec))) < 0) {
+		propagate_error(mstream);
+		return -1;
+	}
+	i_assert((size_t)ret == 1 + 4 + amt);
+	return amt;
+}
+
 static int
 o_stream_multiplex_sendv(struct multiplex_ostream *mstream)
 {
 	struct multiplex_ochannel *channel;
-	ssize_t ret = 0;
+	ssize_t ret;
 	int all_sent = 1;
 
 	while((channel = get_next_channel(mstream)) != NULL) {
@@ -96,26 +122,12 @@ o_stream_multiplex_sendv(struct multiplex_ostream *mstream)
 			all_sent = 0;
 			break;
 		}
-		/* check parent stream capacity */
-		size_t tmp = o_stream_get_buffer_avail_size(mstream->parent) - 5;
-		/* ensure it fits into 32 bit int */
-		size_t amt = I_MIN(UINT_MAX, I_MIN(tmp, channel->buf->used));
-		/* delay corking here now that we are going to send something */
-		if (!o_stream_is_corked(mstream->parent))
-			o_stream_cork(mstream->parent);
-		uint32_t len = cpu32_to_be(amt);
-		const struct const_iovec vec[] = {
-			{ &channel->cid, 1 },
-			{ &len, 4 },
-			{ channel->buf->data, amt }
-		};
-		if ((ret = o_stream_sendv(mstream->parent, vec, N_ELEMENTS(vec))) < 0) {
-			propagate_error(mstream);
-			all_sent = -1;
+		ret = o_stream_multiplex_send_packet(mstream, channel);
+		if (ret <= 0) {
+			all_sent = ret;
 			break;
 		}
-		i_assert((size_t)ret == 1 + 4 + amt);
-		buffer_delete(channel->buf, 0, amt);
+		buffer_delete(channel->buf, 0, ret);
 		channel->last_sent_counter = ++mstream->send_counter;
 	}
 	if (o_stream_is_corked(mstream->parent))
