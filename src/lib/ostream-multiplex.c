@@ -29,6 +29,7 @@ struct multiplex_ostream {
 	/* channel 0 is main channel */
 	uint8_t cur_channel;
 	size_t bufsize;
+	enum ostream_multiplex_format format;
 	uint64_t send_counter;
 	ARRAY(struct multiplex_ochannel *) channels;
 
@@ -338,12 +339,14 @@ struct ostream *o_stream_multiplex_add_channel(struct ostream *stream, uint8_t c
 	return o_stream_add_channel_real(chan->mstream, cid);
 }
 
-struct ostream *o_stream_create_multiplex(struct ostream *parent, size_t bufsize)
+struct ostream *o_stream_create_multiplex(struct ostream *parent, size_t bufsize,
+					  enum ostream_multiplex_format format)
 {
 	struct multiplex_ostream *mstream;
 
 	mstream = i_new(struct multiplex_ostream, 1);
 	mstream->parent = parent;
+	mstream->format = format;
 	mstream->bufsize = bufsize;
 	mstream->old_flush_callback = parent->real_stream->callback;
 	mstream->old_flush_context = parent->real_stream->context;

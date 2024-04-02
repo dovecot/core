@@ -133,7 +133,8 @@ static void test_multiplex_stream(void) {
 	struct istream *ichan1 = i_stream_multiplex_add_channel(ichan0, 1);
 	i_stream_unref(&is);
 
-	struct ostream *ochan0 = o_stream_create_multiplex(os, 1024);
+	struct ostream *ochan0 = o_stream_create_multiplex(os, 1024,
+		OSTREAM_MULTIPLEX_FORMAT_PACKET);
 	struct ostream *ochan1 = o_stream_multiplex_add_channel(ochan0, 1);
 	o_stream_unref(&os);
 

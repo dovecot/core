@@ -593,7 +593,8 @@ anvil_connection_handshake(struct anvil_connection *conn,
 	i_stream_unref(&orig_input);
 
 	struct ostream *orig_output = conn->conn.output;
-	conn->conn.output = o_stream_create_multiplex(orig_output, SIZE_MAX);
+	conn->conn.output = o_stream_create_multiplex(orig_output, SIZE_MAX,
+		OSTREAM_MULTIPLEX_FORMAT_PACKET);
 	o_stream_set_no_error_handling(conn->conn.output, TRUE);
 	o_stream_unref(&orig_output);
 

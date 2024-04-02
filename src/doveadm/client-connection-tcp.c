@@ -471,7 +471,8 @@ client_connection_tcp_input(struct client_connection_tcp *conn)
 		conn->io_setup = TRUE;
 		if (conn->minor_version >= DOVEADM_PROTOCOL_MIN_VERSION_MULTIPLEX) {
                         struct ostream *os = conn->output;
-                        conn->output = o_stream_create_multiplex(os, SIZE_MAX);
+			conn->output = o_stream_create_multiplex(os, SIZE_MAX,
+				OSTREAM_MULTIPLEX_FORMAT_PACKET);
                         o_stream_set_name(conn->output, o_stream_get_name(os));
                         o_stream_set_no_error_handling(conn->output, TRUE);
                         o_stream_unref(&os);

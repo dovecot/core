@@ -24,7 +24,8 @@ static void test_ostream_multiplex_simple(void)
 
 	buffer_t *result = t_str_new(64);
 	struct ostream *os = test_ostream_create(result);
-	struct ostream *os2 = o_stream_create_multiplex(os, SIZE_MAX);
+	struct ostream *os2 = o_stream_create_multiplex(os, SIZE_MAX,
+		OSTREAM_MULTIPLEX_FORMAT_PACKET);
 	struct ostream *os3 = o_stream_multiplex_add_channel(os2, 1);
 
 	test_assert(o_stream_send_str(os2, "hello") == 5);
@@ -123,7 +124,8 @@ static void test_ostream_multiplex_stream(void)
 	struct ostream *os = o_stream_create_fd(fds[1], SIZE_MAX);
 	struct istream *is = i_stream_create_fd(fds[0], SIZE_MAX);
 
-	chan0 = o_stream_create_multiplex(os, SIZE_MAX);
+	chan0 = o_stream_create_multiplex(os, SIZE_MAX,
+					  OSTREAM_MULTIPLEX_FORMAT_PACKET);
 	chan1 = o_stream_multiplex_add_channel(chan0, 1);
 
 	struct io *io0 =
@@ -157,7 +159,8 @@ static void test_ostream_multiplex_cork(void)
 	test_begin("ostream multiplex (corking)");
 	buffer_t *output = t_buffer_create(128);
 	struct ostream *os = test_ostream_create(output);
-	struct ostream *chan0 = o_stream_create_multiplex(os, SIZE_MAX);
+	struct ostream *chan0 = o_stream_create_multiplex(os, SIZE_MAX,
+		OSTREAM_MULTIPLEX_FORMAT_PACKET);
 
 	const struct const_iovec iov[] = {
 		{ "hello", 5 },
@@ -225,7 +228,8 @@ static void test_ostream_multiplex_hang(void)
 	struct ioloop *ioloop = io_loop_create();
 	struct ostream *file_output = o_stream_create_fd(fd[1], 1024);
 	o_stream_set_no_error_handling(file_output, TRUE);
-	struct ostream *channel = o_stream_create_multiplex(file_output, 4096);
+	struct ostream *channel = o_stream_create_multiplex(file_output, 4096,
+		OSTREAM_MULTIPLEX_FORMAT_PACKET);
 	struct ostream *channel2 = o_stream_multiplex_add_channel(channel, 1);
 	char buf[257];
 
@@ -352,7 +356,8 @@ static void test_ostream_multiplex_flush_callback(void)
 	struct ioloop *ioloop = io_loop_create();
 	struct ostream *file_output = o_stream_create_fd(fd[1], 1024);
 	o_stream_set_no_error_handling(file_output, TRUE);
-	struct ostream *channel = o_stream_create_multiplex(file_output, 4096);
+	struct ostream *channel = o_stream_create_multiplex(file_output, 4096,
+		OSTREAM_MULTIPLEX_FORMAT_PACKET);
 	struct ostream *channel2 = o_stream_multiplex_add_channel(channel, 1);
 
 	struct istream *file_input = i_stream_create_fd(fd[0], 1024);
