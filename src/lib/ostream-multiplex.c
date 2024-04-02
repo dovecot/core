@@ -28,7 +28,6 @@ struct multiplex_ostream {
 
 	/* channel 0 is main channel */
 	uint8_t cur_channel;
-	unsigned int remain;
 	size_t bufsize;
 	uint64_t send_counter;
 	ARRAY(struct multiplex_ochannel *) channels;
