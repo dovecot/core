@@ -91,9 +91,6 @@ o_stream_multiplex_sendv(struct multiplex_ostream *mstream)
 		size_t tmp = o_stream_get_buffer_avail_size(mstream->parent) - 5;
 		/* ensure it fits into 32 bit int */
 		size_t amt = I_MIN(UINT_MAX, I_MIN(tmp, channel->buf->used));
-		/* ensure amt fits */
-		if (tmp == 0)
-			break;
 		/* delay corking here now that we are going to send something */
 		if (!o_stream_is_corked(mstream->parent))
 			o_stream_cork(mstream->parent);
