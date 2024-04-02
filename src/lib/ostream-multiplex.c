@@ -82,18 +82,18 @@ static struct multiplex_ochannel *get_next_channel(struct multiplex_ostream *mst
 	return oldest_channel;
 }
 
-static bool
+static int
 o_stream_multiplex_sendv(struct multiplex_ostream *mstream)
 {
 	struct multiplex_ochannel *channel;
 	ssize_t ret = 0;
-	bool all_sent = TRUE;
+	int all_sent = 1;
 
 	while((channel = get_next_channel(mstream)) != NULL) {
 		if (channel->buf->used == 0)
 			continue;
 		if (o_stream_get_buffer_avail_size(mstream->parent) < 6) {
-			all_sent = FALSE;
+			all_sent = 0;
 			break;
 		}
 		/* check parent stream capacity */
@@ -111,6 +111,7 @@ o_stream_multiplex_sendv(struct multiplex_ostream *mstream)
 		};
 		if ((ret = o_stream_sendv(mstream->parent, vec, N_ELEMENTS(vec))) < 0) {
 			propagate_error(mstream);
+			all_sent = -1;
 			break;
 		}
 		i_assert((size_t)ret == 1 + 4 + amt);
@@ -126,8 +127,8 @@ static int o_stream_multiplex_flush(struct multiplex_ostream *mstream)
 {
 	int ret = o_stream_flush(mstream->parent);
 	if (ret >= 0) {
-		if (!o_stream_multiplex_sendv(mstream))
-			return 0;
+		if ((ret = o_stream_multiplex_sendv(mstream)) <= 0)
+			return ret;
 	}
 
 	/* a) Everything is flushed. See if one of the callbacks' flush
@@ -164,7 +165,8 @@ static int o_stream_multiplex_ochannel_flush(struct ostream_private *stream)
 	}
 
 	/* send all channels */
-	o_stream_multiplex_sendv(mstream);
+	if (o_stream_multiplex_sendv(mstream) < 0)
+		return -1;
 
 	if (channel->buf->used > 0)
 		return 0;
@@ -195,7 +197,8 @@ o_stream_multiplex_ochannel_sendv(struct ostream_private *stream,
 		total += iov[i].iov_len;
 
 	if (avail < total) {
-		o_stream_multiplex_sendv(channel->mstream);
+		if (o_stream_multiplex_sendv(channel->mstream) < 0)
+			return -1;
 		avail = o_stream_get_buffer_avail_size(&stream->ostream);
 		if (avail == 0)
 			return 0;
@@ -219,7 +222,8 @@ o_stream_multiplex_ochannel_sendv(struct ostream_private *stream,
 	if (channel->corked && channel->buf->used < optimal_size)
 		return total;
 
-	o_stream_multiplex_sendv(channel->mstream);
+	if (o_stream_multiplex_sendv(channel->mstream) < 0)
+		return -1;
 	return total;
 }
 
