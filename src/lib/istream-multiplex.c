@@ -47,14 +47,6 @@ get_channel(struct multiplex_istream *mstream, uint8_t cid)
 	return NULL;
 }
 
-static void propagate_error(struct multiplex_istream *mstream, int stream_errno)
-{
-	struct multiplex_ichannel *channel;
-	array_foreach_elem(&mstream->channels, channel)
-		if (channel != NULL)
-			channel->istream.istream.stream_errno = stream_errno;
-}
-
 static void propagate_eof(struct multiplex_istream *mstream)
 {
 	struct multiplex_ichannel *channel;
@@ -63,13 +55,34 @@ static void propagate_eof(struct multiplex_istream *mstream)
 			continue;
 
 		channel->istream.istream.eof = TRUE;
-		if (mstream->packet_bytes_left > 0) {
+		if (mstream->packet_bytes_left > 0 &&
+		    channel->istream.istream.stream_errno == 0) {
 			channel->istream.istream.stream_errno = EPIPE;
 			io_stream_set_error(&channel->istream.iostream,
 				"Unexpected EOF - %u bytes remaining in packet",
 				mstream->packet_bytes_left);
 		}
 	}
+}
+
+static void propagate_error(struct multiplex_istream *mstream)
+{
+	struct multiplex_ichannel *channel;
+	int stream_errno = mstream->parent->stream_errno;
+
+	if (stream_errno != 0) {
+		const char *error = i_stream_get_error(mstream->parent);
+		array_foreach_elem(&mstream->channels, channel) {
+			if (channel == NULL)
+				continue;
+
+			channel->istream.istream.eof = TRUE;
+			channel->istream.istream.stream_errno = stream_errno;
+			io_stream_set_error(&channel->istream.iostream,
+					    "%s", error);
+		}
+	} else if (mstream->parent->eof)
+		propagate_eof(mstream);
 }
 
 static ssize_t
@@ -95,9 +108,7 @@ i_stream_multiplex_read(struct multiplex_istream *mstream,
 	if (((mstream->packet_bytes_left > 0 && len == 0) ||
 	     (mstream->packet_bytes_left == 0 && len < 5)) &&
 	    (ret = i_stream_read_memarea(mstream->parent)) <= 0) {
-		propagate_error(mstream, mstream->parent->stream_errno);
-		if (mstream->parent->eof)
-			propagate_eof(mstream);
+		propagate_error(mstream);
 		return ret;
 	}
 
@@ -171,9 +182,7 @@ i_stream_multiplex_read(struct multiplex_istream *mstream,
 		}
 	}
 
-	propagate_error(mstream, mstream->parent->stream_errno);
-	if (mstream->parent->eof)
-		propagate_eof(mstream);
+	propagate_error(mstream);
 
 	return got;
 }
