@@ -48,12 +48,21 @@ get_channel(struct multiplex_ostream *mstream, uint8_t cid)
 	return NULL;
 }
 
-static void propagate_error(struct multiplex_ostream *mstream, int stream_errno)
+static void propagate_error(struct multiplex_ostream *mstream)
 {
 	struct multiplex_ochannel *channel;
-	array_foreach_elem(&mstream->channels, channel)
-		if (channel != NULL)
+	int stream_errno = mstream->parent->stream_errno;
+
+	i_assert(stream_errno != 0);
+
+	const char *error = o_stream_get_error(mstream->parent);
+	array_foreach_elem(&mstream->channels, channel) {
+		if (channel != NULL) {
 			channel->ostream.ostream.stream_errno = stream_errno;
+			io_stream_set_error(&channel->ostream.iostream,
+					    "%s", error);
+		}
+	}
 }
 
 static struct multiplex_ochannel *get_next_channel(struct multiplex_ostream *mstream)
@@ -101,7 +110,7 @@ o_stream_multiplex_sendv(struct multiplex_ostream *mstream)
 			{ channel->buf->data, amt }
 		};
 		if ((ret = o_stream_sendv(mstream->parent, vec, N_ELEMENTS(vec))) < 0) {
-			propagate_error(mstream, mstream->parent->stream_errno);
+			propagate_error(mstream);
 			break;
 		}
 		i_assert((size_t)ret == 1 + 4 + amt);
@@ -150,7 +159,7 @@ static int o_stream_multiplex_ochannel_flush(struct ostream_private *stream)
 	/* flush parent stream always, so there is room for more. */
 	if ((ret = o_stream_flush(mstream->parent)) <= 0) {
 		if (ret == -1)
-			propagate_error(mstream, mstream->parent->stream_errno);
+			propagate_error(mstream);
 		return ret;
 	}
 
