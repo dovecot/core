@@ -86,12 +86,55 @@ static void propagate_error(struct multiplex_istream *mstream)
 }
 
 static ssize_t
+i_stream_multiplex_add(struct multiplex_ichannel *req_channel,
+		       const unsigned char *data, size_t wanted,
+		       size_t *got)
+{
+	struct multiplex_ichannel *channel =
+		get_channel(req_channel->mstream,
+			    req_channel->mstream->cur_channel);
+	size_t used, avail;
+
+	/* is it open? */
+	if (channel == NULL || channel->closed)
+		return wanted;
+
+	struct istream_private *stream = &channel->istream;
+	stream->pos += channel->pending_count;
+	bool alloc_ret = i_stream_try_alloc(stream, wanted, &avail);
+	stream->pos -= channel->pending_count;
+	if (!alloc_ret) {
+		i_stream_set_input_pending(&stream->istream, TRUE);
+		if (channel->cid != req_channel->cid)
+			return 0;
+		return -2;
+	}
+
+	used = I_MIN(wanted, avail);
+
+	/* dump into buffer */
+	if (channel->cid != req_channel->cid) {
+		i_assert(stream->pos + channel->pending_count + used <= stream->buffer_size);
+		memcpy(stream->w_buffer + stream->pos + channel->pending_count,
+		       data, used);
+		channel->pending_count += used;
+		i_stream_set_input_pending(&stream->istream, TRUE);
+	} else {
+		i_assert(stream->pos + used <= stream->buffer_size);
+		memcpy(stream->w_buffer + stream->pos, data, used);
+		stream->pos += used;
+		*got += used;
+	}
+	return used;
+}
+
+static ssize_t
 i_stream_multiplex_read(struct multiplex_istream *mstream,
 			struct multiplex_ichannel *req_channel)
 {
 	const unsigned char *data;
-	size_t len = 0, used, wanted, avail;
-	ssize_t ret, got = 0;
+	size_t len = 0, wanted, got = 0;
+	ssize_t ret;
 
 	if (mstream->parent == NULL) {
 		req_channel->istream.istream.eof = TRUE;
@@ -124,44 +167,16 @@ i_stream_multiplex_read(struct multiplex_istream *mstream,
 		}
 
 		if (mstream->packet_bytes_left > 0) {
-			struct multiplex_ichannel *channel =
-				get_channel(mstream, mstream->cur_channel);
 			wanted = I_MIN(len, mstream->packet_bytes_left);
-			/* is it open? */
-			if (channel != NULL && !channel->closed) {
-				struct istream_private *stream = &channel->istream;
-				stream->pos += channel->pending_count;
-				bool alloc_ret = i_stream_try_alloc(stream, wanted, &avail);
-				stream->pos -= channel->pending_count;
-				if (!alloc_ret) {
-					i_stream_set_input_pending(&stream->istream, TRUE);
-					if (got > 0)
-						break;
-					if (channel->cid != req_channel->cid)
-						return 0;
-					return -2;
-				}
-
-				used = I_MIN(wanted, avail);
-
-				/* dump into buffer */
-				if (channel->cid != req_channel->cid) {
-					i_assert(stream->pos + channel->pending_count + used <= stream->buffer_size);
-					memcpy(stream->w_buffer + stream->pos + channel->pending_count,
-					       data, used);
-					channel->pending_count += used;
-					i_stream_set_input_pending(&stream->istream, TRUE);
-				} else {
-					i_assert(stream->pos + used <= stream->buffer_size);
-					memcpy(stream->w_buffer + stream->pos, data, used);
-					stream->pos += used;
-					got += used;
-				}
-			} else {
-				used = wanted;
+			ret = i_stream_multiplex_add(req_channel, data, wanted, &got);
+			if (ret <= 0) {
+				if (got > 0)
+					break;
+				return ret;
 			}
-			mstream->packet_bytes_left -= used;
-			i_stream_skip(mstream->parent, used);
+			i_assert(ret > 0);
+			mstream->packet_bytes_left -= ret;
+			i_stream_skip(mstream->parent, ret);
 			/* see if there is more to read */
 			continue;
 		}
