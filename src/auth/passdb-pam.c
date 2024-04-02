@@ -105,8 +105,9 @@ pam_userpass_conv(int num_msg, pam_const struct pam_message **msg,
 {
 	/* @UNSAFE */
 	struct pam_conv_context *ctx = appdata_ptr;
-	struct passdb_module *_passdb = ctx->request->passdb->passdb;
-	struct pam_passdb_module *passdb = (struct pam_passdb_module *)_passdb;
+	struct pam_passdb_module *passdb =
+		container_of(ctx->request->passdb->passdb,
+			     struct pam_passdb_module, module);
 	struct pam_response *resp;
 	char *string;
 	int i;
@@ -195,8 +196,9 @@ pam_get_missing_service_file_path(const char *service ATTR_UNUSED)
 static int try_pam_auth(struct auth_request *request, pam_handle_t *pamh,
 			const char *service)
 {
-        struct passdb_module *_module = request->passdb->passdb;
-        struct pam_passdb_module *module = (struct pam_passdb_module *)_module;
+        struct pam_passdb_module *module =
+		container_of(request->passdb->passdb, struct pam_passdb_module,
+			     module);
 	const char *path, *str;
 	pam_item_t item;
 	int status;
@@ -355,8 +357,9 @@ static void
 pam_verify_plain(struct auth_request *request, const char *password,
 		 verify_plain_callback_t *callback)
 {
-        struct passdb_module *_module = request->passdb->passdb;
-        struct pam_passdb_module *module = (struct pam_passdb_module *)_module;
+        struct pam_passdb_module *module =
+		container_of(request->passdb->passdb, struct pam_passdb_module,
+			     module);
 	const struct auth_pam_settings *set;
 	enum passdb_result result;
 	const char *error;
