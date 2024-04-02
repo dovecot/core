@@ -14,7 +14,9 @@ struct multiplex_ichannel {
 	struct istream_private istream;
 	struct multiplex_istream *mstream;
 	uint8_t cid;
-	size_t pending_pos;
+	/* Number of bytes already in the channel stream waiting to be read.
+	   The bytes are located after the current stream->pos. */
+	size_t pending_count;
 	bool closed:1;
 };
 
@@ -116,9 +118,9 @@ i_stream_multiplex_read(struct multiplex_istream *mstream,
 			/* is it open? */
 			if (channel != NULL && !channel->closed) {
 				struct istream_private *stream = &channel->istream;
-				stream->pos += channel->pending_pos;
+				stream->pos += channel->pending_count;
 				bool alloc_ret = i_stream_try_alloc(stream, wanted, &avail);
-				stream->pos -= channel->pending_pos;
+				stream->pos -= channel->pending_count;
 				if (!alloc_ret) {
 					i_stream_set_input_pending(&stream->istream, TRUE);
 					if (got > 0)
@@ -132,10 +134,10 @@ i_stream_multiplex_read(struct multiplex_istream *mstream,
 
 				/* dump into buffer */
 				if (channel->cid != req_channel->cid) {
-					i_assert(stream->pos + channel->pending_pos + used <= stream->buffer_size);
-					memcpy(stream->w_buffer + stream->pos + channel->pending_pos,
+					i_assert(stream->pos + channel->pending_count + used <= stream->buffer_size);
+					memcpy(stream->w_buffer + stream->pos + channel->pending_count,
 					       data, used);
-					channel->pending_pos += used;
+					channel->pending_count += used;
 					i_stream_set_input_pending(&stream->istream, TRUE);
 				} else {
 					i_assert(stream->pos + used <= stream->buffer_size);
@@ -180,10 +182,10 @@ static ssize_t i_stream_multiplex_ichannel_read(struct istream_private *stream)
 		container_of(stream, struct multiplex_ichannel, istream);
 	/* if previous multiplex read dumped data for us
 	   actually serve it here. */
-	if (channel->pending_pos > 0) {
-		ssize_t ret = channel->pending_pos;
-		stream->pos += channel->pending_pos;
-		channel->pending_pos = 0;
+	if (channel->pending_count > 0) {
+		ssize_t ret = channel->pending_count;
+		stream->pos += channel->pending_count;
+		channel->pending_count = 0;
 		return ret;
 	}
 	return i_stream_multiplex_read(channel->mstream, channel);
