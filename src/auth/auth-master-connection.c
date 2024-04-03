@@ -574,7 +574,7 @@ static int master_input_list(struct auth_master_connection *conn,
 
 	if (conn->userdb_restricted_uid != 0) {
 		e_error(conn->conn.event,
-			"Auth client doesn't have permissions to args users: %s",
+			"Auth client doesn't have permissions to list users: %s",
 			auth_restricted_reason(conn));
 		str = t_strdup_printf("DONE\t%u\tfail\n", id);
 		o_stream_nsend_str(conn->conn.output, str);
