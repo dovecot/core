@@ -1243,17 +1243,17 @@ fs_iter_init_with_event(struct fs *fs, struct event *event,
 	fs->stats.iter_count++;
 	if (fs->set.enable_timing)
 		i_gettimeofday(&now);
-	if (fs->v.iter_init == NULL) {
+	if (fs->v.iter_init == NULL)
 		iter = i_new(struct fs_iter, 1);
-		iter->fs = fs;
-	} else T_BEGIN {
+	else
 		iter = fs->v.iter_alloc();
-		iter->fs = fs;
+	iter->fs = fs;
+	iter->event = fs_create_event(fs, event);
+	event_set_ptr(iter->event, FS_EVENT_FIELD_FS, fs);
+	event_set_ptr(iter->event, FS_EVENT_FIELD_ITER, iter);
+	if (fs->v.iter_init != NULL) T_BEGIN {
 		iter->flags = flags;
 		iter->path = i_strdup(path);
-		iter->event = fs_create_event(fs, event);
-		event_set_ptr(iter->event, FS_EVENT_FIELD_FS, fs);
-		event_set_ptr(iter->event, FS_EVENT_FIELD_ITER, iter);
 		fs->v.iter_init(iter, path, flags);
 	} T_END;
 	iter->start_time = now;
