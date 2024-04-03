@@ -253,6 +253,7 @@ headers = \
 	imem.h \
 	ipwd.h \
 	iostream.h \
+	iostream-multiplex-private.h \
 	iostream-private.h \
 	iostream-pump.h \
 	iostream-proxy.h \
