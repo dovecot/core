@@ -1922,7 +1922,7 @@ void imapc_connection_connect(struct imapc_connection *conn)
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_CONNECTING);
 	if (conn->ips_count > 0) {
 		/* do nothing */
-	} else if (conn->client->set.host[0] == '\0') {
+	} else if (HAS_ANY_BITS(conn->client->params.flags, IMAPC_PARAMETER_CLIENT_DISABLED)) {
 		e_error(conn->event, "imapc host is empty");
 		imapc_connection_set_disconnected(conn);
 		return;
