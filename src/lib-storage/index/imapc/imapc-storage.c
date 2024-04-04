@@ -323,19 +323,13 @@ int imapc_storage_client_create(struct mailbox_list *list,
 		return -1;
 
 	i_zero(&set);
-	if ((ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0) {
+	set.host = imapc_set->imapc_host;
+	if ((ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0 || *set.host == '\0') {
 		/* Shared namespace user doesn't actually exist. Don't try to
 		   access the user via imapc, but also don't make this a
 		   visible error. If any code path tries to connect to imapc,
-		   it's a bug. Use an empty host to enforce this. */
-		set.host = "";
-	} else {
-		set.host = imapc_set->imapc_host;
-		if (*set.host == '\0') {
-			*error_r = "missing imapc_host";
-			settings_free(imapc_set);
-			return -1;
-		}
+		   it's a bug. */
+		params.flags |= IMAPC_PARAMETER_CLIENT_DISABLED;
 	}
 	set.port = imapc_set->imapc_port;
 	if (imapc_set->imapc_user[0] != '\0')
