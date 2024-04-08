@@ -177,6 +177,10 @@ static bool imapc_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		*error_r = "imapc_max_idle_time must not be 0";
 		return FALSE;
 	}
+	if (set->imapc_max_line_length == 0) {
+		*error_r = "imapc_max_line_length must not be 0";
+		return FALSE;
+	}
 	if (imapc_settings_parse_features(set, error_r) < 0)
 		return FALSE;
 	return TRUE;
