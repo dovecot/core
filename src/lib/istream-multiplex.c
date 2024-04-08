@@ -121,10 +121,10 @@ i_stream_multiplex_read(struct multiplex_istream *mstream,
 				stream->pos -= channel->pending_pos;
 				if (!alloc_ret) {
 					i_stream_set_input_pending(&stream->istream, TRUE);
-					if (channel->cid != req_channel->cid)
-						return 0;
 					if (got > 0)
 						break;
+					if (channel->cid != req_channel->cid)
+						return 0;
 					return -2;
 				}
 

@@ -82,9 +82,10 @@ static void test_istream_multiplex_simple(void)
 	test_end();
 }
 
-static void test_istream_multiplex_maxbuf(void)
+static void test_istream_multiplex_maxbuf(bool test_buffer_full_bug)
 {
-	test_begin("istream multiplex (maxbuf)");
+	test_begin(t_strdup_printf("istream multiplex (maxbuf, test_buffer_full_bug=%s)",
+				   test_buffer_full_bug ? "yes" : "no"));
 
 	static const char data[] = "\x00\x00\x00\x00\x06Hello\x00"
 				   "\x01\x00\x00\x00\x06World\x00";
@@ -105,6 +106,8 @@ static void test_istream_multiplex_maxbuf(void)
 		    siz == 5);
 	/* consume data */
 	i_stream_skip(chan0, 5);
+	if (test_buffer_full_bug)
+		test_assert(i_stream_read(chan0) == 1);
 	/* we read data for channel 1 */
 	test_assert(i_stream_read(chan1) == 5);
 	test_assert(memcmp(i_stream_get_data(chan1, &siz), "World", 5) == 0 &&
@@ -112,9 +115,14 @@ static void test_istream_multiplex_maxbuf(void)
 	/* consume data */
 	i_stream_skip(chan1, 5);
 	/* read last byte */
-	test_assert(i_stream_read(chan0) == 1);
-	/* now we get byte for channel 1 */
-	test_assert(i_stream_read(chan0) == 0);
+	if (test_buffer_full_bug) {
+		/* now we get byte for channel 1 */
+		test_assert(i_stream_read(chan0) == 0);
+	} else {
+		test_assert(i_stream_read(chan0) == 1);
+		/* now we get byte for channel 1 */
+		test_assert(i_stream_read(chan0) == 0);
+	}
 	/* now we read byte for channel 1 */
 	test_assert(i_stream_read(chan1) == 1);
 	/* and everything should return EOF now */
@@ -365,7 +373,8 @@ static void test_istream_multiplex_close_channel(void)
 void test_istream_multiplex(void)
 {
 	test_istream_multiplex_simple();
-	test_istream_multiplex_maxbuf();
+	test_istream_multiplex_maxbuf(FALSE);
+	test_istream_multiplex_maxbuf(TRUE);
 	test_istream_multiplex_random();
 	test_istream_multiplex_stream();
 	test_istream_multiplex_close_channel();
