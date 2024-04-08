@@ -24,6 +24,8 @@ enum login_request_flags {
 	LOGIN_REQUEST_FLAG_END_CLIENT_SECURED_TLS = BIT(2),
 	/* This login is implicit; no command reply is expected */
 	LOGIN_REQUEST_FLAG_IMPLICIT		= BIT(3),
+	/* The output stream is ostream-multiplex */
+	LOGIN_REQUEST_FLAG_MULTIPLEX_OUTPUT	= BIT(4),
 };
 
 /* Login request. File descriptor may be sent along with the request. */

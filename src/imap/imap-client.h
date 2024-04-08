@@ -20,6 +20,7 @@ struct imap_urlauth_context;
 
 enum client_create_flags {
 	CLIENT_CREATE_FLAG_UNHIBERNATED = BIT(0),
+	CLIENT_CREATE_FLAG_MULTIPLEX_OUTPUT = BIT(1),
 };
 
 struct mailbox_keywords {
@@ -168,6 +169,7 @@ struct client {
 	struct io *io;
 	struct istream *input, *pre_rawlog_input, *post_rawlog_input;
 	struct ostream *output, *pre_rawlog_output, *post_rawlog_output;
+	struct ostream *multiplex_output;
 	struct timeout *to_idle, *to_idle_output, *to_delayed_input;
 	guid_128_t anvil_conn_guid;
 

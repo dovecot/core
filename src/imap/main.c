@@ -362,6 +362,7 @@ login_request_finished(const struct login_server_request *request,
 	struct client *client;
 	struct imap_login_request imap_request;
 	enum login_request_flags flags = request->auth_req.flags;
+	enum client_create_flags create_flags = 0;
 	const char *error;
 
 	i_zero(&input);
@@ -375,13 +376,15 @@ login_request_finished(const struct login_server_request *request,
 	input.session_id = request->session_id;
 	if ((flags & LOGIN_REQUEST_FLAG_END_CLIENT_SECURED_TLS) != 0)
 		input.end_client_tls_secured = TRUE;
+	if ((flags & LOGIN_REQUEST_FLAG_MULTIPLEX_OUTPUT) != 0)
+		create_flags |= CLIENT_CREATE_FLAG_MULTIPLEX_OUTPUT;
 
 	client_parse_imap_login_request(request->data,
 					request->auth_req.data_size,
 					&imap_request);
 
 	if (client_create_from_input(&input, request->fd, request->fd,
-				     0, &client, &error) < 0) {
+				     create_flags, &client, &error) < 0) {
 		int fd = request->fd;
 		struct ostream *output =
 			o_stream_create_fd_autoclose(&fd, IO_BLOCK_SIZE);

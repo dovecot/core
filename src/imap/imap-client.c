@@ -11,6 +11,7 @@
 #include "istream.h"
 #include "istream-concat.h"
 #include "ostream.h"
+#include "ostream-multiplex.h"
 #include "time-util.h"
 #include "var-expand.h"
 #include "settings.h"
@@ -118,6 +119,13 @@ struct client *client_create(int fd_in, int fd_out,
 	client->input = i_stream_create_fd(fd_in,
 					   set->imap_max_line_length);
 	client->output = o_stream_create_fd(fd_out, SIZE_MAX);
+	if ((flags & CLIENT_CREATE_FLAG_MULTIPLEX_OUTPUT) != 0) {
+		client->multiplex_output =
+			o_stream_create_multiplex(client->output, SIZE_MAX,
+				OSTREAM_MULTIPLEX_FORMAT_STREAM_CONTINUE);
+		o_stream_unref(&client->output);
+		client->output = client->multiplex_output;
+	}
 	o_stream_set_no_error_handling(client->output, TRUE);
 	i_stream_set_name(client->input, "<imap client>");
 	o_stream_set_name(client->output, "<imap client>");

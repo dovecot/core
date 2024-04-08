@@ -879,7 +879,7 @@ int client_get_plaintext_fd(struct client *client, int *fd_r, bool *close_fd_r)
 {
 	int fds[2];
 
-	if (client->ssl_iostream == NULL && client->multiplex_output == NULL) {
+	if (client->ssl_iostream == NULL) {
 		/* Plaintext connection - We can send the fd directly to
 		   the post-login process without any proxying. */
 		*fd_r = client->fd;

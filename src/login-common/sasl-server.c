@@ -178,6 +178,8 @@ static int master_send_request(struct anvil_request *anvil_request)
 	req.local_port = client->local_port;
 	req.remote_port = client->remote_port;
 	req.client_pid = getpid();
+	if (client->multiplex_output != NULL)
+		req.flags |= LOGIN_REQUEST_FLAG_MULTIPLEX_OUTPUT;
 	if (client->ssl_iostream != NULL &&
 	    ssl_iostream_get_compression(client->ssl_iostream) != NULL)
 		req.flags |= LOGIN_REQUEST_FLAG_TLS_COMPRESSION;
