@@ -662,12 +662,9 @@ int mailbox_list_index_refresh_force(struct mailbox_list *list)
 
 	if (handle_corruption &&
 	    mailbox_list_index_handle_corruption(list) < 0) {
-		const char *errstr;
-		enum mail_error error;
-
-		errstr = mailbox_list_get_last_internal_error(list, &error);
-		mailbox_list_set_error(list, error, t_strdup_printf(
-			"Failed to rebuild mailbox list index: %s", errstr));
+		mailbox_list_set_critical(list,
+			"Failed to rebuild mailbox list index: %s",
+			mailbox_list_get_last_internal_error(list, NULL));
 		ret = -1;
 	}
 	ilist->last_refresh_timeval = ioloop_timeval;
@@ -733,7 +730,7 @@ list_handle_corruption_locked(struct mailbox_list *list,
 			continue;
 
 		if (storage->v.list_index_rebuild(storage, reason) < 0) {
-			errstr = mail_storage_get_last_internal_error(storage, &error);
+			errstr = mail_storage_get_last_error(storage, &error);
 			mailbox_list_set_error(list, error, errstr);
 			return -1;
 		} else {
