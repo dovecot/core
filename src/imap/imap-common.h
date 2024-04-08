@@ -34,7 +34,8 @@ void imap_refresh_proctitle(void);
 void imap_refresh_proctitle_delayed(void);
 
 int client_create_from_input(const struct mail_storage_service_input *input,
-			     int fd_in, int fd_out, bool unhibernated,
+			     int fd_in, int fd_out,
+			     enum client_create_flags flags,
 			     struct client **client_r, const char **error_r);
 
 #endif

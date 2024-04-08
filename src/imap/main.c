@@ -244,7 +244,8 @@ client_add_input_finalize(struct client *client)
 }
 
 int client_create_from_input(const struct mail_storage_service_input *input,
-			     int fd_in, int fd_out, bool unhibernated,
+			     int fd_in, int fd_out,
+			     enum client_create_flags flags,
 			     struct client **client_r, const char **error_r)
 {
 	struct mail_storage_service_input service_input;
@@ -294,7 +295,7 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 	if (imap_set->verbose_proctitle)
 		verbose_proctitle = TRUE;
 
-	client = client_create(fd_in, fd_out, unhibernated,
+	client = client_create(fd_in, fd_out, flags,
 			       event, mail_user, imap_set, smtp_set);
 	client->userdb_fields = input->userdb_fields == NULL ? NULL :
 		p_strarray_dup(client->pool, input->userdb_fields);
@@ -323,7 +324,7 @@ static void main_stdio_run(const char *username)
 		(void)net_addr2ip(value, &input.local_ip);
 
 	if (client_create_from_input(&input, STDIN_FILENO, STDOUT_FILENO,
-				     FALSE, &client, &error) < 0)
+				     0, &client, &error) < 0)
 		i_fatal("%s", error);
 
 	input_base64 = getenv("CLIENT_INPUT");
@@ -380,7 +381,7 @@ login_request_finished(const struct login_server_request *request,
 					&imap_request);
 
 	if (client_create_from_input(&input, request->fd, request->fd,
-				     FALSE, &client, &error) < 0) {
+				     0, &client, &error) < 0) {
 		int fd = request->fd;
 		struct ostream *output =
 			o_stream_create_fd_autoclose(&fd, IO_BLOCK_SIZE);

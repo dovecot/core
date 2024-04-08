@@ -90,7 +90,8 @@ static bool user_has_special_use_mailboxes(struct mail_user *user)
 	return mail_set->parsed_have_special_use_mailboxes;
 }
 
-struct client *client_create(int fd_in, int fd_out, bool unhibernated,
+struct client *client_create(int fd_in, int fd_out,
+			     enum client_create_flags flags,
 			     struct event *event, struct mail_user *user,
 			     const struct imap_settings *set,
 			     const struct smtp_submit_settings *smtp_set)
@@ -109,7 +110,7 @@ struct client *client_create(int fd_in, int fd_out, bool unhibernated,
 	client->v = imap_client_vfuncs;
 	client->event = event;
 	event_ref(client->event);
-	client->unhibernated = unhibernated;
+	client->unhibernated = (flags & CLIENT_CREATE_FLAG_UNHIBERNATED) != 0;
 	client->set = set;
 	client->smtp_set = smtp_set;
 	client->fd_in = fd_in;

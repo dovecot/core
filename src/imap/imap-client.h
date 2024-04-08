@@ -18,6 +18,10 @@ struct imap_parser;
 struct imap_arg;
 struct imap_urlauth_context;
 
+enum client_create_flags {
+	CLIENT_CREATE_FLAG_UNHIBERNATED = BIT(0),
+};
+
 struct mailbox_keywords {
 	/* All keyword names. The array itself exists in mail_index.
 	   Keywords are currently only appended, they're never removed. */
@@ -270,7 +274,8 @@ extern unsigned int imap_feature_qresync;
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
-struct client *client_create(int fd_in, int fd_out, bool unhibernated,
+struct client *client_create(int fd_in, int fd_out,
+			     enum client_create_flags flags,
 			     struct event *event, struct mail_user *user,
 			     const struct imap_settings *set,
 			     const struct smtp_submit_settings *smtp_set);
