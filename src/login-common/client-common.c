@@ -7,6 +7,8 @@
 #include "istream.h"
 #include "md5.h"
 #include "ostream.h"
+#include "istream-multiplex.h"
+#include "ostream-multiplex.h"
 #include "iostream.h"
 #include "iostream-ssl.h"
 #include "iostream-proxy.h"
@@ -578,6 +580,7 @@ bool client_unref(struct client **_client)
 	client->list_type = CLIENT_LIST_TYPE_NONE;
 	i_stream_unref(&client->input);
 	o_stream_unref(&client->output);
+	o_stream_unref(&client->multiplex_orig_output);
 	i_close_fd(&client->fd);
 	event_unref(&client->event);
 	event_unref(&client->event_auth);
@@ -758,6 +761,13 @@ int client_init_ssl(struct client *client)
 
 static void client_start_tls(struct client *client)
 {
+	bool add_multiplex_ostream = FALSE;
+
+	if (client->multiplex_output != NULL) {
+		/* restart multiplexing after TLS iostreams are set up */
+		client_multiplex_output_stop(client);
+		add_multiplex_ostream = TRUE;
+	}
 	client->connection_used_starttls = TRUE;
 	if (client_init_ssl(client) < 0) {
 		client_notify_disconnect(client,
@@ -768,6 +778,8 @@ static void client_start_tls(struct client *client)
 	}
 	login_refresh_proctitle();
 
+	if (add_multiplex_ostream)
+		client_multiplex_output_start(client);
 	client->v.starttls(client);
 }
 
@@ -818,6 +830,39 @@ void client_cmd_starttls(struct client *client)
 	}
 }
 
+void client_multiplex_output_start(struct client *client)
+{
+	if (client->v.iostream_change_pre != NULL)
+		client->v.iostream_change_pre(client);
+
+	client->multiplex_output =
+		o_stream_create_multiplex(client->output, LOGIN_MAX_OUTBUF_SIZE,
+					  OSTREAM_MULTIPLEX_FORMAT_STREAM);
+	client->multiplex_orig_output = client->output;
+	client->output = client->multiplex_output;
+
+	if (client->v.iostream_change_post != NULL)
+		client->v.iostream_change_post(client);
+}
+
+void client_multiplex_output_stop(struct client *client)
+{
+	i_assert(client->multiplex_output != NULL);
+	i_assert(client->multiplex_orig_output != NULL);
+
+	if (client->v.iostream_change_pre != NULL)
+		client->v.iostream_change_pre(client);
+
+	i_assert(client->output == client->multiplex_output);
+	o_stream_unref(&client->output);
+	client->output = client->multiplex_orig_output;
+	client->multiplex_output = NULL;
+	client->multiplex_orig_output = NULL;
+
+	if (client->v.iostream_change_post != NULL)
+		client->v.iostream_change_post(client);
+}
+
 static void
 iostream_fd_proxy_finished(enum iostream_proxy_side side ATTR_UNUSED,
 			   enum iostream_proxy_status status ATTR_UNUSED,
@@ -834,7 +879,7 @@ int client_get_plaintext_fd(struct client *client, int *fd_r, bool *close_fd_r)
 {
 	int fds[2];
 
-	if (client->ssl_iostream == NULL) {
+	if (client->ssl_iostream == NULL && client->multiplex_output == NULL) {
 		/* Plaintext connection - We can send the fd directly to
 		   the post-login process without any proxying. */
 		*fd_r = client->fd;
@@ -858,11 +903,18 @@ int client_get_plaintext_fd(struct client *client, int *fd_r, bool *close_fd_r)
 	o_stream_set_no_error_handling(output, TRUE);
 
 	i_assert(client->io == NULL);
+	struct ostream *client_output = client->output;
+	if (client->multiplex_output != NULL) {
+		/* The post-login process takes over handling the multiplex
+		   stream. */
+		i_assert(client_output == client->multiplex_output);
+		client_output = client->multiplex_orig_output;
+	}
 
 	client_ref(client);
 	client->iostream_fd_proxy =
 		iostream_proxy_create(input, output,
-				      client->input, client->output);
+				      client->input, client_output);
 	i_stream_unref(&input);
 	o_stream_unref(&output);
 

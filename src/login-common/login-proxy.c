@@ -5,6 +5,8 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
+#include "iostream.h"
+#include "istream-multiplex.h"
 #include "iostream-proxy.h"
 #include "iostream-rawlog.h"
 #include "iostream-ssl.h"
@@ -62,6 +64,7 @@ struct login_proxy {
 	struct io *client_wait_io, *server_io;
 	struct istream *client_input, *server_input;
 	struct ostream *client_output, *server_output;
+	struct istream *multiplex_input, *multiplex_orig_input;
 	struct iostream_proxy *iostream_proxy;
 	struct ssl_iostream *server_ssl_iostream;
 	guid_128_t anvil_conn_guid;
@@ -521,6 +524,8 @@ static void login_proxy_disconnect(struct login_proxy *proxy)
 	ssl_iostream_destroy(&proxy->server_ssl_iostream);
 
 	io_remove(&proxy->server_io);
+	i_stream_destroy(&proxy->multiplex_orig_input);
+	proxy->multiplex_input = NULL;
 	i_stream_destroy(&proxy->server_input);
 	o_stream_destroy(&proxy->server_output);
 	if (proxy->server_fd != -1) {
@@ -1010,10 +1015,26 @@ void login_proxy_detach(struct login_proxy *proxy)
 	proxy->detached = TRUE;
 	proxy->client_input = client->input;
 	proxy->client_output = client->output;
-
-	o_stream_set_max_buffer_size(client->output, PROXY_MAX_OUTBUF_SIZE);
 	client->input = NULL;
 	client->output = NULL;
+
+	if (proxy->multiplex_orig_input != NULL &&
+	    client->multiplex_output == proxy->client_output) {
+		/* both sides of the proxy want multiplexing and there are no
+		   plugins hooking into the ostream. We can just step out of
+		   the way and let the two sides multiplex directly. */
+		i_stream_unref(&proxy->server_input);
+		proxy->server_input = proxy->multiplex_orig_input;
+		proxy->multiplex_input = NULL;
+		proxy->multiplex_orig_input = NULL;
+
+		o_stream_unref(&proxy->client_output);
+		proxy->client_output = client->multiplex_orig_output;
+		client->multiplex_output = NULL;
+		client->multiplex_orig_output = NULL;
+	}
+	o_stream_set_max_buffer_size(proxy->client_output,
+				     PROXY_MAX_OUTBUF_SIZE);
 
 	/* from now on, just do dummy proxying */
 	proxy->iostream_proxy =
@@ -1059,6 +1080,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 	struct ssl_iostream_context *ssl_ctx;
 	struct ssl_iostream_settings ssl_set;
 	const char *error;
+	bool add_multiplex_istream = FALSE;
 
 	master_service_ssl_client_settings_to_iostream_set(
 		proxy->client->ssl_set, pool_datastack_create(), &ssl_set);
@@ -1078,6 +1100,16 @@ int login_proxy_starttls(struct login_proxy *proxy)
 		login_proxy_failed(proxy, proxy->event,
 				   LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
 		return -1;
+	}
+
+	if (proxy->multiplex_orig_input != NULL) {
+		/* restart multiplexing after TLS iostreams are set up */
+		i_assert(proxy->server_input == proxy->multiplex_input);
+		i_stream_unref(&proxy->server_input);
+		proxy->server_input = proxy->multiplex_orig_input;
+		proxy->multiplex_input = NULL;
+		proxy->multiplex_orig_input = NULL;
+		add_multiplex_istream = TRUE;
 	}
 
 	if (io_stream_create_ssl_client(ssl_ctx, proxy->host, &ssl_set,
@@ -1106,7 +1138,26 @@ int login_proxy_starttls(struct login_proxy *proxy)
 
 	proxy->server_io = io_add_istream(proxy->server_input,
 					  proxy_prelogin_input, proxy);
+	if (add_multiplex_istream)
+		login_proxy_multiplex_input_start(proxy);
 	return 0;
+}
+
+void login_proxy_multiplex_input_start(struct login_proxy *proxy)
+{
+	struct istream *input = i_stream_create_multiplex(proxy->server_input,
+							  LOGIN_MAX_INBUF_SIZE);
+	i_assert(proxy->multiplex_orig_input == NULL);
+	proxy->multiplex_orig_input = proxy->server_input;
+	proxy->multiplex_input = input;
+	proxy->server_input = input;
+
+	io_remove(&proxy->server_io);
+	proxy->server_io = io_add_istream(proxy->server_input,
+					  proxy_prelogin_input, proxy);
+	/* caller needs to break out of the proxy_input() loop and get it
+	   called again to update the istream. */
+	i_stream_set_input_pending(input, TRUE);
 }
 
 static void proxy_kill_idle(struct login_proxy *proxy)

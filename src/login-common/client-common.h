@@ -196,6 +196,11 @@ struct client {
 	int fd;
 	struct istream *input;
 	struct ostream *output;
+	/* If non-NULL, this is the multiplex ostream. It is usually the same
+	   as the output pointer, but some plugins may make them different.
+	   This isn't holding a reference, so it must not be unreferenced. */
+	struct ostream *multiplex_output;
+	struct ostream *multiplex_orig_output;
 	struct io *io;
 	struct iostream_proxy *iostream_fd_proxy;
 	struct timeout *to_auth_waiting;
@@ -339,6 +344,9 @@ bool client_unref(struct client **client) ATTR_NOWARN_UNUSED_RESULT;
 
 int client_init_ssl(struct client *client);
 void client_cmd_starttls(struct client *client);
+
+void client_multiplex_output_start(struct client *client);
+void client_multiplex_output_stop(struct client *client);
 
 int client_get_plaintext_fd(struct client *client, int *fd_r, bool *close_fd_r);
 
