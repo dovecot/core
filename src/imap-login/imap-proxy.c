@@ -42,6 +42,7 @@ static void proxy_write_id(struct imap_client *client, string_t *str)
 		str_append_c(str, ' ');
 	}
 	str_printfa(str, "\"x-session-id\" \"%s\" "
+		    "\"x-multiplex\" \"0\" "
 		    "\"x-originating-ip\" \"%s\" "
 		    "\"x-originating-port\" \"%u\" "
 		    "\"x-connected-ip\" \"%s\" "
@@ -507,6 +508,18 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 	} else if (str_begins_icase_with(line, "* ID ")) {
 		/* Reply to ID command we sent, ignore it */
 		return 0;
+	} else if (str_begins(line, "* MULTIPLEX ", &suffix)) {
+		if (strcmp(suffix, "0") != 0) {
+			const char *reason = t_strdup_printf(
+				"Unsupported MULTIPLEX version: %s", suffix);
+			login_proxy_failed(client->login_proxy,
+				login_proxy_get_event(client->login_proxy),
+				LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
+			return -1;
+		}
+		login_proxy_multiplex_input_start(client->login_proxy);
+		/* force caller to refresh istream */
+		return 1;
 	} else if (str_begins_with(line, "* BYE ")) {
 		/* Login unexpectedly failed (due to some internal error).
 		   Don't forward the BYE to the client, since we're not going

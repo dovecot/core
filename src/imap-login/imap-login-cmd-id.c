@@ -25,6 +25,7 @@ struct imap_id_params {
 	ARRAY(struct imap_id_params_forward) forward_fields;
 	bool end_client_tls_secured_set;
 	bool end_client_tls_secured;
+	bool multiplex;
 };
 
 struct imap_id_param_handler {
@@ -117,6 +118,19 @@ cmd_id_x_forward_(struct imap_id_params *params,
 }
 
 static bool
+cmd_id_x_multiplex(struct imap_id_params *params,
+		   const char *key ATTR_UNUSED, const char *value)
+{
+	/* <version=0> [<capability> ...] */
+	const char *const *args = t_strsplit(value, " ");
+	if (args[0] == NULL || strcmp(args[0], "0") != 0)
+		return FALSE;
+
+	params->multiplex = TRUE;
+	return TRUE;
+}
+
+static bool
 cmd_id_x_connected_name(struct imap_id_params *params,
 			const char *key ATTR_UNUSED, const char *value)
 {
@@ -138,6 +152,7 @@ static const struct imap_id_param_handler imap_login_id_params[] = {
 	{ "x-session-ext-id", FALSE, cmd_id_x_session_id },
 	{ "x-client-transport", FALSE, cmd_id_x_client_transport },
 	{ "x-forward-", TRUE, cmd_id_x_forward_ },
+	{ "x-multiplex", FALSE, cmd_id_x_multiplex },
 
 	{ NULL, FALSE, NULL }
 };
@@ -289,6 +304,11 @@ static void cmd_id_finish(struct imap_client *client)
 			imap_id_reply_generate(client->set->imap_id_send)));
 	const char *msg = "ID completed.";
 	if (client->common.connection_trusted) {
+		if (client->cmd_id->params->multiplex &&
+		    client->common.multiplex_output == NULL) {
+			client_send_raw(&client->common, "* MULTIPLEX 0\r\n");
+			client_multiplex_output_start(&client->common);
+		}
 		cmd_id_copy_params(client, client->cmd_id->params);
 		msg = "Trusted ID completed.";
 	}
