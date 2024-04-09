@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "module-context.h"
+#include "str-parse.h"
 #include "mail-user.h"
 #include "mail-storage-private.h"
 #include "mailbox-match-plugin.h"
@@ -24,6 +25,8 @@ struct fts_user {
 	ARRAY_TYPE(fts_user_language) languages, data_languages;
 
 	struct mailbox_match_plugin *autoindex_exclude;
+
+	size_t fts_message_max_size;
 };
 
 static MODULE_CONTEXT_DEFINE_INIT(fts_user_module,
@@ -387,6 +390,12 @@ fts_mail_user_init_libfts(struct mail_user *user, struct fts_user *fuser,
 	return 0;
 }
 
+size_t fts_mail_user_message_max_size(struct mail_user *user)
+{
+	struct fts_user *fuser = FTS_USER_CONTEXT_REQUIRE(user);
+	return fuser->fts_message_max_size;
+}
+
 int fts_mail_user_init(struct mail_user *user, bool initialize_libfts,
 		       const char **error_r)
 {
@@ -408,6 +417,19 @@ int fts_mail_user_init(struct mail_user *user, bool initialize_libfts,
 	}
 	fuser->autoindex_exclude =
 		mailbox_match_plugin_init(user, "fts_autoindex_exclude");
+
+	const char *fts_max_size_setting =
+		mail_user_plugin_getenv(user, "fts_message_max_size");
+
+	if (fts_max_size_setting != NULL) {
+		const char *error;
+		if (str_parse_get_size(fts_max_size_setting,
+				       &fuser->fts_message_max_size, &error) < 0) {
+			*error_r = t_strdup_printf("Cannot parse fts_message_max_size: %s", error);
+			fts_user_free(fuser);
+			return -1;
+		}
+	}
 
 	MODULE_CONTEXT_SET(user, fts_user_module, fuser);
 	return 0;

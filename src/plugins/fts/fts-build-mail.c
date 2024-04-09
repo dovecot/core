@@ -585,6 +585,10 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 	bool binary_body;
 	const char *error;
 	int ret;
+	size_t fts_message_max_size, orig_fts_message_max_size;
+
+	fts_message_max_size = orig_fts_message_max_size =
+		fts_mail_user_message_max_size(update_ctx->cur_box->storage->user);
 
 	*may_need_retry_r = FALSE;
 	if (mail_get_stream_because(mail, NULL, NULL, "fts indexing", &input) < 0) {
@@ -660,6 +664,23 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 		if (!message_decoder_decode_next_block(decoder, &raw_block,
 						       &block))
 			continue;
+
+		/* If the block size exceeds limit, we truncate the block
+		   which would have exceeded to final size, and parse it.
+		   Then we ignore the rest body parts. */
+		if (body_part && orig_fts_message_max_size > 0) {
+			if (fts_message_max_size > block.size) {
+				fts_message_max_size -= block.size;
+			} else if (fts_message_max_size == 0) {
+				continue;
+			} else {
+				e_debug(mail->box->event,
+					"UID %u: Body size exceeds %zu, truncating and skipping",
+					mail->uid, orig_fts_message_max_size);
+				block.size = fts_message_max_size;
+				fts_message_max_size = 0;
+			}
+		}
 
 		if (block.hdr != NULL) {
 			fts_parse_mail_header(&ctx, &raw_block);

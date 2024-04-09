@@ -19,6 +19,7 @@ const ARRAY_TYPE(fts_user_language) *
 fts_user_get_data_languages(struct mail_user *user);
 
 bool fts_user_autoindex_exclude(struct mailbox *box);
+size_t fts_mail_user_message_max_size(struct mail_user *user);
 
 int fts_mail_user_init(struct mail_user *user, bool initialize_libfts,
 		       const char **error_r);
