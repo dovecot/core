@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "lib-signals.h"
+#include "path-util.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "istream-dot.h"
@@ -470,11 +471,23 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 		}
 	}
 
+	bool dropping_privs = HAS_ANY_BITS(ctx->service_flags,
+				 	   MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP);
+	uid_t cur_uid = geteuid();
+	const char *cur_cwd;
+	if (t_get_working_dir(&cur_cwd, error_r) < 0) {
+		mail_storage_service_user_unref(&ctx->cur_service_user);
+		return -1;
+	}
+
 	ret = mail_storage_service_next(ctx->storage_service,
 					ctx->cur_service_user,
 					&ctx->cur_mail_user, error_r);
 	if (ret < 0) {
 		mail_storage_service_user_unref(&ctx->cur_service_user);
+		if (dropping_privs)
+			mail_storage_service_restore_privileges(cur_uid, cur_cwd,
+								cctx->event);
 		return ret;
 	}
 
@@ -499,6 +512,9 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 	/* User deinit may still do some work, so finish the reason after it.
 	   Also, this needs to be after the ioloop context is deactivated. */
 	event_reason_end(&reason);
+	if (dropping_privs)
+		mail_storage_service_restore_privileges(cur_uid, cur_cwd,
+							cctx->event);
 	return 1;
 }
 
