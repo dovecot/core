@@ -420,6 +420,19 @@ static void mail_storage_service_seteuid_root(void)
 	}
 }
 
+void mail_storage_service_restore_privileges(const char *old_cwd,
+					     struct event *event)
+{
+	if (geteuid() != 0) {
+		mail_storage_service_seteuid_root();
+		restrict_access_allow_coredumps(TRUE);
+	}
+
+	/* we need also to chdir to root-owned directory to get core dumps. */
+	if (old_cwd != NULL && chdir(old_cwd) < 0)
+		e_error(event, "chdir(%s) failed: %m", old_cwd);
+}
+
 static int
 service_drop_privileges(struct mail_storage_service_user *user,
 			struct mail_storage_service_privileges *priv,

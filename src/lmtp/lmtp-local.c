@@ -778,14 +778,6 @@ void lmtp_local_data(struct client *client,
 		/* switch back to running as root, since that's what we're
 		   practically doing anyway. it's also important in case we
 		   lose e.g. config connection and need to reconnect to it. */
-		if (seteuid(0) < 0)
-			i_fatal("seteuid(0) failed: %m");
-		/* enable core dumping again. we need to chdir also to
-		   root-owned directory to get core dumps. */
-		restrict_access_allow_coredumps(TRUE);
-		if (chdir(base_dir) < 0) {
-			e_error(client->event,
-				"chdir(%s) failed: %m", base_dir);
-		}
+		mail_storage_service_restore_privileges(base_dir, cmd->event);
 	}
 }
