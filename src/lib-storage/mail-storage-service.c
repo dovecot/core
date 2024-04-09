@@ -411,21 +411,28 @@ service_parse_privileges(struct mail_storage_service_user *user,
 	return 0;
 }
 
-static void mail_storage_service_seteuid_root(void)
+static void mail_storage_service_seteuid(uid_t uid)
 {
-	if (seteuid(0) < 0) {
+	if (seteuid(uid) < 0) {
 		i_fatal("mail-storage-service: "
 			"Failed to restore temporarily dropped root privileges: "
-			"seteuid(0) failed: %m");
+			"seteuid(%d) failed: %m", uid);
 	}
 }
 
-void mail_storage_service_restore_privileges(const char *old_cwd,
+static void mail_storage_service_seteuid_root(void)
+{
+	mail_storage_service_seteuid(0);
+}
+
+void mail_storage_service_restore_privileges(uid_t old_uid, const char *old_cwd,
 					     struct event *event)
 {
-	if (geteuid() != 0) {
+	if (old_uid != geteuid()) {
 		mail_storage_service_seteuid_root();
 		restrict_access_allow_coredumps(TRUE);
+		if (old_uid != 0)
+			mail_storage_service_seteuid(old_uid);
 	}
 
 	/* we need also to chdir to root-owned directory to get core dumps. */

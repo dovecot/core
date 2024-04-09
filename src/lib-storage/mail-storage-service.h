@@ -171,6 +171,7 @@ mail_storage_service_get_var_expand_table(struct mail_storage_service_ctx *ctx,
 					  struct mail_storage_service_input *input);
 const char *mail_storage_service_fields_var_expand(const char *data,
 						   const char *const *fields);
-void mail_storage_service_restore_privileges(const char *old_cwd, struct event *event);
+void mail_storage_service_restore_privileges(uid_t old_uid, const char *old_cwd,
+					     struct event *event);
 
 #endif

@@ -778,6 +778,7 @@ void lmtp_local_data(struct client *client,
 		/* switch back to running as root, since that's what we're
 		   practically doing anyway. it's also important in case we
 		   lose e.g. config connection and need to reconnect to it. */
-		mail_storage_service_restore_privileges(base_dir, cmd->event);
+		mail_storage_service_restore_privileges(old_uid, base_dir,
+							cmd->event);
 	}
 }
