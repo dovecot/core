@@ -192,6 +192,16 @@ static void fs_crypt_file_close(struct fs_file *_file)
 	fs_file_close(_file->parent);
 }
 
+static void fs_crypt_set_metadata(struct fs_file *_file,
+				  const char *key, const char *value)
+{
+	struct crypt_fs_file *file = CRYPT_FILE(_file);
+
+	fs_set_metadata(_file->parent, key, value);
+	if (file->super_read != NULL)
+		fs_set_metadata(file->super_read, key, value);
+}
+
 static int fs_crypt_read_file(const char *set_name, const char *path,
 			      char **key_data_r, const char **error_r)
 {

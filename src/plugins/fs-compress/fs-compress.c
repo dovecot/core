@@ -162,6 +162,16 @@ static void fs_compress_file_close(struct fs_file *_file)
 	fs_file_close(_file->parent);
 }
 
+static void fs_compress_set_metadata(struct fs_file *_file,
+				     const char *key, const char *value)
+{
+	struct compress_fs_file *file = COMPRESS_FILE(_file);
+
+	fs_set_metadata(_file->parent, key, value);
+	if (file->super_read != NULL)
+		fs_set_metadata(file->super_read, key, value);
+}
+
 static struct istream *
 fs_compress_read_stream(struct fs_file *_file, size_t max_buffer_size)
 {
@@ -266,7 +276,7 @@ const struct fs fs_class_compress = {
 		.get_path = fs_wrapper_file_get_path,
 		.set_async_callback = fs_wrapper_set_async_callback,
 		.wait_async = fs_wrapper_wait_async,
-		.set_metadata = fs_wrapper_set_metadata,
+		.set_metadata = fs_compress_set_metadata,
 		.get_metadata = fs_wrapper_get_metadata,
 		.prefetch = fs_wrapper_prefetch,
 		.read = fs_read_via_stream,

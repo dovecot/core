@@ -162,6 +162,8 @@ fs_metawrap_set_metadata(struct fs_file *_file, const char *key,
 		fs_set_metadata(_file->parent, key, value);
 	else {
 		fs_default_set_metadata(_file, key, value);
+		if (file->super_read != NULL)
+			fs_set_metadata(file->super_read, key, value);
 		file->metadata_changed_since_write = TRUE;
 	}
 }
