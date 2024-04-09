@@ -259,6 +259,11 @@ fs_metawrap_read_stream(struct fs_file *_file, size_t max_buffer_size)
 	}
 
 	input = fs_read_stream(file->super_read, max_buffer_size);
+	if (input->stream_errno != 0) {
+		file->input = input;
+		i_stream_ref(file->input);
+		return file->input;
+	}
 	file->input = i_stream_create_metawrap(input, fs_metawrap_callback, file);
 	i_stream_unref(&input);
 	i_stream_ref(file->input);

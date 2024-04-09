@@ -177,6 +177,11 @@ fs_compress_read_stream(struct fs_file *_file, size_t max_buffer_size)
 
 	input = fs_read_stream(file->super_read,
 		I_MAX(FS_COMPRESS_ISTREAM_MIN_BUFFER_SIZE, max_buffer_size));
+	if (input->stream_errno != 0) {
+		file->input = input;
+		i_stream_ref(file->input);
+		return file->input;
+	}
 	if (file->fs->try_plain)
 		flags |= ISTREAM_DECOMPRESS_FLAG_TRY;
 	file->input = i_stream_create_decompress(input, flags);
