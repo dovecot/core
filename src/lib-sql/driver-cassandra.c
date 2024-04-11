@@ -164,6 +164,7 @@ struct cassandra_result {
 	char *log_query;
 	char *error;
 	CassConsistency consistency, fallback_consistency;
+	CassConsistency error_result_consistency;
 	enum cassandra_query_type query_type;
 	struct timeval page0_start_time, start_time, finish_time;
 	unsigned int row_count, total_row_count, page_num;
@@ -1223,6 +1224,14 @@ static void driver_cassandra_log_result(struct cassandra_result *result,
 		sql_query_finished_event(&db->api, result->api.event,
 					 result->log_query, result->error == NULL,
 					 &duration);
+	if (result->query_sent) {
+		e->add_str("consistency",
+			   cass_consistency_string(result->consistency));
+	}
+	if (result->error_result_consistency != CASS_CONSISTENCY_UNKNOWN) {
+		e->add_str("error_consistency",
+			   cass_consistency_string(result->error_result_consistency));
+	}
 	if (result->error != NULL)
 		e->add_str("error", result->error);
 
@@ -1428,6 +1437,7 @@ get_consistency_error(struct cassandra_result *result,
 		cass_future_get_error_result(future);
 	CassConsistency consistency =
 		cass_error_result_consistency(error_result);
+	result->error_result_consistency = consistency;
 
 	string_t *str = t_str_new(128);
 	str_printfa(str, ", %s consistency, %u of minimum %u responses received",
@@ -1672,6 +1682,7 @@ driver_cassandra_result_init(struct cassandra_db *db, const char *log_query,
 	result->query_type = query_type;
 	result->log_query = i_strdup(log_query);
 	result->type = result_type;
+	result->error_result_consistency = CASS_CONSISTENCY_UNKNOWN;
 	result->api.event = event_create(db->api.event);
 	array_push_back(&db->results, &result);
 	return result;
