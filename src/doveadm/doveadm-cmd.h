@@ -51,7 +51,6 @@ extern struct doveadm_cmd_ver2 doveadm_cmd_kick_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_proxy_kick_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_who_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_proxy_list_ver2;
-extern struct doveadm_cmd_ver2 doveadm_cmd_sis_deduplicate;
 extern struct doveadm_cmd_ver2 doveadm_cmd_sis_find;
 extern struct doveadm_cmd_ver2 doveadm_cmd_compress_connect;
 extern struct doveadm_cmd_ver2 doveadm_cmd_indexer_add;
