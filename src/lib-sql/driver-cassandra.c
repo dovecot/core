@@ -107,6 +107,7 @@ struct cassandra_db {
 	CassConsistency delete_fallback_consistency;
 	CassLogLevel log_level;
 	bool debug_queries;
+	bool log_retries;
 	bool latency_aware_routing;
 	bool init_ssl;
 	unsigned int protocol_version;
@@ -122,6 +123,8 @@ struct cassandra_db {
 	CassSession *session;
 	CassTimestampGen *timestamp_gen;
 	CassSsl *ssl;
+
+	CassRetryPolicy *default_policy, *logging_policy;
 
 	int fd_pipe[2];
 	struct io *io_pipe;
@@ -742,6 +745,8 @@ static int driver_cassandra_parse_connect_string(struct cassandra_db *db,
 			}
 		} else if (strcmp(key, "debug_queries") == 0) {
 			db->debug_queries = TRUE;
+		} else if (strcmp(key, "log_retries") == 0) {
+			db->log_retries = TRUE;
 		} else if (strcmp(key, "latency_aware_routing") == 0) {
 			db->latency_aware_routing = TRUE;
 		} else if (strcmp(key, "version") == 0) {
@@ -1119,6 +1124,11 @@ static int driver_cassandra_init_full_v(const struct sql_settings *set,
 	if (db->heartbeat_interval_secs != 0)
 		cass_cluster_set_connection_heartbeat_interval(db->cluster,
 			db->heartbeat_interval_secs);
+	if (db->log_retries) {
+		db->default_policy = cass_retry_policy_default_new();
+		db->logging_policy = cass_retry_policy_logging_new(db->default_policy);
+		cass_cluster_set_retry_policy(db->cluster, db->logging_policy);
+	}
 	if (db->idle_timeout_secs != 0)
 		cass_cluster_set_connection_idle_timeout(db->cluster,
 			db->idle_timeout_secs);
@@ -1163,6 +1173,10 @@ static void driver_cassandra_deinit_v(struct sql_db *_db)
 
 	cass_session_free(db->session);
 	cass_cluster_free(db->cluster);
+	if (db->default_policy != NULL)
+		cass_retry_policy_free(db->default_policy);
+	if (db->logging_policy != NULL)
+		cass_retry_policy_free(db->logging_policy);
 	cass_timestamp_gen_free(db->timestamp_gen);
 	timeout_remove(&db->to_metrics);
 	sql_connection_log_finished(_db);
