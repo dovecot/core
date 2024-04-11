@@ -1208,11 +1208,16 @@ static void driver_cassandra_log_result(struct cassandra_result *result,
 			str_printfa(str, "page %u, ", result->page_num);
 		row_count = result->row_count;
 	}
-	str_printfa(str, "%u rows, %lld+%lld us, %s consistency): %s",
-		    row_count, reply_usecs,
-		    timeval_diff_usecs(&now, &result->finish_time),
-		    cass_consistency_string(result->consistency),
-		    result->error != NULL ? result->error : "success");
+	if (result->query_sent) {
+		str_printfa(str, "%u rows, %lld+%lld us, %s consistency",
+			    row_count, reply_usecs,
+			    timeval_diff_usecs(&now, &result->finish_time),
+			    cass_consistency_string(result->consistency));
+	} else {
+		str_append(str, "request not sent");
+	}
+	str_printfa(str, "): %s", result->error != NULL ?
+		    result->error : "success");
 
 	struct event_passthrough *e =
 		sql_query_finished_event(&db->api, result->api.event,
