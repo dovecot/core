@@ -1210,7 +1210,7 @@ static void driver_cassandra_log_result(struct cassandra_result *result,
 		row_count = result->row_count;
 	}
 	if (result->query_sent) {
-		str_printfa(str, "%u rows, %lld+%lld us, %s consistency",
+		str_printfa(str, "%u rows, %lld+%lld us, %s requested consistency",
 			    row_count, reply_usecs,
 			    timeval_diff_usecs(&now, &result->finish_time),
 			    cass_consistency_string(result->consistency));
@@ -1430,7 +1430,7 @@ get_consistency_error(struct cassandra_result *result,
 	case CASS_ERROR_SERVER_UNAVAILABLE:
 		break;
 	default:
-		return t_strdup_printf(", %s consistency",
+		return t_strdup_printf(", %s requested consistency",
 			cass_consistency_string(result->consistency));
 	}
 	const CassErrorResult *error_result =
@@ -1444,6 +1444,10 @@ get_consistency_error(struct cassandra_result *result,
 		    cass_consistency_string(consistency),
 		    cass_error_result_responses_received(error_result),
 		    cass_error_result_responses_required(error_result));
+	if (consistency != result->consistency) {
+		str_printfa(str, ", %s requested consistency",
+			    cass_consistency_string(result->consistency));
+	}
 	if (error == CASS_ERROR_SERVER_READ_FAILURE ||
 	    error == CASS_ERROR_SERVER_WRITE_FAILURE) {
 		str_printfa(str, ", %u Cassandra node failures",
