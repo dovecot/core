@@ -5,7 +5,7 @@
 
 /* <settings checks> */
 enum pop3c_features {
-        POP3C_FEATURE_NO_PIPELINING = 0x1,
+	POP3C_FEATURE_NO_PIPELINING = 0x1,
 };
 /* </settings checks> */
 
