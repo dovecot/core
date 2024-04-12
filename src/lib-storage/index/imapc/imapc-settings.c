@@ -135,8 +135,8 @@ static int
 imapc_settings_parse_features(struct imapc_settings *set,
 			      const char **error_r)
 {
-        enum imapc_features features = 0;
-        const struct imapc_feature_list *list;
+	enum imapc_features features = 0;
+	const struct imapc_feature_list *list;
 	const char *const *str, *value;
 
 	str = settings_boollist_get(&set->imapc_features);
