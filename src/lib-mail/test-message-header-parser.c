@@ -463,6 +463,71 @@ static void test_message_header_parser_extra_crlf_in_name(void)
 	test_end();
 }
 
+#define assert_parsed_field(line, expected, actual, len) STMT_START {		\
+	test_assert_idx(memcmp(expected, actual, strlen(expected)) == 0, line); \
+	test_assert_cmp_idx(strlen(expected), ==, len, line);			\
+} STMT_END
+
+/* NOTE: implicit variables: (parser, hdr) */
+#define assert_parse_line(line, exp_name, exp_value, exp_full) STMT_START {		\
+	test_assert_idx(message_parse_header_next(parser, &hdr) > 0, line); 		\
+	assert_parsed_field(line, exp_name,   hdr->name,       hdr->name_len);		\
+	assert_parsed_field(line, exp_value,  hdr->value,      hdr->value_len);		\
+	assert_parsed_field(line, exp_full,   hdr->full_value, hdr->full_value_len);	\
+	if (hdr->continues) hdr->use_full_value = TRUE;					\
+} STMT_END
+
+static const unsigned char test_message_header_truncation_input[] =
+	/*01*/	"header1: this is short\n"
+	/*02*/	"header2: this is multiline\n"
+	/*03*/	" and long 343638404244464850525456586062\n"
+	/*04*/	" 64666870727476788082848688909294969800\n"
+	/*05*/	" 02040608101214161820222426283032343638\n"
+	/*06*/	"header3: I should not appear at all\n"
+	/*07*/	"\n";
+
+static void test_message_header_truncation_clean_oneline(void)
+{
+	test_begin("message header parser truncate + CLEAN_ONELINE flag");
+	struct message_header_line *hdr = NULL;
+	struct istream *input = test_istream_create_data(test_message_header_truncation_input, sizeof(test_message_header_truncation_input));
+	struct message_header_parser_ctx *parser = message_parse_header_init(input, NULL, MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE);
+	message_parse_header_set_limit(parser, 96);
+
+	assert_parse_line( 1, "header1", "this is short",	                     "this is short");
+	assert_parse_line( 2, "header2", "this is multiline", 	                     "this is multiline");
+	assert_parse_line( 3, "header2", " and long 343638404244464850525456586062", "this is multiline and long 343638404244464850525456586062");
+	assert_parse_line( 4, "header2", " 64666870727476788082848688909294969800",  "this is multiline and long 343638404244464850525456586062 6466687072747678808284868");
+	assert_parse_line( 5, "header2", " 02040608101214161820222426283032343638",  "this is multiline and long 343638404244464850525456586062 6466687072747678808284868");
+	assert_parse_line( 6, "header3", "", "");
+	test_assert(message_parse_header_next(parser, &hdr) > 0 && hdr->eoh);
+
+	message_parse_header_deinit(&parser);
+	i_stream_unref(&input);
+	test_end();
+}
+
+static void test_message_header_truncation_flag0(void)
+{
+	test_begin("message header parser truncate + NO flags");
+	struct message_header_line *hdr = NULL;
+	struct istream *input = test_istream_create_data(test_message_header_truncation_input, sizeof(test_message_header_truncation_input));
+	struct message_header_parser_ctx *parser = message_parse_header_init(input, NULL, 0);
+	message_parse_header_set_limit(parser, 96);
+
+	assert_parse_line( 1, "header1", "this is short",	                     "this is short");
+	assert_parse_line( 2, "header2", "this is multiline", 	                     "this is multiline");
+	assert_parse_line( 3, "header2", " and long 343638404244464850525456586062", "this is multiline\n and long 343638404244464850525456586062");
+	assert_parse_line( 4, "header2", " 64666870727476788082848688909294969800",  "this is multiline\n and long 343638404244464850525456586062\n 646668707274767880828486");
+	assert_parse_line( 5, "header2", " 02040608101214161820222426283032343638",  "this is multiline\n and long 343638404244464850525456586062\n 646668707274767880828486");
+	assert_parse_line( 6, "header3", "", "");
+	test_assert(message_parse_header_next(parser, &hdr) > 0 && hdr->eoh);
+
+	message_parse_header_deinit(&parser);
+	i_stream_unref(&input);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -473,6 +538,8 @@ int main(void)
 		test_message_header_parser_no_eoh,
 		test_message_header_parser_nul,
 		test_message_header_parser_extra_crlf_in_name,
+		test_message_header_truncation_flag0,
+		test_message_header_truncation_clean_oneline,
 		NULL
 	};
 	return test_run(test_functions);
