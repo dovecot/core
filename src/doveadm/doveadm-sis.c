@@ -28,44 +28,6 @@ static const char *sis_get_dir(const char *rootdir, const char *hash)
 			       hash[0], hash[1], hash[2], hash[3]);
 }
 
-static int
-hardlink_replace(const char *src, const char *dest, ino_t src_inode,
-		 const char **error_r)
-{
-	const char *p, *destdir, *tmppath;
-	unsigned char randbuf[8];
-	struct stat st;
-
-	p = strrchr(dest, '/');
-	i_assert(p != NULL);
-	destdir = t_strdup_until(dest, p);
-
-	random_fill(randbuf, sizeof(randbuf));
-	tmppath = t_strdup_printf("%s/temp.%s.%s.%s",
-				  destdir, my_hostname, my_pid,
-				  binary_to_hex(randbuf, sizeof(randbuf)));
-	if (link(src, tmppath) < 0) {
-		if (errno == EMLINK)
-			return 0;
-		*error_r = t_strdup_printf("link(%s, %s) failed: %m", src, tmppath);
-		return -1;
-	}
-	if (stat(tmppath, &st) < 0) {
-		*error_r = t_strdup_printf("stat(%s) failed: %m", tmppath);
-		return -1;
-	}
-	if (st.st_ino != src_inode) {
-		i_unlink(tmppath);
-		return 0;
-	}
-	if (rename(tmppath, dest) < 0) {
-		*error_r = t_strdup_printf("rename(%s, %s) failed: %m", src, tmppath);
-		i_unlink(tmppath);
-		return -1;
-	}
-	return 1;
-}
-
 static void cmd_sis_find(struct doveadm_cmd_context *cctx)
 {
 	const char *rootdir, *path, *hash;
