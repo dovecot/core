@@ -21,6 +21,9 @@ struct message_header_parser_ctx {
 	string_t *name;
 	buffer_t *value_buf;
 
+	size_t header_block_max_size;
+	size_t header_block_total_size;
+
 	enum message_header_parser_flags flags;
 	bool skip_line:1;
 	bool has_nuls:1;
@@ -38,11 +41,27 @@ message_parse_header_init(struct istream *input, struct message_size *hdr_size,
 	ctx->name = str_new(default_pool, 128);
 	ctx->flags = flags;
 	ctx->value_buf = buffer_create_dynamic(default_pool, 4096);
+	ctx->header_block_max_size = MESSAGE_HEADER_BLOCK_DEFAULT_MAX_SIZE;
 	i_stream_ref(input);
 
 	if (hdr_size != NULL)
 		i_zero(hdr_size);
 	return ctx;
+}
+
+void
+message_parse_header_set_limit(struct message_header_parser_ctx *parser,
+			       size_t header_block_max_size)
+{
+	parser->header_block_max_size = header_block_max_size;
+}
+
+void
+message_parse_header_lower_limit(struct message_header_parser_ctx *parser,
+				 size_t header_block_max_size)
+{
+	if (header_block_max_size < parser->header_block_max_size)
+		message_parse_header_set_limit(parser, header_block_max_size);
 }
 
 void message_parse_header_deinit(struct message_header_parser_ctx **_ctx)
@@ -77,6 +96,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		/* new header line */
 		line->name_offset = ctx->input->v_offset;
 		colon_pos = UINT_MAX;
+		ctx->header_block_total_size += ctx->value_buf->used;
 		buffer_set_used_size(ctx->value_buf, 0);
 	}
 
@@ -342,33 +362,39 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		}
 	}
 
+	line->value_len = I_MIN(line->value_len, ctx->header_block_max_size);
+	size_t line_value_size = line->value_len;
+	size_t header_total_used = ctx->header_block_total_size + ctx->value_buf->used;
+	size_t line_available = ctx->header_block_max_size <= header_total_used ? 0 :
+				ctx->header_block_max_size - header_total_used;
+	line_value_size = I_MIN(line_value_size, line_available);
+
 	if (!line->continued) {
 		/* first header line. make a copy of the line since we can't
 		   really trust input stream not to lose it. */
-		buffer_append(ctx->value_buf, line->value, line->value_len);
+		buffer_append(ctx->value_buf, line->value, line_value_size);
 		line->value = line->full_value = ctx->value_buf->data;
-		line->full_value_len = line->value_len;
+		line->full_value_len = line->value_len = line_value_size;
 	} else if (line->use_full_value) {
 		/* continue saving the full value. */
 		if (last_no_newline) {
 			/* line is longer than fit into our buffer, so we
 			   were forced to break it into multiple
 			   message_header_lines */
-		} else {
-			if (last_crlf)
+		} else if (line_value_size > 1) {
+			if (last_crlf && line_value_size > 2)
 				buffer_append_c(ctx->value_buf, '\r');
 			buffer_append_c(ctx->value_buf, '\n');
 		}
 		if ((ctx->flags & MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE) != 0 &&
 		    line->value_len > 0 && line->value[0] != ' ' &&
-		    IS_LWSP(line->value[0])) {
+		    IS_LWSP(line->value[0]) &&
+		    line_value_size > 0) {
 			buffer_append_c(ctx->value_buf, ' ');
-			buffer_append(ctx->value_buf,
-				      line->value + 1, line->value_len - 1);
-		} else {
-			buffer_append(ctx->value_buf,
-				      line->value, line->value_len);
-		}
+			buffer_append(ctx->value_buf, line->value + 1, line_value_size - 1);
+		} else
+			buffer_append(ctx->value_buf, line->value, line_value_size);
+
 		line->full_value = ctx->value_buf->data;
 		line->full_value_len = ctx->value_buf->used;
 	} else {

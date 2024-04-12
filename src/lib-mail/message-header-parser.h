@@ -1,6 +1,9 @@
 #ifndef MESSAGE_HEADER_PARSER_H
 #define MESSAGE_HEADER_PARSER_H
 
+/* This can be overridden by message_parse_header_set_limit() */
+#define MESSAGE_HEADER_BLOCK_DEFAULT_MAX_SIZE ((size_t) 10 * 1024*1024)
+
 #define IS_LWSP(c) \
 	((c) == ' ' || (c) == '\t')
 
@@ -47,6 +50,13 @@ struct message_header_parser_ctx *
 message_parse_header_init(struct istream *input, struct message_size *hdr_size,
 			  enum message_header_parser_flags flags) ATTR_NULL(2);
 void message_parse_header_deinit(struct message_header_parser_ctx **ctx);
+
+void
+message_parse_header_set_limit(struct message_header_parser_ctx *parser,
+			       size_t header_block_max_size);
+void
+message_parse_header_lower_limit(struct message_header_parser_ctx *parser,
+				 size_t header_block_max_size);
 
 /* Read and return next header line. Returns 1 if header is returned, 0 if
    input stream is non-blocking and more data needs to be read, -1 when all is
