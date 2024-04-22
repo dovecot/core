@@ -1883,11 +1883,14 @@ void imapc_connection_connect(struct imapc_connection *conn)
 		return;
 	}
 
-	conn->reconnecting = FALSE;
-	/* if we get disconnected before we've finished all the pending
-	   commands, don't reconnect */
-	conn->reconnect_command_count = array_count(&conn->cmd_wait_list) +
-		array_count(&conn->cmd_send_queue);
+	if (conn->reconnecting) {
+		conn->reconnecting = FALSE;
+		/* if we get disconnected before we've finished all the pending
+		   commands, don't reconnect */
+		conn->reconnect_command_count =
+			array_count(&conn->cmd_wait_list) +
+			array_count(&conn->cmd_send_queue);
+	}
 
 	imapc_connection_input_reset(conn);
 	conn->last_connect = ioloop_timeval;
