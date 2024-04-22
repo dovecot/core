@@ -88,6 +88,7 @@ struct imapc_client_settings {
 	   order). The default is to use only LOGIN command or SASL PLAIN. */
 	const char *sasl_mechanisms;
 	bool use_proxyauth; /* Use Sun/Oracle PROXYAUTH command */
+	bool no_qresync; /* Don't use QRESYNC extension */
 	unsigned int max_idle_time;
 	/* If ID capability is advertised, send a unique "x-session-ext-id",
 	   which begins with this prefix. */

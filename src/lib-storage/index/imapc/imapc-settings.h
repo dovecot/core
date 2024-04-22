@@ -23,6 +23,7 @@ enum imapc_features {
 	IMAPC_FEATURE_NO_MSN_UPDATES		= 0x8000,
 	IMAPC_FEATURE_NO_ACL 			= 0x10000,
 	IMAPC_FEATURE_NO_METADATA		= 0x20000,
+	IMAPC_FEATURE_NO_QRESYNC		= 0x40000,
 };
 /* </settings checks> */
 

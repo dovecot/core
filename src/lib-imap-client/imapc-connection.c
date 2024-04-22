@@ -783,6 +783,8 @@ imapc_connection_parse_capability(struct imapc_connection *conn,
 			"CAPABILITY list is missing IMAP4REV1");
 		return -1;
 	}
+	if (conn->client->set.no_qresync)
+		conn->capabilities &= ENUM_NEGATE(IMAPC_CAPABILITY_QRESYNC);
 	return 0;
 }
 

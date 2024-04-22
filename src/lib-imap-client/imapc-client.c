@@ -76,6 +76,7 @@ imapc_client_init(const struct imapc_client_settings *set,
 	client->set.sasl_mechanisms = p_strdup(pool, set->sasl_mechanisms);
 	client->set.session_id_prefix = p_strdup(pool, set->session_id_prefix);
 	client->set.use_proxyauth = set->use_proxyauth;
+	client->set.no_qresync = set->no_qresync;
 	client->set.dns_client_socket_path =
 		p_strdup(pool, set->dns_client_socket_path);
 	client->set.temp_path_prefix =

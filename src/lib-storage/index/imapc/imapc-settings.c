@@ -98,6 +98,7 @@ static const struct imapc_feature_list imapc_feature_list[] = {
 	{ "no-msn-updates", IMAPC_FEATURE_NO_MSN_UPDATES },
 	{ "no-acl", IMAPC_FEATURE_NO_ACL },
 	{ "no-metadata", IMAPC_FEATURE_NO_METADATA },
+	{ "no-qresync", IMAPC_FEATURE_NO_QRESYNC },
 	{ NULL, 0 }
 };
 

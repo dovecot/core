@@ -344,6 +344,7 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	}
 	set.sasl_mechanisms = imapc_set->imapc_sasl_mechanisms;
 	set.use_proxyauth = (imapc_set->parsed_features & IMAPC_FEATURE_PROXYAUTH) != 0;
+	set.no_qresync = (imapc_set->parsed_features & IMAPC_FEATURE_NO_QRESYNC) != 0;
 	set.cmd_timeout_msecs = imapc_set->imapc_cmd_timeout * 1000;
 	set.connect_retry_count = imapc_set->imapc_connection_retry_count;
 	set.connect_retry_interval_msecs = imapc_set->imapc_connection_retry_interval;
