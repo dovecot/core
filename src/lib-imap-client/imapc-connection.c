@@ -1534,6 +1534,21 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 		/* we've successfully received replies to some commands. */
 		conn->reconnect_ok = TRUE;
 	}
+
+	if (reply.state == IMAPC_COMMAND_STATE_OK &&
+	    (cmd->flags & IMAPC_COMMAND_FLAG_SELECT) != 0 &&
+	    conn->qresync_selecting_box != NULL) {
+		/* Put the command back to the waiting list, since we're not
+		   actually going to finish handling it here. */
+		array_push_back(&conn->cmd_wait_list, &cmd);
+		/* Work around the problem by reconnecting - there is no
+		   selected folder then. */
+		conn->qresync_selecting_box->reconnect_ok = TRUE;
+		imapc_connection_try_reconnect(conn,
+			"QRESYNC capable server didn't send [CLOSED] in untagged reply after SELECT",
+			0, FALSE);
+		return -1;
+	}
 	imapc_connection_input_reset(conn);
 	imapc_command_reply_free(cmd, &reply);
 	imapc_command_send_more(conn);
