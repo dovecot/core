@@ -7,28 +7,6 @@
 #include "mail-index-sync-private.h"
 #include "mail-index-modseq.h"
 
-ARRAY_DEFINE_TYPE(modseqs, uint64_t);
-
-enum modseq_metadata_idx {
-	/* must be in the same order as enum mail_flags */
-	METADATA_MODSEQ_IDX_ANSWERED = 0,
-	METADATA_MODSEQ_IDX_FLAGGED,
-	METADATA_MODSEQ_IDX_DELETED,
-	METADATA_MODSEQ_IDX_SEEN,
-	METADATA_MODSEQ_IDX_DRAFT,
-
-	METADATA_MODSEQ_IDX_KEYWORD_START
-};
-
-struct metadata_modseqs {
-	ARRAY_TYPE(modseqs) modseqs;
-};
-
-struct mail_index_map_modseq {
-	/* indexes use enum modseq_metadata_idx */
-	ARRAY(struct metadata_modseqs) metadata_modseqs;
-};
-
 struct mail_index_modseq_sync {
 	struct mail_index_sync_map_ctx *sync_map_ctx;
 	struct mail_index_view *view;
