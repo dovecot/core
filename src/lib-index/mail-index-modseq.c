@@ -450,31 +450,6 @@ void mail_index_modseq_hdr_update(struct mail_index_modseq_sync *ctx)
 	ctx->log_view = ctx->view->log_view;
 }
 
-void mail_index_modseq_append(struct mail_index_modseq_sync *ctx, uint32_t seq)
-{
-	mail_index_modseq_update_to_highest(ctx, seq, seq);
-}
-
-void mail_index_modseq_update_flags(struct mail_index_modseq_sync *ctx,
-				    enum mail_flags flags_mask ATTR_UNUSED,
-				    uint32_t seq1, uint32_t seq2)
-{
-	mail_index_modseq_update_to_highest(ctx, seq1, seq2);
-}
-
-void mail_index_modseq_update_keyword(struct mail_index_modseq_sync *ctx,
-				      unsigned int keyword_idx ATTR_UNUSED,
-				      uint32_t seq1, uint32_t seq2)
-{
-	mail_index_modseq_update_to_highest(ctx, seq1, seq2);
-}
-
-void mail_index_modseq_reset_keywords(struct mail_index_modseq_sync *ctx,
-				      uint32_t seq1, uint32_t seq2)
-{
-	mail_index_modseq_update_to_highest(ctx, seq1, seq2);
-}
-
 bool mail_index_modseq_get_next_log_offset(struct mail_index_view *view,
 					   uint64_t modseq, uint32_t *log_seq_r,
 					   uoff_t *log_offset_r)

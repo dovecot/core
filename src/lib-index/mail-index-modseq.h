@@ -39,15 +39,6 @@ mail_index_modseq_sync_begin(struct mail_index_sync_map_ctx *sync_map_ctx);
 void mail_index_modseq_sync_end(struct mail_index_modseq_sync **ctx);
 
 void mail_index_modseq_hdr_update(struct mail_index_modseq_sync *ctx);
-void mail_index_modseq_append(struct mail_index_modseq_sync *ctx, uint32_t seq);
-void mail_index_modseq_update_flags(struct mail_index_modseq_sync *ctx,
-				    enum mail_flags flags_mask,
-				    uint32_t seq1, uint32_t seq2);
-void mail_index_modseq_update_keyword(struct mail_index_modseq_sync *ctx,
-				      unsigned int keyword_idx,
-				      uint32_t seq1, uint32_t seq2);
-void mail_index_modseq_reset_keywords(struct mail_index_modseq_sync *ctx,
-				      uint32_t seq1, uint32_t seq2);
 
 bool mail_index_modseq_get_next_log_offset(struct mail_index_view *view,
 					   uint64_t modseq, uint32_t *log_seq_r,
