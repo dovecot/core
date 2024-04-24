@@ -55,8 +55,6 @@ void mail_index_modseq_update_keyword(struct mail_index_modseq_sync *ctx,
 void mail_index_modseq_reset_keywords(struct mail_index_modseq_sync *ctx,
 				      uint32_t seq1, uint32_t seq2);
 
-void mail_index_map_modseq_free(struct mail_index_map_modseq **mmap);
-
 bool mail_index_modseq_get_next_log_offset(struct mail_index_view *view,
 					   uint64_t modseq, uint32_t *log_seq_r,
 					   uoff_t *log_offset_r);
