@@ -57,7 +57,7 @@ void mail_index_modseq_enable(struct mail_index *index)
 	struct mail_index_modseq_header hdr;
 	uint32_t ext_map_idx;
 
-	if (index->modseqs_enabled)
+	if (index->session_modseqs_enabled)
 		return;
 
 	if (!mail_index_map_get_ext_idx(index->map, index->modseq_ext_id,
@@ -83,7 +83,7 @@ void mail_index_modseq_enable(struct mail_index *index)
 			return;
 		}
 	}
-	index->modseqs_enabled = TRUE;
+	index->session_modseqs_enabled = TRUE;
 }
 
 bool mail_index_have_modseq_tracking(struct mail_index *index)
@@ -591,7 +591,7 @@ modseqs_idx_update(struct mail_index_modseq_sync *ctx, unsigned int idx,
 	struct metadata_modseqs *metadata;
 	uint64_t modseq;
 
-	if (!ctx->view->index->modseqs_enabled) {
+	if (!ctx->view->index->session_modseqs_enabled) {
 		/* we want to keep permanent modseqs updated, but don't bother
 		   updating in-memory per-flag updates */
 		return;
