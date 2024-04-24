@@ -616,7 +616,18 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 	}
 	if (ret < 0) {
 		/* no boundary */
+		size_t headers_available =
+			ctx->all_headers_max_size > ctx->all_headers_total_size ?
+			ctx->all_headers_max_size - ctx->all_headers_total_size : 0;
+		message_parse_header_lower_limit(ctx->hdr_parser_ctx, headers_available);
 		ret = message_parse_header_next(ctx->hdr_parser_ctx, &hdr);
+		if (ret > 0) {
+			if (!hdr->continues) {
+				ctx->all_headers_total_size += hdr->name_len;
+				ctx->all_headers_total_size += hdr->middle_len;
+			}
+			ctx->all_headers_total_size += hdr->value_len;
+		}
 		if (ret == 0 || (ret < 0 && ctx->input->stream_errno != 0)) {
 			ctx->want_count = i_stream_get_data_size(ctx->input) + 1;
 			return ret;
@@ -761,6 +772,9 @@ message_parser_init_int(struct istream *input,
 	ctx->max_total_mime_parts = set->max_total_mime_parts != 0 ?
 		set->max_total_mime_parts :
 		MESSAGE_PARSER_DEFAULT_MAX_TOTAL_MIME_PARTS;
+	ctx->all_headers_max_size = set->all_headers_max_size != 0 ?
+		set->all_headers_max_size :
+		MESSAGE_PARSER_DEFAULT_ALL_HEADERS_MAX_SIZE;
 	ctx->input = input;
 	i_stream_ref(input);
 	return ctx;
@@ -778,6 +792,7 @@ message_parser_init(pool_t part_pool, struct istream *input,
 	ctx->next_part = &ctx->part->children;
 	ctx->parse_next_block = parse_next_header_init;
 	ctx->total_parts_count = 1;
+	ctx->all_headers_total_size = 0;
 	i_array_init(&ctx->next_part_stack, 4);
 	return ctx;
 }
