@@ -36,6 +36,15 @@ struct mail_index_modseq_sync {
 	struct mail_index_map_modseq *mmap;
 };
 
+static bool
+mail_index_view_has_modseqs(struct mail_index_view *view)
+{
+	/* Check the modseq extension intro. */
+	uint32_t ext_map_idx;
+	return mail_index_map_get_ext_idx(view->map, view->index->modseq_ext_id,
+					  &ext_map_idx);
+}
+
 void mail_index_modseq_init(struct mail_index *index)
 {
 	index->modseq_ext_id =
@@ -322,7 +331,7 @@ mail_index_modseq_update_to_highest(struct mail_index_modseq_sync *ctx,
 {
 	uint64_t modseq;
 
-	if (ctx->mmap == NULL)
+	if (!mail_index_view_has_modseqs(ctx->view))
 		return FALSE;
 
 	modseq = mail_transaction_log_view_get_prev_modseq(ctx->log_view);
