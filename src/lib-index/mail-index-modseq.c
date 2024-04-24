@@ -33,7 +33,6 @@ struct mail_index_modseq_sync {
 	struct mail_index_sync_map_ctx *sync_map_ctx;
 	struct mail_index_view *view;
 	struct mail_transaction_log_view *log_view;
-	struct mail_index_map_modseq *mmap;
 };
 
 static bool
@@ -142,38 +141,15 @@ uint64_t mail_index_modseq_get_highest(struct mail_index_view *view)
 	return mail_index_map_modseq_get_highest(view->map);
 }
 
-static struct mail_index_map_modseq *
-mail_index_map_modseq(struct mail_index_view *view)
-{
-	struct mail_index_map_modseq *mmap = view->map->rec_map->modseq;
-	uint32_t ext_map_idx;
-
-	if (mmap != NULL)
-		return mmap;
-
-	/* don't start tracking until we've seen modseq extension intro */
-	if (!mail_index_map_get_ext_idx(view->map, view->index->modseq_ext_id,
-					&ext_map_idx))
-		return NULL;
-
-	mmap = i_new(struct mail_index_map_modseq, 1);
-	i_array_init(&mmap->metadata_modseqs,
-		     METADATA_MODSEQ_IDX_KEYWORD_START +
-		     array_count(&view->index->keywords));
-	view->map->rec_map->modseq = mmap;
-	return mmap;
-}
-
 uint64_t mail_index_modseq_lookup(struct mail_index_view *view, uint32_t seq)
 {
-	struct mail_index_map_modseq *mmap = mail_index_map_modseq(view);
 	struct mail_index_map *map;
 	const struct mail_index_ext *ext;
 	const struct mail_index_record *rec;
 	const uint64_t *modseqp;
 	uint32_t ext_map_idx;
 
-	if (mmap == NULL)
+	if (!mail_index_view_has_modseqs(view))
 		return mail_index_modseq_get_head(view->index);
 
 	rec = mail_index_lookup_full(view, seq, &map, NULL);
@@ -204,13 +180,12 @@ uint64_t mail_index_modseq_lookup(struct mail_index_view *view, uint32_t seq)
 int mail_index_modseq_set(struct mail_index_view *view,
 			  uint32_t seq, uint64_t min_modseq)
 {
-	struct mail_index_map_modseq *mmap = mail_index_map_modseq(view);
 	const struct mail_index_ext *ext;
 	struct mail_index_record *rec;
 	uint64_t *modseqp;
 	uint32_t ext_map_idx;
 
-	if (mmap == NULL)
+	if (!mail_index_view_has_modseqs(view))
 		return -1;
 
 	rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq);
@@ -228,73 +203,18 @@ int mail_index_modseq_set(struct mail_index_view *view,
 	}
 }
 
-static uint64_t
-modseq_idx_lookup(struct mail_index_map_modseq *mmap,
-		  unsigned int idx, uint32_t seq)
-{
-	const struct metadata_modseqs *metadata;
-	const uint64_t *modseqs;
-	unsigned int count;
-
-	metadata = array_get(&mmap->metadata_modseqs, &count);
-	if (idx >= count || !array_is_created(&metadata[idx].modseqs))
-		return 0;
-
-	modseqs = array_get(&metadata[idx].modseqs, &count);
-	return seq > count ? 0 : modseqs[seq-1];
-}
-
 uint64_t mail_index_modseq_lookup_flags(struct mail_index_view *view,
-					enum mail_flags flags_mask,
+					enum mail_flags flags_mask ATTR_UNUSED,
 					uint32_t seq)
 {
-	struct mail_index_map_modseq *mmap = mail_index_map_modseq(view);
-	unsigned int i;
-	uint64_t modseq, highest_modseq = 0;
-
-	if (mmap != NULL) {
-		/* first try to find a specific match */
-		for (i = 0; i < METADATA_MODSEQ_IDX_KEYWORD_START; i++) {
-			if ((flags_mask & (1 << i)) != 0) {
-				modseq = modseq_idx_lookup(mmap, i, seq);
-				if (highest_modseq < modseq)
-					highest_modseq = modseq;
-			}
-		}
-	}
-
-	if (highest_modseq == 0) {
-		/* no specific matches, fallback to using the highest */
-		highest_modseq = mail_index_modseq_lookup(view, seq);
-	}
-	return highest_modseq;
+	return mail_index_modseq_lookup(view, seq);
 }
 
 uint64_t mail_index_modseq_lookup_keywords(struct mail_index_view *view,
-					   const struct mail_keywords *keywords,
+					   const struct mail_keywords *keywords ATTR_UNUSED,
 					   uint32_t seq)
 {
-	struct mail_index_map_modseq *mmap = mail_index_map_modseq(view);
-	unsigned int i, metadata_idx;
-	uint64_t modseq, highest_modseq = 0;
-
-	if (mmap != NULL) {
-		/* first try to find a specific match */
-		for (i = 0; i < keywords->count; i++) {
-			metadata_idx = METADATA_MODSEQ_IDX_KEYWORD_START +
-				keywords->idx[i];
-
-			modseq = modseq_idx_lookup(mmap, metadata_idx, seq);
-			if (highest_modseq < modseq)
-				highest_modseq = modseq;
-		}
-	}
-
-	if (highest_modseq == 0) {
-		/* no specific matches, fallback to using the highest */
-		highest_modseq = mail_index_modseq_lookup(view, seq);
-	}
-	return highest_modseq;
+	return mail_index_modseq_lookup(view, seq);
 }
 
 static void
@@ -485,8 +405,7 @@ mail_index_modseq_sync_begin(struct mail_index_sync_map_ctx *sync_map_ctx)
 	ctx = i_new(struct mail_index_modseq_sync, 1);
 	ctx->sync_map_ctx = sync_map_ctx;
 	ctx->view = sync_map_ctx->view;
-	ctx->mmap = mail_index_map_modseq(ctx->view);
-	if (ctx->mmap != NULL) {
+	if (mail_index_view_has_modseqs(ctx->view)) {
 		mail_index_modseq_sync_init(ctx);
 		ctx->log_view = ctx->view->log_view;
 	}
@@ -534,26 +453,19 @@ void mail_index_modseq_sync_end(struct mail_index_modseq_sync **_ctx)
 	struct mail_index_modseq_sync *ctx = *_ctx;
 
 	*_ctx = NULL;
-	if (ctx->mmap != NULL) {
-		i_assert(ctx->mmap == ctx->view->map->rec_map->modseq);
+	if (ctx != NULL)
 		mail_index_modseq_update_header(ctx);
-	}
 	i_free(ctx);
 }
 
-void mail_index_modseq_sync_map_replaced(struct mail_index_modseq_sync *ctx)
+void mail_index_modseq_sync_map_replaced(struct mail_index_modseq_sync *ctx ATTR_UNUSED)
 {
-	ctx->mmap = mail_index_map_modseq(ctx->view);
 }
 
 void mail_index_modseq_hdr_update(struct mail_index_modseq_sync *ctx)
 {
-	if (ctx->mmap == NULL) {
-		ctx->mmap = mail_index_map_modseq(ctx->view);
-		i_assert(ctx->mmap != NULL);
-		mail_index_modseq_sync_init(ctx);
-		ctx->log_view = ctx->view->log_view;
-	}
+	mail_index_modseq_sync_init(ctx);
+	ctx->log_view = ctx->view->log_view;
 }
 
 void mail_index_modseq_append(struct mail_index_modseq_sync *ctx, uint32_t seq)
@@ -561,91 +473,29 @@ void mail_index_modseq_append(struct mail_index_modseq_sync *ctx, uint32_t seq)
 	(void)mail_index_modseq_update_to_highest(ctx, seq, seq);
 }
 
-void mail_index_modseq_expunge(struct mail_index_modseq_sync *ctx,
-			       uint32_t seq1, uint32_t seq2)
+void mail_index_modseq_expunge(struct mail_index_modseq_sync *ctx ATTR_UNUSED,
+			       uint32_t seq1 ATTR_UNUSED, uint32_t seq2 ATTR_UNUSED)
 {
-	struct metadata_modseqs *metadata;
-
-	if (ctx->mmap == NULL)
-		return;
-
-	seq1--;
-	array_foreach_modifiable(&ctx->mmap->metadata_modseqs, metadata) {
-		if (array_is_created(&metadata->modseqs))
-			array_delete(&metadata->modseqs, seq1, seq2-seq1);
-	}
-}
-
-static void
-modseqs_update(ARRAY_TYPE(modseqs) *array, uint32_t seq1, uint32_t seq2,
-	       uint64_t value)
-{
-	uint64_t *modseqp;
-
-	for (; seq1 <= seq2; seq1++) {
-		modseqp = array_idx_get_space(array, seq1-1);
-		if (*modseqp < value)
-			*modseqp = value;
-	}
-}
-
-static void
-modseqs_idx_update(struct mail_index_modseq_sync *ctx, unsigned int idx,
-		   uint32_t seq1, uint32_t seq2)
-{
-	struct metadata_modseqs *metadata;
-	uint64_t modseq;
-
-	if (!ctx->view->index->session_modseqs_enabled) {
-		/* we want to keep permanent modseqs updated, but don't bother
-		   updating in-memory per-flag updates */
-		return;
-	}
-
-	modseq = mail_transaction_log_view_get_prev_modseq(ctx->log_view);
-	metadata = array_idx_get_space(&ctx->mmap->metadata_modseqs, idx);
-	if (!array_is_created(&metadata->modseqs))
-		i_array_init(&metadata->modseqs, seq2 + 16);
-	modseqs_update(&metadata->modseqs, seq1, seq2, modseq);
 }
 
 void mail_index_modseq_update_flags(struct mail_index_modseq_sync *ctx,
-				    enum mail_flags flags_mask,
+				    enum mail_flags flags_mask ATTR_UNUSED,
 				    uint32_t seq1, uint32_t seq2)
 {
-	unsigned int i;
-
-	if (!mail_index_modseq_update_to_highest(ctx, seq1, seq2))
-		return;
-
-	for (i = 0; i < METADATA_MODSEQ_IDX_KEYWORD_START; i++) {
-		if ((flags_mask & (1 << i)) != 0)
-			modseqs_idx_update(ctx, i, seq1, seq2);
-	}
+	(void)mail_index_modseq_update_to_highest(ctx, seq1, seq2);
 }
 
 void mail_index_modseq_update_keyword(struct mail_index_modseq_sync *ctx,
-				      unsigned int keyword_idx,
+				      unsigned int keyword_idx ATTR_UNUSED,
 				      uint32_t seq1, uint32_t seq2)
 {
-	if (!mail_index_modseq_update_to_highest(ctx, seq1, seq2))
-		return;
-
-	modseqs_idx_update(ctx, METADATA_MODSEQ_IDX_KEYWORD_START + keyword_idx,
-			   seq1, seq2);
+	(void)mail_index_modseq_update_to_highest(ctx, seq1, seq2);
 }
 
 void mail_index_modseq_reset_keywords(struct mail_index_modseq_sync *ctx,
 				      uint32_t seq1, uint32_t seq2)
 {
-	unsigned int i, count;
-
-	if (!mail_index_modseq_update_to_highest(ctx, seq1, seq2))
-		return;
-
-	count = array_count(&ctx->mmap->metadata_modseqs);
-	for (i = METADATA_MODSEQ_IDX_KEYWORD_START; i < count; i++)
-		modseqs_idx_update(ctx, i, seq1, seq2);
+	(void)mail_index_modseq_update_to_highest(ctx, seq1, seq2);
 }
 
 struct mail_index_map_modseq *
