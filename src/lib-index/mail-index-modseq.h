@@ -35,7 +35,6 @@ struct mail_index_modseq_sync *
 mail_index_modseq_sync_begin(struct mail_index_sync_map_ctx *sync_map_ctx);
 void mail_index_modseq_sync_end(struct mail_index_modseq_sync **ctx);
 
-void mail_index_modseq_sync_map_replaced(struct mail_index_modseq_sync *ctx);
 void mail_index_modseq_hdr_update(struct mail_index_modseq_sync *ctx);
 void mail_index_modseq_append(struct mail_index_modseq_sync *ctx, uint32_t seq);
 void mail_index_modseq_expunge(struct mail_index_modseq_sync *ctx,
