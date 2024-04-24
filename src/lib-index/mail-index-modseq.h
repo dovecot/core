@@ -28,12 +28,6 @@ bool mail_index_have_modseq_tracking(struct mail_index *index);
 uint64_t mail_index_modseq_get_highest(struct mail_index_view *view);
 
 uint64_t mail_index_modseq_lookup(struct mail_index_view *view, uint32_t seq);
-uint64_t mail_index_modseq_lookup_flags(struct mail_index_view *view,
-					enum mail_flags flags_mask,
-					uint32_t seq);
-uint64_t mail_index_modseq_lookup_keywords(struct mail_index_view *view,
-					   const struct mail_keywords *keywords,
-					   uint32_t seq);
 int mail_index_modseq_set(struct mail_index_view *view,
 			  uint32_t seq, uint64_t min_modseq);
 

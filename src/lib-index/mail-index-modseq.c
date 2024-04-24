@@ -203,20 +203,6 @@ int mail_index_modseq_set(struct mail_index_view *view,
 	}
 }
 
-uint64_t mail_index_modseq_lookup_flags(struct mail_index_view *view,
-					enum mail_flags flags_mask ATTR_UNUSED,
-					uint32_t seq)
-{
-	return mail_index_modseq_lookup(view, seq);
-}
-
-uint64_t mail_index_modseq_lookup_keywords(struct mail_index_view *view,
-					   const struct mail_keywords *keywords ATTR_UNUSED,
-					   uint32_t seq)
-{
-	return mail_index_modseq_lookup(view, seq);
-}
-
 static void
 mail_index_modseq_update(struct mail_index_modseq_sync *ctx,
 			 uint64_t modseq, bool nonzeros,
