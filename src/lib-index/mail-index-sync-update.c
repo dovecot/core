@@ -286,7 +286,6 @@ sync_expunge_range(struct mail_index_sync_map_ctx *ctx, const ARRAY_TYPE(seq_ran
 		seq_count = seq2 - seq1 + 1;
 		map->rec_map->records_count -= seq_count;
 		map->hdr.messages_count -= seq_count;
-		mail_index_modseq_expunge(ctx->modseq_ctx, seq1, seq2);
 		prev_seq2 = seq2;
 	}
 	/* Final stragglers */

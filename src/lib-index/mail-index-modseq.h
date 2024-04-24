@@ -37,8 +37,6 @@ void mail_index_modseq_sync_end(struct mail_index_modseq_sync **ctx);
 
 void mail_index_modseq_hdr_update(struct mail_index_modseq_sync *ctx);
 void mail_index_modseq_append(struct mail_index_modseq_sync *ctx, uint32_t seq);
-void mail_index_modseq_expunge(struct mail_index_modseq_sync *ctx,
-			       uint32_t seq1, uint32_t seq2);
 void mail_index_modseq_update_flags(struct mail_index_modseq_sync *ctx,
 				    enum mail_flags flags_mask,
 				    uint32_t seq1, uint32_t seq2);
