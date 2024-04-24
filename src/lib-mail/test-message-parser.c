@@ -1369,6 +1369,158 @@ static const char input_msg[] =
 	test_end();
 }
 
+#define test_assert_virtual_size(part) \
+	test_assert((part).virtual_size == (part).lines + (part).physical_size)
+
+#define test_assert_part(part, flags_, children, h_lines, h_size, b_lines, b_size ) \
+STMT_START { 								\
+	test_assert((part)->flags == (flags_));				\
+	test_assert((part)->children_count == children);		\
+	test_assert((part)->header_size.lines == h_lines);		\
+	test_assert((part)->header_size.physical_size == h_size);	\
+	test_assert((part)->body_size.lines == b_lines);		\
+	test_assert((part)->body_size.physical_size == b_size);		\
+	test_assert_virtual_size((part)->header_size);			\
+	test_assert_virtual_size((part)->body_size);			\
+} STMT_END
+
+static const enum message_part_flags FLAGS_MULTIPART =
+	MESSAGE_PART_FLAG_IS_MIME | MESSAGE_PART_FLAG_MULTIPART;
+static const enum message_part_flags FLAGS_RFC822 =
+	MESSAGE_PART_FLAG_IS_MIME | MESSAGE_PART_FLAG_MESSAGE_RFC822;
+static const enum message_part_flags FLAGS_TEXT =
+	MESSAGE_PART_FLAG_IS_MIME | MESSAGE_PART_FLAG_TEXT;
+
+static const char too_many_header_bytes_input_msg[] =
+	"Content-Type: multipart/mixed; boundary=\"1\"\n\n"
+		"--1\n"
+		"Content-Type: multipart/mixed; boundary=\"2\"\n\n"
+			"--2\n"
+			"Content-Type: message/rfc822\n\n"
+				"Content-Type: text/plain\n\n1-rfc822\n"
+			"--2\n"
+			"Content-Type: message/rfc822\n\n"
+				"Content-Type: text/plain\n\n2-rfc822\n"
+		"--1\n"
+			"Content-Type: message/rfc822\n\n"
+				"Content-Type: text/plain\n\n3-rfc822\n";
+
+static void test_message_parser_too_many_header_bytes_run(
+	const struct message_parser_settings *parser_set,
+	pool_t *pool_r, struct istream **input_r,
+	struct message_part **parts_r)
+{
+	*pool_r = pool_alloconly_create("message parser", 10240);
+	*input_r = test_istream_create(too_many_header_bytes_input_msg);
+	struct message_parser_ctx *parser = message_parser_init(*pool_r, *input_r, parser_set);
+
+	int ret;
+	struct message_block block ATTR_UNUSED;
+	while ((ret = message_parser_parse_next_block(parser, &block)) > 0);
+	test_assert(ret < 0);
+
+	message_parser_deinit(&parser, parts_r);
+}
+
+static void test_message_parser_too_many_header_bytes_default(void)
+{
+	test_begin("message parser too many header bytes default");
+
+	pool_t pool;
+	struct istream *input;
+	struct message_part *part_root;
+	const struct message_parser_settings parser_set = { .all_headers_max_size = 0 };
+
+	test_message_parser_too_many_header_bytes_run(&parser_set, &pool, &input, &part_root);
+
+	// test_assert_part(part, flags_, children, h_lines, h_size, b_lines, b_size )
+
+	test_assert_part(part_root, FLAGS_MULTIPART, 7, 2, 45, 21, 256);
+	test_assert(part_root->parent == NULL);
+
+		struct message_part *part_1 = part_root->children;
+		test_assert_part(part_1, FLAGS_MULTIPART, 4, 2, 45, 11, 137);
+
+			struct message_part *part_1_1 = part_1->children;
+			test_assert_part(part_1_1, FLAGS_RFC822, 1, 2, 30, 2, 34);
+
+				struct message_part *part_1_1_1 = part_1_1->children;
+				test_assert_part(part_1_1_1, FLAGS_TEXT, 0, 2, 26, 0, 8);
+
+				test_assert(part_1_1_1->next == NULL);
+
+			struct message_part *part_1_2 = part_1_1->next;
+			test_assert_part(part_1_2, FLAGS_RFC822, 1, 2, 30, 2, 34);
+
+				struct message_part *part_1_2_1 = part_1_2->children;
+				test_assert_part(part_1_2_1, FLAGS_TEXT, 0, 2, 26, 0, 8);
+
+				test_assert(part_1_2_1->next == NULL);
+
+			test_assert(part_1_2->next == NULL);
+
+		struct message_part *part_2 = part_1->next;
+		test_assert_part(part_2, FLAGS_RFC822, 1, 2, 30, 3, 35);
+
+			struct message_part *part_2_1 = part_2->children;
+			test_assert_part(part_2_1, FLAGS_TEXT, 0, 2, 26, 1, 9);
+			test_assert(part_2_1->next == NULL);
+
+		test_assert(part_2->next == NULL);
+
+	test_assert(part_root->next == NULL);
+
+	test_parsed_parts(input, part_root);
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
+static void test_message_parser_too_many_header_bytes_100(void)
+{
+	test_begin("message parser too many header bytes 100");
+
+	pool_t pool;
+	struct istream *input;
+	struct message_part *part_root;
+	const struct message_parser_settings parser_set = { .all_headers_max_size = 100 };
+
+	test_message_parser_too_many_header_bytes_run(&parser_set, &pool, &input, &part_root);
+
+	// test_assert_part(part, flags_, children, h_lines, h_size, b_lines, b_size )
+
+	test_assert_part(part_root, FLAGS_MULTIPART, 5, 2, 45, 21, 256);
+	test_assert(part_root->parent == NULL);
+
+		struct message_part *part_1 = part_root->children;
+		test_assert_part(part_1, FLAGS_MULTIPART, 3, 2, 45, 11, 137);
+
+			struct message_part *part_1_1 = part_1->children;
+			test_assert_part(part_1_1, FLAGS_RFC822, 1, 2, 30, 2, 34);
+
+				struct message_part *part_1_1_1 = part_1_1->children;
+				test_assert_part(part_1_1_1, MESSAGE_PART_FLAG_IS_MIME, 0, 2, 26, 0, 8);
+
+				test_assert(part_1_1_1->next == NULL);
+
+			struct message_part *part_1_2 = part_1_1->next;
+			test_assert_part(part_1_2, MESSAGE_PART_FLAG_IS_MIME, 0, 2, 30, 2, 34);
+
+			test_assert(part_1_2->next == NULL);
+
+		struct message_part *part_2 = part_1->next;
+		test_assert_part(part_2, MESSAGE_PART_FLAG_IS_MIME, 0, 2, 30, 3, 35);
+
+		test_assert(part_2->next == NULL);
+
+	test_assert(part_root->next == NULL);
+
+	test_parsed_parts(input, part_root);
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -1392,6 +1544,8 @@ int main(void)
 		test_message_parser_mime_part_limit_rfc822,
 		test_message_parser_mime_version,
 		test_message_parser_mime_version_missing,
+		test_message_parser_too_many_header_bytes_default,
+		test_message_parser_too_many_header_bytes_100,
 		NULL
 	};
 	return test_run(test_functions);

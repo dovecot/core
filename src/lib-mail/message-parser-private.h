@@ -30,6 +30,8 @@ struct message_parser_ctx {
 	enum message_parser_flags flags;
 	unsigned int max_nested_mime_parts;
 	unsigned int max_total_mime_parts;
+	size_t all_headers_max_size;
+	size_t all_headers_total_size;
 
 	char *last_boundary;
 	struct message_boundary *boundaries;
