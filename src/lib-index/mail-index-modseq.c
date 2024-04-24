@@ -498,31 +498,6 @@ void mail_index_modseq_reset_keywords(struct mail_index_modseq_sync *ctx,
 	(void)mail_index_modseq_update_to_highest(ctx, seq1, seq2);
 }
 
-struct mail_index_map_modseq *
-mail_index_map_modseq_clone(const struct mail_index_map_modseq *mmap)
-{
-	struct mail_index_map_modseq *new_mmap;
-	const struct metadata_modseqs *src_metadata;
-	struct metadata_modseqs *dest_metadata;
-	unsigned int i, count;
-
-	src_metadata = array_get(&mmap->metadata_modseqs, &count);
-
-	new_mmap = i_new(struct mail_index_map_modseq, 1);
-	i_array_init(&new_mmap->metadata_modseqs, count + 16);
-
-	for (i = 0; i < count; i++) {
-		dest_metadata = array_append_space(&new_mmap->metadata_modseqs);
-		if (array_is_created(&src_metadata[i].modseqs)) {
-			i_array_init(&dest_metadata->modseqs,
-				     array_count(&src_metadata[i].modseqs));
-			array_append_array(&dest_metadata->modseqs,
-					   &src_metadata[i].modseqs);
-		}
-	}
-	return new_mmap;
-}
-
 void mail_index_map_modseq_free(struct mail_index_map_modseq **_mmap)
 {
 	struct mail_index_map_modseq *mmap = *_mmap;
