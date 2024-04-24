@@ -239,16 +239,7 @@ static int search_arg_match_index(struct index_search_context *ctx,
 		} T_END;
 		return ret;
 	case SEARCH_MODSEQ: {
-		if (arg->value.flags != 0) {
-			modseq = mail_index_modseq_lookup_flags(ctx->view,
-					arg->value.flags, ctx->mail_ctx.seq);
-		} else if (arg->initialized.keywords != NULL) {
-			modseq = mail_index_modseq_lookup_keywords(ctx->view,
-					arg->initialized.keywords, ctx->mail_ctx.seq);
-		} else {
-			modseq = mail_index_modseq_lookup(ctx->view,
-						ctx->mail_ctx.seq);
-		}
+		modseq = mail_index_modseq_lookup(ctx->view, ctx->mail_ctx.seq);
 		return modseq >= arg->value.modseq->modseq ? 1 : 0;
 	}
 	default:
