@@ -132,7 +132,6 @@ struct mail_index_record_map {
 	void *records; /* struct mail_index_record[] */
 	unsigned int records_count;
 
-	struct mail_index_map_modseq *modseq;
 	uint32_t last_appended_uid;
 };
 
