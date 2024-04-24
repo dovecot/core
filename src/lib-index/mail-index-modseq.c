@@ -66,9 +66,6 @@ void mail_index_modseq_enable(struct mail_index *index)
 	struct mail_index_modseq_header hdr;
 	uint32_t ext_map_idx;
 
-	if (index->session_modseqs_enabled)
-		return;
-
 	if (!mail_index_map_get_ext_idx(index->map, index->modseq_ext_id,
 					&ext_map_idx)) {
 		/* modseqs not enabled to the index yet, add them. */
@@ -92,7 +89,6 @@ void mail_index_modseq_enable(struct mail_index *index)
 			return;
 		}
 	}
-	index->session_modseqs_enabled = TRUE;
 }
 
 bool mail_index_have_modseq_tracking(struct mail_index *index)

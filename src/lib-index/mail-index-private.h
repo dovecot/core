@@ -305,9 +305,6 @@ struct mail_index {
 	   mail_index_base_optimization_settings.rewrite_min_log_bytes the next
 	   time when checking if index needs a rewrite. */
 	bool index_min_write:1;
-	/* mail_index_modseq_enable() has been called. Track per-flag
-	   modseq numbers in memory (global modseqs are tracked anyway). */
-	bool session_modseqs_enabled:1;
 	/* mail_index_open() is creating new index files */
 	bool initial_create:1;
 	/* TRUE after mail_index_map() has succeeded */
