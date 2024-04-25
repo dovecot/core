@@ -227,18 +227,18 @@ mail_index_modseq_update(struct mail_index_modseq_sync *ctx,
 	}
 }
 
-static bool
+void
 mail_index_modseq_update_to_highest(struct mail_index_modseq_sync *ctx,
 				    uint32_t seq1, uint32_t seq2)
 {
 	uint64_t modseq;
 
 	if (!mail_index_view_has_modseqs(ctx->view))
-		return FALSE;
+		return;
 
 	modseq = mail_transaction_log_view_get_prev_modseq(ctx->log_view);
 	mail_index_modseq_update(ctx, modseq, TRUE, seq1, seq2);
-	return TRUE;
+	return;
 }
 
 static void
@@ -452,27 +452,27 @@ void mail_index_modseq_hdr_update(struct mail_index_modseq_sync *ctx)
 
 void mail_index_modseq_append(struct mail_index_modseq_sync *ctx, uint32_t seq)
 {
-	(void)mail_index_modseq_update_to_highest(ctx, seq, seq);
+	mail_index_modseq_update_to_highest(ctx, seq, seq);
 }
 
 void mail_index_modseq_update_flags(struct mail_index_modseq_sync *ctx,
 				    enum mail_flags flags_mask ATTR_UNUSED,
 				    uint32_t seq1, uint32_t seq2)
 {
-	(void)mail_index_modseq_update_to_highest(ctx, seq1, seq2);
+	mail_index_modseq_update_to_highest(ctx, seq1, seq2);
 }
 
 void mail_index_modseq_update_keyword(struct mail_index_modseq_sync *ctx,
 				      unsigned int keyword_idx ATTR_UNUSED,
 				      uint32_t seq1, uint32_t seq2)
 {
-	(void)mail_index_modseq_update_to_highest(ctx, seq1, seq2);
+	mail_index_modseq_update_to_highest(ctx, seq1, seq2);
 }
 
 void mail_index_modseq_reset_keywords(struct mail_index_modseq_sync *ctx,
 				      uint32_t seq1, uint32_t seq2)
 {
-	(void)mail_index_modseq_update_to_highest(ctx, seq1, seq2);
+	mail_index_modseq_update_to_highest(ctx, seq1, seq2);
 }
 
 bool mail_index_modseq_get_next_log_offset(struct mail_index_view *view,

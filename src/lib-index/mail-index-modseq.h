@@ -12,6 +12,7 @@ struct mail_index_view;
 struct mail_index_modseq;
 struct mail_index_map_modseq;
 struct mail_index_sync_map_ctx;
+struct mail_index_modseq_sync;
 
 void mail_index_modseq_init(struct mail_index *index);
 
@@ -30,6 +31,8 @@ uint64_t mail_index_modseq_get_highest(struct mail_index_view *view);
 uint64_t mail_index_modseq_lookup(struct mail_index_view *view, uint32_t seq);
 int mail_index_modseq_set(struct mail_index_view *view,
 			  uint32_t seq, uint64_t min_modseq);
+void mail_index_modseq_update_to_highest(struct mail_index_modseq_sync *ctx,
+					 uint32_t seq1, uint32_t seq2);
 
 struct mail_index_modseq_sync *
 mail_index_modseq_sync_begin(struct mail_index_sync_map_ctx *sync_map_ctx);
