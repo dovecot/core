@@ -447,11 +447,12 @@ static void o_stream_multiplex_try_destroy(struct multiplex_ostream *mstream)
 		if (channel != NULL)
 			return;
 
-	i_assert(mstream->parent->real_stream->callback ==
-		 (stream_flush_callback_t *)o_stream_multiplex_flush);
-	o_stream_set_flush_callback(mstream->parent,
-				    *mstream->old_flush_callback,
-				    mstream->old_flush_context);
+	if (mstream->parent->real_stream->callback ==
+	    (stream_flush_callback_t *)o_stream_multiplex_flush) {
+		o_stream_set_flush_callback(mstream->parent,
+					    *mstream->old_flush_callback,
+					    mstream->old_flush_context);
+	}
 	o_stream_unref(&mstream->parent);
 	array_free(&mstream->channels);
 	buffer_free(&mstream->pending_buf);
