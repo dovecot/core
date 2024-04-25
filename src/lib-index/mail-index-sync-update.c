@@ -410,8 +410,9 @@ static int sync_append(const struct mail_index_record *rec,
 		map->rec_map->last_appended_uid = rec->uid;
 		new_flags = rec->flags;
 
-		mail_index_modseq_append(ctx->modseq_ctx,
-					 map->rec_map->records_count);
+		mail_index_modseq_update_to_highest(
+			ctx->modseq_ctx, map->rec_map->records_count,
+			map->rec_map->records_count);
 	}
 
 	map->hdr.messages_count++;
@@ -437,11 +438,8 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	if (!mail_index_lookup_seq_range(view, u->uid1, u->uid2, &seq1, &seq2))
 		return 1;
 
-	if (!MAIL_TRANSACTION_FLAG_UPDATE_IS_INTERNAL(u)) {
-		mail_index_modseq_update_flags(ctx->modseq_ctx,
-					       u->add_flags | u->remove_flags,
-					       seq1, seq2);
-	}
+	if (!MAIL_TRANSACTION_FLAG_UPDATE_IS_INTERNAL(u))
+		mail_index_modseq_update_to_highest(ctx->modseq_ctx, seq1, seq2);
 
 	if ((u->add_flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0 &&
 	    (view->index->flags & MAIL_INDEX_OPEN_FLAG_NO_DIRTY) == 0)

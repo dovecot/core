@@ -215,8 +215,7 @@ keywords_update_records(struct mail_index_sync_map_ctx *ctx,
 	if (!mail_index_lookup_seq_range(view, uid1, uid2, &seq1, &seq2))
 		return 1;
 
-	mail_index_modseq_update_keyword(ctx->modseq_ctx, keyword_idx,
-					  seq1, seq2);
+	mail_index_modseq_update_to_highest(ctx->modseq_ctx, seq1, seq2);
 
 	data_offset = keyword_idx / CHAR_BIT;
 	data_mask = 1 << (keyword_idx % CHAR_BIT);
@@ -336,7 +335,7 @@ mail_index_sync_keywords_reset(struct mail_index_sync_map_ctx *ctx,
 						 &seq1, &seq2))
 			continue;
 
-		mail_index_modseq_reset_keywords(ctx->modseq_ctx, seq1, seq2);
+		mail_index_modseq_update_to_highest(ctx->modseq_ctx, seq1, seq2);
 		for (; seq1 <= seq2; seq1++) {
 			rec = MAIL_INDEX_REC_AT_SEQ(map, seq1);
 			memset(PTR_OFFSET(rec, ext->record_offset),
