@@ -17,7 +17,6 @@ struct multiplex_ochannel {
 	buffer_t *buf;
 	uint64_t last_sent_counter;
 	bool closed:1;
-	bool corked:1;
 };
 
 struct multiplex_ostream {
@@ -187,13 +186,11 @@ static int o_stream_multiplex_ochannel_flush(struct ostream_private *stream)
 
 static void o_stream_multiplex_ochannel_cork(struct ostream_private *stream, bool set)
 {
-	struct multiplex_ochannel *channel =
-		container_of(stream, struct multiplex_ochannel, ostream);
-	if (channel->corked != set && !set) {
+	if (stream->corked != set && !set) {
 		/* flush */
 		(void)o_stream_multiplex_ochannel_flush(stream);
 	}
-	channel->corked = set;
+	stream->corked = set;
 }
 
 static ssize_t
@@ -231,7 +228,7 @@ o_stream_multiplex_ochannel_sendv(struct ostream_private *stream,
 	stream->ostream.offset += total;
 
 	/* will send later */
-	if (channel->corked && channel->buf->used < optimal_size)
+	if (stream->corked && channel->buf->used < optimal_size)
 		return total;
 
 	if (o_stream_multiplex_sendv(channel->mstream) < 0)
