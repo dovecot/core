@@ -231,7 +231,7 @@ i_stream_multiplex_ichannel_close(struct iostream_private *stream, bool close_pa
 static void i_stream_multiplex_try_destroy(struct multiplex_istream *mstream)
 {
 	struct multiplex_ichannel *channel;
-	/* can't do anything until they are all closed */
+	/* can't do anything until all channels are destroyed */
 	array_foreach_elem(&mstream->channels, channel)
 		if (channel != NULL)
 			return;
@@ -246,7 +246,6 @@ static void i_stream_multiplex_ichannel_destroy(struct iostream_private *stream)
 	struct multiplex_ichannel *channel =
 		container_of(stream, struct multiplex_ichannel,
 			     istream.iostream);
-	i_stream_multiplex_ichannel_close(stream, TRUE);
 	i_stream_free_buffer(&channel->istream);
 	array_foreach_modifiable(&channel->mstream->channels, channelp) {
 		if (*channelp == channel) {
