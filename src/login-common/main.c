@@ -426,7 +426,7 @@ static void main_init(const char *login_socket)
 	auth_client = auth_client_init(login_socket, (unsigned int)getpid(),
 				       FALSE);
 	auth_client_connect(auth_client);
-        auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
+	auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
 	login_client_list = login_client_list_init(master_service,
 						   post_login_socket);
 
@@ -535,5 +535,5 @@ int login_binary_run(struct login_binary *binary,
 	array_free(&login_source_v4_ips_array);
 	array_free(&login_source_v6_ips_array);
 	master_service_deinit(&master_service);
-        return 0;
+	return 0;
 }
