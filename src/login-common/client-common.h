@@ -414,6 +414,8 @@ int client_auth_begin_implicit(struct client *client, const char *mech_name,
 			       const char *init_resp);
 bool client_check_plaintext_auth(struct client *client, bool pass_sent);
 int client_auth_read_line(struct client *client);
+int client_sni_callback(const char *name, const char **error_r,
+			void *context);
 
 void client_proxy_finish_destroy_client(struct client *client);
 void client_proxy_log_failure(struct client *client, const char *line);
