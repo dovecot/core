@@ -79,6 +79,17 @@ static int submission_login_start_tls(void *conn_ctx,
 	return 0;
 }
 
+static int
+submission_client_reload_config(struct client *client,
+				const char **error_r ATTR_UNUSED)
+{
+	struct submission_client *subm_client =
+		container_of(client, struct submission_client, common);
+	smtp_server_connection_set_greeting(subm_client->conn,
+					    client->set->login_greeting);
+	return 0;
+}
+
 static struct client *submission_client_alloc(pool_t pool)
 {
 	struct submission_client *subm_client;
@@ -300,6 +311,7 @@ static struct client_vfuncs submission_client_vfuncs = {
 	.alloc = submission_client_alloc,
 	.create = submission_client_create,
 	.destroy = submission_client_destroy,
+	.reload_config = submission_client_reload_config,
 	.notify_auth_ready = submission_client_notify_auth_ready,
 	.notify_disconnect = submission_client_notify_disconnect,
 	.auth_send_challenge = submission_client_auth_send_challenge,
