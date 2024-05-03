@@ -262,6 +262,9 @@ int client_alloc(int fd, const struct master_service_connection *conn,
 		      client_var_expand_callback);
 	event_set_ptr(client->event, SETTINGS_EVENT_VAR_EXPAND_CALLBACK_CONTEXT,
 		      client);
+	/* Need to set local name here already so that settings filters work */
+	if (conn->haproxied)
+		event_add_str(client->event, "local_name", conn->haproxy.hostname);
 	if (client_settings_get(client, &error) < 0) {
 		e_error(client->event, "%s", error);
 		event_unref(&client->event);
