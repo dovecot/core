@@ -75,6 +75,14 @@ bool cmd_compress(struct client_command_context *cmd)
 	}
 
 	client_skip_line(client);
+
+	/* Client cannot assume that COMPRESS works and just start sending
+	   compressed data pipelined. Add an explicit sanity check for this. */
+	if (i_stream_get_data_size(client->input) > 0) {
+		client_send_tagline(cmd, "BAD Client did not wait for COMPRESS reply before sending more data");
+		return TRUE;
+	}
+
 	client_send_tagline(cmd, "OK Begin compression.");
 
 	uoff_t prev_out_offset = client->output->offset;
