@@ -1168,7 +1168,8 @@ void clients_notify_auth_connected(void)
 		timeout_remove(&client->to_auth_waiting);
 
 		T_BEGIN {
-			client_notify_auth_ready(client);
+			if (!client->defer_auth_ready)
+				client_notify_auth_ready(client);
 		} T_END;
 
 		if (!client_does_custom_io(client) && client->input_blocked) {

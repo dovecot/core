@@ -209,6 +209,7 @@ struct client {
 	struct io *io;
 	struct iostream_proxy *iostream_fd_proxy;
 	struct timeout *to_auth_waiting;
+	struct timeout *to_notify_auth_ready;
 	struct timeout *to_disconnect;
 
 	unsigned char *master_data_prefix;
@@ -317,6 +318,9 @@ struct client {
 	bool fd_proxying:1;
 	bool shutting_down:1;
 	bool resource_constraint:1;
+	/* Defer calling auth ready callback until TLS handshake has been
+	   finished. */
+	bool defer_auth_ready:1;
 	/* ... */
 };
 

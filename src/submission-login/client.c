@@ -154,8 +154,10 @@ static void submission_client_notify_auth_ready(struct client *client)
 	struct submission_client *subm_client =
 		container_of(client, struct submission_client, common);
 
+	i_assert(client->io == NULL);
 	client->banner_sent = TRUE;
-	smtp_server_connection_start(subm_client->conn);
+	if (!smtp_server_connection_is_started(subm_client->conn))
+		smtp_server_connection_start(subm_client->conn);
 }
 
 static void

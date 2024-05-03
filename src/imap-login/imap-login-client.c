@@ -399,7 +399,6 @@ static int imap_client_create(struct client *client)
 		settings_override(set_instance,
 				  "imap_capability/LITERAL-",
 				  "no", SETTINGS_OVERRIDE_TYPE_CODE);
-	client->io = io_add_istream(client->input, client_input, client);
 	if (imap_client_reload_config(client, &error) < 0) {
 		e_error(client->event, "%s", error);
 		return -1;
@@ -448,6 +447,8 @@ static void imap_client_notify_auth_ready(struct client *client)
 	client_send_raw(client, str_c(greet));
 
 	client->banner_sent = TRUE;
+	i_assert(client->io == NULL);
+	client->io = io_add_istream(client->input, client_input, client);
 }
 
 static void imap_client_starttls(struct client *client)
