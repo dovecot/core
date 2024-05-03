@@ -56,6 +56,7 @@ static void imap_master_client_destroy(struct connection *conn)
 
 static int
 imap_master_client_parse_input(const char *const *args, pool_t pool,
+			       enum client_create_flags *create_flags,
 			       struct mail_storage_service_input *input_r,
 			       struct imap_master_input *master_input_r,
 			       const char **error_r)
@@ -144,6 +145,8 @@ imap_master_client_parse_input(const char *const *args, pool_t pool,
 					"Invalid hibernation_started value: %s", value);
 				return -1;
 			}
+		} else if (strcmp(key, "multiplex_ostream") == 0) {
+			*create_flags |= CLIENT_CREATE_FLAG_MULTIPLEX_OUTPUT;
 		} else if (strcmp(key, "userdb_fields") == 0) {
 			input_r->userdb_fields =
 				t_strsplit_tabescaped(value);
@@ -217,13 +220,14 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 {
 	struct imap_master_client *client = (struct imap_master_client *)conn;
 	struct client *imap_client;
+	enum client_create_flags create_flags = CLIENT_CREATE_FLAG_UNHIBERNATED;
 	struct mail_storage_service_input input;
 	struct imap_master_input master_input;
 	const char *error = NULL, *reason;
 	int ret;
 
-	if (imap_master_client_parse_input(args, pool, &input, &master_input,
-					   &error) < 0) {
+	if (imap_master_client_parse_input(args, pool, &create_flags,
+					   &input, &master_input, &error) < 0) {
 		e_error(conn->event, "imap-master: Failed to parse client input: %s", error);
 		o_stream_nsend_str(conn->output, t_strdup_printf(
 			"-Failed to parse client input: %s\n", error));
@@ -242,8 +246,7 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	/* NOTE: before client_create_from_input() on failures we need to close
 	   fd_client, but afterward it gets closed by client_destroy() */
 	ret = client_create_from_input(&input, fd_client, fd_client,
-				       CLIENT_CREATE_FLAG_UNHIBERNATED,
-				       &imap_client, &error);
+				       create_flags, &imap_client, &error);
 	if (ret < 0) {
 		e_error(conn->event,
 			"imap-master(%s): Failed to create client: %s",

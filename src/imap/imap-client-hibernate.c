@@ -79,6 +79,8 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 		str_printfa(cmd, "\trip=%s", net_ip2addr(user->conn.remote_ip));
 	if (user->conn.remote_port != 0)
 		str_printfa(cmd, "\trport=%u", user->conn.remote_port);
+	if (client->multiplex_output != NULL)
+		str_append(cmd, "\tmultiplex_ostream");
 	if (client->userdb_fields != NULL) {
 		string_t *userdb_fields = t_str_new(256);
 		unsigned int i;

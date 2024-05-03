@@ -9,6 +9,7 @@
 #include "iostream.h"
 #include "istream.h"
 #include "ostream.h"
+#include "ostream-multiplex.h"
 #include "llist.h"
 #include "priorityq.h"
 #include "base64.h"
@@ -181,6 +182,8 @@ imap_client_move_back_send_callback(void *context, struct ostream *output)
 		str_printfa(str, "\trip=%s", net_ip2addr(&state->remote_ip));
 	if (state->remote_port != 0)
 		str_printfa(str, "\trport=%u", state->remote_port);
+	if (state->multiplex_ostream)
+		str_append(str, "\tmultiplex_ostream");
 	if (state->userdb_fields != NULL) {
 		str_append(str, "\tuserdb_fields=");
 		str_append_tabescaped(str, state->userdb_fields);
@@ -611,6 +614,14 @@ imap_client_create(int fd, const struct imap_client_state *state)
 	client->input = i_stream_create_fd(fd, IMAP_MAX_INBUF);
 	client->output = o_stream_create_fd(fd, IMAP_MAX_OUTBUF);
 	o_stream_set_no_error_handling(client->output, TRUE);
+	if (state->multiplex_ostream) {
+		struct ostream *output =
+			o_stream_create_multiplex(client->output,
+				IMAP_MAX_OUTBUF,
+				OSTREAM_MULTIPLEX_FORMAT_STREAM_CONTINUE);
+		o_stream_unref(&client->output);
+		client->output = output;
+	}
 	client->state = *state;
 	client->state.username = p_strdup(pool, state->username);
 	client->state.session_id = p_strdup(pool, state->session_id);

@@ -149,6 +149,8 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 			}
 		} else if (strcmp(key, "tag") == 0) {
 			state_r->tag = i_strdup(value);
+		} else if (strcmp(key, "multiplex_ostream") == 0) {
+			state_r->multiplex_ostream = TRUE;
 		} else if (strcmp(key, "state") == 0) {
 			buffer_t *state_buf;
 

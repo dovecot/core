@@ -27,6 +27,7 @@ struct imap_client_state {
 	bool idle_cmd;
 	bool have_notify_fd;
 	bool anvil_sent;
+	bool multiplex_ostream;
 };
 
 struct imap_client *
