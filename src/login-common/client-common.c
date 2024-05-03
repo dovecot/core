@@ -329,10 +329,7 @@ int client_init(struct client *client)
 		return -1;
 	client->create_finished = TRUE;
 
-	if (auth_client_is_connected(auth_client))
-		client_notify_auth_ready(client);
-	else
-		client_set_auth_waiting(client);
+	client_notify_auth_ready(client);
 
 	login_refresh_proctitle();
 	return 0;
@@ -1401,10 +1398,15 @@ void client_notify_disconnect(struct client *client,
 
 void client_notify_auth_ready(struct client *client)
 {
-	if (!client->notified_auth_ready) {
+	if (client->notified_auth_ready)
+		return;
+
+	if (auth_client_is_connected(auth_client)) {
 		if (client->v.notify_auth_ready != NULL)
 			client->v.notify_auth_ready(client);
 		client->notified_auth_ready = TRUE;
+	} else {
+		client_set_auth_waiting(client);
 	}
 }
 
