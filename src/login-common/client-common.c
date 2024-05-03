@@ -312,6 +312,13 @@ int client_alloc(int fd, const struct master_service_connection *conn,
 	return 0;
 }
 
+/* Perform one read to ensure TLS handshake is started. */
+static void initial_client_read(struct client *client)
+{
+	if (client_read(client))
+		io_remove(&client->io);
+}
+
 int client_init(struct client *client)
 {
 	if (last_client == NULL)
@@ -328,7 +335,18 @@ int client_init(struct client *client)
 	if (client->v.create(client) < 0)
 		return -1;
 	client->create_finished = TRUE;
-
+	/* Do not allow clients to start IO just yet, wait until
+	   TLS handshake and auth client are finished. */
+	i_assert(client->io == NULL);
+	/* If we are deferring auth, create initial io for reading the
+	   client to ensure we do TLS handshake. Otherwise we can start
+	   with client_input. */
+	if (client->defer_auth_ready) {
+		client->io =
+			io_add_istream(client->input, initial_client_read, client);
+	} else if (!client_does_custom_io(client))
+		client->io = io_add_istream(client->input, client_input, client);
+	/* Ensure we start connecting to auth server right away. */
 	client_notify_auth_ready(client);
 
 	login_refresh_proctitle();
@@ -466,6 +484,7 @@ void client_destroy(struct client *client, const char *reason)
 
 	timeout_remove(&client->to_disconnect);
 	timeout_remove(&client->to_auth_waiting);
+	timeout_remove(&client->to_notify_auth_ready);
 	str_free(&client->auth_response);
 	i_free(client->auth_conn_cookie);
 
@@ -680,6 +699,11 @@ int client_sni_callback(const char *name, const char **error_r,
 	settings_free(ssl_set);
 	ssl_iostream_change_context(client->ssl_iostream, ssl_ctx);
 	ssl_iostream_context_unref(&ssl_ctx);
+
+	client->defer_auth_ready = FALSE;
+	client->to_notify_auth_ready =
+		timeout_add_short(0, client_notify_auth_ready, client);
+
 	return 0;
 }
 
@@ -688,6 +712,8 @@ int client_init_ssl(struct client *client)
 	const char *error;
 
 	i_assert(client->fd != -1);
+
+	client->defer_auth_ready = TRUE;
 
 	if (strcmp(client->ssl_server_set->ssl, "no") == 0) {
 		e_info(client->event, "SSL is disabled (ssl=no)");
@@ -1398,10 +1424,16 @@ void client_notify_disconnect(struct client *client,
 
 void client_notify_auth_ready(struct client *client)
 {
+	timeout_remove(&client->to_notify_auth_ready);
 	if (client->notified_auth_ready)
 		return;
 
+	if (client->to_auth_waiting != NULL)
+		return;
 	if (auth_client_is_connected(auth_client)) {
+		if (client->defer_auth_ready)
+			return;
+		io_remove(&client->io);
 		if (client->v.notify_auth_ready != NULL)
 			client->v.notify_auth_ready(client);
 		client->notified_auth_ready = TRUE;

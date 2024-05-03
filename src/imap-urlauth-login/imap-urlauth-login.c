@@ -140,9 +140,8 @@ static struct client *imap_urlauth_client_alloc(pool_t pool)
 	return &uauth_client->common;
 }
 
-static int imap_urlauth_client_create(struct client *client)
+static int imap_urlauth_client_create(struct client *client ATTR_UNUSED)
 {
-	client->io = io_add_istream(client->input, client_input, client);
 	return 0;
 }
 
@@ -159,6 +158,8 @@ static void imap_urlauth_client_notify_auth_ready(struct client *client)
 	client_send_raw(client, str_c(version));
 
 	client->banner_sent = TRUE;
+	i_assert(client->io == NULL);
+	client->io = io_add_istream(client->input, client_input, client);
 }
 
 static void imap_urlauth_login_preinit(void)
