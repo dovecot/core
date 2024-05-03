@@ -151,6 +151,9 @@ struct client_vfuncs {
 			    const char *text);
 	void (*proxy_reset)(struct client *client);
 	int (*proxy_parse_line)(struct client *client, const char *line);
+	int (*proxy_side_channel_input)(struct client *client,
+					const char *const *args,
+					const char **error_r);
 	void (*proxy_failed)(struct client *client,
 			     enum login_proxy_failure_type type,
 			     const char *reason, bool reconnecting);

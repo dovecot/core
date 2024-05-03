@@ -717,6 +717,7 @@ static int proxy_start(struct client *client,
 	client->proxy_redirect_reauth = reply->proxy.redirect_reauth;
 
 	if (login_proxy_new(client, event, &proxy_set, proxy_input,
+			    client->v.proxy_side_channel_input,
 			    client->v.proxy_failed, proxy_redirect) < 0) {
 		event_unref(&event);
 		return -1;

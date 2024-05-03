@@ -14,6 +14,7 @@
 #include "array.h"
 #include "hash.h"
 #include "str.h"
+#include "strescape.h"
 #include "time-util.h"
 #include "master-service.h"
 #include "master-service-ssl-settings.h"
@@ -61,10 +62,11 @@ struct login_proxy {
 	struct client *client;
 	struct event *event;
 	int server_fd;
-	struct io *client_wait_io, *server_io;
+	struct io *client_wait_io, *server_io, *side_channel_io;
 	struct istream *client_input, *server_input;
 	struct ostream *client_output, *server_output;
 	struct istream *multiplex_input, *multiplex_orig_input;
+	struct istream *side_channel_input;
 	struct iostream_proxy *iostream_proxy;
 	struct ssl_iostream *server_ssl_iostream;
 	guid_128_t anvil_conn_guid;
@@ -85,6 +87,7 @@ struct login_proxy {
 	char *rawlog_dir;
 
 	login_proxy_input_callback_t *input_callback;
+	login_proxy_side_channel_input_callback_t *side_callback;
 	login_proxy_failure_callback_t *failure_callback;
 	login_proxy_redirect_callback_t *redirect_callback;
 
@@ -181,6 +184,44 @@ static void proxy_client_disconnected_input(struct login_proxy *proxy)
 static void proxy_prelogin_input(struct login_proxy *proxy)
 {
 	proxy->input_callback(proxy->client);
+}
+
+static void proxy_side_channel_input(struct login_proxy *proxy)
+{
+	char *line;
+
+	switch (i_stream_read(proxy->side_channel_input)) {
+	case 0:
+		return;
+	case -2:
+		i_unreached();
+	case -1:
+		/* Let the main channel deal with the disconnection */
+		io_remove(&proxy->side_channel_io);
+		return;
+	default:
+		break;
+	}
+
+	if (proxy->client->destroyed) {
+		i_assert(proxy->client->login_proxy == NULL);
+		proxy->client->login_proxy = proxy;
+	}
+	while ((line = i_stream_next_line(proxy->side_channel_input)) != NULL) {
+		const char *error;
+		const char *const *args = t_strsplit_tabescaped_inplace(line);
+		if (args[0] == NULL)
+			e_error(proxy->event, "Side channel input is invalid: Empty line");
+		else if (proxy->side_callback == NULL)
+			e_error(proxy->event, "Side channel input is unsupported: %s", line);
+		else if (proxy->side_callback(proxy->client, args, &error) < 0) {
+			e_error(proxy->event, "Side channel input: %s: %s", args[0], error);
+			login_proxy_disconnect(proxy);
+			break;
+		}
+	}
+	if (proxy->client->destroyed)
+		proxy->client->login_proxy = NULL;
 }
 
 static void proxy_plain_connected(struct login_proxy *proxy)
@@ -458,6 +499,7 @@ static int login_proxy_connect(struct login_proxy *proxy)
 int login_proxy_new(struct client *client, struct event *event,
 		    const struct login_proxy_settings *set,
 		    login_proxy_input_callback_t *input_callback,
+		    login_proxy_side_channel_input_callback_t *side_callback,
 		    login_proxy_failure_callback_t *failure_callback,
 		    login_proxy_redirect_callback_t *redirect_callback)
 {
@@ -494,6 +536,7 @@ int login_proxy_new(struct client *client, struct event *event,
 	DLLIST_PREPEND(&login_proxies_pending, proxy);
 
 	proxy->input_callback = input_callback;
+	proxy->side_callback = side_callback;
 	proxy->failure_callback = failure_callback;
 	proxy->redirect_callback = redirect_callback;
 	client->login_proxy = proxy;
@@ -523,9 +566,11 @@ static void login_proxy_disconnect(struct login_proxy *proxy)
 	iostream_proxy_unref(&proxy->iostream_proxy);
 	ssl_iostream_destroy(&proxy->server_ssl_iostream);
 
+	io_remove(&proxy->side_channel_io);
 	io_remove(&proxy->server_io);
 	i_stream_destroy(&proxy->multiplex_orig_input);
 	proxy->multiplex_input = NULL;
+	i_stream_destroy(&proxy->side_channel_input);
 	i_stream_destroy(&proxy->server_input);
 	o_stream_destroy(&proxy->server_output);
 	if (proxy->server_fd != -1) {
@@ -1033,6 +1078,7 @@ void login_proxy_detach(struct login_proxy *proxy)
 		/* both sides of the proxy want multiplexing and there are no
 		   plugins hooking into the ostream. We can just step out of
 		   the way and let the two sides multiplex directly. */
+		i_stream_unref(&proxy->side_channel_input);
 		i_stream_unref(&proxy->server_input);
 		proxy->server_input = proxy->multiplex_orig_input;
 		proxy->multiplex_input = NULL;
@@ -1103,6 +1149,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 	   unexpected hangs when login process handles multiple clients. */
 	ssl_set.ca_file = ssl_set.ca_dir = NULL;
 
+	io_remove(&proxy->side_channel_io);
 	io_remove(&proxy->server_io);
 	if (ssl_iostream_client_context_cache_get(&ssl_set, &ssl_ctx, &error) < 0) {
 		const char *reason = t_strdup_printf(
@@ -1117,6 +1164,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 		i_assert(proxy->server_input == proxy->multiplex_input);
 		i_stream_unref(&proxy->server_input);
 		proxy->server_input = proxy->multiplex_orig_input;
+		i_stream_unref(&proxy->side_channel_input);
 		proxy->multiplex_input = NULL;
 		proxy->multiplex_orig_input = NULL;
 		add_multiplex_istream = TRUE;
@@ -1161,6 +1209,13 @@ void login_proxy_multiplex_input_start(struct login_proxy *proxy)
 	proxy->multiplex_orig_input = proxy->server_input;
 	proxy->multiplex_input = input;
 	proxy->server_input = input;
+
+	proxy->side_channel_input =
+		i_stream_multiplex_add_channel(proxy->server_input, 1);
+	i_assert(proxy->side_channel_io == NULL);
+	proxy->side_channel_io =
+		io_add_istream(proxy->side_channel_input,
+			       proxy_side_channel_input, proxy);
 
 	io_remove(&proxy->server_io);
 	proxy->server_io = io_add_istream(proxy->server_input,

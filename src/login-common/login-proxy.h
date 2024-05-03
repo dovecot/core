@@ -58,6 +58,11 @@ struct login_proxy_settings {
 
 /* Called when new input comes from proxy. */
 typedef void login_proxy_input_callback_t(struct client *client);
+/* Called when new input comes from multiplex istream side channel.
+   Returns 0 if ok, -1 to log the error and disconnect client. */
+typedef int login_proxy_side_channel_input_callback_t(struct client *client,
+						      const char *const *args,
+						      const char **error_r);
 /* Called when proxying fails. If reconnecting=TRUE, this is just an
    intermediate notification that the proxying will attempt to reconnect soon
    before failing. */
@@ -76,6 +81,7 @@ typedef void login_proxy_redirect_callback_t(struct client *client,
 int login_proxy_new(struct client *client, struct event *event,
 		    const struct login_proxy_settings *set,
 		    login_proxy_input_callback_t *input_callback,
+		    login_proxy_side_channel_input_callback_t *side_callback,
 		    login_proxy_failure_callback_t *failure_callback,
 		    login_proxy_redirect_callback_t *redirect_callback);
 /* Free the proxy. This should be called if authentication fails. */
