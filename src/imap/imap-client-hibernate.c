@@ -9,6 +9,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "master-service.h"
+#include "compression.h"
 #include "mailbox-watch.h"
 #include "imap-state.h"
 #include "imap-client.h"
