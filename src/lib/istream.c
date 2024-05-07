@@ -314,7 +314,9 @@ ssize_t i_stream_read(struct istream *stream)
 	else if (!invalid) {
 		i_assert((_stream->pos - _stream->skip) == (prev_pos - prev_skip) ||
 			 prev_pos == prev_skip);
-		if (prev_pos - prev_skip <= 4)
+		if (prev_data == NULL)
+			i_assert(prev_pos == prev_skip);
+		else if (prev_pos - prev_skip <= 4)
 			i_assert(memcmp(prev_buf, prev_data + prev_skip, prev_pos - prev_skip) == 0);
 		else {
 			i_assert(memcmp(prev_buf, prev_data + prev_skip, 2) == 0);
