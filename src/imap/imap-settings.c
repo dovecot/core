@@ -101,7 +101,11 @@ static const struct imap_settings imap_default_settings = {
 	.imap_fetch_failure = "disconnect-immediately:disconnect-after:no-after",
 	.imap_metadata = FALSE,
 	.imap_literal_minus = FALSE,
+#ifdef DOVECOT_PRO_EDITION
+	.imap_hibernate_timeout = 30,
+#else
 	.imap_hibernate_timeout = 0,
+#endif
 
 	.imap_urlauth_host = "",
 	.imap_urlauth_port = 143
