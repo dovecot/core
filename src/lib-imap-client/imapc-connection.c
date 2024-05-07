@@ -2011,11 +2011,34 @@ const char *imapc_command_get_tag(struct imapc_command *cmd)
 	return t_strdup_printf("%u", cmd->tag);
 }
 
+static bool imapc_cmd_remove(ARRAY_TYPE(imapc_command) *entries,
+			     struct imapc_command *cmd)
+{
+	if (array_is_empty(entries))
+		return FALSE;
+
+	unsigned int count;
+	struct imapc_command *const *items = array_get(entries, &count);
+	for (unsigned int ndx = 0; ndx < count; ndx++) {
+		if (items[ndx] == cmd) {
+			array_delete(entries, ndx, 1);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 void imapc_command_abort(struct imapc_command **_cmd)
 {
 	struct imapc_command *cmd = *_cmd;
 
+	if (cmd == NULL)
+		return;
 	*_cmd = NULL;
+
+	if (!imapc_cmd_remove(&cmd->conn->cmd_send_queue, cmd))
+		(void)imapc_cmd_remove(&cmd->conn->cmd_wait_list, cmd);
+
 	imapc_command_free(cmd);
 }
 
