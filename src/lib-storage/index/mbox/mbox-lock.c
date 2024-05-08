@@ -10,6 +10,7 @@
 #include "istream-raw-mbox.h"
 #include "mbox-file.h"
 #include "mbox-lock.h"
+#include "settings.h"
 
 #include <time.h>
 #include <unistd.h>
@@ -87,14 +88,14 @@ mbox_lock_list(struct mbox_lock_context *ctx, int lock_type,
 static int ATTR_NOWARN_UNUSED_RESULT
 mbox_unlock_files(struct mbox_lock_context *ctx);
 
-static void mbox_read_lock_methods(const char *str, const char *env,
+static void mbox_read_lock_methods(const ARRAY_TYPE(const_string) *list, const char *env,
 				   enum mbox_lock_type *locks)
 {
 	enum mbox_lock_type type;
 	const char *const *lock;
 	int i, dest;
 
-	for (lock = t_strsplit(str, " "), dest = 0; *lock != NULL; lock++) {
+	for (lock = settings_boollist_get(list), dest = 0; *lock != NULL; lock++) {
 		for (type = 0; lock_data[type].name != NULL; type++) {
 			if (strcasecmp(*lock, lock_data[type].name) == 0) {
 				type = lock_data[type].type;
@@ -125,9 +126,9 @@ static void mbox_init_lock_settings(struct mbox_storage *storage)
 	enum mbox_lock_type write_locks[MBOX_LOCK_COUNT+1];
 	int r, w;
 
-	mbox_read_lock_methods(storage->set->mbox_read_locks,
+	mbox_read_lock_methods(&storage->set->mbox_read_locks,
 			       "mbox_read_locks", read_locks);
-	mbox_read_lock_methods(storage->set->mbox_write_locks,
+	mbox_read_lock_methods(&storage->set->mbox_write_locks,
 			       "mbox_write_locks", write_locks);
 
 	/* check that read/write list orders match. write_locks must contain
