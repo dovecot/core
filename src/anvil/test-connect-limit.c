@@ -2,8 +2,11 @@
 
 #include "lib.h"
 #include "test-common.h"
+#include "istream.h"
 #include "ostream.h"
+#include "llist.h"
 #include "str.h"
+#include "strescape.h"
 #include "sort.h"
 #include "connect-limit.h"
 
@@ -218,10 +221,212 @@ static void test_connect_limit(void)
 	test_end();
 }
 
+struct test_session {
+	struct test_session *prev, *next;
+
+	pid_t pid;
+	struct connect_limit_key key;
+	guid_128_t guid;
+	struct ip_addr dest_ip;
+	const char *alt_usernames[3*2 + 1];
+	bool found;
+};
+
+static void
+test_session_disconnect(struct connect_limit *limit,
+			struct test_session **test_sessions,
+			unsigned int *test_session_count)
+{
+	struct test_session *session;
+	unsigned int i, elem = i_rand_limit(*test_session_count);
+
+	for (i = 0, session = *test_sessions; i < elem; i++)
+		session = session->next;
+
+	DLLIST_REMOVE(test_sessions, session);
+	*test_session_count -= 1;
+
+	connect_limit_disconnect(limit, session->pid,
+				 &session->key, session->guid);
+}
+
+static void
+test_session_disconnect_pid(struct connect_limit *limit, pid_t pid,
+			    struct test_session **test_sessions,
+			    unsigned int *test_session_count)
+{
+	struct test_session *session, *next;
+
+	for (session = *test_sessions; session != NULL; session = next) {
+		next = session->next;
+		if (session->pid == pid) {
+			DLLIST_REMOVE(test_sessions, session);
+			*test_session_count -= 1;
+		}
+	}
+
+	connect_limit_disconnect_pid(limit, pid);
+}
+
+static struct test_session *
+test_session_find(struct test_session *test_sessions, const guid_128_t guid)
+{
+	struct test_session *session = test_sessions;
+
+	for (; session != NULL; session = session->next) {
+		if (guid_128_equals(session->guid, guid))
+			return session;
+	}
+	return NULL;
+}
+
+static void test_sessions_compare(struct connect_limit *limit,
+				  struct test_session *test_sessions)
+{
+	string_t *str = str_new(default_pool, 10240);
+	struct ostream *output = o_stream_create_buffer(str);
+	o_stream_set_no_error_handling(output, TRUE);
+	connect_limit_dump(limit, output);
+	o_stream_unref(&output);
+
+	struct istream *input =
+		i_stream_create_from_data(str_data(str), str_len(str));
+	/* check that all alt header names look valid */
+	const char *const *alt_headers =
+		t_strsplit_tabescaped(i_stream_next_line(input));
+	for (unsigned int i = 0; alt_headers[i] != NULL; i++)
+		test_assert_idx(str_begins_with(alt_headers[i], "altfield"), i);
+
+	const char *line;
+	while ((line = i_stream_next_line(input)) != NULL) {
+		if (line[0] == '\0')
+			break;
+		/* pid, username, service, ip, conn_guid, dest_ip, alt_users */
+		const char *const *args = t_strsplit_tabescaped(line);
+		test_assert(str_array_length(args) >= 6);
+
+		guid_128_t guid;
+		test_assert(guid_128_from_string(args[4], guid) == 0);
+		struct test_session *session =
+			test_session_find(test_sessions, guid);
+		test_assert(session != NULL);
+
+		test_assert(!session->found);
+		session->found = TRUE;
+
+		pid_t pid;
+		test_assert(str_to_pid(args[0], &pid) == 0);
+		test_assert(pid == session->pid);
+		test_assert_strcmp(args[1], session->key.username);
+		test_assert_strcmp(args[2], session->key.service);
+		struct ip_addr ip, dest_ip;
+		test_assert(net_addr2ip(args[3], &ip) == 0);
+		test_assert(net_ip_cmp(&ip, &session->key.ip) == 0);
+		if (args[5][0] == '\0')
+			test_assert(session->dest_ip.family == 0);
+		else {
+			test_assert(net_addr2ip(args[5], &dest_ip) == 0);
+			test_assert(net_ip_cmp(&dest_ip, &session->dest_ip) == 0);
+		}
+
+		args += 6;
+		unsigned int i, j, alt_username_count = 0;
+		for (i = 0; args[i] != NULL; i++) {
+			if (args[i][0] == '\0')
+				continue;
+
+			for (j = 0; session->alt_usernames[j] != NULL; j += 2) {
+				if (strcmp(session->alt_usernames[j],
+					   alt_headers[i]) == 0)
+					break;
+			}
+			test_assert(session->alt_usernames[j] != NULL);
+			test_assert_strcmp(session->alt_usernames[j + 1], args[i]);
+			alt_username_count++;
+		}
+		test_assert(str_array_length(session->alt_usernames) / 2 ==
+			    alt_username_count);
+	}
+
+	struct test_session *session = test_sessions;
+	for (; session != NULL; session = session->next) {
+		test_assert(session->found);
+		session->found = FALSE;
+	}
+
+	i_stream_unref(&input);
+	str_free(&str);
+}
+
+static void test_connect_limit_random(void)
+{
+	struct connect_limit *limit;
+	struct test_session *test_sessions = NULL;
+	unsigned int test_session_count = 0;
+
+	test_begin("connect limit random");
+	limit = connect_limit_init();
+
+	pool_t pool = pool_alloconly_create("test", 1024*400);
+	for (unsigned int i = 0; i < 1000; i++) {
+		struct test_session *session =
+			p_new(pool, struct test_session, 1);
+		session->pid = i_rand_minmax(1, 1000);
+		session->key.username =
+			p_strdup_printf(pool, "user%d", i_rand_limit(10000));
+		session->key.service =
+			p_strdup_printf(pool, "service%d", i_rand_limit(100));
+		session->key.ip.family = AF_INET;
+		session->key.ip.u.ip4.s_addr = i_rand_minmax(1, INT_MAX);
+		guid_128_generate(session->guid);
+
+		test_session_count++;
+		DLLIST_PREPEND(&test_sessions, session);
+
+		if (i_rand_limit(10) == 0) {
+			session->dest_ip.family = AF_INET;
+			session->dest_ip.u.ip4.s_addr = i_rand_minmax(1, INT_MAX);
+		}
+
+		unsigned int j, alt_username_count =
+			i_rand_limit(N_ELEMENTS(session->alt_usernames)/2);
+		unsigned int altidx = 0;
+		for (j = 0; j < alt_username_count; j++) {
+			altidx += 1 + i_rand_limit(3);
+			session->alt_usernames[j * 2] =
+				p_strdup_printf(pool, "altfield%d", altidx);
+			session->alt_usernames[j * 2 + 1] =
+				p_strdup_printf(pool, "altuser%d",
+						i_rand_limit(10000));
+		}
+
+		connect_limit_connect(limit, session->pid, &session->key,
+				      session->guid, KICK_TYPE_NONE,
+				      &session->dest_ip, session->alt_usernames);
+		while (test_session_count > 0 &&
+		       i_rand_limit(3) == 0) {
+			test_session_disconnect(limit, &test_sessions,
+						&test_session_count);
+		}
+		if (i_rand_limit(50) == 0 && test_sessions != NULL) {
+			test_session_disconnect_pid(limit, test_sessions->pid,
+						    &test_sessions,
+						    &test_session_count);
+		}
+		if (i_rand_limit(500) == 0)
+			test_sessions_compare(limit, test_sessions);
+	}
+	test_sessions_compare(limit, test_sessions);
+
+	connect_limit_deinit(&limit);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_connect_limit,
+		test_connect_limit_random,
 		NULL
 	};
 	return test_run(test_functions);
