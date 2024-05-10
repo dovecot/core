@@ -641,7 +641,9 @@ const char *const *mail_user_get_alt_usernames(struct mail_user *user)
 		const char *key, *value;
 		if (t_split_key_value_eq(user->userdb_fields[i], &key, &value) &&
 		    *value != '\0' && str_begins_with(key, "user_")) {
+			key = p_strdup(user->pool, key);
 			array_append(&alt_usernames, &key, 1);
+			value = p_strdup(user->pool, value);
 			array_append(&alt_usernames, &value, 1);
 		}
 	}
