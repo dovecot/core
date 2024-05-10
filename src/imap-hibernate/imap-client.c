@@ -568,6 +568,26 @@ static void imap_client_io_deactivate_user(struct imap_client *client ATTR_UNUSE
 	i_set_failure_prefix("imap-hibernate: ");
 }
 
+static const char *const *
+userdb_fields_get_alt_usernames(char *const *userdb_fields)
+{
+	ARRAY_TYPE(const_string) alt_usernames;
+	t_array_init(&alt_usernames, 4);
+	for (unsigned int i = 0; userdb_fields[i] != NULL; i++) {
+		const char *key, *value;
+		if (t_split_key_value_eq(userdb_fields[i], &key, &value) &&
+		    *value != '\0' && str_begins_with(key, "user_")) {
+			array_push_back(&alt_usernames, &key);
+			array_push_back(&alt_usernames, &value);
+		}
+	}
+	if (array_count(&alt_usernames) == 0)
+		return NULL;
+
+	array_append_zero(&alt_usernames);
+	return array_front(&alt_usernames);
+}
+
 struct imap_client *
 imap_client_create(int fd, const struct imap_client_state *state)
 {
@@ -617,6 +637,12 @@ imap_client_create(int fd, const struct imap_client_state *state)
 		memcpy(statebuf, state->state, state->state_size);
 		client->state.state_size = state->state_size;
 	}
+
+	struct master_service_anvil_session anvil_session = {
+		.username = client->state.username,
+		.service_name = master_service_get_name(master_service),
+		.ip = client->state.remote_ip,
+	};
 	T_BEGIN {
 		string_t *str;
 		char **fields = p_strsplit_tabescaped(unsafe_data_stack_pool,
@@ -630,16 +656,12 @@ imap_client_create(int fd, const struct imap_client_state *state)
 				state->mail_log_prefix, error);
 		}
 		client->log_prefix = p_strdup(pool, str_c(str));
+		anvil_session.alt_usernames =
+			userdb_fields_get_alt_usernames(fields);
+		if (master_service_anvil_connect(master_service, &anvil_session,
+						 TRUE, client->state.anvil_conn_guid))
+			client->state.anvil_sent = TRUE;
 	} T_END;
-
-	struct master_service_anvil_session anvil_session = {
-		.username = client->state.username,
-		.service_name = master_service_get_name(master_service),
-		.ip = client->state.remote_ip,
-	};
-	if (master_service_anvil_connect(master_service, &anvil_session,
-					 TRUE, client->state.anvil_conn_guid))
-		client->state.anvil_sent = TRUE;
 
 	p_array_init(&client->notifys, pool, 2);
 	DLLIST_PREPEND(&imap_clients, client);
