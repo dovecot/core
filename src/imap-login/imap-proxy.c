@@ -9,6 +9,7 @@
 #include "str.h"
 #include "str-sanitize.h"
 #include "safe-memset.h"
+#include "compression.h"
 #include "dsasl-client.h"
 #include "imap-login-client.h"
 #include "client-authenticate.h"
@@ -580,6 +581,56 @@ imap_proxy_send_failure_reply(struct imap_client *imap_client,
 	case LOGIN_PROXY_FAILURE_TYPE_AUTH:
 		/* reply was already sent */
 		break;
+	}
+}
+
+static int
+proxy_side_cmd_compress(struct client *client, const char *const *args,
+			const char **error_r)
+{
+
+	if (str_array_length(args) < 2) {
+		*error_r = "Missing parameters";
+		return -1;
+	}
+
+	struct ostream *client_output =
+		login_proxy_get_client_ostream(client->login_proxy);
+	const struct compression_handler *handler;
+	int ret = compression_lookup_handler(t_str_lcase(args[0]), &handler);
+	if (ret <= 0) {
+		/* IMAP backend normally checks this already. If we get here,
+		   there is a mismatch between what algorithms proxy and
+		   backend supports. */
+		o_stream_nsend_str(client_output, t_strdup_printf(
+			"%s NO %s compression mechanism\r\n", args[1],
+			ret == 0 ? "Unsupported" : "Unknown"));
+		return 0;
+	}
+
+	e_debug(client->event, "Started compression with %s mechanism",
+		handler->name);
+	o_stream_nsend_str(client_output, t_strdup_printf(
+		"%s OK Begin compression.\r\n", args[1]));
+
+	int level = handler->get_default_level();
+	login_proxy_replace_client_iostream_pre(client->login_proxy);
+	/* The _pre() call may have replaced the client iostreams.
+	   Use client->input/output to get the latest ones. */
+	login_proxy_replace_client_iostream_post(client->login_proxy,
+		handler->create_istream(client->input),
+		handler->create_ostream(client->output, level));
+	return 0;
+}
+
+int imap_proxy_side_channel_input(struct client *client,
+				  const char *const *args, const char **error_r)
+{
+	if (strcmp(args[0], "compress") == 0)
+		return proxy_side_cmd_compress(client, args + 1, error_r);
+	else {
+		*error_r = "Unsupported command";
+		return -1;
 	}
 }
 

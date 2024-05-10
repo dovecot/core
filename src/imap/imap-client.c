@@ -475,6 +475,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 
 	i_stream_close(client->input);
 	o_stream_close(client->output);
+	o_stream_close(client->side_channel_output);
 
 	/* finish off all the queued commands. */
 	if (client->output_cmd_lock != NULL)
@@ -532,6 +533,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 
 	/* free the i/ostreams after mail_user_unref(), which could trigger
 	   mail_storage_callbacks notifications that write to the ostream. */
+	o_stream_destroy(&client->side_channel_output);
 	i_stream_destroy(&client->input);
 	o_stream_destroy(&client->output);
 

@@ -6,6 +6,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-auth-client \
+	-I$(top_srcdir)/src/lib-compression \
 	-I$(top_srcdir)/src/lib-sasl \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-master \
@@ -14,6 +15,7 @@ AM_CPPFLAGS = \
 	$(BINARY_CFLAGS)
 
 imap_login_LDADD = \
+	../lib-compression/libcompression.la \
 	$(LIBDOVECOT_LOGIN) \
 	$(LIBDOVECOT) \
 	$(SSL_LIBS) \

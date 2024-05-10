@@ -4,8 +4,10 @@
 #include "imap-commands.h"
 #include "istream.h"
 #include "ostream.h"
+#include "ostream-multiplex.h"
 #include "iostream-rawlog.h"
 #include "str.h"
+#include "strescape.h"
 #include "compression.h"
 
 static void client_skip_line(struct client *client)
@@ -80,6 +82,26 @@ bool cmd_compress(struct client_command_context *cmd)
 	   compressed data pipelined. Add an explicit sanity check for this. */
 	if (i_stream_get_data_size(client->input) > 0) {
 		client_send_tagline(cmd, "BAD Client did not wait for COMPRESS reply before sending more data");
+		return TRUE;
+	}
+
+	if (client->multiplex_output != NULL) {
+		/* Let imap-login process handle the COMPRESS. It's the one
+		   that will send the tagged reply to the client. */
+		client->compress_handler = handler;
+		if (client->side_channel_output == NULL) {
+			client->side_channel_output =
+				o_stream_multiplex_add_channel(
+					client->multiplex_output, 1);
+		}
+		string_t *str = t_str_new(64);
+		str_append(str, "compress\t");
+		str_append_tabescaped(str, handler->name);
+		str_append_c(str, '\t');
+		str_append_tabescaped(str, cmd->tag);
+		str_append_c(str, '\n');
+		o_stream_nsend(client->side_channel_output,
+			       str_data(str), str_len(str));
 		return TRUE;
 	}
 

@@ -169,7 +169,7 @@ struct client {
 	struct io *io;
 	struct istream *input, *pre_rawlog_input, *post_rawlog_input;
 	struct ostream *output, *pre_rawlog_output, *post_rawlog_output;
-	struct ostream *multiplex_output;
+	struct ostream *multiplex_output, *side_channel_output;
 	struct timeout *to_idle, *to_idle_output, *to_delayed_input;
 	guid_128_t anvil_conn_guid;
 
