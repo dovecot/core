@@ -1,12 +1,8 @@
 /* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "buffer.h"
-#include "hostpid.h"
 #include "settings-parser.h"
 #include "service-settings.h"
-#include "mail-storage-settings.h"
-#include "smtp-submit-settings.h"
 #include "imap-settings.h"
 
 #include <unistd.h>
