@@ -39,7 +39,7 @@ static const char *imap_id_get_uname(const char *key)
 static const char *imap_id_get_default(const char *key)
 {
 	if (strcasecmp(key, "name") == 0)
-		return PACKAGE_NAME;
+		return DOVECOT_NAME;
 	if (strcasecmp(key, "version") == 0)
 		return PACKAGE_VERSION;
 	if (strcasecmp(key, "revision") == 0)
