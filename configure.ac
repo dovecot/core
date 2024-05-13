@@ -44,6 +44,12 @@ AS_HELP_STRING([--enable-asserts], [Enable asserts (default)]),
 		AC_DEFINE(DISABLE_ASSERTS,, [Disable asserts])
 	fi)
 
+AC_ARG_ENABLE([pro-build],
+  [AS_HELP_STRING([--enable-pro-build], [Enable pro build related defines])],
+  [is_pro_build=yes],
+  [is_pro_build=no]
+)
+
 AC_ARG_WITH(shared-libs,
 AS_HELP_STRING([--with-shared-libs], [Link binaries using shared Dovecot libraries (default)]),
 	want_shared_libs=$withval,
@@ -249,7 +255,12 @@ AM_ICONV
 # SIZE_MAX is missing without this
 CXXFLAGS="$CXXFLAGS -D__STDC_LIMIT_MACROS"
 
-AC_DEFINE_UNQUOTED(DOVECOT_NAME, "$PACKAGE_NAME", [Dovecot name])
+if test "$is_pro_build" = "yes"; then
+  SET_PRO_DEFINES
+else
+  AC_DEFINE_UNQUOTED(DOVECOT_NAME, "$PACKAGE_NAME", [Dovecot name])
+fi
+
 AC_DEFINE_UNQUOTED(DOVECOT_STRING, "$PACKAGE_STRING", [Dovecot string])
 AC_DEFINE_UNQUOTED(DOVECOT_VERSION, "$PACKAGE_VERSION", [Dovecot version])
 
