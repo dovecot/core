@@ -451,6 +451,8 @@ void service_process_destroy(struct service_process *process)
 	struct service *service = process->service;
 	struct service_list *service_list = service->list;
 
+	i_assert(!process->destroyed);
+
 	if (array_is_created(&service->unix_pid_listeners)) {
 		struct service_listener *const *listenerp;
 		string_t *path = t_str_new(128);
