@@ -113,6 +113,11 @@ int login_proxy_starttls(struct login_proxy *proxy);
 /* MULTIPLEX input was started. */
 void login_proxy_multiplex_input_start(struct login_proxy *proxy);
 
+void login_proxy_replace_client_iostream_pre(struct login_proxy *proxy);
+void login_proxy_replace_client_iostream_post(struct login_proxy *proxy,
+					      struct istream *new_input,
+					      struct ostream *new_output);
+
 struct istream *login_proxy_get_client_istream(struct login_proxy *proxy);
 struct ostream *login_proxy_get_client_ostream(struct login_proxy *proxy);
 

@@ -70,6 +70,7 @@ struct login_proxy {
 	struct iostream_proxy *iostream_proxy;
 	struct ssl_iostream *server_ssl_iostream;
 	guid_128_t anvil_conn_guid;
+	uoff_t client_output_orig_offset;
 
 	struct timeval created;
 	struct timeout *to, *to_notify;
@@ -110,6 +111,7 @@ static unsigned int detached_login_proxies_count = 0;
 static int login_proxy_connect(struct login_proxy *proxy);
 static void login_proxy_disconnect(struct login_proxy *proxy);
 static void login_proxy_free_final(struct login_proxy *proxy);
+static void login_proxy_iostream_start(struct login_proxy *proxy);
 
 static void ATTR_NULL(2)
 login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
@@ -938,6 +940,62 @@ void login_proxy_get_redirect_path(struct login_proxy *proxy, string_t *str)
 	}
 }
 
+void login_proxy_replace_client_iostream_pre(struct login_proxy *proxy)
+{
+	struct client *client = proxy->client;
+
+	i_assert(client->input == NULL);
+	i_assert(client->output == NULL);
+
+	iostream_proxy_unref(&proxy->iostream_proxy);
+	proxy->client_output_orig_offset = proxy->client_output->offset;
+
+	/* Temporarily move the iostreams back to client. This allows plugins
+	   to hook into iostream changes even after proxying is started. */
+	client->input = proxy->client_input;
+	client->output = proxy->client_output;
+
+	/* iostream_change_pre() may change iostreams */
+	if (client->v.iostream_change_pre != NULL) {
+		client->v.iostream_change_pre(client);
+		proxy->client_input = client->input;
+		proxy->client_output = client->output;
+	}
+}
+
+void login_proxy_replace_client_iostream_post(struct login_proxy *proxy,
+					      struct istream *new_input,
+					      struct ostream *new_output)
+{
+	struct client *client = proxy->client;
+
+	i_assert(client->input == proxy->client_input);
+	i_assert(client->output == proxy->client_output);
+	i_assert(new_input != proxy->client_input);
+	i_assert(new_output != proxy->client_output);
+
+	client->input = new_input;
+	client->output = new_output;
+
+	i_stream_unref(&proxy->client_input);
+	o_stream_unref(&proxy->client_output);
+
+	if (client->v.iostream_change_post != NULL)
+		client->v.iostream_change_post(client);
+
+	/* iostream_change_post() may have replaced the iostreams */
+	proxy->client_input = client->input;
+	proxy->client_output = client->output;
+	/* preserve output offset so that the bytes out counter in logout
+	   message doesn't get reset here */
+	proxy->client_output->offset = proxy->client_output_orig_offset;
+
+	client->input = NULL;
+	client->output = NULL;
+
+	login_proxy_iostream_start(proxy);
+}
+
 struct istream *login_proxy_get_client_istream(struct login_proxy *proxy)
 {
 	return proxy->client_input;
@@ -1054,6 +1112,16 @@ client_get_alt_usernames(struct client *client,
 	return TRUE;
 }
 
+static void login_proxy_iostream_start(struct login_proxy *proxy)
+{
+	proxy->iostream_proxy =
+		iostream_proxy_create(proxy->client_input, proxy->client_output,
+				      proxy->server_input, proxy->server_output);
+	iostream_proxy_set_completion_callback(proxy->iostream_proxy,
+					       login_proxy_finished, proxy);
+	iostream_proxy_start(proxy->iostream_proxy);
+}
+
 void login_proxy_detach(struct login_proxy *proxy)
 {
 	struct client *client = proxy->client;
@@ -1093,12 +1161,7 @@ void login_proxy_detach(struct login_proxy *proxy)
 				     PROXY_MAX_OUTBUF_SIZE);
 
 	/* from now on, just do dummy proxying */
-	proxy->iostream_proxy =
-		iostream_proxy_create(proxy->client_input, proxy->client_output,
-				      proxy->server_input, proxy->server_output);
-	iostream_proxy_set_completion_callback(proxy->iostream_proxy,
-					       login_proxy_finished, proxy);
-	iostream_proxy_start(proxy->iostream_proxy);
+	login_proxy_iostream_start(proxy);
 
 	if (proxy->notify_refresh_secs != 0) {
 		proxy->to_notify =
