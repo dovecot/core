@@ -52,6 +52,10 @@ struct iostream_ssl_vfuncs {
 	const char *(*get_pfs)(struct ssl_iostream *ssl_io);
 	const char *(*get_protocol_name)(struct ssl_iostream *ssl_io);
 	const char *(*get_ja3)(struct ssl_iostream *ssl_io);
+
+	const char *(*get_application_protocol)(struct ssl_iostream *ssl_io);
+	void (*set_application_protocols)(struct ssl_iostream_context *ctx,
+					  const char *const *names);
 };
 
 void iostream_ssl_module_init(const struct iostream_ssl_vfuncs *vfuncs);

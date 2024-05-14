@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "array.h"
 #include "connection.h"
 #include "hex-binary.h"
 #include "safe-memset.h"
@@ -17,6 +18,8 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <arpa/inet.h>
+
+#define ALPN_MAX_PROTOCOLS 10
 
 struct ssl_iostream_password_context {
 	const char *password;
@@ -543,6 +546,58 @@ static int ssl_clienthello_callback(SSL *ssl, int *al,
 
 #endif
 
+#if defined(HAVE_SSL_CTX_set_alpn_select_cb)
+static int
+openssl_iostream_alpn_select(SSL *ssl ATTR_UNUSED, const unsigned char **out,
+			     unsigned char *outlen, const unsigned char *in,
+			     unsigned int inlen, void *arg)
+{
+	struct ssl_iostream_context *ctx = arg;
+	ARRAY(struct ssl_alpn_protocol) in_protos;
+	const unsigned char *end = in + inlen;
+	const struct ssl_alpn_protocol *in_proto, *proto;
+	size_t count_in = 0;
+
+	t_array_init(&in_protos, 1);
+
+	if (ctx->protos == NULL) {
+		/* nothing available */
+		return SSL_TLSEXT_ERR_NOACK;
+	}
+
+	/* allow max 10 protocols */
+	while (in < end && count_in < ALPN_MAX_PROTOCOLS)
+	{
+		unsigned char len = *in;
+		if (in + len > end)
+			return SSL_TLSEXT_ERR_ALERT_FATAL;
+		in++;
+		struct ssl_alpn_protocol *value = array_append_space(&in_protos);
+		/* Normalize protocol into lowercase string, and ensure it does
+		   not contain NUL bytes. */
+		const char *proto = t_str_lcase(t_strndup(in, len));
+		value->proto = (const unsigned char *)proto;
+		value->proto_len = strlen(proto);
+		in += len;
+		count_in++;
+	}
+
+	array_foreach(&in_protos, in_proto) {
+		for (proto = ctx->protos; proto->proto != NULL; proto++) {
+			if (in_proto->proto_len == proto->proto_len &&
+			    memcmp(in_proto->proto, proto->proto, proto->proto_len) == 0) {
+				*out = proto->proto;
+				*outlen = proto->proto_len;
+				return SSL_TLSEXT_ERR_OK;
+			}
+		}
+	}
+
+	return SSL_TLSEXT_ERR_ALERT_FATAL;
+}
+#endif
+
+
 static int
 ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 			     const struct ssl_iostream_settings *set,
@@ -685,6 +740,13 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 					ssl_servername_callback) != 1)
 			i_unreached();
 #endif
+#ifdef HAVE_SSL_CTX_set_alpn_select_cb
+		SSL_CTX_set_alpn_select_cb(ctx->ssl_ctx, openssl_iostream_alpn_select, ctx);
+#endif
+	}
+	if (set->application_protocols != NULL) {
+		openssl_iostream_context_set_application_protocols(ctx,
+			set->application_protocols);
 	}
 	return 0;
 }
@@ -706,6 +768,33 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 	   parameters used aren't strong primes. See OpenSSL manual. */
 	SSL_CTX_set_options(ssl_ctx, SSL_OP_SINGLE_DH_USE);
 	return 0;
+}
+
+void openssl_iostream_context_set_application_protocols(struct ssl_iostream_context *ctx,
+							const char *const *names)
+{
+	i_assert(names != NULL);
+	ARRAY(struct ssl_alpn_protocol) protos;
+	p_array_init(&protos, ctx->pool, str_array_length(names) + 1);
+	for (; *names != NULL; names++) {
+		struct ssl_alpn_protocol *proto = array_append_space(&protos);
+		proto->proto_len = strlen(*names);
+		i_assert(proto->proto_len <= UINT8_MAX);
+		proto->proto = p_memdup(ctx->pool, *names, proto->proto_len);
+	}
+	array_append_zero(&protos);
+	ctx->protos = array_front(&protos);
+#ifdef HAVE_SSL_CTX_set_alpn_select_cb
+	if (ctx->client_ctx) {
+		buffer_t *protos = buffer_create_dynamic(ctx->pool, 32);
+		for (size_t i = 0; ctx->protos[i].proto != NULL; i++) {
+			unsigned char len = ctx->protos[i].proto_len;
+			buffer_append_c(protos, len);
+			buffer_append(protos, ctx->protos[i].proto, len);
+		}
+		SSL_CTX_set_alpn_protos(ctx->ssl_ctx, protos->data, protos->used);
+	}
+#endif
 }
 
 static int
