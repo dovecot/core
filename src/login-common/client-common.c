@@ -220,6 +220,15 @@ static int client_settings_get(struct client *client, const char **error_r)
 	return 0;
 }
 
+static bool application_protocol_equals(const char *proto)
+{
+	/* If login binary has no application protocols configured
+	   we accept whatever we get. */
+	if (login_binary->application_protocols == NULL)
+		return TRUE;
+	return str_array_find(login_binary->application_protocols, proto);
+}
+
 int client_alloc(int fd, const struct master_service_connection *conn,
 		 struct client **client_r)
 {
@@ -304,6 +313,18 @@ int client_alloc(int fd, const struct master_service_connection *conn,
 		client->end_client_tls_secured = conn->haproxy.ssl;
 		client->local_name = conn->haproxy.hostname;
 		client->client_cert_common_name = conn->haproxy.cert_common_name;
+		/* Check that alpn matches. */
+		if (conn->haproxy.alpn_size > 0) {
+			const char *proto =
+				t_strndup(conn->haproxy.alpn, conn->haproxy.alpn_size);
+			if (!application_protocol_equals(proto)) {
+				e_error(client->event, "HAproxy application protocol mismatch (requested '%s')",
+					proto);
+				event_unref(&client->event);
+				pool_unref(&client->pool);
+				return -1;
+			}
+		}
 	} else if (net_ip_compare(&conn->real_remote_ip, &conn->real_local_ip)) {
 		/* localhost connections are always secured */
 		client->connection_secured = TRUE;
@@ -702,6 +723,10 @@ int client_sni_callback(const char *name, const char **error_r,
 		return -1;
 	}
 	settings_free(ssl_set);
+	if (login_binary->application_protocols != NULL) {
+		ssl_iostream_context_set_application_protocols(ssl_ctx,
+			login_binary->application_protocols);
+	}
 	ssl_iostream_change_context(client->ssl_iostream, ssl_ctx);
 	ssl_iostream_context_unref(&ssl_ctx);
 
@@ -729,6 +754,7 @@ int client_init_ssl(struct client *client)
 		client->v.iostream_change_pre(client);
 	const struct ssl_iostream_server_autocreate_parameters parameters = {
 		.event_parent = client->event,
+		.application_protocols = login_binary->application_protocols,
 	};
 	int ret = io_stream_autocreate_ssl_server(&parameters,
 						  &client->input, &client->output,
