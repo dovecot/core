@@ -33,7 +33,6 @@ struct ldap_settings {
 	gid_t gid;
 
 	bool passdb_ldap_bind;
-	bool auth_sasl_bind;
 	bool starttls;
 
 	/* parsed */

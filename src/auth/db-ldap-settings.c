@@ -26,7 +26,6 @@ static const struct setting_define ldap_setting_defines[] = {
 	DEF(STR, auth_dn_password),
 	DEFN(BOOL, passdb_ldap_bind, passdb_ldap_bind),
 	DEFN(STR, passdb_ldap_bind_userdn, passdb_ldap_bind_userdn),
-	DEF(BOOL, auth_sasl_bind),
 	DEF(STR, auth_sasl_mechanism),
 	DEF(STR, auth_sasl_realm),
 	DEF(STR, auth_sasl_authz_id),
@@ -52,7 +51,6 @@ static const struct ldap_settings ldap_default_settings = {
 	.auth_dn_password = "",
 	.passdb_ldap_bind = FALSE,
 	.passdb_ldap_bind_userdn = "",
-	.auth_sasl_bind = FALSE,
 	.auth_sasl_mechanism = "",
 	.auth_sasl_realm = "",
 	.auth_sasl_authz_id = "",
@@ -150,8 +148,8 @@ static bool ldap_setting_check(void *_set, pool_t pool ATTR_UNUSED,
 #endif
 
 #ifndef HAVE_LDAP_SASL
-	if (set->auth_sasl_bind) {
-		*error_r = "ldap_auth_sasl_bind=yes but no SASL support compiled in";
+	if (*set->auth_sasl_mechanism != '\0') {
+		*error_r = "ldap_auth_sasl_mechanism set, but no SASL support compiled in";
 		return FALSE;
 	}
 #endif
@@ -174,8 +172,8 @@ int ldap_setting_post_check(const struct ldap_settings *set, const char **error_
 	}
 
 	if (set->version < 3) {
-		if (set->auth_sasl_bind) {
-			*error_r = "ldap_sauth_sasl_bind=yes requires ldap_version=3";
+		if (*set->auth_sasl_mechanism != '\0') {
+			*error_r = "ldap_auth_sasl_mechanism requires ldap_version=3";
 			return -1;
 		}
 		if (set->starttls) {

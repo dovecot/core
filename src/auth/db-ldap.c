@@ -796,7 +796,7 @@ static int db_ldap_bind_simple(struct ldap_connection *conn)
 
 static int db_ldap_bind(struct ldap_connection *conn)
 {
-	if (conn->set->auth_sasl_bind) {
+	if (*conn->set->auth_sasl_mechanism != '\0') {
 		if (db_ldap_bind_sasl(conn) < 0)
 			return -1;
 	} else {
