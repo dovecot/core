@@ -277,8 +277,12 @@ alt_username_field_ref(struct connect_limit *limit, const char *name)
 				  old_count,
 				  sizeof(limit->alt_username_hashes[0]) *
 				  I_MAX((idx+1), old_count));
-		hash_table_create(&limit->alt_username_hashes[idx],
-				  default_pool, 0, str_hash, strcmp);
+		if (!hash_table_is_created(limit->alt_username_hashes[idx])) {
+			hash_table_create(&limit->alt_username_hashes[idx],
+					  default_pool, 0, str_hash, strcmp);
+		} else {
+			i_assert(hash_table_count(limit->alt_username_hashes[idx]) == 0);
+		}
 	} else {
 		field = array_idx_modifiable(&limit->alt_username_fields, idx);
 	}
