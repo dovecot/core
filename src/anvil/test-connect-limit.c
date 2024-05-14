@@ -419,6 +419,7 @@ static void test_connect_limit_random(void)
 	test_sessions_compare(limit, test_sessions);
 
 	connect_limit_deinit(&limit);
+	pool_unref(&pool);
 	test_end();
 }
 
