@@ -893,12 +893,12 @@ void login_proxy_get_redirect_path(struct login_proxy *proxy, string_t *str)
 	}
 }
 
-struct istream *login_proxy_get_istream(struct login_proxy *proxy)
+struct istream *login_proxy_get_server_istream(struct login_proxy *proxy)
 {
 	return proxy->server_input;
 }
 
-struct ostream *login_proxy_get_ostream(struct login_proxy *proxy)
+struct ostream *login_proxy_get_server_ostream(struct login_proxy *proxy)
 {
 	return proxy->server_output;
 }

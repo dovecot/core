@@ -334,7 +334,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 
 	i_assert(!client->destroyed);
 
-	output = login_proxy_get_ostream(client->login_proxy);
+	output = login_proxy_get_server_ostream(client->login_proxy);
 	if (!imap_client->proxy_seen_banner) {
 		/* this is a banner */
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_BANNER;
@@ -402,7 +402,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		if (login_proxy_starttls(client->login_proxy) < 0)
 			return -1;
 		/* i/ostreams changed. */
-		output = login_proxy_get_ostream(client->login_proxy);
+		output = login_proxy_get_server_ostream(client->login_proxy);
 		str = t_str_new(128);
 		if (proxy_write_login(imap_client, str) < 0)
 			return -1;

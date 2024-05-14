@@ -333,7 +333,7 @@ static void proxy_input(struct client *client)
 	const char *line;
 	unsigned int duration;
 
-	input = login_proxy_get_istream(client->login_proxy);
+	input = login_proxy_get_server_istream(client->login_proxy);
 	switch (i_stream_read(input)) {
 	case -2:
 		login_proxy_failed(client->login_proxy,

@@ -222,7 +222,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 
 	i_assert(!client->destroyed);
 
-	output = login_proxy_get_ostream(client->login_proxy);
+	output = login_proxy_get_server_ostream(client->login_proxy);
 	switch (pop3_client->proxy_state) {
 	case POP3_PROXY_BANNER:
 		/* this is a banner */
@@ -258,7 +258,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 		if (login_proxy_starttls(client->login_proxy) < 0)
 			return -1;
 		/* i/ostreams changed. */
-		output = login_proxy_get_ostream(client->login_proxy);
+		output = login_proxy_get_server_ostream(client->login_proxy);
 		if (proxy_send_login(pop3_client, output) < 0)
 			return -1;
 		return 1;

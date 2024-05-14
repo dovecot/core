@@ -107,8 +107,8 @@ int login_proxy_starttls(struct login_proxy *proxy);
 /* MULTIPLEX input was started. */
 void login_proxy_multiplex_input_start(struct login_proxy *proxy);
 
-struct istream *login_proxy_get_istream(struct login_proxy *proxy);
-struct ostream *login_proxy_get_ostream(struct login_proxy *proxy);
+struct istream *login_proxy_get_server_istream(struct login_proxy *proxy);
+struct ostream *login_proxy_get_server_ostream(struct login_proxy *proxy);
 
 /* Returns "ip:port" or "host[ip]:port" */
 const char *login_proxy_get_hostport(const struct login_proxy *proxy);
