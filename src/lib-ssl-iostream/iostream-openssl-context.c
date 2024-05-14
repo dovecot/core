@@ -341,7 +341,7 @@ ssl_iostream_ctx_verify_remote_cert(struct ssl_iostream_context *ctx,
 	SSL_CTX_set_client_CA_list(ctx->ssl_ctx, ca_names);
 }
 
-static int ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
+static int ssl_servername_callback(SSL *ssl, int *al,
 				   void *context ATTR_UNUSED)
 {
 	struct ssl_iostream *ssl_io;
@@ -354,6 +354,7 @@ static int ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
 		if (!connection_is_valid_dns_name(host)) {
 			openssl_iostream_set_error(ssl_io,
 					"TLS SNI servername sent by client is not a valid DNS name");
+			*al = SSL_AD_UNRECOGNIZED_NAME;
 			return SSL_TLSEXT_ERR_ALERT_FATAL;
 		}
 		i_free(ssl_io->sni_host);
@@ -365,6 +366,7 @@ static int ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
 	if (ssl_io->sni_callback != NULL) {
 		if (ssl_io->sni_callback(ssl_io->sni_host, &error,
 					 ssl_io->sni_context) < 0) {
+			*al = SSL_AD_INTERNAL_ERROR;
 			openssl_iostream_set_error(ssl_io, error);
 			return SSL_TLSEXT_ERR_ALERT_FATAL;
 		}
