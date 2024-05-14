@@ -22,6 +22,11 @@ struct ssl_iostream_context {
 
 	pool_t pool;
 
+	const struct ssl_alpn_protocol {
+		const unsigned char *proto;
+		size_t proto_len;
+	} *protos;
+
 	int username_nid;
 
 	bool client_ctx:1;
@@ -83,6 +88,10 @@ int openssl_iostream_context_init_client(const struct ssl_iostream_settings *set
 int openssl_iostream_context_init_server(const struct ssl_iostream_settings *set,
 					 struct ssl_iostream_context **ctx_r,
 					 const char **error_r);
+
+void openssl_iostream_context_set_application_protocols(struct ssl_iostream_context *ssl_ctx,
+							const char *const *names);
+
 void openssl_iostream_context_ref(struct ssl_iostream_context *ctx);
 void openssl_iostream_context_unref(struct ssl_iostream_context *ctx);
 void openssl_iostream_global_deinit(void);

@@ -403,3 +403,14 @@ const char *ssl_iostream_get_ja3(struct ssl_iostream *ssl_io)
 {
 	return ssl_vfuncs->get_ja3(ssl_io);
 }
+
+const char *ssl_iostream_get_application_protocol(struct ssl_iostream *ssl_io)
+{
+	return ssl_vfuncs->get_application_protocol(ssl_io);
+}
+
+void ssl_iostream_context_set_application_protocols(struct ssl_iostream_context *ssl_ctx,
+						    const char *const *names)
+{
+	ssl_vfuncs->set_application_protocols(ssl_ctx, names);
+}

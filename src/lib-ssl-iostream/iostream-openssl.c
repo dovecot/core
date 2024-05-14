@@ -618,6 +618,9 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 	i_free_and_null(ssl_io->last_error);
 	ssl_io->handshaked = TRUE;
 
+	const char *alpn_proto = ssl_iostream_get_application_protocol(ssl_io);
+	if (alpn_proto != NULL && *alpn_proto != '\0')
+		e_debug(ssl_io->event, "SSL: Chosen application protocol %s", alpn_proto);
 	if (ssl_io->ssl_output != NULL)
 		(void)o_stream_flush(ssl_io->ssl_output);
 	return 1;
@@ -816,6 +819,20 @@ openssl_iostream_get_ja3(struct ssl_iostream *ssl_io)
 	return ssl_io->ja3_str;
 }
 
+static const char *
+openssl_iostream_get_application_protocol(struct ssl_iostream *ssl_io)
+{
+	if (!ssl_io->handshaked || ssl_io->handshake_failed)
+		return NULL;
+	const unsigned char *data;
+	unsigned int len;
+
+	SSL_get0_alpn_selected(ssl_io->ssl, &data, &len);
+	if (data != NULL)
+		return t_strndup(data, len);
+	return NULL;
+}
+
 static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.global_init = openssl_iostream_global_init,
 	.context_init_client = openssl_iostream_context_init_client,
@@ -848,6 +865,9 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.get_pfs = openssl_iostream_get_pfs,
 	.get_protocol_name = openssl_iostream_get_protocol_name,
 	.get_ja3 = openssl_iostream_get_ja3,
+
+	.get_application_protocol = openssl_iostream_get_application_protocol,
+	.set_application_protocols = openssl_iostream_context_set_application_protocols,
 };
 
 void ssl_iostream_openssl_init(void)

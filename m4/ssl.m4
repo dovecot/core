@@ -110,6 +110,7 @@ AC_DEFUN([DOVECOT_SSL], [
   DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_client_hello_cb])
   DOVECOT_CHECK_SSL_FUNC([SSL_CTX_select_current_cert])
   DOVECOT_CHECK_SSL_FUNC([SSL_client_hello_get0_ciphers])
+  DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_alpn_select_cb])
 
   CFLAGS="$old_CFLAGS"
 ])

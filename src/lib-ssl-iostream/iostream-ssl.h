@@ -45,6 +45,9 @@ struct ssl_iostream_settings {
 	const char *cert_username_field;
 	const char *crypto_device;
 
+	/* List of application protocol names */
+	const char *const *application_protocols;
+
 	/* If FALSE, check for CA CRLs. */
 	bool skip_crl_check;
 	/* server-only: Request client certificate. */
@@ -205,6 +208,11 @@ const char *ssl_iostream_get_pfs(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_protocol_name(struct ssl_iostream *ssl_io);
 
 const char *ssl_iostream_get_last_error(struct ssl_iostream *ssl_io);
+
+const char *ssl_iostream_get_application_protocol(struct ssl_iostream *ssl_io);
+
+void ssl_iostream_context_set_application_protocols(struct ssl_iostream_context *ssl_ctx,
+						    const char *const *names);
 
 int ssl_iostream_context_init_client(const struct ssl_iostream_settings *set,
 				     struct ssl_iostream_context **ctx_r,
