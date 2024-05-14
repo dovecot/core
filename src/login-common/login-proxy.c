@@ -1226,6 +1226,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 		.event_parent = proxy->event,
 		.host = proxy->host,
 		.flags = ssl_flags,
+		.application_protocols = login_binary->application_protocols,
 	};
 	if (io_stream_autocreate_ssl_client(&parameters,
 					    &proxy->server_input,

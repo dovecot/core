@@ -21,6 +21,8 @@ struct login_binary {
 	const char *protocol;
 	/* e.g. imap-login, pop3-login */
 	const char *process_name;
+	/* e.g. ManageSieve, h2.. */
+	const char *const *application_protocols;
 
 	/* e.g. 143, 110 */
 	in_port_t default_port;
