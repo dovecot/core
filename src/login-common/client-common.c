@@ -197,6 +197,13 @@ static bool client_is_trusted(struct client *client)
 	return FALSE;
 }
 
+static void client_settings_free(struct client *client)
+{
+	settings_free(client->set);
+	settings_free(client->ssl_set);
+	settings_free(client->ssl_server_set);
+}
+
 static int client_settings_get(struct client *client, const char **error_r)
 {
 	i_assert(client->set == NULL);
@@ -207,8 +214,7 @@ static int client_settings_get(struct client *client, const char **error_r)
 			 0, &client->ssl_set, error_r) < 0 ||
 	    settings_get(client->event, &ssl_server_setting_parser_info,
 			 0, &client->ssl_server_set, error_r) < 0) {
-		settings_free(client->set);
-		settings_free(client->ssl_set);
+		client_settings_free(client);
 		return -1;
 	}
 	return 0;
@@ -532,13 +538,6 @@ void client_ref(struct client *client)
 	client->refcount++;
 }
 
-static void client_settings_free(struct client *client)
-{
-	settings_free(client->set);
-	settings_free(client->ssl_set);
-	settings_free(client->ssl_server_set);
-}
-
 bool client_unref(struct client **_client)
 {
 	struct client *client = *_client;
@@ -684,6 +683,9 @@ int client_sni_callback(const char *name, const char **error_r,
 	if (client_settings_get(client, error_r) < 0 ||
 	    (client->v.reload_config != NULL &&
 	     client->v.reload_config(client, error_r) < 0)) {
+		/* make sure settings are free'd if reload_config
+		   callback fails. */
+		client_settings_free(client);
 		client->set = old_set;
 		client->ssl_set = old_ssl_set;
 		client->ssl_server_set = old_ssl_server_set;
