@@ -1025,8 +1025,13 @@ void client_command_free(struct client_command_context **_cmd)
 	event_add_int(cmd->event, "net_out_bytes", cmd->stats.bytes_out);
 
 	if (cmd->name != NULL) {
-		e_debug(cmd->event, "Command finished: %s %s", cmd->name,
-			cmd->human_args != NULL ? cmd->human_args : "");
+		string_t *str = t_str_new(128);
+		str_printfa(str, "Command finished: %s", cmd->name);
+		if (cmd->human_args != NULL)
+			str_printfa(str, " %s", cmd->human_args);
+		if (cmd->tagline_reply != NULL)
+			str_printfa(str, ": %s", cmd->tagline_reply);
+		e_debug(cmd->event, "%s", str_c(str));
 	}
 	event_unref(&cmd->event);
 	event_unref(&cmd->global_event);
