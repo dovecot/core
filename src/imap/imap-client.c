@@ -996,9 +996,11 @@ void client_command_free(struct client_command_context **_cmd)
 		client_send_tagline(cmd, "NO Command cancelled.");
 	}
 
-	i_free(client->last_cmd_name);
-	client->last_cmd_name = i_strdup(cmd->name);
-	client->last_cmd_stats = cmd->stats;
+	if (cmd->name != NULL) {
+		i_free(client->last_cmd_name);
+		client->last_cmd_name = i_strdup(cmd->name);
+		client->last_cmd_stats = cmd->stats;
+	}
 
 	if (!cmd->param_error)
 		client->bad_counter = 0;
