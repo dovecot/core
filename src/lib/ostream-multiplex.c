@@ -340,6 +340,11 @@ o_stream_multiplex_ochannel_sendv(struct ostream_private *stream,
 	for (unsigned int i = 0; i < iov_count; i++)
 		total += iov[i].iov_len;
 
+	if (avail < total && channel->buf->used < IO_BLOCK_SIZE) {
+		/* ostream buffer size is too small for us - keep it always at
+		   least at IO_BLOCK_SIZE. */
+		avail = IO_BLOCK_SIZE - channel->buf->used;
+	}
 	if (avail < total) {
 		if (o_stream_multiplex_sendv(channel->mstream) < 0)
 			return -1;
