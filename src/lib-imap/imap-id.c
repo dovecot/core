@@ -85,6 +85,11 @@ imap_id_reply_generate_from_imap_args(const struct imap_arg *args)
 			else {
 				if (strcmp(value, "*") == 0)
 					value = imap_id_get_default(key);
+#if defined(DOVECOT_EDITION)
+				else if (strcasecmp(key, "name") == 0 &&
+					 strcmp(DOVECOT_EDITION, "Pro") == 0)
+					value = imap_id_get_default(key);
+#endif
 			}
 			imap_append_nstring(str, value);
 		}
