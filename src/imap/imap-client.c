@@ -1024,8 +1024,10 @@ void client_command_free(struct client_command_context **_cmd)
 	event_add_int(cmd->event, "net_in_bytes", cmd->stats.bytes_in);
 	event_add_int(cmd->event, "net_out_bytes", cmd->stats.bytes_out);
 
-	e_debug(cmd->event, "Command finished: %s %s", cmd->name,
-		cmd->human_args != NULL ? cmd->human_args : "");
+	if (cmd->name != NULL) {
+		e_debug(cmd->event, "Command finished: %s %s", cmd->name,
+			cmd->human_args != NULL ? cmd->human_args : "");
+	}
 	event_unref(&cmd->event);
 	event_unref(&cmd->global_event);
 
