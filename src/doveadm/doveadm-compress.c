@@ -6,6 +6,7 @@
 #include "ostream.h"
 #include "istream-zlib.h"
 #include "ostream-zlib.h"
+#include "iostream-ssl.h"
 #include "module-dir.h"
 #include "master-service.h"
 #include "compression.h"
@@ -17,20 +18,26 @@
 
 enum server_input_line_type {
 	SERVER_INPUT_LINE_TYPE_DEFAULT,
+	SERVER_INPUT_LINE_TYPE_STARTTLS,
 	SERVER_INPUT_LINE_TYPE_COMPRESS,
 };
 
 struct client {
 	int fd;
+	const char *host;
 	struct event *event;
 	struct io *io_client, *io_server;
 	struct istream *input, *stdin_input;
 	struct ostream *output;
+	struct ssl_iostream *ssl_iostream;
 	const struct compression_handler *handler;
 	char *algorithm;
+	bool tls;
 	bool compressed;
 	bool compress_waiting;
 };
+
+static void server_input(struct client *client);
 
 static bool test_dump_imap_compress(struct doveadm_cmd_context *cctx ATTR_UNUSED,
 				    const char *path)
@@ -167,6 +174,14 @@ static void client_input(struct client *client)
 	}
 }
 
+static bool server_input_is_starttls_reply(const char *line)
+{
+	/* skip tag */
+	while (*line != ' ' && *line != '\0')
+		line++;
+	return str_begins_with(line, " OK Begin TLS negotiation now");
+}
+
 static bool server_input_is_compress_reply(const char *line)
 {
 	/* skip tag */
@@ -178,9 +193,40 @@ static bool server_input_is_compress_reply(const char *line)
 static enum server_input_line_type
 server_input_line_type(struct client *client, const char *line)
 {
+	if (!client->tls && server_input_is_starttls_reply(line))
+		return SERVER_INPUT_LINE_TYPE_STARTTLS;
 	if (!client->compressed && server_input_is_compress_reply(line))
 		return SERVER_INPUT_LINE_TYPE_COMPRESS;
 	return SERVER_INPUT_LINE_TYPE_DEFAULT;
+}
+
+static void client_init_ssl(struct client *client)
+{
+	struct ssl_iostream_context *ssl_ctx;
+	struct ssl_iostream_settings ssl_set;
+	const char *error;
+
+	io_remove(&client->io_server);
+
+	doveadm_get_ssl_settings(&ssl_set, pool_datastack_create());
+	ssl_set.verbose = doveadm_debug;
+
+	if (ssl_iostream_client_context_cache_get(&ssl_set, &ssl_ctx,
+						  &error) < 0)
+		i_fatal("Failed to initialize SSL context: %s", error);
+
+	if (io_stream_create_ssl_client(ssl_ctx, client->host, &ssl_set,
+					client->event,
+					&client->input, &client->output,
+					&client->ssl_iostream, &error) < 0)
+		i_fatal("STARTTLS failed: %s", error);
+	ssl_iostream_context_unref(&ssl_ctx);
+	client->io_server = io_add_istream(client->input, server_input, client);
+
+	if (ssl_iostream_handshake(client->ssl_iostream) < 0) {
+		i_fatal("SSL handshake failed: %s",
+			ssl_iostream_get_last_error(client->ssl_iostream));
+	}
 }
 
 static void server_input(struct client *client)
@@ -207,6 +253,13 @@ static void server_input(struct client *client)
 			i_fatal("write(stdout) failed: %m");
 
 		switch (server_input_line_type(client, line)) {
+		case SERVER_INPUT_LINE_TYPE_STARTTLS:
+			/* start TLS */
+			client_init_ssl(client);
+			client->tls = TRUE;
+			i_stream_set_input_pending(client->stdin_input, TRUE);
+			e_info(client->event, "<TLS started>");
+			break;
 		case SERVER_INPUT_LINE_TYPE_COMPRESS: {
 			/* start compression */
 			struct istream *input;
@@ -265,6 +318,7 @@ static void cmd_compress_connect(struct doveadm_cmd_context *cctx)
 	e_info(cctx->event, "Connected to %s port %u.", net_ip2addr(&ips[0]), port);
 
 	i_zero(&client);
+	client.host = host;
 	client.event = event_create(cctx->event);
 	client.fd = fd;
 	fd_set_nonblock(STDIN_FILENO, TRUE);
@@ -277,6 +331,7 @@ static void cmd_compress_connect(struct doveadm_cmd_context *cctx)
 	master_service_run(master_service, NULL);
 	io_remove(&client.io_client);
 	io_remove(&client.io_server);
+	ssl_iostream_destroy(&client.ssl_iostream);
 	i_stream_unref(&client.stdin_input);
 	i_stream_unref(&client.input);
 	o_stream_unref(&client.output);
