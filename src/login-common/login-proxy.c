@@ -273,13 +273,25 @@ login_proxy_set_destination(struct login_proxy *proxy, const char *host,
 		proxy->event,
 		t_strdup_printf("proxy(%s,%s): ",
 				proxy->client->virtual_user,
-				net_ipport2str(&proxy->ip, proxy->port)));
+				login_proxy_get_hostport(proxy)));
 }
 
 static void proxy_reconnect_timeout(struct login_proxy *proxy)
 {
 	timeout_remove(&proxy->to);
 	(void)login_proxy_connect(proxy);
+}
+
+const char *login_proxy_get_hostport(const struct login_proxy *proxy)
+{
+	struct ip_addr ip;
+	/* if we are connecting to ip address return that. */
+	if (net_addr2ip(proxy->host, &ip) == 0 &&
+	    net_ip_compare(&proxy->ip, &ip))
+		return net_ipport2str(&proxy->ip, proxy->port);
+	/* it's hostname, or hostip is also used */
+	return t_strdup_printf("%s[%s]:%u", proxy->host,
+			       net_ip2addr(&proxy->ip), proxy->port);
 }
 
 static bool proxy_try_reconnect(struct login_proxy *proxy)

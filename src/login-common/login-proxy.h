@@ -107,6 +107,9 @@ int login_proxy_starttls(struct login_proxy *proxy);
 struct istream *login_proxy_get_istream(struct login_proxy *proxy);
 struct ostream *login_proxy_get_ostream(struct login_proxy *proxy);
 
+/* Returns "ip:port" or "host[ip]:port" */
+const char *login_proxy_get_hostport(const struct login_proxy *proxy);
+
 void login_proxy_append_success_log_info(struct login_proxy *proxy,
 					 string_t *str);
 struct event *login_proxy_get_event(struct login_proxy *proxy);
