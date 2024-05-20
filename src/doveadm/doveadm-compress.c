@@ -15,6 +15,18 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+struct client {
+	int fd;
+	struct event *event;
+	struct io *io_client, *io_server;
+	struct istream *input, *stdin_input;
+	struct ostream *output;
+	const struct compression_handler *handler;
+	char *algorithm;
+	bool compressed;
+	bool compress_waiting;
+};
+
 static bool test_dump_imap_compress(struct doveadm_cmd_context *cctx ATTR_UNUSED,
 				    const char *path)
 {
@@ -83,18 +95,6 @@ cmd_dump_imap_compress(struct doveadm_cmd_context *cctx,
 	i_stream_unref(&input2);
 	fflush(stdout);
 }
-
-struct client {
-	int fd;
-	struct event *event;
-	struct io *io_client, *io_server;
-	struct istream *input, *stdin_input;
-	struct ostream *output;
-	const struct compression_handler *handler;
-	char *algorithm;
-	bool compressed;
-	bool compress_waiting;
-};
 
 static bool
 client_input_get_compress_algorithm(struct client *client, const char *line)
