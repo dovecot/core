@@ -662,6 +662,8 @@ int openssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 		break;
 	}
 
+	if (ssl_io->last_error != NULL)
+		errstr = t_strdup_printf("%s+%s", errstr, ssl_io->last_error);
 	openssl_iostream_set_error(ssl_io, errstr);
 	return -1;
 }
