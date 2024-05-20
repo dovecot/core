@@ -15,6 +15,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+enum server_input_line_type {
+	SERVER_INPUT_LINE_TYPE_DEFAULT,
+	SERVER_INPUT_LINE_TYPE_COMPRESS,
+};
+
 struct client {
 	int fd;
 	struct event *event;
@@ -170,25 +175,19 @@ static bool server_input_is_compress_reply(const char *line)
 	return str_begins_with(line, " OK Begin compression");
 }
 
-static bool server_input_uncompressed(struct client *client)
+static enum server_input_line_type
+server_input_line_type(struct client *client, const char *line)
 {
-	const char *line;
-
-	while ((line = i_stream_read_next_line(client->input)) != NULL) {
-		if (write(STDOUT_FILENO, line, strlen(line)) < 0)
-			i_fatal("write(stdout) failed: %m");
-		if (write(STDOUT_FILENO, "\n", 1) < 0)
-			i_fatal("write(stdout) failed: %m");
-		if (server_input_is_compress_reply(line))
-			return TRUE;
-	}
-	return FALSE;
+	if (!client->compressed && server_input_is_compress_reply(line))
+		return SERVER_INPUT_LINE_TYPE_COMPRESS;
+	return SERVER_INPUT_LINE_TYPE_DEFAULT;
 }
 
 static void server_input(struct client *client)
 {
 	const unsigned char *data;
 	size_t size;
+	const char *line;
 
 	if (i_stream_read(client->input) == -1) {
 		if (client->input->stream_errno != 0) {
@@ -201,21 +200,33 @@ static void server_input(struct client *client)
 		return;
 	}
 
-	if (!client->compressed && server_input_uncompressed(client)) {
-		/* start compression */
-		struct istream *input;
-		struct ostream *output;
+	while ((line = i_stream_next_line(client->input)) != NULL) {
+		if (write(STDOUT_FILENO, line, strlen(line)) < 0)
+			i_fatal("write(stdout) failed: %m");
+		if (write(STDOUT_FILENO, "\n", 1) < 0)
+			i_fatal("write(stdout) failed: %m");
 
-		e_info(client->event, "<Compression started>");
-		input = client->handler->create_istream(client->input);
-		output = client->handler->create_ostream(client->output, 6);
-		i_stream_unref(&client->input);
-		o_stream_unref(&client->output);
-		client->input = input;
-		client->output = output;
-		client->compressed = TRUE;
-		client->compress_waiting = FALSE;
-		i_stream_set_input_pending(client->stdin_input, TRUE);
+		switch (server_input_line_type(client, line)) {
+		case SERVER_INPUT_LINE_TYPE_COMPRESS: {
+			/* start compression */
+			struct istream *input;
+			struct ostream *output;
+
+			e_info(client->event, "<Compression started>");
+			input = client->handler->create_istream(client->input);
+			output = client->handler->create_ostream(client->output, 6);
+			i_stream_unref(&client->input);
+			o_stream_unref(&client->output);
+			client->input = input;
+			client->output = output;
+			client->compressed = TRUE;
+			client->compress_waiting = FALSE;
+			i_stream_set_input_pending(client->stdin_input, TRUE);
+			break;
+		}
+		case SERVER_INPUT_LINE_TYPE_DEFAULT:
+			break;
+		}
 	}
 
 	data = i_stream_get_data(client->input, &size);
