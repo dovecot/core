@@ -87,9 +87,6 @@ struct ldap_field {
 	/* LDAP attribute name, or "" if this is a static field. */
 	const char *ldap_attr_name;
 
-	/* LDAP value contains a DN, which is looked up and used for @name
-	   attributes. */
-	bool value_is_dn;
 	/* This attribute is used internally only via %{ldap_ptr},
 	   it shouldn't be returned in iteration. */
 	bool skip;
