@@ -1,12 +1,7 @@
 /* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "login-common.h"
-#include "hostpid.h"
-#include "var-expand.h"
 #include "settings-parser.h"
-#include "master-service.h"
-#include "master-service-settings.h"
-#include "master-service-ssl-settings.h"
 #include "login-settings.h"
 
 #include <unistd.h>

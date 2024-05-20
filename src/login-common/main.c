@@ -4,8 +4,6 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
-#include "strescape.h"
-#include "randgen.h"
 #include "module-dir.h"
 #include "process-title.h"
 #include "restrict-access.h"
