@@ -146,7 +146,7 @@ int dict_init_legacy(const char *uri, const struct dict_legacy_settings *set,
 	}
 	struct event *event = event_create(set->event_parent);
 	event_add_category(event, &event_category_dict);
-	event_add_str(event, "driver", dict->name);
+	event_add_str(event, "dict_driver", dict->name);
 	event_set_append_log_prefix(event, t_strdup_printf("dict(%s): ",
 				    dict->name));
 	set_dup.event_parent = event;
@@ -229,7 +229,7 @@ int dict_init_auto(struct event *event, struct dict **dict_r,
 	}
 
 	event_add_category(event, &event_category_dict);
-	event_add_str(event, "driver", dict_driver->name);
+	event_add_str(event, "dict_driver", dict_driver->name);
 	event_set_append_log_prefix(event, t_strdup_printf("dict(%s): ",
 				    dict_driver->name));
 	if (dict_driver->v.init(dict_driver, event, dict_r, &error) < 0) {
