@@ -173,6 +173,7 @@ driver_sqlite_init_common(struct event *event,
 	db->connected = FALSE;
 	db->api.event = event_create(event);
 	event_add_category(db->api.event, &event_category_sqlite);
+	event_add_str(db->api.event, "sql_driver", "sqlite");
 	event_set_append_log_prefix(db->api.event, "sqlite: ");
 	return db;
 }

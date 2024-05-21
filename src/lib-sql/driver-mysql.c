@@ -431,6 +431,7 @@ driver_mysql_init_common(pool_t pool, struct event *event_parent,
 	db->set = set;
 	db->ssl_set = ssl_set;
 	event_add_category(db->api.event, &event_category_mysql);
+	event_add_str(db->api.event, "sql_driver", "mysql");
 	if (set->host[0] != '\0') {
 		event_set_append_log_prefix(db->api.event, t_strdup_printf(
 			"mysql(%s): ", set->host));

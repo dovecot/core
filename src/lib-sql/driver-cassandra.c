@@ -1306,6 +1306,7 @@ driver_cassandra_init_common(struct event *event_parent,
 	db->fd_pipe[0] = db->fd_pipe[1] = -1;
 	db->api.event = event_create(event_parent);
 	event_add_category(db->api.event, &event_category_cassandra);
+	event_add_str(db->api.event, "sql_driver", "cassandra");
 	event_set_append_log_prefix(db->api.event, "cassandra: ");
 
 	if (set->parsed_use_ssl && driver_cassandra_init_ssl(db, error_r) < 0) {

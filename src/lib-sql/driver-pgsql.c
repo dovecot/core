@@ -439,6 +439,7 @@ driver_pgsql_init_common(struct event *event_parent,
 	db->api.event = event_create(event_parent);
 	db->set = set;
 	event_add_category(db->api.event, &event_category_pgsql);
+	event_add_str(db->api.event, "sql_driver", "pgsql");
 	event_set_append_log_prefix(db->api.event,
 				    t_strdup_printf("pgsql(%s): ", set->host));
 	return db;
