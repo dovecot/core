@@ -414,16 +414,19 @@ static int login_proxy_connect(struct login_proxy *proxy)
 		   the check below. */
 		rec->last_success.tv_sec = ioloop_timeval.tv_sec - 1;
 	}
+	int down_secs = 0;
+	if (timeval_cmp(&rec->last_failure, &rec->last_success) > 0)
+		down_secs = timeval_diff_msecs(&rec->last_failure,
+					       &rec->last_success) / 1000;
 	if (proxy->host_immediate_failure_after_secs != 0 &&
-	    timeval_cmp(&rec->last_failure, &rec->last_success) > 0 &&
-	    (unsigned int)(rec->last_failure.tv_sec - rec->last_success.tv_sec) >
-	    	proxy->host_immediate_failure_after_secs &&
+	    down_secs > (int)proxy->host_immediate_failure_after_secs &&
 	    rec->num_waiting_connections > 1) {
 		/* the server is down. fail immediately */
 		proxy->disable_reconnect = TRUE;
 		login_proxy_failed(proxy, proxy->event,
 				   LOGIN_PROXY_FAILURE_TYPE_CONNECT,
-				   "Host is down");
+				   t_strdup_printf("Host has been down for %d secs (last success was %"PRIdTIME_T")",
+						   down_secs, rec->last_success.tv_sec));
 		return -1;
 	}
 
