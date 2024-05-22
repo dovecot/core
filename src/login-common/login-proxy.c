@@ -386,8 +386,7 @@ static int login_proxy_connect(struct login_proxy *proxy)
 {
 	struct login_proxy_record *rec = proxy->state_rec;
 
-	e_debug(proxy->event, "Connecting to <%s>",
-		login_proxy_get_ip_str(proxy->client->login_proxy));
+	e_debug(proxy->event, "Connecting to remote host");
 
 	/* this needs to be done early, since login_proxy_free() shrinks
 	   num_waiting_connections. */
@@ -498,8 +497,7 @@ int login_proxy_new(struct client *client, struct event *event,
 
 	struct event_passthrough *e = event_create_passthrough(proxy->event)->
 		set_name("proxy_session_started");
-	e_debug(e->event(), "Created proxy session to <%s>",
-	       login_proxy_get_ip_str(proxy->client->login_proxy));
+	e_debug(e->event(), "Created proxy session to remote host");
 
 	return login_proxy_connect(proxy);
 }
@@ -724,8 +722,7 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
 		if (log_msg != NULL)
 			e_debug(e->event(), "%s", log_msg);
 		else
-			e_debug(e->event(), "Failed to connect to %s",
-				login_proxy_get_ip_str(proxy));
+			e_debug(e->event(), "Failed to connect to remote host");
 
 		DLLIST_REMOVE(&login_proxies_pending, proxy);
 	}
