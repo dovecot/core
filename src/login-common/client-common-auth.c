@@ -583,8 +583,8 @@ proxy_check_start(struct client *client, struct event *event,
 		*sasl_mech_r = &dsasl_client_mech_plain;
 	}
 
-	if (login_proxy_is_ourself(client, reply->proxy.host, reply->proxy.port,
-				   reply->proxy.username)) {
+	if (login_proxy_is_ourself(client, reply->proxy.host, &reply->proxy.host_ip,
+				   reply->proxy.port, reply->proxy.username)) {
 		e_error(event, "Proxying loops to itself");
 		return FALSE;
 	}

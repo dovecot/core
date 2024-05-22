@@ -810,6 +810,7 @@ bool login_proxy_failed(struct login_proxy *proxy, struct event *event,
 }
 
 bool login_proxy_is_ourself(const struct client *client, const char *host,
+			    const struct ip_addr *hostip,
 			    in_port_t port, const char *destuser)
 {
 	struct ip_addr ip;
@@ -817,7 +818,9 @@ bool login_proxy_is_ourself(const struct client *client, const char *host,
 	if (port != client->local_port)
 		return FALSE;
 
-	if (net_addr2ip(host, &ip) < 0)
+	if (hostip != NULL)
+		ip = *hostip;
+	else if (net_addr2ip(host, &ip) < 0)
 		return FALSE;
 	if (!net_ip_compare(&ip, &client->local_ip))
 		return FALSE;

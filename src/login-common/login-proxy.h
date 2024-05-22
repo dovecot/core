@@ -95,6 +95,7 @@ bool login_proxy_failed(struct login_proxy *proxy, struct event *event,
 /* Return TRUE if host/port/destuser combination points to same as current
    connection. */
 bool login_proxy_is_ourself(const struct client *client, const char *host,
+		            const struct ip_addr *hostip,
 			    in_port_t port, const char *destuser);
 
 /* Detach proxy from client. This is done after the authentication is
