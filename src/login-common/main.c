@@ -47,9 +47,13 @@ const struct master_service_ssl_settings *global_ssl_settings;
 const struct master_service_ssl_server_settings *global_ssl_server_settings;
 void **global_other_settings;
 
-static ARRAY(struct ip_addr) login_source_ips_array;
-const struct ip_addr *login_source_ips;
-unsigned int login_source_ips_idx, login_source_ips_count;
+static ARRAY(struct ip_addr) login_source_v4_ips_array;
+const struct ip_addr *login_source_v4_ips;
+unsigned int login_source_v4_ips_idx, login_source_v4_ips_count;
+
+static ARRAY(struct ip_addr) login_source_v6_ips_array;
+const struct ip_addr *login_source_v6_ips;
+unsigned int login_source_v6_ips_idx, login_source_v6_ips_count;
 
 static struct module *modules;
 static struct timeout *auth_client_to;
@@ -287,7 +291,9 @@ parse_login_source_ips(const char *ips_str)
 		skip_nonworking = TRUE;
 		ips_str++;
 	}
-	i_array_init(&login_source_ips_array, 4);
+	i_array_init(&login_source_v4_ips_array, 4);
+	i_array_init(&login_source_v6_ips_array, 4);
+
 	for (tmp = t_strsplit_spaces(ips_str, ", "); *tmp != NULL; tmp++) {
 		ret = net_gethostbyname(*tmp, &tmp_ips, &tmp_ips_count);
 		if (ret != 0) {
@@ -298,13 +304,20 @@ parse_login_source_ips(const char *ips_str)
 		for (i = 0; i < tmp_ips_count; i++) {
 			if (skip_nonworking && net_try_bind(&tmp_ips[i]) < 0)
 				continue;
-			array_push_back(&login_source_ips_array, &tmp_ips[i]);
+			if (tmp_ips[i].family == AF_INET)
+				array_push_back(&login_source_v4_ips_array, &tmp_ips[i]);
+			else if (tmp_ips[i].family == AF_INET6)
+				array_push_back(&login_source_v6_ips_array, &tmp_ips[i]);
+			else
+				i_unreached();
 		}
 	}
 
 	/* make the array contents easily accessible */
-	login_source_ips = array_get(&login_source_ips_array,
-				     &login_source_ips_count);
+	login_source_v4_ips = array_get(&login_source_v4_ips_array,
+					&login_source_v4_ips_count);
+	login_source_v6_ips = array_get(&login_source_v6_ips_array,
+					&login_source_v6_ips_count);
 }
 
 static void login_load_modules(void)
@@ -381,12 +394,14 @@ static void main_preinit(void)
 	/* read the login_source_ips before chrooting so it can access
 	   /etc/hosts */
 	parse_login_source_ips(global_login_settings->login_source_ips);
-	if (login_source_ips_count > 0) {
+	if (login_source_v4_ips_count > 0) {
 		/* randomize the initial index in case service_count=1
 		   (although in that case it's unlikely this setting is
 		   even used..) */
-		login_source_ips_idx = i_rand_limit(login_source_ips_count);
+		login_source_v4_ips_idx = i_rand_limit(login_source_v4_ips_count);
 	}
+	if (login_source_v6_ips_count > 0)
+		login_source_v6_ips_idx = i_rand_limit(login_source_v6_ips_count);
 
 	login_load_modules();
 
@@ -527,7 +542,8 @@ int login_binary_run(struct login_binary *binary,
 	master_service_init_finish(master_service);
 	master_service_run(master_service, client_connected);
 	main_deinit();
-	array_free(&login_source_ips_array);
+	array_free(&login_source_v4_ips_array);
+	array_free(&login_source_v6_ips_array);
 	master_service_deinit(&master_service);
         return 0;
 }

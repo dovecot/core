@@ -591,6 +591,35 @@ proxy_check_start(struct client *client, struct event *event,
 	return TRUE;
 }
 
+/* Sets ip_r to source address if one is found for given family,
+   and advances the index pointer to next potential address. */
+static void login_source_ip_get(sa_family_t family, struct ip_addr *ip_r)
+{
+	unsigned int *login_source_ips_idx;
+	unsigned int login_source_ips_count;
+	const struct ip_addr *login_source_ips;
+
+	if (family == AF_INET) {
+		login_source_ips_idx = &login_source_v4_ips_idx;
+		login_source_ips_count = login_source_v4_ips_count;
+		login_source_ips = login_source_v4_ips;
+	} else if (family == AF_INET6) {
+		login_source_ips_idx = &login_source_v6_ips_idx;
+		login_source_ips_count = login_source_v6_ips_count;
+		login_source_ips = login_source_v6_ips;
+	} else
+		i_unreached();
+
+	/* No source IP for this AF */
+	if (login_source_ips_count == 0)
+		return;
+
+	/* select the next source IP with round robin. */
+	*ip_r = login_source_ips[*login_source_ips_idx];
+	*login_source_ips_idx =
+		(*login_source_ips_idx + 1) % login_source_ips_count;
+}
+
 static int proxy_start(struct client *client,
 		       const struct client_auth_reply *reply)
 {
@@ -620,14 +649,11 @@ static int proxy_start(struct client *client,
 	i_zero(&proxy_set);
 	proxy_set.host = reply->proxy.host;
 	proxy_set.ip = reply->proxy.host_ip;
-	if (reply->proxy.source_ip.family != 0) {
+	if (reply->proxy.source_ip.family != 0)
 		proxy_set.source_ip = reply->proxy.source_ip;
-	} else if (login_source_ips_count > 0) {
-		/* select the next source IP with round robin. */
-		proxy_set.source_ip = login_source_ips[login_source_ips_idx];
-		login_source_ips_idx =
-			(login_source_ips_idx + 1) % login_source_ips_count;
-	}
+	else
+		login_source_ip_get(proxy_set.ip.family, &proxy_set.source_ip);
+
 	proxy_set.port = reply->proxy.port;
 	proxy_set.connect_timeout_msecs = reply->proxy.timeout_msecs;
 	if (proxy_set.connect_timeout_msecs == 0)
