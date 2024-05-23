@@ -346,7 +346,7 @@ auth_request_handler_proxy_callback(bool success, struct auth_request *request)
 {
         struct auth_request_handler *handler = request->handler;
 
-	if (success)
+	if (success && !request->internal_failure)
 		auth_request_handler_reply_success_finish(request);
 	else
 		auth_request_handler_reply_failure_finish(request);

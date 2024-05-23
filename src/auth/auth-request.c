@@ -2232,8 +2232,9 @@ auth_request_proxy_dns_callback(const struct dns_lookup_result *result,
 		}
 		auth_request_proxy_finish_ip(request, proxy_host_is_self);
 	}
+	bool res = result->ret == 0 && !request->internal_failure;
 	if (ctx->callback != NULL)
-		ctx->callback(result->ret == 0, request);
+		ctx->callback(res, request);
 	event_unref(&ctx->event);
 	auth_request_unref(&request);
 }
@@ -2324,6 +2325,8 @@ int auth_request_proxy_finish(struct auth_request *request,
 	}
 
 	auth_request_proxy_finish_ip(request, proxy_host_is_self);
+	if (request->internal_failure)
+		return -1;
 	return 1;
 }
 
