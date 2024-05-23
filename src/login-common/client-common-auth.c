@@ -570,6 +570,7 @@ proxy_check_start(struct client *client, struct event *event,
 	i_assert(reply->proxy.password != NULL);
 	i_assert(reply->proxy.host != NULL && reply->proxy.host[0] != '\0');
 	i_assert(reply->proxy.host_ip.family != 0);
+	struct ip_addr ip;
 
 	if (reply->proxy.sasl_mechanism != NULL) {
 		*sasl_mech_r = dsasl_client_mech_find(reply->proxy.sasl_mechanism);
@@ -581,6 +582,11 @@ proxy_check_start(struct client *client, struct event *event,
 	} else if (reply->proxy.master_user != NULL) {
 		/* have to use PLAIN authentication with master user logins */
 		*sasl_mech_r = &dsasl_client_mech_plain;
+	} else if (reply->proxy.host_ip.family != 0 &&
+		   net_addr2ip(reply->proxy.host, &ip) == 0 &&
+		   !net_ip_compare(&reply->proxy.host_ip, &ip)) {
+		e_error(event, "host and hostip are both IPs, but they don't match");
+		return FALSE;
 	}
 
 	if (login_proxy_is_ourself(client, reply->proxy.host, &reply->proxy.host_ip,
