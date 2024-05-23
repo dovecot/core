@@ -2148,6 +2148,24 @@ auth_request_proxy_finish_ip(struct auth_request *request,
 			     bool proxy_host_is_self)
 {
 	const struct auth_request_fields *fields = &request->fields;
+	const char *host = auth_fields_find(request->fields.extra_fields, "host");
+	const char *hostip = auth_fields_find(request->fields.extra_fields, "hostip");
+	struct ip_addr ip1, ip2;
+
+	/* This same check is repeated in login-common, since host might be set
+	   after authentication by some other process. */
+	if (host != NULL && hostip != NULL &&
+	    net_addr2ip(host, &ip1) == 0) {
+		/* hostip is already checked to be valid */
+		if (net_addr2ip(hostip, &ip2) == 0 &&
+		    !net_ip_compare(&ip1, &ip2)) {
+			e_error(request->event,
+				"host and hostip are both IPs, but they don't match");
+			request->internal_failure = TRUE;
+			auth_request_proxy_finish_failure(request);
+			return;
+		}
+	}
 
 	if (!auth_fields_exists(fields->extra_fields, "proxy_maybe")) {
 		/* proxying */
