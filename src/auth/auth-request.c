@@ -2334,6 +2334,7 @@ void auth_request_proxy_finish_failure(struct auth_request *request)
 	auth_fields_remove(request->fields.extra_fields, "proxy_maybe");
 	auth_fields_remove(request->fields.extra_fields, "proxy_always");
 	auth_fields_remove(request->fields.extra_fields, "host");
+	auth_fields_remove(request->fields.extra_fields, "hostip");
 	auth_fields_remove(request->fields.extra_fields, "port");
 	auth_fields_remove(request->fields.extra_fields, "destuser");
 }
