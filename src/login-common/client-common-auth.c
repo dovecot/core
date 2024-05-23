@@ -562,6 +562,39 @@ void client_common_proxy_failed(struct client *client,
 	client_proxy_failed(client);
 }
 
+static bool proxy_check_ip_family(const struct client_auth_reply *reply,
+				  const char **error_r)
+{
+	 if (reply->proxy.host_ip.family != 0 &&
+	     reply->proxy.host_ip.family != AF_INET &&
+	     reply->proxy.host_ip.family != AF_INET6) {
+		 *error_r = t_strdup_printf(
+				 "Destination IP address family %u is unsupported",
+				 reply->proxy.host_ip.family);
+		 return FALSE;
+	 }
+
+	 if (reply->proxy.source_ip.family != 0 &&
+	     reply->proxy.source_ip.family != AF_INET &&
+	     reply->proxy.source_ip.family != AF_INET6) {
+		 *error_r = t_strdup_printf(
+				 "Source IP address family %u is unsupported",
+				 reply->proxy.source_ip.family);
+		 return FALSE;
+	}
+
+	 if (reply->proxy.source_ip.family != 0 &&
+	     reply->proxy.host_ip.family != 0 &&
+	     reply->proxy.source_ip.family != reply->proxy.host_ip.family) {
+		 *error_r = t_strdup_printf(
+				 "Source IP (%s) address family does not match destination",
+				 net_ip2addr(&reply->proxy.source_ip));
+		 return FALSE;
+	 }
+
+	return TRUE;
+}
+
 static bool
 proxy_check_start(struct client *client, struct event *event,
 		  const struct client_auth_reply *reply,
@@ -570,6 +603,7 @@ proxy_check_start(struct client *client, struct event *event,
 	i_assert(reply->proxy.password != NULL);
 	i_assert(reply->proxy.host != NULL && reply->proxy.host[0] != '\0');
 	i_assert(reply->proxy.host_ip.family != 0);
+	const char *error;
 	struct ip_addr ip;
 
 	if (reply->proxy.sasl_mechanism != NULL) {
@@ -582,6 +616,9 @@ proxy_check_start(struct client *client, struct event *event,
 	} else if (reply->proxy.master_user != NULL) {
 		/* have to use PLAIN authentication with master user logins */
 		*sasl_mech_r = &dsasl_client_mech_plain;
+	} else if (!proxy_check_ip_family(reply, &error)) {
+		e_error(event, "%s", error);
+		return FALSE;
 	} else if (reply->proxy.host_ip.family != 0 &&
 		   net_addr2ip(reply->proxy.host, &ip) == 0 &&
 		   !net_ip_compare(&reply->proxy.host_ip, &ip)) {
