@@ -522,8 +522,6 @@ AC_SUBST(dict_drivers)
 
 AC_C_BIGENDIAN
 
-DOVECOT_IPV6
-
 dnl **
 dnl ** storage classes
 dnl **
