@@ -19,7 +19,7 @@
 #endif
 
 struct ip_addr {
-	unsigned short family;
+	sa_family_t family;
 	union {
 		struct in6_addr ip6;
 		struct in_addr ip4;
