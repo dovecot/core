@@ -108,10 +108,10 @@ static bool auth_worker_request_send(struct auth_worker_connection *worker,
 	    ioloop_time - auth_worker_last_warn >
 	    AUTH_WORKER_DELAY_WARN_MIN_INTERVAL_SECS) {
 		auth_worker_last_warn = ioloop_time;
-		e_error(worker->conn.event, "Auth request was queued for %d "
-			"seconds, %d left in queue "
-			"(see service auth-worker { process_limit })",
-			age_secs, aqueue_count(worker_request_queue));
+		e_warning(worker->conn.event, "Auth request was queued for %d "
+			  "seconds, %d left in queue "
+			  "(see service auth-worker { process_limit })",
+			  age_secs, aqueue_count(worker_request_queue));
 	}
 
 	request->id = ++worker->id_counter;
