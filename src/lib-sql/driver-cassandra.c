@@ -1487,7 +1487,7 @@ static void query_callback(CassFuture *future, void *context)
 	if (error != CASS_OK) {
 		const char *errmsg;
 		size_t errsize;
-		int msecs;
+		long long msecs;
 
 		cass_future_error_message(future, &errmsg, &errsize);
 		i_free(result->error);
@@ -1499,7 +1499,7 @@ static void query_callback(CassFuture *future, void *context)
 		   enough copies of the data for the query to succeed. */
 		result->api.error_type = driver_cassandra_error_is_uncertain(error);
 		result->error = i_strdup_printf(
-			"Query '%s' failed: %.*s (in %u.%03u secs%s%s)",
+			"Query '%s' failed: %.*s (in %lld.%03lld secs%s%s)",
 			result->log_query, (int)errsize, errmsg, msecs/1000, msecs%1000,
 			result->page_num == 0 ?
 				"" :

@@ -1715,7 +1715,7 @@ master_service_overflow_timeout_msecs(const struct timeval *created)
 	   this code treats all clients older than 10 seconds the same. */
 	const unsigned int max_wait = 100;
 	const int max_since = 10*1000;
-	int created_since = timeval_diff_msecs(&ioloop_timeval, created);
+	long long created_since = timeval_diff_msecs(&ioloop_timeval, created);
 	unsigned int msecs;
 
 	created_since = I_MAX(created_since, 0);

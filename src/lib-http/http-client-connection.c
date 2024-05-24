@@ -236,7 +236,7 @@ static const char *
 http_client_connection_get_timing_info(struct http_client_connection *conn)
 {
 	struct http_client_request *const *requestp;
-	unsigned int connected_msecs;
+	long long connected_msecs;
 	string_t *str = t_str_new(64);
 
 	if (array_count(&conn->request_wait_list) > 0) {
@@ -253,7 +253,7 @@ http_client_connection_get_timing_info(struct http_client_connection *conn)
 	}
 	connected_msecs = timeval_diff_msecs(&ioloop_timeval,
 					     &conn->connected_timestamp);
-	str_printfa(str, ", connected %u.%03u secs ago",
+	str_printfa(str, ", connected %lld.%03lld secs ago",
 		    connected_msecs/1000, connected_msecs%1000);
 	return str_c(str);
 }
@@ -723,7 +723,7 @@ static void http_client_connection_destroy(struct connection *_conn)
 	struct http_client_connection *conn =
 		(struct http_client_connection *)_conn;
 	const char *error;
-	unsigned int msecs;
+	long long msecs;
 
 	switch (_conn->disconnect_reason) {
 	case CONNECTION_DISCONNECT_CONNECT_TIMEOUT:
@@ -733,14 +733,14 @@ static void http_client_connection_destroy(struct connection *_conn)
 				&conn->connect_start_timestamp);
 			error = t_strdup_printf(
 				"connect(%s) failed: "
-				"Connection timed out in %u.%03u secs",
+				"Connection timed out in %lld.%03lld secs",
 				_conn->name, msecs/1000, msecs%1000);
 		} else {
 			msecs = timeval_diff_msecs(&ioloop_timeval,
 						   &conn->connected_timestamp);
 			error = t_strdup_printf(
 				"SSL handshaking with %s failed: "
-				"Connection timed out in %u.%03u secs",
+				"Connection timed out in %lld.%03lld secs",
 				_conn->name, msecs/1000, msecs%1000);
 		}
 		e_debug(conn->event, "%s", error);
@@ -794,7 +794,7 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 
 	e_debug(conn->event,
 		"Response payload stream destroyed "
-		"(%u ms after initial response)",
+		"(%lld ms after initial response)",
 		timeval_diff_msecs(&ioloop_timeval, &req->response_time));
 
 	/* Caller is allowed to change the socket fd to blocking while reading
@@ -1157,7 +1157,7 @@ static void http_client_connection_input(struct connection *_conn)
 			http_client_request_add_event_headers(req, &response);
 		e_debug(conn->event,
 			"Got %u response for request %s: %s%s "
-			"(took %u ms + %u ms in queue)",
+			"(took %lld ms + %lld ms in queue)",
 			response.status, http_client_request_label(req),
 			response.reason, suffix,
 			timeval_diff_msecs(&req->response_time, &req->sent_time),
@@ -1644,12 +1644,12 @@ http_client_connect_tunnel_timeout(struct http_client_connection *conn)
 {
 	struct http_client_peer_shared *pshared = conn->ppool->peer;
 	const char *error, *name = http_client_peer_addr2str(&pshared->addr);
-	unsigned int msecs;
+	long long msecs;
 
 	msecs = timeval_diff_msecs(&ioloop_timeval,
 				   &conn->connect_start_timestamp);
 	error = t_strdup_printf("Tunnel connect(%s) failed: "
-				"Connection timed out in %u.%03u secs",
+				"Connection timed out in %lld.%03lld secs",
 				name, msecs/1000, msecs%1000);
 
 	e_debug(conn->event, "%s", error);

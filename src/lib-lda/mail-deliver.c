@@ -147,7 +147,7 @@ const struct var_expand_table *
 mail_deliver_ctx_get_log_var_expand_table(struct mail_deliver_context *ctx,
 					  const char *message)
 {
-	unsigned int delivery_time_msecs;
+	long long delivery_time_msecs;
 
 	/* If a mail was saved/copied, the fields are already filled and the
 	   following call is ignored. Otherwise, only the source mail exists. */

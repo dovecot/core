@@ -68,16 +68,6 @@ int timeval_cmp_margin(const struct timeval *tv1, const struct timeval *tv2,
 	return (unsigned long long)usecs_diff > usec_margin ? ret : 0;
 }
 
-int timeval_diff_msecs(const struct timeval *tv1, const struct timeval *tv2)
-{
-	long long diff = timeval_diff_usecs(tv1, tv2) / 1000LL;
-#ifdef DEBUG
-	/* FIXME v2.4: Remove the ifdef */
-	i_assert(diff <= INT_MAX);
-#endif
-	return (int)diff;
-}
-
 long long timeval_diff_usecs(const struct timeval *tv1,
 			     const struct timeval *tv2)
 {

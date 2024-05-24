@@ -376,11 +376,11 @@ static const char *client_get_last_command_status(struct client *client)
 	const struct client_command_stats *stats = &client->last_cmd_stats;
 
 	string_t *str = t_str_new(128);
-	int last_run_secs = timeval_diff_msecs(&ioloop_timeval,
-					       &stats->last_run_timeval);
-	str_printfa(str, " (%s finished %d.%03d secs ago",
-		    client->last_cmd_name, last_run_secs/1000,
-		    last_run_secs%1000);
+	long long last_run_msecs = timeval_diff_msecs(&ioloop_timeval,
+						      &stats->last_run_timeval);
+	str_printfa(str, " (%s finished %lld.%03lld secs ago",
+		    client->last_cmd_name, last_run_msecs/1000,
+		    last_run_msecs%1000);
 
 	if (timeval_diff_msecs(&stats->last_run_timeval, &stats->start_time) >=
 	    IMAP_CLIENT_DISCONNECT_LOG_STATS_CMD_MIN_RUNNING_MSECS) {
@@ -624,7 +624,7 @@ client_cmd_append_timing_stats(struct client_command_context *cmd,
 {
 	unsigned int msecs_in_cmd, msecs_in_ioloop;
 	uint64_t ioloop_wait_usecs;
-	unsigned int msecs_since_cmd;
+	long long msecs_since_cmd;
 
 	if (cmd->stats.start_time.tv_sec == 0)
 		return;
@@ -643,7 +643,7 @@ client_cmd_append_timing_stats(struct client_command_context *cmd,
 		    msecs_in_cmd / 1000, msecs_in_cmd % 1000,
 		    msecs_in_ioloop / 1000, msecs_in_ioloop % 1000);
 	if (msecs_since_cmd > 0) {
-		str_printfa(str, "+ %d.%03d ",
+		str_printfa(str, "+ %lld.%03lld ",
 			    msecs_since_cmd / 1000, msecs_since_cmd % 1000);
 	}
 	str_append(str, "secs).");

@@ -240,7 +240,7 @@ static int driver_pgsql_connect(struct sql_db *_db)
 {
 	struct pgsql_db *db = (struct pgsql_db *)_db;
 	struct timeval tv_start;
-	int msecs;
+	long long msecs;
 
 	i_assert(db->api.state == SQL_DB_STATE_DISCONNECTED);
 
@@ -268,7 +268,7 @@ static int driver_pgsql_connect(struct sql_db *_db)
 	io_loop_time_refresh();
 	msecs = timeval_diff_msecs(&ioloop_timeval, &tv_start);
 	if (msecs > PGSQL_DNS_WARN_MSECS) {
-		e_warning(_db->event, "DNS lookup took %d.%03d s",
+		e_warning(_db->event, "DNS lookup took %lld.%03lld s",
 			  msecs/1000, msecs % 1000);
 	}
 

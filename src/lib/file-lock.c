@@ -486,9 +486,9 @@ static void file_lock_log_warning_if_slow(struct file_lock *lock)
 	struct timeval now;
 	i_gettimeofday(&now);
 
-	int diff = timeval_diff_msecs(&now, &lock->locked_time);
+	long long diff = timeval_diff_msecs(&now, &lock->locked_time);
 	if (diff > file_lock_slow_warning_usecs/1000) {
-		i_warning("Lock %s kept for %d.%03d secs", lock->path,
+		i_warning("Lock %s kept for %lld.%03lld secs", lock->path,
 			  diff / 1000, diff % 1000);
 	}
 }

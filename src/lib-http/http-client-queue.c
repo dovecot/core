@@ -588,11 +588,11 @@ void http_client_queue_connection_failure(struct http_client_queue *queue,
 				"Failed to set up any connection; "
 				"failing all queued requests");
 			if (queue->connect_attempts > 1) {
-				unsigned int total_msecs =
+				long long total_msecs =
 					timeval_diff_msecs(&ioloop_timeval,
 							   &queue->first_connect_time);
 				reason = t_strdup_printf(
-					"%s (%u attempts in %u.%03u secs)",
+					"%s (%u attempts in %lld.%03lld secs)",
 					reason, queue->connect_attempts,
 					total_msecs/1000, total_msecs%1000);
 			}
@@ -976,7 +976,7 @@ void http_client_queue_submit_request(struct http_client_queue *queue,
 				       TIMEOUT_CMP_MARGIN_USECS) > 0) {
 			e_debug(queue->event,
 				"Delayed request %s%s submitted "
-				"(time remaining: %d msecs)",
+				"(time remaining: %lld msecs)",
 				http_client_request_label(req),
 				(req->urgent ? " (urgent)" : ""),
 				timeval_diff_msecs(&req->release_time,

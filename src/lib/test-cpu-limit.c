@@ -52,7 +52,7 @@ test_cpu_limit_simple(enum cpu_limit_type type, const char *type_str)
 {
 	struct cpu_limit *climit;
 	struct timeval usage, cpu;
-	int diff_msecs;
+	long long diff_msecs;
 
 	test_begin(t_strdup_printf("cpu limit - simple (%s)", type_str));
 
@@ -77,7 +77,7 @@ static void test_cpu_limit_nested(enum cpu_limit_type type, const char *type_str
 	struct cpu_limit *climit1, *climit2;
 	struct timeval usage1, cpu;
 	unsigned int n;
-	int diff_msecs;
+	long long diff_msecs;
 
 	test_begin(t_strdup_printf("cpu limit - nested (%s)", type_str));
 

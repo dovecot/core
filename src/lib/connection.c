@@ -983,21 +983,22 @@ const char *connection_disconnect_reason(struct connection *conn)
 const char *connection_input_timeout_reason(struct connection *conn)
 {
 	if (conn->last_input_tv.tv_sec != 0) {
-		int diff = timeval_diff_msecs(&ioloop_timeval,
-					      &conn->last_input_tv);
-		return t_strdup_printf("No input for %u.%03u secs",
+		long long diff = timeval_diff_msecs(&ioloop_timeval,
+						    &conn->last_input_tv);
+		return t_strdup_printf("No input for %lld.%03lld secs",
 				       diff/1000, diff%1000);
 	} else if (conn->connect_finished.tv_sec != 0) {
-		int diff = timeval_diff_msecs(&ioloop_timeval,
-					      &conn->connect_finished);
+		long long diff = timeval_diff_msecs(&ioloop_timeval,
+						    &conn->connect_finished);
 		return t_strdup_printf(
-			"No input since connected %u.%03u secs ago",
+			"No input since connected %lld.%03lld secs ago",
 			diff/1000, diff%1000);
 	} else {
-		int diff = timeval_diff_msecs(&ioloop_timeval,
-					      &conn->connect_started);
-		return t_strdup_printf("connect(%s) timed out after %u.%03u secs",
-				       conn->name, diff/1000, diff%1000);
+		long long diff = timeval_diff_msecs(&ioloop_timeval,
+						    &conn->connect_started);
+		return t_strdup_printf(
+			"connect(%s) timed out after %lld.%03lld secs",
+			conn->name, diff/1000, diff%1000);
 	}
 }
 

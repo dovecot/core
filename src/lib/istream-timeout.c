@@ -42,7 +42,7 @@ static void i_stream_timeout(struct timeout_istream *tstream)
 {
 	struct iostream_private *iostream = &tstream->istream.iostream;
 	unsigned int over_msecs;
-	int diff;
+	long long diff;
 
 	if (tstream->update_timestamp) {
 		/* we came here after a long-running code. timeouts are handled
@@ -66,7 +66,7 @@ static void i_stream_timeout(struct timeout_istream *tstream)
 	over_msecs = diff - tstream->timeout_msecs;
 
 	io_stream_set_error(&tstream->istream.iostream,
-			    "Read timeout in %u.%03u s after %"PRIuUOFF_T" bytes%s",
+			    "Read timeout in %lld.%03lld s after %"PRIuUOFF_T" bytes%s",
 			    diff/1000, diff%1000,
 			    tstream->istream.istream.v_offset,
 			    over_msecs < 1000 ? "" : t_strdup_printf(

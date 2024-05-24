@@ -130,7 +130,7 @@ login_server_event_log_callback(struct login_server_connection *conn,
 			        const char *message)
 {
 	string_t *str = t_str_new(128);
-	str_printfa(str, "%s (connection created %d msecs ago", message,
+	str_printfa(str, "%s (connection created %lld msecs ago", message,
 		timeval_diff_msecs(&ioloop_timeval, &conn->create_time));
 	if (conn->requests != NULL) {
 		struct login_server_request *request = conn->requests;
@@ -138,7 +138,7 @@ login_server_event_log_callback(struct login_server_connection *conn,
 		str_append(str, ", ");
 		if (request->next != NULL)
 			str_printfa(str, "%u requests, first ", conn->refcount-1);
-		str_printfa(str, "request created %d msecs ago: ",
+		str_printfa(str, "request created %lld msecs ago: ",
 			    timeval_diff_msecs(&ioloop_timeval,
 					       &request->create_time));
 		str_printfa(str, "session=%s, rip=%s, auth_pid=%ld, "
@@ -151,7 +151,7 @@ login_server_event_log_callback(struct login_server_connection *conn,
 		if (request->postlogin_request != NULL) {
 			struct login_server_postlogin *pl =
 				request->postlogin_request;
-			str_printfa(str, ", post-login script %s started %d msecs ago",
+			str_printfa(str, ", post-login script %s started %lld msecs ago",
 				    pl->socket_path,
 				    timeval_diff_msecs(&ioloop_timeval,
 						       &pl->create_time));

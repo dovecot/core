@@ -92,7 +92,7 @@ login_connection_event_callback(struct login_connection *conn,
 				const char *message)
 {
 	string_t *str = t_str_new(128);
-	str_printfa(str, "%s (client-pid=%u, client-id=%u, rip=%s, created %u msecs ago, received %u/%zu bytes)",
+	str_printfa(str, "%s (client-pid=%u, client-id=%u, rip=%s, created %lld msecs ago, received %u/%zu bytes)",
 		message, conn->client_pid, conn->auth_id,
 		net_ip2addr(&conn->remote_ip),
 		timeval_diff_msecs(&ioloop_timeval, &conn->create_time),

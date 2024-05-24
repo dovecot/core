@@ -1387,11 +1387,10 @@ fts_flatcurve_xapian_close_db(struct flatcurve_fts_backend *backend,
 	if (commit) {
 		struct timeval now;
 		i_gettimeofday(&now);
-		unsigned int elapsed =
-			(unsigned int) timeval_diff_msecs(&now, &start);
+		long long elapsed = timeval_diff_msecs(&now, &start);
 		if (xdb->changes > 0)
 			e_debug(backend->event, "Committed %u changes to DB "
-				"(RW, %s) in %u.%03u secs", xdb->changes,
+				"(RW, %s) in %lld.%03lld secs", xdb->changes,
 				xdb->dbpath->fname, elapsed / 1000, elapsed % 1000);
 
 		xdb->changes = 0;
@@ -1902,8 +1901,8 @@ fts_flatcurve_xapian_optimize_box_do(struct flatcurve_fts_backend *backend,
 
 	struct timeval now;
 	i_gettimeofday(&now);
-	unsigned int elapsed = (unsigned int) timeval_diff_msecs(&now, &start);
-	e_debug(backend->event, "Optimized DB in %u.%03u secs",
+	long long elapsed = timeval_diff_msecs(&now, &start);
+	e_debug(backend->event, "Optimized DB in %lld.%03lld secs",
 				elapsed / 1000, elapsed % 1000);
 
 	return 0;

@@ -834,7 +834,7 @@ struct event_passthrough *
 sql_query_finished_event(struct sql_db *db, struct event *event, const char *query,
 			 bool success, int *duration_r)
 {
-	int diff;
+	long long diff;
 	struct timeval tv;
 	event_get_create_time(event, &tv);
 	struct event_passthrough *e = event_create_passthrough(event)->
@@ -852,7 +852,8 @@ sql_query_finished_event(struct sql_db *db, struct event *event, const char *que
 		e->add_str("slow_query", "y");
 		db->slow_queries++;
 	}
-	*duration_r = diff;
+	i_assert(diff <= INT_MAX);
+	*duration_r = (int)diff;
 
 	return e;
 }

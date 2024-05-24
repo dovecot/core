@@ -38,13 +38,14 @@ passwd_check_warnings(struct auth_request *auth_request,
 		      const struct timeval *start_tv)
 {
 	struct timeval end_tv;
-	unsigned int msecs, percentage;
+	unsigned int percentage;
+	long long msecs;
 
 	i_gettimeofday(&end_tv);
 
 	msecs = timeval_diff_msecs(&end_tv, start_tv);
 	if (msecs >= PASSWD_SLOW_WARN_MSECS) {
-		e_warning(authdb_event(auth_request), "Lookup for %s took %u secs",
+		e_warning(authdb_event(auth_request), "Lookup for %s took %lld secs",
 			  auth_request->fields.user, msecs/1000);
 		return;
 	}

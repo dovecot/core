@@ -134,13 +134,13 @@ static void request_failure(struct login_server_auth *auth,
 {
 	string_t *str = t_str_new(128);
 
-	str_printfa(str, "auth connected %u msecs ago",
+	str_printfa(str, "auth connected %lld msecs ago",
 		    timeval_diff_msecs(&ioloop_timeval, &auth->connect_time));
 	if (auth->handshake_time.tv_sec != 0) {
-		str_printfa(str, ", handshake %u msecs ago",
+		str_printfa(str, ", handshake %lld msecs ago",
 			    timeval_diff_msecs(&ioloop_timeval, &auth->handshake_time));
 	}
-	str_printfa(str, ", request took %u msecs, client-pid=%u client-id=%u",
+	str_printfa(str, ", request took %lld msecs, client-pid=%u client-id=%u",
 		    timeval_diff_msecs(&ioloop_timeval, &request->create_stamp),
 		    request->client_pid, request->auth_id);
 
@@ -266,7 +266,7 @@ static void login_server_auth_destroy(struct connection *_conn)
 static unsigned int auth_get_next_timeout_msecs(struct login_server_auth *auth)
 {
 	struct timeval expires;
-	int diff;
+	long long diff;
 
 	expires = auth->request_head->create_stamp;
 	timeval_add_msecs(&expires, auth->timeout_msecs);
@@ -282,7 +282,7 @@ static void login_server_auth_timeout(struct login_server_auth *auth)
 
 	while (auth->request_head != NULL &&
 	       auth_get_next_timeout_msecs(auth) == 0) {
-		int msecs;
+		long long msecs;
 
 		request = auth->request_head;
 		DLLIST2_REMOVE(&auth->request_head,
@@ -292,7 +292,7 @@ static void login_server_auth_timeout(struct login_server_auth *auth)
 		msecs = timeval_diff_msecs(&ioloop_timeval,
 					   &request->create_stamp);
 		reason = t_strdup_printf(
-			"Auth server request timed out after %u.%03u secs",
+			"Auth server request timed out after %lld.%03lld secs",
 			msecs/1000, msecs%1000);
 		request_internal_failure(auth, request, reason);
 		request_free(&request);

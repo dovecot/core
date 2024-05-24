@@ -39,7 +39,7 @@ static void
 http_client_host_shared_check_idle(struct http_client_host_shared *hshared)
 {
 	struct http_client_host *host;
-	int timeout = 0;
+	long long timeout = 0;
 
 	if (hshared->destroyed)
 		return;
@@ -66,7 +66,7 @@ http_client_host_shared_check_idle(struct http_client_host_shared *hshared)
 					  http_client_host_shared_idle_timeout,
 					  hshared);
 
-	e_debug(hshared->event, "Host is idle (timeout = %u msecs)", timeout);
+	e_debug(hshared->event, "Host is idle (timeout = %lld msecs)", timeout);
 }
 
 static void

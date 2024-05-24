@@ -208,8 +208,7 @@ static void test_timeval_diff(void)
 		999999
 	};
 	unsigned int i;
-	long long udiff;
-	int mdiff;
+	long long udiff, mdiff;
 
 	test_begin("timeval_diff_*()");
 	for (i = 0; i < N_ELEMENTS(input); i += 2) {

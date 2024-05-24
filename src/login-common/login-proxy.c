@@ -220,8 +220,8 @@ static void proxy_fail_connect(struct login_proxy *proxy)
 void login_proxy_append_success_log_info(struct login_proxy *proxy,
 					 string_t *str)
 {
-	int msecs = timeval_diff_msecs(&ioloop_timeval, &proxy->created);
-	str_printfa(str, " (%d.%03d secs", msecs/1000, msecs%1000);
+	long long msecs = timeval_diff_msecs(&ioloop_timeval, &proxy->created);
+	str_printfa(str, " (%lld.%03lld secs", msecs/1000, msecs%1000);
 	if (proxy->reconnect_count > 0)
 		str_printfa(str, ", %u reconnects", proxy->reconnect_count);
 	str_append_c(str, ')');
@@ -284,7 +284,7 @@ static void proxy_reconnect_timeout(struct login_proxy *proxy)
 
 static bool proxy_try_reconnect(struct login_proxy *proxy)
 {
-	int since_started_msecs, left_msecs;
+	long long since_started_msecs, left_msecs;
 
 	if (proxy->reconnect_count >= proxy->client->set->login_proxy_max_reconnects)
 		return FALSE;
@@ -592,7 +592,7 @@ static unsigned int login_proxy_delay_disconnect(struct login_proxy *proxy)
 		proxy->client->set->login_proxy_max_disconnect_delay;
 	struct timeval disconnect_time_offset;
 	unsigned int max_disconnects_per_sec, delay_msecs_since_ts, max_conns;
-	int delay_msecs;
+	long long delay_msecs;
 
 	if (rec->num_disconnects_since_ts == 0) {
 		rec->disconnect_timestamp = ioloop_timeval;

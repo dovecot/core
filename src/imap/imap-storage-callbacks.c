@@ -97,8 +97,8 @@ imap_storage_callback_line(const struct mail_storage_progress_details *dtl,
 		float percentage = processed * 100.0 / total;
 		str_printfa(str, "%s %d%% of the mailbox", verb, (int)percentage);
 
-		unsigned int elapsed_ms = timeval_diff_msecs(&dtl->now,
-							     &dtl->start_time);
+		long long elapsed_ms = timeval_diff_msecs(&dtl->now,
+							  &dtl->start_time);
 		if (percentage > 0 && elapsed_ms > 0) {
 			int eta_secs = elapsed_ms * (100 - percentage) /
 					    (1000 * percentage);

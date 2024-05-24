@@ -181,7 +181,8 @@ fts_backend_flatcurve_update_deinit(struct fts_backend_update_context *_ctx)
 {
 	struct flatcurve_fts_backend_update_context *ctx =
 		(struct flatcurve_fts_backend_update_context *)_ctx;
-	int diff, ret = _ctx->failed ? -1 : 0;
+	int ret = _ctx->failed ? -1 : 0;
+	long long diff;
 	struct timeval now;
 
 	if (ret == 0) {
@@ -189,7 +190,7 @@ fts_backend_flatcurve_update_deinit(struct fts_backend_update_context *_ctx)
 		diff = timeval_diff_msecs(&now, &ctx->start);
 
 		e_debug(ctx->backend->event, "Update transaction completed in "
-			"%u.%03u secs", diff/1000, diff%1000);
+			"%lld.%03lld secs", diff/1000, diff%1000);
 	}
 
 	str_free(&ctx->hdr_name);

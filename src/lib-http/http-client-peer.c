@@ -441,7 +441,7 @@ http_client_peer_shared_start_backoff_timer(
 		return TRUE;
 
 	if (pshared->last_failure.tv_sec > 0) {
-		int backoff_time_spent =
+		long long backoff_time_spent =
 			timeval_diff_msecs(&ioloop_timeval,
 					   &pshared->last_failure);
 
@@ -458,7 +458,7 @@ http_client_peer_shared_start_backoff_timer(
 		}
 
 		e_debug(pshared->event,
-			"Backoff time already exceeded by %d msecs",
+			"Backoff time already exceeded by %lld msecs",
 			(backoff_time_spent -
 			 pshared->backoff_current_time_msecs));
 	}

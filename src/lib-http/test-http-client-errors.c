@@ -2273,7 +2273,7 @@ test_client_retry_with_delay_response(
 	const struct http_response *resp,
 	struct _client_retry_with_delay_ctx *ctx)
 {
-	int real_delay, exp_delay;
+	long long real_delay, exp_delay;
 
 	test_client_assert_response(resp, resp->status == 500);
 
@@ -2282,7 +2282,7 @@ test_client_retry_with_delay_response(
 		real_delay = timeval_diff_msecs(&ioloop_timeval, &ctx->time);
 		exp_delay = (1 << (ctx->retries-1)) * 50;
 		if (real_delay < exp_delay-2) {
-			i_fatal("Retry delay is too short %d < %d",
+			i_fatal("Retry delay is too short %lld < %lld",
 				real_delay, exp_delay);
 		}
 	}

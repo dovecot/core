@@ -112,7 +112,7 @@ static void stats_client_destroy(struct connection *conn)
 		/* waiting for stats handshake to finish */
 		io_loop_stop(client->ioloop);
 	} else if (conn->connect_finished.tv_sec != 0) {
-		int msecs_since_connected =
+		long long msecs_since_connected =
 			timeval_diff_msecs(&ioloop_timeval,
 					   &conn->connect_finished);
 		if (msecs_since_connected >= STATS_CLIENT_RECONNECT_INTERVAL_MSECS) {
@@ -317,20 +317,21 @@ static void stats_global_deinit(void)
 
 static void stats_client_handshake_timeout(struct stats_client *client)
 {
-	int diff_msecs = timeval_diff_msecs(&ioloop_timeval,
-					    &client->wait_started);
+	long long diff_msecs = timeval_diff_msecs(&ioloop_timeval,
+						  &client->wait_started);
 	e_error(client->conn.event, "Timeout waiting for handshake response "
-		"(waited %d.%03d secs%s)", diff_msecs / 1000, diff_msecs % 1000,
+		"(waited %lld.%03lld secs%s)",
+		diff_msecs / 1000, diff_msecs % 1000,
 		client->conn.version_received ? ", version received" : "");
 	io_loop_stop(client->ioloop);
 }
 
 static void stats_client_deinit_timeout(struct stats_client *client)
 {
-	int diff_msecs = timeval_diff_msecs(&ioloop_timeval,
-					    &client->wait_started);
+	long long diff_msecs = timeval_diff_msecs(&ioloop_timeval,
+						  &client->wait_started);
 	e_error(client->conn.event, "Timeout waiting for flushing outputs"
-		"(waited %d.%03d secs) - discarding the rest of the queued statistics",
+		"(waited %lld.%03lld secs) - discarding the rest of the queued statistics",
 		diff_msecs / 1000, diff_msecs % 1000);
 	io_loop_stop(client->ioloop);
 }

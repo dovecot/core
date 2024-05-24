@@ -90,11 +90,11 @@ auth_master_event_log_callback(struct auth_master_connection *conn,
 {
 	string_t *str = t_str_new(128);
 
-	str_printfa(str, "auth-master client: %s (created %d msecs ago",
+	str_printfa(str, "auth-master client: %s (created %lld msecs ago",
 		    message,
 		    timeval_diff_msecs(&ioloop_timeval, &conn->conn.connect_finished));
 	if (conn->conn.handshake_finished.tv_sec != 0) {
-		str_printfa(str, ", handshake %d msecs ago",
+		str_printfa(str, ", handshake %lld msecs ago",
 			    timeval_diff_msecs(&ioloop_timeval,
 					       &conn->conn.handshake_finished));
 	}

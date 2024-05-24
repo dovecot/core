@@ -763,7 +763,7 @@ void http_client_request_get_stats(struct http_client_request *req,
 				   struct http_client_request_stats *stats_r)
 {
 	struct http_client *client = req->client;
-	int diff_msecs;
+	long long diff_msecs;
 	uint64_t wait_usecs;
 
 	i_zero(stats_r);
@@ -1544,11 +1544,11 @@ bool http_client_request_callback(struct http_client_request *req,
 		struct http_response response_copy = *response;
 
 		if (req->attempts > 0 && !req->preserve_exact_reason) {
-			unsigned int total_msecs =
+			long long total_msecs =
 				timeval_diff_msecs(&ioloop_timeval,
 						   &req->submit_time);
 			response_copy.reason = t_strdup_printf(
-				"%s (%u retries in %u.%03u secs)",
+				"%s (%u retries in %lld.%03lld secs)",
 				response_copy.reason, req->attempts,
 				total_msecs/1000, total_msecs%1000);
 		}

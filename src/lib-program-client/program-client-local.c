@@ -457,7 +457,8 @@ program_client_local_disconnect(struct program_client *pclient, bool force)
 	struct program_client_local *plclient =
 		(struct program_client_local *) pclient;
 	pid_t pid = plclient->pid;
-	unsigned long runtime, timeout = 0;
+	long long runtime;
+	unsigned long timeout = 0;
 
 	if (plclient->exited) {
 		program_client_local_exited(plclient);
@@ -493,11 +494,11 @@ program_client_local_disconnect(struct program_client *pclient, bool force)
 		return;
 	}
 
-	if (runtime < pclient->set.input_idle_timeout_msecs)
+	if (runtime > 0 && runtime < pclient->set.input_idle_timeout_msecs)
 		timeout = pclient->set.input_idle_timeout_msecs - runtime;
 
 	e_debug(pclient->event,
-		"Waiting for program to finish after %lu msecs "
+		"Waiting for program to finish after %lld msecs "
 		"(timeout = %lu msecs)", runtime, timeout);
 
 	if (timeout == 0)

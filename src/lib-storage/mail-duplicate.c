@@ -127,7 +127,7 @@ duplicate_lock_failed(struct mail_duplicate_transaction *trans,
 {
 	struct mail_duplicate_lock *lock = &dup->lock;
 	enum mail_duplicate_lock_result result;
-	int diff;
+	long long diff;
 
 	i_assert(lock->fd == -1);
 	i_assert(lock->lock == NULL);
@@ -141,7 +141,7 @@ duplicate_lock_failed(struct mail_duplicate_transaction *trans,
 	} else {
 		diff = timeval_diff_msecs(&ioloop_timeval,
 					  &lock->start_time);
-		error = t_strdup_printf("Lock timeout in %d.%03d secs",
+		error = t_strdup_printf("Lock timeout in %lld.%03lld secs",
 					diff/1000, diff%1000);
 		result = MAIL_DUPLICATE_LOCK_TIMEOUT;
 	}
@@ -175,7 +175,7 @@ mail_duplicate_lock(struct mail_duplicate_transaction *trans,
 	const char *error;
 	unsigned char id_md5[MD5_RESULTLEN];
 	bool created;
-	int diff;
+	long long diff;
 
 	if (mail_duplicate_is_locked(dup)) {
 		e_debug(trans->event, "Duplicate ID already locked");
@@ -214,7 +214,7 @@ mail_duplicate_lock(struct mail_duplicate_transaction *trans,
 
 	diff = timeval_diff_msecs(&ioloop_timeval, &lock->start_time);
 	if (diff >= (DUPLICATE_LOCK_WARN_SECS * 1000)) {
-		e_warning(trans->event, "Locking %s took %d.%03d secs",
+		e_warning(trans->event, "Locking %s took %lld.%03lld secs",
 			  lock->path, diff/1000, diff%1000);
 	}
 

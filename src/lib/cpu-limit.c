@@ -36,7 +36,7 @@ cpu_limit_get_usage_msecs_with(struct cpu_limit *climit,
 			       const struct rusage *rusage)
 {
 	struct timeval cpu_usage = { 0, 0 };
-	int usage_diff;
+	long long usage_diff;
 
 	if ((type & CPU_LIMIT_TYPE_USER) != 0)
 		timeval_add(&cpu_usage, &rusage->ru_utime);
@@ -50,6 +50,7 @@ cpu_limit_get_usage_msecs_with(struct cpu_limit *climit,
 		timeval_add(&initial_total, &climit->initial_usage.ru_stime);
 	usage_diff = timeval_diff_msecs(&cpu_usage, &initial_total);
 	i_assert(usage_diff >= 0);
+	i_assert(usage_diff <= UINT_MAX);
 
 	return (unsigned int)usage_diff;
 }

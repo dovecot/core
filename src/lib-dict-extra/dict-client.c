@@ -260,10 +260,11 @@ static void client_dict_input_timeout(struct client_dict_cmd *cmd)
 		return;
 	}
 
-	int cmd_diff = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
+	long long cmd_diff = timeval_diff_msecs(&ioloop_timeval,
+						&cmd->start_time);
 	(void)client_dict_reconnect(dict, t_strdup_printf(
 		"Dict server timeout: %s "
-		"(%u commands pending, oldest sent %u.%03u secs ago: %s, %s)",
+		"(%u commands pending, oldest sent %lld.%03lld secs ago: %s, %s)",
 		connection_input_timeout_reason(&dict->conn.conn),
 		array_count(&dict->cmds),
 		cmd_diff/1000, cmd_diff%1000, cmd->query,
@@ -885,26 +886,26 @@ static const char *dict_wait_warnings(const struct client_dict_cmd *cmd)
 }
 
 static const char *
-dict_warnings_sec(const struct client_dict_cmd *cmd, int msecs,
+dict_warnings_sec(const struct client_dict_cmd *cmd, long long msecs,
 		  const char *const *extra_args)
 {
 	string_t *str = t_str_new(64);
 	struct timeval tv_start, tv_end;
 	unsigned int tv_start_usec, tv_end_usec;
 
-	str_printfa(str, "%d.%03d secs (%s", msecs/1000, msecs%1000,
+	str_printfa(str, "%lld.%03lld secs (%s", msecs/1000, msecs%1000,
 		    dict_wait_warnings(cmd));
 	if (cmd->reconnected) {
-		int reconnected_msecs =
+		long long reconnected_msecs =
 			timeval_diff_msecs(&ioloop_timeval,
 				&cmd->dict->conn.conn.connect_started);
-		str_printfa(str, ", reconnected %u.%03u secs ago",
+		str_printfa(str, ", reconnected %lld.%03lld secs ago",
 			    reconnected_msecs/1000, reconnected_msecs%1000);
 	}
 	if (cmd->async_id != 0) {
-		int async_reply_msecs =
+		long long async_reply_msecs =
 			timeval_diff_msecs(&ioloop_timeval, &cmd->async_id_received_time);
-		str_printfa(str, ", async-id reply %u.%03u secs ago",
+		str_printfa(str, ", async-id reply %lld.%03lld secs ago",
 			    async_reply_msecs/1000, async_reply_msecs%1000);
 	}
 	if (extra_args != NULL &&
@@ -916,11 +917,11 @@ dict_warnings_sec(const struct client_dict_cmd *cmd, int msecs,
 		tv_start.tv_usec = tv_start_usec;
 		tv_end.tv_usec = tv_end_usec;
 
-		int server_msecs_since_start =
+		long long server_msecs_since_start =
 			timeval_diff_msecs(&ioloop_timeval, &tv_start);
-		int server_msecs = timeval_diff_msecs(&tv_end, &tv_start);
-		str_printfa(str, ", started on dict-server %u.%03d secs ago, "
-			    "took %u.%03d secs",
+		long long server_msecs = timeval_diff_msecs(&tv_end, &tv_start);
+		str_printfa(str, ", started on dict-server %lld.%03lld secs ago, "
+			    "took %lld.%03lld secs",
 			    server_msecs_since_start/1000,
 			    server_msecs_since_start%1000,
 			    server_msecs/1000, server_msecs%1000);
@@ -978,7 +979,7 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd,
 		break;
 	}
 
-	int diff = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
+	long long diff = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
 	if (result.error != NULL) {
 		/* include timing info always in error messages */
 		result.error = t_strdup_printf("%s (reply took %s)",
@@ -1090,7 +1091,8 @@ client_dict_iter_api_callback(struct client_dict_iterate_context *ctx,
 		return;
 	}
 	if (ctx->finished) {
-		int diff = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
+		long long diff = timeval_diff_msecs(&ioloop_timeval,
+						    &cmd->start_time);
 		if (ctx->error != NULL) {
 			/* include timing info always in error messages */
 			char *new_error = i_strdup_printf("%s (reply took %s)",
@@ -1368,7 +1370,7 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 		break;
 	}
 
-	int diff = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
+	long long diff = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
 	if (result.error != NULL) {
 		/* include timing info always in error messages */
 		result.error = t_strdup_printf("%s (reply took %s)",

@@ -1278,8 +1278,8 @@ int db_ldap_connect(struct ldap_connection *conn)
 		return -1;
 
 	i_gettimeofday(&end);
-	int msecs = timeval_diff_msecs(&end, &start);
-	e_debug(conn->event, "LDAP initialization took %d msecs", msecs);
+	e_debug(conn->event, "LDAP initialization took %lld msecs",
+		timeval_diff_msecs(&end, &start));
 
 	db_ldap_get_fd(conn);
 	conn->io = io_add(conn->fd, IO_READ, ldap_input, conn);

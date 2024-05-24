@@ -1079,7 +1079,7 @@ lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
 		str_append(msg, "Sent message to");
 	else
 		str_append(msg, "Failed to send message to");
-	str_printfa(msg, " <%s> at %s:%u: %s (%u/%u at %u ms)",
+	str_printfa(msg, " <%s> at %s:%u: %s (%u/%u at %lld ms)",
 		    smtp_address_encode(address),
 		    conn->set.set.host, conn->set.set.port,
 		    smtp_reply_log(proxy_reply),

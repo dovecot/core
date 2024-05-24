@@ -17,11 +17,14 @@ int timeval_cmp(const struct timeval *tv1, const struct timeval *tv2);
 /* Same as timeval_cmp, but tv->usecs must differ by at least usec_margin */
 int timeval_cmp_margin(const struct timeval *tv1, const struct timeval *tv2,
 		       unsigned int usec_margin);
-/* Returns tv1-tv2 in milliseconds. */
-int timeval_diff_msecs(const struct timeval *tv1, const struct timeval *tv2);
 /* Returns tv1-tv2 in microseconds. */
 long long timeval_diff_usecs(const struct timeval *tv1,
 			     const struct timeval *tv2);
+/* Returns tv1-tv2 in milliseconds. */
+static inline long long timeval_diff_msecs(const struct timeval *tv1,
+					   const struct timeval *tv2) {
+	return timeval_diff_usecs(tv1, tv2) / 1000;
+}
 
 static inline void
 timeval_from_usecs(struct timeval *tv_r, unsigned long long usecs)
