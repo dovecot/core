@@ -300,7 +300,6 @@ passdb_result_to_string(enum passdb_result result)
 
 extern struct passdb_module_interface passdb_passwd;
 extern struct passdb_module_interface passdb_bsdauth;
-extern struct passdb_module_interface passdb_dict;
 #ifdef HAVE_LUA
 extern struct passdb_module_interface passdb_lua;
 #endif
@@ -317,7 +316,6 @@ void passdbs_init(void)
 	i_array_init(&passdb_modules, 16);
 	passdb_register_module(&passdb_passwd);
 	passdb_register_module(&passdb_bsdauth);
-	passdb_register_module(&passdb_dict);
 #ifdef HAVE_LUA
 	passdb_register_module(&passdb_lua);
 #endif

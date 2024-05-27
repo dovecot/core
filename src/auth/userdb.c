@@ -227,7 +227,6 @@ extern struct userdb_module_interface userdb_passwd;
 extern struct userdb_module_interface userdb_passwd_file;
 extern struct userdb_module_interface userdb_ldap;
 extern struct userdb_module_interface userdb_sql;
-extern struct userdb_module_interface userdb_dict;
 #ifdef HAVE_LUA
 extern struct userdb_module_interface userdb_lua;
 #endif
@@ -242,7 +241,6 @@ void userdbs_init(void)
 	userdb_register_module(&userdb_static);
 	userdb_register_module(&userdb_ldap);
 	userdb_register_module(&userdb_sql);
-	userdb_register_module(&userdb_dict);
 #ifdef HAVE_LUA
 	userdb_register_module(&userdb_lua);
 #endif

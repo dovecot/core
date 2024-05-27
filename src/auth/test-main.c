@@ -24,7 +24,6 @@ int main(int argc, char *argv[])
 #endif
 		TEST_NAMED(test_auth_request_var_expand)
 		TEST_NAMED(test_auth_request_fields)
-		TEST_NAMED(test_db_dict_parse_cache_key)
 		TEST_NAMED(test_username_filter)
 #if defined(BUILTIN_LUA)
 		TEST_NAMED(test_db_lua)

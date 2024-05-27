@@ -94,8 +94,6 @@ libauth_la_SOURCES = \
 	auth-token.c \
 	auth-worker-connection.c \
 	auth-worker-server.c \
-	db-dict.c \
-	db-dict-cache-key.c \
 	db-oauth2.c \
 	db-sql.c \
 	db-passwd-file.c \
@@ -117,7 +115,6 @@ libauth_la_SOURCES = \
 	passdb-blocking.c \
 	passdb-bsdauth.c \
 	passdb-cache.c \
-	passdb-dict.c \
 	passdb-oauth2.c \
 	passdb-passwd.c \
 	passdb-passwd-file.c \
@@ -127,7 +124,6 @@ libauth_la_SOURCES = \
 	passdb-template.c \
 	userdb.c \
 	userdb-blocking.c \
-	userdb-dict.c \
 	userdb-passwd.c \
 	userdb-passwd-file.c \
 	userdb-prefetch.c \
@@ -158,7 +154,6 @@ headers = \
 	auth-token.h \
 	auth-worker-connection.h \
 	auth-worker-server.h \
-	db-dict.h \
 	db-ldap.h \
 	db-sql.h \
 	db-passwd-file.h \
@@ -230,7 +225,6 @@ test_auth_SOURCES = \
 	test-auth-request-var-expand.c \
 	test-auth-request-fields.c \
 	test-username-filter.c \
-	test-db-dict.c \
 	test-db-ldap.c \
 	test-lua.c \
 	test-mock.c \
