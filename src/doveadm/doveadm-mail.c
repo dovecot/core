@@ -883,8 +883,11 @@ doveadm_cmdv2_wrapper_parse_common_options(struct doveadm_mail_cmd_context *mctx
 	} else if (doveadm_server) {
 		/* Protocol sets this in correct place, don't require a
 		   command line parameter */
+	} else if (doveadm_cmd_param_flag(cctx, "no-userdb-lookup")) {
+		mctx->service_flags &=
+			ENUM_NEGATE(MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP);
 	} else {
-		i_fatal("One of -u, -F, or -A must be provided");
+		i_fatal("One of -u, -F, -A or --no-userdb-lookup must be provided");
 	}
 
 	if (doveadm_cmd_param_str(cctx, "socket-path", &socket_path)) {
@@ -914,7 +917,8 @@ doveadm_cmdv2_wrapper_generate_full_arg(struct doveadm_mail_cmd_context *mctx,
 	    strcmp(arg->name, "trans-flags") == 0 ||
 	    strcmp(arg->name, "file") == 0 ||
 	    strcmp(arg->name, "all-users") == 0 ||
-	    strcmp(arg->name, "user-file") == 0)
+	    strcmp(arg->name, "user-file") == 0 ||
+	    strcmp(arg->name, "no-userdb-lookup") == 0)
 		return;
 
 	if (strcmp(arg->name, "field") == 0 ||

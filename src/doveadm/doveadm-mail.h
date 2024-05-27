@@ -216,6 +216,7 @@ DOVEADM_CMD_PARAM('A', "all-users", CMD_PARAM_BOOL, 0) \
 DOVEADM_CMD_PARAM('S', "socket-path", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('\0', "trans-flags", CMD_PARAM_INT64, 0) \
+DOVEADM_CMD_PARAM('\0', "no-userdb-lookup", CMD_PARAM_BOOL, 0) \
 DOVEADM_CMD_PARAM('F', "user-file", CMD_PARAM_ISTREAM, 0)
 
 #define DOVEADM_CMD_MAIL_USAGE_PREFIX \
