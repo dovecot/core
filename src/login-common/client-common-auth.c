@@ -953,8 +953,9 @@ client_auth_reply_args(struct client *client, enum sasl_server_reply sasl_reply,
 		if (!client_auth_parse_args(client, success, FALSE, args,
 					    reply_r, &username)) {
 			client_auth_result(client,
-				CLIENT_AUTH_RESULT_AUTHFAILED, reply_r,
-				AUTH_FAILED_MSG);
+				CLIENT_AUTH_RESULT_TEMPFAIL, reply_r,
+				AUTH_TEMP_FAILED_MSG);
+			client_auth_failed(client);
 			return FALSE;
 		}
 		if (!success) {
