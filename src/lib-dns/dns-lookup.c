@@ -78,7 +78,8 @@ static void dns_lookup_callback(struct dns_lookup *lookup)
 			lookup->result.msecs);
 		i_assert(lookup->ptr_lookup || lookup->result.ips_count > 0);
 	}
-	lookup->callback(&lookup->result, lookup->context);
+	if (lookup->callback != NULL)
+		lookup->callback(&lookup->result, lookup->context);
 }
 
 static void dns_lookup_callback_cached(struct dns_lookup *lookup)
@@ -257,9 +258,19 @@ static void dns_lookup_free(struct dns_lookup **_lookup)
 	pool_unref(&lookup->pool);
 }
 
-void dns_lookup_abort(struct dns_lookup **lookup)
+void dns_lookup_abort(struct dns_lookup **_lookup)
 {
-	dns_lookup_free(lookup);
+	struct dns_lookup *lookup = *_lookup;
+	struct dns_client *client = lookup->client;
+
+	if (lookup == NULL)
+		return;
+	*_lookup = NULL;
+
+	if (client->deinit_client_at_free)
+		dns_client_deinit(&client);
+	else
+		lookup->callback = NULL;
 }
 
 static void dns_lookup_switch_ioloop_real(struct dns_lookup *lookup)
