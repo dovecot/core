@@ -5,10 +5,12 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-test
 
 libdns_la_SOURCES = \
+	dns-client-cache.c \
 	dns-lookup.c \
 	dns-util.c
 
 headers = \
+	dns-client-cache.h \
 	dns-lookup.h \
 	dns-util.h
 
