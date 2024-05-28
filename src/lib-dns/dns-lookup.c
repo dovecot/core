@@ -130,12 +130,12 @@ static int dns_lookup_input_args(struct dns_lookup *lookup, const char *const *a
 		return -1;
 	if (result->ret != 0) {
 		result->error = args[1];
-		return 1;
+		return 0;
 	}
 
 	if (lookup->ptr_lookup) {
 		result->name = p_strdup(lookup->pool, args[1]);
-		return 1;
+		return 0;
 	}
 
 	ARRAY(struct ip_addr) ips;
@@ -147,7 +147,7 @@ static int dns_lookup_input_args(struct dns_lookup *lookup, const char *const *a
 	}
 	result->ips = array_get(&ips, &result->ips_count);
 
-	return 1;
+	return 0;
 }
 
 static void dns_lookup_save_msecs(struct dns_lookup *lookup)
@@ -167,7 +167,6 @@ static int dns_client_input_args(struct connection *conn, const char *const *arg
 	struct dns_client *client = container_of(conn, struct dns_client, conn);
 	struct dns_lookup *lookup = client->head;
 	bool retry = FALSE;
-	int ret = 0;
 
 	if (lookup == NULL) {
 		dns_client_disconnect(client, t_strdup_printf(
@@ -175,19 +174,16 @@ static int dns_client_input_args(struct connection *conn, const char *const *arg
 		return -1;
 	}
 
-	if ((ret = dns_lookup_input_args(lookup, args)) == 0) {
-		return 1; /* keep on reading */
-	} else if (ret < 0) {
+	if (dns_lookup_input_args(lookup, args) < 0) {
 		dns_client_disconnect(client, t_strdup_printf(
 			"Invalid input from %s", conn->name));
 		return -1;
-	} else if (ret > 0) {
-		dns_lookup_callback(lookup);
-		dns_client_cache_entry(client->cache, lookup->cache_key,
-				       &lookup->result);
-		retry = !lookup->client->deinit_client_at_free;
-		dns_lookup_free(&lookup);
 	}
+	dns_lookup_callback(lookup);
+	dns_client_cache_entry(client->cache, lookup->cache_key,
+			       &lookup->result);
+	retry = !lookup->client->deinit_client_at_free;
+	dns_lookup_free(&lookup);
 
 	return retry ? 1 : -1;
 }
