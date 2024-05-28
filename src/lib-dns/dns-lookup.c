@@ -2,23 +2,14 @@
 
 #include "lib.h"
 #include "ioloop.h"
-#include "str.h"
 #include "array.h"
 #include "hash.h"
 #include "priorityq.h"
 #include "ostream.h"
 #include "connection.h"
-#include "lib-event.h"
 #include "llist.h"
-#include "istream.h"
-#include "write-full.h"
 #include "time-util.h"
 #include "dns-lookup.h"
-
-#include <stdio.h>
-#include <unistd.h>
-
-#define MAX_INBUF_SIZE 512
 
 static struct event_category event_category_dns = {
 	.name = "dns"
