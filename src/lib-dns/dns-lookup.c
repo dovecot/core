@@ -180,6 +180,8 @@ static int dns_client_input_args(struct connection *conn, const char *const *arg
 			"Invalid input from %s", conn->name));
 		return -1;
 	}
+	DLLIST2_REMOVE(&client->head, &client->tail, lookup);
+
 	dns_lookup_callback(lookup);
 	dns_client_cache_entry(client->cache, lookup->cache_key,
 			       &lookup->result);
@@ -244,7 +246,6 @@ static void dns_lookup_free(struct dns_lookup **_lookup)
 
 	*_lookup = NULL;
 
-	DLLIST2_REMOVE(&client->head, &client->tail, lookup);
 	timeout_remove(&lookup->to);
 	if (client->deinit_client_at_free)
 		dns_client_deinit(&client);
@@ -338,6 +339,7 @@ void dns_client_deinit(struct dns_client **_client)
 	struct connection_list *clist = client->clist;
 	*_client = NULL;
 
+	client->deinit_client_at_free = FALSE; /* avoid recursion here */
 	dns_client_disconnect(client, "deinit");
 
 	/* dns_client_disconnect() is supposed to clear out all queries */
