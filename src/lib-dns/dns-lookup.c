@@ -65,6 +65,10 @@ static void dns_lookup_callback(struct dns_lookup *lookup)
 		event_create_passthrough(lookup->event)->
 		set_name("dns_request_finished");
 
+	if (!lookup->cached) {
+		dns_client_cache_entry(lookup->client->cache, lookup->cache_key,
+				       &lookup->result);
+	}
 	dns_lookup_save_msecs(lookup);
 
 	if (lookup->result.ret != 0) {
@@ -184,8 +188,6 @@ static int dns_client_input_args(struct connection *conn, const char *const *arg
 	DLLIST2_REMOVE(&client->head, &client->tail, lookup);
 
 	dns_lookup_callback(lookup);
-	dns_client_cache_entry(client->cache, lookup->cache_key,
-			       &lookup->result);
 	retry = !lookup->client->deinit_client_at_free;
 	dns_lookup_free(&lookup);
 
