@@ -68,6 +68,7 @@ static void dns_lookup_callback(struct dns_lookup *lookup)
 	dns_lookup_save_msecs(lookup);
 
 	if (lookup->result.ret != 0) {
+		i_assert(lookup->result.error != NULL);
 		e->add_int("error_code", lookup->result.ret);
 		e->add_str("error", lookup->result.error);
 		e_debug(e->event(), "Lookup failed after %u msecs: %s",
@@ -92,7 +93,6 @@ static void dns_lookup_callback_cached(struct dns_lookup *lookup)
 static void dns_client_disconnect(struct dns_client *client, const char *error)
 {
 	struct dns_lookup *lookup, *next;
-	struct dns_lookup_result result;
 
 	if (client->connected) {
 		timeout_remove(&client->to_idle);
@@ -102,14 +102,15 @@ static void dns_client_disconnect(struct dns_client *client, const char *error)
 		e_debug(client->conn.event, "Disconnect: %s", error);
 	}
 
-	i_zero(&result);
-	result.ret = EAI_FAIL;
-	result.error = error;
-
 	lookup = client->head;
 	client->head = NULL;
 	while (lookup != NULL) {
 		next = lookup->next;
+
+		i_zero(&lookup->result);
+		lookup->result.ret = EAI_FAIL;
+		lookup->result.error = error;
+
 		dns_lookup_callback(lookup);
 		dns_lookup_free(&lookup);
 		lookup = next;
