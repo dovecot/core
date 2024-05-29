@@ -319,7 +319,7 @@ mail_storage_create_ns_instance(struct mail_namespace *ns,
 static int
 mail_storage_create_list(struct mail_namespace *ns,
 			 struct mail_storage *storage_class,
-			 struct event *set_event,
+			 struct event *parent_set_event,
 			 enum mail_storage_flags flags,
 			 const char *root_path_override,
 			 const char *inbox_path_override,
@@ -334,7 +334,7 @@ mail_storage_create_list(struct mail_namespace *ns,
 		list_flags |= MAILBOX_LIST_FLAG_NO_DELETES;
 
 	struct mailbox_list *list;
-	set_event = event_create(set_event);
+	struct event *set_event = event_create(parent_set_event);
 	/* Lookup storage-specific settings, especially to get
 	   storage-specific defaults for mailbox list settings. */
 	event_set_ptr(set_event, SETTINGS_EVENT_FILTER_NAME,
@@ -404,7 +404,11 @@ mail_storage_create_list(struct mail_namespace *ns,
 		}
 	}
 
-	struct event *event = event_create(set_event);
+	/* Use parent_set_event instead of set_event mainly to avoid
+	   permanently having SETTINGS_EVENT_FILTER_NAME=storage_name in
+	   mailbox_list->event. This would be wrong, since mailbox_list can
+	   support multiple storages. */
+	struct event *event = event_create(parent_set_event);
 	event_add_str(event, SETTINGS_EVENT_NAMESPACE_NAME, ns->set->name);
 	int ret = mailbox_list_create(event, ns, mail_set, list_flags,
 				      &list, error_r);
