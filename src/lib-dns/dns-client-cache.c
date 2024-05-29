@@ -7,11 +7,6 @@
 #include "dns-lookup.h"
 #include "dns-client-cache.h"
 
-struct dns_cache_lookup {
-	struct dns_client_cache *cache;
-	char *key;
-};
-
 struct dns_client_cache_entry {
 	struct priorityq_item item;
 	time_t expires;
@@ -25,9 +20,9 @@ struct dns_client_cache_entry {
 };
 
 struct dns_client_cache {
-	struct dns_client *client;
-	struct event *event;
 	unsigned int ttl_secs;
+	dns_client_cache_refresh_callback_t *refresh_callback;
+	void *refresh_context;
 
 	struct timeout *to_cache_clean;
 	HASH_TABLE(char *, struct dns_client_cache_entry *) table;
@@ -92,68 +87,15 @@ void dns_client_cache_entry(struct dns_client_cache *cache,
 	hash_table_insert(cache->table, entry->cache_key, entry);
 }
 
-static void dns_cache_lookup_free(struct dns_cache_lookup **_ctx)
-{
-	struct dns_cache_lookup *ctx = *_ctx;
-	*_ctx = NULL;
-
-	i_free(ctx->key);
-	i_free(ctx);
-}
-
-static void dns_client_cache_callback(const struct dns_lookup_result *result,
-				      struct dns_cache_lookup *ctx)
-{
-	if (result->ret < 0)
-		e_debug(ctx->cache->event, "Background entry refresh failed for %s '%s': %s",
-			*ctx->key == 'I' ? "IP" : "name",
-			ctx->key + 1, result->error);
-	dns_cache_lookup_free(&ctx);
-}
-
 static void dns_client_cache_entry_refresh(struct dns_client_cache *cache,
 					   struct dns_client_cache_entry *entry)
 {
-	struct dns_lookup *lookup;
-	struct dns_cache_lookup *ctx;
 	/* about to expire, next lookup should go to client */
 	entry->refresh = TRUE;
-	if (*entry->cache_key == 'I') {
-		struct ip_addr ip;
-		if (net_addr2ip(entry->cache_key + 1, &ip) < 0)
-			i_unreached();
-		ctx = i_new(struct dns_cache_lookup, 1);
-		ctx->key = i_strdup(entry->cache_key);
-		ctx->cache = cache;
-		if (dns_client_lookup_ptr(cache->client, &ip, cache->event,
-					  dns_client_cache_callback,
-					  ctx, &lookup) < 0) {
-			e_debug(cache->event,
-				"Cannot refresh IP '%s' (trying again later)",
-				entry->cache_key + 1);
-			dns_cache_lookup_free(&ctx);
-		} else {
-			/* ensure we don't trigger this again. this gets
-			   changed in dns_client_cache_entry(). */
-			entry->refreshing = TRUE;
-		}
-	} else if (*entry->cache_key == 'N') {
-		ctx = i_new(struct dns_cache_lookup, 1);
-		ctx->key = i_strdup(entry->cache_key);
-		ctx->cache = cache;
-		if (dns_client_lookup(cache->client, entry->cache_key + 1,
-				      cache->event, dns_client_cache_callback,
-				      ctx, &lookup) < 0) {
-			e_debug(cache->event,
-				"Cannot refresh name '%s' (trying again later)",
-				entry->cache_key + 1);
-			dns_cache_lookup_free(&ctx);
-		} else {
-			entry->refreshing = TRUE;
-		}
-	} else {
-		i_unreached();
-	}
+	/* ensure we don't trigger this again. this gets
+	   changed in dns_client_cache_entry(). */
+	entry->refreshing = TRUE;
+	cache->refresh_callback(entry->cache_key, cache->refresh_context);
 	/* reset back to false to allow further lookups to use cache while
 	   the entry is being refreshed. */
 	entry->refresh = FALSE;
@@ -213,13 +155,15 @@ static void dns_client_cache_clean(struct dns_client_cache *cache)
 		timeout_remove(&cache->to_cache_clean);
 }
 
+#undef dns_client_cache_init
 struct dns_client_cache *
-dns_client_cache_init(struct dns_client *client, struct event *event,
-		      unsigned int ttl_secs)
+dns_client_cache_init(unsigned int ttl_secs,
+		      dns_client_cache_refresh_callback_t *refresh_callback,
+		      void *refresh_context)
 {
 	struct dns_client_cache *cache = i_new(struct dns_client_cache, 1);
-	cache->client = client;
-	cache->event = event;
+	cache->refresh_callback = refresh_callback;
+	cache->refresh_context = refresh_context;
 	cache->ttl_secs = ttl_secs;
 	hash_table_create(&cache->table, default_pool, 0,
 			  strfastcase_hash, strcmp);

@@ -14,6 +14,11 @@ static struct event_category event_category_dns = {
 	.name = "dns"
 };
 
+struct dns_cache_lookup {
+	struct dns_client *client;
+	char *key;
+};
+
 struct dns_lookup {
 	struct dns_lookup *prev, *next;
 	struct dns_client *client;
@@ -49,6 +54,64 @@ struct dns_client {
 	bool connected:1;
 	bool deinit_client_at_free:1;
 };
+
+static void dns_cache_lookup_free(struct dns_cache_lookup **_ctx)
+{
+	struct dns_cache_lookup *ctx = *_ctx;
+	*_ctx = NULL;
+
+	i_free(ctx->key);
+	i_free(ctx);
+}
+
+static void dns_client_cache_callback(const struct dns_lookup_result *result,
+				      struct dns_cache_lookup *ctx)
+{
+	if (result->ret < 0)
+		e_debug(ctx->client->conn.event,
+			"Background entry refresh failed for %s '%s': %s",
+			*ctx->key == 'I' ? "IP" : "name",
+			ctx->key + 1, result->error);
+	dns_cache_lookup_free(&ctx);
+}
+
+static void dns_client_cache_refresh(const char *cache_key,
+				     struct dns_client *client)
+{
+	struct dns_lookup *lookup;
+	struct dns_cache_lookup *ctx;
+
+	if (*cache_key == 'I') {
+		struct ip_addr ip;
+		if (net_addr2ip(cache_key + 1, &ip) < 0)
+			i_unreached();
+		ctx = i_new(struct dns_cache_lookup, 1);
+		ctx->key = i_strdup(cache_key);
+		ctx->client = client;
+		if (dns_client_lookup_ptr(client, &ip, client->conn.event,
+					  dns_client_cache_callback,
+					  ctx, &lookup) < 0) {
+			e_debug(client->conn.event,
+				"Cannot refresh IP '%s' (trying again later)",
+				cache_key + 1);
+			dns_cache_lookup_free(&ctx);
+		}
+	} else if (*cache_key == 'N') {
+		ctx = i_new(struct dns_cache_lookup, 1);
+		ctx->key = i_strdup(cache_key);
+		ctx->client = client;
+		if (dns_client_lookup(client, cache_key + 1, client->conn.event,
+				      dns_client_cache_callback,
+				      ctx, &lookup) < 0) {
+			e_debug(client->conn.event,
+				"Cannot refresh name '%s' (trying again later)",
+				cache_key + 1);
+			dns_cache_lookup_free(&ctx);
+		}
+	} else {
+		i_unreached();
+	}
+}
 
 #undef dns_lookup
 #undef dns_lookup_ptr
@@ -330,8 +393,8 @@ struct dns_client *dns_client_init(const struct dns_lookup_settings *set)
 	connection_init_client_unix(client->clist, &client->conn, client->path);
 	event_add_category(client->conn.event, &event_category_dns);
 	if (set->cache_ttl_secs > 0) {
-		client->cache = dns_client_cache_init(client,
-			client->conn.event, set->cache_ttl_secs);
+		client->cache = dns_client_cache_init(set->cache_ttl_secs,
+			dns_client_cache_refresh, client);
 	}
 	return client;
 }
