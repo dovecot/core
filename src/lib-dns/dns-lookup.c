@@ -94,17 +94,17 @@ static void dns_client_disconnect(struct dns_client *client, const char *error)
 	struct dns_lookup *lookup, *next;
 	struct dns_lookup_result result;
 
-	if (!client->connected)
-		return;
-	timeout_remove(&client->to_idle);
+	if (client->connected) {
+		timeout_remove(&client->to_idle);
+		connection_disconnect(&client->conn);
+		client->connected = FALSE;
 
-	connection_disconnect(&client->conn);
-	client->connected = FALSE;
+		e_debug(client->conn.event, "Disconnect: %s", error);
+	}
 
 	i_zero(&result);
 	result.ret = EAI_FAIL;
 	result.error = error;
-	e_debug(client->conn.event, "Disconnect: %s", error);
 
 	lookup = client->head;
 	client->head = NULL;
