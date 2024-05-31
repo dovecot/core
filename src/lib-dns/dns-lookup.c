@@ -171,6 +171,7 @@ static void dns_client_disconnect(struct dns_client *client, const char *error)
 
 	lookup = client->head;
 	client->head = NULL;
+	client->tail = NULL;
 	while (lookup != NULL) {
 		next = lookup->next;
 
