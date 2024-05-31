@@ -42,6 +42,8 @@ static void service_process_idle_kill_timeout(struct service_process *process)
 	e_error(process->service->event, "Process %s is ignoring idle SIGINT",
 		dec2str(process->pid));
 
+	timeout_remove(&process->to_idle_kill);
+
 	/* assume this process is busy */
 	i_zero(&status);
 	service_status_more(process, &status);
