@@ -251,6 +251,19 @@ config_dump_full_stdout_callback(const struct config_export_setting *set,
 	} T_END;
 }
 
+static void config_dump_full_write_filter(struct dump_context *ctx)
+{
+	if (ctx->filter_written)
+		return;
+	ctx->filter_written = TRUE;
+
+	uint64_t blob_size = UINT64_MAX;
+	o_stream_nsend(ctx->output, &blob_size, sizeof(blob_size));
+	/* Start by assuming there is no error. If there is, the error
+	   handling code path truncates the file and writes the error. */
+	o_stream_nsend(ctx->output, "", 1);
+}
+
 static void config_dump_full_callback(const struct config_export_setting *set,
 				      struct dump_context *ctx)
 {
@@ -266,15 +279,7 @@ static void config_dump_full_callback(const struct config_export_setting *set,
 		return;
 	}
 
-	if (!ctx->filter_written) {
-		uint64_t blob_size = UINT64_MAX;
-		o_stream_nsend(ctx->output, &blob_size, sizeof(blob_size));
-		/* Start by assuming there is no error. If there is, the error
-		   handling code path truncates the file and writes the
-		   error. */
-		o_stream_nsend(ctx->output, "", 1);
-		ctx->filter_written = TRUE;
-	}
+	config_dump_full_write_filter(ctx);
 
 	uint32_t key_be32 = cpu32_to_be(set->key_define_idx);
 	if (ctx->delayed_output != NULL &&
