@@ -192,6 +192,7 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret_r)
 		/* This could be the first read() or we could have already
 		   seeked backwards. */
 		i_assert(stream->pos == 0 && stream->skip == 0);
+		i_assert(sstream->buffer_peak >= stream->istream.v_offset);
 		stream->skip = stream->istream.v_offset;
 		stream->pos = sstream->buffer_peak;
 		size = stream->pos - stream->skip;
@@ -259,6 +260,7 @@ static int i_stream_seekable_write_failed(struct seekable_istream *sstream)
 				    sstream->temp_path);
 		return -1;
 	}
+	sstream->buffer_peak = sstream->write_peak;
 	i_stream_destroy(&sstream->fd_input);
 	sstream->fd = -1; /* autoclosed by fd_input */
 
