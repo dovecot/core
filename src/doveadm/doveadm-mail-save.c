@@ -88,7 +88,7 @@ cmd_save_to_mailbox(struct save_cmd_context *ctx, struct mailbox *box,
 		mailbox_save_cancel(&save_ctx);
 	if (trans != NULL)
 		mailbox_transaction_rollback(&trans);
-	i_assert(input->eof);
+	i_assert(ret < 0 || input->eof);
 	return ret < 0 ? -1 : 0;
 }
 
