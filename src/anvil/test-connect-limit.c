@@ -309,7 +309,7 @@ static void test_sessions_compare(struct connect_limit *limit,
 		test_assert(guid_128_from_string(args[4], guid) == 0);
 		struct test_session *session =
 			test_session_find(test_sessions, guid);
-		test_assert(session != NULL);
+		i_assert(session != NULL);
 
 		test_assert(!session->found);
 		session->found = TRUE;
@@ -336,6 +336,7 @@ static void test_sessions_compare(struct connect_limit *limit,
 				continue;
 
 			for (j = 0; session->alt_usernames[j] != NULL; j += 2) {
+				i_assert(alt_headers[i] != NULL);
 				if (strcmp(session->alt_usernames[j],
 					   alt_headers[i]) == 0)
 					break;
