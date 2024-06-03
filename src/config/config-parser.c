@@ -647,6 +647,8 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 					parent->filter_name, key, key, parent->filter_name);
 				return FALSE;
 			}
+			i_assert(parent->filter_name != NULL ||
+				 !parent->filter_name_array);
 			if (strcmp(key, "namespace") == 0 &&
 			    parent->filter_name_array &&
 			    (str_begins_with(parent->filter_name, "namespace/") ||
