@@ -306,9 +306,11 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 
 		/* save to our file */
 		data = i_stream_get_data(sstream->cur_input, &size);
+		i_assert(size > 0);
 		ret = write(sstream->fd, data, size);
-		if (ret <= 0) {
-			if (ret < 0 && !ENOSPACE(errno)) {
+		i_assert(ret != 0);
+		if (ret < 0) {
+			if (!ENOSPACE(errno)) {
 				i_error("istream-seekable: write_full(%s) failed: %m",
 					sstream->temp_path);
 			}
