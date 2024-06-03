@@ -381,7 +381,7 @@ int config_apply_line(struct config_parser_context *ctx,
 					 get_setting_full_path(ctx, key), NULL);
 		return -1;
 	}
-	return 0;
+	return ret < 0 ? -1 : 0;
 }
 
 static int
