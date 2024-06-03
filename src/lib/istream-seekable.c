@@ -13,11 +13,14 @@
 
 #include <unistd.h>
 
+#define MAX_MEMORY_FALLBACK_SIZE (1024*1024*10)
+
 struct seekable_istream {
 	struct istream_private istream;
 
-	char *temp_path;
+	char *temp_path, *write_failed_temp_path;
 	uoff_t write_peak;
+	int write_failed_errno;
 	uoff_t size;
 	size_t buffer_peak;
 
@@ -61,6 +64,7 @@ static void i_stream_seekable_destroy(struct iostream_private *stream)
 	if (sstream->free_context)
 		i_free(sstream->context);
 	i_free(sstream->temp_path);
+	i_free(sstream->write_failed_temp_path);
 	i_free(sstream->input);
 }
 
@@ -248,7 +252,7 @@ static int i_stream_seekable_write_failed(struct seekable_istream *sstream)
 	i_assert(sstream->fd != -1);
 	i_assert(stream->skip == 0);
 
-	stream->max_buffer_size = SIZE_MAX;
+	stream->max_buffer_size = MAX_MEMORY_FALLBACK_SIZE;
 	stream->pos = 0;
 	data = i_stream_alloc(stream, sstream->write_peak);
 	stream->pos = old_pos;
@@ -281,6 +285,17 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 		if (read_from_buffer(sstream, &ret))
 			return ret;
 
+		if (sstream->write_failed_errno != 0) {
+			errno = sstream->write_failed_errno;
+			sstream->istream.istream.stream_errno = errno;
+			sstream->istream.istream.eof = TRUE;
+			io_stream_set_error(&sstream->istream.iostream,
+				"istream-seekable: write(%s) failed: %m - "
+				"stream is too large for memory",
+				sstream->write_failed_temp_path);
+			return -1;
+		}
+
 		/* copy everything to temp file and use it as the stream */
 		if (copy_to_temp_file(sstream) < 0) {
 			stream->max_buffer_size = SIZE_MAX;
@@ -311,17 +326,27 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 		ret = write(sstream->fd, data, size);
 		i_assert(ret != 0);
 		if (ret < 0) {
-			const char *orig_temp_path = t_strdup(sstream->temp_path);
-			int write_errno = errno;
+			if (sstream->write_peak + size >= MAX_MEMORY_FALLBACK_SIZE) {
+				sstream->istream.istream.stream_errno = errno;
+				sstream->istream.istream.eof = TRUE;
+				io_stream_set_error(&sstream->istream.iostream,
+					"istream-seekable: write(%s) failed: %m",
+					sstream->temp_path);
+				return -1;
+			}
+
+			sstream->write_failed_errno = errno;
+			sstream->write_failed_temp_path =
+				i_strdup(sstream->temp_path);
 			if (i_stream_seekable_write_failed(sstream) < 0)
 				return -1;
 			if (!read_from_buffer(sstream, &ret))
 				i_unreached();
 
-			errno = write_errno;
+			errno = sstream->write_failed_errno;
 			i_warning("istream-seekable: write_full(%s) failed: %m - "
 				  "fallback to using only memory",
-				  orig_temp_path);
+				  sstream->write_failed_temp_path);
 			return ret;
 		}
 		i_stream_sync(sstream->fd_input);
