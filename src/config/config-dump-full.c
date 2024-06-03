@@ -192,6 +192,20 @@ config_dump_full_write_keys(struct ostream *output,
 	}
 }
 
+static void config_dump_full_stdout_write_filter(struct dump_context *ctx)
+{
+	if (ctx->filter_written)
+		return;
+	ctx->filter_written = TRUE;
+
+	string_t *str = t_str_new(128);
+	str_append(str, ":FILTER ");
+	if (ctx->filter != NULL)
+		config_dump_full_append_filter(str, ctx->filter, TRUE);
+	str_append_c(str, '\n');
+	o_stream_nsend(ctx->output, str_data(str), str_len(str));
+}
+
 static void
 config_dump_full_stdout_callback(const struct config_export_setting *set,
 				 struct dump_context *ctx)
@@ -206,15 +220,7 @@ config_dump_full_stdout_callback(const struct config_export_setting *set,
 		return;
 	}
 
-	if (!ctx->filter_written) {
-		string_t *str = t_str_new(128);
-		str_append(str, ":FILTER ");
-		if (ctx->filter != NULL)
-			config_dump_full_append_filter(str, ctx->filter, TRUE);
-		str_append_c(str, '\n');
-		o_stream_nsend(ctx->output, str_data(str), str_len(str));
-		ctx->filter_written = TRUE;
-	}
+	config_dump_full_stdout_write_filter(ctx);
 	T_BEGIN {
 		const struct setting_define *def =
 			&ctx->info->defines[set->key_define_idx];
