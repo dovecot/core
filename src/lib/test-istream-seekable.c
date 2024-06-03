@@ -255,9 +255,9 @@ static void test_istream_seekable_failed_writes(void)
 	i_close_fd(&fd_callback_fd);
 	test_istream_set_size(streams[0], 5);
 
-	test_expect_error_string("istream-seekable: write_full(test-lib.tmp) failed: Bad file descriptor");
 	test_assert(i_stream_read(input) == -1);
-	test_expect_no_more_errors();
+	test_assert(input->stream_errno == EBADF);
+	test_assert_strcmp(i_stream_get_error(input), "istream-seekable: write(test-lib.tmp) failed: Bad file descriptor, and attempt to read() it back failed: Bad file descriptor");
 
 	test_expect_error_string("file_istream.close((seekable temp-istream for: test seekable)) failed: Bad file descriptor");
 	i_stream_unref(&input);

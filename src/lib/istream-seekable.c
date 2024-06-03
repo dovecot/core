@@ -243,6 +243,7 @@ static int i_stream_seekable_write_failed(struct seekable_istream *sstream)
 	struct istream_private *stream = &sstream->istream;
 	void *data;
 	size_t old_pos = stream->pos;
+	int write_errno = errno;
 
 	i_assert(sstream->fd != -1);
 	i_assert(stream->skip == 0);
@@ -256,8 +257,8 @@ static int i_stream_seekable_write_failed(struct seekable_istream *sstream)
 		sstream->istream.istream.stream_errno = errno;
 		sstream->istream.istream.eof = TRUE;
 		io_stream_set_error(&sstream->istream.iostream,
-				    "istream-seekable: read(%s) failed: %m",
-				    sstream->temp_path);
+				    "istream-seekable: write(%s) failed: %s, and attempt to read() it back failed: %m",
+				    sstream->temp_path, strerror(write_errno));
 		return -1;
 	}
 	sstream->buffer_peak = sstream->write_peak;
@@ -310,14 +311,17 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 		ret = write(sstream->fd, data, size);
 		i_assert(ret != 0);
 		if (ret < 0) {
-			if (!ENOSPACE(errno)) {
-				i_error("istream-seekable: write_full(%s) failed: %m",
-					sstream->temp_path);
-			}
+			const char *orig_temp_path = t_strdup(sstream->temp_path);
+			int write_errno = errno;
 			if (i_stream_seekable_write_failed(sstream) < 0)
 				return -1;
 			if (!read_from_buffer(sstream, &ret))
 				i_unreached();
+
+			errno = write_errno;
+			i_warning("istream-seekable: write_full(%s) failed: %m - "
+				  "fallback to using only memory",
+				  orig_temp_path);
 			return ret;
 		}
 		i_stream_sync(sstream->fd_input);
