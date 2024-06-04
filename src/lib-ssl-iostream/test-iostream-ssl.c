@@ -233,9 +233,9 @@ static int test_iostream_ssl_handshake_real(struct ssl_iostream_settings *server
 	server->io = io_add_istream(server->input, handshake_input_callback, server);
 
 	if (ssl_iostream_handshake(client->iostream) < 0)
-		return -1;
-
-	io_loop_run(current_ioloop);
+		ret = -1;
+	else
+		io_loop_run(current_ioloop);
 
 	if (client->failed || server->failed)
 		ret = -1;

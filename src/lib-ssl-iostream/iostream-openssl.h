@@ -60,6 +60,7 @@ struct ssl_iostream {
 	ssl_iostream_sni_callback_t *sni_callback;
 	void *sni_context;
 
+	bool do_shutdown:1;
 	bool handshaked:1;
 	bool handshake_failed:1;
 	bool cert_received:1;

@@ -375,6 +375,7 @@ static void openssl_iostream_unref(struct ssl_iostream *ssl_io)
 	if (--ssl_io->refcount > 0)
 		return;
 
+	i_assert(ssl_io->destroyed);
 	openssl_iostream_free(ssl_io);
 }
 
@@ -387,16 +388,44 @@ void openssl_iostream_shutdown(struct ssl_iostream *ssl_io)
 	i_assert(ssl_io->ssl_output != NULL);
 
 	ssl_io->destroyed = TRUE;
-	if (ssl_io->handshaked && SSL_shutdown(ssl_io->ssl) != 1) {
-		/* if bidirectional shutdown fails we need to clear
-		   the error queue */
-		openssl_iostream_clear_errors();
-	}
-	if (ssl_io->handshaked) {
-		(void)openssl_iostream_bio_sync(ssl_io,
-			OPENSSL_IOSTREAM_SYNC_TYPE_WRITE);
-	}
 	(void)o_stream_flush(ssl_io->plain_output);
+
+	if (!ssl_io->closed &&
+	    (ssl_io->handshaked || ssl_io->handshake_failed || ssl_io->do_shutdown)) {
+		/* Try shutting down connection. If it does not succeed at once,
+		   try once more. */
+		for (int i = 0; i < 2; i++) {
+			openssl_iostream_clear_errors();
+			int ret = SSL_shutdown(ssl_io->ssl);
+			if (ret == 1)
+				break;
+			else if (ret == 0)
+				openssl_iostream_bio_sync(ssl_io, OPENSSL_IOSTREAM_SYNC_TYPE_WRITE);
+			else {
+				/* have to implement own error handling here to
+				   avoid losing actual error. */
+				int err = SSL_get_error(ssl_io->ssl, ret);
+				/* still need to do this even if it fails,
+				   otherwise the outgoing message does not get sent. */
+				openssl_iostream_bio_sync(ssl_io, OPENSSL_IOSTREAM_SYNC_TYPE_WRITE);
+				/* these are not really errors, don't log */
+				if (err == SSL_ERROR_WANT_READ ||
+				    err == SSL_ERROR_WANT_WRITE ||
+				    err == SSL_ERROR_WANT_ASYNC)
+					continue;
+				if (openssl_iostream_handle_error(ssl_io, ret, OPENSSL_IOSTREAM_SYNC_TYPE_WRITE,
+							      "SSL_shutdown()") < 0) {
+					e_debug(ssl_io->event, "%s",
+						ssl_io->last_error);
+				}
+				break;
+			}
+		}
+	}
+
+	/* clear any errors */
+	openssl_iostream_clear_errors();
+
 	/* close the plain i/o streams, because their fd may be closed soon,
 	   but we may still keep this ssl-iostream referenced until later. */
 	i_stream_close(ssl_io->plain_input);
@@ -696,6 +725,8 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 		while ((ret = SSL_connect(ssl_io->ssl)) <= 0) {
 			ret = openssl_iostream_handle_error(ssl_io, ret,
 				OPENSSL_IOSTREAM_SYNC_TYPE_HANDSHAKE, "SSL_connect()");
+			if (ret < 0)
+				ssl_io->do_shutdown = TRUE;
 			if (ret <= 0)
 				return ret;
 		}
@@ -703,6 +734,8 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 		while ((ret = SSL_accept(ssl_io->ssl)) <= 0) {
 			ret = openssl_iostream_handle_error(ssl_io, ret,
 				OPENSSL_IOSTREAM_SYNC_TYPE_HANDSHAKE, "SSL_accept()");
+			if (ret < 0)
+				ssl_io->do_shutdown = TRUE;
 			if (ret <= 0)
 				return ret;
 		}
@@ -724,8 +757,7 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 		}
 	}
 	if (ssl_io->handshake_failed) {
-		i_stream_close(ssl_io->plain_input);
-		o_stream_close(ssl_io->plain_output);
+		openssl_iostream_shutdown(ssl_io);
 		errno = EINVAL;
 		return -1;
 	}
