@@ -1293,6 +1293,13 @@ bool client_get_extra_disconnect_reason(struct client *client,
 
 	*event_reason_r = NULL;
 
+	if (client->ssl_iostream != NULL &&
+	    !ssl_iostream_is_handshaked(client->ssl_iostream)) {
+		*event_reason_r = "tls_handshake_not_finished";
+		*human_reason_r = "disconnected during TLS handshake";
+		return TRUE;
+	}
+
 	if (!client->notified_auth_ready) {
 		*event_reason_r = "auth_process_not_ready";
 		*human_reason_r = t_strdup_printf(
