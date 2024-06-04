@@ -329,12 +329,12 @@ static void dns_lookup_free(struct dns_lookup **_lookup)
 void dns_lookup_abort(struct dns_lookup **_lookup)
 {
 	struct dns_lookup *lookup = *_lookup;
-	struct dns_client *client = lookup->client;
 
 	if (lookup == NULL)
 		return;
 	*_lookup = NULL;
 
+	struct dns_client *client = lookup->client;
 	if (client->deinit_client_at_free)
 		dns_client_deinit(&client);
 	else
