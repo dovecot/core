@@ -576,6 +576,7 @@ static void login_proxy_disconnect(struct login_proxy *proxy)
 	i_stream_destroy(&proxy->server_input);
 	o_stream_destroy(&proxy->server_output);
 	if (proxy->server_fd != -1) {
+		(void)shutdown(proxy->server_fd, SHUT_RDWR);
 		net_disconnect(proxy->server_fd);
 		proxy->server_fd = -1;
 	}

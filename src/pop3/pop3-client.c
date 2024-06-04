@@ -640,6 +640,8 @@ static void client_default_destroy(struct client *client, const char *reason)
 	i_stream_destroy(&client->input);
 	o_stream_destroy(&client->output);
 
+	if (client->fd_in == client->fd_out)
+		(void)shutdown(client->fd_out, SHUT_RDWR);
 	fd_close_maybe_stdio(&client->fd_in, &client->fd_out);
 
 	/* Autoexpunging might run for a long time. Disconnect the client

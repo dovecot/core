@@ -892,6 +892,8 @@ void connection_disconnect(struct connection *conn)
 	i_stream_destroy(&conn->input);
 	o_stream_close(conn->output);
 	o_stream_destroy(&conn->output);
+	if (conn->fd_in == conn->fd_out)
+		(void)shutdown(conn->fd_out, SHUT_RDWR);
 	fd_close_maybe_stdio(&conn->fd_in, &conn->fd_out);
 	conn->disconnected = TRUE;
 }

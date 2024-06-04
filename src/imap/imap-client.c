@@ -513,6 +513,8 @@ static void client_default_destroy(struct client *client, const char *reason)
 	timeout_remove(&client->to_idle_output);
 	timeout_remove(&client->to_idle);
 
+	if (!client->hibernated && client->fd_in == client->fd_out)
+		(void)shutdown(client->fd_out, SHUT_RDWR);
 	/* i/ostreams are already closed at this stage, so fd can be closed */
 	fd_close_maybe_stdio(&client->fd_in, &client->fd_out);
 

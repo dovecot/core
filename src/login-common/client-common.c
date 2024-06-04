@@ -417,6 +417,8 @@ void client_disconnect(struct client *client, const char *reason,
 		}
 		i_stream_close(client->input);
 		o_stream_close(client->output);
+		(void)shutdown(client->fd, SHUT_RDWR);
+
 		i_close_fd(&client->fd);
 		if (unref) {
 			i_assert(client->refcount > 1);
