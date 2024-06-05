@@ -59,7 +59,7 @@ static void iostream_pump_copy(struct iostream_pump *pump)
 		pump->waiting_output = FALSE;
 		io_remove(&pump->io);
 		/* flush it */
-		switch (o_stream_flush(pump->output)) {
+		switch (o_stream_finish(pump->output)) {
 		case -1:
 			pump->callback(IOSTREAM_PUMP_STATUS_OUTPUT_ERROR,
 				       pump->context);
