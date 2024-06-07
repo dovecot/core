@@ -314,6 +314,15 @@ int quota_user_read_settings(struct mail_user *user,
 	if (quota_set->quota_exceeded_msg == NULL)
 		quota_set->quota_exceeded_msg = DEFAULT_QUOTA_EXCEEDED_MSG;
 
+	const char *mailbox_count =
+		mail_user_plugin_getenv(user, "quota_mailbox_count");
+	if (mailbox_count != NULL) {
+		if (str_to_uint(mailbox_count, &quota_set->max_mailbox_count) < 0) {
+			*error_r = "Invalid quota_mailbox_count";
+			return -1;
+		}
+	}
+
 	const char *max_size = mail_user_plugin_getenv(user,
 						       "quota_max_mail_size");
 	if (max_size != NULL) {

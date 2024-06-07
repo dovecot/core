@@ -28,6 +28,7 @@ struct quota_settings {
 		struct quota_transaction_context *ctx, uoff_t size,
 		const char **error_r);
 
+	unsigned int max_mailbox_count;
 	uoff_t max_mail_size;
 	unsigned int max_messages_per_mailbox;
 	const char *quota_exceeded_msg;
