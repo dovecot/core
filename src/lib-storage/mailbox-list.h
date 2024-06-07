@@ -298,6 +298,9 @@ struct mailbox_log *mailbox_list_get_changelog(struct mailbox_list *list);
    current time is used */
 void mailbox_list_set_changelog_timestamp(struct mailbox_list *list,
 					  time_t stamp);
+/* Get the number of mailboxes in the list, ignoring any ACLs. Auto-created
+   mailboxes that haven't been yet created are not counted. */
+int mailbox_list_get_count(struct mailbox_list *list, unsigned int *count_r);
 
 /* Returns a prefix that temporary files should use without conflicting
    with the namespace. */

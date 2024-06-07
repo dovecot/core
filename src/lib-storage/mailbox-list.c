@@ -1666,6 +1666,23 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 					 flags_r);
 }
 
+int mailbox_list_get_count(struct mailbox_list *list, unsigned int *count_r)
+{
+	struct mailbox_list_iterate_context *iter =
+		mailbox_list_iter_init(list, "*",
+				       MAILBOX_LIST_ITER_RAW_LIST |
+				       MAILBOX_LIST_ITER_NO_AUTO_BOXES |
+				       MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
+	unsigned int count = 0;
+	while (mailbox_list_iter_next(iter) != NULL)
+		count++;
+	if (mailbox_list_iter_deinit(&iter) < 0)
+		return -1;
+
+	*count_r = count;
+	return 0;
+}
+
 static bool mailbox_list_init_changelog(struct mailbox_list *list)
 {
 	struct mailbox_permissions perm;
