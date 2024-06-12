@@ -9,7 +9,6 @@
 #include "write-full.h"
 #include "eacces-error.h"
 #include "wildcard-match.h"
-#include "dict.h"
 #include "mailbox-list-private.h"
 #include "quota-private.h"
 #include "quota-fs.h"
@@ -21,7 +20,6 @@
 
 #define DEFAULT_QUOTA_EXCEEDED_MSG \
 	"Quota exceeded (mailbox for user is full)"
-#define QUOTA_LIMIT_SET_PATH DICT_PATH_PRIVATE"quota/limit/"
 
 /* How many seconds after the userdb lookup do we still want to execute the
    quota_over_script. This applies to quota_over_flag_lazy_check=yes and also
@@ -169,26 +167,6 @@ quota_root_add_warning_rules(struct mail_user *user, const char *root_name,
 }
 
 static int
-quota_root_parse_set(struct mail_user *user, const char *root_name,
-		     struct quota_root_settings *root_set,
-		     const char **error_r)
-{
-	const char *name, *value;
-
-	name = t_strconcat(root_name, "_set", NULL);
-	value = mail_user_plugin_getenv(user, name);
-	if (value == NULL)
-		return 0;
-
-	if (!str_begins(value, "dict:", &value)) {
-		*error_r = t_strdup_printf("%s supports only dict backend", name);
-		return -1;
-	}
-	root_set->limit_set = p_strdup(root_set->set->pool, value);
-	return 0;
-}
-
-static int
 quota_root_settings_init(struct quota_settings *quota_set, const char *root_def,
 			 struct quota_root_settings **set_r,
 			 const char **error_r)
@@ -257,8 +235,6 @@ quota_root_add(struct quota_settings *quota_set, struct mail_user *user,
 	if (quota_root_add_rules(user, root_name, root_set, error_r) < 0)
 		return -1;
 	if (quota_root_add_warning_rules(user, root_name, root_set, error_r) < 0)
-		return -1;
-	if (quota_root_parse_set(user, root_name, root_set, error_r) < 0)
 		return -1;
 
 	set_name = t_strconcat(root_name, "_grace", NULL);
@@ -393,8 +369,6 @@ static void quota_root_deinit(struct quota_root *root)
 {
 	pool_t pool = root->pool;
 
-	if (root->limit_set_dict != NULL)
-		dict_deinit(&root->limit_set_dict);
 	event_unref(&root->backend.event);
 	root->backend.v.deinit(root);
 	pool_unref(&pool);
@@ -852,57 +826,6 @@ quota_get_resource(struct quota_root *root, const char *mailbox_name,
 		*limit_r = (*limit_r + 1023) / 1024;
 	}
 	return *limit_r == 0 ? QUOTA_GET_RESULT_UNLIMITED : QUOTA_GET_RESULT_LIMITED;
-}
-
-int quota_set_resource(struct quota_root *root, const char *name,
-		       uint64_t value, const char **client_error_r)
-{
-	struct dict_transaction_context *trans;
-	const char *key, *error;
-	const struct dict_op_settings *set;
-
-	if (root->set->limit_set == NULL) {
-		*client_error_r = MAIL_ERRSTR_NO_PERMISSION;
-		return -1;
-	}
-	if (strcasecmp(name, QUOTA_NAME_STORAGE_KILOBYTES) == 0)
-		key = "storage";
-	else if (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
-		key = "bytes";
-	else if (strcasecmp(name, QUOTA_NAME_MESSAGES) == 0)
-		key = "messages";
-	else {
-		*client_error_r = t_strdup_printf(
-			"Unsupported resource name: %s", name);
-		return -1;
-	}
-
-	if (root->limit_set_dict == NULL) {
-		struct dict_legacy_settings set;
-
-		i_zero(&set);
-		set.base_dir = root->quota->user->set->base_dir;
-		set.event_parent = root->quota->user->event;
-		if (dict_init_legacy(root->set->limit_set, &set,
-				     &root->limit_set_dict, &error) < 0) {
-			e_error(root->quota->event,
-				"dict_init() failed: %s", error);
-			*client_error_r = "Internal quota limit update error";
-			return -1;
-		}
-	}
-
-	set = mail_user_get_dict_op_settings(root->ns->user);
-	trans = dict_transaction_begin(root->limit_set_dict, set);
-	key = t_strdup_printf(QUOTA_LIMIT_SET_PATH"%s", key);
-	dict_set(trans, key, dec2str(value));
-	if (dict_transaction_commit(&trans, &error) < 0) {
-		e_error(root->quota->event,
-			"dict_transaction_commit() failed: %s", error);
-		*client_error_r = "Internal quota limit update error";
-		return -1;
-	}
-	return 0;
 }
 
 struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
