@@ -7,7 +7,7 @@ See [INSTALL.md](INSTALL.md) file.
 Configuration
 =============
 
-See [doc/documentation.txt](doc/documentation.txt) or [https://doc.dovecot.org](https://doc.dovecot.org)
+See [https://doc.dovecot.org](https://doc.dovecot.org).
 
 
 RFCs conformed
