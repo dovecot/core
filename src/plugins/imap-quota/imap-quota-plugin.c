@@ -3,6 +3,7 @@
 #include "imap-common.h"
 #include "str.h"
 #include "ostream.h"
+#include "imap-resp-code.h"
 #include "imap-quote.h"
 #include "mail-namespace.h"
 #include "imap-commands.h"
@@ -190,47 +191,14 @@ static bool cmd_getquota(struct client_command_context *cmd)
 
 static bool cmd_setquota(struct client_command_context *cmd)
 {
-	struct quota_root *root;
-	struct mail_user *owner;
-        const struct imap_arg *args, *list_args;
-	const char *root_name, *name, *value_str, *client_error;
-	uint64_t value;
+        const struct imap_arg *args;
 
 	/* <quota root> <resource limits> */
 	if (!client_read_args(cmd, 2, 0, &args))
 		return FALSE;
 
-	if (!imap_arg_get_astring(&args[0], &root_name) ||
-	    !imap_arg_get_list(&args[1], &list_args)) {
-		client_send_command_error(cmd, "Invalid arguments.");
-		return TRUE;
-	}
-
-	if (!cmd->client->user->admin) {
-		client_send_tagline(cmd, "NO Quota can be changed only by admin.");
-		return TRUE;
-	}
-
-	if (!parse_quota_root(cmd->client->user, root_name, &owner, &root)) {
-		client_send_tagline(cmd, "NO Quota root doesn't exist.");
-		return TRUE;
-	}
-
-	for (; !IMAP_ARG_IS_EOL(list_args); list_args += 2) {
-		if (!imap_arg_get_atom(&list_args[0], &name) ||
-		    !imap_arg_get_atom(&list_args[1], &value_str) ||
-		    str_to_uint64(value_str, &value) < 0) {
-			client_send_command_error(cmd, "Invalid arguments.");
-			return TRUE;
-		}
-
-		if (quota_set_resource(root, name, value, &client_error) < 0) {
-			client_send_command_error(cmd, client_error);
-			return TRUE;
-		}
-	}
-
-	client_send_tagline(cmd, "OK Setquota completed.");
+	client_send_tagline(cmd, "NO ["IMAP_RESP_CODE_NOPERM"] "
+			    MAIL_ERRSTR_NO_PERMISSION);
 	return TRUE;
 }
 
