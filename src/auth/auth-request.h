@@ -326,8 +326,14 @@ void auth_request_set_strlist(struct auth_request *request,
 
 int auth_request_set_passdb_fields(struct auth_request *request,
 				   struct auth_fields *fields);
+int auth_request_set_passdb_fields_ex(struct auth_request *request, void *context,
+				      const char *default_password_scheme,
+				      const struct var_expand_func_table *fn_table);
+
 int auth_request_set_userdb_fields(struct auth_request *request,
 				   struct auth_fields *fields);
+int auth_request_set_userdb_fields_ex(struct auth_request *request, void *context,
+				      const struct var_expand_func_table *fn_table);
 
 void auth_request_init_userdb_reply(struct auth_request *request);
 void auth_request_set_userdb_field(struct auth_request *request,
