@@ -832,19 +832,28 @@ auth_request_fields_var_expand_lookup(const char *data, void *context,
 int auth_request_set_passdb_fields(struct auth_request *request,
 				   struct auth_fields *fields)
 {
+	const char *driver_name =
+		t_str_replace(request->passdb->passdb->iface.name, '-', '_');
+	const struct var_expand_func_table fn_table[] = {
+		{ driver_name, auth_request_fields_var_expand_lookup },
+		{ NULL, NULL }
+	};
+
+	return auth_request_set_passdb_fields_ex(request, fields, STATIC_PASS_SCHEME, fn_table);
+}
+
+int auth_request_set_passdb_fields_ex(struct auth_request *request,
+				      void *context,
+				      const char *default_password_scheme,
+				      const struct var_expand_func_table *fn_table)
+{
 	struct event *event = event_create(authdb_event(request));
 	const struct auth_passdb_post_settings *post_set;
 	const char *error;
 
-	const char *driver_name =
-		t_str_replace(request->passdb->passdb->iface.name, '-', '_');
-	struct var_expand_func_table auth_request_fields_funcs[] = {
-		{ driver_name, auth_request_fields_var_expand_lookup },
-		{ NULL, NULL }
-	};
 	struct var_expand_params params = {
-		.func_table = auth_request_fields_funcs,
-		.func_context = fields,
+		.func_table = fn_table,
+		.func_context = context,
 	};
 	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, &params);
 
@@ -855,28 +864,34 @@ int auth_request_set_passdb_fields(struct auth_request *request,
 		return -1;
 	}
 	auth_request_set_strlist(request, &post_set->fields,
-				 STATIC_PASS_SCHEME);
+				 default_password_scheme);
 	settings_free(post_set);
 	event_unref(&event);
 	return 0;
 }
 
 int auth_request_set_userdb_fields(struct auth_request *request,
-				   struct auth_fields *fields)
+				   struct auth_fields *fields) {
+	const char *driver_name =
+		t_str_replace(request->userdb->userdb->iface->name, '-', '_');
+	const struct var_expand_func_table fn_table[] = {
+		{ driver_name, auth_request_fields_var_expand_lookup },
+		{ NULL, NULL }
+	};
+
+	return auth_request_set_userdb_fields_ex(request, fields, fn_table);
+}
+
+int auth_request_set_userdb_fields_ex(struct auth_request *request, void *context,
+				      const struct var_expand_func_table *fn_table)
 {
 	struct event *event = event_create(authdb_event(request));
 	const struct auth_userdb_post_settings *post_set;
 	const char *error;
 
-	const char *driver_name =
-		t_str_replace(request->userdb->userdb->iface->name, '-', '_');
-	struct var_expand_func_table auth_request_fields_funcs[] = {
-		{ driver_name, auth_request_fields_var_expand_lookup },
-		{ NULL, NULL }
-	};
 	struct var_expand_params params = {
-		.func_table = auth_request_fields_funcs,
-		.func_context = fields,
+		.func_table = fn_table,
+		.func_context = context,
 	};
 	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, &params);
 
