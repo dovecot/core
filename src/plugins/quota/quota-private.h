@@ -29,6 +29,7 @@ struct quota_settings {
 		const char **error_r);
 
 	uoff_t max_mail_size;
+	unsigned int max_messages_per_mailbox;
 	const char *quota_exceeded_msg;
 	bool debug:1;
 	bool initialized:1;

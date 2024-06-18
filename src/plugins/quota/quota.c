@@ -287,6 +287,8 @@ const char *quota_alloc_result_errstr(enum quota_alloc_result res,
 	case QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT:
 	case QUOTA_ALLOC_RESULT_OVER_QUOTA:
 		return qt->quota->set->quota_exceeded_msg;
+	case QUOTA_ALLOC_RESULT_OVER_QUOTA_MAILBOX_LIMIT:
+		return "Too many messages in the mailbox";
 	}
 	i_unreached();
 }
@@ -320,6 +322,19 @@ int quota_user_read_settings(struct mail_user *user,
 				       &error) < 0) {
 			*error_r = t_strdup_printf("quota_max_mail_size: %s",
 					error);
+			return -1;
+		}
+	}
+
+	const char *max_box_count =
+		mail_user_plugin_getenv(user, "quota_mailbox_message_count");
+	if (max_box_count != NULL) {
+		const char *error;
+		if (str_parse_uint(max_box_count,
+				   &quota_set->max_messages_per_mailbox,
+				   &error) < 0) {
+			*error_r = t_strdup_printf(
+				"quota_mailbox_message_count: %s", error);
 			return -1;
 		}
 	}
@@ -937,6 +952,7 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 				 enum quota_get_result *error_result_r,
 				 const char **error_r)
 {
+	const struct quota_settings *set = ctx->quota->set;
 	struct quota_root *const *roots;
 	const char *mailbox_name, *error;
 	unsigned int i, count;
@@ -1031,6 +1047,22 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 					mailbox_name, error);
 				return -1;
 			}
+		}
+	}
+
+	if (set->max_messages_per_mailbox != 0) {
+		struct mailbox_status status;
+		mailbox_get_open_status(ctx->box, STATUS_MESSAGES, &status);
+		if (status.messages <= set->max_messages_per_mailbox) {
+			diff = set->max_messages_per_mailbox - status.messages;
+			if (ctx->count_ceil > diff)
+				ctx->count_ceil = diff;
+		} else {
+			/* over quota */
+			ctx->count_ceil = 0;
+			diff = status.messages - set->max_messages_per_mailbox;
+			if (ctx->count_over < diff)
+				ctx->count_over = diff;
 		}
 	}
 	return 0;
@@ -1418,6 +1450,14 @@ static enum quota_alloc_result quota_default_test_alloc(
 
 	if (!quota_transaction_is_over(ctx, size))
 		return QUOTA_ALLOC_RESULT_OK;
+
+	if (ctx->quota->set->max_messages_per_mailbox != 0) {
+		struct mailbox_status status;
+		mailbox_get_open_status(ctx->box, STATUS_MESSAGES, &status);
+		unsigned int new_count = status.messages + ctx->count_used;
+		if (new_count >= ctx->quota->set->max_messages_per_mailbox)
+			return QUOTA_ALLOC_RESULT_OVER_QUOTA_MAILBOX_LIMIT;
+	}
 
 	/* limit reached. */
 	roots = array_get(&ctx->quota->roots, &count);

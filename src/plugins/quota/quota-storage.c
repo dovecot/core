@@ -60,6 +60,7 @@ static void quota_set_storage_error(struct quota_transaction_context *qt,
 		mail_storage_set_error(storage, MAIL_ERROR_LIMIT, errstr);
 		break;
 	case QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT:
+	case QUOTA_ALLOC_RESULT_OVER_QUOTA_MAILBOX_LIMIT:
 	case QUOTA_ALLOC_RESULT_OVER_QUOTA:
 		mail_storage_set_error(storage, MAIL_ERROR_NOQUOTA, errstr);
 		break;

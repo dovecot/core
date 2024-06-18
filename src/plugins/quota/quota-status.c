@@ -191,6 +191,7 @@ static void client_handle_request(struct quota_client *client)
 						"quota_status_toolarge");
 			/* fall through */
 		case QUOTA_ALLOC_RESULT_OVER_QUOTA:
+		case QUOTA_ALLOC_RESULT_OVER_QUOTA_MAILBOX_LIMIT:
 			if (value == NULL)
 				value = mail_user_plugin_getenv(user,
 						"quota_status_overquota");
