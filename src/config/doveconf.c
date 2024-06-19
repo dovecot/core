@@ -996,7 +996,7 @@ int main(int argc, char *argv[])
 						hide_key, hide_passwords);
 		}
 	} else {
-		const char *info, *mail_location;
+		const char *info, *mail_location, *version;
 
 		mail_location = config_module_parsers_get_setting(
 			config_parsed_get_module_parsers(config),
@@ -1005,6 +1005,8 @@ int main(int argc, char *argv[])
 		if (*info != '\0')
 			printf("# %s\n", info);
 		printf("# Hostname: %s\n", my_hostdomain());
+		if (config_parsed_get_version(config, &version))
+			printf("dovecot_config_version = %s\n", version);
 		if (!config_path_specified)
 			check_wrong_config(config_path);
 		if (scope == CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN)

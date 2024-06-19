@@ -41,6 +41,8 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 		      struct config_parsed **config_r,
 		      const char **error_r)
 	ATTR_NULL(3);
+bool config_parsed_get_version(struct config_parsed *config,
+			       const char **version_r);
 /* Return all errors found while parsing the config file. */
 const ARRAY_TYPE(const_string) *
 config_parsed_get_errors(struct config_parsed *config);

@@ -46,6 +46,7 @@ struct config_parser_key {
 
 struct config_parsed {
 	pool_t pool;
+	const char *dovecot_config_version;
 	struct config_filter_parser *const *filter_parsers;
 	struct config_module_parser *module_parsers;
 	ARRAY_TYPE(const_string) errors;
@@ -1180,6 +1181,7 @@ config_parse_finish(struct config_parser_context *ctx,
 	new_config = p_new(ctx->pool, struct config_parsed, 1);
 	new_config->pool = ctx->pool;
 	pool_ref(new_config->pool);
+	new_config->dovecot_config_version = ctx->dovecot_config_version;
 	p_array_init(&new_config->errors, ctx->pool, 1);
 
 	array_append_zero(&ctx->all_filter_parsers);
@@ -1648,6 +1650,13 @@ prevfile:
 	}
 	pool_unref(&ctx.pool);
 	return ret < 0 ? ret : 1;
+}
+
+bool config_parsed_get_version(struct config_parsed *config,
+			       const char **version_r)
+{
+	*version_r = config->dovecot_config_version;
+	return config->dovecot_config_version != NULL;
 }
 
 const ARRAY_TYPE(const_string) *
