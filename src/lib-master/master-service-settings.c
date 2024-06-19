@@ -49,6 +49,7 @@ static const struct setting_define master_service_setting_defines[] = {
 	DEF(STR, syslog_facility),
 	DEF(STR, import_environment),
 	DEF(STR, stats_writer_socket_path),
+	DEF(STR, dovecot_storage_version),
 	DEF(BOOL, version_ignore),
 	DEF(BOOL, shutdown_clients),
 	DEF(BOOL, verbose_proctitle),
@@ -86,6 +87,7 @@ static const struct master_service_settings master_service_default_settings = {
 	.syslog_facility = "mail",
 	.import_environment = "TZ CORE_OUTOFMEM CORE_ERROR PATH" ENV_SYSTEMD ENV_GDB,
 	.stats_writer_socket_path = "stats-writer",
+	.dovecot_storage_version = "",
 	.version_ignore = FALSE,
 	.shutdown_clients = TRUE,
 	.verbose_proctitle = FALSE,
@@ -136,6 +138,35 @@ master_service_set_process_shutdown_filter_wrapper(struct event_filter *filter)
 	master_service_set_process_shutdown_filter(master_service, filter);
 }
 
+static bool storage_version_check(const char *version, const char **error_r)
+{
+#define STORAGE_MIN_VERSION "2.3.0"
+
+	if (version[0] == '\0') {
+		*error_r = "dovecot_storage_version is empty";
+		return FALSE;
+	}
+	if (!version_is_valid(version)) {
+		*error_r = "Invalid dovecot_storage_version value (must be in x.y.z format)";
+		return FALSE;
+	}
+	if (version_cmp(version, STORAGE_MIN_VERSION) < 0) {
+		*error_r = t_strdup_printf(
+			"dovecot_storage_version is too old - "
+			"minimum supported version is %s",
+			STORAGE_MIN_VERSION);
+		return FALSE;
+	}
+	if (version_is_valid(DOVECOT_VERSION) &&
+	    version_cmp(version, DOVECOT_VERSION) > 0) {
+		*error_r = t_strdup_printf(
+			"dovecot_storage_version is too new - "
+			"current version is %s", DOVECOT_VERSION);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static bool
 master_service_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 			      const char **error_r)
@@ -163,6 +194,11 @@ master_service_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				  set->process_shutdown_filter,
 				  master_service_set_process_shutdown_filter_wrapper,
 				  error_r))
+		return FALSE;
+	/* doveconf / config checks dovecot_storage_version separately.
+	   This check shouldn't fail e.g. "doveconf -d" command. */
+	if (!is_config_binary() &&
+	    !storage_version_check(set->dovecot_storage_version, error_r))
 		return FALSE;
 	return TRUE;
 }
@@ -427,6 +463,19 @@ int master_service_settings_read(struct master_service *service,
 				"Failed to read configuration: %s", error);
 			return -1;
 		}
+	} else if (!settings_has_mmap(service->settings_root)) {
+		/* Use default settings. Set dovecot_storage_version to the
+		   latest version, so it won't cause a failure. Use userdb
+		   type, so it can still be overridden with -o parameter.
+
+		   When building from git we don't know the latest version, so
+		   just use 9999. The version validity checks are disabled for
+		   git builds, so this should work. */
+		const char *version = version_is_valid(DOVECOT_VERSION) ?
+			DOVECOT_VERSION : "9999";
+		settings_root_override(service->settings_root,
+				       "dovecot_storage_version", version,
+				       SETTINGS_OVERRIDE_TYPE_USERDB);
 	}
 	if (!settings_has_mmap(service->settings_root)) {
 		/* first time reading settings */

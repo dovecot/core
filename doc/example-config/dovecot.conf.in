@@ -5,6 +5,14 @@
 # names and the expected default values.
 dovecot_config_version = @DOVECOT_CONFIG_VERSION@
 
+# Dovecot storage file format version. It specifies the oldest Dovecot version
+# that must be able to read files written by this Dovecot instance. The
+# intention is that when upgrading Dovecot cluster, this setting is first kept
+# as the old Dovecot version. Once the cluster is fully upgraded to a new
+# version and there is no intention to rollback to the old version anymore,
+# this version number can be increased.
+dovecot_storage_version = @DOVECOT_CONFIG_VERSION@
+
 # If you're in a hurry, see
 # https://doc.dovecot.org/configuration_manual/quick_configuration/
 

@@ -1527,7 +1527,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	string_t *full_line;
 	char *line;
 	int fd, ret = 0;
-	bool handled;
+	bool handled, dump_defaults = (path == NULL);
 
 	*config_r = NULL;
 
@@ -1634,6 +1634,15 @@ prevfile:
 	while (ctx.cur_input != NULL) {
 		i_stream_destroy(&ctx.cur_input->input);
 		ctx.cur_input = ctx.cur_input->prev;
+	}
+	if (ret == 0 && !dump_defaults &&
+	    (flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) == 0) {
+		const char *version = config_module_parsers_get_setting(ctx.root_module_parsers,
+			"master_service", "dovecot_storage_version");
+		if (version[0] == '\0') {
+			*error_r = "dovecot_storage_version setting must be set";
+			ret = -2;
+		}
 	}
 
 	old_settings_handle_post(&ctx);

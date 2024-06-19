@@ -18,6 +18,7 @@ struct master_service_settings {
 	const char *syslog_facility;
 	const char *import_environment;
 	const char *stats_writer_socket_path;
+	const char *dovecot_storage_version;
 	bool version_ignore;
 	bool shutdown_clients;
 	bool verbose_proctitle;
