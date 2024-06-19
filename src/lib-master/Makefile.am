@@ -47,6 +47,7 @@ pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
 	test-event-stats \
+	test-master-service \
 	test-master-service-settings
 
 noinst_PROGRAMS = $(test_programs)
@@ -66,6 +67,10 @@ test_libs = \
 test_event_stats_SOURCES = test-event-stats.c
 test_event_stats_LDADD = $(test_libs)
 test_event_stats_DEPENDENCIES = $(test_deps)
+
+test_master_service_SOURCES = test-master-service.c
+test_master_service_LDADD = $(test_libs)
+test_master_service_DEPENDENCIES = $(test_deps)
 
 test_master_service_settings_SOURCES = test-master-service-settings.c
 test_master_service_settings_LDADD = $(test_libs)
