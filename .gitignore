@@ -71,6 +71,7 @@ doc/stamp-man
 doc/stamp-html
 
 doc/example-config/README
+doc/example-config/dovecot.conf
 doc/wiki/*.txt
 doc/wiki/Makefile.am
 src/anvil/anvil

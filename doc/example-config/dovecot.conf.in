@@ -1,5 +1,10 @@
 ## Dovecot configuration file
 
+# Dovecot configuration version. This must be the first setting in the
+# configuration file. It specifies the configuration syntax, the used setting
+# names and the expected default values.
+dovecot_config_version = @DOVECOT_CONFIG_VERSION@
+
 # If you're in a hurry, see
 # https://doc.dovecot.org/configuration_manual/quick_configuration/
 
