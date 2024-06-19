@@ -721,6 +721,9 @@ static void print_build_options(void)
 #ifdef IOLOOP_NOTIFY_KQUEUE
 		" notify=kqueue"
 #endif
+#ifdef DOVECOT_PRO_EDITION
+	        " pro"
+#endif
 		" openssl"
 	        " io_block_size=%u"
 #ifdef SQL_DRIVER_PLUGINS
