@@ -63,6 +63,7 @@ struct config_parser_context {
 	string_t *key_path, *value;
 	const char *error;
 
+	const char *dovecot_config_version;
 	struct old_set_parser *old;
 
 	HASH_TABLE(const char *, const char *) seen_settings;

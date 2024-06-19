@@ -93,6 +93,7 @@ static void test_config_parser(void)
 	test_begin("config_parse_file");
 
 	write_config_file(
+"dovecot_config_version = "DOVECOT_CONFIG_VERSION"\n"
 "# comment\n"
 "key=value\n"
 "key2 = \\$escape \\escape \\\"escape\\\"\n"

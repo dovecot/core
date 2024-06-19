@@ -1363,6 +1363,55 @@ config_parser_check_warnings(struct config_parser_context *ctx, const char *key)
 	hash_table_insert(ctx->seen_settings, path, first_pos);
 }
 
+static bool config_version_find(const char *version, const char **error_r)
+{
+	/* FIXME: implement full version checking later */
+	if (strcmp(version, DOVECOT_CONFIG_VERSION) != 0) {
+		*error_r = t_strdup_printf("Only '%s' is supported currently",
+					   DOVECOT_CONFIG_VERSION);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static bool config_parser_get_version(struct config_parser_context *ctx,
+				      const struct config_line *line)
+{
+	const char *error;
+
+	if (line->type == CONFIG_LINE_TYPE_SKIP ||
+	    line->type == CONFIG_LINE_TYPE_ERROR)
+		return FALSE;
+
+	if (strcmp(line->key, "dovecot_config_version") == 0) {
+		if (ctx->dovecot_config_version == NULL)
+			;
+		else if (strcmp(ctx->dovecot_config_version, line->value) != 0) {
+			ctx->error = "dovecot_config_version value can't be changed once set";
+			return TRUE;
+		} else {
+			/* Same value, ignore. This is mainly helpful to allow
+			   config files to include other config files in
+			   testing. */
+			return TRUE;
+		}
+	} else {
+		if (ctx->dovecot_config_version == NULL)
+			ctx->error = "The first setting must be dovecot_config_version";
+		return FALSE;
+	}
+
+	if (line->type != CONFIG_LINE_TYPE_KEYVALUE)
+		ctx->error = "Invalid dovecot_config_version: value is not a string";
+	else if (!config_version_find(line->value, &error)) {
+		ctx->error = p_strdup_printf(ctx->pool,
+			"Invalid dovecot_config_version: %s", error);
+	} else {
+		ctx->dovecot_config_version = p_strdup(ctx->pool, line->value);
+	}
+	return TRUE;
+}
+
 void config_parser_apply_line(struct config_parser_context *ctx,
 			      const struct config_line *line)
 {
@@ -1558,7 +1607,7 @@ prevfile:
 		if (config_line.type == CONFIG_LINE_TYPE_CONTINUE)
 			continue;
 
-		T_BEGIN {
+		if (!config_parser_get_version(&ctx, &config_line)) T_BEGIN {
 			handled = old_settings_handle(&ctx, &config_line);
 			if (!handled)
 				config_parser_apply_line(&ctx, &config_line);
