@@ -243,8 +243,10 @@ static void test_file_cache_errors(void)
 	size_t size;
 
 	/* file does not exist and we try large enough mapping */
-	test_expect_error_string("fstat(.test_file_cache) failed: "
-				 "Bad file descriptor");
+	const char *errstr =
+		t_strdup_printf("fstat(.test_file_cache) failed: %s",
+				strerror(EBADF));
+	test_expect_error_string(errstr);
 	test_assert(file_cache_read(cache, 0, 2*1024*1024) == -1);
 	const unsigned char *map = file_cache_get_map(cache, &size);
 	test_assert(size == 0);
@@ -259,17 +261,16 @@ static void test_file_cache_errors(void)
 		.rlim_cur = 1,
 		.rlim_max = rl_cur.rlim_max
 	};
-	const char *errstr =
-		t_strdup_printf("mmap_anon(.test_file_cache, %zu) failed: "
-				"Cannot allocate memory", page_size);
+	errstr = t_strdup_printf("mmap_anon(.test_file_cache, %zu) failed: %s",
+				 page_size, strerror(ENOMEM));
 	test_assert(setrlimit(RLIMIT_AS, &rl_new) == 0);
 	test_expect_error_string(errstr);
 	test_assert(file_cache_set_size(cache, 1024) == -1);
 	test_assert(setrlimit(RLIMIT_AS, &rl_cur) == 0);
 
 	/* same for mremap */
-	errstr = t_strdup_printf("mremap_anon(.test_file_cache, %zu) failed: "
-				 "Cannot allocate memory", page_size*2);
+	errstr = t_strdup_printf("mremap_anon(.test_file_cache, %zu) failed: %s",
+				 page_size*2, strerror(ENOMEM));
 	test_assert(file_cache_set_size(cache, 1) == 0);
 	test_assert(setrlimit(RLIMIT_AS, &rl_new) == 0);
 	test_expect_error_string(errstr);
