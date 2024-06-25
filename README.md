@@ -96,6 +96,7 @@ IMAP extensions
 - [RFC7888 - IMAP4 Non-synchronizing Literals (updated RFC2088)](https://tools.ietf.org/html/rfc7888)
 - [RFC8457 - IMAP "$Important" Keyword and "\Important" Special-Use Attribute](https://tools.ietf.org/html/rfc8457)
 - [RFC8970 - IMAP4 Extension: Message Preview Generation](https://tools.ietf.org/html/rfc8970)
+- [RFC9585 - IMAP Response Code for Command Progress Notifications](https://tools.ietf.org/html/rfc9585)
 
 SMTP/LMTP base
 --------------
