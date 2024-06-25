@@ -570,10 +570,20 @@ dsync_mailbox_export_iter_next_nonexistent_attr(struct dsync_mailbox_exporter *e
 		/* lookup the value mainly to get its last_change value. */
 		if (mailbox_attribute_get_stream(exporter->box, attr->type,
 						 attr->key, &value) < 0) {
+			enum mail_error mail_error;
+			const char *error = mailbox_get_last_internal_error(
+				exporter->box, &mail_error);
+
+			/* Unavailable can come from imapc attributes
+			   when backand doesn't offer the capability,
+			   just ignore the error in this case */
+			if (mail_error == MAIL_ERROR_UNAVAILABLE)
+				continue;
+
+			exporter->mail_error = mail_error;
 			exporter->error = p_strdup_printf(exporter->pool,
-				"Mailbox attribute %s lookup failed: %s", attr->key,
-				mailbox_get_last_internal_error(exporter->box,
-								&exporter->mail_error));
+				"Mailbox attribute %s lookup failed: %s",
+				attr->key, error);
 			break;
 		}
 		if ((value.flags & MAIL_ATTRIBUTE_VALUE_FLAG_READONLY) != 0) {
@@ -622,10 +632,20 @@ dsync_mailbox_export_iter_next_attr(struct dsync_mailbox_exporter *exporter)
 		if (mailbox_attribute_get_stream(exporter->box,
 						 exporter->attr_type, key,
 						 &value) < 0) {
+			enum mail_error mail_error;
+			const char *error = mailbox_get_last_internal_error(
+				exporter->box, &mail_error);
+
+			/* Unavailable can come from imapc attributes
+			   when backand doesn't offer the capability,
+			   just ignore the error in this case */
+			if (mail_error == MAIL_ERROR_UNAVAILABLE)
+				continue;
+
+			exporter->mail_error = mail_error;
 			exporter->error = p_strdup_printf(exporter->pool,
-				"Mailbox attribute %s lookup failed: %s", key,
-				mailbox_get_last_internal_error(exporter->box,
-								&exporter->mail_error));
+				"Mailbox attribute %s lookup failed: %s",
+				key, error);
 			return -1;
 		}
 		if ((value.flags & MAIL_ATTRIBUTE_VALUE_FLAG_READONLY) != 0) {

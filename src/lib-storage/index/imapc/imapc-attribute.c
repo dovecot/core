@@ -246,7 +246,7 @@ imapc_storage_attribute_handling(struct mailbox *box,
 
 	if (!HAS_ALL_BITS(capabilities, IMAPC_CAPABILITY_METADATA)) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_UNAVAILABLE,
-				"Can't access metadata");
+				       "Can't access metadata on imapc backend");
 		return HANDLE_UNAVAILABLE;
 	}
 
