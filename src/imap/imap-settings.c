@@ -61,8 +61,8 @@ static const struct setting_define imap_setting_defines[] = {
 	DEF(BOOL, verbose_proctitle),
 	DEF(STR_VARS, rawlog_dir),
 
-	DEF(SIZE, imap_max_line_length),
-	DEF(TIME, imap_idle_notify_interval),
+	DEF(SIZE_HIDDEN, imap_max_line_length),
+	DEF(TIME_HIDDEN, imap_idle_notify_interval),
 	DEF(STR, imap_capability),
 	DEF(STR, imap_client_workarounds),
 	DEF(STR, imap_logout_format),

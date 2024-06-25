@@ -14,11 +14,11 @@ static const struct setting_define mbox_setting_defines[] = {
 	DEF(STR, mbox_write_locks),
 	DEF(TIME, mbox_lock_timeout),
 	DEF(TIME, mbox_dotlock_change_timeout),
-	DEF(SIZE, mbox_min_index_size),
+	DEF(SIZE_HIDDEN, mbox_min_index_size),
 	DEF(BOOL, mbox_dirty_syncs),
 	DEF(BOOL, mbox_very_dirty_syncs),
 	DEF(BOOL, mbox_lazy_writes),
-	DEF(ENUM, mbox_md5),
+	DEF(ENUM_HIDDEN, mbox_md5),
 
 	SETTING_DEFINE_LIST_END
 };

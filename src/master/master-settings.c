@@ -187,9 +187,9 @@ const struct setting_parser_info service_setting_parser_info = {
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct master_settings)
 
 static const struct setting_define master_setting_defines[] = {
-	DEF(STR, base_dir),
-	DEF(STR, state_dir),
-	DEF(STR, libexec_dir),
+	DEF(STR_HIDDEN, base_dir),
+	DEF(STR_HIDDEN, state_dir),
+	DEF(STR_HIDDEN, libexec_dir),
 	DEF(STR, instance_name),
 	DEF(STR, protocols),
 	DEF(STR, listen),

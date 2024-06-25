@@ -59,8 +59,8 @@ const struct setting_keyvalue doveadm_service_settings_defaults[] = {
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct doveadm_settings)
 
 static const struct setting_define doveadm_setting_defines[] = {
-	DEF(STR, base_dir),
-	DEF(STR, libexec_dir),
+	DEF(STR_HIDDEN, base_dir),
+	DEF(STR_HIDDEN, libexec_dir),
 	DEF(STR, mail_plugins),
 	DEF(STR, mail_plugin_dir),
 	DEF(STR_VARS, mail_temp_dir),
@@ -80,7 +80,7 @@ static const struct setting_define doveadm_setting_defines[] = {
 	DEF(STR, dsync_features),
 	DEF(UINT, dsync_commit_msgs_interval),
 	DEF(STR, doveadm_http_rawlog_dir),
-	DEF(STR, dsync_hashed_headers),
+	DEF(STR_HIDDEN, dsync_hashed_headers),
 
 	{ .type = SET_STRLIST, .key = "plugin",
 	  .offset = offsetof(struct doveadm_settings, plugin_envs) },

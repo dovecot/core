@@ -61,7 +61,7 @@ static const struct setting_define submission_setting_defines[] = {
 
 	DEF(STR, hostname),
 
-	DEF(STR_VARS, login_greeting),
+	DEF(STR_VARS_HIDDEN, login_greeting),
 	DEF(STR, login_trusted_networks),
 
 	DEF(STR, recipient_delimiter),

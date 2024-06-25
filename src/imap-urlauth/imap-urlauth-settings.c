@@ -47,7 +47,7 @@ const struct setting_keyvalue imap_urlauth_service_settings_defaults[] = {
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct imap_urlauth_settings)
 
 static const struct setting_define imap_urlauth_setting_defines[] = {
-	DEF(STR, base_dir),
+	DEF(STR_HIDDEN, base_dir),
 
 	DEF(BOOL, mail_debug),
 

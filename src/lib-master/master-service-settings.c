@@ -36,8 +36,8 @@ static bool
 master_service_settings_check(void *_set, pool_t pool, const char **error_r);
 
 static const struct setting_define master_service_setting_defines[] = {
-	DEF(STR, base_dir),
-	DEF(STR, state_dir),
+	DEF(STR_HIDDEN, base_dir),
+	DEF(STR_HIDDEN, state_dir),
 	DEF(STR, instance_name),
 	DEF(STR, log_path),
 	DEF(STR, info_log_path),

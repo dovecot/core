@@ -58,7 +58,7 @@ static const struct setting_define lmtp_setting_defines[] = {
 	DEF(BOOL, lmtp_save_to_detail_mailbox),
 	DEF(BOOL, lmtp_rcpt_check_quota),
 	DEF(BOOL, lmtp_add_received_header),
-	DEF(BOOL, lmtp_verbose_replies),
+	DEF(BOOL_HIDDEN, lmtp_verbose_replies),
 	DEF(UINT, lmtp_user_concurrency_limit),
 	DEF(ENUM, lmtp_hdr_delivery_address),
 	DEF(STR_VARS, lmtp_rawlog_dir),
@@ -66,7 +66,7 @@ static const struct setting_define lmtp_setting_defines[] = {
 
 	DEF(STR, lmtp_client_workarounds),
 
-	DEF(STR_VARS, login_greeting),
+	DEF(STR_VARS_HIDDEN, login_greeting),
 	DEF(STR, login_trusted_networks),
 
 	DEF(STR, mail_plugins),
