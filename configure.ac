@@ -268,6 +268,9 @@ AC_DEFINE([DOVECOT_VERSION_MAJOR], regexp(AC_PACKAGE_VERSION, [^\([0-9]+\)\.\([0
 AC_DEFINE([DOVECOT_VERSION_MINOR], regexp(AC_PACKAGE_VERSION, [^\([0-9]+\)\.\([0-9]+\)], [\2]), [Dovecot minor version])
 AC_DEFINE([DOVECOT_VERSION_MICRO], regexp(AC_PACKAGE_VERSION, [^\([0-9]+\)\.\([0-9]+\).\([0-9]+\)], [\3]), [Dovecot micro version])
 
+DOVECOT_ASSET_VERSION=regexp(AC_PACKAGE_VERSION, [^\([0-9]+\)\.\([0-9]+\)], [\1.\2])
+AC_SUBST(DOVECOT_ASSET_VERSION)
+
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([
 ],[
 #if DOVECOT_VERSION_MICRO > 0
