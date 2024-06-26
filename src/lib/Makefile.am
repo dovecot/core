@@ -161,6 +161,7 @@ liblib_la_SOURCES = \
 	process-stat.c \
 	process-title.c \
 	priorityq.c \
+	punycode.c \
 	randgen.c \
 	rand.c \
 	read-full.c \
@@ -321,6 +322,7 @@ headers = \
 	process-stat.h \
 	process-title.h \
 	priorityq.h \
+	punycode.h \
 	randgen.h \
 	read-full.h \
 	restrict-access.h \
@@ -445,6 +447,7 @@ test_lib_SOURCES = \
 	test-primes.c \
 	test-printf-format-fix.c \
 	test-priorityq.c \
+	test-punycode.c \
 	test-random.c \
 	test-seq-range-array.c \
 	test-seq-set-builder.c \
