@@ -128,6 +128,20 @@ oauth2_refresh_start(const struct oauth2_settings *set,
 					  typeof(context))), \
 		(oauth2_request_callback_t*)callback, (void*)context);
 
+struct oauth2_request*
+oauth2_client_secret_start(const struct oauth2_settings *set,
+			  const struct oauth2_request_input *input,
+			  const char *resource,
+			  oauth2_request_callback_t *callback,
+			  void *context);
+#define oauth2_client_secret_start(set, input, resource, callback, \
+				   context) \
+	oauth2_client_secret_start( \
+		set, input, resource - CALLBACK_TYPECHECK( \
+			callback, void(*)(struct oauth2_request_result*, \
+					  typeof(context))), \
+		(oauth2_request_callback_t*)callback, (void*)context);
+
 /* Abort without calling callback, use this to cancel the request */
 void oauth2_request_abort(struct oauth2_request **);
 

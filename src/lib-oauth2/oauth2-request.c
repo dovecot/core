@@ -385,6 +385,34 @@ oauth2_passwd_grant_start(const struct oauth2_settings *set,
 				    payload, FALSE, FALSE);
 }
 
+#undef oauth2_client_secret_start
+struct oauth2_request*
+oauth2_client_secret_start(const struct oauth2_settings *set,
+			  const struct oauth2_request_input *input,
+			  const char *resource,
+			  oauth2_request_callback_t *callback,
+			  void *context)
+{
+	pool_t pool = pool_alloconly_create_clean("oauth2 request", 1024);
+	string_t *payload = str_new(pool, 128);
+
+	str_append(payload, "grant_type=client_credentials");
+	if (*set->client_id != '\0') {
+		str_append(payload, "&client_id=");
+		http_url_escape_param(payload, set->client_id);
+	}
+	if (*set->client_secret != '\0') {
+		str_append(payload, "&client_secret=");
+		http_url_escape_param(payload, set->client_secret);
+	}
+	str_append(payload, "&resource=");
+	http_url_escape_param(payload, resource);
+
+	return oauth2_request_start(set, input, callback, context,
+				    pool, "POST", set->grant_url,
+				    payload, FALSE, TRUE);
+}
+
 void oauth2_request_abort(struct oauth2_request **_req)
 {
 	struct oauth2_request *req = *_req;
