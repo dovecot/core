@@ -26,7 +26,7 @@ email
 - [RFC2049 - Multipurpose Internet Mail Extensions (MIME) (part 5)](https://tools.ietf.org/html/rfc2049)
 
 Auth
-----         
+----
 
 - [RFC2245 - Anonymous SASL Mechanism.](https://tools.ietf.org/html/rfc2245)
 - [RFC2595 - Using TLS with IMAP, POP3 and ACAP](https://tools.ietf.org/html/rfc2595)
@@ -37,7 +37,7 @@ Auth
 - [Google XOAUTH2 protocol](https://developers.google.com/gmail/xoauth2_protocol)
 
 POP3
-----           
+----
 
 - [RFC1939 - Post Office Protocol - Version 3](https://tools.ietf.org/html/rfc1939)
 - [RFC2449 - POP3 Extension Mechanism](https://tools.ietf.org/html/rfc2449)
