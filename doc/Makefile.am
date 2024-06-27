@@ -36,7 +36,7 @@ man-dl:
 all-local: html
 
 html-local:
-	$(AM_V_at)if [ ! -e html/index.html ]; then \
+	$(AM_V_at)if [ ! -e html/*/index.html ]; then \
 		$(MAKE) html-dl; \
 	fi
 	$(AM_V_at)if [ ! -e man/dovecot.1 ]; then \
