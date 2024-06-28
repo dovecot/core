@@ -223,7 +223,8 @@ oauth2_request_start(const struct oauth2_settings *set,
 		     const char *method,
 		     const char *url,
 		     const string_t *payload,
-		     bool add_auth_bearer)
+		     bool add_auth_bearer,
+		     bool no_token)
 {
 	pool_t pool = (p == NULL) ?
 		pool_alloconly_create_clean("oauth2 request", 1024) : p;
@@ -235,7 +236,7 @@ oauth2_request_start(const struct oauth2_settings *set,
 	req->req_callback = callback;
 	req->req_context = context;
 
-	if (!oauth2_valid_token(input->token)) {
+	if (!no_token && !oauth2_valid_token(input->token)) {
 		req->to_delayed_error =
 			timeout_add_short(0, oauth2_request_fail, req);
 		return req;
@@ -283,7 +284,8 @@ oauth2_refresh_start(const struct oauth2_settings *set,
 	http_url_escape_param(payload, input->token);
 
 	return oauth2_request_start(set, input, callback, context, NULL,
-				    "POST", set->refresh_url, NULL, FALSE);
+				    "POST", set->refresh_url, NULL, FALSE,
+				    FALSE);
 }
 
 #undef oauth2_introspection_start
@@ -331,7 +333,7 @@ oauth2_introspection_start(const struct oauth2_settings *set,
 	}
 
 	return oauth2_request_start(set, input, callback, context, p,
-				    method, url, payload, TRUE);
+				    method, url, payload, TRUE, FALSE);
 }
 
 #undef oauth2_token_validation_start
@@ -347,7 +349,7 @@ oauth2_token_validation_start(const struct oauth2_settings *set,
 	http_url_escape_param(enc, input->token);
 
 	return oauth2_request_start(set, input, callback, context,
-				    NULL, "GET", str_c(enc), NULL, TRUE);
+				    NULL, "GET", str_c(enc), NULL, TRUE, FALSE);
 }
 
 #undef oauth2_passwd_grant_start
@@ -380,7 +382,7 @@ oauth2_passwd_grant_start(const struct oauth2_settings *set,
 
 	return oauth2_request_start(set, input, callback, context,
 				    pool, "POST", set->grant_url,
-				    payload, FALSE);
+				    payload, FALSE, FALSE);
 }
 
 void oauth2_request_abort(struct oauth2_request **_req)
