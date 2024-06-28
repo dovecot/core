@@ -25,23 +25,20 @@ SUBDIRS += man
 DOCDIRS += html
 endif
 
-extra_dist_extra += html
+extra_dist_extra += html stamp-html stamp-man
+BUILT_SOURCES = stamp-html stamp-man
 
-html-dl:
-	$(AM_V_at)$(WGET) -nv -O- $(DOCS_URL) | xz -d | $(am__untar)
+stamp-html:
+	$(AM_V_at)$(WGET) -nv -O- $(DOCS_URL) | xz -d | $(am__untar) && \
+		touch stamp-html || rm -f stamp-html
 
-man-dl:
-	$(AM_V_at)$(WGET) -nv -O- $(MAN_URL) | xz -d | $(am__untar)
+stamp-man:
+	$(AM_V_at)$(WGET) -nv -O- $(MAN_URL) | xz -d | $(am__untar) && \
+		touch stamp-man || rm -f stamp-man
 
 all-local: html
 
-html-local:
-	$(AM_V_at)if [ ! -e html/*/index.html ]; then \
-		$(MAKE) html-dl; \
-	fi
-	$(AM_V_at)if [ ! -e man/dovecot.1 ]; then \
-		$(MAKE) man-dl; \
-	fi
+html-local: stamp-html stamp-man
 
 install-data-local:
 	$(MKDIR_P) $(DESTDIR)$(docdir); \
@@ -60,3 +57,8 @@ EXTRA_DIST = \
 	dovecot-initd.sh \
 	$(extra_dist_extra) \
 	$(docfiles)
+
+distclean-local:
+	-if test "$(extra_dist_extra)" != ""; then \
+		rm -rf $(extra_dist_extra); \
+	fi
