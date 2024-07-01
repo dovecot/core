@@ -486,6 +486,9 @@ static void test_ostream_multiplex_stream(void)
 	test_assert(buf->used == 0);
 
 	test_assert(o_stream_flush(output) == 1);
+
+	(void)o_stream_finish(output2);
+	o_stream_unref(&output2);
 	o_stream_unref(&output);
 	o_stream_unref(&output_buf);
 	buffer_free(&buf);
