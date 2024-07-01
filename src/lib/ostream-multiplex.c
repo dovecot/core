@@ -166,7 +166,7 @@ again:
 		}
 		skip = p - data;
 		if (skip + 1 == size ||
-		    data[skip + 1] == IOSTREAM_MULTIPLEX_CHANNEL_SWITCH_PREFIX[1]) {
+		    (char)data[skip + 1] == IOSTREAM_MULTIPLEX_CHANNEL_SWITCH_PREFIX[1]) {
 			/* escaping needed */
 			break;
 		}
