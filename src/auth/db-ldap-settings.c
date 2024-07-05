@@ -20,15 +20,15 @@ static const struct setting_define ldap_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "userdb_ldap", },
 	DEF(STR, hosts),
 	DEF(STR, uris),
-	DEF(STR, dn),
-	DEF(STR, dnpass),
+	DEF(STR, auth_dn),
+	DEF(STR, auth_dn_password),
 	DEF(BOOL, auth_bind),
 	DEF(STR, auth_bind_userdn),
+	DEF(BOOL, auth_sasl_bind),
+	DEF(STR, auth_sasl_mechanism),
+	DEF(STR, auth_sasl_realm),
+	DEF(STR, auth_sasl_authz_id),
 	DEF(BOOL, starttls),
-	DEF(BOOL, sasl_bind),
-	DEF(STR, sasl_mech),
-	DEF(STR, sasl_realm),
-	DEF(STR, sasl_authz_id),
 	DEF(STR, deref),
 	DEF(STR, scope),
 	DEF(STR, base),
@@ -46,15 +46,15 @@ static const struct setting_define ldap_setting_defines[] = {
 static const struct ldap_settings ldap_default_settings = {
 	.hosts = "",
 	.uris = "",
-	.dn = "",
-	.dnpass = "",
+	.auth_dn = "",
+	.auth_dn_password = "",
 	.auth_bind = FALSE,
 	.auth_bind_userdn = "",
+	.auth_sasl_bind = FALSE,
+	.auth_sasl_mechanism = "",
+	.auth_sasl_realm = "",
+	.auth_sasl_authz_id = "",
 	.starttls = FALSE,
-	.sasl_bind = FALSE,
-	.sasl_mech = "",
-	.sasl_realm = "",
-	.sasl_authz_id = "",
 	.deref = "never",
 	.scope = "subtree",
 	.base = "",
@@ -148,8 +148,8 @@ static bool ldap_setting_check(void *_set, pool_t pool ATTR_UNUSED,
 #endif
 
 #ifndef HAVE_LDAP_SASL
-	if (set->sasl_bind) {
-		*error_r = "ldap_sasl_bind=yes but no SASL support compiled in";
+	if (set->auth_sasl_bind) {
+		*error_r = "ldap_auth_sasl_bind=yes but no SASL support compiled in";
 		return FALSE;
 	}
 #endif
@@ -172,8 +172,8 @@ int ldap_setting_post_check(const struct ldap_settings *set, const char **error_
 	}
 
 	if (set->version < 3) {
-		if (set->sasl_bind) {
-			*error_r = "ldap_sasl_bind=yes requires ldap_version=3";
+		if (set->auth_sasl_bind) {
+			*error_r = "ldap_sauth_sasl_bind=yes requires ldap_version=3";
 			return -1;
 		}
 		if (set->starttls) {
