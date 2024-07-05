@@ -6,13 +6,13 @@ struct ldap_settings {
 
 	const char *hosts;
 	const char *uris;
-	const char *dn;
-	const char *dnpass;
+	const char *auth_dn;
+	const char *auth_dn_password;
 	const char *auth_bind_userdn;
 
-	const char *sasl_mech;
-	const char *sasl_realm;
-	const char *sasl_authz_id;
+	const char *auth_sasl_mechanism;
+	const char *auth_sasl_realm;
+	const char *auth_sasl_authz_id;
 
 	const char *deref;
 	const char *scope;
@@ -33,8 +33,8 @@ struct ldap_settings {
 	gid_t gid;
 
 	bool auth_bind;
+	bool auth_sasl_bind;
 	bool starttls;
-	bool sasl_bind;
 
 	/* parsed */
 	int parsed_deref;

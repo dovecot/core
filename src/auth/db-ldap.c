@@ -361,7 +361,7 @@ static int db_ldap_connect_finish(struct ldap_connection *conn, int ret)
 	}
 	if (ret != LDAP_SUCCESS) {
 		e_error(conn->event, "binding failed (dn %s): %s",
-			conn->set->dn == NULL ? "(none)" : conn->set->dn,
+			conn->set->auth_dn == NULL ? "(none)" : conn->set->auth_dn,
 			ldap_get_error(conn));
 		return -1;
 	}
@@ -739,15 +739,15 @@ static int db_ldap_bind_sasl(struct ldap_connection *conn)
 	int ret;
 
 	i_zero(&context);
-	context.authcid = conn->set->dn;
-	context.passwd = conn->set->dnpass;
-	context.realm = conn->set->sasl_realm;
-	context.authzid = conn->set->sasl_authz_id;
+	context.authcid = conn->set->auth_dn;
+	context.passwd = conn->set->auth_dn_password;
+	context.realm = conn->set->auth_sasl_realm;
+	context.authzid = conn->set->auth_sasl_authz_id;
 
 	/* There doesn't seem to be a way to do SASL binding
 	   asynchronously.. */
 	ret = ldap_sasl_interactive_bind_s(conn->ld, NULL,
-					   conn->set->sasl_mech,
+					   conn->set->auth_sasl_mechanism,
 					   NULL, NULL, LDAP_SASL_QUIET,
 					   sasl_interact, &context);
 	if (db_ldap_connect_finish(conn, ret) < 0)
@@ -774,8 +774,8 @@ static int db_ldap_bind_simple(struct ldap_connection *conn)
 	i_assert(conn->default_bind_msgid == -1);
 	i_assert(conn->pending_count == 0);
 
-	msgid = ldap_bind(conn->ld, conn->set->dn, conn->set->dnpass,
-			  LDAP_AUTH_SIMPLE);
+	msgid = ldap_bind(conn->ld, conn->set->auth_dn,
+			  conn->set->auth_dn_password, LDAP_AUTH_SIMPLE);
 	if (msgid == -1) {
 		i_assert(ldap_get_errno(conn) != LDAP_SUCCESS);
 		if (db_ldap_connect_finish(conn, ldap_get_errno(conn)) < 0) {
@@ -796,7 +796,7 @@ static int db_ldap_bind_simple(struct ldap_connection *conn)
 
 static int db_ldap_bind(struct ldap_connection *conn)
 {
-	if (conn->set->sasl_bind) {
+	if (conn->set->auth_sasl_bind) {
 		if (db_ldap_bind_sasl(conn) < 0)
 			return -1;
 	} else {
