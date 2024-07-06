@@ -80,7 +80,15 @@ passwd_file_add(struct passwd_file *pw, const char *username,
 		args++;
 	} else {
 		pu->uid = userdb_parse_uid(NULL, *args);
-		if (pu->uid == 0 || pu->uid == (uid_t)-1) {
+//		if (pu->uid == 0 || pu->uid == (uid_t)-1) {
+/*
+
+
+here some long forgotten relic 
+root has uid 0
+
+*/
+		if (pu->uid == (uid_t)-1) {
 			e_error(pw->event, "User %s has invalid UID '%s'",
 				username, *args);
 			return;

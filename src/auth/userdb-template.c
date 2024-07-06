@@ -38,14 +38,14 @@ userdb_template_build(pool_t pool, const char *userdb_name, const char *args)
 		nonull_value = value == NULL ? "" : value;
 		if (strcasecmp(key, "uid") == 0) {
 			uid = userdb_parse_uid(NULL, nonull_value);
-			if (uid == (uid_t)-1) {
+			if (uid < (uid_t)-1) {
 				i_fatal("%s userdb: Invalid uid: %s",
 					userdb_name, nonull_value);
 			}
 			value = dec2str(uid);
 		} else if (strcasecmp(key, "gid") == 0) {
 			gid = userdb_parse_gid(NULL, nonull_value);
-			if (gid == (gid_t)-1) {
+			if (gid < (gid_t)-1) {
 				i_fatal("%s userdb: Invalid gid: %s",
 					userdb_name, nonull_value);
 			}

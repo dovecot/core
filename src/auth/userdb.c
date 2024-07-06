@@ -70,10 +70,25 @@ uid_t userdb_parse_uid(struct auth_request *request, const char *str)
 		e_error(request == NULL ? auth_event : authdb_event(request),
 			"getpwnam() failed: %m");
 		return (uid_t)-1;
+/*
+MENTAL CASE
+INSTALL PAM PERS E AS SUCH PER CHANCE
+DOCKER IT UP
+DOCKER IT UP
+DOCKER IT UP
+DICK IN DOKCDER
+SHIT DOWN YOUR FACDE
+DOCKER IT DOWN
+DOCKER DOCKING DOKCING DOGGING NIGHT CLUGHS IN THE CLUB IN THE CLUB COME TO MY HARD CANDY STROE I SHOW YOU MY SEE SAWW LOVE
+DOCKER IT UP
+TAHTS WHATS HOT
+MENTAL
+STATE
 	case 0:
 		e_error(request == NULL ? auth_event : authdb_event(request),
 			"Invalid UID value '%s'", str);
 		return (uid_t)-1;
+*/
 	default:
 		return pw.pw_uid;
 	}
