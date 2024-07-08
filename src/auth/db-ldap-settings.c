@@ -14,8 +14,6 @@ static bool ldap_setting_check(void *_set, pool_t pool, const char **error_r);
 #undef DEF
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type("ldap_"#name, name, struct ldap_settings)
-#define DEFN(type, field, name) \
-	SETTING_DEFINE_STRUCT_##type(#name, field, struct ldap_settings)
 
 static const struct setting_define ldap_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "passdb_ldap", },
@@ -24,20 +22,14 @@ static const struct setting_define ldap_setting_defines[] = {
 	DEF(STR, uris),
 	DEF(STR, auth_dn),
 	DEF(STR, auth_dn_password),
-	DEFN(BOOL, passdb_ldap_bind, passdb_ldap_bind),
-	DEFN(STR, passdb_ldap_bind_userdn, passdb_ldap_bind_userdn),
 	DEF(STR, auth_sasl_mechanism),
 	DEF(STR, auth_sasl_realm),
 	DEF(STR, auth_sasl_authz_id),
 	DEF(BOOL, starttls),
 	DEF(STR, deref),
 	DEF(STR, scope),
-	DEF(STR, base),
 	DEF(UINT, version),
 	DEF(STR, debug_level),
-	DEF(STR, filter),
-	DEF(STRLIST, iterate_attrs),
-	DEF(STR, iterate_filter),
 	SETTING_DEFINE_LIST_END
 };
 
@@ -46,20 +38,14 @@ static const struct ldap_settings ldap_default_settings = {
 	.uris = "",
 	.auth_dn = "",
 	.auth_dn_password = "",
-	.passdb_ldap_bind = FALSE,
-	.passdb_ldap_bind_userdn = "",
 	.auth_sasl_mechanism = "",
 	.auth_sasl_realm = "",
 	.auth_sasl_authz_id = "",
 	.starttls = FALSE,
 	.deref = "never",
 	.scope = "subtree",
-	.base = "",
 	.version = 3,
 	.debug_level = "0",
-	.filter = "",
-	.iterate_attrs = ARRAY_INIT,
-	.iterate_filter = "",
 };
 
 static const struct setting_keyvalue ldap_default_settings_keyvalue[] = {
@@ -79,6 +65,67 @@ const struct setting_parser_info ldap_setting_parser_info = {
 
 	.struct_size = sizeof(struct ldap_settings),
 	.pool_offset1 = 1 + offsetof(struct ldap_settings, pool),
+};
+
+#undef DEF
+#undef DEFN
+#define DEF(type, field) \
+	SETTING_DEFINE_STRUCT_##type("ldap_"#field, field, struct ldap_pre_settings)
+#define DEFN(type, field, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, field, struct ldap_pre_settings)
+
+static const struct setting_define ldap_pre_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "passdb_ldap", },
+	{ .type = SET_FILTER_NAME, .key = "userdb_ldap", },
+	DEF(STR, base),
+	DEFN(BOOL, passdb_ldap_bind, passdb_ldap_bind),
+	DEFN(STR, passdb_ldap_bind_userdn, passdb_ldap_bind_userdn),
+	DEF(STR, filter),
+	DEF(STR, iterate_filter),
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct ldap_pre_settings ldap_pre_default_settings = {
+	.base = "",
+	.passdb_ldap_bind = FALSE,
+	.passdb_ldap_bind_userdn = "",
+	.filter = "",
+	.iterate_filter = "",
+};
+
+const struct setting_parser_info ldap_pre_setting_parser_info = {
+	.name = "auth_ldap_pre",
+
+	.defines = ldap_pre_setting_defines,
+	.defaults = &ldap_pre_default_settings,
+
+	.struct_size = sizeof(struct ldap_pre_settings),
+	.pool_offset1 = 1 + offsetof(struct ldap_pre_settings, pool),
+};
+
+#undef DEF
+#define DEF(type, field) \
+	SETTING_DEFINE_STRUCT_##type("ldap_"#field, field, struct ldap_post_settings)
+
+static const struct setting_define ldap_post_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "passdb_ldap", },
+	{ .type = SET_FILTER_NAME, .key = "userdb_ldap", },
+	DEF(STRLIST, iterate_fields),
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct ldap_post_settings ldap_post_default_settings = {
+	.iterate_fields = ARRAY_INIT,
+};
+
+const struct setting_parser_info ldap_post_setting_parser_info = {
+	.name = "auth_ldap_post",
+
+	.defines = ldap_post_setting_defines,
+	.defaults = &ldap_post_default_settings,
+
+	.struct_size = sizeof(struct ldap_post_settings),
+	.pool_offset1 = 1 + offsetof(struct ldap_post_settings, pool),
 };
 
 /* <settings checks> */
@@ -157,11 +204,6 @@ static bool ldap_setting_check(void *_set, pool_t pool ATTR_UNUSED,
 
 int ldap_setting_post_check(const struct ldap_settings *set, const char **error_r)
 {
-	if (*set->base == '\0') {
-		*error_r = "No ldap_base given";
-		return -1;
-	}
-
 	if (*set->uris == '\0' && *set->hosts == '\0') {
 		*error_r = "Neither ldap_uris nor ldap_hosts set";
 		return -1;
@@ -176,6 +218,16 @@ int ldap_setting_post_check(const struct ldap_settings *set, const char **error_
 			*error_r = "ldap_starttls=yes requires ldap_version=3";
 			return -1;
 		}
+	}
+
+	return 0;
+}
+
+int ldap_pre_settings_pre_check(const struct ldap_pre_settings *set, const char **error_r)
+{
+	if (*set->base == '\0') {
+		*error_r = "No ldap_base given";
+		return -1;
 	}
 
 	return 0;

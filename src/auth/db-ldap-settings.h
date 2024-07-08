@@ -8,7 +8,6 @@ struct ldap_settings {
 	const char *uris;
 	const char *auth_dn;
 	const char *auth_dn_password;
-	const char *passdb_ldap_bind_userdn;
 
 	const char *auth_sasl_mechanism;
 	const char *auth_sasl_realm;
@@ -16,21 +15,14 @@ struct ldap_settings {
 
 	const char *deref;
 	const char *scope;
-	const char *base;
 
 	const char *debug_level;
-
-	const char *filter;
-	const char *iterate_filter;
-
-	ARRAY_TYPE(const_string) iterate_attrs;
 
 	unsigned int version;
 
 	uid_t uid;
 	gid_t gid;
 
-	bool passdb_ldap_bind;
 	bool starttls;
 
 	/* parsed */
@@ -38,7 +30,31 @@ struct ldap_settings {
 	int parsed_scope;
 };
 
+struct ldap_pre_settings {
+	pool_t pool;
+
+	/* shared: */
+	const char *base;
+	const char *filter;
+
+	/* passdb: */
+	bool passdb_ldap_bind;
+	const char *passdb_ldap_bind_userdn;
+
+	/* userdb: */
+	const char *iterate_filter;
+};
+
+struct ldap_post_settings {
+	pool_t pool;
+	ARRAY_TYPE(const_string) iterate_fields;
+};
+
 extern const struct setting_parser_info ldap_setting_parser_info;
+extern const struct setting_parser_info ldap_pre_setting_parser_info;
+extern const struct setting_parser_info ldap_post_setting_parser_info;
+
 int ldap_setting_post_check(const struct ldap_settings *set, const char **error_r);
+int ldap_pre_settings_pre_check(const struct ldap_pre_settings *set, const char **error_r);
 
 #endif

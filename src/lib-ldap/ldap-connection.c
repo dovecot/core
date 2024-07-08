@@ -177,7 +177,7 @@ int ldap_connection_init(struct ldap_client *client,
 	/* deep copy relevant strings */
 	conn->set.uri = p_strdup(pool, set->uri);
 	conn->set.bind_dn = p_strdup(pool, set->bind_dn);
-	if (set->password != NULL) {
+	if (*set->password != '\0') {
 		conn->set.password = p_strdup(pool, set->password);
 		ber_str2bv(conn->set.password, strlen(conn->set.password), 0, &conn->cred);
 	}
