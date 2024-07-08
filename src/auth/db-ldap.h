@@ -20,7 +20,11 @@
 #define DB_LDAP_IDLE_RECONNECT_SECS 60
 
 #include <ldap.h>
+#include "var-expand.h"
 #include "db-ldap-settings.h"
+
+#define DB_LDAP_ATTR_MULTI_PREFIX "+"
+#define DB_LDAP_ATTR_SEPARATOR "\001"
 
 struct auth_request;
 struct ldap_connection;
@@ -81,8 +85,7 @@ struct ldap_request_search {
 
 	const char *base;
 	const char *filter;
-	char **attributes; /* points to pass_attr_names / user_attr_names */
-	const ARRAY_TYPE(ldap_field) *attr_map;
+	char **attributes; /* points to (pass|user) module attributes */
 
 	struct db_ldap_result *result;
 	ARRAY(struct ldap_request_named_result) named_results;
@@ -137,18 +140,24 @@ struct ldap_connection {
 	time_t last_reply_stamp;
 
 	char **pass_attr_names, **user_attr_names, **iterate_attr_names;
-	ARRAY_TYPE(ldap_field) pass_attr_map, user_attr_map, iterate_attr_map;
 	bool delayed_connect;
 };
+
+struct db_ldap_field_expand_context {
+	struct event *event;
+	struct auth_fields *fields;
+};
+
+extern const struct var_expand_func_table db_ldap_field_expand_fn_table[];
 
 /* Send/queue request */
 void db_ldap_request(struct ldap_connection *conn,
 		     struct ldap_request *request);
 
-void db_ldap_set_attrs(struct ldap_connection *conn,
-		       const ARRAY_TYPE(const_string) *attrlist,
-		       char ***attr_names_r, ARRAY_TYPE(ldap_field) *attr_map,
-		       const char *skip_attr) ATTR_NULL(5);
+void db_ldap_get_attribute_names(struct ldap_connection *conn,
+				 const ARRAY_TYPE(const_string) *attrlist,
+				 char ***attr_names_r,
+				 const char *skip_attr) ATTR_NULL(4);
 
 struct ldap_connection *db_ldap_init(struct event *event);
 void db_ldap_unref(struct ldap_connection **conn);
@@ -170,6 +179,13 @@ bool db_ldap_result_iterate_next(struct db_ldap_result_iterate_context *ctx,
 				 const char **name_r,
 				 const char *const **values_r);
 void db_ldap_result_iterate_deinit(struct db_ldap_result_iterate_context **ctx);
+
+struct auth_fields *
+ldap_query_get_fields(pool_t pool,
+		      struct ldap_connection *conn,
+		      struct ldap_request_search *ldap_request,
+		      LDAPMessage *res, bool skip_null_values);
+const char *db_ldap_attribute_as_multi(const char *name);
 
 /* exposed only for unit tests */
 
