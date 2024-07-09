@@ -9,9 +9,29 @@
 #include "auth-cache.h"
 #include "ipwd.h"
 #include "mycrypt.h"
+#include "settings.h"
 
 #include <login_cap.h>
 #include <bsd_auth.h>
+
+struct passdb_bsdauth_settings {
+	pool_t pool;
+};
+
+static const struct setting_define passdb_bsdauth_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "passdb_bsdauth" },
+
+	SETTING_DEFINE_LIST_END,
+};
+
+const struct setting_parser_info passdb_bsdauth_setting_parser_info = {
+	.name = "auth_bsdauth",
+
+	.defines = passdb_bsdauth_setting_defines,
+
+	.struct_size = sizeof(struct passdb_bsdauth_settings),
+	.pool_offset1 = 1 + offsetof(struct passdb_bsdauth_settings, pool),
+};
 
 static void
 bsdauth_verify_plain(struct auth_request *request, const char *password,
@@ -22,6 +42,11 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 	int result;
 
 	e_debug(authdb_event(request), "lookup");
+
+	if (auth_request_set_passdb_fields(request, NULL) < 0) {
+		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
+		return;
+	}
 
 	switch (i_getpwnam(request->fields.user, &pw)) {
 	case -1:
@@ -83,6 +108,7 @@ static void bsdauth_deinit(struct passdb_module *module ATTR_UNUSED)
 struct passdb_module_interface passdb_bsdauth = {
 	.name = "bsdauth",
 
+	.fields_supported = TRUE,
 	.preinit_legacy = bsdauth_preinit,
 	.deinit = bsdauth_deinit,
 	.verify_plain = bsdauth_verify_plain,
