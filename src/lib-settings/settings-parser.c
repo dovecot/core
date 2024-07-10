@@ -1163,15 +1163,15 @@ const char *settings_section_unescape(const char *name)
 	return str_c(str);
 }
 
-static bool config_binary = FALSE;
+static enum settings_binary config_binary = SETTINGS_BINARY_OTHER;
 
-bool is_config_binary(void)
+void settings_set_config_binary(enum settings_binary binary)
 {
-	return config_binary;
+	config_binary = binary;
 }
 
-void set_config_binary(bool value)
+enum settings_binary settings_get_config_binary(void)
 {
-	config_binary = value;
+	return config_binary;
 }
 

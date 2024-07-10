@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
 
-	set_config_binary(TRUE);
+	settings_set_config_binary(SETTINGS_BINARY_CONFIG);
 	config_parse_load_modules();
 
 	config_connections_init();
