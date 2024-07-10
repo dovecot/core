@@ -326,9 +326,9 @@ static int userdb_ldap_preinit(pool_t pool, struct event *event,
 	module = p_new(pool, struct ldap_userdb_module, 1);
 	module->conn = conn = db_ldap_init(event);
 
-	db_ldap_get_attribute_names(conn, &auth_post->fields,
+	db_ldap_get_attribute_names(conn->pool, &auth_post->fields,
 				    &conn->user_attr_names, NULL);
-	db_ldap_get_attribute_names(conn, &ldap_post->iterate_fields,
+	db_ldap_get_attribute_names(conn->pool, &ldap_post->iterate_fields,
 				    &conn->iterate_attr_names, NULL);
 
 	module->module.default_cache_key = auth_cache_parse_key_and_fields(
