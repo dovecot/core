@@ -23,6 +23,7 @@ struct ldap_passdb_module {
 
 	struct ldap_connection *conn;
 	const char *const *attributes;
+	const char *const *sensitive_attr_names;
 };
 
 struct passdb_ldap_request {
@@ -290,6 +291,7 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 	srequest->base = p_strdup(auth_request->pool, ldap_set->base);
 	srequest->filter = p_strdup(auth_request->pool, ldap_set->filter);
 	srequest->attributes = module->attributes;
+	srequest->sensitive_attr_names = module->sensitive_attr_names;
 
 	e_debug(authdb_event(auth_request), "pass search: "
 		"base=%s scope=%s filter=%s fields=%s",
@@ -319,6 +321,7 @@ static void ldap_bind_lookup_dn(struct auth_request *auth_request,
 	   may contain some extra parameters. if a password is returned,
 	   it's just ignored. */
 	srequest->attributes = module->attributes;
+	srequest->sensitive_attr_names = module->sensitive_attr_names;
 
 	e_debug(authdb_event(auth_request),
 		"bind search: base=%s filter=%s",
@@ -442,7 +445,9 @@ static int passdb_ldap_preinit(pool_t pool, struct event *event,
 
 	db_ldap_get_attribute_names(pool, &auth_post->fields,
 				    &module->attributes,
-				    ldap_pre->passdb_ldap_bind ? "password" : NULL);
+				    &module->sensitive_attr_names,
+				    ldap_pre->passdb_ldap_bind ?
+				    	"password" : NULL);
 
 	module->module.default_cache_key = auth_cache_parse_key_and_fields(
 		pool, t_strconcat(ldap_pre->base, ldap_pre->filter, NULL),

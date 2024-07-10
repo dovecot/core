@@ -69,6 +69,7 @@ struct db_ldap_result_iterate_context {
 
 	struct ldap_request *ldap_request;
 	const char *const *attr_next;
+	const char *const *sensitive_attr_names;
 
 	/* attribute name => value */
 	HASH_TABLE(char *, struct db_ldap_value *) ldap_attrs;
@@ -1052,8 +1053,9 @@ static void db_ldap_conn_close(struct ldap_connection *conn)
 }
 
 struct ldap_field_find_context {
-	ARRAY_TYPE(const_string) attr_names;
 	pool_t pool;
+	ARRAY_TYPE(const_string) attr_names;
+	ARRAY_TYPE(const_string) sensitive_attr_names;
 };
 
 static int
@@ -1072,12 +1074,23 @@ db_ldap_field_find(const char *data, void *context,
 	return 1;
 }
 
+static bool
+db_ldap_is_sensitive_field(const char *name)
+{
+	return strstr(name, "nonce") != NULL ||
+	       strstr(name, "password") != NULL ||
+	       strstr(name, "secret") != NULL ||
+	       str_ends_with(name, "key") ||
+	       str_ends_with(name, "pass");
+}
+
 void db_ldap_get_attribute_names(pool_t pool,
 				 const ARRAY_TYPE(const_string) *attrlist,
 				 const char *const **attr_names_r,
+				 const char *const **sensitive_r,
 				 const char *skip_attr)
 {
-	static struct var_expand_func_table var_funcs_table[] = {
+	static const struct var_expand_func_table var_funcs_table[] = {
 		{ "ldap", db_ldap_field_find },
 		{ "ldap_multi", db_ldap_field_find },
 		{ NULL, NULL }
@@ -1089,6 +1102,7 @@ void db_ldap_get_attribute_names(pool_t pool,
 	struct ldap_field_find_context ctx;
 	ctx.pool = pool;
 	p_array_init(&ctx.attr_names, pool, count / 2);
+	p_array_init(&ctx.sensitive_attr_names, pool, 2);
 	string_t *tmp_str = t_str_new(128);
 
 	for (unsigned int index = 0; index < count; ) {
@@ -1101,10 +1115,36 @@ void db_ldap_get_attribute_names(pool_t pool,
 		const char *error ATTR_UNUSED;
 		str_truncate(tmp_str, 0);
 
+		/* Mark the current end of the array before adding the elements
+		   from the expansion of the field expression. This will be
+		   used later to see which elements have been added. */
+		unsigned int index = array_count(&ctx.attr_names);
 		(void)var_expand_with_funcs(tmp_str, value, NULL, var_funcs_table, &ctx, &error);
+
+		if (!db_ldap_is_sensitive_field(name))
+			continue;
+
+		/* We want to mark as sensitive ALL the LDAP attributes involved
+		   in the creation of the "password" field. Typically this this
+		   will be a single attribute, but the field value expression
+		   allows for multiple attributes to be used. In this case, we
+		   mark them all. */
+
+		unsigned int count = array_count(&ctx.attr_names);
+		/* Now index points to the first attribute newly added to
+		   attr_names, and count points to the end of attr_names. */
+
+		for (; index < count; index++) {
+			const char *const *src = array_idx(&ctx.attr_names, index);
+			array_push_back(&ctx.sensitive_attr_names, src);
+		}
 	}
 	array_append_zero(&ctx.attr_names);
+	array_append_zero(&ctx.sensitive_attr_names);
+
 	*attr_names_r = array_front(&ctx.attr_names);
+	if (sensitive_r != NULL)
+		*sensitive_r = array_front(&ctx.sensitive_attr_names);
 }
 
 #define IS_LDAP_ESCAPED_CHAR(c) \
@@ -1130,10 +1170,17 @@ const char *ldap_escape(const char *str,
 }
 
 static bool
-ldap_field_hide_password(struct db_ldap_result_iterate_context *ctx ATTR_UNUSED,
-			 const char *attr ATTR_UNUSED)
+db_ldap_field_hide_password(struct db_ldap_result_iterate_context *ctx,
+			    const char *attr)
 {
-	return FALSE;
+	struct auth_request *request = ctx->ldap_request->auth_request;
+	if (request->set->debug_passwords)
+		return FALSE;
+
+	if (ctx->sensitive_attr_names == NULL)
+		return FALSE;
+
+	return str_array_find(ctx->sensitive_attr_names, attr);
 }
 
 static void
@@ -1165,7 +1212,7 @@ get_ldap_fields(struct db_ldap_result_iterate_context *ctx,
 		str_printfa(ctx->debug, " %s%s=", attr, suffix);
 		if (count == 0)
 			str_append(ctx->debug, "<no values>");
-		else if (ldap_field_hide_password(ctx, attr))
+		else if (db_ldap_field_hide_password(ctx, attr))
 			str_append(ctx->debug, PASSWORD_HIDDEN_STR);
 		else {
 			str_append(ctx->debug, ldap_value->values[0]);
@@ -1200,6 +1247,7 @@ db_ldap_result_iterate_init_full(struct ldap_connection *conn,
 	ctx->pool = pool;
 	ctx->ldap_request = &ldap_request->request;
 	ctx->attr_next = ldap_request->attributes;
+	ctx->sensitive_attr_names = ldap_request->sensitive_attr_names;
 	ctx->skip_null_values = skip_null_values;
 	hash_table_create(&ctx->ldap_attrs, pool, 0, strcase_hash, strcasecmp);
 	ctx->var = str_new(ctx->pool, 256);
