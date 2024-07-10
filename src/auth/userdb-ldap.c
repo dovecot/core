@@ -21,6 +21,8 @@ struct ldap_userdb_module {
 	struct userdb_module module;
 
 	struct ldap_connection *conn;
+	const char *const *attributes;
+	const char *const *iterate_attributes;
 };
 
 struct userdb_ldap_request {
@@ -110,11 +112,9 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 			       userdb_callback_t *callback)
 {
 	struct userdb_module *_module = auth_request->userdb->userdb;
-	struct ldap_userdb_module *module =
-		(struct ldap_userdb_module *)_module;
+	struct ldap_userdb_module *module = (struct ldap_userdb_module *)_module;
 	struct ldap_connection *conn = module->conn;
 	struct event *event = authdb_event(auth_request);
-	const char **attr_names = (const char **)conn->user_attr_names;
 
 	struct userdb_ldap_request *request;
 	const char *error;
@@ -134,15 +134,14 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	request->userdb_callback = callback;
 	request->request.base = p_strdup(auth_request->pool, ldap_pre->base);
 	request->request.filter = p_strdup(auth_request->pool, ldap_pre->filter);
-	request->request.attributes = conn->user_attr_names;
+	request->request.attributes = module->attributes;
 
 	settings_free(ldap_pre);
 
 	e_debug(event, "user search: base=%s scope=%s filter=%s fields=%s",
 		request->request.base, conn->set->scope,
 		request->request.filter,
-		attr_names == NULL ? "(all)" :
-		t_strarray_join(attr_names, ","));
+		t_strarray_join(module->attributes, ","));
 
 	request->request.request.auth_request = auth_request;
 	request->request.request.callback = userdb_ldap_lookup_callback;
@@ -239,7 +238,6 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 
 	struct ldap_userdb_iterate_context *ctx;
 	struct userdb_iter_ldap_request *request;
-	const char **attr_names = (const char **)conn->iterate_attr_names;
 	const char *error;
 
 	ctx = p_new(auth_request->pool, struct ldap_userdb_iterate_context, 1);
@@ -264,14 +262,15 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 	request->request.request.auth_request = auth_request;
 	request->request.base = p_strdup(auth_request->pool, ldap_pre->base);
 	request->request.filter = p_strdup(auth_request->pool, ldap_pre->iterate_filter);
-	request->request.attributes = conn->iterate_attr_names;
+	request->request.attributes = module->iterate_attributes;
 	request->request.multi_entry = TRUE;
 	settings_free(ldap_pre);
 
 	e_debug(event, "ldap: iterate: base=%s scope=%s filter=%s fields=%s",
 		request->request.base, conn->set->scope,
-		request->request.filter, attr_names == NULL ? "(all)" :
-		t_strarray_join(attr_names, ","));
+		request->request.filter,
+		t_strarray_join(module->iterate_attributes, ","));
+
 	request->request.request.callback = userdb_ldap_iterate_callback;
 	db_ldap_request(conn, &request->request.request);
 	return &ctx->ctx;
@@ -326,10 +325,10 @@ static int userdb_ldap_preinit(pool_t pool, struct event *event,
 	module = p_new(pool, struct ldap_userdb_module, 1);
 	module->conn = conn = db_ldap_init(event);
 
-	db_ldap_get_attribute_names(conn->pool, &auth_post->fields,
-				    &conn->user_attr_names, NULL);
-	db_ldap_get_attribute_names(conn->pool, &ldap_post->iterate_fields,
-				    &conn->iterate_attr_names, NULL);
+	db_ldap_get_attribute_names(pool, &auth_post->fields,
+				    &module->attributes, NULL);
+	db_ldap_get_attribute_names(pool, &ldap_post->iterate_fields,
+				    &module->iterate_attributes, NULL);
 
 	module->module.default_cache_key = auth_cache_parse_key_and_fields(
 		pool, t_strconcat(ldap_pre->base, ldap_pre->filter, NULL),

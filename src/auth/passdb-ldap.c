@@ -22,6 +22,7 @@ struct ldap_passdb_module {
 	struct passdb_module module;
 
 	struct ldap_connection *conn;
+	const char *const *attributes;
 };
 
 struct passdb_ldap_request {
@@ -283,19 +284,18 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 		(struct ldap_passdb_module *)_module;
 	struct ldap_connection *conn = module->conn;
 	struct ldap_request_search *srequest = &request->request.search;
-	const char *const *attr_names = conn->pass_attr_names;
 
 	request->require_password = require_password;
 	srequest->request.type = LDAP_REQUEST_TYPE_SEARCH;
 	srequest->base = p_strdup(auth_request->pool, ldap_set->base);
 	srequest->filter = p_strdup(auth_request->pool, ldap_set->filter);
-	srequest->attributes = conn->pass_attr_names;
+	srequest->attributes = module->attributes;
 
 	e_debug(authdb_event(auth_request), "pass search: "
 		"base=%s scope=%s filter=%s fields=%s",
 		srequest->base, conn->set->scope,
-		srequest->filter, attr_names == NULL ? "(all)" :
-		t_strarray_join(attr_names, ","));
+		srequest->filter,
+		t_strarray_join(module->attributes, ","));
 
 	srequest->request.callback = ldap_lookup_pass_callback;
 	db_ldap_request(conn, &srequest->request);
@@ -318,7 +318,7 @@ static void ldap_bind_lookup_dn(struct auth_request *auth_request,
 	/* we don't need the attributes to perform authentication, but they
 	   may contain some extra parameters. if a password is returned,
 	   it's just ignored. */
-	srequest->attributes = conn->pass_attr_names;
+	srequest->attributes = module->attributes;
 
 	e_debug(authdb_event(auth_request),
 		"bind search: base=%s filter=%s",
@@ -440,8 +440,8 @@ static int passdb_ldap_preinit(pool_t pool, struct event *event,
 	module = p_new(pool, struct ldap_passdb_module, 1);
 	module->conn = conn = db_ldap_init(event);
 
-	db_ldap_get_attribute_names(conn->pool, &auth_post->fields,
-				    &conn->pass_attr_names,
+	db_ldap_get_attribute_names(pool, &auth_post->fields,
+				    &module->attributes,
 				    ldap_pre->passdb_ldap_bind ? "password" : NULL);
 
 	module->module.default_cache_key = auth_cache_parse_key_and_fields(

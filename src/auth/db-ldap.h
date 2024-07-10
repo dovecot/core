@@ -139,7 +139,6 @@ struct ldap_connection {
 	/* Timestamp when we last received a reply */
 	time_t last_reply_stamp;
 
-	const char *const *pass_attr_names, *const *user_attr_names, *const *iterate_attr_names;
 	bool delayed_connect;
 };
 
