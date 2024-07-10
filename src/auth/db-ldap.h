@@ -154,7 +154,7 @@ extern const struct var_expand_func_table db_ldap_field_expand_fn_table[];
 void db_ldap_request(struct ldap_connection *conn,
 		     struct ldap_request *request);
 
-void db_ldap_get_attribute_names(struct ldap_connection *conn,
+void db_ldap_get_attribute_names(pool_t pool,
 				 const ARRAY_TYPE(const_string) *attrlist,
 				 char ***attr_names_r,
 				 const char *skip_attr) ATTR_NULL(4);

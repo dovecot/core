@@ -440,7 +440,7 @@ static int passdb_ldap_preinit(pool_t pool, struct event *event,
 	module = p_new(pool, struct ldap_passdb_module, 1);
 	module->conn = conn = db_ldap_init(event);
 
-	db_ldap_get_attribute_names(conn, &auth_post->fields,
+	db_ldap_get_attribute_names(conn->pool, &auth_post->fields,
 				    &conn->pass_attr_names,
 				    ldap_pre->passdb_ldap_bind ? "password" : NULL);
 

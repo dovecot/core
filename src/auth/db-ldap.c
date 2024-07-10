@@ -1072,7 +1072,7 @@ db_ldap_field_find(const char *data, void *context,
 	return 1;
 }
 
-void db_ldap_get_attribute_names(struct ldap_connection *conn,
+void db_ldap_get_attribute_names(pool_t pool,
 				 const ARRAY_TYPE(const_string) *attrlist,
 				 char ***attr_names_r,
 				 const char *skip_attr)
@@ -1087,8 +1087,8 @@ void db_ldap_get_attribute_names(struct ldap_connection *conn,
 	i_assert(count % 2 == 0);
 
 	struct ldap_field_find_context ctx;
-	ctx.pool = conn->pool;
-	p_array_init(&ctx.attr_names, conn->pool, count / 2);
+	ctx.pool = pool;
+	p_array_init(&ctx.attr_names, pool, count / 2);
 	string_t *tmp_str = t_str_new(128);
 
 	for (unsigned int index = 0; index < count; ) {
