@@ -283,7 +283,7 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 		(struct ldap_passdb_module *)_module;
 	struct ldap_connection *conn = module->conn;
 	struct ldap_request_search *srequest = &request->request.search;
-	const char **attr_names = (const char **)conn->pass_attr_names;
+	const char *const *attr_names = conn->pass_attr_names;
 
 	request->require_password = require_password;
 	srequest->request.type = LDAP_REQUEST_TYPE_SEARCH;

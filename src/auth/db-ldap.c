@@ -68,7 +68,7 @@ struct db_ldap_result_iterate_context {
 	pool_t pool;
 
 	struct ldap_request *ldap_request;
-	char **attr_next;
+	const char *const *attr_next;
 
 	/* attribute name => value */
 	HASH_TABLE(char *, struct db_ldap_value *) ldap_attrs;
@@ -219,7 +219,7 @@ static int db_ldap_request_search(struct ldap_connection *conn,
 
 	ldap_search_ext(
 		conn->ld, *srequest->base == '\0' ? NULL : srequest->base,
-		conn->set->parsed_scope, srequest->filter, srequest->attributes,
+		conn->set->parsed_scope, srequest->filter, (char **)srequest->attributes,
 		0, NULL, NULL, 0, 0, &request->msgid);
 	if (request->msgid == -1) {
 		e_error(authdb_event(request->auth_request),
@@ -1052,7 +1052,7 @@ static void db_ldap_conn_close(struct ldap_connection *conn)
 }
 
 struct ldap_field_find_context {
-	ARRAY_TYPE(string) attr_names;
+	ARRAY_TYPE(const_string) attr_names;
 	pool_t pool;
 };
 
@@ -1062,7 +1062,7 @@ db_ldap_field_find(const char *data, void *context,
 		   const char **error_r ATTR_UNUSED)
 {
 	struct ldap_field_find_context *ctx = context;
-	char *ldap_attr;
+	const char *ldap_attr;
 
 	if (*data != '\0') {
 		ldap_attr = p_strdup(ctx->pool, t_strcut(data, ':'));
@@ -1074,7 +1074,7 @@ db_ldap_field_find(const char *data, void *context,
 
 void db_ldap_get_attribute_names(pool_t pool,
 				 const ARRAY_TYPE(const_string) *attrlist,
-				 char ***attr_names_r,
+				 const char *const **attr_names_r,
 				 const char *skip_attr)
 {
 	static struct var_expand_func_table var_funcs_table[] = {
@@ -1104,7 +1104,7 @@ void db_ldap_get_attribute_names(pool_t pool,
 		(void)var_expand_with_funcs(tmp_str, value, NULL, var_funcs_table, &ctx, &error);
 	}
 	array_append_zero(&ctx.attr_names);
-	*attr_names_r = array_front_modifiable(&ctx.attr_names);
+	*attr_names_r = array_front(&ctx.attr_names);
 }
 
 #define IS_LDAP_ESCAPED_CHAR(c) \

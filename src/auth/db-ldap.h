@@ -85,7 +85,7 @@ struct ldap_request_search {
 
 	const char *base;
 	const char *filter;
-	char **attributes; /* points to (pass|user) module attributes */
+	const char *const *attributes; /* points to (pass|user) module attributes */
 
 	struct db_ldap_result *result;
 	ARRAY(struct ldap_request_named_result) named_results;
@@ -139,7 +139,7 @@ struct ldap_connection {
 	/* Timestamp when we last received a reply */
 	time_t last_reply_stamp;
 
-	char **pass_attr_names, **user_attr_names, **iterate_attr_names;
+	const char *const *pass_attr_names, *const *user_attr_names, *const *iterate_attr_names;
 	bool delayed_connect;
 };
 
@@ -156,7 +156,7 @@ void db_ldap_request(struct ldap_connection *conn,
 
 void db_ldap_get_attribute_names(pool_t pool,
 				 const ARRAY_TYPE(const_string) *attrlist,
-				 char ***attr_names_r,
+				 const char *const **attr_names_r,
 				 const char *skip_attr) ATTR_NULL(4);
 
 struct ldap_connection *db_ldap_init(struct event *event);
