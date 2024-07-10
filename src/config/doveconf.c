@@ -1092,7 +1092,7 @@ int main(int argc, char *argv[])
 		fflush(stdout);
 	}
 	master_service_init_finish(master_service);
-	set_config_binary(TRUE);
+	settings_set_config_binary(SETTINGS_BINARY_DOVECONF);
 	config_parse_load_modules();
 
 	if (print_banners) {

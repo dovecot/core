@@ -202,7 +202,7 @@ master_service_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	/* doveconf / config checks dovecot_storage_version separately.
 	   This check shouldn't fail e.g. "doveconf -d" command. */
-	if (!is_config_binary() &&
+	if (settings_get_config_binary() == SETTINGS_BINARY_OTHER &&
 	    !storage_version_check(set->dovecot_storage_version, error_r))
 		return FALSE;
 	return TRUE;

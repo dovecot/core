@@ -173,6 +173,12 @@ enum settings_parser_flags {
 	SETTINGS_PARSER_FLAG_INSERT_FILTERS		= 0x04,
 };
 
+enum settings_binary {
+	SETTINGS_BINARY_OTHER,
+	SETTINGS_BINARY_CONFIG,
+	SETTINGS_BINARY_DOVECONF
+};
+
 struct setting_parser_context;
 
 /* If a string setting value has this pointer, it means the setting isn't
@@ -285,7 +291,7 @@ static inline bool settings_value_is_unlimited(const char *value)
 		strcmp(value, SET_VALUE_INFINITE) == 0;
 }
 
-void set_config_binary(bool value);
-bool is_config_binary(void);
+void settings_set_config_binary(enum settings_binary binary);
+enum settings_binary settings_get_config_binary(void);
 
 #endif

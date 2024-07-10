@@ -115,7 +115,7 @@ ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 {
 	struct ssl_settings *set = _set;
 
-	if (is_config_binary()) T_BEGIN {
+	if (settings_get_config_binary() != SETTINGS_BINARY_OTHER) T_BEGIN {
 		const char *proto = t_str_ucase(set->ssl_min_protocol);
 		if (strstr(proto, "ANY") != NULL)
 			i_warning("ssl_min_protocol=ANY is used - This is "
