@@ -22,6 +22,7 @@ struct ldap_userdb_module {
 
 	struct ldap_connection *conn;
 	const char *const *attributes;
+	const char *const *sensitive_attr_names;
 	const char *const *iterate_attributes;
 };
 
@@ -135,6 +136,7 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	request->request.base = p_strdup(auth_request->pool, ldap_pre->base);
 	request->request.filter = p_strdup(auth_request->pool, ldap_pre->filter);
 	request->request.attributes = module->attributes;
+	request->request.sensitive_attr_names = module->sensitive_attr_names;
 
 	settings_free(ldap_pre);
 
@@ -263,6 +265,7 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 	request->request.base = p_strdup(auth_request->pool, ldap_pre->base);
 	request->request.filter = p_strdup(auth_request->pool, ldap_pre->iterate_filter);
 	request->request.attributes = module->iterate_attributes;
+	request->request.sensitive_attr_names = module->sensitive_attr_names;
 	request->request.multi_entry = TRUE;
 	settings_free(ldap_pre);
 
@@ -326,9 +329,10 @@ static int userdb_ldap_preinit(pool_t pool, struct event *event,
 	module->conn = conn = db_ldap_init(event);
 
 	db_ldap_get_attribute_names(pool, &auth_post->fields,
-				    &module->attributes, NULL);
+				    &module->attributes,
+				    &module->sensitive_attr_names, NULL);
 	db_ldap_get_attribute_names(pool, &ldap_post->iterate_fields,
-				    &module->iterate_attributes, NULL);
+				    &module->iterate_attributes, NULL, NULL);
 
 	module->module.default_cache_key = auth_cache_parse_key_and_fields(
 		pool, t_strconcat(ldap_pre->base, ldap_pre->filter, NULL),

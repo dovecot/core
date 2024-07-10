@@ -86,6 +86,7 @@ struct ldap_request_search {
 	const char *base;
 	const char *filter;
 	const char *const *attributes; /* points to (pass|user) module attributes */
+	const char *const *sensitive_attr_names;  /* same */
 
 	struct db_ldap_result *result;
 	ARRAY(struct ldap_request_named_result) named_results;
@@ -155,8 +156,9 @@ void db_ldap_request(struct ldap_connection *conn,
 
 void db_ldap_get_attribute_names(pool_t pool,
 				 const ARRAY_TYPE(const_string) *attrlist,
-				 const char *const **attr_names_r,
-				 const char *skip_attr) ATTR_NULL(4);
+				 const char *const **attributes_r,
+				 const char *const **sensitive_r,
+				 const char *skip_attr) ATTR_NULL(4,5);
 
 struct ldap_connection *db_ldap_init(struct event *event);
 void db_ldap_unref(struct ldap_connection **conn);
