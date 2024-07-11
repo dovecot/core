@@ -1196,21 +1196,9 @@ const char *ldap_escape(const char *str,
 }
 
 static bool
-ldap_field_hide_password(struct db_ldap_result_iterate_context *ctx,
-			 const char *attr)
+ldap_field_hide_password(struct db_ldap_result_iterate_context *ctx ATTR_UNUSED,
+			 const char *attr ATTR_UNUSED)
 {
-	const struct ldap_field *field;
-
-	if (ctx->ldap_request->auth_request->set->debug_passwords)
-		return FALSE;
-
-	array_foreach(ctx->attr_map, field) {
-		if (strcmp(field->ldap_attr_name, attr) == 0) {
-			if (strcmp(field->name, "password") == 0 ||
-			    strcmp(field->name, "password_noscheme") == 0)
-				return TRUE;
-		}
-	}
 	return FALSE;
 }
 
