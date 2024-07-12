@@ -6,6 +6,18 @@ struct ldap_settings {
 
 	const char *hosts;
 	const char *uris;
+
+	/* This field prevents ldap_conn_find() from reusing the same
+	   connection across stanzas that would otherwise do it.
+
+	   Settings with different connection_group will NOT share the
+	   connections, allowing parallel async execution if configured.
+
+	   Note that this field is not explicitly used anywhere, but it
+	   affects how ldap_conn_find() compares the settings against an
+	   existing connection */
+	const char *connection_group;
+
 	const char *auth_dn;
 	const char *auth_dn_password;
 
