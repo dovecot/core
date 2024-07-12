@@ -1523,6 +1523,10 @@ void db_ldap_result_iterate_deinit(struct db_ldap_result_iterate_context **_ctx)
 static struct ldap_connection *
 db_ldap_conn_find(const struct ldap_settings *set, const struct ssl_settings *ssl_set)
 {
+	/* Note that set->connection_group is implicitly used to control
+	   which settings can chare the same connections. Settings with
+	   different values for set->connection_group will NOT share
+	   the connection. */
 	struct ldap_connection *conn;
 	for (conn = ldap_connections; conn != NULL; conn = conn->next) {
 		if (settings_equal(&ldap_setting_parser_info, set, conn->set, NULL) &&

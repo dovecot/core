@@ -20,6 +20,7 @@ static const struct setting_define ldap_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "userdb_ldap", },
 	DEF(STR, hosts),
 	DEF(STR, uris),
+	DEF(STR, connection_group),
 	DEF(STR, auth_dn),
 	DEF(STR, auth_dn_password),
 	DEF(STR, auth_sasl_mechanism),
@@ -36,6 +37,7 @@ static const struct setting_define ldap_setting_defines[] = {
 static const struct ldap_settings ldap_default_settings = {
 	.hosts = "",
 	.uris = "",
+	.connection_group = "",
 	.auth_dn = "",
 	.auth_dn_password = "",
 	.auth_sasl_mechanism = "",
