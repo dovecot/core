@@ -1049,7 +1049,7 @@ static void db_ldap_conn_close(struct ldap_connection *conn)
 	}
 
 	if (conn->ld != NULL) {
-		ldap_unbind(conn->ld);
+		ldap_unbind_ext(conn->ld, NULL, NULL);
 		conn->ld = NULL;
 	}
 	conn->fd = -1;
