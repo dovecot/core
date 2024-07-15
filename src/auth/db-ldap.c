@@ -1201,25 +1201,24 @@ get_ldap_fields(struct db_ldap_result_iterate_context *ctx,
 		const char *suffix)
 {
 	struct db_ldap_value *ldap_value;
-	char *attr, **vals;
 	unsigned int i, count;
 	BerElement *ber;
 
-	attr = ldap_first_attribute(conn->ld, entry, &ber);
+	char *attr = ldap_first_attribute(conn->ld, entry, &ber);
 	while (attr != NULL) {
-		vals = ldap_get_values(conn->ld, entry, attr);
+		struct berval **vals = ldap_get_values_len(conn->ld, entry, attr);
 
 		ldap_value = p_new(ctx->pool, struct db_ldap_value, 1);
 		if (vals == NULL) {
 			ldap_value->values = p_new(ctx->pool, const char *, 1);
 			count = 0;
-		} else {
-			for (count = 0; vals[count] != NULL; count++) ;
-		}
+		} else
+			count = ldap_count_values_len(vals);
 
 		ldap_value->values = p_new(ctx->pool, const char *, count + 1);
 		for (i = 0; i < count; i++)
-			ldap_value->values[i] = p_strdup(ctx->pool, vals[i]);
+			ldap_value->values[i] = p_strndup(
+				ctx->pool, vals[i]->bv_val, vals[i]->bv_len);
 
 		str_printfa(ctx->debug, " %s%s=", attr, suffix);
 		if (count == 0)
@@ -1237,7 +1236,7 @@ get_ldap_fields(struct db_ldap_result_iterate_context *ctx,
 				  p_strconcat(ctx->pool, attr, suffix, NULL),
 				  ldap_value);
 
-		ldap_value_free(vals);
+		ldap_value_free_len(vals);
 		ldap_memfree(attr);
 		attr = ldap_next_attribute(conn->ld, entry, ber);
 	}
