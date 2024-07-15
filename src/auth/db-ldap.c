@@ -362,8 +362,7 @@ static int db_ldap_connect_finish(struct ldap_connection *conn, int ret)
 {
 	if (ret == LDAP_SERVER_DOWN) {
 		e_error(conn->event, "Can't connect to server: %s",
-			*conn->set->uris != '\0' ?
-			conn->set->uris : conn->set->hosts);
+			conn->set->uris);
 		return -1;
 	}
 	if (ret != LDAP_SUCCESS) {
@@ -927,24 +926,10 @@ static void db_ldap_set_options(struct ldap_connection *conn)
 
 static void db_ldap_init_ld(struct ldap_connection *conn)
 {
-	int ret;
-
-	if (*conn->set->uris != '\0') {
-#ifdef LDAP_HAVE_INITIALIZE
-		ret = ldap_initialize(&conn->ld, conn->set->uris);
-		if (ret != LDAP_SUCCESS) {
-			i_fatal("LDAP: ldap_initialize() failed with uris %s: %s",
-				conn->set->uris, ldap_err2string(ret));
-		}
-#else
-		i_unreached(); /* already checked at init */
-#endif
-	} else {
-		conn->ld = ldap_init(conn->set->hosts, LDAP_PORT);
-		if (conn->ld == NULL) {
-			i_fatal("LDAP: ldap_init() failed with hosts: %s",
-				conn->set->hosts);
-		}
+	int ret = ldap_initialize(&conn->ld, conn->set->uris);
+	if (ret != LDAP_SUCCESS) {
+		i_fatal("LDAP: ldap_initialize() failed with uris %s: %s",
+			conn->set->uris, ldap_err2string(ret));
 	}
 	db_ldap_set_options(conn);
 }

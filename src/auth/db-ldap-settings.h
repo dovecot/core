@@ -4,7 +4,6 @@
 struct ldap_settings {
 	pool_t pool;
 
-	const char *hosts;
 	const char *uris;
 
 	/* This field prevents ldap_conn_find() from reusing the same
