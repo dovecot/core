@@ -18,7 +18,6 @@ static bool ldap_setting_check(void *_set, pool_t pool, const char **error_r);
 static const struct setting_define ldap_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "passdb_ldap", },
 	{ .type = SET_FILTER_NAME, .key = "userdb_ldap", },
-	DEF(STR, hosts),
 	DEF(STR, uris),
 	DEF(STR, connection_group),
 	DEF(STR, auth_dn),
@@ -35,7 +34,6 @@ static const struct setting_define ldap_setting_defines[] = {
 };
 
 static const struct ldap_settings ldap_default_settings = {
-	.hosts = "",
 	.uris = "",
 	.connection_group = "",
 	.auth_dn = "",
@@ -177,14 +175,6 @@ static bool ldap_setting_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	}
 
-#ifndef LDAP_HAVE_INITIALIZE
-	if (*set->uris != '\0') {
-		*error_r = "ldap_uris set, but Dovecot compiled without support for LDAP uris "
-			   "(ldap_initialize() not supported by LDAP library)";
-		return FALSE;
-	}
-#endif
-
 #ifndef LDAP_HAVE_START_TLS_S
 	if (set->starttls) {
 		*error_r = "ldap_starttls=yes, but your LDAP library doesn't support TLS";
@@ -206,8 +196,8 @@ static bool ldap_setting_check(void *_set, pool_t pool ATTR_UNUSED,
 
 int ldap_setting_post_check(const struct ldap_settings *set, const char **error_r)
 {
-	if (*set->uris == '\0' && *set->hosts == '\0') {
-		*error_r = "Neither ldap_uris nor ldap_hosts set";
+	if (*set->uris == '\0') {
+		*error_r = "ldap_uris not set";
 		return -1;
 	}
 

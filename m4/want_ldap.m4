@@ -47,9 +47,13 @@ AC_DEFUN([DOVECOT_WANT_LDAP], [
       This define enables them until the code here can be refactored
     ])
 
-    AC_CHECK_LIB(ldap, ldap_initialize, [
-      AC_DEFINE(LDAP_HAVE_INITIALIZE,, [Define if you have ldap_initialize])
-    ],, $LDAP_LIBS)
+    AC_CHECK_LIB(ldap, ldap_initialize, :, [
+      AC_MSG_ERROR([
+        cannot build with LDAP support: function ldap_initialize() not found
+        (OpenLDAP >= 2.4 required)
+      ])
+    ], $LDAP_LIBS)
+
     AC_CHECK_LIB(ldap, ldap_start_tls_s, [
       AC_DEFINE(LDAP_HAVE_START_TLS_S,, [Define if you have ldap_start_tls_s])
     ],, $LDAP_LIBS)
