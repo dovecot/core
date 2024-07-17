@@ -61,7 +61,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(TIME_HIDDEN, mail_index_log2_max_age),
 	DEF(TIME_HIDDEN, mailbox_idle_check_interval),
 	DEF(UINT_HIDDEN, mail_max_keyword_length),
-	DEF(TIME_HIDDEN, mail_max_lock_timeout),
+	DEF(TIME, mail_max_lock_timeout),
 	DEF(TIME, mail_temp_scan_interval),
 	DEF(UINT, mail_vsize_bg_after_count),
 	DEF(UINT, mail_sort_max_read_count),

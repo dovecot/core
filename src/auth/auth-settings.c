@@ -228,15 +228,21 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(SIZE, cache_size),
 	DEF(TIME, cache_ttl),
 	DEF(TIME, cache_negative_ttl),
-	DEF(BOOL_HIDDEN, cache_verify_password_with_worker),
+	DEF(BOOL, cache_verify_password_with_worker),
 	DEF(STR, username_chars),
 	DEF(STR_HIDDEN, username_translation),
 	DEF(STR, username_format),
 	DEF(STR, master_user_separator),
 	DEF(STR, anonymous_username),
+#ifdef DOVECOT_PRO_EDITION
 	DEF(STR_HIDDEN, krb5_keytab),
 	DEF(STR_HIDDEN, gssapi_hostname),
 	DEF(STR_HIDDEN, winbind_helper_path),
+#else
+	DEF(STR, krb5_keytab),
+	DEF(STR, gssapi_hostname),
+	DEF(STR, winbind_helper_path),
+#endif
 	DEF(STR, proxy_self),
 	DEF(TIME, failure_delay),
 
@@ -260,7 +266,11 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(STR, verbose_passwords),
 	DEF(BOOL, ssl_require_client_cert),
 	DEF(BOOL, ssl_username_from_cert),
+#ifdef DOVECOT_PRO_EDITION
 	DEF(BOOL_HIDDEN, use_winbind),
+#else
+	DEF(BOOL, use_winbind),
+#endif
 
 	{ .type = SET_FILTER_ARRAY, .key = "passdb",
 	  .offset = offsetof(struct auth_settings, passdbs),
