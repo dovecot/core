@@ -377,12 +377,20 @@ static int db_ldap_connect_finish(struct ldap_connection *conn, int ret)
 static void db_ldap_default_bind_finished(struct ldap_connection *conn,
 					  struct db_ldap_result *res)
 {
-	int ret;
-
 	i_assert(conn->pending_count == 0);
 	conn->default_bind_msgid = -1;
 
-	ret = ldap_result2error(conn->ld, res->msg, FALSE);
+	int result;
+	int ret = ldap_parse_result(conn->ld, res->msg, &result,
+				    NULL, NULL, NULL, NULL, FALSE);
+	/* ldap_parse_result() itself can fail client-side.
+	   In that case ret already contains our error code... */
+	if (ret == LDAP_SUCCESS) {
+		/* ... on the other hand, the result of a successful parsing
+		   can be itself a server-side error, whose error-code is
+		   stored in result. Pass it into ret and handle it as well. */
+		ret = result;
+	}
 	if (db_ldap_connect_finish(conn, ret) < 0) {
 		/* lost connection, close it */
 		db_ldap_conn_close(conn);
@@ -508,7 +516,11 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 		final_result = FALSE;
 	} else {
 		final_result = TRUE;
-		ret = ldap_result2error(conn->ld, res->msg, 0);
+		int result;
+		ret = ldap_parse_result(conn->ld, res->msg, &result,
+					NULL, NULL, NULL, NULL, FALSE);
+		if (ret == LDAP_SUCCESS)
+			ret = result;
 	}
 	/* LDAP_NO_SUCH_OBJECT is returned for nonexistent base */
 	if (ret != LDAP_SUCCESS && ret != LDAP_NO_SUCH_OBJECT &&
