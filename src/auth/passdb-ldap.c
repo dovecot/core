@@ -386,11 +386,11 @@ ldap_verify_plain_auth_bind_userdn(struct auth_request *auth_request,
 	brequest->request.type = LDAP_REQUEST_TYPE_BIND;
 
 	dn = t_str_new(512);
-	if (auth_request_var_expand(dn, conn->set->auth_bind_userdn,
+	if (auth_request_var_expand(dn, conn->set->passdb_ldap_bind_userdn,
 				    auth_request, ldap_escape, &error) <= 0) {
 		e_error(authdb_event(auth_request),
-			"Failed to expand auth_bind_userdn=%s: %s",
-			conn->set->auth_bind_userdn, error);
+			"Failed to expand passdb_ldap_bind_userdn=%s: %s",
+			conn->set->passdb_ldap_bind_userdn, error);
 		passdb_ldap_request_fail(request, PASSDB_RESULT_INTERNAL_FAILURE);
 		return;
 	}
@@ -423,9 +423,9 @@ ldap_verify_plain(struct auth_request *request,
 	auth_request_ref(request);
 	ldap_request->request.ldap.auth_request = request;
 
-	if (!conn->set->auth_bind)
+	if (!conn->set->passdb_ldap_bind)
 		ldap_lookup_pass(request, ldap_request, TRUE);
-	else if (conn->set->auth_bind_userdn == NULL)
+	else if (conn->set->passdb_ldap_bind_userdn == NULL)
 		ldap_bind_lookup_dn(request, ldap_request);
 	else
 		ldap_verify_plain_auth_bind_userdn(request, ldap_request);
@@ -449,7 +449,7 @@ static void ldap_lookup_credentials(struct auth_request *request,
 	/* with auth_bind=yes we don't necessarily have a password.
 	   this will fail actual password credentials lookups, but it's fine
 	   for passdb lookups done by lmtp/doveadm */
-	require_password = !module->conn->set->auth_bind;
+	require_password = !module->conn->set->passdb_ldap_bind;
         ldap_lookup_pass(request, ldap_request, require_password);
 }
 
@@ -465,7 +465,7 @@ static int passdb_ldap_preinit(pool_t pool, struct event *event,
 	p_array_init(&conn->pass_attr_map, pool, 16);
 	db_ldap_set_attrs(conn, conn->set->pass_attrs, &conn->pass_attr_names,
 			  &conn->pass_attr_map,
-			  conn->set->auth_bind ? "password" : NULL);
+			  conn->set->passdb_ldap_bind ? "password" : NULL);
 	module->module.default_cache_key =
 		auth_cache_parse_key(pool,
 				     t_strconcat(conn->set->base,

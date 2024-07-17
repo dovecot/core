@@ -14,6 +14,8 @@ static bool ldap_setting_check(void *_set, pool_t pool, const char **error_r);
 #undef DEF
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type("ldap_"#name, name, struct ldap_settings)
+#define DEFN(type, field, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, field, struct ldap_settings)
 
 static const struct setting_define ldap_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "passdb_ldap", },
@@ -22,8 +24,8 @@ static const struct setting_define ldap_setting_defines[] = {
 	DEF(STR, uris),
 	DEF(STR, auth_dn),
 	DEF(STR, auth_dn_password),
-	DEF(BOOL, auth_bind),
-	DEF(STR, auth_bind_userdn),
+	DEFN(BOOL, passdb_ldap_bind, passdb_ldap_bind),
+	DEFN(STR, passdb_ldap_bind_userdn, passdb_ldap_bind_userdn),
 	DEF(BOOL, auth_sasl_bind),
 	DEF(STR, auth_sasl_mechanism),
 	DEF(STR, auth_sasl_realm),
@@ -48,8 +50,8 @@ static const struct ldap_settings ldap_default_settings = {
 	.uris = "",
 	.auth_dn = "",
 	.auth_dn_password = "",
-	.auth_bind = FALSE,
-	.auth_bind_userdn = "",
+	.passdb_ldap_bind = FALSE,
+	.passdb_ldap_bind_userdn = "",
 	.auth_sasl_bind = FALSE,
 	.auth_sasl_mechanism = "",
 	.auth_sasl_realm = "",
