@@ -4,6 +4,7 @@
 
 #if defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD)
 
+#include "safe-memset.h"
 #include "net.h"
 #include "ioloop.h"
 #include "array.h"
@@ -183,6 +184,7 @@ static int ldap_handle_error(struct ldap_connection *conn)
 static int db_ldap_request_bind(struct ldap_connection *conn,
 				struct ldap_request *request)
 {
+	struct auth_request *arequest = request->auth_request;
 	struct ldap_request_bind *brequest =
 		(struct ldap_request_bind *)request;
 
@@ -192,12 +194,16 @@ static int db_ldap_request_bind(struct ldap_connection *conn,
 		 conn->conn_state == LDAP_CONN_STATE_BOUND_DEFAULT);
 	i_assert(conn->pending_count == 0);
 
-	request->msgid = ldap_bind(conn->ld, brequest->dn,
-				   request->auth_request->mech_password,
-				   LDAP_AUTH_SIMPLE);
-	if (request->msgid == -1) {
-		e_error(authdb_event(request->auth_request),
-			"ldap_bind(%s) failed: %s",
+	struct berval creds = {
+		.bv_val = arequest->mech_password,
+		.bv_len = strlen(arequest->mech_password)
+	};
+
+	int ret = ldap_sasl_bind(conn->ld, brequest->dn, LDAP_SASL_SIMPLE,
+				 &creds, NULL, NULL, &request->msgid);
+	if (ret != LDAP_SUCCESS) {
+		e_error(authdb_event(arequest),
+			"ldap_sasl_bind(%s) failed: %s",
 			brequest->dn, ldap_get_error(conn));
 		if (ldap_handle_error(conn) < 0) {
 			/* broken request, remove it */
@@ -787,9 +793,14 @@ static int db_ldap_bind_simple(struct ldap_connection *conn)
 	i_assert(conn->default_bind_msgid == -1);
 	i_assert(conn->pending_count == 0);
 
-	msgid = ldap_bind(conn->ld, conn->set->auth_dn,
-			  conn->set->auth_dn_password, LDAP_AUTH_SIMPLE);
-	if (msgid == -1) {
+	struct berval creds = {
+		.bv_val = (char*)conn->set->auth_dn_password,
+		.bv_len = strlen(conn->set->auth_dn_password)
+	};
+
+	int ret = ldap_sasl_bind(conn->ld, conn->set->auth_dn, LDAP_SASL_SIMPLE,
+				 &creds, NULL, NULL, &msgid);
+	if (ret != LDAP_SUCCESS) {
 		i_assert(ldap_get_errno(conn) != LDAP_SUCCESS);
 		if (db_ldap_connect_finish(conn, ldap_get_errno(conn)) < 0) {
 			/* lost connection, close it */

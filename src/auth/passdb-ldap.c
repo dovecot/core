@@ -162,7 +162,7 @@ ldap_auth_bind_callback(struct ldap_connection *conn,
 			auth_request_db_log_unknown_user(auth_request);
 		} else {
 			e_error(authdb_event(auth_request),
-				"ldap_bind() failed: %s",
+				"ldap_sasl_bind() failed: %s",
 				ldap_err2string(ret));
 		}
 	}
