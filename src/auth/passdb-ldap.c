@@ -142,12 +142,15 @@ ldap_auth_bind_callback(struct ldap_connection *conn,
 		(struct passdb_ldap_request *)ldap_request;
 	struct auth_request *auth_request = ldap_request->auth_request;
 	enum passdb_result passdb_result;
-	int ret;
 
 	passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 
 	if (res != NULL) {
-		ret = ldap_result2error(conn->ld, res, 0);
+		int result;
+		int ret = ldap_parse_result(conn->ld, res, &result,
+					    NULL, NULL, NULL, NULL, FALSE);
+		if (ret == LDAP_SUCCESS)
+			ret = result;
 		if (ret == LDAP_SUCCESS)
 			passdb_result = PASSDB_RESULT_OK;
 		else if (ret == LDAP_INVALID_CREDENTIALS) {
