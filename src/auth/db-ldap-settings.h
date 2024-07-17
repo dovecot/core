@@ -8,7 +8,7 @@ struct ldap_settings {
 	const char *uris;
 	const char *auth_dn;
 	const char *auth_dn_password;
-	const char *auth_bind_userdn;
+	const char *passdb_ldap_bind_userdn;
 
 	const char *auth_sasl_mechanism;
 	const char *auth_sasl_realm;
@@ -32,7 +32,7 @@ struct ldap_settings {
 	uid_t uid;
 	gid_t gid;
 
-	bool auth_bind;
+	bool passdb_ldap_bind;
 	bool auth_sasl_bind;
 	bool starttls;
 
