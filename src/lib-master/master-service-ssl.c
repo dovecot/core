@@ -92,6 +92,7 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	ssl_set.dh = server_set->ssl_dh;
 	ssl_set.cert.key_password = server_set->ssl_key_password;
 	ssl_set.cert_username_field = set->ssl_cert_username_field;
+	ssl_set.cert_username_cea = set->ssl_cert_username_cea;
 	if (server_set->ssl_alt_cert != NULL &&
 	    *server_set->ssl_alt_cert != '\0') {
 		ssl_set.alt_cert.cert = server_set->ssl_alt_cert;

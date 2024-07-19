@@ -25,6 +25,7 @@ static const struct setting_define master_service_ssl_setting_defines[] = {
 	DEF(STR, ssl_curve_list),
 	DEF(STR, ssl_min_protocol),
 	DEF(STR, ssl_cert_username_field),
+	DEF(BOOL, ssl_cert_username_cea),
 	DEF(STR, ssl_crypto_device),
 	DEF(BOOL, ssl_verify_client_cert),
 	DEF(BOOL, ssl_client_require_valid_cert),
@@ -48,6 +49,7 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 	.ssl_curve_list = "",
 	.ssl_min_protocol = "TLSv1.2",
 	.ssl_cert_username_field = "commonName",
+	.ssl_cert_username_cea = FALSE,
 	.ssl_crypto_device = "",
 	.ssl_verify_client_cert = FALSE,
 	.ssl_client_require_valid_cert = TRUE,
@@ -167,6 +169,7 @@ static void master_service_ssl_common_settings_to_iostream_set(
 
 	set_r->crypto_device = p_strdup(pool, ssl_set->ssl_crypto_device);
 	set_r->cert_username_field = p_strdup(pool, ssl_set->ssl_cert_username_field);
+	set_r->cert_username_cea = ssl_set->ssl_cert_username_cea;
 
 	set_r->verbose = ssl_set->verbose_ssl;
 	set_r->verbose_invalid_cert = ssl_set->verbose_ssl;
