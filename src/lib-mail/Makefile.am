@@ -99,6 +99,7 @@ test_programs = \
 	test-message-id \
 	test-message-parser \
 	test-message-part \
+	test-message-part-data \
 	test-message-part-serialize \
 	test-message-search \
 	test-message-size \
@@ -202,6 +203,10 @@ test_message_parser_DEPENDENCIES = $(test_deps)
 test_message_part_SOURCES = test-message-part.c
 test_message_part_LDADD = $(test_libs)
 test_message_part_DEPENDENCIES = $(test_deps)
+
+test_message_part_data_SOURCES = test-message-part-data.c
+test_message_part_data_LDADD = $(test_libs)
+test_message_part_data_DEPENDENCIES = $(test_deps)
 
 test_message_search_SOURCES = test-message-search.c
 test_message_search_LDADD = $(test_libs) ../lib-charset/libcharset.la
