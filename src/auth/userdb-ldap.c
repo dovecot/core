@@ -91,7 +91,8 @@ static void userdb_ldap_lookup_callback(struct ldap_connection *conn,
 					LDAPMessage *res)
 {
 	struct userdb_ldap_request *urequest =
-		(struct userdb_ldap_request *) request;
+		container_of(request, struct userdb_ldap_request, request.request);
+
 	struct auth_request *auth_request =
 		urequest->request.request.auth_request;
 
@@ -113,7 +114,8 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 			       userdb_callback_t *callback)
 {
 	struct userdb_module *_module = auth_request->userdb->userdb;
-	struct ldap_userdb_module *module = (struct ldap_userdb_module *)_module;
+	struct ldap_userdb_module *module =
+		container_of(_module, struct ldap_userdb_module, module);
 	struct ldap_connection *conn = module->conn;
 	struct event *event = authdb_event(auth_request);
 
@@ -155,7 +157,7 @@ static void userdb_ldap_iterate_callback(struct ldap_connection *conn,
 					 LDAPMessage *res)
 {
 	struct userdb_iter_ldap_request *urequest =
-		(struct userdb_iter_ldap_request *)request;
+		container_of(request, struct userdb_iter_ldap_request, request.request);
 	struct ldap_userdb_iterate_context *ctx = urequest->ctx;
 
 	if (res == NULL || ldap_msgtype(res) == LDAP_RES_SEARCH_RESULT) {
@@ -234,7 +236,7 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 {
 	struct userdb_module *_module = auth_request->userdb->userdb;
 	struct ldap_userdb_module *module =
-		(struct ldap_userdb_module *)_module;
+		container_of(_module, struct ldap_userdb_module, module);
 	struct ldap_connection *conn = module->conn;
 	struct event *event = authdb_event(auth_request);
 
@@ -282,7 +284,7 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 static void userdb_ldap_iterate_next(struct userdb_iterate_context *_ctx)
 {
 	struct ldap_userdb_iterate_context *ctx =
-		(struct ldap_userdb_iterate_context *)_ctx;
+		container_of(_ctx, struct ldap_userdb_iterate_context, ctx);
 
 	if (_ctx->failed) {
 		_ctx->callback(NULL, _ctx->context);
@@ -296,7 +298,7 @@ static void userdb_ldap_iterate_next(struct userdb_iterate_context *_ctx)
 static int userdb_ldap_iterate_deinit(struct userdb_iterate_context *_ctx)
 {
 	struct ldap_userdb_iterate_context *ctx =
-		(struct ldap_userdb_iterate_context *)_ctx;
+		container_of(_ctx, struct ldap_userdb_iterate_context, ctx);
 	int ret = _ctx->failed ? -1 : 0;
 
 	db_ldap_enable_input(ctx->conn, TRUE);
@@ -351,7 +353,7 @@ failed:
 static void userdb_ldap_init(struct userdb_module *_module)
 {
 	struct ldap_userdb_module *module =
-		(struct ldap_userdb_module *)_module;
+		container_of(_module, struct ldap_userdb_module, module);
 
 	if (!module->module.blocking || worker)
 		db_ldap_connect_delayed(module->conn);
@@ -360,7 +362,7 @@ static void userdb_ldap_init(struct userdb_module *_module)
 static void userdb_ldap_deinit(struct userdb_module *_module)
 {
 	struct ldap_userdb_module *module =
-		(struct ldap_userdb_module *)_module;
+		container_of(_module, struct ldap_userdb_module, module);
 
 	db_ldap_unref(&module->conn);
 }

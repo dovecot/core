@@ -117,7 +117,7 @@ ldap_lookup_pass_callback(struct ldap_connection *conn,
 			  struct ldap_request *request, LDAPMessage *res)
 {
 	struct passdb_ldap_request *ldap_request =
-		(struct passdb_ldap_request *)request;
+		container_of(request, struct passdb_ldap_request, request.ldap);
         struct auth_request *auth_request = request->auth_request;
 
 	if (res == NULL || ldap_msgtype(res) == LDAP_RES_SEARCH_RESULT) {
@@ -139,7 +139,7 @@ ldap_auth_bind_callback(struct ldap_connection *conn,
 			struct ldap_request *ldap_request, LDAPMessage *res)
 {
 	struct passdb_ldap_request *passdb_ldap_request =
-		(struct passdb_ldap_request *)ldap_request;
+		container_of(ldap_request, struct passdb_ldap_request, request.ldap);
 	struct auth_request *auth_request = ldap_request->auth_request;
 	enum passdb_result passdb_result;
 
@@ -176,7 +176,7 @@ static void ldap_auth_bind(struct ldap_connection *conn,
 			   struct ldap_request_bind *brequest)
 {
 	struct passdb_ldap_request *passdb_ldap_request =
-		(struct passdb_ldap_request *)brequest;
+		container_of(brequest, struct passdb_ldap_request, request.bind);
 	struct auth_request *auth_request = brequest->request.auth_request;
 
 	if (*auth_request->mech_password == '\0') {
@@ -236,7 +236,7 @@ static void ldap_bind_lookup_dn_callback(struct ldap_connection *conn,
 					 LDAPMessage *res)
 {
 	struct passdb_ldap_request *passdb_ldap_request =
-		(struct passdb_ldap_request *)ldap_request;
+		container_of(ldap_request, struct passdb_ldap_request, request.ldap);
 	struct auth_request *auth_request = ldap_request->auth_request;
 	struct passdb_ldap_request *brequest;
 	char *dn;
@@ -285,7 +285,7 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 {
 	struct passdb_module *_module = auth_request->passdb->passdb;
 	struct ldap_passdb_module *module =
-		(struct ldap_passdb_module *)_module;
+		container_of(_module, struct ldap_passdb_module, module);
 	struct ldap_connection *conn = module->conn;
 	struct ldap_request_search *srequest = &request->request.search;
 
@@ -312,7 +312,7 @@ static void ldap_bind_lookup_dn(struct auth_request *auth_request,
 {
 	struct passdb_module *_module = auth_request->passdb->passdb;
 	struct ldap_passdb_module *module =
-		(struct ldap_passdb_module *)_module;
+		container_of(_module, struct ldap_passdb_module, module);
 	struct ldap_connection *conn = module->conn;
 	struct ldap_request_search *srequest = &request->request.search;
 
@@ -341,7 +341,7 @@ ldap_verify_plain_auth_bind_userdn(struct auth_request *auth_request,
 {
 	struct passdb_module *_module = auth_request->passdb->passdb;
 	struct ldap_passdb_module *module =
-		(struct ldap_passdb_module *)_module;
+		container_of(_module, struct ldap_passdb_module, module);
 	struct ldap_connection *conn = module->conn;
 	struct ldap_request_bind *brequest = &request->request.bind;
 
@@ -357,7 +357,7 @@ ldap_verify_plain(struct auth_request *request,
 {
 	struct passdb_module *_module = request->passdb->passdb;
 	struct ldap_passdb_module *module =
-		(struct ldap_passdb_module *)_module;
+		container_of(_module, struct ldap_passdb_module, module);
 	struct ldap_connection *conn = module->conn;
 	struct event *event = authdb_event(request);
 	struct passdb_ldap_request *ldap_request;
@@ -468,7 +468,7 @@ failed:
 static void passdb_ldap_init(struct passdb_module *_module)
 {
 	struct ldap_passdb_module *module =
-		(struct ldap_passdb_module *)_module;
+		container_of(_module, struct ldap_passdb_module, module);
 
 	if (!module->module.blocking || worker)
 		db_ldap_connect_delayed(module->conn);
@@ -477,7 +477,7 @@ static void passdb_ldap_init(struct passdb_module *_module)
 static void passdb_ldap_deinit(struct passdb_module *_module)
 {
 	struct ldap_passdb_module *module =
-		(struct ldap_passdb_module *)_module;
+		container_of(_module, struct ldap_passdb_module, module);
 
 	db_ldap_unref(&module->conn);
 }
