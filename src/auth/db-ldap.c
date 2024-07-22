@@ -186,7 +186,7 @@ static int db_ldap_request_bind(struct ldap_connection *conn,
 {
 	struct auth_request *arequest = request->auth_request;
 	struct ldap_request_bind *brequest =
-		(struct ldap_request_bind *)request;
+		container_of(request, struct ldap_request_bind, request);
 
 	i_assert(request->type == LDAP_REQUEST_TYPE_BIND);
 	i_assert(request->msgid == -1);
@@ -219,7 +219,7 @@ static int db_ldap_request_search(struct ldap_connection *conn,
 				  struct ldap_request *request)
 {
 	struct ldap_request_search *srequest =
-		(struct ldap_request_search *)request;
+		container_of(request, struct ldap_request_search, request);
 
 	i_assert(conn->conn_state == LDAP_CONN_STATE_BOUND_DEFAULT);
 	i_assert(request->msgid == -1);
@@ -490,7 +490,8 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 			      struct ldap_request *request, unsigned int idx,
 			      struct db_ldap_result *res)
 {
-	struct ldap_request_search *srequest = NULL;
+	struct ldap_request_search *srequest =
+		container_of(request, struct ldap_request_search, request);
 	const struct ldap_request_named_result *named_res;
 	int ret;
 	bool final_result;
@@ -502,7 +503,6 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 		i_assert(conn->pending_count == 1);
 		conn->conn_state = LDAP_CONN_STATE_BOUND_AUTH;
 	} else {
-		srequest = (struct ldap_request_search *)request;
 		switch (ldap_msgtype(res->msg)) {
 		case LDAP_RES_SEARCH_ENTRY:
 		case LDAP_RES_SEARCH_RESULT:
@@ -531,9 +531,6 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 	if (ret != LDAP_SUCCESS && ret != LDAP_NO_SUCH_OBJECT &&
 	    request->type == LDAP_REQUEST_TYPE_SEARCH) {
 		/* handle search failures here */
-		struct ldap_request_search *srequest =
-			(struct ldap_request_search *)request;
-
 		if (!array_is_created(&srequest->named_results)) {
 			e_error(authdb_event(request->auth_request),
 				"ldap_search_ext(base=%s filter=%s) failed: %s",
@@ -606,7 +603,7 @@ db_ldap_request_free(struct ldap_request *request)
 {
 	if (request->type == LDAP_REQUEST_TYPE_SEARCH) {
 		struct ldap_request_search *srequest =
-			(struct ldap_request_search *)request;
+			container_of(request, struct ldap_request_search, request);
 		struct ldap_request_named_result *named_res;
 
 		if (srequest->result != NULL)
