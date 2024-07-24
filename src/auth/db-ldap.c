@@ -994,9 +994,6 @@ static void db_ldap_set_tls_options(struct ldap_connection *conn)
 
 static void db_ldap_set_options(struct ldap_connection *conn)
 {
-	unsigned int ldap_version;
-	int value;
-
 #ifdef LDAP_OPT_NETWORK_TIMEOUT
 	struct timeval tv;
 	int ret;
@@ -1010,14 +1007,15 @@ static void db_ldap_set_options(struct ldap_connection *conn)
 	db_ldap_set_opt(conn->ld, LDAP_OPT_DEREF, &conn->set.ldap_deref,
 			"deref", conn->set.deref);
 #ifdef LDAP_OPT_DEBUG_LEVEL
-	if (str_to_int(conn->set.debug_level, &value) >= 0 && value != 0) {
-		db_ldap_set_opt(NULL, LDAP_OPT_DEBUG_LEVEL, &value,
+	int debug_level;
+	if (str_to_int(conn->set.debug_level, &debug_level) >= 0 && debug_level != 0) {
+		db_ldap_set_opt(NULL, LDAP_OPT_DEBUG_LEVEL, &debug_level,
 				"debug_level", conn->set.debug_level);
 		event_set_forced_debug(conn->event, TRUE);
 	}
 #endif
 
-	ldap_version = conn->set.ldap_version;
+	unsigned int ldap_version = conn->set.ldap_version;
 	db_ldap_set_opt(conn->ld, LDAP_OPT_PROTOCOL_VERSION, &ldap_version,
 			"protocol_version", dec2str(ldap_version));
 	db_ldap_set_tls_options(conn);
