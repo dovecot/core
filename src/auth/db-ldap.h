@@ -118,6 +118,7 @@ struct ldap_connection {
 	pool_t pool;
 	int refcount;
 	struct event *event;
+	char *log_prefix;
 
         const struct ldap_settings *set;
 	const struct ssl_settings *ssl_set;

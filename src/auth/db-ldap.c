@@ -837,13 +837,13 @@ static void db_ldap_get_fd(struct ldap_connection *conn)
 	/* get the connection's fd */
 	ret = ldap_get_option(conn->ld, LDAP_OPT_DESC, (void *)&conn->fd);
 	if (ret != LDAP_SUCCESS) {
-		i_fatal("ldap(%s): Can't get connection fd: %s",
-			conn->set->uris, ldap_err2string(ret));
+		i_fatal("%sCan't get connection fd: %s",
+			conn->log_prefix, ldap_err2string(ret));
 	}
 	if (conn->fd <= STDERR_FILENO) {
 		/* Solaris LDAP library seems to be broken */
-		i_fatal("ldap(%s): Buggy LDAP library returned wrong fd: %d",
-			conn->set->uris, conn->fd);
+		i_fatal("%sBuggy LDAP library returned wrong fd: %d",
+			conn->log_prefix, conn->fd);
 	}
 	i_assert(conn->fd != -1);
 	net_set_nonblock(conn->fd, TRUE);
@@ -857,8 +857,8 @@ db_ldap_set_opt(struct ldap_connection *conn, LDAP *ld, int opt,
 
 	ret = ldap_set_option(ld, opt, value);
 	if (ret != LDAP_SUCCESS) {
-		i_fatal("ldap(%s): Can't set option %s to %s: %s",
-			conn->set->uris, optname, value_str, ldap_err2string(ret));
+		i_fatal("%sCan't set option %s to %s: %s",
+			conn->log_prefix, optname, value_str, ldap_err2string(ret));
 	}
 }
 
@@ -898,17 +898,56 @@ static void db_ldap_set_tls_options(struct ldap_connection *conn)
 #endif
 }
 
+static const char *
+db_ldap_log_callback(struct ldap_connection *conn)
+{
+	return conn->log_prefix;
+}
+
+static int
+db_ldap_add_connection_callback(LDAP *ld ATTR_UNUSED, Sockbuf *sb ATTR_UNUSED,
+				LDAPURLDesc *srv, struct sockaddr *addr ATTR_UNUSED,
+				struct ldap_conncb *ctx)
+{
+	struct ldap_connection *conn = ctx->lc_arg;
+	const char *prefix = t_strdup_printf("ldap(%s://%s:%d): ",
+		srv->lud_scheme, srv->lud_host, srv->lud_port);
+
+	if (strcmp(conn->log_prefix, prefix) != 0) {
+		i_free(conn->log_prefix);
+		conn->log_prefix = i_strdup(prefix);
+	}
+	return LDAP_SUCCESS;
+}
+
+static void
+db_ldap_del_connection_callback(LDAP *ld ATTR_UNUSED, Sockbuf *sb ATTR_UNUSED,
+				struct ldap_conncb *ctx ATTR_UNUSED)
+{
+	/* does nothing, but must exist in struct ldap_conncb */
+}
+
 static void db_ldap_set_options(struct ldap_connection *conn)
 {
+	int ret;
+
+	struct ldap_conncb *cb = p_new(conn->pool, struct ldap_conncb, 1);
+	cb->lc_add = db_ldap_add_connection_callback;
+	cb->lc_del = db_ldap_del_connection_callback;
+	cb->lc_arg = conn;
+	ret = ldap_set_option(conn->ld, LDAP_OPT_CONNECT_CB, cb);
+	if (ret != LDAP_SUCCESS)
+		i_fatal("%sCan't set conn_callbacks: %s",
+			conn->log_prefix, ldap_err2string(ret));
+
 #ifdef LDAP_OPT_NETWORK_TIMEOUT
 	struct timeval tv;
-	int ret;
 
 	tv.tv_sec = DB_LDAP_CONNECT_TIMEOUT_SECS; tv.tv_usec = 0;
 	ret = ldap_set_option(conn->ld, LDAP_OPT_NETWORK_TIMEOUT, &tv);
 	if (ret != LDAP_SUCCESS)
-		i_fatal("ldap(%s): Can't set network-timeout: %s",
-			conn->set->uris, ldap_err2string(ret));
+		i_fatal("%sCan't set network-timeout: %s",
+			conn->log_prefix, ldap_err2string(ret));
 #endif
 
 	db_ldap_set_opt(conn, conn->ld, LDAP_OPT_DEREF, &conn->set->parsed_deref,
@@ -932,8 +971,8 @@ static void db_ldap_init_ld(struct ldap_connection *conn)
 {
 	int ret = ldap_initialize(&conn->ld, conn->set->uris);
 	if (ret != LDAP_SUCCESS) {
-		i_fatal("ldap(%s): ldap_initialize() failed: %s",
-			conn->set->uris, ldap_err2string(ret));
+		i_fatal("%sldap_initialize() failed: %s",
+			conn->log_prefix, ldap_err2string(ret));
 	}
 	db_ldap_set_options(conn);
 }
@@ -963,9 +1002,8 @@ int db_ldap_connect(struct ldap_connection *conn)
 			if (ret == LDAP_OPERATIONS_ERROR &&
 			    *conn->set->uris != '\0' &&
 			    str_begins_with(conn->set->uris, "ldaps:")) {
-				i_fatal("ldap(%s): "
-					"Don't use both ldap_starttls=yes and ldaps URI",
-					conn->set->uris);
+				i_fatal("%sDon't use both ldap_starttls=yes and ldaps URI",
+					conn->log_prefix);
 			}
 			e_error(conn->event, "ldap_start_tls_s() failed: %s",
 				ldap_err2string(ret));
@@ -980,7 +1018,7 @@ int db_ldap_connect(struct ldap_connection *conn)
 		return -1;
 
 	i_gettimeofday(&end);
-	e_debug(conn->event, "LDAP initialization took %lld msecs",
+	e_debug(conn->event, "initialization took %lld msecs",
 		timeval_diff_msecs(&end, &start));
 
 	db_ldap_get_fd(conn);
@@ -1558,7 +1596,7 @@ struct ldap_connection *db_ldap_init(struct event *event)
 	set     = settings_get_or_fatal(event, &ldap_setting_parser_info);
 	ssl_set = settings_get_or_fatal(event, &ssl_setting_parser_info);
 	if (ldap_setting_post_check(set, &error) < 0)
-		i_fatal("ldap(%s): %s", set->uris, error);
+		i_fatal("%s%s", set->uris, error);
 
 	/* see if it already exists */
 	struct ldap_connection *conn = db_ldap_conn_find(set, ssl_set);
@@ -1582,7 +1620,8 @@ struct ldap_connection *db_ldap_init(struct event *event)
 	conn->fd = -1;
 
 	conn->event = event_create(auth_event);
-	event_set_append_log_prefix(conn->event, "ldap: ");
+	conn->log_prefix = i_strdup_printf("ldap(%s): ", set->uris);
+	event_set_log_prefix_callback(conn->event, FALSE, db_ldap_log_callback, conn);
 
 	i_array_init(&conn->request_array, 512);
 	conn->request_queue = aqueue_init(&conn->request_array.arr);
@@ -1623,6 +1662,8 @@ void db_ldap_unref(struct ldap_connection **_conn)
 	settings_free(conn->set);
 
 	event_unref(&conn->event);
+	i_free(conn->log_prefix);
+
 	pool_unref(&conn->pool);
 }
 
