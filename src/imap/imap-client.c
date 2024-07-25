@@ -1254,7 +1254,7 @@ client_command_failed_early(struct client_command_context **_cmd,
 static bool client_command_input(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
-	struct command *command;
+	const struct command *command;
 	const char *tag, *name;
 	int ret;
 

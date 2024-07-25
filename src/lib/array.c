@@ -139,8 +139,8 @@ void array_sort_i(struct array *array, int (*cmp)(const void *, const void *))
 	      count, array->element_size, cmp);
 }
 
-void *array_bsearch_i(struct array *array, const void *key,
-		     int (*cmp)(const void *, const void *))
+const void *array_bsearch_i(const struct array *array, const void *key,
+		            int (*cmp)(const void *, const void *))
 {
 	unsigned int count;
 

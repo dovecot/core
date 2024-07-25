@@ -74,7 +74,7 @@ smtp_server_command_bsearch(const char *name,
 	return strcasecmp(name, cmd->name);
 }
 
-static struct smtp_server_command_reg *
+static const struct smtp_server_command_reg *
 smtp_server_command_find(struct smtp_server *server, const char *name)
 {
 	if (server->commands_unsorted) {

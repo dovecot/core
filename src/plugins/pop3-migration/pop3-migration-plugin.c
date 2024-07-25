@@ -916,7 +916,8 @@ pop3_migration_get_special(struct mail *_mail, enum mail_fetch_field field,
 	struct mail_private *mail = (struct mail_private *)_mail;
 	union mail_module_context *mmail = POP3_MIGRATION_MAIL_CONTEXT(mail);
 	struct pop3_migration_mailbox *mbox = POP3_MIGRATION_CONTEXT_REQUIRE(_mail->box);
-	struct imap_msg_map map_key, *map;
+	const struct imap_msg_map *map;
+	struct imap_msg_map map_key;
 
 	if (field == MAIL_FETCH_UIDL_BACKEND ||
 	    field == MAIL_FETCH_POP3_ORDER) {

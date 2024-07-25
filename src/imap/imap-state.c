@@ -785,7 +785,7 @@ void imap_state_import_idle_cmd_tag(struct client *client, const char *tag)
 	if (client->state_import_idle_continue) {
 		/* IDLE command continues */
 		struct client_command_context *cmd;
-		struct command *command;
+		const struct command *command;
 
 		cmd = client_command_alloc(client);
 		cmd->tag = p_strdup(cmd->pool, tag);

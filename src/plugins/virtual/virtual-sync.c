@@ -761,7 +761,7 @@ virtual_sync_mailbox_box_update_flags(struct virtual_sync_context *ctx,
 				      const ARRAY_TYPE(seq_range) *uids_arr)
 {
 	unsigned int i, uid, vseq;
-	struct virtual_backend_uidmap *vuid;
+	const struct virtual_backend_uidmap *vuid;
 	struct seq_range_iter iter;
 
 	i = 0;

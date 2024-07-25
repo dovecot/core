@@ -338,7 +338,7 @@ static void rebuild_apply_map(struct mdbox_storage_rebuild_context *ctx)
 {
 	struct mdbox_map *map = ctx->storage->map;
 	const struct mail_index_header *hdr;
-	struct mdbox_rebuild_msg **pos;
+	struct mdbox_rebuild_msg *const *pos;
 	struct mdbox_rebuild_msg search_msg, *search_msgp = &search_msg;
 	struct dbox_mail_lookup_rec rec;
 	uint32_t seq;
@@ -389,7 +389,7 @@ rebuild_lookup_map_uid(struct mdbox_storage_rebuild_context *ctx,
 		       uint32_t map_uid)
 {
 	struct mdbox_rebuild_msg search_msg, *search_msgp = &search_msg;
-	struct mdbox_rebuild_msg **pos;
+	struct mdbox_rebuild_msg *const *pos;
 
 	search_msg.map_uid = map_uid;
 	pos = array_bsearch(&ctx->msgs, &search_msgp,
