@@ -1557,6 +1557,11 @@ bool smtp_server_connection_is_trusted(struct smtp_server_connection *conn)
 	return conn->callbacks->conn_is_trusted(conn->context);
 }
 
+bool smtp_server_connection_is_started(struct smtp_server_connection *conn)
+{
+	return conn->started;
+}
+
 enum smtp_protocol
 smtp_server_connection_get_protocol(struct smtp_server_connection *conn)
 {
