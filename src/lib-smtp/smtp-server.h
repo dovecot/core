@@ -532,6 +532,7 @@ void smtp_server_connection_register_rcpt_param(
 
 bool smtp_server_connection_is_ssl_secured(struct smtp_server_connection *conn);
 bool smtp_server_connection_is_trusted(struct smtp_server_connection *conn);
+bool smtp_server_connection_is_started(struct smtp_server_connection *conn);
 
 /*
  * Command
