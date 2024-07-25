@@ -62,7 +62,7 @@ void command_stats_start(struct client_command_context *cmd);
    needed during command_exec(). */
 void command_stats_flush(struct client_command_context *cmd);
 
-struct command *command_find(const char *name);
+const struct command *command_find(const char *name);
 
 void commands_init(void);
 void commands_deinit(void);

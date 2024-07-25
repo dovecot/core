@@ -410,8 +410,8 @@ void array_sort_i(struct array *array, int (*cmp)(const void *, const void *));
 			&(array)->arr, (const void *)key, \
 			(int (*)(const void *, const void *))cmp))
 
-void *array_bsearch_i(struct array *array, const void *key,
-		      int (*cmp)(const void *, const void *));
+const void *array_bsearch_i(const struct array *array, const void *key,
+		            int (*cmp)(const void *, const void *));
 static inline void *array_bsearch_modifiable_i(struct array *array, const void *key,
 					       int (*cmp)(const void *, const void *))
 {
@@ -419,7 +419,7 @@ static inline void *array_bsearch_modifiable_i(struct array *array, const void *
 }
 
 #define array_bsearch(array, key, cmp) \
-	ARRAY_TYPE_CAST_MODIFIABLE(array) \
+	ARRAY_TYPE_CAST_CONST(array) \
 	ARRAY_SEARCH_CALL(bsearch, array, key, cmp)
 #define array_bsearch_modifiable(array, key, cmp) \
 	ARRAY_TYPE_CAST_MODIFIABLE(array) \
