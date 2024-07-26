@@ -717,6 +717,7 @@ int dict_command_input(struct dict_connection *conn, const char *line)
 	cmd = i_new(struct dict_connection_cmd, 1);
 	cmd->conn = conn;
 	cmd->event = event_create(cmd->conn->conn.event);
+	event_add_str(cmd->event, "dict_name", conn->name);
 	cmd->cmd = cmd_func;
 	cmd->start_timeval = ioloop_timeval;
 	array_push_back(&conn->cmds, &cmd);
