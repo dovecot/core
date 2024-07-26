@@ -27,7 +27,7 @@ INTEGER_CMP(uint32_cmp, uint32_t)
 						typeof(const typeof(*base) *))), \
 		(int (*)(const void *, const void *))cmp)
 
-int bsearch_strcmp(const char *key, const char *const *member) ATTR_PURE;
-int bsearch_strcasecmp(const char *key, const char *const *member) ATTR_PURE;
+int search_strcmp(const char *key, const char *const *member) ATTR_PURE;
+int search_strcasecmp(const char *key, const char *const *member) ATTR_PURE;
 
 #endif

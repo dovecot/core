@@ -264,7 +264,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			matched = i_bsearch(hdr->name, mstream->headers,
 					    mstream->headers_count,
 					    sizeof(*mstream->headers),
-					    bsearch_strcasecmp) != NULL;
+					    search_strcasecmp) != NULL;
 		}
 		if (mstream->callback == NULL) {
 			/* nothing gets excluded */

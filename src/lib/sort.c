@@ -6,12 +6,12 @@
 #include <string.h>
 #include <strings.h>
 
-int bsearch_strcmp(const char *key, const char *const *member)
+int search_strcmp(const char *key, const char *const *member)
 {
 	return strcmp(key, *member);
 }
 
-int bsearch_strcasecmp(const char *key, const char *const *member)
+int search_strcasecmp(const char *key, const char *const *member)
 {
 	return strcasecmp(key, *member);
 }
