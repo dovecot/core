@@ -402,14 +402,19 @@ void array_sort_i(struct array *array, int (*cmp)(const void *, const void *));
 					typeof(*(array)->v))), \
 	array_sort_i(&(array)->arr, (int (*)(const void *, const void *))cmp))
 
+#define ARRAY_SEARCH_CALL(func, array, key, cmp) \
+	TYPE_CHECKS(void *, \
+		CALLBACK_TYPECHECK(cmp, int (*)(typeof(const typeof(*key) *), \
+						typeof(*(array)->v))), \
+		array_##func##_i( \
+			&(array)->arr, (const void *)key, \
+			(int (*)(const void *, const void *))cmp))
+
 void *array_bsearch_i(struct array *array, const void *key,
 		      int (*cmp)(const void *, const void *));
 #define array_bsearch(array, key, cmp) \
-	TYPE_CHECKS(void *, \
-	CALLBACK_TYPECHECK(cmp, int (*)(typeof(const typeof(*key) *), \
-					typeof(*(array)->v))), \
-	ARRAY_TYPE_CAST_MODIFIABLE(array)array_bsearch_i(&(array)->arr, \
-		(const void *)key, (int (*)(const void *, const void *))cmp))
+	ARRAY_TYPE_CAST_MODIFIABLE(array) \
+	ARRAY_SEARCH_CALL(bsearch, array, key, cmp)
 
 /* Returns pointer to first element for which cmp(key,elem)==0, or NULL */
 const void *array_lsearch_i(const struct array *array, const void *key,
@@ -419,16 +424,12 @@ static inline void *array_lsearch_modifiable_i(struct array *array, const void *
 {
 	return (void *)array_lsearch_i(array, key, cmp);
 }
-#define ARRAY_LSEARCH_CALL(modifiable, array, key, cmp) \
-	TYPE_CHECKS(void *, \
-	CALLBACK_TYPECHECK(cmp, int (*)(typeof(const typeof(*key) *), \
-					typeof(*(array)->v))), \
-	array_lsearch##modifiable##i( \
-		&(array)->arr, (const void *)key, \
-		(int (*)(const void *, const void *))cmp))
-#define array_lsearch(array, key, cmp)					\
-	ARRAY_TYPE_CAST_CONST(array)ARRAY_LSEARCH_CALL(_, array, key, cmp)
-#define array_lsearch_modifiable(array, key, cmp)			\
-	ARRAY_TYPE_CAST_MODIFIABLE(array)ARRAY_LSEARCH_CALL(_modifiable_, array, key, cmp)
+
+#define array_lsearch(array, key, cmp) \
+	ARRAY_TYPE_CAST_CONST(array) \
+	ARRAY_SEARCH_CALL(lsearch, array, key, cmp)
+#define array_lsearch_modifiable(array, key, cmp) \
+	ARRAY_TYPE_CAST_MODIFIABLE(array) \
+	ARRAY_SEARCH_CALL(lsearch_modifiable, array, key, cmp)
 
 #endif
