@@ -155,10 +155,8 @@ bool acl_backend_user_name_equals(struct acl_backend *backend,
 bool acl_backend_user_is_in_group(struct acl_backend *backend,
 				  const char *group_name)
 {
-	unsigned int group_count;
-	const char *const *groups = array_get(&backend->set->acl_groups, &group_count);
-	return i_bsearch(group_name, groups, group_count,
-			 sizeof(const char *), search_strcmp) != NULL;
+	return array_bsearch(&backend->set->acl_groups, group_name,
+			     search_strcmp) != NULL;
 }
 
 bool acl_backend_rights_match_me(struct acl_backend *backend,
