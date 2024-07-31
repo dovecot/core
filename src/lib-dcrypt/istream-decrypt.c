@@ -917,11 +917,14 @@ i_stream_decrypt_read(struct istream_private *stream)
 					return -1;
 				}
 				check_mac = TRUE;
+			} else if (size < dstream->ftr || decrypt_size < dstream->ftr) {
+				return 0;
 			} else {
 				/* ignore footer's length of data until we
 				   reach EOF */
 				size -= dstream->ftr;
 			}
+			i_assert(decrypt_size >= dstream->ftr);
 			decrypt_size -= dstream->ftr;
 			if ((dstream->flags & IO_STREAM_ENC_INTEGRITY_HMAC) ==
 				IO_STREAM_ENC_INTEGRITY_HMAC) {
