@@ -128,6 +128,11 @@
 	((nid) == NID_ED25519 || (nid) == NID_ED448)
 #endif
 
+#if !defined(OBJ_chacha20_poly1305) && defined(LN_chacha20_poly1305)
+#  define OBJ_CHACHA20_POLY1305_MISSING
+static ASN1_OBJECT *CHACHA20_POLY1305_OBJ = NULL;
+#endif
+
 struct dcrypt_context_symmetric {
 	pool_t pool;
 	const EVP_CIPHER *cipher;
@@ -3515,7 +3520,14 @@ dcrypt_openssl_oid2name(const unsigned char *oid, size_t oid_len,
 		dcrypt_openssl_error(error_r);
 		return NULL;
 	}
+#ifdef OBJ_CHACHA20_POLY1305_MISSING
+	if (OBJ_cmp(obj, CHACHA20_POLY1305_OBJ) == 0)
+		name = LN_chacha20_poly1305;
+	else
+		name = OBJ_nid2sn(OBJ_obj2nid(obj));
+#else
 	name = OBJ_nid2sn(OBJ_obj2nid(obj));
+#endif
 	ASN1_OBJECT_free(obj);
 	return name;
 }
@@ -3529,8 +3541,13 @@ dcrypt_openssl_name2oid(const char *name, buffer_t *oid, const char **error_r)
 		return dcrypt_openssl_error(error_r);
 
 	size_t len = OBJ_length(obj);
-	if (len == 0)
-	{
+#ifdef OBJ_CHACHA20_POLY1305_MISSING
+	if (len == 0 && strcasecmp(name, LN_chacha20_poly1305) == 0) {
+		ASN1_OBJECT_free(obj);
+		obj = OBJ_dup(CHACHA20_POLY1305_OBJ);
+	} else
+#endif
+	if (len == 0) {
 		*error_r = "Object has no OID assigned";
 		return FALSE;
 	}
@@ -3538,10 +3555,9 @@ dcrypt_openssl_name2oid(const char *name, buffer_t *oid, const char **error_r)
 	unsigned char *bufptr = buffer_append_space_unsafe(oid, len);
 	i2d_ASN1_OBJECT(obj, &bufptr);
 	ASN1_OBJECT_free(obj);
-	if (bufptr != NULL) {
-		return TRUE;
-	}
-	return dcrypt_openssl_error(error_r);
+	if (bufptr == NULL)
+		return dcrypt_openssl_error(error_r);
+	return TRUE;
 }
 
 static enum dcrypt_key_type
@@ -4435,11 +4451,17 @@ void dcrypt_openssl_init(struct module *module ATTR_UNUSED)
 {
 	dovecot_openssl_common_global_ref();
 	dcrypt_set_vfs(&dcrypt_openssl_vfs);
+#ifdef OBJ_CHACHA20_POLY1305_MISSING
+        CHACHA20_POLY1305_OBJ = OBJ_txt2obj("1.2.840.113549.1.9.16.3.18", 1);
+#endif
 }
 
 void dcrypt_openssl_deinit(void)
 {
 	dovecot_openssl_common_global_unref();
+#ifdef OBJ_CHACHA20_POLY1305_MISSING
+        ASN1_OBJECT_free(CHACHA20_POLY1305_OBJ);
+#endif
 }
 
 #endif
