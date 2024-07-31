@@ -62,6 +62,15 @@ static const char test_sample_v2_hash[] =
 static struct dcrypt_keypair test_v1_kp;
 static struct dcrypt_keypair test_v2_kp;
 
+static const char *const test_algos[] = {
+	LN_aes_256_gcm"-"LN_sha256,
+	LN_aes_256_cbc"-"LN_sha256,
+	LN_camellia_192_ofb128"-"LN_sha256,
+#ifdef NID_chacha20_poly1305
+	LN_chacha20_poly1305"-"LN_sha256,
+#endif
+};
+
 static void test_static_v1_input(void)
 {
 	ssize_t siz;
@@ -347,18 +356,25 @@ static void test_write_read_v1_empty(void)
 	test_end();
 }
 
-static void test_write_read_v2_real(const struct dcrypt_keypair *pair)
+static void test_write_read_v2_real(const struct dcrypt_keypair *pair,
+				    const char *kalg, const char *algo)
 {
+	test_begin(t_strdup_printf("test_write_read_v2(%s, %s)", kalg, algo));
+	enum io_stream_encrypt_flags flags = 0;
 	unsigned char payload[IO_BLOCK_SIZE*10] = {0};
 	const unsigned char *ptr;
 	size_t pos = 0, siz;
 	random_fill(payload, IO_BLOCK_SIZE*10);
-
+	if (strstr(algo, "-gcm") != NULL ||
+	    strstr(algo, "-poly1305") != NULL)
+		flags |= IO_STREAM_ENC_INTEGRITY_AEAD;
+	else
+		flags |= IO_STREAM_ENC_INTEGRITY_HMAC;
 	buffer_t *buf = buffer_create_dynamic(default_pool, sizeof(payload));
 	struct ostream *os = o_stream_create_buffer(buf);
 	struct ostream *os_2 = o_stream_create_encrypt(os,
-		"aes-256-gcm-sha256", pair->pub,
-		IO_STREAM_ENC_INTEGRITY_AEAD);
+		algo, pair->pub,
+		flags);
 	o_stream_nsend(os_2, payload, sizeof(payload));
 	test_assert(o_stream_finish(os_2) > 0);
 	if (os_2->stream_errno != 0)
@@ -407,59 +423,65 @@ static void test_write_read_v2_real(const struct dcrypt_keypair *pair)
 	i_stream_unref(&is);
 	i_stream_unref(&is_2);
 	buffer_free(&buf);
-
 	test_end();
+}
+
+static void test_write_read_v2_algos(const char *kalg, const struct dcrypt_keypair *pair)
+{
+	for (size_t i = 0; i < N_ELEMENTS(test_algos); i++)
+		test_write_read_v2_real(pair, kalg, test_algos[i]);
 }
 
 static void test_write_read_v2(void)
 {
-	test_begin("test_write_read_v2");
-	test_write_read_v2_real(&test_v2_kp);
+	test_write_read_v2_algos(SN_X9_62_prime256v1, &test_v2_kp);
 }
 
 #ifdef HAVE_X25519
 static void test_write_read_v2_x25519(void)
 {
-	test_begin("test_write_read_v2 (x25519)");
 	struct dcrypt_keypair pair;
 	const char *error;
 	bool ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0,
-					   "X25519", &error);
+					   SN_X25519, &error);
 	if (!ret)
 		i_panic("%s", error);
 
-	test_write_read_v2_real(&pair);
+	test_write_read_v2_algos(SN_X25519, &pair);
 	dcrypt_keypair_unref(&pair);
 }
 
 static void test_write_read_v2_x448(void)
 {
-	test_begin("test_write_read_v2 (x448)");
 	struct dcrypt_keypair pair;
 	const char *error;
 	bool ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0,
-					   "X448", &error);
+					   SN_X448, &error);
 	if (!ret)
 		i_panic("%s", error);
 
-	test_write_read_v2_real(&pair);
+	test_write_read_v2_algos(SN_X448, &pair);
 	dcrypt_keypair_unref(&pair);
 }
 #endif
 
-static void test_write_read_v2_short(void)
+static void test_write_read_v2_short(const char *algo)
 {
-	test_begin("test_write_read_v2_short");
+	test_begin(t_strdup_printf("test_write_read_v2_short("SN_X9_62_prime256v1", %s)", algo));
+	enum io_stream_encrypt_flags flags = 0;
 	unsigned char payload[1];
 	const unsigned char *ptr;
 	size_t pos = 0, siz;
 	random_fill(payload, 1);
-
+	if (strstr(algo, "-gcm") != NULL ||
+	    strstr(algo, "-poly1305") != NULL)
+		flags |= IO_STREAM_ENC_INTEGRITY_AEAD;
+	else
+		flags |= IO_STREAM_ENC_INTEGRITY_HMAC;
 	buffer_t *buf = buffer_create_dynamic(default_pool, 64);
 	struct ostream *os = o_stream_create_buffer(buf);
 	struct ostream *os_2 = o_stream_create_encrypt(os,
-		"aes-256-gcm-sha256", test_v1_kp.pub,
-		IO_STREAM_ENC_INTEGRITY_AEAD);
+		algo, test_v1_kp.pub, flags);
 	o_stream_nsend(os_2, payload, sizeof(payload));
 	test_assert(o_stream_finish(os_2) > 0);
 	if (os_2->stream_errno != 0)
@@ -498,16 +520,27 @@ static void test_write_read_v2_short(void)
 	test_end();
 }
 
-static void test_write_read_v2_empty(void)
+static void test_write_read_v2_short_algos(void)
+{
+	for (size_t i = 0; i < N_ELEMENTS(test_algos); i++)
+		test_write_read_v2_short(test_algos[i]);
+}
+
+static void test_write_read_v2_empty(const char *algo)
 {
 	const unsigned char *ptr;
 	size_t siz;
-	test_begin("test_write_read_v2_empty");
+	enum io_stream_encrypt_flags flags = 0;
+	test_begin(t_strdup_printf("test_write_read_v2_empty("SN_X9_62_prime256v1", %s)", algo));
+	if (strstr(algo, "-gcm") != NULL ||
+	    strstr(algo, "-poly1305") != NULL)
+		flags |= IO_STREAM_ENC_INTEGRITY_AEAD;
+	else
+		flags |= IO_STREAM_ENC_INTEGRITY_HMAC;
 	buffer_t *buf = buffer_create_dynamic(default_pool, 64);
 	struct ostream *os = o_stream_create_buffer(buf);
 	struct ostream *os_2 = o_stream_create_encrypt(os,
-		"aes-256-gcm-sha256", test_v1_kp.pub,
-		IO_STREAM_ENC_INTEGRITY_AEAD);
+		algo, test_v1_kp.pub, flags);
 	test_assert(o_stream_finish(os_2) > 0);
 	if (os_2->stream_errno != 0)
 		i_debug("error: %s", o_stream_get_error(os_2));
@@ -537,7 +570,14 @@ static void test_write_read_v2_empty(void)
 	i_stream_unref(&is);
 	i_stream_unref(&is_2);
 	buffer_free(&buf);
+
 	test_end();
+}
+
+static void test_write_read_v2_empty_algos(void)
+{
+	for (size_t i = 0; i < N_ELEMENTS(test_algos); i++)
+		test_write_read_v2_empty(test_algos[i]);
 }
 
 static int
@@ -687,8 +727,8 @@ int main(void)
 		test_write_read_v1_short,
 		test_write_read_v1_empty,
 		test_write_read_v2,
-		test_write_read_v2_short,
-		test_write_read_v2_empty,
+		test_write_read_v2_short_algos,
+		test_write_read_v2_empty_algos,
 #ifdef HAVE_X25519
 		test_write_read_v2_x448,
 		test_write_read_v2_x25519,
