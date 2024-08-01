@@ -896,7 +896,7 @@ static void db_ldap_set_options(struct ldap_connection *conn)
 
 	db_ldap_set_opt(conn->ld, LDAP_OPT_PROTOCOL_VERSION,
 			&conn->set->version,
-			"protocol_version", dec2str(conn->set->version));
+			"ldap_version", dec2str(conn->set->version));
 	db_ldap_set_tls_options(conn);
 }
 
