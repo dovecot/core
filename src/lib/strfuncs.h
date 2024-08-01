@@ -130,6 +130,26 @@ str_begins_builtin_success(const char *haystack, size_t needle_len,
 	  str_begins_builtin_success((h), strlen(n), suffix_r)))
 #endif
 
+static inline ATTR_PURE bool
+str_ends_with(const char *haystack, const char *suffix)
+{
+	size_t haystack_len = strlen(haystack);
+	size_t suffix_len = strlen(suffix);
+	if (haystack_len < suffix_len)
+		return FALSE;
+	return strcmp(haystack + haystack_len - suffix_len, suffix) == 0;
+}
+
+static inline ATTR_PURE bool
+str_ends_icase_with(const char *haystack, const char *suffix)
+{
+	size_t haystack_len = strlen(haystack);
+	size_t suffix_len = strlen(suffix);
+	if (haystack_len < suffix_len)
+		return FALSE;
+	return strcasecmp(haystack + haystack_len - suffix_len, suffix) == 0;
+}
+
 /* Get length of a prefix segment.
 
   Calculates the length (in bytes) of the initial segment of s which consists
