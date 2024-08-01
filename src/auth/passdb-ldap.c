@@ -58,7 +58,7 @@ ldap_query_save_result(struct ldap_connection *conn,
 				  "using value '%s'", name, values[0]);
 		}
 		auth_request_set_field(auth_request, name, values[0],
-				       conn->set.default_pass_scheme);
+				       conn->set->default_pass_scheme);
 	}
 	db_ldap_result_iterate_deinit(&ldap_iter);
 }
@@ -290,21 +290,21 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 	srequest->request.type = LDAP_REQUEST_TYPE_SEARCH;
 
 	str = t_str_new(512);
-	if (auth_request_var_expand(str, conn->set.base, auth_request,
+	if (auth_request_var_expand(str, conn->set->base, auth_request,
 				    ldap_escape, &error) <= 0) {
 		e_error(authdb_event(auth_request),
-			"Failed to expand base=%s: %s", conn->set.base, error);
+			"Failed to expand base=%s: %s", conn->set->base, error);
 		passdb_ldap_request_fail(request, PASSDB_RESULT_INTERNAL_FAILURE);
 		return;
 	}
 	srequest->base = p_strdup(auth_request->pool, str_c(str));
 
 	str_truncate(str, 0);
-	if (auth_request_var_expand(str, conn->set.pass_filter,
+	if (auth_request_var_expand(str, conn->set->pass_filter,
 				    auth_request, ldap_escape, &error) <= 0) {
 		e_error(authdb_event(auth_request),
 			"Failed to expand pass_filter=%s: %s",
-			conn->set.pass_filter, error);
+			conn->set->pass_filter, error);
 		passdb_ldap_request_fail(request, PASSDB_RESULT_INTERNAL_FAILURE);
 		return;
 	}
@@ -314,7 +314,7 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 
 	e_debug(authdb_event(auth_request), "pass search: "
 		"base=%s scope=%s filter=%s fields=%s",
-		srequest->base, conn->set.scope,
+		srequest->base, conn->set->scope,
 		srequest->filter, attr_names == NULL ? "(all)" :
 		t_strarray_join(attr_names, ","));
 
@@ -336,21 +336,21 @@ static void ldap_bind_lookup_dn(struct auth_request *auth_request,
 	srequest->request.type = LDAP_REQUEST_TYPE_SEARCH;
 
 	str = t_str_new(512);
-	if (auth_request_var_expand(str, conn->set.base, auth_request,
+	if (auth_request_var_expand(str, conn->set->base, auth_request,
 				    ldap_escape, &error) <= 0) {
 		e_error(authdb_event(auth_request),
-			"Failed to expand base=%s: %s", conn->set.base, error);
+			"Failed to expand base=%s: %s", conn->set->base, error);
 		passdb_ldap_request_fail(request, PASSDB_RESULT_INTERNAL_FAILURE);
 		return;
 	}
 	srequest->base = p_strdup(auth_request->pool, str_c(str));
 
 	str_truncate(str, 0);
-	if (auth_request_var_expand(str, conn->set.pass_filter,
+	if (auth_request_var_expand(str, conn->set->pass_filter,
 				    auth_request, ldap_escape, &error) <= 0) {
 		e_error(authdb_event(auth_request),
 			"Failed to expand pass_filter=%s: %s",
-			conn->set.pass_filter, error);
+			conn->set->pass_filter, error);
 		passdb_ldap_request_fail(request, PASSDB_RESULT_INTERNAL_FAILURE);
 		return;
 	}
@@ -385,11 +385,11 @@ ldap_verify_plain_auth_bind_userdn(struct auth_request *auth_request,
 	brequest->request.type = LDAP_REQUEST_TYPE_BIND;
 
 	dn = t_str_new(512);
-	if (auth_request_var_expand(dn, conn->set.auth_bind_userdn,
+	if (auth_request_var_expand(dn, conn->set->auth_bind_userdn,
 				    auth_request, ldap_escape, &error) <= 0) {
 		e_error(authdb_event(auth_request),
 			"Failed to expand auth_bind_userdn=%s: %s",
-			conn->set.auth_bind_userdn, error);
+			conn->set->auth_bind_userdn, error);
 		passdb_ldap_request_fail(request, PASSDB_RESULT_INTERNAL_FAILURE);
 		return;
 	}
@@ -422,9 +422,9 @@ ldap_verify_plain(struct auth_request *request,
 	auth_request_ref(request);
 	ldap_request->request.ldap.auth_request = request;
 
-	if (!conn->set.auth_bind)
+	if (!conn->set->auth_bind)
 		ldap_lookup_pass(request, ldap_request, TRUE);
-	else if (conn->set.auth_bind_userdn == NULL)
+	else if (conn->set->auth_bind_userdn == NULL)
 		ldap_bind_lookup_dn(request, ldap_request);
 	else
 		ldap_verify_plain_auth_bind_userdn(request, ldap_request);
@@ -448,7 +448,7 @@ static void ldap_lookup_credentials(struct auth_request *request,
 	/* with auth_bind=yes we don't necessarily have a password.
 	   this will fail actual password credentials lookups, but it's fine
 	   for passdb lookups done by lmtp/doveadm */
-	require_password = !module->conn->set.auth_bind;
+	require_password = !module->conn->set->auth_bind;
         ldap_lookup_pass(request, ldap_request, require_password);
 }
 
@@ -461,16 +461,16 @@ passdb_ldap_preinit(pool_t pool, const char *args)
 	module = p_new(pool, struct ldap_passdb_module, 1);
 	module->conn = conn = db_ldap_init(args);
 	p_array_init(&conn->pass_attr_map, pool, 16);
-	db_ldap_set_attrs(conn, conn->set.pass_attrs, &conn->pass_attr_names,
+	db_ldap_set_attrs(conn, conn->set->pass_attrs, &conn->pass_attr_names,
 			  &conn->pass_attr_map,
-			  conn->set.auth_bind ? "password" : NULL);
-	module->module.blocking = conn->set.blocking;
+			  conn->set->auth_bind ? "password" : NULL);
+	module->module.blocking = conn->set->blocking;
 	module->module.default_cache_key =
 		auth_cache_parse_key(pool,
-				     t_strconcat(conn->set.base,
-						 conn->set.pass_attrs,
-						 conn->set.pass_filter, NULL));
-	module->module.default_pass_scheme = conn->set.default_pass_scheme;
+				     t_strconcat(conn->set->base,
+						 conn->set->pass_attrs,
+						 conn->set->pass_filter, NULL));
+	module->module.default_pass_scheme = conn->set->default_pass_scheme;
 	return &module->module;
 }
 

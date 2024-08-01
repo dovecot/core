@@ -160,7 +160,7 @@ struct ldap_connection {
 	struct event *event;
 
 	char *config_path;
-        struct ldap_settings set;
+	struct ldap_settings *set;
 
 	LDAP *ld;
 	enum ldap_connection_state conn_state;
