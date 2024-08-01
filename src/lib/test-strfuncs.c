@@ -618,6 +618,39 @@ test_str_match_icase(void)
 	test_end();
 }
 
+static void test_str_ends_with(void)
+{
+	const struct {
+		const char *haystack, *suffix;
+		bool result;
+	} tests[] = {
+		{ "", "", TRUE },
+		{ "abc", "", TRUE },
+		{ "abc", "c", TRUE },
+		{ "abc", "bc", TRUE },
+		{ "abc", "abc", TRUE },
+		{ "abc", "xabc", FALSE },
+		{ "abc", "axc", FALSE },
+		{ "", "a", FALSE },
+	};
+
+	test_begin("str_ends_with() and str_ends_icase_with()");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		test_assert(str_ends_with(tests[i].haystack,
+					  tests[i].suffix) == tests[i].result);
+		test_assert(str_ends_icase_with(tests[i].haystack,
+						tests[i].suffix) ==
+			    tests[i].result);
+		if (tests[i].haystack[0] != '\0' && tests[i].suffix[0] != '\0' &&
+		    tests[i].result) {
+			const char *haystack_ucase = t_str_ucase(tests[i].haystack);
+			test_assert(!str_ends_with(haystack_ucase, tests[i].suffix));
+			test_assert(str_ends_icase_with(haystack_ucase, tests[i].suffix));
+		}
+	}
+	test_end();
+}
+
 static void test_memspn(void)
 {
 #undef TEST_CASE
@@ -743,6 +776,7 @@ void test_strfuncs(void)
 	test_dec2str_buf();
 	test_str_match();
 	test_str_match_icase();
+	test_str_ends_with();
 	test_memspn();
 	test_memcspn();
 }
