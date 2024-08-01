@@ -118,21 +118,21 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	request->userdb_callback = callback;
 
 	str = t_str_new(512);
-	if (auth_request_var_expand(str, conn->set.base, auth_request,
+	if (auth_request_var_expand(str, conn->set->base, auth_request,
 				    ldap_escape, &error) <= 0) {
 		e_error(authdb_event(auth_request),
-			"Failed to expand base=%s: %s", conn->set.base, error);
+			"Failed to expand base=%s: %s", conn->set->base, error);
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 		return;
 	}
 	request->request.base = p_strdup(auth_request->pool, str_c(str));
 
 	str_truncate(str, 0);
-	if (auth_request_var_expand(str, conn->set.user_filter, auth_request,
+	if (auth_request_var_expand(str, conn->set->user_filter, auth_request,
 				    ldap_escape, &error) <= 0) {
 		e_error(authdb_event(auth_request),
 			"Failed to expand user_filter=%s: %s",
-			conn->set.user_filter, error);
+			conn->set->user_filter, error);
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 		return;
 	}
@@ -143,7 +143,7 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 
 	e_debug(authdb_event(auth_request), "user search: "
 		"base=%s scope=%s filter=%s fields=%s",
-		request->request.base, conn->set.scope,
+		request->request.base, conn->set->scope,
 		request->request.filter,
 		attr_names == NULL ? "(all)" :
 		t_strarray_join(attr_names, ","));
@@ -225,21 +225,21 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 	request->request.request.auth_request = auth_request;
 
 	str = t_str_new(512);
-	if (auth_request_var_expand(str, conn->set.base, auth_request,
+	if (auth_request_var_expand(str, conn->set->base, auth_request,
 				    ldap_escape, &error) <= 0) {
 		e_error(authdb_event(auth_request),
-			"Failed to expand base=%s: %s", conn->set.base, error);
+			"Failed to expand base=%s: %s", conn->set->base, error);
 		ctx->ctx.failed = TRUE;
 		return &ctx->ctx;
 	}
 	request->request.base = p_strdup(auth_request->pool, str_c(str));
 
 	str_truncate(str, 0);
-	if (auth_request_var_expand(str, conn->set.iterate_filter,
+	if (auth_request_var_expand(str, conn->set->iterate_filter,
 				    auth_request, ldap_escape, &error) <= 0) {
 		e_error(authdb_event(auth_request),
 			"Failed to expand iterate_filter=%s: %s",
-			conn->set.iterate_filter, error);
+			conn->set->iterate_filter, error);
 		ctx->ctx.failed = TRUE;
 		return &ctx->ctx;
 	}
@@ -249,7 +249,7 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 	request->request.multi_entry = TRUE;
 
 	e_debug(auth_request->event, "ldap: iterate: base=%s scope=%s filter=%s fields=%s",
-		request->request.base, conn->set.scope,
+		request->request.base, conn->set->scope,
 		request->request.filter, attr_names == NULL ? "(all)" :
 		t_strarray_join(attr_names, ","));
 	request->request.request.callback = userdb_ldap_iterate_callback;
@@ -293,17 +293,17 @@ userdb_ldap_preinit(pool_t pool, const char *args)
 	p_array_init(&conn->user_attr_map, pool, 16);
 	p_array_init(&conn->iterate_attr_map, pool, 16);
 
-	db_ldap_set_attrs(conn, conn->set.user_attrs, &conn->user_attr_names,
+	db_ldap_set_attrs(conn, conn->set->user_attrs, &conn->user_attr_names,
 			  &conn->user_attr_map, NULL);
-	db_ldap_set_attrs(conn, conn->set.iterate_attrs,
+	db_ldap_set_attrs(conn, conn->set->iterate_attrs,
 			  &conn->iterate_attr_names,
 			  &conn->iterate_attr_map, NULL);
-	module->module.blocking = conn->set.blocking;
+	module->module.blocking = conn->set->blocking;
 	module->module.default_cache_key =
 		auth_cache_parse_key(pool,
-				     t_strconcat(conn->set.base,
-						 conn->set.user_attrs,
-						 conn->set.user_filter, NULL));
+				     t_strconcat(conn->set->base,
+						 conn->set->user_attrs,
+						 conn->set->user_filter, NULL));
 	return &module->module;
 }
 
