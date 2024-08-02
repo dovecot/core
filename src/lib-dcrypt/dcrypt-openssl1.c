@@ -694,8 +694,10 @@ dcrypt_openssl_ctx_hmac_init(struct dcrypt_context_hmac *ctx,
 		return dcrypt_openssl_error(error_r);
 #endif
 	ec = HMAC_Init_ex(ctx->ctx, ctx->key, ctx->klen, ctx->md, NULL);
-	if (ec != 1)
+	if (ec != 1) {
+		HMAC_CTX_free(ctx->ctx);
 		return dcrypt_openssl_error(error_r);
+	}
 	return TRUE;
 }
 
