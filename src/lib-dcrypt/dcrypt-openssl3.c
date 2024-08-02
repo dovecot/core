@@ -630,7 +630,7 @@ dcrypt_openssl_ctx_hmac_init(struct dcrypt_context_hmac *ctx,
 	};
 	ctx->ctx = EVP_MAC_CTX_new(ctx->mac);
 	if (ctx->ctx == NULL)
-		dcrypt_openssl_error(error_r);
+		return dcrypt_openssl_error(error_r);
 	ec = EVP_MAC_init(ctx->ctx, ctx->key, ctx->klen, params);
 	if (ec != 1)
 		return dcrypt_openssl_error(error_r);
