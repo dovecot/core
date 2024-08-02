@@ -525,6 +525,8 @@ void smtp_server_connection_add_extra_capability(
 	struct smtp_server_connection *conn,
 	const struct smtp_capability_extra *cap);
 
+void smtp_server_connection_set_greeting(struct smtp_server_connection *conn,
+					 const char *greeting);
 void smtp_server_connection_register_mail_param(
 	struct smtp_server_connection *conn, const char *param);
 void smtp_server_connection_register_rcpt_param(

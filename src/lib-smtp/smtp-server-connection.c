@@ -1497,6 +1497,12 @@ void smtp_server_connection_set_capabilities(
 	conn->set.capabilities = capabilities;
 }
 
+void smtp_server_connection_set_greeting(struct smtp_server_connection *conn,
+					 const char *greeting)
+{
+	conn->set.login_greeting = p_strdup(conn->pool, greeting);
+}
+
 void smtp_server_connection_add_extra_capability(
 	struct smtp_server_connection *conn,
 	const struct smtp_capability_extra *cap)
