@@ -457,10 +457,12 @@ o_stream_encrypt_keydata_create_v2(struct encrypt_ostream *stream,
 			      dcrypt_ctx_sym_get_iv_length(stream->ctx_sym));
 	ptr += dcrypt_ctx_sym_get_iv_length(stream->ctx_sym);
 
+	error = NULL;
 	if ((stream->flags & IO_STREAM_ENC_INTEGRITY_HMAC) ==
 		IO_STREAM_ENC_INTEGRITY_HMAC) {
 		dcrypt_ctx_hmac_set_key(stream->ctx_mac, ptr, tagsize);
-		dcrypt_ctx_hmac_init(stream->ctx_mac, &error);
+		if (!dcrypt_ctx_hmac_init(stream->ctx_mac, &error))
+			i_assert(error != NULL);
 	} else if ((stream->flags & IO_STREAM_ENC_INTEGRITY_AEAD) ==
 		IO_STREAM_ENC_INTEGRITY_AEAD) {
 		dcrypt_ctx_sym_set_aad(stream->ctx_sym, ptr, tagsize);
@@ -469,7 +471,8 @@ o_stream_encrypt_keydata_create_v2(struct encrypt_ostream *stream,
 	/* clear out private key data */
 	safe_memset(buffer_get_modifiable_data(keydata, 0), 0, keydata->used);
 
-	if (!dcrypt_ctx_sym_init(stream->ctx_sym, &error)) {
+	if (error != NULL ||
+	    !dcrypt_ctx_sym_init(stream->ctx_sym, &error)) {
 		io_stream_set_error(&stream->ostream.iostream,
 				    "Encryption init error: %s", error);
 		return -1;
