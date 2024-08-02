@@ -299,7 +299,8 @@ struct smtp_server_callbacks {
 					const struct smtp_proxy_data *data);
 
 	/* TLS SNI Callback. */
-	int (*conn_tls_sni_callback)(const char *name, const char **error_r, void *context);
+	int (*conn_tls_sni_callback)(void *conn_ctx, const char *name,
+				     const char **error_r);
 	/* Connection */
 	int (*conn_start_tls)(void *conn_ctx,
 			      struct istream **input, struct ostream **output);

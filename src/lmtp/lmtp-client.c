@@ -396,11 +396,10 @@ client_connection_proxy_data_updated(void *context,
 }
 
 static int
-client_connection_tls_sni_callback(const char *name, const char **error_r,
-				   void *context)
+client_connection_tls_sni_callback(void *context, const char *name,
+				   const char **error_r)
 {
-	struct smtp_server_connection *conn = context;
-	struct client *client = conn->context;
+	struct client *client = context;
 
 	const struct lda_settings *old_lda_set = client->lda_set;
 	const struct lmtp_settings *old_lmtp_set = client->lmtp_set;
