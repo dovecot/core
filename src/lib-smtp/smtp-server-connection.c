@@ -367,7 +367,7 @@ smtp_server_connection_sni_callback(const char *name, const char **error_r,
 	}
 
 	if (conn->callbacks->conn_tls_sni_callback != NULL &&
-	    conn->callbacks->conn_tls_sni_callback(name, error_r, conn) < 0) {
+	    conn->callbacks->conn_tls_sni_callback(conn->context, name, error_r) < 0) {
 		settings_free(ssl_set);
 		settings_free(ssl_server_set);
 		return -1;
