@@ -314,12 +314,9 @@ int quota_user_read_settings(struct mail_user *user,
 	const char *max_box_count =
 		mail_user_plugin_getenv(user, "quota_mailbox_message_count");
 	if (max_box_count != NULL) {
-		const char *error;
-		if (str_parse_uint(max_box_count,
-				   &quota_set->max_messages_per_mailbox,
-				   &error) < 0) {
-			*error_r = t_strdup_printf(
-				"quota_mailbox_message_count: %s", error);
+		if (str_to_uint(max_box_count,
+				&quota_set->max_messages_per_mailbox) < 0) {
+			*error_r = "Invalid quota_mailbox_message_count";
 			return -1;
 		}
 	}
