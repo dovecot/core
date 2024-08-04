@@ -54,8 +54,8 @@ oauth2_send_failure(struct oauth2_auth_request *oauth2_req, int code,
 	struct auth_request *request = &oauth2_req->auth;
 	const char *oidc_url = (oauth2_req->db == NULL ? "" :
 		db_oauth2_get_openid_configuration_url(oauth2_req->db));
-	string_t *str = t_str_new(256);
-	struct json_ostream *gen = json_ostream_create_str(str, 0);
+	string_t *reply = t_str_new(256);
+	struct json_ostream *gen = json_ostream_create_str(reply, 0);
 
 	json_ostream_ndescend_object(gen, NULL);
 	if (strcmp(request->mech->mech_name, "XOAUTH2") == 0) {
@@ -75,7 +75,7 @@ oauth2_send_failure(struct oauth2_auth_request *oauth2_req, int code,
 	json_ostream_destroy(&gen);
 
 	oauth2_req->failed = TRUE;
-	auth_request_fail_with_reply(request, str->data, str->used);
+	auth_request_fail_with_reply(request, reply->data, reply->used);
 }
 
 static void
