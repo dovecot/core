@@ -48,8 +48,8 @@ static bool oauth2_unescape_username(const char *in, const char **username_r)
 }
 
 static void
-oauth2_send_failure(struct oauth2_auth_request *oauth2_req, int code,
-		    const char *status)
+oauth2_fail(struct oauth2_auth_request *oauth2_req, int code,
+	    const char *status)
 {
 	struct auth_request *request = &oauth2_req->auth;
 	const char *oidc_url = (oauth2_req->db == NULL ? "" :
@@ -84,15 +84,15 @@ oauth2_verify_callback(enum passdb_result result,
 	switch (result) {
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		/* Non-standard response */
-		oauth2_send_failure(oauth2_req, 500, "internal_failure");
+		oauth2_fail(oauth2_req, 500, "internal_failure");
 		break;
 	case PASSDB_RESULT_USER_DISABLED:
 	case PASSDB_RESULT_PASS_EXPIRED:
 		/* user is explicitly disabled, don't allow it to log in */
-		oauth2_send_failure(oauth2_req, 403, "insufficient_scope");
+		oauth2_fail(oauth2_req, 403, "insufficient_scope");
 		return;
 	case PASSDB_RESULT_PASSWORD_MISMATCH:
-		oauth2_send_failure(oauth2_req, 401, "invalid_token");
+		oauth2_fail(oauth2_req, 401, "invalid_token");
 		break;
 	case PASSDB_RESULT_NEXT:
 	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
@@ -227,11 +227,11 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 
 	if (oauth2_req->db == NULL) {
 		e_error(request->event, "BUG: oauth2 database missing");
-		oauth2_send_failure(oauth2_req, 500, "internal_failure");
+		oauth2_fail(oauth2_req, 500, "internal_failure");
 		return;
 	}
 	if (data_size == 0) {
-		oauth2_send_failure(oauth2_req, 401, "invalid_token");
+		oauth2_fail(oauth2_req, 401, "invalid_token");
 		return;
 	}
 
@@ -258,8 +258,7 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 			} else {
 				e_info(request->mech_event,
 				       "Invalid continued data");
-				oauth2_send_failure(oauth2_req, 401,
-						    "invalid_token");
+				oauth2_fail(oauth2_req, 401, "invalid_token");
 				return;
 			}
 		}
@@ -269,17 +268,17 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 	if (user_given &&
 	    !auth_request_set_username(request, username, &error)) {
 		e_info(request->mech_event, "%s", error);
-		oauth2_send_failure(oauth2_req, 400, "invalid_request");
+		oauth2_fail(oauth2_req, 400, "invalid_request");
 		return;
 	}
 	if (user_given && token != NULL)
 		mech_oauth2_verify_token(oauth2_req, token);
 	else if (token == NULL) {
 		e_info(request->mech_event, "Missing token");
-		oauth2_send_failure(oauth2_req, 401, "invalid_token");
+		oauth2_fail(oauth2_req, 401, "invalid_token");
 	} else {
 		e_info(request->mech_event, "Missing username");
-		oauth2_send_failure(oauth2_req, 401, "invalid_token");
+		oauth2_fail(oauth2_req, 401, "invalid_token");
 	}
 }
 
@@ -296,11 +295,11 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 
 	if (oauth2_req->db == NULL) {
 		e_error(request->event, "BUG: oauth2 database missing");
-		oauth2_send_failure(oauth2_req, 500, "internal_failure");
+		oauth2_fail(oauth2_req, 500, "internal_failure");
 		return;
 	}
 	if (data_size == 0) {
-		oauth2_send_failure(oauth2_req, 401, "invalid_token");
+		oauth2_fail(oauth2_req, 401, "invalid_token");
 		return;
 	}
 
@@ -315,7 +314,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 	/* ensure initial field is OK */
 	if (*fields == NULL || *(fields[0]) == '\0') {
 		e_info(request->mech_event, "Invalid continued data");
-		oauth2_send_failure(oauth2_req, 401, "invalid_token");
+		oauth2_fail(oauth2_req, 401, "invalid_token");
 		return;
 	}
 
@@ -325,15 +324,13 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 		case 'f':
 			e_info(request->mech_event,
 			       "Client requested non-standard mechanism");
-			oauth2_send_failure(oauth2_req, 400,
-					    "request_not_supported");
+			oauth2_fail(oauth2_req, 400, "request_not_supported");
 			return;
 		case 'p':
 			/* channel binding is not supported */
 			e_info(request->mech_event,
 			       "Client requested and used channel-binding");
-			oauth2_send_failure(oauth2_req, 400,
-					    "request_not_supported");
+			oauth2_fail(oauth2_req, 400, "request_not_supported");
 			return;
 		case 'n':
 		case 'y':
@@ -344,8 +341,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 			    !oauth2_unescape_username((*ptr)+2, &username)) {
 				e_info(request->mech_event,
 				       "Invalid username escaping");
-				oauth2_send_failure(oauth2_req, 400,
-						    "invalid_request");
+				oauth2_fail(oauth2_req, 400, "invalid_request");
 				return;
 			} else {
 				user_given = TRUE;
@@ -354,7 +350,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 		default:
 			e_info(request->mech_event,
 			       "Invalid gs2-header in request");
-			oauth2_send_failure(oauth2_req, 400, "invalid_request");
+			oauth2_fail(oauth2_req, 400, "invalid_request");
 			return;
 		}
 	}
@@ -367,8 +363,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 			} else {
 				e_info(request->mech_event,
 				       "Invalid continued data");
-				oauth2_send_failure(oauth2_req, 401,
-						    "invalid_token");
+				oauth2_fail(oauth2_req, 401, "invalid_token");
 				return;
 			}
 		}
@@ -377,17 +372,17 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 	if (user_given &&
 	    !auth_request_set_username(request, username, &error)) {
 		e_info(request->mech_event, "%s", error);
-		oauth2_send_failure(oauth2_req, 400, "invalid_request");
+		oauth2_fail(oauth2_req, 400, "invalid_request");
 		return;
 	}
 	if (user_given && token != NULL)
 		mech_oauth2_verify_token(oauth2_req, token);
 	else if (token == NULL) {
 		e_info(request->mech_event, "Missing token");
-		oauth2_send_failure(oauth2_req, 401, "invalid_token");
+		oauth2_fail(oauth2_req, 401, "invalid_token");
 	} else {
 		e_info(request->mech_event, "Missing username");
-		oauth2_send_failure(oauth2_req, 401, "invalid_request");
+		oauth2_fail(oauth2_req, 401, "invalid_request");
 	}
 }
 
