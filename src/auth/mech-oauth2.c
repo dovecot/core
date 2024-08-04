@@ -55,24 +55,19 @@ oauth2_send_failure(struct oauth2_auth_request *oauth2_req, int code,
 	const char *oidc_url = (oauth2_req->db == NULL ? "" :
 		db_oauth2_get_openid_configuration_url(oauth2_req->db));
 	string_t *reply = t_str_new(256);
-	struct json_ostream *gen = json_ostream_create_str(reply, 0);
+	struct json_ostream *joutput = json_ostream_create_str(reply, 0);
 
-	json_ostream_ndescend_object(gen, NULL);
+	json_ostream_ndescend_object(joutput, NULL);
 	if (strcmp(request->mech->mech_name, "XOAUTH2") == 0) {
 		status = dec2str(code);
-		json_ostream_nwrite_string(gen, "schemes", "bearer");
+		json_ostream_nwrite_string(joutput, "schemes", "bearer");
 	}
 
-	json_ostream_nwrite_string(gen, "status", status);
-	json_ostream_nwrite_string(gen, "scope", "mail");
-	json_ostream_nwrite_string(gen, "openid-configuration", oidc_url);
-	json_ostream_nascend_object(gen);
-
-	if (json_ostream_nfinish(gen) < 0) {
-		i_panic("JSON failed: %s",
-			json_ostream_get_error(gen));
-	}
-	json_ostream_destroy(&gen);
+	json_ostream_nwrite_string(joutput, "status", status);
+	json_ostream_nwrite_string(joutput, "scope", "mail");
+	json_ostream_nwrite_string(joutput, "openid-configuration", oidc_url);
+	json_ostream_nascend_object(joutput);
+	json_ostream_nfinish_destroy(&joutput);
 
 	oauth2_req->failed = TRUE;
 	auth_request_fail_with_reply(request, str_data(reply), str_len(reply));
