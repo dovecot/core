@@ -75,7 +75,7 @@ oauth2_send_failure(struct oauth2_auth_request *oauth2_req, int code,
 	json_ostream_destroy(&gen);
 
 	oauth2_req->failed = TRUE;
-	auth_request_fail_with_reply(request, reply->data, reply->used);
+	auth_request_fail_with_reply(request, str_data(reply), str_len(reply));
 }
 
 static void
