@@ -623,6 +623,7 @@ dcrypt_openssl_ctx_hmac_init(struct dcrypt_context_hmac *ctx,
 {
 	int ec;
 
+	i_assert(ctx->ctx == NULL);
 	i_assert(ctx->mac != NULL);
 	const char *name = EVP_MD_get0_name(ctx->md);
 	OSSL_PARAM params[] = {
@@ -635,6 +636,7 @@ dcrypt_openssl_ctx_hmac_init(struct dcrypt_context_hmac *ctx,
 	ec = EVP_MAC_init(ctx->ctx, ctx->key, ctx->klen, params);
 	if (ec != 1) {
 		EVP_MAC_CTX_free(ctx->ctx);
+		ctx->ctx = NULL;
 		return dcrypt_openssl_error(error_r);
 	}
 	return TRUE;

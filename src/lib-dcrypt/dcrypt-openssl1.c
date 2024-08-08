@@ -687,6 +687,7 @@ dcrypt_openssl_ctx_hmac_init(struct dcrypt_context_hmac *ctx,
 {
 	int ec;
 
+	i_assert(ctx->ctx == NULL);
 	i_assert(ctx->md != NULL);
 #ifdef HAVE_HMAC_CTX_new
 	ctx->ctx = HMAC_CTX_new();
@@ -696,6 +697,7 @@ dcrypt_openssl_ctx_hmac_init(struct dcrypt_context_hmac *ctx,
 	ec = HMAC_Init_ex(ctx->ctx, ctx->key, ctx->klen, ctx->md, NULL);
 	if (ec != 1) {
 		HMAC_CTX_free(ctx->ctx);
+		ctx->ctx = NULL;
 		return dcrypt_openssl_error(error_r);
 	}
 	return TRUE;
