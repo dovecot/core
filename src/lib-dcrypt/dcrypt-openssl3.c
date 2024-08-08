@@ -578,6 +578,7 @@ static void
 dcrypt_openssl_ctx_hmac_destroy(struct dcrypt_context_hmac **ctx)
 {
 	pool_t pool = (*ctx)->pool;
+	EVP_MAC_CTX_free((*ctx)->ctx);
 	EVP_MAC_free((*ctx)->mac);
 	pool_unref(&pool);
 	*ctx = NULL;
