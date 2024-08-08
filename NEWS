@@ -1,3 +1,21 @@
+v2.3.21.1 2024-08-14  Aki Tuomi< aki.tuomi@open-xchange.com>
+
+	- CVE-2024-23184: A large number of address headers in email resulted
+	  in excessive CPU usage.
+	- CVE-2024-23185: Abnormally large email headers are now truncated or
+	  discarded, with a limit of 10MB on a single header and 50MB for all
+	  the headers of all the parts of an email.
+	- oauth2: Dovecot would send client_id and client_secret as POST parameters
+	  to introspection server. These need to be optionally in Basic auth
+	  instead as required by OIDC specification.
+	- oauth2: JWT key type check was too strict.
+	- oauth2: JWT token audience was not validated against client_id as
+	  required by OIDC specification.
+	- oauth2: XOAUTH2 and OAUTHBEARER mechanisms were not giving out
+	  protocol specific error message on all errors. This broke OIDC discovery.
+	- oauth2: JWT aud validation was not performed if aud was missing
+	  from token, but was configured on Dovecot.
+
 v2.3.21 2023-09-15  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* lib-oauth2: Allow JWT tokens to be validated with missing typ field.
