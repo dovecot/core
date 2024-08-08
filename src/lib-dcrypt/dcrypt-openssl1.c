@@ -253,14 +253,10 @@ static bool dcrypt_openssl_error(const char **error_r)
 			str_append(errstr, ", ");
 		str_append(errstr, ssl_err2str(err, data, flags));
 	}
-	if (err == 0) {
-		if (errno != 0)
-			final_error = strerror(errno);
-		else
-			final_error = "Unknown error";
-	} else {
+	if (err == 0)
+		final_error = "Unknown error";
+	else
 		final_error = ssl_err2str(err, data, flags);
-	}
 	if (errstr == NULL)
 		*error_r = final_error;
 	else {

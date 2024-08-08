@@ -143,14 +143,10 @@ const char *openssl_iostream_error(void)
 			str_append(errstr, ", ");
 		str_append(errstr, ssl_err2str(err, data, flags));
 	}
-	if (err == 0) {
-		if (errno != 0)
-			final_error = strerror(errno);
-		else
-			final_error = "Unknown error";
-	} else {
+	if (err == 0)
+		final_error = "Unknown error";
+	else
 		final_error = ssl_err2str(err, data, flags);
-	}
 	if (errstr == NULL)
 		return final_error;
 	else {
