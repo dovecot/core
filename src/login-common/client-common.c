@@ -372,7 +372,7 @@ static void login_aborted_event(struct client *client, const char *reason)
 	e->add_int("connected_usecs", timeval_diff_usecs(&ioloop_timeval,
 							 &client->created));
 
-	e_info(e->event(), "Disconnected: %s", reason);
+	e_info(e->event(), "Login aborted: %s", reason);
 }
 
 void client_disconnect(struct client *client, const char *reason)
