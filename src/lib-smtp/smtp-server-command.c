@@ -788,12 +788,8 @@ void smtp_server_command_finished(struct smtp_server_command *cmd)
 			smtp_server_connection_close(&conn, t_strdup_printf(
 				"Server closed the connection: %s",
 				smtp_server_reply_get_one_line(reply)));
-
-		} else if (conn->set.auth_optional || conn->authenticated) {
-			smtp_server_connection_close(&conn, "Logged out");
 		} else {
-			smtp_server_connection_close(&conn,
-				"Aborted login by logging out");
+			smtp_server_connection_close(&conn, "Logged out");
 		}
 		smtp_server_command_unref(&cmd);
 		return;
