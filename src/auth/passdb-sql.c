@@ -340,7 +340,6 @@ static void passdb_sql_deinit(struct passdb_module *_module)
 
 struct passdb_module_interface passdb_sql = {
 	.name = "sql",
-	.fields_supported = TRUE,
 
 	.preinit = passdb_sql_preinit,
 	.init = passdb_sql_init,

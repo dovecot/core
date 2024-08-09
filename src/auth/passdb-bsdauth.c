@@ -119,7 +119,6 @@ static void bsdauth_deinit(struct passdb_module *module ATTR_UNUSED)
 struct passdb_module_interface passdb_bsdauth = {
 	.name = "bsdauth",
 
-	.fields_supported = TRUE,
 	.preinit = bsdauth_preinit,
 	.deinit = bsdauth_deinit,
 	.verify_plain = bsdauth_verify_plain,

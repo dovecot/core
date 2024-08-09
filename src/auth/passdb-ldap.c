@@ -489,7 +489,6 @@ struct passdb_module_interface passdb_ldap_plugin =
 #endif
 {
 	.name = "ldap",
-	.fields_supported = TRUE,
 
 	.preinit = passdb_ldap_preinit,
 	.init = passdb_ldap_init,

@@ -247,7 +247,6 @@ static void passwd_file_deinit(struct userdb_module *_module)
 
 struct userdb_module_interface userdb_passwd_file = {
 	.name = "passwd-file",
-	.fields_supported = TRUE,
 
 	.preinit = passwd_file_preinit,
 	.init = passwd_file_init,

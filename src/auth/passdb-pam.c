@@ -431,7 +431,6 @@ static int pam_preinit(pool_t pool, struct event *event,
 
 struct passdb_module_interface passdb_pam = {
 	.name = "pam",
-	.fields_supported = TRUE,
 
 	.preinit = pam_preinit,
 	.verify_plain = pam_verify_plain,

@@ -128,7 +128,6 @@ static int static_preinit(pool_t pool, struct event *event,
 
 struct userdb_module_interface userdb_static = {
 	.name = "static",
-	.fields_supported = TRUE,
 
 	.preinit = static_preinit,
 	.lookup = static_lookup,

@@ -115,7 +115,6 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 
 static struct passdb_module_interface passdb_imap_plugin = {
 	.name = "imap",
-	.fields_supported = TRUE,
 	.verify_plain = passdb_imap_verify_plain,
 };
 

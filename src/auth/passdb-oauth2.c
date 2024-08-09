@@ -63,5 +63,4 @@ struct passdb_module_interface passdb_oauth2 = {
 
 	.preinit = oauth2_preinit,
 	.verify_plain = oauth2_verify_plain,
-	.fields_supported = TRUE,
 };

@@ -36,7 +36,6 @@ typedef void set_credentials_callback_t(bool success,
 
 struct passdb_module_interface {
 	const char *name;
-	bool fields_supported:1; /* FIXME: temporary - remove */
 
 	/* Create a new passdb_module based on the settings looked up via the
 	   given event. */

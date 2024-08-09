@@ -345,7 +345,6 @@ static void userdb_sql_deinit(struct userdb_module *_module)
 
 struct userdb_module_interface userdb_sql = {
 	.name = "sql",
-	.fields_supported = TRUE,
 
 	.preinit = userdb_sql_preinit,
 	.init = userdb_sql_init,
