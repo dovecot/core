@@ -596,11 +596,6 @@ auth_worker_handle_user(struct auth_worker_command *cmd,
 	auth_request_userdb_lookup_begin(auth_request);
 	if (auth_request->fields.userdb_reply == NULL)
 		auth_request_init_userdb_reply(auth_request);
-	if (auth_request_set_userdb_default_fields(auth_request) < 0) {
-		lookup_user_callback(USERDB_RESULT_INTERNAL_FAILURE,
-				     auth_request);
-		return TRUE;
-	}
 
 	auth_request->userdb->userdb->iface->
 		lookup(auth_request, lookup_user_callback);

@@ -122,20 +122,8 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *_set,
 	*dest = auth_passdb;
 
 	auth_passdb->passdb = passdb_preinit(auth->pool, event, set);
-	/* make sure any %variables in default_fields exist in cache_key */
 	if (auth_passdb->passdb->default_cache_key != NULL && set->use_cache) {
-		struct auth_passdb_pre_settings *passdb_pre_set;
-		const char *error;
-		if (settings_get(event, &auth_passdb_pre_setting_parser_info,
-				 SETTINGS_GET_FLAG_NO_EXPAND,
-				 &passdb_pre_set, &error) < 0)
-			i_fatal("%s", error);
-		auth_passdb->cache_key = p_strconcat(
-			auth->pool,
-			auth_passdb->passdb->default_cache_key,
-			t_array_const_string_join(&passdb_pre_set->default_fields, ""),
-			NULL);
-		settings_free(passdb_pre_set);
+		auth_passdb->cache_key = auth_passdb->passdb->default_cache_key;
 	} else {
 		auth_passdb->cache_key = NULL;
 	}
@@ -188,21 +176,8 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *_set)
 	*dest = auth_userdb;
 
 	auth_userdb->userdb = userdb_preinit(auth->pool, event, set);
-	/* make sure any %variables in default_fields exist in cache_key */
 	if (auth_userdb->userdb->default_cache_key != NULL && set->use_cache) {
-		struct auth_userdb_pre_settings *userdb_pre_set;
-		const char *error;
-		if (settings_get(event, &auth_userdb_pre_setting_parser_info,
-				 SETTINGS_GET_FLAG_NO_EXPAND,
-				 &userdb_pre_set, &error) < 0)
-			i_fatal("%s", error);
-		auth_userdb->cache_key = p_strconcat(
-			auth->pool,
-			auth_userdb->userdb->default_cache_key,
-			t_array_const_string_join(
-				&userdb_pre_set->default_fields, ""),
-			NULL);
-		settings_free(userdb_pre_set);
+		auth_userdb->cache_key = auth_userdb->userdb->default_cache_key;
 	} else {
 		auth_userdb->cache_key = NULL;
 	}

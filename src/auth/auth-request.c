@@ -907,91 +907,6 @@ int auth_request_set_userdb_fields_ex(struct auth_request *request, void *contex
 	return 0;
 }
 
-static int auth_request_set_default_fields(struct auth_request *request)
-{
-	struct event *event = authdb_event(request);
-	const struct auth_passdb_pre_settings *pre_set;
-	const char *error;
-
-	if (settings_get(event, &auth_passdb_pre_setting_parser_info, 0,
-			 &pre_set, &error) < 0) {
-		e_error(event, "%s", error);
-		return -1;
-	}
-	auth_request_set_strlist(request, &pre_set->default_fields,
-				 STATIC_PASS_SCHEME);
-	settings_free(pre_set);
-	return 0;
-}
-
-static int auth_request_set_override_fields(struct auth_request *request)
-{
-	struct event *event = authdb_event(request);
-	const struct auth_passdb_post_settings *post_set;
-	const char *error;
-
-	if (request->passdb->passdb->iface.fields_supported) {
-		/* passdb_fields was already processed. It may be referring to
-		   %{driver:*} fields that are not available currently, so just
-		   skip processing the passdb_override_fields. This setting
-		   will go away anyway once all passdbs are converted to use
-		   fields. */
-		return 0;
-	}
-
-	if (settings_get(event, &auth_passdb_post_setting_parser_info, 0,
-			 &post_set, &error) < 0) {
-		e_error(event, "%s", error);
-		return -1;
-	}
-	auth_request_set_strlist(request, &post_set->override_fields,
-				 STATIC_PASS_SCHEME);
-	settings_free(post_set);
-	return 0;
-}
-
-int auth_request_set_userdb_default_fields(struct auth_request *request)
-{
-	struct event *event = authdb_event(request);
-	const struct auth_userdb_pre_settings *pre_set;
-	const char *error;
-
-	if (settings_get(event, &auth_userdb_pre_setting_parser_info, 0,
-			 &pre_set, &error) < 0) {
-		e_error(event, "%s", error);
-		return -1;
-	}
-	auth_request_set_userdb_strlist(request, &pre_set->default_fields);
-	settings_free(pre_set);
-	return 0;
-}
-
-static int auth_request_set_userdb_override_fields(struct auth_request *request)
-{
-	struct event *event = authdb_event(request);
-	const struct auth_userdb_post_settings *post_set;
-	const char *error;
-
-	if (request->userdb->userdb->iface->fields_supported) {
-		/* userdb_fields was already processed. It may be referring to
-		   %{driver:*} fields that are not available currently, so just
-		   skip processing the userdb_override_fields. This setting
-		   will go away anyway once all userdbs are converted to use
-		   fields. */
-		return 0;
-	}
-
-
-	if (settings_get(event, &auth_userdb_post_setting_parser_info, 0,
-			 &post_set, &error) < 0) {
-		e_error(event, "%s", error);
-		return -1;
-	}
-	auth_request_set_userdb_strlist(request, &post_set->override_fields);
-	settings_free(post_set);
-	return 0;
-}
-
 static int
 auth_request_finish_passdb_lookup(enum passdb_result *result,
 				  struct auth_request *request,
@@ -1196,9 +1111,6 @@ auth_request_verify_plain_callback_finish(enum passdb_result result,
 					  struct auth_request *request)
 {
 	int ret;
-
-	if (auth_request_set_override_fields(request) < 0)
-		result = PASSDB_RESULT_INTERNAL_FAILURE;
 
 	if ((ret = auth_request_handle_passdb_callback(&result, request)) == 0) {
 		/* try next passdb */
@@ -1414,9 +1326,6 @@ void auth_request_default_verify_plain_continue(
 			PASSDB_RESULT_INTERNAL_FAILURE, request);
 	} else if (passdb->passdb->blocking) {
 		passdb_blocking_verify_plain(request);
-	} else if (auth_request_set_default_fields(request) < 0) {
-		auth_request_verify_plain_callback(
-			PASSDB_RESULT_INTERNAL_FAILURE, request);
 	} else {
 		passdb->passdb->iface.verify_plain(
 			request, password, auth_request_verify_plain_callback);
@@ -1430,9 +1339,6 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 				       struct auth_request *request)
 {
 	int ret;
-
-	if (auth_request_set_override_fields(request) < 0)
-		result = PASSDB_RESULT_INTERNAL_FAILURE;
 
 	if ((ret = auth_request_handle_passdb_callback(&result, request)) == 0) {
 		/* try next passdb */
@@ -1603,10 +1509,6 @@ auth_request_lookup_credentials_policy_continue(
 					uchar_empty_ptr, 0, request);
 	} else if (passdb->passdb->blocking) {
 		passdb_blocking_lookup_credentials(request);
-	} else if (auth_request_set_default_fields(request) < 0) {
-		auth_request_lookup_credentials_callback(
-					PASSDB_RESULT_INTERNAL_FAILURE,
-					uchar_empty_ptr, 0, request);
 	} else {
 		passdb->passdb->iface.lookup_credentials(request,
 			auth_request_lookup_credentials_callback);
@@ -1706,9 +1608,7 @@ auth_request_lookup_user_cache(struct auth_request *request, const char *key,
 	}
 
 	/* We want to preserve any userdb fields set by the earlier passdb
-	   lookup, so initialize userdb_reply only if it doesn't exist.
-	   Don't add userdb's default_fields, because the entire userdb part of
-	   the result comes from the cache. */
+	   lookup, so initialize userdb_reply only if it doesn't exist. */
 	if (request->fields.userdb_reply == NULL)
 		auth_request_init_userdb_reply(request);
 	auth_request_userdb_import(request, value);
@@ -1741,10 +1641,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 
 	if (result == USERDB_RESULT_OK) {
 		/* this userdb lookup succeeded, preserve its extra fields */
-		if (auth_request_set_userdb_override_fields(request) < 0)
-			result = USERDB_RESULT_INTERNAL_FAILURE;
-		else
-			auth_fields_snapshot(request->fields.userdb_reply);
+		auth_fields_snapshot(request->fields.userdb_reply);
 	} else {
 		/* this userdb lookup failed, remove any extra fields
 		   it set */
@@ -1872,15 +1769,6 @@ void auth_request_lookup_user(struct auth_request *request,
 		auth_request_init_userdb_reply(request);
 
 	auth_request_userdb_lookup_begin(request);
-
-	/* we still want to set default_fields. these override any
-	   existing fields set by previous userdbs (because if that is
-	   unwanted, ":protected" can be used). */
-	if (auth_request_set_userdb_default_fields(request) < 0) {
-		auth_request_userdb_callback(
-			USERDB_RESULT_INTERNAL_FAILURE, request);
-		return;
-	}
 
 	/* (for now) auth_cache is shared between passdb and userdb */
 	cache_key = passdb_cache == NULL ? NULL : userdb->cache_key;
