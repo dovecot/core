@@ -159,39 +159,15 @@ const struct setting_parser_info auth_passdb_setting_parser_info = {
 	.check_func = auth_passdb_settings_check
 };
 
-static const struct setting_define auth_passdb_pre_setting_defines[] = {
-	{ .type = SET_STRLIST, .key = "passdb_default_fields",
-	  .offset = offsetof(struct auth_passdb_pre_settings, default_fields) },
-
-	SETTING_DEFINE_LIST_END
-};
-
-static const struct auth_passdb_pre_settings auth_passdb_pre_default_settings = {
-	.default_fields = ARRAY_INIT,
-};
-
-const struct setting_parser_info auth_passdb_pre_setting_parser_info = {
-	.name = "auth_passdb_pre",
-
-	.defines = auth_passdb_pre_setting_defines,
-	.defaults = &auth_passdb_pre_default_settings,
-
-	.struct_size = sizeof(struct auth_passdb_pre_settings),
-	.pool_offset1 = 1 + offsetof(struct auth_passdb_pre_settings, pool),
-};
-
 static const struct setting_define auth_passdb_post_setting_defines[] = {
 	{ .type = SET_STRLIST, .key = "passdb_fields",
 	  .offset = offsetof(struct auth_passdb_post_settings, fields) },
-	{ .type = SET_STRLIST, .key = "passdb_override_fields",
-	  .offset = offsetof(struct auth_passdb_post_settings, override_fields) },
 
 	SETTING_DEFINE_LIST_END
 };
 
 static const struct auth_passdb_post_settings auth_passdb_post_default_settings = {
 	.fields = ARRAY_INIT,
-	.override_fields = ARRAY_INIT,
 };
 
 const struct setting_parser_info auth_passdb_post_setting_parser_info = {
@@ -253,39 +229,15 @@ const struct setting_parser_info auth_userdb_setting_parser_info = {
 	.check_func = auth_userdb_settings_check,
 };
 
-static const struct setting_define auth_userdb_pre_setting_defines[] = {
-	{ .type = SET_STRLIST, .key = "userdb_default_fields",
-	  .offset = offsetof(struct auth_userdb_pre_settings, default_fields) },
-
-	SETTING_DEFINE_LIST_END
-};
-
-static const struct auth_userdb_pre_settings auth_userdb_pre_default_settings = {
-	.default_fields = ARRAY_INIT,
-};
-
-const struct setting_parser_info auth_userdb_pre_setting_parser_info = {
-	.name = "auth_userdb_pre",
-
-	.defines = auth_userdb_pre_setting_defines,
-	.defaults = &auth_userdb_pre_default_settings,
-
-	.struct_size = sizeof(struct auth_userdb_pre_settings),
-	.pool_offset1 = 1 + offsetof(struct auth_userdb_pre_settings, pool),
-};
-
 static const struct setting_define auth_userdb_post_setting_defines[] = {
 	{ .type = SET_STRLIST, .key = "userdb_fields",
 	  .offset = offsetof(struct auth_userdb_post_settings, fields) },
-	{ .type = SET_STRLIST, .key = "userdb_override_fields",
-	  .offset = offsetof(struct auth_userdb_post_settings, override_fields) },
 
 	SETTING_DEFINE_LIST_END
 };
 
 static const struct auth_userdb_post_settings auth_userdb_post_default_settings = {
 	.fields = ARRAY_INIT,
-	.override_fields = ARRAY_INIT,
 };
 
 const struct setting_parser_info auth_userdb_post_setting_parser_info = {

@@ -4,15 +4,9 @@
 struct master_service;
 struct master_service_settings_output;
 
-struct auth_passdb_pre_settings {
-	pool_t pool;
-	ARRAY_TYPE(const_string) default_fields;
-};
-
 struct auth_passdb_post_settings {
 	pool_t pool;
 	ARRAY_TYPE(const_string) fields;
-	ARRAY_TYPE(const_string) override_fields;
 };
 
 struct auth_passdb_settings {
@@ -36,15 +30,9 @@ struct auth_passdb_settings {
 	bool use_worker;
 };
 
-struct auth_userdb_pre_settings {
-	pool_t pool;
-	ARRAY_TYPE(const_string) default_fields;
-};
-
 struct auth_userdb_post_settings {
 	pool_t pool;
 	ARRAY_TYPE(const_string) fields;
-	ARRAY_TYPE(const_string) override_fields;
 };
 
 struct auth_userdb_settings {
