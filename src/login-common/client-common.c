@@ -361,10 +361,8 @@ static void login_aborted_event(struct client *client, const char *reason)
 	i_assert(reason != NULL);
 	if (client_get_extra_disconnect_reason(client, &human_reason, &event_reason))
 		reason = t_strdup_printf("%s (%s)", reason, human_reason);
-	else
-		event_reason = reason;
 
-	e->add_str("reason", event_reason);
+	e->add_str("reason", event_reason != NULL ? event_reason : reason);
 	e->add_int("auth_successes", client->auth_successes);
 	e->add_int("auth_attempts", client->auth_attempts);
 	e->add_int("auth_usecs", timeval_diff_usecs(&ioloop_timeval,
@@ -372,7 +370,12 @@ static void login_aborted_event(struct client *client, const char *reason)
 	e->add_int("connected_usecs", timeval_diff_usecs(&ioloop_timeval,
 							 &client->created));
 
-	e_info(e->event(), "Login aborted: %s", reason);
+	if (event_reason == NULL)
+		e_info(e->event(), "Login aborted: %s", reason);
+	else {
+		e_info(e->event(), "Login aborted: %s (%s)",
+		       reason, event_reason);
+	}
 }
 
 void client_disconnect(struct client *client, const char *reason)
