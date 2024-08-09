@@ -1,4 +1,3 @@
-noinst_LTLIBRARIES = libauth.la
 auth_moduledir = $(moduledir)/auth
 
 # automake seems to force making this unconditional..
@@ -63,20 +62,18 @@ AM_CPPFLAGS = \
 auth_LDFLAGS = -export-dynamic
 
 auth_libs = \
-	libauth.la \
 	$(AUTH_LUA_LIBS) \
 	$(LIBDOVECOT_SQL)
 
 auth_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
 auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS) $(BINARY_LDFLAGS) $(AUTH_LUA_LDADD)
 auth_DEPENDENCIES = $(auth_libs) $(LIBDOVECOT_DEPS)
-auth_SOURCES = main.c
+auth_SOURCES = main.c $(auth_common_sources)
 
 ldap_sources = db-ldap.c db-ldap-settings.c passdb-ldap.c userdb-ldap.c
 lua_sources = db-lua.c passdb-lua.c userdb-lua.c
 
-libauth_la_DEPENDENCIES = $(LIBDOVECOT_DEPS)
-libauth_la_SOURCES = \
+auth_common_sources = \
 	auth.c \
 	auth-cache.c \
 	auth-client-connection.c \
@@ -220,6 +217,7 @@ test_auth_cache_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(LIBDOVECOT_DEPS)
 test_auth_cache_CPPFLAGS = $(AM_CPPFLAGS)
 
 test_auth_SOURCES = \
+	$(auth_common_sources) \
 	test-auth-request-var-expand.c \
 	test-auth-request-fields.c \
 	test-username-filter.c \
@@ -232,6 +230,7 @@ test_auth_LDADD = $(LIBDOVECOT) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
 test_auth_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(LIBDOVECOT_DEPS)
 
 test_mech_SOURCES = \
+	$(auth_common_sources) \
 	test-auth.c \
 	test-mock.c \
 	test-mech.c
@@ -240,6 +239,7 @@ test_mech_LDADD = $(LIBDOVECOT) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
 test_mech_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(LIBDOVECOT_DEPS)
 
 test_auth_client_SOURCES = \
+	$(auth_common_sources) \
 	test-auth.c \
 	test-mock.c \
 	test-auth-client.c
@@ -248,6 +248,7 @@ test_auth_client_LDADD = $(LIBDOVECOT) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
 test_auth_client_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(LIBDOVECOT_DEPS)
 
 test_auth_master_SOURCES = \
+	$(auth_common_sources) \
 	test-auth.c \
 	test-mock.c \
 	test-auth-master.c \
