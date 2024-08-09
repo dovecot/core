@@ -39,7 +39,7 @@ struct module;
 
 /* Client logged out without having successfully authenticated. */
 #define CLIENT_UNAUTHENTICATED_LOGOUT_MSG \
-	"Aborted login by logging out"
+	"Logged out"
 
 #define CLIENT_TRANSPORT_TLS "TLS"
 #define CLIENT_TRANSPORT_INSECURE "insecure"
