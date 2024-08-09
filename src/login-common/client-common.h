@@ -334,8 +334,7 @@ void login_client_hooks_remove(const struct login_client_hooks *hooks);
 int client_alloc(int fd, const struct master_service_connection *conn,
 		 struct client **client_r);
 int client_init(struct client *client);
-void client_disconnect(struct client *client, const char *reason,
-		       bool add_disconnected_prefix);
+void client_disconnect(struct client *client, const char *reason);
 void client_destroy(struct client *client, const char *reason);
 void client_destroy_iostream_error(struct client *client);
 /* Destroy the client after a successful login. Either the client fd was

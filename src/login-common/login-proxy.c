@@ -1348,8 +1348,7 @@ login_proxy_kick_user_connection(const char *user, const guid_128_t conn_guid)
 		    (!match_conn_guid ||
 		     guid_128_cmp(proxy->anvil_conn_guid, conn_guid) == 0)) {
 			client_disconnect(proxy->client,
-				LOGIN_PROXY_KILL_PREFIX KILLED_BY_ADMIN_REASON,
-				FALSE);
+				LOGIN_PROXY_KILL_PREFIX KILLED_BY_ADMIN_REASON);
 			client_destroy(proxy->client, NULL);
 			count++;
 		}

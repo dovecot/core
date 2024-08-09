@@ -349,17 +349,7 @@ int client_init(struct client *client)
 	return 0;
 }
 
-static void client_disconnected_log(struct event *event, const char *reason,
-				    bool add_disconnected_prefix)
-{
-	if (add_disconnected_prefix)
-		e_info(event, "Disconnected: %s", reason);
-	else
-		e_info(event, "%s", reason);
-}
-
-static void login_aborted_event(struct client *client, const char *reason,
-				bool add_disconnected_prefix)
+static void login_aborted_event(struct client *client, const char *reason)
 {
 	struct event *event = client->login_proxy == NULL ?
 		client->event :
@@ -382,12 +372,10 @@ static void login_aborted_event(struct client *client, const char *reason,
 	e->add_int("connected_usecs", timeval_diff_usecs(&ioloop_timeval,
 							 &client->created));
 
-	client_disconnected_log(e->event(), reason,
-			        add_disconnected_prefix);
+	e_info(e->event(), "Disconnected: %s", reason);
 }
 
-void client_disconnect(struct client *client, const char *reason,
-		       bool add_disconnected_prefix)
+void client_disconnect(struct client *client, const char *reason)
 {
 	if (client->disconnected)
 		return;
@@ -396,12 +384,11 @@ void client_disconnect(struct client *client, const char *reason,
 	if (reason == NULL) {
 		/* proxying started */
 	} else if (!client->login_success) {
-		login_aborted_event(client, reason, add_disconnected_prefix);
+		login_aborted_event(client, reason);
 	} else {
-		client_disconnected_log(client->login_proxy == NULL ?
-					client->event :
-					login_proxy_get_event(client->login_proxy),
-					reason, add_disconnected_prefix);
+		e_info(client->login_proxy == NULL ? client->event :
+		       login_proxy_get_event(client->login_proxy),
+		       "%s", reason);
 	}
 
 	if (client->output != NULL)
@@ -457,7 +444,7 @@ void client_destroy(struct client *client, const char *reason)
 	client->list_type = CLIENT_LIST_TYPE_DESTROYED;
 	DLLIST_PREPEND(&destroyed_clients, client);
 
-	client_disconnect(client, reason, !client->login_success);
+	client_disconnect(client, reason);
 
 	pool_unref(&client->preproxy_pool);
 	i_zero(&client->forward_fields);
