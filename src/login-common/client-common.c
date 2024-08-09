@@ -1400,6 +1400,9 @@ bool client_get_extra_disconnect_reason(struct client *client,
 		/* Authentication to the next hop failed. */
 		*event_reason_r = t_strdup_printf("proxy_dest_%s", event_reason);
 		last_reason = t_strdup_printf("proxy dest %s", last_reason);
+	} else if (client->auth_login_limit_reached) {
+		*event_reason_r = "connection_limit";
+		last_reason = "connection limit reached";
 	} else {
 		*event_reason_r = client_auth_fail_code_event_reasons[client->last_auth_fail];
 		last_reason = client_auth_fail_code_reasons[client->last_auth_fail];

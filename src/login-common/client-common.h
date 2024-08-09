@@ -297,6 +297,8 @@ struct client {
 	/* Client asked for SASL authentication to be aborted by sending
 	   "*" line. */
 	bool auth_aborted_by_client:1;
+	/* Too many connections from user/ip */
+	bool auth_login_limit_reached:1;
 	bool auth_initializing:1;
 	bool auth_process_comm_fail:1;
 	bool auth_anonymous:1;

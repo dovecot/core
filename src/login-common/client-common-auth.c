@@ -1030,6 +1030,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		} else {
 			client_auth_result(client,
 				CLIENT_AUTH_RESULT_LIMIT_REACHED, &reply, data);
+			client->auth_login_limit_reached = TRUE;
 		}
 
 		/* the fd may still be hanging somewhere in kernel or another
