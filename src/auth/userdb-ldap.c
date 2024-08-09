@@ -374,7 +374,6 @@ struct userdb_module_interface userdb_ldap_plugin =
 #endif
 {
 	.name = "ldap",
-	.fields_supported = TRUE,
 
 	.preinit = userdb_ldap_preinit,
 	.init = userdb_ldap_init,

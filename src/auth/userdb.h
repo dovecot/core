@@ -47,7 +47,6 @@ struct userdb_iterate_context {
 
 struct userdb_module_interface {
 	const char *name;
-	bool fields_supported:1; /* FIXME: temporary - remove */
 
 	/* Create a new userdb_module based on the settings looked up via the
 	   given event. */

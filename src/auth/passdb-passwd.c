@@ -157,7 +157,6 @@ static void passwd_deinit(struct passdb_module *module ATTR_UNUSED)
 
 struct passdb_module_interface passdb_passwd = {
 	.name = "passwd",
-	.fields_supported = TRUE,
 
 	.preinit = passwd_preinit,
 	.deinit = passwd_deinit,

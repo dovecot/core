@@ -81,7 +81,6 @@ static_lookup_credentials(struct auth_request *request,
 
 struct passdb_module_interface passdb_static = {
 	.name = "static",
-	.fields_supported = TRUE,
 
 	.verify_plain = static_verify_plain,
 	.lookup_credentials = static_lookup_credentials,

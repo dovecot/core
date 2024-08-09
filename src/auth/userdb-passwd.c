@@ -232,7 +232,6 @@ static int passwd_preinit(pool_t pool, struct event *event ATTR_UNUSED,
 
 struct userdb_module_interface userdb_passwd = {
 	.name = "passwd",
-	.fields_supported = TRUE,
 
 	.preinit = passwd_preinit,
 
