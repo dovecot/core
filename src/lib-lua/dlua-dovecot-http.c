@@ -420,14 +420,30 @@ static void dlua_push_http_client(lua_State *L, struct http_client *client)
 }
 
 #define CLIENT_SETTING_STR(field) \
-	if (dlua_table_get_string_by_str(L, -1, #field, &(set->field)) < 0) { \
-		*error_r = t_strdup_printf("%s: string expected", #field); return -1; }
+	else if (strcmp(#field, key) == 0) { \
+		if (lua_type(L, -1) != LUA_TSTRING) { \
+			*error_r = t_strdup_printf("%s: string expected", #field); return -1; \
+		} \
+		set->field = lua_tostring(L, -1); \
+	}
 #define CLIENT_SETTING_UINT(field) \
-	if (dlua_table_get_uint_by_str(L, -1, #field, &(set->field)) < 0) { \
-		*error_r = t_strdup_printf("%s: non-negative number expected", #field); return -1; }
+	else if (strcmp(#field, key) == 0) { \
+		int isnum; \
+		if (lua_type(L, -1) != LUA_TNUMBER) { \
+			*error_r = t_strdup_printf("%s: non-negative number expected", #field); return -1; \
+		} \
+		set->field = lua_tointegerx(L, -1, &isnum); \
+		if (isnum == 0) { \
+			*error_r = t_strdup_printf("%s: non-negative number expected", #field); return -1; \
+		} \
+	}
 #define CLIENT_SETTING_BOOL(field) \
-	if (dlua_table_get_bool_by_str(L, -1, #field, &(set->field)) < 0) { \
-		*error_r = t_strdup_printf("%s: boolean expected", #field); return -1; }
+	else if (strcmp(#field, key) == 0) { \
+		if (lua_type(L, -1) != LUA_TBOOLEAN) { \
+			*error_r = t_strdup_printf("%s: boolean expected", #field); return -1; \
+		} \
+		set->field = lua_toboolean(L, -1); \
+	}
 
 static int parse_client_settings(lua_State *L, struct http_client_settings *set,
 				 const char **error_r)
@@ -436,43 +452,62 @@ static int parse_client_settings(lua_State *L, struct http_client_settings *set,
 	const char *proxy_url;
 	const struct master_service_settings *master_set =
 		master_service_get_service_settings(master_service);
-	/* need to figure out socket dir */
-	CLIENT_SETTING_STR(dns_client_socket_path);
+
+	if (!lua_istable(L, -1)) {
+		*error_r = t_strdup_printf("Table expected");
+		return -1;
+	}
+
+	lua_pushnil(L);
+
+	while (lua_next(L, -2) != 0) {
+		const char *key = lua_tostring(L, -2);
+		if (strcmp(key, "proxy_url") == 0) {
+			if (lua_type(L, -1) != LUA_TSTRING) {
+				*error_r = t_strdup_printf("%s: string expected", "proxy_url");
+				return -1;
+			}
+			if (http_url_parse(proxy_url, NULL, HTTP_URL_ALLOW_USERINFO_PART,
+					   pool_datastack_create(), &parsed_url, error_r) < 0) {
+				*error_r = t_strdup_printf("proxy_url is invalid: %s",
+							   *error_r);
+				return -1;
+			}
+			set->proxy_url = parsed_url;
+			set->proxy_username = parsed_url->user;
+			set->proxy_password = parsed_url->password;
+		} CLIENT_SETTING_STR(dns_client_socket_path)
+		CLIENT_SETTING_STR(user_agent)
+		CLIENT_SETTING_STR(rawlog_dir)
+		CLIENT_SETTING_UINT(max_idle_time_msecs)
+/* FIXME: Enable when asynchronous calls are supported
+*		CLIENT_SETTING_UINT(max_parallel_connections)
+*		CLIENT_SETTING_UINT(max_pipelined_requests)
+*/
+		CLIENT_SETTING_BOOL(no_auto_redirect)
+		CLIENT_SETTING_BOOL(no_auto_retry)
+		CLIENT_SETTING_UINT(max_redirects)
+		CLIENT_SETTING_UINT(max_attempts)
+		CLIENT_SETTING_UINT(max_connect_attempts)
+		CLIENT_SETTING_UINT(connect_backoff_time_msecs)
+		CLIENT_SETTING_UINT(connect_backoff_max_time_msecs)
+		CLIENT_SETTING_UINT(request_absolute_timeout_msecs)
+		CLIENT_SETTING_UINT(request_timeout_msecs)
+		CLIENT_SETTING_UINT(connect_timeout_msecs)
+		CLIENT_SETTING_UINT(soft_connect_timeout_msecs)
+		CLIENT_SETTING_UINT(max_auto_retry_delay_secs)
+		CLIENT_SETTING_BOOL(debug)
+		else {
+			*error_r = t_strdup_printf("%s is unknown setting", key);
+			return -1;
+		}
+		lua_pop(L, 1);
+	}
+
+	/* need to figure out socket dir if none was provided */
 	if (set->dns_client_socket_path == NULL) {
 		set->dns_client_socket_path =
 			t_strconcat(master_set->base_dir, "/dns-client", NULL);
-	}
-	CLIENT_SETTING_STR(user_agent);
-	CLIENT_SETTING_STR(rawlog_dir);
-	CLIENT_SETTING_UINT(max_idle_time_msecs);
-/* FIXME: Enable when asynchronous calls are supported
-*	CLIENT_SETTING_UINT(max_parallel_connections);
-*	CLIENT_SETTING_UINT(max_pipelined_requests);
-*/
-	CLIENT_SETTING_BOOL(no_auto_redirect);
-	CLIENT_SETTING_BOOL(no_auto_retry);
-	CLIENT_SETTING_UINT(max_redirects);
-	CLIENT_SETTING_UINT(max_attempts);
-	CLIENT_SETTING_UINT(max_connect_attempts);
-	CLIENT_SETTING_UINT(connect_backoff_time_msecs);
-	CLIENT_SETTING_UINT(connect_backoff_max_time_msecs);
-	CLIENT_SETTING_UINT(request_absolute_timeout_msecs);
-	CLIENT_SETTING_UINT(request_timeout_msecs);
-	CLIENT_SETTING_UINT(connect_timeout_msecs);
-	CLIENT_SETTING_UINT(soft_connect_timeout_msecs);
-	CLIENT_SETTING_UINT(max_auto_retry_delay_secs);
-	CLIENT_SETTING_BOOL(debug);
-
-	if (dlua_table_get_string_by_str(L, -1, "proxy_url", &proxy_url) > 0) {
-		if (http_url_parse(proxy_url, NULL, HTTP_URL_ALLOW_USERINFO_PART,
-				   pool_datastack_create(), &parsed_url, error_r) < 0) {
-			*error_r = t_strdup_printf("proxy_url is invalid: %s",
-						   *error_r);
-			return -1;
-		}
-		set->proxy_url = parsed_url;
-		set->proxy_username = parsed_url->user;
-		set->proxy_password = parsed_url->password;
 	}
 
 	lua_getfield(L, -1, "event_parent");

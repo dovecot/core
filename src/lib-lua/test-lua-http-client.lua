@@ -43,3 +43,31 @@ function script_init()
   })
   return 0
 end
+
+function test_invalid_set_name()
+  http_client = dovecot.http.client({
+    timeout = 10000,
+  })
+  return 0
+end
+
+function test_invalid_set_value_1()
+  http_client = dovecot.http.client({
+    debug = "yes"
+  })
+  return 0
+end
+
+function test_invalid_set_value_2()
+  http_client = dovecot.http.client({
+    max_attempts = "three"
+  })
+  return 0
+end
+
+function test_invalid_set_value_3()
+  http_client = dovecot.http.client({
+    user_agent = 1
+  })
+  return 0
+end

@@ -358,6 +358,47 @@ static void test_second_post(void)
 
 }
 
+static void test_bad_settings(void)
+{
+	struct dlua_script *script;
+	const char *error;
+
+	test_begin("bad settings");
+
+	if (event_want_debug(test_event))
+		test_expect_errors(4);
+
+	if (dlua_script_create_file(
+		TEST_LUA_SCRIPT_DIR "/test-lua-http-client.lua",
+		&script, test_event, &error) < 0)
+		i_fatal("dlua_script_create_file() failed: %s", error);
+
+	dlua_dovecot_register(script);
+	if (dlua_script_init(script, &error) < 0)
+		i_fatal("dlua_script_init() failed: %s", error);
+
+	int ret = dlua_pcall(script->L, "test_invalid_set_name", 0, 0, &error);
+	test_assert(ret < 0);
+	/* check the error is there */
+	test_assert(strstr(error, "Invalid HTTP client setting: timeout is unknown setting") != NULL);
+
+	ret = dlua_pcall(script->L, "test_invalid_set_value_1", 0, 0, &error);
+	test_assert(ret < 0);
+	test_assert(strstr(error, "Invalid HTTP client setting: debug: boolean expected") != NULL);
+
+	ret = dlua_pcall(script->L, "test_invalid_set_value_2", 0, 0, &error);
+	test_assert(ret < 0);
+	test_assert(strstr(error, "Invalid HTTP client setting: max_attempts: non-negative number expected") != NULL);
+
+	ret = dlua_pcall(script->L, "test_invalid_set_value_3", 0, 0, &error);
+	test_assert(ret < 0);
+	test_assert(strstr(error, "Invalid HTTP client setting: user_agent: string expected") != NULL);
+
+	dlua_script_unref(&script);
+
+	test_end();
+}
+
 /*
  * All tests
  */
@@ -365,6 +406,7 @@ static void test_second_post(void)
 static void (*const test_functions[])(void) = {
 	test_simple_post,
 	test_second_post,
+	test_bad_settings,
 	NULL
 };
 
