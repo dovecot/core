@@ -28,6 +28,7 @@ print '#include "mailbox-list.h"'."\n";
 print '#include "all-settings.h"'."\n";
 print '#include <unistd.h>'."\n";
 print '#define CONFIG_BINARY'."\n";
+print '#define PLUGIN_BUILD'."\n";
 
 my @services = ();
 my %service_defaults = ();
