@@ -31,6 +31,7 @@ static struct program_client_parameters pc_params = {
 	.client_connect_timeout_msecs = 5000,
 	.input_idle_timeout_msecs = 10000,
 };
+struct event *event;
 
 static struct test_server {
 	struct ioloop *ioloop;
@@ -336,8 +337,8 @@ static void test_program_success(void)
 	test_begin("test_program_success");
 
 	pc_params.no_reply = FALSE;
-	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
-				       &pc_params);
+	pc = program_client_net_create(event, "127.0.0.1", test_globals.port,
+				       args, &pc_params);
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
 	struct ostream *os = test_ostream_create(output);
@@ -367,8 +368,8 @@ static void test_program_io_common(const char *const *args)
 	int ret = -2;
 
 	pc_params.no_reply = FALSE;
-	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
-				       &pc_params);
+	pc = program_client_net_create(event, "127.0.0.1", test_globals.port,
+				       args, &pc_params);
 
 	struct istream *is = test_istream_create(pclient_test_io_string);
 	program_client_set_input(pc, is);
@@ -427,8 +428,8 @@ static void test_program_failure(void)
 	test_begin("test_program_failure");
 
 	pc_params.no_reply = FALSE;
-	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
-				       &pc_params);
+	pc = program_client_net_create(event, "127.0.0.1", test_globals.port,
+				       args, &pc_params);
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
 	struct ostream *os = test_ostream_create(output);
@@ -463,8 +464,8 @@ static void test_program_noreply(void)
 	test_begin("test_program_noreply");
 
 	pc_params.no_reply = TRUE;
-	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
-				       &pc_params);
+	pc = program_client_net_create(event, "127.0.0.1", test_globals.port,
+				       args, &pc_params);
 
 	program_client_run_async(pc, test_program_async_callback, &ret);
 
@@ -500,7 +501,7 @@ static void test_program_refused(void)
 	}
 
 	pc_params.no_reply = TRUE;
-	pc = program_client_net_create_ips(ips, N_ELEMENTS(ips),
+	pc = program_client_net_create_ips(event, ips, N_ELEMENTS(ips),
 					   test_globals.port, args,
 					   &pc_params);
 
@@ -534,11 +535,11 @@ int main(int argc, char *argv[])
 
 	lib_init();
 
-	pc_params.event = event_create(NULL);
+	event = event_create(NULL);
 	while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
 		case 'D':
-			event_set_forced_debug(pc_params.event, TRUE);
+			event_set_forced_debug(event, TRUE);
 			break;
 		default:
 			i_fatal("Usage: %s [-D]", argv[0]);
@@ -547,7 +548,7 @@ int main(int argc, char *argv[])
 
 	ret = test_run(tests);
 
-	event_unref(&pc_params.event);
+	event_unref(&event);
 	lib_deinit();
 	return ret;
 }

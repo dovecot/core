@@ -67,7 +67,7 @@ void program_client_set_label(struct program_client *pclient,
 			      const char *label);
 
 void program_client_init(struct program_client *pclient, pool_t pool,
-			 const char *initial_label,
+			 struct event *event, const char *initial_label,
 			 const char *const *args,
 			 const struct program_client_parameters *params)
 			 ATTR_NULL(5);

@@ -616,7 +616,8 @@ program_client_remote_switch_ioloop(struct program_client *pclient)
 }
 
 struct program_client *
-program_client_unix_create(const char *socket_path, const char *const *args,
+program_client_unix_create(struct event *event,
+			   const char *socket_path, const char *const *args,
 			   const struct program_client_parameters *params)
 {
 	struct program_client_remote *prclient;
@@ -627,7 +628,7 @@ program_client_unix_create(const char *socket_path, const char *const *args,
 
 	pool = pool_alloconly_create("program client unix", 1024);
 	prclient = p_new(pool, struct program_client_remote, 1);
-	program_client_init(&prclient->client, pool, label, args, params);
+	program_client_init(&prclient->client, pool, event, label, args, params);
 	prclient->client.connect = program_client_unix_connect;
 	prclient->client.close_output = program_client_remote_close_output;
 	prclient->client.disconnect = program_client_remote_disconnect;
@@ -639,7 +640,7 @@ program_client_unix_create(const char *socket_path, const char *const *args,
 }
 
 struct program_client *
-program_client_net_create(const char *host, in_port_t port,
+program_client_net_create(struct event *event, const char *host, in_port_t port,
 			  const char *const *args,
 			  const struct program_client_parameters *params)
 {
@@ -651,7 +652,7 @@ program_client_net_create(const char *host, in_port_t port,
 
 	pool = pool_alloconly_create("program client net", 1024);
 	prclient = p_new(pool, struct program_client_remote, 1);
-	program_client_init(&prclient->client, pool, label, args, params);
+	program_client_init(&prclient->client, pool, event, label, args, params);
 	prclient->client.connect = program_client_net_connect_init;
 	prclient->client.close_output = program_client_remote_close_output;
 	prclient->client.disconnect = program_client_remote_disconnect;
@@ -664,7 +665,8 @@ program_client_net_create(const char *host, in_port_t port,
 }
 
 struct program_client *
-program_client_net_create_ips(const struct ip_addr *ips, size_t ips_count,
+program_client_net_create_ips(struct event *event,
+			      const struct ip_addr *ips, size_t ips_count,
 			      in_port_t port,
 			      const char *const *args,
 			      const struct program_client_parameters *params)
@@ -679,7 +681,7 @@ program_client_net_create_ips(const struct ip_addr *ips, size_t ips_count,
 
 	pool = pool_alloconly_create("program client net", 1024);
 	prclient = p_new(pool, struct program_client_remote, 1);
-	program_client_init(&prclient->client, pool, label, args, params);
+	program_client_init(&prclient->client, pool, event, label, args, params);
 	prclient->client.connect = program_client_net_connect_init;
 	prclient->client.close_output = program_client_remote_close_output;
 	prclient->client.disconnect = program_client_remote_disconnect;

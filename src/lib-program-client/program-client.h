@@ -17,9 +17,6 @@ struct program_client_parameters {
 	unsigned int input_idle_timeout_msecs;
 	const char *dns_client_socket_path;
 
-	/* Event to use for the program client. */
-	struct event *event;
-
 	/* use o_stream_dot, which is mainly useful to make sure that an
 	   unexpectedly closed connection doesn't cause the partial input to
 	   be accepted as valid and complete program input. This is always
@@ -34,21 +31,26 @@ typedef void program_client_callback_t(enum program_client_exit_status status,
 				       void *context);
 
 struct program_client *
-program_client_local_create(const char *bin_path, const char *const *args,
+program_client_local_create(struct event *event,
+			    const char *bin_path, const char *const *args,
 			    const struct program_client_parameters *params)
 			    ATTR_NULL(3);
 struct program_client *
-program_client_unix_create(const char *socket_path, const char *const *args,
+program_client_unix_create(struct event *event,
+			   const char *socket_path, const char *const *args,
 			   const struct program_client_parameters *params);
 struct program_client *
-program_client_net_create(const char *host, in_port_t port,
+program_client_net_create(struct event *event,
+			  const char *host, in_port_t port,
 			  const char *const *args,
 			  const struct program_client_parameters *params);
 struct program_client *
-program_client_net_create_ips(const struct ip_addr *ips, size_t ips_count,
+program_client_net_create_ips(struct event *event,
+			      const struct ip_addr *ips, size_t ips_count,
 			      in_port_t port, const char *const *args,
 			      const struct program_client_parameters *params);
-int program_client_create(const char *uri, const char *const *args,
+int program_client_create(struct event *event, const char *uri,
+			  const char *const *args,
 			  const struct program_client_parameters *params,
 			  struct program_client **pc_r, const char **error_r);
 

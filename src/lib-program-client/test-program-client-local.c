@@ -27,6 +27,7 @@ static struct program_client_parameters pc_params = {
 	.client_connect_timeout_msecs = 10000,
 	.input_idle_timeout_msecs = 5000,
 };
+static struct event *event;
 
 static void test_program_success(void)
 {
@@ -38,7 +39,7 @@ static void test_program_success(void)
 
 	test_begin("test_program_success");
 
-	pc = program_client_local_create("/bin/echo", args, &pc_params);
+	pc = program_client_local_create(event, "/bin/echo", args, &pc_params);
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
 	struct ostream *os = test_ostream_create(output);
@@ -65,7 +66,7 @@ static void test_program_io_sync(void)
 
 	test_begin("test_program_io (sync)");
 
-	pc = program_client_local_create("/bin/cat", args, &pc_params);
+	pc = program_client_local_create(event, "/bin/cat", args, &pc_params);
 
 	struct istream *is = test_istream_create(pclient_test_io_string);
 	program_client_set_input(pc, is);
@@ -108,7 +109,7 @@ static void test_program_io_async(void)
 	prev_ioloop = current_ioloop;
 	ioloop = io_loop_create();
 
-	pc = program_client_local_create("/bin/cat", args, &pc_params);
+	pc = program_client_local_create(event, "/bin/cat", args, &pc_params);
 
 	struct istream *is = test_istream_create(pclient_test_io_string);
 	program_client_set_input(pc, is);
@@ -146,7 +147,7 @@ static void test_program_failure(void)
 
 	test_begin("test_program_failure");
 
-	pc = program_client_local_create("/bin/false", args, &pc_params);
+	pc = program_client_local_create(event, "/bin/false", args, &pc_params);
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
 	struct ostream *os = test_ostream_create(output);
@@ -182,7 +183,7 @@ static void test_program_io_big(void)
 
 	test_begin("test_program_io (big)");
 
-	pc = program_client_local_create("/bin/sh", args, &pc_params);
+	pc = program_client_local_create(event, "/bin/sh", args, &pc_params);
 
 	/* make big input with only a small reference string */
 	struct istream *is1 = test_istream_create(pclient_test_io_string);
@@ -235,7 +236,7 @@ static void test_program_wait_no_io(void)
 
 	params.client_connect_timeout_msecs = 0;
 	params.input_idle_timeout_msecs = 0;
-	pc = program_client_local_create("/bin/sh", args, &params);
+	pc = program_client_local_create(event, "/bin/sh", args, &params);
 
 	test_assert(program_client_run(pc) == 1);
 
@@ -261,11 +262,11 @@ int main(int argc, char *argv[])
 
 	lib_init();
 
-	pc_params.event = event_create(NULL);
+	event = event_create(NULL);
 	while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
 		case 'D':
-			event_set_forced_debug(pc_params.event, TRUE);
+			event_set_forced_debug(event, TRUE);
 			break;
 		default:
 			i_fatal("Usage: %s [-D]", argv[0]);
@@ -278,7 +279,7 @@ int main(int argc, char *argv[])
 	lib_signals_deinit();
 	io_loop_destroy(&ioloop);
 
-	event_unref(&pc_params.event);
+	event_unref(&event);
 	lib_deinit();
 	return ret;
 }
