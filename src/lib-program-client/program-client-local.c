@@ -525,7 +525,7 @@ program_client_local_create(struct event *event, const char *bin_path,
 	const char *label;
 	pool_t pool;
 
-	label = t_strconcat("exec:", bin_path, NULL);
+	label = t_strconcat("fork:", bin_path, NULL);
 
 	pool = pool_alloconly_create("program client local", 1024);
 	plclient = p_new(pool, struct program_client_local, 1);

@@ -37,7 +37,7 @@ static const struct setting_define program_client_setting_defines[] = {
 	DEF(ENUM, execute_driver),
 	DEF(STR, execute_args),
 
-	DEF(STR, execute_local_path),
+	DEF(STR, execute_fork_path),
 	DEF(STR, execute_unix_socket_path),
 	DEF(STR, execute_tcp_host),
 	DEF(IN_PORT, execute_tcp_port),
@@ -51,10 +51,10 @@ static const struct setting_define program_client_setting_defines[] = {
 static const struct program_client_settings program_client_default_settings = {
 	.execute = ARRAY_INIT,
 	.execute_name = "",
-	.execute_driver = "unix:local:tcp",
+	.execute_driver = "unix:fork:tcp",
 	.execute_args = "",
 
-	.execute_local_path = "",
+	.execute_fork_path = "",
 	.execute_unix_socket_path = "",
 	.execute_tcp_host = "",
 	.execute_tcp_port = 0,
@@ -759,9 +759,9 @@ program_client_settings_check(void *_set, pool_t pool, const char **error_r)
 				set->base_dir, "/",
 				set->execute_unix_socket_path, NULL);
 		}
-	} else if (strcmp(set->execute_driver, "local") == 0) {
-		if (set->execute_local_path[0] == '\0')
-			set->execute_local_path = set->execute_name;
+	} else if (strcmp(set->execute_driver, "fork") == 0) {
+		if (set->execute_fork_path[0] == '\0')
+			set->execute_fork_path = set->execute_name;
 	} else if (strcmp(set->execute_driver, "tcp") == 0) {
 		if (set->execute_tcp_host[0] == '\0' &&
 		    set->execute_name[0] != '\0') {
@@ -803,9 +803,9 @@ program_client_create_filter_auto(struct event *event, const char *execute_name,
 	if (strcmp(set->execute_driver, "unix") == 0) {
 		*pc_r = program_client_unix_create(event,
 				set->execute_unix_socket_path, args, params);
-	} else if (strcmp(set->execute_driver, "local") == 0) {
+	} else if (strcmp(set->execute_driver, "fork") == 0) {
 		*pc_r = program_client_local_create(event,
-				set->execute_local_path, args, params);
+				set->execute_fork_path, args, params);
 	} else if (strcmp(set->execute_driver, "tcp") == 0) {
 		*pc_r = program_client_net_create(event, set->execute_tcp_host,
 						  set->execute_tcp_port,
