@@ -180,6 +180,7 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 	ctx = list->v.iter_init(list, patterns, flags);
 	if ((flags & MAILBOX_LIST_ITER_NO_AUTO_BOXES) == 0) {
 		if (mailbox_list_iter_init_autocreate(ctx) < 0) {
+			hash_table_destroy(&ctx->autocreate_ctx->duplicate_vnames);
 			list->v.iter_deinit(ctx);
 			return &mailbox_list_iter_failed;
 		}
