@@ -24,7 +24,7 @@ struct program_client_extra_fd {
 
 struct program_client {
 	pool_t pool;
-	struct program_client_settings set;
+	struct program_client_parameters params;
 
 	const char **args;
 	ARRAY_TYPE(const_string) envs;
@@ -69,7 +69,7 @@ void program_client_set_label(struct program_client *pclient,
 void program_client_init(struct program_client *pclient, pool_t pool,
 			 const char *initial_label,
 			 const char *const *args,
-			 const struct program_client_settings *set)
+			 const struct program_client_parameters *params)
 			 ATTR_NULL(5);
 
 void program_client_init_streams(struct program_client *pclient);

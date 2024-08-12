@@ -12,7 +12,7 @@ enum program_client_exit_status {
 	PROGRAM_CLIENT_EXIT_STATUS_SUCCESS = 1,
 };
 
-struct program_client_settings {
+struct program_client_parameters {
 	unsigned int client_connect_timeout_msecs;
 	unsigned int input_idle_timeout_msecs;
 	/* initialize with
@@ -42,24 +42,24 @@ typedef void program_client_callback_t(enum program_client_exit_status status,
 
 struct program_client *
 program_client_local_create(const char *bin_path, const char *const *args,
-			    const struct program_client_settings *set)
+			    const struct program_client_parameters *params)
 			    ATTR_NULL(3);
 struct program_client *
 program_client_unix_create(const char *socket_path, const char *const *args,
-			   const struct program_client_settings *set,
+			   const struct program_client_parameters *params,
 			   bool noreply) ATTR_NULL(3);
 struct program_client *
 program_client_net_create(const char *host, in_port_t port,
 			  const char *const *args,
-			  const struct program_client_settings *set,
+			  const struct program_client_parameters *params,
 			  bool noreply) ATTR_NULL(4);
 struct program_client *
 program_client_net_create_ips(const struct ip_addr *ips, size_t ips_count,
 			      in_port_t port, const char *const *args,
-			      const struct program_client_settings *set,
+			      const struct program_client_parameters *params,
 			      bool noreply) ATTR_NULL(5);
 int program_client_create(const char *uri, const char *const *args,
-			  const struct program_client_settings *set,
+			  const struct program_client_parameters *params,
 			  bool noreply, struct program_client **pc_r,
 			  const char **error_r) ATTR_NULL(3);
 

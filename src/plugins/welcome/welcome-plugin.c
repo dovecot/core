@@ -52,7 +52,7 @@ static void script_execute(struct mail_user *user, const char *cmd, bool wait)
 	if (mail_user_get_home(user, &home) < 0)
 		home = NULL;
 
-	struct program_client_settings set = {
+	struct program_client_parameters params = {
 		.client_connect_timeout_msecs = 1000,
 		.event = user->event,
 		.debug = event_want_debug(user->event),
@@ -71,7 +71,7 @@ static void script_execute(struct mail_user *user, const char *cmd, bool wait)
 	}
 
 	struct welcome_client_list *wclient = i_new(struct welcome_client_list, 1);
-	wclient->client = program_client_unix_create(socket_path, args, &set, !wait);
+	wclient->client = program_client_unix_create(socket_path, args, &params, !wait);
 
 	if (wait) {
 		enum program_client_exit_status ret =
