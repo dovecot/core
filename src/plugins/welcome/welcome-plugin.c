@@ -51,7 +51,6 @@ static void script_execute(struct mail_user *user, const char *cmd, bool wait)
 
 	struct program_client_parameters params = {
 		.client_connect_timeout_msecs = 1000,
-		.event = user->event,
 		.no_reply = !wait,
 	};
 
@@ -67,7 +66,8 @@ static void script_execute(struct mail_user *user, const char *cmd, bool wait)
 	}
 
 	struct welcome_client_list *wclient = i_new(struct welcome_client_list, 1);
-	wclient->client = program_client_unix_create(socket_path, args, &params);
+	wclient->client = program_client_unix_create(user->event, socket_path,
+						     args, &params);
 
 	if (wait) {
 		enum program_client_exit_status ret =

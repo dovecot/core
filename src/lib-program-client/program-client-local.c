@@ -517,7 +517,7 @@ program_client_local_switch_ioloop(struct program_client *pclient)
 }
 
 struct program_client *
-program_client_local_create(const char *bin_path,
+program_client_local_create(struct event *event, const char *bin_path,
 			    const char *const *args,
 			    const struct program_client_parameters *params)
 {
@@ -529,7 +529,7 @@ program_client_local_create(const char *bin_path,
 
 	pool = pool_alloconly_create("program client local", 1024);
 	plclient = p_new(pool, struct program_client_local, 1);
-	program_client_init(&plclient->client, pool, label, args, params);
+	program_client_init(&plclient->client, pool, event, label, args, params);
 	plclient->client.connect = program_client_local_connect;
 	plclient->client.close_output = program_client_local_close_output;
 	plclient->client.switch_ioloop = program_client_local_switch_ioloop;

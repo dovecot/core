@@ -410,10 +410,9 @@ smtp_submit_send_sendmail(struct smtp_submit *subm)
 	i_zero(&pc_params);
 	pc_params.client_connect_timeout_msecs = set->submission_timeout * 1000;
 	pc_params.input_idle_timeout_msecs = set->submission_timeout * 1000;
-	pc_params.event = subm->event;
 
-	pc = program_client_local_create
-		(sendmail_bin, array_front(&args), &pc_params);
+	pc = program_client_local_create(subm->event, sendmail_bin,
+					 array_front(&args), &pc_params);
 
 	program_client_set_input(pc, subm->input);
 	i_stream_unref(&subm->input);

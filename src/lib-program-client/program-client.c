@@ -464,23 +464,21 @@ void program_client_connected(struct program_client *pclient)
 }
 
 void program_client_init(struct program_client *pclient, pool_t pool,
-			 const char *initial_label, const char *const *args,
+			 struct event *event, const char *initial_label,
+			 const char *const *args,
 			 const struct program_client_parameters *params)
 {
 	pclient->pool = pool;
+	pclient->event = event_create(event);
 	if (args != NULL)
 		pclient->args = p_strarray_dup(pool, args);
 	pclient->fd_in = -1;
 	pclient->fd_out = -1;
 
-	if (params == NULL)
-		pclient->event = event_create(NULL);
-	else {
+	if (params != NULL) {
 		pclient->params = *params;
 		pclient->params.dns_client_socket_path =
 			p_strdup(pool, params->dns_client_socket_path);
-
-		pclient->event = event_create(params->event);
 	}
 
 	program_client_set_label(pclient, initial_label);
@@ -662,17 +660,18 @@ void program_client_switch_ioloop(struct program_client *pclient)
 	pclient->switch_ioloop(pclient);
 }
 
-int program_client_create(const char *uri, const char *const *args,
+int program_client_create(struct event *event, const char *uri,
+			  const char *const *args,
 			  const struct program_client_parameters *params,
 			  struct program_client **pc_r, const char **error_r)
 {
 	const char *suffix;
 
 	if (str_begins(uri, "exec:", &suffix)) {
-		*pc_r = program_client_local_create(suffix, args, params);
+		*pc_r = program_client_local_create(event, suffix, args, params);
 		return 0;
 	} else if (str_begins(uri, "unix:", &suffix)) {
-		*pc_r = program_client_unix_create(suffix, args, params);
+		*pc_r = program_client_unix_create(event, suffix, args, params);
 		return 0;
 	} else if (str_begins(uri, "tcp:", &suffix)) {
 		const char *host;
@@ -685,7 +684,7 @@ int program_client_create(const char *uri, const char *const *args,
 				"must be host:port in '%s'", suffix);
 			return -1;
 		}
-		*pc_r = program_client_net_create(host, port, args, params);
+		*pc_r = program_client_net_create(event, host, port, args, params);
 		return 0;
 	} else {
 		*error_r = t_strdup_printf(
