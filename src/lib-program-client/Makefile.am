@@ -4,7 +4,9 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-dns \
-	-I$(top_srcdir)/src/lib-mail
+	-I$(top_srcdir)/src/lib-mail \
+	-I$(top_srcdir)/src/lib-settings \
+	-DPKG_RUNDIR=\""$(rundir)"\"
 
 libprogram_client_la_SOURCES = \
 	program-client.c \
@@ -32,6 +34,7 @@ test_libs = \
 	../lib-dns/libdns.la  \
 	../lib-test/libtest.la \
 	../lib-mail/libmail.la \
+	../lib-settings/libsettings.la  \
 	../lib-charset/libcharset.la \
 	../lib/liblib.la \
 	$(MODULE_LIBS)

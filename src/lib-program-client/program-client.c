@@ -13,6 +13,8 @@
 #include "iostream-pump.h"
 #include "iostream-temp.h"
 #include "lib-signals.h"
+#include "settings.h"
+#include "settings-parser.h"
 
 #include "program-client-private.h"
 
@@ -20,6 +22,56 @@
 
 #define MAX_OUTPUT_BUFFER_SIZE 16384
 #define MAX_OUTPUT_MEMORY_BUFFER (1024*128)
+
+static bool program_client_settings_check(void *_set, pool_t pool,
+					  const char **error_r);
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct program_client_settings)
+static const struct setting_define program_client_setting_defines[] = {
+	{ .type = SET_FILTER_ARRAY, .key = "execute",
+	  .offset = offsetof(struct program_client_settings, execute),
+	  .filter_array_field_name = "execute_name", },
+	DEF(STR, execute_name),
+	DEF(ENUM, execute_driver),
+	DEF(STR, execute_args),
+
+	DEF(STR, execute_local_path),
+	DEF(STR, execute_unix_socket_path),
+	DEF(STR, execute_tcp_host),
+	DEF(IN_PORT, execute_tcp_port),
+
+	SETTING_DEFINE_STRUCT_STR_HIDDEN("base_dir", base_dir,
+					 struct program_client_settings),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct program_client_settings program_client_default_settings = {
+	.execute = ARRAY_INIT,
+	.execute_name = "",
+	.execute_driver = "unix:local:tcp",
+	.execute_args = "",
+
+	.execute_local_path = "",
+	.execute_unix_socket_path = "",
+	.execute_tcp_host = "",
+	.execute_tcp_port = 0,
+
+	.base_dir = PKG_RUNDIR,
+};
+const struct setting_parser_info program_client_setting_parser_info = {
+	.name = "execute",
+
+	.defines = program_client_setting_defines,
+	.defaults = &program_client_default_settings,
+
+	.struct_size = sizeof(struct program_client_settings),
+	.pool_offset1 = 1 + offsetof(struct program_client_settings, pool),
+
+	.check_func = program_client_settings_check,
+};
 
 void program_client_set_label(struct program_client *pclient,
 			      const char *label)
@@ -692,6 +744,118 @@ int program_client_create(struct event *event, const char *uri,
 			t_strcut(uri, ':'));
 		return -1;
 	}
+}
+
+static bool
+program_client_settings_check(void *_set, pool_t pool, const char **error_r)
+{
+	struct program_client_settings *set = _set;
+
+	if (strcmp(set->execute_driver, "unix") == 0) {
+		if (set->execute_unix_socket_path[0] == '\0')
+			set->execute_unix_socket_path = set->execute_name;
+		if (set->execute_unix_socket_path[0] != '/') {
+			set->execute_unix_socket_path = p_strconcat(pool,
+				set->base_dir, "/",
+				set->execute_unix_socket_path, NULL);
+		}
+	} else if (strcmp(set->execute_driver, "local") == 0) {
+		if (set->execute_local_path[0] == '\0')
+			set->execute_local_path = set->execute_name;
+	} else if (strcmp(set->execute_driver, "tcp") == 0) {
+		if (set->execute_tcp_host[0] == '\0' &&
+		    set->execute_name[0] != '\0') {
+			const char *host;
+			if (net_str2hostport(set->execute_name, 0, &host,
+					     &set->execute_tcp_port) < 0) {
+				*error_r = t_strdup_printf(
+					"Failed to parse execute_tcp_host:port from execute_name=%s",
+					set->execute_name);
+				return FALSE;
+			}
+			set->execute_tcp_host = p_strdup(pool, host);
+		}
+		if (set->execute_tcp_port == 0) {
+			*error_r = "execute_tcp_port must not be 0 with execute_driver=tcp";
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+static int
+program_client_create_filter_auto(struct event *event, const char *execute_name,
+				  const struct program_client_parameters *params,
+				  struct program_client **pc_r, const char **error_r)
+{
+	const struct program_client_settings *set;
+
+	/* Get settings for the first execute list filter */
+	event = event_create(event);
+	event_add_str(event, "execute", execute_name);
+	if (settings_get(event, &program_client_setting_parser_info, 0,
+			 &set, error_r) < 0) {
+		event_unref(&event);
+		return -1;
+	}
+
+	const char *const *args = t_strsplit_spaces(set->execute_args, " ");
+	if (strcmp(set->execute_driver, "unix") == 0) {
+		*pc_r = program_client_unix_create(event,
+				set->execute_unix_socket_path, args, params);
+	} else if (strcmp(set->execute_driver, "local") == 0) {
+		*pc_r = program_client_local_create(event,
+				set->execute_local_path, args, params);
+	} else if (strcmp(set->execute_driver, "tcp") == 0) {
+		*pc_r = program_client_net_create(event, set->execute_tcp_host,
+						  set->execute_tcp_port,
+						  args, params);
+	} else {
+		/* should have been caught by settings enum checking already */
+		i_unreached();
+	}
+
+	event_unref(&event);
+	settings_free(set);
+	return 0;
+}
+
+int program_client_create_auto(struct event *event,
+			       const struct program_client_parameters *params,
+			       struct program_client **pc_r, const char **error_r)
+{
+	struct program_client_settings *set;
+
+	i_assert(event != NULL);
+
+	if (settings_get(event, &program_client_setting_parser_info, 0,
+			 &set, error_r) < 0)
+		return -1;
+	if (array_is_empty(&set->execute)) {
+		*error_r = "execute { .. } named list filter is missing";
+		settings_free(set);
+		return 0;
+	}
+	const char *execute_name_first =
+		t_strdup(array_idx_elem(&set->execute, 0));
+	if (array_count(&set->execute) > 1) {
+		/* Only one execution supported for now. */
+		const char *execute_name_extra =
+			array_idx_elem(&set->execute, 1);
+		*error_r = t_strdup_printf(
+				"Extra execute %s { .. } named list filter - "
+				"only one execution is allowed for now "
+				"(previous: execute %s { .. })",
+				execute_name_extra, execute_name_first);
+		settings_free(set);
+		return -1;
+	}
+	settings_free(set);
+
+	if (program_client_create_filter_auto(event, execute_name_first,
+					      params, pc_r, error_r) < 0)
+		return -1;
+	return 1;
 }
 
 static void
