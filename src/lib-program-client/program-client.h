@@ -26,6 +26,24 @@ struct program_client_parameters {
 	bool no_reply:1;
 };
 
+struct program_client_settings {
+	pool_t pool;
+	/* Currently only a single execution is allowed */
+	ARRAY_TYPE(const_string) execute;
+	const char *execute_name;
+	const char *execute_driver;
+	const char *execute_args;
+
+	/* driver-specific: */
+	const char *execute_local_path;
+	const char *execute_unix_socket_path;
+	const char *execute_tcp_host;
+	in_port_t execute_tcp_port;
+
+	const char *base_dir;
+};
+extern const struct setting_parser_info program_client_setting_parser_info;
+
 typedef void program_client_fd_callback_t(void *context, struct istream *input);
 typedef void program_client_callback_t(enum program_client_exit_status status,
 				       void *context);
@@ -53,6 +71,9 @@ int program_client_create(struct event *event, const char *uri,
 			  const char *const *args,
 			  const struct program_client_parameters *params,
 			  struct program_client **pc_r, const char **error_r);
+int program_client_create_auto(struct event *event,
+			       const struct program_client_parameters *params,
+			       struct program_client **pc_r, const char **error_r);
 
 void program_client_destroy(struct program_client **_pclient);
 
