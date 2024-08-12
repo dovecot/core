@@ -733,7 +733,6 @@ static void test_server_denied_second_rcpt(unsigned int index)
 static void test_smtp_submit_input_init(struct smtp_submit_input *smtp_input_r)
 {
 	i_zero(smtp_input_r);
-	smtp_input_r->allow_root = TRUE;
 }
 
 static bool
