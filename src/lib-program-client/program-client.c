@@ -77,7 +77,7 @@ void program_client_set_label(struct program_client *pclient,
 			      const char *label)
 {
 	event_set_append_log_prefix(pclient->event,
-		t_strconcat("program ", label, ": ", NULL));
+		t_strconcat("execute ", label, ": ", NULL));
 }
 
 static void
