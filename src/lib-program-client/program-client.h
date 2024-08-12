@@ -26,6 +26,7 @@ struct program_client_parameters {
 	   enabled for 'net' program clients, which may likely encounter
 	   unexpected connection termination. */
 	bool use_dotstream:1;
+	bool no_reply:1;
 };
 
 typedef void program_client_fd_callback_t(void *context, struct istream *input);
@@ -38,22 +39,18 @@ program_client_local_create(const char *bin_path, const char *const *args,
 			    ATTR_NULL(3);
 struct program_client *
 program_client_unix_create(const char *socket_path, const char *const *args,
-			   const struct program_client_parameters *params,
-			   bool noreply) ATTR_NULL(3);
+			   const struct program_client_parameters *params);
 struct program_client *
 program_client_net_create(const char *host, in_port_t port,
 			  const char *const *args,
-			  const struct program_client_parameters *params,
-			  bool noreply) ATTR_NULL(4);
+			  const struct program_client_parameters *params);
 struct program_client *
 program_client_net_create_ips(const struct ip_addr *ips, size_t ips_count,
 			      in_port_t port, const char *const *args,
-			      const struct program_client_parameters *params,
-			      bool noreply) ATTR_NULL(5);
+			      const struct program_client_parameters *params);
 int program_client_create(const char *uri, const char *const *args,
 			  const struct program_client_parameters *params,
-			  bool noreply, struct program_client **pc_r,
-			  const char **error_r) ATTR_NULL(3);
+			  struct program_client **pc_r, const char **error_r);
 
 void program_client_destroy(struct program_client **_pclient);
 

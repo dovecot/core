@@ -617,8 +617,7 @@ program_client_remote_switch_ioloop(struct program_client *pclient)
 
 struct program_client *
 program_client_unix_create(const char *socket_path, const char *const *args,
-			   const struct program_client_parameters *params,
-			   bool noreply)
+			   const struct program_client_parameters *params)
 {
 	struct program_client_remote *prclient;
 	const char *label;
@@ -634,7 +633,7 @@ program_client_unix_create(const char *socket_path, const char *const *args,
 	prclient->client.disconnect = program_client_remote_disconnect;
 	prclient->client.switch_ioloop = program_client_remote_switch_ioloop;
 	prclient->address = p_strdup(pool, socket_path);
-	prclient->noreply = noreply;
+	prclient->noreply = params->no_reply;
 
 	return &prclient->client;
 }
@@ -642,8 +641,7 @@ program_client_unix_create(const char *socket_path, const char *const *args,
 struct program_client *
 program_client_net_create(const char *host, in_port_t port,
 			  const char *const *args,
-			  const struct program_client_parameters *params,
-			  bool noreply)
+			  const struct program_client_parameters *params)
 {
 	struct program_client_remote *prclient;
 	const char *label;
@@ -661,7 +659,7 @@ program_client_net_create(const char *host, in_port_t port,
 	prclient->address = p_strdup(pool, host);
 	prclient->port = port;
 	prclient->have_hostname = TRUE;
-	prclient->noreply = noreply;
+	prclient->noreply = params->no_reply;
 	return &prclient->client;
 }
 
@@ -669,8 +667,7 @@ struct program_client *
 program_client_net_create_ips(const struct ip_addr *ips, size_t ips_count,
 			      in_port_t port,
 			      const char *const *args,
-			      const struct program_client_parameters *params,
-			      bool noreply)
+			      const struct program_client_parameters *params)
 {
 	struct program_client_remote *prclient;
 	const char *label;
@@ -693,6 +690,6 @@ program_client_net_create_ips(const struct ip_addr *ips, size_t ips_count,
 				 sizeof(struct ip_addr)*ips_count);
 	prclient->ips_count = ips_count;
 	prclient->port = port;
-	prclient->noreply = noreply;
+	prclient->noreply = params->no_reply;
 	return &prclient->client;
 }

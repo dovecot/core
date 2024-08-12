@@ -1011,6 +1011,7 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 	struct program_client_parameters params = {
 		.client_connect_timeout_msecs = 1000,
 		.event = root->quota->event,
+		.no_reply = TRUE,
 	};
 	struct program_client *pc;
 
@@ -1044,7 +1045,7 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 
 	args++;
 
-	if (program_client_create(socket_path, args, &params, TRUE,
+	if (program_client_create(socket_path, args, &params,
 				  &pc, &error) < 0) {
 		e_error(root->quota->event,
 			"program_client_create(%s) failed: %s", socket_path,
