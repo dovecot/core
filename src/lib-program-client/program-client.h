@@ -35,7 +35,7 @@ struct program_client_settings {
 	const char *execute_args;
 
 	/* driver-specific: */
-	const char *execute_local_path;
+	const char *execute_fork_path;
 	const char *execute_unix_socket_path;
 	const char *execute_tcp_host;
 	in_port_t execute_tcp_port;
