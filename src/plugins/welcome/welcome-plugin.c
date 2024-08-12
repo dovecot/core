@@ -47,15 +47,11 @@ static void script_finish(enum program_client_exit_status ret,
 
 static void script_execute(struct mail_user *user, const char *cmd, bool wait)
 {
-	const char *socket_path, *home, *const *args;
-
-	if (mail_user_get_home(user, &home) < 0)
-		home = NULL;
+	const char *socket_path, *const *args;
 
 	struct program_client_parameters params = {
 		.client_connect_timeout_msecs = 1000,
 		.event = user->event,
-		.home = home,
 	};
 
 	e_debug(user->event, "welcome: Executing %s (wait=%d)", cmd, wait ? 1 : 0);

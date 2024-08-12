@@ -479,7 +479,6 @@ void program_client_init(struct program_client *pclient, pool_t pool,
 		pclient->params = *params;
 		pclient->params.dns_client_socket_path =
 			p_strdup(pool, params->dns_client_socket_path);
-		pclient->params.home = p_strdup(pool, params->home);
 
 		pclient->event = event_create(params->event);
 	}

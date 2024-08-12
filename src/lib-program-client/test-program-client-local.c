@@ -26,12 +26,6 @@ static const char *pclient_test_io_string =
 static struct program_client_parameters pc_params = {
 	.client_connect_timeout_msecs = 10000,
 	.input_idle_timeout_msecs = 5000,
-	.restrict_set = {
-		.uid = (uid_t)-1,
-		.gid = (gid_t)-1,
-	},
-	/* we need to permit root when running make check as root */
-	.allow_root = TRUE,
 };
 
 static void test_program_success(void)
