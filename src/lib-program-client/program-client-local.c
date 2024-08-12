@@ -49,7 +49,7 @@ program_client_local_exited(struct program_client_local *plclient);
 static void
 exec_child(const char *bin_path, const char *const *args,
 	   ARRAY_TYPE(const_string) *envs, int in_fd, int out_fd,
-	   int *extra_fds, bool drop_stderr, struct event *event)
+	   int *extra_fds, struct event *event)
 {
 	ARRAY_TYPE(const_string) exec_args;
 
@@ -70,14 +70,6 @@ exec_child(const char *bin_path, const char *const *args,
 	if (out_fd != STDOUT_FILENO && out_fd != dev_null_fd &&
 	    (out_fd != in_fd) && close(out_fd) < 0)
 		e_error(event, "close(out_fd) failed: %m");
-
-	/* Drop stderr if requested */
-	if (drop_stderr) {
-		if (dup2(dev_null_fd, STDERR_FILENO) < 0) {
-			i_fatal("program %s: "
-				"dup2(stderr) failed: %m", bin_path);
-		}
-	}
 
 	/* Setup extra fds */
 	if (extra_fds != NULL) {
@@ -263,8 +255,7 @@ program_client_local_connect(struct program_client *pclient)
 				pclient->params.home);
 
 		exec_child(plclient->bin_path, pclient->args, &pclient->envs,
-			   fd_in[0], fd_out[1], child_extra_fds,
-			   pclient->params.drop_stderr, event);
+			   fd_in[0], fd_out[1], child_extra_fds, event);
 		i_unreached();
 	}
 
