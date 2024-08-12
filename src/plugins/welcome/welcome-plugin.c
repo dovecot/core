@@ -11,6 +11,8 @@
 #include "eacces-error.h"
 #include "write-full.h"
 #include "module-context.h"
+#include "settings.h"
+#include "settings-parser.h"
 #include "mail-storage-private.h"
 
 #define WELCOME_CONTEXT(obj) \
@@ -25,6 +27,32 @@ static struct welcome_client_list {
 	struct welcome_client_list *prev, *next;
 	struct program_client *client;
 } *welcome_clients = NULL;
+
+struct welcome_settings {
+	pool_t pool;
+	bool welcome_wait;
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct welcome_settings)
+static const struct setting_define welcome_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "welcome",
+	  .required_setting = "execute", },
+	DEF(BOOL, welcome_wait),
+
+	SETTING_DEFINE_LIST_END
+};
+static const struct welcome_settings welcome_default_settings = {
+	.welcome_wait = FALSE,
+};
+const struct setting_parser_info welcome_setting_parser_info = {
+	.name = "welcome",
+	.defines = welcome_setting_defines,
+	.defaults = &welcome_default_settings,
+	.struct_size = sizeof(struct welcome_settings),
+	.pool_offset1 = 1 + offsetof(struct welcome_settings, pool),
+};
 
 static MODULE_CONTEXT_DEFINE_INIT(welcome_storage_module,
 				  &mail_storage_module_register);
@@ -42,32 +70,24 @@ static void script_finish(enum program_client_exit_status ret,
 			  struct program_client *client)
 {
 	if (ret != PROGRAM_CLIENT_EXIT_STATUS_SUCCESS)
-		e_error(client->event, "welcome: Execution failed: %d", ret);
+		e_error(client->event, "Execution failed: %d", ret);
 }
 
-static void script_execute(struct mail_user *user, const char *cmd, bool wait)
+static int script_execute(struct event *event, bool wait, const char **error_r)
 {
-	const char *socket_path, *const *args;
-
 	struct program_client_parameters params = {
 		.client_connect_timeout_msecs = 1000,
 		.no_reply = !wait,
 	};
 
-	e_debug(user->event, "welcome: Executing %s (wait=%d)", cmd, wait ? 1 : 0);
-
-	args = t_strsplit_spaces(cmd, " ");
-	socket_path = args[0];
-	args++;
-
-	if (*socket_path != '/') {
-		socket_path = t_strconcat(user->set->base_dir, "/",
-					  socket_path, NULL);
-	}
-
 	struct welcome_client_list *wclient = i_new(struct welcome_client_list, 1);
-	wclient->client = program_client_unix_create(user->event, socket_path,
-						     args, &params);
+	int ret = program_client_create_auto(event, &params,
+					     &wclient->client, error_r);
+	if (ret <= 0) {
+		/* if execute { .. } is missing, assume it's intentional and
+		   don't log an error. */
+		return ret;
+	}
 
 	if (wait) {
 		enum program_client_exit_status ret =
@@ -79,6 +99,7 @@ static void script_execute(struct mail_user *user, const char *cmd, bool wait)
 		program_client_run_async(wclient->client, script_finish,
 					 wclient->client);
 	}
+	return 0;
 }
 
 static int
@@ -86,17 +107,23 @@ welcome_create_box(struct mailbox *box,
 		   const struct mailbox_update *update, bool directory)
 {
 	struct welcome_mailbox *wbox = WELCOME_CONTEXT(box);
-	const char *cmd;
 
 	if (wbox->module_ctx.super.create_box(box, update, directory) < 0)
 		return -1;
-	cmd = mail_user_plugin_getenv(box->storage->user, "welcome_script");
-	if (cmd != NULL) {
-		bool wait = mail_user_plugin_getenv_bool(box->storage->user,
-							 "welcome_wait");
-		script_execute(box->storage->user, cmd, wait);
-	}
 
+	const struct welcome_settings *set = NULL;
+	const char *error;
+	struct event *event = event_create(box->storage->user->event);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "welcome");
+	event_set_append_log_prefix(event, "welcome: ");
+	if (settings_get(event, &welcome_setting_parser_info, 0,
+			 &set, &error) < 0 ||
+	    script_execute(event, set->welcome_wait, &error) < 0) {
+		e_error(event, "%s", error);
+		/* the mailbox was already created, so return success */
+	}
+	settings_free(set);
+	event_unref(&event);
 	return 0;
 }
 
