@@ -335,8 +335,9 @@ static void test_program_success(void)
 
 	test_begin("test_program_success");
 
+	pc_params.no_reply = FALSE;
 	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
-				       &pc_params, FALSE);
+				       &pc_params);
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
 	struct ostream *os = test_ostream_create(output);
@@ -365,8 +366,9 @@ static void test_program_io_common(const char *const *args)
 	struct program_client *pc;
 	int ret = -2;
 
+	pc_params.no_reply = FALSE;
 	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
-				       &pc_params, FALSE);
+				       &pc_params);
 
 	struct istream *is = test_istream_create(pclient_test_io_string);
 	program_client_set_input(pc, is);
@@ -424,8 +426,9 @@ static void test_program_failure(void)
 
 	test_begin("test_program_failure");
 
+	pc_params.no_reply = FALSE;
 	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
-				       &pc_params, FALSE);
+				       &pc_params);
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
 	struct ostream *os = test_ostream_create(output);
@@ -459,8 +462,9 @@ static void test_program_noreply(void)
 
 	test_begin("test_program_noreply");
 
+	pc_params.no_reply = TRUE;
 	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
-				       &pc_params, TRUE);
+				       &pc_params);
 
 	program_client_run_async(pc, test_program_async_callback, &ret);
 
@@ -495,9 +499,10 @@ static void test_program_refused(void)
 		i_fatal("Cannot convert addresses");
 	}
 
+	pc_params.no_reply = TRUE;
 	pc = program_client_net_create_ips(ips, N_ELEMENTS(ips),
 					   test_globals.port, args,
-					   &pc_params, TRUE);
+					   &pc_params);
 
 	test_expect_errors(N_ELEMENTS(ips)-1);
 	program_client_run_async(pc, test_program_async_callback, &ret);

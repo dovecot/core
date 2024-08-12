@@ -664,8 +664,7 @@ void program_client_switch_ioloop(struct program_client *pclient)
 
 int program_client_create(const char *uri, const char *const *args,
 			  const struct program_client_parameters *params,
-			  bool noreply, struct program_client **pc_r,
-			  const char **error_r)
+			  struct program_client **pc_r, const char **error_r)
 {
 	const char *suffix;
 
@@ -673,7 +672,7 @@ int program_client_create(const char *uri, const char *const *args,
 		*pc_r = program_client_local_create(suffix, args, params);
 		return 0;
 	} else if (str_begins(uri, "unix:", &suffix)) {
-		*pc_r = program_client_unix_create(suffix, args, params, noreply);
+		*pc_r = program_client_unix_create(suffix, args, params);
 		return 0;
 	} else if (str_begins(uri, "tcp:", &suffix)) {
 		const char *host;
@@ -686,8 +685,7 @@ int program_client_create(const char *uri, const char *const *args,
 				"must be host:port in '%s'", suffix);
 			return -1;
 		}
-		*pc_r = program_client_net_create(host, port, args, params,
-						  noreply);
+		*pc_r = program_client_net_create(host, port, args, params);
 		return 0;
 	} else {
 		*error_r = t_strdup_printf(
