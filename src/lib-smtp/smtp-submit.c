@@ -84,6 +84,7 @@ smtp_submit_session_init(const struct smtp_submit_input *input,
 	session->allow_root = input->allow_root;
 
 	session->event = event_create(input->event_parent);
+	event_set_forced_debug(session->event, set->mail_debug);
 	event_add_category(session->event, &event_category_smtp_submit);
 
 	return session;
@@ -412,8 +413,8 @@ smtp_submit_send_sendmail(struct smtp_submit *subm)
 	i_zero(&pc_params);
 	pc_params.client_connect_timeout_msecs = set->submission_timeout * 1000;
 	pc_params.input_idle_timeout_msecs = set->submission_timeout * 1000;
-	pc_params.debug = set->mail_debug;
 	pc_params.event = subm->event;
+
 	pc_params.allow_root = subm->session->allow_root;
 	restrict_access_init(&pc_params.restrict_set);
 

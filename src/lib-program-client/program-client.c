@@ -477,13 +477,11 @@ void program_client_init(struct program_client *pclient, pool_t pool,
 		pclient->event = event_create(NULL);
 	else {
 		pclient->params = *params;
-		pclient->debug = params->debug;
 		pclient->params.dns_client_socket_path =
 			p_strdup(pool, params->dns_client_socket_path);
 		pclient->params.home = p_strdup(pool, params->home);
 
 		pclient->event = event_create(params->event);
-		event_set_forced_debug(pclient->event, params->debug);
 	}
 
 	program_client_set_label(pclient, initial_label);
