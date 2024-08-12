@@ -23,7 +23,7 @@ static const char *pclient_test_io_string =
 	"dis parturient montes, nascetur ridiculus mus. Aliquam \n"
 	"laoreet arcu a hendrerit consequat. Duis vitae erat tellus.";
 
-static struct program_client_settings pc_set = {
+static struct program_client_parameters pc_params = {
 	.client_connect_timeout_msecs = 10000,
 	.input_idle_timeout_msecs = 5000,
 	.debug = FALSE,
@@ -45,7 +45,7 @@ static void test_program_success(void)
 
 	test_begin("test_program_success");
 
-	pc = program_client_local_create("/bin/echo", args, &pc_set);
+	pc = program_client_local_create("/bin/echo", args, &pc_params);
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
 	struct ostream *os = test_ostream_create(output);
@@ -72,7 +72,7 @@ static void test_program_io_sync(void)
 
 	test_begin("test_program_io (sync)");
 
-	pc = program_client_local_create("/bin/cat", args, &pc_set);
+	pc = program_client_local_create("/bin/cat", args, &pc_params);
 
 	struct istream *is = test_istream_create(pclient_test_io_string);
 	program_client_set_input(pc, is);
@@ -115,7 +115,7 @@ static void test_program_io_async(void)
 	prev_ioloop = current_ioloop;
 	ioloop = io_loop_create();
 
-	pc = program_client_local_create("/bin/cat", args, &pc_set);
+	pc = program_client_local_create("/bin/cat", args, &pc_params);
 
 	struct istream *is = test_istream_create(pclient_test_io_string);
 	program_client_set_input(pc, is);
@@ -153,7 +153,7 @@ static void test_program_failure(void)
 
 	test_begin("test_program_failure");
 
-	pc = program_client_local_create("/bin/false", args, &pc_set);
+	pc = program_client_local_create("/bin/false", args, &pc_params);
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
 	struct ostream *os = test_ostream_create(output);
@@ -189,7 +189,7 @@ static void test_program_io_big(void)
 
 	test_begin("test_program_io (big)");
 
-	pc = program_client_local_create("/bin/sh", args, &pc_set);
+	pc = program_client_local_create("/bin/sh", args, &pc_params);
 
 	/* make big input with only a small reference string */
 	struct istream *is1 = test_istream_create(pclient_test_io_string);
@@ -228,7 +228,7 @@ static void test_program_io_big(void)
 
 static void test_program_wait_no_io(void)
 {
-	struct program_client_settings set = pc_set;
+	struct program_client_parameters params = pc_params;
 	struct program_client *pc;
 
 	/* nasty program that reads data in bits with intermittent delays
@@ -240,9 +240,9 @@ static void test_program_wait_no_io(void)
 
 	test_begin("test_program_wait (no timeout, no I/O)");
 
-	set.client_connect_timeout_msecs = 0;
-	set.input_idle_timeout_msecs = 0;
-	pc = program_client_local_create("/bin/sh", args, &set);
+	params.client_connect_timeout_msecs = 0;
+	params.input_idle_timeout_msecs = 0;
+	pc = program_client_local_create("/bin/sh", args, &params);
 
 	test_assert(program_client_run(pc) == 1);
 
@@ -271,7 +271,7 @@ int main(int argc, char *argv[])
 	while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
 		case 'D':
-			pc_set.debug = TRUE;
+			pc_params.debug = TRUE;
 			break;
 		default:
 			i_fatal("Usage: %s [-D]", argv[0]);

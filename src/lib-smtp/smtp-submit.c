@@ -386,7 +386,7 @@ smtp_submit_send_sendmail(struct smtp_submit *subm)
 	ARRAY_TYPE(const_string) args;
 	struct smtp_address *rcpt;
 	unsigned int i;
-	struct program_client_settings pc_set;
+	struct program_client_parameters pc_params;
 	struct program_client *pc;
 
 	sendmail_args = t_strsplit(set->sendmail_path, " ");
@@ -409,16 +409,16 @@ smtp_submit_send_sendmail(struct smtp_submit *subm)
 	}
 	array_append_zero(&args);
 
-	i_zero(&pc_set);
-	pc_set.client_connect_timeout_msecs = set->submission_timeout * 1000;
-	pc_set.input_idle_timeout_msecs = set->submission_timeout * 1000;
-	pc_set.debug = set->mail_debug;
-	pc_set.event = subm->event;
-	pc_set.allow_root = subm->session->allow_root;
-	restrict_access_init(&pc_set.restrict_set);
+	i_zero(&pc_params);
+	pc_params.client_connect_timeout_msecs = set->submission_timeout * 1000;
+	pc_params.input_idle_timeout_msecs = set->submission_timeout * 1000;
+	pc_params.debug = set->mail_debug;
+	pc_params.event = subm->event;
+	pc_params.allow_root = subm->session->allow_root;
+	restrict_access_init(&pc_params.restrict_set);
 
 	pc = program_client_local_create
-		(sendmail_bin, array_front(&args), &pc_set);
+		(sendmail_bin, array_front(&args), &pc_params);
 
 	program_client_set_input(pc, subm->input);
 	i_stream_unref(&subm->input);

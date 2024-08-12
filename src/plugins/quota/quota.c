@@ -1008,13 +1008,13 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 {
 	const char *socket_path, *const *args, *error, *scheme, *ptr;
 
-	struct program_client_settings set = {
+	struct program_client_parameters params = {
 		.client_connect_timeout_msecs = 1000,
 		.debug = event_want_debug(root->quota->event),
 	};
 	struct program_client *pc;
 
-	restrict_access_init(&set.restrict_set);
+	restrict_access_init(&params.restrict_set);
 
 	e_debug(root->quota->event, "Executing warning: %s (because %s)", cmd, reason);
 
@@ -1046,7 +1046,7 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 
 	args++;
 
-	if (program_client_create(socket_path, args, &set, TRUE,
+	if (program_client_create(socket_path, args, &params, TRUE,
 				  &pc, &error) < 0) {
 		e_error(root->quota->event,
 			"program_client_create(%s) failed: %s", socket_path,

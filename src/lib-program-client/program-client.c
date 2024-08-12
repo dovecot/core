@@ -47,7 +47,7 @@ program_client_timeout(struct program_client *pclient)
 {
 	e_error(pclient->event,
 		"Execution timed out (> %u msecs)",
-		pclient->set.input_idle_timeout_msecs);
+		pclient->params.input_idle_timeout_msecs);
 	program_client_fail(pclient, PROGRAM_CLIENT_ERROR_RUN_TIMEOUT);
 }
 
@@ -56,7 +56,7 @@ program_client_connect_timeout(struct program_client *pclient)
 {
 	e_error(pclient->event,
 		"Connection timed out (> %u msecs)",
-		pclient->set.client_connect_timeout_msecs);
+		pclient->params.client_connect_timeout_msecs);
 	program_client_fail(pclient, PROGRAM_CLIENT_ERROR_CONNECT_TIMEOUT);
 }
 
@@ -65,9 +65,9 @@ program_client_connect(struct program_client *pclient)
 {
 	e_debug(pclient->event, "Establishing connection");
 
-	if (pclient->set.client_connect_timeout_msecs != 0) {
+	if (pclient->params.client_connect_timeout_msecs != 0) {
 		pclient->to = timeout_add(
-			pclient->set.client_connect_timeout_msecs,
+			pclient->params.client_connect_timeout_msecs,
 			program_client_connect_timeout, pclient);
 	}
 
@@ -401,7 +401,7 @@ void program_client_connected(struct program_client *pclient)
 		struct istream *input = pclient->raw_program_input;
 
 		/* initialize dot input stream if required */
-		if (pclient->set.use_dotstream)
+		if (pclient->params.use_dotstream)
 			input = i_stream_create_dot(input, ISTREAM_DOT_TRIM_TRAIL |
 							   ISTREAM_DOT_LOOSE_EOT);
 		else
@@ -413,7 +413,7 @@ void program_client_connected(struct program_client *pclient)
 		struct ostream *output = pclient->raw_program_output;
 
 		/* initialize dot output stream if required */
-		if (pclient->set.use_dotstream)
+		if (pclient->params.use_dotstream)
 			output = o_stream_create_dot(output, FALSE);
 		else
 			o_stream_ref(output);
@@ -422,9 +422,9 @@ void program_client_connected(struct program_client *pclient)
 
 	pclient->start_time = ioloop_timeval;
 	timeout_remove(&pclient->to);
-	if (pclient->set.input_idle_timeout_msecs != 0) {
+	if (pclient->params.input_idle_timeout_msecs != 0) {
 		pclient->to =
-			timeout_add(pclient->set.input_idle_timeout_msecs,
+			timeout_add(pclient->params.input_idle_timeout_msecs,
 				    program_client_timeout, pclient);
 	}
 
@@ -465,7 +465,7 @@ void program_client_connected(struct program_client *pclient)
 
 void program_client_init(struct program_client *pclient, pool_t pool,
 			 const char *initial_label, const char *const *args,
-			 const struct program_client_settings *set)
+			 const struct program_client_parameters *params)
 {
 	pclient->pool = pool;
 	if (args != NULL)
@@ -473,17 +473,17 @@ void program_client_init(struct program_client *pclient, pool_t pool,
 	pclient->fd_in = -1;
 	pclient->fd_out = -1;
 
-	if (set == NULL)
+	if (params == NULL)
 		pclient->event = event_create(NULL);
 	else {
-		pclient->set = *set;
-		pclient->debug = set->debug;
-		pclient->set.dns_client_socket_path =
-			p_strdup(pool, set->dns_client_socket_path);
-		pclient->set.home = p_strdup(pool, set->home);
+		pclient->params = *params;
+		pclient->debug = params->debug;
+		pclient->params.dns_client_socket_path =
+			p_strdup(pool, params->dns_client_socket_path);
+		pclient->params.home = p_strdup(pool, params->home);
 
-		pclient->event = event_create(set->event);
-		event_set_forced_debug(pclient->event, set->debug);
+		pclient->event = event_create(params->event);
+		event_set_forced_debug(pclient->event, params->debug);
 	}
 
 	program_client_set_label(pclient, initial_label);
@@ -666,17 +666,17 @@ void program_client_switch_ioloop(struct program_client *pclient)
 }
 
 int program_client_create(const char *uri, const char *const *args,
-			  const struct program_client_settings *set,
+			  const struct program_client_parameters *params,
 			  bool noreply, struct program_client **pc_r,
 			  const char **error_r)
 {
 	const char *suffix;
 
 	if (str_begins(uri, "exec:", &suffix)) {
-		*pc_r = program_client_local_create(suffix, args, set);
+		*pc_r = program_client_local_create(suffix, args, params);
 		return 0;
 	} else if (str_begins(uri, "unix:", &suffix)) {
-		*pc_r = program_client_unix_create(suffix, args, set, noreply);
+		*pc_r = program_client_unix_create(suffix, args, params, noreply);
 		return 0;
 	} else if (str_begins(uri, "tcp:", &suffix)) {
 		const char *host;
@@ -689,7 +689,7 @@ int program_client_create(const char *uri, const char *const *args,
 				"must be host:port in '%s'", suffix);
 			return -1;
 		}
-		*pc_r = program_client_net_create(host, port, args, set,
+		*pc_r = program_client_net_create(host, port, args, params,
 						  noreply);
 		return 0;
 	} else {

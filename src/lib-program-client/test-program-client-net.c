@@ -27,7 +27,7 @@ static const char *pclient_test_io_string =
 	"dis parturient montes, nascetur ridiculus mus. Aliquam \r\n"
 	"laoreet arcu a hendrerit consequat. Duis vitae erat tellus.";
 
-static struct program_client_settings pc_set = {
+static struct program_client_parameters pc_params = {
 	.client_connect_timeout_msecs = 5000,
 	.input_idle_timeout_msecs = 10000,
 	.debug = FALSE,
@@ -337,7 +337,7 @@ static void test_program_success(void)
 	test_begin("test_program_success");
 
 	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
-				       &pc_set, FALSE);
+				       &pc_params, FALSE);
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
 	struct ostream *os = test_ostream_create(output);
@@ -367,7 +367,7 @@ static void test_program_io_common(const char *const *args)
 	int ret = -2;
 
 	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
-				       &pc_set, FALSE);
+				       &pc_params, FALSE);
 
 	struct istream *is = test_istream_create(pclient_test_io_string);
 	program_client_set_input(pc, is);
@@ -426,7 +426,7 @@ static void test_program_failure(void)
 	test_begin("test_program_failure");
 
 	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
-				       &pc_set, FALSE);
+				       &pc_params, FALSE);
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
 	struct ostream *os = test_ostream_create(output);
@@ -461,7 +461,7 @@ static void test_program_noreply(void)
 	test_begin("test_program_noreply");
 
 	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
-				       &pc_set, TRUE);
+				       &pc_params, TRUE);
 
 	program_client_run_async(pc, test_program_async_callback, &ret);
 
@@ -498,7 +498,7 @@ static void test_program_refused(void)
 
 	pc = program_client_net_create_ips(ips, N_ELEMENTS(ips),
 					   test_globals.port, args,
-					   &pc_set, TRUE);
+					   &pc_params, TRUE);
 
 	test_expect_errors(N_ELEMENTS(ips)-1);
 	program_client_run_async(pc, test_program_async_callback, &ret);
@@ -533,7 +533,7 @@ int main(int argc, char *argv[])
 	while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
 		case 'D':
-			pc_set.debug = TRUE;
+			pc_params.debug = TRUE;
 			break;
 		default:
 			i_fatal("Usage: %s [-D]", argv[0]);
