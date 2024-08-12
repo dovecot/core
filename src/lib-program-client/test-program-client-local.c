@@ -26,7 +26,6 @@ static const char *pclient_test_io_string =
 static struct program_client_parameters pc_params = {
 	.client_connect_timeout_msecs = 10000,
 	.input_idle_timeout_msecs = 5000,
-	.debug = FALSE,
 	.restrict_set = {
 		.uid = (uid_t)-1,
 		.gid = (gid_t)-1,
@@ -268,10 +267,11 @@ int main(int argc, char *argv[])
 
 	lib_init();
 
+	pc_params.event = event_create(NULL);
 	while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
 		case 'D':
-			pc_params.debug = TRUE;
+			event_set_forced_debug(pc_params.event, TRUE);
 			break;
 		default:
 			i_fatal("Usage: %s [-D]", argv[0]);
@@ -284,6 +284,7 @@ int main(int argc, char *argv[])
 	lib_signals_deinit();
 	io_loop_destroy(&ioloop);
 
+	event_unref(&pc_params.event);
 	lib_deinit();
 	return ret;
 }

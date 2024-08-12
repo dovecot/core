@@ -1010,7 +1010,7 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 
 	struct program_client_parameters params = {
 		.client_connect_timeout_msecs = 1000,
-		.debug = event_want_debug(root->quota->event),
+		.event = root->quota->event,
 	};
 	struct program_client *pc;
 
