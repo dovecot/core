@@ -1014,8 +1014,6 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 	};
 	struct program_client *pc;
 
-	restrict_access_init(&params.restrict_set);
-
 	e_debug(root->quota->event, "Executing warning: %s (because %s)", cmd, reason);
 
 	args = t_strsplit_spaces(cmd, " ");

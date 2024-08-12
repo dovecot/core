@@ -412,9 +412,6 @@ smtp_submit_send_sendmail(struct smtp_submit *subm)
 	pc_params.input_idle_timeout_msecs = set->submission_timeout * 1000;
 	pc_params.event = subm->event;
 
-	pc_params.allow_root = TRUE;
-	restrict_access_init(&pc_params.restrict_set);
-
 	pc = program_client_local_create
 		(sendmail_bin, array_front(&args), &pc_params);
 

@@ -15,17 +15,11 @@ enum program_client_exit_status {
 struct program_client_parameters {
 	unsigned int client_connect_timeout_msecs;
 	unsigned int input_idle_timeout_msecs;
-	/* initialize with
-	   restrict_access_init(&set.restrict_set);
-	*/
-	struct restrict_access_settings restrict_set;
 	const char *dns_client_socket_path;
-	const char *home;
 
 	/* Event to use for the program client. */
 	struct event *event;
 
-	bool allow_root:1;
 	/* use o_stream_dot, which is mainly useful to make sure that an
 	   unexpectedly closed connection doesn't cause the partial input to
 	   be accepted as valid and complete program input. This is always
