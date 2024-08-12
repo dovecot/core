@@ -535,7 +535,8 @@ void program_client_init(struct program_client *pclient, pool_t pool,
 
 	program_client_set_label(pclient, initial_label);
 
-	e_debug(pclient->event, "Created");
+	e_debug(pclient->event, "Created (args=%s)",
+		t_strarray_join(args, " "));
 }
 
 void program_client_set_input(struct program_client *pclient,
