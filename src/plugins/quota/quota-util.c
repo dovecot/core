@@ -130,13 +130,11 @@ void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set,
 					      bytes_limit, 0);
 	root_set->last_mail_max_extra_bytes = root_set->grace_rule.bytes_limit;
 
-	if (root_set->set->initialized) {
-		e_debug(root_set->set->event,
-			"Quota root %s: Recalculated relative rules with "
-			"bytes=%lld count=%lld. Now grace=%"PRIu64, root_set->name,
-			(long long)bytes_limit, (long long)count_limit,
-			root_set->last_mail_max_extra_bytes);
-	}
+	e_debug(root_set->set->event,
+		"Quota root %s: Recalculated relative rules with "
+		"bytes=%lld count=%lld. Now grace=%"PRIu64, root_set->name,
+		(long long)bytes_limit, (long long)count_limit,
+		root_set->last_mail_max_extra_bytes);
 }
 
 static int

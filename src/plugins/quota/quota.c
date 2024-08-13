@@ -351,7 +351,6 @@ int quota_user_read_settings(struct mail_user *user,
 		return 0;
 	}
 
-	quota_set->initialized = TRUE;
 	*set_r = quota_set;
 	return 1;
 }
