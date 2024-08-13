@@ -301,8 +301,7 @@ int quota_user_read_settings(struct mail_user *user,
 		}
 	}
 
-	const char *max_size = mail_user_plugin_getenv(user,
-						       "quota_max_mail_size");
+	const char *max_size = mail_user_plugin_getenv(user, "quota_mail_size");
 	if (max_size != NULL) {
 		const char *error = NULL;
 		if (str_parse_get_size(max_size, &quota_set->max_mail_size,
