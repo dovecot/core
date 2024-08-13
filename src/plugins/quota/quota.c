@@ -132,7 +132,7 @@ static int quota_root_add_rules(struct mail_user *user, const char *root_name,
 		if (rule == NULL)
 			break;
 
-		if (quota_root_add_rule(root_set, rule, &error) < 0) {
+		if (quota_root_add_rule(user->event, root_set, rule, &error) < 0) {
 			*error_r = t_strdup_printf("Invalid rule %s: %s",
 						   rule, error);
 			return -1;
@@ -156,7 +156,7 @@ quota_root_add_warning_rules(struct mail_user *user, const char *root_name,
 		if (rule == NULL)
 			break;
 
-		if (quota_root_add_warning_rule(root_set, rule, &error) < 0) {
+		if (quota_root_add_warning_rule(user->event, root_set, rule, &error) < 0) {
 			*error_r = t_strdup_printf("Invalid warning rule: %s",
 						   rule);
 			return -1;
@@ -167,7 +167,8 @@ quota_root_add_warning_rules(struct mail_user *user, const char *root_name,
 }
 
 static int
-quota_root_settings_init(struct quota_settings *quota_set, const char *root_def,
+quota_root_settings_init(struct event *event,
+			 struct quota_settings *quota_set, const char *root_def,
 			 struct quota_root_settings **set_r,
 			 const char **error_r)
 {
@@ -212,7 +213,7 @@ quota_root_settings_init(struct quota_settings *quota_set, const char *root_def,
 	}
 	root_set->args = p_strdup(quota_set->pool, args);
 
-	e_debug(quota_set->event, "Quota root: name=%s backend=%s args=%s",
+	e_debug(event, "Quota root: name=%s backend=%s args=%s",
 		root_set->name, backend_name, args == NULL ? "" : args);
 
 	p_array_init(&root_set->rules, quota_set->pool, 4);
@@ -229,7 +230,8 @@ quota_root_add(struct quota_settings *quota_set, struct mail_user *user,
 	struct quota_root_settings *root_set;
 	const char *set_name, *value;
 
-	if (quota_root_settings_init(quota_set, env, &root_set, error_r) < 0)
+	if (quota_root_settings_init(user->event, quota_set, env,
+				     &root_set, error_r) < 0)
 		return -1;
 	root_set->set_name = p_strdup(quota_set->pool, root_name);
 	if (quota_root_add_rules(user, root_name, root_set, error_r) < 0)
@@ -239,7 +241,7 @@ quota_root_add(struct quota_settings *quota_set, struct mail_user *user,
 
 	set_name = t_strconcat(root_name, "_grace", NULL);
 	value = mail_user_plugin_getenv(user, set_name);
-	if (quota_root_parse_grace(root_set, value, error_r) < 0) {
+	if (quota_root_parse_grace(user->event, root_set, value, error_r) < 0) {
 		*error_r = t_strdup_printf("Invalid %s value '%s': %s",
 					   set_name, value, *error_r);
 		return -1;
@@ -282,7 +284,6 @@ int quota_user_read_settings(struct mail_user *user,
 	pool = pool_alloconly_create("quota settings", 2048);
 	quota_set = p_new(pool, struct quota_settings, 1);
 	quota_set->pool = pool;
-	quota_set->event = event_create(user->event);
 	quota_set->test_alloc = quota_default_test_alloc;
 	quota_set->quota_exceeded_msg =
 		mail_user_plugin_getenv(user, "quota_exceeded_message");
@@ -337,7 +338,6 @@ int quota_user_read_settings(struct mail_user *user,
 				   &error) < 0) {
 			*error_r = t_strdup_printf("Invalid quota root %s: %s",
 						   root_name, error);
-			event_unref(&quota_set->event);
 			pool_unref(&pool);
 			return -1;
 		}
@@ -346,7 +346,6 @@ int quota_user_read_settings(struct mail_user *user,
 	}
 	if (quota_set->max_mail_size == 0 &&
 	    array_count(&quota_set->root_sets) == 0) {
-		event_unref(&quota_set->event);
 		pool_unref(&pool);
 		return 0;
 	}
@@ -361,7 +360,6 @@ void quota_settings_deinit(struct quota_settings **_quota_set)
 
 	*_quota_set = NULL;
 
-	event_unref(&quota_set->event);
 	pool_unref(&quota_set->pool);
 }
 

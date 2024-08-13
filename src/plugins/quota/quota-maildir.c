@@ -483,7 +483,8 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 		/* we're using limits from the file. */
 		root->root.bytes_limit = message_bytes_limit;
 		root->root.count_limit = message_count_limit;
-		quota_root_recalculate_relative_rules(root->root.set,
+		quota_root_recalculate_relative_rules(_root->backend.event,
+						      root->root.set,
 						      message_bytes_limit,
 						      message_count_limit);
 	}
