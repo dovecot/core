@@ -343,14 +343,9 @@ int quota_user_read_settings(struct mail_user *user,
 		if (i_snprintf(root_name, sizeof(root_name), "quota%d", i) < 0)
 			i_unreached();
 	}
-	if (quota_set->max_mail_size == 0 &&
-	    array_count(&quota_set->root_sets) == 0) {
-		pool_unref(&pool);
-		return 0;
-	}
 
 	*set_r = quota_set;
-	return 1;
+	return 0;
 }
 
 void quota_settings_deinit(struct quota_legacy_settings **_quota_set)
