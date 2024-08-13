@@ -7,6 +7,9 @@ struct config_parsed;
 struct config_module_parser;
 
 enum config_dump_scope {
+	/* Only temporarily set while parsing doveconf parameters */
+	CONFIG_DUMP_SCOPE_DEFAULT,
+
 	/* Dump all settings, including hidden settings */
 	CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN,
 	/* Dump all non-hidden settings */

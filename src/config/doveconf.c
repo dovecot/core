@@ -836,7 +836,7 @@ int main(int argc, char *argv[])
 		MASTER_SERVICE_FLAG_DONT_SEND_STATS |
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME;
-	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN;
+	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_DEFAULT;
 	const char *orig_config_path, *config_path;
 	const char *import_environment, *error;
 	char **exec_args = NULL, **setting_name_filters = NULL;
@@ -861,11 +861,13 @@ int main(int argc, char *argv[])
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'a':
+			scope = CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN;
 			break;
 		case 'C':
 			check_full_config = TRUE;
 			break;
 		case 'd':
+			scope = CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN;
 			dump_defaults = TRUE;
 			break;
 		case 'F':
@@ -914,6 +916,16 @@ int main(int argc, char *argv[])
 	if (host_verify)
 		hostname_verify_format(argv[optind]);
 
+	if (scope == CONFIG_DUMP_SCOPE_DEFAULT) {
+		if (argv[optind] == NULL) {
+			/* "doveconf" without parameters */
+			scope = CONFIG_DUMP_SCOPE_CHANGED;
+		} else {
+			/* "doveconf setting_name" should output it even if
+			   it is the default. */
+			scope = CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN;
+		}
+	}
 	if (dump_full && argv[optind] != NULL) {
 		if (argv[optind] == NULL)
 			i_fatal("Missing command for -F");
