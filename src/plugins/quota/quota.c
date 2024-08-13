@@ -460,7 +460,7 @@ int quota_init(struct quota_settings *quota_set, struct mail_user *user,
 			   size, use this for all backends. This is not ideal, but
 			   works. */
 			if (root->set->backend->use_vsize)
-				quota->set->vsizes = TRUE;
+				quota->vsizes = TRUE;
 		}
 	}
 	*quota_r = quota;
@@ -1277,7 +1277,7 @@ void quota_transaction_rollback(struct quota_transaction_context **_ctx)
 static int quota_get_mail_size(struct quota_transaction_context *ctx,
 			       struct mail *mail, uoff_t *size_r)
 {
-	if (ctx->quota->set->vsizes)
+	if (ctx->quota->vsizes)
 		return mail_get_virtual_size(mail, size_r);
 	else
 		return mail_get_physical_size(mail, size_r);

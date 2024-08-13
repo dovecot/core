@@ -92,7 +92,7 @@ static void quota_mail_expunge(struct mail *_mail)
 	   the mail at the same time. In here we'll just save the message's
 	   physical size and do the quota freeing later when the message was
 	   known to be expunged. */
-	if (quser->quota->set->vsizes)
+	if (quser->quota->vsizes)
 		ret = mail_get_virtual_size(_mail, &size);
 	else
 		ret = mail_get_physical_size(_mail, &size);
@@ -510,7 +510,7 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 		/* FIXME: it's not ideal that we do the vsize update here, but
 		   this is the easiest place for it for now.. maybe the mail
 		   size checking code could be moved to lib-storage */
-		if (ibox->vsize_update != NULL && quser->quota->set->vsizes)
+		if (ibox->vsize_update != NULL && quser->quota->vsizes)
 			index_mailbox_vsize_hdr_expunge(ibox->vsize_update, uid, *sizep);
 		return;
 	}
@@ -532,7 +532,7 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 	}
 	if (!mail_set_uid(qbox->expunge_qt->tmp_mail, uid))
 		;
-	else if (!quser->quota->set->vsizes) {
+	else if (!quser->quota->vsizes) {
 		if (mail_get_physical_size(qbox->expunge_qt->tmp_mail, &size) == 0) {
 			quota_free_bytes(qbox->expunge_qt, size);
 			return;
