@@ -4,6 +4,7 @@
 #include "mail-storage-private.h"
 #include "mail-namespace.h"
 #include "quota.h"
+#include "quota-settings.h"
 
 /* Modules should use do "my_id = quota_module_id++" and
    use quota_module_contexts[id] for their own purposes. */
@@ -28,11 +29,6 @@ struct quota_legacy_settings {
 	pool_t pool;
 
 	ARRAY(struct quota_root_settings *) root_sets;
-
-	unsigned int max_mailbox_count;
-	uoff_t max_mail_size;
-	unsigned int max_messages_per_mailbox;
-	const char *quota_exceeded_msg;
 };
 
 struct quota_rule {
@@ -162,6 +158,8 @@ struct quota_transaction_context {
 
 	struct quota *quota;
 	struct mailbox *box;
+
+	const struct quota_settings *set;
 
 	int64_t bytes_used, count_used;
 	/* how many bytes/mails can be saved until limit is reached.

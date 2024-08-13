@@ -38,6 +38,7 @@ quota_dist_sources = \
 	quota-imapc.c \
 	quota-maildir.c \
         quota-plugin.c \
+	quota-settings.c \
 	quota-storage.c \
 	quota-util.c
 
@@ -48,6 +49,7 @@ quota_common_objects = \
 	quota-imapc.lo \
 	quota-maildir.lo \
         quota-plugin.lo \
+	quota-settings.lo \
 	quota-storage.lo \
 	quota-util.lo \
 	$(RQUOTA_XDR_LO)
@@ -116,7 +118,8 @@ pkginc_lib_HEADERS = \
 	quota.h \
 	quota-fs.h \
 	quota-plugin.h \
-	quota-private.h
+	quota-private.h \
+	quota-settings.h
 noinst_HEADERS = \
 	quota-status-settings.h
 

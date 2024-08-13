@@ -9,6 +9,7 @@
 #include "write-full.h"
 #include "eacces-error.h"
 #include "wildcard-match.h"
+#include "settings.h"
 #include "mailbox-list-private.h"
 #include "quota-private.h"
 #include "quota-fs.h"
@@ -17,9 +18,6 @@
 #include "str-parse.h"
 
 #include <sys/wait.h>
-
-#define DEFAULT_QUOTA_EXCEEDED_MSG \
-	"Quota exceeded (mailbox for user is full)"
 
 /* How many seconds after the userdb lookup do we still want to execute the
    quota_over_script. This applies to quota_over_flag_lazy_check=yes and also
@@ -264,7 +262,7 @@ const char *quota_alloc_result_errstr(enum quota_alloc_result res,
 		       "server configuration";
 	case QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT:
 	case QUOTA_ALLOC_RESULT_OVER_QUOTA:
-		return qt->quota->set->quota_exceeded_msg;
+		return qt->set->quota_exceeded_message;
 	case QUOTA_ALLOC_RESULT_OVER_QUOTA_MAILBOX_LIMIT:
 		return "Too many messages in the mailbox";
 	}
@@ -284,46 +282,6 @@ int quota_user_read_settings(struct mail_user *user,
 	pool = pool_alloconly_create("quota settings", 2048);
 	quota_set = p_new(pool, struct quota_legacy_settings, 1);
 	quota_set->pool = pool;
-	quota_set->quota_exceeded_msg =
-		mail_user_plugin_getenv(user, "quota_exceeded_message");
-	if (quota_set->quota_exceeded_msg == NULL)
-		quota_set->quota_exceeded_msg = DEFAULT_QUOTA_EXCEEDED_MSG;
-
-	const char *mailbox_count =
-		mail_user_plugin_getenv(user, "quota_mailbox_count");
-	if (mailbox_count != NULL) {
-		if (str_to_uint(mailbox_count, &quota_set->max_mailbox_count) < 0) {
-			*error_r = "Invalid quota_mailbox_count";
-			event_unref(&quota_set->event);
-			pool_unref(&pool);
-			return -1;
-		}
-	}
-
-	const char *max_size = mail_user_plugin_getenv(user, "quota_mail_size");
-	if (max_size != NULL) {
-		const char *error = NULL;
-		if (str_parse_get_size(max_size, &quota_set->max_mail_size,
-				       &error) < 0) {
-			*error_r = t_strdup_printf("quota_max_mail_size: %s",
-					error);
-			event_unref(&quota_set->event);
-			pool_unref(&pool);
-			return -1;
-		}
-	}
-
-	const char *max_box_count =
-		mail_user_plugin_getenv(user, "quota_mailbox_message_count");
-	if (max_box_count != NULL) {
-		if (str_to_uint(max_box_count,
-				&quota_set->max_messages_per_mailbox) < 0) {
-			*error_r = "Invalid quota_mailbox_message_count";
-			event_unref(&quota_set->event);
-			pool_unref(&pool);
-			return -1;
-		}
-	}
 
 	p_array_init(&quota_set->root_sets, pool, 4);
 	if (i_strocpy(root_name, "quota", sizeof(root_name)) < 0)
@@ -867,6 +825,7 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 	if (box->storage->user->dsyncing) {
 		/* ignore quota for dsync */
 		ctx->limits_set = TRUE;
+		ctx->set = quota_get_unlimited_set();
 	}
 	return ctx;
 }
@@ -875,7 +834,6 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 				 enum quota_get_result *error_result_r,
 				 const char **error_r)
 {
-	const struct quota_legacy_settings *set = ctx->quota->set;
 	struct quota_root *const *roots;
 	const char *mailbox_name, *error;
 	unsigned int i, count;
@@ -890,6 +848,14 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 	/* use quota_grace only for LDA/LMTP */
 	use_grace = (ctx->box->flags & MAILBOX_FLAG_POST_SESSION) != 0;
 	ctx->no_quota_updates = TRUE;
+
+	i_assert(ctx->set == NULL);
+	if (settings_get(ctx->box->event, &quota_setting_parser_info,
+			 0, &ctx->set, error_r) < 0) {
+		ctx->failed = TRUE;
+		*error_result_r = QUOTA_GET_RESULT_INTERNAL_ERROR;
+		return -1;
+	}
 
 	/* find the lowest quota limits from all roots and use them */
 	roots = array_get(&ctx->quota->roots, &count);
@@ -973,17 +939,17 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 		}
 	}
 
-	if (set->max_messages_per_mailbox != 0) {
+	if (ctx->set->quota_mailbox_message_count != SET_UINT_UNLIMITED) {
 		struct mailbox_status status;
 		mailbox_get_open_status(ctx->box, STATUS_MESSAGES, &status);
-		if (status.messages <= set->max_messages_per_mailbox) {
-			diff = set->max_messages_per_mailbox - status.messages;
+		if (status.messages <= ctx->set->quota_mailbox_message_count) {
+			diff = ctx->set->quota_mailbox_message_count - status.messages;
 			if (ctx->count_ceil > diff)
 				ctx->count_ceil = diff;
 		} else {
 			/* over quota */
 			ctx->count_ceil = 0;
-			diff = status.messages - set->max_messages_per_mailbox;
+			diff = status.messages - ctx->set->quota_mailbox_message_count;
 			if (ctx->count_over < diff)
 				ctx->count_over = diff;
 		}
@@ -1148,6 +1114,7 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 			quota_warnings_execute(ctx, *roots);
 	} T_END;
 
+	settings_free(ctx->set);
 	i_free(ctx);
 	return ret;
 }
@@ -1266,6 +1233,7 @@ void quota_transaction_rollback(struct quota_transaction_context **_ctx)
 	struct quota_transaction_context *ctx = *_ctx;
 
 	*_ctx = NULL;
+	settings_free(ctx->set);
 	i_free(ctx);
 }
 
@@ -1345,7 +1313,7 @@ enum quota_alloc_result quota_test_alloc(struct quota_transaction_context *ctx,
 		return QUOTA_ALLOC_RESULT_TEMPFAIL;
 	}
 
-	uoff_t max_size = ctx->quota->set->max_mail_size;
+	uoff_t max_size = ctx->set->quota_mail_size;
 	if (max_size > 0 && size > max_size) {
 		*error_r = t_strdup_printf(
 			"Requested allocation size %"PRIuUOFF_T" exceeds max "
@@ -1372,11 +1340,11 @@ static enum quota_alloc_result quota_default_test_alloc(
 	if (!quota_transaction_is_over(ctx, size))
 		return QUOTA_ALLOC_RESULT_OK;
 
-	if (ctx->quota->set->max_messages_per_mailbox != 0) {
+	if (ctx->set->quota_mailbox_message_count != SET_UINT_UNLIMITED) {
 		struct mailbox_status status;
 		mailbox_get_open_status(ctx->box, STATUS_MESSAGES, &status);
 		unsigned int new_count = status.messages + ctx->count_used;
-		if (new_count >= ctx->quota->set->max_messages_per_mailbox)
+		if (new_count >= ctx->set->quota_mailbox_message_count)
 			return QUOTA_ALLOC_RESULT_OVER_QUOTA_MAILBOX_LIMIT;
 	}
 

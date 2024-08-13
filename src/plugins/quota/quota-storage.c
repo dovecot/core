@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "istream.h"
+#include "settings.h"
 #include "mail-search-build.h"
 #include "mail-storage-private.h"
 #include "mailbox-list-private.h"
@@ -121,12 +122,19 @@ quota_create_box(struct mailbox *box, const struct mailbox_update *update,
 		 bool directory)
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT_REQUIRE(box);
-	struct quota_user *quser =
-		QUOTA_USER_CONTEXT_REQUIRE(box->storage->user);
-	struct quota_legacy_settings *quota_set = quser->quota->set;
+	const struct quota_settings *set;
 	unsigned int mailbox_count;
+	const char *error;
 
-	if (quota_set->max_mailbox_count == 0) {
+	if (settings_get(box->event, &quota_setting_parser_info, 0,
+			 &set, &error) < 0) {
+		mailbox_set_critical(box, "%s", error);
+		return -1;
+	}
+	unsigned int quota_mailbox_count = set->quota_mailbox_count;
+	settings_free(set);
+
+	if (quota_mailbox_count == SET_UINT_UNLIMITED) {
 		/* no mailbox count limit */
 	} else if (mailbox_is_autocreated(box)) {
 		/* Always allow autocreated mailbox to be created.
@@ -134,7 +142,7 @@ quota_create_box(struct mailbox *box, const struct mailbox_update *update,
 	} else if (mailbox_list_get_count(box->list, &mailbox_count) < 0) {
 		mail_storage_copy_list_error(box->storage, box->list);
 		return -1;
-	} else if (mailbox_count >= quota_set->max_mailbox_count) {
+	} else if (mailbox_count >= quota_mailbox_count) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_LIMIT,
 				       "Maximum number of mailboxes reached");
 		return -1;
