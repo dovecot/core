@@ -123,7 +123,7 @@ quota_create_box(struct mailbox *box, const struct mailbox_update *update,
 	struct quota_mailbox *qbox = QUOTA_CONTEXT_REQUIRE(box);
 	struct quota_user *quser =
 		QUOTA_USER_CONTEXT_REQUIRE(box->storage->user);
-	struct quota_settings *quota_set = quser->quota->set;
+	struct quota_legacy_settings *quota_set = quser->quota->set;
 	unsigned int mailbox_count;
 
 	if (quota_set->max_mailbox_count == 0) {
@@ -656,7 +656,7 @@ struct quota *quota_get_mail_user_quota(struct mail_user *user)
 static void quota_user_deinit(struct mail_user *user)
 {
 	struct quota_user *quser = QUOTA_USER_CONTEXT_REQUIRE(user);
-	struct quota_settings *quota_set = quser->quota->set;
+	struct quota_legacy_settings *quota_set = quser->quota->set;
 
 	quota_deinit(&quser->quota);
 	quser->module_ctx.super.deinit(user);
@@ -668,7 +668,7 @@ void quota_mail_user_created(struct mail_user *user)
 {
 	struct mail_user_vfuncs *v = user->vlast;
 	struct quota_user *quser;
-	struct quota_settings *set;
+	struct quota_legacy_settings *set;
 	struct quota *quota;
 	const char *error;
 	int ret;
