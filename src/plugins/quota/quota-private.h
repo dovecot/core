@@ -23,7 +23,6 @@ struct quota_settings {
 	pool_t pool;
 
 	ARRAY(struct quota_root_settings *) root_sets;
-	struct event *event;
 	enum quota_alloc_result (*test_alloc)(
 		struct quota_transaction_context *ctx, uoff_t size,
 		const char **error_r);
@@ -202,7 +201,8 @@ bool quota_root_is_namespace_visible(struct quota_root *root,
 struct quota_rule *
 quota_root_rule_find(struct quota_root_settings *root_set, const char *name);
 
-void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set,
+void quota_root_recalculate_relative_rules(struct event *event,
+					   struct quota_root_settings *root_set,
 					   int64_t bytes_limit,
 					   int64_t count_limit);
 /* Returns 1 if values were returned successfully, 0 if we're recursing into
@@ -210,7 +210,8 @@ void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set,
 int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r,
 		enum quota_get_result *error_result_r, const char **error_r);
 
-int quota_root_parse_grace(struct quota_root_settings *root_set,
+int quota_root_parse_grace(struct event *event,
+			   struct quota_root_settings *root_set,
 			   const char *value, const char **error_r);
 bool quota_warning_match(const struct quota_warning_rule *w,
 			 uint64_t bytes_before, uint64_t bytes_current,

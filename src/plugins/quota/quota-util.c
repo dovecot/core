@@ -110,7 +110,8 @@ quota_rule_recalculate_relative_rules(struct quota_rule *rule,
 		rule->count_limit = count_limit * rule->count_percent / 100;
 }
 
-void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set,
+void quota_root_recalculate_relative_rules(struct event *event,
+					   struct quota_root_settings *root_set,
 					   int64_t bytes_limit,
 					   int64_t count_limit)
 {
@@ -130,7 +131,7 @@ void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set,
 					      bytes_limit, 0);
 	root_set->last_mail_max_extra_bytes = root_set->grace_rule.bytes_limit;
 
-	e_debug(root_set->set->event,
+	e_debug(event,
 		"Quota root %s: Recalculated relative rules with "
 		"bytes=%lld count=%lld. Now grace=%"PRIu64, root_set->name,
 		(long long)bytes_limit, (long long)count_limit,
@@ -138,7 +139,8 @@ void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set,
 }
 
 static int
-quota_rule_parse_limits(struct quota_root_settings *root_set,
+quota_rule_parse_limits(struct event *event,
+			struct quota_root_settings *root_set,
 			struct quota_rule *rule, const char *limits,
 			const char *full_rule_def,
 			bool relative_rule, const char **error_r)
@@ -166,7 +168,7 @@ quota_rule_parse_limits(struct quota_root_settings *root_set,
 			}
 			value++;
 		} else if (*value != '-' && relative_rule) {
-			e_warning(root_set->set->event, "quota root %s rule %s: "
+			e_warning(event, "quota root %s rule %s: "
 				  "obsolete configuration for rule '%s' "
 				  "should be changed to '%s=+%s'",
 				  root_set->name, full_rule_def,
@@ -222,7 +224,8 @@ quota_rule_parse_limits(struct quota_root_settings *root_set,
 	return 0;
 }
 
-int quota_root_add_rule(struct quota_root_settings *root_set,
+int quota_root_add_rule(struct event *event,
+			struct quota_root_settings *root_set,
 			const char *rule_def, const char **error_r)
 {
 	struct quota_rule *rule;
@@ -254,8 +257,7 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 
 	if (strcmp(p, "ignore") == 0) {
 		rule->ignore = TRUE;
-		e_debug(root_set->set->event,
-			"Quota rule: root=%s mailbox=%s ignored",
+		e_debug(event, "Quota rule: root=%s mailbox=%s ignored",
 			root_set->name, mailbox_mask);
 		return 0;
 	}
@@ -270,18 +272,18 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 	} else {
 		bool relative_rule = rule != &root_set->default_rule;
 
-		if (quota_rule_parse_limits(root_set, rule, p, rule_def,
+		if (quota_rule_parse_limits(event, root_set, rule, p, rule_def,
 					    relative_rule, error_r) < 0)
 			ret = -1;
 	}
 
-	quota_root_recalculate_relative_rules(root_set,
+	quota_root_recalculate_relative_rules(event, root_set,
 					      root_set->default_rule.bytes_limit,
 					      root_set->default_rule.count_limit);
 	const char *rule_plus =
 		rule == &root_set->default_rule ? "" : "+";
 
-	e_debug(root_set->set->event, "Quota rule: root=%s mailbox=%s "
+	e_debug(event, "Quota rule: root=%s mailbox=%s "
 		"bytes=%s%lld%s messages=%s%lld%s",
 		root_set->name, mailbox_mask,
 		rule->bytes_limit > 0 ? rule_plus : "",
@@ -295,7 +297,8 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 	return ret;
 }
 
-int quota_root_add_warning_rule(struct quota_root_settings *root_set,
+int quota_root_add_warning_rule(struct event *event,
+				struct quota_root_settings *root_set,
 				const char *rule_def, const char **error_r)
 {
 	struct quota_warning_rule *warning;
@@ -323,7 +326,7 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 	}
 
 	i_zero(&rule);
-	ret = quota_rule_parse_limits(root_set, &rule, t_strdup_until(q, p),
+	ret = quota_rule_parse_limits(event, root_set, &rule, t_strdup_until(q, p),
 				      rule_def, FALSE, error_r);
 	if (ret < 0)
 		return -1;
@@ -335,10 +338,10 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 	if (reverse)
 		root_set->have_reverse_warnings = TRUE;
 
-	quota_root_recalculate_relative_rules(root_set,
+	quota_root_recalculate_relative_rules(event, root_set,
 					      root_set->default_rule.bytes_limit,
 					      root_set->default_rule.count_limit);
-	e_debug(root_set->set->event, "Quota warning: bytes=%"PRId64"%s "
+	e_debug(event, "Quota warning: bytes=%"PRId64"%s "
 		"messages=%"PRId64"%s reverse=%s command=%s",
 		warning->rule.bytes_limit,
 		warning->rule.bytes_percent == 0 ? "" :
@@ -351,7 +354,8 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 	return 0;
 }
 
-int quota_root_parse_grace(struct quota_root_settings *root_set,
+int quota_root_parse_grace(struct event *event,
+			   struct quota_root_settings *root_set,
 			   const char *value, const char **error_r)
 {
 	const char *p;
@@ -369,7 +373,7 @@ int quota_root_parse_grace(struct quota_root_settings *root_set,
 	quota_rule_recalculate_relative_rules(&root_set->grace_rule,
 		root_set->default_rule.bytes_limit, 0);
 	root_set->last_mail_max_extra_bytes = root_set->grace_rule.bytes_limit;
-	e_debug(root_set->set->event, "Quota grace: root=%s bytes=%lld%s",
+	e_debug(event, "Quota grace: root=%s bytes=%lld%s",
 		root_set->name, (long long)root_set->grace_rule.bytes_limit,
 		root_set->grace_rule.bytes_percent == 0 ? "" :
 		t_strdup_printf(" (%u%%)", root_set->grace_rule.bytes_percent));
