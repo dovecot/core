@@ -673,7 +673,7 @@ void quota_mail_user_created(struct mail_user *user)
 	const char *error;
 	int ret;
 
-	if ((ret = quota_user_read_settings(user, &set, &error)) > 0) {
+	if ((ret = quota_user_read_settings(user, &set, &error)) == 0) {
 		if (quota_init(set, user, &quota, &error) < 0) {
 			quota_settings_deinit(&set);
 			ret = -1;
@@ -685,17 +685,13 @@ void quota_mail_user_created(struct mail_user *user)
 			"Failed to initialize quota: %s", error);
 		return;
 	}
-	if (ret > 0) {
-		quser = p_new(user->pool, struct quota_user, 1);
-		quser->module_ctx.super = *v;
-		user->vlast = &quser->module_ctx.super;
-		v->deinit = quota_user_deinit;
-		quser->quota = quota;
+	quser = p_new(user->pool, struct quota_user, 1);
+	quser->module_ctx.super = *v;
+	user->vlast = &quser->module_ctx.super;
+	v->deinit = quota_user_deinit;
+	quser->quota = quota;
 
-		MODULE_CONTEXT_SET(user, quota_user_module, quser);
-	} else {
-		e_debug(user->event, "quota: No quota setting - plugin disabled");
-	}
+	MODULE_CONTEXT_SET(user, quota_user_module, quser);
 }
 
 static struct quota_root *
