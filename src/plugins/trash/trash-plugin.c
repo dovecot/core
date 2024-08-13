@@ -375,8 +375,8 @@ trash_mail_namespaces_created(struct mail_namespace *namespaces)
 	if (tuser != NULL && read_configuration(user, tuser->config_file) == 0) {
 		i_assert(quser != NULL);
 		trash_next_quota_test_alloc =
-			quser->quota->set->test_alloc;
-		quser->quota->set->test_alloc = trash_quota_test_alloc;
+			quser->quota->test_alloc;
+		quser->quota->test_alloc = trash_quota_test_alloc;
 	}
 }
 
