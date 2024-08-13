@@ -168,7 +168,7 @@ quota_root_add_warning_rules(struct mail_user *user, const char *root_name,
 
 static int
 quota_root_settings_init(struct event *event,
-			 struct quota_settings *quota_set, const char *root_def,
+			 struct quota_legacy_settings *quota_set, const char *root_def,
 			 struct quota_root_settings **set_r,
 			 const char **error_r)
 {
@@ -224,7 +224,7 @@ quota_root_settings_init(struct event *event,
 }
 
 static int
-quota_root_add(struct quota_settings *quota_set, struct mail_user *user,
+quota_root_add(struct quota_legacy_settings *quota_set, struct mail_user *user,
 	       const char *env, const char *root_name, const char **error_r)
 {
 	struct quota_root_settings *root_set;
@@ -272,17 +272,17 @@ const char *quota_alloc_result_errstr(enum quota_alloc_result res,
 }
 
 int quota_user_read_settings(struct mail_user *user,
-			     struct quota_settings **set_r,
+			     struct quota_legacy_settings **set_r,
 			     const char **error_r)
 {
-	struct quota_settings *quota_set;
+	struct quota_legacy_settings *quota_set;
 	char root_name[5 + MAX_INT_STRLEN];
 	const char *env, *error;
 	unsigned int i;
 	pool_t pool;
 
 	pool = pool_alloconly_create("quota settings", 2048);
-	quota_set = p_new(pool, struct quota_settings, 1);
+	quota_set = p_new(pool, struct quota_legacy_settings, 1);
 	quota_set->pool = pool;
 	quota_set->quota_exceeded_msg =
 		mail_user_plugin_getenv(user, "quota_exceeded_message");
@@ -353,9 +353,9 @@ int quota_user_read_settings(struct mail_user *user,
 	return 1;
 }
 
-void quota_settings_deinit(struct quota_settings **_quota_set)
+void quota_settings_deinit(struct quota_legacy_settings **_quota_set)
 {
-	struct quota_settings *quota_set = *_quota_set;
+	struct quota_legacy_settings *quota_set = *_quota_set;
 
 	*_quota_set = NULL;
 
@@ -426,7 +426,7 @@ quota_root_init(struct quota_root_settings *root_set, struct quota *quota,
 	return 1;
 }
 
-int quota_init(struct quota_settings *quota_set, struct mail_user *user,
+int quota_init(struct quota_legacy_settings *quota_set, struct mail_user *user,
 	       struct quota **quota_r, const char **error_r)
 {
 	struct quota *quota;
@@ -880,7 +880,7 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 				 enum quota_get_result *error_result_r,
 				 const char **error_r)
 {
-	const struct quota_settings *set = ctx->quota->set;
+	const struct quota_legacy_settings *set = ctx->quota->set;
 	struct quota_root *const *roots;
 	const char *mailbox_name, *error;
 	unsigned int i, count;

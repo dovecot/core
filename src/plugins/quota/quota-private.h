@@ -11,7 +11,7 @@ extern unsigned int quota_module_id;
 
 struct quota {
 	struct mail_user *user;
-	struct quota_settings *set;
+	struct quota_legacy_settings *set;
 	struct event *event;
 
 	ARRAY(struct quota_root *) roots;
@@ -24,7 +24,7 @@ struct quota {
 	bool vsizes:1;
 };
 
-struct quota_settings {
+struct quota_legacy_settings {
 	pool_t pool;
 
 	ARRAY(struct quota_root_settings *) root_sets;
@@ -97,7 +97,7 @@ struct quota_root_settings {
 	/* Name in settings, e.g. "quota", "quota2", .. */
 	const char *set_name;
 
-	struct quota_settings *set;
+	struct quota_legacy_settings *set;
 	const char *args;
 
 	const struct quota_backend *backend;
