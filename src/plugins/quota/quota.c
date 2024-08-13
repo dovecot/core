@@ -284,7 +284,6 @@ int quota_user_read_settings(struct mail_user *user,
 	quota_set->pool = pool;
 	quota_set->event = event_create(user->event);
 	quota_set->test_alloc = quota_default_test_alloc;
-	quota_set->debug = event_want_debug(quota_set->event);
 	quota_set->quota_exceeded_msg =
 		mail_user_plugin_getenv(user, "quota_exceeded_message");
 	if (quota_set->quota_exceeded_msg == NULL)
@@ -409,7 +408,6 @@ quota_root_init(struct quota_root_settings *root_set, struct quota *quota,
 	if (root->backend.v.init != NULL) {
 		root->backend.event = event_create(quota->event);
 		event_drop_parent_log_prefixes(root->backend.event, 1);
-		event_set_forced_debug(root->backend.event, root->quota->set->debug);
 
 		if (root->backend.v.init(root, root_set->args, error_r) < 0) {
 			*error_r = t_strdup_printf("%s quota init failed: %s",
@@ -444,7 +442,6 @@ int quota_init(struct quota_settings *quota_set, struct mail_user *user,
 
 	quota = i_new(struct quota, 1);
 	quota->event = event_create(user->event);
-	event_set_forced_debug(quota->event, quota_set->debug);
 	event_set_append_log_prefix(quota->event, "quota: ");
 	quota->user = user;
 	quota->set = quota_set;
