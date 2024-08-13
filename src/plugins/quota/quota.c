@@ -284,7 +284,6 @@ int quota_user_read_settings(struct mail_user *user,
 	pool = pool_alloconly_create("quota settings", 2048);
 	quota_set = p_new(pool, struct quota_settings, 1);
 	quota_set->pool = pool;
-	quota_set->test_alloc = quota_default_test_alloc;
 	quota_set->quota_exceeded_msg =
 		mail_user_plugin_getenv(user, "quota_exceeded_message");
 	if (quota_set->quota_exceeded_msg == NULL)
@@ -442,6 +441,7 @@ int quota_init(struct quota_settings *quota_set, struct mail_user *user,
 	event_set_append_log_prefix(quota->event, "quota: ");
 	quota->user = user;
 	quota->set = quota_set;
+	quota->test_alloc = quota_default_test_alloc;
 	i_array_init(&quota->roots, 8);
 
 	root_sets = array_get(&quota_set->root_sets, &count);
@@ -1362,7 +1362,7 @@ enum quota_alloc_result quota_test_alloc(struct quota_transaction_context *ctx,
 		return QUOTA_ALLOC_RESULT_OK;
 	/* this is a virtual function mainly for trash plugin and similar,
 	   which may automatically delete mails to stay under quota. */
-	return ctx->quota->set->test_alloc(ctx, size, error_r);
+	return ctx->quota->test_alloc(ctx, size, error_r);
 }
 
 static enum quota_alloc_result quota_default_test_alloc(

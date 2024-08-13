@@ -17,15 +17,16 @@ struct quota {
 	ARRAY(struct quota_root *) roots;
 	ARRAY(struct mail_namespace *) namespaces;
 	struct mail_namespace *unwanted_ns;
+
+	enum quota_alloc_result (*test_alloc)(
+		struct quota_transaction_context *ctx, uoff_t size,
+		const char **error_r);
 };
 
 struct quota_settings {
 	pool_t pool;
 
 	ARRAY(struct quota_root_settings *) root_sets;
-	enum quota_alloc_result (*test_alloc)(
-		struct quota_transaction_context *ctx, uoff_t size,
-		const char **error_r);
 
 	unsigned int max_mailbox_count;
 	uoff_t max_mail_size;
