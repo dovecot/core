@@ -504,19 +504,23 @@ mail_namespaces_init_location_full(struct mail_user *user,
 				   const char *override_mail_path,
 				   const char **error_r)
 {
-	struct mail_namespace_settings *inbox_set;
+	const struct mail_namespace_settings *inbox_set;
+	struct mail_namespace_settings *inbox_set_copy;
 	struct mail_namespace *ns;
 	struct mail_storage *storage;
 	int ret;
 
-	inbox_set = p_new(user->pool, struct mail_namespace_settings, 1);
-	*inbox_set = mail_namespace_default_settings;
-	inbox_set->inbox = TRUE;
-	/* enums must be changed */
-	inbox_set->type = "private";
-	inbox_set->list = "yes";
+	/* Use the global namespace settings, except change inbox=yes */
+	if (settings_get(user->event, &mail_namespace_setting_parser_info, 0,
+			 &inbox_set, error_r) < 0)
+		return -1;
+	inbox_set_copy = p_memdup(inbox_set->pool, inbox_set,
+				  sizeof(*inbox_set));
+	inbox_set_copy->inbox = TRUE;
 
-	if ((ret = mail_namespace_alloc(user, inbox_set, &ns, error_r)) < 0)
+	ret = mail_namespace_alloc(user, inbox_set_copy, &ns, error_r);
+	settings_free(inbox_set);
+	if (ret < 0)
 		return ret;
 
 	if (override_mail_driver[0] != '\0' || override_mail_path[0] != '\0') {
