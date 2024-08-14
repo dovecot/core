@@ -1291,13 +1291,16 @@ settings_key_part_find(struct settings_apply_ctx *ctx, const char **key,
 {
 	if (last_filter_value != NULL) {
 		i_assert(last_filter_key != NULL);
+		const char *key_prefix = last_filter_key;
+		/* last_filter_key was already converted to "mailbox_subname".
+		   But for setting name auto-prefixing it needs to be "mailbox"
+		   again. */
+		if (strcmp(key_prefix, SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX) == 0)
+			key_prefix = SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX;
 		/* Try filter/name/key -> filter_name_key, and fallback to
 		   filter_key. Do this before the non-prefixed check, so e.g.
 		   inet_listener/imap/ssl won't try to change the global ssl
 		   setting. */
-		const char *key_prefix = last_filter_key;
-		if (strcmp(key_prefix, SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX) == 0)
-			key_prefix = SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX;
 		const char *prefixed_key =
 			t_strdup_printf("%s_%s_%s", key_prefix,
 					last_filter_value, *key);
@@ -1322,6 +1325,25 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 			       struct settings_override *set,
 			       const char **error_r)
 {
+	/* Handling filters for overrides works in an incremental way, filling
+	   set->filter more and more as it knows what the setting key's parts
+	   mean. For example an override:
+
+	   namespace/inbox/mailbox/foo/special_use=\Drafts
+
+	   For this to actually work, this function must become called with
+	   ctx->info == &mail_storage_setting_parser_info to translate the
+	   "namespace/inbox/" prefix into set->filter. Next this must be called
+	   with ctx->info == &mail_namespace_setting_parser_info to further add
+	   "mailbox/foo/" into set->filter. Finally when this function is
+	   called to lookup ctx->info == &mailbox_setting_parser_info, it only
+	   needs to know about the "special_use" key.
+
+	   Unfortunately this means that there must be settings lookups in
+	   the correct order to do the filter prefix to set->filter conversion.
+	   This is expected to work for most common filters, but it could cause
+	   problems in some cases. Debugging what is going wrong for overrides
+	   is rather painful. */
 	const struct failure_context failure_ctx = {
 		.type = LOG_TYPE_DEBUG
 	};
