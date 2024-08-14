@@ -442,30 +442,15 @@ void quota_deinit(struct quota **_quota)
 	i_free(quota);
 }
 
-static int quota_root_get_rule_limits(struct quota_root *root,
-				      const char *mailbox_name,
-				      uint64_t *bytes_limit_r,
-				      uint64_t *count_limit_r,
-				      bool *ignored_r,
-				      const char **error_r)
+static void
+quota_root_get_rule_limits(struct quota_root *root, const char *mailbox_name,
+			   uint64_t *bytes_limit_r, uint64_t *count_limit_r,
+			   bool *ignored_r)
 {
 	struct quota_rule *rule;
 	int64_t bytes_limit, count_limit;
-	int ret;
 
 	*ignored_r = FALSE;
-
-	if (!root->set->force_default_rule) {
-		if (root->backend.v.init_limits != NULL) {
-			const char *error;
-			if (root->backend.v.init_limits(root, &error) < 0) {
-				*error_r = t_strdup_printf(
-					"Initializing limits failed for quota backend: %s",
-					error);
-				return -1;
-			}
-		}
-	}
 
 	bytes_limit = root->bytes_limit;
 	count_limit = root->count_limit;
@@ -476,10 +461,8 @@ static int quota_root_get_rule_limits(struct quota_root *root,
 		(void)mail_namespace_find_unalias(root->quota->user->namespaces,
 						  &mailbox_name);
 		rule = quota_root_rule_find(root->set, mailbox_name);
-		ret = 1;
 	} else {
 		rule = NULL;
-		ret = 0;
 	}
 
 	if (rule != NULL) {
@@ -495,7 +478,6 @@ static int quota_root_get_rule_limits(struct quota_root *root,
 
 	*bytes_limit_r = bytes_limit <= 0 ? 0 : bytes_limit;
 	*count_limit_r = count_limit <= 0 ? 0 : count_limit;
-	return ret;
 }
 
 static bool
@@ -757,14 +739,8 @@ quota_get_resource(struct quota_root *root, const char *mailbox_name,
 		return ret;
 	}
 
-	if (quota_root_get_rule_limits(root, mailbox_name,
-				       &bytes_limit, &count_limit,
-				       &ignored, &error) < 0) {
-		*error_r = t_strdup_printf(
-			"Failed to get quota root rule limits for mailbox %s: %s",
-			mailbox_name, error);
-		return QUOTA_GET_RESULT_INTERNAL_ERROR;
-	}
+	quota_root_get_rule_limits(root, mailbox_name,
+				   &bytes_limit, &count_limit, &ignored);
 
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
 		*limit_r = bytes_limit;
@@ -869,15 +845,10 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 			continue;
 		else if (roots[i]->no_enforcing) {
 			ignored = FALSE;
-		} else if (quota_root_get_rule_limits(roots[i], mailbox_name,
-						      &bytes_limit, &count_limit,
-						      &ignored, &error) < 0) {
-			ctx->failed = TRUE;
-			*error_result_r = QUOTA_GET_RESULT_INTERNAL_ERROR;
-			*error_r = t_strdup_printf(
-				"Failed to get quota root rule limits for %s: %s",
-				mailbox_name, error);
-			return -1;
+		} else {
+			quota_root_get_rule_limits(roots[i], mailbox_name,
+						   &bytes_limit, &count_limit,
+						   &ignored);
 		}
 		if (!ignored)
 			ctx->no_quota_updates = FALSE;
@@ -1338,7 +1309,6 @@ static enum quota_alloc_result quota_default_test_alloc(
 	struct quota_root *const *roots;
 	unsigned int i, count;
 	bool ignore;
-	int ret;
 
 	if (!quota_transaction_is_over(ctx, size))
 		return QUOTA_ALLOC_RESULT_OK;
@@ -1360,17 +1330,10 @@ static enum quota_alloc_result quota_default_test_alloc(
 		    roots[i]->no_enforcing)
 			continue;
 
-		const char *error;
-		ret = quota_root_get_rule_limits(roots[i],
-						 mailbox_get_vname(ctx->box),
-						 &bytes_limit, &count_limit,
-						 &ignore, &error);
-		if (ret < 0) {
-			*error_r = t_strdup_printf(
-				"Failed to get quota root rule limits: %s",
-				error);
-			return QUOTA_ALLOC_RESULT_TEMPFAIL;
-		}
+		quota_root_get_rule_limits(roots[i],
+					   mailbox_get_vname(ctx->box),
+					   &bytes_limit, &count_limit,
+					   &ignore);
 
 		/* if size is bigger than any limit, then
 		   it is bigger than the lowest limit */

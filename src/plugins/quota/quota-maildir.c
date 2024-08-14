@@ -344,11 +344,6 @@ static int maildirsize_recalculate_namespace(struct maildir_quota_root *root,
 
 static void maildirsize_rebuild_later(struct maildir_quota_root *root)
 {
-	if (!root->root.set->force_default_rule) {
-		/* FIXME: can't unlink(), because the limits would be lost. */
-		return;
-	}
-
 	if (unlink(root->maildirsize_path) < 0 &&
 	    errno != ENOENT && errno != ESTALE)
 		e_error(root->root.backend.event,
@@ -472,21 +467,10 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 	if (message_count_limit >= (1ULL << 63))
 		message_count_limit = (1ULL << 63) - 1;
 
-	if (root->root.bytes_limit == (int64_t)message_bytes_limit &&
-	    root->root.count_limit == (int64_t)message_count_limit) {
-		/* limits haven't changed */
-	} else if (root->root.set->force_default_rule) {
-		/* we know the limits and they've changed.
-		   the file must be rewritten. */
+	if (root->root.bytes_limit != (int64_t)message_bytes_limit ||
+	    root->root.count_limit != (int64_t)message_count_limit) {
+		/* the limits have changed. the file must be rewritten. */
 		return 0;
-	} else {
-		/* we're using limits from the file. */
-		root->root.bytes_limit = message_bytes_limit;
-		root->root.count_limit = message_count_limit;
-		quota_root_recalculate_relative_rules(_root->backend.event,
-						      root->root.set,
-						      message_bytes_limit,
-						      message_count_limit);
 	}
 
 	if (*lines == NULL) {
@@ -704,17 +688,6 @@ maildirquota_refresh(struct maildir_quota_root *root, bool *recalculated_r,
 
 	ret = maildirquota_read_limits(root, error_r);
 	if (ret == 0) {
-		if (root->root.bytes_limit == 0 &&
-		    root->root.count_limit == 0 &&
-		    root->root.set->default_rule.bytes_limit == 0 &&
-		    root->root.set->default_rule.count_limit == 0) {
-			/* no quota */
-			if (!root->root.set->force_default_rule)
-				return 0;
-			/* explicitly specified 0 as quota. keep the quota
-			   updated even if it's not enforced. */
-		}
-
 		ret = maildirsize_recalculate(root, error_r);
 		if (ret == 0)
 			*recalculated_r = TRUE;

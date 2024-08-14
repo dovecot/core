@@ -105,8 +105,6 @@ struct quota_root_settings {
 	uint64_t last_mail_max_extra_bytes;
 	struct quota_rule grace_rule;
 
-	/* Limits in default_rule override backend's quota limits */
-	bool force_default_rule:1;
 	/* TRUE if any of the warning_rules have reverse==TRUE */
 	bool have_reverse_warnings:1;
 };
@@ -128,7 +126,7 @@ struct quota_root {
 	const char *ns_prefix;
 
 	/* initially the same as set->default_rule.*_limit, but some backends
-	   may change these by reading the limits elsewhere (e.g. Maildir++,
+	   may change these by reading the limits elsewhere (e.g. imapc,
 	   FS quota) */
 	int64_t bytes_limit, count_limit;
 
