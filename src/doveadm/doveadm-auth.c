@@ -39,6 +39,7 @@ struct authtest_input {
 	const char *password;
 	struct auth_user_info info;
 	bool success;
+	bool internal_failure;
 
 	const struct dsasl_client_mech *sasl_mech;
 	struct dsasl_client *sasl_client;
@@ -173,8 +174,17 @@ auth_callback(struct auth_client_request *request,
 	case AUTH_REQUEST_STATUS_ABORT:
 		printf("passdb: %s request cancelled\n", input->username);
 		break;
-	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
 	case AUTH_REQUEST_STATUS_FAIL:
+		input->internal_failure = FALSE;
+		if (args != NULL) {
+			for (unsigned int i = 0; args[i] != NULL; i++) {
+				if (strcmp(args[i], "code="
+					   AUTH_CLIENT_FAIL_CODE_TEMPFAIL) == 0)
+					input->internal_failure = TRUE;
+			}
+		}
+		/* fall through */
+	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
 		printf("passdb: %s auth failed\n", input->username);
 		break;
 	case AUTH_REQUEST_STATUS_CONTINUE:
@@ -202,6 +212,7 @@ auth_callback(struct auth_client_request *request,
 		auth_client_request_continue(request, str_c(base64_output));
 		return;
 	case AUTH_REQUEST_STATUS_OK:
+		input->internal_failure = FALSE;
 		input->success = TRUE;
 		printf("passdb: %s auth succeeded\n", input->username);
 		break;
@@ -436,6 +447,8 @@ static void authtest_input_init(struct authtest_input *input)
 	i_zero(input);
 	input->info.service = "doveadm";
 	input->info.debug = auth_want_log_debug();
+	/* start assuming any failure will be internal failure */
+	input->internal_failure = TRUE;
 }
 
 static void cmd_auth_test(struct doveadm_cmd_context *cctx)
@@ -456,7 +469,9 @@ static void cmd_auth_test(struct doveadm_cmd_context *cctx)
 	if (!doveadm_cmd_param_str(cctx, "password", &input.password))
 		input.password = t_askpass("Password: ");
 	cmd_auth_input(auth_socket_path, &input);
-	if (!input.success)
+	if (input.internal_failure)
+		doveadm_exit_code = EX_TEMPFAIL;
+	else if (!input.success)
 		doveadm_exit_code = EX_NOPERM;
 }
 
@@ -479,6 +494,7 @@ login_server_auth_callback(const char *const *auth_args,
 			printf("  %s\n", *auth_args++);
 	}
 
+	input->internal_failure = FALSE;
 	input->success = TRUE;
 }
 
@@ -560,7 +576,9 @@ static void cmd_auth_login(struct doveadm_cmd_context *cctx)
 	/* finish login with userdb lookup */
 	if (input.success)
 		cmd_auth_master_input(auth_master_socket_path, &input);
-	if (!input.success)
+	if (input.internal_failure)
+		doveadm_exit_code = EX_TEMPFAIL;
+	else if (!input.success)
 		doveadm_exit_code = EX_NOPERM;
 	auth_client_deinit(&auth_client);
 	event_unref(&input.event);
