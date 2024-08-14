@@ -58,6 +58,7 @@ struct auth_settings {
 	const char *winbind_helper_path;
 	const char *proxy_self;
 	unsigned int failure_delay;
+	unsigned int internal_failure_delay;
 
 	const char *policy_server_url;
 	const char *policy_server_api_header;

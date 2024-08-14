@@ -245,6 +245,7 @@ static const struct setting_define auth_setting_defines[] = {
 #endif
 	DEF(STR, proxy_self),
 	DEF(TIME, failure_delay),
+	DEF(TIME_MSECS, internal_failure_delay),
 
 	DEF(STR, policy_server_url),
 	DEF(STR, policy_server_api_header),
@@ -312,6 +313,7 @@ static const struct auth_settings auth_default_settings = {
 	.winbind_helper_path = "/usr/bin/ntlm_auth",
 	.proxy_self = "",
 	.failure_delay = 2,
+	.internal_failure_delay = 2000,
 
 	.policy_server_url = "",
 	.policy_server_api_header = "",

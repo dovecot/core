@@ -771,6 +771,31 @@ void auth_request_userdb_lookup_end(struct auth_request *request,
 	array_pop_back(&request->authdb_event);
 }
 
+static unsigned int
+auth_request_get_internal_failure_delay(struct auth_request *request)
+{
+	unsigned int delay_msecs = request->set->internal_failure_delay;
+
+	/* add 0..50% random delay to avoid thundering herd problems */
+	return delay_msecs +
+		(delay_msecs < 2 ? 0 : i_rand_limit(delay_msecs / 2));
+}
+
+static void auth_request_passdb_internal_failure(struct auth_request *request)
+{
+	timeout_remove(&request->to_penalty);
+
+	request->passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
+	if (request->wanted_credentials_scheme != NULL) {
+		request->private_callback.lookup_credentials(
+			request->passdb_result, &uchar_nul, 0, request);
+	} else {
+		request->private_callback.verify_plain(request->passdb_result,
+						       request);
+	}
+	auth_request_unref(&request);
+}
+
 static int
 auth_request_handle_passdb_callback(enum passdb_result *result,
 				    struct auth_request *request)
@@ -934,6 +959,18 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		   instead of plain failure. */
 		*result = PASSDB_RESULT_INTERNAL_FAILURE;
 	}
+
+	i_assert(request->to_penalty == NULL);
+	if (*result == PASSDB_RESULT_INTERNAL_FAILURE) {
+		unsigned int internal_failure_delay =
+			auth_request_get_internal_failure_delay(request);
+		if (internal_failure_delay > 0) {
+			auth_request_ref(request);
+			request->to_penalty = timeout_add(internal_failure_delay,
+				auth_request_passdb_internal_failure, request);
+			return -1;
+		}
+	}
 	return 1;
 }
 
@@ -942,6 +979,7 @@ auth_request_verify_plain_callback_finish(enum passdb_result result,
 					  struct auth_request *request)
 {
 	const char *error;
+	int ret;
 
 	if (passdb_template_export(request->passdb->override_fields_tmpl,
 				   request, &error) < 0) {
@@ -949,11 +987,11 @@ auth_request_verify_plain_callback_finish(enum passdb_result result,
 			"Failed to expand override_fields: %s", error);
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
 	}
-	if (auth_request_handle_passdb_callback(&result, request) == 0) {
+	if ((ret = auth_request_handle_passdb_callback(&result, request)) == 0) {
 		/* try next passdb */
 		auth_request_verify_plain(request, request->mech_password,
 			request->private_callback.verify_plain);
-	} else {
+	} else if (ret > 0) {
 		auth_request_ref(request);
 		request->passdb_result = result;
 		request->private_callback.verify_plain(request->passdb_result,
@@ -1054,6 +1092,8 @@ static void auth_request_policy_penalty_finish(void *context)
 static void auth_request_policy_check_callback(int result, void *context)
 {
 	struct auth_policy_check_ctx *ctx = context;
+
+	i_assert(ctx->request->to_penalty == NULL);
 
 	ctx->request->policy_processed = TRUE;
 	/* It's possible that multiple policy lookups return a penalty.
@@ -1180,6 +1220,7 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 				       struct auth_request *request)
 {
 	const char *error;
+	int ret;
 
 	if (passdb_template_export(request->passdb->override_fields_tmpl,
 				   request, &error) < 0) {
@@ -1187,7 +1228,7 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 			"Failed to expand override_fields: %s", error);
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
 	}
-	if (auth_request_handle_passdb_callback(&result, request) == 0) {
+	if ((ret = auth_request_handle_passdb_callback(&result, request)) == 0) {
 		/* try next passdb */
 		if (request->fields.skip_password_check &&
 		    request->fields.delayed_credentials == NULL && size > 0) {
@@ -1199,7 +1240,7 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 		auth_request_lookup_credentials(request,
 			request->wanted_credentials_scheme,
 		  	request->private_callback.lookup_credentials);
-	} else {
+	} else if (ret > 0) {
 		if (request->fields.delayed_credentials != NULL && size == 0) {
 			/* we did multiple passdb lookups, but the last one
 			   didn't provide any credentials (e.g. just wanted to
@@ -1463,6 +1504,14 @@ auth_request_lookup_user_cache(struct auth_request *request, const char *key,
 	return TRUE;
 }
 
+static void auth_request_userdb_internal_failure(struct auth_request *request)
+{
+	timeout_remove(&request->to_penalty);
+	request->private_callback.userdb(USERDB_RESULT_INTERNAL_FAILURE,
+					 request);
+	auth_request_unref(&request);
+}
+
 void auth_request_userdb_callback(enum userdb_result result,
 				  struct auth_request *request)
 {
@@ -1574,6 +1623,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 		result = USERDB_RESULT_USER_UNKNOWN;
 	}
 
+	unsigned int internal_failure_delay = 0;
 	if (request->userdb_lookup_tempfailed) {
 		/* userdb lookup succeeded, but it either returned tempfail
 		   or one of its fields was invalid. Looking up the user from
@@ -1590,10 +1640,23 @@ void auth_request_userdb_callback(enum userdb_result result,
 			e_info(request->event,
 			       "%sFalling back to expired data from cache",
 				auth_request_get_log_prefix_db(request));
+		} else {
+			internal_failure_delay =
+				auth_request_get_internal_failure_delay(request);
 		}
+	} else if (result == USERDB_RESULT_INTERNAL_FAILURE) {
+		internal_failure_delay =
+			auth_request_get_internal_failure_delay(request);
 	}
 
-	 request->private_callback.userdb(result, request);
+	i_assert(request->to_penalty == NULL);
+	if (internal_failure_delay > 0) {
+		auth_request_ref(request);
+		request->to_penalty = timeout_add(internal_failure_delay,
+			auth_request_userdb_internal_failure, request);
+	} else {
+		request->private_callback.userdb(result, request);
+	}
 }
 
 void auth_request_lookup_user(struct auth_request *request,
