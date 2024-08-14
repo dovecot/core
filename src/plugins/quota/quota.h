@@ -77,12 +77,12 @@ int quota_user_read_settings(struct mail_user *user,
 void quota_settings_deinit(struct quota_legacy_settings **quota_set);
 
 /* Add a new rule too the quota root. Returns 0 if ok, -1 if rule is invalid. */
-int quota_root_add_rule(struct event *event,
+int quota_root_add_rule(struct event *event, pool_t pool,
 			struct quota_root_settings *root_set,
 			const char *rule_def, const char **error_r);
 /* Add a new warning rule for the quota root. Returns 0 if ok, -1 if rule is
    invalid. */
-int quota_root_add_warning_rule(struct event *event,
+int quota_root_add_warning_rule(struct event *event, pool_t pool,
 				struct quota_root_settings *root_set,
 				const char *rule_def, const char **error_r);
 
