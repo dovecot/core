@@ -9,7 +9,6 @@
 #define QUOTA_DEFAULT_GRACE "10%"
 
 #define RULE_NAME_DEFAULT_FORCE "*"
-#define RULE_NAME_DEFAULT_NONFORCE "?"
 
 struct quota_rule *
 quota_root_rule_find(struct quota_root_settings *root_set, const char *name)
@@ -243,12 +242,9 @@ int quota_root_add_rule(struct event *event, pool_t pool,
 
 	rule = quota_root_rule_find_exact(root_set, mailbox_mask);
 	if (rule == NULL) {
-		if (strcmp(mailbox_mask, RULE_NAME_DEFAULT_NONFORCE) == 0)
+		if (strcmp(mailbox_mask, RULE_NAME_DEFAULT_FORCE) == 0)
 			rule = &root_set->default_rule;
-		else if (strcmp(mailbox_mask, RULE_NAME_DEFAULT_FORCE) == 0) {
-			rule = &root_set->default_rule;
-			root_set->force_default_rule = TRUE;
-		} else {
+		else {
 			rule = array_append_space(&root_set->rules);
 			rule->mailbox_mask = strcasecmp(mailbox_mask, "INBOX") == 0 ? "INBOX" :
 				p_strdup(pool, mailbox_mask);
