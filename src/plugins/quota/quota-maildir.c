@@ -780,20 +780,6 @@ maildir_quota_parse_rule(struct quota_root_settings *root_set ATTR_UNUSED,
 	return TRUE;
 }
 
-static int maildir_quota_init_limits(struct quota_root *_root,
-				     const char **error_r)
-{
-	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
-	const char *error;
-
-	if (maildirquota_read_limits(root, &error) < 0) {
-		*error_r = t_strdup_printf(
-			"quota-maildir: Failed to read limits: %s", error);
-		return -1;
-	}
-	return 0;
-}
-
 static void
 maildir_quota_root_namespace_added(struct quota_root *_root,
 				   struct mail_namespace *ns)
@@ -908,7 +894,6 @@ struct quota_backend quota_backend_maildir = {
 		.init = maildir_quota_init,
 		.deinit = maildir_quota_deinit,
 		.parse_rule = maildir_quota_parse_rule,
-		.init_limits = maildir_quota_init_limits,
 		.namespace_added = maildir_quota_namespace_added,
 		.get_resources = maildir_quota_root_get_resources,
 		.get_resource = maildir_quota_get_resource,
