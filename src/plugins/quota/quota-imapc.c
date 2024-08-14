@@ -416,14 +416,6 @@ static int imapc_quota_refresh(struct imapc_quota_root *root,
 	return ret;
 }
 
-static int imapc_quota_init_limits(struct quota_root *_root,
-				   const char **error_r)
-{
-	struct imapc_quota_root *root = (struct imapc_quota_root *)_root;
-
-	return imapc_quota_refresh(root, error_r);
-}
-
 static void
 imapc_quota_namespace_added(struct quota *quota, struct mail_namespace *ns)
 {
@@ -487,7 +479,6 @@ struct quota_backend quota_backend_imapc = {
 		.alloc = imapc_quota_alloc,
 		.init = imapc_quota_init,
 		.deinit = imapc_quota_deinit,
-		.init_limits = imapc_quota_init_limits,
 		.namespace_added = imapc_quota_namespace_added,
 		.get_resources = imapc_quota_root_get_resources,
 		.get_resource = imapc_quota_get_resource,
