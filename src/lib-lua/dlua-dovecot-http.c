@@ -448,8 +448,6 @@ static void dlua_push_http_client(lua_State *L, struct http_client *client)
 static int parse_client_settings(lua_State *L, struct http_client_settings *set,
 				 const char **error_r)
 {
-	struct http_url *parsed_url;
-	const char *proxy_url;
 	const struct master_service_settings *master_set =
 		master_service_get_service_settings(master_service);
 
@@ -467,6 +465,8 @@ static int parse_client_settings(lua_State *L, struct http_client_settings *set,
 				*error_r = t_strdup_printf("%s: string expected", "proxy_url");
 				return -1;
 			}
+			const char *proxy_url = lua_tostring(L, -1);
+			struct http_url *parsed_url;
 			if (http_url_parse(proxy_url, NULL, HTTP_URL_ALLOW_USERINFO_PART,
 					   pool_datastack_create(), &parsed_url, error_r) < 0) {
 				*error_r = t_strdup_printf("proxy_url is invalid: %s",
