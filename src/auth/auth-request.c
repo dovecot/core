@@ -771,7 +771,7 @@ void auth_request_userdb_lookup_end(struct auth_request *request,
 	array_pop_back(&request->authdb_event);
 }
 
-static bool
+static int
 auth_request_handle_passdb_callback(enum passdb_result *result,
 				    struct auth_request *request)
 {
@@ -796,7 +796,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			       "User found from deny passdb");
 			*result = PASSDB_RESULT_USER_DISABLED;
 		}
-		return TRUE;
+		return 1;
 	}
 	if (request->failed) {
 		/* The passdb didn't fail, but something inside it failed
@@ -812,11 +812,11 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 	   any of the success/failure rules to them. they'll always fail. */
 	switch (*result) {
 	case PASSDB_RESULT_USER_DISABLED:
-		return TRUE;
+		return 1;
 	case PASSDB_RESULT_PASS_EXPIRED:
 		auth_request_set_field(request, "reason",
 					"Password expired", NULL);
-		return TRUE;
+		return 1;
 
 	case PASSDB_RESULT_OK:
 		result_rule = request->passdb->result_success;
@@ -917,7 +917,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			   successfully login. */
 			request->passdbs_seen_internal_failure = TRUE;
 		}
-		return FALSE;
+		return 0;
 	} else if (*result == PASSDB_RESULT_NEXT) {
 		/* admin forgot to put proper passdb last */
 		e_error(request->event,
@@ -934,7 +934,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		   instead of plain failure. */
 		*result = PASSDB_RESULT_INTERNAL_FAILURE;
 	}
-	return TRUE;
+	return 1;
 }
 
 void
@@ -949,7 +949,7 @@ auth_request_verify_plain_callback_finish(enum passdb_result result,
 			"Failed to expand override_fields: %s", error);
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
 	}
-	if (!auth_request_handle_passdb_callback(&result, request)) {
+	if (auth_request_handle_passdb_callback(&result, request) == 0) {
 		/* try next passdb */
 		auth_request_verify_plain(request, request->mech_password,
 			request->private_callback.verify_plain);
@@ -1187,7 +1187,7 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 			"Failed to expand override_fields: %s", error);
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
 	}
-	if (!auth_request_handle_passdb_callback(&result, request)) {
+	if (auth_request_handle_passdb_callback(&result, request) == 0) {
 		/* try next passdb */
 		if (request->fields.skip_password_check &&
 		    request->fields.delayed_credentials == NULL && size > 0) {
