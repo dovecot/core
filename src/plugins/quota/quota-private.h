@@ -54,10 +54,6 @@ struct quota_backend_vfuncs {
 		    const char **error_r);
 	void (*deinit)(struct quota_root *root);
 
-	bool (*parse_rule)(struct quota_root_settings *root_set,
-			   struct quota_rule *rule,
-			   const char *str, const char **error_r);
-
 	/* called once for each namespace */
 	void (*namespace_added)(struct quota *quota,
 				struct mail_namespace *ns);
