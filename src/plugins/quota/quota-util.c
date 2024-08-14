@@ -179,33 +179,33 @@ quota_rule_parse_limits(struct event *event,
 			multiply = 1024;
 			limit = &rule->bytes_limit;
 			if (str_parse_int64(value, limit, &p) < 0) {
-				*error_r = p_strdup_printf(root_set->set->pool,
+				*error_r = t_strdup_printf(
 						"Invalid storage limit: %s", value);
 				return -1;
 			}
 		} else if (strcmp(key, "bytes") == 0) {
 			limit = &rule->bytes_limit;
 			if (str_parse_int64(value, limit, &p) < 0) {
-				*error_r = p_strdup_printf(root_set->set->pool,
+				*error_r = t_strdup_printf(
 						"Invalid bytes limit: %s", value);
 				return -1;
 			}
 		} else if (strcmp(key, "messages") == 0) {
 			limit = &rule->count_limit;
 			if (str_parse_int64(value, limit, &p) < 0) {
-				*error_r = p_strdup_printf(root_set->set->pool,
+				*error_r = t_strdup_printf(
 						"Invalid bytes messages: %s", value);
 				return -1;
 			}
 		} else {
-			*error_r = p_strdup_printf(root_set->set->pool,
+			*error_r = t_strdup_printf(
 					"Unknown rule limit name: %s", key);
 			return -1;
 		}
 
 		if (quota_limit_parse(root_set, rule, p, multiply,
 				      limit, &error) < 0) {
-			*error_r = p_strdup_printf(root_set->set->pool,
+			*error_r = t_strdup_printf(
 				"Invalid rule limit value '%s': %s",
 				*args, error);
 			return -1;
