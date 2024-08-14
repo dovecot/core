@@ -118,7 +118,7 @@ void quota_backends_unregister(void)
 }
 
 static int quota_root_add_rules(struct mail_user *user, const char *root_name,
-				struct quota_root_settings *root_set,
+				pool_t pool, struct quota_root_settings *root_set,
 				const char **error_r)
 {
 	const char *rule_name, *rule, *error;
@@ -130,7 +130,8 @@ static int quota_root_add_rules(struct mail_user *user, const char *root_name,
 		if (rule == NULL)
 			break;
 
-		if (quota_root_add_rule(user->event, root_set, rule, &error) < 0) {
+		if (quota_root_add_rule(user->event, pool, root_set,
+					rule, &error) < 0) {
 			*error_r = t_strdup_printf("Invalid rule %s: %s",
 						   rule, error);
 			return -1;
@@ -142,7 +143,7 @@ static int quota_root_add_rules(struct mail_user *user, const char *root_name,
 
 static int
 quota_root_add_warning_rules(struct mail_user *user, const char *root_name,
-			     struct quota_root_settings *root_set,
+			     pool_t pool, struct quota_root_settings *root_set,
 			     const char **error_r)
 {
 	const char *rule_name, *rule, *error;
@@ -154,7 +155,8 @@ quota_root_add_warning_rules(struct mail_user *user, const char *root_name,
 		if (rule == NULL)
 			break;
 
-		if (quota_root_add_warning_rule(user->event, root_set, rule, &error) < 0) {
+		if (quota_root_add_warning_rule(user->event, pool, root_set,
+						rule, &error) < 0) {
 			*error_r = t_strdup_printf("Invalid warning rule: %s",
 						   rule);
 			return -1;
@@ -192,7 +194,6 @@ quota_root_settings_init(struct event *event,
 	}
 
 	root_set = p_new(quota_set->pool, struct quota_root_settings, 1);
-	root_set->set = quota_set;
 	root_set->backend = backend;
 
 	if (args != NULL) {
@@ -223,7 +224,8 @@ quota_root_settings_init(struct event *event,
 
 static int
 quota_root_add(struct quota_legacy_settings *quota_set, struct mail_user *user,
-	       const char *env, const char *root_name, const char **error_r)
+	       pool_t pool, const char *env, const char *root_name,
+	       const char **error_r)
 {
 	struct quota_root_settings *root_set;
 	const char *set_name, *value;
@@ -232,9 +234,10 @@ quota_root_add(struct quota_legacy_settings *quota_set, struct mail_user *user,
 				     &root_set, error_r) < 0)
 		return -1;
 	root_set->set_name = p_strdup(quota_set->pool, root_name);
-	if (quota_root_add_rules(user, root_name, root_set, error_r) < 0)
+	if (quota_root_add_rules(user, root_name, pool, root_set, error_r) < 0)
 		return -1;
-	if (quota_root_add_warning_rules(user, root_name, root_set, error_r) < 0)
+	if (quota_root_add_warning_rules(user, root_name, quota_set->pool,
+					 root_set, error_r) < 0)
 		return -1;
 
 	set_name = t_strconcat(root_name, "_grace", NULL);
@@ -291,7 +294,7 @@ int quota_user_read_settings(struct mail_user *user,
 		if (env == NULL || *env == '\0')
 			break;
 
-		if (quota_root_add(quota_set, user, env, root_name,
+		if (quota_root_add(quota_set, user, pool, env, root_name,
 				   &error) < 0) {
 			*error_r = t_strdup_printf("Invalid quota root %s: %s",
 						   root_name, error);

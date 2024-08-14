@@ -93,7 +93,6 @@ struct quota_root_settings {
 	/* Name in settings, e.g. "quota", "quota2", .. */
 	const char *set_name;
 
-	struct quota_legacy_settings *set;
 	const char *args;
 
 	const struct quota_backend *backend;

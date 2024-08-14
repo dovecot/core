@@ -224,7 +224,7 @@ quota_rule_parse_limits(struct event *event,
 	return 0;
 }
 
-int quota_root_add_rule(struct event *event,
+int quota_root_add_rule(struct event *event, pool_t pool,
 			struct quota_root_settings *root_set,
 			const char *rule_def, const char **error_r)
 {
@@ -251,7 +251,7 @@ int quota_root_add_rule(struct event *event,
 		} else {
 			rule = array_append_space(&root_set->rules);
 			rule->mailbox_mask = strcasecmp(mailbox_mask, "INBOX") == 0 ? "INBOX" :
-				p_strdup(root_set->set->pool, mailbox_mask);
+				p_strdup(pool, mailbox_mask);
 		}
 	}
 
@@ -297,7 +297,7 @@ int quota_root_add_rule(struct event *event,
 	return ret;
 }
 
-int quota_root_add_warning_rule(struct event *event,
+int quota_root_add_warning_rule(struct event *event, pool_t pool,
 				struct quota_root_settings *root_set,
 				const char *rule_def, const char **error_r)
 {
@@ -332,7 +332,7 @@ int quota_root_add_warning_rule(struct event *event,
 		return -1;
 
 	warning = array_append_space(&root_set->warning_rules);
-	warning->command = p_strdup(root_set->set->pool, p+1);
+	warning->command = p_strdup(pool, p+1);
 	warning->rule = rule;
 	warning->reverse = reverse;
 	if (reverse)
