@@ -758,28 +758,6 @@ static void maildir_quota_deinit(struct quota_root *_root)
 	i_free(root);
 }
 
-static bool
-maildir_quota_parse_rule(struct quota_root_settings *root_set ATTR_UNUSED,
-			 struct quota_rule *rule,
-			 const char *str, const char **error_r)
-{
-	uint64_t bytes, count;
-
-	if (strcmp(str, "NOQUOTA") == 0) {
-		bytes = 0;
-		count = 0;
-	} else if (!maildir_parse_limit(str, &bytes, &count)) {
-		*error_r = t_strdup_printf(
-			"quota-maildir: Invalid Maildir++ quota rule \"%s\"",
-			str);
-		return FALSE;
-	}
-
-	rule->bytes_limit = bytes;
-	rule->count_limit = count;
-	return TRUE;
-}
-
 static void
 maildir_quota_root_namespace_added(struct quota_root *_root,
 				   struct mail_namespace *ns)
@@ -893,7 +871,6 @@ struct quota_backend quota_backend_maildir = {
 		.alloc = maildir_quota_alloc,
 		.init = maildir_quota_init,
 		.deinit = maildir_quota_deinit,
-		.parse_rule = maildir_quota_parse_rule,
 		.namespace_added = maildir_quota_namespace_added,
 		.get_resources = maildir_quota_root_get_resources,
 		.get_resource = maildir_quota_get_resource,
