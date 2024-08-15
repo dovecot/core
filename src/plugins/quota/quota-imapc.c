@@ -63,7 +63,6 @@ static int imapc_quota_init(struct quota_root *_root, const char *args,
 	const struct quota_param_parser imapc_params[] = {
 		{.param_name = "box=", .param_handler = handle_box_param},
 		{.param_name = "root=", .param_handler = handle_root_param},
-		quota_param_ns,
 		{.param_name = NULL}
 	};
 
@@ -98,7 +97,7 @@ imapc_quota_root_refresh_find(struct imapc_storage_client *client)
 	i_assert(quota != NULL);
 
 	/* find the quota root that is being refreshed */
-	array_foreach(&quota->roots, rootp) {
+	array_foreach(&quota->all_roots, rootp) {
 		if ((*rootp)->backend.name == quota_backend_imapc.name) {
 			struct imapc_quota_root *root =
 				(struct imapc_quota_root *)*rootp;
@@ -253,7 +252,7 @@ imapc_quota_refresh_update(struct quota *quota,
 	/* use the first quota root for everything */
 	refresh_root = array_front(&refresh->roots);
 
-	array_foreach(&quota->roots, rootp) {
+	array_foreach(&quota->all_roots, rootp) {
 		if ((*rootp)->backend.name == quota_backend_imapc.name) {
 			struct imapc_quota_root *root =
 				(struct imapc_quota_root *)*rootp;

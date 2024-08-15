@@ -140,7 +140,6 @@ static int fs_quota_init(struct quota_root *_root, const char *args,
 		{.param_name = "group", .param_handler = handle_group_param},
 		{.param_name = "mount=", .param_handler = handle_mount_param},
 		{.param_name = "inode_per_mail", .param_handler = handle_inode_param},
-		quota_param_hidden, quota_param_noenforcing, quota_param_ns,
 		{.param_name = NULL}
 	};
 

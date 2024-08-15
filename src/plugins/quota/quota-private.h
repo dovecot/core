@@ -12,38 +12,21 @@ extern unsigned int quota_module_id;
 
 struct quota {
 	struct mail_user *user;
-	struct quota_legacy_settings *set;
 	struct event *event;
 
-	ARRAY(struct quota_root *) roots;
+	/* Global quota roots. These are filled when initializing the user.
+	   These quota roots will be used only for private namespaces. */
+	ARRAY(struct quota_root *) global_private_roots;
+	/* All seen quota roots, which may be specific to only some namespaces.
+	   Quota roots are added lazily when a new quota_name is seen for a
+	   namespace. It's assumed that the relevant quota backend settings
+	   don't change for the same quota_name. */
+	ARRAY(struct quota_root *) all_roots;
 
 	enum quota_alloc_result (*test_alloc)(
 		struct quota_transaction_context *ctx, uoff_t size,
 		const char **error_r);
 	bool vsizes:1;
-};
-
-struct quota_legacy_settings {
-	pool_t pool;
-
-	ARRAY(struct quota_root_legacy_settings *) root_sets;
-};
-
-struct quota_rule {
-	const char *mailbox_mask;
-
-	int64_t bytes_limit, count_limit;
-	/* relative to default_rule */
-	int bytes_percent, count_percent;
-
-	/* Don't include this mailbox in quota */
-	bool ignore:1;
-};
-
-struct quota_warning_rule {
-	struct quota_rule rule;
-	const char *command;
-	bool reverse:1;
 };
 
 struct quota_backend_vfuncs {
@@ -80,46 +63,20 @@ struct quota_backend {
 	struct quota_backend_vfuncs v;
 };
 
-struct quota_root_legacy_settings {
-	/* Unique quota root name. */
-	const char *name;
-	/* Name in settings, e.g. "quota", "quota2", .. */
-	const char *set_name;
-
-	const char *args;
-
-	const struct quota_backend *backend;
-	struct quota_rule default_rule;
-	ARRAY(struct quota_rule) rules;
-	ARRAY(struct quota_warning_rule) warning_rules;
-
-	/* If user is under quota before saving a mail, allow the last mail to
-	   bring the user over quota by this many bytes. */
-	uint64_t quota_storage_grace;
-};
-
 struct quota_root {
 	pool_t pool;
 
-	struct quota_root_legacy_settings *set;
+	const struct quota_settings *set;
+
 	struct quota *quota;
 	struct quota_backend backend;
 
-	/* this quota root applies only to this namespace. it may also be
-	   a public namespace without an owner. */
-	struct mail_namespace *ns;
-	/* this is set in quota init(), because namespaces aren't known yet.
-	   when accessing shared users the ns_prefix may be non-NULL but
-	   ns=NULL, so when checking if quota root applies only to a specific
-	   namespace use the ns_prefix!=NULL check. */
-	const char *ns_prefix;
 	/* All namespaces using this quota root */
 	ARRAY(struct mail_namespace *) namespaces;
-	struct mail_namespace *unwanted_ns;
 
-	/* initially the same as set->default_rule.*_limit, but some backends
-	   may change these by reading the limits elsewhere (e.g. imapc,
-	   FS quota) */
+	/* initially the same as set->quota_storage_size and
+	   set->quota_message_count, but some backends may change these by
+	   reading the limits elsewhere (e.g. imapc, FS quota) */
 	int64_t bytes_limit, count_limit;
 
 	/* Module-specific contexts. See quota_module_id. */
@@ -140,6 +97,8 @@ struct quota_root {
 	bool hidden:1;
 	/* Did we already check quota_over_status correctness? */
 	bool quota_over_status_checked:1;
+	/* Are there any quota warnings with threshold=under? */
+	bool have_under_warnings:1;
 };
 
 struct quota_transaction_context {
@@ -176,29 +135,20 @@ struct quota_transaction_context {
 	bool no_quota_updates:1;
 };
 
-/* Register storage to all user's quota roots. */
-void quota_add_user_namespace(struct quota *quota, struct mail_namespace *ns);
+void quota_add_user_namespace(struct quota *quota, const char *root_name,
+			      struct mail_namespace *ns);
 void quota_remove_user_namespace(struct mail_namespace *ns);
 
 int quota_root_default_init(struct quota_root *root, const char *args,
 			    const char **error_r);
 struct quota *quota_get_mail_user_quota(struct mail_user *user);
 
-bool quota_root_is_namespace_visible(struct quota_root *root,
-				     struct mail_namespace *ns);
-struct quota_rule *
-quota_root_rule_find(struct quota_root_legacy_settings *root_set, const char *name);
-
 /* Returns 1 if values were returned successfully, 0 if we're recursing into
    the same function, -1 if error. */
 int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r,
 		enum quota_get_result *error_result_r, const char **error_r);
 
-int quota_root_parse_grace(struct event *event,
-			   struct quota_root_legacy_settings *root_set,
-			   const char *value, const char **error_r);
-bool quota_warning_match(struct quota_root *root,
-			 const struct quota_warning_rule *w,
+bool quota_warning_match(const struct quota_settings *w,
 			 uint64_t bytes_before, uint64_t bytes_current,
 			 uint64_t count_before, uint64_t count_current,
 			 const char **reason_r);
@@ -207,6 +157,7 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 				 enum quota_get_result *error_result_r,
 				 const char **error_r);
 
+const struct quota_backend *quota_backend_find(const char *name);
 void quota_backend_register(const struct quota_backend *backend);
 void quota_backend_unregister(const struct quota_backend *backend);
 

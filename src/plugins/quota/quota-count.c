@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "settings.h"
 #include "mailbox-list-iter.h"
 #include "quota-private.h"
 
@@ -29,7 +30,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 		    enum quota_get_result *error_result_r,
 		    const char **error_r)
 {
-	struct quota_rule *rule;
+	const struct quota_settings *set = NULL;
 	struct mailbox *box;
 	struct mailbox_metadata metadata;
 	struct mailbox_status status;
@@ -37,14 +38,15 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	const char *errstr;
 	int ret;
 
-	rule = quota_root_rule_find(root->set, vname);
-	if (rule != NULL && rule->ignore) {
-		/* mailbox not included in quota */
-		return 0;
-	}
-
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY);
-	if ((box->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NOQUOTA) != 0) {
+	struct event *event = event_create(box->event);
+	event_add_str(event, "quota", root->set->quota_name);
+	if (settings_get(event, &quota_setting_parser_info, 0,
+			 &set, error_r) < 0)
+		ret = -1;
+	else if (set->quota_ignore)
+		ret = 0;
+	else if ((box->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NOQUOTA) != 0) {
 		/* quota doesn't exist for this mailbox/storage */
 		ret = 0;
 	} else if (mailbox_get_metadata(box, MAILBOX_METADATA_VIRTUAL_SIZE,
@@ -73,6 +75,8 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 		*bytes += metadata.virtual_size;
 		*count += status.messages;
 	}
+	settings_free(set);
+	event_unref(&event);
 	mailbox_free(&box);
 	return ret;
 }

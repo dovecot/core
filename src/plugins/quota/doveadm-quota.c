@@ -24,7 +24,7 @@ static int cmd_quota_get_root(struct quota_root *root, struct mail_user *user)
 	res = quota_root_get_resources(root);
 	for (; *res != NULL; res++) {
 		qret = quota_get_resource(root, NULL, *res, &value, &limit, &error);
-		doveadm_print(root->set->name);
+		doveadm_print(root->set->quota_name);
 		doveadm_print(*res);
 		if (qret == QUOTA_GET_RESULT_LIMITED) {
 			doveadm_print_num(value);
@@ -64,7 +64,7 @@ cmd_quota_get_run(struct doveadm_mail_cmd_context *ctx,
 	}
 
 	int ret = 0;
-	array_foreach(&quser->quota->roots, root)
+	array_foreach(&quser->quota->all_roots, root)
 		if (cmd_quota_get_root(*root, user) < 0)
 			ret = -1;
 	if (ret < 0)
@@ -114,7 +114,7 @@ cmd_quota_recalc_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 	trans.quota = quser->quota;
 	trans.recalculate = QUOTA_RECALCULATE_FORCED;
 
-	array_foreach(&quser->quota->roots, root) {
+	array_foreach(&quser->quota->all_roots, root) {
 		const char *error;
 		if ((*root)->backend.v.update(*root, &trans, &error) < 0)
 			e_error(user->event,

@@ -89,7 +89,7 @@ static bool quota_clone_flush_real(struct mail_user *user)
 	}
 
 	/* get new values first */
-	bytes_res = quota_get_resource(root, "", QUOTA_NAME_STORAGE_BYTES,
+	bytes_res = quota_get_resource(root, NULL, QUOTA_NAME_STORAGE_BYTES,
 				       &bytes_value, &limit, &error);
 	if (bytes_res == QUOTA_GET_RESULT_INTERNAL_ERROR) {
 		e_error(user->event, "quota_clone_plugin: "
@@ -97,7 +97,7 @@ static bool quota_clone_flush_real(struct mail_user *user)
 			error);
 		return TRUE;
 	}
-	count_res = quota_get_resource(root, "", QUOTA_NAME_MESSAGES,
+	count_res = quota_get_resource(root, NULL, QUOTA_NAME_MESSAGES,
 				       &count_value, &limit, &error);
 	if (count_res == QUOTA_GET_RESULT_INTERNAL_ERROR) {
 		e_error(user->event, "quota_clone_plugin: "
