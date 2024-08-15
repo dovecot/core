@@ -211,9 +211,11 @@ namespace_set_alias_for(struct mail_namespace *ns,
 						   ns->set->alias_for);
 			return -1;
 		}
-		if (ns->alias_for->alias_for != NULL) {
-			*error_r = t_strdup_printf("Chained namespace alias_for: %s",
-						   ns->set->alias_for);
+		if (ns->alias_for->set->alias_for[0] != '\0') {
+			*error_r = t_strdup_printf(
+				"Chained namespace alias_for: %s -> %s",
+				ns->set->alias_for,
+				ns->alias_for->set->alias_for);
 			return -1;
 		}
 		if (!namespace_is_valid_alias_storage(ns, error_r))
