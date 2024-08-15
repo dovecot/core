@@ -209,8 +209,8 @@ bool mail_user_set_get_postmaster_smtp(const struct mail_user_settings *set,
 void mail_storage_2nd_settings_reset(struct settings_instance *instance,
 				     const char *key_prefix);
 
-bool mail_user_check_namespace_settings(struct mail_user *user,
-					const struct mail_storage_settings *set,
-					const char **error_r);
+bool mail_user_settings_update_special_use(struct mail_user *user,
+					   const struct mail_storage_settings *set,
+					   const char **error_r);
 
 #endif
