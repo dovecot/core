@@ -438,42 +438,11 @@ static bool mail_cache_fields_parse(const char *key,
 }
 /* </settings checks> */
 
-static int
-mail_storage_settings_find_ns(struct event *event,
-			      const struct mail_storage_settings *set,
-			      const char *wanted_name,
-			      const struct mail_namespace_settings **ns_r,
-			      const char **error_r)
-{
-	const struct mail_namespace_settings *ns;
-	const char *ns_name, *error;
-
-	array_foreach_elem(&set->namespaces, ns_name) {
-		if (settings_get_filter(event, "namespace", ns_name,
-					&mail_namespace_setting_parser_info,
-					SETTINGS_GET_FLAG_NO_CHECK |
-					SETTINGS_GET_FLAG_FAKE_EXPAND,
-					&ns, &error) < 0) {
-			*error_r = t_strdup_printf(
-				"Failed to get namespace %s: %s",
-				ns_name, error);
-			return -1;
-		}
-		if (strcmp(ns->name, wanted_name) == 0) {
-			*ns_r = ns;
-			return 0;
-		}
-		settings_free(ns);
-	}
-	*ns_r = NULL;
-	return 0;
-}
-
 bool mail_user_check_namespace_settings(struct mail_user *user,
 					const struct mail_storage_settings *set,
 					const char **error_r)
 {
-	const struct mail_namespace_settings *ns, *alias_ns;
+	const struct mail_namespace_settings *ns;
 	const char *ns_name, *error;
 
 	if (!array_is_created(&set->namespaces))
@@ -490,42 +459,8 @@ bool mail_user_check_namespace_settings(struct mail_user *user,
 			return FALSE;
 		}
 
-		if (ns->disabled) {
-			settings_free(ns);
-			continue;
-		}
-
-		if (ns->parsed_have_special_use_mailboxes)
+		if (ns->parsed_have_special_use_mailboxes && !ns->disabled)
 			user->have_special_use_mailboxes = TRUE;
-
-		if (ns->alias_for[0] == '\0') {
-			settings_free(ns);
-			continue;
-		}
-
-		if (mail_storage_settings_find_ns(user->event, set,
-				ns->alias_for, &alias_ns, error_r) < 0) {
-			settings_free(ns);
-			return FALSE;
-		}
-		if (alias_ns == NULL) {
-			*error_r = t_strdup_printf(
-				"Namespace %s: alias_for points to "
-				"unknown namespace name: %s",
-				ns->name, ns->alias_for);
-			settings_free(ns);
-			return FALSE;
-		}
-		if (alias_ns->alias_for[0] != '\0') {
-			*error_r = t_strdup_printf(
-				"Namespace %s: alias_for chaining isn't "
-				"allowed: %s -> %s",
-				ns->name, ns->alias_for, alias_ns->alias_for);
-			settings_free(alias_ns);
-			settings_free(ns);
-			return FALSE;
-		}
-		settings_free(alias_ns);
 		settings_free(ns);
 	}
 	return TRUE;
