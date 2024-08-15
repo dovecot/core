@@ -318,8 +318,6 @@ int quota_root_add_warning_rule(struct event *event, pool_t pool,
 	warning->command = p_strdup(pool, p+1);
 	warning->rule = rule;
 	warning->reverse = reverse;
-	if (reverse)
-		root_set->have_reverse_warnings = TRUE;
 
 	quota_root_recalculate_relative_rules(event, root_set,
 					      root_set->default_rule.bytes_limit,
