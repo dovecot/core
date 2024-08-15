@@ -445,7 +445,16 @@ bool mail_user_settings_update_special_use(struct mail_user *user,
 	const struct mail_namespace_settings *ns;
 	const char *ns_name, *error;
 
-	if (!array_is_created(&set->namespaces))
+	/* Check if there are any global mailbox { .. } settings */
+	if (settings_get(user->event, &mail_namespace_setting_parser_info,
+			 SETTINGS_GET_FLAG_FAKE_EXPAND, &ns, error_r) < 0)
+		return FALSE;
+	if (ns->parsed_have_special_use_mailboxes && !ns->disabled)
+		user->have_special_use_mailboxes = TRUE;
+	settings_free(ns);
+
+	/* Check mailbox { .. } settings inside namespace { .. } */
+	if (!array_is_created(&set->namespaces) || user->have_special_use_mailboxes)
 		return TRUE;
 
 	array_foreach_elem(&set->namespaces, ns_name) {
