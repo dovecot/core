@@ -1,12 +1,13 @@
 /* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str-parse.h"
 #include "wildcard-match.h"
 #include "quota-private.h"
 
 #include <ctype.h>
 
-#define QUOTA_DEFAULT_GRACE "10%"
+#define QUOTA_DEFAULT_GRACE "10M"
 
 #define RULE_NAME_DEFAULT_FORCE "*"
 
@@ -126,15 +127,11 @@ void quota_root_recalculate_relative_rules(struct event *event,
 		quota_rule_recalculate_relative_rules(&warning_rule->rule,
 						      bytes_limit, count_limit);
 	}
-	quota_rule_recalculate_relative_rules(&root_set->grace_rule,
-					      bytes_limit, 0);
-	root_set->last_mail_max_extra_bytes = root_set->grace_rule.bytes_limit;
 
 	e_debug(event,
 		"Quota root %s: Recalculated relative rules with "
-		"bytes=%lld count=%lld. Now grace=%"PRIu64, root_set->name,
-		(long long)bytes_limit, (long long)count_limit,
-		root_set->last_mail_max_extra_bytes);
+		"bytes=%lld count=%lld.", root_set->name,
+		(long long)bytes_limit, (long long)count_limit);
 }
 
 static int
@@ -344,25 +341,16 @@ int quota_root_parse_grace(struct event *event,
 			   struct quota_root_settings *root_set,
 			   const char *value, const char **error_r)
 {
-	const char *p;
-
 	if (value == NULL) {
 		/* default */
 		value = QUOTA_DEFAULT_GRACE;
 	}
 
-	if (str_parse_int64(value, &root_set->grace_rule.bytes_limit, &p) < 0)
+	if (str_parse_get_size(value, &root_set->quota_storage_grace,
+			       error_r) < 0)
 		return -1;
-	if (quota_limit_parse(root_set, &root_set->grace_rule, p, 1,
-			      &root_set->grace_rule.bytes_limit, error_r) < 0)
-		return -1;
-	quota_rule_recalculate_relative_rules(&root_set->grace_rule,
-		root_set->default_rule.bytes_limit, 0);
-	root_set->last_mail_max_extra_bytes = root_set->grace_rule.bytes_limit;
-	e_debug(event, "Quota grace: root=%s bytes=%lld%s",
-		root_set->name, (long long)root_set->grace_rule.bytes_limit,
-		root_set->grace_rule.bytes_percent == 0 ? "" :
-		t_strdup_printf(" (%u%%)", root_set->grace_rule.bytes_percent));
+	e_debug(event, "Quota grace: root=%s bytes=%"PRIu64,
+		root_set->name, root_set->quota_storage_grace);
 	return 0;
 }
 
