@@ -12,7 +12,7 @@
 #define RULE_NAME_DEFAULT_FORCE "*"
 
 struct quota_rule *
-quota_root_rule_find(struct quota_root_settings *root_set, const char *name)
+quota_root_rule_find(struct quota_root_legacy_settings *root_set, const char *name)
 {
 	struct quota_rule *rule;
 
@@ -24,7 +24,7 @@ quota_root_rule_find(struct quota_root_settings *root_set, const char *name)
 }
 
 static struct quota_rule *
-quota_root_rule_find_exact(struct quota_root_settings *root_set,
+quota_root_rule_find_exact(struct quota_root_legacy_settings *root_set,
 			   const char *name)
 {
 	struct quota_rule *rule;
@@ -37,7 +37,7 @@ quota_root_rule_find_exact(struct quota_root_settings *root_set,
 }
 
 static int
-quota_rule_parse_percentage(struct quota_root_settings *root_set,
+quota_rule_parse_percentage(struct quota_root_legacy_settings *root_set,
 			    struct quota_rule *rule,
 			    int64_t *limit, const char **error_r)
 {
@@ -62,7 +62,7 @@ quota_rule_parse_percentage(struct quota_root_settings *root_set,
 	return 0;
 }
 
-static int quota_limit_parse(struct quota_root_settings *root_set,
+static int quota_limit_parse(struct quota_root_legacy_settings *root_set,
 			     struct quota_rule *rule, const char *unit,
 			     uint64_t multiply, int64_t *limit,
 			     const char **error_r)
@@ -102,7 +102,7 @@ static int quota_limit_parse(struct quota_root_settings *root_set,
 
 static int
 quota_rule_parse_limits(struct event *event,
-			struct quota_root_settings *root_set,
+			struct quota_root_legacy_settings *root_set,
 			struct quota_rule *rule, const char *limits,
 			const char *full_rule_def,
 			bool relative_rule, const char **error_r)
@@ -187,7 +187,7 @@ quota_rule_parse_limits(struct event *event,
 }
 
 int quota_root_add_rule(struct event *event, pool_t pool,
-			struct quota_root_settings *root_set,
+			struct quota_root_legacy_settings *root_set,
 			const char *rule_def, const char **error_r)
 {
 	struct quota_rule *rule;
@@ -244,7 +244,7 @@ int quota_root_add_rule(struct event *event, pool_t pool,
 }
 
 int quota_root_add_warning_rule(struct event *event, pool_t pool,
-				struct quota_root_settings *root_set,
+				struct quota_root_legacy_settings *root_set,
 				const char *rule_def, const char **error_r)
 {
 	struct quota_warning_rule *warning;
@@ -296,7 +296,7 @@ int quota_root_add_warning_rule(struct event *event, pool_t pool,
 }
 
 int quota_root_parse_grace(struct event *event,
-			   struct quota_root_settings *root_set,
+			   struct quota_root_legacy_settings *root_set,
 			   const char *value, const char **error_r)
 {
 	if (value == NULL) {

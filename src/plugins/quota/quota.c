@@ -118,7 +118,7 @@ void quota_backends_unregister(void)
 }
 
 static int quota_root_add_rules(struct mail_user *user, const char *root_name,
-				pool_t pool, struct quota_root_settings *root_set,
+				pool_t pool, struct quota_root_legacy_settings *root_set,
 				const char **error_r)
 {
 	const char *rule_name, *rule, *error;
@@ -143,7 +143,7 @@ static int quota_root_add_rules(struct mail_user *user, const char *root_name,
 
 static int
 quota_root_add_warning_rules(struct mail_user *user, const char *root_name,
-			     pool_t pool, struct quota_root_settings *root_set,
+			     pool_t pool, struct quota_root_legacy_settings *root_set,
 			     const char **error_r)
 {
 	const char *rule_name, *rule, *error;
@@ -169,10 +169,10 @@ quota_root_add_warning_rules(struct mail_user *user, const char *root_name,
 static int
 quota_root_settings_init(struct event *event,
 			 struct quota_legacy_settings *quota_set, const char *root_def,
-			 struct quota_root_settings **set_r,
+			 struct quota_root_legacy_settings **set_r,
 			 const char **error_r)
 {
-	struct quota_root_settings *root_set;
+	struct quota_root_legacy_settings *root_set;
 	const struct quota_backend *backend;
 	const char *p, *args, *backend_name;
 
@@ -193,7 +193,7 @@ quota_root_settings_init(struct event *event,
 		return -1;
 	}
 
-	root_set = p_new(quota_set->pool, struct quota_root_settings, 1);
+	root_set = p_new(quota_set->pool, struct quota_root_legacy_settings, 1);
 	root_set->backend = backend;
 
 	if (args != NULL) {
@@ -227,7 +227,7 @@ quota_root_add(struct quota_legacy_settings *quota_set, struct mail_user *user,
 	       pool_t pool, const char *env, const char *root_name,
 	       const char **error_r)
 {
-	struct quota_root_settings *root_set;
+	struct quota_root_legacy_settings *root_set;
 	const char *set_name, *value;
 
 	if (quota_root_settings_init(user->event, quota_set, env,
@@ -341,7 +341,7 @@ int quota_root_default_init(struct quota_root *root, const char *args,
 }
 
 static int
-quota_root_init(struct quota_root_settings *root_set, struct quota *quota,
+quota_root_init(struct quota_root_legacy_settings *root_set, struct quota *quota,
 		struct quota_root **root_r, const char **error_r)
 {
 	struct quota_root *root;
@@ -387,7 +387,7 @@ int quota_init(struct quota_legacy_settings *quota_set, struct mail_user *user,
 {
 	struct quota *quota;
 	struct quota_root *root;
-	struct quota_root_settings *const *root_sets;
+	struct quota_root_legacy_settings *const *root_sets;
 	unsigned int i, count;
 	const char *error;
 	int ret;
