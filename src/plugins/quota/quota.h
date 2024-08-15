@@ -112,7 +112,7 @@ bool quota_root_is_hidden(struct quota_root *root);
 /* Returns 1 if values were successfully returned, 0 if resource name doesn't
    exist or isn't enabled, -1 if error. */
 enum quota_get_result
-quota_get_resource(struct quota_root *root, const char *mailbox_name,
+quota_get_resource(struct quota_root *root, struct mailbox *box,
 		   const char *name, uint64_t *value_r, uint64_t *limit_r,
 		   const char **error_r);
 
