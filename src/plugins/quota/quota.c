@@ -467,8 +467,14 @@ quota_root_get_rule_limits(struct quota_root *root, const char *mailbox_name,
 
 	if (rule != NULL) {
 		if (!rule->ignore) {
-			bytes_limit += rule->bytes_limit;
-			count_limit += rule->count_limit;
+			if (rule->bytes_percent != 0)
+				bytes_limit += bytes_limit * rule->bytes_percent / 100;
+			else
+				bytes_limit += rule->bytes_limit;
+			if (rule->count_percent != 0)
+				count_limit += count_limit * rule->count_percent / 100;
+			else
+				count_limit += rule->count_limit;
 		} else {
 			bytes_limit = 0;
 			count_limit = 0;
@@ -1033,7 +1039,7 @@ static void quota_warnings_execute(struct quota_transaction_context *ctx,
 	else
 		count_before = (int64_t)count_current - ctx->count_used;
 	for (i = 0; i < count; i++) {
-		if (quota_warning_match(&warnings[i],
+		if (quota_warning_match(root, &warnings[i],
 					bytes_before, bytes_current,
 					count_before, count_current,
 					&reason)) {

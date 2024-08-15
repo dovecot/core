@@ -940,11 +940,6 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 		/* update limit */
 		_root->bytes_limit = bytes_limit;
 		_root->count_limit = count_limit;
-
-		/* limits have changed, so we'll need to recalculate
-		   relative quota rules */
-		quota_root_recalculate_relative_rules(_root->backend.event,
-			_root->set, bytes_limit, count_limit);
 	}
 	return QUOTA_GET_RESULT_LIMITED;
 }
