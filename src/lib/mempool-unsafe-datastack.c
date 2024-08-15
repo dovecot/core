@@ -110,6 +110,8 @@ static void *pool_unsafe_data_stack_realloc(pool_t pool ATTR_UNUSED,
 {
 	void *new_mem;
 
+	i_assert(old_size < SIZE_MAX);
+
 	/* @UNSAFE */
 	if (old_size >= new_size)
 		return mem;

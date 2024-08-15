@@ -162,6 +162,8 @@ static void *pool_data_stack_realloc(pool_t pool, void *mem,
 		container_of(pool, struct datastack_pool, pool);
 	void *new_mem;
 
+	i_assert(old_size < SIZE_MAX);
+
 	/* @UNSAFE */
 	if (unlikely(dpool->data_stack_frame != data_stack_frame_id))
 		i_panic("pool_data_stack_realloc(): stack frame changed");
