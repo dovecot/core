@@ -870,7 +870,7 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 					if (ctx->bytes_ceil2 > diff)
 						ctx->bytes_ceil2 = diff;
 					diff += !use_grace ? 0 :
-						roots[i]->set->last_mail_max_extra_bytes;
+						roots[i]->set->quota_storage_grace;
 					if (ctx->bytes_ceil > diff)
 						ctx->bytes_ceil = diff;
 				}

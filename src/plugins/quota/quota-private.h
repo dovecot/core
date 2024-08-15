@@ -97,8 +97,7 @@ struct quota_root_settings {
 
 	/* If user is under quota before saving a mail, allow the last mail to
 	   bring the user over quota by this many bytes. */
-	uint64_t last_mail_max_extra_bytes;
-	struct quota_rule grace_rule;
+	uint64_t quota_storage_grace;
 
 	/* TRUE if any of the warning_rules have reverse==TRUE */
 	bool have_reverse_warnings:1;
@@ -157,7 +156,7 @@ struct quota_transaction_context {
 	/* how many bytes/mails can be saved until limit is reached.
 	   (set once, not updated by bytes_used/count_used).
 
-	   if last_mail_max_extra_bytes>0, the bytes_ceil is initially
+	   if quota_storage_grace>0, the bytes_ceil is initially
 	   increased by that much, while bytes_ceil2 contains the real ceiling.
 	   after the first allocation is done, bytes_ceil is set to
 	   bytes_ceil2. */
