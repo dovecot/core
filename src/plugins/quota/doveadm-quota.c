@@ -23,7 +23,7 @@ static int cmd_quota_get_root(struct quota_root *root, struct mail_user *user)
 
 	res = quota_root_get_resources(root);
 	for (; *res != NULL; res++) {
-		qret = quota_get_resource(root, "", *res, &value, &limit, &error);
+		qret = quota_get_resource(root, NULL, *res, &value, &limit, &error);
 		doveadm_print(root->set->name);
 		doveadm_print(*res);
 		if (qret == QUOTA_GET_RESULT_LIMITED) {
