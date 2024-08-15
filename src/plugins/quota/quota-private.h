@@ -98,9 +98,6 @@ struct quota_root_settings {
 	/* If user is under quota before saving a mail, allow the last mail to
 	   bring the user over quota by this many bytes. */
 	uint64_t quota_storage_grace;
-
-	/* TRUE if any of the warning_rules have reverse==TRUE */
-	bool have_reverse_warnings:1;
 };
 
 struct quota_root {

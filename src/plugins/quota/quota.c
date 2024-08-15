@@ -756,6 +756,16 @@ quota_get_resource(struct quota_root *root, const char *mailbox_name,
 	return *limit_r == 0 ? QUOTA_GET_RESULT_UNLIMITED : QUOTA_GET_RESULT_LIMITED;
 }
 
+static bool quota_root_have_reverse_warnings(struct quota_root *root)
+{
+	const struct quota_warning_rule *warn;
+	array_foreach(&root->set->warning_rules, warn) {
+		if (warn->reverse)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 {
 	struct quota_transaction_context *ctx;
@@ -797,7 +807,7 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 		   before and after the expunges, but that's more complicated
 		   and probably isn't any better.) */
 		if (!(*rootp)->auto_updating ||
-		    (*rootp)->set->have_reverse_warnings)
+		    quota_root_have_reverse_warnings(*rootp))
 			ctx->auto_updating = FALSE;
 	}
 
