@@ -365,6 +365,7 @@ quota_root_init(struct quota_root_legacy_settings *root_set, struct quota *quota
 					   root->backend.name, *error_r);
 
 		event_unref(&root->backend.event);
+		pool_unref(&root->pool);
 		return -1;
 	}
 	if (root_set->default_rule.bytes_limit == 0 &&
