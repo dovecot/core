@@ -438,9 +438,9 @@ static bool mail_cache_fields_parse(const char *key,
 }
 /* </settings checks> */
 
-bool mail_user_check_namespace_settings(struct mail_user *user,
-					const struct mail_storage_settings *set,
-					const char **error_r)
+bool mail_user_settings_update_special_use(struct mail_user *user,
+					   const struct mail_storage_settings *set,
+					   const char **error_r)
 {
 	const struct mail_namespace_settings *ns;
 	const char *ns_name, *error;
