@@ -357,20 +357,15 @@ quota_root_init(struct quota_root_legacy_settings *root_set, struct quota *quota
 	array_create(&root->quota_module_contexts, root->pool,
 		     sizeof(void *), 10);
 
-	if (root->backend.v.init != NULL) {
-		root->backend.event = event_create(quota->event);
-		event_drop_parent_log_prefixes(root->backend.event, 1);
+	root->backend.event = event_create(quota->event);
+	event_drop_parent_log_prefixes(root->backend.event, 1);
 
-		if (root->backend.v.init(root, root_set->args, error_r) < 0) {
-			*error_r = t_strdup_printf("%s quota init failed: %s",
-					root->backend.name, *error_r);
+	if (root->backend.v.init(root, root_set->args, error_r) < 0) {
+		*error_r = t_strdup_printf("%s quota init failed: %s",
+					   root->backend.name, *error_r);
 
-			event_unref(&root->backend.event);
-			return -1;
-		}
-	} else {
-		if (quota_root_default_init(root, root_set->args, error_r) < 0)
-			return -1;
+		event_unref(&root->backend.event);
+		return -1;
 	}
 	if (root_set->default_rule.bytes_limit == 0 &&
 	    root_set->default_rule.count_limit == 0 &&
