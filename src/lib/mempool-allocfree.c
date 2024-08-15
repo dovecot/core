@@ -283,6 +283,8 @@ static void *pool_allocfree_realloc(pool_t pool, void *mem,
 	unsigned char *new_mem;
 
 	struct pool_block *block = pool_block_detach(apool, mem);
+	if (old_size == SIZE_MAX)
+		old_size = block->size;
 	if ((new_mem = realloc(block, SIZEOF_POOLBLOCK+new_size)) == NULL)
 		i_fatal_status(FATAL_OUTOFMEM, "realloc(block, %zu)",
 			       SIZEOF_POOLBLOCK+new_size);

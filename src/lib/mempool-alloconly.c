@@ -467,6 +467,8 @@ static void *pool_alloconly_realloc(pool_t pool, void *mem,
 		container_of(pool, struct alloconly_pool, pool);
 	unsigned char *new_mem;
 
+	i_assert(old_size < SIZE_MAX);
+
 	if (new_size <= old_size)
 		return mem;
 
