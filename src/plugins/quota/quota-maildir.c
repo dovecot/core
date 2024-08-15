@@ -9,6 +9,7 @@
 #include "read-full.h"
 #include "write-full.h"
 #include "str.h"
+#include "settings.h"
 #include "maildir-storage.h"
 #include "mailbox-list-private.h"
 #include "quota-private.h"
@@ -158,7 +159,6 @@ static bool maildir_set_next_path(struct maildir_list_context *ctx)
 static const char *
 maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 {
-	struct quota_rule *rule;
 	struct stat st;
 
 	for (;;) {
@@ -167,9 +167,23 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 			if (ctx->info == NULL)
 				return NULL;
 
-			rule = quota_root_rule_find(ctx->root->root.set,
-						    ctx->info->vname);
-			if (rule != NULL && rule->ignore) {
+			const struct quota_settings *set;
+			bool quota_ignore = FALSE;
+			const char *error;
+			struct event *event =
+				mail_storage_mailbox_create_event(
+					ctx->root->root.backend.event,
+					ctx->info->ns->list, ctx->info->vname);
+			if (settings_get(event, &quota_setting_parser_info, 0,
+					 &set, &error) < 0)
+				e_error(event, "%s", error);
+			else {
+				quota_ignore = set->quota_ignore;
+				settings_free(set);
+			}
+			event_unref(&event);
+
+			if (quota_ignore) {
 				/* mailbox not included in quota */
 				continue;
 			}

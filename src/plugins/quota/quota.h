@@ -13,8 +13,6 @@ struct mail_user;
 #define QUOTA_NAME_MESSAGES "MESSAGE"
 
 struct quota;
-struct quota_legacy_settings;
-struct quota_root_legacy_settings;
 struct quota_root;
 struct quota_root_iter;
 struct quota_transaction_context;
@@ -71,25 +69,10 @@ enum quota_get_result {
 const char *quota_alloc_result_errstr(enum quota_alloc_result res,
 		struct quota_transaction_context *qt);
 
-int quota_user_read_settings(struct mail_user *user,
-			     struct quota_legacy_settings **set_r,
-			     const char **error_r);
-void quota_settings_deinit(struct quota_legacy_settings **quota_set);
-
-/* Add a new rule too the quota root. Returns 0 if ok, -1 if rule is invalid. */
-int quota_root_add_rule(struct event *event, pool_t pool,
-			struct quota_root_legacy_settings *root_set,
-			const char *rule_def, const char **error_r);
-/* Add a new warning rule for the quota root. Returns 0 if ok, -1 if rule is
-   invalid. */
-int quota_root_add_warning_rule(struct event *event, pool_t pool,
-				struct quota_root_legacy_settings *root_set,
-				const char *rule_def, const char **error_r);
-
 /* Initialize quota for the given user. Returns 0 and quota_r on success,
    -1 and error_r on failure. */
-int quota_init(struct quota_legacy_settings *quota_set, struct mail_user *user,
-	       struct quota **quota_r, const char **error_r);
+int quota_init(struct mail_user *user, struct quota **quota_r,
+	       const char **error_r);
 void quota_deinit(struct quota **quota);
 
 /* List all visible quota roots. They don't need to be freed. */

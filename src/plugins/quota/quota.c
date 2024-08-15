@@ -52,19 +52,19 @@ static ARRAY(const struct quota_backend*) quota_backends;
 static void hidden_param_handler(struct quota_root *_root, const char *param_value);
 static void ignoreunlim_param_handler(struct quota_root *_root, const char *param_value);
 static void noenforcing_param_handler(struct quota_root *_root, const char *param_value);
-static void ns_param_handler(struct quota_root *_root, const char *param_value);
 
 struct quota_param_parser quota_param_hidden = {.param_name = "hidden", .param_handler = hidden_param_handler};
 struct quota_param_parser quota_param_ignoreunlimited = {.param_name = "ignoreunlimited", .param_handler = ignoreunlim_param_handler};
 struct quota_param_parser quota_param_noenforcing = {.param_name = "noenforcing", .param_handler = noenforcing_param_handler};
-struct quota_param_parser quota_param_ns = {.param_name = "ns=", .param_handler = ns_param_handler};
 
 static enum quota_alloc_result quota_default_test_alloc(
 		struct quota_transaction_context *ctx, uoff_t size,
 		const char **error_r);
 static void quota_over_status_check_root(struct quota_root *root);
+static struct quota_root *
+quota_root_find(struct quota *quota, const char *name);
 
-static const struct quota_backend *quota_backend_find(const char *name)
+const struct quota_backend *quota_backend_find(const char *name)
 {
 	const struct quota_backend *const *backend;
 
@@ -117,139 +117,6 @@ void quota_backends_unregister(void)
 
 }
 
-static int quota_root_add_rules(struct mail_user *user, const char *root_name,
-				pool_t pool, struct quota_root_legacy_settings *root_set,
-				const char **error_r)
-{
-	const char *rule_name, *rule, *error;
-	unsigned int i;
-
-	rule_name = t_strconcat(root_name, "_rule", NULL);
-	for (i = 2;; i++) {
-		rule = mail_user_plugin_getenv(user, rule_name);
-		if (rule == NULL)
-			break;
-
-		if (quota_root_add_rule(user->event, pool, root_set,
-					rule, &error) < 0) {
-			*error_r = t_strdup_printf("Invalid rule %s: %s",
-						   rule, error);
-			return -1;
-		}
-		rule_name = t_strdup_printf("%s_rule%d", root_name, i);
-	}
-	return 0;
-}
-
-static int
-quota_root_add_warning_rules(struct mail_user *user, const char *root_name,
-			     pool_t pool, struct quota_root_legacy_settings *root_set,
-			     const char **error_r)
-{
-	const char *rule_name, *rule, *error;
-	unsigned int i;
-
-	rule_name = t_strconcat(root_name, "_warning", NULL);
-	for (i = 2;; i++) {
-		rule = mail_user_plugin_getenv(user, rule_name);
-		if (rule == NULL)
-			break;
-
-		if (quota_root_add_warning_rule(user->event, pool, root_set,
-						rule, &error) < 0) {
-			*error_r = t_strdup_printf("Invalid warning rule: %s",
-						   rule);
-			return -1;
-		}
-		rule_name = t_strdup_printf("%s_warning%d", root_name, i);
-	}
-	return 0;
-}
-
-static int
-quota_root_settings_init(struct event *event,
-			 struct quota_legacy_settings *quota_set, const char *root_def,
-			 struct quota_root_legacy_settings **set_r,
-			 const char **error_r)
-{
-	struct quota_root_legacy_settings *root_set;
-	const struct quota_backend *backend;
-	const char *p, *args, *backend_name;
-
-	/* <backend>[:<quota root name>[:<backend args>]] */
-	p = strchr(root_def, ':');
-	if (p == NULL) {
-		backend_name = root_def;
-		args = NULL;
-	} else {
-		backend_name = t_strdup_until(root_def, p);
-		args = p + 1;
-	}
-
-	backend = quota_backend_find(backend_name);
-	if (backend == NULL) {
-		*error_r = t_strdup_printf("Unknown quota backend: %s",
-					   backend_name);
-		return -1;
-	}
-
-	root_set = p_new(quota_set->pool, struct quota_root_legacy_settings, 1);
-	root_set->backend = backend;
-
-	if (args != NULL) {
-		/* save root's name */
-		p = strchr(args, ':');
-		if (p == NULL) {
-			root_set->name = p_strdup(quota_set->pool, args);
-			args = NULL;
-		} else {
-			root_set->name =
-				p_strdup_until(quota_set->pool, args, p);
-			args = p + 1;
-		}
-	} else {
-		root_set->name = "";
-	}
-	root_set->args = p_strdup(quota_set->pool, args);
-
-	e_debug(event, "Quota root: name=%s backend=%s args=%s",
-		root_set->name, backend_name, args == NULL ? "" : args);
-
-	p_array_init(&root_set->rules, quota_set->pool, 4);
-	p_array_init(&root_set->warning_rules, quota_set->pool, 4);
-	array_push_back(&quota_set->root_sets, &root_set);
-	*set_r = root_set;
-	return 0;
-}
-
-static int
-quota_root_add(struct quota_legacy_settings *quota_set, struct mail_user *user,
-	       pool_t pool, const char *env, const char *root_name,
-	       const char **error_r)
-{
-	struct quota_root_legacy_settings *root_set;
-	const char *set_name, *value;
-
-	if (quota_root_settings_init(user->event, quota_set, env,
-				     &root_set, error_r) < 0)
-		return -1;
-	root_set->set_name = p_strdup(quota_set->pool, root_name);
-	if (quota_root_add_rules(user, root_name, pool, root_set, error_r) < 0)
-		return -1;
-	if (quota_root_add_warning_rules(user, root_name, quota_set->pool,
-					 root_set, error_r) < 0)
-		return -1;
-
-	set_name = t_strconcat(root_name, "_grace", NULL);
-	value = mail_user_plugin_getenv(user, set_name);
-	if (quota_root_parse_grace(user->event, root_set, value, error_r) < 0) {
-		*error_r = t_strdup_printf("Invalid %s value '%s': %s",
-					   set_name, value, *error_r);
-		return -1;
-	}
-	return 0;
-}
-
 const char *quota_alloc_result_errstr(enum quota_alloc_result res,
 		struct quota_transaction_context *qt)
 {
@@ -272,57 +139,12 @@ const char *quota_alloc_result_errstr(enum quota_alloc_result res,
 	i_unreached();
 }
 
-int quota_user_read_settings(struct mail_user *user,
-			     struct quota_legacy_settings **set_r,
-			     const char **error_r)
-{
-	struct quota_legacy_settings *quota_set;
-	char root_name[5 + MAX_INT_STRLEN];
-	const char *env, *error;
-	unsigned int i;
-	pool_t pool;
-
-	pool = pool_alloconly_create("quota settings", 2048);
-	quota_set = p_new(pool, struct quota_legacy_settings, 1);
-	quota_set->pool = pool;
-
-	p_array_init(&quota_set->root_sets, pool, 4);
-	if (i_strocpy(root_name, "quota", sizeof(root_name)) < 0)
-		i_unreached();
-	for (i = 2;; i++) {
-		env = mail_user_plugin_getenv(user, root_name);
-		if (env == NULL || *env == '\0')
-			break;
-
-		if (quota_root_add(quota_set, user, pool, env, root_name,
-				   &error) < 0) {
-			*error_r = t_strdup_printf("Invalid quota root %s: %s",
-						   root_name, error);
-			pool_unref(&pool);
-			return -1;
-		}
-		if (i_snprintf(root_name, sizeof(root_name), "quota%d", i) < 0)
-			i_unreached();
-	}
-
-	*set_r = quota_set;
-	return 0;
-}
-
-void quota_settings_deinit(struct quota_legacy_settings **_quota_set)
-{
-	struct quota_legacy_settings *quota_set = *_quota_set;
-
-	*_quota_set = NULL;
-
-	pool_unref(&quota_set->pool);
-}
-
 static void quota_root_deinit(struct quota_root *root)
 {
 	pool_t pool = root->pool;
 
 	event_unref(&root->backend.event);
+	settings_free(root->set);
 	root->backend.v.deinit(root);
 	pool_unref(&pool);
 }
@@ -334,87 +156,159 @@ int quota_root_default_init(struct quota_root *root, const char *args,
 		quota_param_hidden,
 		quota_param_ignoreunlimited,
 		quota_param_noenforcing,
-		quota_param_ns,
 		{.param_name = NULL}
 	};
 	return quota_parse_parameters(root, &args, error_r, default_params, TRUE);
 }
 
 static int
-quota_root_init(struct quota_root_legacy_settings *root_set, struct quota *quota,
+quota_root_settings_get(struct quota_root *root, struct event *set_event,
+			const struct quota_settings **set_r,
+			const char **error_r)
+{
+	struct event *event;
+
+	if (set_event == NULL)
+		event = root->backend.event;
+	else {
+		event = event_create(set_event);
+		event_add_str(event, "quota", root->set->quota_name);
+	}
+	int ret = settings_get(event, &quota_setting_parser_info, 0,
+			       set_r, error_r);
+	if (set_event != NULL)
+		event_unref(&event);
+	return ret;
+}
+
+static int quota_root_has_under_warnings(struct quota_root *root)
+{
+	const struct quota_settings *set;
+	const char *warn_name, *error;
+
+	if (!array_is_created(&root->set->quota_warnings))
+		return 0;
+	array_foreach_elem(&root->set->quota_warnings, warn_name) {
+		if (settings_get_filter(root->backend.event,
+					"quota_warning", warn_name,
+					&quota_setting_parser_info, 0,
+					&set, &error) < 0) {
+			e_error(root->backend.event, "%s", error);
+			quota_root_deinit(root);
+			return -1;
+		}
+		bool under = strcmp(set->quota_warning_threshold,
+				    QUOTA_WARNING_THRESHOLD_UNDER) == 0;
+		settings_free(set);
+		if (under)
+			return 1;
+	}
+	return 0;
+}
+
+static int
+quota_root_init(struct quota *quota, struct event *set_event, const char *root_name,
 		struct quota_root **root_r, const char **error_r)
 {
+	const struct quota_settings *root_set;
 	struct quota_root *root;
+
+	if (settings_get_filter(set_event, "quota", root_name,
+				&quota_setting_parser_info, 0,
+				&root_set, error_r) < 0)
+		return -1;
+
+	/* If a quota root exists already with the same name, assume it's the
+	   same as this one. Don't add duplicates. */
+	root = quota_root_find(quota, root_set->quota_name);
+	if (root != NULL) {
+		settings_free(root_set);
+		*root_r = root;
+		return 1;
+	}
 
 	root = root_set->backend->v.alloc();
 	root->pool = pool_alloconly_create("quota root", 512);
 	root->set = root_set;
 	root->quota = quota;
 	root->backend = *root_set->backend;
-	root->bytes_limit = root_set->default_rule.bytes_limit;
-	root->count_limit = root_set->default_rule.count_limit;
 	p_array_init(&root->namespaces, root->pool, 4);
 
 	array_create(&root->quota_module_contexts, root->pool,
 		     sizeof(void *), 10);
 
 	root->backend.event = event_create(quota->event);
+	event_add_str(root->backend.event, "quota", root_name);
 	event_drop_parent_log_prefixes(root->backend.event, 1);
 
-	if (root->backend.v.init(root, root_set->args, error_r) < 0) {
+	root->bytes_limit = root->set->quota_storage_size > INT64_MAX ? 0 :
+		root->set->quota_storage_size;
+	root->count_limit = root->set->quota_message_count;
+
+	if (root->backend.v.init(root, root->set->quota_args, error_r) < 0) {
 		*error_r = t_strdup_printf("%s quota init failed: %s",
 					   root->backend.name, *error_r);
 
 		event_unref(&root->backend.event);
+		settings_free(root->set);
 		pool_unref(&root->pool);
 		return -1;
 	}
-	if (root_set->default_rule.bytes_limit == 0 &&
-	    root_set->default_rule.count_limit == 0 &&
+	if (root->set->quota_storage_size == 0 &&
+	    root->set->quota_message_count == 0 &&
 	    root->disable_unlimited_tracking) {
 		quota_root_deinit(root);
 		return 0;
 	}
+
+	/* If a quota backend needs virtual size instead of physical size,
+	   use this for all backends. This is not ideal, but works. */
+	if (root->set->backend->use_vsize)
+		quota->vsizes = TRUE;
+
+	array_push_back(&quota->all_roots, &root);
 	*root_r = root;
 	return 1;
 }
 
-int quota_init(struct quota_legacy_settings *quota_set, struct mail_user *user,
-	       struct quota **quota_r, const char **error_r)
+int quota_init(struct mail_user *user, struct quota **quota_r,
+	       const char **error_r)
 {
 	struct quota *quota;
 	struct quota_root *root;
-	struct quota_root_legacy_settings *const *root_sets;
-	unsigned int i, count;
+	const struct quota_settings *set;
+	const char *root_name;
 	const char *error;
 	int ret;
+
+	if (settings_get(user->event, &quota_setting_parser_info, 0,
+			 &set, error_r) < 0)
+		return -1;
 
 	quota = i_new(struct quota, 1);
 	quota->event = event_create(user->event);
 	event_set_append_log_prefix(quota->event, "quota: ");
 	quota->user = user;
-	quota->set = quota_set;
 	quota->test_alloc = quota_default_test_alloc;
-	i_array_init(&quota->roots, 8);
+	i_array_init(&quota->global_private_roots, 8);
+	i_array_init(&quota->all_roots, 8);
 
-	root_sets = array_get(&quota_set->root_sets, &count);
-	for (i = 0; i < count; i++) {
-		ret = quota_root_init(root_sets[i], quota, &root, &error);
-		if (ret < 0) {
-			*error_r = t_strdup_printf("Quota root %s: %s",
-						   root_sets[i]->name, error);
-			quota_deinit(&quota);
-			return -1;
-		}
-		if (ret > 0) {
-			array_push_back(&quota->roots, &root);
-			/* If a quota backend needs virtual size instead of physical
-			   size, use this for all backends. This is not ideal, but
-			   works. */
-			if (root->set->backend->use_vsize)
-				quota->vsizes = TRUE;
+	if (array_is_created(&set->quota_roots)) {
+		array_foreach_elem(&set->quota_roots, root_name) {
+			ret = quota_root_init(quota, quota->event, root_name,
+					      &root, &error);
+			if (ret < 0) {
+				*error_r = t_strdup_printf("Quota root %s: %s",
+							   root_name, error);
+				settings_free(set);
+				quota_deinit(&quota);
+				return -1;
+			}
+			if (ret > 0)
+				array_push_back(&quota->global_private_roots, &root);
 		}
 	}
+	settings_free(set);
 	*quota_r = quota;
 	return 0;
 }
@@ -425,61 +319,75 @@ void quota_deinit(struct quota **_quota)
 	struct quota_root *const *roots;
 	unsigned int i, count;
 
-	roots = array_get(&quota->roots, &count);
+	roots = array_get(&quota->all_roots, &count);
 	for (i = 0; i < count; i++)
 		quota_root_deinit(roots[i]);
 
 	/* deinit quota roots before setting quser->quota=NULL */
 	*_quota = NULL;
 
-	array_free(&quota->roots);
+	array_free(&quota->global_private_roots);
+	array_free(&quota->all_roots);
 	event_unref(&quota->event);
 	i_free(quota);
 }
 
-static void
-quota_root_get_rule_limits(struct quota_root *root, struct mailbox *box,
+static int
+quota_root_get_rule_limits(struct quota_root *root, struct event *set_event,
 			   uint64_t *bytes_limit_r, uint64_t *count_limit_r,
-			   bool *ignored_r)
+			   bool *ignored_r, const char **error_r)
 {
-	struct quota_rule *rule;
-	int64_t bytes_limit, count_limit;
+	const struct quota_settings *set;
 
-	*ignored_r = FALSE;
+	if (quota_root_settings_get(root, set_event, &set, error_r) < 0)
+		return -1;
 
-	bytes_limit = root->bytes_limit;
-	count_limit = root->count_limit;
-
-	/* if default rule limits are 0, user has unlimited quota.
-	   ignore any specific quota rules */
-	if (bytes_limit != 0 || count_limit != 0) {
-		const char *mailbox_name = mailbox_get_vname(box);
-		(void)mail_namespace_find_unalias(root->quota->user->namespaces,
-						  &mailbox_name);
-		rule = quota_root_rule_find(root->set, mailbox_name);
+	if (set->quota_ignore) {
+		*bytes_limit_r = 0;
+		*count_limit_r = 0;
+		*ignored_r = TRUE;
 	} else {
-		rule = NULL;
-	}
+		uint64_t bytes_limit, count_limit;
 
-	if (rule != NULL) {
-		if (!rule->ignore) {
-			if (rule->bytes_percent != 0)
-				bytes_limit += bytes_limit * rule->bytes_percent / 100;
-			else
-				bytes_limit += rule->bytes_limit;
-			if (rule->count_percent != 0)
-				count_limit += count_limit * rule->count_percent / 100;
-			else
-				count_limit += rule->count_limit;
-		} else {
-			bytes_limit = 0;
-			count_limit = 0;
-			*ignored_r = TRUE;
+		if (set->quota_storage_size != 0)
+			bytes_limit = set->quota_storage_size;
+		else {
+			/* unlimited quota in configuration - see if the quota
+			   backend has a limit set. */
+			bytes_limit = root->bytes_limit;
 		}
+		if (bytes_limit == 0 || bytes_limit > INT64_MAX)
+			*bytes_limit_r = 0;
+		else {
+			if (set->quota_storage_percentage == 100)
+				*bytes_limit_r = bytes_limit;
+			else {
+				*bytes_limit_r = bytes_limit / 100.0 *
+					set->quota_storage_percentage;
+			}
+			if (*bytes_limit_r <= INT64_MAX &&
+			    set->quota_storage_extra <= INT64_MAX - *bytes_limit_r)
+				*bytes_limit_r += set->quota_storage_extra;
+			else
+				*bytes_limit_r = 0;
+		}
+
+		if (set->quota_message_count != 0)
+			count_limit = set->quota_message_count;
+		else
+			count_limit = root->count_limit;
+
+		if (count_limit == 0 || set->quota_message_percentage == 100)
+			*count_limit_r = count_limit;
+		else {
+			*count_limit_r = count_limit / 100.0 *
+				set->quota_message_percentage;
+		}
+		*ignored_r = FALSE;
 	}
 
-	*bytes_limit_r = bytes_limit <= 0 ? 0 : bytes_limit;
-	*count_limit_r = count_limit <= 0 ? 0 : count_limit;
+	settings_free(set);
+	return 0;
 }
 
 static bool
@@ -517,37 +425,56 @@ quota_is_duplicate_namespace(struct quota_root *root, struct mail_namespace *ns)
 			   include the INBOX also in quota calculations, so we
 			   can't just ignore this namespace. but since we've
 			   already called backend's namespace_added(), we can't
-			   just remove it either. so just mark the old one as
-			   unwanted namespace.
+			   entirely remove it either.
 
 			   an alternative would be to do a bit larger change so
 			   namespaces wouldn't be added until
 			   mail_namespaces_created() hook is called */
-			i_assert(root->unwanted_ns == NULL);
-			root->unwanted_ns = namespaces[i];
+			array_delete(&root->namespaces, i, 1);
 			return FALSE;
 		}
 	}
 	return FALSE;
 }
 
-void quota_add_user_namespace(struct quota *quota, struct mail_namespace *ns)
+static bool quota_root_is_namespace_visible(struct mail_namespace *ns)
+{
+	struct mailbox_list *list = ns->list;
+	struct mail_storage *storage;
+
+	/* this check works as long as there is only one storage per list */
+	const char *vname = "";
+	if (mailbox_list_get_storage(&list, &vname, 0, &storage) == 0 &&
+	    (storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NOQUOTA) != 0)
+		return FALSE;
+	return TRUE;
+}
+
+void quota_add_user_namespace(struct quota *quota, const char *root_name,
+			      struct mail_namespace *ns)
 {
 	struct quota_root *root;
+	const char *error;
 
-	array_foreach_elem(&quota->roots, root) {
-		if (!quota_root_is_namespace_visible(root, ns))
-			continue;
-		/* first check if there already exists a namespace with the
-		   exact same path. we don't want to count them twice. */
-		if (quota_is_duplicate_namespace(root, ns))
-			continue;
-
-		array_push_back(&root->namespaces, &ns);
-
-		if (root->backend.v.namespace_added != NULL)
-			root->backend.v.namespace_added(root, ns);
+	int ret = quota_root_init(quota, ns->list->event, root_name,
+				  &root, &error);
+	if (ret == 0)
+		return;
+	if (ret < 0) {
+		e_error(ns->list->event, "Quota root %s: %s", root_name, error);
+		return;
 	}
+	if (!quota_root_is_namespace_visible(ns))
+		return;
+	/* first check if there already exists a namespace with the
+	   exact same path. we don't want to count them twice. */
+	if (quota_is_duplicate_namespace(root, ns))
+		return;
+
+	array_push_back(&root->namespaces, &ns);
+
+	if (root->backend.v.namespace_added != NULL)
+		root->backend.v.namespace_added(root, ns);
 }
 
 void quota_remove_user_namespace(struct mail_namespace *ns)
@@ -565,7 +492,7 @@ void quota_remove_user_namespace(struct mail_namespace *ns)
 		return;
 	}
 
-	array_foreach_elem(&quota->roots, root) {
+	array_foreach_elem(&quota->all_roots, root) {
 		namespaces = array_get(&root->namespaces, &count);
 		for (i = 0; i < count; i++) {
 			if (namespaces[i] == ns) {
@@ -599,36 +526,22 @@ quota_root_iter_init(struct mailbox *box)
 	return iter;
 }
 
-bool quota_root_is_namespace_visible(struct quota_root *root,
-				     struct mail_namespace *ns)
-{
-	struct mailbox_list *list = ns->list;
-	struct mail_storage *storage;
-
-	/* this check works as long as there is only one storage per list */
-	const char *vname = "";
-	if (mailbox_list_get_storage(&list, &vname, 0, &storage) == 0 &&
-	    (storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NOQUOTA) != 0)
-		return FALSE;
-	if (root->unwanted_ns == ns)
-		return FALSE;
-
-	if (root->ns_prefix != NULL) {
-		if (root->ns != ns)
-			return FALSE;
-	} else {
-		if (ns->owner == NULL)
-			return FALSE;
-	}
-	return TRUE;
-}
-
 static bool
 quota_root_is_visible(struct quota_root *root, struct mailbox *box)
 {
-	if (array_lsearch_ptr(&root->namespaces, box->list->ns) == NULL)
-		return FALSE;
-	if (array_count(&root->quota->roots) == 1) {
+	if (root->quota->user == box->storage->user) {
+		if (array_lsearch_ptr(&root->namespaces, box->list->ns) == NULL)
+			return FALSE;
+	} else {
+		/* This is a shared mailbox. The quota user is the actual owner
+		   of the mailbox, but the mailbox is accessed via another
+		   user. Currently each shared namepace gets its own owner
+		   mail_user, even when the same user has multiple shared
+		   namespaces. So we don't need to verify whether the namespace
+		   matches - there is always only one. */
+		i_assert(box->list->ns->type == MAIL_NAMESPACE_TYPE_SHARED);
+	}
+	if (array_count(&root->quota->all_roots) == 1) {
 		/* a single quota root: don't bother checking further */
 		return TRUE;
 	}
@@ -644,7 +557,7 @@ struct quota_root *quota_root_iter_next(struct quota_root_iter *iter)
 	if (iter->quota == NULL)
 		return NULL;
 
-	roots = array_get(&iter->quota->roots, &count);
+	roots = array_get(&iter->quota->all_roots, &count);
 	if (iter->i >= count)
 		return NULL;
 
@@ -669,26 +582,33 @@ void quota_root_iter_deinit(struct quota_root_iter **_iter)
 	i_free(iter);
 }
 
-struct quota_root *quota_root_lookup(struct mail_user *user, const char *name)
+static struct quota_root *
+quota_root_find(struct quota *quota, const char *name)
 {
-	struct quota *quota;
 	struct quota_root *const *roots;
 	unsigned int i, count;
 
-	quota = quota_get_mail_user_quota(user);
-	if (quota == NULL)
-		return NULL;
-	roots = array_get(&quota->roots, &count);
+	roots = array_get(&quota->all_roots, &count);
 	for (i = 0; i < count; i++) {
-		if (strcmp(roots[i]->set->name, name) == 0)
+		if (strcmp(roots[i]->set->quota_name, name) == 0)
 			return roots[i];
 	}
 	return NULL;
 }
 
+struct quota_root *quota_root_lookup(struct mail_user *user, const char *name)
+{
+	struct quota *quota;
+
+	quota = quota_get_mail_user_quota(user);
+	if (quota == NULL)
+		return NULL;
+	return quota_root_find(quota, name);
+}
+
 const char *quota_root_get_name(struct quota_root *root)
 {
-	return root->set->name;
+	return root->set->quota_name;
 }
 
 const char *const *quota_root_get_resources(struct quota_root *root)
@@ -710,6 +630,7 @@ quota_get_resource(struct quota_root *root, struct mailbox *box,
 		   const char **error_r)
 {
 	const char *error;
+	struct event *set_event;
 	uint64_t bytes_limit, count_limit;
 	bool ignored, kilobytes = FALSE;
 	enum quota_get_result ret;
@@ -735,8 +656,20 @@ quota_get_resource(struct quota_root *root, struct mailbox *box,
 		return ret;
 	}
 
-	quota_root_get_rule_limits(root, box,
-				   &bytes_limit, &count_limit, &ignored);
+	if (box != NULL)
+		set_event = box->event;
+	else if (array_is_empty(&root->namespaces))
+		set_event = NULL;
+	else {
+		struct mail_namespace *ns =
+			array_idx_elem(&root->namespaces, 0);
+		set_event = ns->list->event;
+	}
+
+	if (quota_root_get_rule_limits(root, set_event,
+				       &bytes_limit, &count_limit,
+				       &ignored, error_r) < 0)
+		return -1;
 
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
 		*limit_r = bytes_limit;
@@ -752,22 +685,10 @@ quota_get_resource(struct quota_root *root, struct mailbox *box,
 	return *limit_r == 0 ? QUOTA_GET_RESULT_UNLIMITED : QUOTA_GET_RESULT_LIMITED;
 }
 
-static bool quota_root_have_reverse_warnings(struct quota_root *root)
-{
-	const struct quota_warning_rule *warn;
-	array_foreach(&root->set->warning_rules, warn) {
-		if (warn->reverse)
-			return TRUE;
-	}
-	return FALSE;
-}
-
 struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 {
 	struct quota_transaction_context *ctx;
 	struct quota_root *const *rootp;
-	const struct quota_rule *rule;
-	const char *mailbox_name;
 
 	ctx = i_new(struct quota_transaction_context, 1);
 	ctx->quota = box->list->ns->owner != NULL ?
@@ -780,21 +701,25 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 	ctx->bytes_ceil2 = (uint64_t)-1;
 	ctx->count_ceil = (uint64_t)-1;
 
-	mailbox_name = mailbox_get_vname(box);
-	(void)mail_namespace_find_unalias(box->storage->user->namespaces,
-					  &mailbox_name);
-
 	ctx->auto_updating = TRUE;
-	array_foreach(&ctx->quota->roots, rootp) {
+	array_foreach(&ctx->quota->all_roots, rootp) {
 		if (!quota_root_is_visible(*rootp, ctx->box))
 			continue;
 
-		rule = quota_root_rule_find((*rootp)->set, mailbox_name);
-		if (rule != NULL && rule->ignore) {
+		const struct quota_settings *set = NULL;
+		const char *error;
+		if (quota_root_settings_get(*rootp, box->event,
+					    &set, &error) < 0) {
+			e_error(ctx->box->event, "%s", error);
+			ctx->failed = TRUE;
+		} else if (set->quota_ignore) {
 			/* This mailbox isn't included in quota. This means
 			   it's also not included in quota_warnings, so make
 			   sure it's fully ignored. */
+			settings_free(set);
 			continue;
+		} else {
+			settings_free(set);
 		}
 
 		/* If there are reverse quota_warnings, we'll need to track
@@ -803,7 +728,7 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 		   before and after the expunges, but that's more complicated
 		   and probably isn't any better.) */
 		if (!(*rootp)->auto_updating ||
-		    quota_root_have_reverse_warnings(*rootp))
+		    quota_root_has_under_warnings(*rootp) != 0)
 			ctx->auto_updating = FALSE;
 	}
 
@@ -842,7 +767,7 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 	}
 
 	/* find the lowest quota limits from all roots and use them */
-	roots = array_get(&ctx->quota->roots, &count);
+	roots = array_get(&ctx->quota->all_roots, &count);
 	for (i = 0; i < count; i++) {
 		/* make sure variables get initialized */
 		bytes_limit = count_limit = 0;
@@ -850,10 +775,12 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 			continue;
 		else if (roots[i]->no_enforcing) {
 			ignored = FALSE;
-		} else {
-			quota_root_get_rule_limits(roots[i], ctx->box,
-						   &bytes_limit, &count_limit,
-						   &ignored);
+		} else if (quota_root_get_rule_limits(roots[i], ctx->box->event,
+						      &bytes_limit, &count_limit,
+						      &ignored, error_r) < 0) {
+			ctx->failed = TRUE;
+			*error_result_r = QUOTA_GET_RESULT_INTERNAL_ERROR;
+			return -1;
 		}
 		if (!ignored)
 			ctx->no_quota_updates = FALSE;
@@ -993,14 +920,12 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 static void quota_warnings_execute(struct quota_transaction_context *ctx,
 				   struct quota_root *root)
 {
-	struct quota_warning_rule *warnings;
-	unsigned int i, count;
+	const struct quota_settings *set;
 	uint64_t bytes_current, bytes_before, bytes_limit;
 	uint64_t count_current, count_before, count_limit;
-	const char *reason, *error;
+	const char *warn_name, *reason, *error;
 
-	warnings = array_get_modifiable(&root->set->warning_rules, &count);
-	if (count == 0)
+	if (array_is_empty(&root->set->quota_warnings))
 		return;
 
 	if (quota_get_resource(root, NULL, QUOTA_NAME_STORAGE_BYTES,
@@ -1027,25 +952,32 @@ static void quota_warnings_execute(struct quota_transaction_context *ctx,
 		count_before = 0;
 	else
 		count_before = (int64_t)count_current - ctx->count_used;
-	for (i = 0; i < count; i++) {
-		if (quota_warning_match(root, &warnings[i],
-					bytes_before, bytes_current,
+
+	array_foreach_elem(&root->set->quota_warnings, warn_name) {
+		if (settings_get_filter(root->backend.event,
+					"quota_warning", warn_name,
+					&quota_setting_parser_info, 0,
+					&set, &error) < 0) {
+			e_error(root->backend.event, "%s", error);
+			return;
+		}
+		if (quota_warning_match(set, bytes_before, bytes_current,
 					count_before, count_current,
 					&reason)) {
-			quota_warning_execute(root, warnings[i].command,
+			quota_warning_execute(root, set->quota_warning_command,
 					      NULL, reason);
+			settings_free(set);
 			break;
 		}
+		settings_free(set);
 	}
 }
 
 int quota_transaction_commit(struct quota_transaction_context **_ctx)
 {
 	struct quota_transaction_context *ctx = *_ctx;
-	struct quota_rule *rule;
 	struct quota_root *const *roots;
 	unsigned int i, count;
-	const char *mailbox_name;
 	int ret = 0;
 
 	*_ctx = NULL;
@@ -1056,28 +988,28 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 		 ctx->recalculate != QUOTA_RECALCULATE_DONT) T_BEGIN {
 		ARRAY(struct quota_root *) warn_roots;
 
-		mailbox_name = mailbox_get_vname(ctx->box);
-		(void)mail_namespace_find_unalias(
-			ctx->box->storage->user->namespaces, &mailbox_name);
-
-		roots = array_get(&ctx->quota->roots, &count);
+		roots = array_get(&ctx->quota->all_roots, &count);
 		t_array_init(&warn_roots, count);
 		for (i = 0; i < count; i++) {
 			if (!quota_root_is_visible(roots[i], ctx->box))
 				continue;
 
-			rule = quota_root_rule_find(roots[i]->set,
-						    mailbox_name);
-			if (rule != NULL && rule->ignore) {
+			const struct quota_settings *set = NULL;
+			const char *error;
+			if (quota_root_settings_get(roots[i], ctx->box->event,
+						    &set, &error) < 0) {
+				e_error(ctx->box->event, "%s", error);
+				ret = -1;
+			} else if (set->quota_ignore) {
 				/* mailbox not included in quota */
+				settings_free(set);
 				continue;
 			}
+			settings_free(set);
 
-			const char *error;
 			if (roots[i]->backend.v.update(roots[i], ctx, &error) < 0) {
-				e_error(ctx->quota->event,
-					"Failed to update quota for %s: %s",
-					mailbox_name, error);
+				e_error(ctx->box->event,
+					"Failed to update quota: %s", error);
 				ret = -1;
 			}
 			else if (!ctx->sync_transaction)
@@ -1099,47 +1031,33 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 }
 
 static bool
-quota_over_status_init_root(struct quota_root *root,
-			    const char **quota_over_script_r,
-			    const char **quota_over_status_current_r,
-			    bool *status_r)
+quota_over_status_init_root(struct quota_root *root, bool *status_r)
 {
-	const char *name, *mask;
-
-	*quota_over_status_current_r = NULL;
 	*status_r = FALSE;
-
-	name = t_strconcat(root->set->set_name, "_over_script", NULL);
-	*quota_over_script_r = mail_user_plugin_getenv(root->quota->user, name);
-	if (*quota_over_script_r == NULL) {
+	if (root->set->quota_over_status_script[0] == '\0') {
 		e_debug(root->quota->event, "quota_over_status check: "
-			"%s unset - skipping", name);
+			"quota_over_script unset - skipping");
 		return FALSE;
 	}
 
 	/* e.g.: quota_over_status_mask=TRUE or quota_over_status_mask=*  */
-	name = t_strconcat(root->set->set_name, "_over_status_mask", NULL);
-	mask = mail_user_plugin_getenv(root->quota->user, name);
-	if (mask == NULL) {
+	if (root->set->quota_over_status_mask[0] == '\0') {
 		e_debug(root->quota->event, "quota_over_status check: "
-			"%s unset - skipping", name);
+			"quota_over_mask unset - skipping");
 		return FALSE;
 	}
 
 	/* compare quota_over_status_current's value (that comes from userdb) to
 	   quota_over_status_mask and save the result. */
-	name = t_strconcat(root->set->set_name, "_over_status_current", NULL);
-	*quota_over_status_current_r =
-		mail_user_plugin_getenv(root->quota->user, name);
-	*status_r = *quota_over_status_current_r != NULL &&
-		wildcard_match_icase(*quota_over_status_current_r, mask);
+	*status_r = root->set->quota_over_status_current[0] != '\0' &&
+		wildcard_match_icase(root->set->quota_over_status_current,
+				     root->set->quota_over_status_mask);
 	return TRUE;
 }
 
 static void quota_over_status_check_root(struct quota_root *root)
 {
-	const char *quota_over_script, *quota_over_status_current, *error;
-	const char *const *resources;
+	const char *error, *const *resources;
 	unsigned int i;
 	uint64_t value, limit;
 	bool cur_overquota = FALSE;
@@ -1164,9 +1082,7 @@ static void quota_over_status_check_root(struct quota_root *root)
 		return;
 	}
 	root->quota_over_status_checked = TRUE;
-	if (!quota_over_status_init_root(root, &quota_over_script,
-				       &quota_over_status_current,
-				       &quota_over_status))
+	if (!quota_over_status_init_root(root, &quota_over_status))
 		return;
 
 	resources = quota_root_get_resources(root);
@@ -1188,11 +1104,11 @@ static void quota_over_status_check_root(struct quota_root *root)
 	}
 	e_debug(root->quota->event, "quota_over_status=%d(%s) vs currently overquota=%d",
 		quota_over_status ? 1 : 0,
-		quota_over_status_current == NULL ? "(null)" : quota_over_status_current,
+		root->set->quota_over_status_current,
 		cur_overquota ? 1 : 0);
 	if (cur_overquota != quota_over_status) {
-		quota_warning_execute(root, quota_over_script,
-				      quota_over_status_current,
+		quota_warning_execute(root, root->set->quota_over_status_script,
+				      root->set->quota_over_status_current,
 				      "quota_over_status mismatch");
 	}
 }
@@ -1201,12 +1117,10 @@ void quota_over_status_check_startup(struct quota *quota)
 {
 	struct quota_root *const *roots;
 	unsigned int i, count;
-	const char *name;
 
-	roots = array_get(&quota->roots, &count);
+	roots = array_get(&quota->all_roots, &count);
 	for (i = 0; i < count; i++) {
-		name = t_strconcat(roots[i]->set->set_name, "_over_status_lazy_check", NULL);
-		if (!mail_user_plugin_getenv_bool(roots[i]->quota->user, name))
+		if (!roots[i]->set->quota_over_status_lazy_check)
 			quota_over_status_check_root(roots[i]);
 	}
 }
@@ -1331,7 +1245,7 @@ static enum quota_alloc_result quota_default_test_alloc(
 	}
 
 	/* limit reached. */
-	roots = array_get(&ctx->quota->roots, &count);
+	roots = array_get(&ctx->quota->all_roots, &count);
 	for (i = 0; i < count; i++) {
 		uint64_t bytes_limit, count_limit;
 
@@ -1339,9 +1253,11 @@ static enum quota_alloc_result quota_default_test_alloc(
 		    roots[i]->no_enforcing)
 			continue;
 
-		quota_root_get_rule_limits(roots[i], ctx->box,
-					   &bytes_limit, &count_limit,
-					   &ignore);
+		if (quota_root_get_rule_limits(roots[i], ctx->box->event,
+					       &bytes_limit, &count_limit,
+					       &ignore, error_r) < 0) {
+			return QUOTA_ALLOC_RESULT_TEMPFAIL;
+		}
 
 		/* if size is bigger than any limit, then
 		   it is bigger than the lowest limit */
@@ -1395,11 +1311,6 @@ static void ignoreunlim_param_handler(struct quota_root *_root, const char *para
 static void noenforcing_param_handler(struct quota_root *_root, const char *param_value ATTR_UNUSED)
 {
 	_root->no_enforcing = TRUE;
-}
-
-static void ns_param_handler(struct quota_root *_root, const char *param_value)
-{
-	_root->ns_prefix = p_strdup(_root->pool, param_value);
 }
 
 int quota_parse_parameters(struct quota_root *root, const char **args, const char **error_r,

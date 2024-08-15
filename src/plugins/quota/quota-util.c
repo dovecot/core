@@ -1,350 +1,42 @@
 /* Copyright (c) 2005-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "str-parse.h"
-#include "wildcard-match.h"
 #include "quota-private.h"
 
-#include <ctype.h>
-
-#define QUOTA_DEFAULT_GRACE "10M"
-
-#define RULE_NAME_DEFAULT_FORCE "*"
-
-struct quota_rule *
-quota_root_rule_find(struct quota_root_legacy_settings *root_set, const char *name)
-{
-	struct quota_rule *rule;
-
-	array_foreach_modifiable(&root_set->rules, rule) {
-		if (wildcard_match(name, rule->mailbox_mask))
-			return rule;
-	}
-	return NULL;
-}
-
-static struct quota_rule *
-quota_root_rule_find_exact(struct quota_root_legacy_settings *root_set,
-			   const char *name)
-{
-	struct quota_rule *rule;
-
-	array_foreach_modifiable(&root_set->rules, rule) {
-		if (strcmp(rule->mailbox_mask, name) == 0)
-			return rule;
-	}
-	return NULL;
-}
-
-static int
-quota_rule_parse_percentage(struct quota_root_legacy_settings *root_set,
-			    struct quota_rule *rule,
-			    int64_t *limit, const char **error_r)
-{
-	int64_t percentage = *limit;
-
-	if (percentage <= -100 || percentage >= UINT_MAX) {
-		*error_r = "Invalid percentage";
-		return -1;
-	}
-
-	if (rule == &root_set->default_rule) {
-		*error_r = "Default rule can't be a percentage";
-		return -1;
-	}
-
-	if (limit == &rule->bytes_limit)
-		rule->bytes_percent = percentage;
-	else if (limit == &rule->count_limit)
-		rule->count_percent = percentage;
-	else
-		i_unreached();
-	return 0;
-}
-
-static int quota_limit_parse(struct quota_root_legacy_settings *root_set,
-			     struct quota_rule *rule, const char *unit,
-			     uint64_t multiply, int64_t *limit,
-			     const char **error_r)
-{
-	switch (i_toupper(*unit)) {
-	case '\0':
-		/* default */
-		break;
-	case 'B':
-		multiply = 1;
-		break;
-	case 'K':
-		multiply = 1024;
-		break;
-	case 'M':
-		multiply = 1024*1024;
-		break;
-	case 'G':
-		multiply = 1024*1024*1024;
-		break;
-	case 'T':
-		multiply = 1024ULL*1024*1024*1024;
-		break;
-	case '%':
-		multiply = 0;
-		if (quota_rule_parse_percentage(root_set, rule, limit,
-						error_r) < 0)
-			return -1;
-		break;
-	default:
-		*error_r = t_strdup_printf("Unknown unit: %s", unit);
-		return -1;
-	}
-	*limit *= multiply;
-	return 0;
-}
-
-static int
-quota_rule_parse_limits(struct event *event,
-			struct quota_root_legacy_settings *root_set,
-			struct quota_rule *rule, const char *limits,
-			const char *full_rule_def,
-			bool relative_rule, const char **error_r)
-{
-	const char **args, *key, *value, *error, *p;
-	uint64_t multiply;
-	int64_t *limit;
-
-	args = t_strsplit(limits, ":");
-	for (; *args != NULL; args++) {
-		multiply = 1;
-		limit = NULL;
-
-		key = *args;
-		value = strchr(key, '=');
-		if (value == NULL)
-			value = "";
-		else
-			key = t_strdup_until(key, value++);
-
-		if (*value == '+') {
-			if (!relative_rule) {
-				*error_r = "Rule limit cannot have '+'";
-				return -1;
-			}
-			value++;
-		} else if (*value != '-' && relative_rule) {
-			e_warning(event, "quota root %s rule %s: "
-				  "obsolete configuration for rule '%s' "
-				  "should be changed to '%s=+%s'",
-				  root_set->name, full_rule_def,
-				  *args, key, value);
-		}
-
-		if (strcmp(key, "storage") == 0) {
-			multiply = 1024;
-			limit = &rule->bytes_limit;
-			if (str_parse_int64(value, limit, &p) < 0) {
-				*error_r = t_strdup_printf(
-						"Invalid storage limit: %s", value);
-				return -1;
-			}
-		} else if (strcmp(key, "bytes") == 0) {
-			limit = &rule->bytes_limit;
-			if (str_parse_int64(value, limit, &p) < 0) {
-				*error_r = t_strdup_printf(
-						"Invalid bytes limit: %s", value);
-				return -1;
-			}
-		} else if (strcmp(key, "messages") == 0) {
-			limit = &rule->count_limit;
-			if (str_parse_int64(value, limit, &p) < 0) {
-				*error_r = t_strdup_printf(
-						"Invalid bytes messages: %s", value);
-				return -1;
-			}
-		} else {
-			*error_r = t_strdup_printf(
-					"Unknown rule limit name: %s", key);
-			return -1;
-		}
-
-		if (quota_limit_parse(root_set, rule, p, multiply,
-				      limit, &error) < 0) {
-			*error_r = t_strdup_printf(
-				"Invalid rule limit value '%s': %s",
-				*args, error);
-			return -1;
-		}
-	}
-	if (!relative_rule) {
-		if (rule->bytes_limit < 0) {
-			*error_r = "Bytes limit can't be negative";
-			return -1;
-		}
-		if (rule->count_limit < 0) {
-			*error_r = "Count limit can't be negative";
-			return -1;
-		}
-	}
-	return 0;
-}
-
-int quota_root_add_rule(struct event *event, pool_t pool,
-			struct quota_root_legacy_settings *root_set,
-			const char *rule_def, const char **error_r)
-{
-	struct quota_rule *rule;
-	const char *p, *mailbox_mask;
-	int ret = 0;
-
-	p = strchr(rule_def, ':');
-	if (p == NULL) {
-		*error_r = "Invalid rule";
-		return -1;
-	}
-
-	/* <mailbox mask>:<quota limits> */
-	mailbox_mask = t_strdup_until(rule_def, p++);
-
-	rule = quota_root_rule_find_exact(root_set, mailbox_mask);
-	if (rule == NULL) {
-		if (strcmp(mailbox_mask, RULE_NAME_DEFAULT_FORCE) == 0)
-			rule = &root_set->default_rule;
-		else {
-			rule = array_append_space(&root_set->rules);
-			rule->mailbox_mask = strcasecmp(mailbox_mask, "INBOX") == 0 ? "INBOX" :
-				p_strdup(pool, mailbox_mask);
-		}
-	}
-
-	if (strcmp(p, "ignore") == 0) {
-		rule->ignore = TRUE;
-		e_debug(event, "Quota rule: root=%s mailbox=%s ignored",
-			root_set->name, mailbox_mask);
-		return 0;
-	}
-
-	bool relative_rule = rule != &root_set->default_rule;
-	if (quota_rule_parse_limits(event, root_set, rule, p, rule_def,
-				    relative_rule, error_r) < 0)
-		ret = -1;
-
-	const char *rule_plus =
-		rule == &root_set->default_rule ? "" : "+";
-
-	e_debug(event, "Quota rule: root=%s mailbox=%s "
-		"bytes=%s%lld%s messages=%s%lld%s",
-		root_set->name, mailbox_mask,
-		rule->bytes_limit > 0 ? rule_plus : "",
-		(long long)rule->bytes_limit,
-		rule->bytes_percent == 0 ? "" :
-		t_strdup_printf(" (%u%%)", rule->bytes_percent),
-		rule->count_limit > 0 ? rule_plus : "",
-		(long long)rule->count_limit,
-		rule->count_percent == 0 ? "" :
-		t_strdup_printf(" (%u%%)", rule->count_percent));
-	return ret;
-}
-
-int quota_root_add_warning_rule(struct event *event, pool_t pool,
-				struct quota_root_legacy_settings *root_set,
-				const char *rule_def, const char **error_r)
-{
-	struct quota_warning_rule *warning;
-	struct quota_rule rule;
-	const char *p, *q;
-	int ret;
-	bool reverse = FALSE;
-
-	p = strchr(rule_def, ' ');
-	if (p == NULL || p[1] == '\0') {
-		*error_r = "No command specified";
-		return -1;
-	}
-
-	if (*rule_def == '+') {
-		/* warn when exceeding quota */
-		q = rule_def+1;
-	} else if (*rule_def == '-') {
-		/* warn when going below quota */
-		q = rule_def+1;
-		reverse = TRUE;
-	} else {
-		/* default: same as '+' */
-		q = rule_def;
-	}
-
-	i_zero(&rule);
-	ret = quota_rule_parse_limits(event, root_set, &rule, t_strdup_until(q, p),
-				      rule_def, FALSE, error_r);
-	if (ret < 0)
-		return -1;
-
-	warning = array_append_space(&root_set->warning_rules);
-	warning->command = p_strdup(pool, p+1);
-	warning->rule = rule;
-	warning->reverse = reverse;
-
-	e_debug(event, "Quota warning: bytes=%"PRId64"%s "
-		"messages=%"PRId64"%s reverse=%s command=%s",
-		warning->rule.bytes_limit,
-		warning->rule.bytes_percent == 0 ? "" :
-		t_strdup_printf(" (%u%%)", warning->rule.bytes_percent),
-		warning->rule.count_limit,
-		warning->rule.count_percent == 0 ? "" :
-		t_strdup_printf(" (%u%%)", warning->rule.count_percent),
-		warning->reverse ? "yes" : "no",
-		warning->command);
-	return 0;
-}
-
-int quota_root_parse_grace(struct event *event,
-			   struct quota_root_legacy_settings *root_set,
-			   const char *value, const char **error_r)
-{
-	if (value == NULL) {
-		/* default */
-		value = QUOTA_DEFAULT_GRACE;
-	}
-
-	if (str_parse_get_size(value, &root_set->quota_storage_grace,
-			       error_r) < 0)
-		return -1;
-	e_debug(event, "Quota grace: root=%s bytes=%"PRIu64,
-		root_set->name, root_set->quota_storage_grace);
-	return 0;
-}
-
-bool quota_warning_match(struct quota_root *root,
-			 const struct quota_warning_rule *w,
+bool quota_warning_match(const struct quota_settings *w,
 			 uint64_t bytes_before, uint64_t bytes_current,
 			 uint64_t count_before, uint64_t count_current,
 			 const char **reason_r)
 {
 #define QUOTA_EXCEEDED(before, current, limit) \
 	((before) < (uint64_t)(limit) && (current) >= (uint64_t)(limit))
-	uint64_t bytes_limit = w->rule.bytes_percent == 0 ?
-		w->rule.bytes_limit :
-		root->bytes_limit * w->rule.bytes_percent / 100;
-	uint64_t count_limit = w->rule.count_percent == 0 ?
-		w->rule.count_limit :
-		root->count_limit * w->rule.count_percent / 100;
-	if (!w->reverse) {
+	uint64_t bytes_limit = w->quota_storage_size *
+		w->quota_storage_percentage / 100;
+	uint64_t count_limit = w->quota_message_count *
+		w->quota_message_percentage / 100;
+	if (strcmp(w->quota_warning_threshold, QUOTA_WARNING_THRESHOLD_OVER) == 0) {
 		/* over quota (default) */
-		if (QUOTA_EXCEEDED(bytes_before, bytes_current, bytes_limit)) {
+		if (strcmp(w->quota_warning_resource, QUOTA_WARNING_RESOURCE_STORAGE) == 0 &&
+		    QUOTA_EXCEEDED(bytes_before, bytes_current, bytes_limit)) {
 			*reason_r = t_strdup_printf("bytes=%"PRIu64" -> %"PRIu64" over limit %"PRId64,
 				bytes_before, bytes_current, bytes_limit);
 			return TRUE;
 		}
-		if (QUOTA_EXCEEDED(count_before, count_current, count_limit)) {
+		if (strcmp(w->quota_warning_resource, QUOTA_WARNING_RESOURCE_MESSAGE) == 0 &&
+		    QUOTA_EXCEEDED(count_before, count_current, count_limit)) {
 			*reason_r = t_strdup_printf("count=%"PRIu64" -> %"PRIu64" over limit %"PRId64,
 				count_before, count_current, count_limit);
 			return TRUE;
 		}
 	} else {
-		if (QUOTA_EXCEEDED(bytes_current, bytes_before, bytes_limit)) {
+		if (strcmp(w->quota_warning_resource, QUOTA_WARNING_RESOURCE_STORAGE) == 0 &&
+		    QUOTA_EXCEEDED(bytes_current, bytes_before, bytes_limit)) {
 			*reason_r = t_strdup_printf("bytes=%"PRIu64" -> %"PRIu64" below limit %"PRId64,
 				bytes_before, bytes_current, bytes_limit);
 			return TRUE;
 		}
-		if (QUOTA_EXCEEDED(count_current, count_before, count_limit)) {
+		if (strcmp(w->quota_warning_resource, QUOTA_WARNING_RESOURCE_MESSAGE) == 0 &&
+		    QUOTA_EXCEEDED(count_current, count_before, count_limit)) {
 			*reason_r = t_strdup_printf("count=%"PRIu64" -> %"PRIu64" below limit %"PRId64,
 				count_before, count_current, count_limit);
 			return TRUE;
