@@ -28,7 +28,7 @@ struct quota {
 struct quota_legacy_settings {
 	pool_t pool;
 
-	ARRAY(struct quota_root_settings *) root_sets;
+	ARRAY(struct quota_root_legacy_settings *) root_sets;
 };
 
 struct quota_rule {
@@ -82,7 +82,7 @@ struct quota_backend {
 	struct quota_backend_vfuncs v;
 };
 
-struct quota_root_settings {
+struct quota_root_legacy_settings {
 	/* Unique quota root name. */
 	const char *name;
 	/* Name in settings, e.g. "quota", "quota2", .. */
@@ -103,7 +103,7 @@ struct quota_root_settings {
 struct quota_root {
 	pool_t pool;
 
-	struct quota_root_settings *set;
+	struct quota_root_legacy_settings *set;
 	struct quota *quota;
 	struct quota_backend backend;
 
@@ -186,7 +186,7 @@ struct quota *quota_get_mail_user_quota(struct mail_user *user);
 bool quota_root_is_namespace_visible(struct quota_root *root,
 				     struct mail_namespace *ns);
 struct quota_rule *
-quota_root_rule_find(struct quota_root_settings *root_set, const char *name);
+quota_root_rule_find(struct quota_root_legacy_settings *root_set, const char *name);
 
 /* Returns 1 if values were returned successfully, 0 if we're recursing into
    the same function, -1 if error. */
@@ -194,7 +194,7 @@ int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r,
 		enum quota_get_result *error_result_r, const char **error_r);
 
 int quota_root_parse_grace(struct event *event,
-			   struct quota_root_settings *root_set,
+			   struct quota_root_legacy_settings *root_set,
 			   const char *value, const char **error_r);
 bool quota_warning_match(struct quota_root *root,
 			 const struct quota_warning_rule *w,
