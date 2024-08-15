@@ -100,40 +100,6 @@ static int quota_limit_parse(struct quota_root_settings *root_set,
 	return 0;
 }
 
-static void
-quota_rule_recalculate_relative_rules(struct quota_rule *rule,
-				      int64_t bytes_limit, int64_t count_limit)
-{
-	if (rule->bytes_percent != 0)
-		rule->bytes_limit = bytes_limit * rule->bytes_percent / 100;
-	if (rule->count_percent != 0)
-		rule->count_limit = count_limit * rule->count_percent / 100;
-}
-
-void quota_root_recalculate_relative_rules(struct event *event,
-					   struct quota_root_settings *root_set,
-					   int64_t bytes_limit,
-					   int64_t count_limit)
-{
-	struct quota_rule *rule;
-	struct quota_warning_rule *warning_rule;
-
-	array_foreach_modifiable(&root_set->rules, rule) {
-		quota_rule_recalculate_relative_rules(rule, bytes_limit,
-						      count_limit);
-	}
-
-	array_foreach_modifiable(&root_set->warning_rules, warning_rule) {
-		quota_rule_recalculate_relative_rules(&warning_rule->rule,
-						      bytes_limit, count_limit);
-	}
-
-	e_debug(event,
-		"Quota root %s: Recalculated relative rules with "
-		"bytes=%lld count=%lld.", root_set->name,
-		(long long)bytes_limit, (long long)count_limit);
-}
-
 static int
 quota_rule_parse_limits(struct event *event,
 			struct quota_root_settings *root_set,
@@ -260,9 +226,6 @@ int quota_root_add_rule(struct event *event, pool_t pool,
 				    relative_rule, error_r) < 0)
 		ret = -1;
 
-	quota_root_recalculate_relative_rules(event, root_set,
-					      root_set->default_rule.bytes_limit,
-					      root_set->default_rule.count_limit);
 	const char *rule_plus =
 		rule == &root_set->default_rule ? "" : "+";
 
@@ -319,9 +282,6 @@ int quota_root_add_warning_rule(struct event *event, pool_t pool,
 	warning->rule = rule;
 	warning->reverse = reverse;
 
-	quota_root_recalculate_relative_rules(event, root_set,
-					      root_set->default_rule.bytes_limit,
-					      root_set->default_rule.count_limit);
 	e_debug(event, "Quota warning: bytes=%"PRId64"%s "
 		"messages=%"PRId64"%s reverse=%s command=%s",
 		warning->rule.bytes_limit,
@@ -352,34 +312,41 @@ int quota_root_parse_grace(struct event *event,
 	return 0;
 }
 
-bool quota_warning_match(const struct quota_warning_rule *w,
+bool quota_warning_match(struct quota_root *root,
+			 const struct quota_warning_rule *w,
 			 uint64_t bytes_before, uint64_t bytes_current,
 			 uint64_t count_before, uint64_t count_current,
 			 const char **reason_r)
 {
 #define QUOTA_EXCEEDED(before, current, limit) \
 	((before) < (uint64_t)(limit) && (current) >= (uint64_t)(limit))
+	uint64_t bytes_limit = w->rule.bytes_percent == 0 ?
+		w->rule.bytes_limit :
+		root->bytes_limit * w->rule.bytes_percent / 100;
+	uint64_t count_limit = w->rule.count_percent == 0 ?
+		w->rule.count_limit :
+		root->count_limit * w->rule.count_percent / 100;
 	if (!w->reverse) {
 		/* over quota (default) */
-		if (QUOTA_EXCEEDED(bytes_before, bytes_current, w->rule.bytes_limit)) {
+		if (QUOTA_EXCEEDED(bytes_before, bytes_current, bytes_limit)) {
 			*reason_r = t_strdup_printf("bytes=%"PRIu64" -> %"PRIu64" over limit %"PRId64,
-				bytes_before, bytes_current, w->rule.bytes_limit);
+				bytes_before, bytes_current, bytes_limit);
 			return TRUE;
 		}
-		if (QUOTA_EXCEEDED(count_before, count_current, w->rule.count_limit)) {
+		if (QUOTA_EXCEEDED(count_before, count_current, count_limit)) {
 			*reason_r = t_strdup_printf("count=%"PRIu64" -> %"PRIu64" over limit %"PRId64,
-				count_before, count_current, w->rule.count_limit);
+				count_before, count_current, count_limit);
 			return TRUE;
 		}
 	} else {
-		if (QUOTA_EXCEEDED(bytes_current, bytes_before, w->rule.bytes_limit)) {
+		if (QUOTA_EXCEEDED(bytes_current, bytes_before, bytes_limit)) {
 			*reason_r = t_strdup_printf("bytes=%"PRIu64" -> %"PRIu64" below limit %"PRId64,
-				bytes_before, bytes_current, w->rule.bytes_limit);
+				bytes_before, bytes_current, bytes_limit);
 			return TRUE;
 		}
-		if (QUOTA_EXCEEDED(count_current, count_before, w->rule.count_limit)) {
+		if (QUOTA_EXCEEDED(count_current, count_before, count_limit)) {
 			*reason_r = t_strdup_printf("count=%"PRIu64" -> %"PRIu64" below limit %"PRId64,
-				count_before, count_current, w->rule.count_limit);
+				count_before, count_current, count_limit);
 			return TRUE;
 		}
 	}
