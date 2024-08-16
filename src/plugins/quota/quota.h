@@ -139,7 +139,7 @@ void quota_recalculate(struct quota_transaction_context *ctx,
 		       enum quota_recalculate recalculate);
 
 /* Execute quota_over_scripts if needed. */
-void quota_over_flag_check_startup(struct quota *quota);
+void quota_over_status_check_startup(struct quota *quota);
 
 /* Common quota parameters parsing loop */
 int quota_parse_parameters(struct quota_root *root, const char **args, const char **error_r,

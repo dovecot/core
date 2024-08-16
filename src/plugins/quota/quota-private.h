@@ -137,8 +137,8 @@ struct quota_root {
 	bool recounting:1;
 	/* Quota root is hidden (to e.g. IMAP GETQUOTAROOT) */
 	bool hidden:1;
-	/* Did we already check quota_over_flag correctness? */
-	bool quota_over_flag_checked:1;
+	/* Did we already check quota_over_status correctness? */
+	bool quota_over_status_checked:1;
 };
 
 struct quota_transaction_context {

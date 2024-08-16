@@ -20,9 +20,9 @@
 #include <sys/wait.h>
 
 /* How many seconds after the userdb lookup do we still want to execute the
-   quota_over_script. This applies to quota_over_flag_lazy_check=yes and also
-   after unhibernating IMAP connections. */
-#define QUOTA_OVER_FLAG_MAX_DELAY_SECS 10
+   quota_status_script. This applies to quota_over_status_lazy_check=yes and
+   also after unhibernating IMAP connections. */
+#define QUOTA_OVER_STATUS_MAX_DELAY_SECS 10
 
 struct quota_root_iter {
 	struct quota *quota;
@@ -62,7 +62,7 @@ struct quota_param_parser quota_param_ns = {.param_name = "ns=", .param_handler 
 static enum quota_alloc_result quota_default_test_alloc(
 		struct quota_transaction_context *ctx, uoff_t size,
 		const char **error_r);
-static void quota_over_flag_check_root(struct quota_root *root);
+static void quota_over_status_check_root(struct quota_root *root);
 
 static const struct quota_backend *quota_backend_find(const char *name)
 {
@@ -703,8 +703,8 @@ const char *quota_root_get_name(struct quota_root *root)
 
 const char *const *quota_root_get_resources(struct quota_root *root)
 {
-	/* if we haven't checked the quota_over_flag yet, do it now */
-	quota_over_flag_check_root(root);
+	/* if we haven't checked the quota_over_status yet, do it now */
+	quota_over_status_check_root(root);
 
 	return root->backend.v.get_resources(root);
 }
@@ -1108,46 +1108,47 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 	return ret;
 }
 
-static bool quota_over_flag_init_root(struct quota_root *root,
-				      const char **quota_over_script_r,
-				      const char **quota_over_flag_current_r,
-				      bool *status_r)
+static bool
+quota_over_status_init_root(struct quota_root *root,
+			    const char **quota_over_script_r,
+			    const char **quota_over_status_current_r,
+			    bool *status_r)
 {
-	const char *name, *flag_mask;
+	const char *name, *mask;
 
-	*quota_over_flag_current_r = NULL;
+	*quota_over_status_current_r = NULL;
 	*status_r = FALSE;
 
 	name = t_strconcat(root->set->set_name, "_over_script", NULL);
 	*quota_over_script_r = mail_user_plugin_getenv(root->quota->user, name);
 	if (*quota_over_script_r == NULL) {
-		e_debug(root->quota->event, "quota_over_flag check: "
+		e_debug(root->quota->event, "quota_over_status check: "
 			"%s unset - skipping", name);
 		return FALSE;
 	}
 
-	/* e.g.: quota_over_flag_value=TRUE or quota_over_flag_value=*  */
-	name = t_strconcat(root->set->set_name, "_over_flag_value", NULL);
-	flag_mask = mail_user_plugin_getenv(root->quota->user, name);
-	if (flag_mask == NULL) {
-		e_debug(root->quota->event, "quota_over_flag check: "
+	/* e.g.: quota_over_status_value=TRUE or quota_over_status_value=*  */
+	name = t_strconcat(root->set->set_name, "_over_status_value", NULL);
+	mask = mail_user_plugin_getenv(root->quota->user, name);
+	if (mask == NULL) {
+		e_debug(root->quota->event, "quota_over_status check: "
 			"%s unset - skipping", name);
 		return FALSE;
 	}
 
-	/* compare quota_over_flag_current's value (that comes from userdb) to
-	   quota_over_flag_value and save the result. */
-	name = t_strconcat(root->set->set_name, "_over_flag_current", NULL);
-	*quota_over_flag_current_r =
+	/* compare quota_over_status_current's value (that comes from userdb) to
+	   quota_over_status_value and save the result. */
+	name = t_strconcat(root->set->set_name, "_over_status_current", NULL);
+	*quota_over_status_current_r =
 		mail_user_plugin_getenv(root->quota->user, name);
-	*status_r = *quota_over_flag_current_r != NULL &&
-		wildcard_match_icase(*quota_over_flag_current_r, flag_mask);
+	*status_r = *quota_over_status_current_r != NULL &&
+		wildcard_match_icase(*quota_over_status_current_r, mask);
 	return TRUE;
 }
 
-static void quota_over_flag_check_root(struct quota_root *root)
+static void quota_over_status_check_root(struct quota_root *root)
 {
-	const char *quota_over_script, *quota_over_flag_current, *error;
+	const char *quota_over_script, *quota_over_status_current, *error;
 	const char *const *resources;
 	unsigned int i;
 	uint64_t value, limit;
@@ -1155,26 +1156,26 @@ static void quota_over_flag_check_root(struct quota_root *root)
 	bool quota_over_status;
 	enum quota_get_result ret;
 
-	if (root->quota_over_flag_checked)
+	if (root->quota_over_status_checked)
 		return;
 	if (root->quota->user->session_create_time +
-	    QUOTA_OVER_FLAG_MAX_DELAY_SECS < ioloop_time) {
-		/* userdb's quota_over_flag lookup is too old. */
-		e_debug(root->quota->event, "quota_over_flag check: "
-			"Flag lookup time is too old - skipping");
+	    QUOTA_OVER_STATUS_MAX_DELAY_SECS < ioloop_time) {
+		/* userdb's quota_over_status lookup is too old. */
+		e_debug(root->quota->event, "quota_over_status check: "
+			"Status lookup time is too old - skipping");
 		return;
 	}
 	if (root->quota->user->session_restored) {
 		/* we don't know whether the quota_over_script was executed
 		   before hibernation. just assume that it was, so we don't
 		   unnecessarily call it too often. */
-		e_debug(root->quota->event, "quota_over_flag check: "
+		e_debug(root->quota->event, "quota_over_status check: "
 			"Session was already hibernated - skipping");
 		return;
 	}
-	root->quota_over_flag_checked = TRUE;
-	if (!quota_over_flag_init_root(root, &quota_over_script,
-				       &quota_over_flag_current,
+	root->quota_over_status_checked = TRUE;
+	if (!quota_over_status_init_root(root, &quota_over_script,
+				       &quota_over_status_current,
 				       &quota_over_status))
 		return;
 
@@ -1185,28 +1186,28 @@ static void quota_over_flag_check_root(struct quota_root *root)
 		if (ret == QUOTA_GET_RESULT_INTERNAL_ERROR) {
 			/* can't reliably verify this */
 			e_error(root->quota->event, "Quota %s lookup failed -"
-				"can't verify quota_over_flag: %s",
+				"can't verify quota_over_status: %s",
 				resources[i], error);
 			return;
 		}
-		e_debug(root->quota->event, "quota_over_flag check: %s ret=%d"
+		e_debug(root->quota->event, "quota_over_status check: %s ret=%d"
 			"value=%"PRIu64" limit=%"PRIu64, resources[i], ret,
 			value, limit);
 		if (ret == QUOTA_GET_RESULT_LIMITED && value >= limit)
 			cur_overquota = TRUE;
 	}
-	e_debug(root->quota->event, "quota_over_flag=%d(%s) vs currently overquota=%d",
+	e_debug(root->quota->event, "quota_over_status=%d(%s) vs currently overquota=%d",
 		quota_over_status ? 1 : 0,
-		quota_over_flag_current == NULL ? "(null)" : quota_over_flag_current,
+		quota_over_status_current == NULL ? "(null)" : quota_over_status_current,
 		cur_overquota ? 1 : 0);
 	if (cur_overquota != quota_over_status) {
 		quota_warning_execute(root, quota_over_script,
-				      quota_over_flag_current,
-				      "quota_over_flag mismatch");
+				      quota_over_status_current,
+				      "quota_over_status mismatch");
 	}
 }
 
-void quota_over_flag_check_startup(struct quota *quota)
+void quota_over_status_check_startup(struct quota *quota)
 {
 	struct quota_root *const *roots;
 	unsigned int i, count;
@@ -1214,9 +1215,9 @@ void quota_over_flag_check_startup(struct quota *quota)
 
 	roots = array_get(&quota->roots, &count);
 	for (i = 0; i < count; i++) {
-		name = t_strconcat(roots[i]->set->set_name, "_over_flag_lazy_check", NULL);
+		name = t_strconcat(roots[i]->set->set_name, "_over_status_lazy_check", NULL);
 		if (!mail_user_plugin_getenv_bool(roots[i]->quota->user, name))
-			quota_over_flag_check_root(roots[i]);
+			quota_over_status_check_root(roots[i]);
 	}
 }
 
