@@ -1127,8 +1127,8 @@ quota_over_status_init_root(struct quota_root *root,
 		return FALSE;
 	}
 
-	/* e.g.: quota_over_status_value=TRUE or quota_over_status_value=*  */
-	name = t_strconcat(root->set->set_name, "_over_status_value", NULL);
+	/* e.g.: quota_over_status_mask=TRUE or quota_over_status_mask=*  */
+	name = t_strconcat(root->set->set_name, "_over_status_mask", NULL);
 	mask = mail_user_plugin_getenv(root->quota->user, name);
 	if (mask == NULL) {
 		e_debug(root->quota->event, "quota_over_status check: "
@@ -1137,7 +1137,7 @@ quota_over_status_init_root(struct quota_root *root,
 	}
 
 	/* compare quota_over_status_current's value (that comes from userdb) to
-	   quota_over_status_value and save the result. */
+	   quota_over_status_mask and save the result. */
 	name = t_strconcat(root->set->set_name, "_over_status_current", NULL);
 	*quota_over_status_current_r =
 		mail_user_plugin_getenv(root->quota->user, name);
