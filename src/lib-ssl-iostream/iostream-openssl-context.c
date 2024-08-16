@@ -312,6 +312,7 @@ static int ssl_servername_process(struct ssl_iostream *ssl_io, const char *host,
 	if (ssl_io->sni_callback != NULL) {
 		if (ssl_io->sni_callback(ssl_io->sni_host, &error,
 					 ssl_io->sni_context) < 0) {
+			e_error(ssl_io->event, "%s", error);
 			openssl_iostream_set_error(ssl_io, error);
 			*al = SSL_AD_INTERNAL_ERROR;
 			return -1;
