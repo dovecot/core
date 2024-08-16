@@ -557,6 +557,7 @@ LIBDOVECOT_LA_LIBS='\
 	$(top_builddir)/src/lib-oauth2/liboauth2.la \
 	$(top_builddir)/src/lib-smtp/libsmtp.la \
 	$(top_builddir)/src/lib-program-client/libprogram_client.la \
+	$(top_builddir)/src/lib-var-expand/libvar_expand.la \
 	$(top_builddir)/src/lib-master/libmaster.la \
 	$(top_builddir)/src/lib-login/liblogin.la \
 	$(top_builddir)/src/lib-settings/libsettings.la \
@@ -844,6 +845,7 @@ src/lib-storage/index/dbox-multi/Makefile
 src/lib-storage/index/dbox-single/Makefile
 src/lib-storage/index/raw/Makefile
 src/lib-storage/index/shared/Makefile
+src/lib-var-expand/Makefile
 src/anvil/Makefile
 src/auth/Makefile
 src/config/Makefile
