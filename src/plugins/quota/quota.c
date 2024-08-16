@@ -295,6 +295,8 @@ int quota_user_read_settings(struct mail_user *user,
 	if (mailbox_count != NULL) {
 		if (str_to_uint(mailbox_count, &quota_set->max_mailbox_count) < 0) {
 			*error_r = "Invalid quota_mailbox_count";
+			event_unref(&quota_set->event);
+			pool_unref(&pool);
 			return -1;
 		}
 	}
@@ -307,6 +309,8 @@ int quota_user_read_settings(struct mail_user *user,
 				       &error) < 0) {
 			*error_r = t_strdup_printf("quota_max_mail_size: %s",
 					error);
+			event_unref(&quota_set->event);
+			pool_unref(&pool);
 			return -1;
 		}
 	}
@@ -317,6 +321,8 @@ int quota_user_read_settings(struct mail_user *user,
 		if (str_to_uint(max_box_count,
 				&quota_set->max_messages_per_mailbox) < 0) {
 			*error_r = "Invalid quota_mailbox_message_count";
+			event_unref(&quota_set->event);
+			pool_unref(&pool);
 			return -1;
 		}
 	}
