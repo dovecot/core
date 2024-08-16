@@ -1110,12 +1110,12 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 
 static bool quota_over_flag_init_root(struct quota_root *root,
 				      const char **quota_over_script_r,
-				      const char **quota_over_flag_r,
+				      const char **quota_over_flag_current_r,
 				      bool *status_r)
 {
 	const char *name, *flag_mask;
 
-	*quota_over_flag_r = NULL;
+	*quota_over_flag_current_r = NULL;
 	*status_r = FALSE;
 
 	name = t_strconcat(root->set->set_name, "_over_script", NULL);
@@ -1135,18 +1135,19 @@ static bool quota_over_flag_init_root(struct quota_root *root,
 		return FALSE;
 	}
 
-	/* compare quota_over_flag's value (that comes from userdb) to
+	/* compare quota_over_flag_current's value (that comes from userdb) to
 	   quota_over_flag_value and save the result. */
-	name = t_strconcat(root->set->set_name, "_over_flag", NULL);
-	*quota_over_flag_r = mail_user_plugin_getenv(root->quota->user, name);
-	*status_r = *quota_over_flag_r != NULL &&
-		wildcard_match_icase(*quota_over_flag_r, flag_mask);
+	name = t_strconcat(root->set->set_name, "_over_flag_current", NULL);
+	*quota_over_flag_current_r =
+		mail_user_plugin_getenv(root->quota->user, name);
+	*status_r = *quota_over_flag_current_r != NULL &&
+		wildcard_match_icase(*quota_over_flag_current_r, flag_mask);
 	return TRUE;
 }
 
 static void quota_over_flag_check_root(struct quota_root *root)
 {
-	const char *quota_over_script, *quota_over_flag, *error;
+	const char *quota_over_script, *quota_over_flag_current, *error;
 	const char *const *resources;
 	unsigned int i;
 	uint64_t value, limit;
@@ -1173,7 +1174,8 @@ static void quota_over_flag_check_root(struct quota_root *root)
 	}
 	root->quota_over_flag_checked = TRUE;
 	if (!quota_over_flag_init_root(root, &quota_over_script,
-				       &quota_over_flag, &quota_over_status))
+				       &quota_over_flag_current,
+				       &quota_over_status))
 		return;
 
 	resources = quota_root_get_resources(root);
@@ -1195,10 +1197,11 @@ static void quota_over_flag_check_root(struct quota_root *root)
 	}
 	e_debug(root->quota->event, "quota_over_flag=%d(%s) vs currently overquota=%d",
 		quota_over_status ? 1 : 0,
-		quota_over_flag == NULL ? "(null)" : quota_over_flag,
+		quota_over_flag_current == NULL ? "(null)" : quota_over_flag_current,
 		cur_overquota ? 1 : 0);
 	if (cur_overquota != quota_over_status) {
-		quota_warning_execute(root, quota_over_script, quota_over_flag,
+		quota_warning_execute(root, quota_over_script,
+				      quota_over_flag_current,
 				      "quota_over_flag mismatch");
 	}
 }
