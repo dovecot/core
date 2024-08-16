@@ -11,6 +11,7 @@ endif
 LIBDOVECOT_SUBDIRS = \
 	lib-test \
 	lib \
+	lib-var-expand \
 	lib-settings \
 	lib-otp \
 	lib-auth \

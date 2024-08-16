@@ -79,7 +79,7 @@ static const struct setting_keyvalue imapc_default_settings_keyvalue[] = {
 	/* We want to have all imapc mailboxes accessible, so escape them if
 	   necessary. */
 	{ "layout_imapc/mailbox_list_visible_escape_char", "~" },
-	{ "layout_imapc/mailbox_list_storage_escape_char", "%%" },
+	{ "layout_imapc/mailbox_list_storage_escape_char", "%" },
 	{ NULL, NULL }
 };
 

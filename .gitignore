@@ -131,3 +131,6 @@ src/lib-imap/fuzz-imap-utf7
 src/lib-imap/fuzz-imap-bodystructure
 src/lib-mail/fuzz-message-parser
 src/lib-smtp/fuzz-smtp-server
+src/lib-var-expand/var-expand-parser.c
+src/lib-var-expand/var-expand-parser.h
+src/lib-var-expand/var-expand-lexer.c
