@@ -136,7 +136,8 @@ void smtp_server_connection_input_unlock(struct smtp_server_connection *conn)
 }
 
 #undef smtp_server_connection_input_capture
-void smtp_server_connection_input_capture(struct smtp_server_connection *conn,
+void smtp_server_connection_input_capture(
+	struct smtp_server_connection *conn,
 	smtp_server_input_callback_t *callback, void *context)
 {
 	i_assert(!conn->input_broken && !conn->disconnected);
@@ -317,7 +318,8 @@ static void smtp_server_connection_destroy(struct connection *_conn)
 
 static bool
 smtp_server_connection_handle_command(struct smtp_server_connection *conn,
-	const char *cmd_name, const char *cmd_params)
+				      const char *cmd_name,
+				      const char *cmd_params)
 {
 	struct smtp_server_connection *tmp_conn = conn;
 	struct smtp_server_command *cmd;
@@ -367,7 +369,8 @@ smtp_server_connection_sni_callback(const char *name, const char **error_r,
 	}
 
 	if (conn->callbacks->conn_tls_sni_callback != NULL &&
-	    conn->callbacks->conn_tls_sni_callback(conn->context, name, error_r) < 0) {
+	    conn->callbacks->conn_tls_sni_callback(conn->context, name,
+						   error_r) < 0) {
 		settings_free(ssl_set);
 		settings_free(ssl_server_set);
 		return -1;
@@ -1390,10 +1393,9 @@ void smtp_server_connection_terminate(struct smtp_server_connection **_conn,
 	smtp_server_connection_terminate_full(_conn, enh_code, reason, reason);
 }
 
-void smtp_server_connection_terminate_full(struct smtp_server_connection **_conn,
-					   const char *enh_code,
-					   const char *reply_reason,
-					   const char *log_reason)
+void smtp_server_connection_terminate_full(
+	struct smtp_server_connection **_conn, const char *enh_code,
+	const char *reply_reason, const char *log_reason)
 {
 	struct smtp_server_connection *conn = *_conn;
 	const char **reason_lines;
@@ -1473,8 +1475,8 @@ void smtp_server_connection_reset_state(struct smtp_server_connection *conn)
 
 	/* RFC 3030, Section 2:
 	   The RSET command, when issued after the first BDAT and before the
-	   BDAT LAST, clears all segments sent during that transaction and resets
-	   the session.
+	   BDAT LAST, clears all segments sent during that transaction and
+	   resets the session.
 	 */
 	i_stream_destroy(&conn->state.data_input);
 	i_stream_destroy(&conn->state.data_chain_input);
