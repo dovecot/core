@@ -1323,6 +1323,8 @@ void smtp_server_connection_start_pending(struct smtp_server_connection *conn)
 	i_assert(!conn->started);
 	conn->started = TRUE;
 
+	e_debug(conn->event, "Connection started");
+
 	if (!conn->ssl_start)
 		smtp_server_connection_ready(conn);
 	else if (conn->ssl_iostream == NULL)
