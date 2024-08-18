@@ -1020,6 +1020,14 @@ smtp_server_connection_alloc(struct smtp_server *server,
 	return conn;
 }
 
+static void smtp_server_connection_created(struct smtp_server_connection *conn)
+{
+	/* Halt input until started */
+	smtp_server_connection_halt(conn);
+
+	e_debug(conn->event, "Connection created");
+}
+
 struct smtp_server_connection *
 smtp_server_connection_create(
 	struct smtp_server *server, int fd_in, int fd_out,
@@ -1044,10 +1052,7 @@ smtp_server_connection_create(
 	if (ssl_start)
 		conn->set.capabilities &= ENUM_NEGATE(SMTP_CAPABILITY_STARTTLS);
 
-	/* Halt input until started */
-	smtp_server_connection_halt(conn);
-
-	e_debug(conn->event, "Connection created");
+	smtp_server_connection_created(conn);
 
 	return conn;
 }
@@ -1084,10 +1089,7 @@ smtp_server_connection_create_from_streams(
 	smtp_server_connection_update_event(conn);
 	event_unref(&conn_event);
 
-	/* Halt input until started */
-	smtp_server_connection_halt(conn);
-
-	e_debug(conn->event, "Connection created");
+	smtp_server_connection_created(conn);
 
 	return conn;
 }
