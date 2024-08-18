@@ -10,8 +10,12 @@
 #include "time-util.h"
 #include "sleep.h"
 #include "connection.h"
+#include "iostream-ssl.h"
+#include "iostream-ssl-test.h"
+#include "iostream-openssl.h"
 #include "test-common.h"
 #include "test-subprocess.h"
+#include "settings.h"
 #include "smtp-address.h"
 #include "smtp-reply-parser.h"
 #include "smtp-server.h"
@@ -39,6 +43,7 @@ struct client_connection {
 	struct connection conn;
 	void *context;
 
+	struct ssl_iostream *ssl_iostream;
 	pool_t pool;
 };
 
@@ -54,6 +59,7 @@ typedef void (*test_client_init_t)(unsigned int index);
 static struct ip_addr bind_ip;
 static in_port_t bind_port = 0;
 static struct ioloop *ioloop;
+const char *test_ssl_host = NULL;
 static bool debug = FALSE;
 
 /* server */
@@ -66,6 +72,7 @@ static unsigned int server_pending;
 
 /* client */
 static struct connection_list *client_conn_list;
+struct ssl_iostream_context *client_ssl_ctx = NULL;
 static unsigned int client_index;
 static void (*test_client_connected)(struct client_connection *conn);
 static void (*test_client_input)(struct client_connection *conn);
@@ -77,14 +84,16 @@ static void (*test_client_deinit)(struct client_connection *conn);
 
 /* server */
 static void test_server_defaults(struct smtp_server_settings *smtp_set);
+static void test_server_defaults_ssl(struct smtp_server_settings *smtp_set);
 static void test_server_run(const struct smtp_server_settings *smtp_set);
 
 /* client */
+static void client_connection_deinit(struct client_connection **_conn);
 static void test_client_run(unsigned int index);
 
 /* test*/
 static void
-test_run_client_server(const struct smtp_server_settings *server_set,
+test_run_client_server(struct smtp_server_settings *server_set,
 		       test_server_init_t server_test,
 		       test_client_init_t client_test,
 		       unsigned int client_tests_count, bool wait_for_clients);
@@ -3516,6 +3525,158 @@ static void test_bad_pipelined_mail(void)
 }
 
 /*
+ * TLS SNI
+ */
+
+/* client */
+
+struct _tls_sni_client {
+	struct smtp_reply_parser *parser;
+	unsigned int reply;
+
+	bool replied:1;
+};
+
+static void test_tls_sni_client_input(struct client_connection *conn)
+{
+	struct _tls_sni_client *ctx = conn->context;
+	struct smtp_reply *reply;
+	const char *error;
+	int ret;
+
+	for (;;) {
+		if (ctx->reply == 1) {
+			ret = smtp_reply_parse_ehlo(ctx->parser, &reply,
+						    &error);
+		} else {
+			ret = smtp_reply_parse_next(ctx->parser, FALSE, &reply,
+						    &error);
+		}
+		if (ret <= 0)
+			break;
+
+		if (debug)
+			i_debug("REPLY: %s", smtp_reply_log(reply));
+
+		switch (ctx->reply++) {
+		case 0: /* greeting */
+			i_assert(reply->status == 220);
+			i_assert(str_begins_with(reply->text_lines[0],
+						 "chickencoop.example "));
+			break;
+		case 1: /* EHLO command reply */
+			i_assert(reply->status == 250);
+			if (debug)
+				i_debug("REPLIED");
+			ctx->replied = TRUE;
+			io_loop_stop(ioloop);
+			connection_disconnect(&conn->conn);
+			return;
+		default:
+			i_unreached();
+		}
+	}
+
+	i_assert(ret >= 0);
+}
+
+static void test_tls_sni_client_connected(struct client_connection *conn)
+{
+	struct _tls_sni_client *ctx;
+
+	ctx = p_new(conn->pool, struct _tls_sni_client, 1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
+	conn->context = ctx;
+
+	o_stream_nsend_str(conn->conn.output, "EHLO frop\r\n");
+}
+
+static void test_tls_sni_client_deinit(struct client_connection *conn)
+{
+	struct _tls_sni_client *ctx = conn->context;
+
+	i_assert(ctx->replied);
+	smtp_reply_parser_deinit(&ctx->parser);
+}
+
+static void test_client_tls_sni(unsigned int index)
+{
+	test_client_input = test_tls_sni_client_input;
+	test_client_connected = test_tls_sni_client_connected;
+	test_client_deinit = test_tls_sni_client_deinit;
+	test_client_run(index);
+}
+
+/* server */
+
+static void
+test_server_tls_sni_disconnect(void *context ATTR_UNUSED, const char *reason)
+{
+	if (debug)
+		i_debug("Disconnect: %s", reason);
+}
+
+static int
+test_server_tls_sni_helo(void *conn_ctx ATTR_UNUSED,
+			  struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+			  struct smtp_server_cmd_helo *data ATTR_UNUSED)
+{
+	return 1;
+}
+
+static int
+test_server_tls_sni_rcpt(void *conn_ctx ATTR_UNUSED,
+			  struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+			  struct smtp_server_recipient *rcpt ATTR_UNUSED)
+{
+	return 1;
+}
+
+static int
+test_server_tls_sni_data_begin(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd,
+	struct smtp_server_transaction *trans ATTR_UNUSED,
+	struct istream *data_input ATTR_UNUSED)
+{
+	smtp_server_reply(cmd, 250, "2.0.0", "OK");
+	return 1;
+}
+
+static void test_server_tls_sni(const struct smtp_server_settings *server_set)
+{
+	server_callbacks.conn_disconnect =
+		test_server_tls_sni_disconnect;
+
+	server_callbacks.conn_cmd_helo =
+		test_server_tls_sni_helo;
+	server_callbacks.conn_cmd_rcpt =
+		test_server_tls_sni_rcpt;
+	server_callbacks.conn_cmd_data_begin =
+		test_server_tls_sni_data_begin;
+
+	test_server_run(server_set);
+}
+
+/* test */
+
+static void test_tls_sni(void)
+{
+	struct smtp_server_settings smtp_server_set;
+
+	test_ssl_host = "chickencoop.example";
+
+	test_server_defaults_ssl(&smtp_server_set);
+	smtp_server_set.max_client_idle_time_msecs = 1000;
+
+	test_begin("TLS SNI");
+	test_run_client_server(&smtp_server_set,
+			       test_server_tls_sni,
+			       test_client_tls_sni, 1, TRUE);
+	test_end();
+}
+
+
+/*
  * All tests
  */
 
@@ -3544,6 +3705,7 @@ static void (*const test_functions[])(void) = {
 	test_data_binarymime,
 	test_mail_broken_path,
 	test_bad_pipelined_mail,
+	test_tls_sni,
 	NULL
 };
 
@@ -3552,6 +3714,43 @@ static void (*const test_functions[])(void) = {
  */
 
 /* client connection */
+
+static int client_connection_init_ssl(struct client_connection *conn)
+{
+	struct ssl_iostream_settings ssl_set;
+	const char *error;
+
+	if (test_ssl_host == NULL)
+		return 0;
+
+	connection_input_halt(&conn->conn);
+
+	ssl_iostream_test_settings_client(&ssl_set);
+	ssl_set.allow_invalid_cert = TRUE;
+
+	if (client_ssl_ctx == NULL &&
+	    ssl_iostream_context_init_client(&ssl_set, &client_ssl_ctx,
+					     &error) < 0) {
+		i_error("SSL context initialization failed: %s", error);
+		return -1;
+	}
+
+	if (io_stream_create_ssl_client(client_ssl_ctx, test_ssl_host,
+					conn->conn.event, 0,
+					&conn->conn.input, &conn->conn.output,
+					&conn->ssl_iostream, &error) < 0) {
+		i_error("SSL init failed: %s", error);
+		return -1;
+	}
+	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
+		i_error("SSL handshake failed: %s",
+			ssl_iostream_get_last_error(conn->ssl_iostream));
+		return -1;
+	}
+
+	connection_input_resume(&conn->conn);
+	return 0;
+}
 
 static void client_connection_input(struct connection *_conn)
 {
@@ -3568,8 +3767,14 @@ static void client_connection_connected(struct connection *_conn, bool success)
 	if (debug)
 		i_debug("Client connected");
 
-	if (success && test_client_connected != NULL)
-		test_client_connected(conn);
+	if (success) {
+		if (client_connection_init_ssl(conn) < 0) {
+			client_connection_deinit(&conn);
+			return;
+		}
+		if (test_client_connected != NULL)
+			test_client_connected(conn);
+	}
 }
 
 static void client_connection_init(const struct ip_addr *ip, in_port_t port)
@@ -3595,6 +3800,8 @@ static void client_connection_deinit(struct client_connection **_conn)
 
 	if (test_client_deinit != NULL)
 		test_client_deinit(conn);
+
+	ssl_iostream_destroy(&conn->ssl_iostream);
 	connection_deinit(&conn->conn);
 	pool_unref(&conn->pool);
 }
@@ -3638,6 +3845,8 @@ static void test_client_run(unsigned int index)
 	io_remove(&io_listen);
 
 	connection_list_deinit(&client_conn_list);
+
+	ssl_iostream_context_unref(&client_ssl_ctx);
 }
 
 /*
@@ -3652,6 +3861,17 @@ static void test_server_defaults(struct smtp_server_settings *smtp_set)
 	smtp_set->max_pipelined_commands = 1;
 	smtp_set->auth_optional = TRUE;
 	smtp_set->debug = debug;
+}
+
+static void
+test_server_defaults_ssl(struct smtp_server_settings *smtp_set)
+{
+	static struct ssl_iostream_settings ssl_set;
+
+	ssl_iostream_test_settings_server(&ssl_set);
+
+	test_server_defaults(smtp_set);
+	smtp_set->ssl = &ssl_set;
 }
 
 /* client connection */
@@ -3692,9 +3912,9 @@ static void server_connection_accept(void *context ATTR_UNUSED)
 	server_callbacks.conn_free = server_connection_free;
 
 	if (server_io_buffer_size == 0) {
-		conn = smtp_server_connection_create(smtp_server, fd, fd,
-						     NULL, 0, FALSE, NULL,
-						     &server_callbacks, sconn);
+		conn = smtp_server_connection_create(
+			smtp_server, fd, fd, NULL, 0, (test_ssl_host != NULL),
+			NULL, &server_callbacks, sconn);
 	} else {
 		struct istream *input;
 		struct ostream *output;
@@ -3752,6 +3972,7 @@ static void test_server_run(const struct smtp_server_settings *smtp_set)
 struct test_client_data {
 	unsigned int index;
 	test_client_init_t client_test;
+	struct settings_simple *settings;
 };
 
 static int test_open_server_fd(void)
@@ -3773,6 +3994,8 @@ static int test_run_client(struct test_client_data *data)
 	if (debug)
 		i_debug("PID=%s", my_pid);
 
+	client_ssl_ctx = NULL;
+
 	test_subprocess_notify_signal_reset(SIGUSR1);
 
 	/* signal server that we started */
@@ -3789,6 +4012,11 @@ static int test_run_client(struct test_client_data *data)
 		i_debug("Terminated");
 
 	main_deinit();
+
+	/* Cleanup the test settings in the client process as well.
+	   See test_run_client_server() for the appropriate cleanup call in the
+	   main process. */
+	settings_simple_deinit(data->settings);
 	return 0;
 }
 
@@ -3817,7 +4045,7 @@ test_run_server(const struct smtp_server_settings *server_set,
 }
 
 static void
-test_run_client_server(const struct smtp_server_settings *server_set,
+test_run_client_server(struct smtp_server_settings *server_set,
 		       test_server_init_t server_test,
 		       test_client_init_t client_test,
 		       unsigned int client_tests_count, bool wait_for_clients)
@@ -3825,6 +4053,28 @@ test_run_client_server(const struct smtp_server_settings *server_set,
 	unsigned int i;
 
 	server_io_buffer_size = 0;
+
+	/* Add SSL settings by name into the basis of the SMTP server settings.
+	   Otherwise the SMTP SNI mechanism will break when looking up the
+	   relevant settings. */
+	const char *const settings[] = {
+		"ssl_ca_file",
+		(server_set->ssl == NULL ? "" :
+		 settings_file_get_value(unsafe_data_stack_pool,
+					 &server_set->ssl->ca)),
+		"ssl_cert_file",
+		(server_set->ssl == NULL ? "" :
+		 settings_file_get_value(unsafe_data_stack_pool,
+					 &server_set->ssl->cert.cert)),
+		"ssl_key_file",
+		(server_set->ssl == NULL ? "" :
+		 settings_file_get_value(unsafe_data_stack_pool,
+					 &server_set->ssl->cert.key)),
+		NULL,
+	};
+	struct settings_simple test_set;
+	settings_simple_init(&test_set, settings);
+	server_set->event_parent = test_set.event;
 
 	fd_listen = test_open_server_fd();
 
@@ -3834,6 +4084,7 @@ test_run_client_server(const struct smtp_server_settings *server_set,
 		i_zero(&data);
 		data.index = i;
 		data.client_test = client_test;
+		data.settings = &test_set;
 
 		/* Fork client */
 		test_subprocess_notify_signal_reset(SIGUSR1);
@@ -3850,6 +4101,17 @@ test_run_client_server(const struct smtp_server_settings *server_set,
 	i_unset_failure_prefix();
 	i_close_fd(&fd_listen);
 	test_subprocess_kill_all(CLIENT_KILL_TIMEOUT_SECS);
+
+	test_ssl_host = NULL;
+
+	ssl_iostream_context_cache_free();
+
+	/* Cleanup the test settings in the main process.
+	   Note: This needs to be called as well in the server process,
+	   otherwise it will leak it's event and the looked up settings
+	   struct. See test_run_server() for the appropriate cleanup call in
+	   the server process. */
+	settings_simple_deinit(&test_set);
 }
 
 /*
@@ -3858,12 +4120,13 @@ test_run_client_server(const struct smtp_server_settings *server_set,
 
 static void main_init(void)
 {
-	/* nothing yet */
+	ssl_iostream_openssl_init();
 }
 
 static void main_deinit(void)
 {
-	/* nothing yet; also called from sub-processes */
+	ssl_iostream_context_cache_free();
+	ssl_iostream_openssl_deinit();
 }
 
 int main(int argc, char *argv[])

@@ -180,7 +180,7 @@ test_smtp_client_errors_DEPENDENCIES = $(test_deps)
 
 test_smtp_server_errors_SOURCES = test-smtp-server-errors.c
 test_smtp_server_errors_LDFLAGS = -export-dynamic
-test_smtp_server_errors_LDADD = $(test_libs)
+test_smtp_server_errors_LDADD = $(test_libs) $(test_libs_ssl)
 test_smtp_server_errors_DEPENDENCIES = $(test_deps)
 
 nodist_EXTRA_fuzz_smtp_server_SOURCES = force-cxx-linking.cxx
