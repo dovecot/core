@@ -367,7 +367,8 @@ smtp_server_connection_sni_callback(const char *name, const char **error_r,
 		settings_free(ssl_set);
 		return -1;
 	}
-
+	if (conn->local_name != NULL && *conn->local_name != '\0')
+		conn->set.hostname = conn->local_name;
 	if (conn->callbacks->conn_tls_sni_callback != NULL &&
 	    conn->callbacks->conn_tls_sni_callback(conn->context, name,
 						   error_r) < 0) {
