@@ -617,10 +617,6 @@ static void smtp_server_connection_input(struct connection *_conn)
 				"SSL Initialization failed");
 			return;
 		}
-		if (conn->halted) {
-			smtp_server_connection_input_lock(conn);
-			return;
-		}
 	}
 	i_assert(!conn->halted);
 
@@ -653,6 +649,10 @@ static void smtp_server_connection_input(struct connection *_conn)
 		if (!ssl_iostream_is_handshaked(conn->ssl_iostream)) {
 			/* Not finished. */
 			i_assert(ret == 0);
+			return;
+		}
+		if (conn->halted) {
+			smtp_server_connection_input_lock(conn);
 			return;
 		}
 	}
@@ -1022,6 +1022,9 @@ smtp_server_connection_alloc(struct smtp_server *server,
 
 static void smtp_server_connection_created(struct smtp_server_connection *conn)
 {
+	conn->raw_input = conn->conn.input;
+	conn->raw_output = conn->conn.output;
+
 	/* Halt input until started */
 	smtp_server_connection_halt(conn);
 
@@ -1320,9 +1323,6 @@ void smtp_server_connection_start_pending(struct smtp_server_connection *conn)
 	i_assert(!conn->started);
 	conn->started = TRUE;
 
-	conn->raw_input = conn->conn.input;
-	conn->raw_output = conn->conn.output;
-
 	if (!conn->ssl_start)
 		smtp_server_connection_ready(conn);
 	else if (conn->ssl_iostream == NULL)
@@ -1364,8 +1364,12 @@ void smtp_server_connection_halt(struct smtp_server_connection *conn)
 {
 	conn->halted = TRUE;
 	smtp_server_connection_timeout_stop(conn);
-	if (!conn->started || !conn->ssl_start || conn->ssl_iostream != NULL)
-		smtp_server_connection_input_lock(conn);
+	if (conn->ssl_start &&
+	    (conn->ssl_iostream == NULL ||
+	     !ssl_iostream_is_handshaked(conn->ssl_iostream)))
+		return;
+
+	smtp_server_connection_input_lock(conn);
 }
 
 void smtp_server_connection_resume(struct smtp_server_connection *conn)
