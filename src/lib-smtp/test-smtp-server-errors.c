@@ -69,6 +69,7 @@ static int fd_listen = -1;
 static size_t server_io_buffer_size = 0;
 static struct smtp_server_callbacks server_callbacks;
 static unsigned int server_pending;
+static bool test_server_delay_start = FALSE;
 
 /* client */
 static struct connection_list *client_conn_list;
@@ -3642,6 +3643,20 @@ test_server_tls_sni_data_begin(
 	return 1;
 }
 
+static int
+test_server_tls_sni_callback(void *conn_ctx, const char *name,
+			     const char **error_r ATTR_UNUSED)
+{
+	struct server_connection *sconn = conn_ctx;
+
+	if (debug)
+		i_debug("TLS SNI: %s", name);
+
+	smtp_server_connection_start(sconn->conn);
+
+	return 0;
+}
+
 static void test_server_tls_sni(const struct smtp_server_settings *server_set)
 {
 	server_callbacks.conn_disconnect =
@@ -3653,6 +3668,8 @@ static void test_server_tls_sni(const struct smtp_server_settings *server_set)
 		test_server_tls_sni_rcpt;
 	server_callbacks.conn_cmd_data_begin =
 		test_server_tls_sni_data_begin;
+	server_callbacks.conn_tls_sni_callback =
+		test_server_tls_sni_callback;
 
 	test_server_run(server_set);
 }
@@ -3664,6 +3681,7 @@ static void test_tls_sni(void)
 	struct smtp_server_settings smtp_server_set;
 
 	test_ssl_host = "chickencoop.example";
+	test_server_delay_start = TRUE;
 
 	test_server_defaults_ssl(&smtp_server_set);
 	smtp_server_set.max_client_idle_time_msecs = 1000;
@@ -3931,7 +3949,8 @@ static void server_connection_accept(void *context ATTR_UNUSED)
 		o_stream_unref(&output);
 	}
 	sconn->conn = conn;
-	smtp_server_connection_start(conn);
+	if (!test_server_delay_start)
+		smtp_server_connection_start(conn);
 }
 
 /* */
@@ -4103,6 +4122,7 @@ test_run_client_server(struct smtp_server_settings *server_set,
 	test_subprocess_kill_all(CLIENT_KILL_TIMEOUT_SECS);
 
 	test_ssl_host = NULL;
+	test_server_delay_start = FALSE;
 
 	ssl_iostream_context_cache_free();
 
