@@ -31,6 +31,7 @@ static void main_deinit(void);
  */
 
 struct server_connection {
+	struct smtp_server_connection *conn;
 	void *context;
 };
 
@@ -3709,6 +3710,7 @@ static void server_connection_accept(void *context ATTR_UNUSED)
 		i_stream_unref(&input);
 		o_stream_unref(&output);
 	}
+	sconn->conn = conn;
 	smtp_server_connection_start(conn);
 }
 
