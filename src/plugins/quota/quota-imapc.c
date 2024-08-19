@@ -86,16 +86,6 @@ static void imapc_quota_deinit(struct quota_root *_root)
 	i_free(_root);
 }
 
-static void
-imapc_quota_root_namespace_added(struct quota_root *_root,
-				 struct mail_namespace *ns)
-{
-	struct imapc_quota_root *root = (struct imapc_quota_root *)_root;
-
-	if (root->imapc_ns == NULL)
-		root->imapc_ns = ns;
-}
-
 static struct imapc_quota_refresh *
 imapc_quota_root_refresh_find(struct imapc_storage_client *client)
 {
@@ -417,19 +407,13 @@ static int imapc_quota_refresh(struct imapc_quota_root *root,
 }
 
 static void
-imapc_quota_namespace_added(struct quota *quota, struct mail_namespace *ns)
+imapc_quota_namespace_added(struct quota_root *_root, struct mail_namespace *ns)
 {
-	struct quota_root **roots;
-	unsigned int i, count;
+	struct imapc_quota_root *root = (struct imapc_quota_root *)_root;
 
-	roots = array_get_modifiable(&quota->roots, &count);
-	for (i = 0; i < count; i++) {
-		if (roots[i]->backend.name == quota_backend_imapc.name &&
-		    ((roots[i]->ns_prefix == NULL &&
-		      ns->type == MAIL_NAMESPACE_TYPE_PRIVATE) ||
-		     roots[i]->ns == ns))
-			imapc_quota_root_namespace_added(roots[i], ns);
-	}
+	if (root->imapc_ns == NULL ||
+	    root->imapc_ns->type != MAIL_NAMESPACE_TYPE_PRIVATE)
+		root->imapc_ns = ns;
 }
 
 static const char *const *

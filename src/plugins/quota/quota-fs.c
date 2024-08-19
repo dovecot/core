@@ -6,6 +6,7 @@
 #include "array.h"
 #include "str.h"
 #include "hostpid.h"
+#include "llist.h"
 #include "mountpoint.h"
 #include "quota-private.h"
 #include "quota-fs.h"
@@ -63,6 +64,7 @@
 
 struct fs_quota_mountpoint {
 	int refcount;
+	struct fs_quota_mountpoint *prev, *next;
 
 	char *mount_path;
 	char *device_path;
@@ -73,6 +75,8 @@ struct fs_quota_mountpoint {
 	int fd;
 	char *path;
 #endif
+
+	bool initialized:1;
 };
 
 struct fs_quota_root {
@@ -92,6 +96,8 @@ struct fs_quota_root {
 };
 
 extern struct quota_backend quota_backend_fs;
+
+struct fs_quota_mountpoint *quota_fs_mountpoints = NULL;
 
 static struct quota_root *fs_quota_alloc(void)
 {
@@ -151,6 +157,7 @@ static void fs_quota_mountpoint_free(struct fs_quota_mountpoint *mount)
 	if (--mount->refcount > 0)
 		return;
 
+	DLLIST_REMOVE(&quota_fs_mountpoints, mount);
 #ifdef FS_QUOTA_SOLARIS
 	i_close_fd_path(&mount->fd, mount->path);
 	i_free(mount->path);
@@ -182,6 +189,14 @@ static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
 	if (ret <= 0)
 		return NULL;
 
+	for (mount = quota_fs_mountpoints; mount != NULL; mount = mount->next) {
+		if (strcmp(mount->device_path, point.device_path) == 0 &&
+		    strcmp(mount->mount_path, point.mount_path) == 0) {
+			mount->refcount++;
+			return mount;
+		}
+	}
+
 	mount = i_new(struct fs_quota_mountpoint, 1);
 	mount->refcount = 1;
 	mount->device_path = point.device_path;
@@ -191,6 +206,7 @@ static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
 #ifdef FS_QUOTA_SOLARIS
 	mount->fd = -1;
 #endif
+	DLLIST_PREPEND(&quota_fs_mountpoints, mount);
 
 	if (mount_type_is_nfs(mount)) {
 		if (strchr(mount->device_path, ':') == NULL) {
@@ -204,39 +220,18 @@ static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
 	return mount;
 }
 
-#define QUOTA_ROOT_MATCH(root, mount) \
-	((root)->root.backend.name == quota_backend_fs.name && \
-	 ((root)->storage_mount_path == NULL || \
-	  strcmp((root)->storage_mount_path, (mount)->mount_path) == 0))
-
-static struct fs_quota_root *
-fs_quota_root_find_mountpoint(struct quota *quota,
-			      const struct fs_quota_mountpoint *mount)
-{
-	struct quota_root *const *roots;
-	struct fs_quota_root *empty = NULL;
-	unsigned int i, count;
-
-	roots = array_get(&quota->roots, &count);
-	for (i = 0; i < count; i++) {
-		struct fs_quota_root *root = (struct fs_quota_root *)roots[i];
-		if (QUOTA_ROOT_MATCH(root, mount)) {
-			if (root->mount == NULL)
-				empty = root;
-			else if (strcmp(root->mount->mount_path,
-					mount->mount_path) == 0)
-				return root;
-		}
-	}
-	return empty;
-}
-
 static void
-fs_quota_mount_init(struct fs_quota_root *root,
-		    struct fs_quota_mountpoint *mount, const char *dir)
+fs_quota_mount_init(struct fs_quota_root *root, const char *dir)
 {
-	struct quota_root *const *roots;
-	unsigned int i, count;
+	struct fs_quota_mountpoint *mount = fs_quota_mountpoint_get(dir);
+	if (mount == NULL)
+		return;
+	if (mount->initialized) {
+		/* already initialized */
+		root->mount = mount;
+		return;
+	}
+	mount->initialized = TRUE;
 
 #ifdef FS_QUOTA_SOLARIS
 #ifdef HAVE_RQUOTA
@@ -258,63 +253,23 @@ fs_quota_mount_init(struct fs_quota_root *root,
 	e_debug(root->root.backend.event, "fs quota block device = %s", mount->device_path);
 	e_debug(root->root.backend.event, "fs quota mount point = %s", mount->mount_path);
 	e_debug(root->root.backend.event, "fs quota mount type = %s", mount->type);
-
-	/* if there are more unused quota roots, copy this mount to them */
-	roots = array_get(&root->root.quota->roots, &count);
-	for (i = 0; i < count; i++) {
-		root = (struct fs_quota_root *)roots[i];
-		if (QUOTA_ROOT_MATCH(root, mount) && root->mount == NULL) {
-			mount->refcount++;
-			root->mount = mount;
-		}
-	}
 }
 
-static void fs_quota_add_missing_mounts(struct quota *quota)
-{
-	struct fs_quota_mountpoint *mount;
-	struct quota_root *const *roots;
-	unsigned int i, count;
-
-	roots = array_get(&quota->roots, &count);
-	for (i = 0; i < count; i++) {
-		struct fs_quota_root *root = (struct fs_quota_root *)roots[i];
-
-		if (root->root.backend.name != quota_backend_fs.name ||
-		    root->storage_mount_path == NULL || root->mount != NULL)
-			continue;
-
-		mount = fs_quota_mountpoint_get(root->storage_mount_path);
-		if (mount != NULL) {
-			fs_quota_mount_init(root, mount,
-					    root->storage_mount_path);
-		}
-	}
-}
-
-static void fs_quota_namespace_added(struct quota *quota,
+static void fs_quota_namespace_added(struct quota_root *_root,
 				     struct mail_namespace *ns)
 {
-	struct fs_quota_mountpoint *mount;
-	struct fs_quota_root *root;
+	struct fs_quota_root *root = (struct fs_quota_root *)_root;
 	const char *dir;
 
-	if (!mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_MAILBOX,
-					&dir))
-		mount = NULL;
-	else
-		mount = fs_quota_mountpoint_get(dir);
-	if (mount != NULL) {
-		root = fs_quota_root_find_mountpoint(quota, mount);
-		if (root != NULL && root->mount == NULL)
-			fs_quota_mount_init(root, mount, dir);
-		else
-			fs_quota_mountpoint_free(mount);
-	}
+	if (root->mount != NULL)
+		return;
 
-	/* we would actually want to do this only once after all quota roots
-	   are created, but there's no way to do this right now */
-	fs_quota_add_missing_mounts(quota);
+	if (root->storage_mount_path != NULL)
+		fs_quota_mount_init(root, root->storage_mount_path);
+	else if (mailbox_list_get_root_path(ns->list,
+					    MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					    &dir))
+		fs_quota_mount_init(root, dir);
 }
 
 static const char *const *
