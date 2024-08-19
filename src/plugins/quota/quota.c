@@ -626,7 +626,7 @@ bool quota_root_is_namespace_visible(struct quota_root *root,
 static bool
 quota_root_is_visible(struct quota_root *root, struct mailbox *box)
 {
-	if (!quota_root_is_namespace_visible(root, box->list->ns))
+	if (array_lsearch_ptr(&root->namespaces, box->list->ns) == NULL)
 		return FALSE;
 	if (array_count(&root->quota->roots) == 1) {
 		/* a single quota root: don't bother checking further */
