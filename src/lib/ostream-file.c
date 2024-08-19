@@ -196,7 +196,6 @@ ssize_t o_stream_file_writev(struct file_ostream *fstream,
 			}
 
 			fstream->real_offset += ret;
-			fstream->buffer_offset += ret;
 			sent += ret;
 			iov += IOV_MAX;
 			iov_count -= IOV_MAX;
@@ -209,11 +208,12 @@ ssize_t o_stream_file_writev(struct file_ostream *fstream,
 
 			ret = writev(fstream->fd, (const struct iovec *)iov,
 				     iov_count);
+			if (ret > 0)
+				fstream->real_offset += ret;
 		}
-		if (ret > 0) {
-			fstream->real_offset += ret;
+		if (ret > 0)
 			ret += sent;
-		} else if (!fstream->file && sent > 0) {
+		else if (!fstream->file && sent > 0) {
 			/* return what we managed to get sent */
 			ret = sent;
 		}

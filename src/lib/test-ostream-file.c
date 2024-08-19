@@ -176,9 +176,42 @@ static void test_ostream_file_send_istream_sendfile(void)
 	test_end();
 }
 
+static void test_ostream_file_send_over_iov_max(void)
+{
+	test_begin("ostream file send over IOV_MAX");
+
+	int fd = open(".temp.istream", O_RDWR | O_CREAT | O_TRUNC, 0600);
+	if (fd == -1)
+		i_fatal("creat(.temp.istream) failed: %m");
+	struct ostream *output = o_stream_create_fd(fd, 0);
+
+	struct const_iovec iov[IOV_MAX*3];
+	unsigned int input[N_ELEMENTS(iov)];
+	for (unsigned int i = 0; i < N_ELEMENTS(iov); i++) {
+		input[i] = i;
+		iov[i].iov_base = &input[i];
+		iov[i].iov_len = sizeof(input[i]);
+	}
+	ssize_t ret = o_stream_sendv(output, iov, IOV_MAX * 2);
+	test_assert(ret == sizeof(input[0]) * IOV_MAX * 2);
+	ret = o_stream_sendv(output, iov + IOV_MAX * 2, IOV_MAX);
+	test_assert(ret == sizeof(input[0]) * IOV_MAX);
+	o_stream_destroy(&output);
+
+	unsigned int readbuf[N_ELEMENTS(iov) + 1];
+	ret = pread(fd, readbuf, sizeof(readbuf), 0);
+	test_assert(ret == sizeof(input));
+	test_assert(memcmp(input, readbuf, sizeof(input)) == 0);
+	i_close_fd(&fd);
+
+	i_unlink(".temp.istream");
+	test_end();
+}
+
 void test_ostream_file(void)
 {
 	test_ostream_file_random();
 	test_ostream_file_send_istream_file();
 	test_ostream_file_send_istream_sendfile();
+	test_ostream_file_send_over_iov_max();
 }
