@@ -353,6 +353,7 @@ quota_root_init(struct quota_root_legacy_settings *root_set, struct quota *quota
 	root->backend = *root_set->backend;
 	root->bytes_limit = root_set->default_rule.bytes_limit;
 	root->count_limit = root_set->default_rule.count_limit;
+	p_array_init(&root->namespaces, root->pool, 4);
 
 	array_create(&root->quota_module_contexts, root->pool,
 		     sizeof(void *), 10);
@@ -397,7 +398,6 @@ int quota_init(struct quota_legacy_settings *quota_set, struct mail_user *user,
 	i_array_init(&quota->roots, 8);
 
 	root_sets = array_get(&quota_set->root_sets, &count);
-	i_array_init(&quota->namespaces, count);
 	for (i = 0; i < count; i++) {
 		ret = quota_root_init(root_sets[i], quota, &root, &error);
 		if (ret < 0) {
@@ -433,7 +433,6 @@ void quota_deinit(struct quota **_quota)
 	*_quota = NULL;
 
 	array_free(&quota->roots);
-	array_free(&quota->namespaces);
 	event_unref(&quota->event);
 	i_free(quota);
 }
@@ -484,7 +483,7 @@ quota_root_get_rule_limits(struct quota_root *root, struct mailbox *box,
 }
 
 static bool
-quota_is_duplicate_namespace(struct quota *quota, struct mail_namespace *ns)
+quota_is_duplicate_namespace(struct quota_root *root, struct mail_namespace *ns)
 {
 	struct mail_namespace *const *namespaces;
 	unsigned int i, count;
@@ -494,7 +493,7 @@ quota_is_duplicate_namespace(struct quota *quota, struct mail_namespace *ns)
 					MAILBOX_LIST_PATH_TYPE_MAILBOX, &path))
 		path = NULL;
 
-	namespaces = array_get(&quota->namespaces, &count);
+	namespaces = array_get(&root->namespaces, &count);
 	for (i = 0; i < count; i++) {
 		/* Count namespace aliases only once. Don't rely only on
 		   non-empty alias_for, because the alias might have been
@@ -524,8 +523,8 @@ quota_is_duplicate_namespace(struct quota *quota, struct mail_namespace *ns)
 			   an alternative would be to do a bit larger change so
 			   namespaces wouldn't be added until
 			   mail_namespaces_created() hook is called */
-			i_assert(quota->unwanted_ns == NULL);
-			quota->unwanted_ns = namespaces[i];
+			i_assert(root->unwanted_ns == NULL);
+			root->unwanted_ns = namespaces[i];
 			return FALSE;
 		}
 	}
@@ -534,38 +533,25 @@ quota_is_duplicate_namespace(struct quota *quota, struct mail_namespace *ns)
 
 void quota_add_user_namespace(struct quota *quota, struct mail_namespace *ns)
 {
-	struct quota_root *const *roots;
-	struct quota_backend **backends;
-	unsigned int i, j, count;
+	struct quota_root *root;
 
-	/* first check if there already exists a namespace with the exact same
-	   path. we don't want to count them twice. */
-	if (quota_is_duplicate_namespace(quota, ns))
-		return;
+	array_foreach_elem(&quota->roots, root) {
+		/* first check if there already exists a namespace with the
+		   exact same path. we don't want to count them twice. */
+		if (quota_is_duplicate_namespace(root, ns))
+			continue;
 
-	array_push_back(&quota->namespaces, &ns);
+		array_push_back(&root->namespaces, &ns);
 
-	roots = array_get(&quota->roots, &count);
-	/* @UNSAFE: get different backends into one array */
-	backends = t_new(struct quota_backend *, count + 1);
-	for (i = 0; i < count; i++) {
-		for (j = 0; backends[j] != NULL; j++) {
-			if (backends[j]->name == roots[i]->backend.name)
-				break;
-		}
-		if (backends[j] == NULL)
-			backends[j] = &roots[i]->backend;
-	}
-
-	for (i = 0; backends[i] != NULL; i++) {
-		if (backends[i]->v.namespace_added != NULL)
-			backends[i]->v.namespace_added(quota, ns);
+		if (root->backend.v.namespace_added != NULL)
+			root->backend.v.namespace_added(quota, ns);
 	}
 }
 
 void quota_remove_user_namespace(struct mail_namespace *ns)
 {
 	struct quota *quota;
+	struct quota_root *root;
 	struct mail_namespace *const *namespaces;
 	unsigned int i, count;
 
@@ -577,11 +563,13 @@ void quota_remove_user_namespace(struct mail_namespace *ns)
 		return;
 	}
 
-	namespaces = array_get(&quota->namespaces, &count);
-	for (i = 0; i < count; i++) {
-		if (namespaces[i] == ns) {
-			array_delete(&quota->namespaces, i, 1);
-			break;
+	array_foreach_elem(&quota->roots, root) {
+		namespaces = array_get(&root->namespaces, &count);
+		for (i = 0; i < count; i++) {
+			if (namespaces[i] == ns) {
+				array_delete(&root->namespaces, i, 1);
+				break;
+			}
 		}
 	}
 }
@@ -620,7 +608,7 @@ bool quota_root_is_namespace_visible(struct quota_root *root,
 	if (mailbox_list_get_storage(&list, &vname, 0, &storage) == 0 &&
 	    (storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NOQUOTA) != 0)
 		return FALSE;
-	if (root->quota->unwanted_ns == ns)
+	if (root->unwanted_ns == ns)
 		return FALSE;
 
 	if (root->ns_prefix != NULL) {

@@ -16,8 +16,6 @@ struct quota {
 	struct event *event;
 
 	ARRAY(struct quota_root *) roots;
-	ARRAY(struct mail_namespace *) namespaces;
-	struct mail_namespace *unwanted_ns;
 
 	enum quota_alloc_result (*test_alloc)(
 		struct quota_transaction_context *ctx, uoff_t size,
@@ -115,6 +113,9 @@ struct quota_root {
 	   ns=NULL, so when checking if quota root applies only to a specific
 	   namespace use the ns_prefix!=NULL check. */
 	const char *ns_prefix;
+	/* All namespaces using this quota root */
+	ARRAY(struct mail_namespace *) namespaces;
+	struct mail_namespace *unwanted_ns;
 
 	/* initially the same as set->default_rule.*_limit, but some backends
 	   may change these by reading the limits elsewhere (e.g. imapc,
