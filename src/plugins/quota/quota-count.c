@@ -125,7 +125,7 @@ quota_mailbox_iter_next(struct quota_mailbox_iter *iter)
 	unsigned int count;
 
 	if (iter->iter == NULL) {
-		namespaces = array_get(&iter->root->quota->namespaces, &count);
+		namespaces = array_get(&iter->root->namespaces, &count);
 		do {
 			if (iter->ns_idx >= count)
 				return NULL;

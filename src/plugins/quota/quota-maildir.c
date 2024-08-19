@@ -376,7 +376,7 @@ static int maildirsize_recalculate(struct maildir_quota_root *root,
 	maildirsize_recalculate_init(root);
 
 	/* count mails from all namespaces */
-	namespaces = array_get(&root->root.quota->namespaces, &count);
+	namespaces = array_get(&root->root.namespaces, &count);
 	for (i = 0; i < count; i++) {
 		if (!quota_root_is_namespace_visible(&root->root, namespaces[i]))
 			continue;
