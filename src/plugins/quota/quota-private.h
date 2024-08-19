@@ -53,7 +53,7 @@ struct quota_backend_vfuncs {
 	void (*deinit)(struct quota_root *root);
 
 	/* called once for each namespace */
-	void (*namespace_added)(struct quota *quota,
+	void (*namespace_added)(struct quota_root *root,
 				struct mail_namespace *ns);
 
 	const char *const *(*get_resources)(struct quota_root *root);

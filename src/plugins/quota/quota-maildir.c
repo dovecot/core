@@ -378,9 +378,6 @@ static int maildirsize_recalculate(struct maildir_quota_root *root,
 	/* count mails from all namespaces */
 	namespaces = array_get(&root->root.namespaces, &count);
 	for (i = 0; i < count; i++) {
-		if (!quota_root_is_namespace_visible(&root->root, namespaces[i]))
-			continue;
-
 		if (maildirsize_recalculate_namespace(root, namespaces[i], error_r) < 0) {
 			ret = -1;
 			break;
@@ -390,10 +387,6 @@ static int maildirsize_recalculate(struct maildir_quota_root *root,
 	if (ret == 0) {
 		/* check if any of the directories have changed */
 		for (i = 0; i < count; i++) {
-			if (!quota_root_is_namespace_visible(&root->root,
-							   namespaces[i]))
-				continue;
-
 			ret = maildirs_check_have_changed(root, namespaces[i],
 						root->recalc_last_stamp,
 						error_r);
@@ -759,29 +752,14 @@ static void maildir_quota_deinit(struct quota_root *_root)
 }
 
 static void
-maildir_quota_root_namespace_added(struct quota_root *_root,
-				   struct mail_namespace *ns)
+maildir_quota_namespace_added(struct quota_root *_root,
+			      struct mail_namespace *ns)
 {
 	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
 
-	if (root->maildirsize_ns == NULL)
+	if (root->maildirsize_ns == NULL ||
+	    root->maildirsize_ns->type != MAIL_NAMESPACE_TYPE_PRIVATE)
 		root->maildirsize_ns = ns;
-}
-
-static void
-maildir_quota_namespace_added(struct quota *quota, struct mail_namespace *ns)
-{
-	struct quota_root **roots;
-	unsigned int i, count;
-
-	roots = array_get_modifiable(&quota->roots, &count);
-	for (i = 0; i < count; i++) {
-		if (roots[i]->backend.name == quota_backend_maildir.name &&
-		    ((roots[i]->ns_prefix == NULL &&
-		      ns->type == MAIL_NAMESPACE_TYPE_PRIVATE) ||
-		     roots[i]->ns == ns))
-			maildir_quota_root_namespace_added(roots[i], ns);
-	}
 }
 
 static const char *const *

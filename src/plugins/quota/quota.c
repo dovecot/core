@@ -536,6 +536,8 @@ void quota_add_user_namespace(struct quota *quota, struct mail_namespace *ns)
 	struct quota_root *root;
 
 	array_foreach_elem(&quota->roots, root) {
+		if (!quota_root_is_namespace_visible(root, ns))
+			continue;
 		/* first check if there already exists a namespace with the
 		   exact same path. we don't want to count them twice. */
 		if (quota_is_duplicate_namespace(root, ns))
@@ -544,7 +546,7 @@ void quota_add_user_namespace(struct quota *quota, struct mail_namespace *ns)
 		array_push_back(&root->namespaces, &ns);
 
 		if (root->backend.v.namespace_added != NULL)
-			root->backend.v.namespace_added(quota, ns);
+			root->backend.v.namespace_added(root, ns);
 	}
 }
 
