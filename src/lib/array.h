@@ -441,4 +441,20 @@ static inline void *array_lsearch_modifiable_i(struct array *array, const void *
 	ARRAY_TYPE_CAST_MODIFIABLE(array) \
 	ARRAY_SEARCH_CALL(lsearch_modifiable, array, key, cmp)
 
+/* Search a pointer from an array */
+const void *array_lsearch_ptr_i(const struct array *array, const void *key);
+#define array_lsearch_ptr(array, key) \
+	TYPE_CHECKS(const void *, \
+	COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(***(array)->v, *(key)), \
+	array_lsearch_ptr_i(&(array)->arr, key))
+#define array_lsearch_ptr_modifiable(array, key) \
+	(void *)array_lsearch_ptr(array, key)
+
+bool array_lsearch_ptr_idx_i(const struct array *array, const void *key,
+			     unsigned int *idx_r);
+#define array_lsearch_ptr_idx(array, key, idx_r) \
+	TYPE_CHECKS(bool, \
+	COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(***(array)->v, *(key)), \
+	array_lsearch_ptr_idx_i(&(array)->arr, key, idx_r))
+
 #endif

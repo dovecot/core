@@ -352,6 +352,41 @@ test_array_free(void)
 	test_array_free_case(TRUE);
 }
 
+struct test_ptr {
+	int a, b;
+};
+
+static void test_array_lsearch_ptr(void)
+{
+	struct test_ptr input[] = {
+		{ 1, 2 },
+		{ 3, 4 },
+		{ 5, 6 },
+	};
+	struct test_ptr *input_ptr[] = {
+		&input[0],
+		&input[1],
+		&input[2],
+	};
+	ARRAY(struct test_ptr *) array;
+	unsigned int ptr_i;
+
+	test_begin("array_lsearch_ptr()");
+	t_array_init(&array, N_ELEMENTS(input_ptr));
+	array_append(&array, input_ptr, N_ELEMENTS(input_ptr));
+	struct test_ptr *const *output = array_front(&array);
+	for (unsigned int i = 0; i < N_ELEMENTS(input); i++) {
+		test_assert_idx(array_lsearch_ptr(&array, &input[i]) == output[i], i);
+		test_assert_idx(array_lsearch_ptr_idx(&array, &input[i], &ptr_i) && ptr_i == i, i);
+	}
+	struct test_ptr wrong_input = { 0, 0 };
+	test_assert(!array_lsearch_ptr_idx(&array, &wrong_input, &ptr_i));
+	const struct test_ptr *const_input = &wrong_input;
+	test_assert(array_lsearch_ptr(&array, const_input) == NULL);
+	test_assert(!array_lsearch_ptr_idx(&array, const_input, &ptr_i));
+	test_end();
+}
+
 void test_array(void)
 {
 	test_array_elem();
@@ -363,6 +398,7 @@ void test_array(void)
 	test_array_cmp();
 	test_array_cmp_str();
 	test_array_free();
+	test_array_lsearch_ptr();
 }
 
 enum fatal_test_state fatal_array(unsigned int stage)
