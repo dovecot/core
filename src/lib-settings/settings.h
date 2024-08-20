@@ -1,12 +1,14 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
-#include "var-expand.h"
 #include "settings-parser.h"
+
+typedef const char *var_expand_escape_func_t(const char *str, void *context);
 
 struct settings_root;
 struct settings_mmap;
 struct settings_instance;
+struct var_expand_params_new;
 
 enum settings_override_type {
 	/* Setting is a built-in default. This is used only when the defaults
@@ -54,7 +56,7 @@ enum settings_get_flags {
 
 struct settings_get_params {
 	/* If non-NULL, all %variables are escaped with this function. */
-	var_expand_escape_t *escape_func;
+	var_expand_escape_func_t *escape_func;
 	void *escape_context;
 
 	enum settings_get_flags flags;
@@ -119,7 +121,7 @@ struct settings_get_params {
 	"settings_var_expand_callback_context"
 /* Callback function used with SETTINGS_EVENT_VAR_EXPAND_CALLBACK. */
 typedef void
-settings_var_expand_t(void *context, struct var_expand_params *params_r);
+settings_var_expand_t(void *context, struct var_expand_params_new *params_r);
 
 /* Get the wanted settings and check that the settings are valid.
    The settings struct must have pool_t (info->pool_offset1), which the caller

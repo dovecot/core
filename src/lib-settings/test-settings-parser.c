@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "net.h"
-#include "var-expand.h"
+#include "var-expand-new.h"
 #include "settings-parser.h"
 #include "test-common.h"
 
