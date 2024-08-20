@@ -751,19 +751,20 @@ void quota_mailbox_list_created(struct mailbox_list *list)
 		add = QUOTA_USER_CONTEXT(quota_user) != NULL;
 	}
 
-	if (add) {
-		struct mailbox_list_vfuncs *v = list->vlast;
+	if (!add)
+		return;
 
-		qlist = p_new(list->pool, struct quota_mailbox_list, 1);
-		qlist->module_ctx.super = *v;
-		list->vlast = &qlist->module_ctx.super;
-		v->deinit = quota_mailbox_list_deinit;
-		MODULE_CONTEXT_SET(list, quota_mailbox_list_module, qlist);
+	struct mailbox_list_vfuncs *v = list->vlast;
 
-		quota = quota_get_mail_user_quota(quota_user);
-		i_assert(quota != NULL);
-		quota_add_user_namespace(quota, list->ns);
-	}
+	qlist = p_new(list->pool, struct quota_mailbox_list, 1);
+	qlist->module_ctx.super = *v;
+	list->vlast = &qlist->module_ctx.super;
+	v->deinit = quota_mailbox_list_deinit;
+	MODULE_CONTEXT_SET(list, quota_mailbox_list_module, qlist);
+
+	quota = quota_get_mail_user_quota(quota_user);
+	i_assert(quota != NULL);
+	quota_add_user_namespace(quota, list->ns);
 }
 
 static void quota_root_set_namespace(struct quota_root *root,
