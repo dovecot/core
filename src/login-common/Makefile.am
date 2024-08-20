@@ -9,6 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-login \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-mail \
+	-I$(top_srcdir)/src/lib-var-expand \
 	-DPKG_STATEDIR=\""$(statedir)"\" \
 	-DMODULEDIR=\""$(moduledir)"\"
 

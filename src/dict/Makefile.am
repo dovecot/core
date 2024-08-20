@@ -9,6 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-dict-extra \
 	-I$(top_srcdir)/src/lib-sql \
+	-I$(top_srcdir)/src/lib-var-expand \
 	-DDICT_MODULE_DIR=\""$(moduledir)/dict"\" \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	$(BINARY_CFLAGS)

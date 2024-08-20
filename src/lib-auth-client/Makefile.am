@@ -4,7 +4,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-settings \
-	-I$(top_srcdir)/src/lib-test
+	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-var-expand
 
 libauth_client_la_SOURCES = \
 	auth-client.c \
@@ -32,6 +33,7 @@ noinst_PROGRAMS = $(test_programs)
 test_libs = \
 	$(noinst_LTLIBRARIES) \
 	../lib-settings/libsettings.la \
+	../lib-var-expand/libvar_expand.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la \
 	$(MODULE_LIBS)
@@ -39,6 +41,7 @@ test_libs = \
 test_deps = \
 	$(noinst_LTLIBRARIES) \
 	../lib-settings/libsettings.la \
+	../lib-var-expand/libvar_expand.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 

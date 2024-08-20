@@ -9,7 +9,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index \
-	-I$(top_srcdir)/src/lib-storage/index/dbox-common
+	-I$(top_srcdir)/src/lib-storage/index/dbox-common \
+	-I$(top_srcdir)/src/lib-var-expand
 
 libstorage_dbox_multi_la_SOURCES = \
 	mdbox-deleted-storage.c \

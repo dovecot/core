@@ -6,6 +6,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-settings \
+	-I$(top_srcdir)/src/lib-var-expand \
 	-DPKG_RUNDIR=\""$(rundir)"\"
 
 libprogram_client_la_SOURCES = \
@@ -36,6 +37,7 @@ test_libs = \
 	../lib-mail/libmail.la \
 	../lib-settings/libsettings.la  \
 	../lib-charset/libcharset.la \
+	../lib-var-expand/libvar_expand.la \
 	../lib/liblib.la \
 	$(MODULE_LIBS)
 

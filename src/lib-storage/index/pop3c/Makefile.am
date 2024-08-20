@@ -10,7 +10,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
-	-I$(top_srcdir)/src/lib-storage/index
+	-I$(top_srcdir)/src/lib-storage/index \
+	-I$(top_srcdir)/src/lib-var-expand
 
 libstorage_pop3c_la_SOURCES = \
 	pop3c-client.c \

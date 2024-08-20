@@ -6,7 +6,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-compression \
-	-I$(top_srcdir)/src/lib-fs
+	-I$(top_srcdir)/src/lib-fs \
+	-I$(top_srcdir)/src/lib-var-expand
 
 NOPLUGIN_LDFLAGS =
 libfs_compress_la_SOURCES = fs-compress.c

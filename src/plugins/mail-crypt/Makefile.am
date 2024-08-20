@@ -11,6 +11,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-dcrypt \
 	-I$(top_srcdir)/src/lib-fs \
 	-I$(top_srcdir)/src/lib-doveadm \
+	-I$(top_srcdir)/src/lib-var-expand \
 	-I$(top_srcdir)/src/doveadm \
 	-I$(top_srcdir)/src/plugins/acl
 

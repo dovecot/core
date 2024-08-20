@@ -11,6 +11,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-login \
 	-I$(top_srcdir)/src/lib-smtp \
+	-I$(top_srcdir)/src/lib-var-expand \
 	-I$(top_srcdir)/src/login-common
 
 submission_login_LDADD = \

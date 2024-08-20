@@ -6,6 +6,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-settings \
+	-I$(top_srcdir)/src/lib-var-expand \
 	-DMODULE_DIR=\""$(moduledir)"\" \
 	$(SSL_CFLAGS)
 
@@ -44,6 +45,7 @@ test_libs = \
 	$(module_LTLIBRARIES) \
 	$(noinst_LTLIBRARIES) \
 	../lib-settings/libsettings.la \
+	../lib-var-expand/libvar_expand.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 

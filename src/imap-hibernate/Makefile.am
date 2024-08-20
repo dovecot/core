@@ -7,6 +7,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-imap \
+	-I$(top_srcdir)/src/lib-var-expand \
 	$(BINARY_CFLAGS)
 
 imap_hibernate_LDADD = $(LIBDOVECOT) \

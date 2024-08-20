@@ -11,6 +11,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-login \
 	-I$(top_srcdir)/src/login-common \
 	-I$(top_srcdir)/src/lib-pop3 \
+	-I$(top_srcdir)/src/lib-var-expand \
 	$(BINARY_CFLAGS)
 
 pop3_login_LDADD = \
