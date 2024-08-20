@@ -4,7 +4,6 @@
 #include "str.h"
 #include "istream.h"
 #include "array.h"
-#include "var-expand.h"
 #include "dlua-script.h"
 #include "dlua-script-private.h"
 #include "mail-storage.h"

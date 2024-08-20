@@ -17,8 +17,8 @@
 #include "eacces-error.h"
 #include "mkdir-parents.h"
 #include "time-util.h"
-#include "var-expand.h"
 #include "settings.h"
+#include "var-expand-new.h"
 #include "dsasl-client.h"
 #include "imap-date.h"
 #include "mail-index-private.h"
@@ -417,6 +417,18 @@ mail_storage_create_list(struct mail_namespace *ns,
 	return ret;
 }
 
+static bool ATTR_PURE pop3_uidl_format_has_md5(const char *fmt)
+{
+	struct var_expand_program *prog;
+	const char *error;
+	if (var_expand_program_create(fmt, &prog, &error) < 0)
+		i_fatal("Invalid pop3_uidl_format: %s", error);
+	const char *const *vars = var_expand_program_variables(prog);
+	bool has_md5 = str_array_find(vars, "md5");
+	var_expand_program_free(&prog);
+	return has_md5;
+}
+
 static int
 mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 			 enum mail_storage_flags flags,
@@ -424,7 +436,7 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 {
 	struct mail_storage *storage_class, *storage = NULL;
 	const struct mail_storage_settings *mail_set;
-	const char *p, *driver = NULL;
+	const char *driver = NULL;
 	const char *inbox_path_override = NULL;
 	const char *root_path_override = NULL;
 
@@ -476,15 +488,8 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 		/* if pop3_uidl_format contains %m, we want to keep the
 		   header MD5 sums stored even if we're not running POP3
 		   right now. */
-		p = ns->list->mail_set->pop3_uidl_format;
-		while ((p = strchr(p, '%')) != NULL) {
-			if (p[1] == '%')
-				p += 2;
-			else if (var_get_key(++p) == 'm') {
-				flags |= MAIL_STORAGE_FLAG_KEEP_HEADER_MD5;
-				break;
-			}
-		}
+		if (pop3_uidl_format_has_md5(ns->list->mail_set->pop3_uidl_format))
+			flags |= MAIL_STORAGE_FLAG_KEEP_HEADER_MD5;
 	}
 
 	storage = storage_class->v.alloc();

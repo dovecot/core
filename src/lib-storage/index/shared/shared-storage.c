@@ -5,6 +5,7 @@
 #include "str.h"
 #include "ioloop.h"
 #include "settings.h"
+#include "var-expand-new.h"
 #include "index-storage.h"
 #include "mail-storage-service.h"
 #include "mailbox-list-private.h"
@@ -311,16 +312,16 @@ struct shared_mail_user_var_expand_ctx {
 };
 
 static int
-shared_mail_user_var_home(const char *data ATTR_UNUSED, void *context,
-			  const char **value_r,
+shared_mail_user_var_home(const char *key ATTR_UNUSED,
+			  const char **value_r, void *context,
 			  const char **error_r)
 {
 	struct shared_mail_user_var_expand_ctx *var_expand_ctx = context;
 
 	if (var_expand_ctx->nonexistent) {
 		/* No need to even bother looking up the home */
-		*value_r = NULL;
-		return 1;
+		*value_r = "";
+		return 0;
 	}
 	int ret = mail_user_get_home(var_expand_ctx->owner, value_r);
 	if (ret < 0) {
@@ -328,9 +329,11 @@ shared_mail_user_var_home(const char *data ATTR_UNUSED, void *context,
 					   var_expand_ctx->owner->username);
 		return -1;
 	}
-	if (ret == 0)
+	if (ret == 0) {
+		*value_r = "";
 		var_expand_ctx->nonexistent = TRUE;
-	return 1;
+	}
+	return 0;
 }
 
 static int
@@ -351,23 +354,21 @@ shared_mail_user_init(struct mail_storage *_storage,
 
 	const char *userdomain = domain == NULL ? username :
 		t_strdup_printf("%s@%s", username, domain);
-	struct var_expand_table stack_tab[] = {
-		{ '\0', p_strdup(user->pool, userdomain), "owner_user" },
-		{ '\0', p_strdup(user->pool, username), "owner_username" },
-		{ '\0', p_strdup(user->pool, domain), "owner_domain" },
-		{ '\0', NULL, NULL },
+	const struct var_expand_table stack_tab[] = {
+		{ .key = "owner_user", .value = p_strdup(user->pool, userdomain) },
+		{
+			.key = "owner_home",
+			.func = shared_mail_user_var_home,
+		},
+		VAR_EXPAND_TABLE_END
 	};
-	struct var_expand_table *tab =
+	const struct var_expand_table *tab =
 		p_memdup(user->pool, stack_tab, sizeof(stack_tab));
-	static struct var_expand_func_table func_tab[] = {
-		{ "owner_home", shared_mail_user_var_home },
-		{ NULL, NULL }
-	};
 	struct var_expand_params *params =
 		p_new(user->pool, struct var_expand_params, 1);
 	params->table = tab;
-	params->func_table = func_tab;
-	params->func_context = var_expand_ctx;
+	params->context = var_expand_ctx;
+	params->event = user->event;
 
 	struct event *set_event = event_create(user->event);
 	event_add_str(set_event, SETTINGS_EVENT_NAMESPACE_NAME, ns->set->name);

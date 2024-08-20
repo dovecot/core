@@ -57,7 +57,7 @@ struct mail_user {
 	   this stays the same after IMAP client is hibernated and restored. */
 	time_t session_create_time;
 
-	const struct var_expand_table *var_expand_table;
+	const struct var_expand_params_new *var_expand_params;
 	/* If non-NULL, fail the user initialization with this error.
 	   This could be set by plugins that need to fail the initialization. */
 	const char *error;
@@ -123,7 +123,7 @@ union mail_user_module_context {
 };
 extern struct mail_user_module_register mail_user_module_register;
 extern struct auth_master_connection *mail_user_auth_master_conn;
-extern const struct var_expand_func_table *mail_user_var_expand_func_table;
+extern const struct var_expand_provider *mail_user_var_expand_func_table;
 
 struct mail_user *
 mail_user_alloc(struct mail_storage_service_user *service_user);
@@ -146,8 +146,8 @@ struct mail_user *mail_user_find(struct mail_user *user, const char *name);
 void mail_user_set_vars(struct mail_user *user, const char *service,
 			const struct mail_user_connection_data *conn);
 /* Return %variable expansion table for the user. */
-const struct var_expand_table *
-mail_user_var_expand_table(struct mail_user *user);
+const struct var_expand_params_new *
+mail_user_var_expand_params(struct mail_user *user);
 
 /* Specify the user's home directory. This should be called also with home=NULL
    when it's known that the user doesn't have a home directory to avoid the

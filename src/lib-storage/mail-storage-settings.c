@@ -3,10 +3,10 @@
 #include "lib.h"
 #include "array.h"
 #include "hash-format.h"
-#include "var-expand.h"
 #include "unichar.h"
 #include "hostpid.h"
 #include "settings.h"
+#include "var-expand-new.h"
 #include "message-address.h"
 #include "message-header-parser.h"
 #include "smtp-address.h"
@@ -183,7 +183,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.maildir_stat_dirs = FALSE,
 	.mail_shared_explicit_inbox = FALSE,
 	.lock_method = "fcntl:flock:dotlock",
-	.pop3_uidl_format = "%08Xu%08Xv",
+	.pop3_uidl_format = "%{uid|number|hex(8)}%{uidvalidity|number|hex(8)}",
 
 	.recipient_delimiter = "+",
 
@@ -362,10 +362,10 @@ static const struct mail_user_settings mail_user_default_settings = {
 	.mail_plugins = ARRAY_INIT,
 	.mail_plugin_dir = MODULEDIR,
 
-	.mail_log_prefix = "%s(%u)<%{process:pid}><%{session}>: ",
+	.mail_log_prefix = "%{service}(%{user})<%{process:pid}><%{session}>: ",
 
 	.hostname = "",
-	.postmaster_address = "postmaster@%{if;%d;ne;;%d;%{hostname}}",
+	.postmaster_address = "postmaster@%{domain|default(hostname)}",
 };
 
 const struct setting_parser_info mail_user_setting_parser_info = {
@@ -577,9 +577,8 @@ mail_storage_settings_ext_check(struct event *event ATTR_UNUSED,
 {
 	struct mail_storage_settings *set = _set;
 	struct hash_format *format;
-	const char *p, *value, *fname, *error;
+	const char *value, *fname, *error;
 	bool uidl_format_ok;
-	char c;
 
 	if (set->mailbox_idle_check_interval == 0) {
 		*error_r = "mailbox_idle_check_interval must not be 0";
@@ -625,30 +624,36 @@ mail_storage_settings_ext_check(struct event *event ATTR_UNUSED,
 	}
 
 	uidl_format_ok = FALSE;
-	for (p = set->pop3_uidl_format; *p != '\0'; p++) {
-		if (p[0] != '%' || p[1] == '\0')
-			continue;
-
-		c = var_get_key(++p);
-		switch (c) {
-		case 'v':
-		case 'u':
-		case 'm':
-		case 'f':
-		case 'g':
-			uidl_format_ok = TRUE;
-			break;
-		case '%':
-			break;
-		default:
-			*error_r = t_strdup_printf(
-				"Unknown pop3_uidl_format variable: %%%c", c);
-			return FALSE;
-		}
+	struct var_expand_program *prog;
+	if (var_expand_program_create(set->pop3_uidl_format, &prog, &error) < 0) {
+		*error_r = t_strdup_printf("Invalid pop3_uidl_format: %s", error);
+		return FALSE;
 	}
+
+	const char *const *pop3_uidl_vars = var_expand_program_variables(prog);
+	const char *const pop3_uidl_allowed_vars[] = {
+		"uidvalidity",
+		"uid",
+		"md5",
+		"filename",
+		"guid",
+		NULL
+	};
+	for (; *pop3_uidl_vars != NULL; pop3_uidl_vars++) {
+		if (!str_array_find(pop3_uidl_allowed_vars, *pop3_uidl_vars)) {
+			*error_r = t_strdup_printf(
+					"Unknown pop3_uidl_format variable: %%{%s}",
+					*pop3_uidl_vars);
+			break;
+		}
+		uidl_format_ok = TRUE;
+	}
+	var_expand_program_free(&prog);
+
 	if (!uidl_format_ok) {
-		*error_r = "pop3_uidl_format setting doesn't contain any "
-			"%% variables.";
+		if (pop3_uidl_vars == NULL)
+			*error_r = "pop3_uidl_format setting doesn't contain any "
+				   "%% variables.";
 		return FALSE;
 	}
 

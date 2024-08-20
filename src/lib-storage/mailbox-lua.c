@@ -4,7 +4,6 @@
 #include "str.h"
 #include "istream.h"
 #include "array.h"
-#include "var-expand.h"
 #include "mail-storage.h"
 #include "mailbox-attribute.h"
 #include "mail-storage-lua.h"
