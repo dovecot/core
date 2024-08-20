@@ -7,6 +7,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-master \
+	-I$(top_srcdir)/src/lib-var-expand \
 	-DPKG_RUNDIR=\""$(rundir)"\"
 
 libhttp_la_SOURCES = \
@@ -79,6 +80,8 @@ test_nocheck_programs = \
 noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
 
 test_libs = \
+	../lib-settings/libsettings.la \
+	../lib-var-expand/libvar_expand.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la \
 	$(MODULE_LIBS)
@@ -87,6 +90,7 @@ test_deps = \
 	$(noinst_LTLIBRARIES) \
 	../lib-test/libtest.la \
 	../lib-settings/libsettings.la \
+	../lib-var-expand/libvar_expand.la \
 	../lib/liblib.la
 
 test_http_url_SOURCES = test-http-url.c

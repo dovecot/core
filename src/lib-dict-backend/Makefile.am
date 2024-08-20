@@ -10,6 +10,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-ldap \
 	-I$(top_srcdir)/src/lib-sql \
 	-I$(top_srcdir)/src/lib-settings \
+	-I$(top_srcdir)/src/lib-var-expand \
 	$(SQL_CFLAGS)
 
 NOPLUGIN_LDFLAGS =

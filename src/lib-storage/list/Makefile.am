@@ -8,7 +8,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-storage \
-	-I$(top_srcdir)/src/lib-storage/index
+	-I$(top_srcdir)/src/lib-storage/index \
+	-I$(top_srcdir)/src/lib-var-expand
 
 libstorage_list_la_SOURCES = \
 	mail-storage-list-index-rebuild.c \

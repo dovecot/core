@@ -2,7 +2,8 @@ noinst_LTLIBRARIES = libsettings.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
-	-I$(top_srcdir)/src/lib-test
+	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-var-expand
 
 libsettings_la_SOURCES = \
 	settings.c \

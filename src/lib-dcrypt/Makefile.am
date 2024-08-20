@@ -58,6 +58,7 @@ check-local:
 	done
 
 LIBDOVECOT_TEST_DEPS = \
+	../lib-var-expand/libvar_expand.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-json/libjson.la \
 	../lib-settings/libsettings.la \
@@ -70,7 +71,7 @@ LIBDOVECOT_TEST = \
 test_crypto_LDADD = $(LIBDOVECOT_TEST)
 test_crypto_DEPENDENCIES = $(LIBDOVECOT_TEST_DEPS)
 if HAVE_WHOLE_ARCHIVE
-test_crypto_LDFLAGS = -export-dynamic -Wl,$(LD_WHOLE_ARCHIVE),../lib/.libs/liblib.a,../lib-json/.libs/libjson.a,../lib-ssl-iostream/.libs/libssl_iostream.a,$(LD_NO_WHOLE_ARCHIVE)
+test_crypto_LDFLAGS = -export-dynamic -Wl,$(LD_WHOLE_ARCHIVE),../lib-var-expand/.libs/libvar_expand.a,../lib/.libs/liblib.a,../lib-json/.libs/libjson.a,../lib-ssl-iostream/.libs/libssl_iostream.a,$(LD_NO_WHOLE_ARCHIVE)
 endif
 test_crypto_CFLAGS = $(AM_CPPFLAGS) -DDCRYPT_SRC_DIR=\"$(top_srcdir)/src/lib-dcrypt\"
 test_crypto_SOURCES = $(libdcrypt_la_SOURCES) test-crypto.c
@@ -78,7 +79,7 @@ test_crypto_SOURCES = $(libdcrypt_la_SOURCES) test-crypto.c
 test_stream_LDADD = $(LIBDOVECOT_TEST)
 test_stream_DEPENDENCIES = $(LIBDOVECOT_TEST_DEPS)
 if HAVE_WHOLE_ARCHIVE
-test_stream_LDFLAGS = -export-dynamic -Wl,$(LD_WHOLE_ARCHIVE),../lib/.libs/liblib.a,../lib-json/.libs/libjson.a,../lib-ssl-iostream/.libs/libssl_iostream.a,$(LD_NO_WHOLE_ARCHIVE)
+test_stream_LDFLAGS = -export-dynamic -Wl,$(LD_WHOLE_ARCHIVE),../lib-var-expand/.libs/libvar_expand.a,../lib/.libs/liblib.a,../lib-json/.libs/libjson.a,../lib-ssl-iostream/.libs/libssl_iostream.a,$(LD_NO_WHOLE_ARCHIVE)
 endif
 test_stream_CFLAGS = $(AM_CPPFLAGS) -DDCRYPT_SRC_DIR=\"$(top_srcdir)/src/lib-dcrypt\"
 test_stream_SOURCES = $(libdcrypt_la_SOURCES) test-stream.c

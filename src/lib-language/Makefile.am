@@ -9,6 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-language \
+	-I$(top_srcdir)/src/lib-var-expand \
 	$(LIBEXTTEXTCAT_CFLAGS) \
 	$(LIBICU_CFLAGS) \
 	-DUDHRDIR=\""$(top_srcdir)/src/lib-language"\" \
@@ -127,6 +128,7 @@ test_programs = \
 noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
+	../lib-var-expand/libvar_expand.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 test_deps = $(noinst_LTLIBRARIES) $(test_libs)

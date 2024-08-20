@@ -9,6 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
+	-I$(top_srcdir)/src/lib-var-expand \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	-DPKG_STATEDIR=\""$(statedir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \

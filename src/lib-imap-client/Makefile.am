@@ -8,7 +8,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-sasl \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-mail \
-	-I$(top_srcdir)/src/lib-imap
+	-I$(top_srcdir)/src/lib-imap \
+	-I$(top_srcdir)/src/lib-var-expand
 
 libimap_client_la_SOURCES = \
 	imapc-client.c \
@@ -43,6 +44,7 @@ test_deps = \
 	../lib-otp/libotp.la \
 	../lib-json/libjson.la \
 	../lib-settings/libsettings.la \
+	../lib-var-expand/libvar_expand.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 

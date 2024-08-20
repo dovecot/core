@@ -8,6 +8,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
+	-I$(top_srcdir)/src/lib-var-expand \
 	$(LUA_CFLAGS)
 
 noinst_LTLIBRARIES = libdlua.la

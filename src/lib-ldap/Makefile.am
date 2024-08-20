@@ -39,6 +39,7 @@ pkginc_lib_HEADERS = $(headers)
 test_libs = \
 	../lib-test/libtest.la \
 	../lib-ssl-iostream/libssl_iostream.la \
+	../lib-var-expand/libvar_expand.la \
 	../lib/liblib.la
 
 check-local:

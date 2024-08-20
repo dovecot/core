@@ -5,6 +5,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-compression \
 	-I$(top_srcdir)/src/lib-index \
+	-I$(top_srcdir)/src/lib-var-expand \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index \
 	-I$(top_srcdir)/src/lib-storage/index/dbox-common

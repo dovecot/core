@@ -5,6 +5,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-lua \
+	-I$(top_srcdir)/src/lib-var-expand \
 	$(LUA_CFLAGS)
 
 NOPLUGIN_LDFLAGS =
