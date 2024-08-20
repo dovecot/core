@@ -199,8 +199,13 @@ static void imapc_client_run_post(struct imapc_client *client)
 	struct ioloop *ioloop = client->ioloop;
 
 	client->ioloop = NULL;
-	array_foreach_elem(&client->conns, conn)
+	array_foreach_elem(&client->conns, conn) {
 		imapc_connection_ioloop_changed(conn->conn);
+		if (conn->box != NULL) {
+			conn->box->to_send_idle =
+				io_loop_move_timeout(&conn->box->to_send_idle);
+		}
+	}
 
 	io_loop_set_current(ioloop);
 	io_loop_destroy(&ioloop);
