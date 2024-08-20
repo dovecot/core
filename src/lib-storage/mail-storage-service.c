@@ -12,15 +12,14 @@
 #include "str.h"
 #include "time-util.h"
 #include "sleep.h"
-#include "var-expand.h"
 #include "dict.h"
 #include "settings.h"
+#include "var-expand-new.h"
 #include "auth-master.h"
 #include "master-service-private.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
-#include "mail-storage-private.h"
 #include "mail-storage-service.h"
 
 #include <sys/stat.h>
@@ -376,23 +375,23 @@ get_var_expand_table(struct master_service *service,
 		remote_port = dec2str(input->remote_port);
 
 	const struct var_expand_table stack_tab[] = {
-		{ 'u', input->username, "user" },
-		{ 'n', username, "username" },
-		{ 'd', domain, "domain" },
-		{ 's', service_name, "service" },
-		{ 'l', net_ip2addr(&input->local_ip), "local_ip" },
-		{ 'r', net_ip2addr(&input->remote_ip), "remote_ip" },
-		{ '\0', local_port, "local_port" },
-		{ '\0', remote_port," remote_port" },
-		{ '\0', input->session_id, "session" },
-		{ '\0', auth_user, "auth_user" },
-		{ '\0', auth_username, "auth_username" },
-		{ '\0', auth_domain, "auth_domain" },
-		{ '\0', hostname, "hostname" },
-		{ '\0', local_name, "local_name" },
-		{ '\0', protocol, "protocol" },
-		{ '\0', master_user, "master_user" },
-		{ '\0', NULL, NULL }
+		{ .key = "user", .value = input->username },
+		{ .key = "username", .value = username },
+		{ .key = "domain", .value = domain },
+		{ .key = "service", .value = service_name },
+		{ .key = "local_ip", .value = net_ip2addr(&input->local_ip) },
+		{ .key = "remote_ip", .value = net_ip2addr(&input->remote_ip) },
+		{ .key = "session", .value = input->session_id },
+		{ .key = "auth_user", .value = auth_user },
+		{ .key = "auth_username", .value = auth_username },
+		{ .key = "auth_domain", .value = auth_domain },
+		{ .key = "hostname", .value = hostname },
+		{ .key = "local_name", .value = local_name },
+		{ .key = "protocol", .value = protocol },
+		{ .key = "master_user", .value = master_user },
+		{ .key = "local_port", .value = local_port },
+		{ .key = "remote_port", .value = remote_port },
+		VAR_EXPAND_TABLE_END
 	};
 	struct var_expand_table *tab;
 
@@ -401,11 +400,32 @@ get_var_expand_table(struct master_service *service,
 	return tab;
 }
 
-const struct var_expand_table *
-mail_storage_service_get_var_expand_table(struct mail_storage_service_ctx *ctx,
-					  struct mail_storage_service_input *input)
+
+static int
+mail_storage_service_var_userdb(const char *key, const char **value_r,
+			       void *context, const char **error_r ATTR_UNUSED)
 {
-	return get_var_expand_table(ctx->service, NULL, input);
+	const struct mail_storage_service_input *input = context;
+
+	*value_r = mail_storage_service_fields_var_expand(key, input->userdb_fields);
+	return 0;
+}
+
+const struct var_expand_provider mail_storage_service_providers[] = {
+	{ .key = "userdb", .func = mail_storage_service_var_userdb },
+	VAR_EXPAND_TABLE_END
+};
+
+const struct var_expand_params *
+mail_storage_service_get_var_expand_params(struct mail_storage_service_ctx *ctx,
+					   struct mail_storage_service_input *input)
+{
+	struct var_expand_params *params = t_new(struct var_expand_params, 1);
+
+	params->table = get_var_expand_table(ctx->service, NULL, input);
+	params->providers = mail_storage_service_providers;
+	params->context = input;
+	return params;
 }
 
 static int
@@ -743,19 +763,6 @@ mail_storage_service_io_deactivate_user_cb(struct mail_storage_service_user *use
 		i_set_failure_prefix("%s", user->service_ctx->default_log_prefix);
 }
 
-static const char *field_get_default(const char *data)
-{
-	const char *p;
-
-	p = strchr(data, ':');
-	if (p == NULL)
-		return "";
-	else {
-		/* default value given */
-		return p+1;
-	}
-}
-
 const char *mail_storage_service_fields_var_expand(const char *data,
 						   const char *const *fields)
 {
@@ -764,7 +771,7 @@ const char *mail_storage_service_fields_var_expand(const char *data,
 	size_t field_name_len;
 
 	if (fields == NULL)
-		return field_get_default(data);
+		return "";
 
 	field_name_len = strlen(field_name);
 	for (i = 0; fields[i] != NULL; i++) {
@@ -772,26 +779,9 @@ const char *mail_storage_service_fields_var_expand(const char *data,
 		    fields[i][field_name_len] == '=')
 			return fields[i] + field_name_len+1;
 	}
-	return field_get_default(data);
+
+	return "";
 }
-
-static int
-mail_storage_service_input_var_userdb(const char *data, void *context,
-				      const char **value_r,
-				      const char **error_r ATTR_UNUSED)
-{
-	struct mail_storage_service_init_var_expand_ctx *var_expand_ctx = context;
-
-	*value_r = mail_storage_service_fields_var_expand(data,
-			var_expand_ctx->input->userdb_fields);
-	return 1;
-}
-
-static const struct var_expand_func_table
-mail_storage_service_var_expand_func_table[] = {
-	{ "userdb", mail_storage_service_input_var_userdb },
-	{ NULL, NULL }
-};
 
 static void
 mail_storage_service_var_expand_callback(void *context,
@@ -802,8 +792,8 @@ mail_storage_service_var_expand_callback(void *context,
 	params_r->table = get_var_expand_table(var_expand_ctx->ctx->service,
 					       var_expand_ctx->user,
 					       var_expand_ctx->input);
-	params_r->func_table = mail_storage_service_var_expand_func_table;
-	params_r->func_context = var_expand_ctx;
+	params_r->providers = mail_storage_service_providers;
+	params_r->context = (void*)var_expand_ctx->input;
 }
 
 const char *

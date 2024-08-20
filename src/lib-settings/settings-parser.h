@@ -4,7 +4,7 @@
 #include "str-parse.h"
 
 struct var_expand_table;
-struct var_expand_func_table;
+struct var_expand_provider;
 
 #define SETTINGS_SEPARATOR '/'
 #define SETTINGS_SEPARATOR_S "/"

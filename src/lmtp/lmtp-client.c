@@ -122,12 +122,11 @@ static void client_read_settings(struct client *client, bool ssl)
 	client->raw_mail_user =
 		raw_storage_create_from_set(storage_service, client->set_instance);
 
-	struct var_expand_params params = {
-		.table = mail_storage_service_get_var_expand_table(storage_service, &input),
-	};
+	const struct var_expand_params *params =
+		mail_storage_service_get_var_expand_params(storage_service, &input);
 
 	struct event *event = event_create(client->event);
-	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, &params);
+	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, (void *)params);
 	if (settings_get(event, &lda_setting_parser_info, 0,
 			 &client->lda_set, &error) < 0 ||
 	    settings_get(event, &lmtp_setting_parser_info, 0,
