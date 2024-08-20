@@ -21,8 +21,8 @@
 #include "str-sanitize.h"
 #include "safe-memset.h"
 #include "time-util.h"
-#include "var-expand.h"
 #include "settings.h"
+#include "var-expand-new.h"
 #include "master-interface.h"
 #include "master-service.h"
 #include "login-client.h"
@@ -77,8 +77,10 @@ static_assert_array_size(client_auth_fail_code_event_reasons,
 			 CLIENT_AUTH_FAIL_CODE_COUNT);
 
 static const char *client_get_log_str(struct client *client, const char *msg);
-static const struct var_expand_table *
-get_var_expand_table(struct client *client);
+static const struct var_expand_params *
+get_var_expand_params(struct client *client);
+static void
+client_var_expand_callback(void *context, struct var_expand_params *params_r);
 
 void login_client_hooks_add(struct module *module,
 			    const struct login_client_hooks *hooks)
@@ -194,13 +196,6 @@ static bool client_is_trusted(struct client *client)
 			return TRUE;
 	}
 	return FALSE;
-}
-
-static void
-client_var_expand_callback(void *context, struct var_expand_params *params_r)
-{
-	struct client *client = context;
-	params_r->table = get_var_expand_table(client);
 }
 
 static int client_settings_get(struct client *client, const char **error_r)
@@ -978,37 +973,78 @@ const char *client_get_session_id(struct client *client)
 }
 
 static struct var_expand_table login_var_expand_empty_tab[] = {
-	{ 'u', NULL, "user" },
-	{ 'n', NULL, "username" },
-	{ 'd', NULL, "domain" },
+	{ .key = "user", .value = NULL },
+	{ .key = "username", .value = NULL },
+	{ .key = "domain", .value = NULL },
 
-	{ '\0', NULL, "protocol" },
-	{ 'h', NULL, "home" },
-	{ 'l', NULL, "local_ip" },
-	{ 'r', NULL, "remote_ip" },
-	{ 'm', NULL, "mechanism" },
-	{ 'a', NULL, "local_port" },
-	{ 'b', NULL, "remote_port" },
-	{ 'c', NULL, "secured" },
-	{ 'k', NULL, "ssl_security" },
-	{ 'e', NULL, "mail_pid" },
-	{ '\0', NULL, "session" },
-	{ '\0', NULL, "real_local_ip" },
-	{ '\0', NULL, "real_remote_ip" },
-	{ '\0', NULL, "real_local_port" },
-	{ '\0', NULL, "real_remote_port" },
-	{ '\0', NULL, "original_user" },
-	{ '\0', NULL, "original_username" },
-	{ '\0', NULL, "original_domain" },
-	{ '\0', NULL, "auth_user" },
-	{ '\0', NULL, "auth_username" },
-	{ '\0', NULL, "auth_domain" },
-	{ '\0', NULL, "listener" },
-	{ '\0', NULL, "local_name" },
-	{ '\0', NULL, "ssl_ja3" },
+	{ .key = "protocol", .value = NULL },
+	{ .key = "home", .value = NULL },
+	{ .key = "local_ip", .value = NULL },
+	{ .key = "remote_ip", .value = NULL },
+	{ .key = "mechanism", .value = NULL },
+	{ .key = "local_port", .value = NULL },
+	{ .key = "remote_port", .value = NULL },
+	{ .key = "secured", .value = NULL },
+	{ .key = "ssl_security", .value = NULL },
+	{ .key = "mail_pid", .value = NULL },
+	{ .key = "session", .value = NULL },
+	{ .key = "real_local_ip", .value = NULL },
+	{ .key = "real_remote_ip", .value = NULL },
+	{ .key = "real_local_port", .value = NULL },
+	{ .key = "real_remote_port", .value = NULL },
+	{ .key = "original_user", .value = NULL },
+	{ .key = "original_username", .value = NULL },
+	{ .key = "original_domain", .value = NULL },
+	{ .key = "auth_user", .value = NULL },
+	{ .key = "auth_username", .value = NULL },
+	{ .key = "auth_domain", .value = NULL },
+	{ .key = "listener", .value = NULL },
+	{ .key = "local_name", .value = NULL },
+	{ .key = "ssl_ja3", .value = NULL },
+	{ .key = "ssl_ja3_hash", .value = NULL },
 
-	{ '\0', NULL, NULL }
+	VAR_EXPAND_TABLE_END
 };
+
+static const char *
+client_ssl_ja3_hash(struct client *client)
+{
+	if (client->ssl_iostream == NULL)
+		return "";
+
+	unsigned char hash[MD5_RESULTLEN];
+	const char *ja3 = ssl_iostream_get_ja3(client->ssl_iostream);
+	if (ja3 == NULL)
+		return "";
+	md5_get_digest(ja3, strlen(ja3), hash);
+	return binary_to_hex(hash, sizeof(hash));
+}
+
+static int
+client_var_expand_func_passdb(const char *field_name, const char **value_r,
+			      void *context,
+			      const char **error_r ATTR_UNUSED)
+{
+	struct client *client = context;
+	unsigned int i;
+	size_t field_name_len;
+
+	*value_r = "";
+
+	if (client->auth_passdb_args == NULL)
+		return 0;
+
+	field_name_len = strlen(field_name);
+	for (i = 0; client->auth_passdb_args[i] != NULL; i++) {
+		if (strncmp(client->auth_passdb_args[i], field_name,
+			    field_name_len) == 0 &&
+		    client->auth_passdb_args[i][field_name_len] == '=') {
+			*value_r = client->auth_passdb_args[i] + field_name_len+1;
+			break;
+		}
+	}
+	return 0;
+}
 
 static void
 get_var_expand_users(struct var_expand_table *tab, const char *user)
@@ -1023,8 +1059,13 @@ get_var_expand_users(struct var_expand_table *tab, const char *user)
 		tab[i].value = str_sanitize(tab[i].value, 80);
 }
 
-static const struct var_expand_table *
-get_var_expand_table(struct client *client)
+static const struct var_expand_provider client_common_providers[] = {
+	{ .key = "passdb", client_var_expand_func_passdb },
+	VAR_EXPAND_TABLE_END
+};
+
+static const struct var_expand_params *
+get_var_expand_params(struct client *client)
 {
 	struct var_expand_table *tab;
 
@@ -1033,192 +1074,159 @@ get_var_expand_table(struct client *client)
 	       sizeof(login_var_expand_empty_tab));
 
 	if (client->virtual_user != NULL)
-		get_var_expand_users(tab, client->virtual_user);
-	tab[3].value = login_binary->protocol;
-	tab[4].value = getenv("HOME");
-	tab[5].value = net_ip2addr(&client->local_ip);
-	tab[6].value = net_ip2addr(&client->ip);
-	tab[7].value = client->auth_mech_name == NULL ? NULL :
-		str_sanitize(client->auth_mech_name, MAX_MECH_NAME);
-	tab[8].value = dec2str(client->local_port);
-	tab[9].value = dec2str(client->remote_port);
+		get_var_expand_users(&tab[0], client->virtual_user);
+	var_expand_table_set_value(tab, "protocol", login_binary->protocol);
+	var_expand_table_set_value(tab, "home", getenv("HOME"));
+	var_expand_table_set_value(tab, "local_ip", net_ip2addr(&client->local_ip));
+	var_expand_table_set_value(tab, "remote_ip", net_ip2addr(&client->ip));
+	if (client->auth_mech_name != NULL)
+		var_expand_table_set_value(tab, "mechanism",
+			str_sanitize(client->auth_mech_name, MAX_MECH_NAME));
+	var_expand_table_set_value(tab, "local_port", dec2str(client->local_port));
+	var_expand_table_set_value(tab, "remote_port", dec2str(client->remote_port));
 	if (client->haproxy_terminated_tls) {
-		tab[10].value = "TLS";
-		tab[11].value = "(proxied)";
+		var_expand_table_set_value(tab, "secured", "TLS");
+		var_expand_table_set_value(tab, "ssl_security", "(proxied)");
 	} else if (!client->connection_tls_secured) {
-		tab[10].value = client->connection_secured ? "secured" : NULL;
-		tab[11].value = "";
+		if (client->connection_secured)
+			var_expand_table_set_value(tab, "secured", "secured");
 	} else if (client->ssl_iostream != NULL) {
 		const char *ssl_state =
 			ssl_iostream_is_handshaked(client->ssl_iostream) ?
 			"TLS" : "TLS handshaking";
 		const char *ssl_error =
 			ssl_iostream_get_last_error(client->ssl_iostream);
-
-		tab[10].value = ssl_error == NULL ? ssl_state :
-			t_strdup_printf("%s: %s", ssl_state, ssl_error);
-		tab[11].value =
-			ssl_iostream_get_security_string(client->ssl_iostream);
-		tab[26].value =
-			ssl_iostream_get_ja3(client->ssl_iostream);
+		if (ssl_error != NULL)
+			ssl_state = t_strdup_printf("%s: %s", ssl_state, ssl_error);
+		var_expand_table_set_value(tab, "secured", ssl_state);
+		var_expand_table_set_value(tab, "ssl_security",
+			ssl_iostream_get_security_string(client->ssl_iostream));
+		var_expand_table_set_value(tab, "ssl_ja3",
+			ssl_iostream_get_ja3(client->ssl_iostream));
+		var_expand_table_set_value(tab, "ssl_ja3_hash",
+			client_ssl_ja3_hash(client));
 	} else {
-		tab[10].value = "TLS";
-		tab[11].value = "";
+		var_expand_table_set_value(tab, "secured", "TSL");
+		var_expand_table_set_value(tab, "ssl_security", "");
 	}
-	tab[12].value = client->mail_pid == 0 ? "" :
+
+	const char *mail_pid = client->mail_pid == 0 ? "" :
 		dec2str(client->mail_pid);
-	tab[13].value = client_get_session_id(client);
-	tab[14].value = net_ip2addr(&client->real_local_ip);
-	tab[15].value = net_ip2addr(&client->real_remote_ip);
-	tab[16].value = dec2str(client->real_local_port);
-	tab[17].value = dec2str(client->real_remote_port);
+	var_expand_table_set_value(tab, "mail_pid", mail_pid);
+	var_expand_table_set_value(tab, "session", client_get_session_id(client));
+	var_expand_table_set_value(tab, "real_local_ip",
+			net_ip2addr(&client->real_local_ip));
+	var_expand_table_set_value(tab, "real_remote_ip",
+			net_ip2addr(&client->real_local_ip));
+	var_expand_table_set_value(tab, "real_local_port",
+			dec2str(client->real_local_port));
+	var_expand_table_set_value(tab, "real_remote_port",
+			dec2str(client->real_remote_port));
 	if (client->virtual_user_orig != NULL)
-		get_var_expand_users(tab+18, client->virtual_user_orig);
+		get_var_expand_users(&tab[18], client->virtual_user_orig);
 	else {
-		tab[18].value = tab[0].value;
-		tab[19].value = tab[1].value;
-		tab[20].value = tab[2].value;
+		var_expand_table_copy(tab, "original_user", "user");
+		var_expand_table_copy(tab, "original_username", "username");
+		var_expand_table_copy(tab, "original_domain", "domain");
 	}
+
 	if (client->virtual_auth_user != NULL)
-		get_var_expand_users(tab+21, client->virtual_auth_user);
+		get_var_expand_users(&tab[21], client->virtual_auth_user);
 	else {
-		tab[21].value = tab[18].value;
-		tab[22].value = tab[19].value;
-		tab[23].value = tab[20].value;
+		var_expand_table_copy(tab, "auth_user", "user");
+		var_expand_table_copy(tab, "auth_username", "username");
+		var_expand_table_copy(tab, "auth_domain", "domain");
 	}
-	tab[24].value = client->listener_name;
-	tab[25].value = str_sanitize(client->local_name, 256);
-	return tab;
+
+	var_expand_table_set_value(tab, "listener", client->listener_name);
+	var_expand_table_set_value(tab, "local_name",
+				   str_sanitize(client->local_name, 256));
+
+	struct var_expand_params *params = t_new(struct var_expand_params, 1);
+	params->table = tab;
+	params->providers = client_common_providers;
+	params->context = client;
+
+	return params;
 }
 
-static bool have_username_key(const char *str)
-{
-	char key;
-
-	for (; *str != '\0'; str++) {
-		if (str[0] == '%' && str[1] != '\0') {
-			str++;
-			key = var_get_key(str);
-			if (key == 'u' || key == 'n')
-				return TRUE;
-		}
-	}
-	return FALSE;
-}
-
-static int
-client_var_expand_func_passdb(const char *data, void *context,
-			      const char **value_r,
-			      const char **error_r ATTR_UNUSED)
+static void
+client_var_expand_callback(void *context, struct var_expand_params *params_r)
 {
 	struct client *client = context;
-	const char *field_name = data;
-	unsigned int i;
-	size_t field_name_len;
-
-	*value_r = NULL;
-
-	if (client->auth_passdb_args == NULL)
-		return 1;
-
-	field_name_len = strlen(field_name);
-	for (i = 0; client->auth_passdb_args[i] != NULL; i++) {
-		if (strncmp(client->auth_passdb_args[i], field_name,
-			    field_name_len) == 0 &&
-		    client->auth_passdb_args[i][field_name_len] == '=') {
-			*value_r = client->auth_passdb_args[i] + field_name_len+1;
-			return 1;
-		}
-	}
-	return 1;
-}
-
-static int client_var_expand_func_ssl_ja3_hash(const char *data ATTR_UNUSED,
-					       void *context,
-					       const char **value_r,
-					       const char **error_r ATTR_UNUSED)
-{
-	struct client *client = context;
-
-	if (client->ssl_iostream == NULL) {
-		*value_r = NULL;
-		return 1;
-	}
-
-	unsigned char hash[MD5_RESULTLEN];
-	const char *ja3 = ssl_iostream_get_ja3(client->ssl_iostream);
-	if (ja3 == NULL) {
-		*value_r = NULL;
-	} else {
-		md5_get_digest(ja3, strlen(ja3), hash);
-		*value_r = binary_to_hex(hash, sizeof(hash));
-	}
-	return 1;
+	const struct var_expand_params *params = get_var_expand_params(client);
+	*params_r = *params;
 }
 
 static const char *
 client_get_log_str(struct client *client, const char *msg)
 {
-	static const struct var_expand_func_table func_table[] = {
-		{ "passdb", client_var_expand_func_passdb },
-		{ "ssl_ja3_hash", client_var_expand_func_ssl_ja3_hash },
-		{ NULL, NULL }
+	struct client empty_client;
+	i_zero(&empty_client);
+	const struct var_expand_params *params = get_var_expand_params(client);
+	const struct var_expand_params empty_params = {
+		.table = login_var_expand_empty_tab,
+		.providers = client_common_providers,
+		.context = &empty_client,
+		.event = client->event,
 	};
 	static bool expand_error_logged = FALSE;
-	const struct var_expand_table *client_tab;
 	char *const *e;
 	const char *error;
 	string_t *str, *str2;
-	unsigned int pos;
-
-	client_tab = get_var_expand_table(client);
 
 	str = t_str_new(256);
-	str2 = t_str_new(128);
+	str2 = t_str_new(256);
+	size_t pos = 0;
 	for (e = client->set->log_format_elements_split; *e != NULL; e++) {
-		pos = str_len(str);
-		if (var_expand_with_funcs(str, *e, client_tab,
-					  func_table, client, &error) <= 0 &&
-		    !expand_error_logged) {
-			/* NOTE: Don't log via client->event - it would cause
-			   recursion */
-			i_error("Failed to expand log_format_elements=%s: %s",
-				*e, error);
-			expand_error_logged = TRUE;
+		pos = str->used;
+		struct var_expand_program *prog;
+		if (var_expand_program_create(*e, &prog, &error) < 0 ||
+		    var_expand_program_execute(str, prog, params, &error) < 0) {
+			if (!expand_error_logged) {
+				/* NOTE: Don't log via client->event -
+				   it would cause recursion. */
+				i_error("Failed to expand log_format_elements=%s: %s",
+					*e, error);
+				expand_error_logged = TRUE;
+			}
 		}
-		if (have_username_key(*e)) {
+		const char *const *vars = var_expand_program_variables(prog);
+		if (str_array_find(vars, "user") ||
+		    str_array_find(vars, "username")) {
 			/* username is added even if it's empty */
+			var_expand_program_free(&prog);
 		} else {
 			str_truncate(str2, 0);
-			if (var_expand_with_table(str2, *e,
-						  login_var_expand_empty_tab,
-						  &error) <= 0) {
+			int ret = var_expand_program_execute(str2, prog,
+							     &empty_params, &error);
+			var_expand_program_free(&prog);
+			if (ret < 0 || strcmp(str_c(str)+pos, str_c(str2)) == 0) {
 				/* we just logged this error above. no need
 				   to do it again. */
-			}
-			if (strcmp(str_c(str)+pos, str_c(str2)) == 0) {
-				/* empty %variables, don't add */
 				str_truncate(str, pos);
 				continue;
 			}
 		}
-
+		pos = str->used;
 		if (str_len(str) > 0)
 			str_append(str, ", ");
 	}
+	/* remove the trailing comma */
+	str_truncate(str, pos);
 
-	if (str_len(str) > 0)
-		str_truncate(str, str_len(str)-2);
-
-	const struct var_expand_table tab[3] = {
-		{ 's', t_strdup(str_c(str)), NULL },
-		{ '$', msg, NULL },
-		{ '\0', NULL, NULL }
+	const struct var_expand_params params2 = {
+		.table = (const struct var_expand_table[]){
+			{ .key = "elements", .value = t_strdup(str_c(str)) },
+			{ .key = "message", .value = msg, },
+			VAR_EXPAND_TABLE_END
+		},
+		.event = client->event,
 	};
 
 	str_truncate(str, 0);
-	if (var_expand_with_table(str, client->set->login_log_format, tab,
-				  &error) <= 0) {
+	if (var_expand_new(str, client->set->login_log_format, &params2,
+			   &error) < 0) {
 		/* NOTE: Don't log via client->event - it would cause
 		   recursion */
 		i_error("Failed to expand login_log_format=%s: %s",
