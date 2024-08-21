@@ -314,12 +314,15 @@ imapc_storage_attribute_iter_init(struct mailbox *box,
 	case HANDLE_IMAPC:
 		if (imapc_storage_attribute_cmd(box, GETMETADATA, type_flags,
 					        DEPTH_INFINITY, prefix, NULL,
-					        iter->actx) < 0)
+						iter->actx) < 0) {
+			mail_storage_last_error_push(box->storage);
 			iter->failed = TRUE;
+		}
 		break;
 	case HANDLE_UNAVAILABLE:
 		break;
 	default:
+		mail_storage_last_error_push(box->storage);
 		iter->failed = TRUE;
 		break;
 	}
@@ -361,8 +364,12 @@ int imapc_storage_attribute_iter_deinit(struct mailbox_attribute_iter *_iter)
 	int ret;
 	if (iter->ictx != NULL)
 		ret = index_storage_attribute_iter_deinit(iter->ictx);
-	else
-		ret = iter->failed ? -1 : 0;
+	else if (!iter->failed)
+		ret = 0;
+	else {
+		mail_storage_last_error_pop(iter->iter.box->storage);
+		ret = -1;
+	}
 
 	imapc_storage_attribute_iter_destroy(&iter);
 	return ret;
