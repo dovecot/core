@@ -198,6 +198,8 @@ imapc_client_mailbox_get_msgmap(struct imapc_client_mailbox *box);
 void imapc_client_mailbox_idle(struct imapc_client_mailbox *box);
 bool imapc_client_mailbox_is_opened(struct imapc_client_mailbox *box);
 
+/* Get the server capabilities. If it fails, the error is seen and handled by
+   the login callback. */
 int imapc_client_get_capabilities(struct imapc_client *client,
 				  enum imapc_capability *capabilities_r);
 
