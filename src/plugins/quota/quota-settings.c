@@ -12,7 +12,6 @@ static bool quota_settings_check(void *_set, pool_t pool, const char **error_r);
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct quota_settings)
 static const struct setting_define quota_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "quota_count" },
-	{ .type = SET_FILTER_NAME, .key = "quota_fs" },
 	{ .type = SET_FILTER_NAME, .key = "quota_imapc" },
 	{ .type = SET_FILTER_NAME, .key = "quota_maildir" },
 

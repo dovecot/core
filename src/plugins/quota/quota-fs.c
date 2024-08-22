@@ -8,6 +8,8 @@
 #include "hostpid.h"
 #include "llist.h"
 #include "mountpoint.h"
+#include "settings.h"
+#include "settings-parser.h"
 #include "quota-private.h"
 #include "quota-fs.h"
 
@@ -81,18 +83,51 @@ struct fs_quota_mountpoint {
 
 struct fs_quota_root {
 	struct quota_root root;
-	char *storage_mount_path;
 
+	const struct quota_fs_settings *set;
 	uid_t uid;
 	gid_t gid;
 	struct fs_quota_mountpoint *mount;
 
-	bool inode_per_mail:1;
 	bool user_disabled:1;
 	bool group_disabled:1;
 #ifdef FS_QUOTA_NETBSD
 	struct quotahandle *qh;
 #endif
+};
+
+struct quota_fs_settings {
+	pool_t pool;
+
+	const char *quota_fs_mount_path;
+	const char *quota_fs_type;
+	bool quota_fs_message_limit;
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct quota_fs_settings)
+static const struct setting_define quota_fs_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "quota_fs" },
+	DEF(STR, quota_fs_mount_path),
+	DEF(ENUM, quota_fs_type),
+	DEF(BOOL, quota_fs_message_limit),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct quota_fs_settings quota_fs_default_settings = {
+	.quota_fs_mount_path = "",
+	.quota_fs_type = "any:user:group",
+	.quota_fs_message_limit = FALSE,
+};
+
+const struct setting_parser_info quota_fs_setting_parser_info = {
+	.name = "quota_fs",
+	.defines = quota_fs_setting_defines,
+	.defaults = &quota_fs_default_settings,
+	.struct_size = sizeof(struct quota_fs_settings),
+	.pool_offset1 = 1 + offsetof(struct quota_fs_settings, pool),
 };
 
 extern struct quota_backend quota_backend_fs;
@@ -110,43 +145,21 @@ static struct quota_root *fs_quota_alloc(void)
 	return &root->root;
 }
 
-static void handle_user_param(struct quota_root *_root, const char *param_value ATTR_UNUSED)
-{
-	((struct fs_quota_root *)_root)->group_disabled = TRUE;
-}
-
-static void handle_group_param(struct quota_root *_root, const char *param_value ATTR_UNUSED)
-{
-	((struct fs_quota_root *)_root)->user_disabled = TRUE;
-}
-
-static void handle_inode_param(struct quota_root *_root, const char *param_value ATTR_UNUSED)
-{
-	((struct fs_quota_root *)_root)->inode_per_mail = TRUE;
-}
-
-static void handle_mount_param(struct quota_root *_root, const char *param_value)
-{
-	struct fs_quota_root *root = (struct fs_quota_root *)_root;
-	i_free(root->storage_mount_path);
-	root->storage_mount_path = i_strdup(param_value);
-}
-
-static int fs_quota_init(struct quota_root *_root, const char *args,
+static int fs_quota_init(struct quota_root *_root, const char *args ATTR_UNUSED,
 			 const char **error_r)
 {
-	const struct quota_param_parser fs_params[] = {
-		{.param_name = "user", .param_handler = handle_user_param},
-		{.param_name = "group", .param_handler = handle_group_param},
-		{.param_name = "mount=", .param_handler = handle_mount_param},
-		{.param_name = "inode_per_mail", .param_handler = handle_inode_param},
-		{.param_name = NULL}
-	};
+	struct fs_quota_root *root = (struct fs_quota_root *)_root;
+
+	if (settings_get(_root->backend.event, &quota_fs_setting_parser_info, 0,
+			 &root->set, error_r) < 0)
+		return -1;
+	if (strcmp(root->set->quota_fs_type, "user") == 0)
+		root->group_disabled = TRUE;
+	else if (strcmp(root->set->quota_fs_type, "group") == 0)
+		root->user_disabled = TRUE;
 
 	event_set_append_log_prefix(_root->backend.event, "quota-fs: ");
 
-	if (quota_parse_parameters(_root, &args, error_r, fs_params, TRUE) < 0)
-		return -1;
 	_root->auto_updating = TRUE;
 	return 0;
 }
@@ -174,7 +187,7 @@ static void fs_quota_deinit(struct quota_root *_root)
 
 	if (root->mount != NULL)
 		fs_quota_mountpoint_free(root->mount);
-	i_free(root->storage_mount_path);
+	settings_free(root->set);
 	i_free(root);
 }
 
@@ -263,8 +276,8 @@ static void fs_quota_namespace_added(struct quota_root *_root,
 	if (root->mount != NULL)
 		return;
 
-	if (root->storage_mount_path != NULL)
-		fs_quota_mount_init(root, root->storage_mount_path);
+	if (root->set->quota_fs_mount_path[0] != '\0')
+		fs_quota_mount_init(root, root->set->quota_fs_mount_path);
 	else if (mailbox_list_get_root_path(ns->list,
 					    MAILBOX_LIST_PATH_TYPE_MAILBOX,
 					    &dir))
@@ -285,7 +298,8 @@ fs_quota_root_get_resources(struct quota_root *_root)
 		NULL
 	};
 
-	return root->inode_per_mail ? resources_kb_messages : resources_kb;
+	return root->set->quota_fs_message_limit ?
+		resources_kb_messages : resources_kb;
 }
 
 #if defined(FS_QUOTA_LINUX) || defined(FS_QUOTA_BSDAIX) || \
@@ -809,7 +823,7 @@ static bool fs_quota_match_box(struct quota_root *_root, struct mailbox *box)
 	const char *mailbox_path;
 	bool match;
 
-	if (root->storage_mount_path == NULL)
+	if (root->set->quota_fs_mount_path[0] == '\0')
 		return TRUE;
 
 	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX,
@@ -821,14 +835,14 @@ static bool fs_quota_match_box(struct quota_root *_root, struct mailbox *box)
 				"stat(%s) failed: %m", mailbox_path);
 		return FALSE;
 	}
-	if (stat(root->storage_mount_path, &rst) < 0) {
+	if (stat(root->set->quota_fs_mount_path, &rst) < 0) {
 		e_debug(_root->backend.event, "stat(%s) failed: %m",
-			root->storage_mount_path);
+			root->set->quota_fs_mount_path);
 		return FALSE;
 	}
 	match = CMP_DEV_T(mst.st_dev, rst.st_dev);
 	e_debug(_root->backend.event, "box=%s mount=%s match=%s", mailbox_path,
-		root->storage_mount_path, match ? "yes" : "no");
+		root->set->quota_fs_mount_path, match ? "yes" : "no");
 	return match;
 }
 
@@ -844,10 +858,10 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 	*value_r = 0;
 
 	if (root->mount == NULL) {
-		if (root->storage_mount_path != NULL)
+		if (root->set->quota_fs_mount_path[0] != '\0')
 			*error_r = t_strdup_printf(
 				"Mount point unknown for path %s",
-				root->storage_mount_path);
+				root->set->quota_fs_mount_path);
 		else
 			*error_r = "Mount point unknown";
 		return QUOTA_GET_RESULT_INTERNAL_ERROR;
