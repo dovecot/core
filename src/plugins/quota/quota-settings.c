@@ -38,12 +38,12 @@ static const struct setting_define quota_setting_defines[] = {
 	DEF(STR, quota_warning_name),
 	DEF(ENUM, quota_warning_resource),
 	DEF(ENUM, quota_warning_threshold),
-	DEF(STR, quota_warning_command),
 
+	{ .type = SET_FILTER_NAME, .key = "quota_over_status",
+	  .required_setting = "execute", },
 	DEF(BOOL, quota_over_status_lazy_check),
 	DEF(STR, quota_over_status_current),
 	DEF(STR, quota_over_status_mask),
-	DEF(STR, quota_over_status_script),
 
 	DEF(UINT, quota_mailbox_count),
 	DEF(UINT, quota_mailbox_message_count),
@@ -73,12 +73,10 @@ static const struct quota_settings quota_default_settings = {
 		QUOTA_WARNING_RESOURCE_MESSAGE,
 	.quota_warning_threshold = QUOTA_WARNING_THRESHOLD_OVER":"
 		QUOTA_WARNING_THRESHOLD_UNDER,
-	.quota_warning_command = "",
 
 	.quota_over_status_lazy_check = FALSE,
 	.quota_over_status_current = "",
 	.quota_over_status_mask = "",
-	.quota_over_status_script = "",
 
 	.quota_mailbox_count = SET_UINT_UNLIMITED,
 	.quota_mail_size = SET_SIZE_UNLIMITED,

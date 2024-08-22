@@ -52,13 +52,11 @@ struct quota_settings {
 	/* Specifies whether the warning is executed when going over the limit
 	   or back under the limit. */
 	const char *quota_warning_threshold;
-	const char *quota_warning_command;
 
 	/* For quota_over_status: */
 	bool quota_over_status_lazy_check;
 	const char *quota_over_status_current;
 	const char *quota_over_status_mask;
-	const char *quota_over_status_script;
 
 	/* Globals: */
 

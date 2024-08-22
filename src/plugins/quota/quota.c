@@ -879,57 +879,26 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 	return 0;
 }
 
-static void quota_warning_execute(struct quota_root *root, const char *cmd,
-				  const char *last_arg, const char *reason)
+static void
+quota_warning_execute(struct event *event, const char *last_arg,
+		      const char *reason)
 {
-	const char *socket_path, *const *args, *error, *scheme, *ptr;
-
+	const char *const append_args[] = { last_arg, NULL };
 	struct program_client_parameters params = {
 		.client_connect_timeout_msecs = 1000,
 		.no_reply = TRUE,
+		.append_args = append_args,
 	};
 	struct program_client *pc;
+	const char *error;
 
-	e_debug(root->backend.event, "Executing warning: %s (because %s)", cmd, reason);
+	e_debug(event, "Executing because: %s", reason);
 
-	args = t_strsplit_spaces(cmd, " ");
-	if (last_arg != NULL) {
-		unsigned int count = str_array_length(args);
-		const char **new_args = t_new(const char *, count + 2);
-
-		memcpy(new_args, args, sizeof(const char *) * count);
-		new_args[count] = last_arg;
-		args = new_args;
-	}
-	socket_path = args[0];
-
-	if ((ptr = strchr(socket_path, ':')) != NULL) {
-		scheme = t_strcut(socket_path, ':');
-		socket_path = ptr+1;
-	} else {
-		scheme = "unix";
-	}
-
-	if (*socket_path != '/' &&
-	    strcmp(scheme, "unix") == 0)
-		socket_path =
-			t_strconcat(root->quota->user->set->base_dir,
-				    "/", socket_path, NULL);
-
-	socket_path = t_strdup_printf("%s:%s", scheme, socket_path);
-
-	args++;
-
-	if (program_client_create(root->backend.event, socket_path, args,
-				  &params, &pc, &error) < 0) {
-		e_error(root->backend.event,
-			"program_client_create(%s) failed: %s", socket_path,
-			error);
+	if (program_client_create_auto(event, &params, &pc, &error) <= 0) {
+		e_error(event, "%s", error);
 		return;
 	}
-
 	(void)program_client_run(pc);
-
 	program_client_destroy(&pc);
 }
 
@@ -980,8 +949,15 @@ static void quota_warnings_execute(struct quota_transaction_context *ctx,
 		if (quota_warning_match(set, bytes_before, bytes_current,
 					count_before, count_current,
 					&reason)) {
-			quota_warning_execute(root, set->quota_warning_command,
-					      NULL, reason);
+			struct event *event = event_create(root->backend.event);
+			event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
+				      p_strdup_printf(event_get_pool(event),
+						      "quota_warning/%s",
+						      warn_name));
+			event_set_append_log_prefix(event, t_strdup_printf(
+				"quota_warning %s: ", warn_name));
+			quota_warning_execute(event, NULL, reason);
+			event_unref(&event);
 			settings_free(set);
 			break;
 		}
@@ -1050,11 +1026,6 @@ static bool
 quota_over_status_init_root(struct quota_root *root, bool *status_r)
 {
 	*status_r = FALSE;
-	if (root->set->quota_over_status_script[0] == '\0') {
-		e_debug(root->backend.event, "quota_over_status check: "
-			"quota_over_script unset - skipping");
-		return FALSE;
-	}
 
 	/* e.g.: quota_over_status_mask=TRUE or quota_over_status_mask=*  */
 	if (root->set->quota_over_status_mask[0] == '\0') {
@@ -1123,9 +1094,14 @@ static void quota_over_status_check_root(struct quota_root *root)
 		root->set->quota_over_status_current,
 		cur_overquota ? 1 : 0);
 	if (cur_overquota != quota_over_status) {
-		quota_warning_execute(root, root->set->quota_over_status_script,
+		struct event *event = event_create(root->backend.event);
+		event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
+			      "quota_over_status");
+		event_set_append_log_prefix(event, "quota_over_status: ");
+		quota_warning_execute(event,
 				      root->set->quota_over_status_current,
 				      "quota_over_status mismatch");
+		event_unref(&event);
 	}
 }
 
