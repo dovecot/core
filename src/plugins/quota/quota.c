@@ -220,6 +220,8 @@ quota_root_init(struct quota *quota, struct event *set_event, const char *root_n
 	const char *backend_filter =
 		t_strdup_printf("quota_%s", root->backend.name);
 	root->backend.event = event_create(quota->event);
+	event_set_append_log_prefix(root->backend.event,
+		t_strdup_printf("quota-%s: ", root->backend.name));
 	event_add_str(root->backend.event, "quota", root_name);
 	event_set_ptr(root->backend.event, SETTINGS_EVENT_FILTER_NAME,
 		      p_strdup(event_get_pool(root->backend.event), backend_filter));
