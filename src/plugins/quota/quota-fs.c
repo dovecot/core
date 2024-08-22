@@ -157,8 +157,6 @@ static int fs_quota_init(struct quota_root *_root, const char **error_r)
 	else if (strcmp(root->set->quota_fs_type, "group") == 0)
 		root->user_disabled = TRUE;
 
-	event_set_append_log_prefix(_root->backend.event, "quota-fs: ");
-
 	_root->auto_updating = TRUE;
 	return 0;
 }

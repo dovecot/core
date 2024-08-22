@@ -238,8 +238,6 @@ static struct quota_root *count_quota_alloc(void)
 static int count_quota_init(struct quota_root *root,
 			    const char **error_r ATTR_UNUSED)
 {
-	event_set_append_log_prefix(root->backend.event, "quota-count: ");
-
 	root->auto_updating = TRUE;
 	return 0;
 }

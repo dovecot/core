@@ -95,7 +95,6 @@ static int imapc_quota_init(struct quota_root *_root, const char **error_r)
 		return -1;
 
 	_root->auto_updating = TRUE;
-	event_set_append_log_prefix(root->root.backend.event, "quota-imapc: ");
 	return 0;
 }
 
