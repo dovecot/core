@@ -229,17 +229,33 @@ quota_root_init(struct quota *quota, struct event *set_event, const char *root_n
 
 	root = root_set->backend->v.alloc();
 	root->pool = pool_alloconly_create("quota root", 512);
-	root->set = root_set;
 	root->quota = quota;
 	root->backend = *root_set->backend;
 	p_array_init(&root->namespaces, root->pool, 4);
+	settings_free(root_set);
 
 	array_create(&root->quota_module_contexts, root->pool,
 		     sizeof(void *), 10);
 
+	const char *backend_filter =
+		t_strdup_printf("quota_%s", root->backend.name);
 	root->backend.event = event_create(quota->event);
 	event_add_str(root->backend.event, "quota", root_name);
+	event_set_ptr(root->backend.event, SETTINGS_EVENT_FILTER_NAME,
+		      p_strdup(event_get_pool(root->backend.event), backend_filter));
 	event_drop_parent_log_prefixes(root->backend.event, 1);
+
+	/* Lookup settings again with quota_backend filter name */
+	set_event = event_create(set_event);
+	event_set_ptr(set_event, SETTINGS_EVENT_FILTER_NAME,
+		      p_strdup(event_get_pool(set_event), backend_filter));
+	if (settings_get_filter(set_event, "quota", root_name,
+				&quota_setting_parser_info, 0,
+				&root->set, error_r) < 0) {
+		event_unref(&set_event);
+		return -1;
+	}
+	event_unref(&set_event);
 
 	root->bytes_limit = root->set->quota_storage_size > INT64_MAX ? 0 :
 		root->set->quota_storage_size;
