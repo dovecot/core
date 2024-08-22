@@ -258,6 +258,8 @@ struct event *dlua_check_event(lua_State *L, int arg)
 				 lua_typename(L, lua_type(L, arg)));
 	}
 	lua_pushliteral(L, "item");
+	if (arg < 0)
+		arg--;
 	lua_rawget(L, arg);
 	struct event **bp = (void*)lua_touserdata(L, -1);
 	lua_pop(L, 1);
