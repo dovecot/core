@@ -86,8 +86,7 @@ static struct quota_root *imapc_quota_alloc(void)
 	return &root->root;
 }
 
-static int imapc_quota_init(struct quota_root *_root, const char *args ATTR_UNUSED,
-			    const char **error_r)
+static int imapc_quota_init(struct quota_root *_root, const char **error_r)
 {
 	struct imapc_quota_root *root = (struct imapc_quota_root *)_root;
 

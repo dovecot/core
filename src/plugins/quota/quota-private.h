@@ -31,8 +31,7 @@ struct quota {
 
 struct quota_backend_vfuncs {
 	struct quota_root *(*alloc)(void);
-	int (*init)(struct quota_root *root, const char *args,
-		    const char **error_r);
+	int (*init)(struct quota_root *root, const char **error_r);
 	void (*deinit)(struct quota_root *root);
 
 	/* called once for each namespace */
@@ -133,8 +132,6 @@ void quota_add_user_namespace(struct quota *quota, const char *root_name,
 			      struct mail_namespace *ns);
 void quota_remove_user_namespace(struct mail_namespace *ns);
 
-int quota_root_default_init(struct quota_root *root, const char *args,
-			    const char **error_r);
 struct quota *quota_get_mail_user_quota(struct mail_user *user);
 
 /* Returns 1 if values were returned successfully, 0 if we're recursing into
