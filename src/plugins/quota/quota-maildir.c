@@ -750,11 +750,11 @@ static struct quota_root *maildir_quota_alloc(void)
 	return &root->root;
 }
 
-static int maildir_quota_init(struct quota_root *_root, const char *args,
-			      const char **error_r)
+static int maildir_quota_init(struct quota_root *_root,
+			      const char **error_r ATTR_UNUSED)
 {
 	event_set_append_log_prefix(_root->backend.event, "quota-maildir: ");
-	return quota_root_default_init(_root, args, error_r);
+	return 0;
 }
 
 static void maildir_quota_deinit(struct quota_root *_root)

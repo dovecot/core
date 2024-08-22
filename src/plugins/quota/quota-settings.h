@@ -20,7 +20,6 @@ struct quota_settings {
 	/* Client-visible name of the quota root */
 	const char *quota_name;
 	const char *quota_driver;
-	const char *quota_args;
 	/* If TRUE, quota is not tracked at all (for this mailbox). This is
 	   typically set only for specific mailboxes or namespaces. Note that
 	   this differs from unlimited quota, which still tracks the quota,

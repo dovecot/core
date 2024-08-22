@@ -24,7 +24,6 @@ static const struct setting_define quota_setting_defines[] = {
 
 	DEF(STR, quota_name),
 	DEF(STR, quota_driver),
-	DEF(STR, quota_args),
 	DEF(BOOL, quota_ignore),
 	DEF(BOOL, quota_ignore_unlimited),
 	DEF(BOOL, quota_enforce),
@@ -60,7 +59,6 @@ static const struct quota_settings quota_default_settings = {
 
 	.quota_name = "",
 	.quota_driver = "count",
-	.quota_args = "",
 	.quota_ignore = FALSE,
 	.quota_ignore_unlimited = FALSE,
 	.quota_enforce = TRUE,

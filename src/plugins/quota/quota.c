@@ -141,15 +141,6 @@ static void quota_root_deinit(struct quota_root *root)
 	pool_unref(&pool);
 }
 
-int quota_root_default_init(struct quota_root *root, const char *args,
-			    const char **error_r)
-{
-	const struct quota_param_parser default_params[] = {
-		{.param_name = NULL}
-	};
-	return quota_parse_parameters(root, &args, error_r, default_params, TRUE);
-}
-
 static int
 quota_root_settings_get(struct quota_root *root, struct event *set_event,
 			const struct quota_settings **set_r,
@@ -250,7 +241,7 @@ quota_root_init(struct quota *quota, struct event *set_event, const char *root_n
 		root->set->quota_storage_size;
 	root->count_limit = root->set->quota_message_count;
 
-	if (root->backend.v.init(root, root->set->quota_args, error_r) < 0) {
+	if (root->backend.v.init(root, error_r) < 0) {
 		*error_r = t_strdup_printf("%s quota init failed: %s",
 					   root->backend.name, *error_r);
 
@@ -1277,55 +1268,4 @@ void quota_recalculate(struct quota_transaction_context *ctx,
 		       enum quota_recalculate recalculate)
 {
 	ctx->recalculate = recalculate;
-}
-
-int quota_parse_parameters(struct quota_root *root, const char **args, const char **error_r,
-			   const struct quota_param_parser *valid_params, bool fail_on_unknown)
-{
-	const char *tmp_param_name, *tmp_param_val;
-	size_t tmp_param_len;
-
-	while (*args != NULL && (*args)[0] != '\0') {
-		for (; valid_params->param_name != NULL; ++valid_params) {
-			tmp_param_name = valid_params->param_name;
-			tmp_param_len = strlen(valid_params->param_name);
-			i_assert(*args != NULL);
-			if (strncmp(*args, tmp_param_name, tmp_param_len) == 0) {
-				tmp_param_val = NULL;
-				*args += tmp_param_len;
-				if (tmp_param_name[tmp_param_len - 1] == '=') {
-					const char *next_colon = strchr(*args, ':');
-					tmp_param_val = (next_colon == NULL)?
-						t_strdup(*args):
-						t_strdup_until(*args, next_colon);
-					*args = (next_colon == NULL) ? NULL : next_colon + 1;
-				}
-				else if ((*args)[0] == '\0' ||
-					 (*args)[0] == ':') {
-					*args = ((*args)[0] == ':') ? *args + 1 : NULL;
-					/* in case parameter is a boolean second parameter
-					 * string parameter value will be ignored by param_handler
-					 * we just need some non-NULL value
-					 * to indicate that argument is to be processed */
-					tmp_param_val = "";
-				}
-				if (tmp_param_val != NULL) {
-					valid_params->param_handler(root, tmp_param_val);
-					break;
-				}
-			}
-		}
-		if (valid_params->param_name == NULL) {
-			if (fail_on_unknown) {
-				*error_r = t_strdup_printf(
-					"Unknown parameter for backend %s: %s",
-					root->backend.name, *args);
-				return -1;
-			}
-			else {
-				break;
-			}
-		}
-	}
-	return 0;
 }
