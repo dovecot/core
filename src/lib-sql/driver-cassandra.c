@@ -857,12 +857,6 @@ static int driver_cassandra_parse_connect_string(struct cassandra_db *db,
 				db->ssl_verify_flags =
 					CASS_SSL_VERIFY_PEER_CERT |
 					CASS_SSL_VERIFY_PEER_IDENTITY;
-#if HAVE_DECL_CASS_SSL_VERIFY_PEER_IDENTITY_DNS == 1
-			} else if (strcmp(value, "cert-dns") == 0) {
-				db->ssl_verify_flags =
-					CASS_SSL_VERIFY_PEER_CERT |
-					CASS_SSL_VERIFY_PEER_IDENTITY_DNS;
-#endif
 			} else {
 				*error_r = t_strdup_printf(
 					"Unsupported ssl_verify flags: '%s'",
@@ -1095,17 +1089,6 @@ static int driver_cassandra_init_full_v(const struct sql_settings *set,
 	db->timestamp_gen = cass_timestamp_gen_monotonic_new();
 	db->cluster = cass_cluster_new();
 
-#ifdef HAVE_CASS_CLUSTER_SET_USE_HOSTNAME_RESOLUTION
-	if ((db->ssl_verify_flags & CASS_SSL_VERIFY_PEER_IDENTITY_DNS) != 0) {
-		CassError c_err;
-		if ((c_err = cass_cluster_set_use_hostname_resolution(
-				db->cluster, cass_true)) != CASS_OK) {
-			*error_r = cass_error_desc(c_err);
-			driver_cassandra_free(&db);
-			return -1;
-		}
-	}
-#endif
 	cass_cluster_set_ssl(db->cluster, db->ssl);
 	cass_cluster_set_timestamp_gen(db->cluster, db->timestamp_gen);
 	cass_cluster_set_connect_timeout(db->cluster, db->connect_timeout_msecs);
