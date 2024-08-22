@@ -476,6 +476,8 @@ static int parse_client_settings(lua_State *L, struct http_client_settings *set,
 			set->proxy_url = parsed_url;
 			set->proxy_username = parsed_url->user;
 			set->proxy_password = parsed_url->password;
+		} else if (strcmp(key, "event_parent") == 0) {
+			set->event_parent = dlua_check_event(L, -1);
 		} CLIENT_SETTING_STR(dns_client_socket_path)
 		CLIENT_SETTING_STR(user_agent)
 		CLIENT_SETTING_STR(rawlog_dir)
@@ -510,10 +512,7 @@ static int parse_client_settings(lua_State *L, struct http_client_settings *set,
 			t_strconcat(master_set->base_dir, "/dns-client", NULL);
 	}
 
-	lua_getfield(L, -1, "event_parent");
-	if (!lua_isnil(L, -1))
-		set->event_parent = dlua_check_event(L, -1);
-	else {
+	if (set->event_parent == NULL) {
 		struct dlua_script *script = dlua_script_from_state(L);
 		set->event_parent = script->event;
 	}
