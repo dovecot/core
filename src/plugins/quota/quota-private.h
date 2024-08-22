@@ -82,8 +82,6 @@ struct quota_root {
 	/* Module-specific contexts. See quota_module_id. */
 	ARRAY(void) quota_module_contexts;
 
-	/* don't enforce quota when saving */
-	bool no_enforcing:1;
 	/* quota is automatically updated. update() should be called but the
 	   bytes won't be changed. count is still changed, because it's cheap
 	   to do and it's internally used to figure out whether there have

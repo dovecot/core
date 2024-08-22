@@ -49,10 +49,6 @@ static const struct quota_backend *quota_internal_backends[] = {
 
 static ARRAY(const struct quota_backend*) quota_backends;
 
-static void noenforcing_param_handler(struct quota_root *_root, const char *param_value);
-
-struct quota_param_parser quota_param_noenforcing = {.param_name = "noenforcing", .param_handler = noenforcing_param_handler};
-
 static enum quota_alloc_result quota_default_test_alloc(
 		struct quota_transaction_context *ctx, uoff_t size,
 		const char **error_r);
@@ -149,7 +145,6 @@ int quota_root_default_init(struct quota_root *root, const char *args,
 			    const char **error_r)
 {
 	const struct quota_param_parser default_params[] = {
-		quota_param_noenforcing,
 		{.param_name = NULL}
 	};
 	return quota_parse_parameters(root, &args, error_r, default_params, TRUE);
@@ -783,7 +778,7 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 		bytes_limit = count_limit = 0;
 		if (!quota_root_is_visible(roots[i], ctx->box))
 			continue;
-		else if (roots[i]->no_enforcing) {
+		else if (!roots[i]->set->quota_enforce) {
 			ignored = FALSE;
 		} else if (quota_root_get_rule_limits(roots[i], ctx->box->event,
 						      &bytes_limit, &count_limit,
@@ -1236,7 +1231,7 @@ static enum quota_alloc_result quota_default_test_alloc(
 		uint64_t bytes_limit, count_limit;
 
 		if (!quota_root_is_visible(roots[i], ctx->box) ||
-		    roots[i]->no_enforcing)
+		    !roots[i]->set->quota_enforce)
 			continue;
 
 		if (quota_root_get_rule_limits(roots[i], ctx->box->event,
@@ -1282,11 +1277,6 @@ void quota_recalculate(struct quota_transaction_context *ctx,
 		       enum quota_recalculate recalculate)
 {
 	ctx->recalculate = recalculate;
-}
-
-static void noenforcing_param_handler(struct quota_root *_root, const char *param_value ATTR_UNUSED)
-{
-	_root->no_enforcing = TRUE;
 }
 
 int quota_parse_parameters(struct quota_root *root, const char **args, const char **error_r,

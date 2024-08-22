@@ -29,6 +29,7 @@ static const struct setting_define quota_setting_defines[] = {
 	DEF(STR, quota_args),
 	DEF(BOOL, quota_ignore),
 	DEF(BOOL, quota_ignore_unlimited),
+	DEF(BOOL, quota_enforce),
 	DEF(BOOL, quota_hidden),
 	DEF(SIZE, quota_storage_size),
 	DEF(UINT, quota_storage_percentage),
@@ -64,6 +65,7 @@ static const struct quota_settings quota_default_settings = {
 	.quota_args = "",
 	.quota_ignore = FALSE,
 	.quota_ignore_unlimited = FALSE,
+	.quota_enforce = TRUE,
 	.quota_hidden = FALSE,
 	.quota_storage_size = SET_SIZE_UNLIMITED,
 	.quota_storage_percentage = 100,
@@ -88,10 +90,17 @@ static const struct quota_settings quota_default_settings = {
 	.quota_exceeded_message = "Quota exceeded (mailbox for user is full)",
 };
 
+static const struct setting_keyvalue quota_default_settings_keyvalue[] = {
+	/* imapc should never try to enforce the quota - it's just a lot of
+	   unnecessary remote GETQUOTA calls. */
+	{ "quota_imapc/quota_enforce", "no" },
+	{ NULL, NULL }
+};
 const struct setting_parser_info quota_setting_parser_info = {
 	.name = "quota",
 	.defines = quota_setting_defines,
 	.defaults = &quota_default_settings,
+	.default_settings = quota_default_settings_keyvalue,
 	.struct_size = sizeof(struct quota_settings),
 #ifndef CONFIG_BINARY
 	.check_func = quota_settings_check,
