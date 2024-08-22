@@ -801,6 +801,15 @@ program_client_create_filter_auto(struct event *event, const char *execute_name,
 	}
 
 	const char *const *args = t_strsplit_spaces(set->execute_args, " ");
+	if (params->append_args != NULL) {
+		ARRAY_TYPE(const_string) new_args;
+		t_array_init(&new_args, 8);
+		array_append(&new_args, args, str_array_length(args));
+		array_append(&new_args, params->append_args,
+			     str_array_length(params->append_args));
+		array_append_zero(&new_args);
+		args = array_front(&new_args);
+	}
 	if (strcmp(set->execute_driver, "unix") == 0) {
 		*pc_r = program_client_unix_create(event,
 				set->execute_unix_socket_path, args, params);

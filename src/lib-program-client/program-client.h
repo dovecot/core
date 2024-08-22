@@ -16,6 +16,8 @@ struct program_client_parameters {
 	unsigned int client_connect_timeout_msecs;
 	unsigned int input_idle_timeout_msecs;
 	const char *dns_client_socket_path;
+	/* Append extra args to execute_args */
+	const char *const *append_args;
 
 	/* use o_stream_dot, which is mainly useful to make sure that an
 	   unexpectedly closed connection doesn't cause the partial input to
