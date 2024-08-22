@@ -890,7 +890,7 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 	};
 	struct program_client *pc;
 
-	e_debug(root->quota->event, "Executing warning: %s (because %s)", cmd, reason);
+	e_debug(root->backend.event, "Executing warning: %s (because %s)", cmd, reason);
 
 	args = t_strsplit_spaces(cmd, " ");
 	if (last_arg != NULL) {
@@ -920,9 +920,9 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 
 	args++;
 
-	if (program_client_create(root->quota->event, socket_path, args,
+	if (program_client_create(root->backend.event, socket_path, args,
 				  &params, &pc, &error) < 0) {
-		e_error(root->quota->event,
+		e_error(root->backend.event,
 			"program_client_create(%s) failed: %s", socket_path,
 			error);
 		return;
@@ -946,14 +946,14 @@ static void quota_warnings_execute(struct quota_transaction_context *ctx,
 
 	if (quota_get_resource(root, NULL, QUOTA_NAME_STORAGE_BYTES,
 			       &bytes_current, &bytes_limit, &error) == QUOTA_GET_RESULT_INTERNAL_ERROR) {
-		e_error(root->quota->event,
+		e_error(root->backend.event,
 			"Failed to get quota resource "QUOTA_NAME_STORAGE_BYTES
 			": %s", error);
 		return;
 	}
 	if (quota_get_resource(root, NULL, QUOTA_NAME_MESSAGES,
 			       &count_current, &count_limit, &error) == QUOTA_GET_RESULT_INTERNAL_ERROR) {
-		e_error(root->quota->event,
+		e_error(root->backend.event,
 			"Failed to get quota resource "QUOTA_NAME_MESSAGES
 			": %s", error);
 		return;
@@ -1051,14 +1051,14 @@ quota_over_status_init_root(struct quota_root *root, bool *status_r)
 {
 	*status_r = FALSE;
 	if (root->set->quota_over_status_script[0] == '\0') {
-		e_debug(root->quota->event, "quota_over_status check: "
+		e_debug(root->backend.event, "quota_over_status check: "
 			"quota_over_script unset - skipping");
 		return FALSE;
 	}
 
 	/* e.g.: quota_over_status_mask=TRUE or quota_over_status_mask=*  */
 	if (root->set->quota_over_status_mask[0] == '\0') {
-		e_debug(root->quota->event, "quota_over_status check: "
+		e_debug(root->backend.event, "quota_over_status check: "
 			"quota_over_mask unset - skipping");
 		return FALSE;
 	}
@@ -1085,7 +1085,7 @@ static void quota_over_status_check_root(struct quota_root *root)
 	if (root->quota->user->session_create_time +
 	    QUOTA_OVER_STATUS_MAX_DELAY_SECS < ioloop_time) {
 		/* userdb's quota_over_status lookup is too old. */
-		e_debug(root->quota->event, "quota_over_status check: "
+		e_debug(root->backend.event, "quota_over_status check: "
 			"Status lookup time is too old - skipping");
 		return;
 	}
@@ -1093,7 +1093,7 @@ static void quota_over_status_check_root(struct quota_root *root)
 		/* we don't know whether the quota_over_script was executed
 		   before hibernation. just assume that it was, so we don't
 		   unnecessarily call it too often. */
-		e_debug(root->quota->event, "quota_over_status check: "
+		e_debug(root->backend.event, "quota_over_status check: "
 			"Session was already hibernated - skipping");
 		return;
 	}
@@ -1107,18 +1107,18 @@ static void quota_over_status_check_root(struct quota_root *root)
 					 &limit, &error);
 		if (ret == QUOTA_GET_RESULT_INTERNAL_ERROR) {
 			/* can't reliably verify this */
-			e_error(root->quota->event, "Quota %s lookup failed -"
+			e_error(root->backend.event, "Quota %s lookup failed -"
 				"can't verify quota_over_status: %s",
 				resources[i], error);
 			return;
 		}
-		e_debug(root->quota->event, "quota_over_status check: %s ret=%d"
+		e_debug(root->backend.event, "quota_over_status check: %s ret=%d"
 			"value=%"PRIu64" limit=%"PRIu64, resources[i], ret,
 			value, limit);
 		if (ret == QUOTA_GET_RESULT_LIMITED && value >= limit)
 			cur_overquota = TRUE;
 	}
-	e_debug(root->quota->event, "quota_over_status=%d(%s) vs currently overquota=%d",
+	e_debug(root->backend.event, "quota_over_status=%d(%s) vs currently overquota=%d",
 		quota_over_status ? 1 : 0,
 		root->set->quota_over_status_current,
 		cur_overquota ? 1 : 0);
