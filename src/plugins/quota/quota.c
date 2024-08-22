@@ -49,10 +49,8 @@ static const struct quota_backend *quota_internal_backends[] = {
 
 static ARRAY(const struct quota_backend*) quota_backends;
 
-static void ignoreunlim_param_handler(struct quota_root *_root, const char *param_value);
 static void noenforcing_param_handler(struct quota_root *_root, const char *param_value);
 
-struct quota_param_parser quota_param_ignoreunlimited = {.param_name = "ignoreunlimited", .param_handler = ignoreunlim_param_handler};
 struct quota_param_parser quota_param_noenforcing = {.param_name = "noenforcing", .param_handler = noenforcing_param_handler};
 
 static enum quota_alloc_result quota_default_test_alloc(
@@ -151,7 +149,6 @@ int quota_root_default_init(struct quota_root *root, const char *args,
 			    const char **error_r)
 {
 	const struct quota_param_parser default_params[] = {
-		quota_param_ignoreunlimited,
 		quota_param_noenforcing,
 		{.param_name = NULL}
 	};
@@ -269,7 +266,7 @@ quota_root_init(struct quota *quota, struct event *set_event, const char *root_n
 	}
 	if (root->set->quota_storage_size == 0 &&
 	    root->set->quota_message_count == 0 &&
-	    root->disable_unlimited_tracking) {
+	    root->set->quota_ignore_unlimited) {
 		quota_root_deinit(root);
 		return 0;
 	}
@@ -1285,11 +1282,6 @@ void quota_recalculate(struct quota_transaction_context *ctx,
 		       enum quota_recalculate recalculate)
 {
 	ctx->recalculate = recalculate;
-}
-
-static void ignoreunlim_param_handler(struct quota_root *_root, const char *param_value ATTR_UNUSED)
-{
-	_root->disable_unlimited_tracking = TRUE;
 }
 
 static void noenforcing_param_handler(struct quota_root *_root, const char *param_value ATTR_UNUSED)

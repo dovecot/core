@@ -23,7 +23,6 @@ struct quota_param_parser {
 };
 
 extern struct quota_param_parser quota_param_hidden;
-extern struct quota_param_parser quota_param_ignoreunlimited;
 extern struct quota_param_parser quota_param_noenforcing;
 extern struct quota_param_parser quota_param_ns;
 
