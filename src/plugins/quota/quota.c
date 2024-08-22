@@ -49,11 +49,9 @@ static const struct quota_backend *quota_internal_backends[] = {
 
 static ARRAY(const struct quota_backend*) quota_backends;
 
-static void hidden_param_handler(struct quota_root *_root, const char *param_value);
 static void ignoreunlim_param_handler(struct quota_root *_root, const char *param_value);
 static void noenforcing_param_handler(struct quota_root *_root, const char *param_value);
 
-struct quota_param_parser quota_param_hidden = {.param_name = "hidden", .param_handler = hidden_param_handler};
 struct quota_param_parser quota_param_ignoreunlimited = {.param_name = "ignoreunlimited", .param_handler = ignoreunlim_param_handler};
 struct quota_param_parser quota_param_noenforcing = {.param_name = "noenforcing", .param_handler = noenforcing_param_handler};
 
@@ -153,7 +151,6 @@ int quota_root_default_init(struct quota_root *root, const char *args,
 			    const char **error_r)
 {
 	const struct quota_param_parser default_params[] = {
-		quota_param_hidden,
 		quota_param_ignoreunlimited,
 		quota_param_noenforcing,
 		{.param_name = NULL}
@@ -637,7 +634,7 @@ const char *const *quota_root_get_resources(struct quota_root *root)
 
 bool quota_root_is_hidden(struct quota_root *root)
 {
-	return root->hidden;
+	return root->set->quota_hidden;
 }
 
 enum quota_get_result
@@ -1288,11 +1285,6 @@ void quota_recalculate(struct quota_transaction_context *ctx,
 		       enum quota_recalculate recalculate)
 {
 	ctx->recalculate = recalculate;
-}
-
-static void hidden_param_handler(struct quota_root *_root, const char *param_value ATTR_UNUSED)
-{
-	_root->hidden = TRUE;
 }
 
 static void ignoreunlim_param_handler(struct quota_root *_root, const char *param_value ATTR_UNUSED)
