@@ -12,7 +12,6 @@ static bool quota_settings_check(void *_set, pool_t pool, const char **error_r);
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct quota_settings)
 static const struct setting_define quota_setting_defines[] = {
 	{ .type = SET_FILTER_NAME, .key = "quota_count" },
-	{ .type = SET_FILTER_NAME, .key = "quota_imapc" },
 	{ .type = SET_FILTER_NAME, .key = "quota_maildir" },
 
 	{ .type = SET_FILTER_ARRAY, .key = "quota",
@@ -89,17 +88,10 @@ static const struct quota_settings quota_default_settings = {
 	.quota_exceeded_message = "Quota exceeded (mailbox for user is full)",
 };
 
-static const struct setting_keyvalue quota_default_settings_keyvalue[] = {
-	/* imapc should never try to enforce the quota - it's just a lot of
-	   unnecessary remote GETQUOTA calls. */
-	{ "quota_imapc/quota_enforce", "no" },
-	{ NULL, NULL }
-};
 const struct setting_parser_info quota_setting_parser_info = {
 	.name = "quota",
 	.defines = quota_setting_defines,
 	.defaults = &quota_default_settings,
-	.default_settings = quota_default_settings_keyvalue,
 	.struct_size = sizeof(struct quota_settings),
 #ifndef CONFIG_BINARY
 	.check_func = quota_settings_check,
