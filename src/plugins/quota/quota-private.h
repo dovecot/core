@@ -89,8 +89,6 @@ struct quota_root {
 	   to do and it's internally used to figure out whether there have
 	   been some changes and that quota_warnings should be checked. */
 	bool auto_updating:1;
-	/* If user has unlimited quota, disable quota tracking */
-	bool disable_unlimited_tracking:1;
 	/* Set while quota is being recalculated to avoid recursion. */
 	bool recounting:1;
 	/* Did we already check quota_over_status correctness? */

@@ -26,6 +26,8 @@ struct quota_settings {
 	   this differs from unlimited quota, which still tracks the quota,
 	   even if it is not enforced. */
 	bool quota_ignore;
+	/* IF TRUE, quota is ignored only when quota is unlimited. */
+	bool quota_ignore_unlimited;
 	/* Quota root is hidden (to e.g. IMAP GETQUOTAROOT) */
 	bool quota_hidden;
 	/* Quota storage size is counted as:
