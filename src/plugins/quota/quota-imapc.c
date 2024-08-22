@@ -3,6 +3,8 @@
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
+#include "settings.h"
+#include "settings-parser.h"
 #include "imap-arg.h"
 #include "imapc-storage.h"
 #include "mailbox-list-private.h"
@@ -24,8 +26,8 @@ struct imapc_quota_refresh {
 
 struct imapc_quota_root {
 	struct quota_root root;
-	const char *box_name, *root_name;
 
+	const struct quota_imapc_settings *set;
 	struct mail_namespace *imapc_ns;
 	struct imapc_storage_client *client;
 	bool initialized;
@@ -34,6 +36,44 @@ struct imapc_quota_root {
 
 	struct timeval last_refresh;
 	struct imapc_quota_refresh refresh;
+};
+
+struct quota_imapc_settings {
+	pool_t pool;
+
+	const char *quota_imapc_mailbox_name;
+	const char *quota_imapc_root_name;
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct quota_imapc_settings)
+static const struct setting_define quota_imapc_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "quota_imapc" },
+	DEF(STR, quota_imapc_mailbox_name),
+	DEF(STR, quota_imapc_root_name),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct quota_imapc_settings quota_imapc_default_settings = {
+	.quota_imapc_mailbox_name = "INBOX",
+	.quota_imapc_root_name = "",
+};
+
+static const struct setting_keyvalue quota_imapc_default_settings_keyvalue[] = {
+	/* imapc should never try to enforce the quota - it's just a lot of
+	   unnecessary remote GETQUOTA calls. */
+	{ "quota_imapc/quota_enforce", "no" },
+	{ NULL, NULL }
+};
+const struct setting_parser_info quota_imapc_setting_parser_info = {
+	.name = "quota_imapc",
+	.defines = quota_imapc_setting_defines,
+	.defaults = &quota_imapc_default_settings,
+	.default_settings = quota_imapc_default_settings_keyvalue,
+	.struct_size = sizeof(struct quota_imapc_settings),
+	.pool_offset1 = 1 + offsetof(struct quota_imapc_settings, pool),
 };
 
 extern struct quota_backend quota_backend_imapc;
@@ -46,39 +86,25 @@ static struct quota_root *imapc_quota_alloc(void)
 	return &root->root;
 }
 
-static void handle_box_param(struct quota_root *_root, const char *param_value)
-{
-	((struct imapc_quota_root *)_root)->box_name = p_strdup(_root->pool, param_value);
-}
-
-static void handle_root_param(struct quota_root *_root, const char *param_value)
-{
-	((struct imapc_quota_root *)_root)->root_name = p_strdup(_root->pool, param_value);
-}
-
-static int imapc_quota_init(struct quota_root *_root, const char *args,
+static int imapc_quota_init(struct quota_root *_root, const char *args ATTR_UNUSED,
 			    const char **error_r)
 {
 	struct imapc_quota_root *root = (struct imapc_quota_root *)_root;
-	const struct quota_param_parser imapc_params[] = {
-		{.param_name = "box=", .param_handler = handle_box_param},
-		{.param_name = "root=", .param_handler = handle_root_param},
-		{.param_name = NULL}
-	};
+
+	if (settings_get(_root->backend.event, &quota_imapc_setting_parser_info,
+			 0, &root->set, error_r) < 0)
+		return -1;
 
 	_root->auto_updating = TRUE;
 	event_set_append_log_prefix(root->root.backend.event, "quota-imapc: ");
-
-	if (quota_parse_parameters(_root, &args, error_r, imapc_params, TRUE) < 0)
-		return -1;
-
-	if (root->box_name == NULL && root->root_name == NULL)
-		root->box_name = "INBOX";
 	return 0;
 }
 
 static void imapc_quota_deinit(struct quota_root *_root)
 {
+	struct imapc_quota_root *root = (struct imapc_quota_root *)_root;
+
+	settings_free(root->set);
 	i_free(_root);
 }
 
@@ -299,16 +325,15 @@ static int imapc_quota_refresh_mailbox(struct imapc_quota_root *root,
 	struct imapc_simple_context sctx;
 	struct imapc_command *cmd;
 
-	i_assert(root->box_name != NULL);
-
 	/* ask quotas for the configured mailbox */
 	imapc_quota_refresh_init(&root->refresh);
-	root->refresh.box_name = root->box_name;
+	root->refresh.box_name = root->set->quota_imapc_mailbox_name;
 
 	imapc_simple_context_init(&sctx, root->client);
 	cmd = imapc_client_cmd(root->client->client,
 			       imapc_simple_callback, &sctx);
-	imapc_command_sendf(cmd, "GETQUOTAROOT %s", root->box_name);
+	imapc_command_sendf(cmd, "GETQUOTAROOT %s",
+			    root->set->quota_imapc_mailbox_name);
 	imapc_simple_run(&sctx, &cmd);
 
 	/* if there are multiple quota roots, use the first one returned by
@@ -319,7 +344,7 @@ static int imapc_quota_refresh_mailbox(struct imapc_quota_root *root,
 	if (sctx.ret < 0)
 		*error_r = t_strdup_printf(
 			"GETQUOTAROOT %s failed: %s",
-			root->box_name,
+			root->set->quota_imapc_mailbox_name,
 			mail_storage_get_last_internal_error(
 				&root->client->_storage->storage, NULL));
 
@@ -332,15 +357,14 @@ static int imapc_quota_refresh_root(struct imapc_quota_root *root,
 	struct imapc_simple_context sctx;
 	struct imapc_command *cmd;
 
-	i_assert(root->root_name != NULL);
-
 	/* ask quotas for the configured quota root */
 	imapc_quota_refresh_init(&root->refresh);
 
 	imapc_simple_context_init(&sctx, root->client);
 	cmd = imapc_client_cmd(root->client->client,
 			       imapc_simple_callback, &sctx);
-	imapc_command_sendf(cmd, "GETQUOTA %s", root->root_name);
+	imapc_command_sendf(cmd, "GETQUOTA %s",
+			    root->set->quota_imapc_root_name);
 	imapc_simple_run(&sctx, &cmd);
 
 	/* there shouldn't be more than one QUOTA reply, but ignore anyway
@@ -348,7 +372,8 @@ static int imapc_quota_refresh_root(struct imapc_quota_root *root,
 	while (array_count(&root->refresh.roots) > 0) {
 		const struct imapc_quota_refresh_root *refresh_root =
 			array_front(&root->refresh.roots);
-		if (strcmp(refresh_root->name, root->root_name) == 0)
+		if (strcmp(refresh_root->name,
+			   root->set->quota_imapc_root_name) == 0)
 			break;
 		array_pop_front(&root->refresh.roots);
 	}
@@ -357,7 +382,7 @@ static int imapc_quota_refresh_root(struct imapc_quota_root *root,
 	if (sctx.ret < 0)
 		*error_r = t_strdup_printf(
 			"GETQUOTA %s failed: %s",
-			root->root_name,
+			root->set->quota_imapc_root_name,
 			mail_storage_get_last_internal_error(
 				&root->client->_storage->storage, NULL));
 	return sctx.ret;
@@ -391,10 +416,13 @@ static int imapc_quota_refresh(struct imapc_quota_root *root,
 		return 0;
 	}
 
-	if (root->root_name == NULL)
-		ret = imapc_quota_refresh_mailbox(root, error_r);
-	else
+	/* Non-empty root_name overrides mailbox_name. If both are empty,
+	   use root_name, since quota root names are sometimes empty. */
+	if (root->set->quota_imapc_root_name[0] != '\0' ||
+	    root->set->quota_imapc_mailbox_name[0] == '\0')
 		ret = imapc_quota_refresh_root(root, error_r);
+	else
+		ret = imapc_quota_refresh_mailbox(root, error_r);
 
 	/* set the last_refresh only after the refresh, because it changes
 	   ioloop_timeval. */
