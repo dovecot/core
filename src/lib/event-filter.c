@@ -106,7 +106,7 @@ wanted_field_value_str(const struct event_field *wanted_field)
 	case EVENT_FIELD_VALUE_TYPE_STR:
 		return wanted_field->value.str;
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
-		return dec2str(wanted_field->value.intmax);
+		return t_strdup_printf("%jd", wanted_field->value.intmax);
 	case EVENT_FIELD_VALUE_TYPE_IP: {
 		const char *str = net_ip2addr(&wanted_field->value.ip);
 		if (wanted_field->value.ip_bits ==

@@ -76,7 +76,7 @@ static void test_event_filter_override_parent_fields(void)
 	event_add_str(child, "child_str", "child_str");
 	event_add_int(child, "int1", 6);
 	event_add_int(child, "int2", 0);
-	event_add_int(child, "child_int", 8);
+	event_add_int(child, "child_int", -8);
 
 	/* parent matches: test a mix of parent/child fields */
 	filter = event_filter_create();
@@ -101,7 +101,7 @@ static void test_event_filter_override_parent_fields(void)
 
 	/* child matches: test fields that exist only in child */
 	filter = event_filter_create();
-	test_assert(event_filter_parse("child_str=child_str AND child_int=8", filter, &error) == 0);
+	test_assert(event_filter_parse("child_str=child_str AND child_int=-8", filter, &error) == 0);
 	test_assert(event_filter_match(filter, child, &failure_ctx));
 	test_assert(!event_filter_match(filter, parent, &failure_ctx));
 	event_filter_unref(&filter);

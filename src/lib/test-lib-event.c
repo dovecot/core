@@ -29,6 +29,7 @@ static void test_event_fields(void)
 	field = event_find_field_nonrecursive(event, "key");
 	test_assert(field != NULL && field->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX &&
 		    field->value.intmax == -1234);
+	test_assert_strcmp(event_find_field_recursive_str(event, "key"), "-1234");
 
 	struct timeval tv = { .tv_sec = 123456789, .tv_usec = 654321 };
 	event_add_timeval(event, "key", &tv);

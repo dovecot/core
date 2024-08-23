@@ -1021,7 +1021,7 @@ event_find_field_recursive_str(const struct event *event, const char *key)
 	case EVENT_FIELD_VALUE_TYPE_STR:
 		return field->value.str;
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
-		return dec2str(field->value.intmax);
+		return t_strdup_printf("%jd", field->value.intmax);
 	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
 		return t_strdup_printf("%"PRIdTIME_T".%u",
 			field->value.timeval.tv_sec,
