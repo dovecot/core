@@ -21,6 +21,9 @@ static int cmd_quota_get_root(struct quota_root *root, struct mail_user *user)
 	enum quota_get_result qret;
 	int ret = 0;
 
+	if (root->set->quota_ignore)
+		return 0;
+
 	res = quota_root_get_resources(root);
 	for (; *res != NULL; res++) {
 		qret = quota_get_resource(root, NULL, *res, &value, &limit, &error);
