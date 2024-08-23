@@ -31,7 +31,7 @@ lib10_quota_plugin_la_LDFLAGS = -module -avoid-version
 module_LTLIBRARIES = \
 	lib10_quota_plugin.la
 
-quota_dist_sources = \
+lib10_quota_plugin_la_SOURCES = \
 	quota.c \
 	quota-count.c \
 	quota-fs.c \
@@ -41,20 +41,6 @@ quota_dist_sources = \
 	quota-settings.c \
 	quota-storage.c \
 	quota-util.c
-
-quota_common_objects = \
-	quota.lo \
-	quota-count.lo \
-	quota-fs.lo \
-	quota-imapc.lo \
-	quota-maildir.lo \
-        quota-plugin.lo \
-	quota-settings.lo \
-	quota-storage.lo \
-	quota-util.lo \
-	$(RQUOTA_XDR_LO)
-
-lib10_quota_plugin_la_SOURCES = $(quota_dist_sources)
 nodist_lib10_quota_plugin_la_SOURCES = $(RQUOTA_XDR)
 lib10_quota_plugin_la_LIBADD = $(QUOTA_LIBS)
 
@@ -70,13 +56,13 @@ quota_status_SOURCES = \
 
 quota_status_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
 quota_status_LDADD = \
-	$(quota_common_objects) \
+	lib10_quota_plugin.la \
 	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT) \
 	$(QUOTA_LIBS) \
 	$(BINARY_LDFLAGS)
 quota_status_DEPENDENCIES = \
-	$(quota_common_objects) \
+	lib10_quota_plugin.la \
 	$(LIBDOVECOT_STORAGE_DEPS) \
 	$(LIBDOVECOT_DEPS)
 
@@ -85,7 +71,6 @@ if HAVE_RQUOTA
 BUILT_SOURCES = rquota_xdr.c rquota.h
 
 RQUOTA_XDR = rquota_xdr.c
-RQUOTA_XDR_LO = rquota_xdr.lo
 
 rquota_xdr.c: rquota.h rquota.x
 	$(AM_V_GEN)(echo '#include "lib.h"'; \
