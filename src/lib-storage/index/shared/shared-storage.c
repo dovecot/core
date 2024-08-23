@@ -410,6 +410,7 @@ shared_mail_user_init(struct mail_storage *_storage,
 	ns_set->separator = p_strdup_printf(user->pool, "%c",
 					    mail_namespace_get_sep(ns));
 	ns_set->prefix = new_ns->prefix;
+	ns_set->alias_for = "";
 	ns_set->hidden = TRUE;
 	ns_set->list = "yes";
 	new_ns->set = ns_set;
