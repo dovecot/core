@@ -435,19 +435,6 @@ quota_is_duplicate_namespace(struct quota_root *root, struct mail_namespace *ns)
 	return FALSE;
 }
 
-static bool quota_root_is_namespace_visible(struct mail_namespace *ns)
-{
-	struct mailbox_list *list = ns->list;
-	struct mail_storage *storage;
-
-	/* this check works as long as there is only one storage per list */
-	const char *vname = "";
-	if (mailbox_list_get_storage(&list, &vname, 0, &storage) == 0 &&
-	    (storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NOQUOTA) != 0)
-		return FALSE;
-	return TRUE;
-}
-
 void quota_add_user_namespace(struct quota *quota, const char *root_name,
 			      struct mail_namespace *ns)
 {
@@ -462,8 +449,6 @@ void quota_add_user_namespace(struct quota *quota, const char *root_name,
 		e_error(ns->list->event, "Quota root %s: %s", root_name, error);
 		return;
 	}
-	if (!quota_root_is_namespace_visible(ns))
-		return;
 	/* first check if there already exists a namespace with the
 	   exact same path. we don't want to count them twice. */
 	if (quota_is_duplicate_namespace(root, ns))
