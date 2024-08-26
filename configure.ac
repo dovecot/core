@@ -267,8 +267,10 @@ CXXFLAGS="$CXXFLAGS -D__STDC_LIMIT_MACROS"
 if test "$is_pro_build" = "yes"; then
   SET_PRO_DEFINES
   DOVECOT_CONFIG_VERSION=3.0.0
+  AC_SUBST(DOVECOT_ASSET_URL, "doc.dovecotpro.com")
 else
   AC_DEFINE_UNQUOTED(DOVECOT_NAME, "$PACKAGE_NAME", [Dovecot name])
+  AC_SUBST(DOVECOT_ASSET_URL, "doc.dovecot.org")
   DOVECOT_CONFIG_VERSION=2.4.0
 fi
 AC_DEFINE_UNQUOTED(DOVECOT_CONFIG_VERSION, "$DOVECOT_CONFIG_VERSION", [Dovecot configuration version])
@@ -281,8 +283,10 @@ AC_DEFINE([DOVECOT_VERSION_MAJOR], regexp(AC_PACKAGE_VERSION, [^\([0-9]+\)\.\([0
 AC_DEFINE([DOVECOT_VERSION_MINOR], regexp(AC_PACKAGE_VERSION, [^\([0-9]+\)\.\([0-9]+\)], [\2]), [Dovecot minor version])
 AC_DEFINE([DOVECOT_VERSION_MICRO], regexp(AC_PACKAGE_VERSION, [^\([0-9]+\)\.\([0-9]+\).\([0-9]+\)], [\3]), [Dovecot micro version])
 
-DOVECOT_ASSET_VERSION=regexp(AC_PACKAGE_VERSION, [^\([0-9]+\)\.\([0-9]+\)], [\1.\2])
-AC_SUBST(DOVECOT_ASSET_VERSION)
+AC_SUBST(DOVECOT_ASSET_VERSION, regexp(AC_PACKAGE_VERSION, [^\([0-9]+\)\.\([0-9]+\).\([0-9]+\)], [\1.\2.\3]))
+AS_IF([test $DOVECOT_ASSET_VERSION = "0.0.0"], [
+  AC_SUBST([DOVECOT_ASSET_VERSION], "main")
+])
 
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([
 ],[

@@ -12,8 +12,8 @@ docfiles = \
 	solr-config-9.xml \
 	solr-schema-9.xml
 
-DOCS_URL=https://doc.dovecot.org/assets/$(DOVECOT_ASSET_VERSION)/docs.txz
-MAN_URL=https://doc.dovecot.org/assets/$(DOVECOT_ASSET_VERSION)/core.txz
+DOCS_URL=https://$(DOVECOT_ASSET_URL)/$(DOVECOT_ASSET_VERSION)/docs.txz
+MAN_URL=https://$(DOVECOT_ASSET_URL)/$(DOVECOT_ASSET_VERSION)/core.txz
 
 AM_V_Q = $(am__v_Q_$(V))
 am__v_Q_ = $(am__v_Q_$(AM_DEFAULT_VERBOSITY))
