@@ -258,7 +258,6 @@ void dict_wait(struct dict *dict)
 bool dict_have_async_operations(struct dict *dict)
 {
 	return dict->iter_count != 0 ||
-		dict->transaction_count != 0 ||
 		dict->commits != NULL;
 }
 
