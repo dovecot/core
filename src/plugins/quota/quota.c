@@ -495,12 +495,14 @@ quota_is_duplicate_namespace(struct quota *quota, struct mail_namespace *ns)
 
 	namespaces = array_get(&quota->namespaces, &count);
 	for (i = 0; i < count; i++) {
-		/* count namespace aliases only once. don't rely only on
-		   alias_for != NULL, because the alias might have been
-		   explicitly added as the wanted quota namespace. */
-		if (ns->alias_for == namespaces[i] ||
-		    namespaces[i]->alias_for == ns)
-			continue;
+		/* Count namespace aliases only once. Don't rely only on
+		   non-empty alias_for, because the alias might have been
+		   explicitly added as the wanted quota namespace. We can't
+		   use ns->alias_for pointer comparisons directly, because they
+		   are set later. */
+		if (strcmp(ns->set->alias_for, namespaces[i]->set->name) == 0 ||
+		    strcmp(namespaces[i]->set->alias_for, ns->set->name) == 0)
+			return TRUE;
 
 		if (path != NULL &&
 		    mailbox_list_get_root_path(namespaces[i]->list,
