@@ -65,7 +65,7 @@ struct quota_backend {
 struct quota_root {
 	pool_t pool;
 
-	const struct quota_settings *set;
+	const struct quota_root_settings *set;
 
 	struct quota *quota;
 	struct quota_backend backend;
@@ -139,7 +139,7 @@ struct quota *quota_get_mail_user_quota(struct mail_user *user);
 int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r,
 		enum quota_get_result *error_result_r, const char **error_r);
 
-bool quota_warning_match(const struct quota_settings *w,
+bool quota_warning_match(const struct quota_root_settings *w,
 			 uint64_t bytes_before, uint64_t bytes_current,
 			 uint64_t count_before, uint64_t count_current,
 			 const char **reason_r);

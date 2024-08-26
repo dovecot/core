@@ -30,7 +30,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 		    enum quota_get_result *error_result_r,
 		    const char **error_r)
 {
-	const struct quota_settings *set = NULL;
+	const struct quota_root_settings *set = NULL;
 	struct mailbox *box;
 	struct mailbox_metadata metadata;
 	struct mailbox_status status;
@@ -41,7 +41,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY);
 	struct event *event = event_create(box->event);
 	event_add_str(event, "quota", root->set->quota_name);
-	if (settings_get(event, &quota_setting_parser_info, 0,
+	if (settings_get(event, &quota_root_setting_parser_info, 0,
 			 &set, error_r) < 0)
 		ret = -1;
 	else if (set->quota_ignore)

@@ -5,7 +5,7 @@
 #include "quota-private.h"
 #include "quota-settings.h"
 
-static bool quota_settings_check(void *_set, pool_t pool, const char **error_r);
+static bool quota_root_settings_check(void *_set, pool_t pool, const char **error_r);
 
 #undef DEF
 #define DEF(type, name) \
@@ -17,8 +17,38 @@ static const struct setting_define quota_setting_defines[] = {
 	{ .type = SET_FILTER_ARRAY, .key = "quota",
 	  .offset = offsetof(struct quota_settings, quota_roots),
 	  .filter_array_field_name = "quota_name", },
+
+	DEF(UINT, quota_mailbox_count),
+	DEF(UINT, quota_mailbox_message_count),
+	DEF(SIZE, quota_mail_size),
+	DEF(STR, quota_exceeded_message),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct quota_settings quota_default_settings = {
+	.quota_roots = ARRAY_INIT,
+
+	.quota_mailbox_count = SET_UINT_UNLIMITED,
+	.quota_mail_size = SET_SIZE_UNLIMITED,
+	.quota_mailbox_message_count = SET_UINT_UNLIMITED,
+	.quota_exceeded_message = "Quota exceeded (mailbox for user is full)",
+};
+
+const struct setting_parser_info quota_setting_parser_info = {
+	.name = "quota",
+	.defines = quota_setting_defines,
+	.defaults = &quota_default_settings,
+	.struct_size = sizeof(struct quota_settings),
+	.pool_offset1 = 1 + offsetof(struct quota_settings, pool),
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct quota_root_settings)
+static const struct setting_define quota_root_setting_defines[] = {
 	{ .type = SET_FILTER_ARRAY, .key = "quota_warning",
-	  .offset = offsetof(struct quota_settings, quota_warnings),
+	  .offset = offsetof(struct quota_root_settings, quota_warnings),
 	  .filter_array_field_name = "quota_warning_name",
 	  .required_setting = "execute", },
 
@@ -45,16 +75,10 @@ static const struct setting_define quota_setting_defines[] = {
 	DEF(STR, quota_over_status_current),
 	DEF(STR, quota_over_status_mask),
 
-	DEF(UINT, quota_mailbox_count),
-	DEF(UINT, quota_mailbox_message_count),
-	DEF(SIZE, quota_mail_size),
-	DEF(STR, quota_exceeded_message),
-
 	SETTING_DEFINE_LIST_END
 };
 
-static const struct quota_settings quota_default_settings = {
-	.quota_roots = ARRAY_INIT,
+static const struct quota_root_settings quota_root_default_settings = {
 	.quota_warnings = ARRAY_INIT,
 
 	.quota_name = "",
@@ -79,29 +103,24 @@ static const struct quota_settings quota_default_settings = {
 	.quota_over_status_lazy_check = FALSE,
 	.quota_over_status_current = "",
 	.quota_over_status_mask = "",
-
-	.quota_mailbox_count = SET_UINT_UNLIMITED,
-	.quota_mail_size = SET_SIZE_UNLIMITED,
-	.quota_mailbox_message_count = SET_UINT_UNLIMITED,
-	.quota_exceeded_message = "Quota exceeded (mailbox for user is full)",
 };
 
-const struct setting_parser_info quota_setting_parser_info = {
-	.name = "quota",
-	.defines = quota_setting_defines,
-	.defaults = &quota_default_settings,
-	.struct_size = sizeof(struct quota_settings),
+const struct setting_parser_info quota_root_setting_parser_info = {
+	.name = "quota_root",
+	.defines = quota_root_setting_defines,
+	.defaults = &quota_root_default_settings,
+	.struct_size = sizeof(struct quota_root_settings),
 #ifndef CONFIG_BINARY
-	.check_func = quota_settings_check,
+	.check_func = quota_root_settings_check,
 #endif
-	.pool_offset1 = 1 + offsetof(struct quota_settings, pool),
+	.pool_offset1 = 1 + offsetof(struct quota_root_settings, pool),
 };
 
 #ifndef CONFIG_BINARY
-static bool quota_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-				 const char **error_r)
+static bool quota_root_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+				      const char **error_r)
 {
-	struct quota_settings *set = _set;
+	struct quota_root_settings *set = _set;
 
 	set->backend = quota_backend_find(set->quota_driver);
 	if (set->backend == NULL) {
