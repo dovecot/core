@@ -69,54 +69,54 @@ struct redis_dict_transaction_context {
 struct dict_redis_settings {
 	pool_t pool;
 
-	const char *dict_redis_socket_path;
-	const char *dict_redis_host;
-	in_port_t dict_redis_port;
-	const char *dict_redis_key_prefix;
-	const char *dict_redis_password;
-	unsigned int dict_redis_db_id;
-	unsigned int dict_redis_expire;
-	unsigned int dict_redis_request_timeout;
+	const char *redis_socket_path;
+	const char *redis_host;
+	in_port_t redis_port;
+	const char *redis_key_prefix;
+	const char *redis_password;
+	unsigned int redis_db_id;
+	unsigned int redis_expire;
+	unsigned int redis_request_timeout;
 
-	struct ip_addr dict_redis_ip;
+	struct ip_addr redis_ip;
 };
 
-static bool dict_redis_settings_check(void *_set, pool_t pool, const char **error_r);
+static bool redis_settings_check(void *_set, pool_t pool, const char **error_r);
 
 #undef DEF
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct dict_redis_settings)
-static const struct setting_define dict_redis_setting_defines[] = {
-	DEF(STR, dict_redis_socket_path),
-	DEF(STR, dict_redis_host),
-	DEF(IN_PORT, dict_redis_port),
-	DEF(STR, dict_redis_key_prefix),
-	DEF(STR, dict_redis_password),
-	DEF(UINT, dict_redis_db_id),
-	DEF(TIME, dict_redis_expire),
-	DEF(TIME_MSECS, dict_redis_request_timeout),
+static const struct setting_define redis_setting_defines[] = {
+	DEF(STR, redis_socket_path),
+	DEF(STR, redis_host),
+	DEF(IN_PORT, redis_port),
+	DEF(STR, redis_key_prefix),
+	DEF(STR, redis_password),
+	DEF(UINT, redis_db_id),
+	DEF(TIME, redis_expire),
+	DEF(TIME_MSECS, redis_request_timeout),
 
 	SETTING_DEFINE_LIST_END
 };
-static const struct dict_redis_settings dict_redis_default_settings = {
-	.dict_redis_socket_path = "",
-	.dict_redis_host = "127.0.0.1",
-	.dict_redis_port = 6379,
-	.dict_redis_key_prefix = "",
-	.dict_redis_password = "",
-	.dict_redis_db_id = 0,
-	.dict_redis_expire = 0,
-	.dict_redis_request_timeout = 30 * 1000,
+static const struct dict_redis_settings redis_default_settings = {
+	.redis_socket_path = "",
+	.redis_host = "127.0.0.1",
+	.redis_port = 6379,
+	.redis_key_prefix = "",
+	.redis_password = "",
+	.redis_db_id = 0,
+	.redis_expire = 0,
+	.redis_request_timeout = 30 * 1000,
 };
-const struct setting_parser_info dict_redis_setting_parser_info = {
+const struct setting_parser_info redis_setting_parser_info = {
 	.name = "dict_redis",
 
-	.defines = dict_redis_setting_defines,
-	.defaults = &dict_redis_default_settings,
+	.defines = redis_setting_defines,
+	.defaults = &redis_default_settings,
 
 	.struct_size = sizeof(struct dict_redis_settings),
 	.pool_offset1 = 1 + offsetof(struct dict_redis_settings, pool),
-	.check_func = dict_redis_settings_check,
+	.check_func = redis_settings_check,
 };
 
 static struct connection_list *redis_connections;
@@ -185,8 +185,8 @@ static void redis_dict_wait_timeout(struct redis_dict *dict)
 {
 	const char *reason = t_strdup_printf(
 		"redis: Commit timed out in %u.%03u secs",
-		dict->set->dict_redis_request_timeout / 1000,
-		dict->set->dict_redis_request_timeout % 1000);
+		dict->set->redis_request_timeout / 1000,
+		dict->set->redis_request_timeout % 1000);
 	redis_disconnected(&dict->conn, reason);
 }
 
@@ -200,7 +200,7 @@ static const char *redis_wait(struct redis_dict *dict)
 	if (dict->to != NULL)
 		dict->to = io_loop_move_timeout(&dict->to);
 	else {
-		dict->to = timeout_add(dict->set->dict_redis_request_timeout,
+		dict->to = timeout_add(dict->set->redis_request_timeout,
 				       redis_dict_wait_timeout, dict);
 	}
 	connection_switch_ioloop(&dict->conn.conn);
@@ -418,13 +418,13 @@ static const char *redis_escape_username(const char *username)
 	return str_c(str);
 }
 
-static bool dict_redis_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+static bool redis_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				      const char **error_r)
 {
 	struct dict_redis_settings *set = _set;
 
-	if (net_addr2ip(set->dict_redis_host, &set->dict_redis_ip) < 0) {
-		*error_r = "dict_redis_host is not a valid IP";
+	if (net_addr2ip(set->redis_host, &set->redis_ip) < 0) {
+		*error_r = "redis_host is not a valid IP";
 		return FALSE;
 	}
 	return TRUE;
@@ -444,13 +444,13 @@ redis_dict_init_common(const struct dict *dict_driver, struct event *event,
 	dict->set = set;
 	dict->conn.conn.event_parent = event;
 
-	if (set->dict_redis_socket_path[0] != '\0') {
+	if (set->redis_socket_path[0] != '\0') {
 		connection_init_client_unix(redis_connections, &dict->conn.conn,
-					    set->dict_redis_socket_path);
+					    set->redis_socket_path);
 	} else {
 		connection_init_client_ip(redis_connections, &dict->conn.conn,
-					  NULL, &set->dict_redis_ip,
-					  set->dict_redis_port);
+					  NULL, &set->redis_ip,
+					  set->redis_port);
 	}
 	event_set_append_log_prefix(dict->conn.conn.event, "redis: ");
 	dict->dict = *dict_driver;
@@ -469,7 +469,7 @@ redis_dict_init(const struct dict *dict_driver, struct event *event,
 {
 	struct dict_redis_settings *set;
 
-	if (settings_get(event, &dict_redis_setting_parser_info, 0,
+	if (settings_get(event, &redis_setting_parser_info, 0,
 			 &set, error_r) < 0)
 		return -1;
 	*dict_r = redis_dict_init_common(dict_driver, event, set);
@@ -481,12 +481,12 @@ redis_dict_init_legacy(struct dict *dict_driver, const char *uri,
 		       const struct dict_legacy_settings *legacy_set,
 		       struct dict **dict_r, const char **error_r)
 {
-	pool_t pool = pool_alloconly_create("dict_redis_settings", 128);
+	pool_t pool = pool_alloconly_create("redis_settings", 128);
 	struct dict_redis_settings *set =
 		p_new(pool, struct dict_redis_settings, 1);
-	*set = dict_redis_default_settings;
+	*set = redis_default_settings;
 	set->pool = pool;
-	if (net_addr2ip(set->dict_redis_host, &set->dict_redis_ip) < 0)
+	if (net_addr2ip(set->redis_host, &set->redis_ip) < 0)
 		i_unreached();
 
 	const char *const *args = t_strsplit(uri, ":");
@@ -494,44 +494,44 @@ redis_dict_init_legacy(struct dict *dict_driver, const char *uri,
 	int ret = 0;
 	for (; *args != NULL; args++) {
 		if (str_begins(*args, "path=", &value)) {
-			set->dict_redis_socket_path = p_strdup(pool, value);
+			set->redis_socket_path = p_strdup(pool, value);
 		} else if (str_begins(*args, "host=", &value)) {
-			if (net_addr2ip(value, &set->dict_redis_ip) < 0) {
+			if (net_addr2ip(value, &set->redis_ip) < 0) {
 				*error_r = t_strdup_printf("Invalid IP: %s",
 							   value);
 				ret = -1;
 			} else {
-				set->dict_redis_host = p_strdup(pool, value);
+				set->redis_host = p_strdup(pool, value);
 			}
 		} else if (str_begins(*args, "port=", &value)) {
-			if (net_str2port(value, &set->dict_redis_port) < 0) {
+			if (net_str2port(value, &set->redis_port) < 0) {
 				*error_r = t_strdup_printf("Invalid port: %s",
 							   value);
 				ret = -1;
 			}
 		} else if (str_begins(*args, "prefix=", &value)) {
-			set->dict_redis_key_prefix = p_strdup(pool, value);
+			set->redis_key_prefix = p_strdup(pool, value);
 		} else if (str_begins(*args, "db=", &value)) {
-			if (str_to_uint(value, &set->dict_redis_db_id) < 0) {
+			if (str_to_uint(value, &set->redis_db_id) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid db number: %s", value);
 				ret = -1;
 			}
 		} else if (str_begins(*args, "expire_secs=", &value)) {
-			if (str_to_uint(value, &set->dict_redis_expire) < 0 ||
-			    set->dict_redis_expire == 0) {
+			if (str_to_uint(value, &set->redis_expire) < 0 ||
+			    set->redis_expire == 0) {
 				*error_r = t_strdup_printf(
 					"Invalid expire_secs: %s", value);
 				ret = -1;
 			}
 		} else if (str_begins(*args, "timeout_msecs=", &value)) {
-			if (str_to_uint(value, &set->dict_redis_request_timeout) < 0) {
+			if (str_to_uint(value, &set->redis_request_timeout) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid timeout_msecs: %s", value);
 				ret = -1;
 			}
 		} else if (str_begins(*args, "password=", &value)) {
-			set->dict_redis_password = p_strdup(pool, value);
+			set->redis_password = p_strdup(pool, value);
 		} else {
 			*error_r = t_strdup_printf("Unknown parameter: %s",
 						   *args);
@@ -584,8 +584,8 @@ static void redis_dict_lookup_timeout(struct redis_dict *dict)
 {
 	const char *reason = t_strdup_printf(
 		"redis: Lookup timed out in %u.%03u secs",
-		dict->set->dict_redis_request_timeout / 1000,
-		dict->set->dict_redis_request_timeout % 1000);
+		dict->set->redis_request_timeout / 1000,
+		dict->set->redis_request_timeout % 1000);
 	redis_disconnected(&dict->conn, reason);
 }
 
@@ -605,8 +605,8 @@ redis_dict_get_full_key(struct redis_dict *dict, const char *username,
 	} else {
 		i_unreached();
 	}
-	if (*dict->set->dict_redis_key_prefix != '\0')
-		key = t_strconcat(dict->set->dict_redis_key_prefix, key, NULL);
+	if (*dict->set->redis_key_prefix != '\0')
+		key = t_strconcat(dict->set->redis_key_prefix, key, NULL);
 	return key;
 }
 
@@ -614,12 +614,12 @@ static void redis_dict_auth(struct redis_dict *dict)
 {
 	const char *cmd;
 
-	if (*dict->set->dict_redis_password == '\0')
+	if (*dict->set->redis_password == '\0')
 		return;
 
 	cmd = t_strdup_printf("*2\r\n$4\r\nAUTH\r\n$%zu\r\n%s\r\n",
-			      strlen(dict->set->dict_redis_password),
-			      dict->set->dict_redis_password);
+			      strlen(dict->set->redis_password),
+			      dict->set->redis_password);
 	o_stream_nsend_str(dict->conn.conn.output, cmd);
 	redis_input_state_add(dict, REDIS_INPUT_STATE_AUTH);
 }
@@ -631,11 +631,11 @@ static void redis_dict_select_db(struct redis_dict *dict)
 	if (dict->db_id_set)
 		return;
 	dict->db_id_set = TRUE;
-	if (dict->set->dict_redis_db_id == 0) {
+	if (dict->set->redis_db_id == 0) {
 		/* 0 is the default */
 		return;
 	}
-	db_str = dec2str(dict->set->dict_redis_db_id);
+	db_str = dec2str(dict->set->redis_db_id);
 	cmd = t_strdup_printf("*2\r\n$6\r\nSELECT\r\n$%zu\r\n%s\r\n",
 			      strlen(db_str), db_str);
 	o_stream_nsend_str(dict->conn.conn.output, cmd);
@@ -666,7 +666,7 @@ static int redis_dict_lookup(struct dict *_dict,
 	    connection_client_connect(&dict->conn.conn) < 0) {
 		e_error(dict->conn.conn.event, "Couldn't connect");
 	} else {
-		to = timeout_add(dict->set->dict_redis_request_timeout,
+		to = timeout_add(dict->set->redis_request_timeout,
 				 redis_dict_lookup_timeout, dict);
 		if (!dict->connected) {
 			/* wait for connection */
@@ -776,7 +776,7 @@ redis_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 		if (async) {
 			if (dict->to == NULL) {
 				dict->to = timeout_add(
-					dict->set->dict_redis_request_timeout,
+					dict->set->redis_request_timeout,
 					redis_dict_wait_timeout, dict);
 			}
 			i_free(ctx);
@@ -841,7 +841,7 @@ redis_append_expire(struct redis_dict_transaction_context *ctx,
 		    string_t *cmd, const char *key)
 {
 	struct redis_dict *dict = (struct redis_dict *)ctx->ctx.dict;
-	unsigned int expire_secs = dict->set->dict_redis_expire;
+	unsigned int expire_secs = dict->set->redis_expire;
 
 	if (ctx->ctx.set.expire_secs > 0)
 		expire_secs = ctx->ctx.set.expire_secs;
