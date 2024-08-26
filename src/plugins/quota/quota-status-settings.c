@@ -12,12 +12,14 @@
 
 static const struct setting_define quota_status_setting_defines[] = {
 	DEF(STR, recipient_delimiter),
+	DEF(STR, quota_status_nouser),
 
 	SETTING_DEFINE_LIST_END
 };
 
 static const struct quota_status_settings quota_status_default_settings = {
 	.recipient_delimiter = "+",
+	.quota_status_nouser = "REJECT Unknown user",
 };
 
 const struct setting_parser_info quota_status_setting_parser_info = {
