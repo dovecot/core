@@ -167,15 +167,15 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 			if (ctx->info == NULL)
 				return NULL;
 
-			const struct quota_settings *set;
+			const struct quota_root_settings *set;
 			bool quota_ignore = FALSE;
 			const char *error;
 			struct event *event =
 				mail_storage_mailbox_create_event(
 					ctx->root->root.backend.event,
 					ctx->info->ns->list, ctx->info->vname);
-			if (settings_get(event, &quota_setting_parser_info, 0,
-					 &set, &error) < 0)
+			if (settings_get(event, &quota_root_setting_parser_info,
+					 0, &set, &error) < 0)
 				e_error(event, "%s", error);
 			else {
 				quota_ignore = set->quota_ignore;

@@ -143,7 +143,7 @@ static void quota_root_deinit(struct quota_root *root)
 
 static int
 quota_root_settings_get(struct quota_root *root, struct event *set_event,
-			const struct quota_settings **set_r,
+			const struct quota_root_settings **set_r,
 			const char **error_r)
 {
 	struct event *event;
@@ -154,7 +154,7 @@ quota_root_settings_get(struct quota_root *root, struct event *set_event,
 		event = event_create(set_event);
 		event_add_str(event, "quota", root->set->quota_name);
 	}
-	int ret = settings_get(event, &quota_setting_parser_info, 0,
+	int ret = settings_get(event, &quota_root_setting_parser_info, 0,
 			       set_r, error_r);
 	if (set_event != NULL)
 		event_unref(&event);
@@ -163,7 +163,7 @@ quota_root_settings_get(struct quota_root *root, struct event *set_event,
 
 static int quota_root_has_under_warnings(struct quota_root *root)
 {
-	const struct quota_settings *set;
+	const struct quota_root_settings *set;
 	const char *warn_name, *error;
 
 	if (!array_is_created(&root->set->quota_warnings))
@@ -171,7 +171,7 @@ static int quota_root_has_under_warnings(struct quota_root *root)
 	array_foreach_elem(&root->set->quota_warnings, warn_name) {
 		if (settings_get_filter(root->backend.event,
 					"quota_warning", warn_name,
-					&quota_setting_parser_info, 0,
+					&quota_root_setting_parser_info, 0,
 					&set, &error) < 0) {
 			e_error(root->backend.event, "%s", error);
 			quota_root_deinit(root);
@@ -190,11 +190,11 @@ static int
 quota_root_init(struct quota *quota, struct event *set_event, const char *root_name,
 		struct quota_root **root_r, const char **error_r)
 {
-	const struct quota_settings *root_set;
+	const struct quota_root_settings *root_set;
 	struct quota_root *root;
 
 	if (settings_get_filter(set_event, "quota", root_name,
-				&quota_setting_parser_info, 0,
+				&quota_root_setting_parser_info, 0,
 				&root_set, error_r) < 0)
 		return -1;
 
@@ -232,7 +232,7 @@ quota_root_init(struct quota *quota, struct event *set_event, const char *root_n
 	event_set_ptr(set_event, SETTINGS_EVENT_FILTER_NAME,
 		      p_strdup(event_get_pool(set_event), backend_filter));
 	if (settings_get_filter(set_event, "quota", root_name,
-				&quota_setting_parser_info, 0,
+				&quota_root_setting_parser_info, 0,
 				&root->set, error_r) < 0) {
 		event_unref(&set_event);
 		return -1;
@@ -335,7 +335,7 @@ quota_root_get_rule_limits(struct quota_root *root, struct event *set_event,
 			   uint64_t *bytes_limit_r, uint64_t *count_limit_r,
 			   bool *ignored_r, const char **error_r)
 {
-	const struct quota_settings *set;
+	const struct quota_root_settings *set;
 
 	if (quota_root_settings_get(root, set_event, &set, error_r) < 0)
 		return -1;
@@ -689,7 +689,7 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 		if (!quota_root_is_visible(*rootp, ctx->box))
 			continue;
 
-		const struct quota_settings *set = NULL;
+		const struct quota_root_settings *set = NULL;
 		const char *error;
 		if (quota_root_settings_get(*rootp, box->event,
 					    &set, &error) < 0) {
@@ -872,7 +872,7 @@ quota_warning_execute(struct event *event, const char *last_arg,
 static void quota_warnings_execute(struct quota_transaction_context *ctx,
 				   struct quota_root *root)
 {
-	const struct quota_settings *set;
+	const struct quota_root_settings *set;
 	uint64_t bytes_current, bytes_before, bytes_limit;
 	uint64_t count_current, count_before, count_limit;
 	const char *warn_name, *reason, *error;
@@ -908,7 +908,7 @@ static void quota_warnings_execute(struct quota_transaction_context *ctx,
 	array_foreach_elem(&root->set->quota_warnings, warn_name) {
 		if (settings_get_filter(root->backend.event,
 					"quota_warning", warn_name,
-					&quota_setting_parser_info, 0,
+					&quota_root_setting_parser_info, 0,
 					&set, &error) < 0) {
 			e_error(root->backend.event, "%s", error);
 			return;
@@ -953,7 +953,7 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 			if (!quota_root_is_visible(roots[i], ctx->box))
 				continue;
 
-			const struct quota_settings *set = NULL;
+			const struct quota_root_settings *set = NULL;
 			const char *error;
 			if (quota_root_settings_get(roots[i], ctx->box->event,
 						    &set, &error) < 0) {

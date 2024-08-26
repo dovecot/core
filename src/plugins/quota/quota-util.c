@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "quota-private.h"
 
-bool quota_warning_match(const struct quota_settings *w,
+bool quota_warning_match(const struct quota_root_settings *w,
 			 uint64_t bytes_before, uint64_t bytes_current,
 			 uint64_t count_before, uint64_t count_current,
 			 const char **reason_r)

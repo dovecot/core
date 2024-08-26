@@ -13,9 +13,19 @@ struct quota_settings {
 	pool_t pool;
 
 	ARRAY_TYPE(const_string) quota_roots;
-	ARRAY_TYPE(const_string) quota_warnings;
 
-	/* For quota roots: */
+	/* Globals: */
+
+	unsigned int quota_mailbox_count;
+	uoff_t quota_mail_size;
+	unsigned int quota_mailbox_message_count;
+	const char *quota_exceeded_message;
+};
+
+struct quota_root_settings {
+	pool_t pool;
+
+	ARRAY_TYPE(const_string) quota_warnings;
 
 	/* Client-visible name of the quota root */
 	const char *quota_name;
@@ -59,16 +69,10 @@ struct quota_settings {
 	const char *quota_warning_threshold;
 
 	/* For quota_over_status: */
+
 	bool quota_over_status_lazy_check;
 	const char *quota_over_status_current;
 	const char *quota_over_status_mask;
-
-	/* Globals: */
-
-	unsigned int quota_mailbox_count;
-	uoff_t quota_mail_size;
-	unsigned int quota_mailbox_message_count;
-	const char *quota_exceeded_message;
 
 	/* Generated: */
 
@@ -78,5 +82,6 @@ struct quota_settings {
 struct quota_settings *quota_get_unlimited_set(void);
 
 extern const struct setting_parser_info quota_setting_parser_info;
+extern const struct setting_parser_info quota_root_setting_parser_info;
 
 #endif
