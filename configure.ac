@@ -321,7 +321,7 @@ DOVECOT_LIBCAP
 DOVECOT_RANDOM
 DOVECOT_ARC4RANDOM
 
-AC_DEFINE(PACKAGE_WEBPAGE, "http://www.dovecot.org/", [Support URL])
+AC_DEFINE(PACKAGE_WEBPAGE, "https://www.dovecot.org/", [Support URL])
 
 AC_CHECK_FUNCS(flock pread setproctitle setresgid \
 	       getmntinfo setpriority quotactl getmntent kqueue kevent \
