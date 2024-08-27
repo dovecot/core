@@ -187,8 +187,8 @@ var_expand_encrypt(struct var_expand_context *_ctx,
 
 	if (ret == 0) {
 		/* makes compiler happy */
-		const char *enciv = "";
-		const char *res = "";
+		const char *enciv = NULL;
+		const char *res = NULL;
 
 		switch(ctx.format) {
 		case FORMAT_HEX:
