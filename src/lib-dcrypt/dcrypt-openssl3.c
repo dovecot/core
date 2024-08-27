@@ -1265,13 +1265,13 @@ dcrypt_openssl_load_private_key_dovecot_v1(struct dcrypt_private_key **key_r,
 		return FALSE;
 	}
 
-	EVP_PKEY *pkey;
+	EVP_PKEY *pkey = NULL;
 	if (!dcrypt_evp_pkey_from_bn(nid, point, &pkey, error_r)) {
 		BN_free(point);
 		return FALSE;
 	}
 	BN_free(point);
-
+	i_assert(pkey != NULL);
 	unsigned char digest[SHA256_DIGEST_LENGTH];
 	const char *id = ec_key_get_pub_point_hex(pkey);
 	SHA256((const void*)id, strlen(id), digest);
@@ -1505,12 +1505,13 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 		}
 		safe_memset(buffer_get_modifiable_data(key_data, NULL),
 			    0, key_data->used);
-		EVP_PKEY *pkey;
+		EVP_PKEY *pkey = NULL;
 		if (!dcrypt_evp_pkey_from_bn(nid, point, &pkey, error_r)) {
 			BN_free(point);
 			return FALSE;
 		}
 		BN_free(point);
+		i_assert(pkey != NULL);
 		*key_r = i_new(struct dcrypt_private_key, 1);
 		(*key_r)->key = pkey;
 		(*key_r)->ref++;
@@ -1685,13 +1686,14 @@ static bool load_jwk_ec_key(EVP_PKEY **key_r, bool want_private_key, int nid,
 		res = dcrypt_openssl_error(error_r);
 	}
 
-	EVP_PKEY *pkey;
+	EVP_PKEY *pkey = NULL;
 	if (!res) {
 		/* pass */
 	} else if (want_private_key) {
 		res = dcrypt_evp_pkey_from_bn(nid, pd, &pkey, error_r);
 		/* check that we got same private key */
 		if (res) {
+			i_assert(pkey != NULL);
 			BIGNUM *cx = BN_new();
 			BIGNUM *cy = BN_new();
 			if (EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_EC_PUB_X, &cx) != 1 ||
@@ -1709,6 +1711,7 @@ static bool load_jwk_ec_key(EVP_PKEY **key_r, bool want_private_key, int nid,
 		}
 	} else {
 		res = dcrypt_evp_pkey_from_point(nid, p, &pkey, error_r);
+		i_assert(pkey != NULL || !res);
 	}
 
 	BN_CTX_free(bnctx);
@@ -2580,7 +2583,7 @@ dcrypt_openssl_load_public_key_dovecot_v1(struct dcrypt_public_key **key_r,
 	}
 	BN_CTX_free(bnctx);
 
-	EVP_PKEY *pkey;
+	EVP_PKEY *pkey = NULL;
 	if (!dcrypt_evp_pkey_from_point(nid, point, &pkey, error_r)) {
 		EC_POINT_free(point);
 		EC_GROUP_free(g);
@@ -2588,7 +2591,7 @@ dcrypt_openssl_load_public_key_dovecot_v1(struct dcrypt_public_key **key_r,
 	}
 	EC_POINT_free(point);
 	EC_GROUP_free(g);
-
+	i_assert(pkey != NULL);
 	/* make sure digest matches */
 	buffer_t *dgst = t_buffer_create(32);
 	struct dcrypt_public_key tmp;
@@ -3915,13 +3918,13 @@ dcrypt_openssl_key_load_private_raw(struct dcrypt_private_key **key_r,
 			return dcrypt_openssl_error(error_r);
 		}
 
-		EVP_PKEY *pkey;
+		EVP_PKEY *pkey = NULL;
 		if (!dcrypt_evp_pkey_from_bn(nid, point, &pkey, error_r)) {
 			BN_free(point);
 			return FALSE;
 		}
-
 		BN_free(point);
+		i_assert(pkey != NULL);
 		*key_r = i_new(struct dcrypt_private_key, 1);
 		(*key_r)->key = pkey;
 		(*key_r)->ref++;
