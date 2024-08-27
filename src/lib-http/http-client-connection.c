@@ -1721,7 +1721,7 @@ http_client_connection_create(struct http_client_peer *peer)
 	const struct http_client_settings *set = &client->set;
 	struct http_client_connection *conn;
 	const struct http_client_peer_addr *addr = &pshared->addr;
-	const char *conn_type = "UNKNOWN";
+	const char *conn_type;
 	unsigned int timeout_msecs;
 
 	switch (pshared->addr.type) {
@@ -1739,6 +1739,9 @@ http_client_connection_create(struct http_client_peer *peer)
 		break;
 	case HTTP_CLIENT_PEER_ADDR_UNIX:
 		conn_type = "Unix";
+		break;
+	default:
+		conn_type = "UNKNOWN";
 		break;
 	}
 
