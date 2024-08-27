@@ -55,7 +55,7 @@ AC_ARG_ENABLE(experimental-mail-utf8,
 AS_HELP_STRING([--enable-experimental-mail-utf8], [Enable experimental support for SMTPUTF8 and UTF8=ACCEPT]),
 	AS_IF([test x$enableval = xyes], [
 	       AC_DEFINE([EXPERIMENTAL_MAIL_UTF8],, [Build with SMTPUTF8 and UTF8=ACCEPT support])
-	       experimental_capabilities="${experimental_capabilities} UTF8-ACCEPT"
+	       experimental_capabilities="${experimental_capabilities} UTF8=ACCEPT"
 	])
 )
 
