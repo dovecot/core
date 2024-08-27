@@ -174,7 +174,7 @@ static void test_program_run(struct test_client *client)
 
 static void test_program_input(struct test_client *client)
 {
-	const char *line = "";
+	const char *line = NULL;
 	int ret = 0;
 
 	while (ret >= 0) {
