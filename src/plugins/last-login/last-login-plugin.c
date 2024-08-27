@@ -2,6 +2,8 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "settings.h"
+#include "settings-parser.h"
 #include "dict.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
@@ -12,12 +14,42 @@
 #define LAST_LOGIN_USER_CONTEXT(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, last_login_user_module)
 
-#define LAST_LOGIN_DEFAULT_KEY_PREFIX "last-login/"
-
 struct last_login_user {
 	union mail_user_module_context module_ctx;
 	struct dict *dict;
 	struct timeout *to;
+};
+
+struct last_login_settings {
+	pool_t pool;
+
+	const char *last_login_key;
+	const char *last_login_precision;
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct last_login_settings)
+static const struct setting_define last_login_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "last_login" },
+	DEF(STR, last_login_key),
+	DEF(ENUM, last_login_precision),
+
+	SETTING_DEFINE_LIST_END
+};
+static const struct last_login_settings last_login_default_settings = {
+	.last_login_key = "last-login/%{user}",
+	.last_login_precision = "s:ms:us:ns",
+};
+
+const struct setting_parser_info last_login_setting_parser_info = {
+	.name = "last_login",
+
+	.defines = last_login_setting_defines,
+	.defaults = &last_login_default_settings,
+
+	.struct_size = sizeof(struct last_login_settings),
+	.pool_offset1 = 1 + offsetof(struct last_login_settings, pool),
 };
 
 const char *last_login_plugin_version = DOVECOT_ABI_VERSION;
@@ -76,10 +108,11 @@ static void last_login_mail_user_created(struct mail_user *user)
 {
 	struct mail_user_vfuncs *v = user->vlast;
 	struct last_login_user *luser;
+	const struct last_login_settings *set;
 	struct dict *dict;
-	struct dict_legacy_settings set;
 	struct dict_transaction_context *trans;
-	const char *dict_value, *key_name, *precision, *error;
+	const char *key_name, *error;
+	int ret;
 
 	if (user->autocreated) {
 		/* we want to handle only logged in users,
@@ -91,17 +124,21 @@ static void last_login_mail_user_created(struct mail_user *user)
 		return;
 	}
 
-	dict_value = mail_user_plugin_getenv(user, "last_login_dict");
-	if (dict_value == NULL || dict_value[0] == '\0')
+	struct event *event = event_create(user->event);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "last_login");
+	event_set_append_log_prefix(event, "last_login_dict: ");
+	if (settings_get(event, &last_login_setting_parser_info, 0,
+			 &set, &error) < 0) {
+		e_error(event, "%s", error);
+		event_unref(&event);
 		return;
+	}
 
-	i_zero(&set);
-	set.base_dir = user->set->base_dir;
-	set.event_parent = user->event;
-	if (dict_init_legacy(dict_value, &set, &dict, &error) < 0) {
-		e_error(user->event,
-			"last_login_dict: dict_init(%s) failed: %s",
-			dict_value, error);
+	if ((ret = dict_init_auto(event, &dict, &error)) <= 0) {
+		if (ret < 0)
+			e_error(event, "%s", error);
+		settings_free(set);
+		event_unref(&event);
 		return;
 	}
 
@@ -113,38 +150,31 @@ static void last_login_mail_user_created(struct mail_user *user)
 	luser->dict = dict;
 	MODULE_CONTEXT_SET(user, last_login_user_module, luser);
 
-	key_name = mail_user_plugin_getenv(user, "last_login_key");
-	if (key_name == NULL) {
-		key_name = t_strdup_printf(LAST_LOGIN_DEFAULT_KEY_PREFIX"%s",
-					   user->username);
-	}
-	key_name = t_strconcat(DICT_PATH_SHARED, key_name, NULL);
-
-	precision = mail_user_plugin_getenv(user, "last_login_precision");
+	key_name = t_strconcat(DICT_PATH_SHARED, set->last_login_key, NULL);
 
 	struct dict_op_settings dset = *mail_user_get_dict_op_settings(user);
 	dset.no_slowness_warning = TRUE;
 	trans = dict_transaction_begin(dict, &dset);
-	if (precision == NULL || strcmp(precision, "s") == 0)
+	if (strcmp(set->last_login_precision, "s") == 0)
 		dict_set(trans, key_name, dec2str(ioloop_time));
-	else if (strcmp(precision, "ms") == 0) {
+	else if (strcmp(set->last_login_precision, "ms") == 0) {
 		dict_set(trans, key_name, t_strdup_printf(
 			"%ld%03u", (long)ioloop_timeval.tv_sec,
 			(unsigned int)(ioloop_timeval.tv_usec/1000)));
-	} else if (strcmp(precision, "us") == 0) {
+	} else if (strcmp(set->last_login_precision, "us") == 0) {
 		dict_set(trans, key_name, t_strdup_printf(
 			"%ld%06u", (long)ioloop_timeval.tv_sec,
 			(unsigned int)ioloop_timeval.tv_usec));
-	} else if (strcmp(precision, "ns") == 0) {
+	} else if (strcmp(set->last_login_precision, "ns") == 0) {
 		dict_set(trans, key_name, t_strdup_printf(
 			"%ld%06u000", (long)ioloop_timeval.tv_sec,
 			(unsigned int)ioloop_timeval.tv_usec));
 	} else {
-		e_error(user->event,
-			"last_login_dict: Invalid last_login_precision '%s'",
-			precision);
+		i_unreached();
 	}
 	dict_transaction_commit_async(&trans, last_login_dict_commit, user);
+	settings_free(set);
+	event_unref(&event);
 }
 
 static struct mail_storage_hooks last_login_mail_storage_hooks = {
