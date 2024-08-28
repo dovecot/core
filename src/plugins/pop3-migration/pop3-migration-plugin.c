@@ -6,6 +6,8 @@
 #include "istream-header-filter.h"
 #include "str.h"
 #include "sha1.h"
+#include "settings.h"
+#include "settings-parser.h"
 #include "message-size.h"
 #include "message-header-hash.h"
 #include "message-header-parser.h"
@@ -52,15 +54,10 @@ struct imap_msg_map {
 struct pop3_migration_mail_storage {
 	union mail_storage_module_context module_ctx;
 
-	const char *pop3_box_vname;
+	const struct pop3_migration_settings *set;
 	ARRAY(struct pop3_uidl_map) pop3_uidl_map;
 
-	bool all_mailboxes:1;
 	bool pop3_all_hdr_sha1_set:1;
-	bool ignore_missing_uidls:1;
-	bool ignore_extra_uidls:1;
-	bool skip_size_check:1;
-	bool skip_uidl_cache:1;
 };
 
 struct pop3_migration_mailbox {
@@ -74,6 +71,51 @@ struct pop3_migration_mailbox {
 	bool cache_field_registered:1;
 	bool uidl_synced:1;
 	bool uidl_sync_failed:1;
+};
+
+struct pop3_migration_settings {
+	pool_t pool;
+
+	const char *mailbox;
+	bool all_mailboxes;
+	bool ignore_missing_uidls;
+	bool ignore_extra_uidls;
+	bool skip_size_check;
+	bool skip_uidl_cache;
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("pop3_migration_"#name, name, \
+		struct pop3_migration_settings)
+static const struct setting_define pop3_migration_setting_defines[] = {
+	DEF(STR, mailbox),
+	DEF(BOOL, all_mailboxes),
+	DEF(BOOL, ignore_missing_uidls),
+	DEF(BOOL, ignore_extra_uidls),
+	DEF(BOOL, skip_size_check),
+	DEF(BOOL, skip_uidl_cache),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct pop3_migration_settings pop3_migration_default_settings = {
+	.mailbox = "",
+	.all_mailboxes = FALSE,
+	.ignore_missing_uidls = FALSE,
+	.ignore_extra_uidls = FALSE,
+	.skip_size_check = FALSE,
+	.skip_uidl_cache = FALSE,
+};
+
+const struct setting_parser_info pop3_migration_setting_parser_info = {
+	.name = "pop3_migration",
+
+	.defines = pop3_migration_setting_defines,
+	.defaults = &pop3_migration_default_settings,
+
+	.struct_size = sizeof(struct pop3_migration_settings),
+	.pool_offset1 = 1 + offsetof(struct pop3_migration_settings, pool),
 };
 
 /* NOTE: these headers must be sorted */
@@ -359,9 +401,9 @@ static struct mailbox *pop3_mailbox_alloc(struct mail_storage *storage)
 	struct mailbox *box;
 
 	ns = mail_namespace_find(storage->user->namespaces,
-				 mstorage->pop3_box_vname);
+				 mstorage->set->mailbox);
 	i_assert(ns != NULL);
-	box = mailbox_alloc(ns->list, mstorage->pop3_box_vname,
+	box = mailbox_alloc(ns->list, mstorage->set->mailbox,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_POP3_SESSION);
 	return box;
 }
@@ -399,7 +441,7 @@ static int pop3_map_read(struct mail_storage *storage, struct mailbox *pop3_box)
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
 	ctx = mailbox_search_init(t, search_args, NULL,
-				  mstorage->skip_size_check ? 0 :
+				  mstorage->set->skip_size_check ? 0 :
 				  MAIL_FETCH_PHYSICAL_SIZE, NULL);
 	mail_search_args_unref(&search_args);
 
@@ -407,7 +449,7 @@ static int pop3_map_read(struct mail_storage *storage, struct mailbox *pop3_box)
 		/* get the size with LIST instead of RETR */
 		mail->lookup_abort = MAIL_LOOKUP_ABORT_READ_MAIL;
 
-		if (mstorage->skip_size_check)
+		if (mstorage->set->skip_size_check)
 			;
 		else if (mail_get_physical_size(mail, &size) < 0) {
 			e_error(event,
@@ -546,7 +588,7 @@ pop3_map_read_hdr_hashes(struct mail_storage *storage, struct mailbox *pop3_box,
 
 	if (mstorage->pop3_all_hdr_sha1_set)
 		return 0;
-	if (mstorage->all_mailboxes) {
+	if (mstorage->set->all_mailboxes) {
 		/* we may be matching against multiple mailboxes.
 		   read all the hashes only once. */
 		first_seq = 1;
@@ -588,13 +630,13 @@ static int imap_map_read(struct mailbox *box)
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
 	ctx = mailbox_search_init(t, search_args, NULL,
-				  mstorage->skip_size_check ? 0 :
+				  mstorage->set->skip_size_check ? 0 :
 				  MAIL_FETCH_PHYSICAL_SIZE, NULL);
 	mail_search_args_unref(&search_args);
 
 	uidl = t_str_new(64);
 	while (mailbox_search_next(ctx, &mail)) {
-		if (mstorage->skip_size_check)
+		if (mstorage->set->skip_size_check)
 			;
 		else if (mail_get_physical_size(mail, &psize) < 0) {
 			e_error(box->event, "pop3_migration: Failed to get psize for imap uid %u: %s",
@@ -604,7 +646,7 @@ static int imap_map_read(struct mailbox *box)
 			break;
 		}
 
-		if (!mstorage->skip_uidl_cache) {
+		if (!mstorage->set->skip_uidl_cache) {
 			str_truncate(uidl, 0);
 			(void)mail_cache_lookup_field(mail->transaction->cache_view,
 						      uidl, mail->seq, uidl_cache_idx);
@@ -643,7 +685,7 @@ static void pop3_uidl_assign_cached(struct mailbox *box)
 	unsigned int imap_idx, pop3_idx, pop3_count, imap_count;
 	int ret;
 
-	if (mstorage->skip_uidl_cache)
+	if (mstorage->set->skip_uidl_cache)
 		return;
 
 	array_sort(&mstorage->pop3_uidl_map, pop3_uidl_map_uidl_cmp);
@@ -699,7 +741,7 @@ static bool pop3_uidl_assign_by_size(struct mailbox *box)
 		}
 
 		if (pop3_map[i].size != imap_map[i].psize ||
-		    mstorage->skip_size_check)
+		    mstorage->set->skip_size_check)
 			break;
 		if (i+1 < count && pop3_map[i].size == pop3_map[i+1].size) {
 			/* two messages with same size, don't trust them */
@@ -783,7 +825,7 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 			missing_uids_count++;
 		}
 	}
-	if (missing_uids_count > 0 && !mstorage->all_mailboxes) {
+	if (missing_uids_count > 0 && !mstorage->set->all_mailboxes) {
 		string_t *str = t_str_new(128);
 		bool all_imap_mails_found = FALSE;
 
@@ -796,10 +838,10 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 				"(POP3 contains more than IMAP INBOX - you may want to set pop3_migration_all_mailboxes=yes)");
 			all_imap_mails_found = TRUE;
 		}
-		if (all_imap_mails_found && mstorage->ignore_extra_uidls) {
+		if (all_imap_mails_found && mstorage->set->ignore_extra_uidls) {
 			/* pop3 had more mails than imap. maybe it was just
 			   that a new mail was just delivered. */
-		} else if (!mstorage->ignore_missing_uidls) {
+		} else if (!mstorage->set->ignore_missing_uidls) {
 			str_append(str, " - set pop3_migration_ignore_missing_uidls=yes");
 			if (all_imap_mails_found)
 				str_append(str, " or pop3_migration_ignore_extra_uidls=yes");
@@ -876,7 +918,7 @@ static int pop3_migration_uidl_sync(struct mailbox *box)
 		}
 	}
 
-	if (!mstorage->skip_uidl_cache)
+	if (!mstorage->set->skip_uidl_cache)
 		imap_uidls_add_to_cache(box);
 
 	mbox->uidl_synced = TRUE;
@@ -950,13 +992,13 @@ static void pop3_migration_mail_allocated(struct mail *_mail)
 	struct mail_namespace *ns;
 
 	if (mstorage == NULL ||
-	    (!mstorage->all_mailboxes && !_mail->box->inbox_user)) {
+	    (!mstorage->set->all_mailboxes && !_mail->box->inbox_user)) {
 		/* assigns UIDLs only for INBOX */
 		return;
 	}
 
 	ns = mail_namespace_find(_mail->box->storage->user->namespaces,
-				 mstorage->pop3_box_vname);
+				 mstorage->set->mailbox);
 	if (ns == mailbox_get_namespace(_mail->box)) {
 		/* we're accessing the pop3-migration namespace itself */
 		return;
@@ -983,7 +1025,7 @@ pop3_migration_mailbox_search_init(struct mailbox_transaction_context *t,
 
 	if ((wanted_fields & (MAIL_FETCH_UIDL_BACKEND |
 			      MAIL_FETCH_POP3_ORDER)) != 0 &&
-	    (mstorage->all_mailboxes || t->box->inbox_user)) {
+	    (mstorage->set->all_mailboxes || t->box->inbox_user)) {
 		/* Start POP3 UIDL syncing before the search, so we'll do it
 		   before we start sending any FETCH BODY[]s to IMAP. It
 		   shouldn't matter much, except this works around a bug in
@@ -1023,6 +1065,7 @@ static void pop3_migration_mail_storage_destroy(struct mail_storage *storage)
 	if (array_is_created(&mstorage->pop3_uidl_map))
 		array_free(&mstorage->pop3_uidl_map);
 
+	settings_free(mstorage->set);
 	mstorage->module_ctx.super.destroy(storage);
 }
 
@@ -1030,36 +1073,25 @@ static void pop3_migration_mail_storage_created(struct mail_storage *storage)
 {
 	struct pop3_migration_mail_storage *mstorage;
 	struct mail_storage_vfuncs *v = storage->vlast;
-	const char *pop3_box_vname;
+	const struct pop3_migration_settings *set;
+	const char *error;
 
-	pop3_box_vname = mail_user_plugin_getenv(storage->user,
-						 "pop3_migration_mailbox");
-	if (pop3_box_vname == NULL) {
-		e_debug(storage->user->event, "pop3_migration: No pop3_migration_mailbox setting - disabled");
+	if (settings_get(storage->event, &pop3_migration_setting_parser_info, 0,
+			 &set, &error) < 0) {
+		e_error(storage->event, "%s", error);
+		return;
+	}
+	if (set->mailbox[0] == '\0') {
+		e_debug(storage->event, "pop3_migration: No pop3_migration_mailbox setting - disabled");
+		settings_free(set);
 		return;
 	}
 
 	mstorage = p_new(storage->pool, struct pop3_migration_mail_storage, 1);
 	mstorage->module_ctx.super = *v;
+	mstorage->set = set;
 	storage->vlast = &mstorage->module_ctx.super;
 	v->destroy = pop3_migration_mail_storage_destroy;
-
-	mstorage->pop3_box_vname = p_strdup(storage->pool, pop3_box_vname);
-	mstorage->all_mailboxes =
-		mail_user_plugin_getenv_bool(storage->user,
-					"pop3_migration_all_mailboxes");
-	mstorage->ignore_missing_uidls =
-		mail_user_plugin_getenv_bool(storage->user,
-			"pop3_migration_ignore_missing_uidls");
-	mstorage->ignore_extra_uidls =
-		mail_user_plugin_getenv_bool(storage->user,
-			"pop3_migration_ignore_extra_uidls");
-	mstorage->skip_size_check =
-		mail_user_plugin_getenv_bool(storage->user,
-			"pop3_migration_skip_size_check");
-	mstorage->skip_uidl_cache =
-		mail_user_plugin_getenv_bool(storage->user,
-			"pop3_migration_skip_uidl_cache");
 
 	MODULE_CONTEXT_SET(storage, pop3_migration_storage_module, mstorage);
 }
