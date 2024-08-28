@@ -7,12 +7,14 @@
 #include "llist.h"
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
+#include "settings.h"
 #include "index-mail.h"
 #include "mail-copy.h"
 #include "mail-search.h"
 #include "mailbox-list-private.h"
 #include "virtual-plugin.h"
 #include "virtual-transaction.h"
+#include "virtual-settings.h"
 #include "virtual-storage.h"
 #include "mailbox-list-notify.h"
 
@@ -20,8 +22,6 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/stat.h>
-
-#define VIRTUAL_DEFAULT_MAX_OPEN_MAILBOXES 64
 
 #define VIRTUAL_BACKEND_CONTEXT(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, virtual_backend_storage_module)
@@ -92,15 +92,14 @@ virtual_storage_create(struct mail_storage *_storage,
 {
 	struct virtual_storage *storage =
 		container_of(_storage, struct virtual_storage, storage);
-	const char *value;
+	const struct virtual_settings *set;
 
-	value = mail_user_plugin_getenv(_storage->user, "virtual_max_open_mailboxes");
-	if (value == NULL)
-		storage->max_open_mailboxes = VIRTUAL_DEFAULT_MAX_OPEN_MAILBOXES;
-	else if (str_to_uint(value, &storage->max_open_mailboxes) < 0) {
-		*error_r = "Invalid virtual_max_open_mailboxes setting";
+	if (settings_get(_storage->event, &virtual_setting_parser_info, 0,
+			 &set, error_r) < 0)
 		return -1;
-	}
+
+	storage->max_open_mailboxes = set->virtual_max_open_mailboxes;
+	settings_free(set);
 	return 0;
 }
 

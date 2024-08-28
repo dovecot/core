@@ -3,6 +3,8 @@
 
 struct virtual_settings {
 	pool_t pool;
+
+	unsigned int virtual_max_open_mailboxes;
 };
 
 extern const struct setting_parser_info virtual_setting_parser_info;
