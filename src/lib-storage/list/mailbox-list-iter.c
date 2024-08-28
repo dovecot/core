@@ -84,20 +84,15 @@ static const struct mailbox_settings *
 mailbox_settings_add_ns_prefix(pool_t pool, struct mail_namespace *ns,
 			       const struct mailbox_settings *in_set)
 {
-	struct mailbox_settings *out_set;
+	const char *vname;
 
-	if (ns->prefix_len == 0 || strcasecmp(in_set->name, "INBOX") == 0)
+	vname = mailbox_settings_get_vname(pool, ns, in_set);
+	if (vname == in_set->name)
 		return in_set;
 
-	out_set = p_new(pool, struct mailbox_settings, 1);
-	*out_set = *in_set;
-	if (*in_set->name == '\0') {
-		/* namespace prefix itself */
-		out_set->name = p_strndup(pool, ns->prefix, ns->prefix_len-1);
-	} else {
-		out_set->name =
-			p_strconcat(pool, ns->prefix, in_set->name, NULL);
-	}
+	struct mailbox_settings *out_set =
+		p_memdup(pool, in_set, sizeof(*in_set));
+	out_set->name = vname;
 	return out_set;
 }
 

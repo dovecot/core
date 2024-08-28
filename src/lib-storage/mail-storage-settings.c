@@ -1070,3 +1070,18 @@ void mail_storage_2nd_settings_reset(struct settings_instance *instance,
 		}
 	} T_END;
 }
+
+const char *
+mailbox_settings_get_vname(pool_t pool, const struct mail_namespace *ns,
+			   const struct mailbox_settings *set)
+{
+	if (ns->prefix_len == 0 || strcasecmp(set->name, "INBOX") == 0)
+		return set->name;
+
+	if (*set->name == '\0') {
+		/* namespace prefix itself */
+		return p_strndup(pool, ns->prefix, ns->prefix_len-1);
+	} else {
+		return p_strconcat(pool, ns->prefix, set->name, NULL);
+	}
+}
