@@ -4,12 +4,12 @@
 #include "array.h"
 #include "module-dir.h"
 #include "randgen.h"
+#include "settings.h"
+#include "settings-parser.h"
 #include "mail-user.h"
 #include "mail-storage-private.h"
 #include "mail-storage-hooks.h"
 #include <sys/apparmor.h>
-
-#define APPARMOR_PLUGIN_SETTING_HAT_PREFIX "apparmor_hat"
 
 const char *apparmor_plugin_version = DOVECOT_ABI_VERSION;
 
@@ -25,6 +25,34 @@ static MODULE_CONTEXT_DEFINE_INIT(apparmor_mail_user_module,
 struct apparmor_mail_user {
 	union mail_user_module_context module_ctx;
 	unsigned long token;
+};
+
+struct apparmor_settings {
+	pool_t pool;
+
+	ARRAY_TYPE(const_string) apparmor_hats;
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct apparmor_settings)
+static const struct setting_define apparmor_setting_defines[] = {
+	DEF(BOOLLIST, apparmor_hats),
+
+	SETTING_DEFINE_LIST_END
+};
+static const struct apparmor_settings apparmor_default_settings = {
+	.apparmor_hats = ARRAY_INIT,
+};
+
+const struct setting_parser_info apparmor_setting_parser_info = {
+	.name = "apparmor",
+
+	.defines = apparmor_setting_defines,
+	.defaults = &apparmor_default_settings,
+
+	.struct_size = sizeof(struct apparmor_settings),
+	.pool_offset1 = 1 + offsetof(struct apparmor_settings, pool),
 };
 
 void apparmor_plugin_init(struct module*);
@@ -60,22 +88,18 @@ static void apparmor_mail_user_created(struct mail_user *user)
 {
 	struct mail_user_vfuncs *v = user->vlast;
 	struct apparmor_mail_user *auser;
-	ARRAY_TYPE(const_string) hats;
-	/* see if we can find any hats */
-	const char *hat =
-		mail_user_plugin_getenv(user, APPARMOR_PLUGIN_SETTING_HAT_PREFIX);
-	if (hat == NULL)
-		return;
+	const struct apparmor_settings *set;
+	const char *error;
 
-	t_array_init(&hats, 8);
-	array_push_back(&hats, &hat);
-	for(unsigned int i = 2;; i++) {
-		hat = mail_user_plugin_getenv(user, t_strdup_printf("%s%u",
-				APPARMOR_PLUGIN_SETTING_HAT_PREFIX, i));
-		if (hat == NULL) break;
-		array_push_back(&hats, &hat);
+	if (settings_get(user->event, &apparmor_setting_parser_info, 0,
+			 &set, &error) < 0) {
+		user->error = p_strdup(user->pool, error);
+		return;
 	}
-	array_append_zero(&hats);
+	if (array_is_empty(&set->apparmor_hats)) {
+		settings_free(set);
+		return;
+	}
 
 	/* we got hat(s) to try */
 	auser = p_new(user->pool, struct apparmor_mail_user, 1);
@@ -88,10 +112,12 @@ static void apparmor_mail_user_created(struct mail_user *user)
 	random_fill(&auser->token, sizeof(auser->token));
 
 	/* try change hat */
-	if (aa_change_hatv(array_front_modifiable(&hats), auser->token) < 0) {
+	const char *const *hats = settings_boollist_get(&set->apparmor_hats);
+	if (aa_change_hatv((const char **)hats, auser->token) < 0) {
 		i_fatal("aa_change_hatv(%s) failed: %m",
-			t_array_const_string_join(&hats, ","));
+			t_array_const_string_join(&set->apparmor_hats, ","));
 	}
+	settings_free(set);
 
 	apparmor_log_current_context(user);
 }
