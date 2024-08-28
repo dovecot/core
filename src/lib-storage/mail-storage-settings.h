@@ -209,6 +209,11 @@ bool mail_user_set_get_postmaster_smtp(const struct mail_user_settings *set,
 void mail_storage_2nd_settings_reset(struct settings_instance *instance,
 				     const char *key_prefix);
 
+/* Return mailbox_settings->name as vname (with namespace prefix). */
+const char *
+mailbox_settings_get_vname(pool_t pool, const struct mail_namespace *ns,
+			   const struct mailbox_settings *set);
+
 bool mail_user_settings_update_special_use(struct mail_user *user,
 					   const struct mail_storage_settings *set,
 					   const char **error_r);
