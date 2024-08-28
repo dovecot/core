@@ -4,7 +4,6 @@
 #include "array.h"
 #include "str.h"
 #include "strescape.h"
-#include "var-expand.h"
 #include "env-util.h"
 #include "settings.h"
 #include "oauth2.h"
@@ -53,7 +52,7 @@ static const struct auth_oauth2_settings auth_oauth2_default_settings = {
 	.scope = ARRAY_INIT,
 	.force_introspection = FALSE,
 	.introspection_mode = ":auth:get:post:local",
-	.username_validation_format = "%u",
+	.username_validation_format = "%{user}",
 	.username_attribute = "email",
 	.active_attribute = "",
 	.active_value = "",
@@ -362,45 +361,38 @@ db_oauth2_have_all_fields(struct db_oauth2_request *req)
 	return TRUE;
 }
 
-static const char *field_get_default(const char *data)
-{
-	const char *p;
-
-	p = strchr(data, ':');
-	if (p == NULL)
-		return "";
-	else {
-		/* default value given */
-		return p+1;
-	}
-}
-
-static int db_oauth2_var_expand_func_oauth2(const char *data, void *context,
-					    const char **value_r,
-					    const char **error_r ATTR_UNUSED)
+static int db_oauth2_var_expand_func_oauth2(const char *field_name,
+					    const char **value_r, void *context,
+					    const char **error_r)
 {
 	struct db_oauth2_request *ctx = context;
-	const char *field_name = t_strcut(data, ':');
 	const char *value = NULL;
 
-	if (ctx->fields != NULL)
-		value = auth_fields_find(ctx->fields, field_name);
-	*value_r = value != NULL ? value : field_get_default(data);
-
-	return 1;
+	if (ctx->fields != NULL) {
+		*value_r = auth_fields_find(ctx->fields, field_name);
+		return 0;
+	} else {
+		*error_r = t_strdup_printf("OAuth2 field '%s' not found", field_name);
+		return -1;
+	}
+	*value_r = value;
 }
 
 static bool
 db_oauth2_add_extra_fields(struct db_oauth2_request *req, const char **error_r)
 {
-	struct var_expand_func_table func_table[] = {
+	const struct var_expand_provider func_table[] = {
 		{ "oauth2", db_oauth2_var_expand_func_oauth2 },
 		{ NULL, NULL }
 	};
+	const struct var_expand_provider *provider_arr[] = {
+		func_table,
+		NULL
+	};
 	struct var_expand_params params = {
-		.table = auth_request_get_var_expand_table(req->auth_request, NULL),
-		.func_table = func_table,
-		.func_context = req,
+		.table = auth_request_get_var_expand_table(req->auth_request),
+		.providers_arr = provider_arr,
+		.context = req,
 	};
 	struct auth_request *request = req->auth_request;
 	const struct auth_oauth2_post_settings *set;
@@ -476,10 +468,10 @@ db_oauth2_validate_username(struct db_oauth2_request *req,
 {
 	const char *error;
 	struct var_expand_table table[] = {
-		{ 'u', NULL, "user" },
-		{ 'n', NULL, "username" },
-		{ 'd', NULL, "domain" },
-		{ '\0', NULL, NULL }
+		{ .key = "user", .value = NULL },
+		{ .key = "username", .value = NULL },
+		{ .key = "domain", .value = NULL },
+		VAR_EXPAND_TABLE_END
 	};
 	const char *username_value =
 		auth_fields_find(req->fields, req->db->set->username_attribute);
@@ -496,8 +488,13 @@ db_oauth2_validate_username(struct db_oauth2_request *req,
 
 	string_t *username_val = t_str_new(strlen(username_value));
 
-	if (var_expand_with_table(username_val, req->db->set->username_validation_format, table,
-				  &error) <= 0) {
+	const struct var_expand_params params = {
+		.table = table,
+		.event = req->auth_request->event,
+	};
+
+	if (var_expand_new(username_val, req->db->set->username_validation_format,
+			   &params, &error) < 0) {
 		*error_r = t_strdup_printf("var_expand(%s) failed: %s",
 					req->db->set->username_validation_format, error);
 		*result_r = PASSDB_RESULT_INTERNAL_FAILURE;

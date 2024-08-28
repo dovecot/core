@@ -34,6 +34,7 @@ struct db_passwd_file {
 	struct event *event;
 
 	char *path;
+	struct var_expand_program *prog;
 	HASH_TABLE(char *, struct passwd_file *) files;
         struct passwd_file *default_file;
 
@@ -48,6 +49,8 @@ struct passwd_file_settings {
 };
 
 extern const struct setting_parser_info passwd_file_setting_parser_info;
+
+extern const struct var_expand_provider db_passwd_file_var_expand_fn[];
 
 int db_passwd_file_lookup(struct db_passwd_file *db,
 			  struct auth_request *request,

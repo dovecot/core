@@ -38,7 +38,7 @@ passwd_file_add_extra_fields(struct auth_request *request,
 	unsigned int i;
 	int ret = 0;
 
-	table = auth_request_get_var_expand_table(request, NULL);
+	table = auth_request_get_var_expand_table(request);
 
 	for (i = 0; fields[i] != NULL; i++) {
 		if (!str_begins(fields[i], "userdb_", &key))
@@ -64,7 +64,8 @@ passwd_file_add_extra_fields(struct auth_request *request,
 			auth_request_set_userdb_field(request, key, value);
 		auth_fields_add(pwd_fields, key, value, 0);
 	}
-	if (ret == 0 && auth_request_set_userdb_fields(request, pwd_fields) < 0)
+	if (ret == 0 && auth_request_set_userdb_fields_ex(request, pwd_fields,
+							  db_passwd_file_var_expand_fn) < 0)
 		ret = -1;
 	return ret;
 }

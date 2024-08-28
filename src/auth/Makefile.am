@@ -222,7 +222,6 @@ test_auth_SOURCES = \
 	test-auth-request-var-expand.c \
 	test-auth-request-fields.c \
 	test-username-filter.c \
-	test-db-ldap.c \
 	test-lua.c \
 	test-mock.c \
 	test-main.c

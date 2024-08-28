@@ -9,14 +9,14 @@
 const struct var_expand_table
 auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT + 1] = {
 	/* these 3 must be in this order */
-	{ 'u', NULL, "user" },
-	{ 'n', NULL, "username" },
-	{ 'd', NULL, "domain" },
+	{ .key = "user", .value = NULL },
+	{ .key = "username", .value = NULL },
+	{ .key = "domain", .value = NULL },
 
-	{ 'a', NULL, NULL },
-	{ '\0', NULL, "longb" },
-	{ 'c', NULL, "longc" },
-	{ '\0', NULL, NULL }
+	{ .key = "a", .value = NULL },
+	{ .key = "b", .value = NULL },
+	{ .key = "c", .value = NULL },
+	VAR_EXPAND_TABLE_END
 };
 
 struct event *auth_event;
@@ -24,10 +24,31 @@ struct event *auth_event;
 struct var_expand_table *
 auth_request_get_var_expand_table_full(const struct auth_request *auth_request ATTR_UNUSED,
 				       const char *username ATTR_UNUSED,
-				       auth_request_escape_func_t *escape_func ATTR_UNUSED,
 				       unsigned int *count ATTR_UNUSED)
 {
 	i_unreached();
+}
+
+static int mock_get_passdb(const char *key, const char **value_r,
+			   void *context ATTR_UNUSED, const char **error_r)
+{
+	if (strcmp(key, "pfield") == 0) {
+		*value_r = "pvalue";
+		return 0;
+	}
+	*error_r = "No such key";
+	return -1;
+}
+
+static int mock_get_userdb(const char *key, const char **value_r,
+			   void *context ATTR_UNUSED, const char **error_r)
+{
+	if (strcmp(key, "ufield") == 0) {
+		*value_r = "uvalue";
+		return 0;
+	}
+	*error_r = "No such key";
+	return -1;
 }
 
 int auth_request_var_expand_with_table(string_t *dest, const char *str,
@@ -36,9 +57,15 @@ int auth_request_var_expand_with_table(string_t *dest, const char *str,
 				       auth_request_escape_func_t *escape_func ATTR_UNUSED,
 				       const char **error_r ATTR_UNUSED)
 {
-	return var_expand_with_table(dest, str,
-				     auth_request_var_expand_static_tab,
-				     error_r);
+	const struct var_expand_params params = {
+		.table = auth_request_var_expand_static_tab,
+		.providers = (const struct var_expand_provider[]) {
+			{ .key = "passdb", .func = mock_get_passdb },
+			{ .key = "userdb", .func = mock_get_userdb },
+			VAR_EXPAND_TABLE_END
+		},
+	};
+	return var_expand_new(dest, str, &params, error_r);
 }
 
 static void test_auth_cache_parse_key(void)
@@ -46,22 +73,24 @@ static void test_auth_cache_parse_key(void)
 	static const struct {
 		const char *in, *out;
 	} tests[] = {
-		{ "%n@%d", "%u" },
-		{ "%{username}@%{domain}", "%u" },
-		{ "%n%d%u", "%u" },
-		{ "%n", "%n" },
-		{ "%d", "%d" },
-		{ "%a%b%u", "%u\t%a\t%b" },
+		{ "%{username}@%{domain}", "%{user}" },
+		{ "%{username}@%{domain}", "%{user}" },
+		{ "%{username}%{domain}%{user}", "%{user}" },
+		{ "%{username}", "%{username}" },
+		{ "%{domain}", "%{domain}" },
+		{ "%{a}%{b}%{user}", "%{user}\t%{a}\t%{b}" },
 
-		{ "foo%5.5Mabar", "%a" },
-		{ "foo%5.5M{longb}bar", "%{longb}" },
-		{ "foo%5.5Mcbar", "%c" },
-		{ "foo%5.5M{longc}bar", "%c" },
-		{ "%a%b", "%a\t%b" },
-		{ "%a%{longb}%a", "%a\t%{longb}" },
-		{ "%{longc}%c", "%c" },
-		{ "%c%a%{longc}%c", "%a\t%c" },
-		{ "%a%{env:foo}%{env:foo}%a", "%a\t%{env:foo}\t%{env:foo}" }
+		{ "foo%{a | substr(5, 5) }bar", "%{a}" },
+		{ "foo%{b | substr(5, 5) }bar", "%{b}" },
+		{ "foo%{c | substr(5, 5) }bar", "%{c}" },
+		{ "%{a}%{b}", "%{a}\t%{b}" },
+		/* test that passdb/userdb works */
+		{
+			"%{a}%{passdb:pfield}%{userdb:ufield}",
+			"%{a}\t%{passdb:pfield}\t%{userdb:ufield}"
+		},
+		/* test that other providers are dropped */
+		{ "%{a}%{provider:user}", "%{a}" },
 	};
 	const char *cache_key;
 	unsigned int i;
@@ -71,7 +100,7 @@ static void test_auth_cache_parse_key(void)
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		cache_key = auth_cache_parse_key(pool_datastack_create(),
 						 tests[i].in);
-		test_assert(strcmp(cache_key, tests[i].out) == 0);
+		test_assert_strcmp_idx(cache_key, tests[i].out, i);
 	}
 	test_end();
 }

@@ -6,7 +6,6 @@
 #ifdef USERDB_PREFETCH
 
 #include "str.h"
-#include "var-expand.h"
 
 
 static void prefetch_lookup(struct auth_request *auth_request,

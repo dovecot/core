@@ -11,5 +11,6 @@ bool userdb_template_remove(struct userdb_template *tmpl,
 bool userdb_template_is_empty(struct userdb_template *tmpl);
 const char *const *userdb_template_get_args(struct userdb_template *tmpl,
 					    unsigned int *count_r);
+void userdb_template_free(struct userdb_template **_tmpl);
 
 #endif

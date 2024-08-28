@@ -185,8 +185,8 @@ static void userdb_ldap_iterate_callback(struct ldap_connection *conn,
 	};
 
 	struct var_expand_params params = {
-		.func_table = db_ldap_field_expand_fn_table,
-		.func_context = &fctx
+		.providers = db_ldap_field_expand_fn_table,
+		.context = &fctx
 	};
 
 	struct event *event = event_create(authdb_event(urequest->request.request.auth_request));

@@ -484,24 +484,13 @@ policy_get_var_expand_table(struct auth_request *auth_request,
 
 	table = auth_request_get_var_expand_table_full(
 			auth_request, auth_request->fields.user,
-			auth_policy_escape_function, &count);
-	table[0].key = '\0';
-	table[0].long_key = "hashed_password";
+			&count);
+	table[0].key = "hashed_password";
 	table[0].value = hashed_password;
-	table[1].key = '\0';
-	table[1].long_key = "requested_username";
+	table[1].key = "requested_username";
 	table[1].value = requested_username;
-	table[2].key = '\0';
-	table[2].long_key = "fail_type";
+	table[2].key = "fail_type";
 	table[2].value = auth_policy_fail_type(auth_request);
-	if (table[0].value != NULL) {
-		table[0].value = auth_policy_escape_function(table[0].value,
-							     auth_request);
-	}
-	if (table[1].value != NULL) {
-		table[1].value = auth_policy_escape_function(table[1].value,
-							     auth_request);
-	}
 
 	return table;
 }

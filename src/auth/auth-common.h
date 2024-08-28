@@ -2,6 +2,7 @@
 #define AUTH_COMMON_H
 
 #include "lib.h"
+#include "var-expand-new.h"
 #include "auth.h"
 #include "connection.h"
 

@@ -18,9 +18,6 @@ int main(int argc, char *argv[])
 		MASTER_SERVICE_FLAG_DONT_SEND_STATS;
 	int ret;
 	static const struct named_test test_functions[] = {
-#if defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD)
-		TEST_NAMED(test_db_ldap_field_multi_expand_parse_data)
-#endif
 		TEST_NAMED(test_auth_request_var_expand)
 		TEST_NAMED(test_auth_request_fields)
 		TEST_NAMED(test_username_filter)
