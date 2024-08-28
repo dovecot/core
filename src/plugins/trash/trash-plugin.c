@@ -4,14 +4,14 @@
 #include "array.h"
 #include "unichar.h"
 #include "istream.h"
+#include "settings.h"
+#include "settings-parser.h"
 #include "mail-namespace.h"
 #include "mail-search-build.h"
+#include "mailbox-list-private.h"
 #include "quota-private.h"
 #include "quota-plugin.h"
 #include "trash-plugin.h"
-
-#include <unistd.h>
-#include <fcntl.h>
 
 #define INIT_TRASH_MAILBOX_COUNT 4
 #define MAX_RETRY_COUNT 3
@@ -23,7 +23,7 @@
 
 struct trash_mailbox {
 	const char *name;
-	int priority; /* lower number = higher priority */
+	unsigned int priority; /* lower number = higher priority */
 
 	struct mail_namespace *ns;
 
@@ -37,9 +37,36 @@ struct trash_mailbox {
 struct trash_user {
 	union mail_user_module_context module_ctx;
 
-	const char *config_file;
 	/* ordered by priority, highest first */
 	ARRAY(struct trash_mailbox) trash_boxes;
+};
+
+struct trash_settings {
+	pool_t pool;
+
+	unsigned int trash_priority;
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct trash_settings)
+static const struct setting_define trash_setting_defines[] = {
+	DEF(UINT, trash_priority),
+
+	SETTING_DEFINE_LIST_END
+};
+static const struct trash_settings trash_default_settings = {
+	.trash_priority = 0,
+};
+
+const struct setting_parser_info trash_setting_parser_info = {
+	.name = "trash",
+
+	.defines = trash_setting_defines,
+	.defaults = &trash_default_settings,
+
+	.struct_size = sizeof(struct trash_settings),
+	.pool_offset1 = 1 + offsetof(struct trash_settings, pool),
 };
 
 const char *trash_plugin_version = DOVECOT_ABI_VERSION;
@@ -268,80 +295,75 @@ trash_quota_test_alloc(struct quota_transaction_context *ctx,
 	return QUOTA_ALLOC_RESULT_OVER_QUOTA;
 }
 
-static bool trash_find_storage(struct mail_user *user,
-			       struct trash_mailbox *trash)
-{
-	struct mail_namespace *ns;
-
-	ns = mail_namespace_find(user->namespaces, trash->name);
-	if ((ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0)
-		return FALSE;
-
-	trash->ns = ns;
-	return TRUE;
-}
-
 static int trash_mailbox_priority_cmp(const struct trash_mailbox *t1,
 				      const struct trash_mailbox *t2)
 {
-	return t1->priority - t2->priority;
+	if (t1->priority < t2->priority)
+		return -1;
+	if (t1->priority > t2->priority)
+		return 1;
+	return strcmp(t1->name, t2->name);
 }
 
-static int read_configuration(struct mail_user *user, const char *path)
+static int trash_try_mailbox(struct mail_namespace *ns, const char *box_name,
+			     const char **error_r)
+{
+	struct trash_user *tuser = TRASH_USER_CONTEXT_REQUIRE(ns->user);
+	const struct trash_settings *trash_set;
+	if (settings_try_get_filter(ns->list->event,
+				    SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX,
+				    box_name, &trash_setting_parser_info, 0,
+				    &trash_set, error_r) < 0)
+		return -1;
+	unsigned int trash_priority = trash_set->trash_priority;
+	settings_free(trash_set);
+
+	if (trash_priority == 0)
+		return 0;
+
+	const struct mailbox_settings *box_set;
+	if (settings_try_get_filter(ns->list->event,
+				    SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX,
+				    box_name, &mailbox_setting_parser_info, 0,
+				    &box_set, error_r) < 0)
+		return -1;
+
+	const char *vname =
+		mailbox_settings_get_vname(unsafe_data_stack_pool,
+					   ns, box_set);
+	struct trash_mailbox *trash =
+		array_append_space(&tuser->trash_boxes);
+	trash->ns = ns;
+	trash->name = p_strdup(ns->user->pool, vname);
+	trash->priority = trash_priority;
+
+	settings_free(box_set);
+	return 0;
+}
+
+static int trash_find_mailboxes(struct mail_user *user)
 {
 	struct trash_user *tuser = TRASH_USER_CONTEXT_REQUIRE(user);
-	struct istream *input;
-	const char *line, *name;
-	struct trash_mailbox *trash;
-	int fd, ret = 0;
+	struct mail_namespace *ns;
+	const char *box_name, *error;
 
-	fd = open(path, O_RDONLY);
-	if (fd == -1) {
-		e_error(user->event, "trash plugin: open(%s) failed: %m", path);
-		return -1;
-	}
-
+	/* Find all configured mailboxes in all namespaces and try to find
+	   trash_priority setting from them. */
 	p_array_init(&tuser->trash_boxes, user->pool, INIT_TRASH_MAILBOX_COUNT);
-
-	input = i_stream_create_fd(fd, SIZE_MAX);
-	i_stream_set_return_partial_line(input, TRUE);
-	while ((line = i_stream_read_next_line(input)) != NULL) {
-		/* <priority> <mailbox name> */
-		name = strchr(line, ' ');
-		if (name == NULL || name[1] == '\0' || *line == '#')
+	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
+		if (array_is_empty(&ns->set->mailboxes))
 			continue;
 
-		trash = array_append_space(&tuser->trash_boxes);
-		trash->name = p_strdup(user->pool, name+1);
-		if (str_to_int(t_strdup_until(line, name),
-			       &trash->priority) < 0) {
-			e_error(user->event,
-				"trash: Invalid priority for mailbox '%s'",
-				trash->name);
-			ret = -1;
+		array_foreach_elem(&ns->set->mailboxes, box_name) {
+			if (trash_try_mailbox(ns, box_name, &error) < 0) {
+				user->error = p_strdup(user->pool, error);
+				return -1;
+			}
 		}
-
-		if (!uni_utf8_str_is_valid(trash->name)) {
-			e_error(user->event,
-				"trash: Mailbox name not UTF-8: %s",
-				trash->name);
-			ret = -1;
-		}
-		if (!trash_find_storage(user, trash)) {
-			e_error(user->event,
-				"trash: Namespace not found for mailbox '%s'",
-				trash->name);
-			ret = -1;
-		}
-
-		e_debug(user->event, "trash plugin: Added '%s' with priority %d",
-			trash->name, trash->priority);
 	}
-	i_stream_destroy(&input);
-	i_close_fd(&fd);
 
 	array_sort(&tuser->trash_boxes, trash_mailbox_priority_cmp);
-	return ret;
+	return 0;
 }
 
 static void
@@ -349,18 +371,12 @@ trash_mail_user_created(struct mail_user *user)
 {
 	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
 	struct trash_user *tuser;
-	const char *env;
 
-	env = mail_user_plugin_getenv(user, "trash");
-	if (env == NULL) {
-		e_debug(user->event,
-			"trash: No trash setting - plugin disabled");
-	} else if (quser == NULL) {
+	if (quser == NULL) {
 		e_error(user->event,
 			"trash plugin: quota plugin not initialized");
 	} else {
 		tuser = p_new(user->pool, struct trash_user, 1);
-		tuser->config_file = env;
 		MODULE_CONTEXT_SET(user, trash_user_module, tuser);
 	}
 }
@@ -370,10 +386,11 @@ trash_mail_namespaces_created(struct mail_namespace *namespaces)
 {
 	struct mail_user *user = namespaces->user;
 	struct trash_user *tuser = TRASH_USER_CONTEXT(user);
-	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
+	if (tuser == NULL)
+		return;
 
-	if (tuser != NULL && read_configuration(user, tuser->config_file) == 0) {
-		i_assert(quser != NULL);
+	if (trash_find_mailboxes(user) == 0) {
+		struct quota_user *quser = QUOTA_USER_CONTEXT_REQUIRE(user);
 		trash_next_quota_test_alloc =
 			quser->quota->test_alloc;
 		quser->quota->test_alloc = trash_quota_test_alloc;
