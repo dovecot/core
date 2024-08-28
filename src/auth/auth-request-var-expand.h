@@ -12,17 +12,14 @@ auth_request_escape_func_t(const char *string,
 extern const struct var_expand_table
 auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT+1];
 
-extern const struct var_expand_func_table auth_request_var_funcs_table[];
+extern const struct var_expand_provider auth_request_var_expand_providers[];
 
 const struct var_expand_table *
-auth_request_get_var_expand_table(const struct auth_request *auth_request,
-				  auth_request_escape_func_t *escape_func)
-	ATTR_NULL(2);
+auth_request_get_var_expand_table(const struct auth_request *auth_request);
 struct var_expand_table *
 auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 				       const char *username,
-				       auth_request_escape_func_t *escape_func,
-				       unsigned int *count) ATTR_NULL(3);
+				       unsigned int *count);
 
 int auth_request_var_expand(string_t *dest, const char *str,
 			    const struct auth_request *auth_request,

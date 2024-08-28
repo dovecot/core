@@ -6,6 +6,7 @@
 #include "passdb.h"
 #include "userdb.h"
 #include "auth-request.h"
+#include "auth-request-var-expand.h"
 
 static struct passdb_module test_passdb = {
 	.id = 40
@@ -71,21 +72,18 @@ test_escape(const char *string, const struct auth_request *request)
 
 static bool test_empty_request(string_t *str, const char *input)
 {
-	const struct var_expand_table *tab =
-		auth_request_get_var_expand_table(&empty_test_request, NULL);
+	const struct var_expand_params params = {
+		.table = auth_request_get_var_expand_table(&empty_test_request),
+	};
 	const char *error;
 
 	str_truncate(str, 0);
-	test_assert(var_expand_with_table(str, input, tab, &error) == 1);
+	test_assert(var_expand_new(str, input, &params, &error) == 0);
 	return strspn(str_c(str), "\n0") == str_len(str);
 }
 
-static void test_auth_request_var_expand_shortlong(void)
+static void test_auth_request_var_expand_keys(void)
 {
-	/* %{protocol} has no short option */
-	static const char *test_input_short =
-		"%u\n%n\n%d\n%{protocol}\n%h\n%l\n%r\n%p\n%w\n%m\n%c\n"
-		"%a\n%b\n%k\n";
 	static const char *test_input_long =
 		"%{user}\n%{username}\n%{domain}\n%{protocol}\n%{home}\n"
 		"%{local_ip}\n%{remote_ip}\n"
@@ -97,22 +95,21 @@ static void test_auth_request_var_expand_shortlong(void)
 		"7.91.205.21\n73.150.2.210\n"
 		"54321\n+password\n+mech\nsecured\n"
 		"21\n210\nvalid\n";
-	const struct var_expand_table *tab;
 	string_t *str = t_str_new(256);
 	const char *error;
 
-	test_begin("auth request var expand short and long");
+	test_begin("auth request var expand");
 
-	tab = auth_request_get_var_expand_table(&test_request, test_escape);
-	test_assert(var_expand_with_table(str, test_input_short, tab, &error) == 1);
-	test_assert(strcmp(str_c(str), test_output) == 0);
+	const struct var_expand_params params = {
+		.table = auth_request_get_var_expand_table(&test_request),
+		.escape_func = (var_expand_escape_func_t *)test_escape,
+		.escape_context = &test_request,
+	};
 
-	str_truncate(str, 0);
-	test_assert(var_expand_with_table(str, test_input_long, tab, &error) == 1);
-	test_assert(strcmp(str_c(str), test_output) == 0);
+	test_assert(var_expand_new(str, test_input_long, &params, &error) == 0);
+	test_assert_strcmp(str_c(str), test_output);
 
 	/* test with empty input that it won't crash */
-	test_assert(test_empty_request(str, test_input_short));
 	test_assert(test_empty_request(str, test_input_long));
 
 	test_end();
@@ -120,7 +117,7 @@ static void test_auth_request_var_expand_shortlong(void)
 
 static void test_auth_request_var_expand_flags(void)
 {
-	static const char *test_input = "%!\n%{secured}\n%{cert}\n";
+	static const char *test_input = "%{id}\n%{secured}\n%{cert}\n";
 	string_t *str = t_str_new(10);
 	const char *error;
 
@@ -129,20 +126,23 @@ static void test_auth_request_var_expand_flags(void)
 	test_request.userdb_lookup = FALSE;
 	test_request.fields.conn_secured = AUTH_REQUEST_CONN_SECURED_NONE;
 	test_request.fields.valid_client_cert = FALSE;
-	test_assert(var_expand_with_table(str, test_input,
-		auth_request_get_var_expand_table(&test_request, test_escape),
-		&error) == 1);
-	test_assert(strcmp(str_c(str), "40\n\n\n") == 0);
+
+	struct var_expand_params params = {
+		.table = auth_request_get_var_expand_table(&test_request),
+		.escape_func = (var_expand_escape_func_t *)test_escape,
+		.escape_context = &test_request
+	};
+	test_assert(var_expand_new(str, test_input, &params, &error) == 0);
+	test_assert_strcmp(str_c(str), "40\n\n\n");
 
 	test_request.userdb_lookup = TRUE;
 	test_request.fields.conn_secured = AUTH_REQUEST_CONN_SECURED;
 	test_request.fields.valid_client_cert = TRUE;
+	params.table = auth_request_get_var_expand_table(&test_request);
 
 	str_truncate(str, 0);
-	test_assert(var_expand_with_table(str, test_input,
-		auth_request_get_var_expand_table(&test_request, test_escape),
-		&error) == 1);
-	test_assert(strcmp(str_c(str), "41\nsecured\nvalid\n") == 0);
+	test_assert(var_expand_new(str, test_input, &params, &error) == 0);
+	test_assert_strcmp(str_c(str), "41\nsecured\nvalid\n");
 
 	test_assert(test_empty_request(str, test_input));
 	test_end();
@@ -167,10 +167,14 @@ static void test_auth_request_var_expand_long(void)
 
 	test_begin("auth request var expand long-only");
 
-	test_assert(var_expand_with_table(str, test_input,
-		auth_request_get_var_expand_table(&test_request, test_escape),
-		&error) == 1);
-	test_assert(strcmp(str_c(str), test_output) == 0);
+	const struct var_expand_params params = {
+		.table = auth_request_get_var_expand_table(&test_request),
+		.escape_func = (var_expand_escape_func_t *)test_escape,
+		.escape_context = &test_request,
+	};
+
+	test_assert(var_expand_new(str, test_input, &params, &error) == 0);
+	test_assert_strcmp(str_c(str), test_output);
 
 	test_assert(test_empty_request(str, test_input));
 	test_end();
@@ -194,10 +198,13 @@ static void test_auth_request_var_expand_usernames(void)
 	test_begin("auth request var expand usernames");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		test_request.fields.user = t_strdup_noconst(tests[i].username);
+		const struct var_expand_params params = {
+			.table = auth_request_get_var_expand_table(&test_request),
+			.escape_func = (var_expand_escape_func_t *)test_escape,
+			.escape_context = &test_request,
+		};
 		str_truncate(str, 0);
-		test_assert(var_expand_with_table(str, test_input,
-			auth_request_get_var_expand_table(&test_request, test_escape),
-			&error) == 1);
+		test_assert(var_expand_new(str, test_input, &params, &error) == 0);
 		test_assert_idx(strcmp(str_c(str), tests[i].output) == 0, i);
 	}
 	test_request.fields.user = default_test_request.fields.user;
@@ -222,21 +229,20 @@ static void test_auth_request_var_expand_funcs(void)
 	auth_fields_add(test_request.fields.userdb_reply, "ukey2", "", 0);
 
 	test_assert(t_auth_request_var_expand(
-			"%{passdb:pkey1}\n%{passdb:pkey1:default1}\n"
-			"%{passdb:pkey2}\n%{passdb:pkey2:default2}\n"
-			"%{passdb:pkey3}\n%{passdb:pkey3:default3}\n"
-			"%{passdb:ukey1}\n%{passdb:ukey1:default4}\n",
+			"%{passdb:pkey1}\n%{passdb:pkey1 | default('default1')}\n"
+			"%{passdb:pkey2}\n%{passdb:pkey2 | default('default2')}\n"
+			"%{passdb:pkey3|default}\n%{passdb:pkey3 | default('default3')}\n"
+			"%{passdb:ukey1|default}\n%{passdb:ukey1 | default('default4')}\n",
 			&test_request, test_escape, &value, &error) == 1);
-	test_assert(strcmp(value, "+pval1\n+pval1\n\n\n\ndefault3\n\ndefault4\n") == 0);
+	test_assert_strcmp(value, "+pval1\n+pval1\n\ndefault2\n\ndefault3\n\ndefault4\n");
 
 	test_assert(t_auth_request_var_expand(
-			"%{userdb:ukey1}\n%{userdb:ukey1:default1}\n"
-			"%{userdb:ukey2}\n%{userdb:ukey2:default2}\n"
-			"%{userdb:ukey3}\n%{userdb:ukey3:default3}\n"
-			"%{userdb:pkey1}\n%{userdb:pkey1:default4}\n",
+			"%{userdb:ukey1}\n%{userdb:ukey1 | default('default1')}\n"
+			"%{userdb:ukey2}\n%{userdb:ukey2 | default('default2')}\n"
+			"%{userdb:ukey3|default}\n%{userdb:ukey3 | default('default3')}\n"
+			"%{userdb:pkey1|default}\n%{userdb:pkey1 | default('default4')}\n",
 			&test_request, test_escape, &value, &error) == 1);
-	test_assert(strcmp(value, "+uval1\n+uval1\n\n\n\ndefault3\n\ndefault4\n") == 0);
-
+	test_assert_strcmp(value, "+uval1\n+uval1\n\ndefault2\n\ndefault3\n\ndefault4\n");
 	pool_unref(&pool);
 	test_end();
 }
@@ -250,7 +256,7 @@ void test_auth_request_var_expand(void)
 
 	test_request = default_test_request;
 
-	test_auth_request_var_expand_shortlong();
+	test_auth_request_var_expand_keys();
 	test_auth_request_var_expand_flags();
 	test_auth_request_var_expand_long();
 	test_auth_request_var_expand_usernames();

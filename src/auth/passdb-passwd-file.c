@@ -27,7 +27,7 @@ passwd_file_add_extra_fields(struct auth_request *request,
 	unsigned int i;
 	int ret = 0;
 
-	table = auth_request_get_var_expand_table(request, NULL);
+	table = auth_request_get_var_expand_table(request);
 
 	pool_t pool = pool_alloconly_create("passwd-file fields", 256);
 	struct auth_fields *pwd_fields = auth_fields_init(pool);
@@ -55,7 +55,8 @@ passwd_file_add_extra_fields(struct auth_request *request,
 			auth_fields_add(pwd_fields, key, value, 0);
 	}
 
-	if (ret == 0 && auth_request_set_passdb_fields(request, pwd_fields) < 0)
+	if (ret == 0 && auth_request_set_passdb_fields_ex(request, pwd_fields, "PLAIN",
+							  db_passwd_file_var_expand_fn) < 0)
 		ret = -1;
 	pool_unref(&pool);
 	return ret;

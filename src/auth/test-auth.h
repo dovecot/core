@@ -19,8 +19,6 @@ struct auth_passdb *passdb_mock(void);
 void passdb_mock_mod_init(void);
 void passdb_mock_mod_deinit(void);
 
-void test_db_ldap_field_multi_expand_parse_data(void);
-
 void test_auth_init(void);
 void test_auth_deinit(void);
 

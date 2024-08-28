@@ -6,36 +6,53 @@
 #include "passdb.h"
 #include "passdb-template.h"
 
+struct passdb_template_arg {
+	const char *key;
+	struct var_expand_program *program;
+};
+
 struct passdb_template {
-	ARRAY(const char *) args;
+	ARRAY(struct passdb_template_arg) args;
+	ARRAY_TYPE(const_string) keys;
 };
 
 struct passdb_template *passdb_template_build(pool_t pool, const char *args)
 {
 	struct passdb_template *tmpl;
-	const char *const *tmp, *key, *value;
+	const char *const *tmp;
 
 	tmpl = p_new(pool, struct passdb_template, 1);
 
 	tmp = t_strsplit_spaces(args, " ");
-	p_array_init(&tmpl->args, pool, str_array_length(tmp));
+
+	p_array_init(&tmpl->args, pool, str_array_length(tmp) / 2);
+	p_array_init(&tmpl->keys, pool, str_array_length(tmp) / 2);
 
 	for (; *tmp != NULL; tmp++) {
-		value = strchr(*tmp, '=');
-		if (value == NULL)
-			key = *tmp;
-		else
-			key = t_strdup_until(*tmp, value++);
+		const char *p = strchr(*tmp, '=');
+		const char *kp;
+		const char *error;
 
-		if (*key == '\0')
+		if (p == NULL)
+			kp = *tmp;
+		else
+			kp = t_strdup_until(*tmp, p++);
+
+		if (*kp == '\0')
 			i_fatal("Invalid passdb template %s - key must not be empty",
 				args);
 
-		key = p_strdup(pool, key);
-		value = p_strdup(pool, value);
-		array_push_back(&tmpl->args, &key);
-		array_push_back(&tmpl->args, &value);
+		char *key = p_strdup(pool, kp);
+		struct var_expand_program *prog;
+		if (var_expand_program_create(p, &prog, &error) < 0)
+			i_fatal("Invalid passdb template value %s: %s", p, error);
+
+		struct passdb_template_arg *arg = array_append_space(&tmpl->args);
+		arg->key = key;
+		arg->program = prog;
+		array_push_back(&tmpl->keys, &arg->key);
 	}
+
 	return tmpl;
 }
 
@@ -43,60 +60,54 @@ int passdb_template_export(struct passdb_template *tmpl,
 			   struct auth_request *auth_request,
 			   const char **error_r)
 {
-        const struct var_expand_table *table;
 	string_t *str;
-	const char *const *args, *value;
-	unsigned int i, count;
+	const struct passdb_template_arg *arg;
+	int ret = 0;
 
 	if (passdb_template_is_empty(tmpl))
 		return 0;
 
-	str = t_str_new(256);
-	table = auth_request_get_var_expand_table(auth_request, NULL);
+	const struct var_expand_params params = {
+		.table = auth_request_get_var_expand_table(auth_request),
+		.providers = auth_request_var_expand_providers,
+		.context = auth_request,
+	};
 
-	args = array_get(&tmpl->args, &count);
-	i_assert((count % 2) == 0);
-	for (i = 0; i < count; i += 2) {
-		if (args[i+1] == NULL)
-			value = "";
-		else {
-			str_truncate(str, 0);
-			if (auth_request_var_expand_with_table(str, args[i+1],
-					auth_request, table, NULL, error_r) <= 0)
-				return -1;
-			value = str_c(str);
-		}
-		auth_request_set_field(auth_request, args[i], value,
+	str = t_str_new(256);
+
+	array_foreach(&tmpl->args, arg) {
+		str_truncate(str, 0);
+		ret = var_expand_program_execute(str, arg->program, &params,
+						 error_r);
+		if (ret < 0)
+			break;
+		auth_request_set_field(auth_request, arg->key, str_c(str),
 				       STATIC_PASS_SCHEME);
 	}
-	return 0;
-}
 
-bool passdb_template_remove(struct passdb_template *tmpl,
-			    const char *key, const char **value_r)
-{
-	const char *const *args;
-	unsigned int i, count;
-
-	args = array_get(&tmpl->args, &count);
-	i_assert((count % 2) == 0);
-	for (i = 0; i < count; i += 2) {
-		if (strcmp(args[i], key) == 0) {
-			*value_r = args[i+1];
-			array_delete(&tmpl->args, i, 2);
-			return TRUE;
-		}
-	}
-	return FALSE;
+	return ret;
 }
 
 bool passdb_template_is_empty(struct passdb_template *tmpl)
 {
-	return array_count(&tmpl->args) == 0;
+	return array_is_empty(&tmpl->args);
 }
 
-const char *const *passdb_template_get_args(struct passdb_template *tmpl, unsigned int *count_r)
+const char *const *passdb_template_get_args(struct passdb_template *tmpl,
+					    unsigned int *count_r)
 {
-	return array_get(&tmpl->args, count_r);
+	return array_get(&tmpl->keys, count_r);
 }
 
+void passdb_template_free(struct passdb_template **_tmpl)
+{
+	struct passdb_template *tmpl = *_tmpl;
+	if (tmpl == NULL)
+		return;
+	*_tmpl = NULL;
+
+	struct passdb_template_arg *arg;
+
+	array_foreach_modifiable(&tmpl->args, arg)
+		var_expand_program_free(&arg->program);
+}

@@ -331,7 +331,7 @@ auth_request_fix_username(struct auth_request *request, const char **username,
 		unsigned int count = 0;
 		const struct var_expand_table *table =
 			auth_request_get_var_expand_table_full(request,
-				user, NULL, &count);
+				user, &count);
 		if (auth_request_var_expand_with_table(dest,
 				set->username_format, request,
 				table, NULL, &error) <= 0) {

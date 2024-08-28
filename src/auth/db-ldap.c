@@ -11,9 +11,9 @@
 #include "hash.h"
 #include "aqueue.h"
 #include "str.h"
+#include "strescape.h"
 #include "time-util.h"
 #include "env-util.h"
-#include "var-expand.h"
 #include "settings.h"
 #include "ssl-settings.h"
 #include "userdb.h"
@@ -1100,28 +1100,6 @@ static void db_ldap_conn_close(struct ldap_connection *conn)
 	}
 }
 
-struct ldap_field_find_context {
-	pool_t pool;
-	ARRAY_TYPE(const_string) attr_names;
-	ARRAY_TYPE(const_string) sensitive_attr_names;
-};
-
-static int
-db_ldap_field_find(const char *data, void *context,
-		   const char **value_r,
-		   const char **error_r ATTR_UNUSED)
-{
-	struct ldap_field_find_context *ctx = context;
-	const char *ldap_attr;
-
-	if (*data != '\0') {
-		ldap_attr = p_strdup(ctx->pool, t_strcut(data, ':'));
-		array_push_back(&ctx->attr_names, &ldap_attr);
-	}
-	*value_r = NULL;
-	return 1;
-}
-
 static bool
 db_ldap_is_sensitive_field(const char *name)
 {
@@ -1138,22 +1116,18 @@ void db_ldap_get_attribute_names(pool_t pool,
 				 const char *const **sensitive_r,
 				 const char *skip_attr)
 {
-	static const struct var_expand_func_table var_funcs_table[] = {
-		{ "ldap", db_ldap_field_find },
-		{ "ldap_multi", db_ldap_field_find },
-		{ NULL, NULL }
-	};
-
 	unsigned int count = array_is_empty(attrlist) ? 0 : array_count(attrlist);
 	i_assert(count % 2 == 0);
 
-	struct ldap_field_find_context ctx;
-	ctx.pool = pool;
-	p_array_init(&ctx.attr_names, pool, count / 2);
-	p_array_init(&ctx.sensitive_attr_names, pool, 2);
+	ARRAY_TYPE(const_string) attr_names;
+	ARRAY_TYPE(const_string) sensitive_attr_names;
+
+	p_array_init(&attr_names, pool, count / 2);
+	p_array_init(&sensitive_attr_names, pool, 2);
 	string_t *tmp_str = t_str_new(128);
 
 	for (unsigned int index = 0; index < count; ) {
+		struct var_expand_program *prog;
 		const char *name = array_idx_elem(attrlist, index++);
 		const char *value = array_idx_elem(attrlist, index++);
 
@@ -1166,8 +1140,25 @@ void db_ldap_get_attribute_names(pool_t pool,
 		/* Mark the current end of the array before adding the elements
 		   from the expansion of the field expression. This will be
 		   used later to see which elements have been added. */
-		unsigned int index = array_count(&ctx.attr_names);
-		(void)var_expand_with_funcs(tmp_str, value, NULL, var_funcs_table, &ctx, &error);
+		unsigned int index = array_count(&attr_names);
+
+		if (var_expand_program_create(value, &prog, &error) < 0) {
+			e_debug(auth_event, "db-ldap: var_expand_program_create('%s') failed: %s", value, error);
+			continue;
+		}
+
+		const char *const *vars = var_expand_program_variables(prog);
+		for (; *vars != NULL; vars++) {
+			const char *ldap_attr;
+			if (str_begins(*vars, "ldap:", &ldap_attr) ||
+			    str_begins(*vars, "ldap_multi:", &ldap_attr)) {
+				/* when we free program, this name
+				   would be invalid, so dup it here. */
+				ldap_attr = p_strdup(pool, ldap_attr);
+				array_push_back(&attr_names, &ldap_attr);
+			}
+		}
+		var_expand_program_free(&prog);
 
 		if (!db_ldap_is_sensitive_field(name))
 			continue;
@@ -1178,28 +1169,28 @@ void db_ldap_get_attribute_names(pool_t pool,
 		   allows for multiple attributes to be used. In this case, we
 		   mark them all. */
 
-		unsigned int count = array_count(&ctx.attr_names);
+		unsigned int count = array_count(&attr_names);
 		/* Now index points to the first attribute newly added to
 		   attr_names, and count points to the end of attr_names. */
 
 		for (; index < count; index++) {
-			const char *const *src = array_idx(&ctx.attr_names, index);
-			array_push_back(&ctx.sensitive_attr_names, src);
+			const char *const *src = array_idx(&attr_names, index);
+			array_push_back(&sensitive_attr_names, src);
 		}
 	}
-	array_append_zero(&ctx.attr_names);
-	array_append_zero(&ctx.sensitive_attr_names);
+	array_append_zero(&attr_names);
+	array_append_zero(&sensitive_attr_names);
 
-	*attr_names_r = array_front(&ctx.attr_names);
+	*attr_names_r = array_front(&attr_names);
 	if (sensitive_r != NULL)
-		*sensitive_r = array_front(&ctx.sensitive_attr_names);
+		*sensitive_r = array_front(&sensitive_attr_names);
 }
 
 #define IS_LDAP_ESCAPED_CHAR(c) \
 	((((unsigned char)(c)) & 0x80) != 0 || strchr(LDAP_ESCAPE_CHARS, (c)) != NULL)
 
 const char *ldap_escape(const char *str,
-			const struct auth_request *auth_request ATTR_UNUSED)
+			void *context ATTR_UNUSED)
 {
 	string_t *ret = NULL;
 
@@ -1324,131 +1315,64 @@ db_ldap_result_iterate_init(struct ldap_connection *conn,
 						skip_null_values);
 }
 
-void db_ldap_field_multi_expand_parse_data(
-	const char *data, const char **field_name_r,
-	const char **separator_r, const char **default_r)
-{
-	/* start with the defaults */
-	*separator_r = " ";
-	*default_r = "";
-
-	/* Normalize to lower case as fields names are case insensitive. */
-	*field_name_r = t_str_lcase(t_strcut(data, ':'));
-	const char *ptr = i_strchr_to_next(data, ':');
-
-	if (ptr == NULL || ptr[0] == '\0') {
-		/* Handling here the cases:
-		   attrName		-> *sep_r = (default), *default_r = (default)
-		   attrName:		-> *sep_r = (default), *default_r = (default)
-		*/
-		return;
-	}
-
-	if (ptr[0] == ':' && (ptr[1] == '\0' || ptr[1] == ':')) {
-		/* Handling here the cases (exceptions dealing with ':'):
-		   attrName::		-> *sep_r = ":", *default_r = (default)
-		   attrName:::		-> *sep_r = ":", *default_r = (default)
-		   attrName:::defl	-> *sep_r = ":", *default_r = "defl"
-		*/
-		*separator_r = ":";
-
-		/* The current ':' was not a field separator, but just datum.
-		   Advance paste it */
-		if (*++ptr == ':')
-			++ptr;
-	} else {
-		/* Handling here the cases (the normal ones):
-		   attrName::defl       -> *sep_r = (default), *default_r = "defl"
-		   attrName:sep         -> *sep_r = "sep", *default_r = (default)
-		   attrName:sep:defl    -> *sep_r = "sep", *default_r = "defl"
-		*/
-		const char *sep = t_strcut(ptr, ':');
-		ptr = i_strchr_to_next(ptr, ':');
-		if (*sep != '\0')
-			*separator_r = sep;
-	}
-
-	if (ptr == NULL || ptr[0] == '\0')
-		return;
-
-	*default_r = ptr;
-}
-
 const char *db_ldap_attribute_as_multi(const char *name)
 {
 	return t_strconcat(DB_LDAP_ATTR_MULTI_PREFIX, name, NULL);
 }
 
 static int
-db_ldap_field_multi_expand(const char *data, void *context,
-			   const char **value_r, const char **error_r ATTR_UNUSED)
+db_ldap_field_multi_expand(const char *data, const char **value_r,
+			   void *context, const char **error_r)
 {
 	struct db_ldap_field_expand_context *ctx = context;
 	struct auth_fields *fields = ctx->fields;
-
-	const char *field_name;
-	const char *field_separator;
-	const char *field_default;
-
-	db_ldap_field_multi_expand_parse_data(data, &field_name,
-					      &field_separator,
-					      &field_default);
-
-	if (strcasecmp(field_name, "dn") == 0) {
-		*value_r = auth_fields_find(fields, DB_LDAP_ATTR_DN);
-		i_assert(*value_r != NULL);
-		return 1;
-	}
+	const char *field_name = t_str_lcase(data);
 
 	const char *value = auth_fields_find(fields,
 					     db_ldap_attribute_as_multi(field_name));
 	if (value == NULL || *value == '\0')
 		value = auth_fields_find(fields, field_name);
 
-	if (value == NULL || *value == '\0')
-		value = field_default == NULL ? "" : field_default;
-	else {
-		const char **entries = t_strsplit(value, DB_LDAP_ATTR_SEPARATOR);
-		value = t_strarray_join(entries, field_separator);
+	if (value == NULL || *value == '\0') {
+		*error_r = t_strdup_printf("No such LDAP attribute '%s'", field_name);
+		return -1;
 	}
 	*value_r = value;
-	return 1;
+	return 0;
 }
 
 static int
-db_ldap_field_single_expand(const char *data ATTR_UNUSED, void *context,
-			    const char **value_r, const char **error_r ATTR_UNUSED)
+db_ldap_field_single_expand(const char *data, const char **value_r,
+			    void *context, const char **error_r)
 {
 	struct db_ldap_field_expand_context *ctx = context;
 	struct auth_fields *fields = ctx->fields;
-	const char *field_default = strchr(data, ':');
-	const char *field_name = field_default == NULL ? data : t_strdup_until(data, field_default);
+	const char *field_name = t_str_lcase(data);
 
-	if (strcasecmp(field_name, "dn") == 0) {
+	if (strcmp(field_name, "dn") == 0) {
+		/* DN must be always there */
 		*value_r = auth_fields_find(fields, DB_LDAP_ATTR_DN);
 		i_assert(*value_r != NULL);
-		return 1;
+		return 0;
 	}
-
-	/* Normalize to lower case as LDAP attributes are case insensitive. */
-	field_name = t_str_lcase(field_name);
 
 	*value_r = NULL;
 	if (fields != NULL)
 		*value_r = auth_fields_find(fields, field_name);
 
-	if (*value_r == NULL || **value_r == '\0')
-		*value_r = field_default == NULL ? "" : field_default + 1;
-	else if (auth_fields_find(fields,
+	if (*value_r == NULL || **value_r == '\0') {
+		*error_r = t_strdup_printf("No such LDAP attribute '%s'", field_name);
+		return -1;
+	} else if (auth_fields_find(fields,
 				  db_ldap_attribute_as_multi(field_name)) != NULL) {
 		e_warning(ctx->event, "Multiple values found for '%s': "
 			              "using value '%s'", field_name, *value_r);
 	}
 
-	return 1;
+	return 0;
 }
 
-const struct var_expand_func_table db_ldap_field_expand_fn_table[] = {
+const struct var_expand_provider db_ldap_field_expand_fn_table[] = {
 	{ "ldap",       db_ldap_field_single_expand },
 	{ "ldap_multi", db_ldap_field_multi_expand },
 	{ NULL, NULL }
@@ -1475,8 +1399,14 @@ ldap_query_get_fields(pool_t pool,
 		auth_fields_add(fields, name, values[0], 0);
 		if (values[0] != NULL && values[1] != NULL) {
 			const char *mname = db_ldap_attribute_as_multi(name);
-			const char *mvalue = t_strarray_join(values, DB_LDAP_ATTR_SEPARATOR);
-			auth_fields_add(fields, mname, mvalue, 0);
+			string_t *mvalue = t_str_new(32);
+			for (; *values != NULL; values++) {
+				str_append_tabescaped(mvalue, *values);
+				str_append_c(mvalue, '\t');
+			}
+			/* drop last \t */
+			str_truncate(mvalue, str_len(mvalue) - 1);
+			auth_fields_add(fields, mname, str_c(mvalue), 0);
 		}
 	}
 	db_ldap_result_iterate_deinit(&ldap_iter);

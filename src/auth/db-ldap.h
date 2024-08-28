@@ -20,7 +20,7 @@
 #define DB_LDAP_IDLE_RECONNECT_SECS 60
 
 #include <ldap.h>
-#include "var-expand.h"
+#include "var-expand-new.h"
 #include "db-ldap-settings.h"
 
 #define DB_LDAP_ATTR_MULTI_PREFIX "+"
@@ -149,7 +149,7 @@ struct db_ldap_field_expand_context {
 	struct auth_fields *fields;
 };
 
-extern const struct var_expand_func_table db_ldap_field_expand_fn_table[];
+extern const struct var_expand_provider db_ldap_field_expand_fn_table[];
 
 /* Send/queue request */
 void db_ldap_request(struct ldap_connection *conn,
@@ -169,8 +169,7 @@ void db_ldap_connect_delayed(struct ldap_connection *conn);
 
 void db_ldap_enable_input(struct ldap_connection *conn, bool enable);
 
-const char *ldap_escape(const char *str,
-			const struct auth_request *auth_request);
+const char *ldap_escape(const char *str, void *context);
 const char *ldap_get_error(struct ldap_connection *conn);
 
 struct db_ldap_result_iterate_context *

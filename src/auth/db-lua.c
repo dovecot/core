@@ -286,11 +286,11 @@ static int auth_request_lua_index(lua_State *L)
 	lua_pop(L, 1);
 
 	const struct var_expand_table *table =
-		auth_request_get_var_expand_table(req, NULL);
+		auth_request_get_var_expand_table(req);
 
 	/* check if it's variable */
 	for(unsigned int i = 0; i < AUTH_REQUEST_VAR_TAB_COUNT; i++) {
-		if (null_strcmp(table[i].long_key, key) == 0) {
+		if (null_strcmp(table[i].key, key) == 0) {
 			lua_pushstring(L, table[i].value);
 			return 1;
 		}

@@ -6,60 +6,74 @@
 #include "userdb.h"
 #include "userdb-template.h"
 
+struct userdb_template_arg {
+	const char *key;
+	struct var_expand_program *program;
+};
+
 struct userdb_template {
-	ARRAY(const char *) args;
+	ARRAY(struct userdb_template_arg) args;
+	ARRAY_TYPE(const_string) keys;
 };
 
 struct userdb_template *
 userdb_template_build(pool_t pool, const char *userdb_name, const char *args)
 {
 	struct userdb_template *tmpl;
-	const char *const *tmp, *key, *value, *nonull_value;
+	const char *const *tmp;
 	uid_t uid;
 	gid_t gid;
 
 	tmpl = p_new(pool, struct userdb_template, 1);
 
 	tmp = t_strsplit_spaces(args, " ");
-	p_array_init(&tmpl->args, pool, str_array_length(tmp));
+	p_array_init(&tmpl->args, pool, str_array_length(tmp) / 2);
+	p_array_init(&tmpl->keys, pool, str_array_length(tmp) / 2);
 
 	for (; *tmp != NULL; tmp++) {
-		value = strchr(*tmp, '=');
-		if (value == NULL)
-			key = *tmp;
+		const char *p = strchr(*tmp, '=');
+		const char *kp;
+		const char *error;
+
+		if (p == NULL)
+			kp = *tmp;
 		else
-			key = t_strdup_until(*tmp, value++);
+			kp = t_strdup_until(*tmp, p++);
 
-
-		if (*key == '\0')
+		if (*kp == '\0')
 			i_fatal("Invalid userdb template %s - key must not be empty",
 				args);
 
-		nonull_value = value == NULL ? "" : value;
+		char *key = p_strdup(pool, kp);
+		const char *nonull_value = p == NULL ? "" : p;
 		if (strcasecmp(key, "uid") == 0) {
 			uid = userdb_parse_uid(NULL, nonull_value);
 			if (uid == (uid_t)-1) {
 				i_fatal("%s userdb: Invalid uid: %s",
 					userdb_name, nonull_value);
 			}
-			value = dec2str(uid);
+			p = dec2str(uid);
 		} else if (strcasecmp(key, "gid") == 0) {
 			gid = userdb_parse_gid(NULL, nonull_value);
 			if (gid == (gid_t)-1) {
 				i_fatal("%s userdb: Invalid gid: %s",
 					userdb_name, nonull_value);
 			}
-			value = dec2str(gid);
-		} else if (*key == '\0') {
+			p = dec2str(gid);
+		} else if (*kp == '\0') {
 			i_fatal("%s userdb: Empty key (=%s)",
 				userdb_name, nonull_value);
 		}
-		key = p_strdup(pool, key);
-		value = p_strdup(pool, value);
+		struct var_expand_program *prog;
+		if (var_expand_program_create(p, &prog, &error) < 0)
+			i_fatal("Invalid userdb template value %s: %s", p, error);
 
-		array_push_back(&tmpl->args, &key);
-		array_push_back(&tmpl->args, &value);
+		struct userdb_template_arg *arg = array_append_space(&tmpl->args);
+		arg->key = key;
+		arg->program = prog;
+		array_push_back(&tmpl->keys, &arg->key);
 	}
+
 	return tmpl;
 }
 
@@ -67,58 +81,53 @@ int userdb_template_export(struct userdb_template *tmpl,
 			   struct auth_request *auth_request,
 			   const char **error_r)
 {
-        const struct var_expand_table *table;
+	const struct userdb_template_arg *arg;
 	string_t *str;
-	const char *const *args, *value;
-	unsigned int i, count;
+	int ret = 0;
 
 	if (userdb_template_is_empty(tmpl))
 		return 0;
 
+	const struct var_expand_params params = {
+		.table = auth_request_get_var_expand_table(auth_request),
+		.providers = auth_request_var_expand_providers,
+		.context = auth_request,
+	};
+
 	str = t_str_new(256);
-	table = auth_request_get_var_expand_table(auth_request, NULL);
 
-	args = array_get(&tmpl->args, &count);
-	i_assert((count % 2) == 0);
-	for (i = 0; i < count; i += 2) {
-		if (args[i+1] == NULL)
-			value = "";
-		else {
-			str_truncate(str, 0);
-			if (auth_request_var_expand_with_table(str, args[i+1],
-					auth_request, table, NULL, error_r) <= 0)
-				return -1;
-			value = str_c(str);
-		}
-		auth_request_set_userdb_field(auth_request, args[i], value);
+	array_foreach(&tmpl->args, arg) {
+		str_truncate(str, 0);
+		ret = var_expand_program_execute(str, arg->program, &params,
+						 error_r);
+		if (ret < 0)
+			break;
+		auth_request_set_userdb_field(auth_request, arg->key, str_c(str));
 	}
-	return 0;
-}
 
-bool userdb_template_remove(struct userdb_template *tmpl,
-			    const char *key, const char **value_r)
-{
-	const char *const *args;
-	unsigned int i, count;
-
-	args = array_get(&tmpl->args, &count);
-	i_assert((count % 2) == 0);
-	for (i = 0; i < count; i += 2) {
-		if (strcmp(args[i], key) == 0) {
-			*value_r = args[i+1];
-			array_delete(&tmpl->args, i, 2);
-			return TRUE;
-		}
-	}
-	return FALSE;
+	return ret;
 }
 
 bool userdb_template_is_empty(struct userdb_template *tmpl)
 {
-	return array_count(&tmpl->args) == 0;
+	return array_is_empty(&tmpl->args);
 }
 
-const char *const *userdb_template_get_args(struct userdb_template *tmpl, unsigned int *count_r)
+const char *const *userdb_template_get_args(struct userdb_template *tmpl,
+					    unsigned int *count_r)
 {
-	return array_get(&tmpl->args, count_r);
+	return array_get(&tmpl->keys, count_r);
+}
+
+void userdb_template_free(struct userdb_template **_tmpl)
+{
+	struct userdb_template *tmpl = *_tmpl;
+	if (tmpl == NULL)
+		return;
+	*_tmpl = NULL;
+
+	struct userdb_template_arg *arg;
+
+	array_foreach_modifiable(&tmpl->args, arg)
+		var_expand_program_free(&arg->program);
 }

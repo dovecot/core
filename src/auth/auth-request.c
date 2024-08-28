@@ -803,29 +803,18 @@ static void auth_request_passdb_internal_failure(struct auth_request *request)
 }
 
 static int
-auth_request_fields_var_expand_lookup(const char *data, void *context,
-				      const char **value_r,
-				      const char **error_r ATTR_UNUSED)
+auth_request_fields_var_expand_lookup(const char *field_name, const char **value_r,
+				      void *context, const char **error_r)
 {
 	struct auth_fields *fields = context;
-	*value_r = NULL;
 
-	const char *default_value = strchr(data, ':');
-	if (default_value == NULL) {
-		if (fields != NULL)
-			*value_r = auth_fields_find(fields, data);
-		else
-			*value_r = "";
-		return 1;
+	if (fields != NULL) {
+		*value_r = auth_fields_find(fields, field_name);
+		return 0;
+	} else {
+		*error_r = t_strdup_printf("No such field '%s'", field_name);
+		return -1;
 	}
-	/* If the fields are not initialized do not try to find fields. */
-	if (fields != NULL)
-		*value_r = auth_fields_find(fields,
-				t_strdup_until(data, default_value));
-	default_value++;
-	if (*value_r == NULL)
-		*value_r = default_value;
-	return 1;
 }
 
 int auth_request_set_passdb_fields(struct auth_request *request,
@@ -833,8 +822,8 @@ int auth_request_set_passdb_fields(struct auth_request *request,
 {
 	const char *driver_name =
 		t_str_replace(request->passdb->passdb->iface.name, '-', '_');
-	const struct var_expand_func_table fn_table[] = {
-		{ driver_name, auth_request_fields_var_expand_lookup },
+	const struct var_expand_provider fn_table[] = {
+		{ .key = driver_name, .func = auth_request_fields_var_expand_lookup },
 		{ NULL, NULL }
 	};
 
@@ -844,15 +833,15 @@ int auth_request_set_passdb_fields(struct auth_request *request,
 int auth_request_set_passdb_fields_ex(struct auth_request *request,
 				      void *context,
 				      const char *default_password_scheme,
-				      const struct var_expand_func_table *fn_table)
+				      const struct var_expand_provider *fn_table)
 {
 	struct event *event = event_create(authdb_event(request));
 	const struct auth_passdb_post_settings *post_set;
 	const char *error;
 
 	struct var_expand_params params = {
-		.func_table = fn_table,
-		.func_context = context,
+		.providers = fn_table,
+		.context = context,
 	};
 	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, &params);
 
@@ -873,26 +862,26 @@ int auth_request_set_userdb_fields(struct auth_request *request,
 				   struct auth_fields *fields) {
 	const char *driver_name =
 		t_str_replace(request->userdb->userdb->iface->name, '-', '_');
-	const struct var_expand_func_table fn_table[] = {
-		{ driver_name, auth_request_fields_var_expand_lookup },
-		{ NULL, NULL }
+	const struct var_expand_provider fn_table[] = {
+		{ .key = driver_name, .func = auth_request_fields_var_expand_lookup },
+		VAR_EXPAND_TABLE_END
 	};
 
 	return auth_request_set_userdb_fields_ex(request, fields, fn_table);
 }
 
 int auth_request_set_userdb_fields_ex(struct auth_request *request, void *context,
-				      const struct var_expand_func_table *fn_table)
+				      const struct var_expand_provider *fn_table)
 {
 	struct event *event = event_create(authdb_event(request));
 	const struct auth_userdb_post_settings *post_set;
 	const char *error;
 
-	struct var_expand_params params = {
-		.func_table = fn_table,
-		.func_context = context,
+	const struct var_expand_params params = {
+		.providers = fn_table,
+		.context = context,
 	};
-	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, &params);
+	event_set_ptr(event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, (void *)&params);
 
 	if (settings_get(event, &auth_userdb_post_setting_parser_info, 0,
 			 &post_set, &error) < 0) {
