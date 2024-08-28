@@ -575,7 +575,7 @@ int lmtp_local_default_deliver(struct client *client,
 	struct event *event;
 	int ret;
 
-	event = event_create(rcpt->event);
+	event = event_create(lldctx->rcpt_user->event);
 	event_drop_parent_log_prefixes(event, 3);
 
 	i_zero(&dinput);
