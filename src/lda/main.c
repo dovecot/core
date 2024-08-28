@@ -518,7 +518,6 @@ int main(int argc, char *argv[])
 		event_add_str(event, "rcpt_to",
 			      smtp_address_encode(final_rcpt_to));
 	}
-	dinput.event_parent = event;
 
 	i_zero(&service_input);
 	service_input.service = "lda";
@@ -543,6 +542,7 @@ int main(int argc, char *argv[])
 #ifdef SIGXFSZ
 		lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
+		dinput.event_parent = dinput.rcpt_user->event;
 		if (*user_source != '\0') {
 			e_debug(dinput.rcpt_user->event,
 				"userdb lookup skipped, username taken from %s",
