@@ -13,8 +13,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-struct exporter_file {
-	struct exporter_file *next;
+struct file_event_exporter {
+	struct file_event_exporter *next;
 	char *fname;
 	struct ostream *output;
 	int fd;
@@ -25,9 +25,9 @@ struct exporter_file {
 
 #define EXPORTER_LAST_ERROR_DELAY 60
 
-static struct exporter_file *exporter_file_list_head = NULL;
+static struct file_event_exporter *exporter_file_list_head = NULL;
 
-static void exporter_file_close(struct exporter_file *node)
+static void exporter_file_close(struct file_event_exporter *node)
 {
 	if (o_stream_finish(node->output) < 0) {
 		i_error("write(%s) failed: %s", node->fname,
@@ -38,9 +38,9 @@ static void exporter_file_close(struct exporter_file *node)
 	i_close_fd(&node->fd);
 }
 
-static void exporter_file_destroy(struct exporter_file **_node)
+static void exporter_file_destroy(struct file_event_exporter **_node)
 {
-	struct exporter_file *node = *_node;
+	struct file_event_exporter *node = *_node;
 	if (node == NULL)
 		return;
 	*_node = NULL;
@@ -52,7 +52,7 @@ static void exporter_file_destroy(struct exporter_file **_node)
 
 static void event_exporter_file_deinit(void)
 {
-	struct exporter_file *node, *next = exporter_file_list_head;
+	struct file_event_exporter *node, *next = exporter_file_list_head;
 	exporter_file_list_head = NULL;
 	while (next != NULL) {
 		node = next;
@@ -61,11 +61,11 @@ static void event_exporter_file_deinit(void)
 	}
 }
 
-static struct exporter_file *
+static struct file_event_exporter *
 exporter_file_init(const struct event_exporter *exporter, bool unix_socket)
 {
-	struct exporter_file *node;
-	node = i_new(struct exporter_file, 1);
+	struct file_event_exporter *node;
+	node = i_new(struct file_event_exporter, 1);
 	node->fname = i_strdup(t_strcut(exporter->transport_args, ' '));
 	node->fd = -1;
 	node->unix_socket = unix_socket;
@@ -76,7 +76,7 @@ exporter_file_init(const struct event_exporter *exporter, bool unix_socket)
 	return node;
 }
 
-static void exporter_file_open_error(struct exporter_file *node, const char *func)
+static void exporter_file_open_error(struct file_event_exporter *node, const char *func)
 {
 	if (errno != EACCES)
 		i_error("%s(%s) failed: %m", func, node->fname);
@@ -85,7 +85,7 @@ static void exporter_file_open_error(struct exporter_file *node, const char *fun
 	node->last_error = ioloop_time;
 }
 
-static bool exporter_file_open_unix(struct exporter_file *node)
+static bool exporter_file_open_unix(struct file_event_exporter *node)
 {
 	node->fd = net_connect_unix_with_retries(node->fname ,
 						 node->connect_timeout_msecs);
@@ -98,7 +98,7 @@ static bool exporter_file_open_unix(struct exporter_file *node)
 	return TRUE;
 }
 
-static bool exporter_file_open_plain(struct exporter_file *node)
+static bool exporter_file_open_plain(struct file_event_exporter *node)
 {
 	node->fd = open(node->fname, O_CREAT|O_APPEND|O_WRONLY, 0600);
 	if (node->fd == -1) {
@@ -110,7 +110,7 @@ static bool exporter_file_open_plain(struct exporter_file *node)
 	return TRUE;
 }
 
-static bool exporter_file_open(struct exporter_file *node)
+static bool exporter_file_open(struct file_event_exporter *node)
 {
 	if (likely(node->output != NULL && !node->output->closed))
 		return TRUE;
@@ -125,7 +125,7 @@ static bool exporter_file_open(struct exporter_file *node)
 	return TRUE;
 }
 
-static void event_exporter_file_write(struct exporter_file *node,
+static void event_exporter_file_write(struct file_event_exporter *node,
 				      const buffer_t *buf)
 {
 	const struct const_iovec vec[] = {
@@ -145,7 +145,7 @@ static void event_exporter_file_write(struct exporter_file *node,
 static void
 event_exporter_file_send(struct event_exporter *exporter, const buffer_t *buf)
 {
-	struct exporter_file *node = exporter->transport_context;
+	struct file_event_exporter *node = exporter->transport_context;
 	if (node == NULL)
 		node = exporter_file_init(exporter, FALSE);
 	if (!exporter_file_open(node))
@@ -156,7 +156,7 @@ event_exporter_file_send(struct event_exporter *exporter, const buffer_t *buf)
 static void
 event_exporter_unix_send(struct event_exporter *exporter, const buffer_t *buf)
 {
-	struct exporter_file *node = exporter->transport_context;
+	struct file_event_exporter *node = exporter->transport_context;
 	if (node == NULL)
 		node = exporter_file_init(exporter, TRUE);
 	if (!exporter_file_open(node))
@@ -167,7 +167,7 @@ event_exporter_unix_send(struct event_exporter *exporter, const buffer_t *buf)
 static void event_exporter_file_reopen(void)
 {
 	/* close all files, but not unix sockets */
-	struct exporter_file *node = exporter_file_list_head;
+	struct file_event_exporter *node = exporter_file_list_head;
 	while (node != NULL) {
 		if (!node->unix_socket)
 			exporter_file_close(node);
