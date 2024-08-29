@@ -13,8 +13,8 @@
 #include "ostream.h"
 #include "ostream-multiplex.h"
 #include "time-util.h"
-#include "var-expand.h"
 #include "settings.h"
+#include "var-expand-new.h"
 #include "master-service.h"
 #include "imap-resp-code.h"
 #include "imap-util.h"
@@ -308,38 +308,45 @@ void client_command_cancel(struct client_command_context **_cmd)
 const char *client_stats(struct client *client)
 {
 	const struct var_expand_table logout_tab[] = {
-		{ 'i', dec2str(i_stream_get_absolute_offset(client->input)), "input" },
-		{ 'o', dec2str(client->output->offset), "output" },
-		{ '\0', client->user->session_id, "session" },
-		{ '\0', dec2str(client->fetch_hdr_count), "fetch_hdr_count" },
-		{ '\0', dec2str(client->fetch_hdr_bytes), "fetch_hdr_bytes" },
-		{ '\0', dec2str(client->fetch_body_count), "fetch_body_count" },
-		{ '\0', dec2str(client->fetch_body_bytes), "fetch_body_bytes" },
-		{ '\0', dec2str(client->deleted_count), "deleted" },
-		{ '\0', dec2str(client->expunged_count), "expunged" },
-		{ '\0', dec2str(client->trashed_count), "trashed" },
-		{ '\0', dec2str(client->autoexpunged_count), "autoexpunged" },
-		{ '\0', dec2str(client->append_count), "appended" },
-		{ '\0', NULL, NULL }
+		{ .key = "input", .value = dec2str(i_stream_get_absolute_offset(client->input)) },
+		{ .key = "output", .value = dec2str(client->output->offset) },
+		{ .key = "session", .value = client->user->session_id },
+		{ .key = "fetch_hdr_count", .value = dec2str(client->fetch_hdr_count) },
+		{ .key = "fetch_hdr_bytes", .value = dec2str(client->fetch_hdr_bytes) },
+		{ .key = "fetch_body_count", .value = dec2str(client->fetch_body_count) },
+		{ .key = "fetch_body_bytes", .value = dec2str(client->fetch_body_bytes) },
+		{ .key = "deleted", .value = dec2str(client->deleted_count) },
+		{ .key = "expunged", .value = dec2str(client->expunged_count) },
+		{ .key = "trashed", .value = dec2str(client->trashed_count) },
+		{ .key = "autoexpunged", .value = dec2str(client->autoexpunged_count) },
+		{ .key = "appended", .value = dec2str(client->append_count) },
+		VAR_EXPAND_TABLE_END
 	};
-	const struct var_expand_table *user_tab =
-		mail_user_var_expand_table(client->user);
-	const struct var_expand_table *tab =
-		t_var_expand_merge_tables(logout_tab, user_tab);
+	const struct var_expand_params *user_params =
+		mail_user_var_expand_params(client->user);
+	const struct var_expand_params params = {
+		.tables_arr = (const struct var_expand_table*[]){
+			logout_tab,
+			user_params->table,
+			NULL
+		},
+		.providers = user_params->providers,
+		.context = user_params->context,
+		.event = client->event,
+	};
 	string_t *str;
 	const char *error;
 
+	event_add_int(client->event, "net_in_bytes", i_stream_get_absolute_offset(client->input));
+	event_add_int(client->event, "net_out_bytes", client->output->offset);
+
 	str = t_str_new(128);
-	if (var_expand_with_funcs(str, client->set->imap_logout_format,
-				  tab, mail_user_var_expand_func_table,
-				  client->user, &error) <= 0) {
+	if (var_expand_new(str, client->set->imap_logout_format,
+			   &params, &error) < 0) {
 		e_error(client->event,
 			"Failed to expand imap_logout_format=%s: %s",
 			client->set->imap_logout_format, error);
 	}
-
-	event_add_int(client->event, "net_in_bytes", i_stream_get_absolute_offset(client->input));
-	event_add_int(client->event, "net_out_bytes", client->output->offset);
 
 	return str_c(str);
 }
