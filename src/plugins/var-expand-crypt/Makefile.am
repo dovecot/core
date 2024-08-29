@@ -1,4 +1,5 @@
 AM_CPPFLAGS = \
+	-I$(top_srcdir)/src/lib-var-expand \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-dcrypt
@@ -24,6 +25,7 @@ lib20_var_expand_crypt_la_SOURCES = \
 test_programs = test-var-expand-crypt
 
 test_var_expand_crypt_CFLAGS = \
+	$(AM_CPPFLAGS) \
 	-DDCRYPT_BUILD_DIR=\"$(top_builddir)/src/lib-dcrypt\"
 test_var_expand_crypt_SOURCES = \
 	test-var-expand-crypt.c
