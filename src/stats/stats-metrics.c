@@ -66,17 +66,17 @@ static void stats_exporters_add_set(struct stats_metrics *metrics,
 	 * Note: Make sure to mirror any changes to the below code in
 	 * stats_exporter_settings_check().
 	 */
-	if (strcmp(set->transport, "drop") == 0) {
+	if (strcmp(set->driver, "drop") == 0) {
 		exporter->transport = event_export_transport_drop;
-	} else if (strcmp(set->transport, "http-post") == 0) {
+	} else if (strcmp(set->driver, "http-post") == 0) {
 		exporter->transport = event_export_transport_http_post;
-	} else if (strcmp(set->transport, "log") == 0) {
+	} else if (strcmp(set->driver, "log") == 0) {
 		exporter->transport = event_export_transport_log;
 		exporter->format_max_field_len =
 			LOG_EXPORTER_LONG_FIELD_TRUNCATE_LEN;
-	} else if (strcmp(set->transport, "file") == 0) {
+	} else if (strcmp(set->driver, "file") == 0) {
 		exporter->transport = event_export_transport_file;
-	} else if (strcmp(set->transport, "unix") == 0) {
+	} else if (strcmp(set->driver, "unix") == 0) {
 		exporter->transport = event_export_transport_unix;
 	} else {
 		i_unreached();

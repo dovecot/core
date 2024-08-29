@@ -68,7 +68,7 @@ const struct setting_keyvalue stats_service_settings_defaults[] = {
 
 static const struct setting_define stats_exporter_setting_defines[] = {
 	DEF(STR, name),
-	DEF(STR, transport),
+	DEF(STR, driver),
 	DEF(STR, transport_args),
 	DEF(TIME_MSECS, transport_timeout),
 	DEF(STR, format),
@@ -78,7 +78,7 @@ static const struct setting_define stats_exporter_setting_defines[] = {
 
 static const struct stats_exporter_settings stats_exporter_default_settings = {
 	.name = "",
-	.transport = "",
+	.driver = "",
 	.transport_args = "",
 	.transport_timeout = 250, /* ms */
 	.format = "",
@@ -157,8 +157,7 @@ static const struct setting_define stats_setting_defines[] = {
 	  .required_setting = "metric_filter", },
 	{ .type = SET_FILTER_ARRAY, .key = "event_exporter",
 	  .offset = offsetof(struct stats_settings, exporters),
-	  .filter_array_field_name = "event_exporter_name",
-	  .required_setting = "event_exporter_transport", },
+	  .filter_array_field_name = "event_exporter_name", },
 	SETTING_DEFINE_LIST_END
 };
 
@@ -266,18 +265,17 @@ static bool stats_exporter_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	 * Note: Make sure to mirror any changes to the below code in
 	 * stats_exporters_add_set().
 	 */
-	if (set->transport[0] == '\0') {
-		*error_r = "Exporter transport name can't be empty";
-		return FALSE;
-	} else if (strcmp(set->transport, "drop") == 0 ||
-		   strcmp(set->transport, "http-post") == 0 ||
-		   strcmp(set->transport, "log") == 0 ||
-		   strcmp(set->transport, "file") == 0 ||
-		   strcmp(set->transport, "unix") == 0) {
+	if (set->driver[0] == '\0')
+		set->driver = set->name;
+	if (strcmp(set->driver, "drop") == 0 ||
+	    strcmp(set->driver, "http-post") == 0 ||
+	    strcmp(set->driver, "log") == 0 ||
+	    strcmp(set->driver, "file") == 0 ||
+	    strcmp(set->driver, "unix") == 0) {
 		/* no-op */
 	} else {
-		*error_r = t_strdup_printf("Unknown transport type '%s'",
-					   set->transport);
+		*error_r = t_strdup_printf("Unknown evente_exporter_driver: %s",
+					   set->driver);
 		return FALSE;
 	}
 
