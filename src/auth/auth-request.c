@@ -2045,19 +2045,6 @@ void auth_request_set_field(struct auth_request *request,
 				"nopassword", NULL, 0);
 	} else if (strcmp(name, "nopassword") == 0) {
 		/* NULL password - anything goes */
-		const char *password = request->passdb_password;
-
-		if (password != NULL &&
-		    !auth_fields_exists(request->fields.extra_fields,
-					"noauthenticate")) {
-			(void)password_get_scheme(&password);
-			if (*password != '\0') {
-				e_error(authdb_event(request),
-					"nopassword set but password is "
-					"non-empty");
-				return;
-			}
-		}
 		request->passdb_password = NULL;
 		auth_fields_add(request->fields.extra_fields, name, value, 0);
 		return;
