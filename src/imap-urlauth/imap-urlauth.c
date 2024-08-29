@@ -60,7 +60,6 @@ The imap-urlauth service thus consists of three separate stages:
 #include "master-service-settings.h"
 #include "login-server.h"
 #include "master-interface.h"
-#include "var-expand.h"
 
 #include <stdio.h>
 #include <unistd.h>

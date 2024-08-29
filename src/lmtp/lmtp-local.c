@@ -7,7 +7,6 @@
 #include "strescape.h"
 #include "time-util.h"
 #include "hostpid.h"
-#include "var-expand.h"
 #include "restrict-access.h"
 #include "anvil-client.h"
 #include "settings.h"

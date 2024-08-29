@@ -17,7 +17,6 @@
 #include "login-server.h"
 #include "master-interface.h"
 #include "master-admin-client.h"
-#include "var-expand.h"
 #include "mail-error.h"
 #include "mail-user.h"
 #include "mail-namespace.h"

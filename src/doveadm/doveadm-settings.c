@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "array.h"
-#include "var-expand.h"
 #include "settings.h"
 #include "service-settings.h"
 #include "mail-storage-settings.h"

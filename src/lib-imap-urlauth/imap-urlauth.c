@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "hostpid.h"
-#include "var-expand.h"
 #include "hmac.h"
 #include "sha1.h"
 #include "randgen.h"

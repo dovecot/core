@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "buffer.h"
-#include "var-expand.h"
 #include "settings-parser.h"
 #include "service-settings.h"
 #include "master-service.h"
