@@ -183,7 +183,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.maildir_stat_dirs = FALSE,
 	.mail_shared_explicit_inbox = FALSE,
 	.lock_method = "fcntl:flock:dotlock",
-	.pop3_uidl_format = "%{uid|number|hex(8)}%{uidvalidity|number|hex(8)}",
+	.pop3_uidl_format = "%{uid | hex(8)}%{uidvalidity | hex(8)}",
 
 	.recipient_delimiter = "+",
 
