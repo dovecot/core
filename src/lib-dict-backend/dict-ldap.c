@@ -9,7 +9,7 @@
 #include "str.h"
 #include "istream.h"
 #include "ostream.h"
-#include "var-expand-new.h"
+#include "var-expand.h"
 #include "connection.h"
 #include "llist.h"
 #include "ldap-client.h"
@@ -230,7 +230,7 @@ ldap_dict_build_query(const struct dict_op_settings *set,
 		.table = array_front(&exp),
 	};
 
-	if (var_expand_new(query_r, template, &params, &error) < 0) {
+	if (var_expand(query_r, template, &params, &error) < 0) {
 		*error_r = t_strdup_printf("Failed to expand %s: %s", template, error);
 		return FALSE;
 	}

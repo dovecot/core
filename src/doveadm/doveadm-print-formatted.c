@@ -8,7 +8,7 @@
 #include "doveadm-print.h"
 #include "doveadm-print-private.h"
 #include "client-connection.h"
-#include "var-expand-new.h"
+#include "var-expand.h"
 
 struct doveadm_print_formatted_context {
 	pool_t pool;
@@ -65,7 +65,7 @@ static void doveadm_print_formatted_print(const char *value)
 		const struct var_expand_params params = {
 			.table = array_front(&ctx.headers),
 		};
-		if (var_expand_new(ctx.buf, ctx.format, &params, &error) < 0) {
+		if (var_expand(ctx.buf, ctx.format, &params, &error) < 0) {
 			i_error("Failed to expand print format '%s': %s",
 				ctx.format, error);
 		}

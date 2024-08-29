@@ -16,7 +16,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "time-util.h"
-#include "var-expand-new.h"
+#include "var-expand.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "imap-keepalive.h"
@@ -663,7 +663,7 @@ imap_client_create(int fd, const struct imap_client_state *state)
 		string_t *str;
 
 		str = t_str_new(256);
-		if (var_expand_new(str, state->mail_log_prefix, &params, &error) < 0) {
+		if (var_expand(str, state->mail_log_prefix, &params, &error) < 0) {
 			e_error(client->event,
 				"Failed to expand mail_log_prefix=%s: %s",
 				state->mail_log_prefix, error);

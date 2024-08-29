@@ -17,7 +17,7 @@
 #include "restrict-access.h"
 #include "restrict-process-size.h"
 #include "eacces-error.h"
-#include "var-expand-new.h"
+#include "var-expand.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "dup2-array.h"
@@ -64,7 +64,7 @@ service_unix_pid_listener_get_path(struct service_listener *l, pid_t pid,
 	};
 
 	str_truncate(path, 0);
-	return var_expand_new(path, l->set.fileset.set->path, &params, error_r);
+	return var_expand(path, l->set.fileset.set->path, &params, error_r);
 }
 
 static void

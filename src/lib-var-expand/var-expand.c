@@ -243,12 +243,12 @@ static int var_expand_table_key_cmp(const char *key,
 }
 
 struct var_expand_table *
-var_expand_merge_tables_new(pool_t pool, const struct var_expand_table *a,
+var_expand_merge_tables(pool_t pool, const struct var_expand_table *a,
 			    const struct var_expand_table *b)
 {
 	ARRAY(struct var_expand_table) table;
-	size_t a_size = var_expand_table_size_new(a);
-	size_t b_size = var_expand_table_size_new(b);
+	size_t a_size = var_expand_table_size(a);
+	size_t b_size = var_expand_table_size(b);
 	p_array_init(&table, pool, a_size + b_size + 1);
 	for (size_t i = 0; i < a_size; i++) {
 		struct var_expand_table *entry =
@@ -437,9 +437,9 @@ int var_expand_state_lookup_variable(const struct var_expand_state *state,
 	}
 }
 
-int var_expand_new(string_t *dest, const char *str,
-		   const struct var_expand_params *params,
-		   const char **error_r)
+int var_expand(string_t *dest, const char *str,
+	       const struct var_expand_params *params,
+	       const char **error_r)
 {
 	struct var_expand_program *program = NULL;
 	if (var_expand_program_create(str, &program, error_r) != 0)

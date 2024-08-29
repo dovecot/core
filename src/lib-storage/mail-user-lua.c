@@ -4,7 +4,7 @@
 #include "str.h"
 #include "istream.h"
 #include "array.h"
-#include "var-expand-new.h"
+#include "var-expand.h"
 #include "dlua-script.h"
 #include "dlua-script-private.h"
 #include "mail-storage.h"
@@ -133,7 +133,7 @@ static int lua_storage_mail_user_var_expand(lua_State *L)
 	const char *format = luaL_checkstring(L, 2);
 	const struct var_expand_params *params = mail_user_var_expand_params(user);
 	string_t *str = t_str_new(128);
-	if (var_expand_new(str, format, params, &error) < 0) {
+	if (var_expand(str, format, params, &error) < 0) {
 		return luaL_error(L, "var_expand(%s) failed: %s",
 				  format, error);
 	}

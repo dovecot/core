@@ -7,7 +7,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "str-sanitize.h"
-#include "var-expand-new.h"
+#include "var-expand.h"
 #include "message-date.h"
 #include "message-size.h"
 #include "message-address.h"
@@ -120,8 +120,8 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 		ctx->dsn ? "delivery-status" : "disposition-notification",
 		boundary);
 	str_append(str, "Subject: ");
-	if (var_expand_new(str, ctx->set->rejection_subject,
-			   &params, &error) < 0) {
+	if (var_expand(str, ctx->set->rejection_subject,
+		       &params, &error) < 0) {
 		e_error(ctx->event,
 			"Failed to expand rejection_subject=%s: %s",
 			ctx->set->rejection_subject, error);
@@ -138,8 +138,8 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 	str_append(str, "Content-Disposition: inline\r\n");
 	str_append(str, "Content-Transfer-Encoding: 8bit\r\n\r\n");
 
-	if (var_expand_new(str, ctx->set->rejection_reason,
-			   &params, &error) < 0) {
+	if (var_expand(str, ctx->set->rejection_reason,
+		       &params, &error) < 0) {
 		e_error(ctx->event,
 			"Failed to expand rejection_reason=%s: %s",
 			ctx->set->rejection_reason, error);

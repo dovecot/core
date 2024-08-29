@@ -9,7 +9,6 @@
 #include "ipwd.h"
 #include "process-title.h"
 #include "restrict-access.h"
-#include "var-expand-private.h"
 #include "randgen.h"
 
 #include <fcntl.h>
@@ -190,7 +189,6 @@ void lib_init(void)
 	lib_open_non_stdio_dev_null();
 	lib_event_init();
 	event_filter_init();
-	var_expand_extensions_init();
 
 	/* Default to clean exit. Otherwise there would be too many accidents
 	   with e.g. command line parsing errors that try to return instead
@@ -214,7 +212,6 @@ void lib_deinit(void)
 	lib_atexit_run();
 	ipwd_deinit();
 	hostpid_deinit();
-	var_expand_extensions_deinit();
 	event_filter_deinit();
 	data_stack_deinit_event();
 	lib_event_deinit();

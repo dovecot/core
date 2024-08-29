@@ -7,7 +7,7 @@
 
 #include "array.h"
 #include "net.h"
-#include "var-expand-new.h"
+#include "var-expand.h"
 #include "mech.h"
 #include "userdb.h"
 #include "passdb.h"

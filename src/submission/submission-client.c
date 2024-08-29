@@ -430,7 +430,7 @@ static const char *client_stats(struct client *client)
 	event_add_int(client->event, "net_out_bytes", stats->output);
 
 	str = t_str_new(128);
-	if (var_expand_new(str, client->set->submission_logout_format,
+	if (var_expand(str, client->set->submission_logout_format,
 			   &params, &error) < 0) {
 		e_error(client->event,
 			"Failed to expand submission_logout_format=%s: %s",

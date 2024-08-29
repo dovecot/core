@@ -21,7 +21,7 @@ struct var_expand_program;
 #define VAR_EXPAND_TABLE_END { .key = NULL }
 #define VAR_EXPAND_CONTEXTS_END (void*)var_expand_contexts_end
 
-struct var_expand_table_new {
+struct var_expand_table {
 	/* Key name, as in %{key} */
 	const char *key;
 	/* Value to expand into */
@@ -29,7 +29,6 @@ struct var_expand_table_new {
 	/* Or function that provides the value */
 	value_provider_func_t *func;
 };
-#define var_expand_table var_expand_table_new
 
 struct var_expand_provider {
 	/* key as in %{key:name} */
@@ -40,7 +39,7 @@ struct var_expand_provider {
 
 extern const void *const var_expand_contexts_end;
 
-struct var_expand_params_new {
+struct var_expand_params {
 	/* Variables to use, must end with VAR_EXPAND_TABLE_END,
 	   asserts that tables_arr is non-NULL. */
 	const struct var_expand_table *table;
@@ -68,7 +67,6 @@ struct var_expand_params_new {
 	   will be attempted if this is NULL. */
 	struct event *event;
 };
-#define var_expand_params var_expand_params_new
 
 /* Creates a new expansion program for reusing */
 int var_expand_program_create(const char *str, struct var_expand_program **program_r,
@@ -87,8 +85,8 @@ void var_expand_program_free(struct var_expand_program **_program);
 
 /* Creates a new program, executes it and frees it. Params can be left NULL, in which
    case empty parameters are used. */
-int var_expand_new(string_t *dest, const char *str, const struct var_expand_params *params,
-		   const char **error_r) ATTR_NULL(3);
+int var_expand(string_t *dest, const char *str, const struct var_expand_params *params,
+	       const char **error_r) ATTR_NULL(3);
 
 /* Wrapper for var_expand(), places the result into result_r. */
 int t_var_expand(const char *str, const struct var_expand_params *params,
@@ -97,15 +95,15 @@ int t_var_expand(const char *str, const struct var_expand_params *params,
 /* Merge two tables together, keys in table a will be overwritten with keys
  * from table b in collision. */
 struct var_expand_table *
-var_expand_merge_tables_new(pool_t pool, const struct var_expand_table *a,
-			    const struct var_expand_table *b);
+var_expand_merge_tables(pool_t pool, const struct var_expand_table *a,
+			const struct var_expand_table *b);
 
 /* Returns true if provider is a built-in provider */
 bool var_expand_provider_is_builtin(const char *prefix);
 
 /* Provides size of a table */
 static inline size_t ATTR_PURE
-var_expand_table_size_new(const struct var_expand_table *table)
+var_expand_table_size(const struct var_expand_table *table)
 {
 	size_t n = 0;
 	while (table != NULL && table[n].key != NULL)

@@ -15,7 +15,7 @@
 #include "strescape.h"
 #include "str-parse.h"
 #include "env-util.h"
-#include "var-expand-new.h"
+#include "var-expand.h"
 #include "process-title.h"
 #include "settings.h"
 #include "imap-util.h"
@@ -305,8 +305,8 @@ get_ssh_cmd_args(const char *host, const char *login, const char *mail_user,
 			   text in the parameter, skip it. */
 			str_truncate(str, 0);
 			str_truncate(str2, 0);
-			if (var_expand_new(str, *args, &params, &error) < 0 ||
-			    var_expand_new(str2, *args, &static_params, &error) < 0) {
+			if (var_expand(str, *args, &params, &error) < 0 ||
+			    var_expand(str2, *args, &static_params, &error) < 0) {
 				e_error(event,
 					"Failed to expand dsync_remote_cmd=%s: %s",
 					*args, error);

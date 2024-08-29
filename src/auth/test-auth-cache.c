@@ -62,7 +62,7 @@ int auth_request_var_expand_with_table(string_t *dest, const char *str,
 			VAR_EXPAND_TABLE_END
 		},
 	};
-	return var_expand_new(dest, str, &params, error_r);
+	return var_expand(dest, str, &params, error_r);
 }
 
 static void test_auth_cache_parse_key(void)

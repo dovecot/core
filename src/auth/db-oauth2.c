@@ -493,8 +493,8 @@ db_oauth2_validate_username(struct db_oauth2_request *req,
 		.event = req->auth_request->event,
 	};
 
-	if (var_expand_new(username_val, req->db->set->username_validation_format,
-			   &params, &error) < 0) {
+	if (var_expand(username_val, req->db->set->username_validation_format,
+		       &params, &error) < 0) {
 		*error_r = t_strdup_printf("var_expand(%s) failed: %s",
 					req->db->set->username_validation_format, error);
 		*result_r = PASSDB_RESULT_INTERNAL_FAILURE;

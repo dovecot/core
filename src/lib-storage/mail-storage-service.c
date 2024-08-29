@@ -14,7 +14,6 @@
 #include "sleep.h"
 #include "dict.h"
 #include "settings.h"
-#include "var-expand-new.h"
 #include "auth-master.h"
 #include "master-service-private.h"
 #include "mail-user.h"

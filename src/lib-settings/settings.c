@@ -10,7 +10,7 @@
 #include "wildcard-match.h"
 #include "mmap-util.h"
 #include "settings.h"
-#include "var-expand-new.h"
+#include "var-expand.h"
 
 enum set_seen_type {
 	/* Setting has not been changed */
@@ -580,7 +580,7 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 			/* Make sure only the file path is var-expanded. */
 			value = file.path;
 		}
-		if (var_expand_new(ctx->str, value, &ctx->var_params, &error) < 0 &&
+		if (var_expand(ctx->str, value, &ctx->var_params, &error) < 0 &&
 		    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
 			*error_r = t_strdup_printf(
 				"Failed to expand %s setting variables: %s",
@@ -646,7 +646,7 @@ settings_mmap_apply_defaults(struct settings_apply_ctx *ctx,
 		if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0) {
 			const char *error;
 			str_truncate(ctx->str, 0);
-			if (var_expand_new(ctx->str, value, &ctx->var_params, &error) < 0 &&
+			if (var_expand(ctx->str, value, &ctx->var_params, &error) < 0 &&
 			    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
 				*error_r = t_strdup_printf(
 					"Failed to expand default setting %s=%s variables: %s",
@@ -1895,7 +1895,7 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			   or with SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT. */
 			const char *error;
 			str_truncate(ctx->str, 0);
-			if (var_expand_new(ctx->str, value, &ctx->var_params, &error) < 0 &&
+			if (var_expand(ctx->str, value, &ctx->var_params, &error) < 0 &&
 			    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
 				*error_r = t_strdup_printf(
 					"Failed to expand default setting %s=%s variables: %s",

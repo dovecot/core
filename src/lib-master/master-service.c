@@ -26,7 +26,6 @@
 #include "master-service-ssl.h"
 #include "master-service-settings.h"
 #include "iostream-ssl.h"
-#include "var-expand-new.h"
 
 #include <getopt.h>
 #include <unistd.h>
@@ -1044,7 +1043,7 @@ static void master_service_import_environment_real(const char *import_environmen
 			key = *envs;
 		else {
 			key = t_strdup_until(*envs, value++);
-			if (var_expand_new(expanded, value, NULL, &error) < 0)
+			if (var_expand(expanded, value, NULL, &error) < 0)
 				i_fatal("Cannot expand variable %s", value);
 			if (str_len(expanded) > 0) {
 				value = str_c(expanded);

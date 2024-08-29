@@ -45,7 +45,7 @@ noinst_HEADERS = \
 	expansion.h
 
 headers = \
-	var-expand-new.h \
+	var-expand.h \
 	var-expand-private.h
 
 pkginc_libdir=$(pkgincludedir)
