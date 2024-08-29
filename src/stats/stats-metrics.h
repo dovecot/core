@@ -28,14 +28,6 @@ struct event_exporter {
 	/* mime type for the format */
 	const char *format_mime_type;
 
-	/*
-	 * transport options
-	 *
-	 * the "how do we get the event to the external location" knobs
-	 */
-	const char *transport_args;
-	unsigned int transport_timeout;
-
 	const struct event_exporter_transport *transport;
 };
 
