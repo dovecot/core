@@ -66,7 +66,7 @@ struct stats_exporter_settings {
 	pool_t pool;
 
 	const char *name;
-	const char *transport;
+	const char *driver;
 	const char *transport_args;
 	unsigned int transport_timeout;
 	const char *format;
