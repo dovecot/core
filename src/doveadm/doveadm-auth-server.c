@@ -4,7 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
-#include "var-expand.h"
+#include "var-expand-new.h"
 #include "wildcard-match.h"
 #include "settings-parser.h"
 #include "master-service.h"
@@ -295,10 +295,9 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 			json_output, userdb_fields, show_field);
 	} else {
 		string_t *str = t_str_new(128);
-		if (var_expand_with_funcs(str, expand_field,
-					  mail_user_var_expand_table(user),
-					  mail_user_var_expand_func_table, user,
-					  &error) <= 0) {
+		const struct var_expand_params *params =
+			mail_user_var_expand_params(user);
+		if (var_expand_new(str, expand_field, params, &error) < 0) {
 			json_ostream_nwritef_string(json_output,
 				"error", "Failed to expand field: %s", error);
 		} else {
