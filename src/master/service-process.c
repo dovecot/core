@@ -17,7 +17,7 @@
 #include "restrict-access.h"
 #include "restrict-process-size.h"
 #include "eacces-error.h"
-#include "var-expand.h"
+#include "var-expand-new.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "dup2-array.h"
@@ -56,14 +56,15 @@ static int
 service_unix_pid_listener_get_path(struct service_listener *l, pid_t pid,
 				   string_t *path, const char **error_r)
 {
-	struct var_expand_table var_table[] = {
-		{ '\0', dec2str(pid), "pid" },
-		{ '\0', NULL, NULL },
+	const struct var_expand_params params = {
+		.table = (const struct var_expand_table[]) {
+			{ .key = "pid", .value = dec2str(pid) },
+			VAR_EXPAND_TABLE_END
+		},
 	};
 
 	str_truncate(path, 0);
-	return var_expand_with_table(path, l->set.fileset.set->path, var_table,
-				     error_r);
+	return var_expand_new(path, l->set.fileset.set->path, &params, error_r);
 }
 
 static void
@@ -153,7 +154,7 @@ service_dup_fds(struct service *service)
 		array_foreach(&service->unix_pid_listeners, listenerp) {
 			l = *listenerp;
 			ret = service_unix_pid_listener_get_path(l, pid, path, &error);
-			if (ret > 0) {
+			if (ret == 0) {
 				ret = service_unix_listener_listen(l,
 					str_c(path), FALSE, &error);
 			}
@@ -461,7 +462,7 @@ void service_process_destroy(struct service_process *process)
 		array_foreach(&service->unix_pid_listeners, listenerp) {
 			str_truncate(path, 0);
 			if (service_unix_pid_listener_get_path(*listenerp,
-					process->pid, path, &error) > 0)
+					process->pid, path, &error) == 0)
 				i_unlink_if_exists(str_c(path));
 		}
 	}
