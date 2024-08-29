@@ -657,7 +657,7 @@ imap_client_create(int fd, const struct imap_client_state *state)
 		const struct var_expand_params params = {
 			.table = imap_client_get_var_expand_table(client),
 			.providers = funcs,
-			.provider_context = fields,
+			.context = fields,
 			.event = client->event,
 		};
 		string_t *str;
