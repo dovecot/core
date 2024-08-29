@@ -1491,7 +1491,7 @@ static int
 settings_override_get_value(struct settings_apply_ctx *ctx,
 			    const struct settings_override *set,
 			    const char **_key, unsigned int *key_idx_r,
-			    const char **value_r, const char **error_r)
+			    const char **value_r)
 {
 	const char *key = *_key;
 	unsigned int key_idx = UINT_MAX;
@@ -1522,8 +1522,11 @@ settings_override_get_value(struct settings_apply_ctx *ctx,
 		key = t_strconcat(ctx->info->defines[key_idx].key, list, NULL);
 
 	if (!set->append ||
-	    ctx->info->defines[key_idx].type == SET_FILTER_ARRAY) {
-		*_key = key;
+	    ctx->info->defines[key_idx].type != SET_STR) {
+		if (set->append && ctx->info->defines[key_idx].type != SET_FILTER_ARRAY)
+			*_key = t_strconcat(key, "+", NULL);
+		else
+			*_key = key;
 		*key_idx_r = key_idx;
 
 		const char *inline_value;
@@ -1535,11 +1538,6 @@ settings_override_get_value(struct settings_apply_ctx *ctx,
 		return 1;
 	}
 
-	if (ctx->info->defines[key_idx].type != SET_STR) {
-		*error_r = t_strdup_printf(
-			"%s setting is not a string or named list filter - can't use '+'", key);
-		return -1;
-	}
 	const char *const *strp =
 		PTR_OFFSET(ctx->set_struct, ctx->info->defines[key_idx].offset);
 	*_key = key;
@@ -1783,7 +1781,7 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			continue;
 		}
 		ret = settings_override_get_value(ctx, set, &key,
-						  &key_idx, &value, error_r);
+						  &key_idx, &value);
 		if (ret < 0)
 			return -1;
 		if (ret == 0) {
