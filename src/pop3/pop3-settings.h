@@ -34,6 +34,7 @@ struct pop3_settings {
 
 	enum pop3_client_workarounds parsed_workarounds;
 	enum pop3_delete_type parsed_delete_type;
+	bool parsed_want_uidl_change;
 };
 
 extern const struct setting_parser_info pop3_setting_parser_info;

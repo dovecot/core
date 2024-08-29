@@ -6,6 +6,7 @@
 #include "service-settings.h"
 #include "mail-storage-settings.h"
 #include "pop3-settings.h"
+#include "var-expand-new.h"
 
 #include <unistd.h>
 
@@ -82,7 +83,11 @@ static const struct pop3_settings pop3_default_settings = {
 	.pop3_lock_session = FALSE,
 	.pop3_fast_size_lookups = FALSE,
 	.pop3_client_workarounds = ARRAY_INIT,
-	.pop3_logout_format = "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s",
+	.pop3_logout_format =
+		"top=%{top_count}/%{top_bytes}, "
+		"retr=%{retr_count}/%{retr_bytes}, "
+		"del=%{deleted_count}/%{deleted_bytes}, "
+		"size=%{message_bytes}",
 	.pop3_uidl_duplicates = "allow:rename",
 	.pop3_deleted_flag = "",
 	.pop3_delete_type = "default:expunge:flag"
@@ -163,6 +168,17 @@ pop3_settings_verify(void *_set, pool_t pool ATTR_UNUSED, const char **error_r)
 					   set->pop3_delete_type);
 		return FALSE;
 	}
+
+	struct var_expand_program *prog;
+	const char *error;
+	if (var_expand_program_create(set->pop3_logout_format, &prog, &error) < 0) {
+		*error_r = t_strdup_printf("Invalid pop3_logout_format: %s", error);
+		return FALSE;
+	}
+	const char *const *vars = var_expand_program_variables(prog);
+	set->parsed_want_uidl_change = str_array_find(vars, "uidl_change");
+	var_expand_program_free(&prog);
+
 	return TRUE;
 }
 /* </settings checks> */
