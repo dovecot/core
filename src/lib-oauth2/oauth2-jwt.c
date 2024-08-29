@@ -14,7 +14,6 @@
 #include "base64.h"
 #include "str-sanitize.h"
 #include "dcrypt.h"
-#include "var-expand.h"
 #include "oauth2.h"
 #include "oauth2-private.h"
 #include "dict.h"

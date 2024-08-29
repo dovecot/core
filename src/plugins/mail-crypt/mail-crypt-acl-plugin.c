@@ -5,7 +5,6 @@
 #include "str.h"
 #include "sha2.h"
 #include "module-dir.h"
-#include "var-expand.h"
 #include "hex-binary.h"
 #include "settings.h"
 #include "mail-namespace.h"

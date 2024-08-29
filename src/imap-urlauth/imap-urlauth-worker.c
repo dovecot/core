@@ -13,7 +13,6 @@
 #include "strescape.h"
 #include "llist.h"
 #include "hostpid.h"
-#include "var-expand.h"
 #include "process-title.h"
 #include "randgen.h"
 #include "restrict-access.h"

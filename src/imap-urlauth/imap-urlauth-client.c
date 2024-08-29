@@ -12,7 +12,6 @@
 #include "hostpid.h"
 #include "execv-const.h"
 #include "env-util.h"
-#include "var-expand.h"
 #include "settings.h"
 #include "restrict-access.h"
 #include "master-service.h"

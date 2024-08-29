@@ -4,7 +4,6 @@
 #include "str.h"
 #include "dict.h"
 #include "array.h"
-#include "var-expand.h"
 #include "settings.h"
 #include "mail-storage.h"
 #include "mailbox-attribute.h"

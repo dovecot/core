@@ -11,7 +11,6 @@
 #include "safe-memset.h"
 #include "str-sanitize.h"
 #include "strescape.h"
-#include "var-expand.h"
 #include "dns-lookup.h"
 #include "hostpid.h"
 #include "settings.h"

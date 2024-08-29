@@ -9,7 +9,6 @@
 #include "ostream.h"
 #include "hostpid.h"
 #include "process-title.h"
-#include "var-expand.h"
 #include "module-dir.h"
 #include "settings.h"
 #include "master-service-ssl.h"
