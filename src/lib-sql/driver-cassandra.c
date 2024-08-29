@@ -11,9 +11,9 @@
 #include "net.h"
 #include "write-full.h"
 #include "time-util.h"
-#include "var-expand.h"
 #include "safe-memset.h"
 #include "settings.h"
+#include "var-expand-new.h"
 #include "ssl-settings.h"
 #include "sql-api-private.h"
 
@@ -1184,16 +1184,16 @@ driver_cassandra_get_metrics_json(struct cassandra_db *db, string_t *dest)
 
 static void driver_cassandra_metrics_write(struct cassandra_db *db)
 {
-	struct var_expand_table tab[] = {
-		{ '\0', NULL, NULL }
-	};
 	string_t *path = t_str_new(64);
 	string_t *data;
 	const char *error;
 	int fd;
 
-	if (var_expand_with_table(path, db->set->metrics_path,
-				  tab, &error) <= 0) {
+	const struct var_expand_params params = {
+		.event = db->api.event,
+	};
+
+	if (var_expand_new(path, db->set->metrics_path, &params, &error) < 0) {
 		e_error(db->api.event, "Failed to expand metrics_path=%s: %s",
 			db->set->metrics_path, error);
 		return;
