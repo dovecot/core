@@ -16,7 +16,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "time-util.h"
-#include "var-expand.h"
+#include "var-expand-new.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "imap-keepalive.h"
@@ -524,24 +524,25 @@ imap_client_get_var_expand_table(struct imap_client *client)
 		remote_port = dec2str(client->state.remote_port);
 
 	const struct var_expand_table stack_tab[] = {
-		{ 'u', client->state.username, "user" },
-		{ 'n', username, "username" },
-		{ 'd', domain, "domain" },
-		{ 's', "imap-hibernate", "service" },
-		{ 'h', NULL /* we shouldn't need this */, "home" },
-		{ 'l', local_ip, "local_ip" },
-		{ 'r', remote_ip, "remote_ip" },
-		{ '\0', local_port, "local_port" },
-		{ '\0', remote_port, "remote_port" },
-		{ 'i', dec2str(client->state.uid), "uid" },
-		{ '\0', dec2str(client->state.gid), "gid" },
-		{ '\0', client->state.session_id, "session" },
-		{ '\0', auth_user, "auth_user" },
-		{ '\0', auth_username, "auth_username" },
-		{ '\0', auth_domain, "auth_domain" },
+		{ .key = "user", .value = client->state.username },
+		{ .key = "username", .value = username },
+		{ .key = "domain", .value = domain },
+		{ .key = "service", .value = "imap-hibernate" },
+		{ .key = "home", .value = NULL /* we shouldn't need this */ },
+		{ .key = "local_ip", .value = local_ip },
+		{ .key = "remote_ip", .value = remote_ip },
+		{ .key = "local_port", .value = local_port },
+		{ .key = "remote_port", .value = remote_port },
+		{ .key = "uid", .value = dec2str(client->state.uid) },
+		{ .key = "gid", .value = dec2str(client->state.gid) },
+		{ .key = "session", .value = client->state.session_id },
+		{ .key = "auth_user", .value = auth_user },
+		{ .key = "auth_username", .value = auth_username },
+		{ .key = "auth_domain", .value = auth_domain },
+
 		/* NOTE: keep this synced with lib-storage's
-		   mail_user_var_expand_table() */
-		{ '\0', NULL, NULL }
+		   mail_user_var_expand_params() */
+		VAR_EXPAND_TABLE_END
 	};
 	struct var_expand_table *tab;
 
@@ -551,8 +552,8 @@ imap_client_get_var_expand_table(struct imap_client *client)
 }
 
 static int
-imap_client_var_expand_func_userdb(const char *data, void *context,
-				   const char **value_r, const char **error_r ATTR_UNUSED)
+imap_client_var_expand_func_userdb(const char *data, const char **value_r,
+				   void *context, const char **error_r ATTR_UNUSED)
 {
 	const char *const *fields = context;
 	const char *field_name = t_strdup_printf("%s=",t_strcut(data, ':'));
@@ -566,7 +567,7 @@ imap_client_var_expand_func_userdb(const char *data, void *context,
 
 	*value_r = value != NULL ? value : default_value;
 
-	return 1;
+	return 0;
 }
 
 static void imap_client_io_activate_user(struct imap_client *client)
@@ -602,7 +603,7 @@ userdb_fields_get_alt_usernames(char *const *userdb_fields)
 struct imap_client *
 imap_client_create(int fd, const struct imap_client_state *state)
 {
-	const struct var_expand_func_table funcs[] = {
+	const struct var_expand_provider funcs[] = {
 		{ "userdb", imap_client_var_expand_func_userdb },
 		{ NULL, NULL }
 	};
@@ -663,13 +664,18 @@ imap_client_create(int fd, const struct imap_client_state *state)
 		.ip = client->state.remote_ip,
 	};
 	T_BEGIN {
-		string_t *str;
 		char **fields = p_strsplit_tabescaped(unsafe_data_stack_pool,
 						      client->state.userdb_fields);
+		const struct var_expand_params params = {
+			.table = imap_client_get_var_expand_table(client),
+			.providers = funcs,
+			.provider_context = fields,
+			.event = client->event,
+		};
+		string_t *str;
+
 		str = t_str_new(256);
-		if (var_expand_with_funcs(str, state->mail_log_prefix,
-					  imap_client_get_var_expand_table(client),
-					  funcs, fields, &error) <= 0) {
+		if (var_expand_new(str, state->mail_log_prefix, &params, &error) < 0) {
 			e_error(client->event,
 				"Failed to expand mail_log_prefix=%s: %s",
 				state->mail_log_prefix, error);
