@@ -257,6 +257,11 @@ int settings_parse_boollist_string(const char *value, pool_t pool,
    terminated arrays, use this function instead. Also, it includes some sanity
    checks to try to make sure it's used only for boollists. */
 const char *const *settings_boollist_get(const ARRAY_TYPE(const_string) *array);
+/* Finish array into a boollist type by adding NULL-termination and optional
+   stop flag. If stop=TRUE, this indicates that the boollist replaces the full
+   list instead of adding to it. The boollist can still be updated afterwards,
+   as long as this function is called again after modifications. */
+void settings_boollist_finish(ARRAY_TYPE(const_string) *array, bool stop);
 
 /* Split the settings value into path and content. The path is allocated from
    the path_pool, while content points directly to the value string. */

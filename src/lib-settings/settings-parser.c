@@ -487,7 +487,7 @@ const char *settings_file_get_value(pool_t pool,
 	return value;
 }
 
-static void boollist_null_terminate(ARRAY_TYPE(const_string) *array, bool stop)
+void settings_boollist_finish(ARRAY_TYPE(const_string) *array, bool stop)
 {
 	array_append_zero(array);
 	if (stop)
@@ -532,7 +532,7 @@ settings_parse_boollist(struct setting_parser_context *ctx,
 			return -1;
 		}
 		/* keep it NULL-terminated for each access */
-		boollist_null_terminate(array, FALSE);
+		settings_boollist_finish(array, FALSE);
 		return 0;
 	}
 	key = settings_section_unescape(key + 1);
@@ -563,7 +563,7 @@ settings_parse_boollist(struct setting_parser_context *ctx,
 		removal->key_suffix = key;
 	}
 	/* keep it NULL-terminated for each access */
-	boollist_null_terminate(array, FALSE);
+	settings_boollist_finish(array, FALSE);
 	return 0;
 }
 
@@ -808,7 +808,7 @@ void settings_parse_array_stop(struct setting_parser_context *ctx,
 		p_array_init(arr, ctx->set_pool, 1);
 
 	if (ctx->info->defines[key_idx].type == SET_BOOLLIST)
-		boollist_null_terminate(arr, TRUE);
+		settings_boollist_finish(arr, TRUE);
 	else {
 		/* Use the next element hidden after the array to keep
 		   the stop-state */
