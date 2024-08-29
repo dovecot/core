@@ -68,7 +68,7 @@ struct stats_exporter_settings {
 	const char *name;
 	const char *driver;
 	const char *format;
-	const char *format_args;
+	const char *time_format;
 
 	/* parsed values */
 	enum event_exporter_time_fmt parsed_time_format;
