@@ -7,7 +7,7 @@
 #include "str-sanitize.h"
 #include "time-util.h"
 #include "unichar.h"
-#include "var-expand.h"
+#include "var-expand-new.h"
 #include "message-address.h"
 #include "smtp-address.h"
 #include "lda-settings.h"
@@ -163,19 +163,19 @@ mail_deliver_ctx_get_log_var_expand_table(struct mail_deliver_context *ctx,
 						 &ctx->delivery_time_started);
 
 	const struct var_expand_table stack_tab[] = {
-		{ '$', message, NULL },
-		{ 'm', ctx->fields.message_id != NULL ?
-		       ctx->fields.message_id : "unspecified", "msgid" },
-		{ 's', ctx->fields.subject, "subject" },
-		{ 'f', ctx->fields.from, "from" },
-		{ 'e', ctx->fields.from_envelope, "from_envelope" },
-		{ 'p', dec2str(ctx->fields.psize), "size" },
-		{ 'w', dec2str(ctx->fields.vsize), "vsize" },
-		{ '\0', dec2str(delivery_time_msecs), "delivery_time" },
-		{ '\0', dec2str(ctx->session_time_msecs), "session_time" },
-		{ '\0', smtp_address_encode(ctx->rcpt_params.orcpt.addr), "to_envelope" },
-		{ '\0', ctx->fields.storage_id, "storage_id" },
-		{ '\0', NULL, NULL }
+		{ .key = "message", .value = message },
+		{ .key = "msgid", .value = ctx->fields.message_id != NULL ?
+		       ctx->fields.message_id : "unspecified" },
+		{ .key = "subject", .value = ctx->fields.subject },
+		{ .key = "from", .value = ctx->fields.from },
+		{ .key = "from_envelope", .value = ctx->fields.from_envelope },
+		{ .key = "size", .value = dec2str(ctx->fields.psize) },
+		{ .key = "vsize", .value = dec2str(ctx->fields.vsize) },
+		{ .key = "delivery_time", .value = dec2str(delivery_time_msecs) },
+		{ .key = "session_time", .value = dec2str(ctx->session_time_msecs) },
+		{ .key = "to_envelope", .value = smtp_address_encode(ctx->rcpt_params.orcpt.addr) },
+		{ .key = "storage_id", .value = ctx->fields.storage_id },
+		VAR_EXPAND_TABLE_END
 	};
 	return p_memdup(unsafe_data_stack_pool, stack_tab, sizeof(stack_tab));
 }
@@ -184,7 +184,6 @@ void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 {
 	va_list args;
 	string_t *str;
-	const struct var_expand_table *tab;
 	const char *msg, *error;
 
 	if (*ctx->set->deliver_log_format == '\0')
@@ -194,9 +193,12 @@ void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 	msg = t_strdup_vprintf(fmt, args);
 
 	str = t_str_new(256);
-	tab = mail_deliver_ctx_get_log_var_expand_table(ctx, msg);
-	if (var_expand_with_table(str, ctx->set->deliver_log_format,
-				  tab, &error) <= 0) {
+	const struct var_expand_params params = {
+		.table = mail_deliver_ctx_get_log_var_expand_table(ctx, msg),
+		.event = ctx->event,
+	};
+	if (var_expand_new(str, ctx->set->deliver_log_format,
+			   &params, &error) < 0) {
 		e_error(ctx->event,
 			"Failed to expand deliver_log_format=%s: %s",
 			ctx->set->deliver_log_format, error);
@@ -585,8 +587,7 @@ int mail_deliver(struct mail_deliver_context *ctx,
 	mail_deliver_fields_update(&ctx->fields, ctx->pool, ctx->src_mail);
 	mail_deliver_update_event(ctx);
 
-	muser->want_storage_id =
-		var_has_key(ctx->set->deliver_log_format, '\0', "storage_id");
+	muser->want_storage_id = ctx->set->parsed_want_storage_id;
 
 	muser->deliver_ctx = ctx;
 

@@ -15,6 +15,9 @@ struct lda_settings {
 	bool quota_full_tempfail;
 	bool lda_mailbox_autocreate;
 	bool lda_mailbox_autosubscribe;
+
+	/* generated */
+	bool parsed_want_storage_id;
 };
 
 extern const struct setting_parser_info lda_setting_parser_info;
