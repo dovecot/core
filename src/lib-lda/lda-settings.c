@@ -6,6 +6,7 @@
 #include "mail-storage-settings.h"
 #include "smtp-submit-settings.h"
 #include "lda-settings.h"
+#include "var-expand-new.h"
 
 static bool lda_settings_check(void *_set, pool_t pool, const char **error_r);
 
@@ -29,10 +30,10 @@ static const struct setting_define lda_setting_defines[] = {
 
 static const struct lda_settings lda_default_settings = {
 	.hostname = "",
-	.rejection_subject = "Rejected: %s",
+	.rejection_subject = "Rejected: %{subject}",
 	.rejection_reason =
-		"Your message to <%t> was automatically rejected:%n%r",
-	.deliver_log_format = "msgid=%m: %$",
+		"Your message to <%{to}> was automatically rejected:%{literal('\\r\\n')}%{reason}",
+	.deliver_log_format = "msgid=%{msgid}: %{message}",
 	.recipient_delimiter = "+",
 	.lda_original_recipient_header = "",
 	.quota_full_tempfail = FALSE,
@@ -54,11 +55,22 @@ const struct setting_parser_info lda_setting_parser_info = {
 };
 
 static bool lda_settings_check(void *_set, pool_t pool,
-	const char **error_r ATTR_UNUSED)
+	const char **error_r)
 {
 	struct lda_settings *set = _set;
+	struct var_expand_program *prog;
+	const char *error;
 
 	if (*set->hostname == '\0')
 		set->hostname = p_strdup(pool, my_hostdomain());
+
+	if (var_expand_program_create(set->deliver_log_format, &prog, &error) < 0) {
+		*error_r = t_strdup_printf("Invalid deliver_log_format: %s", error);
+		return FALSE;
+	}
+	const char *const *vars = var_expand_program_variables(prog);
+	set->parsed_want_storage_id = str_array_find(vars, "storage_id");
+	var_expand_program_free(&prog);
+
 	return TRUE;
 }
