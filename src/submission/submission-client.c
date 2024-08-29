@@ -10,7 +10,6 @@
 #include "istream.h"
 #include "ostream.h"
 #include "hostpid.h"
-#include "var-expand.h"
 #include "settings.h"
 #include "master-service.h"
 #include "mail-namespace.h"
@@ -403,31 +402,40 @@ static const char *client_stats(struct client *client)
 	const char *trans_id =
 		smtp_server_connection_get_transaction_id(client->conn);
 	const struct var_expand_table logout_tab[] = {
-		{ 'i', dec2str(stats->input), "input" },
-		{ 'o', dec2str(stats->output), "output" },
-		{ '\0', dec2str(stats->command_count), "command_count" },
-		{ '\0', dec2str(stats->reply_count), "reply_count" },
-		{ '\0', trans_id, "transaction_id" },
-		{ '\0', NULL, NULL }
+		{ .key = "input", .value = dec2str(stats->input) },
+		{ .key = "output", .value = dec2str(stats->output) },
+		{ .key = "command_count", .value = dec2str(stats->command_count) },
+		{ .key = "reply_count", .value = dec2str(stats->reply_count) },
+		{ .key = "transaction_id", .value = trans_id },
+		VAR_EXPAND_TABLE_END
 	};
-	const struct var_expand_table *user_tab =
-		mail_user_var_expand_table(client->user);
-	const struct var_expand_table *tab =
-		t_var_expand_merge_tables(logout_tab, user_tab);
+
+	const struct var_expand_params *user_params =
+		mail_user_var_expand_params(client->user);
+	const struct var_expand_params params = {
+		.tables_arr = (const struct var_expand_table*[]) {
+			user_params->table,
+			logout_tab,
+			NULL
+		},
+		.providers = user_params->providers,
+		.context =  user_params->context,
+		.event = client->event,
+	};
+
 	string_t *str;
 	const char *error;
 
+	event_add_int(client->event, "net_in_bytes", stats->input);
+	event_add_int(client->event, "net_out_bytes", stats->output);
+
 	str = t_str_new(128);
-	if (var_expand_with_funcs(str, client->set->submission_logout_format,
-				  tab, mail_user_var_expand_func_table,
-				  client->user, &error) <= 0) {
+	if (var_expand_new(str, client->set->submission_logout_format,
+			   &params, &error) < 0) {
 		e_error(client->event,
 			"Failed to expand submission_logout_format=%s: %s",
 			client->set->submission_logout_format, error);
 	}
-
-	event_add_int(client->event, "net_in_bytes", stats->input);
-	event_add_int(client->event, "net_out_bytes", stats->output);
 
 	return str_c(str);
 }
