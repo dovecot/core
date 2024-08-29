@@ -195,7 +195,7 @@ static int stats_metrics_add_set(struct stats_metrics *metrics,
 	/* Defaults */
 	metric->export_info.include = EVENT_EXPORTER_INCL_NONE;
 
-	tmp = t_strsplit_spaces(set->exporter_include, " ");
+	tmp = settings_boollist_get(&set->exporter_include);
 	for (; *tmp != NULL; tmp++) {
 		if (strcmp(*tmp, "name") == 0)
 			metric->export_info.include |= EVENT_EXPORTER_INCL_NAME;

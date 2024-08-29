@@ -110,7 +110,7 @@ static const struct setting_define stats_metric_setting_defines[] = {
 	DEF(STR_NOVARS, group_by),
 	DEF(STR, filter),
 	DEF(STR, exporter),
-	DEF(STR, exporter_include),
+	DEF(BOOLLIST, exporter_include),
 	DEF(STR, description),
 	SETTING_DEFINE_LIST_END
 };
@@ -121,8 +121,12 @@ const struct stats_metric_settings stats_metric_default_settings = {
 	.filter = "",
 	.exporter = "",
 	.group_by = "",
-	.exporter_include = STATS_METRIC_SETTINGS_DEFAULT_EXPORTER_INCLUDE,
 	.description = "",
+};
+
+static const struct setting_keyvalue stats_metric_default_settings_keyvalue[] = {
+	{ "metric_exporter_include", STATS_METRIC_SETTINGS_DEFAULT_EXPORTER_INCLUDE },
+	{ NULL, NULL }
 };
 
 const struct setting_parser_info stats_metric_setting_parser_info = {
@@ -130,6 +134,7 @@ const struct setting_parser_info stats_metric_setting_parser_info = {
 
 	.defines = stats_metric_setting_defines,
 	.defaults = &stats_metric_default_settings,
+	.default_settings = stats_metric_default_settings_keyvalue,
 
 	.struct_size = sizeof(struct stats_metric_settings),
 	.pool_offset1 = 1 + offsetof(struct stats_metric_settings, pool),
