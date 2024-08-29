@@ -9,7 +9,7 @@
 #include "str.h"
 #include "istream.h"
 #include "ostream.h"
-#include "var-expand.h"
+#include "var-expand-new.h"
 #include "connection.h"
 #include "llist.h"
 #include "ldap-client.h"
@@ -201,13 +201,13 @@ ldap_dict_build_query(const struct dict_op_settings *set,
 	const char *template, *error;
 	ARRAY(struct var_expand_table) exp;
 	struct var_expand_table entry;
+	i_zero(&entry);
 
 	t_array_init(&exp, 8);
 	if (priv) {
 		i_assert(set->username != NULL);
-		entry.key = '\0';
 		entry.value = ldap_escape(set->username);
-		entry.long_key = "username";
+		entry.key = "username";
 		array_push_back(&exp, &entry);
 		template = t_strdup_printf("(&(%s=%s)%s)", map->username_attribute, "%{username}", map->filter);
 	} else {
@@ -218,16 +218,19 @@ ldap_dict_build_query(const struct dict_op_settings *set,
 		struct var_expand_table entry;
 		const char *value = array_idx_elem(values, i);
 		const char *long_key = array_idx_elem(&map->ldap_attributes, i);
+		i_zero(&entry);
 
 		entry.value = ldap_escape(value);
-		entry.long_key = long_key;
+		entry.key = long_key;
 		array_push_back(&exp, &entry);
 	}
 
 	array_append_zero(&exp);
+	const struct var_expand_params params = {
+		.table = array_front(&exp),
+	};
 
-	if (var_expand_with_table(query_r, template,
-				  array_front(&exp), &error) <= 0) {
+	if (var_expand_new(query_r, template, &params, &error) < 0) {
 		*error_r = t_strdup_printf("Failed to expand %s: %s", template, error);
 		return FALSE;
 	}
