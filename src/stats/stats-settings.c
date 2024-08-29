@@ -70,8 +70,6 @@ const struct setting_keyvalue stats_service_settings_defaults[] = {
 static const struct setting_define stats_exporter_setting_defines[] = {
 	DEF(STR, name),
 	DEF(ENUM, driver),
-	DEF(STR, transport_args),
-	DEF(TIME_MSECS, transport_timeout),
 	DEF(STR, format),
 	DEF(STR, format_args),
 	SETTING_DEFINE_LIST_END
@@ -80,8 +78,6 @@ static const struct setting_define stats_exporter_setting_defines[] = {
 static const struct stats_exporter_settings stats_exporter_default_settings = {
 	.name = "",
 	.driver = "log:file:unix:http-post:drop",
-	.transport_args = "",
-	.transport_timeout = 250, /* ms */
 	.format = "",
 	.format_args = "",
 };
