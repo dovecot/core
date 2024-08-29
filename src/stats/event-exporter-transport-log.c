@@ -6,7 +6,7 @@
 #include "event-exporter.h"
 
 static void
-event_exporter_log_send(struct exporter *exporter ATTR_UNUSED,
+event_exporter_log_send(struct event_exporter *exporter ATTR_UNUSED,
 			const buffer_t *buf)
 {
 	i_info("%.*s", (int)buf->used, (const char *)buf->data);

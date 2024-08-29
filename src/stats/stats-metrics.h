@@ -9,7 +9,7 @@
 struct metric;
 struct stats_metrics;
 
-struct exporter {
+struct event_exporter {
 	const char *name;
 
 	/*
@@ -41,7 +41,7 @@ struct exporter {
 };
 
 struct metric_export_info {
-	struct exporter *exporter;
+	struct event_exporter *exporter;
 
 	enum event_exporter_includes {
 		EVENT_EXPORTER_INCL_NONE       = 0,

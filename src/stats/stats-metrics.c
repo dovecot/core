@@ -22,7 +22,7 @@ struct stats_metrics {
 	pool_t pool;
 	struct event *event;
 	struct event_filter *filter; /* stats & export */
-	ARRAY(struct exporter *) exporters;
+	ARRAY(struct event_exporter *) exporters;
 	ARRAY(struct metric *) metrics;
 };
 
@@ -35,9 +35,9 @@ static void stats_metric_free(struct metric *metric);
 static void stats_exporters_add_set(struct stats_metrics *metrics,
 				    const struct stats_exporter_settings *set)
 {
-	struct exporter *exporter;
+	struct event_exporter *exporter;
 
-	exporter = p_new(metrics->pool, struct exporter, 1);
+	exporter = p_new(metrics->pool, struct event_exporter, 1);
 	exporter->name = p_strdup(metrics->pool, set->name);
 	exporter->transport_args = p_strdup(metrics->pool, set->transport_args);
 	exporter->transport_timeout = set->transport_timeout;
@@ -71,10 +71,10 @@ static void stats_exporters_add_set(struct stats_metrics *metrics,
 	array_push_back(&metrics->exporters, &exporter);
 }
 
-void event_export_transport_assign_context(const struct exporter *exporter,
+void event_export_transport_assign_context(const struct event_exporter *exporter,
 					   void *context)
 {
-	struct exporter *ptr = (struct exporter *)exporter;
+	struct event_exporter *ptr = (struct event_exporter *)exporter;
 	ptr->transport_context = context;
 }
 
@@ -122,11 +122,11 @@ stats_metric_alloc(pool_t pool, const char *name,
 	return metric;
 }
 
-static struct exporter *
+static struct event_exporter *
 stats_metrics_exporter_find(struct stats_metrics *metrics,
 			    const char *name)
 {
-	struct exporter *exporter;
+	struct event_exporter *exporter;
 
 	array_foreach_elem(&metrics->exporters, exporter) {
 		if (strcmp(name, exporter->name) == 0)
@@ -139,7 +139,7 @@ static int stats_metrics_add_set(struct stats_metrics *metrics,
 				 const struct stats_metric_settings *set,
 				 const char **error_r)
 {
-	struct exporter *exporter = NULL;
+	struct event_exporter *exporter = NULL;
 	struct metric *metric;
 	const char *const *fields;
 	const char *const *tmp;
@@ -236,7 +236,7 @@ stats_metrics_find(struct stats_metrics *metrics,
 static bool
 stats_metrics_check_for_exporter(struct stats_metrics *metrics, const char *name)
 {
-	struct exporter *exporter;
+	struct event_exporter *exporter;
 
 	/* Allow registering metrics with empty/missing exporters. */
 	if (name[0] == '\0')
@@ -794,7 +794,7 @@ static void
 stats_export_event(struct metric *metric, struct event *oldevent)
 {
 	const struct metric_export_info *info = &metric->export_info;
-	struct exporter *exporter = info->exporter;
+	struct event_exporter *exporter = info->exporter;
 	struct event *event;
 
 	i_assert(exporter != NULL);
