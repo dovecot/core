@@ -529,7 +529,7 @@ static const char *client_stats(struct client *client)
 {
 	const char *uidl_change = "";
 	if (var_has_key(client->set->pop3_logout_format,
-			'o', "uidl_change"))
+			'u', "uidl_change"))
 		uidl_change = client_build_uidl_change_string(client);
 
 	const struct var_expand_table logout_tab[] = {
