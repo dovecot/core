@@ -4,7 +4,7 @@
 #include "array.h"
 #include "json-generator.h"
 #include "str.h"
-#include "var-expand.h"
+#include "var-expand-new.h"
 #include "mail-user.h"
 #include "mail-storage.h"
 #include "mail-storage-private.h"
@@ -150,25 +150,29 @@ static void notify_update_mailbox_status(struct mailbox *box)
 		json_append_escaped(username, user->username);
 		json_append_escaped(mboxname, mailbox_get_vname(box));
 
-		const struct var_expand_table values[] = {
-			{ '\0', str_c(username), "username" },
-			{ '\0', str_c(mboxname), "mailbox" },
-			{ '\0', dec2str(status.messages), "messages" },
-			{ '\0', dec2str(status.unseen), "unseen" },
-			{ '\0', dec2str(status.recent), "recent" },
-			{ '\0', dec2str(status.uidvalidity), "uidvalidity" },
-			{ '\0', dec2str(status.uidnext), "uidnext" },
-			{ '\0', dec2str(status.first_recent_uid), "first_recent_uid" },
-			{ '\0', dec2str(status.highest_modseq), "highest_modseq" },
-			{ '\0', dec2str(status.highest_pvt_modseq), "highest_pvt_modseq" },
-			{ '\0', NULL, NULL }
+		const struct var_expand_table_new values[] = {
+			{ .key = "username", .value = str_c(username) },
+			{ .key = "mailbox", .value = str_c(mboxname) },
+			{ .key = "messages", .value = dec2str(status.messages) },
+			{ .key = "unseen", .value = dec2str(status.unseen) },
+			{ .key = "recent", .value = dec2str(status.recent) },
+			{ .key = "uidvalidity", .value = dec2str(status.uidvalidity) },
+			{ .key = "uidnext", .value = dec2str(status.uidnext) },
+			{ .key = "first_recent_uid", .value = dec2str(status.first_recent_uid) },
+			{ .key = "highest_modseq", .value = dec2str(status.highest_modseq) },
+			{ .key = "highest_pvt_modseq", .value = dec2str(status.highest_pvt_modseq) },
+			VAR_EXPAND_TABLE_END
+		};
+		const struct var_expand_params params = {
+			.table = values,
+			.event = box->event,
 		};
 		const char *error;
 		const char *key =
 			t_strdup_printf(NOTIFY_STATUS_KEY, mailbox_get_vname(box));
 		string_t *dest = t_str_new(64);
-		if (var_expand_with_table(dest, nuser->set->notify_status_value,
-					  values, &error) <= 0) {
+		if (var_expand_new(dest, nuser->set->notify_status_value,
+				   &params, &error) < 0) {
 			e_error(box->event, "notify-status: var_expand(%s) failed: %s",
 				nuser->set->notify_status_value, error);
 		} else {
