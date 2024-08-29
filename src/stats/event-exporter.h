@@ -3,20 +3,32 @@
 
 #include "stats-metrics.h"
 
+struct event_exporter_transport {
+	const char *name;
+
+	void (*deinit)(void);
+
+	/* function to send the event */
+	void (*send)(struct exporter *exporter, const buffer_t *buf);
+
+	void (*reopen)(void);
+};
+
+extern const struct event_exporter_transport event_exporter_transport_drop;
+extern const struct event_exporter_transport event_exporter_transport_file;
+extern const struct event_exporter_transport event_exporter_transport_unix;
+extern const struct event_exporter_transport event_exporter_transport_http_post;
+extern const struct event_exporter_transport event_exporter_transport_log;
+
+const struct event_exporter_transport *
+event_exporter_transport_find(const char *name);
+void event_exporter_transports_reopen(void);
+void event_exporter_transports_deinit(void);
+
 /* fmt functions */
 void event_export_fmt_json(const struct metric *metric, struct event *event, buffer_t *dest);
 void event_export_fmt_none(const struct metric *metric, struct event *event, buffer_t *dest);
 void event_export_fmt_tabescaped_text(const struct metric *metric, struct event *event, buffer_t *dest);
-
-/* transport functions */
-void event_export_transport_drop(const struct exporter *exporter, const buffer_t *buf);
-void event_export_transport_http_post(const struct exporter *exporter, const buffer_t *buf);
-void event_export_transport_http_post_deinit(void);
-void event_export_transport_log(const struct exporter *exporter, const buffer_t *buf);
-void event_export_transport_file(const struct exporter *exporter, const buffer_t *buf);
-void event_export_transport_unix(const struct exporter *exporter, const buffer_t *buf);
-void event_export_transport_file_reopen(void);
-void event_export_transport_file_deinit(void);
 
 /* append a microsecond resolution RFC3339 UTC timestamp */
 void event_export_helper_fmt_rfc3339_time(string_t *dest, const struct timeval *time);

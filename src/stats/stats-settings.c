@@ -5,6 +5,7 @@
 #include "settings.h"
 #include "service-settings.h"
 #include "stats-settings.h"
+#include "event-exporter.h"
 #include "array.h"
 #include "str.h"
 #include "var-expand.h"
@@ -260,24 +261,16 @@ static bool stats_exporter_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	}
 
-	/* TODO: The following should be plugable.
-	 *
-	 * Note: Make sure to mirror any changes to the below code in
-	 * stats_exporters_add_set().
-	 */
 	if (set->driver[0] == '\0')
 		set->driver = set->name;
-	if (strcmp(set->driver, "drop") == 0 ||
-	    strcmp(set->driver, "http-post") == 0 ||
-	    strcmp(set->driver, "log") == 0 ||
-	    strcmp(set->driver, "file") == 0 ||
-	    strcmp(set->driver, "unix") == 0) {
-		/* no-op */
-	} else {
+#ifndef CONFIG_BINARY
+	set->parsed_transport = event_exporter_transport_find(set->driver);
+	if (set->parsed_transport == NULL) {
 		*error_r = t_strdup_printf("Unknown evente_exporter_driver: %s",
 					   set->driver);
 		return FALSE;
 	}
+#endif
 
 	if (!parse_format_args(set, error_r))
 		return FALSE;

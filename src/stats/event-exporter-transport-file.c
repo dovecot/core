@@ -50,7 +50,7 @@ static void exporter_file_destroy(struct exporter_file **_node)
 	i_free(node);
 }
 
-void event_export_transport_file_deinit(void)
+static void event_exporter_file_deinit(void)
 {
 	struct exporter_file *node, *next = exporter_file_list_head;
 	exporter_file_list_head = NULL;
@@ -125,8 +125,8 @@ static bool exporter_file_open(struct exporter_file *node)
 	return TRUE;
 }
 
-static void event_export_transport_file_write(struct exporter_file *node,
-					      const buffer_t *buf)
+static void event_exporter_file_write(struct exporter_file *node,
+				      const buffer_t *buf)
 {
 	const struct const_iovec vec[] = {
 		{ .iov_base = buf->data, .iov_len = buf->used },
@@ -142,29 +142,29 @@ static void event_export_transport_file_write(struct exporter_file *node,
 	}
 }
 
-void event_export_transport_file(const struct exporter *exporter,
-				 const buffer_t *buf)
+static void
+event_exporter_file_send(struct exporter *exporter, const buffer_t *buf)
 {
 	struct exporter_file *node = exporter->transport_context;
 	if (node == NULL)
 		node = exporter_file_init(exporter, FALSE);
 	if (!exporter_file_open(node))
 		return;
-	event_export_transport_file_write(node, buf);
+	event_exporter_file_write(node, buf);
 }
 
-void event_export_transport_unix(const struct exporter *exporter,
-				 const buffer_t *buf)
+static void
+event_exporter_unix_send(struct exporter *exporter, const buffer_t *buf)
 {
 	struct exporter_file *node = exporter->transport_context;
 	if (node == NULL)
 		node = exporter_file_init(exporter, TRUE);
 	if (!exporter_file_open(node))
 		return;
-	event_export_transport_file_write(node, buf);
+	event_exporter_file_write(node, buf);
 }
 
-void event_export_transport_file_reopen(void)
+static void event_exporter_file_reopen(void)
 {
 	/* close all files, but not unix sockets */
 	struct exporter_file *node = exporter_file_list_head;
@@ -174,3 +174,18 @@ void event_export_transport_file_reopen(void)
 		node = node->next;
 	}
 }
+
+const struct event_exporter_transport event_exporter_transport_file = {
+	.name = "file",
+
+	.send = event_exporter_file_send,
+	.reopen = event_exporter_file_reopen,
+};
+
+const struct event_exporter_transport event_exporter_transport_unix = {
+	.name = "unix",
+
+	.deinit = event_exporter_file_deinit,
+	.send = event_exporter_unix_send,
+	.reopen = event_exporter_file_reopen,
+};

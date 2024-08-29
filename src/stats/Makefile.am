@@ -36,6 +36,7 @@ libstats_local_la_SOURCES = \
 	client-reader.c \
 	client-writer.c \
 	client-http.c \
+	event-exporter.c \
 	event-exporter-fmt.c \
 	event-exporter-fmt-json.c \
 	event-exporter-fmt-none.c \

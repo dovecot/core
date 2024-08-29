@@ -5,8 +5,15 @@
 #include "str.h"
 #include "event-exporter.h"
 
-void event_export_transport_log(const struct exporter *exporter ATTR_UNUSED,
-				const buffer_t *buf)
+static void
+event_exporter_log_send(struct exporter *exporter ATTR_UNUSED,
+			const buffer_t *buf)
 {
 	i_info("%.*s", (int)buf->used, (const char *)buf->data);
 }
+
+const struct event_exporter_transport event_exporter_transport_log = {
+	.name = "log",
+
+	.send = event_exporter_log_send,
+};

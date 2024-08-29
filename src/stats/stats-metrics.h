@@ -37,12 +37,11 @@ struct exporter {
 	unsigned int transport_timeout;
 	void *transport_context;
 
-	/* function to send the event */
-	void (*transport)(const struct exporter *, const buffer_t *);
+	const struct event_exporter_transport *transport;
 };
 
 struct metric_export_info {
-	const struct exporter *exporter;
+	struct exporter *exporter;
 
 	enum event_exporter_includes {
 		EVENT_EXPORTER_INCL_NONE       = 0,
