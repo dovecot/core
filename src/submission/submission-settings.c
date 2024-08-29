@@ -109,7 +109,7 @@ static const struct submission_settings submission_default_settings = {
 	.submission_max_mail_size = 40*1024*1024,
 	.submission_max_recipients = 0,
 	.submission_client_workarounds = ARRAY_INIT,
-	.submission_logout_format = "in=%i out=%o",
+	.submission_logout_format = "in=%{input} out=%{output}",
 	.submission_add_received_header = TRUE,
 
 	.submission_backend_capabilities = ARRAY_INIT,
