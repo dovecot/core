@@ -71,7 +71,7 @@ static const struct setting_define stats_exporter_setting_defines[] = {
 	DEF(STR, name),
 	DEF(ENUM, driver),
 	DEF(STR, format),
-	DEF(STR, format_args),
+	DEF(ENUM, time_format),
 	SETTING_DEFINE_LIST_END
 };
 
@@ -79,7 +79,7 @@ static const struct stats_exporter_settings stats_exporter_default_settings = {
 	.name = "",
 	.driver = "log:file:unix:http-post:drop",
 	.format = "",
-	.format_args = "",
+	.time_format = "rfc3339:unix",
 };
 
 const struct setting_parser_info stats_exporter_setting_parser_info = {
@@ -175,59 +175,6 @@ const struct setting_parser_info stats_setting_parser_info = {
 };
 
 /* <settings checks> */
-static bool parse_format_args_set_time(struct stats_exporter_settings *set,
-				       enum event_exporter_time_fmt fmt,
-				       const char **error_r)
-{
-	if ((set->parsed_time_format != EVENT_EXPORTER_TIME_FMT_NATIVE) &&
-	    (set->parsed_time_format != fmt)) {
-		*error_r = t_strdup_printf("Exporter '%s' specifies multiple "
-					   "time format args", set->name);
-		return FALSE;
-	}
-
-	set->parsed_time_format = fmt;
-
-	return TRUE;
-}
-
-static bool parse_format_args(struct stats_exporter_settings *set,
-			      const char **error_r)
-{
-	const char *const *tmp;
-
-	/* Defaults */
-	set->parsed_time_format = EVENT_EXPORTER_TIME_FMT_NATIVE;
-
-	tmp = t_strsplit_spaces(set->format_args, " ");
-
-	/*
-	 * If the config contains multiple types of the same type (e.g.,
-	 * both time-rfc3339 and time-unix) we fail the config check.
-	 *
-	 * Note: At the moment, we have only time-* tokens.  In the future
-	 * when we have other tokens, they should be parsed here.
-	 */
-	for (; *tmp != NULL; tmp++) {
-		enum event_exporter_time_fmt fmt;
-
-		if (strcmp(*tmp, "time-rfc3339") == 0) {
-			fmt = EVENT_EXPORTER_TIME_FMT_RFC3339;
-		} else if (strcmp(*tmp, "time-unix") == 0) {
-			fmt = EVENT_EXPORTER_TIME_FMT_UNIX;
-		} else {
-			*error_r = t_strdup_printf("Unknown exporter format "
-						   "arg: %s", *tmp);
-			return FALSE;
-		}
-
-		if (!parse_format_args_set_time(set, fmt, error_r))
-			return FALSE;
-	}
-
-	return TRUE;
-}
-
 static bool stats_exporter_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 					  const char **error_r)
 {
@@ -257,8 +204,12 @@ static bool stats_exporter_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	}
 
-	if (!parse_format_args(set, error_r))
-		return FALSE;
+	if (strcmp(set->time_format, "rfc3339") == 0)
+		set->parsed_time_format = EVENT_EXPORTER_TIME_FMT_RFC3339;
+	else if (strcmp(set->time_format, "unix") == 0)
+		set->parsed_time_format = EVENT_EXPORTER_TIME_FMT_UNIX;
+	else
+		i_unreached();
 
 	/* Some formats don't have a native way of serializing time stamps */
 	if (time_fmt_required &&
