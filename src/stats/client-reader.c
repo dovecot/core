@@ -175,7 +175,6 @@ reader_client_input_metrics_add(struct reader_client *client,
 	set->group_by = p_strdup(pool, args[3]);
 	set->filter = p_strdup(pool, args[4]);
 	set->exporter = p_strdup(pool, args[5]);
-	set->exporter_include = p_strdup(pool, args[6]);
 
 	p_array_init(&set->fields, pool, 4);
 	if (settings_parse_boollist_string(args[2], pool, &set->fields,
@@ -186,6 +185,16 @@ reader_client_input_metrics_add(struct reader_client *client,
 		return -1;
 	}
 	settings_boollist_finish(&set->fields, FALSE);
+
+	p_array_init(&set->exporter_include, pool, 1);
+	if (settings_parse_boollist_string(args[6], pool,
+					   &set->exporter_include, &error) < 0) {
+		e_error(client->conn.event,
+			"METRICS-ADD: metric_exporter_include parsing error: %s", error);
+		pool_unref(&pool);
+		return -1;
+	}
+	settings_boollist_finish(&set->exporter_include, FALSE);
 
 	if (!stats_metric_setting_parser_info.check_func(set, pool, &error)) {
 		e_error(client->conn.event, "METRICS-ADD: %s", error);

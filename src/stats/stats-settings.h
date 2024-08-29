@@ -116,7 +116,7 @@ struct stats_metric_settings {
 
 	/* exporter related fields */
 	const char *exporter;
-	const char *exporter_include;
+	ARRAY_TYPE(const_string) exporter_include;
 };
 
 struct stats_settings {
