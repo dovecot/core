@@ -8,7 +8,7 @@
 #include "hex-binary.h"
 #include "str.h"
 #include "strescape.h"
-#include "var-expand.h"
+#include "var-expand-new.h"
 #include "wildcard-match.h"
 #include "dsasl-client.h"
 #include "settings-parser.h"
@@ -724,10 +724,9 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 		cmd_user_mail_print_fields(input, user, userdb_fields, show_field);
 	} else {
 		string_t *str = t_str_new(128);
-		if (var_expand_with_funcs(str, expand_field,
-					  mail_user_var_expand_table(user),
-					  mail_user_var_expand_func_table, user,
-					  &error) <= 0) {
+		const struct var_expand_params *params =
+			mail_user_var_expand_params(user);
+		if (var_expand_new(str, expand_field, params, &error) < 0) {
 			e_error(event, "Failed to expand %s: %s", expand_field, error);
 		} else {
 			printf("%s\n", str_c(str));

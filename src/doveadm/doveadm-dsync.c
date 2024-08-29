@@ -15,7 +15,7 @@
 #include "strescape.h"
 #include "str-parse.h"
 #include "env-util.h"
-#include "var-expand.h"
+#include "var-expand-new.h"
 #include "process-title.h"
 #include "settings.h"
 #include "imap-util.h"
@@ -267,11 +267,14 @@ static const char *const *
 get_ssh_cmd_args(const char *host, const char *login, const char *mail_user,
 		 struct event *event)
 {
-	static struct var_expand_table static_tab[] = {
-		{ 'u', NULL, "user" },
-		{ '\0', NULL, "login" },
-		{ '\0', NULL, "host" },
-		{ '\0', NULL, NULL }
+	static const struct var_expand_table static_tab[] = {
+		{ .key = "user", .value = NULL },
+		{ .key = "login", .value = NULL },
+		{ .key = "host", .value = NULL },
+		VAR_EXPAND_TABLE_END
+	};
+	static const struct var_expand_params static_params = {
+		.table = static_tab
 	};
 	struct var_expand_table *tab;
 	ARRAY_TYPE(const_string) cmd_args;
@@ -284,6 +287,10 @@ get_ssh_cmd_args(const char *host, const char *login, const char *mail_user,
 	tab[0].value = mail_user;
 	tab[1].value = login;
 	tab[2].value = host;
+	const struct var_expand_params params = {
+		.table = tab,
+		.event = event,
+	};
 
 	t_array_init(&cmd_args, 8);
 	str = t_str_new(128);
@@ -293,13 +300,13 @@ get_ssh_cmd_args(const char *host, const char *login, const char *mail_user,
 		if (strchr(*args, '%') == NULL)
 			value = *args;
 		else {
-			/* some automation: if parameter's all %variables
-			   expand to empty, but the %variable isn't the only
+			/* some automation: if parameter's all %{variables}
+			   expand to empty, but the %{variable} isn't the only
 			   text in the parameter, skip it. */
 			str_truncate(str, 0);
 			str_truncate(str2, 0);
-			if (var_expand_with_table(str, *args, tab, &error) <= 0 ||
-			    var_expand_with_table(str2, *args, static_tab, &error) <= 0) {
+			if (var_expand_new(str, *args, &params, &error) < 0 ||
+			    var_expand_new(str2, *args, &static_params, &error) < 0) {
 				e_error(event,
 					"Failed to expand dsync_remote_cmd=%s: %s",
 					*args, error);

@@ -8,7 +8,7 @@
 #include "doveadm-print.h"
 #include "doveadm-print-private.h"
 #include "client-connection.h"
-#include "var-expand.h"
+#include "var-expand-new.h"
 
 struct doveadm_print_formatted_context {
 	pool_t pool;
@@ -40,8 +40,7 @@ doveadm_print_formatted_header(const struct doveadm_print_header *hdr)
 {
 	struct var_expand_table entry;
 	i_zero(&entry);
-	entry.key = '\0';
-	entry.long_key = p_strdup(ctx.pool, hdr->key);
+	entry.key = p_strdup(ctx.pool, hdr->key);
 	entry.value = NULL;
 	array_push_back(&ctx.headers, &entry);
 }
@@ -63,9 +62,10 @@ static void doveadm_print_formatted_print(const char *value)
 	entry->value = value;
 
 	if (ctx.idx >= array_count(&ctx.headers)) {
-		if (var_expand_with_table(ctx.buf, ctx.format,
-					  array_front(&ctx.headers),
-					  &error) <= 0) {
+		const struct var_expand_params params = {
+			.table = array_front(&ctx.headers),
+		};
+		if (var_expand_new(ctx.buf, ctx.format, &params, &error) < 0) {
 			i_error("Failed to expand print format '%s': %s",
 				ctx.format, error);
 		}
