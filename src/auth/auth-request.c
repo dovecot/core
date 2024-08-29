@@ -1950,9 +1950,9 @@ void auth_request_set_field(struct auth_request *request,
 	   account is valid. */
 	i_assert(request->passdb != NULL || request->passdb_success);
 
-	if (name_len > 10 && strcmp(name+name_len-10, ":protected") == 0) {
+	if (name_len > 8 && strcmp(name+name_len-8, ":default") == 0) {
 		/* set this field only if it hasn't been set before */
-		name = t_strndup(name, name_len-10);
+		name = t_strndup(name, name_len-8);
 		if (auth_fields_exists(request->fields.extra_fields, name))
 			return;
 	} else if (name_len > 7 && strcmp(name+name_len-7, ":remove") == 0) {
@@ -2060,7 +2060,7 @@ void auth_request_set_field(struct auth_request *request,
 	/* add the field unconditionally to extra_fields. this is required if
 	   a) auth cache is used, b) if we're a worker and we'll need to send
 	   this to the main auth process that can store it in the cache,
-	   c) for easily checking :protected fields' existence. */
+	   c) for easily checking :default fields' existence. */
 	auth_fields_add(request->fields.extra_fields, name, value,
 			AUTH_FIELD_FLAG_HIDDEN);
 }
@@ -2173,9 +2173,9 @@ void auth_request_set_userdb_field(struct auth_request *request,
 
 	i_assert(value != NULL);
 
-	if (name_len > 10 && strcmp(name+name_len-10, ":protected") == 0) {
+	if (name_len > 8 && strcmp(name+name_len-8, ":default") == 0) {
 		/* set this field only if it hasn't been set before */
-		name = t_strndup(name, name_len-10);
+		name = t_strndup(name, name_len-8);
 		if (auth_fields_exists(request->fields.userdb_reply, name))
 			return;
 	} else if (name_len > 7 && strcmp(name+name_len-7, ":remove") == 0) {
