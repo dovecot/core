@@ -6,12 +6,14 @@
 struct event_exporter_transport {
 	const char *name;
 
-	void (*deinit)(void);
+	int (*init)(pool_t pool, struct event *event,
+		    struct event_exporter **exporter_r, const char **error_r);
+	void (*deinit)(struct event_exporter *exporter);
 
 	/* function to send the event */
 	void (*send)(struct event_exporter *exporter, const buffer_t *buf);
 
-	void (*reopen)(void);
+	void (*reopen)(struct event_exporter *exporter);
 };
 
 extern const struct event_exporter_transport event_exporter_transport_drop;
@@ -22,8 +24,14 @@ extern const struct event_exporter_transport event_exporter_transport_log;
 
 const struct event_exporter_transport *
 event_exporter_transport_find(const char *name);
-void event_exporter_transports_reopen(void);
-void event_exporter_transports_deinit(void);
+
+void event_exporters_reopen(void);
+void event_exporters_deinit(void);
+
+int event_exporter_init(const struct event_exporter_transport *transport,
+			pool_t pool, struct event *event,
+			struct event_exporter **exporter_r,
+			const char **error_r);
 
 /* fmt functions */
 void event_export_fmt_json(const struct metric *metric, struct event *event, buffer_t *dest);
@@ -42,9 +50,5 @@ void event_export_helper_fmt_categories(string_t *dest,
 					const struct event *event,
 					void (*append)(string_t *, const char *),
 					const char *separator);
-
-/* assign transport context to a event exporter */
-void event_export_transport_assign_context(const struct event_exporter *exporter,
-					   void *context);
 
 #endif

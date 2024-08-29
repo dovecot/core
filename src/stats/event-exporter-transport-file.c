@@ -14,7 +14,8 @@
 #include <fcntl.h>
 
 struct file_event_exporter {
-	struct file_event_exporter *next;
+	struct event_exporter exporter;
+
 	char *fname;
 	struct ostream *output;
 	int fd;
@@ -25,10 +26,10 @@ struct file_event_exporter {
 
 #define EXPORTER_LAST_ERROR_DELAY 60
 
-static struct file_event_exporter *exporter_file_list_head = NULL;
-
 static void exporter_file_close(struct file_event_exporter *node)
 {
+	if (node->fd == -1)
+		return;
 	if (o_stream_finish(node->output) < 0) {
 		i_error("write(%s) failed: %s", node->fname,
 			o_stream_get_error(node->output));
@@ -38,42 +39,33 @@ static void exporter_file_close(struct file_event_exporter *node)
 	i_close_fd(&node->fd);
 }
 
-static void exporter_file_destroy(struct file_event_exporter **_node)
+static void event_exporter_file_deinit(struct event_exporter *_exporter)
 {
-	struct file_event_exporter *node = *_node;
-	if (node == NULL)
-		return;
-	*_node = NULL;
+	struct file_event_exporter *node =
+		container_of(_exporter, struct file_event_exporter, exporter);
 
 	exporter_file_close(node);
 	i_free(node->fname);
-	i_free(node);
 }
 
-static void event_exporter_file_deinit(void)
+static void
+exporter_file_init(struct file_event_exporter *node, bool unix_socket)
 {
-	struct file_event_exporter *node, *next = exporter_file_list_head;
-	exporter_file_list_head = NULL;
-	while (next != NULL) {
-		node = next;
-		next = node->next;
-		exporter_file_destroy(&node);
-	}
-}
-
-static struct file_event_exporter *
-exporter_file_init(const struct event_exporter *exporter, bool unix_socket)
-{
-	struct file_event_exporter *node;
-	node = i_new(struct file_event_exporter, 1);
-	node->fname = i_strdup(t_strcut(exporter->transport_args, ' '));
+	node->fname = i_strdup(t_strcut(node->exporter.transport_args, ' '));
 	node->fd = -1;
 	node->unix_socket = unix_socket;
-	node->connect_timeout_msecs = exporter->transport_timeout;
-	node->next = exporter_file_list_head;
-	exporter_file_list_head = node;
-	event_export_transport_assign_context(exporter, node);
-	return node;
+	node->connect_timeout_msecs = node->exporter.transport_timeout;
+}
+
+static int
+event_exporter_file_init(pool_t pool, struct event *event ATTR_UNUSED,
+			 struct event_exporter **exporter_r,
+			 const char **error_r ATTR_UNUSED)
+{
+	struct file_event_exporter *node =
+		p_new(pool, struct file_event_exporter, 1);
+	*exporter_r = &node->exporter;
+	return 0;
 }
 
 static void exporter_file_open_error(struct file_event_exporter *node, const char *func)
@@ -143,41 +135,41 @@ static void event_exporter_file_write(struct file_event_exporter *node,
 }
 
 static void
-event_exporter_file_send(struct event_exporter *exporter, const buffer_t *buf)
+event_exporter_file_send(struct event_exporter *_exporter, const buffer_t *buf)
 {
-	struct file_event_exporter *node = exporter->transport_context;
-	if (node == NULL)
-		node = exporter_file_init(exporter, FALSE);
+	struct file_event_exporter *node =
+		container_of(_exporter, struct file_event_exporter, exporter);
+	if (node->fname == NULL)
+		exporter_file_init(node, FALSE);
 	if (!exporter_file_open(node))
 		return;
 	event_exporter_file_write(node, buf);
 }
 
 static void
-event_exporter_unix_send(struct event_exporter *exporter, const buffer_t *buf)
+event_exporter_unix_send(struct event_exporter *_exporter,
+			 const buffer_t *buf)
 {
-	struct file_event_exporter *node = exporter->transport_context;
-	if (node == NULL)
-		node = exporter_file_init(exporter, TRUE);
+	struct file_event_exporter *node =
+		container_of(_exporter, struct file_event_exporter, exporter);
+	if (node->fname == NULL)
+		exporter_file_init(node, TRUE);
 	if (!exporter_file_open(node))
 		return;
 	event_exporter_file_write(node, buf);
 }
 
-static void event_exporter_file_reopen(void)
+static void event_exporter_file_reopen(struct event_exporter *_exporter)
 {
-	/* close all files, but not unix sockets */
-	struct file_event_exporter *node = exporter_file_list_head;
-	while (node != NULL) {
-		if (!node->unix_socket)
-			exporter_file_close(node);
-		node = node->next;
-	}
+	struct file_event_exporter *node =
+		container_of(_exporter, struct file_event_exporter, exporter);
+	exporter_file_close(node);
 }
 
 const struct event_exporter_transport event_exporter_transport_file = {
 	.name = "file",
 
+	.init = event_exporter_file_init,
 	.send = event_exporter_file_send,
 	.reopen = event_exporter_file_reopen,
 };
@@ -185,7 +177,7 @@ const struct event_exporter_transport event_exporter_transport_file = {
 const struct event_exporter_transport event_exporter_transport_unix = {
 	.name = "unix",
 
+	.init = event_exporter_file_init,
 	.deinit = event_exporter_file_deinit,
 	.send = event_exporter_unix_send,
-	.reopen = event_exporter_file_reopen,
 };
