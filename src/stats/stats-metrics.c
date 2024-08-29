@@ -171,7 +171,7 @@ static int stats_metrics_add_set(struct stats_metrics *metrics,
 		}
 	}
 
-	fields = t_strsplit_spaces(set->fields, " ");
+	fields = settings_boollist_get(&set->fields);
 	metric = stats_metric_alloc(metrics->pool, set->name, set, fields);
 
 	if (array_is_created(&set->parsed_group_by))

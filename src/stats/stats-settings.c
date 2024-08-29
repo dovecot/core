@@ -106,7 +106,7 @@ const struct setting_parser_info stats_exporter_setting_parser_info = {
 
 static const struct setting_define stats_metric_setting_defines[] = {
 	DEF(STR, name),
-	DEF(STR, fields),
+	DEF(BOOLLIST, fields),
 	DEF(STR_NOVARS, group_by),
 	DEF(STR, filter),
 	DEF(STR, exporter),
@@ -117,7 +117,7 @@ static const struct setting_define stats_metric_setting_defines[] = {
 
 const struct stats_metric_settings stats_metric_default_settings = {
 	.name = "",
-	.fields = "",
+	.fields = ARRAY_INIT,
 	.filter = "",
 	.exporter = "",
 	.group_by = "",

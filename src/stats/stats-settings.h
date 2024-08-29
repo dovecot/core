@@ -107,7 +107,7 @@ struct stats_metric_settings {
 
 	const char *name;
 	const char *description;
-	const char *fields;
+	ARRAY_TYPE(const_string) fields;
 	const char *group_by;
 	const char *filter;
 
