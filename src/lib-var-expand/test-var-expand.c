@@ -26,14 +26,14 @@ static void run_var_expand_tests(const struct var_expand_params *params,
 				 const struct var_expand_test tests[],
 				 size_t test_count)
 {
-	string_t *dest = str_new(default_pool, 128);
+	string_t *dest= str_new(default_pool, 128);
 
 	for (size_t i = 0; i < test_count; i++) {
 		const struct var_expand_test *test = &tests[i];
 		const char *error = NULL;
 
 		str_truncate(dest, 0);
-		int ret = var_expand_new(dest, test->in, params, &error);
+		int ret = var_expand(dest, test->in, params, &error);
 		test_assert_cmp_idx(test->ret, ==, ret, i);
 
 		if (ret < 0) {
@@ -69,7 +69,7 @@ static void run_var_expand_tests(const struct var_expand_params *params,
 
 }
 
-static void test_var_expand_new_builtin_filters(void) {
+static void test_var_expand_builtin_filters(void) {
 	test_begin("var_expand(buildin filters)");
 
 	const struct var_expand_table table[] = {
@@ -249,7 +249,7 @@ static void test_var_expand_new_builtin_filters(void) {
 	test_end();
 }
 
-static void test_var_expand_new_math(void) {
+static void test_var_expand_math(void) {
 	test_begin("var_expand(math)");
 
 	const struct var_expand_table table[] = {
@@ -284,7 +284,7 @@ static void test_var_expand_new_math(void) {
 	test_end();
 }
 
-static void test_var_expand_new_if(void)
+static void test_var_expand_if(void)
 {
 	test_begin("var_expand(if)");
 
@@ -391,7 +391,7 @@ static int test_custom_provider(const char *key, const char **value_r, void *con
 	return 0;
 }
 
-static void test_var_expand_new_providers(void) {
+static void test_var_expand_providers(void) {
 	test_begin("var_expand(providers)");
 	int ncpus;
 	const char *error ATTR_UNUSED;
@@ -468,11 +468,11 @@ static void test_var_expand_new_providers(void) {
 	if (uname(&utsname_result) == 0) {
 		string_t *dest = t_str_new(32);
 		str_truncate(dest, 0);
-		test_assert(var_expand_new(dest, "%{system:os}", &params, &error) == 0);
+		test_assert(var_expand(dest, "%{system:os}", &params, &error) == 0);
 		test_assert_strcmp(utsname_result.sysname, str_c(dest));
 
 		str_truncate(dest, 0);
-		test_assert(var_expand_new(dest, "%{system:os-version}", &params, &error) == 0);
+		test_assert(var_expand(dest, "%{system:os-version}", &params, &error) == 0);
 		test_assert_strcmp(utsname_result.release, str_c(dest));
 	}
 
@@ -504,7 +504,7 @@ static void test_var_expand_new_providers(void) {
 	test_end();
 }
 
-static void test_var_expand_new_provider_arr(void)
+static void test_var_expand_provider_arr(void)
 {
 	test_begin("var_expand(provider arr)");
 	const struct var_expand_test tests[] = {
@@ -539,7 +539,7 @@ static void test_var_expand_new_provider_arr(void)
 	test_end();
 }
 
-static void test_var_expand_new_tables_arr(void)
+static void test_var_expand_tables_arr(void)
 {
 	test_begin("var_expand(tables_arr)");
 
@@ -565,7 +565,7 @@ static void test_var_expand_new_tables_arr(void)
 
 	string_t *dest = t_str_new(32);
 	const char *error;
-	int ret = var_expand_new(dest, "I am %{name} and %{age} years old",
+	int ret = var_expand(dest, "I am %{name} and %{age} years old",
 				 &params, &error);
 
 	test_assert(ret == 0);
@@ -592,7 +592,7 @@ static const char *test_escape(const char *str, void *context)
 	return str_c(dest);
 }
 
-static void test_var_expand_new_escape(void)
+static void test_var_expand_escape(void)
 {
 	const struct var_expand_table table[] = {
 		{ .key = "clean", .value = "hello world", },
@@ -647,7 +647,7 @@ static void test_var_expand_new_escape(void)
 		.escape_context = "'",
 	};
 
-	test_begin("var_expand_new(escape)");
+	test_begin("var_expand(escape)");
 
 	run_var_expand_tests(&params, tests, N_ELEMENTS(tests));
 
@@ -692,7 +692,7 @@ static int test_value2(const char *key, const char **value_r, void *context,
 	return 0;
 }
 
-static void test_var_expand_new_value_func(void)
+static void test_var_expand_value_func(void)
 {
 	const struct var_expand_table table[] = {
 		{ .key = "first", .value = "hello", },
@@ -713,14 +713,14 @@ static void test_var_expand_new_value_func(void)
 		.context = "test",
 	};
 
-	test_begin("var_expand_new(value func)");
+	test_begin("var_expand(value func)");
 
 	run_var_expand_tests(&params, tests, N_ELEMENTS(tests));
 
 	test_end();
 }
 
-static void test_var_expand_new_value_func_arr(void)
+static void test_var_expand_value_func_arr(void)
 {
 	const struct var_expand_table table[] = {
 		{ .key = "first", .value = "hello", },
@@ -777,10 +777,10 @@ static void test_var_expand_merge_tables(void)
 
 	test_begin("var_expand_merge_tables");
 
-	merged = var_expand_merge_tables_new(pool_datastack_create(), one, two);
+	merged = var_expand_merge_tables(pool_datastack_create(), one, two);
 
-	test_assert(var_expand_table_size_new(merged) == 4);
-	for (unsigned int i = 0; i < var_expand_table_size_new(merged); i++) {
+	test_assert(var_expand_table_size(merged) == 4);
+	for (unsigned int i = 0; i < var_expand_table_size(merged); i++) {
 		if (i < 2) {
 			test_assert_idx(merged[i].value == one[i].value || strcmp(merged[i].value, one[i].value) == 0, i);
 			test_assert_idx(merged[i].key == one[i].key || strcmp(merged[i].key, one[i].key) == 0, i);
@@ -794,7 +794,7 @@ static void test_var_expand_merge_tables(void)
 	test_end();
 }
 
-static void test_var_expand_new_variables(void)
+static void test_var_expand_variables(void)
 {
 	test_begin("var_expand(variables)");
 
@@ -849,7 +849,7 @@ static int test_filter(const struct var_expand_statement *stmt,
 }
 
 
-static void test_var_expand_new_parameter_sorted(void)
+static void test_var_expand_parameter_sorted(void)
 {
 	const struct var_expand_test tests[] = {
 		{ .in = "%{test_filter}", .out ="done", .ret = 0 },
@@ -874,7 +874,7 @@ static void test_var_expand_new_parameter_sorted(void)
 	test_end();
 }
 
-static void test_var_expand_new_perc(void)
+static void test_var_expand_perc(void)
 {
 	test_begin("var_expand(percentage handling)");
 
@@ -901,7 +901,7 @@ static void test_var_expand_new_perc(void)
 	test_end();
 }
 
-static void test_var_expand_new_set_copy(void)
+static void test_var_expand_set_copy(void)
 {
 	test_begin("var_expand(set, copy)");
 	struct var_expand_table tab[] = {
@@ -928,19 +928,19 @@ int main(void)
 {
 	void (*const tests[])(void) = {
 		test_var_expand_merge_tables,
-		test_var_expand_new_builtin_filters,
-		test_var_expand_new_math,
-		test_var_expand_new_if,
-		test_var_expand_new_providers,
-		test_var_expand_new_provider_arr,
-		test_var_expand_new_tables_arr,
-		test_var_expand_new_escape,
-		test_var_expand_new_value_func,
-		test_var_expand_new_value_func_arr,
-		test_var_expand_new_variables,
-		test_var_expand_new_parameter_sorted,
-		test_var_expand_new_perc,
-		test_var_expand_new_set_copy,
+		test_var_expand_builtin_filters,
+		test_var_expand_math,
+		test_var_expand_if,
+		test_var_expand_providers,
+		test_var_expand_provider_arr,
+		test_var_expand_tables_arr,
+		test_var_expand_escape,
+		test_var_expand_value_func,
+		test_var_expand_value_func_arr,
+		test_var_expand_variables,
+		test_var_expand_parameter_sorted,
+		test_var_expand_perc,
+		test_var_expand_set_copy,
 		NULL
 	};
 

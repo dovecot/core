@@ -5,7 +5,6 @@
 #include "str.h"
 #include "ioloop.h"
 #include "settings.h"
-#include "var-expand-new.h"
 #include "index-storage.h"
 #include "mail-storage-service.h"
 #include "mailbox-list-private.h"

@@ -22,7 +22,6 @@
 #include "safe-memset.h"
 #include "time-util.h"
 #include "settings.h"
-#include "var-expand-new.h"
 #include "master-interface.h"
 #include "master-service.h"
 #include "login-client.h"
@@ -1203,7 +1202,7 @@ client_get_log_str(struct client *client, const char *msg)
 	};
 
 	str_truncate(str, 0);
-	if (var_expand_new(str, client->set->login_log_format, &params2,
+	if (var_expand(str, client->set->login_log_format, &params2,
 			   &error) < 0) {
 		/* NOTE: Don't log via client->event - it would cause
 		   recursion */

@@ -6,7 +6,7 @@
 #include "service-settings.h"
 #include "mail-storage-settings.h"
 #include "pop3-settings.h"
-#include "var-expand-new.h"
+#include "var-expand.h"
 
 #include <unistd.h>
 

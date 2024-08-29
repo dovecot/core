@@ -18,7 +18,6 @@
 #include "mkdir-parents.h"
 #include "time-util.h"
 #include "settings.h"
-#include "var-expand-new.h"
 #include "dsasl-client.h"
 #include "imap-date.h"
 #include "mail-index-private.h"

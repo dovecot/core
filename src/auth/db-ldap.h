@@ -20,7 +20,7 @@
 #define DB_LDAP_IDLE_RECONNECT_SECS 60
 
 #include <ldap.h>
-#include "var-expand-new.h"
+#include "var-expand.h"
 #include "db-ldap-settings.h"
 
 #define DB_LDAP_ATTR_MULTI_PREFIX "+"

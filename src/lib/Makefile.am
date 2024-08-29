@@ -196,8 +196,6 @@ liblib_la_SOURCES = \
 	uri-util.c \
 	utc-offset.c \
 	utc-mktime.c \
-	var-expand.c \
-	var-expand-if.c \
 	wildcard-match.c \
 	write-full.c
 
@@ -357,8 +355,6 @@ headers = \
 	uri-util.h \
 	utc-offset.h \
 	utc-mktime.h \
-	var-expand.h \
-	var-expand-private.h \
 	wildcard-match.h \
 	write-full.h
 
@@ -465,7 +461,6 @@ test_lib_SOURCES = \
 	test-unichar.c \
 	test-utc-mktime.c \
 	test-uri.c \
-	test-var-expand.c \
 	test-wildcard-match.c
 
 test_headers = \

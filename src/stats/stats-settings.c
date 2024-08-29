@@ -8,7 +8,7 @@
 #include "event-exporter.h"
 #include "array.h"
 #include "str.h"
-#include "var-expand-new.h"
+#include "var-expand.h"
 
 /* <settings checks> */
 #include "event-filter.h"
@@ -474,7 +474,7 @@ parse_metric_group_by_mod(pool_t pool,
 	};
 	const char *error;
 	string_t *str = t_str_new(128);
-	if (var_expand_new(str, group_by->discrete_modifier, &vparams, &error) < 0) {
+	if (var_expand(str, group_by->discrete_modifier, &vparams, &error) < 0) {
 		*error_r = t_strdup_printf(
 			"Failed to expand discrete modifier for %s: %s",
 			group_by->field, error);

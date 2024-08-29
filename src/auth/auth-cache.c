@@ -6,7 +6,7 @@
 #include "hash.h"
 #include "str.h"
 #include "strescape.h"
-#include "var-expand-new.h"
+#include "var-expand.h"
 #include "auth-request.h"
 #include "auth-cache.h"
 

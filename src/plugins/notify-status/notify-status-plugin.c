@@ -4,7 +4,7 @@
 #include "array.h"
 #include "json-generator.h"
 #include "str.h"
-#include "var-expand-new.h"
+#include "var-expand.h"
 #include "mail-user.h"
 #include "mail-storage.h"
 #include "mail-storage-private.h"
@@ -150,7 +150,7 @@ static void notify_update_mailbox_status(struct mailbox *box)
 		json_append_escaped(username, user->username);
 		json_append_escaped(mboxname, mailbox_get_vname(box));
 
-		const struct var_expand_table_new values[] = {
+		const struct var_expand_table values[] = {
 			{ .key = "username", .value = str_c(username) },
 			{ .key = "mailbox", .value = str_c(mboxname) },
 			{ .key = "messages", .value = dec2str(status.messages) },
@@ -171,7 +171,7 @@ static void notify_update_mailbox_status(struct mailbox *box)
 		const char *key =
 			t_strdup_printf(NOTIFY_STATUS_KEY, mailbox_get_vname(box));
 		string_t *dest = t_str_new(64);
-		if (var_expand_new(dest, nuser->set->notify_status_value,
+		if (var_expand(dest, nuser->set->notify_status_value,
 				   &params, &error) < 0) {
 			e_error(box->event, "notify-status: var_expand(%s) failed: %s",
 				nuser->set->notify_status_value, error);

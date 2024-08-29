@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "test-common.h"
 #include "str.h"
-#include "var-expand-new.h"
+#include "var-expand.h"
 #include "randgen.h"
 #include "dcrypt.h"
 
@@ -48,7 +48,7 @@ static void test_var_expand_crypt(void)
 	for(i=0; i < N_ELEMENTS(test_cases); i++) T_BEGIN {
 		const char *error;
 		string_t *dest = t_str_new(32);
-		int ret = var_expand_new(dest, test_cases[i].input, &params, &error);
+		int ret = var_expand(dest, test_cases[i].input, &params, &error);
 		if (ret < 0) {
 			if (test_cases[i].expect_ret == -1)
 				i_info("Expected: var_expand(%s): %s", test_cases[i].input, error);
@@ -71,9 +71,9 @@ static void test_var_expand_crypt(void)
 		str_truncate(input, 0);
 		str_truncate(output, 0);
 
-		test_assert_idx(var_expand_new(input, "%{decrypted|encrypt(algorithm='aes-128-cbc',key=key)}", &params, &error) == 0, i);
+		test_assert_idx(var_expand(input, "%{decrypted|encrypt(algorithm='aes-128-cbc',key=key)}", &params, &error) == 0, i);
 		table[5].value = str_c(input);
-		test_assert_idx(var_expand_new(output, "%{encrypted2|decrypt(algorithm='aes-128-cbc',key=key)}", &params, &error) == 0, i);
+		test_assert_idx(var_expand(output, "%{encrypted2|decrypt(algorithm='aes-128-cbc',key=key)}", &params, &error) == 0, i);
 		test_assert_strcmp_idx(str_c(output), table[4].value, i);
 	};
 

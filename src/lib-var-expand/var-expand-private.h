@@ -1,7 +1,7 @@
 #ifndef VAR_EXPAND_PRIVATE_H
 #define VAR_EXPAND_PRIVATE_H 1
 
-#include "var-expand-new.h"
+#include "var-expand.h"
 
 /* Macro for filters to error our with unsupported key */
 #define ERROR_UNSUPPORTED_KEY(key) STMT_START { \

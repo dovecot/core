@@ -14,7 +14,6 @@
 #include "strescape.h"
 #include "strfuncs.h"
 #include "settings.h"
-#include "var-expand-new.h"
 #include "fs-api.h"
 #include "auth-master.h"
 #include "master-service.h"
@@ -125,7 +124,7 @@ mail_user_expand_plugins_envs(struct mail_user *user,
 
 	for (i = 0; i < count; i += 2) {
 		str_truncate(str, 0);
-		if (var_expand_new(str, envs[i+1], params, &error) < 0) {
+		if (var_expand(str, envs[i+1], params, &error) < 0) {
 			user->error = p_strdup_printf(user->pool,
 				"Failed to expand plugin setting %s = '%s': %s",
 				envs[i], envs[i+1], error);

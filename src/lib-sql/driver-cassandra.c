@@ -13,7 +13,6 @@
 #include "time-util.h"
 #include "safe-memset.h"
 #include "settings.h"
-#include "var-expand-new.h"
 #include "ssl-settings.h"
 #include "sql-api-private.h"
 
@@ -1193,7 +1192,7 @@ static void driver_cassandra_metrics_write(struct cassandra_db *db)
 		.event = db->api.event,
 	};
 
-	if (var_expand_new(path, db->set->metrics_path, &params, &error) < 0) {
+	if (var_expand(path, db->set->metrics_path, &params, &error) < 0) {
 		e_error(db->api.event, "Failed to expand metrics_path=%s: %s",
 			db->set->metrics_path, error);
 		return;

@@ -7,7 +7,7 @@
 #include "str-sanitize.h"
 #include "time-util.h"
 #include "unichar.h"
-#include "var-expand-new.h"
+#include "var-expand.h"
 #include "message-address.h"
 #include "smtp-address.h"
 #include "lda-settings.h"
@@ -197,7 +197,7 @@ void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 		.table = mail_deliver_ctx_get_log_var_expand_table(ctx, msg),
 		.event = ctx->event,
 	};
-	if (var_expand_new(str, ctx->set->deliver_log_format,
+	if (var_expand(str, ctx->set->deliver_log_format,
 			   &params, &error) < 0) {
 		e_error(ctx->event,
 			"Failed to expand deliver_log_format=%s: %s",

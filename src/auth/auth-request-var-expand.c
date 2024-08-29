@@ -248,7 +248,7 @@ int auth_request_var_expand_with_table(string_t *dest, const char *str,
 		.event = auth_request->event,
 	};
 
-	return var_expand_new(dest, str, &params, error_r);
+	return var_expand(dest, str, &params, error_r);
 }
 
 int t_auth_request_var_expand(const char *str,

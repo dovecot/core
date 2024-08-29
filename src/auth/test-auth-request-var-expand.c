@@ -78,7 +78,7 @@ static bool test_empty_request(string_t *str, const char *input)
 	const char *error;
 
 	str_truncate(str, 0);
-	test_assert(var_expand_new(str, input, &params, &error) == 0);
+	test_assert(var_expand(str, input, &params, &error) == 0);
 	return strspn(str_c(str), "\n0") == str_len(str);
 }
 
@@ -106,7 +106,7 @@ static void test_auth_request_var_expand_keys(void)
 		.escape_context = &test_request,
 	};
 
-	test_assert(var_expand_new(str, test_input_long, &params, &error) == 0);
+	test_assert(var_expand(str, test_input_long, &params, &error) == 0);
 	test_assert_strcmp(str_c(str), test_output);
 
 	/* test with empty input that it won't crash */
@@ -132,7 +132,7 @@ static void test_auth_request_var_expand_flags(void)
 		.escape_func = (var_expand_escape_func_t *)test_escape,
 		.escape_context = &test_request
 	};
-	test_assert(var_expand_new(str, test_input, &params, &error) == 0);
+	test_assert(var_expand(str, test_input, &params, &error) == 0);
 	test_assert_strcmp(str_c(str), "40\n\n\n");
 
 	test_request.userdb_lookup = TRUE;
@@ -141,7 +141,7 @@ static void test_auth_request_var_expand_flags(void)
 	params.table = auth_request_get_var_expand_table(&test_request);
 
 	str_truncate(str, 0);
-	test_assert(var_expand_new(str, test_input, &params, &error) == 0);
+	test_assert(var_expand(str, test_input, &params, &error) == 0);
 	test_assert_strcmp(str_c(str), "41\nsecured\nvalid\n");
 
 	test_assert(test_empty_request(str, test_input));
@@ -173,7 +173,7 @@ static void test_auth_request_var_expand_long(void)
 		.escape_context = &test_request,
 	};
 
-	test_assert(var_expand_new(str, test_input, &params, &error) == 0);
+	test_assert(var_expand(str, test_input, &params, &error) == 0);
 	test_assert_strcmp(str_c(str), test_output);
 
 	test_assert(test_empty_request(str, test_input));
@@ -204,7 +204,7 @@ static void test_auth_request_var_expand_usernames(void)
 			.escape_context = &test_request,
 		};
 		str_truncate(str, 0);
-		test_assert(var_expand_new(str, test_input, &params, &error) == 0);
+		test_assert(var_expand(str, test_input, &params, &error) == 0);
 		test_assert_idx(strcmp(str_c(str), tests[i].output) == 0, i);
 	}
 	test_request.fields.user = default_test_request.fields.user;

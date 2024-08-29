@@ -7,7 +7,7 @@
 #include "hash.h"
 #include "str.h"
 #include "strfuncs.h"
-#include "var-expand-new.h"
+#include "var-expand.h"
 #include "message-size.h"
 #include "mail-storage.h"
 #include "mail-storage-settings.h"
@@ -680,7 +680,7 @@ pop3_get_uid(struct client *client, struct mail *mail, string_t *str,
 	};
 	const char *error;
 
-	if (var_expand_new(str, client->mail_set->pop3_uidl_format,
+	if (var_expand(str, client->mail_set->pop3_uidl_format,
 			   &params, &error) < 0) {
 		e_error(client->event,
 			"UIDL: Failed to expand pop3_uidl_format=%s: %s",
