@@ -85,6 +85,14 @@ static void client_init_urlauth(struct client *client)
 	client->urlauth_ctx = imap_urlauth_init(client->user, &config);
 }
 
+static void
+imap_unset_capability(struct settings_instance *set_instance, const char *capability)
+{
+	settings_override(set_instance,
+			  t_strdup_printf("imap_capability/%s", capability),
+			  "no", SETTINGS_OVERRIDE_TYPE_CODE);
+}
+
 struct client *client_create(int fd_in, int fd_out,
 			     enum client_create_flags flags,
 			     struct event *event, struct mail_user *user,
@@ -138,30 +146,24 @@ struct client *client_create(int fd_in, int fd_out,
 	client->notify_flag_changes = TRUE;
 	p_array_init(&client->enabled_features, client->pool, 8);
 
-	client->capability_string =
-		str_new(client->pool, sizeof(CAPABILITY_STRING)+64);
-
-	if (*set->imap_capability == '\0')
-		str_append(client->capability_string, CAPABILITY_STRING);
-	else
-		str_append(client->capability_string, set->imap_capability);
+	struct settings_instance *set_instance =
+		mail_storage_service_user_get_settings_instance(
+			client->user->service_user);
+	/* All capabilities are enabled by defaults.
+	   Remove the capabilities here that can't work due current settings. */
 	if (client->set->imap_literal_minus)
-		client_add_capability(client, "LITERAL-");
-	else
-		client_add_capability(client, "LITERAL+");
-	if (user->fuzzy_search) {
-		/* Enable FUZZY capability only when it actually has
-		   a chance of working */
-		client_add_capability(client, "SEARCH=FUZZY");
-	}
+		imap_unset_capability(set_instance, "LITERAL+");
+	 else
+		imap_unset_capability(set_instance, "LITERAL-");
+	/* Enable FUZZY capability only when it actually has a chance of working */
+	if (!user->fuzzy_search)
+		imap_unset_capability(set_instance, "SEARCH=FUZZY");
 
 	mail_set = mail_user_set_get_storage_set(user);
-	if (mail_set->mailbox_list_index) {
-		/* NOTIFY is enabled only when mailbox list indexes are
-		   enabled, although even that doesn't necessarily guarantee
-		   it always */
-		client_add_capability(client, "NOTIFY");
-	}
+	/* NOTIFY is enabled only when mailbox list indexes are enabled,
+	   althoaugh even that doesn't necessarily guarantee it always */
+	if (!mail_set->mailbox_list_index)
+		imap_unset_capability(set_instance, "NOTIFY");
 
 	const char *error;
 	int ret = mailbox_attribute_dict_is_enabled(user, &error);
@@ -169,19 +171,30 @@ struct client *client_create(int fd_in, int fd_out,
 		client->init_error = p_strdup(user->pool, error);
 	bool have_mailbox_attribute_dict = ret > 0;
 
-	if (*set->imap_urlauth_host != '\0' && have_mailbox_attribute_dict) {
-		/* Enable URLAUTH capability only when dict is
-		   configured correctly */
+	/* Enable URLAUTH capability only when dict is configured correctly */
+	if (*set->imap_urlauth_host != '\0' && have_mailbox_attribute_dict)
 		client_init_urlauth(client);
-		client_add_capability(client, "URLAUTH");
-		client_add_capability(client, "URLAUTH=BINARY");
+	else {
+		imap_unset_capability(set_instance, "URLAUTH");
+		imap_unset_capability(set_instance, "URLAUTH=BINARY");
 	}
-	if (set->imap_metadata && have_mailbox_attribute_dict)
-		client_add_capability(client, "METADATA");
-	if (user->have_special_use_mailboxes) {
-		/* Advertise SPECIAL-USE only if there are actually some
-		   SPECIAL-USE flags in mailbox configuration. */
-		client_add_capability(client, "SPECIAL-USE");
+	if (!set->imap_metadata || !have_mailbox_attribute_dict)
+		imap_unset_capability(set_instance, "METADATA");
+	/* Advertise SPECIAL-USE only if there are actually some
+	   SPECIAL-USE flags in mailbox configuration. */
+	if (!user->have_special_use_mailboxes)
+		imap_unset_capability(set_instance, "SPECIAL-USE");
+
+	const struct imap_settings *modified_set;
+	if (settings_get(client->user->event, &imap_setting_parser_info,
+			 0, &modified_set, &error) < 0) {
+		if (client->init_error == NULL)
+			client->init_error = p_strdup(user->pool, error);
+	} else {
+		client->capability_string = str_new(client->pool, 256);
+		imap_write_capability(client->capability_string,
+				      &modified_set->imap_capability);
+		settings_free(modified_set);
 	}
 
 	struct master_service_anvil_session anvil_session;
@@ -590,8 +603,7 @@ void client_add_capability(struct client *client, const char *capability)
 {
 	/* require a single capability at a time (feels cleaner) */
 	i_assert(strchr(capability, ' ') == NULL);
-
-	if (client->set->imap_capability[0] != '\0') {
+	if (settings_boollist_is_stopped(&client->set->imap_capability)) {
 		/* explicit capability - don't change it */
 		return;
 	}
