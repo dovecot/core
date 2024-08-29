@@ -15,7 +15,6 @@
 
 #include <ctype.h>
 
-#define LOG_EXPORTER_LONG_FIELD_TRUNCATE_LEN 1000
 #define STATS_SUB_METRIC_MAX_LENGTH 256
 
 struct stats_metrics {
@@ -32,12 +31,18 @@ static struct metric *
 stats_metric_sub_metric_alloc(struct metric *metric, const char *name, pool_t pool);
 static void stats_metric_free(struct metric *metric);
 
-static void stats_exporters_add_set(struct stats_metrics *metrics,
-				    const struct stats_exporter_settings *set)
+static int stats_exporters_add_set(struct stats_metrics *metrics,
+				   struct event *event,
+				   const struct stats_exporter_settings *set,
+				   const char **error_r)
 {
+	const struct event_exporter_transport *transport =
+		set->parsed_transport;
 	struct event_exporter *exporter;
 
-	exporter = p_new(metrics->pool, struct event_exporter, 1);
+	if (event_exporter_init(transport, metrics->pool, event,
+				&exporter, error_r) < 0)
+		return -1;
 	exporter->name = p_strdup(metrics->pool, set->name);
 	exporter->transport_args = p_strdup(metrics->pool, set->transport_args);
 	exporter->transport_timeout = set->transport_timeout;
@@ -61,21 +66,11 @@ static void stats_exporters_add_set(struct stats_metrics *metrics,
 		i_unreached();
 	}
 
-	if (strcmp(set->parsed_transport->name, "log") == 0) {
-		exporter->format_max_field_len =
-			LOG_EXPORTER_LONG_FIELD_TRUNCATE_LEN;
-	}
-	exporter->transport = set->parsed_transport;
+	exporter->transport = transport;
 	exporter->transport_args = set->transport_args;
 
 	array_push_back(&metrics->exporters, &exporter);
-}
-
-void event_export_transport_assign_context(const struct event_exporter *exporter,
-					   void *context)
-{
-	struct event_exporter *ptr = (struct event_exporter *)exporter;
-	ptr->transport_context = context;
+	return 0;
 }
 
 static int stats_exporters_add_filter(struct stats_metrics *metrics,
@@ -94,7 +89,12 @@ static int stats_exporters_add_filter(struct stats_metrics *metrics,
 		*error_r = "Exporter name can't be empty";
 		ret = -1;
 	} else {
-		stats_exporters_add_set(metrics, set);
+		struct event *event = event_create(metrics->event);
+		event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
+			p_strdup_printf(event_get_pool(event),
+					"event_exporter/%s", filter_name));
+		ret = stats_exporters_add_set(metrics, event, set, error_r);
+		event_unref(&event);
 	}
 	settings_free(set);
 	return ret;
@@ -371,7 +371,7 @@ void stats_metrics_deinit(struct stats_metrics **_metrics)
 
 	*_metrics = NULL;
 
-	event_exporter_transports_deinit();
+	event_exporters_deinit();
 
 	array_foreach_elem(&metrics->metrics, metric)
 		stats_metric_free(metric);

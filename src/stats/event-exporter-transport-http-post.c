@@ -14,7 +14,8 @@
 /* the http client used to export all events with exporter=http-post */
 static struct http_client *exporter_http_client;
 
-static void event_exporter_http_post_deinit(void)
+static void
+event_exporter_http_post_deinit(struct event_exporter *exporter ATTR_UNUSED)
 {
 	if (exporter_http_client != NULL)
 		http_client_deinit(&exporter_http_client);

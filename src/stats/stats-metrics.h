@@ -35,7 +35,6 @@ struct event_exporter {
 	 */
 	const char *transport_args;
 	unsigned int transport_timeout;
-	void *transport_context;
 
 	const struct event_exporter_transport *transport;
 };
