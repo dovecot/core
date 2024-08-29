@@ -51,7 +51,7 @@ const struct setting_keyvalue imap_login_service_settings_defaults[] = {
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct imap_login_settings)
 
 static const struct setting_define imap_login_setting_defines[] = {
-	DEF(STR, imap_capability),
+	DEF(BOOLLIST, imap_capability),
 	DEF(BOOL, imap_literal_minus),
 	DEF(BOOL, imap_id_retain),
 
@@ -62,13 +62,23 @@ static const struct setting_define imap_login_setting_defines[] = {
 };
 
 static const struct imap_login_settings imap_login_default_settings = {
-	.imap_capability = "",
+	.imap_capability = ARRAY_INIT,
 	.imap_id_send = ARRAY_INIT,
 	.imap_literal_minus = FALSE,
 	.imap_id_retain = FALSE,
 };
 
 static const struct setting_keyvalue imap_login_default_settings_keyvalue[] = {
+	{"service/imap-login/imap_capability/IMAP4rev1", "yes"},
+	{"service/imap-login/imap_capability/LOGIN-REFERRALS", "yes"},
+	{"service/imap-login/imap_capability/ID", "yes"},
+	{"service/imap-login/imap_capability/ENABLE", "yes"},
+	/* IDLE doesn't really belong to banner. It's there just to make
+	   Blackberries happy, because otherwise BIS server disables push email. */
+	{ "service/imap-login/imap_capability/IDLE", "yes" },
+	{ "service/imap-login/imap_capability/SASL-IR", "yes" },
+	{ "service/imap-login/imap_capability/LITERAL+", "yes" },
+	{ "service/imap-login/imap_capability/LITERAL-", "yes" },
 	{ "imap_id_send/name", DOVECOT_NAME },
 	{ NULL, NULL },
 };

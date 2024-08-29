@@ -21,6 +21,7 @@
 #include "imap-quote.h"
 #include "imap-login-commands.h"
 #include "imap-login-settings.h"
+#include "imap-util.h"
 
 #if LOGIN_MAX_INBUF_SIZE < 1024+2
 #  error LOGIN_MAX_INBUF_SIZE too short to fit all ID command parameters
@@ -89,24 +90,16 @@ static bool is_login_cmd_disabled(struct client *client)
 	return FALSE;
 }
 
+static int imap_client_reload_config(struct client *client,
+				     const char **error_r);
+
 static const char *get_capability(struct client *client)
 {
 	struct imap_client *imap_client =
 		container_of(client, struct imap_client, common);
 	string_t *cap_str = t_str_new(256);
 
-	if (*imap_client->set->imap_capability == '\0')
-		str_append(cap_str, CAPABILITY_BANNER_STRING);
-	else {
-		str_append(cap_str, CAPABILITY_BANNER_STRING);
-		str_append_c(cap_str, ' ');
-		str_append(cap_str, imap_client->set->imap_capability + 1);
-	}
-
-	if (imap_client->set->imap_literal_minus)
-		str_append(cap_str, " LITERAL-");
-	else
-		str_append(cap_str, " LITERAL+");
+	imap_write_capability(cap_str, &imap_client->set->imap_capability);
 
 	if (client_is_tls_enabled(client) && !client->connection_tls_secured &&
 	    !client->haproxy_terminated_tls)
@@ -390,9 +383,27 @@ static int imap_client_create(struct client *client)
 		imap_parser_create(imap_client->common.input,
 				   imap_client->common.output,
 				   IMAP_LOGIN_MAX_LINE_LENGTH);
-	if (imap_client->set->imap_literal_minus)
+	struct settings_instance *set_instance = settings_instance_find(client->event);
+	if (set_instance == NULL) {
+		set_instance = settings_instance_new(
+			master_service_get_settings_root(master_service));
+		event_set_ptr(client->event, SETTINGS_EVENT_INSTANCE, set_instance);
+	}
+
+	if (imap_client->set->imap_literal_minus) {
+		settings_override(set_instance,
+				  "imap_capability/LITERAL+",
+				  "no", SETTINGS_OVERRIDE_TYPE_CODE);
 		imap_parser_enable_literal_minus(imap_client->parser);
+	} else
+		settings_override(set_instance,
+				  "imap_capability/LITERAL-",
+				  "no", SETTINGS_OVERRIDE_TYPE_CODE);
 	client->io = io_add_istream(client->input, client_input, client);
+	if (imap_client_reload_config(client, &error) < 0) {
+		e_error(client->event, "%s", error);
+		return -1;
+	}
 	return 0;
 }
 

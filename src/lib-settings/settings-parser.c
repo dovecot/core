@@ -519,12 +519,9 @@ bool settings_boollist_is_stopped(const ARRAY_TYPE(const_string) *array)
 	/* The first element after the visible array is NULL. If the next element
 	   after the NULL is set_array_stop, then the boollist is stopped. */
 	unsigned int count;
-	const char *const *values =
-		array_get(array, &count);
+	const char *const *values = array_get(array, &count);
 	i_assert(values[count] == NULL);
-	if (values[count + 1] == set_array_stop)
-		return TRUE;
-	return FALSE;
+	return values[count + 1] == set_array_stop;
 }
 
 static int
