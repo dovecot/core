@@ -61,8 +61,8 @@ static void event_exporter_file_deinit(void)
 	}
 }
 
-static struct exporter_file *exporter_file_init(const struct exporter *exporter,
-						bool unix_socket)
+static struct exporter_file *
+exporter_file_init(const struct event_exporter *exporter, bool unix_socket)
 {
 	struct exporter_file *node;
 	node = i_new(struct exporter_file, 1);
@@ -143,7 +143,7 @@ static void event_exporter_file_write(struct exporter_file *node,
 }
 
 static void
-event_exporter_file_send(struct exporter *exporter, const buffer_t *buf)
+event_exporter_file_send(struct event_exporter *exporter, const buffer_t *buf)
 {
 	struct exporter_file *node = exporter->transport_context;
 	if (node == NULL)
@@ -154,7 +154,7 @@ event_exporter_file_send(struct exporter *exporter, const buffer_t *buf)
 }
 
 static void
-event_exporter_unix_send(struct exporter *exporter, const buffer_t *buf)
+event_exporter_unix_send(struct event_exporter *exporter, const buffer_t *buf)
 {
 	struct exporter_file *node = exporter->transport_context;
 	if (node == NULL)

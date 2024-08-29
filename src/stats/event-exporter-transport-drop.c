@@ -4,7 +4,7 @@
 #include "event-exporter.h"
 
 static void
-event_exporter_drop_send(struct exporter *exporter ATTR_UNUSED,
+event_exporter_drop_send(struct event_exporter *exporter ATTR_UNUSED,
 			 const buffer_t *buf ATTR_UNUSED)
 {
 }

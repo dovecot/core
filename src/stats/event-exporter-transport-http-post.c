@@ -46,7 +46,8 @@ static void response_fxn(const struct http_response *response,
 }
 
 static void
-event_exporter_http_post_send(struct exporter *exporter, const buffer_t *buf)
+event_exporter_http_post_send(struct event_exporter *exporter,
+			      const buffer_t *buf)
 {
 	struct http_client_request *req;
 

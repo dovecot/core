@@ -9,7 +9,7 @@ struct event_exporter_transport {
 	void (*deinit)(void);
 
 	/* function to send the event */
-	void (*send)(struct exporter *exporter, const buffer_t *buf);
+	void (*send)(struct event_exporter *exporter, const buffer_t *buf);
 
 	void (*reopen)(void);
 };
@@ -44,7 +44,7 @@ void event_export_helper_fmt_categories(string_t *dest,
 					const char *separator);
 
 /* assign transport context to a event exporter */
-void event_export_transport_assign_context(const struct exporter *exporter,
+void event_export_transport_assign_context(const struct event_exporter *exporter,
 					   void *context);
 
 #endif
