@@ -61,27 +61,11 @@ static void stats_exporters_add_set(struct stats_metrics *metrics,
 		i_unreached();
 	}
 
-	/* TODO: The following should be plugable.
-	 *
-	 * Note: Make sure to mirror any changes to the below code in
-	 * stats_exporter_settings_check().
-	 */
-	if (strcmp(set->driver, "drop") == 0) {
-		exporter->transport = event_export_transport_drop;
-	} else if (strcmp(set->driver, "http-post") == 0) {
-		exporter->transport = event_export_transport_http_post;
-	} else if (strcmp(set->driver, "log") == 0) {
-		exporter->transport = event_export_transport_log;
+	if (strcmp(set->parsed_transport->name, "log") == 0) {
 		exporter->format_max_field_len =
 			LOG_EXPORTER_LONG_FIELD_TRUNCATE_LEN;
-	} else if (strcmp(set->driver, "file") == 0) {
-		exporter->transport = event_export_transport_file;
-	} else if (strcmp(set->driver, "unix") == 0) {
-		exporter->transport = event_export_transport_unix;
-	} else {
-		i_unreached();
 	}
-
+	exporter->transport = set->parsed_transport;
 	exporter->transport_args = set->transport_args;
 
 	array_push_back(&metrics->exporters, &exporter);
@@ -380,14 +364,6 @@ static void stats_metric_free(struct metric *metric)
 		stats_metric_free(sub_metric);
 }
 
-static void stats_export_deinit(void)
-{
-	/* no need for event_export_transport_drop_deinit() - no-op */
-	event_export_transport_http_post_deinit();
-	/* no need for event_export_transport_log_deinit() - no-op */
-	event_export_transport_file_deinit();
-}
-
 void stats_metrics_deinit(struct stats_metrics **_metrics)
 {
 	struct stats_metrics *metrics = *_metrics;
@@ -395,7 +371,7 @@ void stats_metrics_deinit(struct stats_metrics **_metrics)
 
 	*_metrics = NULL;
 
-	stats_export_deinit();
+	event_exporter_transports_deinit();
 
 	array_foreach_elem(&metrics->metrics, metric)
 		stats_metric_free(metric);
@@ -818,7 +794,7 @@ static void
 stats_export_event(struct metric *metric, struct event *oldevent)
 {
 	const struct metric_export_info *info = &metric->export_info;
-	const struct exporter *exporter = info->exporter;
+	struct exporter *exporter = info->exporter;
 	struct event *event;
 
 	i_assert(exporter != NULL);
@@ -831,7 +807,7 @@ stats_export_event(struct metric *metric, struct event *oldevent)
 		buf = t_buffer_create(128);
 
 		exporter->format(metric, event, buf);
-		exporter->transport(exporter, buf);
+		exporter->transport->send(exporter, buf);
 	} T_END;
 
 	event_unref(&event);

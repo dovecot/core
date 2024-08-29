@@ -12,6 +12,7 @@
 #include "master-service.h"
 #include "stats-metrics.h"
 #include "stats-settings.h"
+#include "event-exporter.h"
 #include "client-reader.h"
 #include "client-writer.h"
 #include "event-exporter.h"
@@ -257,7 +258,7 @@ reader_client_input_args(struct connection *conn, const char *const *args)
 	else if (strcmp(cmd, "DUMP-RESET") == 0)
 		return reader_client_input_dump_reset(client, args);
 	else if (strcmp(cmd, "REOPEN") == 0) {
-		event_export_transport_file_reopen();
+		event_exporter_transports_reopen();
 		o_stream_nsend(client->conn.output, "+\n", 2);
 	}
 	return 1;

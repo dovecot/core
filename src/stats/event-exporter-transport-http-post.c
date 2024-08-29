@@ -14,7 +14,7 @@
 /* the http client used to export all events with exporter=http-post */
 static struct http_client *exporter_http_client;
 
-void event_export_transport_http_post_deinit(void)
+static void event_exporter_http_post_deinit(void)
 {
 	if (exporter_http_client != NULL)
 		http_client_deinit(&exporter_http_client);
@@ -45,8 +45,8 @@ static void response_fxn(const struct http_response *response,
 	suppressed = 0;
 }
 
-void event_export_transport_http_post(const struct exporter *exporter,
-				      const buffer_t *buf)
+static void
+event_exporter_http_post_send(struct exporter *exporter, const buffer_t *buf)
 {
 	struct http_client_request *req;
 
@@ -66,3 +66,10 @@ void event_export_transport_http_post(const struct exporter *exporter,
 	http_client_request_set_timeout_msecs(req, exporter->transport_timeout);
 	http_client_request_submit(req);
 }
+
+const struct event_exporter_transport event_exporter_transport_http_post = {
+	.name = "http-post",
+
+	.deinit = event_exporter_http_post_deinit,
+	.send = event_exporter_http_post_send,
+};

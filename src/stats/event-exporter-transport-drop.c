@@ -3,7 +3,14 @@
 #include "lib.h"
 #include "event-exporter.h"
 
-void event_export_transport_drop(const struct exporter *exporter ATTR_UNUSED,
-				 const buffer_t *buf ATTR_UNUSED)
+static void
+event_exporter_drop_send(struct exporter *exporter ATTR_UNUSED,
+			 const buffer_t *buf ATTR_UNUSED)
 {
 }
+
+const struct event_exporter_transport event_exporter_transport_drop = {
+	.name = "drop",
+
+	.send = event_exporter_drop_send,
+};
