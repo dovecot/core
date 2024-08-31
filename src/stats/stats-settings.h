@@ -74,7 +74,6 @@ struct stats_exporter_settings {
 
 	/* parsed values */
 	enum event_exporter_time_fmt parsed_time_format;
-	const struct event_exporter_transport *parsed_transport;
 };
 
 /* <settings checks> */
