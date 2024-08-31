@@ -366,6 +366,19 @@ settings_value_check(struct config_parser_context *ctx,
 		}
 		break;
 	}
+	case SET_UINTMAX: {
+		uintmax_t num;
+
+		if (strchr(value, '%') != NULL)
+			break;
+		if (str_to_uintmax(value, &num) < 0) {
+			ctx->error = p_strdup_printf(ctx->pool,
+				"Invalid number %s: %s", value,
+				str_num_error(value));
+			return -1;
+		}
+		break;
+	}
 	case SET_UINT_OCT:
 		if (*value == '0') {
 			unsigned long long octal;
