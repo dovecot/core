@@ -106,6 +106,11 @@ bool config_export_type(string_t *str, const void *value,
 		config_export_size(str, *val);
 		break;
 	}
+	case SET_UINTMAX: {
+		const uint64_t *val = value;
+		str_printfa(str, "%ju", *val);
+		break;
+	}
 	case SET_UINT:
 	case SET_UINT_OCT: {
 		const unsigned int *val = value;
@@ -208,6 +213,7 @@ settings_export(struct config_export_context *ctx,
 		case SET_FILE:
 		case SET_BOOL:
 		case SET_SIZE:
+		case SET_UINTMAX:
 		case SET_UINT:
 		case SET_UINT_OCT:
 		case SET_TIME:

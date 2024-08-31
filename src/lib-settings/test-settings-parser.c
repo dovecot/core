@@ -12,6 +12,7 @@ static const char *const test_settings_blobs[] =
 /* Blob 0 */
 	"bool_true", "yes",
 	"bool_false", "no",
+	"uintmax_max", "18446744073709551615",
 	"uint", "15",
 	"uint_oct", "0700",
 	"secs", "5s",
@@ -30,6 +31,7 @@ static const char *const test_settings_invalid[] =
 {
 	"bool_true", "",
 	"bool_false", "x",
+	"uintmax_max", "",
 	"uint", "",
 	"uint", "15M",
 	"uint_oct", "",
@@ -48,6 +50,7 @@ static void test_settings_parser(void)
 	struct test_settings {
 		bool bool_true;
 		bool bool_false;
+		uintmax_t uintmax_max;
 		unsigned int uint;
 		unsigned int uint_oct;
 		unsigned int secs;
@@ -66,6 +69,7 @@ static void test_settings_parser(void)
 		0,
 		0,
 		0,
+		0,
 		"",
 		"",
 		ARRAY_INIT,
@@ -73,6 +77,7 @@ static void test_settings_parser(void)
 	const struct setting_define defs[] = {
 		SETTING_DEFINE_STRUCT_BOOL("bool_true", bool_true, struct test_settings),
 		SETTING_DEFINE_STRUCT_BOOL("bool_false", bool_false, struct test_settings),
+		SETTING_DEFINE_STRUCT_UINTMAX("uintmax_max", uintmax_max, struct test_settings),
 		SETTING_DEFINE_STRUCT_UINT("uint", uint, struct test_settings),
 		{ .type = SET_UINT_OCT, .key = "uint_oct",
 		  offsetof(struct test_settings, uint_oct), NULL },
@@ -117,6 +122,7 @@ static void test_settings_parser(void)
 
 	test_assert(settings->bool_true == TRUE);
 	test_assert(settings->bool_false == FALSE);
+	test_assert(settings->uintmax_max == 18446744073709551615ULL);
 	test_assert(settings->uint == 15);
 	test_assert(settings->uint_oct == 0700);
 	test_assert(settings->secs == 5);

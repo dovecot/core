@@ -27,6 +27,7 @@ struct var_expand_func_table;
 
 enum setting_type {
 	SET_BOOL,
+	SET_UINTMAX,
 	SET_UINT,
 	SET_UINT_OCT,
 	SET_TIME,
@@ -74,6 +75,8 @@ struct setting_define {
 
 #define SETTING_DEFINE_STRUCT_BOOL(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_BOOL, 0, bool, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_UINTMAX(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_UINTMAX, 0, uintmax_t, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_UINT(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_UINT, 0, unsigned int, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_UINT_OCT(key, name, struct_name) \
@@ -101,6 +104,8 @@ struct setting_define {
 
 #define SETTING_DEFINE_STRUCT_BOOL_HIDDEN(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_BOOL, SET_FLAG_HIDDEN, bool, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_UINTMAX_HIDDEN(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_UINTMAX, SET_FLAG_HIDDEN, uintmax_t, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_UINT_HIDDEN(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_UINT, SET_FLAG_HIDDEN, unsigned int, key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_UINT_OCT_HIDDEN(key, name, struct_name) \

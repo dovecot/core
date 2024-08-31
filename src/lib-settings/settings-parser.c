@@ -188,6 +188,19 @@ get_bool(struct setting_parser_context *ctx, const char *value, bool *result_r)
 }
 
 static int
+get_uintmax(struct setting_parser_context *ctx, const char *value,
+	    uintmax_t *result_r)
+{
+	if (str_to_uintmax(value, result_r) < 0) {
+		settings_parser_set_error(ctx, t_strdup_printf(
+			"Invalid number %s: %s", value,
+			str_num_error(value)));
+		return -1;
+	}
+	return 0;
+}
+
+static int
 get_uint(struct setting_parser_context *ctx, const char *value,
 	 unsigned int *result_r)
 {
@@ -595,6 +608,10 @@ settings_parse(struct setting_parser_context *ctx,
 		if (get_bool(ctx, value, (bool *)ptr) < 0)
 			return -1;
 		break;
+	case SET_UINTMAX:
+		if (get_uintmax(ctx, value, (uintmax_t *)ptr) < 0)
+			return -1;
+		break;
 	case SET_UINT:
 		if (get_uint(ctx, value, (unsigned int *)ptr) < 0)
 			return -1;
@@ -935,6 +952,11 @@ unsigned int settings_hash(const struct setting_parser_info *info,
 			crc = crc32_data_more(crc, b, sizeof(*b));
 			break;
 		}
+		case SET_UINTMAX: {
+			const uintmax_t *i = p;
+			crc = crc32_data_more(crc, i, sizeof(*i));
+			break;
+		}
 		case SET_UINT:
 		case SET_UINT_OCT:
 		case SET_TIME:
@@ -1008,6 +1030,12 @@ bool settings_equal(const struct setting_parser_info *info,
 		case SET_BOOL: {
 			const bool *b1 = p1, *b2 = p2;
 			if (*b1 != *b2)
+				return FALSE;
+			break;
+		}
+		case SET_UINTMAX: {
+			const uintmax_t *i1 = p1, *i2 = p2;
+			if (*i1 != *i2)
 				return FALSE;
 			break;
 		}
