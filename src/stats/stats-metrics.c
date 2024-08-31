@@ -36,9 +36,10 @@ static int stats_exporters_add_set(struct stats_metrics *metrics,
 				   const struct stats_exporter_settings *set,
 				   const char **error_r)
 {
-	const struct event_exporter_transport *transport =
-		set->parsed_transport;
 	struct event_exporter *exporter;
+	const struct event_exporter_transport *transport =
+		event_exporter_transport_find(set->driver);
+	i_assert(transport != NULL);
 
 	if (event_exporter_init(transport, metrics->pool, event,
 				&exporter, error_r) < 0)

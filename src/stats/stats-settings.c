@@ -69,7 +69,7 @@ const struct setting_keyvalue stats_service_settings_defaults[] = {
 
 static const struct setting_define stats_exporter_setting_defines[] = {
 	DEF(STR, name),
-	DEF(STR, driver),
+	DEF(ENUM, driver),
 	DEF(STR, transport_args),
 	DEF(TIME_MSECS, transport_timeout),
 	DEF(STR, format),
@@ -79,7 +79,7 @@ static const struct setting_define stats_exporter_setting_defines[] = {
 
 static const struct stats_exporter_settings stats_exporter_default_settings = {
 	.name = "",
-	.driver = "",
+	.driver = "log:file:unix:http-post:drop",
 	.transport_args = "",
 	.transport_timeout = 250, /* ms */
 	.format = "",
@@ -260,17 +260,6 @@ static bool stats_exporter_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 					   set->format);
 		return FALSE;
 	}
-
-	if (set->driver[0] == '\0')
-		set->driver = set->name;
-#ifndef CONFIG_BINARY
-	set->parsed_transport = event_exporter_transport_find(set->driver);
-	if (set->parsed_transport == NULL) {
-		*error_r = t_strdup_printf("Unknown evente_exporter_driver: %s",
-					   set->driver);
-		return FALSE;
-	}
-#endif
 
 	if (!parse_format_args(set, error_r))
 		return FALSE;
