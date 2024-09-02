@@ -109,7 +109,7 @@ struct metric {
 };
 
 bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
-			       struct stats_metric_settings *set,
+			       const struct stats_metric_settings *set,
 			       const char **error_r);
 
 bool stats_metrics_remove_dynamic(struct stats_metrics *metrics,

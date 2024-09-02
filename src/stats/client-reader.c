@@ -7,6 +7,7 @@
 #include "strescape.h"
 #include "connection.h"
 #include "ostream.h"
+#include "settings.h"
 #include "master-service.h"
 #include "stats-metrics.h"
 #include "stats-settings.h"
@@ -163,17 +164,27 @@ reader_client_input_metrics_add(struct reader_client *client,
 		return -1;
 	}
 
-	struct stats_metric_settings set = {
-		.name = args[0],
-		.description = args[1],
-		.fields = args[2],
-		.group_by = args[3],
-		.filter = args[4],
-		.exporter = args[5],
-		.exporter_include = args[6],
-	};
+	pool_t pool = pool_alloconly_create("dynamic stats metrics", 128);
+	struct stats_metric_settings *set =
+		p_new(pool, struct stats_metric_settings, 1);
+	*set = stats_metric_default_settings;
+	set->pool = pool;
+	set->name = p_strdup(pool, args[0]);
+	set->description = p_strdup(pool, args[1]);
+	set->fields = p_strdup(pool, args[2]);
+	set->group_by = p_strdup(pool, args[3]);
+	set->filter = p_strdup(pool, args[4]);
+	set->exporter = p_strdup(pool, args[5]);
+	set->exporter_include = p_strdup(pool, args[6]);
+
+	if (!stats_metric_setting_parser_info.check_func(set, pool, &error)) {
+		e_error(client->conn.event, "METRICS-ADD: %s", error);
+		pool_unref(&pool);
+		return -1;
+	}
+
 	o_stream_cork(client->conn.output);
-	if (stats_metrics_add_dynamic(stats_metrics, &set, &error)) {
+	if (stats_metrics_add_dynamic(stats_metrics, set, &error)) {
 		client_writer_update_connections();
 		o_stream_nsend(client->conn.output, "+", 1);
 	} else {
@@ -181,6 +192,8 @@ reader_client_input_metrics_add(struct reader_client *client,
 		o_stream_nsend_str(client->conn.output, "METRICS-ADD: ");
 		o_stream_nsend_str(client->conn.output, error);
 	}
+	settings_free(set);
+
 	o_stream_nsend(client->conn.output, "\n", 1);
 	o_stream_uncork(client->conn.output);
 	return 1;
