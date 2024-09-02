@@ -124,6 +124,7 @@ stats_metric_alloc(pool_t pool, const char *name,
 	struct metric *metric = p_new(pool, struct metric, 1);
 	metric->name = p_strdup(pool, name);
 	metric->set = set;
+	pool_ref(set->pool);
 	metric->duration_stats = stats_dist_init();
 	metric->fields_count = str_array_length(fields);
 	if (metric->fields_count > 0) {
@@ -230,6 +231,7 @@ static int stats_metrics_add_filter(struct stats_metrics *metrics,
 	} else {
 		ret = stats_metrics_add_set(metrics, set, error_r);
 	}
+	settings_free(set);
 	return ret;
 }
 
@@ -300,17 +302,23 @@ bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
 
 	struct stats_metric_settings *_set =
 		stats_metric_settings_dup(metrics->pool, set);
-	if (!stats_metric_setting_parser_info.check_func(_set, metrics->pool, error_r))
+	if (!stats_metric_setting_parser_info.check_func(_set, metrics->pool, error_r)) {
+		settings_free(_set);
 		return FALSE;
+	}
 
 	if (!stats_metrics_check_for_exporter(metrics, set->exporter)) {
 		*error_r = t_strdup_printf("Exporter '%s' does not exist.",
 					   set->exporter);
+		settings_free(_set);
 		return FALSE;
 	}
 
-	if (stats_metrics_add_set(metrics, _set, error_r) < 0)
+	if (stats_metrics_add_set(metrics, _set, error_r) < 0) {
+		settings_free(_set);
 		return FALSE;
+	}
+	settings_free(_set);
 	return TRUE;
 }
 
@@ -494,7 +502,6 @@ stats_metric_sub_metric_alloc(struct metric *metric, const char *name, pool_t po
 	array_append_zero(&fields);
 	sub_metric = stats_metric_alloc(pool, metric->name, metric->set,
 					array_idx(&fields, 0));
-	pool_ref(sub_metric->set->pool);
 	size_t max_len = STATS_SUB_METRIC_MAX_LENGTH - metric->sub_name_used_size;
 	sub_metric->sub_name = p_strdup(pool, str_sanitize_utf8(name, max_len));
 	sub_metric->sub_name_used_size =
