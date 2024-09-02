@@ -98,27 +98,17 @@ static size_t event_filter_parser_input_proc(char *buf, size_t size, yyscan_t sc
 
 void *yyalloc(size_t bytes, void* yyscanner ATTR_UNUSED)
 {
-	void *ptr = calloc(1, bytes);
-	if (ptr == NULL)
-		i_fatal_status(FATAL_OUTOFMEM, "calloc(1, %zu): Out of memory",
-			       bytes);
-	return ptr;
+	return i_malloc(bytes);
 }
 
 void *yyrealloc (void *ptr, size_t bytes, void *yyscanner ATTR_UNUSED)
 {
-	void *nptr = realloc(ptr, bytes);
-	if (nptr == NULL)
-		i_fatal_status(FATAL_OUTOFMEM, "realloc(ptr, %zu): Out of memory",
-			       bytes);
-	return nptr;
+	return i_realloc(ptr, SIZE_MAX, bytes);
 }
 
 void yyfree(void *ptr, void *yyscanner ATTR_UNUSED)
 {
-	if (ptr == NULL)
-		return;
-	free(ptr);
+	i_free(ptr);
 }
 
 static size_t event_filter_parser_input_proc(char *buf, size_t size, yyscan_t scanner)
