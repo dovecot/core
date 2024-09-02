@@ -132,7 +132,7 @@ static void test_stats_metrics_group_by_check_one(const struct metric *metric,
 
 #define DISCRETE_TEST_VAL_COUNT	3
 struct discrete_test {
-	const char *settings_blob;
+	const char *const *settings_blob;
 	unsigned int num_values;
 	const char *values_first[DISCRETE_TEST_VAL_COUNT];
 	const char *values_second[DISCRETE_TEST_VAL_COUNT];
@@ -140,41 +140,64 @@ struct discrete_test {
 
 static const struct discrete_test discrete_tests[] = {
 	{
-		"test_name sub_name",
+		(const char *const []){
+		  "metric/test/group_by=test_name,sub_name",
+		  "metric/test/group_by/test_name/field=test_name",
+		  "metric/test/group_by/sub_name/field=sub_name",
+		  NULL },
 		3,
 		{ "eta", "kappa", "nu", },
 		{ "upsilon", "pi", "epsilon", },
 	},
 	{
-		"test_name:discrete sub_name:discrete",
+		(const char *const []){
+		  "metric/test/group_by=test_name,sub_name",
+		  "metric/test/group_by/test_name/field=test_name",
+		  "metric/test/group_by/test_name/method=discrete",
+		  "metric/test/group_by/test_name/method/discrete/method=discrete",
+		  "metric/test/group_by/sub_name/field=sub_name",
+		  "metric/test/group_by/sub_name/method=discrete",
+		  "metric/test/group_by/sub_name/method/discrete/method=discrete",
+		  NULL },
 		3,
 		{ "apple", "bannana", "orange", },
 		{ "pie", "yoghurt", "cobbler", },
 	},
 	{
-		"test_name sub_name:discrete",
+		(const char *const []){
+		  "metric/test/group_by=test_name,sub_name",
+		  "metric/test/group_by/test_name/field=test_name",
+		  "metric/test/group_by/test_name/method/discrete/method=discrete",
+		  "metric/test/group_by/sub_name/field=sub_name",
+		  "metric/test/group_by/sub_name/method=discrete",
+		  "metric/test/group_by/sub_name/method/discrete/method=discrete",
+		  NULL },
 		3,
 		{ "apollo", "gaia", "hermes", },
 		{ "thor", "odin", "loki", },
 	},
 };
 
-static void test_stats_metrics_group_by_discrete_real(const struct discrete_test *test)
+static void
+test_stats_metrics_group_by_discrete_real(const struct discrete_test *test,
+					  unsigned int group_idx)
 {
 	struct event *event;
 	unsigned int i, j;
 
-	test_begin(t_strdup_printf("stats metrics (discrete group by) - %s",
-				   test->settings_blob));
+	test_begin(t_strdup_printf("stats metrics (discrete group by) - %u",
+				   group_idx));
 
-	const char *const settings[] = {
+	const char *const base_settings[] = {
 		"metric=test",
 		"metric/test/metric_name=test",
 		"metric/test/filter=event=test",
-		t_strdup_printf("metric/test/group_by=%s", test->settings_blob),
 		NULL
 	};
-	test_init(settings);
+	const char *const *all_settings = t_strsplit(
+		t_strconcat(t_strarray_join(base_settings, " "), " ",
+			    t_strarray_join(test->settings_blob, " "), NULL), " ");
+	test_init(all_settings);
 
 	for (i = 0; i < test->num_values; i++) {
 		for (j = 0; j < test->num_values; j++) {
@@ -235,12 +258,12 @@ static void test_stats_metrics_group_by_discrete(void)
 	unsigned int i;
 
 	for (i = 0; i < N_ELEMENTS(discrete_tests); i++)
-		test_stats_metrics_group_by_discrete_real(&discrete_tests[i]);
+		test_stats_metrics_group_by_discrete_real(&discrete_tests[i], i);
 }
 
 #define QUANTIZED_TEST_VAL_COUNT	15
 struct quantized_test {
-	const char *settings_blob;
+	const char *const *settings_blob;
 	unsigned int num_inputs;
 	intmax_t input_vals[QUANTIZED_TEST_VAL_COUNT];
 
@@ -255,7 +278,13 @@ struct quantized_test {
 
 static const struct quantized_test quantized_tests[] = {
 	{
-		"linear:100:1000:100",
+		(const char *const []){
+		  "metric/test/group_by/foobar/method=linear",
+		  "metric/test/group_by/foobar/method/linear/method=linear",
+		  "metric/test/group_by/foobar/method/linear/min=100",
+		  "metric/test/group_by/foobar/method/linear/max=1000",
+		  "metric/test/group_by/foobar/method/linear/step=100",
+		  NULL },
 		13,
 		{ 0, 50, 100, 101, 200, 201, 250, 301, 900, 901, 1000, 1001, 2000 },
 		7,
@@ -275,7 +304,11 @@ static const struct quantized_test quantized_tests[] = {
 	},
 	{
 		/* start at 0 */
-		"exponential:0:6:10",
+		(const char *const []){
+		  "metric/test/group_by/foobar/method=exponential",
+		  "metric/test/group_by/foobar/method/exponential/method=exponential",
+		  "metric/test/group_by/foobar/method/exponential/max_magnitude=6",
+		  NULL },
 		12,
 		{ 0, 5, 10, 11, 100, 101, 500, 1000, 1001, 1000000, 1000001, 2000000 },
 		7,
@@ -292,7 +325,12 @@ static const struct quantized_test quantized_tests[] = {
 	},
 	{
 		/* start at 0 */
-		"exponential:0:6:2",
+		(const char *const []){
+		  "metric/test/group_by/foobar/method=exponential",
+		  "metric/test/group_by/foobar/method/exponential/method=exponential",
+		  "metric/test/group_by/foobar/method/exponential/max_magnitude=6",
+		  "metric/test/group_by/foobar/method/exponential/base=2",
+		  NULL },
 		9,
 		{ 0, 1, 2, 4, 5, 20, 64, 65, 100 },
 		7,
@@ -309,7 +347,12 @@ static const struct quantized_test quantized_tests[] = {
 	},
 	{
 		/* start at >0 */
-		"exponential:2:6:10",
+		(const char *const []){
+		  "metric/test/group_by/foobar/method=exponential",
+		  "metric/test/group_by/foobar/method/exponential/method=exponential",
+		  "metric/test/group_by/foobar/method/exponential/min_magnitude=2",
+		  "metric/test/group_by/foobar/method/exponential/max_magnitude=6",
+		  NULL },
 		12,
 		{ 0, 5, 10, 11, 100, 101, 500, 1000, 1001, 1000000, 1000001, 2000000 },
 		5,
@@ -324,7 +367,13 @@ static const struct quantized_test quantized_tests[] = {
 	},
 	{
 		/* start at >0 */
-		"exponential:2:6:2",
+		(const char *const []){
+		  "metric/test/group_by/foobar/method=exponential",
+		  "metric/test/group_by/foobar/method/exponential/method=exponential",
+		  "metric/test/group_by/foobar/method/exponential/min_magnitude=2",
+		  "metric/test/group_by/foobar/method/exponential/max_magnitude=6",
+		  "metric/test/group_by/foobar/method/exponential/base=2",
+		  NULL },
 		9,
 		{ 0, 1, 2, 4, 5, 20, 64, 65, 100 },
 		5,
@@ -339,22 +388,28 @@ static const struct quantized_test quantized_tests[] = {
 	},
 };
 
-static void test_stats_metrics_group_by_quantized_real(const struct quantized_test *test)
+static void
+test_stats_metrics_group_by_quantized_real(const struct quantized_test *test,
+					   unsigned int group_idx)
 {
 	unsigned int i;
 
-	test_begin(t_strdup_printf("stats metrics (quantized group by) - %s",
-				   test->settings_blob));
+	test_begin(t_strdup_printf("stats metrics (quantized group by) - %u",
+				   group_idx));
 
-	const char *const settings[] = {
+	const char *const base_settings[] = {
 		"metric=test",
 		"metric/test/metric_name=test",
 		"metric/test/filter=event=test",
-		t_strdup_printf("metric/test/group_by=test_name foobar:%s",
-				test->settings_blob),
+		"metric/test/group_by=test_name,foobar",
+		"metric/test/group_by/test_name/field=test_name",
+		"metric/test/group_by/foobar/field=foobar",
 		NULL
 	};
-	test_init(settings);
+	const char *const *all_settings = t_strsplit(
+		t_strconcat(t_strarray_join(base_settings, " "), " ",
+			    t_strarray_join(test->settings_blob, " "), NULL), " ");
+	test_init(all_settings);
 
 	struct event *event;
 
@@ -440,7 +495,7 @@ static void test_stats_metrics_group_by_quantized(void)
 	unsigned int i;
 
 	for (i = 0; i < N_ELEMENTS(quantized_tests); i++)
-		test_stats_metrics_group_by_quantized_real(&quantized_tests[i]);
+		test_stats_metrics_group_by_quantized_real(&quantized_tests[i], i);
 }
 
 int main(void) {

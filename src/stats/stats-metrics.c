@@ -88,9 +88,7 @@ static int stats_exporters_add_filter(struct stats_metrics *metrics,
 		ret = -1;
 	} else {
 		struct event *event = event_create(metrics->event);
-		event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
-			p_strdup_printf(event_get_pool(event),
-					"event_exporter/%s", filter_name));
+		event_add_str(event, "event_exporter", filter_name);
 		ret = stats_exporters_add_set(metrics, event, set, error_r);
 		event_unref(&event);
 	}
@@ -135,6 +133,7 @@ stats_metrics_exporter_find(struct stats_metrics *metrics,
 
 static int stats_metrics_add_set(struct stats_metrics *metrics,
 				 const struct stats_metric_settings *set,
+				 ARRAY_TYPE(stats_metric_settings_group_by) *group_by,
 				 const char **error_r)
 {
 	struct event_exporter *exporter = NULL;
@@ -156,9 +155,8 @@ static int stats_metrics_add_set(struct stats_metrics *metrics,
 	fields = settings_boollist_get(&set->fields);
 	metric = stats_metric_alloc(metrics->pool, set->name, set, fields);
 
-	if (array_is_created(&set->parsed_group_by))
-		metric->group_by = array_get(&set->parsed_group_by,
-					     &metric->group_by_count);
+	if (array_is_created(group_by))
+		metric->group_by = array_get(group_by, &metric->group_by_count);
 
 	array_push_back(&metrics->metrics, &metric);
 
@@ -195,11 +193,137 @@ static int stats_metrics_add_set(struct stats_metrics *metrics,
 	return 0;
 }
 
+static bool
+stats_metrics_group_by_exponential_check(const struct stats_metric_group_by_method_settings *set,
+					 const char **error_r)
+{
+	if (set->exponential_base != 2 && set->exponential_base != 10) {
+		*error_r = "metric_group_by_method_exponential_base must be 2 or 10";
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static bool
+stats_metrics_group_by_linear_check(const struct stats_metric_group_by_method_settings *set,
+				    const char **error_r)
+{
+	if (set->linear_step == 0) {
+		*error_r = "metric_group_by_method_linear_step must not be 0";
+		return FALSE;
+	}
+	if (set->linear_min >= set->linear_max) {
+		*error_r = t_strdup_printf(
+			"metric_group_by_method_linear_min (%ju) must be smaller than "
+			"metric_group_by_method_linear_max (%ju)",
+			set->linear_min, set->linear_max);
+		return FALSE;
+	}
+	if ((set->linear_min + set->linear_step) > set->linear_max) {
+		*error_r = t_strdup_printf(
+			"metric_group_by_method_linear_min (%ju) + "
+			"metric_group_by_method_linear_step (%ju) must be <= "
+			"metric_group_by_method_linear_max (%ju)",
+			set->linear_min, set->linear_step, set->linear_max);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static int
+stats_metrics_get_group_by_method(struct event *event, pool_t pool,
+				  struct stats_metric_settings_group_by *group_by,
+				  const char **error_r)
+{
+	const struct stats_metric_group_by_method_settings *set;
+
+	if (settings_get(event, &stats_metric_group_by_method_setting_parser_info,
+			 0, &set, error_r) < 0)
+		return -1;
+
+	if (strcmp(set->method, "discrete") == 0) {
+		group_by->func = STATS_METRIC_GROUPBY_DISCRETE;
+		group_by->discrete_modifier =
+			p_strdup_empty(pool, set->discrete_modifier);
+	} else if (strcmp(set->method, "exponential") == 0) {
+		if (!stats_metrics_group_by_exponential_check(set, error_r))
+			return -1;
+		metrics_group_by_exponential_init(group_by, pool,
+			set->exponential_base,
+			set->exponential_min_magnitude,
+			set->exponential_max_magnitude);
+	} else if (strcmp(set->method, "linear") == 0) {
+		if (!stats_metrics_group_by_linear_check(set, error_r))
+			return -1;
+		metrics_group_by_linear_init(group_by, pool,
+			set->linear_min, set->linear_max, set->linear_step);
+	} else {
+		i_unreached();
+	}
+
+	settings_free(set);
+	return 0;
+}
+
+static int
+stats_metrics_get_group_by(struct event *event,
+			   const struct stats_metric_settings *set,
+			   ARRAY_TYPE(stats_metric_settings_group_by) *group_by_r,
+			   const char **error_r)
+{
+	const struct stats_metric_group_by_settings *group_by_set;
+	const char *group_by_name;
+
+	if (array_is_empty(&set->group_by)) {
+		i_zero(group_by_r);
+		return 0;
+	}
+	p_array_init(group_by_r, set->pool, array_count(&set->group_by));
+	array_foreach_elem(&set->group_by, group_by_name) {
+		if (settings_get_filter(event,
+				"metric_group_by", group_by_name,
+				&stats_metric_group_by_setting_parser_info,
+				0, &group_by_set, error_r) < 0)
+			return -1;
+
+		struct stats_metric_settings_group_by *group_by =
+			array_append_space(group_by_r);
+		group_by->field = p_strdup(set->pool, group_by_set->field);
+
+		int ret = 0;
+		if (array_is_empty(&group_by_set->method)) {
+			/* default to discrete */
+			group_by->func = STATS_METRIC_GROUPBY_DISCRETE;
+		} else if (array_count(&group_by_set->method) > 1) {
+			*error_r = "Only one metric_group_by_method named filter is allowed";
+			ret = -1;
+		} else {
+			struct event *group_event = event_create(event);
+			event_add_str(group_event, "metric_group_by",
+				      group_by_name);
+			struct event *method_event = event_create(group_event);
+			event_add_str(group_event, "metric_group_by_method",
+				      array_idx_elem(&group_by_set->method, 0));
+			ret = stats_metrics_get_group_by_method(method_event, set->pool,
+								group_by, error_r);
+			event_unref(&method_event);
+			event_unref(&group_event);
+		}
+		settings_free(group_by_set);
+		if (ret < 0) {
+			*error_r = t_strdup_printf("metric_group_by %s: %s",
+						   group_by_name, *error_r);
+			return -1;
+		}
+	}
+	return 0;
+}
+
 static int stats_metrics_add_filter(struct stats_metrics *metrics,
 				    const char *filter_name,
 				    const char **error_r)
 {
-	struct stats_metric_settings *set;
+	const struct stats_metric_settings *set;
 	int ret = 0;
 
 	if (settings_get_filter(metrics->event, "metric", filter_name,
@@ -211,7 +335,13 @@ static int stats_metrics_add_filter(struct stats_metrics *metrics,
 		*error_r = "Metric name can't be empty";
 		ret = -1;
 	} else {
-		ret = stats_metrics_add_set(metrics, set, error_r);
+		ARRAY_TYPE(stats_metric_settings_group_by) group_by;
+		struct event *event = event_create(metrics->event);
+		event_add_str(event, "metric", filter_name);
+		ret = stats_metrics_get_group_by(event, set, &group_by, error_r);
+		if (ret == 0)
+			ret = stats_metrics_add_set(metrics, set, &group_by, error_r);
+		event_unref(&event);
 	}
 	settings_free(set);
 	return ret;
@@ -256,6 +386,7 @@ stats_metrics_check_for_exporter(struct stats_metrics *metrics, const char *name
 
 bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
 			       const struct stats_metric_settings *set,
+			       ARRAY_TYPE(stats_metric_settings_group_by) *group_by,
 			       const char **error_r)
 {
 	unsigned int existing_idx ATTR_UNUSED;
@@ -270,7 +401,7 @@ bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
 		return FALSE;
 	}
 
-	if (stats_metrics_add_set(metrics, set, error_r) < 0)
+	if (stats_metrics_add_set(metrics, set, group_by, error_r) < 0)
 		return FALSE;
 	return TRUE;
 }
