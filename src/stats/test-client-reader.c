@@ -128,7 +128,12 @@ static const char *const settings_blob_2[] = {
 	"metric=test",
 	"metric/test/metric_name=test",
 	"metric/test/filter=event=test",
-	"metric/test/group_by=test_name",
+	"metric/test/metric_group_by=test_name",
+	"metric/test/metric_group_by/test_name/metric_group_by_field=test_name",
+	"metric/test/metric_group_by/test_name/metric_group_by_method=foo",
+	"metric/test/metric_group_by/test_name/metric_group_by_method/foo/method=linear",
+	"metric/test/metric_group_by/test_name/metric_group_by_method/foo/metric_group_by_method_linear_max=100",
+	"metric/test/metric_group_by/test_name/metric_group_by_method/foo/metric_group_by_method_linear_step=10",
 	NULL
 };
 

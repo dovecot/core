@@ -159,6 +159,7 @@ static int
 reader_client_input_metrics_add(struct reader_client *client,
 				const char *const *args)
 {
+	ARRAY_TYPE(stats_metric_settings_group_by) group_by;
 	const char *error;
 
 	if (str_array_length(args) < 7) {
@@ -173,9 +174,15 @@ reader_client_input_metrics_add(struct reader_client *client,
 	set->pool = pool;
 	set->name = p_strdup(pool, args[0]);
 	set->description = p_strdup(pool, args[1]);
-	set->group_by = p_strdup(pool, args[3]);
 	set->filter = p_strdup(pool, args[4]);
 	set->exporter = p_strdup(pool, args[5]);
+
+	if (!parse_legacy_metric_group_by(pool, args[3], &group_by, &error)) {
+		e_error(client->conn.event,
+			"METRICS-ADD: Invalid metric_group_by: %s", error);
+		pool_unref(&pool);
+		return -1;
+	}
 
 	p_array_init(&set->fields, pool, 4);
 	if (settings_parse_boollist_string(args[2], pool, &set->fields,
@@ -204,7 +211,7 @@ reader_client_input_metrics_add(struct reader_client *client,
 	}
 
 	o_stream_cork(client->conn.output);
-	if (stats_metrics_add_dynamic(stats_metrics, set, &error)) {
+	if (stats_metrics_add_dynamic(stats_metrics, set, &group_by, &error)) {
 		client_writer_update_connections();
 		o_stream_nsend(client->conn.output, "+", 1);
 	} else {

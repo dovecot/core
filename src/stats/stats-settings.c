@@ -94,6 +94,81 @@ const struct setting_parser_info stats_exporter_setting_parser_info = {
 };
 
 /*
+ * metric_group_by { } block settings
+ */
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("metric_group_by_"#name, name, struct stats_metric_group_by_settings)
+
+static const struct setting_define stats_metric_group_by_setting_defines[] = {
+	DEF(STR, field),
+
+	{ .type = SET_FILTER_ARRAY, .key = "metric_group_by_method",
+	  .offset = offsetof(struct stats_metric_group_by_settings, method),
+	  .filter_array_field_name = "metric_group_by_method_method", },
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct stats_metric_group_by_settings stats_metric_group_by_default_settings = {
+	.field = "",
+	.method = ARRAY_INIT,
+};
+
+const struct setting_parser_info stats_metric_group_by_setting_parser_info = {
+	.name = "stats_metric_group_by",
+
+	.defines = stats_metric_group_by_setting_defines,
+	.defaults = &stats_metric_group_by_default_settings,
+
+	.struct_size = sizeof(struct stats_metric_group_by_settings),
+	.pool_offset1 = 1 + offsetof(struct stats_metric_group_by_settings, pool),
+};
+
+/*
+ * metric_group_by_method { } block settings
+ */
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("metric_group_by_method_"#name, name, struct stats_metric_group_by_method_settings)
+
+static const struct setting_define stats_metric_group_by_method_setting_defines[] = {
+	DEF(ENUM, method),
+	DEF(STR_NOVARS, discrete_modifier),
+	DEF(UINT, exponential_min_magnitude),
+	DEF(UINT, exponential_max_magnitude),
+	DEF(UINT, exponential_base),
+	DEF(UINTMAX, linear_min),
+	DEF(UINTMAX, linear_max),
+	DEF(UINTMAX, linear_step),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct stats_metric_group_by_method_settings stats_metric_group_by_method_default_settings = {
+	.method = "discrete:exponential:linear",
+	.discrete_modifier = "",
+	.exponential_min_magnitude = 0,
+	.exponential_max_magnitude = 0,
+	.exponential_base = 10,
+	.linear_min = 0,
+	.linear_max = 0,
+	.linear_step = 0,
+};
+
+const struct setting_parser_info stats_metric_group_by_method_setting_parser_info = {
+	.name = "stats_metric_group_by_",
+
+	.defines = stats_metric_group_by_method_setting_defines,
+	.defaults = &stats_metric_group_by_method_default_settings,
+
+	.struct_size = sizeof(struct stats_metric_group_by_method_settings),
+	.pool_offset1 = 1 + offsetof(struct stats_metric_group_by_method_settings, pool),
+};
+
+/*
  * metric { } block settings
  */
 
@@ -104,11 +179,15 @@ const struct setting_parser_info stats_exporter_setting_parser_info = {
 static const struct setting_define stats_metric_setting_defines[] = {
 	DEF(STR, name),
 	DEF(BOOLLIST, fields),
-	DEF(STR_NOVARS, group_by),
 	DEF(STR, filter),
 	DEF(STR, exporter),
 	DEF(BOOLLIST, exporter_include),
 	DEF(STR, description),
+
+	{ .type = SET_FILTER_ARRAY, .key = "metric_group_by",
+	  .offset = offsetof(struct stats_metric_settings, group_by),
+	  .filter_array_field_name = "metric_group_by_field", },
+
 	SETTING_DEFINE_LIST_END
 };
 
@@ -117,7 +196,7 @@ const struct stats_metric_settings stats_metric_default_settings = {
 	.fields = ARRAY_INIT,
 	.filter = "",
 	.exporter = "",
-	.group_by = "",
+	.group_by = ARRAY_INIT,
 	.description = "",
 };
 
@@ -222,10 +301,18 @@ static bool stats_exporter_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	return TRUE;
 }
 
-static void
-metrics_group_by_exponential_init(struct stats_metric_settings_group_by *group_by,
-				  pool_t pool, unsigned int base,
-				  unsigned int min, unsigned int max)
+#ifdef CONFIG_BINARY
+void metrics_group_by_exponential_init(struct stats_metric_settings_group_by *group_by,
+				       pool_t pool, unsigned int base,
+				       unsigned int min, unsigned int max);
+void metrics_group_by_linear_init(struct stats_metric_settings_group_by *group_by,
+				  pool_t pool, uint64_t min, uint64_t max,
+				  uint64_t step);
+#endif
+
+void metrics_group_by_exponential_init(struct stats_metric_settings_group_by *group_by,
+				       pool_t pool, unsigned int base,
+				       unsigned int min, unsigned int max)
 {
 	group_by->func = STATS_METRIC_GROUPBY_QUANTIZED;
 	/*
@@ -255,10 +342,9 @@ metrics_group_by_exponential_init(struct stats_metric_settings_group_by *group_b
 	}
 }
 
-static void
-metrics_group_by_linear_init(struct stats_metric_settings_group_by *group_by,
-			     pool_t pool, uint64_t min, uint64_t max,
-			     uint64_t step)
+void metrics_group_by_linear_init(struct stats_metric_settings_group_by *group_by,
+				  pool_t pool, uint64_t min, uint64_t max,
+				  uint64_t step)
 {
 	group_by->func = STATS_METRIC_GROUPBY_QUANTIZED;
 	/*
@@ -271,6 +357,7 @@ metrics_group_by_linear_init(struct stats_metric_settings_group_by *group_by,
 	 * The second bucket begins at 'min + 1', the third bucket begins at
 	 * 'min + 1 * step + 1', the fourth at 'min + 2 * step + 1', and so on.
 	 */
+	i_assert(step > 0);
 	group_by->num_ranges = (max - min) / step + 2;
 	group_by->ranges = p_new(pool, struct stats_metric_settings_bucket_range,
 				 group_by->num_ranges);
@@ -287,6 +374,7 @@ metrics_group_by_linear_init(struct stats_metric_settings_group_by *group_by,
 		group_by->ranges[i].max = min + i * step;
 	}
 }
+/* </settings checks> */
 
 static bool parse_metric_group_by_common(const char *func,
 					 const char *const *params,
@@ -395,15 +483,17 @@ parse_metric_group_by_mod(pool_t pool,
 	return TRUE;
 }
 
-static bool parse_metric_group_by(struct stats_metric_settings *set,
-				  pool_t pool, const char **error_r)
+bool parse_legacy_metric_group_by(pool_t pool, const char *group_by_str,
+				  ARRAY_TYPE(stats_metric_settings_group_by) *group_by_r,
+				  const char **error_r)
 {
-	const char *const *tmp = t_strsplit_spaces(set->group_by, " ");
+	const char *const *tmp = t_strsplit_spaces(group_by_str, " ");
 
+	i_zero(group_by_r);
 	if (tmp[0] == NULL)
 		return TRUE;
 
-	p_array_init(&set->parsed_group_by, pool, str_array_length(tmp));
+	p_array_init(group_by_r, pool, str_array_length(tmp));
 
 	/* For each group_by field */
 	for (; *tmp != NULL; tmp++) {
@@ -438,12 +528,13 @@ static bool parse_metric_group_by(struct stats_metric_settings *set,
 			return FALSE;
 		}
 
-		array_push_back(&set->parsed_group_by, &group_by);
+		array_push_back(group_by_r, &group_by);
 	}
 
 	return TRUE;
 }
 
+/* <settings checks> */
 static bool stats_metric_settings_check(void *_set, pool_t pool, const char **error_r)
 {
 	struct stats_metric_settings *set = _set;
@@ -459,9 +550,6 @@ static bool stats_metric_settings_check(void *_set, pool_t pool, const char **er
 
 	set->parsed_filter = event_filter_create_fragment(pool);
 	if (event_filter_parse(set->filter, set->parsed_filter, error_r) < 0)
-		return FALSE;
-
-	if (!parse_metric_group_by(set, pool, error_r))
 		return FALSE;
 
 	return TRUE;

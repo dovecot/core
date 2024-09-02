@@ -100,6 +100,7 @@ struct metric {
 
 bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
 			       const struct stats_metric_settings *set,
+			       ARRAY_TYPE(stats_metric_settings_group_by) *group_by,
 			       const char **error_r);
 
 bool stats_metrics_remove_dynamic(struct stats_metrics *metrics,
