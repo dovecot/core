@@ -523,15 +523,19 @@ label_by_mod_str(const struct stats_metric_settings_group_by *group_by,
 
 static bool
 stats_metric_group_by_discrete(const struct event_field *field,
+			       const struct stats_metric_settings_group_by *group_by,
 			       struct metric_value *value_r)
 {
 	switch (field->value_type) {
 	case EVENT_FIELD_VALUE_TYPE_STR:
 		value_r->type = METRIC_VALUE_TYPE_STR;
-		/* use sha1 of value to avoid excessive memory usage in case the
-		   actual value is quite long */
-		sha1_get_digest(field->value.str, strlen(field->value.str),
-				value_r->hash);
+		T_BEGIN {
+			const char *str =
+				label_by_mod_str(group_by, field->value.str);
+			/* use sha1 of value to avoid excessive memory usage in
+			   case the actual value is quite long */
+			sha1_get_digest(str, strlen(str), value_r->hash);
+		} T_END;
 		return TRUE;
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
 		value_r->type = METRIC_VALUE_TYPE_INT;
@@ -619,7 +623,7 @@ stats_metric_group_by_get_value(const struct event_field *field,
 {
 	switch (group_by->func) {
 	case STATS_METRIC_GROUPBY_DISCRETE:
-		if (!stats_metric_group_by_discrete(field, value_r))
+		if (!stats_metric_group_by_discrete(field, group_by, value_r))
 			return FALSE;
 		return TRUE;
 	case STATS_METRIC_GROUPBY_QUANTIZED:
