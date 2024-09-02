@@ -222,6 +222,72 @@ static bool stats_exporter_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	return TRUE;
 }
 
+static void
+metrics_group_by_exponential_init(struct stats_metric_settings_group_by *group_by,
+				  pool_t pool, unsigned int base,
+				  unsigned int min, unsigned int max)
+{
+	group_by->func = STATS_METRIC_GROUPBY_QUANTIZED;
+	/*
+	 * Allocate the bucket range array and fill it in
+	 *
+	 * The first bucket is special - it contains everything less than or
+	 * equal to 'base^min'.  The last bucket is also special - it
+	 * contains everything greater than 'base^max'.
+	 *
+	 * The second bucket begins at 'base^min + 1', the third bucket
+	 * begins at 'base^(min + 1) + 1', and so on.
+	 */
+	group_by->num_ranges = max - min + 2;
+	group_by->ranges = p_new(pool, struct stats_metric_settings_bucket_range,
+				 group_by->num_ranges);
+
+	/* set up min & max buckets */
+	group_by->ranges[0].min = INTMAX_MIN;
+	group_by->ranges[0].max = pow(base, min);
+	group_by->ranges[group_by->num_ranges - 1].min = pow(base, max);
+	group_by->ranges[group_by->num_ranges - 1].max = INTMAX_MAX;
+
+	/* remaining buckets */
+	for (unsigned int i = 1; i < group_by->num_ranges - 1; i++) {
+		group_by->ranges[i].min = pow(base, min + (i - 1));
+		group_by->ranges[i].max = pow(base, min + i);
+	}
+}
+
+static void
+metrics_group_by_linear_init(struct stats_metric_settings_group_by *group_by,
+			     pool_t pool, uint64_t min, uint64_t max,
+			     uint64_t step)
+{
+	group_by->func = STATS_METRIC_GROUPBY_QUANTIZED;
+	/*
+	 * Allocate the bucket range array and fill it in
+	 *
+	 * The first bucket is special - it contains everything less than or
+	 * equal to 'min'.  The last bucket is also special - it contains
+	 * everything greater than 'max'.
+	 *
+	 * The second bucket begins at 'min + 1', the third bucket begins at
+	 * 'min + 1 * step + 1', the fourth at 'min + 2 * step + 1', and so on.
+	 */
+	group_by->num_ranges = (max - min) / step + 2;
+	group_by->ranges = p_new(pool, struct stats_metric_settings_bucket_range,
+				 group_by->num_ranges);
+
+	/* set up min & max buckets */
+	group_by->ranges[0].min = INTMAX_MIN;
+	group_by->ranges[0].max = min;
+	group_by->ranges[group_by->num_ranges - 1].min = max;
+	group_by->ranges[group_by->num_ranges - 1].max = INTMAX_MAX;
+
+	/* remaining buckets */
+	for (unsigned int i = 1; i < group_by->num_ranges - 1; i++) {
+		group_by->ranges[i].min = min + (i - 1) * step;
+		group_by->ranges[i].max = min + i * step;
+	}
+}
+
 static bool parse_metric_group_by_common(const char *func,
 					 const char *const *params,
 					 intmax_t *min_r,
@@ -260,39 +326,6 @@ static bool parse_metric_group_by_common(const char *func,
 	return TRUE;
 }
 
-static void
-metrics_group_by_exponential_init(struct stats_metric_settings_group_by *group_by,
-				  pool_t pool, unsigned int base,
-				  unsigned int min, unsigned int max)
-{
-	group_by->func = STATS_METRIC_GROUPBY_QUANTIZED;
-	/*
-	 * Allocate the bucket range array and fill it in
-	 *
-	 * The first bucket is special - it contains everything less than or
-	 * equal to 'base^min'.  The last bucket is also special - it
-	 * contains everything greater than 'base^max'.
-	 *
-	 * The second bucket begins at 'base^min + 1', the third bucket
-	 * begins at 'base^(min + 1) + 1', and so on.
-	 */
-	group_by->num_ranges = max - min + 2;
-	group_by->ranges = p_new(pool, struct stats_metric_settings_bucket_range,
-				 group_by->num_ranges);
-
-	/* set up min & max buckets */
-	group_by->ranges[0].min = INTMAX_MIN;
-	group_by->ranges[0].max = pow(base, min);
-	group_by->ranges[group_by->num_ranges - 1].min = pow(base, max);
-	group_by->ranges[group_by->num_ranges - 1].max = INTMAX_MAX;
-
-	/* remaining buckets */
-	for (unsigned int i = 1; i < group_by->num_ranges - 1; i++) {
-		group_by->ranges[i].min = pow(base, min + (i - 1));
-		group_by->ranges[i].max = pow(base, min + i);
-	}
-}
-
 static bool parse_metric_group_by_exp(pool_t pool, struct stats_metric_settings_group_by *group_by,
 				      const char *const *params, const char **error_r)
 {
@@ -310,39 +343,6 @@ static bool parse_metric_group_by_exp(pool_t pool, struct stats_metric_settings_
 
 	metrics_group_by_exponential_init(group_by, pool, base, min, max);
 	return TRUE;
-}
-
-static void
-metrics_group_by_linear_init(struct stats_metric_settings_group_by *group_by,
-			     pool_t pool, uint64_t min, uint64_t max,
-			     uint64_t step)
-{
-	group_by->func = STATS_METRIC_GROUPBY_QUANTIZED;
-	/*
-	 * Allocate the bucket range array and fill it in
-	 *
-	 * The first bucket is special - it contains everything less than or
-	 * equal to 'min'.  The last bucket is also special - it contains
-	 * everything greater than 'max'.
-	 *
-	 * The second bucket begins at 'min + 1', the third bucket begins at
-	 * 'min + 1 * step + 1', the fourth at 'min + 2 * step + 1', and so on.
-	 */
-	group_by->num_ranges = (max - min) / step + 2;
-	group_by->ranges = p_new(pool, struct stats_metric_settings_bucket_range,
-				 group_by->num_ranges);
-
-	/* set up min & max buckets */
-	group_by->ranges[0].min = INTMAX_MIN;
-	group_by->ranges[0].max = min;
-	group_by->ranges[group_by->num_ranges - 1].min = max;
-	group_by->ranges[group_by->num_ranges - 1].max = INTMAX_MAX;
-
-	/* remaining buckets */
-	for (unsigned int i = 1; i < group_by->num_ranges - 1; i++) {
-		group_by->ranges[i].min = min + (i - 1) * step;
-		group_by->ranges[i].max = min + i * step;
-	}
 }
 
 static bool parse_metric_group_by_lin(pool_t pool, struct stats_metric_settings_group_by *group_by,
