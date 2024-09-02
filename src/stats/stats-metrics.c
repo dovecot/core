@@ -502,6 +502,25 @@ stats_metric_sub_metric_alloc(struct metric *metric, const char *name, pool_t po
 	return sub_metric;
 }
 
+/* Handle string modifiers */
+static inline const char *
+label_by_mod_str(const struct stats_metric_settings_group_by *group_by,
+		 const char *value)
+{
+	if ((group_by->mod & STATS_METRICS_GROUPBY_DOMAIN) != 0) {
+		const char *domain = strrchr(value, '@');
+		if (domain != NULL)
+			value = domain+1;
+		else
+			value = "";
+	}
+	if ((group_by->mod & STATS_METRICS_GROUPBY_UPPERCASE) != 0)
+		value = t_str_ucase(value);
+	if ((group_by->mod & STATS_METRICS_GROUPBY_LOWERCASE) != 0)
+		value = t_str_lcase(value);
+	return value;
+}
+
 static bool
 stats_metric_group_by_discrete(const struct event_field *field,
 			       struct metric_value *value_r)
@@ -626,25 +645,6 @@ stats_metric_group_by_get_label(const struct event_field *field,
 	}
 
 	i_panic("unknown group-by function %d", group_by->func);
-}
-
-/* Handle string modifiers */
-static inline const char *
-label_by_mod_str(const struct stats_metric_settings_group_by *group_by,
-		 const char *value)
-{
-	if ((group_by->mod & STATS_METRICS_GROUPBY_DOMAIN) != 0) {
-		const char *domain = strrchr(value, '@');
-		if (domain != NULL)
-			value = domain+1;
-		else
-			value = "";
-	}
-	if ((group_by->mod & STATS_METRICS_GROUPBY_UPPERCASE) != 0)
-		value = t_str_ucase(value);
-	if ((group_by->mod & STATS_METRICS_GROUPBY_LOWERCASE) != 0)
-		value = t_str_lcase(value);
-	return value;
 }
 
 static const char *
