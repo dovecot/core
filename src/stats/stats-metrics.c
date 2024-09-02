@@ -235,24 +235,6 @@ static int stats_metrics_add_filter(struct stats_metrics *metrics,
 	return ret;
 }
 
-static struct stats_metric_settings *
-stats_metric_settings_dup(pool_t pool, const struct stats_metric_settings *src)
-{
-	struct stats_metric_settings *set = p_new(pool, struct stats_metric_settings, 1);
-
-	set->pool = pool;
-	pool_ref(pool);
-	set->name = p_strdup(pool, src->name);
-	set->description = p_strdup(pool, src->description);
-	set->fields = p_strdup(pool, src->fields);
-	set->group_by = p_strdup(pool, src->group_by);
-	set->filter = p_strdup(pool, src->filter);
-	set->exporter = p_strdup(pool, src->exporter);
-	set->exporter_include = p_strdup(pool, src->exporter_include);
-
-	return set;
-}
-
 static struct metric *
 stats_metrics_find(struct stats_metrics *metrics,
 		   const char *name, unsigned int *idx_r)
@@ -291,7 +273,7 @@ stats_metrics_check_for_exporter(struct stats_metrics *metrics, const char *name
 }
 
 bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
-			       struct stats_metric_settings *set,
+			       const struct stats_metric_settings *set,
 			       const char **error_r)
 {
 	unsigned int existing_idx ATTR_UNUSED;
@@ -300,25 +282,14 @@ bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
 		return FALSE;
 	}
 
-	struct stats_metric_settings *_set =
-		stats_metric_settings_dup(metrics->pool, set);
-	if (!stats_metric_setting_parser_info.check_func(_set, metrics->pool, error_r)) {
-		settings_free(_set);
-		return FALSE;
-	}
-
 	if (!stats_metrics_check_for_exporter(metrics, set->exporter)) {
 		*error_r = t_strdup_printf("Exporter '%s' does not exist.",
 					   set->exporter);
-		settings_free(_set);
 		return FALSE;
 	}
 
-	if (stats_metrics_add_set(metrics, _set, error_r) < 0) {
-		settings_free(_set);
+	if (stats_metrics_add_set(metrics, set, error_r) < 0)
 		return FALSE;
-	}
-	settings_free(_set);
 	return TRUE;
 }
 
