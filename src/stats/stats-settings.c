@@ -260,23 +260,12 @@ static bool parse_metric_group_by_common(const char *func,
 	return TRUE;
 }
 
-static bool parse_metric_group_by_exp(pool_t pool, struct stats_metric_settings_group_by *group_by,
-				      const char *const *params, const char **error_r)
+static void
+metrics_group_by_exponential_init(struct stats_metric_settings_group_by *group_by,
+				  pool_t pool, unsigned int base,
+				  unsigned int min, unsigned int max)
 {
-	intmax_t min, max, base;
-
-	if (!parse_metric_group_by_common("exponential", params, &min, &max, &base, error_r))
-		return FALSE;
-
-	if ((base != 2) && (base != 10)) {
-		*error_r = t_strdup_printf("group_by 'exponential' aggregate function "
-					   "base must be one of: 2, 10 (base=%ju)",
-					   base);
-		return FALSE;
-	}
-
 	group_by->func = STATS_METRIC_GROUPBY_QUANTIZED;
-
 	/*
 	 * Allocate the bucket range array and fill it in
 	 *
@@ -302,27 +291,33 @@ static bool parse_metric_group_by_exp(pool_t pool, struct stats_metric_settings_
 		group_by->ranges[i].min = pow(base, min + (i - 1));
 		group_by->ranges[i].max = pow(base, min + i);
 	}
-
-	return TRUE;
 }
 
-static bool parse_metric_group_by_lin(pool_t pool, struct stats_metric_settings_group_by *group_by,
+static bool parse_metric_group_by_exp(pool_t pool, struct stats_metric_settings_group_by *group_by,
 				      const char *const *params, const char **error_r)
 {
-	intmax_t min, max, step;
+	intmax_t min, max, base;
 
-	if (!parse_metric_group_by_common("linear", params, &min, &max, &step, error_r))
+	if (!parse_metric_group_by_common("exponential", params, &min, &max, &base, error_r))
 		return FALSE;
 
-	if ((min + step) > max) {
-		*error_r = t_strdup_printf("group_by 'linear' aggregate function "
-					   "min+step must be <= max (%ju must be <= %ju)",
-					   min + step, max);
+	if ((base != 2) && (base != 10)) {
+		*error_r = t_strdup_printf("group_by 'exponential' aggregate function "
+					   "base must be one of: 2, 10 (base=%ju)",
+					   base);
 		return FALSE;
 	}
 
-	group_by->func = STATS_METRIC_GROUPBY_QUANTIZED;
+	metrics_group_by_exponential_init(group_by, pool, base, min, max);
+	return TRUE;
+}
 
+static void
+metrics_group_by_linear_init(struct stats_metric_settings_group_by *group_by,
+			     pool_t pool, uint64_t min, uint64_t max,
+			     uint64_t step)
+{
+	group_by->func = STATS_METRIC_GROUPBY_QUANTIZED;
 	/*
 	 * Allocate the bucket range array and fill it in
 	 *
@@ -348,7 +343,24 @@ static bool parse_metric_group_by_lin(pool_t pool, struct stats_metric_settings_
 		group_by->ranges[i].min = min + (i - 1) * step;
 		group_by->ranges[i].max = min + i * step;
 	}
+}
 
+static bool parse_metric_group_by_lin(pool_t pool, struct stats_metric_settings_group_by *group_by,
+				      const char *const *params, const char **error_r)
+{
+	intmax_t min, max, step;
+
+	if (!parse_metric_group_by_common("linear", params, &min, &max, &step, error_r))
+		return FALSE;
+
+	if ((min + step) > max) {
+		*error_r = t_strdup_printf("group_by 'linear' aggregate function "
+					   "min+step must be <= max (%ju must be <= %ju)",
+					   min + step, max);
+		return FALSE;
+	}
+
+	metrics_group_by_linear_init(group_by, pool, min, max, step);
 	return TRUE;
 }
 
