@@ -55,7 +55,13 @@ enum setting_apply_flags {
 	SETTING_APPLY_FLAG_NO_EXPAND = BIT(1),
 };
 
-#define SETTING_DEFINE_LIST_END { 0, 0, NULL, 0, NULL, NULL }
+#define SETTING_DEFINE_LIST_END { 0, 0, NULL, 0, NULL, NULL, NULL }
+
+struct setting_filter_array_order {
+	const struct setting_parser_info *info;
+	const char *field_name;
+	bool reverse;
+};
 
 struct setting_define {
 	enum setting_type type;
@@ -64,6 +70,7 @@ struct setting_define {
 
 	size_t offset;
 	const char *filter_array_field_name;
+	const struct setting_filter_array_order *filter_array_order;
 	const char *required_setting;
 };
 

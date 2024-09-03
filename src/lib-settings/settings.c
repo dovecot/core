@@ -1891,7 +1891,7 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 }
 
 static int
-settings_get_full(struct event *event,
+settings_get_real(struct event *event,
 		  const char *filter_key, const char *filter_value,
 		  const struct setting_parser_info *info,
 		  const struct settings_get_params *params,
@@ -1977,11 +1977,8 @@ settings_get_full(struct event *event,
 		.filter_name_required = filter_name_required,
 	};
 
-	int ret;
-	T_BEGIN {
-		ret = settings_instance_get(&ctx, source_filename, source_linenum,
-					    set_r, error_r);
-	} T_END_PASS_STR_IF(ret < 0, error_r);
+	int ret = settings_instance_get(&ctx, source_filename, source_linenum,
+					set_r, error_r);
 	if (ret < 0) {
 		*error_r = t_strdup_printf("%s settings%s: %s", info->name,
 			filter_name == NULL ? "" :
@@ -1994,6 +1991,225 @@ settings_get_full(struct event *event,
 	str_free(&ctx.str);
 	pool_unref(&ctx.temp_pool);
 	return ret;
+}
+
+struct settings_filter_array_item {
+	union {
+		unsigned int uint;
+		const char *str;
+	} order;
+	const char *value;
+};
+
+static int
+settings_filter_array_uint_cmp(const struct settings_filter_array_item *item1,
+			       const struct settings_filter_array_item *item2)
+{
+	if (item1->order.uint < item2->order.uint)
+		return -1;
+	if (item1->order.uint > item2->order.uint)
+		return 1;
+	return 0;
+}
+
+static int
+settings_filter_array_str_cmp(const struct settings_filter_array_item *item1,
+			      const struct settings_filter_array_item *item2)
+{
+	return strcmp(item1->order.str, item2->order.str);
+}
+
+static int
+settings_sort_filter_array(struct event *event, const char *field_name,
+			   const struct setting_filter_array_order *order,
+			   ARRAY_TYPE(const_string) *fvals_arr,
+			   const struct settings_get_params *params,
+			   const char *source_filename,
+			   unsigned int source_linenum, const char **error_r)
+{
+	const char **fvals;
+	unsigned int fidx, count, i;
+
+	if (!array_is_created(fvals_arr))
+		return 0;
+
+	/* Find definition index of order field */
+	if (!setting_parser_info_find_key(order->info, order->field_name,
+					  &fidx))
+		i_panic("BUG: Order field %s for filter array %s in %s "
+			"not found",
+			order->field_name, field_name, order->info->name);
+
+	/* Resolve alias */
+	while (fidx > 0 && order->info->defines[fidx].type == SET_ALIAS)
+		fidx--;
+
+	/* Determine type of field */
+	enum {
+		_ITEM_TYPE_UINT,
+		_ITEM_TYPE_STR,
+	} item_type;
+
+	const struct setting_define *order_def = &order->info->defines[fidx];
+	switch (order_def->type) {
+	case SET_UINT:
+	case SET_UINT_OCT:
+	case SET_TIME:
+	case SET_TIME_MSECS:
+		item_type = _ITEM_TYPE_UINT;
+		break;
+	case SET_STR:
+	case SET_STR_NOVARS:
+		item_type = _ITEM_TYPE_STR;
+		break;
+	case SET_ALIAS:
+		i_panic("BUG: Order field %s for filter array %s in %s "
+			"is an invalid alias",
+			order->field_name, field_name, order->info->name);
+	default:
+		i_panic("BUG: Order field %s for filter array %s in %s "
+			"has a type unsuitable for defining an order",
+			order->field_name, field_name, order->info->name);
+	}
+
+	/* Read all order fields from filter array items */
+	ARRAY(struct settings_filter_array_item) items_arr;
+
+	fvals = array_get_modifiable(fvals_arr, &count);
+	t_array_init(&items_arr, count);
+	for (i = 0; i < count; i++) {
+		const void *set;
+		int ret;
+
+		T_BEGIN {
+			ret = settings_get_real(event, field_name, fvals[i],
+						order->info, params,
+						source_filename, source_linenum,
+						&set, error_r);
+		} T_END_PASS_STR_IF(ret < 0, error_r);
+		if (ret < 0)
+			return -1;
+		if (ret == 0) {
+			*error_r = t_strdup_printf(
+				"Filter %s=%s unexpectedly not found while sorting "
+				"(invalid userdb or -o override settings?)",
+				field_name, fvals[i]);
+			return -1;
+		}
+
+		pool_t *pool_p = PTR_OFFSET(set, order->info->pool_offset1 - 1);
+		pool_t pool = *pool_p;
+		struct settings_filter_array_item *item;
+
+		item = array_append_space(&items_arr);
+		item->value = fvals[i];
+
+		switch (item_type) {
+		case _ITEM_TYPE_UINT:
+			item->order.uint = *((unsigned int *)
+				PTR_OFFSET(set, order_def->offset));
+			break;
+		case _ITEM_TYPE_STR:
+			item->order.str = *((const char **)
+				PTR_OFFSET(set, order_def->offset));
+			item->order.str = t_strdup(item->order.str);
+			break;
+		default:
+			i_unreached();
+		}
+
+		pool_unref(&pool);
+	}
+
+	/* Sort the filter array items based on order field */
+	switch (item_type) {
+	case _ITEM_TYPE_UINT:
+		array_sort(&items_arr, settings_filter_array_uint_cmp);
+		break;
+	case _ITEM_TYPE_STR:
+		array_sort(&items_arr, settings_filter_array_str_cmp);
+		break;
+	default:
+		i_unreached();
+	}
+
+	/* Move the items in the settings */
+	const struct settings_filter_array_item *items;
+	unsigned int items_count;
+
+	items = array_get(&items_arr, &items_count);
+	i_assert(items_count == count);
+	for (i = 0; i < count; i++) {
+		if (!order->reverse)
+			fvals[i] = items[i].value;
+		else
+			fvals[i] = items[count - 1 - i].value;
+	}
+	return 0;
+}
+
+static int
+settings_get_full(struct event *event,
+		  const char *filter_key, const char *filter_value,
+		  const struct setting_parser_info *info,
+		  const struct settings_get_params *params,
+		  const char *source_filename,
+		  unsigned int source_linenum,
+		  const void **set_r, const char **error_r)
+{
+	const void *set;
+	int ret;
+
+	*set_r = NULL;
+	T_BEGIN {
+		ret = settings_get_real(event, filter_key, filter_value, info,
+					params, source_filename, source_linenum,
+					&set, error_r);
+	} T_END_PASS_STR_IF(ret < 0, error_r);
+	if (ret <= 0)
+		return ret;
+	if ((params->flags & SETTINGS_GET_FLAG_SORT_FILTER_ARRAYS) == 0) {
+		/* Sorting filter arrays disabled */
+		*set_r = set;
+		return 1;
+	}
+
+	const struct setting_define *def = info->defines;
+
+	/* Sort filter arrays when order is defined */
+	for (def = info->defines; def->key != NULL; def++) {
+		int ret;
+
+		if (def->type != SET_FILTER_ARRAY) {
+			/* Not a filter array */
+			continue;
+		}
+		if (def->filter_array_order == NULL) {
+			/* No order defined */
+			continue;
+		}
+
+		ARRAY_TYPE(const_string) *fvals_arr =
+			PTR_OFFSET(set, def->offset);
+		i_assert(fvals_arr != NULL);
+
+		/* Sort this array */
+		T_BEGIN {
+			ret = settings_sort_filter_array(
+				event, def->key, def->filter_array_order,
+				fvals_arr, params,
+				source_filename, source_linenum, error_r);
+		} T_END_PASS_STR_IF(ret < 0, error_r);
+		if (ret < 0) {
+			pool_t *pool_p = PTR_OFFSET(set, info->pool_offset1 - 1);
+			pool_t pool = *pool_p;
+			pool_unref(&pool);
+			return -1;
+		}
+	}
+
+	*set_r = set;
+	return 1;
 }
 
 #undef settings_get

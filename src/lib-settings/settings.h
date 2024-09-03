@@ -48,6 +48,8 @@ enum settings_get_flags {
 	/* For unit tests: Don't validate that settings struct keys match
 	   th binary config file. */
 	SETTINGS_GET_NO_KEY_VALIDATION = BIT(3),
+	/* Sort filter arrays with defined ordering */
+	SETTINGS_GET_FLAG_SORT_FILTER_ARRAYS = BIT(4),
 };
 
 struct settings_get_params {
