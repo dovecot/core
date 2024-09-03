@@ -80,16 +80,16 @@ static void test_settings_parser(void)
 		SETTING_DEFINE_STRUCT_UINTMAX("uintmax_max", uintmax_max, struct test_settings),
 		SETTING_DEFINE_STRUCT_UINT("uint", uint, struct test_settings),
 		{ .type = SET_UINT_OCT, .key = "uint_oct",
-		  offsetof(struct test_settings, uint_oct), NULL },
+		  .offset = offsetof(struct test_settings, uint_oct) },
 		SETTING_DEFINE_STRUCT_TIME("secs", secs, struct test_settings),
 		SETTING_DEFINE_STRUCT_TIME_MSECS("msecs", msecs, struct test_settings),
 		SETTING_DEFINE_STRUCT_SIZE("size", size, struct test_settings),
 		SETTING_DEFINE_STRUCT_IN_PORT("port", port, struct test_settings),
 		SETTING_DEFINE_STRUCT_STR_NOVARS("str", str, struct test_settings),
 		{ .type = SET_STR, .key = "expand_str",
-		  offsetof(struct test_settings, expand_str), NULL },
+		  .offset = offsetof(struct test_settings, expand_str) },
 		{ .type = SET_STRLIST, .key = "strlist",
-		  offsetof(struct test_settings, strlist), NULL },
+		  .offset = offsetof(struct test_settings, strlist) },
 		SETTING_DEFINE_LIST_END
 	};
 	const struct setting_parser_info root = {
