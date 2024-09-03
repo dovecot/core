@@ -56,10 +56,9 @@ imapc_mail_fetch_callback(const struct imapc_command_reply *reply,
 			  void *context)
 {
 	struct imapc_fetch_request *request = context;
-	struct imapc_fetch_request *const *requests;
 	struct imapc_mail *mail;
 	struct imapc_mailbox *mbox = NULL;
-	unsigned int i, count;
+	unsigned int i;
 
 	array_foreach_elem(&request->mails, mail) {
 		i_assert(mail->fetch_count > 0);
@@ -70,14 +69,9 @@ imapc_mail_fetch_callback(const struct imapc_command_reply *reply,
 	}
 	i_assert(mbox != NULL);
 
-	requests = array_get(&mbox->fetch_requests, &count);
-	for (i = 0; i < count; i++) {
-		if (requests[i] == request) {
-			array_delete(&mbox->fetch_requests, i, 1);
-			break;
-		}
-	}
-	i_assert(i < count);
+	if (!array_lsearch_ptr_idx(&mbox->fetch_requests, request, &i))
+		i_unreached();
+	array_delete(&mbox->fetch_requests, i, 1);
 
 	array_free(&request->mails);
 	i_free(request);

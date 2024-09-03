@@ -907,16 +907,11 @@ event_find_category(const struct event *event,
 		    const struct event_category *category)
 {
 	struct event_internal_category *internal = category->internal;
-	struct event_category *cat;
 
 	/* make sure we're always looking for a representative */
 	i_assert(category == &internal->representative);
 
-	array_foreach_elem(&event->categories, cat) {
-		if (cat == category)
-			return TRUE;
-	}
-	return FALSE;
+	return array_lsearch_ptr(&event->categories, category) != NULL;
 }
 
 struct event *
@@ -1691,17 +1686,11 @@ void event_register_callback(event_callback_t *callback)
 
 void event_unregister_callback(event_callback_t *callback)
 {
-	event_callback_t *const *callbackp;
+	unsigned int idx;
 
-	array_foreach(&event_handlers, callbackp) {
-		if (*callbackp == callback) {
-			unsigned int idx =
-				array_foreach_idx(&event_handlers, callbackp);
-			array_delete(&event_handlers, idx, 1);
-			return;
-		}
-	}
-	i_unreached();
+	if (!array_lsearch_ptr_idx(&event_handlers, callback, &idx))
+		i_unreached();
+	array_delete(&event_handlers, idx, 1);
 }
 
 void event_category_register_callback(event_category_callback_t *callback)
@@ -1711,18 +1700,11 @@ void event_category_register_callback(event_category_callback_t *callback)
 
 void event_category_unregister_callback(event_category_callback_t *callback)
 {
-	event_category_callback_t *const *callbackp;
+	unsigned int idx;
 
-	array_foreach(&event_category_callbacks, callbackp) {
-		if (*callbackp == callback) {
-			unsigned int idx =
-				array_foreach_idx(&event_category_callbacks,
-						  callbackp);
-			array_delete(&event_category_callbacks, idx, 1);
-			return;
-		}
-	}
-	i_unreached();
+	if (!array_lsearch_ptr_idx(&event_category_callbacks, callback, &idx))
+		i_unreached();
+	array_delete(&event_category_callbacks, idx, 1);
 }
 
 static struct event_passthrough *

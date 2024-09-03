@@ -408,16 +408,12 @@ void http_client_delay_request_error(struct http_client *client,
 void http_client_remove_request_error(struct http_client *client,
 				      struct http_client_request *req)
 {
-	struct http_client_request *const *reqs;
-	unsigned int i, count;
+	unsigned int i;
 
-	reqs = array_get(&client->delayed_failing_requests, &count);
-	for (i = 0; i < count; i++) {
-		if (reqs[i] == req) {
-			array_delete(&client->delayed_failing_requests, i, 1);
-			return;
-		}
-	}
+	if (!array_lsearch_ptr_idx(&client->delayed_failing_requests,
+				   req, &i))
+		i_unreached();
+	array_delete(&client->delayed_failing_requests, i, 1);
 }
 
 /*

@@ -41,17 +41,11 @@ void passdb_register_module(struct passdb_module_interface *iface)
 
 void passdb_unregister_module(struct passdb_module_interface *iface)
 {
-	struct passdb_module_interface *const *ifaces;
 	unsigned int idx;
 
-	array_foreach(&passdb_interfaces, ifaces) {
-		if (*ifaces == iface) {
-			idx = array_foreach_idx(&passdb_interfaces, ifaces);
-			array_delete(&passdb_interfaces, idx, 1);
-			return;
-		}
-	}
-	i_panic("passdb_unregister_module(%s): Not registered", iface->name);
+	if (!array_lsearch_ptr_idx(&passdb_interfaces, iface, &idx))
+		i_panic("passdb_unregister_module(%s): Not registered", iface->name);
+	array_delete(&passdb_interfaces, idx, 1);
 }
 
 bool passdb_get_credentials(struct auth_request *auth_request,
@@ -232,17 +226,10 @@ void passdb_deinit(struct passdb_module *passdb)
 	if (--passdb->init_refcount > 0)
 		return;
 
-	struct passdb_module *const *passdbs;
-	unsigned int i, count;
-
-	passdbs = array_get(&passdb_modules, &count);
-	for (i = 0; i < count; i++) {
-		if (passdbs[i] == passdb) {
-			array_delete(&passdb_modules, i, 1);
-			break;
-		}
-	}
-	i_assert(i < count);
+	unsigned int i;
+	if (!array_lsearch_ptr_idx(&passdb_modules, passdb, &i))
+		i_unreached();
+	array_delete(&passdb_modules, i, 1);
 
 	if (passdb->iface.deinit != NULL)
 		passdb->iface.deinit(passdb);

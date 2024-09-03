@@ -86,16 +86,11 @@ void sql_driver_register(const struct sql_db *driver)
 
 void sql_driver_unregister(const struct sql_db *driver)
 {
-	const struct sql_db *const *drivers;
-	unsigned int i, count;
+	unsigned int i;
 
-	drivers = array_get(&sql_drivers, &count);
-	for (i = 0; i < count; i++) {
-		if (drivers[i] == driver) {
-			array_delete(&sql_drivers, i, 1);
-			break;
-		}
-	}
+	if (!array_lsearch_ptr_idx(&sql_drivers, driver, &i))
+		i_unreached();
+	array_delete(&sql_drivers, i, 1);
 }
 
 int sql_init_auto(struct event *event, struct sql_db **db_r,

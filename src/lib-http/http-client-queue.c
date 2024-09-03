@@ -511,7 +511,6 @@ void http_client_queue_connection_failure(struct http_client_queue *queue,
 	const char *https_name = http_client_peer_addr_get_https_name(addr);
 	struct http_client_host *host = queue->host;
 	unsigned int ips_count = http_client_host_get_ips_count(host);
-	struct http_client_peer *const *peer_idx;
 	unsigned int num_requests =
 		array_count(&queue->queued_requests) +
 		array_count(&queue->queued_urgent_requests);
@@ -530,24 +529,16 @@ void http_client_queue_connection_failure(struct http_client_queue *queue,
 		i_assert(queue->cur_peer == NULL || queue->cur_peer == peer);
 		queue->cur_peer = NULL;
 	} else {
-		bool found = FALSE;
+		unsigned int idx;
 
 		i_assert(queue->cur_peer == NULL);
 
 		/* We're still doing the initial connections to this hport. if
 		   we're also doing parallel connections with soft timeouts
 		   (pending_peer_count>1), wait for them to finish first. */
-		array_foreach(&queue->pending_peers, peer_idx) {
-			if (*peer_idx == peer) {
-				array_delete(&queue->pending_peers,
-					     array_foreach_idx(
-						&queue->pending_peers,
-						peer_idx), 1);
-				found = TRUE;
-				break;
-			}
-		}
-		i_assert(found);
+		if (!array_lsearch_ptr_idx(&queue->pending_peers, peer, &idx))
+			i_unreached();
+		array_delete(&queue->pending_peers, idx, 1);
 		if (array_count(&queue->pending_peers) > 0) {
 			e_debug(queue->event,
 				"Waiting for remaining pending peers.");
@@ -613,21 +604,16 @@ void http_client_queue_connection_failure(struct http_client_queue *queue,
 void http_client_queue_peer_disconnected(struct http_client_queue *queue,
 					 struct http_client_peer *peer)
 {
-	struct http_client_peer *const *peer_idx;
+	unsigned int idx;
 
 	if (queue->cur_peer == peer) {
 		queue->cur_peer = NULL;
 		return;
 	}
 
-	array_foreach(&queue->pending_peers, peer_idx) {
-		if (*peer_idx == peer) {
-			array_delete(&queue->pending_peers,
-				     array_foreach_idx(&queue->pending_peers,
-						       peer_idx), 1);
-			break;
-		}
-	}
+	if (!array_lsearch_ptr_idx(&queue->pending_peers, peer, &idx))
+		i_unreached();
+	array_delete(&queue->pending_peers, idx, 1);
 }
 
 /*
@@ -645,23 +631,12 @@ void http_client_queue_drop_request(struct http_client_queue *queue,
 
 	/* Drop from queue */
 	if (req->urgent) {
-		reqs = array_get_modifiable(&queue->queued_urgent_requests,
-					    &count);
-		for (i = 0; i < count; i++) {
-			if (reqs[i] == req) {
-				array_delete(&queue->queued_urgent_requests,
-					     i, 1);
-				break;
-			}
-		}
+		if (array_lsearch_ptr_idx(&queue->queued_urgent_requests,
+					   req, &i))
+			array_delete(&queue->queued_urgent_requests, i, 1);
 	} else {
-		reqs = array_get_modifiable(&queue->queued_requests, &count);
-		for (i = 0; i < count; i++) {
-			if (reqs[i] == req) {
-				array_delete(&queue->queued_requests, i, 1);
-				break;
-			}
-		}
+		if (array_lsearch_ptr_idx(&queue->queued_requests, req, &i))
+			array_delete(&queue->queued_requests, i, 1);
 	}
 
 	/* Drop from delay queue */

@@ -111,16 +111,11 @@ void mail_storage_class_register(struct mail_storage *storage_class)
 
 void mail_storage_class_unregister(struct mail_storage *storage_class)
 {
-	struct mail_storage *const *classes;
-	unsigned int i, count;
+	unsigned int i;
 
-	classes = array_get(&mail_storage_classes, &count);
-	for (i = 0; i < count; i++) {
-		if (classes[i] == storage_class) {
-			array_delete(&mail_storage_classes, i, 1);
-			break;
-		}
-	}
+	if (!array_lsearch_ptr_idx(&mail_storage_classes, storage_class, &i))
+		i_unreached();
+	array_delete(&mail_storage_classes, i, 1);
 }
 
 struct mail_storage *mail_storage_find_class(const char *name)
@@ -2693,17 +2688,12 @@ void mailbox_search_mail_detach(struct mail_search_context *ctx,
 {
 	struct mail_private *pmail =
 		container_of(mail, struct mail_private, mail);
-	struct mail *const *mailp;
+	unsigned int idx;
 
-	array_foreach(&ctx->mails, mailp) {
-		if (*mailp == mail) {
-			pmail->search_mail = FALSE;
-			array_delete(&ctx->mails,
-				     array_foreach_idx(&ctx->mails, mailp), 1);
-			return;
-		}
-	}
-	i_unreached();
+	if (!array_lsearch_ptr_idx(&ctx->mails, mail, &idx))
+		i_unreached();
+	pmail->search_mail = FALSE;
+	array_delete(&ctx->mails, idx, 1);
 }
 
 int mailbox_search_result_build(struct mailbox_transaction_context *t,

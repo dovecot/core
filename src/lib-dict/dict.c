@@ -103,16 +103,10 @@ void dict_driver_register(struct dict *driver)
 
 void dict_driver_unregister(struct dict *driver)
 {
-	struct dict *const *dicts;
-	unsigned int idx = UINT_MAX;
+	unsigned int idx;
 
-	array_foreach(&dict_drivers, dicts) {
-		if (*dicts == driver) {
-			idx = array_foreach_idx(&dict_drivers, dicts);
-			break;
-		}
-	}
-	i_assert(idx != UINT_MAX);
+	if (!array_lsearch_ptr_idx(&dict_drivers, driver, &idx))
+		i_unreached();
 	array_delete(&dict_drivers, idx, 1);
 
 	if (array_count(&dict_drivers) == 0)

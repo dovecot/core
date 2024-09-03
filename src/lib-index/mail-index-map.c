@@ -284,18 +284,12 @@ static void mail_index_record_map_free(struct mail_index_map *map,
 
 static void mail_index_record_map_unlink(struct mail_index_map *map)
 {
-	struct mail_index_map *const *maps;
-	unsigned int idx = UINT_MAX;
+	unsigned int idx;
 
-	array_foreach(&map->rec_map->maps, maps) {
-		if (*maps == map) {
-			idx = array_foreach_idx(&map->rec_map->maps, maps);
-			break;
-		}
-	}
-	i_assert(idx != UINT_MAX);
-
+	if (!array_lsearch_ptr_idx(&map->rec_map->maps, map, &idx))
+		i_unreached();
 	array_delete(&map->rec_map->maps, idx, 1);
+
 	if (array_count(&map->rec_map->maps) == 0) {
 		mail_index_record_map_free(map, map->rec_map);
 		map->rec_map = NULL;
