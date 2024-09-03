@@ -6,6 +6,7 @@
 #include "str-sanitize.h"
 #include "stats-dist.h"
 #include "time-util.h"
+#include "var-expand.h"
 #include "event-filter.h"
 #include "event-exporter.h"
 #include "settings.h"
@@ -507,18 +508,22 @@ static inline const char *
 label_by_mod_str(const struct stats_metric_settings_group_by *group_by,
 		 const char *value)
 {
-	if ((group_by->mod & STATS_METRICS_GROUPBY_DOMAIN) != 0) {
-		const char *domain = strrchr(value, '@');
-		if (domain != NULL)
-			value = domain+1;
-		else
-			value = "";
+	const char *error;
+
+	if (group_by->discrete_modifier == NULL)
+		return value;
+
+	const struct var_expand_table table[] = {
+		{ 'v', value, "value" },
+		{ 'd', i_strchr_to_next(value, '@'), "domain" },
+		{ '\0', NULL, NULL }
+	};
+	string_t *str = t_str_new(128);
+	if (var_expand(str, group_by->discrete_modifier, table, &error) < 0) {
+		i_error("Failed to expand discrete modifier for %s: %s",
+			group_by->field, error);
 	}
-	if ((group_by->mod & STATS_METRICS_GROUPBY_UPPERCASE) != 0)
-		value = t_str_ucase(value);
-	if ((group_by->mod & STATS_METRICS_GROUPBY_LOWERCASE) != 0)
-		value = t_str_lcase(value);
-	return value;
+	return str_c(str);
 }
 
 static bool

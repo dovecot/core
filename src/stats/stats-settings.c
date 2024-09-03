@@ -7,6 +7,8 @@
 #include "service-settings.h"
 #include "stats-settings.h"
 #include "array.h"
+#include "str.h"
+#include "var-expand.h"
 
 /* <settings checks> */
 #include "event-filter.h"
@@ -427,22 +429,31 @@ static bool parse_metric_group_by_lin(pool_t pool, struct stats_metric_settings_
 }
 
 static bool
-parse_metric_group_by_mod(pool_t pool ATTR_UNUSED,
+parse_metric_group_by_mod(pool_t pool,
 			  struct stats_metric_settings_group_by *group_by,
 			  const char *const *params, const char **error_r)
 {
-	for (; *params != NULL; params++) {
-		if (strcmp(*params, "domain") == 0)
-			group_by->mod |= STATS_METRICS_GROUPBY_DOMAIN;
-		else if (strcmp(*params, "uppercase") == 0)
-			group_by->mod |= STATS_METRICS_GROUPBY_UPPERCASE;
-		else if (strcmp(*params, "lowercase") == 0)
-			group_by->mod |= STATS_METRICS_GROUPBY_LOWERCASE;
-		else {
-			*error_r = t_strdup_printf("Unknown modifier '%s' for '%s'",
-						   *params, group_by->field);
-			return FALSE;
-		}
+	if (params[0] == NULL)
+		return TRUE;
+	if (params[1] != NULL) {
+		*error_r = "Too many parameters for discrete modifier";
+		return FALSE;
+	}
+	group_by->discrete_modifier = p_strdup(pool, params[0]);
+
+	/* Check that the variables are valid */
+	const struct var_expand_table table[] = {
+		{ 'v', "", "value" },
+		{ 'd', "", "domain" },
+		{ '\0', NULL, NULL }
+	};
+	const char *error;
+	string_t *str = t_str_new(128);
+	if (var_expand(str, group_by->discrete_modifier, table, &error) <= 0) {
+		*error_r = t_strdup_printf(
+			"Failed to expand discrete modifier for %s: %s",
+			group_by->field, error);
+		return FALSE;
 	}
 	return TRUE;
 }
