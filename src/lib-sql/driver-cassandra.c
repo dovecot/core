@@ -1471,17 +1471,11 @@ static void driver_cassandra_deinit_v(struct sql_db *_db)
 static void driver_cassandra_result_unlink(struct cassandra_db *db,
 					   struct cassandra_result *result)
 {
-	struct cassandra_result *const *results;
-	unsigned int i, count;
+	unsigned int i;
 
-	results = array_get(&db->results, &count);
-	for (i = 0; i < count; i++) {
-		if (results[i] == result) {
-			array_delete(&db->results, i, 1);
-			return;
-		}
-	}
-	i_unreached();
+	if (!array_lsearch_ptr_idx(&db->results, result, &i))
+		i_unreached();
+	array_delete(&db->results, i, 1);
 }
 
 static void driver_cassandra_log_result(struct cassandra_result *result,
@@ -2388,18 +2382,13 @@ static void
 cassandra_prepared_statement_remove_pending(struct cassandra_sql_statement *stmt)
 {
 	struct cassandra_sql_prepared_statement *prep = stmt->prep;
-	struct cassandra_sql_statement *const *iter_stmt;
+	unsigned int idx;
 
 	if (prep == NULL)
 		return;
 
-	array_foreach(&prep->pending_statements, iter_stmt) {
-		if (stmt == *iter_stmt) {
-			array_delete(&prep->pending_statements,
-				array_foreach_idx(&prep->pending_statements, iter_stmt), 1);
-			break;
-		}
-	}
+	if (array_lsearch_ptr_idx(&prep->pending_statements, stmt, &idx))
+		array_delete(&prep->pending_statements, idx, 1);
 }
 
 static void cassandra_sql_statement_free(struct cassandra_sql_statement *stmt)

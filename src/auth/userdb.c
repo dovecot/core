@@ -41,17 +41,11 @@ void userdb_register_module(struct userdb_module_interface *iface)
 
 void userdb_unregister_module(struct userdb_module_interface *iface)
 {
-	struct userdb_module_interface *const *ifaces;
 	unsigned int idx;
 
-	array_foreach(&userdb_interfaces, ifaces) {
-		if (*ifaces == iface) {
-			idx = array_foreach_idx(&userdb_interfaces, ifaces);
-			array_delete(&userdb_interfaces, idx, 1);
-			return;
-		}
-	}
-	i_panic("userdb_unregister_module(%s): Not registered", iface->name);
+	if (!array_lsearch_ptr_idx(&userdb_interfaces, iface, &idx))
+		i_panic("userdb_unregister_module(%s): Not registered", iface->name);
+	array_delete(&userdb_interfaces, idx, 1);
 }
 
 uid_t userdb_parse_uid(struct auth_request *request, const char *str)
@@ -164,17 +158,10 @@ void userdb_deinit(struct userdb_module *userdb)
 	if (--userdb->init_refcount > 0)
 		return;
 
-	struct userdb_module *const *userdbs;
-	unsigned int i, count;
-
-	userdbs = array_get(&userdb_modules, &count);
-	for (i = 0; i < count; i++) {
-		if (userdbs[i] == userdb) {
-			array_delete(&userdb_modules, i, 1);
-			break;
-		}
-	}
-	i_assert(i < count);
+	unsigned int i;
+	if (!array_lsearch_ptr_idx(&userdb_modules, userdb, &i))
+		i_unreached();
+	array_delete(&userdb_modules, i, 1);
 
 	if (userdb->iface->deinit != NULL)
 		userdb->iface->deinit(userdb);

@@ -90,16 +90,11 @@ static void
 http_server_location_remove(struct http_server *server,
 			    struct http_server_location *loc)
 {
-	struct http_server_location *const *locp;
+	unsigned int idx;
 
-	array_foreach(&server->locations, locp) {
-		if (*locp == loc) {
-			array_delete(
-				&server->locations,
-				array_foreach_idx(&server->locations, locp), 1);
-			return;
-		}
-	}
+	if (!array_lsearch_ptr_idx(&server->locations, loc, &idx))
+		i_unreached();
+	array_delete(&server->locations, idx, 1);
 }
 
 /*

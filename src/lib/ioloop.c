@@ -413,14 +413,11 @@ void timeout_remove(struct timeout **_timeout)
 	if (timeout->item.idx != UINT_MAX)
 		priorityq_remove(timeout->ioloop->timeouts, &timeout->item);
 	else if (!timeout->one_shot && timeout->msecs > 0) {
-		struct timeout *const *to_idx;
-		array_foreach(&ioloop->timeouts_new, to_idx) {
-			if (*to_idx == timeout) {
-				array_delete(&ioloop->timeouts_new,
-					array_foreach_idx(&ioloop->timeouts_new, to_idx), 1);
-				break;
-			}
-		}
+		unsigned int idx;
+
+		if (!array_lsearch_ptr_idx(&ioloop->timeouts_new, timeout, &idx))
+			i_unreached();
+		array_delete(&ioloop->timeouts_new, idx, 1);
 	}
 	timeout_free(timeout);
 }
@@ -1013,17 +1010,11 @@ void io_loop_add_switch_callback(io_switch_callback_t *callback)
 
 void io_loop_remove_switch_callback(io_switch_callback_t *callback)
 {
-	io_switch_callback_t *const *callbackp;
 	unsigned int idx;
 
-	array_foreach(&io_switch_callbacks, callbackp) {
-		if (*callbackp == callback) {
-			idx = array_foreach_idx(&io_switch_callbacks, callbackp);
-			array_delete(&io_switch_callbacks, idx, 1);
-			return;
-		}
-	}
-	i_unreached();
+	if (!array_lsearch_ptr_idx(&io_switch_callbacks, callback, &idx))
+		i_unreached();
+	array_delete(&io_switch_callbacks, idx, 1);
 }
 
 void io_loop_add_destroy_callback(io_destroy_callback_t *callback)
@@ -1037,17 +1028,11 @@ void io_loop_add_destroy_callback(io_destroy_callback_t *callback)
 
 void io_loop_remove_destroy_callback(io_destroy_callback_t *callback)
 {
-	io_destroy_callback_t *const *callbackp;
 	unsigned int idx;
 
-	array_foreach(&io_destroy_callbacks, callbackp) {
-		if (*callbackp == callback) {
-			idx = array_foreach_idx(&io_destroy_callbacks, callbackp);
-			array_delete(&io_destroy_callbacks, idx, 1);
-			return;
-		}
-	}
-	i_unreached();
+	if (!array_lsearch_ptr_idx(&io_destroy_callbacks, callback, &idx))
+		i_unreached();
+	array_delete(&io_destroy_callbacks, idx, 1);
 }
 
 struct ioloop_context *io_loop_context_new(struct ioloop *ioloop)

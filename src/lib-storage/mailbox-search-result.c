@@ -57,19 +57,13 @@ mailbox_search_result_alloc(struct mailbox *box, struct mail_search_args *args,
 void mailbox_search_result_free(struct mail_search_result **_result)
 {
 	struct mail_search_result *result = *_result;
-	struct mail_search_result *const *results;
-	unsigned int i, count;
+	unsigned int i;
 
 	*_result = NULL;
 
-	results = array_get(&result->box->search_results, &count);
-	for (i = 0; i < count; i++) {
-		if (results[i] == result) {
-			array_delete(&result->box->search_results, i, 1);
-			break;
-		}
-	}
-	i_assert(i != count);
+	if (!array_lsearch_ptr_idx(&result->box->search_results, result, &i))
+		i_unreached();
+	array_delete(&result->box->search_results, i, 1);
 
 	if (result->search_args != NULL)
 		mail_search_args_unref(&result->search_args);

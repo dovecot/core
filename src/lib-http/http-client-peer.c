@@ -1184,13 +1184,7 @@ void http_client_peer_trigger_request_handler(struct http_client_peer *peer)
 bool http_client_peer_have_queue(struct http_client_peer *peer,
 				 struct http_client_queue *queue)
 {
-	struct http_client_queue *const *queue_idx;
-
-	array_foreach(&peer->queues, queue_idx) {
-		if (*queue_idx == queue)
-			return TRUE;
-	}
-	return FALSE;
+	return array_lsearch_ptr(&peer->queues, queue) != NULL;
 }
 
 void http_client_peer_link_queue(struct http_client_peer *peer,
@@ -1207,22 +1201,17 @@ void http_client_peer_link_queue(struct http_client_peer *peer,
 void http_client_peer_unlink_queue(struct http_client_peer *peer,
 				   struct http_client_queue *queue)
 {
-	struct http_client_queue *const *queue_idx;
+	unsigned int idx;
 
-	array_foreach(&peer->queues, queue_idx) {
-		if (*queue_idx == queue) {
-			array_delete(&peer->queues,
-				array_foreach_idx(&peer->queues, queue_idx), 1);
+	if (array_lsearch_ptr_idx(&peer->queues, queue, &idx))
+		array_delete(&peer->queues, idx, 1);
 
-			e_debug(peer->event,
-				"Unlinked queue %s (%d queues linked)",
-				queue->name, array_count(&peer->queues));
+	e_debug(peer->event,
+		"Unlinked queue %s (%d queues linked)",
+		queue->name, array_count(&peer->queues));
 
-			if (array_count(&peer->queues) == 0)
-				http_client_peer_check_idle(peer);
-			return;
-		}
-	}
+	if (array_count(&peer->queues) == 0)
+		http_client_peer_check_idle(peer);
 }
 
 struct http_client_request *

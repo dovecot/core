@@ -464,8 +464,7 @@ void quota_remove_user_namespace(struct mail_namespace *ns)
 {
 	struct quota *quota;
 	struct quota_root *root;
-	struct mail_namespace *const *namespaces;
-	unsigned int i, count;
+	unsigned int i;
 
 	quota = ns->owner != NULL ?
 		quota_get_mail_user_quota(ns->owner) :
@@ -476,13 +475,8 @@ void quota_remove_user_namespace(struct mail_namespace *ns)
 	}
 
 	array_foreach_elem(&quota->all_roots, root) {
-		namespaces = array_get(&root->namespaces, &count);
-		for (i = 0; i < count; i++) {
-			if (namespaces[i] == ns) {
-				array_delete(&root->namespaces, i, 1);
-				break;
-			}
-		}
+		if (array_lsearch_ptr_idx(&root->namespaces, ns, &i))
+			array_delete(&root->namespaces, i, 1);
 	}
 }
 

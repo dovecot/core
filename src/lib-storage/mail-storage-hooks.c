@@ -91,17 +91,10 @@ void mail_storage_hooks_add_internal(const struct mail_storage_hooks *hooks)
 
 void mail_storage_hooks_remove_internal(const struct mail_storage_hooks *hooks)
 {
-	const struct mail_storage_hooks *const *old_hooks;
-	unsigned int idx = UINT_MAX;
+	unsigned int idx;
 
-	array_foreach(&internal_hooks, old_hooks) {
-		if (*old_hooks == hooks) {
-			idx = array_foreach_idx(&internal_hooks, old_hooks);
-			break;
-		}
-	}
-	i_assert(idx != UINT_MAX);
-
+	if (!array_lsearch_ptr_idx(&internal_hooks, hooks, &idx))
+		i_unreached();
 	array_delete(&internal_hooks, idx, 1);
 }
 
