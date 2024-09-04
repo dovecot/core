@@ -38,6 +38,7 @@ struct settings_mmap_pool {
 
 struct settings_override {
 	pool_t pool;
+	ARRAY_TYPE(settings_override) *overrides_array;
 	enum settings_override_type type;
 
 	/* Number of '/' characters in orig_key + 1 */
@@ -49,6 +50,7 @@ struct settings_override {
 	bool filter_finished;
 	/* Always apply this override, regardless of any filters. */
 	bool always_match;
+	bool array_default_added;
 	/* Original key for the overridden setting, e.g.
 	   namespace/inbox/mailbox/Sent/mail_attribute/dict_driver */
 	const char *orig_key;
@@ -1546,6 +1548,83 @@ settings_override_get_value(struct settings_apply_ctx *ctx,
 	return 1;
 }
 
+static void
+settings_instance_override_add_default(struct settings_apply_ctx *ctx,
+				       struct settings_override *array_set,
+				       unsigned int key_idx)
+{
+	const struct setting_define *array_def =
+		&ctx->info->defines[key_idx];
+
+	i_assert(array_set->overrides_array != NULL);
+	array_set->array_default_added = TRUE;
+
+	/* As an example we could be here because of
+	   -o namespace/inbox/mailbox+=foo,bar override (= array_set):
+
+	   * array_def points to mailbox's setting_define
+	   * We're going to add namespace/inbox/mailbox/foo/mailbox_name=foo
+	     and namespace/inbox/mailbox/bar/mailbox_name=bar to avoid having
+	     to explicitly define them.
+	   * These are SETTINGS_OVERRIDE_TYPE_DEFAULT, so they will be used
+	     only if the configuration file didn't already specify a different
+	     mailbox_name for these filters.
+	   * We're going to have to build the event filter ourself here,
+	     because it's most likely too late for it to be left later. The
+	     next settings_get_filter() could be trying to look up this filter
+	     and it won't know enough to build the event filter.
+	*/
+	const char *const *items = t_strsplit(array_set->value, ",\t ");
+	for (unsigned int i = 0; items[i] != NULL; i++) {
+		struct settings_override *set =
+			array_append_space(array_set->overrides_array);
+		set->pool = array_set->pool;
+		set->type = SETTINGS_OVERRIDE_TYPE_DEFAULT;
+
+		set->orig_key = p_strdup_printf(set->pool, "%s/%s/%s",
+			array_set->orig_key, items[i],
+			array_def->filter_array_field_name);
+		/* We're building the full event filter, so jump forward in
+		   the key path until the last field. */
+		set->key = array_def->filter_array_field_name;
+		set->path_element_count = path_element_count(set->orig_key);
+		set->value = p_strdup(set->pool, items[i]);
+
+		/* Get the final key we want to use in the event filter.
+		   For example "mailbox", which in this special case gets
+		   translated to "mailbox_subname". */
+		const char *filter_key = strrchr(array_set->orig_key, '/');
+		if (filter_key != NULL)
+			filter_key++;
+		else
+			filter_key = array_set->orig_key;
+		if (strcmp(filter_key, SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX) == 0)
+			filter_key = SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX;
+
+		/* Build the final event filter. */
+		const char *filter_string = t_strdup_printf("\"%s\"=\"%s\"",
+			wildcard_str_escape(filter_key), str_escape(items[i]));
+		const char *error;
+
+		set->filter = event_filter_create_with_pool(set->pool);
+		pool_ref(set->pool);
+		if (event_filter_parse_case_sensitive(filter_string,
+						      set->filter, &error) < 0) {
+			i_panic("BUG: Failed to create event filter filter for %s: %s (%s)",
+				set->orig_key, error, filter_string);
+		}
+		if (array_set->filter != NULL) {
+			/* Merge the final event filter with the parent
+			   SET_FILTER_ARRAY's event filter, which should be
+			   finished.  */
+			i_assert(array_set->filter_finished);
+			event_filter_merge(set->filter, array_set->filter,
+					   EVENT_FILTER_MERGE_OP_AND);
+		}
+		set->filter_finished = TRUE;
+	}
+}
+
 static void settings_apply_add_override(struct settings_apply_ctx *ctx,
 					struct settings_override *set)
 {
@@ -1711,9 +1790,19 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			/* setting doesn't exist in this info */
 			continue;
 		}
-		bool track_seen = ctx->info->defines[key_idx].type != SET_FILTER_ARRAY;
-		if (ctx->info->defines[key_idx].type == SET_STRLIST ||
-		    ctx->info->defines[key_idx].type == SET_BOOLLIST) {
+		bool track_seen = TRUE;
+		if (ctx->info->defines[key_idx].type == SET_FILTER_ARRAY) {
+			track_seen = FALSE;
+			/* Last part is a named list filter. Permanently store
+			   pointer to the definition for this setting, which
+			   allows future override lookups to fill the default
+			   array name setting. */
+			if (!set->array_default_added) {
+				settings_instance_override_add_default(ctx,
+					set, key_idx);
+			}
+		} else if (ctx->info->defines[key_idx].type == SET_STRLIST ||
+			   ctx->info->defines[key_idx].type == SET_BOOLLIST) {
 			const char *suffix;
 			if (!str_begins(key, ctx->info->defines[key_idx].key, &suffix))
 				i_unreached();
@@ -2357,6 +2446,7 @@ void settings_override(struct settings_instance *instance,
 		p_array_init(&instance->overrides, instance->pool, 16);
 	struct settings_override *set =
 		array_append_space(&instance->overrides);
+	set->overrides_array = &instance->overrides;
 	settings_override_fill(set, instance->pool, key, value, type);
 }
 
@@ -2368,6 +2458,7 @@ void settings_root_override(struct settings_root *root,
 		p_array_init(&root->overrides, root->pool, 16);
 	struct settings_override *set =
 		array_append_space(&root->overrides);
+	set->overrides_array = &root->overrides;
 	settings_override_fill(set, root->pool, key, value, type);
 }
 
@@ -2413,6 +2504,7 @@ settings_instance_dup(const struct settings_instance *src)
 		dest_set->orig_key = p_strdup(dest->pool, src_set->orig_key);
 		dest_set->key = dest_set->orig_key;
 		dest_set->value = p_strdup(dest->pool, src_set->value);
+		dest_set->overrides_array = &dest->overrides;
 	}
 	return dest;
 }
