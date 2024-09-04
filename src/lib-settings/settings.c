@@ -74,7 +74,6 @@ struct settings_override {
 	const char *last_filter_key, *last_filter_value;
 };
 ARRAY_DEFINE_TYPE(settings_override, struct settings_override);
-ARRAY_DEFINE_TYPE(settings_override_p, struct settings_override *);
 
 struct settings_group {
 	const char *label;
@@ -128,6 +127,11 @@ struct settings_instance {
 	ARRAY_TYPE(settings_override) overrides;
 };
 
+struct settings_apply_override {
+	struct settings_override *set;
+	unsigned int order;
+};
+
 struct settings_apply_ctx {
 	struct event *event;
 	struct settings_root *root;
@@ -149,7 +153,7 @@ struct settings_apply_ctx {
 	struct settings_mmap_pool *mpool;
 	void *set_struct;
 	ARRAY(enum set_seen_type) set_seen;
-	ARRAY_TYPE(settings_override_p) overrides;
+	ARRAY(struct settings_apply_override) overrides;
 	ARRAY_TYPE(settings_group) include_groups;
 
 	string_t *str;
@@ -1267,19 +1271,22 @@ settings_var_expand_init(struct settings_apply_ctx *ctx)
 	ctx->var_params.escape_context = ctx->escape_context;
 }
 
-static int settings_override_cmp(struct settings_override *const *set1,
-				 struct settings_override *const *set2)
+static int
+settings_apply_override_cmp(const struct settings_apply_override *set1,
+			    const struct settings_apply_override *set2)
 {
-	int ret = (int)(*set2)->type - (int)(*set1)->type;
+	int ret = (int)set2->set->type - (int)set1->set->type;
 	if (ret != 0)
 		return ret;
 
 	/* Return more specific filters first. This is mainly necessary with
 	   hierarchical settings, e.g. fs_parent/fs_parent/fs_driver so the
 	   highest hierarchy count settings are returned first. */
-	return (int)(*set2)->path_element_count -
-		(int)(*set1)->path_element_count;
-
+	ret = (int)set2->set->path_element_count -
+		(int)set1->set->path_element_count;
+	if (ret != 0)
+		return ret;
+	return set2->order - set1->order;
 }
 
 
@@ -1539,6 +1546,15 @@ settings_override_get_value(struct settings_apply_ctx *ctx,
 	return 1;
 }
 
+static void settings_apply_add_override(struct settings_apply_ctx *ctx,
+					struct settings_override *set)
+{
+	struct settings_apply_override *override =
+		array_append_space(&ctx->overrides);
+	override->set = set;
+	override->order = array_count(&ctx->overrides);
+}
+
 static void
 settings_instance_overrides_add_filters(struct settings_apply_ctx *ctx,
 					const struct setting_parser_info *info)
@@ -1555,7 +1571,7 @@ settings_instance_overrides_add_filters(struct settings_apply_ctx *ctx,
 		set->key = set->orig_key = defaults[i].key;
 		set->path_element_count = path_element_count(set->key);
 		set->value = defaults[i].value;
-		array_push_back(&ctx->overrides, &set);
+		settings_apply_add_override(ctx, set);
 	}
 }
 
@@ -1570,14 +1586,14 @@ settings_instance_override_init(struct settings_apply_ctx *ctx)
 		array_foreach_modifiable(&ctx->instance->overrides, set) {
 			if (set->type == SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT)
 				have_2nd_defaults = TRUE;
-			array_push_back(&ctx->overrides, &set);
+			settings_apply_add_override(ctx, set);
 		}
 	}
 	if (array_is_created(&ctx->root->overrides)) {
 		array_foreach_modifiable(&ctx->root->overrides, set) {
 			if (set->type == SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT)
 				have_2nd_defaults = TRUE;
-			array_push_back(&ctx->overrides, &set);
+			settings_apply_add_override(ctx, set);
 		}
 	}
 	if ((ctx->instance->mmap == NULL || have_2nd_defaults) &&
@@ -1594,7 +1610,7 @@ settings_instance_override_init(struct settings_apply_ctx *ctx)
 			settings_instance_overrides_add_filters(ctx, info);
 	}
 	/* sort overrides so that the most specific ones are first */
-	array_sort(&ctx->overrides, settings_override_cmp);
+	array_sort(&ctx->overrides, settings_apply_override_cmp);
 }
 
 static void settings_override_free(struct settings_override *override)
@@ -1606,11 +1622,11 @@ static void settings_override_free(struct settings_override *override)
 static void
 settings_apply_ctx_overrides_deinit(struct settings_apply_ctx *ctx)
 {
-	struct settings_override *set;
+	struct settings_apply_override *set;
 
-	array_foreach_elem(&ctx->overrides, set) {
-		if (set != NULL && set->pool == ctx->temp_pool)
-			settings_override_free(set);
+	array_foreach_modifiable(&ctx->overrides, set) {
+		if (set->set != NULL && set->set->pool == ctx->temp_pool)
+			settings_override_free(set->set);
 	}
 }
 
@@ -1638,7 +1654,8 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			   struct event_filter *event_filter,
 			   const char **error_r)
 {
-	struct settings_override *set, **set_elem;
+	struct settings_apply_override *override;
+	struct settings_override *set;
 	const struct failure_context failure_ctx = {
 		.type = LOG_TYPE_DEBUG
 	};
@@ -1647,10 +1664,10 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		 SETTING_APPLY_FLAG_NO_EXPAND);
 
 	bool seen_filter = FALSE;
-	array_foreach_modifiable(&ctx->overrides, set_elem) {
-		if (*set_elem == NULL)
+	array_foreach_modifiable(&ctx->overrides, override) {
+		if (override->set == NULL)
 			continue; /* already applied */
-		set = *set_elem;
+		set = override->set;
 
 		unsigned int key_idx;
 		int ret;
@@ -1732,7 +1749,7 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 				*set_seenp = SET_SEEN_YES;
 		}
 		/* skip this setting the next time */
-		*set_elem = NULL;
+		override->set = NULL;
 		if (set->pool == ctx->temp_pool)
 			settings_override_free(set);
 
