@@ -354,7 +354,7 @@ static void fs_crypt_write_stream(struct fs_file *_file)
 	enum io_stream_encrypt_flags flags;
 	if (strstr(file->fs->enc_algo, "gcm") != NULL ||
 	    strstr(file->fs->enc_algo, "ccm") != NULL ||
-	    strcasecmp(file->fs->enc_algo, "chacha20-poly1305") == 0) {
+	    str_begins_with(file->fs->enc_algo, "chacha20-poly1305")) {
 		flags = IO_STREAM_ENC_INTEGRITY_AEAD;
 	} else {
 		flags = IO_STREAM_ENC_INTEGRITY_HMAC;
