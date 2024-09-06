@@ -168,7 +168,7 @@ static struct ssl_iostream_settings *
 ssl_common_settings_to_iostream_set(const struct ssl_settings *ssl_set)
 {
 	struct ssl_iostream_settings *set;
-	pool_t pool = pool_alloconly_create("ssl iostream settings", 256);
+	pool_t pool = pool_alloconly_create("ssl iostream settings", 512);
 	set = p_new(pool, struct ssl_iostream_settings, 1);
 	pool_add_external_ref(pool, ssl_set->pool);
 	set->pool = pool;
