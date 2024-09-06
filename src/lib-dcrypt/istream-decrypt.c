@@ -207,7 +207,7 @@ i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 	hash->init(hctx);
 	hash->loop(hctx, secret->data, secret->used);
 	hash->result(hctx, hres);
-	safe_memset(buffer_get_modifiable_data(secret, 0), 0, secret->used);
+	buffer_clear_safe(secret);
 
 	/* NB! The old code was broken and used this kind of IV - it is not
 	   correct, but we need to stay compatible with old data */
@@ -272,7 +272,7 @@ i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 		"\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0", 16);
 	dcrypt_ctx_sym_set_key(stream->ctx_sym, key->data, key->used);
 
-	safe_memset(buffer_get_modifiable_data(key, 0), 0, key->used);
+	buffer_clear_safe(key);
 
 	if (!dcrypt_ctx_sym_init(stream->ctx_sym, &error)) {
 		io_stream_set_error(&stream->istream.iostream,
@@ -463,8 +463,7 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 		struct dcrypt_context_symmetric *dctx;
 		if (!dcrypt_ctx_sym_create(calg, DCRYPT_MODE_DECRYPT,
 					    &dctx, &error)) {
-			safe_memset(buffer_get_modifiable_data(temp_key, 0),
-				    0, temp_key->used);
+			buffer_clear_safe(temp_key);
 			io_stream_set_error(&stream->istream.iostream,
 					    "Key decryption error: %s", error);
 			return -1;
@@ -481,19 +480,16 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 				   malg, rounds, temp_key,
 				   ek_key_len + ek_iv_len + ek_tag_len,
 				   &error)) {
-			safe_memset(buffer_get_modifiable_data(secret, 0),
-				    0, secret->used);
+			buffer_clear_safe(secret);
 			io_stream_set_error(&stream->istream.iostream,
 					    "Key decryption error: %s", error);
 			dcrypt_ctx_sym_destroy(&dctx);
 			return -1;
 		}
 
-		safe_memset(buffer_get_modifiable_data(secret, 0),
-			    0, secret->used);
+		buffer_clear_safe(secret);
 		if (temp_key->used != ek_key_len + ek_iv_len + ek_tag_len) {
-			safe_memset(buffer_get_modifiable_data(temp_key, 0),
-				    0, temp_key->used);
+			buffer_clear_safe(temp_key);
 			io_stream_set_error(&stream->istream.iostream,
 					    "Cannot perform key decryption: "
 					    "invalid temporary key");
@@ -503,8 +499,7 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 		const unsigned char *ptr = temp_key->data;
 		if (ek_tag_len > 0) {
 			if (eklen < ek_tag_len) {
-				safe_memset(buffer_get_modifiable_data(temp_key, 0),
-					    0, temp_key->used);
+				buffer_clear_safe(temp_key);
 				io_stream_set_error(&stream->istream.iostream,
 						    "Cannot perform key decryption: "
 						    "Missing TAG from encrypted key");
@@ -522,8 +517,7 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 		dcrypt_ctx_sym_set_iv(dctx, ptr + ek_key_len, ek_iv_len);
 		if (ek_tag_len > 0)
 			dcrypt_ctx_sym_set_aad(dctx, ptr + ek_key_len + ek_iv_len, ek_tag_len);
-		safe_memset(buffer_get_modifiable_data(temp_key, 0),
-			    0, temp_key->used);
+		buffer_clear_safe(temp_key);
 
 		int ec = 0;
 		if (!dcrypt_ctx_sym_init(dctx, &error) ||
@@ -555,7 +549,7 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 	/* make sure we were able to decrypt the encrypted key correctly */
 	const struct hash_method *hash = hash_method_lookup(t_str_lcase(malg));
 	if (hash == NULL) {
-		safe_memset(buffer_get_modifiable_data(key, 0), 0, key->used);
+		buffer_clear_safe(key);
 		io_stream_set_error(&stream->istream.iostream,
 				    "Decryption error: "
 				     "unsupported hash algorithm: %s", malg);
@@ -578,7 +572,7 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 
 	/* do the comparison */
 	if (memcmp(ekhash, hres, I_MIN(ekhash_len, sizeof(hres))) != 0) {
-		safe_memset(buffer_get_modifiable_data(key, 0), 0, key->used);
+		buffer_clear_safe(key);
 		io_stream_set_error(&stream->istream.iostream,
 				    "Decryption error: "
 				    "corrupted header ekhash");

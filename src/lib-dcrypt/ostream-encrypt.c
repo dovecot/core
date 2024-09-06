@@ -179,7 +179,7 @@ o_stream_encrypt_keydata_create_v1(struct encrypt_ostream *stream)
 	hash->init(hctx);
 	hash->loop(hctx, secret->data, secret->used);
 	hash->result(hctx, hres);
-	safe_memset(buffer_get_modifiable_data(secret, 0), 0, secret->used);
+	buffer_clear_safe(secret);
 
 	/* use it to encrypt the actual encryption key */
 	struct dcrypt_context_symmetric *dctx;
@@ -300,8 +300,7 @@ o_stream_encrypt_key_for_pubkey_v2(struct encrypt_ostream *stream,
 		struct dcrypt_context_symmetric *dctx;
 		if (!dcrypt_ctx_sym_create(calg, DCRYPT_MODE_ENCRYPT,
 					   &dctx, &error)) {
-			safe_memset(buffer_get_modifiable_data(temp_key, 0),
-				    0, temp_key->used);
+			buffer_clear_safe(temp_key);
 			io_stream_set_error(&stream->ostream.iostream,
 					    "Cannot perform key encryption: %s",
 					    error);
@@ -321,16 +320,14 @@ o_stream_encrypt_key_for_pubkey_v2(struct encrypt_ostream *stream,
 				   ephemeral_key->data, ephemeral_key->used,
 				   malg, IO_STREAM_ENCRYPT_ROUNDS, temp_key,
 				   ek_key_len + ek_iv_len + ek_aad_len, &error)) {
-			safe_memset(buffer_get_modifiable_data(secret, 0),
-				    0, secret->used);
+			buffer_clear_safe(secret);
 			io_stream_set_error(&stream->ostream.iostream,
 					    "Cannot perform key encryption: %s",
 					    error);
 			dcrypt_ctx_sym_destroy(&dctx);
 			return -1;
 		}
-		safe_memset(buffer_get_modifiable_data(secret, 0),
-			    0, secret->used);
+		buffer_clear_safe(secret);
 
 		/* encrypt key with shared secret */
 		const unsigned char *ptr = temp_key->data;
@@ -341,8 +338,7 @@ o_stream_encrypt_key_for_pubkey_v2(struct encrypt_ostream *stream,
 					       ek_aad_len);
 		dcrypt_ctx_sym_set_key(dctx, ptr, ek_key_len);
 		dcrypt_ctx_sym_set_iv(dctx, ptr + ek_key_len, ek_iv_len);
-		safe_memset(buffer_get_modifiable_data(temp_key, 0),
-			    0, temp_key->used);
+		buffer_clear_safe(temp_key);
 
 		int ec = 0;
 		if (!dcrypt_ctx_sym_init(dctx, &error) ||
@@ -490,7 +486,7 @@ o_stream_encrypt_keydata_create_v2(struct encrypt_ostream *stream,
 	}
 
 	/* clear out private key data */
-	safe_memset(buffer_get_modifiable_data(keydata, 0), 0, keydata->used);
+	buffer_clear_safe(keydata);
 
 	if (error != NULL ||
 	    !dcrypt_ctx_sym_init(stream->ctx_sym, &error)) {
