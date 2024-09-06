@@ -25,6 +25,9 @@ libdict_backend_la_SOURCES = \
 	$(ldap_sources)
 libdict_backend_la_LIBADD =
 
+BUILT_SOURCES = \
+	dict-drivers-register.c
+
 nodist_libdict_backend_la_SOURCES = \
 	dict-drivers-register.c
 
@@ -86,9 +89,6 @@ dict-drivers-register.c: Makefile $(top_builddir)/config.h
 	  fi; \
 	done; \
 	echo '}' >>$@
-
-distclean-generic:
-	rm -f Makefile dict-drivers-register.c
 
 test_programs = \
 	test-dict-sql
