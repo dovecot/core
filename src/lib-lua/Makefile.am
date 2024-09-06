@@ -10,8 +10,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-master \
 	$(LUA_CFLAGS)
 
-pkglib_LTLIBRARIES = libdovecot-lua.la
-libdovecot_lua_la_SOURCES = \
+noinst_LTLIBRARIES = libdlua.la
+libdlua_la_SOURCES = \
 	dlua-script.c \
 	dlua-pushstring.c \
 	dlua-error.c \
@@ -35,13 +35,18 @@ test_programs += \
 	test-dns-lua
 endif
 
+libdlua_la_LIBADD = $(WITH_YIELDS_LUA)
+libdlua_la_DEPENDENCIES = $(WITH_YIELDS_LUA)
+
+pkglib_LTLIBRARIES = libdovecot-lua.la
+libdovecot_lua_la_SOURCES =
 # Note: the only things this lib should depend on are libdovecot and lua.
 libdovecot_lua_la_DEPENDENCIES = \
-	$(LIBDOVECOT_DEPS) \
-	$(WITH_YIELDS_LUA)
+	libdlua.la \
+	$(LIBDOVECOT_DEPS)
 libdovecot_lua_la_LIBADD = \
+	libdlua.la \
 	$(LIBDOVECOT) \
-	$(WITH_YIELDS_LUA) \
 	$(LUA_LIBS)
 libdovecot_lua_la_LDFLAGS = -export-dynamic
 
@@ -59,28 +64,25 @@ EXTRA_DIST = \
 
 noinst_PROGRAMS = $(test_programs)
 
-test_libs =\
- libdovecot-lua.la
-
 test_libs_ssl = ../lib-ssl-iostream/libssl_iostream_openssl.la
 
 test_lua_SOURCES = test-lua.c
 test_lua_CFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
 test_lua_LDFLAGS = $(BINARY_LDFLAGS)
-test_lua_LDADD = $(test_libs) $(LIBDOVECOT) $(LUA_LIBS)
-test_lua_DEPENDENCIES = $(test_libs) $(LIBDOVECOT_DEPS)
+test_lua_LDADD = libdlua.la $(LIBDOVECOT) $(LUA_LIBS)
+test_lua_DEPENDENCIES = libdlua.la $(LIBDOVECOT_DEPS)
 
 test_dict_lua_SOURCES = test-dict-lua.c
-test_dict_lua_LDADD = $(test_libs) $(LIBDOVECOT) $(LUA_LIBS)
-test_dict_lua_DEPENDENCIES = $(test_libs) $(LIBDOVECOT_DEPS)
+test_dict_lua_LDADD = libdlua.la $(LIBDOVECOT) $(LUA_LIBS)
+test_dict_lua_DEPENDENCIES = libdlua.la $(LIBDOVECOT_DEPS)
 
 test_dns_lua_SOURCES = test-dns-lua.c
-test_dns_lua_LDADD = $(test_libs) $(LIBDOVECOT) $(LUA_LIBS)
-test_dns_lua_DEPENDENCIES = $(test_libs) $(LIBDOVECOT_DEPS)
+test_dns_lua_LDADD = libdlua.la $(LIBDOVECOT) $(LUA_LIBS)
+test_dns_lua_DEPENDENCIES = libdlua.la $(LIBDOVECOT_DEPS)
 
 test_lua_http_client_SOURCES = test-lua-http-client.c
-test_lua_http_client_LDADD = $(test_libs) $(LIBDOVECOT) $(test_libs_ssl) $(LUA_LIBS)
-test_lua_http_client_DEPENDENCIES = $(test_libs) $(LIBDOVECOT_DEPS)
+test_lua_http_client_LDADD = libdlua.la $(LIBDOVECOT) $(test_libs_ssl) $(LUA_LIBS)
+test_lua_http_client_DEPENDENCIES = libdlua.la $(LIBDOVECOT_DEPS)
 test_lua_http_client_CFLAGS = \
 	$(AM_CPPFLAGS) \
 	$(DOVECOT_BINARY_CFLAGS) \
