@@ -26,8 +26,8 @@ static const struct setting_define ldap_setting_defines[] = {
 	DEF(STR, auth_sasl_realm),
 	DEF(STR, auth_sasl_authz_id),
 	DEF(BOOL, starttls),
-	DEF(STR, deref),
-	DEF(STR, scope),
+	DEF(ENUM, deref),
+	DEF(ENUM, scope),
 	DEF(UINT, version),
 	DEF(STR, debug_level),
 	SETTING_DEFINE_LIST_END
@@ -42,8 +42,8 @@ static const struct ldap_settings ldap_default_settings = {
 	.auth_sasl_realm = "",
 	.auth_sasl_authz_id = "",
 	.starttls = FALSE,
-	.deref = "never",
-	.scope = "subtree",
+	.deref = "never:searching:finding:always",
+	.scope = "subtree:onelevel:base",
 	.version = 3,
 	.debug_level = "0",
 };
