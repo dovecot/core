@@ -70,6 +70,14 @@ cmd_id_x_forward_(struct imap_client *client,
 	client_add_forward_field(&client->common, key+10, value);
 }
 
+static void
+cmd_id_x_multiplex(struct imap_client *client ATTR_UNUSED,
+		   const char *key ATTR_UNUSED, const char *value ATTR_UNUSED)
+{
+	/* ignore - registered here only so that it's not automatically
+	   forwarded by imap_id_retain=yes handling */
+}
+
 static const struct imap_id_param_handler imap_login_id_params[] = {
 	{ "x-originating-ip", FALSE, cmd_id_x_originating_ip },
 	{ "x-originating-port", FALSE, cmd_id_x_originating_port },
@@ -79,6 +87,7 @@ static const struct imap_id_param_handler imap_login_id_params[] = {
 	{ "x-session-id", FALSE, cmd_id_x_session_id },
 	{ "x-session-ext-id", FALSE, cmd_id_x_session_id },
 	{ "x-forward-", TRUE, cmd_id_x_forward_ },
+	{ "x-multiplex", FALSE, cmd_id_x_multiplex },
 
 	{ NULL, FALSE, NULL }
 };
