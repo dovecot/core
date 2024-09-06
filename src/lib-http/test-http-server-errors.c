@@ -772,7 +772,7 @@ static void client_connection_init(const struct ip_addr *ip, in_port_t port)
 	struct client_connection *conn;
 	pool_t pool;
 
-	pool = pool_alloconly_create("client connection", 512);
+	pool = pool_alloconly_create("client connection", 1024);
 	conn = p_new(pool, struct client_connection, 1);
 	conn->pool = pool;
 

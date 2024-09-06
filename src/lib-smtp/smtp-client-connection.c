@@ -2206,7 +2206,7 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 	conn->cap_pool = pool_alloconly_create(
 		"smtp client connection capabilities", 128);
 	conn->state_pool = pool_alloconly_create(
-		"smtp client connection state", 256);
+		"smtp client connection state", 512);
 
 	if (set != NULL && set->event_parent != NULL)
 		conn_event = event_create(set->event_parent);

@@ -66,7 +66,7 @@ smtp_submit_session_init(const struct smtp_submit_input *input,
 	struct smtp_submit_session *session;
 	pool_t pool;
 
-	pool = pool_alloconly_create("smtp submit session", 128);
+	pool = pool_alloconly_create("smtp submit session", 512);
 	session = p_new(pool, struct smtp_submit_session, 1);
 	session->pool = pool;
 
@@ -104,7 +104,7 @@ smtp_submit_init(struct smtp_submit_session *session,
 	struct smtp_submit *subm;
 	pool_t pool;
 
-	pool = pool_alloconly_create("smtp submit", 256);
+	pool = pool_alloconly_create("smtp submit", 1024);
 	subm = p_new(pool, struct smtp_submit, 1);
 	subm->session = session;
 	subm->pool = pool;
