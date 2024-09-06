@@ -103,12 +103,12 @@ test_dict_sql_LDADD = \
 	$(DICT_LIBS) \
 	../lib-sql/libdriver_test.la \
 	../lib-sql/libsql.la \
-	../lib-dovecot/libdovecot.la
+	$(LIBDOVECOT)
 test_dict_sql_DEPENDENCIES = \
 	$(noinst_LTLIBRARIES) \
 	../lib-sql/libdriver_test.la \
 	../lib-sql/libsql.la \
-	../lib-dovecot/libdovecot.la
+	$(LIBDOVECOT_DEPS)
 
 check-local:
 	for bin in $(test_programs) $(check_PROGRAMS); do \

@@ -129,11 +129,10 @@ pkglib_LTLIBRARIES = libdovecot-storage.la
 libdovecot_storage_la_SOURCES =
 libdovecot_storage_la_LIBADD = \
 	libstorage.la \
-	../lib-dovecot/libdovecot.la \
+	$(LIBDOVECOT) \
 	$(LINKED_STORAGE_LDADD)
 libdovecot_storage_la_DEPENDENCIES = \
 	libstorage.la \
-	../lib-dovecot/libdovecot.la \
 	$(LIBDOVECOT_DEPS)
 libdovecot_storage_la_LDFLAGS = -export-dynamic
 

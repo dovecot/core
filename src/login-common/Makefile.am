@@ -34,6 +34,6 @@ pkginc_lib_HEADERS = $(headers)
 
 pkglib_LTLIBRARIES = libdovecot-login.la
 libdovecot_login_la_SOURCES =
-libdovecot_login_la_LIBADD = liblogin.la ../lib-dovecot/libdovecot.la $(SSL_LIBS)
-libdovecot_login_la_DEPENDENCIES = liblogin.la
+libdovecot_login_la_LIBADD = liblogin.la $(LIBDOVECOT) $(SSL_LIBS)
+libdovecot_login_la_DEPENDENCIES = liblogin.la $(LIBDOVECOT_DEPS)
 libdovecot_login_la_LDFLAGS = -export-dynamic

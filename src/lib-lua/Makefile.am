@@ -37,10 +37,10 @@ endif
 
 # Note: the only things this lib should depend on are libdovecot and lua.
 libdovecot_lua_la_DEPENDENCIES = \
-	../lib-dovecot/libdovecot.la \
+	$(LIBDOVECOT_DEPS) \
 	$(WITH_YIELDS_LUA)
 libdovecot_lua_la_LIBADD = \
-	../lib-dovecot/libdovecot.la \
+	$(LIBDOVECOT) \
 	$(WITH_YIELDS_LUA) \
 	$(LUA_LIBS)
 libdovecot_lua_la_LDFLAGS = -export-dynamic
@@ -60,28 +60,27 @@ EXTRA_DIST = \
 noinst_PROGRAMS = $(test_programs)
 
 test_libs =\
- libdovecot-lua.la \
- ../lib-dovecot/libdovecot.la
+ libdovecot-lua.la
 
 test_libs_ssl = ../lib-ssl-iostream/libssl_iostream_openssl.la
 
 test_lua_SOURCES = test-lua.c
 test_lua_CFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
 test_lua_LDFLAGS = $(BINARY_LDFLAGS)
-test_lua_LDADD = $(test_libs) $(LUA_LIBS)
-test_lua_DEPENDENCIES = $(test_libs)
+test_lua_LDADD = $(test_libs) $(LIBDOVECOT) $(LUA_LIBS)
+test_lua_DEPENDENCIES = $(test_libs) $(LIBDOVECOT_DEPS)
 
 test_dict_lua_SOURCES = test-dict-lua.c
-test_dict_lua_LDADD = $(test_libs) $(LUA_LIBS)
-test_dict_lua_DEPENDENCIES = $(test_libs)
+test_dict_lua_LDADD = $(test_libs) $(LIBDOVECOT) $(LUA_LIBS)
+test_dict_lua_DEPENDENCIES = $(test_libs) $(LIBDOVECOT_DEPS)
 
 test_dns_lua_SOURCES = test-dns-lua.c
-test_dns_lua_LDADD = $(test_libs) $(LUA_LIBS)
-test_dns_lua_DEPENDENCIES = $(test_libs)
+test_dns_lua_LDADD = $(test_libs) $(LIBDOVECOT) $(LUA_LIBS)
+test_dns_lua_DEPENDENCIES = $(test_libs) $(LIBDOVECOT_DEPS)
 
 test_lua_http_client_SOURCES = test-lua-http-client.c
-test_lua_http_client_LDADD = $(test_libs) $(test_libs_ssl) $(LUA_LIBS)
-test_lua_http_client_DEPENDENCIES = $(test_libs)
+test_lua_http_client_LDADD = $(test_libs) $(LIBDOVECOT) $(test_libs_ssl) $(LUA_LIBS)
+test_lua_http_client_DEPENDENCIES = $(test_libs) $(LIBDOVECOT_DEPS)
 test_lua_http_client_CFLAGS = \
 	$(AM_CPPFLAGS) \
 	$(DOVECOT_BINARY_CFLAGS) \

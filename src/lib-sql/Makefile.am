@@ -60,9 +60,6 @@ libsql_la_LIBADD = $(SQL_LIBS)
 
 nodist_libsql_la_SOURCES = sql-drivers-register.c
 
-deplibs = \
-	../lib-dovecot/libdovecot.la
-
 if SQL_PLUGINS
 libdriver_mysql_la_LDFLAGS = -module -avoid-version
 libdriver_mysql_la_LIBADD = $(MYSQL_LIBS)
@@ -95,8 +92,8 @@ noinst_HEADERS = driver-test.h
 
 pkglib_LTLIBRARIES = libdovecot-sql.la
 libdovecot_sql_la_SOURCES =
-libdovecot_sql_la_LIBADD = libsql.la $(deplibs)
-libdovecot_sql_la_DEPENDENCIES = libsql.la
+libdovecot_sql_la_LIBADD = libsql.la $(LIBDOVECOT)
+libdovecot_sql_la_DEPENDENCIES = libsql.la $(LIBDOVECOT_DEPS)
 libdovecot_sql_la_LDFLAGS = -export-dynamic
 
 headers = \

@@ -28,7 +28,10 @@ test_var_expand_crypt_CFLAGS = \
 test_var_expand_crypt_SOURCES = \
 	test-var-expand-crypt.c
 test_var_expand_crypt_LDADD = \
-	../../lib-dovecot/libdovecot.la \
+	$(LIBDOVECOT) \
+	lib20_auth_var_expand_crypt.la
+test_var_expand_crypt_DEPENDENCIES = \
+	$(LIBDOVECOT_DEPS) \
 	lib20_auth_var_expand_crypt.la
 
 check-local:

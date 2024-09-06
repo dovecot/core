@@ -212,12 +212,9 @@ noinst_PROGRAMS = $(test_programs)
 
 noinst_HEADERS = test-auth.h db-lua.h test-auth-master.h
 
-test_libs = \
-	../lib-dovecot/libdovecot.la
-
 test_auth_cache_SOURCES = auth-cache.c test-auth-cache.c
-test_auth_cache_LDADD = $(test_libs)
-test_auth_cache_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
+test_auth_cache_LDADD = $(LIBDOVECOT)
+test_auth_cache_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(LIBDOVECOT_DEPS)
 # this is needed to force auth-cache.c recompilation
 test_auth_cache_CPPFLAGS = $(AM_CPPFLAGS)
 
@@ -230,24 +227,24 @@ test_auth_SOURCES = \
 	test-mock.c \
 	test-main.c
 
-test_auth_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
-test_auth_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
+test_auth_LDADD = $(LIBDOVECOT) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
+test_auth_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(LIBDOVECOT_DEPS)
 
 test_mech_SOURCES = \
 	test-auth.c \
 	test-mock.c \
 	test-mech.c
 
-test_mech_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
-test_mech_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
+test_mech_LDADD = $(LIBDOVECOT) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
+test_mech_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(LIBDOVECOT_DEPS)
 
 test_auth_client_SOURCES = \
 	test-auth.c \
 	test-mock.c \
 	test-auth-client.c
 
-test_auth_client_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
-test_auth_client_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
+test_auth_client_LDADD = $(LIBDOVECOT) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
+test_auth_client_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(LIBDOVECOT_DEPS)
 
 test_auth_master_SOURCES = \
 	test-auth.c \
@@ -255,8 +252,8 @@ test_auth_master_SOURCES = \
 	test-auth-master.c \
 	test-auth-master-server.c
 
-test_auth_master_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
-test_auth_master_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
+test_auth_master_LDADD = $(LIBDOVECOT) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
+test_auth_master_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(LIBDOVECOT_DEPS)
 
 
 check-local:
