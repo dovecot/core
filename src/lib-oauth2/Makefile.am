@@ -5,8 +5,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-http \
 	-I$(top_srcdir)/src/lib-dcrypt \
 	-I$(top_srcdir)/src/lib-dict \
-	-I$(top_srcdir)/src/lib-settings \
-	-DTEST_DCRYPT_MODULE_DIR=\""$(abs_top_builddir)/src/lib-dcrypt/.libs"\"
+	-I$(top_srcdir)/src/lib-settings
 
 noinst_LTLIBRARIES=liboauth2.la
 
@@ -33,6 +32,7 @@ noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
 	$(noinst_LTLIBRARIES) \
+	../lib-dcrypt/libdcrypt_openssl_static.la \
 	../lib-dcrypt/libdcrypt.la \
 	../lib-http/libhttp.la \
 	../lib-json/libjson.la \
@@ -47,6 +47,7 @@ test_libs = \
 	$(MODULE_LIBS)
 test_deps = \
 	$(noinst_LTLIBRARIES) \
+	../lib-dcrypt/libdcrypt_openssl_static.la \
 	../lib-dcrypt/libdcrypt.la \
 	../lib-http/libhttp.la \
 	../lib-json/libjson.la \

@@ -13,7 +13,7 @@
 #include "json-generator.h"
 #include "oauth2.h"
 #include "oauth2-private.h"
-#include "dcrypt.h"
+#include "dcrypt-private.h"
 #include "dict.h"
 #include "dict-private.h"
 #include "test-common.h"
@@ -933,7 +933,6 @@ static void test_do_init(void)
 {
 	const char *error;
 	struct dcrypt_settings dcrypt_set = {
-		.module_dir = TEST_DCRYPT_MODULE_DIR,
 	};
 	struct dict_legacy_settings dict_set = {
 		.base_dir = ".",
@@ -943,6 +942,7 @@ static void test_do_init(void)
 	dict_driver_register(&dict_driver_file);
 	if (dict_init_legacy("file:.keys", &dict_set, &keys_dict, &error) < 0)
 		i_fatal("dict_init(file:.keys): %s", error);
+	dcrypt_openssl_init(NULL);
 	if (!dcrypt_initialize(NULL, &dcrypt_set, &error)) {
 		i_error("No functional dcrypt backend found - "
 			"skipping some tests: %s", error);
@@ -968,6 +968,7 @@ static void test_do_deinit(void)
 	i_unlink(".keys");
 	buffer_free(&hs_sign_key);
 	dcrypt_deinitialize();
+	dcrypt_openssl_deinit();
 }
 
 int main(void)
