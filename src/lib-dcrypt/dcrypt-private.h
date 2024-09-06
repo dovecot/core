@@ -1,6 +1,10 @@
 #ifndef DCRYPT_PRIVATE_H
 #define DCRYPT_PRIVATE_H
 
+struct module;
+
+#include "dcrypt.h"
+
 #define DCRYPT_DOVECOT_KEY_ENCRYPT_HASH "sha256"
 #define DCRYPT_DOVECOT_KEY_ENCRYPT_ROUNDS 2048
 
