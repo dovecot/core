@@ -20,7 +20,7 @@ struct ldap_settings {
 	const char *auth_dn;
 	const char *auth_dn_password;
 
-	const char *auth_sasl_mechanism;
+	ARRAY_TYPE(const_string) auth_sasl_mechanisms;
 	const char *auth_sasl_realm;
 	const char *auth_sasl_authz_id;
 

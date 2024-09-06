@@ -1,6 +1,7 @@
 /* Copyright (c) 2005-2024 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "settings.h"
 #include "db-ldap-settings.h"
 
@@ -22,7 +23,7 @@ static const struct setting_define ldap_setting_defines[] = {
 	DEF(STR, connection_group),
 	DEF(STR, auth_dn),
 	DEF(STR, auth_dn_password),
-	DEF(STR, auth_sasl_mechanism),
+	DEF(BOOLLIST, auth_sasl_mechanisms),
 	DEF(STR, auth_sasl_realm),
 	DEF(STR, auth_sasl_authz_id),
 	DEF(BOOL, starttls),
@@ -38,7 +39,7 @@ static const struct ldap_settings ldap_default_settings = {
 	.connection_group = "",
 	.auth_dn = "",
 	.auth_dn_password = "",
-	.auth_sasl_mechanism = "",
+	.auth_sasl_mechanisms = ARRAY_INIT,
 	.auth_sasl_realm = "",
 	.auth_sasl_authz_id = "",
 	.starttls = FALSE,
@@ -183,7 +184,7 @@ static bool ldap_setting_check(void *_set, pool_t pool ATTR_UNUSED,
 #endif
 
 #ifndef HAVE_LDAP_SASL
-	if (*set->auth_sasl_mechanism != '\0') {
+	if (!array_is_empty(&set->auth_sasl_mechanisms)) {
 		*error_r = "ldap_auth_sasl_mechanism set, but no SASL support compiled in";
 		return FALSE;
 	}
@@ -202,7 +203,7 @@ int ldap_setting_post_check(const struct ldap_settings *set, const char **error_
 	}
 
 	if (set->version < 3) {
-		if (*set->auth_sasl_mechanism != '\0') {
+		if (!array_is_empty(&set->auth_sasl_mechanisms)) {
 			*error_r = "ldap_auth_sasl_mechanism requires ldap_version=3";
 			return -1;
 		}
