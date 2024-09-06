@@ -8,7 +8,7 @@
 #include "event-exporter.h"
 #include "array.h"
 #include "str.h"
-#include "var-expand.h"
+#include "var-expand-new.h"
 
 /* <settings checks> */
 #include "event-filter.h"
@@ -466,15 +466,15 @@ parse_metric_group_by_mod(pool_t pool,
 	group_by->discrete_modifier = p_strdup(pool, params[0]);
 
 	/* Check that the variables are valid */
-	const struct var_expand_table table[] = {
-		{ 'v', "", "value" },
-		{ 'd', "", "domain" },
-		{ '\0', NULL, NULL }
+	const struct var_expand_params vparams = {
+		.table = (const struct var_expand_table[]) {
+			{ .key ="value", .value = "" },
+			VAR_EXPAND_TABLE_END
+		},
 	};
 	const char *error;
 	string_t *str = t_str_new(128);
-	if (var_expand_with_table(str, group_by->discrete_modifier,
-				  table, &error) <= 0) {
+	if (var_expand_new(str, group_by->discrete_modifier, &vparams, &error) < 0) {
 		*error_r = t_strdup_printf(
 			"Failed to expand discrete modifier for %s: %s",
 			group_by->field, error);
