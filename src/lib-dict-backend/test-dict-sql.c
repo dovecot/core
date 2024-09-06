@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "test-lib.h"
-#include "sql-api.h"
+#include "sql-api-private.h"
 #include "dict.h"
 #include "dict-private.h"
 #include "dict-sql.h"
@@ -291,7 +291,7 @@ static void test_iterate(void)
 }
 
 int main(void) {
-	sql_drivers_init();
+	sql_drivers_init_without_drivers();
 	sql_driver_test_register();
 	dict_sql_register();
 
@@ -308,7 +308,7 @@ int main(void) {
 
 	dict_sql_unregister();
 	sql_driver_test_unregister();
-	sql_drivers_deinit();
+	sql_drivers_deinit_without_drivers();
 
 	return ret;
 }
