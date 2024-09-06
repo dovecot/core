@@ -42,8 +42,9 @@ static void proxy_write_id(struct imap_client *client, string_t *str)
 		str_append_str(str, client->common.client_id);
 		str_append_c(str, ' ');
 	}
+	if (!client->common.proxy_no_multiplex)
+		str_append(str, "\"x-multiplex\" \"0\" ");
 	str_printfa(str, "\"x-session-id\" \"%s\" "
-		    "\"x-multiplex\" \"0\" "
 		    "\"x-originating-ip\" \"%s\" "
 		    "\"x-originating-port\" \"%u\" "
 		    "\"x-connected-ip\" \"%s\" "
@@ -516,6 +517,13 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			login_proxy_failed(client->login_proxy,
 				login_proxy_get_event(client->login_proxy),
 				LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
+			return -1;
+		}
+		if (client->proxy_no_multiplex) {
+			login_proxy_failed(client->login_proxy,
+				login_proxy_get_event(client->login_proxy),
+				LOGIN_PROXY_FAILURE_TYPE_PROTOCOL,
+				"MULTIPLEX started without being requested");
 			return -1;
 		}
 		login_proxy_multiplex_input_start(client->login_proxy);

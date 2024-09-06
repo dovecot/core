@@ -116,6 +116,7 @@ struct client_auth_reply {
 	const char *const *all_fields;
 
 	bool nologin:1;
+	bool proxy_no_multiplex:1;
 };
 
 struct client_vfuncs {
@@ -306,6 +307,8 @@ struct client {
 	bool proxy_failed:1;
 	bool proxy_noauth:1;
 	bool proxy_nopipelining:1;
+	/* Disable multiplex iostream to next nop */
+	bool proxy_no_multiplex;
 	bool proxy_not_trusted:1;
 	bool proxy_redirect_reauth:1;
 	bool notified_auth_ready:1;

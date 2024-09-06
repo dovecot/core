@@ -180,6 +180,8 @@ static bool client_auth_parse_args(const struct client *client, bool success,
 					value, error);
 				return FALSE;
 			}
+		} else if (strcmp(key, "proxy_no_multiplex") == 0) {
+			reply_r->proxy_no_multiplex = TRUE;
 		} else if (strcmp(key, "proxy_refresh") == 0) {
 			if (str_to_uint(value, &reply_r->proxy_refresh_secs) < 0) {
 				e_error(client->event,
@@ -715,6 +717,7 @@ static int proxy_start(struct client *client,
 	client->proxy_noauth = reply->proxy.noauth;
 	client->proxy_not_trusted = reply->proxy.remote_not_trusted;
 	client->proxy_redirect_reauth = reply->proxy.redirect_reauth;
+	client->proxy_no_multiplex = reply->proxy_no_multiplex;
 
 	if (login_proxy_new(client, event, &proxy_set, proxy_input,
 			    client->v.proxy_side_channel_input,
