@@ -1,4 +1,4 @@
-noinst_LTLIBRARIES = libdcrypt.la
+noinst_LTLIBRARIES = libdcrypt.la libdcrypt_openssl_static.la
 pkglib_LTLIBRARIES =
 
 NOPLUGIN_LDFLAGS=
@@ -17,6 +17,13 @@ libdcrypt_la_SOURCES = \
 
 libdcrypt_la_CFLAGS = $(AM_CPPFLAGS) \
 	-DDCRYPT_MODULE_DIR=\"$(pkglibdir)\"
+
+libdcrypt_openssl_static_la_SOURCES = dcrypt-openssl1.c dcrypt-openssl3.c
+libdcrypt_openssl_static_la_LDFLAGS = ../lib-ssl-iostream/libssl_iostream_openssl.la
+libdcrypt_openssl_static_la_LIBADD = $(SSL_LIBS)
+libdcrypt_openssl_static_la_DEPENDENCIES = ../lib-ssl-iostream/libssl_iostream_openssl.la
+libdcrypt_openssl_static_la_CFLAGS = $(AM_CPPFLAGS) \
+	$(SSL_CFLAGS)
 
 pkglib_LTLIBRARIES += libdcrypt_openssl.la
 
