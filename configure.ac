@@ -587,18 +587,26 @@ LIBDOVECOT_LA_LIBS='\
 # so it needs to be in a single line.
 LIBDOVECOT_LA_LIBS=`echo "$LIBDOVECOT_LA_LIBS" | tr -d '\t\n\\\\'`
 
+LIBDOVECOT_LUA=''
+
 if test "$want_shared_libs" = "yes"; then
   LIBDOVECOT_DEPS='$(top_builddir)/src/lib-dovecot/libdovecot.la'
   LIBDOVECOT="$LIBDOVECOT_DEPS \$(MODULE_LIBS)"
   LIBDOVECOT_STORAGE_DEPS='$(top_builddir)/src/lib-storage/libdovecot-storage.la $(top_builddir)/src/lib-imap-storage/libimap-storage.la'
   LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/libdovecot-login.la'
   LIBDOVECOT_LDA='$(top_builddir)/src/lib-lda/libdovecot-lda.la'
+  if test $want_lua != no; then
+    LIBDOVECOT_LUA='$(top_builddir)/src/lib-lua/libdovecot-lua.la'
+  fi
 else
   LIBDOVECOT_DEPS="$LIBDOVECOT_LA_LIBS"
   LIBDOVECOT="$LIBDOVECOT_DEPS \$(LIBICONV) \$(MODULE_LIBS)"
   LIBDOVECOT_STORAGE_DEPS='$(top_builddir)/src/lib-storage/libstorage.la'
   LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/liblogin.la'
   LIBDOVECOT_LDA='$(top_builddir)/src/lib-lda/liblda.la'
+  if test $want_lua != no; then
+    LIBDOVECOT_LUA='$(top_builddir)/src/lib-lua/libdlua.la'
+  fi
 fi
 if test $want_ldap != no; then
   LIBDOVECOT_LDAP='$(top_builddir)/src/lib-ldap/libdovecot-ldap.la'
@@ -610,12 +618,6 @@ LIBDOVECOT_DSYNC='$(top_builddir)/src/doveadm/dsync/libdovecot-dsync.la'
 LIBDOVECOT_SQL='$(top_builddir)/src/lib-sql/libsql.la'
 LIBDOVECOT_COMPRESS='$(top_builddir)/src/lib-compression/libcompression.la'
 LIBDOVECOT_LIBFTS='$(top_builddir)/src/lib-fts/libfts.la'
-
-if test $want_lua != no; then
-  LIBDOVECOT_LUA='$(top_builddir)/src/lib-lua/libdovecot-lua.la'
-else
-  LIBDOVECOT_LUA=''
-fi
 
 LIBDOVECOT_OPENSSL='$(top_builddir)/src/lib-ssl-iostream/libssl_iostream_openssl.la'
 LIBDOVECOT_OPENSSL_DEPS="$LIBDOVECOT_OPENSSL"
