@@ -11,6 +11,7 @@ enum io_stream_encrypt_flags {
 	IO_STREAM_ENC_INTEGRITY_AEAD = 0x2,
 	IO_STREAM_ENC_INTEGRITY_NONE = 0x4,
 	IO_STREAM_ENC_VERSION_1      = 0x8,
+	IO_STREAM_ENC_SAME_CALG      = 0x10,
 };
 
 #endif

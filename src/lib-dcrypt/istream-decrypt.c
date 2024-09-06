@@ -328,7 +328,7 @@ i_stream_decrypt_der(const unsigned char **_data, const unsigned char *end,
 
 static ssize_t
 i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
-		     unsigned int rounds, const unsigned char *data,
+		     const char *calg, unsigned int rounds, const unsigned char *data,
 		     const unsigned char *end, buffer_t *key, size_t key_len)
 {
 	const char *error;
@@ -460,43 +460,68 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 				"Key decryption error: corrupted header");
 			return -1;
 		}
-
-		/* use shared secret and peer key to generate decryption key,
-		   AES-256-CBC has 32 byte key and 16 byte IV */
+		struct dcrypt_context_symmetric *dctx;
+		if (!dcrypt_ctx_sym_create(calg, DCRYPT_MODE_DECRYPT,
+					    &dctx, &error)) {
+			safe_memset(buffer_get_modifiable_data(temp_key, 0),
+				    0, temp_key->used);
+			io_stream_set_error(&stream->istream.iostream,
+					    "Key decryption error: %s", error);
+			return -1;
+		}
+		size_t ek_iv_len = dcrypt_ctx_sym_get_iv_length(dctx);
+		size_t ek_key_len = dcrypt_ctx_sym_get_key_length(dctx);
+		size_t ek_tag_len = 0;
+		if ((stream->flags & IO_STREAM_ENC_SAME_CALG) != 0 &&
+		    (stream->flags & IO_STREAM_ENC_INTEGRITY_AEAD) != 0)
+			ek_tag_len = IOSTREAM_TAG_SIZE;
+		/* use shared secret and peer key to generate decryption key */
 		if (!dcrypt_pbkdf2(secret->data, secret->used,
 				   peer_key.data, peer_key.used,
-				   malg, rounds, temp_key, 32+16, &error)) {
+				   malg, rounds, temp_key,
+				   ek_key_len + ek_iv_len + ek_tag_len,
+				   &error)) {
 			safe_memset(buffer_get_modifiable_data(secret, 0),
 				    0, secret->used);
 			io_stream_set_error(&stream->istream.iostream,
 					    "Key decryption error: %s", error);
+			dcrypt_ctx_sym_destroy(&dctx);
 			return -1;
 		}
 
 		safe_memset(buffer_get_modifiable_data(secret, 0),
 			    0, secret->used);
-		if (temp_key->used != 32+16) {
+		if (temp_key->used != ek_key_len + ek_iv_len + ek_tag_len) {
 			safe_memset(buffer_get_modifiable_data(temp_key, 0),
 				    0, temp_key->used);
 			io_stream_set_error(&stream->istream.iostream,
 					    "Cannot perform key decryption: "
 					    "invalid temporary key");
-			return -1;
-		}
-		struct dcrypt_context_symmetric *dctx;
-		if (!dcrypt_ctx_sym_create("AES-256-CBC", DCRYPT_MODE_DECRYPT,
-					   &dctx, &error)) {
-			safe_memset(buffer_get_modifiable_data(temp_key, 0),
-				    0, temp_key->used);
-			io_stream_set_error(&stream->istream.iostream,
-					    "Key decryption error: %s", error);
+			dcrypt_ctx_sym_destroy(&dctx);
 			return -1;
 		}
 		const unsigned char *ptr = temp_key->data;
+		if (ek_tag_len > 0) {
+			if (eklen < ek_tag_len) {
+				safe_memset(buffer_get_modifiable_data(temp_key, 0),
+					    0, temp_key->used);
+				io_stream_set_error(&stream->istream.iostream,
+						    "Cannot perform key decryption: "
+						    "Missing TAG from encrypted key");
+				dcrypt_ctx_sym_destroy(&dctx);
+				return -1;
+			}
+			/* extract ek_aad_len bytes from encrypted_key */
+			const unsigned char *tag =
+				CONST_PTR_OFFSET(encrypted_key, eklen - ek_tag_len);
+			dcrypt_ctx_sym_set_tag(dctx, tag, ek_tag_len);
+			eklen -= ek_tag_len;
+		}
 
-		/* we use ephemeral_key for IV */
-		dcrypt_ctx_sym_set_key(dctx, ptr, 32);
-		dcrypt_ctx_sym_set_iv(dctx, ptr+32, 16);
+		dcrypt_ctx_sym_set_key(dctx, ptr, ek_key_len);
+		dcrypt_ctx_sym_set_iv(dctx, ptr + ek_key_len, ek_iv_len);
+		if (ek_tag_len > 0)
+			dcrypt_ctx_sym_set_aad(dctx, ptr + ek_key_len + ek_iv_len, ek_tag_len);
 		safe_memset(buffer_get_modifiable_data(temp_key, 0),
 			    0, temp_key->used);
 
@@ -514,7 +539,7 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 		if (key->used != key_len) {
 			io_stream_set_error(&stream->istream.iostream,
 					    "Cannot perform key decryption: "
-					    "invalid key length");
+					    "invalid key length (%zu != %zu)", key->used, key_len);
 			ec = -1;
 		}
 
@@ -624,8 +649,12 @@ i_stream_decrypt_header_contents(struct decrypt_istream *stream,
 		dcrypt_ctx_sym_get_iv_length(stream->ctx_sym) + tagsize;
 	buffer_t *keydata = t_buffer_create(kl);
 
+	const char *ek_calg = "AES-256-CBC";
+	if ((stream->flags & IO_STREAM_ENC_SAME_CALG) != 0)
+		ek_calg = calg;
+
 	/* try to decrypt the keydata with a private key */
-	if ((ret = i_stream_decrypt_key(stream, malg, rounds, data,
+	if ((ret = i_stream_decrypt_key(stream, malg, ek_calg, rounds, data,
 					end, keydata, kl)) <= 0)
 		return ret;
 
