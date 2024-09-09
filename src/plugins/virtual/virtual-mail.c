@@ -251,7 +251,11 @@ static int virtual_mail_precache(struct mail *mail)
 	if (backend_mail_get(vmail, &backend_mail) < 0)
 		return -1;
 	p = (struct mail_private *)backend_mail;
-	return p->v.precache(backend_mail);
+	if (p->v.precache(backend_mail) < 0) {
+		virtual_box_copy_error(mail->box, backend_mail->box);
+		return -1;
+	}
+	return 0;
 }
 
 static void
