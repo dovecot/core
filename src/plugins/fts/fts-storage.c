@@ -557,7 +557,8 @@ static int fts_mail_precache(struct mail *_mail)
 	int ret;
 
 	i_assert(!fmail->virtual_mail);
-	fmail->module_ctx.super.precache(_mail);
+	if (fmail->module_ctx.super.precache(_mail) < 0)
+		return -1;
 
 	i_assert(!ft->indexing);
 	T_BEGIN {
