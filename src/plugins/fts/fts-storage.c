@@ -558,7 +558,8 @@ static int fts_mail_precache(struct mail *_mail)
 	struct fts_transaction_context *ft = FTS_CONTEXT_REQUIRE(_mail->transaction);
 	int ret = 0;
 
-	fmail->module_ctx.super.precache(_mail);
+	if (fmail->module_ctx.super.precache(_mail) < 0)
+		return -1;
 	if (fmail->virtual_mail) {
 		if (ft->highest_virtual_uid < _mail->uid)
 			ft->highest_virtual_uid = _mail->uid;
