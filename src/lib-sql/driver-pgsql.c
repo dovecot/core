@@ -500,9 +500,8 @@ driver_pgsql_init_full_v(const struct sql_legacy_settings *legacy_set,
 	const char *value;
 
 	pool_t pool = pool_alloconly_create("pgsql settings", 128);
-	struct pgsql_settings *set = p_new(pool, struct pgsql_settings, 1);
-	*set = pgsql_default_settings;
-	set->pool = pool;
+	struct pgsql_settings *set =
+		settings_defaults_dup(pool, &pgsql_setting_parser_info);
 
 	/* NOTE: Connection string will be parsed by pgsql itself
 		 We only pick the host part here */

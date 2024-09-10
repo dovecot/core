@@ -169,9 +169,7 @@ reader_client_input_metrics_add(struct reader_client *client,
 
 	pool_t pool = pool_alloconly_create("dynamic stats metrics", 128);
 	struct stats_metric_settings *set =
-		p_new(pool, struct stats_metric_settings, 1);
-	*set = stats_metric_default_settings;
-	set->pool = pool;
+		settings_defaults_dup(pool, &stats_metric_setting_parser_info);
 	set->name = p_strdup(pool, args[0]);
 	set->description = p_strdup(pool, args[1]);
 	set->filter = p_strdup(pool, args[4]);

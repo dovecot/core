@@ -218,9 +218,8 @@ driver_sqlite_parse_connect_string(pool_t pool,
 		return -1;
 	}
 
-	struct sqlite_settings *set = p_new(pool, struct sqlite_settings, 1);
-	*set = sqlite_default_settings;
-	set->pool = pool;
+	struct sqlite_settings *set =
+		settings_defaults_dup(pool, &sqlite_setting_parser_info);
 
 	for (; *params != NULL; params++) {
 		if (str_begins(*params, "journal_mode=", &arg)) {

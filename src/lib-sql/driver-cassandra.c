@@ -857,9 +857,7 @@ driver_cassandra_parse_connect_string(pool_t pool, const char *connect_string,
 	bool read_fallback_set = FALSE, write_fallback_set = FALSE;
 	bool delete_fallback_set = FALSE;
 
-	set = p_new(pool, struct cassandra_settings, 1);
-	*set = cassandra_default_settings;
-	set->pool = pool;
+	set = settings_defaults_dup(pool, &cassandra_setting_parser_info);
 
 	struct ssl_settings *ssl_set = p_new(pool, struct ssl_settings, 1);
 	*ssl_set = ssl_default_settings;

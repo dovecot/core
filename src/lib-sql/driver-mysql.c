@@ -298,13 +298,8 @@ driver_mysql_parse_connect_string(pool_t pool, const char *connect_string,
 	const char *const *args, *name, *value;
 	const char **field;
 
-	set = p_new(pool, struct mysql_settings, 1);
-	*set = mysql_default_settings;
-	set->pool = pool;
-
-	ssl_set = p_new(pool, struct ssl_settings, 1);
-	*ssl_set = ssl_default_settings;
-	ssl_set->pool = pool;
+	set = settings_defaults_dup(pool, &mysql_setting_parser_info);
+	ssl_set = settings_defaults_dup(pool, &ssl_setting_parser_info);
 
 	ssl_set->ssl_cipher_list = "HIGH";
 

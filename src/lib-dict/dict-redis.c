@@ -483,9 +483,7 @@ redis_dict_init_legacy(struct dict *dict_driver, const char *uri,
 {
 	pool_t pool = pool_alloconly_create("redis_settings", 128);
 	struct dict_redis_settings *set =
-		p_new(pool, struct dict_redis_settings, 1);
-	*set = redis_default_settings;
-	set->pool = pool;
+		settings_defaults_dup(pool, &redis_setting_parser_info);
 	if (net_addr2ip(set->redis_host, &set->redis_ip) < 0)
 		i_unreached();
 
