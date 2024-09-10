@@ -1100,6 +1100,14 @@ bool settings_equal(const struct setting_parser_info *info,
 	return TRUE;
 }
 
+void *settings_defaults_dup(pool_t pool, const struct setting_parser_info *info)
+{
+	void *dup = p_malloc(pool, info->struct_size);
+	memcpy(dup, info->defaults, info->struct_size);
+	memcpy(PTR_OFFSET(dup, info->pool_offset1 - 1), &pool, sizeof(pool));
+	return dup;
+}
+
 const char *settings_section_escape(const char *name)
 {
 #define CHAR_NEED_ESCAPE(c) \

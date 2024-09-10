@@ -290,6 +290,10 @@ bool settings_equal(const struct setting_parser_info *info,
 		    const void *set1, const void *set2,
 		    const char *const *except_fields);
 
+/* Allocate a new instance of a settings struct filled with the default
+   settings. */
+void *settings_defaults_dup(pool_t pool, const struct setting_parser_info *info);
+
 /* Return section name escaped */
 const char *settings_section_escape(const char *name);
 const char *settings_section_unescape(const char *name);
