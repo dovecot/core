@@ -744,9 +744,7 @@ client_dict_init_legacy(struct dict *dict_driver, const char *uri,
 	const char *error;
 
 	pool_t pool = pool_alloconly_create("dict_proxy_settings", 128);
-	set = p_new(pool, struct dict_proxy_settings, 1);
-	*set = dict_proxy_default_settings;
-	set->pool = pool;
+	set = settings_defaults_dup(pool, &dict_proxy_setting_parser_info);
 
 	/* uri = [idle_timeout=<n>:] [slow_warn=<n>:] [<path>] ":" <uri> */
 	for (;;) {

@@ -167,9 +167,7 @@ fs_posix_legacy_init(struct fs *_fs, const char *args,
 
 	pool_t pool = pool_alloconly_create("fs_posix_settings", 128);
 	struct fs_posix_settings *set =
-		p_new(pool, struct fs_posix_settings, 1);
-	*set = fs_posix_default_settings;
-	set->pool = pool;
+		settings_defaults_dup(pool, &fs_posix_setting_parser_info);
 	set->parsed_lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
 	fs->set = set;
 
