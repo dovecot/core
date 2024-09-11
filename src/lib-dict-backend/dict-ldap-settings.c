@@ -47,7 +47,7 @@ static const struct setting_def dict_ldap_map_setting_defs[] = {
 	DEF_STR(filter),
 	DEF_STR(username_attribute),
 	DEF_STR(value_attribute),
-	DEF_STR(base_dn),
+	DEF_STR(base),
 	DEF_STR(scope),
 	{ 0, NULL, 0 }
 };
