@@ -45,7 +45,6 @@ struct setting_parser_ctx {
 static const struct setting_def dict_ldap_map_setting_defs[] = {
 	DEF_STR(pattern),
 	DEF_STR(filter),
-	DEF_STR(filter_iter),
 	DEF_STR(username_attribute),
 	DEF_STR(value_attribute),
 	DEF_STR(base_dn),
