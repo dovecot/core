@@ -8,7 +8,7 @@ struct dict_ldap_map_settings {
 	const char *filter;
 	const char *username_attribute;
 	const char *value_attribute;
-	const char *base_dn;
+	const char *base;
 	const char *scope;
 	int scope_val;
 	unsigned int timeout;

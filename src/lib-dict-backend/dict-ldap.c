@@ -430,7 +430,7 @@ void ldap_dict_lookup_async(struct dict *dict,
 		attributes[0] = map->value_attribute;
 		/* build lookup */
 		i_zero(&input);
-		input.base_dn = map->base_dn;
+		input.base_dn = map->base;
 		input.scope = map->scope_val;
 		if (!ldap_dict_build_query(set, map, &values, strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE))==0, query, &error)) {
 			op->res.error = error;
