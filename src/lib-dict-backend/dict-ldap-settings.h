@@ -6,7 +6,6 @@ struct dict_ldap_map_settings {
 	   '$' character. fields array is sorted by the variable index. */
 	const char *pattern;
 	const char *filter;
-	const char *filter_iter;
 	const char *username_attribute;
 	const char *value_attribute;
 	const char *base_dn;
