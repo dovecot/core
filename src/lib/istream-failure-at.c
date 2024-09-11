@@ -77,7 +77,6 @@ i_stream_create_failure_at(struct istream *input, uoff_t failure_offset,
 	fstream->istream.read = i_stream_failure_at_read;
 	fstream->istream.iostream.destroy = i_stream_failure_at_destroy;
 
-	fstream->istream.istream.readable_fd = input->readable_fd;
 	fstream->istream.istream.blocking = input->blocking;
 	fstream->istream.istream.seekable = input->seekable;
 
