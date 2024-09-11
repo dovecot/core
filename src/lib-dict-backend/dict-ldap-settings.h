@@ -10,10 +10,12 @@ struct dict_ldap_map_settings {
 	const char *value_attribute;
 	const char *base;
 	const char *scope;
-	int scope_val;
 	unsigned int timeout;
 
 	ARRAY_TYPE(const_string) ldap_attributes;
+
+	/* parsed */
+	int parsed_scope;
 };
 
 struct dict_ldap_settings {
