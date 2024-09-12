@@ -18,6 +18,11 @@
    Dovecot generally doesn't have very important short timeouts, so to avoid
    logging many warnings about this, use a rather high value. */
 #define IOLOOP_TIME_MOVED_FORWARDS_MIN_USECS (100000)
+/* When the ioloop wait time is large, the "time moved forwards" detection
+   can't be done as reliably. Apparently if we ask the kernel to wait for
+   10000ms, it might think it's okay to stop after 10100ms or more. So use
+   a larger value for larger timeouts. */
+#define IOLOOP_TIME_MOVED_FORWARDS_MIN_USECS_LARGE (1000000)
 
 time_t ioloop_time = 0;
 struct timeval ioloop_timeval;
@@ -654,9 +659,13 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 		/* the callback may have slept, so check the time again. */
 		i_gettimeofday(&ioloop_timeval);
 	} else {
+		int max_diff = diff_usecs < IOLOOP_TIME_MOVED_FORWARDS_MIN_USECS_LARGE ?
+			IOLOOP_TIME_MOVED_FORWARDS_MIN_USECS :
+			IOLOOP_TIME_MOVED_FORWARDS_MIN_USECS_LARGE;
+
 		diff_usecs = timeval_diff_usecs(&ioloop->next_max_time,
 						&ioloop_timeval);
-		if (unlikely(-diff_usecs >= IOLOOP_TIME_MOVED_FORWARDS_MIN_USECS)) {
+		if (unlikely(-diff_usecs >= max_diff)) {
 			io_loops_timeouts_update(-diff_usecs);
 			/* time moved forward */
 			ioloop->time_moved_callback(&ioloop->next_max_time,
