@@ -226,8 +226,6 @@ static int dict_sql_fields_map(struct event *event, pool_t pool,
 		}
 	}
 
-	if (set->max_pattern_fields_count < count)
-		set->max_pattern_fields_count = count;
 	map->pattern = p_strdup(pool, str_c(pattern));
 	return 0;
 }

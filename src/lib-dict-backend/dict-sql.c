@@ -261,7 +261,7 @@ sql_dict_find_map(struct sql_dict *dict, const char *path,
 	unsigned int i, count;
 	size_t len;
 
-	t_array_init(pattern_values, dict->set->max_pattern_fields_count);
+	t_array_init(pattern_values, 2);
 	maps = array_get(&dict->set->maps, &count);
 	for (i = 0; i < count; i++) {
 		if (dict_sql_map_match(&maps[i], path, pattern_values,
@@ -718,7 +718,7 @@ sql_dict_iterate_find_next_map(struct sql_dict_iterate_context *ctx,
 	size_t pat_len, path_len;
 	bool recurse = (ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0;
 
-	t_array_init(pattern_values, dict->set->max_pattern_fields_count);
+	t_array_init(pattern_values, 2);
 	maps = array_get(&dict->set->maps, &count);
 	for (i = ctx->next_map_idx; i < count; i++) {
 		if (dict_sql_map_match(&maps[i], ctx->path,

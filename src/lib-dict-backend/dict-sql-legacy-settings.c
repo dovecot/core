@@ -125,8 +125,6 @@ static const char *dict_sql_fields_map(struct setting_parser_ctx *ctx)
 		}
 	}
 
-	if (ctx->set->map_set.max_pattern_fields_count < count)
-		ctx->set->map_set.max_pattern_fields_count = count;
 	ctx->cur_map.pattern = p_strdup(ctx->pool, str_c(pattern));
 	return NULL;
 }
