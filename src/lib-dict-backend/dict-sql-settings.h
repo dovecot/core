@@ -64,7 +64,6 @@ struct dict_map_settings {
 
 struct dict_sql_map_settings {
 	pool_t pool;
-	unsigned int max_pattern_fields_count;
 	ARRAY(struct dict_sql_map) maps;
 };
 
