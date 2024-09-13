@@ -152,8 +152,7 @@ static const char *pattern_read_name(const char **pattern)
 	return name;
 }
 
-static int dict_sql_fields_map(struct event *event,
-			       struct dict_sql_map_settings *set,
+static int dict_sql_fields_map(struct event *event, pool_t pool,
 			       const struct dict_map_settings *map_set,
 			       struct dict_sql_map *map,
 			       const char **error_r)
@@ -182,7 +181,7 @@ static int dict_sql_fields_map(struct event *event,
 					&dict_map_key_field_setting_parser_info,
 					0, &field_set, error_r) < 0)
 			return -1;
-		pool_add_external_ref(set->pool, field_set->pool);
+		pool_add_external_ref(pool, field_set->pool);
 		fields[i].sql_field.name = field_set->name;
 		fields[i].sql_field.value_type =
 			dict_sql_type_parse(field_set->type);
@@ -190,7 +189,7 @@ static int dict_sql_fields_map(struct event *event,
 		settings_free(field_set);
 	}
 
-	p_array_init(&map->pattern_fields, set->pool, count);
+	p_array_init(&map->pattern_fields, pool, count);
 	for (p = map->pattern; *p != '\0';) {
 		if (*p != '$') {
 			str_append_c(pattern, *p);
@@ -229,7 +228,7 @@ static int dict_sql_fields_map(struct event *event,
 
 	if (set->max_pattern_fields_count < count)
 		set->max_pattern_fields_count = count;
-	map->pattern = p_strdup(set->pool, str_c(pattern));
+	map->pattern = p_strdup(pool, str_c(pattern));
 	return 0;
 }
 
@@ -261,7 +260,7 @@ dict_sql_map_settings_get(struct event *event,
 	map->expire_field = map_set->expire_field[0] != '\0' ?
 		map_set->expire_field : NULL;
 	map->values_count = array_count(&map_set->values);
-	if (dict_sql_fields_map(event, set, map_set, map, error_r) < 0)
+	if (dict_sql_fields_map(event, set->pool, map_set, map, error_r) < 0)
 		return -1;
 
 	string_t *value_field = t_str_new(32);
