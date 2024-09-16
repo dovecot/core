@@ -43,7 +43,7 @@ html-local: stamp-html stamp-man
 install-data-local:
 	$(MKDIR_P) $(DESTDIR)$(docdir); \
 	for dir in $(DOCDIRS); do \
-	  cp -nrf $$dir $(DESTDIR)$(docdir); \
+	  cp -fpR $$dir $(DESTDIR)$(docdir); \
 	done
 
 uninstall-local:
