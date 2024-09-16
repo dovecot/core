@@ -949,10 +949,9 @@ static void db_ldap_set_options(struct ldap_connection *conn)
 	db_ldap_set_opt(conn, conn->ld, LDAP_OPT_DEREF, &conn->set->parsed_deref,
 			"ldap_deref", conn->set->deref);
 #ifdef LDAP_OPT_DEBUG_LEVEL
-	int debug_level;
-	if (str_to_int(conn->set->debug_level, &debug_level) >= 0 && debug_level != 0) {
-		db_ldap_set_opt(conn, NULL, LDAP_OPT_DEBUG_LEVEL, &debug_level,
-				"ldap_debug_level", conn->set->debug_level);
+	if (conn->set->debug_level != 0) {
+		db_ldap_set_opt(conn, NULL, LDAP_OPT_DEBUG_LEVEL, &conn->set->debug_level,
+				"ldap_debug_level", dec2str(conn->set->debug_level));
 		event_set_forced_debug(conn->event, TRUE);
 	}
 #endif

@@ -30,7 +30,7 @@ static const struct setting_define ldap_setting_defines[] = {
 	DEF(ENUM, deref),
 	DEF(ENUM, scope),
 	DEF(UINT, version),
-	DEF(STR, debug_level),
+	DEF(UINT, debug_level),
 	SETTING_DEFINE_LIST_END
 };
 
@@ -46,7 +46,7 @@ static const struct ldap_settings ldap_default_settings = {
 	.deref = "never:searching:finding:always",
 	.scope = "subtree:onelevel:base",
 	.version = 3,
-	.debug_level = "0",
+	.debug_level = 0,
 };
 
 static const struct setting_keyvalue ldap_default_settings_keyvalue[] = {

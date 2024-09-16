@@ -27,8 +27,7 @@ struct ldap_settings {
 	const char *deref;
 	const char *scope;
 
-	const char *debug_level;
-
+	unsigned int debug_level;
 	unsigned int version;
 
 	uid_t uid;
