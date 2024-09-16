@@ -30,7 +30,7 @@ struct setting_parser_ctx {
 	struct dict_ldap_settings *set;
 	enum section_type type;
 
-	struct dict_ldap_map cur_map;
+	struct dict_ldap_map_settings cur_map;
 	ARRAY(struct dict_ldap_map_attribute) cur_attributes;
 };
 
@@ -38,9 +38,9 @@ struct setting_parser_ctx {
 #undef DEF_BOOL
 #undef DEF_UINT
 
-#define DEF_STR(name) DEF_STRUCT_STR(name, dict_ldap_map)
-#define DEF_BOOL(name) DEF_STRUCT_BOOL(name, dict_ldap_map)
-#define DEF_UINT(name) DEF_STRUCT_UINT(name ,dict_ldap_map)
+#define DEF_STR(name) DEF_STRUCT_STR(name, dict_ldap_map_settings)
+#define DEF_BOOL(name) DEF_STRUCT_BOOL(name, dict_ldap_map_settings)
+#define DEF_UINT(name) DEF_STRUCT_UINT(name ,dict_ldap_map_settings)
 
 static const struct setting_def dict_ldap_map_setting_defs[] = {
 	DEF_STR(pattern),

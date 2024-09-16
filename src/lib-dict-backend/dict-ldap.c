@@ -24,7 +24,7 @@ struct ldap_dict;
 struct dict_ldap_op {
 	struct ldap_dict *dict;
 	struct event *event;
-	const struct dict_ldap_map *map;
+	const struct dict_ldap_map_settings *map;
 	pool_t pool;
 	unsigned long txid;
 	struct dict_lookup_result res;
@@ -58,7 +58,7 @@ void ldap_dict_lookup_async(struct dict *dict,
 
 
 static bool
-dict_ldap_map_match(const struct dict_ldap_map *map, const char *path,
+dict_ldap_map_match(const struct dict_ldap_map_settings *map, const char *path,
 		    ARRAY_TYPE(const_string) *values)
 {
 	const char *pat, *attribute, *p;
@@ -102,11 +102,11 @@ dict_ldap_map_match(const struct dict_ldap_map *map, const char *path,
 	return *pat == '\0' && *path == '\0';
 }
 
-static const struct dict_ldap_map *
+static const struct dict_ldap_map_settings *
 ldap_dict_find_map(struct ldap_dict *dict, const char *path,
 		  ARRAY_TYPE(const_string) *values)
 {
-	const struct dict_ldap_map *maps;
+	const struct dict_ldap_map_settings *maps;
 	unsigned int i, count;
 
 	t_array_init(values, 2);
@@ -158,7 +158,7 @@ static const char *ldap_escape(const char *str)
 
 static bool
 ldap_dict_build_query(const struct dict_op_settings *set,
-		      const struct dict_ldap_map *map,
+		      const struct dict_ldap_map_settings *map,
                       ARRAY_TYPE(const_string) *values, bool priv,
                       string_t *query_r, const char **error_r)
 {
@@ -423,7 +423,7 @@ void ldap_dict_lookup_async(struct dict *dict,
 	ARRAY_TYPE(const_string) values;
 	const char *attributes[2] = {0, 0};
 	t_array_init(&values, 8);
-	const struct dict_ldap_map *map = ldap_dict_find_map(ctx, key, &values);
+	const struct dict_ldap_map_settings *map = ldap_dict_find_map(ctx, key, &values);
 
 	if (map != NULL) {
 		op->map = map;

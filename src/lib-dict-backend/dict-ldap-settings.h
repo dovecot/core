@@ -1,7 +1,7 @@
 #ifndef DICT_LDAP_SETTINGS_H
 #define DICT_LDAP_SETTINGS_H
 
-struct dict_ldap_map {
+struct dict_ldap_map_settings {
 	/* pattern is in simplified form: all variables are stored as simple
 	   '$' character. fields array is sorted by the variable index. */
 	const char *pattern;
@@ -26,7 +26,7 @@ struct dict_ldap_settings {
 	unsigned int debug;
 	bool require_ssl;
 	bool start_tls;
-	ARRAY(struct dict_ldap_map) parsed_maps;
+	ARRAY(struct dict_ldap_map_settings) parsed_maps;
 };
 
 struct dict_ldap_settings *
