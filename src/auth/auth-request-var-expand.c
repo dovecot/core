@@ -248,7 +248,7 @@ int auth_request_var_expand_with_table(string_t *dest, const char *str,
 		.event = auth_request->event,
 	};
 
-	return var_expand_new(dest, str, &params, error_r) < 0 ? -1 : 1;
+	return var_expand_new(dest, str, &params, error_r);
 }
 
 int t_auth_request_var_expand(const char *str,
@@ -260,7 +260,7 @@ int t_auth_request_var_expand(const char *str,
 	int ret = auth_request_var_expand(dest, str, auth_request,
 					  escape_func, error_r);
 	*value_r = str_c(dest);
-	return ret < 0 ? ret : 1;
+	return ret;
 }
 
 static void

@@ -2117,7 +2117,7 @@ auth_request_set_uidgid_file(struct auth_request *request,
 
 	path = t_str_new(256);
 	if (auth_request_var_expand(path, path_template, request,
-				    NULL, &error) <= 0) {
+				    NULL, &error) < 0) {
 		e_error(authdb_event(request),
 			"Failed to expand uidgid_file=%s: %s",
 			path_template, error);

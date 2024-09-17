@@ -334,7 +334,7 @@ auth_request_fix_username(struct auth_request *request, const char **username,
 				user, &count);
 		if (auth_request_var_expand_with_table(dest,
 				set->username_format, request,
-				table, NULL, &error) <= 0) {
+				table, NULL, &error) < 0) {
 			*error_r = t_strdup_printf(
 				"Failed to expand username_format=%s: %s",
 				set->username_format, error);

@@ -49,7 +49,7 @@ passwd_file_add_extra_fields(struct auth_request *request,
 			key = t_strdup_until(key, value);
 			str_truncate(str, 0);
 			if (auth_request_var_expand_with_table(str, value + 1,
-					request, table, NULL, &error) <= 0) {
+					request, table, NULL, &error) < 0) {
 				e_error(authdb_event(request),
 					"Failed to expand extra field %s: %s",
 					fields[i], error);
