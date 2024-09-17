@@ -12,9 +12,8 @@ struct dict_ldap_map_settings {
 	const char *scope;
 	unsigned int timeout;
 
-	ARRAY_TYPE(const_string) ldap_attributes;
-
 	/* parsed */
+	ARRAY_TYPE(const_string) ldap_attributes;
 	int parsed_scope;
 };
 
