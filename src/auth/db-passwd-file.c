@@ -503,7 +503,7 @@ int db_passwd_file_lookup(struct db_passwd_file *db,
 
 	username = t_str_new(256);
 	if (auth_request_var_expand(username, username_format, request,
-				    auth_request_str_escape, &error) <= 0) {
+				    auth_request_str_escape, &error) < 0) {
 		e_error(authdb_event(request),
 			"Failed to expand username_format=%s: %s",
 			username_format, error);

@@ -549,7 +549,7 @@ auth_policy_create_json(struct policy_lookup_ctx *context,
 					       auth_policy_json_template,
 					       context->request, var_table,
 					       auth_policy_escape_function,
-					       &error) <= 0) {
+					       &error) < 0) {
 		e_error(context->event,
 			"Failed to expand auth policy template: %s", error);
 	}
