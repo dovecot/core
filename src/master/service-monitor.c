@@ -91,7 +91,7 @@ static void service_kill_idle(struct service *service)
 		}
 		process->last_kill_sent = ioloop_time;
 		process->to_idle_kill =
-			timeout_add(service->idle_kill * 1000,
+			timeout_add(service->idle_kill_interval * 1000,
 				    service_process_idle_kill_timeout, process);
 
 		/* Move it to the end of the list, so it's not tried to be
@@ -167,11 +167,11 @@ static void service_check_idle(struct service_process *process)
 
 	if (service->process_avail > service->set->process_min_avail &&
 	    service->to_idle == NULL &&
-	    service->idle_kill != UINT_MAX) {
+	    service->idle_kill_interval != UINT_MAX) {
 		/* We have more processes than we really need. Start a timer
-		   to trigger idle_kill. */
+		   to trigger idle_kill_interval. */
 		service->to_idle =
-			timeout_add(service->idle_kill * 1000,
+			timeout_add(service->idle_kill_interval * 1000,
 				    service_kill_idle, service);
 	}
 }

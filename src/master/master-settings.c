@@ -130,7 +130,7 @@ static const struct setting_define service_setting_defines[] = {
 	DEF(UINT, process_limit),
 	DEF(UINT, client_limit),
 	DEF(UINT, restart_request_count),
-	DEF(TIME, idle_kill),
+	DEF(TIME, idle_kill_interval),
 	DEF(SIZE, vsz_limit),
 
 	{ .type = SET_FILTER_ARRAY, .key = "unix_listener",
@@ -163,7 +163,7 @@ static const struct service_settings service_default_settings = {
 	.process_limit = 100,
 	.client_limit = 1000,
 	.restart_request_count = SET_UINT_UNLIMITED,
-	.idle_kill = 60,
+	.idle_kill_interval = 60,
 	.vsz_limit = 256*1024*1024,
 
 	.unix_listeners = ARRAY_INIT,
@@ -728,9 +728,9 @@ master_settings_ext_check(struct event *event, void *_set,
 				service->name);
 			return FALSE;
 		}
-		if (service->idle_kill == 0) {
+		if (service->idle_kill_interval == 0) {
 			*error_r = t_strdup_printf("service(%s): "
-				"idle_kill must be higher than 0",
+				"idle_kill_interval must be higher than 0",
 				service->name);
 			return FALSE;
 		}

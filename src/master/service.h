@@ -75,7 +75,7 @@ struct service {
 	/* number of processes currently idling (idle_start != 0) */
 	unsigned int process_idling;
 	/* Lowest number of processes that have been idling at the same time.
-	   This is reset to process_idling every idle_kill seconds. */
+	   This is reset to process_idling every idle_kill_interval seconds. */
 	unsigned int process_idling_lowwater_since_kills;
 	/* max number of processes allowed */
 	unsigned int process_limit;
@@ -85,7 +85,7 @@ struct service {
 	/* Maximum number of client connections a process can handle. */
 	unsigned int client_limit;
 	/* Kill idling processes after this many seconds. */
-	unsigned int idle_kill;
+	unsigned int idle_kill_interval;
 	/* set->vsz_limit or set->master_set->default_client_limit */
 	uoff_t vsz_limit;
 

@@ -59,9 +59,9 @@ enum master_login_state {
    process can finish handling before it should kill itself. */
 #define MASTER_SERVICE_COUNT_ENV "SERVICE_COUNT"
 
-/* getenv(MASTER_SERVICE_IDLE_KILL_ENV) specifies service's idle_kill timeout
-   in seconds. */
-#define MASTER_SERVICE_IDLE_KILL_ENV "IDLE_KILL"
+/* getenv(MASTER_SERVICE_IDLE_KILL_ENV) specifies service's idle_kill_interval
+   timeout in seconds. */
+#define MASTER_SERVICE_IDLE_KILL_INTERVAL_ENV "IDLE_KILL_INTERVAL"
 
 /* getenv(MASTER_CONFIG_FILE_ENV) provides path to configuration file. */
 #define MASTER_CONFIG_FILE_ENV "CONFIG_FILE"
