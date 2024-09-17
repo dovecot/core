@@ -210,8 +210,8 @@ static void client_handle_request(struct quota_client *client)
 
 		struct event *event = event_create(client->event);
 		const struct var_expand_table table[] = {
-			{ '\0', error, "error" },
-			{ '\0', NULL, NULL }
+			{ .key = "error", .value = error },
+			VAR_EXPAND_TABLE_END
 		};
 		struct var_expand_params params = {
 			.table = table,
