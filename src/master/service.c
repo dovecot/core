@@ -209,7 +209,7 @@ service_create_real(pool_t pool, struct event *event,
 		service->client_limit = set->restart_request_count;
 
 	service->vsz_limit = set->vsz_limit;
-	service->idle_kill = set->idle_kill;
+	service->idle_kill_interval = set->idle_kill_interval;
 	service->type = service->set->parsed_type;
 	service->process_limit = set->process_limit;
 

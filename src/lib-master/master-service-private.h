@@ -51,7 +51,7 @@ struct master_service {
 	unsigned int total_available_count;
 	unsigned int process_limit;
 	unsigned int process_min_avail;
-	unsigned int idle_kill_secs;
+	unsigned int idle_kill_interval_secs;
 
 	struct master_status master_status;
 	unsigned int last_sent_status_avail_count;

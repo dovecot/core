@@ -627,9 +627,9 @@ master_service_init(const char *name, enum master_service_flags flags,
 			master_service_set_restart_request_count(service, count);
 
 		/* set the idle kill timeout */
-		value = getenv(MASTER_SERVICE_IDLE_KILL_ENV);
+		value = getenv(MASTER_SERVICE_IDLE_KILL_INTERVAL_ENV);
 		if (value != NULL && str_to_uint(value, &count) == 0)
-			service->idle_kill_secs = count;
+			service->idle_kill_interval_secs = count;
 	} else {
 		master_service_set_client_limit(service, 1);
 		master_service_set_restart_request_count(service, 1);
@@ -1115,9 +1115,10 @@ unsigned int master_service_get_process_min_avail(struct master_service *service
 	return service->process_min_avail;
 }
 
-unsigned int master_service_get_idle_kill_secs(struct master_service *service)
+unsigned int
+master_service_get_idle_kill_interval_secs(struct master_service *service)
 {
-	return service->idle_kill_secs;
+	return service->idle_kill_interval_secs;
 }
 
 void master_service_set_restart_request_count(struct master_service *service,

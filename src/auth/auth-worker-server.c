@@ -1020,7 +1020,8 @@ auth_worker_server_create(struct auth *auth,
 	server->refcount = 1;
 	server->auth = auth;
 	server->conn.event_parent = auth_event;
-	server->conn.input_idle_timeout_secs = master_service_get_idle_kill_secs(master_service);
+	server->conn.input_idle_timeout_secs =
+		master_service_get_idle_kill_interval_secs(master_service);
 	connection_init_server(clients, &server->conn, master_conn->name,
 			       master_conn->fd, master_conn->fd);
 	auth_worker_server_send_handshake(&server->conn);
