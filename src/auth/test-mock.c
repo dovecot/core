@@ -56,7 +56,7 @@ void passdb_mock_mod_init(void)
 		.name = "mock",
 		.driver = "mock",
 		.args = "",
-		.mechanisms = ARRAY_INIT,
+		.mechanisms_filter = ARRAY_INIT,
 		.username_filter = "",
 
 		.skip = "never",

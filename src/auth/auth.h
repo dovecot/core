@@ -40,8 +40,8 @@ struct auth_passdb {
 	/* The caching key for this passdb, or NULL if caching isn't wanted. */
 	const char *cache_key;
 
-	/* Supported authentication mechanisms, NULL is all, {NULL} is none */
-	const char *const *mechanisms;
+	/* Authentication mechanisms filter, NULL is all, {NULL} is none */
+	const char *const *mechanisms_filter;
 	/* Username filter, NULL is no filter */
 	const char *const *username_filter;
 

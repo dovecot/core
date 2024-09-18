@@ -604,7 +604,7 @@ auth_request_want_skip_passdb(struct auth_request *request,
 			      struct auth_passdb *passdb)
 {
 	/* if mechanism is not supported, skip */
-	const char *const *mechs = passdb->mechanisms;
+	const char *const *mechs = passdb->mechanisms_filter;
 	const char *const *username_filter = passdb->username_filter;
 	const char *username;
 

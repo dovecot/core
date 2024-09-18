@@ -103,11 +103,12 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *_set,
 	auth_passdb->result_internalfail =
 		auth_db_rule_parse(set->result_internalfail);
 
-	if (!array_is_created(&set->mechanisms) ||
-	    array_is_empty(&set->mechanisms)) {
-		auth_passdb->mechanisms = NULL;
+	if (!array_is_created(&set->mechanisms_filter) ||
+	    array_is_empty(&set->mechanisms_filter)) {
+		auth_passdb->mechanisms_filter = NULL;
 	} else {
-		auth_passdb->mechanisms = settings_boollist_get(&set->mechanisms);
+		auth_passdb->mechanisms_filter =
+			settings_boollist_get(&set->mechanisms_filter);
 	}
 
 	if (*set->username_filter == '\0') {
