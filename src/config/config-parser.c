@@ -71,6 +71,7 @@ int (*hook_config_parser_end)(struct config_parser_context *ctx,
 
 static ARRAY_TYPE(config_service) services_free_at_deinit = ARRAY_INIT;
 static ARRAY_TYPE(setting_parser_info_p) infos_free_at_deinit = ARRAY_INIT;
+static string_t *config_import;
 
 static struct config_filter_parser *
 config_filter_parser_find(struct config_parser_context *ctx,
@@ -2303,6 +2304,11 @@ config_parser_check_warnings(struct config_parser_context *ctx, const char *key,
 		   track seen settings in there. */
 		return;
 	}
+	if (ctx->change_counter == CONFIG_PARSER_CHANGE_DEFAULTS) {
+		/* Parsing internal settings. Especially settings in
+		   config_import shouldn't be tracked. */
+		return;
+	}
 
 	first_pos = hash_table_lookup(ctx->seen_settings, key);
 	if (root_setting) {
@@ -2603,7 +2609,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 		      struct config_parsed **config_r,
 		      const char **error_r)
 {
-	struct input_stack root;
+	struct input_stack root, internal;
 	struct config_parser_context ctx;
 	unsigned int i, count;
 	string_t *full_line;
@@ -2657,8 +2663,10 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 		 (flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) != 0);
 
 	i_zero(&root);
+	i_zero(&internal);
 	root.path = path;
-	ctx.cur_input = &root;
+	internal.path = "Internal defaults";
+	ctx.cur_input = &internal;
 	ctx.expand_values = (flags & CONFIG_PARSE_FLAG_EXPAND_VALUES) != 0;
 	if ((flags & CONFIG_PARSE_FLAG_PREFIXES_IN_FILTERS) != 0)
 		config_parser_get_filter_name_prefixes(&ctx);
@@ -2681,10 +2689,6 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 
 	ctx.value = str_new(ctx.pool, 256);
 	full_line = str_new(default_pool, 512);
-	ctx.cur_input->input = fd != -1 ?
-		i_stream_create_fd_autoclose(&fd, SIZE_MAX) :
-		i_stream_create_from_data("", 0);
-	i_stream_set_return_partial_line(ctx.cur_input->input, TRUE);
 	old_settings_init(&ctx);
 	if ((flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) == 0) {
 		config_parser_add_services(&ctx, service_info_idx);
@@ -2696,8 +2700,40 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 		hook_config_parser_begin(&ctx);
 	} T_END;
 
+	internal.path = "Internal config_import";
+	ctx.cur_input->input = config_import == NULL ?
+		i_stream_create_from_data("", 0) :
+		i_stream_create_from_data(str_data(config_import),
+					  str_len(config_import));
+	i_stream_set_name(ctx.cur_input->input, "<internal config_import>");
+	config_parser_set_change_counter(&ctx, CONFIG_PARSER_CHANGE_DEFAULTS);
+	while ((line = i_stream_read_next_line(ctx.cur_input->input)) != NULL) {
+		struct config_line config_line;
+		ctx.cur_input->linenum++;
+		config_parse_line(&ctx, line, full_line, &config_line);
+		if (config_line.type == CONFIG_LINE_TYPE_CONTINUE)
+			continue;
+
+		T_BEGIN {
+			config_parser_apply_line(&ctx, &config_line);
+		} T_END;
+		if (ctx.error != NULL) {
+			i_panic("Error in internal import configuration line %d: %s",
+				ctx.cur_input->linenum, ctx.error);
+		}
+	}
+	i_stream_destroy(&ctx.cur_input->input);
+	ctx.cur_input->linenum = 0;
+
 	ctx.cur_section->filter_parser = root_filter_parser;
 	config_parser_set_change_counter(&ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
+
+	ctx.cur_input = &root;
+	ctx.cur_input->input = fd != -1 ?
+		i_stream_create_fd_autoclose(&fd, SIZE_MAX) :
+		i_stream_create_from_data("", 0);
+	i_stream_set_return_partial_line(ctx.cur_input->input, TRUE);
+
 prevfile:
 	while ((line = i_stream_read_next_line(ctx.cur_input->input)) != NULL) {
 		struct config_line config_line;
@@ -2979,6 +3015,7 @@ void config_parse_load_modules(void)
 	modules = module_dir_load(CONFIG_MODULE_DIR, NULL, &mod_set);
 	module_dir_init(modules);
 
+	config_import = str_new(default_pool, 10240);
 	i_array_init(&new_infos, 64);
 	i_array_init(&new_services, 64);
 	for (m = modules; m != NULL; m = m->next) {
@@ -2989,6 +3026,12 @@ void config_parse_load_modules(void)
 				array_push_back(&new_infos, &infos[i]);
 		}
 
+		const char *const *import = module_get_symbol_quiet(m,
+			t_strdup_printf("%s_config_import", m->name));
+		if (import != NULL) {
+			str_append(config_import, *import);
+			str_append_c(config_import, '\n');
+		}
 		services = module_get_symbol_quiet(m,
 			t_strdup_printf("%s_services_array", m->name));
 		if (services != NULL) {
@@ -3035,4 +3078,5 @@ void config_parser_deinit(void)
 		array_free(&services_free_at_deinit);
 	if (array_is_created(&infos_free_at_deinit))
 		array_free(&infos_free_at_deinit);
+	str_free(&config_import);
 }
