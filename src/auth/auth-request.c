@@ -560,9 +560,9 @@ auth_request_mechanism_accepted(const char *const *mechs,
 {
 	/* no filter specified, anything goes */
 	if (mechs == NULL) return TRUE;
-	/* request has no mechanism, see if none is accepted */
+	/* request has no mechanism, see if lookup is accepted */
 	if (mech == NULL)
-		return str_array_icase_find(mechs, "none");
+		return str_array_icase_find(mechs, "lookup");
 	/* check if request mechanism is accepted */
 	return str_array_icase_find(mechs, mech->mech_name);
 }
