@@ -108,7 +108,7 @@ static const struct setting_define auth_passdb_setting_defines[] = {
 	DEF(STR, driver),
 	DEF(STR_NOVARS, args),
 	DEF(BOOL, fields_import_all),
-	DEF(BOOLLIST, mechanisms),
+	DEF(BOOLLIST, mechanisms_filter),
 	DEF(STR, username_filter),
 
 	DEF(STR, default_password_scheme),
@@ -131,7 +131,7 @@ static const struct auth_passdb_settings auth_passdb_default_settings = {
 	.driver = "",
 	.args = "",
 	.fields_import_all = TRUE,
-	.mechanisms = ARRAY_INIT,
+	.mechanisms_filter = ARRAY_INIT,
 	.username_filter = "",
 
 	.default_password_scheme = "PLAIN",

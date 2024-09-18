@@ -15,7 +15,7 @@ struct auth_passdb_settings {
 	const char *driver;
 	const char *args;
 	bool fields_import_all;
-	ARRAY_TYPE(const_string) mechanisms;
+	ARRAY_TYPE(const_string) mechanisms_filter;
 	const char *username_filter;
 
 	const char *default_password_scheme;
