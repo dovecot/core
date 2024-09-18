@@ -252,7 +252,7 @@ static bool client_handle_input(struct imap_client *client)
 		if (client->skip_line) {
 			if (!client_skip_line(client))
 				return FALSE;
-                        client->skip_line = FALSE;
+			client->skip_line = FALSE;
 		}
 
 		client->cmd_finished = FALSE;
