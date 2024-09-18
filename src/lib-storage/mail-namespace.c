@@ -155,9 +155,9 @@ int mail_namespaces_init_add(struct mail_user *user, struct event *set_event,
 	}
 
 	if (ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
-	    strchr(ns->prefix, '%') != NULL) {
+	    strchr(ns->prefix, '$') != NULL) {
 		/* This is a dynamic shared namespace root under which new
-		   per-user shared namespaces are created. The '%' is checked
+		   per-user shared namespaces are created. The '$' is checked
 		   to allow non-dynamic shared namespaces to be created with
 		   explicit locations. */
 		flags |= MAIL_STORAGE_FLAG_SHARED_DYNAMIC;

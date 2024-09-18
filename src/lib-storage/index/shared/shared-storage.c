@@ -4,7 +4,6 @@
 #include "array.h"
 #include "str.h"
 #include "ioloop.h"
-#include "var-expand.h"
 #include "settings.h"
 #include "index-storage.h"
 #include "mail-storage-service.h"
@@ -34,7 +33,7 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 {
 	struct shared_storage *storage = SHARED_STORAGE(_storage);
 	const char *p;
-	char *wildcardp, key;
+	char *wildcardp;
 	bool have_username;
 
 	struct mail_storage_settings *set;
@@ -61,30 +60,38 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	}
 	settings_free(set);
 
-	wildcardp = strchr(ns->prefix, '%');
+	wildcardp = strchr(ns->prefix, '$');
 	if (wildcardp == NULL) {
-		*error_r = "Shared namespace prefix doesn't contain %";
-		return -1;
+		/* We shouldn't even get here normally. If there is no '$', the
+		   namespace creation wouldn't have set
+		   MAIL_STORAGE_FLAG_SHARED_DYNAMIC and a different storage
+		   driver would have been used. Continue anyway, the following
+		   error handling code will complain about missing variables. */
+		wildcardp = ns->prefix;
 	}
 	storage->ns_prefix_pattern = p_strdup(_storage->pool, wildcardp);
 
 	have_username = FALSE;
-	for (p = storage->ns_prefix_pattern; *p != '\0'; p++) {
-		if (*p != '%')
+	for (p = storage->ns_prefix_pattern; *p != '\0'; ) {
+		if (*p != '$') {
+			p++;
 			continue;
+		}
 
-		key = p[1];
-		if (key == 'u' || key == 'n')
+		if (str_begins(p, "$username", &p) ||
+		    str_begins(p, "$user", &p))
 			have_username = TRUE;
-		else if (key != '%' && key != 'd')
+		else if (!str_begins(p, "$domain", &p))
+			break;
+		if (i_isalnum(*p))
 			break;
 	}
 	if (*p != '\0') {
-		*error_r = "Shared namespace prefix contains unknown variables";
+		*error_r = "Shared namespace prefix contains unknown $variables";
 		return -1;
 	}
 	if (!have_username) {
-		*error_r = "Shared namespace prefix doesn't contain %u or %n";
+		*error_r = "Shared namespace prefix doesn't contain $user or $username";
 		return -1;
 	}
 	if (p[-1] != mail_namespace_get_sep(ns) &&
@@ -119,6 +126,31 @@ shared_mail_user_init(struct mail_storage *_storage,
 		      struct mail_namespace **_ns, const char *username,
 		      const char *domain, const char *new_ns_prefix);
 
+void shared_storage_ns_prefix_expand(struct shared_storage *storage,
+				     string_t *dest, const char *user)
+{
+	const char *p, *last = storage->ns_prefix_pattern;
+
+	while ((p = strchr(last, '$')) != NULL) {
+		str_append_data(dest, last, p - last);
+
+		if (str_begins(p, "$username", &p))
+			str_append(dest, t_strcut(user, '@'));
+		else if (str_begins(p, "$user", &p))
+			str_append(dest, user);
+		else if (str_begins(p, "$domain", &p)) {
+			const char *domain = strchr(user, '@');
+			if (domain != NULL)
+				str_append(dest, domain + 1);
+		} else {
+			/* pattern validity was already checked */
+			i_unreached();
+		}
+		last = p;
+	}
+	str_append(dest, last);
+}
+
 int shared_storage_get_namespace(struct mail_namespace **_ns,
 				 const char **_name)
 {
@@ -135,27 +167,22 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 
 	p = storage->ns_prefix_pattern;
 	for (name = *_name; *p != '\0';) {
-		if (*p != '%') {
+		if (*p != '$') {
 			if (*p != *name)
 				break;
 			p++; name++;
 			continue;
 		}
-		switch (*++p) {
-		case 'd':
-			dest = &domain;
-			break;
-		case 'n':
+		if (str_begins(p, "$username", &p))
 			dest = &username;
-			break;
-		case 'u':
+		else if (str_begins(p, "$user", &p))
 			dest = &userdomain;
-			break;
-		default:
-			/* we checked this already above */
+		else if (str_begins(p, "$domain", &p))
+			dest = &domain;
+		else {
+			/* pattern validity was already checked */
 			i_unreached();
 		}
-		p++;
 
 		next = strchr(name, *p != '\0' ? *p : ns_sep);
 		if (next == NULL) {
@@ -211,23 +238,10 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 
 	/* expand the namespace prefix and see if it already exists.
 	   this should normally happen only when the mailbox is being opened */
-	struct var_expand_table tab[] = {
-		{ 'u', userdomain, "user" },
-		{ 'n', username, "username" },
-		{ 'd', domain, "domain" },
-		{ 'h', NULL, "home" },
-		{ '\0', NULL, NULL }
-	};
-
 	prefix = t_str_new(128);
 	str_append(prefix, ns->prefix);
-	if (var_expand_with_table(prefix, storage->ns_prefix_pattern, tab,
-				  &error) <= 0) {
-		mailbox_list_set_critical(list,
-			"Failed to expand namespace prefix '%s': %s",
-			storage->ns_prefix_pattern, error);
-		return -1;
-	}
+
+	shared_storage_ns_prefix_expand(storage, prefix, userdomain);
 
 	*_ns = mail_namespace_find_prefix(user->namespaces, str_c(prefix));
 	if (*_ns != NULL) {

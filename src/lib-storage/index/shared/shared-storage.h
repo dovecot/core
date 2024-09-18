@@ -17,4 +17,7 @@ struct mailbox_list *shared_mailbox_list_alloc(void);
 int shared_storage_get_namespace(struct mail_namespace **_ns,
 				 const char **_name);
 
+void shared_storage_ns_prefix_expand(struct shared_storage *storage,
+				     string_t *dest, const char *user);
+
 #endif

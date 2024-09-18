@@ -4,7 +4,6 @@
 #include "array.h"
 #include "ioloop.h"
 #include "str.h"
-#include "var-expand.h"
 #include "acl-plugin.h"
 #include "acl-lookup-dict.h"
 #include "acl-shared-storage.h"
@@ -40,7 +39,7 @@ acl_shared_namespace_add(struct mail_namespace *ns,
 	struct mail_namespace *new_ns = ns;
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
-	const char *mailbox, *error;
+	const char *mailbox;
 	string_t *str;
 
 	if (strcmp(ns->user->username, userdomain) == 0) {
@@ -48,21 +47,9 @@ acl_shared_namespace_add(struct mail_namespace *ns,
 		return;
 	}
 
-	const struct var_expand_table tab[] = {
-		{ 'u', userdomain, "user" },
-		{ 'n', t_strcut(userdomain, '@'), "username" },
-		{ 'd', i_strchr_to_next(userdomain, '@'), "domain" },
-		{ '\0', NULL, NULL }
-	};
-
 	str = t_str_new(128);
-	if (var_expand_with_table(str, sstorage->ns_prefix_pattern, tab,
-				  &error) <= 0) {
-		e_error(storage->event,
-			"Failed to expand namespace prefix %s: %s",
-			sstorage->ns_prefix_pattern, error);
-		return;
-	}
+	shared_storage_ns_prefix_expand(sstorage, str, userdomain);
+
 	mailbox = str_c(str);
 	if (shared_storage_get_namespace(&new_ns, &mailbox) < 0)
 		return;
