@@ -1491,6 +1491,9 @@ config_all_parsers_check(struct config_parser_context *ctx,
 	for (i = 0; i < count; i++) {
 		if (parsers[i]->filter.default_settings)
 			continue;
+		if (parsers[i]->filter.filter_name_array &&
+		    parsers[i]->filter.filter_name[0] == SETTINGS_INCLUDE_GROUP_PREFIX)
+			continue;
 		ssl_set = get_str_setting(parsers[i], "ssl", global_ssl_set);
 		if (strcmp(ssl_set, "no") != 0 &&
 		    strcmp(global_ssl_set, "no") == 0 && !ssl_warned) {
