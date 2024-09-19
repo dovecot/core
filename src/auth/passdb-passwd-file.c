@@ -51,8 +51,7 @@ passwd_file_add_extra_fields(struct auth_request *request,
 		}
 		if (request->passdb->set->fields_import_all)
 			auth_request_set_field(request, key, value, NULL);
-		if (!str_begins_with(fields[i], "userdb_"))
-			auth_fields_add(pwd_fields, key, value, 0);
+		auth_fields_add(pwd_fields, key, value, 0);
 	}
 
 	if (ret == 0 && auth_request_set_passdb_fields_ex(request, pwd_fields, "PLAIN",

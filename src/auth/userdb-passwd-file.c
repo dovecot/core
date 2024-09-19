@@ -41,9 +41,7 @@ passwd_file_add_extra_fields(struct auth_request *request,
 	table = auth_request_get_var_expand_table(request);
 
 	for (i = 0; fields[i] != NULL; i++) {
-		if (!str_begins(fields[i], "userdb_", &key))
-			continue;
-
+		key = fields[i];
 		value = strchr(key, '=');
 		if (value != NULL) {
 			key = t_strdup_until(key, value);
@@ -60,7 +58,8 @@ passwd_file_add_extra_fields(struct auth_request *request,
 		} else {
 			value = "";
 		}
-		if (request->userdb->set->fields_import_all)
+		if (request->userdb->set->fields_import_all &&
+		    str_begins(key, "userdb_", &key))
 			auth_request_set_userdb_field(request, key, value);
 		auth_fields_add(pwd_fields, key, value, 0);
 	}
