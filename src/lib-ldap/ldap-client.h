@@ -23,7 +23,7 @@ struct ldap_client_settings {
 	   ldap_connection_have_settings() and ldap_connection_init() */
 	const char *uri;
 	const char *bind_dn;
-	const char *password;
+	const char *auth_dn_password;
 
 	struct event *event_parent;
 	const struct ssl_iostream_settings *ssl_set;
