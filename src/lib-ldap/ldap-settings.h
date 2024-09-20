@@ -18,4 +18,10 @@ struct ldap_client_settings {
 	const struct ssl_iostream_settings *ssl_ioset;
 };
 
+extern const struct setting_parser_info ldap_client_setting_parser_info;
+
+int ldap_client_settings_get(struct event *event,
+			     const struct ldap_client_settings **set_r,
+			     const char **error_r);
+
 #endif
