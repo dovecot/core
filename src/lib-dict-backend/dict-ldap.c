@@ -130,7 +130,7 @@ int dict_ldap_connect(struct ldap_dict *dict, const char **error_r)
 	set.max_idle_time_secs = dict->set->max_idle_time;
 	set.debug = dict->set->debug;
 	set.require_ssl = dict->set->require_ssl;
-	set.start_tls = dict->set->start_tls;
+	set.starttls = dict->set->start_tls;
 	set.event_parent = dict->event;
 	return ldap_client_init(&set, &dict->client, error_r);
 }
