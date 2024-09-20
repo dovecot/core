@@ -128,7 +128,7 @@ int dict_ldap_connect(struct ldap_dict *dict, const char **error_r)
 	set.auth_dn_password = dict->set->password;
 	set.timeout_secs = dict->set->timeout;
 	set.max_idle_time_secs = dict->set->max_idle_time;
-	set.debug = dict->set->debug;
+	set.debug_level = dict->set->debug;
 	set.require_ssl = dict->set->require_ssl;
 	set.starttls = dict->set->start_tls;
 	set.event_parent = dict->event;
