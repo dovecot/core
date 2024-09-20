@@ -43,10 +43,10 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 {
 	int ret, opt;
 
-	ret = ldap_initialize(&conn->conn, conn->set.uri);
+	ret = ldap_initialize(&conn->conn, conn->set.uris);
 	if (ret != LDAP_SUCCESS) {
-		*error_r = t_strdup_printf("ldap_initialize(uri=%s) failed: %s",
-					   conn->set.uri, ldap_err2string(ret));
+		*error_r = t_strdup_printf("ldap_initialize(uris=%s) failed: %s",
+					   conn->set.uris, ldap_err2string(ret));
 		return -1;
 	}
 
@@ -119,7 +119,7 @@ bool ldap_connection_have_settings(struct ldap_connection *conn,
 {
 	const struct ldap_client_settings *conn_set = &conn->set;
 
-	if (strcmp(conn_set->uri, set->uri) != 0)
+	if (strcmp(conn_set->uris, set->uris) != 0)
 		return FALSE;
 	if (null_strcmp(conn_set->auth_dn, set->auth_dn) != 0)
 		return FALSE;
@@ -157,12 +157,12 @@ int ldap_connection_init(struct ldap_client *client,
 			 const struct ldap_client_settings *set,
 			 struct ldap_connection **conn_r, const char **error_r)
 {
-	i_assert(set->uri != NULL);
+	i_assert(set->uris != NULL);
 
 	if (set->require_ssl &&
 	    !set->starttls &&
-	    strncmp("ldaps://",set->uri,8) != 0) {
-		*error_r = t_strdup_printf("ldap_connection_init(uri=%s) failed: %s", set->uri,
+	    strncmp("ldaps://",set->uris,8) != 0) {
+		*error_r = t_strdup_printf("ldap_connection_init(uris=%s) failed: %s", set->uris,
 			"uri does not start with ldaps and ssl required without start TLS");
 		return -1;
 	}
@@ -175,7 +175,7 @@ int ldap_connection_init(struct ldap_client *client,
 	conn->client = client;
 	conn->set = *set;
 	/* deep copy relevant strings */
-	conn->set.uri = p_strdup(pool, set->uri);
+	conn->set.uris = p_strdup(pool, set->uris);
 	conn->set.auth_dn = p_strdup(pool, set->auth_dn);
 	if (*set->auth_dn_password != '\0') {
 		conn->set.auth_dn_password = p_strdup(pool, set->auth_dn_password);
@@ -371,14 +371,14 @@ ldap_connection_connect_parse(struct ldap_connection *conn,
 		}
 		if (ret != 0) {
 			ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
-				"ldap_start_tls(uri=%s) failed: %s",
-				conn->set.uri, ldap_err2string(ret)));
+				"ldap_start_tls(uris=%s) failed: %s",
+				conn->set.uris, ldap_err2string(ret)));
 			return ret;
 		} else if (result_err != 0) {
 			if (conn->set.require_ssl) {
 				ldap_connection_result_failure(conn, req, result_err, t_strdup_printf(
-					"ldap_start_tls(uri=%s) failed: %s",
-					conn->set.uri, result_errmsg));
+					"ldap_start_tls(uris=%s) failed: %s",
+					conn->set.uris, result_errmsg));
 				ldap_memfree(result_errmsg);
 				return LDAP_INVALID_CREDENTIALS; /* make sure it disconnects */
 			}
@@ -390,16 +390,16 @@ ldap_connection_connect_parse(struct ldap_connection *conn,
 				if (ret != 0) {
 					// if this fails we have to abort
 					ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
-						"ldap_start_tls(uri=%s) failed: %s",
-						conn->set.uri, ldap_err2string(ret)));
+						"ldap_start_tls(uris=%s) failed: %s",
+						conn->set.uris, ldap_err2string(ret)));
 					return LDAP_INVALID_CREDENTIALS;
 				}
 			}
 			if (ret != LDAP_SUCCESS) {
 				if (conn->set.require_ssl) {
 					ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
-						"ldap_start_tls(uri=%s) failed: %s",
-						conn->set.uri, ldap_err2string(ret)));
+						"ldap_start_tls(uris=%s) failed: %s",
+						conn->set.uris, ldap_err2string(ret)));
 					return LDAP_UNAVAILABLE;
 				}
 			} else {
@@ -504,12 +504,12 @@ ldap_connect_next_message(struct ldap_connection *conn,
 	switch(conn->state) {
 	case LDAP_STATE_DISCONNECT:
 		/* if we should not disable SSL, and the URI is not ldaps:// */
-		if (!conn->set.starttls || strstr(conn->set.uri, "ldaps://") == NULL) {
+		if (!conn->set.starttls || strstr(conn->set.uris, "ldaps://") == NULL) {
 			ret = ldap_start_tls(conn->conn, NULL, NULL, &req->msgid);
 			if (ret != LDAP_SUCCESS) {
 				ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
-					"ldap_start_tls(uri=%s) failed: %s",
-					conn->set.uri, ldap_err2string(ret)));
+					"ldap_start_tls(uris=%s) failed: %s",
+					conn->set.uris, ldap_err2string(ret)));
 				return ret;
 			}
 			conn->state = LDAP_STATE_TLS;
@@ -527,8 +527,8 @@ ldap_connect_next_message(struct ldap_connection *conn,
 			&req->msgid);
 		if (ret != LDAP_SUCCESS) {
 			ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
-				"ldap_sasl_bind(uri=%s, dn=%s) failed: %s",
-				conn->set.uri, conn->set.auth_dn, ldap_err2string(ret)));
+				"ldap_sasl_bind(uris=%s, dn=%s) failed: %s",
+				conn->set.uris, conn->set.auth_dn, ldap_err2string(ret)));
 			return ret;
 		}
 		break;

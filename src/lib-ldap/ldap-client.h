@@ -21,7 +21,7 @@ typedef void ldap_result_callback_t(struct ldap_result *result, void *context);
 struct ldap_client_settings {
 	/* NOTE: when adding here, remember to update
 	   ldap_connection_have_settings() and ldap_connection_init() */
-	const char *uri;
+	const char *uris;
 	const char *auth_dn;
 	const char *auth_dn_password;
 

@@ -123,7 +123,7 @@ int dict_ldap_connect(struct ldap_dict *dict, const char **error_r)
 {
 	struct ldap_client_settings set;
 	i_zero(&set);
-	set.uri = dict->set->uri;
+	set.uris = dict->set->uri;
 	set.auth_dn = dict->set->bind_dn;
 	set.auth_dn_password = dict->set->password;
 	set.timeout_secs = dict->set->timeout;
