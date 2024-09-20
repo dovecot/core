@@ -26,7 +26,7 @@ struct ldap_client_settings {
 	const char *auth_dn_password;
 
 	struct event *event_parent;
-	const struct ssl_iostream_settings *ssl_set;
+	const struct ssl_iostream_settings *ssl_ioset;
 
 	unsigned int timeout_secs;
 	unsigned int max_idle_time_secs;

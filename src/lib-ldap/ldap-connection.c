@@ -132,23 +132,23 @@ bool ldap_connection_have_settings(struct ldap_connection *conn,
 	    conn_set->starttls != set->starttls)
 		return FALSE;
 
-	if (set->ssl_set == NULL || !set->starttls)
+	if (set->ssl_ioset == NULL || !set->starttls)
 		return TRUE;
 
 	/* check SSL settings */
-	if (null_strcmp(conn->ssl_set.min_protocol, set->ssl_set->min_protocol) != 0)
+	if (null_strcmp(conn->ssl_set.min_protocol, set->ssl_ioset->min_protocol) != 0)
 		return FALSE;
-	if (null_strcmp(conn->ssl_set.cipher_list, set->ssl_set->cipher_list) != 0)
+	if (null_strcmp(conn->ssl_set.cipher_list, set->ssl_ioset->cipher_list) != 0)
 		return FALSE;
-	if (null_strcmp(conn->ssl_set.curve_list, set->ssl_set->curve_list) != 0)
+	if (null_strcmp(conn->ssl_set.curve_list, set->ssl_ioset->curve_list) != 0)
 		return FALSE;
-	if (null_strcmp(conn->ssl_set.ca.path, set->ssl_set->ca.path) != 0)
+	if (null_strcmp(conn->ssl_set.ca.path, set->ssl_ioset->ca.path) != 0)
 		return FALSE;
 	if (null_strcmp(conn->ssl_set.cert.cert.content,
-			set->ssl_set->cert.cert.content) != 0)
+			set->ssl_ioset->cert.cert.content) != 0)
 		return FALSE;
 	if (null_strcmp(conn->ssl_set.cert.key.content,
-			set->ssl_set->cert.key.content) != 0)
+			set->ssl_ioset->cert.key.content) != 0)
 		return FALSE;
 	return TRUE;
 }
@@ -187,22 +187,22 @@ int ldap_connection_init(struct ldap_client *client,
 	conn->ssl_set.cert_username_field = NULL;
 	conn->ssl_set.crypto_device = NULL;
 
-	if (set->ssl_set != NULL) {
+	if (set->ssl_ioset != NULL) {
 		/* keep in sync with ldap_connection_have_settings() */
-		conn->set.ssl_set = &conn->ssl_set;
-		conn->ssl_set.min_protocol = p_strdup(pool, set->ssl_set->min_protocol);
-		conn->ssl_set.cipher_list = p_strdup(pool, set->ssl_set->cipher_list);
-		conn->ssl_set.ca.path = p_strdup(pool, set->ssl_set->ca.path);
+		conn->set.ssl_ioset = &conn->ssl_set;
+		conn->ssl_set.min_protocol = p_strdup(pool, set->ssl_ioset->min_protocol);
+		conn->ssl_set.cipher_list = p_strdup(pool, set->ssl_ioset->cipher_list);
+		conn->ssl_set.ca.path = p_strdup(pool, set->ssl_ioset->ca.path);
 		conn->ssl_set.ca.content =
-			p_strdup(pool, set->ssl_set->ca.content);
+			p_strdup(pool, set->ssl_ioset->ca.content);
 		conn->ssl_set.cert.cert.path =
-			p_strdup(pool, set->ssl_set->cert.cert.path);
+			p_strdup(pool, set->ssl_ioset->cert.cert.path);
 		conn->ssl_set.cert.cert.content =
-			p_strdup(pool, set->ssl_set->cert.cert.content);
+			p_strdup(pool, set->ssl_ioset->cert.cert.content);
 		conn->ssl_set.cert.key.path =
-			p_strdup(pool, set->ssl_set->cert.key.path);
+			p_strdup(pool, set->ssl_ioset->cert.key.path);
 		conn->ssl_set.cert.key.content =
-			p_strdup(pool, set->ssl_set->cert.key.content);
+			p_strdup(pool, set->ssl_ioset->cert.key.content);
 	}
 	i_assert(ldap_connection_have_settings(conn, set));
 
