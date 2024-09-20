@@ -15,6 +15,7 @@ struct ldap_client_settings {
 	bool starttls;
 
 	struct event *event_parent;
+	const struct ssl_settings *ssl_set;
 	const struct ssl_iostream_settings *ssl_ioset;
 };
 
