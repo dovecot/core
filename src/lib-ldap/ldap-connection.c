@@ -123,7 +123,7 @@ bool ldap_connection_have_settings(struct ldap_connection *conn,
 		return FALSE;
 	if (null_strcmp(conn_set->bind_dn, set->bind_dn) != 0)
 		return FALSE;
-	if (null_strcmp(conn_set->password, set->password) != 0)
+	if (null_strcmp(conn_set->auth_dn_password, set->auth_dn_password) != 0)
 		return FALSE;
 	if (conn_set->timeout_secs != set->timeout_secs ||
 	    conn_set->max_idle_time_secs != set->max_idle_time_secs ||
@@ -177,9 +177,9 @@ int ldap_connection_init(struct ldap_client *client,
 	/* deep copy relevant strings */
 	conn->set.uri = p_strdup(pool, set->uri);
 	conn->set.bind_dn = p_strdup(pool, set->bind_dn);
-	if (*set->password != '\0') {
-		conn->set.password = p_strdup(pool, set->password);
-		ber_str2bv(conn->set.password, strlen(conn->set.password), 0, &conn->cred);
+	if (*set->auth_dn_password != '\0') {
+		conn->set.auth_dn_password = p_strdup(pool, set->auth_dn_password);
+		ber_str2bv(conn->set.auth_dn_password, strlen(conn->set.auth_dn_password), 0, &conn->cred);
 	}
 	/* cannot use these */
 	i_zero(&conn->ssl_set.ca);
