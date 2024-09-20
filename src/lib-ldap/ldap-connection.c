@@ -98,7 +98,7 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 	if (conn->ssl_set.curve_list != NULL)
 		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_ECNAME, conn->ssl_set.curve_list);
 
-	opt = conn->set.debug;
+	opt = conn->set.debug_level;
 	ldap_set_option(NULL, LDAP_OPT_DEBUG_LEVEL, &opt);
 
 	opt = LDAP_VERSION3;
@@ -127,7 +127,7 @@ bool ldap_connection_have_settings(struct ldap_connection *conn,
 		return FALSE;
 	if (conn_set->timeout_secs != set->timeout_secs ||
 	    conn_set->max_idle_time_secs != set->max_idle_time_secs ||
-	    conn_set->debug != set->debug ||
+	    conn_set->debug_level != set->debug_level ||
 	    conn_set->require_ssl != set->require_ssl ||
 	    conn_set->starttls != set->starttls)
 		return FALSE;
@@ -403,7 +403,7 @@ ldap_connection_connect_parse(struct ldap_connection *conn,
 					return LDAP_UNAVAILABLE;
 				}
 			} else {
-				if (conn->set.debug > 0)
+				if (conn->set.debug_level > 0)
 					e_debug(conn->event,
 						"Using TLS connection to remote LDAP server");
 			}
