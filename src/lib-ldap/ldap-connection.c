@@ -121,7 +121,7 @@ bool ldap_connection_have_settings(struct ldap_connection *conn,
 
 	if (strcmp(conn_set->uri, set->uri) != 0)
 		return FALSE;
-	if (null_strcmp(conn_set->bind_dn, set->bind_dn) != 0)
+	if (null_strcmp(conn_set->auth_dn, set->auth_dn) != 0)
 		return FALSE;
 	if (null_strcmp(conn_set->auth_dn_password, set->auth_dn_password) != 0)
 		return FALSE;
@@ -176,7 +176,7 @@ int ldap_connection_init(struct ldap_client *client,
 	conn->set = *set;
 	/* deep copy relevant strings */
 	conn->set.uri = p_strdup(pool, set->uri);
-	conn->set.bind_dn = p_strdup(pool, set->bind_dn);
+	conn->set.auth_dn = p_strdup(pool, set->auth_dn);
 	if (*set->auth_dn_password != '\0') {
 		conn->set.auth_dn_password = p_strdup(pool, set->auth_dn_password);
 		ber_str2bv(conn->set.auth_dn_password, strlen(conn->set.auth_dn_password), 0, &conn->cred);
@@ -519,7 +519,7 @@ ldap_connect_next_message(struct ldap_connection *conn,
 		/* fall through */
 	case LDAP_STATE_AUTH:
 		ret = ldap_sasl_bind(conn->conn,
-			conn->set.bind_dn,
+			conn->set.auth_dn,
 			LDAP_SASL_SIMPLE,
 			&conn->cred,
 			NULL,
@@ -528,7 +528,7 @@ ldap_connect_next_message(struct ldap_connection *conn,
 		if (ret != LDAP_SUCCESS) {
 			ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
 				"ldap_sasl_bind(uri=%s, dn=%s) failed: %s",
-				conn->set.uri, conn->set.bind_dn, ldap_err2string(ret)));
+				conn->set.uri, conn->set.auth_dn, ldap_err2string(ret)));
 			return ret;
 		}
 		break;
