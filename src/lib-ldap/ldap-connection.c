@@ -129,10 +129,10 @@ bool ldap_connection_have_settings(struct ldap_connection *conn,
 	    conn_set->max_idle_time_secs != set->max_idle_time_secs ||
 	    conn_set->debug != set->debug ||
 	    conn_set->require_ssl != set->require_ssl ||
-	    conn_set->start_tls != set->start_tls)
+	    conn_set->starttls != set->starttls)
 		return FALSE;
 
-	if (set->ssl_set == NULL || !set->start_tls)
+	if (set->ssl_set == NULL || !set->starttls)
 		return TRUE;
 
 	/* check SSL settings */
@@ -160,7 +160,7 @@ int ldap_connection_init(struct ldap_client *client,
 	i_assert(set->uri != NULL);
 
 	if (set->require_ssl &&
-	    !set->start_tls &&
+	    !set->starttls &&
 	    strncmp("ldaps://",set->uri,8) != 0) {
 		*error_r = t_strdup_printf("ldap_connection_init(uri=%s) failed: %s", set->uri,
 			"uri does not start with ldaps and ssl required without start TLS");
@@ -504,7 +504,7 @@ ldap_connect_next_message(struct ldap_connection *conn,
 	switch(conn->state) {
 	case LDAP_STATE_DISCONNECT:
 		/* if we should not disable SSL, and the URI is not ldaps:// */
-		if (!conn->set.start_tls || strstr(conn->set.uri, "ldaps://") == NULL) {
+		if (!conn->set.starttls || strstr(conn->set.uri, "ldaps://") == NULL) {
 			ret = ldap_start_tls(conn->conn, NULL, NULL, &req->msgid);
 			if (ret != LDAP_SUCCESS) {
 				ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
