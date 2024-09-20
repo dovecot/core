@@ -14,6 +14,7 @@ libdldap_la_SOURCES = \
 	ldap-connection-pool.c \
 	ldap-iterator.c \
 	ldap-search.c \
+	ldap-settings.c \
 	ldap-compare.c \
 	ldap-entry.c
 
@@ -32,6 +33,7 @@ headers = \
 noinst_HEADERS = \
 	ldap-connection-pool.h \
 	ldap-private.h \
+	ldap-settings.h \
 	ldap-settings-parse.h
 
 pkginc_libdir=$(pkgincludedir)

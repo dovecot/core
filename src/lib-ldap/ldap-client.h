@@ -1,6 +1,8 @@
 #ifndef LDAP_CLIENT_H
 #define LDAP_CLIENT_H
 
+#include "ldap-settings.h"
+
 enum ldap_scope {
 	LDAP_SEARCH_SCOPE_BASE    = 0x0000,
 	LDAP_SEARCH_SCOPE_ONE     = 0x0001,
@@ -17,23 +19,6 @@ struct ldap_entry;
    ldap_result_get_error(). The result is freed automatically after this
    callback finishes. */
 typedef void ldap_result_callback_t(struct ldap_result *result, void *context);
-
-struct ldap_client_settings {
-	/* NOTE: when adding here, remember to update
-	   ldap_connection_have_settings() and ldap_connection_init() */
-	const char *uris;
-	const char *auth_dn;
-	const char *auth_dn_password;
-
-	struct event *event_parent;
-	const struct ssl_iostream_settings *ssl_ioset;
-
-	unsigned int timeout_secs;
-	unsigned int max_idle_time_secs;
-	unsigned int debug_level;
-	bool require_ssl;
-	bool starttls;
-};
 
 struct ldap_search_input {
 	const char *base_dn;
