@@ -65,6 +65,6 @@ extern const struct setting_parser_info ldap_pre_setting_parser_info;
 extern const struct setting_parser_info ldap_post_setting_parser_info;
 
 int ldap_setting_post_check(const struct ldap_settings *set, const char **error_r);
-int ldap_pre_settings_pre_check(const struct ldap_pre_settings *set, const char **error_r);
+int ldap_pre_settings_post_check(const struct ldap_pre_settings *set, const char **error_r);
 
 #endif
