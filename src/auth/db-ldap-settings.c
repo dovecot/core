@@ -216,7 +216,7 @@ int ldap_setting_post_check(const struct ldap_settings *set, const char **error_
 	return 0;
 }
 
-int ldap_pre_settings_pre_check(const struct ldap_pre_settings *set, const char **error_r)
+int ldap_pre_settings_post_check(const struct ldap_pre_settings *set, const char **error_r)
 {
 	if (*set->base == '\0') {
 		*error_r = "No ldap_base given";
