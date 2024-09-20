@@ -4,6 +4,8 @@
 #include "str.h"
 #include "settings.h"
 #include "ldap-settings.h"
+#include "ssl-settings.h"
+#include "iostream-ssl.h"
 
 #undef DEF
 #undef DEFN
@@ -65,6 +67,13 @@ ldap_client_settings_postcheck(struct ldap_client_settings *set, const char **er
 	return 0;
 }
 
+static void bind_pool(pool_t to, pool_t from)
+{
+	pool_add_external_ref(to, from);
+	pool_t tmp = from;
+	pool_unref(&tmp);
+}
+
 int ldap_client_settings_get(struct event *event,
 			     const struct ldap_client_settings **set_r,
 			     const char **error_r)
@@ -75,6 +84,15 @@ int ldap_client_settings_get(struct event *event,
 		settings_free(set);
 		return -1;
 	}
+
+	if (settings_get(event, &ssl_setting_parser_info, 0, &set->ssl_set, error_r) < 0) {
+		settings_free(set);
+		return -1;
+	}
+
+	ssl_client_settings_to_iostream_set(set->ssl_set, &set->ssl_ioset);
+	bind_pool(set->pool, set->ssl_set->pool);
+	bind_pool(set->pool, set->ssl_ioset->pool);
 
 	*set_r = set;
 	*error_r = NULL;
