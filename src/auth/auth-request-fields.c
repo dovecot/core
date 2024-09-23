@@ -79,7 +79,7 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 	if (fields->remote_port != 0)
 		str_printfa(dest, "\trport=%u", fields->remote_port);
 	if (fields->ssl_ja3_hash != NULL)
-		auth_str_add_keyvalue(dest, "ssl_j3_hash", fields->ssl_ja3_hash);
+		auth_str_add_keyvalue(dest, "ssl_ja3_hash", fields->ssl_ja3_hash);
 	if (fields->real_local_ip.family != 0) {
 		auth_str_add_keyvalue(dest, "real_lip",
 				      net_ip2addr(&fields->real_local_ip));
