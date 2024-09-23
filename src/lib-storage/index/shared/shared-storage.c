@@ -31,15 +31,10 @@ static int
 shared_ns_prefix_validate(struct shared_storage *storage,
 			  struct mail_namespace *ns, const char **error_r)
 {
-	const char *p;
+	const char *p = storage->ns_prefix_pattern;
 	bool have_username = FALSE;
 
-	for (p = storage->ns_prefix_pattern; *p != '\0'; ) {
-		if (*p != '$') {
-			p++;
-			continue;
-		}
-
+	while ((p = strchr(p, '$')) != NULL) {
 		if (str_begins(p, "$username", &p) ||
 		    str_begins(p, "$user", &p))
 			have_username = TRUE;
@@ -48,7 +43,7 @@ shared_ns_prefix_validate(struct shared_storage *storage,
 		if (i_isalnum(*p))
 			break;
 	}
-	if (*p != '\0') {
+	if (p != NULL && *p != '\0') {
 		*error_r = "Shared namespace prefix contains unknown $variables";
 		return -1;
 	}
@@ -56,6 +51,7 @@ shared_ns_prefix_validate(struct shared_storage *storage,
 		*error_r = "Shared namespace prefix doesn't contain $user or $username";
 		return -1;
 	}
+	p = storage->ns_prefix_pattern + strlen(storage->ns_prefix_pattern);
 	if (p[-1] != mail_namespace_get_sep(ns) &&
 	    (ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
 			  NAMESPACE_FLAG_LIST_CHILDREN)) != 0) {
