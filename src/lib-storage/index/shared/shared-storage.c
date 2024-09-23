@@ -28,13 +28,49 @@ static struct mail_storage *shared_storage_alloc(void)
 }
 
 static int
+shared_ns_prefix_validate(struct shared_storage *storage,
+			  struct mail_namespace *ns, const char **error_r)
+{
+	const char *p;
+	bool have_username = FALSE;
+
+	for (p = storage->ns_prefix_pattern; *p != '\0'; ) {
+		if (*p != '$') {
+			p++;
+			continue;
+		}
+
+		if (str_begins(p, "$username", &p) ||
+		    str_begins(p, "$user", &p))
+			have_username = TRUE;
+		else if (!str_begins(p, "$domain", &p))
+			break;
+		if (i_isalnum(*p))
+			break;
+	}
+	if (*p != '\0') {
+		*error_r = "Shared namespace prefix contains unknown $variables";
+		return -1;
+	}
+	if (!have_username) {
+		*error_r = "Shared namespace prefix doesn't contain $user or $username";
+		return -1;
+	}
+	if (p[-1] != mail_namespace_get_sep(ns) &&
+	    (ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
+			  NAMESPACE_FLAG_LIST_CHILDREN)) != 0) {
+		*error_r = "Shared namespace prefix doesn't end with hierarchy separator";
+		return -1;
+	}
+	return 0;
+}
+
+static int
 shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		      const char **error_r)
 {
 	struct shared_storage *storage = SHARED_STORAGE(_storage);
-	const char *p;
 	char *wildcardp;
-	bool have_username;
 
 	struct mail_storage_settings *set;
 	if (settings_get(ns->list->event, &mail_storage_setting_parser_info, 0,
@@ -71,35 +107,8 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	}
 	storage->ns_prefix_pattern = p_strdup(_storage->pool, wildcardp);
 
-	have_username = FALSE;
-	for (p = storage->ns_prefix_pattern; *p != '\0'; ) {
-		if (*p != '$') {
-			p++;
-			continue;
-		}
-
-		if (str_begins(p, "$username", &p) ||
-		    str_begins(p, "$user", &p))
-			have_username = TRUE;
-		else if (!str_begins(p, "$domain", &p))
-			break;
-		if (i_isalnum(*p))
-			break;
-	}
-	if (*p != '\0') {
-		*error_r = "Shared namespace prefix contains unknown $variables";
+	if (shared_ns_prefix_validate(storage, ns, error_r) < 0)
 		return -1;
-	}
-	if (!have_username) {
-		*error_r = "Shared namespace prefix doesn't contain $user or $username";
-		return -1;
-	}
-	if (p[-1] != mail_namespace_get_sep(ns) &&
-	    (ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
-			  NAMESPACE_FLAG_LIST_CHILDREN)) != 0) {
-		*error_r = "Shared namespace prefix doesn't end with hierarchy separator";
-		return -1;
-	}
 
 	/* truncate prefix after the above checks are done, so they can log
 	   the full prefix in error conditions */
