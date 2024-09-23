@@ -63,7 +63,7 @@ const struct imap_urlauth_settings imap_urlauth_default_settings = {
 
 	.verbose_proctitle = FALSE,
 
-	.imap_urlauth_logout_format = "in=%i out=%o",
+	.imap_urlauth_logout_format = "in=%{input} out=%{output}",
 	.imap_urlauth_submit_user = "",
 	.imap_urlauth_stream_user = "",
 };
