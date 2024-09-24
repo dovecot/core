@@ -93,6 +93,8 @@ bool cmd_compress(struct client_command_context *cmd)
 			client->side_channel_output =
 				o_stream_multiplex_add_channel(
 					client->multiplex_output, 1);
+			o_stream_set_no_error_handling(
+				client->side_channel_output, TRUE);
 		}
 		string_t *str = t_str_new(64);
 		str_append(str, "compress\t");
