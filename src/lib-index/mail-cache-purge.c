@@ -352,6 +352,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 			mail_cache_set_syscall_error(cache, "write()");
 		} else {
 			/* start from a new empty cache file */
+			o_stream_ignore_last_errors(output);
 			mail_index_set_error(cache->index,
 				"Cache file %s: File is too large - deleting",
 				cache->filepath);
