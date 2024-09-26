@@ -338,7 +338,14 @@ DOVECOT_SOCKPEERCRED
 DOVECOT_TYPEOF
 DOVECOT_IOLOOP
 DOVECOT_NOTIFY
-AM_CONDITIONAL([BUILD_IMAP_HIBERNATE], [test "$notify" != kqueue -a "$notify" != none])
+AS_CASE(
+   ["$notify"],
+   [none],   [BUILD_IMAP_HIBERNATE=0],
+   [kqueue], [BUILD_IMAP_HIBERNATE=0],
+   [BUILD_IMAP_HIBERNATE=1])
+AS_IF([test "$BUILD_IMAP_HIBERNATE"=1],
+      AC_DEFINE(BUILD_IMAP_HIBERNATE,, [Build with imap hibernate]))
+AM_CONDITIONAL([BUILD_IMAP_HIBERNATE], [test "$BUILD_IMAP_HIBERNATE" = 1])
 
 DOVECOT_GLIBC
 
@@ -732,6 +739,7 @@ non_libdovecot_c_files=
 all_files=`find $srcdir/src -name '*.[[ch]]' | grep -v '/src/config/all-settings.c' | grep -v '/src/lib-settings/' | grep -v '/test-' | xargs grep -e 'struct setting_parser_info [[a-z]]' -e 'struct service_settings [[a-z]]' -e '<settings checks>' | sed 's/:.*//' | sort | uniq`
 for file in $all_files; do
   dir=`echo "$file" | sed 's:/[[^/]]*$::'`
+  basefile=`basename $file`
   if echo "$libdovecot_dirs" | grep "$dir" >/dev/null; then
     dnl lib-dovecot
     if echo "$file" | grep '\.h$' >/dev/null; then
@@ -741,7 +749,11 @@ for file in $all_files; do
     fi
   else
     dnl not lib-dovecot
-    if echo "$file" | grep '\.h$' >/dev/null; then
+    dnl ignore hibernation if not being built
+
+    if test "$BUILD_IMAP_HIBERNATE" = 0 && test "$basefile" = "imap-hibernate-settings.c"; then
+      continue
+    elif echo "$file" | grep '\.h$' >/dev/null; then
       non_libdovecot_headers="$non_libdovecot_headers $file"
     else
       non_libdovecot_c_files="$non_libdovecot_c_files $file"

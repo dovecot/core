@@ -70,7 +70,9 @@ static const struct setting_define imap_setting_defines[] = {
 	DEF(ENUM, imap_fetch_failure),
 	DEF(BOOL, imap_metadata),
 	DEF(BOOL, imap_literal_minus),
+#ifdef BUILD_IMAP_HIBERNATE
 	DEF(TIME, imap_hibernate_timeout),
+#endif
 
 	DEF(STR, imap_urlauth_host),
 	DEF(IN_PORT, imap_urlauth_port),
