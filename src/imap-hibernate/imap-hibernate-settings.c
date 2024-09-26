@@ -33,6 +33,7 @@ struct service_settings imap_hibernate_service_settings = {
 };
 
 const struct setting_keyvalue imap_hibernate_service_settings_defaults[] = {
+#ifdef BUILD_IMAP_HIBERNATE
 	{ "unix_listener", "imap-hibernate srv.imap-hibernate\\s%{pid}" },
 
 	{ "unix_listener/imap-hibernate/path", "imap-hibernate" },
@@ -42,6 +43,6 @@ const struct setting_keyvalue imap_hibernate_service_settings_defaults[] = {
 	{ "unix_listener/srv.imap-hibernate\\s%{pid}/path", "srv.imap-hibernate/%{pid}" },
 	{ "unix_listener/srv.imap-hibernate\\s%{pid}/type", "admin" },
 	{ "unix_listener/srv.imap-hibernate\\s%{pid}/mode", "0600" },
-
+#endif
 	{ NULL, NULL }
 };

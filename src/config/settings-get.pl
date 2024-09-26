@@ -131,7 +131,11 @@ for (my $i = 0; $i < scalar(@services); $i++) {
   if (defined($service_defaults{$services[$i]."_defaults"})) {
     $defaults = $services[$i]."_defaults";
   }
+  my $ignore_macros = uc $services[$i];
+  $ignore_macros =~ s/_SETTINGS$//;
+  print "#ifndef IGNORE_$ignore_macros\n";
   print "\t{ &".$services[$i].", $defaults },\n";
+  print "#endif\n"
 }
 print "\t{ NULL, NULL }\n";
 print "};\n";
