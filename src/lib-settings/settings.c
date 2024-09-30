@@ -749,13 +749,9 @@ settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 				offset, end_offset, mmap->mmap_size);
 			return -1;
 		}
-		int ret;
-		if (!set_apply)
-			ret = 0;
-		else T_BEGIN {
-			if (list_clear)
-				ret = 0;
-			else {
+		int ret = 0;
+		T_BEGIN {
+			if (set_apply && !list_clear) {
 				ret = settings_mmap_apply_key(ctx, key_idx,
 					list_key, value, error_r);
 			}
