@@ -180,7 +180,7 @@ static void test_istream_multiplex_random(bool packet)
 	if (!packet)
 		buffer_append(buf, stream_header, sizeof(stream_header)-1);
 	for (i = 0; i < packets_count; i++) {
-		unsigned int len = i_rand_limit(1024+1);
+		unsigned int len = i_rand_limit((ON_VALGRIND ? 128 : 1024) + 1);
 		unsigned char packet_data[len];
 		uint32_t len_be = cpu32_to_be(len);
 		unsigned int channel = i_rand_limit(max_channel);
