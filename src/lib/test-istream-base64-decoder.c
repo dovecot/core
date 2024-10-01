@@ -132,14 +132,14 @@ test_istream_base64_io_random(void)
 	unsigned char in_buf[2048];
 	size_t in_buf_size;
 	buffer_t *out_buf;
-	unsigned int i, j;
+	unsigned int i, j, loop_count = ON_VALGRIND ? 100 : 4000;
 	int ret;
 
 	out_buf = t_buffer_create(sizeof(in_buf));
 
 	test_begin("istream base64 random I/O");
 
-	for (i = 0; !test_has_failed() && i < 4000; i++) {
+	for (i = 0; !test_has_failed() && i < loop_count; i++) {
 		struct istream *input1, *input2, *input3, *input4, *input5;
 		struct istream *sinput1, *sinput2, *sinput3, *sinput4;
 		struct istream *top_input;

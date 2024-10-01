@@ -4,6 +4,8 @@
 #include "str.h"
 #include "base64.h"
 
+static unsigned int loop_count;
+
 static void test_base64_encode(void)
 {
 	const struct {
@@ -110,7 +112,7 @@ static void test_base64_random(void)
 	dest = t_str_new(256);
 
 	test_begin("base64 encode/decode with random input");
-	for (i = 0; i < 1000; i++) {
+	for (i = 0; i < loop_count; i++) {
 		max = i_rand_limit(sizeof(buf));
 		for (j = 0; j < max; j++)
 			buf[j] = i_rand_uchar();
@@ -234,7 +236,7 @@ static void test_base64url_random(void)
 	dest = t_str_new(256);
 
 	test_begin("base64url encode/decode with random input");
-	for (i = 0; i < 1000; i++) {
+	for (i = 0; i < loop_count; i++) {
 		max = i_rand_limit(sizeof(buf));
 		for (j = 0; j < max; j++)
 			buf[j] = i_rand_uchar();
@@ -1094,7 +1096,7 @@ test_base64_random_lowlevel_case(const struct base64_scheme *b64,
 				 enum base64_decode_flags dec_flags,
 				 size_t max_line_len)
 {
-	unsigned char in_buf[512];
+	unsigned char in_buf[ON_VALGRIND ? 128 : 512];
 	size_t in_buf_size;
 	buffer_t *buf1, *buf2;
 	unsigned int i, j;
@@ -1106,7 +1108,7 @@ test_base64_random_lowlevel_case(const struct base64_scheme *b64,
 	buf2 = t_buffer_create(MAX_BASE64_ENCODED_SIZE(sizeof(in_buf)));
 
 	/* one block */
-	for (i = 0; i < 1000; i++) {
+	for (i = 0; i < loop_count; i++) {
 		in_buf_size = i_rand_limit(sizeof(in_buf));
 		for (j = 0; j < in_buf_size; j++)
 			in_buf[j] = i_rand_uchar();
@@ -1127,7 +1129,7 @@ test_base64_random_lowlevel_case(const struct base64_scheme *b64,
 	}
 
 	/* streaming; single-byte trickle */
-	for (i = 0; i < 1000; i++) {
+	for (i = 0; i < loop_count; i++) {
 		in_buf_size = i_rand_limit(sizeof(in_buf));
 		for (j = 0; j < in_buf_size; j++)
 			in_buf[j] = i_rand_uchar();
@@ -1148,7 +1150,7 @@ test_base64_random_lowlevel_case(const struct base64_scheme *b64,
 	}
 
 	/* streaming; random chunks */
-	for (i = 0; i < 1000; i++) {
+	for (i = 0; i < loop_count; i++) {
 		in_buf_size = i_rand_limit(sizeof(in_buf));
 		for (j = 0; j < in_buf_size; j++)
 			in_buf[j] = i_rand_uchar();
@@ -1304,6 +1306,7 @@ static void test_base64_encode_lines(void)
 
 void test_base64(void)
 {
+	loop_count = ON_VALGRIND ? 100 : 1000;
 	test_base64_encode();
 	test_base64_decode();
 	test_base64_random();
