@@ -6,15 +6,15 @@
 
 static void test_hash_random_pool(pool_t pool)
 {
-#define KEYMAX 100000
+	const unsigned int keymax = ON_VALGRIND ? 10000 : 100000;
 	HASH_TABLE(void *, void *) hash;
 	unsigned int *keys;
 	unsigned int i, key, keyidx, delidx;
 
-	keys = i_new(unsigned int, KEYMAX); keyidx = 0;
+	keys = i_new(unsigned int, keymax); keyidx = 0;
 	hash_table_create_direct(&hash, pool, 0);
-	for (i = 0; i < KEYMAX; i++) {
-		key = (i_rand_limit(KEYMAX)) + 1;
+	for (i = 0; i < keymax; i++) {
+		key = (i_rand_limit(keymax)) + 1;
 		if (i_rand_limit(5) > 0) {
 			if (hash_table_lookup(hash, POINTER_CAST(key)) == NULL) {
 				hash_table_insert(hash, POINTER_CAST(key),
