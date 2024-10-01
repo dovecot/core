@@ -39,9 +39,11 @@ void test_hash(void)
 {
 	pool_t pool;
 
+	test_begin("hash table (random)");
 	test_hash_random_pool(default_pool);
 
 	pool = pool_alloconly_create("test hash", 1024);
 	test_hash_random_pool(pool);
 	pool_unref(&pool);
+	test_end();
 }
