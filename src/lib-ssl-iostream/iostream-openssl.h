@@ -26,6 +26,7 @@ struct ssl_iostream_context {
 	int username_nid;
 
 	bool client_ctx:1;
+	bool username_cea:1;
 };
 
 struct ssl_iostream {
@@ -69,6 +70,7 @@ struct ssl_iostream {
 	bool ostream_flush_waiting_input:1;
 	bool closed:1;
 	bool destroyed:1;
+	bool username_cea:1;
 };
 
 extern int dovecot_ssl_extdata_index;
