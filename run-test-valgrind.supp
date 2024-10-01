@@ -138,3 +138,14 @@
    fun:_dl_catch_exception
    ...
 }
+{
+   <test_lib_fatal_ostream_file>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:calloc
+   fun:pool_system_malloc
+   fun:p_malloc
+   fun:o_stream_create_fd_common
+   fun:fatal_ostream_file
+   ...
+}
