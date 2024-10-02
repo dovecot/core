@@ -453,9 +453,7 @@ void ldap_dict_lookup_async(struct dict *dict,
 	op->callback = callback;
 	op->callback_ctx = context;
 	op->txid = ctx->last_txid++;
-
 	op->event = event_create(op->dict->dict.event);
-	event_set_forced_debug(op->event, op->dict->set->debug > 0);
 
 	/* key needs to be transformed into something else */
 	ARRAY_TYPE(const_string) values;
