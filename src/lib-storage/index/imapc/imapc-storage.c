@@ -824,6 +824,8 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 static int imapc_mailbox_open(struct mailbox *box)
 {
 	struct imapc_mailbox *mbox = IMAPC_MAILBOX(box);
+	struct imapc_mailbox_list *list =
+		container_of(box->list, struct imapc_mailbox_list, list);
 
 	if (index_storage_mailbox_open(box, FALSE) < 0)
 		return -1;
@@ -837,6 +839,21 @@ static int imapc_mailbox_open(struct mailbox *box)
 	    (box->list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
 		/* trying to open INBOX as the namespace prefix.
 		   Don't allow this. */
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
+				       "Mailbox isn't selectable");
+		mailbox_close(box);
+		return -1;
+	}
+	/* If mail_shared_explicit_inbox is not set, a shared mailbox can list
+	   INBOX as \Noselect (usually with child mailboxes), as well as
+	   listing the selectable namespace prefix itself (containing the
+	   actual INBOX). Make sure that in these situations the \Noselect is
+	   actually enforced for the INBOX. */
+	if (!box->storage->set->mail_shared_explicit_inbox &&
+	     list->set->imapc_list_prefix[0] == '\0' &&
+	     list->list.ns->type ==  MAIL_NAMESPACE_TYPE_SHARED &&
+	     strcmp(box->vname, t_strdup_printf("%sINBOX",
+						box->list->ns->prefix)) == 0) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 				       "Mailbox isn't selectable");
 		mailbox_close(box);
