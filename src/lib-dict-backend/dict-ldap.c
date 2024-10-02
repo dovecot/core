@@ -440,7 +440,6 @@ void ldap_dict_lookup_async(struct dict *dict,
 		}
 		input.filter = str_c(query);
 		input.attributes = attributes;
-		input.timeout_secs = ctx->set->timeout;
 		ctx->pending++;
 		ldap_search_start(ctx->client, &input, ldap_dict_lookup_callback, op);
 	} else {

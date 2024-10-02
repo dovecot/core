@@ -27,8 +27,6 @@ struct ldap_search_input {
 	enum ldap_scope scope;
 
 	unsigned int size_limit;
-
-	unsigned int timeout_secs;
 };
 
 struct ldap_compare_input {
