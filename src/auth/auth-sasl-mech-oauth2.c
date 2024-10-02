@@ -69,23 +69,23 @@ static void
 mech_oauth2_verify_token_continue(struct oauth2_auth_request *oauth2_req,
 				  const char *const *args)
 {
-	struct auth_request *request = oauth2_req->request.request;
+	struct auth_request *auth_request = oauth2_req->request.request;
 	int parsed;
 	enum passdb_result result;
 
 	/* OK result user fields */
 	if (args[0] == NULL || args[1] == NULL) {
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
-		e_error(request->event,
+		e_error(auth_request->event,
 			"BUG: Invalid auth worker response: empty");
 	} else if (str_to_int(args[1], &parsed) < 0) {
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
-		e_error(request->event,
+		e_error(auth_request->event,
 			"BUG: Invalid auth worker response: cannot parse '%s'",
 			args[1]);
 	} else if (args[2] == NULL) {
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
-		e_error(request->event,
+		e_error(auth_request->event,
 			"BUG: Invalid auth worker response: cannot parse '%s'",
 			args[1]);
 	} else {
@@ -93,17 +93,17 @@ mech_oauth2_verify_token_continue(struct oauth2_auth_request *oauth2_req,
 	}
 
 	if (result == PASSDB_RESULT_OK) {
-		request->passdb_success = TRUE;
-		auth_request_set_password_verified(request);
-		auth_request_set_fields(request, args + 3, NULL);
-		auth_request_lookup_credentials(request, "",
+		auth_request->passdb_success = TRUE;
+		auth_request_set_password_verified(auth_request);
+		auth_request_set_fields(auth_request, args + 3, NULL);
+		auth_request_lookup_credentials(auth_request, "",
 						oauth2_verify_callback);
-		auth_request_unref(&request);
+		auth_request_unref(&auth_request);
 		return;
 	}
 
-	oauth2_verify_finish(result, request);
-	auth_request_unref(&request);
+	oauth2_verify_finish(result, auth_request);
+	auth_request_unref(&auth_request);
 }
 
 static bool
@@ -123,23 +123,24 @@ mech_oauth2_verify_token_local_continue(struct db_oauth2_request *db_req,
 					const char *error,
 					struct oauth2_auth_request *oauth2_req)
 {
-	struct auth_request *request = oauth2_req->request.request;
+	struct auth_request *auth_request = oauth2_req->request.request;
 
 	if (result == PASSDB_RESULT_OK) {
-		auth_request_set_password_verified(request);
-		auth_request_set_field(request, "token", db_req->token, NULL);
-		auth_request_lookup_credentials(request, "",
+		auth_request_set_password_verified(auth_request);
+		auth_request_set_field(auth_request, "token",
+				       db_req->token, NULL);
+		auth_request_lookup_credentials(auth_request, "",
 						oauth2_verify_callback);
-		auth_request_unref(&request);
+		auth_request_unref(&auth_request);
 		pool_unref(&db_req->pool);
 		return;
 	} else if (result == PASSDB_RESULT_INTERNAL_FAILURE) {
-		e_error(request->event, "oauth2 failed: %s", error);
+		e_error(auth_request->event, "oauth2 failed: %s", error);
 	} else {
-		e_info(request->event, "oauth2 failed: %s", error);
+		e_info(auth_request->event, "oauth2 failed: %s", error);
 	}
-	oauth2_verify_finish(result, request);
-	auth_request_unref(&request);
+	oauth2_verify_finish(result, auth_request);
+	auth_request_unref(&auth_request);
 	pool_unref(&db_req->pool);
 }
 
