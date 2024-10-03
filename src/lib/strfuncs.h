@@ -31,10 +31,10 @@ char *p_strconcat(pool_t pool, const char *str1, ...)
 /* same with temporary memory allocations: */
 const char *t_strdup(const char *str) ATTR_MALLOC;
 char *t_strdup_noconst(const char *str) ATTR_MALLOC;
+const void *t_memdup(const void *data, size_t size) ATTR_MALLOC;
 /* return NULL if str = "" */
 const char *t_strdup_empty(const char *str) ATTR_MALLOC;
 /* *end isn't included */
-const void *t_memdup(const void *data, size_t size) ATTR_MALLOC;
 const char *t_strdup_until(const void *start, const void *end)
 	ATTR_MALLOC ATTR_RETURNS_NONNULL;
 const char *t_strndup(const void *str, size_t max_chars) ATTR_MALLOC;
