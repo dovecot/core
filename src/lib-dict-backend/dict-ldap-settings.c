@@ -6,51 +6,133 @@
 
 #include "array.h"
 #include "str.h"
-#include "settings-legacy.h"
+#include "settings.h"
+#include "settings-parser.h"
 #include "dict-ldap-settings.h"
 
 #include <ctype.h>
 
-static const char *dict_ldap_commonName = "cn";
-static const char *dict_ldap_empty_filter = "";
+/* <settings checks> */
+#include "ldap-settings-parse.h"
+/* </settings checks> */
 
-enum section_type {
-	SECTION_ROOT = 0,
-	SECTION_MAP,
-	SECTION_FIELDS
+#undef DEF
+#undef DEFN
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("dict_map_"#name, name, struct dict_ldap_map_settings)
+#define DEFN(type, field, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, field, struct dict_ldap_map_settings)
+static const struct setting_define dict_ldap_map_setting_defines[] = {
+	DEF(STR, pattern),
+	DEFN(STR, base, ldap_base),
+	DEFN(STR, filter, ldap_filter),
+	DEFN(ENUM, scope, ldap_scope),
+	DEF(STR, username_attribute),
+	DEF(STR, value_attribute),
+	DEF(STRLIST, fields),
+	SETTING_DEFINE_LIST_END
 };
 
-struct dict_ldap_map_attribute {
-	const char *name;
-	const char *variable;
+static const struct dict_ldap_map_settings dict_ldap_map_default_settings = {
+	.pattern = "",
+	.filter = "",
+	.username_attribute = "cn",
+	.value_attribute = "",
+	.base = "",
+	.scope = "subtree:onelevel:base",
+	.fields = ARRAY_INIT,
+	.parsed_pattern_keys = ARRAY_INIT,
 };
 
-struct setting_parser_ctx {
-	pool_t pool;
-	struct dict_ldap_settings *set;
-	enum section_type type;
+const struct setting_parser_info dict_ldap_map_setting_parser_info = {
+	.name = "dict_ldap_map",
 
-	struct dict_ldap_map_settings cur_map;
-	ARRAY(struct dict_ldap_map_attribute) cur_attributes;
+	.defines = dict_ldap_map_setting_defines,
+	.defaults = &dict_ldap_map_default_settings,
+
+	.struct_size = sizeof(struct dict_ldap_map_settings),
+	.pool_offset1 = 1 + offsetof(struct dict_ldap_map_settings, pool),
 };
 
-#undef DEF_STR
-#undef DEF_BOOL
-#undef DEF_UINT
-
-#define DEF_STR(name) DEF_STRUCT_STR(name, dict_ldap_map_settings)
-#define DEF_BOOL(name) DEF_STRUCT_BOOL(name, dict_ldap_map_settings)
-#define DEF_UINT(name) DEF_STRUCT_UINT(name ,dict_ldap_map_settings)
-
-static const struct setting_def dict_ldap_map_setting_defs[] = {
-	DEF_STR(parsed_pattern),
-	DEF_STR(filter),
-	DEF_STR(username_attribute),
-	DEF_STR(value_attribute),
-	DEF_STR(base),
-	DEF_STR(scope),
-	{ 0, NULL, 0 }
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("ldap_"#name, name, struct dict_ldap_settings)
+static const struct setting_define dict_ldap_setting_defines[] = {
+	{ .type = SET_FILTER_ARRAY, .key = "dict_map",
+	  .offset = offsetof(struct dict_ldap_settings, maps),
+	  .filter_array_field_name = "dict_map_pattern", },
+	SETTING_DEFINE_LIST_END
 };
+
+static const struct dict_ldap_settings dict_ldap_default_settings = {
+	.maps = ARRAY_INIT,
+};
+
+const struct setting_parser_info dict_ldap_setting_parser_info = {
+	.name = "dict_ldap",
+
+	.defines = dict_ldap_setting_defines,
+	.defaults = &dict_ldap_default_settings,
+
+	.struct_size = sizeof(struct dict_ldap_settings),
+	.pool_offset1 = 1 + offsetof(struct dict_ldap_settings, pool),
+};
+
+static int
+dict_ldap_map_settings_postcheck(struct dict_ldap_map_settings *set,
+			     const char **error_r)
+{
+	if (!str_begins_with(pre->filter, "(")) {
+		*error_r = "ldap_filter must start with '('";
+		return -1;
+	}
+	if (set->filter[strlen(set->filter) - 1]!= ')') {
+		*error_r = "ldap_filter must end with ')'";
+		return -1;
+	}
+
+	if (*set->pattern == '\0') {
+		*error_r = "ldap_map_pattern not set";
+		return -1;
+	}
+
+	if (*set->username_attribute == '\0') {
+		*error_r = "username_attribute not set";
+		return -1;
+	}
+
+	if (*set->value_attribute == '\0') {
+		*error_r = "value_attribute  not set";
+		return -1;
+	}
+
+	if (array_is_empty(&set->fields)) {
+		if (strchr(set->pattern, '$') != NULL) {
+			*error_r = "ldap_attributes missing for pattern variables";
+			return -1;
+		}
+		p_array_init(&set->fields, set->pool, 1);
+	} else {
+		unsigned int count;
+		const char *const *fields = array_get(&set->fields, &count);
+		for (unsigned index = 0; index < count; index += 2, fields += 2) {
+			if (**fields != '$') {
+				*error_r = t_strdup_printf(
+					"value not starting with '$' for attribute %s",
+					*fields);
+				return -1;
+			}
+		}
+	}
+
+	if (ldap_parse_scope(set->scope, &set->parsed_scope) < 0) {
+		*error_r = t_strdup_printf("Unknown ldap_scope: %s",
+					   set->scope);
+		return -1;
+	}
+
+	return 0;
+}
 
 static const char *pattern_read_name(const char **pattern)
 {
@@ -79,20 +161,32 @@ static const char *pattern_read_name(const char **pattern)
 	return name;
 }
 
-static const char *dict_ldap_attributes_map(struct setting_parser_ctx *ctx)
+static int
+dict_ldap_settings_parse_pattern(struct dict_ldap_map_settings *map,
+				 const char **error_r)
 {
-	struct dict_ldap_map_attribute *attributes;
-	string_t *pattern;
-	const char *p, *name;
-	unsigned int i, count;
+	const char *attribute, *variable, *p;
+	unsigned int count, index;
+
+	const char **const fields = array_get_modifiable(&map->fields, &count);
+	p_array_init(&map->parsed_pattern_keys, map->pool, count / 2);
+	string_t *pattern = t_str_new(strlen(map->pattern) + 1);
+
+	for (index = 0; index < count; ) {
+		attribute = fields[index++];
+		variable = fields[index++];
+		if (*variable != '$') {
+			*error_r = t_strdup_printf(
+				"value not starting with '$' for attribute %s",
+				attribute);
+			return -1;
+		}
+	}
 
 	/* go through the variables in the pattern, replace them with plain
 	   '$' character and add its ldap attribute */
-	pattern = t_str_new(strlen(ctx->cur_map.parsed_pattern) + 1);
-	attributes = array_get_modifiable(&ctx->cur_attributes, &count);
 
-	p_array_init(&ctx->cur_map.parsed_pattern_keys, ctx->pool, count);
-	for (p = ctx->cur_map.parsed_pattern; *p != '\0';) {
+	for (p = map->pattern; *p != '\0';) {
 		if (*p != '$') {
 			str_append_c(pattern, *p);
 			p++;
@@ -101,154 +195,96 @@ static const char *dict_ldap_attributes_map(struct setting_parser_ctx *ctx)
 		p++;
 		str_append_c(pattern, '$');
 
-		name = pattern_read_name(&p);
-		for (i = 0; i < count; i++) {
-			if (attributes[i].variable != NULL &&
-			    strcmp(attributes[i].variable, name) == 0)
+		const char *name = pattern_read_name(&p);
+		for (index = 0; index < count; ) {
+			attribute = fields[index++];
+			variable = fields[index++];
+			if (variable != NULL &&
+			    strcmp(variable, name) == 0)
 				break;
 		}
-		if (i == count) {
-			return t_strconcat("Missing LDAP attribute for variable: ",
-					   name, NULL);
+		if (index == count) {
+			*error_r = t_strdup_printf(
+				"Missing LDAP attribute for variable: %s", name);
+			return -1;
 		}
 
 		/* mark this attribute as used */
-		attributes[i].variable = NULL;
-		array_push_back(&ctx->cur_map.parsed_pattern_keys,
-				&attributes[i].name);
+		array_push_back(&map->parsed_pattern_keys, &attribute);
+		variable = NULL;
 	}
 
 	/* make sure there aren't any unused attributes */
-	for (i = 0; i < count; i++) {
-		if (attributes[i].variable != NULL) {
-			return t_strconcat("Unused variable: ",
-					   attributes[i].variable, NULL);
+	for (index = 1; index < count; index += 2) {
+		variable = fields[index];
+		if (variable != NULL) {
+			*error_r = t_strdup_printf("Unused variable: %s",
+						   variable);
+			return -1;
 		}
 	}
 
-	ctx->cur_map.parsed_pattern = p_strdup(ctx->pool, str_c(pattern));
-	return NULL;
+	map->parsed_pattern = p_strdup(map->pool, str_c(pattern));
+	return 0;
 }
 
-static const char *dict_ldap_map_finish(struct setting_parser_ctx *ctx)
+static int
+dict_ldap_settings_parse_maps(struct event *event, struct dict_ldap_settings *set,
+			      const char **error_r)
 {
-	if (ctx->cur_map.parsed_pattern == NULL)
-		return "Missing setting: pattern";
-	if (ctx->cur_map.filter == NULL)
-		ctx->cur_map.filter = dict_ldap_empty_filter;
-	if (*ctx->cur_map.filter != '\0') {
-		const char *ptr = ctx->cur_map.filter;
-		if (*ptr != '(')
-			return "Filter must start with (";
-		while(*ptr != '\0') ptr++;
-		ptr--;
-		if (*ptr != ')')
-			return "Filter must end with )";
+	if (array_is_empty(&set->maps)) {
+		*error_r = "no dict_maps found by dict ldap driver";
+		return -1;
 	}
-	if (ctx->cur_map.value_attribute == NULL)
-		return "Missing setting: value_attribute";
 
-	if (ctx->cur_map.username_attribute == NULL) {
-		/* default to commonName */
-		ctx->cur_map.username_attribute = dict_ldap_commonName;
+	p_array_init(&set->parsed_maps, set->pool, array_count(&set->maps));
+
+	const char *name;
+	array_foreach_elem(&set->maps, name) {
+		struct dict_ldap_map_settings *map;
+		if (settings_get_filter(event, "dict_map", name,
+					&dict_ldap_map_setting_parser_info,
+					SETTINGS_GET_FLAG_NO_EXPAND, &map,
+					error_r) < 0) {
+			*error_r = t_strdup_printf("Failed to get dict_map %s: %s",
+						   name, *error_r);
+			return -1;
+		}
+
+		if (dict_ldap_map_settings_postcheck(map, error_r) < 0) {
+			settings_free(map);
+			return -1;
+		}
+
+		if (dict_ldap_settings_parse_pattern(map, error_r) < 0) {
+			settings_free(map);
+			return -1;
+		}
+
+		pool_add_external_ref(set->pool, map->pool);
+		pool_t pool_copy = map->pool;
+		pool_unref(&pool_copy);
+
+		array_push_back(&set->parsed_maps, map);
 	}
-	if (ctx->cur_map.scope == NULL) {
-		ctx->cur_map.parsed_scope = 2; /* subtree */
-	} else {
-		if (strcasecmp(ctx->cur_map.scope, "one") == 0) ctx->cur_map.parsed_scope = 1;
-		else if (strcasecmp(ctx->cur_map.scope, "base") == 0) ctx->cur_map.parsed_scope = 0;
-		else if (strcasecmp(ctx->cur_map.scope, "subtree") == 0) ctx->cur_map.parsed_scope = 2;
-		else return "Scope must be one, base or subtree";
-	}
-	if (!array_is_created(&ctx->cur_map.parsed_pattern_keys)) {
-		/* no attributes besides value. allocate the array anyway. */
-		p_array_init(&ctx->cur_map.parsed_pattern_keys, ctx->pool, 1);
-		if (strchr(ctx->cur_map.parsed_pattern, '$') != NULL)
-			return "Missing attributes for pattern variables";
-	}
-	array_push_back(&ctx->set->parsed_maps, &ctx->cur_map);
-	i_zero(&ctx->cur_map);
-	return NULL;
+
+	return 0;
 }
 
-static const char *
-parse_setting(const char *key, const char *value,
-	      struct setting_parser_ctx *ctx)
+int dict_ldap_settings_get(struct event *event,
+			   const struct dict_ldap_settings **set_r,
+			   const char **error_r)
 {
-	struct dict_ldap_map_attribute *attribute;
-
-	switch (ctx->type) {
-	case SECTION_ROOT:
-		break;
-	case SECTION_MAP:
-		return parse_setting_from_defs(ctx->pool,
-					       dict_ldap_map_setting_defs,
-					       &ctx->cur_map, key, value);
-	case SECTION_FIELDS:
-		if (*value != '$') {
-			return t_strconcat("Value is missing '$' for attribute: ",
-					   key, NULL);
-		}
-		attribute = array_append_space(&ctx->cur_attributes);
-		attribute->name = p_strdup(ctx->pool, key);
-		attribute->variable = p_strdup(ctx->pool, value + 1);
-		return NULL;
+	struct dict_ldap_settings *set = NULL;
+	if (settings_get(event, &dict_ldap_setting_parser_info, 0, &set, error_r) < 0 ||
+	    dict_ldap_settings_parse_maps(event, set, error_r) < 0) {
+		settings_free(set);
+		return -1;
 	}
-	return t_strconcat("Unknown setting: ", key, NULL);
-}
 
-static bool
-parse_section(const char *type, const char *name ATTR_UNUSED,
-	      struct setting_parser_ctx *ctx, const char **error_r)
-{
-	switch (ctx->type) {
-	case SECTION_ROOT:
-		if (type == NULL)
-			return FALSE;
-		if (strcmp(type, "map") == 0) {
-			array_clear(&ctx->cur_attributes);
-			ctx->type = SECTION_MAP;
-			return TRUE;
-		}
-		break;
-	case SECTION_MAP:
-		if (type == NULL) {
-			ctx->type = SECTION_ROOT;
-			*error_r = dict_ldap_map_finish(ctx);
-			return FALSE;
-		}
-		if (strcmp(type, "fields") == 0) {
-			ctx->type = SECTION_FIELDS;
-			return TRUE;
-		}
-		break;
-	case SECTION_FIELDS:
-		if (type == NULL) {
-			ctx->type = SECTION_MAP;
-			*error_r = dict_ldap_attributes_map(ctx);
-			return FALSE;
-		}
-		break;
-	}
-	*error_r = t_strconcat("Unknown section: ", type, NULL);
-	return FALSE;
-}
-
-struct dict_ldap_settings *
-dict_ldap_settings_read(pool_t pool, const char *path, const char **error_r)
-{
-	struct setting_parser_ctx ctx;
-
-	i_zero(&ctx);
-	ctx.pool = pool;
-	ctx.set = p_new(pool, struct dict_ldap_settings, 1);
-	t_array_init(&ctx.cur_attributes, 16);
-	p_array_init(&ctx.set->parsed_maps, pool, 8);
-
-	if (!settings_read(path, NULL, parse_setting, parse_section,
-			   &ctx, error_r))
-		return NULL;
-	return ctx.set;
+	*set_r = set;
+	*error_r = NULL;
+	return 0;
 }
 
 #endif

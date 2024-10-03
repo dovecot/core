@@ -2,14 +2,19 @@
 #define DICT_LDAP_SETTINGS_H
 
 struct dict_ldap_map_settings {
+	pool_t pool;
+
+	const char *pattern;
 	const char *filter;
 	const char *username_attribute;
 	const char *value_attribute;
 	const char *base;
 	const char *scope;
-	unsigned int timeout;
+	ARRAY_TYPE(const_string) fields;
 
 	/* parsed */
+
+	/* attributes sorted by the position in parsed_pattern. */
 	ARRAY_TYPE(const_string) parsed_pattern_keys;
 	int parsed_scope;
 
@@ -18,10 +23,18 @@ struct dict_ldap_map_settings {
 };
 
 struct dict_ldap_settings {
-	ARRAY(struct dict_ldap_map_settings) parsed_maps;
+	pool_t pool;
+	ARRAY_TYPE(const_string) maps;
+
+	/* parsed */
+	ARRAY(const struct dict_ldap_map_settings) parsed_maps;
 };
 
-struct dict_ldap_settings *
-dict_ldap_settings_read(pool_t pool, const char *path, const char **error_r);
+extern const struct setting_parser_info dict_ldap_map_setting_parser_info;
+extern const struct setting_parser_info dict_ldap_setting_parser_info;
+
+int dict_ldap_settings_get(struct event *event,
+			   const struct dict_ldap_settings **set_r,
+			   const char **error_r);
 
 #endif
