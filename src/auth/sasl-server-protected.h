@@ -75,8 +75,6 @@ mech_register_find(const struct mechanisms_register *reg, const char *name);
 void mech_init(const struct auth_settings *set);
 void mech_deinit(const struct auth_settings *set);
 
-void mech_oauth2_initialize(void);
-
 /*
  * Request
  */

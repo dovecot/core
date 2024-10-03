@@ -155,6 +155,7 @@ headers = \
 	auth-request-handler-private.h \
 	auth-request-var-expand.h \
 	auth-sasl.h \
+	auth-sasl-oauth2.h \
 	auth-settings.h \
 	auth-fields.h \
 	auth-token.h \

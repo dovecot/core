@@ -2,6 +2,7 @@
 
 #include "auth-common.h"
 #include "auth-sasl.h"
+#include "auth-sasl-oauth2.h"
 #include "auth-request.h"
 
 static void
@@ -159,5 +160,18 @@ auth_sasl_oauth2_verify_token(struct oauth2_auth_request *oauth2_req,
 			oauth2_req->db_req.pool,
 			auth_request->fields.user, str_c(str),
 			mech_oauth2_verify_token_input_args, oauth2_req);
+	}
+}
+
+void mech_oauth2_initialize(void)
+{
+	const char *mech, *error;
+	array_foreach_elem(&global_auth_settings->mechanisms, mech) {
+		if (strcasecmp(mech, mech_xoauth2.mech_name) == 0 ||
+		    strcasecmp(mech, mech_oauthbearer.mech_name) == 0) {
+			if (db_oauth2_init(auth_event, FALSE,
+					   &db_oauth2, &error) < 0)
+				i_fatal("Cannot initialize oauth2: %s", error);
+		}
 	}
 }

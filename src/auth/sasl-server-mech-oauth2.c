@@ -334,16 +334,3 @@ const struct sasl_server_mech_def mech_xoauth2 = {
 	.auth_initial = sasl_server_mech_generic_auth_initial,
 	.auth_continue = mech_xoauth2_auth_continue,
 };
-
-void mech_oauth2_initialize(void)
-{
-	const char *mech, *error;
-	array_foreach_elem(&global_auth_settings->mechanisms, mech) {
-		if (strcasecmp(mech, mech_xoauth2.mech_name) == 0 ||
-		    strcasecmp(mech, mech_oauthbearer.mech_name) == 0) {
-			if (db_oauth2_init(auth_event, FALSE,
-					   &db_oauth2, &error) < 0)
-				i_fatal("Cannot initialize oauth2: %s", error);
-		}
-	}
-}
