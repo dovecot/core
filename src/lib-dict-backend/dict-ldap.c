@@ -15,6 +15,7 @@
 #include "ldap-client.h"
 #include "dict.h"
 #include "dict-private.h"
+#include "settings.h"
 #include "dict-ldap-settings.h"
 
 static const char *LDAP_ESCAPE_CHARS = "*,\\#+<>;\"()= ";
@@ -34,7 +35,7 @@ struct dict_ldap_op {
 
 struct ldap_dict {
 	struct dict dict;
-	struct dict_ldap_settings *set;
+	const struct dict_ldap_settings *set;
 
 	const char *uri;
 	const char *base_dn;
@@ -190,31 +191,28 @@ ldap_dict_build_query(const struct dict_op_settings *set,
 }
 
 static
-int ldap_dict_init_legacy(struct dict *dict_driver, const char *uri,
-			  const struct dict_legacy_settings *set ATTR_UNUSED,
-			  struct dict **dict_r, const char **error_r)
+int ldap_dict_init(const struct dict *dict_driver, struct event *event,
+		   struct dict **dict_r, const char **error_r)
 {
+	const struct dict_ldap_settings *set;
+	if (dict_ldap_settings_get(event, &set, error_r) < 0)
+		return -1;
+
 	pool_t pool = pool_alloconly_create("ldap dict", 2048);
 	struct ldap_dict *dict = p_new(pool, struct ldap_dict, 1);
 	dict->pool = pool;
-	dict->event = event_create(dict_driver->event);
+	dict->event = event_create(event);
 	dict->dict = *dict_driver;
-	dict->uri = p_strdup(pool, uri);
-	dict->set = dict_ldap_settings_read(pool, uri, error_r);
-
-	if (dict->set == NULL) {
-		event_unref(&dict->event);
-		pool_unref(&pool);
-		return -1;
-	}
+	dict->set = set;
 
 	if (dict_ldap_connect(dict, error_r) < 0) {
 		event_unref(&dict->event);
+		settings_free(set);
 		pool_unref(&pool);
 		return -1;
 	}
 
-	*dict_r = (struct dict*)dict;
+	*dict_r = &dict->dict;
 	*error_r = NULL;
 	return 0;
 }
@@ -226,6 +224,7 @@ void ldap_dict_deinit(struct dict *dict)
 
 	ldap_client_deinit(&ctx->client);
 	event_unref(&dict->event);
+	settings_free(ctx->set);
 	pool_unref(&ctx->pool);
 }
 
@@ -442,7 +441,7 @@ void ldap_dict_lookup_async(struct dict *dict,
 struct dict dict_driver_ldap = {
 	.name = "ldap",
 	.v = {
-		.init_legacy = ldap_dict_init_legacy,
+		.init = ldap_dict_init,
 		.deinit = ldap_dict_deinit,
 		.wait = ldap_dict_wait,
 		.lookup = ldap_dict_lookup,
