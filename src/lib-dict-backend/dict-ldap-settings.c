@@ -167,7 +167,7 @@ static const char *dict_ldap_map_finish(struct setting_parser_ctx *ctx)
 		if (strchr(ctx->cur_map.pattern, '$') != NULL)
 			return "Missing attributes for pattern variables";
 	}
-	array_push_back(&ctx->set->maps, &ctx->cur_map);
+	array_push_back(&ctx->set->parsed_maps, &ctx->cur_map);
 	i_zero(&ctx->cur_map);
 	return NULL;
 }
@@ -289,7 +289,7 @@ dict_ldap_settings_read(pool_t pool, const char *path, const char **error_r)
 	ctx.pool = pool;
 	ctx.set = p_new(pool, struct dict_ldap_settings, 1);
 	t_array_init(&ctx.cur_attributes, 16);
-	p_array_init(&ctx.set->maps, pool, 8);
+	p_array_init(&ctx.set->parsed_maps, pool, 8);
 
 	ctx.set->timeout = 30; /* default timeout */
 	ctx.set->require_ssl = FALSE; /* try to start SSL */

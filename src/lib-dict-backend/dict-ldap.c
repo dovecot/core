@@ -110,7 +110,7 @@ ldap_dict_find_map(struct ldap_dict *dict, const char *path,
 	unsigned int i, count;
 
 	t_array_init(values, 2);
-	maps = array_get(&dict->set->maps, &count);
+	maps = array_get(&dict->set->parsed_maps, &count);
 	for (i = 0; i < count; i++) {
 		if (dict_ldap_map_match(&maps[i], path, values))
 			return &maps[i];
