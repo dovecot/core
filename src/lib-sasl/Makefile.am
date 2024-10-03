@@ -79,7 +79,13 @@ test_programs = \
 	test-sasl-client \
 	test-sasl-authentication
 
-noinst_PROGRAMS = $(test_programs) ntlm_dummy
+fuzz_programs =
+if USE_FUZZER
+fuzz_programs += \
+        fuzz-sasl-authentication
+endif
+
+noinst_PROGRAMS = $(test_programs) ntlm_dummy $(fuzz_programs)
 
 test_libs = \
 	libsasl.la \
@@ -110,6 +116,15 @@ test_sasl_authentication_DEPENDENCIES = $(test_deps)
 ntlm_dummy_SOURCES = ntlm_dummy.c
 ntlm_dummy_LDADD = ../lib/liblib.la
 ntlm_dummy_DEPENDENCIES = ../lib/liblib.la
+
+nodist_EXTRA_fuzz_sasl_authentication_SOURCES = force-cxx-linking.cxx
+fuzz_sasl_authentication_CPPFLAGS = $(FUZZER_CPPFLAGS)
+fuzz_sasl_authentication_LDFLAGS = $(FUZZER_LDFLAGS)
+fuzz_sasl_authentication_SOURCES = \
+	dsasl-client-mech-ntlm-dummy.c \
+	fuzz-sasl-authentication.c
+fuzz_sasl_authentication_LDADD = $(test_libs)
+fuzz_sasl_authentication_DEPENDENCIES = $(test_deps)
 
 check-local:
 	for bin in $(test_programs); do \
