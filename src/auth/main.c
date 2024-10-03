@@ -181,7 +181,7 @@ static void main_preinit(void)
 
 	dict_drivers_register_builtin();
 	mech_init(global_auth_settings);
-	mech_oauth2_initialize();
+	auth_sasl_oauth2_initialize();
 	mech_reg = mech_register_init(global_auth_settings);
 	auths_preinit(NULL, global_auth_settings, mech_reg, protocols);
 

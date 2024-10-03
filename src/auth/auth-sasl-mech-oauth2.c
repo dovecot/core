@@ -163,7 +163,7 @@ auth_sasl_oauth2_verify_token(struct oauth2_auth_request *oauth2_req,
 	}
 }
 
-void mech_oauth2_initialize(void)
+void auth_sasl_oauth2_initialize(void)
 {
 	const char *mech, *error;
 	array_foreach_elem(&global_auth_settings->mechanisms, mech) {
