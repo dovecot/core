@@ -31,7 +31,8 @@ headers = \
 
 noinst_HEADERS = \
 	ldap-connection-pool.h \
-	ldap-private.h
+	ldap-private.h \
+	ldap-settings-parse.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
