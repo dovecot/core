@@ -26,7 +26,7 @@ struct dict_ldap_settings {
 	unsigned int debug;
 	bool require_ssl;
 	bool start_tls;
-	ARRAY(struct dict_ldap_map) maps;
+	ARRAY(struct dict_ldap_map) parsed_maps;
 };
 
 struct dict_ldap_settings *
