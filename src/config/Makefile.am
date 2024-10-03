@@ -9,6 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-dns \
+	-I$(top_srcdir)/src/lib-ldap \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-http \
 	-I$(top_srcdir)/src/lib-settings \

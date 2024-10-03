@@ -6,10 +6,9 @@
 #include "db-ldap-settings.h"
 
 /* <settings checks> */
+#include "ldap-settings-parse.h"
 
-#include "ldap.h"
 static bool ldap_setting_check(void *_set, pool_t pool, const char **error_r);
-
 /* </settings checks> */
 
 #undef DEF
@@ -141,19 +140,6 @@ static int ldap_parse_deref(const char *str, int *ref_r)
 		*ref_r = LDAP_DEREF_FINDING;
 	else if (strcasecmp(str, "always") == 0)
 		*ref_r = LDAP_DEREF_ALWAYS;
-	else
-		return -1;
-	return 0;
-}
-
-static int ldap_parse_scope(const char *str, int *scope_r)
-{
-	if (strcasecmp(str, "base") == 0)
-		*scope_r = LDAP_SCOPE_BASE;
-	else if (strcasecmp(str, "onelevel") == 0)
-		*scope_r = LDAP_SCOPE_ONELEVEL;
-	else if (strcasecmp(str, "subtree") == 0)
-		*scope_r = LDAP_SCOPE_SUBTREE;
 	else
 		return -1;
 	return 0;
