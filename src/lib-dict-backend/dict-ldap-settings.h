@@ -2,9 +2,6 @@
 #define DICT_LDAP_SETTINGS_H
 
 struct dict_ldap_map_settings {
-	/* pattern is in simplified form: all variables are stored as simple
-	   '$' character. fields array is sorted by the variable index. */
-	const char *pattern;
 	const char *filter;
 	const char *username_attribute;
 	const char *value_attribute;
@@ -15,6 +12,9 @@ struct dict_ldap_map_settings {
 	/* parsed */
 	ARRAY_TYPE(const_string) parsed_pattern_keys;
 	int parsed_scope;
+
+	/* the variables are in the same order as parsed_pattern_keys. */
+	const char *parsed_pattern;
 };
 
 struct dict_ldap_settings {

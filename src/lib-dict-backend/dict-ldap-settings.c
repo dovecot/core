@@ -43,7 +43,7 @@ struct setting_parser_ctx {
 #define DEF_UINT(name) DEF_STRUCT_UINT(name ,dict_ldap_map_settings)
 
 static const struct setting_def dict_ldap_map_setting_defs[] = {
-	DEF_STR(pattern),
+	DEF_STR(parsed_pattern),
 	DEF_STR(filter),
 	DEF_STR(username_attribute),
 	DEF_STR(value_attribute),
@@ -88,11 +88,11 @@ static const char *dict_ldap_attributes_map(struct setting_parser_ctx *ctx)
 
 	/* go through the variables in the pattern, replace them with plain
 	   '$' character and add its ldap attribute */
-	pattern = t_str_new(strlen(ctx->cur_map.pattern) + 1);
+	pattern = t_str_new(strlen(ctx->cur_map.parsed_pattern) + 1);
 	attributes = array_get_modifiable(&ctx->cur_attributes, &count);
 
 	p_array_init(&ctx->cur_map.parsed_pattern_keys, ctx->pool, count);
-	for (p = ctx->cur_map.pattern; *p != '\0';) {
+	for (p = ctx->cur_map.parsed_pattern; *p != '\0';) {
 		if (*p != '$') {
 			str_append_c(pattern, *p);
 			p++;
@@ -126,13 +126,13 @@ static const char *dict_ldap_attributes_map(struct setting_parser_ctx *ctx)
 		}
 	}
 
-	ctx->cur_map.pattern = p_strdup(ctx->pool, str_c(pattern));
+	ctx->cur_map.parsed_pattern = p_strdup(ctx->pool, str_c(pattern));
 	return NULL;
 }
 
 static const char *dict_ldap_map_finish(struct setting_parser_ctx *ctx)
 {
-	if (ctx->cur_map.pattern == NULL)
+	if (ctx->cur_map.parsed_pattern == NULL)
 		return "Missing setting: pattern";
 	if (ctx->cur_map.filter == NULL)
 		ctx->cur_map.filter = dict_ldap_empty_filter;
@@ -163,7 +163,7 @@ static const char *dict_ldap_map_finish(struct setting_parser_ctx *ctx)
 	if (!array_is_created(&ctx->cur_map.parsed_pattern_keys)) {
 		/* no attributes besides value. allocate the array anyway. */
 		p_array_init(&ctx->cur_map.parsed_pattern_keys, ctx->pool, 1);
-		if (strchr(ctx->cur_map.pattern, '$') != NULL)
+		if (strchr(ctx->cur_map.parsed_pattern, '$') != NULL)
 			return "Missing attributes for pattern variables";
 	}
 	array_push_back(&ctx->set->parsed_maps, &ctx->cur_map);
