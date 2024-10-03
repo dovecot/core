@@ -65,6 +65,11 @@ src/**/test-*
 !src/**/test-*.h
 !src/**/test-*.inc
 
+src/**/fuzz-*
+!src/**/fuzz-*.c
+!src/**/fuzz-*.h
+!src/**/fuzz-*.inc
+
 doc/man/*.1
 doc/man/*.7
 doc/stamp-man
@@ -129,10 +134,6 @@ src/plugins/fts/xml2text
 src/plugins/quota/rquota_xdr.c
 src/plugins/quota/rquota.h
 src/plugins/quota/quota-status
-src/lib-imap/fuzz-imap-utf7
-src/lib-imap/fuzz-imap-bodystructure
-src/lib-mail/fuzz-message-parser
-src/lib-smtp/fuzz-smtp-server
 src/lib-var-expand/var-expand-parser.c
 src/lib-var-expand/var-expand-parser.h
 src/lib-var-expand/var-expand-lexer.c
