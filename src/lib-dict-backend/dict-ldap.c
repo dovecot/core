@@ -65,7 +65,7 @@ dict_ldap_map_match(const struct dict_ldap_map_settings *map, const char *path,
 	size_t len;
 
 	array_clear(values);
-	pat = map->pattern;
+	pat = map->parsed_pattern;
 	while (*pat != '\0' && *path != '\0') {
 		if (*pat == '$') {
 			/* variable */
