@@ -568,11 +568,11 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 
 		const char *full_key = key;
 		try_strip_prefix(&key, strip_prefix, strip_prefix2);
-		value = strchr(key, '=');
+		value = bool_list_elem ? strrchr(key, '=') : strchr(key, '=');
 		i_assert(value != NULL);
 		if (!hide_key || bool_list_elem || str_list_elem) {
 			key = t_strdup_until(key, value);
-			if (strpbrk(key, " \"\\#") == NULL)
+			if (strpbrk(key, " \"\\#=") == NULL)
 				o_stream_nsend_str(output, key);
 			else {
 				o_stream_nsend(output, "\"", 1);
