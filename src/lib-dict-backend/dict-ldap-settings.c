@@ -127,8 +127,6 @@ static const char *dict_ldap_attributes_map(struct setting_parser_ctx *ctx)
 		}
 	}
 
-	if (ctx->set->max_attribute_count < count)
-		ctx->set->max_attribute_count = count;
 	ctx->cur_map.pattern = p_strdup(ctx->pool, str_c(pattern));
 	return NULL;
 }

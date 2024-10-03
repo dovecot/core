@@ -24,7 +24,6 @@ struct dict_ldap_settings {
 	unsigned int timeout;
 	unsigned int max_idle_time;
 	unsigned int debug;
-	unsigned int max_attribute_count;
 	bool require_ssl;
 	bool start_tls;
 	ARRAY(struct dict_ldap_map) maps;
