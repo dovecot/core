@@ -344,13 +344,13 @@ test_client_host_lookup_failed(const struct http_client_settings *client_set)
 	http_client = http_client_init(client_set);
 
 	hreq = http_client_request(
-		http_client, "GET", "host.in-addr.arpa",
+		http_client, "GET", "test.invalid.",
 		"/host-lookup-failed.txt",
 		test_client_host_lookup_failed_response, ctx);
 	http_client_request_submit(hreq);
 
 	hreq = http_client_request(
-		http_client, "GET", "host.in-addr.arpa",
+		http_client, "GET", "test.invalid.",
 		"/host-lookup-failed2.txt",
 		test_client_host_lookup_failed_response, ctx);
 	http_client_request_submit(hreq);
