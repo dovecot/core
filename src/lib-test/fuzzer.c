@@ -11,6 +11,12 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+static void fuzzer_atexit_handler(void)
+{
+	lib_signals_deinit();
+	lib_deinit();
+}
+
 void fuzzer_init(struct fuzzer_context *fuzz_ctx)
 {
 	i_zero(fuzz_ctx);
@@ -18,6 +24,7 @@ void fuzzer_init(struct fuzzer_context *fuzz_ctx)
 		lib_init();
 		lib_signals_init();
 		lib_signals_ignore(SIGPIPE, TRUE);
+		atexit(fuzzer_atexit_handler);
 	}
 	fuzz_ctx->fd = -1;
 	fuzz_ctx->fd_pump = -1;
