@@ -580,6 +580,7 @@ static void fuzz_sasl_run(struct istream *input)
 	server_inst = sasl_server_instance_create(server, &server_set);
 
 	sasl_server_mech_register_anonymous(server_inst);
+	sasl_server_mech_register_cram_md5(server_inst);
 	sasl_server_mech_register_login(server_inst);
 	sasl_server_mech_register_plain(server_inst);
 	sasl_server_mech_register_scram_sha1(server_inst);

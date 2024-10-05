@@ -422,6 +422,7 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 	server_inst = sasl_server_instance_create(server, &server_set);
 
 	sasl_server_mech_register_anonymous(server_inst);
+	sasl_server_mech_register_cram_md5(server_inst);
 	sasl_server_mech_register_external(server_inst);
 	sasl_server_mech_register_login(server_inst);
 	sasl_server_mech_register_plain(server_inst);
@@ -478,6 +479,15 @@ static const struct test_sasl success_tests[] = {
 	/* LOGIN */
 	{
 		.mech = "LOGIN",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+	},
+	/* CRAM-MD5 */
+	{
+		.mech = "CRAM-MD5",
 		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
 		.server = {
 			.authid = "user",
@@ -717,6 +727,31 @@ static const struct test_sasl bad_creds_tests[] = {
 	},
 	{
 		.mech = "LOGIN",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+		.client = {
+			.password= "florp",
+		},
+		.failure = TRUE,
+	},
+	/* CRAM-MD5 */
+	{
+		.mech = "CRAM-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+		.client = {
+			.authid = "userb",
+		},
+		.failure = TRUE,
+	},
+	{
+		.mech = "CRAM-MD5",
 		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
 		.server = {
 			.authid = "user",

@@ -43,6 +43,7 @@ struct dsasl_client_mech {
 };
 
 extern const struct dsasl_client_mech dsasl_client_mech_anonymous;
+extern const struct dsasl_client_mech dsasl_client_mech_cram_md5;
 extern const struct dsasl_client_mech dsasl_client_mech_external;
 extern const struct dsasl_client_mech dsasl_client_mech_login;
 extern const struct dsasl_client_mech dsasl_client_mech_oauthbearer;

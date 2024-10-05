@@ -17,6 +17,7 @@ AM_CPPFLAGS = \
 
 client_mechanisms = \
 	dsasl-client-mech-anonymous.c \
+	dsasl-client-mech-cram-md5.c \
 	dsasl-client-mech-external.c \
 	dsasl-client-mech-login.c \
 	dsasl-client-mech-oauthbearer.c \

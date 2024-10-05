@@ -158,6 +158,7 @@ void dsasl_clients_init(void)
 	dsasl_client_mech_register(&dsasl_client_mech_external);
 	dsasl_client_mech_register(&dsasl_client_mech_plain);
 	dsasl_client_mech_register(&dsasl_client_mech_login);
+	dsasl_client_mech_register(&dsasl_client_mech_cram_md5);
 	dsasl_client_mech_register(&dsasl_client_mech_oauthbearer);
 	dsasl_client_mech_register(&dsasl_client_mech_xoauth2);
 	dsasl_client_mech_register(&dsasl_client_mech_scram_sha_1);
