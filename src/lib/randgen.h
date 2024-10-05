@@ -9,7 +9,7 @@ void random_fill(void *buf, size_t size);
 void random_init(void);
 void random_deinit(void);
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
 /* Debug helper to make random tests reproduceable. 0=got seed, -1=failure. */
 int rand_get_last_seed(unsigned int *seed_r);
 #endif

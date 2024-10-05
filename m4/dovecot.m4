@@ -310,6 +310,7 @@ AC_DEFUN([DC_DOVECOT_FUZZER],[
                 with_fuzzer=no)
 	AS_IF([test x$with_fuzzer = xclang], [
 		AM_CFLAGS="$AM_CFLAGS -fsanitize=fuzzer-no-link"
+		AM_CFLAGS="$AM_CFLAGS -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION"
 		# use $LIB_FUZZING_ENGINE for linking if it exists
 		FUZZER_LDFLAGS=${LIB_FUZZING_ENGINE--fsanitize=fuzzer}
 		# May need to use CXXLINK for linking, which wants sources to

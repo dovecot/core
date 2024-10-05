@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
 /* For reproducing tests, fall back onto using a simple deterministic PRNG */
 /* Marsaglia's 1999 KISS, de-macro-ified, and with the fixed KISS11 SHR3,
    which is clearly what was intended given the "cycle length 2^123" claim. */
@@ -121,7 +121,7 @@ void random_fill(void *buf, size_t size)
 	i_assert(init_refcount > 0);
 	i_assert(size < SSIZE_T_MAX);
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
 	if (kiss_in_use) {
 		for (size_t pos = 0; pos < size; pos++)
 			((unsigned char*)buf)[pos] = kiss_rand();
@@ -167,12 +167,16 @@ void random_fill(void *buf, size_t size)
 
 void random_init(void)
 {
+	if (init_refcount++ > 0)
+		return;
+
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+	kiss_init(0);
+	srand(0);
+#else
 	/* static analyzer seems to require this */
 	unsigned int seed = 0;
 	const char *env_seed;
-
-	if (init_refcount++ > 0)
-		return;
 
 	env_seed = getenv("DOVECOT_SRAND");
 #ifdef DEBUG
@@ -204,6 +208,7 @@ void random_init(void)
 normal_exit:
 #endif
 	srand(seed);
+#endif
 }
 
 void random_deinit(void)

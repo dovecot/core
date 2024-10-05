@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "randgen.h"
 
-#ifdef HAVE_ARC4RANDOM
+#if defined(HAVE_ARC4RANDOM) && !defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
 #ifdef HAVE_LIBBSD
 #include <bsd/stdlib.h>
 #endif
