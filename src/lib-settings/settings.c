@@ -1693,7 +1693,8 @@ settings_instance_override_add_default(struct settings_apply_ctx *ctx,
 	     next settings_get_filter() could be trying to look up this filter
 	     and it won't know enough to build the event filter.
 	*/
-	const char *const *items = t_strsplit(array_set->value, ",\t ");
+	const char *const *items =
+		t_strsplit(array_set->value, SETTINGS_FILTER_ARRAY_SEPARATORS);
 	for (unsigned int i = 0; items[i] != NULL; i++) {
 		struct settings_override *set =
 			array_append_space(array_set->overrides_array);

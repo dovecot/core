@@ -735,7 +735,8 @@ settings_parse(struct setting_parser_context *ctx,
 		   by giving e.g. "namespace+=newname" without it removing the
 		   existing ones. */
 		ARRAY_TYPE(const_string) *arr = ptr;
-		const char *const *list = t_strsplit(value, ",\t ");
+		const char *const *list =
+			t_strsplit(value, SETTINGS_FILTER_ARRAY_SEPARATORS);
 		unsigned int i, count = str_array_length(list);
 		if (!array_is_created(arr))
 			p_array_init(arr, ctx->set_pool, count);

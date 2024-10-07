@@ -9,6 +9,8 @@ struct var_expand_provider;
 #define SETTINGS_SEPARATOR '/'
 #define SETTINGS_SEPARATOR_S "/"
 
+#define SETTINGS_FILTER_ARRAY_SEPARATORS ",\t "
+
 /* These values are shown as "unlimited" */
 #define SET_VALUE_UNLIMITED "unlimited"
 #define SET_UINT_UNLIMITED UINT_MAX

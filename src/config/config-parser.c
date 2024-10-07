@@ -660,7 +660,8 @@ static int config_apply_filter_array(struct config_parser_context *ctx,
 				     const char *value,
 				     ARRAY_TYPE(const_string) **namesp)
 {
-	const char *const *list = t_strsplit(value, ",\t ");
+	const char *const *list =
+		t_strsplit(value, SETTINGS_FILTER_ARRAY_SEPARATORS);
 	unsigned int i, count = str_array_length(list);
 
 	if (line != NULL && line->type != CONFIG_LINE_TYPE_SECTION_BEGIN) {
