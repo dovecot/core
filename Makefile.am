@@ -79,6 +79,7 @@ install-exec-hook:
 	-e "s|^\(LIBDOVECOT_LIBFTS\)=.*$$|\1=-ldovecot-fts|" \
 	-e "s|^\(LIBDOVECOT_LUA\)=.*$$|\1=-ldovecot-lua|" \
 	-e "s|^\(LIBDOVECOT_STORAGE\)=.*$$|\1='-ldovecot-storage $(LINKED_STORAGE_LDADD)'|" \
+	-e "s|^\(LIBDOVECOT_OPENSSL\)=.*$$|\1=-lssl_iostream_openssl|" \
 	-e "s|^\(LIBDOVECOT_INCLUDE\)=.*$$|\1=-I$(pkgincludedir)|" \
 	> $(DESTDIR)$(pkglibdir)/dovecot-config
 
