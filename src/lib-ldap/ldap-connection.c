@@ -79,7 +79,7 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CACERTFILE,
 				conn->ssl_set.ca.path);
 	}
-	if (conn->ssl_set.ca_dir != NULL)
+	if (conn->ssl_set.ca_dir != NULL && conn->ssl_set.ca_dir[0] != '\0')
 		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CACERTDIR, conn->ssl_set.ca_dir);
 
 #ifdef LDAP_OPT_X_TLS_CERT
@@ -88,14 +88,14 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 	if (conn->ssl_set.cert.key.content != NULL)
 		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_KEYFILE, conn->ssl_set.cert.key.content);
 #endif
-	if (conn->ssl_set.cipher_list != NULL) {
+	if (conn->ssl_set.cipher_list != NULL && conn->ssl_set.cipher_list[0] != '\0') {
 		/* NOTE: OpenLDAP's CIPHER_SUITE is actually using OpenSSL's
 		   cipher_list, not ciphersuites. */
 		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CIPHER_SUITE, conn->ssl_set.cipher_list);
 	}
-	if (conn->ssl_set.min_protocol != NULL)
+	if (conn->ssl_set.min_protocol != NULL && conn->ssl_set.min_protocol[0] != '\0')
 		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_PROTOCOL_MIN, conn->ssl_set.min_protocol);
-	if (conn->ssl_set.curve_list != NULL)
+	if (conn->ssl_set.curve_list != NULL && conn->ssl_set.curve_list[0] != '\0')
 		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_ECNAME, conn->ssl_set.curve_list);
 
 	opt = conn->set.debug_level;
@@ -157,7 +157,7 @@ int ldap_connection_init(struct ldap_client *client,
 			 const struct ldap_client_settings *set,
 			 struct ldap_connection **conn_r, const char **error_r)
 {
-	i_assert(set->uris != NULL);
+	i_assert(set->uris != NULL && set->uris[0] != '\0');
 
 	if (set->require_ssl &&
 	    !set->starttls &&
