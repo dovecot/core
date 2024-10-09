@@ -2430,7 +2430,8 @@ static bool store_jwk_ed_key(EVP_PKEY *pkey, bool is_private_key,
 		if (EVP_PKEY_get_raw_private_key(pkey, buf, &len) != 1)
 			return dcrypt_openssl_error(error_r);
 		i_assert(bd->used == len);
-	}
+	} else
+		bd = NULL;
 
 	int nid = EVP_PKEY_id(pkey);
 	const char *curve = nid_to_jwk_curve(nid);
@@ -2456,6 +2457,7 @@ static bool store_jwk_ed_key(EVP_PKEY *pkey, bool is_private_key,
 		json_ostream_nwrite_string(joutput, "kid", key_id);
 
 	if (is_private_key) {
+		i_assert(bd != NULL);
 		base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, 0, bd->data,
 				 bd->used, b64url_temp);
 		json_ostream_nwrite_string_buffer(joutput, "d", b64url_temp);
