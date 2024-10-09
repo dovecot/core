@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
 	restrict_access_allow_coredumps(TRUE);
 
 	settings_set_config_binary(SETTINGS_BINARY_CONFIG);
-	config_parse_load_modules();
+	config_parse_load_modules(FALSE);
 
 	config_connections_init();
 

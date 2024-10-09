@@ -3000,7 +3000,7 @@ static int config_service_cmp(const struct config_service *s1,
 	return strcmp(s1->set->name, s2->set->name);
 }
 
-void config_parse_load_modules(void)
+void config_parse_load_modules(bool dump_config_import)
 {
 	struct module_dir_load_settings mod_set;
 	struct module *m;
@@ -3070,6 +3070,8 @@ void config_parse_load_modules(void)
 	} else {
 		array_free(&new_services);
 	}
+	if (dump_config_import)
+		puts(str_c(config_import));
 }
 
 void config_parser_deinit(void)
