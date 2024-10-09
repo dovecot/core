@@ -812,12 +812,6 @@ again:
 
 		filter_parser = config_filter_parser_find(ctx, &filter);
 		if (filter_parser == NULL) {
-			if (filter.filter_name_array &&
-			    !filter.default_settings) {
-				/* don't create new arrays, except for
-				   default settings */
-				break;
-			}
 			/* Verify that this is a filter_name/ prefix. If not,
 			   it should be a list/ */
 			if (l->info->defines[config_key->define_idx].type != SET_FILTER_NAME &&
