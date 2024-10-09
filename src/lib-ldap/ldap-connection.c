@@ -119,38 +119,15 @@ bool ldap_connection_have_settings(struct ldap_connection *conn,
 {
 	const struct ldap_client_settings *conn_set = &conn->set;
 
-	if (strcmp(conn_set->uris, set->uris) != 0)
-		return FALSE;
-	if (null_strcmp(conn_set->auth_dn, set->auth_dn) != 0)
-		return FALSE;
-	if (null_strcmp(conn_set->auth_dn_password, set->auth_dn_password) != 0)
-		return FALSE;
-	if (conn_set->timeout_secs != set->timeout_secs ||
-	    conn_set->max_idle_time_secs != set->max_idle_time_secs ||
-	    conn_set->debug_level != set->debug_level ||
-	    conn_set->require_ssl != set->require_ssl ||
-	    conn_set->starttls != set->starttls)
+	if (!settings_equal(&ldap_client_setting_parser_info,
+			    conn_set, set, NULL))
 		return FALSE;
 
 	if (set->ssl_ioset == NULL || !set->starttls)
-		return TRUE;
+	 	return TRUE;
 
-	/* check SSL settings */
-	if (null_strcmp(conn->ssl_set.min_protocol, set->ssl_ioset->min_protocol) != 0)
-		return FALSE;
-	if (null_strcmp(conn->ssl_set.cipher_list, set->ssl_ioset->cipher_list) != 0)
-		return FALSE;
-	if (null_strcmp(conn->ssl_set.curve_list, set->ssl_ioset->curve_list) != 0)
-		return FALSE;
-	if (null_strcmp(conn->ssl_set.ca.path, set->ssl_ioset->ca.path) != 0)
-		return FALSE;
-	if (null_strcmp(conn->ssl_set.cert.cert.content,
-			set->ssl_ioset->cert.cert.content) != 0)
-		return FALSE;
-	if (null_strcmp(conn->ssl_set.cert.key.content,
-			set->ssl_ioset->cert.key.content) != 0)
-		return FALSE;
-	return TRUE;
+	return settings_equal(&ssl_setting_parser_info,
+			      conn_set->ssl_set, set->ssl_set, NULL);
 }
 
 int ldap_connection_init(struct ldap_client *client,
@@ -183,9 +160,6 @@ int ldap_connection_init(struct ldap_client *client,
 	}
 	/* cannot use these */
 	i_zero(&conn->ssl_set.ca);
-	conn->ssl_set.cert.key_password = NULL;
-	conn->ssl_set.cert_username_field = NULL;
-	conn->ssl_set.crypto_device = NULL;
 
 	if (set->ssl_ioset != NULL) {
 		/* keep in sync with ldap_connection_have_settings() */
