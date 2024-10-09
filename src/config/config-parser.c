@@ -20,6 +20,8 @@
 #include "config-parser-private.h"
 #include "strfuncs.h"
 
+#include "stats-metrics-defaults.h"
+
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
@@ -3019,6 +3021,7 @@ void config_parse_load_modules(bool dump_config_import)
 	module_dir_init(modules);
 
 	config_import = str_new(default_pool, 10240);
+	str_append(config_import, stats_metric_defaults);
 	i_array_init(&new_infos, 64);
 	i_array_init(&new_services, 64);
 	for (m = modules; m != NULL; m = m->next) {
