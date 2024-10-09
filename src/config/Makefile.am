@@ -76,6 +76,7 @@ noinst_HEADERS = \
 	config-connection.h \
 	config-dump-full.h \
 	old-set-parser.h \
+	stats-metrics-defaults.h \
 	sysinfo-get.h
 
 pkginclude_HEADERS = \
