@@ -1027,6 +1027,7 @@ int main(int argc, char *argv[])
 	bool dump_defaults = FALSE, host_verify = FALSE, dump_full = FALSE;
 	bool print_banners = FALSE, hide_passwords = TRUE;
 	enum config_parse_flags flags = CONFIG_PARSE_FLAG_RETURN_BROKEN_CONFIG;
+	bool dump_config_import = FALSE;
 
 	if (getenv("USE_SYSEXITS") != NULL) {
 		/* we're coming from (e.g.) LDA */
@@ -1034,7 +1035,7 @@ int main(int argc, char *argv[])
 	}
 
 	master_service = master_service_init("config", master_service_flags,
-					     &argc, &argv, "aCdFhHm:nNpPwxs");
+					     &argc, &argv, "aCdFhHIm:nNpPwxs");
 	orig_config_path = t_strdup(master_service_get_config_path(master_service));
 
 	i_set_failure_prefix("doveconf: ");
@@ -1061,6 +1062,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'H':
 			host_verify = TRUE;
+			break;
+		case 'I':
+			dump_config_import = TRUE;
 			break;
 		case 'm':
 		case 'p':
@@ -1129,7 +1133,13 @@ int main(int argc, char *argv[])
 	}
 	master_service_init_finish(master_service);
 	settings_set_config_binary(SETTINGS_BINARY_DOVECONF);
-	config_parse_load_modules();
+	config_parse_load_modules(dump_config_import);
+	if (dump_config_import) {
+		module_dir_unload(&modules);
+		config_parser_deinit();
+		master_service_deinit(&master_service);
+		return 0;
+	}
 
 	if (print_banners) {
 		struct module *m;

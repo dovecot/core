@@ -110,7 +110,7 @@ bool config_parsed_get_includes(struct config_parsed *config,
 
 void config_parsed_free(struct config_parsed **config);
 
-void config_parse_load_modules(void);
+void config_parse_load_modules(bool dump_config_import);
 
 void config_parser_deinit(void);
 
