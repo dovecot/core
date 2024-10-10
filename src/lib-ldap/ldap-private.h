@@ -120,6 +120,7 @@ void ldap_connection_compare_start(struct ldap_connection *conn,
 void ldap_connection_kill(struct ldap_connection *conn);
 int ldap_connection_check(struct ldap_connection *conn);
 void ldap_connection_queue_request(struct ldap_connection *conn, struct ldap_op_queue_entry *req);
+struct event *ldap_client_get_event(struct ldap_client *client);
 
 int ldap_entry_init(struct ldap_entry *obj, struct ldap_result *result, LDAPMessage *message);
 
