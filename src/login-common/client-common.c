@@ -974,8 +974,6 @@ const char *client_get_session_id(struct client *client)
 
 static struct var_expand_table login_var_expand_empty_tab[] = {
 	{ .key = "user", .value = NULL },
-	{ .key = "username", .value = NULL },
-	{ .key = "domain", .value = NULL },
 
 	{ .key = "protocol", .value = NULL },
 	{ .key = "home", .value = NULL },
@@ -993,11 +991,7 @@ static struct var_expand_table login_var_expand_empty_tab[] = {
 	{ .key = "real_local_port", .value = NULL },
 	{ .key = "real_remote_port", .value = NULL },
 	{ .key = "original_user", .value = NULL },
-	{ .key = "original_username", .value = NULL },
-	{ .key = "original_domain", .value = NULL },
 	{ .key = "auth_user", .value = NULL },
-	{ .key = "auth_username", .value = NULL },
-	{ .key = "auth_domain", .value = NULL },
 	{ .key = "listener", .value = NULL },
 	{ .key = "local_name", .value = NULL },
 	{ .key = "ssl_ja3", .value = NULL },
@@ -1046,19 +1040,6 @@ client_var_expand_func_passdb(const char *field_name, const char **value_r,
 	return 0;
 }
 
-static void
-get_var_expand_users(struct var_expand_table *tab, const char *user)
-{
-	unsigned int i;
-
-	tab[0].value = user;
-	tab[1].value = t_strcut(user, '@');
-	tab[2].value = i_strchr_to_next(user, '@');
-
-	for (i = 0; i < 3; i++)
-		tab[i].value = str_sanitize(tab[i].value, 80);
-}
-
 static const struct var_expand_provider client_common_providers[] = {
 	{ .key = "passdb", client_var_expand_func_passdb },
 	VAR_EXPAND_TABLE_END
@@ -1073,8 +1054,10 @@ get_var_expand_params(struct client *client)
 	memcpy(tab, login_var_expand_empty_tab,
 	       sizeof(login_var_expand_empty_tab));
 
-	if (client->virtual_user != NULL)
-		get_var_expand_users(&tab[0], client->virtual_user);
+	if (client->virtual_user != NULL) {
+		var_expand_table_set_value(tab, "user",
+				str_sanitize(client->virtual_user, 80));
+	}
 	var_expand_table_set_value(tab, "protocol", login_binary->protocol);
 	var_expand_table_set_value(tab, "home", getenv("HOME"));
 	var_expand_table_set_value(tab, "local_ip", net_ip2addr(&client->local_ip));
@@ -1122,21 +1105,17 @@ get_var_expand_params(struct client *client)
 			dec2str(client->real_local_port));
 	var_expand_table_set_value(tab, "real_remote_port",
 			dec2str(client->real_remote_port));
-	if (client->virtual_user_orig != NULL)
-		get_var_expand_users(&tab[18], client->virtual_user_orig);
-	else {
+	if (client->virtual_user_orig != NULL) {
+		var_expand_table_set_value(tab, "original_user",
+				str_sanitize(client->virtual_user_orig, 80));
+	} else
 		var_expand_table_copy(tab, "original_user", "user");
-		var_expand_table_copy(tab, "original_username", "username");
-		var_expand_table_copy(tab, "original_domain", "domain");
-	}
 
-	if (client->virtual_auth_user != NULL)
-		get_var_expand_users(&tab[21], client->virtual_auth_user);
-	else {
+	if (client->virtual_auth_user != NULL) {
+		var_expand_table_set_value(tab, "auth_user",
+				str_sanitize(client->virtual_auth_user, 80));
+	} else
 		var_expand_table_copy(tab, "auth_user", "user");
-		var_expand_table_copy(tab, "auth_username", "username");
-		var_expand_table_copy(tab, "auth_domain", "domain");
-	}
 
 	var_expand_table_set_value(tab, "listener", client->listener_name);
 	var_expand_table_set_value(tab, "local_name",
@@ -1192,8 +1171,7 @@ client_get_log_str(struct client *client, const char *msg)
 			}
 		}
 		const char *const *vars = var_expand_program_variables(prog);
-		if (str_array_find(vars, "user") ||
-		    str_array_find(vars, "username")) {
+		if (str_array_find(vars, "user")) {
 			/* username is added even if it's empty */
 			var_expand_program_free(&prog);
 		} else {
