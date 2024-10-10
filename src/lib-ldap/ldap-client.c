@@ -10,6 +10,7 @@
 #define LDAP_CONN_POOL_MAX_CONNECTIONS UINT_MAX
 
 struct ldap_client {
+	struct event *event;
 	struct ldap_connection_list *list;
 };
 
@@ -24,6 +25,7 @@ int ldap_client_init(const struct ldap_client_settings *set,
 		ldap_conn_pool = ldap_connection_pool_init(LDAP_CONN_POOL_MAX_CONNECTIONS);
 
 	client = i_new(struct ldap_client, 1);
+	client->event = event_create(set->event_parent);
 	if (ldap_connection_pool_get(ldap_conn_pool, client, set,
 				     &client->list, error_r) < 0) {
 		i_free(client);
@@ -40,7 +42,13 @@ void ldap_client_deinit(struct ldap_client **_client)
 	*_client = NULL;
 
 	ldap_connection_pool_unref(ldap_conn_pool, &client->list);
+	event_unref(&client->event);
 	i_free(client);
+}
+
+struct event *ldap_client_get_event(struct ldap_client *client)
+{
+	return client->event;
 }
 
 void ldap_client_switch_ioloop(struct ldap_client *client)

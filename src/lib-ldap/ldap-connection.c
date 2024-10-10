@@ -170,7 +170,7 @@ int ldap_connection_init(struct ldap_client *client,
 	pool_t pool = pool_alloconly_create("ldap connection", 1024);
 	struct ldap_connection *conn = p_new(pool, struct ldap_connection, 1);
 	conn->pool = pool;
-	conn->event = event_create(set->event_parent);
+	conn->event = event_create(ldap_client_get_event(client));
 
 	conn->client = client;
 	conn->set = *set;
