@@ -99,18 +99,8 @@ static char *auth_cache_parse_key_exclude(pool_t pool, const char *query,
 		}
 	}
 
-	if (key_seen[AUTH_REQUEST_VAR_TAB_USERNAME_IDX] &&
-	    key_seen[AUTH_REQUEST_VAR_TAB_DOMAIN_IDX]) {
-		/* %n and %d both used -> replace with %u */
-		key_seen[AUTH_REQUEST_VAR_TAB_USER_IDX] = TRUE;
-		key_seen[AUTH_REQUEST_VAR_TAB_USERNAME_IDX] = FALSE;
-		key_seen[AUTH_REQUEST_VAR_TAB_DOMAIN_IDX] = FALSE;
-	}
-
 	/* we rely on these being at the beginning */
 	i_assert(AUTH_REQUEST_VAR_TAB_USER_IDX == 0);
-	i_assert(AUTH_REQUEST_VAR_TAB_USERNAME_IDX == 1);
-	i_assert(AUTH_REQUEST_VAR_TAB_DOMAIN_IDX == 2);
 
 	extra_vars = t_strdup(str_c(str));
 	str_truncate(str, 0);

@@ -475,8 +475,6 @@ void auths_init(void)
 
 	/* sanity checks */
 	i_assert(*auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_USER_IDX].key == 'u');
-	i_assert(*auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_USERNAME_IDX].key == 'u');
-	i_assert(*auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_DOMAIN_IDX].key == 'd');
 	i_assert(auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT].key == NULL);
 	i_assert(auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT-1].key != NULL);
 

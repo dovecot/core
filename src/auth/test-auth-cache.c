@@ -8,10 +8,7 @@
 
 const struct var_expand_table
 auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT + 1] = {
-	/* these 3 must be in this order */
 	{ .key = "user", .value = NULL },
-	{ .key = "username", .value = NULL },
-	{ .key = "domain", .value = NULL },
 
 	{ .key = "a", .value = NULL },
 	{ .key = "b", .value = NULL },
@@ -73,11 +70,8 @@ static void test_auth_cache_parse_key(void)
 	static const struct {
 		const char *in, *out;
 	} tests[] = {
-		{ "%{username}@%{domain}", "%{user}" },
-		{ "%{username}@%{domain}", "%{user}" },
-		{ "%{username}%{domain}%{user}", "%{user}" },
-		{ "%{username}", "%{username}" },
-		{ "%{domain}", "%{domain}" },
+		{ "%{user|username}", "%{user}" },
+		{ "%{user|domain}", "%{user}" },
 		{ "%{a}%{b}%{user}", "%{user}\t%{a}\t%{b}" },
 
 		{ "foo%{a | substr(5, 5) }bar", "%{a}" },
