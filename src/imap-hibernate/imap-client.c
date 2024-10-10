@@ -529,21 +529,16 @@ imap_client_get_var_expand_table(struct imap_client *client)
 		{ 'd', domain, "domain" },
 		{ 's', "imap-hibernate", "service" },
 		{ 'h', NULL /* we shouldn't need this */, "home" },
-		{ 'l', local_ip, "lip" },
-		{ 'r', remote_ip, "rip" },
-		{ 'a', local_port, "lport" },
-		{ 'a', remote_port, "rport" },
+		{ 'l', local_ip, "local_ip" },
+		{ 'r', remote_ip, "remote_ip" },
+		{ '\0', local_port, "local_port" },
+		{ '\0', remote_port, "remote_port" },
 		{ 'i', dec2str(client->state.uid), "uid" },
 		{ '\0', dec2str(client->state.gid), "gid" },
 		{ '\0', client->state.session_id, "session" },
 		{ '\0', auth_user, "auth_user" },
 		{ '\0', auth_username, "auth_username" },
 		{ '\0', auth_domain, "auth_domain" },
-		/* aliases: */
-		{ '\0', local_ip, "local_ip" },
-		{ '\0', remote_ip, "remote_ip" },
-		{ '\0', local_port, "local_port" },
-		{ '\0', remote_port, "remote_port" },
 		/* NOTE: keep this synced with lib-storage's
 		   mail_user_var_expand_table() */
 		{ '\0', NULL, NULL }

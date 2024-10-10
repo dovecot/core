@@ -312,10 +312,10 @@ mail_user_var_expand_table(struct mail_user *user)
 		{ 'n', username, "username" },
 		{ 'd', domain, "domain" },
 		{ 's', user->service, "service" },
-		{ 'l', local_ip, "lip" },
-		{ 'r', remote_ip, "rip" },
-		{ 'a', local_port, "lport" },
-		{ 'b', remote_port, "rport" },
+		{ 'l', local_ip, "local_ip" },
+		{ 'r', remote_ip, "remote_ip" },
+		{ '\0', local_port, "local_port" },
+		{ '\0', remote_port, "remote_port" },
 		{ '\0', user->session_id, "session" },
 		{ '\0', auth_user, "auth_user" },
 		{ '\0', auth_username, "auth_username" },
@@ -329,11 +329,6 @@ mail_user_var_expand_table(struct mail_user *user)
 		{ '\0', username, "owner_username" },
 		{ '\0', domain, "owner_domain" },
 		{ '\0', user->master_user, "master_user" },
-		/* aliases: */
-		{ '\0', local_ip, "local_ip" },
-		{ '\0', remote_ip, "remote_ip" },
-		{ '\0', local_port, "local_port" },
-		{ '\0', remote_port, "remote_port" },
 		/* NOTE: keep this synced with imap-hibernate's
 		   imap_client_var_expand_table() */
 		{ '\0', NULL, NULL }
