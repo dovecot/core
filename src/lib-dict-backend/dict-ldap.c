@@ -165,11 +165,11 @@ ldap_dict_build_query(const struct dict_op_settings *set,
 	const char *template, *error;
 	ARRAY(struct var_expand_table) exp;
 	struct var_expand_table entry;
-	i_zero(&entry);
 
 	t_array_init(&exp, 8);
 	if (priv) {
 		i_assert(set->username != NULL);
+		i_zero(&entry);
 		entry.value = ldap_escape(set->username);
 		entry.key = "username";
 		array_push_back(&exp, &entry);
@@ -178,12 +178,11 @@ ldap_dict_build_query(const struct dict_op_settings *set,
 		template = map->filter;
 	}
 
-	for(size_t i = 0; i < array_count(values) && i < array_count(&map->ldap_attributes); i++) {
+	for(size_t i = 0; i < array_count(values) && i < array_count(&map->parsed_pattern_keys); i++) {
 		struct var_expand_table entry;
 		const char *value = array_idx_elem(values, i);
-		const char *long_key = array_idx_elem(&map->ldap_attributes, i);
+		const char *long_key = array_idx_elem(&map->parsed_pattern_keys, i);
 		i_zero(&entry);
-
 		entry.value = ldap_escape(value);
 		entry.key = long_key;
 		array_push_back(&exp, &entry);
