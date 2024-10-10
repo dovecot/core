@@ -14,8 +14,6 @@ struct auth_request_var_expand_ctx {
 const struct var_expand_table
 auth_request_var_expand_static_tab[] = {
 	{ .key = "user", .value = NULL },
-	{ .key = "username", .value = NULL },
-	{ .key = "domain", .value = NULL },
 	{ .key = "protocol", .value = NULL },
 	{ .key = "home", .value = NULL },
 	{ .key = "local_ip", .value = NULL },
@@ -29,8 +27,6 @@ auth_request_var_expand_static_tab[] = {
 	{ .key = "remote_port", .value = NULL },
 	{ .key = "cert", .value = NULL },
 	{ .key = "login_user", .value = NULL },
-	{ .key = "login_username", .value = NULL },
-	{ .key = "login_domain", .value = NULL },
 	{ .key = "session", .value = NULL },
 	{ .key = "real_local_ip", .value = NULL },
 	{ .key = "real_remote_ip", .value = NULL },
@@ -41,11 +37,7 @@ auth_request_var_expand_static_tab[] = {
 	{ .key = "master_user", .value = NULL },
 	{ .key = "session_pid", .value = NULL },
 	{ .key = "original_user", .value = NULL },
-	{ .key = "original_username", .value = NULL },
-	{ .key = "original_domain", .value = NULL },
 	{ .key = "auth_user", .value = NULL },
-	{ .key = "auth_username", .value = NULL },
-	{ .key = "auth_domain", .value = NULL },
 	{ .key = "local_name", .value = NULL },
 	{ .key = "client_id", .value = NULL },
 	{ .key = "ssl_ja3_hash", .value = NULL },
@@ -95,8 +87,6 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 		username = "";
 
 	var_expand_table_set_value(tab, "user", username);
-	var_expand_table_set_value(tab, "username", t_strcut(username, '@'));
-	var_expand_table_set_value(tab, "domain", i_strchr_to_next(username, '@'));
 	var_expand_table_set_value(tab, "protocol", fields->protocol);
 	/* tab['home'] = we have no home dir */
 	if (fields->local_ip.family != 0) {
@@ -138,15 +128,7 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	var_expand_table_set_value(tab, "cert",
 			fields->valid_client_cert ? "valid" : "");
 
-	if (fields->requested_login_user != NULL) {
-		const char *login_user = fields->requested_login_user;
-
-		var_expand_table_set_value(tab, "login_user", login_user);
-		var_expand_table_set_value(tab, "login_username",
-					   t_strcut(login_user, '@'));
-		var_expand_table_set_value(tab, "login_domain",
-					   i_strchr_to_next(login_user, '@'));
-	}
+	var_expand_table_set_value(tab, "login_user", fields->requested_login_user);
 
 	var_expand_table_set_value(tab, "session", fields->session_id);
 	if (fields->real_local_ip.family != 0) {
@@ -180,18 +162,10 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	orig_user = fields->original_username != NULL ?
 		fields->original_username : username;
 	var_expand_table_set_value(tab, "original_user", orig_user);
-	var_expand_table_set_value(tab, "original_username",
-				   t_strcut(orig_user, '@'));
-	var_expand_table_set_value(tab, "original_domain",
-				   i_strchr_to_next(orig_user, '@'));
 
 	auth_user = fields->master_user != NULL ?
 		fields->master_user : orig_user;
 	var_expand_table_set_value(tab, "auth_user", auth_user);
-	var_expand_table_set_value(tab, "auth_username",
-				   t_strcut(auth_user, '@'));
-	var_expand_table_set_value(tab, "auth_domain",
-				   i_strchr_to_next(auth_user, '@'));
 	var_expand_table_set_value(tab, "local_name", fields->local_name);
 	var_expand_table_set_value(tab, "client_id", fields->client_id);
 	var_expand_table_set_value(tab, "ssl_ja3_hash", fields->ssl_ja3_hash);

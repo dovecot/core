@@ -85,7 +85,7 @@ static bool test_empty_request(string_t *str, const char *input)
 static void test_auth_request_var_expand_keys(void)
 {
 	static const char *test_input_long =
-		"%{user}\n%{username}\n%{domain}\n%{protocol}\n%{home}\n"
+		"%{user}\n%{user | username}\n%{user | domain}\n%{protocol}\n%{home}\n"
 		"%{local_ip}\n%{remote_ip}\n"
 		"%{client_pid}\n%{password}\n%{mechanism}\n%{secured}\n"
 		"%{local_port}\n%{remote_port}\n%{cert}\n";
@@ -151,11 +151,11 @@ static void test_auth_request_var_expand_flags(void)
 static void test_auth_request_var_expand_long(void)
 {
 	static const char *test_input =
-		"%{login_user}\n%{login_username}\n%{login_domain}\n%{session}\n"
+		"%{login_user}\n%{login_user | username}\n%{login_user | domain}\n%{session}\n"
 		"%{real_local_ip}\n%{real_remote_ip}\n"
 		"%{real_local_port}\n%{real_remote_port}\n"
 		"%{master_user}\n%{session_pid}\n"
-		"%{original_user}\n%{original_username}\n%{original_domain}\n";
+		"%{original_user}\n%{original_user | username}\n%{original_user | domain}\n";
 	static const char *test_output =
 		"+loginuser@+logindomain1@+logindomain2\n+loginuser\n+logindomain1@+logindomain2\n+session\n"
 		"13.81.174.20\n13.81.174.21\n"
@@ -190,7 +190,7 @@ static void test_auth_request_var_expand_usernames(void)
 		{ "-foo@-domain1@-domain2", "+foo\n+domain1@+domain2\n+domain1\n+domain2\n+foo@+domain1@+domain2" }
 	};
 	static const char *test_input =
-		"%{username}\n%{domain}\n%{domain_first}\n%{domain_last}\n%{user}";
+		"%{user | username}\n%{user | domain}\n%{domain_first}\n%{domain_last}\n%{user}";
 	string_t *str = t_str_new(64);
 	const char *error;
 	unsigned int i;
