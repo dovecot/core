@@ -316,6 +316,9 @@ void http_client_request_remove_header(struct http_client_request *req,
 const char *http_client_request_lookup_header(struct http_client_request *req,
 					      const char *key);
 
+/* Retrieve the full header string of a request. */
+const char *http_client_request_retrieve_headers(struct http_client_request *req);
+
 /* Set the value of the "Date" header for the request using a time_t value.
    Use this instead of setting it directly using
    http_client_request_add_header() */

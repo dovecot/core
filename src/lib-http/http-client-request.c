@@ -536,6 +536,11 @@ const char *http_client_request_lookup_header(struct http_client_request *req,
 			 next_pos - value_pos - 2);
 }
 
+const char *http_client_request_retrieve_headers(struct http_client_request *req)
+{
+	return str_c(req->headers);
+}
+
 void http_client_request_set_date(struct http_client_request *req, time_t date)
 {
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
