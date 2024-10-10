@@ -378,7 +378,7 @@ static const struct auth_settings auth_default_settings = {
 	.policy_server_api_header = "",
 	.policy_hash_mech = "sha256",
 	.policy_hash_nonce = "",
-	.policy_request_attributes = "login=%{requested_username} pwhash=%{hashed_password} remote=%{rip} device_id=%{client_id} protocol=%{protocol} session_id=%{session} fail_type=%{fail_type}",
+	.policy_request_attributes = "login=%{requested_username} pwhash=%{hashed_password} remote=%{remote_ip} device_id=%{client_id} protocol=%{protocol} session_id=%{session} fail_type=%{fail_type}",
 	.policy_reject_on_fail = FALSE,
 	.policy_check_before_auth = TRUE,
 	.policy_check_after_auth = TRUE,
