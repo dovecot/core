@@ -47,7 +47,7 @@ static const struct login_settings login_default_settings = {
 	.login_trusted_networks = ARRAY_INIT,
 	.login_source_ips = ARRAY_INIT,
 	.login_greeting = PACKAGE_NAME" ready.",
-	.login_log_format_elements = "user=<%{user}> method=%{mech} rip=%{rip} lip=%{lip} mpid=%{mail_pid} %{secured} session=<%{session}>",
+	.login_log_format_elements = "user=<%{user}> method=%{mechanism} rip=%{remote_ip} lip=%{local_ip} mpid=%{mail_pid} %{secured} session=<%{session}>",
 	.login_log_format = "%{message}: %{elements}",
 	.login_proxy_notify_path = "proxy-notify",
 	.login_plugin_dir = MODULEDIR"/login",
