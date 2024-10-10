@@ -11,8 +11,6 @@ struct auth_request_var_expand_ctx {
 	auth_request_escape_func_t *escape_func;
 };
 
-/* Update this offset when you add new values */
-#define ALIAS(x) ((x)+36)
 const struct var_expand_table
 auth_request_var_expand_static_tab[] = {
 	{ 'u', NULL, "user" },
@@ -20,51 +18,37 @@ auth_request_var_expand_static_tab[] = {
 	{ 'd', NULL, "domain" },
 	{ '\0', NULL, "protocol" },
 	{ 'h', NULL, "home" },
-	{ 'l', NULL, "lip" },
-	{ 'r', NULL, "rip" },
+	{ 'l', NULL, "local_ip" },
+	{ 'r', NULL, "remote_ip" },
 	{ 'p', NULL, "client_pid" },
 	{ 'w', NULL, "password" },
 	{ '!', NULL, NULL },
-	{ 'm', NULL, "mech" },
+	{ 'm', NULL, "mechanism" },
 	{ 'c', NULL, "secured" },
-	{ 'a', NULL, "lport" },
-	{ 'b', NULL, "rport" },
+	{ 'a', NULL, "local_port" },
+	{ 'b', NULL, "remote_port" },
 	{ 'k', NULL, "cert" },
 	{ '\0', NULL, "login_user" },
 	{ '\0', NULL, "login_username" },
 	{ '\0', NULL, "login_domain" },
 	{ '\0', NULL, "session" },
-	{ '\0', NULL, "real_lip" },
-	{ '\0', NULL, "real_rip" },
-	{ '\0', NULL, "real_lport" },
-	{ '\0', NULL, "real_rport" },
+	{ '\0', NULL, "real_local_ip" },
+	{ '\0', NULL, "real_remote_ip" },
+	{ '\0', NULL, "real_local_port" },
+	{ '\0', NULL, "real_remote_port" },
 	{ '\0', NULL, "domain_first" },
 	{ '\0', NULL, "domain_last" },
 	{ '\0', NULL, "master_user" },
 	{ '\0', NULL, "session_pid" },
-	{ '\0', NULL, "orig_user" },
-	{ '\0', NULL, "orig_username" },
-	{ '\0', NULL, "orig_domain" },
+	{ '\0', NULL, "original_user" },
+	{ '\0', NULL, "original_username" },
+	{ '\0', NULL, "original_domain" },
 	{ '\0', NULL, "auth_user" },
 	{ '\0', NULL, "auth_username" },
 	{ '\0', NULL, "auth_domain" },
 	{ '\0', NULL, "local_name" },
 	{ '\0', NULL, "client_id" },
 	{ '\0', NULL, "ssl_ja3_hash" },
-
-	/* aliases: */
-	{ '\0', NULL, "local_ip" },
-	{ '\0', NULL, "remote_ip" },
-	{ '\0', NULL, "local_port" },
-	{ '\0', NULL, "remote_port" },
-	{ '\0', NULL, "real_local_ip" },
-	{ '\0', NULL, "real_remote_ip" },
-	{ '\0', NULL, "real_local_port" },
-	{ '\0', NULL, "real_remote_port" },
-	{ '\0', NULL, "mechanism" },
-	{ '\0', NULL, "original_user" },
-	{ '\0', NULL, "original_username" },
-	{ '\0', NULL, "original_domain" },
 	{ '\0', NULL, "owner_user" },
 
 	/* be sure to update AUTH_REQUEST_VAR_TAB_COUNT */
@@ -114,7 +98,7 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 
 	if (username == NULL)
 		username = "";
-	tab[0].value = tab[ALIAS(12)].value = escape_func(username, auth_request);
+	tab[0].value = tab[36].value = escape_func(username, auth_request);
 	tab[1].value = escape_func(t_strcut(username, '@'),
 				   auth_request);
 	tab[2].value = i_strchr_to_next(username, '@');
@@ -123,11 +107,9 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	tab[3].value = escape_func(fields->protocol, auth_request);
 	/* tab[4] = we have no home dir */
 	if (fields->local_ip.family != 0)
-		tab[5].value = tab[ALIAS(0)].value =
-			net_ip2addr(&fields->local_ip);
+		tab[5].value = net_ip2addr(&fields->local_ip);
 	if (fields->remote_ip.family != 0)
-		tab[6].value = tab[ALIAS(1)].value =
-			net_ip2addr(&fields->remote_ip);
+		tab[6].value = net_ip2addr(&fields->remote_ip);
 	tab[7].value = dec2str(auth_request->client_pid);
 	if (auth_request->mech_password != NULL) {
 		tab[8].value = escape_func(auth_request->mech_password,
@@ -140,7 +122,7 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 		tab[9].value = auth_request->passdb == NULL ? "" :
 			dec2str(auth_request->passdb->passdb->id);
 	}
-	tab[10].value = tab[ALIAS(8)].value = fields->mech_name == NULL ? "" :
+	tab[10].value = fields->mech_name == NULL ? "" :
 		escape_func(fields->mech_name, auth_request);
 	switch (fields->conn_secured) {
 	case AUTH_REQUEST_CONN_SECURED_NONE: tab[11].value = ""; break;
@@ -148,8 +130,8 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	case AUTH_REQUEST_CONN_SECURED_TLS: tab[11].value = "TLS"; break;
 	default: tab[11].value = ""; break;
 	};
-	tab[12].value = tab[ALIAS(2)].value = dec2str(fields->local_port);
-	tab[13].value = tab[ALIAS(3)].value = dec2str(fields->remote_port);
+	tab[12].value = dec2str(fields->local_port);
+	tab[13].value = dec2str(fields->remote_port);
 	tab[14].value = fields->valid_client_cert ? "valid" : "";
 
 	if (fields->requested_login_user != NULL) {
@@ -167,13 +149,11 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	tab[18].value = fields->session_id == NULL ? NULL :
 		escape_func(fields->session_id, auth_request);
 	if (fields->real_local_ip.family != 0)
-		tab[19].value = tab[ALIAS(4)].value =
-			net_ip2addr(&fields->real_local_ip);
+		tab[19].value = net_ip2addr(&fields->real_local_ip);
 	if (fields->real_remote_ip.family != 0)
-		tab[20].value = tab[ALIAS(5)].value =
-			net_ip2addr(&fields->real_remote_ip);
-	tab[21].value = tab[ALIAS(6)].value = dec2str(fields->real_local_port);
-	tab[22].value = tab[ALIAS(7)].value = dec2str(fields->real_remote_port);
+		tab[20].value = net_ip2addr(&fields->real_remote_ip);
+	tab[21].value = dec2str(fields->real_local_port);
+	tab[22].value = dec2str(fields->real_remote_port);
 	tab[23].value = i_strchr_to_next(username, '@');
 	if (tab[23].value != NULL) {
 		tab[23].value = escape_func(t_strcut(tab[23].value, '@'),
@@ -189,12 +169,11 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 
 	orig_user = fields->original_username != NULL ?
 		fields->original_username : username;
-	tab[27].value = tab[ALIAS(9)].value = escape_func(orig_user, auth_request);
-	tab[28].value = tab[ALIAS(10)].value = escape_func(t_strcut(orig_user, '@'), auth_request);
-	tab[29].value = tab[ALIAS(11)].value = i_strchr_to_next(orig_user, '@');
+	tab[27].value = escape_func(orig_user, auth_request);
+	tab[28].value = escape_func(t_strcut(orig_user, '@'), auth_request);
+	tab[29].value = i_strchr_to_next(orig_user, '@');
 	if (tab[29].value != NULL)
-		tab[29].value = tab[ALIAS(11)].value =
-			escape_func(tab[29].value, auth_request);
+		tab[29].value = escape_func(tab[29].value, auth_request);
 
 	if (fields->master_user != NULL)
 		auth_user = fields->master_user;
