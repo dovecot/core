@@ -123,7 +123,7 @@ union mail_user_module_context {
 };
 extern struct mail_user_module_register mail_user_module_register;
 extern struct auth_master_connection *mail_user_auth_master_conn;
-extern const struct var_expand_provider *mail_user_var_expand_func_table;
+extern const struct var_expand_provider *mail_user_var_expand_providers;
 
 struct mail_user *
 mail_user_alloc(struct mail_storage_service_user *service_user);
