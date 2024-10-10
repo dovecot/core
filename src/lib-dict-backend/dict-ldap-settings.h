@@ -13,7 +13,7 @@ struct dict_ldap_map_settings {
 	unsigned int timeout;
 
 	/* parsed */
-	ARRAY_TYPE(const_string) ldap_attributes;
+	ARRAY_TYPE(const_string) parsed_pattern_keys;
 	int parsed_scope;
 };
 

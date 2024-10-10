@@ -91,7 +91,7 @@ static const char *dict_ldap_attributes_map(struct setting_parser_ctx *ctx)
 	pattern = t_str_new(strlen(ctx->cur_map.pattern) + 1);
 	attributes = array_get_modifiable(&ctx->cur_attributes, &count);
 
-	p_array_init(&ctx->cur_map.ldap_attributes, ctx->pool, count);
+	p_array_init(&ctx->cur_map.parsed_pattern_keys, ctx->pool, count);
 	for (p = ctx->cur_map.pattern; *p != '\0';) {
 		if (*p != '$') {
 			str_append_c(pattern, *p);
@@ -114,7 +114,7 @@ static const char *dict_ldap_attributes_map(struct setting_parser_ctx *ctx)
 
 		/* mark this attribute as used */
 		attributes[i].variable = NULL;
-		array_push_back(&ctx->cur_map.ldap_attributes,
+		array_push_back(&ctx->cur_map.parsed_pattern_keys,
 				&attributes[i].name);
 	}
 
@@ -160,9 +160,9 @@ static const char *dict_ldap_map_finish(struct setting_parser_ctx *ctx)
 		else if (strcasecmp(ctx->cur_map.scope, "subtree") == 0) ctx->cur_map.parsed_scope = 2;
 		else return "Scope must be one, base or subtree";
 	}
-	if (!array_is_created(&ctx->cur_map.ldap_attributes)) {
+	if (!array_is_created(&ctx->cur_map.parsed_pattern_keys)) {
 		/* no attributes besides value. allocate the array anyway. */
-		p_array_init(&ctx->cur_map.ldap_attributes, ctx->pool, 1);
+		p_array_init(&ctx->cur_map.parsed_pattern_keys, ctx->pool, 1);
 		if (strchr(ctx->cur_map.pattern, '$') != NULL)
 			return "Missing attributes for pattern variables";
 	}
