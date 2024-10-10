@@ -333,7 +333,7 @@ mail_user_var_expand_params(struct mail_user *user)
 	struct var_expand_params *params =
 		p_new(user->pool, struct var_expand_params, 1);
 	params->table = p_memdup(user->pool, stack_tab, sizeof(stack_tab));
-	params->providers = mail_user_var_expand_func_table;
+	params->providers = mail_user_var_expand_providers;
 	params->context = user;
 	params->event = user->event;
 
@@ -812,11 +812,11 @@ mail_user_get_dict_op_settings(struct mail_user *user)
 	return user->dict_op_set;
 }
 
-static const struct var_expand_provider mail_user_var_expand_func_table_arr[] = {
+static const struct var_expand_provider mail_user_var_expand_providers_arr[] = {
 	/* default to owner_home being the same as user's home - this is
 	   overridden by shared storage */
 	{ "userdb", mail_user_var_expand_func_userdb },
 	{ NULL, NULL }
 };
-const struct var_expand_provider *mail_user_var_expand_func_table =
-	mail_user_var_expand_func_table_arr;
+const struct var_expand_provider *mail_user_var_expand_providers =
+	mail_user_var_expand_providers_arr;

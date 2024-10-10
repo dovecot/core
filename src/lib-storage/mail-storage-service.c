@@ -338,24 +338,18 @@ get_var_expand_table(struct master_service *service,
 		     struct mail_storage_service_user *user,
 		     const struct mail_storage_service_input *input)
 {
-	const char *username = t_strcut(input->username, '@');
-	const char *domain = i_strchr_to_next(input->username, '@');
 	const char *local_name = NULL;
 	const char *master_user;
-	const char *auth_user, *auth_username, *auth_domain;
+	const char *auth_user;
 
 	if (user == NULL || user->auth_user == NULL) {
 		auth_user = input->username;
-		auth_username = username;
-		auth_domain = domain;
 		if (input->userdb_fields != NULL)
 			master_user = get_master_user(input->userdb_fields);
 		else
 			master_user = NULL;
 	} else {
 		auth_user = user->auth_user;
-		auth_username = t_strcut(user->auth_user, '@');
-		auth_domain = i_strchr_to_next(user->auth_user, '@');
 		local_name = user->local_name;
 		master_user = user->master_user;
 	}
@@ -376,15 +370,11 @@ get_var_expand_table(struct master_service *service,
 
 	const struct var_expand_table stack_tab[] = {
 		{ .key = "user", .value = input->username },
-		{ .key = "username", .value = username },
-		{ .key = "domain", .value = domain },
 		{ .key = "service", .value = service_name },
 		{ .key = "local_ip", .value = net_ip2addr(&input->local_ip) },
 		{ .key = "remote_ip", .value = net_ip2addr(&input->remote_ip) },
 		{ .key = "session", .value = input->session_id },
 		{ .key = "auth_user", .value = auth_user },
-		{ .key = "auth_username", .value = auth_username },
-		{ .key = "auth_domain", .value = auth_domain },
 		{ .key = "hostname", .value = hostname },
 		{ .key = "local_name", .value = local_name },
 		{ .key = "protocol", .value = protocol },

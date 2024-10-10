@@ -365,7 +365,7 @@ static const struct mail_user_settings mail_user_default_settings = {
 	.mail_log_prefix = "%{service}(%{user})<%{process:pid}><%{session}>: ",
 
 	.hostname = "",
-	.postmaster_address = "postmaster@%{domain|default(hostname)}",
+	.postmaster_address = "postmaster@%{user|domain|default(hostname)}",
 };
 
 const struct setting_parser_info mail_user_setting_parser_info = {
@@ -639,6 +639,7 @@ mail_storage_settings_ext_check(struct event *event ATTR_UNUSED,
 		"guid",
 		NULL
 	};
+	*error_r = NULL;
 	for (; *pop3_uidl_vars != NULL; pop3_uidl_vars++) {
 		if (!str_array_find(pop3_uidl_allowed_vars, *pop3_uidl_vars)) {
 			*error_r = t_strdup_printf(
@@ -651,7 +652,7 @@ mail_storage_settings_ext_check(struct event *event ATTR_UNUSED,
 	var_expand_program_free(&prog);
 
 	if (!uidl_format_ok) {
-		if (pop3_uidl_vars == NULL)
+		if (*error_r == NULL)
 			*error_r = "pop3_uidl_format setting doesn't contain any "
 				   "%% variables.";
 		return FALSE;
