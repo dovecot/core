@@ -117,12 +117,13 @@ static void doveadm_print_json_flush(void)
 
 	if (ctx.json_output == NULL)
 		doveadm_print_json_init_output();
-	json_ostream_nascend_array(ctx.json_output);
 	json_ostream_nflush(ctx.json_output);
 }
 
 static void doveadm_print_json_deinit(void)
 {
+	if (ctx.json_output != NULL)
+		json_ostream_nascend_array(ctx.json_output);
 	json_ostream_destroy(&ctx.json_output);
 	pool_unref(&ctx.pool);
 }
