@@ -496,23 +496,15 @@ static void imap_client_add_idle_keepalive_timeout(struct imap_client *client)
 static const struct var_expand_table *
 imap_client_get_var_expand_table(struct imap_client *client)
 {
-	const char *username = t_strcut(client->state.username, '@');
-	const char *domain = i_strchr_to_next(client->state.username, '@');
 	const char *local_ip = client->state.local_ip.family == 0 ? NULL :
 		net_ip2addr(&client->state.local_ip);
 	const char *remote_ip = client->state.remote_ip.family == 0 ? NULL :
 		net_ip2addr(&client->state.remote_ip);
 
-	const char *auth_user, *auth_username, *auth_domain;
+	const char *auth_user;
 	imap_client_parse_userdb_fields(client, &auth_user);
-	if (auth_user == NULL) {
+	if (auth_user == NULL)
 		auth_user = client->state.username;
-		auth_username = username;
-		auth_domain = domain;
-	} else {
-		auth_username = t_strcut(auth_user, '@');
-		auth_domain = i_strchr_to_next(auth_user, '@');
-	}
 
 
 	const char *local_port = "";
@@ -525,8 +517,6 @@ imap_client_get_var_expand_table(struct imap_client *client)
 
 	const struct var_expand_table stack_tab[] = {
 		{ .key = "user", .value = client->state.username },
-		{ .key = "username", .value = username },
-		{ .key = "domain", .value = domain },
 		{ .key = "service", .value = "imap-hibernate" },
 		{ .key = "home", .value = NULL /* we shouldn't need this */ },
 		{ .key = "local_ip", .value = local_ip },
@@ -537,8 +527,6 @@ imap_client_get_var_expand_table(struct imap_client *client)
 		{ .key = "gid", .value = dec2str(client->state.gid) },
 		{ .key = "session", .value = client->state.session_id },
 		{ .key = "auth_user", .value = auth_user },
-		{ .key = "auth_username", .value = auth_username },
-		{ .key = "auth_domain", .value = auth_domain },
 
 		/* NOTE: keep this synced with lib-storage's
 		   mail_user_var_expand_params() */
