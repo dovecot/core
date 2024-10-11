@@ -31,7 +31,7 @@ int ldap_client_init_auto(struct event *event, struct ldap_client **client_r,
 
 	client = i_new(struct ldap_client, 1);
 	client->event = event_create(event);
-	int ret = ldap_connection_pool_get(ldap_conn_pool, client, set,
+	int ret = ldap_connection_pool_get(ldap_conn_pool, client, set, set->ssl_set,
 					   &client->list, error_r);
 	settings_free(set);
 	if (ret < 0) {

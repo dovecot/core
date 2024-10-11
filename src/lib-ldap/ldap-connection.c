@@ -35,6 +35,7 @@ void ldap_connection_deinit(struct ldap_connection **_conn)
 				       aqueue_idx(conn->request_queue, i));
 		timeout_remove(&req->to_abort);
 	}
+	settings_free(conn->ssl_set);
 	settings_free(conn->set);
 	event_unref(&conn->event);
 	pool_unref(&conn->pool);
@@ -117,23 +118,23 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 }
 
 bool ldap_connection_have_settings(struct ldap_connection *conn,
-				   const struct ldap_client_settings *set)
+				   const struct ldap_client_settings *set,
+				   const struct ssl_settings *ssl_set)
 {
-	const struct ldap_client_settings *conn_set = conn->set;
-
 	if (!settings_equal(&ldap_client_setting_parser_info,
-			    conn_set, set, NULL))
+			    conn->set, set, NULL))
 		return FALSE;
 
 	if (strstr(set->uris, "ldaps://") == NULL && !set->starttls)
 	 	return TRUE;
 
 	return settings_equal(&ssl_setting_parser_info,
-			      conn_set->ssl_set, set->ssl_set, NULL);
+			      conn->ssl_set, ssl_set, NULL);
 }
 
 int ldap_connection_init(struct ldap_client *client,
 			 const struct ldap_client_settings *set,
+			 const struct ssl_settings *ssl_set,
 			 struct ldap_connection **conn_r, const char **error_r)
 {
 	i_assert(set->uris != NULL && set->uris[0] != '\0');
@@ -153,8 +154,10 @@ int ldap_connection_init(struct ldap_client *client,
 	conn->client = client;
 
 	pool_ref(set->pool);
+	pool_ref(ssl_set->pool);
 
 	conn->set = set;
+	conn->ssl_set = ssl_set;
 
 	/* deep copy relevant strings */
 	if (*set->auth_dn_password != '\0')
@@ -165,7 +168,7 @@ int ldap_connection_init(struct ldap_client *client,
 
 	{
 		const struct ssl_iostream_settings *ssl_ioset;
-		ssl_client_settings_to_iostream_set(set->ssl_set, &ssl_ioset);
+		ssl_client_settings_to_iostream_set(ssl_set, &ssl_ioset);
 
 		/* keep in sync with ldap_connection_have_settings() */
 		conn->ssl_ioset.min_protocol = p_strdup(pool, ssl_ioset->min_protocol);
@@ -184,7 +187,6 @@ int ldap_connection_init(struct ldap_client *client,
 
 		settings_free(ssl_ioset);
 	}
-	i_assert(ldap_connection_have_settings(conn, set));
 
 	if (ldap_connection_setup(conn, error_r) < 0) {
 		ldap_connection_deinit(&conn);
