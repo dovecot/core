@@ -16,7 +16,6 @@ struct ldap_client_settings {
 
 	struct event *event_parent;
 	const struct ssl_settings *ssl_set;
-	const struct ssl_iostream_settings *ssl_ioset;
 };
 
 extern const struct setting_parser_info ldap_client_setting_parser_info;

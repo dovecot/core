@@ -125,7 +125,7 @@ bool ldap_connection_have_settings(struct ldap_connection *conn,
 			    conn_set, set, NULL))
 		return FALSE;
 
-	if (set->ssl_ioset == NULL || !set->starttls)
+	if (strstr(set->uris, "ldaps://") == NULL && !set->starttls)
 	 	return TRUE;
 
 	return settings_equal(&ssl_setting_parser_info,
@@ -163,21 +163,26 @@ int ldap_connection_init(struct ldap_client *client,
 	/* cannot use these */
 	i_zero(&conn->ssl_ioset.ca);
 
-	if (set->ssl_ioset != NULL) {
+	{
+		const struct ssl_iostream_settings *ssl_ioset;
+		ssl_client_settings_to_iostream_set(set->ssl_set, &ssl_ioset);
+
 		/* keep in sync with ldap_connection_have_settings() */
-		conn->ssl_ioset.min_protocol = p_strdup(pool, set->ssl_ioset->min_protocol);
-		conn->ssl_ioset.cipher_list = p_strdup(pool, set->ssl_ioset->cipher_list);
-		conn->ssl_ioset.ca.path = p_strdup(pool, set->ssl_ioset->ca.path);
+		conn->ssl_ioset.min_protocol = p_strdup(pool, ssl_ioset->min_protocol);
+		conn->ssl_ioset.cipher_list = p_strdup(pool, ssl_ioset->cipher_list);
+		conn->ssl_ioset.ca.path = p_strdup(pool, ssl_ioset->ca.path);
 		conn->ssl_ioset.ca.content =
-			p_strdup(pool, set->ssl_ioset->ca.content);
+			p_strdup(pool, ssl_ioset->ca.content);
 		conn->ssl_ioset.cert.cert.path =
-			p_strdup(pool, set->ssl_ioset->cert.cert.path);
+			p_strdup(pool, ssl_ioset->cert.cert.path);
 		conn->ssl_ioset.cert.cert.content =
-			p_strdup(pool, set->ssl_ioset->cert.cert.content);
+			p_strdup(pool, ssl_ioset->cert.cert.content);
 		conn->ssl_ioset.cert.key.path =
-			p_strdup(pool, set->ssl_ioset->cert.key.path);
+			p_strdup(pool, ssl_ioset->cert.key.path);
 		conn->ssl_ioset.cert.key.content =
-			p_strdup(pool, set->ssl_ioset->cert.key.content);
+			p_strdup(pool, ssl_ioset->cert.key.content);
+
+		settings_free(ssl_ioset);
 	}
 	i_assert(ldap_connection_have_settings(conn, set));
 
