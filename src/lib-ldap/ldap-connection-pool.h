@@ -3,6 +3,7 @@
 
 struct ldap_client;
 struct ldap_client_settings;
+struct ssl_settings;
 
 struct ldap_connection_list {
 	struct ldap_connection_list *prev, *next;
@@ -19,6 +20,7 @@ bool ldap_connection_pool_have_references(struct ldap_connection_pool *pool);
 int ldap_connection_pool_get(struct ldap_connection_pool *pool,
 			     struct ldap_client *client,
 			     const struct ldap_client_settings *set,
+			     const struct ssl_settings *ssl_set,
 			     struct ldap_connection_list **list_r,
 			     const char **error_r);
 void ldap_connection_pool_unref(struct ldap_connection_pool *pool,

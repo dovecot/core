@@ -60,6 +60,7 @@ void ldap_connection_pool_deinit(struct ldap_connection_pool **_pool)
 int ldap_connection_pool_get(struct ldap_connection_pool *pool,
 			     struct ldap_client *client,
 			     const struct ldap_client_settings *set,
+			     const struct ssl_settings *ssl_set,
 			     struct ldap_connection_list **list_r,
 			     const char **error_r)
 {
@@ -67,13 +68,13 @@ int ldap_connection_pool_get(struct ldap_connection_pool *pool,
 	struct ldap_connection *conn;
 
 	for (list = pool->conn_list; list != NULL; list = list->next) {
-		if (ldap_connection_have_settings(list->conn, set)) {
+		if (ldap_connection_have_settings(list->conn, set, ssl_set)) {
 			list->refcount++;
 			*list_r = list;
 			return 0;
 		}
 	}
-	if (ldap_connection_init(client, set, &conn, error_r) < 0)
+	if (ldap_connection_init(client, set, ssl_set, &conn, error_r) < 0)
 		return -1;
 
 	list = i_new(struct ldap_connection_list, 1);

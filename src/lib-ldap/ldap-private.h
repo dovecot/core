@@ -60,6 +60,7 @@ struct ldap_connection {
 	BerVarray scred;
 
 	const struct ldap_client_settings *set;
+	const struct ssl_settings *ssl_set;
 	struct ssl_iostream_settings ssl_ioset;
 
 	struct aqueue *request_queue;
@@ -102,11 +103,13 @@ struct ldap_search_iterator {
 
 int ldap_connection_init(struct ldap_client *client,
 			 const struct ldap_client_settings *set,
+			 const struct ssl_settings *ssl_set,
 			 struct ldap_connection **conn_r, const char **error_r);
 void ldap_connection_deinit(struct ldap_connection **_conn);
 void ldap_connection_switch_ioloop(struct ldap_connection *conn);
 bool ldap_connection_have_settings(struct ldap_connection *conn,
-				   const struct ldap_client_settings *set);
+				   const struct ldap_client_settings *set,
+				   const struct ssl_settings *ssl_set);
 
 void ldap_connection_search_start(struct ldap_connection *conn,
 				  const struct ldap_search_input *input,
