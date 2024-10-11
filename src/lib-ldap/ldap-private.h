@@ -59,7 +59,7 @@ struct ldap_connection {
 	BerValue cred; /* needed for SASL */
 	BerVarray scred;
 
-	struct ldap_client_settings set;
+	const struct ldap_client_settings *set;
 	struct ssl_iostream_settings ssl_ioset;
 
 	struct aqueue *request_queue;

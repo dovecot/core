@@ -163,7 +163,7 @@ void ldap_connection_search_start(struct ldap_connection *conn,
 	req->send_request_cb = ldap_search_send;
 	sctx->input = &req->input.search;
 	req->ctx = sctx;
-	req->timeout_secs = conn->set.timeout_secs;
+	req->timeout_secs = conn->set->timeout_secs;
 
 	ldap_connection_queue_request(conn, req);
 }
