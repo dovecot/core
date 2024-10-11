@@ -1393,6 +1393,12 @@ db_ldap_field_multi_expand(const char *data, void *context,
 					      &field_separator,
 					      &field_default);
 
+	if (strcasecmp(field_name, "dn") == 0) {
+		*value_r = auth_fields_find(fields, DB_LDAP_ATTR_DN);
+		i_assert(*value_r != NULL);
+		return 1;
+	}
+
 	const char *value = auth_fields_find(fields,
 					     db_ldap_attribute_as_multi(field_name));
 	if (value == NULL || *value == '\0')
@@ -1417,6 +1423,12 @@ db_ldap_field_single_expand(const char *data ATTR_UNUSED, void *context,
 	const char *field_default = strchr(data, ':');
 	const char *field_name = field_default == NULL ? data : t_strdup_until(data, field_default);
 
+	if (strcasecmp(field_name, "dn") == 0) {
+		*value_r = auth_fields_find(fields, DB_LDAP_ATTR_DN);
+		i_assert(*value_r != NULL);
+		return 1;
+	}
+
 	*value_r = NULL;
 	if (fields != NULL)
 		*value_r = auth_fields_find(fields, field_name);
@@ -1432,20 +1444,9 @@ db_ldap_field_single_expand(const char *data ATTR_UNUSED, void *context,
 	return 1;
 }
 
-static int
-db_ldap_field_dn_expand(const char *data ATTR_UNUSED, void *context,
-			 const char **value_r, const char **error_r ATTR_UNUSED)
-{
-	struct db_ldap_field_expand_context *ctx = context;
-	struct auth_fields *fields = ctx->fields;
-	*value_r = auth_fields_find(fields, DB_LDAP_ATTR_DN);
-	return 1;
-}
-
 const struct var_expand_func_table db_ldap_field_expand_fn_table[] = {
 	{ "ldap",       db_ldap_field_single_expand },
 	{ "ldap_multi", db_ldap_field_multi_expand },
-	{ "ldap_dn",    db_ldap_field_dn_expand },
 	{ NULL, NULL }
 };
 
