@@ -1332,7 +1332,8 @@ void db_ldap_field_multi_expand_parse_data(
 	*separator_r = " ";
 	*default_r = "";
 
-	*field_name_r = t_strcut(data, ':');
+	/* Normalize to lower case as fields names are case insensitive. */
+	*field_name_r = t_str_lcase(t_strcut(data, ':'));
 	const char *ptr = i_strchr_to_next(data, ':');
 
 	if (ptr == NULL || ptr[0] == '\0') {
@@ -1429,6 +1430,9 @@ db_ldap_field_single_expand(const char *data ATTR_UNUSED, void *context,
 		return 1;
 	}
 
+	/* Normalize to lower case as LDAP attributes are case insensitive. */
+	field_name = t_str_lcase(field_name);
+
 	*value_r = NULL;
 	if (fields != NULL)
 		*value_r = auth_fields_find(fields, field_name);
@@ -1466,6 +1470,8 @@ ldap_query_get_fields(pool_t pool,
 	ldap_iter = db_ldap_result_iterate_init(conn, ldap_request, res,
 						skip_null_values);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
+		/* normalize to lower case, as ldap names are case insensitive. */
+		name = t_str_lcase(name);
 		auth_fields_add(fields, name, values[0], 0);
 		if (values[0] != NULL && values[1] != NULL) {
 			const char *mname = db_ldap_attribute_as_multi(name);
