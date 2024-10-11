@@ -90,9 +90,7 @@ int ldap_client_settings_get(struct event *event,
 		return -1;
 	}
 
-	ssl_client_settings_to_iostream_set(set->ssl_set, &set->ssl_ioset);
 	bind_pool(set->pool, set->ssl_set->pool);
-	bind_pool(set->pool, set->ssl_ioset->pool);
 
 	*set_r = set;
 	*error_r = NULL;
