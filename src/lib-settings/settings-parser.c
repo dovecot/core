@@ -514,6 +514,19 @@ void settings_boollist_finish(ARRAY_TYPE(const_string) *array, bool stop)
 	array_pop_back(array);
 }
 
+bool settings_boollist_is_stopped(const ARRAY_TYPE(const_string) *array)
+{
+	/* The first element after the visible array is NULL. If the next element
+	   after the NULL is set_array_stop, then the boollist is stopped. */
+	unsigned int count;
+	const char *const *values =
+		array_get(array, &count);
+	i_assert(values[count] == NULL);
+	if (values[count + 1] == set_array_stop)
+		return TRUE;
+	return FALSE;
+}
+
 static int
 settings_parse_boollist(struct setting_parser_context *ctx,
 			ARRAY_TYPE(const_string) *array,
@@ -524,14 +537,9 @@ settings_parse_boollist(struct setting_parser_context *ctx,
 	if (!array_is_created(array))
 		p_array_init(array, ctx->set_pool, 5);
 	else {
-		/* The first element after the visible array is NULL. If the
-		   next element after the NULL is set_array_stop, then the
-		   boollist should not be modified any further. */
-		unsigned int old_count;
-		const char *const *old_values =
-			array_get(array, &old_count);
-		i_assert(old_values[old_count] == NULL);
-		if (old_values[old_count + 1] == set_array_stop)
+		/* If the array is stopped, then the boollist should not
+		   be modified any further. */
+		if (settings_boollist_is_stopped(array))
 			return 0;
 	}
 

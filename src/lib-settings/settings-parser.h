@@ -275,6 +275,8 @@ const char *const *settings_boollist_get(const ARRAY_TYPE(const_string) *array);
    as long as this function is called again after modifications. */
 void settings_boollist_finish(ARRAY_TYPE(const_string) *array, bool stop);
 
+/* Checks if boollist is marked as replacing the full list */
+bool settings_boollist_is_stopped(const ARRAY_TYPE(const_string) *array);
 /* Split the settings value into path and content. The path is allocated from
    the path_pool, while content points directly to the value string. */
 void settings_file_get(const char *value, pool_t path_pool,
