@@ -50,7 +50,7 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 		return -1;
 	}
 
-	if (conn->ssl_set.verify_remote_cert) {
+	if (conn->ssl_ioset.verify_remote_cert) {
 		opt = LDAP_OPT_X_TLS_HARD;
 	} else {
 		opt = LDAP_OPT_X_TLS_ALLOW;
@@ -70,33 +70,33 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 	/* timelimit */
 	ldap_set_option(conn->conn, LDAP_OPT_TIMELIMIT, &opt);
 
-	if (conn->ssl_set.ca.content != NULL &&
-	    conn->ssl_set.ca.content[0] != '\0') {
-		if (conn->ssl_set.ca.path[0] == '\0') {
+	if (conn->ssl_ioset.ca.content != NULL &&
+	    conn->ssl_ioset.ca.content[0] != '\0') {
+		if (conn->ssl_ioset.ca.path[0] == '\0') {
 			*error_r = "LDAP doesn't support inline ssl_client_ca_file - use a path";
 			return -1;
 		}
 		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CACERTFILE,
-				conn->ssl_set.ca.path);
+				conn->ssl_ioset.ca.path);
 	}
-	if (conn->ssl_set.ca_dir != NULL && conn->ssl_set.ca_dir[0] != '\0')
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CACERTDIR, conn->ssl_set.ca_dir);
+	if (conn->ssl_ioset.ca_dir != NULL && conn->ssl_ioset.ca_dir[0] != '\0')
+		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CACERTDIR, conn->ssl_ioset.ca_dir);
 
 #ifdef LDAP_OPT_X_TLS_CERT
-	if (conn->ssl_set.cert.cert.content != NULL)
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CERT, conn->ssl_set.cert.cert.content);
-	if (conn->ssl_set.cert.key.content != NULL)
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_KEYFILE, conn->ssl_set.cert.key.content);
+	if (conn->ssl_ioset.cert.cert.content != NULL)
+		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CERT, conn->ssl_ioset.cert.cert.content);
+	if (conn->ssl_ioset.cert.key.content != NULL)
+		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_KEYFILE, conn->ssl_ioset.cert.key.content);
 #endif
-	if (conn->ssl_set.cipher_list != NULL && conn->ssl_set.cipher_list[0] != '\0') {
+	if (conn->ssl_ioset.cipher_list != NULL && conn->ssl_ioset.cipher_list[0] != '\0') {
 		/* NOTE: OpenLDAP's CIPHER_SUITE is actually using OpenSSL's
 		   cipher_list, not ciphersuites. */
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CIPHER_SUITE, conn->ssl_set.cipher_list);
+		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CIPHER_SUITE, conn->ssl_ioset.cipher_list);
 	}
-	if (conn->ssl_set.min_protocol != NULL && conn->ssl_set.min_protocol[0] != '\0')
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_PROTOCOL_MIN, conn->ssl_set.min_protocol);
-	if (conn->ssl_set.curve_list != NULL && conn->ssl_set.curve_list[0] != '\0')
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_ECNAME, conn->ssl_set.curve_list);
+	if (conn->ssl_ioset.min_protocol != NULL && conn->ssl_ioset.min_protocol[0] != '\0')
+		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_PROTOCOL_MIN, conn->ssl_ioset.min_protocol);
+	if (conn->ssl_ioset.curve_list != NULL && conn->ssl_ioset.curve_list[0] != '\0')
+		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_ECNAME, conn->ssl_ioset.curve_list);
 
 	opt = conn->set.debug_level;
 	ldap_set_option(NULL, LDAP_OPT_DEBUG_LEVEL, &opt);
@@ -159,23 +159,23 @@ int ldap_connection_init(struct ldap_client *client,
 		ber_str2bv(conn->set.auth_dn_password, strlen(conn->set.auth_dn_password), 0, &conn->cred);
 	}
 	/* cannot use these */
-	i_zero(&conn->ssl_set.ca);
+	i_zero(&conn->ssl_ioset.ca);
 
 	if (set->ssl_ioset != NULL) {
 		/* keep in sync with ldap_connection_have_settings() */
-		conn->set.ssl_ioset = &conn->ssl_set;
-		conn->ssl_set.min_protocol = p_strdup(pool, set->ssl_ioset->min_protocol);
-		conn->ssl_set.cipher_list = p_strdup(pool, set->ssl_ioset->cipher_list);
-		conn->ssl_set.ca.path = p_strdup(pool, set->ssl_ioset->ca.path);
-		conn->ssl_set.ca.content =
+		conn->set.ssl_ioset = &conn->ssl_ioset;
+		conn->ssl_ioset.min_protocol = p_strdup(pool, set->ssl_ioset->min_protocol);
+		conn->ssl_ioset.cipher_list = p_strdup(pool, set->ssl_ioset->cipher_list);
+		conn->ssl_ioset.ca.path = p_strdup(pool, set->ssl_ioset->ca.path);
+		conn->ssl_ioset.ca.content =
 			p_strdup(pool, set->ssl_ioset->ca.content);
-		conn->ssl_set.cert.cert.path =
+		conn->ssl_ioset.cert.cert.path =
 			p_strdup(pool, set->ssl_ioset->cert.cert.path);
-		conn->ssl_set.cert.cert.content =
+		conn->ssl_ioset.cert.cert.content =
 			p_strdup(pool, set->ssl_ioset->cert.cert.content);
-		conn->ssl_set.cert.key.path =
+		conn->ssl_ioset.cert.key.path =
 			p_strdup(pool, set->ssl_ioset->cert.key.path);
-		conn->ssl_set.cert.key.content =
+		conn->ssl_ioset.cert.key.content =
 			p_strdup(pool, set->ssl_ioset->cert.key.content);
 	}
 	i_assert(ldap_connection_have_settings(conn, set));

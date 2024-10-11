@@ -60,7 +60,7 @@ struct ldap_connection {
 	BerVarray scred;
 
 	struct ldap_client_settings set;
-	struct ssl_iostream_settings ssl_set;
+	struct ssl_iostream_settings ssl_ioset;
 
 	struct aqueue *request_queue;
 	ARRAY(struct ldap_op_queue_entry *) request_array;
