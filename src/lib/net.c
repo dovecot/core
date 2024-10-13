@@ -248,7 +248,7 @@ static int net_connect_ip_full(const struct ip_addr *ip, in_port_t port,
 		fd = net_connect_ip_once(ip, port, my_ip, sock_type, blocking);
 		if (fd != -1 || try++ >= MAX_CONNECT_RETRIES ||
 		    (errno != EADDRNOTAVAIL
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__OpenBSD__)
 		     /* busy */
 		     && errno != EADDRINUSE
 		     /* pf may cause this if another connection used
