@@ -381,7 +381,7 @@ mail_storage_list_index_try_create(struct mail_storage_list_index_rebuild_ctx *c
 	}
 	mailbox_free(&box);
 
-	if (ret < 0)
+	if (ret <= 0)
 		return ret;
 
 	/* open a second time to rename the mailbox to its original name,
