@@ -1,6 +1,8 @@
 #ifndef LDAP_SETTINGS_H
 #define LDAP_SETTINGS_H
 
+struct ssl_settings;
+
 struct ldap_client_settings {
 	pool_t pool;
 
@@ -13,15 +15,13 @@ struct ldap_client_settings {
 	unsigned int debug_level;
 	bool require_ssl;
 	bool starttls;
-
-	struct event *event_parent;
-	const struct ssl_settings *ssl_set;
 };
 
 extern const struct setting_parser_info ldap_client_setting_parser_info;
 
 int ldap_client_settings_get(struct event *event,
 			     const struct ldap_client_settings **set_r,
+			     const struct ssl_settings **ssl_set_r,
 			     const char **error_r);
 
 #endif

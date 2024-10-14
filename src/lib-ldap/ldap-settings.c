@@ -67,32 +67,23 @@ ldap_client_settings_postcheck(struct ldap_client_settings *set, const char **er
 	return 0;
 }
 
-static void bind_pool(pool_t to, pool_t from)
-{
-	pool_add_external_ref(to, from);
-	pool_t tmp = from;
-	pool_unref(&tmp);
-}
-
 int ldap_client_settings_get(struct event *event,
 			     const struct ldap_client_settings **set_r,
+			     const struct ssl_settings **ssl_set_r,
 			     const char **error_r)
 {
 	struct ldap_client_settings *set = NULL;
+	const struct ssl_settings *ssl_set = NULL;
 	if (settings_get(event, &ldap_client_setting_parser_info, 0, &set, error_r) < 0 ||
+	    settings_get(event, &ssl_setting_parser_info, 0, &ssl_set, error_r) < 0 ||
 	    ldap_client_settings_postcheck(set, error_r) < 0) {
 		settings_free(set);
+		settings_free(ssl_set);
 		return -1;
 	}
-
-	if (settings_get(event, &ssl_setting_parser_info, 0, &set->ssl_set, error_r) < 0) {
-		settings_free(set);
-		return -1;
-	}
-
-	bind_pool(set->pool, set->ssl_set->pool);
 
 	*set_r = set;
+	*ssl_set_r = ssl_set;
 	*error_r = NULL;
 	return 0;
 }
