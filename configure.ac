@@ -338,7 +338,14 @@ DOVECOT_SOCKPEERCRED
 DOVECOT_TYPEOF
 DOVECOT_IOLOOP
 DOVECOT_NOTIFY
-AM_CONDITIONAL([BUILD_IMAP_HIBERNATE], [test "$notify" != kqueue -a "$notify" != none])
+AS_CASE(
+   ["$notify"],
+   [none],   [BUILD_IMAP_HIBERNATE=0],
+   [kqueue], [BUILD_IMAP_HIBERNATE=0],
+   [BUILD_IMAP_HIBERNATE=1])
+AS_IF([test "x$BUILD_IMAP_HIBERNATE" = x0],
+   [AC_DEFINE([IGNORE_IMAP_HIBERNATE_SERVICE],, [Ignore imap-hibernate service])])
+AM_CONDITIONAL([BUILD_IMAP_HIBERNATE], [test "x$BUILD_IMAP_HIBERNATE" = x1])
 
 DOVECOT_GLIBC
 
@@ -723,25 +730,25 @@ dnl **
 dnl ** Settings
 dnl **
 
-libdovecot_dirs=`echo "$LIBDOVECOT_LA_LIBS" | sed -e "s:\\$(top_builddir):$srcdir:g" -e 's:/[[^/]]*\\.la::g'`
+libdovecot_dirs=`echo "$LIBDOVECOT_LA_LIBS" | $SED -e "s:\\$(top_builddir):$srcdir:g" -e 's:/[[^/]]*\\.la::g'`
 
 libdovecot_headers=
 libdovecot_c_files=
 non_libdovecot_headers=
 non_libdovecot_c_files=
-all_files=`find $srcdir/src -name '*.[[ch]]' | grep -v '/src/config/all-settings.c' | grep -v '/src/lib-settings/' | grep -v '/test-' | xargs grep '\\(struct setting_parser_info [[a-z]]\\)\\|\\(struct service_settings [[a-z]]\\)\\|\\(<settings checks>\\)' | sed 's/:.*//' | sort | uniq`
+all_files=`find $srcdir/src -name '*.[[ch]]' | $GREP -v '/src/config/all-settings.c' | $GREP -v '/src/lib-settings/' | $GREP -v '/test-' | xargs $EGREP '(struct setting_parser_info [[a-z]])|(struct service_settings [[a-z]])|(<settings checks>)' | $SED 's/:.*//' | sort | uniq`
 for file in $all_files; do
-  dir=`echo "$file" | sed 's:/[[^/]]*$::'`
-  if echo "$libdovecot_dirs" | grep "$dir" >/dev/null; then
+  dir=`echo "$file" | $SED 's:/[[^/]]*$::'`
+  if echo "$libdovecot_dirs" | $GREP "$dir" >/dev/null; then
     dnl lib-dovecot
-    if echo "$file" | grep '\.h$' >/dev/null; then
+    if echo "$file" | $GREP '\.h$' >/dev/null; then
       libdovecot_headers="$libdovecot_headers $file"
     else
       libdovecot_c_files="$libdovecot_c_files $file"
     fi
   else
     dnl not lib-dovecot
-    if echo "$file" | grep '\.h$' >/dev/null; then
+    if echo "$file" | $GREP '\.h$' >/dev/null; then
       non_libdovecot_headers="$non_libdovecot_headers $file"
     else
       non_libdovecot_c_files="$non_libdovecot_c_files $file"
@@ -754,8 +761,8 @@ dnl file contents. However, we still need to scan the .c files for any
 dnl setting_parser_infos that aren't elsewhere.
 
 # list headers first, C files last
-SETTING_FILES=`echo $libdovecot_headers $non_libdovecot_headers $non_libdovecot_c_files | sed -e s,$srcdir/src,./src,g -e 's,./src,$(top_srcdir)/src,g'`
-SETTING_LINKED_FILES=`echo $libdovecot_c_files | sed -e s,$srcdir/src,./src,g -e 's,./src,$(top_srcdir)/src,g'`
+SETTING_FILES=`echo $libdovecot_headers $non_libdovecot_headers $non_libdovecot_c_files | $SED -e s,$srcdir/src,./src,g -e 's,./src,$(top_srcdir)/src,g'`
+SETTING_LINKED_FILES=`echo $libdovecot_c_files | $SED -e s,$srcdir/src,./src,g -e 's,./src,$(top_srcdir)/src,g'`
 AC_SUBST(SETTING_FILES)
 AC_SUBST(SETTING_LINKED_FILES)
 
@@ -917,10 +924,10 @@ if test "$want_sql" = "plugin"; then
   sql_drivers="$sql_drivers (plugins)"
 fi
 
-not_passdb=`echo "$not_passdb"|sed 's/ / -/g'`
-not_userdb=`echo "$not_userdb"|sed 's/ / -/g'`
-not_sql_drivers=`echo "$not_sql_drivers"|sed 's/ / -/g'`
-not_fts=`echo "$not_fts"|sed 's/ / -/g'`
+not_passdb=`echo "$not_passdb"|$SED 's/ / -/g'`
+not_userdb=`echo "$not_userdb"|$SED 's/ / -/g'`
+not_sql_drivers=`echo "$not_sql_drivers"|$SED 's/ / -/g'`
+not_fts=`echo "$not_fts"|$SED 's/ / -/g'`
 
 echo
 echo "Install prefix . : $prefix"
