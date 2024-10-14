@@ -65,7 +65,8 @@ auth_LDFLAGS = -export-dynamic
 
 auth_libs = \
 	$(AUTH_LUA_LIBS) \
-	$(LIBDOVECOT_SQL)
+	$(LIBDOVECOT_SQL) \
+	$(LIBDOVECOT_LDAP)
 
 auth_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
 auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS) $(BINARY_LDFLAGS) $(AUTH_LUA_LDADD)

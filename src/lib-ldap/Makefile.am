@@ -16,6 +16,7 @@ libdldap_la_SOURCES = \
 	ldap-iterator.c \
 	ldap-search.c \
 	ldap-settings.c \
+	ldap-utils.c \
 	ldap-compare.c \
 	ldap-entry.c
 
@@ -34,6 +35,7 @@ headers = \
 noinst_HEADERS = \
 	ldap-connection-pool.h \
 	ldap-private.h \
+	ldap-utils.h \
 	ldap-settings.h \
 	ldap-settings-parse.h
 
