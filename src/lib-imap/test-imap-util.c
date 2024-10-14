@@ -68,11 +68,28 @@ static void test_imap_write_arg(void)
 	test_end();
 }
 
+static void test_imap_write_capabilities(void)
+{
+	ARRAY_TYPE(const_string) capabilities;
+	t_array_init(&capabilities, 5);
+	const char *const unsorted_capabilities[] = {
+		"foo", "bar", "IMAP4rev1", "baz", "IMAP4rev2"
+	};
+	array_append(&capabilities, unsorted_capabilities, N_ELEMENTS(unsorted_capabilities));
+	string_t *cap_str = t_str_new(256);
+
+	test_begin("imap_write_capabilities");
+	imap_write_capability(cap_str, &capabilities);
+	test_assert_strcmp(str_c(cap_str), "IMAP4rev1 IMAP4rev2 foo bar baz");
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_imap_parse_system_flag,
 		test_imap_write_arg,
+		test_imap_write_capabilities,
 		NULL
 	};
 	return test_run(test_functions);
