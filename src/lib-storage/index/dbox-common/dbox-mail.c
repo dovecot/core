@@ -278,10 +278,7 @@ get_mail_stream(struct dbox_mail *mail, uoff_t offset,
 		if (pmail->v.istream_opened(&pmail->mail, stream_r) < 0)
 			return -1;
 	}
-	if (file->storage->attachment_dir == NULL)
-		return 1;
-	else
-		return dbox_attachment_file_get_stream(file, stream_r);
+	return dbox_attachment_file_get_stream(file, stream_r);
 }
 
 int dbox_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
