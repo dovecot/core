@@ -6,6 +6,7 @@
 #include "ioloop.h"
 #include "ldap-private.h"
 #include "settings.h"
+#include "ldap-utils.h"
 
 static
 void ldap_connection_read_more(struct ldap_connection *conn);
@@ -53,14 +54,9 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 		return -1;
 	}
 
-	if (conn->ssl_ioset.verify_remote_cert) {
-		opt = LDAP_OPT_X_TLS_HARD;
-	} else {
-		opt = LDAP_OPT_X_TLS_ALLOW;
-	}
+	ldap_set_tls_options(conn->log_prefix, conn->conn, conn->set->starttls,
+			     conn->set->uris, conn->ssl_set);
 
-	ldap_set_option(conn->conn, LDAP_OPT_X_TLS, &opt);
-	ldap_set_option(conn->conn, LDAP_OPT_X_TLS_REQUIRE_CERT, &opt);
 #ifdef LDAP_OPT_X_TLS_PROTOCOL_MIN
 	/* refuse to connect to SSLv2 as it's completely insecure */
 	opt = LDAP_OPT_X_TLS_PROTOCOL_SSL3;
@@ -72,34 +68,6 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 	ldap_set_option(conn->conn, LDAP_OPT_NETWORK_TIMEOUT, &opt);
 	/* timelimit */
 	ldap_set_option(conn->conn, LDAP_OPT_TIMELIMIT, &opt);
-
-	if (conn->ssl_ioset.ca.content != NULL &&
-	    conn->ssl_ioset.ca.content[0] != '\0') {
-		if (conn->ssl_ioset.ca.path[0] == '\0') {
-			*error_r = "LDAP doesn't support inline ssl_client_ca_file - use a path";
-			return -1;
-		}
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CACERTFILE,
-				conn->ssl_ioset.ca.path);
-	}
-	if (conn->ssl_ioset.ca_dir != NULL && conn->ssl_ioset.ca_dir[0] != '\0')
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CACERTDIR, conn->ssl_ioset.ca_dir);
-
-#ifdef LDAP_OPT_X_TLS_CERT
-	if (conn->ssl_ioset.cert.cert.content != NULL)
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CERT, conn->ssl_ioset.cert.cert.content);
-	if (conn->ssl_ioset.cert.key.content != NULL)
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_KEYFILE, conn->ssl_ioset.cert.key.content);
-#endif
-	if (conn->ssl_ioset.cipher_list != NULL && conn->ssl_ioset.cipher_list[0] != '\0') {
-		/* NOTE: OpenLDAP's CIPHER_SUITE is actually using OpenSSL's
-		   cipher_list, not ciphersuites. */
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CIPHER_SUITE, conn->ssl_ioset.cipher_list);
-	}
-	if (conn->ssl_ioset.min_protocol != NULL && conn->ssl_ioset.min_protocol[0] != '\0')
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_PROTOCOL_MIN, conn->ssl_ioset.min_protocol);
-	if (conn->ssl_ioset.curve_list != NULL && conn->ssl_ioset.curve_list[0] != '\0')
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_ECNAME, conn->ssl_ioset.curve_list);
 
 	opt = conn->set->debug_level;
 	ldap_set_option(NULL, LDAP_OPT_DEBUG_LEVEL, &opt);
@@ -152,6 +120,7 @@ int ldap_connection_init(struct ldap_client *client,
 	conn->pool = pool;
 	conn->event = event_create(ldap_client_get_event(client));
 	conn->client = client;
+	conn->log_prefix = p_strdup_printf(pool, "ldap(%s): ", set->uris);
 
 	pool_ref(set->pool);
 	pool_ref(ssl_set->pool);
@@ -162,31 +131,6 @@ int ldap_connection_init(struct ldap_client *client,
 	/* deep copy relevant strings */
 	if (*set->auth_dn_password != '\0')
 		ber_str2bv(conn->set->auth_dn_password, strlen(conn->set->auth_dn_password), 0, &conn->cred);
-
-	/* cannot use these */
-	i_zero(&conn->ssl_ioset.ca);
-
-	{
-		const struct ssl_iostream_settings *ssl_ioset;
-		ssl_client_settings_to_iostream_set(ssl_set, &ssl_ioset);
-
-		/* keep in sync with ldap_connection_have_settings() */
-		conn->ssl_ioset.min_protocol = p_strdup(pool, ssl_ioset->min_protocol);
-		conn->ssl_ioset.cipher_list = p_strdup(pool, ssl_ioset->cipher_list);
-		conn->ssl_ioset.ca.path = p_strdup(pool, ssl_ioset->ca.path);
-		conn->ssl_ioset.ca.content =
-			p_strdup(pool, ssl_ioset->ca.content);
-		conn->ssl_ioset.cert.cert.path =
-			p_strdup(pool, ssl_ioset->cert.cert.path);
-		conn->ssl_ioset.cert.cert.content =
-			p_strdup(pool, ssl_ioset->cert.cert.content);
-		conn->ssl_ioset.cert.key.path =
-			p_strdup(pool, ssl_ioset->cert.key.path);
-		conn->ssl_ioset.cert.key.content =
-			p_strdup(pool, ssl_ioset->cert.key.content);
-
-		settings_free(ssl_ioset);
-	}
 
 	if (ldap_connection_setup(conn, error_r) < 0) {
 		ldap_connection_deinit(&conn);
