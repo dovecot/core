@@ -26,4 +26,9 @@ void imap_write_args_for_human(string_t *dest, const struct imap_arg *args);
 /* Like imap_write_args(), but return the string allocated from data stack. */
 const char *imap_args_to_str(const struct imap_arg *args);
 
+/* Writes capabilities from boollist to string.
+   Capabilities beginning with IMAP4 are written first
+   to avoid breaking clients that expect IMAP4rev1 to be the first. */
+void imap_write_capability(string_t *dest, const ARRAY_TYPE(const_string) *capabilities);
+
 #endif

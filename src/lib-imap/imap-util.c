@@ -200,3 +200,27 @@ const char *imap_args_to_str(const struct imap_arg *args)
 	imap_write_args(str, args);
 	return str_c(str);
 }
+
+void imap_write_capability(string_t *dest, const ARRAY_TYPE(const_string) *capabilities)
+{
+	string_t *cap_str;
+	string_t *cur_str;
+	const char *const *tmp;
+	if (array_is_empty(capabilities))
+		return;
+	cap_str = t_str_new(256);
+	for (tmp = array_front(capabilities); *tmp != NULL; tmp++) {
+		if (str_begins_with(*tmp, "IMAP4"))
+			cur_str = dest;
+		else
+			cur_str = cap_str;
+		if (str_len(cur_str) > 0)
+			str_append_c(cur_str, ' ');
+		str_append(cur_str, *tmp);
+	}
+	if (str_len(cap_str) > 0) {
+		if (str_len(dest) > 0)
+			str_append_c(dest, ' ');
+		str_append(dest, str_c(cap_str));
+	}
+}
