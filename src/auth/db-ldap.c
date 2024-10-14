@@ -845,8 +845,8 @@ static void db_ldap_get_fd(struct ldap_connection *conn)
 	net_set_nonblock(conn->fd, TRUE);
 }
 
-static void ATTR_NULL(1)
-db_ldap_set_opt(struct ldap_connection *conn, LDAP *ld, int opt,
+static void
+db_ldap_set_opt(const char *log_prefix, LDAP *ld, int opt,
 		const void *value, const char *optname, const char *value_str)
 {
 	int ret;
@@ -854,42 +854,44 @@ db_ldap_set_opt(struct ldap_connection *conn, LDAP *ld, int opt,
 	ret = ldap_set_option(ld, opt, value);
 	if (ret != LDAP_SUCCESS) {
 		i_fatal("%sCan't set option %s to %s: %s",
-			conn->log_prefix, optname, value_str, ldap_err2string(ret));
+			log_prefix, optname, value_str, ldap_err2string(ret));
 	}
 }
 
-static void ATTR_NULL(1)
-db_ldap_set_opt_str(struct ldap_connection *conn, LDAP *ld, int opt,
+static void
+db_ldap_set_opt_str(const char *log_prefix, LDAP *ld, int opt,
 		    const char *value, const char *optname)
 {
 	if (*value != '\0')
-		db_ldap_set_opt(conn, ld, opt, value, optname, value);
+		db_ldap_set_opt(log_prefix, ld, opt, value, optname, value);
 }
 
-static void db_ldap_set_tls_options(struct ldap_connection *conn)
+static void db_ldap_set_tls_options(const char *log_prefix, bool starttls,
+				    const char *uris,
+				    const struct ssl_settings *ssl_set)
 {
 #ifdef OPENLDAP_TLS_OPTIONS
-	if (!conn->set->starttls && strstr(conn->set->uris, "ldaps:") == NULL)
+	if (!starttls && strstr(uris, "ldaps:") == NULL)
 		return;
 
-	db_ldap_set_opt_str(conn, NULL, LDAP_OPT_X_TLS_CACERTFILE,
-			    conn->ssl_set->ssl_client_ca_file, "ssl_client_ca_file");
-	db_ldap_set_opt_str(conn, NULL, LDAP_OPT_X_TLS_CACERTDIR,
-			    conn->ssl_set->ssl_client_ca_dir, "ssl_client_ca_dir");
-	db_ldap_set_opt_str(conn, NULL, LDAP_OPT_X_TLS_CERTFILE,
-			    conn->ssl_set->ssl_client_cert_file, "ssl_client_cert_file");
-	db_ldap_set_opt_str(conn, NULL, LDAP_OPT_X_TLS_KEYFILE,
-			    conn->ssl_set->ssl_client_key_file, "ssl_client_key_file");
-	db_ldap_set_opt_str(conn, NULL, LDAP_OPT_X_TLS_CIPHER_SUITE,
-			    conn->ssl_set->ssl_cipher_list, "ssl_cipher_list");
-	db_ldap_set_opt_str(conn, NULL, LDAP_OPT_X_TLS_PROTOCOL_MIN,
-			    conn->ssl_set->ssl_min_protocol, "ssl_min_protocol");
-	db_ldap_set_opt_str(conn, NULL, LDAP_OPT_X_TLS_ECNAME,
-			    conn->ssl_set->ssl_curve_list, "ssl_curve_list");
+	db_ldap_set_opt_str(log_prefix, NULL, LDAP_OPT_X_TLS_CACERTFILE,
+			    ssl_set->ssl_client_ca_file, "ssl_client_ca_file");
+	db_ldap_set_opt_str(log_prefix, NULL, LDAP_OPT_X_TLS_CACERTDIR,
+			    ssl_set->ssl_client_ca_dir, "ssl_client_ca_dir");
+	db_ldap_set_opt_str(log_prefix, NULL, LDAP_OPT_X_TLS_CERTFILE,
+			    ssl_set->ssl_client_cert_file, "ssl_client_cert_file");
+	db_ldap_set_opt_str(log_prefix, NULL, LDAP_OPT_X_TLS_KEYFILE,
+			    ssl_set->ssl_client_key_file, "ssl_client_key_file");
+	db_ldap_set_opt_str(log_prefix, NULL, LDAP_OPT_X_TLS_CIPHER_SUITE,
+			    ssl_set->ssl_cipher_list, "ssl_cipher_list");
+	db_ldap_set_opt_str(log_prefix, NULL, LDAP_OPT_X_TLS_PROTOCOL_MIN,
+			    ssl_set->ssl_min_protocol, "ssl_min_protocol");
+	db_ldap_set_opt_str(log_prefix, NULL, LDAP_OPT_X_TLS_ECNAME,
+			    ssl_set->ssl_curve_list, "ssl_curve_list");
 
-	bool requires = conn->ssl_set->ssl_client_require_valid_cert;
+	bool requires = ssl_set->ssl_client_require_valid_cert;
 	int opt = requires ? LDAP_OPT_X_TLS_HARD : LDAP_OPT_X_TLS_ALLOW;
-	db_ldap_set_opt(conn, NULL, LDAP_OPT_X_TLS_REQUIRE_CERT, &opt,
+	db_ldap_set_opt(log_prefix, NULL, LDAP_OPT_X_TLS_REQUIRE_CERT, &opt,
 			"ssl_client_require_valid_cert", requires ? "yes" : "no" );
 #endif
 }
@@ -946,20 +948,21 @@ static void db_ldap_set_options(struct ldap_connection *conn)
 			conn->log_prefix, ldap_err2string(ret));
 #endif
 
-	db_ldap_set_opt(conn, conn->ld, LDAP_OPT_DEREF, &conn->set->parsed_deref,
+	db_ldap_set_opt(conn->log_prefix, conn->ld, LDAP_OPT_DEREF, &conn->set->parsed_deref,
 			"ldap_deref", conn->set->deref);
 #ifdef LDAP_OPT_DEBUG_LEVEL
 	if (conn->set->debug_level != 0) {
-		db_ldap_set_opt(conn, NULL, LDAP_OPT_DEBUG_LEVEL, &conn->set->debug_level,
+		db_ldap_set_opt(conn->log_prefix, NULL, LDAP_OPT_DEBUG_LEVEL, &conn->set->debug_level,
 				"ldap_debug_level", dec2str(conn->set->debug_level));
 		event_set_forced_debug(conn->event, TRUE);
 	}
 #endif
 
-	db_ldap_set_opt(conn, conn->ld, LDAP_OPT_PROTOCOL_VERSION,
+	db_ldap_set_opt(conn->log_prefix, conn->ld, LDAP_OPT_PROTOCOL_VERSION,
 			&conn->set->version,
 			"ldap_version", dec2str(conn->set->version));
-	db_ldap_set_tls_options(conn);
+	db_ldap_set_tls_options(conn->log_prefix, conn->set->starttls,
+				conn->set->uris, conn->ssl_set);
 }
 
 static void db_ldap_init_ld(struct ldap_connection *conn)
