@@ -302,7 +302,9 @@ bool cmd_idle(struct client_command_context *cmd)
 
 	/* check immediately if there are changes. if they came before we
 	   added mailbox-notifier, we wouldn't see them otherwise. */
-	if (client->mailbox != NULL)
-		idle_sync_now(client->mailbox, ctx);
+	if (client->mailbox != NULL) {
+		if (idle_sync_now(client->mailbox, ctx))
+			return TRUE;
+	}
 	return idle_client_handle_input(ctx, FALSE);
 }
