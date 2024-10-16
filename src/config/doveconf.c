@@ -1035,7 +1035,7 @@ int main(int argc, char *argv[])
 	}
 
 	master_service = master_service_init("config", master_service_flags,
-					     &argc, &argv, "aCdFhHIm:nNpPwxs");
+					     &argc, &argv, "aCdFhHI:nNPwxs");
 	orig_config_path = t_strdup(master_service_get_config_path(master_service));
 
 	i_set_failure_prefix("doveconf: ");
@@ -1065,10 +1065,6 @@ int main(int argc, char *argv[])
 			break;
 		case 'I':
 			dump_config_import = TRUE;
-			break;
-		case 'm':
-		case 'p':
-			/* not supported anymore - ignore */
 			break;
 		case 'n':
 			scope = CONFIG_DUMP_SCOPE_CHANGED;
