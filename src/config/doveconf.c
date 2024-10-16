@@ -1165,11 +1165,7 @@ int main(int argc, char *argv[])
 	if ((ret == -1 && exec_args != NULL) || ret == 0 || ret == -2)
 		i_fatal("%s", error);
 
-	if (dump_full && exec_args == NULL) {
-		ret2 = config_dump_full(config,
-					CONFIG_DUMP_FULL_DEST_STDOUT,
-					0, &import_environment);
-	} else if (dump_full) {
+	if (dump_full && exec_args != NULL) {
 		int temp_fd = config_dump_full(config,
 					       CONFIG_DUMP_FULL_DEST_TEMPDIR,
 					       0, &import_environment);
@@ -1188,6 +1184,10 @@ int main(int argc, char *argv[])
 			i_fatal("execvp(%s) failed: %m", exec_args[0]);
 		}
 		ret2 = -1;
+	} else if (dump_full) {
+		ret2 = config_dump_full(config,
+					CONFIG_DUMP_FULL_DEST_STDOUT,
+					0, &import_environment);
 	} else if (setting_name_filters != NULL) {
 		ret2 = 0;
 		/* ignore settings-check failures in configuration. this allows
