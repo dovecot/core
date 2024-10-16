@@ -1,7 +1,7 @@
 #ifndef LDAP_PRIVATE_H
 #define LDAP_PRIVATE_H
 
-#include "iostream-ssl.h"
+#include "ssl-settings.h"
 #include "ldap-client.h"
 
 #include <ldap.h>

@@ -13,7 +13,6 @@ struct ldap_client_settings {
 	unsigned int timeout_secs;
 	unsigned int max_idle_time_secs;
 	unsigned int debug_level;
-	bool require_ssl;
 	bool starttls;
 };
 
