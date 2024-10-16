@@ -107,14 +107,6 @@ int ldap_connection_init(struct ldap_client *client,
 {
 	i_assert(set->uris != NULL && set->uris[0] != '\0');
 
-	if (set->require_ssl &&
-	    !set->starttls &&
-	    strncmp("ldaps://",set->uris,8) != 0) {
-		*error_r = t_strdup_printf("ldap_connection_init(uris=%s) failed: %s", set->uris,
-			"uri does not start with ldaps and ssl required without start TLS");
-		return -1;
-	}
-
 	pool_t pool = pool_alloconly_create("ldap connection", 1024);
 	struct ldap_connection *conn = p_new(pool, struct ldap_connection, 1);
 	conn->pool = pool;
@@ -301,13 +293,11 @@ ldap_connection_connect_parse(struct ldap_connection *conn,
 				conn->set->uris, ldap_err2string(ret)));
 			return ret;
 		} else if (result_err != 0) {
-			if (conn->set->require_ssl) {
-				ldap_connection_result_failure(conn, req, result_err, t_strdup_printf(
-					"ldap_start_tls(uris=%s) failed: %s",
-					conn->set->uris, result_errmsg));
-				ldap_memfree(result_errmsg);
-				return LDAP_INVALID_CREDENTIALS; /* make sure it disconnects */
-			}
+			ldap_connection_result_failure(conn, req, result_err, t_strdup_printf(
+				"ldap_start_tls(uris=%s) failed: %s",
+				conn->set->uris, result_errmsg));
+			ldap_memfree(result_errmsg);
+			return LDAP_INVALID_CREDENTIALS; /* make sure it disconnects */
 		} else {
 			ret = ldap_parse_extended_result(conn->conn, message, &retoid, NULL, 0);
 			/* retoid can be NULL even if ret == 0 */
@@ -322,12 +312,10 @@ ldap_connection_connect_parse(struct ldap_connection *conn,
 				}
 			}
 			if (ret != LDAP_SUCCESS) {
-				if (conn->set->require_ssl) {
-					ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
-						"ldap_start_tls(uris=%s) failed: %s",
-						conn->set->uris, ldap_err2string(ret)));
-					return LDAP_UNAVAILABLE;
-				}
+				ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
+					"ldap_start_tls(uris=%s) failed: %s",
+					conn->set->uris, ldap_err2string(ret)));
+				return LDAP_UNAVAILABLE;
 			} else {
 				if (conn->set->debug_level > 0)
 					e_debug(conn->event,
@@ -429,8 +417,7 @@ ldap_connect_next_message(struct ldap_connection *conn,
 
 	switch(conn->state) {
 	case LDAP_STATE_DISCONNECT:
-		/* if we should not disable SSL, and the URI is not ldaps:// */
-		if (!conn->set->starttls || strstr(conn->set->uris, "ldaps://") == NULL) {
+		if (conn->set->starttls && strstr(conn->set->uris, "ldaps://") == NULL) {
 			ret = ldap_start_tls(conn->conn, NULL, NULL, &req->msgid);
 			if (ret != LDAP_SUCCESS) {
 				ldap_connection_result_failure(conn, req, ret, t_strdup_printf(

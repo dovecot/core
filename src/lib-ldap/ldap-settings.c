@@ -21,7 +21,6 @@ static const struct setting_define ldap_client_setting_defines[] = {
 	DEFN(TIME, timeout_secs, ldap_timeout),
 	DEFN(TIME, max_idle_time_secs, ldap_max_idle_time),
 	DEF(UINT, debug_level),
-	DEF(BOOL, require_ssl),
 	DEF(BOOL, starttls),
 	SETTING_DEFINE_LIST_END
 };
@@ -33,7 +32,6 @@ static const struct ldap_client_settings ldap_client_default_settings = {
 	.timeout_secs = 30,
 	.max_idle_time_secs = 0,
 	.debug_level = 0,
-	.require_ssl = FALSE,
 	.starttls = FALSE,
 };
 
