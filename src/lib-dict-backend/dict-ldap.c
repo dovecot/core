@@ -270,6 +270,38 @@ void ldap_dict_lookup_done(const struct dict_lookup_result *result, void *ctx)
 }
 
 static void
+ldap_dict_lookup_cb_values(const struct ldap_entry *entry, struct dict_ldap_op *op)
+{
+	e_debug(op->event, "got dn %s",
+		ldap_entry_dn(entry));
+
+	unsigned int count = array_count(&op->map->values);
+	i_assert(count > 0);
+
+	ARRAY_TYPE(const_string) resp_values;
+	p_array_init(&resp_values, op->pool, count + 1);
+
+	const char *attribute;
+	array_foreach_elem(&op->map->values, attribute) {
+		const char *const *values = ldap_entry_get_attribute(entry, attribute);
+		bool no_attribute = values == NULL;
+		e_debug(op->event, "%s attribute %s",
+			no_attribute ? "dit not get" : "got", attribute);
+		if (no_attribute && array_is_empty(&resp_values))
+			break;
+		const char *value = no_attribute ? "" : p_strdup(op->pool, values[0]);
+		array_push_back(&resp_values, &value);
+	}
+
+	array_append_zero(&resp_values);
+	array_pop_back(&resp_values);
+	bool got_values = array_not_empty(&resp_values);
+	op->res.values = array_front(&resp_values);
+	op->res.value = got_values ? op->res.values[0] : NULL;
+	op->res.ret = got_values ? 1 : 0;
+}
+
+static void
 ldap_dict_lookup_callback(struct ldap_result *result, struct dict_ldap_op *op)
 {
 	pool_t pool = op->pool;
@@ -284,30 +316,9 @@ ldap_dict_lookup_callback(struct ldap_result *result, struct dict_ldap_op *op)
 	} else {
 		iter = ldap_search_iterator_init(result);
 		entry = ldap_search_iterator_next(iter);
-		if (entry != NULL) {
-			e_debug(op->event, "ldap_dict_lookup_callback got dn %s",
-				ldap_entry_dn(entry));
-			/* try extract value */
-			const char *const *values = ldap_entry_get_attribute(
-				entry, op->map->value_attribute);
-			if (values != NULL) {
-				const char **new_values;
+		if (entry != NULL)
+			ldap_dict_lookup_cb_values(entry, op);
 
-				e_debug(op->event,
-					"ldap_dict_lookup_callback got attribute %s",
-					op->map->value_attribute);
-				op->res.ret = 1;
-				new_values = p_new(op->pool, const char *, 2);
-				new_values[0] = p_strdup(op->pool, values[0]);
-				op->res.values = new_values;
-				op->res.value = op->res.values[0];
-			} else {
-				e_debug(op->event,
-					"ldap_dict_lookup_callback dit not get attribute %s",
-					op->map->value_attribute);
-				op->res.value = NULL;
-			}
-		}
 		ldap_search_iterator_deinit(&iter);
 	}
 	if (op->dict->dict.prev_ioloop != NULL)
@@ -408,13 +419,11 @@ void ldap_dict_lookup_async(struct dict *dict,
 
 	/* key needs to be transformed into something else */
 	ARRAY_TYPE(const_string) values;
-	const char *attributes[2] = {0, 0};
 	t_array_init(&values, 8);
 	const struct dict_ldap_map_settings *map = ldap_dict_find_map(ctx, key, &values);
 
 	if (map != NULL) {
 		op->map = map;
-		attributes[0] = map->value_attribute;
 		/* build lookup */
 		i_zero(&input);
 		input.base_dn = map->base;
@@ -427,7 +436,9 @@ void ldap_dict_lookup_async(struct dict *dict,
 			return;
 		}
 		input.filter = str_c(query);
-		input.attributes = attributes;
+		/* Guaranteed to be NULL-terminated by
+		   dict_ldap_map_settings_postcheck() */
+		input.attributes = array_front(&map->values);
 		ctx->pending++;
 		ldap_search_start(ctx->client, &input, ldap_dict_lookup_callback, op);
 	} else {
