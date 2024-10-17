@@ -7,7 +7,7 @@ struct dict_ldap_map_settings {
 	const char *pattern;
 	const char *filter;
 	const char *username_attribute;
-	const char *value_attribute;
+	ARRAY_TYPE(const_string) values;
 	const char *base;
 	const char *scope;
 	ARRAY_TYPE(const_string) fields;

@@ -28,7 +28,7 @@ static const struct setting_define dict_ldap_map_setting_defines[] = {
 	DEFN(STR, filter, ldap_filter),
 	DEFN(ENUM, scope, ldap_scope),
 	DEF(STR, username_attribute),
-	DEF(STR, value_attribute),
+	DEF(BOOLLIST, values),
 	DEF(STRLIST, fields),
 	SETTING_DEFINE_LIST_END
 };
@@ -37,7 +37,7 @@ static const struct dict_ldap_map_settings dict_ldap_map_default_settings = {
 	.pattern = "",
 	.filter = "",
 	.username_attribute = "cn",
-	.value_attribute = "",
+	.values = ARRAY_INIT,
 	.base = "",
 	.scope = "subtree:onelevel:base",
 	.fields = ARRAY_INIT,
@@ -101,9 +101,12 @@ dict_ldap_map_settings_postcheck(struct dict_ldap_map_settings *set,
 		return -1;
 	}
 
-	if (*set->value_attribute == '\0') {
-		*error_r = "value_attribute  not set";
+	if (array_is_empty(&set->values)) {
+		*error_r = "ldap_map_value not set";
 		return -1;
+	} else {
+		array_append_zero(&set->values);
+		array_pop_back(&set->values);
 	}
 
 	if (array_is_empty(&set->fields)) {
