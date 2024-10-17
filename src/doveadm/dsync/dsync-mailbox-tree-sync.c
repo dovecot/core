@@ -802,8 +802,8 @@ sync_find_branch(struct dsync_mailbox_tree *tree,
 	for (node = dir_node->first_child; node != NULL; node = node->next) {
 		if (dsync_mailbox_node_is_dir(node)) {
 			other_node = sync_find_branch(tree, other_tree, node);
-			if (other_node != NULL)
-				return other_node;
+			if (other_node != NULL && other_node->parent != NULL)
+				return other_node->parent;
 		} else {
 			guid_p = node->mailbox_guid;
 			other_node = hash_table_lookup(other_tree->guid_hash,

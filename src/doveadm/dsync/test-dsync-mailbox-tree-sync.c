@@ -741,6 +741,43 @@ static void test_dsync_mailbox_tree_sync_renames22(void)
 	test_end();
 }
 
+static void test_dsync_mailbox_tree_sync_renames23(void)
+{
+	struct dsync_mailbox_tree *tree1, *tree2;
+
+	test_begin("dsync mailbox tree sync renames 23");
+	tree1 = dsync_mailbox_tree_init('/', '\0', '_');
+	tree2 = dsync_mailbox_tree_init('/', '\0', '_');
+
+	node_create(tree1, 2, "p1/a/c", 0);
+	node_create(tree1, 3, "p2/a/c", 0);
+
+	node_create(tree2, 4, "p2/b/d", 0);
+	node_create(tree2, 2, "p1", 0);
+
+	test_trees(tree1, tree2);
+	test_end();
+}
+
+static void test_dsync_mailbox_tree_sync_renames24(void)
+{
+	struct dsync_mailbox_tree *tree1, *tree2;
+
+	test_begin("dsync mailbox tree sync renames 24");
+	tree1 = dsync_mailbox_tree_init('/', '\0', '_');
+	tree2 = dsync_mailbox_tree_init('/', '\0', '_');
+
+	node_create(tree1, 1, "p1/a", 0);
+	node_create(tree1, 2, "p1/a/c", 0);
+	node_create(tree1, 3, "p2/a/c", 0);
+
+	node_create(tree2, 4, "p2/b/d", 0);
+	node_create(tree2, 2, "p1", 0);
+
+	test_trees(tree1, tree2);
+	test_end();
+}
+
 static void test_dsync_mailbox_tree_sync_random(void)
 {
 	struct dsync_mailbox_tree *tree1, *tree2;
@@ -779,6 +816,8 @@ int main(void)
 		test_dsync_mailbox_tree_sync_renames20,
 		test_dsync_mailbox_tree_sync_renames21,
 		test_dsync_mailbox_tree_sync_renames22,
+		test_dsync_mailbox_tree_sync_renames23,
+		test_dsync_mailbox_tree_sync_renames24,
 		test_dsync_mailbox_tree_sync_random,
 		NULL
 	};
