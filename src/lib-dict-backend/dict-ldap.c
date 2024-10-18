@@ -59,10 +59,8 @@ void ldap_dict_lookup_async(struct dict *dict,
 
 static bool
 dict_ldap_map_match(const struct dict_ldap_map *map, const char *path,
-		   ARRAY_TYPE(const_string) *values, size_t *pat_len_r,
-		   size_t *path_len_r, bool partial_ok, bool recurse)
+		    ARRAY_TYPE(const_string) *values)
 {
-	const char *path_start = path;
 	const char *pat, *attribute, *p;
 	size_t len;
 
@@ -76,24 +74,8 @@ dict_ldap_map_match(const struct dict_ldap_map *map, const char *path,
 				/* pattern ended with this variable,
 				   it'll match the rest of the path */
 				len = strlen(path);
-				if (partial_ok) {
-					/* iterating - the last field never
-					   matches fully. if there's a trailing
-					   '/', drop it. */
-					pat--;
-					if (path[len-1] == '/') {
-						attribute = t_strndup(path, len-1);
-						array_push_back(values,
-								&attribute);
-					} else {
-						array_push_back(values, &path);
-					}
-				} else {
-					array_push_back(values, &path);
-					path += len;
-				}
-				*path_len_r = path - path_start;
-				*pat_len_r = pat - map->pattern;
+				array_push_back(values, &path);
+				path += len;
 				return TRUE;
 			}
 			/* pattern matches until the next '/' in path */
@@ -117,23 +99,7 @@ dict_ldap_map_match(const struct dict_ldap_map *map, const char *path,
 		}
 	}
 
-	*path_len_r = path - path_start;
-	*pat_len_r = pat - map->pattern;
-
-	if (*pat == '\0')
-		return *path == '\0';
-	else if (!partial_ok)
-		return FALSE;
-	else {
-		/* partial matches must end with '/'. */
-		if (pat != map->pattern && pat[-1] != '/')
-			return FALSE;
-		/* if we're not recursing, there should be only one $variable
-		   left. */
-		if (recurse)
-			return TRUE;
-		return pat[0] == '$' && strchr(pat, '/') == NULL;
-	}
+	return *pat == '\0' && *path == '\0';
 }
 
 static const struct dict_ldap_map *
@@ -142,13 +108,11 @@ ldap_dict_find_map(struct ldap_dict *dict, const char *path,
 {
 	const struct dict_ldap_map *maps;
 	unsigned int i, count;
-	size_t len;
 
 	t_array_init(values, dict->set->max_attribute_count);
 	maps = array_get(&dict->set->maps, &count);
 	for (i = 0; i < count; i++) {
-		if (dict_ldap_map_match(&maps[i], path, values,
-				       &len, &len, FALSE, FALSE))
+		if (dict_ldap_map_match(&maps[i], path, values))
 			return &maps[i];
 	}
 	return NULL;
