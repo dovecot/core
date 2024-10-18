@@ -1829,7 +1829,23 @@ config_parse_line(struct config_parser_context *ctx,
 	}
 }
 
-static void config_parse_finish_includes(struct config_parsed *config)
+static bool
+group_has_name(struct config_include_group_filters *group, const char *name)
+{
+	struct config_filter_parser *filter;
+
+	array_foreach_elem(&group->filters, filter) {
+		const char *filter_name =
+			i_strchr_to_next(filter->filter.filter_name, '/');
+		i_assert(filter_name != NULL);
+		if (strcmp(filter_name, name) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static int
+config_parse_finish_includes(struct config_parsed *config, const char **error_r)
 {
 	hash_table_create(&config->include_groups, config->pool, 0,
 			  str_hash, strcmp);
@@ -1861,6 +1877,40 @@ static void config_parse_finish_includes(struct config_parsed *config)
 			array_push_back(&group->filters, &filter);
 		} T_END;
 	}
+
+	for (unsigned int i = 0; config->filter_parsers[i] != NULL; i++) {
+		struct config_filter_parser *filter = config->filter_parsers[i];
+		struct config_include_group *include_group;
+
+		if (!array_is_created(&filter->include_groups))
+			continue;
+
+		array_foreach_modifiable(&filter->include_groups, include_group) {
+			struct config_include_group_filters *group =
+				hash_table_lookup(config->include_groups,
+						  include_group->label);
+			if (group == NULL) {
+				*error_r = t_strdup_printf(
+					"Error in configuration file %s line %d: "
+					"Unknown group label @%s",
+					include_group->last_path,
+					include_group->last_linenum,
+					include_group->label);
+				return -1;
+			}
+			if (!group_has_name(group, include_group->name)) {
+				*error_r = t_strdup_printf(
+					"Error in configuration file %s line %d: "
+					"Unknown group @%s=%s",
+					include_group->last_path,
+					include_group->last_linenum,
+					include_group->label,
+					include_group->name);
+				return -1;
+			}
+		}
+	}
+	return 0;
 }
 
 static void
@@ -1939,7 +1989,8 @@ config_parse_finish(struct config_parser_context *ctx,
 	new_config->filter_parsers = array_front(&ctx->all_filter_parsers);
 	new_config->module_parsers = ctx->root_module_parsers;
 
-	config_parse_finish_includes(new_config);
+	if (ret == 0)
+		ret = config_parse_finish_includes(new_config, error_r);
 
 	if (ret < 0)
 		;
@@ -2216,20 +2267,26 @@ config_parser_include_add_or_update(struct config_parser_context *ctx,
 {
 	struct config_filter_parser *filter_parser =
 		ctx->cur_section->filter_parser;
-	struct config_include_group *include_group;
+	struct config_include_group *include_group = NULL;
+	bool found = FALSE;
 
 	if (!array_is_created(&filter_parser->include_groups))
 		p_array_init(&filter_parser->include_groups, ctx->pool, 4);
 	array_foreach_modifiable(&filter_parser->include_groups, include_group) {
 		if (strcmp(include_group->label, group) == 0) {
 			/* preserve original position */
-			include_group->name = p_strdup(ctx->pool, name);
-			return;
+			found = TRUE;
+			break;
 		}
 	}
-	include_group = array_append_space(&filter_parser->include_groups);
-	include_group->label = p_strdup(ctx->pool, group);
+	if (!found) {
+		include_group = array_append_space(&filter_parser->include_groups);
+		include_group->label = p_strdup(ctx->pool, group);
+	}
 	include_group->name = p_strdup(ctx->pool, name);
+	include_group->last_path =
+		p_strdup(ctx->pool, ctx->cur_input->path);
+	include_group->last_linenum = ctx->cur_input->linenum;
 }
 
 void config_parser_apply_line(struct config_parser_context *ctx,

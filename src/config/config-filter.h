@@ -31,6 +31,9 @@ struct config_filter {
 struct config_include_group {
 	const char *label;
 	const char *name;
+
+	const char *last_path;
+	unsigned int last_linenum;
 };
 ARRAY_DEFINE_TYPE(config_include_group, struct config_include_group);
 
