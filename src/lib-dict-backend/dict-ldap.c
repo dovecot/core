@@ -22,6 +22,13 @@ static const char *LDAP_ESCAPE_CHARS = "*,\\#+<>;\"()= ";
 
 struct ldap_dict;
 
+struct dict_ldap_vars_context {
+	const struct dict_ldap_map_settings *set;
+	ARRAY_TYPE(const_string) values;
+	const char *username;
+	bool private;
+};
+
 struct dict_ldap_op {
 	struct ldap_dict *dict;
 	struct event *event;
@@ -128,7 +135,7 @@ int dict_ldap_connect(struct ldap_dict *dict, const char **error_r)
 #define IS_LDAP_ESCAPED_CHAR(c) \
 	((((unsigned char)(c)) & 0x80) != 0 || strchr(LDAP_ESCAPE_CHARS, (c)) != NULL)
 
-static const char *ldap_escape(const char *str)
+static const char *ldap_escape(const char *str, void *context ATTR_UNUSED)
 {
 	string_t *ret = NULL;
 
@@ -144,50 +151,6 @@ static const char *ldap_escape(const char *str)
 	}
 
 	return ret == NULL ? str : str_c(ret);
-}
-
-static bool
-ldap_dict_build_query(const struct dict_op_settings *set,
-		      const struct dict_ldap_map_settings *map,
-                      ARRAY_TYPE(const_string) *values, bool priv,
-                      string_t *query_r, const char **error_r)
-{
-	const char *template, *error;
-	ARRAY(struct var_expand_table) exp;
-	struct var_expand_table entry;
-
-	t_array_init(&exp, 8);
-	if (priv) {
-		i_assert(set->username != NULL);
-		i_zero(&entry);
-		entry.value = ldap_escape(set->username);
-		entry.key = "username";
-		array_push_back(&exp, &entry);
-		template = t_strdup_printf("(&(%s=%s)%s)", map->username_attribute, "%{username}", map->filter);
-	} else {
-		template = map->filter;
-	}
-
-	for(size_t i = 0; i < array_count(values) && i < array_count(&map->parsed_pattern_keys); i++) {
-		struct var_expand_table entry;
-		const char *value = array_idx_elem(values, i);
-		const char *long_key = array_idx_elem(&map->parsed_pattern_keys, i);
-		i_zero(&entry);
-		entry.value = ldap_escape(value);
-		entry.key = long_key;
-		array_push_back(&exp, &entry);
-	}
-
-	array_append_zero(&exp);
-	const struct var_expand_params params = {
-		.table = array_front(&exp),
-	};
-
-	if (var_expand(query_r, template, &params, &error) < 0) {
-		*error_r = t_strdup_printf("Failed to expand %s: %s", template, error);
-		return FALSE;
-	}
-	return TRUE;
 }
 
 static
@@ -275,11 +238,8 @@ ldap_dict_lookup_cb_values(const struct ldap_entry *entry, struct dict_ldap_op *
 	e_debug(op->event, "got dn %s",
 		ldap_entry_dn(entry));
 
-	unsigned int count = array_count(&op->map->values);
-	i_assert(count > 0);
-
 	ARRAY_TYPE(const_string) resp_values;
-	p_array_init(&resp_values, op->pool, count + 1);
+	p_array_init(&resp_values, op->pool, array_count(&op->map->values) + 1);
 
 	const char *attribute;
 	array_foreach_elem(&op->map->values, attribute) {
@@ -296,7 +256,7 @@ ldap_dict_lookup_cb_values(const struct ldap_entry *entry, struct dict_ldap_op *
 	array_append_zero(&resp_values);
 	array_pop_back(&resp_values);
 	bool got_values = array_not_empty(&resp_values);
-	op->res.values = array_front(&resp_values);
+	op->res.values = got_values ? array_front(&resp_values) : NULL;
 	op->res.value = got_values ? op->res.values[0] : NULL;
 	op->res.ret = got_values ? 1 : 0;
 }
@@ -396,6 +356,25 @@ void ldap_dict_atomic_inc(struct dict_transaction_context *ctx,
 			   const char *key, long long diff);
 */
 
+static int
+ldap_dict_pattern_expand(const char *key, const char **value_r, void *_ctx,
+			 const char **error_r)
+{
+	struct dict_ldap_op *op = _ctx;
+	*value_r = "";
+
+	const ARRAY_TYPE(const_string) *keys = &op->map->parsed_pattern_keys;
+	const char *const *value = array_lsearch(keys, &key, i_strcmp_p);
+	if (value != NULL) {
+		unsigned int index = array_ptr_to_idx(keys, value);
+		*value_r = array_idx_elem(&op->pattern_values, index);
+		return 0;
+	}
+
+	*error_r = t_strdup_printf("pattern %s not found", key);
+	return -1;
+}
+
 static
 void ldap_dict_lookup_async(struct dict *dict,
 			    const struct dict_op_settings *set,
@@ -405,10 +384,8 @@ void ldap_dict_lookup_async(struct dict *dict,
 	struct ldap_search_input input;
 	struct ldap_dict *ctx = (struct ldap_dict*)dict;
 	struct dict_ldap_op *op;
-	const char *error;
 
 	pool_t oppool = pool_alloconly_create("ldap dict lookup", 64);
-	string_t *query = str_new(oppool, 64);
 	op = p_new(oppool, struct dict_ldap_op, 1);
 	op->pool = oppool;
 	op->dict = ctx;
@@ -417,30 +394,62 @@ void ldap_dict_lookup_async(struct dict *dict,
 	op->txid = ctx->last_txid++;
 	op->event = event_create(op->dict->dict.event);
 
-	/* key needs to be transformed into something else */
-	ARRAY_TYPE(const_string) values;
-	t_array_init(&values, 8);
-	const struct dict_ldap_map_settings *map = ldap_dict_find_map(ctx, key, &values);
+	struct dict_ldap_vars_context *pattern_ctx =
+		p_new(op->pool, struct dict_ldap_vars_context, 1);
+	t_array_init(&pattern_ctx->values, 2);
+	pattern_ctx->private = str_begins_with(key, DICT_PATH_PRIVATE);
+	if (pattern_ctx->private)
+		pattern_ctx->username = set->username;
+
+	const struct dict_ldap_map_settings *map = pattern_ctx->set =
+		ldap_dict_find_map(ctx, key, &pattern_ctx->values);
 
 	if (map != NULL) {
 		op->map = map;
+
+		static const struct var_expand_provider providers[] = {
+			{ "pattern", ldap_dict_pattern_expand },
+			{ NULL, NULL }
+		};
+
+		struct var_expand_table *table =
+			p_new(op->pool, struct var_expand_table, 2);
+		table[0].key = "user";
+		table[0].value = p_strdup(op->pool, set->username);
+
+		struct var_expand_params *params =
+			p_new(op->pool, struct var_expand_params, 1);
+		params->escape_func = ldap_escape;
+		params->providers = providers;
+		params->context = op;
+		params->table = table;
+		event_set_ptr(op->event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, params);
+		if (str_begins_with(key, DICT_PATH_PRIVATE))
+			event_add_str(op->event, "user", set->username);
+
+		struct dict_ldap_map_pre_settings *pre;
+		if (settings_get_filter(op->event, "dict_map", map->pattern,
+					&dict_ldap_map_pre_setting_parser_info,
+					0, &pre, &op->res.error) < 0) {
+
+			op->res.ret = -1;
+			callback(&op->res, context);
+			event_unref(&op->event);
+			pool_unref(&op->pool);
+			return;
+		}
+
 		/* build lookup */
 		i_zero(&input);
 		input.base_dn = map->base;
 		input.scope = map->parsed_scope;
-		if (!ldap_dict_build_query(set, map, &values, strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE))==0, query, &error)) {
-			op->res.error = error;
-			callback(&op->res, context);
-			event_unref(&op->event);
-			pool_unref(&oppool);
-			return;
-		}
-		input.filter = str_c(query);
+		input.filter = pre->filter;
 		/* Guaranteed to be NULL-terminated by
 		   dict_ldap_map_settings_postcheck() */
 		input.attributes = array_front(&map->values);
 		ctx->pending++;
 		ldap_search_start(ctx->client, &input, ldap_dict_lookup_callback, op);
+		settings_free(pre);
 	} else {
 		op->res.error = "no such key";
 		callback(&op->res, context);
