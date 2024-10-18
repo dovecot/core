@@ -29,7 +29,6 @@ static const struct setting_define dict_ldap_map_setting_defines[] = {
 	DEFN(ENUM, scope, ldap_scope),
 	DEF(STR, username_attribute),
 	DEF(BOOLLIST, values),
-	DEF(STRLIST, fields),
 	SETTING_DEFINE_LIST_END
 };
 
@@ -40,8 +39,6 @@ static const struct dict_ldap_map_settings dict_ldap_map_default_settings = {
 	.values = ARRAY_INIT,
 	.base = "",
 	.scope = "subtree:onelevel:base",
-	.fields = ARRAY_INIT,
-	.parsed_pattern_keys = ARRAY_INIT,
 };
 
 const struct setting_parser_info dict_ldap_map_setting_parser_info = {
@@ -109,25 +106,6 @@ dict_ldap_map_settings_postcheck(struct dict_ldap_map_settings *set,
 		array_pop_back(&set->values);
 	}
 
-	if (array_is_empty(&set->fields)) {
-		if (strchr(set->pattern, '$') != NULL) {
-			*error_r = "ldap_attributes missing for pattern variables";
-			return -1;
-		}
-		p_array_init(&set->fields, set->pool, 1);
-	} else {
-		unsigned int count;
-		const char *const *fields = array_get(&set->fields, &count);
-		for (unsigned index = 0; index < count; index += 2, fields += 2) {
-			if (**fields != '$') {
-				*error_r = t_strdup_printf(
-					"value not starting with '$' for attribute %s",
-					*fields);
-				return -1;
-			}
-		}
-	}
-
 	if (ldap_parse_scope(set->scope, &set->parsed_scope) < 0) {
 		*error_r = t_strdup_printf("Unknown ldap_scope: %s",
 					   set->scope);
@@ -164,32 +142,15 @@ static const char *pattern_read_name(const char **pattern)
 	return name;
 }
 
-static int
-dict_ldap_settings_parse_pattern(struct dict_ldap_map_settings *map,
-				 const char **error_r)
+static void dict_ldap_settings_parse_pattern(struct dict_ldap_map_settings *map)
 {
-	const char *attribute, *variable, *p;
-	unsigned int count, index;
-
-	const char **const fields = array_get_modifiable(&map->fields, &count);
-	p_array_init(&map->parsed_pattern_keys, map->pool, count / 2);
 	string_t *pattern = t_str_new(strlen(map->pattern) + 1);
-
-	for (index = 0; index < count; ) {
-		attribute = fields[index++];
-		variable = fields[index++];
-		if (*variable != '$') {
-			*error_r = t_strdup_printf(
-				"value not starting with '$' for attribute %s",
-				attribute);
-			return -1;
-		}
-	}
+	p_array_init(&map->parsed_pattern_keys, map->pool, 2);
 
 	/* go through the variables in the pattern, replace them with plain
-	   '$' character and add its ldap attribute */
+	   '$' character and add its key */
 
-	for (p = map->pattern; *p != '\0';) {
+	for (const char *p = map->pattern; *p != '\0';) {
 		if (*p != '$') {
 			str_append_c(pattern, *p);
 			p++;
@@ -198,37 +159,11 @@ dict_ldap_settings_parse_pattern(struct dict_ldap_map_settings *map,
 		p++;
 		str_append_c(pattern, '$');
 
-		const char *name = pattern_read_name(&p);
-		for (index = 0; index < count; ) {
-			attribute = fields[index++];
-			variable = fields[index++];
-			if (variable != NULL &&
-			    strcmp(variable, name) == 0)
-				break;
-		}
-		if (index == count) {
-			*error_r = t_strdup_printf(
-				"Missing LDAP attribute for variable: %s", name);
-			return -1;
-		}
-
-		/* mark this attribute as used */
-		array_push_back(&map->parsed_pattern_keys, &attribute);
-		variable = NULL;
-	}
-
-	/* make sure there aren't any unused attributes */
-	for (index = 1; index < count; index += 2) {
-		variable = fields[index];
-		if (variable != NULL) {
-			*error_r = t_strdup_printf("Unused variable: %s",
-						   variable);
-			return -1;
-		}
+		const char *key = p_strdup(map->pool, pattern_read_name(&p));
+		array_push_back(&map->parsed_pattern_keys, &key);
 	}
 
 	map->parsed_pattern = p_strdup(map->pool, str_c(pattern));
-	return 0;
 }
 
 static int
@@ -259,11 +194,7 @@ dict_ldap_settings_parse_maps(struct event *event, struct dict_ldap_settings *se
 			return -1;
 		}
 
-		if (dict_ldap_settings_parse_pattern(map, error_r) < 0) {
-			settings_free(map);
-			return -1;
-		}
-
+		dict_ldap_settings_parse_pattern(map);
 		pool_add_external_ref(set->pool, map->pool);
 		pool_t pool_copy = map->pool;
 		pool_unref(&pool_copy);

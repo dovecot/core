@@ -10,7 +10,6 @@ struct dict_ldap_map_settings {
 	ARRAY_TYPE(const_string) values;
 	const char *base;
 	const char *scope;
-	ARRAY_TYPE(const_string) fields;
 
 	/* parsed */
 
