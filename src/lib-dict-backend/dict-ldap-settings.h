@@ -5,8 +5,6 @@ struct dict_ldap_map_settings {
 	pool_t pool;
 
 	const char *pattern;
-	const char *filter;
-	const char *username_attribute;
 	ARRAY_TYPE(const_string) values;
 	const char *base;
 	const char *scope;
@@ -21,6 +19,11 @@ struct dict_ldap_map_settings {
 	const char *parsed_pattern;
 };
 
+struct dict_ldap_map_pre_settings {
+	pool_t pool;
+	const char *filter;
+};
+
 struct dict_ldap_settings {
 	pool_t pool;
 	ARRAY_TYPE(const_string) maps;
@@ -30,6 +33,7 @@ struct dict_ldap_settings {
 };
 
 extern const struct setting_parser_info dict_ldap_map_setting_parser_info;
+extern const struct setting_parser_info dict_ldap_map_pre_setting_parser_info;
 extern const struct setting_parser_info dict_ldap_setting_parser_info;
 
 int dict_ldap_settings_get(struct event *event,

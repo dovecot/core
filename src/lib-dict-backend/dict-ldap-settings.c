@@ -9,6 +9,7 @@
 #include "settings.h"
 #include "settings-parser.h"
 #include "dict-ldap-settings.h"
+#include "dict.h"
 
 #include <ctype.h>
 
@@ -25,17 +26,13 @@
 static const struct setting_define dict_ldap_map_setting_defines[] = {
 	DEF(STR, pattern),
 	DEFN(STR, base, ldap_base),
-	DEFN(STR, filter, ldap_filter),
 	DEFN(ENUM, scope, ldap_scope),
-	DEF(STR, username_attribute),
 	DEF(BOOLLIST, values),
 	SETTING_DEFINE_LIST_END
 };
 
 static const struct dict_ldap_map_settings dict_ldap_map_default_settings = {
 	.pattern = "",
-	.filter = "",
-	.username_attribute = "cn",
 	.values = ARRAY_INIT,
 	.base = "",
 	.scope = "subtree:onelevel:base",
@@ -49,6 +46,29 @@ const struct setting_parser_info dict_ldap_map_setting_parser_info = {
 
 	.struct_size = sizeof(struct dict_ldap_map_settings),
 	.pool_offset1 = 1 + offsetof(struct dict_ldap_map_settings, pool),
+};
+
+#undef DEFN
+#define DEFN(type, field, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, field, struct dict_ldap_map_pre_settings)
+
+static const struct setting_define dict_ldap_map_pre_setting_defines[] = {
+	DEFN(STR, filter, ldap_filter),
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct dict_ldap_map_pre_settings dict_ldap_map_pre_default_settings = {
+	.filter = "",
+};
+
+const struct setting_parser_info dict_ldap_map_pre_setting_parser_info = {
+	.name = "dict_ldap_map_pre",
+
+	.defines = dict_ldap_map_pre_setting_defines,
+	.defaults = &dict_ldap_map_pre_default_settings,
+
+	.struct_size = sizeof(struct dict_ldap_map_pre_settings),
+	.pool_offset1 = 1 + offsetof(struct dict_ldap_map_pre_settings, pool),
 };
 
 #undef DEF
@@ -77,24 +97,20 @@ const struct setting_parser_info dict_ldap_setting_parser_info = {
 
 static int
 dict_ldap_map_settings_postcheck(struct dict_ldap_map_settings *set,
-			     const char **error_r)
+				 struct dict_ldap_map_pre_settings *pre,
+				 const char **error_r)
 {
 	if (!str_begins_with(pre->filter, "(")) {
 		*error_r = "ldap_filter must start with '('";
 		return -1;
 	}
-	if (set->filter[strlen(set->filter) - 1]!= ')') {
+	if (!str_ends_with(pre->filter, ")")) {
 		*error_r = "ldap_filter must end with ')'";
 		return -1;
 	}
 
 	if (*set->pattern == '\0') {
 		*error_r = "ldap_map_pattern not set";
-		return -1;
-	}
-
-	if (*set->username_attribute == '\0') {
-		*error_r = "username_attribute not set";
 		return -1;
 	}
 
@@ -166,6 +182,13 @@ static void dict_ldap_settings_parse_pattern(struct dict_ldap_map_settings *map)
 	map->parsed_pattern = p_strdup(map->pool, str_c(pattern));
 }
 
+#define chain_ref(dst, src) \
+STMT_START { 				 \
+ 	pool_add_external_ref(dst, src); \
+	pool_t tmp = (src);              \
+	pool_unref(&tmp);                \
+} STMT_END
+
 static int
 dict_ldap_settings_parse_maps(struct event *event, struct dict_ldap_settings *set,
 			      const char **error_r)
@@ -179,26 +202,31 @@ dict_ldap_settings_parse_maps(struct event *event, struct dict_ldap_settings *se
 
 	const char *name;
 	array_foreach_elem(&set->maps, name) {
-		struct dict_ldap_map_settings *map;
+		struct dict_ldap_map_settings *map = NULL;
+		struct dict_ldap_map_pre_settings *pre = NULL;
 		if (settings_get_filter(event, "dict_map", name,
 					&dict_ldap_map_setting_parser_info,
-					SETTINGS_GET_FLAG_NO_EXPAND, &map,
-					error_r) < 0) {
+					0, &map, error_r) < 0 ||
+		    settings_get_filter(event, "dict_map", name,
+					&dict_ldap_map_pre_setting_parser_info,
+					SETTINGS_GET_FLAG_NO_EXPAND,
+					&pre, error_r) < 0) {
 			*error_r = t_strdup_printf("Failed to get dict_map %s: %s",
 						   name, *error_r);
+			settings_free(map);
+			settings_free(pre);
 			return -1;
 		}
 
-		if (dict_ldap_map_settings_postcheck(map, error_r) < 0) {
+		if (dict_ldap_map_settings_postcheck(map, pre, error_r) < 0) {
 			settings_free(map);
+			settings_free(pre);
 			return -1;
 		}
+		settings_free(pre);
 
 		dict_ldap_settings_parse_pattern(map);
-		pool_add_external_ref(set->pool, map->pool);
-		pool_t pool_copy = map->pool;
-		pool_unref(&pool_copy);
-
+		chain_ref(set->pool, map->pool);
 		array_push_back(&set->parsed_maps, map);
 	}
 
