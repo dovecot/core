@@ -162,10 +162,9 @@ http_client_host_shared_lookup(struct http_client_host_shared *hshared)
 		dns_set.dns_client_socket_path = cctx->dns_client_socket_path;
 		dns_set.timeout_msecs = cctx->dns_lookup_timeout_msecs;
 		dns_set.ioloop = cctx->ioloop;
-		dns_set.event_parent = hshared->event;
-		(void)dns_lookup(hshared->name, &dns_set,
-				 http_client_host_shared_dns_callback, hshared,
-				 &hshared->dns_lookup);
+		(void)dns_lookup(hshared->name, &dns_set, hshared->event,
+				 http_client_host_shared_dns_callback,
+				 hshared, &hshared->dns_lookup);
 	} else {
 		struct ip_addr *ips;
 		unsigned int ips_count;

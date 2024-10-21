@@ -46,7 +46,7 @@ static void test_dns_lua_common(const char *luascript)
 	struct settings_simple test_set;
 	settings_simple_init(&test_set, NULL);
 
-	struct dns_client *client = dns_client_init(&set);
+	struct dns_client *client = dns_client_init(&set, NULL);
 
 	struct dlua_script *script;
 	const char *error;

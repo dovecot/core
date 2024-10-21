@@ -272,13 +272,13 @@ static void dns_lookup_timeout(struct dns_lookup *lookup)
 }
 
 int dns_lookup(const char *host, const struct dns_client_settings *set,
-	       dns_lookup_callback_t *callback, void *context,
-	       struct dns_lookup **lookup_r)
+	       struct event *event_parent, dns_lookup_callback_t *callback,
+	       void *context, struct dns_lookup **lookup_r)
 {
 	struct dns_client *client;
 
 	i_assert(set->cache_ttl_secs == 0);
-	client = dns_client_init(set);
+	client = dns_client_init(set, event_parent);
 	client->deinit_client_at_free = TRUE;
 	return dns_client_lookup(client, host, client->conn.event, callback,
 				 context, lookup_r);
@@ -286,13 +286,14 @@ int dns_lookup(const char *host, const struct dns_client_settings *set,
 
 int dns_lookup_ptr(const struct ip_addr *ip,
 		   const struct dns_client_settings *set,
+		   struct event *event_parent,
 		   dns_lookup_callback_t *callback, void *context,
 		   struct dns_lookup **lookup_r)
 {
 	struct dns_client *client;
 
 	i_assert(set->cache_ttl_secs == 0);
-	client = dns_client_init(set);
+	client = dns_client_init(set, event_parent);
 	client->deinit_client_at_free = TRUE;
 	return dns_client_lookup_ptr(client, ip, client->conn.event,
 				     callback, context, lookup_r);
@@ -386,7 +387,8 @@ static const struct connection_settings dns_client_set = {
 	.client = TRUE,
 };
 
-struct dns_client *dns_client_init(const struct dns_client_settings *set)
+struct dns_client *dns_client_init(const struct dns_client_settings *set,
+				   struct event *event_parent)
 {
 	struct dns_client *client;
 
@@ -398,7 +400,7 @@ struct dns_client *dns_client_init(const struct dns_client_settings *set)
 	client->clist = connection_list_init(&dns_client_set, &dns_client_vfuncs);
 	client->ioloop = set->ioloop == NULL ? current_ioloop : set->ioloop;
 	client->path = i_strdup(set->dns_client_socket_path);
-	client->conn.event_parent=set->event_parent;
+	client->conn.event_parent = event_parent;
 	connection_init_client_unix(client->clist, &client->conn, client->path);
 	event_add_category(client->conn.event, &event_category_dns);
 	if (set->cache_ttl_secs > 0) {

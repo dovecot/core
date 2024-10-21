@@ -373,7 +373,7 @@ int main(int argc, char *argv[])
 
 	/* check if there is a DNS client */
 	if (access(dns_set.dns_client_socket_path, R_OK|W_OK) == 0) {
-		dns_client = dns_client_init(&dns_set);
+		dns_client = dns_client_init(&dns_set, NULL);
 
 		if (dns_client_connect(dns_client, &error) < 0)
 			i_fatal("Couldn't initialize DNS client: %s", error);

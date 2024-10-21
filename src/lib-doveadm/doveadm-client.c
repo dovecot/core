@@ -719,11 +719,10 @@ static int doveadm_client_dns_lookup(struct doveadm_client *conn,
 	i_zero(&dns_set);
 	dns_set.dns_client_socket_path = conn->set.dns_client_socket_path;
 	dns_set.timeout_msecs = DOVEADM_CLIENT_DNS_TIMEOUT_MSECS;
-	dns_set.event_parent = conn->conn.event;
 
 	ctx->conn = conn;
 
-	if (dns_lookup(conn->set.hostname, &dns_set,
+	if (dns_lookup(conn->set.hostname, &dns_set, conn->conn.event,
 		       doveadm_client_dns_lookup_callback, ctx,
 		       &conn->dns_lookup) != 0) {
 		*error_r = t_strdup(ctx->error);

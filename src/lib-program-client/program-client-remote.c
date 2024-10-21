@@ -532,8 +532,8 @@ static int program_client_net_connect_init(struct program_client *pclient)
 				pclient->params.dns_client_socket_path;
 			prclient->dns_set.timeout_msecs =
 				pclient->params.client_connect_timeout_msecs;
-			prclient->dns_set.event_parent = pclient->event;
 			(void)dns_lookup(prclient->address, &prclient->dns_set,
+					 pclient->event,
 					 program_client_net_connect_resolved,
 					 prclient, &prclient->lookup);
 			return 0;

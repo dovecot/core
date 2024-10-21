@@ -391,7 +391,7 @@ static void auth_init(struct auth *auth)
 	dns_set.idle_timeout_msecs = AUTH_DNS_IDLE_TIMEOUT_MSECS;
 	dns_set.cache_ttl_secs = AUTH_DNS_CACHE_TTL_SECS;
 
-	auth->dns_client = dns_client_init(&dns_set);
+	auth->dns_client = dns_client_init(&dns_set, NULL);
 }
 
 static void auth_deinit(struct auth *auth)

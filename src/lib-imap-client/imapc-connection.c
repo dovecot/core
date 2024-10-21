@@ -1955,7 +1955,6 @@ void imapc_connection_connect(struct imapc_connection *conn)
 	i_zero(&dns_set);
 	dns_set.dns_client_socket_path = conn->client->dns_client_socket_path;
 	dns_set.timeout_msecs = conn->client->set->imapc_connection_timeout_interval_msecs;
-	dns_set.event_parent = conn->event;
 
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_CONNECTING);
 	if (conn->ips_count > 0) {
@@ -1983,8 +1982,8 @@ void imapc_connection_connect(struct imapc_connection *conn)
 		memcpy(conn->ips, ips, ips_count * sizeof(*ips));
 	} else {
 		(void)dns_lookup(conn->client->set->imapc_host, &dns_set,
-				 imapc_connection_dns_callback, conn,
-				 &conn->dns_lookup);
+				 conn->event, imapc_connection_dns_callback,
+				 conn, &conn->dns_lookup);
 		return;
 	}
 	imapc_connection_connect_next_ip(conn);
