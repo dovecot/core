@@ -349,7 +349,7 @@ static void run_http_post(struct http_client *http_client, const char *url_str,
 int main(int argc, char *argv[])
 {
 	struct dns_client *dns_client;
-	struct dns_lookup_settings dns_set;
+	struct dns_client_settings dns_set;
 	struct http_client_settings http_set;
 	struct http_client_context *http_cctx;
 	struct http_client *http_client1, *http_client2, *http_client3, *http_client4;

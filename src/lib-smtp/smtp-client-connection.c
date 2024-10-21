@@ -1875,7 +1875,7 @@ smtp_client_connection_dns_callback(const struct dns_lookup_result *result,
 static void
 smtp_client_connection_lookup_ip(struct smtp_client_connection *conn)
 {
-	struct dns_lookup_settings dns_set;
+	struct dns_client_settings dns_set;
 	struct ip_addr *ips;
 	unsigned int ips_count;
 	int ret;

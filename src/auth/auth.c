@@ -376,7 +376,7 @@ static void auth_init(struct auth *auth)
 {
 	struct auth_passdb *passdb;
 	struct auth_userdb *userdb;
-	struct dns_lookup_settings dns_set;
+	struct dns_client_settings dns_set;
 
 	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next)
 		auth_passdb_init(passdb);

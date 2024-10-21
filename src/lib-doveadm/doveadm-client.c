@@ -714,7 +714,7 @@ static int doveadm_client_dns_lookup(struct doveadm_client *conn,
 {
 	struct doveadm_client_dns_lookup_context *ctx =
 		p_new(conn->pool, struct doveadm_client_dns_lookup_context, 1);
-	struct dns_lookup_settings dns_set;
+	struct dns_client_settings dns_set;
 
 	i_zero(&dns_set);
 	dns_set.dns_client_socket_path = conn->set.dns_client_socket_path;

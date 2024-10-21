@@ -251,7 +251,7 @@ struct program_client_remote {
 	struct program_client client;
 
 	const char *address;
-	struct dns_lookup_settings dns_set;
+	struct dns_client_settings dns_set;
 	struct dns_lookup *lookup;
 	unsigned int ips_count;
 	unsigned int ips_left;

@@ -143,7 +143,7 @@ static void
 http_client_host_shared_lookup(struct http_client_host_shared *hshared)
 {
 	struct http_client_context *cctx = hshared->cctx;
-	struct dns_lookup_settings dns_set;
+	struct dns_client_settings dns_set;
 	int ret;
 
 	i_assert(!hshared->explicit_ip);

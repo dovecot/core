@@ -241,7 +241,7 @@ static void pop3c_client_timeout(struct pop3c_client *client)
 
 static int pop3c_client_dns_lookup(struct pop3c_client *client)
 {
-	struct dns_lookup_settings dns_set;
+	struct dns_client_settings dns_set;
 
 	i_assert(client->state == POP3C_CLIENT_STATE_CONNECTING);
 

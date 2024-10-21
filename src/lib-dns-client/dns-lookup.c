@@ -271,7 +271,7 @@ static void dns_lookup_timeout(struct dns_lookup *lookup)
 		duration_msecs / 1000, duration_msecs % 1000));
 }
 
-int dns_lookup(const char *host, const struct dns_lookup_settings *set,
+int dns_lookup(const char *host, const struct dns_client_settings *set,
 	       dns_lookup_callback_t *callback, void *context,
 	       struct dns_lookup **lookup_r)
 {
@@ -285,7 +285,7 @@ int dns_lookup(const char *host, const struct dns_lookup_settings *set,
 }
 
 int dns_lookup_ptr(const struct ip_addr *ip,
-		   const struct dns_lookup_settings *set,
+		   const struct dns_client_settings *set,
 		   dns_lookup_callback_t *callback, void *context,
 		   struct dns_lookup **lookup_r)
 {
@@ -386,7 +386,7 @@ static const struct connection_settings dns_client_set = {
 	.client = TRUE,
 };
 
-struct dns_client *dns_client_init(const struct dns_lookup_settings *set)
+struct dns_client *dns_client_init(const struct dns_client_settings *set)
 {
 	struct dns_client *client;
 

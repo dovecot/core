@@ -1922,7 +1922,7 @@ imapc_connection_dns_callback(const struct dns_lookup_result *result,
 
 void imapc_connection_connect(struct imapc_connection *conn)
 {
-	struct dns_lookup_settings dns_set;
+	struct dns_client_settings dns_set;
 	struct ip_addr ip, *ips;
 	unsigned int ips_count;
 	int ret;

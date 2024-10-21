@@ -38,7 +38,7 @@ static void test_dns_lua_deinit(void)
 
 static void test_dns_lua_common(const char *luascript)
 {
-	const struct dns_lookup_settings set = {
+	const struct dns_client_settings set = {
 		.dns_client_socket_path = TEST_DNS_SERVER_SOCKET_PATH,
 		.timeout_msecs = 1000,
 	};
