@@ -240,6 +240,19 @@ o_stream_file_writev_full(struct file_ostream *fstream,
 		total_size += iov[i].iov_len;
 
 	o_stream_socket_cork(fstream);
+	if (fstream->no_delay_enabled && !fstream->ostream.corked) {
+		/* TCP_NODELAY is currently set, but stream isn't corked.
+		   Unset TCP_NODELAY to add delays. */
+		if (net_set_tcp_nodelay(fstream->fd, FALSE) < 0) {
+			/* We already successfully enabled TCP_NODELAY, so there
+			   shouldn't really be errors. Except ECONNRESET can
+			   possibly still happen between these two calls, so
+			   again don't log errors. */
+			fstream->no_socket_nodelay = TRUE;
+		}
+		fstream->no_delay_enabled = FALSE;
+	}
+
 	ret = fstream->writev(fstream, iov, iov_count, &error);
 	partial = ret != (ssize_t)total_size;
 
@@ -359,12 +372,8 @@ static void o_stream_tcp_flush_via_nodelay(struct file_ostream *fstream)
 		   Linux: ENOTSUP, ENOTSOCK, ENOPROTOOPT
 		   FreeBSD: EINVAL, ECONNRESET */
 		fstream->no_socket_nodelay = TRUE;
-	} else if (net_set_tcp_nodelay(fstream->fd, FALSE) < 0) {
-		/* We already successfully enabled TCP_NODELAY, so there
-		   shouldn't really be errors. Except ECONNRESET can possibly
-		   still happen between these two calls, so again don't log
-		   errors. */
-		fstream->no_socket_nodelay = TRUE;
+	} else {
+		fstream->no_delay_enabled = TRUE;
 	}
 }
 
@@ -402,10 +411,9 @@ static void o_stream_file_cork(struct ostream_private *stream, bool set)
 				fstream->no_socket_cork = TRUE;
 			fstream->socket_cork_set = FALSE;
 		}
-		if (!set && !fstream->no_socket_nodelay) {
-			/* Uncorking - send all the pending data immediately.
-			   Remove nodelay immediately afterwards, so if any
-			   output is sent outside corking it may get delayed. */
+		if (!set && !fstream->no_socket_nodelay &&
+		    !fstream->no_delay_enabled) {
+			/* Uncorking - send all the pending data immediately. */
 			o_stream_tcp_flush_via_nodelay(fstream);
 		}
 		if (!set && !fstream->no_socket_quickack) {
