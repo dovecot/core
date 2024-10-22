@@ -136,6 +136,7 @@ struct settings_apply_ctx {
 	const char *filter_value;
 	const char *filter_name;
 	bool filter_name_required;
+	bool seen_filter;
 
 	struct setting_parser_context *parser;
 	struct settings_mmap_pool *mpool;
@@ -786,7 +787,6 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 	/* So through the filters in reverse sorted order, so we always set the
 	   setting just once, never overriding anything. A filter for the base
 	   settings is expected to always exist. */
-	bool seen_filter = FALSE;
 	for (uint32_t i = block->filter_count; i > 0; ) {
 		i--;
 		uint32_t event_filter_idx = be32_to_cpu_unaligned(
@@ -823,7 +823,7 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 			}
 			filter_offset += strlen(filter_error) + 1;
 
-			if (ctx->filter_name != NULL && !seen_filter &&
+			if (ctx->filter_name != NULL && !ctx->seen_filter &&
 			    event_filter != EVENT_FILTER_MATCH_ALWAYS) {
 				bool op_not;
 				const char *value =
@@ -835,7 +835,7 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 				   removed wildcard escapes. */
 				if (value != NULL && !op_not &&
 				    strcmp(ctx->filter_name, value) == 0)
-					seen_filter = TRUE;
+					ctx->seen_filter = TRUE;
 			}
 
 			/* Apply overrides specific to this filter before the
@@ -852,7 +852,7 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 			if (ret < 0)
 				return -1;
 			if (ret > 0)
-				seen_filter = TRUE;
+				ctx->seen_filter = TRUE;
 
 			if (settings_mmap_apply_blob(ctx, block,
 					filter_offset, filter_end_offset,
@@ -860,7 +860,7 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 				return -1;
 		}
 	}
-	return seen_filter ? 1 : 0;
+	return ctx->seen_filter ? 1 : 0;
 
 }
 
