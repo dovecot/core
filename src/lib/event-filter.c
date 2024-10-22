@@ -302,6 +302,46 @@ const char *event_filter_find_field_exact(struct event_filter *filter,
 	return NULL;
 }
 
+static bool
+event_filter_node_has_field_prefix(struct event_filter_node *node,
+				   const char *key, const char *prefix)
+{
+	switch (node->op) {
+	case EVENT_FILTER_OP_CMP_EQ:
+		if (node->type == EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT &&
+		    strcmp(node->field.key, key) == 0 &&
+		    node->field.value_type == EVENT_FIELD_VALUE_TYPE_STR &&
+		    str_begins_with(node->field.value.str, prefix))
+			return TRUE;
+		break;
+	case EVENT_FILTER_OP_AND:
+	case EVENT_FILTER_OP_OR:
+		if (event_filter_node_has_field_prefix(
+				node->children[0], key, prefix) ||
+		    event_filter_node_has_field_prefix(
+				node->children[1], key, prefix))
+			return TRUE;
+		break;
+	case EVENT_FILTER_OP_NOT:
+		return FALSE;
+	default:
+		break;
+	}
+	return FALSE;
+}
+
+bool event_filter_has_field_prefix(struct event_filter *filter,
+				   const char *key, const char *prefix)
+{
+	const struct event_filter_query_internal *query;
+
+	array_foreach(&filter->queries, query) {
+		if (event_filter_node_has_field_prefix(query->expr, key, prefix))
+			return TRUE;
+	}
+	return FALSE;
+}
+
 bool event_filter_category_to_log_type(const char *name,
 				       enum event_filter_log_type *log_type_r)
 {
