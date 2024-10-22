@@ -910,7 +910,7 @@ static void ldap_set_options(struct ldap_connection *conn)
 
 	ldap_set_opt(conn->log_prefix, conn->ld, LDAP_OPT_PROTOCOL_VERSION,
 		     &conn->set->version, "ldap_version", dec2str(conn->set->version));
-	ldap_set_tls_options(conn->log_prefix, conn->set->starttls,
+	ldap_set_tls_options(conn->log_prefix, conn->ld, conn->set->starttls,
 			     conn->set->uris, conn->ssl_set);
 }
 
