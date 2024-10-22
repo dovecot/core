@@ -54,6 +54,9 @@ int event_filter_parse_case_sensitive(const char *str,
    found. This works only for string values. NOT key=value is not returned. */
 const char *event_filter_find_field_exact(struct event_filter *filter,
 					  const char *key, bool *op_not_r);
+/* Returns TRUE if the event filter has key=prefix prefix string. */
+bool event_filter_has_field_prefix(struct event_filter *filter,
+				   const char *key, const char *prefix);
 
 /* Returns TRUE if the event matches the event filter. */
 bool event_filter_match(struct event_filter *filter, struct event *event,
