@@ -152,11 +152,6 @@ mail_transaction_log_file_refresh(struct mail_index_transaction *t,
 		   transactions. */
 		if (mail_transaction_log_rotate(t->view->index->log, TRUE) < 0)
 			return -1;
-
-		if (!MAIL_INDEX_TRANSACTION_HAS_CHANGES(t)) {
-			/* we only wanted to reset */
-			return 0;
-		}
 	}
 	file = t->view->index->log->head;
 
@@ -166,7 +161,7 @@ mail_transaction_log_file_refresh(struct mail_index_transaction *t,
 
 	i_assert(file->sync_offset >= file->buffer_offset);
 	ctx->new_highest_modseq = file->sync_highest_modseq;
-	return 1;
+	return 0;
 }
 
 static int
@@ -191,7 +186,7 @@ mail_index_transaction_commit_real(struct mail_index_transaction *t,
 	if (mail_transaction_log_append_begin(log->index, trans_flags, &ctx) < 0)
 		return -1;
 	ret = mail_transaction_log_file_refresh(t, ctx);
-	if (ret > 0) T_BEGIN {
+	if (ret == 0) T_BEGIN {
 		mail_index_transaction_finish(t);
 		mail_index_transaction_export(t, ctx, changes_r);
 	} T_END;
