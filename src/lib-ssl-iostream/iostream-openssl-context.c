@@ -226,7 +226,9 @@ static int ssl_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
 		ret = 0;
 
 	if (ret != 0) {
+#ifdef HAVE_SSL_CTX_set_current_cert
 		SSL_CTX_select_current_cert(ctx, x);
+#endif
 		/* If we could set up our certificate, now proceed to
 		 * the CA certificates.
 		 */
@@ -253,7 +255,9 @@ static int ssl_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
 end:
 	if (x != NULL) X509_free(x);
 	BIO_free(in);
+#ifdef HAVE_SSL_CTX_set_current_cert
 	SSL_CTX_set_current_cert(ctx, SSL_CERT_SET_FIRST);
+#endif
 	return ret;
 }
 

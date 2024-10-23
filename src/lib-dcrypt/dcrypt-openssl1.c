@@ -122,10 +122,24 @@
 
 #if defined(HAVE_EVP_PKEY_get_raw_private_key) && defined(NID_X25519)
 #  define HAVE_X25519
-#  define IS_XD_CURVE(nid) \
+#  ifdef NID_X448
+#    define IS_XD_CURVE(nid)						\
 	((nid) == NID_X25519 || (nid) == NID_X448)
-# define IS_ED_CURVE(nid) \
+#  else
+#    define IS_XD_CURVE(nid)						\
+	((nid) == NID_X25519)
+#  endif
+#  ifdef NID_ED448
+#    define IS_ED_CURVE(nid)							\
 	((nid) == NID_ED25519 || (nid) == NID_ED448)
+#  else
+#    define IS_ED_CURVE(nid)						\
+	((nid) == NID_ED25519)
+#  endif
+#endif
+
+#if defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER >= 0x4000000fL
+#  define EVP_PKEY_check(ctx) (-2)
 #endif
 
 #if !defined(OBJ_chacha20_poly1305) && defined(LN_chacha20_poly1305)
@@ -1571,9 +1585,13 @@ static const struct jwk_to_ssl_map_entry {
 	{ .jwk_curve = "secp256k1", .nid = NID_secp256k1 },
 #ifdef HAVE_X25519
 	{ .jwk_curve = "Ed25519", .nid = NID_ED25519 },
+#  ifdef NID_ED448
 	{ .jwk_curve = "Ed448", .nid = NID_ED448 },
+#  endif
 	{ .jwk_curve = "X25519", .nid = NID_X25519 },
+#  ifdef NID_X448
 	{ .jwk_curve = "X448", .nid = NID_X448 },
+#  endif
 #endif
 	{ .jwk_curve = NULL, .nid = 0 }
 };
@@ -3601,14 +3619,16 @@ dcrypt_openssl_public_key_id_old(struct dcrypt_public_key *key,
 	}
 
 	int nid = EVP_PKEY_base_id(pub);
-	char *pub_pt_hex = NULL;
+	const char *pub_pt_hex = NULL;
+	char *pub_pt_hex_free = NULL;
 
 #ifdef HAVE_X25519
 	if (IS_XD_CURVE(nid)) {
 		unsigned char buf[128];
 		size_t len = sizeof(buf);
 		EVP_PKEY_get_raw_public_key(pub, buf, &len);
-		pub_pt_hex = OPENSSL_buf2hexstr(buf, len);
+		pub_pt_hex = pub_pt_hex_free =
+			binary_to_hex_ucase(buf, len);
 	} else
 #endif
 		if (nid == EVP_PKEY_EC) {
@@ -3623,7 +3643,10 @@ dcrypt_openssl_public_key_id_old(struct dcrypt_public_key *key,
 	/* digest this */
 	SHA256((const unsigned char*)pub_pt_hex, strlen(pub_pt_hex), buf);
 	buffer_append(result, buf, SHA256_DIGEST_LENGTH);
-	OPENSSL_free(pub_pt_hex);
+
+	/* XD curve uses binary_to_hex_ucase, no OPENSSL_free */
+	if (!IS_XD_CURVE(nid))
+		OPENSSL_free(pub_pt_hex);
 	return TRUE;
 }
 
@@ -3641,14 +3664,16 @@ dcrypt_openssl_private_key_id_old(struct dcrypt_private_key *key,
 	}
 
 	int nid = EVP_PKEY_base_id(priv);
-	char *pub_pt_hex = NULL;
+	const char *pub_pt_hex = NULL;
+	char *pub_pt_hex_free = NULL;
 
 #ifdef HAVE_X25519
 	if (IS_XD_CURVE(nid)) {
 		unsigned char buf[128];
 		size_t len = sizeof(buf);
 		EVP_PKEY_get_raw_public_key(priv, buf, &len);
-		pub_pt_hex = OPENSSL_buf2hexstr(buf, len);
+		pub_pt_hex = pub_pt_hex_free =
+			binary_to_hex_ucase(buf, len);
 	} else
 #endif
 		if (nid == EVP_PKEY_EC) {
@@ -3663,7 +3688,10 @@ dcrypt_openssl_private_key_id_old(struct dcrypt_private_key *key,
 	/* digest this */
 	SHA256((const unsigned char*)pub_pt_hex, strlen(pub_pt_hex), buf);
 	buffer_append(result, buf, SHA256_DIGEST_LENGTH);
-	OPENSSL_free(pub_pt_hex);
+
+	/* XD curve uses binary_to_hex_ucase, no OPENSSL_free */
+	if (!IS_XD_CURVE(nid))
+		OPENSSL_free(pub_pt_hex_free);
 	return TRUE;
 }
 
@@ -3872,8 +3900,11 @@ dcrypt_openssl_sign(struct dcrypt_private_key *key, const char *algorithm,
 	}
 
 #ifdef HAVE_X25519
-	if (EVP_PKEY_base_id(key->key) == NID_ED25519 ||
-	    EVP_PKEY_base_id(key->key) == NID_ED448)
+	if (EVP_PKEY_base_id(key->key) == NID_ED25519
+#  ifdef NID_ED448
+		|| EVP_PKEY_base_id(key->key) == NID_ED448
+#  endif
+        )
 		md = NULL;
 #endif
 
@@ -3996,8 +4027,11 @@ dcrypt_openssl_verify(struct dcrypt_public_key *key, const char *algorithm,
 	}
 
 #ifdef HAVE_X25519
-	if (EVP_PKEY_base_id(key->key) == NID_ED25519 ||
-	    EVP_PKEY_base_id(key->key) == NID_ED448)
+	if (EVP_PKEY_base_id(key->key) == NID_ED25519
+#  ifdef NID_ED448
+		|| EVP_PKEY_base_id(key->key) == NID_ED448
+#  endif
+        )
 		md = NULL;
 #endif
 
