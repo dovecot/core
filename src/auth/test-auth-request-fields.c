@@ -1,6 +1,7 @@
 /* Copyright (c) 2020 Dovecot authors, see the included COPYING file */
 
 #include "test-auth.h"
+#include "auth-common.h"
 #include "str.h"
 #include "strescape.h"
 #include "auth-request.h"
@@ -48,11 +49,13 @@ test_auth_request_init(const struct mech_module *mech)
 {
 	struct auth_request *request;
 	pool_t pool = pool_alloconly_create("test auth request", 1024);
-
 	request = p_new(pool, struct auth_request, 1);
 	request->pool = pool;
 	request->event = event_create(NULL);
 	request->mech = mech;
+	request->set = global_auth_settings;
+	request->refcount = 1;
+	p_array_init(&request->authdb_event, pool, 1);
 	auth_request_fields_init(request);
 
 	/* fill out fields that are always exported */
@@ -138,10 +141,38 @@ static void test_auth_request_fields_secured(void)
 	test_auth_request_deinit(request);
 }
 
+static void test_auth_request_export_import(void)
+{
+	struct auth_request *request_a = test_auth_request_init(mech_module_find("PLAIN"));
+	string_t *exported_a = t_str_new(128);
+	string_t *exported_b = t_str_new(128);
+	request_a->passdb_success = TRUE;
+	auth_request_set_field(request_a, "event_brand with fun = \" values", "this = has _ fun \t values \"", "PLAIN");
+	auth_request_export(request_a, exported_a);
+	test_auth_request_deinit(request_a);
+
+	/* then import it */
+	struct auth_request *request_b = test_auth_request_init(mech_module_find("PLAIN"));
+	const char *const *args = t_strsplit_tabescaped(str_c(exported_a));
+	for (; *args != NULL; args++) {
+		const char *value = strchr(*args, '=');
+		if (value == NULL)
+			(void)auth_request_import(request_b, *args, "");
+		else {
+			const char *key = t_strdup_until(*args, value++);
+			(void)auth_request_import(request_b, key, value);
+		}
+	}
+	auth_request_export(request_b, exported_b);
+	test_auth_request_deinit(request_b);
+	test_assert_strcmp(str_c(exported_a), str_c(exported_b));
+}
+
 void test_auth_request_fields(void)
 {
 	test_begin("auth request fields");
 	test_auth_request_fields_list();
 	test_auth_request_fields_secured();
+	test_auth_request_export_import();
 	test_end();
 }

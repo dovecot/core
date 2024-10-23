@@ -5,6 +5,7 @@
 #include "auth-settings.h"
 #include "test-common.h"
 #include "test-auth.h"
+#include "auth-common.h"
 #include "password-scheme.h"
 #include "passdb.h"
 
@@ -31,6 +32,7 @@ int main(int argc, char *argv[])
 		service_flags, &argc, &argv, "");
 	master_service_init_finish(master_service);
 
+	auth_event = event_create(NULL);
 	password_schemes_init();
 	passdbs_init();
 	passdb_mock_mod_init();
@@ -43,6 +45,7 @@ int main(int argc, char *argv[])
 	passdb_mock_mod_deinit();
 	password_schemes_deinit();
 	passdbs_deinit();
+	event_unref(&auth_event);
 
 	master_service_deinit(&master_service);
 
