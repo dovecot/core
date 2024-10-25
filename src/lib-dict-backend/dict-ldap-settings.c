@@ -15,6 +15,10 @@
 
 /* <settings checks> */
 #include "ldap-settings-parse.h"
+
+static bool
+dict_ldap_map_settings_post_check(void *set, pool_t pool, const char **error_r);
+
 /* </settings checks> */
 
 #undef DEF
@@ -27,13 +31,11 @@ static const struct setting_define dict_ldap_map_setting_defines[] = {
 	DEF(STR, pattern),
 	DEFN(STR, base, ldap_base),
 	DEFN(ENUM, scope, ldap_scope),
-	DEF(BOOLLIST, values),
 	SETTING_DEFINE_LIST_END
 };
 
 static const struct dict_ldap_map_settings dict_ldap_map_default_settings = {
 	.pattern = "",
-	.values = ARRAY_INIT,
 	.base = "",
 	.scope = "subtree:onelevel:base",
 };
@@ -73,6 +75,30 @@ const struct setting_parser_info dict_ldap_map_pre_setting_parser_info = {
 
 #undef DEF
 #define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("dict_map_"#name, name, struct dict_ldap_map_post_settings)
+
+static const struct setting_define dict_ldap_map_post_setting_defines[] = {
+	DEF(STR, value),
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct dict_ldap_map_post_settings dict_ldap_map_post_default_settings = {
+	.value = "",
+};
+
+const struct setting_parser_info dict_ldap_map_post_setting_parser_info = {
+	.name = "dict_ldap_map_post",
+
+	.defines = dict_ldap_map_post_setting_defines,
+	.defaults = &dict_ldap_map_post_default_settings,
+	.check_func = dict_ldap_map_settings_post_check,
+
+	.struct_size = sizeof(struct dict_ldap_map_post_settings),
+	.pool_offset1 = 1 + offsetof(struct dict_ldap_map_post_settings, pool),
+};
+
+#undef DEF
+#define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type("ldap_"#name, name, struct dict_ldap_settings)
 static const struct setting_define dict_ldap_setting_defines[] = {
 	{ .type = SET_FILTER_ARRAY, .key = "dict_map",
@@ -95,9 +121,57 @@ const struct setting_parser_info dict_ldap_setting_parser_info = {
 	.pool_offset1 = 1 + offsetof(struct dict_ldap_settings, pool),
 };
 
+/* <settings checks> */
+
+static bool
+dict_ldap_map_settings_post_check(void *_set, pool_t pool,
+				  const char **error_r ATTR_UNUSED)
+{
+	struct dict_ldap_map_post_settings *set = _set;
+	p_array_init(&set->values, pool, 1);
+	if (*set->value != '\0')
+		array_push_back(&set->values, &set->value);
+	return TRUE;
+}
+
+/* </settings checks> */
+
+static int ldap_parse_attributes(struct dict_ldap_map_settings *set,
+				 struct dict_ldap_map_post_settings *post,
+				 const char **error_r)
+{
+	const char *value;
+	p_array_init(&set->parsed_attributes, set->pool, 2);
+	array_foreach_elem(&post->values, value) {
+		struct var_expand_program *prog;
+
+		if (var_expand_program_create(value, &prog, error_r) < 0) {
+			*error_r = t_strdup_printf("Invalid ldap_map_value %s: %s",
+						   value, *error_r);
+			return -1;
+		}
+
+		const char *const *vars = var_expand_program_variables(prog);
+		for (; *vars != NULL; vars++) {
+			const char *ldap_attr;
+			if (!str_begins(*vars, "ldap:", &ldap_attr) &&
+			    !str_begins(*vars, "ldap_multi:", &ldap_attr))
+			    	continue;
+
+			/* When we free program, this name would be invalid,
+			   so dup it here. */
+			ldap_attr = p_strdup(set->pool, ldap_attr);
+			array_push_back(&set->parsed_attributes, &ldap_attr);
+		}
+		var_expand_program_free(&prog);
+	}
+	return 0;
+}
+
 static int
 dict_ldap_map_settings_postcheck(struct dict_ldap_map_settings *set,
 				 struct dict_ldap_map_pre_settings *pre,
+				 struct dict_ldap_map_post_settings *post,
 				 const char **error_r)
 {
 	if (!str_begins_with(pre->filter, "(")) {
@@ -114,12 +188,9 @@ dict_ldap_map_settings_postcheck(struct dict_ldap_map_settings *set,
 		return -1;
 	}
 
-	if (array_is_empty(&set->values)) {
+	if (array_is_empty(&post->values)) {
 		*error_r = "ldap_map_value not set";
 		return -1;
-	} else {
-		array_append_zero(&set->values);
-		array_pop_back(&set->values);
 	}
 
 	if (ldap_parse_scope(set->scope, &set->parsed_scope) < 0) {
@@ -128,7 +199,7 @@ dict_ldap_map_settings_postcheck(struct dict_ldap_map_settings *set,
 		return -1;
 	}
 
-	return 0;
+	return ldap_parse_attributes(set, post, error_r);
 }
 
 static const char *pattern_read_name(const char **pattern)
@@ -204,26 +275,34 @@ dict_ldap_settings_parse_maps(struct event *event, struct dict_ldap_settings *se
 	array_foreach_elem(&set->maps, name) {
 		struct dict_ldap_map_settings *map = NULL;
 		struct dict_ldap_map_pre_settings *pre = NULL;
+		struct dict_ldap_map_post_settings *post = NULL;
 		if (settings_get_filter(event, "dict_map", name,
 					&dict_ldap_map_setting_parser_info,
 					0, &map, error_r) < 0 ||
 		    settings_get_filter(event, "dict_map", name,
 					&dict_ldap_map_pre_setting_parser_info,
 					SETTINGS_GET_FLAG_NO_EXPAND,
-					&pre, error_r) < 0) {
+					&pre, error_r) < 0 ||
+		    settings_get_filter(event, "dict_map", name,
+					&dict_ldap_map_post_setting_parser_info,
+					SETTINGS_GET_FLAG_NO_EXPAND,
+					&post, error_r) < 0) {
 			*error_r = t_strdup_printf("Failed to get dict_map %s: %s",
 						   name, *error_r);
 			settings_free(map);
 			settings_free(pre);
+			settings_free(post);
 			return -1;
 		}
 
-		if (dict_ldap_map_settings_postcheck(map, pre, error_r) < 0) {
+		if (dict_ldap_map_settings_postcheck(map, pre, post, error_r) < 0) {
 			settings_free(map);
 			settings_free(pre);
+			settings_free(post);
 			return -1;
 		}
 		settings_free(pre);
+		settings_free(post);
 
 		dict_ldap_settings_parse_pattern(map);
 		chain_ref(set->pool, map->pool);
