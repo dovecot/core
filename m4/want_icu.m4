@@ -2,7 +2,7 @@ AC_DEFUN([DOVECOT_WANT_ICU], [
   have_icu=no
 
   AS_IF([test "$want_icu" != "no"], [
-    PKG_CHECK_MODULES([LIBICU], [icu-i18n], [have_icu=yes], [
+    PKG_CHECK_MODULES([LIBICU], [icu-i18n icu-uc], [have_icu=yes], [
       have_icu=no
 
       AS_IF([test "$want_icu" = "yes"], [
