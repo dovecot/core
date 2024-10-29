@@ -1432,6 +1432,10 @@ void client_input(struct client *client)
 		cmd->param_error = TRUE;
 		client_send_command_error(cmd, "Too long argument.");
 		client_command_free(&cmd);
+
+		/* We may have delayed syncing previous commands to handle this
+		   one. Do it now to avoid hanging. */
+		(void)cmd_sync_delayed(client);
 	}
 	o_stream_uncork(output);
 	o_stream_unref(&output);
