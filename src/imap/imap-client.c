@@ -1190,6 +1190,13 @@ static bool client_skip_line(struct client *client)
 	}
 
 	i_stream_skip(client->input, i);
+	if (i > 0) {
+		/* We can be here if an earlier i_stream_read() has returned -2.
+		   If there are multiple istreams layers, there might already
+		   be input buffered in the istream. Make sure we finish
+		   emptying the istream buffers so we don't hang. */
+		i_stream_set_input_pending(client->input, TRUE);
+	}
 	return !client->input_skip_line;
 }
 
