@@ -227,6 +227,13 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 			return -2;
 		}
 		stream->buffer = stream->w_buffer;
+		if (size < new_bytes_count) {
+			/* Everything couldn't be added to the concat-istream's
+			   buffer. However, parent istream still contains data
+			   in its buffer and it might not be receiving more.
+			   Make sure the istream won't hang. */
+			i_stream_set_input_pending(&stream->istream, TRUE);
+		}
 
 		/* we'll copy all the new input to w_buffer. if we skip over
 		   prev_stream_left bytes, the next read will switch to
