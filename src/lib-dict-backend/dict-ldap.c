@@ -195,25 +195,24 @@ void ldap_dict_deinit(struct dict *dict)
 	pool_unref(&ctx->pool);
 }
 
-static void ldap_dict_wait(struct dict *dict)
+static void ldap_dict_wait(struct dict *_dict)
 {
-	struct ldap_dict *ctx = (struct ldap_dict *)dict;
+	struct ldap_dict *dict = (struct ldap_dict *)_dict;
 
-	i_assert(ctx->dict.ioloop == NULL);
+	i_assert(dict->dict.ioloop == NULL);
 
-	ctx->dict.prev_ioloop = current_ioloop;
-	ctx->dict.ioloop = io_loop_create();
-	dict_switch_ioloop(dict);
+	dict->dict.prev_ioloop = current_ioloop;
+	dict->dict.ioloop = io_loop_create();
+	dict_switch_ioloop(&dict->dict);
 
-	while (ctx->pending > 0) {
+	while (dict->pending > 0)
 		io_loop_run(current_ioloop);
-	}
 
-	io_loop_set_current(ctx->dict.prev_ioloop);
-	dict_switch_ioloop(dict);
-	io_loop_set_current(ctx->dict.ioloop);
-	io_loop_destroy(&ctx->dict.ioloop);
-	ctx->dict.prev_ioloop = NULL;
+	io_loop_set_current(dict->dict.prev_ioloop);
+	dict_switch_ioloop(&dict->dict);
+	io_loop_set_current(dict->dict.ioloop);
+	io_loop_destroy(&dict->dict.ioloop);
+	dict->dict.prev_ioloop = NULL;
 }
 
 static bool ldap_dict_switch_ioloop(struct dict *dict)
