@@ -185,14 +185,14 @@ int ldap_dict_init(const struct dict *dict_driver, struct event *event,
 }
 
 static
-void ldap_dict_deinit(struct dict *dict)
+void ldap_dict_deinit(struct dict *_dict)
 {
-	struct ldap_dict *ctx = (struct ldap_dict *)dict;
+	struct ldap_dict *dict = (struct ldap_dict *)_dict;
 
-	ldap_client_deinit(&ctx->client);
+	ldap_client_deinit(&dict->client);
 	event_unref(&dict->event);
-	settings_free(ctx->set);
-	pool_unref(&ctx->pool);
+	settings_free(dict->set);
+	pool_unref(&dict->pool);
 }
 
 static void ldap_dict_wait(struct dict *_dict)
