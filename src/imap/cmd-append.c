@@ -111,15 +111,17 @@ static void client_input_append(struct client_command_context *cmd)
 			client_send_command_error(cmd, "Too long argument.");
 		cmd->param_error = TRUE;
 		client_command_free(&cmd);
-		return;
+		break;
+	default:
+		o_stream_cork(client->output);
+		finished = command_exec(cmd);
+		if (!finished)
+			(void)client_handle_unfinished_cmd(cmd);
+		else
+			client_command_free(&cmd);
+		break;
 	}
 
-	o_stream_cork(client->output);
-	finished = command_exec(cmd);
-	if (!finished)
-		(void)client_handle_unfinished_cmd(cmd);
-	else
-		client_command_free(&cmd);
 	cmd_sync_delayed(client);
 	o_stream_uncork(client->output);
 
