@@ -1115,7 +1115,8 @@ int main(int argc, char *argv[])
 		setting_name_filters = argv+optind;
 		if (scope == CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN)
 			scope = CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN;
-		flags |= CONFIG_PARSE_FLAG_PREFIXES_IN_FILTERS;
+		flags |= CONFIG_PARSE_FLAG_PREFIXES_IN_FILTERS |
+			CONFIG_PARSE_FLAG_MERGE_GROUP_FILTERS;
 	} else if (!simple_output) {
 		/* print the config file path before parsing it, so in case
 		   of errors it's still shown */

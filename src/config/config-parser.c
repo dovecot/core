@@ -1829,8 +1829,8 @@ config_parse_line(struct config_parser_context *ctx,
 	}
 }
 
-static bool
-group_has_name(struct config_include_group_filters *group, const char *name)
+static struct config_filter_parser *
+group_find_name(struct config_include_group_filters *group, const char *name)
 {
 	struct config_filter_parser *filter;
 
@@ -1839,13 +1839,103 @@ group_has_name(struct config_include_group_filters *group, const char *name)
 			i_strchr_to_next(filter->filter.filter_name, '/');
 		i_assert(filter_name != NULL);
 		if (strcmp(filter_name, name) == 0)
-			return TRUE;
+			return filter;
 	}
-	return FALSE;
+	return NULL;
+}
+
+static void config_module_parsers_merge(struct config_module_parser *dest,
+					const struct config_module_parser *src)
+{
+	for (; dest->info != NULL; dest++, src++) {
+		i_assert(dest->info == src->info);
+		if (dest->set_count == 0) {
+			/* destination is empty - just copy the whole src */
+			*dest = *src;
+			continue;
+		}
+		if (src->set_count == 0) {
+			/* source is empty - nothing to do */
+			continue;
+		}
+		i_assert(dest->set_count == src->set_count);
+
+		if (dest->delayed_error != NULL) {
+			/* already failed */
+			continue;
+		}
+		if (src->delayed_error != NULL) {
+			/* copy the failure */
+			dest->delayed_error = src->delayed_error;
+			continue;
+		}
+
+		/* copy settings that have changed in source, but not in dest */
+		for (unsigned int i = 0; i < src->set_count; i++) {
+			if (src->change_counters[i] != 0 &&
+			    dest->change_counters[i] == 0) {
+				dest->settings[i] = src->settings[i];
+				dest->change_counters[i] = src->change_counters[i];
+			}
+		}
+	}
+	i_assert(src->info == NULL);
+}
+
+static struct config_filter_parser *
+config_filters_find_child(struct config_filter_parser *parent,
+			  const struct config_filter *wanted_filter)
+{
+	struct config_filter_parser *filter;
+
+	for (filter = parent->children_head; filter != NULL; filter = filter->next) {
+		if (config_filters_equal_no_recursion(&filter->filter, wanted_filter))
+			return filter;
+	}
+	return NULL;
+}
+
+static void
+config_filters_merge_tree(struct config_parser_context *ctx,
+			  struct config_filter_parser *dest_parent,
+			  const struct config_filter_parser *src_parent)
+{
+	const struct config_filter_parser *src;
+	struct config_filter_parser *dest;
+
+	i_assert(array_is_empty(&src_parent->include_groups));
+	for (src = src_parent->children_head; src != NULL; src = src->next) {
+		dest = config_filters_find_child(dest_parent, &src->filter);
+		if (dest == NULL) {
+			dest = config_add_new_parser(ctx, &src->filter,
+						     dest_parent);
+		}
+		config_module_parsers_merge(dest->module_parsers,
+					    src->module_parsers);
+		config_filters_merge_tree(ctx, dest, src);
+	}
+}
+
+static void config_filters_merge(struct config_parser_context *ctx,
+				 struct config_parsed *config,
+				 struct config_filter_parser *dest_filter,
+				 const struct config_filter_parser *src_filter)
+{
+	i_assert(array_is_empty(&src_filter->include_groups));
+
+	config_module_parsers_merge(dest_filter->module_parsers,
+				    src_filter->module_parsers);
+	config_filters_merge_tree(ctx, dest_filter, src_filter);
+
+	array_append_zero(&ctx->all_filter_parsers);
+	array_pop_back(&ctx->all_filter_parsers);
+	config->filter_parsers = array_front(&ctx->all_filter_parsers);
 }
 
 static int
-config_parse_finish_includes(struct config_parsed *config, const char **error_r)
+config_parse_finish_includes(struct config_parser_context *ctx,
+			     struct config_parsed *config, bool expand,
+			     const char **error_r)
 {
 	hash_table_create(&config->include_groups, config->pool, 0,
 			  str_hash, strcmp);
@@ -1898,7 +1988,10 @@ config_parse_finish_includes(struct config_parsed *config, const char **error_r)
 					include_group->label);
 				return -1;
 			}
-			if (!group_has_name(group, include_group->name)) {
+
+			struct config_filter_parser *include_filter =
+				group_find_name(group, include_group->name);
+			if (include_filter == NULL) {
 				*error_r = t_strdup_printf(
 					"Error in configuration file %s line %d: "
 					"Unknown group @%s=%s",
@@ -1908,7 +2001,13 @@ config_parse_finish_includes(struct config_parsed *config, const char **error_r)
 					include_group->name);
 				return -1;
 			}
+			if (expand) {
+				config_filters_merge(ctx, config, filter,
+						     include_filter);
+			}
 		}
+		if (expand)
+			array_free(&filter->include_groups);
 	}
 	return 0;
 }
@@ -1989,8 +2088,11 @@ config_parse_finish(struct config_parser_context *ctx,
 	new_config->filter_parsers = array_front(&ctx->all_filter_parsers);
 	new_config->module_parsers = ctx->root_module_parsers;
 
-	if (ret == 0)
-		ret = config_parse_finish_includes(new_config, error_r);
+	if (ret == 0) {
+		ret = config_parse_finish_includes(ctx, new_config,
+			(flags & CONFIG_PARSE_FLAG_MERGE_GROUP_FILTERS) != 0,
+			error_r);
+	}
 
 	if (ret < 0)
 		;
