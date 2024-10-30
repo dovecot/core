@@ -35,7 +35,7 @@ test_programs += \
 	test-dns-lua
 endif
 
-libdlua_la_LIBADD = $(WITH_YIELDS_LUA)
+libdlua_la_LIBADD = $(WITH_YIELDS_LUA) $(LUA_LIBS)
 libdlua_la_DEPENDENCIES = $(WITH_YIELDS_LUA)
 
 pkglib_LTLIBRARIES = libdovecot-lua.la
@@ -46,8 +46,7 @@ libdovecot_lua_la_DEPENDENCIES = \
 	$(LIBDOVECOT_DEPS)
 libdovecot_lua_la_LIBADD = \
 	libdlua.la \
-	$(LIBDOVECOT) \
-	$(LUA_LIBS)
+	$(LIBDOVECOT)
 libdovecot_lua_la_LDFLAGS = -export-dynamic
 
 headers = \
