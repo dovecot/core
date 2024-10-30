@@ -94,9 +94,8 @@ bool config_filter_match(const struct config_filter *mask,
 	return mask == NULL && filter == NULL;
 }
 
-static bool
-config_filters_equal_without_defaults(const struct config_filter *f1,
-				      const struct config_filter *f2)
+bool config_filters_equal_no_recursion(const struct config_filter *f1,
+				       const struct config_filter *f2)
 {
 	if (null_strcmp(f1->service, f2->service) != 0)
 		return FALSE;
@@ -117,6 +116,15 @@ config_filters_equal_without_defaults(const struct config_filter *f1,
 	if (null_strcmp(f1->filter_name, f2->filter_name) != 0)
 		return FALSE;
 	if (f1->filter_name_array != f2->filter_name_array)
+		return FALSE;
+	return TRUE;
+}
+
+static bool
+config_filters_equal_without_defaults(const struct config_filter *f1,
+				      const struct config_filter *f2)
+{
+	if (!config_filters_equal_no_recursion(f1, f2))
 		return FALSE;
 	if (f1->parent != NULL || f2->parent != NULL) {
 		/* Check the parents' compatibility also. However, it's
