@@ -31,6 +31,9 @@ enum config_parse_flags {
 	   is stored under filter_name { filter_name_key }. This makes the
 	   output nicer for the human-readable doveconf. */
 	CONFIG_PARSE_FLAG_PREFIXES_IN_FILTERS = BIT(7),
+	/* Expand include @groups after parsing settings. This can be useful
+	   for doveconf output. */
+	CONFIG_PARSE_FLAG_MERGE_GROUP_FILTERS = BIT(8),
 };
 
 /* Used to track changed settings for a setting_parser_info. Initially only
