@@ -398,20 +398,30 @@ static void test_bad_settings(void)
 
 	int ret = dlua_pcall(script->L, "test_invalid_set_name", 0, 0, &error);
 	test_assert(ret < 0);
+	error = t_strcut(error, '\n');
 	/* check the error is there */
-	test_assert(strstr(error, "Invalid HTTP client setting: timeout is unknown setting") != NULL);
+	test_assert_strcmp(error, "lua_pcall(test_invalid_set_name, 0, 0) failed: "
+				  "Invalid HTTP client setting: timeout is unknown setting");
 
 	ret = dlua_pcall(script->L, "test_invalid_set_value_1", 0, 0, &error);
 	test_assert(ret < 0);
-	test_assert(strstr(error, "Invalid HTTP client setting: auto_retry: boolean expected") != NULL);
+	error = t_strcut(error, '\n');
+	test_assert_strcmp(error, "lua_pcall(test_invalid_set_value_1, 0, 0) failed: "
+				  "Invalid HTTP client setting: auto_retry=cow: Invalid boolean value: cow (use yes or no)");
 
 	ret = dlua_pcall(script->L, "test_invalid_set_value_2", 0, 0, &error);
 	test_assert(ret < 0);
-	test_assert(strstr(error, "Invalid HTTP client setting: request_max_attempts: non-negative number expected") != NULL);
+	error = t_strcut(error, '\n');
+	test_assert_strcmp(error, "lua_pcall(test_invalid_set_value_2, 0, 0) failed: "
+				  "Invalid HTTP client setting: request_max_attempts=three: Invalid number three: Not a valid number");
 
+	/* This needs a bit more roundabout way to check this as SSL settings
+	   are lazily evaluated. */
 	ret = dlua_pcall(script->L, "test_invalid_set_value_3", 0, 0, &error);
-	test_assert(ret < 0);
-	test_assert(strstr(error, "Invalid HTTP client setting: user_agent: string expected") != NULL);
+	lua_pushstring(script->L, "https://localhost");
+	ret = dlua_pcall(script->L, "http_request_post", 1, 2, &error);
+	error = lua_tostring(script->L, 2);
+	test_assert_strcmp(error, "Couldn't initialize SSL client context: Unknown ssl_min_protocol setting 'cow'");
 
 	dlua_script_unref(&script);
 
