@@ -146,6 +146,7 @@
    fun:pool_system_malloc
    fun:p_malloc
    fun:o_stream_create_fd_common
+   ...
    fun:fatal_ostream_file
    ...
 }
