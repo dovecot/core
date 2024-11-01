@@ -9,10 +9,10 @@ function http_request_post(url)
 
   request:add_header("Cache-Control", "no-cache")
   request:add_header("Content-Type", "application/x-www-form-urlencoded")
-  request:set_payload("some+foolish+payload+for+funsies", true)
+  request:set_payload("some+foolish+payload+for+funsies\r\n", true)
   local response = request:submit()
 
-  e = dovecot.event()
+  local e = dovecot.event()
 
   local status = response:status()
   if status ~= 200 then
@@ -39,7 +39,8 @@ function script_init()
     connect_timeout_msecs = 2000,
     request_timeout_msecs = 5000,
     request_absolute_timeout_msecs = 45000,
-    dns_client_socket_path = "./dns-test"
+    dns_client_socket_path = "./dns-test",
+    user_agent = "dovecot/unit-test",
   })
   return 0
 end

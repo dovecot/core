@@ -19,6 +19,7 @@
 #include "http-client.h"
 #include "test-common.h"
 #include "test-subprocess.h"
+#include "http-client.h"
 #include "dlua-script-private.h"
 
 #include <unistd.h>
@@ -134,9 +135,11 @@ static void test_dns_simple_post(void)
 /* server */
 
 struct _simple_post_sctx {
-	bool eoh;
 	struct timeout *to;
-	bool serviced;
+	bool serviced:1;
+	bool eoh:1;
+	bool agent_checked:1;
+	bool post_checked:1;
 };
 
 static int test_server_simple_post_init(struct server_connection *conn)
@@ -171,10 +174,22 @@ static void test_server_simple_post_input(struct server_connection *conn)
 	}
 
 	while ((line = i_stream_read_next_line(conn->conn.input)) != NULL) {
+		const char *agent;
 		if (*line == '\0') {
 			ctx->eoh = TRUE;
-			break;
+			o_stream_nsend_str(conn->conn.output, "HTTP/1.1 100 OK\r\n\r\n");
+			return;
 		}
+		if (!ctx->post_checked) {
+			test_assert(str_begins_with(line, "POST /"));
+			ctx->post_checked = TRUE;
+		}
+		if (!ctx->agent_checked && str_begins(line, "User-Agent: ", &agent)) {
+			test_assert_strcmp(agent, "dovecot/unit-test");
+			ctx->agent_checked = TRUE;
+		}
+		if (strcmp(line, "some+foolish+payload+for+funsies") == 0)
+			break;
 	}
 
 	if (conn->conn.input->stream_errno != 0) {
@@ -187,6 +202,8 @@ static void test_server_simple_post_input(struct server_connection *conn)
 		return;
 	}
 
+	test_assert(ctx->post_checked);
+	test_assert(ctx->agent_checked);
 	i_assert(ctx->eoh);
 	ctx->eoh = FALSE;
 
@@ -201,8 +218,6 @@ static void test_server_simple_post_input(struct server_connection *conn)
 
 	string_t *resp = t_str_new(512);
 	str_printfa(resp,
-		    "HTTP/1.1 100 OK\r\n"
-		    "\r\n"
 		    "HTTP/1.1 200 OK\r\n"
 		    "Content-Length: %zu\r\n"
 		    "\r\n"
@@ -250,6 +265,7 @@ test_client_simple_post_run_post(struct dlua_script *script, const char *url)
 		ret = lua_tointeger(script->L, -1);
 		/* not guaranteed to fail, but it will happen often */
 		e_debug(test_event, "http_request_post() returned %d", ret);
+		test_assert(ret == 0);
 	}
 
 	lua_pop(script->L, 1);
@@ -275,12 +291,14 @@ static bool test_client_simple_post(void)
 
 	/* First POST */
 	test_client_simple_post_run_post(
-		script, t_strdup_printf("https://hosta:%u/first-post",
+		script, t_strdup_printf("http%s://hosta:%u/first-post",
+					test_server_ssl ? "s" : "",
 					bind_ports[0]));
 
 	/* Second POST */
 	test_client_simple_post_run_post(
-		script, t_strdup_printf("https://hosta:%u/second-post",
+		script, t_strdup_printf("http%s://hosta:%u/second-post",
+					test_server_ssl ? "s" : "",
 					bind_ports[0]));
 
 	dlua_script_unref(&script);
@@ -491,7 +509,8 @@ server_connection_init_ssl(struct server_connection *conn)
 
 static void server_connection_input(struct connection *_conn)
 {
-	struct server_connection *conn = (struct server_connection *)_conn;
+	struct server_connection *conn =
+		container_of(_conn, struct server_connection, conn);
 
 	test_server_input(conn);
 }
@@ -733,6 +752,7 @@ test_run_client_server(test_client_init_t client_test,
 	i_free(bind_ports);
 
 	i_unlink_if_exists("./dns-test");
+	http_client_global_context_free();
 }
 
 /*
