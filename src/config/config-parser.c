@@ -81,6 +81,9 @@ static struct config_filter_parser *
 config_add_new_parser(struct config_parser_context *ctx,
 		      const struct config_filter *filter,
 		      struct config_filter_parser *parent_filter_parser);
+static int config_write_keyvariable(struct config_parser_context *ctx,
+				    const char *key, const char *value,
+				    string_t *str);
 static int
 config_apply_exact_line(struct config_parser_context *ctx,
 			const struct config_line *line,
@@ -993,7 +996,8 @@ config_add_new_parser(struct config_parser_context *ctx,
 
 	filter_parser = p_new(ctx->pool, struct config_filter_parser, 1);
 	filter_parser->filter = *filter;
-	filter_parser->module_parsers = parent_filter_parser == NULL ?
+	filter_parser->module_parsers =
+		parent_filter_parser == NULL && !filter->default_settings ?
 		ctx->root_module_parsers :
 		config_module_parsers_init(ctx->pool);
 	array_push_back(&ctx->all_filter_parsers, &filter_parser);
@@ -1098,7 +1102,8 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 	filter.parent = parent;
 
 	if (key[0] == SETTINGS_INCLUDE_GROUP_PREFIX) {
-		if (!config_filter_is_empty(parent)) {
+		if (!config_filter_is_empty(parent) &&
+		    !config_filter_is_empty_defaults(parent)) {
 			ctx->error = "groups must defined at top-level, not under filters";
 			return TRUE;
 		}
@@ -1858,6 +1863,56 @@ static void config_parse_finish_includes(struct config_parsed *config)
 	}
 }
 
+static void
+config_parse_finish_service_defaults(struct config_parser_context *ctx)
+{
+	const char *const service_defaults[] = {
+		"service_process_limit", "$SET:default_process_limit",
+		"service_client_limit", "$SET:default_client_limit",
+		"service_idle_kill_interval", "$SET:default_idle_kill_interval",
+		"service_vsz_limit", "$SET:default_vsz_limit",
+	};
+	struct config_filter_parser *root_parser, *defaults_parser;
+
+	root_parser = array_idx_elem(&ctx->all_filter_parsers, 0);
+	defaults_parser = array_idx_elem(&ctx->all_filter_parsers, 1);
+	i_assert(config_filter_is_empty_defaults(&defaults_parser->filter));
+
+	/* Add the service_* settings into global defaults filter, so they
+	   are used only if not overridden by default service filters. */
+	string_t *value = t_str_new(64);
+	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_DEFAULTS);
+	for (unsigned int i = 0; i < N_ELEMENTS(service_defaults); i += 2) {
+		struct config_parser_key *config_key =
+			hash_table_lookup(ctx->all_keys, service_defaults[i]);
+		struct config_module_parser *module_parser =
+			&ctx->cur_section->filter_parser->module_parsers[config_key->info_idx];
+		if (module_parser->change_counters == NULL ||
+		    module_parser->change_counters[config_key->define_idx] == 0) {
+			bool orig_expand_values = ctx->expand_values;
+			str_truncate(value, 0);
+			ctx->cur_section->filter_parser = root_parser;
+			ctx->expand_values = TRUE;
+			if (config_write_keyvariable(ctx, service_defaults[i],
+						     service_defaults[i + 1],
+						     value) < 0) {
+				i_panic("Failed to expand %s=%s: %s",
+					service_defaults[i],
+					service_defaults[i + 1], ctx->error);
+			}
+			ctx->cur_section->filter_parser = defaults_parser;
+			if (config_apply_line(ctx, service_defaults[i],
+					      str_c(value), NULL) < 0) {
+				i_panic("Failed to set default %s=%s: %s",
+					service_defaults[i],
+					service_defaults[i + 1], ctx->error);
+			}
+			ctx->expand_values = orig_expand_values;
+		}
+	}
+	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
+}
+
 static int
 config_parse_finish(struct config_parser_context *ctx,
 		    enum config_parse_flags flags,
@@ -1867,6 +1922,8 @@ config_parse_finish(struct config_parser_context *ctx,
 	const char *error;
 	int ret = 0;
 
+	if ((flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) == 0)
+		config_parse_finish_service_defaults(ctx);
 	if (hook_config_parser_end != NULL &&
 	    (flags & CONFIG_PARSE_FLAG_EXTERNAL_HOOKS) != 0)
 		ret = hook_config_parser_end(ctx, error_r);
@@ -2389,7 +2446,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	hash_table_create(&ctx.all_keys, ctx.pool, 500, str_hash, strcmp);
 
 	for (count = 0; all_infos[count] != NULL; count++) ;
-	ctx.change_counter = CONFIG_PARSER_CHANGE_EXPLICIT;
+	config_parser_set_change_counter(&ctx, CONFIG_PARSER_CHANGE_DEFAULTS);
 	ctx.root_module_parsers =
 		p_new(ctx.pool, struct config_module_parser, count+1);
 	unsigned int service_info_idx = UINT_MAX;
@@ -2422,9 +2479,18 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 
 	p_array_init(&ctx.all_filter_parsers, ctx.pool, 128);
 	ctx.cur_section = p_new(ctx.pool, struct config_section_stack, 1);
+	/* Global settings filter must be the first. */
 	struct config_filter root_filter = { };
-	ctx.cur_section->filter_parser =
+	struct config_filter_parser *root_filter_parser =
 		config_add_new_parser(&ctx, &root_filter, NULL);
+	/* Default global settings filter must be the second. This is important
+	   so it will be in the correct position when dumping the config. Add
+	   all default settings into this filter. */
+	struct config_filter root_default_filter = {
+		.default_settings = TRUE,
+	};
+	ctx.cur_section->filter_parser =
+		config_add_new_parser(&ctx, &root_default_filter, NULL);
 
 	ctx.value = str_new(ctx.pool, 256);
 	full_line = str_new(default_pool, 512);
@@ -2443,6 +2509,8 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 		hook_config_parser_begin(&ctx);
 	} T_END;
 
+	ctx.cur_section->filter_parser = root_filter_parser;
+	config_parser_set_change_counter(&ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
 prevfile:
 	while ((line = i_stream_read_next_line(ctx.cur_input->input)) != NULL) {
 		struct config_line config_line;
@@ -2488,11 +2556,12 @@ prevfile:
 	}
 
 	old_settings_handle_post(&ctx);
+	if (ret == 0)
+		ret = config_parse_finish(&ctx, flags, config_r, error_r);
+
 	hash_table_destroy(&ctx.seen_settings);
 	hash_table_destroy(&ctx.all_keys);
 	str_free(&full_line);
-	if (ret == 0)
-		ret = config_parse_finish(&ctx, flags, config_r, error_r);
 	pool_unref(&ctx.pool);
 	return ret < 0 ? ret : 1;
 }
