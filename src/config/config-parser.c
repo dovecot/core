@@ -1880,19 +1880,18 @@ config_get_value(struct config_section_stack *section,
 	    def->type == SET_FILTER_NAME || def->type == SET_FILTER_ARRAY)
 		return FALSE;
 
-	if (l->change_counters != NULL) {
-		if (l->change_counters[config_key->define_idx] != 0) {
-			str_append(str, l->settings[config_key->define_idx].str);
-			return TRUE;
-		}
-		if (!expand_parent || section->prev == NULL) {
-			/* use the default setting */
-			const void *value = CONST_PTR_OFFSET(l->info->defaults,
-							     def->offset);
-			if (!config_export_type(str, value, def->type))
-				i_unreached();
-			return TRUE;
-		}
+	if (l->change_counters != NULL &&
+	    l->change_counters[config_key->define_idx] != 0) {
+		str_append(str, l->settings[config_key->define_idx].str);
+		return TRUE;
+	}
+	if (!expand_parent || section->prev == NULL) {
+		/* use the default setting */
+		const void *value = CONST_PTR_OFFSET(l->info->defaults,
+						     def->offset);
+		if (!config_export_type(str, value, def->type))
+			i_unreached();
+		return TRUE;
 	}
 
 	/* not changed by this parser. maybe parent has. */
