@@ -347,6 +347,20 @@ static bool config_filter_has_include_group(const struct config_filter *filter)
 	return FALSE;
 }
 
+static bool
+setting_value_can_check(const char *value, bool expand_values)
+{
+	if (strstr(value, "%{") != NULL)
+		return FALSE;
+
+	if (!expand_values) {
+		if (strstr(value, "$SET:") != NULL ||
+		    strstr(value, "$ENV:") != NULL)
+			return FALSE;
+	}
+	return TRUE;
+}
+
 static int
 settings_value_check(struct config_parser_context *ctx,
 		     const struct setting_parser_info *info,
@@ -358,7 +372,7 @@ settings_value_check(struct config_parser_context *ctx,
 	switch (def->type) {
 	case SET_BOOL: {
 		bool b;
-		if (strchr(value, '%') != NULL)
+		if (!setting_value_can_check(value, ctx->expand_values))
 			break;
 		if (str_parse_get_bool(value, &b, &error) < 0) {
 			ctx->error = p_strdup(ctx->pool, error);
@@ -369,7 +383,7 @@ settings_value_check(struct config_parser_context *ctx,
 	case SET_UINTMAX: {
 		uintmax_t num;
 
-		if (strchr(value, '%') != NULL)
+		if (!setting_value_can_check(value, ctx->expand_values))
 			break;
 		if (str_to_uintmax(value, &num) < 0) {
 			ctx->error = p_strdup_printf(ctx->pool,
@@ -382,7 +396,7 @@ settings_value_check(struct config_parser_context *ctx,
 	case SET_UINT_OCT:
 		if (*value == '0') {
 			unsigned long long octal;
-			if (strchr(value, '%') != NULL)
+			if (!setting_value_can_check(value, ctx->expand_values))
 				break;
 			if (str_to_ullong_oct(value, &octal) < 0) {
 				ctx->error = p_strconcat(ctx->pool,
@@ -395,7 +409,7 @@ settings_value_check(struct config_parser_context *ctx,
 	case SET_UINT: {
 		unsigned int num;
 
-		if (strchr(value, '%') != NULL)
+		if (!setting_value_can_check(value, ctx->expand_values))
 			break;
 		if (settings_value_is_unlimited(value))
 			break;
@@ -409,7 +423,7 @@ settings_value_check(struct config_parser_context *ctx,
 	}
 	case SET_TIME: {
 		unsigned int interval;
-		if (strchr(value, '%') != NULL)
+		if (!setting_value_can_check(value, ctx->expand_values))
 			break;
 		if (settings_value_is_unlimited(value))
 			break;
@@ -421,7 +435,7 @@ settings_value_check(struct config_parser_context *ctx,
 	}
 	case SET_TIME_MSECS: {
 		unsigned int interval;
-		if (strchr(value, '%') != NULL)
+		if (!setting_value_can_check(value, ctx->expand_values))
 			break;
 		if (settings_value_is_unlimited(value))
 			break;
@@ -433,7 +447,7 @@ settings_value_check(struct config_parser_context *ctx,
 	}
 	case SET_SIZE: {
 		uoff_t size;
-		if (strchr(value, '%') != NULL)
+		if (!setting_value_can_check(value, ctx->expand_values))
 			break;
 		if (settings_value_is_unlimited(value))
 			break;
@@ -445,7 +459,7 @@ settings_value_check(struct config_parser_context *ctx,
 	}
 	case SET_IN_PORT: {
 		in_port_t port;
-		if (strchr(value, '%') != NULL)
+		if (!setting_value_can_check(value, ctx->expand_values))
 			break;
 		if (net_str2port_zero(value, &port) < 0) {
 			ctx->error = p_strdup_printf(ctx->pool,
@@ -459,7 +473,7 @@ settings_value_check(struct config_parser_context *ctx,
 		break;
 	case SET_ENUM:
 		/* get the available values from default string */
-		if (strchr(value, '%') != NULL)
+		if (!setting_value_can_check(value, ctx->expand_values))
 			break;
 		i_assert(info->defaults != NULL);
 		const char *const *default_value =
@@ -556,7 +570,7 @@ static int config_apply_boollist(struct config_parser_context *ctx,
 	bool b;
 
 	if (strchr(key, SETTINGS_SEPARATOR) != NULL) {
-		if (strchr(value, '%') == NULL &&
+		if (setting_value_can_check(value, ctx->expand_values) &&
 		    str_parse_get_bool(value, &b, &error) < 0) {
 			ctx->error = p_strdup(ctx->pool, error);
 			return -1;
@@ -1220,7 +1234,8 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 }
 
 void config_fill_set_parser(struct setting_parser_context *parser,
-			    const struct config_module_parser *p)
+			    const struct config_module_parser *p,
+			    bool expand_values)
 {
 	if (p->change_counters == NULL)
 		return;
@@ -1257,7 +1272,8 @@ void config_fill_set_parser(struct setting_parser_context *parser,
 			const char *value = p->settings[i].str;
 			if (p->info->defines[i].type != SET_STR_NOVARS &&
 			    p->info->defines[i].type != SET_FILE &&
-			    strchr(p->settings[i].str, '%') != NULL) {
+			    !setting_value_can_check(p->settings[i].str,
+						     expand_values)) {
 				/* We don't know what the variables would
 				   expand to. */
 				value = set_value_unknown;
@@ -1316,9 +1332,11 @@ config_filter_parser_check(struct config_parser_context *ctx,
 		struct setting_parser_context *tmp_parser =
 			settings_parser_init(tmp_pool, p->info,
 					     settings_parser_flags);
-		if (default_p != NULL)
-			config_fill_set_parser(tmp_parser, default_p);
-		config_fill_set_parser(tmp_parser, p);
+		if (default_p != NULL) {
+			config_fill_set_parser(tmp_parser, default_p,
+					       ctx->expand_values);
+		}
+		config_fill_set_parser(tmp_parser, p, ctx->expand_values);
 		T_BEGIN {
 			ok = settings_parser_check(tmp_parser, tmp_pool,
 						   event, &error);
