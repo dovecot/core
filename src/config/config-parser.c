@@ -109,7 +109,7 @@ static struct config_section_stack *
 config_parser_add_filter_array(struct config_parser_context *ctx,
 			       const char *filter_key, const char *name)
 {
-	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_SERVICE_DEFAULTS);
+	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_DEFAULTS);
 	if (config_apply_exact_line(ctx, NULL, filter_key, name) < 0) {
 		i_panic("Failed to add %s %s: %s", filter_key, name,
 			ctx->error);
@@ -122,6 +122,7 @@ config_parser_add_filter_array(struct config_parser_context *ctx,
 		.filter_name = p_strdup_printf(ctx->pool, "%s/%s",
 					       filter_key, name),
 		.filter_name_array = TRUE,
+		.default_settings = TRUE,
 	};
 	section->is_filter = TRUE;
 	section->filter_parser =
@@ -141,7 +142,7 @@ config_parser_add_service_default_struct(struct config_parser_context *ctx,
 	const struct setting_parser_info *info = all_infos[service_info_idx];
 	string_t *value_str = t_str_new(64);
 
-	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_SERVICE_DEFAULTS);
+	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_DEFAULTS);
 	for (unsigned int i = 0; info->defines[i].key != NULL; i++) {
 		const void *value = CONST_PTR_OFFSET(default_set,
 						     info->defines[i].offset);
@@ -185,6 +186,7 @@ config_parser_add_service_default_keyvalues(struct config_parser_context *ctx,
 			struct config_filter filter = {
 				.filter_name = settings_section_unescape(escaped_key),
 				.filter_name_array = TRUE,
+				.default_settings = TRUE,
 				.parent = &orig_filter_parser->filter,
 			};
 			struct config_filter_parser *filter_parser =
@@ -201,7 +203,7 @@ config_parser_add_service_default_keyvalues(struct config_parser_context *ctx,
 			key = p + 1;
 		}
 
-		config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_SERVICE_DEFAULTS);
+		config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_DEFAULTS);
 		if (config_apply_line(ctx, key, defaults[i].value, NULL) < 0) {
 			i_panic("Failed to add default setting %s=%s for service %s: %s",
 				defaults[i].key, defaults[i].value,
