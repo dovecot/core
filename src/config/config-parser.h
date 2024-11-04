@@ -87,7 +87,8 @@ const struct config_module_parser *
 config_parsed_get_module_parsers(struct config_parsed *config);
 /* Fill settings parser with settings from the given module parser. */
 void config_fill_set_parser(struct setting_parser_context *parser,
-			    const struct config_module_parser *p);
+			    const struct config_module_parser *p,
+			    bool expand_values);
 /* Returns the value for a specified setting. The setting must be found and it
    must be a string, or the function panics. */
 const char *
