@@ -62,7 +62,11 @@ bool config_filter_match(const struct config_filter *mask,
 /* Returns TRUE if two filters are fully equal. */
 bool config_filters_equal(const struct config_filter *f1,
 			  const struct config_filter *f2);
-/* Returns TRUE if filter is empty, and it has no parent filters. */
+/* Returns TRUE if filter is empty, and it has no parent filters, and it has
+   default_settings=FALSE. */
 bool config_filter_is_empty(const struct config_filter *filter);
+/* Returns TRUE if filter is empty, and it has no parent filters, and it has
+   default_settings=TRUE. */
+bool config_filter_is_empty_defaults(const struct config_filter *filter);
 
 #endif

@@ -160,11 +160,11 @@ static const struct service_settings service_default_settings = {
 	.drop_priv_before_exec = FALSE,
 
 	.process_min_avail = 0,
-	.process_limit = 100,
-	.client_limit = 1000,
+	.process_limit = 0,
+	.client_limit = 0,
 	.restart_request_count = SET_UINT_UNLIMITED,
-	.idle_kill_interval = 60,
-	.vsz_limit = 256*1024*1024,
+	.idle_kill_interval = 0,
+	.vsz_limit = 0,
 
 	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
@@ -196,6 +196,10 @@ static const struct setting_define master_setting_defines[] = {
 	DEF(STR, default_internal_user),
 	DEF(STR, default_internal_group),
 	DEF(STR, default_login_user),
+	DEF(UINT, default_process_limit),
+	DEF(UINT, default_client_limit),
+	DEF(TIME, default_idle_kill_interval),
+	DEF(SIZE, default_vsz_limit),
 
 	DEF(BOOL, version_ignore),
 
@@ -220,6 +224,10 @@ static const struct master_settings master_default_settings = {
 	.default_internal_user = "dovecot",
 	.default_internal_group = "dovecot",
 	.default_login_user = "dovenull",
+	.default_process_limit = 100,
+	.default_client_limit = 1000,
+	.default_idle_kill_interval = 60,
+	.default_vsz_limit = 256*1024*1024,
 
 	.version_ignore = FALSE,
 

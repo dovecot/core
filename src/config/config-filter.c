@@ -9,6 +9,9 @@
 #include "dns-util.h"
 
 static const struct config_filter empty_filter;
+static const struct config_filter empty_defaults_filter = {
+	.default_settings = TRUE
+};
 
 static bool config_filter_match_service(const struct config_filter *mask,
 					const struct config_filter *filter)
@@ -141,4 +144,9 @@ bool config_filters_equal(const struct config_filter *f1,
 bool config_filter_is_empty(const struct config_filter *filter)
 {
 	return config_filters_equal(filter, &empty_filter);
+}
+
+bool config_filter_is_empty_defaults(const struct config_filter *filter)
+{
+	return config_filters_equal(filter, &empty_defaults_filter);
 }
