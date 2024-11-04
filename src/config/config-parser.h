@@ -9,10 +9,8 @@
 
 /* change_counter used for default settings created internally */
 #define CONFIG_PARSER_CHANGE_DEFAULTS 1
-/* change_counter used for default service settings created internally */
-#define CONFIG_PARSER_CHANGE_SERVICE_DEFAULTS 2
 /* change_counter used for settings changed by configuration file */
-#define CONFIG_PARSER_CHANGE_EXPLICIT 3
+#define CONFIG_PARSER_CHANGE_EXPLICIT 2
 
 struct config_parsed;
 struct setting_parser_context;
