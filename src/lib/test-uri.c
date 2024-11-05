@@ -427,7 +427,6 @@ const char *rfc_uri_tests[] = {
 		"%3E%3F%40%5B%5C%5D%5E_%60%7B%7C%7D~resource",
 	"xmpp:ji%C5%99i@%C4%8Dechy.example/v%20Praze",
 	/* from RFC 5456 */
-#if 0 // these don't comply with RFC 3986
 	"iax:example.com/alice",
 	"iax:example.com:4569/alice",
 	"iax:example.com:4570/alice?friends",
@@ -442,7 +441,6 @@ const char *rfc_uri_tests[] = {
 	"iax:alice@AtLaNtA.com:4569/ALicE",
 	"iax:ALICE@atlanta.com/alice",
 	"iax:alice@atlanta.com/alice",
-#endif
 	/* from RFC 5724 */
 	"sms:+15105550101",
 	"sms:+15105550101,+15105550102",
@@ -824,6 +822,38 @@ static void test_uri_aaa(void)
 	test_end();
 }
 
+static void test_uri_iax(void)
+{
+	test_begin("uri iax");
+	const char *uri = "iax:[2001:db8::1]:4569/alice?friend";
+	struct uri_parser parser;
+	uri_parser_init(&parser, pool_datastack_create(), uri);
+
+	const char *scheme;
+	struct uri_authority auth;
+	int relative;
+	const char *const *path;
+	const char *query;
+	int ret;
+	ret = uri_parse_scheme(&parser, &scheme);
+	test_assert(ret > 0);
+	test_assert_strcmp(scheme, "iax");
+	ret = uri_parse_host_authority(&parser, &auth);
+	test_assert(ret > 0);
+	test_assert_strcmp(auth.host.name, "[2001:db8::1]");
+	test_assert_ucmp(auth.port, ==, 4569);
+	ret = uri_parse_path(&parser, &relative, &path);
+	test_assert(ret > 0);
+	test_assert(relative == 0);
+	test_assert_strcmp(path[0], "alice");
+	test_assert(path[1] == NULL);
+	ret = uri_parse_query(&parser, &query);
+	test_assert(ret > 0);
+	test_assert_strcmp(query, "friend");
+	test_end();
+}
+
+
 void test_uri(void)
 {
 	test_uri_valid();
@@ -831,4 +861,5 @@ void test_uri(void)
 	test_uri_rfc();
 	test_uri_escape();
 	test_uri_aaa();
+	test_uri_iax();
 }

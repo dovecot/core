@@ -1128,6 +1128,7 @@ int uri_parse_absolute_generic(struct uri_parser *parser,
 			       enum uri_parse_flags flags)
 {
 	int relative, aret, ret = 0;
+	bool allow_missing_slashslash = FALSE;
 
 	/* URI           = scheme ":" hier-part [ "?" query ] [ "#" fragment ]
 
@@ -1155,12 +1156,19 @@ int uri_parse_absolute_generic(struct uri_parser *parser,
 		if (strcmp(scheme, "aaa") == 0 ||
 		    (flags & URI_PARSE_SEMICOLON_PARAMS) != 0)
 			parser->semicolon_params = TRUE;
+		if (strcmp(scheme, "iax") == 0 ||
+		    (flags & URI_PARSE_ALLOW_MISSING_SLASHSLASH) != 0)
+			allow_missing_slashslash = TRUE;
 	}
 
 	/* "//" authority */
 	aret = uri_parse_slashslash_authority(parser, NULL);
 	if (aret < 0)
 		return -1;
+	else if (aret == 0 && allow_missing_slashslash) {
+		if ((aret = uri_parse_authority(parser, NULL)) < 0)
+			return -1;
+	}
 
 	/* path-absolute / path-rootless / path-empty */
 	if (aret == 0) {
