@@ -12,6 +12,8 @@ enum uri_parse_flags {
 	URI_PARSE_SCHEME_EXTERNAL = BIT(0),
 	/* Allow '#fragment' part in URI */
 	URI_PARSE_ALLOW_FRAGMENT_PART = BIT(1),
+	/* Allow ';param' after host - violates RFC3986 */
+	URI_PARSE_SEMICOLON_PARAMS = BIT(2),
 };
 
 struct uri_host {
@@ -37,6 +39,7 @@ struct uri_parser {
 
 	bool allow_pct_nul:1;
 	bool parse_prefix:1;
+	bool semicolon_params:1;
 };
 
 static inline const char *uri_char_sanitize(unsigned char c)

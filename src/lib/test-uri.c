@@ -507,14 +507,12 @@ const char *rfc_uri_tests[] = {
 	/* from RFC 6694 */
 	"about:blank",
 	/* from RFC 6733 */
-#if 0 // these don't comply with RFC 3986
 	"aaa://host.example.com;transport=tcp",
 	"aaa://host.example.com:6666;transport=tcp",
 	"aaa://host.example.com;protocol=diameter",
 	"aaa://host.example.com:6666;protocol=diameter",
 	"aaa://host.example.com:6666;transport=tcp;protocol=diameter",
 	"aaa://host.example.com:1813;transport=udp;protocol=radius",
-#endif
 	/* from RFC 6787 */
 	"session:request1@form-level.store",
 	"session:help@root-level.store",
@@ -800,10 +798,37 @@ static void test_uri_escape(void)
 	test_end();
 }
 
+static void test_uri_aaa(void)
+{
+	test_begin("uri aaa");
+
+	const char *uri = "aaa://host.example.com:6666;transport=tcp;protocol=diameter";
+	struct uri_parser parser;
+	uri_parser_init(&parser, pool_datastack_create(), uri);
+	parser.semicolon_params = TRUE;
+
+	const char *scheme;
+	struct uri_authority auth;
+	const char *query;
+	int ret;
+	ret = uri_parse_scheme(&parser, &scheme);
+	test_assert(ret > 0);
+	test_assert_strcmp(scheme, "aaa");
+	ret = uri_parse_slashslash_host_authority(&parser, &auth);
+	test_assert(ret > 0);
+	test_assert_strcmp(auth.host.name, "host.example.com");
+	test_assert_ucmp(auth.port, ==, 6666);
+	ret = uri_parse_query(&parser, &query);
+	test_assert(ret > 0);
+	test_assert_strcmp(query, "transport=tcp;protocol=diameter");
+	test_end();
+}
+
 void test_uri(void)
 {
 	test_uri_valid();
 	test_uri_invalid();
 	test_uri_rfc();
 	test_uri_escape();
+	test_uri_aaa();
 }
