@@ -219,7 +219,7 @@ const char *rfc_uri_tests[] = {
 	"sip:bob@biloxi.com;transport=udp",
 	"sip:bob@engineering.biloxi.com",
 	"sip:bob@phone21.boxesbybob.com",
-	"sip:c8oqz84zk7z@privacy.org>;tag=hyh8",
+	"sip:c8oqz84zk7z@privacy.org",
 	"sip:callee@domain.com",
 	"sip:callee@gateway.leftprivatespace.com",
 	"sip:callee@u2.domain.com",
@@ -245,7 +245,7 @@ const char *rfc_uri_tests[] = {
 	"sips:alice@atlanta.com?subject=project%20x&priority=urgent",
 	"sip:server10.biloxi.com;lr",
 	"sip:ss1.carrier.com",
-	"sip:user@host?Subject=foo&Call-Info=<http://www.foo.com>",
+	"sip:user@host?Subject=foo&Call-Info=%3Chttp://www.foo.com%3E",
 	"sip:watson@bell-telephone.com",
 	"sip:watson@worcester.bell-telephone.com",
 #endif
