@@ -87,6 +87,8 @@ const char *rfc_uri_tests[] = {
 	"ftp://myname@host.dom//etc/motd",
 	"ftp://info.cern.ch/pub/www/doc;type=d",
 	"http://ds.internic.net/instructions/overview.html#WARNING",
+	"http://[2001:db8::7]/test",
+	"http://[2001:db8::7]:8080/test",
 	/* from RFC 2056 */
 	"z39.50s://melvyl.ucop.edu/cat",
 	"z39.50r://melvyl.ucop.edu/mags?elecworld.v30.n19",
