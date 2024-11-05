@@ -20,6 +20,7 @@ print '#include "fsync-mode.h"'."\n";
 print '#include "hash-format.h"'."\n";
 print '#include "net.h"'."\n";
 print '#include "unichar.h"'."\n";
+print '#include "uri-util.h"'."\n";
 print '#include "hash-method.h"'."\n";
 print '#include "settings.h"'."\n";
 print '#include "message-header-parser.h"'."\n";
