@@ -5,6 +5,7 @@
 #include "hash-format.h"
 #include "unichar.h"
 #include "hostpid.h"
+#include "uri-util.h"
 #include "settings.h"
 #include "message-address.h"
 #include "message-header-parser.h"
@@ -675,7 +676,14 @@ mail_storage_settings_ext_check(struct event *event ATTR_UNUSED,
 	}
 	hash_format_deinit_free(&format);
 
-	// FIXME: check set->mail_server_admin syntax (RFC 5464, Section 6.2.2)
+	/* check mail_server_admin syntax (RFC 5464, Section 6.2.2) */
+	if (*set->mail_server_admin != '\0' &&
+	    uri_check(set->mail_server_admin, 0, &error) < 0) {
+		*error_r = t_strdup_printf("mail_server_admin: "
+					   "'%s' is not a valid URI: %s",
+					   set->mail_server_admin, error);
+		return FALSE;
+	}
 
 	/* parse mail_attachment_indicator_options */
 	if (array_not_empty(&set->mail_attachment_detection_options)) {
