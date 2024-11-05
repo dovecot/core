@@ -14,6 +14,8 @@ enum uri_parse_flags {
 	URI_PARSE_ALLOW_FRAGMENT_PART = BIT(1),
 	/* Allow ';param' after host - violates RFC3986 */
 	URI_PARSE_SEMICOLON_PARAMS = BIT(2),
+	/* Allow scheme:host - violates RFC3986 */
+	URI_PARSE_ALLOW_MISSING_SLASHSLASH = BIT(3),
 };
 
 struct uri_host {
