@@ -619,7 +619,7 @@ static void test_uri_rfc(void)
 
 		ret = uri_check(uri_in, URI_PARSE_ALLOW_FRAGMENT_PART, &error);
 		test_out_quiet(
-			t_strdup_printf("parse [%d] <%s>", i, str_sanitize(uri_in, 64)),
+			t_strdup_printf("parse [%d] <%s>: %s", i, str_sanitize(uri_in, 64), error),
 			ret >= 0);
 	} T_END;
 	test_end();
