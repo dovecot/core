@@ -394,19 +394,6 @@ unsigned int config_export_get_parser_count(struct config_export_context *ctx)
 	return i;
 }
 
-const char *
-config_export_get_import_environment(struct config_export_context *ctx)
-{
-	return config_module_parsers_get_setting(ctx->module_parsers,
-		"master_service", "import_environment");
-}
-
-const char *config_export_get_base_dir(struct config_export_context *ctx)
-{
-	return config_module_parsers_get_setting(ctx->module_parsers,
-						 "master_service", "base_dir");
-}
-
 void config_export_free(struct config_export_context **_ctx)
 {
 	struct config_export_context *ctx = *_ctx;

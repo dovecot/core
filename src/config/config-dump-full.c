@@ -618,7 +618,10 @@ int config_dump_full(struct config_parsed *config,
 	const char *final_path = NULL;
 	switch (dest) {
 	case CONFIG_DUMP_FULL_DEST_RUNDIR: {
-		const char *base_dir = config_export_get_base_dir(export_ctx);
+		const char *base_dir =
+			config_module_parsers_get_setting(
+				filter_parser->module_parsers,
+				"master_service", "base_dir");
 		final_path = t_strdup_printf("%s/dovecot.conf.binary", base_dir);
 		str_append(path, final_path);
 		str_append_c(path, '.');
@@ -653,8 +656,11 @@ int config_dump_full(struct config_parsed *config,
 	o_stream_cork(output);
 
 	if (import_environment_r != NULL) {
-		*import_environment_r =
-			t_strdup(config_export_get_import_environment(export_ctx));
+		const char *value =
+			config_module_parsers_get_setting(
+				filter_parser->module_parsers,
+				"master_service", "import_environment");
+		*import_environment_r = t_strdup(value);
 	}
 
 	uint64_t blob_size = UINT64_MAX;
