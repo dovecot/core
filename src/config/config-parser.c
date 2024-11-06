@@ -525,8 +525,35 @@ config_is_filter_name(struct config_parser_context *ctx, const char *key,
 	return TRUE;
 }
 
+static void
+config_array_add_defaults(struct config_parser_context *ctx,
+			  struct config_parser_key *config_key,
+			  ARRAY_TYPE(const_string) *dest)
+{
+	struct config_filter filter = ctx->cur_section->filter_parser->filter;
+	if (filter.default_settings)
+		return;
+
+	filter.default_settings = TRUE;
+	struct config_filter_parser *defaults_filter =
+		config_filter_parser_find(ctx, &filter);
+	if (defaults_filter == NULL)
+		return;
+
+	struct config_module_parser *ldef =
+		&defaults_filter->module_parsers[config_key->info_idx];
+	if (ldef->settings == NULL)
+		return;
+
+	const ARRAY_TYPE(const_string) *src =
+		ldef->settings[config_key->define_idx].array.values;
+	if (src != NULL && array_is_created(src))
+		array_append_array(dest, src);
+}
+
 static int config_apply_strlist(struct config_parser_context *ctx,
 				const char *key, const char *value,
+				struct config_parser_key *config_key,
 				ARRAY_TYPE(const_string) **strlistp)
 {
 	const char *suffix;
@@ -542,6 +569,7 @@ static int config_apply_strlist(struct config_parser_context *ctx,
 	if (*strlistp == NULL) {
 		*strlistp = p_new(ctx->pool, ARRAY_TYPE(const_string), 1);
 		p_array_init(*strlistp, ctx->pool, 5);
+		config_array_add_defaults(ctx, config_key, *strlistp);
 	}
 
 	value = p_strdup(ctx->pool, value);
@@ -564,6 +592,7 @@ static int config_apply_strlist(struct config_parser_context *ctx,
 
 static int config_apply_boollist(struct config_parser_context *ctx,
 				 const char *key, const char *value,
+				 struct config_parser_key *config_key,
 				 ARRAY_TYPE(const_string) **strlistp,
 				 bool *stop_list)
 {
@@ -580,7 +609,8 @@ static int config_apply_boollist(struct config_parser_context *ctx,
 		/* Preserve stop_list's original value. We may be updating a
 		   list within the same filter, and the previous setting might
 		   have wanted to stop the list already. */
-		return config_apply_strlist(ctx, key, value, strlistp);
+		return config_apply_strlist(ctx, key, value, config_key,
+					    strlistp);
 	}
 
 	/* replace the whole list */
@@ -687,12 +717,12 @@ config_apply_exact_line(struct config_parser_context *ctx,
 			config_module_parser_init(ctx, l);
 		switch (l->info->defines[config_key->define_idx].type) {
 		case SET_STRLIST:
-			if (config_apply_strlist(ctx, key, value,
+			if (config_apply_strlist(ctx, key, value, config_key,
 					&l->settings[config_key->define_idx].array.values) < 0)
 				return -1;
 			break;
 		case SET_BOOLLIST:
-			if (config_apply_boollist(ctx, key, value,
+			if (config_apply_boollist(ctx, key, value, config_key,
 					&l->settings[config_key->define_idx].array.values,
 					&l->settings[config_key->define_idx].array.stop_list) < 0)
 				return -1;
