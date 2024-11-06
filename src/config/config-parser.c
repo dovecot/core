@@ -2492,12 +2492,6 @@ config_parsed_get_filter_parsers(struct config_parsed *config)
 	return config->filter_parsers;
 }
 
-const struct config_module_parser *
-config_parsed_get_module_parsers(struct config_parsed *config)
-{
-	return config->module_parsers;
-}
-
 const char *
 config_module_parsers_get_setting(const struct config_module_parser *module_parsers,
 				  const char *info_name, const char *key)

@@ -126,8 +126,9 @@ static void test_config_parser(void)
 
 	/* get the parsed output */
 	pool_t pool = pool_alloconly_create("test settings", 128);
-	const struct config_module_parser *p =
-		config_parsed_get_module_parsers(config);
+	struct config_filter_parser *global_filter =
+		config_parsed_get_global_filter_parser(config);
+	const struct config_module_parser *p = global_filter->module_parsers;
 	struct setting_parser_context *set_parser =
 		settings_parser_init(pool, p->info, 0);
 	config_fill_set_parser(set_parser, p, TRUE);
@@ -153,7 +154,8 @@ static void test_config_parser(void)
 				      &config, &error) == 1);
 
 	p_clear(pool);
-	p = config_parsed_get_module_parsers(config);
+	global_filter = config_parsed_get_global_filter_parser(config);
+	p = global_filter->module_parsers;
 	set_parser = settings_parser_init(pool, p->info, 0);
 	config_fill_set_parser(set_parser, p, TRUE);
 	set = settings_parser_get_set(set_parser);
