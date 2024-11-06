@@ -1049,6 +1049,7 @@ int main(int argc, char *argv[])
 		case 'd':
 			scope = CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN;
 			dump_defaults = TRUE;
+			flags |= CONFIG_PARSE_FLAG_MERGE_DEFAULT_FILTERS;
 			break;
 		case 'F':
 			dump_full = TRUE;
@@ -1116,7 +1117,8 @@ int main(int argc, char *argv[])
 		if (scope == CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN)
 			scope = CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN;
 		flags |= CONFIG_PARSE_FLAG_PREFIXES_IN_FILTERS |
-			CONFIG_PARSE_FLAG_MERGE_GROUP_FILTERS;
+			CONFIG_PARSE_FLAG_MERGE_GROUP_FILTERS |
+			CONFIG_PARSE_FLAG_MERGE_DEFAULT_FILTERS;
 	} else if (!simple_output) {
 		/* print the config file path before parsing it, so in case
 		   of errors it's still shown */

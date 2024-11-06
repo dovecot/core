@@ -34,6 +34,9 @@ enum config_parse_flags {
 	/* Expand include @groups after parsing settings. This can be useful
 	   for doveconf output. */
 	CONFIG_PARSE_FLAG_MERGE_GROUP_FILTERS = BIT(8),
+	/* Merge default filters with non-default filters. This can be useful
+	   for doveconf output. */
+	CONFIG_PARSE_FLAG_MERGE_DEFAULT_FILTERS = BIT(9),
 };
 
 /* Used to track changed settings for a setting_parser_info. Initially only
