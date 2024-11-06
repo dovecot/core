@@ -2545,19 +2545,20 @@ prevfile:
 		i_stream_destroy(&ctx.cur_input->input);
 		ctx.cur_input = ctx.cur_input->prev;
 	}
+
+	old_settings_handle_post(&ctx);
+	if (ret == 0)
+		ret = config_parse_finish(&ctx, flags, config_r, error_r);
+
 	if (ret == 0 && !dump_defaults &&
 	    (flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) == 0) {
-		const char *version = config_module_parsers_get_setting(ctx.root_module_parsers,
+		const char *version = config_parsed_get_setting(*config_r,
 			"master_service", "dovecot_storage_version");
 		if (version[0] == '\0') {
 			*error_r = "dovecot_storage_version setting must be set";
 			ret = -2;
 		}
 	}
-
-	old_settings_handle_post(&ctx);
-	if (ret == 0)
-		ret = config_parse_finish(&ctx, flags, config_r, error_r);
 
 	hash_table_destroy(&ctx.seen_settings);
 	hash_table_destroy(&ctx.all_keys);
@@ -2585,55 +2586,98 @@ config_parsed_get_global_filter_parser(struct config_parsed *config)
 	return config->filter_parsers[0];
 }
 
+struct config_filter_parser *
+config_parsed_get_global_default_filter_parser(struct config_parsed *config)
+{
+	return config->filter_parsers[1];
+}
+
 struct config_filter_parser *const *
 config_parsed_get_filter_parsers(struct config_parsed *config)
 {
 	return config->filter_parsers;
 }
 
-const char *
-config_module_parsers_get_setting(const struct config_module_parser *module_parsers,
-				  const char *info_name, const char *key)
+static void
+config_parsed_strlist_append(string_t *keyvals,
+			     const ARRAY_TYPE(const_string) *values,
+			     const ARRAY_TYPE(const_string) *drop_values)
 {
-	const struct config_module_parser *l;
-	unsigned int key_idx;
+	if (values == NULL || !array_is_created(values))
+		return;
 
-	for (l = module_parsers; l->info != NULL; l++) {
-		if (strcmp(l->info->name, info_name) == 0)
+	const char *const *strlist, *const *drop_strlist;
+	unsigned int i, j, len, drop_len;
+	if (drop_values != NULL && array_is_created(drop_values))
+		drop_strlist = array_get(drop_values, &drop_len);
+	else {
+		drop_strlist = NULL;
+		drop_len = 0;
+	}
+
+	strlist = array_get(values, &len);
+	for (i = 0; i < len; i += 2) {
+		if (str_len(keyvals) > 0)
+			str_append_c(keyvals, ' ');
+		for (j = 0; j < drop_len; j += 2) {
+			if (strcmp(strlist[i], drop_strlist[j]) == 0)
+				break;
+		}
+		if (j == drop_len) {
+			str_printfa(keyvals, "%s=%s", strlist[i],
+				    strlist[i + 1]);
+		}
+	}
+}
+
+const char *
+config_parsed_get_setting(struct config_parsed *config,
+			  const char *info_name, const char *key)
+{
+	struct config_filter_parser *filter_parser =
+		config_parsed_get_global_filter_parser(config);
+	struct config_filter_parser *default_filter_parser =
+		config_parsed_get_global_default_filter_parser(config);
+	const struct config_module_parser *l = filter_parser->module_parsers;
+	const struct config_module_parser *ldef =
+		default_filter_parser->module_parsers;
+	unsigned int info_idx, key_idx;
+
+	for (info_idx = 0; l[info_idx].info != NULL; info_idx++) {
+		if (strcmp(l[info_idx].info->name, info_name) == 0)
 			break;
 	}
-	if (l->info == NULL ||
-	    !setting_parser_info_find_key(l->info, key, &key_idx)) {
+	if (l[info_idx].info == NULL ||
+	    !setting_parser_info_find_key(l[info_idx].info, key, &key_idx)) {
 		i_panic("BUG: Couldn't find setting with info=%s key=%s",
 			info_name, key);
 	}
 
-	const struct setting_define *def = &l->info->defines[key_idx];
+	const struct setting_define *def = &l[info_idx].info->defines[key_idx];
 
 	/* Custom handler for the import_environment strlist setting. The
 	   calling function expects a string of key=value pairs. See
 	   master_service_get_import_environment_keyvals() for the original
 	   implementation. */
 	if (strcmp(key, "import_environment") == 0) {
-		unsigned int len = array_count(l->settings[key_idx].array.values);
 		string_t *keyvals = t_str_new(64);
-		for (unsigned int i = 0; i < len; i += 2) {
-			const char *const *key = array_idx(l->settings[key_idx].array.values, i);
-			const char *const *val = array_idx(l->settings[key_idx].array.values, i + 1);
-			str_append(keyvals, t_strdup_printf("%s=%s", *key, *val));
-
-			if (i + 2 < len)
-				str_append_c(keyvals, ' ');
-		}
+		const ARRAY_TYPE(const_string) *strlist_set =
+			l[info_idx].settings[key_idx].array.values;
+		const ARRAY_TYPE(const_string) *strlist_defaults =
+			ldef[info_idx].settings[key_idx].array.values;
+		config_parsed_strlist_append(keyvals, strlist_set, NULL);
+		config_parsed_strlist_append(keyvals, strlist_defaults, strlist_set);
 		return str_c(keyvals);
 	}
 
 	i_assert(def->type != SET_STRLIST && def->type != SET_BOOLLIST &&
 		 def->type != SET_FILTER_ARRAY);
-	if (l->change_counters[key_idx] != 0)
-		return l->settings[key_idx].str;
+	if (l[info_idx].change_counters[key_idx] != 0)
+		return l[info_idx].settings[key_idx].str;
+	if (ldef[info_idx].change_counters[key_idx] != 0)
+		return ldef[info_idx].settings[key_idx].str;
 
-	const void *value = CONST_PTR_OFFSET(l->info->defaults, def->offset);
+	const void *value = CONST_PTR_OFFSET(l[info_idx].info->defaults, def->offset);
 	string_t *str = t_str_new(64);
 	if (!config_export_type(str, value, def->type))
 		i_unreached();

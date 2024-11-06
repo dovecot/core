@@ -77,6 +77,9 @@ config_parsed_get_errors(struct config_parsed *config);
 /* Returns the global filter */
 struct config_filter_parser *
 config_parsed_get_global_filter_parser(struct config_parsed *config);
+/* Returns the global default filter */
+struct config_filter_parser *
+config_parsed_get_global_default_filter_parser(struct config_parsed *config);
 /* Returns all filters */
 struct config_filter_parser *const *
 config_parsed_get_filter_parsers(struct config_parsed *config);
@@ -87,8 +90,8 @@ void config_fill_set_parser(struct setting_parser_context *parser,
 /* Returns the value for a specified setting. The setting must be found and it
    must be a string, or the function panics. */
 const char *
-config_module_parsers_get_setting(const struct config_module_parser *module_parsers,
-				  const char *info_name, const char *key);
+config_parsed_get_setting(struct config_parsed *config,
+			  const char *info_name, const char *key);
 /* Lookup setting with the specified key. */
 const struct setting_define *
 config_parsed_key_lookup(struct config_parsed *config, const char *key);

@@ -987,12 +987,9 @@ static void hostname_verify_format(const char *arg)
 static void check_wrong_config(const char *config_path)
 {
 	const char *base_dir, *symlink_path, *prev_path, *error;
-	struct config_filter_parser *global_filter =
-		config_parsed_get_global_filter_parser(config);
 
-	base_dir = config_module_parsers_get_setting(
-			global_filter->module_parsers,
-			"master_service", "base_dir");
+	base_dir = config_parsed_get_setting(config, "master_service",
+					     "base_dir");
 	symlink_path = t_strconcat(base_dir, "/"PACKAGE".conf", NULL);
 	if (t_readlink(symlink_path, &prev_path, &error) < 0) {
 		if (errno != ENOENT)
@@ -1195,12 +1192,9 @@ int main(int argc, char *argv[])
 		}
 	} else {
 		const char *info, *mail_path, *version;
-		struct config_filter_parser *global_filter =
-			config_parsed_get_global_filter_parser(config);
 
-		mail_path = config_module_parsers_get_setting(
-			global_filter->module_parsers,
-			"mail_storage", "mail_path");
+		mail_path = config_parsed_get_setting(config, "mail_storage",
+						      "mail_path");
 		info = sysinfo_get(mail_path);
 		if (*info != '\0')
 			printf("# %s\n", info);
