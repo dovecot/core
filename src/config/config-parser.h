@@ -80,9 +80,6 @@ config_parsed_get_global_filter_parser(struct config_parsed *config);
 /* Returns all filters */
 struct config_filter_parser *const *
 config_parsed_get_filter_parsers(struct config_parsed *config);
-/* Returns all module_parsers. The array is terminated with info=NULL. */
-const struct config_module_parser *
-config_parsed_get_module_parsers(struct config_parsed *config);
 /* Fill settings parser with settings from the given module parser. */
 void config_fill_set_parser(struct setting_parser_context *parser,
 			    const struct config_module_parser *p,
