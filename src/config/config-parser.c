@@ -2013,6 +2013,19 @@ config_parse_finish_includes(struct config_parser_context *ctx,
 }
 
 static void
+config_parse_merge_default_filters(struct config_parser_context *ctx,
+				   struct config_parsed *config)
+{
+	struct config_filter_parser *root_parser, *defaults_parser;
+
+	root_parser = array_idx_elem(&ctx->all_filter_parsers, 0);
+	defaults_parser = array_idx_elem(&ctx->all_filter_parsers, 1);
+	i_assert(config_filter_is_empty_defaults(&defaults_parser->filter));
+
+	config_filters_merge(ctx, config, root_parser, defaults_parser);
+}
+
+static void
 config_parse_finish_service_defaults(struct config_parser_context *ctx)
 {
 	const char *const service_defaults[] = {
@@ -2100,6 +2113,10 @@ config_parse_finish(struct config_parser_context *ctx,
 		*error_r = t_strdup_printf("Error in configuration file %s: %s",
 					   ctx->path, error);
 	}
+
+	/* Merge defaults into main settings after running settings checks. */
+	if (ret == 0 && (flags & CONFIG_PARSE_FLAG_MERGE_DEFAULT_FILTERS) != 0)
+		config_parse_merge_default_filters(ctx, new_config);
 
 	if (ret < 0 && (flags & CONFIG_PARSE_FLAG_RETURN_BROKEN_CONFIG) == 0) {
 		config_parsed_free(&new_config);
