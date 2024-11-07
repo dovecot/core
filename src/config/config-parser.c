@@ -1898,7 +1898,8 @@ group_find_name(struct config_include_group_filters *group, const char *name)
 }
 
 static void config_module_parsers_merge(struct config_module_parser *dest,
-					const struct config_module_parser *src)
+					const struct config_module_parser *src,
+					bool overwrite)
 {
 	for (; dest->info != NULL; dest++, src++) {
 		i_assert(dest->info == src->info);
@@ -1926,7 +1927,7 @@ static void config_module_parsers_merge(struct config_module_parser *dest,
 		/* copy settings that have changed in source, but not in dest */
 		for (unsigned int i = 0; i < src->set_count; i++) {
 			if (src->change_counters[i] != 0 &&
-			    dest->change_counters[i] == 0) {
+			    (dest->change_counters[i] == 0 || overwrite)) {
 				dest->settings[i] = src->settings[i];
 				dest->change_counters[i] = src->change_counters[i];
 			}
@@ -1951,9 +1952,10 @@ config_filters_find_child(struct config_filter_parser *parent,
 static void
 config_filters_merge_tree(struct config_parser_context *ctx,
 			  struct config_filter_parser *dest_parent,
-			  const struct config_filter_parser *src_parent)
+			  struct config_filter_parser *src_parent,
+			  bool drop_merged, bool overwrite)
 {
-	const struct config_filter_parser *src;
+	struct config_filter_parser *src;
 	struct config_filter_parser *dest;
 
 	i_assert(array_is_empty(&src_parent->include_groups));
@@ -1963,22 +1965,29 @@ config_filters_merge_tree(struct config_parser_context *ctx,
 			dest = config_add_new_parser(ctx, &src->filter,
 						     dest_parent);
 		}
+		if (drop_merged)
+			src->dropped = TRUE;
 		config_module_parsers_merge(dest->module_parsers,
-					    src->module_parsers);
-		config_filters_merge_tree(ctx, dest, src);
+					    src->module_parsers, overwrite);
+		config_filters_merge_tree(ctx, dest, src,
+					  drop_merged, overwrite);
 	}
 }
 
 static void config_filters_merge(struct config_parser_context *ctx,
 				 struct config_parsed *config,
 				 struct config_filter_parser *dest_filter,
-				 const struct config_filter_parser *src_filter)
+				 struct config_filter_parser *src_filter,
+				 bool drop_merged, bool overwrite)
 {
 	i_assert(array_is_empty(&src_filter->include_groups));
 
+	if (drop_merged)
+		src_filter->dropped = TRUE;
 	config_module_parsers_merge(dest_filter->module_parsers,
-				    src_filter->module_parsers);
-	config_filters_merge_tree(ctx, dest_filter, src_filter);
+				    src_filter->module_parsers, overwrite);
+	config_filters_merge_tree(ctx, dest_filter, src_filter,
+				  drop_merged, overwrite);
 
 	array_append_zero(&ctx->all_filter_parsers);
 	array_pop_back(&ctx->all_filter_parsers);
@@ -2056,13 +2065,39 @@ config_parse_finish_includes(struct config_parser_context *ctx,
 			}
 			if (expand) {
 				config_filters_merge(ctx, config, filter,
-						     include_filter);
+						     include_filter,
+						     FALSE, FALSE);
 			}
 		}
 		if (expand)
 			array_free(&filter->include_groups);
 	}
 	return 0;
+}
+
+static void
+config_parse_merge_filters(struct config_parser_context *ctx,
+			   struct config_parsed *config,
+			   const struct config_filter *dump_filter)
+{
+	for (unsigned int i = 2; config->filter_parsers[i] != NULL; i++) {
+		struct config_filter_parser *filter = config->filter_parsers[i];
+
+		int ret = config_filter_match_no_recurse(&filter->filter,
+							 dump_filter);
+		if (ret < 0 || filter->filter.filter_name != NULL) {
+			/* Incomplete filter */
+			continue;
+		}
+		if (ret == 0) {
+			/* Filter mismatch */
+			filter->dropped = TRUE;
+			continue;
+		}
+
+		config_filters_merge(ctx, config, filter->parent, filter,
+				     TRUE, TRUE);
+	}
 }
 
 static void
@@ -2075,7 +2110,8 @@ config_parse_merge_default_filters(struct config_parser_context *ctx,
 	defaults_parser = array_idx_elem(&ctx->all_filter_parsers, 1);
 	i_assert(config_filter_is_empty_defaults(&defaults_parser->filter));
 
-	config_filters_merge(ctx, config, root_parser, defaults_parser);
+	config_filters_merge(ctx, config, root_parser, defaults_parser,
+			     FALSE, FALSE);
 }
 
 static void
@@ -2131,6 +2167,7 @@ config_parse_finish_service_defaults(struct config_parser_context *ctx)
 static int
 config_parse_finish(struct config_parser_context *ctx,
 		    enum config_parse_flags flags,
+		    const struct config_filter *dump_filter,
 		    struct config_parsed **config_r, const char **error_r)
 {
 	struct config_parsed *new_config;
@@ -2159,6 +2196,9 @@ config_parse_finish(struct config_parser_context *ctx,
 			(flags & CONFIG_PARSE_FLAG_MERGE_GROUP_FILTERS) != 0,
 			error_r);
 	}
+
+	if (ret == 0 && dump_filter != NULL)
+		config_parse_merge_filters(ctx, new_config, dump_filter);
 
 	if (ret < 0)
 		;
@@ -2647,6 +2687,7 @@ config_parser_get_filter_name_prefixes(struct config_parser_context *ctx)
 }
 
 int config_parse_file(const char *path, enum config_parse_flags flags,
+		      const struct config_filter *dump_filter,
 		      struct config_parsed **config_r,
 		      const char **error_r)
 {
@@ -2811,8 +2852,10 @@ prevfile:
 	}
 
 	old_settings_handle_post(&ctx);
-	if (ret == 0)
-		ret = config_parse_finish(&ctx, flags, config_r, error_r);
+	if (ret == 0) {
+		ret = config_parse_finish(&ctx, flags, dump_filter,
+					  config_r, error_r);
+	}
 
 	if (ret == 0 && !dump_defaults &&
 	    (flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) == 0) {

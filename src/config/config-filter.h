@@ -57,6 +57,10 @@ struct config_filter_parser {
 	   boolean tracks whether that setting has been changed in this
 	   filter. */
 	bool filter_required_setting_seen;
+	/* TRUE if this filter shouldn't be included in the config output.
+	   This is used by doveconf -f filter handling to drop filters that
+	   were merged to parents. */
+	bool dropped;
 };
 
 /* Returns TRUE if filter matches mask. The parents must also match. */

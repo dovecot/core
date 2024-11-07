@@ -120,7 +120,7 @@ static void test_config_parser(void)
 	test_assert(config_parse_file(TEST_CONFIG_FILE,
 				      CONFIG_PARSE_FLAG_EXPAND_VALUES |
 				      CONFIG_PARSE_FLAG_NO_DEFAULTS,
-				      &config, &error) == 1);
+				      NULL, &config, &error) == 1);
 	if (error != NULL)
 		i_error("config_parse_file(): %s", error);
 
@@ -151,7 +151,7 @@ static void test_config_parser(void)
 	/* try again unexpanded */
 	test_assert(config_parse_file(TEST_CONFIG_FILE,
 				      CONFIG_PARSE_FLAG_NO_DEFAULTS,
-				      &config, &error) == 1);
+				      NULL, &config, &error) == 1);
 
 	p_clear(pool);
 	global_filter = config_parsed_get_global_filter_parser(config);
