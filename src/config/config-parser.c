@@ -713,6 +713,17 @@ config_apply_exact_line(struct config_parser_context *ctx,
 	if (config_key == NULL)
 		return 0;
 
+	/* FIXME: These don't work because config_parsed_get_setting() doesn't
+	   expand groups. Maybe not worth the effort to fix it? */
+	if ((strcmp(lookup_key, "import_environment") == 0 ||
+	     strcmp(lookup_key, "base_dir") == 0 ||
+	     strcmp(lookup_key, "dovecot_storage_version") == 0) &&
+	    config_filter_has_include_group(&ctx->cur_section->filter_parser->filter)) {
+		ctx->error = p_strdup_printf(ctx->pool,
+			"%s cannot currently be defined inside groups", lookup_key);
+		return -1;
+	}
+
 	for (; config_key != NULL; config_key = config_key->next) {
 		struct config_module_parser *l =
 			&ctx->cur_section->filter_parser->module_parsers[config_key->info_idx];
