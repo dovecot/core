@@ -724,6 +724,9 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 		const char *suffix, *set_name_filter = NULL;
 		const char *const *sub_filter_path = set_filter_path;
 
+		if (filter_parser->dropped)
+			continue;
+
 		if (set_filter_path[0] == NULL) {
 			/* show everything */
 		} else if (filter_parser->filter.filter_name == NULL) {
@@ -1022,7 +1025,9 @@ int main(int argc, char *argv[])
 	char **exec_args = NULL, **setting_name_filters = NULL;
 	unsigned int i;
 	int c, ret, ret2;
-	bool config_path_specified, hide_key = FALSE;
+	struct config_filter dump_filter_parent = {};
+	struct config_filter dump_filter = { .parent = &dump_filter_parent };
+	bool config_path_specified, hide_key = FALSE, have_dump_filter = FALSE;
 	bool simple_output = FALSE, check_full_config = FALSE;
 	bool dump_defaults = FALSE, host_verify = FALSE, dump_full = FALSE;
 	bool print_banners = FALSE, hide_passwords = TRUE;
@@ -1035,7 +1040,7 @@ int main(int argc, char *argv[])
 	}
 
 	master_service = master_service_init("config", master_service_flags,
-					     &argc, &argv, "aCdFhHI:nNPwxs");
+					     &argc, &argv, "aCdf:FhHI:nNPwxs");
 	orig_config_path = t_strdup(master_service_get_config_path(master_service));
 
 	i_set_failure_prefix("doveconf: ");
@@ -1052,6 +1057,20 @@ int main(int argc, char *argv[])
 			dump_defaults = TRUE;
 			flags |= CONFIG_PARSE_FLAG_MERGE_DEFAULT_FILTERS;
 			break;
+		case 'f': {
+			const char *key, *value;
+			if (!t_split_key_value_eq(optarg, &key, &value))
+				i_fatal("-f parameters must be in key=value format");
+			ret = config_filter_parse(&dump_filter,
+						  pool_datastack_create(),
+						  key, value, &error);
+			if (ret < 0)
+				i_fatal("-f %s=%s: %s", key, value, error);
+			if (ret == 0)
+				i_fatal("-f %s: Unknown filter key", key);
+			have_dump_filter = TRUE;
+			break;
+		}
 		case 'F':
 			dump_full = TRUE;
 			simple_output = TRUE;
@@ -1154,7 +1173,8 @@ int main(int argc, char *argv[])
 		flags |= CONFIG_PARSE_FLAG_EXTERNAL_HOOKS;
 	T_BEGIN {
 		ret = config_parse_file(dump_defaults ? NULL : config_path,
-					flags, &config, &error);
+			flags, have_dump_filter ? &dump_filter : NULL,
+			&config, &error);
 	} T_END_PASS_STR_IF(ret <= 0, &error);
 	if (ret == 0 &&
 	    access(EXAMPLE_CONFIG_DIR, X_OK) == 0) {

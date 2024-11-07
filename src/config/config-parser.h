@@ -74,6 +74,7 @@ int config_filter_parse(struct config_filter *filter, pool_t pool,
 			const char *key, const char *value,
 			const char **error_r);
 int config_parse_file(const char *path, enum config_parse_flags flags,
+		      const struct config_filter *dump_filter,
 		      struct config_parsed **config_r,
 		      const char **error_r)
 	ATTR_NULL(3);
