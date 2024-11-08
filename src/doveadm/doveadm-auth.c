@@ -9,7 +9,6 @@
 #include "str.h"
 #include "strescape.h"
 #include "var-expand.h"
-#include "wildcard-match.h"
 #include "dsasl-client.h"
 #include "settings-parser.h"
 #include "master-service.h"
@@ -414,11 +413,7 @@ cmd_user_list(struct auth_master_connection *conn,
 
 	ctx = auth_master_user_list_init(conn, user_mask, &input->info);
 	while ((username = auth_master_user_list_next(ctx)) != NULL) {
-		for (i = 0; users[i] != NULL; i++) {
-			if (wildcard_match_icase(username, users[i]))
-				break;
-		}
-		if (users[i] != NULL)
+		for (i = 0; users[i] != NULL; i++)
 			printf("%s\n", username);
 	}
 	if (auth_master_user_list_deinit(&ctx) < 0)
