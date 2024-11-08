@@ -480,6 +480,7 @@ int db_passwd_file_lookup(struct db_passwd_file *db,
 			.providers = auth_request_var_expand_providers,
 			.context = request,
 			.escape_func = path_fix,
+			.event = authdb_event(request),
 		};
 		dest = t_str_new(256);
 		if (var_expand_program_execute(dest, db->prog, &params, &error) < 0) {
