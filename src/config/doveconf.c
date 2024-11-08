@@ -742,6 +742,7 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 			sub_filter_path++;
 		} else if (suffix[0] != '/') {
 			/* filter name doesn't match the path */
+			continue;
 		} else if (set_filter_path[1] == NULL) {
 			/* filter array name prefix match (e.g. "service") */
 			sub_filter_path++;
