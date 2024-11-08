@@ -11,6 +11,7 @@
 #include "hex-binary.h"
 #include "ioloop.h"
 #include "ostream.h"
+#include "wildcard-match.h"
 #include "ipwd.h"
 #include "master-service.h"
 #include "userdb.h"
@@ -496,13 +497,35 @@ static int master_output_list(struct master_list_iter_ctx *ctx)
 	return 1;
 }
 
+static int match_user(const char *user, struct auth_request *request, bool *match_r)
+{
+	struct auth_userdb *db = request->userdb;
+	const char *mask = request->fields.user;
+
+	if (*db->auth_set->username_format != '\0') {
+		/* normalize requested mask to match userdb */
+		string_t *dest = t_str_new(32);
+		const char *error;
+		if (auth_request_var_expand(dest, db->auth_set->username_format,
+					    request, NULL, &error) < 0) {
+			e_error(authdb_event(request), "Iteration failed: %s",
+				error);
+			return -1;
+		}
+		mask = str_c(dest);
+	}
+
+	*match_r = wildcard_match_icase(user, mask);
+	return 0;
+}
+
 static void master_input_list_callback(const char *user, void *context)
 {
 	struct master_list_iter_ctx *ctx = context;
 	struct auth_userdb *userdb = ctx->auth_request->userdb;
-	int ret;
+	int ret = 0;
 
-	if (user == NULL) {
+	if (user == NULL || ctx->failed) {
 		if (userdb_blocking_iter_deinit(&ctx->iter) < 0)
 			ctx->failed = TRUE;
 
@@ -510,7 +533,7 @@ static void master_input_list_callback(const char *user, void *context)
 			userdb = userdb->next;
 		} while (userdb != NULL &&
 			 userdb->userdb->iface->iterate_init == NULL);
-		if (userdb == NULL) {
+		if (userdb == NULL || ctx->failed) {
 			/* iteration is finished */
 			const char *str;
 
@@ -531,10 +554,14 @@ static void master_input_list_callback(const char *user, void *context)
 
 	T_BEGIN {
 		const char *str;
-
-		str = t_strdup_printf("LIST\t%u\t%s\n", ctx->auth_request->id,
-				      str_tabescape(user));
-		ret = o_stream_send_str(ctx->conn->conn.output, str);
+		bool match;
+		if (match_user(user, ctx->auth_request, &match) < 0)
+			ctx->failed = TRUE;
+		else if (match) {
+			str = t_strdup_printf("LIST\t%u\t%s\n", ctx->auth_request->id,
+					      str_tabescape(user));
+			ret = o_stream_send_str(ctx->conn->conn.output, str);
+		}
 	} T_END;
 	if (o_stream_get_buffer_used_size(ctx->conn->conn.output) >= MAX_OUTBUF_SIZE)
 		ret = o_stream_flush(ctx->conn->conn.output);
