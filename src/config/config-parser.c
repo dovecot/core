@@ -1283,10 +1283,11 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			i_assert(filter_info != NULL);
 			if (config_apply_line(ctx, filter_def->key,
 					      escaped_value, NULL) < 0) {
-				i_panic("BUG: Invalid setting definitions: "
+				ctx->error = p_strdup_printf(ctx->pool,
 					"Failed to set %s=%s for struct %s: %s",
 					filter_def->key, escaped_value,
 					filter_info->name, ctx->error);
+				return FALSE;
 			}
 		}
 		ctx->cur_section->filter_parser =
