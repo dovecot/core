@@ -287,9 +287,9 @@ static void ldap_dict_wait(struct dict *dict)
 	ctx->dict.ioloop = io_loop_create();
 	dict_switch_ioloop(dict);
 
-	do {
+	while (ctx->pending > 0) {
 		io_loop_run(current_ioloop);
-	} while (ctx->pending > 0);
+	}
 
 	io_loop_set_current(ctx->dict.prev_ioloop);
 	dict_switch_ioloop(dict);
