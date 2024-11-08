@@ -59,9 +59,13 @@ struct config_filter_parser {
 	bool filter_required_setting_seen;
 };
 
-/* Returns TRUE if filter matches mask. */
+/* Returns TRUE if filter matches mask. The parents must also match. */
 bool config_filter_match(const struct config_filter *mask,
 			 const struct config_filter *filter);
+/* Returns 1 if filter matches mask, 0 if there's a match, -1 if filter is
+   missing fields required by mask. Filter parents aren't checked. */
+int config_filter_match_no_recurse(const struct config_filter *mask,
+				   const struct config_filter *filter);
 /* Returns TRUE if two filters are fully equal. */
 bool config_filters_equal(const struct config_filter *f1,
 			  const struct config_filter *f2);
