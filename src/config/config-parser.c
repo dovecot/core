@@ -1367,10 +1367,21 @@ config_parser_check_warnings(struct config_parser_context *ctx, const char *key)
 
 static bool config_version_find(const char *version, const char **error_r)
 {
+	const char *const supported_versions[] = {
+#ifdef DOVECOT_PRO_EDITION
+		"3.0.0",
+		DOVECOT_CONFIG_VERSION,
+#else
+		"2.4.0",
+		DOVECOT_CONFIG_VERSION,
+#endif
+		NULL
+	};
 	/* FIXME: implement full version checking later */
-	if (strcmp(version, DOVECOT_CONFIG_VERSION) != 0) {
-		*error_r = t_strdup_printf("Only '%s' is supported currently",
-					   DOVECOT_CONFIG_VERSION);
+	if (!str_array_find(supported_versions, version)) {
+		*error_r = t_strdup_printf(
+			"Currently supported versions are: %s",
+			t_strarray_join(supported_versions, " "));
 		return FALSE;
 	}
 	return TRUE;

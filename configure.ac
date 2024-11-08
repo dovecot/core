@@ -264,16 +264,16 @@ AM_ICONV
 # SIZE_MAX is missing without this
 CXXFLAGS="$CXXFLAGS -D__STDC_LIMIT_MACROS"
 
+# Use the first x.y.z numbers of the version.
+DOVECOT_CONFIG_VERSION=$(echo "$PACKAGE_VERSION" | sed 's/^\([0-9]*\.[0-9]*\.[0-9]*\).*$/\1/')
 if test "$is_pro_build" = "yes"; then
   SET_PRO_DEFINES
-  DOVECOT_CONFIG_VERSION=3.0.0
   AC_SUBST(DOVECOT_ASSET_URL, "doc.dovecotpro.com")
   AC_SUBST(DOVECOT_PRO_BUILD, 1)
 else
   AC_DEFINE_UNQUOTED(DOVECOT_NAME, "$PACKAGE_NAME", [Dovecot name])
   AC_SUBST(DOVECOT_ASSET_URL, "doc.dovecot.org")
   AC_SUBST(DOVECOT_PRO_BUILD, 0)
-  DOVECOT_CONFIG_VERSION=2.4.0
 fi
 AC_DEFINE_UNQUOTED(DOVECOT_CONFIG_VERSION, "$DOVECOT_CONFIG_VERSION", [Dovecot configuration version])
 AC_SUBST(DOVECOT_CONFIG_VERSION)
