@@ -13,22 +13,22 @@ static const struct config_filter empty_defaults_filter = {
 	.default_settings = TRUE
 };
 
-static bool config_filter_match_service(const struct config_filter *mask,
-					const struct config_filter *filter)
+static int config_filter_match_service(const struct config_filter *mask,
+				       const struct config_filter *filter)
 {
 	if (mask->service != NULL) {
 		if (filter->service == NULL)
-			return FALSE;
+			return -1;
 		if (mask->service[0] == '!') {
 			/* not service */
 			if (strcmp(filter->service, mask->service + 1) == 0)
-				return FALSE;
+				return 0;
 		} else {
 			if (strcmp(filter->service, mask->service) != 0)
-				return FALSE;
+				return 0;
 		}
 	}
-	return TRUE;
+	return 1;
 }
 
 static bool
@@ -47,46 +47,59 @@ config_filter_match_local_name(const struct config_filter *mask,
 	return dns_match_wildcard(filter_local_name, local_name) == 0;
 }
 
-static bool config_filter_match_rest(const struct config_filter *mask,
-				     const struct config_filter *filter)
+static int config_filter_match_rest(const struct config_filter *mask,
+				    const struct config_filter *filter)
 {
 	bool matched;
+	int ret = 1;
 
 	if (mask->local_name != NULL) {
 		if (filter->local_name == NULL)
-			return FALSE;
-		T_BEGIN {
-			matched = config_filter_match_local_name(mask, filter->local_name);
-		} T_END;
-		if (!matched)
-			return FALSE;
+			ret = -1;
+		else {
+			T_BEGIN {
+				matched = config_filter_match_local_name(mask, filter->local_name);
+			} T_END;
+			if (!matched)
+				return 0;
+		}
 	}
 	/* FIXME: it's not comparing full masks */
 	if (mask->remote_bits != 0) {
 		if (filter->remote_bits == 0)
-			return FALSE;
-		if (!net_is_in_network(&filter->remote_net, &mask->remote_net,
-				       mask->remote_bits))
-			return FALSE;
+			ret = -1;
+		else if (!net_is_in_network(&filter->remote_net,
+					    &mask->remote_net,
+					    mask->remote_bits))
+			return 0;
 	}
 	if (mask->local_bits != 0) {
 		if (filter->local_bits == 0)
-			return FALSE;
-		if (!net_is_in_network(&filter->local_net, &mask->local_net,
-				       mask->local_bits))
-			return FALSE;
+			ret = -1;
+		else if (!net_is_in_network(&filter->local_net,
+					    &mask->local_net, mask->local_bits))
+			return 0;
 	}
-	return TRUE;
+	return ret;
+}
+
+int config_filter_match_no_recurse(const struct config_filter *mask,
+				   const struct config_filter *filter)
+{
+	int ret, ret2;
+
+	if ((ret = config_filter_match_service(mask, filter)) == 0)
+		return 0;
+	if ((ret2 = config_filter_match_rest(mask, filter)) == 0)
+		return 0;
+	return ret > 0 && ret2 > 0 ? 1 : -1;
 }
 
 bool config_filter_match(const struct config_filter *mask,
 			 const struct config_filter *filter)
 {
 	do {
-		if (!config_filter_match_service(mask, filter))
-			return FALSE;
-
-		if (!config_filter_match_rest(mask, filter))
+		if (config_filter_match_no_recurse(mask, filter) <= 0)
 			return FALSE;
 		mask = mask->parent;
 		filter = filter->parent;
