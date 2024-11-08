@@ -9,7 +9,7 @@ struct config_filter {
 	/* Parent filter, which is ANDed to this filter */
 	struct config_filter *parent;
 
-	const char *service;
+	const char *protocol;
 	/* local_name is for TLS SNI requests.
 	   both local_name and local_bits can't be set at the same time. */
 	const char *local_name;

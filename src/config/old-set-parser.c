@@ -25,13 +25,13 @@ struct old_set_parser {
 };
 
 static const struct config_filter imap_filter = {
-	.service = "imap"
+	.protocol = "imap"
 };
 static const struct config_filter pop3_filter = {
-	.service = "pop3"
+	.protocol = "pop3"
 };
 static const struct config_filter managesieve_filter = {
-	.service = "sieve"
+	.protocol = "sieve"
 };
 
 static const struct {

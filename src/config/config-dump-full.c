@@ -120,13 +120,13 @@ config_dump_full_append_filter_query(string_t *str,
 				     const struct config_filter *filter,
 				     bool write_named_filters)
 {
-	if (filter->service != NULL) {
-		if (filter->service[0] != '!') {
+	if (filter->protocol != NULL) {
+		if (filter->protocol[0] != '!') {
 			str_printfa(str, "protocol=\"%s\" AND ",
-				    wildcard_str_escape(filter->service));
+				    wildcard_str_escape(filter->protocol));
 		} else {
 			str_printfa(str, "NOT protocol=\"%s\" AND ",
-				    wildcard_str_escape(filter->service + 1));
+				    wildcard_str_escape(filter->protocol + 1));
 		}
 	}
 	if (filter->local_name != NULL) {
@@ -680,7 +680,7 @@ int config_dump_full(struct config_parsed *config,
 
 	/* first filter should be the global one */
 	i_assert(ctx.filters[0] != NULL &&
-		 ctx.filters[0]->filter.service == NULL);
+		 ctx.filters[0]->filter.protocol == NULL);
 
 	uint32_t max_filter_count = 0;
 	while (ctx.filters[max_filter_count] != NULL) max_filter_count++;

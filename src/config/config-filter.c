@@ -16,15 +16,15 @@ static const struct config_filter empty_defaults_filter = {
 static int config_filter_match_service(const struct config_filter *mask,
 				       const struct config_filter *filter)
 {
-	if (mask->service != NULL) {
-		if (filter->service == NULL)
+	if (mask->protocol != NULL) {
+		if (filter->protocol == NULL)
 			return -1;
-		if (mask->service[0] == '!') {
-			/* not service */
-			if (strcmp(filter->service, mask->service + 1) == 0)
+		if (mask->protocol[0] == '!') {
+			/* not protocol */
+			if (strcmp(filter->protocol, mask->protocol + 1) == 0)
 				return 0;
 		} else {
-			if (strcmp(filter->service, mask->service) != 0)
+			if (strcmp(filter->protocol, mask->protocol) != 0)
 				return 0;
 		}
 	}
@@ -110,7 +110,7 @@ bool config_filter_match(const struct config_filter *mask,
 bool config_filters_equal_no_recursion(const struct config_filter *f1,
 				       const struct config_filter *f2)
 {
-	if (null_strcmp(f1->service, f2->service) != 0)
+	if (null_strcmp(f1->protocol, f2->protocol) != 0)
 		return FALSE;
 
 	if (f1->remote_bits != f2->remote_bits)
