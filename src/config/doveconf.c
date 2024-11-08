@@ -692,9 +692,9 @@ config_dump_filter_begin(string_t *str, unsigned int indent,
 		str_append(str, " {\n");
 		indent++;
 	}
-	if (filter->service != NULL) {
+	if (filter->protocol != NULL) {
 		str_append_max(str, indent_str, indent*2);
-		str_printfa(str, "protocol %s {\n", filter->service);
+		str_printfa(str, "protocol %s {\n", filter->protocol);
 		indent++;
 	}
 	config_dump_named_filters(str, &indent, filter);

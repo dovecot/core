@@ -1133,7 +1133,7 @@ int config_filter_parse(struct config_filter *filter, pool_t pool,
 			p_strdup_printf(pool, "%s/%s", key, value);
 		filter->filter_name_array = TRUE;
 	} else if (strcmp(key, "protocol") == 0) {
-		if (parent->service != NULL)
+		if (parent->protocol != NULL)
 			*error_r = "Nested protocol { protocol { .. } } block not allowed";
 		else if (parent->filter_name != NULL)
 			*error_r = t_strdup_printf(
@@ -1141,11 +1141,11 @@ int config_filter_parse(struct config_filter *filter, pool_t pool,
 				t_strcut(parent->filter_name, '/'),
 				t_strcut(parent->filter_name, '/'));
 		else
-			filter->service = p_strdup(pool, value);
+			filter->protocol = p_strdup(pool, value);
 	} else if (strcmp(key, "local") == 0) {
 		if (parent->remote_bits > 0)
 			*error_r = "remote { local { .. } } not allowed (use local { remote { .. } } instead)";
-		else if (parent->service != NULL)
+		else if (parent->protocol != NULL)
 			*error_r = "protocol { local { .. } } not allowed (use local { protocol { .. } } instead)";
 		else if (parent->local_name != NULL)
 			*error_r = "local_name { local { .. } } not allowed (use local { local_name { .. } } instead)";
@@ -1168,7 +1168,7 @@ int config_filter_parse(struct config_filter *filter, pool_t pool,
 	} else if (strcmp(key, "local_name") == 0) {
 		if (parent->remote_bits > 0)
 			*error_r = "remote { local_name { .. } } not allowed (use local_name { remote { .. } } instead)";
-		else if (parent->service != NULL)
+		else if (parent->protocol != NULL)
 			*error_r = "protocol { local_name { .. } } not allowed (use local_name { protocol { .. } } instead)";
 		else if (parent->filter_name != NULL)
 			*error_r = p_strdup_printf(pool,
@@ -1178,7 +1178,7 @@ int config_filter_parse(struct config_filter *filter, pool_t pool,
 		else
 			filter->local_name = p_strdup(pool, value);
 	} else if (strcmp(key, "remote") == 0) {
-		if (parent->service != NULL)
+		if (parent->protocol != NULL)
 			*error_r = "protocol { remote { .. } } not allowed (use remote { protocol { .. } } instead)";
 		else if (parent->filter_name != NULL)
 			*error_r = p_strdup_printf(pool,
@@ -1387,8 +1387,8 @@ config_filter_parser_check(struct config_parser_context *ctx,
 
 	event = event_create(event);
 	for (filter = &filter_parser->filter; filter != NULL; filter = filter->parent) {
-		if (filter->service != NULL)
-			event_add_str(event, "protocol", filter->service);
+		if (filter->protocol != NULL)
+			event_add_str(event, "protocol", filter->protocol);
 		if (filter->local_name != NULL)
 			event_add_str(event, "local_name", filter->local_name);
 		if (filter->local_bits > 0)
@@ -2320,7 +2320,7 @@ config_section_has_non_named_list_filters(struct config_section_stack *section)
 	struct config_filter *filter = &section->filter_parser->filter;
 
 	do {
-		if (filter->service != NULL ||
+		if (filter->protocol != NULL ||
 		    filter->local_name != NULL ||
 		    filter->local_host != NULL ||
 		    filter->remote_host != NULL ||
