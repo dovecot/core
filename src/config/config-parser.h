@@ -70,6 +70,9 @@ extern struct module *modules;
 
 int config_parse_net(const char *value, struct ip_addr *ip_r,
 		     unsigned int *bits_r, const char **error_r);
+int config_filter_parse(struct config_filter *filter, pool_t pool,
+			const char *key, const char *value,
+			const char **error_r);
 int config_parse_file(const char *path, enum config_parse_flags flags,
 		      struct config_parsed **config_r,
 		      const char **error_r)

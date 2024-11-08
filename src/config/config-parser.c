@@ -1114,6 +1114,94 @@ int config_parse_net(const char *value, struct ip_addr *ip_r,
 	return 0;
 }
 
+int config_filter_parse(struct config_filter *filter, pool_t pool,
+			const char *key, const char *value,
+			const char **error_r)
+{
+	struct config_filter *parent = filter->parent;
+	const char *error;
+
+	*error_r = NULL;
+
+	if (key[0] == SETTINGS_INCLUDE_GROUP_PREFIX) {
+		if (!config_filter_is_empty(parent) &&
+		    !config_filter_is_empty_defaults(parent)) {
+			*error_r = "groups must defined at top-level, not under filters";
+			return -1;
+		}
+		filter->filter_name =
+			p_strdup_printf(pool, "%s/%s", key, value);
+		filter->filter_name_array = TRUE;
+	} else if (strcmp(key, "protocol") == 0) {
+		if (parent->service != NULL)
+			*error_r = "Nested protocol { protocol { .. } } block not allowed";
+		else if (parent->filter_name != NULL)
+			*error_r = t_strdup_printf(
+				"%s { protocol { .. } } not allowed (use protocol { %s { .. } } instead)",
+				t_strcut(parent->filter_name, '/'),
+				t_strcut(parent->filter_name, '/'));
+		else
+			filter->service = p_strdup(pool, value);
+	} else if (strcmp(key, "local") == 0) {
+		if (parent->remote_bits > 0)
+			*error_r = "remote { local { .. } } not allowed (use local { remote { .. } } instead)";
+		else if (parent->service != NULL)
+			*error_r = "protocol { local { .. } } not allowed (use local { protocol { .. } } instead)";
+		else if (parent->local_name != NULL)
+			*error_r = "local_name { local { .. } } not allowed (use local { local_name { .. } } instead)";
+		else if (parent->filter_name != NULL)
+			*error_r = p_strdup_printf(pool,
+				"%s { local { .. } } not allowed (use local { %s { .. } } instead)",
+				t_strcut(parent->filter_name, '/'),
+				t_strcut(parent->filter_name, '/'));
+		else if (config_parse_net(value, &filter->local_net,
+					  &filter->local_bits, &error) < 0)
+			*error_r = p_strdup(pool, error);
+		else if (parent->local_bits > filter->local_bits ||
+			 (parent->local_bits > 0 &&
+			  !net_is_in_network(&filter->local_net,
+					     &parent->local_net,
+					     parent->local_bits)))
+			*error_r = "local net1 { local net2 { .. } } requires net2 to be inside net1";
+		else
+			filter->local_host = p_strdup(pool, value);
+	} else if (strcmp(key, "local_name") == 0) {
+		if (parent->remote_bits > 0)
+			*error_r = "remote { local_name { .. } } not allowed (use local_name { remote { .. } } instead)";
+		else if (parent->service != NULL)
+			*error_r = "protocol { local_name { .. } } not allowed (use local_name { protocol { .. } } instead)";
+		else if (parent->filter_name != NULL)
+			*error_r = p_strdup_printf(pool,
+				"%s { local_name { .. } } not allowed (use local_name { %s { .. } } instead)",
+				t_strcut(parent->filter_name, '/'),
+				t_strcut(parent->filter_name, '/'));
+		else
+			filter->local_name = p_strdup(pool, value);
+	} else if (strcmp(key, "remote") == 0) {
+		if (parent->service != NULL)
+			*error_r = "protocol { remote { .. } } not allowed (use remote { protocol { .. } } instead)";
+		else if (parent->filter_name != NULL)
+			*error_r = p_strdup_printf(pool,
+				"%s { remote { .. } } not allowed (use remote { %s { .. } } instead)",
+				t_strcut(parent->filter_name, '/'),
+				t_strcut(parent->filter_name, '/'));
+		else if (config_parse_net(value, &filter->remote_net,
+					  &filter->remote_bits, &error) < 0)
+			*error_r = p_strdup(pool, error);
+		else if (parent->remote_bits > filter->remote_bits ||
+			 (parent->remote_bits > 0 &&
+			  !net_is_in_network(&filter->remote_net,
+					     &parent->remote_net,
+					     parent->remote_bits)))
+			*error_r = "remote net1 { remote net2 { .. } } requires net2 to be inside net1";
+		else
+			filter->remote_host = p_strdup(pool, value);
+	} else {
+		return 0;
+	}
+	return *error_r == NULL ? 1 : -1;
+}
+
 static bool
 config_filter_add_new_filter(struct config_parser_context *ctx,
 			     const char *key, const char *value,
@@ -1129,80 +1217,14 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 	i_zero(&filter);
 	filter.parent = parent;
 
-	if (key[0] == SETTINGS_INCLUDE_GROUP_PREFIX) {
-		if (!config_filter_is_empty(parent) &&
-		    !config_filter_is_empty_defaults(parent)) {
-			ctx->error = "groups must defined at top-level, not under filters";
-			return TRUE;
-		}
-		filter.filter_name =
-			p_strdup_printf(ctx->pool, "%s/%s", key, value);
-		filter.filter_name_array = TRUE;
-	} else if (strcmp(key, "protocol") == 0) {
-		if (parent->service != NULL)
-			ctx->error = "Nested protocol { protocol { .. } } block not allowed";
-		else if (parent->filter_name != NULL)
-			ctx->error = p_strdup_printf(ctx->pool,
-				"%s { protocol { .. } } not allowed (use protocol { %s { .. } } instead)",
-				t_strcut(parent->filter_name, '/'),
-				t_strcut(parent->filter_name, '/'));
-		else
-			filter.service = p_strdup(ctx->pool, value);
-	} else if (strcmp(key, "local") == 0) {
-		if (parent->remote_bits > 0)
-			ctx->error = "remote { local { .. } } not allowed (use local { remote { .. } } instead)";
-		else if (parent->service != NULL)
-			ctx->error = "protocol { local { .. } } not allowed (use local { protocol { .. } } instead)";
-		else if (parent->local_name != NULL)
-			ctx->error = "local_name { local { .. } } not allowed (use local { local_name { .. } } instead)";
-		else if (parent->filter_name != NULL)
-			ctx->error = p_strdup_printf(ctx->pool,
-				"%s { local { .. } } not allowed (use local { %s { .. } } instead)",
-				t_strcut(parent->filter_name, '/'),
-				t_strcut(parent->filter_name, '/'));
-		else if (config_parse_net(value, &filter.local_net,
-					  &filter.local_bits, &error) < 0)
-			ctx->error = p_strdup(ctx->pool, error);
-		else if (parent->local_bits > filter.local_bits ||
-			 (parent->local_bits > 0 &&
-			  !net_is_in_network(&filter.local_net,
-					     &parent->local_net,
-					     parent->local_bits)))
-			ctx->error = "local net1 { local net2 { .. } } requires net2 to be inside net1";
-		else
-			filter.local_host = p_strdup(ctx->pool, value);
-	} else if (strcmp(key, "local_name") == 0) {
-		if (parent->remote_bits > 0)
-			ctx->error = "remote { local_name { .. } } not allowed (use local_name { remote { .. } } instead)";
-		else if (parent->service != NULL)
-			ctx->error = "protocol { local_name { .. } } not allowed (use local_name { protocol { .. } } instead)";
-		else if (parent->filter_name != NULL)
-			ctx->error = p_strdup_printf(ctx->pool,
-				"%s { local_name { .. } } not allowed (use local_name { %s { .. } } instead)",
-				t_strcut(parent->filter_name, '/'),
-				t_strcut(parent->filter_name, '/'));
-		else
-			filter.local_name = p_strdup(ctx->pool, value);
-	} else if (strcmp(key, "remote") == 0) {
-		if (parent->service != NULL)
-			ctx->error = "protocol { remote { .. } } not allowed (use remote { protocol { .. } } instead)";
-		else if (parent->filter_name != NULL)
-			ctx->error = p_strdup_printf(ctx->pool,
-				"%s { remote { .. } } not allowed (use remote { %s { .. } } instead)",
-				t_strcut(parent->filter_name, '/'),
-				t_strcut(parent->filter_name, '/'));
-		else if (config_parse_net(value, &filter.remote_net,
-					  &filter.remote_bits, &error) < 0)
-			ctx->error = p_strdup(ctx->pool, error);
-		else if (parent->remote_bits > filter.remote_bits ||
-			 (parent->remote_bits > 0 &&
-			  !net_is_in_network(&filter.remote_net,
-					     &parent->remote_net,
-					     parent->remote_bits)))
-			ctx->error = "remote net1 { remote net2 { .. } } requires net2 to be inside net1";
-		else
-			filter.remote_host = p_strdup(ctx->pool, value);
-	} else if (config_is_filter_name(ctx, key, &filter_info, &filter_def)) {
+	int ret = config_filter_parse(&filter, ctx->pool, key, value, &error);
+	if (ret < 0) {
+		ctx->error = p_strdup(ctx->pool, error);
+		return FALSE;
+	}
+	if (ret > 0)
+		; /* already parsed */
+	else if (config_is_filter_name(ctx, key, &filter_info, &filter_def)) {
 		if (filter_def->type == SET_FILTER_NAME) {
 			if (value[0] != '\0' || value_quoted) {
 				ctx->error = p_strdup_printf(ctx->pool,
