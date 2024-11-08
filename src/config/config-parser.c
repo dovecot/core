@@ -805,28 +805,42 @@ static bool replace_filter_prefix(struct config_parser_context *ctx,
 			   ctx->filter_name_prefixes_count,
 			   sizeof(ctx->filter_name_prefixes[0]),
 			   i_strcmp_p, &filter_name_idx);
-	if (filter_name_idx == 0)
-		return FALSE;
+	/* Insert position might not be exactly the place we want to look at.
+	   For example:
 
-	const char *filter_name_prefix =
-		ctx->filter_name_prefixes[filter_name_idx-1];
-	size_t filter_name_prefix_len = strlen(filter_name_prefix);
-	if (strncmp(*key, filter_name_prefix, filter_name_prefix_len) != 0)
-		return FALSE;
+	   *key = "foo_3"
+	   filter_name_prefixes[filter_name_idx-1] = "foo_2"
+	   filter_name_prefixes[filter_name_idx-2] = "foo_"
 
-	const char *cur_filter_name =
-		ctx->cur_section->filter_parser->filter.filter_name;
-	if (cur_filter_name != NULL &&
-	    strncmp(filter_name_prefix, cur_filter_name,
-		    filter_name_prefix_len - 1) == 0 &&
-	    cur_filter_name[filter_name_prefix_len-1] == '\0') {
-		/* already inside the correct filter */
-		return FALSE;
+	   In this case we want to use the "foo_" prefix.
+	*/
+	const char *key_minimum_prefix = t_strcut(*key, '_');
+	for (; filter_name_idx > 0; filter_name_idx--) {
+		const char *filter_name_prefix =
+			ctx->filter_name_prefixes[filter_name_idx-1];
+		size_t filter_name_prefix_len = strlen(filter_name_prefix);
+		if (strncmp(*key, filter_name_prefix, filter_name_prefix_len) != 0) {
+			if (strcmp(key_minimum_prefix, filter_name_prefix) > 0)
+				break;
+			/* Previous prefixes could still match. */
+			continue;
+		}
+
+		const char *cur_filter_name =
+			ctx->cur_section->filter_parser->filter.filter_name;
+		if (cur_filter_name != NULL &&
+		    strncmp(filter_name_prefix, cur_filter_name,
+			    filter_name_prefix_len - 1) == 0 &&
+		    cur_filter_name[filter_name_prefix_len-1] == '\0') {
+			/* already inside the correct filter */
+			return FALSE;
+		}
+
+		*key = t_strdup_printf("%.*s/%s", (int)filter_name_prefix_len-1,
+				       filter_name_prefix, *key);
+		return TRUE;
 	}
-
-	*key = t_strdup_printf("%.*s/%s", (int)filter_name_prefix_len-1,
-			       filter_name_prefix, *key);
-	return TRUE;
+	return FALSE;
 }
 
 static const char *filter_key_skip_group_prefix(const char *key)
