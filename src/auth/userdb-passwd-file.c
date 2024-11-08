@@ -74,7 +74,7 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 {
 	struct userdb_module *_module = auth_request->userdb->userdb;
 	struct passwd_file_userdb_module *module =
-		(struct passwd_file_userdb_module *)_module;
+		container_of(_module, struct passwd_file_userdb_module, module);
 	struct passwd_user *pu;
 	int ret;
 
@@ -133,7 +133,7 @@ passwd_file_iterate_init(struct auth_request *auth_request,
 {
 	struct userdb_module *_module = auth_request->userdb->userdb;
 	struct passwd_file_userdb_module *module =
-		(struct passwd_file_userdb_module *)_module;
+		container_of(_module, struct passwd_file_userdb_module, module);
 	struct passwd_file_userdb_iterate_context *ctx;
 	int fd;
 
@@ -166,7 +166,7 @@ passwd_file_iterate_init(struct auth_request *auth_request,
 static void passwd_file_iterate_next(struct userdb_iterate_context *_ctx)
 {
 	struct passwd_file_userdb_iterate_context *ctx =
-		(struct passwd_file_userdb_iterate_context *)_ctx;
+		container_of(_ctx, struct passwd_file_userdb_iterate_context, ctx);
 	const char *line, *p;
 
 	if (ctx->input == NULL)
@@ -200,7 +200,7 @@ static void passwd_file_iterate_next(struct userdb_iterate_context *_ctx)
 static int passwd_file_iterate_deinit(struct userdb_iterate_context *_ctx)
 {
 	struct passwd_file_userdb_iterate_context *ctx =
-		(struct passwd_file_userdb_iterate_context *)_ctx;
+		container_of(_ctx, struct passwd_file_userdb_iterate_context, ctx);
 	int ret = _ctx->failed ? -1 : 0;
 
 	i_stream_destroy(&ctx->input);
@@ -232,7 +232,7 @@ passwd_file_preinit(pool_t pool, struct event *event,
 static void passwd_file_init(struct userdb_module *_module)
 {
 	struct passwd_file_userdb_module *module =
-		(struct passwd_file_userdb_module *)_module;
+		container_of(_module, struct passwd_file_userdb_module, module);
 
 	db_passwd_file_parse(module->pwf);
 }
@@ -240,7 +240,7 @@ static void passwd_file_init(struct userdb_module *_module)
 static void passwd_file_deinit(struct userdb_module *_module)
 {
 	struct passwd_file_userdb_module *module =
-		(struct passwd_file_userdb_module *)_module;
+		container_of(_module, struct passwd_file_userdb_module, module);
 
 	db_passwd_file_unref(&module->pwf);
 }
