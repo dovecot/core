@@ -153,8 +153,8 @@ static const char *get_box_name(struct mail_storage_list_index_rebuild_ctx *ctx,
 					     "but could not recover mailbox name",
 			guid_128_to_string(box->guid), path);
 		box_name = t_strdup_printf("%s%s",
-					   ctx->storage->lost_mailbox_prefix,
-					   guid_128_to_string(box->guid));
+			ctx->storage->set->mailbox_list_lost_mailbox_prefix,
+			guid_128_to_string(box->guid));
 	}
 	return box_name;
 }
@@ -211,8 +211,8 @@ mail_storage_list_remove_duplicate(struct mail_storage_list_index_rebuild_ctx *c
 	}
 	/* we'll need to delete one of these entries. if one of them begins with
 	   "lost-", remove it. otherwise just pick one of them randomly. */
-	if (strncmp(box->name, ctx->storage->lost_mailbox_prefix,
-		    strlen(ctx->storage->lost_mailbox_prefix)) == 0) {
+	if (strncmp(box->name, ctx->storage->set->mailbox_list_lost_mailbox_prefix,
+		    strlen(ctx->storage->set->mailbox_list_lost_mailbox_prefix)) == 0) {
 		delete_name = box->name;
 		keep_name = rebuild_box->index_name;
 	} else {
