@@ -87,6 +87,33 @@ struct mail_storage_service_input {
 	bool no_free_init_failure:1;
 };
 
+struct mail_storage_service_user {
+	pool_t pool;
+	int refcount;
+
+	struct mail_storage_service_ctx *service_ctx;
+	struct mail_storage_service_input input;
+	enum mail_storage_service_flags flags;
+
+	struct event *event;
+	struct ioloop_context *ioloop_ctx;
+	const char *log_prefix, *auth_mech, *auth_token, *auth_user;
+	const char *master_user;
+	const char *local_name;
+
+	const char *system_groups_user, *uid_source, *gid_source;
+	const char *chdir_path;
+	const struct mail_user_settings *user_set;
+	struct settings_instance *set_instance;
+
+	unsigned int session_id_counter;
+
+	bool anonymous:1;
+	bool admin:1;
+	bool master_service_user_set:1;
+	bool home_from_userdb:1;
+};
+
 extern struct module *mail_storage_service_modules;
 
 struct mail_storage_service_ctx *
