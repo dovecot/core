@@ -265,7 +265,7 @@ AM_ICONV
 CXXFLAGS="$CXXFLAGS -D__STDC_LIMIT_MACROS"
 
 # Use the first x.y.z numbers of the version.
-DOVECOT_CONFIG_VERSION=$(echo "$PACKAGE_VERSION" | sed 's/^\([0-9]*\.[0-9]*\.[0-9]*\).*$/\1/')
+DOVECOT_CONFIG_VERSION=$(echo "$PACKAGE_VERSION" | sed 's/^\([[0-9]]*\.[[0-9]]*\.[[0-9]]*\).*$/\1/')
 if test "$is_pro_build" = "yes"; then
   SET_PRO_DEFINES
   AC_SUBST(DOVECOT_ASSET_URL, "doc.dovecotpro.com")
