@@ -60,6 +60,8 @@ struct mail_storage_service_init_var_expand_ctx {
 	struct mail_storage_service_user *user;
 };
 
+struct mail_storage_service_user_module_register
+	mail_storage_service_user_module_register = { 0 };
 struct module *mail_storage_service_modules = NULL;
 
 static void set_keyvalue(struct mail_storage_service_user *user,
@@ -1169,6 +1171,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	user->event = event;
 	user->input.session_create_time = input->session_create_time;
 	user->flags = flags;
+	p_array_init(&user->module_contexts, user->pool, 5);
 
 	user->set_instance = set_instance;
 	user->user_set = user_set;
