@@ -108,12 +108,24 @@ struct mail_storage_service_user {
 
 	unsigned int session_id_counter;
 
+	/* Module-specific contexts. See mail_storage_module_id. */
+	ARRAY(union mail_storage_service_user_module_context *) module_contexts;
+
 	bool anonymous:1;
 	bool admin:1;
 	bool master_service_user_set:1;
 	bool home_from_userdb:1;
 };
 
+struct mail_storage_service_user_module_register {
+	unsigned int id;
+};
+
+union mail_storage_service_user_module_context {
+	struct mail_storage_service_user_module_register *reg;
+};
+extern struct mail_storage_service_user_module_register
+	mail_storage_service_user_module_register;
 extern struct module *mail_storage_service_modules;
 
 struct mail_storage_service_ctx *
