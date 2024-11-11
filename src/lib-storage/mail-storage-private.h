@@ -25,8 +25,6 @@ struct fs;
 
 #define MAIL_SHARED_STORAGE_NAME "shared"
 
-#define MAIL_STORAGE_LOST_MAILBOX_PREFIX "recovered-lost-folder-"
-
 enum mail_storage_list_index_rebuild_reason {
 	/* Mailbox list index was found to be corrupted. */
 	MAIL_STORAGE_LIST_INDEX_REBUILD_REASON_CORRUPTED,
@@ -165,9 +163,6 @@ struct mail_storage {
 	/* A "root dir" to enable storage sharing.  It is only ever used for
 	 * uniqueness checking (via strcmp) and never used as a path. */
 	const char *unique_root_dir;
-
-	/* prefix for lost mailbox */
-	const char *lost_mailbox_prefix;
 
 	/* Last error set in mail_storage_set_critical(). */
 	char *last_internal_error;

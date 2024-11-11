@@ -67,6 +67,7 @@ struct mail_storage_settings {
 	bool mailbox_list_utf8;
 	const char *mailbox_list_visible_escape_char;
 	const char *mailbox_list_storage_escape_char;
+	const char *mailbox_list_lost_mailbox_prefix;
 	const char *mailbox_directory_name;
 	bool mailbox_directory_name_legacy;
 	const char *mailbox_root_directory_name;
