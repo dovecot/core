@@ -1,0 +1,26 @@
+root = true
+
+[*]
+indent_style = space
+indent_size = 2
+tab_width = 8
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+trim_trailing_whitespace = true
+
+[{*.pl,**/*.pl}]
+indent_style = space
+indent_size = 2
+
+[{*.lua,**/*.lua}]
+indent_style = tab
+indent_size = 8
+
+[{*.c,*.h,**/*.c,**/*.h,**/*.cc,**/*.hh,**/*.y,**/*.l}]
+indent_style = tab
+indent_size = 8
+
+[{Makefile,Makefile.*,**/Makefile,**/Makefile.*}]
+indent_style = tab
+indent_size = 8
