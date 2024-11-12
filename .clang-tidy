@@ -1,0 +1,97 @@
+---
+Checks: >
+  bugprone-*,
+  clang-analyzer-*,
+  clang-diagnostic-*,
+  llvmlibc-*,
+  misc-*,
+  misc-header-include-cycle,
+  misc-misleading-bidirectional,
+  misc-misleading-identifier,
+  modernize-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -bugprone-assignment-in-if-condition,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -bugprone-macro-parentheses,
+  -bugprone-narrowing-conversions,
+  -bugprone-reserved-identifier,
+  -bugprone-sizeof-expression,
+  -clang-analyzer-core.VLASize,
+  -clang-analyzer-cplusplus*,
+  -clang-analyzer-optin.cplusplus*,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  -llvmlibc-restrict-system-libc-headers,
+  -misc-include-cleaner,
+  -performance-no-int-to-ptr,
+  -readability-avoid-const-params-in-decls,
+  -readability-braces-around-statements,
+  -readability-else-after-return,
+  -readability-identifier-length,
+  -readability-identifier-naming,
+  -readability-isolate-declaration,
+  -readability-magic-numbers,
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*'
+FormatStyle: 'file'
+CheckOptions:
+  - key: llvm-else-after-return.WarnOnConditionVariables
+    value: '1'
+  - key: modernize-loop-convert.MinConfidence
+    value: reasonable
+  - key: modernize-replace-auto-ptr.IncludeStyle
+    value: llvm
+  - key: cert-str34-c.DiagnoseSignedUnsignedCharComparisons
+    value: '1'
+  - key: google-readability-namespace-comments.ShortNamespaceLines
+    value: '10'
+  - key: cert-oop54-cpp.WarnOnlyIfThisHasSuspiciousField
+    value: '0'
+  - key: cert-dcl16-c.NewSuffixes
+    value: 'L;LL;LU;LLU'
+  - key: google-readability-braces-around-statements.ShortStatementLines
+    value: '0'
+  - key: modernize-pass-by-value.IncludeStyle
+    value: llvm
+  - key: google-readability-namespace-comments.SpacesBeforeComments
+    value: '2'
+  - key: modernize-loop-convert.MaxCopySize
+    value: '16'
+  - key: modernize-use-nullptr.NullMacros
+    value: 'NULL'
+  - key: llvm-qualified-auto.AddConstToQualified
+    value: '1'
+  - key: modernize-loop-convert.NamingStyle
+    value: CamelCase
+  - key: llvm-else-after-return.WarnOnUnfixable
+    value: '0'
+  - key: google-readability-function-size.StatementThreshold
+    value: '800'
+  - key: readability-braces-around-statements.ShortStatementLines
+    value: '10'
+  - key: readability-magic-numbers.IgnorePowersOf2IntegerValues
+    value: true
+  - key: readability-magic-numbers.IgnoredIntegerValues
+    value: |
+      '-10;-9;-8;-7;-6;-5;-4;-3;-2;-1;0;1;2;3;4;5;6;7;8;9;10;20;100;127;255;4095;0xff'
+  - key: readability-magic-numbers.IgnoreUserDefinedLiterals
+    value: '1'
+  - key: readability-function-cognitive-complexity.Threshold
+    value: 50
+  - key: bugprone-assert-side-effect.AssertMacros
+    value: 'assert,i_assert'
+  - key: readability-identifier-naming.StructCase
+    value: lower_case
+  - key: readability-identifier-naming.EnumCase
+    value: lower_case
+  - key: readability-identifier-naming.EnumConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.VariableCase
+    value: lower_case
+  - key: readability-identifier-naming.LocalConstantCase
+    value: lower_case
+  - key: readability-identifier-naming.LocalVariableCase
+    value: lower_case
+...
