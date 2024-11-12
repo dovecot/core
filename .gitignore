@@ -48,6 +48,8 @@ compile_commands.json
 /README
 /INSTALL
 /version
+/.cache
+/.dir-locals.el
 
 /aclocal.m4
 /m4/libtool.m4
