@@ -64,6 +64,9 @@ struct mail_storage_service_user_module_register
 	mail_storage_service_user_module_register = { 0 };
 struct module *mail_storage_service_modules = NULL;
 
+struct metacache_service_user_module metacache_service_user_module =
+	MODULE_CONTEXT_INIT(&mail_storage_service_user_module_register);
+
 static void set_keyvalue(struct mail_storage_service_user *user,
 			 const char *key, const char *value)
 {
