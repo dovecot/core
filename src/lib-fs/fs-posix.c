@@ -92,7 +92,7 @@ static const struct fs_posix_settings fs_posix_default_settings = {
 	.fs_posix_lock_method = "flock:dotlock",
 	.fs_posix_prefix = "",
 	.fs_posix_mode = 0600,
-	.fs_posix_autodelete_empty_directories = TRUE,
+	.fs_posix_autodelete_empty_directories = FALSE,
 	.fs_posix_fsync = TRUE,
 	.fs_posix_accurate_mtime = FALSE,
 };
