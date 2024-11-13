@@ -82,7 +82,7 @@ static const struct setting_define fs_posix_setting_defines[] = {
 	DEF(ENUM, fs_posix_lock_method),
 	DEF(STR, fs_posix_prefix),
 	DEF(UINT_OCT, fs_posix_mode),
-	DEF(BOOL, fs_posix_autodelete_empty_directories),
+	DEF(BOOL_HIDDEN, fs_posix_autodelete_empty_directories),
 	DEF(BOOL, fs_posix_fsync),
 	DEF(BOOL, fs_posix_accurate_mtime),
 
