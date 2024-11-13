@@ -52,6 +52,8 @@ extern const struct setting_parser_info passwd_file_setting_parser_info;
 
 extern const struct var_expand_provider db_passwd_file_var_expand_fn[];
 
+int db_passwd_fix_path(const char *path, const char **path_r,
+		       const char *orig_path, const char **error_r);
 int db_passwd_file_lookup(struct db_passwd_file *db,
 			  struct auth_request *request,
 			  const char *username_format,
