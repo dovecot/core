@@ -107,6 +107,7 @@ static void event_copy_parent_defaults(struct event *event,
 	event->passthrough = parent->passthrough;
 	event->min_log_level = parent->min_log_level;
 	event->forced_debug = parent->forced_debug;
+	event->forced_never_debug = parent->forced_never_debug;
 	event->disable_callbacks = parent->disable_callbacks;
 }
 

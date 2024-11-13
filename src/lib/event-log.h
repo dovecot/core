@@ -110,6 +110,9 @@ void event_logv(struct event *event, const struct event_log_params *params,
 struct event *event_set_forced_debug(struct event *event, bool force);
 /* Set the forced-debug to FALSE */
 struct event *event_unset_forced_debug(struct event *event);
+/* Set/unset "never log debug output" flag, even if it matches the global
+   debug log filter. */
+struct event *event_set_forced_never_debug(struct event *event, bool force);
 /* Set the global filter to logging debug events. */
 void event_set_global_debug_log_filter(struct event_filter *filter);
 /* Return the current global debug log event filter. */

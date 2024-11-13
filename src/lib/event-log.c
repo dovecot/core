@@ -274,6 +274,8 @@ bool event_want_log_level(struct event *event, enum log_type level,
 {
 	struct failure_context ctx = { .type = LOG_TYPE_DEBUG };
 
+	if (event->forced_never_debug && level == LOG_TYPE_DEBUG)
+		return FALSE;
 	if (level >= event->min_log_level) {
 		/* Always log when level is at least this high */
 		return TRUE;
@@ -419,6 +421,12 @@ struct event *event_unset_forced_debug(struct event *event)
 {
 	event->forced_debug = FALSE;
 	event_recalculate_debug_level(event);
+	return event;
+}
+
+struct event *event_set_forced_never_debug(struct event *event, bool force)
+{
+	event->forced_never_debug = force;
 	return event;
 }
 

@@ -44,6 +44,7 @@ struct event {
 	bool log_prefix_replace:1;
 	bool passthrough:1;
 	bool forced_debug:1;
+	bool forced_never_debug:1;
 	bool always_log_source:1;
 	bool sending_debug_log:1;
 	bool disable_callbacks:1;
