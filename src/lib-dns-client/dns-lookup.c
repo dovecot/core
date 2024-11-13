@@ -398,7 +398,7 @@ struct dns_client *dns_client_init(const struct dns_client_settings *set,
 	client->timeout_msecs = set->timeout_msecs;
 	client->idle_timeout_msecs = set->idle_timeout_msecs;
 	client->clist = connection_list_init(&dns_client_set, &dns_client_vfuncs);
-	client->ioloop = set->ioloop == NULL ? current_ioloop : set->ioloop;
+	client->ioloop = current_ioloop;
 	client->path = i_strdup(set->dns_client_socket_path);
 	client->conn.event_parent = event_parent;
 	connection_init_client_unix(client->clist, &client->conn, client->path);

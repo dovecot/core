@@ -20,9 +20,6 @@ struct dns_client_settings {
 	/* Non-zero enables caching for the client, is not supported with
 	   dns_lookup() or dns_lookup_ptr(). Note that DNS TTL is ignored. */
 	unsigned int cache_ttl_secs;
-
-	/* ioloop to run the lookup on (defaults to current_ioloop) */
-	struct ioloop *ioloop;
 };
 
 struct dns_lookup_result {

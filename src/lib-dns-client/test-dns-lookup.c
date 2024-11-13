@@ -169,7 +169,6 @@ static void test_dns_expect_result_ips(const char *name, const char *result)
 {
 	const struct dns_client_settings set = {
 		.dns_client_socket_path = TEST_SOCKET_NAME,
-		.ioloop = test_server.loop,
 		.timeout_msecs = 1000,
 	};
 	struct dns_lookup *lookup;
@@ -185,7 +184,6 @@ static void test_dns_expect_result_name(const char *name, const char *result)
 {
 	const struct dns_client_settings set = {
 		.dns_client_socket_path = TEST_SOCKET_NAME,
-		.ioloop = test_server.loop,
 		.timeout_msecs = 1000,
 	};
 	struct dns_lookup *lookup;
@@ -220,7 +218,6 @@ static void test_dns_lookup_timeout(void)
 
 	const struct dns_client_settings set = {
 		.dns_client_socket_path = TEST_SOCKET_NAME,
-		.ioloop = test_server.loop,
 		.timeout_msecs = 1000,
 	};
 	struct dns_lookup *lookup;
@@ -243,7 +240,6 @@ static void test_dns_lookup_abort(void)
 
 	const struct dns_client_settings set = {
 		.dns_client_socket_path = TEST_SOCKET_NAME,
-		.ioloop = test_server.loop,
 		.timeout_msecs = 1000,
 	};
 	struct dns_lookup *lookup;
@@ -273,7 +269,6 @@ static void test_dns_lookup_cached(void)
 	create_dns_server(&test_server);
 	const struct dns_client_settings set = {
 		.dns_client_socket_path = TEST_SOCKET_NAME,
-		.ioloop = test_server.loop,
 		.timeout_msecs = 1000,
 		.cache_ttl_secs = 4,
 	};

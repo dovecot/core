@@ -156,15 +156,17 @@ http_client_host_shared_lookup(struct http_client_host_shared *hshared)
 					http_client_host_shared_dns_callback,
 					hshared, &hshared->dns_lookup);
 	} else if (cctx->dns_client_socket_path != NULL) {
+		struct ioloop *prev_ioloop = current_ioloop;
 		i_assert(cctx->dns_lookup_timeout_msecs > 0);
 		e_debug(hshared->event, "Performing asynchronous DNS lookup");
 		i_zero(&dns_set);
 		dns_set.dns_client_socket_path = cctx->dns_client_socket_path;
 		dns_set.timeout_msecs = cctx->dns_lookup_timeout_msecs;
-		dns_set.ioloop = cctx->ioloop;
+		io_loop_set_current(cctx->ioloop);
 		(void)dns_lookup(hshared->name, &dns_set, hshared->event,
 				 http_client_host_shared_dns_callback,
 				 hshared, &hshared->dns_lookup);
+		io_loop_set_current(prev_ioloop);
 	} else {
 		struct ip_addr *ips;
 		unsigned int ips_count;
