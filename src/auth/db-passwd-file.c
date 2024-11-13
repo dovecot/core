@@ -473,20 +473,6 @@ int db_passwd_fix_path(const char *path, const char **path_r,
 	return 0;
 }
 
-static const char *
-path_fix(const char *path, void *context ATTR_UNUSED)
-{
-	const char *p;
-
-	p = strchr(path, '/');
-	if (p == NULL)
-		return path;
-
-	/* most likely this is an invalid request. just cut off the '/' and
-	   everything after it. */
-	return t_strdup_until(path, p);
-}
-
 int db_passwd_file_lookup(struct db_passwd_file *db,
 			  struct auth_request *request,
 			  const char *username_format,
@@ -504,7 +490,6 @@ int db_passwd_file_lookup(struct db_passwd_file *db,
 			.table = auth_request_get_var_expand_table(request),
 			.providers = auth_request_var_expand_providers,
 			.context = request,
-			.escape_func = path_fix,
 			.event = authdb_event(request),
 		};
 		dest = t_str_new(256);
@@ -514,7 +499,12 @@ int db_passwd_file_lookup(struct db_passwd_file *db,
 				db->path, error);
 			return -1;
 		}
-
+		const char *path;
+		if (db_passwd_fix_path(str_c(dest), &path, db->path, &error) < 0) {
+			e_info(authdb_event(request), "Failed to normalize path: %s",
+				error);
+			return 0;
+		}
 		pw = hash_table_lookup(db->files, str_c(dest));
 		if (pw == NULL) {
 			/* doesn't exist yet. create lookup for it. */
