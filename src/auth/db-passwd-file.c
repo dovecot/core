@@ -14,6 +14,7 @@
 #include "str.h"
 #include "eacces-error.h"
 #include "ioloop.h"
+#include "path-util.h"
 #include "settings.h"
 
 #include <unistd.h>
@@ -446,6 +447,30 @@ void db_passwd_file_unref(struct db_passwd_file **_db)
 	event_unref(&db->event);
 	i_free(db->path);
 	i_free(db);
+}
+
+int db_passwd_fix_path(const char *path, const char **path_r,
+		       const char *orig_path, const char **error_r)
+{
+	/* normalize path */
+	const char *normalized;
+	if (t_normpath(path, &normalized, error_r) < 0)
+		return -1;
+
+	/* check base path */
+	const char *p;
+	if (*orig_path != '%' &&
+	    (p = strstr(orig_path, "%{")) != NULL) {
+		ptrdiff_t len = p - orig_path;
+		if (strncmp(orig_path, normalized, len) != 0) {
+			*error_r = t_strdup_printf("Path is outside '%s'",
+					t_strdup_until(orig_path, p));
+			return -1;
+		}
+	}
+
+	*path_r = normalized;
+	return 0;
 }
 
 static const char *
