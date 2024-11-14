@@ -10,6 +10,15 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+mode_t mkdir_get_executable_mode(mode_t mode)
+{
+	/* add the execute bit if either read or write bit is set */
+	if ((mode & 0600) != 0) mode |= 0100;
+	if ((mode & 0060) != 0) mode |= 0010;
+	if ((mode & 0006) != 0) mode |= 0001;
+	return mode;
+}
+
 static int ATTR_NULL(5)
 mkdir_chown_full(const char *path, mode_t mode, uid_t uid,
 		 gid_t gid, const char *gid_origin)
