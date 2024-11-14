@@ -22,7 +22,6 @@
 #include "lmtp-local.h"
 #include "lmtp-proxy.h"
 #include "lmtp-commands.h"
-#include "smtp-server-private.h"
 
 #include <unistd.h>
 
@@ -418,8 +417,8 @@ client_connection_tls_sni_callback(void *context, const char *name,
 	}
 	settings_free(old_lda_set);
 	settings_free(old_lmtp_set);
-
-	conn->set.login_greeting = client->lmtp_set->login_greeting;
+	smtp_server_connection_set_greeting(client->conn,
+					    client->lmtp_set->login_greeting);
 
 	return 0;
 }
