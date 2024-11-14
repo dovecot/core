@@ -581,15 +581,6 @@ mailbox_list_get_event(const struct mailbox_list *list)
 	return list->event;
 }
 
-static mode_t get_dir_mode(mode_t mode)
-{
-	/* add the execute bit if either read or write bit is set */
-	if ((mode & 0600) != 0) mode |= 0100;
-	if ((mode & 0060) != 0) mode |= 0010;
-	if ((mode & 0006) != 0) mode |= 0001;
-	return mode;
-}
-
 struct mail_user *
 mailbox_list_get_user(const struct mailbox_list *list)
 {
@@ -704,8 +695,8 @@ mailbox_list_get_permissions_stat(struct mailbox_list *list, const char *path,
 	if (!S_ISDIR(st.st_mode)) {
 		/* we're getting permissions from a file.
 		   apply +x modes as necessary. */
-		permissions_r->dir_create_mode =
-			get_dir_mode(permissions_r->dir_create_mode);
+		permissions_r->dir_create_mode = mkdir_get_executable_mode(
+			permissions_r->dir_create_mode);
 	}
 
 	if (S_ISDIR(st.st_mode) && (st.st_mode & S_ISGID) != 0) {
