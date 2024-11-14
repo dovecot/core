@@ -3,6 +3,10 @@
 
 #include <sys/stat.h>
 
+/* Returns the mode with executable bit added for each read/write bit. For
+   example mode=0640 returns 0750. */
+mode_t mkdir_get_executable_mode(mode_t mode);
+
 /* Create path and all the directories under it if needed. Permissions for
    existing directories isn't changed. Returns 0 if ok. If directory already
    exists, returns -1 with errno=EEXIST. */
