@@ -609,6 +609,10 @@ static struct login_binary imap_login_binary = {
 
 	.sasl_support_final_reply = FALSE,
 	.anonymous_login_acceptable = TRUE,
+
+	.application_protocols = (const char *const[]) {
+		"imap", NULL
+	},
 };
 
 int main(int argc, char *argv[])

@@ -200,6 +200,10 @@ static struct login_binary imap_urlauth_login_binary = {
 	.deinit = imap_urlauth_login_deinit,
 
 	.anonymous_login_acceptable = TRUE,
+
+	.application_protocols = (const char *const[]) {
+		"imap", NULL
+	},
 };
 
 int main(int argc, char *argv[])
