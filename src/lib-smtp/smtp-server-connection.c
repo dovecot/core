@@ -388,6 +388,12 @@ smtp_server_connection_sni_callback(const char *name, const char **error_r,
 	}
 	settings_free(ssl_set);
 	settings_free(ssl_server_set);
+	const char *application_protocol = smtp_protocol_name(conn->set.protocol);
+	const char *const names[] = {
+		application_protocol,
+		NULL
+	};
+	ssl_iostream_context_set_application_protocols(ssl_ctx, names);
 	ssl_iostream_change_context(conn->ssl_iostream, ssl_ctx);
 	ssl_iostream_context_unref(&ssl_ctx);
 	return 0;
