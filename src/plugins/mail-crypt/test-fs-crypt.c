@@ -16,13 +16,15 @@
 #include <unistd.h>
 
 #define PRIVATE_KEY_PEM \
+SET_FILE_INLINE_PREFIX \
 "-----BEGIN PRIVATE KEY-----\n" \
 "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgYIufJZZe2Y6iFz5x\n" \
 "koIoysb3dZLZWsyekjOc/GjsLd2hRANCAASnIWgQuhE8jqALcmfiunRyEk7vkq/y\n" \
 "a9vYK50b3cFhCsLU4tfVTLkB1Y/6VlZj63QKMzXNvk5G5OD1ofElcpyj\n" \
 "-----END PRIVATE KEY-----"
 #define PUBLIC_KEY_PEM \
- "-----BEGIN PUBLIC KEY-----\n" \
+SET_FILE_INLINE_PREFIX \
+"-----BEGIN PUBLIC KEY-----\n" \
 "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpyFoELoRPI6gC3Jn4rp0chJO75Kv\n" \
 "8mvb2CudG93BYQrC1OLX1Uy5AdWP+lZWY+t0CjM1zb5ORuTg9aHxJXKcow==\n" \
 "-----END PUBLIC KEY-----"
@@ -50,9 +52,9 @@ static void test_fs_crypt_read_write(void)
 		"fs", "crypt posix",
 		"fs/crypt/fs_driver", "crypt",
 		"fs/posix/fs_driver", "posix",
-		"crypt_global_public_key", PUBLIC_KEY_PEM,
+		"crypt_global_public_key_file", PUBLIC_KEY_PEM,
 		"crypt_global_private_key", "main",
-		"crypt_global_private_key/main/crypt_private_key", PRIVATE_KEY_PEM,
+		"crypt_global_private_key/main/crypt_private_key_file", PRIVATE_KEY_PEM,
 		NULL
 	};
 	struct settings_simple test_set;
@@ -109,9 +111,9 @@ static void test_fs_crypt_read_write_0(void)
 		"fs", "crypt posix",
 		"fs/crypt/fs_driver", "crypt",
 		"fs/posix/fs_driver", "posix",
-		"crypt_global_public_key", PUBLIC_KEY_PEM,
+		"crypt_global_public_key_file", PUBLIC_KEY_PEM,
 		"crypt_global_private_key", "main",
-		"crypt_global_private_key/main/crypt_private_key", PRIVATE_KEY_PEM,
+		"crypt_global_private_key/main/crypt_private_key_file", PRIVATE_KEY_PEM,
 		NULL
 	};
 	struct settings_simple test_set;
@@ -163,7 +165,7 @@ static void test_fs_crypt_read_write_unencrypted(void)
 		"fs_crypt_read_plain_fallback", "yes",
 		"crypt_write_algorithm", "",
 		"crypt_global_private_key", "main",
-		"crypt_global_private_key/main/crypt_private_key", PRIVATE_KEY_PEM,
+		"crypt_global_private_key/main/crypt_private_key_file", PRIVATE_KEY_PEM,
 		NULL
 	};
 	struct settings_simple test_set;
@@ -214,9 +216,9 @@ static void test_fs_crypt_read_write_unencrypted(void)
 		"fs/posix/fs_driver", "posix",
 		"fs_crypt_read_plain_fallback", "yes",
 		"crypt_write_algorithm", "",
-		"crypt_global_public_key", PUBLIC_KEY_PEM,
+		"crypt_global_public_key_file", PUBLIC_KEY_PEM,
 		"crypt_global_private_key", "main",
-		"crypt_global_private_key/main/crypt_private_key", PRIVATE_KEY_PEM,
+		"crypt_global_private_key/main/crypt_private_key_file", PRIVATE_KEY_PEM,
 		NULL
 	};
 	settings_simple_init(&test_set, test_settings2);
