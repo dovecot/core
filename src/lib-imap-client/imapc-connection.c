@@ -1691,6 +1691,9 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 		.event_parent = conn->event,
 		.host = conn->client->set->imapc_host,
 		.flags = ssl_flags,
+		.application_protocols = (const char *const[]) {
+			"imap", NULL
+		},
 	};
 	if (io_stream_autocreate_ssl_client(&parameters,
 					    &conn->input, &conn->output,
