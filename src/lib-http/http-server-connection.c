@@ -369,9 +369,14 @@ http_server_connection_ssl_init(struct http_server_connection *conn)
 	e_debug(conn->event, "Starting SSL handshake");
 
 	http_server_connection_input_halt(conn);
+	const char *const names[] = {
+		"http/1.1",
+		NULL
+	};
 	if (server->ssl_set == NULL) {
 		const struct ssl_iostream_server_autocreate_parameters parameters = {
 			.event_parent = server->event,
+			.application_protocols = names,
 		};
 		ret = io_stream_autocreate_ssl_server(&parameters,
 						      &conn->conn.input,
@@ -382,6 +387,7 @@ http_server_connection_ssl_init(struct http_server_connection *conn)
 							 &ssl_ctx, &error) < 0)
 		ret = -1;
 	else {
+		ssl_iostream_context_set_application_protocols(ssl_ctx, names);
 		ret = io_stream_create_ssl_server(ssl_ctx,
 						  server->event,
 						  &conn->conn.input,
