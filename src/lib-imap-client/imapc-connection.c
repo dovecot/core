@@ -1687,9 +1687,12 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 
 	io_remove(&conn->io);
 	enum ssl_iostream_flags ssl_flags = 0;
-	if (io_stream_autocreate_ssl_client(conn->event,
-					    conn->client->set->imapc_host,
-					    ssl_flags,
+	const struct ssl_iostream_client_autocreate_parameters parameters = {
+		.event_parent = conn->event,
+		.host = conn->client->set->imapc_host,
+		.flags = ssl_flags,
+	};
+	if (io_stream_autocreate_ssl_client(&parameters,
 					    &conn->input, &conn->output,
 					    &conn->ssl_iostream, &error) < 0) {
 		e_error(conn->event, "Couldn't initialize SSL client: %s",

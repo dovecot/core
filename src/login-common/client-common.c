@@ -727,9 +727,12 @@ int client_init_ssl(struct client *client)
 
 	if (client->v.iostream_change_pre != NULL)
 		client->v.iostream_change_pre(client);
-	int ret = io_stream_autocreate_ssl_server(client->event,
-			&client->input, &client->output,
-			&client->ssl_iostream, &error);
+	const struct ssl_iostream_server_autocreate_parameters parameters = {
+		.event_parent = client->event,
+	};
+	int ret = io_stream_autocreate_ssl_server(&parameters,
+						  &client->input, &client->output,
+						  &client->ssl_iostream, &error);
 	if (client->v.iostream_change_post != NULL)
 		client->v.iostream_change_post(client);
 	if (ret < 0) {

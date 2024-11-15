@@ -129,8 +129,7 @@ int io_stream_create_ssl_server(struct ssl_iostream_context *ctx,
 }
 
 int io_stream_autocreate_ssl_client(
-	struct event *event_parent, const char *host,
-	enum ssl_iostream_flags flags,
+	const struct ssl_iostream_client_autocreate_parameters *parameters,
 	struct istream **input, struct ostream **output,
 	struct ssl_iostream **iostream_r,
 	const char **error_r)
@@ -140,11 +139,12 @@ int io_stream_autocreate_ssl_client(
 	struct ssl_iostream_context *ctx;
 	int ret;
 
-	if (settings_get(event_parent, &ssl_setting_parser_info,
+	i_assert(parameters->event_parent != NULL);
+	if (settings_get(parameters->event_parent, &ssl_setting_parser_info,
 			 0, &ssl_set, error_r) < 0)
 		return -1;
 	ssl_client_settings_to_iostream_set(ssl_set, &set);
-	if ((flags & SSL_IOSTREAM_FLAG_DISABLE_CA_FILES) != 0) {
+	if ((parameters->flags & SSL_IOSTREAM_FLAG_DISABLE_CA_FILES) != 0) {
 		pool_t pool = pool_alloconly_create("ssl iostream settings copy",
 						    sizeof(*set));
 		struct ssl_iostream_settings *set_copy =
@@ -162,14 +162,16 @@ int io_stream_autocreate_ssl_client(
 	if (ret < 0)
 		return -1;
 
-	ret = io_stream_create_ssl_client(ctx, host, event_parent, flags, input,
+	ret = io_stream_create_ssl_client(ctx, parameters->host,
+					  parameters->event_parent,
+					  parameters->flags, input,
 					  output, iostream_r, error_r);
 	ssl_iostream_context_unref(&ctx);
 	return ret;
 }
 
 int io_stream_autocreate_ssl_server(
-	struct event *event_parent,
+	const struct ssl_iostream_server_autocreate_parameters *parameters,
 	struct istream **input, struct ostream **output,
 	struct ssl_iostream **iostream_r,
 	const char **error_r)
@@ -180,10 +182,11 @@ int io_stream_autocreate_ssl_server(
 	struct ssl_iostream_context *ctx;
 	int ret;
 
-	if (settings_get(event_parent, &ssl_setting_parser_info,
+	i_assert(parameters->event_parent != NULL);
+	if (settings_get(parameters->event_parent, &ssl_setting_parser_info,
 			 0, &ssl_set, error_r) < 0)
 		return -1;
-	if (settings_get(event_parent, &ssl_server_setting_parser_info,
+	if (settings_get(parameters->event_parent, &ssl_server_setting_parser_info,
 			 0, &ssl_server_set, error_r) < 0) {
 		settings_free(ssl_set);
 		return -1;
@@ -196,7 +199,7 @@ int io_stream_autocreate_ssl_server(
 	settings_free(set);
 	if (ret < 0)
 		return -1;
-	ret = io_stream_create_ssl_server(ctx, event_parent, input,
+	ret = io_stream_create_ssl_server(ctx, parameters->event_parent, input,
 					  output, iostream_r, error_r);
 	ssl_iostream_context_unref(&ctx);
 	return ret;

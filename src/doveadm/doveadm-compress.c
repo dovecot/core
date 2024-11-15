@@ -206,7 +206,12 @@ static void client_init_ssl(struct client *client)
 
 	io_remove(&client->io_server);
 
-	if (io_stream_autocreate_ssl_client(client->event, client->host, 0,
+	const struct ssl_iostream_client_autocreate_parameters parameters = {
+		.event_parent = client->event,
+		.host = client->host,
+		.flags = 0,
+	};
+	if (io_stream_autocreate_ssl_client(&parameters,
 					    &client->input, &client->output,
 					    &client->ssl_iostream, &error) < 0)
 		i_fatal("STARTTLS failed: %s", error);

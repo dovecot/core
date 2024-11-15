@@ -564,10 +564,14 @@ static int doveadm_client_init_ssl(struct doveadm_client *conn,
 	const char *hostname =
 		conn->set.hostname != NULL ? conn->set.hostname : "";
 	connection_input_halt(&conn->conn);
-	if (io_stream_autocreate_ssl_client(conn->conn.event, hostname,
-					ssl_flags,
-					&conn->conn.input, &conn->conn.output,
-					&conn->ssl_iostream, &error) < 0) {
+	const struct ssl_iostream_client_autocreate_parameters parameters = {
+		.event_parent = conn->conn.event,
+		.host = hostname,
+		.flags = ssl_flags,
+	};
+	if (io_stream_autocreate_ssl_client(&parameters,
+					    &conn->conn.input, &conn->conn.output,
+					    &conn->ssl_iostream, &error) < 0) {
 		*error_r = t_strdup_printf(
 			"Couldn't initialize SSL client: %s", error);
 		return -1;

@@ -557,8 +557,12 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 	enum ssl_iostream_flags ssl_flags = 0;
 	if (client->set.ssl_allow_invalid_cert)
 		ssl_flags |= SSL_IOSTREAM_FLAG_ALLOW_INVALID_CERT;
-	if (io_stream_autocreate_ssl_client(client->event, client->set.host,
-					    ssl_flags,
+	const struct ssl_iostream_client_autocreate_parameters parameters = {
+		.event_parent = client->event,
+		.host = client->set.host,
+		.flags = ssl_flags,
+	};
+	if (io_stream_autocreate_ssl_client(&parameters,
 					    &client->input, &client->output,
 					    &client->ssl_iostream, &error) < 0) {
 		e_error(client->event,

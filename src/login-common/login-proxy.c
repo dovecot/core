@@ -1222,9 +1222,12 @@ int login_proxy_starttls(struct login_proxy *proxy)
 		proxy->multiplex_orig_input = NULL;
 		add_multiplex_istream = TRUE;
 	}
-
-	if (io_stream_autocreate_ssl_client(proxy->event, proxy->host,
-					    ssl_flags,
+	const struct ssl_iostream_client_autocreate_parameters parameters = {
+		.event_parent = proxy->event,
+		.host = proxy->host,
+		.flags = ssl_flags,
+	};
+	if (io_stream_autocreate_ssl_client(&parameters,
 					    &proxy->server_input,
 					    &proxy->server_output,
 					    &proxy->server_ssl_iostream,

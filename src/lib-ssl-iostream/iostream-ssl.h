@@ -95,18 +95,27 @@ int io_stream_create_ssl_server(struct ssl_iostream_context *ctx,
 				struct ssl_iostream **iostream_r,
 				const char **error_r);
 
+struct ssl_iostream_client_autocreate_parameters {
+	struct event *event_parent;
+	const char *host;
+	enum ssl_iostream_flags flags;
+};
+
+struct ssl_iostream_server_autocreate_parameters {
+	struct event *event_parent;
+};
+
 /* Lookup settings from event, use ssl_iostream_client_context_cache_get() to
    get the context and call io_stream_create_ssl_client(). */
 int io_stream_autocreate_ssl_client(
-	struct event *event_parent, const char *host,
-	enum ssl_iostream_flags flags,
+	const struct ssl_iostream_client_autocreate_parameters *parameters,
 	struct istream **input, struct ostream **output,
 	struct ssl_iostream **iostream_r,
 	const char **error_r);
 /* Lookup settings from event, use ssl_iostream_server_context_cache_get() to
    get the context and call io_stream_create_ssl_server(). */
 int io_stream_autocreate_ssl_server(
-	struct event *event_parent,
+	const struct ssl_iostream_server_autocreate_parameters *parameters,
 	struct istream **input, struct ostream **output,
 	struct ssl_iostream **iostream_r,
 	const char **error_r);
