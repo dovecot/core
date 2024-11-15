@@ -561,6 +561,9 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 		.event_parent = client->event,
 		.host = client->set.host,
 		.flags = ssl_flags,
+		.application_protocols = (const char *const[]) {
+			"pop3", NULL
+		},
 	};
 	if (io_stream_autocreate_ssl_client(&parameters,
 					    &client->input, &client->output,
