@@ -340,6 +340,10 @@ static struct login_binary submission_login_binary = {
 
 	.sasl_support_final_reply = FALSE,
 	.anonymous_login_acceptable = FALSE,
+
+	.application_protocols = (const char *const[]) {
+		"submission", NULL
+	},
 };
 
 int main(int argc, char *argv[])
