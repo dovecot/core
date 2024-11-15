@@ -370,7 +370,10 @@ http_server_connection_ssl_init(struct http_server_connection *conn)
 
 	http_server_connection_input_halt(conn);
 	if (server->ssl_set == NULL) {
-		ret = io_stream_autocreate_ssl_server(server->event,
+		const struct ssl_iostream_server_autocreate_parameters parameters = {
+			.event_parent = server->event,
+		};
+		ret = io_stream_autocreate_ssl_server(&parameters,
 						      &conn->conn.input,
 						      &conn->conn.output,
 						      &conn->ssl_iostream,

@@ -409,7 +409,10 @@ int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 
 	smtp_server_connection_input_halt(conn);
 	if (conn->set.ssl == NULL) {
-		ret = io_stream_autocreate_ssl_server(conn->event,
+		const struct ssl_iostream_server_autocreate_parameters parameters = {
+			.event_parent = conn->event,
+		};
+		ret = io_stream_autocreate_ssl_server(&parameters,
 			&conn->conn.input, &conn->conn.output,
 			&conn->ssl_iostream, &error);
 	} else if (ssl_iostream_server_context_cache_get(conn->set.ssl,
