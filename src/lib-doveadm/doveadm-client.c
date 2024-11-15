@@ -568,6 +568,9 @@ static int doveadm_client_init_ssl(struct doveadm_client *conn,
 		.event_parent = conn->conn.event,
 		.host = hostname,
 		.flags = ssl_flags,
+		.application_protocols = (const char *const[]) {
+			"doveadm", NULL
+		},
 	};
 	if (io_stream_autocreate_ssl_client(&parameters,
 					    &conn->conn.input, &conn->conn.output,

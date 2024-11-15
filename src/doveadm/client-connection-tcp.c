@@ -507,6 +507,9 @@ client_connection_tcp_init_ssl(struct client_connection_tcp *conn)
 
 	struct ssl_iostream_server_autocreate_parameters parameters = {
 		.event_parent = conn->conn.event,
+		.application_protocols = (const char *const[]) {
+			"doveadm", NULL
+		}
 	};
 	if (io_stream_autocreate_ssl_server(&parameters,
 					    &conn->input, &conn->output,
