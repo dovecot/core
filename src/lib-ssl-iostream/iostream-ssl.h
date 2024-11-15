@@ -99,10 +99,12 @@ struct ssl_iostream_client_autocreate_parameters {
 	struct event *event_parent;
 	const char *host;
 	enum ssl_iostream_flags flags;
+	const char *const *application_protocols;
 };
 
 struct ssl_iostream_server_autocreate_parameters {
 	struct event *event_parent;
+	const char *const *application_protocols;
 };
 
 /* Lookup settings from event, use ssl_iostream_client_context_cache_get() to
