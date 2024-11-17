@@ -66,9 +66,8 @@ static int var_expand_crypt_settings(struct var_expand_state *state,
 				     const char **error_r)
 {
 	const char *iv;
+	const char *enckey = NULL;
 
-	ctx->iv = t_buffer_create(32);
-	ctx->enckey = t_buffer_create(32);
 	ctx->algo = VAR_EXPAND_CRYPT_DEFAULT_ALGO;
 
 	struct var_expand_parameter_iter_context *iter =
@@ -89,14 +88,17 @@ static int var_expand_crypt_settings(struct var_expand_state *state,
 							       error_r) < 0) {
 				return -1;
 			}
+			ctx->iv = t_buffer_create(strlen(iv) / 2);
 			hex_to_binary(iv, ctx->iv);
 		} else if (strcmp(key, "key") == 0) {
-			const char *enckey;
 			if (var_expand_parameter_string_or_var(state, par, &enckey,
 							       error_r) < 0) {
 				return -1;
 			}
-			hex_to_binary(enckey, ctx->enckey);
+			if (enckey == NULL || *enckey == '\0') {
+				*error_r = "Empty encryption key";
+				return -1;
+			}
 		} else if (strcmp(key, "raw") == 0) {
 			if (var_expand_parameter_bool_or_var(state, par, &ctx->raw,
 							     error_r) < 0)
@@ -104,6 +106,14 @@ static int var_expand_crypt_settings(struct var_expand_state *state,
 		} else
 			ERROR_UNSUPPORTED_KEY(key);
 	}
+
+	if (enckey == NULL) {
+		*error_r = "Encryption key missing";
+		return -1;
+	}
+
+	ctx->enckey = t_buffer_create(strlen(enckey) / 2);
+	hex_to_binary(enckey, ctx->enckey);
 
 	ERROR_IF_NO_TRANSFER_TO(stmt->function);
 
