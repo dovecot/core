@@ -311,9 +311,11 @@ dcrypt_openssl_ctx_sym_set_iv(struct dcrypt_context_symmetric *ctx,
 			      const unsigned char *iv, size_t iv_len)
 {
 	p_free(ctx->pool, ctx->iv);
-	ctx->iv = p_malloc(ctx->pool, EVP_CIPHER_iv_length(ctx->cipher));
-	memcpy(ctx->iv, iv, I_MIN(iv_len,
-	       (size_t)EVP_CIPHER_iv_length(ctx->cipher)));
+	if (EVP_CIPHER_iv_length(ctx->cipher) > 0) {
+		ctx->iv = p_malloc(ctx->pool, EVP_CIPHER_iv_length(ctx->cipher));
+		memcpy(ctx->iv, iv, I_MIN(iv_len,
+		       (size_t)EVP_CIPHER_iv_length(ctx->cipher)));
+	}
 }
 
 static void
@@ -323,8 +325,10 @@ dcrypt_openssl_ctx_sym_set_key_iv_random(struct dcrypt_context_symmetric *ctx)
 	p_free(ctx->pool, ctx->iv);
 	ctx->key = p_malloc(ctx->pool, EVP_CIPHER_key_length(ctx->cipher));
 	random_fill(ctx->key, EVP_CIPHER_key_length(ctx->cipher));
-	ctx->iv = p_malloc(ctx->pool, EVP_CIPHER_iv_length(ctx->cipher));
-	random_fill(ctx->iv, EVP_CIPHER_iv_length(ctx->cipher));
+	if (EVP_CIPHER_iv_length(ctx->cipher) > 0) {
+		ctx->iv = p_malloc(ctx->pool, EVP_CIPHER_iv_length(ctx->cipher));
+		random_fill(ctx->iv, EVP_CIPHER_iv_length(ctx->cipher));
+	}
 }
 
 static void
@@ -428,7 +432,6 @@ dcrypt_openssl_ctx_sym_init(struct dcrypt_context_symmetric *ctx,
 	int len;
 
 	i_assert(ctx->key != NULL);
-	i_assert(ctx->iv != NULL);
 	i_assert(ctx->ctx == NULL);
 
 	if ((ctx->ctx = EVP_CIPHER_CTX_new()) == NULL)
