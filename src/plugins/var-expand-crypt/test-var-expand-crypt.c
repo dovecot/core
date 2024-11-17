@@ -17,8 +17,13 @@ static void test_var_expand_crypt(void)
 	struct var_expand_table table[] = {
 		{ .key = "iv", .value = "98b3b40a48ca40f998b3b40a48ca40f9" },
 		{ .key = "key", .value = "cc2981c8f38aea59cc2981c8f38aea59" },
-		{ .key = "encrypted_raw", .value = "46b58741763fe22598014be26331a082" },
-		{ .key = "encrypted", .value = "98b3b40a48ca40f998b3b40a48ca40f9$46b58741763fe22598014be26331a082$" },
+		{
+			.key = "encrypted_raw",
+			.value = "46b58741763fe22598014be26331a082" },
+		{
+			.key = "encrypted",
+			.value = "98b3b40a48ca40f998b3b40a48ca40f9$46b58741763fe22598014be26331a082$"
+		},
 		{ .key = "decrypted", .value = "hello, world" },
 		{ .key = "encrypted2", .value = NULL },
 		{ NULL, NULL, NULL }
@@ -33,11 +38,29 @@ static void test_var_expand_crypt(void)
 		int expect_ret;
 	} test_cases[] = {
 		{ "%{decrypted|encrypt(algorithm='null')}", "", -1 },
-		{ "%{decrypted|encrypt(algorithm='aes-128-cbc',iv=iv,key=key)}", "98b3b40a48ca40f998b3b40a48ca40f9$46b58741763fe22598014be26331a082$", 0 },
-		{ "%{decrypted|encrypt(algorithm='aes-128-cbc',iv=iv,key=key,raw=1)|hexlify}", "46b58741763fe22598014be26331a082", 0 },
+		{
+			"%{decrypted|encrypt(algorithm='aes-128-cbc',iv=iv,key=key)}",
+			"98b3b40a48ca40f998b3b40a48ca40f9$46b58741763fe22598014be26331a082$",
+			0
+		},
+		{
+			"%{decrypted|"
+			"encrypt(algorithm='aes-128-cbc',iv=iv,key=key,raw=1)}",
+			"46b58741763fe22598014be26331a082",
+			0
+		},
 		{ "%{encrypted|decrypt(algorithm='null')}", "", -1 },
-		{ "%{encrypted|decrypt(algorithm='aes-128-cbc',key=key)}", "hello, world", 0 },
-		{ "%{encrypted_raw|unhexlify|decrypt(algorithm='aes-128-cbc',iv=iv,key=key,raw=1)}", "hello, world", 0 },
+		{
+			"%{encrypted|decrypt(algorithm='aes-128-cbc',key=key)}",
+			"hello, world",
+			0
+		},
+		{
+			"%{encrypted_raw|unhexlify|"
+			"decrypt(algorithm='aes-128-cbc',iv=iv,key=key,raw=1)}",
+			"hello, world",
+			0
+		},
 	};
 
 	unsigned int i;
@@ -50,10 +73,13 @@ static void test_var_expand_crypt(void)
 		string_t *dest = t_str_new(32);
 		int ret = var_expand(dest, test_cases[i].input, &params, &error);
 		if (ret < 0) {
-			if (test_cases[i].expect_ret == -1)
-				i_info("Expected: var_expand(%s): %s", test_cases[i].input, error);
-			else
-				i_error("var_expand(%s): %s", test_cases[i].input, error);
+			if (test_cases[i].expect_ret == -1) {
+				i_info("Expected: var_expand(%s): %s",
+				       test_cases[i].input, error);
+			} else {
+				i_error("var_expand(%s): %s",
+					test_cases[i].input, error);
+			}
 		}
 		test_assert_strcmp_idx(str_c(dest), test_cases[i].output, i);
 		test_assert_idx(ret == test_cases[i].expect_ret, i);
@@ -66,14 +92,18 @@ static void test_var_expand_crypt(void)
 	string_t *input = t_str_new(32);
 	string_t *output = t_str_new(32);
 
-	for(i=0;i<1000;i++) {
+	for (i = 0; i < 1000; i++) {
 		const char *error;
 		str_truncate(input, 0);
 		str_truncate(output, 0);
 
-		test_assert_idx(var_expand(input, "%{decrypted|encrypt(algorithm='aes-128-cbc',key=key)}", &params, &error) == 0, i);
+		test_assert_idx(var_expand(input,
+			"%{decrypted|encrypt(algorithm='aes-128-cbc',key=key)}",
+					   &params, &error) == 0, i);
 		table[5].value = str_c(input);
-		test_assert_idx(var_expand(output, "%{encrypted2|decrypt(algorithm='aes-128-cbc',key=key)}", &params, &error) == 0, i);
+		test_assert_idx(var_expand(output,
+			"%{encrypted2|decrypt(algorithm='aes-128-cbc',key=key)}",
+					   &params, &error) == 0, i);
 		test_assert_strcmp_idx(str_c(output), table[4].value, i);
 	};
 
