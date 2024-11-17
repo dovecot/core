@@ -118,22 +118,21 @@ static int var_expand_crypt_settings(struct var_expand_state *state,
 	ERROR_IF_NO_TRANSFER_TO(stmt->function);
 
 	ctx->input = state->transfer;
-	if (ctx->raw || strcmp(stmt->function, "encrypt") == 0)
-		return 0;
-
-	/* handle $ separated input, only support hex */
-	const char *const *parts = t_strsplit(str_c(state->transfer), "$");
-	if (str_array_length(parts) == 3 && *parts[2] == '\0') {
-		if (ctx->iv->used > 0) {
-			*error_r = "Cannot have iv in parameter and input";
+	if (!ctx->raw && strcmp(stmt->function, "decrypt") == 0) {
+		/* handle $ separated input, only support hex */
+		const char *const *parts = t_strsplit(str_c(state->transfer), "$");
+		if (str_array_length(parts) == 3 && *parts[2] == '\0') {
+			if (ctx->iv->used > 0) {
+				*error_r = "Cannot have iv in parameter and input";
+				return -1;
+			}
+			hex_to_binary(parts[0], ctx->iv);
+			ctx->input = t_buffer_create(strlen(parts[1]) / 2);
+			hex_to_binary(parts[1], ctx->input);
+		} else {
+			*error_r = "Invalid input format";
 			return -1;
 		}
-		hex_to_binary(parts[0], ctx->iv);
-		ctx->input = t_buffer_create(strlen(parts[1]) / 2);
-		hex_to_binary(parts[1], ctx->input);
-	} else {
-		*error_r = "Invalid input format";
-		return -1;
 	}
 
 	return 0;
