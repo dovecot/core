@@ -7,6 +7,9 @@
 #include "dcrypt.h"
 
 #define VAR_EXPAND_CRYPT_DEFAULT_ALGO "AES-256-CBC"
+#define VAR_EXPAND_CRYPT_DEFAULT_ROUNDS 10000
+#define VAR_EXPAND_CRYPT_DEFAULT_HASH "sha256"
+#define VAR_EXPAND_CRYPT_DEFAULT_SALT_LEN 8
 
 struct module;
 
@@ -14,6 +17,8 @@ struct var_expand_crypt_context {
 	const char *algo;
 	string_t *iv;
 	string_t *enckey;
+	intmax_t rounds;
+	const char *salt;
 	buffer_t *input;
 	bool raw;
 };
@@ -31,6 +36,24 @@ static int parse_parameters(struct var_expand_crypt_context *ctx,
 	if (ctx->iv != NULL) {
 		*error_r = "Cannot have iv in parameter and input";
 		return -1;
+	} else if (*parts[0] == 's' || *parts[0] == 'r') {
+		const char *const *params =
+			t_strsplit(parts[0], ",");
+		for (; *params != NULL; params++) {
+			const char *value;
+			if (str_begins(*params, "s=", &ctx->salt)) {
+				/* got salt */
+			} else if (str_begins(*params, "r=", &value)) {
+				if (str_to_intmax(value, &ctx->rounds) < 0 ||
+				    ctx->rounds < 1) {
+					*error_r = "Invalid input";
+					return -1;
+				}
+			} else {
+				*error_r = "Invalid input";
+				return -1;
+			}
+		}
 	} else {
 		ctx->iv = t_buffer_create(32);
 		hex_to_binary(parts[0], ctx->iv);
@@ -75,6 +98,18 @@ var_expand_crypt(struct dcrypt_context_symmetric *dctx, buffer_t *key, buffer_t 
 	return 0;
 }
 
+static const char salt_chars[] =
+	"#&()*+-./0123456789:;<>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	"[]^_`abcdefghijklmnopqrstuvwxyz{|}";
+
+static const char *make_salt(size_t len)
+{
+	string_t *tmp = t_str_new(len);
+	for (size_t i = 0; i < len; i++)
+		str_append_c(tmp, salt_chars[i_rand_limit(sizeof(salt_chars)-1)]);
+	return str_c(tmp);
+}
+
 static int var_expand_crypt_settings(struct var_expand_state *state,
 				     const struct var_expand_statement *stmt,
 				     struct var_expand_crypt_context *ctx,
@@ -82,6 +117,8 @@ static int var_expand_crypt_settings(struct var_expand_state *state,
 {
 	const char *iv;
 	const char *enckey = NULL;
+	const char *hash = VAR_EXPAND_CRYPT_DEFAULT_HASH;
+	ctx->rounds = VAR_EXPAND_CRYPT_DEFAULT_ROUNDS;
 
 	ctx->algo = VAR_EXPAND_CRYPT_DEFAULT_ALGO;
 
@@ -103,6 +140,10 @@ static int var_expand_crypt_settings(struct var_expand_state *state,
 							       error_r) < 0) {
 				return -1;
 			}
+			if (ctx->salt != NULL) {
+				*error_r = "Cannot use both salt and iv";
+				return -1;
+			}
 			ctx->iv = t_buffer_create(strlen(iv) / 2);
 			hex_to_binary(iv, ctx->iv);
 		} else if (strcmp(key, "key") == 0) {
@@ -118,6 +159,28 @@ static int var_expand_crypt_settings(struct var_expand_state *state,
 			if (var_expand_parameter_bool_or_var(state, par, &ctx->raw,
 							     error_r) < 0)
 				return -1;
+		} else if (strcmp(key, "salt") == 0) {
+			if (var_expand_parameter_string_or_var(state, par, &ctx->salt,
+							       error_r) < 0) {
+				return -1;
+			}
+			if (ctx->iv != NULL) {
+				*error_r = "Cannot use both salt and iv";
+				return -1;
+			}
+		} else if (strcmp(key, "hash") == 0) {
+			if (var_expand_parameter_string_or_var(state, par, &hash,
+							     error_r) < 0)
+				return -1;
+		} else if (strcmp(key, "rounds") == 0) {
+			if (var_expand_parameter_number_or_var(state, par,
+							       &ctx->rounds,
+							       error_r) < 0)
+				return -1;
+			if (ctx->rounds < 1) {
+				*error_r = "rounds must be positive integer";
+				return -1;
+			}
 		} else
 			ERROR_UNSUPPORTED_KEY(key);
 	}
@@ -126,9 +189,6 @@ static int var_expand_crypt_settings(struct var_expand_state *state,
 		*error_r = "Encryption key missing";
 		return -1;
 	}
-
-	ctx->enckey = t_buffer_create(strlen(enckey) / 2);
-	hex_to_binary(enckey, ctx->enckey);
 
 	ERROR_IF_NO_TRANSFER_TO(stmt->function);
 
@@ -143,8 +203,37 @@ static int var_expand_crypt_settings(struct var_expand_state *state,
 			return -1;
 	}
 
-	return 0;
+	if (ctx->iv == NULL) {
+		if (ctx->salt == NULL)
+			ctx->salt = make_salt(VAR_EXPAND_CRYPT_DEFAULT_SALT_LEN);
+		buffer_t *keymaterial = t_buffer_create(48);
+		/* figure out how much material we need */
+		struct dcrypt_context_symmetric *sym_ctx;
+		if (!dcrypt_ctx_sym_create(ctx->algo, DCRYPT_MODE_ENCRYPT,
+					   &sym_ctx, error_r))
+			return -1;
+		size_t enckey_len = dcrypt_ctx_sym_get_key_length(sym_ctx);
+		size_t iv_len = dcrypt_ctx_sym_get_iv_length(sym_ctx);
+		dcrypt_ctx_sym_destroy(&sym_ctx);
+		if (!dcrypt_pbkdf2((unsigned char*)enckey, strlen(enckey),
+				   (unsigned char*)ctx->salt, strlen(ctx->salt),
+				   hash, ctx->rounds, keymaterial,
+				   enckey_len + iv_len, error_r))
+			return -1;
+		const unsigned char *data = keymaterial->data;
+		ctx->enckey = t_buffer_create(enckey_len);
+		ctx->iv = t_buffer_create(iv_len);
+		buffer_append(ctx->enckey, data, enckey_len);
+		buffer_append(ctx->iv, data + enckey_len, iv_len);
+	} else {
+		ctx->enckey = t_buffer_create(strlen(enckey) / 2);
+		hex_to_binary(enckey, ctx->enckey);
+	}
 
+	/* IV can be optional in some algorithms */
+	i_assert(ctx->enckey->used > 0);
+
+	return 0;
 }
 
 static int
@@ -174,7 +263,11 @@ var_expand_encrypt(const struct var_expand_statement *stmt,
 		else {
 			state->transfer_set = TRUE;
 			str_truncate(state->transfer, 0);
-			binary_to_hex_append(state->transfer, ctx.iv->data, ctx.iv->used);
+			if (ctx.salt != NULL) {
+				str_printfa(state->transfer, "s=%s,r=%jd",
+					    ctx.salt, ctx.rounds);
+			} else
+				binary_to_hex_append(state->transfer, ctx.iv->data, ctx.iv->used);
 			str_append_c(state->transfer, '$');
 			binary_to_hex_append(state->transfer, dest->data, dest->used);
 			str_append_c(state->transfer, '$');
