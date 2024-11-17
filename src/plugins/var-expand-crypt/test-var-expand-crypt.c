@@ -24,6 +24,8 @@ static struct var_expand_table table[] = {
 	},
 	{ .key = "decrypted", .value = "hello, world" },
 	{ .key = "encrypted2", .value = NULL },
+	{ .key = "user", .value = "foo" },
+	{ .key = "salt-encrypted", .value ="s=foo,r=1000$da793a4ae62eb1d415228b40c43b93a8$" },
 	{ NULL, NULL, NULL }
 };
 
@@ -65,6 +67,32 @@ static void test_var_expand_crypt(void)
 			"%{encrypted_raw|unhexlify|"
 			"decrypt(algorithm='aes-128-cbc',iv=iv,key=key,raw=1)}",
 			"hello, world",
+			0
+		},
+		{
+			"%{user|encrypt(hash='sha1',rounds=16,key='bar',salt='bar',algorithm='aes-256-cbc',raw=1)}",
+			"92da344a4456e112550c146d9b3e4334",
+			0
+		},
+		{
+			"%{literal('foo.20161103001007.SMTP.SEND')|"
+			"encrypt(hash='sha1',rounds=16,key='secret',salt='secret',algorithm='aes-256-cbc',raw=1)}",
+			"c23ce33218c955a4e791742c6a8eb38717c9b2dd6cc1cf670dff029e819cca81",
+			0
+		},
+		{
+			"%{user|encrypt(key='bar',salt='foo')}",
+			"s=foo,r=10000$929803f6a290ec6f015bf1a921aa352a$",
+			0
+		},
+		{
+			"%{salt-encrypted|decrypt(key='bar')}",
+			"foo",
+			0
+		},
+		{
+			"%{user|encrypt(key='bar',salt='foo')|decrypt(key='bar')}",
+			"foo",
 			0
 		},
 	};
@@ -117,6 +145,7 @@ static void test_var_expand_crypt_random(void)
 			"%{encrypted2|decrypt(algorithm='aes-128-cbc',key=key)}",
 				  &params, &error);
 		test_assert_cmp_idx(ret, ==, 0, i);
+		if (ret != 0) i_error("%s: %s", error, str_c(input));
 		struct var_expand_table *entry =
 			var_expand_table_get(table, "decrypted");
 		test_assert_strcmp_idx(str_c(output), entry->value, i);
