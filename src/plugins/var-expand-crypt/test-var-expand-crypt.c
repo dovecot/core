@@ -12,6 +12,21 @@ struct module;
 extern void var_expand_crypt_init(struct module *module);
 extern void var_expand_crypt_deinit(void);
 
+static struct var_expand_table table[] = {
+	{ .key = "iv", .value = "98b3b40a48ca40f998b3b40a48ca40f9" },
+	{ .key = "key", .value = "cc2981c8f38aea59cc2981c8f38aea59" },
+	{
+		.key = "encrypted_raw",
+		.value = "46b58741763fe22598014be26331a082" },
+	{
+		.key = "encrypted",
+		.value = "98b3b40a48ca40f998b3b40a48ca40f9$46b58741763fe22598014be26331a082$"
+	},
+	{ .key = "decrypted", .value = "hello, world" },
+	{ .key = "encrypted2", .value = NULL },
+	{ NULL, NULL, NULL }
+};
+
 static void test_var_expand_crypt_init(void)
 {
 	var_expand_crypt_init(NULL);
@@ -19,20 +34,6 @@ static void test_var_expand_crypt_init(void)
 
 static void test_var_expand_crypt(void)
 {
-	struct var_expand_table table[] = {
-		{ .key = "iv", .value = "98b3b40a48ca40f998b3b40a48ca40f9" },
-		{ .key = "key", .value = "cc2981c8f38aea59cc2981c8f38aea59" },
-		{
-			.key = "encrypted_raw",
-			.value = "46b58741763fe22598014be26331a082" },
-		{
-			.key = "encrypted",
-			.value = "98b3b40a48ca40f998b3b40a48ca40f9$46b58741763fe22598014be26331a082$"
-		},
-		{ .key = "decrypted", .value = "hello, world" },
-		{ .key = "encrypted2", .value = NULL },
-		{ NULL, NULL, NULL }
-	};
 	const struct var_expand_params params = {
 		.table = table,
 	};
@@ -90,13 +91,19 @@ static void test_var_expand_crypt(void)
 	} T_END;
 
 	test_end();
+}
 
+static void test_var_expand_crypt_random(void)
+{
 	test_begin("var_expand_crypt_random");
 
 	string_t *input = t_str_new(32);
 	string_t *output = t_str_new(32);
+	const struct var_expand_params params = {
+		.table = table,
+	};
 
-	for (i = 0; i < 1000; i++) {
+	for (unsigned int i = 0; i < 1000; i++) {
 		const char *error;
 		str_truncate(input, 0);
 		str_truncate(output, 0);
@@ -125,6 +132,7 @@ int main(void)
 	static void (*const test_functions[])(void) = {
 		test_var_expand_crypt_init,
 		test_var_expand_crypt,
+		test_var_expand_crypt_random,
 		test_var_expand_crypt_deinit,
 		NULL
 	};
