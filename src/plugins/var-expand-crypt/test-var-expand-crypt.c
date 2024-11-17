@@ -26,6 +26,7 @@ static struct var_expand_table table[] = {
 	{ .key = "encrypted2", .value = NULL },
 	{ .key = "user", .value = "foo" },
 	{ .key = "salt-encrypted", .value ="s=foo,r=1000$da793a4ae62eb1d415228b40c43b93a8$" },
+	{ .key = "ecb-encrypted", .value = "$3bca3caa565f2d940acef1244a07c836$" },
 	{ NULL, NULL, NULL }
 };
 
@@ -93,6 +94,22 @@ static void test_var_expand_crypt(void)
 		{
 			"%{user|encrypt(key='bar',salt='foo')|decrypt(key='bar')}",
 			"foo",
+			0
+		},
+		{
+			"%{decrypted|encrypt(algorithm='aes-128-ecb',key=key,iv='')}",
+			"$3bca3caa565f2d940acef1244a07c836$",
+			0
+		},
+		{
+			"%{ecb-encrypted|decrypt(algorithm='aes-128-ecb',key=key)}",
+			"hello, world",
+			0
+		},
+		{
+			"%{decrypted|encrypt(algorithm='aes-128-ecb',key=key,iv='')|"
+			"decrypt(key=key,algorithm='aes-128-ecb')}",
+			"hello, world",
 			0
 		},
 	};
