@@ -12,6 +12,11 @@ struct module;
 extern void var_expand_crypt_init(struct module *module);
 extern void var_expand_crypt_deinit(void);
 
+static void test_var_expand_crypt_init(void)
+{
+	var_expand_crypt_init(NULL);
+}
+
 static void test_var_expand_crypt(void)
 {
 	struct var_expand_table table[] = {
@@ -66,7 +71,6 @@ static void test_var_expand_crypt(void)
 	unsigned int i;
 
 	test_begin("var_expand_crypt");
-	var_expand_crypt_init(NULL);
 
 	for(i=0; i < N_ELEMENTS(test_cases); i++) T_BEGIN {
 		const char *error;
@@ -107,15 +111,21 @@ static void test_var_expand_crypt(void)
 		test_assert_strcmp_idx(str_c(output), table[4].value, i);
 	};
 
-	var_expand_crypt_deinit();
 	test_end();
+}
+
+static void test_var_expand_crypt_deinit(void)
+{
+	var_expand_crypt_deinit();
 }
 
 int main(void)
 {
 	int ret = 0;
 	static void (*const test_functions[])(void) = {
+		test_var_expand_crypt_init,
 		test_var_expand_crypt,
+		test_var_expand_crypt_deinit,
 		NULL
 	};
 	struct dcrypt_settings set = {
