@@ -102,20 +102,26 @@ static void test_var_expand_crypt_random(void)
 	const struct var_expand_params params = {
 		.table = table,
 	};
+	int ret = 0;
 
 	for (unsigned int i = 0; i < 1000; i++) {
 		const char *error;
 		str_truncate(input, 0);
 		str_truncate(output, 0);
-
-		test_assert_idx(var_expand(input,
+		ret += var_expand(input,
 			"%{decrypted|encrypt(algorithm='aes-128-cbc',key=key)}",
-					   &params, &error) == 0, i);
-		table[5].value = str_c(input);
-		test_assert_idx(var_expand(output,
+				 &params, &error);
+		test_assert_cmp_idx(ret, ==, 0, i);
+		var_expand_table_set_value(table, "encrypted2", str_c(input));
+		ret += var_expand(output,
 			"%{encrypted2|decrypt(algorithm='aes-128-cbc',key=key)}",
-					   &params, &error) == 0, i);
-		test_assert_strcmp_idx(str_c(output), table[4].value, i);
+				  &params, &error);
+		test_assert_cmp_idx(ret, ==, 0, i);
+		struct var_expand_table *entry =
+			var_expand_table_get(table, "decrypted");
+		test_assert_strcmp_idx(str_c(output), entry->value, i);
+		if (strcmp(str_c(output), entry->value) != 0)
+			break;
 	};
 
 	test_end();
