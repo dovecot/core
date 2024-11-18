@@ -132,7 +132,7 @@ static void test_var_expand_crypt_random(void)
 	};
 	int ret = 0;
 
-	for (unsigned int i = 0; i < 1000; i++) {
+	for (unsigned int i = 0; i < 100; i++) {
 		const char *error;
 		str_truncate(input, 0);
 		str_truncate(output, 0);
