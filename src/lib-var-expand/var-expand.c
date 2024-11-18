@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "cpu-count.h"
+#include "guid.h"
 #include "hostpid.h"
 #include "str.h"
 #include "time-util.h"
@@ -217,6 +218,35 @@ static int var_expand_time(const char *key, const char **value_r,
 	return 0;
 }
 
+static int var_expand_generate(const char *key, const char **value_r,
+			       void *context ATTR_UNUSED, const char **error_r)
+{
+	guid_128_t guid;
+
+	if (strcmp(key, "guid") == 0) {
+		*value_r = guid_generate();
+		return 0;
+	}
+	if (strcmp(key, "guid128") == 0) {
+		guid_128_generate(guid);
+		*value_r = guid_128_to_string(guid);
+		return 0;
+	}
+	if (str_begins(key, "uuid", &key)) {
+		guid_128_uuid4_generate(guid);
+		if (key[0] == '\0' || strcmp(key, ":record") == 0)
+			*value_r = guid_128_to_uuid_string(guid, FORMAT_RECORD);
+		else if (strcmp(key, ":compact") == 0)
+			*value_r = guid_128_to_uuid_string(guid, FORMAT_COMPACT);
+		else if (strcmp(key, ":microsoft") == 0)
+			*value_r = guid_128_to_uuid_string(guid, FORMAT_MICROSOFT);
+		else
+			ERROR_UNSUPPORTED_KEY(key);
+		return 0;
+	}
+	ERROR_UNSUPPORTED_KEY(key);
+}
+
 static const struct var_expand_provider internal_providers[] = {
 	{ .key = "process", .func = var_expand_process },
 	{ .key = "system", .func = var_expand_system  },
@@ -225,6 +255,7 @@ static const struct var_expand_provider internal_providers[] = {
 	{ .key = "event", .func = var_expand_event },
 	{ .key = "date", .func = var_expand_date },
 	{ .key = "time", .func = var_expand_time },
+	{ .key = "generate", .func = var_expand_generate },
 	VAR_EXPAND_TABLE_END
 };
 
