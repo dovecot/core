@@ -167,4 +167,6 @@ static inline void var_expand_table_copy(struct var_expand_table *table,
 	entry_b->func = entry_a->func;
 }
 
+void var_expand_crypt_load(void);
+
 #endif

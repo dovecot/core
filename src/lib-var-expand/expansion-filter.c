@@ -1164,6 +1164,8 @@ static const struct var_expand_filter var_expand_builtin_filters[] = {
 	{ .name = "lfill", .filter = fn_lfill },
 	{ .name = "rfill", .filter = fn_rfill },
 	{ .name = "text", .filter = fn_text },
+	{ .name = "encrypt", .filter = expansion_filter_encrypt },
+	{ .name = "decrypt", .filter = expansion_filter_decrypt },
 	{ .name = NULL }
 };
 

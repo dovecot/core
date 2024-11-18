@@ -4,6 +4,7 @@
 #include "hex-binary.h"
 #include "str.h"
 #include "var-expand-private.h"
+#include "expansion.h"
 #include "dcrypt.h"
 
 #define VAR_EXPAND_CRYPT_DEFAULT_ALGO "AES-256-CBC"
@@ -25,10 +26,8 @@ struct var_expand_crypt_context {
 
 static bool var_expand_crypt_initialize(const char **error_r);
 
-void var_expand_crypt_init(struct module *module);
-void var_expand_crypt_deinit(void);
-void auth_var_expand_crypt_init(struct module *module);
-void auth_var_expand_crypt_deinit(void);
+extern void var_expand_crypt_init(struct module *module);
+extern void var_expand_crypt_deinit(void);
 
 static int parse_parameters(struct var_expand_crypt_context *ctx,
 			    const char *const *parts, const char **error_r)
@@ -320,22 +319,11 @@ void var_expand_crypt_init(struct module *module ATTR_UNUSED)
 	/* do not initialize dcrypt here - saves alot of memory
 	   to not load openssl every time. Only load it if
 	   needed */
-	var_expand_register_filter("encrypt", var_expand_encrypt);
-	var_expand_register_filter("decrypt", var_expand_decrypt);
+
+	expansion_filter_crypt_set_functions(var_expand_encrypt,
+					     var_expand_decrypt);
 }
 
 void var_expand_crypt_deinit(void)
 {
-	var_expand_unregister_filter("encrypt");
-	var_expand_unregister_filter("decrypt");
-}
-
-void auth_var_expand_crypt_init(struct module *module)
-{
-	var_expand_crypt_init(module);
-}
-
-void auth_var_expand_crypt_deinit(void)
-{
-	var_expand_crypt_deinit();
 }

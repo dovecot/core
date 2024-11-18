@@ -4,7 +4,6 @@
 #include "test-common.h"
 #include "str.h"
 #include "var-expand.h"
-#include "randgen.h"
 #include "dcrypt.h"
 
 struct module;

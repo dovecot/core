@@ -19,8 +19,8 @@ YACC=/bin/false
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
-	-I$(top_srcdir)/src/lib-dcrypt \
-	-Wno-error=unused-function
+	-Wno-error=unused-function \
+	-DVAR_EXPAND_MODULE_DIR=\"$(pkglibdir)\"
 
 var-expand-parser.h: var-expand-parser.c
 
@@ -29,6 +29,7 @@ libvar_expand_la_SOURCES = \
 	expansion-statement.c \
 	expansion-filter.c \
 	expansion-filter-if.c \
+	expansion-filter-crypt.c \
 	expansion-program.c \
 	var-expand.c \
 	var-expand-parser.y \

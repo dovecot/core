@@ -34,7 +34,8 @@ LIBDOVECOT_SUBDIRS = \
 	lib-imap \
 	lib-imap-storage \
 	lib-oauth2 \
-	lib-doveadm
+	lib-doveadm \
+	lib-var-expand-crypt
 
 SUBDIRS = \
 	$(LIBDOVECOT_SUBDIRS) \
