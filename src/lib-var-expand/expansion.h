@@ -33,5 +33,14 @@ int var_expand_find_filter(const char *name, var_expand_filter_func_t **fn_r);
 
 int expansion_filter_if(const struct var_expand_statement *stmt, struct var_expand_state *state,
 			const char **error_r);
+int
+expansion_filter_encrypt(const struct var_expand_statement *stmt,
+			 struct var_expand_state *state, const char **error_r);
+int
+expansion_filter_decrypt(const struct var_expand_statement *stmt,
+			 struct var_expand_state *state, const char **error_r);
+
+void expansion_filter_crypt_set_functions(var_expand_filter_func_t *encrypt,
+					  var_expand_filter_func_t *decrypt);
 
 #endif

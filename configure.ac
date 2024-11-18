@@ -843,6 +843,7 @@ src/lib-storage/index/dbox-single/Makefile
 src/lib-storage/index/raw/Makefile
 src/lib-storage/index/shared/Makefile
 src/lib-var-expand/Makefile
+src/lib-var-expand-crypt/Makefile
 src/anvil/Makefile
 src/auth/Makefile
 src/config/Makefile
@@ -890,7 +891,6 @@ src/plugins/virtual/Makefile
 src/plugins/welcome/Makefile
 src/plugins/mail-compress/Makefile
 src/plugins/mail-crypt/Makefile
-src/plugins/var-expand-crypt/Makefile
 src/plugins/apparmor/Makefile
 src/plugins/charset-alias/Makefile
 stamp.h
