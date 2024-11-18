@@ -924,6 +924,41 @@ static void test_var_expand_set_copy(void)
 	test_end();
 }
 
+static void test_var_expand_generate(void)
+{
+	const char *error;
+	string_t *str = t_str_new(64);
+
+	test_begin("var_expand(generate)");
+
+	test_assert(var_expand(str, "%{generate:guid}", NULL, &error) == 0);
+	test_assert(strstr(str_c(str), my_hostname) != NULL);
+
+	str_truncate(str, 0);
+	test_assert(var_expand(str, "%{generate:guid128}", NULL, &error) == 0);
+	test_assert(str_len(str) == 32 && strspn(str_c(str), "0123456789abcdef") == 32);
+
+	str_truncate(str, 0);
+	test_assert(var_expand(str, "%{generate:uuid}", NULL, &error) == 0);
+	test_assert(str_len(str) == 36 && strspn(str_c(str), "0123456789abcdef-") == 36);
+
+	str_truncate(str, 0);
+	test_assert(var_expand(str, "%{generate:uuid:record}", NULL, &error) == 0);
+	test_assert(str_len(str) == 36 && strspn(str_c(str), "0123456789abcdef-") == 36);
+
+	str_truncate(str, 0);
+	test_assert(var_expand(str, "%{generate:uuid:compact}", NULL, &error) == 0);
+	test_assert(str_len(str) == 32 && strspn(str_c(str), "0123456789abcdef") == 32);
+
+	str_truncate(str, 0);
+	test_assert(var_expand(str, "%{generate:uuid:microsoft}", NULL, &error) == 0);
+	test_assert(str_len(str) == 38 && str_c(str)[0] == '{' &&
+		    strspn(str_c(str)+1, "0123456789abcdef-") == 36 &&
+		    str_c(str)[37] == '}');
+
+	test_end();
+}
+
 int main(void)
 {
 	void (*const tests[])(void) = {
@@ -941,6 +976,7 @@ int main(void)
 		test_var_expand_parameter_sorted,
 		test_var_expand_perc,
 		test_var_expand_set_copy,
+		test_var_expand_generate,
 		NULL
 	};
 
