@@ -863,6 +863,23 @@ static const char *filter_key_skip_group_prefix(const char *key)
 	return key[0] == SETTINGS_INCLUDE_GROUP_PREFIX ? key + 1 : key;
 }
 
+static bool
+config_key_can_autoprefix(struct config_parser_context *ctx, const char *key)
+{
+	const char *lookup_key = t_strcut(key, '/');
+	struct config_parser_key *config_key =
+		hash_table_lookup(ctx->all_keys, lookup_key);
+	if (config_key == NULL)
+		return FALSE;
+
+	const struct setting_define *def =
+		&all_infos[config_key->info_idx]->defines[config_key->define_idx];
+	/* named filters aren't useful for autoprefixing, and they can in
+	   some cases cause conflicts. For example foo .. { fs .. { .. } }
+	   can fail if there is "foo_fs" named filter also. */
+	return def->type != SET_FILTER_NAME;
+}
+
 static int
 config_apply_line_full(struct config_parser_context *ctx,
 		       const struct config_line *line,
@@ -942,7 +959,9 @@ again:
 		const char *key2 = t_strdup_printf("%s_%s", filter_key, key);
 		struct config_filter_parser *last_filter_parser =
 			ctx->cur_section->filter_parser;
-		ret = config_apply_exact_line(ctx, line, key2, value);
+
+		ret = !config_key_can_autoprefix(ctx, key2) ? 0 :
+			config_apply_exact_line(ctx, line, key2, value);
 		if (ret > 0 && full_key_r != NULL) {
 			*full_key_r = key2;
 			*root_setting_r = config_filter_is_empty(
@@ -980,7 +999,8 @@ again:
 				key2 = key;
 			}
 		}
-		ret = config_apply_exact_line(ctx, line, key2, value);
+		ret = !config_key_can_autoprefix(ctx, key2) ? 0 :
+			config_apply_exact_line(ctx, line, key2, value);
 		if (ret > 0 && full_key_r != NULL) {
 			*full_key_r = key2;
 			*root_setting_r = config_filter_is_empty(
@@ -2587,7 +2607,7 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 				t_strcut(cur_filter->filter_name, '/');
 			const char *key2 = t_strdup_printf("%s_%s",
 							   filter_key, key);
-			if (hash_table_lookup(ctx->all_keys, key2) != NULL)
+			if (config_key_can_autoprefix(ctx, key2))
 				key = key2;
 		}
 
