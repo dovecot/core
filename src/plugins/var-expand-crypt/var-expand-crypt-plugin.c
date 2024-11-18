@@ -25,6 +25,21 @@ void var_expand_crypt_deinit(void);
 void auth_var_expand_crypt_init(struct module *module);
 void auth_var_expand_crypt_deinit(void);
 
+static int parse_parameters(struct var_expand_crypt_context *ctx,
+			    const char *const *parts, const char **error_r)
+{
+	if (ctx->iv != NULL) {
+		*error_r = "Cannot have iv in parameter and input";
+		return -1;
+	} else {
+		ctx->iv = t_buffer_create(32);
+		hex_to_binary(parts[0], ctx->iv);
+	}
+	ctx->input = t_buffer_create(strlen(parts[1]) / 2);
+	hex_to_binary(parts[1], ctx->input);
+	return 0;
+}
+
 static int
 var_expand_crypt(struct dcrypt_context_symmetric *dctx, buffer_t *key, buffer_t *iv,
 		 const buffer_t *input, buffer_t *output, const char **error_r)
@@ -121,18 +136,11 @@ static int var_expand_crypt_settings(struct var_expand_state *state,
 	if (!ctx->raw && strcmp(stmt->function, "decrypt") == 0) {
 		/* handle $ separated input, only support hex */
 		const char *const *parts = t_strsplit(str_c(state->transfer), "$");
-		if (str_array_length(parts) == 3 && *parts[2] == '\0') {
-			if (ctx->iv->used > 0) {
-				*error_r = "Cannot have iv in parameter and input";
-				return -1;
-			}
-			hex_to_binary(parts[0], ctx->iv);
-			ctx->input = t_buffer_create(strlen(parts[1]) / 2);
-			hex_to_binary(parts[1], ctx->input);
-		} else {
+		if (str_array_length(parts) != 3 || *parts[2] != '\0') {
 			*error_r = "Invalid input format";
 			return -1;
-		}
+		} else if (parse_parameters(ctx, parts, error_r) < 0)
+			return -1;
 	}
 
 	return 0;
