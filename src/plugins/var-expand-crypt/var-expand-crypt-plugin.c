@@ -201,6 +201,9 @@ static int var_expand_crypt_settings(struct var_expand_state *state,
 			return -1;
 		} else if (parse_parameters(ctx, parts, error_r) < 0)
 			return -1;
+	} else if (ctx->raw && ctx->iv == NULL && ctx->salt == NULL) {
+		*error_r = "In raw format, salt or IV must be given";
+		return -1;
 	}
 
 	if (ctx->iv == NULL) {
