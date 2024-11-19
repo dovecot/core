@@ -434,8 +434,10 @@ static void data_stack_send_grow_event(size_t last_alloc_size)
 	const char *backtrace, *error;
 	if (backtrace_get(&backtrace, &error) == 0)
 		event_add_str(event_datastack, "backtrace", backtrace);
-	else
+	else {
+		backtrace = t_strdup_printf("backtrace failed: %s", error);
 		event_add_str(event_datastack, "backtrace_error", error);
+	}
 
 	string_t *str = t_str_new(128);
 	str_printfa(str, "total_used=%zu, total_alloc=%zu, last_alloc_size=%zu",
@@ -446,8 +448,8 @@ static void data_stack_send_grow_event(size_t last_alloc_size)
 	str_printfa(str, ", frame_bytes=%llu, frame_alloc_count=%u",
 		    frame->alloc_bytes, frame->alloc_count);
 #endif
-	e_debug(event_datastack, "Growing data stack by %zu for '%s' (%s)",
-		current_block->size, frame->marker, str_c(str));
+	e_debug(event_datastack, "Growing data stack by %zu for '%s' (%s): %s",
+		current_block->size, frame->marker, str_c(str), backtrace);
 }
 
 static void *t_malloc_real(size_t size, bool permanent)
