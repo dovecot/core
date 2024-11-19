@@ -16,6 +16,7 @@
 #include "iostream-ssl.h"
 #include "iostream-ssl-test.h"
 #include "iostream-openssl.h"
+#include "http-client.h"
 #include "test-common.h"
 #include "test-subprocess.h"
 #include "dlua-script-private.h"
@@ -437,6 +438,7 @@ test_client_init(test_client_init_t client_test)
 static void test_client_deinit(void)
 {
 	timeout_remove(&to_client_progress);
+	http_client_global_context_free();
 }
 
 static void test_client_run(test_client_init_t client_test)
