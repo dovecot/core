@@ -397,6 +397,10 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 
 static void data_stack_send_grow_event(size_t last_alloc_size)
 {
+	/* The t_malloc_real() adds a data stack frame. We don't care about it,
+	   but the previous one. */
+	struct stack_frame *frame = current_frame->prev;
+
 	if (event_datastack_deinitialized) {
 		/* already in the deinitialization code -
 		   don't send more events */
@@ -411,11 +415,11 @@ static void data_stack_send_grow_event(size_t last_alloc_size)
 	event_add_int(event_datastack, "last_block_size", current_block->size);
 #ifdef DEBUG
 	event_add_int(event_datastack, "frame_alloc_bytes",
-		      current_frame->alloc_bytes);
+		      frame->alloc_bytes);
 	event_add_int(event_datastack, "frame_alloc_count",
-		      current_frame->alloc_count);
+		      frame->alloc_count);
 #endif
-	event_add_str(event_datastack, "frame_marker", current_frame->marker);
+	event_add_str(event_datastack, "frame_marker", frame->marker);
 
 	/* It's possible that the data stack gets grown and shrunk rapidly.
 	   Try to avoid doing expensive work if the event isn't even used for
@@ -440,11 +444,10 @@ static void data_stack_send_grow_event(size_t last_alloc_size)
 		    last_alloc_size);
 #ifdef DEBUG
 	str_printfa(str, ", frame_bytes=%llu, frame_alloc_count=%u",
-		    current_frame->alloc_bytes, current_frame->alloc_count);
+		    frame->alloc_bytes, frame->alloc_count);
 #endif
 	e_debug(event_datastack, "Growing data stack by %zu for '%s' (%s)",
-		current_block->size, current_frame->marker,
-		str_c(str));
+		current_block->size, frame->marker, str_c(str));
 }
 
 static void *t_malloc_real(size_t size, bool permanent)
