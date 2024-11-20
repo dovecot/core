@@ -542,17 +542,24 @@ mail_do_deliver(struct mail_deliver_context *ctx,
 	else {
 		ctx->dup_db = mail_duplicate_db_init(ctx->rcpt_user,
 						     DUPLICATE_DB_NAME);
-		if (deliver_mail(ctx, storage_r) <= 0) {
-			/* if message was saved, don't bounce it even though
-			   the script failed later. */
-			ret = ctx->saved_mail ? 0 : -1;
-		} else {
+		ret = deliver_mail(ctx, storage_r);
+		mail_duplicate_db_deinit(&ctx->dup_db);
+		if (ret > 0) {
 			/* success. message may or may not have been saved. */
 			ret = 0;
+		} else if (ctx->saved_mail) {
+			/* if message was saved, don't bounce it even though
+			   the script failed later. */
+			ret = 0;
+		} else if (ret == 0) {
+			/* message wasn't delivered yet. */
+			ret = -1;
+		} else if (ret < 0) {
+			/* delivery failed. */
+			if (mail_deliver_is_tempfailed(ctx, *storage_r))
+				return -1;
+			ret = -1;
 		}
-		mail_duplicate_db_deinit(&ctx->dup_db);
-		if (ret < 0 && mail_deliver_is_tempfailed(ctx, *storage_r))
-			return -1;
 	}
 
 	if (ret < 0 && !ctx->tried_default_save) {
