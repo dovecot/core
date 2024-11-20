@@ -312,14 +312,16 @@ void http_client_request_ref(struct http_client_request *req)
 bool http_client_request_unref(struct http_client_request **_req)
 {
 	struct http_client_request *req = *_req;
-	struct http_client *client = req->client;
 
-	i_assert(req->refcount > 0);
-
+	if (req == NULL)
+		return FALSE;
 	*_req = NULL;
 
+	i_assert(req->refcount > 0);
 	if (--req->refcount > 0)
 		return TRUE;
+
+	struct http_client *client = req->client;
 
 	if (client == NULL) {
 		e_debug(req->event, "Free (client already destroyed)");
