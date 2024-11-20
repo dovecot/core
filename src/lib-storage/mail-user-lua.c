@@ -141,16 +141,6 @@ static int lua_storage_mail_user_var_expand(lua_State *L)
 	return 1;
 }
 
-static int lua_storage_mail_user_plugin_getenv(lua_State *L)
-{
-	DLUA_REQUIRE_ARGS(L, 2);
-	struct mail_user *user = lua_check_storage_mail_user(L, 1);
-	const char *set = lua_tostring(L, 2);
-	const char *val = mail_user_plugin_getenv(user, set);
-	lua_pushstring(L, val);
-	return 1;
-}
-
 static int lua_storage_mail_user_mailbox_alloc(lua_State *L)
 {
 	DLUA_REQUIRE_ARGS_IN(L, 2, 3);
@@ -386,7 +376,6 @@ static luaL_Reg lua_storage_mail_user_methods[] = {
 	{ "__eq", lua_storage_mail_user_eq },
 	{ "__lt", lua_storage_mail_user_lt },
 	{ "__le", lua_storage_mail_user_le },
-	{ "plugin_getenv", lua_storage_mail_user_plugin_getenv },
 	{ "var_expand", lua_storage_mail_user_var_expand },
 	{ "mailbox", lua_storage_mail_user_mailbox_alloc },
 	{ "metadata_get", lua_storage_mail_user_metadata_get },

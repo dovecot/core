@@ -105,35 +105,6 @@ mail_user_alloc(struct mail_storage_service_user *service_user)
 	return user;
 }
 
-static void
-mail_user_expand_plugins_envs(struct mail_user *user,
-			      struct mail_storage_settings *set)
-{
-	const char **envs, *error;
-	string_t *str;
-	unsigned int i, count;
-
-	if (!array_is_created(&set->plugin_envs))
-		return;
-
-	str = t_str_new(256);
-	envs = array_get_modifiable(&set->plugin_envs, &count);
-	i_assert((count % 2) == 0);
-
-	const struct var_expand_params *params = mail_user_var_expand_params(user);
-
-	for (i = 0; i < count; i += 2) {
-		str_truncate(str, 0);
-		if (var_expand(str, envs[i+1], params, &error) < 0) {
-			user->error = p_strdup_printf(user->pool,
-				"Failed to expand plugin setting %s = '%s': %s",
-				envs[i], envs[i+1], error);
-			return;
-		}
-		envs[i+1] = p_strdup(user->pool, str_c(str));
-	}
-}
-
 int mail_user_init(struct mail_user *user, const char **error_r)
 {
 	const char *error;
@@ -147,8 +118,6 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 			 &user->_mail_set, &error) < 0 ||
 	    !mail_user_settings_update_special_use(user, user->_mail_set, &error))
 		user->error = p_strdup(user->pool, error);
-	else
-		mail_user_expand_plugins_envs(user, user->_mail_set);
 
 	if (user->error == NULL) {
 		user->initialized = TRUE;
@@ -480,57 +449,6 @@ bool mail_user_is_plugin_loaded(struct mail_user *user, struct module *module)
 				    i_strcmp_p) != NULL;
 	} T_END;
 	return ret;
-}
-
-bool mail_user_plugin_getenv_bool(struct mail_user *user, const char *name)
-{
-	const struct mail_storage_settings *mail_set =
-		mail_user_set_get_storage_set(user);
-	return mail_user_set_plugin_getenv_bool(mail_set, name);
-}
-
-bool mail_user_set_plugin_getenv_bool(const struct mail_storage_settings *set,
-				      const char *name)
-{
-	const char *env = mail_user_set_plugin_getenv(set, name);
-
-	if (env == NULL)
-		return FALSE;
-	switch (env[0]) {
-		case 'n':
-		case 'N':
-		case '0':
-		case 'f':
-		case 'F':
-		return FALSE;
-	}
-
-	//any other value including empty string will be treated as TRUE.
-	return TRUE;
-}
-
-const char *mail_user_plugin_getenv(struct mail_user *user, const char *name)
-{
-	const struct mail_storage_settings *mail_set =
-		mail_user_set_get_storage_set(user);
-	return mail_user_set_plugin_getenv(mail_set, name);
-}
-
-const char *mail_user_set_plugin_getenv(const struct mail_storage_settings *set,
-					const char *name)
-{
-	const char *const *envs;
-	unsigned int i, count;
-
-	if (!array_is_created(&set->plugin_envs))
-		return NULL;
-
-	envs = array_get(&set->plugin_envs, &count);
-	for (i = 0; i < count; i += 2) {
-		if (strcmp(envs[i], name) == 0)
-			return envs[i+1];
-	}
-	return NULL;
 }
 
 int mail_user_try_home_expand(struct mail_user *user, const char **pathp)

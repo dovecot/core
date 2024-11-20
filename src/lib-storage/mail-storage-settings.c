@@ -112,8 +112,6 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	{ .type = SET_FILTER_ARRAY, .key = "namespace",
 	   .offset = offsetof(struct mail_storage_settings, namespaces),
 	   .filter_array_field_name = "namespace_name" },
-	{ .type = SET_STRLIST, .key = "plugin",
-	  .offset = offsetof(struct mail_storage_settings, plugin_envs) },
 
 	SETTING_DEFINE_LIST_END
 };
@@ -190,7 +188,6 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.recipient_delimiter = "+",
 
 	.namespaces = ARRAY_INIT,
-	.plugin_envs = ARRAY_INIT,
 };
 
 static const struct setting_keyvalue mail_storage_default_settings_keyvalue[] = {
