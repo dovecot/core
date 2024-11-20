@@ -44,10 +44,8 @@ noinst_PROGRAMS = $(test_programs) bench-compression
 
 test_libs = \
 	$(noinst_LTLIBRARIES) \
-	../lib-settings/libsettings.la \
-	../lib-var-expand/libvar_expand.la \
-	../lib-test/libtest.la \
-	../lib/liblib.la
+	../lib-dovecot/libdovecot.la
+
 test_deps = $(test_libs)
 
 test_compression_SOURCES = test-compression.c
