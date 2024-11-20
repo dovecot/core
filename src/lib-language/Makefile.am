@@ -127,10 +127,7 @@ test_programs = \
 
 noinst_PROGRAMS = $(test_programs)
 
-test_libs = \
-	../lib-var-expand/libvar_expand.la \
-	../lib-test/libtest.la \
-	../lib/liblib.la
+test_libs = ../lib-dovecot/libdovecot.la
 test_deps = $(noinst_LTLIBRARIES) $(test_libs)
 
 test_lang_icu_SOURCES = test-lang-icu.c
