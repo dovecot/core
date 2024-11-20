@@ -567,10 +567,6 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 	}
 
 	if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0 &&
-	    /* FIXME: plugin { .. } settings aren't expanded here. Eventually
-	       plugin strlist should be removed entirely. */
-	    (ctx->info->defines[key_idx].type != SET_STRLIST ||
-	     strcmp(ctx->info->defines[key_idx].key, "plugin") != 0) &&
 	    ctx->info->defines[key_idx].type != SET_STR_NOVARS &&
 	    ctx->info->defines[key_idx].type != SET_FILTER_ARRAY) {
 		const char *error = NULL;
@@ -1547,17 +1543,6 @@ settings_override_get_value(struct settings_apply_ctx *ctx,
 				    set->last_filter_value, &key_idx))
 		key_idx = UINT_MAX;
 
-	if (key_idx == UINT_MAX && strchr(key, '/') == NULL &&
-	    set->type == SETTINGS_OVERRIDE_TYPE_USERDB &&
-	    setting_parser_info_find_key(ctx->info, "plugin", &key_idx)) {
-		/* FIXME: Setting is unknown in this parser. Since the parser
-		   doesn't know all settings, we can't be sure if it's because
-		   it should simply be ignored or because it's a plugin setting.
-		   Just assume it's a plugin setting for now. This code will get
-		   removed eventually once all plugin settings have been
-		   converted away. */
-		key = t_strconcat("plugin/", key, NULL);
-	}
 	if (key_idx == UINT_MAX)
 		return 0;
 
