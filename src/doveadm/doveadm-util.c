@@ -88,22 +88,6 @@ const char *unixdate2tzstr(time_t timestamp, int tz_mins)
 	return t_strfgmtime("%Y-%m-%d %H:%M:%S", timestamp + tz_mins * 60);
 }
 
-const char *doveadm_plugin_getenv(const char *name)
-{
-	const char *const *envs;
-	unsigned int i, count;
-
-	if (!array_is_created(&doveadm_settings->plugin_envs))
-		return NULL;
-
-	envs = array_get(&doveadm_settings->plugin_envs, &count);
-	for (i = 0; i < count; i += 2) {
-		if (strcmp(envs[i], name) == 0)
-			return envs[i+1];
-	}
-	return NULL;
-}
-
 static int
 doveadm_tcp_connect_port(const char *host, in_port_t port)
 {
