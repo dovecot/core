@@ -37,7 +37,6 @@ struct doveadm_settings {
 	const char *dsync_hashed_headers;
 	unsigned int dsync_commit_msgs_interval;
 	enum dsync_features parsed_features;
-	ARRAY(const char *) plugin_envs;
 };
 
 
