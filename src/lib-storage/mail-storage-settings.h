@@ -92,7 +92,6 @@ struct mail_storage_settings {
 	ARRAY_TYPE(const_string) mail_attachment_detection_options;
 
 	ARRAY_TYPE(const_string) namespaces;
-	ARRAY(const char *) plugin_envs;
 
 	enum file_lock_method parsed_lock_method;
 	enum fsync_mode parsed_fsync_mode;
