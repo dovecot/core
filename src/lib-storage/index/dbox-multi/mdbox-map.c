@@ -543,7 +543,8 @@ void mdbox_map_atomic_set_success(struct mdbox_map_atomic_context *atomic)
 
 void mdbox_map_atomic_unset_fscked(struct mdbox_map_atomic_context *atomic)
 {
-	mail_index_unset_fscked(atomic->sync_trans);
+	if (atomic->sync_trans != NULL)
+		mail_index_unset_fscked(atomic->sync_trans);
 }
 
 int mdbox_map_atomic_finish(struct mdbox_map_atomic_context **_atomic)
