@@ -764,7 +764,7 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 			} else {
 				/* There is at least one more '/' in the path.
 				   It could be either another filter, or it
-				   could be e.g. "plugin/key". */
+				   could be e.g. "strlist/key". */
 				set_name_filter = t_strarray_join(sub_filter_path, "/");
 			}
 		} else {
@@ -854,7 +854,7 @@ config_dump_human(enum config_dump_scope scope,
 	filter_parser = config_parsed_get_global_filter_parser(config);
 
 	/* Check for the setting always even with a filter - it might be
-	   e.g. plugin/key strlist */
+	   e.g. strlist/key */
 	ctx = config_dump_human_init(scope, filter_parser);
 	config_dump_human_output(ctx, output, 0, NULL, setting_name_filter, NULL, NULL,
 				 hide_key, hide_passwords, NULL, NULL);
