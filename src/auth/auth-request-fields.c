@@ -395,7 +395,7 @@ bool auth_request_set_username(struct auth_request *request,
 		event_add_str(request->event, "translated_user",
 			      request->fields.translated_username);
 	}
-	request->user_changed_by_lookup = TRUE;
+	request->user_returned_by_lookup = TRUE;
 
 	if (login_username != NULL) {
 		if (!auth_request_set_login_username(request,

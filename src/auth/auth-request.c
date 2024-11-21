@@ -1128,7 +1128,7 @@ void auth_request_verify_plain(struct auth_request *request,
 		request->mech_password = p_strdup(request->pool, password);
 	else
 		i_assert(request->mech_password == password);
-	request->user_changed_by_lookup = FALSE;
+	request->user_returned_by_lookup = FALSE;
 
 	if (request->policy_processed ||
 	    !request->set->policy_check_before_auth) {
@@ -1319,7 +1319,7 @@ void auth_request_lookup_credentials(struct auth_request *request,
 	if (request->wanted_credentials_scheme == NULL)
 		request->wanted_credentials_scheme =
 			p_strdup(request->pool, scheme);
-	request->user_changed_by_lookup = FALSE;
+	request->user_returned_by_lookup = FALSE;
 
 	if (request->policy_processed ||
 	    !request->set->policy_check_before_auth) {
@@ -1445,7 +1445,7 @@ auth_request_userdb_save_cache(struct auth_request *request,
 		auth_fields_append(request->fields.userdb_reply, str,
 				   AUTH_FIELD_FLAG_CHANGED,
 				   AUTH_FIELD_FLAG_CHANGED, FALSE);
-		if (request->user_changed_by_lookup) {
+		if (request->user_returned_by_lookup) {
 			/* username was changed by passdb or userdb */
 			if (str_len(str) > 0)
 				str_append_c(str, '\t');
@@ -1592,7 +1592,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 		if (result == USERDB_RESULT_INTERNAL_FAILURE)
 			request->userdbs_seen_internal_failure = TRUE;
 
-		request->user_changed_by_lookup = FALSE;
+		request->user_returned_by_lookup = FALSE;
 
 		request->userdb = next_userdb;
 		auth_request_lookup_user(request,
@@ -1666,7 +1666,7 @@ void auth_request_lookup_user(struct auth_request *request,
 	const char *cache_key, *error;
 
 	request->private_callback.userdb = callback;
-	request->user_changed_by_lookup = FALSE;
+	request->user_returned_by_lookup = FALSE;
 	request->userdb_lookup = TRUE;
 	request->userdb_cache_result = AUTH_REQUEST_CACHE_NONE;
 	if (request->fields.userdb_reply == NULL)
@@ -1833,8 +1833,8 @@ auth_request_try_update_username(struct auth_request *request,
 			"username changed %s -> %s",
 			request->fields.user, new_value);
 		auth_request_set_username_forced(request, new_value);
-		request->user_changed_by_lookup = TRUE;
 	}
+	request->user_returned_by_lookup = TRUE;
 	return TRUE;
 }
 

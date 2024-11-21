@@ -37,10 +37,10 @@ static bool user_callback(struct auth_worker_connection *conn ATTR_UNUSED,
 			args += 2;
 		}
 
-		if (username[0] != '\0' &&
-		    strcmp(request->fields.user, username) != 0) {
-			auth_request_set_username_forced(request, username);
-			request->user_changed_by_lookup = TRUE;
+		if (username[0] != '\0') {
+			if (strcmp(request->fields.user, username) != 0)
+				auth_request_set_username_forced(request, username);
+			request->user_returned_by_lookup = TRUE;
 		}
 	} else {
 		result = USERDB_RESULT_INTERNAL_FAILURE;
