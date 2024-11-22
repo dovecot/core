@@ -707,12 +707,12 @@ settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 		    ctx->info->defines[key_idx].type == SET_STRLIST) {
 			const char *type =
 				(const char *)mmap->mmap_base + offset;
-			if (type[0] == SET_BOOLLIST_REPLACE[0])
+			if (type[0] == SET_LIST_REPLACE[0])
 				list_stop = TRUE;
-			else if (type[0] == SET_BOOLLIST_CLEAR[0]) {
+			else if (type[0] == SET_LIST_CLEAR[0]) {
 				list_stop = TRUE;
 				list_clear = TRUE;
-			} else if (type[0] != SET_BOOLLIST_APPEND[0]) {
+			} else if (type[0] != SET_LIST_APPEND[0]) {
 				*error_r = t_strdup_printf(
 					"List type is invalid (offset=%zu)",
 					offset);
