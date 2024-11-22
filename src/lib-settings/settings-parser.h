@@ -19,9 +19,9 @@ struct var_expand_provider;
 #define SET_TIME_INFINITE UINT_MAX
 #define SET_TIME_MSECS_INFINITE UINT_MAX
 
-#define SET_BOOLLIST_APPEND "+"
-#define SET_BOOLLIST_REPLACE "$"
-#define SET_BOOLLIST_CLEAR "."
+#define SET_LIST_APPEND "+"
+#define SET_LIST_REPLACE "$"
+#define SET_LIST_CLEAR "."
 
 #define SET_FILE_INLINE_PREFIX "inline:"
 

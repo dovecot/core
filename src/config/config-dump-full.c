@@ -379,8 +379,8 @@ static void config_dump_full_callback(const struct config_export_setting *set,
 				suffix = settings_section_escape(suffix + 1);
 				o_stream_nsend(ctx->output,
 					       set->value_stop_list ?
-					       SET_BOOLLIST_REPLACE :
-					       SET_BOOLLIST_APPEND, 1);
+					       SET_LIST_REPLACE :
+					       SET_LIST_APPEND, 1);
 				o_stream_nsend(ctx->output, suffix,
 					       strlen(suffix) + 1);
 			} else {
@@ -388,7 +388,7 @@ static void config_dump_full_callback(const struct config_export_setting *set,
 				i_assert(suffix[0] == '\0');
 				i_assert(set->type == CONFIG_KEY_LIST);
 				o_stream_nsend(ctx->output,
-					       SET_BOOLLIST_CLEAR, 1 + 1);
+					       SET_LIST_CLEAR, 1 + 1);
 			}
 		}
 		o_stream_nsend(ctx->output, set->value, strlen(set->value)+1);
