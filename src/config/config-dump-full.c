@@ -264,8 +264,9 @@ config_dump_full_stdout_callback(const struct config_export_setting *set,
 	if (set->type != CONFIG_KEY_LIST)
 		;
 	else if (set->list_count == 0 && set->value_stop_list &&
-		 set->def_type == SET_BOOLLIST) {
-		/* filter empties a boollist setting */
+		 (set->def_type == SET_BOOLLIST ||
+		  set->def_type == SET_STRLIST)) {
+		/* filter empties a boollist/strlist setting */
 	} else {
 		/* these aren't needed */
 		return;
@@ -297,7 +298,7 @@ config_dump_full_stdout_callback(const struct config_export_setting *set,
 		o_stream_nsend_str(ctx->output, "=");
 		o_stream_nsend_str(ctx->output, str_tabescape(set->value));
 		if (set->value_stop_list)
-			o_stream_nsend_str(ctx->output, " # stop boollist");
+			o_stream_nsend_str(ctx->output, " # stop list");
 		o_stream_nsend_str(ctx->output, "\n");
 	} T_END;
 }
@@ -346,8 +347,9 @@ static void config_dump_full_callback(const struct config_export_setting *set,
 	if (set->type != CONFIG_KEY_LIST)
 		;
 	else if (set->list_count == 0 && set->value_stop_list &&
-		 set->def_type == SET_BOOLLIST) {
-		/* filter empties a boollist setting */
+		 (set->def_type == SET_BOOLLIST ||
+		  set->def_type == SET_STRLIST)) {
+		/* filter empties a boollist/strlist setting */
 	} else {
 		/* these aren't needed */
 		return;

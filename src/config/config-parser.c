@@ -560,12 +560,26 @@ config_array_add_defaults(struct config_parser_context *ctx,
 static int config_apply_strlist(struct config_parser_context *ctx,
 				const char *key, const char *value,
 				struct config_parser_key *config_key,
-				ARRAY_TYPE(const_string) **strlistp)
+				ARRAY_TYPE(const_string) **strlistp,
+				bool *stop_list)
 {
 	const char *suffix;
 
 	suffix = strchr(key, SETTINGS_SEPARATOR);
 	if (suffix == NULL) {
+		if (value[0] == '\0') {
+			/* clear out the whole strlist */
+			if (*strlistp != NULL)
+				array_clear(*strlistp);
+			else {
+				*strlistp = p_new(ctx->pool,
+						  ARRAY_TYPE(const_string), 1);
+				p_array_init(*strlistp, ctx->pool, 5);
+			}
+			*stop_list = TRUE;
+			return 0;
+		}
+
 		ctx->error = p_strdup_printf(ctx->pool,
 			"Setting is a string list, use '%s {'", key);
 		return -1;
@@ -616,7 +630,7 @@ static int config_apply_boollist(struct config_parser_context *ctx,
 		   list within the same filter, and the previous setting might
 		   have wanted to stop the list already. */
 		return config_apply_strlist(ctx, key, value, config_key,
-					    strlistp);
+					    strlistp, stop_list);
 	}
 
 	/* replace the whole list */
@@ -735,7 +749,8 @@ config_apply_exact_line(struct config_parser_context *ctx,
 		switch (l->info->defines[config_key->define_idx].type) {
 		case SET_STRLIST:
 			if (config_apply_strlist(ctx, key, value, config_key,
-					&l->settings[config_key->define_idx].array.values) < 0)
+					&l->settings[config_key->define_idx].array.values,
+					&l->settings[config_key->define_idx].array.stop_list) < 0)
 				return -1;
 			break;
 		case SET_BOOLLIST:
@@ -1335,6 +1350,8 @@ void config_fill_set_parser(struct setting_parser_context *parser,
 		switch (p->info->defines[i].type) {
 		case SET_STRLIST:
 		case SET_BOOLLIST: {
+			if (p->settings[i].array.values == NULL)
+				break;
 			unsigned int j, count;
 			const char *const *strings =
 				array_get(p->settings[i].array.values, &count);
