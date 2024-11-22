@@ -76,7 +76,6 @@ struct auth_settings {
 	const char *policy_server_api_header;
 	const char *policy_hash_mech;
 	const char *policy_hash_nonce;
-	const char *policy_request_attributes;
 	bool policy_reject_on_fail;
 	bool policy_check_before_auth;
 	bool policy_check_after_auth;
@@ -111,6 +110,11 @@ struct auth_settings {
 	const struct ip_addr *proxy_self_ips;
 };
 
+struct auth_policy_request_settings {
+	pool_t pool;
+	ARRAY_TYPE(const_string) policy_request_attributes;
+};
+
 struct auth_static_settings {
 	pool_t pool;
 	const char *passdb_static_password;
@@ -118,6 +122,7 @@ struct auth_static_settings {
 };
 
 extern const struct setting_parser_info auth_setting_parser_info;
+extern const struct setting_parser_info auth_policy_request_setting_parser_info;
 extern const struct setting_parser_info auth_passdb_setting_parser_info;
 extern const struct setting_parser_info auth_static_setting_parser_info;
 extern const struct setting_parser_info auth_passdb_pre_setting_parser_info;
