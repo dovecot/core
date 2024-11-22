@@ -88,12 +88,16 @@ config_request_get_strings(const struct config_export_setting *set,
 					set->list_idx, p + 1, set->value);
 		break;
 	case CONFIG_KEY_LIST:
-		if (set->list_count == 0 && set->def_type == SET_BOOLLIST) {
+		if (set->list_count == 0 &&
+		    (set->def_type == SET_BOOLLIST ||
+		     set->def_type == SET_STRLIST)) {
 			/* empty deflist - show as an empty string */
 			value = p_strdup_printf(ctx->pool, "%s=", set->key);
 			break;
 		}
-		if (set->value_stop_list && set->def_type == SET_BOOLLIST) {
+		if (set->value_stop_list &&
+		    (set->def_type == SET_BOOLLIST ||
+		     set->def_type == SET_STRLIST)) {
 			value = p_strdup_printf(ctx->pool, "%s=", set->key);
 			array_push_back(&ctx->strings, &value);
 		}

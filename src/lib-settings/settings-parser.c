@@ -338,19 +338,37 @@ int settings_parse_read_file(const char *path, const char *value_path,
 	return 0;
 }
 
-static void
+static int
 settings_parse_strlist(struct setting_parser_context *ctx,
 		       ARRAY_TYPE(const_string) *array,
-		       const char *key, const char *value)
+		       const char *key, const char *value, const char **error_r)
 {
 	const char *const *items;
 	const char *vkey, *vvalue;
 	unsigned int i, count;
 
-	key = strchr(key, SETTINGS_SEPARATOR);
-	if (key == NULL)
-		return;
-	key = settings_section_unescape(key + 1);
+	/* If the next element after the visible array is set_array_stop, then
+	   the strlist should not be modified any further. */
+	if (array_is_created(array)) {
+		items = array_get(array, &count);
+		if (items[count] == set_array_stop)
+			return 0;
+	}
+
+	const char *suffix = strchr(key, SETTINGS_SEPARATOR);
+	if (suffix == NULL) {
+		if (value[0] == '\0') {
+			/* clear out the whole strlist */
+			if (array_is_created(array))
+				array_clear(array);
+			return 0;
+		}
+
+		*error_r = t_strdup_printf(
+			"Setting is a string list, use %s/key=value'", key);
+		return -1;
+	}
+	key = settings_section_unescape(suffix + 1);
 	vvalue = p_strdup(ctx->set_pool, value);
 
 	if (!array_is_created(array))
@@ -361,13 +379,14 @@ settings_parse_strlist(struct setting_parser_context *ctx,
 	for (i = 0; i < count; i += 2) {
 		if (strcmp(items[i], key) == 0) {
 			array_idx_set(array, i + 1, &vvalue);
-			return;
+			return 0;
 		}
 	}
 
 	vkey = p_strdup(ctx->set_pool, key);
 	array_push_back(array, &vkey);
 	array_push_back(array, &vvalue);
+	return 0;
 }
 
 int settings_parse_boollist_string(const char *value, pool_t pool,
@@ -687,8 +706,13 @@ settings_parse(struct setting_parser_context *ctx,
 		break;
 	case SET_STRLIST:
 		T_BEGIN {
-			settings_parse_strlist(ctx, ptr, key, value);
+			ret = settings_parse_strlist(ctx, ptr, key, value,
+						     &error);
+			if (ret < 0)
+				settings_parser_set_error(ctx, error);
 		} T_END;
+		if (ret < 0)
+			return -1;
 		break;
 	case SET_BOOLLIST:
 		T_BEGIN {
@@ -822,7 +846,8 @@ void settings_parse_array_stop(struct setting_parser_context *ctx,
 			       unsigned int key_idx)
 {
 	i_assert(ctx->info->defines[key_idx].type == SET_FILTER_ARRAY ||
-		 ctx->info->defines[key_idx].type == SET_BOOLLIST);
+		 ctx->info->defines[key_idx].type == SET_BOOLLIST ||
+		 ctx->info->defines[key_idx].type == SET_STRLIST);
 
 	ARRAY_TYPE(const_string) *arr =
 		PTR_OFFSET(ctx->set_struct, ctx->info->defines[key_idx].offset);
