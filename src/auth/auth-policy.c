@@ -156,26 +156,23 @@ void auth_policy_init(void)
 	const struct policy_template_keyvalue *kvptr;
 	string_t *template = t_str_new(64);
 	struct json_ostream *json_output;
-	const char **ptr;
-	const char *key = NULL;
-	const char **list = t_strsplit_spaces(
-		global_auth_settings->policy_request_attributes, "= ");
+
+	const struct auth_policy_request_settings *set;
+	if (settings_get(auth_event, &auth_policy_request_setting_parser_info,
+			 SETTINGS_GET_FLAG_NO_EXPAND, &set, &error) < 0)
+		i_fatal("%s", error);
 
 	t_array_init(&attribute_pairs, 8);
-	for (ptr = list; *ptr != NULL; ptr++) {
-		struct policy_template_keyvalue pair;
-
-		if (key == NULL) {
-			key = *ptr;
-		} else {
-			pair.key = key;
-			pair.value = *ptr;
-			key = NULL;
-			array_push_back(&attribute_pairs, &pair);
-		}
+	unsigned int i, count;
+	const char *const *list =
+		array_get(&set->policy_request_attributes, &count);
+	i_assert(count % 2 == 0);
+	for (i = 0; i < count; i += 2) {
+		struct policy_template_keyvalue *pair =
+			array_append_space(&attribute_pairs);
+		pair->key = list[i];
+		pair->value = list[i + 1];
 	}
-	if (key != NULL)
-		i_fatal("auth_policy_request_attributes contains invalid value");
 
 	/* then we sort it */
 	array_sort(&attribute_pairs, auth_policy_attribute_comparator);
@@ -206,6 +203,7 @@ void auth_policy_init(void)
 			  "auth-policy: Currently in log-only mode. Ignoring "
 			  "tarpit and disconnect instructions from policy server");
 	}
+	settings_free(set);
 }
 
 void auth_policy_deinit(void)

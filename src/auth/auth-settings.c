@@ -317,7 +317,6 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(STR, policy_server_api_header),
 	DEF(STR, policy_hash_mech),
 	DEF(STR, policy_hash_nonce),
-	DEF(STR_NOVARS, policy_request_attributes),
 	DEF(BOOL, policy_reject_on_fail),
 	DEF(BOOL, policy_check_before_auth),
 	DEF(BOOL, policy_check_after_auth),
@@ -378,7 +377,6 @@ static const struct auth_settings auth_default_settings = {
 	.policy_server_api_header = "",
 	.policy_hash_mech = "sha256",
 	.policy_hash_nonce = "",
-	.policy_request_attributes = "login=%{requested_username} pwhash=%{hashed_password} remote=%{remote_ip} device_id=%{client_id} protocol=%{protocol} session_id=%{session} fail_type=%{fail_type}",
 	.policy_reject_on_fail = FALSE,
 	.policy_check_before_auth = TRUE,
 	.policy_check_after_auth = TRUE,
@@ -425,6 +423,41 @@ const struct setting_parser_info auth_setting_parser_info = {
 	.struct_size = sizeof(struct auth_settings),
 	.pool_offset1 = 1 + offsetof(struct auth_settings, pool),
 	.ext_check_func = auth_settings_ext_check,
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type("auth_"#name, name, struct auth_policy_request_settings)
+
+static const struct setting_define auth_policy_request_setting_defines[] = {
+	DEF(STRLIST, policy_request_attributes),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct auth_policy_request_settings auth_policy_request_default_settings = {
+	.policy_request_attributes = ARRAY_INIT,
+};
+static const struct setting_keyvalue auth_policy_request_default_settings_keyvalue[] = {
+	{ "auth_policy_request_attributes/login", "%{requested_username}" },
+	{ "auth_policy_request_attributes/pwhash", "%{hashed_password}" },
+	{ "auth_policy_request_attributes/remote", "%{remote_ip}" },
+	{ "auth_policy_request_attributes/device_id", "%{client_id}" },
+	{ "auth_policy_request_attributes/protocol", "%{protocol}" },
+	{ "auth_policy_request_attributes/session_id", "%{session}" },
+	{ "auth_policy_request_attributes/fail_type", "%{fail_type}" },
+	{ NULL, NULL }
+};
+
+const struct setting_parser_info auth_policy_request_setting_parser_info = {
+	.name = "auth_policy_request",
+
+	.defines = auth_policy_request_setting_defines,
+	.defaults = &auth_policy_request_default_settings,
+	.default_settings = auth_policy_request_default_settings_keyvalue,
+
+	.struct_size = sizeof(struct auth_policy_request_settings),
+	.pool_offset1 = 1 + offsetof(struct auth_policy_request_settings, pool),
 };
 
 /* <settings checks> */
