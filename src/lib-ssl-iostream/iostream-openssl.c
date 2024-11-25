@@ -24,7 +24,9 @@ static struct event_category event_category_ssl_server = {
 
 static void openssl_iostream_free(struct ssl_iostream *ssl_io);
 
-void openssl_iostream_set_error(struct ssl_iostream *ssl_io, const char *str)
+static void
+openssl_iostream_set_error_full(struct ssl_iostream *ssl_io,
+				const char *str, bool fallback_error)
 {
 	char *new_str;
 
@@ -39,6 +41,12 @@ void openssl_iostream_set_error(struct ssl_iostream *ssl_io, const char *str)
 	e_debug(ssl_io->event, "SSL error: %s", new_str);
 	i_free(ssl_io->last_error);
 	ssl_io->last_error = new_str;
+	ssl_io->last_error_is_fallback = fallback_error;
+}
+
+void openssl_iostream_set_error(struct ssl_iostream *ssl_io, const char *str)
+{
+	openssl_iostream_set_error_full(ssl_io, str, FALSE);
 }
 
 static void openssl_info_callback(const SSL *ssl, int where, int ret)
@@ -473,6 +481,7 @@ int openssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 				  const char *func_name)
 {
 	const char *errstr = NULL;
+	bool fallback_error = FALSE;
 	int err;
 
 	err = SSL_get_error(ssl_io->ssl, ret);
@@ -514,10 +523,12 @@ int openssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 			break;
 		} else if (errno != 0) {
 			errstr = strerror(errno);
+			fallback_error = TRUE;
 		} else {
 			/* Seen this at least with v1.1.0l SSL_accept() */
 			errstr = "OpenSSL BUG: errno=0";
 			errno = EINVAL;
+			fallback_error = TRUE;
 		}
 		errstr = t_strdup_printf("%s syscall failed: %s",
 					 func_name, errstr);
@@ -545,9 +556,15 @@ int openssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 		break;
 	}
 
-	if (ssl_io->last_error != NULL)
+	if (ssl_io->last_error != NULL && !ssl_io->last_error_is_fallback) {
+		if (fallback_error) {
+			/* We already have an error, and this new one doesn't
+			   provide anything useful over it. Ignore it. */
+			return -1;
+		}
 		errstr = t_strdup_printf("%s+%s", errstr, ssl_io->last_error);
-	openssl_iostream_set_error(ssl_io, errstr);
+	}
+	openssl_iostream_set_error_full(ssl_io, errstr, fallback_error);
 	return -1;
 }
 

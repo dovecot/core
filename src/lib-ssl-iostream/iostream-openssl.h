@@ -69,6 +69,9 @@ struct ssl_iostream {
 	bool cert_received:1;
 	bool cert_broken:1;
 	bool want_read:1;
+	/* last_error is a "fallback error", which is used only if another
+	   error won't show up. */
+	bool last_error_is_fallback:1;
 	bool ostream_flush_waiting_input:1;
 	bool closed:1;
 	bool destroyed:1;
