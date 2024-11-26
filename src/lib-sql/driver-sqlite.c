@@ -162,8 +162,8 @@ driver_sqlite_db_cache_find(const struct sqlite_settings *set)
 }
 
 static struct sqlite_db *
-driver_sqlite_init_common(struct event *event,
-			  const struct sqlite_settings *set)
+driver_sqlite_init_from_set(struct event *event,
+			    const struct sqlite_settings *set)
 {
 	struct sqlite_db *db;
 
@@ -192,7 +192,7 @@ driver_sqlite_init_v(struct event *event, struct sql_db **db_r,
 	if (db != NULL)
 		settings_free(set);
 	else {
-		db = driver_sqlite_init_common(event, set);
+		db = driver_sqlite_init_from_set(event, set);
 		sql_init_common(&db->api);
 		array_push_back(&sqlite_db_cache, &db);
 		/* Add an extra reference to the db, so it won't be freed while
@@ -200,74 +200,6 @@ driver_sqlite_init_v(struct event *event, struct sql_db **db_r,
 	}
 	db->api.refcount++;
 
-	*db_r = &db->api;
-	return 0;
-}
-
-static int
-driver_sqlite_parse_connect_string(pool_t pool,
-				   const char *connect_string,
-				   const struct sqlite_settings **set_r,
-				   const char **error_r)
-{
-	const char *const *params = t_strsplit_spaces(connect_string, " ");
-	const char *arg, *file = NULL;
-
-	if (str_array_length(params) < 1) {
-		*error_r = "Empty connect_string";
-		return -1;
-	}
-
-	struct sqlite_settings *set =
-		settings_defaults_dup(pool, &sqlite_setting_parser_info);
-
-	for (; *params != NULL; params++) {
-		if (str_begins(*params, "journal_mode=", &arg)) {
-			if (strcmp(arg, "delete") == 0)
-				set->parsed_journal_use_wal = FALSE;
-			else if (strcmp(arg, "wal") == 0)
-				set->parsed_journal_use_wal = TRUE;
-			else {
-				*error_r = t_strdup_printf("journal_mode: Unsupported mode '%s', "
-							   "use either 'delete' or 'wal'", arg);
-				return -1;
-			}
-		} else if (str_begins(*params, "readonly=", &arg)) {
-			 if (str_parse_get_bool(arg, &set->readonly, error_r) < 0) {
-				*error_r = t_strdup_printf("readonly: %s", *error_r);
-				return -1;
-			 }
-		} else if (strchr(*params, '=') != NULL) {
-			*error_r = t_strdup_printf("Unsupported parameter '%s'", *params);
-			return -1;
-		} else if (file == NULL) {
-			file = *params;
-		} else {
-			*error_r = "Multiple filenames provided";
-			return -1;
-		}
-	}
-
-	set->path = p_strdup(pool, file);
-	*set_r = set;
-	return 0;
-}
-
-static int
-driver_sqlite_init_full_v(const struct sql_legacy_settings *legacy_set,
-			  struct sql_db **db_r, const char **error_r)
-{
-	const struct sqlite_settings *set;
-	pool_t pool = pool_alloconly_create("sqlite_settings", 128);
-
-	if (driver_sqlite_parse_connect_string(pool, legacy_set->connect_string,
-					       &set, error_r) < 0) {
-		pool_unref(&pool);
-		return -1;
-	}
-
-	struct sqlite_db *db =
-		driver_sqlite_init_common(legacy_set->event_parent, set);
 	*db_r = &db->api;
 	return 0;
 }
@@ -742,7 +674,6 @@ const struct sql_db driver_sqlite_db = {
 
 	.v = {
 		.init = driver_sqlite_init_v,
-		.init_legacy_full = driver_sqlite_init_full_v,
 		.deinit = driver_sqlite_deinit_v,
 		.connect = driver_sqlite_connect,
 		.disconnect = driver_sqlite_disconnect,
