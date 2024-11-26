@@ -25,6 +25,11 @@ mkdir_chown_full(const char *path, mode_t mode, uid_t uid,
 		umask(old_mask);
 		if (ret < 0)
 			break;
+		if (uid == (uid_t)-1 && gid == (gid_t)-1) {
+			/* no changes to owner/group */
+			return 0;
+		}
+
 		fd = open(path, O_RDONLY);
 		if (fd != -1)
 			break;
