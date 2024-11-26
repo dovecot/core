@@ -128,14 +128,6 @@ int sql_init_auto(struct event *event, struct sql_db **db_r,
 		return -1;
 	}
 
-	if (driver->v.init == NULL) {
-		*error_r = t_strdup_printf(
-			"Database driver '%s' only supports legacy init() API",
-			sql_set->sql_driver);
-		settings_free(sql_set);
-		return -1;
-	}
-
 	if (driver->v.init(event, &db, &error) < 0) {
 		*error_r = t_strdup_printf("sql %s: %s",
 					   sql_set->sql_driver, error);
@@ -148,52 +140,6 @@ int sql_init_auto(struct event *event, struct sql_db **db_r,
 	return 1;
 }
 
-
-struct sql_db *
-sql_init_legacy(const char *db_driver, const char *connect_string)
-{
-	const char *error;
-	struct sql_db *db;
-	struct sql_legacy_settings set = {
-		.driver = db_driver,
-		.connect_string = connect_string,
-	};
-
-	if (sql_init_legacy_full(&set, &db, &error) < 0)
-		i_fatal("%s", error);
-	return db;
-}
-
-int sql_init_legacy_full(const struct sql_legacy_settings *set,
-			 struct sql_db **db_r,
-			 const char **error_r)
-{
-	const struct sql_db *driver;
-	struct sql_db *db;
-	int ret = 0;
-
-	i_assert(set->connect_string != NULL);
-
-	driver = sql_driver_lookup(set->driver);
-	if (driver == NULL) {
-		*error_r = t_strdup_printf("Unknown database driver '%s'", set->driver);
-		return -1;
-	}
-
-	if ((driver->flags & SQL_DB_FLAG_POOLED) == 0) {
-		if (driver->v.init_legacy_full == NULL) {
-			db = driver->v.init_legacy(set->connect_string);
-		} else
-			ret = driver->v.init_legacy_full(set, &db, error_r);
-	}
-
-	if (ret < 0)
-		return -1;
-
-	sql_init_common(db);
-	*db_r = db;
-	return 0;
-}
 
 void sql_init_common(struct sql_db *db)
 {
