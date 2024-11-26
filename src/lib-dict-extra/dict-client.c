@@ -676,10 +676,23 @@ static const struct connection_vfuncs dict_conn_vfuncs = {
 	.input_line = dict_conn_input_line
 };
 
-static struct dict *
-client_dict_init_common(const struct dict *dict_driver, struct event *event,
-			struct dict_proxy_settings *set, const char *base_dir)
+static int
+client_dict_init(const struct dict *dict_driver, struct event *event,
+		 struct dict **dict_r, const char **error_r)
 {
+	struct dict_proxy_settings *set;
+
+	if (settings_get(event, &dict_proxy_setting_parser_info,
+			 0, &set, error_r) < 0)
+		return -1;
+	if (set->dict_proxy_name[0] == '\0') {
+		*error_r = "dict_proxy_name setting is empty";
+		settings_free(set);
+		return -1;
+	}
+	const struct master_service_settings *master_set =
+		master_service_get_service_settings(master_service);
+
 	struct ioloop *old_ioloop = current_ioloop;
 	struct client_dict *dict;
 	const char *path;
@@ -701,7 +714,7 @@ client_dict_init_common(const struct dict *dict_driver, struct event *event,
 		path = set->dict_proxy_socket_path;
 	} else {
 		/* relative path to base_dir */
-		path = t_strconcat(base_dir, "/",
+		path = t_strconcat(master_set->base_dir, "/",
 			set->dict_proxy_socket_path, NULL);
 	}
 	connection_init_client_unix(dict_connections, &dict->conn.conn, path);
@@ -709,96 +722,8 @@ client_dict_init_common(const struct dict *dict_driver, struct event *event,
 	dict->dict.ioloop = io_loop_create();
 	dict->wait_timer = io_wait_timer_add();
 	io_loop_set_current(old_ioloop);
-	return &dict->dict;
-}
 
-static int
-client_dict_init(const struct dict *dict_driver, struct event *event,
-		 struct dict **dict_r, const char **error_r)
-{
-	struct dict_proxy_settings *set;
-
-	if (settings_get(event, &dict_proxy_setting_parser_info,
-			 0, &set, error_r) < 0)
-		return -1;
-	if (set->dict_proxy_name[0] == '\0') {
-		*error_r = "dict_proxy_name setting is empty";
-		settings_free(set);
-		return -1;
-	}
-	const struct master_service_settings *master_set =
-		master_service_get_service_settings(master_service);
-
-	*dict_r = client_dict_init_common(dict_driver, event, set,
-					  master_set->base_dir);
-	return 0;
-}
-
-static int
-client_dict_init_legacy(struct dict *dict_driver, const char *uri,
-			const struct dict_legacy_settings *legacy_set,
-			struct dict **dict_r, const char **error_r)
-{
-	struct dict_proxy_settings *set;
-	const char *p, *dest_uri, *value;
-	const char *error;
-
-	pool_t pool = pool_alloconly_create("dict_proxy_settings", 128);
-	set = settings_defaults_dup(pool, &dict_proxy_setting_parser_info);
-
-	/* uri = [idle_timeout=<n>:] [slow_warn=<n>:] [<path>] ":" <uri> */
-	for (;;) {
-		if (str_begins(uri, "idle_timeout=", &value)) {
-			p = strchr(value, ':');
-			if (p == NULL) {
-				*error_r = t_strdup_printf("Invalid URI: %s", uri);
-				pool_unref(&pool);
-				return -1;
-			}
-			const char *value_str = t_strdup_until(value, p);
-			if (str_parse_get_interval_msecs(value_str,
-					&set->dict_proxy_idle_timeout,
-					&error) < 0) {
-				*error_r = t_strdup_printf(
-					"Invalid idle_timeout: %s", error);
-				pool_unref(&pool);
-				return -1;
-			}
-			uri = p+1;
-		} else if (str_begins(uri, "slow_warn=", &value)) {
-			p = strchr(value, ':');
-			if (p == NULL) {
-				*error_r = t_strdup_printf("Invalid URI: %s", uri);
-				pool_unref(&pool);
-				return -1;
-			}
-			const char *value_str = t_strdup_until(value, p);
-			if (str_parse_get_interval_msecs(value_str,
-					&set->dict_proxy_slow_warn,
-					&error) < 0) {
-				*error_r = t_strdup_printf(
-					"Invalid slow_warn: %s", error);
-				pool_unref(&pool);
-				return -1;
-			}
-			uri = p+1;
-		} else {
-			break;
-		}
-	}
-	dest_uri = strchr(uri, ':');
-	if (dest_uri == NULL) {
-		*error_r = t_strdup_printf("Invalid URI: %s", uri);
-		pool_unref(&pool);
-		return -1;
-	}
-
-	if (uri[0] != ':')
-		set->dict_proxy_socket_path = t_strdup_until(uri, dest_uri);
-	set->dict_proxy_name = p_strdup(pool, dest_uri + 1);
-
-	*dict_r = client_dict_init_common(dict_driver, legacy_set->event_parent,
-					  set, legacy_set->base_dir);
+	*dict_r = &dict->dict;
 	return 0;
 }
 
@@ -1534,7 +1459,6 @@ struct dict dict_driver_client = {
 	.flags = DICT_DRIVER_FLAG_SUPPORT_EXPIRE_SECS,
 	.v = {
 		.init = client_dict_init,
-		.init_legacy = client_dict_init_legacy,
 		.deinit = client_dict_deinit,
 		.wait = client_dict_wait,
 		.lookup = client_dict_lookup,
