@@ -22,7 +22,6 @@ ldap_sources = \
 libdict_backend_la_SOURCES = \
 	dict-cdb.c \
 	dict-sql.c \
-	dict-sql-legacy-settings.c \
 	dict-sql-settings.c \
 	$(ldap_sources)
 libdict_backend_la_LIBADD =
