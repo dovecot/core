@@ -430,10 +430,16 @@ static bool redis_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	return TRUE;
 }
 
-static struct dict *
-redis_dict_init_common(const struct dict *dict_driver, struct event *event,
-		       struct dict_redis_settings *set)
+static int
+redis_dict_init(const struct dict *dict_driver, struct event *event,
+		struct dict **dict_r, const char **error_r)
 {
+	struct dict_redis_settings *set;
+
+	if (settings_get(event, &redis_setting_parser_info, 0,
+			 &set, error_r) < 0)
+		return -1;
+
 	if (redis_connections == NULL) {
 		redis_connections =
 			connection_list_init(&redis_conn_set,
@@ -460,89 +466,7 @@ redis_dict_init_common(const struct dict *dict_driver, struct event *event,
 	i_array_init(&dict->input_states, 4);
 	i_array_init(&dict->replies, 4);
 
-	return &dict->dict;
-}
-
-static int
-redis_dict_init(const struct dict *dict_driver, struct event *event,
-		struct dict **dict_r, const char **error_r)
-{
-	struct dict_redis_settings *set;
-
-	if (settings_get(event, &redis_setting_parser_info, 0,
-			 &set, error_r) < 0)
-		return -1;
-	*dict_r = redis_dict_init_common(dict_driver, event, set);
-	return 0;
-}
-
-static int
-redis_dict_init_legacy(struct dict *dict_driver, const char *uri,
-		       const struct dict_legacy_settings *legacy_set,
-		       struct dict **dict_r, const char **error_r)
-{
-	pool_t pool = pool_alloconly_create("redis_settings", 128);
-	struct dict_redis_settings *set =
-		settings_defaults_dup(pool, &redis_setting_parser_info);
-	if (net_addr2ip(set->redis_host, &set->redis_ip) < 0)
-		i_unreached();
-
-	const char *const *args = t_strsplit(uri, ":");
-	const char *value;
-	int ret = 0;
-	for (; *args != NULL; args++) {
-		if (str_begins(*args, "path=", &value)) {
-			set->redis_socket_path = p_strdup(pool, value);
-		} else if (str_begins(*args, "host=", &value)) {
-			if (net_addr2ip(value, &set->redis_ip) < 0) {
-				*error_r = t_strdup_printf("Invalid IP: %s",
-							   value);
-				ret = -1;
-			} else {
-				set->redis_host = p_strdup(pool, value);
-			}
-		} else if (str_begins(*args, "port=", &value)) {
-			if (net_str2port(value, &set->redis_port) < 0) {
-				*error_r = t_strdup_printf("Invalid port: %s",
-							   value);
-				ret = -1;
-			}
-		} else if (str_begins(*args, "prefix=", &value)) {
-			set->redis_key_prefix = p_strdup(pool, value);
-		} else if (str_begins(*args, "db=", &value)) {
-			if (str_to_uint(value, &set->redis_db_id) < 0) {
-				*error_r = t_strdup_printf(
-					"Invalid db number: %s", value);
-				ret = -1;
-			}
-		} else if (str_begins(*args, "expire_secs=", &value)) {
-			if (str_to_uint(value, &set->redis_expire) < 0 ||
-			    set->redis_expire == 0) {
-				*error_r = t_strdup_printf(
-					"Invalid expire_secs: %s", value);
-				ret = -1;
-			}
-		} else if (str_begins(*args, "timeout_msecs=", &value)) {
-			if (str_to_uint(value, &set->redis_request_timeout) < 0) {
-				*error_r = t_strdup_printf(
-					"Invalid timeout_msecs: %s", value);
-				ret = -1;
-			}
-		} else if (str_begins(*args, "password=", &value)) {
-			set->redis_password = p_strdup(pool, value);
-		} else {
-			*error_r = t_strdup_printf("Unknown parameter: %s",
-						   *args);
-			ret = -1;
-		}
-	}
-	if (ret < 0) {
-		pool_unref(&pool);
-		return -1;
-	}
-
-	*dict_r = redis_dict_init_common(dict_driver, legacy_set->event_parent,
-					 set);
+	*dict_r = &dict->dict;
 	return 0;
 }
 
@@ -933,7 +857,6 @@ struct dict dict_driver_redis = {
 	.flags = DICT_DRIVER_FLAG_SUPPORT_EXPIRE_SECS,
 	.v = {
 		.init = redis_dict_init,
-		.init_legacy = redis_dict_init_legacy,
 		.deinit = redis_dict_deinit,
 		.wait = redis_dict_wait,
 		.lookup = redis_dict_lookup,

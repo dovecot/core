@@ -106,13 +106,6 @@ file_dict_ensure_path_home_dir(struct file_dict *dict, const char *home_dir,
 	return 0;
 }
 
-static void file_dict_init_common(struct file_dict *dict)
-{
-	dict->hash_pool = pool_alloconly_create("file dict", 1024);
-	hash_table_create(&dict->hash, dict->hash_pool, 0, str_hash, strcmp);
-	dict->fd = -1;
-}
-
 static int
 file_dict_init(const struct dict *dict_driver, struct event *event,
 	       struct dict **dict_r, const char **error_r)
@@ -132,45 +125,10 @@ file_dict_init(const struct dict *dict_driver, struct event *event,
 	settings_free(set);
 
 	dict->dict = *dict_driver;
-	file_dict_init_common(dict);
-	*dict_r = &dict->dict;
-	return 0;
-}
+	dict->hash_pool = pool_alloconly_create("file dict", 1024);
+	hash_table_create(&dict->hash, dict->hash_pool, 0, str_hash, strcmp);
+	dict->fd = -1;
 
-static int
-file_dict_init_legacy(struct dict *driver, const char *uri,
-		      const struct dict_legacy_settings *set ATTR_UNUSED,
-		      struct dict **dict_r, const char **error_r)
-{
-	struct file_dict *dict;
-	const char *p, *path;
-
-	dict = i_new(struct file_dict, 1);
-	dict->lock_method = FILE_LOCK_METHOD_DOTLOCK;
-
-	p = strchr(uri, ':');
-	if (p == NULL) {
-		/* no parameters */
-		path = uri;
-	} else {
-		path = t_strdup_until(uri, p++);
-		if (strcmp(p, "lock=fcntl") == 0)
-			dict->lock_method = FILE_LOCK_METHOD_FCNTL;
-		else if (strcmp(p, "lock=flock") == 0)
-			dict->lock_method = FILE_LOCK_METHOD_FLOCK;
-		else {
-			*error_r = t_strdup_printf("Invalid parameter: %s", p+1);
-			i_free(dict);
-			return -1;
-		}
-	}
-
-	/* keep the path for now, later in dict operations check if home_dir
-	   should be prepended. */
-	dict->path = i_strdup(path);
-
-	dict->dict = *driver;
-	file_dict_init_common(dict);
 	*dict_r = &dict->dict;
 	return 0;
 }
@@ -760,7 +718,6 @@ struct dict dict_driver_file = {
 	.name = "file",
 	.v = {
 		.init = file_dict_init,
-		.init_legacy = file_dict_init_legacy,
 		.deinit = file_dict_deinit,
 		.lookup = file_dict_lookup,
 		.iterate_init = file_dict_iterate_init,
