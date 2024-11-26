@@ -18,10 +18,6 @@
 #include <openssl/err.h>
 #include <arpa/inet.h>
 
-#ifndef HAVE_EVP_PKEY_get0_DH
-#  define EVP_PKEY_get0_DH(x) ((x)->pkey.dh)
-#endif
-
 struct ssl_iostream_password_context {
 	const char *password;
 	const char *error;
@@ -30,28 +26,7 @@ struct ssl_iostream_password_context {
 static bool ssl_global_initialized = FALSE;
 int dovecot_ssl_extdata_index;
 
-#ifdef HAVE_SSL_CTX_set_tmp_rsa_callback
-static RSA *ssl_gen_rsa_key(SSL *ssl ATTR_UNUSED,
-			    int is_export ATTR_UNUSED, int keylength)
-{
-	BIGNUM *bn = BN_new();
-	RSA *rsa = RSA_new();
-
-	if (bn != NULL && BN_set_word(bn, RSA_F4) != 0 &&
-	    RSA_generate_key_ex(rsa, keylength, bn, NULL) != 0) {
-		BN_free(bn);
-		return rsa;
-	}
-
-	if (bn != NULL)
-		BN_free(bn);
-	if (rsa != NULL)
-		RSA_free(rsa);
-	return NULL;
-}
-#endif
-
-#ifdef HAVE_SSL_CTX_set_tmp_dh_callback
+#ifdef SSL_CTX_set_tmp_dh_callback
 static DH *ssl_tmp_dh_callback(SSL *ssl,
 			       int is_export ATTR_UNUSED, int keylength ATTR_UNUSED)
 {
@@ -133,24 +108,11 @@ int openssl_iostream_load_dh(const struct ssl_iostream_settings *set,
 		return -1;
 	}
 
-#ifdef HAVE_PEM_read_bio_Parameters
 	if ((pkey = PEM_read_bio_Parameters(bio, &pkey)) == NULL) {
 		*error_r = t_strdup_printf("Couldn't parse DH parameters: %s",
 					   openssl_iostream_error());
 	}
-#else
-	DH *dh = NULL;
-	dh = PEM_read_bio_DHparams(bio, &dh, NULL, NULL);
 
-	if (dh == NULL) {
-		*error_r = t_strdup_printf("Couldn't parse DH parameters: %s",
-					   openssl_iostream_error());
-	} else {
-		pkey = EVP_PKEY_new();
-		EVP_PKEY_set1_DH(pkey, dh);
-		DH_free(dh);
-	}
-#endif
 	BIO_free(bio);
 	*pkey_r = pkey;
 	return pkey == NULL ? -1 : 0;
@@ -226,7 +188,9 @@ static int ssl_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
 		ret = 0;
 
 	if (ret != 0) {
+#ifdef HAVE_SSL_CTX_select_current_cert
 		SSL_CTX_select_current_cert(ctx, x);
+#endif
 		/* If we could set up our certificate, now proceed to
 		 * the CA certificates.
 		 */
@@ -253,7 +217,9 @@ static int ssl_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
 end:
 	if (x != NULL) X509_free(x);
 	BIO_free(in);
+#ifdef HAVE_SSL_CTX_SET_CURRENT_CERT
 	SSL_CTX_set_current_cert(ctx, SSL_CERT_SET_FIRST);
+#endif
 	return ret;
 }
 
@@ -601,14 +567,12 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			set->curve_list);
 		return -1;
 	}
-#ifdef HAVE_SSL_CTX_set_ciphersuites
 	if (set->ciphersuites != NULL &&
 	    SSL_CTX_set_ciphersuites(ctx->ssl_ctx, set->ciphersuites) == 0) {
 		*error_r = t_strdup_printf("Can't set ciphersuites to '%s': %s",
 			set->ciphersuites, openssl_iostream_error());
 		return -1;
 	}
-#endif
 	if (set->prefer_server_ciphers) {
 		SSL_CTX_set_options(ctx->ssl_ctx,
 				    SSL_OP_CIPHER_SERVER_PREFERENCE);
@@ -623,11 +587,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 					set->min_protocol);
 			return -1;
 		}
-#ifdef HAVE_SSL_CTX_SET_min_proto_version
 		SSL_CTX_set_min_proto_version(ctx->ssl_ctx, min_protocol);
-#else
-		SSL_CTX_set_options(ctx->ssl_ctx, opts);
-#endif
 	}
 
 	if (set->cert.cert != NULL &&
@@ -692,34 +652,18 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 				const struct ssl_iostream_settings *set ATTR_UNUSED,
 				const char **error_r ATTR_UNUSED)
 {
-#ifdef HAVE_SSL_CTX_set_tmp_rsa_callback
-	if (SSL_CTX_need_tmp_RSA(ssl_ctx) != 0)
-		SSL_CTX_set_tmp_rsa_callback(ssl_ctx, ssl_gen_rsa_key);
-#endif
-#ifdef HAVE_SSL_CTX_set_tmp_dh_callback
+
+#ifdef SSL_CTX_set_tmp_dh_callback
 	if (set->dh == NULL || *set->dh == '\0')
 		SSL_CTX_set_tmp_dh_callback(ssl_ctx, ssl_tmp_dh_callback);
 #endif
-#ifndef OPENSSL_NO_ECDH
 	/* In the non-recommended situation where ECDH cipher suites are being
 	   used instead of ECDHE, do not reuse the same ECDH key pair for
 	   different sessions. This option improves forward secrecy. */
 	SSL_CTX_set_options(ssl_ctx, SSL_OP_SINGLE_ECDH_USE);
-#  ifdef HAVE_SSL_CTX_set_ecdh_auto
-	/* OpenSSL >= 1.0.2 automatically handles ECDH temporary key parameter
-	   selection. The return value of this function changes is changed to
-	   bool in OpenSSL 1.1 and is int in OpenSSL 1.0.2+ */
-	if ((long)(SSL_CTX_set_ecdh_auto(ssl_ctx, 1)) == 0) {
-		/* shouldn't happen */
-		i_unreached();
-	}
-#  endif
-#endif
-#ifdef SSL_OP_SINGLE_DH_USE
 	/* Improves forward secrecy with DH parameters, especially if the
 	   parameters used aren't strong primes. See OpenSSL manual. */
 	SSL_CTX_set_options(ssl_ctx, SSL_OP_SINGLE_DH_USE);
-#endif
 	return 0;
 }
 

@@ -24,12 +24,8 @@ AC_DEFUN([DOVECOT_SSL], [
   build_dcrypt_openssl=no
   have_openssl=no
 
-  dnl libressl pkg pretends to be openssl 1.0.0, so we can't check 1.0.2 here
-  dnl so we check for 1.0.0 first, then after this check, we check that the
-  dnl lib we found actually is 1.0.2 or later.
-
   PKG_CHECK_EXISTS([openssl], [
-     PKG_CHECK_MODULES(SSL, [openssl >= 1.0.0])
+     PKG_CHECK_MODULES(SSL, [openssl >= 1.1.1])
   ], [
     AC_CHECK_LIB(ssl, SSL_read, [
       AC_CHECK_HEADERS(openssl/ssl.h openssl/err.h, [
@@ -42,18 +38,18 @@ AC_DEFUN([DOVECOT_SSL], [
     ])
   ])
 
-  AC_MSG_CHECKING([if OpenSSL version is 1.0.2 or better])
+  AC_MSG_CHECKING([if OpenSSL version is 1.1.1 or better])
 
   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
       #include <openssl/opensslv.h>
-      #if OPENSSL_VERSION_NUMBER < 0x10002000L
+      #if OPENSSL_VERSION_NUMBER < 0x10101000L
       #error "fail-compile"
       #endif]], [[ return 0; ]])],
-    [ssl_version_ge_102=true], [ssl_version_ge_102=false])
-  AC_MSG_RESULT([$ssl_version_ge_102])
+    [ssl_version_ge_111=true], [ssl_version_ge_111=false])
+  AC_MSG_RESULT([$ssl_version_ge_111])
 
-  AS_IF([test $ssl_version_ge_102 != true], [
-    AC_MSG_ERROR([OpenSSL v1.0.2 or better required to build Dovecot])
+  AS_IF([test $ssl_version_ge_111 != true], [
+    AC_MSG_ERROR([OpenSSL v1.1.1 or better required to build Dovecot])
   ])
 
   AC_MSG_CHECKING([if OpenSSL version is 3.0.0 or better])
@@ -99,43 +95,21 @@ AC_DEFUN([DOVECOT_SSL], [
     AC_DEFINE(HAVE_SSL_NEW_MEM_FUNCS,, [Define if CRYPTO_set_mem_functions has new style parameters])
   ])
 
-  DOVECOT_CHECK_SSL_FUNC([ECDSA_SIG_get0])
-  DOVECOT_CHECK_SSL_FUNC([ECDSA_SIG_set0])
-  DOVECOT_CHECK_SSL_FUNC([EC_GROUP_order_bits])
+  dnl OpenSSl 3.0
   DOVECOT_CHECK_SSL_FUNC([ERR_get_error_all])
-  DOVECOT_CHECK_SSL_FUNC([ERR_get_error_line_data])
-  DOVECOT_CHECK_SSL_FUNC([ERR_remove_state])
-  DOVECOT_CHECK_SSL_FUNC([ERR_remove_thread_state])
   DOVECOT_CHECK_SSL_FUNC([EVP_MAC_CTX_new])
-  DOVECOT_CHECK_SSL_FUNC([EVP_MD_CTX_new])
-  DOVECOT_CHECK_SSL_FUNC([EVP_PKEY_get_raw_private_key])
-  DOVECOT_CHECK_SSL_FUNC([EVP_PKEY_get0_RSA])
-  DOVECOT_CHECK_SSL_FUNC([EVP_PKEY_get0_EC_KEY])
-  DOVECOT_CHECK_SSL_FUNC([EVP_PKEY_get0_DH])
-  DOVECOT_CHECK_SSL_FUNC([EVP_PKEY_set1_encoded_public_key])
-  DOVECOT_CHECK_SSL_FUNC([HMAC_CTX_init])
-  DOVECOT_CHECK_SSL_FUNC([HMAC_CTX_new])
-  DOVECOT_CHECK_SSL_FUNC([OBJ_cleanup])
-  DOVECOT_CHECK_SSL_FUNC([OBJ_length])
-  DOVECOT_CHECK_SSL_FUNC([OPENSSL_cleanup])
-  DOVECOT_CHECK_SSL_FUNC([OPENSSL_init_ssl])
-  DOVECOT_CHECK_SSL_FUNC([OPENSSL_thread_stop])
   DOVECOT_CHECK_SSL_FUNC([OSSL_PROVIDER_try_load])
-  DOVECOT_CHECK_SSL_FUNC([PEM_read_bio_Parameters])
-  DOVECOT_CHECK_SSL_FUNC([RSA_set0_crt_params])
-  DOVECOT_CHECK_SSL_FUNC([RSA_set0_factors])
-  DOVECOT_CHECK_SSL_FUNC([RSA_set0_key])
-  DOVECOT_CHECK_SSL_FUNC([SSL_CIPHER_get_kx_nid])
-  DOVECOT_CHECK_SSL_FUNC([SSL_clear_options])
-  DOVECOT_CHECK_SSL_FUNC([SSL_client_hello_get0_ciphers])
-  DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set0_tmp_dh_pkey])
-  DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_ciphersuites])
-  DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_ecdh_auto])
-  DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_min_proto_version])
   DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_tmp_dh_callback])
-  DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_tmp_rsa_callback])
+  DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_current_cert])
+  DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set0_tmp_dh_pkey])
+
+  dnl LibreSSL
+  DOVECOT_CHECK_SSL_FUNC([EVP_PKEY_check])
+  DOVECOT_CHECK_SSL_FUNC([OPENSSL_buf2hexstr])
   DOVECOT_CHECK_SSL_FUNC([SSL_get1_peer_certificate])
-  DOVECOT_CHECK_SSL_FUNC([SSL_load_error_strings])
+  DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_client_hello_cb])
+  DOVECOT_CHECK_SSL_FUNC([SSL_CTX_select_current_cert])
+  DOVECOT_CHECK_SSL_FUNC([SSL_client_hello_get0_ciphers])
 
   CFLAGS="$old_CFLAGS"
 ])

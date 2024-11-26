@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <openssl/evp.h>
 
-#if defined(HAVE_EVP_PKEY_get_raw_private_key) && defined(NID_X25519)
+#if defined(NID_X25519)
 # define HAVE_X25519
 #endif
 

@@ -190,7 +190,6 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 			return -1;
 		}
 	}
-#ifdef HAVE_SSL_CTX_set_ciphersuites
         if (set->ciphersuites != NULL &&
 	    strcmp(ctx_set->ciphersuites, set->ciphersuites) != 0) {
 		if (SSL_set_ciphersuites(ssl_io->ssl, set->ciphersuites) == 0) {
@@ -200,13 +199,10 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 			return -1;
 		}
 	}
-#endif
 	if (set->prefer_server_ciphers)
 		SSL_set_options(ssl_io->ssl, SSL_OP_CIPHER_SERVER_PREFERENCE);
 	if (set->min_protocol != NULL) {
-#if defined(HAVE_SSL_clear_options)
 		SSL_clear_options(ssl_io->ssl, OPENSSL_ALL_PROTOCOL_OPTIONS);
-#endif
 		long opts;
 		int min_protocol;
 		if (openssl_min_protocol_to_options(set->min_protocol, &opts,
@@ -216,11 +212,7 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 					set->min_protocol);
 			return -1;
 		}
-#ifdef HAVE_SSL_CTX_set_min_proto_version
 		SSL_set_min_proto_version(ssl_io->ssl, min_protocol);
-#else
-		SSL_set_options(ssl_io->ssl, opts);
-#endif
 	}
 
 	if (set->cert.cert != NULL && strcmp(ctx_set->cert.cert, set->cert.cert) != 0) {
@@ -936,17 +928,8 @@ openssl_iostream_get_pfs(struct ssl_iostream *ssl_io)
 		return NULL;
 
 	const SSL_CIPHER *cipher = SSL_get_current_cipher(ssl_io->ssl);
-#if defined(HAVE_SSL_CIPHER_get_kx_nid)
 	int nid = SSL_CIPHER_get_kx_nid(cipher);
 	return OBJ_nid2sn(nid);
-#else
-	char buf[128];
-	const char *desc, *ptr;
-	if ((desc = SSL_CIPHER_description(cipher, buf, sizeof(buf)))==NULL ||
-	    (ptr = strstr(desc, "Kx=")) == NULL)
-		return "";
-	return t_strcut(ptr+3, ' ');
-#endif
 }
 
 static const char *

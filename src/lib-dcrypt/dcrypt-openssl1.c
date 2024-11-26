@@ -75,32 +75,8 @@
   2<tab>key algo oid<tab>1<tab>symmetric algo name<tab>salt<tab>hash algo<tab>rounds<tab>E(RSA = i2d_PrivateKey, EC=Private Point)<tab>key id
 **/
 
-#ifndef HAVE_EVP_PKEY_get0_EC_KEY
-#  define EVP_PKEY_get0_EC_KEY(x) x->pkey.ec
-#endif
-#ifndef HAVE_EVP_PKEY_get0_RSA
-#  define EVP_PKEY_get0_RSA(x) x->pkey.rsa
-#endif
-
-#ifndef HAVE_OBJ_length
-#  define OBJ_length(o) ((o)->length)
-#endif
-
-#ifndef HAVE_EVP_MD_CTX_new
-#  define EVP_MD_CTX_new() EVP_MD_CTX_create()
-#  define EVP_MD_CTX_free(ctx) EVP_MD_CTX_destroy(ctx)
-#endif
-
-#ifndef HAVE_HMAC_CTX_new
-#  define HMAC_Init_ex(ctx, key, key_len, md, impl) \
-	HMAC_Init_ex(&(ctx), key, key_len, md, impl)
-#  define HMAC_Update(ctx, data, len) HMAC_Update(&(ctx), data, len)
-#  define HMAC_Final(ctx, md, len) HMAC_Final(&(ctx), md, len)
-#  define HMAC_CTX_free(ctx) HMAC_cleanup(&(ctx))
-#else
-#  define HMAC_CTX_free(ctx) \
+#define HMAC_CTX_free(ctx) \
 	STMT_START { HMAC_CTX_free(ctx); (ctx) = NULL; } STMT_END
-#endif
 
 /* Not always present */
 #ifndef HAVE_BN_secure_new
@@ -120,7 +96,15 @@
 	ERR_get_error_line_data(NULL, NULL, data, flags)
 #endif
 
-#if defined(HAVE_EVP_PKEY_get_raw_private_key) && defined(NID_X25519)
+#if !defined(NID_ED448) && defined(NID_Ed448)
+#  define NID_ED448 NID_Ed448
+#endif
+
+#if !defined(NID_ED25519) && defined(NID_Ed25519)
+#  define NID_ED25519 NID_Ed25519
+#endif
+
+#if defined(NID_X25519)
 #  define HAVE_X25519
 #  define IS_XD_CURVE(nid) \
 	((nid) == NID_X25519 || (nid) == NID_X448)
@@ -131,6 +115,17 @@
 #if !defined(OBJ_chacha20_poly1305) && defined(LN_chacha20_poly1305)
 #  define OBJ_CHACHA20_POLY1305_MISSING
 static ASN1_OBJECT *CHACHA20_POLY1305_OBJ = NULL;
+#endif
+
+#ifndef HAVE_OPENSSL_buf2hexstr
+static char *OPENSSL_buf2hexstr(const unsigned char *buffer, long len)
+{
+	char *dest = OPENSSL_malloc(len*2 + 1);
+	buffer_t buf;
+	buffer_create_from_data(&buf, dest, len*2 + 1);
+	binary_to_hex_append(&buf, buffer, len);
+	return str_c_modifiable(&buf);
+}
 #endif
 
 struct dcrypt_context_symmetric {
@@ -150,11 +145,7 @@ struct dcrypt_context_symmetric {
 struct dcrypt_context_hmac {
 	pool_t pool;
 	const EVP_MD *md;
-#ifdef HAVE_HMAC_CTX_new
 	HMAC_CTX *ctx;
-#else
-	HMAC_CTX ctx;
-#endif
 	unsigned char *key;
 	size_t klen;
 };
@@ -206,18 +197,6 @@ dcrypt_openssl_key_string_get_info(const char *key_data,
 	enum dcrypt_key_encryption_type *encryption_type_r,
 	const char **encryption_key_hash_r, const char **key_hash_r,
 	const char **error_r);
-
-#ifndef HAVE_EC_GROUP_order_bits
-static int EC_GROUP_order_bits(const EC_GROUP *grp)
-{
-	int bits;
-	BIGNUM *bn = BN_new();
-	(void)EC_GROUP_get_order(grp, bn, NULL);
-	bits = BN_num_bits(bn);
-	BN_free(bn);
-	return bits;
-}
-#endif
 
 static const char *ssl_err2str(unsigned long err, const char *data, int flags)
 {
@@ -685,11 +664,9 @@ dcrypt_openssl_ctx_hmac_init(struct dcrypt_context_hmac *ctx,
 
 	i_assert(ctx->ctx == NULL);
 	i_assert(ctx->md != NULL);
-#ifdef HAVE_HMAC_CTX_new
 	ctx->ctx = HMAC_CTX_new();
 	if (ctx->ctx == NULL)
 		return dcrypt_openssl_error(error_r);
-#endif
 	ec = HMAC_Init_ex(ctx->ctx, ctx->key, ctx->klen, ctx->md, NULL);
 	if (ec != 1) {
 		HMAC_CTX_free(ctx->ctx);
@@ -1773,54 +1750,6 @@ static bool load_jwk_curve_key(EVP_PKEY **key_r, bool want_private_key,
 #endif
 }
 
-/* RSA helpers */
-#if !defined(HAVE_RSA_set0_key)
-static int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d)
-{
-	if (n == NULL || e == NULL) {
-		RSAerr(0, ERR_R_PASSED_NULL_PARAMETER);
-		return 0;
-	}
-	BN_free(r->n);
-	r->n = n;
-	BN_free(r->e);
-	r->e = e;
-	BN_free(r->d);
-	r->d = d;
-	return 1;
-}
-#endif
-#if !defined(HAVE_RSA_set0_factors)
-static int RSA_set0_factors(RSA *r, BIGNUM *p, BIGNUM *q)
-{
-	if (p == NULL || q == NULL) {
-		RSAerr(0, ERR_R_PASSED_NULL_PARAMETER);
-		return 0;
-	}
-	BN_free(r->p);
-	r->p = p;
-	BN_free(r->q);
-	r->q = q;
-	return 1;
-}
-#endif
-#if !defined(HAVE_RSA_set0_crt_params)
-static int RSA_set0_crt_params(RSA *r, BIGNUM *dmp1, BIGNUM *dmq1, BIGNUM *iqmp)
-{
-	if (dmp1 == NULL || dmq1 == NULL || iqmp == NULL) {
-		RSAerr(0, ERR_R_PASSED_NULL_PARAMETER);
-		return 0;
-	}
-	BN_free(r->dmp1);
-	r->dmp1 = dmp1;
-	BN_free(r->dmq1);
-	r->dmq1 = dmq1;
-	BN_free(r->iqmp);
-	r->iqmp = iqmp;
-	return 1;
-}
-#endif
-
 /* This function calculates missing parameters. The only required values
  * are e, n, d. If p_r and q_r are provided, they can be used directly
  * instead of deriving them. */
@@ -2220,6 +2149,7 @@ dcrypt_openssl_load_private_key_jwk(struct dcrypt_private_key **key_r,
 
 	i_assert(ret || error != NULL);
 
+#ifdef HAVE_EVP_PKEY_check
 	if (ret) {
 		EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(pkey, NULL);
 		int ec = EVP_PKEY_check(pctx);
@@ -2232,6 +2162,7 @@ dcrypt_openssl_load_private_key_jwk(struct dcrypt_private_key **key_r,
 			EVP_PKEY_free(pkey);
 		}
 	}
+#endif
 
 	if (!ret)
 		*error_r = t_strdup_printf("Cannot load JWK private key: %s", error);
@@ -3761,31 +3692,6 @@ dcrypt_openssl_digest(const char *algorithm, const void *data, size_t data_len,
 	EVP_MD_CTX_free(mdctx);
 	return ret;
 }
-
-#ifndef HAVE_ECDSA_SIG_get0
-static void ECDSA_SIG_get0(const ECDSA_SIG *sig, const BIGNUM **pr, const BIGNUM **ps)
-{
-	i_assert(sig != NULL);
-	*pr = sig->r;
-	*ps = sig->s;
-}
-#endif
-#ifndef HAVE_ECDSA_SIG_set0
-static int ECDSA_SIG_set0(ECDSA_SIG *sig, BIGNUM *r, BIGNUM *s)
-{
-	if (sig == NULL || r == NULL || s == NULL) {
-		ECDSAerr(0, ERR_R_PASSED_NULL_PARAMETER);
-		return 0;
-	}
-
-	BN_free(sig->r);
-	sig->r = r;
-	BN_free(sig->s);
-	sig->s = s;
-
-	return 1;
-}
-#endif
 
 static bool
 dcrypt_openssl_sign_ecdsa(struct dcrypt_private_key *key, const char *algorithm,
