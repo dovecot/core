@@ -295,36 +295,48 @@ ssl_iostream_ctx_verify_remote_cert(struct ssl_iostream_context *ctx,
 	SSL_CTX_set_client_CA_list(ctx->ssl_ctx, ca_names);
 }
 
-static int ssl_servername_callback(SSL *ssl, int *al,
-				   void *context ATTR_UNUSED)
+static int ssl_servername_process(struct ssl_iostream *ssl_io, const char *host,
+				  int *al)
 {
-	struct ssl_iostream *ssl_io;
-	const char *host, *error;
+	const char *error;
 
-	ssl_io = SSL_get_ex_data(ssl, dovecot_ssl_extdata_index);
-	host = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
-
-	if (SSL_get_servername_type(ssl) != -1) {
-		if (!connection_is_valid_dns_name(host)) {
-			openssl_iostream_set_error(ssl_io,
-					"TLS SNI servername sent by client is not a valid DNS name");
-			*al = SSL_AD_UNRECOGNIZED_NAME;
-			return SSL_TLSEXT_ERR_ALERT_FATAL;
-		}
-		i_free(ssl_io->sni_host);
-		ssl_io->sni_host = i_strdup(host);
-	} else {
-		e_debug(ssl_io->event, "SSL_get_servername() failed");
+	i_free(ssl_io->sni_host);
+	if (host != NULL && !connection_is_valid_dns_name(host)) {
+		openssl_iostream_set_error(ssl_io,
+			"TLS SNI servername sent by client is not a valid DNS name");
+		*al = SSL_AD_UNRECOGNIZED_NAME;
+		return -1;
 	}
+	ssl_io->sni_host = i_strdup(host);
 
 	if (ssl_io->sni_callback != NULL) {
 		if (ssl_io->sni_callback(ssl_io->sni_host, &error,
 					 ssl_io->sni_context) < 0) {
-			*al = SSL_AD_INTERNAL_ERROR;
 			openssl_iostream_set_error(ssl_io, error);
-			return SSL_TLSEXT_ERR_ALERT_FATAL;
+			*al = SSL_AD_INTERNAL_ERROR;
+			return -1;
 		}
 	}
+
+	return 0;
+}
+
+static int ssl_servername_callback(SSL *ssl, int *al,
+				   void *context ATTR_UNUSED)
+{
+	struct ssl_iostream *ssl_io;
+	const char *host;
+
+	ssl_io = SSL_get_ex_data(ssl, dovecot_ssl_extdata_index);
+	host = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+
+	if (SSL_get_servername_type(ssl) == -1) {
+		e_debug(ssl_io->event, "SSL_get_servername() failed");
+	}
+
+	if (ssl_servername_process(ssl_io, host, al) < 0)
+		return SSL_TLSEXT_ERR_ALERT_FATAL;
+
 	return SSL_TLSEXT_ERR_OK;
 }
 
