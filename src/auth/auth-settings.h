@@ -38,7 +38,6 @@ struct auth_userdb_settings {
 	pool_t pool;
 	const char *name;
 	const char *driver;
-	const char *args;
 	bool fields_import_all;
 
 	const char *skip;

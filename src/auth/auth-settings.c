@@ -185,7 +185,6 @@ const struct setting_parser_info auth_passdb_post_setting_parser_info = {
 static const struct setting_define auth_userdb_setting_defines[] = {
 	DEF(STR, name),
 	DEF(STR, driver),
-	DEF(STR_NOVARS, args),
 	DEF(BOOL, fields_import_all),
 
 	DEF(ENUM, skip),
@@ -203,7 +202,6 @@ static const struct auth_userdb_settings auth_userdb_default_settings = {
 	/* NOTE: when adding fields, update also auth.c:userdb_dummy_set */
 	.name = "",
 	.driver = "",
-	.args = "",
 	.fields_import_all = TRUE,
 
 	.skip = "never:found:notfound",
