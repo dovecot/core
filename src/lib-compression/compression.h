@@ -12,15 +12,7 @@ struct compression_handler {
 	const char *ext;
 	bool (*is_compressed)(struct istream *input);
 	struct istream *(*create_istream)(struct istream *input);
-	struct ostream *(*create_ostream)(struct ostream *output, int level);
 	struct ostream *(*create_ostream_auto)(struct ostream *output, struct event *event);
-	/* returns minimum level */
-	int (*get_min_level)(void);
-	/* the default can be -1 (e.g. gz), so the return value of this has to
-	   be used as-is. */
-	int (*get_default_level)(void);
-	/* returns maximum level */
-	int (*get_max_level)(void);
 };
 
 extern const struct compression_handler compression_handlers[];
