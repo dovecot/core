@@ -64,14 +64,19 @@ const struct setting_parser_info cdb_setting_parser_info = {
 static void cdb_dict_deinit(struct dict *_dict);
 
 static int
-cdb_dict_init_common(const struct dict *driver,
-		     const struct dict_cdb_settings *set,
-		     struct dict **dict_r, const char **error_r)
+cdb_dict_init(const struct dict *dict_driver, struct event *event,
+	      struct dict **dict_r, const char **error_r)
 {
+	const struct dict_cdb_settings *set;
+
+	if (settings_get(event, &cdb_setting_parser_info, 0,
+			 &set, error_r) < 0)
+		return -1;
+
 	struct cdb_dict *dict;
 
 	dict = i_new(struct cdb_dict, 1);
-	dict->dict = *driver;
+	dict->dict = *dict_driver;
 	dict->path = i_strdup(set->cdb_path);
 	dict->flag = CDB_WITH_NULL | CDB_WITHOUT_NULL;
 	settings_free(set);
@@ -98,30 +103,6 @@ cdb_dict_init_common(const struct dict *driver,
 
 	*dict_r = &dict->dict;
 	return 0;
-}
-
-static int
-cdb_dict_init_legacy(struct dict *driver, const char *uri,
-		     const struct dict_legacy_settings *legacy_set ATTR_UNUSED,
-		     struct dict **dict_r, const char **error_r)
-{
-	pool_t pool = pool_alloconly_create("cdb_settings", 128);
-	struct dict_cdb_settings *set =
-		settings_defaults_dup(pool, &cdb_setting_parser_info);
-	set->cdb_path = p_strdup(pool, uri);
-	return cdb_dict_init_common(driver, set, dict_r, error_r);
-}
-
-static int
-cdb_dict_init(const struct dict *dict_driver, struct event *event,
-	      struct dict **dict_r, const char **error_r)
-{
-	const struct dict_cdb_settings *set;
-
-	if (settings_get(event, &cdb_setting_parser_info, 0,
-			 &set, error_r) < 0)
-		return -1;
-	return cdb_dict_init_common(dict_driver, set, dict_r, error_r);
 }
 
 
@@ -312,7 +293,6 @@ struct dict dict_driver_cdb = {
 	.name = "cdb",
 	.v = {
 		.init = cdb_dict_init,
-		.init_legacy = cdb_dict_init_legacy,
 		.deinit = cdb_dict_deinit,
 		.lookup = cdb_dict_lookup,
 		.iterate_init = cdb_dict_iterate_init,
