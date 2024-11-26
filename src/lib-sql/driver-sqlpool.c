@@ -18,7 +18,6 @@ static struct event_category event_category_sqlpool = {
 
 struct sqlpool_host {
 	char *hostname;
-	char *legacy_connect_string;
 
 	unsigned int connection_count;
 };
@@ -284,26 +283,13 @@ sqlpool_add_connection(struct sqlpool_db *db, struct sqlpool_host *host,
 
 	e_debug(db->api.event, "Creating new connection");
 
-	if (host->legacy_connect_string == NULL) {
-		struct event *event = event_create(db->api.event);
-		event_set_ptr(event, SQLPOOL_EVENT_PTR, "yes");
-		event_add_str(event, db->filter_name, host->hostname);
-		ret = db->driver->v.init(event, &conndb, &error);
-		event_unref(&event);
-	} else if (db->driver->v.init_legacy_full == NULL) {
-		conndb = db->driver->v.init_legacy(host->legacy_connect_string);
-	} else {
-		struct sql_legacy_settings set = {
-			.connect_string = host->legacy_connect_string,
-			.event_parent = event_get_parent(db->api.event),
-		};
-		ret = db->driver->v.init_legacy_full(&set, &conndb, &error);
-	}
+	struct event *event = event_create(db->api.event);
+	event_set_ptr(event, SQLPOOL_EVENT_PTR, "yes");
+	event_add_str(event, db->filter_name, host->hostname);
+	ret = db->driver->v.init(event, &conndb, &error);
+	event_unref(&event);
 	if (ret < 0)
 		i_fatal("sqlpool: %s", error);
-
-	if (host->legacy_connect_string != NULL)
-		sql_init_common(conndb);
 
 	conndb->state_change_callback = sqlpool_state_changed;
 	conndb->state_change_context = db;
@@ -457,48 +443,6 @@ static enum sql_db_flags driver_sqlpool_get_flags(struct sql_db *_db)
 	return sql_get_flags(conn->db);
 }
 
-static int
-driver_sqlpool_parse_hosts(const char *connect_string,
-			   ARRAY_TYPE(const_string) *hostnames,
-			   ARRAY_TYPE(const_string) *legacy_connect_args,
-			   unsigned int *connection_limit_r,
-			   const char **error_r)
-{
-	const char *const *args, *key, *value;
-
-	/* connect string is a space separated list. it may contain
-	   backend-specific strings which we'll pass as-is. we'll only care
-	   about our own settings, plus the host settings. */
-	*connection_limit_r = 0;
-	args = t_strsplit_spaces(connect_string, " ");
-	for (; *args != NULL; args++) {
-		value = strchr(*args, '=');
-		if (value == NULL) {
-			key = *args;
-			value = "";
-		} else {
-			key = t_strdup_until(*args, value);
-			value++;
-		}
-
-		if (strcmp(key, "maxconns") == 0) {
-			if (str_to_uint(value, connection_limit_r) < 0) {
-				*error_r = t_strdup_printf("Invalid value for maxconns: %s",
-					value);
-				return -1;
-			}
-		} else if (strcmp(key, "host") == 0) {
-			array_push_back(hostnames, &value);
-		} else {
-			array_push_back(legacy_connect_args, args);
-		}
-	}
-
-	if (*connection_limit_r == 0)
-		*connection_limit_r = SQL_DEFAULT_CONNECTION_LIMIT;
-	return 0;
-}
-
 static void sqlpool_add_all_once(struct sqlpool_db *db)
 {
 	struct sqlpool_host *host;
@@ -516,7 +460,6 @@ static struct sqlpool_db *
 driver_sqlpool_init_common(const struct sql_db *driver,
 			   struct event *event_parent,
 			   const ARRAY_TYPE(const_string) *hostnames,
-			   ARRAY_TYPE(const_string) *legacy_connect_args,
 			   unsigned int connection_limit)
 {
 	struct sqlpool_db *db;
@@ -534,27 +477,13 @@ driver_sqlpool_init_common(const struct sql_db *driver,
 				    t_strdup_printf("sqlpool(%s): ", driver->name));
 	i_array_init(&db->hosts, array_count(hostnames));
 
-	/* build a new legacy connect string without our settings or hosts */
-	const char *legacy_connect_string = NULL;
-	if (legacy_connect_args != NULL) {
-		array_append_zero(legacy_connect_args);
-		legacy_connect_string =
-			t_strarray_join(array_front(legacy_connect_args), " ");
-	}
-
 	if (array_count(hostnames) == 0) {
 		/* no hosts specified. create a default one. */
 		host = array_append_space(&db->hosts);
-		host->legacy_connect_string = i_strdup(legacy_connect_string);
 	} else {
 		array_foreach_elem(hostnames, hostname) {
 			host = array_append_space(&db->hosts);
 			host->hostname = i_strdup(hostname);
-			if (legacy_connect_string != NULL) {
-				host->legacy_connect_string =
-					i_strconcat("host=", hostname, " ",
-						    legacy_connect_string, NULL);
-			}
 		}
 	}
 
@@ -573,42 +502,13 @@ struct sql_db *driver_sqlpool_init(const struct sql_db *driver,
 
 	struct sqlpool_db *db =
 		driver_sqlpool_init_common(driver, event_parent, hostnames,
-					   NULL, connection_limit);
+					   connection_limit);
 	db->filter_name = i_strdup(filter_name);
 	sql_init_common(&db->api);
 
 	/* connect to all databases so we can do load balancing immediately */
 	sqlpool_add_all_once(db);
 	return &db->api;
-}
-
-int driver_sqlpool_legacy_init_full(const struct sql_legacy_settings *set,
-				    const struct sql_db *driver,
-				    struct sql_db **db_r, const char **error_r)
-{
-	int ret;
-
-	T_BEGIN {
-		ARRAY_TYPE(const_string) hostnames;
-		ARRAY_TYPE(const_string) connect_args;
-		unsigned int connection_limit;
-
-		t_array_init(&hostnames, 8);
-		t_array_init(&connect_args, 32);
-		ret = driver_sqlpool_parse_hosts(set->connect_string,
-						 &hostnames, &connect_args,
-						 &connection_limit, error_r);
-		if (ret == 0) {
-			struct sqlpool_db *db =
-				driver_sqlpool_init_common(driver,
-					set->event_parent, &hostnames,
-					&connect_args, connection_limit);
-			*db_r = &db->api;
-			/* connect to all databases so we can do load balancing immediately */
-			sqlpool_add_all_once(db);
-		}
-	} T_END_PASS_STR_IF(ret < 0, error_r);
-	return ret;
 }
 
 static void driver_sqlpool_abort_requests(struct sqlpool_db *db)
@@ -633,10 +533,8 @@ static void driver_sqlpool_deinit(struct sql_db *_db)
 
 	driver_sqlpool_abort_requests(db);
 
-	array_foreach_modifiable(&db->hosts, host) {
+	array_foreach_modifiable(&db->hosts, host)
 		i_free(host->hostname);
-		i_free(host->legacy_connect_string);
-	}
 
 	i_assert(array_count(&db->all_connections) == 0);
 	array_free(&db->hosts);

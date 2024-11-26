@@ -263,9 +263,6 @@ struct sql_db *driver_sqlpool_init(const struct sql_db *driver,
 				   const char *filter_name,
 				   const ARRAY_TYPE(const_string) *hostnames,
 				   unsigned int connection_limit);
-int driver_sqlpool_legacy_init_full(const struct sql_legacy_settings *set,
-				    const struct sql_db *driver,
-				    struct sql_db **db_r, const char **error_r);
 
 void sql_db_set_state(struct sql_db *db, enum sql_db_state state);
 
