@@ -287,114 +287,6 @@ static void driver_mysql_disconnect(struct sql_db *_db)
 		mysql_close(db->mysql);
 }
 
-static int
-driver_mysql_parse_connect_string(pool_t pool, const char *connect_string,
-				  const struct mysql_settings **set_r,
-				  const struct ssl_settings **ssl_set_r,
-				  const char **error_r)
-{
-	struct mysql_settings *set;
-	struct ssl_settings *ssl_set;
-	const char *const *args, *name, *value;
-	const char **field;
-
-	set = settings_defaults_dup(pool, &mysql_setting_parser_info);
-	ssl_set = settings_defaults_dup(pool, &ssl_setting_parser_info);
-
-	ssl_set->ssl_cipher_list = "HIGH";
-
-	args = t_strsplit_spaces(connect_string, " ");
-	for (; *args != NULL; args++) {
-		value = strchr(*args, '=');
-		if (value == NULL) {
-			*error_r = t_strdup_printf("Missing value in connect string: %s",
-						   *args);
-			return -1;
-		}
-		name = t_strdup_until(*args, value);
-		value++;
-
-		field = NULL;
-		if (strcmp(name, "host") == 0 ||
-		    strcmp(name, "hostaddr") == 0)
-			field = &set->host;
-		else if (strcmp(name, "user") == 0)
-			field = &set->user;
-		else if (strcmp(name, "password") == 0)
-			field = &set->password;
-		else if (strcmp(name, "dbname") == 0)
-			field = &set->dbname;
-		else if (strcmp(name, "port") == 0) {
-			if (net_str2port(value, &set->port) < 0) {
-				*error_r = t_strdup_printf("Invalid port number: %s", value);
-				return -1;
-			}
-		} else if (strcmp(name, "client_flags") == 0) {
-			if (str_to_uint(value, &set->client_flags) < 0) {
-				*error_r = t_strdup_printf("Invalid client flags: %s", value);
-				return -1;
-			}
-		} else if (strcmp(name, "connect_timeout") == 0) {
-			if (str_to_uint(value, &set->connect_timeout_secs) < 0) {
-				*error_r = t_strdup_printf("Invalid read_timeout: %s", value);
-				return -1;
-			}
-		} else if (strcmp(name, "read_timeout") == 0) {
-			if (str_to_uint(value, &set->read_timeout_secs) < 0) {
-				*error_r = t_strdup_printf("Invalid read_timeout: %s", value);
-				return -1;
-			}
-		} else if (strcmp(name, "write_timeout") == 0) {
-			if (str_to_uint(value, &set->write_timeout_secs) < 0) {
-				*error_r = t_strdup_printf("Invalid read_timeout: %s", value);
-				return -1;
-			}
-		} else if (strcmp(name, "ssl_cert") == 0) {
-			field = &ssl_set->ssl_client_cert_file;
-			value = t_strconcat(value, "\n", NULL);
-		} else if (strcmp(name, "ssl_key") == 0) {
-			field = &ssl_set->ssl_client_key_file;
-			value = t_strconcat(value, "\n", NULL);
-		} else if (strcmp(name, "ssl_ca") == 0) {
-			field = &ssl_set->ssl_client_ca_file;
-			value = t_strconcat(value, "\n", NULL);
-		} else if (strcmp(name, "ssl_ca_path") == 0)
-			field = &ssl_set->ssl_client_ca_dir;
-		else if (strcmp(name, "ssl_cipher") == 0)
-			field = &ssl_set->ssl_cipher_list;
-		else if (strcmp(name, "ssl_verify_server_cert") == 0) {
-			if (strcmp(value, "yes") == 0)
-				ssl_set->ssl_client_require_valid_cert = TRUE;
-			else if (strcmp(value, "no") == 0)
-				ssl_set->ssl_client_require_valid_cert = FALSE;
-			else {
-				*error_r = t_strdup_printf("Invalid boolean: %s", value);
-				return -1;
-			}
-		} else if (strcmp(name, "option_file") == 0)
-			field = &set->option_file;
-		else if (strcmp(name, "option_group") == 0)
-			field = &set->option_group;
-		else {
-			*error_r = t_strdup_printf("Unknown connect string: %s", name);
-			return -1;
-		}
-		if (field != NULL)
-			*field = p_strdup(pool, value);
-	}
-
-	if (set->host[0] == '\0' && set->option_file[0] == '\0') {
-		*error_r = "No hosts given in connect string";
-		return -1;
-	}
-
-	pool_ref(set->pool);
-	pool_ref(ssl_set->pool);
-	*set_r = set;
-	*ssl_set_r = ssl_set;
-	return 0;
-}
-
 static struct mysql_db_cache *
 driver_mysql_db_cache_find(const struct mysql_settings *set,
 			   const struct ssl_settings *ssl_set)
@@ -413,9 +305,9 @@ driver_mysql_db_cache_find(const struct mysql_settings *set,
 }
 
 static struct sql_db *
-driver_mysql_init_common(pool_t pool, struct event *event_parent,
-			 const struct mysql_settings *set,
-			 const struct ssl_settings *ssl_set)
+driver_mysql_init_from_set(pool_t pool, struct event *event_parent,
+			   const struct mysql_settings *set,
+			   const struct ssl_settings *ssl_set)
 {
 	struct mysql_db *db;
 
@@ -512,25 +404,9 @@ driver_mysql_init_v(struct event *event, struct sql_db **db_r,
 	 connection. */
 
 	pool_t pool = pool_alloconly_create("mysql driver", 1024);
-	*db_r = driver_mysql_init_common(pool, event, set, ssl_set);
+	*db_r = driver_mysql_init_from_set(pool, event, set, ssl_set);
 	event_drop_parent_log_prefixes((*db_r)->event, 1);
 	sql_init_common(*db_r);
-	return 0;
-}
-
-static int driver_mysql_init_full_v(const struct sql_legacy_settings *legacy_set,
-				    struct sql_db **db_r, const char **error_r)
-{
-	const struct mysql_settings *set;
-	const struct ssl_settings *ssl_set;
-	pool_t pool = pool_alloconly_create("mysql driver", 1024);
-	if (driver_mysql_parse_connect_string(pool, legacy_set->connect_string,
-					      &set, &ssl_set, error_r) < 0) {
-		pool_unref(&pool);
-		return -1;
-	}
-	*db_r = driver_mysql_init_common(pool, legacy_set->event_parent,
-					 set, ssl_set);
 	return 0;
 }
 
@@ -1004,7 +880,6 @@ const struct sql_db driver_mysql_db = {
 
 	.v = {
 		.init = driver_mysql_init_v,
-		.init_legacy_full = driver_mysql_init_full_v,
 		.deinit = driver_mysql_deinit_v,
 		.connect = driver_mysql_connect,
 		.disconnect = driver_mysql_disconnect,
