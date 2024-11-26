@@ -321,6 +321,8 @@ static int ssl_servername_process(struct ssl_iostream *ssl_io, const char *host,
 	return 0;
 }
 
+#ifndef HAVE_SSL_client_hello_get0_ciphers
+
 static int ssl_servername_callback(SSL *ssl, int *al,
 				   void *context ATTR_UNUSED)
 {
@@ -340,7 +342,7 @@ static int ssl_servername_callback(SSL *ssl, int *al,
 	return SSL_TLSEXT_ERR_OK;
 }
 
-#ifdef HAVE_SSL_client_hello_get0_ciphers
+#else
 
 static const int ssl_ja3_grease[] = {
 	0x0a0a,
@@ -422,7 +424,34 @@ static int ssl_ja3_nid_to_cid(int nid)
 	return nid;
 }
 
-static int ssl_clienthello_callback(SSL *ssl, int *al ATTR_UNUSED,
+static const char *extract_server_name(const unsigned char *ext, size_t extlen)
+{
+	/* must have two byte veclen, two bytes for
+	   index and type, and two bytes for length
+	   and actual name. */
+	if (extlen < 2 + 2 + 2)
+		return NULL;
+	/* Vector length first */
+	unsigned short veclen = be16_to_cpu_unaligned(ext);
+	if (veclen + 2U != extlen)
+		return NULL;
+	ext += 2;
+	extlen -= 2;
+	/* Expecting only host_name as first ServerName,
+	   we also only support max 255 character host names,
+	   so if the first byte of the length is non-zero,
+	   reject as well. */
+	if (ext[0] != TLSEXT_NAMETYPE_host_name || ext[1] != 0)
+		return NULL;
+	ext += 2;
+	extlen -= 2;
+	unsigned char namelen = ext[0];
+	if (namelen > extlen - 1)
+		return NULL;
+	return t_strdup_until(ext + 1, ext + 1 + namelen);
+}
+
+static int ssl_clienthello_callback(SSL *ssl, int *al,
 				    void *context ATTR_UNUSED)
 {
 	struct ssl_iostream *ssl_io =
@@ -498,6 +527,17 @@ static int ssl_clienthello_callback(SSL *ssl, int *al ATTR_UNUSED,
 	/* Store ja3 string */
 	i_free(ssl_io->ja3_str);
 	ssl_io->ja3_str = i_strdup(str_c(ja3));
+
+	/* Process extension 0 - server_name */
+	const char *host = NULL;
+	if (SSL_client_hello_get0_ext(ssl, TLSEXT_TYPE_server_name,
+				      &ext, &extlen) == 1 &&
+	    extlen > 0)
+		host = extract_server_name(ext, extlen);
+
+	/* host can be NULL, but that's ok. */
+	if (ssl_servername_process(ssl_io, host, al) < 0)
+		return SSL_CLIENT_HELLO_ERROR;
 
 	return SSL_CLIENT_HELLO_SUCCESS;
 }
@@ -639,11 +679,12 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 		}
 	}
 	if (!ctx->client_ctx) {
+#ifdef HAVE_SSL_client_hello_get0_ciphers
+		SSL_CTX_set_client_hello_cb(ctx->ssl_ctx, ssl_clienthello_callback, ctx);
+#else
 		if (SSL_CTX_set_tlsext_servername_callback(ctx->ssl_ctx,
 					ssl_servername_callback) != 1)
 			i_unreached();
-#ifdef HAVE_SSL_client_hello_get0_ciphers
-		SSL_CTX_set_client_hello_cb(ctx->ssl_ctx, ssl_clienthello_callback, ctx);
 #endif
 	}
 	return 0;
