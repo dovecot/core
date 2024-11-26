@@ -13,7 +13,6 @@ struct auth_passdb_settings {
 	pool_t pool;
 	const char *name;
 	const char *driver;
-	const char *args;
 	bool fields_import_all;
 	ARRAY_TYPE(const_string) mechanisms_filter;
 	const char *username_filter;

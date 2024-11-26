@@ -55,7 +55,6 @@ void passdb_mock_mod_init(void)
 	struct auth_passdb_settings set = {
 		.name = "mock",
 		.driver = "mock",
-		.args = "",
 		.mechanisms_filter = ARRAY_INIT,
 		.username_filter = "",
 
