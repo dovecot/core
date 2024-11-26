@@ -80,21 +80,6 @@ static bool zlib_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	return TRUE;
 }
 
-int compression_get_min_level_gz(void)
-{
-	return Z_NO_COMPRESSION;
-}
-
-int compression_get_default_level_gz(void)
-{
-	return Z_DEFAULT_COMPRESSION;
-}
-
-int compression_get_max_level_gz(void)
-{
-	return Z_BEST_COMPRESSION;
-}
-
 static void o_stream_zlib_close(struct iostream_private *stream,
 				bool close_parent)
 {
@@ -431,16 +416,6 @@ o_stream_create_zlib(struct ostream *output, int level, bool gz)
 	zstream->zs.avail_out = sizeof(zstream->outbuf);
 	return o_stream_create(&zstream->ostream, output,
 			       o_stream_get_fd(output));
-}
-
-struct ostream *o_stream_create_gz(struct ostream *output, int level)
-{
-	return o_stream_create_zlib(output, level, TRUE);
-}
-
-struct ostream *o_stream_create_deflate(struct ostream *output, int level)
-{
-	return o_stream_create_zlib(output, level, FALSE);
 }
 
 static struct ostream *

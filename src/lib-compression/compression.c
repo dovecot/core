@@ -9,27 +9,15 @@
 
 #ifndef HAVE_BZLIB
 #  define i_stream_create_bz2 NULL
-#  define o_stream_create_bz2 NULL
 #  define o_stream_create_bz2_auto NULL
-#  define compression_get_min_level_bz2 NULL
-#  define compression_get_default_level_bz2 NULL
-#  define compression_get_max_level_bz2 NULL
 #endif
 #ifndef HAVE_LZ4
 #  define i_stream_create_lz4 NULL
-#  define o_stream_create_lz4 NULL
 #  define o_stream_create_lz4_auto NULL
-#  define compression_get_min_level_lz4 NULL
-#  define compression_get_default_level_lz4 NULL
-#  define compression_get_max_level_lz4 NULL
 #endif
 #ifndef HAVE_ZSTD
 #  define i_stream_create_zstd NULL
-#  define o_stream_create_zstd NULL
 #  define o_stream_create_zstd_auto NULL
-#  define compression_get_min_level_zstd NULL
-#  define compression_get_default_level_zstd NULL
-#  define compression_get_max_level_zstd NULL
 #endif
 
 static bool is_compressed_zlib(struct istream *input)
@@ -97,7 +85,7 @@ int compression_lookup_handler(const char *name,
 	for (i = 0; compression_handlers[i].name != NULL; i++) {
 		if (strcmp(name, compression_handlers[i].name) == 0) {
 			if (compression_handlers[i].create_istream == NULL ||
-			    compression_handlers[i].create_ostream == NULL) {
+			    compression_handlers[i].create_ostream_auto == NULL) {
 				/* Handler is known but not compiled in */
 				return 0;
 			}
@@ -135,7 +123,7 @@ int compression_lookup_handler_from_ext(const char *path,
 		if (path_len > len &&
 		    strcmp(path + path_len - len, compression_handlers[i].ext) == 0) {
 			if (compression_handlers[i].create_istream == NULL ||
-			    compression_handlers[i].create_ostream == NULL) {
+			    compression_handlers[i].create_ostream_auto == NULL) {
 				/* Handler is known but not compiled in */
 				return 0;
 			}
@@ -152,55 +140,35 @@ const struct compression_handler compression_handlers[] = {
 		.ext = ".gz",
 		.is_compressed = is_compressed_zlib,
 		.create_istream = i_stream_create_gz,
-		.create_ostream = o_stream_create_gz,
 		.create_ostream_auto = o_stream_create_gz_auto,
-		.get_min_level = compression_get_min_level_gz,
-		.get_default_level = compression_get_default_level_gz,
-		.get_max_level = compression_get_max_level_gz,
 	},
 	{
 		.name = "bz2",
 		.ext = ".bz2",
 		.is_compressed = is_compressed_bzlib,
 		.create_istream = i_stream_create_bz2,
-		.create_ostream = o_stream_create_bz2,
 		.create_ostream_auto = o_stream_create_bz2_auto,
-		.get_min_level = compression_get_min_level_bz2,
-		.get_default_level = compression_get_default_level_bz2,
-		.get_max_level = compression_get_max_level_bz2,
 	},
 	{
 		.name = "deflate",
 		.ext = NULL,
 		.is_compressed = NULL,
 		.create_istream = i_stream_create_deflate,
-		.create_ostream = o_stream_create_deflate,
 		.create_ostream_auto = o_stream_create_deflate_auto,
-		.get_min_level = compression_get_min_level_gz,
-		.get_default_level = compression_get_default_level_gz,
-		.get_max_level = compression_get_max_level_gz,
 	},
 	{
 		.name = "lz4",
 		.ext = ".lz4",
 		.is_compressed = is_compressed_lz4,
 		.create_istream = i_stream_create_lz4,
-		.create_ostream = o_stream_create_lz4,
 		.create_ostream_auto = o_stream_create_lz4_auto,
-		.get_min_level = compression_get_min_level_lz4, /* does not actually support any of this */
-		.get_default_level = compression_get_default_level_lz4,
-		.get_max_level = compression_get_max_level_lz4,
 	},
 	{
 		.name = "zstd",
 		.ext = ".zstd",
 		.is_compressed = is_compressed_zstd,
 		.create_istream = i_stream_create_zstd,
-		.create_ostream = o_stream_create_zstd,
 		.create_ostream_auto = o_stream_create_zstd_auto,
-		.get_min_level = compression_get_min_level_zstd,
-		.get_default_level = compression_get_default_level_zstd,
-		.get_max_level = compression_get_max_level_zstd,
 	},
 	{
 		.name = "unsupported",

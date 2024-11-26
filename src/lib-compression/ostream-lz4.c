@@ -23,23 +23,6 @@ struct lz4_ostream {
 	unsigned int outbuf_offset, outbuf_used;
 };
 
-/* There is no actual compression level in LZ4, so for legacy
-   reasons we allow 1-9 to avoid breaking anyone's config. */
-int compression_get_min_level_lz4(void)
-{
-	return 1;
-}
-
-int compression_get_default_level_lz4(void)
-{
-	return 1;
-}
-
-int compression_get_max_level_lz4(void)
-{
-	return 9;
-}
-
 static void o_stream_lz4_close(struct iostream_private *stream,
 			       bool close_parent)
 {
@@ -215,12 +198,12 @@ o_stream_lz4_sendv(struct ostream_private *stream,
 	return bytes;
 }
 
-struct ostream *o_stream_create_lz4(struct ostream *output, int level)
+struct ostream *
+o_stream_create_lz4_auto(struct ostream *output,
+			 struct event *event ATTR_UNUSED)
 {
 	struct iostream_lz4_header *hdr;
 	struct lz4_ostream *zstream;
-
-	i_assert(level >= 1 && level <= 9);
 
 	zstream = i_new(struct lz4_ostream, 1);
 	zstream->ostream.sendv = o_stream_lz4_sendv;
@@ -245,13 +228,6 @@ struct ostream *o_stream_create_lz4(struct ostream *output, int level)
 	zstream->outbuf_used = sizeof(*hdr);
 	return o_stream_create(&zstream->ostream, output,
 			       o_stream_get_fd(output));
-}
-
-struct ostream *
-o_stream_create_lz4_auto(struct ostream *output,
-			 struct event *event ATTR_UNUSED)
-{
-	return o_stream_create_lz4(output, 1);
 }
 
 #endif

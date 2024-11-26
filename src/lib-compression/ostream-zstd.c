@@ -77,26 +77,6 @@ static bool zstd_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	return TRUE;
 }
 
-int compression_get_min_level_zstd(void)
-{
-	return ZSTD_minCLevel();
-}
-
-int compression_get_default_level_zstd(void)
-{
-#ifdef ZSTD_CLEVEL_DEFAULT
-	return ZSTD_CLEVEL_DEFAULT;
-#else
-	/* Documentation says 3 is default */
-	return 3;
-#endif
-}
-
-int compression_get_max_level_zstd(void)
-{
-	return ZSTD_maxCLevel();
-}
-
 static void o_stream_zstd_write_error(struct zstd_ostream *zstream, size_t err)
 {
 	ZSTD_ErrorCode errcode = zstd_version_errcode(ZSTD_getErrorCode(err));
@@ -258,14 +238,13 @@ static void o_stream_zstd_close(struct iostream_private *stream,
 		o_stream_close(zstream->ostream.parent);
 }
 
-struct ostream *
+static struct ostream *
 o_stream_create_zstd(struct ostream *output, int level)
 {
 	struct zstd_ostream *zstream;
 	size_t ret;
 
-	i_assert(level >= compression_get_min_level_zstd() &&
-		 level <= compression_get_max_level_zstd());
+	i_assert(level >= ZSTD_minCLevel() && level <= ZSTD_maxCLevel());
 
 	zstd_version_check();
 
