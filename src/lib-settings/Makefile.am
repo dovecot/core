@@ -7,12 +7,10 @@ AM_CPPFLAGS = \
 
 libsettings_la_SOURCES = \
 	settings.c \
-	settings-legacy.c \
 	settings-parser.c
 
 headers = \
 	settings.h \
-	settings-legacy.h \
 	settings-parser.h
 
 pkginc_libdir=$(pkgincludedir)
