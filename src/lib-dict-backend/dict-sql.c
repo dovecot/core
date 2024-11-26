@@ -8,7 +8,6 @@
 #include "hash.h"
 #include "str.h"
 #include "sql-api-private.h"
-#include "sql-db-cache-legacy.h"
 #include "dict-private.h"
 #include "dict-sql-settings.h"
 #include "dict-sql.h"
@@ -88,8 +87,6 @@ struct sql_dict_transaction_context {
 	char *error;
 };
 
-static struct sql_db_cache *dict_sql_db_cache;
-
 static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx);
 static void sql_dict_prev_set_flush(struct sql_dict_transaction_context *ctx);
 static void sql_dict_prev_inc_free(struct sql_dict_transaction_context *ctx);
@@ -115,43 +112,6 @@ sql_dict_init(const struct dict *dict_driver, struct event *event,
 		pool_unref(&pool);
 		return -1;
 	}
-	*dict_r = &dict->dict;
-	return 0;
-}
-
-static int
-sql_dict_init_legacy(struct dict *driver, const char *uri,
-		     const struct dict_legacy_settings *set,
-		     struct dict **dict_r, const char **error_r)
-{
-	struct sql_legacy_settings sql_set;
-	struct dict_sql_legacy_settings *dict_sql_set;
-	struct sql_dict *dict;
-	pool_t pool;
-
-	pool = pool_alloconly_create("sql dict", 2048);
-	dict_sql_set = dict_sql_legacy_settings_read(uri, error_r);
-	if (dict_sql_set == NULL) {
-		pool_unref(&pool);
-		return -1;
-	}
-
-	dict = p_new(pool, struct sql_dict, 1);
-	dict->pool = pool;
-	dict->dict = *driver;
-	dict->set = &dict_sql_set->map_set;
-
-	i_zero(&sql_set);
-	sql_set.driver = driver->name;
-	sql_set.connect_string = dict_sql_set->connect;
-	sql_set.event_parent = set->event_parent;
-
-	if (sql_db_cache_new_legacy(dict_sql_db_cache, &sql_set,
-				    &dict->db, error_r) < 0) {
-		pool_unref(&pool);
-		return -1;
-	}
-
 	*dict_r = &dict->dict;
 	return 0;
 }
@@ -1682,7 +1642,6 @@ static struct dict sql_dict = {
 	.flags = DICT_DRIVER_FLAG_SUPPORT_EXPIRE_SECS,
 	.v = {
 		.init = sql_dict_init,
-		.init_legacy = sql_dict_init_legacy,
 		.deinit = sql_dict_deinit,
 		.wait = sql_dict_wait,
 		.expire_scan = sql_dict_expire_scan,
@@ -1700,37 +1659,12 @@ static struct dict sql_dict = {
 	}
 };
 
-static struct dict *dict_sql_drivers;
-
 void dict_sql_register(void)
 {
-        const struct sql_db *const *drivers;
-	unsigned int i, count;
-
-	dict_sql_db_cache = sql_db_cache_init_legacy(DICT_SQL_MAX_UNUSED_CONNECTIONS);
-
 	dict_driver_register(&sql_dict);
-
-	/* @UNSAFE - FIXME: remove these when dict_legacy is dropped */
-	drivers = array_get(&sql_drivers, &count);
-	dict_sql_drivers = i_new(struct dict, count + 1);
-
-	for (i = 0; i < count; i++) {
-		dict_sql_drivers[i] = sql_dict;
-		dict_sql_drivers[i].name = drivers[i]->name;
-
-		dict_driver_register(&dict_sql_drivers[i]);
-	}
 }
 
 void dict_sql_unregister(void)
 {
-	int i;
-
 	dict_driver_unregister(&sql_dict);
-	for (i = 0; dict_sql_drivers[i].name != NULL; i++)
-		dict_driver_unregister(&dict_sql_drivers[i]);
-	i_free(dict_sql_drivers);
-	sql_db_cache_deinit_legacy(&dict_sql_db_cache);
-	dict_sql_legacy_settings_deinit();
 }
