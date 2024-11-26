@@ -185,8 +185,7 @@ int sql_init_legacy_full(const struct sql_legacy_settings *set,
 			db = driver->v.init_legacy(set->connect_string);
 		} else
 			ret = driver->v.init_legacy_full(set, &db, error_r);
-	} else
-		ret = driver_sqlpool_legacy_init_full(set, driver, &db, error_r);
+	}
 
 	if (ret < 0)
 		return -1;
