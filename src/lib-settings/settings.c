@@ -125,7 +125,7 @@ settings_block_read_size(struct settings_mmap *mmap,
 
 static int
 settings_block_read_str(struct settings_mmap *mmap,
-			uoff_t *offset, uoff_t end_offset, const char *name,
+			size_t *offset, size_t end_offset, const char *name,
 			const char **str_r, const char **error_r)
 {
 	*str_r = (const char *)mmap->mmap_base + *offset;
@@ -141,7 +141,7 @@ settings_block_read_str(struct settings_mmap *mmap,
 
 static int
 settings_read_filters(struct settings_mmap *mmap, const char *service_name,
-		      enum settings_read_flags flags, uoff_t *offset,
+		      enum settings_read_flags flags, size_t *offset,
 		      ARRAY_TYPE(const_string) *protocols, const char **error_r)
 {
 	const char *filter_string, *error;
@@ -212,10 +212,10 @@ settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 }
 
 static int
-settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
+settings_block_read(struct settings_mmap *mmap, size_t *_offset,
 		    const char **error_r)
 {
-	uoff_t offset = *_offset;
+	size_t offset = *_offset;
 	size_t block_size_offset = offset;
 	const char *key, *error;
 
@@ -306,8 +306,8 @@ settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 				&filter_settings_size, error_r) < 0)
 			return -1;
 
-		uoff_t tmp_offset = offset;
-		uoff_t filter_end_offset = offset + filter_settings_size;
+		size_t tmp_offset = offset;
+		size_t filter_end_offset = offset + filter_settings_size;
 		if (settings_block_read_str(mmap, &tmp_offset,
 					    filter_end_offset,
 					    "filter error string", &error,
@@ -326,7 +326,7 @@ settings_block_read(struct settings_mmap *mmap, uoff_t *_offset,
 
 	if (offset != block_end_offset) {
 		*error_r = t_strdup_printf(
-			"Filter end offset mismatch (%"PRIuUOFF_T" != %zu)",
+			"Filter end offset mismatch (%zu != %zu)",
 			offset, block_end_offset);
 		return -1;
 	}
@@ -382,7 +382,7 @@ settings_mmap_parse(struct settings_mmap *mmap, const char *service_name,
 		return -1;
 	}
 
-	uoff_t offset = full_size_offset + sizeof(settings_full_size);
+	size_t offset = full_size_offset + sizeof(settings_full_size);
 	if (settings_read_filters(mmap, service_name, flags, &offset,
 				  &protocols, error_r) < 0)
 		return -1;
