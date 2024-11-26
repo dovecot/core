@@ -65,7 +65,6 @@ const struct setting_parser_info pgsql_setting_parser_info = {
 struct pgsql_db {
 	struct sql_db api;
 
-	char *legacy_connect_string;
 	const struct pgsql_settings *set;
 	PGconn *pg;
 
@@ -303,32 +302,26 @@ static int driver_pgsql_connect(struct sql_db *_db)
 	io_loop_time_refresh();
 	tv_start = ioloop_timeval;
 
-	if (db->legacy_connect_string != NULL)
-		db->pg = PQconnectStart(db->legacy_connect_string);
-	else {
-		ARRAY_TYPE(const_string) keywords, values;
-		t_array_init(&keywords, 16);
-		t_array_init(&values, 16);
+	ARRAY_TYPE(const_string) keywords, values;
+	t_array_init(&keywords, 16);
+	t_array_init(&values, 16);
 
-		const char *host_str = "host";
-		array_push_back(&keywords, &host_str);
-		array_push_back(&values, &db->set->host);
+	const char *host_str = "host";
+	array_push_back(&keywords, &host_str);
+	array_push_back(&values, &db->set->host);
 
-		unsigned int i, count;
-		const char *const *strings =
-			array_get(&db->set->parameters, &count);
-		for (i = 0; i < count; i += 2) {
-			array_push_back(&keywords, &strings[i]);
-			array_push_back(&values, &strings[i + 1]);
-		}
-
-		array_append_zero(&keywords);
-		array_append_zero(&values);
-		db->pg = PQconnectStartParams(array_front(&keywords),
-					      array_front(&values), 0);
-
+	unsigned int i, count;
+	const char *const *strings =
+		array_get(&db->set->parameters, &count);
+	for (i = 0; i < count; i += 2) {
+		array_push_back(&keywords, &strings[i]);
+		array_push_back(&values, &strings[i + 1]);
 	}
 
+	array_append_zero(&keywords);
+	array_append_zero(&values);
+	db->pg = PQconnectStartParams(array_front(&keywords),
+				      array_front(&values), 0);
 	if (db->pg == NULL) {
 		i_fatal_status(FATAL_OUTOFMEM, "pgsql: PQconnectStart() failed (out of memory)");
 	}
@@ -390,7 +383,6 @@ static void driver_pgsql_free(struct pgsql_db **_db)
 
 	event_unref(&db->api.event);
 	settings_free(db->set);
-	i_free(db->legacy_connect_string);
 	i_free(db->error);
 	array_free(&db->api.module_contexts);
 	i_free(db);
@@ -429,8 +421,8 @@ driver_pgsql_db_cache_find(const struct pgsql_settings *set)
 }
 
 static struct pgsql_db *
-driver_pgsql_init_common(struct event *event_parent,
-			 const struct pgsql_settings *set)
+driver_pgsql_init_from_set(struct event *event_parent,
+			   const struct pgsql_settings *set)
 {
 	struct pgsql_db *db;
 
@@ -486,38 +478,9 @@ driver_pgsql_init_v(struct event *event, struct sql_db **db_r,
 	/* We're being initialized by sqlpool - create a real pgsql
 	 connection. */
 
-	struct pgsql_db *db = driver_pgsql_init_common(event, set);
+	struct pgsql_db *db = driver_pgsql_init_from_set(event, set);
 	event_drop_parent_log_prefixes(db->api.event, 1);
 	sql_init_common(&db->api);
-	*db_r = &db->api;
-	return 0;
-}
-
-static int
-driver_pgsql_init_full_v(const struct sql_legacy_settings *legacy_set,
-			 struct sql_db **db_r, const char **error_r ATTR_UNUSED)
-{
-	const char *value;
-
-	pool_t pool = pool_alloconly_create("pgsql settings", 128);
-	struct pgsql_settings *set =
-		settings_defaults_dup(pool, &pgsql_setting_parser_info);
-
-	/* NOTE: Connection string will be parsed by pgsql itself
-		 We only pick the host part here */
-	T_BEGIN {
-		const char *const *arg =
-			t_strsplit(legacy_set->connect_string, " ");
-
-		for (; *arg != NULL; arg++) {
-			if (str_begins(*arg, "host=", &value))
-				set->host = p_strdup(pool, value);
-
-		}
-	} T_END;
-	struct pgsql_db *db =
-		driver_pgsql_init_common(legacy_set->event_parent, set);
-	db->legacy_connect_string = i_strdup(legacy_set->connect_string);
 	*db_r = &db->api;
 	return 0;
 }
@@ -1473,7 +1436,6 @@ const struct sql_db driver_pgsql_db = {
 	.v = {
 		.get_flags = driver_pgsql_get_flags,
 		.init = driver_pgsql_init_v,
-		.init_legacy_full = driver_pgsql_init_full_v,
 		.deinit = driver_pgsql_deinit_v,
 		.connect = driver_pgsql_connect,
 		.disconnect = driver_pgsql_disconnect,
