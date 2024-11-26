@@ -27,6 +27,7 @@ struct master_service_ssl_settings {
 	bool ssl_require_crl;
 	bool verbose_ssl;
 	bool ssl_prefer_server_ciphers;
+	bool ssl_cert_username_cea;
 
 	/* These are derived from ssl_options, not set directly */
 	struct {
