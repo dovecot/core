@@ -106,7 +106,6 @@ const struct setting_keyvalue auth_worker_service_settings_defaults[] = {
 static const struct setting_define auth_passdb_setting_defines[] = {
 	DEF(STR, name),
 	DEF(STR, driver),
-	DEF(STR_NOVARS, args),
 	DEF(BOOL, fields_import_all),
 	DEF(BOOLLIST, mechanisms_filter),
 	DEF(STR, username_filter),
@@ -129,7 +128,6 @@ static const struct setting_define auth_passdb_setting_defines[] = {
 static const struct auth_passdb_settings auth_passdb_default_settings = {
 	.name = "",
 	.driver = "",
-	.args = "",
 	.fields_import_all = TRUE,
 	.mechanisms_filter = ARRAY_INIT,
 	.username_filter = "",

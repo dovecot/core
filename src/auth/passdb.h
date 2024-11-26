@@ -39,7 +39,6 @@ struct passdb_module_interface {
 	   given event. */
 	int (*preinit)(pool_t pool, struct event *event,
 		       struct passdb_module **module_r, const char **error_r);
-	struct passdb_module *(*preinit_legacy)(pool_t pool, const char *args);
 	void (*init)(struct passdb_module *module);
 	void (*deinit)(struct passdb_module *module);
 
@@ -59,7 +58,6 @@ struct passdb_module_interface {
 };
 
 struct passdb_module {
-	const char *args;
 	/* The default caching key for this module, or NULL if caching isn't
 	   wanted. This is updated by settings in auth_passdb. */
 	const char *default_cache_key;
