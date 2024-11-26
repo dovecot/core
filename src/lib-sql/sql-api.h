@@ -82,12 +82,6 @@ struct sql_settings {
 	const char *sql_driver;
 };
 
-struct sql_legacy_settings {
-	const char *driver;
-	const char *connect_string;
-	struct event *event_parent;
-};
-
 extern const struct setting_parser_info sql_setting_parser_info;
 
 typedef void sql_query_callback_t(struct sql_result *result, void *context);
@@ -105,13 +99,6 @@ void sql_driver_unregister(const struct sql_db *driver);
    driver initialization failed. */
 int sql_init_auto(struct event *event, struct sql_db **db_r,
 		  const char **error_r);
-
-/* Initialize database connections. db_driver is the database driver name,
-   eg. "mysql" or "pgsql". connect_string is driver-specific. */
-struct sql_db *
-sql_init_legacy(const char *db_driver, const char *connect_string);
-int sql_init_legacy_full(const struct sql_legacy_settings *set,
-			 struct sql_db **db_r, const char **error_r);
 
 void sql_ref(struct sql_db *db);
 void sql_unref(struct sql_db **db);
