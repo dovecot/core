@@ -43,8 +43,7 @@ AM_CPPFLAGS = \
 	$(SQL_CFLAGS)
 
 dist_sources = \
-	sql-api.c \
-	sql-db-cache-legacy.c
+	sql-api.c
 
 if ! SQL_PLUGINS
 driver_sources = \
@@ -100,8 +99,7 @@ libdovecot_sql_la_LDFLAGS = -export-dynamic
 
 headers = \
 	sql-api.h \
-	sql-api-private.h \
-	sql-db-cache-legacy.h
+	sql-api-private.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
