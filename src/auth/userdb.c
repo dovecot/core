@@ -119,27 +119,16 @@ userdb_preinit(pool_t pool, struct event *event,
 		i_fatal("Support not compiled in for userdb driver '%s'",
 			set->driver);
 	}
-	if (iface->preinit_legacy == NULL && iface->init == NULL &&
-	    *set->args != '\0') {
-		i_fatal("userdb %s: No args are supported: %s",
-			set->driver, set->args);
-	}
 
 	if (iface->preinit != NULL) {
-		if (set->args[0] != '\0')
-			i_fatal("userdb %s: userdb_args must be empty", set->name);
 		if (iface->preinit(pool, event, &userdb, &error) < 0)
 			i_fatal("userdb %s: %s", set->name, error);
 		userdb->blocking = set->use_worker;
 	} else {
-		if (iface->preinit_legacy == NULL)
-			userdb = p_new(pool, struct userdb_module, 1);
-		else
-			userdb = iface->preinit_legacy(pool, set->args);
+		userdb = p_new(pool, struct userdb_module, 1);
 	}
 	userdb->id = ++auth_userdb_id;
 	userdb->iface = iface;
-	userdb->args = p_strdup(pool, set->args);
 	array_push_back(&userdb_modules, &userdb);
 	return userdb;
 }

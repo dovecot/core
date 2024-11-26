@@ -21,7 +21,6 @@ typedef void userdb_callback_t(enum userdb_result result,
 typedef void userdb_iter_callback_t(const char *user, void *context);
 
 struct userdb_module {
-	const char *args;
 	/* The default caching key for this module, or NULL if caching isn't
 	   wanted. This is updated by settings in auth_userdb. */
 	const char *default_cache_key;
@@ -52,7 +51,6 @@ struct userdb_module_interface {
 	   given event. */
 	int (*preinit)(pool_t pool, struct event *event,
 		       struct userdb_module **module_r, const char **error_r);
-	struct userdb_module *(*preinit_legacy)(pool_t pool, const char *args);
 	void (*init)(struct userdb_module *module);
 	void (*deinit)(struct userdb_module *module);
 

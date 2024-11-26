@@ -24,7 +24,6 @@ struct event_category event_category_auth = {
 static const struct auth_userdb_settings userdb_dummy_set = {
 	.name = "",
 	.driver = "static",
-	.args = "",
 
 	.skip = "never",
 	.result_success = "return-ok",
