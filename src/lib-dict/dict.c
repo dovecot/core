@@ -113,51 +113,6 @@ void dict_driver_unregister(struct dict *driver)
 		array_free(&dict_drivers);
 }
 
-int dict_init_legacy(const char *uri, const struct dict_legacy_settings *set,
-		     struct dict **dict_r, const char **error_r)
-{
-	struct dict_legacy_settings set_dup = *set;
-	struct dict *dict;
-	const char *p, *name, *error;
-
-	p = strchr(uri, ':');
-	if (p == NULL) {
-		*error_r = t_strdup_printf("Dictionary URI is missing ':': %s",
-					   uri);
-		return -1;
-	}
-
-	name = t_strdup_until(uri, p);
-	dict = dict_driver_lookup(name);
-	if (dict == NULL) {
-		*error_r = t_strdup_printf("Unknown dict module: %s", name);
-		return -1;
-	}
-	if (dict->v.init_legacy == NULL) {
-		*error_r = t_strdup_printf(
-			"dict %s doesn't support legacy_init()", name);
-		return -1;
-	}
-	struct event *event = event_create(set->event_parent);
-	event_add_category(event, &event_category_dict);
-	event_add_str(event, "dict_driver", dict->name);
-	event_set_append_log_prefix(event, t_strdup_printf("dict(%s): ",
-				    dict->name));
-	set_dup.event_parent = event;
-	if (dict->v.init_legacy(dict, p+1, &set_dup, dict_r, &error) < 0) {
-		*error_r = t_strdup_printf("dict %s: %s", name, error);
-		event_unref(&event);
-		return -1;
-	}
-	i_assert(*dict_r != NULL);
-	(*dict_r)->refcount++;
-	(*dict_r)->event = event;
-	e_debug(event_create_passthrough(event)->set_name("dict_created")->event(),
-		"dict created (uri=%s, base_dir=%s)", uri, set->base_dir);
-
-	return 0;
-}
-
 static bool dict_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				const char **error_r ATTR_UNUSED)
 {
