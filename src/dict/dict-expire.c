@@ -63,38 +63,9 @@ static void client_connected(struct master_service_connection *conn ATTR_UNUSED)
 	dict_expire_run();
 }
 
-static void dict_expire_init_legacy(void)
-{
-	struct dict_legacy_settings dict_set = {
-		.base_dir = server_settings->base_dir,
-	};
-	struct dict *dict;
-	const char *const *strlist, *error;
-	unsigned int i, count;
-
-	if (!array_is_created(&server_settings->legacy_dicts))
-		return;
-	strlist = array_get(&server_settings->legacy_dicts, &count);
-	for (i = 0; i < count; i += 2) {
-		const char *name = strlist[i];
-		const char *uri = strlist[i+1];
-
-		if (dict_init_legacy(uri, &dict_set, &dict, &error) < 0) {
-			i_error("Failed to initialize dictionary '%s': %s - skipping",
-				name, error);
-		} else {
-			struct expire_dict *expire_dict =
-				array_append_space(&expire_dicts);
-			expire_dict->name = name;
-			expire_dict->dict = dict;
-		}
-	}
-}
-
 static void dict_expire_init(struct event *event)
 {
 	i_array_init(&expire_dicts, 16);
-	dict_expire_init_legacy();
 
 	if (!array_is_created(&dict_settings->dicts))
 		return;

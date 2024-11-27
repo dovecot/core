@@ -94,26 +94,6 @@ int dict_init_cache_get(struct event *event, const char *dict_name,
 	return ret;
 }
 
-int dict_init_cache_get_legacy(const char *dict_name, const char *uri,
-			       const struct dict_legacy_settings *set,
-			       struct dict **dict_r, const char **error_r)
-{
-	struct dict_init_cache_list *match;
-	int ret = 0;
-
-	match = dict_init_cache_find(dict_name);
-	if (match == NULL) {
-		if (dict_init_legacy(uri, set, dict_r, error_r) < 0)
-			return -1;
-		match = dict_init_cache_add(dict_name, *dict_r);
-	} else {
-		match->refcount++;
-		*dict_r = match->dict;
-	}
-	i_assert(match->dict != NULL);
-	return ret;
-}
-
 static void destroy_unrefed(void)
 {
 	struct dict_init_cache_list *listp, *next = NULL;

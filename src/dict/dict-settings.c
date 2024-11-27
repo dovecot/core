@@ -94,8 +94,6 @@ static const struct setting_define dict_setting_defines[] = {
 
 	DEF(STR_HIDDEN, base_dir),
 	DEF(BOOL, verbose_proctitle),
-	{ .type = SET_STRLIST, .key = "dict_legacy",
-	  .offset = offsetof(struct dict_server_settings, legacy_dicts) },
 
 	SETTING_DEFINE_LIST_END
 };
@@ -103,7 +101,6 @@ static const struct setting_define dict_setting_defines[] = {
 const struct dict_server_settings dict_default_settings = {
 	.base_dir = PKG_RUNDIR,
 	.verbose_proctitle = FALSE,
-	.legacy_dicts = ARRAY_INIT
 };
 
 const struct setting_parser_info dict_server_setting_parser_info = {
