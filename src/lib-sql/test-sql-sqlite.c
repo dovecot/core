@@ -1,6 +1,7 @@
 /* Copyright (c) 2021 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "settings.h"
 #include "sql-api-private.h"
 #include "test-common.h"
 #include "sql-api-private.h"
@@ -24,19 +25,22 @@ static void test_sql_sqlite(void)
 {
 	test_begin("test sql api");
 
-	const struct sql_legacy_settings set = {
-		.driver = "sqlite",
-		.connect_string = "test-database.db journal_mode=wal",
-	};
+	struct settings_simple set;
+	settings_simple_init(&set, (const char *const []) {
+		"sql_driver", "sqlite",
+		"sqlite_path", "test-database.db",
+		"sqlite_journal_mode", "wal",
+		NULL,
+	});
 	struct sql_db *sql = NULL;
 	const char *error = NULL;
 
 	sql_drivers_init_without_drivers();
 	driver_sqlite_init();
 
-	test_assert(sql_init_legacy_full(&set, &sql, &error) == 0 &&
-		    sql != NULL &&
-		    error == NULL);
+	if (sql_init_auto(set.event, &sql, &error) <= 0)
+		i_fatal("%s", error);
+	test_assert(sql != NULL && error == NULL);
 	setup_database(sql);
 
 	/* insert data */
@@ -62,6 +66,7 @@ static void test_sql_sqlite(void)
 
 	driver_sqlite_deinit();
 	sql_drivers_deinit_without_drivers();
+	settings_simple_deinit(&set);
 
 	test_end();
 }

@@ -24,9 +24,12 @@ struct test_sql_result {
 	const char *error;
 };
 
-static struct sql_db *driver_test_mysql_init(const char *connect_string);
-static struct sql_db *driver_test_cassandra_init(const char *connect_string);
-static struct sql_db *driver_test_sqlite_init(const char *connect_string);
+static int driver_test_mysql_init(struct event *event, struct sql_db **db_r,
+				  const char **error_r);
+static int driver_test_cassandra_init(struct event *event, struct sql_db **db_r,
+				      const char **error_r);
+static int driver_test_sqlite_init(struct event *event, struct sql_db **db_r,
+				   const char **error_r);
 static void driver_test_deinit(struct sql_db *_db);
 static int driver_test_connect(struct sql_db *_db);
 static void driver_test_disconnect(struct sql_db *_db);
@@ -88,7 +91,7 @@ const struct sql_db driver_test_mysql_db = {
 	.flags = SQL_DB_FLAG_BLOCKING | SQL_DB_FLAG_ON_DUPLICATE_KEY,
 
 	.v = {
-		.init_legacy = driver_test_mysql_init,
+		.init = driver_test_mysql_init,
 		.deinit = driver_test_deinit,
 		.connect = driver_test_connect,
 		.disconnect = driver_test_disconnect,
@@ -111,7 +114,7 @@ const struct sql_db driver_test_cassandra_db = {
 	.name = "cassandra",
 
 	.v = {
-		.init_legacy = driver_test_cassandra_init,
+		.init = driver_test_cassandra_init,
 		.deinit = driver_test_deinit,
 		.connect = driver_test_connect,
 		.disconnect = driver_test_disconnect,
@@ -135,7 +138,7 @@ const struct sql_db driver_test_sqlite_db = {
 	.flags = SQL_DB_FLAG_ON_CONFLICT_DO | SQL_DB_FLAG_BLOCKING,
 
 	.v = {
-		.init_legacy = driver_test_sqlite_init,
+		.init = driver_test_sqlite_init,
 		.deinit = driver_test_deinit,
 		.connect = driver_test_connect,
 		.disconnect = driver_test_disconnect,
@@ -184,30 +187,38 @@ void sql_driver_test_unregister(void)
 	sql_driver_unregister(&driver_test_sqlite_db);
 }
 
-static struct sql_db *driver_test_init(const struct sql_db *driver,
-					const char *connect_string ATTR_UNUSED)
+static int driver_test_init(const struct sql_db *driver,
+			    struct event *event ATTR_UNUSED,
+			    struct sql_db **db_r,
+			    const char **error_r ATTR_UNUSED)
 {
 	pool_t pool = pool_alloconly_create(MEMPOOL_GROWING" test sql driver", 2048);
 	struct test_sql_db *ret = p_new(pool, struct test_sql_db, 1);
 	ret->pool = pool;
 	ret->api = *driver;
 	p_array_init(&ret->expected, pool, 8);
-	return &ret->api;
+	sql_init_common(&ret->api);
+	*db_r = &ret->api;
+	return 0;
 }
 
-static struct sql_db *driver_test_mysql_init(const char *connect_string)
+static int driver_test_mysql_init(struct event *event, struct sql_db **db_r,
+				  const char **error_r)
 {
-	return driver_test_init(&driver_test_mysql_db, connect_string);
+	return driver_test_init(&driver_test_mysql_db, event, db_r, error_r);
 }
 
-static struct sql_db *driver_test_cassandra_init(const char *connect_string)
+static int driver_test_cassandra_init(struct event *event, struct sql_db **db_r,
+				      const char **error_r)
 {
-	return driver_test_init(&driver_test_cassandra_db, connect_string);
+	return driver_test_init(&driver_test_cassandra_db,
+				event, db_r, error_r);
 }
 
-static struct sql_db *driver_test_sqlite_init(const char *connect_string)
+static int driver_test_sqlite_init(struct event *event, struct sql_db **db_r,
+				   const char **error_r)
 {
-	return driver_test_init(&driver_test_sqlite_db, connect_string);
+	return driver_test_init(&driver_test_sqlite_db, event, db_r, error_r);
 }
 
 static void driver_test_deinit(struct sql_db *_db ATTR_UNUSED)
