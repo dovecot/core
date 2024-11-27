@@ -577,7 +577,7 @@ bool dsync_brain_recv_mailbox_tree_deletes(struct dsync_brain *brain)
 				dsync_mailbox_node_get_full_name(brain->local_mailbox_tree, node);
 			e_debug(brain->event,
 				"Remote mailbox tree deletion: guid=%s type=%s "
-				"timestamp=%ld name=%s local update=%s",
+				"timestamp=%"PRIdTIME_T" name=%s local update=%s",
 				guid_128_to_string(deletes[i].guid),
 				dsync_mailbox_delete_type_to_string(deletes[i].type),
 				deletes[i].timestamp, node_name, status);
