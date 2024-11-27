@@ -332,10 +332,6 @@ static int ssl_servername_callback(SSL *ssl, int *al,
 	ssl_io = SSL_get_ex_data(ssl, dovecot_ssl_extdata_index);
 	host = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
 
-	if (SSL_get_servername_type(ssl) == -1) {
-		e_debug(ssl_io->event, "SSL_get_servername() failed");
-	}
-
 	if (ssl_servername_process(ssl_io, host, al) < 0)
 		return SSL_TLSEXT_ERR_ALERT_FATAL;
 
