@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "test-lib.h"
+#include "settings.h"
 #include "sql-api-private.h"
 #include "dict.h"
 #include "dict-private.h"
@@ -13,15 +14,56 @@ struct dict_op_settings dict_op_settings = {
 	.username = "testuser",
 };
 
+static struct settings_simple set;
+
 static void test_setup(struct dict **dict_r)
 {
+	settings_simple_init(&set, (const char *const []) {
+		"dict", "sql",
+		"dict/sql/sql_driver", "mysql",
+		"dict/sql/host", "localhost",
+		"dict_map", "1 2 3 4 5",
+
+		"dict_map/1/pattern", "shared/dictmap/$key1/$key2",
+		"dict_map/1/sql_table", "table",
+		"dict_map/1/dict_map_value_field", "value",
+		"dict_map/1/dict_map_value_field/value/name", "value",
+		"dict_map/1/dict_map_key_field", "a b",
+		"dict_map/1/dict_map_key_field/a/value", "$key1",
+		"dict_map/1/dict_map_key_field/b/value", "$key2",
+
+		"dict_map/2/pattern", "shared/counters/$class/$name",
+		"dict_map/2/sql_table", "counters",
+		"dict_map/2/dict_map_value_field", "value",
+		"dict_map/2/dict_map_value_field/value/type", "uint",
+		"dict_map/2/dict_map_key_field", "class name",
+		"dict_map/2/dict_map_key_field/class/value", "$class",
+		"dict_map/2/dict_map_key_field/name/value", "$name",
+
+		"dict_map/3/pattern", "priv/quota/bytes",
+		"dict_map/3/sql_table", "quota",
+		"dict_map/3/username_field", "username",
+		"dict_map/3/dict_map_value_field", "bytes",
+		"dict_map/3/dict_map_value_field/bytes/type", "uint",
+
+		"dict_map/4/pattern", "priv/quota/count",
+		"dict_map/4/sql_table", "quota",
+		"dict_map/4/username_field", "username",
+		"dict_map/4/dict_map_value_field", "count",
+		"dict_map/4/dict_map_value_field/count/type", "uint",
+
+		"dict_map/5/pattern", "priv/quota/folders",
+		"dict_map/5/sql_table", "quota",
+		"dict_map/5/username_field", "username",
+		"dict_map/5/dict_map_value_field", "folders",
+		"dict_map/5/dict_map_value_field/folders/type", "uint",
+
+		NULL,
+	});
 	const char *error = NULL;
-	struct dict_legacy_settings set = {
-		.base_dir = "."
-	};
 	struct dict *dict = NULL;
 
-	if (dict_init_legacy("mysql:" DICT_SRC_DIR "/dict.conf", &set, &dict, &error) < 0)
+	if (dict_init_auto(set.event, &dict, &error) <= 0)
 		i_fatal("cannot initialize dict: %s", error);
 
 	*dict_r = dict;
@@ -34,6 +76,7 @@ static void test_teardown(struct dict **_dict)
 	if (dict != NULL) {
 		dict_deinit(&dict);
 	}
+	settings_simple_deinit(&set);
 }
 
 static void test_set_expected(struct dict *_dict,
