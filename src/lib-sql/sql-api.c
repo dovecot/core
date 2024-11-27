@@ -50,8 +50,16 @@ void sql_drivers_deinit_without_drivers(void)
 	array_free(&sql_drivers);
 }
 
+extern struct sql_db driver_sqlpool_db;
+
 void sql_drivers_init(void)
 {
+	/* Access driver-sqlpool in some way to avoid dropping the .o entirely
+	   when linking libsql.a to auth process when sql drivers are built as
+	   plugins. */
+	if (driver_sqlpool_db.v.init != NULL)
+		i_unreached();
+
 	sql_drivers_init_without_drivers();
 	sql_drivers_init_all();
 }
