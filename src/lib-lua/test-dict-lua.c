@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "settings.h"
 #include "dlua-script-private.h"
 #include "dict-private.h"
 #include "dict-lua.h"
@@ -54,16 +55,20 @@ static void test_dict_lua(void)
 "  assert(dict:lookup('shared/testkey')[1] == 'updated')\n"
 "  assert(dict:lookup('shared/testkey2') == nil)\n"
 "end\n";
-	struct dict_legacy_settings set = {
-		.base_dir = NULL,
-	};
 	struct dict *dict;
 	const char *error;
 
 	test_begin("dict lua");
 	struct ioloop *ioloop = io_loop_create();
 	i_unlink_if_exists(".test.dict");
-	if (dict_init_legacy("file:.test.dict", &set, &dict, &error) < 0)
+
+	struct settings_simple set;
+	settings_simple_init(&set, (const char *const []) {
+		"dict", "file",
+		"dict/file/path", ".test.dict",
+		NULL,
+	});
+	if (dict_init_auto(set.event, &dict, &error) <= 0)
 		i_fatal("dict_init(.test.dict) failed: %s", error);
 
 	struct dlua_script *script;
@@ -85,6 +90,7 @@ static void test_dict_lua(void)
 	dlua_script_unref(&script);
 	dict_deinit(&dict);
 	io_loop_destroy(&ioloop);
+	settings_simple_deinit(&set);
 
 	i_unlink(".test.dict");
 	test_end();
