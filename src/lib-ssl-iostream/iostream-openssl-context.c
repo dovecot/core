@@ -494,7 +494,8 @@ static int ssl_clienthello_callback(SSL *ssl, int *al,
 	size_t extlen;
 
 	/* Process extension 10 - groups */
-	if (SSL_client_hello_get0_ext(ssl, 10, &ext, &extlen) == 1 &&
+	if (SSL_client_hello_get0_ext(ssl, TLSEXT_TYPE_supported_groups,
+				      &ext, &extlen) == 1 &&
 	    extlen > 0) {
 		bool first = TRUE;
 		unsigned short veclen = be16_to_cpu_unaligned(ext);
@@ -515,7 +516,8 @@ static int ssl_clienthello_callback(SSL *ssl, int *al,
 
 	/* Process extension 11 - ec point formats */
 	ext = NULL;
-	if (SSL_client_hello_get0_ext(ssl, 11, &ext, &extlen) == 1 &&
+	if (SSL_client_hello_get0_ext(ssl, TLSEXT_TYPE_ec_point_formats,
+				      &ext, &extlen) == 1 &&
 	    extlen > 0 && extlen == ext[0]+1U) {
 		for (size_t i = 1; i < extlen; i++) {
 			if (i > 1)
