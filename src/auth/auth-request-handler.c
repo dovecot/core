@@ -943,7 +943,7 @@ void auth_request_handler_flush_failures(bool flush_all)
 	   to figure out results based on the order of replies. */
 	count = i;
 	for (i = 0; i < count; i++) {
-		j = random() % (count - i) + i;
+		j = i_rand_minmax(i, count - 1);
 		auth_request = auth_requests[aqueue_idx(auth_failures, i)];
 
 		/* swap i & j */
