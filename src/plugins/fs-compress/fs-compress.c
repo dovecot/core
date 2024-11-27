@@ -12,12 +12,10 @@
 #include "fs-api-private.h"
 
 #define FS_COMPRESS_ISTREAM_MIN_BUFFER_SIZE 1024
-#define COMPRESS_LEVEL_USE_AUTO INT_MIN
 
 struct compress_fs {
 	struct fs fs;
 	const struct compression_handler *compress_handler;
-	int compress_level; /* COMPRESS_LEVEL_USE_AUTO = use create_ostream_auto() */
 	bool try_plain;
 };
 
@@ -100,7 +98,6 @@ fs_compress_init(struct fs *_fs, const struct fs_parameters *params,
 		return -1;
 	}
 	settings_free(set);
-	fs->compress_level = COMPRESS_LEVEL_USE_AUTO;
 
 	return fs_init_parent(_fs, params, error_r);
 }
@@ -218,13 +215,8 @@ static void fs_compress_write_stream(struct fs_file *_file)
 		iostream_temp_create_named(_file->fs->temp_path_prefix,
 					   IOSTREAM_TEMP_FLAG_TRY_FD_DUP,
 					   fs_file_path(_file));
-	if (file->fs->compress_level == COMPRESS_LEVEL_USE_AUTO) {
-		_file->output = file->fs->compress_handler->
-			create_ostream_auto(file->temp_output, _file->event);
-	} else {
-		_file->output = file->fs->compress_handler->
-			create_ostream(file->temp_output, file->fs->compress_level);
-	}
+	_file->output = file->fs->compress_handler->
+		create_ostream_auto(file->temp_output, _file->event);
 }
 
 static int fs_compress_write_stream_finish(struct fs_file *_file, bool success)
