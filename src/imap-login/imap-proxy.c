@@ -621,13 +621,12 @@ proxy_side_cmd_compress(struct client *client, const char *const *args,
 	o_stream_nsend_str(client_output, t_strdup_printf(
 		"%s OK Begin compression.\r\n", args[1]));
 
-	int level = handler->get_default_level();
 	login_proxy_replace_client_iostream_pre(client->login_proxy);
 	/* The _pre() call may have replaced the client iostreams.
 	   Use client->input/output to get the latest ones. */
 	login_proxy_replace_client_iostream_post(client->login_proxy,
 		handler->create_istream(client->input),
-		handler->create_ostream(client->output, level));
+		handler->create_ostream_auto(client->output, client->event));
 	return 0;
 }
 
