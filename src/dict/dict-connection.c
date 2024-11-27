@@ -63,41 +63,6 @@ static int dict_connection_handshake_line(struct connection *conn,
 	return dict_connection_handshake_args(conn, args);
 }
 
-static int dict_connection_dict_init_legacy(struct dict_connection *conn)
-{
-	struct dict_legacy_settings dict_set;
-	const char *const *strlist;
-	unsigned int i, count;
-	const char *uri, *error;
-
-	if (!array_is_created(&server_settings->legacy_dicts))
-		return 0;
-	strlist = array_get(&server_settings->legacy_dicts, &count);
-	for (i = 0; i < count; i += 2) {
-		if (strcmp(strlist[i], conn->name) == 0)
-			break;
-	}
-
-	if (i == count)
-		return 0;
-	event_set_append_log_prefix(conn->conn.event,
-				    t_strdup_printf("%s: ", conn->name));
-	event_add_str(conn->conn.event, "dict_name", conn->name);
-	uri = strlist[i+1];
-
-	i_zero(&dict_set);
-	dict_set.base_dir = server_settings->base_dir;
-	dict_set.event_parent = conn->conn.event;
-	if (dict_init_cache_get_legacy(conn->name, uri, &dict_set,
-				       &conn->dict, &error) < 0) {
-		/* dictionary initialization failed */
-		e_error(conn->conn.event, "Failed to initialize dictionary '%s': %s",
-			conn->name, error);
-		return -1;
-	}
-	return 1;
-}
-
 static int dict_connection_dict_init_name(struct dict_connection *conn)
 {
 	struct event *event;
@@ -137,10 +102,6 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 		}
 	}
 
-	if (ret == 0) {
-		if ((ret = dict_connection_dict_init_legacy(conn)) < 0)
-			return -1;
-	}
 	if (ret == 0) {
 		e_error(conn->conn.event, "Unconfigured dictionary name '%s'",
 			conn->name);
