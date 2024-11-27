@@ -8,6 +8,7 @@
 #include "sha1.h"
 #include "randgen.h"
 #include "test-common.h"
+#include "settings.h"
 #include "compression.h"
 #include "iostream-lz4.h"
 
@@ -15,6 +16,8 @@
 
 #include <unistd.h>
 #include <fcntl.h>
+
+static struct settings_simple set;
 
 static void test_compression_handler_detect(const struct compression_handler *handler)
 {
@@ -35,7 +38,7 @@ static void test_compression_handler_detect(const struct compression_handler *ha
 	buffer = buffer_create_dynamic(default_pool, 1024);
 
 	test_output = test_ostream_create(buffer);
-	output = handler->create_ostream(test_output, 1);
+	output = handler->create_ostream_auto(test_output, set.event);
 	o_stream_unref(&test_output);
 
 	/* write data at once */
@@ -89,7 +92,7 @@ test_compression_handler_short(const struct compression_handler *handler,
 
 	buffer = buffer_create_dynamic(default_pool, 1024);
 	test_output = test_ostream_create(buffer);
-	output = handler->create_ostream(test_output, 1);
+	output = handler->create_ostream_auto(test_output, set.event);
 	o_stream_unref(&test_output);
 
 	/* write data at once */
@@ -131,7 +134,7 @@ test_compression_handler_empty(const struct compression_handler *handler,
 				   handler->name, autodetect ? "yes" : "no"));
 	buffer = buffer_create_dynamic(default_pool, 128);
 	test_output = test_ostream_create(buffer);
-	output = handler->create_ostream(test_output, 1);
+	output = handler->create_ostream_auto(test_output, set.event);
 	o_stream_unref(&test_output);
 	test_assert(o_stream_finish(output) == 1);
 	o_stream_unref(&output);
@@ -176,7 +179,7 @@ test_compression_handler_seek(const struct compression_handler *handler,
 
 	buffer = buffer_create_dynamic(default_pool, 1024);
 	test_output = test_ostream_create(buffer);
-	output = handler->create_ostream(test_output, 1);
+	output = handler->create_ostream_auto(test_output, set.event);
 	o_stream_unref(&test_output);
 
 	/* write data at once */
@@ -240,7 +243,7 @@ test_compression_handler_reset(const struct compression_handler *handler,
 
 	buffer = buffer_create_dynamic(default_pool, 1024);
 	test_output = test_ostream_create(buffer);
-	output = handler->create_ostream(test_output, 1);
+	output = handler->create_ostream_auto(test_output, set.event);
 	o_stream_unref(&test_output);
 
 	/* write data at once */
@@ -301,7 +304,7 @@ test_compression_handler(const struct compression_handler *handler,
 	if (fd == -1)
 		i_fatal("creat(%s) failed: %m", path);
 	file_output = o_stream_create_fd_file(fd, 0, FALSE);
-	output = handler->create_ostream(file_output, 1);
+	output = handler->create_ostream_auto(file_output, set.event);
 	sha1_init(&sha1);
 
 	/* 1) write lots of easily compressible data */
@@ -390,7 +393,8 @@ test_compression_handler_partial_parent_write(const struct compression_handler *
 	buffer_t *buffer = t_buffer_create(64);
 	buffer_t *compressed_data = t_buffer_create(256);
 	struct ostream *os = test_ostream_create_nonblocking(buffer, 64);
-	struct ostream *os_compressed = handler->create_ostream(os, 9);
+	struct ostream *os_compressed =
+		handler->create_ostream_auto(os, set.event);
 	o_stream_unref(&os);
 
 	unsigned char input_buffer[64];
@@ -487,7 +491,7 @@ test_compression_handler_random_io(const struct compression_handler *handler,
 							  i_rand_minmax(1, 512));
 
 		/* Create compressor output stream */
-		output2 = handler->create_ostream(output1, i_rand_minmax(1, 6));
+		output2 = handler->create_ostream_auto(output1, set.event);
 
 		/* Compress the data incrementally */
 		in_pos = out_pos = 0;
@@ -608,7 +612,7 @@ test_compression_handler_large_random_io(const struct compression_handler *handl
 	input = i_stream_create_from_data(randomness, RANDOMNESS_SIZE);
 
 	temp_output = iostream_temp_create(".temp.", 0);
-	output = handler->create_ostream(temp_output, i_rand_minmax(1, 6));
+	output = handler->create_ostream_auto(temp_output, set.event);
 
 	switch (o_stream_send_istream(output, input)) {
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
@@ -679,7 +683,7 @@ test_compression_handler_errors(const struct compression_handler *handler,
 	buffer_t *odata = buffer_create_dynamic(pool_datastack_create(), 65535);
 	unsigned char buf[IO_BLOCK_SIZE];
 	struct ostream *os = test_ostream_create(odata);
-	struct ostream *output = handler->create_ostream(os, 1);
+	struct ostream *output = handler->create_ostream_auto(os, set.event);
 	o_stream_unref(&os);
 
 	for (unsigned int i = 0; i < 10; i++) {
@@ -731,7 +735,7 @@ static void test_compression_int(bool autodetect)
 
 	for (i = 0; compression_handlers[i].name != NULL; i++) {
 		if (compression_handlers[i].create_istream != NULL &&
-		    compression_handlers[i].create_ostream != NULL &&
+		    compression_handlers[i].create_ostream_auto != NULL &&
 		    (!autodetect ||
 		     compression_handlers[i].is_compressed != NULL)) T_BEGIN {
 			if (compression_handlers[i].is_compressed != NULL &&
@@ -805,13 +809,13 @@ static void test_gz(const char *str1, const char *str2, bool autodetect)
 	buf_output = o_stream_create_buffer(buf);
 	o_stream_set_finish_via_child(buf_output, FALSE);
 
-	output = gz->create_ostream(buf_output, 6);
+	output = gz->create_ostream_auto(buf_output, set.event);
 	o_stream_nsend_str(output, str1);
 	test_assert(o_stream_finish(output) > 0);
 	o_stream_destroy(&output);
 
 	if (str2[0] != '\0') {
-		output = gz->create_ostream(buf_output, 6);
+		output = gz->create_ostream_auto(buf_output, set.event);
 		o_stream_nsend_str(output, "world");
 		test_assert(o_stream_finish(output) > 0);
 		o_stream_destroy(&output);
@@ -1047,7 +1051,7 @@ static void test_compress_file(const char *in_path, const char *out_path)
 
 	sha1_init(&sha1);
 	file_output = o_stream_create_fd_file(fd_out, 0, FALSE);
-	output = handler->create_ostream(file_output, 1);
+	output = handler->create_ostream_auto(file_output, set.event);
 	input = i_stream_create_fd_autoclose(&fd_in, IO_BLOCK_SIZE);
 	while (i_stream_read_more(input, &data, &size) > 0) {
 		sha1_loop(&sha1, data, size);
@@ -1097,9 +1101,20 @@ static void test_compression_ext(void)
 	test_end();
 }
 
+static void test_compression_init(void)
+{
+	settings_simple_init(&set, NULL);
+}
+
+static void test_compression_deinit(void)
+{
+	settings_simple_deinit(&set);
+}
+
 int main(int argc, char *argv[])
 {
 	static void (*const test_functions[])(void) = {
+		test_compression_init,
 		test_compression,
 		test_istream_decompression_try,
 		test_gz_concat,
@@ -1108,6 +1123,7 @@ int main(int argc, char *argv[])
 		test_gz_large_header,
 		test_lz4_small_header,
 		test_compression_ext,
+		test_compression_deinit,
 		NULL
 	};
 	if (argc == 2) {
@@ -1115,7 +1131,11 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 	if (argc == 3) {
+		lib_init();
+		settings_simple_init(&set, NULL);
 		test_compress_file(argv[1], argv[2]);
+		settings_simple_deinit(&set);
+		lib_deinit();
 		return 0;
 	}
 	return test_run(test_functions);

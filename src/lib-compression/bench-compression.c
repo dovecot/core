@@ -1,12 +1,13 @@
 /* Copyright (c) 2020 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "buffer.h"
+#include "array.h"
 #include "istream.h"
 #include "ostream.h"
 #include "randgen.h"
 #include "time-util.h"
 #include "strnum.h"
+#include "settings.h"
 #include "compression.h"
 
 #include <stdio.h>
@@ -20,12 +21,13 @@
  * compressed and how long it took.
  */
 
-static void bench_compression_speed(const struct compression_handler *handler,
-				    unsigned int level, unsigned long block_count)
+static void
+bench_compression_speed(const struct compression_handler *handler,
+			struct event *event, unsigned long block_count)
 {
 	struct istream *is = i_stream_create_file("decompressed.bin", 1024);
 	struct ostream *os = o_stream_create_file("compressed.bin", 0, 0644, 0);
-	struct ostream *os_compressed = handler->create_ostream(os, level);
+	struct ostream *os_compressed = handler->create_ostream_auto(os, event);
 	o_stream_unref(&os);
 
 	const unsigned char *data;
@@ -43,7 +45,10 @@ static void bench_compression_speed(const struct compression_handler *handler,
 	if (is->stream_errno != 0)
 		printf("Error: %s\n", i_stream_get_error(is));
 
-	i_assert(o_stream_finish(os_compressed) == 1);
+	int ret = o_stream_finish(os_compressed);
+	i_assert(ret != 0);
+	if (ret < 0)
+		i_fatal("%s", o_stream_get_error(os_compressed));
 	o_stream_unref(&os_compressed);
 	i_stream_unref(&is);
 
@@ -94,18 +99,20 @@ static void bench_compression_speed(const struct compression_handler *handler,
 
 static void print_usage(const char *prog)
 {
-	fprintf(stderr, "Usage: %s block_size count level\n", prog);
-	fprintf(stderr, "Runs with 1000 8k blocks using level 6 if nothing given\n");
+	fprintf(stderr, "Usage: %s [<block_size> [<count> [<compression settings>]]]\n", prog);
+	fprintf(stderr, "Runs with 1000 8k blocks if nothing given\n");
 	lib_exit(1);
 }
 
 int main(int argc, const char *argv[])
 {
-	unsigned int level = 6;
 	lib_init();
 
 	unsigned long block_size = 8192UL;
 	unsigned long block_count = 1000UL;
+
+	ARRAY_TYPE(const_string) set_array;
+	t_array_init(&set_array, 4);
 
 	if (argc >= 3) {
 		if (str_to_ulong(argv[1], &block_size) < 0 ||
@@ -113,10 +120,15 @@ int main(int argc, const char *argv[])
 			fprintf(stderr, "Invalid parameters\n");
 			print_usage(argv[0]);
 		}
-		if (argc == 4 &&
-		    str_to_uint(argv[3], &level) < 0) {
-			fprintf(stderr, "Invalid parameters\n");
-			print_usage(argv[0]);
+		while (argc > 3) {
+			const char *key, *value;
+			if (!t_split_key_value_eq(argv[3], &key, &value)) {
+				fprintf(stderr, "Invalid parameters\n");
+				print_usage(argv[0]);
+			}
+			array_push_back(&set_array, &key);
+			array_push_back(&set_array, &value);
+			argc--; argv++;
 		}
 		if (argc > 4) {
 			print_usage(argv[0]);
@@ -124,6 +136,10 @@ int main(int argc, const char *argv[])
 	} else if (argc != 1) {
 		print_usage(argv[0]);
 	}
+
+	struct settings_simple set;
+	array_append_zero(&set_array);
+	settings_simple_init(&set, array_front(&set_array));
 
 	unsigned char buf[block_size];
 	printf("Input data is %lu blocks of %lu bytes\n\n", block_count, block_size);
@@ -155,14 +171,15 @@ int main(int argc, const char *argv[])
 
 	for (unsigned int i = 0; compression_handlers[i].name != NULL; i++) T_BEGIN {
 		if (compression_handlers[i].create_istream != NULL &&
-		    compression_handlers[i].create_ostream != NULL) {
-			bench_compression_speed(&compression_handlers[i], level,
-						block_count);
+		    compression_handlers[i].create_ostream_auto != NULL) {
+			bench_compression_speed(&compression_handlers[i],
+						set.event, block_count);
 		}
 	} T_END;
 
 	i_unlink("decompressed.bin");
 	i_unlink("compressed.bin");
+	settings_simple_deinit(&set);
 
 	lib_deinit();
 }
