@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
 #include "bsearch-insert-pos.h"
 #include "unicode-data.h"
 #include "unicode-transform.h"
@@ -296,6 +297,125 @@ int uni_utf8_run_transform(const void *_input, size_t size,
 		i_panic("unicode_transform_flush(): %s", *error_r);
 	i_assert(fret == 1);
 	return ret;
+}
+
+static inline int
+uni_utf8_write_nf_common(const void *_input, size_t size,
+			 enum unicode_nf_type nf_type, buffer_t *output)
+{
+	static struct unicode_nf_context ctx;
+	const char *error;
+
+	unicode_nf_init(&ctx, nf_type);
+
+	return uni_utf8_run_transform(_input, size, &ctx.transform, output,
+				      &error);
+}
+
+int uni_utf8_write_nfd(const void *input, size_t size, buffer_t *output)
+{
+	return uni_utf8_write_nf_common(input, size, UNICODE_NFD, output);
+}
+
+int uni_utf8_write_nfkd(const void *input, size_t size, buffer_t *output)
+{
+	return uni_utf8_write_nf_common(input, size, UNICODE_NFKD, output);
+}
+
+int uni_utf8_write_nfc(const void *input, size_t size, buffer_t *output)
+{
+	return uni_utf8_write_nf_common(input, size, UNICODE_NFC, output);
+}
+
+int uni_utf8_write_nfkc(const void *input, size_t size, buffer_t *output)
+{
+	return uni_utf8_write_nf_common(input, size, UNICODE_NFKC, output);
+}
+
+int uni_utf8_to_nfd(const void *input, size_t size, const char **output_r)
+{
+	buffer_t *output = t_buffer_create(size);
+
+	if (uni_utf8_write_nf_common(input, size, UNICODE_NFD, output) < 0)
+		return -1;
+	*output_r = str_c(output);
+	return 0;
+}
+
+int uni_utf8_to_nfkd(const void *input, size_t size, const char **output_r)
+{
+	buffer_t *output = t_buffer_create(size);
+
+	if (uni_utf8_write_nf_common(input, size, UNICODE_NFKD, output) < 0)
+		return -1;
+	*output_r = str_c(output);
+	return 0;
+}
+
+int uni_utf8_to_nfc(const void *input, size_t size, const char **output_r)
+{
+	buffer_t *output = t_buffer_create(size);
+
+	if (uni_utf8_write_nf_common(input, size, UNICODE_NFC, output) < 0)
+		return -1;
+	*output_r = str_c(output);
+	return 0;
+}
+
+int uni_utf8_to_nfkc(const void *input, size_t size, const char **output_r)
+{
+	buffer_t *output = t_buffer_create(size);
+
+	if (uni_utf8_write_nf_common(input, size, UNICODE_NFKC, output) < 0)
+		return -1;
+	*output_r = str_c(output);
+	return 0;
+}
+
+static int
+uni_utf8_is_nf(const void *_input, size_t size, enum unicode_nf_type type)
+{
+	static struct unicode_nf_checker unc;
+	const unsigned char *input = _input;
+	unichar_t chr;
+	int ret;
+
+	unicode_nf_checker_init(&unc, type);
+
+	while (size > 0) {
+		const struct unicode_code_point_data *cp_data = NULL;
+		int bytes = uni_utf8_get_char_n(input, size, &chr);
+		if (bytes <= 0)
+			return -1;
+		input += bytes;
+		size -= bytes;
+
+		ret = unicode_nf_checker_input(&unc, chr, &cp_data);
+		if (ret <= 0)
+			return ret;
+	}
+
+	return unicode_nf_checker_finish(&unc);
+}
+
+int uni_utf8_is_nfd(const void *input, size_t size)
+{
+	return uni_utf8_is_nf(input, size, UNICODE_NFD);
+}
+
+int uni_utf8_is_nfkd(const void *input, size_t size)
+{
+	return uni_utf8_is_nf(input, size, UNICODE_NFKD);
+}
+
+int uni_utf8_is_nfc(const void *input, size_t size)
+{
+	return uni_utf8_is_nf(input, size, UNICODE_NFC);
+}
+
+int uni_utf8_is_nfkc(const void *input, size_t size)
+{
+	return uni_utf8_is_nf(input, size, UNICODE_NFKC);
 }
 
 int uni_utf8_to_decomposed_titlecase(const void *_input, size_t size,

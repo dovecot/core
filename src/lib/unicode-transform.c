@@ -35,9 +35,9 @@ ssize_t uniform_transform_forward(
 	return sret;
 }
 
-ssize_t unicode_transform_input(struct unicode_transform *trans,
-				const uint32_t *in, size_t in_len,
-				const char **error_r)
+ssize_t unicode_transform_input_buf(struct unicode_transform *trans,
+				    const struct unicode_transform_buffer *buf,
+				    const char **error_r)
 {
 	struct unicode_transform_buffer in_buf;
 	size_t input_total = 0;
@@ -47,9 +47,7 @@ ssize_t unicode_transform_input(struct unicode_transform *trans,
 
 	*error_r = NULL;
 
-	i_zero(&in_buf);
-	in_buf.cp = in;
-	in_buf.cp_count = in_len;
+	in_buf = *buf;
 
 	while (in_buf.cp_count > 0) {
 		if (in_buf.cp_count > 0) {
@@ -207,10 +205,15 @@ static const uint16_t uni_hangul_s_base = 0xac00;
 static const uint16_t uni_hangul_l_base = 0x1100;
 static const uint16_t uni_hangul_v_base = 0x1161;
 static const uint16_t uni_hangul_t_base = 0x11a7;
+static const unsigned int uni_hangul_l_count = 19;
 static const unsigned int uni_hangul_v_count = 21;
 static const unsigned int uni_hangul_t_count = 28;
 static const unsigned int uni_hangul_n_count =
 	uni_hangul_v_count * uni_hangul_t_count;
+static const uint16_t uni_hangul_l_end = uni_hangul_l_base + uni_hangul_l_count;
+static const uint16_t uni_hangul_v_end = uni_hangul_v_base + uni_hangul_v_count;
+static const uint16_t uni_hangul_t_end = uni_hangul_t_base + uni_hangul_t_count;
+static const uint16_t uni_hangul_s_end = 0xD7A4;
 
 static size_t unicode_hangul_decompose(uint32_t cp, uint32_t buf[3])
 {
@@ -238,6 +241,661 @@ static size_t unicode_hangul_decompose(uint32_t cp, uint32_t buf[3])
 	buf[1] = v_part;
 	buf[2] = t_part;
 	return 3;
+}
+
+static uint32_t unicode_hangul_compose_pair(uint32_t l, uint32_t r)
+{
+	/* The Unicode Standard, Section 3.12.3:
+	   Hangul Syllable Composition
+	 */
+
+	/* <LPart, VPart> */
+	if (l >= uni_hangul_l_base && l < uni_hangul_l_end &&
+	    r >= uni_hangul_v_base && r < uni_hangul_v_end) {
+		uint32_t l_part = l, v_part = r;
+
+		unsigned int l_index = l_part - uni_hangul_l_base;
+		unsigned int v_index = v_part - uni_hangul_v_base;
+		unsigned int lv_index = l_index * uni_hangul_n_count +
+					v_index * uni_hangul_t_count;
+		return uni_hangul_s_base + lv_index;
+	}
+	/* A sequence <LVPart, TPart> */
+	if (l >= uni_hangul_s_base && l < uni_hangul_s_end &&
+	    r >= (uni_hangul_t_base + 1) && r < uni_hangul_t_end &&
+	    ((l - uni_hangul_s_base) % uni_hangul_t_count) == 0) {
+		uint32_t lv_part = l, t_part = r;
+
+		unsigned int t_index = t_part - uni_hangul_t_base;
+		return lv_part + t_index;
+	}
+	return 0x0000;
+}
+
+/*
+ * Normalization transform: NFD, NFKD, NFC, NFKC
+ */
+
+static ssize_t
+unicode_nf_input(struct unicode_transform *trans,
+		 const struct unicode_transform_buffer *buf,
+		 const char **error_r);
+static int
+unicode_nf_flush(struct unicode_transform *trans, bool finished,
+		 const char **error_r);
+
+static const struct unicode_transform_def unicode_nf_def = {
+	.input = unicode_nf_input,
+	.flush = unicode_nf_flush,
+};
+
+void unicode_nf_init(struct unicode_nf_context *ctx_r,
+		     enum unicode_nf_type type)
+{
+	i_zero(ctx_r);
+	unicode_transform_init(&ctx_r->transform, &unicode_nf_def);
+
+	switch (type) {
+	case UNICODE_NFD:
+		ctx_r->canonical = TRUE;
+		ctx_r->nf_qc_mask = UNICODE_NFD_QUICK_CHECK_MASK;
+		break;
+	case UNICODE_NFKD:
+		ctx_r->nf_qc_mask = UNICODE_NFKD_QUICK_CHECK_MASK;
+		break;
+	case UNICODE_NFC:
+		ctx_r->compose = TRUE;
+		ctx_r->canonical = TRUE;
+		ctx_r->nf_qc_mask = UNICODE_NFC_QUICK_CHECK_MASK;
+		break;
+	case UNICODE_NFKC:
+		ctx_r->compose = TRUE;
+		ctx_r->nf_qc_mask = UNICODE_NFKC_QUICK_CHECK_MASK;
+		break;
+	}
+}
+
+void unicode_nf_reset(struct unicode_nf_context *ctx)
+{
+	enum unicode_nf_type type =
+		(ctx->compose ? (ctx->canonical ? UNICODE_NFC : UNICODE_NFKC) :
+				(ctx->canonical ? UNICODE_NFD : UNICODE_NFKD));
+	struct unicode_transform *next = ctx->transform.next;
+
+	unicode_nf_init(ctx, type);
+	unicode_transform_chain(&ctx->transform, next);
+}
+
+static void
+unicode_nf_buffer_delete(struct unicode_nf_context *ctx, size_t offset,
+			 size_t count)
+{
+	if (count == 0)
+		return;
+
+	i_assert(offset < ctx->buffer_len);
+	i_assert(count <= ctx->buffer_len);
+	i_assert(offset <= (ctx->buffer_len - count));
+
+	if (count == ctx->buffer_len) {
+		ctx->buffer_len = 0;
+		return;
+	}
+
+	size_t trailer = ctx->buffer_len - (offset + count);
+	if (trailer > 0) {
+		memmove(&ctx->cp_buffer[offset],
+			&ctx->cp_buffer[offset + count],
+			trailer * sizeof(ctx->cp_buffer[0]));
+		memmove(&ctx->cpd_buffer[offset],
+			&ctx->cpd_buffer[offset + count],
+			trailer * sizeof(ctx->cpd_buffer[0]));
+	}
+	ctx->buffer_len -= count;
+}
+
+static void
+unicode_nf_buffer_swap(struct unicode_nf_context *ctx,
+		       size_t idx1, size_t idx2)
+{
+	uint32_t tmp_cp = ctx->cp_buffer[idx2];
+	const struct unicode_code_point_data *tmp_cpd = ctx->cpd_buffer[idx2];
+
+	ctx->cp_buffer[idx2] = ctx->cp_buffer[idx1];
+	ctx->cpd_buffer[idx2] = ctx->cpd_buffer[idx1];
+	ctx->cp_buffer[idx1] = tmp_cp;
+	ctx->cpd_buffer[idx1] = tmp_cpd;
+}
+
+static void
+unicode_nf_cp(struct unicode_nf_context *ctx, uint32_t cp,
+	      const struct unicode_code_point_data *cpd)
+{
+	static const size_t buffer_size = UNICODE_NF_BUFFER_SIZE;
+	uint8_t nf_qc_mask = ctx->nf_qc_mask;
+	size_t i;
+
+	/*
+	 * Decompose the code point
+	 */
+
+	const uint32_t *decomp, *decomp_k;
+	uint32_t decomp_hangul[3];
+	size_t len, len_k;
+
+	if (cp >= HANGUL_FIRST && cp <= HANGUL_LAST) {
+		len = len_k = unicode_hangul_decompose(cp, decomp_hangul);
+		decomp = decomp_k = decomp_hangul;
+	} else {
+		if (cpd == NULL)
+			cpd = unicode_code_point_get_data(cp);
+		len = unicode_code_point_data_get_full_decomposition(
+			cpd, ctx->canonical, &decomp);
+		if (len == 0) {
+			decomp = &cp;
+			len = 1;
+		}
+		len_k = len;
+		decomp_k = decomp;
+		if (ctx->canonical) {
+			len_k = unicode_code_point_data_get_full_decomposition(
+				cpd, ctx->canonical, &decomp_k);
+			if (len_k == 0) {
+				decomp_k = decomp;
+				len_k = len;
+			}
+		}
+		if (len > 0)
+			cpd = NULL;
+	}
+
+	i_assert(len <= UNICODE_DECOMPOSITION_MAX_LENGTH);
+	i_assert(len_k <= UNICODE_DECOMPOSITION_MAX_LENGTH);
+
+	if ((ctx->buffer_len + len) > buffer_size) {
+		/* Decomposition overflows the buffer. Record and mark it as
+		   pending and come back to it once the buffer is sufficiently
+		   drained. */
+		i_assert(ctx->pending_decomp == 0);
+		ctx->pending_decomp = len;
+		ctx->pending_cp = cp;
+		ctx->pending_cpd = cpd;
+		return;
+	}
+
+	/* UAX15-D4: Stream-Safe Text Process is the process of producing a
+	   Unicode string in Stream-Safe Text Format by processing that string
+	   from start to finish, inserting U+034F COMBINING GRAPHEME JOINER
+	   (CGJ) within long sequences of non-starters. The exact position o
+	   the inserted CGJs are determined according to the following
+	   algorithm, which describes the generation of an output string from an
+	   input string:
+
+	   1. If the input string is empty, return an empty output string.
+	   2. Set nonStarterCount to zero.
+	   3. For each code point C in the input string:
+		a. Produce the NFKD decomposition S.
+		b. If nonStarterCount plus the number of initial non-starters in
+		   S is greater than 30, append a CGJ to the output string and
+		   set the nonStarterCount to zero.
+		c. Append C to the output string.
+		d. If there are no starters in S, increment nonStarterCount by
+		   the number of code points in S; otherwise, set
+		   nonStarterCount to the number of trailing non-starters in S
+		   (which may be zero).
+	   4. Return the output string.
+	 */
+
+	/* Determine number of leading and trailing non-starters in full NFKD
+	   decomposition. */
+	const struct unicode_code_point_data *
+		decomp_cpd[UNICODE_DECOMPOSITION_MAX_LENGTH];
+	size_t ns_lead = 0, ns_trail = 0;
+	bool seen_starter = FALSE;
+	for (i = 0; i < len_k; i++) {
+		if (cpd == NULL)
+			cpd = unicode_code_point_get_data(decomp[i]);
+
+		uint8_t ccc = cpd->canonical_combining_class;
+
+		if (decomp == decomp_k) {
+			decomp_cpd[i] = cpd;
+			cpd = NULL;
+		}
+
+		if (ccc == 0)
+			seen_starter = TRUE;
+		else if (!seen_starter)
+			ns_lead++;
+		else
+			ns_trail++;
+	}
+
+	/* Lookup canonical decomposed code points if necessary (avoid double
+	   lookups). */
+	if (decomp != decomp_k) {
+		for (i = 0; i < len; i++) {
+			if (cpd == NULL)
+				cpd = unicode_code_point_get_data(decomp[i]);
+			decomp_cpd[i] = cpd;
+			cpd = NULL;
+		}
+	}
+
+	ctx->nonstarter_count += ns_lead;
+	if (ctx->nonstarter_count > 30) {
+		ctx->nonstarter_count = ns_trail;
+
+		/* Write U+034F COMBINING GRAPHEME JOINER (CGJ)
+		 */
+		ctx->cp_buffer[ctx->buffer_len] = 0x034F;
+		ctx->cpd_buffer[ctx->buffer_len] =
+			unicode_code_point_get_data(0x034F);
+		ctx->buffer_len++;
+	}
+
+	/*
+	 * Buffer the requested decomposition for COA sorting
+	 */
+
+	i_assert(ctx->buffer_len <= buffer_size);
+	if ((ctx->buffer_len + len) > buffer_size) {
+		/* Decomposition now overflows the buffer. Record and mark it as
+		   pending and come back to it once the buffer is sufficiently
+		   drained. */
+		i_assert(ctx->pending_decomp == 0);
+		ctx->pending_decomp = len;
+		ctx->pending_cp = cp;
+		ctx->pending_cpd = cpd;
+	} else {
+		for (i = 0; i < len; i++) {
+			ctx->cp_buffer[ctx->buffer_len] = decomp[i];
+			ctx->cpd_buffer[ctx->buffer_len] = decomp_cpd[i];
+			ctx->buffer_len++;
+		}
+		i_assert(ctx->buffer_len <= buffer_size);
+	}
+
+	/*
+	 * Apply the Canonical Ordering Algorithm (COA)
+	 */
+
+	bool changed = TRUE;
+	size_t last_qc_y;
+	size_t last_starter;
+
+	while (changed) {
+		changed = FALSE;
+		last_qc_y = 0;
+		last_starter = 0;
+
+		for (i = I_MAX(1, ctx->buffer_output_max);
+		     i < ctx->buffer_len; i++) {
+			const struct unicode_code_point_data
+				*cpd_i = ctx->cpd_buffer[i],
+				*cpd_im1 = ctx->cpd_buffer[i - 1];
+			uint8_t ccc_i = cpd_i->canonical_combining_class;
+			uint8_t ccc_im1 = cpd_im1->canonical_combining_class;
+			bool nqc = ((cpd_i->nf_quick_check & nf_qc_mask) == 0);
+
+			if (ccc_i == 0) {
+				last_starter = i;
+				if (nqc)
+					last_qc_y = i;
+			} else if (ccc_im1 > ccc_i) {
+				unicode_nf_buffer_swap(ctx, i - 1, i);
+				changed = TRUE;
+			}
+		}
+	}
+	ctx->buffer_output_max = I_MIN(last_qc_y, last_starter);
+}
+
+static bool
+unicode_nf_input_cp(struct unicode_nf_context *ctx, uint32_t cp,
+		    const struct unicode_code_point_data *cpd)
+{
+	static const size_t buffer_size = UNICODE_NF_BUFFER_SIZE;
+
+	i_assert(ctx->buffer_len <= buffer_size);
+	if (ctx->buffer_len == buffer_size ||
+	    (ctx->pending_decomp > 0 &&
+	     ctx->buffer_len > (buffer_size - ctx->pending_decomp))) {
+		/* Buffer is (still too) full. */
+		return FALSE;
+	}
+
+	if (ctx->pending_decomp > 0) {
+		/* Earlier, the buffer was too full for the next decomposition
+		   and it was recorded and marked as pending. Now, we have the
+		   opportunity to continue. */
+		unicode_nf_cp(ctx, ctx->pending_cp, ctx->pending_cpd);
+		ctx->pending_decomp = 0;
+
+		i_assert(ctx->buffer_len <= buffer_size);
+		if (ctx->buffer_output_max > 0 &&
+		    ctx->buffer_len == buffer_size) {
+			/* Pending decomposition filled the buffer completely.
+			 */
+			return FALSE;
+		}
+	}
+
+	/* Normal input of next code point */
+	unicode_nf_cp(ctx, cp, cpd);
+	return TRUE;
+}
+
+static ssize_t
+unicode_nf_input(struct unicode_transform *trans,
+		 const struct unicode_transform_buffer *buf,
+		 const char **error_r ATTR_UNUSED)
+{
+	struct unicode_nf_context *ctx =
+		container_of(trans, struct unicode_nf_context, transform);
+	size_t n;
+
+	for (n = 0; n < buf->cp_count; n++) {
+		if (!unicode_nf_input_cp(ctx, buf->cp[n],
+					 (buf->cp_data == NULL ?
+					  NULL : buf->cp_data[n])))
+			break;
+	}
+	return n;
+}
+
+static uint32_t
+unicode_nf_compose_pair(uint32_t l, uint32_t r,
+			const struct unicode_code_point_data **l_data)
+{
+	uint32_t comp = unicode_hangul_compose_pair(l, r);
+
+	if (comp > 0x0000)
+		return comp;
+
+	if (*l_data == NULL)
+		*l_data = unicode_code_point_get_data(l);
+	return unicode_code_point_data_find_composition(*l_data, r);
+}
+
+static int
+unicode_nf_flush_more(struct unicode_nf_context *ctx, bool finished,
+		      const char **error_r)
+{
+	struct unicode_transform *trans = &ctx->transform;
+
+	ctx->finished = finished;
+
+	if (ctx->buffer_len == 0)
+		return 1;
+	if (!finished && ctx->buffer_output_max == 0)
+		return 0;
+
+	/*
+	 * Apply the Canonical Composition Algorithm
+	 */
+
+	if (ctx->finished)
+		ctx->buffer_output_max = ctx->buffer_len;
+	i_assert(ctx->buffer_processed <= ctx->buffer_output_max);
+	if (ctx->compose && ctx->buffer_len > 1) {
+		size_t in_pos, out_pos, starter;
+		int last_ccc;
+
+		out_pos = 1;
+		last_ccc = -1;
+		starter = 0;
+		for (in_pos = I_MAX(1, ctx->buffer_processed);
+		     in_pos < ctx->buffer_output_max; in_pos++) {
+			uint32_t cp = ctx->cp_buffer[in_pos];
+			const struct unicode_code_point_data *cpd =
+				ctx->cpd_buffer[in_pos];
+
+			if (cpd == NULL) {
+				ctx->cpd_buffer[in_pos] = cpd =
+					unicode_code_point_get_data(cp);
+			}
+
+			uint8_t ccc = cpd->canonical_combining_class;
+			uint32_t comp = 0x0000;
+			if (last_ccc < (int)ccc) {
+				comp = unicode_nf_compose_pair(
+					ctx->cp_buffer[starter], cp,
+					&ctx->cpd_buffer[starter]);
+			}
+			if (comp > 0x0000) {
+				ctx->cp_buffer[starter] = comp;
+				ctx->cpd_buffer[starter] = NULL;
+			} else if (ccc == 0) {
+				starter = out_pos;
+				last_ccc = -1;
+				ctx->cp_buffer[out_pos] = cp;
+				ctx->cpd_buffer[out_pos] = cpd;
+				out_pos++;
+			} else {
+				last_ccc = ccc;
+				ctx->cp_buffer[out_pos] = cp;
+				ctx->cpd_buffer[out_pos] = cpd;
+				out_pos++;
+			}
+		}
+		if (finished) {
+			ctx->buffer_len = ctx->buffer_output_max = out_pos;
+		} else if (in_pos > out_pos) {
+			unicode_nf_buffer_delete(ctx, out_pos,
+						 (in_pos - out_pos));
+			ctx->buffer_output_max = out_pos;
+		}
+	}
+	ctx->buffer_processed = ctx->buffer_output_max;
+
+	/*
+	 * Forward output
+	 */
+
+	size_t output_len = ctx->buffer_processed;
+	ssize_t sret;
+
+	sret = uniform_transform_forward(trans, ctx->cp_buffer, ctx->cpd_buffer,
+					 output_len, error_r);
+	if (sret < 0)
+		return -1;
+
+	i_assert((size_t)sret <= ctx->buffer_processed);
+	unicode_nf_buffer_delete(ctx, 0, sret);
+	ctx->buffer_processed -= sret;
+	ctx->buffer_output_max -= sret;
+	if ((size_t)sret < output_len)
+		return 0;
+	return 1;
+}
+
+static int
+unicode_nf_flush(struct unicode_transform *trans, bool finished,
+		 const char **error_r)
+{
+	struct unicode_nf_context *ctx =
+		container_of(trans, struct unicode_nf_context, transform);
+	int ret;
+
+	ret = unicode_nf_flush_more(ctx, finished, error_r);
+	if (ret <= 0)
+		return ret;
+
+	if (finished && ctx->pending_decomp > 0) {
+		unicode_nf_cp(ctx, ctx->pending_cp, ctx->pending_cpd);
+		ctx->pending_decomp = 0;
+	}
+
+	return unicode_nf_flush_more(ctx, finished, error_r);
+}
+
+/*
+ * Normalization check
+ */
+
+static ssize_t
+unicode_nf_check_sink_input(struct unicode_transform *trans,
+			    const struct unicode_transform_buffer *buf,
+			    const char **error_r);
+
+static const struct unicode_transform_def unicode_nf_check_sink_def = {
+	.input = unicode_nf_check_sink_input,
+};
+
+void unicode_nf_checker_init(struct unicode_nf_checker *unc_r,
+			     enum unicode_nf_type type)
+{
+	i_zero(unc_r);
+
+	switch (type) {
+	case UNICODE_NFD:
+		unc_r->canonical = TRUE;
+		unc_r->nf_qc_mask = UNICODE_NFD_QUICK_CHECK_MASK;
+		unc_r->nf_qc_yes = UNICODE_NFD_QUICK_CHECK_YES;
+		unc_r->nf_qc_no = UNICODE_NFD_QUICK_CHECK_NO;
+		break;
+	case UNICODE_NFKD:
+		unc_r->nf_qc_mask = UNICODE_NFKD_QUICK_CHECK_MASK;
+		unc_r->nf_qc_yes = UNICODE_NFKD_QUICK_CHECK_YES;
+		unc_r->nf_qc_no = UNICODE_NFKD_QUICK_CHECK_NO;
+		break;
+	case UNICODE_NFC:
+		unc_r->compose = TRUE;
+		unc_r->canonical = TRUE;
+		unc_r->nf_qc_mask = UNICODE_NFC_QUICK_CHECK_MASK;
+		unc_r->nf_qc_yes = UNICODE_NFC_QUICK_CHECK_YES;
+		unc_r->nf_qc_no = UNICODE_NFC_QUICK_CHECK_NO;
+		break;
+	case UNICODE_NFKC:
+		unc_r->compose = TRUE;
+		unc_r->nf_qc_mask = UNICODE_NFKC_QUICK_CHECK_MASK;
+		unc_r->nf_qc_yes = UNICODE_NFKC_QUICK_CHECK_YES;
+		unc_r->nf_qc_no = UNICODE_NFKC_QUICK_CHECK_NO;
+		break;
+	}
+
+	unicode_nf_init(&unc_r->nf, type);
+	unicode_transform_init(&unc_r->sink, &unicode_nf_check_sink_def);
+	unicode_transform_chain(&unc_r->nf.transform, &unc_r->sink);
+}
+
+void unicode_nf_checker_reset(struct unicode_nf_checker *unc)
+{
+	enum unicode_nf_type type =
+		(unc->compose ? (unc->canonical ? UNICODE_NFC : UNICODE_NFKC) :
+				(unc->canonical ? UNICODE_NFD : UNICODE_NFKD));
+
+	unicode_nf_checker_init(unc, type);
+}
+
+static ssize_t
+unicode_nf_check_sink_input(struct unicode_transform *trans,
+			    const struct unicode_transform_buffer *buf,
+			    const char **error_r)
+{
+	struct unicode_nf_checker *unc =
+		container_of(trans, struct unicode_nf_checker, sink);
+	size_t n;
+
+	i_assert(unc->buffer_len > 0);
+	i_assert(buf->cp_count <= unc->buffer_len);
+	for (n = 0; n < buf->cp_count; n++) {
+		if (buf->cp[n] != unc->cp_buffer[n]) {
+			*error_r = "Not normalized";
+			return -1;
+		}
+	}
+	if (buf->cp_count == unc->buffer_len)
+		unc->buffer_len = 0;
+	else {
+		unc->buffer_len -= buf->cp_count;
+		memmove(&unc->cp_buffer[0], &unc->cp_buffer[buf->cp_count],
+			unc->buffer_len);
+	}
+	return buf->cp_count;
+}
+
+int unicode_nf_checker_input(struct unicode_nf_checker *unc, uint32_t cp,
+			     const struct unicode_code_point_data **_cp_data)
+{
+	const struct unicode_code_point_data *cpd_last = unc->cpd_last;
+
+	if (*_cp_data == NULL)
+		*_cp_data = unicode_code_point_get_data(cp);
+
+	const struct unicode_code_point_data *cp_data = *_cp_data;
+	const char *error;
+	int ret;
+
+	unc->cpd_last = cp_data;
+
+	if (cp_data->general_category == UNICODE_GENERAL_CATEGORY_INVALID)
+		return -1;
+	if ((cp_data->nf_quick_check & unc->nf_qc_mask) == unc->nf_qc_no)
+		return 0;
+	if (cpd_last != NULL && cp_data->canonical_combining_class != 0 &&
+	    cpd_last->canonical_combining_class >
+		cp_data->canonical_combining_class)
+		return 0;
+	if ((cp_data->nf_quick_check & unc->nf_qc_mask) == unc->nf_qc_yes &&
+	    cp_data->canonical_combining_class == 0) {
+		if (unc->buffer_len > 0) {
+			ret = unicode_transform_flush(&unc->nf.transform,
+						      &error);
+			i_assert(ret != 0);
+			if (ret < 0)
+				return 0;
+			unicode_nf_reset(&unc->nf);
+		}
+		i_assert(unc->buffer_len == 0);
+		unc->cp_buffer[0] = cp;
+		return 1;
+	}
+
+	struct unicode_transform_buffer buf;
+	ssize_t sret;
+
+	if (unc->buffer_len == 0 && cpd_last != NULL) {
+		i_zero(&buf);
+		buf.cp = &unc->cp_buffer[0];
+		buf.cp_data = &cpd_last;
+		buf.cp_count = 1;
+
+		unc->buffer_len++;
+		sret = unicode_transform_input_buf(&unc->nf.transform, &buf,
+						   &error);
+		i_assert(sret != 0);
+		if (sret < 0)
+			return 0;
+	}
+
+	i_assert(unc->buffer_len < UNICODE_NF_BUFFER_SIZE);
+	unc->cp_buffer[unc->buffer_len] = cp;
+	unc->buffer_len++;
+
+	i_zero(&buf);
+	buf.cp = &cp;
+	buf.cp_data = &cp_data;
+	buf.cp_count = 1;
+	sret = unicode_transform_input_buf(&unc->nf.transform, &buf, &error);
+	i_assert(sret != 0);
+	if (sret < 0)
+		return 0;
+	return 1;
+}
+
+int unicode_nf_checker_finish(struct unicode_nf_checker *unc)
+{
+	if (unc->buffer_len == 0)
+		return 1;
+
+	const char *error;
+	int ret;
+
+	ret = unicode_transform_flush(&unc->nf.transform, &error);
+	i_assert(ret != 0);
+	return (ret > 0 ? 1 : 0);
 }
 
 /*

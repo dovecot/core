@@ -124,6 +124,39 @@ int uni_utf8_run_transform(const void *_input, size_t size,
 			   struct unicode_transform *trans, buffer_t *output,
 			   const char **error_r);
 
+/* Normalize the UTF-8 input in Unicode NFD, NFKD, NFC or NFKC form and write
+   the result to the output buffer.
+
+   Refer to Unicode Standard Annex #15, Section 1.2 for more information. An
+   excerpt can be found in unicode-nf.h.
+
+   NOTE: Do not blindly use this function to write and append several values
+   together expecting the result to be NF* normalized as well. This function
+   does not check whether concatenation preserves the desired normalization nor
+   does it endeavour to achieve this result. Blind concatination works only in
+   very specific cases, so make sure you know what you are doing.
+ */
+int uni_utf8_write_nfd(const void *input, size_t size, buffer_t *output);
+int uni_utf8_write_nfkd(const void *input, size_t size, buffer_t *output);
+int uni_utf8_write_nfc(const void *input, size_t size, buffer_t *output);
+int uni_utf8_write_nfkc(const void *input, size_t size, buffer_t *output);
+
+/* Same as the write variants, but return the normalized input in the
+   output_r argument as a C string.
+ */
+int uni_utf8_to_nfd(const void *input, size_t size, const char **output_r);
+int uni_utf8_to_nfkd(const void *input, size_t size, const char **output_r);
+int uni_utf8_to_nfc(const void *input, size_t size, const char **output_r);
+int uni_utf8_to_nfkc(const void *input, size_t size, const char **output_r);
+
+/* Check whether the input is normalized in the indicated form. Returns -1 if
+   the input is not even valid UTF8 or contains invalid code points. Returns 1
+   if the input adheres to the requested normalization form and 0 otherwise. */
+int uni_utf8_is_nfd(const void *input, size_t size);
+int uni_utf8_is_nfkd(const void *input, size_t size);
+int uni_utf8_is_nfc(const void *input, size_t size);
+int uni_utf8_is_nfkc(const void *input, size_t size);
+
 /* Convert UTF-8 input to titlecase and decompose the titlecase characters to
    output buffer. Returns 0 if ok, -1 if input was invalid. This generates
    output that's compatible with i;unicode-casemap comparator. Invalid input
