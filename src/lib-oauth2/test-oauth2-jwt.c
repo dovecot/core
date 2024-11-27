@@ -11,6 +11,7 @@
 #include "array.h"
 #include "iso8601-date.h"
 #include "json-generator.h"
+#include "settings.h"
 #include "oauth2.h"
 #include "oauth2-private.h"
 #include "dcrypt-private.h"
@@ -934,14 +935,17 @@ static void test_do_init(void)
 	const char *error;
 	struct dcrypt_settings dcrypt_set = {
 	};
-	struct dict_legacy_settings dict_set = {
-		.base_dir = ".",
-	};
+	struct settings_simple set;
+	settings_simple_init(&set, (const char *const []) {
+		"dict", "file",
+		"dict/file/path", ".keys",
+		NULL,
+	});
 
 	i_unlink_if_exists(".keys");
 	dict_driver_register(&dict_driver_file);
-	if (dict_init_legacy("file:.keys", &dict_set, &keys_dict, &error) < 0)
-		i_fatal("dict_init(file:.keys): %s", error);
+	if (dict_init_auto(set.event, &keys_dict, &error) <= 0)
+		i_fatal("dict_init_auto(): %s", error);
 	dcrypt_openssl_init(NULL);
 	if (!dcrypt_initialize(NULL, &dcrypt_set, &error)) {
 		i_error("No functional dcrypt backend found - "
@@ -958,6 +962,7 @@ static void test_do_init(void)
 					    hs_sign_key->data,
 					    hs_sign_key->used);
 	save_key("HS256", str_c(b64_key));
+	settings_simple_deinit(&set);
 }
 
 static void test_do_deinit(void)
