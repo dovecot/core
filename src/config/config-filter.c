@@ -123,7 +123,7 @@ bool config_filters_equal_no_recursion(const struct config_filter *f1,
 	if (!net_ip_compare(&f1->local_net, &f2->local_net))
 		return FALSE;
 
-	if (null_strcasecmp(f1->local_name, f2->local_name) != 0)
+	if (null_strcmp(f1->local_name, f2->local_name) != 0)
 		return FALSE;
 
 	if (null_strcmp(f1->filter_name, f2->filter_name) != 0)

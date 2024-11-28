@@ -1211,7 +1211,7 @@ int config_filter_parse(struct config_filter *filter, pool_t pool,
 				t_strcut(parent->filter_name, '/'),
 				t_strcut(parent->filter_name, '/'));
 		else
-			filter->local_name = p_strdup(pool, value);
+			filter->local_name = p_strdup(pool, t_str_lcase(value));
 	} else if (strcmp(key, "remote") == 0) {
 		if (parent->protocol != NULL)
 			*error_r = "protocol { remote { .. } } not allowed (use remote { protocol { .. } } instead)";
