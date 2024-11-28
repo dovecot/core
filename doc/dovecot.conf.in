@@ -1,0 +1,49 @@
+## Dovecot configuration file
+
+# Dovecot configuration version. This must be the first setting in the
+# configuration file. It specifies the configuration syntax, the used setting
+# names and the expected default values.
+dovecot_config_version = @DOVECOT_CONFIG_VERSION@
+
+# Dovecot storage file format version. It specifies the oldest Dovecot version
+# that must be able to read files written by this Dovecot instance. The
+# intention is that when upgrading Dovecot cluster, this setting is first kept
+# as the old Dovecot version. Once the cluster is fully upgraded to a new
+# version and there is no intention to rollback to the old version anymore,
+# this version number can be increased.
+dovecot_storage_version = @DOVECOT_CONFIG_VERSION@
+
+# The configuration below is a minimal configuration file using system user authentication.
+# See https://@DOVECOT_ASSET_URL@/configuration_manual/quick_configuration/
+
+!include_try conf.d/*.conf
+
+# Enable wanted protocols:
+protocols {
+  imap = yes
+  lmtp = yes
+}
+
+mail_home = /srv/mail/%{user}
+mail_driver = sdbox
+mail_path = ~/mail
+
+mail_uid = vmail
+mail_gid = vmail
+
+# By default first_valid_uid is 500. If your vmail user's UID is smaller,
+# you need to modify this:
+#first_valid_uid = uid-number-of-vmail-user
+
+namespace inbox {
+  inbox = yes
+  separator = /
+}
+
+# Authenticate as system users:
+passdb pam {
+}
+
+ssl_cert_file = /etc/dovecot/ssl-cert.pem
+ssl_key_file = /etc/dovecot/ssl-key.pem
+
