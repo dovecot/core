@@ -75,6 +75,8 @@ bool config_filters_equal(const struct config_filter *f1,
 			  const struct config_filter *f2);
 bool config_filters_equal_no_recursion(const struct config_filter *f1,
 				       const struct config_filter *f2);
+/* Returns hash of the filter and its parents. */
+unsigned int config_filter_hash(const struct config_filter *filter);
 /* Returns TRUE if filter is empty, and it has no parent filters, and it has
    default_settings=FALSE. */
 bool config_filter_is_empty(const struct config_filter *filter);

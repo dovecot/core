@@ -80,6 +80,8 @@ struct config_parser_context {
 
 	HASH_TABLE(const char *, struct config_parser_key *) all_keys;
 	ARRAY(struct config_filter_parser *) all_filter_parsers;
+	HASH_TABLE(struct config_filter *,
+		   struct config_filter_parser *) all_filter_parsers_hash;
 	struct config_module_parser *root_module_parsers;
 	struct config_section_stack *cur_section;
 	struct input_stack *cur_input;

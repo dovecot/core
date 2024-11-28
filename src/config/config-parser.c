@@ -1065,6 +1065,11 @@ config_add_new_parser(struct config_parser_context *ctx,
 		config_module_parsers_init(ctx->pool);
 	array_push_back(&ctx->all_filter_parsers, &filter_parser);
 
+	if (ctx->all_filter_parsers_hash._table != NULL) {
+		hash_table_insert(ctx->all_filter_parsers_hash,
+				  &filter_parser->filter, filter_parser);
+	}
+
 	if (parent_filter_parser != NULL) {
 		filter_parser->parent = parent_filter_parser;
 		DLLIST2_APPEND(&parent_filter_parser->children_head,
@@ -1092,6 +1097,13 @@ config_add_new_section(struct config_parser_context *ctx)
 static struct config_filter_parser *
 config_filter_parser_find(struct config_parser_context *ctx,
 			  const struct config_filter *filter)
+{
+	return hash_table_lookup(ctx->all_filter_parsers_hash, filter);
+}
+
+static struct config_filter_parser *
+config_filter_parser_find_slow(struct config_parser_context *ctx,
+			       const struct config_filter *filter)
 {
 	struct config_filter_parser *filter_parser;
 
@@ -1440,7 +1452,7 @@ config_filter_parser_check(struct config_parser_context *ctx,
 	struct config_filter default_filter = filter_parser->filter;
 	default_filter.default_settings = TRUE;
 	struct config_filter_parser *default_filter_parser =
-		config_filter_parser_find(ctx, &default_filter);
+		config_filter_parser_find_slow(ctx, &default_filter);
 	default_p = default_filter_parser == NULL ? NULL :
 		default_filter_parser->module_parsers;
 
@@ -2229,6 +2241,10 @@ config_parse_finish(struct config_parser_context *ctx,
 	new_config->filter_parsers = array_front(&ctx->all_filter_parsers);
 	new_config->module_parsers = ctx->root_module_parsers;
 
+	/* Destroy it here, so config filter tree merging no longer attempts
+	   to update it. */
+	hash_table_destroy(&ctx->all_filter_parsers_hash);
+
 	if (ret == 0) {
 		ret = config_parse_finish_includes(ctx, new_config,
 			(flags & CONFIG_PARSE_FLAG_MERGE_GROUP_FILTERS) != 0,
@@ -2724,6 +2740,13 @@ config_parser_get_filter_name_prefixes(struct config_parser_context *ctx)
 		ctx->filter_name_prefixes = array_front(&filter_name_prefixes);
 }
 
+static int
+config_filters_cmp(const struct config_filter *f1,
+		   const struct config_filter *f2)
+{
+	return config_filters_equal(f1, f2) ? 0 : 1;
+}
+
 int config_parse_file(const char *path, enum config_parse_flags flags,
 		      const struct config_filter *dump_filter,
 		      struct config_parsed **config_r,
@@ -2793,6 +2816,8 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	hash_table_create(&ctx.seen_settings, ctx.pool, 0, str_hash, strcmp);
 
 	p_array_init(&ctx.all_filter_parsers, ctx.pool, 128);
+	hash_table_create(&ctx.all_filter_parsers_hash, ctx.pool, 0,
+			  config_filter_hash, config_filters_cmp);
 	ctx.cur_section = p_new(ctx.pool, struct config_section_stack, 1);
 	/* Global settings filter must be the first. */
 	struct config_filter root_filter = { };
@@ -2907,6 +2932,7 @@ prevfile:
 
 	hash_table_destroy(&ctx.seen_settings);
 	hash_table_destroy(&ctx.all_keys);
+	hash_table_destroy(&ctx.all_filter_parsers_hash);
 	str_free(&full_line);
 	pool_unref(&ctx.pool);
 	return ret < 0 ? ret : 1;
