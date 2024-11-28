@@ -142,9 +142,7 @@ endif
 
 test_libs = \
 	$(noinst_LTLIBRARIES) \
-	../lib-settings/libsettings.la \
-	../lib-test/libtest.la \
-	../lib/liblib.la
+	../lib-dovecot/libdovecot.la
 
 check_PROGRAMS = test-sql
 
