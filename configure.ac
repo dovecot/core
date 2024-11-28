@@ -19,6 +19,9 @@ AM_INIT_AUTOMAKE([foreign tar-ustar])
 AM_SILENT_RULES([yes])
 
 AM_MAINTAINER_MODE
+AC_PROG_GREP
+AC_PROG_SED
+
 PKG_PREREQ([0.28])
 PKG_PROG_PKG_CONFIG
 
@@ -265,7 +268,7 @@ AM_ICONV
 CXXFLAGS="$CXXFLAGS -D__STDC_LIMIT_MACROS"
 
 # Use the first x.y.z numbers of the version.
-DOVECOT_CONFIG_VERSION=$(echo "$PACKAGE_VERSION" | sed 's/^\([[0-9]]*\.[[0-9]]*\.[[0-9]]*\).*$/\1/')
+DOVECOT_CONFIG_VERSION=$(echo "$PACKAGE_VERSION" | $SED 's/^\([[0-9]]*\.[[0-9]]*\.[[0-9]]*\).*$/\1/')
 if test "$is_pro_build" = "yes"; then
   SET_PRO_DEFINES
   AC_SUBST(DOVECOT_ASSET_URL, "doc.dovecotpro.com")
@@ -730,19 +733,19 @@ dnl **
 dnl ** Settings
 dnl **
 
-libdovecot_dirs=`echo "$LIBDOVECOT_LA_LIBS" | sed -e "s:\\$(top_builddir):$srcdir:g" -e 's:/[[^/]]*\\.la::g'`
+libdovecot_dirs=`echo "$LIBDOVECOT_LA_LIBS" | $SED -e "s:\\$(top_builddir):$srcdir:g" -e 's:/[[^/]]*\\.la::g'`
 
 libdovecot_headers=
 libdovecot_c_files=
 non_libdovecot_headers=
 non_libdovecot_c_files=
-all_files=`find $srcdir/src -name '*.[[ch]]' | grep -v '/src/config/all-settings.c' | grep -v '/src/lib-settings/' | grep -v '/test-' | xargs grep -e 'struct setting_parser_info [[a-z]]' -e 'struct service_settings [[a-z]]' -e '<settings checks>' | sed 's/:.*//' | sort | uniq`
+all_files=`find $srcdir/src -name '*.[[ch]]' | $GREP -v '/src/config/all-settings.c' | $GREP -v '/src/lib-settings/' | $GREP -v '/test-' | xargs $GREP -e 'struct setting_parser_info [[a-z]]' -e 'struct service_settings [[a-z]]' -e '<settings checks>' | $SED 's/:.*//' | sort | uniq`
 for file in $all_files; do
-  dir=`echo "$file" | sed 's:/[[^/]]*$::'`
+  dir=`echo "$file" | $SED 's:/[[^/]]*$::'`
   basefile=`basename $file`
-  if echo "$libdovecot_dirs" | grep "$dir" >/dev/null; then
+  if echo "$libdovecot_dirs" | $GREP "$dir" >/dev/null; then
     dnl lib-dovecot
-    if echo "$file" | grep '\.h$' >/dev/null; then
+    if echo "$file" | $GREP '\.h$' >/dev/null; then
       libdovecot_headers="$libdovecot_headers $file"
     else
       libdovecot_c_files="$libdovecot_c_files $file"
@@ -753,7 +756,7 @@ for file in $all_files; do
 
     if test "$BUILD_IMAP_HIBERNATE" = 0 && test "$basefile" = "imap-hibernate-settings.c"; then
       continue
-    elif echo "$file" | grep '\.h$' >/dev/null; then
+    elif echo "$file" | $GREP '\.h$' >/dev/null; then
       non_libdovecot_headers="$non_libdovecot_headers $file"
     else
       non_libdovecot_c_files="$non_libdovecot_c_files $file"
@@ -766,8 +769,8 @@ dnl file contents. However, we still need to scan the .c files for any
 dnl setting_parser_infos that aren't elsewhere.
 
 # list headers first, C files last
-SETTING_FILES=`echo $libdovecot_headers $non_libdovecot_headers $non_libdovecot_c_files | sed -e s,$srcdir/src,./src,g -e 's,./src,$(top_srcdir)/src,g'`
-SETTING_LINKED_FILES=`echo $libdovecot_c_files | sed -e s,$srcdir/src,./src,g -e 's,./src,$(top_srcdir)/src,g'`
+SETTING_FILES=`echo $libdovecot_headers $non_libdovecot_headers $non_libdovecot_c_files | $SED -e s,$srcdir/src,./src,g -e 's,./src,$(top_srcdir)/src,g'`
+SETTING_LINKED_FILES=`echo $libdovecot_c_files | $SED -e s,$srcdir/src,./src,g -e 's,./src,$(top_srcdir)/src,g'`
 AC_SUBST(SETTING_FILES)
 AC_SUBST(SETTING_LINKED_FILES)
 
@@ -929,10 +932,10 @@ if test "$want_sql" = "plugin"; then
   sql_drivers="$sql_drivers (plugins)"
 fi
 
-not_passdb=`echo "$not_passdb"|sed 's/ / -/g'`
-not_userdb=`echo "$not_userdb"|sed 's/ / -/g'`
-not_sql_drivers=`echo "$not_sql_drivers"|sed 's/ / -/g'`
-not_fts=`echo "$not_fts"|sed 's/ / -/g'`
+not_passdb=`echo "$not_passdb"| $SED 's/ / -/g'`
+not_userdb=`echo "$not_userdb"| $SED 's/ / -/g'`
+not_sql_drivers=`echo "$not_sql_drivers"| $SED 's/ / -/g'`
+not_fts=`echo "$not_fts"| $SED 's/ / -/g'`
 
 echo
 echo "Install prefix . : $prefix"

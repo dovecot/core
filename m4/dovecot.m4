@@ -367,8 +367,8 @@ AC_DEFUN([DC_DOVECOT],[
 	ORIG_BINARY_CFLAGS="$BINARY_CFLAGS"
 	ORIG_BINARY_LDFLAGS="$BINARY_LDFLAGS"
 
-	eval `grep -i '^dovecot_[[a-z_]]*=' "$dovecotdir"/dovecot-config`
-	eval `grep '^LIBDOVECOT[[A-Z0-9_]]*=' "$dovecotdir"/dovecot-config`
+	eval `$GREP -i '^dovecot_[[a-z_]]*=' "$dovecotdir"/dovecot-config`
+	eval `$GREP '^LIBDOVECOT[[A-Z0-9_]]*=' "$dovecotdir"/dovecot-config`
 
         CFLAGS="$ORIG_CFLAGS"
         LDFLAGS="$ORIG_LDFLAGS"
@@ -411,7 +411,7 @@ AC_DEFUN([DC_DOVECOT],[
 AC_DEFUN([DC_CC_WRAPPER],[
   AS_IF([test "$want_shared_libs" != "yes"], [
     dnl want_shared_libs=no is for internal use. the liblib.la check is for plugins
-    AS_IF([test "$want_shared_libs" = "no" || echo "$LIBDOVECOT" | grep "/liblib.la" > /dev/null], [
+    AS_IF([test "$want_shared_libs" = "no" || echo "$LIBDOVECOT" | $GREP "/liblib.la" > /dev/null], [
       AS_IF([test "$with_gnu_ld" = yes], [
 	dnl libtool can't handle using whole-archive flags, so we need to do this
 	dnl with a CC wrapper.. shouldn't be much of a problem, since most people
@@ -419,7 +419,7 @@ AC_DEFUN([DC_CC_WRAPPER],[
 	cat > cc-wrapper.sh <<_DC_EOF
 #!/bin/sh
 
-if echo "\$[*]" | grep -- -export-dynamic > /dev/null; then
+if echo "\$[*]" | $GREP -- -export-dynamic > /dev/null; then
   # the binary uses plugins. make sure we include everything from .a libs
   exec $CC -Wl,--whole-archive \$[*] -Wl,--no-whole-archive
 else
@@ -515,7 +515,7 @@ m4_ifval([$2],
 dnl * clang check
 AC_DEFUN([CC_CLANG],[
   AC_MSG_CHECKING([whether $CC is clang 3.3+])
-  AS_IF([$CC -dM -E -x c /dev/null | grep __clang__ > /dev/null 2>&1], [
+  AS_IF([$CC -dM -E -x c /dev/null | $GREP __clang__ > /dev/null 2>&1], [
       AS_VAR_SET([have_clang], [yes])
   ], [
       AS_VAR_SET([have_clang], [no])

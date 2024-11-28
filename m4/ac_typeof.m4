@@ -53,7 +53,7 @@ AC_DEFUN([AC_TYPEOF], [
             visible="unknown"
             break
           ])
-          result="`echo $type|sed 's/-/ /g'`"
+          result="`echo $type | $SED 's/-/ /g'`"
           visible="$result"
         ],[])
       ])
@@ -63,7 +63,7 @@ AC_DEFUN([AC_TYPEOF], [
 
   AS_IF([test "$result" = ""], [
     for type in $order; do
-      type="`echo $type|sed 's/-/ /g'`"
+      type="`echo $type | $SED 's/-/ /g'`"
       AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
         #include <sys/types.h>
         typedef $type $1;
@@ -97,10 +97,10 @@ AC_DEFUN([AC_TYPEOF], [
       rm -f conftestval
 
       for type in $order; do
-        actype="ac_cv_sizeof_`echo $type|sed 's/-/_/g'`"
+        actype="ac_cv_sizeof_`echo $type | $SED 's/-/_/g'`"
         AS_IF([test "$size" = "`eval echo \\$$actype`"], [
-          result="`echo $type|sed 's/-/ /g'`"
-          visible="`expr $size \* 8`bit (using $result)"
+          result="`echo $type | $SED 's/-/ /g'`"
+          visible="`expr $size \* 8`bit ( using $result)"
           break
         ])
       done
@@ -114,8 +114,8 @@ AC_DEFUN([AC_TYPEOF], [
   dnl * AC_CACHE_VAL
   ])
 
-  typeof_$1=`echo $i_cv_typeof_$1 | sed s,/.*$,,`
-  visible=`echo $i_cv_typeof_$1 | sed s,^.*/,,`
+  typeof_$1=`echo $i_cv_typeof_$1 | $SED s,/.*$,,`
+  visible=`echo $i_cv_typeof_$1 | $SED s,^.*/,,`
   AC_MSG_RESULT($visible)
 ])
 
