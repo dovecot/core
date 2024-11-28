@@ -27,7 +27,7 @@ struct stats_client {
 	struct timeval wait_started;
 	bool handshaked;
 	bool handshake_received_at_least_once;
-	bool silent_notfound_errors;
+	bool silent_errors;
 };
 
 static struct connection_list *stats_clients;
@@ -383,15 +383,15 @@ static void stats_client_connect(struct stats_client *client)
 		stats_client_send_registered_categories(client);
 		if (!client->handshake_received_at_least_once)
 			stats_client_wait(client, STATS_CLIENT_HANDSHAKE_WAIT);
-	} else if (!client->silent_notfound_errors ||
-		   (errno != ENOENT && errno != ECONNREFUSED)) {
+	} else if (!client->silent_errors ||
+		   (errno != ENOENT && errno != ECONNREFUSED &&
+		    !ENOACCESS(errno))) {
 		e_error(client->conn.event,
 			"net_connect_unix(%s) failed: %m", client->conn.name);
 	}
 }
 
-struct stats_client *
-stats_client_init(const char *path, bool silent_notfound_errors)
+struct stats_client *stats_client_init(const char *path, bool silent_errors)
 {
 	struct stats_client *client;
 
@@ -399,7 +399,7 @@ stats_client_init(const char *path, bool silent_notfound_errors)
 		stats_global_init();
 
 	client = i_new(struct stats_client, 1);
-	client->silent_notfound_errors = silent_notfound_errors;
+	client->silent_errors = silent_errors;
 	connection_init_client_unix(stats_clients, &client->conn, path);
 	stats_client_connect(client);
 	return client;
