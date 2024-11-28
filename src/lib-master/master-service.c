@@ -807,15 +807,14 @@ void master_service_init_log_with_pid(struct master_service *service)
 }
 
 void master_service_init_stats_client(struct master_service *service,
-				      bool silent_notfound_errors)
+				      bool silent_errors)
 {
 	if (service->stats_client == NULL &&
 	    service->set->stats_writer_socket_path[0] != '\0') T_BEGIN {
 		const char *path = t_strdup_printf("%s/%s",
 			service->set->base_dir,
 			service->set->stats_writer_socket_path);
-		service->stats_client =
-			stats_client_init(path, silent_notfound_errors);
+		service->stats_client = stats_client_init(path, silent_errors);
 	} T_END;
 }
 
