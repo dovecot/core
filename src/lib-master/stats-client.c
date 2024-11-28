@@ -388,6 +388,9 @@ static void stats_client_connect(struct stats_client *client)
 		    !ENOACCESS(errno))) {
 		e_error(client->conn.event,
 			"net_connect_unix(%s) failed: %m", client->conn.name);
+	} else {
+		e_debug(client->conn.event,
+			"net_connect_unix(%s) failed: %m", client->conn.name);
 	}
 }
 
