@@ -211,10 +211,6 @@ imap_hibernate_process_send(struct client *client, const buffer_t *state,
 bool imap_client_hibernate(struct client **_client, const char **reason_r)
 {
 	struct client *client = *_client;
-	buffer_t *state;
-	const char *error;
-	int ret, fd_notify = -1, fd_hibernate = -1;
-
 	*reason_r = NULL;
 
 	if (client->fd_in != client->fd_out) {
@@ -222,6 +218,12 @@ bool imap_client_hibernate(struct client **_client, const char **reason_r)
 		*reason_r = "stdio clients can't be hibernated";
 		return FALSE;
 	}
+
+#ifdef BUILD_IMAP_HIBERNATE
+	buffer_t *state;
+	const char *error;
+	int ret, fd_notify = -1, fd_hibernate = -1;
+
 	if (o_stream_get_buffer_used_size(client->output) > 0) {
 		/* wait until we've sent the pending output to client */
 		*reason_r = "output pending to client";
@@ -294,4 +296,8 @@ bool imap_client_hibernate(struct client **_client, const char **reason_r)
 		net_disconnect(fd_hibernate);
 	buffer_free(&state);
 	return ret > 0;
+#else
+	*reason_r = "imap hibernation is not enabled";
+	return FALSE;
+#endif
 }
