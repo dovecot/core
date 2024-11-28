@@ -22,11 +22,7 @@ See [Compiling Dovecot From Sources](https://doc.dovecot.org/installation_guide/
 Running
 =======
 
-Start with the example configuration:
-
-```
-cp -r /usr/local/share/doc/dovecot/example-config/* /usr/local/etc/dovecot/
-```
+Start with the minimal configuration installed in `/usr/local/etc/dovecot/`.
 
 Read through, and make needed modifications.
 

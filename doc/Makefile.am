@@ -1,5 +1,4 @@
-SUBDIRS = . example-config man
-DOCDIRS = example-config
+SUBDIRS = . man
 
 docfiles = \
 	thread-refs.txt \
