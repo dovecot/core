@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "crc32.h"
 #include "settings-parser.h"
 #include "master-service-settings.h"
 #include "config-parser.h"
@@ -160,6 +161,40 @@ bool config_filters_equal(const struct config_filter *f1,
 	   default_settings are equal. This makes it easier for callers to
 	   do lookups with the wanted default_settings flag. */
 	return config_filters_equal_without_defaults(f1, f2);
+}
+
+static unsigned int
+config_filter_hash_crc(const struct config_filter *filter, uint32_t crc)
+{
+	if (filter->protocol != NULL)
+		crc = crc32_str_more(crc, filter->protocol);
+	if (filter->remote_bits > 0) {
+		crc = crc32_data_more(crc, &filter->remote_bits,
+				      sizeof(filter->remote_bits));
+		crc = crc32_data_more(crc, &filter->remote_net,
+				      sizeof(filter->remote_net));
+	}
+	if (filter->local_bits > 0) {
+		crc = crc32_data_more(crc, &filter->local_bits,
+				      sizeof(filter->local_bits));
+		crc = crc32_data_more(crc, &filter->local_net,
+				      sizeof(filter->local_net));
+	}
+	if (filter->local_name != NULL)
+		crc = crc32_str_more(crc, filter->local_name);
+	if (filter->filter_name != NULL) {
+		crc = crc32_str_more(crc, filter->filter_name);
+		if (filter->filter_name_array)
+			crc = crc32_data_more(crc, "1", 1);
+	}
+	return filter->parent == NULL ? crc :
+		config_filter_hash_crc(filter->parent, crc);
+}
+
+unsigned int config_filter_hash(const struct config_filter *filter)
+{
+	uint32_t crc = filter->default_settings ? 1 : 0;
+	return config_filter_hash_crc(filter, crc);
 }
 
 bool config_filter_is_empty(const struct config_filter *filter)
