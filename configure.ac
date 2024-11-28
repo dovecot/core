@@ -790,8 +790,6 @@ Makefile
 doc/Makefile
 doc/man/Makefile
 doc/index.html
-doc/example-config/Makefile
-doc/example-config/conf.d/Makefile
 doc/dovecot.conf
 src/Makefile
 src/lib/Makefile
