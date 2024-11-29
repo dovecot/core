@@ -59,6 +59,7 @@ struct auth_userdb {
 	const char *name;
 	const struct auth_settings *auth_set;
 	const struct auth_userdb_settings *set;
+	const struct auth_userdb_post_settings *unexpanded_post_set;
 	struct userdb_module *userdb;
 
 	/* The caching key for this userdb, or NULL if caching isn't wanted. */
@@ -88,6 +89,7 @@ struct auth *auth_find_protocol(const char *name);
 struct auth *auth_default_protocol(void);
 
 void auth_passdbs_generate_md5(unsigned char md5[STATIC_ARRAY MD5_RESULTLEN]);
+void auth_userdbs_generate_md5(unsigned char md5[STATIC_ARRAY MD5_RESULTLEN]);
 
 void auths_preinit(struct event *parent_event,
 		   const struct auth_settings *set,
