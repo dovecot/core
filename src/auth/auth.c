@@ -79,6 +79,7 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *_set,
 {
 	struct auth_passdb *auth_passdb, **dest;
 	const struct auth_passdb_settings *set;
+	const char *error;
 
 	/* Lookup passdb-specific auth_settings */
 	struct event *event = event_create(auth_event);
@@ -92,6 +93,11 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *_set,
 	auth_passdb = p_new(auth->pool, struct auth_passdb, 1);
 	auth_passdb->auth_set =
 		settings_get_or_fatal(event, &auth_setting_parser_info);
+	if (settings_get(event, &auth_passdb_post_setting_parser_info,
+			 SETTINGS_GET_FLAG_NO_CHECK |
+			 SETTINGS_GET_FLAG_NO_EXPAND,
+			 &auth_passdb->unexpanded_post_set, &error) < 0)
+		i_fatal("%s", error);
 
 	auth_passdb->name = set->name;
 	auth_passdb->set = set;
@@ -135,6 +141,7 @@ static void auth_passdb_deinit(struct auth_passdb *passdb)
 {
 	settings_free(passdb->set);
 	settings_free(passdb->auth_set);
+	settings_free(passdb->unexpanded_post_set);
 	passdb_deinit(passdb->passdb);
 }
 
@@ -394,6 +401,37 @@ static void auth_deinit(struct auth *auth)
 		auth_userdb_deinit(userdb);
 
 	dns_client_deinit(&auth->dns_client);
+}
+
+static void
+auth_passdbs_update_md5(struct auth *auth, struct md5_context *ctx)
+{
+	struct auth_passdb *passdb;
+	unsigned int hash;
+
+	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next) {
+		md5_update(ctx, &passdb->passdb->id, sizeof(passdb->passdb->id));
+		hash = settings_hash(&auth_passdb_setting_parser_info,
+				     passdb->set, NULL);
+		md5_update(ctx, &hash, sizeof(hash));
+		hash = settings_hash(&auth_setting_parser_info,
+				     passdb->auth_set, NULL);
+		md5_update(ctx, &hash, sizeof(hash));
+		hash = settings_hash(&auth_passdb_post_setting_parser_info,
+				     passdb->unexpanded_post_set, NULL);
+		md5_update(ctx, &hash, sizeof(hash));
+	}
+}
+
+void auth_passdbs_generate_md5(unsigned char md5[STATIC_ARRAY MD5_RESULTLEN])
+{
+	struct auth *auth;
+	struct md5_context ctx;
+
+	md5_init(&ctx);
+	array_foreach_elem(&auths, auth)
+		auth_passdbs_update_md5(auth, &ctx);
+	md5_final(&ctx, md5);
 }
 
 struct auth *auth_find_protocol(const char *name)

@@ -749,7 +749,7 @@ static bool auth_worker_verify_db_hash(const char *passdb_hash, const char *user
 	unsigned char passdb_md5[MD5_RESULTLEN];
 	unsigned char userdb_md5[MD5_RESULTLEN];
 
-	passdbs_generate_md5(passdb_md5);
+	auth_passdbs_generate_md5(passdb_md5);
 	userdbs_generate_md5(userdb_md5);
 
 	binary_to_hex_append(str, passdb_md5, sizeof(passdb_md5));
