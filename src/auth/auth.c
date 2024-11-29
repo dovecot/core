@@ -150,6 +150,7 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *_set)
 {
 	struct auth_userdb *auth_userdb, **dest;
 	const struct auth_userdb_settings *set;
+	const char *error;
 
 	/* Lookup userdb-specific auth_settings */
 	struct event *event = event_create(auth_event);
@@ -169,6 +170,11 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *_set)
 	auth_userdb = p_new(auth->pool, struct auth_userdb, 1);
 	auth_userdb->auth_set =
 		settings_get_or_fatal(event, &auth_setting_parser_info);
+	if (settings_get(event, &auth_userdb_post_setting_parser_info,
+			 SETTINGS_GET_FLAG_NO_CHECK |
+			 SETTINGS_GET_FLAG_NO_EXPAND,
+			 &auth_userdb->unexpanded_post_set, &error) < 0)
+		i_fatal("%s", error);
 
 	auth_userdb->name = set->name;
 	auth_userdb->set = set;
@@ -197,6 +203,7 @@ static void auth_userdb_deinit(struct auth_userdb *userdb)
 	if (userdb->set != &userdb_dummy_set)
 		settings_free(userdb->set);
 	settings_free(userdb->auth_set);
+	settings_free(userdb->unexpanded_post_set);
 	userdb_deinit(userdb->userdb);
 }
 
@@ -431,6 +438,37 @@ void auth_passdbs_generate_md5(unsigned char md5[STATIC_ARRAY MD5_RESULTLEN])
 	md5_init(&ctx);
 	array_foreach_elem(&auths, auth)
 		auth_passdbs_update_md5(auth, &ctx);
+	md5_final(&ctx, md5);
+}
+
+static void
+auth_userdbs_update_md5(struct auth *auth, struct md5_context *ctx)
+{
+	struct auth_userdb *userdb;
+	unsigned int hash;
+
+	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next) {
+		md5_update(ctx, &userdb->userdb->id, sizeof(userdb->userdb->id));
+		hash = settings_hash(&auth_userdb_setting_parser_info,
+				     userdb->set, NULL);
+		md5_update(ctx, &hash, sizeof(hash));
+		hash = settings_hash(&auth_setting_parser_info,
+				     userdb->auth_set, NULL);
+		md5_update(ctx, &hash, sizeof(hash));
+		hash = settings_hash(&auth_userdb_post_setting_parser_info,
+				     userdb->unexpanded_post_set, NULL);
+		md5_update(ctx, &hash, sizeof(hash));
+	}
+}
+
+void auth_userdbs_generate_md5(unsigned char md5[STATIC_ARRAY MD5_RESULTLEN])
+{
+	struct auth *auth;
+	struct md5_context ctx;
+
+	md5_init(&ctx);
+	array_foreach_elem(&auths, auth)
+		auth_userdbs_update_md5(auth, &ctx);
 	md5_final(&ctx, md5);
 }
 

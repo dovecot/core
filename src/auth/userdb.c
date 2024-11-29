@@ -170,23 +170,6 @@ void userdb_deinit(struct userdb_module *userdb)
 	userdb->iface = &userdb_iface_deinit;
 }
 
-void userdbs_generate_md5(unsigned char md5[STATIC_ARRAY MD5_RESULTLEN])
-{
-	struct md5_context ctx;
-	struct userdb_module *const *userdbs;
-	unsigned int i, count;
-
-	md5_init(&ctx);
-	userdbs = array_get(&userdb_modules, &count);
-	for (i = 0; i < count; i++) {
-		md5_update(&ctx, &userdbs[i]->id, sizeof(userdbs[i]->id));
-		md5_update(&ctx, userdbs[i]->iface->name,
-			   strlen(userdbs[i]->iface->name));
-		md5_update(&ctx, userdbs[i]->args, strlen(userdbs[i]->args));
-	}
-	md5_final(&ctx, md5);
-}
-
 const char *userdb_result_to_string(enum userdb_result result)
 {
 	switch (result) {
