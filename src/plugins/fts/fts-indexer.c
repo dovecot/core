@@ -9,6 +9,7 @@
 #include "strescape.h"
 #include "time-util.h"
 #include "str-parse.h"
+#include "settings-parser.h"
 #include "mail-user.h"
 #include "mail-storage-private.h"
 #include "fts-api.h"
@@ -280,7 +281,9 @@ int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
 	ctx->ioloop = io_loop_create();
 	ctx->connection_list = connection_list_init(&indexer_client_set,
 						    &indexer_client_vfuncs);
-	ctx->conn.input_idle_timeout_secs = fset->search_timeout;
+	ctx->conn.input_idle_timeout_secs =
+		fset->search_timeout == SET_TIME_INFINITE ? 0 :
+		fset->search_timeout;
 	connection_init_client_unix(ctx->connection_list, &ctx->conn,
 				    path);
 	ret = connection_client_connect(&ctx->conn);
