@@ -194,7 +194,7 @@ static void auth_worker_connection_connected(struct connection *conn,
 
 	string_t *str = t_str_new(128);
 
-	passdbs_generate_md5(passdb_md5);
+	auth_passdbs_generate_md5(passdb_md5);
 	userdbs_generate_md5(userdb_md5);
 	str_append(str, "DBHASH\t");
 	binary_to_hex_append(str, passdb_md5, sizeof(passdb_md5));
