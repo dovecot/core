@@ -26,7 +26,7 @@ static const struct setting_define fts_setting_defines[] = {
 	DEF(BOOL,    search_read_fallback),
 	DEF(BOOLLIST,header_excludes),
 	DEF(BOOLLIST,header_includes),
-	DEF(TIME,    index_timeout),
+	DEF(TIME,    search_timeout),
 	DEF(SIZE,    message_max_size),
 	SETTING_DEFINE_LIST_END
 };
@@ -57,7 +57,7 @@ static const struct fts_settings fts_default_settings = {
 	.search_add_missing = FTS_SEARCH_ADD_MISSING_BODY_SEARCH_ONLY":yes",
 	.search_read_fallback = TRUE,
 
-	.index_timeout = 0,
+	.search_timeout = 0,
 	.message_max_size = SET_SIZE_UNLIMITED,
 };
 
