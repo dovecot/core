@@ -61,14 +61,11 @@ src/**/test-*
 !src/**/test-*.h
 !src/**/test-*.inc
 
-doc/venv
-doc/documentation*
-doc/html
-
 doc/man/*.1
 doc/man/*.7
 doc/stamp-man
 doc/stamp-html
+doc/index.html
 
 doc/example-config/README
 doc/example-config/dovecot.conf

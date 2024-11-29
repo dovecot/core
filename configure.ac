@@ -232,16 +232,6 @@ DOVECOT_WANT_SYSTEMD
 dovecot_moduledir="$libdir/dovecot"
 DC_DOVECOT_MODULEDIR
 
-AC_ARG_WITH(docs,
-AS_HELP_STRING([--with-docs], [Install documentation (default)]),
-	if test x$withval = xno; then
-		want_docs=no
-	else
-		want_docs=yes
-	fi,
-	want_docs=yes)
-AM_CONDITIONAL(INSTALL_DOCS, test "$want_docs" = "yes")
-
 dnl always enable all of the passbs and userdbs that don't require extra libs
 want_passwd=yes
 want_passwd_file=yes
@@ -819,6 +809,7 @@ AC_CONFIG_FILES([
 Makefile
 doc/Makefile
 doc/man/Makefile
+doc/index.html
 doc/example-config/Makefile
 doc/example-config/conf.d/Makefile
 src/Makefile

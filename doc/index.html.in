@@ -1,0 +1,16 @@
+
+<!DOCTYPE html>
+<html>
+ <head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="refresh" content="0;URL='https://@DOVECOT_ASSET_URL@/latest/'">
+ </head>
+
+<body>
+ <h1>Dovecot Documentation</h1>
+ <p>
+   Redirecting to <a href="https://@DOVECOT_ASSET_URL@/latest/">https://@DOVECOT_ASSET_URL@/latest/</a>...
+ </p>
+</body>
+</html>
