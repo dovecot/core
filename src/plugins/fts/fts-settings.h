@@ -26,7 +26,7 @@ struct fts_settings {
 	const char *search_add_missing;
 	bool search_read_fallback;
 	unsigned int autoindex_max_recent_msgs;
-	unsigned int index_timeout;
+	unsigned int search_timeout;
 	uoff_t message_max_size;
 	bool autoindex;
 
