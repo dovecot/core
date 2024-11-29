@@ -146,6 +146,11 @@ static bool fts_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 			       const char **error_r)
 {
 	struct fts_settings *set = _set;
+
+	if (set->search_timeout == 0) {
+		*error_r = "fts_search_timeout must not be 0";
+		return FALSE;
+	}
 	set->parsed_search_add_missing_body_only =
 		strcmp(set->search_add_missing,
 		       FTS_SEARCH_ADD_MISSING_BODY_SEARCH_ONLY) == 0;
