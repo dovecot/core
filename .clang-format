@@ -1,0 +1,111 @@
+---
+Language: Cpp
+Standard: Cpp11
+BasedOnStyle: GNU
+UseTab: AlignWithSpaces
+IndentWidth: 8
+TabWidth: 8
+ContinuationIndentWidth: 8
+ColumnLimit: 80
+BreakBeforeBraces: Linux
+# Available only with BreakBeforeBraces: Custom
+# BraceWrapping:
+#   AfterClass: false
+#   AfterControlStatement: false
+#   AfterEnum: false
+#   AfterExternBlock: false
+#   AfterFunction: true
+#   AfterStruct: false
+#   AfterUnion: false
+#   BeforeCatch: false
+#   BeforeElse: false
+#   SplitEmptyFunction: true
+#   SplitEmptyRecord: true
+#   SplitEmptyNamespace: true
+#   AfterNamespace: true
+#   AfterObjCDeclaration: false
+BreakBeforeBinaryOperators: None
+AlwaysBreakAfterReturnType: None
+AlwaysBreakAfterDefinitionReturnType: None
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+IndentCaseLabels: false
+IndentGotoLabels: false
+PointerAlignment: Right
+AlignAfterOpenBracket: AlwaysBreak
+SortIncludes: false
+SpaceAfterCStyleCast: false
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 1
+MaxEmptyLinesToKeep: 1
+KeepEmptyLinesAtEOF: false
+KeepEmptyLinesAtTheStartOfBlocks: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowAllArgumentsOnNextLine: false
+BinPackArguments: false
+BinPackParameters: false
+SpaceInEmptyBlock: true
+BreakConstructorInitializers: AfterColon
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+BitFieldColonSpacing: None
+IndentPPDirectives: AfterHash
+AlignOperands: Align
+# Clang-format version 20:
+# AllowShortCaseExpressionOnASingleLine: false
+# BreakAfterReturnType: Automatic
+AlignEscapedNewlines: DontAlign
+AttributeMacros:
+  - ATTR_FORMAT
+  - ATTR_NULL
+  - ATTR_UNUSED
+  - ATTR_PURE
+  - ATTR_NOWARN_UNUSED_RESULT
+  - ATTR_RETURN
+  - ATTR_NO_SANITIZE
+  - ATTR_NO_SANITIZE_UNDEFINED
+  - ATTR_NO_SANITIZE_INTEGER
+  - ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
+BreakBeforeTernaryOperators: false
+BreakStringLiterals: false
+CommentPragmas: '^ IWYU pragma:'
+ForEachMacros:
+  - array_foreach
+  - array_foreach_elem
+  - array_foreach_modifiable
+  - mail_search_args_foreach
+  - mail_search_mime_args_foreach
+  - T_BEGIN
+  - T_END
+PPIndentWidth: 2
+PenaltyBreakAssignment: 10
+PenaltyBreakBeforeFirstCallParameter: 30
+PenaltyBreakComment: 10
+PenaltyBreakFirstLessLess: 0
+PenaltyBreakString: 10
+PenaltyExcessCharacter: 100
+PenaltyReturnTypeOnItsOwnLine: 60
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeParens: ControlStatementsExceptForEachMacros
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: false
+SpacesInCStyleCastParentheses: false
+SpacesInContainerLiterals: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+TypenameMacros:
+  - HASH_TABLE
+  - HASH_TABLE_TYPE
+  - ARRAY_TYPE
+  - ARRAY_DEFINE_TYPE
+UseCRLF: false
+SeparateDefinitionBlocks: Always
