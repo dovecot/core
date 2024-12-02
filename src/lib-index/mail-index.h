@@ -187,7 +187,7 @@ struct mail_keywords {
 	unsigned int count;
 	int refcount;
 
-        /* variable sized list of keyword indexes */
+	/* variable sized list of keyword indexes */
 	unsigned int idx[FLEXIBLE_ARRAY_MEMBER];
 };
 

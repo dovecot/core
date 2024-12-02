@@ -31,10 +31,10 @@
 	struct foo *foo = array_idx(foos, 0);
    }
    struct foo_manager {
-        ARRAY_TYPE(foo) foos; // pedantically, ARRAY(struct foo) is a different type
+	ARRAY_TYPE(foo) foos; // pedantically, ARRAY(struct foo) is a different type
    };
    // ...
-        do_foo(&my_foo_manager->foos); // No compiler warning about mismatched types
+	do_foo(&my_foo_manager->foos); // No compiler warning about mismatched types
 
 */
 #include "array-decl.h"

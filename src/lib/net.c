@@ -104,7 +104,7 @@ int net_ip_cmp(const struct ip_addr *ip1, const struct ip_addr *ip2)
 
 unsigned int net_ip_hash(const struct ip_addr *ip)
 {
-        const unsigned char *p;
+	const unsigned char *p;
 	unsigned int len, g, h = 0;
 
 	if (ip->family == AF_INET6) {
@@ -165,7 +165,7 @@ sin_get_ip(const union sockaddr_union *so, struct ip_addr *ip)
 static inline void sin_set_port(union sockaddr_union *so, in_port_t port)
 {
 	if (so->sin.sin_family == AF_INET6)
-                so->sin6.sin6_port = htons(port);
+		so->sin6.sin6_port = htons(port);
 	else if (so->sin.sin_family == AF_INET)
 		so->sin.sin_port = htons(port);
 	else
@@ -190,12 +190,12 @@ static int net_connect_ip_once(const struct ip_addr *ip, in_port_t port,
 
 	if (my_ip != NULL && ip->family != my_ip->family) {
 		i_warning("net_connect_ip(): ip->family != my_ip->family");
-                my_ip = NULL;
+		my_ip = NULL;
 	}
 
 	/* create the socket */
 	i_zero(&so);
-        so.sin.sin_family = ip->family;
+	so.sin.sin_family = ip->family;
 	fd = socket(ip->family, sock_type, 0);
 
 	if (fd == -1) {
@@ -231,7 +231,7 @@ static int net_connect_ip_once(const struct ip_addr *ip, in_port_t port,
 	if (ret < 0 && WSAGetLastError() != WSAEWOULDBLOCK)
 #endif
 	{
-                i_close_fd(&fd);
+		i_close_fd(&fd);
 		return -1;
 	}
 
@@ -286,7 +286,7 @@ int net_try_bind(const struct ip_addr *ip)
 
 	/* create the socket */
 	i_zero(&so);
-        so.sin.sin_family = ip->family;
+	so.sin.sin_family = ip->family;
 	fd = socket(ip->family, SOCK_STREAM, 0);
 	if (fd == -1) {
 		i_error("socket() failed: %m");
@@ -331,7 +331,7 @@ int net_connect_unix(const char *path)
 	/* connect */
 	ret = connect(fd, &sa.sa, sizeof(sa));
 	if (ret < 0 && errno != EINPROGRESS) {
-                i_close_fd(&fd);
+		i_close_fd(&fd);
 		return -1;
 	}
 
@@ -531,7 +531,7 @@ int net_listen_full(const struct ip_addr *my_ip, in_port_t *port,
 		}
 	}
 
-        /* error */
+	/* error */
 	i_close_fd(&fd);
 	return -1;
 }
@@ -664,7 +664,7 @@ ssize_t net_receive(int fd, void *buf, size_t len)
 			return 0;
 
 		if (errno == ECONNRESET || errno == ETIMEDOUT) {
-                        /* treat as disconnection */
+			/* treat as disconnection */
 			return -2;
 		}
 	}
@@ -680,10 +680,10 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips,
 	struct addrinfo hints, *ai, *origai;
 	struct ip_addr ip;
 	int host_error;
-        int count;
+	int count;
 
 	*ips = NULL;
-        *ips_count = 0;
+	*ips_count = 0;
 
 	/* support [ipv6] style addresses here so they work globally */
 	if (addr[0] == '[' && net_addr2ip(addr, &ip) == 0) {
@@ -704,16 +704,16 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips,
 		return host_error;
 	}
 
-        /* get number of IPs */
-        origai = ai;
+	/* get number of IPs */
+	origai = ai;
 	for (count = 0; ai != NULL; ai = ai->ai_next)
 		count++;
 	i_assert(count > 0);
 
-        *ips_count = count;
-        *ips = t_new(struct ip_addr, count);
+	*ips_count = count;
+	*ips = t_new(struct ip_addr, count);
 
-        count = 0;
+	count = 0;
 	for (ai = origai; ai != NULL; ai = ai->ai_next, count++) {
 		so = (union sockaddr_union *) ai->ai_addr;
 

@@ -139,7 +139,7 @@ bool mail_index_seq_array_add(ARRAY_TYPE(seq_array) *array, uint32_t seq,
 		return TRUE;
 	} else {
 		/* insert */
-                p = array_insert_space(array, idx);
+		p = array_insert_space(array, idx);
 		memcpy(p, &seq, sizeof(seq));
 		memcpy(PTR_OFFSET(p, sizeof(seq)), record, record_size);
 		return FALSE;

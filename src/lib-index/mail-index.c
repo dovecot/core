@@ -308,7 +308,7 @@ void mail_index_ext_register_resize_defaults(struct mail_index *index,
 bool mail_index_ext_lookup(struct mail_index *index, const char *name,
 			   uint32_t *ext_id_r)
 {
-        const struct mail_index_registered_ext *extensions;
+	const struct mail_index_registered_ext *extensions;
 	unsigned int i, count;
 
 	extensions = array_get(&index->extensions, &count);
@@ -488,7 +488,7 @@ int mail_index_try_open_only(struct mail_index *index)
 	i_assert(index->fd == -1);
 	i_assert(!MAIL_INDEX_IS_IN_MEMORY(index));
 
-        /* Note that our caller must close index->fd by itself. */
+	/* Note that our caller must close index->fd by itself. */
 	if (index->readonly)
 		errno = EACCES;
 	else {
@@ -518,7 +518,7 @@ mail_index_try_open(struct mail_index *index)
 {
 	int ret;
 
-        i_assert(index->fd == -1);
+	i_assert(index->fd == -1);
 
 	if (MAIL_INDEX_IS_IN_MEMORY(index))
 		return 0;
@@ -538,7 +538,7 @@ mail_index_try_open(struct mail_index *index)
 int mail_index_create_tmp_file(struct mail_index *index,
 			       const char *path_prefix, const char **path_r)
 {
-        mode_t old_mask;
+	mode_t old_mask;
 	const char *path;
 	int fd;
 

@@ -507,4 +507,3 @@ buffer_truncate_rshift_bits(buffer_t *buf, size_t bits)
 		buffer_set_used_size(buf, 0);
 	}
 }
-

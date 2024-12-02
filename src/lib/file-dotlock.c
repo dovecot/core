@@ -366,7 +366,7 @@ static int try_create_lock_hardlink(struct lock_info *lock_info, bool write_pid,
 			}
 		}
 
-                lock_info->temp_path = str_c(tmp_path);
+		lock_info->temp_path = str_c(tmp_path);
 	} else if (fstat(lock_info->fd, &st) < 0) {
 		i_error("fstat(%s) failed: %m", lock_info->temp_path);
 		return -1;
@@ -577,7 +577,7 @@ dotlock_create(struct dotlock *dotlock, enum dotlock_create_flags flags,
 			dotlock->ino = st.st_ino;
 
 			dotlock->fd = lock_info.fd;
-                        dotlock->lock_time = now;
+			dotlock->lock_time = now;
 			lock_info.fd = -1;
 
 			if (st.st_ctime + MAX_TIME_DIFF < now ||
@@ -722,7 +722,7 @@ int file_dotlock_delete(struct dotlock **dotlock_p)
 {
 	struct dotlock *dotlock;
 	const char *lock_path;
-        struct stat st;
+	struct stat st;
 	int ret;
 
 	dotlock = *dotlock_p;
