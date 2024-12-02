@@ -529,8 +529,12 @@ int dns_client_lookup(struct dns_client *client, const char *host,
 		      dns_lookup_callback_t *callback, void *context,
 		      struct dns_lookup **lookup_r)
 {
-	return dns_client_lookup_common(client, "IP", host, FALSE, event,
-					callback, context, lookup_r);
+	int ret;
+	T_BEGIN {
+		ret = dns_client_lookup_common(client, "IP", host, FALSE, event,
+					       callback, context, lookup_r);
+	} T_END;
+	return ret;
 }
 
 int dns_client_lookup_ptr(struct dns_client *client, const struct ip_addr *ip,
@@ -538,8 +542,13 @@ int dns_client_lookup_ptr(struct dns_client *client, const struct ip_addr *ip,
 			  dns_lookup_callback_t *callback, void *context,
 			  struct dns_lookup **lookup_r)
 {
-	return dns_client_lookup_common(client, "NAME", net_ip2addr(ip), TRUE,
-					event, callback, context, lookup_r);
+	int ret;
+	T_BEGIN {
+		ret = dns_client_lookup_common(client, "NAME", net_ip2addr(ip),
+					       TRUE, event, callback, context,
+					       lookup_r);
+	} T_END;
+	return ret;
 }
 
 void dns_client_switch_ioloop(struct dns_client *client)
