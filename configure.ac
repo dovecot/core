@@ -609,7 +609,7 @@ else
   fi
 fi
 if test $want_ldap != no; then
-  LIBDOVECOT_LDAP='$(top_builddir)/src/lib-ldap/libdovecot-ldap.la'
+  LIBDOVECOT_LDAP='$(top_builddir)/src/lib-ldap/libldap.la'
 else
   LIBDOVECOT_LDAP=''
 fi

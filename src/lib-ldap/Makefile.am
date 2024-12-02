@@ -1,4 +1,4 @@
-pkglib_LTLIBRARIES = libdovecot-ldap.la
+noinst_LTLIBRARIES = libldap.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -8,7 +8,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	$(LDAP_CFLAGS)
 
-libdovecot_ldap_la_SOURCES = \
+libldap_la_SOURCES = \
 	ldap-client.c \
 	ldap-connection.c \
 	ldap-connection-pool.c \
@@ -17,9 +17,14 @@ libdovecot_ldap_la_SOURCES = \
 	ldap-compare.c \
 	ldap-entry.c
 
-libdovecot_ldap_la_DEPENDENCIES = $(LIBDOVECOT_DEPS)
+libldap_la_DEPENDENCIES = $(LIBDOVECOT_DEPS)
+libldap_la_LIBADD = $(LDAP_LIBS)
+
+pkglib_LTLIBRARIES = libdovecot-ldap.la
+libdovecot_ldap_la_SOURCES =
+libdovecot_ldap_la_LIBADD = libldap.la $(LIBDOVECOT)
+libdovecot_ldap_la_DEPENDENCIES = libldap.la $(LIBDOVECOT_DEPS)
 libdovecot_ldap_la_LDFLAGS = -export-dynamic
-libdovecot_ldap_la_LIBADD = $(LIBDOVECOT) $(LDAP_LIBS)
 
 headers = \
 	ldap-client.h
