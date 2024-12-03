@@ -239,7 +239,7 @@ static const struct master_settings master_default_settings = {
 	.services = ARRAY_INIT
 };
 static const struct setting_keyvalue master_default_settings_keyvalue[] = {
-	{ "protocols", "imap pop3 lmtp" },
+	{ "protocols", "" },
 	{ "listen", "* ::" },
 	{ NULL, NULL }
 };
