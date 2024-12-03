@@ -11,6 +11,7 @@
 #include "dcrypt-iostream.h"
 #include "doveadm-dump.h"
 #include <stdio.h>
+#include <unistd.h>
 
 struct dcrypt_dump_context {
 	const char *key;

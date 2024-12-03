@@ -7,6 +7,7 @@
 #include "hostpid.h"
 #include "var-expand.h"
 #include "var-expand-private.h"
+#include <unistd.h>
 
 struct var_expand_test {
 	const char *in;
