@@ -62,6 +62,8 @@ static inline void cpu32_to_le_unaligned(uint32_t in, void *out);
 static inline void cpu16_to_le_unaligned(uint16_t in, void *out);
 static inline void cpu8_to_le_unaligned(uint8_t in, void *out);
 
+/* NOLINTBEGIN(readability-inconsistent-declaration-parameter-name) */
+
 /* convert a big endian input into cpu native endian */
 static inline uint64_t be64_to_cpu(uint64_t in);
 static inline uint32_t be32_to_cpu(uint32_t in);
@@ -85,6 +87,8 @@ static inline uint64_t cpu64_to_le(uint64_t in);
 static inline uint32_t cpu32_to_le(uint32_t in);
 static inline uint16_t cpu16_to_le(uint16_t in);
 static inline uint8_t cpu8_to_le(uint8_t in);
+
+/* NOLINTEND(readability-inconsistent-declaration-parameter-name) */
 
 /*
  * byte swapping

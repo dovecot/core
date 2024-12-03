@@ -122,9 +122,11 @@ bool t_try_realloc(void *mem, size_t size);
    more memory. */
 size_t t_get_bytes_available(void) ATTR_PURE;
 
+/* NOLINTBEGIN(bugprone-sizeof-expression) */
 #define t_new(type, count) \
 	((type *) t_malloc0(MALLOC_MULTIPLY((unsigned int)sizeof(type), (count))) + \
 	 COMPILE_ERROR_IF_TRUE(sizeof(type) > UINT_MAX))
+/* NOLINTEND(bugprone-sizeof-expression) */
 
 /* Returns pointer to a temporary buffer you can use. The buffer will be
    invalid as soon as next t_malloc() is called!
