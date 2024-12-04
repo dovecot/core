@@ -15,6 +15,7 @@ EXTRA_DIST = \
 	ChangeLog \
 	README.md \
 	INSTALL.md \
+	SECURITY.md \
 	update-version.sh \
 	run-test-valgrind.supp \
 	dovecot.service.in \
