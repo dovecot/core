@@ -20,6 +20,8 @@ EXTRA_DIST = \
 	dovecot.service.in \
 	dovecot.socket \
 	version \
+	build-aux/git-abi-version-gen \
+	build-aux/git-version-gen \
 	$(conf_DATA)
 
 noinst_DATA = dovecot-config
