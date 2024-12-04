@@ -20,6 +20,7 @@
 #define IMAP_HIBERNATE_SEND_TIMEOUT_SECS 10
 #define IMAP_HIBERNATE_HANDSHAKE "VERSION\timap-hibernate\t1\t0\n"
 
+#ifdef BUILD_IMAP_HIBERNATE
 static int
 imap_hibernate_handshake(int fd, const char *path, const char **error_r)
 {
@@ -207,6 +208,7 @@ imap_hibernate_process_send(struct client *client, const buffer_t *state,
 	*fd_r = fd;
 	return 0;
 }
+#endif
 
 bool imap_client_hibernate(struct client **_client, const char **reason_r)
 {
