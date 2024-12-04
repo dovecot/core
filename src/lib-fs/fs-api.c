@@ -252,11 +252,16 @@ const char *fs_get_driver(struct fs *fs)
 	return fs->name;
 }
 
-const char *fs_get_root_driver(struct fs *fs)
+struct fs *fs_get_root_fs(struct fs *fs)
 {
 	while (fs->parent != NULL)
 		fs = fs->parent;
-	return fs->name;
+	return fs;
+}
+
+const char *fs_get_root_driver(struct fs *fs)
+{
+	return fs_get_root_fs(fs)->name;
 }
 
 struct fs_file *fs_file_init(struct fs *fs, const char *path, int mode_flags)

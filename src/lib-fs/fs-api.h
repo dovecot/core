@@ -224,6 +224,8 @@ void fs_unref(struct fs **fs);
 struct fs *fs_get_parent(struct fs *fs);
 /* Returns the filesystem's driver name. */
 const char *fs_get_driver(struct fs *fs);
+/* Returns the root fs (bypassing all wrapper fses) */
+struct fs *fs_get_root_fs(struct fs *fs);
 /* Returns the root fs's driver name (bypassing all wrapper fses) */
 const char *fs_get_root_driver(struct fs *fs);
 /* Returns the fs's event. */
