@@ -29,7 +29,7 @@ noinst_DATA = dovecot-config
 nodist_pkginclude_HEADERS = config.h
 
 version:
-	$(AM_V_GEN)$(top_srcdir)/build-aux/git-version-gen > $@
+	$(AM_V_GEN)env VERSION=$(PACKAGE_VERSION) $(top_srcdir)/build-aux/git-version-gen > $@
 
 aclocal_DATA = m4/dovecot.m4
 
