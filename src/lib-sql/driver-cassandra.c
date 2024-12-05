@@ -2514,8 +2514,9 @@ prepare_finish_pending_statements(struct cassandra_sql_prepared_statement *prep_
 	array_append_array(&copy, &prep_stmt->pending_statements);
 	array_clear(&prep_stmt->pending_statements);
 
-	array_foreach_elem(&copy, stmt)
+	array_foreach_elem(&copy, stmt) T_BEGIN {
 		prepare_finish_statement(stmt);
+	} T_END;
 }
 
 static void prepare_callback(CassFuture *future, void *context)
