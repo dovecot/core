@@ -119,6 +119,23 @@ valid_mailbox_parse_tests[] = {
 		.output = "\"Abc..\"@example.com",
 		.address = { .localpart = "Abc..", .domain = "example.com" },
 	},
+#ifdef EXPERIMENTAL_MAIL_UTF8
+	{
+		.input = "あいうえお@example.com",
+		.output = "あいうえお@example.com",
+		.address = { .localpart = "あいうえお", .domain = "example.com" },
+	},
+	{
+		.input = "あいうえお@xn--l8jegik.com",
+		.output = "あいうえお@xn--l8jegik.com",
+		.address = { .localpart = "あいうえお", .domain = "xn--l8jegik.com" },
+	},
+	{
+		.input = "xn--l8jegik@example.com",
+		.output = "xn--l8jegik@example.com",
+		.address = { .localpart = "xn--l8jegik", .domain = "example.com" },
+	},
+#endif
 };
 
 unsigned int valid_mailbox_parse_test_count =
@@ -710,9 +727,15 @@ invalid_mailbox_parse_tests[] = {
 	{
 		.input = "email@example@example.com",
 	},
+#ifndef EXPERIMENTAL_MAIL_UTF8
 	{
 		.input = "あいうえお@example.com",
 	},
+#else
+	{
+		.input = "あいうえお@あいうえお.com",
+	},
+#endif
 	{
 		.input = "email@example.com (Eric Mail)",
 	},
@@ -886,10 +909,12 @@ invalid_path_parse_tests[] = {
 		.input = "email@example@example.com",
 		.flags = SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL
 	},
+#ifndef EXPERIMENTAL_MAIL_UTF8
 	{
 		.input = "あいうえお@example.com",
 		.flags = SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL
 	},
+#endif
 	{
 		.input = "email@example.com (Eric Mail)",
 		.flags = SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL
@@ -990,9 +1015,11 @@ invalid_path_parse_tests[] = {
 	{
 		.input = "<email@example@example.com>",
 	},
+#ifndef EXPERIMENTAL_MAIL_UTF8
 	{
 		.input = "<あいうえお@example.com>",
 	},
+#endif
 	{
 		.input = "<email@example.com> (Eric Mail)",
 	},
