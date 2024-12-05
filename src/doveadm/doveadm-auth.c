@@ -80,7 +80,10 @@ doveadm_get_auth_master_conn(const char *auth_socket_path)
 static void cancel_auth(struct authtest_input *input)
 {
 	io_loop_stop(current_ioloop);
-	auth_client_request_abort(&input->request, "User cancelled request");
+	if (input->request != NULL) {
+		auth_client_request_abort(&input->request,
+					  "User cancelled request");
+	}
 }
 
 static void cancel_login(struct login_server_auth *auth)
