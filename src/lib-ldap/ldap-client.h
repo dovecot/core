@@ -41,6 +41,8 @@ struct ldap_compare_input {
    failed with the given settings. */
 int ldap_client_init(const struct ldap_client_settings *set,
 		     struct ldap_client **client_r, const char **error_r);
+int ldap_client_init_auto(struct event *event, struct ldap_client **client_r,
+			  const char **error_r);
 void ldap_client_deinit(struct ldap_client **client);
 void ldap_client_switch_ioloop(struct ldap_client *client);
 
