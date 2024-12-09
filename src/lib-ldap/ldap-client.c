@@ -17,25 +17,6 @@ struct ldap_client {
 
 static struct ldap_connection_pool *ldap_conn_pool = NULL;
 
-int ldap_client_init(const struct ldap_client_settings *set,
-		     struct ldap_client **client_r, const char **error_r)
-{
-	struct ldap_client *client;
-
-	if (ldap_conn_pool == NULL)
-		ldap_conn_pool = ldap_connection_pool_init(LDAP_CONN_POOL_MAX_CONNECTIONS);
-
-	client = i_new(struct ldap_client, 1);
-	client->event = event_create(set->event_parent);
-	if (ldap_connection_pool_get(ldap_conn_pool, client, set,
-				     &client->list, error_r) < 0) {
-		i_free(client);
-		return -1;
-	}
-	*client_r = client;
-	return 0;
-}
-
 int ldap_client_init_auto(struct event *event, struct ldap_client **client_r,
 			  const char **error_r)
 {

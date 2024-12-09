@@ -39,8 +39,6 @@ struct ldap_compare_input {
 
 /* Initialize LDAP. Returns 0 on success, or -1 and error_r if initialization
    failed with the given settings. */
-int ldap_client_init(const struct ldap_client_settings *set,
-		     struct ldap_client **client_r, const char **error_r);
 int ldap_client_init_auto(struct event *event, struct ldap_client **client_r,
 			  const char **error_r);
 void ldap_client_deinit(struct ldap_client **client);
