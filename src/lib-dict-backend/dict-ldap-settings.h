@@ -18,14 +18,6 @@ struct dict_ldap_map_settings {
 };
 
 struct dict_ldap_settings {
-	const char *uri;
-	const char *bind_dn;
-	const char *password;
-	unsigned int timeout;
-	unsigned int max_idle_time;
-	unsigned int debug;
-	bool require_ssl;
-	bool start_tls;
 	ARRAY(struct dict_ldap_map_settings) parsed_maps;
 };
 

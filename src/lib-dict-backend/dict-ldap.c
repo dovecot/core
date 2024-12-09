@@ -121,18 +121,7 @@ ldap_dict_find_map(struct ldap_dict *dict, const char *path,
 static
 int dict_ldap_connect(struct ldap_dict *dict, const char **error_r)
 {
-	struct ldap_client_settings set;
-	i_zero(&set);
-	set.uris = dict->set->uri;
-	set.auth_dn = dict->set->bind_dn;
-	set.auth_dn_password = dict->set->password;
-	set.timeout_secs = dict->set->timeout;
-	set.max_idle_time_secs = dict->set->max_idle_time;
-	set.debug_level = dict->set->debug;
-	set.require_ssl = dict->set->require_ssl;
-	set.starttls = dict->set->start_tls;
-	set.event_parent = dict->event;
-	return ldap_client_init(&set, &dict->client, error_r);
+	return ldap_client_init_auto(dict->event, &dict->client, error_r);
 }
 
 #define IS_LDAP_ESCAPED_CHAR(c) \
