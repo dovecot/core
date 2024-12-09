@@ -179,51 +179,6 @@ parse_setting(const char *key, const char *value,
 
 	switch (ctx->type) {
 	case SECTION_ROOT:
-		if (strcmp(key, "uri") == 0) {
-			ctx->set->uri = p_strdup(ctx->pool, value);
-			return NULL;
-		}
-		if (strcmp(key, "bind_dn") == 0) {
-			ctx->set->bind_dn = p_strdup(ctx->pool, value);
-			return NULL;
-		}
-		if (strcmp(key, "password") == 0) {
-			ctx->set->password = p_strdup(ctx->pool, value);
-			return NULL;
-		}
-		if (strcmp(key, "timeout") == 0) {
-			if (str_to_uint(value, &ctx->set->timeout) != 0) {
-				return "Invalid timeout value";
-			}
-			return NULL;
-		}
-		if (strcmp(key, "max_idle_time") == 0) {
-			if (str_to_uint(value, &ctx->set->max_idle_time) != 0) {
-				return "Invalid max_idle_time value";
-			}
-			return NULL;
-		}
-		if (strcmp(key, "debug") == 0) {
-			if (str_to_uint(value, &ctx->set->debug) != 0) {
-				return "invalid debug value";
-			}
-			return NULL;
-		}
-		if (strcmp(key, "tls") == 0) {
-			if (strcasecmp(value, "yes") == 0) {
-				ctx->set->require_ssl = TRUE;
-				ctx->set->start_tls = TRUE;
-			} else if (strcasecmp(value, "no") == 0) {
-				ctx->set->require_ssl = FALSE;
-				ctx->set->start_tls = FALSE;
-			} else if (strcasecmp(value, "try") == 0) {
-				ctx->set->require_ssl = FALSE;
-				ctx->set->start_tls = TRUE;
-			} else {
-				return "tls must be yes, try or no";
-			}
-			return NULL;
-		}
 		break;
 	case SECTION_MAP:
 		return parse_setting_from_defs(ctx->pool,
@@ -290,20 +245,9 @@ dict_ldap_settings_read(pool_t pool, const char *path, const char **error_r)
 	t_array_init(&ctx.cur_attributes, 16);
 	p_array_init(&ctx.set->parsed_maps, pool, 8);
 
-	ctx.set->timeout = 30; /* default timeout */
-	ctx.set->require_ssl = FALSE; /* try to start SSL */
-	ctx.set->start_tls = TRUE;
-
 	if (!settings_read(path, NULL, parse_setting, parse_section,
 			   &ctx, error_r))
 		return NULL;
-
-	if (ctx.set->uri == NULL) {
-		*error_r = t_strdup_printf("Error in configuration file %s: "
-					   "Missing ldap uri", path);
-		return NULL;
-	}
-
 	return ctx.set;
 }
 
