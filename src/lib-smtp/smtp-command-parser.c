@@ -211,9 +211,11 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 	while (p < parser->end) {
 		unichar_t ch;
 
-		if (parser->auth_response)
+		if (parser->auth_response) {
+			if ((*p & 0x80) != 0x00)
+				break;
 			ch = *p;
-		else {
+		} else {
 			nch = uni_utf8_get_char_n(p, (size_t)(parser->end - p),
 						  &ch);
 		}
