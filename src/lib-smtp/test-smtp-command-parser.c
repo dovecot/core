@@ -219,16 +219,24 @@ static const struct smtp_command_parse_invalid_test
 		.error_code = SMTP_COMMAND_PARSE_ERROR_BROKEN_COMMAND,
 	},
 	{
+		.command = "FROP \xF1\r\n",
+		.error_code = SMTP_COMMAND_PARSE_ERROR_BAD_COMMAND,
+	},
+	{
 		.command = "FROP \xF1",
 		.error_code = SMTP_COMMAND_PARSE_ERROR_BROKEN_COMMAND,
+	},
+	{
+		.command = "FROP \xF1\x80\r\n",
+		.error_code = SMTP_COMMAND_PARSE_ERROR_BAD_COMMAND,
 	},
 	{
 		.command = "FROP \xF1\x80",
 		.error_code = SMTP_COMMAND_PARSE_ERROR_BROKEN_COMMAND,
 	},
 	{
-		.command = "FROP \xF1\x80\x80",
-		.error_code = SMTP_COMMAND_PARSE_ERROR_BROKEN_COMMAND,
+		.command = "FROP \xF1\x80\x80\r\n",
+		.error_code = SMTP_COMMAND_PARSE_ERROR_BAD_COMMAND,
 	},
 	{
 		.command = "FROP \xF1\x80\x80\x80",
