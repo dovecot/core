@@ -263,15 +263,15 @@ AS_IF([echo "$PACKAGE_VERSION" | grep '^[[0-9]]*\.[[0-9]]*\.[[0-9]]'], [
 ], [
   DOVECOT_CONFIG_VERSION=$(echo "$PACKAGE_VERSION" | $SED 's/^\([[0-9]]*\.[[0-9]]*\).*$/\1/')
 ])
-if test "$is_pro_build" = "yes"; then
+AS_IF([test "$is_pro_build" = "yes"], [
   SET_PRO_DEFINES
   AC_SUBST(DOVECOT_ASSET_URL, "doc.dovecotpro.com")
   AC_SUBST(DOVECOT_PRO_BUILD, 1)
-else
+], [
   AC_DEFINE_UNQUOTED(DOVECOT_NAME, "$PACKAGE_NAME", [Dovecot name])
   AC_SUBST(DOVECOT_ASSET_URL, "doc.dovecot.org")
   AC_SUBST(DOVECOT_PRO_BUILD, 0)
-fi
+])
 AC_DEFINE_UNQUOTED(DOVECOT_CONFIG_VERSION, "$DOVECOT_CONFIG_VERSION", [Dovecot configuration version])
 AC_SUBST(DOVECOT_CONFIG_VERSION)
 
