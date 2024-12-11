@@ -260,6 +260,7 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 		set->verbose_invalid_cert ||
 		event_want_debug(ssl_io->event);
 	ssl_io->allow_invalid_cert = set->allow_invalid_cert;
+	ssl_io->username_cea = set->cert_username_cea;
 	return 0;
 }
 
@@ -837,6 +838,86 @@ openssl_iostream_get_peer_name(struct ssl_iostream *ssl_io)
 #endif
 	i_assert(x509 != NULL);
 
+	if (ssl_io->username_cea) {
+
+		ASN1_INTEGER *serialNumber;
+		X509_NAME *issuer;
+		BIGNUM *bn;
+		char *decimal;
+		BIO *bio;
+
+		bio = BIO_new(BIO_s_mem());
+		if (!bio) {
+			name = NULL;
+			goto end;
+		}
+
+		BIO_puts(bio, "{ serialNumber ");
+
+		serialNumber = X509_get_serialNumber(x509);
+		if (!serialNumber) {
+			BIO_free(bio);
+			name = NULL;
+			goto end;
+		}
+
+		bn = ASN1_INTEGER_to_BN(serialNumber, NULL);
+		if (!bn) {
+			BIO_free(bio);
+			name = NULL;
+			goto end;
+		}
+
+		decimal = BN_bn2dec(bn);
+		if (!decimal) {
+			BIO_free(bio);
+			BN_free(bn);
+			name = NULL;
+			goto end;
+		}
+
+		BIO_puts(bio, decimal);
+
+		OPENSSL_free(decimal);
+		BN_free(bn);
+
+		BIO_puts(bio, ", issuer rdnSequence:\"");
+
+		issuer = X509_get_issuer_name(x509);
+		if (!issuer) {
+			BIO_free(bio);
+			name = NULL;
+			goto end;
+		}
+
+		X509_NAME_print_ex(bio, issuer, 0, XN_FLAG_RFC2253);
+
+		BIO_puts(bio, "\" }");
+
+		len = BIO_pending(bio);
+		if (len < 0) {
+			name = NULL;
+		}
+		else {
+			name = t_malloc0(len + 1);
+			if (BIO_read(bio, name, len) != len) {
+				name = NULL;
+			}
+			else if (strlen(name) != (size_t)len) {
+				/* NUL characters in name. Someone's trying to fake
+				   being another user? Don't allow it. */
+				name = NULL;
+			}
+			else {
+				name[len] = 0;
+			}
+		}
+
+		BIO_free(bio);
+
+		goto end;
+	}
+
 	len = X509_NAME_get_text_by_NID(X509_get_subject_name(x509),
 					ssl_io->username_nid, NULL, 0);
 	if (len < 0)
@@ -853,6 +934,8 @@ openssl_iostream_get_peer_name(struct ssl_iostream *ssl_io)
 			name = NULL;
 		}
 	}
+
+end:
 	X509_free(x509);
 
 	return name;
