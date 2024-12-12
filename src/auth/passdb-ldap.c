@@ -79,7 +79,7 @@ ldap_lookup_finish(struct auth_request *auth_request,
 		auth_request_db_log_unknown_user(auth_request);
 	} else if (ldap_request->entries > 1) {
 		e_error(authdb_event(auth_request),
-			"ldap_filter matched multiple objects, aborting");
+			"passdb_ldap_filter matched multiple objects, aborting");
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (auth_request->passdb_password == NULL &&
 		   ldap_request->require_password &&
@@ -224,7 +224,7 @@ ldap_bind_lookup_dn_fail(struct auth_request *auth_request,
 	} else {
 		i_assert(request->entries > 1);
 		e_error(authdb_event(auth_request),
-			"ldap_filter matched multiple objects, aborting");
+			"passdb_ldap_filter matched multiple objects, aborting");
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 	}
 
@@ -291,8 +291,9 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 
 	request->require_password = require_password;
 	srequest->request.type = LDAP_REQUEST_TYPE_SEARCH;
-	srequest->base = p_strdup(auth_request->pool, ldap_set->base);
-	srequest->filter = p_strdup(auth_request->pool, ldap_set->filter);
+	srequest->base = p_strdup(auth_request->pool, ldap_set->ldap_base);
+	srequest->filter = p_strdup(auth_request->pool,
+				    ldap_set->passdb_ldap_filter);
 	srequest->attributes = module->attributes;
 	srequest->sensitive_attr_names = module->sensitive_attr_names;
 
@@ -317,8 +318,9 @@ static void ldap_bind_lookup_dn(struct auth_request *auth_request,
 	struct ldap_request_search *srequest = &request->request.search;
 
 	srequest->request.type = LDAP_REQUEST_TYPE_SEARCH;
-	srequest->base = p_strdup(auth_request->pool, ldap_set->base);
-	srequest->filter = p_strdup(auth_request->pool, ldap_set->filter);
+	srequest->base = p_strdup(auth_request->pool, ldap_set->ldap_base);
+	srequest->filter = p_strdup(auth_request->pool,
+				    ldap_set->passdb_ldap_filter);
 
 	/* we don't need the attributes to perform authentication, but they
 	   may contain some extra parameters. if a password is returned,
@@ -453,7 +455,8 @@ static int passdb_ldap_preinit(pool_t pool, struct event *event,
 				    	"password" : NULL);
 
 	module->module.default_cache_key = auth_cache_parse_key_and_fields(
-		pool, t_strconcat(ldap_pre->base, ldap_pre->filter, NULL),
+		pool, t_strconcat(ldap_pre->ldap_base,
+				  ldap_pre->passdb_ldap_filter, NULL),
 		&auth_post->fields, NULL);
 
 	*module_r = &module->module;
