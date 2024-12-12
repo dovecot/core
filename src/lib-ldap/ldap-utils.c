@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ldap-utils.h"
 #include "ssl-settings.h"
+#include "settings-parser.h"
 
 void ldap_set_opt(const char *prefix, LDAP *ld, int opt, const void *value,
 		  const char *optname, const char *value_str)
@@ -35,21 +36,22 @@ void ldap_set_tls_options(const char *prefix, LDAP *ld, bool starttls,
 	if (!starttls && strstr(uris, "ldaps:") == NULL)
 		return;
 
-	const char *ssl_client_ca_file = t_strcut(ssl_set->ssl_client_ca_file, '\n');
-	ldap_set_opt_str(prefix, ld, LDAP_OPT_X_TLS_CACERTFILE,
-			 ssl_client_ca_file, "ssl_client_ca_file");
+	struct settings_file key_file, cert_file, ca_file;
+	settings_file_get(ssl_set->ssl_client_key_file,
+			  unsafe_data_stack_pool, &key_file);
+	settings_file_get(ssl_set->ssl_client_cert_file,
+			  unsafe_data_stack_pool, &cert_file);
+	settings_file_get(ssl_set->ssl_client_ca_file,
+			  unsafe_data_stack_pool, &ca_file);
 
+	ldap_set_opt_str(prefix, ld, LDAP_OPT_X_TLS_CACERTFILE,
+			 ca_file.path, "ssl_client_ca_file");
 	ldap_set_opt_str(prefix, ld, LDAP_OPT_X_TLS_CACERTDIR,
 			 ssl_set->ssl_client_ca_dir, "ssl_client_ca_dir");
-
-	const char *ssl_client_cert_file = t_strcut(ssl_set->ssl_client_cert_file, '\n');
 	ldap_set_opt_str(prefix, ld, LDAP_OPT_X_TLS_CERTFILE,
-			 ssl_client_cert_file, "ssl_client_cert_file");
-
-	const char *ssl_client_key_file = t_strcut(ssl_set->ssl_client_key_file, '\n');
+			 cert_file.path, "ssl_client_cert_file");
 	ldap_set_opt_str(prefix, ld, LDAP_OPT_X_TLS_KEYFILE,
-			 ssl_client_key_file, "ssl_client_key_file");
-
+			 key_file.path, "ssl_client_key_file");
 	ldap_set_opt_str(prefix, ld, LDAP_OPT_X_TLS_CIPHER_SUITE,
 			 ssl_set->ssl_cipher_list, "ssl_cipher_list");
 	ldap_set_opt_str(prefix, ld, LDAP_OPT_X_TLS_PROTOCOL_MIN,
@@ -67,6 +69,27 @@ void ldap_set_tls_options(const char *prefix, LDAP *ld, bool starttls,
 	/* required for RHEL9 */
 	ldap_set_opt(prefix, ld, LDAP_OPT_X_TLS_REQUIRE_CERT, &opt,
 		     "ssl_client_require_valid_cert", requires ? "yes" : "no");
+}
+
+static int ldap_set_tls_validate_file(const char *file, const char *name,
+				      const char **error_r)
+{
+	if (*file != '\0' && !settings_file_has_path(file)) {
+		*error_r = t_strdup_printf("LDAP doesn't support inline content for %s", name);
+		return -1;
+	}
+	return 0;
+}
+
+int ldap_set_tls_validate(const struct ssl_settings *set, const char **error_r)
+{
+	return ldap_set_tls_validate_file(set->ssl_client_ca_file,
+					  "ssl_client_ca_file", error_r) < 0 ||
+	       ldap_set_tls_validate_file(set->ssl_client_cert_file,
+					  "ssl_client_cert_file", error_r) < 0 ||
+	       ldap_set_tls_validate_file(set->ssl_client_key_file,
+					  "ssl_client_key_file", error_r) < 0 ?
+		-1 : 0;
 }
 
 #endif

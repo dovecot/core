@@ -13,4 +13,7 @@ void ldap_set_opt_str(const char *prefix, LDAP *ld, int opt, const char *value,
 
 void ldap_set_tls_options(const char *prefix, LDAP *ld, bool starttls,
 			  const char *uris, const struct ssl_settings *ssl_set);
+
+int ldap_set_tls_validate(const struct ssl_settings *set, const char **error_r);
+
 #endif
