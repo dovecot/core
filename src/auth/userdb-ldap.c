@@ -77,7 +77,7 @@ userdb_ldap_lookup_finish(struct auth_request *auth_request,
 		auth_request_db_log_unknown_user(auth_request);
 	} else if (urequest->entries > 1) {
 		e_error(authdb_event(auth_request),
-			"ldap_filter matched multiple objects, aborting");
+			"userdb_ldap_filter matched multiple objects, aborting");
 		result = USERDB_RESULT_INTERNAL_FAILURE;
 	} else {
 		result = USERDB_RESULT_OK;
@@ -135,8 +135,10 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	auth_request_ref(auth_request);
 	request = p_new(auth_request->pool, struct userdb_ldap_request, 1);
 	request->userdb_callback = callback;
-	request->request.base = p_strdup(auth_request->pool, ldap_pre->base);
-	request->request.filter = p_strdup(auth_request->pool, ldap_pre->filter);
+	request->request.base = p_strdup(auth_request->pool,
+					 ldap_pre->ldap_base);
+	request->request.filter = p_strdup(auth_request->pool,
+					   ldap_pre->userdb_ldap_filter);
 	request->request.attributes = module->attributes;
 	request->request.sensitive_attr_names = module->sensitive_attr_names;
 
@@ -264,8 +266,10 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 
 	auth_request_ref(auth_request);
 	request->request.request.auth_request = auth_request;
-	request->request.base = p_strdup(auth_request->pool, ldap_pre->base);
-	request->request.filter = p_strdup(auth_request->pool, ldap_pre->iterate_filter);
+	request->request.base = p_strdup(auth_request->pool,
+					 ldap_pre->ldap_base);
+	request->request.filter = p_strdup(auth_request->pool,
+					   ldap_pre->userdb_ldap_iterate_filter);
 	request->request.attributes = module->iterate_attributes;
 	request->request.sensitive_attr_names = module->sensitive_attr_names;
 	request->request.multi_entry = TRUE;
@@ -337,7 +341,8 @@ static int userdb_ldap_preinit(pool_t pool, struct event *event,
 				    &module->iterate_attributes, NULL, NULL);
 
 	module->module.default_cache_key = auth_cache_parse_key_and_fields(
-		pool, t_strconcat(ldap_pre->base, ldap_pre->filter, NULL),
+		pool, t_strconcat(ldap_pre->ldap_base,
+				  ldap_pre->userdb_ldap_filter, NULL),
 		&auth_post->fields, NULL);
 
 	*module_r = &module->module;

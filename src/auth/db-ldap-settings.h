@@ -44,15 +44,16 @@ struct ldap_pre_settings {
 	pool_t pool;
 
 	/* shared: */
-	const char *base;
-	const char *filter;
+	const char *ldap_base;
 
 	/* passdb: */
 	bool passdb_ldap_bind;
+	const char *passdb_ldap_filter;
 	const char *passdb_ldap_bind_userdn;
 
 	/* userdb: */
-	const char *iterate_filter;
+	const char *userdb_ldap_filter;
+	const char *userdb_ldap_iterate_filter;
 };
 
 struct ldap_post_settings {

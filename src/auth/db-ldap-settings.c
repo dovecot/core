@@ -70,27 +70,25 @@ const struct setting_parser_info ldap_setting_parser_info = {
 #undef DEF
 #undef DEFN
 #define DEF(type, field) \
-	SETTING_DEFINE_STRUCT_##type("ldap_"#field, field, struct ldap_pre_settings)
-#define DEFN(type, field, name) \
-	SETTING_DEFINE_STRUCT_##type(#name, field, struct ldap_pre_settings)
+	SETTING_DEFINE_STRUCT_##type(#field, field, struct ldap_pre_settings)
 
 static const struct setting_define ldap_pre_setting_defines[] = {
-	{ .type = SET_FILTER_NAME, .key = "passdb_ldap", },
-	{ .type = SET_FILTER_NAME, .key = "userdb_ldap", },
-	DEF(STR, base),
-	DEFN(BOOL, passdb_ldap_bind, passdb_ldap_bind),
-	DEFN(STR, passdb_ldap_bind_userdn, passdb_ldap_bind_userdn),
-	DEF(STR, filter),
-	DEF(STR, iterate_filter),
+	DEF(STR, ldap_base),
+	DEF(BOOL, passdb_ldap_bind),
+	DEF(STR, passdb_ldap_filter),
+	DEF(STR, passdb_ldap_bind_userdn),
+	DEF(STR, userdb_ldap_filter),
+	DEF(STR, userdb_ldap_iterate_filter),
 	SETTING_DEFINE_LIST_END
 };
 
 static const struct ldap_pre_settings ldap_pre_default_settings = {
-	.base = "",
+	.ldap_base = "",
 	.passdb_ldap_bind = FALSE,
+	.passdb_ldap_filter = "",
 	.passdb_ldap_bind_userdn = "",
-	.filter = "",
-	.iterate_filter = "",
+	.userdb_ldap_filter = "",
+	.userdb_ldap_iterate_filter = "",
 };
 
 const struct setting_parser_info ldap_pre_setting_parser_info = {
@@ -105,11 +103,9 @@ const struct setting_parser_info ldap_pre_setting_parser_info = {
 
 #undef DEF
 #define DEF(type, field) \
-	SETTING_DEFINE_STRUCT_##type("ldap_"#field, field, struct ldap_post_settings)
+	SETTING_DEFINE_STRUCT_##type("userdb_ldap_"#field, field, struct ldap_post_settings)
 
 static const struct setting_define ldap_post_setting_defines[] = {
-	{ .type = SET_FILTER_NAME, .key = "passdb_ldap", },
-	{ .type = SET_FILTER_NAME, .key = "userdb_ldap", },
 	DEF(STRLIST, iterate_fields),
 	SETTING_DEFINE_LIST_END
 };
@@ -204,7 +200,7 @@ int ldap_setting_post_check(const struct ldap_settings *set, const char **error_
 
 int ldap_pre_settings_post_check(const struct ldap_pre_settings *set, const char **error_r)
 {
-	if (*set->base == '\0') {
+	if (*set->ldap_base == '\0') {
 		*error_r = "No ldap_base given";
 		return -1;
 	}
