@@ -1479,8 +1479,9 @@ struct ldap_connection *db_ldap_init(struct event *event)
 
 	set     = settings_get_or_fatal(event, &ldap_setting_parser_info);
 	ssl_set = settings_get_or_fatal(event, &ssl_setting_parser_info);
-	if (ldap_setting_post_check(set, &error) < 0)
-		i_fatal("%s%s", set->uris, error);
+	if (ldap_setting_post_check(set, &error) < 0 ||
+	    ldap_set_tls_validate(ssl_set, &error) < 0)
+		i_fatal("%s: %s", set->uris, error);
 
 	/* see if it already exists */
 	struct ldap_connection *conn = db_ldap_conn_find(set, ssl_set);
