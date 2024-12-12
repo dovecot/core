@@ -1,0 +1,18 @@
+---
+Index:
+  StandardLibrary: true
+Diagnostics:
+  UnusedIncludes: Strict
+  ClangTidy:
+    FastCheckFilter: None
+Completion:
+  AllScopes: true
+InlayHints:
+  Enabled: true
+  BlockEnd: true
+  DeducedTypes: true
+  Designators: true
+  ParameterNames: true
+  TypeNameLimit: 24
+Hover:
+  ShowAKA: true
