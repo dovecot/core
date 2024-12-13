@@ -572,14 +572,31 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 		return 0;
 	}
 	if (file->hdr.indexid != file->log->index->indexid) {
-		if (file->log->index->indexid != 0 &&
-		    !file->log->index->initial_create) {
-			/* index file was probably just rebuilt and we don't
-			   know about it yet */
+		if (file->log->index->indexid == 0 ||
+		    file->log->index->initial_create)
+			;
+		else if (strcmp(file->filepath, file->log->filepath2) == 0) {
+			/* .log.2 has a different indexid. This is rather
+			   unlikely situation to notice. We'll handle it by
+			   deleting the .log.2 so a permanently wrong indexid
+			   gets fixed automatically. Since .log.2 doesn't
+			   contain anything critical, it's not so bad even if
+			   the deletion wasn't really necessary. */
 			mail_transaction_log_file_set_corrupted(file,
-				"indexid changed: %u -> %u",
+				"indexid changed: %u -> %u - deleting",
 				file->log->index->indexid, file->hdr.indexid);
 			return 0;
+		} else {
+			/* Index was just rebuilt, possibly because the whole
+			   mailbox was recreated under us. Handle it the same
+			   as if the mailbox directory had been deleted. */
+			e_debug(file->log->index->event,
+				"Transaction log file %s indexid changed: %u -> %u",
+				file->filepath,
+				file->log->index->indexid, file->hdr.indexid);
+			file->log->index->index_deleted = TRUE;
+			errno = ENOENT;
+			return -1;
 		}
 
 		/* creating index file. since transaction log is created
