@@ -54,8 +54,9 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 		return -1;
 	}
 
-	ldap_set_tls_options(conn->log_prefix, conn->conn, conn->set->starttls,
-			     conn->set->uris, conn->ssl_set);
+	if (ldap_set_tls_options(conn->conn, conn->set->starttls,
+				 conn->set->uris, conn->ssl_set, error_r) < 0)
+		return -1;
 
 #ifdef LDAP_OPT_X_TLS_PROTOCOL_MIN
 	/* refuse to connect to SSLv2 as it's completely insecure */
@@ -112,7 +113,8 @@ int ldap_connection_init(struct ldap_client *client,
 	conn->pool = pool;
 	conn->event = event_create(ldap_client_get_event(client));
 	conn->client = client;
-	conn->log_prefix = p_strdup_printf(pool, "ldap(%s): ", set->uris);
+	event_set_append_log_prefix(conn->event,
+				    t_strdup_printf("ldap(%s): ", set->uris));
 
 	pool_ref(set->pool);
 	pool_ref(ssl_set->pool);

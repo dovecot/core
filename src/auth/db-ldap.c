@@ -877,6 +877,7 @@ db_ldap_del_connection_callback(LDAP *ld ATTR_UNUSED, Sockbuf *sb ATTR_UNUSED,
 
 static void ldap_set_options(struct ldap_connection *conn)
 {
+	const char *error;
 	int ret;
 
 	struct ldap_conncb *cb = p_new(conn->pool, struct ldap_conncb, 1);
@@ -898,20 +899,25 @@ static void ldap_set_options(struct ldap_connection *conn)
 			conn->log_prefix, ldap_err2string(ret));
 #endif
 
-	ldap_set_opt(conn->log_prefix, conn->ld, LDAP_OPT_DEREF, &conn->set->parsed_deref,
-			"ldap_deref", conn->set->deref);
+	if (ldap_set_opt(conn->ld, LDAP_OPT_DEREF, &conn->set->parsed_deref,
+			 "ldap_deref", conn->set->deref, &error) < 0)
+		i_fatal("%s%s", conn->log_prefix, error);
 #ifdef LDAP_OPT_DEBUG_LEVEL
 	if (conn->set->debug_level != 0) {
-		ldap_set_opt(conn->log_prefix, NULL, LDAP_OPT_DEBUG_LEVEL, &conn->set->debug_level,
-				"ldap_debug_level", dec2str(conn->set->debug_level));
+		if (ldap_set_opt(NULL, LDAP_OPT_DEBUG_LEVEL, &conn->set->debug_level,
+				"ldap_debug_level", dec2str(conn->set->debug_level), &error) < 0)
+			i_fatal("%s%s", conn->log_prefix, error);
 		event_set_forced_debug(conn->event, TRUE);
 	}
 #endif
 
-	ldap_set_opt(conn->log_prefix, conn->ld, LDAP_OPT_PROTOCOL_VERSION,
-		     &conn->set->version, "ldap_version", dec2str(conn->set->version));
-	ldap_set_tls_options(conn->log_prefix, conn->ld, conn->set->starttls,
-			     conn->set->uris, conn->ssl_set);
+	if (ldap_set_opt(conn->ld, LDAP_OPT_PROTOCOL_VERSION,
+			 &conn->set->version, "ldap_version",
+			 dec2str(conn->set->version), &error) < 0)
+		i_fatal("%s%s", conn->log_prefix, error);
+	if (ldap_set_tls_options(conn->ld, conn->set->starttls,
+				 conn->set->uris, conn->ssl_set, &error) < 0)
+		i_fatal("%s%s", conn->log_prefix, error);
 }
 
 static void db_ldap_init_ld(struct ldap_connection *conn)
