@@ -30,12 +30,12 @@ libdovecot_ldap_la_DEPENDENCIES = libdldap.la $(LIBDOVECOT_DEPS)
 libdovecot_ldap_la_LDFLAGS = -export-dynamic
 
 headers = \
-	ldap-client.h
+	ldap-client.h \
+	ldap-utils.h
 
 noinst_HEADERS = \
 	ldap-connection-pool.h \
 	ldap-private.h \
-	ldap-utils.h \
 	ldap-settings.h \
 	ldap-settings-parse.h
 
