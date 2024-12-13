@@ -1465,7 +1465,7 @@ int index_mail_init_stream(struct index_mail *mail,
 }
 
 static bool index_mail_want_write_snippet(struct index_mail *mail,
-				     	  enum index_cache_field field)
+					  enum index_cache_field field)
 {
 	if (field == MAIL_CACHE_BODY_SNIPPET) return TRUE;
 	return index_mail_want_cache(mail, MAIL_CACHE_BODY_SNIPPET);

@@ -1373,13 +1373,13 @@ static const char input_msg[] =
 	test_assert((part).virtual_size == (part).lines + (part).physical_size)
 
 #define test_assert_part(part, flags_, children, h_lines, h_size, b_lines, b_size ) \
-STMT_START { 								\
-	test_assert((part)->flags == (flags_));				\
+STMT_START {								\
+	test_assert((part)->flags == (flags_));			\
 	test_assert((part)->children_count == children);		\
 	test_assert((part)->header_size.lines == h_lines);		\
 	test_assert((part)->header_size.physical_size == h_size);	\
 	test_assert((part)->body_size.lines == b_lines);		\
-	test_assert((part)->body_size.physical_size == b_size);		\
+	test_assert((part)->body_size.physical_size == b_size);	\
 	test_assert_virtual_size((part)->header_size);			\
 	test_assert_virtual_size((part)->body_size);			\
 } STMT_END

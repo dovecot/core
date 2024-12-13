@@ -535,9 +535,9 @@ static const struct fetch_field fetch_fields[] = {
 	{ "body.preview",  MAIL_FETCH_BODY_SNIPPET,  fetch_body_snippet },
 	{ "body.snippet",  MAIL_FETCH_BODY_SNIPPET,  fetch_body_snippet },
 	{ "text",          MAIL_FETCH_STREAM_HEADER |
-	                   MAIL_FETCH_STREAM_BODY,   fetch_text },
+			   MAIL_FETCH_STREAM_BODY,   fetch_text },
 	{ "text.utf8",     MAIL_FETCH_STREAM_HEADER |
-	                   MAIL_FETCH_STREAM_BODY,   fetch_text_utf8 },
+			   MAIL_FETCH_STREAM_BODY,   fetch_text_utf8 },
 	{ "size.physical", MAIL_FETCH_PHYSICAL_SIZE, fetch_size_physical },
 	{ "size.virtual",  MAIL_FETCH_VIRTUAL_SIZE,  fetch_size_virtual },
 	{ "date.received", MAIL_FETCH_RECEIVED_DATE, fetch_date_received },

@@ -77,7 +77,7 @@ void message_parse_header(struct istream *input, struct message_size *hdr_size,
 	  message_parse_header(input, hdr_size, flags - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			struct message_header_line *hdr, typeof(context))), \
- 		(message_header_callback_t *)callback, context)
+		(message_header_callback_t *)callback, context)
 
 /* Write the header line to buffer exactly as it was read, including the
    newline. */

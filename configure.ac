@@ -437,8 +437,8 @@ dnl * find random source
 
 AC_ARG_WITH(random-source,
 AS_HELP_STRING([--with-random-source=file], [Device file to use as random source (default=/dev/urandom)]),
-        random_source=$withval,
-        random_source=/dev/urandom)
+	random_source=$withval,
+	random_source=/dev/urandom)
 
 AC_MSG_CHECKING([for $random_source])
 if test -c $random_source || test -s $random_source; then

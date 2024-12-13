@@ -51,7 +51,7 @@ char *p_strdup(pool_t pool, const char *str)
 	size_t len;
 
 	if (str == NULL)
-                return NULL;
+		return NULL;
 
 	len = strlen(str) + 1;
 	mem = p_malloc(pool, len);
@@ -71,7 +71,7 @@ void *p_memdup(pool_t pool, const void *data, size_t size)
 char *p_strdup_empty(pool_t pool, const char *str)
 {
 	if (str == NULL || *str == '\0')
-                return NULL;
+		return NULL;
 
 	return p_strdup(pool, str);
 }
@@ -113,10 +113,10 @@ char *p_strndup(pool_t pool, const void *str, size_t max_chars)
 char *p_strdup_printf(pool_t pool, const char *format, ...)
 {
 	va_list args;
-        char *ret;
+	char *ret;
 
 	va_start(args, format);
-        ret = p_strdup_vprintf(pool, format, args);
+	ret = p_strdup_vprintf(pool, format, args);
 	va_end(args);
 
 	return ret;
@@ -181,7 +181,7 @@ char *p_strdup_vprintf(pool_t pool, const char *format, va_list args)
 char *vstrconcat(const char *str1, va_list args, size_t *ret_len)
 {
 	const char *str;
-        char *temp;
+	char *temp;
 	size_t bufsize, i, len;
 
 	i_assert(str1 != NULL);
@@ -209,15 +209,15 @@ char *vstrconcat(const char *str1, va_list args, size_t *ret_len)
 	i_assert(i < bufsize);
 
 	temp[i++] = '\0';
-        *ret_len = i;
-        return temp;
+	*ret_len = i;
+	return temp;
 }
 
 char *p_strconcat(pool_t pool, const char *str1, ...)
 {
 	va_list args;
 	char *temp, *ret;
-        size_t len;
+	size_t len;
 
 	i_assert(str1 != NULL);
 
@@ -233,7 +233,7 @@ char *p_strconcat(pool_t pool, const char *str1, ...)
 	}
 
 	va_end(args);
-        return ret;
+	return ret;
 }
 
 static void *t_memdup(const void *data, size_t size)
@@ -305,7 +305,7 @@ const char *t_strconcat(const char *str1, ...)
 {
 	va_list args;
 	const char *ret;
-        size_t len;
+	size_t len;
 
 	i_assert(str1 != NULL);
 
@@ -315,7 +315,7 @@ const char *t_strconcat(const char *str1, ...)
 	t_buffer_alloc(len);
 
 	va_end(args);
-        return ret;
+	return ret;
 }
 
 const char *t_strcut(const char *str, char cutchar)
@@ -324,10 +324,10 @@ const char *t_strcut(const char *str, char cutchar)
 
 	for (p = str; *p != '\0'; p++) {
 		if (*p == cutchar)
-                        return t_strdup_until(str, p);
+			return t_strdup_until(str, p);
 	}
 
-        return str;
+	return str;
 }
 
 const char *t_str_replace(const char *str, char from, char to)
@@ -419,7 +419,7 @@ char *str_ucase(char *str)
 
 	for (p = str; *p != '\0'; p++)
 		*p = i_toupper(*p);
-        return str;
+	return str;
 }
 
 char *str_lcase(char *str)
@@ -428,7 +428,7 @@ char *str_lcase(char *str)
 
 	for (p = str; *p != '\0'; p++)
 		*p = i_tolower(*p);
-        return str;
+	return str;
 }
 
 const char *t_str_lcase(const char *str)
@@ -562,12 +562,12 @@ int null_strcmp(const char *s1, const char *s2)
 
 int null_strcasecmp(const char *s1, const char *s2)
 {
-        if (s1 == NULL)
-                return s2 == NULL ? 0 : -1;
-        if (s2 == NULL)
-                return 1;
+	if (s1 == NULL)
+		return s2 == NULL ? 0 : -1;
+	if (s2 == NULL)
+		return 1;
 
-        return strcasecmp(s1, s2);
+	return strcasecmp(s1, s2);
 }
 
 int i_memcasecmp(const void *p1, const void *p2, size_t size)
@@ -584,7 +584,7 @@ int i_memcasecmp(const void *p1, const void *p2, size_t size)
 		s1++; s2++; size--;
 	}
 
-        return 0;
+	return 0;
 }
 
 int i_strcmp_p(const char *const *p1, const char *const *p2)
@@ -725,9 +725,9 @@ bool t_split_key_value(const char *arg, char separator,
 static char **
 split_str_slow(pool_t pool, const char *data, const char *separators, bool spaces)
 {
-        char **array;
+	char **array;
 	char *str;
-        unsigned int count, alloc_count, new_alloc_count;
+	unsigned int count, alloc_count, new_alloc_count;
 
 	if (spaces) {
 		/* skip leading separators */
@@ -747,7 +747,7 @@ split_str_slow(pool_t pool, const char *data, const char *separators, bool space
 		if (strchr(separators, *str) != NULL) {
 			/* separator found */
 			if (count+1 >= alloc_count) {
-                                new_alloc_count = nearest_power(alloc_count+1);
+				new_alloc_count = nearest_power(alloc_count+1);
 				array = p_realloc(pool, array,
 						  sizeof(char *) * alloc_count,
 						  sizeof(char *) *
@@ -769,13 +769,13 @@ split_str_slow(pool_t pool, const char *data, const char *separators, bool space
 			array[count++] = str+1;
 		}
 
-                str++;
+		str++;
 	}
 
 	i_assert(count < alloc_count);
-        array[count] = NULL;
+	array[count] = NULL;
 
-        return array;
+	return array;
 }
 
 static char **
@@ -874,7 +874,7 @@ p_strarray_join_n(pool_t pool, const char *const *arr, unsigned int arr_len,
 	char *str;
 
 	sep_len = strlen(separator);
-        alloc_len = 64;
+	alloc_len = 64;
 	str = t_buffer_get(alloc_len);
 	pos = 0;
 

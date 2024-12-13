@@ -159,7 +159,7 @@ void hash_table_clear(struct hash_table *table, bool free_nodes)
 	if (free_nodes) {
 		if (!table->node_pool->alloconly_pool)
 			destroy_node_list(table, table->free_nodes);
-                table->free_nodes = NULL;
+		table->free_nodes = NULL;
 	}
 
 	memset(table->nodes, 0, sizeof(struct hash_node) * table->size);
@@ -339,7 +339,7 @@ static void hash_table_compress_removed(struct hash_table *table)
 	for (i = 0; i < table->size; i++)
 		hash_table_compress(table, &table->nodes[i]);
 
-        table->removed_count = 0;
+	table->removed_count = 0;
 }
 
 bool hash_table_try_remove(struct hash_table *table, const void *key)
@@ -455,7 +455,7 @@ static bool hash_table_resize(struct hash_table *table, bool grow)
 
 	i_assert(table->frozen == 0);
 
-        nodes_per_list = (float) table->nodes_count / (float) table->size;
+	nodes_per_list = (float) table->nodes_count / (float) table->size;
 	if (nodes_per_list > 0.3 && nodes_per_list < 2.0)
 		return FALSE;
 
@@ -523,7 +523,7 @@ void hash_table_copy(struct hash_table *dest, struct hash_table *src)
 unsigned int ATTR_NO_SANITIZE_INTEGER
 str_hash(const char *p)
 {
-        const unsigned char *s = (const unsigned char *)p;
+	const unsigned char *s = (const unsigned char *)p;
 	unsigned int g, h = 0;
 
 	while (*s != '\0') {
@@ -542,7 +542,7 @@ str_hash(const char *p)
 unsigned int ATTR_NO_SANITIZE_INTEGER
 strcase_hash(const char *p)
 {
-        const unsigned char *s = (const unsigned char *)p;
+	const unsigned char *s = (const unsigned char *)p;
 	unsigned int g, h = 0;
 
 	while (*s != '\0') {

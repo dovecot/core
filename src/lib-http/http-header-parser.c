@@ -112,7 +112,7 @@ static int http_header_parse_name(struct http_header_parser *parser)
 static int http_header_parse_ows(struct http_header_parser *parser)
 {
 	/* OWS            = *( SP / HTAB )
-	                  ; "optional" whitespace
+			  ; "optional" whitespace
 	 */
 	while (parser->cur < parser->end &&
 		(*parser->cur == ' ' || *parser->cur == '\t'))
@@ -164,7 +164,7 @@ static int http_header_parse(struct http_header_parser *parser)
 	/* RFC 7230, Section 3.2: Header Fields
 
 	   'header'       = *( header-field CRLF ) CRLF
-	                  ; Actually part of HTTP-message syntax
+                          ; Actually part of HTTP-message syntax
 
 	   header-field   = field-name ":" OWS field-value OWS
 	   field-name     = token
@@ -172,8 +172,8 @@ static int http_header_parse(struct http_header_parser *parser)
 	   field-content  = field-vchar [ 1*( SP / HTAB ) field-vchar ]
 	   field-vchar    = VCHAR / obs-text
 	   obs-fold       = CRLF 1*( SP / HTAB )
-	                  ; obsolete line folding
-	                  ; see Section 3.2.4
+                          ; obsolete line folding
+                          ; see Section 3.2.4
 	 */
 
 	for (;;) {

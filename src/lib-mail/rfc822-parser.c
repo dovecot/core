@@ -8,24 +8,24 @@
 
 /*
    atext        =       ALPHA / DIGIT / ; Any character except controls,
-                        "!" / "#" /     ;  SP, and specials.
-                        "$" / "%" /     ;  Used for atoms
-                        "&" / "'" /
-                        "*" / "+" /
-                        "-" / "/" /
-                        "=" / "?" /
-                        "^" / "_" /
-                        "`" / "{" /
-                        "|" / "}" /
-                        "~"
+			"!" / "#" /     ;  SP, and specials.
+			"$" / "%" /     ;  Used for atoms
+			"&" / "'" /
+			"*" / "+" /
+			"-" / "/" /
+			"=" / "?" /
+			"^" / "_" /
+			"`" / "{" /
+			"|" / "}" /
+			"~"
 
   MIME:
 
   token := 1*<any (US-ASCII) CHAR except SPACE, CTLs,
-              or tspecials>
+	      or tspecials>
   tspecials :=  "(" / ")" / "<" / ">" / "@" /
-                "," / ";" / ":" / "\" / <">
-                "/" / "[" / "]" / "?" / "="
+		"," / ";" / ":" / "\" / <">
+		"/" / "[" / "]" / "?" / "="
 
   So token is same as dot-atom, except stops also at '/', '?' and '='.
 */
@@ -140,7 +140,7 @@ int rfc822_skip_lwsp(struct rfc822_parser_context *ctx)
 	for (; ctx->data < ctx->end;) {
 		if (*ctx->data == ' ' || *ctx->data == '\t' ||
 		    *ctx->data == '\r' || *ctx->data == '\n') {
-                        ctx->data++;
+			ctx->data++;
 			continue;
 		}
 
