@@ -5,14 +5,16 @@
 
 struct ssl_settings;
 
-void ldap_set_opt(const char *prefix, LDAP *ld, int opt, const void *value,
-		  const char *optname, const char *value_str);
+int ldap_set_opt(LDAP *ld, int opt, const void *value,
+		 const char *optname, const char *value_str,
+		 const char **error_r);
 
-void ldap_set_opt_str(const char *prefix, LDAP *ld, int opt, const char *value,
-		      const char *optname);
+int ldap_set_opt_str(LDAP *ld, int opt, const char *value,
+		     const char *optname, const char **error_r);
 
-void ldap_set_tls_options(const char *prefix, LDAP *ld, bool starttls,
-			  const char *uris, const struct ssl_settings *ssl_set);
+int ldap_set_tls_options(LDAP *ld, bool starttls, const char *uris,
+			 const struct ssl_settings *ssl_set,
+			 const char **error_r);
 
 int ldap_set_tls_validate(const struct ssl_settings *set, const char **error_r);
 

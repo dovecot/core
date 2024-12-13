@@ -61,7 +61,6 @@ struct ldap_connection {
 
 	const struct ldap_client_settings *set;
 	const struct ssl_settings *ssl_set;
-	char *log_prefix;
 
 	struct aqueue *request_queue;
 	ARRAY(struct ldap_op_queue_entry *) request_array;
