@@ -341,11 +341,10 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset)
 	return 0;
 }
 
-static int
-mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush,
-			     const char **reason_r)
+int mail_transaction_log_has_changed(struct mail_transaction_log *log,
+				     bool nfs_flush,
+				     const char **reason_r)
 {
-        struct mail_transaction_log_file *file;
 	struct stat st;
 
 	i_assert(log->head != NULL);
@@ -385,6 +384,18 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush,
 		*reason_r = "Log inode is unchanged";
 		return 0;
 	}
+	return 1;
+}
+
+static int
+mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush,
+			     const char **reason_r)
+{
+        struct mail_transaction_log_file *file;
+
+	int ret = mail_transaction_log_has_changed(log, nfs_flush, reason_r);
+	if (ret <= 0)
+		return ret;
 
 	file = mail_transaction_log_file_alloc(log, log->filepath);
 	if (mail_transaction_log_file_open(file, reason_r) <= 0) {

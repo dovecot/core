@@ -161,6 +161,9 @@ int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
 				     bool reset);
 int mail_transaction_log_file_lock(struct mail_transaction_log_file *file);
 
+int mail_transaction_log_has_changed(struct mail_transaction_log *log,
+				     bool nfs_flush,
+				     const char **reason_r);
 int mail_transaction_log_find_file(struct mail_transaction_log *log,
 				   uint32_t file_seq, bool nfs_flush,
 				   struct mail_transaction_log_file **file_r,
