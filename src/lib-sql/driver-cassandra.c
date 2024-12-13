@@ -1010,6 +1010,15 @@ driver_cassandra_init_from_set(struct event *event_parent,
 {
 	struct cassandra_db *db;
 
+	if (array_is_empty(&set->hosts)) {
+		*error_r = "cassandra_hosts is empty";
+		return -1;
+	}
+	if (set->keyspace[0] == '\0') {
+		*error_r = "cassandra_keyspace is empty";
+		return -1;
+	}
+
 	db = i_new(struct cassandra_db, 1);
 	db->api = driver_cassandra_db;
 	db->set = set;
