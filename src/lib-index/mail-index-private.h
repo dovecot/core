@@ -389,6 +389,12 @@ void mail_index_map_lookup_seq_range(struct mail_index_map *map,
 				     uint32_t *first_seq_r,
 				     uint32_t *last_seq_r);
 
+/* Returns TRUE if indexid is ok, FALSE if it has either unexpectedly changed,
+   or it couldn't be determined easily whether it has changed permanently or
+   temporarily. If FALSE is returned, the mailbox should be reopened. */
+bool mail_index_hdr_check_indexid(struct mail_index *index,
+				  const struct mail_index_header *hdr);
+
 /* Returns 1 on success, 0 on non-critical errors we want to silently fix,
    -1 if map isn't usable. The caller is responsible for logging the errors
    if -1 is returned. */
@@ -396,8 +402,7 @@ int mail_index_map_check_header(struct mail_index_map *map,
 				const char **error_r);
 /* Returns 1 if header is usable, 0 or -1 if not. The caller should log an
    error if -1 is returned, but not if 0 is returned. */
-bool mail_index_check_header_compat(struct mail_index *index,
-				    const struct mail_index_header *hdr,
+bool mail_index_check_header_compat(const struct mail_index_header *hdr,
 				    uoff_t file_size, const char **error_r);
 int mail_index_map_parse_extensions(struct mail_index_map *map);
 int mail_index_map_parse_keywords(struct mail_index_map *map);

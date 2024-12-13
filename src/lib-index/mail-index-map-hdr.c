@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "mail-transaction-log-private.h"
 #include "mail-index-private.h"
 
 int mail_index_map_parse_extensions(struct mail_index_map *map)
@@ -183,8 +184,36 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 	return 0;
 }
 
-bool mail_index_check_header_compat(struct mail_index *index,
-				    const struct mail_index_header *hdr,
+bool mail_index_hdr_check_indexid(struct mail_index *index,
+				  const struct mail_index_header *hdr)
+{
+	const char *reason;
+
+	if (index->indexid == 0) {
+		/* this happens only when .log file is lost/corrupted */
+		i_assert(index->log->head == NULL);
+		index->indexid = hdr->indexid;
+	}
+	if (hdr->indexid == index->indexid)
+		return TRUE;
+
+	if (mail_transaction_log_has_changed(index->log, TRUE,
+					     &reason) != 0) {
+		/* Transaction log has either changed, or there was some IO
+		   error when doing the check. Either way, we can't continue. */
+		return FALSE;
+	}
+
+	/* indexid has a permanent mismatch - delete the index. */
+	mail_index_set_error(index, "Index file %s: "
+			     "indexid changed: %u -> %u - deleting",
+			     index->filepath, index->indexid, hdr->indexid);
+	if (!index->readonly)
+		i_unlink_if_exists(index->filepath);
+	return FALSE;
+}
+
+bool mail_index_check_header_compat(const struct mail_index_header *hdr,
 				    uoff_t file_size, const char **error_r)
 {
         enum mail_index_header_compat_flags compat_flags = 0;
@@ -224,17 +253,6 @@ bool mail_index_check_header_compat(struct mail_index *index,
 			hdr->header_size, file_size);
 		return FALSE;
 	}
-
-	if (hdr->indexid != index->indexid) {
-		if (index->indexid != 0) {
-			mail_index_set_error(index, "Index file %s: "
-					     "indexid changed: %u -> %u",
-					     index->filepath, index->indexid,
-					     hdr->indexid);
-		}
-		index->indexid = hdr->indexid;
-		mail_transaction_log_indexid_changed(index->log);
-	}
 	return TRUE;
 }
 
@@ -255,7 +273,7 @@ int mail_index_map_check_header(struct mail_index_map *map,
 	struct mail_index *index = map->index;
 	const struct mail_index_header *hdr = &map->hdr;
 
-	if (!mail_index_check_header_compat(index, hdr, UOFF_T_MAX, error_r))
+	if (!mail_index_check_header_compat(hdr, UOFF_T_MAX, error_r))
 		return 0;
 
 	/* following some extra checks that only take a bit of CPU */

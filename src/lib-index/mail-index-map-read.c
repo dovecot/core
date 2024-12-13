@@ -73,12 +73,14 @@ static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
 		return 0;
 	}
 
-	if (!mail_index_check_header_compat(index, hdr, rec_map->mmap_size, &error)) {
+	if (!mail_index_check_header_compat(hdr, rec_map->mmap_size, &error)) {
 		/* Can't use this file */
 		mail_index_set_error(index, "Corrupted index file %s: %s",
 				     index->filepath, error);
 		return 0;
 	}
+	if (!mail_index_hdr_check_indexid(index, hdr))
+		return -1;
 
 	rec_map->mmap_used_size = hdr->header_size +
 		hdr->messages_count * hdr->record_size;
@@ -157,12 +159,14 @@ mail_index_try_read_map(struct mail_index_map *map,
 
 	if (ret >= 0 && pos >= MAIL_INDEX_HEADER_MIN_SIZE &&
 	    (ret > 0 || pos >= hdr->base_header_size)) {
-		if (!mail_index_check_header_compat(index, hdr, file_size, &error)) {
+		if (!mail_index_check_header_compat(hdr, file_size, &error)) {
 			/* Can't use this file */
 			mail_index_set_error(index, "Corrupted index file %s: %s",
 					     index->filepath, error);
 			return 0;
 		}
+		if (!mail_index_hdr_check_indexid(index, hdr))
+			return -1;
 
 		initial_buf_pos = pos;
 		if (pos > hdr->header_size)
@@ -357,6 +361,11 @@ mail_index_map_latest_file(struct mail_index *index, const char **reason_r)
 			mail_index_set_error(index,
 				"Corrupted index file %s: %s",
 				index->filepath, error);
+		}
+		if (ret > 0 &&
+		    !mail_index_hdr_check_indexid(index, &new_map->hdr)) {
+			ret = -1;
+			break;
 		}
 		if (ret > 0) T_BEGIN {
 			if (mail_index_map_parse_extensions(new_map) < 0)
