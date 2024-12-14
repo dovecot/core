@@ -886,12 +886,16 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 	*data_r = data;
 	return 1;
 }
+static struct mail_transaction_log_file mark_null_file;
 
 void mail_transaction_log_view_mark(struct mail_transaction_log_view *view)
 {
-	i_assert(view->cur->hdr.file_seq == view->prev_file_seq);
-
-	view->mark_file = view->cur;
+	if (view->prev_file_seq == 0)
+		view->mark_file = &mark_null_file;
+	else {
+		i_assert(view->cur->hdr.file_seq == view->prev_file_seq);
+		view->mark_file = view->cur;
+	}
 	view->mark_offset = view->prev_file_offset;
 	view->mark_next_offset = view->cur_offset;
 	view->mark_modseq = view->prev_modseq;
@@ -901,9 +905,14 @@ void mail_transaction_log_view_rewind(struct mail_transaction_log_view *view)
 {
 	i_assert(view->mark_file != NULL);
 
-	view->cur = view->mark_file;
+	if (view->mark_file != &mark_null_file) {
+		view->cur = view->mark_file;
+		view->prev_file_seq = view->cur->hdr.file_seq;
+	} else {
+		view->cur = NULL;
+		view->prev_file_seq = 0;
+	}
 	view->cur_offset = view->mark_next_offset;
-	view->prev_file_seq = view->cur->hdr.file_seq;
 	view->prev_file_offset = view->mark_offset;
 	view->prev_modseq = view->mark_modseq;
 }
