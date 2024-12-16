@@ -340,6 +340,18 @@ mail_user_var_expand_table(struct mail_user *user)
 		auth_domain = i_strchr_to_next(user->auth_user, '@');
 	}
 
+	const char *local_port = "";
+	const char *remote_port = "";
+
+	if (user->conn.local_port != 0) {
+		local_port = p_strdup_printf(user->pool, "%u",
+					     user->conn.local_port);
+	}
+	if (user->conn.remote_port != 0) {
+		remote_port = p_strdup_printf(user->pool, "%u",
+					      user->conn.remote_port);
+	}
+
 	const struct var_expand_table stack_tab[] = {
 		{ 'u', user->username, "user" },
 		{ 'n', username, "username" },
@@ -348,6 +360,8 @@ mail_user_var_expand_table(struct mail_user *user)
 		{ 'h', user->_home /* don't look it up unless we need it */, "home" },
 		{ 'l', local_ip, "lip" },
 		{ 'r', remote_ip, "rip" },
+		{ 'a', local_port, "lport" },
+		{ 'b', remote_port, "rport" },
 		{ 'p', my_pid, "pid" },
 		{ 'i', p_strdup(user->pool, dec2str(user->uid)), "uid" },
 		{ '\0', p_strdup(user->pool, dec2str(user->gid)), "gid" },
@@ -359,6 +373,8 @@ mail_user_var_expand_table(struct mail_user *user)
 		/* aliases: */
 		{ '\0', local_ip, "local_ip" },
 		{ '\0', remote_ip, "remote_ip" },
+		{ '\0', local_port, "local_port" },
+		{ '\0', remote_port, "remote_port" },
 		/* NOTE: keep this synced with imap-hibernate's
 		   imap_client_var_expand_table() */
 		{ '\0', NULL, NULL }
