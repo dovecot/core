@@ -514,6 +514,15 @@ imap_client_get_var_expand_table(struct imap_client *client)
 		auth_domain = i_strchr_to_next(auth_user, '@');
 	}
 
+
+	const char *local_port = "";
+	const char *remote_port = "";
+
+	if (client->state.local_port != 0)
+		local_port = dec2str(client->state.local_port);
+	if (client->state.remote_port != 0)
+		remote_port = dec2str(client->state.remote_port);
+
 	const struct var_expand_table stack_tab[] = {
 		{ 'u', client->state.username, "user" },
 		{ 'n', username, "username" },
@@ -522,6 +531,8 @@ imap_client_get_var_expand_table(struct imap_client *client)
 		{ 'h', NULL /* we shouldn't need this */, "home" },
 		{ 'l', local_ip, "lip" },
 		{ 'r', remote_ip, "rip" },
+		{ 'a', local_port, "lport" },
+		{ 'a', remote_port, "rport" },
 		{ 'i', dec2str(client->state.uid), "uid" },
 		{ '\0', dec2str(client->state.gid), "gid" },
 		{ '\0', client->state.session_id, "session" },
@@ -531,6 +542,8 @@ imap_client_get_var_expand_table(struct imap_client *client)
 		/* aliases: */
 		{ '\0', local_ip, "local_ip" },
 		{ '\0', remote_ip, "remote_ip" },
+		{ '\0', local_port, "local_port" },
+		{ '\0', remote_port, "remote_port" },
 		/* NOTE: keep this synced with lib-storage's
 		   mail_user_var_expand_table() */
 		{ '\0', NULL, NULL }
