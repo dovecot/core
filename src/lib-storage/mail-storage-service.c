@@ -329,6 +329,14 @@ get_var_expand_table(struct master_service *service,
 				   input->service : service->name;
 	const char *hostname = user != NULL ?
 		user->user_set->hostname : my_hostname;
+	const char *local_port = "";
+	const char *remote_port = "";
+
+	if (input->local_port != 0)
+		local_port = dec2str(input->local_port);
+	if (input->remote_port != 0)
+		remote_port = dec2str(input->remote_port);
+
 	const struct var_expand_table stack_tab[] = {
 		{ 'u', input->username, "user" },
 		{ 'n', username, "username" },
@@ -336,6 +344,8 @@ get_var_expand_table(struct master_service *service,
 		{ 's', service_name, "service" },
 		{ 'l', net_ip2addr(&input->local_ip), "lip" },
 		{ 'r', net_ip2addr(&input->remote_ip), "rip" },
+		{ 'a', local_port, "lport" },
+		{ 'b', remote_port, "rport" },
 		{ '\0', input->session_id, "session" },
 		{ '\0', auth_user, "auth_user" },
 		{ '\0', auth_username, "auth_username" },
@@ -345,6 +355,8 @@ get_var_expand_table(struct master_service *service,
 		/* aliases: */
 		{ '\0', net_ip2addr(&input->local_ip), "local_ip" },
 		{ '\0', net_ip2addr(&input->remote_ip), "remote_ip" },
+		{ '\0', local_port, "local_port" },
+		{ '\0', remote_port," remote_port" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
