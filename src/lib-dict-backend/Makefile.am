@@ -46,7 +46,7 @@ libdict_ldap_la_CPPFLAGS = $(AM_CPPFLAGS) -DPLUGIN_BUILD
 libdict_ldap_la_SOURCES = $(ldap_sources)
 else
 if HAVE_LDAP
-libdict_backend_la_LIBADD += ../lib-ldap/libldap.la
+libdict_backend_la_LIBADD += ../lib-ldap/libdldap.la
 dict_drivers += ldap
 endif
 endif
