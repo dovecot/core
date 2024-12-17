@@ -644,7 +644,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 	ctx->verify_remote_cert = set->verify_remote_cert;
 	ctx->allow_invalid_cert = set->allow_invalid_cert;
 
-	if (set->cipher_list != NULL &&
+	if (set->cipher_list != NULL && set->cipher_list[0] != '\0' &&
 	    SSL_CTX_set_cipher_list(ctx->ssl_ctx, set->cipher_list) == 0) {
 		*error_r = t_strdup_printf(
 			"Can't set cipher list to '%s' (ssl_cipher_list setting): %s",
@@ -669,7 +669,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 		SSL_CTX_set_options(ctx->ssl_ctx,
 				    SSL_OP_CIPHER_SERVER_PREFERENCE);
 	}
-	if (set->min_protocol != NULL) {
+	if (set->min_protocol != NULL && set->min_protocol[0] != '\0') {
 		long opts;
 		int min_protocol;
 		if (openssl_min_protocol_to_options(set->min_protocol,
