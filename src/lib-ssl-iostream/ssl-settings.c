@@ -15,6 +15,9 @@ static bool
 ssl_server_settings_check(void *_set, pool_t pool, const char **error_r);
 
 static const struct setting_define ssl_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "ssl_client", },
+	{ .type = SET_FILTER_NAME, .key = "ssl_server", },
+
 	DEF(FILE, ssl_client_ca_file),
 	DEF(STR, ssl_client_ca_dir),
 	DEF(FILE, ssl_client_cert_file),
@@ -169,7 +172,12 @@ int ssl_client_settings_get(struct event *event,
 			    const struct ssl_settings **set_r,
 			    const char **error_r)
 {
-	return settings_get(event, &ssl_setting_parser_info, 0, set_r, error_r);
+	event = event_create(event);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "ssl_client");
+	int ret = settings_get(event, &ssl_setting_parser_info, 0,
+			       set_r, error_r);
+	event_unref(&event);
+	return ret;
 }
 
 int ssl_server_settings_get(struct event *event,
@@ -177,15 +185,18 @@ int ssl_server_settings_get(struct event *event,
 			    const struct ssl_server_settings **server_set_r,
 			    const char **error_r)
 {
-	if (settings_get(event, &ssl_setting_parser_info, 0,
-			 set_r, error_r) < 0)
-		return -1;
-	if (settings_get(event, &ssl_server_setting_parser_info, 0,
-			 server_set_r, error_r) < 0) {
-		settings_free(*set_r);
-		return -1;
+	event = event_create(event);
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "ssl_server");
+	int ret = settings_get(event, &ssl_setting_parser_info, 0,
+			       set_r, error_r);
+	if (ret == 0) {
+		ret = settings_get(event, &ssl_server_setting_parser_info, 0,
+				   server_set_r, error_r);
+		if (ret < 0)
+			settings_free(*set_r);
 	}
-	return 0;
+	event_unref(&event);
+	return ret;
 }
 
 static struct ssl_iostream_settings *
