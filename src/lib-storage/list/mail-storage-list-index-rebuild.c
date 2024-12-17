@@ -429,13 +429,14 @@ mail_storage_list_index_create(struct mail_storage_list_index_rebuild_ctx *ctx,
 struct mailbox_sort_node {
 	struct mailbox_node node;
 	struct mail_storage_list_index_rebuild_mailbox *box;
+	bool seen;
 };
 
 static int mail_storage_list_index_add_missing(struct mail_storage_list_index_rebuild_ctx *ctx)
 {
 	struct hash_iterate_context *iter;
 	struct mail_storage_list_index_rebuild_mailbox *box;
-	char *key ATTR_UNUSED;
+	char *key;
 	struct mailbox_node *_node;
 	unsigned int num_created = 0;
 	char sep = mail_namespaces_get_root_sep(ctx->storage->user->namespaces);
@@ -448,19 +449,39 @@ static int mail_storage_list_index_add_missing(struct mail_storage_list_index_re
 	e_debug(ctx->storage->event, "Sorting mailbox tree");
 	struct mailbox_tree_context *tree =
 		mailbox_tree_init_size(sep, sizeof(struct mailbox_sort_node));
-	while (hash_table_iterate(iter, ctx->mailboxes, &key, &box)) T_BEGIN {
+	while (ret == 0 &&
+	       hash_table_iterate(iter, ctx->mailboxes, &key, &box)) T_BEGIN {
 		bool created;
 		const char *name = box->index_name;
 		if (name == NULL)
 			name = get_box_name(ctx, box);
-		const char *vname =
+		const char *orig_vname =
 			t_strconcat(box->list->ns->prefix, name, NULL);
-		_node =	mailbox_tree_get(tree, vname, &created);
-		struct mailbox_sort_node *node =
-			container_of(_node, struct mailbox_sort_node, node);
-		node->box = box;
+		const char *vname = orig_vname;
+		for (unsigned int i = 0; ; i++) {
+			_node =	mailbox_tree_get(tree, vname, &created);
+			struct mailbox_sort_node *node =
+				container_of(_node, struct mailbox_sort_node, node);
+			if (!node->seen) {
+				node->box = box;
+				node->seen = TRUE;
+				break;
+			}
+
+			if (i == 100) {
+				mail_storage_set_critical(ctx->storage,
+					"List rebuild: Failed to create a new mailbox name for GUID %s - "
+					"everything seems to exist?", key);
+				ret = -1;
+				break;
+			}
+			/* duplicate mailbox name - try a different one */
+			vname = mailbox_name_add_random_suffix(orig_vname);
+		}
 	} T_END;
 	hash_table_iterate_deinit(&iter);
+	if (ret < 0)
+		return -1;
 
 	mailbox_tree_sort(tree);
 
