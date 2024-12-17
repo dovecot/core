@@ -421,7 +421,7 @@ static void test_bad_settings(void)
 	lua_pushstring(script->L, "https://localhost");
 	ret = dlua_pcall(script->L, "http_request_post", 1, 2, &error);
 	error = lua_tostring(script->L, 2);
-	test_assert_strcmp(error, "Couldn't initialize SSL client context: Unknown ssl_min_protocol setting 'cow'");
+	test_assert_strcmp(error, "Couldn't initialize SSL client context: Can't set minimum protocol to 'cow' (ssl_min_protocol setting): Unknown value");
 
 	dlua_script_unref(&script);
 
