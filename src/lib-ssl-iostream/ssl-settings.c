@@ -53,10 +53,16 @@ const struct ssl_settings ssl_default_settings = {
 	.ssl_options = "",
 };
 
+static const struct setting_keyvalue ssl_default_settings_keyvalue[] = {
+	{ "ssl_client/ssl_cipher_list", "" },
+	{ NULL, NULL }
+};
+
 const struct setting_parser_info ssl_setting_parser_info = {
 	.name = "ssl",
 	.defines = ssl_setting_defines,
 	.defaults = &ssl_default_settings,
+	.default_settings = ssl_default_settings_keyvalue,
 
 	.pool_offset1 = 1 + offsetof(struct ssl_settings, pool),
 	.struct_size = sizeof(struct ssl_settings),
