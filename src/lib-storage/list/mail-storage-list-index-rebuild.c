@@ -342,6 +342,14 @@ mail_storage_list_mailbox_create(struct mailbox *box,
 	return -1;
 }
 
+static const char *mailbox_name_add_random_suffix(const char *name)
+{
+	unsigned char randomness[8];
+	random_fill(randomness, sizeof(randomness));
+	return t_strconcat(name, "-",
+			   binary_to_hex(randomness, sizeof(randomness)), NULL);
+}
+
 static int
 mail_storage_list_index_try_create(struct mail_storage_list_index_rebuild_ctx *ctx,
 				   struct mailbox_list *list,
@@ -352,21 +360,16 @@ mail_storage_list_index_try_create(struct mail_storage_list_index_rebuild_ctx *c
 	struct mail_storage *storage = ctx->storage;
 	struct mailbox *box;
 	struct mailbox_update update;
-	string_t *name = t_str_new(128);
-	unsigned char randomness[8];
+	const char *name;
 	int ret;
 
 	i_zero(&update);
 	guid_128_copy(update.mailbox_guid, guid_p);
 
-	str_append(name, boxname);
-	if (retry) {
-		random_fill(randomness, sizeof(randomness));
-		str_append_c(name, '-');
-		binary_to_hex_append(name, randomness, sizeof(randomness));
-	}
+	name = !retry ? boxname : mailbox_name_add_random_suffix(boxname);
+
 	/* ignore ACLs to avoid interference */
-	box = mailbox_alloc(list, str_c(name), MAILBOX_FLAG_IGNORE_ACLS);
+	box = mailbox_alloc(list, name, MAILBOX_FLAG_IGNORE_ACLS);
 	e_debug(box->event, "Mailbox GUID %s exists in storage, but not in list index",
 		guid_128_to_string(guid_p));
 
@@ -376,7 +379,7 @@ mail_storage_list_index_try_create(struct mail_storage_list_index_rebuild_ctx *c
 	else if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FORCE_RESYNC) < 0) {
 		mail_storage_set_critical(storage,
 			"List rebuild: Couldn't force resync on created mailbox %s: %s",
-			str_c(name), mailbox_get_last_internal_error(box, NULL));
+			name, mailbox_get_last_internal_error(box, NULL));
 		ret = -1;
 	}
 	mailbox_free(&box);
@@ -386,13 +389,13 @@ mail_storage_list_index_try_create(struct mail_storage_list_index_rebuild_ctx *c
 
 	/* open a second time to rename the mailbox to its original name,
 	   ignore ACLs to avoid interference. */
-	box = mailbox_alloc(list, str_c(name), MAILBOX_FLAG_IGNORE_ACLS);
+	box = mailbox_alloc(list, name, MAILBOX_FLAG_IGNORE_ACLS);
 	e_debug(box->event, "Attempting to recover original name");
 	if (mailbox_open(box) < 0 &&
 	    mailbox_get_last_mail_error(box) != MAIL_ERROR_NOTFOUND) {
 		mail_storage_set_critical(storage,
 			"List rebuild: Couldn't open recovered mailbox %s: %s",
-			str_c(name), mailbox_get_last_internal_error(box, NULL));
+			name, mailbox_get_last_internal_error(box, NULL));
 		ret = -1;
 	}
 	mailbox_free(&box);
