@@ -654,13 +654,14 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 	if (set->curve_list != NULL && strlen(set->curve_list) > 0 &&
 		SSL_CTX_set1_curves_list(ctx->ssl_ctx, set->curve_list) == 0) {
 		*error_r = t_strdup_printf(
-			"Can't set curve list to '%s' (ssl_curve_list setting)",
-			set->curve_list);
+			"Can't set curve list to '%s' (ssl_curve_list setting): %s",
+			set->curve_list, openssl_iostream_error());
 		return -1;
 	}
 	if (set->ciphersuites != NULL && set->ciphersuites[0] != '\0' &&
 	    SSL_CTX_set_ciphersuites(ctx->ssl_ctx, set->ciphersuites) == 0) {
-		*error_r = t_strdup_printf("Can't set ciphersuites to '%s': %s",
+		*error_r = t_strdup_printf(
+			"Can't set ciphersuites to '%s' (ssl_cipher_suites setting): %s",
 			set->ciphersuites, openssl_iostream_error());
 		return -1;
 	}
@@ -674,8 +675,9 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 		if (openssl_min_protocol_to_options(set->min_protocol,
 						    &opts, &min_protocol) < 0) {
 			*error_r = t_strdup_printf(
-					"Unknown ssl_min_protocol setting '%s'",
-					set->min_protocol);
+				"Can't set minimum protocol to '%s' "
+				"(ssl_min_protocol setting): Unknown value",
+				set->min_protocol);
 			return -1;
 		}
 		SSL_CTX_set_min_proto_version(ctx->ssl_ctx, min_protocol);
@@ -727,7 +729,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 		ctx->username_nid = OBJ_txt2nid(set->cert_username_field);
 		if (ctx->username_nid == NID_undef) {
 			*error_r = t_strdup_printf(
-				"Invalid cert_username_field: %s",
+				"Invalid ssl_cert_username_field: %s",
 				set->cert_username_field);
 			return -1;
 		}
