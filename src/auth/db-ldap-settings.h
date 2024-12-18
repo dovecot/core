@@ -1,6 +1,12 @@
 #ifndef DB_LDAP_SETTINGS_H
 #define DB_LDAP_SETTINGS_H
 
+enum db_ldap_lookup_type {
+	DB_LDAP_LOOKUP_TYPE_PASSDB,
+	DB_LDAP_LOOKUP_TYPE_USERDB,
+	DB_LDAP_LOOKUP_TYPE_ITERATE,
+};
+
 struct ldap_settings {
 	pool_t pool;
 
@@ -66,6 +72,8 @@ extern const struct setting_parser_info ldap_pre_setting_parser_info;
 extern const struct setting_parser_info ldap_post_setting_parser_info;
 
 int ldap_setting_post_check(const struct ldap_settings *set, const char **error_r);
-int ldap_pre_settings_post_check(const struct ldap_pre_settings *set, const char **error_r);
+int ldap_pre_settings_post_check(const struct ldap_pre_settings *set,
+				 enum db_ldap_lookup_type type,
+				 const char **error_r);
 
 #endif

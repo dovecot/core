@@ -125,7 +125,8 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	const struct ldap_pre_settings *ldap_pre = NULL;
 	if (settings_get(event, &ldap_pre_setting_parser_info, 0,
 			 &ldap_pre, &error) < 0 ||
-	    ldap_pre_settings_post_check(ldap_pre, &error) < 0) {
+	    ldap_pre_settings_post_check(ldap_pre, DB_LDAP_LOOKUP_TYPE_USERDB,
+					 &error) < 0) {
 		e_error(event, "%s", error);
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 		settings_free(ldap_pre);
@@ -257,7 +258,8 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 	const struct ldap_pre_settings *ldap_pre = NULL;
 	if (settings_get(event, &ldap_pre_setting_parser_info, 0,
 			 &ldap_pre, &error) < 0 ||
-	    ldap_pre_settings_post_check(ldap_pre, &error) < 0) {
+	    ldap_pre_settings_post_check(ldap_pre, DB_LDAP_LOOKUP_TYPE_ITERATE,
+					 &error) < 0) {
 		e_error(event, "%s", error);
 		settings_free(ldap_pre);
 		ctx->ctx.failed = TRUE;

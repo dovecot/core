@@ -375,7 +375,8 @@ ldap_verify_plain(struct auth_request *request,
 	const struct ldap_pre_settings *ldap_pre = NULL;
 	if (settings_get(event, &ldap_pre_setting_parser_info, 0,
 			 &ldap_pre, &error) < 0 ||
-	    ldap_pre_settings_post_check(ldap_pre, &error) < 0) {
+	    ldap_pre_settings_post_check(ldap_pre, DB_LDAP_LOOKUP_TYPE_PASSDB,
+					 &error) < 0) {
 		e_error(event, "%s", error);
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
 		settings_free(ldap_pre);
@@ -413,7 +414,8 @@ static void ldap_lookup_credentials(struct auth_request *request,
 	const struct ldap_pre_settings *ldap_pre = NULL;
 	if (settings_get(event, &ldap_pre_setting_parser_info, 0,
 			 &ldap_pre, &error) < 0 ||
-	    ldap_pre_settings_post_check(ldap_pre, &error) < 0) {
+	    ldap_pre_settings_post_check(ldap_pre, DB_LDAP_LOOKUP_TYPE_PASSDB,
+					 &error) < 0) {
 		e_error(event, "%s", error);
 		passdb_ldap_request_fail(ldap_request, PASSDB_RESULT_INTERNAL_FAILURE);
 		settings_free(ldap_pre);

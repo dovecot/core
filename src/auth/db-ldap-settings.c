@@ -198,11 +198,33 @@ int ldap_setting_post_check(const struct ldap_settings *set, const char **error_
 	return 0;
 }
 
-int ldap_pre_settings_post_check(const struct ldap_pre_settings *set, const char **error_r)
+int ldap_pre_settings_post_check(const struct ldap_pre_settings *set,
+				 enum db_ldap_lookup_type type,
+				 const char **error_r)
 {
 	if (*set->ldap_base == '\0') {
 		*error_r = "No ldap_base given";
 		return -1;
+	}
+	switch (type) {
+	case DB_LDAP_LOOKUP_TYPE_PASSDB:
+		if (set->passdb_ldap_filter[0] == '\0') {
+			*error_r = "No passdb_ldap_filter given";
+			return -1;
+		}
+		break;
+	case DB_LDAP_LOOKUP_TYPE_USERDB:
+		if (set->userdb_ldap_filter[0] == '\0') {
+			*error_r = "No userdb_ldap_filter given";
+			return -1;
+		}
+		break;
+	case DB_LDAP_LOOKUP_TYPE_ITERATE:
+		if (set->userdb_ldap_iterate_filter[0] == '\0') {
+			*error_r = "No userdb_ldap_iterate_filter given";
+			return -1;
+		}
+		break;
 	}
 
 	return 0;
