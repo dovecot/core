@@ -515,12 +515,10 @@ int login_binary_run(struct login_binary *binary,
 			 SETTINGS_GET_FLAG_NO_EXPAND,
 			 &global_login_settings, &error) < 0)
 		i_fatal("%s", error);
-	global_ssl_settings = settings_get_or_fatal(
-		master_service_get_event(master_service),
-		&ssl_setting_parser_info);
-	global_ssl_server_settings = settings_get_or_fatal(
-		master_service_get_event(master_service),
-		&ssl_server_setting_parser_info);
+	if (ssl_server_settings_get(master_service_get_event(master_service),
+				    &global_ssl_settings,
+				    &global_ssl_server_settings, &error) < 0)
+		i_fatal("%s", error);
 
 	if (argv[optind] != NULL)
 		login_socket = argv[optind];

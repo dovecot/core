@@ -1484,8 +1484,8 @@ struct ldap_connection *db_ldap_init(struct event *event)
 	const char *error;
 
 	set     = settings_get_or_fatal(event, &ldap_setting_parser_info);
-	ssl_set = settings_get_or_fatal(event, &ssl_setting_parser_info);
-	if (ldap_setting_post_check(set, &error) < 0 ||
+	if (ssl_client_settings_get(event, &ssl_set, &error) < 0 ||
+	    ldap_setting_post_check(set, &error) < 0 ||
 	    ldap_set_tls_validate(ssl_set, &error) < 0)
 		i_fatal("%s: %s", set->uris, error);
 

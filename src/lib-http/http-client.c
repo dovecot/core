@@ -372,8 +372,7 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 	}
 	/* no ssl settings given via http_client_settings -
 	   look them up automatically */
-	if (settings_get(client->event, &ssl_setting_parser_info,
-			 0, &ssl_set, error_r) < 0)
+	if (ssl_client_settings_get(client->event, &ssl_set, error_r) < 0)
 		return -1;
 	ssl_client_settings_to_iostream_set(ssl_set, &set);
 

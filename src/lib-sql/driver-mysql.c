@@ -351,8 +351,7 @@ driver_mysql_init_v(struct event *event, struct sql_db **db_r,
 	}
 
 	if (set->ssl) {
-		if (settings_get(event, &ssl_setting_parser_info, 0,
-				 &ssl_set, error_r) < 0) {
+		if (ssl_client_settings_get(event, &ssl_set, error_r) < 0) {
 			settings_free(set);
 			return -1;
 		}

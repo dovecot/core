@@ -140,8 +140,8 @@ int io_stream_autocreate_ssl_client(
 	int ret;
 
 	i_assert(parameters->event_parent != NULL);
-	if (settings_get(parameters->event_parent, &ssl_setting_parser_info,
-			 0, &ssl_set, error_r) < 0)
+	if (ssl_client_settings_get(parameters->event_parent,
+				    &ssl_set, error_r) < 0)
 		return -1;
 	ssl_client_settings_to_iostream_set(ssl_set, &set);
 	if ((parameters->flags & SSL_IOSTREAM_FLAG_DISABLE_CA_FILES) != 0) {
@@ -186,14 +186,9 @@ int io_stream_autocreate_ssl_server(
 	int ret;
 
 	i_assert(parameters->event_parent != NULL);
-	if (settings_get(parameters->event_parent, &ssl_setting_parser_info,
-			 0, &ssl_set, error_r) < 0)
+	if (ssl_server_settings_get(parameters->event_parent, &ssl_set,
+				    &ssl_server_set, error_r) < 0)
 		return -1;
-	if (settings_get(parameters->event_parent, &ssl_server_setting_parser_info,
-			 0, &ssl_server_set, error_r) < 0) {
-		settings_free(ssl_set);
-		return -1;
-	}
 	ssl_server_settings_to_iostream_set(ssl_set, ssl_server_set, &set);
 	settings_free(ssl_set);
 	settings_free(ssl_server_set);
