@@ -55,7 +55,7 @@ const struct setting_parser_info dict_ldap_map_setting_parser_info = {
 	SETTING_DEFINE_STRUCT_##type(#name, field, struct dict_ldap_map_pre_settings)
 
 static const struct setting_define dict_ldap_map_pre_setting_defines[] = {
-	DEFN(STR, filter, ldap_filter),
+	DEFN(STR, filter, dict_map_ldap_filter),
 	SETTING_DEFINE_LIST_END
 };
 
