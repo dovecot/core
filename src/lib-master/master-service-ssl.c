@@ -22,12 +22,9 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	   initialization fails we can close the SSL listeners */
 	i_assert(service->listeners != NULL || service->socket_count == 0);
 
-	if (settings_get(service->event, &ssl_setting_parser_info, 0,
-			 &set, &error) < 0 ||
-	    settings_get(service->event, &ssl_server_setting_parser_info, 0,
-			 &server_set, &error) < 0) {
+	if (ssl_server_settings_get(service->event, &set, &server_set,
+				    &error) < 0) {
 		e_error(service->event, "%s - disabling SSL", error);
-		settings_free(set);
 		master_service_ssl_io_listeners_remove(service);
 		return;
 	}

@@ -210,10 +210,8 @@ static int client_settings_get(struct client *client, const char **error_r)
 
 	if (settings_get(client->event, &login_setting_parser_info,
 			 0, &client->set, error_r) < 0 ||
-	    settings_get(client->event, &ssl_setting_parser_info,
-			 0, &client->ssl_set, error_r) < 0 ||
-	    settings_get(client->event, &ssl_server_setting_parser_info,
-			 0, &client->ssl_server_set, error_r) < 0) {
+	    ssl_server_settings_get(client->event, &client->ssl_set,
+				    &client->ssl_server_set, error_r) < 0) {
 		client_settings_free(client);
 		return -1;
 	}

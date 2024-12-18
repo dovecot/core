@@ -74,7 +74,7 @@ int ldap_client_settings_get(struct event *event,
 	struct ldap_client_settings *set = NULL;
 	const struct ssl_settings *ssl_set = NULL;
 	if (settings_get(event, &ldap_client_setting_parser_info, 0, &set, error_r) < 0 ||
-	    settings_get(event, &ssl_setting_parser_info, 0, &ssl_set, error_r) < 0 ||
+	    ssl_client_settings_get(event, &ssl_set, error_r) < 0 ||
 	    ldap_client_settings_postcheck(set, error_r) < 0 ||
 	    ldap_set_tls_validate(ssl_set, error_r) < 0) {
 		settings_free(set);
