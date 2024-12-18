@@ -1,6 +1,7 @@
 /* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "settings.h"
 #include "settings-parser.h"
 #include "iostream-ssl.h"
 
@@ -163,6 +164,29 @@ ssl_server_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	return TRUE;
 }
 /* </settings checks> */
+
+int ssl_client_settings_get(struct event *event,
+			    const struct ssl_settings **set_r,
+			    const char **error_r)
+{
+	return settings_get(event, &ssl_setting_parser_info, 0, set_r, error_r);
+}
+
+int ssl_server_settings_get(struct event *event,
+			    const struct ssl_settings **set_r,
+			    const struct ssl_server_settings **server_set_r,
+			    const char **error_r)
+{
+	if (settings_get(event, &ssl_setting_parser_info, 0,
+			 set_r, error_r) < 0)
+		return -1;
+	if (settings_get(event, &ssl_server_setting_parser_info, 0,
+			 server_set_r, error_r) < 0) {
+		settings_free(*set_r);
+		return -1;
+	}
+	return 0;
+}
 
 static struct ssl_iostream_settings *
 ssl_common_settings_to_iostream_set(const struct ssl_settings *ssl_set)
