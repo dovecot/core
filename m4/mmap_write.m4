@@ -25,7 +25,7 @@ AC_DEFUN([DOVECOT_MMAP_WRITE], [
           perror("mmap()");
           return 1;
         }
-        strcpy(mem, "2");
+        strncpy(mem, "2");
         msync(mem, 2, MS_SYNC);
         lseek(f, 0, SEEK_SET);
         write(f, "3", 2);
