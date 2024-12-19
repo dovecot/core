@@ -99,6 +99,7 @@ struct config_parser_context {
 
 	HASH_TABLE(const char *, const char *) seen_settings;
 	struct config_filter_context *filter;
+	bool dump_defaults:1;
 	bool expand_values:1;
 	bool hide_errors:1;
 	bool delay_errors:1;

@@ -2776,6 +2776,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	i_zero(&ctx);
 	ctx.pool = pool_alloconly_create(MEMPOOL_GROWING"config file parser", 1024*256);
 	ctx.path = path;
+	ctx.dump_defaults = dump_defaults;
 	ctx.hide_obsolete_warnings =
 		(flags & CONFIG_PARSE_FLAG_HIDE_OBSOLETE_WARNINGS) != 0;
 	ctx.delay_errors = (flags & CONFIG_PARSE_FLAG_DELAY_ERRORS) != 0;
