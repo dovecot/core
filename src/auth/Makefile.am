@@ -65,8 +65,7 @@ auth_LDFLAGS = -export-dynamic
 
 auth_libs = \
 	$(AUTH_LUA_LIBS) \
-	$(LIBDOVECOT_SQL) \
-	$(LIBDOVECOT_LDAP)
+	$(LIBDOVECOT_SQL)
 
 auth_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
 auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS) $(BINARY_LDFLAGS) $(AUTH_LUA_LDADD)
@@ -176,20 +175,22 @@ libmech_gssapi_la_SOURCES = mech-gssapi.c
 endif
 
 if LDAP_PLUGIN
-libauthdb_ldap_la_LDFLAGS = -module -avoid-version
-libauthdb_ldap_la_LIBADD = $(LDAP_LIBS)
+libauthdb_ldap_la_LDFLAGS = -module -avoid-version -shared
+libauthdb_ldap_la_LIBADD = $(LIBDOVECOT_LDAP) $(LDAP_LIBS)
 libauthdb_ldap_la_CPPFLAGS = $(AM_CPPFLAGS) -DPLUGIN_BUILD
 libauthdb_ldap_la_SOURCES = $(ldap_sources)
+else
+auth_libs += $(LIBDOVECOT_LDAP)
 endif
 
 if AUTH_LUA_PLUGIN
-libauthdb_lua_la_LDFLAGS = -module -avoid-version
+libauthdb_lua_la_LDFLAGS = -module -avoid-version -shared
 libauthdb_lua_la_LIBADD = $(LIBDOVECOT_LUA)
 libauthdb_lua_la_CPPFLAGS = $(AM_CPPFLAGS) -DPLUGIN_BUILD
 libauthdb_lua_la_SOURCES = $(lua_sources)
 endif
 
-libauthdb_imap_la_LDFLAGS = -module -avoid-version
+libauthdb_imap_la_LDFLAGS = -module -avoid-version -shared
 libauthdb_imap_la_LIBADD = \
 	../lib-imap-client/libimap_client.la \
 	$(LIBDOVECOT)
