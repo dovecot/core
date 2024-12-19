@@ -179,7 +179,7 @@ static struct event_filter event_filter_match_never, event_filter_match_always;
 static int
 settings_instance_override(struct settings_apply_ctx *ctx,
 			   struct event_filter *event_filter,
-			   const char **error_r);
+			   bool *defaults, const char **error_r);
 
 static unsigned int path_element_count(const char *key)
 {
@@ -881,9 +881,10 @@ static int settings_mmap_apply_filter(struct settings_apply_ctx *ctx,
 	   override named filters' settings, unless the
 	   override is specifically using the filter name
 	   as prefix. */
+	bool defaults = FALSE;
 	int ret = settings_instance_override(ctx,
 			mmap->override_event_filters[event_filter_idx],
-			error_r);
+			&defaults, error_r);
 	if (ret < 0)
 		return -1;
 
@@ -894,6 +895,15 @@ static int settings_mmap_apply_filter(struct settings_apply_ctx *ctx,
 				     filter_offset, filter_end_offset,
 				     error_r) < 0)
 		return -1;
+	if (defaults) {
+		ret = settings_instance_override(ctx,
+				mmap->override_event_filters[event_filter_idx],
+				&defaults, error_r);
+		if (ret < 0)
+			return -1;
+		if (ret > 0)
+			ctx->seen_filter = TRUE;
+	}
 	return 0;
 }
 
@@ -1710,9 +1720,21 @@ settings_instance_override_init(struct settings_apply_ctx *ctx)
 		/* a) No configuration - default_settings won't be
 		   applied unless we add them here also. This isn't for any
 		   production use, so performance doesn't matter.
-		   b) SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT has been used -
-		   defaults need to be applied on top of them. This is used
-		   only in initialization code. */
+
+		   b) SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT has been used. The
+		   idea is that unless SETTINGS_OVERRIDE_TYPE_2ND_CLI_PARAM has
+		   overridden it, the value should be the default. This works
+		   for the defaults in the struct without extra code, but if
+		   the default comes from setting_parser_info.default_settings,
+		   we'll need to add those into overrides as
+		   SETTINGS_OVERRIDE_TYPE_DEFAULT. We really only need to
+		   add those specific keys that have
+		   SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT, but it's a bit
+		   troublesome to check which ones have it. It's not harmful
+		   to have other settings there as well, since for other
+		   settings the SETTINGS_OVERRIDE_TYPE_DEFAULT overrides are
+		   never even processed, because the final settings come from
+		   the binary config. */
 		const struct setting_parser_info *info;
 		ctx->temp_pool = pool_alloconly_create("settings temp pool", 256);
 		array_foreach_elem(&set_registered_infos, info)
@@ -1761,7 +1783,7 @@ settings_include_group_add_or_update(ARRAY_TYPE(settings_group) *include_groups,
 static int
 settings_instance_override(struct settings_apply_ctx *ctx,
 			   struct event_filter *event_filter,
-			   const char **error_r)
+			   bool *defaults, const char **error_r)
 {
 	struct settings_apply_override *override;
 	struct settings_override *set;
@@ -1772,6 +1794,7 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0 ? 0 :
 		 SETTING_APPLY_FLAG_NO_EXPAND);
 
+	bool seen_defaults = FALSE;
 	bool seen_filter = FALSE;
 	array_foreach_modifiable(&ctx->overrides, override) {
 		if (override->set == NULL)
@@ -1798,6 +1821,12 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		     !event_filter_match(event_filter, set->filter_event,
 					 &failure_ctx)))
 			continue;
+
+		if (set->type == SETTINGS_OVERRIDE_TYPE_DEFAULT) {
+			seen_defaults = TRUE;
+			if (!*defaults)
+				continue;
+		}
 
 		if (ctx->filter_key != NULL && set->last_filter_key != NULL &&
 		    strcmp(ctx->filter_key, set->last_filter_key) == 0 &&
@@ -1942,6 +1971,7 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			settings_parse_array_stop(ctx->parser, key_idx);
 		}
 	}
+	*defaults = seen_defaults;
 	return seen_filter ? 1 : 0;
 }
 
@@ -1992,8 +2022,9 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 		}
 	} else {
 		/* No configuration file - apply all overrides */
+		bool defaults = TRUE;
 		ret = settings_instance_override(ctx, EVENT_FILTER_MATCH_ALWAYS,
-						 error_r);
+						 &defaults, error_r);
 	}
 	if (ret > 0)
 		seen_filter = TRUE;
