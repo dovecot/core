@@ -653,7 +653,7 @@ mail_storage_settings_ext_check(struct event *event ATTR_UNUSED,
 	if (!uidl_format_ok) {
 		if (*error_r == NULL)
 			*error_r = "pop3_uidl_format setting doesn't contain any "
-				   "%% variables.";
+				   "%{variables}.";
 		return FALSE;
 	}
 
