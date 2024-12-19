@@ -62,7 +62,8 @@ pem_password_callback(char *buf, int size, int rwflag ATTR_UNUSED,
 }
 
 static int
-openssl_iostream_load_key(const struct ssl_iostream_cert *set,
+openssl_iostream_load_key(struct ssl_iostream_context *ssl_ctx,
+			  const struct ssl_iostream_cert *set,
 			  const char *set_name,
 			  EVP_PKEY **pkey_r, const char **error_r)
 {
@@ -82,13 +83,17 @@ openssl_iostream_load_key(const struct ssl_iostream_cert *set,
 
 	pkey = PEM_read_bio_PrivateKey(bio, NULL, pem_password_callback, &ctx);
 	if (pkey == NULL && ctx.error == NULL) {
-		ctx.error = t_strdup_printf(
-			"Couldn't parse private SSL key (%s setting)%s: %s",
-			set_name,
-			ctx.password != NULL ?
-				" (maybe ssl_server_key_password is wrong?)" :
-				"",
-			openssl_iostream_error());
+		string_t *str = t_str_new(128);
+		str_printfa(str, "Couldn't parse private SSL key (%s setting)",
+			    set_name);
+		if (ctx.password != NULL) {
+			str_printfa(str, " (maybe %s is wrong?)",
+				    ssl_ctx->client_ctx ?
+				    "ssl_client_key_password" :
+				    "ssl_server_key_password");
+		}
+		str_printfa(str, ": %s", openssl_iostream_error());
+		ctx.error = str_c(str);
 	}
 	BIO_free(bio);
 
@@ -130,7 +135,7 @@ ssl_iostream_ctx_use_key(struct ssl_iostream_context *ctx, const char *set_name,
 	EVP_PKEY *pkey;
 	int ret = 0;
 
-	if (openssl_iostream_load_key(set, set_name, &pkey, error_r) < 0)
+	if (openssl_iostream_load_key(ctx, set, set_name, &pkey, error_r) < 0)
 		return -1;
 	if (SSL_CTX_use_PrivateKey(ctx->ssl_ctx, pkey) == 0) {
 		*error_r = t_strdup_printf(
@@ -612,7 +617,8 @@ ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 		store = SSL_CTX_get_cert_store(ctx->ssl_ctx);
 		if (load_ca(store, set->ca.content, &xnames) < 0) {
 			*error_r = t_strdup_printf(
-				"Couldn't parse ssl_server_ca_file: %s",
+				"Couldn't parse %s: %s", ctx->client_ctx ?
+				"ssl_client_ca_file" : "ssl_server_ca_file",
 				openssl_iostream_error());
 			return -1;
 		}
@@ -691,12 +697,16 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 	    (set->cert.cert.content[0] != '\0' || !ctx->client_ctx) &&
 	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->cert.cert.content) == 0) {
 		*error_r = t_strdup_printf(
-			"Can't load SSL certificate (ssl_server_cert_file setting): %s",
+			"Can't load SSL certificate (%s setting): %s",
+			ctx->client_ctx ? "ssl_client_cert_file" :
+			"ssl_server_cert_file",
 			openssl_iostream_use_certificate_error(set->cert.cert.content));
 		return -1;
 	}
 	if (set->cert.key.content != NULL && set->cert.key.content[0] != '\0') {
-		if (ssl_iostream_ctx_use_key(ctx, "ssl_server_key_file",
+		if (ssl_iostream_ctx_use_key(ctx, ctx->client_ctx ?
+					     "ssl_client_key_file" :
+					     "ssl_server_key_file",
 					     &set->cert, error_r) < 0)
 			return -1;
 	}
