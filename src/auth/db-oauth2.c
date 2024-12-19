@@ -111,7 +111,6 @@ static bool auth_oauth2_settings_check(struct event *event ATTR_UNUSED, void *_s
 /* </settings checks> */
 
 static const struct setting_keyvalue auth_oauth2_default_settings_keyvalue[] = {
-	{ "oauth2/ssl_prefer_server_ciphers", "yes" },
 	{ "oauth2/http_client_user_agent", "dovecot-oauth2-passdb/"DOVECOT_VERSION },
 	{ "oauth2/http_client_max_idle_time", "60s" },
 	{ "oauth2/http_client_max_parallel_connections", "10" },
