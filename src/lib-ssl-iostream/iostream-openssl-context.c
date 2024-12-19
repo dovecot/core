@@ -61,9 +61,10 @@ pem_password_callback(char *buf, int size, int rwflag ATTR_UNUSED,
 	return strlen(buf);
 }
 
-int openssl_iostream_load_key(const struct ssl_iostream_cert *set,
-			      const char *set_name,
-			      EVP_PKEY **pkey_r, const char **error_r)
+static int
+openssl_iostream_load_key(const struct ssl_iostream_cert *set,
+			  const char *set_name,
+			  EVP_PKEY **pkey_r, const char **error_r)
 {
 	struct ssl_iostream_password_context ctx;
 	EVP_PKEY *pkey;
