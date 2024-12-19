@@ -333,6 +333,7 @@ replicator_queue_handle_sync_lookups(struct replicator_queue *queue,
 		} else {
 			array_push_back(&callbacks, &lookups[i]);
 			array_delete(&queue->sync_lookups, i, 1);
+			count--;
 		}
 	}
 
