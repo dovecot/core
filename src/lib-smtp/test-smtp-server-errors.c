@@ -4077,15 +4077,15 @@ test_run_client_server(struct smtp_server_settings *server_set,
 	   Otherwise the SMTP SNI mechanism will break when looking up the
 	   relevant settings. */
 	const char *const settings[] = {
-		"ssl_ca_file",
+		"ssl_server_ca_file",
 		(server_set->ssl == NULL ? "" :
 		 settings_file_get_value(unsafe_data_stack_pool,
 					 &server_set->ssl->ca)),
-		"ssl_cert_file",
+		"ssl_server_cert_file",
 		(server_set->ssl == NULL ? "" :
 		 settings_file_get_value(unsafe_data_stack_pool,
 					 &server_set->ssl->cert.cert)),
-		"ssl_key_file",
+		"ssl_server_key_file",
 		(server_set->ssl == NULL ? "" :
 		 settings_file_get_value(unsafe_data_stack_pool,
 					 &server_set->ssl->cert.key)),

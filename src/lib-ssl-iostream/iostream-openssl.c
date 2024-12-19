@@ -102,7 +102,7 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 			X509_verify_cert_error_string(X509_STORE_CTX_get_error(ctx)), certname,
 			ssl_io->ctx->client_ctx ?
 				"ssl_client_ca_* settings?" :
-				"ssl_ca_file setting?"));
+				"ssl_server_ca_file setting?"));
 	} else {
 		e_debug(ssl_io->event, "Received valid SSL certificate: %s", certname);
 	}

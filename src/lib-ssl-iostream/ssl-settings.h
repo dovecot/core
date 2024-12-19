@@ -32,18 +32,18 @@ struct ssl_server_settings {
 	pool_t pool;
 
 	const char *ssl;
-	const char *ssl_ca_file;
-	const char *ssl_cert_file;
-	const char *ssl_alt_cert_file;
-	const char *ssl_key_file;
-	const char *ssl_alt_key_file;
-	const char *ssl_key_password;
-	const char *ssl_dh_file;
-	const char *ssl_cert_username_field;
-	const char *ssl_prefer_ciphers;
+	const char *ssl_server_ca_file;
+	const char *ssl_server_cert_file;
+	const char *ssl_server_alt_cert_file;
+	const char *ssl_server_key_file;
+	const char *ssl_server_alt_key_file;
+	const char *ssl_server_key_password;
+	const char *ssl_server_dh_file;
+	const char *ssl_server_cert_username_field;
+	const char *ssl_server_prefer_ciphers;
 
-	bool ssl_require_crl;
-	bool ssl_request_client_cert;
+	bool ssl_server_require_crl;
+	bool ssl_server_request_client_cert;
 };
 
 extern const struct setting_parser_info ssl_setting_parser_info;

@@ -37,7 +37,7 @@ static DH *ssl_tmp_dh_callback(SSL *ssl,
 		SSL_get_ex_data(ssl, dovecot_ssl_extdata_index);
 
 	e_error(ssl_io->event, "Diffie-Hellman key exchange requested, "
-		"but no DH parameters provided. Set ssl_dh_file=/path/to/dh.pem");
+		"but no DH parameters provided. Set ssl_server_dh_file=/path/to/dh.pem");
 	return NULL;
 }
 #endif
@@ -85,7 +85,7 @@ int openssl_iostream_load_key(const struct ssl_iostream_cert *set,
 			"Couldn't parse private SSL key (%s setting)%s: %s",
 			set_name,
 			ctx.password != NULL ?
-				" (maybe ssl_key_password is wrong?)" :
+				" (maybe ssl_server_key_password is wrong?)" :
 				"",
 			openssl_iostream_error());
 	}
@@ -161,7 +161,7 @@ ssl_iostream_ctx_use_dh(struct ssl_iostream_context *ctx,
 #endif
 	{
 		 *error_r = t_strdup_printf(
-			"Can't load DH parameters (ssl_dh_file setting): %s",
+			"Can't load DH parameters (ssl_server_dh_file setting): %s",
 			openssl_iostream_key_load_error());
 		ret = -1;
 	}
@@ -610,8 +610,9 @@ ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 	if (set->ca.content != NULL && set->ca.content[0] != '\0') {
 		store = SSL_CTX_get_cert_store(ctx->ssl_ctx);
 		if (load_ca(store, set->ca.content, &xnames) < 0) {
-			*error_r = t_strdup_printf("Couldn't parse ssl_ca_file: %s",
-						   openssl_iostream_error());
+			*error_r = t_strdup_printf(
+				"Couldn't parse ssl_server_ca_file: %s",
+				openssl_iostream_error());
 			return -1;
 		}
 		ssl_iostream_ctx_verify_remote_cert(ctx, set, xnames);
@@ -630,7 +631,7 @@ ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 			return -1;
 		}
 	} else if (!have_ca) {
-		*error_r = "Can't verify remote client certs without CA (ssl_ca_file setting)";
+		*error_r = "Can't verify remote client certs without CA (ssl_server_ca_file setting)";
 		return -1;
 	}
 	return 0;
@@ -684,17 +685,17 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 	}
 
 	/* Client can ignore an empty ssl_client_cert_file, but server will fail
-	   if ssl_cert_file is empty. */
+	   if ssl_server_cert_file is empty. */
 	if (set->cert.cert.content != NULL &&
 	    (set->cert.cert.content[0] != '\0' || !ctx->client_ctx) &&
 	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->cert.cert.content) == 0) {
 		*error_r = t_strdup_printf(
-			"Can't load SSL certificate (ssl_cert_file setting): %s",
+			"Can't load SSL certificate (ssl_server_cert_file setting): %s",
 			openssl_iostream_use_certificate_error(set->cert.cert.content));
 		return -1;
 	}
 	if (set->cert.key.content != NULL && set->cert.key.content[0] != '\0') {
-		if (ssl_iostream_ctx_use_key(ctx, "ssl_key_file",
+		if (ssl_iostream_ctx_use_key(ctx, "ssl_server_key_file",
 					     &set->cert, error_r) < 0)
 			return -1;
 	}
@@ -703,13 +704,13 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->alt_cert.cert.content) == 0) {
 		*error_r = t_strdup_printf(
 			"Can't load alternative SSL certificate "
-			"(ssl_alt_cert_file setting): %s",
+			"(ssl_server_alt_cert_file setting): %s",
 			openssl_iostream_use_certificate_error(set->alt_cert.cert.content));
 		return -1;
 	}
 	if (set->alt_cert.key.content != NULL &&
 	    set->alt_cert.key.content[0] != '\0') {
-		if (ssl_iostream_ctx_use_key(ctx, "ssl_alt_key_file",
+		if (ssl_iostream_ctx_use_key(ctx, "ssl_server_alt_key_file",
 					     &set->alt_cert, error_r) < 0)
 			return -1;
 	}
@@ -729,7 +730,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 		ctx->username_nid = OBJ_txt2nid(set->cert_username_field);
 		if (ctx->username_nid == NID_undef) {
 			*error_r = t_strdup_printf(
-				"Invalid ssl_cert_username_field: %s",
+				"Invalid ssl_server_cert_username_field: %s",
 				set->cert_username_field);
 			return -1;
 		}

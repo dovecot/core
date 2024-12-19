@@ -75,36 +75,36 @@ const struct setting_parser_info ssl_setting_parser_info = {
 
 static const struct setting_define ssl_server_setting_defines[] = {
 	DEF(ENUM, ssl),
-	DEF(FILE, ssl_ca_file),
-	DEF(FILE, ssl_cert_file),
-	DEF(FILE, ssl_key_file),
-	DEF(FILE, ssl_alt_cert_file),
-	DEF(FILE, ssl_alt_key_file),
-	DEF(STR, ssl_key_password),
-	DEF(FILE, ssl_dh_file),
-	DEF(STR, ssl_cert_username_field),
-	DEF(ENUM, ssl_prefer_ciphers),
+	DEF(FILE, ssl_server_ca_file),
+	DEF(FILE, ssl_server_cert_file),
+	DEF(FILE, ssl_server_key_file),
+	DEF(FILE, ssl_server_alt_cert_file),
+	DEF(FILE, ssl_server_alt_key_file),
+	DEF(STR, ssl_server_key_password),
+	DEF(FILE, ssl_server_dh_file),
+	DEF(STR, ssl_server_cert_username_field),
+	DEF(ENUM, ssl_server_prefer_ciphers),
 
-	DEF(BOOL, ssl_require_crl),
-	DEF(BOOL, ssl_request_client_cert),
+	DEF(BOOL, ssl_server_require_crl),
+	DEF(BOOL, ssl_server_request_client_cert),
 
 	SETTING_DEFINE_LIST_END
 };
 
 static const struct ssl_server_settings ssl_server_default_settings = {
 	.ssl = "yes:no:required",
-	.ssl_ca_file = "",
-	.ssl_cert_file = "",
-	.ssl_key_file = "",
-	.ssl_alt_cert_file = "",
-	.ssl_alt_key_file = "",
-	.ssl_key_password = "",
-	.ssl_dh_file = "",
-	.ssl_cert_username_field = "commonName",
-	.ssl_prefer_ciphers = "client:server",
+	.ssl_server_ca_file = "",
+	.ssl_server_cert_file = "",
+	.ssl_server_key_file = "",
+	.ssl_server_alt_cert_file = "",
+	.ssl_server_alt_key_file = "",
+	.ssl_server_key_password = "",
+	.ssl_server_dh_file = "",
+	.ssl_server_cert_username_field = "commonName",
+	.ssl_server_prefer_ciphers = "client:server",
 
-	.ssl_require_crl = TRUE,
-	.ssl_request_client_cert = FALSE,
+	.ssl_server_require_crl = TRUE,
+	.ssl_server_request_client_cert = FALSE,
 };
 
 const struct setting_parser_info ssl_server_setting_parser_info = {
@@ -166,8 +166,9 @@ ssl_server_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return TRUE;
 	}
 
-	if (set->ssl_request_client_cert && *set->ssl_ca_file == '\0') {
-		*error_r = "ssl_request_client_cert set, but ssl_ca_file not";
+	if (set->ssl_server_request_client_cert &&
+	    *set->ssl_server_ca_file == '\0') {
+		*error_r = "ssl_server_request_client_cert set, but ssl_server_ca_file not";
 		return FALSE;
 	}
 	return TRUE;
@@ -255,29 +256,31 @@ void ssl_server_settings_to_iostream_set(
 		ssl_common_settings_to_iostream_set(ssl_set);
 	pool_add_external_ref(set->pool, ssl_server_set->pool);
 
-	settings_file_get(ssl_server_set->ssl_ca_file, set->pool, &set->ca);
-	settings_file_get(ssl_server_set->ssl_cert_file,
+	settings_file_get(ssl_server_set->ssl_server_ca_file, set->pool, &set->ca);
+	settings_file_get(ssl_server_set->ssl_server_cert_file,
 			  set->pool, &set->cert.cert);
-	settings_file_get(ssl_server_set->ssl_key_file,
+	settings_file_get(ssl_server_set->ssl_server_key_file,
 			  set->pool, &set->cert.key);
-	set->cert.key_password = ssl_server_set->ssl_key_password;
-	if (ssl_server_set->ssl_alt_cert_file != NULL &&
-	    *ssl_server_set->ssl_alt_cert_file != '\0') {
-		settings_file_get(ssl_server_set->ssl_alt_cert_file,
+	set->cert.key_password = ssl_server_set->ssl_server_key_password;
+	if (ssl_server_set->ssl_server_alt_cert_file != NULL &&
+	    *ssl_server_set->ssl_server_alt_cert_file != '\0') {
+		settings_file_get(ssl_server_set->ssl_server_alt_cert_file,
 				  set->pool, &set->alt_cert.cert);
-		settings_file_get(ssl_server_set->ssl_alt_key_file,
+		settings_file_get(ssl_server_set->ssl_server_alt_key_file,
 				  set->pool, &set->alt_cert.key);
-		set->alt_cert.key_password = ssl_server_set->ssl_key_password;
+		set->alt_cert.key_password =
+			ssl_server_set->ssl_server_key_password;
 	}
-	settings_file_get(ssl_server_set->ssl_dh_file, set->pool, &set->dh);
+	settings_file_get(ssl_server_set->ssl_server_dh_file,
+			  set->pool, &set->dh);
 	set->cert_username_field =
-		ssl_server_set->ssl_cert_username_field;
+		ssl_server_set->ssl_server_cert_username_field;
 	set->prefer_server_ciphers =
-		strcmp(ssl_server_set->ssl_prefer_ciphers, "server") == 0;
-	set->verify_remote_cert = ssl_server_set->ssl_request_client_cert;
+		strcmp(ssl_server_set->ssl_server_prefer_ciphers, "server") == 0;
+	set->verify_remote_cert = ssl_server_set->ssl_server_request_client_cert;
 	set->allow_invalid_cert = !set->verify_remote_cert;
-	/* ssl_require_crl is used only for checking client-provided SSL
+	/* ssl_server_require_crl is used only for checking client-provided SSL
 	   certificate's CRL. */
-	set->skip_crl_check = !ssl_server_set->ssl_require_crl;
+	set->skip_crl_check = !ssl_server_set->ssl_server_require_crl;
 	*set_r = set;
 }
