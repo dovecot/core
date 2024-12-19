@@ -161,7 +161,7 @@ const char *openssl_iostream_key_load_error(void)
 
        if (ERR_GET_LIB(err) == ERR_LIB_X509 &&
            ERR_GET_REASON(err) == X509_R_KEY_VALUES_MISMATCH)
-               return "Key is for a different cert than ssl_cert_file";
+               return "Key is for a different cert than ssl_server_cert_file";
        else
                return openssl_iostream_error();
 }
@@ -184,7 +184,7 @@ const char *openssl_iostream_use_certificate_error(const char *cert)
 		return openssl_iostream_error();
 	else if (is_pem_key(cert)) {
 		return "The file contains a private key "
-			"(you've mixed ssl_cert_file and ssl_key_file settings)";
+			"(you've mixed ssl_server_cert_file and ssl_server_key_file settings)";
 	} else {
 		return "There is no valid PEM certificate.";
 	}
