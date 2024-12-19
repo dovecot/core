@@ -83,9 +83,9 @@ static const struct setting_define ssl_server_setting_defines[] = {
 	DEF(STR, ssl_key_password),
 	DEF(FILE, ssl_dh_file),
 	DEF(STR, ssl_cert_username_field),
+	DEF(ENUM, ssl_prefer_ciphers),
 
 	DEF(BOOL, ssl_require_crl),
-	DEF(BOOL, ssl_prefer_server_ciphers),
 	DEF(BOOL, ssl_request_client_cert),
 
 	SETTING_DEFINE_LIST_END
@@ -101,9 +101,9 @@ static const struct ssl_server_settings ssl_server_default_settings = {
 	.ssl_key_password = "",
 	.ssl_dh_file = "",
 	.ssl_cert_username_field = "commonName",
+	.ssl_prefer_ciphers = "client:server",
 
 	.ssl_require_crl = TRUE,
-	.ssl_prefer_server_ciphers = FALSE,
 	.ssl_request_client_cert = FALSE,
 };
 
@@ -272,7 +272,8 @@ void ssl_server_settings_to_iostream_set(
 	settings_file_get(ssl_server_set->ssl_dh_file, set->pool, &set->dh);
 	set->cert_username_field =
 		ssl_server_set->ssl_cert_username_field;
-	set->prefer_server_ciphers = ssl_server_set->ssl_prefer_server_ciphers;
+	set->prefer_server_ciphers =
+		strcmp(ssl_server_set->ssl_prefer_ciphers, "server") == 0;
 	set->verify_remote_cert = ssl_server_set->ssl_request_client_cert;
 	set->allow_invalid_cert = !set->verify_remote_cert;
 	/* ssl_require_crl is used only for checking client-provided SSL

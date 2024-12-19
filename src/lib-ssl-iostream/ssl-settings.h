@@ -40,9 +40,9 @@ struct ssl_server_settings {
 	const char *ssl_key_password;
 	const char *ssl_dh_file;
 	const char *ssl_cert_username_field;
+	const char *ssl_prefer_ciphers;
 
 	bool ssl_require_crl;
-	bool ssl_prefer_server_ciphers;
 	bool ssl_request_client_cert;
 };
 
