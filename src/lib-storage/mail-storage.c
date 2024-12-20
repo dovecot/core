@@ -512,6 +512,7 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 	if (storage->v.create != NULL &&
 	    storage->v.create(storage, ns, error_r) < 0) {
 		*error_r = t_strdup_printf("%s: %s", storage->name, *error_r);
+		storage->v.destroy(storage);
 		settings_free(storage->set);
 		event_unref(&storage->event);
 		pool_unref(&storage->pool);
@@ -548,6 +549,9 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 			*error_r = t_strdup_printf("fs_init(posix) failed: %s", error);
 			event_unref(&event);
 			storage->v.destroy(storage);
+			settings_free(storage->set);
+			event_unref(&storage->event);
+			pool_unref(&storage->pool);
 			return -1;
 		}
 		event_unref(&event);
