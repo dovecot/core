@@ -572,13 +572,15 @@ settings_var_expand(struct settings_apply_ctx *ctx, unsigned int key_idx,
 			/* Restore full SET_FILE value */
 			*value = settings_file_get_value(&ctx->mpool->pool, &file);
 		}
+		return 0;
 	} else if (ctx->info->defines[key_idx].type == SET_FILE) {
 		file.path = p_strdup(&ctx->mpool->pool, str_c(ctx->str));
 		*value = settings_file_get_value(&ctx->mpool->pool, &file);
+		return 1;
 	} else {
 		*value = p_strdup(&ctx->mpool->pool, str_c(ctx->str));
+		return 1;
 	}
-	return 0;
 }
 
 static int
@@ -653,26 +655,20 @@ settings_mmap_apply_defaults(struct settings_apply_ctx *ctx,
 			i_panic("BUG: Failed to apply default setting %s=%s: %s",
 				key, value, error);
 
-		if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0) {
-			const char *error;
-			str_truncate(ctx->str, 0);
-			if (var_expand(ctx->str, value, &ctx->var_params, &error) < 0 &&
-			    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
-				*error_r = t_strdup_printf(
-					"Failed to expand default setting %s=%s variables: %s",
-					key, value, error);
-				return -1;
-			}
-			if (strcmp(value, str_c(ctx->str)) != 0) {
-				if (settings_parse_keyidx_value(
-						ctx->parser, key_idx,
-						key, str_c(ctx->str)) < 0) {
-					*error_r = get_invalid_setting_error(ctx,
-						"Invalid default setting",
-						key, str_c(ctx->str), value);
-					return -1;
-				}
-			}
+		int ret = settings_var_expand(ctx, key_idx, &value, &error);
+		if (ret < 0) {
+			*error_r = t_strdup_printf(
+				"Failed to expand default setting %s=%s variables: %s",
+				key, value, error);
+			return -1;
+		}
+		if (ret > 0 &&
+		    settings_parse_keyidx_value(ctx->parser, key_idx,
+						key, value) < 0) {
+			*error_r = get_invalid_setting_error(ctx,
+					"Invalid default setting",
+					key, value, value);
+			return -1;
 		}
 	}
 	return 0;
@@ -1915,22 +1911,19 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		if (set->pool == ctx->temp_pool)
 			settings_override_free(set);
 
-		if (set->type == SETTINGS_OVERRIDE_TYPE_DEFAULT &&
-		    (ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0) {
+		if (set->type == SETTINGS_OVERRIDE_TYPE_DEFAULT) {
 			/* Expand %variables only for default settings.
 			   These defaults are usually handled already by the
 			   config process, but we get here with -O parameter
 			   or with SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT. */
 			const char *error;
-			str_truncate(ctx->str, 0);
-			if (var_expand(ctx->str, value, &ctx->var_params, &error) < 0 &&
-			    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
+			if (settings_var_expand(ctx, key_idx, &value,
+						&error) < 0) {
 				*error_r = t_strdup_printf(
 					"Failed to expand default setting %s=%s variables: %s",
 					key, value, error);
 				return -1;
 			}
-			value = str_c(ctx->str);
 		}
 		if (ctx->info->defines[key_idx].type == SET_FILTER_ARRAY &&
 		    set->type <= SETTINGS_OVERRIDE_TYPE_CLI_PARAM &&
