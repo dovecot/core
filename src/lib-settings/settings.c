@@ -549,6 +549,7 @@ settings_var_expand(struct settings_apply_ctx *ctx, unsigned int key_idx,
 {
 	struct settings_file file;
 	const char *orig_value = *value;
+	bool changed;
 
 	if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) != 0)
 		return 0;
@@ -557,17 +558,23 @@ settings_var_expand(struct settings_apply_ctx *ctx, unsigned int key_idx,
 	    ctx->info->defines[key_idx].type == SET_FILTER_ARRAY)
 		return 0;
 
-	str_truncate(ctx->str, 0);
 	if (ctx->info->defines[key_idx].type == SET_FILE) {
 		settings_file_get(*value, &ctx->mpool->pool, &file);
 		/* Make sure only the file path is var-expanded. */
 		*value = file.path;
 	}
-	if (var_expand(ctx->str, *value, &ctx->var_params, error_r) < 0 &&
-	    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0)
-		return -1;
+	if (strchr(*value, '%') == NULL) {
+		/* fast path: No %variables in the value */
+		changed = FALSE;
+	} else {
+		str_truncate(ctx->str, 0);
+		if (var_expand(ctx->str, *value, &ctx->var_params, error_r) < 0 &&
+		    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0)
+			return -1;
+		changed = strcmp(*value, str_c(ctx->str)) != 0;
+	}
 
-	if (strcmp(*value, str_c(ctx->str)) == 0) {
+	if (!changed) {
 		/* unchanged value */
 		if (ctx->info->defines[key_idx].type == SET_FILE) {
 			/* Restore full SET_FILE value */
