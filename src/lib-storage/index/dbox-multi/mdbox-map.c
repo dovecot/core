@@ -93,6 +93,8 @@ void mdbox_map_deinit(struct mdbox_map **_map)
 {
 	struct mdbox_map *map = *_map;
 
+	if (map == NULL)
+		return;
 	*_map = NULL;
 
 	mdbox_map_deinit_cleanup(map);

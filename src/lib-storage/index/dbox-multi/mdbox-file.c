@@ -43,6 +43,8 @@ void mdbox_files_free(struct mdbox_storage *storage)
 	struct mdbox_file *const *files;
 	unsigned int i, count;
 
+	if (!array_is_created(&storage->open_files))
+		return;
 	files = array_get(&storage->open_files, &count);
 	for (i = 0; i < count; i++)
 		dbox_file_free(&files[i]->file);
