@@ -548,6 +548,7 @@ settings_var_expand(struct settings_apply_ctx *ctx, unsigned int key_idx,
 		    const char **value, const char **error_r)
 {
 	struct settings_file file;
+	const char *orig_value = *value;
 
 	if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) != 0)
 		return 0;
@@ -570,11 +571,11 @@ settings_var_expand(struct settings_apply_ctx *ctx, unsigned int key_idx,
 		/* unchanged value */
 		if (ctx->info->defines[key_idx].type == SET_FILE) {
 			/* Restore full SET_FILE value */
-			*value = settings_file_get_value(&ctx->mpool->pool, &file);
+			*value = orig_value;
 		}
 		return 0;
 	} else if (ctx->info->defines[key_idx].type == SET_FILE) {
-		file.path = p_strdup(&ctx->mpool->pool, str_c(ctx->str));
+		file.path = str_c(ctx->str);
 		*value = settings_file_get_value(&ctx->mpool->pool, &file);
 		return 1;
 	} else {
@@ -1859,6 +1860,7 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			/* setting doesn't exist in this info */
 			continue;
 		}
+		bool value_needs_dup = (value != set->value);
 		bool track_seen = TRUE;
 		if (ctx->info->defines[key_idx].type == SET_FILTER_ARRAY) {
 			track_seen = FALSE;
@@ -1917,12 +1919,16 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			   config process, but we get here with -O parameter
 			   or with SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT. */
 			const char *error;
-			if (settings_var_expand(ctx, key_idx, &value,
-						&error) < 0) {
+			ret = settings_var_expand(ctx, key_idx, &value, &error);
+			if (ret < 0) {
 				*error_r = t_strdup_printf(
 					"Failed to expand default setting %s=%s variables: %s",
 					key, value, error);
 				return -1;
+			}
+			if (ret > 0) {
+				/* value was already strdup()ed */
+				value_needs_dup = FALSE;
 			}
 		}
 		if (ctx->info->defines[key_idx].type == SET_FILTER_ARRAY &&
@@ -1934,9 +1940,9 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			return -1;
 		}
 
-		if (value != set->value)
+		if (value_needs_dup)
 			value = p_strdup(&ctx->mpool->pool, value);
-		else {
+		else if (value == set->value) {
 			/* Add explicit reference to instance->pool, which is
 			   kept by the settings struct's pool. This allows
 			   settings to survive even if the instance is freed.
