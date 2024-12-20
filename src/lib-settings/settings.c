@@ -544,13 +544,50 @@ get_invalid_setting_error(struct settings_apply_ctx *ctx, const char *prefix,
 }
 
 static int
+settings_var_expand(struct settings_apply_ctx *ctx, unsigned int key_idx,
+		    const char **value, const char **error_r)
+{
+	struct settings_file file;
+
+	if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) != 0)
+		return 0;
+
+	if (ctx->info->defines[key_idx].type == SET_STR_NOVARS ||
+	    ctx->info->defines[key_idx].type == SET_FILTER_ARRAY)
+		return 0;
+
+	str_truncate(ctx->str, 0);
+	if (ctx->info->defines[key_idx].type == SET_FILE) {
+		settings_file_get(*value, &ctx->mpool->pool, &file);
+		/* Make sure only the file path is var-expanded. */
+		*value = file.path;
+	}
+	if (var_expand(ctx->str, *value, &ctx->var_params, error_r) < 0 &&
+	    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0)
+		return -1;
+
+	if (strcmp(*value, str_c(ctx->str)) == 0) {
+		/* unchanged value */
+		if (ctx->info->defines[key_idx].type == SET_FILE) {
+			/* Restore full SET_FILE value */
+			*value = settings_file_get_value(&ctx->mpool->pool, &file);
+		}
+	} else if (ctx->info->defines[key_idx].type == SET_FILE) {
+		file.path = p_strdup(&ctx->mpool->pool, str_c(ctx->str));
+		*value = settings_file_get_value(&ctx->mpool->pool, &file);
+	} else {
+		*value = p_strdup(&ctx->mpool->pool, str_c(ctx->str));
+	}
+	return 0;
+}
+
+static int
 settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 			const char *list_key, const char *value,
 			const char **error_r)
 {
-	struct settings_file file;
 	const char *key = ctx->info->defines[key_idx].key;
-	const char *orig_value = value;
+	const char *error, *orig_value = value;
 	if (list_key != NULL)
 		key = t_strdup_printf("%s/%s", key, list_key);
 
@@ -566,34 +603,11 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 		return -1;
 	}
 
-	if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0 &&
-	    ctx->info->defines[key_idx].type != SET_STR_NOVARS &&
-	    ctx->info->defines[key_idx].type != SET_FILTER_ARRAY) {
-		const char *error = NULL;
-		str_truncate(ctx->str, 0);
-		if (ctx->info->defines[key_idx].type == SET_FILE) {
-			settings_file_get(value, &ctx->mpool->pool, &file);
-			/* Make sure only the file path is var-expanded. */
-			value = file.path;
-		}
-		if (var_expand(ctx->str, value, &ctx->var_params, &error) < 0 &&
-		    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0) {
-			*error_r = t_strdup_printf(
-				"Failed to expand %s setting variables: %s",
-				key, error);
-			return -1;
-		}
-		if (strcmp(value, str_c(ctx->str)) == 0) {
-			/* unchanged value */
-			if (ctx->info->defines[key_idx].type == SET_FILE) {
-				/* Restore full SET_FILE value */
-				value = settings_file_get_value(&ctx->mpool->pool, &file);
-			}
-		} else if (ctx->info->defines[key_idx].type == SET_FILE) {
-			file.path = p_strdup(&ctx->mpool->pool, str_c(ctx->str));
-			value = settings_file_get_value(&ctx->mpool->pool, &file);
-		} else
-			value = p_strdup(&ctx->mpool->pool, str_c(ctx->str));
+	if (settings_var_expand(ctx, key_idx, &value, &error) < 0) {
+		*error_r = t_strdup_printf(
+			"Failed to expand %s setting variables: %s",
+			key, error);
+		return -1;
 	}
 	/* value points to mmap()ed memory, which is kept
 	   referenced by the set_pool for the life time of the
