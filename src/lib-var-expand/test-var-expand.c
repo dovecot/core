@@ -15,12 +15,16 @@
 #endif
 
 #include <time.h>
+#include <unistd.h>
 
 struct var_expand_test {
 	const char *in;
 	const char *out;
 	int ret;
 };
+
+/* Run with -b to set TRUE */
+static bool do_bench = FALSE;
 
 static void run_var_expand_tests(const struct var_expand_params *params,
 				 const struct var_expand_test tests[],
@@ -959,7 +963,219 @@ static void test_var_expand_generate(void)
 	test_end();
 }
 
-int main(void)
+static void test_var_expand_export_import(void)
+{
+	test_begin("var_expand(export/import)");
+
+	const struct var_expand_params params = {
+		.table = (const struct var_expand_table[]) {
+			{ .key = "variable", .value = "1234567890" },
+			{ .key = "this", .value = "isht" },
+			{ .key = "a", .value = "b" },
+			{ .key = "test", .value = "tset" },
+			VAR_EXPAND_TABLE_END
+		},
+	};
+
+	const struct test_case {
+		const char *prog_in;
+		const char *export;
+	} test_cases[] = {
+		{ "", "\x02\t" },
+		{ "literal", "\x01literal\r" },
+		{ "\x01\x02\r\t", "\x01\x01""1\x02\x01r\x01t\r" },
+		{ "%{variable}", "\x02variable\x01\t\tvariable\x01\t" },
+		{ "%{lookup('variable')}", "\x02lookup\x01\x01svariable\r\t\t\t" },
+		{
+			"%{this} is %{a} simple %{test}",
+			"\x02this\x01\t\ta\x01test\x01this"
+			"\x01\t\x01 is \r\x02"
+			"a\x01\t\t\t\x01 simple \r\x02"
+			"test\x01\t\t\t"
+		},
+		{
+			"%{variable | substr(0,1) % 32}",
+			"\x02variable\x01\t\x01substr\x01\x01i\x01\x01\x01i\x02"
+			"\t\x01""calculate\x01\x01i\x05\x01\x01i!\t\tvariable"
+			"\x01\t"
+		},
+		{
+			"%{variable | substr(0,1) % 32} / %{variable | substr(1,1) % 32}",
+			"\x02variable\x01\t\x01substr\x01\x01i\x01\x01\x01i\x02"
+			"\t\x01""calculate\x01\x01i\x05\x01\x01i!\t\tvariable"
+			"\x01\t\x01 / \r\x02variable\x01\t\x01substr\x01\x01i"
+			"\x02\x01\x01i\x02\t\x01""calculate\x01\x01i\x05\x01"
+			"\x01i!\t\t\t"
+		},
+#if UINT32_MAX < INTMAX_MAX
+		{
+			"%{variable + 4294967296}",
+			"\x02variable\x01\t\x01""calculate\x01\x01i\x01\x01\x01"
+			"i\xab\x80\x80\x80\x80\x10\t\tvariable\x01\t"
+		},
+#endif
+		{
+			"%{variable + -100}",
+			"\x02variable\x01\t\x01""calculate\x01\x01i\x01\x01\x01"
+			"i\xad""d\t\tvariable\x01\t"
+		},
+		{
+			"%{variable + 126}",
+			"\x02variable\x01\t\x01""calculate\x01\x01i\x01\x01\x01i"
+			"\x7f\t\tvariable\x01\t"
+		},
+		{
+			"%{variable + 127}",
+			"\x02variable\x01\t\x01""calculate\x01\x01i\x01\x01\x01i"
+			"\xab\x7f\t\tvariable\x01\t"
+		},
+	};
+
+	string_t *dest = t_str_new(64);
+
+	string_t *result_a = t_str_new(64);
+	string_t *result_b = t_str_new(64);
+
+	for(size_t i = 0; i < N_ELEMENTS(test_cases); i++) {
+		const char *error;
+		const struct test_case *t = &test_cases[i];
+		struct var_expand_program *prog;
+		str_truncate(dest, 0);
+		str_truncate(result_a, 0);
+		str_truncate(result_b, 0);
+
+		/* We test two things, that we can export & import the program
+		   and that the result of the imported program matches the
+		   original program. */
+		if (var_expand_program_create(t->prog_in, &prog, &error) <0)
+			i_error("var_expand_program_create(): %s", error);
+		if (var_expand_program_execute(result_a, prog, &params, &error) < 0)
+			i_error("var_expand_program_execute(a): %s", error);
+		var_expand_program_dump(prog, dest);
+		str_truncate(dest, 0);
+		var_expand_program_export_append(dest, prog);
+		var_expand_program_free(&prog);
+		test_assert_strcmp_idx(str_c(dest), t->export, i);
+		if (var_expand_program_import(str_c(dest), &prog, &error) < 0)
+			i_error("var_expand_program_import(): %s", error);
+		if (var_expand_program_execute(result_b, prog, &params, &error) < 0)
+			i_error("var_expand_program_execute(b): %s", error);
+		test_assert_strcmp_idx(str_c(result_a), str_c(result_b), i);
+		str_truncate(dest, 0);
+		var_expand_program_dump(prog, dest);
+		var_expand_program_free(&prog);
+	}
+
+	const struct test_case_err {
+		const char *input;
+		const char *error;
+	} test_cases_err[] = {
+		{ "", "Too short" },
+		{ "\x01literal", "Missing end of string" },
+		{ "\x03literal", "Unknown input" },
+		{ "\x02literal\x01", "Premature end of data" },
+		{ "\x02literal\x01text\x01", "Unsupported parameter type" },
+		{ "\x02literal\x01\x01stext\t", "Missing end of string" },
+		{ "\x02literal\x01\x01i\xa1", "Unknown number" },
+		{ "\x02literal\x01\x01i\xab\xf0\t", "Missing parameter end" },
+		{
+			"\x02literal\x01\x01i\xab\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0",
+			"Unfinished number"
+		},
+		{ "\x02literal\x01\x01stext\r", "Missing parameter end" },
+		{ "\x02literal\x01\x01stext\r\t", "Missing statement end" },
+		{ "\x02literal\x01\x01stext\r\t\t", "Missing variables end" },
+	};
+
+	for(size_t i = 0; i < N_ELEMENTS(test_cases_err); i++) {
+		struct var_expand_program *prog;
+		const char *error;
+		const struct test_case_err *t = &test_cases_err[i];
+		int ret = var_expand_program_import(t->input, &prog, &error);
+		test_assert_cmp(ret, ==, -1);
+		if (ret == 0) {
+			var_expand_program_free(&prog);
+			continue;
+		}
+
+		test_assert_strcmp(error, t->error);
+	}
+
+	test_end();
+}
+
+#define BENCH_ROUNDS 200000
+static void test_var_expand_bench(void)
+{
+	if (!do_bench)
+		return;
+	struct test_cases {
+		const char *program;
+		const char *exported;
+	} test_cases[] = {
+		{ "literal", NULL },
+		{ "%{variable}", NULL },
+		{ "%{lookup('variable')}", NULL },
+		{ "%{this} is %{a} simple %{test}", NULL },
+		{ "%{variable | substr(0,1) % 32}", NULL },
+		{ "%{variable | substr(0,1) % 32} / %{variable | substr(1,1) % 32}", NULL },
+		{ "%{variable + 4294967296}", NULL },
+	};
+	test_begin("var_expand(export benchmark)");
+
+	/* prepare exports */
+	for (size_t i = 0; i < N_ELEMENTS(test_cases); i++) {
+		const char *error ATTR_UNUSED;
+		struct var_expand_program *prog;
+		if (var_expand_program_create(test_cases[i].program, &prog,
+					      &error) < 0)
+			i_error("%s", error);
+		test_cases[i].exported = var_expand_program_export(prog);
+		var_expand_program_free(&prog);
+	}
+
+	struct timespec ts0, ts1;
+	int ret;
+	for (size_t i = 0; i < N_ELEMENTS(test_cases); i++) {
+		i_debug("%s", test_cases[i].program);
+		/* do speedtest */
+		ret = clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts0);
+		i_assert(ret == 0);
+
+		for (int rounds = 0; rounds < BENCH_ROUNDS; rounds++) {
+			const char *error ATTR_UNUSED;
+			struct var_expand_program *prog;
+			if (var_expand_program_create(test_cases[i].program,
+						      &prog, &error) < 0)
+				i_error("%s", error);
+			var_expand_program_free(&prog);
+		}
+		ret = clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts1);
+		i_assert(ret == 0);
+		unsigned long long diff = (ts1.tv_sec - ts0.tv_sec) * 1000000000 + (ts1.tv_nsec - ts0.tv_nsec);
+		i_debug("var_expand_program_create: %llu ns total, %llu ns / program",
+			diff, diff / BENCH_ROUNDS);
+
+		ret = clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts0);
+		i_assert(ret == 0);
+		for (int rounds = 0; rounds < BENCH_ROUNDS; rounds++) {
+			const char *error ATTR_UNUSED;
+			struct var_expand_program *prog;
+			if (var_expand_program_import(test_cases[i].exported,
+						      &prog, &error) < 0)
+				i_error("%s", error);
+			var_expand_program_free(&prog);
+		}
+		ret = clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts1);
+		i_assert(ret == 0);
+		diff = (ts1.tv_sec - ts0.tv_sec) * 1000000000 + (ts1.tv_nsec - ts0.tv_nsec);
+		i_debug("var_expand_program_import: %llu ns total, %llu ns / program",
+			diff, diff / BENCH_ROUNDS);
+	}
+	test_end();
+}
+
+int main(int argc, char *const argv[])
 {
 	void (*const tests[])(void) = {
 		test_var_expand_merge_tables,
@@ -977,8 +1193,18 @@ int main(void)
 		test_var_expand_perc,
 		test_var_expand_set_copy,
 		test_var_expand_generate,
+		test_var_expand_export_import,
+		test_var_expand_bench,
 		NULL
 	};
+
+	char opt;
+	while ((opt = getopt(argc, argv, "b")) != -1) {
+		if (opt == 'b')
+			do_bench = TRUE;
+		else
+			i_fatal("Usage: %s [-b]", argv[0]);
+	}
 
 	return test_run(tests);
 }
