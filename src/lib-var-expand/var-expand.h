@@ -167,6 +167,41 @@ static inline void var_expand_table_copy(struct var_expand_table *table,
 	entry_b->func = entry_a->func;
 }
 
+/* Export variable expand program to a portable string.
+
+   Output format is a list of programs. Each program is catenated after
+   the previous program.
+   If there is only literal: \x01 <literal>
+   <literal>: tab-escaped string \r
+   Otherwise:
+   <program>: \x02 <function> \x01 <list-of-parameters> \t <list-of-variables> \t
+   <function>: string
+   <list-of-parameters>: <parameter> \x01 <parameter> \x01 ..
+      Note that last parameter has no \x01 at the end.
+   <parameter>: <key> \x01 <type> <value>
+   <key>: string
+   <type>: s = string, i = intmax, v = variable
+   <value>: <encoded-number> | tab-escaped string \r
+   <encoded-number>:
+     The number is expressed in 7-bit bytes and 8th bit indicates the
+     presence of next byte. The number is in little-endian ordering.
+   <list-of-variables>: <variable-name> \x01 <variable-name> \x01 ..
+     Note that last variable has no \x01 at the end.
+*/
+
+const char *var_expand_program_export(const struct var_expand_program *program);
+void var_expand_program_export_append(string_t *dest,
+				      const struct var_expand_program *program);
+
+/* Imports a variable expansion program exported by var_expand_program_export(). */
+
+int var_expand_program_import(const char *data,
+			      struct var_expand_program **program_r,
+			      const char **error_r);
+int var_expand_program_import_sized(const char *data, size_t size,
+				    struct var_expand_program **program_r,
+				    const char **error_r);
+
 void var_expand_crypt_load(void);
 
 #endif
