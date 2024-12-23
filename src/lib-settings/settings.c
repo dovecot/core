@@ -535,6 +535,14 @@ get_invalid_setting_error(struct settings_apply_ctx *ctx, const char *prefix,
 			  const char *key,
 			  const char *value, const char *orig_value)
 {
+	/* Config process will preprocess var-expand templates when it sees them
+	   and puts them in front of the actual value, separated by LF.
+	 */
+	if (*orig_value == '\1') {
+		orig_value = strchr(orig_value, '\n');
+		i_assert(orig_value != NULL);
+		orig_value++;
+	}
 	string_t *str = t_str_new(64);
 	str_printfa(str, "%s %s=%s", prefix, key, value);
 	if (strcmp(value, orig_value) != 0)
@@ -550,6 +558,19 @@ settings_var_expand(struct settings_apply_ctx *ctx, unsigned int key_idx,
 	struct settings_file file;
 	const char *orig_value = *value;
 	bool changed;
+	bool want_expand = FALSE;
+
+	/* check which one to use */
+	if (*orig_value == '\1') {
+		*value = strchr(orig_value, '\n');
+		if (*value == NULL) {
+			*error_r = "Missing template termination LF";
+			return -1;
+		}
+		want_expand = TRUE;
+		/* Move past newline */
+		(*value)++;
+	}
 
 	if ((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) != 0)
 		return 0;
@@ -558,37 +579,57 @@ settings_var_expand(struct settings_apply_ctx *ctx, unsigned int key_idx,
 	    ctx->info->defines[key_idx].type == SET_FILTER_ARRAY)
 		return 0;
 
-	if (ctx->info->defines[key_idx].type == SET_FILE) {
+	if (!want_expand && ctx->info->defines[key_idx].type == SET_FILE) {
 		settings_file_get(*value, &ctx->mpool->pool, &file);
 		/* Make sure only the file path is var-expanded. */
-		*value = file.path;
+		orig_value = file.path;
 	}
-	if (strchr(*value, '%') == NULL) {
+
+	/* Ensure we don't potentially have %{ values that we missed,
+	   and since this will be quite often called, just check for
+	   % and run it through var-expand.
+
+	   Most the misses will come from default settings and overrides
+	   that are not processed by config process.
+	*/
+	if (!want_expand && strchr(orig_value, '%') != NULL)
+		want_expand = TRUE;
+
+	if (!want_expand) {
 		/* fast path: No %variables in the value */
 		changed = FALSE;
 	} else {
+		struct var_expand_program *program;
+		if (*orig_value == '\1') {
+			i_assert(*value != NULL);
+			/* import after \1 to terminating newline, exclusive */
+			if (var_expand_program_import_sized(orig_value + 1,
+						    *value - orig_value - 2,
+						    &program, error_r) < 0)
+				return -1;
+		} else if (var_expand_program_create(orig_value, &program,
+						     error_r) < 0) {
+			return -1;
+		}
+
 		str_truncate(ctx->str, 0);
-		if (var_expand(ctx->str, *value, &ctx->var_params, error_r) < 0 &&
-		    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0)
+		int ret = var_expand_program_execute(ctx->str, program,
+						     &ctx->var_params, error_r);
+		var_expand_program_free(&program);
+		if (ret < 0 && (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0)
 			return -1;
 		changed = strcmp(*value, str_c(ctx->str)) != 0;
 	}
 
 	if (!changed) {
-		/* unchanged value */
-		if (ctx->info->defines[key_idx].type == SET_FILE) {
-			/* Restore full SET_FILE value */
-			*value = orig_value;
-		}
 		return 0;
 	} else if (ctx->info->defines[key_idx].type == SET_FILE) {
 		file.path = str_c(ctx->str);
 		*value = settings_file_get_value(&ctx->mpool->pool, &file);
-		return 1;
 	} else {
 		*value = p_strdup(&ctx->mpool->pool, str_c(ctx->str));
-		return 1;
 	}
+	return 1;
 }
 
 static int
@@ -605,6 +646,20 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 	enum setting_apply_flags apply_flags =
 		(ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0 ? 0 :
 		SETTING_APPLY_FLAG_NO_EXPAND;
+
+	const char *orig_ptr = value;
+
+	if (*value == '\1') {
+		value = strchr(value, '\n');
+		if (value == NULL) {
+			*error_r = "Missing template termination LF";
+			return -1;
+		}
+		value++;
+		orig_ptr = value;
+	}
+
+	/* Provide the non-exported template here */
 	if (ctx->info->setting_apply != NULL &&
 	    !ctx->info->setting_apply(ctx->event, ctx->set_struct, key, &value,
 				      apply_flags, error_r)) {
@@ -612,6 +667,12 @@ settings_mmap_apply_key(struct settings_apply_ctx *ctx, unsigned int key_idx,
 					   key, orig_value, *error_r);
 		return -1;
 	}
+
+	/* If the value didn't change, provide the actual original value
+	   here to make sure settings_var_expand() can import the exported
+	   var_expand template. */
+	if (value == orig_ptr)
+		value = orig_value;
 
 	if (settings_var_expand(ctx, key_idx, &value, &error) < 0) {
 		*error_r = t_strdup_printf(

@@ -393,6 +393,26 @@ static void config_dump_full_callback(const struct config_export_setting *set,
 					       SET_LIST_CLEAR, 1 + 1);
 			}
 		}
+		const char *var_value = set->value;
+		if (set->def_type == SET_FILE) {
+			const char *ptr = strchr(var_value, '\n');
+			if (ptr != NULL)
+				var_value = t_strdup_until(var_value, ptr);
+		}
+
+		if (*var_value == '\1' || strstr(var_value, "%{") != NULL) {
+			struct var_expand_program *program;
+			const char *error;
+			int ret = var_expand_program_create(var_value, &program,
+							    &error);
+			if (ret < 0)
+				i_panic("%s: %s", var_value, error);
+			const char *export = var_expand_program_export(program);
+			var_expand_program_free(&program);
+			o_stream_nsend_str(ctx->output, "\1");
+			o_stream_nsend(ctx->output, export, strlen(export));
+			o_stream_nsend_str(ctx->output, "\n");
+		}
 		o_stream_nsend(ctx->output, set->value, strlen(set->value)+1);
 	}
 }
