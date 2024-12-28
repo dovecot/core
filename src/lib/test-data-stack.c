@@ -188,7 +188,6 @@ static void test_ds_buffers(void)
 		void *b = t_buffer_get(1000);
 		void *a = t_malloc_no0(1);
 		void *b2 = t_buffer_get(1001);
-		test_assert(a == b); /* expected, not guaranteed */
 		test_assert(b2 != b);
 	} T_END;
 	test_end();
