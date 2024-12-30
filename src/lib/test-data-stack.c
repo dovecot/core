@@ -98,9 +98,9 @@ static void test_ds_get_bytes_available(void)
 			if (i > 0)
 				t_malloc_no0(i);
 			avail1 = t_get_bytes_available();
-			t_malloc_no0(avail1);
+			(void)t_malloc_no0(avail1);
 			test_assert_idx(t_get_bytes_available() == 0, i);
-			t_malloc_no0(1);
+			(void)t_malloc_no0(1);
 			test_assert_idx(t_get_bytes_available() > 0, i);
 		} T_END;
 		T_BEGIN {
