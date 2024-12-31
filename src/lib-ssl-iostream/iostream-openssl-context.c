@@ -637,7 +637,7 @@ ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 				openssl_iostream_error());
 			return -1;
 		}
-	} else if (!have_ca) {
+	} else if (!have_ca && !set->allow_invalid_cert) {
 		*error_r = "Can't verify remote client certs without CA (ssl_server_ca_file setting)";
 		return -1;
 	}
