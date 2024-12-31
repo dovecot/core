@@ -89,7 +89,7 @@ static const struct setting_define ssl_server_setting_defines[] = {
 	DEF(ENUM, ssl_server_prefer_ciphers),
 
 	DEF(BOOL, ssl_server_require_crl),
-	DEF(BOOL, ssl_server_request_client_cert),
+	DEF(ENUM, ssl_server_request_client_cert),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -107,7 +107,7 @@ static const struct ssl_server_settings ssl_server_default_settings = {
 	.ssl_server_prefer_ciphers = "client:server",
 
 	.ssl_server_require_crl = TRUE,
-	.ssl_server_request_client_cert = FALSE,
+	.ssl_server_request_client_cert = "no:yes:any-cert",
 };
 
 const struct setting_parser_info ssl_server_setting_parser_info = {
@@ -184,9 +184,21 @@ ssl_server_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return TRUE;
 	}
 
-	if (set->ssl_server_request_client_cert &&
+	if (strcmp(set->ssl_server_request_client_cert, "no") == 0) {
+		set->parsed_opts.request_client_cert = FALSE;
+		set->parsed_opts.verify_client_cert = FALSE;
+	} else if (strcmp(set->ssl_server_request_client_cert, "yes") == 0) {
+		set->parsed_opts.request_client_cert = TRUE;
+		set->parsed_opts.verify_client_cert = TRUE;
+	} else if (strcmp(set->ssl_server_request_client_cert, "any-cert") == 0) {
+		set->parsed_opts.request_client_cert = TRUE;
+		set->parsed_opts.verify_client_cert = FALSE;
+	}
+
+	if (set->parsed_opts.request_client_cert &&
+	    set->parsed_opts.verify_client_cert &&
 	    *set->ssl_server_ca_file == '\0') {
-		*error_r = "ssl_server_request_client_cert set, but ssl_server_ca_file not";
+		*error_r = "ssl_server_request_client_cert=yes, but ssl_server_ca_file not provided";
 		return FALSE;
 	}
 	return TRUE;
@@ -297,8 +309,10 @@ void ssl_server_settings_to_iostream_set(
 		ssl_server_set->ssl_server_cert_username_field;
 	set->prefer_server_ciphers =
 		strcmp(ssl_server_set->ssl_server_prefer_ciphers, "server") == 0;
-	set->verify_remote_cert = ssl_server_set->ssl_server_request_client_cert;
-	set->allow_invalid_cert = !set->verify_remote_cert;
+
+	set->verify_remote_cert = ssl_server_set->parsed_opts.request_client_cert;
+	set->allow_invalid_cert = !ssl_server_set->parsed_opts.verify_client_cert ||
+				  !set->verify_remote_cert;
 	/* ssl_server_require_crl is used only for checking client-provided SSL
 	   certificate's CRL. */
 	set->skip_crl_check = !ssl_server_set->ssl_server_require_crl;

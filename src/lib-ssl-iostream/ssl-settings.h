@@ -42,9 +42,15 @@ struct ssl_server_settings {
 	const char *ssl_server_dh_file;
 	const char *ssl_server_cert_username_field;
 	const char *ssl_server_prefer_ciphers;
+	const char *ssl_server_request_client_cert;
 
 	bool ssl_server_require_crl;
-	bool ssl_server_request_client_cert;
+
+	/* parsed: */
+	struct {
+		bool request_client_cert;
+		bool verify_client_cert;
+	} parsed_opts;
 };
 
 extern const struct setting_parser_info ssl_setting_parser_info;
