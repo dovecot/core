@@ -529,6 +529,20 @@ int sasl_server_auth_request_info_fill(struct client *client,
 			md5_get_digest(ja3, strlen(ja3), hash);
 			info_r->ssl_ja3_hash = binary_to_hex(hash, sizeof(hash));
 		}
+
+		if (*client->ssl_set->ssl_peer_certificate_fingerprint_hash != '\0') {
+			int ret = ssl_iostream_get_peer_cert_fingerprint(
+				client->ssl_iostream, &info_r->ssl_client_cert_fp,
+				&info_r->ssl_client_cert_pubkey_fp,
+				&error);
+			if (ret < 0) {
+				e_error(client->event,
+					"Cannot get client certificate fingerprints: %s",
+					error);
+				*client_error_r = "Unable to validate certificate";
+				return -1;
+			}
+		}
 	}
 	info_r->flags = client_get_auth_flags(client);
 	info_r->local_ip = client->local_ip;

@@ -1029,6 +1029,36 @@ const char *client_get_session_id(struct client *client)
 	return client->session_id;
 }
 
+static int client_get_ssl_client_cert_fp(const char *key, const char **value_r,
+					 void *context, const char **error_r)
+{
+	struct client *client = context;
+
+	if (!client->connection_tls_secured) {
+		*value_r = "";
+		return 0;
+	}
+
+	const char *client_cert_fp, *pubkey_fp;
+	int ret = ssl_iostream_get_peer_cert_fingerprint(client->ssl_iostream,
+							 &client_cert_fp, &pubkey_fp,
+							 error_r);
+	if (ret < 0)
+		return -1;
+	else if (ret == 0) {
+		*value_r = "";
+		return 0;
+	}
+
+	if (strcmp(key, "ssl_client_cert_fp") == 0)
+		*value_r = client_cert_fp;
+	else if (strcmp(key, "ssl_client_cert_pubkey_fp") == 0)
+		*value_r = pubkey_fp;
+	else
+		i_unreached();
+	return 0;
+}
+
 static struct var_expand_table login_var_expand_empty_tab[] = {
 	{ .key = "user", .value = NULL },
 
@@ -1053,6 +1083,8 @@ static struct var_expand_table login_var_expand_empty_tab[] = {
 	{ .key = "local_name", .value = NULL },
 	{ .key = "ssl_ja3", .value = NULL },
 	{ .key = "ssl_ja3_hash", .value = NULL },
+	{ .key = "ssl_client_cert_fp", .func = client_get_ssl_client_cert_fp },
+	{ .key = "ssl_client_cert_pubkey_fp", .func = client_get_ssl_client_cert_fp },
 
 	VAR_EXPAND_TABLE_END
 };
