@@ -163,6 +163,7 @@ int ldap_connection_init(struct ldap_client *client,
 	conn->ssl_set.ca = NULL;
 	conn->ssl_set.cert.key_password = NULL;
 	conn->ssl_set.cert_username_field = NULL;
+	conn->ssl_set.cert_username_cea = FALSE;
 	conn->ssl_set.crypto_device = NULL;
 
 	if (set->ssl_set != NULL) {
