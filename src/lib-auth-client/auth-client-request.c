@@ -80,7 +80,7 @@ auth_server_send_new_request(struct auth_client_connection *conn,
 		str_printfa(str, "\trport=%u", info->remote_port);
 		event_add_int(request->event, "remote_port", info->remote_port);
 	}
-	if (info->ssl_ja3_hash != 0) {
+	if (info->ssl_ja3_hash != NULL) {
 		str_append(str, "\tssl_ja3_hash=");
 		str_append_tabescaped(str,info->ssl_ja3_hash);
 		event_add_str(request->event, "ssl_ja3_hash", info->ssl_ja3_hash);
