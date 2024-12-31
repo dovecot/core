@@ -32,6 +32,7 @@ static const struct setting_define ssl_setting_defines[] = {
 
 	DEF(BOOL, ssl_client_require_valid_cert),
 	DEF(STR, ssl_options), /* parsed as a string to set bools */
+	DEF(STR, ssl_peer_certificate_fingerprint_hash),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -51,6 +52,8 @@ const struct ssl_settings ssl_default_settings = {
 
 	.ssl_client_require_valid_cert = TRUE,
 	.ssl_options = "",
+
+	.ssl_peer_certificate_fingerprint_hash = "",
 };
 
 static const struct setting_keyvalue ssl_default_settings_keyvalue[] = {
@@ -152,6 +155,21 @@ ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		}
 	}
 
+	/* Hashing algorithms considered unsafe for
+	   fingerprinting purposes. */
+	static const char *const unsafe_hash_algos[] = {
+		"md4", "md5", "sha1", "rmd160", "sm3", NULL
+	};
+
+	if (str_array_icase_find(unsafe_hash_algos,
+				 set->ssl_peer_certificate_fingerprint_hash)) {
+		*error_r = t_strdup_printf(
+				"ssl_peer_certificate_fingerprint_hash: "
+				"Unsafe hash algorithm '%s' used",
+				set->ssl_peer_certificate_fingerprint_hash);
+		return FALSE;
+	}
+
 	return TRUE;
 }
 
@@ -222,6 +240,8 @@ ssl_common_settings_to_iostream_set(const struct ssl_settings *ssl_set)
 	set->compression = ssl_set->parsed_opts.compression;
 	set->tickets = ssl_set->parsed_opts.tickets;
 	set->curve_list = ssl_set->ssl_curve_list;
+	set->cert_hash_algo = ssl_set->ssl_peer_certificate_fingerprint_hash;
+
 	return set;
 }
 

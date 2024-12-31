@@ -18,6 +18,7 @@ struct ssl_settings {
 	const char *ssl_min_protocol;
 	const char *ssl_crypto_device;
 	const char *ssl_options;
+	const char *ssl_peer_certificate_fingerprint_hash;
 
 	bool ssl_client_require_valid_cert;
 

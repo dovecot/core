@@ -847,7 +847,8 @@ ssl_iostream_context_init_common(struct ssl_iostream_context *ctx,
 	if (set->cert_hash_algo != NULL && *set->cert_hash_algo != '\0') {
 		ctx->pcert_fp_algo = EVP_get_digestbyname(set->cert_hash_algo);
 		if (ctx->pcert_fp_algo == NULL) {
-			*error_r = t_strdup_printf("Unsupported hash algorithm '%s'",
+			*error_r = t_strdup_printf("Unsupported hash algorithm '%s' "
+						   "(ssl_peer_certificate_fingerprint_hash setting)",
 						   set->cert_hash_algo);
 			return -1;
 		}
