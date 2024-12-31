@@ -64,6 +64,8 @@ struct auth_request_fields {
 	struct ip_addr local_ip, remote_ip, real_local_ip, real_remote_ip;
 	in_port_t local_port, remote_port, real_local_port, real_remote_port;
 	const char *ssl_ja3_hash;
+	const char *ssl_client_cert_fp;
+	const char *ssl_client_cert_pubkey_fp;
 
         /* extra_fields are returned in authentication reply. Fields prefixed
            with "userdb_" are automatically placed to userdb_reply instead. */

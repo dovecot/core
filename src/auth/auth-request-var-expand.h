@@ -6,7 +6,7 @@ auth_request_escape_func_t(const char *string,
 			   const struct auth_request *auth_request);
 
 #define AUTH_REQUEST_VAR_TAB_USER_IDX 0
-#define AUTH_REQUEST_VAR_TAB_COUNT 29
+#define AUTH_REQUEST_VAR_TAB_COUNT 31
 extern const struct var_expand_table
 auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT+1];
 

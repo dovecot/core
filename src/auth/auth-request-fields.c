@@ -80,6 +80,14 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 		str_printfa(dest, "\trport=%u", fields->remote_port);
 	if (fields->ssl_ja3_hash != NULL)
 		auth_str_add_keyvalue(dest, "ssl_ja3_hash", fields->ssl_ja3_hash);
+	if (fields->ssl_client_cert_fp != NULL) {
+		auth_str_add_keyvalue(dest, "ssl_client_cert_fp",
+				      fields->ssl_client_cert_fp);
+	}
+	if (fields->ssl_client_cert_pubkey_fp != NULL) {
+		auth_str_add_keyvalue(dest, "ssl_client_cert_pubkey_fp",
+				      fields->ssl_client_cert_pubkey_fp);
+	}
 	if (fields->real_local_ip.family != 0) {
 		auth_str_add_keyvalue(dest, "real_lip",
 				      net_ip2addr(&fields->real_local_ip));
@@ -168,6 +176,10 @@ bool auth_request_import_info(struct auth_request *request,
 			auth_request_import_info(request, "real_rport", value);
 	} else if (strcmp(key, "ssl_ja3_hash") == 0) {
 		fields->ssl_ja3_hash = p_strdup(request->pool, value);
+	} else if (strcmp(key, "ssl_client_cert_fp") == 0) {
+		fields->ssl_client_cert_fp = p_strdup(request->pool, value);
+	} else if (strcmp(key, "ssl_client_cert_pubkey_fp") == 0) {
+		fields->ssl_client_cert_pubkey_fp = p_strdup(request->pool, value);
 	} else if (strcmp(key, "real_lip") == 0) {
 		if (net_addr2ip(value, &fields->real_local_ip) == 0)
 			event_add_ip(event, "real_local_ip",

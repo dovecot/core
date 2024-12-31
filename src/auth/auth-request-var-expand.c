@@ -41,6 +41,8 @@ auth_request_var_expand_static_tab[] = {
 	{ .key = "local_name", .value = NULL },
 	{ .key = "client_id", .value = NULL },
 	{ .key = "ssl_ja3_hash", .value = NULL },
+	{ .key = "ssl_client_cert_fp", .value = NULL },
+	{ .key = "ssl_client_cert_pubkey_fp", .value = NULL },
 	{ .key = "owner_user", .value = NULL },
 	VAR_EXPAND_TABLE_END
 	/* be sure to update AUTH_REQUEST_VAR_TAB_COUNT */
@@ -169,6 +171,10 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	var_expand_table_set_value(tab, "local_name", fields->local_name);
 	var_expand_table_set_value(tab, "client_id", fields->client_id);
 	var_expand_table_set_value(tab, "ssl_ja3_hash", fields->ssl_ja3_hash);
+	var_expand_table_set_value(tab, "ssl_client_cert_fp",
+				   fields->ssl_client_cert_fp);
+	var_expand_table_set_value(tab, "ssl_client_cert_pubkey_fp",
+				   fields->ssl_client_cert_pubkey_fp);
 	var_expand_table_set_value(tab, "owner_user", username);
 	return ret_tab;
 }
