@@ -64,6 +64,18 @@ auth_server_send_new_request(struct auth_client_connection *conn,
 		event_add_str(request->event, "certificate_user",
 			      info->cert_username);
 	}
+	if (info->ssl_client_cert_fp != NULL) {
+		str_append(str, "\tssl_client_cert_fp=");
+		str_append_tabescaped(str, info->ssl_client_cert_fp);
+		event_add_str(request->event, "ssl_client_cert_fp",
+			      info->ssl_client_cert_fp);
+	}
+	if (info->ssl_client_cert_pubkey_fp != NULL) {
+		str_append(str, "\tssl_client_cert_pubkey_fp=");
+		str_append_tabescaped(str, info->ssl_client_cert_pubkey_fp);
+		event_add_str(request->event, "ssl_client_cert_pubkey_fp",
+			      info->ssl_client_cert_pubkey_fp);
+	}
 	if (info->local_ip.family != 0) {
 		str_printfa(str, "\tlip=%s", net_ip2addr(&info->local_ip));
 		event_add_ip(request->event, "local_ip", &info->local_ip);
