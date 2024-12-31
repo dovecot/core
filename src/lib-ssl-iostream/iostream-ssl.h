@@ -63,6 +63,8 @@ struct ssl_iostream_settings {
 	/* Field which contains the username returned by
 	   ssl_iostream_get_peer_username() */
 	const char *cert_username_field;
+	/* Hashing algorithm for certificate fingerprinting */
+	const char *cert_hash_algo;
 	const char *crypto_device;
 
 	/* List of application protocol names */
@@ -252,6 +254,13 @@ int ssl_iostream_get_channel_binding(struct ssl_iostream *ssl_io,
 const char *ssl_iostream_get_last_error(struct ssl_iostream *ssl_io);
 
 const char *ssl_iostream_get_application_protocol(struct ssl_iostream *ssl_io);
+
+/* Get peer certificate fingerprints, returns 1 on success, 0 if no client cert
+   was provided and -1 on error. */
+int ssl_iostream_get_peer_cert_fingerprint(struct ssl_iostream *ssl_io,
+					   const char **cert_fp_r,
+					   const char **pubkey_fp_r,
+					   const char **error_r);
 
 void ssl_iostream_context_set_application_protocols(struct ssl_iostream_context *ssl_ctx,
 						    const char *const *names);

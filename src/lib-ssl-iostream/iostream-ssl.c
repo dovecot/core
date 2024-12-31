@@ -444,3 +444,12 @@ int ssl_iostream_get_channel_binding(struct ssl_iostream *ssl_io,
 
 	return ssl_vfuncs->get_channel_binding(ssl_io, type, data_r, error_r);
 }
+
+int ssl_iostream_get_peer_cert_fingerprint(struct ssl_iostream *ssl_io,
+				      const char **cert_fp_r,
+				      const char **pubkey_fp_r,
+				      const char **error_r)
+{
+	return ssl_vfuncs->get_peer_cert_fingerprint(ssl_io, cert_fp_r,
+						     pubkey_fp_r, error_r);
+}

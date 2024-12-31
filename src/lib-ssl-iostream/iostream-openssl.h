@@ -27,6 +27,9 @@ struct ssl_iostream_context {
 		size_t proto_len;
 	} *protos;
 
+	/* Peer certificate fingerprint hash algo */
+	const EVP_MD *pcert_fp_algo;
+
 	int username_nid;
 
 	bool client_ctx:1;
@@ -54,6 +57,8 @@ struct ssl_iostream {
 	char *last_error;
 	char *plain_stream_errstr;
 	char *ja3_str;
+	char *cert_fp;
+	char *pubkey_fp;
 	int plain_stream_errno;
 
 	ssl_iostream_handshake_callback_t *handshake_callback;

@@ -62,6 +62,11 @@ struct iostream_ssl_vfuncs {
 	int (*get_channel_binding)(struct ssl_iostream *ssl_io,
 				   const char *type, const buffer_t **data_r,
 				   const char **error_r);
+
+	int (*get_peer_cert_fingerprint)(struct ssl_iostream *ssl_io,
+					 const char **cert_fp_r,
+					 const char **pubkey_fp_r,
+					 const char **error_r);
 };
 
 void iostream_ssl_module_init(const struct iostream_ssl_vfuncs *vfuncs);

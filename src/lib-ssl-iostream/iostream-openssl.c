@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "buffer.h"
+#include "hex-binary.h"
 #include "istream-private.h"
 #include "ostream-private.h"
 #include "iostream-openssl.h"
@@ -223,6 +224,8 @@ static void openssl_iostream_free(struct ssl_iostream *ssl_io)
 	i_stream_unref(&ssl_io->plain_input);
 	BIO_free(ssl_io->bio_ext);
 	SSL_free(ssl_io->ssl);
+	i_free(ssl_io->cert_fp);
+	i_free(ssl_io->pubkey_fp);
 	i_free(ssl_io->ja3_str);
 	i_free(ssl_io->plain_stream_errstr);
 	i_free(ssl_io->last_error);
@@ -989,6 +992,81 @@ openssl_iostream_get_channel_binding(struct ssl_iostream *ssl_io,
 	return -1;
 }
 
+static int
+openssl_iostream_get_peer_cert_fingerprint(struct ssl_iostream *ssl_io,
+					   const char **cert_fp_r,
+					   const char **pubkey_fp_r,
+					   const char **error_r)
+{
+	SSL *ssl = ssl_io->ssl;
+	struct ssl_iostream_context *ctx = ssl_io->ctx;
+	const char *cert_fp;
+
+	if (!ssl_io->handshaked || ssl_io->handshake_failed)
+		return 0;
+
+	/* Use cached result */
+	if (ssl_io->cert_fp != NULL) {
+		*cert_fp_r = ssl_io->cert_fp;
+		*pubkey_fp_r = ssl_io->pubkey_fp;
+		return 1;
+	}
+
+#ifdef HAVE_SSL_get1_peer_certificate
+	X509 *cert = SSL_get0_peer_certificate(ssl);
+#else
+	X509 *cert = SSL_get_peer_certificate(ssl);
+#endif
+	if (cert == NULL)
+		return 0;
+
+	if (ctx->pcert_fp_algo == NULL) {
+		*error_r = "No hash algorithm configured";
+		return -1;
+	}
+
+	unsigned int fp_len = EVP_MAX_MD_SIZE;
+	unsigned char result[EVP_MAX_MD_SIZE];
+
+	if (X509_digest(cert, ctx->pcert_fp_algo, result, &fp_len) == 0) {
+		*error_r = openssl_iostream_error();
+		return -1;
+	}
+
+	cert_fp = binary_to_hex(result, fp_len);
+
+	fp_len = EVP_MAX_MD_SIZE;
+	memset(result, 0, EVP_MAX_MD_SIZE);
+
+	/* Apparently X509_pubkey_digest does not work correctly,
+	   so we need to do this the hard way. */
+	BIO *bio = BIO_new(BIO_s_null());
+	BIO *hash = BIO_new(BIO_f_md());
+	BIO_set_md(hash, ctx->pcert_fp_algo);
+	bio = BIO_push(hash, bio);
+
+	EVP_PKEY *pubkey = X509_get0_pubkey(cert);
+	int ret = i2d_PUBKEY_bio(bio, pubkey);
+
+	if (ret == 1)
+		fp_len = BIO_gets(hash, (void*)result, EVP_MAX_MD_SIZE);
+	else
+		*error_r = openssl_iostream_error();
+
+	BIO_free_all(bio);
+
+	if (ret == 0)
+		return -1;
+
+	ssl_io->cert_fp = i_strdup(cert_fp);
+	ssl_io->pubkey_fp = i_strdup(binary_to_hex(result, fp_len));
+	*cert_fp_r = ssl_io->cert_fp;
+	*pubkey_fp_r = ssl_io->pubkey_fp;
+
+	return 1;
+}
+
+
 static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.global_init = openssl_iostream_global_init,
 	.context_init_client = openssl_iostream_context_init_client,
@@ -1027,6 +1105,7 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.set_application_protocols = openssl_iostream_context_set_application_protocols,
 
 	.get_channel_binding = openssl_iostream_get_channel_binding,
+	.get_peer_cert_fingerprint = openssl_iostream_get_peer_cert_fingerprint,
 };
 
 void ssl_iostream_openssl_init(void)

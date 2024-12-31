@@ -844,6 +844,15 @@ ssl_iostream_context_init_common(struct ssl_iostream_context *ctx,
 #ifdef SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER
 	SSL_CTX_set_mode(ctx->ssl_ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 #endif
+	if (set->cert_hash_algo != NULL && *set->cert_hash_algo != '\0') {
+		ctx->pcert_fp_algo = EVP_get_digestbyname(set->cert_hash_algo);
+		if (ctx->pcert_fp_algo == NULL) {
+			*error_r = t_strdup_printf("Unsupported hash algorithm '%s'",
+						   set->cert_hash_algo);
+			return -1;
+		}
+	}
+
 	if (ssl_proxy_ctx_set_crypto_params(ctx->ssl_ctx, set, error_r) < 0)
 		return -1;
 
