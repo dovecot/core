@@ -6,6 +6,7 @@
 #include "str.h"
 #include "str-parse.h"
 #include "read-full.h"
+#include "var-expand.h"
 #include "settings-parser.h"
 
 #include <sys/stat.h>
@@ -685,6 +686,14 @@ settings_parse(struct setting_parser_context *ctx,
 		*((const char **)ptr) = value;
 		break;
 	case SET_FILE: {
+		/* only expand first line, if there */
+		const char *path = t_strcut(value, '\n');
+		if (strstr(path, "%{") != NULL) {
+			if (t_var_expand(value, NULL, &value, &error) < 0) {
+				settings_parser_set_error(ctx, error);
+				return -1;
+			}
+		}
 		/* Read the file directly to get the content */
 		if (get_file(ctx, dup_value, &value) < 0) {
 			/* We may be running settings_check()s in doveconf at a
