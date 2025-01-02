@@ -693,7 +693,10 @@ static int config_apply_file(struct config_parser_context *ctx,
 		*output_r = "";
 		return 0;
 	}
-	if (!ctx->expand_values) {
+
+	/* Do not attempt to expand paths that contain variable expansions.
+	   These will be expanded later. */
+	if (!ctx->expand_values || strstr(path, "%{") != NULL) {
 		*output_r = p_strdup(ctx->pool, path);
 		return 0;
 	}
