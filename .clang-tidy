@@ -16,6 +16,7 @@ Checks: >
   -bugprone-easily-swappable-parameters,
   -bugprone-implicit-widening-of-multiplication-result,
   -bugprone-macro-parentheses,
+  -bugprone-multi-level-implicit-pointer-conversion,
   -bugprone-narrowing-conversions,
   -bugprone-reserved-identifier,
   -bugprone-sizeof-expression,
@@ -33,6 +34,7 @@ Checks: >
   -readability-identifier-naming,
   -readability-isolate-declaration,
   -readability-magic-numbers,
+  -readability-math-missing-parentheses,
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*'
 FormatStyle: 'file'
