@@ -1,3 +1,85 @@
+v2.4.0 2025-01-24  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* config: dovecot_config_version must be the first non-comment
+	  line in configuration file.
+	* config: dovecot_storage_version must be in the configuration
+	  file.
+	* config: Many configuration options have changed so old configuration
+	  files do not work without rewrite. See
+	  https://doc.dovecot.org/main/installation/upgrade/2.3-to-2.4.html
+	* config: New variable expansion syntax has been introduced, see
+	  https://doc.dovecot.org/main/core/settings/variables.html
+	* config: Some default settings have changed.
+	* config: plugin {} section has been removed.
+	* *-login: With ssl=required, connections from login_trusted_networks
+	  are now also required to be SSL/TLS encrypted.
+	* acl: Use ACL settings instead of Global ACL Directories.
+	* auth-worker: auth_worker_max_count is replaced with
+	  service auth-worker { process_limit }.
+	* auth: Weak password schemes are disabled by default, use
+	  auth_allow_weak_schemes to enable them.
+	* auth_debug, mail_debug: Use log_debug filter instead.
+	* config: All sections require a name, for example passdb/userdb:
+	  passdb static {
+	     password=secret
+	   }
+	* db2: Remove Berkeley DB support.
+	* dict-memcached: This is removed, use Redis instead.
+	* director: Feature has been removed. See potential replacement at
+	  https://github.com/dovecot/tools/blob/main/director.lua
+	* doveadm: USER environment variable is only supported with
+	  --no-userdb-lookup. One of -u, -F or -A must be used
+	  otherwise.
+	* doveconf: Option -n is now default when running doveconf.
+	* dsync: Use doveadm sync instead, legacy symlink has been removed.
+	* fs-sis: Feature is now deprecated and has been made read-only.
+	  It will be removed in future release.
+	* fts-lucene, fts-squat: These have been removed, use fts-flatcurve or
+	  fts-solr instead.
+	* imap-login: IMAP compression is now handled in proxies.
+	* imap_quota: SETQUOTA / quota_set has been removed.
+	* imap_zlib: This plugin is no longer needed, it's always enabled.
+	* imapc: All features are enabled by default, imapc_features can be used
+	  to explicitly disable features that are not wanted.
+	* lib-storage: mbox driver is now frozen.
+	* mail_compress: XZ and LZMA algorithm support has been removed.
+	* mailbox-alias: Plugin has been removed.
+	* old_stats, auth_stats: These have been removed.
+	* openssl: Minimum supported version of OpenSSL is now 1.1.1.
+	* openssl: Add support for OpenSSL 3.x
+	* quota-dict, quota-dirsize: These have been removed, use quota-count
+	  instead. You can use quota_clone to copy quota usage to some database.
+	* replicator: Feature has been removed. Use NFS or some other shared
+	  filesystem instead, or run doveadm sync in crontab.
+	* stats: The bytes_in and bytes_out field in several events have been
+	  renamed as net_in_bytes and net_out_bytes.
+	* zlib: Renamed to mail_compress plugin.
+	+ Experimental SMTPUTF8 and IMAP UTF8=ACCEPT support has been added.
+	  Needs --enable-experimental-mail-utf8 configure option and
+	  mail_utf8_extensions=yes setting.
+	+ Long running mail commands can be aborted with Ctrl-C / doveadm kick.
+	+ auth: LDAP driver now supports multi-value attributes.
+	+ auth: Add support for SCRAM-SHA-1-PLUS and SCRAM-SHA-256-PLUS.
+	+ auth: Add support for TLS channel binding.
+	+ auth: Support sending JA3 hash to policy server.
+	+ configure: Detect latest Lua version.
+	+ *-login: Support for TLS Server Name has been improved to allow pre-login
+	  settings. For example capabilities to be changed based on TLS Server Name.
+	+ *-login: Support for TLS ALPN has been added, connections with mismatching
+	  application are now refused. Missing ALPN is accepted.
+	+ fts-flatcurve: New Xapian based FTS plugin has been added.
+	+ imap: Support for INPROGRESS untagged messages as per RFC 9585.
+	+ lib-lua: Expose Dovecot DNS client.
+	+ lib-lua: Expose Dovecot HTTP client.
+	+ lib-sasl: Support SCRAM-SHA mechanisms.
+	+ lmtp: SNI support has been added which allows settings to be applied
+	  based on TLS Server Name.
+	+ sqlite: Support WAL mode.
+	+ stats: Submetric name size has been increased.
+	+ submission: Add submission_add_received_header setting to protect
+	  sender identity by suppressing the Received: header.
+	- Many bugs have been fixed.
+
 v2.3.21.1 2024-08-14  Aki Tuomi< aki.tuomi@open-xchange.com>
 
 	- CVE-2024-23184: A large number of address headers in email resulted
