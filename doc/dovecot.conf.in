@@ -44,6 +44,7 @@ namespace inbox {
 passdb pam {
 }
 
-ssl_cert_file = /etc/dovecot/ssl-cert.pem
-ssl_key_file = /etc/dovecot/ssl-key.pem
-
+ssl_server {
+  cert_file = /etc/dovecot/ssl-cert.pem
+  key_file = /etc/dovecot/ssl-key.pem
+}
