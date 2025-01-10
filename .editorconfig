@@ -21,6 +21,6 @@ indent_size = 8
 indent_style = tab
 indent_size = 8
 
-[{Makefile,Makefile.*,**/Makefile,**/Makefile.*}]
+[{Makefile,Makefile.*,**/Makefile,**/Makefile.*,NEWS}]
 indent_style = tab
 indent_size = 8
