@@ -149,10 +149,58 @@ static void test_message_size(void)
 	}
 }
 
+static void test_message_skip_virtual(void)
+{
+	struct {
+		const char *input;
+		uoff_t virtual_skip;
+
+		const char *output;
+		bool last_virtual_cr;
+	} tests[] = {
+		{ "\r\nfoo", 1, "\nfoo", FALSE },
+		{ "\r\nfoo", 2, "foo", FALSE },
+		{ "foo\r\nbar", 3, "\r\nbar", FALSE },
+		{ "foo\r\nbar", 4, "\nbar", FALSE },
+		{ "foo\r\nbar", 5, "bar", FALSE },
+		{ "foo\r\n", 5, "", FALSE },
+		{ "foo\r\nbar\r\nbaz", 8, "\r\nbaz", FALSE },
+		{ "foo\r\nbar\r\nbaz", 9, "\nbaz", FALSE },
+		{ "foo\r\nbar\r\nbaz", 10, "baz", FALSE },
+
+		{ "\nfoo", 1, "\nfoo", TRUE },
+		{ "\nfoo", 2, "foo", FALSE },
+		{ "foo\nbar", 3, "\nbar", FALSE },
+		{ "foo\nbar", 4, "\nbar", TRUE },
+		{ "foo\nbar", 5, "bar", FALSE },
+		{ "foo\n", 5, "", FALSE },
+		{ "foo\nbar\nbaz", 8, "\nbaz", FALSE },
+		{ "foo\nbar\nbaz", 9, "\nbaz", TRUE },
+		{ "foo\nbar\nbaz", 10, "baz", FALSE },
+	};
+	test_begin("message_skip_virtual()");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		struct istream *input =
+			i_stream_create_from_data(tests[i].input,
+						  strlen(tests[i].input));
+		bool last_virtual_cr;
+		test_assert_idx(message_skip_virtual(input, tests[i].virtual_skip,
+						     &last_virtual_cr) == 0, i);
+		size_t size;
+		const unsigned char *output =
+			i_stream_get_data(input, &size);
+		test_assert_strcmp_idx(t_strndup(output, size), tests[i].output, i);
+		test_assert_idx(last_virtual_cr == tests[i].last_virtual_cr, i);
+		i_stream_unref(&input);
+	}
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_message_size,
+		test_message_skip_virtual,
 		NULL
 	};
 	return test_run(test_functions);
