@@ -139,27 +139,34 @@ int message_skip_virtual(struct istream *input, uoff_t virtual_skip,
 	if (virtual_skip == 0)
 		return 0;
 
-	while ((ret = i_stream_read_more(input, &msg, &size)) > 0) {
-		for (i = 0; i < size && virtual_skip > 0; i++) {
-			virtual_skip--;
+	while ((ret = i_stream_read_bytes(input, &msg, &size, 1)) > 0) {
+		size = I_MIN(virtual_skip, size);
+		const unsigned char *p = memchr(msg, '\n', size);
+		if (p == NULL) {
+			i_stream_skip(input, size);
+			virtual_skip -= size;
+			if (virtual_skip == 0)
+				return 0;
+			continue;
+		}
+		i = p - msg;
+		virtual_skip -= i + 1;
 
-			if (msg[i] == '\n') {
-				/* LF */
-				if ((i == 0 && !cr_skipped) ||
-				    (i > 0 && msg[i-1] != '\r')) {
-					if (virtual_skip == 0) {
-						/* CR/LF boundary */
-						*last_virtual_cr_r = TRUE;
-						break;
-					}
-
-					virtual_skip--;
-				}
+		/* LF */
+		if ((i == 0 && !cr_skipped) ||
+		    (i > 0 && msg[i-1] != '\r')) {
+			if (virtual_skip == 0) {
+				/* CR/LF boundary */
+				*last_virtual_cr_r = TRUE;
+			} else {
+				virtual_skip--;
+				i++;
 			}
+		} else {
+			i++;
 		}
 		i_stream_skip(input, i);
-
-		if (i < size)
+		if (virtual_skip == 0)
 			return 0;
 
 		i_assert(i > 0);
