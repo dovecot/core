@@ -2,7 +2,7 @@ AC_DEFUN([DOVECOT_WANT_LDAP], [
   have_ldap=no
 
   AS_IF([test "$want_ldap" != "no"], [
-    PKG_CHECK_MODULES([LDAP], [ldap], [have_ldap=yes], [have_ldap=no])
+    PKG_CHECK_MODULES([LDAP], [ldap >= 2.4], [have_ldap=yes], [have_ldap=no])
 
     dnl obsolete check for library, remove as soon all supported
     dnl platforms have proper pkg-check files
