@@ -949,7 +949,6 @@ int db_ldap_connect(struct ldap_connection *conn)
 		db_ldap_init_ld(conn);
 
 	if (conn->set->starttls) {
-#ifdef LDAP_HAVE_START_TLS_S
 		ret = ldap_start_tls_s(conn->ld, NULL, NULL);
 		if (ret != LDAP_SUCCESS) {
 			if (ret == LDAP_OPERATIONS_ERROR &&
@@ -962,9 +961,6 @@ int db_ldap_connect(struct ldap_connection *conn)
 				ldap_err2string(ret));
 			return -1;
 		}
-#else
-		i_unreached(); /* already checked at init */
-#endif
 	}
 
 	if (db_ldap_bind(conn) < 0)

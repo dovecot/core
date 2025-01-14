@@ -49,9 +49,6 @@ AC_DEFUN([DOVECOT_WANT_LDAP], [
       ])
     ], $LDAP_LIBS)
 
-    AC_CHECK_LIB(ldap, ldap_start_tls_s, [
-      AC_DEFINE(LDAP_HAVE_START_TLS_S,, [Define if you have ldap_start_tls_s])
-    ],, $LDAP_LIBS)
     AC_DEFINE(USERDB_LDAP,, [Build with LDAP support])
     AC_DEFINE(PASSDB_LDAP,, [Build with LDAP support])
     AC_CHECK_HEADERS(sasl.h sasl/sasl.h)

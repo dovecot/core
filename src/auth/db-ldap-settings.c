@@ -158,13 +158,6 @@ static bool ldap_setting_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	}
 
-#ifndef LDAP_HAVE_START_TLS_S
-	if (set->starttls) {
-		*error_r = "ldap_starttls=yes, but your LDAP library doesn't support TLS";
-		return FALSE;
-	}
-#endif
-
 #ifndef HAVE_LDAP_SASL
 	if (!array_is_empty(&set->auth_sasl_mechanisms)) {
 		*error_r = "ldap_auth_sasl_mechanism set, but no SASL support compiled in";
