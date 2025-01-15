@@ -67,6 +67,7 @@ static const struct setting_define imap_setting_defines[] = {
 	DEF(ENUM, imap_fetch_failure),
 	DEF(BOOL, imap_metadata),
 	DEF(BOOL, imap_literal_minus),
+	DEF(BOOL, mail_utf8_extensions),
 #ifdef BUILD_IMAP_HIBERNATE
 	DEF(TIME, imap_hibernate_timeout),
 #endif
@@ -99,6 +100,7 @@ static const struct imap_settings imap_default_settings = {
 	.imap_fetch_failure = "disconnect-immediately:disconnect-after:no-after",
 	.imap_metadata = FALSE,
 	.imap_literal_minus = FALSE,
+	.mail_utf8_extensions = FALSE,
 #ifdef DOVECOT_PRO_EDITION
 	.imap_hibernate_timeout = 30,
 #else
@@ -152,6 +154,7 @@ static const struct setting_keyvalue imap_default_settings_keyvalue[] = {
 	{ "service/imap/imap_capability/SPECIAL-USE", "yes" },
 	{ "service/imap/imap_capability/LITERAL+", "yes" },
 	{ "service/imap/imap_capability/LITERAL-", "yes" },
+	{ "service/imap/imap_capability/UTF8=ACCEPT", "yes" },
 	{ "imap_id_send/name", DOVECOT_NAME },
 	{ NULL, NULL },
 };
@@ -213,6 +216,13 @@ static bool
 imap_settings_verify(void *_set, pool_t pool ATTR_UNUSED, const char **error_r)
 {
 	struct imap_settings *set = _set;
+
+#ifndef EXPERIMENTAL_MAIL_UTF8
+	if (set->mail_utf8_extensions) {
+		*error_r = "Dovecot not built with --enable-experimental-mail-utf8";
+		return FALSE;
+	}
+#endif
 
 	if (imap_settings_parse_workarounds(set, error_r) < 0)
 		return FALSE;

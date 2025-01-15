@@ -183,6 +183,8 @@ struct client *client_create(int fd_in, int fd_out,
 	   SPECIAL-USE flags in mailbox configuration. */
 	if (!user->have_special_use_mailboxes)
 		imap_unset_capability(set_instance, "SPECIAL-USE");
+	if (!client->set->mail_utf8_extensions)
+		imap_unset_capability(set_instance, "UTF8=ACCEPT");
 
 	const struct imap_settings *modified_set;
 	if (settings_get(client->user->event, &imap_setting_parser_info,
@@ -1573,6 +1575,13 @@ void client_enable(struct client *client, unsigned int feature_idx)
 		return;
 
 	const struct imap_feature *feat = imap_feature_idx(feature_idx);
+
+	if ((feat->mailbox_features & MAILBOX_FEATURE_UTF8ACCEPT) != 0 &&
+	    !client->set->mail_utf8_extensions) {
+		e_debug(client->event, "Client attempted to enable UTF8 when it's disabled");
+		return;
+	}
+
 	feat->callback(client);
 	/* set after the callback, so the callback can see what features were
 	   previously set */
