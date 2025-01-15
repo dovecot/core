@@ -40,6 +40,12 @@ ARRAY_DEFINE_TYPE(config_include_group, struct config_include_group);
 /* Each unique config_filter (including its parents in hierarchy) has its own
    config_filter_parser. */
 struct config_filter_parser {
+	/* Increasing number for every created parser. Used by sorting. */
+	unsigned int create_order;
+	/* Number of filters in this parser and parent parsers that have
+	   filter.filter_name_array=TRUE. */
+	unsigned int named_list_filter_count;
+
 	/* Filter parser tree. These are used only for doveconf's human output
 	   to write the filters in nice nested hierarchies. */
 	struct config_filter_parser *parent;

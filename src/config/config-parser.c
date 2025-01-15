@@ -1061,6 +1061,7 @@ config_add_new_parser(struct config_parser_context *ctx,
 	struct config_filter_parser *filter_parser;
 
 	filter_parser = p_new(ctx->pool, struct config_filter_parser, 1);
+	filter_parser->create_order = ctx->create_order_counter++;
 	filter_parser->filter = *filter;
 	filter_parser->module_parsers =
 		parent_filter_parser == NULL && !filter->default_settings ?
@@ -1075,6 +1076,9 @@ config_add_new_parser(struct config_parser_context *ctx,
 
 	if (parent_filter_parser != NULL) {
 		filter_parser->parent = parent_filter_parser;
+		filter_parser->named_list_filter_count =
+			parent_filter_parser->named_list_filter_count +
+			(filter->filter_name_array ? 1 : 0);
 		DLLIST2_APPEND(&parent_filter_parser->children_head,
 			       &parent_filter_parser->children_tail,
 			       filter_parser);
@@ -2217,6 +2221,35 @@ config_parse_finish_service_defaults(struct config_parser_context *ctx)
 	config_parser_set_change_counter(ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
 }
 
+static int config_parser_filter_cmp(struct config_filter_parser *const *f1,
+				    struct config_filter_parser *const *f2)
+{
+	/* Preserve position for the first two parsers */
+	if ((*f1)->create_order <= 1) {
+		if ((*f2)->create_order <= 1)
+			return (int)(*f1)->create_order - (int)(*f2)->create_order;
+		return -1;
+	}
+	if ((*f2)->create_order <= 1)
+		return -1;
+
+	/* Next, order by the number of named list filters, so more specific
+	   filters are applied before less specific ones. (Applying is done in
+	   reverse order from the last filter to the first.)
+
+	   Don't include other types of filters in this check, since e.g.
+	   hierarchical named filters may commonly be used to specify defaults
+	   (e.g. layout_fs { sdbox { } }) which shouldn't override even a
+	   smaller number of named list filters (e.g. mailbox foo { .. }). */
+	int ret = (int)(*f1)->named_list_filter_count -
+		(int)(*f2)->named_list_filter_count;
+	if (ret != 0)
+		return ret;
+
+	/* Finally, just order them in the order of creation. */
+	return (int)(*f1)->create_order - (int)(*f2)->create_order;
+}
+
 static int
 config_parse_finish(struct config_parser_context *ctx,
 		    enum config_parse_flags flags,
@@ -2239,6 +2272,7 @@ config_parse_finish(struct config_parser_context *ctx,
 	new_config->dovecot_config_version = ctx->dovecot_config_version;
 	p_array_init(&new_config->errors, ctx->pool, 1);
 
+	array_sort(&ctx->all_filter_parsers, config_parser_filter_cmp);
 	array_append_zero(&ctx->all_filter_parsers);
 	array_pop_back(&ctx->all_filter_parsers);
 	new_config->filter_parsers = array_front(&ctx->all_filter_parsers);
