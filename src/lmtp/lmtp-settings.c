@@ -66,6 +66,7 @@ static const struct setting_define lmtp_setting_defines[] = {
 
 	DEF(BOOLLIST, mail_plugins),
 	DEF(STR, mail_plugin_dir),
+	DEF(BOOL, mail_utf8_extensions),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -88,6 +89,7 @@ static const struct lmtp_settings lmtp_default_settings = {
 
 	.mail_plugins = ARRAY_INIT,
 	.mail_plugin_dir = MODULEDIR,
+	.mail_utf8_extensions = FALSE,
 };
 
 const struct setting_parser_info lmtp_setting_parser_info = {
@@ -146,6 +148,13 @@ static bool lmtp_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				const char **error_r)
 {
 	struct lmtp_settings *set = _set;
+
+#ifndef EXPERIMENTAL_MAIL_UTF8
+	if (set->mail_utf8_extensions) {
+		*error_r = "Dovecot not built with --enable-experimental-mail-utf8";
+		return FALSE;
+	}
+#endif
 
 	if (lmtp_settings_parse_workarounds(set, error_r) < 0)
 		return FALSE;

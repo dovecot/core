@@ -25,6 +25,7 @@ struct lmtp_settings {
 	bool lmtp_rcpt_check_quota;
 	bool lmtp_add_received_header;
 	bool lmtp_verbose_replies;
+	bool mail_utf8_extensions;
 	unsigned int lmtp_user_concurrency_limit;
 	const char *lmtp_hdr_delivery_address;
 	const char *lmtp_rawlog_dir;

@@ -29,6 +29,10 @@ client_parse_backend_capabilities(struct submission_client *subm_client )
 
 	if (array_is_empty(&set->submission_backend_capabilities)) {
 		subm_client->backend_capabilities = SMTP_CAPABILITY_8BITMIME;
+#ifdef EXPERIMENTAL_MAIL_UTF8
+		if (subm_client->set->mail_utf8_extensions)
+			subm_client->backend_capabilities |= SMTP_CAPABILITY_SMTPUTF8;
+#endif
 		return;
 	}
 
@@ -119,6 +123,10 @@ static int submission_client_create(struct client *client)
 	smtp_set.capabilities = SMTP_CAPABILITY_SIZE |
 		SMTP_CAPABILITY_ENHANCEDSTATUSCODES | SMTP_CAPABILITY_AUTH |
 		SMTP_CAPABILITY_XCLIENT;
+#ifdef EXPERIMENTAL_MAIL_UTF8
+	if (subm_client->set->mail_utf8_extensions)
+		smtp_set.capabilities |= SMTP_CAPABILITY_SMTPUTF8;
+#endif
 	if (client_is_tls_enabled(client))
 		smtp_set.capabilities |= SMTP_CAPABILITY_STARTTLS;
 	smtp_set.hostname = subm_client->set->hostname;

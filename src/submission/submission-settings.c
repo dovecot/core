@@ -69,6 +69,7 @@ static const struct setting_define submission_setting_defines[] = {
 	DEF(BOOLLIST, submission_client_workarounds),
 	DEF(STR_NOVARS, submission_logout_format),
 	DEF(BOOL, submission_add_received_header),
+	DEF(BOOL, mail_utf8_extensions),
 
 	DEF(BOOLLIST, submission_backend_capabilities),
 
@@ -111,6 +112,7 @@ static const struct submission_settings submission_default_settings = {
 	.submission_client_workarounds = ARRAY_INIT,
 	.submission_logout_format = "in=%{input} out=%{output}",
 	.submission_add_received_header = TRUE,
+	.mail_utf8_extensions = FALSE,
 
 	.submission_backend_capabilities = ARRAY_INIT,
 
@@ -199,6 +201,13 @@ static bool
 submission_settings_verify(void *_set, pool_t pool ATTR_UNUSED, const char **error_r)
 {
 	struct submission_settings *set = _set;
+
+#ifndef EXPERIMENTAL_MAIL_UTF8
+	if (set->mail_utf8_extensions) {
+		*error_r = "Dovecot not built with --enable-experimental-mail-utf8";
+		return FALSE;
+	}
+#endif
 
 	if (submission_settings_parse_workarounds(set, error_r) < 0)
 		return FALSE;
