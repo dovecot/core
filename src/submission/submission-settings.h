@@ -28,6 +28,7 @@ struct submission_settings {
 	ARRAY_TYPE(const_string) submission_client_workarounds;
 	const char *submission_logout_format;
 	bool submission_add_received_header;
+	bool mail_utf8_extensions;
 
 	/* submission backend: */
 	ARRAY_TYPE(const_string) submission_backend_capabilities;

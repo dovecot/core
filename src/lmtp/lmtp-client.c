@@ -183,10 +183,12 @@ struct client *client_create(int fd_in, int fd_out,
 		SMTP_CAPABILITY_8BITMIME |
 		SMTP_CAPABILITY_CHUNKING |
 		SMTP_CAPABILITY_XCLIENT |
-#ifdef EXPERIMENTAL_MAIL_UTF8
-		SMTP_CAPABILITY_SMTPUTF8 |
-#endif
 		SMTP_CAPABILITY__ORCPT;
+
+#ifdef EXPERIMENTAL_MAIL_UTF8
+	if (client->lmtp_set->mail_utf8_extensions)
+		lmtp_set.capabilities |= SMTP_CAPABILITY_SMTPUTF8;
+#endif
 	if (!conn_tls && master_service_ssl_is_enabled(master_service))
 		lmtp_set.capabilities |= SMTP_CAPABILITY_STARTTLS;
 	lmtp_set.hostname = client->lda_set->hostname;

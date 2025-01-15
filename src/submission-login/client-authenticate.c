@@ -51,6 +51,9 @@ static void cmd_helo_reply(struct submission_client *subm_client,
 				"AUTH", "%s", str_c(param));
 		}
 
+		if ((backend_caps & SMTP_CAPABILITY_SMTPUTF8) != 0 &&
+		    subm_client->set->mail_utf8_extensions)
+			smtp_server_reply_ehlo_add(reply, "SMTPUTF8");
 		if ((backend_caps & SMTP_CAPABILITY_BINARYMIME) != 0 &&
 		    (backend_caps & SMTP_CAPABILITY_CHUNKING) != 0)
 			smtp_server_reply_ehlo_add(reply, "BINARYMIME");

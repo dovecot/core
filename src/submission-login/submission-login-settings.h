@@ -11,6 +11,7 @@ enum submission_login_client_workarounds {
 struct submission_login_settings {
 	pool_t pool;
 	const char *hostname;
+	bool mail_utf8_extensions;
 
 	/* submission: */
 	uoff_t submission_max_mail_size;

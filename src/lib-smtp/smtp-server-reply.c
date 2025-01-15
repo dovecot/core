@@ -841,10 +841,18 @@ void smtp_server_reply_ehlo_add_size(struct smtp_server_reply *reply)
 	}
 }
 
+#ifdef EXPERIMENTAL_MAIL_UTF8
 void smtp_server_reply_ehlo_add_smtputf8(struct smtp_server_reply *reply)
 {
+	struct smtp_server_cmd_ctx *cmd = &reply->command->context;
+	struct smtp_server_connection *conn = cmd->conn;
+	enum smtp_capability caps = conn->set.capabilities;
+
+	if ((caps & SMTP_CAPABILITY_SMTPUTF8) == 0)
+		return;
 	smtp_server_reply_ehlo_add(reply, "SMTPUTF8");
 }
+#endif
 
 void smtp_server_reply_ehlo_add_starttls(struct smtp_server_reply *reply)
 {

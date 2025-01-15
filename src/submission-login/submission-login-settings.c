@@ -56,6 +56,7 @@ const struct setting_keyvalue submission_login_service_settings_defaults[] = {
 
 static const struct setting_define submission_login_setting_defines[] = {
 	DEF(STR, hostname),
+	DEF(BOOL, mail_utf8_extensions),
 
 	DEF(SIZE, submission_max_mail_size),
 	DEF(BOOLLIST, submission_client_workarounds),
@@ -66,6 +67,7 @@ static const struct setting_define submission_login_setting_defines[] = {
 
 static const struct submission_login_settings submission_login_default_settings = {
 	.hostname = "",
+	.mail_utf8_extensions = FALSE,
 
 	.submission_max_mail_size = 0,
 	.submission_client_workarounds = ARRAY_INIT,
@@ -138,6 +140,12 @@ submission_login_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 {
 	struct submission_login_settings *set = _set;
 
+#ifndef EXPERIMENTAL_MAIL_UTF8
+	if (set->mail_utf8_extensions) {
+		*error_r = "Dovecot not built with --enable-experimental-mail-utf8";
+		return FALSE;
+	}
+#endif
 	if (submission_login_settings_parse_workarounds(set, error_r) < 0)
 		return FALSE;
 
