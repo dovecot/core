@@ -86,6 +86,7 @@ struct config_parser_context {
 	struct config_section_stack *cur_section;
 	struct input_stack *cur_input;
 	uint8_t change_counter;
+	unsigned int create_order_counter;
 
 	string_t *value;
 	const char *error;
