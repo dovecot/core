@@ -188,8 +188,13 @@ static void test_settings_parse_boollist_string(void)
 			pool_datastack_create(), &output, &error) == 0, i);
 		test_assert_idx(array_count(&output) == str_array_length(tests[i].output), i);
 		unsigned int j = 0;
-		array_foreach_elem(&output, value)
-			test_assert_strcmp_idx(tests[i].output[j++], value, i);
+		array_foreach_elem(&output, value) {
+			const char *next_output = NULL;
+			if (tests[i].output != NULL &&
+			    tests[i].output[j] != NULL)
+				next_output = tests[i].output[j++];
+			test_assert_strcmp_idx(next_output, value, i);
+		}
 	} T_END;
 
 	t_array_init(&output, 8);
