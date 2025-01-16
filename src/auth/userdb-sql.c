@@ -187,8 +187,14 @@ userdb_sql_iterate_init(struct auth_request *auth_request,
 		return &ctx->ctx;
 	}
 
-	sql_query(module->db, set->iterate_query, sql_iter_query_callback, ctx);
-	e_debug(authdb_event(auth_request), "%s", set->iterate_query);
+	if (*set->iterate_query == '\0') {
+		e_error(authdb_event(auth_request), "User iteration failed: "
+			"userdb_sql_iterate_query is empty");
+		ctx->ctx.failed = TRUE;
+	} else {
+		sql_query(module->db, set->iterate_query, sql_iter_query_callback, ctx);
+		e_debug(authdb_event(auth_request), "%s", set->iterate_query);
+	}
 	settings_free(set);
 	return &ctx->ctx;
 }
