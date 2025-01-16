@@ -1203,7 +1203,7 @@ int main(int argc, char *const argv[])
 		NULL
 	};
 
-	char opt;
+	int opt;
 	while ((opt = getopt(argc, argv, "b")) != -1) {
 		if (opt == 'b')
 			do_bench = TRUE;
