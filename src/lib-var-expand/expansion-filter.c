@@ -948,7 +948,7 @@ static int fn_index(const struct var_expand_statement *stmt,
 
 	const char *separator = NULL;
 	int idx = 0;
-	bool got_idx;
+	bool got_idx = FALSE;
 
 	struct var_expand_parameter_iter_context *ctx =
 		var_expand_parameter_iter_init(stmt);
