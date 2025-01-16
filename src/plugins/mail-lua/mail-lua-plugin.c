@@ -270,8 +270,8 @@ static int mail_lua_var_expand_lua_file(const struct var_expand_statement *stmt,
 				        struct var_expand_state *state,
 					const char **error_r)
 {
-	const char *file;
-	const char *fn;
+	const char *file = NULL;
+	const char *fn = NULL;
 	const char *value;
 
 	ARRAY_TYPE(const_string) params;
@@ -302,6 +302,11 @@ static int mail_lua_var_expand_lua_file(const struct var_expand_statement *stmt,
 		}
 	}
 
+	if (file == NULL || fn == NULL) {
+		*error_r = "Missing parameters";
+		return -1;
+	}
+
 	struct dlua_script *script;
 	if (mail_lua_script_load(file, &script, error_r) < 0)
 		return -1;
@@ -316,7 +321,7 @@ static int mail_lua_var_expand_lua_call(const struct var_expand_statement *stmt,
 				        struct var_expand_state *state,
 					const char **error_r)
 {
-	const char *fn;
+	const char *fn = NULL;
 	const char *value;
 
 	ARRAY_TYPE(const_string) params;
@@ -339,6 +344,11 @@ static int mail_lua_var_expand_lua_call(const struct var_expand_statement *stmt,
 				return -1;
 			array_push_back(&params, &value);
 		}
+	}
+
+	if (fn == NULL) {
+		*error_r = "Missing parameters";
+		return -1;
 	}
 
 	if (state->params->event == NULL) {
