@@ -61,6 +61,7 @@ service_unix_pid_listener_get_path(struct service_listener *l, pid_t pid,
 			{ .key = "pid", .value = dec2str(pid) },
 			VAR_EXPAND_TABLE_END
 		},
+		.event = l->service->event,
 	};
 
 	str_truncate(path, 0);

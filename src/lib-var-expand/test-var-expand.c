@@ -537,6 +537,7 @@ static void test_var_expand_provider_arr(void)
 			"context2",
 			VAR_EXPAND_CONTEXTS_END
 		},
+		.event = NULL,
 	};
 
 	run_var_expand_tests(&params, tests, N_ELEMENTS(tests));
@@ -756,6 +757,7 @@ static void test_var_expand_value_func_arr(void)
 			"test2",
 			VAR_EXPAND_CONTEXTS_END
 		},
+		.event = NULL,
 	};
 
 	test_begin("var_expand(value func_arr)");
@@ -898,6 +900,8 @@ static void test_var_expand_perc(void)
 			{ .key = "test", .value = "value" },
 			VAR_EXPAND_TABLE_END
 		},
+		.event = NULL,
+
 	};
 
 	run_var_expand_tests(&params, tests, N_ELEMENTS(tests));
@@ -975,6 +979,7 @@ static void test_var_expand_export_import(void)
 			{ .key = "test", .value = "tset" },
 			VAR_EXPAND_TABLE_END
 		},
+		.event = NULL,
 	};
 
 	const struct test_case {

@@ -471,6 +471,7 @@ parse_metric_group_by_mod(pool_t pool,
 			{ .key ="value", .value = "" },
 			VAR_EXPAND_TABLE_END
 		},
+		.event = NULL,
 	};
 	const char *error;
 	string_t *str = t_str_new(128);

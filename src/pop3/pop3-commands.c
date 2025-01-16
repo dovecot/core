@@ -677,6 +677,7 @@ pop3_get_uid(struct client *client, struct mail *mail, string_t *str,
 			{ .key = "guid", .value = guid },
 			VAR_EXPAND_TABLE_END
 		},
+		.event = client->event,
 	};
 	const char *error;
 
