@@ -601,6 +601,7 @@ label_by_mod_str(const struct stats_metric_settings_group_by *group_by,
 			{ .key = "value", .value = value },
 			VAR_EXPAND_TABLE_END
 		},
+		.event = NULL,
 	};
 	string_t *str = t_str_new(128);
 	if (var_expand(str, group_by->discrete_modifier, &params, &error) < 0) {

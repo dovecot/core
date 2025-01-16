@@ -49,7 +49,7 @@ static int mock_get_userdb(const char *key, const char **value_r,
 }
 
 int auth_request_var_expand_with_table(string_t *dest, const char *str,
-				       const struct auth_request *auth_request ATTR_UNUSED,
+				       const struct auth_request *auth_request,
 				       const struct var_expand_table *table ATTR_UNUSED,
 				       auth_request_escape_func_t *escape_func ATTR_UNUSED,
 				       const char **error_r ATTR_UNUSED)
@@ -61,6 +61,7 @@ int auth_request_var_expand_with_table(string_t *dest, const char *str,
 			{ .key = "userdb", .func = mock_get_userdb },
 			VAR_EXPAND_TABLE_END
 		},
+		.event = auth_request->event,
 	};
 	return var_expand(dest, str, &params, error_r);
 }
