@@ -417,9 +417,9 @@ static void test_bad_settings(void)
 
 	/* This needs a bit more roundabout way to check this as SSL settings
 	   are lazily evaluated. */
-	ret = dlua_pcall(script->L, "test_invalid_set_value_3", 0, 0, &error);
+	test_assert(dlua_pcall(script->L, "test_invalid_set_value_3", 0, 0, &error) == 0);
 	lua_pushstring(script->L, "https://localhost");
-	ret = dlua_pcall(script->L, "http_request_post", 1, 2, &error);
+	test_assert(dlua_pcall(script->L, "http_request_post", 1, 2, &error) == 2);
 	error = lua_tostring(script->L, 2);
 	test_assert_strcmp(error, "Couldn't initialize SSL client context: Can't set minimum protocol to 'cow' (ssl_min_protocol setting): Unknown value");
 

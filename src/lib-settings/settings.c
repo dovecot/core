@@ -2422,7 +2422,7 @@ settings_get_full(struct event *event,
 		return 1;
 	}
 
-	const struct setting_define *def = info->defines;
+	const struct setting_define *def;
 
 	/* Sort filter arrays when order is defined */
 	for (def = info->defines; def->key != NULL; def++) {

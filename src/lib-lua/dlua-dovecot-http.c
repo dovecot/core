@@ -435,7 +435,7 @@ static int parse_client_settings(lua_State *L, struct settings_instance *instanc
 	while (*error_r == NULL && lua_next(L, -2) != 0) {
 		const char *key = lua_tostring(L, -2);
 		const char *value = lua_tostring(L, -1);
-		const char *real_key = key;
+		const char *real_key;
 		unsigned int idx ATTR_UNUSED;
 		/* ignore event_parent */
 		if (strcmp(key, "event_parent") == 0) {
