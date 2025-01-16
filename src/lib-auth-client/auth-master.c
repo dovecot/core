@@ -436,8 +436,7 @@ static void auth_master_unset_io(struct auth_master_connection *conn)
 	if ((conn->flags & AUTH_MASTER_FLAG_NO_IDLE_TIMEOUT) == 0) {
 		if (conn->prev_ioloop == NULL)
 			auth_connection_close(conn);
-		else {
-			i_assert(conn->to == NULL);
+		else if (conn->to == NULL) {
 			conn->to = timeout_add(1000*AUTH_MASTER_IDLE_SECS,
 					       auth_idle_timeout, conn);
 		}
