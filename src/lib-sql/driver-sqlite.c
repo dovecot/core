@@ -353,7 +353,10 @@ driver_sqlite_query_s(struct sql_db *_db, const char *query)
 		if (db->rc == SQLITE_OK) {
 			result->api = driver_sqlite_result;
 			result->cols = sqlite3_column_count(result->stmt);
-			result->row = i_new(const char *, result->cols);
+			if (result->cols == 0)
+				result->row = NULL;
+			else
+				result->row = i_new(const char *, result->cols);
 		} else {
 			result->api = driver_sqlite_error_result;
 			result->stmt = NULL;
