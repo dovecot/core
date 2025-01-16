@@ -42,9 +42,10 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	struct event *event = event_create(box->event);
 	event_add_str(event, "quota", root->set->quota_name);
 	if (settings_get(event, &quota_root_setting_parser_info, 0,
-			 &set, error_r) < 0)
+			 &set, error_r) < 0) {
+		*error_result_r = QUOTA_GET_RESULT_INTERNAL_ERROR;
 		ret = -1;
-	else if (set->quota_ignore)
+	} else if (set->quota_ignore)
 		ret = 0;
 	else if ((box->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NOQUOTA) != 0) {
 		/* quota doesn't exist for this mailbox/storage */
