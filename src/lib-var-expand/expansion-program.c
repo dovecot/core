@@ -228,7 +228,6 @@ static void var_expand_program_export_one(const struct var_expand_program *progr
 		str_append(dest, stmt->function);
 		str_append_c(dest, '\1');
 		const struct var_expand_parameter *param = stmt->params;
-		param = stmt->params;
 		while (param != NULL) {
 			if (param->key != NULL)
 				str_append(dest, param->key);

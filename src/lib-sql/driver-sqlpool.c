@@ -479,7 +479,7 @@ driver_sqlpool_init_common(const struct sql_db *driver,
 
 	if (array_count(hostnames) == 0) {
 		/* no hosts specified. create a default one. */
-		host = array_append_space(&db->hosts);
+		array_append_zero(&db->hosts);
 	} else {
 		array_foreach_elem(hostnames, hostname) {
 			host = array_append_space(&db->hosts);

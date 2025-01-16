@@ -320,7 +320,6 @@ static int userdb_ldap_preinit(pool_t pool, struct event *event,
 	const struct ldap_post_settings *ldap_post = NULL;
 	const struct ldap_pre_settings *ldap_pre = NULL;
 	struct ldap_userdb_module *module;
-	struct ldap_connection *conn;
 	int ret = -1;
 
 	if (settings_get(event, &auth_userdb_post_setting_parser_info,
@@ -334,7 +333,7 @@ static int userdb_ldap_preinit(pool_t pool, struct event *event,
 		goto failed;
 
 	module = p_new(pool, struct ldap_userdb_module, 1);
-	module->conn = conn = db_ldap_init(event);
+	module->conn = db_ldap_init(event);
 
 	db_ldap_get_attribute_names(pool, &auth_post->fields,
 				    &module->attributes,
