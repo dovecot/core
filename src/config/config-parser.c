@@ -747,8 +747,10 @@ config_apply_exact_line(struct config_parser_context *ctx,
 	for (; config_key != NULL; config_key = config_key->next) {
 		struct config_module_parser *l =
 			&ctx->cur_section->filter_parser->module_parsers[config_key->info_idx];
-		if (l->settings == NULL)
+		if (l->settings == NULL) {
 			config_module_parser_init(ctx, l);
+			i_assert(l->settings != NULL);
+		}
 		switch (l->info->defines[config_key->define_idx].type) {
 		case SET_STRLIST:
 			if (config_apply_strlist(ctx, key, value, config_key,
@@ -953,10 +955,10 @@ again:
 	/* the only '/' left should be if key is under list/ */
 	key = key_with_path;
 
-	if (ctx->cur_section->filter_parser->filter.filter_name != NULL &&
-	    ctx->cur_section->filter_parser->filter.filter_name_array) {
+	if (ctx->cur_section->filter_parser->filter.filter_name_array) {
 		/* For named list filters, try filter name { key } ->
 		   filter_name_key first before anything else. */
+		i_assert(ctx->cur_section->filter_parser->filter.filter_name != NULL);
 		const char *filter_key = filter_key_skip_group_prefix(
 			t_str_replace(ctx->cur_section->filter_parser->filter.filter_name, '/', '_'));
 		const char *key2 = t_strdup_printf("%s_%s", filter_key, key);
@@ -2662,6 +2664,8 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 							   filter_key, key);
 			if (config_key_can_autoprefix(ctx, key2))
 				key = key2;
+		} else {
+			i_assert(!cur_filter->filter_name_array);
 		}
 
 		ctx->cur_section = config_add_new_section(ctx);
