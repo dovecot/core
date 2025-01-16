@@ -341,6 +341,8 @@ fts_build_tokenized(struct fts_mail_build_context *ctx,
 	const struct language *lang;
 	int ret;
 
+	i_assert(ctx->pending_input != NULL);
+
 	if (ctx->cur_user_lang != NULL) {
 		/* we already have a language */
 	} else if ((ret = fts_detect_language(ctx, data, size, last, &lang)) < 0) {

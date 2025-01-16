@@ -1416,6 +1416,7 @@ db_ldap_result_finish_debug(struct db_ldap_result_iterate_context *ctx)
 	if (ctx->ldap_request->result_logged)
 		return;
 
+	i_assert(ctx->debug != NULL);
 	orig_len = str_len(ctx->debug);
 	if (orig_len == 0) {
 		e_debug(authdb_event(ctx->ldap_request->auth_request),

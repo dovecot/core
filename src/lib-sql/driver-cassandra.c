@@ -946,6 +946,8 @@ static int driver_cassandra_init_ssl(struct cassandra_db *db, const char **error
 	struct settings_file file;
 	CassError c_err;
 
+	i_assert(ssl_set != NULL);
+
 	db->ssl = cass_ssl_new();
 	i_assert(db->ssl != NULL);
 
