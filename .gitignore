@@ -68,6 +68,7 @@ doc/man/*.7
 doc/stamp-man
 doc/stamp-html
 doc/index.html
+doc/dovecot.conf
 
 doc/example-config/README
 doc/example-config/dovecot.conf
