@@ -234,6 +234,7 @@ void fts_flatcurve_xapian_deinit(struct flatcurve_fts_backend *backend)
 	struct flatcurve_xapian *x = backend->xapian;
 	const char *error;
 
+	i_assert(x != NULL);
 	x->deinit = TRUE;
 	if (hash_table_is_created(x->optimize)) {
 		struct hash_iterate_context *iter =
