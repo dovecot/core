@@ -68,6 +68,7 @@ int
 fts_backend_flatcurve_close_mailbox(struct flatcurve_fts_backend *backend,
 				    const char **error_r)
 {
+	i_assert(backend->boxname != NULL);
 	int ret = 0;
 	if (str_len(backend->boxname) > 0) {
 		ret = fts_flatcurve_xapian_close(backend, error_r);
@@ -98,10 +99,12 @@ static void fts_backend_flatcurve_deinit(struct fts_backend *_backend)
 	struct flatcurve_fts_backend *backend =
 		(struct flatcurve_fts_backend *)_backend;
 
-	int ret = fts_backend_flatcurve_close_mailbox(backend, &error);
-	fts_flatcurve_xapian_deinit(backend);
-	if (ret < 0)
-		e_error(backend->event, "%s", error);
+	if (backend->xapian != NULL) {
+		int ret = fts_backend_flatcurve_close_mailbox(backend, &error);
+		fts_flatcurve_xapian_deinit(backend);
+		if (ret < 0)
+			e_error(backend->event, "%s", error);
+	}
 
 	event_unref(&backend->event);
 	pool_unref(&backend->pool);
