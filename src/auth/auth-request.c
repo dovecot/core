@@ -1832,6 +1832,47 @@ auth_request_validate_networks(struct auth_request *request,
 }
 
 static void
+auth_request_validate_client_fp(struct auth_request *request, const char *name,
+				const char *fp)
+{
+	const char *client_cert_fp = request->fields.ssl_client_cert_fp;
+	const char *client_pubkey_fp = request->fields.ssl_client_cert_pubkey_fp;
+	bool valid;
+
+	/* Can't be valid if the connection is not TLS secured, proxied does not
+	   count. */
+	if (request->fields.conn_secured != AUTH_REQUEST_CONN_SECURED_TLS)
+		valid = FALSE;
+	/* check that the fingerprint isn't empty */
+	else if (*fp == '\0') {
+		e_info(authdb_event(request), "%s check failed: value was empty",
+		       name);
+		valid = FALSE;
+		return;
+	} else if (strcmp(name, "check_client_fp") == 0) {
+		valid = strcmp(client_cert_fp, fp) == 0 ||
+		        strcmp(client_pubkey_fp, fp) == 0;
+	} else if (strcmp(name, "check_client_cert_fp") == 0)
+		valid = strcmp(client_cert_fp, fp) == 0;
+	else if (strcmp(name, "check_client_pubkey_fp") == 0)
+		valid = strcmp(client_pubkey_fp, fp) == 0;
+	else
+		i_unreached();
+
+	if (!valid) {
+		e_info(authdb_event(request),
+		       "%s check failed: %s does not match client certificate",
+		       name, fp);
+		request->failed = TRUE;
+	} else {
+		e_debug(authdb_event(request),
+			"%s check success: %s matches client certificate",
+			name, fp);
+		auth_request_import(request, "valid-client-cert", "yes");
+	}
+}
+
+static void
 auth_request_set_password(struct auth_request *request, const char *value,
 			  const char *default_scheme, bool noscheme)
 {
@@ -1971,6 +2012,10 @@ void auth_request_set_field(struct auth_request *request,
 	} else if (strcmp(name, "allow_nets") == 0) {
 		auth_request_validate_networks(request, name, value,
 					       &request->fields.remote_ip);
+	} else if (strcmp(name, "check_client_fp") == 0 ||
+		   strcmp(name, "check_client_cert_fp") == 0 ||
+		   strcmp(name, "check_client_pubkey_fp") == 0) {
+		auth_request_validate_client_fp(request, name, value);
 	} else if (strcmp(name, "fail") == 0) {
 		request->failed = TRUE;
 	} else if (strcmp(name, "nodelay") == 0) {
