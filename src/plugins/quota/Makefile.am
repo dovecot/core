@@ -122,9 +122,11 @@ test_programs = \
 noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
-	../../lib-test/libtest.la \
-	../../lib/liblib.la
-test_deps = $(noinst_LTLIBRARIES) $(test_libs)
+	$(LIBDOVECOT_STORAGE) \
+	$(LIBDOVECOT)
+test_deps = $(noinst_LTLIBRARIES) \
+	$(LIBDOVECOT_STORAGE_DEPS) \
+	$(LIBDOVECOT_DEPS)
 
 test_quota_util_SOURCES = test-quota-util.c
 test_quota_util_LDADD = quota-util.lo $(test_libs)
