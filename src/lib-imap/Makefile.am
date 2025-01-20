@@ -56,6 +56,7 @@ test_programs = \
 noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
+	../lib-charset/libcharset.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
