@@ -324,7 +324,9 @@ fts_backend_flatcurve_update_build_more(struct fts_backend_update_context *_ctx,
 	 * are realistically going to search with more than 10s of
 	 * characters. Therefore, limit term size (via a configurable
 	 * value). */
+	size_t orig_size = size;
 	size = I_MIN(size, ctx->backend->fuser->set->max_term_size);
+	size = uni_utf8_data_truncate(data, orig_size, size);
 
 	const char *error;
 	int ret;
