@@ -1561,8 +1561,10 @@ int fts_flatcurve_xapian_uid_exists(struct flatcurve_fts_backend *backend,
 			(FLATCURVE_XAPIAN_DB_NOCREATE_CURRENT |
 			 FLATCURVE_XAPIAN_DB_IGNORE_EMPTY);
 
-	if (fts_flatcurve_xapian_read_db(backend, opts, NULL, error_r) <= 0)
-		return -1;
+	int ret = fts_flatcurve_xapian_read_db(backend, opts, NULL, error_r);
+	if (ret <= 0)
+		return ret;
+
 	return fts_flatcurve_xapian_uid_exists_db(backend, uid, NULL, error_r);
 }
 
