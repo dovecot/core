@@ -65,8 +65,9 @@ struct settings_override {
 	/* Event filter being generated from the key as it's being processed. */
 	struct event_filter *filter;
 	/* Event being generated from the key as it's being processed.
-	   The event contains every named list filter as key=value, and any
-	   named filter as settings_filter_name=name. */
+	   The event contains every named list filter as
+	   settings_filter_name=key/value, and any named filter as
+	   settings_filter_name=name. */
 	struct event *filter_event;
 	/* Last filter element's key, and for list filters the value, while
 	   the key is being processed. In the above example:
@@ -1558,7 +1559,6 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 	string_t *filter_string = NULL;
 	const char *last_filter_key = set->last_filter_key;
 	const char *last_filter_value = set->last_filter_value;
-	size_t last_filter_key_pos = SIZE_MAX;
 	while ((p = strchr(set->key, SETTINGS_SEPARATOR)) != NULL) {
 		/* see if the info struct knows about the next part in the key. */
 		const char *part = t_strdup_until(set->key, p);
@@ -1619,12 +1619,15 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 			if (strcmp(last_filter_key, SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX) == 0)
 				last_filter_key = SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX;
 			last_filter_value = t_strdup_until(value, p);
-			last_filter_key_pos = str_len(filter_string);
-			str_printfa(filter_string, "\"%s\"=\"%s\"",
-				    wildcard_str_escape(last_filter_key),
-				    str_escape(last_filter_value));
+			str_printfa(filter_string, SETTINGS_EVENT_FILTER_NAME"=\"%s/%s\"",
+				    last_filter_key, wildcard_str_escape(settings_section_escape(last_filter_value)));
 			event_add_str(set->filter_event,
 				      last_filter_key, last_filter_value);
+			event_strlist_append(set->filter_event,
+					     SETTINGS_EVENT_FILTER_NAME,
+					     p_strdup_printf(event_get_pool(set->filter_event),
+							     "%s/%s", last_filter_key,
+							     settings_section_escape(last_filter_value)));
 			break;
 		}
 		default:
@@ -1634,13 +1637,6 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 			return -1;
 		}
 		set->key = p + 1;
-	}
-	if (filter_finished && last_filter_value != NULL) {
-		i_assert(last_filter_key_pos != SIZE_MAX);
-		str_insert(filter_string, last_filter_key_pos, "(");
-		str_printfa(filter_string, " OR "SETTINGS_EVENT_FILTER_NAME"=\"%s/%s\")",
-			    last_filter_key, wildcard_str_escape(
-				settings_section_escape(last_filter_value)));
 	}
 
 	if (filter_string != NULL) {
@@ -1771,8 +1767,9 @@ settings_instance_override_add_default(struct settings_apply_ctx *ctx,
 			filter_key = SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX;
 
 		/* Build the final event filter. */
-		const char *filter_string = t_strdup_printf("\"%s\"=\"%s\"",
-			wildcard_str_escape(filter_key), str_escape(items[i]));
+		const char *filter_string = t_strdup_printf(
+			SETTINGS_EVENT_FILTER_NAME"=\"%s/%s\"",
+			filter_key, wildcard_str_escape(settings_section_escape(items[i])));
 		const char *error;
 
 		set->filter = event_filter_create_with_pool(set->pool);
