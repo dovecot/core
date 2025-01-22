@@ -8,7 +8,6 @@
 struct fts_flatcurve_settings {
 	pool_t pool;
 	unsigned int commit_limit;
-	unsigned int max_term_size;
 	unsigned int min_term_size;
 	unsigned int optimize_limit;
 	unsigned int rotate_count;

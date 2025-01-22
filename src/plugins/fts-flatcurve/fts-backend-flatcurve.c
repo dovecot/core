@@ -13,6 +13,8 @@
 #include "fts-backend-flatcurve.h"
 #include "fts-backend-flatcurve-xapian.h"
 
+#define FTS_FLATCURVE_MAX_TERM_SIZE_MAX 200
+
 enum fts_backend_flatcurve_action {
 	FTS_BACKEND_FLATCURVE_ACTION_OPTIMIZE,
 	FTS_BACKEND_FLATCURVE_ACTION_RESCAN
@@ -320,12 +322,9 @@ fts_backend_flatcurve_update_build_more(struct fts_backend_update_context *_ctx,
 		return 0;
 
 	/* Xapian has a hard limit of "245 bytes", at least with the glass
-	 * and chert backends.  However, it is highly doubtful that people
-	 * are realistically going to search with more than 10s of
-	 * characters. Therefore, limit term size (via a configurable
-	 * value). */
+	 * and chert backends. */
 	size_t orig_size = size;
-	size = I_MIN(size, ctx->backend->fuser->set->max_term_size);
+	size = I_MIN(size, FTS_FLATCURVE_MAX_TERM_SIZE_MAX);
 	size = uni_utf8_data_truncate(data, orig_size, size);
 
 	const char *error;
