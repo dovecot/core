@@ -774,7 +774,7 @@ mail_storage_settings_ext_check(struct event *event ATTR_UNUSED,
 }
 
 static int
-namespace_parse_mailboxes(struct event *event,
+namespace_parse_mailboxes(struct event *event, pool_t pool,
 			  struct mail_namespace_settings *ns,
 			  const char **error_r)
 {
@@ -782,18 +782,18 @@ namespace_parse_mailboxes(struct event *event,
 	const char *box_name, *error;
 	int ret = 0;
 
-	if (!array_is_created(&ns->mailboxes))
+	if (array_is_empty(&ns->mailboxes))
 		return 0;
 
+	p_array_init(&ns->parsed_mailbox_names, pool,
+		     array_count(&ns->mailboxes));
 	event = event_create(event);
 	event_add_str(event, SETTINGS_EVENT_NAMESPACE_NAME, ns->name);
 	array_foreach_elem(&ns->mailboxes, box_name) {
 		if (settings_get_filter(event,
 					SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX,
 					box_name,
-					&mailbox_setting_parser_info,
-					SETTINGS_GET_FLAG_NO_CHECK |
-					SETTINGS_GET_FLAG_FAKE_EXPAND,
+					&mailbox_setting_parser_info, 0,
 					&box_set, &error) < 0) {
 			*error_r = t_strdup_printf(
 				"Failed to get mailbox %s: %s",
@@ -801,19 +801,19 @@ namespace_parse_mailboxes(struct event *event,
 			ret = -1;
 			break;
 		}
+		const char *name_dup = p_strdup(pool, box_set->name);
+		array_push_back(&ns->parsed_mailbox_names, &name_dup);
 		bool have_special_use = array_not_empty(&box_set->special_use);
 		settings_free(box_set);
-		if (have_special_use) {
+		if (have_special_use)
 			ns->parsed_have_special_use_mailboxes = TRUE;
-			break;
-		}
 	}
 	event_unref(&event);
 	return ret;
 }
 
 static bool namespace_settings_ext_check(struct event *event,
-					 void *_set, pool_t pool ATTR_UNUSED,
+					 void *_set, pool_t pool,
 					 const char **error_r)
 {
 	struct mail_namespace_settings *ns = _set;
@@ -830,7 +830,7 @@ static bool namespace_settings_ext_check(struct event *event,
 		return FALSE;
 	}
 
-	return namespace_parse_mailboxes(event, ns, error_r) == 0;
+	return namespace_parse_mailboxes(event, pool, ns, error_r) == 0;
 }
 
 static bool mailbox_special_use_exists(const char *name)

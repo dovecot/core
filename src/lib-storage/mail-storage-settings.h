@@ -129,7 +129,11 @@ struct mail_namespace_settings {
 	bool disabled;
 	unsigned int order;
 
+	/* List of mailbox filter names */
 	ARRAY_TYPE(const_string) mailboxes;
+	/* mailbox_name of each mailbox. This is used for matching mailbox
+	   settings for mailbox names. */
+	ARRAY_TYPE(const_string) parsed_mailbox_names;
 	bool parsed_have_special_use_mailboxes;
 };
 

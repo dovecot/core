@@ -17,6 +17,7 @@
 #include "eacces-error.h"
 #include "mkdir-parents.h"
 #include "time-util.h"
+#include "wildcard-match.h"
 #include "settings.h"
 #include "dsasl-client.h"
 #include "imap-date.h"
@@ -3454,12 +3455,39 @@ mailbox_get_name_without_prefix(struct mail_namespace *ns,
 	return vname;
 }
 
+static void mailbox_settings_filters_add(struct event *event,
+					 struct mailbox_list *list,
+					 const char *vname)
+{
+	if (array_is_empty(&list->ns->set->mailboxes))
+		return;
+
+	const char *vname_without_prefix =
+		mailbox_get_name_without_prefix(list->ns, vname);
+	unsigned int i, count;
+	const char *const *mailbox_names =
+		array_get(&list->ns->set->parsed_mailbox_names, &count);
+
+	for (i = 0; i < count; i++) {
+		if (!wildcard_match(vname_without_prefix, mailbox_names[i]))
+			continue;
+
+		const char *filter_name =
+			array_idx_elem(&list->ns->set->mailboxes, i);
+		settings_event_add_list_filter_name(event,
+			SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX,
+			filter_name);
+	}
+}
+
 struct event *
 mail_storage_mailbox_create_event(struct event *parent,
 				  struct mailbox_list *list, const char *vname)
 {
 	struct event *event = event_create(parent);
 	event_add_category(event, &event_category_mailbox);
+
+	mailbox_settings_filters_add(event, list, vname);
 	event_add_str(event, SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX, vname);
 	event_add_str(event, SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX,
 		      mailbox_get_name_without_prefix(list->ns, vname));
