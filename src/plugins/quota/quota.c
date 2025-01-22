@@ -148,7 +148,7 @@ quota_root_settings_get(struct quota_root *root, struct event *set_event,
 {
 	if (set_event == NULL)
 		set_event = root->backend.event;
-	return settings_get_filter(set_event, "quota", root->set->quota_name,
+	return settings_get_filter(set_event, "quota", root->set_filter_name,
 				   &quota_root_setting_parser_info, 0,
 				   set_r, error_r);
 }
@@ -202,6 +202,7 @@ quota_root_init(struct quota *quota, struct event *set_event, const char *root_n
 	root->pool = pool_alloconly_create("quota root", 512);
 	root->quota = quota;
 	root->backend = *root_set->backend;
+	root->set_filter_name = p_strdup(root->pool, root_name);
 	p_array_init(&root->namespaces, root->pool, 4);
 	settings_free(root_set);
 

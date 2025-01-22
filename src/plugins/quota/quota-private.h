@@ -65,6 +65,7 @@ struct quota_backend {
 struct quota_root {
 	pool_t pool;
 
+	const char *set_filter_name;
 	const struct quota_root_settings *set;
 
 	struct quota *quota;
