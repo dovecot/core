@@ -174,7 +174,6 @@ static int quota_root_has_under_warnings(struct quota_root *root)
 					&quota_root_setting_parser_info, 0,
 					&set, &error) < 0) {
 			e_error(root->backend.event, "%s", error);
-			quota_root_deinit(root);
 			return -1;
 		}
 		bool under = strcmp(set->quota_warning_threshold,
