@@ -222,6 +222,8 @@ static int fs_init(struct event *event,
 	}
 
 	event_add_str(event, "fs", fs_name);
+	settings_event_add_list_filter_name(event, "fs", fs_name);
+
 	ret = fs_alloc(fs_set->fs_driver, event, params, &fs, error_r);
 	settings_free(fs_set);
 	if (ret < 0)
@@ -239,6 +241,13 @@ static int fs_init(struct event *event,
 		fs_unref(&fs);
 		return -1;
 	}
+	/* fs's parent event points to the fs parent's event. This is normally
+	   wanted. However, we don't want the parent fs's settings to be read
+	   for this fs. We don't expect settings to be read anymore after
+	   init(). Drop settings_filter_name so if settings are attempted to be
+	   read later on, it will be obvious enough that it's not using any
+	   fs settings. */
+	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, NULL);
 	fs->init_fs_list = NULL;
 	*fs_r = fs;
 	return 0;
@@ -261,8 +270,11 @@ int fs_init_auto(struct event *event, const struct fs_parameters *params,
 		return 0;
 	}
 
+	event = event_create(event);
 	ret = fs_init(event, params, &fs_set->fs, 0,
 		      &last_list_idx, &fs, error_r);
+	event_unref(&event);
+
 	if (ret == 0 && last_list_idx + 1 < array_count(&fs_set->fs)) {
 		const char *fs_name_last =
 			array_idx_elem(&fs_set->fs, last_list_idx);
@@ -291,6 +303,13 @@ int fs_init_parent(struct fs *fs, const struct fs_parameters *params,
 		return -1;
 	}
 
+	/* Remove the parent fs's settings_filter_name while initializing a
+	   child fs, so the parent settings won't be attempted to be read. */
+	char *old_filter = event_get_ptr(event_get_parent(fs->event),
+					 SETTINGS_EVENT_FILTER_NAME);
+	event_set_ptr(event_get_parent(fs->event),
+		      SETTINGS_EVENT_FILTER_NAME, NULL);
+
 	struct event *event = event_create(fs->event);
 	/* Drop the parent "fs-name: " prefix */
 	event_drop_parent_log_prefixes(event, 1);
@@ -299,6 +318,10 @@ int fs_init_parent(struct fs *fs, const struct fs_parameters *params,
 			  fs->init_fs_last_list_idx,
 			  &fs->parent, error_r);
 	event_unref(&event);
+	/* Restore the old settings_filter_name, since the caller's init()
+	   could still need it. */
+	event_set_ptr(event_get_parent(fs->event),
+		      SETTINGS_EVENT_FILTER_NAME, old_filter);
 	return ret;
 }
 
