@@ -793,9 +793,9 @@ program_client_create_filter_auto(struct event *event, const char *execute_name,
 
 	/* Get settings for the first execute list filter */
 	event = event_create(event);
-	event_add_str(event, "execute", execute_name);
-	if (settings_get(event, &program_client_setting_parser_info, 0,
-			 &set, error_r) < 0) {
+	if (settings_get_filter(event, "execute", execute_name,
+				&program_client_setting_parser_info, 0,
+				&set, error_r) < 0) {
 		event_unref(&event);
 		return -1;
 	}

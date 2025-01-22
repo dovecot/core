@@ -146,21 +146,11 @@ quota_root_settings_get(struct quota_root *root, struct event *set_event,
 			const struct quota_root_settings **set_r,
 			const char **error_r)
 {
-	struct event *event;
-
 	if (set_event == NULL)
-		event = root->backend.event;
-	else {
-		event = event_create(set_event);
-		event_add_str(event, "quota", root->set->quota_name);
-		settings_event_add_list_filter_name(event, "quota",
-						    root->set->quota_name);
-	}
-	int ret = settings_get(event, &quota_root_setting_parser_info, 0,
-			       set_r, error_r);
-	if (set_event != NULL)
-		event_unref(&event);
-	return ret;
+		set_event = root->backend.event;
+	return settings_get_filter(set_event, "quota", root->set->quota_name,
+				   &quota_root_setting_parser_info, 0,
+				   set_r, error_r);
 }
 
 static int quota_root_has_under_warnings(struct quota_root *root)

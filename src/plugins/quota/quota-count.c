@@ -39,10 +39,9 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	int ret;
 
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY);
-	struct event *event = event_create(box->event);
-	event_add_str(event, "quota", root->set->quota_name);
-	if (settings_get(event, &quota_root_setting_parser_info, 0,
-			 &set, error_r) < 0) {
+	if (settings_get_filter(box->event, "quota", root->set->quota_name,
+				&quota_root_setting_parser_info, 0,
+				&set, error_r) < 0) {
 		*error_result_r = QUOTA_GET_RESULT_INTERNAL_ERROR;
 		ret = -1;
 	} else if (set->quota_ignore)
@@ -77,7 +76,6 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 		*count += status.messages;
 	}
 	settings_free(set);
-	event_unref(&event);
 	mailbox_free(&box);
 	return ret;
 }
