@@ -171,6 +171,7 @@ int dict_init_filter_auto(struct event *event, const char *dict_name,
 	/* Get settings for the first dict list filter */
 	event = event_create(event);
 	event_add_str(event, "dict", dict_name);
+	settings_event_add_list_filter_name(event, "dict", dict_name);
 	if (settings_get(event, &dict_setting_parser_info, 0,
 			 &dict_set, error_r) < 0) {
 		event_unref(&event);

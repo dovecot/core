@@ -789,6 +789,8 @@ namespace_parse_mailboxes(struct event *event, pool_t pool,
 		     array_count(&ns->mailboxes));
 	event = event_create(event);
 	event_add_str(event, SETTINGS_EVENT_NAMESPACE_NAME, ns->name);
+	settings_event_add_list_filter_name(event,
+		SETTINGS_EVENT_NAMESPACE_NAME, ns->name);
 	array_foreach_elem(&ns->mailboxes, box_name) {
 		if (settings_get_filter(event,
 					SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX,

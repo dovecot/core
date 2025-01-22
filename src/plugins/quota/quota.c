@@ -153,6 +153,8 @@ quota_root_settings_get(struct quota_root *root, struct event *set_event,
 	else {
 		event = event_create(set_event);
 		event_add_str(event, "quota", root->set->quota_name);
+		settings_event_add_list_filter_name(event, "quota",
+						    root->set->quota_name);
 	}
 	int ret = settings_get(event, &quota_root_setting_parser_info, 0,
 			       set_r, error_r);
@@ -223,6 +225,8 @@ quota_root_init(struct quota *quota, struct event *set_event, const char *root_n
 		t_strdup_printf("quota-%s: ", root->backend.name));
 	event_add_str(root->backend.event, "quota", root_name);
 	settings_event_add_filter_name(root->backend.event, backend_filter);
+	settings_event_add_list_filter_name(root->backend.event, "quota",
+					    root_name);
 	event_drop_parent_log_prefixes(root->backend.event, 1);
 
 	/* Lookup settings again with quota_backend filter name */

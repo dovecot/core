@@ -86,6 +86,7 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *_set,
 	event_add_str(event, "passdb", _set->name);
 	settings_event_add_filter_name(event,
 		t_strconcat("passdb_", _set->driver, NULL));
+	settings_event_add_list_filter_name(event, "passdb", _set->name);
 	set = settings_get_or_fatal(event, &auth_passdb_setting_parser_info);
 
 	auth_passdb = p_new(auth->pool, struct auth_passdb, 1);
@@ -156,6 +157,7 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *_set)
 	event_add_str(event, "userdb", _set->name);
 	settings_event_add_filter_name(event,
 		t_strconcat("userdb_", _set->driver, NULL));
+	settings_event_add_list_filter_name(event, "userdb", _set->name);
 	if (_set == &userdb_dummy_set) {
 		/* If this is the dummy set do not try to lookup settings. */
 		set = _set;

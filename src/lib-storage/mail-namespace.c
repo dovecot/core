@@ -474,6 +474,8 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 
 		struct event *set_event = event_create(user->event);
 		event_add_str(set_event, SETTINGS_EVENT_NAMESPACE_NAME, ns_names[i]);
+		settings_event_add_list_filter_name(set_event,
+			SETTINGS_EVENT_NAMESPACE_NAME, ns_names[i]);
 
 		if (mail_namespaces_init_add(user, set_event, ns_set,
 					     ns_p, error_r) < 0) {

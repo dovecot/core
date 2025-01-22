@@ -4,6 +4,7 @@
 #include "array.h"
 #include "llist.h"
 #include "ioloop.h"
+#include "settings.h"
 #include "sql-api-private.h"
 
 #include <time.h>
@@ -286,6 +287,7 @@ sqlpool_add_connection(struct sqlpool_db *db, struct sqlpool_host *host,
 	struct event *event = event_create(db->api.event);
 	event_set_ptr(event, SQLPOOL_EVENT_PTR, "yes");
 	event_add_str(event, db->filter_name, host->hostname);
+	settings_event_add_list_filter_name(event, db->filter_name, host->hostname);
 	ret = db->driver->v.init(event, &conndb, &error);
 	event_unref(&event);
 	if (ret < 0)

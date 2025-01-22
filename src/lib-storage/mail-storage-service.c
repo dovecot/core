@@ -643,6 +643,8 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 					session_id_suffix);
 	event_add_str(user->event, "session", mail_user->session_id);
 	event_add_str(user->event, "service", service_name);
+	settings_event_add_list_filter_name(user->event, "service",
+					    service_name);
 
 	mail_user->userdb_fields = user->input.userdb_fields == NULL ? NULL :
 		p_strarray_dup(mail_user->pool, user->input.userdb_fields);

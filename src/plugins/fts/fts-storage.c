@@ -896,6 +896,7 @@ fts_init_namespace(struct fts_mailbox_list *flist, struct mail_namespace *ns)
 	/* Get settings for the first fts list filter */
 	struct event *event = event_create(ns->list->event);
 	event_add_str(event, "fts", fts_name_first);
+	settings_event_add_list_filter_name(event, "fts", fts_name_first);
 	settings_free(set);
 	if (settings_get(event, &fts_setting_parser_info, 0,
 			 &set, &error) < 0) {

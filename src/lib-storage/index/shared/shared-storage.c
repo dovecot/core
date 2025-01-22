@@ -372,6 +372,8 @@ shared_mail_user_init(struct mail_storage *_storage,
 	struct event *set_event = event_create(user->event);
 	event_add_str(set_event, SETTINGS_EVENT_NAMESPACE_NAME, ns->set->name);
 	event_set_ptr(set_event, SETTINGS_EVENT_VAR_EXPAND_PARAMS, params);
+	settings_event_add_list_filter_name(set_event,
+		SETTINGS_EVENT_NAMESPACE_NAME, ns->set->name);
 
 	/* Expanding mail_path may verify whether the user exists by
 	   trying to access %{owner_home}. This sets

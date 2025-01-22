@@ -436,7 +436,7 @@ static bool service_is_enabled(const struct master_settings *set,
 static bool
 master_service_get_file_listeners(struct service_settings *service_set,
 				  pool_t pool, struct event *event,
-				  const char *set_name,
+				  const char *set_name, const char *service_name,
 				  const struct setting_parser_info *info,
 				  const ARRAY_TYPE(const_string) *listener_names,
 				  ARRAY_TYPE(file_listener_settings) *parsed_listeners,
@@ -451,6 +451,7 @@ master_service_get_file_listeners(struct service_settings *service_set,
 
 	event = event_create(event);
 	event_add_str(event, "service", service_set->name);
+	settings_event_add_list_filter_name(event, "service", service_name);
 
 	p_array_init(parsed_listeners, pool, array_count(listener_names));
 	array_foreach_elem(listener_names, name) {
@@ -474,6 +475,7 @@ master_service_get_file_listeners(struct service_settings *service_set,
 
 static bool
 master_service_get_inet_listeners(struct service_settings *service_set,
+				  const char *service_name,
 				  pool_t pool, struct event *event,
 				  const char **error_r)
 {
@@ -487,6 +489,7 @@ master_service_get_inet_listeners(struct service_settings *service_set,
 
 	event = event_create(event);
 	event_add_str(event, "service", service_set->name);
+	settings_event_add_list_filter_name(event, "service", service_name);
 
 	p_array_init(&service_set->parsed_inet_listeners, pool,
 		     array_count(&service_set->inet_listeners));
@@ -502,7 +505,10 @@ master_service_get_inet_listeners(struct service_settings *service_set,
 		}
 
 		event_add_str(event, "inet_listener", name);
-		if (settings_get(event, &master_setting_parser_info,
+		struct event *event2 = event_create(event);
+		settings_event_add_list_filter_name(event2, "inet_listener",
+						    name);
+		if (settings_get(event2, &master_setting_parser_info,
 				 SETTINGS_GET_FLAG_NO_CHECK,
 				 &master_set, &error) < 0) {
 			*error_r = t_strdup_printf(
@@ -510,8 +516,10 @@ master_service_get_inet_listeners(struct service_settings *service_set,
 				name, error);
 			ret = FALSE;
 			settings_free(listener_set);
+			event_unref(&event2);
 			break;
 		}
+		event_unref(&event2);
 
 		struct inet_listener_settings *listener_set_dup =
 			p_memdup(pool, listener_set, sizeof(*listener_set));
@@ -560,20 +568,23 @@ master_settings_get_services(struct master_settings *set, pool_t pool,
 		settings_free(service_set);
 
 		if (!master_service_get_file_listeners(
-				service_set_dup, pool, event, "unix_listener",
+				service_set_dup, pool, event,
+				"unix_listener", service_name,
 				&unix_listener_setting_parser_info,
 				&service_set_dup->unix_listeners,
 				&service_set_dup->parsed_unix_listeners,
 				error_r))
 			return FALSE;
 		if (!master_service_get_file_listeners(
-				service_set_dup, pool, event, "fifo_listener",
+				service_set_dup, pool, event,
+				"fifo_listener", service_name,
 				&fifo_listener_setting_parser_info,
 				&service_set_dup->fifo_listeners,
 				&service_set_dup->parsed_fifo_listeners,
 				error_r))
 			return FALSE;
-		if (!master_service_get_inet_listeners(service_set_dup, pool,
+		if (!master_service_get_inet_listeners(service_set_dup,
+						       service_name, pool,
 						       event, error_r))
 			return FALSE;
 	}
