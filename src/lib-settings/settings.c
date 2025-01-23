@@ -302,6 +302,50 @@ settings_filter_match_service(struct event_filter *filter,
 	return settings_filter_node_match_service(node, service_name, FALSE);
 }
 
+static bool
+settings_event_filter_node_name_find(struct event_filter_node *node,
+				     const char *filter_name, bool op_not)
+{
+	/* Not perfect logic, but enough for the settings filters */
+	switch (node->op) {
+	case EVENT_FILTER_OP_CMP_EQ:
+		if (!op_not &&
+		    node->type == EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT &&
+		    strcmp(node->field.key, SETTINGS_EVENT_FILTER_NAME) == 0 &&
+		    node->field.value_type == EVENT_FIELD_VALUE_TYPE_STR &&
+		    strcmp(node->field.value.str, filter_name) == 0)
+			return TRUE;
+		break;
+	case EVENT_FILTER_OP_AND:
+	case EVENT_FILTER_OP_OR:
+		if (settings_event_filter_node_name_find(node->children[0],
+							 filter_name, op_not))
+			return TRUE;
+		if (settings_event_filter_node_name_find(node->children[1],
+							 filter_name, op_not))
+			return TRUE;
+		break;
+	case EVENT_FILTER_OP_NOT:
+		return settings_event_filter_node_name_find(node->children[0],
+							    filter_name, !op_not);
+	default:
+		break;
+	}
+	return FALSE;
+}
+
+static bool
+settings_event_filter_name_find(struct event_filter *filter,
+				const char *filter_name)
+{
+	/* NOTE: The event filter is using EVENT_FIELD_EXACT, so the value has
+	   already removed wildcard escapes. */
+	struct event_filter_node *node = event_filter_get_root_node(filter, 0);
+	i_assert(node != NULL);
+	i_assert(event_filter_get_root_node(filter, 1) == NULL);
+	return settings_event_filter_node_name_find(node, filter_name, FALSE);
+}
+
 static int
 settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 		      enum settings_read_flags flags, size_t *offset,
@@ -977,18 +1021,9 @@ static int settings_mmap_apply_filter(struct settings_apply_ctx *ctx,
 	filter_offset += sizeof(include_count);
 
 	if (ctx->filter_name != NULL && !ctx->seen_filter &&
-	    event_filter != EVENT_FILTER_MATCH_ALWAYS) {
-		bool op_not;
-		const char *value =
-			event_filter_find_field_exact(event_filter,
-				SETTINGS_EVENT_FILTER_NAME, &op_not);
-		/* NOTE: The event filter is using
-		   EVENT_FIELD_EXACT, so the value has already
-		   removed wildcard escapes. */
-		if (value != NULL && !op_not &&
-		    strcmp(ctx->filter_name, value) == 0)
-			ctx->seen_filter = TRUE;
-	}
+	    event_filter != EVENT_FILTER_MATCH_ALWAYS &&
+	    settings_event_filter_name_find(event_filter, ctx->filter_name))
+		ctx->seen_filter = TRUE;
 
 	array_clear(&ctx->include_groups);
 	for (uint32_t j = 0; j < include_count; j++) {
