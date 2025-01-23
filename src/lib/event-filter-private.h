@@ -117,6 +117,9 @@ int event_filter_parser_parse(struct event_filter_parser_state *state);
 void event_filter_parser_set_extra(void *user, void *yyscanner);
 void event_filter_parser_error(void *scan, const char *e);
 
+struct event_filter_node *
+event_filter_get_root_node(struct event_filter *filter, unsigned int idx);
+
 /* the following are exposed to allow for unit testing */
 bool
 event_filter_query_match_eval(struct event_filter_node *node,

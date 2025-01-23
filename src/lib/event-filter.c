@@ -1132,6 +1132,17 @@ bool event_filter_match_source(struct event_filter *filter, struct event *event,
 	return FALSE;
 }
 
+struct event_filter_node *
+event_filter_get_root_node(struct event_filter *filter, unsigned int idx)
+{
+	if (idx >= array_count(&filter->queries))
+		return NULL;
+
+	const struct event_filter_query_internal *query =
+		array_idx(&filter->queries, idx);
+	return query->expr;
+}
+
 struct event_filter_match_iter {
 	struct event_filter *filter;
 	struct event *event;
