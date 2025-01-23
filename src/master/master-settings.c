@@ -434,8 +434,7 @@ static bool service_is_enabled(const struct master_settings *set,
 }
 
 static bool
-master_service_get_file_listeners(struct service_settings *service_set,
-				  pool_t pool, struct event *event,
+master_service_get_file_listeners(pool_t pool, struct event *event,
 				  const char *set_name, const char *service_name,
 				  const struct setting_parser_info *info,
 				  const ARRAY_TYPE(const_string) *listener_names,
@@ -450,7 +449,6 @@ master_service_get_file_listeners(struct service_settings *service_set,
 		return TRUE;
 
 	event = event_create(event);
-	event_add_str(event, "service", service_set->name);
 	settings_event_add_list_filter_name(event, "service", service_name);
 
 	p_array_init(parsed_listeners, pool, array_count(listener_names));
@@ -488,7 +486,6 @@ master_service_get_inet_listeners(struct service_settings *service_set,
 		return TRUE;
 
 	event = event_create(event);
-	event_add_str(event, "service", service_set->name);
 	settings_event_add_list_filter_name(event, "service", service_name);
 
 	p_array_init(&service_set->parsed_inet_listeners, pool,
@@ -504,7 +501,6 @@ master_service_get_inet_listeners(struct service_settings *service_set,
 			break;
 		}
 
-		event_add_str(event, "inet_listener", name);
 		struct event *event2 = event_create(event);
 		settings_event_add_list_filter_name(event2, "inet_listener",
 						    name);
@@ -567,16 +563,14 @@ master_settings_get_services(struct master_settings *set, pool_t pool,
 		array_push_back(&set->parsed_services, &service_set_dup);
 		settings_free(service_set);
 
-		if (!master_service_get_file_listeners(
-				service_set_dup, pool, event,
+		if (!master_service_get_file_listeners(pool, event,
 				"unix_listener", service_name,
 				&unix_listener_setting_parser_info,
 				&service_set_dup->unix_listeners,
 				&service_set_dup->parsed_unix_listeners,
 				error_r))
 			return FALSE;
-		if (!master_service_get_file_listeners(
-				service_set_dup, pool, event,
+		if (!master_service_get_file_listeners(pool, event,
 				"fifo_listener", service_name,
 				&fifo_listener_setting_parser_info,
 				&service_set_dup->fifo_listeners,

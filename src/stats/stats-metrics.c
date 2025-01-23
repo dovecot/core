@@ -88,7 +88,6 @@ static int stats_exporters_add_filter(struct stats_metrics *metrics,
 		ret = -1;
 	} else {
 		struct event *event = event_create(metrics->event);
-		event_add_str(event, "event_exporter", filter_name);
 		settings_event_add_list_filter_name(event, "event_exporter",
 						    filter_name);
 		ret = stats_exporters_add_set(metrics, event, set, error_r);
@@ -301,13 +300,9 @@ stats_metrics_get_group_by(struct event *event,
 			ret = -1;
 		} else {
 			struct event *group_event = event_create(event);
-			event_add_str(group_event, "metric_group_by",
-				      group_by_name);
 			settings_event_add_list_filter_name(group_event,
 				"metric_group_by", group_by_name);
 			struct event *method_event = event_create(group_event);
-			event_add_str(group_event, "metric_group_by_method",
-				      array_idx_elem(&group_by_set->method, 0));
 			settings_event_add_list_filter_name(method_event,
 				"metric_group_by_method",
 				array_idx_elem(&group_by_set->method, 0));
@@ -344,7 +339,6 @@ static int stats_metrics_add_filter(struct stats_metrics *metrics,
 	} else {
 		ARRAY_TYPE(stats_metric_settings_group_by) group_by;
 		struct event *event = event_create(metrics->event);
-		event_add_str(event, "metric", filter_name);
 		settings_event_add_list_filter_name(event, "metric",
 						    filter_name);
 		ret = stats_metrics_get_group_by(event, set, &group_by, error_r);

@@ -306,7 +306,6 @@ int dict_sql_settings_get(struct event *event,
 	if (array_is_created(&maps_set->maps)) {
 		array_foreach_elem(&maps_set->maps, name) {
 			struct event *map_event = event_create(event);
-			event_add_str(map_event, "dict_map", name);
 			settings_event_add_list_filter_name(map_event,
 							    "dict_map", name);
 			if (dict_sql_map_settings_get(map_event, set, &error) < 0) {
