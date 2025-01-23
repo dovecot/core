@@ -148,8 +148,6 @@ config_dump_full_append_filter_query(string_t *str,
 		const char *p = strchr(filter->filter_name, '/');
 		i_assert(p != NULL);
 		const char *filter_key = t_strdup_until(filter->filter_name, p);
-		if (strcmp(filter_key, SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX) == 0)
-			filter_key = SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX;
 		/* the filter_name is used by settings_get_filter() for
 		   finding a specific filter without wildcards messing
 		   up the lookups. */

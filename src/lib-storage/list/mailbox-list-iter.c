@@ -124,7 +124,7 @@ mailbox_list_iter_init_autocreate(struct mailbox_list_iterate_context *ctx)
 	p_array_init(&actx->all_ns_box_sets, ctx->pool, 16);
 	for (i = 0; i < count; i++) {
 		if (settings_get_filter(ns->list->event,
-					SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX, box_names[i],
+					"mailbox", box_names[i],
 					&mailbox_setting_parser_info, 0,
 					&box_set, &error) < 0) {
 			mailbox_list_set_critical(ctx->list, "%s", error);

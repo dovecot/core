@@ -3480,8 +3480,7 @@ static void mailbox_settings_filters_add(struct event *event,
 		const char *filter_name =
 			array_idx_elem(&list->ns->set->mailboxes, i);
 		settings_event_add_list_filter_name(event,
-			SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX,
-			filter_name);
+						    "mailbox", filter_name);
 	}
 }
 
@@ -3493,9 +3492,7 @@ mail_storage_mailbox_create_event(struct event *parent,
 	event_add_category(event, &event_category_mailbox);
 
 	mailbox_settings_filters_add(event, list, vname);
-	event_add_str(event, SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX, vname);
-	event_add_str(event, SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX,
-		      mailbox_get_name_without_prefix(list->ns, vname));
+	event_add_str(event, "mailbox", vname);
 	event_add_str(event, SETTINGS_EVENT_NAMESPACE_NAME, list->ns->set->name);
 	settings_event_add_list_filter_name(event,
 		SETTINGS_EVENT_NAMESPACE_NAME, list->ns->set->name);

@@ -1518,11 +1518,6 @@ settings_key_part_find(struct settings_apply_ctx *ctx, const char **key,
 	if (last_filter_value != NULL) {
 		i_assert(last_filter_key != NULL);
 		const char *key_prefix = last_filter_key;
-		/* last_filter_key was already converted to "mailbox_subname".
-		   But for setting name auto-prefixing it needs to be "mailbox"
-		   again. */
-		if (strcmp(key_prefix, SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX) == 0)
-			key_prefix = SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX;
 		/* Try filter/name/key -> filter_name_key, and fallback to
 		   filter_key. Do this before the non-prefixed check, so e.g.
 		   inet_listener/imap/ssl won't try to change the global ssl
@@ -1651,8 +1646,6 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 				return -1;
 			}
 			last_filter_key = part;
-			if (strcmp(last_filter_key, SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX) == 0)
-				last_filter_key = SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX;
 			last_filter_value = t_strdup_until(value, p);
 			str_printfa(filter_string, SETTINGS_EVENT_FILTER_NAME"=\"%s/%s\"",
 				    last_filter_key, wildcard_str_escape(settings_section_escape(last_filter_value)));
@@ -1798,8 +1791,6 @@ settings_instance_override_add_default(struct settings_apply_ctx *ctx,
 			filter_key++;
 		else
 			filter_key = array_set->orig_key;
-		if (strcmp(filter_key, SETTINGS_EVENT_MAILBOX_NAME_WITH_PREFIX) == 0)
-			filter_key = SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX;
 
 		/* Build the final event filter. */
 		const char *filter_string = t_strdup_printf(

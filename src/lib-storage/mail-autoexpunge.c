@@ -246,7 +246,7 @@ mail_namespace_autoexpunge(struct mail_namespace *ns, struct file_lock **lock,
 
 	array_foreach_elem(&ns->set->mailboxes, box_name) {
 		if (settings_get_filter(mailbox_list_get_event(ns->list),
-					SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX, box_name,
+					"mailbox", box_name,
 					&mailbox_setting_parser_info, 0,
 					&box_set, &error) < 0) {
 			e_error(mailbox_list_get_event(ns->list), "%s", error);

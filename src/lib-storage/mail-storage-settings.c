@@ -793,8 +793,7 @@ namespace_parse_mailboxes(struct event *event, pool_t pool,
 		SETTINGS_EVENT_NAMESPACE_NAME, ns->name);
 	array_foreach_elem(&ns->mailboxes, box_name) {
 		if (settings_get_filter(event,
-					SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX,
-					box_name,
+					"mailbox", box_name,
 					&mailbox_setting_parser_info, 0,
 					&box_set, &error) < 0) {
 			*error_r = t_strdup_printf(

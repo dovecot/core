@@ -310,9 +310,8 @@ static int trash_try_mailbox(struct mail_namespace *ns, const char *box_name,
 {
 	struct trash_user *tuser = TRASH_USER_CONTEXT_REQUIRE(ns->user);
 	const struct trash_settings *trash_set;
-	if (settings_try_get_filter(ns->list->event,
-				    SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX,
-				    box_name, &trash_setting_parser_info, 0,
+	if (settings_try_get_filter(ns->list->event, "mailbox", box_name,
+				    &trash_setting_parser_info, 0,
 				    &trash_set, error_r) < 0)
 		return -1;
 	unsigned int trash_priority = trash_set->trash_priority;
@@ -322,9 +321,8 @@ static int trash_try_mailbox(struct mail_namespace *ns, const char *box_name,
 		return 0;
 
 	const struct mailbox_settings *box_set;
-	if (settings_try_get_filter(ns->list->event,
-				    SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX,
-				    box_name, &mailbox_setting_parser_info, 0,
+	if (settings_try_get_filter(ns->list->event, "mailbox", box_name,
+				    &mailbox_setting_parser_info, 0,
 				    &box_set, error_r) < 0)
 		return -1;
 
