@@ -104,7 +104,7 @@ static void main_init(void)
 	struct event *event = master_service_get_event(master_service);
 
 	event_add_category(event, &dict_server_event_category);
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "dict_server");
+	settings_event_add_filter_name(event, "dict_server");
 	server_settings =
 		settings_get_or_fatal(event, &dict_server_setting_parser_info);
 	dict_settings =

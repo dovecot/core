@@ -109,7 +109,7 @@ fs_dict_init(struct fs *_fs, const struct fs_parameters *params ATTR_UNUSED,
 		return -1;
 
 	struct event *event = event_create(_fs->event);
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "fs_dict");
+	settings_event_add_filter_name(event, "fs_dict");
 	ret = dict_init_auto(event, &fs->dict, error_r);
 	event_unref(&event);
 	if (ret == 0)

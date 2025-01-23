@@ -103,8 +103,7 @@ int dbox_storage_create(struct mail_storage *_storage,
 		storage->attachment_dir = p_strdup(_storage->pool, dir);
 
 		struct event *event = event_create(_storage->event);
-		event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
-			      "mail_ext_attachment");
+		settings_event_add_filter_name(event, "mail_ext_attachment");
 		ret = mailbox_list_init_fs(ns->list, event,
 					   storage->attachment_dir,
 					   &storage->attachment_fs, &error);

@@ -222,14 +222,12 @@ quota_root_init(struct quota *quota, struct event *set_event, const char *root_n
 	event_set_append_log_prefix(root->backend.event,
 		t_strdup_printf("quota-%s: ", root->backend.name));
 	event_add_str(root->backend.event, "quota", root_name);
-	event_set_ptr(root->backend.event, SETTINGS_EVENT_FILTER_NAME,
-		      p_strdup(event_get_pool(root->backend.event), backend_filter));
+	settings_event_add_filter_name(root->backend.event, backend_filter);
 	event_drop_parent_log_prefixes(root->backend.event, 1);
 
 	/* Lookup settings again with quota_backend filter name */
 	set_event = event_create(set_event);
-	event_set_ptr(set_event, SETTINGS_EVENT_FILTER_NAME,
-		      p_strdup(event_get_pool(set_event), backend_filter));
+	settings_event_add_filter_name(set_event, backend_filter);
 	if (settings_get_filter(set_event, "quota", root_name,
 				&quota_root_setting_parser_info, 0,
 				&root->set, error_r) < 0) {
@@ -1055,8 +1053,7 @@ static void quota_over_status_check_root(struct quota_root *root)
 		cur_overquota ? 1 : 0);
 	if (cur_overquota != quota_over_status) {
 		struct event *event = event_create(root->backend.event);
-		event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
-			      "quota_over_status");
+		settings_event_add_filter_name(event, "quota_over_status");
 		event_set_append_log_prefix(event, "quota_over_status: ");
 		quota_warning_execute(event,
 				      root->set->quota_over_status_current,

@@ -332,8 +332,7 @@ mail_storage_create_list(struct mail_namespace *ns,
 	struct event *set_event = event_create(parent_set_event);
 	/* Lookup storage-specific settings, especially to get
 	   storage-specific defaults for mailbox list settings. */
-	event_set_ptr(set_event, SETTINGS_EVENT_FILTER_NAME,
-		      (void *)storage_class->name);
+	settings_event_add_filter_name(set_event, storage_class->name);
 	/* Set namespace, but don't overwrite if it already is set.
 	   Shared storage uses the same shared namespace here also for the
 	   user's root prefix="" namespace. */
@@ -358,10 +357,8 @@ mail_storage_create_list(struct mail_namespace *ns,
 	struct event *set_event2 = event_create(set_event);
 	event_unref(&set_event);
 	set_event = set_event2;
-	char *layout_filter =
-		p_strdup_printf(event_get_pool(set_event), "layout_%s",
-				t_str_lcase(mail_set->mailbox_list_layout));
-	event_set_ptr(set_event, SETTINGS_EVENT_FILTER_NAME, layout_filter);
+	settings_event_add_filter_name(set_event, t_strdup_printf("layout_%s",
+		t_str_lcase(mail_set->mailbox_list_layout)));
 	settings_free(mail_set);
 
 	if (root_path_override != NULL) {

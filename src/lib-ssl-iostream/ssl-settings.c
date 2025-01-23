@@ -180,7 +180,7 @@ int ssl_client_settings_get(struct event *event,
 			    const char **error_r)
 {
 	event = event_create(event);
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "ssl_client");
+	settings_event_add_filter_name(event, "ssl_client");
 	int ret = settings_get(event, &ssl_setting_parser_info, 0,
 			       set_r, error_r);
 	event_unref(&event);
@@ -193,7 +193,7 @@ int ssl_server_settings_get(struct event *event,
 			    const char **error_r)
 {
 	event = event_create(event);
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "ssl_server");
+	settings_event_add_filter_name(event, "ssl_server");
 	int ret = settings_get(event, &ssl_setting_parser_info, 0,
 			       set_r, error_r);
 	if (ret == 0) {

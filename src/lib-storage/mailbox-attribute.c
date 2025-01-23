@@ -480,7 +480,7 @@ int mailbox_attribute_dict_is_enabled(struct mail_user *user,
 {
 	struct dict_settings *dict_set;
 	struct event *event = event_create(user->event);
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "mail_attribute");
+	settings_event_add_filter_name(event, "mail_attribute");
 	int ret = settings_get(event, &dict_setting_parser_info, 0,
 			       &dict_set, error_r);
 	if (ret == 0 && array_not_empty(&dict_set->dicts))

@@ -220,7 +220,7 @@ void client_http_init(struct event *parent_event)
 	i_array_init(&stats_http_resources, 8);
 
 	struct event *event = event_create(parent_event);
-	event_set_ptr(parent_event, SETTINGS_EVENT_FILTER_NAME, STATS_SERVER_FILTER);
+	settings_event_add_filter_name(parent_event, STATS_SERVER_FILTER);
 	if (http_server_init_auto(event, &stats_http_server, &error) < 0)
 		i_fatal("http_server_init() failed: %s", error);
 	stats_http_resource_add("/", NULL,

@@ -145,7 +145,7 @@ void auth_policy_init(void)
 {
 	const char *error;
 	struct event *event = event_create(auth_event);
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "auth_policy");
+	settings_event_add_filter_name(event, "auth_policy");
 	if (http_client_init_auto(event, &http_client, &error) < 0)
 		i_fatal("%s", error);
 	event_unref(&event);

@@ -211,8 +211,7 @@ static int db_oauth2_setup(struct db_oauth2 *db, const char **error_r)
 
 	if (strcmp(db->set->introspection_mode, "local") == 0) {
 		struct event *event = event_create(db->event);
-	        event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
-			      "oauth2_local_validation");
+	        settings_event_add_filter_name(event, "oauth2_local_validation");
 		int ret = dict_init_auto(event, &db->oauth2_set.key_dict, error_r);
 		event_unref(&event);
 		if (ret < 0)
@@ -270,7 +269,7 @@ int db_oauth2_init(struct event *event, bool use_grant_password, struct db_oauth
 	const struct auth_oauth2_settings *db_set;
 	struct event *db_event = event_create(event);
 	event_add_category(db_event, &event_category_oauth2);
-	event_set_ptr(db_event, SETTINGS_EVENT_FILTER_NAME, "oauth2");
+	settings_event_add_filter_name(db_event, "oauth2");
 	if (settings_get(db_event, &auth_oauth2_setting_parser_info, 0, &db_set,
 			 error_r) < 0) {
 		event_unref(&db_event);

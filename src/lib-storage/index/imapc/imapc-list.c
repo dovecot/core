@@ -465,8 +465,8 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 		struct event *event = event_create(list->list.event);
 		event_set_ptr(event, SETTINGS_EVENT_INSTANCE,
 			      list->index_list_set_instance);
-		event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
-			      MAILBOX_LIST_NAME_MAILDIRPLUSPLUS);
+		settings_event_add_filter_name(event,
+			MAILBOX_LIST_NAME_MAILDIRPLUSPLUS);
 		if (settings_get(event, &mail_storage_setting_parser_info, 0,
 				 &mail_set, &error) < 0) {
 			e_error(list->list.event, "%s", error);

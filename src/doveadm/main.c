@@ -71,7 +71,7 @@ static void doveadm_http_server_init(void)
 
 	struct event *event =
 		event_create(master_service_get_event(master_service));
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, DOVEADM_SERVER_FILTER);
+	settings_event_add_filter_name(event, DOVEADM_SERVER_FILTER);
 	if (http_server_init_auto(event, &doveadm_http_server, &error) < 0)
 		i_fatal("http_server_init() failed: %s", error);
 	event_unref(&event);

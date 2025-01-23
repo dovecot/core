@@ -125,7 +125,7 @@ static void last_login_mail_user_created(struct mail_user *user)
 	}
 
 	struct event *event = event_create(user->event);
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "last_login");
+	settings_event_add_filter_name(event, "last_login");
 	event_set_append_log_prefix(event, "last_login_dict: ");
 	if (settings_get(event, &last_login_setting_parser_info, 0,
 			 &set, &error) < 0) {

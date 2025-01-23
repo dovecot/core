@@ -100,7 +100,7 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 		          Using a private client will provide a quick fix for
 		          now. */
 
-		event_set_ptr(conn->event, SETTINGS_EVENT_FILTER_NAME, FTS_SOLR_FILTER);
+		settings_event_add_filter_name(conn->event, FTS_SOLR_FILTER);
 		if (http_client_init_private_auto(conn->event, &solr_http_client,
 						  &error) < 0) {
 			*error_r = t_strdup(error);

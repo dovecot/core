@@ -74,9 +74,9 @@ tika_get_http_client_url(struct fts_parser_context *parser_context, struct http_
 		          now. */
 
 		struct event *event_fts = event_create(user->event);
-		event_set_ptr(event_fts, SETTINGS_EVENT_FILTER_NAME, FTS_FILTER);
+		settings_event_add_filter_name(event_fts, FTS_FILTER);
 		struct event *event_tika = event_create(event_fts);
-		event_set_ptr(event_tika, SETTINGS_EVENT_FILTER_NAME, FTS_FILTER_DECODER_TIKA);
+		settings_event_add_filter_name(event_tika, FTS_FILTER_DECODER_TIKA);
 		int ret = http_client_init_private_auto(event, &tika_http_client, &error);
 		event_unref(&event_tika);
 		event_unref(&event_fts);

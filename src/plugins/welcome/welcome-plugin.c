@@ -114,7 +114,7 @@ welcome_create_box(struct mailbox *box,
 	const struct welcome_settings *set = NULL;
 	const char *error;
 	struct event *event = event_create(box->storage->user->event);
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "welcome");
+	settings_event_add_filter_name(event, "welcome");
 	event_set_append_log_prefix(event, "welcome: ");
 	if (settings_get(event, &welcome_setting_parser_info, 0,
 			 &set, &error) < 0 ||

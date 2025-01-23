@@ -53,8 +53,7 @@ cmd_dict_init(struct doveadm_cmd_context *cctx,
 
 	dict_drivers_register_builtin();
 
-	event_set_ptr(cctx->event, SETTINGS_EVENT_FILTER_NAME,
-		      t_strdup_noconst(filter_name));
+	settings_event_add_filter_name(cctx->event, filter_name);
 	if (dict_init_auto(cctx->event, &dict, &error) <= 0) {
 		e_error(cctx->event,
 			"dict_init() failed: %s", error);

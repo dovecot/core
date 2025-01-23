@@ -47,8 +47,7 @@ int acl_lookup_dict_init(struct mail_user *user, struct acl_lookup_dict **dict_r
 
 	event_add_category(dict->event, &event_category_acl);
 	event_set_append_log_prefix(dict->event, "acl: ");
-	event_set_ptr(dict->event, SETTINGS_EVENT_FILTER_NAME,
-		      "acl_sharing_map");
+	settings_event_add_filter_name(dict->event, "acl_sharing_map");
 	return dict_init_auto(dict->event, &dict->dict, error_r);
 }
 

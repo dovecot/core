@@ -319,7 +319,7 @@ static void notify_status_mail_user_created(struct mail_user *user)
 	}
 
 	struct event *event = event_create(user->event);
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "notify_status");
+	settings_event_add_filter_name(event, "notify_status");
 
 	int ret = dict_init_auto(event, &dict, &error);
 	event_unref(&event);

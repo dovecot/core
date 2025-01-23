@@ -56,8 +56,7 @@ index_storage_get_user_dict(struct mail_storage *err_storage,
 	}
 
 	struct event *event = event_create(user->event);
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
-		      "mail_attribute");
+	settings_event_add_filter_name(event, "mail_attribute");
 	ret = dict_init_auto(event, &user->_attr_dict, &error);
 	event_unref(&event);
 
@@ -127,7 +126,7 @@ index_storage_get_dict(struct mailbox *box, enum mail_attribute_type type_flags,
 	}
 
 	struct event *event = event_create(storage->event);
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "mail_attribute");
+	settings_event_add_filter_name(event, "mail_attribute");
 	ret = dict_init_auto(event, &storage->_shared_attr_dict, &error);
 	event_unref(&event);
 

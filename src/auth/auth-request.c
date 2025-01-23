@@ -682,9 +682,8 @@ void auth_request_passdb_lookup_begin(struct auth_request *request)
 	event_add_str(event, "passdb_id", dec2str(request->passdb->passdb->id));
 	const char *passdb_driver = request->passdb->passdb->iface.name;
 	event_add_str(event, "passdb_driver", passdb_driver);
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
-		      p_strconcat(event_get_pool(event), "passdb_",
-				  passdb_driver, NULL));
+	settings_event_add_filter_name(event,
+		t_strconcat("passdb_", passdb_driver, NULL));
 	event_set_log_prefix_callback(event, FALSE,
 		auth_request_get_log_prefix_db, request);
 
@@ -738,9 +737,8 @@ void auth_request_userdb_lookup_begin(struct auth_request *request)
 	event_add_str(event, "userdb_id", dec2str(request->userdb->userdb->id));
 	const char *userdb_driver = request->userdb->userdb->iface->name;
 	event_add_str(event, "userdb_driver", userdb_driver);
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME,
-		      p_strconcat(event_get_pool(event), "userdb_",
-				  userdb_driver, NULL));
+	settings_event_add_filter_name(event,
+		t_strconcat("userdb_", userdb_driver, NULL));
 	event_set_log_prefix_callback(event, FALSE,
 		auth_request_get_log_prefix_db, request);
 

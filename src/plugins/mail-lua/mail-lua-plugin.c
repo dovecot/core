@@ -102,7 +102,7 @@ static void mail_lua_user_created(struct mail_user *user)
 	int ret;
 
 	event = event_create(user->event);
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, MAIL_LUA_FILTER);
+	settings_event_add_filter_name(event, MAIL_LUA_FILTER);
 	if ((ret = dlua_script_create_auto(event, &script, &error)) < 0) {
 		user->error = p_strdup_printf(user->pool,
 					      "dlua_script_create_auto() failed: %s",

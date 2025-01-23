@@ -278,7 +278,7 @@ static void quota_clone_mail_user_created(struct mail_user *user)
 	struct quota_clone_settings *set;
 
 	struct event *event = event_create(user->event);
-	event_set_ptr(event, SETTINGS_EVENT_FILTER_NAME, "quota_clone");
+	settings_event_add_filter_name(event, "quota_clone");
 	if (settings_get(event, &quota_clone_setting_parser_info, 0,
 			 &set, &error) < 0) {
 		user->error = p_strdup(user->pool, error);
