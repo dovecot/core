@@ -23,10 +23,12 @@ struct message_size;
 #define MAIL_KEYWORD_HAS_ATTACHMENT "$HasAttachment"
 #define MAIL_KEYWORD_HAS_NO_ATTACHMENT "$HasNoAttachment"
 
+/* <settings checks> */
 /* The "namespace" event field contains the namespace containing mailbox.
    For dynamic namespaces, the name is the one specified in configuration
    for the template namespace. */
 #define SETTINGS_EVENT_NAMESPACE_NAME "namespace"
+/* </settings checks> */
 
 enum mail_storage_flags {
 	/* Remember message headers' MD5 sum */

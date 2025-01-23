@@ -786,7 +786,7 @@ namespace_have_special_use_mailboxes(struct event *event,
 		return 0;
 
 	event = event_create(event);
-	event_add_str(event, "namespace", ns->name);
+	event_add_str(event, SETTINGS_EVENT_NAMESPACE_NAME, ns->name);
 	array_foreach_elem(&ns->mailboxes, box_name) {
 		if (settings_get_filter(event,
 					SETTINGS_EVENT_MAILBOX_NAME_WITHOUT_PREFIX,
