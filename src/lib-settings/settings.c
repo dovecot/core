@@ -251,6 +251,56 @@ settings_block_read_str(struct settings_mmap *mmap,
 	return 0;
 }
 
+static bool
+settings_filter_node_match_service(struct event_filter_node *node,
+				   const char *service_name, bool op_not)
+{
+	const char *node_service;
+
+	/* Not perfect logic, but enough for the settings filters */
+	switch (node->op) {
+	case EVENT_FILTER_OP_CMP_EQ:
+		if (node->type == EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT &&
+		    strcmp(node->field.key, SETTINGS_EVENT_FILTER_NAME) == 0 &&
+		    node->field.value_type == EVENT_FIELD_VALUE_TYPE_STR &&
+		    str_begins(node->field.value.str, "service/", &node_service)) {
+			bool match = strcmp(node_service, service_name) == 0;
+			return match != op_not;
+		}
+		break;
+	case EVENT_FILTER_OP_AND:
+		if (!settings_filter_node_match_service(node->children[0],
+							service_name, op_not) ||
+		    !settings_filter_node_match_service(node->children[1],
+							service_name, op_not))
+			return FALSE;
+		break;
+	case EVENT_FILTER_OP_OR:
+		if (!settings_filter_node_match_service(node->children[0],
+							service_name, op_not) &&
+		    !settings_filter_node_match_service(node->children[1],
+							service_name, op_not))
+			return FALSE;
+		break;
+	case EVENT_FILTER_OP_NOT:
+		return settings_filter_node_match_service(node->children[0],
+							  service_name, !op_not);
+	default:
+		break;
+	}
+	return TRUE;
+}
+
+static bool
+settings_filter_match_service(struct event_filter *filter,
+			      const char *service_name)
+{
+	struct event_filter_node *node = event_filter_get_root_node(filter, 0);
+	i_assert(node != NULL);
+	i_assert(event_filter_get_root_node(filter, 1) == NULL);
+	return settings_filter_node_match_service(node, service_name, FALSE);
+}
+
 static int
 settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 		      enum settings_read_flags flags, size_t *offset,
@@ -313,9 +363,8 @@ settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 				continue;
 			}
 		}
-		value = event_filter_find_field_exact(tmp_filter, "service", &op_not);
-		if (value != NULL && service_name != NULL &&
-		    (strcmp(value, service_name) == 0) == op_not) {
+		if (service_name != NULL &&
+		    !settings_filter_match_service(tmp_filter, service_name)) {
 			/* service name doesn't match */
 			*filter_dest = EVENT_FILTER_MATCH_NEVER;
 			event_filter_unref(&tmp_filter);
