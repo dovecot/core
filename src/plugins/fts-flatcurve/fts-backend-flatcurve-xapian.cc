@@ -1658,7 +1658,6 @@ fts_flatcurve_xapian_index_header(struct flatcurve_fts_backend_update_context *c
 		if (ctx->indexed_hdr)
 			hdr_name = str_ucase(hdr_name);
 
-
 		string_t *all_term = t_str_new(size);
 		string_t *hdr_term = t_str_new(size + strlen(hdr_name));
 		str_append(hdr_term, FLATCURVE_XAPIAN_HEADER_PREFIX);
