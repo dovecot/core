@@ -1553,9 +1553,9 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 			last_filter_value = NULL;
 			str_printfa(filter_string, SETTINGS_EVENT_FILTER_NAME"=\"%s\"",
 				    wildcard_str_escape(last_filter_key));
-			event_add_str(set->filter_event,
-				      SETTINGS_EVENT_FILTER_NAME,
-				      last_filter_key);
+			event_strlist_append(set->filter_event,
+					     SETTINGS_EVENT_FILTER_NAME,
+					     last_filter_key);
 			break;
 		case SET_FILTER_ARRAY: {
 			const char *value = p + 1;
