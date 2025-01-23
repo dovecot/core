@@ -2139,6 +2139,38 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 	return 1;
 }
 
+static void
+settings_event_convert_filter_names(struct event *src_event, struct event *dest_event)
+{
+	const char *filter_name =
+		event_get_ptr(src_event, SETTINGS_EVENT_FILTER_NAME);
+	if (filter_name == NULL)
+		return;
+	event_strlist_append(dest_event, SETTINGS_EVENT_FILTER_NAME,
+			     filter_name);
+
+	/* usually there is just one, continue fast path so see if there is a
+	   2nd one. */
+	filter_name = event_get_ptr(src_event, SETTINGS_EVENT_FILTER_NAME"2");
+	if (filter_name == NULL)
+		return;
+	event_strlist_append(dest_event, SETTINGS_EVENT_FILTER_NAME,
+			     filter_name);
+
+	/* check the rest: */
+	string_t *key = t_str_new(strlen(SETTINGS_EVENT_FILTER_NAME) + 1);
+	str_append(key, SETTINGS_EVENT_FILTER_NAME);
+	for (unsigned int i = 3;; i++) {
+		str_truncate(key, strlen(SETTINGS_EVENT_FILTER_NAME));
+		str_printfa(key, "%u", i);
+		filter_name = event_get_ptr(src_event, str_c(key));
+		if (filter_name == NULL)
+			break;
+		event_strlist_append(dest_event, SETTINGS_EVENT_FILTER_NAME,
+				     filter_name);
+	}
+}
+
 static int
 settings_get_real(struct event *event,
 		  const char *filter_key, const char *filter_value,
@@ -2152,7 +2184,7 @@ settings_get_real(struct event *event,
 	struct settings_mmap *mmap = NULL;
 	struct settings_instance *scan_instance, *instance = NULL;
 	struct event *lookup_event, *scan_event = event;
-	const char *str, *filter_name = NULL;
+	const char *filter_name = NULL;
 	bool filter_name_required = FALSE;
 
 	lookup_event = event_create(event);
@@ -2190,11 +2222,7 @@ settings_get_real(struct event *event,
 			root = instance->root;
 		}
 
-		str = event_get_ptr(scan_event, SETTINGS_EVENT_FILTER_NAME);
-		if (str != NULL) {
-			event_strlist_append(lookup_event,
-					     SETTINGS_EVENT_FILTER_NAME, str);
-		}
+		settings_event_convert_filter_names(scan_event, lookup_event);
 		scan_event = event_get_parent(scan_event);
 	} while (scan_event != NULL);
 
@@ -2647,6 +2675,38 @@ bool settings_root_override_remove(struct settings_root *root,
 	}
 
 	return FALSE;
+}
+
+static const char *settings_event_get_free_filter_name_key(struct event *event)
+{
+	if (event_get_ptr(event, SETTINGS_EVENT_FILTER_NAME) == NULL)
+		return SETTINGS_EVENT_FILTER_NAME;
+
+	string_t *str = t_str_new(strlen(SETTINGS_EVENT_FILTER_NAME) + 1);
+	str_append(str, SETTINGS_EVENT_FILTER_NAME);
+	for (unsigned int i = 2;; i++) {
+		str_truncate(str, strlen(SETTINGS_EVENT_FILTER_NAME));
+		str_printfa(str, "%u", i);
+		if (event_get_ptr(event, str_c(str)) == NULL)
+			break;
+	}
+	return str_c(str);
+}
+
+void settings_event_add_filter_name(struct event *event, const char *name)
+{
+	event_set_ptr(event, settings_event_get_free_filter_name_key(event),
+		      p_strdup(event_get_pool(event), name));
+}
+
+void settings_event_add_list_filter_name(struct event *event,
+					 const char *key, const char *value)
+{
+	char *filter_name =
+		p_strconcat(event_get_pool(event),
+			    key, "/", settings_section_escape(value), NULL);
+	event_set_ptr(event, settings_event_get_free_filter_name_key(event),
+		      filter_name);
 }
 
 static struct settings_instance *

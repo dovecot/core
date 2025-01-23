@@ -268,6 +268,14 @@ bool ATTR_NOWARN_UNUSED_RESULT
 settings_root_override_remove(struct settings_root *root, const char *key,
 			      enum settings_override_type type);
 
+/* Add SETTINGS_EVENT_FILTER_NAME[n]=name as ptr to the event. The name is not
+   escaped. */
+void settings_event_add_filter_name(struct event *event, const char *name);
+/* Add SETTINGS_EVENT_FILTER_NAME[n]=key/value as ptr to the event. The value
+   is escaped using settings_section_escape(). */
+void settings_event_add_list_filter_name(struct event *event,
+					 const char *key, const char *value);
+
 /* Return a new instance for settings. */
 struct settings_instance *
 settings_instance_new(struct settings_root *root);
