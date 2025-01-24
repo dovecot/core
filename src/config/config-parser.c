@@ -1593,7 +1593,7 @@ config_all_parsers_check(struct config_parser_context *ctx,
 		if (parsers[i]->filter.default_settings)
 			continue;
 		if (parsers[i]->filter.filter_name_array &&
-		    parsers[i]->filter.filter_name[0] == SETTINGS_INCLUDE_GROUP_PREFIX)
+		    config_filter_has_include_group(&parsers[i]->filter))
 			continue;
 		ssl_set = get_str_setting(parsers[i], "ssl", global_ssl_set);
 		if (strcmp(ssl_set, "no") != 0 &&
