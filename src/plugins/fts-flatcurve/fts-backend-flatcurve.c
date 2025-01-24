@@ -502,6 +502,9 @@ fts_backend_flatcurve_iterate_ns(struct fts_backend *_backend,
 	bool failed = FALSE;
 	iter = mailbox_list_iter_init(_backend->ns->list, "*", iter_flags);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
+		if ((info->flags & (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) != 0)
+			continue;
+
 		box = mailbox_alloc(backend->backend.ns->list, info->vname,
 				    mbox_flags);
 
