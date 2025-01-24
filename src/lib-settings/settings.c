@@ -44,6 +44,8 @@ struct settings_override {
 
 	/* Number of '/' characters in orig_key + 1 */
 	unsigned int path_element_count;
+	/* Number of named list filter elements in this override */
+	unsigned int filter_array_element_count;
 	/* key += value is used, i.e. append this value to existing value */
 	bool append;
 	/* TRUE once all the filter elements have been processed in "key",
@@ -1500,17 +1502,21 @@ static int
 settings_apply_override_cmp(const struct settings_apply_override *set1,
 			    const struct settings_apply_override *set2)
 {
-	int ret = (int)set2->set->type - (int)set1->set->type;
+	/* We want to sort the override similarly to filters in binary config,
+	   i.e. primarily based on named list filter hierarchy length. This way
+	   for example userdb namespace/inbox/mailbox/trash/auto is handled
+	   before -o mailbox/trash/auto CLI override. Only secondarily when the
+	   hierarchy lengths are equal, the override type determines the
+	   order. */
+	int ret = (int)set2->set->filter_array_element_count -
+		(int)set1->set->filter_array_element_count;
 	if (ret != 0)
 		return ret;
 
-	/* Return more specific filters first. This is mainly necessary with
-	   hierarchical settings, e.g. fs_parent/fs_parent/fs_driver so the
-	   highest hierarchy count settings are returned first. */
-	ret = (int)set2->set->path_element_count -
-		(int)set1->set->path_element_count;
+	ret = (int)set2->set->type - (int)set1->set->type;
 	if (ret != 0)
 		return ret;
+
 	return set2->order - set1->order;
 }
 
@@ -1662,6 +1668,7 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 					     p_strdup_printf(event_get_pool(set->filter_event),
 							     "%s/%s", last_filter_key,
 							     settings_section_escape(last_filter_value)));
+			set->filter_array_element_count++;
 			break;
 		}
 		default:
@@ -1787,6 +1794,8 @@ settings_instance_override_add_default(struct settings_apply_ctx *ctx,
 		   the key path until the last field. */
 		set->key = array_def->filter_array_field_name;
 		set->path_element_count = path_element_count(set->orig_key);
+		set->filter_array_element_count =
+			array_set->filter_array_element_count;
 		set->value = p_strdup(set->pool, items[i]);
 
 		/* Get the final key we want to use in the event filter.
