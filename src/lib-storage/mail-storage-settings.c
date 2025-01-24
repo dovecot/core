@@ -798,6 +798,7 @@ namespace_have_special_use_mailboxes(struct event *event,
 			*error_r = t_strdup_printf(
 				"Failed to get mailbox %s: %s",
 				box_name, error);
+			ret = -1;
 			break;
 		}
 		bool have_special_use = array_not_empty(&box_set->special_use);
