@@ -7,6 +7,8 @@
 struct fts_flatcurve_xapian_query_result {
 	double score;
 	uint32_t uid;
+
+	bool maybe:1;
 };
 
 struct fts_flatcurve_xapian_db_check {

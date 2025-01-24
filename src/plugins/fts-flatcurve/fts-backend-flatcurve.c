@@ -590,6 +590,7 @@ fts_backend_flatcurve_lookup_multi(struct fts_backend *_backend,
 		r->box = boxes[i];
 
 		fresult = p_new(result->pool, struct flatcurve_fts_result, 1);
+		p_array_init(&fresult->maybe_uids, result->pool, 32);
 		p_array_init(&fresult->scores, result->pool, 32);
 		p_array_init(&fresult->uids, result->pool, 32);
 
@@ -603,10 +604,8 @@ fts_backend_flatcurve_lookup_multi(struct fts_backend *_backend,
 			break;
 		}
 
-		if (query->maybe)
-			r->maybe_uids = fresult->uids;
-		else
-			r->definite_uids = fresult->uids;
+		r->definite_uids = fresult->uids;
+		r->maybe_uids = fresult->maybe_uids;
 		r->scores = fresult->scores;
 
 		if (str_len(query->qtext) == 0) {
@@ -615,17 +614,25 @@ fts_backend_flatcurve_lookup_multi(struct fts_backend *_backend,
 		}
 
 		T_BEGIN {
-			const char *u = fts_backend_flatcurve_seq_range_string(&fresult->uids);
+			const char *m_debug = "", *u_debug = "";
+
+			if (array_not_empty(&fresult->maybe_uids))
+				m_debug = fts_backend_flatcurve_seq_range_string(
+								&fresult->maybe_uids);
+			if (array_not_empty(&fresult->uids))
+				u_debug = fts_backend_flatcurve_seq_range_string(
+								&fresult->uids);
+
 			e_debug(event_create_passthrough(backend->event)->
 				set_name("fts_flatcurve_query")->
-				add_int("count", array_count(&fresult->uids))->
+				add_int("count", seq_range_count(&fresult->uids))->
 				add_str("mailbox", r->box->vname)->
-				add_str("maybe", query->maybe ? "yes" : "no")->
+				add_str("maybe_uids", m_debug)->
 				add_str("query", str_c(query->qtext))->
-				add_str("uids", u)->event(), "Query (%s) "
-				"%smatches=%d uids=%s", str_c(query->qtext),
-				query->maybe ? "maybe_" : "",
-				array_count(&fresult->uids), u);
+				add_str("uids", u_debug)->event(), "Query (%s) "
+				"matches=%d uids=%s maybe_matches=%d maybe_uids=%s",
+				str_c(query->qtext), seq_range_count(&fresult->uids),
+				u_debug, seq_range_count(&fresult->maybe_uids), m_debug);
 		} T_END;
 	}
 
