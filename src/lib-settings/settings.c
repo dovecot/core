@@ -192,6 +192,12 @@ static unsigned int path_element_count(const char *key)
 	return count;
 }
 
+static void settings_override_free(struct settings_override *override)
+{
+	event_filter_unref(&override->filter);
+	event_unref(&override->filter_event);
+}
+
 static int
 settings_block_read_uint32(struct settings_mmap *mmap,
 			   size_t *offset, size_t end_offset,
@@ -1817,13 +1823,22 @@ settings_instance_override_add_default(struct settings_apply_ctx *ctx,
 	}
 }
 
-static void settings_apply_add_override(struct settings_apply_ctx *ctx,
-					struct settings_override *set)
+static int settings_apply_add_override(struct settings_apply_ctx *ctx,
+				       struct settings_override *set,
+				       const char **error_r)
 {
+	int ret;
+	T_BEGIN {
+		ret = settings_override_filter_match(ctx, set, error_r);
+	} T_END_PASS_STR_IF(ret < 0, error_r);
+	if (ret <= 0)
+		return ret;
+
 	struct settings_apply_override *override =
 		array_append_space(&ctx->overrides);
 	override->set = set;
 	override->order = array_count(&ctx->overrides);
+	return 1;
 }
 
 static void
@@ -1832,6 +1847,8 @@ settings_instance_overrides_add_filters(struct settings_apply_ctx *ctx,
 {
 	const struct setting_keyvalue *defaults = info->default_settings;
 	struct settings_override *set;
+	const char *error;
+	int ret;
 
 	if (defaults == NULL)
 		return;
@@ -1842,12 +1859,16 @@ settings_instance_overrides_add_filters(struct settings_apply_ctx *ctx,
 		set->key = set->orig_key = defaults[i].key;
 		set->path_element_count = path_element_count(set->key);
 		set->value = defaults[i].value;
-		settings_apply_add_override(ctx, set);
+		if ((ret = settings_apply_add_override(ctx, set, &error)) < 0)
+			i_panic("Applying default settings failed: %s", error);
+		if (ret == 0)
+			settings_override_free(set);
 	}
 }
 
-static void
-settings_instance_override_init(struct settings_apply_ctx *ctx)
+static int
+settings_instance_override_init(struct settings_apply_ctx *ctx,
+				const char **error_r)
 {
 	struct settings_override *set;
 	bool have_2nd_defaults = FALSE;
@@ -1857,14 +1878,16 @@ settings_instance_override_init(struct settings_apply_ctx *ctx)
 		array_foreach_modifiable(&ctx->instance->overrides, set) {
 			if (set->type == SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT)
 				have_2nd_defaults = TRUE;
-			settings_apply_add_override(ctx, set);
+			if (settings_apply_add_override(ctx, set, error_r) < 0)
+				return -1;
 		}
 	}
 	if (array_is_created(&ctx->root->overrides)) {
 		array_foreach_modifiable(&ctx->root->overrides, set) {
 			if (set->type == SETTINGS_OVERRIDE_TYPE_2ND_DEFAULT)
 				have_2nd_defaults = TRUE;
-			settings_apply_add_override(ctx, set);
+			if (settings_apply_add_override(ctx, set, error_r) < 0)
+				return -1;
 		}
 	}
 	if ((ctx->instance->mmap == NULL || have_2nd_defaults) &&
@@ -1894,12 +1917,7 @@ settings_instance_override_init(struct settings_apply_ctx *ctx)
 	}
 	/* sort overrides so that the most specific ones are first */
 	array_sort(&ctx->overrides, settings_apply_override_cmp);
-}
-
-static void settings_override_free(struct settings_override *override)
-{
-	event_filter_unref(&override->filter);
-	event_unref(&override->filter_event);
+	return 0;
 }
 
 static void
@@ -1955,14 +1973,6 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 
 		unsigned int key_idx;
 		int ret;
-
-		T_BEGIN {
-			ret = settings_override_filter_match(ctx, set, error_r);
-		} T_END_PASS_STR_IF(ret < 0, error_r);
-		if (ret < 0)
-			return -1;
-		if (ret == 0)
-			continue;
 
 		/* If we're being called while applying filters, only apply
 		   the overrides that have a matching filter. This preserves
@@ -2166,9 +2176,9 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 	    (ctx->flags & SETTINGS_GET_FLAG_FAKE_EXPAND) == 0)
 		settings_var_expand_init(ctx);
 
-	settings_instance_override_init(ctx);
-
-	if (ctx->instance->mmap != NULL) {
+	if (settings_instance_override_init(ctx, error_r) < 0)
+		ret = -1;
+	else if (ctx->instance->mmap != NULL) {
 		ret = settings_mmap_apply(ctx, &error);
 		if (ret < 0) {
 			*error_r = t_strdup_printf(
