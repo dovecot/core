@@ -493,7 +493,9 @@ fts_backend_flatcurve_iterate_ns(struct fts_backend *_backend,
 	struct mailbox_list_iterate_context *iter;
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
-		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
+		MAILBOX_LIST_ITER_RETURN_NO_FLAGS |
+		MAILBOX_LIST_ITER_SKIP_ALIASES;
+
 	enum mailbox_flags mbox_flags = 0;
 	pool_t pool = NULL;
 
