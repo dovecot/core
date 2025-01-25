@@ -1084,8 +1084,13 @@ config_add_new_parser(struct config_parser_context *ctx,
 	if (parent_filter_parser != NULL) {
 		filter_parser->parent = parent_filter_parser;
 		filter_parser->named_list_filter_count =
-			parent_filter_parser->named_list_filter_count +
-			(filter->filter_name_array ? 1 : 0);
+			parent_filter_parser->named_list_filter_count;
+		filter_parser->named_filter_count =
+			parent_filter_parser->named_filter_count;
+		if (filter->filter_name_array)
+			filter_parser->named_list_filter_count++;
+		else if (filter->filter_name != NULL)
+			filter_parser->named_filter_count++;
 		DLLIST2_APPEND(&parent_filter_parser->children_head,
 			       &parent_filter_parser->children_tail,
 			       filter_parser);
@@ -2250,6 +2255,12 @@ static int config_parser_filter_cmp(struct config_filter_parser *const *f1,
 	   smaller number of named list filters (e.g. mailbox foo { .. }). */
 	int ret = (int)(*f1)->named_list_filter_count -
 		(int)(*f2)->named_list_filter_count;
+	if (ret != 0)
+		return ret;
+
+	/* After sorting by named list filter hierarchy count, sort by
+	   named non-list filter hierarchy count. */
+	ret = (int)(*f1)->named_filter_count - (int)(*f2)->named_filter_count;
 	if (ret != 0)
 		return ret;
 

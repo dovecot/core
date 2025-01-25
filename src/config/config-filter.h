@@ -45,6 +45,9 @@ struct config_filter_parser {
 	/* Number of filters in this parser and parent parsers that have
 	   filter.filter_name_array=TRUE. */
 	unsigned int named_list_filter_count;
+	/* Number of filters in this parser that have non-NULL
+	   filter.filter_name and filter.filter_name_array=FALSE. */
+	unsigned int named_filter_count;
 
 	/* Filter parser tree. These are used only for doveconf's human output
 	   to write the filters in nice nested hierarchies. */

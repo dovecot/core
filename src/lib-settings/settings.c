@@ -46,6 +46,8 @@ struct settings_override {
 	unsigned int path_element_count;
 	/* Number of named list filter elements in this override */
 	unsigned int filter_array_element_count;
+	/* Number of named (non-list) filter elements in this override */
+	unsigned int filter_element_count;
 	/* key += value is used, i.e. append this value to existing value */
 	bool append;
 	/* TRUE once all the filter elements have been processed in "key",
@@ -1505,14 +1507,25 @@ settings_apply_override_cmp(const struct settings_apply_override *set1,
 	/* We want to sort the override similarly to filters in binary config,
 	   i.e. primarily based on named list filter hierarchy length. This way
 	   for example userdb namespace/inbox/mailbox/trash/auto is handled
-	   before -o mailbox/trash/auto CLI override. Only secondarily when the
-	   hierarchy lengths are equal, the override type determines the
-	   order. */
+	   before -o mailbox/trash/auto CLI override. */
 	int ret = (int)set2->set->filter_array_element_count -
 		(int)set1->set->filter_array_element_count;
 	if (ret != 0)
 		return ret;
 
+	/* Sort by the number of named (non-list) filters. Do this only if
+	   both overrides have named [list] filters, because we want e.g.
+	   -o mail_path to override the default sdbox/mail_path. */
+	if (set1->set->filter_array_element_count > 0 ||
+	    (set1->set->filter_element_count > 0 &&
+	     set1->set->filter_element_count > 0)) {
+		ret = (int)set2->set->filter_element_count -
+			(int)set1->set->filter_element_count;
+		if (ret != 0)
+			return ret;
+	}
+
+	/* Next, the override type determines the order. */
 	ret = (int)set2->set->type - (int)set1->set->type;
 	if (ret != 0)
 		return ret;
@@ -1647,6 +1660,7 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 			event_strlist_append(set->filter_event,
 					     SETTINGS_EVENT_FILTER_NAME,
 					     last_filter_key);
+			set->filter_element_count++;
 			break;
 		case SET_FILTER_ARRAY: {
 			const char *value = p + 1;
@@ -1796,6 +1810,8 @@ settings_instance_override_add_default(struct settings_apply_ctx *ctx,
 		set->path_element_count = path_element_count(set->orig_key);
 		set->filter_array_element_count =
 			array_set->filter_array_element_count;
+		set->filter_element_count =
+			array_set->filter_element_count;
 		set->value = p_strdup(set->pool, items[i]);
 
 		/* Get the final key we want to use in the event filter.
