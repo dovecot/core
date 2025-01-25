@@ -21,6 +21,12 @@ lib20_auth_var_expand_crypt_la_SOURCES = \
 lib20_var_expand_crypt_la_SOURCES = \
 	var-expand-crypt-plugin.c
 
+lib20_var_expand_crypt_la_LIBADD = \
+       $(top_builddir)/src/lib/liblib.la \
+       $(top_builddir)/src/lib-json/libjson.la \
+       $(top_builddir)/src/lib-dcrypt/libdcrypt.la \
+       $(top_builddir)/src/lib-var-expand/libvar_expand.la
+
 test_programs = test-var-expand-crypt
 
 test_var_expand_crypt_CFLAGS = \
@@ -33,6 +39,12 @@ test_var_expand_crypt_LDADD = \
 test_var_expand_crypt_DEPENDENCIES = \
 	$(LIBDOVECOT_DEPS) \
 	lib20_auth_var_expand_crypt.la
+
+lib20_auth_var_expand_crypt_la_LIBADD = \
+       $(top_builddir)/src/lib/liblib.la \
+       $(top_builddir)/src/lib-json/libjson.la \
+       $(top_builddir)/src/lib-dcrypt/libdcrypt.la \
+       $(top_builddir)/src/lib-var-expand/libvar_expand.la
 
 check-local:
 	for bin in $(test_programs); do \
