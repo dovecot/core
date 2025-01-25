@@ -31,13 +31,15 @@ int rand_r(unsigned int*) __attribute__((deprecated("Do not use rand_r, use i_ra
 /* NOLINTEND(readability-redundant-declaration) */
 #endif
 
-#if defined (HAVE_UOFF_T)
+#if defined(__APPLE__)
+typedef size_t uoff_t;
+#elif defined(HAVE_UOFF_T)
 /* native support */
-#elif defined (UOFF_T_INT)
+#elif defined(UOFF_T_INT)
 typedef unsigned int uoff_t;
-#elif defined (UOFF_T_LONG)
+#elif defined(UOFF_T_LONG)
 typedef unsigned long uoff_t;
-#elif defined (UOFF_T_LONG_LONG)
+#elif defined(UOFF_T_LONG_LONG)
 typedef unsigned long long uoff_t;
 #else
 #  error uoff_t size not set
