@@ -15,6 +15,7 @@ Makefile.in
 .directory
 compile_commands.json
 *~
+vgcore.*
 
 /configure
 /config.cache
