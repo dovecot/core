@@ -456,6 +456,10 @@ static void test_var_expand_providers(void) {
 		/* try to parse result */
 		struct tm tm;
 		i_zero(&tm);
+		/* get localtime to ensure we are in same timezone */
+		time_t t = time(NULL);
+		if (localtime_r(&t, &tm) == NULL)
+			i_panic("localtime_r() failed: %m");
 		if (strptime(datetime, "%Y%m%dT%H%M%S", &tm) == NULL) {
 			test_failed(t_strdup_printf("strptime() failed: %m"));
 		} else {
