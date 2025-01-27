@@ -2659,11 +2659,17 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 		const char *key = line->key;
 		if (cur_filter->filter_name != NULL) {
 			const char *filter_key =
-				t_strcut(cur_filter->filter_name, '/');
+				t_str_replace(cur_filter->filter_name, '/', '_');
 			const char *key2 = t_strdup_printf("%s_%s",
 							   filter_key, key);
 			if (config_key_can_autoprefix(ctx, key2))
 				key = key2;
+			else {
+				filter_key = t_strcut(cur_filter->filter_name, '/');
+				key2 = t_strdup_printf("%s_%s", filter_key, key);
+				if (config_key_can_autoprefix(ctx, key2))
+					key = key2;
+			}
 		} else {
 			i_assert(!cur_filter->filter_name_array);
 		}
