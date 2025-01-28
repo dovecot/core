@@ -848,11 +848,15 @@ static bool replace_filter_prefix(struct config_parser_context *ctx,
 
 		const char *cur_filter_name =
 			ctx->cur_section->filter_parser->filter.filter_name;
+		if (cur_filter_name != NULL)
+			cur_filter_name = t_str_replace(cur_filter_name, '/', '_');
 		if (cur_filter_name != NULL &&
 		    strncmp(filter_name_prefix, cur_filter_name,
 			    filter_name_prefix_len - 1) == 0 &&
 		    cur_filter_name[filter_name_prefix_len-1] == '\0') {
-			/* already inside the correct filter */
+			/* already inside the correct filter, e.g.
+			   userdb ldap { iterate_fields doesn't need
+			   userdb_ldap { named filter in the middle. */
 			return FALSE;
 		}
 
