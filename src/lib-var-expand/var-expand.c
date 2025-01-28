@@ -392,6 +392,8 @@ static int call_value_provider(const struct var_expand_state *state,
 		ret = -1;
 	}
 
+	i_assert(*value_r != NULL || ret == -1);
+
 	return ret;
 }
 
