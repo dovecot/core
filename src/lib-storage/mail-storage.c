@@ -191,7 +191,8 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 	if (home == NULL || *home == '\0') home = "(not set)";
 
 	*error_r = t_strdup_printf(
-		"Mail storage autodetection failed (home=%s, mail_path=%s)",
+		"Mail storage autodetection failed (home=%s, mail_path=%s) - "
+		"Set mail_driver explicitly",
 		home, mail_set->mail_path);
 	return NULL;
 }
