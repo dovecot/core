@@ -1296,7 +1296,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 				ctx->error = p_strdup_printf(ctx->pool,
 					"%s { } must not have a section name",
 					key);
-				return TRUE;
+				return FALSE;
 			}
 			filter.filter_name = p_strdup(ctx->pool, key);
 		} else {
@@ -1328,7 +1328,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			if (value[0] == '\0' && !value_quoted) {
 				ctx->error = p_strdup_printf(ctx->pool,
 					"%s { } is missing section name", key);
-				return TRUE;
+				return FALSE;
 			}
 			filter.filter_name =
 				p_strdup_printf(ctx->pool, "%s/%s", key, value);
@@ -2694,8 +2694,9 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 		ctx->cur_section->key = p_strdup(ctx->pool, key);
 
 		if (config_filter_add_new_filter(ctx, key, line->value,
-						 line->value_quoted)) {
-			/* new filter */
+						 line->value_quoted) ||
+		    ctx->error != NULL) {
+			/* new filter or error */
 			break;
 		}
 		if (hash_table_lookup(ctx->all_keys, key) == NULL) {
