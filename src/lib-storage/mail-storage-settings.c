@@ -774,9 +774,9 @@ mail_storage_settings_ext_check(struct event *event ATTR_UNUSED,
 }
 
 static int
-namespace_have_special_use_mailboxes(struct event *event,
-				     struct mail_namespace_settings *ns,
-				     const char **error_r)
+namespace_parse_mailboxes(struct event *event,
+			  struct mail_namespace_settings *ns,
+			  const char **error_r)
 {
 	struct mailbox_settings *box_set;
 	const char *box_name, *error;
@@ -804,7 +804,7 @@ namespace_have_special_use_mailboxes(struct event *event,
 		bool have_special_use = array_not_empty(&box_set->special_use);
 		settings_free(box_set);
 		if (have_special_use) {
-			ret = 1;
+			ns->parsed_have_special_use_mailboxes = TRUE;
 			break;
 		}
 	}
@@ -817,7 +817,6 @@ static bool namespace_settings_ext_check(struct event *event,
 					 const char **error_r)
 {
 	struct mail_namespace_settings *ns = _set;
-	int ret;
 
 	if (ns->separator[0] != '\0' && ns->separator[1] != '\0') {
 		*error_r = t_strdup_printf("Namespace %s: "
@@ -831,12 +830,7 @@ static bool namespace_settings_ext_check(struct event *event,
 		return FALSE;
 	}
 
-	ret = namespace_have_special_use_mailboxes(event, ns, error_r);
-	if (ret < 0)
-		return FALSE;
-	if (ret > 0)
-		ns->parsed_have_special_use_mailboxes = TRUE;
-	return TRUE;
+	return namespace_parse_mailboxes(event, ns, error_r) == 0;
 }
 
 static bool mailbox_special_use_exists(const char *name)
