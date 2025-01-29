@@ -387,6 +387,7 @@ static int imap_client_create(struct client *client)
 	if (set_instance == NULL) {
 		set_instance = settings_instance_new(
 			master_service_get_settings_root(master_service));
+		imap_client->set_instance = set_instance;
 		event_set_ptr(client->event, SETTINGS_EVENT_INSTANCE, set_instance);
 	}
 
@@ -419,6 +420,7 @@ static void imap_client_destroy(struct client *client)
 	}
 
 	settings_free(imap_client->set);
+	settings_instance_free(&imap_client->set_instance);
 	i_free_and_null(imap_client->proxy_backend_capability);
 	imap_parser_unref(&imap_client->parser);
 }
