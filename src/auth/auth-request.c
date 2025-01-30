@@ -810,13 +810,13 @@ auth_request_fields_var_expand_lookup(const char *field_name, const char **value
 {
 	struct auth_fields *fields = context;
 
-	if (fields != NULL) {
+	if (fields != NULL)
 		*value_r = auth_fields_find(fields, field_name);
-		return 0;
-	} else {
+	if (fields == NULL || *value_r == NULL) {
 		*error_r = t_strdup_printf("No such field '%s'", field_name);
 		return -1;
 	}
+	return 0;
 }
 
 int auth_request_set_passdb_fields(struct auth_request *request,
