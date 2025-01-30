@@ -1073,6 +1073,8 @@ void connection_list_deinit(struct connection_list **_list)
 	struct connection_list *list = *_list;
 	struct connection *conn;
 
+	if (list == NULL)
+		return;
 	*_list = NULL;
 
 	while (list->connections != NULL) {
