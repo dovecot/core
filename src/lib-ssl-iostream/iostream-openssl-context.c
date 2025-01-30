@@ -758,7 +758,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 		SSL_CTX_set_alpn_select_cb(ctx->ssl_ctx, openssl_iostream_alpn_select, ctx);
 #endif
 	}
-	if (set->application_protocols != NULL) {
+	if (ctx->protos == NULL && set->application_protocols != NULL) {
 		openssl_iostream_context_set_application_protocols(ctx,
 			set->application_protocols);
 	}
@@ -787,6 +787,7 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 void openssl_iostream_context_set_application_protocols(struct ssl_iostream_context *ctx,
 							const char *const *names)
 {
+	i_assert(ctx->protos == NULL);
 	i_assert(names != NULL);
 	ARRAY(struct ssl_alpn_protocol) protos;
 	p_array_init(&protos, ctx->pool, str_array_length(names) + 1);
