@@ -50,20 +50,30 @@ void hostpid_deinit(void)
 
 const char *my_hostdomain(void)
 {
-	struct hostent *hent;
 	const char *name;
+	const struct addrinfo hints = {
+		.ai_family = AF_UNSPEC,
+		.ai_socktype = SOCK_STREAM,
+		.ai_flags = AI_CANONNAME,
+	};
+	struct addrinfo *res;
 
-	if (my_domain == NULL) {
-		name = getenv(MY_HOSTDOMAIN_ENV);
-		if (name == NULL) {
-			hent = gethostbyname(my_hostname);
-			name = hent != NULL ? hent->h_name : NULL;
-			if (name == NULL) {
-				/* failed, use just the hostname */
-				name = my_hostname;
-			}
-		}
+	if (my_domain != NULL)
+		return my_domain;
+
+	name = getenv(MY_HOSTDOMAIN_ENV);
+	if (name != NULL) {
 		my_domain = i_strdup(name);
+		return my_domain;
 	}
+
+	if (getaddrinfo(my_hostname, NULL, &hints, &res) == 0) {
+		my_domain = i_strdup(res->ai_canonname);
+		freeaddrinfo(res);
+		return my_domain;
+	}
+
+	/* failed, use just the hostname */
+	my_domain = i_strdup(my_hostname);
 	return my_domain;
 }
