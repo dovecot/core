@@ -737,19 +737,22 @@ master_settings_ext_check(struct event *event, void *_set,
 		}
 		if (service->restart_request_count == 0) {
 			*error_r = t_strdup_printf("service(%s): "
-				"restart_request_count must be higher than 0",
+				"restart_request_count must be higher than 0 "
+				"(did you mean \"unlimited\"?)",
 				service->name);
 			return FALSE;
 		}
 		if (service->idle_kill_interval == 0) {
 			*error_r = t_strdup_printf("service(%s): "
-				"idle_kill_interval must be higher than 0",
+				"idle_kill_interval must be higher than 0 "
+				"(did you mean \"unlimited\"?)",
 				service->name);
 			return FALSE;
 		}
 		if (service->vsz_limit < 1024*1024) {
 			*error_r = t_strdup_printf("service(%s): "
-				"vsz_limit is too low", service->name);
+				"vsz_limit is too low "
+				"(did you mean \"unlimited\"?)", service->name);
 			return FALSE;
 		}
 
