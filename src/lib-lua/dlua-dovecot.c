@@ -335,6 +335,26 @@ static int dlua_event_set_always_log_source(lua_State *L)
 	return 1;
 }
 
+static int dlua_event_set_forced_debug(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 1);
+	struct event *event = dlua_check_event(L, 1);
+
+	event_set_forced_debug(event, TRUE);
+	lua_pushvalue(L, 1);
+	return 1;
+}
+
+static int dlua_event_unset_forced_debug(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 1);
+	struct event *event = dlua_check_event(L, 1);
+
+	event_unset_forced_debug(event);
+	lua_pushvalue(L, 1);
+	return 1;
+}
+
 static int dlua_event_add_str(lua_State *L)
 {
 	DLUA_REQUIRE_ARGS(L, 3);
@@ -485,6 +505,8 @@ static const luaL_Reg event_methods[] ={
 	{ "append_log_prefix", dlua_event_append_log_prefix },
 	{ "replace_log_prefix", dlua_event_replace_log_prefix },
 	{ "set_always_log_source", dlua_event_set_always_log_source },
+	{ "set_forced_debug", dlua_event_set_forced_debug },
+	{ "unset_forced_debug", dlua_event_unset_forced_debug },
 	{ "set_name", dlua_event_set_name },
 	{ "add_str", dlua_event_add_str },
 	{ "add_int", dlua_event_add_int },
