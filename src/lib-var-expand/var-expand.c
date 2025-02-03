@@ -39,7 +39,7 @@ var_expand_process(const char *field, const char **result_r,
 	else if (strcmp(field, "gid") == 0)
 		*result_r = dec2str(getegid());
 	else {
-		*error_r = t_strdup_printf("Unsupported process field '%s'",
+		*error_r = t_strdup_printf("Unsupported field '%s'",
 					   field);
 		return -1;
 	}
@@ -101,7 +101,7 @@ var_expand_system(const char *field, const char **result_r,
 	else if (strcmp(field, "os-version") == 0)
 		return var_expand_system_os(OS_DEFAULT_TYPE_RELEASE, result_r,
 					    error_r);
-	*error_r = t_strdup_printf("Unsupported system key '%s'", field);
+	*error_r = t_strdup_printf("Unsupported field '%s'", field);
 	return -1;
 }
 
@@ -126,7 +126,7 @@ var_expand_dovecot(const char *field, const char **result_r,
 		return 0;
 	}
 
-	*error_r = t_strdup_printf("Unsupported dovecot key '%s'", field);
+	*error_r = t_strdup_printf("Unsupported field '%s'", field);
 	return -1;
 }
 
@@ -134,7 +134,7 @@ static int var_expand_env(const char *key, const char **value_r,
 			  void *context ATTR_UNUSED, const char **error_r)
 {
 	if (*key == '\0') {
-		*error_r = "Missing key";
+		*error_r = "Missing field";
 		return -1;
 	}
 
