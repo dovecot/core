@@ -267,7 +267,11 @@ void ssl_iostream_context_unref(struct ssl_iostream_context **ctx);
 
 /* Persistent cache of ssl_iostream_contexts. The context is permanently stored
    until ssl_iostream_context_cache_free() is called. The returned context
-   must be unreferenced by the caller. */
+   must be unreferenced by the caller.
+
+   Returns 1 if new context was created, 0 if existing was re-used, and
+   -1 on error.
+*/
 int ssl_iostream_client_context_cache_get(const struct ssl_iostream_settings *set,
 					  struct ssl_iostream_context **ctx_r,
 					  const char **error_r);
