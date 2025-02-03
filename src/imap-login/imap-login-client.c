@@ -419,8 +419,14 @@ static void imap_client_destroy(struct client *client)
 		cmd_id_free(imap_client);
 	}
 
-	settings_free(imap_client->set);
+	/* The client may live on as proxying, even though the imap-specific
+	   parts get freed. Clear out the settings instance, so it's not
+	   attempted to be used anymore. Alternatively we could delay freeing
+	   it until the client is freed, but that would require more changes. */
+	event_set_ptr(client->event, SETTINGS_EVENT_INSTANCE, NULL);
 	settings_instance_free(&imap_client->set_instance);
+
+	settings_free(imap_client->set);
 	i_free_and_null(imap_client->proxy_backend_capability);
 	imap_parser_unref(&imap_client->parser);
 }
