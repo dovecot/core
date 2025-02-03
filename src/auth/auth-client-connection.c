@@ -321,7 +321,7 @@ static const struct connection_settings auth_client_connection_set = {
 };
 
 void auth_client_connection_create(struct auth *auth, int fd, const char *name,
-				   bool login_requests, bool token_auth)
+				   enum auth_client_connection_flags flags)
 {
 	static unsigned int connect_uid_counter = 0;
 	struct auth_client_connection *conn;
@@ -337,8 +337,10 @@ void auth_client_connection_create(struct auth *auth, int fd, const char *name,
 	conn->auth = auth;
 	conn->refcount = 1;
 	conn->connect_uid = ++connect_uid_counter;
-	conn->login_requests = login_requests;
-	conn->token_auth = token_auth;
+	conn->login_requests =
+		(flags & AUTH_CLIENT_CONNECTION_FLAG_LOGIN_REQUESTS) != 0;
+	conn->token_auth =
+		(flags & AUTH_CLIENT_CONNECTION_FLAG_TOKEN_AUTH) != 0;
 	conn->conn.event_parent = auth_event;
 	random_fill(conn->cookie, sizeof(conn->cookie));
 
