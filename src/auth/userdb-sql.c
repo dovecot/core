@@ -26,6 +26,7 @@ struct userdb_sql_request {
 struct sql_userdb_iterate_context {
 	struct userdb_iterate_context ctx;
 	struct sql_result *result;
+	bool query_sent:1;
 	bool freed:1;
 	bool call_iter:1;
 };
@@ -192,6 +193,7 @@ userdb_sql_iterate_init(struct auth_request *auth_request,
 			"userdb_sql_iterate_query is empty");
 		ctx->ctx.failed = TRUE;
 	} else {
+		ctx->query_sent = TRUE;
 		sql_query(module->db, set->iterate_query, sql_iter_query_callback, ctx);
 		e_debug(authdb_event(auth_request), "%s", set->iterate_query);
 	}
@@ -277,7 +279,7 @@ static int userdb_sql_iterate_deinit(struct userdb_iterate_context *_ctx)
 	int ret = _ctx->failed ? -1 : 0;
 
 	auth_request_unref(&_ctx->auth_request);
-	if (ctx->result == NULL) {
+	if (ctx->query_sent && ctx->result == NULL) {
 		/* sql query hasn't finished yet */
 		ctx->freed = TRUE;
 	} else {
