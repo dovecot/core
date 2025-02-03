@@ -390,6 +390,9 @@ static int call_value_provider(const struct var_expand_state *state,
 	if (!found) {
 		*error_r = t_strdup_printf("Unsupported prefix '%s'", prefix);
 		ret = -1;
+	} else if (ret == -1) {
+		/* Add prefix to errors */
+		*error_r = t_strdup_printf("%s: %s", prefix, *error_r);
 	}
 
 	i_assert(*value_r != NULL || ret == -1);
