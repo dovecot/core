@@ -1287,7 +1287,7 @@ db_ldap_field_multi_expand(const char *data, const char **value_r,
 		value = auth_fields_find(fields, field_name);
 
 	if (value == NULL || *value == '\0') {
-		*error_r = t_strdup_printf("No such LDAP attribute '%s'", field_name);
+		*error_r = t_strdup_printf("No such attribute '%s'", field_name);
 		return -1;
 	}
 	*value_r = value;
@@ -1314,7 +1314,7 @@ db_ldap_field_single_expand(const char *data, const char **value_r,
 		*value_r = auth_fields_find(fields, field_name);
 
 	if (*value_r == NULL || **value_r == '\0') {
-		*error_r = t_strdup_printf("No such LDAP attribute '%s'", field_name);
+		*error_r = t_strdup_printf("No such attribute '%s'", field_name);
 		return -1;
 	} else if (auth_fields_find(fields,
 				  db_ldap_attribute_as_multi(field_name)) != NULL) {

@@ -370,7 +370,7 @@ static int db_oauth2_var_expand_func_oauth2(const char *field_name,
 		*value_r = auth_fields_find(ctx->fields, field_name);
 		return 0;
 	} else {
-		*error_r = t_strdup_printf("OAuth2 field '%s' not found", field_name);
+		*error_r = t_strdup_printf("Field '%s' not found", field_name);
 		return -1;
 	}
 	*value_r = value;
