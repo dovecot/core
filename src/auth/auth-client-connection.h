@@ -8,6 +8,7 @@
 enum auth_client_connection_flags {
 	AUTH_CLIENT_CONNECTION_FLAG_LOGIN_REQUESTS = BIT(0),
 	AUTH_CLIENT_CONNECTION_FLAG_TOKEN_AUTH = BIT(1),
+	AUTH_CLIENT_CONNECTION_FLAG_LEGACY = BIT(2),
 };
 
 struct auth_client_connection {
@@ -24,6 +25,7 @@ struct auth_client_connection {
 	bool login_requests:1;
 	bool version_received:1;
 	bool token_auth:1;
+	bool handshake_finished:1;
 };
 void auth_client_connection_create(struct auth *auth, int fd, const char *name,
 				   enum auth_client_connection_flags flags);

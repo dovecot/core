@@ -40,6 +40,7 @@
 
 enum auth_socket_type {
 	AUTH_SOCKET_AUTH,
+	AUTH_SOCKET_AUTH_LEGACY,
 	AUTH_SOCKET_LOGIN,
 	AUTH_SOCKET_MASTER,
 	AUTH_SOCKET_USERDB,
@@ -56,6 +57,7 @@ struct auth_socket_listener {
 
 static const char *const auth_socket_type_names[] = {
 	"auth",
+	"auth-legacy",
 	"login",
 	"master",
 	"userdb",
@@ -330,6 +332,10 @@ static void client_connected(struct master_service_connection *conn)
 		break;
 	case AUTH_SOCKET_AUTH:
 		auth_client_connection_create(auth, conn->fd, conn->name, 0);
+		break;
+	case AUTH_SOCKET_AUTH_LEGACY:
+		auth_client_connection_create(auth, conn->fd, conn->name,
+			AUTH_CLIENT_CONNECTION_FLAG_LEGACY);
 		break;
 	case AUTH_SOCKET_TOKEN_LOGIN:
 		auth_client_connection_create(auth, conn->fd, conn->name,

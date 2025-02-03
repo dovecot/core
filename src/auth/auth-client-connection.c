@@ -188,6 +188,9 @@ static void auth_client_finish_handshake(struct auth_client_connection *conn)
 	const char *mechanisms, *mechanisms_cbind = "";
 	string_t *str;
 
+	if (conn->handshake_finished)
+		return;
+
 	if (conn->token_auth) {
 		mechanisms = t_strconcat("MECH\t",
 			mech_dovecot_token.mech_name, "\tprivate\n", NULL);
@@ -206,6 +209,7 @@ static void auth_client_finish_handshake(struct auth_client_connection *conn)
 	str_append(str, "\nDONE\n");
 
 	o_stream_nsend(conn->conn.output, str_data(str), str_len(str));
+	conn->handshake_finished = TRUE;
 }
 
 static int auth_client_handshake_args(struct connection *conn, const char *const *args)
@@ -352,6 +356,9 @@ void auth_client_connection_create(struct auth *auth, int fd, const char *name,
 		    conn->conn.list->set.major_version,
 		    conn->conn.list->set.minor_version);
 	o_stream_nsend(conn->conn.output, str_data(str), str_len(str));
+
+	if ((flags & AUTH_CLIENT_CONNECTION_FLAG_LEGACY) != 0)
+		auth_client_finish_handshake(conn);
 }
 
 static void auth_client_connection_unref(struct auth_client_connection **_conn)
