@@ -161,7 +161,7 @@ int io_stream_autocreate_ssl_client(
 	settings_free(set);
 	if (ret < 0)
 		return -1;
-	if (parameters->application_protocols != NULL) {
+	if (ret > 0 && parameters->application_protocols != NULL) {
 		ssl_iostream_context_set_application_protocols(ctx,
 				parameters->application_protocols);
 	}
@@ -197,7 +197,7 @@ int io_stream_autocreate_ssl_server(
 	settings_free(set);
 	if (ret < 0)
 		return -1;
-	if (parameters->application_protocols != NULL) {
+	if (ret > 0 && parameters->application_protocols != NULL) {
 		ssl_iostream_context_set_application_protocols(ctx,
 				parameters->application_protocols);
 	}

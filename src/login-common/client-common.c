@@ -683,6 +683,7 @@ int client_sni_callback(const char *name, const char **error_r,
 	struct client *client = context;
 	struct ssl_iostream_context *ssl_ctx;
 	const struct ssl_iostream_settings *ssl_set;
+	int ret;
 
 	if (client->ssl_servername_settings_read)
 		return 0;
@@ -718,12 +719,12 @@ int client_sni_callback(const char *name, const char **error_r,
 
 	ssl_server_settings_to_iostream_set(client->ssl_set,
 		client->ssl_server_set, &ssl_set);
-	if (ssl_iostream_server_context_cache_get(ssl_set, &ssl_ctx, error_r) < 0) {
+	if ((ret = ssl_iostream_server_context_cache_get(ssl_set, &ssl_ctx, error_r)) < 0) {
 		settings_free(ssl_set);
 		return -1;
 	}
 	settings_free(ssl_set);
-	if (login_binary->application_protocols != NULL) {
+	if (ret > 0 && login_binary->application_protocols != NULL) {
 		ssl_iostream_context_set_application_protocols(ssl_ctx,
 			login_binary->application_protocols);
 	}

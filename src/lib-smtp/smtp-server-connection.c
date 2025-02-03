@@ -375,20 +375,23 @@ smtp_server_connection_sni_callback(const char *name, const char **error_r,
 	ssl_server_settings_to_iostream_set(ssl_set, ssl_server_set,
 					    &conn->set.ssl);
 
-	if (ssl_iostream_server_context_cache_get(conn->set.ssl, &ssl_ctx,
-						  error_r) < 0) {
+	int ret;
+	if ((ret = ssl_iostream_server_context_cache_get(conn->set.ssl, &ssl_ctx,
+							 error_r)) < 0) {
 		settings_free(ssl_set);
 		settings_free(ssl_server_set);
 		return -1;
 	}
 	settings_free(ssl_set);
 	settings_free(ssl_server_set);
-	const char *application_protocol = smtp_protocol_name(conn->set.protocol);
-	const char *const names[] = {
-		application_protocol,
-		NULL
-	};
-	ssl_iostream_context_set_application_protocols(ssl_ctx, names);
+	if (ret == 1) {
+		const char *application_protocol = smtp_protocol_name(conn->set.protocol);
+		const char *const names[] = {
+			application_protocol,
+			NULL
+		};
+		ssl_iostream_context_set_application_protocols(ssl_ctx, names);
+	}
 	ssl_iostream_change_context(conn->ssl_iostream, ssl_ctx);
 	ssl_iostream_context_unref(&ssl_ctx);
 	return 0;
