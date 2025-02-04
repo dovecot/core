@@ -640,7 +640,7 @@ void http_client_queue_drop_request(struct http_client_queue *queue,
 	}
 
 	/* Drop from delay queue */
-	if (req->release_time.tv_sec > 0) {
+	if (req->request_is_delayed) {
 		reqs = array_get_modifiable(&queue->delayed_requests, &count);
 		for (i = 0; i < count; i++) {
 			if (reqs[i] == req)
@@ -659,6 +659,7 @@ void http_client_queue_drop_request(struct http_client_queue *queue,
 			}
 			array_delete(&queue->delayed_requests, i, 1);
 		}
+		req->request_is_delayed = FALSE;
 	}
 
 	/* Drop from main request list */
@@ -960,6 +961,7 @@ void http_client_queue_submit_request(struct http_client_queue *queue,
 				http_client_queue_delayed_cmp, &insert_idx);
 			array_insert(&queue->delayed_requests, insert_idx,
 				     &req, 1);
+			req->request_is_delayed = TRUE;
 			if (insert_idx == 0) {
 				http_client_queue_set_delay_timer(
 					queue, req->release_time);

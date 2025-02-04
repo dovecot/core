@@ -165,6 +165,7 @@ struct http_client_request {
 	bool connect_direct:1;
 	bool ssl_tunnel:1;
 	bool preserve_exact_reason:1;
+	bool request_is_delayed:1;
 };
 
 struct http_client_connection {
