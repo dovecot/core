@@ -161,7 +161,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	const unsigned char *data;
 	size_t data_len;
 
-	event = event_create(NULL);
+	event = event_create(input->event_parent);
 	event_add_category(event, &event_category_submission);
 	event_add_fields(event, (const struct event_add_field []){
 		{ .key = "user", .value = input->username },
@@ -293,6 +293,7 @@ login_request_finished(const struct login_server_request *request,
 	input.username = username;
 	input.userdb_fields = extra_fields;
 	input.session_id = request->session_id;
+	input.event_parent = master_service_get_event(master_service);
 	if ((flags & LOGIN_REQUEST_FLAG_END_CLIENT_SECURED_TLS) != 0)
 		input.end_client_tls_secured = TRUE;
 
