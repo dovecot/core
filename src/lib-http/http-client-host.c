@@ -144,7 +144,6 @@ http_client_host_shared_lookup(struct http_client_host_shared *hshared)
 {
 	struct http_client_context *cctx = hshared->cctx;
 	struct dns_client_settings dns_set;
-	int ret;
 
 	i_assert(!hshared->explicit_ip);
 	i_assert(hshared->dns_lookup == NULL);
@@ -168,17 +167,8 @@ http_client_host_shared_lookup(struct http_client_host_shared *hshared)
 				 hshared, &hshared->dns_lookup);
 		io_loop_set_current(prev_ioloop);
 	} else {
-		struct ip_addr *ips;
-		unsigned int ips_count;
-
-		ret = net_gethostbyname(hshared->name, &ips, &ips_count);
-		if (ret != 0) {
-			http_client_host_shared_lookup_failure(
-				hshared, net_gethosterror(ret));
-			return;
-		}
-
-		http_client_host_shared_lookup_success(hshared, ips, ips_count);
+		/* FIXME: fully removed in the following commits */
+		i_unreached();
 	}
 }
 
