@@ -1412,9 +1412,15 @@ fts_flatcurve_xapian_close_db(struct flatcurve_fts_backend *backend,
 			e_error(backend->event, "%s", error);
 		else {
 			const char *fname = p_strdup(x->pool, xdb->dbpath->fname);
-			enum flatcurve_xapian_db_close flags =
+			/* When rotating, we need to open RW for Xapian to
+			 * create the new shard, but immediately close the
+			 * RW handle since there is no imminent write, and
+			 * failure to do so may cause locking issues with
+			 * other processes. */
+			const auto flags =
 				(enum flatcurve_xapian_db_close)
-				(opts & FLATCURVE_XAPIAN_DB_CLOSE_MBOX);
+				((opts & FLATCURVE_XAPIAN_DB_CLOSE_MBOX) |
+					 FLATCURVE_XAPIAN_DB_CLOSE_WDB);
 			if (fts_flatcurve_xapian_create_current(
 				backend, flags, &error) < 0)
 				e_error(backend->event, "Error rotating DB (%s)",
