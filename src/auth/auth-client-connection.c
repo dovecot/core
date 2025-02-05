@@ -196,7 +196,7 @@ static void auth_client_finish_handshake(struct auth_client_connection *conn)
 			mech_dovecot_token.mech_name, "\tprivate\n", NULL);
 	} else {
 		mechanisms = str_c(conn->auth->reg->handshake);
-		if (conn->conn.minor_version >= 3) {
+		if (conn->conn.minor_version >= AUTH_CLIENT_MINOR_VERSION_CHANNEL_BINDING) {
 			mechanisms_cbind =
 				str_c(conn->auth->reg->handshake_cbind);
 		}
