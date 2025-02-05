@@ -176,7 +176,8 @@ static void test_dns_expect_result_ips(const char *name, const char *result)
 		.ret = result == NULL ? -1 : 0,
 		.result = result
 	};
-	test_assert(dns_lookup(name, &set, NULL, test_callback_ips, &ctx, &lookup) == 0);
+	test_assert(dns_lookup(name, &set, NULL, NULL, test_callback_ips,
+			       &ctx, &lookup) == 0);
 	io_loop_run(test_server.loop);
 }
 
@@ -193,7 +194,8 @@ static void test_dns_expect_result_name(const char *name, const char *result)
 	};
 	struct ip_addr addr;
 	i_assert(net_addr2ip(name, &addr) == 0);
-	test_assert(dns_lookup_ptr(&addr, &set, NULL, test_callback_name, &ctx, &lookup) == 0);
+	test_assert(dns_lookup_ptr(&addr, &set, NULL, NULL, test_callback_name,
+				   &ctx, &lookup) == 0);
 	io_loop_run(test_server.loop);
 }
 
@@ -226,7 +228,8 @@ static void test_dns_lookup_timeout(void)
 		.result = NULL,
 	};
 
-	test_assert(dns_lookup("waitfor1500", &set, NULL, test_callback_ips, &ctx, &lookup) == 0);
+	test_assert(dns_lookup("waitfor1500", &set, NULL, NULL, test_callback_ips,
+			       &ctx, &lookup) == 0);
 	io_loop_run(current_ioloop);
 
 	destroy_dns_server(&test_server);
@@ -248,7 +251,8 @@ static void test_dns_lookup_abort(void)
 		.result = NULL,
 	};
 
-	test_assert(dns_lookup("waitfor1500", &set, NULL, test_callback_ips, &ctx, &lookup) == 0);
+	test_assert(dns_lookup("waitfor1500", &set, NULL, NULL, test_callback_ips,
+			       &ctx, &lookup) == 0);
 	struct timeout *to = timeout_add_short(100, io_loop_stop, current_ioloop);
 	io_loop_run(current_ioloop);
 	timeout_remove(&to);
@@ -270,11 +274,14 @@ static void test_dns_lookup_cached(void)
 	const struct dns_client_settings set = {
 		.dns_client_socket_path = TEST_SOCKET_NAME,
 		.timeout_msecs = 1000,
+	};
+
+	const struct dns_client_parameters params = {
 		.cache_ttl_secs = 4,
 	};
 
 
-	struct dns_client *client = dns_client_init(&set, event);
+	struct dns_client *client = dns_client_init(&set, &params, event);
 
 	/* lookup localhost */
 	ctx.result = "127.0.0.1\t::1";

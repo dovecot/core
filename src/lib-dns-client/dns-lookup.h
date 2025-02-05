@@ -14,6 +14,9 @@ struct dns_lookup;
 struct dns_client_settings {
 	const char *dns_client_socket_path;
 	unsigned int timeout_msecs;
+};
+
+struct dns_client_parameters {
 	/* the idle_timeout_msecs works only with the dns_client_* API.
 	   0 = disconnect immediately */
 	unsigned int idle_timeout_msecs;
@@ -46,24 +49,26 @@ typedef void dns_lookup_callback_t(const struct dns_lookup_result *result,
    When failing with -1, the callback is called before returning from the
    function. */
 int dns_lookup(const char *host, const struct dns_client_settings *set,
+	       const struct dns_client_parameters *params,
 	       struct event *event_parent,
 	       dns_lookup_callback_t *callback, void *context,
 	       struct dns_lookup **lookup_r) ATTR_NULL(4);
-#define dns_lookup(host, set, event_parent, callback, context, lookup_r) \
+#define dns_lookup(host, set, params, event_parent, callback, context, lookup_r) \
 	dns_lookup(host - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct dns_lookup_result *, typeof(context))), \
-		set, event_parent, (dns_lookup_callback_t *)callback, context, lookup_r)
+		set, params, event_parent, (dns_lookup_callback_t *)callback, context, lookup_r)
 int dns_lookup_ptr(const struct ip_addr *ip,
 		   const struct dns_client_settings *set,
+		   const struct dns_client_parameters *params,
 		   struct event *event_parent,
 		   dns_lookup_callback_t *callback, void *context,
 		   struct dns_lookup **lookup_r) ATTR_NULL(4);
-#define dns_lookup_ptr(host, set, event_parent, callback, context, lookup_r) \
+#define dns_lookup_ptr(host, set, params, event_parent, callback, context, lookup_r) \
 	dns_lookup_ptr(host - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct dns_lookup_result *, typeof(context))), \
-		set, event_parent, \
+		set, params, event_parent, \
 		(dns_lookup_callback_t *)callback, context, lookup_r)
 /* Abort the DNS lookup without calling the callback. */
 void dns_lookup_abort(struct dns_lookup **lookup);
@@ -72,6 +77,7 @@ void dns_lookup_switch_ioloop(struct dns_lookup *lookup);
 
 /* Alternative API for clients that need to do multiple DNS lookups. */
 struct dns_client *dns_client_init(const struct dns_client_settings *set,
+				   const struct dns_client_parameters *params,
 				   struct event *event_parent);
 void dns_client_deinit(struct dns_client **client);
 

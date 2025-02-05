@@ -1981,7 +1981,7 @@ void imapc_connection_connect(struct imapc_connection *conn)
 		conn->ips = i_new(struct ip_addr, ips_count);
 		memcpy(conn->ips, ips, ips_count * sizeof(*ips));
 	} else {
-		(void)dns_lookup(conn->client->set->imapc_host, &dns_set,
+		(void)dns_lookup(conn->client->set->imapc_host, &dns_set, NULL,
 				 conn->event, imapc_connection_dns_callback,
 				 conn, &conn->dns_lookup);
 		return;

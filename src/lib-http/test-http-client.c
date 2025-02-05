@@ -350,6 +350,7 @@ int main(int argc, char *argv[])
 {
 	struct dns_client *dns_client;
 	struct dns_client_settings dns_set;
+	struct dns_client_parameters dns_params;
 	struct http_client_settings http_set;
 	struct http_client_context *http_cctx;
 	struct http_client *http_client1, *http_client2, *http_client3, *http_client4;
@@ -369,11 +370,11 @@ int main(int argc, char *argv[])
 	i_zero_safe(&dns_set);
 	dns_set.dns_client_socket_path = PKG_RUNDIR"/dns-client";
 	dns_set.timeout_msecs = 30*1000;
-	dns_set.idle_timeout_msecs = UINT_MAX;
+	dns_params.idle_timeout_msecs = UINT_MAX;
 
 	/* check if there is a DNS client */
 	if (access(dns_set.dns_client_socket_path, R_OK|W_OK) == 0) {
-		dns_client = dns_client_init(&dns_set, NULL);
+		dns_client = dns_client_init(&dns_set, &dns_params, NULL);
 
 		if (dns_client_connect(dns_client, &error) < 0)
 			i_fatal("Couldn't initialize DNS client: %s", error);

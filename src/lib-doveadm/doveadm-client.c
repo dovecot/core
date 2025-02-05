@@ -722,7 +722,7 @@ static int doveadm_client_dns_lookup(struct doveadm_client *conn,
 
 	ctx->conn = conn;
 
-	if (dns_lookup(conn->set.hostname, &dns_set, conn->conn.event,
+	if (dns_lookup(conn->set.hostname, &dns_set, NULL, conn->conn.event,
 		       doveadm_client_dns_lookup_callback, ctx,
 		       &conn->dns_lookup) != 0) {
 		*error_r = t_strdup(ctx->error);

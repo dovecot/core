@@ -533,7 +533,7 @@ static int program_client_net_connect_init(struct program_client *pclient)
 			prclient->dns_set.timeout_msecs =
 				pclient->params.client_connect_timeout_msecs;
 			(void)dns_lookup(prclient->address, &prclient->dns_set,
-					 pclient->event,
+					 NULL, pclient->event,
 					 program_client_net_connect_resolved,
 					 prclient, &prclient->lookup);
 			return 0;

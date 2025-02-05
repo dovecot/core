@@ -377,6 +377,7 @@ static void auth_init(struct auth *auth)
 	struct auth_passdb *passdb;
 	struct auth_userdb *userdb;
 	struct dns_client_settings dns_set;
+	struct dns_client_parameters dns_params;
 
 	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next)
 		auth_passdb_init(passdb);
@@ -388,10 +389,10 @@ static void auth_init(struct auth *auth)
 	i_zero(&dns_set);
 	dns_set.dns_client_socket_path = AUTH_DNS_SOCKET_PATH;
 	dns_set.timeout_msecs = AUTH_DNS_DEFAULT_TIMEOUT_MSECS;
-	dns_set.idle_timeout_msecs = AUTH_DNS_IDLE_TIMEOUT_MSECS;
-	dns_set.cache_ttl_secs = AUTH_DNS_CACHE_TTL_SECS;
+	dns_params.idle_timeout_msecs = AUTH_DNS_IDLE_TIMEOUT_MSECS;
+	dns_params.cache_ttl_secs = AUTH_DNS_CACHE_TTL_SECS;
 
-	auth->dns_client = dns_client_init(&dns_set, NULL);
+	auth->dns_client = dns_client_init(&dns_set, &dns_params, NULL);
 }
 
 static void auth_deinit(struct auth *auth)

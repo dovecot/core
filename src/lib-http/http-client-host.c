@@ -163,7 +163,7 @@ http_client_host_shared_lookup(struct http_client_host_shared *hshared)
 		dns_set.dns_client_socket_path = cctx->dns_client_socket_path;
 		dns_set.timeout_msecs = cctx->dns_lookup_timeout_msecs;
 		io_loop_set_current(cctx->ioloop);
-		(void)dns_lookup(hshared->name, &dns_set, hshared->event,
+		(void)dns_lookup(hshared->name, &dns_set, NULL, hshared->event,
 				 http_client_host_shared_dns_callback,
 				 hshared, &hshared->dns_lookup);
 		io_loop_set_current(prev_ioloop);

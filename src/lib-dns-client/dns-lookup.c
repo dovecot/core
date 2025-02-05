@@ -272,13 +272,14 @@ static void dns_lookup_timeout(struct dns_lookup *lookup)
 }
 
 int dns_lookup(const char *host, const struct dns_client_settings *set,
+	       const struct dns_client_parameters *params,
 	       struct event *event_parent, dns_lookup_callback_t *callback,
 	       void *context, struct dns_lookup **lookup_r)
 {
 	struct dns_client *client;
 
-	i_assert(set->cache_ttl_secs == 0);
-	client = dns_client_init(set, event_parent);
+	i_assert(params == NULL || params->cache_ttl_secs == 0);
+	client = dns_client_init(set, params, event_parent);
 	client->deinit_client_at_free = TRUE;
 	return dns_client_lookup(client, host, client->conn.event, callback,
 				 context, lookup_r);
@@ -286,14 +287,15 @@ int dns_lookup(const char *host, const struct dns_client_settings *set,
 
 int dns_lookup_ptr(const struct ip_addr *ip,
 		   const struct dns_client_settings *set,
+		   const struct dns_client_parameters *params,
 		   struct event *event_parent,
 		   dns_lookup_callback_t *callback, void *context,
 		   struct dns_lookup **lookup_r)
 {
 	struct dns_client *client;
 
-	i_assert(set->cache_ttl_secs == 0);
-	client = dns_client_init(set, event_parent);
+	i_assert(params == NULL || params->cache_ttl_secs == 0);
+	client = dns_client_init(set, params, event_parent);
 	client->deinit_client_at_free = TRUE;
 	return dns_client_lookup_ptr(client, ip, client->conn.event,
 				     callback, context, lookup_r);
@@ -388,6 +390,7 @@ static const struct connection_settings dns_client_set = {
 };
 
 struct dns_client *dns_client_init(const struct dns_client_settings *set,
+				   const struct dns_client_parameters *params,
 				   struct event *event_parent)
 {
 	struct dns_client *client;
@@ -396,15 +399,15 @@ struct dns_client *dns_client_init(const struct dns_client_settings *set,
 
 	client = i_new(struct dns_client, 1);
 	client->timeout_msecs = set->timeout_msecs;
-	client->idle_timeout_msecs = set->idle_timeout_msecs;
+	client->idle_timeout_msecs = params == NULL ? 0 : params->idle_timeout_msecs;
 	client->clist = connection_list_init(&dns_client_set, &dns_client_vfuncs);
 	client->ioloop = current_ioloop;
 	client->path = i_strdup(set->dns_client_socket_path);
 	client->conn.event_parent = event_parent;
 	connection_init_client_unix(client->clist, &client->conn, client->path);
 	event_add_category(client->conn.event, &event_category_dns);
-	if (set->cache_ttl_secs > 0) {
-		client->cache = dns_client_cache_init(set->cache_ttl_secs,
+	if (params != NULL && params->cache_ttl_secs > 0) {
+		client->cache = dns_client_cache_init(params->cache_ttl_secs,
 			dns_client_cache_refresh, client);
 	}
 	return client;
