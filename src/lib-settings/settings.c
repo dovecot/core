@@ -12,6 +12,8 @@
 #include "settings.h"
 #include "var-expand.h"
 
+#include <ctype.h>
+
 enum set_seen_type {
 	/* Setting has not been changed */
 	SET_SEEN_NO,
@@ -2704,7 +2706,10 @@ settings_override_fill(struct settings_override *set, pool_t pool,
 		if (len > 0 && key[len-1] == '+') {
 			/* key+=value */
 			set->append = TRUE;
-			key = t_strndup(key, len-1);
+			len--;
+			while (len > 0 && i_isspace(key[len-1]))
+				len--;
+			key = t_strndup(key, len);
 		}
 		set->key = set->orig_key = p_strdup(pool, key);
 		set->path_element_count = path_element_count(set->key);
