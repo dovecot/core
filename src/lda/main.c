@@ -355,24 +355,6 @@ int main(int argc, char *argv[])
 	bool stderr_rejection = FALSE;
 	int ret, c;
 
-	if (getuid() != geteuid() && geteuid() == 0) {
-		/* running setuid - don't allow this if the binary is
-		   executable by anyone */
-		struct stat st;
-
-		if (stat(argv[0], &st) < 0) {
-			fprintf(stderr, "stat(%s) failed: %s\n",
-				argv[0], strerror(errno));
-			return EX_TEMPFAIL;
-		} else if ((st.st_mode & 1) != 0 && (st.st_mode & 04000) != 0) {
-			fprintf(stderr, "%s must not be both world-executable "
-				"and setuid-root. This allows root exploits. "
-				"See https://doc.dovecot.org/configuration_manual/protocols/lda/#multiple-uids\n",
-				argv[0]);
-			return EX_TEMPFAIL;
-		}
-	}
-
 	i_set_failure_exit_callback(failure_exit_callback);
 
 	master_service = master_service_init("lda",
