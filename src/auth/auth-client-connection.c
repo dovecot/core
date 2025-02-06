@@ -301,7 +301,7 @@ static void auth_client_connection_destroy(struct connection *conn)
 			  connection_disconnect_reason(conn));
 	}
 
-	connection_disconnect(conn);
+	connection_deinit(conn);
 	master_service_client_connection_destroyed(master_service);
 	auth_client_connection_unref(&aconn);
 }
@@ -370,7 +370,6 @@ static void auth_client_connection_unref(struct auth_client_connection **_conn)
 		return;
 
 	auth_client_connection_destroy(&conn->conn);
-	connection_deinit(&conn->conn);
 	i_free(conn);
 }
 
