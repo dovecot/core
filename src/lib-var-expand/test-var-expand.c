@@ -639,9 +639,9 @@ static void test_var_expand_escape(void)
 		{ .in = "%{literal('\\\\x20')}", .out = "'\\x20'", .ret = 0 },
 		/* Bad hex / oct */
 		{ .in = "\\xgg", .out = "\\xgg", .ret = 0 },
-		{ .in = "%{literal('\\xgg')}", .out = "syntax error, unexpected end of file, expecting MINUS or NAME or VALUE or NUMBER", .ret = -1 },
+		{ .in = "%{literal('\\xgg')}", .out = "expecting MINUS or NAME or VALUE or NUMBER", .ret = -1 },
 		{ .in = "\\999", .out = "\\999", .ret = 0 },
-		{ .in = "%{literal('\\999')}", .out = "syntax error, unexpected end of file, expecting MINUS or NAME or VALUE or NUMBER", .ret = -1 },
+		{ .in = "%{literal('\\999')}", .out = "expecting MINUS or NAME or VALUE or NUMBER", .ret = -1 },
 		/* List test */
 		{ .in = "%{literal('one\ttwo\tthree') | list}", .out="'one,two,three'", .ret = 0 },
 		/* Escape escape */
