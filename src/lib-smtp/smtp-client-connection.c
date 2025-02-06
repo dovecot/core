@@ -1876,9 +1876,6 @@ static void
 smtp_client_connection_lookup_ip(struct smtp_client_connection *conn)
 {
 	struct dns_client_settings dns_set;
-	struct ip_addr *ips;
-	unsigned int ips_count;
-	int ret;
 
 	if (conn->ips_count != 0)
 		return;
@@ -1902,25 +1899,8 @@ smtp_client_connection_lookup_ip(struct smtp_client_connection *conn)
 				 smtp_client_connection_dns_callback, conn,
 				 &conn->dns_lookup);
 	} else {
-		/* no dns-conn, use blocking lookup */
-		ret = net_gethostbyname(conn->host, &ips, &ips_count);
-		if (ret != 0) {
-			e_error(conn->event, "net_gethostbyname(%s) failed: %s",
-				conn->host, net_gethosterror(ret));
-			timeout_remove(&conn->to_connect);
-			conn->to_connect = timeout_add_short(
-				0,
-				smtp_client_connection_delayed_host_lookup_failure,
-				conn);
-			return;
-		}
-
-		e_debug(conn->event, "DNS lookup successful; got %d IPs",
-			ips_count);
-
-		conn->ips_count = ips_count;
-		conn->ips = i_new(struct ip_addr, ips_count);
-		memcpy(conn->ips, ips, ips_count * sizeof(*ips));
+		/* FIXME: fully removed in the following commits */
+		i_unreached();
 	}
 }
 
