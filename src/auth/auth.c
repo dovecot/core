@@ -138,10 +138,10 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *_set,
 
 static void auth_passdb_deinit(struct auth_passdb *passdb)
 {
+	passdb_deinit(passdb->passdb);
 	settings_free(passdb->set);
 	settings_free(passdb->auth_set);
 	settings_free(passdb->unexpanded_post_set);
-	passdb_deinit(passdb->passdb);
 }
 
 static void
