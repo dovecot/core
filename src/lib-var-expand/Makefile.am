@@ -14,7 +14,7 @@ YACC=/bin/false
 	$(AM_V_GEN)$(FLEX) -o $@ $<
 
 .y.c:
-	$(AM_V_GEN)$(BISON) -Wcounterexamples -o $@ $<
+	$(AM_V_GEN)$(BISON) -o $@ $<
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
