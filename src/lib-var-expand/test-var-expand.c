@@ -41,12 +41,12 @@ static void run_var_expand_tests(const struct var_expand_params *params,
 		test_assert_cmp_idx(test->ret, ==, ret, i);
 
 		if (ret < 0) {
-			test_assert(error != NULL);
-			test_assert(dest->used == 0);
+			test_assert_idx(error != NULL, i);
+			test_assert_idx(dest->used == 0,i );
 			if (test->ret < 0) {
 				i_assert(test->out != NULL && *test->out != '\0');
 				const char *match = strstr(error, test->out);
-				test_assert(match != NULL);
+				test_assert_idx(match != NULL, i);
 				if (match == NULL) {
 					i_debug("error '%s' does not contain '%s'",
 						error, test->out);
