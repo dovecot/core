@@ -847,8 +847,9 @@ bool login_proxy_failed(struct login_proxy *proxy, struct event *event,
 
 	if (try_reconnect && proxy_try_reconnect(proxy)) {
 		event_add_int(event, "reconnect_attempts", proxy->reconnect_count);
-		e_debug(event, "%s%s - reconnecting (attempt #%d)",
-			log_prefix, reason, proxy->reconnect_count);
+		event_set_name(event, "proxy_session_reconnecting");
+		e_warning(event, "%s%s - reconnecting (attempt #%d)",
+			  log_prefix, reason, proxy->reconnect_count);
 		proxy->failure_callback(proxy->client, type, reason, TRUE);
 		return TRUE;
 	}
