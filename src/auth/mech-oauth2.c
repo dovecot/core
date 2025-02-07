@@ -6,7 +6,7 @@
 #include "ioloop.h"
 #include "str.h"
 #include "strescape.h"
-#include "json-generator.h"
+#include "json-ostream.h"
 #include "mech.h"
 #include "passdb.h"
 #include "db-oauth2.h"
@@ -55,23 +55,23 @@ oauth2_send_failure(struct oauth2_auth_request *oauth2_req, int code,
 	if (oauth2_req->db != NULL)
 		oidc_url = db_oauth2_get_openid_configuration_url(oauth2_req->db);
 	string_t *str = t_str_new(256);
-	struct json_generator *gen = json_generator_init_str(str, 0);
-	json_generate_object_open(gen);
+	struct json_ostream *gen = json_ostream_create_str(str, 0);
+	json_ostream_ndescend_object(gen, NULL);
 
 	if (strcmp(request->mech->mech_name, "XOAUTH2") == 0) {
 		status = dec2str(code);
-		json_generate_object_member(gen, "schemes");
-		json_generate_string(gen, "bearer");
+		json_ostream_nwrite_string(gen, "schemes", "bearer");
 	}
 
-	json_generate_object_member(gen, "status");
-	json_generate_string(gen, status);
-	json_generate_object_member(gen, "scope");
-	json_generate_string(gen, "mail");
-	json_generate_object_member(gen, "openid-configuration");
-	json_generate_string(gen, oidc_url);
-	json_generate_object_close(gen);
-	json_generator_deinit(&gen);
+	json_ostream_nwrite_string(gen, "status", status);
+	json_ostream_nwrite_string(gen, "scope", "mail");
+	json_ostream_nwrite_string(gen, "openid-configuration", oidc_url);
+	json_ostream_nascend_object(gen);
+
+	if (json_ostream_nfinish(gen) < 0) {
+		i_panic("JSON failed: %s",
+			json_ostream_get_error(gen));
+	}
 
 	oauth2_req->failed = TRUE;
 	auth_request_fail_with_reply(request, str->data, str->used);
