@@ -1439,13 +1439,11 @@ settings_var_expand_init_add(struct settings_var_expand_init_ctx *init_ctx,
 		i_assert(count == need_contexts);
 	}
 
-#ifdef DEVEL_CHECKS
 	/* ensure everything is still good */
-	unsigned int num_tables = array_size(&params->tables_arr);
-	unsigned int num_provs = array_size(&params->providers_arr);
-	unsigned int num_ctx = array_size(&params->contexts);
+	unsigned int num_tables = array_count(&init_ctx->tables);
+	unsigned int num_provs = array_count(&init_ctx->providers);
+	unsigned int num_ctx = array_count(&init_ctx->contexts);
 	i_assert(I_MAX(num_tables, num_provs) == num_ctx);
-#endif
 }
 
 static void
@@ -1479,13 +1477,11 @@ settings_var_expand_init(struct settings_apply_ctx *ctx)
 		event = event_get_parent(event);
 	}
 
-#ifdef DEVEL_CHECKS
 	/* ensure everything is still good */
-	unsigned int num_tables = array_size(&params->tables_arr);
-	unsigned int num_provs = array_size(&params->providers_arr);
-	unsigned int num_ctx = array_size(&params->contexts);
+	unsigned int num_tables = array_count(&init_ctx.tables);
+	unsigned int num_provs = array_count(&init_ctx.providers);
+	unsigned int num_ctx = array_count(&init_ctx.contexts);
 	i_assert(I_MAX(num_tables, num_provs) == num_ctx);
-#endif
 
 	array_append_zero(&init_ctx.tables);
 	array_append_zero(&init_ctx.providers);
