@@ -37,7 +37,7 @@ boundary_find(struct message_boundary *boundaries,
 			   is a boundary named "foo" that ends now or there's
 			   a boundary "foo--" which continues. */
 			if (best->len == len ||
-			    (best->len == len-2 && trailing_dashes)) {
+			    (trailing_dashes && best->len + 2 == len)) {
 				/* This is exactly the wanted boundary. There
 				   can't be a better one. */
 				break;
