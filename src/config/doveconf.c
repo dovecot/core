@@ -206,7 +206,7 @@ static bool value_need_quote(const char *value)
 
 	if (strchr(value, '#') != NULL)
 		return TRUE;
-	if (IS_WHITE(value[0]) || IS_WHITE(value[len-1]))
+	if (i_isspace(value[0]) || i_isspace(value[len-1]))
 		return TRUE;
 	return FALSE;
 }

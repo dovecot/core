@@ -5,8 +5,6 @@
 
 #define CONFIG_MODULE_DIR MODULEDIR"/settings"
 
-#define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
-
 /* change_counter used for default settings created internally */
 #define CONFIG_PARSER_CHANGE_DEFAULTS 1
 /* change_counter used for settings changed by configuration file */

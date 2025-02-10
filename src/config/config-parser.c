@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
+#include <ctype.h>
 #ifdef HAVE_GLOB_H
 #  include <glob.h>
 #endif
@@ -1746,7 +1747,7 @@ config_parse_line(struct config_parser_context *ctx,
 	/* @UNSAFE: line is modified */
 
 	/* skip whitespace */
-	while (IS_WHITE(*line))
+	while (i_isspace(*line))
 		line++;
 
 	/* ignore comments or empty lines */
@@ -1766,7 +1767,7 @@ config_parse_line(struct config_parser_context *ctx,
 			if (*p == '\0')
 				break;
 		} else if (*p == '#') {
-			if (!IS_WHITE(p[-1])) {
+			if (!i_isspace(p[-1])) {
 				i_warning("Configuration file %s line %u: "
 					  "Ambiguous '#' character in line, treating it as comment. "
 					  "Add a space before it to remove this warning.",
@@ -1781,7 +1782,7 @@ config_parse_line(struct config_parser_context *ctx,
 	/* remove whitespace from end of line */
 	len = strlen(line);
 	while (len >= 1) {
-		if(!IS_WHITE(line[len-1]))
+		if(!i_isspace(line[len-1]))
 			break;
 		len--;
 	}
@@ -1791,7 +1792,7 @@ config_parse_line(struct config_parser_context *ctx,
 		/* continues in next line */
 		len--;
 		while (len >= 1) {
-			if(!IS_WHITE(line[len-1]))
+			if(!i_isspace(line[len-1]))
 				break;
 			len--;
 		}
@@ -1823,12 +1824,12 @@ config_parse_line(struct config_parser_context *ctx,
 				line++;
 		}
 	} else {
-		while (!IS_WHITE(*line) && *line != '\0' && *line != '=')
+		while (!i_isspace(*line) && *line != '\0' && *line != '=')
 			line++;
 	}
-	if (IS_WHITE(*line)) {
+	if (i_isspace(*line)) {
 		*line++ = '\0';
-		while (IS_WHITE(*line)) line++;
+		while (i_isspace(*line)) line++;
 	}
 	config_line_r->key = key;
 	config_line_r->value = line;
@@ -1845,10 +1846,10 @@ config_parse_line(struct config_parser_context *ctx,
 	if (*line == '=') {
 		/* a) */
 		*line++ = '\0';
-		while (IS_WHITE(*line)) line++;
+		while (i_isspace(*line)) line++;
 
 		if (*line == '<') {
-			while (IS_WHITE(line[1])) line++;
+			while (i_isspace(line[1])) line++;
 			config_line_r->value = line + 1;
 			config_line_r->type = CONFIG_LINE_TYPE_KEYFILE;
 			return;
@@ -1886,7 +1887,7 @@ config_parse_line(struct config_parser_context *ctx,
 	} else if (strcmp(key, "group") == 0) {
 		/* group @group name { */
 		config_line_r->key = line;
-		while (!IS_WHITE(*line) && *line != '\0')
+		while (!i_isspace(*line) && *line != '\0')
 			line++;
 		if (*line == '\0') {
 			config_line_r->value = "Expecting group name";
@@ -1894,11 +1895,11 @@ config_parse_line(struct config_parser_context *ctx,
 			return;
 		}
 		*line++ = '\0';
-		while (IS_WHITE(*line))
+		while (i_isspace(*line))
 			line++;
 
 		config_line_r->value = line;
-		while (!IS_WHITE(*line) && *line != '\0')
+		while (!i_isspace(*line) && *line != '\0')
 			line++;
 		if (*line == '\0') {
 			config_line_r->value = "Expecting '{'";
@@ -1906,7 +1907,7 @@ config_parse_line(struct config_parser_context *ctx,
 			return;
 		}
 		*line++ = '\0';
-		while (IS_WHITE(*line))
+		while (i_isspace(*line))
 			line++;
 		if (*line != '{') {
 			config_line_r->value = "Expecting '{'";
@@ -1919,11 +1920,11 @@ config_parse_line(struct config_parser_context *ctx,
 		/* get section name */
 		if (*line != '"') {
 			config_line_r->value = line;
-			while (!IS_WHITE(*line) && *line != '\0')
+			while (!i_isspace(*line) && *line != '\0')
 				line++;
 			if (*line != '\0') {
 				*line++ = '\0';
-				while (IS_WHITE(*line))
+				while (i_isspace(*line))
 					line++;
 			}
 		} else {
@@ -1932,7 +1933,7 @@ config_parse_line(struct config_parser_context *ctx,
 				line++;
 			if (*line == '"') {
 				*line++ = '\0';
-				while (IS_WHITE(*line))
+				while (i_isspace(*line))
 					line++;
 				config_line_r->value = str_unescape(value);
 				config_line_r->value_quoted = TRUE;
@@ -2414,9 +2415,9 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 		str_append_c(str, ' ');
 
 		/* find next token */
-		while (*var_end != '\0' && IS_WHITE(*var_end)) var_end++;
+		while (*var_end != '\0' && i_isspace(*var_end)) var_end++;
 		value = var_end;
-		while (*var_end != '\0' && !IS_WHITE(*var_end)) var_end++;
+		while (*var_end != '\0' && !i_isspace(*var_end)) var_end++;
 	}
 
 	return 0;
