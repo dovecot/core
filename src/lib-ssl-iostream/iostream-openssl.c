@@ -888,9 +888,12 @@ openssl_iostream_get_cb_tls_exporter(struct ssl_iostream *ssl_io,
 	   channel binding type is not defined for that connection, and
 	   implementations MUST NOT support it.
 	 */
-	if (SSL_version(ssl_io->ssl) < TLS1_3_VERSION &&
-	    HAS_NO_BITS(SSL_get_options(ssl_io->ssl),
-			SSL_OP_NO_RENEGOTIATION)) {
+	if (SSL_version(ssl_io->ssl) < TLS1_3_VERSION
+#ifdef SSL_OP_NO_RENEGOTIATION
+	    && HAS_NO_BITS(SSL_get_options(ssl_io->ssl),
+			   SSL_OP_NO_RENEGOTIATION))
+#endif
+	{
 		*error_r = t_strdup_printf(
 			"Channel binding type 'tls-exporter' not available: "
 			"TLS renegotiation is enabled for %s",
