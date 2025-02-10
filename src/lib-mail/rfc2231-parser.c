@@ -105,7 +105,11 @@ static int rfc2231_parameter_cmp(const struct rfc2231_parameter *r1,
 	int ret = strcmp(r1->key, r2->key);
 	if (ret != 0)
 		return ret;
-	return (int)r1->idx - (int)r2->idx;
+	if (r1->idx < r2->idx)
+		return -1;
+	else if (r1->idx > r2->idx)
+		return 1;
+	return 0;
 }
 
 static bool result_contains(const ARRAY_TYPE(const_string) *result,
