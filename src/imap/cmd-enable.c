@@ -21,8 +21,8 @@ bool cmd_enable(struct client_command_context *cmd)
 			client_send_command_error(cmd, "Invalid arguments.");
 			return TRUE;
 		}
-		if (imap_feature_lookup(str, &feature_idx)) {
-			client_enable(cmd->client, feature_idx);
+		if (imap_feature_lookup(str, &feature_idx) &&
+		    client_enable(cmd->client, feature_idx)) {
 			str_append_c(reply, ' ');
 			str_append(reply, t_str_ucase(str));
 		}

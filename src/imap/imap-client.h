@@ -335,7 +335,9 @@ void client_args_finished(struct client_command_context *cmd,
    have to wait for an existing SEARCH SAVE to finish. */
 bool client_handle_search_save_ambiguity(struct client_command_context *cmd);
 
-void client_enable(struct client *client, unsigned int feature_idx);
+/* Enable an IMAP feature. Returns TRUE if the feature was actually enabled
+   (or it was already enabled before). */
+bool client_enable(struct client *client, unsigned int feature_idx);
 /* Returns TRUE if the given feature is enabled */
 bool client_has_enabled(struct client *client, unsigned int feature_idx);
 /* Returns mailbox features that are currently enabled. */

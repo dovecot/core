@@ -1569,17 +1569,17 @@ bool client_handle_search_save_ambiguity(struct client_command_context *cmd)
 	return TRUE;
 }
 
-void client_enable(struct client *client, unsigned int feature_idx)
+bool client_enable(struct client *client, unsigned int feature_idx)
 {
 	if (client_has_enabled(client, feature_idx))
-		return;
+		return TRUE;
 
 	const struct imap_feature *feat = imap_feature_idx(feature_idx);
 
 	if ((feat->mailbox_features & MAILBOX_FEATURE_UTF8ACCEPT) != 0 &&
 	    !client->set->mail_utf8_extensions) {
 		e_debug(client->event, "Client attempted to enable UTF8 when it's disabled");
-		return;
+		return FALSE;
 	}
 
 	feat->callback(client);
@@ -1587,6 +1587,7 @@ void client_enable(struct client *client, unsigned int feature_idx)
 	   previously set */
 	bool value = TRUE;
 	array_idx_set(&client->enabled_features, feature_idx, &value);
+	return TRUE;
 }
 
 bool client_has_enabled(struct client *client, unsigned int feature_idx)
