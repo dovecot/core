@@ -869,7 +869,7 @@ bool imap_fetch_modseq_init(struct imap_fetch_init_context *ctx)
 		ctx->error = "FETCH MODSEQ can't be used with non-permanent modseqs";
 		return FALSE;
 	}
-	client_enable(ctx->fetch_ctx->client, imap_feature_condstore);
+	(void)client_enable(ctx->fetch_ctx->client, imap_feature_condstore);
 	imap_fetch_add_handler(ctx, IMAP_FETCH_HANDLER_FLAG_BUFFERED,
 			       NULL, fetch_modseq, NULL);
 	return TRUE;

@@ -526,7 +526,7 @@ bool imap_search_start(struct imap_search_context *ctx,
 
 	if (ctx->have_modseqs) {
 		ctx->return_options |= SEARCH_RETURN_MODSEQ;
-		client_enable(cmd->client, imap_feature_condstore);
+		(void)client_enable(cmd->client, imap_feature_condstore);
 	}
 
 	ctx->box = cmd->client->mailbox;

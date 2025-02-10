@@ -1,7 +1,8 @@
 #ifndef IMAP_FEATURE_H
 #define IMAP_FEATURE_H
 
-typedef void imap_client_enable_callback_t(struct client *);
+/* Returns TRUE if the ENABLE was accepted. */
+typedef bool imap_client_enable_callback_t(struct client *);
 
 struct imap_feature {
 	const char *feature;

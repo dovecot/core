@@ -66,7 +66,7 @@ store_parse_modifiers(struct imap_store_context *ctx,
 							  "Invalid modseq");
 				return FALSE;
 			}
-			client_enable(ctx->cmd->client, imap_feature_condstore);
+			(void)client_enable(ctx->cmd->client, imap_feature_condstore);
 		} else {
 			client_send_command_error(ctx->cmd,
 						  "Unknown STORE modifier");

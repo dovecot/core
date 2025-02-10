@@ -1582,7 +1582,9 @@ bool client_enable(struct client *client, unsigned int feature_idx)
 		return FALSE;
 	}
 
-	feat->callback(client);
+	if (!feat->callback(client))
+		return FALSE;
+
 	/* set after the callback, so the callback can see what features were
 	   previously set */
 	bool value = TRUE;
@@ -1599,16 +1601,16 @@ bool client_has_enabled(struct client *client, unsigned int feature_idx)
 	return *featurep;
 }
 
-static void imap_client_enable_condstore(struct client *client)
+static bool imap_client_enable_condstore(struct client *client)
 {
 	struct mailbox_status status;
 	int ret;
 
 	if (client->mailbox == NULL)
-		return;
+		return TRUE;
 
 	if ((client_enabled_mailbox_features(client) & MAILBOX_FEATURE_CONDSTORE) != 0)
-		return;
+		return TRUE;
 
 	ret = mailbox_enable(client->mailbox, MAILBOX_FEATURE_CONDSTORE);
 	if (ret == 0) {
@@ -1626,19 +1628,21 @@ static void imap_client_enable_condstore(struct client *client)
 		client_send_untagged_storage_error(client,
 			mailbox_get_storage(client->mailbox));
 	}
+	return TRUE;
 }
 
-static void imap_client_enable_qresync(struct client *client)
+static bool imap_client_enable_qresync(struct client *client)
 {
 	/* enable also CONDSTORE */
-	client_enable(client, imap_feature_condstore);
+	return client_enable(client, imap_feature_condstore);
 }
 
 #ifdef EXPERIMENTAL_MAIL_UTF8
-static void imap_client_enable_utf8accept(struct client *client)
+static bool imap_client_enable_utf8accept(struct client *client)
 {
 	if (client->mailbox != NULL)
 		mailbox_enable(client->mailbox, MAILBOX_FEATURE_UTF8ACCEPT);
+	return TRUE;
 }
 #endif
 

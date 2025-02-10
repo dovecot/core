@@ -76,7 +76,7 @@ int imap_status_get_result(struct client *client, struct mailbox *box,
 	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_UNSEEN))
 		status |= STATUS_UNSEEN;
 	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_HIGHESTMODSEQ)) {
-		client_enable(client, imap_feature_condstore);
+		(void)client_enable(client, imap_feature_condstore);
 		status |= STATUS_HIGHESTMODSEQ;
 	}
 	if (HAS_ANY_BITS(items->flags, IMAP_STATUS_ITEM_SIZE |

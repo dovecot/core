@@ -742,7 +742,11 @@ import_state_enabled_feature(struct client *client, const unsigned char *data,
 		*error_r = t_strdup_printf("Unknown feature '%s'", name);
 		return 0;
 	}
-	client_enable(client, feature_idx);
+	if (!client_enable(client, feature_idx)) {
+		*error_r = t_strdup_printf("Feature '%s' couldn't be enabled",
+					   name);
+		return 0;
+	}
 	return p - data;
 }
 
