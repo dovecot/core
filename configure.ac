@@ -32,7 +32,6 @@ AC_ARG_ENABLE(devel-checks,
 AS_HELP_STRING([--enable-devel-checks], [Enable some extra expensive checks for developers]),
 	if test x$enableval = xyes; then
 		AC_DEFINE(DEBUG,, [Build with extra debugging checks])
-		want_devel_checks=yes
 	fi)
 
 AC_ARG_ENABLE(static-checker,
