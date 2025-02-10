@@ -1575,13 +1575,6 @@ bool client_enable(struct client *client, unsigned int feature_idx)
 		return TRUE;
 
 	const struct imap_feature *feat = imap_feature_idx(feature_idx);
-
-	if ((feat->mailbox_features & MAILBOX_FEATURE_UTF8ACCEPT) != 0 &&
-	    !client->set->mail_utf8_extensions) {
-		e_debug(client->event, "Client attempted to enable UTF8 when it's disabled");
-		return FALSE;
-	}
-
 	if (!feat->callback(client))
 		return FALSE;
 
@@ -1640,6 +1633,11 @@ static bool imap_client_enable_qresync(struct client *client)
 #ifdef EXPERIMENTAL_MAIL_UTF8
 static bool imap_client_enable_utf8accept(struct client *client)
 {
+	if (!client->set->mail_utf8_extensions) {
+		e_debug(client->event, "Client attempted to enable UTF8 when it's disabled");
+		return FALSE;
+	}
+
 	if (client->mailbox != NULL)
 		mailbox_enable(client->mailbox, MAILBOX_FEATURE_UTF8ACCEPT);
 	return TRUE;
