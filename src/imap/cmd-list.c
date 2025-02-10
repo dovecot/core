@@ -436,6 +436,7 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 	ARRAY(const char *) patterns = ARRAY_INIT;
 	const char *ref, *pattern, *const *patterns_strarr;
 	string_t *str;
+	bool invalid_ref = FALSE;
 
 	/* [(<selection options>)] <reference> <pattern>|(<pattern list>)
 	   [RETURN (<return options>)] */
@@ -464,6 +465,8 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 	str = t_str_new(64);
 	if (imap_utf7_to_utf8(ref, str) == 0)
 		ref = p_strdup(cmd->pool, str_c(str));
+	else
+		invalid_ref = TRUE;
 	str_truncate(str, 0);
 
 	if (imap_arg_get_list_full(&args[1], &list_args, &arg_count)) {
@@ -476,9 +479,10 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 					"Invalid pattern list.");
 				return TRUE;
 			}
-			if (imap_utf7_to_utf8(pattern, str) == 0)
+			if (imap_utf7_to_utf8(pattern, str) == 0) {
 				pattern = p_strdup(cmd->pool, str_c(str));
-			array_push_back(&patterns, &pattern);
+				array_push_back(&patterns, &pattern);
+			}
 			str_truncate(str, 0);
 		}
 		args += 2;
@@ -487,11 +491,11 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 			client_send_command_error(cmd, "Invalid pattern.");
 			return TRUE;
 		}
-		if (imap_utf7_to_utf8(pattern, str) == 0)
-			pattern = p_strdup(cmd->pool, str_c(str));
-
 		p_array_init(&patterns, cmd->pool, 1);
-		array_push_back(&patterns, &pattern);
+		if (imap_utf7_to_utf8(pattern, str) == 0) {
+			pattern = p_strdup(cmd->pool, str_c(str));
+			array_push_back(&patterns, &pattern);
+		}
 		args += 2;
 
 		if (lsub) {
@@ -536,8 +540,9 @@ bool cmd_list_full(struct client_command_context *cmd, bool lsub)
 
 	array_append_zero(&patterns); /* NULL-terminate */
 	patterns_strarr = array_front(&patterns);
-	if (!ctx->used_listext && !lsub && *patterns_strarr[0] == '\0') {
-		/* Only LIST ref "" gets us here */
+	if (invalid_ref || patterns_strarr[0] == NULL ||
+	    (!ctx->used_listext && !lsub && *patterns_strarr[0] == '\0')) {
+		/* Only LIST ref "" gets us here, or invalid ref/pattern */
 		cmd_list_ref_root(client, ref);
 		client_send_tagline(cmd, "OK List completed.");
 	} else {
