@@ -235,7 +235,7 @@ auth_request_handle_failure(struct auth_request *request, const char *reply)
 
 	e_debug(request->event, "handling failure, nodelay=%d",
 		(int) request->failure_nodelay);
-	if (request->failure_nodelay) {
+	if (request->failure_nodelay || shutting_down) {
 		/* passdb specifically requested not to delay the reply. */
 		handler->callback(reply, handler->conn);
 		auth_request_unref(&request);

@@ -249,6 +249,7 @@ static void main_deinit(void)
 {
 	struct auth_socket_listener *l;
 
+	shutting_down = TRUE;
 	if (auth_penalty != NULL) {
 		/* cancel all pending anvil penalty lookups */
 		auth_penalty_deinit(&auth_penalty);

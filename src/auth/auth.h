@@ -84,6 +84,7 @@ struct auth {
 	struct dns_client *dns_client;
 };
 
+extern bool shutting_down;
 
 struct auth *auth_find_protocol(const char *name);
 struct auth *auth_default_protocol(void);

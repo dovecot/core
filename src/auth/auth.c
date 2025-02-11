@@ -16,6 +16,8 @@
 #define AUTH_DNS_IDLE_TIMEOUT_MSECS (1000*60)
 #define AUTH_DNS_CACHE_TTL_SECS 10
 
+bool shutting_down = FALSE;
+
 struct event *auth_event;
 struct event_category event_category_auth = {
 	.name = "auth",

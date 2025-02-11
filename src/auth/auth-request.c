@@ -782,6 +782,9 @@ void auth_request_userdb_lookup_end(struct auth_request *request,
 static unsigned int
 auth_request_get_internal_failure_delay(struct auth_request *request)
 {
+	if (shutting_down)
+		return 0;
+
 	unsigned int delay_msecs = request->set->internal_failure_delay;
 
 	/* add 0..50% random delay to avoid thundering herd problems */
@@ -1223,7 +1226,7 @@ static void auth_request_policy_check_callback(int result, void *context)
 		/* fail it right here and now */
 		auth_request_fail(ctx->request);
 	} else if (ctx->type != AUTH_POLICY_CHECK_TYPE_SUCCESS && result > 0 &&
-		   !ctx->request->fields.no_penalty) {
+		   !ctx->request->fields.no_penalty && !shutting_down) {
 		ctx->request->to_penalty = timeout_add(result * 1000,
 			auth_request_policy_penalty_finish, context);
 	} else {
