@@ -6,6 +6,7 @@
 #include "ipwd.h"
 #include "restrict-access.h"
 #include "eacces-error.h"
+#include "doc.h"
 
 #include <sys/stat.h>
 #include <unistd.h>
@@ -312,7 +313,7 @@ const char *eperm_error_get_chgrp(const char *func, const char *path,
 	if (gid_origin != NULL)
 		str_printfa(errmsg, ", group based on %s", gid_origin);
 	str_append(errmsg,
-		   " - see https://doc.dovecot.org/admin_manual/errors/chgrp_no_perm/)");
+		   " - see " DOC_LINK("core/admin/errors.html#change-group-operation-not-permitted") ")");
 	errno = orig_errno;
 	return str_c(errmsg);
 }

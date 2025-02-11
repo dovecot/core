@@ -15,6 +15,7 @@
 #include "istream-raw-mbox.h"
 #include "mail-copy.h"
 #include "index-mail.h"
+#include "doc.h"
 
 #include <sys/stat.h>
 
@@ -196,7 +197,7 @@ mbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	    !S_ISDIR(st.st_mode)) {
 		*error_r = t_strdup_printf(
 			"mbox root directory can't be a file: %s "
-			"(https://doc.dovecot.org/configuration_manual/mail_location/mbox/)",
+			"(" DOC_LINK("core/config/mailbox/mail_location.html#mbox") ")",
 			ns->list->mail_set->mail_path);
 		return -1;
 	}

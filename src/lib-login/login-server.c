@@ -12,6 +12,7 @@
 #include "master-service-private.h"
 #include "login-server.h"
 #include "login-server-auth.h"
+#include "doc.h"
 
 #include <sys/stat.h>
 #include <unistd.h>
@@ -375,7 +376,7 @@ static int login_server_postlogin(struct login_server_request *request,
 	if (fd == -1) {
 		e_error(request->conn->event, "net_connect_unix(%s) failed: %m%s",
 			   socket_path, errno != EAGAIN ? "" :
-			   " - https://doc.dovecot.org/admin_manual/errors/socket_unavailable/");
+			   " - " DOC_LINK("core/admin/errors.html#unix-socket-resource-temporarily-unavailable"));
 		return -1;
 	}
 

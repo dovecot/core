@@ -9,6 +9,7 @@
 #include "time-util.h"
 #include "master-service-private.h"
 #include "login-client.h"
+#include "doc.h"
 
 #include <unistd.h>
 #include <sys/stat.h>
@@ -233,7 +234,7 @@ void login_client_request(struct login_client_list *list,
 	if (conn->fd == -1) {
 		e_error(conn->event, "net_connect_unix(%s) failed: %m%s",
 			conn->path, errno != EAGAIN ? "" :
-			" - https://doc.dovecot.org/admin_manual/errors/socket_unavailable/");
+			" - " DOC_LINK("core/admin/errors.html#unix-socket-resource-temporarily-unavailable"));
 		login_connection_deinit(&conn);
 		return;
 	}

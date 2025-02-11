@@ -218,6 +218,7 @@ headers = \
 	cpu-limit.h \
 	crc32.h \
 	data-stack.h \
+	doc.h \
 	eacces-error.h \
 	env-util.h \
 	event-filter.h \

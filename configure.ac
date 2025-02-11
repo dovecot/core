@@ -265,10 +265,12 @@ AS_IF([echo "$PACKAGE_VERSION" | grep '^[[0-9]]*\.[[0-9]]*\.[[0-9]]'], [
 AS_IF([test "$is_pro_build" = "yes"], [
   SET_PRO_DEFINES
   AC_SUBST(DOVECOT_ASSET_URL, "doc.dovecotpro.com")
+  AC_DEFINE(DOVECOT_DOC_URL, "https://doc.dovecotpro.com/", [Documentation URL])
   AC_SUBST(DOVECOT_PRO_BUILD, 1)
 ], [
   AC_DEFINE_UNQUOTED(DOVECOT_NAME, "$PACKAGE_NAME", [Dovecot name])
   AC_SUBST(DOVECOT_ASSET_URL, "doc.dovecot.org")
+  AC_DEFINE(DOVECOT_DOC_URL, "https://doc.dovecot.org/", [Documentation URL])
   AC_SUBST(DOVECOT_PRO_BUILD, 0)
 ])
 AC_DEFINE_UNQUOTED(DOVECOT_CONFIG_VERSION, "$DOVECOT_CONFIG_VERSION", [Dovecot configuration version])

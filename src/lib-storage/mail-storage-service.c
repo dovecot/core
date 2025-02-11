@@ -20,6 +20,7 @@
 #include "mail-namespace.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
+#include "doc.h"
 
 #include <sys/stat.h>
 #include <time.h>
@@ -815,7 +816,7 @@ mail_storage_service_time_moved(const struct timeval *old_time,
 	}
 	diff = -diff;
 
-	const char *doc_ref = "https://doc.dovecot.org/admin_manual/errors/time_moved_backwards/";
+	const char *doc_ref = DOC_LINK("core/admin/errors.html#time-moved-backwards-error");
 	if ((diff / 1000) > MAX_TIME_BACKWARDS_SLEEP_MSECS) {
 		i_fatal("Time just moved backwards by %lld.%06lld seconds. "
 			"This might cause a lot of problems, "
