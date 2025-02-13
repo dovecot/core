@@ -119,6 +119,29 @@ quota_is_over(uoff_t alloc, int64_t used, uint64_t ceil, uint64_t over,
 	return FALSE;
 }
 
+void quota_used_apply_expunged(int64_t *used, uint64_t expunged)
+{
+	int64_t exp_signed;
+	int64_t exp_overflow;
+
+	if (expunged < (uint64_t)INT64_MAX) {
+		exp_overflow = 0;
+		exp_signed = (int64_t)expunged;
+	} else {
+		exp_overflow = (int64_t)(expunged - INT64_MAX);
+		exp_signed = INT64_MAX;
+	}
+
+	if (INT64_MIN + exp_signed > *used)
+		*used = INT64_MIN;
+	else
+		*used -= exp_signed;
+	if (INT64_MIN + (int64_t)exp_overflow > *used)
+		*used = INT64_MIN;
+	else
+		*used -= exp_overflow;
+}
+
 bool quota_transaction_is_over(struct quota_transaction_context *ctx,
 			       uoff_t size)
 {

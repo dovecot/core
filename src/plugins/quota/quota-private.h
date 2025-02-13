@@ -167,6 +167,7 @@ bool quota_warning_match(const struct quota_root_settings *w,
 
 int quota_get_mail_size(struct quota_transaction_context *ctx,
 			struct mail *mail, uoff_t *size_r);
+void quota_used_apply_expunged(int64_t *used, uint64_t expunged);
 bool quota_transaction_is_over(struct quota_transaction_context *ctx, uoff_t size);
 bool quota_root_is_over(struct quota_transaction_context *ctx,
 			struct quota_transaction_root_context *root,
