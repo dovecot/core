@@ -92,7 +92,7 @@ struct mail_index_header {
 	   don't even try to read it. */
 	uint8_t major_version;
 	/* Minor version is increased when the file format changes in a
-	   backwards compatible way. If the field is smaller than
+	   backwards compatible way. If the field is less than
 	   MAIL_INDEX_MINOR_VERSION, upgrade the file format and update the
 	   minor_version field as well. If minor_version is greater than
 	   MAIL_INDEX_MINOR_VERSION, leave it as it is. It likely means that a
