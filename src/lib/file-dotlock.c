@@ -144,8 +144,8 @@ update_change_info(const struct stat *st, struct file_change_info *change,
 
 		if (change->ctime == 0) {
 			/* First check, set last_change to file's change time.
-			   Use mtime instead if it's higher, but only if it's
-			   not higher than current time, because the mtime
+			   Use mtime instead if it's greater, but only if it's
+			   not greater than current time, because the mtime
 			   can also be used for keeping metadata. */
 			change_time = st->st_mtime <= now &&
 				(st->st_mtime > st->st_ctime || !check_ctime) ?

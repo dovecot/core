@@ -260,7 +260,7 @@ struct event *event_replace_log_prefix(struct event *event, const char *prefix);
 
 /* Drop count prefixes from parents when this event is used for logging. This
    does not affect the parent events. This only counts actual prefixes and not
-   parents. If the count is higher than the actual number of prefixes added by
+   parents. If the count is greater than the actual number of prefixes added by
    parents, all will be dropped. */
 struct event *
 event_drop_parent_log_prefixes(struct event *event, unsigned int count);
