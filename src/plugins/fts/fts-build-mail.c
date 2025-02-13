@@ -232,7 +232,7 @@ fts_build_body_begin(struct fts_mail_build_context *ctx,
 	} T_END;
 
 	if (fts_parser_init(&parser_context, &ctx->body_parser)) {
-		/* extract text using the the returned parser */
+		/* extract text using the returned parser */
 		*binary_body_r = TRUE;
 		key.type = FTS_BACKEND_BUILD_KEY_BODY_PART;
 	} else if (str_begins_with(parser_context.content_type, "text/") ||

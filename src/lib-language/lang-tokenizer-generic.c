@@ -133,7 +133,7 @@ lang_tokenizer_generic_simple_current_token(struct generic_lang_tokenizer *tok,
 		   into U+0027 earlier. There can be only a single such
 		   apostrophe, because otherwise the token would have already
 		   been split. We also want to remove the trailing apostrophe
-		   only if it's the the last character in the nontruncated
+		   only if it's the last character in the nontruncated
 		   token - a truncated token may end with apostrophe. */
 		if (len > 0 && data[len-1] == '\'') {
 			len--;
