@@ -17,14 +17,13 @@ int main(void)
 	struct message_block block;
 	ssize_t ret;
 
+	lib_init();
 	struct fts_parser_context parser_context = {
 		.content_type = "text/html",
 		.event = event_create(NULL)
 	};
 	event_add_category(parser_context.event, &event_category_fts);
 	event_set_append_log_prefix(parser_context.event, "fts-xml2text: ");
-
-	lib_init();
 
 	parser = fts_parser_html.try_init(&parser_context);
 	i_assert(parser != NULL);
@@ -49,7 +48,7 @@ int main(void)
 			i_fatal("write(stdout) failed: %m");
 	}
 
-	lib_deinit();
 	event_unref(&parser_context.event);
+	lib_deinit();
 	return 0;
 }
