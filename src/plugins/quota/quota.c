@@ -656,7 +656,8 @@ quota_get_resource(struct quota_root *root, struct mailbox *box,
 struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 {
 	struct quota_transaction_context *ctx;
-	struct quota_root *const *rootp;
+	struct quota_root *const *roots;
+	unsigned int roots_count, i;
 
 	ctx = i_new(struct quota_transaction_context, 1);
 	ctx->quota = box->list->ns->owner != NULL ?
@@ -664,19 +665,21 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 		quota_get_mail_user_quota(box->list->ns->user);
 	i_assert(ctx->quota != NULL);
 
+	roots = array_get(&ctx->quota->all_roots, &roots_count);
+
 	ctx->box = box;
 	ctx->bytes_ceil = (uint64_t)-1;
 	ctx->bytes_ceil2 = (uint64_t)-1;
 	ctx->count_ceil = (uint64_t)-1;
 
 	ctx->auto_updating = TRUE;
-	array_foreach(&ctx->quota->all_roots, rootp) {
-		if (!quota_root_is_visible(*rootp, ctx->box))
+	for (i = 0; i < roots_count; i++) {
+		if (!quota_root_is_visible(roots[i], ctx->box))
 			continue;
 
 		const struct quota_root_settings *set = NULL;
 		const char *error;
-		if (quota_root_settings_get(*rootp, box->event,
+		if (quota_root_settings_get(roots[i], box->event,
 					    &set, &error) < 0) {
 			e_error(ctx->box->event, "%s", error);
 			ctx->failed = TRUE;
@@ -695,8 +698,8 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 		   (An alternative could be to get the current quota usage
 		   before and after the expunges, but that's more complicated
 		   and probably isn't any better.) */
-		if (!(*rootp)->auto_updating ||
-		    quota_root_has_under_warnings(*rootp) != 0)
+		if (!(roots[i])->auto_updating ||
+		    quota_root_has_under_warnings(roots[i]) != 0)
 			ctx->auto_updating = FALSE;
 	}
 
