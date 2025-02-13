@@ -429,7 +429,7 @@ imap_bodystructure_parse_args_int(
 		return -1;
 	}
 	if (part != NULL) {
-		/* parsing with pre-existing message_part tree */
+		/* parsing with preexisting message_part tree */
 		parsing_tree = FALSE;
 	} else {
 		/* parsing message_part tree from BODYSTRUCTURE as well */

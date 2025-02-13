@@ -69,7 +69,7 @@ void json_istream_get_location(struct json_istream *stream,
    remainder of the JSON input, an error will occur. This function returns -1
    upon error, 0 when more input is needed to finish and 1 when finishing the
    input was successful. The error_r parameter will be set when the return value
-   is -1 and will return any (pre-existing or final) error in the stream. The
+   is -1 and will return any (preexisting or final) error in the stream. The
    provided stream is dereferenced implicitly when the return value is not 0. */
 int json_istream_finish(struct json_istream **_stream,
 			const char **error_r);
