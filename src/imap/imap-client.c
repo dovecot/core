@@ -1216,7 +1216,7 @@ static bool client_skip_line(struct client *client)
 static void client_idle_output_timeout(struct client *client)
 {
 	client_destroy(client, t_strdup_printf(
-		"Client has not read server output for for %"PRIdTIME_T" secs",
+		"Client has not read server output for %"PRIdTIME_T" secs",
 		ioloop_time - client->last_output));
 }
 
