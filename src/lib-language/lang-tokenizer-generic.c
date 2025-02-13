@@ -238,7 +238,7 @@ is_base64(const unsigned char ch)
 }
 
 /* So far the following rule seems give good results in avoid indexing base64
-   as keywords. It also seems to run well against against base64 embedded
+   as keywords. It also seems to run well against base64 embedded
    headers, like ARC-Seal, DKIM-Signature, X-SG-EID, X-SG-ID, including
    encoded parts (e.g. =?us-ascii?Q?...?= sequences).
 
