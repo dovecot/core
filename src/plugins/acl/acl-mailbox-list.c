@@ -284,7 +284,7 @@ iter_mailbox_has_visible_children(struct mailbox_list_iterate_context *_ctx,
 	   the list pattern? */
 	if (ctx->lookup_boxes != NULL) {
 		/* we have a list of mailboxes with LOOKUP rights. before
-		   starting the slow list iteration, check check first
+		   starting the slow list iteration, check first
 		   if there even are any children with LOOKUP rights. */
 		struct mailbox_node *node;
 
