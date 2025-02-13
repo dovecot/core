@@ -269,6 +269,7 @@ static int fn_hash_algo(const struct var_expand_statement *stmt, const char *alg
 			if (var_expand_parameter_idx(par) == 0)
 				continue;
 		}
+		i_assert(key != NULL);
 		if (strcmp(key, "rounds") == 0) {
 			if (var_expand_parameter_number_or_var(state, par,
 							       &rounds, error_r) < 0)
