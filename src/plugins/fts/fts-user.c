@@ -41,7 +41,7 @@ size_t fts_mail_user_message_max_size(struct mail_user *user)
 int fts_mail_user_init(struct mail_user *user, struct event *event,
 		       bool initialize_libfts, const char **error_r)
 {
-	struct fts_user *fuser = FTS_USER_CONTEXT(user);
+	struct fts_user *fuser = FTS_USER_CONTEXT_REQUIRE(user);
 
 	if (fuser->set != NULL)
 		return 0;
