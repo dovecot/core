@@ -10,10 +10,10 @@ bool quota_warning_match(const struct quota_root_settings *w,
 {
 #define QUOTA_EXCEEDED(before, current, limit) \
 	((before) < (uint64_t)(limit) && (current) >= (uint64_t)(limit))
-	uint64_t bytes_limit = w->quota_storage_size *
-		w->quota_storage_percentage / 100;
-	uint64_t count_limit = w->quota_message_count *
-		w->quota_message_percentage / 100;
+	uint64_t bytes_limit = (uint64_t)w->quota_storage_size *
+		(uint64_t)w->quota_storage_percentage / 100ULL;
+	uint64_t count_limit = (uint64_t)w->quota_message_count *
+		(uint64_t)w->quota_message_percentage / 100ULL;
 	if (strcmp(w->quota_warning_threshold, QUOTA_WARNING_THRESHOLD_OVER) == 0) {
 		/* over quota (default) */
 		if (strcmp(w->quota_warning_resource, QUOTA_WARNING_RESOURCE_STORAGE) == 0 &&
