@@ -1516,7 +1516,7 @@ settings_apply_override_cmp(const struct settings_apply_override *set1,
 	   -o mail_path to override the default sdbox/mail_path. */
 	if (set1->set->filter_array_element_count > 0 ||
 	    (set1->set->filter_element_count > 0 &&
-	     set1->set->filter_element_count > 0)) {
+	     set2->set->filter_element_count > 0)) {
 		ret = (int)set2->set->filter_element_count -
 			(int)set1->set->filter_element_count;
 		if (ret != 0)
