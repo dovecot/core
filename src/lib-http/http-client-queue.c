@@ -265,7 +265,7 @@ http_client_queue_soft_connect_timeout(struct http_client_queue *queue)
 		return;
 	}
 
-	/* If our our previous connection attempt takes longer than the
+	/* If our previous connection attempt takes longer than the
 	   soft_connect_timeout, we start a connection attempt to the next IP in
 	   parallel */
 	https_name = http_client_peer_addr_get_https_name(addr);
