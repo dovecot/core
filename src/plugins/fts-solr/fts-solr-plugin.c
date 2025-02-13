@@ -29,7 +29,7 @@ int fts_solr_mail_user_get(struct mail_user *user, struct event *event,
 			   struct fts_solr_user **fuser_r,
 			   const char **error_r)
 {
-	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT(user);
+	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT_REQUIRE(user);
 	const struct fts_solr_settings *set;
 
 	if (fts_solr_settings_get(event, &fts_solr_setting_parser_info,
