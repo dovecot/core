@@ -496,16 +496,6 @@ void http_client_context_unref(struct http_client_context **_cctx)
 	pool_unref(&cctx->pool);
 }
 
-static unsigned int
-http_client_get_dns_lookup_timeout_msecs(const struct http_client_settings *set)
-{
-	if (set->connect_timeout_msecs > 0)
-		return set->connect_timeout_msecs;
-	if (set->request_timeout_msecs > 0)
-		return set->request_timeout_msecs;
-	return HTTP_CLIENT_DEFAULT_DNS_LOOKUP_TIMEOUT_MSECS;
-}
-
 static void
 http_client_context_update_settings(struct http_client_context *cctx)
 {
@@ -516,14 +506,11 @@ http_client_context_update_settings(struct http_client_context *cctx)
 	cctx->dns_client = NULL;
 	i_free(cctx->dns_client_socket_path);
 	cctx->dns_ttl_msecs = UINT_MAX;
-	cctx->dns_lookup_timeout_msecs = UINT_MAX;
+	cctx->dns_lookup_timeout_msecs = HTTP_CLIENT_DEFAULT_DNS_LOOKUP_TIMEOUT_MSECS;
 
 	/* Override with available client settings */
 	for (client = cctx->clients_list; client != NULL;
 	     client = client->next) {
-		unsigned int dns_lookup_timeout_msecs =
-			http_client_get_dns_lookup_timeout_msecs(client->set);
-
 		if (cctx->dns_client == NULL)
 			cctx->dns_client = client->dns_client;
 		if (cctx->dns_client_socket_path == NULL &&
@@ -546,20 +533,11 @@ http_client_context_update_settings(struct http_client_context *cctx)
 		if (client->set->dns_ttl_msecs != 0 &&
 		    cctx->dns_ttl_msecs > client->set->dns_ttl_msecs)
 			cctx->dns_ttl_msecs = client->set->dns_ttl_msecs;
-		if (dns_lookup_timeout_msecs != 0 &&
-		    cctx->dns_lookup_timeout_msecs > dns_lookup_timeout_msecs) {
-			cctx->dns_lookup_timeout_msecs =
-				dns_lookup_timeout_msecs;
-		}
 		debug = debug || event_want_debug(client->event);
 	}
 
 	if (cctx->dns_ttl_msecs == UINT_MAX)
 		cctx->dns_ttl_msecs = HTTP_CLIENT_DEFAULT_DNS_TTL_MSECS;
-	if (cctx->dns_lookup_timeout_msecs == UINT_MAX) {
-		cctx->dns_lookup_timeout_msecs =
-			HTTP_CLIENT_DEFAULT_DNS_LOOKUP_TIMEOUT_MSECS;
-	}
 
 	event_set_forced_debug(cctx->event, debug);
 }
