@@ -38,6 +38,7 @@ bool var_expand_execute_stmt(struct var_expand_state *state,
 		T_BEGIN {
 			ret = (*fn)(stmt, state, &error);
 		} T_END_PASS_STR_IF(ret < 0, &error);
+		i_free(delayed_error);
 		/* this is to allow e.g. defaut to work correctly */
 		if (ret < 0) {
 			var_expand_state_unset_transfer(state);
@@ -45,11 +46,8 @@ bool var_expand_execute_stmt(struct var_expand_state *state,
 				*error_r = t_strdup(state->delayed_error);
 				return FALSE;
 			}
-			i_free(delayed_error);
 			delayed_error =
 				i_strdup_printf("%s: %s", stmt->function, error);
-		} else {
-			i_free(delayed_error);
 		}
 		/* this was already handled in the first branch, so just ignore
 		   the error here */
