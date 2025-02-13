@@ -1100,7 +1100,7 @@ void quota_transaction_rollback(struct quota_transaction_context **_ctx)
 }
 
 static void quota_alloc_with_size(struct quota_transaction_context *ctx,
-				  uoff_t size)
+				  uoff_t size, uoff_t expunged_size)
 {
 	unsigned int i;
 
@@ -1109,6 +1109,10 @@ static void quota_alloc_with_size(struct quota_transaction_context *ctx,
 	for (i = 0; i < array_count(&ctx->quota->all_roots); i++)
 		ctx->roots[i].bytes_ceil = ctx->roots[i].bytes_ceil2;
 	ctx->count_used++;
+
+	quota_used_apply_expunged(&ctx->bytes_used, expunged_size);
+	quota_used_apply_expunged(&ctx->count_used,
+				  (expunged_size > 0 ? 1 : 0));
 }
 
 enum quota_alloc_result
@@ -1156,7 +1160,7 @@ quota_try_alloc(struct quota_transaction_context *ctx, struct mail *mail,
 	   quota_alloc() or quota_free_bytes() was already used within the same
 	   transaction, but that doesn't normally happen. */
 	ctx->auto_updating = FALSE;
-	quota_alloc_with_size(ctx, size);
+	quota_alloc_with_size(ctx, size, 0);
 	return QUOTA_ALLOC_RESULT_OK;
 }
 
@@ -1274,7 +1278,7 @@ void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail)
 		(void)quota_get_mail_size(ctx, mail, &size);
 	}
 
-	quota_alloc_with_size(ctx, size);
+	quota_alloc_with_size(ctx, size, 0);
 }
 
 void quota_free_bytes(struct quota_transaction_context *ctx,
