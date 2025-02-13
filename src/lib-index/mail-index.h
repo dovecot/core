@@ -634,7 +634,7 @@ void mail_index_lookup_first(struct mail_index_view *view,
 void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 		       uint32_t *seq_r);
 /* Assign new UIDs for mails with uid=0 or uid<min_allowed_uid. All the new
-   UIDs are >= first_new_uid, an also higher than the highest seen uid (i.e. it
+   UIDs are >= first_new_uid, and also higher than the highest seen uid (i.e. it
    doesn't try to fill UID gaps). Assumes that mailbox is locked in a way that
    UIDs can be safely assigned. Returns UIDs for all assigned messages, in
    their sequence order (so UIDs are not necessary ascending). */
