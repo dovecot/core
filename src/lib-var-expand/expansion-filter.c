@@ -831,7 +831,7 @@ static int fn_regexp(const struct var_expand_statement *stmt,
 			/* looks like a placeholder */
 			str_append_data(dest, p0, p1 - p0);
 			unsigned int g = p1[1] - '0';
-			if (g >= sizeof(matches) ||
+			if (g >= N_ELEMENTS(matches) ||
 			    matches[g].rm_so == -1) {
 				*error_r = "Invalid capture group";
 				ret = -1;
