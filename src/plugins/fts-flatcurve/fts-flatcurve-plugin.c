@@ -28,7 +28,8 @@ int fts_flatcurve_mail_user_get(struct mail_user *user, struct event *event,
 				struct fts_flatcurve_user **fuser_r,
 				const char **error_r)
 {
-	struct fts_flatcurve_user *fuser = FTS_FLATCURVE_USER_CONTEXT(user);
+	struct fts_flatcurve_user *fuser =
+		FTS_FLATCURVE_USER_CONTEXT_REQUIRE(user);
 	struct fts_flatcurve_settings *set;
 
 	if (settings_get(event, &fts_flatcurve_setting_parser_info, 0,
