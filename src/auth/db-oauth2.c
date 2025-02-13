@@ -364,7 +364,6 @@ static int db_oauth2_var_expand_func_oauth2(const char *field_name,
 					    const char **error_r)
 {
 	struct db_oauth2_request *ctx = context;
-	const char *value = NULL;
 
 	if (ctx->fields != NULL) {
 		*value_r = auth_fields_find(ctx->fields, field_name);
@@ -373,7 +372,6 @@ static int db_oauth2_var_expand_func_oauth2(const char *field_name,
 		*error_r = t_strdup_printf("Field '%s' not found", field_name);
 		return -1;
 	}
-	*value_r = value;
 }
 
 static bool
