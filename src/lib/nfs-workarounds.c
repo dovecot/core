@@ -238,7 +238,7 @@ static bool nfs_flush_fcntl(const char *path, int fd)
 		return FALSE;
 
 	/* If the file was already locked, we'll just get the same lock
-	   again. It should succeed just fine. If was was unlocked, we'll
+	   again. It should succeed just fine. If was unlocked, we'll
 	   have to get a lock and then unlock it. Linux 2.6 flushes read cache
 	   only when read/write locking succeeded. */
 	fl.l_type = F_RDLCK;
