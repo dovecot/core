@@ -2166,7 +2166,7 @@ settings_instance_override_add_default(struct settings_apply_ctx *ctx,
 		pool_ref(set->pool);
 		if (event_filter_parse_case_sensitive(filter_string,
 						      set->filter, &error) < 0) {
-			i_panic("BUG: Failed to create event filter filter for %s: %s (%s)",
+			i_panic("BUG: Failed to create event filter for %s: %s (%s)",
 				set->orig_key, error, filter_string);
 		}
 		if (array_set->filter != EVENT_FILTER_MATCH_ALWAYS) {
