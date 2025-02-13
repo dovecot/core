@@ -397,7 +397,7 @@ imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
 	if (fetch_uid != 0 && mbox->state_fetched_success &&
 	    (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_MSN_WORKAROUNDS) ||
 	     IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES))) {
-		/* if we know the UID, use own own generated rseq instead of
+		/* if we know the UID, use own generated rseq instead of
 		   the potentially broken rseq that the server sent.
 		   Skip this during the initial FETCH 1:* (UID ..) handling,
 		   or we can't detect duplicate UIDs and will instead
