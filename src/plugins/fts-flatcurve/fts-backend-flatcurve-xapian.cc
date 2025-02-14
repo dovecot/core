@@ -601,7 +601,7 @@ static void fts_flatcurve_xapian_unlock(struct flatcurve_fts_backend *backend)
 	file_lock_free(&backend->xapian->lock);
 }
 
-/* Returns: 0 if read DB is null, 1 if database has been addeds, -1 on error */
+/* Returns: 0 if read DB is null, 1 if database has been added, -1 on error */
 static int
 fts_flatcurve_xapian_db_read_add(struct flatcurve_fts_backend *backend,
 				 struct flatcurve_xapian_db *xdb,
