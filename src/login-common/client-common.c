@@ -1360,7 +1360,8 @@ bool client_get_extra_disconnect_reason(struct client *client,
 			*human_reason_r = "client didn't send a cert";
 			return TRUE;
 		}
-		if (!ssl_iostream_has_valid_client_cert(client->ssl_iostream)) {
+		if (client->ssl_server_set->parsed_opts.verify_client_cert &&
+		    !ssl_iostream_has_valid_client_cert(client->ssl_iostream)) {
 			*event_reason_r = "client_ssl_cert_untrusted";
 			*human_reason_r = "client sent an untrusted cert";
 			return TRUE;
