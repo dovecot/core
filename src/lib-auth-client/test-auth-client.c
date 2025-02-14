@@ -1028,7 +1028,7 @@ test_client_auth_parallel(const char *mech, const char *username,
 		base64_encode(str_data(resp), str_len(resp), resp_b64);
 		info.initial_resp_base64 = str_c(resp_b64);
 	} else if (strcasecmp(mech, "LOGIN") == 0) {
-		/* no intial response */
+		/* no initial response */
 	} else {
 		i_unreached();
 	}
