@@ -218,6 +218,10 @@ static bool auth_request_want_failure_delay(struct auth_request *request)
 		/* passdb specifically requested not to delay the reply. */
 		return FALSE;
 	}
+	if (request->internal_failure) {
+		/* internal failures have their own delay */
+		return FALSE;
+	}
 	if (shutting_down) {
 		/* process is shutting down - finish failures immediately. */
 		return FALSE;
