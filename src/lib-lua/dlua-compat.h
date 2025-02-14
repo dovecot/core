@@ -59,7 +59,7 @@ lua_Integer lua_tointegerx(lua_State *L, int idx, int *isnum_r);
 #if LUA_VERSION_NUM > 501 && LUA_VERSION_NUM < 504
 /*
  * lua_resume() compatibility function. Lua 5.4 expects an extra "nresults"
- * argeument.
+ * argument.
  */
 #  define lua_resume(L, from, nargs, nresults) \
 	lua_resume_compat(L, from, nargs, nresults)
