@@ -1068,7 +1068,7 @@ json_parser_do_parse_literal(struct json_parser *parser,
 			if ((unichar_t)*p != ch) {
 				json_parser_error(
 					parser, "Expected value '%s', "
-					"but encounted '%s' + %s",
+					"but encountered '%s' + %s",
 					literal, t_strdup_until(literal, p),
 					json_parser_curchar_str(parser));
 				return JSON_PARSE_ERROR;
