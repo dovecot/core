@@ -160,7 +160,7 @@ static const struct discrete_test discrete_tests[] = {
 		  "metric/test/group_by/sub_name/method/discrete/method=discrete",
 		  NULL },
 		3,
-		{ "apple", "bannana", "orange", },
+		{ "apple", "banana", "orange", },
 		{ "pie", "yoghurt", "cobbler", },
 	},
 	{
