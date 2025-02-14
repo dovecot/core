@@ -178,7 +178,7 @@ bool ssl_iostream_is_handshaked(const struct ssl_iostream *ssl_io);
    failure. */
 bool ssl_iostream_has_handshake_failed(const struct ssl_iostream *ssl_io);
 bool ssl_iostream_has_valid_client_cert(const struct ssl_iostream *ssl_io);
-bool ssl_iostream_has_broken_client_cert(struct ssl_iostream *ssl_io);
+bool ssl_iostream_has_client_cert(struct ssl_iostream *ssl_io);
 /* Checks certificate validity based, also performs name checking. Called by
    default in handshake, unless handshake callback is set with
    ssl_iostream_check_cert_validity().

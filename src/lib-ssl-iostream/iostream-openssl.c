@@ -701,9 +701,9 @@ openssl_iostream_has_valid_client_cert(const struct ssl_iostream *ssl_io)
 }
 
 static bool
-openssl_iostream_has_broken_client_cert(struct ssl_iostream *ssl_io)
+openssl_iostream_has_client_cert(struct ssl_iostream *ssl_io)
 {
-	return ssl_io->cert_received && ssl_io->cert_broken;
+	return ssl_io->cert_received;
 }
 
 static bool
@@ -1087,7 +1087,7 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.is_handshaked = openssl_iostream_is_handshaked,
 	.has_handshake_failed = openssl_iostream_has_handshake_failed,
 	.has_valid_client_cert = openssl_iostream_has_valid_client_cert,
-	.has_broken_client_cert = openssl_iostream_has_broken_client_cert,
+	.has_client_cert = openssl_iostream_has_client_cert,
 	.cert_match_name = openssl_iostream_cert_match_name,
 	.get_allow_invalid_cert = openssl_iostream_get_allow_invalid_cert,
 	.get_peer_username = openssl_iostream_get_peer_username,

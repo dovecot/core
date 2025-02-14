@@ -273,9 +273,9 @@ bool ssl_iostream_has_valid_client_cert(const struct ssl_iostream *ssl_io)
 	return ssl_vfuncs->has_valid_client_cert(ssl_io);
 }
 
-bool ssl_iostream_has_broken_client_cert(struct ssl_iostream *ssl_io)
+bool ssl_iostream_has_client_cert(struct ssl_iostream *ssl_io)
 {
-	return ssl_vfuncs->has_broken_client_cert(ssl_io);
+	return ssl_vfuncs->has_client_cert(ssl_io);
 }
 
 bool ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io, const char *name,
@@ -290,7 +290,7 @@ int ssl_iostream_check_cert_validity(struct ssl_iostream *ssl_io,
 	const char *reason;
 
 	if (!ssl_iostream_has_valid_client_cert(ssl_io)) {
-		if (!ssl_iostream_has_broken_client_cert(ssl_io))
+		if (!ssl_iostream_has_client_cert(ssl_io))
 			*error_r = "SSL certificate not received";
 		else {
 			*error_r = t_strdup(ssl_iostream_get_last_error(ssl_io));
