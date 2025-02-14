@@ -94,7 +94,7 @@ enum message_cte message_decoder_parse_cte(const struct message_header_line *hdr
 
 	rfc822_skip_lwsp(&parser);
 
-	/* Ensure we do not accidentically accept confused values like
+	/* Ensure we do not accidentally accept confused values like
 	   'base64 binary' or embedded NULs */
 	if (rfc822_parse_mime_token(&parser, value) == 1) {
 		rfc822_skip_lwsp(&parser);
