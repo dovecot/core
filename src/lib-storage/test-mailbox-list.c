@@ -265,7 +265,7 @@ test_mailbox_list_get_hierarchy_sep(struct mailbox_list *list ATTR_UNUSED)
 }
 
 static void
-test_maibox_list_name_init(struct mailbox_list *list,
+test_mailbox_list_name_init(struct mailbox_list *list,
 			   const struct test_mailbox_list_name *test,
 			   bool mutf7)
 {
@@ -483,7 +483,7 @@ static void test_mailbox_list_get_names(void)
 	test_begin("mailbox list get names");
 	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
 		if ((tests[i].flags & TEST_FLAG_NO_MUTF7) == 0) {
-			test_maibox_list_name_init(&list, &tests[i], TRUE);
+			test_mailbox_list_name_init(&list, &tests[i], TRUE);
 			if ((tests[i].flags & TEST_FLAG_NO_STORAGE_NAME) == 0) {
 				test_assert_strcmp_idx(mailbox_list_default_get_storage_name(&list, tests[i].vname),
 						       tests[i].storage_name, i);
@@ -494,7 +494,7 @@ static void test_mailbox_list_get_names(void)
 			}
 		}
 		if ((tests[i].flags & TEST_FLAG_NO_UTF8) == 0) {
-			test_maibox_list_name_init(&list, &tests[i], FALSE);
+			test_mailbox_list_name_init(&list, &tests[i], FALSE);
 			if ((tests[i].flags & TEST_FLAG_NO_STORAGE_NAME) == 0) {
 				test_assert_strcmp_idx(mailbox_list_default_get_storage_name(&list, tests[i].vname),
 						       tests[i].storage_name, i);
