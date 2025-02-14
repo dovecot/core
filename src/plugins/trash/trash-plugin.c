@@ -102,6 +102,9 @@ trash_clean_init(struct trash_clean *tclean,
 	i_zero(tclean);
 	tclean->ctx = ctx;
 	tclean->user = TRASH_USER_CONTEXT_REQUIRE(ctx->quota->user);
+
+	tclean->event = event_create(ctx->quota->user->event);
+	event_set_append_log_prefix(tclean->event, "trash plugin: ");
 }
 
 static int trash_clean_mailbox_open(struct trash_clean_mailbox *tcbox)
@@ -260,16 +263,14 @@ static int trash_clean_do_execute(struct trash_clean *tclean)
 
 	/* Check whether the required reduction was achieved */
 	if (tclean->bytes_expunged < tclean->bytes_needed) {
-		e_debug(ctx->quota->user->event,
-			"trash plugin: Failed to remove enough messages "
+		e_debug(tclean->event, "Failed to remove enough messages "
 			"(needed %"PRIu64" bytes, "
 			 "expunged only %"PRIu64" bytes)",
 			tclean->bytes_needed, tclean->bytes_expunged);
 		return 0;
 	}
 	if (tclean->count_expunged < tclean->count_needed) {
-		e_debug(ctx->quota->user->event,
-			"trash plugin: Failed to remove enough messages "
+		e_debug(tclean->event, "Failed to remove enough messages "
 			"(needed %"PRIu64" messages, "
 			 "expunged only %"PRIu64" messages)",
 			tclean->count_needed, tclean->count_expunged);
@@ -343,6 +344,7 @@ static void trash_clean_deinit(struct trash_clean *tclean)
 		array_foreach_modifiable(&tclean->boxes, tcbox)
 			trash_clean_mailbox_close(tcbox);
 	}
+	event_unref(&tclean->event);
 }
 
 static int
