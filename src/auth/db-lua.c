@@ -13,8 +13,6 @@
 #include "passdb.h"
 #include "userdb.h"
 #include "auth-request.h"
-#include "userdb-template.h"
-#include "passdb-template.h"
 #include "password-scheme.h"
 #include "auth-cache.h"
 #include "auth-request-var-expand.h"
@@ -93,60 +91,6 @@ static int auth_request_lua_var_expand(lua_State *L)
 	} else {
 		lua_pushstring(L, value);
 	}
-	return 1;
-}
-
-static const char *const *
-auth_request_template_build(struct auth_request *req, const char *str,
-			    unsigned int *count_r)
-{
-	if (req->userdb_lookup) {
-		struct userdb_template *tpl =
-			userdb_template_build(pool_datastack_create(), "lua", str);
-		if (userdb_template_is_empty(tpl))
-			return NULL;
-		return userdb_template_get_args(tpl, count_r);
-	} else {
-		struct passdb_template *tpl =
-			passdb_template_build(pool_datastack_create(), str);
-		if (passdb_template_is_empty(tpl))
-			return NULL;
-		return passdb_template_get_args(tpl, count_r);
-	}
-}
-
-static int auth_request_lua_response_from_template(lua_State *L)
-{
-	struct auth_request *req = auth_lua_check_auth_request(L, 1);
-	const char *tplstr = luaL_checkstring(L, 2);
-	const char *error,*expanded;
-	unsigned int count,i;
-
-	const char *const *fields = auth_request_template_build(req, tplstr, &count);
-
-	/* push new table to stack */
-	lua_newtable(L);
-
-	if (fields == NULL)
-		return 1;
-
-	i_assert((count % 2) == 0);
-
-	for(i = 0; i < count; i+=2) {
-		const char *key = fields[i];
-		const char *value = fields[i+1];
-
-		if (value == NULL) {
-			lua_pushnil(L);
-		} else if (auth_request_lua_do_var_expand(req, value, &expanded, &error) < 0) {
-			return luaL_error(L, "%s", error);
-		} else {
-			lua_pushstring(L, expanded);
-		}
-		lua_setfield(L, -2, key);
-	}
-
-	/* stack should be left with table */
 	return 1;
 }
 
@@ -269,7 +213,6 @@ static int auth_request_lua_event(lua_State *L)
 /* put all methods here */
 static const luaL_Reg auth_request_methods[] ={
 	{ "var_expand", auth_request_lua_var_expand },
-	{ "response_from_template", auth_request_lua_response_from_template },
 	{ "log_debug", auth_request_lua_log_debug },
 	{ "log_info", auth_request_lua_log_info },
 	{ "log_warning", auth_request_lua_log_warning },
