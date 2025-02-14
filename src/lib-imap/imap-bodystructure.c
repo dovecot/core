@@ -13,7 +13,7 @@
 #include "imap-envelope.h"
 #include "imap-bodystructure.h"
 
-/* The max level of lists nesting inside the parhentesised representation of a
+/* The max level of lists nesting inside the parenthesised representation of a
    single part with no other parts inside, i.e. the max level of list nesting
    in representing a single part. According to RFC-3501, this should be in the
    order of a couple of nestings only, let's keep some margin just in case. */
