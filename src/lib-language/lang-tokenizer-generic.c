@@ -343,7 +343,7 @@ lang_tokenizer_generic_simple_next(struct lang_tokenizer *_tok,
 		apostrophe = IS_APOSTROPHE(c);
 		if ((tok->prefixsplat && IS_PREFIX_SPLAT(c)) &&
 		    (tok->prev_type == LETTER_TYPE_ALETTER)) {
-			/* this might be a prefix-mathing query */
+			/* this might be a prefix-matching query */
 			shift_prev_type(tok, LETTER_TYPE_PREFIXSPLAT);
 		} else if ((break_type = lang_simple_is_word_break(tok, c, apostrophe))
 			   != LANG_WORD_TO_WORD) {
