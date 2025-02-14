@@ -40,8 +40,8 @@ static void init_lang_settings(void)
 	"trailing, period@blue.com. " \
 	"multi-trialing, mul@trail.com..... " \
 	"m@s " \
-	"hypen@hypen-hypen.com " \
-	"hypen@hypen-hypen-sick.com.-"
+	"hyphen@hyphen-hyphen.com " \
+	"hyphen@hyphen-hyphen-sick.com.-"
 
 static const char *test_inputs[] = {
 	/* generic things and word truncation: */
@@ -339,8 +339,8 @@ static void test_lang_tokenizer_address_only(void)
 		"period@blue.com", /*trailing period '.' in email */
 		"mul@trail.com",
 		"m@s", /*one letter local-part and domain name */
-		"hypen@hypen-hypen.com",
-		"hypen@hypen-hypen-sick.com",
+		"hyphen@hyphen-hyphen.com",
+		"hyphen@hyphen-hyphen-sick.com",
 		NULL
 	};
 	struct lang_tokenizer *tok;
@@ -375,8 +375,8 @@ static void test_lang_tokenizer_address_parent(const char *name, struct lang_set
 		"trailing", "period", "blue", "com", "period@blue.com",
 		"multi", "trialing", "mul", "trail", "com", "mul@trail.com",
 		"m", "m@s", "s",
-		"hypen", "hypen", "hypen", "hypen@hypen-hypen.com", "com",
-		"hypen", "hypen", "hypen", "sick", "com", "hypen@hypen-hypen-sick.com",
+		"hyphen", "hyphen", "hyphen", "hyphen@hyphen-hyphen.com", "com",
+		"hyphen", "hyphen", "hyphen", "sick", "com", "hyphen@hyphen-hyphen-sick.com",
 		NULL
 	};
 	struct lang_tokenizer *tok, *gen_tok;
@@ -423,8 +423,8 @@ static void test_lang_tokenizer_address_search(void)
 		"trailing", "period@blue.com",
 		"multi", "trialing", "mul@trail.com",
 		"m@s",
-		"hypen@hypen-hypen.com",
-		"hypen@hypen-hypen-sick.com",
+		"hyphen@hyphen-hyphen.com",
+		"hyphen@hyphen-hyphen-sick.com",
 		NULL
 	};
 	struct lang_tokenizer *tok, *gen_tok;
