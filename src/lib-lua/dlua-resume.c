@@ -39,7 +39,7 @@ static void queue_resume_callback(lua_State *L, int status)
 	if (status != LUA_OK) {
 		int ret;
 
-		/* error occured: run debug.traceback() */
+		/* error occurred: run debug.traceback() */
 
 		/* stack: ..., error (top) */
 		lua_getglobal(L, "debug");

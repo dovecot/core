@@ -439,7 +439,7 @@ AC_DEFUN([DC_DOVECOT],[
 	AC_SUBST(abs_dovecotdir)
 	DISTCHECK_CONFIGURE_FLAGS="--with-dovecot=$abs_dovecotdir --without-dovecot-install-dirs"
 
-	dnl Make sure dovecot-config doesn't accidentically override flags
+	dnl Make sure dovecot-config doesn't accidentally override flags
 	ORIG_CFLAGS="$CFLAGS"
 	ORIG_LDFLAGS="$LDFLAGS"
 	ORIG_BINARY_CFLAGS="$BINARY_CFLAGS"

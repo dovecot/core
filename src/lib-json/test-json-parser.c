@@ -2054,7 +2054,7 @@ invalid_parse_tests[] = {
 	},
 	{
 		// invalid/lone-second-surrogate/input
-		.input = "[\"\\uDFAA (second surrogate on it's own)\"]\n",
+		.input = "[\"\\uDFAA (second surrogate on its own)\"]\n",
 	},
 	{
 		// invalid/negative-integer-starting-with-zero/input

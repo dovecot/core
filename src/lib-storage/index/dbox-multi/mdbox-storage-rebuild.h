@@ -13,7 +13,7 @@ enum mdbox_rebuild_reason {
 };
 
 int mdbox_storage_rebuild(struct mdbox_storage *storage,
-			  struct mailbox *fsckd_box,
+			  struct mailbox *fscked_box,
 			  enum mdbox_rebuild_reason reason);
 
 #endif

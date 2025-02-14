@@ -268,7 +268,7 @@ static void test_switches(void)
 		line("cmd -2 value2 -1 arg1"));
 	test_case("kwswitch_after_12", 0, assert_switch12_1_pos_args, &cmdv2_switches,
 		line("cmd arg1 -1 -2 value2"));
-	test_case("kwswitch_fater_21", 0, assert_switch12_1_pos_args, &cmdv2_switches,
+	test_case("kwswitch_after_21", 0, assert_switch12_1_pos_args, &cmdv2_switches,
 		line("cmd arg1 -2 value2 -1"));
 }
 

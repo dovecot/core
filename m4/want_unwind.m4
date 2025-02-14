@@ -6,7 +6,7 @@ AC_DEFUN([DOVECOT_WANT_UNWIND], [
       have_libunwind=no
 
       AS_IF([test "$want_libunwind" = "yes"], [
-        AC_MSG_ERROR([cannot build with libuwind support: unwind library (libunwind-generic) not found])
+        AC_MSG_ERROR([cannot build with libunwind support: unwind library (libunwind-generic) not found])
       ])
     ])
   ])
