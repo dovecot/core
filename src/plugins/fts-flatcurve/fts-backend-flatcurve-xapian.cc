@@ -1354,7 +1354,7 @@ fts_flatcurve_xapian_close_db(struct flatcurve_fts_backend *backend,
 				       FLATCURVE_XAPIAN_DB_CLOSE_MBOX)) {
 			int ret = 0;
 			try {
-				/* even if xapian documetation states that close
+				/* even if xapian documentation states that close
 				auto-commits, GlassWritableDatabase::close() can
 				fail to actually close the db if commit fails.
 				We explicitly commit before invoking close to
