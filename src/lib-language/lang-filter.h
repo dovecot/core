@@ -23,7 +23,7 @@ extern const struct lang_filter *lang_filter_stopwords;
 extern const struct lang_filter *lang_filter_stemmer_snowball;
 
 /*
- Settings: "id", description of the normalizing/translitterating rules
+ Settings: "id", description of the normalizing/transliterating rules
  to use.  See
  http://userguide.icu-project.org/transforms/general#TOC-Transliterator-Identifiers
  for syntax. Defaults to "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC"
