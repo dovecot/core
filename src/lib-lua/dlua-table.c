@@ -27,7 +27,7 @@ static inline int adj(int idx, int delta)
 /*
  * Pushes onto the stack the value t[k], where t is the value at the given
  * index and k is the value at the top of the stack.  Unlike lua_gettable(),
- * this function checks the type of the retreived value against the passed
+ * this function checks the type of the retrieved value against the passed
  * in type. [-1,+0..1,e]
  *
  * Return value:
