@@ -237,7 +237,7 @@ i_stream_read_more(struct istream *stream, const unsigned char **data_r,
    indicated limit. Use this function to prevent growing the stream buffer
    beyond what the application is willing to read immediately. Since this
    function doesn't fully prevent buffering beyond the limit, the amount of data
-   actually buffered can exceed the limit. However, *size_r will allways be <=
+   actually buffered can exceed the limit. However, *size_r will always be <=
    limit to avoid confusion. */
 int i_stream_read_limited(struct istream *stream, const unsigned char **data_r,
 			  size_t *size_r, size_t limit);
