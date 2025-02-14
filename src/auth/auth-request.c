@@ -702,6 +702,19 @@ void auth_request_passdb_lookup_end(struct auth_request *request,
 				    enum passdb_result result)
 {
 	i_assert(array_count(&request->authdb_event) > 0);
+
+	/* If client certificates are required, ensure that something
+	   checked the certificate, either it was valid due to CA checks
+	   or certificate fingerprint checks. */
+	if (result == PASSDB_RESULT_OK &&
+	    request->set->ssl_require_client_cert &&
+	    !request->fields.valid_client_cert) {
+		const char *reply = "Client didn't present valid SSL certificate";
+		request->failed = TRUE;
+		auth_request_set_field(request, "reason", reply, STATIC_PASS_SCHEME);
+		result = PASSDB_RESULT_PASSWORD_MISMATCH;
+	}
+
 	struct event *event = authdb_event(request);
 	struct event_passthrough *e =
 		event_create_passthrough(event)->

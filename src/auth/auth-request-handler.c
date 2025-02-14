@@ -668,8 +668,20 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 					auth_request_timeout, request);
 	hash_table_insert(handler->requests, POINTER_CAST(id), request);
 
+	/* If the provided certificate is not valid (untrusted CA signature),
+	   we allow continuing only if there are fingerprints for the certificate
+	   too. If there are no certificate fingerprints, we can already fail
+	   here.
+
+	   Actual validity is re-checked after authentication, so that
+	   certificate fingeprints can be checked too.
+	*/
 	if (request->set->ssl_require_client_cert &&
-	    !request->fields.valid_client_cert) {
+	    !request->fields.valid_client_cert &&
+	    (request->fields.ssl_client_cert_fp == NULL ||
+	     *request->fields.ssl_client_cert_fp == '\0') &&
+	    (request->fields.ssl_client_cert_pubkey_fp == NULL ||
+	     *request->fields.ssl_client_cert_pubkey_fp == '\0')) {
 		/* we fail without valid certificate */
                 auth_request_handler_auth_fail(handler, request,
 			"Client didn't present valid SSL certificate");
