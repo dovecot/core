@@ -111,7 +111,7 @@ enum json_parse_result {
 	/* Parsed to end of currently buffered data */
 	JSON_PARSE_NO_DATA = -4,
 	/* Prevent call stack overflow
-	  (to support arbitrarely deeply nested input) */
+	  (to support arbitrarily deeply nested input) */
 	JSON_PARSE_CALL_STACK_OVERFLOW = -3,
 	/* Encountered invalid/unexpected syntax */
 	JSON_PARSE_UNEXPECTED_EOF = -2,
