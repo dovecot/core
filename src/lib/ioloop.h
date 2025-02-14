@@ -235,7 +235,7 @@ void io_loop_context_unref(struct ioloop_context **ctx);
    The ioloop context is a global state, so only a single context can be active
    at a time. The callbacks are guaranteed to be called only at their proper
    states, i.e. activate() callback is called only when switching from
-   no context to the active context, and deactive() is called only when
+   no context to the active context, and deactivate() is called only when
    switching from previously activated context into no context. No context is
    active at a time when the ioloop is destroyed. */
 void io_loop_context_add_callbacks(struct ioloop_context *ctx,
