@@ -38,7 +38,7 @@ static void init_lang_settings(void)
 	"foo, foo@domain " \
 	"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@1bcdefghijklmnopqrstuvxy1.2bcdefghijklmnopqrstuvxy2.3bcdefghijklmnopqrstuvxy3.4bcdefghijklmnopqrstuvxy4.5bcdefghijklmnopqrstuvxy5.6bcdefghijklmnopqrstuvxy6.7bcdefghijklmnopqrstuvxy7.8bcdefghijklmnopqrstuvxy8.9bcdefghijklmnopqrstuvxy9.0bcdefghijklmnopqrstuvxy0.tld " \
 	"trailing, period@blue.com. " \
-	"multi-trialing, mul@trail.com..... " \
+	"multi-trailing, mul@trail.com..... " \
 	"m@s " \
 	"hyphen@hyphen-hyphen.com " \
 	"hyphen@hyphen-hyphen-sick.com.-"
@@ -373,7 +373,7 @@ static void test_lang_tokenizer_address_parent(const char *name, struct lang_set
 		"9bcdefghijklmnopqrstuvxy9",
 		"0bcdefghijklmnopqrstuvxy0", "tld",
 		"trailing", "period", "blue", "com", "period@blue.com",
-		"multi", "trialing", "mul", "trail", "com", "mul@trail.com",
+		"multi", "trailing", "mul", "trail", "com", "mul@trail.com",
 		"m", "m@s", "s",
 		"hyphen", "hyphen", "hyphen", "hyphen@hyphen-hyphen.com", "com",
 		"hyphen", "hyphen", "hyphen", "sick", "com", "hyphen@hyphen-hyphen-sick.com",
@@ -421,7 +421,7 @@ static void test_lang_tokenizer_address_search(void)
 		"9bcdefghijklmnopqrstuvxy9",
 		"0bcdefghijklmnopqrstuvxy0", "tld",
 		"trailing", "period@blue.com",
-		"multi", "trialing", "mul@trail.com",
+		"multi", "trailing", "mul@trail.com",
 		"m@s",
 		"hyphen@hyphen-hyphen.com",
 		"hyphen@hyphen-hyphen-sick.com",
