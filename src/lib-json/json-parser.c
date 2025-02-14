@@ -1629,7 +1629,7 @@ json_parser_do_parse_string_value(struct json_parser *parser,
 	if (parser->str_stream == NULL &&
 	    parser->str_stream_max_buffer_size > 0 &&
 	    max_size > parser->str_stream_threshold) {
-		/* Return string stream immediately once the treshold is
+		/* Return string stream immediately once the threshold is
 		   crossed */
 		max_size = parser->str_stream_threshold;
 	}
