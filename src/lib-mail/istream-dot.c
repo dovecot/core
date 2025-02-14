@@ -21,7 +21,7 @@ struct dot_istream {
 	enum dot_state state;
 	/* state didn't actually start with \r */
 	bool state_no_cr:1;
-	/* state didn't contain \n either (only at the beginnign of stream) */
+	/* state didn't contain \n either (only at the beginning of stream) */
 	bool state_no_lf:1;
 	/* we've seen the "." line, keep returning EOF */
 	bool dot_eof:1;
