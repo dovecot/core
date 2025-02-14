@@ -542,7 +542,7 @@ auth_scram_parse_client_finish(struct auth_scram_server *server ATTR_UNUSED,
 	return 0;
 }
 
-bool auth_scram_server_acces_granted(struct auth_scram_server *server)
+bool auth_scram_server_access_granted(struct auth_scram_server *server)
 {
 	return (server->state == AUTH_SCRAM_SERVER_STATE_SERVER_FINAL);
 }
