@@ -216,19 +216,23 @@ static bool auth_request_want_failure_delay(struct auth_request *request)
 {
 	if (request->failure_nodelay) {
 		/* passdb specifically requested not to delay the reply. */
+		e_debug(request->event, "immediate auth failure due to nodelay");
 		return FALSE;
 	}
 	if (request->internal_failure) {
 		/* internal failures have their own delay */
+		e_debug(request->event, "immediate auth failure due to internal failure");
 		return FALSE;
 	}
 	if (request->set->failure_delay == 0) {
 		/* Auth failure delays are disabled entirely. This is mainly
 		   intended for making tests faster. */
+		e_debug(request->event, "immediate auth failure due to auth_failure_delay=0");
 		return FALSE;
 	}
 	if (shutting_down) {
 		/* process is shutting down - finish failures immediately. */
+		e_debug(request->event, "immediate auth failure due to shutting down");
 		return FALSE;
 	}
 	return TRUE;
@@ -255,13 +259,12 @@ auth_request_handle_failure(struct auth_request *request, const char *reply)
 	if (request->set->policy_report_after_auth)
 		auth_policy_report(request);
 
-	e_debug(request->event, "handling failure, nodelay=%d",
-		(int) request->failure_nodelay);
 	if (!auth_request_want_failure_delay(request)) {
 		handler->callback(reply, handler->conn);
 		auth_request_unref(&request);
 		return;
 	}
+	e_debug(request->event, "delaying auth failure");
 
 	/* failure. don't announce it immediately to avoid
 	   a) timing attacks, b) flooding */
