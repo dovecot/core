@@ -30,7 +30,7 @@ struct auth_oauth2_settings {
 	const char *active_attribute;
 	/* expected active value for active attribute, optional */
 	const char *active_value;
-	/* client identificator for oauth2 server */
+	/* client identifier for oauth2 server */
 	const char *client_id;
 	/* not really used, but have to present by oauth2 specs */
 	const char *client_secret;
