@@ -13,7 +13,6 @@
 #include "process-title.h"
 #include "master-service.h"
 #include "auth-request.h"
-#include "userdb-template.h"
 #include "auth-worker-server.h"
 #include "db-oauth2.h"
 

@@ -8,7 +8,6 @@
 #include "str-sanitize.h"
 #include "base64.h"
 #include "auth-request.h"
-#include "userdb-template.h"
 
 void auth_request_fields_init(struct auth_request *request)
 {

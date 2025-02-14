@@ -25,9 +25,7 @@
 #include "passdb.h"
 #include "passdb-blocking.h"
 #include "passdb-cache.h"
-#include "passdb-template.h"
 #include "userdb-blocking.h"
-#include "userdb-template.h"
 #include "password-scheme.h"
 #include "wildcard-match.h"
 

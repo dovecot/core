@@ -2,7 +2,6 @@
 
 #include "auth-common.h"
 #include "passdb.h"
-#include "passdb-template.h"
 #include "password-scheme.h"
 #include "settings.h"
 #include "auth-settings.h"

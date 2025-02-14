@@ -5,7 +5,6 @@
 #include "array.h"
 #include "str.h"
 #include "userdb.h"
-#include "userdb-template.h"
 #include "settings.h"
 
 

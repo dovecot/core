@@ -120,7 +120,6 @@ auth_common_sources = \
 	passdb-pam.c \
 	passdb-sql.c \
 	passdb-static.c \
-	passdb-template.c \
 	userdb.c \
 	userdb-blocking.c \
 	userdb-passwd.c \
@@ -128,7 +127,6 @@ auth_common_sources = \
 	userdb-prefetch.c \
 	userdb-static.c \
 	userdb-sql.c \
-	userdb-template.c \
 	$(ldap_sources) \
 	$(lua_sources)
 
@@ -162,10 +160,8 @@ headers = \
 	passdb.h \
 	passdb-blocking.h \
 	passdb-cache.h \
-	passdb-template.h \
 	userdb.h \
-	userdb-blocking.h \
-	userdb-template.h
+	userdb-blocking.h
 
 if GSSAPI_PLUGIN
 libmech_gssapi_la_LDFLAGS = -module -avoid-version

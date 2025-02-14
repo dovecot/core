@@ -6,8 +6,6 @@
 #include "mech.h"
 #include "userdb.h"
 #include "passdb.h"
-#include "passdb-template.h"
-#include "userdb-template.h"
 #include "auth.h"
 #include "dns-lookup.h"
 
