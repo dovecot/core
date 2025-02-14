@@ -44,8 +44,8 @@ enum mail_index_open_flags {
 
 enum mail_index_header_compat_flags {
 	/* All fields in these index files are in little-endian format.
-	   If the current CPU endianess doesn't match this, the indexes can't
-	   be used. There is currently no support to translate endianess. */
+	   If the current CPU endianness doesn't match this, the indexes can't
+	   be used. There is currently no support to translate endianness. */
 	MAIL_INDEX_COMPAT_LITTLE_ENDIAN		= 0x01
 };
 
