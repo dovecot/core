@@ -16,7 +16,7 @@ The proxy requires you to provide completion callback. The
 completion callback is called with success parameter to
 indicate whether it ended with error.
 
-The istreams and ostreams are reffed on creation and unreffed
+The istreams and ostreams are reffed on creation and unrefed
 on unref.
 
 **/
