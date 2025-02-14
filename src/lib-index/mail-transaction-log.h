@@ -61,7 +61,7 @@ struct mail_transaction_log_header {
 
 	   These are mainly useful to optimize syncing when the start position
 	   is (prev_file_seq, prev_file_offset). Then it's it's already known
-	   that the syncing can be started from this log file wihtout having
+	   that the syncing can be started from this log file without having
 	   to open the previous log file only to realize that there is nothing
 	   to sync. (Which could have also lead to an error if the .log.2 was
 	   already deleted.) */
