@@ -318,7 +318,7 @@ static void sig_close_listeners(const siginfo_t *si ATTR_UNUSED, void *context)
 	/* We're in a signal handler: Close listeners immediately so master
 	   can successfully restart. We can safely close only those listeners
 	   that don't have an io, but this shouldn't be a big problem. If there
-	   is an active io, the service is unlikely to be unresposive for
+	   is an active io, the service is unlikely to be unresponsive for
 	   longer periods of time, so the listener gets closed soon enough via
 	   master_status_error().
 
