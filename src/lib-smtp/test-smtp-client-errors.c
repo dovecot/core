@@ -1487,7 +1487,7 @@ test_client_premature_reply_login_cb(const struct smtp_reply *reply,
 	case 5:
 		test_assert(reply->status ==
 			    SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY);
-		/* Don't bother continueing with this test. Second try after
+		/* Don't bother continuing with this test. Second try after
 		   smtp_client_transaction_start() will have the same result. */
 		smtp_client_transaction_abort(pctx->trans);
 		break;
