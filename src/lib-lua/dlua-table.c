@@ -10,7 +10,7 @@
  * In a couple of places we need to adjust the passed in index to reflect
  * additional items pushed onto the stack.  We cannot blindly adjust the
  * index because the index could be one of three things and only one of them
- * is supposed to be ajusted:
+ * is supposed to be adjusted:
  *
  *  1. negative number: index relative to top of stack, adjust
  *  2. positive number: absolute index, don't adjust
