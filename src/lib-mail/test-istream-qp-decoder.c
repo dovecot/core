@@ -154,7 +154,7 @@ decode_test(const char *qp_input, const char *output, int stream_errno,
 		}
 		test_assert(ret == -1);
 		/* If there is no error still assume that the result is valid
-		 * till artifical eof. */
+		 * till artificial eof. */
 		if (input->stream_errno == 0) {
 			unsigned int encoding_margin =
 				get_encoding_size_diff(qp_input, eof);

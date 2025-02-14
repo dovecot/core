@@ -80,7 +80,7 @@
    the parsing code sees a filter that includes groups, it immediately
    processes all the group filters and applies any matches. This is needed,
    because group includes can exist hierarchically so that the most specific
-   (innermost filter) includes are fully applied before the less epecific
+   (innermost filter) includes are fully applied before the less specific
    (outermost filter / global) includes. So if there is e.g. a global
    @group=foo and namespace { @group=bar } which both modify the same setting,
    the @group=bar must be applied first to get the expected value. If the same

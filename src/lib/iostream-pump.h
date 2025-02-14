@@ -10,7 +10,7 @@
    callback is called with success parameter to indicate whether it ended
    with error.
 
-   The istream and ostream are reffed on creation and unreffed
+   The istream and ostream are reffed on creation and unrefed
    on unref.
  */
 

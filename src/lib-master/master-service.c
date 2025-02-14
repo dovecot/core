@@ -318,7 +318,7 @@ static void sig_close_listeners(const siginfo_t *si ATTR_UNUSED, void *context)
 	/* We're in a signal handler: Close listeners immediately so master
 	   can successfully restart. We can safely close only those listeners
 	   that don't have an io, but this shouldn't be a big problem. If there
-	   is an active io, the service is unlikely to be unresposive for
+	   is an active io, the service is unlikely to be unresponsive for
 	   longer periods of time, so the listener gets closed soon enough via
 	   master_status_error().
 
@@ -1693,7 +1693,7 @@ static void master_service_overflow(struct master_service *service)
 	}
 	if (service->master_status.available_count == 0) {
 		/* Client was destroyed, but restart_request_count is now 0.
-		   The servive was already stopped, so the process will
+		   The service was already stopped, so the process will
 		   shutdown and a new process can handle the waiting client
 		   connection. */
 		i_assert(service->restart_request_count_left == 0);

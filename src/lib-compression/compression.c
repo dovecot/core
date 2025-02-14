@@ -25,7 +25,7 @@ static bool is_compressed_zlib(struct istream *input)
 	const unsigned char *data;
 	size_t size;
 
-	/* Peek in to the stream and see if it looks like it's compressed
+	/* Peek into the stream and see if it looks like it's compressed
 	   (based on its header). This also means that users can try to exploit
 	   security holes in the uncompression library by APPENDing a specially
 	   crafted mail. So let's hope zlib is free of holes. */

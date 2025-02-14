@@ -1039,7 +1039,7 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 	    !str_begins_with(vname, "INBOX")) {
 		/* make sure INBOX shows up in uppercase everywhere. do this
 		   regardless of whether we're in inbox=yes namespace, because
-		   clients expect INBOX to be case insensitive regardless of
+		   clients expect INBOX to be case-insensitive regardless of
 		   server's internal configuration. */
 		if (suffix[0] == '\0')
 			vname = "INBOX";

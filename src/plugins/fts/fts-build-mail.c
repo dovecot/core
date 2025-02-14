@@ -124,7 +124,7 @@ fts_build_tokenized_hdr_update_lang(struct fts_mail_build_context *ctx,
 {
 	/* Headers that don't contain any human language will only be
 	   translated to lowercase - no stemming or other filtering. There's
-	   unfortunately no pefect way of detecting which headers contain
+	   unfortunately no perfect way of detecting which headers contain
 	   human languages, so we check with fts_header_has_language if the
 	   header is something that's supposed to containing human text. */
 	if (fts_header_has_language(hdr->name))
@@ -232,7 +232,7 @@ fts_build_body_begin(struct fts_mail_build_context *ctx,
 	} T_END;
 
 	if (fts_parser_init(&parser_context, &ctx->body_parser)) {
-		/* extract text using the the returned parser */
+		/* extract text using the returned parser */
 		*binary_body_r = TRUE;
 		key.type = FTS_BACKEND_BUILD_KEY_BODY_PART;
 	} else if (str_begins_with(parser_context.content_type, "text/") ||

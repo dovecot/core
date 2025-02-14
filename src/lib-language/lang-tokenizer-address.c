@@ -108,7 +108,7 @@ lang_tokenizer_address_parent_data(struct email_address_lang_tokenizer *tok,
 	return TRUE;
 }
 
-/* Used to rewind past characters that can not be the start of a new localpart.
+/* Used to rewind past characters that cannot be the start of a new localpart.
  Returns size that can be skipped. */
 static size_t skip_nonlocal_part(const unsigned char *data, size_t size)
 {
@@ -348,7 +348,7 @@ lang_tokenizer_email_address_next(struct lang_tokenizer *_tok,
 				return 1;
 			break;
 		case EMAIL_ADDRESS_PARSER_STATE_SKIP:
-			/* The curernt token is too large to determine if it's
+			/* The current token is too large to determine if it's
 			   an email address or not. The address-tokenizer is
 			   simply skipping over it, but the input is being
 			   passed to the parent tokenizer. */

@@ -10,7 +10,7 @@
  * In a couple of places we need to adjust the passed in index to reflect
  * additional items pushed onto the stack.  We cannot blindly adjust the
  * index because the index could be one of three things and only one of them
- * is supposed to be ajusted:
+ * is supposed to be adjusted:
  *
  *  1. negative number: index relative to top of stack, adjust
  *  2. positive number: absolute index, don't adjust
@@ -27,7 +27,7 @@ static inline int adj(int idx, int delta)
 /*
  * Pushes onto the stack the value t[k], where t is the value at the given
  * index and k is the value at the top of the stack.  Unlike lua_gettable(),
- * this function checks the type of the retreived value against the passed
+ * this function checks the type of the retrieved value against the passed
  * in type. [-1,+0..1,e]
  *
  * Return value:

@@ -72,7 +72,7 @@ int http_client_peer_addr_cmp(const struct http_client_peer_addr *peer1,
 	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
 		/* Queues are created with peer addresses that have an
 		   uninitialized IP value, because that is assigned later when
-		   the host lookup completes. In all other other contexts, the
+		   the host lookup completes. In all other contexts, the
 		   IP is always initialized, so we do not compare IPs when one
 		   of them is unassigned. */
 		if (peer1->a.tcp.ip.family != 0 &&
@@ -1295,7 +1295,7 @@ http_client_peer_connection_failed_pool(struct http_client_peer *peer,
 
 	peer->connect_failed = TRUE;
 
-	/* Make a copy of the queue array; queues get linked/unlinged while the
+	/* Make a copy of the queue array; queues get linked/unlinked while the
 	   connection failure is handled */
 	t_array_init(&queues, array_count(&peer->queues));
 	array_copy(&queues.arr, 0, &peer->queues.arr, 0,

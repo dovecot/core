@@ -649,7 +649,7 @@ static bool imapc_mailbox_need_initial_fetch(struct imapc_mailbox *mbox)
 	}
 	if ((mbox->box.flags & MAILBOX_FLAG_SAVEONLY) != 0) {
 		/* The mailbox is opened only for saving there is no need to
-		   expect initial fetchting do be done. */
+		   expect initial fetching do be done. */
 		return FALSE;
 	}
 	return TRUE;

@@ -75,7 +75,7 @@ static const char *mail_broken_input_bodies[] = {
 	/* extra whitespace */
 	"Zm9v\n Zm9v\n",
 	"Zm9v \nZm9v\n",
-	/* mixed LF vs CRLFs */
+	/* mixed LF vs CR LF */
 	"Zm9vYmFy\r\nZm9vYmFy\n",
 	"Zm9vYmFy\nZm9vYmFy\r\n",
 	/* line length increases */

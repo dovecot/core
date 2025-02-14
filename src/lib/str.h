@@ -45,7 +45,7 @@ static inline void str_append_c(string_t *str, unsigned char chr)
 }
 /* This macro ensures we add unsigned char to str to avoid
    implicit casts which cause errors with clang's implicit integer truncation
-   sanitizier. Issues caught by these sanitizers are not undefined behavior,
+   sanitizer. Issues caught by these sanitizers are not undefined behavior,
    but are often unintentional.
    We also need to check that the type we are adding is compatible with char,
    so that we don't end up doing a narrowing cast. */

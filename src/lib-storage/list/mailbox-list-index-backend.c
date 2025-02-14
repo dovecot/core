@@ -563,7 +563,7 @@ static int index_list_mailbox_open(struct mailbox *box)
 	   we don't keep rewriting the name just in case some backend switches
 	   between separators when accessed different ways. */
 
-	/* Get the current mailbox name with \0 separators and unesacped. */
+	/* Get the current mailbox name with \0 separators and unescaped. */
 	size_t box_name_len;
 	const unsigned char *box_zerosep_name =
 		mailbox_name_hdr_encode(box->list, box->name, &box_name_len);

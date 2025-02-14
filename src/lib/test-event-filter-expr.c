@@ -116,7 +116,7 @@ static void test_binary_expr(struct event *event,
 	 *  - numbers 5, 6, and 7 are equivalent
 	 *  - numbers 9, 10, and 11 are equivalent
 	 *
-	 * The truth arugments specify the expected truth-iness of the
+	 * The truth arguments specify the expected truth-iness of the
 	 * passed in expressions.
 	 */
 #define BINARY(opstr, op)						\

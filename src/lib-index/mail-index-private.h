@@ -274,7 +274,7 @@ struct mail_index {
 	struct mail_index_error last_error;
 	/* Timestamp when mmap() failure was logged the last time. This is used
 	   to prevent logging the same error too rapidly. This could happen
-	   e.g. if mmap()ing a large cache file that exceeeds process's
+	   e.g. if mmap()ing a large cache file that exceeds process's
 	   VSZ limit. */
 	time_t last_mmap_error_time;
 	/* If non-NULL, dovecot.index should be recreated as soon as possible.

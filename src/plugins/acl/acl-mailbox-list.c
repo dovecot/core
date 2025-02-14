@@ -284,7 +284,7 @@ iter_mailbox_has_visible_children(struct mailbox_list_iterate_context *_ctx,
 	   the list pattern? */
 	if (ctx->lookup_boxes != NULL) {
 		/* we have a list of mailboxes with LOOKUP rights. before
-		   starting the slow list iteration, check check first
+		   starting the slow list iteration, check first
 		   if there even are any children with LOOKUP rights. */
 		struct mailbox_node *node;
 
@@ -402,7 +402,7 @@ acl_mailbox_list_info_is_visible(struct mailbox_list_iterate_context *_ctx)
 	    iter_mailbox_has_visible_children(_ctx, TRUE, FALSE)) {
 		/* no child mailboxes match the list pattern(s), but mailbox
 		   has visible children. we'll need to show this as
-		   non-existent. */
+		   nonexistent. */
 		info->flags = MAILBOX_NONEXISTENT | MAILBOX_CHILDREN |
 			(info->flags & PRESERVE_MAILBOX_FLAGS);
 		return 1;

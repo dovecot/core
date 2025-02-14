@@ -1174,7 +1174,7 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 		.type = LOG_TYPE_DEBUG,
 	};
 
-	/* So through the filters in reverse sorted order, so we always set the
+	/* Go through the filters in reverse sorted order, so we always set the
 	   setting just once, never overriding anything. A filter for the base
 	   settings is expected to always exist. */
 	struct event *event = ctx->event;

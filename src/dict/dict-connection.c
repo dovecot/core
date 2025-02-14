@@ -30,7 +30,7 @@ static int dict_connection_handshake_args(struct connection *_conn,
 	struct dict_connection *conn =
 		container_of(_conn, struct dict_connection, conn);
 
-	/* protocol handshake is Hmajor minor value_type */
+	/* protocol handshake is 'H' major <tab> minor <tab> value_type */
 	if (str_array_length(args) < 5 || **args != 'H')
 		return -1;
 
@@ -161,7 +161,7 @@ bool dict_connection_unref(struct dict_connection *conn)
 	i_assert(array_count(&conn->cmds) == 0);
 
 	/* we should have only transactions that haven't been committed or
-	   rollbacked yet. close those before dict is deinitialized. */
+	   rolled back yet. close those before dict is deinitialized. */
 	if (array_is_created(&conn->transactions)) {
 		array_foreach_modifiable(&conn->transactions, transaction)
 			dict_transaction_rollback(&transaction->ctx);

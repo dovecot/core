@@ -42,7 +42,7 @@ static void test_imem_alloc(void)
 	test_assert(s1 == NULL);
 	test_assert(s2 == NULL);
 
-	/* allcating new memory with realloc */
+	/* allocating new memory with realloc */
 	s1 = i_realloc_type(NULL, struct test_struct, 0, 2);
 	s2 = i_realloc(NULL, 0, sizeof(struct test_struct) * 2);
 	s1[0] = ab; s2[0] = ab;

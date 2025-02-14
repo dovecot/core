@@ -759,7 +759,7 @@ static int driver_mysql_try_commit_s(struct mysql_transaction_context *ctx)
 	struct sql_transaction_context *_ctx = &ctx->ctx;
 	bool multi = _ctx->head != NULL && _ctx->head->next != NULL;
 
-	/* wrap in BEGIN/COMMIT only if transaction has mutiple statements. */
+	/* wrap in BEGIN/COMMIT only if transaction has multiple statements. */
 	if (multi && transaction_send_query(ctx, "BEGIN", NULL) < 0) {
 		if (_ctx->db->state != SQL_DB_STATE_DISCONNECTED)
 			return -1;

@@ -803,9 +803,9 @@ void json_generate_string_close(struct json_generator *generator)
 	i_assert(generator->value_input == NULL);
 	i_assert(generator->state == JSON_GENERATOR_STATE_STRING);
 	if (generator->write_state != JSON_GENERATOR_STATE_STRING) {
-		/* This function does not flush first before changing state, nor
-		   does the string_open() function. So, we need to remember
-		   closing the an empty string, because otherwise nothing will
+		/* Neither this nor the string_open() function flushes
+		   first before changing state. So, we need to remember
+		   closing the empty string, because otherwise nothing will
 		   be emitted. */
 		generator->string_empty = TRUE;
 	}

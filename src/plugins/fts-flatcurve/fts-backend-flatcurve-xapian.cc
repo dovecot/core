@@ -73,7 +73,7 @@ extern "C" {
 #define FLATCURVE_XAPIAN_DB_CURRENT_PREFIX "current."
 
 /* These are temporary data types that may appear in the fts directory. They
- * are not intended to perservere between sessions. */
+ * are not intended to persist between sessions. */
 #define FLATCURVE_XAPIAN_DB_OPTIMIZE "optimize"
 
 /* Xapian "recommendations" are that you begin your local prefix identifier
@@ -81,7 +81,7 @@ extern "C" {
  * "convention". However, this recommendation is for maintaining
  * compatability with the search front-end (Omega) that they provide. We don't
  * care about compatability, so save storage space by using single letter
- * prefixes. Bodytext is stored without prefixes, as it is expected to be the
+ * prefixes. Body text is stored without prefixes, as it is expected to be the
  * single largest storage pool. */
 
 /* Caution: the code below expects these prefix to be 1-char long */
@@ -628,7 +628,7 @@ static void fts_flatcurve_xapian_unlock(struct flatcurve_fts_backend *backend)
 	file_lock_free(&backend->xapian->lock);
 }
 
-/* Returns: 0 if read DB is null, 1 if database has been addeds, -1 on error */
+/* Returns: 0 if read DB is null, 1 if database has been added, -1 on error */
 static int
 fts_flatcurve_xapian_db_read_add(struct flatcurve_fts_backend *backend,
 				 struct flatcurve_xapian_db *xdb,
@@ -1381,7 +1381,7 @@ fts_flatcurve_xapian_close_db(struct flatcurve_fts_backend *backend,
 				       FLATCURVE_XAPIAN_DB_CLOSE_MBOX)) {
 			int ret = 0;
 			try {
-				/* even if xapian documetation states that close
+				/* even if xapian documentation states that close
 				auto-commits, GlassWritableDatabase::close() can
 				fail to actually close the db if commit fails.
 				We explicitly commit before invoking close to
