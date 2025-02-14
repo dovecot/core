@@ -4,6 +4,8 @@
 #define IS_VALID_PASSWD(pass) \
 	((pass)[0] != '\0' && (pass)[0] != '*' && (pass)[0] != '!')
 
+#define STATIC_PASS_SCHEME "PLAIN"
+
 struct auth_request;
 struct auth_passdb_settings;
 struct passdb_module;
