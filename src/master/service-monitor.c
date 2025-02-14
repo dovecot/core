@@ -824,7 +824,7 @@ service_process_failure(struct service_process *process, int status)
 		   processes that were already running for a while.
 		   Try to avoid failure storms at Dovecot startup by throttling
 		   the service if it only keeps failing rapidly. This is no
-		   longer done after the service looks to be generailly working,
+		   longer done after the service looks to be generally working,
 		   in case an attacker finds a way to quickly crash their own
 		   session. */
 		if (service->exit_failure_last != ioloop_time) {
