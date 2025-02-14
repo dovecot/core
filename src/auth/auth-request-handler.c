@@ -222,6 +222,11 @@ static bool auth_request_want_failure_delay(struct auth_request *request)
 		/* internal failures have their own delay */
 		return FALSE;
 	}
+	if (request->set->failure_delay == 0) {
+		/* Auth failure delays are disabled entirely. This is mainly
+		   intended for making tests faster. */
+		return FALSE;
+	}
 	if (shutting_down) {
 		/* process is shutting down - finish failures immediately. */
 		return FALSE;
