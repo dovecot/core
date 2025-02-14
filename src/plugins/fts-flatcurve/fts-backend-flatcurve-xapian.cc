@@ -19,8 +19,8 @@ extern "C" {
 #include "fts-backend-flatcurve.h"
 #include "fts-backend-flatcurve-xapian.h"
 #include <dirent.h>
-#include <stdio.h>
 };
+#include <cstdio>
 
 #pragma GCC diagnostic push
 #  ifdef __clang__ // for building xapian's libs from gcc built debian package
