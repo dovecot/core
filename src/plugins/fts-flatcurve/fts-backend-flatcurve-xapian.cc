@@ -70,7 +70,7 @@ extern "C" {
 #define FLATCURVE_XAPIAN_DB_CURRENT_PREFIX "current."
 
 /* These are temporary data types that may appear in the fts directory. They
- * are not intended to perservere between sessions. */
+ * are not intended to persist between sessions. */
 #define FLATCURVE_XAPIAN_DB_OPTIMIZE "optimize"
 
 /* Xapian "recommendations" are that you begin your local prefix identifier
