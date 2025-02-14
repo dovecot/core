@@ -1693,7 +1693,7 @@ static void master_service_overflow(struct master_service *service)
 	}
 	if (service->master_status.available_count == 0) {
 		/* Client was destroyed, but restart_request_count is now 0.
-		   The servive was already stopped, so the process will
+		   The service was already stopped, so the process will
 		   shutdown and a new process can handle the waiting client
 		   connection. */
 		i_assert(service->restart_request_count_left == 0);
