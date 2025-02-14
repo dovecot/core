@@ -534,7 +534,7 @@ o_stream_encrypt_sendv(struct ostream_private *stream,
 		const unsigned char *ptr = iov[i].iov_base;
 		while(len > 0) {
 			buffer_clear_safe(&buf);
-			/* update can emite twice the size of input */
+			/* update can emit twice the size of input */
 			bl = I_MIN(sizeof(ciphertext)/2, len);
 
 			if (!dcrypt_ctx_sym_update(estream->ctx_sym, ptr + off,
