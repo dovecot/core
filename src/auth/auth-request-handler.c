@@ -212,6 +212,19 @@ auth_str_append_extra_fields(struct auth_request *request, string_t *dest)
 	}
 }
 
+static bool auth_request_want_failure_delay(struct auth_request *request)
+{
+	if (request->failure_nodelay) {
+		/* passdb specifically requested not to delay the reply. */
+		return FALSE;
+	}
+	if (shutting_down) {
+		/* process is shutting down - finish failures immediately. */
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static void
 auth_request_handle_failure(struct auth_request *request, const char *reply)
 {
@@ -235,8 +248,7 @@ auth_request_handle_failure(struct auth_request *request, const char *reply)
 
 	e_debug(request->event, "handling failure, nodelay=%d",
 		(int) request->failure_nodelay);
-	if (request->failure_nodelay || shutting_down) {
-		/* passdb specifically requested not to delay the reply. */
+	if (!auth_request_want_failure_delay(request)) {
 		handler->callback(reply, handler->conn);
 		auth_request_unref(&request);
 		return;
