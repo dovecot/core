@@ -19,7 +19,7 @@ The imap-urlauth service thus consists of three separate stages:
   This is the login service which operates identical to imap-login and
   pop3-login equivalents, except for the fact that only token authentication is
   allowed. It verifies that the connecting client is an IMAP service acting on
-  behaf of an authenticated user.
+  behalf of an authenticated user.
 
 - imap-urlauth:
   Once the client is authenticated, the connection gets passed to the
