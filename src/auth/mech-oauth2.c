@@ -72,6 +72,7 @@ oauth2_send_failure(struct oauth2_auth_request *oauth2_req, int code,
 		i_panic("JSON failed: %s",
 			json_ostream_get_error(gen));
 	}
+	json_ostream_destroy(&gen);
 
 	oauth2_req->failed = TRUE;
 	auth_request_fail_with_reply(request, str->data, str->used);
