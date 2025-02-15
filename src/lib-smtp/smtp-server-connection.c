@@ -142,6 +142,7 @@ void smtp_server_connection_input_capture(
 {
 	i_assert(!conn->input_broken && !conn->disconnected);
 	connection_input_halt(&conn->conn);
+	i_stream_set_input_pending(conn->conn.input, TRUE);
 	conn->conn.io = io_add_istream(conn->conn.input, *callback, context);
 }
 
