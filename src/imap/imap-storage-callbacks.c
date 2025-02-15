@@ -44,7 +44,7 @@ static void notify_no(struct mailbox *mailbox ATTR_UNUSED,
 
 static const char *find_cmd_tag(struct event *event)
 {
-	const struct event_field *field =
+	const struct event_field *field = event == NULL ? NULL :
 		event_find_field_recursive(event, "cmd_tag");
 	return field != NULL && field->value_type == EVENT_FIELD_VALUE_TYPE_STR ?
 	       field->value.str : NULL;
