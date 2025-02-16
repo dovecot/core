@@ -3,7 +3,7 @@
 #include "auth-common.h"
 #include "passdb.h"
 
-#if defined(PASSDB_LDAP) && (defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD))
+#if defined(HAVE_LDAP) && (defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD))
 
 #include "ioloop.h"
 #include "array.h"

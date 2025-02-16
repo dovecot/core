@@ -747,7 +747,7 @@ static void print_build_options(void)
 #ifdef PASSDB_BSDAUTH
 		" bsdauth"
 #endif
-#ifdef PASSDB_LDAP
+#ifdef HAVE_LDAP
 		" ldap"
 #endif
 #ifdef PASSDB_PAM
@@ -763,7 +763,7 @@ static void print_build_options(void)
 		" sql"
 #endif
 	"\nUserdb:"
-#ifdef USERDB_LDAP
+#ifdef HAVE_LDAP
 		" ldap"
 #ifndef BUILTIN_LDAP
 		"(plugin)"

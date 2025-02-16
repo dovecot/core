@@ -49,8 +49,7 @@ AC_DEFUN([DOVECOT_WANT_LDAP], [
       ])
     ], $LDAP_LIBS)
 
-    AC_DEFINE(USERDB_LDAP,, [Build with LDAP support])
-    AC_DEFINE(PASSDB_LDAP,, [Build with LDAP support])
+    AC_DEFINE(HAVE_LDAP,, [Build with LDAP support])
     AC_CHECK_HEADERS(sasl.h sasl/sasl.h)
   ], [
     not_passdb="$not_passdb ldap"
