@@ -9,8 +9,8 @@
 const RQ_PATHLEN = 1024;
 
 struct sq_dqblk {
-	unsigned int rq_bhardlimit;	/* absolute limit on disk blks alloc */
-	unsigned int rq_bsoftlimit;	/* preferred limit on disk blks */
+	unsigned int rq_bhardlimit;	/* absolute limit on disk blocks alloc */
+	unsigned int rq_bsoftlimit;	/* preferred limit on disk blocks */
 	unsigned int rq_curblocks;	/* current block count */
 	unsigned int rq_fhardlimit;	/* absolute limit on allocated files */
 	unsigned int rq_fsoftlimit;	/* preferred file limit */
@@ -51,8 +51,8 @@ struct ext_setquota_args {
 struct rquota {
 	int rq_bsize;			/* block size for block counts */
 	bool rq_active;			/* indicates whether quota is active */
-	unsigned int rq_bhardlimit;	/* absolute limit on disk blks alloc */
-	unsigned int rq_bsoftlimit;	/* preferred limit on disk blks */
+	unsigned int rq_bhardlimit;	/* absolute limit on disk blocks alloc */
+	unsigned int rq_bsoftlimit;	/* preferred limit on disk blocks */
 	unsigned int rq_curblocks;	/* current block count */
 	unsigned int rq_fhardlimit;	/* absolute limit on allocated files */
 	unsigned int rq_fsoftlimit;	/* preferred file limit */
