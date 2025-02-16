@@ -240,7 +240,7 @@ int json_ostream_descend_array(struct json_ostream *stream,
 void json_ostream_ndescend_array(struct json_ostream *stream,
 				 const char *name);
 
-/* Try to ascend from a JSON arrayh by writing ']' to the output stream.
+/* Try to ascend from a JSON array by writing ']' to the output stream.
    Returns 1 if buffered, 0 if not, -1 if error. */
 int json_ostream_ascend_array(struct json_ostream *stream);
 void json_ostream_nascend_array(struct json_ostream *stream);
