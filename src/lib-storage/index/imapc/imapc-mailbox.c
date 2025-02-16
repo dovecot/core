@@ -455,7 +455,7 @@ imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
 		    uid < mail_index_get_header(mbox->delayed_sync_view)->next_uid) {
 			/* message is already added to index */
 		} else if (mbox->state_fetching_uid1) {
-			/* Initial fetching, allow messages to be appened to
+			/* Initial fetching, allow messages to be appended to
 			   index directly */
 			mail_index_append(mbox->delayed_sync_trans,
 					  uid, lseq_r);
