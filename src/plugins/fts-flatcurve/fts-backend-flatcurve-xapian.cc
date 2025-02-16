@@ -78,7 +78,7 @@ extern "C" {
  * "convention". However, this recommendation is for maintaining
  * compatability with the search front-end (Omega) that they provide. We don't
  * care about compatability, so save storage space by using single letter
- * prefixes. Bodytext is stored without prefixes, as it is expected to be the
+ * prefixes. Body text is stored without prefixes, as it is expected to be the
  * single largest storage pool. */
 
 /* Caution: the code below expects these prefix to be 1-char long */
