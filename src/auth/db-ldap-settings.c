@@ -5,6 +5,8 @@
 #include "settings.h"
 #include "db-ldap-settings.h"
 
+#ifdef HAVE_LDAP
+
 /* <settings checks> */
 #include "ldap-settings-parse.h"
 
@@ -222,3 +224,5 @@ int ldap_pre_settings_post_check(const struct ldap_pre_settings *set,
 
 	return 0;
 }
+
+#endif

@@ -2,7 +2,7 @@
 
 #include "lib.h"
 
-#if defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD)
+#if defined(HAVE_LDAP) && (defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD))
 
 #include "array.h"
 #include "str.h"
