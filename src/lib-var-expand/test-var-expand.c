@@ -89,6 +89,7 @@ static void test_var_expand_builtin_filters(void) {
 		{ .key = "multivalue", .value = "one\ttwo\tthree" },
 		{ .key = "uidvalidity", .value = "1727121943" },
 		{ .key = "empty", .value = "" },
+		{ .key = "\xce\xb8", .value = "is theta" },
 		{ .key = "null", .value = NULL },
 		VAR_EXPAND_TABLE_END
 	};
@@ -242,6 +243,8 @@ static void test_var_expand_builtin_filters(void) {
 		{ .in = "%{first | md5 % 30 | hex(2) }", .out = "16", .ret = 0 },
 		{ .in = "%{first | md5 % 30 | hex(4) }", .out = "0016", .ret = 0 },
 		{ .in = "%{first | md5 % 30 | hex(-4) }", .out = "1600", .ret = 0 },
+		{ .in = "%{\xce\xb8}", .out = "is theta", .ret = 0 },
+		{ .in = "%{\xff\xfe\xff}", .out = "Invalid UTF-8 string", .ret = -1 },
 	};
 
 	const struct var_expand_params params = {

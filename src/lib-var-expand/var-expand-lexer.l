@@ -14,6 +14,7 @@
 %{
 
 #include "lib.h"
+#include "unichar.h"
 #include "str.h"
 #include "var-expand-private.h"
 #include "var-expand-parser-private.h"
@@ -47,6 +48,11 @@ static size_t input_proc(char *buf, size_t size, yyscan_t scanner);
 	} STMT_END
 
 static int scanner_error(void *yyscanner, const char *msg);
+static bool append_valid_utf8(void *yyscanner, YYSTYPE *state, const char *value);
+#define append_valid_utf8(state, value) \
+	if (!append_valid_utf8(yyscanner, (state), (value))) { \
+		return VAR_EXPAND_PARSER_error; \
+	}
 %}
 
 %x stringsq
@@ -83,20 +89,20 @@ static int scanner_error(void *yyscanner, const char *msg);
 <stringdq>{
   [\\]    { yy_push_state(quote, yyscanner); }
   ["]     { yy_pop_state(yyscanner); return VALUE; }
-  [^"\\]* { str_append(yylval->str, yytext); }
+  [^"\\]* { append_valid_utf8(yylval, yytext); }
 }
 
 <stringsq>{
   [\\]    { yy_push_state(quote, yyscanner); }
   [']     { yy_pop_state(yyscanner); return VALUE; }
-  [^'\\]* { str_append(yylval->str, yytext); }
+  [^'\\]* { append_valid_utf8(yylval, yytext); }
 }
 
 <expr>{
   "}"	    { yy_pop_state(yyscanner); return CCBRACE; }
   [ \t]     { /* ignore */ }
   \%        { return PERC; }
-  [a-zA-Z\x80-\xff][a-zA-Z0-9_/;:.\x80-\xff-]* { INIT_STR; str_append(yylval->str, yytext); return NAME; }
+  [a-zA-Z\x80-\xff][a-zA-Z0-9_/;:.\x80-\xff-]* { INIT_STR; append_valid_utf8(yylval, yytext); return NAME; }
   \|        { return PIPE; }
   \(        { return OBRACE; }
   \)        { return CBRACE; }
@@ -110,7 +116,7 @@ static int scanner_error(void *yyscanner, const char *msg);
   ["]       { yy_push_state(stringdq, yyscanner); INIT_STR; }
   [0-9]+    { INIT_STR; str_append(yylval->str, yytext); return NUMBER; }
 }
-
+y
 "%{"	  { yy_push_state(expr, yyscanner); return OCBRACE; }
 "%%{"     { INIT_STR; str_append(yylval->str, "%{"); return VALUE; }
 "%"	  { return PERC; }
@@ -149,6 +155,17 @@ void yyfree(void *ptr, void *yyscanner)
 {
 	YYSTYPE *state = yyget_extra(yyscanner);
 	p_free(state->pool, ptr);
+}
+
+#undef append_valid_utf8
+static bool append_valid_utf8(void *scanner, YYSTYPE *state, const char *value)
+{
+	if (!uni_utf8_str_is_valid(value)) {
+		(void)scanner_error(scanner, "Invalid UTF-8 string");
+		return FALSE;
+	}
+	str_append(state->str, value);
+	return TRUE;
 }
 
 #define INPUT_POS(state) (state->input + state->input_pos)
