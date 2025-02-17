@@ -308,7 +308,10 @@ var_expand_merge_tables(pool_t pool, const struct var_expand_table *a,
 void var_expand_state_set_transfer_data(struct var_expand_state *state,
 					const void *value, size_t len)
 {
-	i_assert(value != NULL || len == 0);
+	/* Ensure we are not using value from transfer data */
+	i_assert((const char *)value < (const char *)state->transfer->data ||
+		 (const char *)value > (const char *)state->transfer->data +
+						     state->transfer->used);
 	str_truncate(state->transfer, 0);
 	str_append_data(state->transfer, value, len);
 	state->transfer_set = TRUE;
