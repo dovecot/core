@@ -160,7 +160,7 @@ struct service_list {
 	struct io *io_master;
 	int master_fd;
 
-	/* nonblocking log fds usd by master */
+	/* nonblocking log fds used by master */
 	int master_log_fd[2];
 	struct service_process_notify *log_byes;
 
