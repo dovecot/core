@@ -9,6 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-ssl-iostream
 
 libsasl_la_SOURCES = \
+	mech-anonymous.c \
 	mech-external.c \
 	mech-login.c \
 	mech-plain.c \

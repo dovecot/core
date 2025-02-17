@@ -151,7 +151,8 @@ void dsasl_clients_init(void)
 	if (init_refcount++ > 0)
 		return;
 
-	i_array_init(&dsasl_mechanisms, 8);
+	i_array_init(&dsasl_mechanisms, 16);
+	dsasl_client_mech_register(&dsasl_client_mech_anonymous);
 	dsasl_client_mech_register(&dsasl_client_mech_external);
 	dsasl_client_mech_register(&dsasl_client_mech_plain);
 	dsasl_client_mech_register(&dsasl_client_mech_login);
