@@ -1295,7 +1295,7 @@ http_client_peer_connection_failed_pool(struct http_client_peer *peer,
 
 	peer->connect_failed = TRUE;
 
-	/* Make a copy of the queue array; queues get linked/unlinged while the
+	/* Make a copy of the queue array; queues get linked/unlinked while the
 	   connection failure is handled */
 	t_array_init(&queues, array_count(&peer->queues));
 	array_copy(&queues.arr, 0, &peer->queues.arr, 0,
