@@ -252,6 +252,8 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 
 		/* send LIST/LSUB response */
 		ret = client_send_line_next(ctx->cmd->client, str_c(str));
+		if (ret < 0)
+			return TRUE;
 
 		/* send STATUS response */
 		if (ctx->used_status) {
