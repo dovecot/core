@@ -504,7 +504,7 @@ quota_root_is_visible(struct quota_root *root, struct mailbox *box)
 	} else {
 		/* This is a shared mailbox. The quota user is the actual owner
 		   of the mailbox, but the mailbox is accessed via another
-		   user. Currently each shared namepace gets its own owner
+		   user. Currently each shared namespace gets its own owner
 		   mail_user, even when the same user has multiple shared
 		   namespaces. So we don't need to verify whether the namespace
 		   matches - there is always only one. */
