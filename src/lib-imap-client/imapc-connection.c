@@ -953,6 +953,9 @@ imapc_connection_authenticate_cb(const struct imapc_command_reply *reply,
 	} else if (dsasl_client_output(conn->sasl_client, &sasl_output,
 				       &sasl_output_len, &error) < 0) {
 		imapc_auth_failed(conn, reply, error);
+	} else if (sasl_output_len == 0) {
+		o_stream_nsend_str(conn->output, "\r\n");
+		return;
 	} else {
 		string_t *imap_output =
 			t_str_new(MAX_BASE64_ENCODED_SIZE(sasl_output_len)+2);
