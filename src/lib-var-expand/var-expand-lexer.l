@@ -46,6 +46,7 @@ static size_t input_proc(char *buf, size_t size, yyscan_t scanner);
 	yylval->str = str_new(state->pool, 32); \
 	} STMT_END
 
+static int scanner_error(void *yyscanner, const char *msg);
 %}
 
 %x stringsq
@@ -60,18 +61,14 @@ static size_t input_proc(char *buf, size_t size, yyscan_t scanner);
   x[0-9a-fA-F]{2}    {
     unsigned int c;
     if (str_to_uint_hex(yytext+1, &c) < 0 || c > 255) {
-      YYSTYPE *state = yyget_extra(yyscanner);
-      state->error = "Invalid character escape";
-      yyterminate();
+      return scanner_error(yyscanner, "Invalid character escape");
     }
     yy_pop_state(yyscanner); str_append_c(yylval->str, c);
   }
   [0-9]{1,3}   {
     unsigned int c;
     if (str_to_uint_oct(yytext, &c) < 0 || c > 255) {
-      YYSTYPE *state = yyget_extra(yyscanner);
-      state->error = "Invalid character escape";
-      yyterminate();
+      return scanner_error(yyscanner, "Invalid character escape");
     }
     yy_pop_state(yyscanner); str_append_c(yylval->str, c);
   }
@@ -80,7 +77,7 @@ static size_t input_proc(char *buf, size_t size, yyscan_t scanner);
   n	   { yy_pop_state(yyscanner); str_append_c(yylval->str, '\n'); }
   ["]	   { yy_pop_state(yyscanner); str_append_c(yylval->str, '"'); }
   [']      { yy_pop_state(yyscanner); str_append_c(yylval->str, '\''); }
-  . { YYSTYPE *state = yyget_extra(yyscanner); state->error = "Invalid character escape"; }
+  . { return scanner_error(yyscanner, "Invalid character escape"); }
 }
 
 <stringdq>{
@@ -122,10 +119,18 @@ static size_t input_proc(char *buf, size_t size, yyscan_t scanner);
 %%
 
 extern void var_expand_parser_error(YYLTYPE *loc, YYSTYPE *state, const char *error);
-void var_expand_parser_error(YYLTYPE *loc, YYSTYPE *state, const char *error)
+void var_expand_parser_error(YYLTYPE *loc ATTR_UNUSED, YYSTYPE *state, const char *error)
 {
 	state->failed = TRUE;
 	state->error = p_strdup(state->pool, error);
+}
+
+static int scanner_error(void *scanner, const char *msg)
+{
+	YYSTYPE *state = yyget_extra(scanner);
+	struct yyguts_t *yyg = (struct yyguts_t *)scanner;
+	var_expand_parser_error(yylloc, state, msg);
+	return VAR_EXPAND_PARSER_error;
 }
 
 void *yyalloc(size_t bytes, void* yyscanner)

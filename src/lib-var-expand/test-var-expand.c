@@ -639,15 +639,17 @@ static void test_var_expand_escape(void)
 		{ .in = "%{literal('\\\\x20')}", .out = "'\\x20'", .ret = 0 },
 		/* Bad hex / oct */
 		{ .in = "\\xgg", .out = "\\xgg", .ret = 0 },
-		{ .in = "%{literal('\\xgg')}", .out = "expecting MINUS or NAME or VALUE or NUMBER", .ret = -1 },
+		{ .in = "%{literal('\\xgg')}", .out = "Invalid character escape", .ret = -1 },
 		{ .in = "\\999", .out = "\\999", .ret = 0 },
-		{ .in = "%{literal('\\999')}", .out = "expecting MINUS or NAME or VALUE or NUMBER", .ret = -1 },
+		{ .in = "%{literal('\\999')}", .out = "Invalid character escape", .ret = -1 },
 		/* List test */
 		{ .in = "%{literal('one\ttwo\tthree') | list}", .out="'one,two,three'", .ret = 0 },
 		/* Escape escape */
 		{ .in = "\\hello\\world", .out = "\\hello\\world", .ret = 0 },
 		{ .in = "%{literal('\\'\\\\hello\\\\world\\'')}", .out = "'\\'\\hello\\world\\''", .ret = 0 },
 		{ .in = "%{literal(\"\\\"\\\\hello\\\\world\\\"\")}", .out = "'\"\\hello\\world\"'", .ret = 0 },
+		/* Unsupported escape sequence */
+		{ .in = "%{literal('\\z')}", .out = "Invalid character escape", .ret = -1 },
 	};
 
 	const struct var_expand_params params = {
