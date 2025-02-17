@@ -321,7 +321,8 @@ static void passdb_sql_init(struct passdb_module *_module)
 	enum sql_db_flags flags;
 
 	flags = sql_get_flags(module->db);
-	module->module.blocking = (flags & SQL_DB_FLAG_BLOCKING) != 0;
+	if (!module->module.blocking)
+		module->module.blocking = (flags & SQL_DB_FLAG_BLOCKING) != 0;
 
 	if (!module->module.blocking || worker)
 		db_sql_connect(module->db);

@@ -334,7 +334,8 @@ static void userdb_sql_init(struct userdb_module *_module)
 	enum sql_db_flags flags;
 
 	flags = sql_get_flags(module->db);
-	_module->blocking = (flags & SQL_DB_FLAG_BLOCKING) != 0;
+	if (!_module->blocking)
+		_module->blocking = (flags & SQL_DB_FLAG_BLOCKING) != 0;
 
 	if (!_module->blocking || worker)
 		db_sql_connect(module->db);
