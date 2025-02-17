@@ -375,12 +375,12 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 				break;
 			}
 		} else if (stream->key_callback != NULL) {
-			const char *hexdgst = /* digest length */
+			const char *hexdigest = /* digest length */
 				binary_to_hex(data, sizeof(digest));
 			if (stream->priv_key != NULL)
 				dcrypt_key_unref_private(&stream->priv_key);
 			/* hope you going to give us right key.. */
-			int ret = stream->key_callback(hexdgst,
+			int ret = stream->key_callback(hexdigest,
 				&stream->priv_key, &error, stream->key_context);
 			if (ret < 0) {
 				io_stream_set_error(&stream->istream.iostream,
