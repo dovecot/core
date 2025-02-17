@@ -320,10 +320,7 @@ void var_expand_state_set_transfer_data(struct var_expand_state *state,
 void var_expand_state_set_transfer_binary(struct var_expand_state *state,
 					  const void *value, size_t len)
 {
-	i_assert(value != NULL || len == 0);
-	str_truncate(state->transfer, 0);
-	str_append_data(state->transfer, value, len);
-	state->transfer_set = TRUE;
+	var_expand_state_set_transfer_data(state, value, len);
 	state->transfer_binary = TRUE;
 }
 
