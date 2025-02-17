@@ -283,8 +283,10 @@ index_storage_attribute_iter_init(struct mailbox *box,
 	iter = i_new(struct index_storage_attribute_iter, 1);
 	iter->iter.box = box;
 	if (index_storage_get_dict(box, type_flags, &dict, &mailbox_prefix) < 0) {
-		if (mailbox_get_last_mail_error(box) == MAIL_ERROR_NOTPOSSIBLE)
+		if (mailbox_get_last_mail_error(box) == MAIL_ERROR_NOTPOSSIBLE) {
+			mail_storage_clear_error(box->storage);
 			iter->dict_disabled = TRUE;
+		}
 	} else {
 		iter->prefix = i_strdup(key_get_prefixed(type_flags, mailbox_prefix,
 							 prefix));
