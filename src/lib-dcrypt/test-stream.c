@@ -76,7 +76,7 @@ static void test_static_v1_input(void)
 	ssize_t siz;
 	const struct hash_method *hash = hash_method_lookup("sha256");
 	unsigned char hash_ctx[hash->context_size];
-	unsigned char hash_dgst[hash->digest_size];
+	unsigned char hash_digest[hash->digest_size];
 	hash->init(hash_ctx);
 
 	test_begin("test_static_v1_input");
@@ -100,10 +100,10 @@ static void test_static_v1_input(void)
 
 	i_stream_unref(&is_4);
 
-	hash->result(hash_ctx, hash_dgst);
+	hash->result(hash_ctx, hash_digest);
 
 	test_assert(strcmp(test_sample_v1_hash,
-			   binary_to_hex(hash_dgst, sizeof(hash_dgst))) == 0);
+			   binary_to_hex(hash_digest, sizeof(hash_digest))) == 0);
 
 	test_end();
 }
@@ -113,7 +113,7 @@ static void test_static_v1_input_short(void)
 	ssize_t siz;
 	const struct hash_method *hash = hash_method_lookup("sha256");
 	unsigned char hash_ctx[hash->context_size];
-	unsigned char hash_dgst[hash->digest_size];
+	unsigned char hash_digest[hash->digest_size];
 	hash->init(hash_ctx);
 
 	test_begin("test_static_v1_input_short");
@@ -137,10 +137,10 @@ static void test_static_v1_input_short(void)
 
 	i_stream_unref(&is_4);
 
-	hash->result(hash_ctx, hash_dgst);
+	hash->result(hash_ctx, hash_digest);
 
 	test_assert(strcmp(test_sample_v1_short_hash,
-			   binary_to_hex(hash_dgst, sizeof(hash_dgst))) == 0);
+			   binary_to_hex(hash_digest, sizeof(hash_digest))) == 0);
 
 	test_end();
 }
@@ -152,7 +152,7 @@ static void test_static_v2_input(void)
 	ssize_t amt;
 	const struct hash_method *hash = hash_method_lookup("sha256");
 	unsigned char hash_ctx[hash->context_size];
-	unsigned char hash_dgst[hash->digest_size];
+	unsigned char hash_digest[hash->digest_size];
 	hash->init(hash_ctx);
 
 	struct istream *is_1 =
@@ -174,10 +174,10 @@ static void test_static_v2_input(void)
 
 	i_stream_unref(&is_4);
 
-	hash->result(hash_ctx, hash_dgst);
+	hash->result(hash_ctx, hash_digest);
 
 	test_assert(strcmp(test_sample_v2_hash,
-		    binary_to_hex(hash_dgst, sizeof(hash_dgst))) == 0);
+		    binary_to_hex(hash_digest, sizeof(hash_digest))) == 0);
 
 	test_end();
 
@@ -203,8 +203,8 @@ static void test_static_v2_input(void)
 	o_stream_close(os_2);
 	i_stream_close(is_2);
 
-	hash->result(hash_ctx, hash_dgst);
-	printf("%s\n", binary_to_hex(hash_dgst, sizeof(hash_dgst)));
+	hash->result(hash_ctx, hash_digest);
+	printf("%s\n", binary_to_hex(hash_digest, sizeof(hash_digest)));
 */
 }
 
