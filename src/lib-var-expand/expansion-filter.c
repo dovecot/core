@@ -1015,7 +1015,7 @@ static int fn_domain(const struct var_expand_statement *stmt,
 	/* This function needs to return the whole string after @ character
 	   even if it contains @ characters. */
 	const char *input = str_c(state->transfer);
-	var_expand_state_set_transfer(state, i_strchr_to_next(input, '@'));
+	var_expand_state_set_transfer(state, t_strdup(i_strchr_to_next(input, '@')));
 	return 0;
 }
 
