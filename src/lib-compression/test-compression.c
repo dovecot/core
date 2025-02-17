@@ -805,7 +805,7 @@ static void test_gz(const char *str1, const char *str2, bool autodetect)
 	if (compression_lookup_handler("gz", &gz) <= 0 )
 		return; /* not compiled in or unkown*/
 
-	/* write concated output */
+	/* write concatenated output */
 	buf_output = o_stream_create_buffer(buf);
 	o_stream_set_finish_via_child(buf_output, FALSE);
 
@@ -823,7 +823,7 @@ static void test_gz(const char *str1, const char *str2, bool autodetect)
 
 	o_stream_destroy(&buf_output);
 
-	/* read concated input */
+	/* read concatenated input */
 	const unsigned char *data;
 	size_t size;
 	test_input = test_istream_create_data(buf->data, buf->used);
