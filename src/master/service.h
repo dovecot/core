@@ -65,7 +65,7 @@ struct service {
 	   idle_start == 0. */
 	struct service_process *busy_processes;
 	/* linked list of processes belonging to this service, which have
-	   ldle_start != 0. */
+	   idle_start != 0. */
 	struct service_process *idle_processes_head, *idle_processes_tail;
 
 	/* number of processes currently created for this service */
