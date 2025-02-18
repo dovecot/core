@@ -112,16 +112,14 @@ static void
 verify_credentials(struct sasl_server_mech_request *auth_request,
 		   const unsigned char *credentials, size_t size)
 {
+	static const struct hash_method *const hmethod = &hash_method_md5;
 	struct digest_auth_request *request =
 		container_of(auth_request, struct digest_auth_request,
 			     auth_request);
-	struct md5_context ctx;
-	unsigned char digest[MD5_RESULTLEN];
-	const char *a1_hex, *a2_hex, *response_hex;
-	int i;
+	const char *a1_hex, *response_hex;
 
 	/* get the MD5 password */
-	if (size != MD5_RESULTLEN) {
+	if (size != hmethod->digest_size) {
 		e_error(auth_request->event, "invalid credentials length");
 		sasl_server_request_failure(auth_request);
 		return;
@@ -154,74 +152,37 @@ verify_credentials(struct sasl_server_mech_request *auth_request,
 	*/
 
 	/* A1 */
-	md5_init(&ctx);
-	md5_update(&ctx, credentials, size);
-	md5_update(&ctx, ":", 1);
-	md5_update(&ctx, request->nonce, strlen(request->nonce));
-	md5_update(&ctx, ":", 1);
-	md5_update(&ctx, request->cnonce, strlen(request->cnonce));
-	if (request->authzid != NULL) {
-		md5_update(&ctx, ":", 1);
-		md5_update(&ctx, request->authzid, strlen(request->authzid));
-	}
-	md5_final(&ctx, digest);
-	a1_hex = binary_to_hex(digest, 16);
+	a1_hex = auth_digest_get_hash_a1(hmethod, credentials,
+					 request->nonce, request->cnonce,
+					 request->authzid);
 
-	/* do it twice, first verify the user's response, the second is
-	   sent for client as a reply */
-	for (i = 0; i < 2; i++) {
-		/* A2 */
-		md5_init(&ctx);
-		if (i == 0)
-			md5_update(&ctx, "AUTHENTICATE:", 13);
-		else
-			md5_update(&ctx, ":", 1);
+	const char *entity_body_hash = NULL;
 
-		if (request->digest_uri != NULL) {
-			md5_update(&ctx, request->digest_uri,
-				   strlen(request->digest_uri));
-		}
-		if (request->qop == QOP_AUTH_INT ||
-		    request->qop == QOP_AUTH_CONF) {
-			md5_update(&ctx, ":00000000000000000000000000000000",
-				   33);
-		}
-		md5_final(&ctx, digest);
-		a2_hex = binary_to_hex(digest, 16);
+	if (request->qop == QOP_AUTH_INT ||
+	    request->qop == QOP_AUTH_CONF)
+		entity_body_hash = "00000000000000000000000000000000";
 
-		/* response */
-		md5_init(&ctx);
-		md5_update(&ctx, a1_hex, 32);
-		md5_update(&ctx, ":", 1);
-		md5_update(&ctx, request->nonce, strlen(request->nonce));
-		md5_update(&ctx, ":", 1);
-		md5_update(&ctx, request->nonce_count,
-			   strlen(request->nonce_count));
-		md5_update(&ctx, ":", 1);
-		md5_update(&ctx, request->cnonce, strlen(request->cnonce));
-		md5_update(&ctx, ":", 1);
-		md5_update(&ctx, request->qop_value,
-			   strlen(request->qop_value));
-		md5_update(&ctx, ":", 1);
-		md5_update(&ctx, a2_hex, 32);
-		md5_final(&ctx, digest);
-		response_hex = binary_to_hex(digest, 16);
+	/* client response */
+	response_hex = auth_digest_get_client_response(
+		hmethod, a1_hex, "AUTHENTICATE", request->digest_uri,
+		request->qop_value, request->nonce, request->nonce_count,
+		request->cnonce, entity_body_hash);
 
-		if (i == 0) {
-			/* verify response */
-			if (!mem_equals_timing_safe(response_hex,
-						    request->response, 32)) {
-				sasl_server_request_password_mismatch(
-					auth_request);
-				return;
-			}
-		} else {
-			request->rspauth =
-				p_strconcat(auth_request->pool, "rspauth=",
-					    response_hex, NULL);
-		}
+	/* verify response */
+	if (!mem_equals_timing_safe(response_hex, request->response,
+				    hmethod->digest_size * 2)) {
+		sasl_server_request_password_mismatch(auth_request);
+		return;
 	}
 
+	/* server response */
+	response_hex = auth_digest_get_server_response(
+		hmethod, a1_hex, request->digest_uri, request->qop_value,
+		request->nonce, request->nonce_count, request->cnonce,
+		entity_body_hash);
+
+	request->rspauth = p_strconcat(auth_request->pool, "rspauth=",
+				       response_hex, NULL);
 	sasl_server_request_success(auth_request, request->rspauth,
 				    strlen(request->rspauth));
 }
