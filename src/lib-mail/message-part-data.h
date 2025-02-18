@@ -74,16 +74,13 @@ bool message_part_data_get_filename(const struct message_part *part,
 	const char **filename_r);
 
 /* See message_part_attachment_settings */
-bool message_part_has_content_types(struct message_part *part, const char *const *types);
-
-/* Returns TRUE if message part has given parameter, and has non-empty
-   value if has_value is TRUE. */
-bool message_part_has_parameter(struct message_part *part, const char *parameter,
-				bool has_value);
+bool message_part_has_content_types(const struct message_part *part,
+				    const char *const *types);
 
 /* Check if part is attachment according to given settings */
-bool message_part_is_attachment(struct message_part *part,
-				const struct message_part_attachment_settings *set);
+bool message_part_is_attachment(
+	struct message_part *part,
+	const struct message_part_attachment_settings *settings);
 /*
  * Header parsing
  */

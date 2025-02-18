@@ -68,30 +68,86 @@ bool message_part_data_is_plain_7bit(const struct message_part *part)
 	return TRUE;
 }
 
-bool message_part_data_get_filename(const struct message_part *part,
-	const char **filename_r)
+/* Returns whether the parameter exists. If a value is requested through
+   value_r, returns it there and return TRUE, otherwise sets *value_r to NULL
+   and returns FALSE. */
+static bool get_param_value(const char *parameter_name,
+			    const struct message_part_param *params_list,
+			    unsigned int params_list_count,
+			    const char **value_r)
 {
-	const struct message_part_data *data = part->data;
-	const struct message_part_param *params;
-	unsigned int params_count, i;
+	for (unsigned int i = 0; i < params_list_count; i++) {
+		const struct message_part_param *param = &params_list[i];
 
-	i_assert(data != NULL);
-
-	params = data->content_disposition_params;
-	params_count = data->content_disposition_params_count;
-
-	if (data->content_disposition != NULL &&
-		strcasecmp(data->content_disposition, "attachment") != 0) {
-		return FALSE;
-	}
-	for (i = 0; i < params_count; i++) {
-		if (strcasecmp(params[i].name, "filename") == 0 &&
-			params[i].value != NULL) {
-			*filename_r = params[i].value;
+		if (strcasecmp(param->name, parameter_name) == 0) {
+			if (value_r != NULL) {
+				*value_r = NULL;
+				if (*param->value != '\0') {
+					*value_r = param->value;
+				}
+				return *value_r != NULL;
+			}
 			return TRUE;
 		}
 	}
 	return FALSE;
+}
+
+static bool message_part_data_find_attachment_filename(
+	const struct message_part_data *data,
+	bool default_return,
+	const char **filename_r)
+{
+	/* The filename might be under Content-Disposition->filename or under
+	   Content-Type->name */
+	if (get_param_value("filename", data->content_disposition_params,
+			    data->content_disposition_params_count, filename_r) ||
+	    get_param_value("name", data->content_type_params,
+			    data->content_type_params_count, filename_r))
+		return TRUE;
+	return default_return;
+}
+
+/* Returns whether the message has an attachment in accordance with the provided
+   settings. If there is an attachment, the filename is returned in filename_r
+   if it is not NULL. */
+static bool message_part_get_attachment_filename(
+	const struct message_part *part,
+	const struct message_part_attachment_settings *settings,
+	const char **filename_r)
+{
+	const struct message_part_data *data = part->data;
+
+	i_assert(data != NULL);
+
+	/* Reject the message if the Content-Type is excluded. */
+	if (settings && settings->content_type_filter != NULL &&
+	    !message_part_has_content_types(part, settings->content_type_filter))
+		return FALSE;
+
+	/* Accept Content-Disposition: attachment, even when it does not have a
+	   filename or Content-Type->name parameter */
+	if (null_strcasecmp(data->content_disposition, "attachment") == 0)
+		return message_part_data_find_attachment_filename(data, TRUE, filename_r);
+
+	/* Accept Content-Disposition: inline only when a filename or
+	   Content-Type->name is available and if inlined attachments are not
+	   excluded */
+	if ((!settings || !settings->exclude_inlined) &&
+	    null_strcasecmp(data->content_disposition, "inline") == 0)
+		return message_part_data_find_attachment_filename(data, FALSE, filename_r);
+
+	return FALSE;
+}
+
+bool message_part_data_get_filename(const struct message_part *part,
+	const char **filename_r)
+{
+	const struct message_part_data *data = part->data;
+
+	i_assert(data != NULL);
+
+	return message_part_get_attachment_filename(part, NULL, filename_r);
 }
 
 /*
@@ -532,7 +588,7 @@ void message_part_data_parse_from_header(pool_t pool,
 	}
 }
 
-bool message_part_has_content_types(struct message_part *part,
+bool message_part_has_content_types(const struct message_part *part,
 				    const char *const *types)
 {
 	struct message_part_data *data = part->data;
@@ -558,42 +614,9 @@ bool message_part_has_content_types(struct message_part *part,
 	return ret;
 }
 
-bool message_part_has_parameter(struct message_part *part, const char *parameter,
-				bool has_value)
+bool message_part_is_attachment(
+	struct message_part *part,
+	const struct message_part_attachment_settings *settings)
 {
-	struct message_part_data *data = part->data;
-
-	i_assert(data != NULL);
-
-	for (unsigned int i = 0; i < data->content_disposition_params_count; i++) {
-		const struct message_part_param *param =
-			&data->content_disposition_params[i];
-		if (strcasecmp(param->name, parameter) == 0 &&
-		    (!has_value || *param->value != '\0')) {
-			return TRUE;
-		}
-	}
-	return FALSE;
-}
-
-bool message_part_is_attachment(struct message_part *part,
-				const struct message_part_attachment_settings *set)
-{
-	struct message_part_data *data = part->data;
-
-	i_assert(data != NULL);
-
-	/* see if the content-type is excluded */
-	if (set->content_type_filter != NULL &&
-	    !message_part_has_content_types(part, set->content_type_filter))
-		return FALSE;
-
-	/* accept any attachment, or any inlined attachment with filename,
-	   unless inlined ones are excluded */
-	if (null_strcasecmp(data->content_disposition, "attachment") == 0 ||
-	    (!set->exclude_inlined &&
-	     null_strcasecmp(data->content_disposition, "inline") == 0 &&
-	     message_part_has_parameter(part, "filename", FALSE)))
-		return TRUE;
-	return FALSE;
+	return message_part_get_attachment_filename(part, settings, NULL);
 }
