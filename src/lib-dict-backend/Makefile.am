@@ -29,6 +29,9 @@ libdict_backend_la_LIBADD =
 BUILT_SOURCES = \
 	dict-drivers-register.c
 
+DISTCLEANFILES = \
+	dict-drivers-register.c
+
 nodist_libdict_backend_la_SOURCES = \
 	dict-drivers-register.c
 
