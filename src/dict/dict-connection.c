@@ -30,7 +30,7 @@ static int dict_connection_handshake_args(struct connection *_conn,
 	struct dict_connection *conn =
 		container_of(_conn, struct dict_connection, conn);
 
-	/* protocol handshake is Hmajor minor value_type */
+	/* protocol handshake is 'H' major <tab> minor <tab> value_type */
 	if (str_array_length(args) < 5 || **args != 'H')
 		return -1;
 
