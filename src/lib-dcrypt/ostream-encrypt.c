@@ -539,6 +539,7 @@ o_stream_encrypt_sendv(struct ostream_private *stream,
 
 			if (!dcrypt_ctx_sym_update(estream->ctx_sym, ptr + off,
 						   bl, &buf, &error)) {
+				stream->ostream.stream_errno = EIO;
 				io_stream_set_error(&stream->iostream,
 						    "Encryption failure: %s",
 						    error);
@@ -549,6 +550,7 @@ o_stream_encrypt_sendv(struct ostream_private *stream,
 				/* update mac */
 				if (!dcrypt_ctx_hmac_update(estream->ctx_mac,
 					buf.data, buf.used, &error)) {
+					stream->ostream.stream_errno = EIO;
 					io_stream_set_error(&stream->iostream,
 						"MAC failure: %s", error);
 					return -1;
@@ -589,6 +591,7 @@ o_stream_encrypt_finalize(struct ostream_private *stream)
 	buffer_t *buf = t_buffer_create(
 		dcrypt_ctx_sym_get_block_size(estream->ctx_sym));
 	if (!dcrypt_ctx_sym_final(estream->ctx_sym, buf, &error)) {
+		stream->ostream.stream_errno = EIO;
 		io_stream_set_error(&estream->ostream.iostream,
 				    "Encryption failure: %s", error);
 		return -1;
@@ -600,6 +603,7 @@ o_stream_encrypt_finalize(struct ostream_private *stream)
 			IO_STREAM_ENC_INTEGRITY_HMAC)) {
 			if (!dcrypt_ctx_hmac_update(estream->ctx_mac, buf->data,
 						    buf->used, &error)) {
+				stream->ostream.stream_errno = EIO;
 				io_stream_set_error(&estream->ostream.iostream,
 						    "MAC failure: %s", error);
 				return -1;
@@ -615,6 +619,7 @@ o_stream_encrypt_finalize(struct ostream_private *stream)
 	if ((estream->flags & IO_STREAM_ENC_INTEGRITY_HMAC) ==
 		IO_STREAM_ENC_INTEGRITY_HMAC) {
 		if (!dcrypt_ctx_hmac_final(estream->ctx_mac, buf, &error)) {
+			stream->ostream.stream_errno = EIO;
 			io_stream_set_error(&estream->ostream.iostream,
 					    "MAC failure: %s", error);
 			return -1;
