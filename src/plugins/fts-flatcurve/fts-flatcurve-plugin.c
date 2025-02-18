@@ -20,8 +20,8 @@ static void fts_flatcurve_mail_user_deinit(struct mail_user *user)
 	struct fts_flatcurve_user *fuser =
 		FTS_FLATCURVE_USER_CONTEXT_REQUIRE(user);
 
-	settings_free(fuser->set);
 	fuser->module_ctx.super.deinit(user);
+	settings_free(fuser->set);
 }
 
 int fts_flatcurve_mail_user_get(struct mail_user *user, struct event *event,
