@@ -166,6 +166,8 @@ envelope_get_field(const char *name)
 		if (strcasecmp(name, "To") == 0)
 			return ENVELOPE_FIELD_TO;
 		break;
+	default:
+		break;
 	}
 
 	return ENVELOPE_FIELD_UNKNOWN;
@@ -473,6 +475,8 @@ parse_content_header(struct message_part_data *data,
 		else if (strcasecmp(name, "Disposition") == 0 &&
 			 data->content_disposition_params == NULL)
 			parse_content_disposition(data, pool, hdr);
+		break;
+	default:
 		break;
 	}
 }
