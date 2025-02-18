@@ -29,6 +29,8 @@ noinst_DATA = dovecot-config
 
 nodist_pkginclude_HEADERS = config.h
 
+distuninstallcheck_listfiles = find . -type f \! -name '*.conf' -print
+
 version:
 	$(AM_V_GEN)env VERSION=$(PACKAGE_VERSION) $(top_srcdir)/build-aux/git-version-gen > $@
 
