@@ -189,7 +189,7 @@ verify_credentials(struct sasl_server_mech_request *auth_request,
 
 static bool
 auth_handle_response(struct digest_auth_request *request,
-		     char *key, char *value, const char **error)
+		     char *key, char *value, const char **error_r)
 {
 	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	unsigned int i;
@@ -204,12 +204,12 @@ auth_handle_response(struct digest_auth_request *request,
 
 	if (strcmp(key, "username") == 0) {
 		if (request->username != NULL) {
-			*error = "username must not exist more than once";
+			*error_r = "username must not exist more than once";
 			return FALSE;
 		}
 
 		if (*value == '\0') {
-			*error = "empty username";
+			*error_r = "empty username";
 			return FALSE;
 		}
 
@@ -220,7 +220,7 @@ auth_handle_response(struct digest_auth_request *request,
 	if (strcmp(key, "nonce") == 0) {
 		/* nonce must be same */
 		if (strcmp(value, request->nonce) != 0) {
-			*error = "Invalid nonce";
+			*error_r = "Invalid nonce";
 			return FALSE;
 		}
 
@@ -230,12 +230,12 @@ auth_handle_response(struct digest_auth_request *request,
 
 	if (strcmp(key, "cnonce") == 0) {
 		if (request->cnonce != NULL) {
-			*error = "cnonce must not exist more than once";
+			*error_r = "cnonce must not exist more than once";
 			return FALSE;
 		}
 
 		if (*value == '\0') {
-			*error = "cnonce can't contain empty value";
+			*error_r = "cnonce can't contain empty value";
 			return FALSE;
 		}
 
@@ -247,17 +247,17 @@ auth_handle_response(struct digest_auth_request *request,
 		unsigned int nc;
 
 		if (request->nonce_count != NULL) {
-			*error = "nonce-count must not exist more than once";
+			*error_r = "nonce-count must not exist more than once";
 			return FALSE;
 		}
 
 		if (str_to_uint(value, &nc) < 0) {
-			*error = "nonce-count value invalid";
+			*error_r = "nonce-count value invalid";
 			return FALSE;
 		}
 
 		if (nc != 1) {
-			*error = "re-auth not supported currently";
+			*error_r = "re-auth not supported currently";
 			return FALSE;
 		}
 
@@ -272,14 +272,14 @@ auth_handle_response(struct digest_auth_request *request,
 		}
 
 		if (i == QOP_COUNT) {
-			*error = t_strdup_printf("Unknown QoP value: %s",
-					str_sanitize(value, 32));
+			*error_r = t_strdup_printf("Unknown QoP value: %s",
+						   str_sanitize(value, 32));
 			return FALSE;
 		}
 
 		request->qop &= (1 << i);
 		if (request->qop == 0) {
-			*error = "Nonallowed QoP requested";
+			*error_r = "Nonallowed QoP requested";
 			return FALSE;
 		}
 
@@ -292,7 +292,7 @@ auth_handle_response(struct digest_auth_request *request,
 		const char *const *uri = t_strsplit(value, "/");
 
 		if (uri[0] == NULL || uri[1] == NULL) {
-			*error = "Invalid digest-uri";
+			*error_r = "Invalid digest-uri";
 			return FALSE;
 		}
 
@@ -306,13 +306,13 @@ auth_handle_response(struct digest_auth_request *request,
 
 	if (strcmp(key, "maxbuf") == 0) {
 		if (request->maxbuf != 0) {
-			*error = "maxbuf must not exist more than once";
+			*error_r = "maxbuf must not exist more than once";
 			return FALSE;
 		}
 
 		if (str_to_ulong(value, &request->maxbuf) < 0 ||
 		    request->maxbuf == 0) {
-			*error = "Invalid maxbuf value";
+			*error_r = "Invalid maxbuf value";
 			return FALSE;
 		}
 		return TRUE;
@@ -320,7 +320,7 @@ auth_handle_response(struct digest_auth_request *request,
 
 	if (strcmp(key, "charset") == 0) {
 		if (strcasecmp(value, "utf-8") != 0) {
-			*error = "Only utf-8 charset is allowed";
+			*error_r = "Only utf-8 charset is allowed";
 			return FALSE;
 		}
 
@@ -329,7 +329,7 @@ auth_handle_response(struct digest_auth_request *request,
 
 	if (strcmp(key, "response") == 0) {
 		if (strlen(value) != 32) {
-			*error = "Invalid response value";
+			*error_r = "Invalid response value";
 			return FALSE;
 		}
 
@@ -344,12 +344,12 @@ auth_handle_response(struct digest_auth_request *request,
 
 	if (strcmp(key, "authzid") == 0) {
 		if (request->authzid != NULL) {
-		    *error = "authzid must not exist more than once";
+		    *error_r = "authzid must not exist more than once";
 		    return FALSE;
 		}
 
 		if (*value == '\0') {
-		    *error = "empty authzid";
+		    *error_r = "empty authzid";
 		    return FALSE;
 		}
 
