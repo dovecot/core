@@ -21,6 +21,7 @@ struct test_sasl {
 	struct {
 		const char *authid;
 		const char *authzid;
+		const char *realm;
 		const char *password;
 	} client, server;
 
@@ -37,6 +38,7 @@ struct test_sasl_context {
 
 	const char *authid;
 	const char *authzid;
+	const char *realm;
 	const char *cbind_type;
 	buffer_t *cbind_data;
 
@@ -102,10 +104,16 @@ test_server_request_set_authzid(struct sasl_server_req_ctx *rctx,
 }
 
 static void
-test_server_request_set_realm(struct sasl_server_req_ctx *rctx ATTR_UNUSED,
-			      const char *realm ATTR_UNUSED)
+test_server_request_set_realm(struct sasl_server_req_ctx *rctx,
+			      const char *realm)
 {
-	/* No mechanisms using realm yet */
+	struct test_sasl_context *tctx =
+		container_of(rctx, struct test_sasl_context, ssrctx);
+	const struct test_sasl *test = tctx->test;
+
+	if (!test->failure)
+		test_assert_strcmp(test->server.realm, realm);
+	tctx->realm = p_strdup(tctx->pool, realm);
 }
 
 static bool
@@ -195,7 +203,9 @@ test_server_request_lookup_credentials(
 	}
 
 	const struct password_generate_params params = {
-		.user = tctx->test->server.authid,
+		.user = (test->server.realm == NULL ? test->server.authid :
+			 t_strconcat(test->server.authid, "@",
+				     test->server.realm, NULL)),
 	};
 
 	if (!password_generate(test->server.password, &params, scheme,
@@ -378,12 +388,15 @@ test_sasl_run_once(const struct test_sasl *test,
 			      test->client.authid : test->server.authid);
 	const char *authzid = (test->client.authzid != NULL ?
 			       test->client.authzid : test->server.authzid);
+	const char *realm = (test->client.realm != NULL ?
+			     test->client.realm : test->server.realm);
 	const char *password = (test->client.password != NULL ?
 				test->client.password :
 				test->server.password);
 
 	struct dsasl_client_settings client_set = {
-		.authid = authid,
+		.authid = (realm == NULL ? authid :
+			   t_strconcat(authid, "@", realm, NULL)),
 		.authzid = authzid,
 		.password = password,
 		.protocol = "imap",
@@ -410,14 +423,25 @@ static void
 test_sasl_run(const struct test_sasl *test, const char *label,
 	      bool auth_initial)
 {
+	const char *server_realms[3];
 	struct sasl_server *server;
 	struct sasl_server_instance *server_inst;
+	unsigned int i;
+
+	i = 0;
+	if (test->server.realm != NULL)
+		server_realms[i++] = test->server.realm;
+	if (test->client.realm != NULL &&
+	    null_strcasecmp(test->client.realm, test->server.realm) != 0)
+		server_realms[i++] = test->client.realm;
+	server_realms[i] = NULL;
 
 	test_begin(t_strdup_printf("sasl %s %s%s",
 				   label, test->mech,
 				   (auth_initial ? " (initial)" : "")));
 
 	const struct sasl_server_settings server_set = {
+		.realms = server_realms,
 		.event_parent = test_event,
 	};
 	server = sasl_server_init(test_event, &server_funcs);
@@ -425,6 +449,7 @@ test_sasl_run(const struct test_sasl *test, const char *label,
 
 	sasl_server_mech_register_anonymous(server_inst);
 	sasl_server_mech_register_cram_md5(server_inst);
+	sasl_server_mech_register_digest_md5(server_inst);
 	sasl_server_mech_register_external(server_inst);
 	sasl_server_mech_register_login(server_inst);
 	sasl_server_mech_register_plain(server_inst);
@@ -493,6 +518,43 @@ static const struct test_sasl success_tests[] = {
 		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
 		.server = {
 			.authid = "user",
+			.password = "pass",
+		},
+	},
+	/* DIGEST-MD5 */
+	{
+		.mech = "DIGEST-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+	},
+	{
+		.mech = "DIGEST-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "master",
+			.authzid = "user",
+			.password = "pass",
+		},
+	},
+	{
+		.mech = "DIGEST-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.realm = "example.org",
+			.password = "pass",
+		},
+	},
+	{
+		.mech = "DIGEST-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "master",
+			.authzid = "user",
+			.realm = "example.org",
 			.password = "pass",
 		},
 	},
@@ -761,6 +823,192 @@ static const struct test_sasl bad_creds_tests[] = {
 		},
 		.client = {
 			.password= "florp",
+		},
+		.failure = TRUE,
+	},
+	/* DIGEST-MD5 */
+	{
+		.mech = "DIGEST-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+		.client = {
+			.authid = "userb",
+		},
+		.failure = TRUE,
+	},
+	{
+		.mech = "DIGEST-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+		.client = {
+			.password= "florp",
+		},
+		.failure = TRUE,
+	},
+	{
+		.mech = "DIGEST-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.password = "pass",
+		},
+		.client = {
+			.authid = "master",
+			.authzid = "user",
+		},
+		.failure = TRUE,
+	},
+	{
+		.mech = "DIGEST-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "master",
+			.authzid = "user",
+			.password = "pass",
+		},
+		.client = {
+			.authid = "commander",
+		},
+		.failure = TRUE,
+	},
+	{
+		.mech = "DIGEST-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "master",
+			.authzid = "user",
+			.password = "pass",
+		},
+		.client = {
+			.authzid = "userb",
+		},
+		.failure = TRUE,
+	},
+	{
+		.mech = "DIGEST-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "master",
+			.authzid = "user",
+			.password = "pass",
+		},
+		.client = {
+			.password = "florp",
+		},
+		.failure = TRUE,
+	},
+	{
+		.mech = "DIGEST-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.realm = "example.org",
+			.password = "pass",
+		},
+		.client = {
+			.authid = "userb",
+		},
+		.failure = TRUE,
+	},
+	{
+		.mech = "DIGEST-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.realm = "example.org",
+			.password = "pass",
+		},
+		.client = {
+			.realm = "example.com",
+		},
+		.failure = TRUE,
+	},
+	{
+		.mech = "DIGEST-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.realm = "example.org",
+			.password = "pass",
+		},
+		.client = {
+			.password= "florp",
+		},
+		.failure = TRUE,
+	},
+	{
+		.mech = "DIGEST-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "user",
+			.realm = "example.org",
+			.password = "pass",
+		},
+		.client = {
+			.authid = "master",
+			.authzid = "user",
+		},
+		.failure = TRUE,
+	},
+	{
+		.mech = "DIGEST-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "master",
+			.authzid = "user",
+			.realm = "example.org",
+			.password = "pass",
+		},
+		.client = {
+			.authid = "commander",
+		},
+		.failure = TRUE,
+	},
+	{
+		.mech = "DIGEST-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "master",
+			.authzid = "user",
+			.realm = "example.org",
+			.password = "pass",
+		},
+		.client = {
+			.authzid = "userb",
+		},
+		.failure = TRUE,
+	},
+	{
+		.mech = "DIGEST-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "master",
+			.authzid = "user",
+			.realm = "example.org",
+			.password = "pass",
+		},
+		.client = {
+			.realm = "example.com",
+		},
+		.failure = TRUE,
+	},
+	{
+		.mech = "DIGEST-MD5",
+		.authid_type = SASL_SERVER_AUTHID_TYPE_USERNAME,
+		.server = {
+			.authid = "master",
+			.authzid = "user",
+			.realm = "example.org",
+			.password = "pass",
+		},
+		.client = {
+			.password = "florp",
 		},
 		.failure = TRUE,
 	},
