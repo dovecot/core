@@ -2,6 +2,12 @@
 #define AUTH_DIGEST_H
 
 /*
+ * Parsing
+ */
+
+bool auth_digest_parse_keyvalue(char **data, char **key_r, char **value_r);
+
+/*
  * Processing
  */
 

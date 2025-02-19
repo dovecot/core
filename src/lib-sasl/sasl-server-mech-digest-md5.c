@@ -11,12 +11,10 @@
 #include "str.h"
 #include "str-sanitize.h"
 #include "settings-parser.h"
+#include "auth-digest.h"
 #include "password-scheme.h"
 
 #include "sasl-server-protected.h"
-
-/* Linear whitespace */
-#define IS_LWS(c) ((c) == ' ' || (c) == '\t')
 
 enum qop_option {
 	QOP_AUTH	= 0x01,	/* authenticate */
@@ -226,62 +224,6 @@ verify_credentials(struct sasl_server_mech_request *auth_request,
 
 	sasl_server_request_success(auth_request, request->rspauth,
 				    strlen(request->rspauth));
-}
-
-static bool parse_next(char **data, char **key, char **value)
-{
-	/* @UNSAFE */
-	char *p, *dest;
-
-	p = *data;
-	while (IS_LWS(*p)) p++;
-
-	/* get key */
-	*key = p;
-	while (*p != '\0' && *p != '=' && *p != ',')
-		p++;
-
-	if (*p != '=') {
-		*data = p;
-		return FALSE;
-	}
-
-	*value = p+1;
-
-	/* skip trailing whitespace in key */
-	while (p > *data && IS_LWS(p[-1]))
-		p--;
-	*p = '\0';
-
-	/* get value */
-	p = *value;
-	while (IS_LWS(*p)) p++;
-
-	if (*p != '"') {
-		while (*p != '\0' && *p != ',')
-			p++;
-
-		*data = p;
-		/* If there is more to parse, ensure it won't get skipped
-		   because *p is set to NUL below */
-		if (**data != '\0') (*data)++;
-		while (IS_LWS(p[-1]))
-			p--;
-		*p = '\0';
-	} else {
-		/* quoted string */
-		*value = dest = ++p;
-		while (*p != '\0' && *p != '"') {
-			if (*p == '\\' && p[1] != '\0')
-				p++;
-			*dest++ = *p++;
-		}
-
-		*data = *p == '"' ? p+1 : p;
-		*dest = '\0';
-	}
-
-	return TRUE;
 }
 
 static bool
@@ -494,7 +436,7 @@ parse_digest_response(struct digest_auth_request *request,
 	   potential problems with NUL characters in strings. */
 	copy = t_strdup_noconst(t_strndup(data, size));
 	while (*copy != '\0') {
-		if (parse_next(&copy, &key, &value)) {
+		if (auth_digest_parse_keyvalue(&copy, &key, &value)) {
 			if (!auth_handle_response(request, key, value, error)) {
 				failed = TRUE;
 				break;
