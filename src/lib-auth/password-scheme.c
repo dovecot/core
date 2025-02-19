@@ -15,6 +15,7 @@
 #include "sha2.h"
 #include "otp.h"
 #include "str.h"
+#include "auth-digest.h"
 #include "password-scheme.h"
 #include "password-scheme-private.h"
 
@@ -648,7 +649,8 @@ static void
 digest_md5_generate(const char *plaintext, const struct password_generate_params *params,
 		    const unsigned char **raw_password_r, size_t *size_r)
 {
-	const char *realm, *str, *user;
+	static const struct hash_method *const hmethod = &hash_method_md5;
+	const char *realm, *user;
 	unsigned char *digest;
 
 	if (params->user == NULL)
@@ -668,12 +670,12 @@ digest_md5_generate(const char *plaintext, const struct password_generate_params
 	}
 
 	/* user:realm:passwd */
-	digest = t_malloc_no0(MD5_RESULTLEN);
-	str = t_strdup_printf("%s:%s:%s", user, realm, plaintext);
-	md5_get_digest(str, strlen(str), digest);
+	digest = t_malloc_no0(hmethod->digest_size);
+	auth_digest_get_hash_a1_secret(hmethod, user, realm, plaintext,
+				       digest);
 
 	*raw_password_r = digest;
-	*size_r = MD5_RESULTLEN;
+	*size_r = hmethod->digest_size;
 }
 
 static void

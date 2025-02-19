@@ -7,6 +7,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-otp
 
 libauth_la_SOURCES = \
+	auth-digest.c \
 	auth-gs2.c \
 	auth-scram.c \
 	auth-scram-client.c \
@@ -29,6 +30,7 @@ libauth_crypt_la_LIBADD = \
 
 headers = \
 	mycrypt.h \
+	auth-digest.h \
 	auth-gs2.h \
 	auth-scram.h \
 	auth-scram-client.h \
