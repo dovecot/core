@@ -364,7 +364,7 @@ auth_handle_response(struct digest_auth_request *request,
 static bool
 parse_digest_response(struct digest_auth_request *request,
 		      const unsigned char *data, size_t size,
-		      const char **error)
+		      const char **error_r)
 {
 	struct sasl_server_mech_request *auth_request = &request->auth_request;
 	char *copy, *key, *value;
@@ -385,11 +385,11 @@ parse_digest_response(struct digest_auth_request *request,
 	   authzid="authzid-value"
 	*/
 
-	*error = NULL;
+	*error_r = NULL;
 	failed = FALSE;
 
 	if (size == 0) {
-		*error = "Client sent no input";
+		*error_r = "Client sent no input";
 		return FALSE;
 	}
 
@@ -398,7 +398,8 @@ parse_digest_response(struct digest_auth_request *request,
 	copy = t_strdup_noconst(t_strndup(data, size));
 	while (*copy != '\0') {
 		if (auth_digest_parse_keyvalue(&copy, &key, &value)) {
-			if (!auth_handle_response(request, key, value, error)) {
+			if (!auth_handle_response(request, key, value,
+						  error_r)) {
 				failed = TRUE;
 				break;
 			}
@@ -410,13 +411,13 @@ parse_digest_response(struct digest_auth_request *request,
 
 	if (!failed) {
 		if (!request->nonce_found) {
-			*error = "Missing nonce parameter";
+			*error_r = "Missing nonce parameter";
 			failed = TRUE;
 		} else if (request->cnonce == NULL) {
-			*error = "Missing cnonce parameter";
+			*error_r = "Missing cnonce parameter";
 			failed = TRUE;
 		} else if (request->username == NULL) {
-			*error = "Missing username parameter";
+			*error_r = "Missing username parameter";
 			failed = TRUE;
 		}
 	}
