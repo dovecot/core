@@ -11,6 +11,13 @@ struct dsasl_client_settings {
 	const char *authzid;
 	/* password - must be set with most mechanisms */
 	const char *password;
+
+	/* protocol using SASL */
+	const char *protocol;
+	/* host name */
+	const char *host;
+	/* port */
+	in_port_t port;
 };
 
 enum dsasl_client_result {

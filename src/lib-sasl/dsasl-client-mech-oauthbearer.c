@@ -11,9 +11,7 @@
 
 struct oauthbearer_dsasl_client {
 	struct dsasl_client client;
-	const char *host;
 	const char *status;
-	in_port_t port;
 	bool output_sent;
 };
 
@@ -110,6 +108,11 @@ mech_oauthbearer_output(struct dsasl_client *_client,
 		*error_r = "password contains unsupported characters";
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
+	if (_client->set.host != NULL &&
+	    !sasl_oauth2_kvpair_check_value(_client->set.host)) {
+		*error_r = "host contains unsupported characters";
+		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
+	}
 
 	struct auth_gs2_header gs2_header = {
 		.authzid = _client->set.authid,
@@ -118,10 +121,10 @@ mech_oauthbearer_output(struct dsasl_client *_client,
 	str = str_new(_client->pool, 64);
 	auth_gs2_header_encode(&gs2_header, str);
 	str_append_c(str, '\x01');
-	if (client->host != NULL && *client->host != '\0')
-		str_printfa(str, "host=%s\x01", client->host);
-	if (client->port > 0)
-		str_printfa(str, "port=%u\x01", client->port);
+	if (_client->set.host != NULL && *_client->set.host != '\0')
+		str_printfa(str, "host=%s\x01", _client->set.host);
+	if (_client->set.port > 0)
+		str_printfa(str, "port=%u\x01", _client->set.port);
 	str_printfa(str, "auth=Bearer %s\x01", _client->password);
 	str_append_c(str, '\x01');
 
@@ -166,31 +169,6 @@ mech_xoauth2_output(struct dsasl_client *_client,
 }
 
 static int
-mech_oauthbearer_set_parameter(struct dsasl_client *_client, const char *key,
-			       const char *value, const char **error_r)
-{
-	struct oauthbearer_dsasl_client *client =
-		container_of(_client, struct oauthbearer_dsasl_client, client);
-
-	if (strcmp(key, "host") == 0) {
-		if (value != NULL)
-			client->host = p_strdup(_client->pool, value);
-		else
-			client->host = NULL;
-		return 1;
-	} else if (strcmp(key, "port") == 0) {
-		if (value == NULL) {
-			client->port = 0;
-		} else if (net_str2port(value, &client->port) < 0) {
-			*error_r = "Invalid port value";
-			return -1;
-		}
-		return 1;
-	}
-	return 0;
-}
-
-static int
 mech_oauthbearer_get_result(struct dsasl_client *_client, const char *key,
 			    const char **value_r,
 			    const char **error_r ATTR_UNUSED)
@@ -213,7 +191,6 @@ const struct dsasl_client_mech dsasl_client_mech_oauthbearer = {
 
 	.input = mech_oauthbearer_input,
 	.output = mech_oauthbearer_output,
-	.set_parameter = mech_oauthbearer_set_parameter,
 	.get_result = mech_oauthbearer_get_result,
 };
 
@@ -223,6 +200,5 @@ const struct dsasl_client_mech dsasl_client_mech_xoauth2 = {
 
 	.input = mech_oauthbearer_input,
 	.output = mech_xoauth2_output,
-	.set_parameter = mech_oauthbearer_set_parameter,
 	.get_result = mech_oauthbearer_get_result,
 };

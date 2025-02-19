@@ -268,13 +268,12 @@ static void test_sasl_client_oauthbearer(void)
 	test_assert(client == NULL);
 
 	/* with host & port set */
-	client = dsasl_client_new(mech, &sasl_set);
+	struct dsasl_client_settings sasl_set_host = sasl_set;
+	sasl_set_host.host = "example.com";
+	sasl_set_host.port = 143;
+	client = dsasl_client_new(mech, &sasl_set_host);
 	i_assert(client != NULL);
 
-	test_assert(dsasl_client_set_parameter(client, "host", "example.com", &error) == 1);
-	test_assert(dsasl_client_set_parameter(client, "port", "imap", &error) == -1);
-	test_assert_strcmp(error, "Invalid port value");
-	test_assert(dsasl_client_set_parameter(client, "port", "143", &error) == 1);
 	test_assert(dsasl_client_set_parameter(client, "unknown", "value", &error) == 0);
 
 	test_assert(dsasl_client_input(client, uchar_empty_ptr, 0, &error) == DSASL_CLIENT_RESULT_OK);

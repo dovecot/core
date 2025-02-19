@@ -629,6 +629,8 @@ static void fuzz_sasl_run(struct istream *input)
 		.authid = params.authid,
 		.authzid = params.authzid,
 		.password = params.client_password,
+		.protocol = "imap",
+		.host = "example.com",
 	};
 	client_mech = dsasl_client_mech_find(params.mech);
 	if (client_mech != NULL) {

@@ -386,6 +386,8 @@ test_sasl_run_once(const struct test_sasl *test,
 		.authid = authid,
 		.authzid = authzid,
 		.password = password,
+		.protocol = "imap",
+		.host = "example.com",
 	};
 	client_mech = dsasl_client_mech_find(test->mech);
 	i_assert(client_mech != NULL);

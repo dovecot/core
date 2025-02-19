@@ -72,6 +72,9 @@ struct dsasl_client *dsasl_client_new(const struct dsasl_client_mech *mech,
 	client->set.authzid = p_strdup(pool, set->authzid);
 	client->password = p_strdup(pool, set->password);
 	client->set.password = client->password;
+	client->set.protocol = p_strdup(pool, set->protocol);
+	client->set.host = p_strdup(pool, set->host);
+	client->set.port = set->port;
 	return client;
 }
 
