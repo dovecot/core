@@ -20,7 +20,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
 	-Wno-error=unused-function \
-	-DVAR_EXPAND_MODULE_DIR=\"$(pkglibdir)\"
+	-DVAR_EXPAND_MODULE_DIR=\"$(moduledir)\"
 
 var-expand-parser.h: var-expand-parser.c
 
