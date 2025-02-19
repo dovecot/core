@@ -307,13 +307,13 @@ trash_clean_execute(struct trash_clean *tclean,
 		ctx->count_over = 0;
 	}
 
-	if (ctx->bytes_ceil > ((uint64_t)-1 - size_expunged)) {
-		ctx->bytes_ceil = (uint64_t)-1;
+	if (ctx->bytes_ceil > (UINT64_MAX - size_expunged)) {
+		ctx->bytes_ceil = UINT64_MAX;
 	} else {
 		ctx->bytes_ceil += size_expunged;
 	}
-	if (ctx->count_ceil < ((uint64_t)-1 - expunged_count)) {
-		ctx->count_ceil = (uint64_t)-1;
+	if (ctx->count_ceil < (UINT64_MAX - expunged_count)) {
+		ctx->count_ceil = UINT64_MAX;
 	} else {
 		ctx->count_ceil += expunged_count;
 	}
@@ -375,10 +375,10 @@ trash_quota_test_alloc(struct quota_transaction_context *ctx,
 			break;
 		}
 
-		if (ctx->bytes_ceil != (uint64_t)-1 &&
+		if (ctx->bytes_ceil != UINT64_MAX &&
 		    ctx->bytes_ceil < size + ctx->bytes_over)
 			size_needed = size + ctx->bytes_over - ctx->bytes_ceil;
-		if (ctx->count_ceil != (uint64_t)-1 &&
+		if (ctx->count_ceil != UINT64_MAX &&
 		    ctx->count_ceil < 1 + ctx->count_over)
 			count_needed = 1 + ctx->count_over - ctx->count_ceil;
 
