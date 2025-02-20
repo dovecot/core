@@ -25,14 +25,15 @@ static int message_parse_stream(pool_t pool, struct istream *input,
 	return ret;
 }
 
-static void test_message_part_attachment_detection(const char test_name[],
-						   const char input_msg_part[],
-						   bool is_expected_attachment)
+static void test_message_part_attachment(const char test_name[],
+					 const char input_msg_part[],
+					 bool expected_is_attach,
+					 const char *expected_filename)
 {
 	const struct message_parser_settings parser_set = {
 		.max_total_mime_parts = 2,
 	};
-	const struct message_part_attachment_settings set_attachment_settings = {
+	const struct message_part_attachment_settings attach_settings = {
 		.content_type_filter = NULL,
 		.exclude_inlined = FALSE,
 	};
@@ -48,8 +49,21 @@ static void test_message_part_attachment_detection(const char test_name[],
 	message_parse_stream(pool, input, &parser_set, TRUE, &parts);
 	part = parts;
 
-	test_assert(message_part_is_attachment(part, &set_attachment_settings)
-		    == is_expected_attachment);
+	bool actual_is_attach = message_part_is_attachment(part, &attach_settings);
+	test_assert(actual_is_attach == expected_is_attach);
+
+	if (actual_is_attach != expected_is_attach)
+		i_debug("Expected %s, got %s\n",
+			expected_is_attach ? "TRUE" : "FALSE",
+			actual_is_attach ? "TRUE" : "FALSE");
+
+	if (actual_is_attach) {
+		const char *actual_filename = NULL;
+		bool actual_filename_is_attach = message_part_data_get_filename(
+			part, &actual_filename);
+		test_assert(actual_filename_is_attach == expected_is_attach);
+		test_assert_strcmp(actual_filename, expected_filename);
+	}
 
 	i_stream_unref(&input);
 	pool_unref(&pool);
@@ -57,118 +71,149 @@ static void test_message_part_attachment_detection(const char test_name[],
 	test_end();
 }
 
-static void test_message_inline_with_cd_filename(void)
+static void test_message_inline_with_cd_filename_star(void)
 {
-	const char test_name_filename_star[] =
+	const char test_name[] =
 		"attachment detection disposition inline with filename*";
-	const char input_msg_part_inline_att_with_filename_star[] =
+	const char input[] =
 		"Content-Disposition: inline;filename*=\"foo.bar\"\n"
 		"Content-Type: foo/bar;\n"
 		"\n"
 		"xxxdata\n";
 
-	const char test_name_filename[] =
+	test_message_part_attachment(test_name, input, TRUE, "foo.bar");
+}
+
+static void test_message_inline_with_cd_filename(void)
+{
+	const char test_name[] =
 		"attachment detection disposition inline with filename";
-	const char input_msg_part_inline_att_with_filename[] =
+	const char input[] =
 		"Content-Disposition: inline;filename=\"foo.bar\"\n"
 		"Content-Type: foo/bar;\n"
 		"\n"
 		"xxxdata\n";
 
-	test_message_part_attachment_detection(
-		test_name_filename_star,
-		input_msg_part_inline_att_with_filename_star, TRUE);
-	test_message_part_attachment_detection(
-		test_name_filename,
-		input_msg_part_inline_att_with_filename, TRUE);
+	test_message_part_attachment(test_name, input, TRUE, "foo.bar");
+}
+
+static void test_message_inline_with_ct_name_star(void)
+{
+	const char test_name[] =
+		"attachment detection disposition inline with filename*";
+	const char input[] =
+		"Content-Disposition: inline;\n"
+		"Content-Type: foo/bar;name*=\"foo.bar\"\n"
+		"\n"
+		"xxxdata\n";
+
+	test_message_part_attachment(test_name, input, TRUE, "foo.bar");
+}
+
+static void test_message_inline_with_ct_name(void)
+{
+	const char test_name[] =
+		"attachment detection disposition inline with filename";
+	const char input[] =
+		"Content-Disposition: inline;\n"
+		"Content-Type: foo/bar;name=\"foo.bar\"\n"
+		"\n"
+		"xxxdata\n";
+
+	test_message_part_attachment(test_name, input, TRUE, "foo.bar");
 }
 
 static void test_message_inline_without_filename(void)
 {
 	const char test_name[] =
 		"attachment detection disposition inline without filename";
-	const char input_msg_part[] =
+	const char input[] =
 		"Content-Disposition: inline;\n"
 		"Content-Type: foo/bar;\n"
 		"\n"
 		"xxxdata\n";
 
-	test_message_part_attachment_detection(test_name, input_msg_part, FALSE);
+	test_message_part_attachment(test_name, input, FALSE, NULL);
 }
 
 static void test_message_attachment_without_filename(void)
 {
 	const char test_name[] =
 		"attachment detection disposition attachment without filename";
-	const char input_msg_part[] =
+	const char input[] =
 		"Content-Disposition: attachment;\n"
 		"Content-Type: foo/bar;\n"
 		"\n"
 		"xxxdata\n";
 
-	test_message_part_attachment_detection(test_name, input_msg_part, TRUE);
+	test_message_part_attachment(test_name, input, TRUE, NULL);
 }
 
-static void test_message_attachment_with_cd_filename(void)
+static void test_message_attachment_with_cd_filename_star(void)
 {
-	const char test_name_filename_star[] =
+	const char test_name[] =
 		"attachment detection disposition attachment with filename*";
-	const char input_msg_part_filename_star[] =
+	const char input[] =
 		"Content-Disposition: attachment;filename*=\"foo.bar\"\n"
 		"Content-Type: foo/bar;\n"
 		"\n"
 		"xxxdata\n";
 
-	const char test_name_filename[] =
+	test_message_part_attachment(test_name, input, TRUE, "foo.bar");
+}
+
+
+static void test_message_attachment_with_cd_filename(void)
+{
+	const char test_name[] =
 		"attachment detection disposition attachment with filename";
-	const char input_msg_part_filename[] =
+	const char input[] =
 		"Content-Disposition: attachment;filename=\"foo.bar\"\n"
 		"Content-Type: foo/bar;\n"
 		"\n"
 		"xxxdata\n";
 
-	test_message_part_attachment_detection(
-		test_name_filename_star,
-		input_msg_part_filename_star, TRUE);
-	test_message_part_attachment_detection(
-		test_name_filename,
-		input_msg_part_filename, TRUE);
+	test_message_part_attachment(test_name, input, TRUE, "foo.bar");
 }
 
 static void test_message_without_attachment(void)
 {
 	const char test_name[] = "attachment detection not attachment";
-	const char input_msg_part[] =
+	const char input[] =
 		"Content-Type: foo/bar;\n"
 		"\n"
 		"xxxdata\n";
 
-	test_message_part_attachment_detection(test_name, input_msg_part, FALSE);
+	test_message_part_attachment(test_name, input, FALSE, NULL);
 }
 
 static void test_message_attachment_with_ct_name(void)
 {
 	const char test_name[] =
 		"attachment detection disposition attachment with file";
-	const char input_msg_part[] =
+	const char input[] =
 		"Content-Type: application/octet-stream; name=\"foo.pdf\"\n"
 		"Content-Disposition: attachment\n"
 		"Content-Transfer-Encoding: base64\n"
 		"\n"
 		"xxxdata\n";
 
-	test_message_part_attachment_detection(test_name, input_msg_part, TRUE);
+	test_message_part_attachment(test_name, input, TRUE, "foo.pdf");
 }
 
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
+		test_message_without_attachment,
+		test_message_inline_with_ct_name,
+		test_message_attachment_with_ct_name,
 		test_message_inline_with_cd_filename,
 		test_message_inline_without_filename,
-		test_message_attachment_without_filename,
+		test_message_inline_with_ct_name_star,
 		test_message_attachment_with_cd_filename,
-		test_message_without_attachment,
-		test_message_attachment_with_ct_name,
+		test_message_attachment_without_filename,
+		test_message_inline_with_cd_filename_star,
+		test_message_attachment_with_cd_filename_star,
 		NULL
 	};
 	return test_run(test_functions);
