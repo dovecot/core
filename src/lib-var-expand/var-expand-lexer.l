@@ -47,6 +47,10 @@ static size_t input_proc(char *buf, size_t size, yyscan_t scanner);
 	yylval->str = str_new(state->pool, 32); \
 	} STMT_END
 
+#ifndef VAR_EXPAND_PARSER_error
+#  define VAR_EXPAND_PARSER_error 256
+#endif
+
 static int scanner_error(void *yyscanner, const char *msg);
 static bool append_valid_utf8(void *yyscanner, YYSTYPE *state, const char *value);
 #define append_valid_utf8(state, value) \

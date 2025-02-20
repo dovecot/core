@@ -235,6 +235,7 @@ expression_list:
 expression: VALUE { i_zero(&tmp_value); tmp_value.str = str_c($1); push_argument(state, VAR_EXPAND_PARAMETER_VALUE_TYPE_STRING, &tmp_value); push_function(state, "literal"); state->p->only_literal = TRUE;}
           | OCBRACE filter_list CCBRACE
 	  | PERC { i_zero(&tmp_value); tmp_value.str = "%"; push_argument(state, VAR_EXPAND_PARAMETER_VALUE_TYPE_STRING, &tmp_value); push_function(state, "literal"); state->p->only_literal = TRUE; }
+	  | error { return -1; }
 	  ;
 
 filter_list: filter_list PIPE filter
@@ -269,6 +270,7 @@ func  : funcname arguments { push_function(state, $1); }
       ;
 
 funcname : NAME { $$ = p_strdup(state->plist->pool, str_c($1)); }
+	| error { return -1; }
 	;
 
 arguments:
@@ -285,9 +287,11 @@ argument : VALUE { i_zero(&tmp_value); tmp_value.str = str_c($1); push_argument(
 	 | key EQ number { i_zero(&tmp_value); tmp_value.num = $3; push_named_argument(state, $1, VAR_EXPAND_PARAMETER_VALUE_TYPE_INT, &tmp_value); }
 	 | key EQ NAME { i_zero(&tmp_value); tmp_value.str = str_c($3); push_named_argument(state, $1, VAR_EXPAND_PARAMETER_VALUE_TYPE_VARIABLE, &tmp_value); }
 	 | key EQ VALUE { i_zero(&tmp_value); tmp_value.str = str_c($3); push_named_argument(state, $1, VAR_EXPAND_PARAMETER_VALUE_TYPE_STRING, &tmp_value); }
+	 | error { return -1; }
 	 ;
 
 key : NAME { $$ = p_strdup(state->plist->pool, str_c($1)); }
+    | error { return -1; }
     ;
 
 %%
