@@ -2532,7 +2532,7 @@ static bool config_version_find(const char *version, const char **error_r)
 {
 	const char *const supported_versions[] = {
 #ifdef DOVECOT_PRO_EDITION
-		"3.0.0",
+		"3.1.0",
 		DOVECOT_CONFIG_VERSION,
 #else
 		"2.4.0",
