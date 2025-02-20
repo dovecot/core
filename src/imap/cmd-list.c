@@ -4,7 +4,6 @@
 #include "array.h"
 #include "str.h"
 #include "strescape.h"
-#include "mailbox-list-iter.h"
 #include "imap-utf7.h"
 #include "imap-quote.h"
 #include "imap-match.h"
@@ -184,6 +183,7 @@ list_send_status(struct cmd_list_context *ctx,
 		 const struct imap_list_return_flag_params *params)
 {
 	enum mailbox_info_flags mbox_flags = params->mbox_flags;
+	enum mailbox_list_iter_flags list_flags = params->list_flags;
 	struct imap_status_result result;
 
 	if ((mbox_flags & (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) != 0) {
@@ -191,7 +191,7 @@ list_send_status(struct cmd_list_context *ctx,
 		return;
 	}
 	if ((mbox_flags & MAILBOX_SUBSCRIBED) == 0 &&
-	    (ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
+	    (list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
 		/* listing subscriptions, but only child is subscribed */
 		i_assert((mbox_flags & MAILBOX_CHILD_SUBSCRIBED) != 0);
 		return;
@@ -259,6 +259,7 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 				.name = name,
 				.mutf7_name = str_c(mutf7_name),
 				.mbox_flags = flags,
+				.list_flags = ctx->list_flags,
 			};
 
 			/* if we're listing subscriptions and there are
