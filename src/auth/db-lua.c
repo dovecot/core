@@ -374,7 +374,7 @@ static void auth_lua_dovecot_auth_register(lua_State *L)
 static int auth_lua_call_lookup(lua_State *L, const char *fn, int ret_success,
 				struct auth_request *req, const char **error_r)
 {
-	int ret, err = 0;
+	int err = 0;
 
 	e_debug(authdb_event(req), "Calling %s", fn);
 
@@ -388,7 +388,7 @@ static int auth_lua_call_lookup(lua_State *L, const char *fn, int ret_success,
 					   "(expected number got %s)",
 					   fn, luaL_typename(L, -2));
 		err = -1;
-	} else if ((ret = lua_tointeger(L, -2)) != ret_success) {
+	} else if (lua_tointeger(L, -2) != ret_success) {
 		if (!lua_isstring(L, -1) && !lua_isnil(L, -1)) {
 			*error_r = t_strdup_printf(
 				"db-lua: %s(req) invalid error return value "
@@ -613,7 +613,6 @@ auth_lua_call_password_verify(struct dlua_script *script,
 			      struct auth_request *req, const char *password, const char **error_r)
 {
 	lua_State *L = script->L;
-	enum passdb_result ret;
 	int err = 0;
 
 	e_debug(authdb_event(req), "Calling %s", AUTH_LUA_PASSWORD_VERIFY);
@@ -631,7 +630,7 @@ auth_lua_call_password_verify(struct dlua_script *script,
 					   AUTH_LUA_PASSWORD_VERIFY,
 					   luaL_typename(L, -2));
 		err = -1;
-	} else if ((ret = lua_tointeger(L, -2)) != PASSDB_RESULT_OK) {
+	} else if (lua_tointeger(L, -2) != PASSDB_RESULT_OK) {
 		if (!lua_isstring(L, -1) && !lua_isnil(L, -1)) {
 			*error_r = t_strdup_printf(
 				"db-lua: %s invalid error return value "
