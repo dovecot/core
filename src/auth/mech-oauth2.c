@@ -214,74 +214,6 @@ mech_oauth2_verify_token(struct oauth2_auth_request *oauth2_req,
 	}
 }
 
-/* Input syntax:
- user=Username^Aauth=Bearer token^A^A
-*/
-static void
-mech_xoauth2_auth_continue(struct auth_request *request,
-			   const unsigned char *data,
-			   size_t data_size)
-{
-	struct oauth2_auth_request *oauth2_req =
-		container_of(request, struct oauth2_auth_request, auth);
-
-	if (oauth2_req->db == NULL) {
-		e_error(request->event, "BUG: oauth2 database missing");
-		oauth2_fail(oauth2_req, 500, "internal_failure");
-		return;
-	}
-	if (data_size == 0) {
-		oauth2_fail(oauth2_req, 401, "invalid_token");
-		return;
-	}
-
-	/* split the data from ^A */
-	bool user_given = FALSE;
-	const char *value;
-	const char *error;
-	const char *token = NULL;
-	const char *const *ptr;
-	const char *username;
-	const char *const *fields =
-		t_strsplit(t_strndup(data, data_size), "\x01");
-
-	for (ptr = fields; *ptr != NULL; ptr++) {
-		if (str_begins(*ptr, "user=", &value)) {
-			/* xoauth2 does not require unescaping because the data
-			   format does not contain anything to escape */
-			username = value;
-			user_given = TRUE;
-		} else if (str_begins(*ptr, "auth=", &value)) {
-			if (str_begins_icase(value, "bearer ", &value) &&
-			    oauth2_valid_token(value)) {
-				token = value;
-			} else {
-				e_info(request->mech_event,
-				       "Invalid continued data");
-				oauth2_fail(oauth2_req, 401, "invalid_token");
-				return;
-			}
-		}
-		/* do not fail on unexpected fields */
-	}
-
-	if (user_given &&
-	    !auth_request_set_username(request, username, &error)) {
-		e_info(request->mech_event, "%s", error);
-		oauth2_fail(oauth2_req, 400, "invalid_request");
-		return;
-	}
-	if (user_given && token != NULL)
-		mech_oauth2_verify_token(oauth2_req, token);
-	else if (token == NULL) {
-		e_info(request->mech_event, "Missing token");
-		oauth2_fail(oauth2_req, 401, "invalid_token");
-	} else {
-		e_info(request->mech_event, "Missing username");
-		oauth2_fail(oauth2_req, 401, "invalid_token");
-	}
-}
-
 /* Input syntax for data:
  gs2flag,a=username,^Afield=...^Afield=...^Aauth=Bearer token^A^A
 */
@@ -383,6 +315,74 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 	} else {
 		e_info(request->mech_event, "Missing username");
 		oauth2_fail(oauth2_req, 401, "invalid_request");
+	}
+}
+
+/* Input syntax:
+ user=Username^Aauth=Bearer token^A^A
+*/
+static void
+mech_xoauth2_auth_continue(struct auth_request *request,
+			   const unsigned char *data,
+			   size_t data_size)
+{
+	struct oauth2_auth_request *oauth2_req =
+		container_of(request, struct oauth2_auth_request, auth);
+
+	if (oauth2_req->db == NULL) {
+		e_error(request->event, "BUG: oauth2 database missing");
+		oauth2_fail(oauth2_req, 500, "internal_failure");
+		return;
+	}
+	if (data_size == 0) {
+		oauth2_fail(oauth2_req, 401, "invalid_token");
+		return;
+	}
+
+	/* split the data from ^A */
+	bool user_given = FALSE;
+	const char *value;
+	const char *error;
+	const char *token = NULL;
+	const char *const *ptr;
+	const char *username;
+	const char *const *fields =
+		t_strsplit(t_strndup(data, data_size), "\x01");
+
+	for (ptr = fields; *ptr != NULL; ptr++) {
+		if (str_begins(*ptr, "user=", &value)) {
+			/* xoauth2 does not require unescaping because the data
+			   format does not contain anything to escape */
+			username = value;
+			user_given = TRUE;
+		} else if (str_begins(*ptr, "auth=", &value)) {
+			if (str_begins_icase(value, "bearer ", &value) &&
+			    oauth2_valid_token(value)) {
+				token = value;
+			} else {
+				e_info(request->mech_event,
+				       "Invalid continued data");
+				oauth2_fail(oauth2_req, 401, "invalid_token");
+				return;
+			}
+		}
+		/* do not fail on unexpected fields */
+	}
+
+	if (user_given &&
+	    !auth_request_set_username(request, username, &error)) {
+		e_info(request->mech_event, "%s", error);
+		oauth2_fail(oauth2_req, 400, "invalid_request");
+		return;
+	}
+	if (user_given && token != NULL)
+		mech_oauth2_verify_token(oauth2_req, token);
+	else if (token == NULL) {
+		e_info(request->mech_event, "Missing token");
+		oauth2_fail(oauth2_req, 401, "invalid_token");
+	} else {
+		e_info(request->mech_event, "Missing username");
+		oauth2_fail(oauth2_req, 401, "invalid_token");
 	}
 }
 
