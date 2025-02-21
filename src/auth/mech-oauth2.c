@@ -9,6 +9,7 @@
 #include "json-ostream.h"
 #include "mech.h"
 #include "passdb.h"
+#include "auth-gs2.h"
 #include "db-oauth2.h"
 #include "oauth2.h"
 
@@ -21,31 +22,6 @@ struct oauth2_auth_request {
 };
 
 static struct db_oauth2 *db_oauth2 = NULL;
-
-/* RFC5801 based unescaping */
-static bool oauth2_unescape_username(const char *in, const char **username_r)
-{
-	string_t *out;
-
-	out = t_str_new(64);
-	for (; *in != '\0'; in++) {
-		if (in[0] == ',')
-			return FALSE;
-		if (in[0] == '=') {
-			if (in[1] == '2' && in[2] == 'C')
-				str_append_c(out, ',');
-			else if (in[1] == '3' && in[2] == 'D')
-				str_append_c(out, '=');
-			else
-				return FALSE;
-			in += 2;
-		} else {
-			str_append_c(out, *in);
-		}
-	}
-	*username_r = str_c(out);
-	return TRUE;
-}
 
 static void
 oauth2_fail(struct oauth2_auth_request *oauth2_req, const char *status)
@@ -252,57 +228,57 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 		return;
 	}
 
-	bool user_given = FALSE;
-	const char *value, *error;
-	const char *username;
-	const char *const *ptr;
-	/* split the data from ^A */
-	const char *const *fields =
-		t_strsplit(t_strndup(data, data_size), "\x01");
-	const char *token = NULL;
-	/* ensure initial field is OK */
-	if (*fields == NULL || *(fields[0]) == '\0') {
-		e_info(request->mech_event, "Invalid response payload");
+	struct auth_gs2_header gs2_header;
+	const unsigned char *gs2_header_end;
+	const char *error;
+
+	if (auth_gs2_header_decode(data, data_size, FALSE,
+				   &gs2_header, &gs2_header_end, &error) < 0) {
+		e_info(request->mech_event, "Invalid gs2-header in request: %s",
+		       error);
 		oauth2_fail_invalid_request(oauth2_req);
 		return;
 	}
 
-	/* the first field is specified by RFC5801 as gs2-header */
-	for (ptr = t_strsplit_spaces(fields[0], ","); *ptr != NULL; ptr++) {
-		switch(*ptr[0]) {
-		case 'f':
-			e_info(request->mech_event,
-			       "Client requested non-standard mechanism");
-			oauth2_fail_invalid_request(oauth2_req);
-			return;
-		case 'p':
-			/* channel binding is not supported */
-			e_info(request->mech_event,
-			       "Client requested and used channel-binding");
-			oauth2_fail_invalid_request(oauth2_req);
-			return;
-		case 'n':
-		case 'y':
-			/* we don't need to use channel-binding */
-			continue;
-		case 'a': /* authzid */
-			if ((*ptr)[1] != '=' ||
-			    !oauth2_unescape_username((*ptr)+2, &username)) {
-				e_info(request->mech_event,
-				       "Invalid username escaping");
-				oauth2_fail_invalid_request(oauth2_req);
-				return;
-			} else {
-				user_given = TRUE;
-			}
-			break;
-		default:
-			e_info(request->mech_event,
-			       "Invalid gs2-header in request");
-			oauth2_fail_invalid_request(oauth2_req);
-			return;
-		}
+	if (gs2_header.authzid == NULL) {
+		e_info(request->mech_event, "Missing username");
+		oauth2_fail_invalid_request(oauth2_req);
+		return;
 	}
+	if (!auth_request_set_username(request, gs2_header.authzid, &error)) {
+		e_info(request->mech_event, "%s", error);
+		oauth2_fail_invalid_request(oauth2_req);
+		return;
+	}
+	if (gs2_header.cbind.status == AUTH_GS2_CBIND_STATUS_PROVIDED) {
+		/* channel binding is not supported */
+		e_info(request->mech_event,
+		       "Client requested and used channel-binding");
+		oauth2_fail_invalid_request(oauth2_req);
+		return;
+	}
+
+	size_t gs2_header_size = gs2_header_end - data;
+	size_t payload_size = data_size - gs2_header_size;
+
+	if (payload_size == 0) {
+		e_info(request->mech_event, "Response payload is missing");
+		oauth2_fail_invalid_request(oauth2_req);
+		return;
+	}
+	if (*gs2_header_end != '\x01') {
+		e_info(request->mech_event, "Invalid gs2-header in request: "
+		       "Spurious data at end of header");
+		oauth2_fail_invalid_request(oauth2_req);
+		return;
+	}
+
+	/* split the data from ^A */
+	const char *const *fields =
+		t_strsplit(t_strndup(gs2_header_end + 1, payload_size - 1),
+		  "\x01");
+	const char *const *ptr;
+	const char *token = NULL, *value;
 
 	for (ptr = fields; *ptr != NULL; ptr++) {
 		if (str_begins(*ptr, "auth=", &value)) {
@@ -318,21 +294,12 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 		}
 		/* do not fail on unexpected fields */
 	}
-	if (user_given &&
-	    !auth_request_set_username(request, username, &error)) {
-		e_info(request->mech_event, "%s", error);
-		oauth2_fail_invalid_request(oauth2_req);
+	if (token == NULL) {
+		e_info(request->mech_event, "Missing token");
+		oauth2_fail_invalid_token(oauth2_req);
 		return;
 	}
-	if (user_given && token != NULL)
-		mech_oauth2_verify_token(oauth2_req, token);
-	else if (token == NULL) {
-		e_info(request->mech_event, "Missing token");
-		oauth2_fail_invalid_request(oauth2_req);
-	} else {
-		e_info(request->mech_event, "Missing username");
-		oauth2_fail_invalid_request(oauth2_req);
-	}
+	mech_oauth2_verify_token(oauth2_req, token);
 }
 
 /* Input syntax:

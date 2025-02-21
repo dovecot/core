@@ -245,7 +245,8 @@ static void test_mechs(void)
 		{&mech_dovecot_token, UCHAR_LEN("service\0pid\0fail\0se\0ssion_id\0deadbeef"), NULL , NULL, FALSE, FALSE, FALSE},
 		{&mech_login, UCHAR_LEN("test user\0user"), NULL, NULL, FALSE, FALSE, FALSE},
 		{&mech_oauthbearer, UCHAR_LEN("n,a==testuser,\x01""auth=Bearer token\x01\x01"), NULL, NULL, FALSE, FALSE, FALSE},
-		{&mech_oauthbearer, UCHAR_LEN("n,a=testuser,f=non-standard\x01""auth=Bearer token\x01\x01"), "testuser", NULL, FALSE, FALSE, FALSE},
+		{&mech_oauthbearer, UCHAR_LEN("F,n,a=testuser,\x01""auth=Bearer token\x01\x01"), "testuser", NULL, FALSE, FALSE, FALSE},
+		{&mech_oauthbearer, UCHAR_LEN("n,a=testuser,f=non-standard\x01""auth=Bearer token\x01\x01"), "testuser", NULL, FALSE, TRUE, FALSE},
 		{&mech_oauthbearer, UCHAR_LEN("n,a=testuser\x01""auth=token\x01\x01"), "testuser", NULL, FALSE, FALSE, FALSE},
 		{&mech_xoauth2, UCHAR_LEN("testuser\x01auth=Bearer token\x01\x01"), NULL, NULL, FALSE, FALSE, FALSE},
 		/* does not start with [B|b]earer */
