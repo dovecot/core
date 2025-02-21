@@ -23,6 +23,7 @@ extern const struct dsasl_client_mech dsasl_client_mech_plain;
 
 const struct dsasl_client_mech *dsasl_client_mech_find(const char *name);
 const char *dsasl_client_mech_get_name(const struct dsasl_client_mech *mech);
+bool dsasl_client_mech_uses_password(const struct dsasl_client_mech *mech);
 
 struct dsasl_client *dsasl_client_new(const struct dsasl_client_mech *mech,
 				      const struct dsasl_client_settings *set);

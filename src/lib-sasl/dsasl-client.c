@@ -34,6 +34,11 @@ const char *dsasl_client_mech_get_name(const struct dsasl_client_mech *mech)
 	return mech->name;
 }
 
+bool dsasl_client_mech_uses_password(const struct dsasl_client_mech *mech)
+{
+	return (mech->flags & DSASL_MECH_SEC_NO_PASSWORD) == 0;
+}
+
 void dsasl_client_mech_register(const struct dsasl_client_mech *mech)
 {
 	unsigned int idx;

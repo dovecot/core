@@ -5,6 +5,7 @@
 
 enum dsasl_mech_security_flags {
 	DSASL_MECH_SEC_ALLOW_NULS	= BIT(1),
+	DSASL_MECH_SEC_NO_PASSWORD	= BIT(2),
 };
 
 struct dsasl_client {

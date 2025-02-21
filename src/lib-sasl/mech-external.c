@@ -53,6 +53,7 @@ mech_external_output(struct dsasl_client *_client,
 const struct dsasl_client_mech dsasl_client_mech_external = {
 	.name = "EXTERNAL",
 	.struct_size = sizeof(struct external_dsasl_client),
+	.flags = DSASL_MECH_SEC_NO_PASSWORD,
 
 	.input = mech_external_input,
 	.output = mech_external_output
