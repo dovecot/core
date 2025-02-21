@@ -12,6 +12,7 @@
 #include "randgen.h"
 #include "safe-memset.h"
 
+#include "auth-gs2.h"
 #include "auth-scram-client.h"
 
 /* c-nonce length */
@@ -56,36 +57,13 @@ auth_scram_generate_cnonce(struct auth_scram_client *client)
 	client->nonce = p_strdup(client->pool, (char *)cnonce);
 }
 
-static const char *auth_scram_escape_username(const char *in)
-{
-	string_t *out;
-
-	/* RFC 5802, Section 5.1:
-
-	   The characters ',' or '=' in usernames are sent as '=2C' and '=3D'
-	   respectively.  If the server receives a username that contains '='
-	   not followed by either '2C' or '3D', then the server MUST fail the
-	   authentication.
-	 */
-
-	out = t_str_new(strlen(in) + 32);
-	for (; *in != '\0'; in++) {
-		if (in[0] == ',')
-			str_append(out, "=2C");
-		else if (in[0] == '=')
-			str_append(out, "=3D");
-		else
-			str_append_c(out, *in);
-	}
-	return str_c(out);
-}
-
 static string_t *auth_scram_get_client_first(struct auth_scram_client *client)
 {
 	const char *cbind_type = client->set.cbind_type;
 	enum auth_scram_cbind_server_support cbind_support =
 		client->set.cbind_support;
-	const char *authzid_enc, *username_enc, *gs2_header, *cfm_bare;
+	struct auth_gs2_header gs2_header;
+	const char *cfm, *cfm_bare;
 	string_t *str;
 	size_t cfm_bare_offset;
 
@@ -116,41 +94,33 @@ static string_t *auth_scram_get_client_first(struct auth_scram_client *client)
 
 	auth_scram_generate_cnonce(client);
 
-	authzid_enc = ((client->set.authzid == NULL ||
-			*client->set.authzid == '\0') ?
-		       "" : auth_scram_escape_username(client->set.authzid));
-	username_enc = auth_scram_escape_username(client->set.authid);
+	i_zero(&gs2_header);
+	if (cbind_type == NULL) {
+		gs2_header.cbind.status =
+			AUTH_GS2_CBIND_STATUS_NO_CLIENT_SUPPORT;
+	} else if (cbind_support == AUTH_SCRAM_CBIND_SERVER_SUPPORT_NONE) {
+		gs2_header.cbind.status =
+			AUTH_GS2_CBIND_STATUS_NO_SERVER_SUPPORT;
+	} else {
+		gs2_header.cbind.status = AUTH_GS2_CBIND_STATUS_PROVIDED;
+		gs2_header.cbind.name = cbind_type;
+	}
+	gs2_header.authzid = client->set.authzid,
 
 	str = t_str_new(256);
-	if (cbind_type == NULL) {
-		/* Channel binding not supported by client */
-		str_append(str, "n,");
-	} else if (cbind_support == AUTH_SCRAM_CBIND_SERVER_SUPPORT_NONE) {
-		/* Channel binding not supported by server */
-		str_append(str, "y,");
-	} else {
-		str_append(str, "p=");
-		str_append(str, cbind_type);
-		str_append_c(str, ',');
-	}
-	if (*authzid_enc != '\0') {
-		str_append(str, "a=");
-		str_append(str, authzid_enc);
-	}
-	str_append_c(str, ',');
+	auth_gs2_header_encode(&gs2_header, str);
+
 	cfm_bare_offset = str_len(str);
 	str_append(str, "n=");
-	str_append(str, username_enc);
+	auth_gs2_encode_username(client->set.authid, str);
 	str_append(str, ",r=");
 	str_append(str, client->nonce);
 
-	cfm_bare = gs2_header = str_c(str);
-	cfm_bare += cfm_bare_offset;
+	cfm = str_c(str);
+	cfm_bare = cfm + cfm_bare_offset;
 
-	client->gs2_header =
-		p_strndup(client->pool, gs2_header, cfm_bare_offset);
-	client->client_first_message_bare =
-		p_strdup(client->pool, cfm_bare);
+	client->gs2_header = p_strndup(client->pool, cfm, cfm_bare_offset);
+	client->client_first_message_bare = p_strdup(client->pool, cfm_bare);
 	return str;
 }
 
