@@ -262,7 +262,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 	const char *token = NULL;
 	/* ensure initial field is OK */
 	if (*fields == NULL || *(fields[0]) == '\0') {
-		e_info(request->mech_event, "Invalid continued data");
+		e_info(request->mech_event, "Invalid response payload");
 		oauth2_fail_invalid_request(oauth2_req);
 		return;
 	}
@@ -311,7 +311,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 				token = value;
 			} else {
 				e_info(request->mech_event,
-				       "Invalid continued data");
+				       "Invalid response payload");
 				oauth2_fail_invalid_token(oauth2_req);
 				return;
 			}
@@ -378,7 +378,7 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 				token = value;
 			} else {
 				e_info(request->mech_event,
-				       "Invalid continued data");
+				       "Invalid response data");
 				oauth2_fail_invalid_token(oauth2_req);
 				return;
 			}
