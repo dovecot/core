@@ -5,6 +5,7 @@
 #include "net.h"
 #include "json-istream.h"
 #include "istream.h"
+#include "auth-gs2.h"
 #include "dsasl-client-private.h"
 
 struct oauthbearer_dsasl_client {
@@ -105,9 +106,13 @@ mech_oauthbearer_output(struct dsasl_client *_client,
 		return DSASL_CLIENT_RESULT_ERR_INTERNAL;
 	}
 
-	str = str_new(_client->pool, 64);
+	struct auth_gs2_header gs2_header = {
+		.authzid = _client->set.authid,
+	};
 
-	str_printfa(str, "n,a=%s,\x01", _client->set.authid);
+	str = str_new(_client->pool, 64);
+	auth_gs2_header_encode(&gs2_header, str);
+	str_append_c(str, '\x01');
 	if (client->host != NULL && *client->host != '\0')
 		str_printfa(str, "host=%s\x01", client->host);
 	if (client->port > 0)
