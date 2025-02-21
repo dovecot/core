@@ -4,7 +4,7 @@
 #include "dsasl-client.h"
 
 enum dsasl_mech_security_flags {
-	DSASL_MECH_SEC_ALLOW_NULS	= 0x0001,
+	DSASL_MECH_SEC_ALLOW_NULS	= BIT(1),
 };
 
 struct dsasl_client {
