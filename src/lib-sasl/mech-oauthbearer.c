@@ -17,8 +17,8 @@ struct oauthbearer_dsasl_client {
 
 static enum dsasl_client_result
 mech_oauthbearer_input(struct dsasl_client *_client,
-		 const unsigned char *input, size_t input_len,
-		 const char **error_r)
+		       const unsigned char *input, size_t input_len,
+		       const char **error_r)
 {
 	struct oauthbearer_dsasl_client *client =
 		(struct oauthbearer_dsasl_client *)_client;
@@ -89,8 +89,8 @@ mech_oauthbearer_input(struct dsasl_client *_client,
 
 static enum dsasl_client_result
 mech_oauthbearer_output(struct dsasl_client *_client,
-		  const unsigned char **output_r, size_t *output_len_r,
-		  const char **error_r)
+			const unsigned char **output_r, size_t *output_len_r,
+			const char **error_r)
 {
 	struct oauthbearer_dsasl_client *client =
 		(struct oauthbearer_dsasl_client *)_client;
@@ -157,6 +157,7 @@ mech_oauthbearer_set_parameter(struct dsasl_client *_client, const char *key,
 {
 	struct oauthbearer_dsasl_client *client =
 		(struct oauthbearer_dsasl_client *)_client;
+
 	if (strcmp(key, "host") == 0) {
 		if (value != NULL)
 			client->host = p_strdup(_client->pool, value);
@@ -177,10 +178,12 @@ mech_oauthbearer_set_parameter(struct dsasl_client *_client, const char *key,
 
 static int
 mech_oauthbearer_get_result(struct dsasl_client *_client, const char *key,
-			    const char **value_r, const char **error_r ATTR_UNUSED)
+			    const char **value_r,
+			    const char **error_r ATTR_UNUSED)
 {
 	struct oauthbearer_dsasl_client *client =
 		(struct oauthbearer_dsasl_client *)_client;
+
 	if (strcmp(key, "status") == 0) {
 		/* this is set to value after login attempt */
 		i_assert(client->status != NULL);
