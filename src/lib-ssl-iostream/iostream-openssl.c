@@ -925,7 +925,7 @@ openssl_iostream_get_cb_tls_unique(struct ssl_iostream *ssl_io,
 				   const char **error_r)
 {
 	/* RFC 9266, Section 3:
- 
+
 	   The specifications for Salted Challenge Response Authentication
 	   Mechanism (SCRAM) [RFC5802] [RFC7677] and Generic Security Service
 	   Application Program Interface (GSS-API) over Simple Authentication
@@ -956,7 +956,7 @@ openssl_iostream_get_cb_tls_unique(struct ssl_iostream *ssl_io,
 		size = SSL_get_peer_finished(ssl_io->ssl, data, max_size);
 	else
 		size = SSL_get_finished(ssl_io->ssl, data, max_size);
-		
+
 	buffer_set_used_size(buf, size);
 
 	*data_r = buf;
