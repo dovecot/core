@@ -70,7 +70,10 @@ oauth2_fail(struct oauth2_auth_request *oauth2_req, const char *status)
 		json_ostream_nwrite_string(joutput, "status", status);
 	}
 	json_ostream_nwrite_string(joutput, "scope", "mail");
-	json_ostream_nwrite_string(joutput, "openid-configuration", oidc_url);
+	if (*oidc_url != '\0') {
+		json_ostream_nwrite_string(
+			joutput, "openid-configuration", oidc_url);
+	}
 	json_ostream_nascend_object(joutput);
 	json_ostream_nfinish_destroy(&joutput);
 
