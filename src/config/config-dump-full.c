@@ -22,50 +22,51 @@
    Config binary file format:
 
    The settings size numbers do not include the size integer itself.
+   All the numbers are in native CPU endianess.
 
    "DOVECOT-CONFIG\t1.0\n"
-   <64bit big-endian: settings full size>
+   <64bit: settings full size>
 
-   <32bit big-endian: number of paths used for caching>
+   <32bit: number of paths used for caching>
    Repeat for "number of paths":
      <NUL-terminated string: path>
-     <64bit big-endian: inode>
-     <64bit big-endian: size>
-     <32bit big-endian: mtime UNIX timestamp>
-     <32bit big-endian: mtime nsecs>
-     <32bit big-endian: ctime UNIX timestamp>
-     <32bit big-endian: ctime nsecs>
+     <64bit: inode>
+     <64bit: size>
+     <32bit: mtime UNIX timestamp>
+     <32bit: mtime nsecs>
+     <32bit: ctime UNIX timestamp>
+     <32bit: ctime nsecs>
 
-   <32bit big-endian: event filter strings count>
+   <32bit: event filter strings count>
    Repeat for "event filter strings count":
      <NUL-terminated string: event filter string>
      <NUL-terminated string: override event filter string>
 
    Repeat until "settings full size" is reached:
-     <64bit big-endian: settings block size>
+     <64bit: settings block size>
      <NUL-terminated string: setting block name>
 
-     <32bit big-endian: settings count>
+     <32bit: settings count>
      <NUL-terminated string: key>[settings count]
 
-     <32bit big-endian: filter count>
+     <32bit: filter count>
      Repeat for "filter count":
-       <64bit big-endian: filter settings size>
+       <64bit: filter settings size>
        <NUL-terminated string: error string - if client attempts to access this
 			       settings block, it must fail with this error.
 			       NUL = no error, followed by settings>
-       <32bit big-endian: include group count>
+       <32bit: include group count>
        Repeat for "include group count":
          <NUL-terminated string: group label>
          <NUL-terminated string: group name>
        Repeat until "filter settings size" is reached:
-         <32bit big-endian: key index number>
+         <32bit: key index number>
 	 [+|$ <strlist/boollist key>]
 	 <NUL-terminated string: value>
      Repeat for "filter count":
-       <32bit big-endian: event filter string index number>
+       <32bit: event filter string index number>
      Repeat for "filter count":
-       <64bit big-endian: filter settings offset>
+       <64bit: filter settings offset>
      <trailing safety NUL>
 
    The order of filters is important in the output. lib-settings applies the
@@ -115,8 +116,8 @@ struct dump_context {
 static int output_blob_size(struct ostream *output, uoff_t blob_size_offset)
 {
 	i_assert(output->offset >= blob_size_offset + sizeof(uint64_t));
-	uint64_t blob_size = cpu64_to_be(output->offset -
-					 (blob_size_offset + sizeof(uint64_t)));
+	uint64_t blob_size = output->offset -
+		(blob_size_offset + sizeof(uint64_t));
 	if (o_stream_pwrite(output, &blob_size, sizeof(blob_size),
 			    blob_size_offset) < 0) {
 		i_error("o_stream_pwrite(%s) failed: %s",
@@ -151,21 +152,21 @@ config_dump_full_write_cache_paths(struct ostream *output,
 		return;
 	}
 
-	num32 = cpu32_to_be(array_count(config_parsed_get_paths(config)));
+	num32 = array_count(config_parsed_get_paths(config));
 	o_stream_nsend(output, &num32, sizeof(num32));
 	array_foreach(config_parsed_get_paths(config), path) {
 		o_stream_nsend(output, path->path, strlen(path->path) + 1);
-		uint64_t num64 = cpu32_to_be(path->st.st_ino);
+		uint64_t num64 = path->st.st_ino;
 		o_stream_nsend(output, &num64, sizeof(num64));
-		num64 = cpu32_to_be(path->st.st_size);
+		num64 = path->st.st_size;
 		o_stream_nsend(output, &num64, sizeof(num64));
-		num32 = cpu32_to_be(path->st.st_mtime);
+		num32 = path->st.st_mtime;
 		o_stream_nsend(output, &num32, sizeof(num32));
-		num32 = cpu32_to_be(ST_MTIME_NSEC(path->st));
+		num32 = ST_MTIME_NSEC(path->st);
 		o_stream_nsend(output, &num32, sizeof(num32));
-		num32 = cpu32_to_be(path->st.st_ctime);
+		num32 = path->st.st_ctime;
 		o_stream_nsend(output, &num32, sizeof(num32));
-		num32 = cpu32_to_be(ST_CTIME_NSEC(path->st));
+		num32 = ST_CTIME_NSEC(path->st);
 		o_stream_nsend(output, &num32, sizeof(num32));
 	}
 
@@ -250,8 +251,8 @@ config_dump_full_write_filters(struct ostream *output,
 
 	while (filters[filter_count] != NULL) filter_count++;
 
-	uint32_t filter_count_be32 = cpu32_to_be(filter_count);
-	o_stream_nsend(output, &filter_count_be32, sizeof(filter_count_be32));
+	uint32_t filter_count_32 = filter_count;
+	o_stream_nsend(output, &filter_count_32, sizeof(filter_count_32));
 
 	/* the first filter is the global empty filter */
 	o_stream_nsend(output, "", 1);
@@ -277,8 +278,8 @@ config_dump_full_write_keys(struct ostream *output,
 {
 	unsigned int count = setting_parser_info_get_define_count(info);
 
-	uint32_t count_be32 = cpu32_to_be(count);
-	o_stream_nsend(output, &count_be32, sizeof(count_be32));
+	uint32_t count_32 = count;
+	o_stream_nsend(output, &count_32, sizeof(count_32));
 
 	for (unsigned int i = 0; i < count; i++) {
 		const char *key = info->defines[i].key;
@@ -356,14 +357,14 @@ config_dump_full_stdout_callback(const struct config_export_setting *set,
 
 static void config_include_groups_dump(struct dump_context *ctx)
 {
-	uint32_t include_count_be32 = 0;
+	uint32_t include_count_32 = 0;
 	if (ctx->include_groups == NULL) {
-		o_stream_nsend(ctx->output, &include_count_be32,
-			       sizeof(include_count_be32));
+		o_stream_nsend(ctx->output, &include_count_32,
+			       sizeof(include_count_32));
 	} else {
-		include_count_be32 = cpu32_to_be(array_count(ctx->include_groups));
-		o_stream_nsend(ctx->output, &include_count_be32,
-			       sizeof(include_count_be32));
+		include_count_32 = array_count(ctx->include_groups);
+		o_stream_nsend(ctx->output, &include_count_32,
+			       sizeof(include_count_32));
 
 		const struct config_include_group *group;
 		array_foreach(ctx->include_groups, group) {
@@ -408,7 +409,7 @@ static void config_dump_full_callback(const struct config_export_setting *set,
 
 	config_dump_full_write_filter(ctx);
 
-	uint32_t key_be32 = cpu32_to_be(set->key_define_idx);
+	uint32_t key_32 = set->key_define_idx;
 	if (ctx->delayed_output != NULL &&
 	    ((str_begins(set->key, "passdb", &suffix) &&
 	      (suffix[0] == '\0' || suffix[0] == '/')) ||
@@ -416,12 +417,12 @@ static void config_dump_full_callback(const struct config_export_setting *set,
 	      (suffix[0] == '\0' || suffix[0] == '/')))) {
 		/* For backwards compatibility: global passdbs and userdbs are
 		   added after per-protocol ones, not before. */
-		str_append_data(ctx->delayed_output, &key_be32,
-				sizeof(key_be32));
+		str_append_data(ctx->delayed_output, &key_32,
+				sizeof(key_32));
 		str_append_data(ctx->delayed_output, set->value,
 				strlen(set->value)+1);
 	} else {
-		o_stream_nsend(ctx->output, &key_be32, sizeof(key_be32));
+		o_stream_nsend(ctx->output, &key_32, sizeof(key_32));
 		const struct setting_define *def =
 			&ctx->info->defines[set->key_define_idx];
 		if (def->type == SET_STRLIST || def->type == SET_BOOLLIST) {
@@ -496,7 +497,7 @@ config_dump_full_handle_error(struct dump_context *dump_ctx,
 	}
 
 	size_t error_len = strlen(error) + 1;
-	uint64_t blob_size = cpu64_to_be(error_len + 4);
+	uint64_t blob_size = error_len + 4;
 	o_stream_nsend(output, &blob_size, sizeof(blob_size));
 	o_stream_nsend(output, error, error_len);
 	uint32_t include_group_count = 0;
@@ -515,8 +516,8 @@ struct config_dump_full_context {
 	struct config_filter_parser *const *filters;
 	uint32_t filter_output_count;
 
-	uint32_t *filter_indexes_be32;
-	uint64_t *filter_offsets_be64;
+	uint32_t *filter_indexes_32;
+	uint64_t *filter_offsets_64;
 };
 
 enum config_dump_type {
@@ -635,21 +636,20 @@ config_dump_full_sections(struct config_dump_full_context *ctx,
 		}
 		config_export_free(&export_ctx);
 		if (dump_ctx.filter_written) {
-			ctx->filter_indexes_be32[ctx->filter_output_count] =
-				cpu32_to_be(i);
-			ctx->filter_offsets_be64[ctx->filter_output_count] =
-				cpu64_to_be(start_offset);
+			ctx->filter_indexes_32[ctx->filter_output_count] = i;
+			ctx->filter_offsets_64[ctx->filter_output_count] =
+				start_offset;
 			ctx->filter_output_count++;
 		}
 	}
 
 	if (delayed_filter != NULL && str_len(delayed_filter) > 0) {
-		ctx->filter_indexes_be32[ctx->filter_output_count] =
+		ctx->filter_indexes_32[ctx->filter_output_count] =
 			0; /* empty/global filter */
-		ctx->filter_offsets_be64[ctx->filter_output_count] =
-			cpu64_to_be(output->offset);
+		ctx->filter_offsets_64[ctx->filter_output_count] =
+			output->offset;
 
-		uint64_t blob_size = cpu64_to_be(5 + str_len(delayed_filter));
+		uint64_t blob_size = 5 + str_len(delayed_filter);
 		o_stream_nsend(output, &blob_size, sizeof(blob_size));
 		o_stream_nsend(output, "", 1); /* no error */
 		uint32_t include_group_count = 0;
@@ -780,8 +780,8 @@ int config_dump_full(struct config_parsed *config,
 	uint32_t max_filter_count = 0;
 	while (ctx.filters[max_filter_count] != NULL) max_filter_count++;
 
-	ctx.filter_indexes_be32 = t_new(uint32_t, max_filter_count);
-	ctx.filter_offsets_be64 = t_new(uint64_t, max_filter_count);
+	ctx.filter_indexes_32 = t_new(uint32_t, max_filter_count);
+	ctx.filter_offsets_64 = t_new(uint64_t, max_filter_count);
 
 	ARRAY_TYPE(config_include_group) groups;
 	t_array_init(&groups, 8);
@@ -824,9 +824,9 @@ int config_dump_full(struct config_parsed *config,
 
 		uoff_t blob_size_offset = output->offset;
 		/* 2. Write global settings in config - use an empty filter */
-		ctx.filter_indexes_be32[ctx.filter_output_count] = 0;
-		ctx.filter_offsets_be64[ctx.filter_output_count] =
-			cpu64_to_be(blob_size_offset);
+		ctx.filter_indexes_32[ctx.filter_output_count] = 0;
+		ctx.filter_offsets_64[ctx.filter_output_count] =
+			blob_size_offset;
 		ctx.filter_output_count++;
 
 		if (config_parsed_get_includes(config, filter_parser,
@@ -887,18 +887,18 @@ int config_dump_full(struct config_parsed *config,
 			break;
 
 		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
-			o_stream_nsend(output, ctx.filter_indexes_be32,
-				       sizeof(ctx.filter_indexes_be32[0]) *
+			o_stream_nsend(output, ctx.filter_indexes_32,
+				       sizeof(ctx.filter_indexes_32[0]) *
 				       ctx.filter_output_count);
-			o_stream_nsend(output, ctx.filter_offsets_be64,
-				       sizeof(ctx.filter_offsets_be64[0]) *
+			o_stream_nsend(output, ctx.filter_offsets_64,
+				       sizeof(ctx.filter_offsets_64[0]) *
 				       ctx.filter_output_count);
 			/* safety NUL at the end of the block */
 			o_stream_nsend(output, "", 1);
 		}
 
 		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
-			filter_count = cpu32_to_be(ctx.filter_output_count);
+			filter_count = ctx.filter_output_count;
 			if (o_stream_pwrite(output, &filter_count,
 					    sizeof(filter_count),
 					    filter_count_offset) < 0) {

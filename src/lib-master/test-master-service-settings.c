@@ -10,6 +10,15 @@
 
 #define DATA(data) (const unsigned char *)data"\xff", sizeof(data"\xff")-2
 
+/* we only need to use 1 byte */
+#ifdef WORDS_BIGENDIAN
+#  define NUM64(n) "\x00\x00\x00\x00\x00\x00\x00"n
+#  define NUM32(n) "\x00\x00\x00"n
+#else
+#  define NUM64(n) n"\x00\x00\x00\x00\x00\x00\x00"
+#  define NUM32(n) n"\x00\x00\x00"
+#endif
+
 static const struct {
 	const unsigned char *data;
 	size_t size;
@@ -26,289 +35,289 @@ static const struct {
 
 	/* full file size = 1, but file is still truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n" // 19 bytes
-	       "\x00\x00\x00\x00\x00\x00\x00\x01"), // full size
+	       NUM64("\x01")), // full size
 	  "Full size mismatch" },
 
 	/* cache path count is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x04" // full size
+	       NUM64("\x04") // full size
 	       "\x00\x00\x00"), // cache path count
 	  "Full size mismatch" },
 
 	/* event filter count is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x08" // full size
-	       "\x00\x00\x00\x00" // cache path count
+	       NUM64("\x08") // full size
+	       NUM32("\x00") // cache path count
 	       "\x00\x00\x00"), // event filter count
 	  "Full size mismatch" },
 
 	/* event filter strings are truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x08" // full size
-	       "\x00\x00\x00\x00" // cache path count
-	       "\x00\x00\x10\x00"), // event filter count
+	       NUM64("\x08") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x01")), // event filter count
 	  "'filter string' points outside area" },
 
 	/* full file size is 7 bytes, which makes the first block size
 	   truncated, since it needs 8 bytes */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x11" // full size
-	       "\x00\x00\x00\x00" // cache path count
-	       "\x00\x00\x00\x01" // event filter count
+	       NUM64("\x11") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
 	       "\x00\x00\x00\x00\x00\x00\x00"), // block size
 	  "Area too small when reading size of 'block size'" },
 	/* first block size is 0, which is too small */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x12" // full size
-	       "\x00\x00\x00\x00" // cache path count
-	       "\x00\x00\x00\x01" // event filter count
+	       NUM64("\x12") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x00"), // block size
+	       NUM64("\x00")), // block size
 	  "'block name' points outside area" },
 	/* first block size is 1, but full file size is too small */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x12" // full size
-	       "\x00\x00\x00\x00" // cache path count
-	       "\x00\x00\x00\x01" // event filter count
+	       NUM64("\x12") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x01"), // block size
+	       NUM64("\x01")), // block size
 	  "'block size' points outside are" },
 	/* block name is not NUL-terminated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x14" // full size
-	       "\x00\x00\x00\x00" // cache path count
-	       "\x00\x00\x00\x01" // event filter count
+	       NUM64("\x14") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x01" // block size
+	       NUM64("\x01") // block size
 	       "N"
 	       "\x00"), // trailing garbage so we can have NUL
 	  "Settings block doesn't end with NUL at offset" },
 
 	/* settings count is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x17" // full size
-	       "\x00\x00\x00\x00" // cache path count
-	       "\x00\x00\x00\x01" // event filter count
+	       NUM64("\x17") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x05" // block size
+	       NUM64("\x05") // block size
 	       "N\x00" // block name
 	       "\x00\x00\x00"),
 	  "Area too small when reading uint of 'settings count'" },
 
 	/* settings keys are truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x18" // full size
-	       "\x00\x00\x00\x00" // cache path count
-	       "\x00\x00\x00\x01" // event filter count
+	       NUM64("\x18") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x06" // block size
+	       NUM64("\x06") // block size
 	       "N\x00" // block name
-	       "\x00\x00\x01\x00"), // settings count
+	       NUM32("\x01")), // settings count
 	  "'setting key' points outside area" },
 
 	/* filter count is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x1D" // full size
-	       "\x00\x00\x00\x00" // cache path count
-	       "\x00\x00\x00\x01" // event filter count
+	       NUM64("\x1D") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x0B" // block size
+	       NUM64("\x0B") // block size
 	       "N\x00" // block name
-	       "\x00\x00\x00\x01" // settings count
+	       NUM32("\x01") // settings count
 	       "K\x00" // setting[0] key
 	       "\x00\x00\x00"), // filter count
 	  "Area too small when reading uint of 'filter count'" },
 
 	/* filter settings size is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x25" // full size
-	       "\x00\x00\x00\x00" // cache path count
-	       "\x00\x00\x00\x01" // event filter count
+	       NUM64("\x25") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x12" // block size
+	       NUM64("\x12") // block size
 	       "N\x00" // block name
-	       "\x00\x00\x00\x01" // settings count
+	       NUM32("\x01") // settings count
 	       "K\x00" // setting[0] key
-	       "\x00\x00\x00\x01" // filter count
+	       NUM32("\x01") // filter count
 	       "\x00\x00\x00\x00\x00\x00\x00"), // filter settings size
 	  "Area too small when reading size of 'filter settings size'" },
 
 	/* filter settings is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x26" // full size
-	       "\x00\x00\x00\x00" // cache path count
-	       "\x00\x00\x00\x01" // event filter count
+	       NUM64("\x26") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x14" // block size
+	       NUM64("\x14") // block size
 	       "N\x00" // block name
-	       "\x00\x00\x00\x01" // settings count
+	       NUM32("\x01") // settings count
 	       "K\x00" // setting[0] key
-	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x10\x00"), // filter settings size
+	       NUM32("\x01") // filter count
+	       NUM64("\x10")), // filter settings size
 	  "'filter settings size' points outside area" },
 	/* filter error is missing */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x33" // full size
-	       "\x00\x00\x00\x00" // cache path count
-	       "\x00\x00\x00\x01" // event filter count
+	       NUM64("\x33") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x21" // block size
+	       NUM64("\x21") // block size
 	       "N\x00" // block name
-	       "\x00\x00\x00\x01" // settings count
+	       NUM32("\x01") // settings count
 	       "K\x00" // setting[0] key
-	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x00\x00" // filter settings size
-	       "\x00\x00\x00\x00" // event filter index
-	       "\x00\x00\x00\x00\x00\x00\x00\x00" // filter settings offset
+	       NUM32("\x01") // filter count
+	       NUM64("\x00") // filter settings size
+	       NUM32("\x00") // event filter index
+	       NUM64("\x00") // filter settings offset
 	       "\x00"), // safety NUL
 	  "'filter error string' points outside area" },
 	/* filter error is not NUL-terminated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x41" // full size
-	       "\x00\x00\x00\x00" // cache path count
-	       "\x00\x00\x00\x01" // event filter count
+	       NUM64("\x41") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x2F" // block size
+	       NUM64("\x2F") // block size
 	       "master_service\x00" // block name
-	       "\x00\x00\x00\x01" // settings count
+	       NUM32("\x01") // settings count
 	       "K\x00" // setting[0] key
-	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x00\x01" // filter settings size
+	       NUM32("\x01") // filter count
+	       NUM64("\x01") // filter settings size
 	       "E" // filter error string
-	       "\x00\x00\x00\x00" // event filter index
-	       "\x00\x00\x00\x00\x00\x00\x00\x00" // filter settings offset
+	       NUM32("\x00") // event filter index
+	       NUM64("\x00") // filter settings offset
 	       "\x00"), // safety NUL
 	  "'filter error string' points outside area" },
 	/* include group count is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x44" // full size
-	       "\x00\x00\x00\x00" // cache path count
-	       "\x00\x00\x00\x01" // event filter count
+	       NUM64("\x44") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x32" // block size
+	       NUM64("\x32") // block size
 	       "master_service\x00" // block name
-	       "\x00\x00\x00\x01" // settings count
+	       NUM32("\x01") // settings count
 	       "K\x00" // setting[0] key
-	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x00\x04" // filter settings size
+	       NUM32("\x01") // filter count
+	       NUM64("\x04") // filter settings size
 	       "\x00" // filter error string
 	       "\x00\x00\x00" // include group count
-	       "\x00\x00\x00\x00" // event filter index
-	       "\x00\x00\x00\x00\x00\x00\x00\x00" // filter settings offset
+	       NUM32("\x00") // event filter index
+	       NUM64("\x00") // filter settings offset
 	       "\x00"), // safety NUL
 	  "Area too small when reading uint of 'include group count'" },
 	/* include group count is too large */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x45" // full size
-	       "\x00\x00\x00\x00" // cache path count
-	       "\x00\x00\x00\x01" // event filter count
+	       NUM64("\x45") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x33" // block size
+	       NUM64("\x33") // block size
 	       "master_service\x00" // block name
-	       "\x00\x00\x00\x01" // settings count
+	       NUM32("\x01") // settings count
 	       "K\x00" // setting[0] key
-	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x00\x05" // filter settings size
+	       NUM32("\x01") // filter count
+	       NUM64("\x05") // filter settings size
 	       "\x00" // filter error string
-	       "\x00\x00\x00\x01" // include group count
-	       "\x00\x00\x00\x00" // event filter index
-	       "\x00\x00\x00\x00\x00\x00\x00\x00" // filter settings offset
+	       NUM32("\x01") // include group count
+	       NUM32("\x00") // event filter index
+	       NUM64("\x00") // filter settings offset
 	       "\x00"), // safety NUL
 	  "'group label string' points outside area" },
 	/* group label not NUL-terminated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x46" // full size
-	       "\x00\x00\x00\x00" // cache path count
-	       "\x00\x00\x00\x01" // event filter count
+	       NUM64("\x46") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x34" // block size
+	       NUM64("\x34") // block size
 	       "master_service\x00" // block name
-	       "\x00\x00\x00\x01" // settings count
+	       NUM32("\x01") // settings count
 	       "K\x00" // setting[0] key
-	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x00\x06" // filter settings size
+	       NUM32("\x01") // filter count
+	       NUM64("\x06") // filter settings size
 	       "\x00" // filter error string
-	       "\x00\x00\x00\x01" // include group count
+	       NUM32("\x01") // include group count
 	       "G" // group label
-	       "\x00\x00\x00\x00" // event filter index
-	       "\x00\x00\x00\x00\x00\x00\x00\x00" // filter settings offset
+	       NUM32("\x00") // event filter index
+	       NUM64("\x00") // filter settings offset
 	       "\x00"), // safety NUL
 	  "'group label string' points outside area" },
 	/* group name not NUL-terminated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x48" // full size
-	       "\x00\x00\x00\x00" // cache path count
-	       "\x00\x00\x00\x01" // event filter count
+	       NUM64("\x48") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x36" // block size
+	       NUM64("\x36") // block size
 	       "master_service\x00" // block name
-	       "\x00\x00\x00\x01" // settings count
+	       NUM32("\x01") // settings count
 	       "K\x00" // setting[0] key
-	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x00\x08" // filter settings size
+	       NUM32("\x01") // filter count
+	       NUM64("\x08") // filter settings size
 	       "\x00" // filter error string
-	       "\x00\x00\x00\x01" // include group count
+	       NUM32("\x01") // include group count
 	       "G\x00" // group label
 	       "N" // group name
-	       "\x00\x00\x00\x00" // event filter index
-	       "\x00\x00\x00\x00\x00\x00\x00\x00" // filter settings offset
+	       NUM32("\x00") // event filter index
+	       NUM64("\x00") // filter settings offset
 	       "\x00"), // safety NUL
 	  "'group name string' points outside area" },
 	/* invalid filter string */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x3A" // full size
-	       "\x00\x00\x00\x00" // cache path count
-	       "\x00\x00\x00\x01" // event filter count
+	       NUM64("\x3A") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x01") // event filter count
 	       "F\x00" // event filter[0]
 	       "F\x00" // override event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x26" // block size
+	       NUM64("\x26") // block size
 	       "N\x00" // block name
-	       "\x00\x00\x00\x01" // settings count
+	       NUM32("\x01") // settings count
 	       "K\x00" // setting[0] key
-	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x00\x05" // filter settings size
+	       NUM32("\x01") // filter count
+	       NUM64("\x05") // filter settings size
 	       "\x00" // filter error string
-	       "\x00\x00\x00\x00" // include group count
-	       "\x00\x00\x00\x00" // event filter index
-	       "\x00\x00\x00\x00\x00\x00\x00\x00" // filter settings offset
+	       NUM32("\x00") // include group count
+	       NUM32("\x00") // event filter index
+	       NUM64("\x00") // filter settings offset
 	       "\x00"), // safety NUL
 	  "Received invalid filter 'F' at index 0: event filter: syntax error" },
 
 	/* Duplicate block name */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x42" // full size
-	       "\x00\x00\x00\x00" // cache path count
-	       "\x00\x00\x00\x01" // event filter count
+	       NUM64("\x42") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
-	       "\x00\x00\x00\x00\x00\x00\x00\x26" // block size
+	       NUM64("\x26") // block size
 	       "N\x00" // block name
-	       "\x00\x00\x00\x01" // settings count
+	       NUM32("\x01") // settings count
 	       "K\x00" // setting[0] key
-	       "\x00\x00\x00\x01" // filter count
-	       "\x00\x00\x00\x00\x00\x00\x00\x05" // filter settings size
+	       NUM32("\x01") // filter count
+	       NUM64("\x05") // filter settings size
 	       "\x00" // filter error string
-	       "\x00\x00\x00\x00" // include group count
-	       "\x00\x00\x00\x00" // event filter index
-	       "\x00\x00\x00\x00\x00\x00\x00\x00" // filter settings offset
+	       NUM32("\x00") // include group count
+	       NUM32("\x00") // event filter index
+	       NUM64("\x00") // filter settings offset
 	       "\x00" // safety NUL
-	       "\x00\x00\x00\x00\x00\x00\x00\x02" // 2nd block size
+	       NUM64("\x02") // 2nd block size
 	       "N\x00"), // 2nd block name
 	  "Duplicate block name 'N'" },
 };

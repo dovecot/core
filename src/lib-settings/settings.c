@@ -224,7 +224,8 @@ settings_block_read_uint64(struct settings_mmap *mmap,
 			*offset, end_offset, mmap->mmap_size);
 		return -1;
 	}
-	*num_r = be64_to_cpu_unaligned(CONST_PTR_OFFSET(mmap->mmap_base, *offset));
+	memcpy(num_r, CONST_PTR_OFFSET(mmap->mmap_base, *offset),
+	       sizeof(*num_r));
 	*offset += sizeof(*num_r);
 	return 0;
 }
@@ -242,7 +243,8 @@ settings_block_read_uint32(struct settings_mmap *mmap,
 			*offset, end_offset, mmap->mmap_size);
 		return -1;
 	}
-	*num_r = be32_to_cpu_unaligned(CONST_PTR_OFFSET(mmap->mmap_base, *offset));
+	memcpy(num_r, CONST_PTR_OFFSET(mmap->mmap_base, *offset),
+	       sizeof(*num_r));
 	*offset += sizeof(*num_r);
 	return 0;
 }
@@ -260,7 +262,8 @@ settings_block_read_size(struct settings_mmap *mmap,
 			*offset, end_offset, mmap->mmap_size);
 		return -1;
 	}
-	*size_r = be64_to_cpu_unaligned(CONST_PTR_OFFSET(mmap->mmap_base, *offset));
+	memcpy(size_r, CONST_PTR_OFFSET(mmap->mmap_base, *offset),
+	       sizeof(*size_r));
 	if (*size_r > end_offset - *offset - sizeof(*size_r)) {
 		*error_r = t_strdup_printf(
 			"'%s' points outside area "
@@ -697,8 +700,9 @@ settings_mmap_parse(struct settings_mmap *mmap, const char *service_name,
 
 	/* <settings full size> */
 	size_t full_size_offset = eol - mmap_base + 1;
-	uint64_t settings_full_size =
-		be64_to_cpu_unaligned(mmap_base + full_size_offset);
+	uint64_t settings_full_size;
+	memcpy(&settings_full_size, mmap_base + full_size_offset,
+	       sizeof(settings_full_size));
 	if (full_size_offset + sizeof(settings_full_size) +
 	    settings_full_size != mmap_size) {
 		*error_r = t_strdup_printf("Full size mismatch: "
@@ -958,8 +962,9 @@ settings_mmap_apply_blob(struct settings_apply_ctx *ctx,
 	while (offset < end_offset) {
 		/* We already checked that settings blob ends with NUL, so
 		   strlen() can be used safely. */
-		uint32_t key_idx = be32_to_cpu_unaligned(
-			CONST_PTR_OFFSET(mmap->mmap_base, offset));
+		uint32_t key_idx;
+		memcpy(&key_idx, CONST_PTR_OFFSET(mmap->mmap_base, offset),
+		       sizeof(key_idx));
 		if (key_idx >= block->settings_count) {
 			*error_r = t_strdup_printf(
 				"Settings key index too high (%u >= %u)",
@@ -1086,10 +1091,13 @@ settings_mmap_get_filter_idx(struct settings_mmap *mmap,
 			     uint32_t filter_idx, uint32_t *event_filter_idx_r,
 			     const char **error_r)
 {
-	uint32_t event_filter_idx = be32_to_cpu_unaligned(
-		CONST_PTR_OFFSET(mmap->mmap_base,
-				 block->filter_indexes_start_offset +
-				 sizeof(uint32_t) * filter_idx));
+	uint32_t event_filter_idx;
+
+	memcpy(&event_filter_idx,
+	       CONST_PTR_OFFSET(mmap->mmap_base,
+				block->filter_indexes_start_offset +
+				sizeof(uint32_t) * filter_idx),
+	       sizeof(event_filter_idx));
 	if (event_filter_idx >= mmap->event_filters_count) {
 		*error_r = t_strdup_printf("event filter idx %u >= %u",
 			event_filter_idx, mmap->event_filters_count);
@@ -1107,12 +1115,15 @@ static int settings_mmap_apply_filter(struct settings_apply_ctx *ctx,
 				      const char **error_r)
 {
 	struct settings_mmap *mmap = ctx->instance->mmap;
-	uint64_t filter_offset = be64_to_cpu_unaligned(
-		CONST_PTR_OFFSET(mmap->mmap_base,
-				 block->filter_offsets_start_offset +
-				 sizeof(uint64_t) * filter_idx));
-	uint64_t filter_set_size = be64_to_cpu_unaligned(
-		CONST_PTR_OFFSET(mmap->mmap_base, filter_offset));
+	uint64_t filter_offset, filter_set_size;
+	memcpy(&filter_offset,
+	       CONST_PTR_OFFSET(mmap->mmap_base,
+				block->filter_offsets_start_offset +
+				sizeof(uint64_t) * filter_idx),
+	       sizeof(filter_offset));
+	memcpy(&filter_set_size,
+	       CONST_PTR_OFFSET(mmap->mmap_base, filter_offset),
+	       sizeof(filter_set_size));
 	filter_offset += sizeof(filter_set_size);
 	uint64_t filter_end_offset = filter_offset + filter_set_size;
 
@@ -1124,8 +1135,9 @@ static int settings_mmap_apply_filter(struct settings_apply_ctx *ctx,
 	}
 	filter_offset += strlen(filter_error) + 1;
 
-	uint32_t include_count = be32_to_cpu_unaligned(
-		CONST_PTR_OFFSET(mmap->mmap_base, filter_offset));
+	uint32_t include_count;
+	memcpy(&include_count, CONST_PTR_OFFSET(mmap->mmap_base, filter_offset),
+	       sizeof(include_count));
 	filter_offset += sizeof(include_count);
 
 	if (ctx->filter_name != NULL && !ctx->seen_filter &&
