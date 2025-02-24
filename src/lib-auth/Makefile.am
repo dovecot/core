@@ -1,4 +1,4 @@
-noinst_LTLIBRARIES = libauth.la
+noinst_LTLIBRARIES = libauth-crypt.la libauth.la
 
 AM_CPPFLAGS = \
 	$(LIBSODIUM_CFLAGS) \
@@ -7,11 +7,13 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-otp
 
 libauth_la_SOURCES = \
-	crypt-blowfish.c \
-	mycrypt.c \
 	auth-scram.c \
 	auth-scram-client.c \
-	auth-scram-server.c \
+	auth-scram-server.c
+
+libauth_crypt_la_SOURCES = \
+	crypt-blowfish.c \
+	mycrypt.c \
 	password-scheme.c \
 	password-scheme-crypt.c \
 	password-scheme-md5crypt.c \
@@ -20,7 +22,8 @@ libauth_la_SOURCES = \
 	password-scheme-pbkdf2.c \
 	password-scheme-sodium.c
 
-libauth_la_LIBADD = \
+libauth_crypt_la_LIBADD = \
+	libauth.la \
 	$(LIBSODIUM_LIBS) \
 	$(CRYPT_LIBS)
 

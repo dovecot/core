@@ -42,6 +42,7 @@ AM_CPPFLAGS = \
 
 
 libs = \
+       ../lib-auth/libauth-crypt.la \
 	dsync/libdsync.la \
 	../lib-compression/libcompression.la
 

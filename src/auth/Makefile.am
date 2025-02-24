@@ -64,6 +64,7 @@ AM_CPPFLAGS = \
 auth_LDFLAGS = -export-dynamic
 
 auth_libs = \
+	../lib-auth/libauth-crypt.la \
 	$(AUTH_LUA_LIBS) \
 	$(LIBDOVECOT_SQL)
 
