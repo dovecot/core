@@ -2533,18 +2533,20 @@ static bool config_version_find(const char *version, const char **error_r)
 	const char *const supported_versions[] = {
 #ifdef DOVECOT_PRO_EDITION
 		"3.1.0",
-		DOVECOT_CONFIG_VERSION,
 #else
 		"2.4.0",
-		DOVECOT_CONFIG_VERSION,
 #endif
 		NULL
 	};
 	/* FIXME: implement full version checking later */
-	if (!str_array_find(supported_versions, version)) {
+	if (!str_array_find(supported_versions, version) &&
+	    strcmp(DOVECOT_CONFIG_VERSION, version) != 0) {
 		*error_r = t_strdup_printf(
-			"Currently supported versions are: %s",
-			t_strarray_join(supported_versions, " "));
+			"Currently supported versions are: %s%s",
+			t_strarray_join(supported_versions, " "),
+			str_array_find(supported_versions,
+				       DOVECOT_CONFIG_VERSION) ? "" :
+			t_strdup_printf(" %s", DOVECOT_CONFIG_VERSION));
 		return FALSE;
 	}
 	return TRUE;
