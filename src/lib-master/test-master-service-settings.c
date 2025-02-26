@@ -294,19 +294,20 @@ static const struct {
 	       NUM64("\x05") // filter settings size
 	       "\x00" // filter error string
 	       NUM32("\x00") // include group count
-	       NUM32("\x00") // event filter index
-	       NUM64("\x00") // filter settings offset
+	       // 64bit padding
+	       NUM64("\x00") // filter[0] settings offset
+	       NUM32("\x00") // filter[0] event filter index
 	       "\x00"), // safety NUL
 	  "Received invalid filter 'F' at index 0: event filter: syntax error" },
 
 	/* Duplicate block name */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       NUM64("\x42") // full size
+	       NUM64("\x44") // full size
 	       NUM32("\x00") // cache path count
 	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
-	       NUM64("\x26") // block size
+	       NUM64("\x28") // block size
 	       "N\x00" // block name
 	       NUM32("\x01") // settings count
 	       "K\x00" // setting[0] key
@@ -314,8 +315,9 @@ static const struct {
 	       NUM64("\x05") // filter settings size
 	       "\x00" // filter error string
 	       NUM32("\x00") // include group count
-	       NUM32("\x00") // event filter index
-	       NUM64("\x00") // filter settings offset
+	       "\x00\x00" // 64bit padding
+	       NUM64("\x00") // filter[0] settings offset
+	       NUM32("\x00") // filter[0] event filter index
 	       "\x00" // safety NUL
 	       NUM64("\x02") // 2nd block size
 	       "N\x00"), // 2nd block name

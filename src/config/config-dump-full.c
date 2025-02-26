@@ -63,10 +63,12 @@
          <32bit: key index number>
 	 [+|$ <strlist/boollist key>]
 	 <NUL-terminated string: value>
-     Repeat for "filter count":
-       <32bit: event filter string index number>
+
+     <0..7 bytes for 64bit alignment>
      Repeat for "filter count":
        <64bit: filter settings offset>
+     Repeat for "filter count":
+       <32bit: event filter string index number>
      <trailing safety NUL>
 
    The order of filters is important in the output. lib-settings applies the
@@ -887,11 +889,17 @@ int config_dump_full(struct config_parsed *config,
 			break;
 
 		if (dest != CONFIG_DUMP_FULL_DEST_STDOUT) {
-			o_stream_nsend(output, ctx.filter_indexes_32,
-				       sizeof(ctx.filter_indexes_32[0]) *
-				       ctx.filter_output_count);
+			/* use 64bit alignment */
+			if (output->offset % sizeof(uint64_t) != 0) {
+				uint64_t align = 0;
+				o_stream_nsend(output, &align, sizeof(uint64_t) -
+					       output->offset % sizeof(uint64_t));
+			}
 			o_stream_nsend(output, ctx.filter_offsets_64,
 				       sizeof(ctx.filter_offsets_64[0]) *
+				       ctx.filter_output_count);
+			o_stream_nsend(output, ctx.filter_indexes_32,
+				       sizeof(ctx.filter_indexes_32[0]) *
 				       ctx.filter_output_count);
 			/* safety NUL at the end of the block */
 			o_stream_nsend(output, "", 1);

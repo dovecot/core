@@ -98,8 +98,8 @@ struct settings_mmap_block {
 	size_t block_end_offset;
 
 	uint32_t filter_count;
-	size_t filter_indexes_start_offset;
-	size_t filter_offsets_start_offset;
+	const uint64_t *filter_offsets;
+	const uint32_t *filter_indexes;
 
 	uint32_t settings_count;
 	size_t settings_keys_offset;
@@ -647,10 +647,12 @@ settings_block_read(struct settings_mmap *mmap, size_t *_offset,
 		offset += filter_settings_size;
 	}
 
-	block->filter_indexes_start_offset = offset;
-	offset += sizeof(uint32_t) * block->filter_count;
-	block->filter_offsets_start_offset = offset;
+	if (offset % sizeof(uint64_t) != 0)
+		offset += sizeof(uint64_t) - offset % sizeof(uint64_t);
+	block->filter_offsets = CONST_PTR_OFFSET(mmap->mmap_base, offset);
 	offset += sizeof(uint64_t) * block->filter_count;
+	block->filter_indexes = CONST_PTR_OFFSET(mmap->mmap_base, offset);
+	offset += sizeof(uint32_t) * block->filter_count;
 	offset++; /* safety NUL */
 
 	if (offset != block_end_offset) {
@@ -1091,19 +1093,12 @@ settings_mmap_get_filter_idx(struct settings_mmap *mmap,
 			     uint32_t filter_idx, uint32_t *event_filter_idx_r,
 			     const char **error_r)
 {
-	uint32_t event_filter_idx;
-
-	memcpy(&event_filter_idx,
-	       CONST_PTR_OFFSET(mmap->mmap_base,
-				block->filter_indexes_start_offset +
-				sizeof(uint32_t) * filter_idx),
-	       sizeof(event_filter_idx));
-	if (event_filter_idx >= mmap->event_filters_count) {
+	*event_filter_idx_r = block->filter_indexes[filter_idx];
+	if (*event_filter_idx_r >= mmap->event_filters_count) {
 		*error_r = t_strdup_printf("event filter idx %u >= %u",
-			event_filter_idx, mmap->event_filters_count);
+			*event_filter_idx_r, mmap->event_filters_count);
 		return -1;
 	}
-	*event_filter_idx_r = event_filter_idx;
 	return 0;
 }
 
@@ -1116,11 +1111,8 @@ static int settings_mmap_apply_filter(struct settings_apply_ctx *ctx,
 {
 	struct settings_mmap *mmap = ctx->instance->mmap;
 	uint64_t filter_offset, filter_set_size;
-	memcpy(&filter_offset,
-	       CONST_PTR_OFFSET(mmap->mmap_base,
-				block->filter_offsets_start_offset +
-				sizeof(uint64_t) * filter_idx),
-	       sizeof(filter_offset));
+
+	filter_offset = block->filter_offsets[filter_idx];
 	memcpy(&filter_set_size,
 	       CONST_PTR_OFFSET(mmap->mmap_base, filter_offset),
 	       sizeof(filter_set_size));
