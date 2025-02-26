@@ -130,7 +130,6 @@ struct dump_context {
 
 	const ARRAY_TYPE(config_include_group) *include_groups;
 	const struct config_filter *filter;
-	unsigned int filter_idx;
 	bool filter_written;
 };
 
@@ -595,7 +594,6 @@ config_dump_full_sections(struct config_dump_full_context *ctx,
 		}
 
 		dump_ctx.filter = &filter->filter;
-		dump_ctx.filter_idx = i;
 		dump_ctx.filter_written = FALSE;
 		if (dest == CONFIG_DUMP_FULL_DEST_STDOUT) {
 			export_ctx = config_export_init(
