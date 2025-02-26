@@ -103,6 +103,25 @@
    but the behavior should be consistent.
 */
 
+enum config_dump_type {
+	CONFIG_DUMP_TYPE_DEFAULTS,
+	CONFIG_DUMP_TYPE_EXPLICIT,
+	CONFIG_DUMP_TYPE_GROUPS,
+};
+
+struct config_dump_full_context {
+	struct config_parsed *config;
+	const char *dovecot_config_version;
+	struct ostream *output;
+	enum config_dump_full_dest dest;
+
+	struct config_filter_parser *const *filters;
+	uint32_t filter_output_count;
+
+	uint32_t *filter_indexes_32;
+	uint64_t *filter_offsets_64;
+};
+
 struct dump_context {
 	struct ostream *output;
 	string_t *delayed_output;
@@ -508,25 +527,6 @@ config_dump_full_handle_error(struct dump_context *dump_ctx,
 	dump_ctx->filter_written = TRUE;
 	return 0;
 }
-
-struct config_dump_full_context {
-	struct config_parsed *config;
-	const char *dovecot_config_version;
-	struct ostream *output;
-	enum config_dump_full_dest dest;
-
-	struct config_filter_parser *const *filters;
-	uint32_t filter_output_count;
-
-	uint32_t *filter_indexes_32;
-	uint64_t *filter_offsets_64;
-};
-
-enum config_dump_type {
-	CONFIG_DUMP_TYPE_DEFAULTS,
-	CONFIG_DUMP_TYPE_EXPLICIT,
-	CONFIG_DUMP_TYPE_GROUPS,
-};
 
 static bool filter_is_group(const struct config_filter *filter)
 {
