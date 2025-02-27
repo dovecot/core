@@ -16,6 +16,7 @@ Makefile.in
 compile_commands.json
 *~
 vgcore.*
+auth-token-secret.dat
 
 /configure
 /config.cache
