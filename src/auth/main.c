@@ -259,10 +259,8 @@ static void main_deinit(void)
         auth_worker_connection_deinit();
 	/* deinit passdbs and userdbs. it aborts any pending async requests. */
 	auths_deinit();
-	/* flush pending requests */
+	/* flush pending request failures */
 	auth_request_handler_deinit();
-	/* there are no more auth requests */
-	auths_free();
 	dict_drivers_unregister_builtin();
 
 	auth_token_deinit();
@@ -272,9 +270,13 @@ static void main_deinit(void)
 	auth_worker_connections_destroy_all();
 
 	auth_policy_deinit();
+	db_oauth2_deinit();
+
+	/* there are no more auth requests */
+	auths_free();
+
 	mech_register_deinit(&mech_reg);
 	mech_otp_deinit();
-	db_oauth2_deinit();
 	mech_deinit(global_auth_settings);
 	settings_free(global_auth_settings);
 
