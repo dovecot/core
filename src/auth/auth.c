@@ -406,6 +406,12 @@ static void auth_deinit(struct auth *auth)
 	dns_client_deinit(&auth->dns_client);
 }
 
+static void auth_free(struct auth *auth)
+{
+	settings_free(auth->protocol_set);
+	pool_unref(&auth->pool);
+}
+
 static void
 auth_passdbs_update_md5(struct auth *auth, struct md5_context *ctx)
 {
@@ -567,9 +573,7 @@ void auths_free(void)
 {
 	struct auth *auth;
 
-	array_foreach_elem(&auths, auth) {
-		settings_free(auth->protocol_set);
-		pool_unref(&auth->pool);
-	}
+	array_foreach_elem(&auths, auth)
+		auth_free(auth);
 	array_free(&auths);
 }
