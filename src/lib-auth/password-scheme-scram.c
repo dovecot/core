@@ -35,9 +35,10 @@ int scram_verify(const struct hash_method *hmethod, const char *scheme_name,
 	unsigned char server_key[hmethod->digest_size];
 	int ret;
 
-	if (scram_scheme_parse(hmethod, scheme_name, raw_password, size,
-			       &iter_count, &salt_base64,
-			       stored_key, server_key, error_r) < 0)
+	if (auth_scram_credentials_parse(hmethod, scheme_name,
+					 raw_password, size,
+					 &iter_count, &salt_base64,
+					 stored_key, server_key, error_r) < 0)
 		return -1;
 
 	salt = buffer_get_data(t_base64_decode_str(salt_base64), &salt_len);

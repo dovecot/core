@@ -36,13 +36,14 @@ credentials_callback(enum passdb_result result,
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		if (scram_scheme_parse(key_data->hmethod,
-				       request->password_scheme,
-				       credentials, size,
-				       &key_data->iter_count, &key_data->salt,
-				       key_data->stored_key,
-				       key_data->server_key,
-				       &error) < 0) {
+		if (auth_scram_credentials_parse(key_data->hmethod,
+						 request->password_scheme,
+						 credentials, size,
+						 &key_data->iter_count,
+						 &key_data->salt,
+						 key_data->stored_key,
+						 key_data->server_key,
+						 &error) < 0) {
 			e_info(auth_request->mech_event,
 			       "%s", error);
 			auth_request_fail(auth_request);

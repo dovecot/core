@@ -38,10 +38,13 @@ void auth_scram_generate_key_data(const struct hash_method *hmethod,
 				  unsigned char stored_key_r[],
 				  unsigned char server_key_r[]);
 
-int scram_scheme_parse(const struct hash_method *hmethod, const char *name,
-		       const unsigned char *credentials, size_t size,
-		       unsigned int *iter_count_r, const char **salt_r,
-		       unsigned char stored_key_r[],
-		       unsigned char server_key_r[], const char **error_r);
+int auth_scram_credentials_parse(const struct hash_method *hmethod,
+				 const char *name,
+				 const unsigned char *credentials, size_t size,
+				 unsigned int *iter_count_r,
+				 const char **salt_r,
+				 unsigned char stored_key_r[],
+				 unsigned char server_key_r[],
+				 const char **error_r);
 
 #endif
