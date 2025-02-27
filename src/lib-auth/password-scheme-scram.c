@@ -19,52 +19,6 @@
 #include "auth-scram.h"
 #include "password-scheme.h"
 
-int scram_scheme_parse(const struct hash_method *hmethod, const char *name,
-		       const unsigned char *credentials, size_t size,
-		       unsigned int *iter_count_r, const char **salt_r,
-		       unsigned char stored_key_r[],
-		       unsigned char server_key_r[], const char **error_r)
-{
-	const char *const *fields;
-	buffer_t *buf;
-
-	/* password string format: iter,salt,stored_key,server_key */
-	fields = t_strsplit(t_strndup(credentials, size), ",");
-
-	if (str_array_length(fields) != 4) {
-		*error_r = t_strdup_printf(
-			"Invalid %s passdb entry format", name);
-		return -1;
-	}
-	if (str_to_uint(fields[0], iter_count_r) < 0 ||
-	    *iter_count_r < AUTH_SCRAM_MIN_ITERATE_COUNT ||
-	    *iter_count_r > AUTH_SCRAM_MAX_ITERATE_COUNT) {
-		*error_r = t_strdup_printf(
-			"Invalid %s iteration count in passdb", name);
-		return -1;
-	}
-	*salt_r = fields[1];
-
-	buf = t_buffer_create(hmethod->digest_size);
-	if (base64_decode(fields[2], strlen(fields[2]), buf) < 0 ||
-	    buf->used != hmethod->digest_size) {
-		*error_r = t_strdup_printf(
-			"Invalid %s StoredKey in passdb", name);
-		return -1;
-	}
-	memcpy(stored_key_r, buf->data, hmethod->digest_size);
-
-	buffer_set_used_size(buf, 0);
-	if (base64_decode(fields[3], strlen(fields[3]), buf) < 0 ||
-	    buf->used != hmethod->digest_size) {
-		*error_r = t_strdup_printf(
-			"Invalid %s ServerKey in passdb", name);
-		return -1;
-	}
-	memcpy(server_key_r, buf->data, hmethod->digest_size);
-	return 0;
-}
-
 int scram_verify(const struct hash_method *hmethod, const char *scheme_name,
 		 const char *plaintext, const unsigned char *raw_password,
 		 size_t size, const char **error_r)
