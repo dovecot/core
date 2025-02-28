@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "settings-parser.h"
+#include "master-service-settings.h"
 #include "service-settings.h"
 #include "mail-storage-settings.h"
 #include "imap-urlauth-worker-common.h"
@@ -57,7 +58,7 @@ static const struct setting_define imap_urlauth_worker_setting_defines[] = {
 };
 
 const struct imap_urlauth_worker_settings imap_urlauth_worker_default_settings = {
-	.verbose_proctitle = FALSE,
+	.verbose_proctitle = VERBOSE_PROCTITLE_DEFAULT,
 
 	.imap_urlauth_host = "",
 	.imap_urlauth_port = 143

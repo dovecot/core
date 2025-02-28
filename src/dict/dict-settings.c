@@ -4,6 +4,7 @@
 #include "buffer.h"
 #include "settings-parser.h"
 #include "service-settings.h"
+#include "master-service-settings.h"
 #include "dict-settings.h"
 
 struct service_settings dict_service_settings = {
@@ -100,7 +101,7 @@ static const struct setting_define dict_setting_defines[] = {
 
 const struct dict_server_settings dict_default_settings = {
 	.base_dir = PKG_RUNDIR,
-	.verbose_proctitle = FALSE,
+	.verbose_proctitle = VERBOSE_PROCTITLE_DEFAULT,
 };
 
 const struct setting_parser_info dict_server_setting_parser_info = {

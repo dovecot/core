@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "settings-parser.h"
+#include "master-service-settings.h"
 #include "service-settings.h"
 #include "mail-storage-settings.h"
 #include "pop3-settings.h"
@@ -77,7 +78,7 @@ static const struct setting_define pop3_setting_defines[] = {
 };
 
 static const struct pop3_settings pop3_default_settings = {
-	.verbose_proctitle = FALSE,
+	.verbose_proctitle = VERBOSE_PROCTITLE_DEFAULT,
 	.rawlog_dir = "",
 
 	.pop3_no_flag_updates = FALSE,

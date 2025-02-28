@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "settings-parser.h"
+#include "master-service-settings.h"
 #include "service-settings.h"
 #include "imap-urlauth-settings.h"
 
@@ -61,7 +62,7 @@ const struct imap_urlauth_settings imap_urlauth_default_settings = {
 	.base_dir = PKG_RUNDIR,
   .mail_debug = FALSE,
 
-	.verbose_proctitle = FALSE,
+	.verbose_proctitle = VERBOSE_PROCTITLE_DEFAULT,
 
 	.imap_urlauth_logout_format = "in=%{input} out=%{output}",
 	.imap_urlauth_submit_user = "",

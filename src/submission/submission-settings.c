@@ -4,6 +4,7 @@
 #include "hostpid.h"
 #include "buffer.h"
 #include "settings-parser.h"
+#include "master-service-settings.h"
 #include "service-settings.h"
 #include "mail-storage-settings.h"
 #include "submission-settings.h"
@@ -101,7 +102,7 @@ static const struct setting_define submission_setting_defines[] = {
 };
 
 static const struct submission_settings submission_default_settings = {
-	.verbose_proctitle = FALSE,
+	.verbose_proctitle = VERBOSE_PROCTITLE_DEFAULT,
 	.rawlog_dir = "",
 
 	.hostname = "",

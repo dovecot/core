@@ -2,6 +2,7 @@
 
 #include "login-common.h"
 #include "settings-parser.h"
+#include "master-service-settings.h"
 #include "login-settings.h"
 #include "settings-parser.h"
 
@@ -64,7 +65,7 @@ static const struct login_settings login_default_settings = {
 	.auth_allow_cleartext = FALSE,
 	.auth_verbose = FALSE,
 	.auth_debug = FALSE,
-	.verbose_proctitle = FALSE,
+	.verbose_proctitle = VERBOSE_PROCTITLE_DEFAULT,
 
 	.ssl = "yes:no:required",
 

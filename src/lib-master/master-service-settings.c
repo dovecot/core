@@ -77,7 +77,7 @@ static const struct master_service_settings master_service_default_settings = {
 	.dovecot_storage_version = "",
 	.version_ignore = FALSE,
 	.shutdown_clients = TRUE,
-	.verbose_proctitle = FALSE,
+	.verbose_proctitle = VERBOSE_PROCTITLE_DEFAULT,
 
 	.haproxy_trusted_networks = "",
 	.haproxy_timeout = 3

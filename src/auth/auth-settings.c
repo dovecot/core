@@ -397,7 +397,7 @@ static const struct auth_settings auth_default_settings = {
 	.userdbs = ARRAY_INIT,
 
 	.base_dir = PKG_RUNDIR,
-	.verbose_proctitle = FALSE,
+	.verbose_proctitle = VERBOSE_PROCTITLE_DEFAULT,
 	.first_valid_uid = 500,
 	.last_valid_uid = 0,
 	.first_valid_gid = 1,
