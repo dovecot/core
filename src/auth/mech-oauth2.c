@@ -68,9 +68,7 @@ static void oauth2_fail_invalid_token(struct oauth2_auth_request *oauth2_req)
 }
 
 static void
-oauth2_verify_callback(enum passdb_result result,
-		       const unsigned char *credentials ATTR_UNUSED,
-		       size_t size ATTR_UNUSED, struct auth_request *request)
+oauth2_verify_finish(enum passdb_result result, struct auth_request *request)
 {
 	struct oauth2_auth_request *oauth2_req =
 		container_of(request, struct oauth2_auth_request, auth);
@@ -84,12 +82,12 @@ oauth2_verify_callback(enum passdb_result result,
 		/* user is explicitly disabled, don't allow it to log in */
 		oauth2_fail(oauth2_req, "insufficient_scope");
 		break;
+	case PASSDB_RESULT_USER_UNKNOWN:
 	case PASSDB_RESULT_PASSWORD_MISMATCH:
 		oauth2_fail(oauth2_req, "invalid_token");
 		break;
 	case PASSDB_RESULT_NEXT:
 	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
-	case PASSDB_RESULT_USER_UNKNOWN:
 	case PASSDB_RESULT_OK:
 		/* sending success */
 		auth_request_success(request, "", 0);
@@ -97,6 +95,16 @@ oauth2_verify_callback(enum passdb_result result,
 	default:
 		i_unreached();
 	}
+}
+
+static void
+oauth2_verify_callback(enum passdb_result result,
+		       const unsigned char *credentials ATTR_UNUSED,
+		       size_t size ATTR_UNUSED, struct auth_request *request)
+{
+	if (result == PASSDB_RESULT_USER_UNKNOWN)
+		result = PASSDB_RESULT_OK;
+	oauth2_verify_finish(result, request);
 }
 
 static void
@@ -136,7 +144,7 @@ mech_oauth2_verify_token_continue(struct oauth2_auth_request *oauth2_req,
 		return;
 	}
 
-	oauth2_verify_callback(result, uchar_empty_ptr, 0, request);
+	oauth2_verify_finish(result, request);
 	auth_request_unref(&request);
 }
 
@@ -172,7 +180,7 @@ mech_oauth2_verify_token_local_continue(struct db_oauth2_request *db_req,
 	} else {
 		e_info(request->mech_event, "oauth2 failed: %s", error);
 	}
-	oauth2_verify_callback(result, uchar_empty_ptr, 0, request);
+	oauth2_verify_finish(result, request);
 	auth_request_unref(&request);
 	pool_unref(&db_req->pool);
 }
