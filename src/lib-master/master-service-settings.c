@@ -70,7 +70,11 @@ static const struct master_service_settings master_service_default_settings = {
 	.log_timestamp = DEFAULT_FAILURE_STAMP_FORMAT,
 	.log_debug = "",
 	.log_core_filter = "",
+#ifdef DOVECOT_PRO_EDITION
+	.process_shutdown_filter = "event=mail_user_session_finished AND rss > 20MB",
+#else
 	.process_shutdown_filter = "",
+#endif
 	.syslog_facility = "mail",
 	.import_environment = ARRAY_INIT,
 	.stats_writer_socket_path = "stats-writer",
