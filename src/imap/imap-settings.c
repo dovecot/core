@@ -22,7 +22,11 @@ struct service_settings imap_service_settings = {
 
 	.drop_priv_before_exec = FALSE,
 
+#ifdef DOVECOT_PRO_EDITION
+	.process_limit = 10240,
+#else
 	.process_limit = 1024,
+#endif
 	.client_limit = 1,
 #ifdef DOVECOT_PRO_EDITION
 	.restart_request_count = 1000,
