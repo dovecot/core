@@ -29,6 +29,7 @@ struct service_settings lmtp_service_settings = {
 	.client_limit = 1,
 #ifdef DOVECOT_PRO_EDITION
 	.restart_request_count = 1000,
+	.process_limit = 512,
 #else
 	.restart_request_count = 1,
 #endif
