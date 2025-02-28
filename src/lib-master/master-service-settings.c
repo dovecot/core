@@ -93,6 +93,9 @@ static const struct setting_keyvalue master_service_default_settings_keyvalue[] 
 	{ "import_environment/LISTEN_FDS", "%{env:LISTEN_FDS}" },
 	{ "import_environment/NOTIFY_SOCKET", "%{env:NOTIFY_SOCKET}" },
 #endif
+#ifdef __GLIBC__
+	{ "import_environment/MALLOC_MMAP_THRESHOLD_", "131072" },
+#endif
 #ifdef DEBUG
 	{ "import_environment/GDB", "%{env:GDB}" },
 	{ "import_environment/DEBUG_SILENT", "%{env:DEBUG_SILENT}" },
