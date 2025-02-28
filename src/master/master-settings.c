@@ -227,7 +227,11 @@ static const struct master_settings master_default_settings = {
 	.default_process_limit = 100,
 	.default_client_limit = 1000,
 	.default_idle_kill_interval = 60,
+#ifdef DOVECOT_PRO_EDITION
+	.default_vsz_limit = 1024*1024*1024,
+#else
 	.default_vsz_limit = 256*1024*1024,
+#endif
 
 	.version_ignore = FALSE,
 
