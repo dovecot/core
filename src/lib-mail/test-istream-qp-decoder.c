@@ -20,7 +20,7 @@ static const struct {
 	{ "p=c3=a4= \t \n=c3=\r\n=a4t=  \r\n=c3=b6s", "p\xC3\xA4\xC3\xA4t\xC3\xB6s", 0, 5 },
 	{ "p=c3=a4= \t \n=c3=\r\n=a4t=  \r\n=c3=b6s", "p\xC3\xA4\xC3\xA4t\xC3\xB6s", 0, 7 },
 	{ "p=c3", "p\xC3", 0, 2 },
-	{ "=0A=0D  ", "\n\r", 0, 7 },
+	{ "=0A=0D  ", "\n\r", 0, 4 },
 	{ "foo_bar", "foo_bar", 0, 0 },
 	{ "\n\n", "\r\n\r\n", 0, 0 },
 	{ "\r\n\n\n\r\n", "\r\n\r\n\r\n\r\n", 0, 0 },
