@@ -27,6 +27,9 @@ struct service_settings auth_service_settings = {
 	.drop_priv_before_exec = FALSE,
 
 	.process_limit = 1,
+#ifdef DOVECOT_PRO_EDITION
+	.client_limit = 16384,
+#endif
 
 	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
