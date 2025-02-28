@@ -45,6 +45,11 @@ const struct setting_keyvalue lmtp_service_settings_defaults[] = {
 	{ "unix_listener/lmtp/path", "lmtp" },
 	{ "unix_listener/lmtp/mode", "0666" },
 
+#ifdef DOVECOT_PRO_EDITION
+	{ "inet_listener/lmtp/name", "lmtp" },
+	{ "inet_listener/lmtp/port", "24" },
+#endif
+
 	{ "service_extra_groups", "$SET:default_internal_group" },
 
 	{ NULL, NULL }
