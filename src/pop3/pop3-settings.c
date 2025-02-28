@@ -27,7 +27,11 @@ struct service_settings pop3_service_settings = {
 
 	.process_limit = 1024,
 	.client_limit = 1,
+#ifdef DOVECOT_PRO_EDITION
+	.restart_request_count = 1000,
+#else
 	.restart_request_count = 1,
+#endif
 
 	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
