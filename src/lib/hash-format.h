@@ -4,7 +4,7 @@
 struct hash_format;
 
 /* Initialize formatting hash. Format can contain text with %{sha1} style
-   variables. Each hash hash can be also truncated by specifying the number
+   variables. Each hash can be also truncated by specifying the number
    of bits to truncate to, such as %{sha1:80}. */
 int hash_format_init(const char *format_string, struct hash_format **format_r,
 		     const char **error_r);

@@ -58,7 +58,7 @@ seqset_builder_create_or_merge_range(struct seqset_builder *builder,
 void seqset_builder_add(struct seqset_builder *builder, uint32_t seq)
 {
 	if (builder->last_seq == 0) {
-		/* No seq was yet appened so just append this one */
+		/* No seq was yet appended so just append this one */
 		seqset_builder_append_one(builder, seq);
 	} else if (builder->last_seq + 1 == seq) {
 		/* This seq is following directly on the previous one
@@ -106,7 +106,7 @@ bool seqset_builder_try_add(struct seqset_builder *builder, size_t max_len,
 
 void seqset_builder_deinit(struct seqset_builder **builder)
 {
-	/* If anything was appened to the string remove the trailing ',' */
+	/* If anything was appended to the string remove the trailing ',' */
 	if ((*builder)->last_seq != 0)
 		str_truncate((*builder)->str, str_len((*builder)->str) - 1);
 	i_free(*builder);

@@ -41,7 +41,7 @@ enum setting_type {
 	SET_ENUM,
 	SET_FILE, /* string: <path> [<LF> file contents] */
 	SET_STRLIST, /* of type ARRAY_TYPE(const_string) */
-	SET_BOOLLIST, /* of type ARRAY_TYPE(const_string) - guaranteed NULL-terminted */
+	SET_BOOLLIST, /* of type ARRAY_TYPE(const_string) - guaranteed NULL-terminated */
 	SET_ALIAS, /* alias name for above setting definition */
 	SET_FILTER_NAME,
 	SET_FILTER_ARRAY,

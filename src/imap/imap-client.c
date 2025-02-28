@@ -160,7 +160,7 @@ struct client *client_create(int fd_in, int fd_out,
 
 	mail_set = mail_user_set_get_storage_set(user);
 	/* NOTIFY is enabled only when mailbox list indexes are enabled,
-	   althoaugh even that doesn't necessarily guarantee it always */
+	   although even that doesn't necessarily guarantee it always */
 	if (!mail_set->mailbox_list_index)
 		imap_unset_capability(set_instance, "NOTIFY");
 

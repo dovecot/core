@@ -26,7 +26,7 @@ struct oauth2_settings {
 	const char *introspection_url;
 	/* POST refresh here, needs refresh token and client_* settings */
 	const char *refresh_url;
-	/* client identificator for oauth2 server */
+	/* client identifier for oauth2 server */
 	const char *client_id;
 	/* client secret for oauth2 server */
 	const char *client_secret;

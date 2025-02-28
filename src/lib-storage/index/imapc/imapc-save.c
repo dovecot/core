@@ -424,7 +424,7 @@ imapc_expunge_construct_cmd_str(string_t *store_cmd,
 	str_append(store_cmd, " +FLAGS (\\Deleted)");
 	str_append(expunge_cmd, "UID EXPUNGE ");
 	str_append_str(expunge_cmd, uids);
-	/* Clear already appened uids */
+	/* Clear already appended uids */
 	str_truncate(uids, 0);
 }
 

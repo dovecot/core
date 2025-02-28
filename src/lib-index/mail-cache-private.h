@@ -303,7 +303,7 @@ struct mail_cache_lookup_iterate_ctx {
 	   an uncommitted transaction. */
 	uint32_t offset;
 
-	/* Used to loop through all changes in the uncommited transaction,
+	/* Used to loop through all changes in the uncommitted transaction,
 	   in case there are multiple changes to the same message. */
 	unsigned int trans_next_idx;
 
@@ -323,7 +323,7 @@ struct mail_cache_lookup_iterate_ctx {
 	bool disk_appends_checked:1;
 	/* TRUE if the field index numbers in rec as the internal
 	   mail_cache_field.idx (instead of the file-specific indexes).
-	   This indicates that the rec points to uncommited transaction's
+	   This indicates that the rec points to uncommitted transaction's
 	   in-memory buffer. */
 	bool inmemory_field_idx:1;
 };

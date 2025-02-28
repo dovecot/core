@@ -15,7 +15,7 @@ struct mail_search_mime_build_context {
 	struct mail_search_mime_arg *parent;
 };
 
-/* Start building a new MIMPART search key. Use mail_search_mime_args_unref()
+/* Start building a new MIMEPART search key. Use mail_search_mime_args_unref()
    to free it. */
 struct mail_search_mime_part *mail_search_mime_build_init(void);
 

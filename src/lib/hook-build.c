@@ -9,7 +9,7 @@ struct hook_stack {
 	struct hook_stack *prev, *next;
 
 	/* Pointer to vfuncs struct. This assumes that a struct containing
-	   function pointers equals to an array of function pointers. Not
+	   function pointers equals an array of function pointers. Not
 	   ANSI-C, but should work in all OSes supported by Dovecot. Much
 	   easier anyway than doing this work manually.. */
 	void (**vfuncs)();

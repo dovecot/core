@@ -461,7 +461,7 @@ int smtp_parser_parse_quoted_string(struct smtp_parser *parser,
 	   qtextSMTP        = %d32-33 / %d35-91 / %d93-126
 	                    ; i.e., within a quoted string, any
 	                    ; ASCII graphic or space is permitted
-	                    ; without blackslash-quoting except
+	                    ; without backslash-quoting except
 	                    ; double-quote and the backslash itself.
 	 */
 

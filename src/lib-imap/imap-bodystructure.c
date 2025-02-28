@@ -13,7 +13,7 @@
 #include "imap-envelope.h"
 #include "imap-bodystructure.h"
 
-/* The max level of lists nesting inside the parhentesised representation of a
+/* The max level of lists nesting inside the parenthesised representation of a
    single part with no other parts inside, i.e. the max level of list nesting
    in representing a single part. According to RFC-3501, this should be in the
    order of a couple of nestings only, let's keep some margin just in case. */
@@ -429,7 +429,7 @@ imap_bodystructure_parse_args_int(
 		return -1;
 	}
 	if (part != NULL) {
-		/* parsing with pre-existing message_part tree */
+		/* parsing with preexisting message_part tree */
 		parsing_tree = FALSE;
 	} else {
 		/* parsing message_part tree from BODYSTRUCTURE as well */

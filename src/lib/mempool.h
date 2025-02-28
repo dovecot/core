@@ -122,7 +122,7 @@ p_malloc(pool_t pool, size_t size)
 }
 
 /* For allocfree and system pools you can use SIZE_MAX
-   to indicate that you have no knowlege of the old size. */
+   to indicate that you have no knowledge of the old size. */
 static inline void * ATTR_WARN_UNUSED_RESULT ATTR_RETURNS_NONNULL
 p_realloc(pool_t pool, void *mem, size_t old_size, size_t new_size)
 {

@@ -236,7 +236,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 			/* nothing to do */
 		}
 
-		/* NOTE: actually, pipelining the AUTH command is stricly
+		/* NOTE: actually, pipelining the AUTH command is strictly
 		         speaking not allowed, but we support it anyway.
 		 */
 	}

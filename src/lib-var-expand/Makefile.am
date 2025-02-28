@@ -9,7 +9,7 @@ YACC=/bin/false
 # of lex and yacc (or bison in yacc-compatibility mode).  Both flex and
 # bison can handle properly naming the generated files, and it is simpler
 # and cleaner to make this rule ourselves instead of working around ylwrap
-# and yywrap's antiquated notion of what is hapenning.
+# and yywrap's antiquated notion of what is happening.
 .l.c:
 	$(AM_V_GEN)$(FLEX) -o $@ $<
 

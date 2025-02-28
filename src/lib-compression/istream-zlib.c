@@ -196,7 +196,7 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 	if (zstream->starting_concated_output) {
 		/* make sure there actually is something in parent stream.
 		   we don't want to reset the stream unless we actually see
-		   some concated output. */
+		   some concatenated output. */
 		ret = i_stream_read_more(stream->parent, &data, &size);
 		if (ret <= 0) {
 			if (ret == 0)

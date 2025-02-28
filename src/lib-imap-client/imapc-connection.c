@@ -1209,7 +1209,7 @@ static int imapc_connection_input_banner(struct imapc_connection *conn)
 
 	if ((ret = imapc_connection_read_line(conn, &imap_args)) <= 0)
 		return ret;
-	/* we already verified that the banner beigns with OK */
+	/* we already verified that the banner begins with OK */
 	i_assert(imap_arg_atom_equals(imap_args, "OK"));
 	imap_args++;
 

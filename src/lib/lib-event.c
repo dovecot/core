@@ -51,7 +51,7 @@ enum event_code {
 struct event_internal_category {
 	/* More than one category can be represented by the internal state.
 	   To give consumers a unique but consistent category pointer, we
-	   return a pointer to this 'represetative' category structure.
+	   return a pointer to this 'representative' category structure.
 	   Because we allocated it, we know that it will live exactly as
 	   long as we need it to. */
 	struct event_category representative;
@@ -340,7 +340,7 @@ static inline void replace_parent_ref(struct event *event, struct event *new)
  *	G -> E -> F
  *
  * where G contains the fields and categories of A, B, and C (and trivially
- * D beacuse D was empty).
+ * D because D was empty).
  *
  * Note that even though F has not yet been sent out, we send it now because
  * it is part of the "rest" range.

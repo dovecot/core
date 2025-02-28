@@ -699,7 +699,7 @@ static void cmd_mcp_key_export_cb(const struct generated_key *key,
 			doveadm_print("");
 		} else {
 			/* this is to make it more compatible with openssl cli
-			   as it expects BEGIN on it's own line */
+			   as it expects BEGIN on its own line */
 			doveadm_print(t_strdup_printf("\n%s", str_c(out)));
 		}
 		dcrypt_key_unref_private(&pkey);

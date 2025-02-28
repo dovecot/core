@@ -1347,7 +1347,7 @@ ldap_query_get_fields(pool_t pool,
 	ldap_iter = db_ldap_result_iterate_init(conn, ldap_request, res,
 						skip_null_values);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
-		/* normalize to lower case, as ldap names are case insensitive. */
+		/* normalize to lower case, as ldap names are case-insensitive. */
 		name = t_str_lcase(name);
 		auth_fields_add(fields, name, values[0], 0);
 		if (values[0] != NULL && values[1] != NULL) {

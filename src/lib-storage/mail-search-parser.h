@@ -23,7 +23,7 @@ int mail_search_parse_key(struct mail_search_parser *parser,
 /* Get the next string. Returns 0 if ok, -1 if parsing error. */
 int mail_search_parse_string(struct mail_search_parser *parser,
 			     const char **value_r);
-/* If next parameter equals to the given string case-insensitively, skip over
+/* If next parameter equals the given string case-insensitively, skip over
    it and return TRUE. Otherwise do nothing and return FALSE. */
 bool mail_search_parse_skip_next(struct mail_search_parser *parser,
 				 const char *str);

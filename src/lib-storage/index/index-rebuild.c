@@ -199,7 +199,7 @@ index_index_rebuild_init(struct mailbox *box, struct mail_index_view *view,
 	enum mail_index_open_flags open_flags = MAIL_INDEX_OPEN_FLAG_READONLY;
 
 	/* Rebuilding really should be done locked so multiple processes won't
-	   try to rebuild concurrently. Also at the end of rebiuld cache
+	   try to rebuild concurrently. Also at the end of rebuild cache
 	   purging requires this lock. */
 	i_assert(mail_index_is_locked(view->index));
 

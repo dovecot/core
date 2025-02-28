@@ -177,7 +177,7 @@ static int get_ssl_tlv(const unsigned char *kvdata, size_t dlen,
 	if (dlen < SIZEOF_PP2_TLV_SSL)
 		return -1;
 	kv->client = kvdata[0];
-	/* spec does not specify the endianess of this field */
+	/* spec does not specify the endianness of this field */
 	kv->verify = cpu32_to_cpu_unaligned(kvdata+1);
 	kv->data = kvdata+SIZEOF_PP2_TLV_SSL;
 	kv->len = dlen - SIZEOF_PP2_TLV_SSL;

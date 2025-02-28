@@ -237,7 +237,7 @@ void message_header_encode_b(const unsigned char *input, size_t len,
 			line_len_left -= n_out;
 		}
 
-		/* Determine whether a repacement character needs to be written
+		/* Determine whether a replacement character needs to be written
 		   and how much space there is left for it on the current line.
 		 */
 		space = 0;

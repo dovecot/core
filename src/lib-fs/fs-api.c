@@ -708,7 +708,7 @@ struct event *fs_file_event(struct fs_file *file)
 
 static struct fs_file *fs_file_get_error_file(struct fs_file *file)
 {
-	/* the error is always kept in the parentmost file */
+	/* the error is always kept in the parent-most file */
 	while (file->parent != NULL)
 		file = file->parent;
 	return file;

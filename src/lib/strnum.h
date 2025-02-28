@@ -43,7 +43,7 @@ int str_to_uintmax(const char *str, uintmax_t *num_r)
 int str_parse_uintmax(const char *str, uintmax_t *num_r,
 	const char **endp_r) ATTR_WARN_UNUSED_RESULT ATTR_NULL(3);
 
-/* Returns TRUE if str is a valid unsigned number that equals to num. */
+/* Returns TRUE if str is a valid unsigned number that equals num. */
 bool str_uint_equals(const char *str, uintmax_t num);
 
 /*

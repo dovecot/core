@@ -783,7 +783,7 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 	conn->incoming_payload = NULL;
 
 	/* Input stream may have pending input. make sure input handler
-	   gets called (but don't do it directly, since we get get here
+	   gets called (but don't do it directly, since we get here
 	   somewhere from the API user's code, which we can't really know what
 	   state it is in). this call also triggers sending a new request if
 	   necessary. */

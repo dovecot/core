@@ -45,7 +45,7 @@ void event_export_helper_fmt_unix_time(string_t *dest, const struct timeval *tim
 /* append category names using 'append' function pointer, separated by 'separator' arg
 
    The result has no duplicates regardless of if the array has any or if any
-   of the categories' ancestors are implictly or explicitly duplicated. */
+   of the categories' ancestors are implicitly or explicitly duplicated. */
 void event_export_helper_fmt_categories(string_t *dest,
 					const struct event *event,
 					void (*append)(string_t *, const char *),

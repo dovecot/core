@@ -133,7 +133,7 @@ lang_tokenizer_generic_simple_current_token(struct generic_lang_tokenizer *tok,
 		   into U+0027 earlier. There can be only a single such
 		   apostrophe, because otherwise the token would have already
 		   been split. We also want to remove the trailing apostrophe
-		   only if it's the the last character in the nontruncated
+		   only if it's the last character in the nontruncated
 		   token - a truncated token may end with apostrophe. */
 		if (len > 0 && data[len-1] == '\'') {
 			len--;
@@ -238,7 +238,7 @@ is_base64(const unsigned char ch)
 }
 
 /* So far the following rule seems give good results in avoid indexing base64
-   as keywords. It also seems to run well against against base64 embedded
+   as keywords. It also seems to run well against base64 embedded
    headers, like ARC-Seal, DKIM-Signature, X-SG-EID, X-SG-ID, including
    encoded parts (e.g. =?us-ascii?Q?...?= sequences).
 
@@ -343,7 +343,7 @@ lang_tokenizer_generic_simple_next(struct lang_tokenizer *_tok,
 		apostrophe = IS_APOSTROPHE(c);
 		if ((tok->prefixsplat && IS_PREFIX_SPLAT(c)) &&
 		    (tok->prev_type == LETTER_TYPE_ALETTER)) {
-			/* this might be a prefix-mathing query */
+			/* this might be a prefix-matching query */
 			shift_prev_type(tok, LETTER_TYPE_PREFIXSPLAT);
 		} else if ((break_type = lang_simple_is_word_break(tok, c, apostrophe))
 			   != LANG_WORD_TO_WORD) {

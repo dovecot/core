@@ -389,7 +389,7 @@ mail_search_args_have_all_equal(struct mail_search_arg *parent_arg,
    A + (A.B) =  (A.1) + (A.B)  = A(1 + B)  = A  (OR Absorption Law)
    A(A + B)  = (A + 0).(A + B) = A + (0.B) = A  (AND Absorption Law)
 
-   Cases with multiple shared terms (duals appy as well)
+   Cases with multiple shared terms (duals apply as well)
 
    A + B + (A.C) + (B.C) = (A + (A.C)) + (B + B.C))  (apply law to sides of external sum))
                          = A + B

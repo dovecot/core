@@ -168,7 +168,7 @@ test_lib_signals_delayed_no_ioloop_automove(void)
 	test_assert(!tctx.signal_handled);
 	tctx.timed_out = FALSE;
 
-	/* run inner ioloop, which triggers the signal but musn't handle it */
+	/* run inner ioloop, which triggers the signal but mustn't handle it */
 	ioloop2 = io_loop_create();
 	to_kill = timeout_add_short(200, kill_timeout, &tctx);
 	to_test = timeout_add_short(400, test_timeout, &tctx);

@@ -34,7 +34,7 @@ void luaL_setmetatable (lua_State *L, const char *tname);
 
 #ifndef HAVE_LUA_ISINTEGER
 /*
- * Lua 5.3 can actually keep track of intergers vs. numbers.  As a
+ * Lua 5.3 can actually keep track of integers vs. numbers.  As a
  * consequence, lua_isinteger() tells us if the internal representation of
  * the number is an integer (vs. a number).  In previous versions, there was
  * no way to check for this and our compatibility wrapper is not quite
@@ -59,7 +59,7 @@ lua_Integer lua_tointegerx(lua_State *L, int idx, int *isnum_r);
 #if LUA_VERSION_NUM > 501 && LUA_VERSION_NUM < 504
 /*
  * lua_resume() compatibility function. Lua 5.4 expects an extra "nresults"
- * argeument.
+ * argument.
  */
 #  define lua_resume(L, from, nargs, nresults) \
 	lua_resume_compat(L, from, nargs, nresults)

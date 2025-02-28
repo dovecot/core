@@ -316,7 +316,7 @@ static bool var_expand_crypt_initialize(const char **error_r)
 
 void var_expand_crypt_init(struct module *module ATTR_UNUSED)
 {
-	/* do not initialize dcrypt here - saves alot of memory
+	/* do not initialize dcrypt here - saves a lot of memory
 	   to not load openssl every time. Only load it if
 	   needed */
 

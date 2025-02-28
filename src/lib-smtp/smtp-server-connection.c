@@ -1535,7 +1535,7 @@ void smtp_server_connection_add_extra_capability(
 	i_assert(smtp_ehlo_keyword_is_valid(cap->name));
 	i_assert(smtp_ehlo_params_are_valid(cap->params));
 
-	/* Cannot override standard capabiltiies */
+	/* Cannot override standard capabilities */
 	i_assert(smtp_capability_find_by_name(cap->name)
 		 == SMTP_CAPABILITY_NONE);
 

@@ -102,7 +102,7 @@ struct wrapper_ostream {
 	bool output_started:1;
 	/* Output was finished (output_finish() vfunc was called). */
 	bool output_finished:1;
-	/* Output was was closed somehow. This means that the output is no
+	/* Output was closed somehow. This means that the output is no
 	   longer available. This is not the same as the ostream close flag. */
 	bool output_closed:1;
 	/* Output was closed directly or indirectly by the application action.

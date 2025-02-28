@@ -575,7 +575,7 @@ dsync_mailbox_export_iter_next_nonexistent_attr(struct dsync_mailbox_exporter *e
 				exporter->box, &mail_error);
 
 			/* Unavailable can come from imapc attributes
-			   when backand doesn't offer the capability,
+			   when backend doesn't offer the capability,
 			   just ignore the error in this case */
 			if (mail_error == MAIL_ERROR_UNAVAILABLE)
 				continue;
@@ -637,7 +637,7 @@ dsync_mailbox_export_iter_next_attr(struct dsync_mailbox_exporter *exporter)
 				exporter->box, &mail_error);
 
 			/* Unavailable can come from imapc attributes
-			   when backand doesn't offer the capability,
+			   when backend doesn't offer the capability,
 			   just ignore the error in this case */
 			if (mail_error == MAIL_ERROR_UNAVAILABLE)
 				continue;

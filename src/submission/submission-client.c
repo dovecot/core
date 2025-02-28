@@ -499,7 +499,7 @@ void client_add_extra_capability(struct client *client, const char *capability,
 {
 	struct client_extra_capability cap;
 
-	/* Don't add capabilties handled by lib-smtp here */
+	/* Don't add capabilities handled by lib-smtp here */
 	i_assert(smtp_capability_find_by_name(capability)
 		 == SMTP_CAPABILITY_NONE);
 

@@ -16,7 +16,7 @@ struct dsync_mail {
 	/* If non-NULL, we're syncing within the dsync process using ibc-pipe.
 	   This mail can be used to mailbox_copy() the mail. */
 	struct mail *input_mail;
-	/* Verify that this equals to input_mail->uid */
+	/* Verify that this equals input_mail->uid */
 	uint32_t input_mail_uid;
 
 	/* TRUE if the following fields aren't set, because minimal_fill=TRUE

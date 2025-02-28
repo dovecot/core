@@ -230,7 +230,7 @@ test_istream_base64_io_random(void)
 			i_stream_ref(sinput3);
 		}
 
-		/* Create second deoder stream */
+		/* Create second decoder stream */
 		input5 = i_stream_create_base64_decoder(sinput3);
 		i_stream_set_name(input5, "[base64_decoder #2]");
 

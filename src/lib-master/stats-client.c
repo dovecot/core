@@ -116,7 +116,7 @@ static void stats_client_destroy(struct connection *conn)
 			timeval_diff_msecs(&ioloop_timeval,
 					   &conn->connect_finished);
 		if (msecs_since_connected >= STATS_CLIENT_RECONNECT_INTERVAL_MSECS) {
-			/* reconnect immdiately */
+			/* reconnect immediately */
 			reconnect_msecs = 0;
 		} else {
 			/* wait for reconnect interval since we last

@@ -39,7 +39,7 @@ bool var_expand_execute_stmt(struct var_expand_state *state,
 			ret = (*fn)(stmt, state, &error);
 		} T_END_PASS_STR_IF(ret < 0, &error);
 		i_free(delayed_error);
-		/* this is to allow e.g. defaut to work correctly */
+		/* this is to allow e.g. default to work correctly */
 		if (ret < 0) {
 			var_expand_state_unset_transfer(state);
 			if (state->delayed_error != NULL) {

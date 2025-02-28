@@ -1400,7 +1400,7 @@ invalid_parse_tests[] = {
 		.input = "[\"\\",
 	},
 	{
-		// n_string_unescaped_crtl_char.json
+		// n_string_unescaped_ctrl_char.json
 		.input = "[\"a\x00a\"]",
 	},
 	{

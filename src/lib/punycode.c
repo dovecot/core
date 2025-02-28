@@ -6,7 +6,7 @@
 #include "unichar.h"
 #include "punycode.h"
 
-/* Bootstring parameters for Punycode */
+/* Boot string parameters for Punycode */
 
 static const unsigned int base = 36; /* maximum basic code point */
 static const unsigned int tmin = 1;

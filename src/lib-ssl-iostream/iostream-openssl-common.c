@@ -87,7 +87,7 @@ bool openssl_cert_match_name(SSL *ssl, const char *verify_name,
 	char *peername;
 	int check_res;
 
-	/* First check DNS name agains CommonName or SubjectAltNames.
+	/* First check DNS name against CommonName or SubjectAltNames.
 	   If failed, check IP addresses. */
 	if ((check_res = X509_check_host(cert, verify_name, strlen(verify_name),
 					 X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS,
