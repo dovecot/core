@@ -59,6 +59,7 @@ const struct setting_keyvalue auth_service_settings_defaults[] = {
 	{ "unix_listener/auth-userdb/type", "userdb" },
 	{ "unix_listener/auth-userdb/mode", "0666" },
 	{ "unix_listener/auth-userdb/user", "$SET:default_internal_user" },
+	{ "unix_listener/auth-userdb/group", "$SET:default_internal_group" },
 
 	{ "unix_listener/login\\slogin/path", "login/login" },
 	{ "unix_listener/login\\slogin/type", "login" },
