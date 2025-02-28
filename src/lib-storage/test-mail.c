@@ -339,6 +339,7 @@ static void test_attachment_flags_during_header_fetch(void)
 		.driver = "sdbox",
 		.extra_input = (const char *const[]) {
 			"mail_attachment_detection_options=add-flags",
+			"mail_cache_fields=flags",
 			"mail_never_cache_fields=mime.parts",
 			NULL
 		},

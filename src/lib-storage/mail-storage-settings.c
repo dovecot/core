@@ -192,7 +192,18 @@ const struct mail_storage_settings mail_storage_default_settings = {
 
 static const struct setting_keyvalue mail_storage_default_settings_keyvalue[] = {
 	{ "layout_index/mailbox_list_storage_escape_char", "^" },
-	{ "mail_cache_fields", "flags" },
+#define MAIL_CACHE_FIELDS_DEFAULT \
+	"flags " \
+	/* IMAP ENVELOPE: */ \
+	"hdr.date hdr.subject hdr.from hdr.sender hdr.reply-to hdr.to hdr.cc hdr.bcc hdr.in-reply-to hdr.message-id " \
+	/* Commonly used by clients: */ \
+	"date.received size.virtual imap.bodystructure mime.parts hdr.references " \
+	/* AppSuite, at least: */ \
+	"hdr.importance hdr.x-priority " \
+	"hdr.x-open-xchange-share-url " \
+	/* POP3: */ \
+	"pop3.uidl pop3.order"
+	{ "mail_cache_fields", MAIL_CACHE_FIELDS_DEFAULT },
 	{ "mail_never_cache_fields", "imap.envelope" },
 	{ NULL, NULL }
 };
