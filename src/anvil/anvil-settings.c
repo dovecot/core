@@ -36,7 +36,12 @@ const struct setting_keyvalue anvil_service_settings_defaults[] = {
 	{ "unix_listener/anvil/mode", "0600" },
 
 	{ "unix_listener/anvil-auth-penalty/path", "anvil-auth-penalty" },
+#ifdef DOVECOT_PRO_EDITION
+	/* Should use OX Abuse Shield instead */
+	{ "unix_listener/anvil-auth-penalty/mode", "0" },
+#else
 	{ "unix_listener/anvil-auth-penalty/mode", "0600" },
+#endif
 
 	{ NULL, NULL }
 };
