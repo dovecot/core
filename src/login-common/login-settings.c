@@ -55,7 +55,11 @@ static const struct login_settings login_default_settings = {
 	.login_plugins = ARRAY_INIT,
 	.login_proxy_timeout = 30*1000,
 	.login_proxy_max_reconnects = 3,
+#ifdef DOVECOT_PRO_EDITION
+	.login_proxy_max_disconnect_delay = 30,
+#else
 	.login_proxy_max_disconnect_delay = 0,
+#endif
 	.login_proxy_rawlog_dir = "",
 	.login_socket_path = "",
 
