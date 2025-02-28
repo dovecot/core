@@ -50,6 +50,11 @@ struct service_settings dict_async_service_settings = {
 
 	.drop_priv_before_exec = FALSE,
 
+#ifdef DOVECOT_PRO_EDITION
+	/* Cassandra driver can use up a lot of VSZ */
+	.vsz_limit = 2048ULL * 1024 * 1024,
+#endif
+
 	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = ARRAY_INIT
