@@ -24,7 +24,9 @@ struct service_settings submission_login_service_settings = {
 
 	.drop_priv_before_exec = FALSE,
 
+#ifndef DOVECOT_PRO_EDITION
 	.restart_request_count = 1,
+#endif
 
 	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
@@ -74,11 +76,20 @@ static const struct submission_login_settings submission_login_default_settings 
 	.submission_backend_capabilities = ARRAY_INIT,
 };
 
+static const struct setting_keyvalue submission_login_default_settings_keyvalue[] = {
+#ifdef DOVECOT_PRO_EDITION
+	{ "service/submission-login/service_process_limit", "%{system:cpu_count}" },
+	{ "service/submission-login/service_process_min_avail", "%{system:cpu_count}" },
+#endif
+	{ NULL, NULL },
+};
+
 const struct setting_parser_info submission_login_setting_parser_info = {
 	.name = "submission_login",
 
 	.defines = submission_login_setting_defines,
 	.defaults = &submission_login_default_settings,
+	.default_settings = submission_login_default_settings_keyvalue,
 
 	.struct_size = sizeof(struct submission_login_settings),
 	.pool_offset1 = 1 + offsetof(struct submission_login_settings, pool),

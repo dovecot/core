@@ -20,7 +20,9 @@ struct service_settings imap_login_service_settings = {
 
 	.drop_priv_before_exec = FALSE,
 
+#ifndef DOVECOT_PRO_EDITION
 	.restart_request_count = 1,
+#endif
 
 	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
@@ -80,6 +82,10 @@ static const struct setting_keyvalue imap_login_default_settings_keyvalue[] = {
 	{ "service/imap-login/imap_capability/LITERAL+", "yes" },
 	{ "service/imap-login/imap_capability/LITERAL-", "yes" },
 	{ "imap_id_send/name", DOVECOT_NAME },
+#ifdef DOVECOT_PRO_EDITION
+	{ "service/imap-login/service_process_limit", "%{system:cpu_count}" },
+	{ "service/imap-login/service_process_min_avail", "%{system:cpu_count}" },
+#endif
 	{ NULL, NULL },
 };
 

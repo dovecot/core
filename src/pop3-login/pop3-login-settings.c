@@ -20,7 +20,9 @@ struct service_settings pop3_login_service_settings = {
 
 	.drop_priv_before_exec = FALSE,
 
+#ifndef DOVECOT_PRO_EDITION
 	.restart_request_count = 1,
+#endif
 
 	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
@@ -46,6 +48,14 @@ const struct setting_keyvalue pop3_login_service_settings_defaults[] = {
 	{ NULL, NULL }
 };
 
+static const struct setting_keyvalue pop3_login_default_settings_keyvalue[] = {
+#ifdef DOVECOT_PRO_EDITION
+	{ "service/pop3-login/service_process_limit", "%{system:cpu_count}" },
+	{ "service/pop3-login/service_process_min_avail", "%{system:cpu_count}" },
+#endif
+	{ NULL, NULL },
+};
+
 static const struct setting_define pop3_login_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
@@ -54,4 +64,5 @@ const struct setting_parser_info pop3_login_setting_parser_info = {
 	.name = "pop3_login",
 
 	.defines = pop3_login_setting_defines,
+	.default_settings = pop3_login_default_settings_keyvalue,
 };
