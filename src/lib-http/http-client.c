@@ -164,7 +164,7 @@ http_client_init_shared(struct http_client_context *cctx,
 	event_add_category(client->event, &event_category_http_client);
 	event_set_append_log_prefix(client->event, log_prefix);
 
-	pool_ref(set->pool);
+	pool_add_external_ref(client->pool, set->pool);
 	client->set = set;
 
 	i_array_init(&client->delayed_failing_requests, 1);
@@ -190,7 +190,6 @@ int http_client_init_auto(struct event *event_parent,
 			 0, &set, error_r) < 0)
 		return -1;
 	*client_r = http_client_init(set, event_parent);
-	settings_free(set);
 	return 0;
 }
 
@@ -211,7 +210,6 @@ int http_client_init_private_auto(struct event *event_parent,
 			 0, &set, error_r) < 0)
 		return -1;
 	*client_r = http_client_init_private(set, event_parent);
-	settings_free(set);
 	return 0;
 }
 
