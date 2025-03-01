@@ -1134,6 +1134,8 @@ void http_server_connection_close(struct http_server_connection **_conn,
 				  const char *reason)
 {
 	struct http_server_connection *conn = *_conn;
+	if (conn == NULL)
+		return;
 
 	http_server_connection_disconnect(conn, reason);
 	http_server_connection_unref(_conn);
