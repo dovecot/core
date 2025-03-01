@@ -345,8 +345,13 @@ static const struct mail_user_settings mail_user_default_settings = {
 	.mail_temp_dir = "/tmp",
 	.mail_debug = FALSE,
 
+#ifdef DOVECOT_PRO_EDITION
+	.mail_uid = "vmail",
+	.mail_gid = "vmail",
+#else
 	.mail_uid = "",
 	.mail_gid = "",
+#endif
 	.mail_home = "",
 	.mail_chroot = "",
 	.mail_access_groups = ARRAY_INIT,
