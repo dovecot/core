@@ -539,7 +539,7 @@ master_service_get_inet_listeners(struct service_settings *service_set,
 	return ret;
 }
 
-static bool
+static int
 master_settings_get_services(struct master_settings *set, pool_t pool,
 			     struct event *event, const char **error_r)
 {
@@ -552,9 +552,12 @@ master_settings_get_services(struct master_settings *set, pool_t pool,
 		if (settings_get_filter(event, "service", service_name,
 					&service_setting_parser_info,
 					0, &service_set, &error) < 0) {
+			if (event_find_field_recursive(event,
+					SETTINGS_EVENT_NO_EXPAND) != NULL)
+				return 0;
 			*error_r = t_strdup_printf("Failed to get service %s: %s",
 						   service_name, error);
-			return FALSE;
+			return -1;
 		}
 		struct service_settings *service_set_dup =
 			p_memdup(pool, service_set, sizeof(*service_set));
@@ -569,20 +572,20 @@ master_settings_get_services(struct master_settings *set, pool_t pool,
 				&service_set_dup->unix_listeners,
 				&service_set_dup->parsed_unix_listeners,
 				error_r))
-			return FALSE;
+			return -1;
 		if (!master_service_get_file_listeners(pool, event,
 				"fifo_listener", service_name,
 				&fifo_listener_setting_parser_info,
 				&service_set_dup->fifo_listeners,
 				&service_set_dup->parsed_fifo_listeners,
 				error_r))
-			return FALSE;
+			return -1;
 		if (!master_service_get_inet_listeners(service_set_dup,
 						       service_name, pool,
 						       event, error_r))
-			return FALSE;
+			return -1;
 	}
-	return TRUE;
+	return 1;
 }
 
 static bool
@@ -600,6 +603,7 @@ master_settings_ext_check(struct event *event, void *_set,
 	string_t *max_auth_client_processes_reason = t_str_new(64);
 	string_t *max_anvil_client_processes_reason = t_str_new(64);
 	size_t len;
+	int ret;
 #ifdef CONFIG_BINARY
 	const struct service_settings *default_service;
 #else
@@ -652,8 +656,8 @@ master_settings_ext_check(struct event *event, void *_set,
 		*error_r = "listen can't be set empty";
 		return FALSE;
 	}
-	if (!master_settings_get_services(set, pool, event, error_r))
-		return FALSE;
+	if ((ret = master_settings_get_services(set, pool, event, error_r)) <= 0)
+		return ret == 0;
 	services = array_get(&set->parsed_services, &count);
 	for (i = 0; i < count; i++) {
 		struct service_settings *service = services[i];
