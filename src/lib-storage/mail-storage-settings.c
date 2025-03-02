@@ -204,6 +204,9 @@ static const struct setting_keyvalue mail_storage_default_settings_keyvalue[] = 
 	/* POP3: */ \
 	"pop3.uidl pop3.order"
 	{ "mail_cache_fields", MAIL_CACHE_FIELDS_DEFAULT },
+#ifdef DOVECOT_PRO_EDITION
+	{ "mail_always_cache_fields", MAIL_CACHE_FIELDS_DEFAULT },
+#endif
 	{ "mail_never_cache_fields", "imap.envelope" },
 	{ NULL, NULL }
 };
