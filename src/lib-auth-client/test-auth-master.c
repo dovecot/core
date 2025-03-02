@@ -77,8 +77,14 @@ static int
 test_client_passdb_lookup_simple(const char *user, bool retry,
 				 const char **error_r);
 static int
+test_client_passdb_lookup_simple_async(const char *username, bool retry,
+				       const char **error_r);
+static int
 test_client_userdb_lookup_simple(const char *user, bool retry,
 				 const char **error_r);
+static int
+test_client_userdb_lookup_simple_async(const char *username, bool retry,
+				       const char **error_r);
 static int test_client_user_list_simple(void);
 
 /* test*/
@@ -163,8 +169,13 @@ static bool test_client_connection_refused(void)
 	const char *error;
 	int ret;
 
+	test_expect_error_string("Connection refused");
 	ret = test_client_passdb_lookup_simple("harrie", FALSE, &error);
 	test_out_reason("run (ret == -1)", ret == -1, error);
+
+	test_expect_error_string("Connection refused");
+	ret = test_client_passdb_lookup_simple_async("harrie", FALSE, &error);
+	test_out_reason("run async (ret == -1)", ret == -1, error);
 
 	return FALSE;
 }
@@ -174,7 +185,6 @@ static bool test_client_connection_refused(void)
 static void test_connection_refused(void)
 {
 	test_begin("connection refused");
-	test_expect_error_string("Connection refused");
 	test_run_client_server(test_client_connection_refused,
 			       test_server_connection_refused);
 	test_end();
@@ -207,10 +217,19 @@ static bool test_client_connection_timed_out(void)
 	int ret;
 
 	io_loop_time_refresh();
-	time = ioloop_time;
 
+	time = ioloop_time;
+	test_expect_error_string("Connecting timed out");
 	ret = test_client_passdb_lookup_simple("harrie", FALSE, &error);
 	test_out_reason("run (ret == -1)", ret == -1, error);
+
+	io_loop_time_refresh();
+	test_out("timeout", (ioloop_time - time) < 5);
+
+	time = ioloop_time;
+	test_expect_error_string("Connecting timed out");
+	ret = test_client_passdb_lookup_simple_async("harrie", FALSE, &error);
+	test_out_reason("run async (ret == -1)", ret == -1, error);
 
 	io_loop_time_refresh();
 	test_out("timeout", (ioloop_time - time) < 5);
@@ -222,7 +241,6 @@ static bool test_client_connection_timed_out(void)
 static void test_connection_timed_out(void)
 {
 	test_begin("connection timed out");
-	test_expect_error_string("Connecting timed out");
 	test_run_client_server(test_client_connection_timed_out,
 			       test_server_connection_timed_out);
 	test_end();
@@ -259,8 +277,14 @@ static bool test_client_bad_version(void)
 	const char *error;
 	int ret;
 
+	test_expect_error_string("Socket supports major version 666");
 	ret = test_client_passdb_lookup_simple("harrie", FALSE, &error);
 	test_out_reason("run (ret == -1)", ret == -1, error);
+
+	test_expect_error_string("Socket supports major version 666");
+	ret = test_client_passdb_lookup_simple_async("harrie", FALSE, &error);
+	test_out_reason("run async (ret == -1)", ret == -1, error);
+
 	return FALSE;
 }
 
@@ -269,7 +293,6 @@ static bool test_client_bad_version(void)
 static void test_bad_version(void)
 {
 	test_begin("bad version");
-	test_expect_error_string("Socket supports major version 666");
 	test_run_client_server(test_client_bad_version,
 			       test_server_bad_version);
 	test_end();
@@ -314,8 +337,14 @@ static bool test_client_disconnect_version(void)
 	const char *error;
 	int ret;
 
+	test_expect_error_string("Disconnected unexpectedly");
 	ret = test_client_passdb_lookup_simple("harrie", FALSE, &error);
 	test_out_reason("run (ret == -1)", ret == -1, error);
+
+	test_expect_error_string("Disconnected unexpectedly");
+	ret = test_client_passdb_lookup_simple_async("harrie", FALSE, &error);
+	test_out_reason("run async (ret == -1)", ret == -1, error);
+
 	return FALSE;
 }
 
@@ -324,7 +353,6 @@ static bool test_client_disconnect_version(void)
 static void test_disconnect_version(void)
 {
 	test_begin("disconnect version");
-	test_expect_error_string("Disconnected unexpectedly");
 	test_run_client_server(test_client_disconnect_version,
 			       test_server_disconnect_version);
 	test_end();
@@ -383,8 +411,7 @@ static void test_passdb_fail_input(struct server_connection *conn)
 			if (strcmp(args[2], "henk") == 0) {
 				line = t_strdup_printf("NOTFOUND\t%u\n", id);
 			} else if (strcmp(args[2], "holger") == 0) {
-				i_sleep_intr_secs(5);
-				server_connection_deinit(&conn);
+				/* hang */
 				return;
 			} else if (strcmp(args[2], "hendrik") == 0) {
 				server_connection_deinit(&conn);
@@ -432,6 +459,11 @@ static bool test_client_passdb_fail(void)
 	test_assert(error != NULL &&
 		    strcmp(error, "You shall not pass!!") == 0);
 
+	ret = test_client_passdb_lookup_simple_async("harrie", FALSE, &error);
+	test_out("run async (ret == -2)", ret == -2);
+	test_assert(error != NULL &&
+		    strcmp(error, "You shall not pass!!") == 0);
+
 	return FALSE;
 }
 
@@ -442,6 +474,10 @@ static bool test_client_passdb_notfound(void)
 
 	ret = test_client_passdb_lookup_simple("henk", FALSE, &error);
 	test_out("run (ret == 0)", ret == 0);
+	test_assert(error == NULL);
+
+	ret = test_client_passdb_lookup_simple_async("henk", FALSE, &error);
+	test_out("run async (ret == 0)", ret == 0);
 	test_assert(error == NULL);
 
 	return FALSE;
@@ -458,6 +494,12 @@ static bool test_client_passdb_timeout(void)
 		    str_begins_with(
 			error, "Auth server request timed out after"));
 
+	ret = test_client_passdb_lookup_simple_async("holger", FALSE, &error);
+	test_out("run async (ret == -1)", ret == -1);
+	test_assert(error != NULL &&
+		    str_begins_with(
+			error, "Auth server request timed out after"));
+
 	return FALSE;
 }
 
@@ -466,8 +508,15 @@ static bool test_client_passdb_disconnect(void)
 	const char *error;
 	int ret;
 
+	test_expect_error_string("Disconnected unexpectedly");
 	ret = test_client_passdb_lookup_simple("hendrik", FALSE, &error);
 	test_out("run (ret == -1)", ret == -1);
+	test_assert(error != NULL &&
+		    str_begins_with(error, "Disconnected from auth service"));
+
+	test_expect_error_string("Disconnected unexpectedly");
+	ret = test_client_passdb_lookup_simple_async("hendrik", FALSE, &error);
+	test_out("run async (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
 		    str_begins_with(error, "Disconnected from auth service"));
 
@@ -479,8 +528,15 @@ static bool test_client_passdb_reconnect(void)
 	const char *error;
 	int ret;
 
+	test_expect_errors(2);
 	ret = test_client_passdb_lookup_simple("hendrik", TRUE, &error);
 	test_out("run (ret == -1)", ret == -1);
+	test_assert(error != NULL &&
+		    str_begins_with(error, "Disconnected from auth service"));
+
+	test_expect_errors(2);
+	ret = test_client_passdb_lookup_simple_async("hendrik", TRUE, &error);
+	test_out("run async (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
 		    str_begins_with(error, "Disconnected from auth service"));
 
@@ -507,13 +563,11 @@ static void test_passdb_fail(void)
 	test_end();
 
 	test_begin("passdb disconnect");
-	test_expect_error_string("Disconnected unexpectedly");
 	test_run_client_server(test_client_passdb_disconnect,
 			       test_server_passdb_fail);
 	test_end();
 
 	test_begin("passdb reconnect");
-	test_expect_errors(2);
 	test_run_client_server(test_client_passdb_reconnect,
 			       test_server_passdb_fail);
 	test_end();
@@ -572,8 +626,7 @@ static void test_userdb_fail_input(struct server_connection *conn)
 			if (strcmp(args[2], "henk") == 0) {
 				line = t_strdup_printf("NOTFOUND\t%u\n", id);
 			} else if (strcmp(args[2], "holger") == 0) {
-				i_sleep_intr_secs(5);
-				server_connection_deinit(&conn);
+				/* hang */
 				return;
 			} else if (strcmp(args[2], "hendrik") == 0) {
 				server_connection_deinit(&conn);
@@ -620,6 +673,11 @@ static bool test_client_userdb_fail(void)
 	test_assert(error != NULL &&
 		    strcmp(error, "It is no use!") == 0);
 
+	ret = test_client_userdb_lookup_simple_async("harrie", FALSE, &error);
+	test_out("run async (ret == -2)", ret == -2);
+	test_assert(error != NULL &&
+		    strcmp(error, "It is no use!") == 0);
+
 	return FALSE;
 }
 
@@ -630,6 +688,10 @@ static bool test_client_userdb_notfound(void)
 
 	ret = test_client_userdb_lookup_simple("henk", FALSE, &error);
 	test_out("run (ret == 0)", ret == 0);
+	test_assert(error == NULL);
+
+	ret = test_client_userdb_lookup_simple_async("henk", FALSE, &error);
+	test_out("run async (ret == 0)", ret == 0);
 	test_assert(error == NULL);
 
 	return FALSE;
@@ -646,6 +708,12 @@ static bool test_client_userdb_timeout(void)
 		    str_begins_with(
 			error, "Auth server request timed out after"));
 
+	ret = test_client_userdb_lookup_simple_async("holger", FALSE, &error);
+	test_out("run async (ret == -1)", ret == -1);
+	test_assert(error != NULL &&
+		    str_begins_with(
+			error, "Auth server request timed out after"));
+
 	return FALSE;
 }
 
@@ -654,8 +722,15 @@ static bool test_client_userdb_disconnect(void)
 	const char *error;
 	int ret;
 
+	test_expect_error_string("Disconnected unexpectedly");
 	ret = test_client_userdb_lookup_simple("hendrik", FALSE, &error);
 	test_out("run (ret == -1)", ret == -1);
+	test_assert(error != NULL &&
+		    str_begins_with(error, "Disconnected from auth service"));
+
+	test_expect_error_string("Disconnected unexpectedly");
+	ret = test_client_userdb_lookup_simple_async("hendrik", FALSE, &error);
+	test_out("run async (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
 		    str_begins_with(error, "Disconnected from auth service"));
 
@@ -667,8 +742,15 @@ static bool test_client_userdb_reconnect(void)
 	const char *error;
 	int ret;
 
+	test_expect_errors(2);
 	ret = test_client_userdb_lookup_simple("hendrik", TRUE, &error);
 	test_out("run (ret == -1)", ret == -1);
+	test_assert(error != NULL &&
+		    str_begins_with(error, "Disconnected from auth service"));
+
+	test_expect_errors(2);
+	ret = test_client_userdb_lookup_simple_async("hendrik", TRUE, &error);
+	test_out("run async (ret == -1)", ret == -1);
 	test_assert(error != NULL &&
 		    str_begins_with(error, "Disconnected from auth service"));
 
@@ -695,13 +777,11 @@ static void test_userdb_fail(void)
 	test_end();
 
 	test_begin("userdb disconnect");
-	test_expect_error_string("Disconnected unexpectedly");
 	test_run_client_server(test_client_userdb_disconnect,
 			       test_server_userdb_fail);
 	test_end();
 
 	test_begin("userdb reconnect");
-	test_expect_errors(2);
 	test_run_client_server(test_client_userdb_reconnect,
 			       test_server_userdb_fail);
 	test_end();
@@ -890,6 +970,9 @@ static bool test_client_passdb_lookup(void)
 	ret = test_client_passdb_lookup_simple("harrie", FALSE, &error);
 	test_out("run (ret > 0)", ret > 0);
 
+	ret = test_client_passdb_lookup_simple_async("harrie", FALSE, &error);
+	test_out("run_async (ret > 0)", ret > 0);
+
 	return FALSE;
 }
 
@@ -989,6 +1072,9 @@ static bool test_client_userdb_lookup(void)
 
 	ret = test_client_userdb_lookup_simple("harrie", FALSE, &error);
 	test_out("run (ret > 0)", ret > 0);
+
+	ret = test_client_userdb_lookup_simple_async("harrie", FALSE, &error);
+	test_out("run async (ret > 0)", ret > 0);
 
 	return FALSE;
 }
@@ -1170,6 +1256,78 @@ test_client_passdb_lookup_simple(const char *username, bool retry,
 	return ret;
 }
 
+struct _passdb_lookup_context {
+	pool_t pool;
+	struct ioloop *ioloop;
+
+	struct auth_master_connection *auth_conn;
+	const char *username;
+	struct auth_user_info *info;
+
+	int result;
+	const char *const *fields;
+
+	bool retry:1;
+	bool retried:1;
+};
+
+static void
+test_client_passdb_lookup_callback(struct _passdb_lookup_context *ctx,
+				   int result, const char *const *fields)
+{
+	if (result < 0 && ctx->retry && !ctx->retried) {
+		(void)auth_master_pass_lookup_async(
+			ctx->auth_conn, ctx->username, ctx->info,
+			test_client_passdb_lookup_callback, ctx);
+		ctx->retried = TRUE;
+	}
+	ctx->result = result;
+	ctx->fields = p_strarray_dup(ctx->pool, fields);
+	io_loop_stop(ctx->ioloop);
+}
+
+static int
+test_client_passdb_lookup_simple_async(const char *username, bool retry,
+				       const char **error_r)
+{
+	struct _passdb_lookup_context ctx;
+	enum auth_master_flags flags = 0;
+	struct auth_user_info info;
+	pool_t pool;
+
+	i_zero(&info);
+	info.protocol = "test";
+	info.debug = debug;
+
+	if (debug)
+		flags |= AUTH_MASTER_FLAG_DEBUG;
+
+	pool = pool_alloconly_create("test", 1024);
+
+	i_zero(&ctx);
+	ctx.pool = pool;
+	ctx.ioloop = io_loop_create();
+	ctx.username = username;
+	ctx.info = &info;
+	ctx.retry = retry;
+
+	ctx.auth_conn = auth_master_init(TEST_SOCKET, flags);
+	auth_master_set_timeout(ctx.auth_conn, 1000);
+
+	(void)auth_master_pass_lookup_async(
+		ctx.auth_conn, username, &info,
+		test_client_passdb_lookup_callback, &ctx);
+	io_loop_run(ctx.ioloop);
+
+	auth_master_deinit(&ctx.auth_conn);
+
+	*error_r = (ctx.result < 0 ? t_strdup(ctx.fields[0]) : NULL);
+	io_loop_destroy(&ctx.ioloop);
+	pool_unref(&pool);
+
+	return ctx.result;
+}
+
 static int
 test_client_userdb_lookup_simple(const char *username, bool retry,
 				 const char **error_r)
@@ -1205,6 +1363,81 @@ test_client_userdb_lookup_simple(const char *username, bool retry,
 	pool_unref(&pool);
 
 	return ret;
+}
+
+struct _userdb_lookup_context {
+	pool_t pool;
+	struct ioloop *ioloop;
+
+	struct auth_master_connection *auth_conn;
+	const char *username;
+	struct auth_user_info *info;
+
+	int result;
+	const char *username_out;
+	const char *const *fields;
+
+	bool retry:1;
+	bool retried:1;
+};
+
+static void
+test_client_userdb_lookup_callback(struct _userdb_lookup_context *ctx,
+				   int result, const char *username,
+				   const char *const *fields)
+{
+	if (result < 0 && ctx->retry && !ctx->retried) {
+		(void)auth_master_user_lookup_async(
+			ctx->auth_conn, ctx->username, ctx->info,
+			test_client_userdb_lookup_callback, ctx);
+		ctx->retried = TRUE;
+	}
+	ctx->result = result;
+	ctx->username_out = p_strdup(ctx->pool, username);
+	ctx->fields = p_strarray_dup(ctx->pool, fields);
+	io_loop_stop(ctx->ioloop);
+}
+
+static int
+test_client_userdb_lookup_simple_async(const char *username, bool retry,
+				       const char **error_r)
+{
+	struct _userdb_lookup_context ctx;
+	enum auth_master_flags flags = 0;
+	struct auth_user_info info;
+	pool_t pool;
+
+	i_zero(&info);
+	info.protocol = "test";
+	info.debug = debug;
+
+	if (debug)
+		flags |= AUTH_MASTER_FLAG_DEBUG;
+
+	pool = pool_alloconly_create("test", 1024);
+
+	i_zero(&ctx);
+	ctx.pool = pool;
+	ctx.ioloop = io_loop_create();
+	ctx.username = username;
+	ctx.info = &info;
+	ctx.retry = retry;
+
+	ctx.auth_conn = auth_master_init(TEST_SOCKET, flags);
+	auth_master_set_timeout(ctx.auth_conn, 1000);
+
+	(void)auth_master_user_lookup_async(
+		ctx.auth_conn, username, &info,
+		test_client_userdb_lookup_callback, &ctx);
+	io_loop_run(ctx.ioloop);
+
+	auth_master_deinit(&ctx.auth_conn);
+
+	*error_r = (ctx.result < 0 ? t_strdup(ctx.fields[0]) : NULL);
+	io_loop_destroy(&ctx.ioloop);
+	pool_unref(&pool);
+
+	return ctx.result;
 }
 
 static int test_client_user_list_simple(void)
@@ -1388,12 +1621,12 @@ static void
 test_run_client_server(test_client_init_t *client_test,
 		       test_server_init_t *server_test)
 {
+	fd_listen = test_open_server_fd();
 	if (server_test != NULL) {
 		/* Fork server */
-		fd_listen = test_open_server_fd();
 		test_subprocess_fork(test_run_server, server_test, FALSE);
-		i_close_fd(&fd_listen);
 	}
+	i_close_fd(&fd_listen);
 
 	/* Run client */
 	test_run_client(client_test);
