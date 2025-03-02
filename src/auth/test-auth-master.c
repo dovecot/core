@@ -16,6 +16,25 @@ static void auth_master_connected(int *server_fd)
 	auth_master_server_connected(server_fd, TEST_AUTH_MASTER_SOCKET);
 }
 
+static void
+test_client_passdb_lookup_callback(void *context ATTR_UNUSED,
+				   int result, const char *const *fields)
+{
+	test_assert_cmp(result, ==, 1);
+	test_assert_strcmp(fields[0], "user=testuser");
+	io_loop_stop(current_ioloop);
+}
+
+static void
+test_client_userdb_lookup_callback(void *context ATTR_UNUSED,
+				   int result, const char *username,
+				   const char *const *fields ATTR_UNUSED)
+{
+	test_assert_cmp(result, ==, 1);
+	test_assert_strcmp(username, "testuser");
+	io_loop_stop(current_ioloop);
+}
+
 static void test_auth_master(void)
 {
 	test_begin("auth master");
@@ -28,23 +47,22 @@ static void test_auth_master(void)
 
 	struct auth_master_connection *client =
 		auth_master_init(TEST_AUTH_MASTER_SOCKET,
-				 AUTH_MASTER_FLAG_NO_IDLE_TIMEOUT |
-				 AUTH_MASTER_FLAG_NO_INNER_IOLOOP);
+				 AUTH_MASTER_FLAG_NO_IDLE_TIMEOUT);
 
 	pool_t pool = pool_alloconly_create("test pool", 128);
 	struct auth_user_info info = {
 		.session_id = "1",
 		.protocol = "default",
 	};
-	const char *const *fields;
-	const char *username;
 
-	int ret = auth_master_pass_lookup(client, "testuser", &info, pool, &fields);
-	test_assert_cmp(ret, ==, 1);
-	test_assert_strcmp(fields[0], "user=testuser");
-	ret = auth_master_user_lookup(client, "testuser", &info, pool, &username, &fields);
-	test_assert_cmp(ret, ==, 1);
-	test_assert_strcmp(username, "testuser");
+	(void)auth_master_pass_lookup_async(
+		client, "testuser", &info,
+		test_client_passdb_lookup_callback, NULL);
+	io_loop_run(current_ioloop);
+	(void)auth_master_user_lookup_async(
+		client, "testuser", &info,
+		test_client_userdb_lookup_callback, NULL);
+	io_loop_run(current_ioloop);
 
 	pool_unref(&pool);
 	auth_master_deinit(&client);

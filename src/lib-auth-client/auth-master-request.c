@@ -370,15 +370,11 @@ bool auth_master_request_wait(struct auth_master_request *req)
 
 	e_debug(req->event, "Waiting for request to complete");
 
-	if ((conn->flags & AUTH_MASTER_FLAG_NO_INNER_IOLOOP) != 0)
-		ioloop = conn->ioloop;
-	else {
-		prev_ioloop = conn->ioloop;
-		if (!waiting)
-			conn->prev_ioloop = prev_ioloop;
-		ioloop = io_loop_create();
-		auth_master_switch_ioloop_to(conn, ioloop);
-	}
+	prev_ioloop = conn->ioloop;
+	if (!waiting)
+		conn->prev_ioloop = prev_ioloop;
+	ioloop = io_loop_create();
+	auth_master_switch_ioloop_to(conn, ioloop);
 
 	if (conn->conn.input != NULL &&
 	    i_stream_get_data_size(conn->conn.input) > 0)
@@ -418,12 +414,10 @@ bool auth_master_request_wait(struct auth_master_request *req)
 	last_state = req->state;
 	freed = !auth_master_request_unref(&req);
 
-	if ((conn->flags & AUTH_MASTER_FLAG_NO_INNER_IOLOOP) == 0) {
-		auth_master_switch_ioloop_to(conn, prev_ioloop);
-		io_loop_destroy(&ioloop);
-		if (!waiting)
-			conn->prev_ioloop = NULL;
-	}
+	auth_master_switch_ioloop_to(conn, prev_ioloop);
+	io_loop_destroy(&ioloop);
+	if (!waiting)
+		conn->prev_ioloop = NULL;
 
 	return (freed || last_state >= AUTH_MASTER_REQUEST_STATE_FINISHED);
 }

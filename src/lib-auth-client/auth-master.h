@@ -13,8 +13,6 @@ enum auth_master_flags {
 	AUTH_MASTER_FLAG_DEBUG			= 0x01,
 	/* Don't disconnect from auth socket when idling */
 	AUTH_MASTER_FLAG_NO_IDLE_TIMEOUT	= 0x02,
-	/* No inner ioloop (testing only) */
-	AUTH_MASTER_FLAG_NO_INNER_IOLOOP	= 0x04,
 };
 
 /*

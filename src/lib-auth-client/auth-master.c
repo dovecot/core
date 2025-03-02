@@ -81,9 +81,6 @@ auth_master_init(const char *auth_socket_path, enum auth_master_flags flags)
 				    conn->auth_socket_path);
 	event_unref(&event_parent);
 
-	if ((flags & AUTH_MASTER_FLAG_NO_INNER_IOLOOP) != 0)
-		conn->ioloop = current_ioloop;
-
 	hash_table_create_direct(&conn->requests, pool, 0);
 
 	/* Try to use auth request ID numbers from wider range to ease
@@ -624,15 +621,11 @@ void auth_master_wait(struct auth_master_connection *conn)
 
 	e_debug(conn->conn.event, "Waiting for all requests to complete");
 
-	if ((conn->flags & AUTH_MASTER_FLAG_NO_INNER_IOLOOP) != 0)
-		ioloop = conn->ioloop;
-	else {
-		prev_ioloop = conn->ioloop;
-		if (!waiting)
-			conn->prev_ioloop = prev_ioloop;
-		ioloop = io_loop_create();
-		auth_master_switch_ioloop_to(conn, ioloop);
-	}
+	prev_ioloop = conn->ioloop;
+	if (!waiting)
+		conn->prev_ioloop = prev_ioloop;
+	ioloop = io_loop_create();
+	auth_master_switch_ioloop_to(conn, ioloop);
 
 	if (conn->conn.input != NULL &&
 	    i_stream_get_data_size(conn->conn.input) > 0)
@@ -661,12 +654,10 @@ void auth_master_wait(struct auth_master_connection *conn)
 	if (conn->conn.output != NULL && was_corked)
 		o_stream_cork(conn->conn.output);
 
-	if ((conn->flags & AUTH_MASTER_FLAG_NO_INNER_IOLOOP) == 0) {
-		auth_master_switch_ioloop_to(conn, prev_ioloop);
-		io_loop_destroy(&ioloop);
-		if (!waiting)
-			conn->prev_ioloop = NULL;
-	}
+	auth_master_switch_ioloop_to(conn, prev_ioloop);
+	io_loop_destroy(&ioloop);
+	if (!waiting)
+		conn->prev_ioloop = NULL;
 
 	e_debug(conn->conn.event, "Finished waiting for requests");
 
