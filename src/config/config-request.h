@@ -53,10 +53,11 @@ bool config_export_type(string_t *str, const void *value,
 struct config_export_context *
 config_export_init(enum config_dump_scope scope,
 		   enum config_dump_flags flags,
+		   const char *dovecot_config_version,
 		   config_request_callback_t *callback, void *context)
 	ATTR_NULL(1, 5);
-#define config_export_init(scope, flags, callback, context) \
-	config_export_init(scope, flags, \
+#define config_export_init(scope, flags, version, callback, context) \
+	config_export_init(scope, flags, version, \
 		(config_request_callback_t *)callback, \
 		TRUE ? context : CALLBACK_TYPECHECK(callback, \
 			void (*)(const struct config_export_setting *, typeof(context))))

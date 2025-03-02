@@ -448,6 +448,7 @@ config_dump_full_handle_error(struct dump_context *dump_ctx,
 
 struct config_dump_full_context {
 	struct config_parsed *config;
+	const char *dovecot_config_version;
 	struct ostream *output;
 	enum config_dump_full_dest dest;
 
@@ -536,12 +537,12 @@ config_dump_full_sections(struct config_dump_full_context *ctx,
 		if (dest == CONFIG_DUMP_FULL_DEST_STDOUT) {
 			export_ctx = config_export_init(
 				CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES,
-				0,
+				0, ctx->dovecot_config_version,
 				config_dump_full_stdout_callback, &dump_ctx);
 		} else {
 			export_ctx = config_export_init(
 				CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES,
-				0,
+				0, ctx->dovecot_config_version,
 				config_dump_full_callback, &dump_ctx);
 		}
 		config_export_set_module_parsers(export_ctx,
@@ -606,22 +607,26 @@ int config_dump_full(struct config_parsed *config,
 		     const char **import_environment_r)
 {
 	struct config_export_context *export_ctx;
-	const char *error;
+	const char *dovecot_config_version, *error;
 	int fd = -1;
 
 	struct dump_context dump_ctx = {
 		.delayed_output = str_new(default_pool, 256),
 	};
 
+	if (!config_parsed_get_version(config, &dovecot_config_version))
+		dovecot_config_version = "";
+
 	if (dest == CONFIG_DUMP_FULL_DEST_STDOUT) {
 		export_ctx = config_export_init(
 				CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES,
-				flags, config_dump_full_stdout_callback,
-				&dump_ctx);
+				flags, dovecot_config_version,
+				config_dump_full_stdout_callback, &dump_ctx);
 	} else {
 		export_ctx = config_export_init(
 				CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES,
-				flags, config_dump_full_callback, &dump_ctx);
+				flags, dovecot_config_version,
+				config_dump_full_callback, &dump_ctx);
 	}
 	struct config_filter_parser *filter_parser =
 		config_parsed_get_global_filter_parser(config);
@@ -686,6 +691,7 @@ int config_dump_full(struct config_parsed *config,
 
 	struct config_dump_full_context ctx = {
 		.config = config,
+		.dovecot_config_version = dovecot_config_version,
 		.output = output,
 		.dest = dest,
 		.filters = config_parsed_get_filter_parsers(config),

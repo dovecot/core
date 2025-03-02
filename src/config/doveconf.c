@@ -175,7 +175,11 @@ config_dump_human_init(enum config_dump_scope scope,
 {
 	struct config_dump_human_context *ctx;
 	enum config_dump_flags flags;
+	const char *dovecot_config_version;
 	pool_t pool;
+
+	if (!config_parsed_get_version(config, &dovecot_config_version))
+		dovecot_config_version = "";
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"config human strings", 1024*32);
 	ctx = p_new(pool, struct config_dump_human_context, 1);
@@ -185,6 +189,7 @@ config_dump_human_init(enum config_dump_scope scope,
 
 	flags = CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS;
 	ctx->export_ctx = config_export_init(scope, flags,
+					     dovecot_config_version,
 					     config_request_get_strings, ctx);
 	config_export_set_module_parsers(ctx->export_ctx,
 					 filter_parser->module_parsers);

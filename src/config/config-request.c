@@ -18,6 +18,7 @@ struct config_export_context {
 	string_t *value;
 	HASH_TABLE(const char *, const char *) keys;
 	enum config_dump_scope scope;
+	const char *dovecot_config_version;
 
 	config_request_callback_t *callback;
 	void *context;
@@ -362,6 +363,7 @@ settings_export(struct config_export_context *ctx,
 struct config_export_context *
 config_export_init(enum config_dump_scope scope,
 		   enum config_dump_flags flags,
+		   const char *dovecot_config_version,
 		   config_request_callback_t *callback, void *context)
 {
 	struct config_export_context *ctx;
@@ -375,6 +377,7 @@ config_export_init(enum config_dump_scope scope,
 	ctx->callback = callback;
 	ctx->context = context;
 	ctx->scope = scope;
+	ctx->dovecot_config_version = p_strdup(pool, dovecot_config_version);
 	ctx->value = str_new(pool, 256);
 	if ((ctx->flags & CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS) != 0)
 		hash_table_create(&ctx->keys, ctx->pool, 0, str_hash, strcmp);
