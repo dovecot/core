@@ -77,6 +77,7 @@ doc/wiki/*.txt
 doc/wiki/Makefile.am
 src/anvil/anvil
 src/auth/auth
+src/lib-settings/settings-history-core.c
 src/config/all-settings.c
 src/config/config
 src/config/doveconf

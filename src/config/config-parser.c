@@ -2825,7 +2825,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	string_t *full_line;
 	char *line;
 	int fd, ret = 0;
-	bool handled, dump_defaults = (path == NULL);
+	bool dump_defaults = (path == NULL);
 
 	*config_r = NULL;
 
@@ -2956,9 +2956,8 @@ prevfile:
 
 		if (!config_parser_get_version(&ctx, &config_line) &&
 		    ctx.error == NULL) T_BEGIN {
-			handled = old_settings_handle(&ctx, &config_line);
-			if (!handled)
-				config_parser_apply_line(&ctx, &config_line);
+			old_settings_handle(&ctx, &config_line);
+			config_parser_apply_line(&ctx, &config_line);
 		} T_END;
 
 		if (ctx.error != NULL) {

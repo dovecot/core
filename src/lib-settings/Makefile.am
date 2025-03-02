@@ -7,14 +7,27 @@ AM_CPPFLAGS = \
 
 libsettings_la_SOURCES = \
 	settings.c \
+	settings-history.c \
 	settings-parser.c
 
 headers = \
 	settings.h \
+	settings-history.h \
 	settings-parser.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
+
+BUILT_SOURCES = settings-history-core.c
+
+settings-history.c: settings-history-core.c
+
+settings-history-core.c: $(top_srcdir)/src/lib-settings/settings-history.pl settings-history-core.txt
+	$(AM_V_GEN)$(top_srcdir)/src/lib-settings/settings-history.pl settings-history-core.txt $(DOVECOT_PRO_BUILD) > settings-history-core.c || rm -f settings-history-core.c
+
+EXTRA_DIST = \
+	settings-history-core.txt \
+	settings-history.pl
 
 test_programs = \
 	test-settings-parser \

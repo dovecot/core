@@ -224,8 +224,22 @@ settings_export(struct config_export_context *ctx,
 		case SET_STR_NOVARS:
 		case SET_ENUM: {
 			string_t *default_str = NULL;
+			bool default_changed = FALSE;
+			const char *old_default;
 			i_assert(info->defaults != NULL);
-			if (!dump_default || module_parser->change_counters[define_idx] == 0) {
+			if (module_parser->change_counters[define_idx] <= CONFIG_PARSER_CHANGE_DEFAULTS) {
+				/* Setting isn't explicitly set. We need to see
+				   if its default has changed. */
+				if (old_settings_default(ctx->dovecot_config_version,
+							 def->key, &old_default)) {
+					default_str = t_str_new(strlen(old_default));
+					str_append(default_str, old_default);
+					default_changed = TRUE;
+				}
+			}
+
+			if ((!dump_default || module_parser->change_counters[define_idx] == 0) &&
+			    default_str == NULL) {
 				const void *default_value =
 					CONST_PTR_OFFSET(info->defaults,
 							 def->offset);
@@ -250,7 +264,14 @@ settings_export(struct config_export_context *ctx,
 				   actually changed from its default. */
 				break;
 			}
-			if (module_parser->change_counters[define_idx] != 0) {
+			if (module_parser->change_counters[define_idx] >
+					CONFIG_PARSER_CHANGE_DEFAULTS) {
+				/* explicitly set */
+				str_append(ctx->value,
+					module_parser->settings[define_idx].str);
+			} else if (module_parser->change_counters[define_idx] ==
+				   CONFIG_PARSER_CHANGE_DEFAULTS && !default_changed) {
+				/* default not changed by old version checks */
 				str_append(ctx->value,
 					module_parser->settings[define_idx].str);
 			} else {

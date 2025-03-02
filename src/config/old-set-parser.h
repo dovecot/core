@@ -5,7 +5,9 @@
 
 struct config_parser_context;
 
-bool old_settings_handle(struct config_parser_context *ctx,
-			 const struct config_line *line);
+void old_settings_handle(struct config_parser_context *ctx,
+			 struct config_line *line);
+bool old_settings_default(const char *dovecot_config_version,
+			  const char *key, const char **old_default_r);
 
 #endif
