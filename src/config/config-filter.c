@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
 #include "crc32.h"
 #include "settings-parser.h"
 #include "master-service-settings.h"
@@ -205,4 +206,24 @@ bool config_filter_is_empty(const struct config_filter *filter)
 bool config_filter_is_empty_defaults(const struct config_filter *filter)
 {
 	return config_filters_equal(filter, &empty_defaults_filter);
+}
+
+static void
+config_filter_get_path_str(string_t **path, const struct config_filter *filter)
+{
+	if (filter->parent != NULL)
+		config_filter_get_path_str(path, filter->parent);
+	if (filter->filter_name != NULL) {
+		if (*path == NULL)
+			*path = t_str_new(128);
+		str_append(*path, filter->filter_name);
+		str_append_c(*path, '/');
+	}
+}
+
+const char *config_filter_get_path_prefix(const struct config_filter *filter)
+{
+	string_t *path = NULL;
+	config_filter_get_path_str(&path, filter);
+	return path == NULL ? "" : str_c(path);
 }

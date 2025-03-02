@@ -189,8 +189,9 @@ config_dump_human_init(enum config_dump_scope scope,
 
 	flags = CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS;
 	ctx->export_ctx = config_export_init(scope, flags,
-					     dovecot_config_version,
-					     config_request_get_strings, ctx);
+		dovecot_config_version,
+		config_filter_get_path_prefix(&filter_parser->filter),
+		config_request_get_strings, ctx);
 	config_export_set_module_parsers(ctx->export_ctx,
 					 filter_parser->module_parsers);
 	return ctx;

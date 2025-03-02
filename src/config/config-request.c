@@ -19,6 +19,7 @@ struct config_export_context {
 	HASH_TABLE(const char *, const char *) keys;
 	enum config_dump_scope scope;
 	const char *dovecot_config_version;
+	const char *path_prefix;
 
 	config_request_callback_t *callback;
 	void *context;
@@ -230,8 +231,14 @@ settings_export(struct config_export_context *ctx,
 			if (module_parser->change_counters[define_idx] <= CONFIG_PARSER_CHANGE_DEFAULTS) {
 				/* Setting isn't explicitly set. We need to see
 				   if its default has changed. */
+				const char *key_with_path = def->key;
+				if (ctx->path_prefix[0] != '\0') {
+					key_with_path = t_strconcat(
+						ctx->path_prefix, def->key, NULL);
+				}
 				if (old_settings_default(ctx->dovecot_config_version,
-							 def->key, &old_default)) {
+							 def->key, key_with_path,
+							 &old_default)) {
 					default_str = t_str_new(strlen(old_default));
 					str_append(default_str, old_default);
 					default_changed = TRUE;
@@ -384,7 +391,7 @@ settings_export(struct config_export_context *ctx,
 struct config_export_context *
 config_export_init(enum config_dump_scope scope,
 		   enum config_dump_flags flags,
-		   const char *dovecot_config_version,
+		   const char *dovecot_config_version, const char *path_prefix,
 		   config_request_callback_t *callback, void *context)
 {
 	struct config_export_context *ctx;
@@ -399,6 +406,7 @@ config_export_init(enum config_dump_scope scope,
 	ctx->context = context;
 	ctx->scope = scope;
 	ctx->dovecot_config_version = p_strdup(pool, dovecot_config_version);
+	ctx->path_prefix = p_strdup(pool, path_prefix);
 	ctx->value = str_new(pool, 256);
 	if ((ctx->flags & CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS) != 0)
 		hash_table_create(&ctx->keys, ctx->pool, 0, str_hash, strcmp);

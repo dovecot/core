@@ -93,4 +93,7 @@ bool config_filter_is_empty(const struct config_filter *filter);
    default_settings=TRUE. */
 bool config_filter_is_empty_defaults(const struct config_filter *filter);
 
+/* Return path prefix of named [list] filters. */
+const char *config_filter_get_path_prefix(const struct config_filter *filter);
+
 #endif

@@ -73,7 +73,8 @@ void old_settings_handle(struct config_parser_context *ctx,
 }
 
 bool old_settings_default(const char *dovecot_config_version,
-			  const char *key, const char **old_default_r)
+			  const char *key, const char *key_with_path,
+			  const char **old_default_r)
 {
 	struct settings_history *history = settings_history_get();
 	const struct setting_history_default *def;
@@ -84,7 +85,8 @@ bool old_settings_default(const char *dovecot_config_version,
 	array_foreach(&history->defaults, def) {
 		if (version_cmp(def->version, dovecot_config_version) <= 0)
 			break;
-		if (strcmp(def->key, key) == 0) {
+		if (strcmp(def->key, key) == 0 ||
+		    strcmp(def->key, key_with_path) == 0) {
 			*old_default_r = def->old_value;
 			return TRUE;
 		}

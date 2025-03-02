@@ -538,11 +538,13 @@ config_dump_full_sections(struct config_dump_full_context *ctx,
 			export_ctx = config_export_init(
 				CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES,
 				0, ctx->dovecot_config_version,
+				config_filter_get_path_prefix(&filter->filter),
 				config_dump_full_stdout_callback, &dump_ctx);
 		} else {
 			export_ctx = config_export_init(
 				CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES,
 				0, ctx->dovecot_config_version,
+				config_filter_get_path_prefix(&filter->filter),
 				config_dump_full_callback, &dump_ctx);
 		}
 		config_export_set_module_parsers(export_ctx,
@@ -620,12 +622,12 @@ int config_dump_full(struct config_parsed *config,
 	if (dest == CONFIG_DUMP_FULL_DEST_STDOUT) {
 		export_ctx = config_export_init(
 				CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES,
-				flags, dovecot_config_version,
+				flags, dovecot_config_version, "",
 				config_dump_full_stdout_callback, &dump_ctx);
 	} else {
 		export_ctx = config_export_init(
 				CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES,
-				flags, dovecot_config_version,
+				flags, dovecot_config_version, "",
 				config_dump_full_callback, &dump_ctx);
 	}
 	struct config_filter_parser *filter_parser =
