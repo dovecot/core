@@ -93,3 +93,18 @@ bool old_settings_default(const char *dovecot_config_version,
 	}
 	return FALSE;
 }
+
+unsigned int
+old_settings_default_changes_count(const char *dovecot_config_version)
+{
+	struct settings_history *history = settings_history_get();
+	const struct setting_history_default *def;
+	unsigned int count = 0;
+
+	array_foreach(&history->defaults, def) {
+		if (version_cmp(def->version, dovecot_config_version) <= 0)
+			break;
+		count++;
+	}
+	return count;
+}

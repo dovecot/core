@@ -1239,8 +1239,14 @@ int main(int argc, char *argv[])
 		if (*info != '\0')
 			printf("# %s\n", info);
 		printf("# Hostname: %s\n", my_hostdomain());
-		if (config_parsed_get_version(config, &version))
+		if (config_parsed_get_version(config, &version)) {
+			unsigned int count = old_settings_default_changes_count(version);
+			if (count > 0) {
+				printf("# %u default setting changes since version %s\n",
+				       count, version);
+			}
 			printf("dovecot_config_version = %s\n", version);
+		}
 		if (!config_path_specified)
 			check_wrong_config(config_path);
 		if (scope == CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN)
