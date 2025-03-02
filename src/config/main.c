@@ -42,7 +42,6 @@ int main(int argc, char *argv[])
 	master_service_run(master_service, client_connected);
 	config_connections_destroy_all();
 
-	old_settings_deinit_global();
 	module_dir_unload(&modules);
 	config_parser_deinit();
 	master_service_deinit(&master_service);

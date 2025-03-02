@@ -1256,7 +1256,6 @@ int main(int argc, char *argv[])
 		i_fatal("Errors in configuration");
 
 	config_parsed_free(&config);
-	old_settings_deinit_global();
 	module_dir_unload(&modules);
 	config_parser_deinit();
 	master_service_deinit(&master_service);

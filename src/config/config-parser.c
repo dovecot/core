@@ -2902,7 +2902,6 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 
 	ctx.value = str_new(ctx.pool, 256);
 	full_line = str_new(default_pool, 512);
-	old_settings_init(&ctx);
 	if ((flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) == 0) {
 		config_parser_add_services(&ctx, service_info_idx);
 		for (i = 0; i < count; i++)
@@ -2983,7 +2982,6 @@ prevfile:
 		ctx.cur_input = ctx.cur_input->prev;
 	}
 
-	old_settings_handle_post(&ctx);
 	if (ret == 0) {
 		ret = config_parse_finish(&ctx, flags, dump_filter,
 					  config_r, error_r);
