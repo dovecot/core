@@ -1456,6 +1456,8 @@ config_filter_parser_check(struct config_parser_context *ctx,
 	bool ok;
 
 	event = event_create(event);
+	if (!ctx->expand_values)
+		event_add_str(event, SETTINGS_EVENT_NO_EXPAND, "yes");
 	for (filter = &filter_parser->filter; filter != NULL; filter = filter->parent) {
 		if (filter->protocol != NULL)
 			event_add_str(event, "protocol", filter->protocol);

@@ -200,6 +200,11 @@ struct setting_parser_context;
    this to not give early errors when the variable value isn't known. */
 extern const char *set_value_unknown;
 
+/* This is set for ext_check_func(event) when config binary checking settings.
+   In this case for example %variables aren't expanded, so ext_check_func()
+   shouldn't fail if it does further settings_get*() calls that fail. */
+#define SETTINGS_EVENT_NO_EXPAND "settings_event_no_expand"
+
 struct setting_parser_context *
 settings_parser_init(pool_t set_pool, const struct setting_parser_info *root,
 		     enum settings_parser_flags flags);
