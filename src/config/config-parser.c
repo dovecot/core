@@ -2955,7 +2955,8 @@ prevfile:
 		if (config_line.type == CONFIG_LINE_TYPE_CONTINUE)
 			continue;
 
-		if (!config_parser_get_version(&ctx, &config_line)) T_BEGIN {
+		if (!config_parser_get_version(&ctx, &config_line) &&
+		    ctx.error == NULL) T_BEGIN {
 			handled = old_settings_handle(&ctx, &config_line);
 			if (!handled)
 				config_parser_apply_line(&ctx, &config_line);
