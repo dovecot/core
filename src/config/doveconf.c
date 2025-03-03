@@ -30,6 +30,9 @@
 
 struct prefix_stack {
 	unsigned int prefix_idx;
+	/* processing a boollist setting, which is written in a single
+	   "boollist = value" line rather than boollist { .. } */
+	bool boollist_one_line;
 };
 ARRAY_DEFINE_TYPE(prefix_stack, struct prefix_stack);
 
@@ -145,6 +148,7 @@ static struct prefix_stack prefix_stack_pop(ARRAY_TYPE(prefix_stack) *stack)
 	} else {
 		sc.prefix_idx = s[count-2].prefix_idx;
 	}
+	sc.boollist_one_line = s[count-1].boollist_one_line;
 	array_delete(stack, count-1, 1);
 	return sc;
 }
@@ -412,13 +416,14 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 	ARRAY_TYPE(const_string) prefixes_arr;
 	ARRAY_TYPE(prefix_stack) prefix_stack;
 	struct prefix_stack prefix;
-	const char *const *strings, *p, *str, *const *prefixes;
+	const char *const *strings, *p, *str, *const *prefixes, *suffix;
 	const char *key, *key2, *value, *ignore_key = NULL, *ignore_value = NULL;
 	unsigned int i, j, count, prefix_count;
 	unsigned int prefix_idx = UINT_MAX;
 	size_t len, skip_len, setting_name_filter_len;
 	size_t alt_setting_name_filter_len, alt_setting_name_filter2_len;
 	bool bool_list_elem = FALSE;
+	bool boollist_one_line = FALSE, boollist_add_space = FALSE;
 	bool str_list_elem = FALSE;
 
 	setting_name_filter_len = setting_name_filter == NULL ? 0 :
@@ -504,7 +509,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			if (strncmp(prefixes[prefix_idx], key, len) != 0) {
 				prefix = prefix_stack_pop(&prefix_stack);
 				indent--;
-				if (!hide_key) {
+				if (!hide_key && !prefix.boollist_one_line) {
 					o_stream_nsend(output, indent_str, indent*2);
 					o_stream_nsend_str(output, "}\n");
 				}
@@ -523,6 +528,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 					      strlen(prefixes[prefix_idx]));
 				prefix_idx = j;
 				prefix.prefix_idx = prefix_idx;
+				prefix.boollist_one_line = boollist_one_line;
 				array_push_back(&prefix_stack, &prefix);
 
 				str_append_max(ctx->list_prefix, indent_str, indent*2);
@@ -540,7 +546,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 				goto again;
 			}
 		}
-		if (!hide_key) {
+		if (!hide_key && !boollist_one_line) {
 			o_stream_nsend(output, str_data(ctx->list_prefix),
 				       str_len(ctx->list_prefix));
 		}
@@ -568,7 +574,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			   "strlist/key" */
 			str_list_elem = TRUE;
 		}
-		if (!hide_key)
+		if (!hide_key && !boollist_one_line)
 			o_stream_nsend(output, indent_str, indent*2);
 		key = strings[i] + skip_len;
 		if (skip_len > 0 && key[0] == BOOLLIST_ELEM_KEY_PREFIX[0]) {
@@ -577,13 +583,37 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			key = strchr(key, SETTINGS_SEPARATOR);
 			i_assert(key != NULL);
 			key++;
+		} else {
+			boollist_one_line = FALSE;
 		}
 
+		bool hide_value = FALSE;
 		const char *full_key = key;
 		try_strip_prefix(&key, strip_prefix, strip_prefix2);
 		value = bool_list_elem ? strrchr(key, '=') : strchr(key, '=');
 		i_assert(value != NULL);
-		if (!hide_key || bool_list_elem || str_list_elem) {
+		if (boollist_one_line) {
+			/* Writing boollist as a single line instead of
+			   boollist { .. }. "no" values can be ignored here,
+			   since the boollist is being replaced. */
+			if (strcmp(value, "=yes") == 0) {
+				if (boollist_add_space)
+					o_stream_nsend(output, " ", 1);
+				const char *element = t_strdup_until(key, value);
+				/* escape each boollist element if necessary */
+				if (strpbrk(element, CONFIG_KEY_ESCAPE_CHARS) == NULL)
+					o_stream_nsend_str(output, element);
+				else {
+					o_stream_nsend(output, "\"", 1);
+					o_stream_nsend_str(output, str_escape(element));
+					o_stream_nsend(output, "\"", 1);
+				}
+				boollist_add_space = TRUE;
+			}
+			/* value was already written, skip the generic value
+			   writing code. */
+			hide_value = TRUE;
+		} else if (!hide_key || bool_list_elem || str_list_elem) {
 			key = t_strdup_until(key, value);
 			if (strpbrk(key, CONFIG_KEY_ESCAPE_CHARS) == NULL)
 				o_stream_nsend_str(output, key);
@@ -602,8 +632,10 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			   continue with the next. */
 			goto end;
 		}
-		if (hide_passwords &&
-		    hide_secrets_from_value(output, full_key, value+1))
+		if (hide_value)
+			; /* boollist value was already written */
+		else if (hide_passwords &&
+			 hide_secrets_from_value(output, full_key, value+1))
 			/* sent */
 			;
 		else if (!value_need_quote(value+1))
@@ -613,8 +645,24 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 			o_stream_nsend_str(output, str_escape(value+1));
 			o_stream_nsend(output, "\"", 1);
 		}
-		bool_list_elem = str_list_elem = FALSE;
-		o_stream_nsend(output, "\n", 1);
+		if (!boollist_one_line && value[1] == '\0' && i+1 < count &&
+		    str_begins(strings[i+1], t_strcut(strings[i], '='), &suffix) &&
+		    suffix[0] == '/' && suffix[1] == BOOLLIST_ELEM_KEY_PREFIX[0]) {
+			/* boollist is being replaced - write out all its
+			   values */
+			boollist_one_line = TRUE;
+			boollist_add_space = FALSE;
+		} else if (boollist_one_line && i+1 < count &&
+			   str_begins(strings[i+1], t_strcut(strings[i], '/'), &suffix) &&
+			   suffix[0] == '/' && suffix[1] == BOOLLIST_ELEM_KEY_PREFIX[0]) {
+			/* continue boollist replacement */
+		} else {
+			/* not a one line boollist, or the last element of the
+			   one line boollist */
+			boollist_one_line = FALSE;
+			bool_list_elem = str_list_elem = FALSE;
+			o_stream_nsend(output, "\n", 1);
+		}
 	end: ;
 	} T_END;
 
@@ -622,7 +670,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		prefix = prefix_stack_pop(&prefix_stack);
 		prefix_idx = prefix.prefix_idx;
 		indent--;
-		if (!hide_key) {
+		if (!hide_key && !prefix.boollist_one_line) {
 			o_stream_nsend(output, indent_str, indent*2);
 			o_stream_nsend_str(output, "}\n");
 		}
