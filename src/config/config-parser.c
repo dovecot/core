@@ -1029,6 +1029,8 @@ again:
 	}
 	ctx->cur_section->filter_parser = orig_filter_parser;
 	if (ret == 0) {
+		if (ctx->ignore_unknown)
+			return 0;
 		ctx->error = p_strconcat(ctx->pool, "Unknown setting: ",
 					 get_setting_full_path(ctx, key), NULL);
 		return -1;
@@ -2707,6 +2709,8 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 			break;
 		}
 		if (hash_table_lookup(ctx->all_keys, key) == NULL) {
+			if (ctx->ignore_unknown)
+				break;
 			ctx->error = p_strdup_printf(ctx->pool,
 				"Unknown section name: %s", key);
 			break;
@@ -2851,6 +2855,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	ctx.hide_obsolete_warnings =
 		(flags & CONFIG_PARSE_FLAG_HIDE_OBSOLETE_WARNINGS) != 0;
 	ctx.delay_errors = (flags & CONFIG_PARSE_FLAG_DELAY_ERRORS) != 0;
+	ctx.ignore_unknown = (flags & CONFIG_PARSE_FLAG_IGNORE_UNKNOWN) != 0;
 	hash_table_create(&ctx.all_keys, ctx.pool, 500, str_hash, strcmp);
 
 	for (count = 0; all_infos[count] != NULL; count++) ;

@@ -1051,7 +1051,7 @@ int main(int argc, char *argv[])
 	}
 
 	master_service = master_service_init("config", master_service_flags,
-					     &argc, &argv, "aCdf:FhHI:nNPwxs");
+					     &argc, &argv, "aCdf:FhHI:nNPwxsU");
 	orig_config_path = t_strdup(master_service_get_config_path(master_service));
 
 	i_set_failure_prefix("doveconf: ");
@@ -1107,6 +1107,9 @@ int main(int argc, char *argv[])
 			break;
 		case 's':
 			scope = CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN;
+			break;
+		case 'U':
+			flags |= CONFIG_PARSE_FLAG_IGNORE_UNKNOWN;
 			break;
 		case 'w':
 			flags |= CONFIG_PARSE_FLAG_HIDE_OBSOLETE_WARNINGS;

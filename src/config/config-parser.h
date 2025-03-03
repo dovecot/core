@@ -35,6 +35,8 @@ enum config_parse_flags {
 	/* Merge default filters with non-default filters. This can be useful
 	   for doveconf output. */
 	CONFIG_PARSE_FLAG_MERGE_DEFAULT_FILTERS = BIT(9),
+	/* Ignore unknown settings in the config file. */
+	CONFIG_PARSE_FLAG_IGNORE_UNKNOWN = BIT(10),
 };
 
 /* Used to track changed settings for a setting_parser_info. Initially only

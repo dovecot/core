@@ -105,6 +105,7 @@ struct config_parser_context {
 	bool hide_errors:1;
 	bool delay_errors:1;
 	bool hide_obsolete_warnings:1;
+	bool ignore_unknown:1;
 };
 
 extern void (*hook_config_parser_begin)(struct config_parser_context *ctx);
