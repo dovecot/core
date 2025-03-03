@@ -15,6 +15,7 @@ static const struct mail_lua_settings mail_lua_default_settings = {
 
 const struct setting_parser_info mail_lua_setting_parser_info = {
 	.name = "mail_lua",
+	.plugin_dependency = "lib01_mail_lua_plugin",
 
 	.defines = mail_lua_setting_defines,
 	.defaults = &mail_lua_default_settings,

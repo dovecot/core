@@ -56,6 +56,9 @@ static const struct setting_keyvalue auth_lua_default_settings_keyvalue[] = {
 
 const struct setting_parser_info auth_lua_setting_parser_info = {
 	.name = "auth_lua",
+#ifndef BUILTIN_LUA
+	.plugin_dependency = "auth/libauthdb_lua",
+#endif
 
 	.defines = auth_lua_setting_defines,
 	.default_settings = auth_lua_default_settings_keyvalue,

@@ -36,6 +36,7 @@ static const struct setting_keyvalue fts_solr_default_settings_keyvalue[] = {
 
 const struct setting_parser_info fts_solr_setting_parser_info = {
 	.name = FTS_SOLR_FILTER,
+	.plugin_dependency = "lib21_fts_solr_plugin",
 
 	.defines = fts_solr_setting_defines,
 	.defaults = &fts_solr_default_settings,

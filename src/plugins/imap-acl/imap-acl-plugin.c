@@ -62,6 +62,7 @@ static struct imap_acl_settings imap_acl_default_settings = {
 
 const struct setting_parser_info imap_acl_setting_parser_info = {
 	.name = "imap_acl",
+	.plugin_dependency = "lib02_imap_acl_plugin",
 
 	.defines = imap_acl_setting_defines,
 	.defaults = &imap_acl_default_settings,

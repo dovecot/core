@@ -55,6 +55,7 @@ static const struct fs_compress_settings fs_compress_default_settings = {
 
 const struct setting_parser_info fs_compress_setting_parser_info = {
 	.name = "fs_compress",
+	.plugin_dependency = "libfs_compress",
 
 	.defines = fs_compress_setting_defines,
 	.defaults = &fs_compress_default_settings,

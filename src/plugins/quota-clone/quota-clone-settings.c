@@ -23,6 +23,7 @@ static const struct quota_clone_settings quota_clone_default_settings = {
 
 const struct setting_parser_info quota_clone_setting_parser_info = {
 	.name = "quota_clone",
+	.plugin_dependency = "lib20_quota_clone_plugin",
 	.defines = quota_clone_setting_defines,
 	.defaults = &quota_clone_default_settings,
 	.struct_size = sizeof(struct quota_clone_settings),

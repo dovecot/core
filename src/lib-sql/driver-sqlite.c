@@ -69,6 +69,9 @@ static const struct sqlite_settings sqlite_default_settings = {
 };
 const struct setting_parser_info sqlite_setting_parser_info = {
 	.name = "sqlite",
+#ifdef SQL_DRIVER_PLUGINS
+	.plugin_dependency = "libdriver_sqlite",
+#endif
 
 	.defines = sqlite_setting_defines,
 	.defaults = &sqlite_default_settings,

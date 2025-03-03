@@ -32,6 +32,7 @@ static const struct fts_flatcurve_settings fts_flatcurve_default_settings = {
 
 const struct setting_parser_info fts_flatcurve_setting_parser_info = {
 	.name = "fts_flatcurve",
+	.plugin_dependency = "lib21_fts_flatcurve_plugin",
 
 	.defines = fts_flatcurve_setting_defines,
 	.defaults = &fts_flatcurve_default_settings,

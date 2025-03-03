@@ -124,6 +124,7 @@ static const struct quota_fs_settings quota_fs_default_settings = {
 
 const struct setting_parser_info quota_fs_setting_parser_info = {
 	.name = "quota_fs",
+	.plugin_dependency = "lib10_quota_plugin",
 	.defines = quota_fs_setting_defines,
 	.defaults = &quota_fs_default_settings,
 	.struct_size = sizeof(struct quota_fs_settings),

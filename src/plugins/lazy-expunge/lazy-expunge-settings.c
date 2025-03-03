@@ -22,6 +22,7 @@ static struct lazy_expunge_settings lazy_expunge_default_settings = {
 
 const struct setting_parser_info lazy_expunge_setting_parser_info = {
 	.name = "lazy_expunge",
+	.plugin_dependency = "lib02_lazy_expunge_plugin",
 
 	.defines = lazy_expunge_setting_defines,
 	.defaults = &lazy_expunge_default_settings,

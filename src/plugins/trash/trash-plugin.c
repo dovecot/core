@@ -87,6 +87,7 @@ static const struct trash_settings trash_default_settings = {
 
 const struct setting_parser_info trash_setting_parser_info = {
 	.name = "trash",
+	.plugin_dependency = "lib11_trash_plugin",
 
 	.defines = trash_setting_defines,
 	.defaults = &trash_default_settings,

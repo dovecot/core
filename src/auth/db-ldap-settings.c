@@ -59,6 +59,9 @@ static const struct setting_keyvalue ldap_default_settings_keyvalue[] = {
 
 const struct setting_parser_info ldap_setting_parser_info = {
 	.name = "auth_ldap",
+#ifndef BUILTIN_LDAP
+	.plugin_dependency = "auth/libauthdb_ldap",
+#endif
 
 	.check_func = ldap_setting_check,
 	.defines = ldap_setting_defines,
@@ -95,6 +98,9 @@ static const struct ldap_pre_settings ldap_pre_default_settings = {
 
 const struct setting_parser_info ldap_pre_setting_parser_info = {
 	.name = "auth_ldap_pre",
+#ifndef BUILTIN_LDAP
+	.plugin_dependency = "auth/libauthdb_ldap",
+#endif
 
 	.defines = ldap_pre_setting_defines,
 	.defaults = &ldap_pre_default_settings,
@@ -118,6 +124,9 @@ static const struct ldap_post_settings ldap_post_default_settings = {
 
 const struct setting_parser_info ldap_post_setting_parser_info = {
 	.name = "auth_ldap_post",
+#ifndef BUILTIN_LDAP
+	.plugin_dependency = "auth/libauthdb_ldap",
+#endif
 
 	.defines = ldap_post_setting_defines,
 	.defaults = &ldap_post_default_settings,

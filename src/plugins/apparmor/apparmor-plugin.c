@@ -47,6 +47,7 @@ static const struct apparmor_settings apparmor_default_settings = {
 
 const struct setting_parser_info apparmor_setting_parser_info = {
 	.name = "apparmor",
+	.plugin_dependency = "lib01_apparmor_plugin",
 
 	.defines = apparmor_setting_defines,
 	.defaults = &apparmor_default_settings,

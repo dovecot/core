@@ -26,6 +26,7 @@ static const struct setting_keyvalue virtual_default_settings_keyvalue[] = {
 
 const struct setting_parser_info virtual_setting_parser_info = {
 	.name = "virtual",
+	.plugin_dependency = "lib20_virtual_plugin",
 
 	.defines = virtual_setting_defines,
 	.defaults = &virtual_default_settings,

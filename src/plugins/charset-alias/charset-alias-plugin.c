@@ -64,6 +64,7 @@ static const struct charset_alias_settings charset_alias_default_settings = {
 
 const struct setting_parser_info charset_alias_setting_parser_info = {
 	.name = "charset_alias",
+	.plugin_dependency = "lib20_charset_alias_plugin",
 
 	.defines = charset_alias_setting_defines,
 	.defaults = &charset_alias_default_settings,

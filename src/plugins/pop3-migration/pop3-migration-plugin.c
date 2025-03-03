@@ -110,6 +110,7 @@ static const struct pop3_migration_settings pop3_migration_default_settings = {
 
 const struct setting_parser_info pop3_migration_setting_parser_info = {
 	.name = "pop3_migration",
+	.plugin_dependency = "lib05_pop3_migration_plugin",
 
 	.defines = pop3_migration_setting_defines,
 	.defaults = &pop3_migration_default_settings,

@@ -133,6 +133,7 @@ static bool mail_log_settings_check(void *_set, pool_t pool, const char **error_
 
 const struct setting_parser_info mail_log_setting_parser_info = {
 	.name = "mail_log",
+	.plugin_dependency = "lib20_mail_log_plugin",
 
 	.defines = mail_log_setting_defines,
 	.defaults = &mail_log_default_settings,

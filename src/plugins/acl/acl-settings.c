@@ -28,6 +28,7 @@ static bool acl_rights_settings_check(void *_set, pool_t ATTR_UNUSED pool,
 
 const struct setting_parser_info acl_rights_setting_parser_info = {
 	.name = "acl_rights",
+	.plugin_dependency = "lib01_acl_plugin",
 
 	.defines = acl_rights_setting_defines,
 	.defaults = &acl_rights_default_settings,
@@ -79,6 +80,7 @@ static bool acl_settings_check(void *_set ATTR_UNUSED, pool_t pool ATTR_UNUSED,
 
 const struct setting_parser_info acl_setting_parser_info = {
 	.name = "acl",
+	.plugin_dependency = "lib01_acl_plugin",
 
 	.defines = acl_setting_defines,
 	.defaults = &acl_default_settings,

@@ -74,6 +74,7 @@ static const struct setting_keyvalue fts_default_settings_keyvalue[] = {
 
 const struct setting_parser_info fts_setting_parser_info = {
 	.name = FTS_FILTER,
+	.plugin_dependency = "lib20_fts_plugin",
 
 	.defines = fts_setting_defines,
 	.defaults = &fts_default_settings,

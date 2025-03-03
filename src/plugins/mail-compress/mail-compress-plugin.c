@@ -62,6 +62,7 @@ static struct mail_compress_settings mail_compress_default_settings = {
 
 const struct setting_parser_info mail_compress_setting_parser_info = {
 	.name = "mail_compress",
+	.plugin_dependency = "lib20_mail_compress_plugin",
 
 	.defines = mail_compress_setting_defines,
 	.defaults = &mail_compress_default_settings,

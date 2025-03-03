@@ -54,6 +54,9 @@ static const struct pgsql_settings pgsql_default_settings = {
 
 const struct setting_parser_info pgsql_setting_parser_info = {
 	.name = "pgsql",
+#ifdef SQL_DRIVER_PLUGINS
+	.plugin_dependency = "libdriver_pgsql",
+#endif
 
 	.defines = pgsql_setting_defines,
 	.defaults = &pgsql_default_settings,

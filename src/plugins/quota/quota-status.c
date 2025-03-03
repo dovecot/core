@@ -62,6 +62,7 @@ static const struct quota_status_result_settings quota_status_result_default_set
 
 const struct setting_parser_info quota_status_result_setting_parser_info = {
 	.name = "quota_status_result",
+	.plugin_dependency = "lib10_quota_plugin",
 	.defines = quota_status_result_setting_defines,
 	.defaults = &quota_status_result_default_settings,
 	.struct_size = sizeof(struct quota_status_result_settings),

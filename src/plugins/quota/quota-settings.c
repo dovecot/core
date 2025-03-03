@@ -37,6 +37,7 @@ static const struct quota_settings quota_default_settings = {
 
 const struct setting_parser_info quota_setting_parser_info = {
 	.name = "quota",
+	.plugin_dependency = "lib10_quota_plugin",
 	.defines = quota_setting_defines,
 	.defaults = &quota_default_settings,
 	.struct_size = sizeof(struct quota_settings),
@@ -107,6 +108,7 @@ static const struct quota_root_settings quota_root_default_settings = {
 
 const struct setting_parser_info quota_root_setting_parser_info = {
 	.name = "quota_root",
+	.plugin_dependency = "lib10_quota_plugin",
 	.defines = quota_root_setting_defines,
 	.defaults = &quota_root_default_settings,
 	.struct_size = sizeof(struct quota_root_settings),

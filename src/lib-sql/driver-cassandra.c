@@ -230,6 +230,9 @@ static struct cassandra_settings cassandra_default_settings = {
 
 const struct setting_parser_info cassandra_setting_parser_info = {
 	.name = "cassandra",
+#ifdef SQL_DRIVER_PLUGINS
+	.plugin_dependency = "libdriver_cassandra",
+#endif
 
 	.defines = cassandra_setting_defines,
 	.defaults = &cassandra_default_settings,

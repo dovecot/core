@@ -109,6 +109,9 @@ static struct mysql_settings mysql_default_settings = {
 
 const struct setting_parser_info mysql_setting_parser_info = {
 	.name = "mysql",
+#ifdef SQL_DRIVER_PLUGINS
+	.plugin_dependency = "libdriver_mysql",
+#endif
 
 	.defines = mysql_setting_defines,
 	.defaults = &mysql_default_settings,

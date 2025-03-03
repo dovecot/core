@@ -23,6 +23,7 @@ static const struct crypt_private_key_settings crypt_private_key_default_setting
 
 const struct setting_parser_info crypt_private_key_setting_parser_info = {
 	.name = "crypt_private_key",
+	.plugin_dependency = "lib10_mail_crypt_plugin",
 
 	.defines = crypt_private_key_setting_defines,
 	.defaults = &crypt_private_key_default_settings,
@@ -70,6 +71,7 @@ static const struct crypt_settings crypt_default_settings = {
 
 const struct setting_parser_info crypt_setting_parser_info = {
 	.name = "crypt",
+	.plugin_dependency = "lib10_mail_crypt_plugin",
 
 	.defines = crypt_setting_defines,
 	.defaults = &crypt_default_settings,
@@ -93,6 +95,7 @@ static const struct crypt_acl_settings crypt_acl_default_settings = {
 
 const struct setting_parser_info crypt_acl_setting_parser_info = {
 	.name = "crypt_acl",
+	.plugin_dependency = "lib05_mail_crypt_acl_plugin",
 
 	.defines = crypt_acl_setting_defines,
 	.defaults = &crypt_acl_default_settings,

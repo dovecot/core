@@ -56,6 +56,7 @@ static const struct notify_status_plugin_settings notify_status_plugin_default_s
 
 const struct setting_parser_info notify_status_plugin_setting_parser_info = {
        .name = "notify_status",
+       .plugin_dependency = "lib20_notify_status_plugin",
 
        .defines = notify_status_plugin_setting_defines,
        .defaults = &notify_status_plugin_default_settings,

@@ -69,6 +69,7 @@ static const struct setting_keyvalue quota_imapc_default_settings_keyvalue[] = {
 };
 const struct setting_parser_info quota_imapc_setting_parser_info = {
 	.name = "quota_imapc",
+	.plugin_dependency = "lib10_quota_plugin",
 	.defines = quota_imapc_setting_defines,
 	.defaults = &quota_imapc_default_settings,
 	.default_settings = quota_imapc_default_settings_keyvalue,

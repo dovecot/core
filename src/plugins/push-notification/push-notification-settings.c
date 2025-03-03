@@ -38,6 +38,7 @@ static const struct push_notification_ox_settings push_notification_ox_default_s
 
 const struct setting_parser_info push_notification_ox_setting_parser_info = {
 	.name = "push_notification_ox",
+	.plugin_dependency = "lib20_push_notification_plugin",
 
 	.defines = push_notification_ox_setting_defines,
 	.defaults = &push_notification_ox_default_settings,
@@ -72,6 +73,7 @@ static const struct push_notification_settings push_notification_default_setting
 
 const struct setting_parser_info push_notification_setting_parser_info = {
 	.name = "push_notification",
+	.plugin_dependency = "lib20_push_notification_plugin",
 
 	.defines = push_notification_setting_defines,
 	.defaults = &push_notification_default_settings,

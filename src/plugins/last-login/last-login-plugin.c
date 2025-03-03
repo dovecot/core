@@ -44,6 +44,7 @@ static const struct last_login_settings last_login_default_settings = {
 
 const struct setting_parser_info last_login_setting_parser_info = {
 	.name = "last_login",
+	.plugin_dependency = "lib10_last_login_plugin",
 
 	.defines = last_login_setting_defines,
 	.defaults = &last_login_default_settings,

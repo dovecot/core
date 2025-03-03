@@ -48,6 +48,7 @@ static const struct welcome_settings welcome_default_settings = {
 };
 const struct setting_parser_info welcome_setting_parser_info = {
 	.name = "welcome",
+	.plugin_dependency = "lib99_welcome_plugin",
 	.defines = welcome_setting_defines,
 	.defaults = &welcome_default_settings,
 	.struct_size = sizeof(struct welcome_settings),
