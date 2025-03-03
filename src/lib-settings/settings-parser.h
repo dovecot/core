@@ -156,6 +156,12 @@ struct setting_keyvalue {
 struct setting_parser_info {
 	/* Unique name for the settings struct */
 	const char *name;
+	/* If non-NULL, config process verifies whether this plugin actually
+	   exists on filesystem before exposing these settings. This allows
+	   for example the plugins in Dovecot core to be extracted into
+	   separate optional packages, even though they don't have individual
+	   settings plugins. */
+	const char *plugin_dependency;
 
 	const struct setting_define *defines;
 	const void *defaults;

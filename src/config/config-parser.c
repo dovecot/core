@@ -3223,6 +3223,16 @@ static int config_service_cmp(const struct config_service *s1,
 	return strcmp(s1->set->name, s2->set->name);
 }
 
+static bool config_have_info_dependency(const struct setting_parser_info *info)
+{
+	if (info->plugin_dependency == NULL)
+		return TRUE;
+	const char *path = t_strconcat(MODULEDIR"/", info->plugin_dependency,
+				       MODULE_SUFFIX, NULL);
+	struct stat st;
+	return stat(path, &st) == 0;
+}
+
 void config_parse_load_modules(bool dump_config_import)
 {
 	struct module_dir_load_settings mod_set;
@@ -3241,6 +3251,12 @@ void config_parse_load_modules(bool dump_config_import)
 	config_import = str_new(default_pool, 10240);
 	str_append(config_import, stats_metric_defaults);
 	i_array_init(&new_infos, 64);
+	/* drop any default infos which depend on plugins that don't exist */
+	for (i = 0; all_infos[i] != NULL; i++) {
+		if (config_have_info_dependency(all_infos[i]))
+			array_push_back(&new_infos, &all_infos[i]);
+	}
+
 	i_array_init(&new_services, 64);
 	for (m = modules; m != NULL; m = m->next) {
 		infos = module_get_symbol_quiet(m,
@@ -3272,17 +3288,10 @@ void config_parse_load_modules(bool dump_config_import)
 			}
 		}
 	}
-	if (array_count(&new_infos) > 0) {
-		/* modules added new settings. add the defaults and start
-		   using the new list. */
-		for (i = 0; all_infos[i] != NULL; i++)
-			array_push_back(&new_infos, &all_infos[i]);
-		array_append_zero(&new_infos);
-		all_infos = array_front(&new_infos);
-		infos_free_at_deinit = new_infos;
-	} else {
-		array_free(&new_infos);
-	}
+	array_append_zero(&new_infos);
+	all_infos = array_front(&new_infos);
+	infos_free_at_deinit = new_infos;
+
 	if (array_count(&new_services) > 0) {
 		/* module added new services. update the defaults. */
 		for (i = 0; config_all_services[i].set != NULL; i++)
