@@ -85,7 +85,11 @@ const struct doveadm_settings doveadm_default_settings = {
 	.libexec_dir = PKG_LIBEXECDIR,
 	.mail_plugins = ARRAY_INIT,
 	.mail_plugin_dir = MODULEDIR,
+#ifdef DOVECOT_PRO_EDITION
+	.mail_temp_dir = "/dev/shm/dovecot",
+#else
 	.mail_temp_dir = "/tmp",
+#endif
 	.auth_debug = FALSE,
 	.auth_socket_path = "auth-userdb",
 	.doveadm_socket_path = "doveadm-server",
