@@ -1233,7 +1233,9 @@ int config_filter_parse(struct config_filter *filter, pool_t pool,
 		else
 			filter->local_host = p_strdup(pool, value);
 	} else if (strcmp(key, "local_name") == 0) {
-		if (parent->remote_bits > 0)
+		if (strchr(value, ' ') != NULL)
+			*error_r = "Multiple names no longer supported in local_name value";
+		else if (parent->remote_bits > 0)
 			*error_r = "remote { local_name { .. } } not allowed (use local_name { remote { .. } } instead)";
 		else if (parent->protocol != NULL)
 			*error_r = "protocol { local_name { .. } } not allowed (use local_name { protocol { .. } } instead)";
