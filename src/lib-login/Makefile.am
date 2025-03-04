@@ -35,6 +35,7 @@ test_libs = \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-settings/libsettings.la \
+	../lib-dns/libdns.la \
 	../lib-var-expand/libvar_expand.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la \
@@ -48,6 +49,7 @@ test_deps = \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-settings/libsettings.la \
+	../lib-dns/libdns.la \
 	../lib-var-expand/libvar_expand.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la

@@ -61,6 +61,7 @@ LIBDOVECOT_TEST_DEPS = \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-json/libjson.la \
 	../lib-settings/libsettings.la \
+	../lib-dns/libdns.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 LIBDOVECOT_TEST = \

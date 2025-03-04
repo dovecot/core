@@ -81,6 +81,7 @@ noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
 
 test_libs = \
 	../lib-settings/libsettings.la \
+	../lib-dns/libdns.la \
 	../lib-var-expand/libvar_expand.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la \
@@ -90,6 +91,7 @@ test_deps = \
 	$(noinst_LTLIBRARIES) \
 	../lib-test/libtest.la \
 	../lib-settings/libsettings.la \
+	../lib-dns/libdns.la \
 	../lib-var-expand/libvar_expand.la \
 	../lib/liblib.la
 

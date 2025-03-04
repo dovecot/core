@@ -55,6 +55,7 @@ noinst_PROGRAMS = $(test_programs)
 test_libs = \
 	libdict.la \
 	../lib-settings/libsettings.la \
+	../lib-dns/libdns.la \
 	../lib-var-expand/libvar_expand.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la

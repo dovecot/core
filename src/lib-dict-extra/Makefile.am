@@ -32,6 +32,7 @@ test_libs = \
 	../lib-test/libtest.la \
 	../lib-dict/libdict.la \
 	../lib-settings/libsettings.la \
+	../lib-dns/libdns.la \
 	../lib-var-expand/libvar_expand.la \
 	../lib/liblib.la
 

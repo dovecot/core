@@ -45,6 +45,7 @@ test_libs = \
 	$(module_LTLIBRARIES) \
 	$(noinst_LTLIBRARIES) \
 	../lib-settings/libsettings.la \
+	../lib-dns/libdns.la \
 	../lib-var-expand/libvar_expand.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la

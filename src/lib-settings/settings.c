@@ -9,6 +9,7 @@
 #include "event-filter-private.h"
 #include "wildcard-match.h"
 #include "mmap-util.h"
+#include "dns-util.h"
 #include "settings.h"
 #include "var-expand.h"
 
@@ -196,6 +197,11 @@ static unsigned int path_element_count(const char *key)
 		count++;
 	}
 	return count;
+}
+
+static bool settings_local_name_cmp(const char *value, const char *wanted_value)
+{
+	return dns_match_wildcard(value, wanted_value) == 0;
 }
 
 static void settings_override_free(struct settings_override *override)
@@ -433,6 +439,8 @@ settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 				SETTINGS_INCLUDE_GROUP_PREFIX_S);
 
 		*filter_dest = event_filter_create_with_pool(mmap->pool);
+		event_filter_register_cmp(*filter_dest, "local_name",
+					  settings_local_name_cmp);
 		pool_ref(mmap->pool);
 		event_filter_merge(*filter_dest, tmp_filter,
 				   EVENT_FILTER_MERGE_OP_OR);

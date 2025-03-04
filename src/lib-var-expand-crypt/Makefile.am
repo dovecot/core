@@ -25,6 +25,7 @@ test_libs = \
 	../lib-dcrypt/libdcrypt.la \
 	../lib-var-expand/libvar_expand.la \
 	../lib-settings/libsettings.la \
+	../lib-dns/libdns.la \
 	../lib-test/libtest.la \
 	$(DLLIB)
 

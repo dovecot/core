@@ -112,6 +112,7 @@ test_libs = \
 	../lib-auth-client/libauth-client.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-settings/libsettings.la \
+	../lib-dns/libdns.la \
 	../lib-sasl/libsasl.la \
 	../lib-auth/libauth.la \
 	../lib-otp/libotp.la \
@@ -132,6 +133,7 @@ test_deps = \
 	../lib-auth-client/libauth-client.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-settings/libsettings.la \
+	../lib-dns/libdns.la \
 	../lib-sasl/libsasl.la \
 	../lib-auth/libauth.la \
 	../lib-json/libjson.la \
