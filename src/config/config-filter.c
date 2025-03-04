@@ -33,22 +33,6 @@ static int config_filter_match_service(const struct config_filter *mask,
 	return 1;
 }
 
-static bool
-config_filter_match_local_name(const struct config_filter *mask,
-			       const char *filter_local_name)
-{
-	/* Handle multiple names separated by spaces in local_name
-	   * Ex: local_name "mail.domain.tld domain.tld mx.domain.tld" { ... } */
-	const char *ptr, *local_name = mask->local_name;
-	while((ptr = strchr(local_name, ' ')) != NULL) {
-		if (dns_match_wildcard(filter_local_name,
-		    t_strdup_until(local_name, ptr)) == 0)
-			return TRUE;
-		local_name = ptr+1;
-	}
-	return dns_match_wildcard(filter_local_name, local_name) == 0;
-}
-
 static int config_filter_match_rest(const struct config_filter *mask,
 				    const struct config_filter *filter)
 {
@@ -60,7 +44,8 @@ static int config_filter_match_rest(const struct config_filter *mask,
 			ret = -1;
 		else {
 			T_BEGIN {
-				matched = config_filter_match_local_name(mask, filter->local_name);
+				matched = dns_match_wildcard(filter->local_name,
+							     mask->local_name) == 0;
 			} T_END;
 			if (!matched)
 				return 0;
