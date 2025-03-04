@@ -28,7 +28,7 @@ static void check_expr(const char *test_name,
 	test_out_quiet(t_strdup_printf("%s:num_queries==1", test_name),
 		       num_queries == 1); /* should have only one query */
 
-	got = event_filter_query_match_eval(expr, event,
+	got = event_filter_query_match_eval(filter, expr, event,
 					    SOURCE_FILENAME, SOURCE_LINE,
 					    log_type);
 	test_out_quiet(t_strdup_printf("%s:got=expected", test_name),

@@ -13,6 +13,8 @@ struct event_filter_field {
 	const char *value;
 };
 
+typedef bool event_filter_cmp(const char *value, const char *wanted_field);
+
 struct event_filter *event_filter_create(void);
 struct event_filter *event_filter_create_with_pool(pool_t pool);
 struct event_filter *event_filter_create_fragment(pool_t pool);
@@ -76,6 +78,11 @@ event_filter_match_iter_init(struct event_filter *filter, struct event *event,
    matches.  Note: This skips over any queries that have NULL context. */
 void *event_filter_match_iter_next(struct event_filter_match_iter *iter);
 void event_filter_match_iter_deinit(struct event_filter_match_iter **iter);
+
+/* Register a comparator function for the key. event_filter_match() will use
+   this function when matching the values for the key. */
+void event_filter_register_cmp(struct event_filter *filter, const char *key,
+			       event_filter_cmp *cmp);
 
 void event_filter_init(void);
 void event_filter_deinit(void);
