@@ -152,7 +152,6 @@ test_http_libs = \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-master/libmaster.la \
 	../lib-auth-client/libauth-client.la \
-	../lib-settings/libsettings.la \
 	$(test_libs)
 test_http_deps = \
 	libhttp.la \
@@ -160,7 +159,6 @@ test_http_deps = \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-master/libmaster.la \
 	../lib-auth-client/libauth-client.la \
-	../lib-settings/libsettings.la \
 	$(test_deps)
 
 test_http_libs_ssl = ../lib-ssl-iostream/libssl_iostream_openssl.la

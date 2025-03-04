@@ -135,8 +135,8 @@ test_lang_icu_LDADD = lang-icu.lo $(LIBICU_LIBS) $(test_libs)
 test_lang_icu_DEPENDENCIES = lang-icu.lo $(test_deps)
 
 test_lang_filter_SOURCES = test-lang-filter.c
-test_lang_filter_LDADD = liblanguage.la ../lib-settings/libsettings.la $(test_libs)
-test_lang_filter_DEPENDENCIES = liblanguage.la ../lib-settings/libsettings.la $(test_deps)
+test_lang_filter_LDADD = liblanguage.la $(test_libs)
+test_lang_filter_DEPENDENCIES = liblanguage.la $(test_deps)
 
 if BUILD_LANG_EXTTEXTCAT
 TEST_LANGUAGE = test-language
@@ -146,8 +146,8 @@ test_language_DEPENDENCIES = $(test_deps)
 endif
 
 test_lang_tokenizer_SOURCES = test-lang-tokenizer.c
-test_lang_tokenizer_LDADD = liblanguage.la ../lib-settings/libsettings.la ../lib-mail/libmail.la $(test_libs)
-test_lang_tokenizer_DEPENDENCIES = liblanguage.la ../lib-settings/libsettings.la ../lib-mail/libmail.la $(test_deps)
+test_lang_tokenizer_LDADD = liblanguage.la $(test_libs)
+test_lang_tokenizer_DEPENDENCIES = liblanguage.la $(test_deps)
 
 check-local:
 	for bin in $(test_programs); do \

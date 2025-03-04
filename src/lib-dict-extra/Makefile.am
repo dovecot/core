@@ -29,7 +29,6 @@ noinst_PROGRAMS = $(test_programs)
 test_libs = \
 	../lib-master/libmaster.la \
 	../lib-ssl-iostream/libssl_iostream.la \
-	../lib-settings/libsettings.la \
 	../lib-test/libtest.la \
 	../lib-dict/libdict.la \
 	../lib-settings/libsettings.la \
