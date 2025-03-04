@@ -968,7 +968,7 @@ smtp_client_transaction_connection_ready(struct smtp_client_transaction *trans)
 	if (trans->state != SMTP_CLIENT_TRANSACTION_STATE_PENDING)
 		return;
 
-	e_debug(trans->event, "Connecton is ready for transaction");
+	e_debug(trans->event, "Connection is ready for transaction");
 
 	trans->state = SMTP_CLIENT_TRANSACTION_STATE_MAIL_FROM;
 
