@@ -12,11 +12,12 @@ LIBDOVECOT_SUBDIRS = \
 	lib-test \
 	lib \
 	lib-var-expand \
+	lib-dns \
 	lib-settings \
 	lib-otp \
 	lib-auth \
 	lib-auth-client \
-	lib-dns \
+	lib-dns-client \
 	lib-ssl-iostream \
 	lib-master \
 	lib-login \

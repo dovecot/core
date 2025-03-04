@@ -4,7 +4,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-settings \
-	-I$(top_srcdir)/src/lib-dns \
+	-I$(top_srcdir)/src/lib-dns-client \
 	-I$(top_srcdir)/src/lib-sasl \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-mail \
@@ -39,6 +39,7 @@ test_deps = \
 	../lib-imap/libimap.la \
 	../lib-mail/libmail.la \
 	../lib-charset/libcharset.la \
+	../lib-dns-client/libdns-client.la  \
 	../lib-dns/libdns.la \
 	../lib-auth/libauth.la \
 	../lib-otp/libotp.la \

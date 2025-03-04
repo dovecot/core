@@ -42,7 +42,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-json \
 	-I$(top_srcdir)/src/lib-ldap \
 	-I$(top_srcdir)/src/lib-dict \
-	-I$(top_srcdir)/src/lib-dns \
+	-I$(top_srcdir)/src/lib-dns-client \
 	-I$(top_srcdir)/src/lib-http \
 	-I$(top_srcdir)/src/lib-sql \
 	-I$(top_srcdir)/src/lib-settings \

@@ -38,6 +38,7 @@ test_libs = \
 	../lib-dcrypt/libdcrypt.la \
 	../lib-http/libhttp.la \
 	../lib-json/libjson.la \
+	../lib-dns-client/libdns-client.la  \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-master/libmaster.la \
@@ -54,6 +55,7 @@ test_deps = \
 	../lib-dcrypt/libdcrypt.la \
 	../lib-http/libhttp.la \
 	../lib-json/libjson.la \
+	../lib-dns-client/libdns-client.la  \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-master/libmaster.la \

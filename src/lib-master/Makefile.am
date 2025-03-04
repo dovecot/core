@@ -5,7 +5,7 @@ noinst_LTLIBRARIES = libmaster.la
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-auth \
-	-I$(top_srcdir)/src/lib-dns \
+	-I$(top_srcdir)/src/lib-dns-client \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
@@ -57,6 +57,7 @@ test_deps = \
 	../lib-settings/libsettings.la \
 	../lib-var-expand/libvar_expand.la \
 	../lib-test/libtest.la \
+	../lib-dns-client/libdns-client.la  \
 	../lib-dns/libdns.la \
 	../lib/liblib.la
 

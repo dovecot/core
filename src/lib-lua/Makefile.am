@@ -3,7 +3,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-doveadm \
-	-I$(top_srcdir)/src/lib-dns \
+	-I$(top_srcdir)/src/lib-dns-client \
 	-I$(top_srcdir)/src/lib-http \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-settings \
@@ -30,7 +30,7 @@ if DLUA_WITH_YIELDS
 WITH_YIELDS_LUA += \
 	../lib-doveadm/libdoveadm_client_lua.la \
 	../lib-dict/libdict_lua.la \
-	../lib-dns/libdns_lua.la
+	../lib-dns-client/libdns_lua.la
 test_programs += \
 	test-dict-lua \
 	test-dns-lua

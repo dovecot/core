@@ -566,6 +566,7 @@ LIBDOVECOT_LA_LIBS='\
 	$(top_builddir)/src/lib-fs/libfs.la \
 	$(top_builddir)/src/lib-dict/libdict.la \
 	$(top_builddir)/src/lib-dns/libdns.la \
+	$(top_builddir)/src/lib-dns-client/libdns-client.la \
 	$(top_builddir)/src/lib-imap/libimap.la \
 	$(top_builddir)/src/lib-mail/libmail.la \
 	$(top_builddir)/src/lib-sasl/libsasl.la \
@@ -807,6 +808,7 @@ src/lib-dict/Makefile
 src/lib-dict-backend/Makefile
 src/lib-dict-extra/Makefile
 src/lib-dns/Makefile
+src/lib-dns-client/Makefile
 src/lib-doveadm/Makefile
 src/lib-fs/Makefile
 src/lib-language/Makefile

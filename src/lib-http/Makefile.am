@@ -4,7 +4,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-settings \
-	-I$(top_srcdir)/src/lib-dns \
+	-I$(top_srcdir)/src/lib-dns-client \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-var-expand \
@@ -148,6 +148,7 @@ test_http_request_parser_DEPENDENCIES = $(test_deps)
 
 test_http_libs = \
 	libhttp.la \
+	../lib-dns-client/libdns-client.la  \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-master/libmaster.la \
@@ -155,6 +156,7 @@ test_http_libs = \
 	$(test_libs)
 test_http_deps = \
 	libhttp.la \
+	../lib-dns-client/libdns-client.la  \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-master/libmaster.la \

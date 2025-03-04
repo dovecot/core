@@ -8,7 +8,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-sasl \
 	-I$(top_srcdir)/src/lib-auth-client \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
-	-I$(top_srcdir)/src/lib-dns \
+	-I$(top_srcdir)/src/lib-dns-client \
 	-I$(top_srcdir)/src/lib-program-client \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-var-expand \
@@ -104,6 +104,7 @@ EXTRA_DIST = \
 test_libs = \
 	$(noinst_LTLIBRARIES) \
 	../lib-program-client/libprogram_client.la \
+	../lib-dns-client/libdns-client.la  \
 	../lib-dns/libdns.la \
 	../lib-mail/libmail.la \
 	../lib-charset/libcharset.la \
@@ -123,6 +124,7 @@ test_libs = \
 test_deps = \
 	$(noinst_LTLIBRARIES) \
 	../lib-program-client/libprogram_client.la \
+	../lib-dns-client/libdns-client.la  \
 	../lib-dns/libdns.la \
 	../lib-mail/libmail.la \
 	../lib-charset/libcharset.la \
