@@ -1,5 +1,5 @@
 noinst_LTLIBRARIES = libdcrypt.la libdcrypt_openssl_static.la
-pkglib_LTLIBRARIES =
+module_LTLIBRARIES =
 
 NOPLUGIN_LDFLAGS=
 
@@ -8,15 +8,14 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-json \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
-	-DDCRYPT_MODULE_DIR=\"$(pkglibdir)\"
+	-DDCRYPT_MODULE_DIR=\"$(moduledir)\"
 
 libdcrypt_la_SOURCES = \
 	dcrypt.c \
 	istream-decrypt.c \
 	ostream-encrypt.c
 
-libdcrypt_la_CFLAGS = $(AM_CPPFLAGS) \
-	-DDCRYPT_MODULE_DIR=\"$(pkglibdir)\"
+libdcrypt_la_CFLAGS = $(AM_CPPFLAGS)
 
 libdcrypt_openssl_static_la_SOURCES = dcrypt-openssl1.c dcrypt-openssl3.c
 libdcrypt_openssl_static_la_LDFLAGS = ../lib-ssl-iostream/libssl_iostream_openssl.la
@@ -25,7 +24,7 @@ libdcrypt_openssl_static_la_DEPENDENCIES = ../lib-ssl-iostream/libssl_iostream_o
 libdcrypt_openssl_static_la_CFLAGS = $(AM_CPPFLAGS) \
 	$(SSL_CFLAGS)
 
-pkglib_LTLIBRARIES += libdcrypt_openssl.la
+module_LTLIBRARIES += libdcrypt_openssl.la
 
 libdcrypt_openssl_la_SOURCES = dcrypt-openssl1.c dcrypt-openssl3.c
 libdcrypt_openssl_la_LDFLAGS = -module -avoid-version ../lib-ssl-iostream/libssl_iostream_openssl.la
