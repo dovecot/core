@@ -912,13 +912,6 @@ dcrypt_openssl_ecdh_derive_secret(struct dcrypt_private_key *priv_key,
 	/* initialize */
 	EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(priv_key->key, NULL);
 
-	unsigned int pad = 1;
-	const OSSL_PARAM params[] = {
-		OSSL_PARAM_uint(OSSL_EXCHANGE_PARAM_PAD, &pad),
-		OSSL_PARAM_END,
-	};
-	EVP_PKEY_CTX_set_params(pctx, params);
-
 	if (pctx == NULL ||
 	    EVP_PKEY_derive_init(pctx) != 1 ||
 	    EVP_PKEY_derive_set_peer(pctx, pub_key->key) != 1) {
