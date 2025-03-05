@@ -1341,8 +1341,9 @@ ldap_query_get_fields(pool_t pool,
 	struct db_ldap_result_iterate_context *ldap_iter;
 	const char *name, *const *values;
 
-	const char *dn = ldap_get_dn(conn->ld, res);
+	char *dn = ldap_get_dn(conn->ld, res);
 	auth_fields_add(fields, DB_LDAP_ATTR_DN, dn, 0);
+	ldap_memfree(dn);
 
 	ldap_iter = db_ldap_result_iterate_init(conn, ldap_request, res,
 						skip_null_values);
