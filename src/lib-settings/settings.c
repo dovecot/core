@@ -1696,7 +1696,7 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 		struct event_filter *tmp_filter = event_filter_create();
 		if (event_filter_parse_case_sensitive(str_c(filter_string),
 						      tmp_filter, &error) < 0) {
-			i_panic("BUG: Failed to create event filter filter for %s: %s (%s)",
+			i_panic("BUG: Failed to create event filter for %s: %s (%s)",
 				set->orig_key, error, str_c(filter_string));
 		}
 		if (set->filter == NULL) {
@@ -1831,7 +1831,7 @@ settings_instance_override_add_default(struct settings_apply_ctx *ctx,
 		pool_ref(set->pool);
 		if (event_filter_parse_case_sensitive(filter_string,
 						      set->filter, &error) < 0) {
-			i_panic("BUG: Failed to create event filter filter for %s: %s (%s)",
+			i_panic("BUG: Failed to create event filter for %s: %s (%s)",
 				set->orig_key, error, filter_string);
 		}
 		if (array_set->filter != NULL) {

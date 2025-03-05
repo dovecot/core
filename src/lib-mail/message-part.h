@@ -68,7 +68,7 @@ bool message_part_is_equal(const struct message_part *p1,
 			   const struct message_part *p2) ATTR_NULL(1, 2);
 
 /* Same as message_part_is_equal(), but it allows to invoke an additional
-   comparator on each incountered part */
+   comparator on each encountered part */
 bool message_part_is_equal_ex(const struct message_part *p1,
 			      const struct message_part *p2,
 			      message_part_comparator_t *equals_ex) ATTR_NULL(1, 2, 3);

@@ -701,7 +701,7 @@ smtp_client_command_pipeline_is_open(struct smtp_client_connection *conn)
 	return TRUE;
 }
 
-static void smtp_cient_command_wait(struct smtp_client_command *cmd)
+static void smtp_client_command_wait(struct smtp_client_command *cmd)
 {
 	struct smtp_client_connection *conn = cmd->conn;
 
@@ -740,7 +740,7 @@ static int smtp_client_command_do_send_more(struct smtp_client_connection *conn)
 			return ret;
 
 		/* Command line sent. move command to wait list. */
-		smtp_cient_command_wait(cmd);
+		smtp_client_command_wait(cmd);
 		cmd->state = SMTP_CLIENT_COMMAND_STATE_WAITING;
 	}
 
