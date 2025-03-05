@@ -994,7 +994,7 @@ mailbox_list_try_mkdir_root_parent(struct mailbox_list *list,
 	   to get expanded="/var/mail/domain/nn" */
 	unexpanded = mailbox_list_get_unexpanded_path(list, type);
 	p = strrchr(unexpanded, '%');
-	if ((p == unexpanded && p[1] == 'h') ||
+	if ((p == unexpanded && str_begins_with(unexpanded, "%{home}")) ||
 	    (p == NULL && unexpanded[0] == '~')) {
 		/* home directory used */
 		if (!mailbox_list_get_root_path(list, type, &expanded))
@@ -1052,7 +1052,7 @@ mailbox_list_try_mkdir_root_parent(struct mailbox_list *list,
 			perm->gid_origin_is_mailbox_path = FALSE;
 		}
 	} else {
-		/* when using %h and the parent has setgid-bit,
+		/* when using %{home} and the parent has setgid-bit,
 		   copy the permissions from it for the home we're creating */
 		perm->file_create_mode = st.st_mode & 0666;
 		perm->dir_create_mode = st.st_mode;
