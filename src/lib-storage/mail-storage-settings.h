@@ -218,8 +218,4 @@ const char *
 mailbox_settings_get_vname(pool_t pool, const struct mail_namespace *ns,
 			   const struct mailbox_settings *set);
 
-bool mail_user_settings_update_special_use(struct mail_user *user,
-					   const struct mail_storage_settings *set,
-					   const char **error_r);
-
 #endif

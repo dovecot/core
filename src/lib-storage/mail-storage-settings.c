@@ -458,46 +458,7 @@ static bool mail_cache_fields_parse(const char *key,
 	}
 	return TRUE;
 }
-/* </settings checks> */
 
-bool mail_user_settings_update_special_use(struct mail_user *user,
-					   const struct mail_storage_settings *set,
-					   const char **error_r)
-{
-	const struct mail_namespace_settings *ns;
-	const char *ns_name, *error;
-
-	/* Check if there are any global mailbox { .. } settings */
-	if (settings_get(user->event, &mail_namespace_setting_parser_info,
-			 SETTINGS_GET_FLAG_FAKE_EXPAND, &ns, error_r) < 0)
-		return FALSE;
-	if (ns->parsed_have_special_use_mailboxes && !ns->disabled)
-		user->have_special_use_mailboxes = TRUE;
-	settings_free(ns);
-
-	/* Check mailbox { .. } settings inside namespace { .. } */
-	if (!array_is_created(&set->namespaces) || user->have_special_use_mailboxes)
-		return TRUE;
-
-	array_foreach_elem(&set->namespaces, ns_name) {
-		if (settings_get_filter(user->event, "namespace", ns_name,
-					&mail_namespace_setting_parser_info,
-					SETTINGS_GET_FLAG_FAKE_EXPAND,
-					&ns, &error) < 0) {
-			*error_r = t_strdup_printf(
-				"Failed to get namespace %s: %s",
-				ns_name, error);
-			return FALSE;
-		}
-
-		if (ns->parsed_have_special_use_mailboxes && !ns->disabled)
-			user->have_special_use_mailboxes = TRUE;
-		settings_free(ns);
-	}
-	return TRUE;
-}
-
-/* <settings checks> */
 static bool
 mailbox_list_get_path_setting(const char *key, const char **value,
 			      pool_t pool, enum mailbox_list_path_type *type_r)

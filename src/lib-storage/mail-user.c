@@ -112,8 +112,7 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 	i_assert(!user->initialized);
 
 	if (settings_get(user->event, &mail_storage_setting_parser_info, 0,
-			 &user->_mail_set, &error) < 0 ||
-	    !mail_user_settings_update_special_use(user, user->_mail_set, &error))
+			 &user->_mail_set, &error) < 0)
 		user->error = p_strdup(user->pool, error);
 
 	if (user->error == NULL) {
