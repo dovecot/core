@@ -155,6 +155,7 @@ static const struct setting_keyvalue imap_default_settings_keyvalue[] = {
 	{ "service/imap/imap_capability/SNIPPET=FUZZY", "yes" },
 	{ "service/imap/imap_capability/PREVIEW=FUZZY", "yes" },
 	{ "service/imap/imap_capability/PREVIEW", "yes" },
+	{ "service/imap/imap_capability/SPECIAL-USE", "yes" },
 	{ "service/imap/imap_capability/STATUS=SIZE", "yes" },
 	{ "service/imap/imap_capability/SAVEDATE", "yes" },
 	{ "service/imap/imap_capability/COMPRESS=DEFLATE", "yes" },

@@ -179,10 +179,6 @@ struct client *client_create(int fd_in, int fd_out,
 	}
 	if (!set->imap_metadata || !have_mailbox_attribute_dict)
 		imap_unset_capability(set_instance, "METADATA");
-	/* Advertise SPECIAL-USE only if there are actually some
-	   SPECIAL-USE flags in mailbox configuration. */
-	if (!user->have_special_use_mailboxes)
-		imap_unset_capability(set_instance, "SPECIAL-USE");
 	if (!client->set->mail_utf8_extensions)
 		imap_unset_capability(set_instance, "UTF8=ACCEPT");
 

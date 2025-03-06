@@ -111,9 +111,6 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 
 	i_assert(!user->initialized);
 
-	/* We need to figure out early if we should advertise SPECIAL-USE IMAP
-	   capability. The CAPABILITY reply is sent to client before
-	   mail_namespaces_init() is called, so it needs to be done here. */
 	if (settings_get(user->event, &mail_storage_setting_parser_info, 0,
 			 &user->_mail_set, &error) < 0 ||
 	    !mail_user_settings_update_special_use(user, user->_mail_set, &error))
