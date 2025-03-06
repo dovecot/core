@@ -1,8 +1,13 @@
 #ifndef DNS_LOOKUP_H
 #define DNS_LOOKUP_H
 
+#include <netdb.h>
+
 #define DNS_CLIENT_SOCKET_NAME "dns-client"
-#define EAI_CANCELED -101
+
+#ifndef EAI_CANCELED
+#  define EAI_CANCELED INT_MIN
+#endif
 
 struct dns_lookup;
 

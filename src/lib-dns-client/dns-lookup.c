@@ -338,8 +338,13 @@ void dns_lookup_abort(struct dns_lookup **_lookup)
 	struct dns_client *client = lookup->client;
 	if (client->deinit_client_at_free)
 		dns_client_deinit(&client);
-	else
+	else if (lookup->callback != NULL) {
+		dns_lookup_save_msecs(lookup);
+		lookup->result.ret = EAI_CANCELED,
+		lookup->result.error = "Lookup canceled";
+		lookup->callback(&lookup->result, lookup->context);
 		lookup->callback = NULL;
+	}
 }
 
 static void dns_lookup_switch_ioloop_real(struct dns_lookup *lookup)
