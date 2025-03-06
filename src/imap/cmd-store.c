@@ -227,7 +227,7 @@ bool cmd_store(struct client_command_context *cmd)
 		client_send_box_error(cmd, client->mailbox);
 		return TRUE;
 	}
-	client->deleted_count += deleted_count;
+	client->logout_stats.deleted_count += deleted_count;
 
 	if (array_count(&modified_set) == 0)
 		tagged_reply = "OK Store completed.";

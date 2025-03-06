@@ -312,15 +312,15 @@ const char *client_stats(struct client *client)
 		{ .key = "input", .value = dec2str(i_stream_get_absolute_offset(client->input)) },
 		{ .key = "output", .value = dec2str(client->output->offset) },
 		{ .key = "session", .value = client->user->session_id },
-		{ .key = "fetch_hdr_count", .value = dec2str(client->fetch_hdr_count) },
-		{ .key = "fetch_hdr_bytes", .value = dec2str(client->fetch_hdr_bytes) },
-		{ .key = "fetch_body_count", .value = dec2str(client->fetch_body_count) },
-		{ .key = "fetch_body_bytes", .value = dec2str(client->fetch_body_bytes) },
-		{ .key = "deleted", .value = dec2str(client->deleted_count) },
-		{ .key = "expunged", .value = dec2str(client->expunged_count) },
-		{ .key = "trashed", .value = dec2str(client->trashed_count) },
-		{ .key = "autoexpunged", .value = dec2str(client->autoexpunged_count) },
-		{ .key = "appended", .value = dec2str(client->append_count) },
+		{ .key = "fetch_hdr_count", .value = dec2str(client->logout_stats.fetch_hdr_count) },
+		{ .key = "fetch_hdr_bytes", .value = dec2str(client->logout_stats.fetch_hdr_bytes) },
+		{ .key = "fetch_body_count", .value = dec2str(client->logout_stats.fetch_body_count) },
+		{ .key = "fetch_body_bytes", .value = dec2str(client->logout_stats.fetch_body_bytes) },
+		{ .key = "deleted", .value = dec2str(client->logout_stats.deleted_count) },
+		{ .key = "expunged", .value = dec2str(client->logout_stats.expunged_count) },
+		{ .key = "trashed", .value = dec2str(client->logout_stats.trashed_count) },
+		{ .key = "autoexpunged", .value = dec2str(client->logout_stats.autoexpunged_count) },
+		{ .key = "appended", .value = dec2str(client->logout_stats.append_count) },
 		VAR_EXPAND_TABLE_END
 	};
 	const struct var_expand_params *user_params =
@@ -547,7 +547,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 	   hibernations it could also be doing unnecessarily much work. */
 	imap_refresh_proctitle();
 	if (!client->hibernated) {
-		client->autoexpunged_count = mail_user_autoexpunge(client->user);
+		client->logout_stats.autoexpunged_count = mail_user_autoexpunge(client->user);
 		client_log_disconnect(client, reason);
 	}
 	mail_user_deinit(&client->user);

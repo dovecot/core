@@ -2,6 +2,7 @@
 #define IMAP_CLIENT_H
 
 #include "imap-commands.h"
+#include "imap-stats.h"
 #include "message-size.h"
 
 #define CLIENT_COMMAND_QUEUE_MAX_SIZE 4
@@ -206,11 +207,7 @@ struct client {
 	uint64_t highest_fetch_modseq;
 	ARRAY_TYPE(seq_range) fetch_failed_uids;
 
-	/* For imap_logout_format statistics: */
-	unsigned int fetch_hdr_count, fetch_body_count;
-	uint64_t fetch_hdr_bytes, fetch_body_bytes;
-	unsigned int deleted_count, expunged_count, trashed_count;
-	unsigned int autoexpunged_count, append_count;
+	struct imap_logout_stats logout_stats;
 
 	/* SEARCHRES extension: Last saved SEARCH result */
 	ARRAY_TYPE(seq_range) search_saved_uidset;

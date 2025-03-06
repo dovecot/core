@@ -738,7 +738,7 @@ static bool cmd_append_finish_parsing(struct client_command_context *cmd)
 	}
 	str_append(msg, msg_suffix);
 	str_append_c(msg, '.');
-	ctx->client->append_count += save_count;
+	ctx->client->logout_stats.append_count += save_count;
 	pool_unref(&changes.pool);
 
 	if (ctx->box == cmd->client->mailbox) {

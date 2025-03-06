@@ -15,7 +15,7 @@ cmd_expunge_finish(struct client_command_context *cmd,
 	int ret;
 
 	ret = imap_expunge(client->mailbox, search_args == NULL ? NULL :
-			   search_args->args, &client->expunged_count);
+			   search_args->args, &client->logout_stats.expunged_count);
 	if (search_args != NULL)
 		mail_search_args_unref(&search_args);
 	if (ret < 0) {

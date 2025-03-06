@@ -34,6 +34,7 @@ headers = \
 	imap-parser.h \
 	imap-resp-code.h \
 	imap-quote.h \
+	imap-stats.h \
 	imap-url.h \
 	imap-seqset.h \
 	imap-utf7.h \

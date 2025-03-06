@@ -68,7 +68,7 @@ static void copy_update_trashed(struct client *client, struct mailbox *box,
 	if (set != NULL && array_not_empty(&set->special_use) &&
 	    str_array_icase_find(settings_boollist_get(&set->special_use),
 				 "\\Trash"))
-		client->trashed_count += count;
+		client->logout_stats.trashed_count += count;
 }
 
 static bool client_is_disconnected(struct client *client)

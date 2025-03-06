@@ -173,11 +173,11 @@ static void fetch_state_update_stats(struct imap_fetch_context *ctx,
 				     const struct imap_msgpart *msgpart)
 {
 	if (!imap_msgpart_contains_body(msgpart)) {
-		ctx->client->fetch_hdr_count++;
-		ctx->state.cur_stats_sizep = &ctx->client->fetch_hdr_bytes;
+		ctx->client->logout_stats.fetch_hdr_count++;
+		ctx->state.cur_stats_sizep = &ctx->client->logout_stats.fetch_hdr_bytes;
 	} else {
-		ctx->client->fetch_body_count++;
-		ctx->state.cur_stats_sizep = &ctx->client->fetch_body_bytes;
+		ctx->client->logout_stats.fetch_body_count++;
+		ctx->state.cur_stats_sizep = &ctx->client->logout_stats.fetch_body_bytes;
 	}
 }
 
