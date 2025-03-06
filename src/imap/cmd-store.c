@@ -220,7 +220,7 @@ bool cmd_store(struct client_command_context *cmd)
 	ret = mailbox_search_deinit(&search_ctx);
 	if (ret < 0)
 		mailbox_transaction_rollback(&t);
-	 else
+	else
 		ret = mailbox_transaction_commit(&t);
 	if (ret < 0) {
 		array_free(&modified_set);
