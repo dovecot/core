@@ -159,7 +159,7 @@ mail_storage_autodetect(const struct mail_namespace *ns,
 
 static struct mail_storage *
 mail_storage_get_class(struct mail_namespace *ns, const char *driver,
-		       const struct mail_storage_settings *mail_set,
+		       struct event *set_event,
 		       const char **root_path_override,
 		       const char **inbox_path_override, const char **error_r)
 {
@@ -182,11 +182,17 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 	if (storage_class != NULL)
 		return storage_class;
 
-	storage_class = mail_storage_autodetect(ns, mail_set,
-						root_path_override,
+	const struct mail_storage_settings *mail_set;
+	if (settings_get(set_event, &mail_storage_setting_parser_info, 0,
+			 &mail_set, error_r) < 0)
+		return NULL;
+
+	storage_class = mail_storage_autodetect(ns, mail_set, root_path_override,
 						inbox_path_override);
-	if (storage_class != NULL)
+	if (storage_class != NULL) {
+		settings_free(mail_set);
 		return storage_class;
+	}
 
 	(void)mail_user_get_home(ns->user, &home);
 	if (home == NULL || *home == '\0') home = "(not set)";
@@ -195,6 +201,7 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 		"Mail storage autodetection failed (home=%s, mail_path=%s) - "
 		"Set mail_driver explicitly",
 		home, mail_set->mail_path);
+	settings_free(mail_set);
 	return NULL;
 }
 
@@ -438,7 +445,7 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 			 struct mail_storage **storage_r, const char **error_r)
 {
 	struct mail_storage *storage_class, *storage = NULL;
-	const struct mail_storage_settings *mail_set;
+	const struct mail_driver_settings *driver_set;
 	const char *driver = NULL;
 	const char *inbox_path_override = NULL;
 	const char *root_path_override = NULL;
@@ -446,10 +453,10 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 	/* Lookup initial mailbox list settings. Once they're found, another
 	   settings lookup is done with mailbox format as an additional
 	   filter. */
-	if (settings_get(set_event, &mail_storage_setting_parser_info, 0,
-			 &mail_set, error_r) < 0)
+	if (settings_get(set_event, &mail_driver_setting_parser_info, 0,
+			 &driver_set, error_r) < 0)
 		return -1;
-	driver = mail_set->mail_driver;
+	driver = driver_set->mail_driver;
 
 	if ((flags & MAIL_STORAGE_FLAG_SHARED_DYNAMIC) != 0) {
 		/* internal shared namespace */
@@ -457,10 +464,10 @@ mail_storage_create_real(struct mail_namespace *ns, struct event *set_event,
 		root_path_override = ns->user->set->base_dir;
 	}
 
-	storage_class = mail_storage_get_class(ns, driver, mail_set,
+	storage_class = mail_storage_get_class(ns, driver, set_event,
 					       &root_path_override,
 					       &inbox_path_override, error_r);
-	settings_free(mail_set);
+	settings_free(driver_set);
 	if (storage_class == NULL)
 		return -1;
 

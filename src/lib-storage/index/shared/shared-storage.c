@@ -68,8 +68,8 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	struct shared_storage *storage = SHARED_STORAGE(_storage);
 	char *wildcardp;
 
-	struct mail_storage_settings *set;
-	if (settings_get(ns->list->event, &mail_storage_setting_parser_info, 0,
+	struct mail_driver_settings *set;
+	if (settings_get(ns->list->event, &mail_driver_setting_parser_info, 0,
 			 &set, error_r) < 0)
 		return -1;
 

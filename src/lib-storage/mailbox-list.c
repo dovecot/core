@@ -617,11 +617,11 @@ int mailbox_list_default_get_storage(struct mailbox_list **list,
 				     enum mailbox_list_get_storage_flags flags ATTR_UNUSED,
 				     struct mail_storage **storage_r)
 {
-	const struct mail_storage_settings *set;
+	const struct mail_driver_settings *set;
 	const char *error;
 	struct event *event =
 		mail_storage_mailbox_create_event((*list)->event, *list, *vname);
-	if (settings_get(event, &mail_storage_setting_parser_info, 0,
+	if (settings_get(event, &mail_driver_setting_parser_info, 0,
 			 &set, &error) < 0) {
 		mailbox_list_set_critical(*list, "%s", error);
 		event_unref(&event);

@@ -226,6 +226,29 @@ const struct setting_parser_info mail_storage_setting_parser_info = {
 
 #undef DEF
 #define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct mail_driver_settings)
+
+static const struct setting_define mail_driver_setting_defines[] = {
+	DEF(STR, mail_driver),
+	SETTING_DEFINE_LIST_END
+};
+
+const struct mail_driver_settings mail_driver_default_settings = {
+	.mail_driver = "",
+};
+
+const struct setting_parser_info mail_driver_setting_parser_info = {
+	.name = "mail_driver",
+
+	.defines = mail_driver_setting_defines,
+	.defaults = &mail_driver_default_settings,
+
+	.struct_size = sizeof(struct mail_driver_settings),
+	.pool_offset1 = 1 + offsetof(struct mail_driver_settings, pool),
+};
+
+#undef DEF
+#define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type("mailbox_"#name, name, struct mailbox_settings)
 
 static const struct setting_define mailbox_setting_defines[] = {
