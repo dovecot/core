@@ -42,6 +42,9 @@ struct config_dump_human_context {
 	bool list_prefix_sent:1;
 };
 
+/* Characters in setting keys which require escaping */
+#define CONFIG_KEY_ESCAPE_CHARS " \"\\#="
+
 #define LIST_KEY_PREFIX "\001"
 #define BOOLLIST_ELEM_KEY_PREFIX "\002"
 
@@ -582,7 +585,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		i_assert(value != NULL);
 		if (!hide_key || bool_list_elem || str_list_elem) {
 			key = t_strdup_until(key, value);
-			if (strpbrk(key, " \"\\#=") == NULL)
+			if (strpbrk(key, CONFIG_KEY_ESCAPE_CHARS) == NULL)
 				o_stream_nsend_str(output, key);
 			else {
 				o_stream_nsend(output, "\"", 1);
