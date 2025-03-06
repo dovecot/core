@@ -115,6 +115,9 @@ static void
 http_client_host_shared_dns_callback(const struct dns_lookup_result *result,
 				     struct http_client_host_shared *hshared)
 {
+	/* We ended up here because dns_lookup_abort() was used */
+	if (result->ret == EAI_CANCELED)
+		return;
 	struct http_client_host *host;
 
 	hshared->dns_lookup = NULL;

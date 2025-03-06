@@ -640,6 +640,9 @@ static void
 pop3c_dns_callback(const struct dns_lookup_result *result,
 		   struct pop3c_client *client)
 {
+	/* We ended up here because dns_lookup_abort() was used */
+	if (result->ret == EAI_CANCELED)
+		return;
 	client->dns_lookup = NULL;
 
 	if (result->ret != 0) {

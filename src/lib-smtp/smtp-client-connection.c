@@ -1845,6 +1845,9 @@ static void
 smtp_client_connection_dns_callback(const struct dns_lookup_result *result,
 				    struct smtp_client_connection *conn)
 {
+	/* We ended up here because dns_lookup_abort() was used */
+	if (result->ret == EAI_CANCELED)
+		return;
 	conn->dns_lookup = NULL;
 
 	if (result->ret != 0) {

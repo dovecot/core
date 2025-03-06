@@ -2357,6 +2357,9 @@ static void
 auth_request_proxy_dns_callback(const struct dns_lookup_result *result,
 				struct auth_request_proxy_dns_lookup_ctx *ctx)
 {
+	/* We ended up here because dns_lookup_abort() was used */
+	if (result->ret == EAI_CANCELED)
+		return;
 	struct auth_request *request = ctx->request;
 	const char *host;
 	unsigned int i;
