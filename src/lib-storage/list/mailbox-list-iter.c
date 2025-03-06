@@ -102,15 +102,9 @@ mailbox_list_iter_init_autocreate(struct mailbox_list_iterate_context *ctx)
 	struct mail_namespace *ns = ctx->list->ns;
 	struct mailbox_list_autocreate_iterate_context *actx;
 	const struct mailbox_settings *box_set, *set;
-	const char *error, *const *box_names;
 	struct autocreate_box *autobox;
-	unsigned int i, count;
 
-	if (!array_is_created(&ns->set->mailboxes))
-		return 0;
-
-	box_names = array_get(&ns->set->mailboxes, &count);
-	if (count == 0)
+	if (array_is_empty(&ns->set->parsed_mailboxes))
 		return 0;
 
 	actx = p_new(ctx->pool, struct mailbox_list_autocreate_iterate_context, 1);
@@ -122,25 +116,15 @@ mailbox_list_iter_init_autocreate(struct mailbox_list_iterate_context *ctx)
 	p_array_init(&actx->boxes, ctx->pool, 16);
 	p_array_init(&actx->box_sets, ctx->pool, 16);
 	p_array_init(&actx->all_ns_box_sets, ctx->pool, 16);
-	for (i = 0; i < count; i++) {
-		if (settings_get_filter(ns->list->event,
-					"mailbox", box_names[i],
-					&mailbox_setting_parser_info, 0,
-					&box_set, &error) < 0) {
-			mailbox_list_set_critical(ctx->list, "%s", error);
-			return -1;
-		}
-		if (strcmp(box_set->autocreate, MAILBOX_SET_AUTO_NO) == 0) {
-			settings_free(box_set);
+	array_foreach_elem(&ns->set->parsed_mailboxes, box_set) {
+		if (strcmp(box_set->autocreate, MAILBOX_SET_AUTO_NO) == 0)
 			continue;
-		}
 
 		set = mailbox_settings_add_ns_prefix(ctx->pool, ns, box_set);
 
 		/* autocreate mailbox belongs to listed namespace */
 		array_push_back(&actx->all_ns_box_sets, &set);
 		pool_add_external_ref(ctx->pool, box_set->pool);
-		settings_free(box_set);
 		if ((ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0 ||
 		    strcmp(set->autocreate, MAILBOX_SET_AUTO_SUBSCRIBE) == 0) {
 			array_push_back(&actx->box_sets, &set);

@@ -239,31 +239,20 @@ mail_namespace_autoexpunge(struct mail_namespace *ns, struct file_lock **lock,
 			   unsigned int *expunged_count)
 {
 	const struct mailbox_settings *box_set;
-	const char *box_name, *error;
 
-	if (!array_is_created(&ns->set->mailboxes))
+	if (!array_is_created(&ns->set->parsed_mailboxes))
 		return TRUE;
 
-	array_foreach_elem(&ns->set->mailboxes, box_name) {
-		if (settings_get_filter(mailbox_list_get_event(ns->list),
-					"mailbox", box_name,
-					&mailbox_setting_parser_info, 0,
-					&box_set, &error) < 0) {
-			e_error(mailbox_list_get_event(ns->list), "%s", error);
-			break;
-		}
-
+	array_foreach_elem(&ns->set->parsed_mailboxes, box_set) {
 		if (box_set->autoexpunge == 0 &&
 		    box_set->autoexpunge_max_mails == 0) {
 			/* no autoexpunging needed */
 		} else if (!mailbox_autoexpunge_lock(ns->user, lock)) {
 			/* another process is already autoexpunging */
-			settings_free(box_set);
 			return FALSE;
 		} else T_BEGIN {
 			mailbox_autoexpunge_name(ns, box_set, expunged_count);
 		} T_END;
-		settings_free(box_set);
 	}
 	return TRUE;
 }
