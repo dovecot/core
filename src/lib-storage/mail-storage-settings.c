@@ -808,14 +808,14 @@ namespace_parse_mailboxes(struct event *event, pool_t pool,
 			  struct mail_namespace_settings *ns,
 			  const char **error_r)
 {
-	struct mailbox_settings *box_set;
+	const struct mailbox_settings *box_set;
 	const char *box_name, *error;
 	int ret = 0;
 
 	if (array_is_empty(&ns->mailboxes))
 		return 0;
 
-	p_array_init(&ns->parsed_mailbox_names, pool,
+	p_array_init(&ns->parsed_mailboxes, pool,
 		     array_count(&ns->mailboxes));
 	event = event_create(event);
 	event_add_str(event, SETTINGS_EVENT_NAMESPACE_NAME, ns->name);
@@ -832,8 +832,8 @@ namespace_parse_mailboxes(struct event *event, pool_t pool,
 			ret = -1;
 			break;
 		}
-		const char *name_dup = p_strdup(pool, box_set->name);
-		array_push_back(&ns->parsed_mailbox_names, &name_dup);
+		array_push_back(&ns->parsed_mailboxes, &box_set);
+		pool_add_external_ref(pool, box_set->pool);
 		bool have_special_use = array_not_empty(&box_set->special_use);
 		settings_free(box_set);
 		if (have_special_use)

@@ -141,9 +141,8 @@ struct mail_namespace_settings {
 
 	/* List of mailbox filter names */
 	ARRAY_TYPE(const_string) mailboxes;
-	/* mailbox_name of each mailbox. This is used for matching mailbox
-	   settings for mailbox names. */
-	ARRAY_TYPE(const_string) parsed_mailbox_names;
+	/* mailbox_settings of each configured mailbox in the namespace. */
+	ARRAY(const struct mailbox_settings *) parsed_mailboxes;
 	bool parsed_have_special_use_mailboxes;
 };
 

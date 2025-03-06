@@ -3489,11 +3489,11 @@ static void mailbox_settings_filters_add(struct event *event,
 	const char *vname_without_prefix =
 		mailbox_get_name_without_prefix(list->ns, vname);
 	unsigned int i, count;
-	const char *const *mailbox_names =
-		array_get(&list->ns->set->parsed_mailbox_names, &count);
+	const struct mailbox_settings *const *mailboxes =
+		array_get(&list->ns->set->parsed_mailboxes, &count);
 
 	for (i = 0; i < count; i++) {
-		if (!wildcard_match(vname_without_prefix, mailbox_names[i]))
+		if (!wildcard_match(vname_without_prefix, mailboxes[i]->name))
 			continue;
 
 		const char *filter_name =
