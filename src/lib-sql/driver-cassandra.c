@@ -1231,7 +1231,8 @@ static void driver_cassandra_log_result(struct cassandra_result *result,
 		event_set_forced_debug(event, TRUE);
 	if (reply_usecs/1000 >= db->set->warn_timeout_msecs) {
 		db->counters[CASSANDRA_COUNTER_TYPE_QUERY_SLOW]++;
-		e_warning(event, "%s", str_c(str));
+		e_warning(event, "%s (query took longer than %ums)", str_c(str),
+			  db->set->warn_timeout_msecs);
 	} else {
 		e_debug(event, "%s", str_c(str));
 	}
