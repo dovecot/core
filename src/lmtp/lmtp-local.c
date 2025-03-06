@@ -431,7 +431,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 	struct lmtp_local_deliver_context lldctx;
 	struct mail_user *rcpt_user;
 	const struct mail_storage_service_input *input;
-	const struct mail_storage_settings *mail_set;
+	const struct lmtp_pre_mail_settings *pre_mail_set;
 	struct smtp_proxy_data proxy_data;
 	struct mail_namespace *ns;
 	const char *error, *username;
@@ -441,9 +441,9 @@ lmtp_local_deliver(struct lmtp_local *local,
 	username = t_strdup(input->username);
 
 	if (settings_get(mail_storage_service_user_get_event(service_user),
-			 &mail_storage_setting_parser_info,
+			 &lmtp_pre_mail_setting_parser_info,
 			 SETTINGS_GET_FLAG_NO_EXPAND,
-			 &mail_set, &error) < 0) {
+			 &pre_mail_set, &error) < 0) {
 		e_error(rcpt->event, "%s", error);
 		smtp_server_recipient_reply(rcpt, 451, "4.3.0",
 					    "Temporary internal error");
@@ -453,8 +453,8 @@ lmtp_local_deliver(struct lmtp_local *local,
 	smtp_server_connection_get_proxy_data
 		(client->conn, &proxy_data);
 	if (proxy_data.timeout_secs > 0 &&
-	    (mail_set->mail_max_lock_timeout == 0 ||
-	     mail_set->mail_max_lock_timeout > proxy_data.timeout_secs)) {
+	    (pre_mail_set->mail_max_lock_timeout == 0 ||
+	     pre_mail_set->mail_max_lock_timeout > proxy_data.timeout_secs)) {
 		/* set lock timeout waits to be less than when proxy has
 		   advertised that it's going to timeout the connection.
 		   this avoids duplicate deliveries in case the delivery
@@ -467,7 +467,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 		settings_override(set_instance, "*/mail_max_lock_timeout",
 				  value, SETTINGS_OVERRIDE_TYPE_CODE);
 	}
-	settings_free(mail_set);
+	settings_free(pre_mail_set);
 
 	i_zero(&lldctx);
 	lldctx.session_id = lrcpt->session_id;

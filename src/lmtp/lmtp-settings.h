@@ -18,6 +18,11 @@ enum lmtp_client_workarounds {
 };
 /* </settings checks> */
 
+struct lmtp_pre_mail_settings {
+	pool_t pool;
+	unsigned int mail_max_lock_timeout;
+};
+
 struct lmtp_settings {
 	pool_t pool;
 	bool lmtp_proxy;
@@ -44,6 +49,7 @@ struct lmtp_settings {
 	enum lmtp_client_workarounds parsed_workarounds;
 };
 
+extern const struct setting_parser_info lmtp_pre_mail_setting_parser_info;
 extern const struct setting_parser_info lmtp_setting_parser_info;
 
 #endif

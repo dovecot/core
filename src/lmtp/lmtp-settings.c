@@ -57,6 +57,30 @@ const struct setting_keyvalue lmtp_service_settings_defaults[] = {
 
 #undef DEF
 #define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct lmtp_pre_mail_settings)
+
+static const struct setting_define lmtp_pre_mail_setting_defines[] = {
+	DEF(TIME, mail_max_lock_timeout),
+
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct lmtp_pre_mail_settings lmtp_pre_mail_default_settings = {
+	.mail_max_lock_timeout = 0,
+};
+
+const struct setting_parser_info lmtp_pre_mail_setting_parser_info = {
+	.name = "lmtp_pre_mail",
+
+	.defines = lmtp_pre_mail_setting_defines,
+	.defaults = &lmtp_pre_mail_default_settings,
+
+	.struct_size = sizeof(struct lmtp_pre_mail_settings),
+	.pool_offset1 = 1 + offsetof(struct lmtp_pre_mail_settings, pool),
+};
+
+#undef DEF
+#define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct lmtp_settings)
 
 static const struct setting_define lmtp_setting_defines[] = {
