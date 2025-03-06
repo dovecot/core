@@ -179,7 +179,7 @@ array_is_created_i(const struct array *array)
 	array_is_created_i(&(array)->arr)
 
 static inline pool_t ATTR_PURE
-array_get_pool_i(struct array *array)
+array_get_pool_i(const struct array *array)
 {
 	return buffer_get_pool(array->buffer);
 }
