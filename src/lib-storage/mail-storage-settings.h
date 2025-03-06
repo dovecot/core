@@ -21,6 +21,11 @@ struct mail_driver_settings {
 	const char *mail_driver;
 };
 
+struct mailbox_list_layout_settings {
+	pool_t pool;
+	const char *mailbox_list_layout;
+};
+
 struct mail_storage_settings {
 	pool_t pool;
 	const char *mail_driver;
@@ -193,6 +198,7 @@ struct mail_user_settings {
 extern const struct setting_parser_info mail_user_setting_parser_info;
 extern const struct setting_parser_info mail_namespace_setting_parser_info;
 extern const struct setting_parser_info mail_driver_setting_parser_info;
+extern const struct setting_parser_info mailbox_list_layout_setting_parser_info;
 extern const struct setting_parser_info mail_storage_setting_parser_info;
 extern const struct setting_parser_info mailbox_setting_parser_info;
 extern const struct mail_namespace_settings mail_namespace_default_settings;

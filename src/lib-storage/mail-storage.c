@@ -357,9 +357,9 @@ mail_storage_create_list(struct mail_namespace *ns,
 				  SETTINGS_OVERRIDE_TYPE_CODE);
 	}
 
-	const struct mail_storage_settings *mail_set;
-	if (settings_get(set_event, &mail_storage_setting_parser_info, 0,
-			 &mail_set, error_r) < 0) {
+	const struct mailbox_list_layout_settings *layout_set;
+	if (settings_get(set_event, &mailbox_list_layout_setting_parser_info, 0,
+			 &layout_set, error_r) < 0) {
 		event_unref(&set_event);
 		return -1;
 	}
@@ -369,8 +369,8 @@ mail_storage_create_list(struct mail_namespace *ns,
 	event_unref(&set_event);
 	set_event = set_event2;
 	settings_event_add_filter_name(set_event, t_strdup_printf("layout_%s",
-		t_str_lcase(mail_set->mailbox_list_layout)));
-	settings_free(mail_set);
+		t_str_lcase(layout_set->mailbox_list_layout)));
+	settings_free(layout_set);
 
 	if (root_path_override != NULL) {
 		mail_storage_create_ns_instance(ns, set_event);
@@ -385,6 +385,7 @@ mail_storage_create_list(struct mail_namespace *ns,
 				  SETTINGS_OVERRIDE_TYPE_CODE);
 	}
 
+	const struct mail_storage_settings *mail_set;
 	if (settings_get(set_event, &mail_storage_setting_parser_info, 0,
 			 &mail_set, error_r) < 0) {
 		event_unref(&set_event);

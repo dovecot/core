@@ -249,6 +249,29 @@ const struct setting_parser_info mail_driver_setting_parser_info = {
 
 #undef DEF
 #define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct mailbox_list_layout_settings)
+
+static const struct setting_define mailbox_list_layout_setting_defines[] = {
+	DEF(STR, mailbox_list_layout),
+	SETTING_DEFINE_LIST_END
+};
+
+const struct mailbox_list_layout_settings mailbox_list_layout_default_settings = {
+	.mailbox_list_layout = "fs",
+};
+
+const struct setting_parser_info mailbox_list_layout_setting_parser_info = {
+	.name = "mailbox_list_layout",
+
+	.defines = mailbox_list_layout_setting_defines,
+	.defaults = &mailbox_list_layout_default_settings,
+
+	.struct_size = sizeof(struct mailbox_list_layout_settings),
+	.pool_offset1 = 1 + offsetof(struct mailbox_list_layout_settings, pool),
+};
+
+#undef DEF
+#define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type("mailbox_"#name, name, struct mailbox_settings)
 
 static const struct setting_define mailbox_setting_defines[] = {
