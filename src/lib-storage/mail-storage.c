@@ -66,6 +66,22 @@ ARRAY_TYPE(mail_storage) mail_storage_classes;
 
 static int mail_storage_init_refcount = 0;
 
+static const char *
+mailbox_get_name_without_prefix(struct mail_namespace *ns,
+				const char *vname)
+{
+	if (ns->prefix_len > 0 &&
+	    strncmp(ns->prefix, vname, ns->prefix_len-1) == 0) {
+		if (vname[ns->prefix_len-1] == mail_namespace_get_sep(ns))
+			vname += ns->prefix_len;
+		else if (vname[ns->prefix_len-1] == '\0') {
+			/* namespace prefix itself */
+			vname = "";
+		}
+	}
+	return vname;
+}
+
 void mail_storage_init(void)
 {
 	if (mail_storage_init_refcount++ > 0)
@@ -3461,22 +3477,6 @@ mail_storage_settings_to_index_flags(const struct mail_storage_settings *set)
 	if (set->mail_nfs_index)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_NFS_FLUSH;
 	return index_flags;
-}
-
-static const char *
-mailbox_get_name_without_prefix(struct mail_namespace *ns,
-				const char *vname)
-{
-	if (ns->prefix_len > 0 &&
-	    strncmp(ns->prefix, vname, ns->prefix_len-1) == 0) {
-		if (vname[ns->prefix_len-1] == mail_namespace_get_sep(ns))
-			vname += ns->prefix_len;
-		else if (vname[ns->prefix_len-1] == '\0') {
-			/* namespace prefix itself */
-			vname = "";
-		}
-	}
-	return vname;
 }
 
 static void mailbox_settings_filters_add(struct event *event,
