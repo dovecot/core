@@ -492,6 +492,7 @@ void http_client_context_unref(struct http_client_context **_cctx)
 	connection_list_deinit(&cctx->conn_list);
 
 	event_unref(&cctx->event);
+	i_free(cctx->dns_client_socket_path);
 	pool_unref(&cctx->pool);
 }
 
@@ -513,7 +514,7 @@ http_client_context_update_settings(struct http_client_context *cctx)
 
 	/* Revert back to default settings */
 	cctx->dns_client = NULL;
-	cctx->dns_client_socket_path = NULL;
+	i_free(cctx->dns_client_socket_path);
 	cctx->dns_ttl_msecs = UINT_MAX;
 	cctx->dns_lookup_timeout_msecs = UINT_MAX;
 
@@ -534,10 +535,10 @@ http_client_context_update_settings(struct http_client_context *cctx)
 			if (client->set->dns_client_socket_path[0] == '/' ||
 			    str_begins_with(client->set->dns_client_socket_path, "./")) {
 				cctx->dns_client_socket_path =
-					p_strdup(cctx->pool, client->set->dns_client_socket_path);
+					i_strdup(client->set->dns_client_socket_path);
 			} else {
 				cctx->dns_client_socket_path =
-					p_strdup_printf(cctx->pool, "%s/%s",
+					i_strdup_printf("%s/%s",
 							client->set->base_dir,
 							client->set->dns_client_socket_path);
 			}

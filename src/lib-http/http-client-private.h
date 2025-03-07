@@ -401,7 +401,7 @@ struct http_client_context {
 	struct ioloop *ioloop;
 
 	struct dns_client *dns_client;
-	const char *dns_client_socket_path;
+	char *dns_client_socket_path;
 	unsigned int dns_ttl_msecs;
 	unsigned int dns_lookup_timeout_msecs;
 
