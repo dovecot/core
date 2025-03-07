@@ -23,7 +23,6 @@ libauth_crypt_la_SOURCES = \
 	password-scheme-sodium.c
 
 libauth_crypt_la_LIBADD = \
-	libauth.la \
 	$(LIBSODIUM_LIBS) \
 	$(CRYPT_LIBS)
 
