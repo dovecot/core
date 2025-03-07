@@ -1014,11 +1014,17 @@ mailbox_list_iter_next_call(struct mailbox_list_iterate_context *ctx)
 	if ((ctx->flags & MAILBOX_LIST_ITER_RETURN_SPECIALUSE) != 0) {
 		/* NOTE: ctx->list is fake - don't use it directly */
 		const char *error;
-		struct event *event = mail_storage_mailbox_create_event(
-			info->ns->list->event, info->ns->list, info->vname);
-		ret = settings_get(event, &mailbox_setting_parser_info, 0,
-				   &set, &error);
-		event_unref(&event);
+
+		ret = mailbox_name_try_get_settings(info->ns->list, info->vname,
+						    &set, &error);
+		if (ret == 0) {
+			struct event *event = mail_storage_mailbox_create_event(
+				info->ns->list->event, info->ns->list,
+				info->vname);
+			ret = settings_get(event, &mailbox_setting_parser_info, 0,
+					   &set, &error);
+			event_unref(&event);
+		}
 		if (ret < 0) {
 			mailbox_list_set_critical(info->ns->list, "%s", error);
 			ctx->failed = TRUE;
