@@ -309,8 +309,8 @@ void client_command_cancel(struct client_command_context **_cmd)
 const char *client_stats(struct client *client)
 {
 	const struct var_expand_table logout_tab[] = {
-		{ .key = "input", .value = dec2str(i_stream_get_absolute_offset(client->input)) },
-		{ .key = "output", .value = dec2str(client->output->offset) },
+		{ .key = "input", .value = dec2str(i_stream_get_absolute_offset(client->input) + client->logout_stats.input_bytes_extra) },
+		{ .key = "output", .value = dec2str(client->output->offset + client->logout_stats.output_bytes_extra) },
 		{ .key = "session", .value = client->user->session_id },
 		{ .key = "fetch_hdr_count", .value = dec2str(client->logout_stats.fetch_hdr_count) },
 		{ .key = "fetch_hdr_bytes", .value = dec2str(client->logout_stats.fetch_hdr_bytes) },

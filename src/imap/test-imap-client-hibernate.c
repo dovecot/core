@@ -39,6 +39,7 @@ static struct mail_storage_service_ctx *storage_service;
 void imap_refresh_proctitle(void) { }
 void imap_refresh_proctitle_delayed(void) { }
 int client_create_from_input(const struct mail_storage_service_input *input ATTR_UNUSED,
+			     const struct imap_logout_stats *stats ATTR_UNUSED,
 			     int fd_in ATTR_UNUSED, int fd_out ATTR_UNUSED,
 			     enum client_create_flags flags ATTR_UNUSED,
 			     struct client **client_r ATTR_UNUSED,
