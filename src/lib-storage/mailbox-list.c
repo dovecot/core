@@ -555,6 +555,7 @@ void mailbox_list_destroy(struct mailbox_list **_list)
 
 	struct event *event = list->event;
 	settings_free(list->mail_set);
+	settings_free(list->default_box_set);
 	list->v.deinit(list);
 	event_unref(&event);
 }

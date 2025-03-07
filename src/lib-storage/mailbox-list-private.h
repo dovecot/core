@@ -114,6 +114,7 @@ struct mailbox_list {
 	pool_t pool;
 	struct mail_namespace *ns;
 	const struct mail_storage_settings *mail_set;
+	const struct mailbox_settings *default_box_set;
 	enum mailbox_list_flags flags;
 
 	/* may not be set yet, use mailbox_list_get_permissions() to access */

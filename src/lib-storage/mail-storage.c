@@ -1048,6 +1048,55 @@ bool mail_storage_set_error_from_errno(struct mail_storage *storage)
 	return TRUE;
 }
 
+static int
+mailbox_list_get_default_box_settings(struct mailbox_list *list,
+				      const struct mailbox_settings **set_r,
+				      const char **error_r)
+{
+	if (list->default_box_set == NULL) {
+		if (settings_get(list->event,
+				 &mailbox_setting_parser_info, 0,
+				 &list->default_box_set, error_r) < 0)
+			return -1;
+	}
+	pool_ref(list->default_box_set->pool);
+	*set_r = list->default_box_set;
+	return 1;
+}
+
+int mailbox_name_try_get_settings(struct mailbox_list *list, const char *vname,
+				  const struct mailbox_settings **set_r,
+				  const char **error_r)
+{
+	if (array_is_empty(&list->ns->set->mailboxes))
+		return mailbox_list_get_default_box_settings(list, set_r, error_r);
+
+	const char *vname_without_prefix =
+		mailbox_get_name_without_prefix(list->ns, vname);
+	unsigned int i, count;
+	const struct mailbox_settings *set = NULL, *const *mailboxes =
+		array_get(&list->ns->set->parsed_mailboxes, &count);
+
+	for (i = 0; i < count; i++) {
+		if (!wildcard_match(vname_without_prefix, mailboxes[i]->name))
+			continue;
+
+		if (set == NULL)
+			set = mailboxes[i];
+		else {
+			/* multiple mailbox named list filters match - need to
+			   lookup settings to get them merged. */
+			return 0;
+		}
+	}
+	if (set == NULL)
+		return mailbox_list_get_default_box_settings(list, set_r, error_r);
+
+	pool_ref(set->pool);
+	*set_r = set;
+	return 1;
+}
+
 struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 			      enum mailbox_flags flags)
 {
@@ -1082,8 +1131,10 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 	}
 
 	T_BEGIN {
-		const char *orig_vname = vname;
+		const char *error, *orig_vname = vname;
 		enum mailbox_list_get_storage_flags storage_flags = 0;
+		int ret;
+
 		if ((flags & MAILBOX_FLAG_SAVEONLY) != 0)
 			storage_flags |= MAILBOX_LIST_GET_STORAGE_FLAG_SAVEONLY;
 		if (mailbox_list_get_storage(&new_list, &vname,
@@ -1095,15 +1146,20 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 		}
 
 		box = storage->v.mailbox_alloc(storage, new_list, vname, flags);
-		const char *error;
 		if (open_error != 0) {
 			box->open_error = open_error;
 			mail_storage_set_error(storage, open_error, errstr);
-		} else if (settings_get(box->event,
-					&mailbox_setting_parser_info, 0,
-					&box->set, &error) < 0) {
+		} else if ((ret = mailbox_name_try_get_settings(box->list,
+					vname, &box->set, &error)) < 0) {
 			mailbox_set_critical(box, "%s", error);
 			box->open_error = box->storage->error;
+		} else if (ret == 0) {
+			if (settings_get(box->event,
+					 &mailbox_setting_parser_info, 0,
+					 &box->set, &error) < 0) {
+				mailbox_set_critical(box, "%s", error);
+				box->open_error = box->storage->error;
+			}
 		}
 		if (strcmp(orig_vname, vname) != 0)
 			box->mailbox_not_original = TRUE;

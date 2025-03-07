@@ -931,6 +931,12 @@ static inline const char *mailbox_name_sanitize(const char *name)
 struct event *
 mail_storage_mailbox_create_event(struct event *parent,
 				  struct mailbox_list *list, const char *vname);
+/* Try to get mailbox_settings for a mailbox. Returns 1 on success, -1 on
+   error, 0 if settings need to be merged and caller should be calling
+   settings_get() instead with the mailbox event. */
+int mailbox_name_try_get_settings(struct mailbox_list *list, const char *vname,
+				  const struct mailbox_settings **set_r,
+				  const char **error_r);
 
 /* for unit testing */
 int mailbox_verify_name(struct mailbox *box);
