@@ -212,6 +212,25 @@ imap_client_move_back_send_callback(void *context, struct ostream *output)
 		/* IDLE continues after sending changes */
 		str_append(str, "\tidle-continue");
 	}
+	/* For imap_logout_format statistics: */
+	str_printfa(str,
+		   "\tfetch_hdr_count=%u\tfetch_hdr_bytes=%"PRIu64
+		   "\tfetch_body_count=%u\tfetch_body_bytes=%"PRIu64
+		   "\tdeleted_count=%u\texpunged_count=%u\ttrashed_count=%u"
+		   "\tautoexpunged_count=%u\tappend_count=%u"
+		   "\tinput_bytes_extra=%"PRIuUOFF_T
+		   "\toutput_bytes_extra=%"PRIuUOFF_T,
+		   client->state.logout_stats.fetch_hdr_count,
+		   client->state.logout_stats.fetch_hdr_bytes,
+		   client->state.logout_stats.fetch_body_count,
+		   client->state.logout_stats.fetch_body_bytes,
+		   client->state.logout_stats.deleted_count,
+		   client->state.logout_stats.expunged_count,
+		   client->state.logout_stats.trashed_count,
+		   client->state.logout_stats.autoexpunged_count,
+		   client->state.logout_stats.append_count,
+		   i_stream_get_absolute_offset(client->input) + client->state.logout_stats.input_bytes_extra,
+		   client->output->offset + client->state.logout_stats.output_bytes_extra);
 	str_append_c(str, '\n');
 
 	/* send the fd first */

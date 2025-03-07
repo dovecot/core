@@ -163,6 +163,72 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 			}
 			state_r->state = state_buf->data;
 			state_r->state_size = state_buf->used;
+		} else if (strcmp(key, "fetch_hdr_count") == 0) {
+			if (str_to_uint(value, &state_r->logout_stats.fetch_hdr_count) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid fetch_hdr_count value: %s", value);
+				return -1;
+			}
+		} else if (strcmp(key, "fetch_hdr_bytes") == 0) {
+			if (str_to_uint64(value, &state_r->logout_stats.fetch_hdr_bytes) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid fetch_hdr_bytes value: %s", value);
+				return -1;
+			}
+		} else if (strcmp(key, "fetch_body_count") == 0) {
+			if (str_to_uint(value, &state_r->logout_stats.fetch_body_count) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid fetch_body_count value: %s", value);
+				return -1;
+			}
+		} else if (strcmp(key, "fetch_body_bytes") == 0) {
+			if (str_to_uint64(value, &state_r->logout_stats.fetch_body_bytes) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid fetch_body_bytes value: %s", value);
+				return -1;
+			}
+		} else if (strcmp(key, "deleted_count") == 0) {
+			if (str_to_uint(value, &state_r->logout_stats.deleted_count) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid deleted_count value: %s", value);
+				return -1;
+			}
+		} else if (strcmp(key, "expunged_count") == 0) {
+			if (str_to_uint(value, &state_r->logout_stats.expunged_count) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid expunged_count value: %s", value);
+				return -1;
+			}
+		} else if (strcmp(key, "trashed_count") == 0) {
+			if (str_to_uint(value, &state_r->logout_stats.trashed_count) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid trashed_count value: %s", value);
+				return -1;
+			}
+		} else if (strcmp(key, "autoexpunged_count") == 0) {
+			if (str_to_uint(value, &state_r->logout_stats.autoexpunged_count) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid autoexpunged_count value: %s", value);
+				return -1;
+			}
+		} else if (strcmp(key, "append_count") == 0) {
+			if (str_to_uint(value, &state_r->logout_stats.append_count) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid append_count value: %s", value);
+				return -1;
+			}
+		} else if (strcmp(key, "input_bytes_extra") == 0) {
+			if (str_to_uoff(value, &state_r->logout_stats.input_bytes_extra) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid input_bytes_extra value: %s", value);
+				return -1;
+			}
+		} else if (strcmp(key, "output_bytes_extra") == 0) {
+			if (str_to_uoff(value, &state_r->logout_stats.output_bytes_extra) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid output_bytes_extra value: %s", value);
+				return -1;
+			}
 		}
 	}
 	if (state_r->tag == NULL) {
