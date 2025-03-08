@@ -107,13 +107,7 @@ mail_user_alloc(struct mail_storage_service_user *service_user)
 
 int mail_user_init(struct mail_user *user, const char **error_r)
 {
-	const char *error;
-
 	i_assert(!user->initialized);
-
-	if (settings_get(user->event, &mail_storage_setting_parser_info, 0,
-			 &user->_mail_set, &error) < 0)
-		user->error = p_strdup(user->pool, error);
 
 	if (user->error == NULL) {
 		user->initialized = TRUE;
@@ -181,7 +175,6 @@ void mail_user_unref(struct mail_user **_user)
 		user->v.deinit_pre(user);
 		user->v.deinit(user);
 	} T_END;
-	settings_free(user->_mail_set);
 	event_unref(&user->event);
 	i_assert(user->refcount == 1);
 	pool_unref(&user->pool);

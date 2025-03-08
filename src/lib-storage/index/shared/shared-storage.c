@@ -344,7 +344,10 @@ shared_mail_user_init(struct mail_storage *_storage,
 	struct mail_namespace *ns = *_ns;
 	struct shared_storage *storage = SHARED_STORAGE(_storage);
 	enum mail_storage_flags new_storage_flags = 0;
-	const char *error;
+	const char *home, *error;
+
+	/* Make sure owner->nonexistent is set */
+	(void)mail_user_get_home(owner, &home);
 
 	struct shared_mail_user_var_expand_ctx *var_expand_ctx =
 		p_new(user->pool, struct shared_mail_user_var_expand_ctx, 1);
