@@ -11,6 +11,7 @@
 #include "var-expand.h"
 #include "randgen.h"
 #include "dsasl-client.h"
+#include "settings.h"
 #include "settings-parser.h"
 #include "master-service.h"
 #include "master-service-settings.h"
@@ -692,10 +693,10 @@ static void cmd_user_mail_input_field(const char *key, const char *value,
 static void
 cmd_user_mail_print_fields(const struct authtest_input *input,
 			   struct mail_user *user,
+			   const struct mail_storage_settings *mail_set,
 			   const char *const *userdb_fields,
 			   const char *show_field)
 {
-	const struct mail_storage_settings *mail_set;
 	const char *key, *value;
 	unsigned int i;
 
@@ -704,8 +705,6 @@ cmd_user_mail_print_fields(const struct authtest_input *input,
 	cmd_user_mail_input_field("uid", user->set->mail_uid, show_field);
 	cmd_user_mail_input_field("gid", user->set->mail_gid, show_field);
 	cmd_user_mail_input_field("home", user->set->mail_home, show_field);
-
-	mail_set = mail_user_set_get_storage_set(user);
 	cmd_user_mail_input_field("mail_path", mail_set->mail_path, show_field);
 
 	if (userdb_fields != NULL) {
@@ -734,6 +733,7 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 {
 	struct mail_storage_service_input service_input;
 	struct mail_user *user;
+	const struct mail_storage_settings *mail_set;
 	const char *error, *const *userdb_fields;
 	int ret;
 
@@ -757,10 +757,17 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 			input->username);
 		return 0;
 	}
+	if (settings_get(user->event, &mail_storage_setting_parser_info, 0,
+			 &mail_set, &error) < 0) {
+		e_error(event, "%s", error);
+		mail_user_deinit(&user);
+		return -1;
+	}
 
 	if (expand_field == NULL) {
 		userdb_fields = mail_storage_service_user_get_userdb_fields(user->service_user);
-		cmd_user_mail_print_fields(input, user, userdb_fields, show_field);
+		cmd_user_mail_print_fields(input, user, mail_set,
+					   userdb_fields, show_field);
 	} else {
 		string_t *str = t_str_new(128);
 		const struct var_expand_params *params =
@@ -772,6 +779,7 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 		}
 	}
 
+	settings_free(mail_set);
 	mail_user_deinit(&user);
 	return 1;
 }

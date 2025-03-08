@@ -6,6 +6,7 @@
 #include "str.h"
 #include "var-expand.h"
 #include "wildcard-match.h"
+#include "settings.h"
 #include "settings-parser.h"
 #include "master-service.h"
 #include "master-service-settings.h"
@@ -212,11 +213,11 @@ static void cmd_user_mail_input_field(struct json_ostream *json_output,
 static void
 cmd_user_mail_print_fields(const struct authtest_input *input,
 			   struct mail_user *user,
+			   const struct mail_storage_settings *mail_set,
 			   struct json_ostream *json_output,
 			   const char *const *userdb_fields,
 			   const char *show_field)
 {
-	const struct mail_storage_settings *mail_set;
 	const char *key, *value;
 	unsigned int i;
 
@@ -230,8 +231,6 @@ cmd_user_mail_print_fields(const struct authtest_input *input,
 				  user->set->mail_gid, show_field);
 	cmd_user_mail_input_field(json_output, "home",
 				  user->set->mail_home, show_field);
-
-	mail_set = mail_user_set_get_storage_set(user);
 	cmd_user_mail_input_field(json_output, "mail_path",
 				  mail_set->mail_path, show_field);
 
@@ -264,6 +263,7 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 {
 	struct mail_storage_service_input service_input;
 	struct mail_user *user;
+	const struct mail_storage_settings *mail_set;
 	const char *error, *const *userdb_fields;
 	int ret;
 
@@ -288,10 +288,16 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 			input->username);
 		return 0;
 	}
+	if (settings_get(user->event, &mail_storage_setting_parser_info, 0,
+			 &mail_set, &error) < 0) {
+		json_ostream_nwrite_string(json_output, "error", error);
+		mail_user_deinit(&user);
+		return -1;
+	}
 
 	if (expand_field == NULL) {
 		userdb_fields = mail_storage_service_user_get_userdb_fields(user->service_user);
-		cmd_user_mail_print_fields(input, user,
+		cmd_user_mail_print_fields(input, user, mail_set,
 			json_output, userdb_fields, show_field);
 	} else {
 		string_t *str = t_str_new(128);
@@ -306,6 +312,7 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 		}
 	}
 
+	settings_free(mail_set);
 	mail_user_deinit(&user);
 	return 1;
 }
