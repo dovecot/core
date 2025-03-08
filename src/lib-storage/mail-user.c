@@ -504,16 +504,14 @@ int mail_user_lock_file_create(struct mail_user *user, const char *lock_fname,
 		return -1;
 	}
 
-	const struct mail_storage_settings *mail_set =
-		mail_user_set_get_storage_set(user);
+	struct mailbox_list *inbox_list =
+		mail_namespace_find_inbox(user->namespaces)->list;
 	struct file_create_settings lock_set = {
 		.lock_timeout_secs = lock_secs,
 		.lock_settings = {
-			.lock_method = mail_set->parsed_lock_method,
+			.lock_method = inbox_list->mail_set->parsed_lock_method,
 		},
 	};
-	struct mailbox_list *inbox_list =
-		mail_namespace_find_inbox(user->namespaces)->list;
 	if (inbox_list->mail_set->mail_volatile_path[0] == '\0')
 		path = t_strdup_printf("%s/%s", home, lock_fname);
 	else {
@@ -522,7 +520,8 @@ int mail_user_lock_file_create(struct mail_user *user, const char *lock_fname,
 				lock_fname);
 		lock_set.mkdir_mode = 0700;
 	}
-	return mail_storage_lock_create(path, &lock_set, mail_set, lock_r, error_r);
+	return mail_storage_lock_create(path, &lock_set, inbox_list->mail_set,
+					lock_r, error_r);
 }
 
 void mail_user_get_anvil_session(struct mail_user *user,
