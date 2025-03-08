@@ -14,6 +14,7 @@
 #include "config-dump-full.h"
 
 #include <stdio.h>
+#include <fcntl.h>
 #include <unistd.h>
 
 /*
@@ -610,7 +611,7 @@ int config_dump_full(struct config_parsed *config,
 {
 	struct config_export_context *export_ctx;
 	const char *dovecot_config_version, *error;
-	int fd = -1;
+	int fd_readonly = -1;
 
 	struct dump_context dump_ctx = {
 		.delayed_output = str_new(default_pool, 256),
@@ -653,21 +654,29 @@ int config_dump_full(struct config_parsed *config,
 	case CONFIG_DUMP_FULL_DEST_STDOUT:
 		dump_ctx.output = o_stream_create_fd(STDOUT_FILENO, IO_BLOCK_SIZE);
 		o_stream_set_name(dump_ctx.output, "<stdout>");
-		fd = 0;
 		break;
 	}
 
 	if (dump_ctx.output == NULL) {
-		fd = safe_mkstemp(path, 0700, (uid_t)-1, (gid_t)-1);
+		int fd = safe_mkstemp(path, 0700, (uid_t)-1, (gid_t)-1);
 		if (fd == -1) {
 			i_error("safe_mkstemp(%s) failed: %m", str_c(path));
 			config_export_free(&export_ctx);
 			str_free(&dump_ctx.delayed_output);
 			return -1;
 		}
+		fd_readonly = open(str_c(path), O_RDONLY);
+		if (fd_readonly == -1) {
+			i_error("open(%s) failed: %m", str_c(path));
+			i_close_fd(&fd);
+			i_unlink(str_c(path));
+			config_export_free(&export_ctx);
+			str_free(&dump_ctx.delayed_output);
+			return -1;
+		}
 		if (dest == CONFIG_DUMP_FULL_DEST_TEMPDIR)
 			i_unlink(str_c(path));
-		dump_ctx.output = o_stream_create_fd(fd, IO_BLOCK_SIZE);
+		dump_ctx.output = o_stream_create_fd_autoclose(&fd, IO_BLOCK_SIZE);
 		o_stream_set_name(dump_ctx.output, str_c(path));
 	}
 	struct ostream *output = dump_ctx.output;
@@ -865,17 +874,10 @@ int config_dump_full(struct config_parsed *config,
 		}
 	}
 
-	if (!failed && dest != CONFIG_DUMP_FULL_DEST_STDOUT &&
-	    lseek(fd, 0, SEEK_SET) < 0) {
-		i_error("lseek(%s, 0) failed: %m", o_stream_get_name(output));
-		failed = TRUE;
-	}
-	if (failed) {
-		if (dest == CONFIG_DUMP_FULL_DEST_STDOUT)
-			fd = -1;
-		else
-			i_close_fd(&fd);
-	}
+	if (failed)
+		i_close_fd(&fd_readonly);
+	else if (dest == CONFIG_DUMP_FULL_DEST_STDOUT)
+		fd_readonly = 0;
 	o_stream_destroy(&output);
-	return fd;
+	return fd_readonly;
 }
