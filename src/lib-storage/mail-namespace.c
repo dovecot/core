@@ -555,15 +555,18 @@ static int
 mail_namespaces_init_default_location(struct mail_user *user,
 				      const char **error_r)
 {
-	const struct mail_storage_settings *mail_set;
+	const struct mail_driver_settings *set;
 	const char *driver = "", *mail_path = "", *location_source, *error;
 	bool autodetect = FALSE;
 
+	if (settings_get(user->event, &mail_driver_setting_parser_info, 0,
+			 &set, error_r) < 0)
+		return -1;
+
 	struct event *set_event = event_create(user->event);
-	mail_set = mail_user_set_get_storage_set(user);
-	if (*mail_set->mail_driver != '\0') {
+	if (*set->mail_driver != '\0') {
 		location_source = t_strdup_printf("mail_driver=%s setting",
-						  mail_set->mail_driver);
+						  set->mail_driver);
 	} else if ((mail_path = getenv("MAIL")) != NULL) {
 		location_source = t_strdup_printf("environment MAIL=%s",
 						  mail_path);
@@ -578,6 +581,7 @@ mail_namespaces_init_default_location(struct mail_user *user,
 	}
 	int ret = mail_namespaces_init_location_full(user, set_event,
 						     driver, mail_path, &error);
+	settings_free(set);
 	event_unref(&set_event);
 
 	if (ret == 0)
