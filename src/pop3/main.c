@@ -195,9 +195,8 @@ static int init_namespaces(struct client *client, bool already_logged_in)
 		client->inbox_ns = mail_namespace_find_inbox(client->user->namespaces);
 		i_assert(client->inbox_ns != NULL);
 
-		ret = settings_get(mail_namespace_get_event(client->inbox_ns),
-			 &mail_storage_setting_parser_info, 0,
-			 &client->mail_set, &error);
+		client->mail_set = mailbox_list_get_mail_set(client->inbox_ns->list);
+		pool_ref(client->mail_set->pool);
 	}
 
 	if (ret < 0) {
