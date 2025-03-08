@@ -101,8 +101,6 @@ struct mail_storage_settings {
 
 	ARRAY_TYPE(const_string) mail_attachment_detection_options;
 
-	ARRAY_TYPE(const_string) namespaces;
-
 	enum file_lock_method parsed_lock_method;
 	enum fsync_mode parsed_fsync_mode;
 
@@ -184,6 +182,7 @@ struct mail_user_settings {
 
 	const char *mail_log_prefix;
 
+	ARRAY_TYPE(const_string) namespaces;
 	const char *hostname;
 	const char *postmaster_address;
 

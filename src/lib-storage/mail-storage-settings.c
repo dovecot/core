@@ -109,10 +109,6 @@ static const struct setting_define mail_storage_setting_defines[] = {
 
 	DEF(STR, recipient_delimiter),
 
-	{ .type = SET_FILTER_ARRAY, .key = "namespace",
-	   .offset = offsetof(struct mail_storage_settings, namespaces),
-	   .filter_array_field_name = "namespace_name" },
-
 	SETTING_DEFINE_LIST_END
 };
 
@@ -186,8 +182,6 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.pop3_uidl_format = "%{uid | hex(8)}%{uidvalidity | hex(8)}",
 
 	.recipient_delimiter = "+",
-
-	.namespaces = ARRAY_INIT,
 };
 
 static const struct setting_keyvalue mail_storage_default_settings_keyvalue[] = {
@@ -393,6 +387,9 @@ static const struct setting_define mail_user_setting_defines[] = {
 
 	DEF(STR, mail_log_prefix),
 
+	{ .type = SET_FILTER_ARRAY, .key = "namespace",
+	   .offset = offsetof(struct mail_user_settings, namespaces),
+	   .filter_array_field_name = "namespace_name" },
 	DEF(STR, hostname),
 	DEF(STR, postmaster_address),
 
@@ -432,6 +429,7 @@ static const struct mail_user_settings mail_user_default_settings = {
 
 	.mail_log_prefix = "%{service}(%{user})<%{process:pid}><%{session}>: ",
 
+	.namespaces = ARRAY_INIT,
 	.hostname = "",
 	.postmaster_address = "postmaster@%{user|domain|default(hostname)}",
 };

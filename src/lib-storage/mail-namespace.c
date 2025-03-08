@@ -450,10 +450,8 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 
         namespaces = NULL; ns_p = &namespaces;
 
-	const struct mail_storage_settings *mail_set =
-		mail_user_set_get_storage_set(user);
-	if (array_is_created(&mail_set->namespaces))
-		ns_names = array_get(&mail_set->namespaces, &count);
+	if (array_is_created(&user->set->namespaces))
+		ns_names = array_get(&user->set->namespaces, &count);
 	else {
 		ns_names = NULL;
 		count = 0;
