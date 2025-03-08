@@ -22,6 +22,7 @@ enum imap_client_fetch_failure {
 struct imap_settings {
 	pool_t pool;
 	bool verbose_proctitle;
+	bool mailbox_list_index;
 	const char *rawlog_dir;
 
 	/* imap: */

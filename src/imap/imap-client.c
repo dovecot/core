@@ -98,7 +98,6 @@ struct client *client_create(int fd_in, int fd_out,
 			     const struct imap_settings *set,
 			     const struct smtp_submit_settings *smtp_set)
 {
-	const struct mail_storage_settings *mail_set;
 	struct client *client;
 	pool_t pool;
 
@@ -158,10 +157,9 @@ struct client *client_create(int fd_in, int fd_out,
 	if (!user->fuzzy_search)
 		imap_unset_capability(set_instance, "SEARCH=FUZZY");
 
-	mail_set = mail_user_set_get_storage_set(user);
 	/* NOTIFY is enabled only when mailbox list indexes are enabled,
 	   although even that doesn't necessarily guarantee it always */
-	if (!mail_set->mailbox_list_index)
+	if (!set->mailbox_list_index)
 		imap_unset_capability(set_instance, "NOTIFY");
 
 	const char *error;

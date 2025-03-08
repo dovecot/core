@@ -66,6 +66,7 @@ const struct setting_keyvalue imap_service_settings_defaults[] = {
 
 static const struct setting_define imap_setting_defines[] = {
 	DEF(BOOL, verbose_proctitle),
+	DEF(BOOL, mailbox_list_index),
 	DEF(STR, rawlog_dir),
 
 	DEF(SIZE_HIDDEN, imap_max_line_length),
@@ -92,6 +93,7 @@ static const struct setting_define imap_setting_defines[] = {
 
 static const struct imap_settings imap_default_settings = {
 	.verbose_proctitle = VERBOSE_PROCTITLE_DEFAULT,
+	.mailbox_list_index = TRUE,
 	.rawlog_dir = "",
 
 	/* RFC-2683 recommends at least 8000 bytes. Some clients however don't
