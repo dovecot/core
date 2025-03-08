@@ -13,6 +13,7 @@
 #include "md5.h"
 #include "hash.h"
 #include "mail-user.h"
+#include "mailbox-list-private.h"
 #include "mail-storage-settings.h"
 #include "mail-duplicate.h"
 
@@ -713,7 +714,6 @@ struct mail_duplicate_db *
 mail_duplicate_db_init(struct mail_user *user, const char *name)
 {
 	struct mail_duplicate_db *db;
-	const struct mail_storage_settings *mail_set;
 	const char *home = NULL;
 	const char *lock_dir;
 
@@ -743,9 +743,10 @@ mail_duplicate_db_init(struct mail_user *user, const char *name)
 	db->lock_dir = i_strconcat(lock_dir, "/.dovecot.", name, ".locks",
 				   NULL);
 
-	mail_set = mail_user_set_get_storage_set(user);
-	db->dotlock_set.use_excl_lock = mail_set->dotlock_use_excl;
-	db->dotlock_set.nfs_flush = mail_set->mail_nfs_storage;
+	struct mailbox_list *inbox_list =
+		mail_namespace_find_inbox(user->namespaces)->list;
+	db->dotlock_set.use_excl_lock = inbox_list->mail_set->dotlock_use_excl;
+	db->dotlock_set.nfs_flush = inbox_list->mail_set->mail_nfs_storage;
 
 	return db;
 }
