@@ -204,9 +204,6 @@ extern const struct mailbox_settings mailbox_default_settings;
 
 struct ssl_iostream_settings;
 
-const struct mail_storage_settings *
-mail_user_set_get_storage_set(struct mail_user *user);
-
 bool mail_user_set_get_postmaster_address(const struct mail_user_settings *set,
 					  const struct message_address **address_r,
 					  const char **error_r);

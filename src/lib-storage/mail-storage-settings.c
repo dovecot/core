@@ -446,13 +446,6 @@ const struct setting_parser_info mail_user_setting_parser_info = {
 	.check_func = mail_user_settings_check,
 };
 
-const struct mail_storage_settings *
-mail_user_set_get_storage_set(struct mail_user *user)
-{
-	i_assert(user->_mail_set != NULL);
-	return user->_mail_set;
-}
-
 static struct mail_user *mail_storage_event_get_user(struct event *event)
 {
 	struct mail_user *user;
