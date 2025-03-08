@@ -164,6 +164,8 @@ int mailbox_list_get_storage(struct mailbox_list **list, const char **vname,
 void mailbox_list_get_default_storage(struct mailbox_list *list,
 				      struct mail_storage **storage);
 char mailbox_list_get_hierarchy_sep(struct mailbox_list *list);
+const struct mail_storage_settings *
+mailbox_list_get_mail_set(const struct mailbox_list *list);
 
 /* Returns the mode and GID that should be used when creating new files and
    directories to the specified mailbox. (gid_t)-1 is returned if it's not

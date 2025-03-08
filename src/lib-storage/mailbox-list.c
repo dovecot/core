@@ -665,6 +665,12 @@ char mailbox_list_get_hierarchy_sep(struct mailbox_list *list)
 	return list->v.get_hierarchy_sep(list);
 }
 
+const struct mail_storage_settings *
+mailbox_list_get_mail_set(const struct mailbox_list *list)
+{
+	return list->mail_set;
+}
+
 static bool
 mailbox_list_get_permissions_stat(struct mailbox_list *list, const char *path,
 				  struct mailbox_permissions *permissions_r)
