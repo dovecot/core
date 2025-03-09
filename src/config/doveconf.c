@@ -1251,7 +1251,8 @@ int main(int argc, char *argv[])
 	if (dump_full && exec_args != NULL) {
 		int temp_fd = config_dump_full(config,
 					       CONFIG_DUMP_FULL_DEST_TEMPDIR,
-					       0, &import_environment);
+					       CONFIG_DUMP_FLAG_WRITE_BINARY_CACHE,
+					       &import_environment);
 		if (getenv(DOVECOT_PRESERVE_ENVS_ENV) != NULL) {
 			/* Standalone binary is getting its configuration via
 			   doveconf. Clean the environment before calling it.

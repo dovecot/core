@@ -95,4 +95,8 @@ master_service_get_service_settings(struct master_service *service);
 const char *
 master_service_get_import_environment_keyvals(struct master_service *service);
 
+const char *
+master_service_get_binary_config_cache_path(const char *cache_dir,
+					    const char *main_path);
+
 #endif

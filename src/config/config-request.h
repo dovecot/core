@@ -24,6 +24,8 @@ enum config_dump_scope {
 };
 
 enum config_dump_flags {
+	/* Write config binary cache if it's enabled. */
+	CONFIG_DUMP_FLAG_WRITE_BINARY_CACHE	= 0x01,
 	CONFIG_DUMP_FLAG_DEDUPLICATE_KEYS	= 0x08,
 };
 

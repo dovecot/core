@@ -35,6 +35,11 @@ enum settings_override_type {
 enum settings_read_flags {
 	/* Don't drop filters that contain a mismatching protocol */
 	SETTINGS_READ_NO_PROTOCOL_FILTER = BIT(0),
+	/* Check that all the paths referenced by the binary config still have
+	   the same mtime and ctime. If not, fail the config reading.
+	   Changes settings_read() return value to return 1 on success, or 0
+	   if timestamps were obsolete. */
+	SETTINGS_READ_CHECK_CACHE_TIMESTAMPS = BIT(1),
 };
 
 enum settings_get_flags {

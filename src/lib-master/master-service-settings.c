@@ -7,6 +7,9 @@
 #include "fdpass.h"
 #include "write-full.h"
 #include "str.h"
+#include "sha2.h"
+#include "hex-binary.h"
+#include "restrict-access.h"
 #include "syslog-util.h"
 #include "eacces-error.h"
 #include "env-util.h"
@@ -581,4 +584,28 @@ master_service_get_import_environment_keyvals(struct master_service *service)
 			str_append_c(keyvals, ' ');
 	}
 	return str_c(keyvals);
+}
+
+const char *
+master_service_get_binary_config_cache_path(const char *cache_dir,
+					    const char *main_path)
+{
+	struct sha256_ctx hash;
+	sha256_init(&hash);
+	sha256_loop(&hash, main_path, strlen(main_path) + 1);
+	uid_t euid = geteuid();
+	sha256_loop(&hash, &euid, sizeof(euid));
+	gid_t egid = getegid();
+	sha256_loop(&hash, &egid, sizeof(egid));
+	unsigned int groups_count;
+	const gid_t *groups = restrict_get_groups_list(&groups_count);
+	sha256_loop(&hash, groups, sizeof(*groups) * groups_count);
+	unsigned char digest[SHA256_RESULTLEN];
+	sha256_result(&hash, digest);
+
+	string_t *cache_path = t_str_new(128);
+	str_append(cache_path, cache_dir);
+	str_append(cache_path, "/binary.conf.");
+	binary_to_hex_append(cache_path, digest, sizeof(digest));
+	return str_c(cache_path);
 }

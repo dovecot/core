@@ -3,6 +3,8 @@
 
 #include "config-filter.h"
 
+#include <sys/stat.h>
+
 #define CONFIG_MODULE_DIR MODULEDIR"/settings"
 
 /* change_counter used for default settings created internally */
@@ -66,6 +68,12 @@ struct config_module_parser {
 };
 ARRAY_DEFINE_TYPE(config_module_parsers, struct config_module_parser *);
 
+struct config_path {
+	const char *path;
+	struct stat st;
+};
+ARRAY_DEFINE_TYPE(config_path, struct config_path);
+
 extern struct module *modules;
 
 int config_parse_net(const char *value, struct ip_addr *ip_r,
@@ -116,7 +124,9 @@ bool config_parsed_get_includes(struct config_parsed *config,
 				const struct config_filter_parser *filter,
 				unsigned int parser_idx,
 				ARRAY_TYPE(config_include_group) *groups);
-
+/* Get all paths used for generating the config */
+const ARRAY_TYPE(config_path) *
+config_parsed_get_paths(struct config_parsed *config);
 void config_parsed_free(struct config_parsed **config);
 
 void config_parse_load_modules(bool dump_config_import);

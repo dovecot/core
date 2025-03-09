@@ -29,22 +29,31 @@ static const struct {
 	       "\x00\x00\x00\x00\x00\x00\x00\x01"), // full size
 	  "Full size mismatch" },
 
-	/* event filter count is truncated */
+	/* cache path count is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
 	       "\x00\x00\x00\x00\x00\x00\x00\x04" // full size
+	       "\x00\x00\x00"), // cache path count
+	  "Full size mismatch" },
+
+	/* event filter count is truncated */
+	{ DATA("DOVECOT-CONFIG\t1.0\n"
+	       "\x00\x00\x00\x00\x00\x00\x00\x08" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x00"), // event filter count
 	  "Full size mismatch" },
 
 	/* event filter strings are truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x04" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x08" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x10\x00"), // event filter count
 	  "'filter string' points outside area" },
 
 	/* full file size is 7 bytes, which makes the first block size
 	   truncated, since it needs 8 bytes */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x0D" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x11" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
@@ -52,7 +61,8 @@ static const struct {
 	  "Area too small when reading size of 'block size'" },
 	/* first block size is 0, which is too small */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x0E" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x12" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
@@ -60,7 +70,8 @@ static const struct {
 	  "'block name' points outside area" },
 	/* first block size is 1, but full file size is too small */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x0E" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x12" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
@@ -68,7 +79,8 @@ static const struct {
 	  "'block size' points outside are" },
 	/* block name is not NUL-terminated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x10" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x14" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
@@ -79,7 +91,8 @@ static const struct {
 
 	/* settings count is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x13" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x17" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
@@ -90,7 +103,8 @@ static const struct {
 
 	/* settings keys are truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x14" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x18" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
@@ -101,7 +115,8 @@ static const struct {
 
 	/* filter count is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x19" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x1D" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
@@ -114,7 +129,8 @@ static const struct {
 
 	/* filter settings size is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x21" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x25" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
@@ -128,7 +144,8 @@ static const struct {
 
 	/* filter settings is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x22" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x26" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
@@ -141,7 +158,8 @@ static const struct {
 	  "'filter settings size' points outside area" },
 	/* filter error is missing */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x2F" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x33" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
@@ -157,7 +175,8 @@ static const struct {
 	  "'filter error string' points outside area" },
 	/* filter error is not NUL-terminated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x3D" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x41" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
@@ -174,7 +193,8 @@ static const struct {
 	  "'filter error string' points outside area" },
 	/* include group count is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x40" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x44" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
@@ -192,7 +212,8 @@ static const struct {
 	  "Area too small when reading uint of 'include group count'" },
 	/* include group count is too large */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x41" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x45" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
@@ -210,7 +231,8 @@ static const struct {
 	  "'group label string' points outside area" },
 	/* group label not NUL-terminated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x42" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x46" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
@@ -229,7 +251,8 @@ static const struct {
 	  "'group label string' points outside area" },
 	/* group name not NUL-terminated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x44" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x48" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]
@@ -249,7 +272,8 @@ static const struct {
 	  "'group name string' points outside area" },
 	/* invalid filter string */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x36" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x3A" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x00\x01" // event filter count
 	       "F\x00" // event filter[0]
 	       "F\x00" // override event filter[0]
@@ -268,7 +292,8 @@ static const struct {
 
 	/* Duplicate block name */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       "\x00\x00\x00\x00\x00\x00\x00\x3E" // full size
+	       "\x00\x00\x00\x00\x00\x00\x00\x42" // full size
+	       "\x00\x00\x00\x00" // cache path count
 	       "\x00\x00\x00\x01" // event filter count
 	       "\x00" // event filter[0]
 	       "\x00" // override event filter[0]

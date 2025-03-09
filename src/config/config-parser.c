@@ -57,6 +57,7 @@ struct config_parsed {
 	const char *dovecot_config_version;
 	struct config_filter_parser *const *filter_parsers;
 	struct config_module_parser *module_parsers;
+	ARRAY_TYPE(config_path) seen_paths;
 	ARRAY_TYPE(const_string) errors;
 	HASH_TABLE(const char *, const struct setting_define *) key_hash;
 	HASH_TABLE(const char *, struct config_include_group_filters *) include_groups;
@@ -111,6 +112,29 @@ void config_parser_set_change_counter(struct config_parser_context *ctx,
 				      uint8_t change_counter)
 {
 	ctx->change_counter = change_counter;
+}
+
+static void
+config_parser_add_seen_file(struct config_parser_context *ctx,
+			    const struct stat *st, const char *path)
+{
+	struct config_path *seen_path = array_append_space(&ctx->seen_paths);
+	seen_path->path = p_strdup(ctx->pool, path);
+	seen_path->st = *st;
+}
+
+static int
+config_parser_add_seen_file_fd(struct config_parser_context *ctx,
+			       int fd, const char *path, const char **error_r)
+{
+	struct stat st;
+
+	if (fstat(fd, &st) < 0) {
+		*error_r = t_strdup_printf("fstat(%s) failed: %m", path);
+		return -1;
+	}
+	config_parser_add_seen_file(ctx, &st, path);
+	return 0;
 }
 
 static struct config_section_stack *
@@ -669,6 +693,7 @@ static int config_apply_file(struct config_parser_context *ctx,
 			     const struct config_line *line,
 			     const char *path, const char **output_r)
 {
+	struct stat st;
 	const char *full_path, *error;
 
 	if (path[0] == '\0') {
@@ -686,13 +711,15 @@ static int config_apply_file(struct config_parser_context *ctx,
 	/* preserve original relative path in doveconf output */
 	if (full_path != path && ctx->expand_values)
 		path = full_path;
-	if (settings_parse_read_file(full_path, path, ctx->pool, NULL,
+	if (settings_parse_read_file(full_path, path, ctx->pool, &st,
 				     output_r, &error) < 0) {
 		ctx->error = p_strdup(ctx->pool, error);
 		if (config_apply_error(ctx, line->key) < 0)
 			return -1;
 		/* delayed error */
 		*output_r = "";
+	} else {
+		config_parser_add_seen_file(ctx, &st, full_path);
 	}
 	return 0;
 }
@@ -1684,8 +1711,8 @@ config_all_parsers_check(struct config_parser_context *ctx,
 }
 
 static int
-str_append_file(string_t *str, const char *key, const char *path,
-		const char **error_r)
+str_append_file(struct config_parser_context *ctx, string_t *str,
+		const char *key, const char *path, const char **error_r)
 {
 	unsigned char buf[1024];
 	int fd;
@@ -1699,6 +1726,8 @@ str_append_file(string_t *str, const char *key, const char *path,
 					   key, path);
 		return -1;
 	}
+	if (config_parser_add_seen_file_fd(ctx, fd, path, error_r) < 0)
+		return -1;
 	while ((ret = read(fd, buf, sizeof(buf))) > 0)
 		str_append_data(str, buf, ret);
 	if (ret < 0) {
@@ -1732,6 +1761,8 @@ static int settings_add_include(struct config_parser_context *ctx, const char *p
 					   path);
 		return -1;
 	}
+	if (config_parser_add_seen_file_fd(ctx, fd, path, error_r) < 0)
+		return -1;
 
 	new_input = p_new(ctx->pool, struct input_stack, 1);
 	new_input->prev = ctx->cur_input;
@@ -2343,6 +2374,7 @@ config_parse_finish(struct config_parser_context *ctx,
 	pool_ref(new_config->pool);
 	new_config->dovecot_config_version = ctx->dovecot_config_version;
 	p_array_init(&new_config->errors, ctx->pool, 1);
+	new_config->seen_paths = ctx->seen_paths;
 
 	array_sort(&ctx->all_filter_parsers, config_parser_filter_cmp);
 	array_append_zero(&ctx->all_filter_parsers);
@@ -2498,7 +2530,7 @@ static int config_write_value(struct config_parser_context *ctx,
 						line->key) :
 				line->key;
 			path = fix_relative_path(line->value, ctx->cur_input);
-			if (str_append_file(ctx->value, key_with_path, path,
+			if (str_append_file(ctx, ctx->value, key_with_path, path,
 					    &error) < 0) {
 				/* file reading failed */
 				ctx->error = p_strdup(ctx->pool, error);
@@ -2904,6 +2936,11 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	ctx.delay_errors = (flags & CONFIG_PARSE_FLAG_DELAY_ERRORS) != 0;
 	ctx.ignore_unknown = (flags & CONFIG_PARSE_FLAG_IGNORE_UNKNOWN) != 0;
 	hash_table_create(&ctx.all_keys, ctx.pool, 500, str_hash, strcmp);
+	p_array_init(&ctx.seen_paths, ctx.pool, 8);
+	if (fd != -1) {
+		if (config_parser_add_seen_file_fd(&ctx, fd, path, error_r) < 0)
+			return -1;
+	}
 
 	for (count = 0; all_infos[count] != NULL; count++) ;
 	config_parser_set_change_counter(&ctx, CONFIG_PARSER_CHANGE_DEFAULTS);
@@ -3272,6 +3309,12 @@ bool config_parsed_get_includes(struct config_parsed *config,
 			array_push_back(groups, group);
 	}
 	return array_count(groups) > 0;
+}
+
+const ARRAY_TYPE(config_path) *
+config_parsed_get_paths(struct config_parsed *config)
+{
+	return &config->seen_paths;
 }
 
 void config_parsed_free(struct config_parsed **_config)

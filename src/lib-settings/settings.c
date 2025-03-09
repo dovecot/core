@@ -14,6 +14,7 @@
 #include "var-expand.h"
 
 #include <ctype.h>
+#include <sys/stat.h>
 
 enum set_seen_type {
 	/* Setting has not been changed */
@@ -211,6 +212,24 @@ static void settings_override_free(struct settings_override *override)
 }
 
 static int
+settings_block_read_uint64(struct settings_mmap *mmap,
+			   size_t *offset, size_t end_offset,
+			   const char *name, uint64_t *num_r,
+			   const char **error_r)
+{
+	if (*offset + sizeof(*num_r) > end_offset) {
+		*error_r = t_strdup_printf(
+			"Area too small when reading uint of '%s' "
+			"(offset=%zu, end_offset=%zu, file_size=%zu)", name,
+			*offset, end_offset, mmap->mmap_size);
+		return -1;
+	}
+	*num_r = be64_to_cpu_unaligned(CONST_PTR_OFFSET(mmap->mmap_base, *offset));
+	*offset += sizeof(*num_r);
+	return 0;
+}
+
+static int
 settings_block_read_uint32(struct settings_mmap *mmap,
 			   size_t *offset, size_t end_offset,
 			   const char *name, uint32_t *num_r,
@@ -362,6 +381,70 @@ settings_event_filter_name_find(struct event_filter *filter,
 	i_assert(node != NULL);
 	i_assert(event_filter_get_root_node(filter, 1) == NULL);
 	return settings_event_filter_node_name_find(node, filter_name, FALSE);
+}
+
+static int
+settings_read_config_paths(struct settings_mmap *mmap,
+			   enum settings_read_flags flags,
+			   size_t *offset, const char **error_r)
+{
+	uint32_t count;
+	if (settings_block_read_uint32(mmap, offset, mmap->mmap_size,
+				       "config paths count", &count,
+				       error_r) < 0)
+		return -1;
+
+	for (uint32_t i = 0; i < count; i++) {
+		const char *config_path;
+		if (settings_block_read_str(mmap, offset, mmap->mmap_size,
+					    "config path", &config_path,
+					    error_r) < 0)
+			return -1;
+		uint64_t inode, size;
+		if (settings_block_read_uint64(mmap, offset, mmap->mmap_size,
+					       "config path size",
+					       &size, error_r) < 0)
+			return -1;
+		if (settings_block_read_uint64(mmap, offset, mmap->mmap_size,
+					       "config path inode",
+					       &inode, error_r) < 0)
+			return -1;
+		uint32_t mtime_sec, mtime_nsec, ctime_sec, ctime_nsec;
+		if (settings_block_read_uint32(mmap, offset, mmap->mmap_size,
+					       "config path mtime sec",
+					       &mtime_sec, error_r) < 0)
+			return -1;
+		if (settings_block_read_uint32(mmap, offset, mmap->mmap_size,
+					       "config path mtime nsec",
+					       &mtime_nsec, error_r) < 0)
+			return -1;
+
+		if (settings_block_read_uint32(mmap, offset, mmap->mmap_size,
+					       "config path ctime sec",
+					       &ctime_sec, error_r) < 0)
+			return -1;
+		if (settings_block_read_uint32(mmap, offset, mmap->mmap_size,
+					       "config path ctime nsec",
+					       &ctime_nsec, error_r) < 0)
+			return -1;
+
+		if ((flags & SETTINGS_READ_CHECK_CACHE_TIMESTAMPS) == 0)
+			continue;
+
+		struct stat st;
+		if (stat(config_path, &st) < 0) {
+			if (errno == ENOENT || ENOACCESS(errno))
+				return 0;
+			*error_r = t_strdup_printf("stat(%s) failed: %m",
+						   config_path);
+			return -1;
+		}
+		if (st.st_ino != inode || (uoff_t)st.st_size != size ||
+		    st.st_mtime != mtime_sec || ST_MTIME_NSEC(st) != mtime_nsec ||
+		    st.st_ctime != ctime_sec || ST_CTIME_NSEC(st) != ctime_nsec)
+			return 0;
+	}
+	return 1;
 }
 
 static int
@@ -626,6 +709,9 @@ settings_mmap_parse(struct settings_mmap *mmap, const char *service_name,
 	}
 
 	size_t offset = full_size_offset + sizeof(settings_full_size);
+	int ret;
+	if ((ret = settings_read_config_paths(mmap, flags, &offset, error_r)) <= 0)
+		return ret;
 	if (settings_read_filters(mmap, service_name, flags, &offset,
 				  &protocols, error_r) < 0)
 		return -1;
@@ -641,6 +727,8 @@ settings_mmap_parse(struct settings_mmap *mmap, const char *service_name,
 	} else {
 		*specific_protocols_r = NULL;
 	}
+	if ((flags & SETTINGS_READ_CHECK_CACHE_TIMESTAMPS) != 0)
+		return 1;
 	return 0;
 }
 
@@ -1271,8 +1359,12 @@ int settings_read(struct settings_root *root, int fd, const char *path,
 	root->mmap = mmap;
 	hash_table_create(&mmap->blocks, mmap->pool, 0, str_hash, strcmp);
 
-	return settings_mmap_parse(root->mmap, service_name, flags,
-				   specific_protocols_r, error_r);
+	int ret = settings_mmap_parse(root->mmap, service_name, flags,
+				      specific_protocols_r, error_r);
+	if (ret < 0 ||
+	    (ret == 0 && (flags & SETTINGS_READ_CHECK_CACHE_TIMESTAMPS) != 0))
+		settings_mmap_unref(&root->mmap);
+	return ret;
 }
 
 bool settings_has_mmap(struct settings_root *root)

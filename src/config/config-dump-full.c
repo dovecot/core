@@ -8,6 +8,7 @@
 #include "safe-mkstemp.h"
 #include "ostream.h"
 #include "settings.h"
+#include "master-service-settings.h"
 #include "config-parser.h"
 #include "config-request.h"
 #include "config-filter.h"
@@ -24,6 +25,16 @@
 
    "DOVECOT-CONFIG\t1.0\n"
    <64bit big-endian: settings full size>
+
+   <32bit big-endian: number of paths used for caching>
+   Repeat for "number of paths":
+     <NUL-terminated string: path>
+     <64bit big-endian: inode>
+     <64bit big-endian: size>
+     <32bit big-endian: mtime UNIX timestamp>
+     <32bit big-endian: mtime nsecs>
+     <32bit big-endian: ctime UNIX timestamp>
+     <32bit big-endian: ctime nsecs>
 
    <32bit big-endian: event filter strings count>
    Repeat for "event filter strings count":
@@ -114,6 +125,54 @@ static int output_blob_size(struct ostream *output, uoff_t blob_size_offset)
 		return -1;
 	}
 	return 0;
+}
+
+static const char *config_get_cache_dir(enum config_dump_flags flags)
+{
+	if ((flags & CONFIG_DUMP_FLAG_WRITE_BINARY_CACHE) == 0)
+		return NULL;
+	return getenv("DOVECOT_CONFIG_CACHE");
+}
+
+static void
+config_dump_full_write_cache_paths(struct ostream *output,
+				   struct config_parsed *config,
+				   enum config_dump_flags flags,
+				   const char **cache_path_r)
+{
+	const struct config_path *path;
+	const char *cache_dir = config_get_cache_dir(flags);
+	uint32_t num32 = 0;
+
+	if (cache_dir == NULL) {
+		/* no config caching - nobody cares about the paths */
+		o_stream_nsend(output, &num32, sizeof(num32));
+		*cache_path_r = NULL;
+		return;
+	}
+
+	num32 = cpu32_to_be(array_count(config_parsed_get_paths(config)));
+	o_stream_nsend(output, &num32, sizeof(num32));
+	array_foreach(config_parsed_get_paths(config), path) {
+		o_stream_nsend(output, path->path, strlen(path->path) + 1);
+		uint64_t num64 = cpu32_to_be(path->st.st_ino);
+		o_stream_nsend(output, &num64, sizeof(num64));
+		num64 = cpu32_to_be(path->st.st_size);
+		o_stream_nsend(output, &num64, sizeof(num64));
+		num32 = cpu32_to_be(path->st.st_mtime);
+		o_stream_nsend(output, &num32, sizeof(num32));
+		num32 = cpu32_to_be(ST_MTIME_NSEC(path->st));
+		o_stream_nsend(output, &num32, sizeof(num32));
+		num32 = cpu32_to_be(path->st.st_ctime);
+		o_stream_nsend(output, &num32, sizeof(num32));
+		num32 = cpu32_to_be(ST_CTIME_NSEC(path->st));
+		o_stream_nsend(output, &num32, sizeof(num32));
+	}
+
+	const struct config_path *main_path =
+		array_front(config_parsed_get_paths(config));
+	*cache_path_r = master_service_get_binary_config_cache_path(cache_dir,
+								    main_path->path);
 }
 
 static void
@@ -674,7 +733,8 @@ int config_dump_full(struct config_parsed *config,
 			str_free(&dump_ctx.delayed_output);
 			return -1;
 		}
-		if (dest == CONFIG_DUMP_FULL_DEST_TEMPDIR)
+		if (dest == CONFIG_DUMP_FULL_DEST_TEMPDIR &&
+		    config_get_cache_dir(flags) == NULL)
 			i_unlink(str_c(path));
 		dump_ctx.output = o_stream_create_fd_autoclose(&fd, IO_BLOCK_SIZE);
 		o_stream_set_name(dump_ctx.output, str_c(path));
@@ -697,6 +757,11 @@ int config_dump_full(struct config_parsed *config,
 		settings_full_size_offset = output->offset;
 		o_stream_nsend(output, &blob_size, sizeof(blob_size));
 
+		const char *cache_path;
+		config_dump_full_write_cache_paths(output, config, flags,
+						   &cache_path);
+		if (cache_path != NULL)
+			final_path = cache_path;
 		config_dump_full_write_filters(output, config);
 	}
 
