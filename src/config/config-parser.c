@@ -3081,9 +3081,10 @@ config_parsed_strlist_append(string_t *keyvals,
 	}
 }
 
-const char *
-config_parsed_get_setting(struct config_parsed *config,
-			  const char *info_name, const char *key)
+static const char *
+config_parsed_get_setting_full(struct config_parsed *config,
+			       const char *info_name, const char *key,
+			       unsigned int *change_counter_r)
 {
 	struct config_filter_parser *filter_parser =
 		config_parsed_get_global_filter_parser(config);
@@ -3106,6 +3107,10 @@ config_parsed_get_setting(struct config_parsed *config,
 
 	const struct setting_define *def = &l[info_idx].info->defines[key_idx];
 
+	if (change_counter_r != NULL) {
+		*change_counter_r = l[info_idx].change_counters[key_idx];
+		return NULL;
+	}
 	/* Custom handler for the import_environment strlist setting. The
 	   calling function expects a string of key=value pairs. See
 	   master_service_get_import_environment_keyvals() for the original
@@ -3133,6 +3138,24 @@ config_parsed_get_setting(struct config_parsed *config,
 	if (!config_export_type(str, value, def->type))
 		i_unreached();
 	return str_c(str);
+}
+
+const char *
+config_parsed_get_setting(struct config_parsed *config,
+			  const char *info_name, const char *key)
+{
+	return config_parsed_get_setting_full(config, info_name, key, NULL);
+}
+
+unsigned int
+config_parsed_get_setting_change_counter(struct config_parsed *config,
+					 const char *info_name, const char *key)
+{
+	unsigned int change_counter;
+
+	(void)config_parsed_get_setting_full(config, info_name, key,
+					     &change_counter);
+	return change_counter;
 }
 
 const struct setting_define *

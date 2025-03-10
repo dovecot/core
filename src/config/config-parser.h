@@ -102,6 +102,11 @@ void config_fill_set_parser(struct setting_parser_context *parser,
 const char *
 config_parsed_get_setting(struct config_parsed *config,
 			  const char *info_name, const char *key);
+/* Return the change_counter for the specified setting. */
+unsigned int
+config_parsed_get_setting_change_counter(struct config_parsed *config,
+					 const char *info_name,
+					 const char *key);
 /* Lookup setting with the specified key. */
 const struct setting_define *
 config_parsed_key_lookup(struct config_parsed *config, const char *key);
