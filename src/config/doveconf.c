@@ -630,9 +630,7 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		if (hide_key && value[0] == '=' && value[1] == '\0') {
 			/* There is no value that would need printing here,
 			   continue with the next. */
-			goto end;
-		}
-		if (hide_value)
+		} else if (hide_value)
 			; /* boollist value was already written */
 		else if (hide_passwords &&
 			 hide_secrets_from_value(output, full_key, value+1))
