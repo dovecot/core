@@ -23,8 +23,8 @@ BUILT_SOURCES = settings-history-core.c
 
 settings-history.c: settings-history-core.c
 
-settings-history-core.c: $(top_srcdir)/src/lib-settings/settings-history.pl settings-history-core.txt
-	$(AM_V_GEN)$(top_srcdir)/src/lib-settings/settings-history.pl settings-history-core.txt $(DOVECOT_PRO_BUILD) > settings-history-core.c || rm -f settings-history-core.c
+settings-history-core.c: $(top_srcdir)/src/lib-settings/settings-history.pl $(top_srcdir)/src/lib-settings/settings-history-core.txt
+	$(AM_V_GEN)$(top_srcdir)/src/lib-settings/settings-history.pl $(top_srcdir)/src/lib-settings/settings-history-core.txt $(DOVECOT_PRO_BUILD) > settings-history-core.c || rm -f settings-history-core.c
 
 EXTRA_DIST = \
 	settings-history-core.txt \
