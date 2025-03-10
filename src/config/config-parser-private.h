@@ -109,8 +109,11 @@ struct config_parser_context {
 };
 
 extern void (*hook_config_parser_begin)(struct config_parser_context *ctx);
+/* Finish parsing settings. The event parameter provides access to already
+   parsed settings. It's still possible to further modify the config. */
 extern int (*hook_config_parser_end)(struct config_parser_context *ctx,
-				     const char **error_r);
+				     struct config_parsed *new_config,
+				     struct event *event, const char **error_r);
 
 int config_apply_line(struct config_parser_context *ctx, const char *key,
 		      const char *value, const char **full_key_r) ATTR_NULL(4);

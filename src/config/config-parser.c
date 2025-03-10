@@ -70,7 +70,8 @@ static const enum settings_parser_flags settings_parser_flags =
 struct module *modules;
 void (*hook_config_parser_begin)(struct config_parser_context *ctx);
 int (*hook_config_parser_end)(struct config_parser_context *ctx,
-			      const char **error_r);
+			      struct config_parsed *new_config,
+			      struct event *event, const char **error_r);
 
 static ARRAY_TYPE(config_service) services_free_at_deinit = ARRAY_INIT;
 static ARRAY_TYPE(setting_parser_info_p) infos_free_at_deinit = ARRAY_INIT;
@@ -1551,7 +1552,7 @@ get_str_setting(struct config_filter_parser *parser, const char *key,
 static int
 config_all_parsers_check(struct config_parser_context *ctx,
 			 struct config_parsed *new_config,
-			 const char **error_r)
+			 enum config_parse_flags flags, const char **error_r)
 {
 	struct config_filter_parser *const *parsers;
 	unsigned int i, count;
@@ -1593,6 +1594,11 @@ config_all_parsers_check(struct config_parser_context *ctx,
 	struct event *event = event_create(NULL);
 	event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
 
+	int ret = 0;
+	if (hook_config_parser_end != NULL &&
+	    (flags & CONFIG_PARSE_FLAG_EXTERNAL_HOOKS) != 0)
+		ret = hook_config_parser_end(ctx, new_config, event, error_r);
+
 	/* Run check_func()s for each filter independently. If you have
 	   protocol imap { ... local { ... } } blocks, it's going to check the
 	   "local" filter without applying settings from the "protocol imap"
@@ -1602,7 +1608,7 @@ config_all_parsers_check(struct config_parser_context *ctx,
 	   previous version of the code, but it got in the way of cleaning up
 	   the config code, so at least for now it's not done. */
 	global_ssl_set = get_str_setting(parsers[0], "ssl", "");
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < count && ret == 0; i++) {
 		if (parsers[i]->filter.default_settings)
 			continue;
 		if (parsers[i]->filter.filter_name_array &&
@@ -1622,6 +1628,8 @@ config_all_parsers_check(struct config_parser_context *ctx,
 	i_close_fd(&fd);
 	settings_root_deinit(&set_root);
 
+	if (ret < 0)
+		return -1;
 	const char *const *errors =
 		array_get(config_parsed_get_errors(new_config), &count);
 	if (count > 0) {
@@ -2287,9 +2295,6 @@ config_parse_finish(struct config_parser_context *ctx,
 
 	if ((flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) == 0)
 		config_parse_finish_service_defaults(ctx);
-	if (hook_config_parser_end != NULL &&
-	    (flags & CONFIG_PARSE_FLAG_EXTERNAL_HOOKS) != 0)
-		ret = hook_config_parser_end(ctx, error_r);
 
 	new_config = p_new(ctx->pool, struct config_parsed, 1);
 	new_config->pool = ctx->pool;
@@ -2318,7 +2323,7 @@ config_parse_finish(struct config_parser_context *ctx,
 
 	if (ret < 0)
 		;
-	else if ((ret = config_all_parsers_check(ctx, new_config, &error)) < 0) {
+	else if ((ret = config_all_parsers_check(ctx, new_config, flags, &error)) < 0) {
 		*error_r = t_strdup_printf("Error in configuration file %s: %s",
 					   ctx->path, error);
 	}
