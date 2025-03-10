@@ -400,6 +400,10 @@ static int imap_client_create(struct client *client)
 		settings_override(set_instance,
 				  "imap_capability/LITERAL-",
 				  "no", SETTINGS_OVERRIDE_TYPE_CODE);
+	if (!imap_client->set->imap4rev2_enable)
+		settings_override(set_instance, "imap_capability/IMAP4rev2",
+				  "no", SETTINGS_OVERRIDE_TYPE_CODE);
+
 	if (imap_client_reload_config(client, &error) < 0) {
 		e_error(client->event, "%s", error);
 		return -1;

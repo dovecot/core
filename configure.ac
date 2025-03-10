@@ -54,6 +54,7 @@ AC_ARG_ENABLE([pro-build],
 
 experimental_capabilities=""
 have_mail_utf8=no
+have_imap4rev2=no
 
 AC_ARG_ENABLE(experimental-mail-utf8,
 AS_HELP_STRING([--enable-experimental-mail-utf8], [Enable experimental support for SMTPUTF8 and UTF8=ACCEPT]),
@@ -65,6 +66,17 @@ AS_HELP_STRING([--enable-experimental-mail-utf8], [Enable experimental support f
 )
 
 AC_SUBST([DOVECOT_HAVE_MAIL_UTF8], $have_mail_utf8)
+
+AC_ARG_ENABLE(experimental-imap4rev2,
+AS_HELP_STRING([--enable-experimental-imap4rev2], [Enable experimental support for IMAP4REV2]),
+	AS_IF([test x$enableval = xyes], [
+		AC_DEFINE([EXPERIMENTAL_IMAP4REV2],, [Build with IMAP4REV2 support])
+		experimental_capabilities="${experimental_capabilities} IMAP4REV2"
+		have_imap4rev2=yes
+	])
+)
+
+AC_SUBST([DOVECOT_HAVE_IMAP4REV2], $have_imap4rev2)
 
 AC_ARG_WITH(shared-libs,
 AS_HELP_STRING([--with-shared-libs], [Link binaries using shared Dovecot libraries (default)]),

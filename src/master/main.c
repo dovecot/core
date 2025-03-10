@@ -724,6 +724,9 @@ static void print_build_options(void)
 #ifdef DOVECOT_PRO_EDITION
 	        " pro"
 #endif
+#ifdef EXPERIMENTAL_IMAP4REV2
+		" experimental-imap4rev2"
+#endif
 		" openssl"
 	        " io_block_size=%u"
 #ifdef SQL_DRIVER_PLUGINS

@@ -95,6 +95,7 @@ enum mailbox_feature {
 	/* Enable tracking modsequences */
 	MAILBOX_FEATURE_CONDSTORE	= 0x01,
 	MAILBOX_FEATURE_UTF8ACCEPT	= 0x02,
+	MAILBOX_FEATURE_IMAP4REV2	= 0x04,
 };
 
 enum mailbox_existence {

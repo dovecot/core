@@ -46,6 +46,7 @@ unsigned int imap_client_count = 0;
 unsigned int imap_feature_condstore = UINT_MAX;
 unsigned int imap_feature_qresync = UINT_MAX;
 unsigned int imap_feature_utf8accept = UINT_MAX;
+unsigned int imap_feature_imap4rev2 = UINT_MAX;
 
 static const char *client_command_state_names[] = {
 	"wait-input",
@@ -179,6 +180,8 @@ struct client *client_create(int fd_in, int fd_out,
 		imap_unset_capability(set_instance, "METADATA");
 	if (!client->set->mail_utf8_extensions)
 		imap_unset_capability(set_instance, "UTF8=ACCEPT");
+	if (!client->set->imap4rev2_enable)
+		imap_unset_capability(set_instance, "IMAP4rev2");
 
 	const struct imap_settings *modified_set;
 	if (settings_get(client->user->event, &imap_setting_parser_info,
@@ -1638,6 +1641,20 @@ static bool imap_client_enable_utf8accept(struct client *client)
 }
 #endif
 
+#ifdef EXPERIMENTAL_IMAP4REV2
+static bool imap_client_enable_imap4rev2(struct client *client)
+{
+	if (!client->set->imap4rev2_enable) {
+		e_debug(client->event, "Client attempted to enable IMAP4rev2 while it's disabled on the server.");
+		return FALSE;
+	}
+
+	if (client->mailbox != NULL)
+		mailbox_enable(client->mailbox, MAILBOX_FEATURE_IMAP4REV2);
+	return TRUE;
+}
+#endif
+
 enum mailbox_feature client_enabled_mailbox_features(struct client *client)
 {
 	enum mailbox_feature mailbox_features = 0;
@@ -1718,6 +1735,12 @@ void clients_init(void)
 	imap_feature_utf8accept =
 		imap_feature_register("UTF8=ACCEPT", MAILBOX_FEATURE_UTF8ACCEPT,
 				      imap_client_enable_utf8accept);
+#endif
+#ifdef EXPERIMENTAL_IMAP4REV2
+	imap_feature_imap4rev2 =
+		imap_feature_register("IMAP4rev2", MAILBOX_FEATURE_UTF8ACCEPT,
+				      imap_client_enable_imap4rev2);
+
 #endif
 }
 

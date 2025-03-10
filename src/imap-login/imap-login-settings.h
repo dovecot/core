@@ -7,6 +7,7 @@ struct imap_login_settings {
 	ARRAY_TYPE(const_string) imap_id_send;
 	bool imap_literal_minus;
 	bool imap_id_retain;
+	bool imap4rev2_enable;
 };
 
 extern const struct setting_parser_info imap_login_setting_parser_info;

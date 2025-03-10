@@ -56,6 +56,7 @@ static const struct setting_define imap_login_setting_defines[] = {
 	DEF(BOOLLIST, imap_capability),
 	DEF(BOOL, imap_literal_minus),
 	DEF(BOOL, imap_id_retain),
+	DEF(BOOL, imap4rev2_enable),
 
 	{ .type = SET_STRLIST, .key = "imap_id_send",
 	  .offset = offsetof(struct imap_login_settings, imap_id_send) },
@@ -68,10 +69,12 @@ static const struct imap_login_settings imap_login_default_settings = {
 	.imap_id_send = ARRAY_INIT,
 	.imap_literal_minus = FALSE,
 	.imap_id_retain = FALSE,
+	.imap4rev2_enable = FALSE,
 };
 
 static const struct setting_keyvalue imap_login_default_settings_keyvalue[] = {
 	{"service/imap-login/imap_capability/IMAP4rev1", "yes"},
+	{"service/imap-login/imap_capability/IMAP4rev2", "yes"},
 	{"service/imap-login/imap_capability/LOGIN-REFERRALS", "yes"},
 	{"service/imap-login/imap_capability/ID", "yes"},
 	{"service/imap-login/imap_capability/ENABLE", "yes"},
