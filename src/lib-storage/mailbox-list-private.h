@@ -166,6 +166,7 @@ struct mailbox_list_iterate_context {
 	struct imap_match_glob *glob;
 	struct mailbox_list_autocreate_iterate_context *autocreate_ctx;
 	struct mailbox_info specialuse_info;
+	char *specialuse_info_flags;
 
 	ARRAY(union mailbox_list_iterate_module_context *) module_contexts;
 	HASH_TABLE(const char *, void*) found_mailboxes;

@@ -1025,9 +1025,13 @@ mailbox_list_iter_next_call(struct mailbox_list_iterate_context *ctx)
 			return NULL;
 		}
 		if (array_not_empty(&set->special_use)) {
-			ctx->specialuse_info = *info;
-			ctx->specialuse_info.special_use =
+			const char *flags =
 				t_array_const_string_join(&set->special_use, " ");
+			ctx->specialuse_info = *info;
+			i_free(ctx->specialuse_info_flags);
+			ctx->specialuse_info_flags = i_strdup(flags);
+			ctx->specialuse_info.special_use =
+				ctx->specialuse_info_flags;
 			info = &ctx->specialuse_info;
 		}
 		settings_free(set);
@@ -1101,6 +1105,7 @@ int mailbox_list_iter_deinit(struct mailbox_list_iterate_context **_ctx)
 		return -1;
 	if (ctx->autocreate_ctx != NULL)
 		hash_table_destroy(&ctx->autocreate_ctx->duplicate_vnames);
+	i_free(ctx->specialuse_info_flags);
 	return ctx->list->v.iter_deinit(ctx);
 }
 
