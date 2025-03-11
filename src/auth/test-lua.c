@@ -109,7 +109,7 @@ static void test_db_lua_auth_lookup(void)
 	static const char *luascript =
 "function auth_passdb_lookup(req)\n"
 "  req:log_debug(\"user \" .. req.user)\n"
-"  return dovecot.auth.PASSDB_RESULT_OK, req:var_expand(\"password=pass\")\n"
+"  return dovecot.auth.PASSDB_RESULT_OK, {[\"password\"]=\"pass\"}\n"
 "end\n";
 	const char *error = NULL;
 	struct dlua_script *script = NULL;
