@@ -3,6 +3,7 @@
 
 #include "str-parse.h"
 
+struct stat;
 struct var_expand_table;
 struct var_expand_provider;
 
@@ -272,7 +273,7 @@ bool settings_check(struct event *event, const struct setting_parser_info *info,
 /* Read a SET_FILE from the given path and write "value_path\ncontents" to
    output_r. Returns 0 on success, -1 on error. */
 int settings_parse_read_file(const char *path, const char *value_path,
-			     pool_t pool,
+			     pool_t pool, struct stat *st_r,
 			     const char **output_r, const char **error_r);
 int settings_parse_boollist_string(const char *value, pool_t pool,
 				   ARRAY_TYPE(const_string) *dest,

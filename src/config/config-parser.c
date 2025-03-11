@@ -686,7 +686,8 @@ static int config_apply_file(struct config_parser_context *ctx,
 	/* preserve original relative path in doveconf output */
 	if (full_path != path && ctx->expand_values)
 		path = full_path;
-	if (settings_parse_read_file(full_path, path, ctx->pool, output_r, &error) < 0) {
+	if (settings_parse_read_file(full_path, path, ctx->pool, NULL,
+				     output_r, &error) < 0) {
 		ctx->error = p_strdup(ctx->pool, error);
 		if (config_apply_error(ctx, line->key) < 0)
 			return -1;

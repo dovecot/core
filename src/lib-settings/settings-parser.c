@@ -276,7 +276,7 @@ get_file(struct setting_parser_context *ctx, bool dup_value, const char **value)
 	}
 
 	const char *error;
-	if (settings_parse_read_file(*value, *value, ctx->set_pool,
+	if (settings_parse_read_file(*value, *value, ctx->set_pool, NULL,
 				     value, &error) < 0) {
 		settings_parser_set_error(ctx, error);
 		return -1;
@@ -297,7 +297,7 @@ get_in_port_zero(struct setting_parser_context *ctx, const char *value,
 }
 
 int settings_parse_read_file(const char *path, const char *value_path,
-			     pool_t pool,
+			     pool_t pool, struct stat *st_r,
 			     const char **output_r, const char **error_r)
 {
 	struct stat st;
@@ -335,6 +335,8 @@ int settings_parse_read_file(const char *path, const char *value_path,
 		return -1;
 	}
 
+	if (st_r != NULL)
+		*st_r = st;
 	*output_r = buf;
 	return 0;
 }
