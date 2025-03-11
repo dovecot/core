@@ -46,6 +46,10 @@ const struct setting_keyvalue imap_service_settings_defaults[] = {
 	{ "unix_listener/imap-master/path", "imap-master" },
 	{ "unix_listener/imap-master/type", "master" },
 	{ "unix_listener/imap-master/mode", "0600" },
+#ifdef DOVECOT_PRO_EDITION
+	/* Potentially not safe in some setups, so keep it Pro-only */
+	{ "unix_listener/imap-master/user", "$SET:default_internal_user" },
+#endif
 
 	{ "unix_listener/login\\simap/path", "login/imap" },
 	{ "unix_listener/login\\simap/type", "login" },
