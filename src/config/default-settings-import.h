@@ -36,3 +36,22 @@ static const char *stats_metric_defaults =
 "   fields = rss utime\n"
 "}\n"
 "}\n";
+
+static const char *mailbox_defaults =
+"group @mailbox_defaults english {\n"
+"  namespace inbox {\n"
+"    inbox = yes\n"
+"    mailbox Drafts {\n"
+"      special_use = \\Drafts\n"
+"    }\n"
+"    mailbox Junk {\n"
+"      special_use = \\Junk\n"
+"    }\n"
+"    mailbox Sent {\n"
+"      special_use = \\Sent\n"
+"    }\n"
+"    mailbox Trash {\n"
+"      special_use = \\Trash\n"
+"    }\n"
+"  }\n"
+"}\n";

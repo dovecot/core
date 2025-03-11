@@ -3278,6 +3278,7 @@ void config_parse_load_modules(bool dump_config_import)
 
 	config_import = str_new(default_pool, 10240);
 	str_append(config_import, stats_metric_defaults);
+	str_append(config_import, mailbox_defaults);
 	i_array_init(&new_infos, 64);
 	/* drop any default infos which depend on plugins that don't exist */
 	for (i = 0; all_infos[i] != NULL; i++) {
