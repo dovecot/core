@@ -9,17 +9,18 @@ AM_CPPFLAGS = \
 libauth_la_SOURCES = \
 	auth-scram.c \
 	auth-scram-client.c \
-	auth-scram-server.c
-
-libauth_crypt_la_SOURCES = \
+	auth-scram-server.c \
 	crypt-blowfish.c \
-	mycrypt.c \
 	password-scheme.c \
-	password-scheme-crypt.c \
 	password-scheme-md5crypt.c \
 	password-scheme-scram.c \
 	password-scheme-otp.c \
-	password-scheme-pbkdf2.c \
+	password-scheme-pbkdf2.c
+
+libauth_crypt_la_SOURCES = \
+	mycrypt.c \
+	password-scheme.c \
+	password-scheme-crypt.c \
 	password-scheme-sodium.c
 
 libauth_crypt_la_LIBADD = \
