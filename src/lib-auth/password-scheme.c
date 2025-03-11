@@ -321,43 +321,6 @@ password_scheme_detect(const char *plain_password, const char *crypted_password,
 	return key;
 }
 
-int crypt_verify(const char *plaintext, const struct password_generate_params *params ATTR_UNUSED,
-		 const unsigned char *raw_password, size_t size,
-		 const char **error_r)
-{
-	const char *password, *crypted;
-
-	if (size > 4 && raw_password[0] == '$' && raw_password[1] == '2' &&
-	    raw_password[3] == '$')
-		return password_verify(plaintext, params, "BLF-CRYPT",
-				       raw_password, size, error_r);
-
-	if (size == 0) {
-		/* the default mycrypt() handler would return match */
-		return 0;
-	}
-
-	if (size > 1 && !g_allow_weak) {
-		if (raw_password[0] != '$') {
-			*error_r = "Weak password scheme 'DES-CRYPT' used and refused";
-			return -1;
-		} else if (raw_password[1] == '1') {
-			*error_r = "Weak password scheme 'MD5-CRYPT' used and refused";
-			return -1;
-		}
-	}
-
-	password = t_strndup(raw_password, size);
-	crypted = mycrypt(plaintext, password);
-	if (crypted == NULL) {
-		/* really shouldn't happen unless the system is broken */
-		*error_r = t_strdup_printf("crypt() failed: %m");
-		return -1;
-	}
-
-	return str_equals_timing_almost_safe(crypted, password) ? 1 : 0;
-}
-
 static int
 md5_verify(const char *plaintext, const struct password_generate_params *params,
 	   const unsigned char *raw_password, size_t size, const char **error_r)

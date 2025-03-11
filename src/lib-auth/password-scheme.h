@@ -99,11 +99,6 @@ int password_generate_otp(const char *pw, const char *state_data,
 			  unsigned int algo, const char **result_r)
 	ATTR_NULL(2);
 
-int crypt_verify(const char *plaintext,
-		 const struct password_generate_params *params,
-		 const unsigned char *raw_password, size_t size,
-		 const char **error_r);
-
 int scram_scheme_parse(const struct hash_method *hmethod, const char *name,
 		       const unsigned char *credentials, size_t size,
 		       unsigned int *iter_count_r, const char **salt_r,
