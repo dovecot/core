@@ -20,6 +20,7 @@
 #include "master-service-settings.h"
 
 #include <unistd.h>
+#include <fcntl.h>
 #include <time.h>
 #include <sys/stat.h>
 
@@ -318,17 +319,38 @@ config_exec_fallback(struct master_service *service,
 	errno = saved_errno;
 }
 
+static int master_service_binary_config_cache_get(const char *cache_dir,
+						  const char *input_path)
+{
+	if (cache_dir == NULL)
+		return -1;
+
+	const char *cache_path =
+		master_service_get_binary_config_cache_path(cache_dir, input_path);
+	int fd = open(cache_path, O_RDONLY);
+	if (fd == -1 && errno != ENOENT)
+		i_error("Binary config cache: open(%s) failed: %m", cache_path);
+	return fd;
+}
+
 static int
 master_service_open_config(struct master_service *service,
 			   const struct master_service_settings_input *input,
-			   const char **path_r, const char **error_r)
+			   const char *cache_dir,
+			   const char **path_r, bool *cached_config_r,
+			   const char **error_r)
 {
 	struct stat st;
 	const char *path;
 	int fd = -1;
 
+	*cached_config_r = FALSE;
 	*path_r = path = input->config_path != NULL ? input->config_path :
 		master_service_get_config_path(service);
+	if ((fd = master_service_binary_config_cache_get(cache_dir, path)) != -1) {
+		*cached_config_r = TRUE;
+		return fd;
+	}
 
 	if (!service->config_path_from_master &&
 	    !service->config_path_changed_with_param &&
@@ -436,12 +458,15 @@ master_service_append_config_overrides(struct master_service *service)
 	}
 }
 
-int master_service_settings_read(struct master_service *service,
+static int
+master_service_settings_read_int(struct master_service *service,
 				 const struct master_service_settings_input *input,
+				 const char *cache_dir,
 				 struct master_service_settings_output *output_r,
 				 const char **error_r)
 {
 	const char *path = NULL, *value, *error;
+	bool cached_config = FALSE;
 	int ret, fd = -1;
 
 	i_zero(output_r);
@@ -464,8 +489,9 @@ int master_service_settings_read(struct master_service *service,
 		/* Open config via socket if possible. If it doesn't work,
 		   execute doveconf -F. */
 		T_BEGIN {
-			fd = master_service_open_config(service, input, &path,
-							&error);
+			fd = master_service_open_config(service, input,
+							cache_dir, &path,
+							&cached_config, &error);
 		} T_END_PASS_STR_IF(fd == -1, &error);
 		if (fd == -1) {
 			if (errno == EACCES)
@@ -500,10 +526,18 @@ int master_service_settings_read(struct master_service *service,
 		enum settings_read_flags read_flags =
 			!input->no_protocol_filter ? 0 :
 			SETTINGS_READ_NO_PROTOCOL_FILTER;
+		if (cached_config)
+			read_flags |= SETTINGS_READ_CHECK_CACHE_TIMESTAMPS;
 		ret = settings_read(service->settings_root, fd, path,
 				    service_name, protocol_name, read_flags,
 				    &output_r->specific_protocols,
 				    &error);
+		if (ret == 0 && cached_config) {
+			/* out-of-date binary config cache */
+			i_close_fd(&fd);
+			return master_service_settings_read_int(service, input,
+						NULL, output_r, error_r);
+		}
 		if (input->return_config_fd)
 			output_r->config_fd = fd;
 		else
@@ -551,6 +585,16 @@ int master_service_settings_read(struct master_service *service,
 	if (service->set->shutdown_clients)
 		master_service_set_die_with_master(master_service, TRUE);
 	return 0;
+}
+
+int master_service_settings_read(struct master_service *service,
+				 const struct master_service_settings_input *input,
+				 struct master_service_settings_output *output_r,
+				 const char **error_r)
+{
+	return master_service_settings_read_int(service, input,
+						getenv("DOVECOT_CONFIG_CACHE"),
+						output_r, error_r);
 }
 
 int master_service_settings_read_simple(struct master_service *service,
