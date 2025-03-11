@@ -36,7 +36,8 @@ headers = \
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
-noinst_HEADERS = crypt-blowfish.h
+noinst_HEADERS = crypt-blowfish.h \
+	password-scheme-private.h
 
 test_programs = \
 	test-password-scheme \

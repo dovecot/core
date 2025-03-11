@@ -16,6 +16,7 @@
 #include "otp.h"
 #include "str.h"
 #include "password-scheme.h"
+#include "password-scheme-private.h"
 
 static const char salt_chars[] =
 	"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -27,6 +28,11 @@ static bool g_allow_weak = FALSE;
 void password_schemes_allow_weak(bool allow)
 {
 	g_allow_weak = allow;
+}
+
+bool password_schemes_weak_allowed(void)
+{
+	return g_allow_weak;
 }
 
 static const struct password_scheme *
