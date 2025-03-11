@@ -254,3 +254,12 @@ void password_scheme_register_crypt(void)
 	password_scheme_register(&blf_crypt_scheme);
 	password_scheme_register(&default_crypt_scheme);
 }
+
+void password_schemes_register_all(void)
+{
+	password_schemes_init();
+	password_scheme_register_crypt();
+#ifdef HAVE_LIBSODIUM
+	password_scheme_register_sodium();
+#endif
+}

@@ -85,6 +85,9 @@ void password_scheme_register(const struct password_scheme *scheme);
 void password_scheme_unregister(const struct password_scheme *scheme);
 
 void password_schemes_init(void);
+/* Calls password_schemes_init, the difference is that this
+   will attempt to register also crypt and sodium schemes. */
+void password_schemes_register_all(void);
 void password_schemes_allow_weak(bool allow);
 void password_schemes_deinit(void);
 
