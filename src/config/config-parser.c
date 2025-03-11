@@ -20,7 +20,7 @@
 #include "config-parser-private.h"
 #include "strfuncs.h"
 
-#include "stats-metrics-defaults.h"
+#include "default-settings-import.h"
 
 #include <unistd.h>
 #include <fcntl.h>
