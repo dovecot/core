@@ -162,7 +162,7 @@ static void main_preinit(void)
 	passdbs_init();
 	userdbs_init();
 	/* init schemes before plugins are loaded */
-	password_schemes_init();
+	password_schemes_register_all();
 
 	protocols = read_global_settings();
 

@@ -28,7 +28,7 @@ static void cmd_pw(struct doveadm_cmd_context *cctx)
 	struct password_generate_params gen_params;
 	i_zero(&gen_params);
 
-	password_schemes_init();
+	password_schemes_register_all();
 	password_schemes_allow_weak(TRUE);
 
 	i_zero(&mod_set);

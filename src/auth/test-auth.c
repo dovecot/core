@@ -59,7 +59,7 @@ void test_auth_init(void)
 	passdbs_init();
 	userdbs_init();
 	passdb_mock_mod_init();
-	password_schemes_init();
+	password_schemes_register_all();
 	password_schemes_allow_weak(TRUE);
 
 	auths_preinit(simple_set.event, global_auth_settings, mech_reg, protocols);
