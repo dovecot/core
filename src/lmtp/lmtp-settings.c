@@ -208,6 +208,13 @@ static bool lmtp_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 					   set->lmtp_hdr_delivery_address);
 		return FALSE;
 	}
+
+	if (set->lmtp_user_concurrency_limit == 0) {
+		*error_r = "lmtp_user_concurrency_limit must not be 0 "
+			   "(did you mean \"unlimited\"?)";
+		return FALSE;
+	}
+
 	return TRUE;
 }
 /* </settings checks> */

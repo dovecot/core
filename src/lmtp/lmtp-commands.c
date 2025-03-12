@@ -35,7 +35,7 @@ int client_default_cmd_mail(struct client *client,
 			    struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 			    struct smtp_server_cmd_mail *data ATTR_UNUSED)
 {
-	if (client->lmtp_set->lmtp_user_concurrency_limit > 0) {
+	if (client->lmtp_set->lmtp_user_concurrency_limit < SET_UINT_UNLIMITED) {
 		/* Connect to anvil before dropping privileges */
 		lmtp_anvil_init();
 	}

@@ -359,7 +359,7 @@ int lmtp_local_rcpt(struct client *client,
 		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
 		lmtp_local_rcpt_approved, llrcpt);
 
-	if (client->lmtp_set->lmtp_user_concurrency_limit == 0) {
+	if (client->lmtp_set->lmtp_user_concurrency_limit == SET_UINT_UNLIMITED) {
 		(void)lmtp_local_rcpt_anvil_finish(llrcpt);
 	} else {
 		/* NOTE: username may change as the result of the userdb
