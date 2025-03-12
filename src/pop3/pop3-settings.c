@@ -98,11 +98,19 @@ static const struct pop3_settings pop3_default_settings = {
 	.pop3_delete_type = "default:expunge:flag"
 };
 
+static const struct setting_keyvalue pop3_default_settings_keyvalue[] = {
+#ifdef DOVECOT_PRO_EDITION
+	{ "service/pop3/process_shutdown_filter", "event=mail_user_session_finished AND rss > 20MB" },
+#endif
+	{ NULL, NULL },
+};
+
 const struct setting_parser_info pop3_setting_parser_info = {
 	.name = "pop3",
 
 	.defines = pop3_setting_defines,
 	.defaults = &pop3_default_settings,
+	.default_settings = pop3_default_settings_keyvalue,
 
 	.struct_size = sizeof(struct pop3_settings),
 	.pool_offset1 = 1 + offsetof(struct pop3_settings, pool),

@@ -142,11 +142,19 @@ static const struct submission_settings submission_default_settings = {
 	.imap_urlauth_port = 143,
 };
 
+static const struct setting_keyvalue submission_default_settings_keyvalue[] = {
+#ifdef DOVECOT_PRO_EDITION
+	{ "service/submission/process_shutdown_filter", "event=mail_user_session_finished AND rss > 20MB" },
+#endif
+	{ NULL, NULL },
+};
+
 const struct setting_parser_info submission_setting_parser_info = {
 	.name = "submission",
 
 	.defines = submission_setting_defines,
 	.defaults = &submission_default_settings,
+	.default_settings = submission_default_settings_keyvalue,
 
 	.struct_size = sizeof(struct submission_settings),
 	.pool_offset1 = 1 + offsetof(struct submission_settings, pool),

@@ -172,6 +172,9 @@ static const struct setting_keyvalue imap_default_settings_keyvalue[] = {
 	{ "service/imap/imap_capability/LITERAL+", "yes" },
 	{ "service/imap/imap_capability/LITERAL-", "yes" },
 	{ "service/imap/imap_capability/UTF8=ACCEPT", "yes" },
+#ifdef DOVECOT_PRO_EDITION
+	{ "service/imap/process_shutdown_filter", "event=mail_user_session_finished AND rss > 20MB" },
+#endif
 	{ "imap_id_send/name", DOVECOT_NAME },
 	{ NULL, NULL },
 };
