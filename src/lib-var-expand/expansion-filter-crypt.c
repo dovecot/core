@@ -27,7 +27,7 @@ void var_expand_crypt_load(void)
 	};
 
 	var_expand_crypt_module =
-		module_dir_load(VAR_EXPAND_MODULE_DIR, mods, &set);
+		module_dir_load(MODULEDIR, mods, &set);
 	module_dir_init(var_expand_crypt_module);
 	lib_atexit(var_expand_crypt_unload);
 }
