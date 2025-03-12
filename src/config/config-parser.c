@@ -871,6 +871,69 @@ config_key_can_autoprefix(struct config_parser_context *ctx, const char *key)
 	return def->type != SET_FILTER_NAME;
 }
 
+static void
+config_set_unknown_key_error(struct config_parser_context *ctx, const char *key)
+{
+	string_t *errstr = t_str_new(128);
+	str_printfa(errstr, "Unknown setting: %s", key);
+
+	const char *filter_name =
+		ctx->cur_section->filter_parser->filter.filter_name;
+	if (filter_name == NULL) {
+		ctx->error = p_strdup(ctx->pool, str_c(errstr));
+		return;
+	}
+	const char *filter_name_key = t_strcut(filter_name, '/');
+	str_printfa(errstr, " (%s_%s", filter_name_key, key);
+	if (ctx->cur_section->filter_parser->filter.filter_name_array) {
+		str_printfa(errstr, " or %s_%s",
+			    t_str_replace(filter_name, '/', '_'), key);
+	}
+	str_append(errstr, " not found either.");
+	if (!ctx->cur_section->filter_parser->filter.filter_name_array) {
+		str_append_c(errstr, ')');
+		ctx->error = p_strdup(ctx->pool, str_c(errstr));
+		return;
+	}
+
+	/* Perhaps autoprefixing didn't work as expected with a named list
+	   filter. For example passdb static2 { password } - try to find
+	   passdb_*_password and suggest using that. */
+	string_t *alt_keys = t_str_new(128);
+	const char *prefix = t_strconcat(filter_name_key, "_", NULL);
+	struct hash_iterate_context *iter =
+		hash_table_iterate_init(ctx->all_keys);
+	const char *hash_key, *suffix;
+	struct config_parser_key *config_key;
+	unsigned int found_count = 0;
+	while (hash_table_iterate(iter, ctx->all_keys, &hash_key, &config_key)) {
+		if (!str_begins(hash_key, prefix, &suffix))
+			continue;
+		/* Skip over the next element. Don't skip over multiple '_'
+		   since there are no settings where that would match. */
+		while (*suffix != '_' && *suffix != '\0')
+			suffix++;
+		/* the rest should match the key */
+		if (suffix[0] == '_' && strcmp(suffix + 1, key) == 0) {
+			if (str_len(alt_keys) > 0)
+				str_append(alt_keys, ", ");
+			str_append(alt_keys, hash_key);
+			found_count++;
+		}
+
+	}
+	hash_table_iterate_deinit(&iter);
+	if (found_count == 0)
+		str_append_c(errstr, ')');
+	else if (found_count == 1)
+		str_printfa(errstr, " Did you mean %s?)", str_c(alt_keys));
+	else {
+		str_printfa(errstr, " Did you mean one of: %s?)",
+			    str_c(alt_keys));
+	}
+	ctx->error = p_strdup(ctx->pool, str_c(errstr));
+}
+
 static int
 config_apply_line_full(struct config_parser_context *ctx,
 		       const struct config_line *line,
@@ -1011,8 +1074,7 @@ again:
 	if (ret == 0) {
 		if (ctx->ignore_unknown)
 			return 0;
-		ctx->error = p_strconcat(ctx->pool, "Unknown setting: ",
-					 key, NULL);
+		config_set_unknown_key_error(ctx, key);
 		return -1;
 	}
 	return ret < 0 ? -1 : 0;
