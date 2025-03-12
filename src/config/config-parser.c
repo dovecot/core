@@ -286,27 +286,6 @@ config_parser_is_in_localremote(struct config_section_stack *section)
 	return FALSE;
 }
 
-static void
-section_stack_write(string_t *str, struct config_section_stack *section)
-{
-	if (section == NULL)
-		return;
-
-	section_stack_write(str, section->prev);
-	if (!section->is_filter && section->key != NULL)
-		str_printfa(str, "%s { ", section->key);
-}
-
-static const char *
-get_setting_full_path(struct config_parser_context *ctx, const char *key)
-{
-	string_t *str = t_str_new(128);
-
-	section_stack_write(str, ctx->cur_section);
-	str_append(str, key);
-	return str_c(str);
-}
-
 static const char *
 fix_relative_path(const char *path, struct input_stack *input)
 {
@@ -1033,7 +1012,7 @@ again:
 		if (ctx->ignore_unknown)
 			return 0;
 		ctx->error = p_strconcat(ctx->pool, "Unknown setting: ",
-					 get_setting_full_path(ctx, key), NULL);
+					 key, NULL);
 		return -1;
 	}
 	return ret < 0 ? -1 : 0;
