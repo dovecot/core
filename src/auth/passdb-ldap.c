@@ -52,9 +52,11 @@ ldap_query_save_result(struct ldap_connection *conn,
 {
 	struct db_ldap_field_expand_context ctx = {
 		.event = authdb_event(auth_request),
-		.fields = ldap_query_get_fields(auth_request->pool, conn,
-						ldap_request, res, FALSE)
 	};
+	if (res != NULL) {
+		ctx.fields = ldap_query_get_fields(auth_request->pool, conn,
+						   ldap_request, res, FALSE);
+	}
 
 	const char *default_password_scheme =
 		auth_request->passdb->set->default_password_scheme;
@@ -346,6 +348,8 @@ ldap_verify_plain_auth_bind_userdn(struct auth_request *auth_request,
 		container_of(_module, struct ldap_passdb_module, module);
 	struct ldap_connection *conn = module->conn;
 	struct ldap_request_bind *brequest = &request->request.bind;
+
+	ldap_query_save_result(conn, auth_request, NULL, NULL);
 
 	brequest->request.type = LDAP_REQUEST_TYPE_BIND;
 	brequest->dn = p_strdup(auth_request->pool, ldap_set->passdb_ldap_bind_userdn);
