@@ -1,3 +1,62 @@
+v2.4.1 2025-03-28  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* auth: Change unix_listener/auth-userdb/group = $SET:default_internal_group
+	  This change needs dovecot_config_version=2.4.1.
+	* auth: lua - Remove support for single string result.
+	* imap: Unconditionally advertise SPECIAL-USE capability.
+	* lib-dcrypt: Install dcrypt_openssl.so into dovecot modules directory.
+	* lib-master: For glibc, default MALLOC_MMAP_THRESHOLD_=131072.
+	* lib-storage: Change default mail_cache_fields to:
+	  hdr.date hdr.subject hdr.from hdr.sender hdr.reply-to hdr.to
+	  hdr.cc hdr.bcc hdr.in-reply-to hdr.message-id
+	  date.received size.virtual imap.bodystructure mime.parts hdr.references
+	  hdr.importance hdr.x-priority hdr.x-open-xchange-share-url
+	  pop3.uidl pop3.order. This change needs dovecot_config_version=2.4.1.
+	* lib-var-expand: Use moduledir instead of pkglibdir for crypt.
+	* lmtp: Change the default lmtp_user_concurrency_limit to 10.
+	  This change needs dovecot_config_version=2.4.1.
+	* lmtp: Change the default service_restart_request_count to 1.
+	  This change needs dovecot_config_version=2.4.1.
+	+ auth: Allow configuring passdb/userdb sql to use auth-workers.
+	+ config: Add default group @mailbox_defaults = english.
+	+ config: Improve "Unknown setting" error with more details and
+	  suggestions.
+	+ doveconf: Add -U parameter to ignore unknown settings in config file.
+	+ fts-flatcurve: Support lock files in VOLATILEDIR.
+	+ imap-acl: Add support for the IMAP LIST-MYRIGHTS capability (RFC 8440).
+	+ imap-client: Support ANONYMOUS authentication.
+	+ imap: Implement support for the REPLACE capability.
+	- auth: ldap - Passdb fields were ignored with
+	  passdb_ldap_bind_userdn=yes.
+	- auth: lua - Fix error result handling in lua passdb/userdb.
+	- auth: oauth2 - When building oauth2 failure reply, memory would leak.
+	- config: local_name handling would work wrong with multiple names and
+	  wildcards.
+	- fts-flatcurve: A potential crash could occur when searching virtual
+	  mailboxes.
+	  Fixes: Panic: file fts-search.c: line 87 (level_scores_add_vuids):
+	  assertion failed: (array_count(&vuids_arr) == array_count(&br->scores))
+	- fts-flatcurve: Maybe queries were done wrong.
+	- fts-flatcurve: Non-selectable mailboxes were not ignored when doing
+	  optimize/rescan.
+	- fts-flatcurve: Signal 11 crash could happen with fts rescan.
+	- fts: Fix crash caused by event object lifecycle mishandling.
+	- imap-hibernate: Client counters would get reset on unhibernation,
+	  affecting imap_logout_format variables.
+	- imap: Crash would occur with Maildir when trying to send INPROGRESS
+	  during mailbox syncing.
+	- ldap: Dovecot could not be compiled without LDAP.
+	- lib-dcrypt: Output stream encryption can cause assert crash if
+	  attempting to encrypt over 64 GiB of data with GCM. This is still not
+	  supported with GCM, but it fails better.
+	- lib-http: HTTP client context memory usage was increasing.
+	- lib-http: Pipeline corruption could happen after 100 Continue response.
+	- lib-smtp: Pipelining initial SASL response after AUTH was broken.
+	- lib-var-expand: If filter failed, memory leak would occur.
+	- lib-var-expand: Older bison versions did not have error symbol for
+	  handling causing unexpected behaviour on the parser on error conditions.
+	- quota: Quota calculations had minor bugs causing small errors.
+
 v2.4.0 2025-01-24  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* config: dovecot_config_version must be the first non-comment
