@@ -2335,21 +2335,7 @@ auth_request_proxy_finish_ip(struct auth_request *request,
 		auth_fields_remove(fields->extra_fields, "proxy_maybe");
 		auth_fields_add(fields->extra_fields, "proxy", NULL, 0);
 	} else {
-		/* proxying to ourself - log in without proxying by dropping
-		   all the proxying fields. */
-		bool proxy_always = auth_fields_exists(fields->extra_fields,
-						       "proxy_always");
-
 		auth_request_proxy_finish_failure(request);
-		if (proxy_always) {
-			/* setup where "self" refers to the local director
-			   cluster, while "non-self" refers to remote clusters.
-
-			   we've matched self here, so add proxy field and
-			   let director fill the host. */
-			auth_fields_add(request->fields.extra_fields,
-					"proxy", NULL, 0);
-		}
 	}
 }
 
@@ -2498,7 +2484,6 @@ void auth_request_proxy_finish_failure(struct auth_request *request)
 	/* drop all proxying fields */
 	auth_fields_remove(request->fields.extra_fields, "proxy");
 	auth_fields_remove(request->fields.extra_fields, "proxy_maybe");
-	auth_fields_remove(request->fields.extra_fields, "proxy_always");
 	auth_fields_remove(request->fields.extra_fields, "host");
 	auth_fields_remove(request->fields.extra_fields, "hostip");
 	auth_fields_remove(request->fields.extra_fields, "port");
