@@ -8,7 +8,14 @@ BUILT_SOURCES = $(srcdir)/unicodemap.c \
 		event-filter-parser.c \
 		event-filter-parser.h
 
-EXTRA_DIST = unicodemap.c unicodemap.pl UnicodeData.txt
+UCD_URL = https://dovecot.org/res
+UCD_DIR = $(srcdir)/ucd
+UCD_FILES = \
+	$(UCD_DIR)/UnicodeData.txt
+
+EXTRA_DIST = unicodemap.c unicodemap.pl $(UCD_FILES)
+EXTRA_CLEAN = unicodemap.c
+
 
 # Squelch autoconf error about using .[ly] sources but not defining $(LEX)
 # and $(YACC).  Using false here avoids accidental use.
@@ -30,11 +37,11 @@ YACC=/bin/false
 # dependency, anything including the header will race the bison process.
 event-filter-parser.h: event-filter-parser.c
 
-$(srcdir)/UnicodeData.txt:
-	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ https://dovecot.org/res/UnicodeData.txt
+$(UCD_DIR)/UnicodeData.txt:
+	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/UnicodeData.txt
 
-$(srcdir)/unicodemap.c: $(srcdir)/unicodemap.pl $(srcdir)/UnicodeData.txt
-	$(AM_V_GEN)$(PERL) $(srcdir)/unicodemap.pl < $(srcdir)/UnicodeData.txt > $@
+$(srcdir)/unicodemap.c: $(srcdir)/unicodemap.pl $(UCD_DIR)/UnicodeData.txt
+	$(AM_V_GEN)$(PERL) $(srcdir)/unicodemap.pl < $(UCD_DIR)/UnicodeData.txt > $@
 
 liblib_la_LIBADD = $(LIBUNWIND_LIBS)
 liblib_la_SOURCES = \
