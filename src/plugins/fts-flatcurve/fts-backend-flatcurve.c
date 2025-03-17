@@ -67,6 +67,14 @@ fts_backend_flatcurve_init(struct fts_backend *_backend, const char **error_r)
 	return fts_backend_flatcurve_close_mailbox(backend, error_r);
 }
 
+static void
+fts_backend_flatcurve_clear_mailbox_params(struct flatcurve_fts_backend *backend)
+{
+	str_truncate(backend->boxname, 0);
+	str_truncate(backend->db_path, 0);
+	str_truncate(backend->volatile_dir, 0);
+}
+
 int
 fts_backend_flatcurve_close_mailbox(struct flatcurve_fts_backend *backend,
 				    const char **error_r)
@@ -75,10 +83,7 @@ fts_backend_flatcurve_close_mailbox(struct flatcurve_fts_backend *backend,
 	int ret = 0;
 	if (str_len(backend->boxname) > 0) {
 		ret = fts_flatcurve_xapian_close(backend, error_r);
-
-		str_truncate(backend->boxname, 0);
-		str_truncate(backend->db_path, 0);
-		str_truncate(backend->volatile_dir, 0);
+		fts_backend_flatcurve_clear_mailbox_params(backend);
 	}
 
 	event_set_append_log_prefix(backend->event, FTS_FLATCURVE_DEBUG_PREFIX);
@@ -141,19 +146,34 @@ fts_backend_flatcurve_set_mailbox(struct flatcurve_fts_backend *backend,
 		return -1;
 	}
 
-	str_append(backend->boxname, box->vname);
-	str_printfa(backend->db_path, "%s/%s/", path, FTS_FLATCURVE_LABEL);
-
 	storage = mailbox_get_storage(box);
 	backend->parsed_lock_method = storage->set->parsed_lock_method;
 
 	user = mail_storage_get_user(storage);
 	volatile_dir = mail_user_get_volatile_dir(user);
-	if (volatile_dir != NULL)
-		str_append(backend->volatile_dir, volatile_dir);
+
+	fts_backend_flatcurve_set_mailbox_params(backend, box->vname, path,
+						 TRUE, volatile_dir);
 
 	fts_flatcurve_xapian_set_mailbox(backend);
 	return 0;
+}
+
+void
+fts_backend_flatcurve_set_mailbox_params(struct flatcurve_fts_backend *backend,
+					 const char *box, const char *path,
+					 bool append_path_label,
+					 const char *volatile_dir)
+{
+	if (str_len(backend->boxname) > 0)
+		fts_backend_flatcurve_clear_mailbox_params(backend);
+
+	str_append(backend->boxname, box);
+	str_append(backend->db_path, path);
+	if (append_path_label)
+		str_printfa(backend->db_path, "/%s/", FTS_FLATCURVE_LABEL);
+	if (volatile_dir != NULL)
+		str_append(backend->volatile_dir, volatile_dir);
 }
 
 static int

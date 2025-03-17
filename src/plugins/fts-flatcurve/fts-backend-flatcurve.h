@@ -12,6 +12,8 @@
 
 struct flatcurve_fts_backend {
 	struct fts_backend backend;
+	/* MUST use fts_backend_flatcurve_set_mailbox_params() to set these
+	 * values. */
 	string_t *boxname, *db_path, *volatile_dir;
 
 	struct event *event;
@@ -58,6 +60,11 @@ struct flatcurve_fts_result {
 int
 fts_backend_flatcurve_set_mailbox(struct flatcurve_fts_backend *backend,
                                   struct mailbox *box, const char **error_r);
+void
+fts_backend_flatcurve_set_mailbox_params(struct flatcurve_fts_backend *backend,
+					 const char *box, const char *path,
+					 bool append_path_label,
+					 const char *volatile_dir);
 int
 fts_backend_flatcurve_close_mailbox(struct flatcurve_fts_backend *backend,
 				    const char **error_r);

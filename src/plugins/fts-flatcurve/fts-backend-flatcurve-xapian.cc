@@ -257,8 +257,9 @@ void fts_flatcurve_xapian_deinit(struct flatcurve_fts_backend *backend)
 
 		void *key, *val;
 		while (hash_table_iterate(iter, x->optimize, &key, &val)) {
-			str_append(backend->boxname, (const char *)key);
-			str_append(backend->db_path, (const char *)val);
+			fts_backend_flatcurve_set_mailbox_params(
+				backend, (const char *)key,
+				(const char *)val, FALSE, NULL);
 
 			if (fts_flatcurve_xapian_optimize_box(
 				backend, &error) < 0)
