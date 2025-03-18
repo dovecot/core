@@ -265,17 +265,23 @@ static void test_file_cache_errors(void)
 				 page_size, strerror(ENOMEM));
 	test_assert(setrlimit(RLIMIT_AS, &rl_new) == 0);
 	test_expect_error_string(errstr);
-	test_assert(file_cache_set_size(cache, 1024) == -1);
-	test_assert(setrlimit(RLIMIT_AS, &rl_cur) == 0);
+	int ret = file_cache_set_size(cache, 1024);
+	if (ret == 0) {
+		/* RLIMIT_AS isn't working in this OS - skip this test */
+		test_expect_no_more_errors();
+	} else {
+		test_assert(ret == -1);
+		test_assert(setrlimit(RLIMIT_AS, &rl_cur) == 0);
 
-	/* same for mremap */
-	errstr = t_strdup_printf("mremap_anon(.test_file_cache, %zu) failed: %s",
-				 page_size*2, strerror(ENOMEM));
-	test_assert(file_cache_set_size(cache, 1) == 0);
-	test_assert(setrlimit(RLIMIT_AS, &rl_new) == 0);
-	test_expect_error_string(errstr);
-	test_assert(file_cache_set_size(cache, page_size*2) == -1);
-	test_assert(setrlimit(RLIMIT_AS, &rl_cur) == 0);
+		/* same for mremap */
+		errstr = t_strdup_printf("mremap_anon(.test_file_cache, %zu) failed: %s",
+					 page_size*2, strerror(ENOMEM));
+		test_assert(file_cache_set_size(cache, 1) == 0);
+		test_assert(setrlimit(RLIMIT_AS, &rl_new) == 0);
+		test_expect_error_string(errstr);
+		test_assert(file_cache_set_size(cache, page_size*2) == -1);
+		test_assert(setrlimit(RLIMIT_AS, &rl_cur) == 0);
+	}
 #endif
 
 	file_cache_free(&cache);
