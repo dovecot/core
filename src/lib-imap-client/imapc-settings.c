@@ -122,6 +122,7 @@ static const struct imapc_feature_list imapc_feature_list[] = {
 	{ "no-acl", IMAPC_FEATURE_NO_ACL },
 	{ "no-metadata", IMAPC_FEATURE_NO_METADATA },
 	{ "no-qresync", IMAPC_FEATURE_NO_QRESYNC },
+	{ "no-imap4rev2", IMAPC_FEATURE_NO_IMAP4REV2 },
 	{ NULL, 0 }
 };
 

@@ -37,6 +37,7 @@ const struct imapc_capability_name imapc_capability_names[] = {
 	{ "METADATA", IMAPC_CAPABILITY_METADATA },
 
 	{ "IMAP4REV1", IMAPC_CAPABILITY_IMAP4REV1 },
+	{ "IMAP4REV2", IMAPC_CAPABILITY_IMAP4REV2 },
 	{ NULL, 0 }
 };
 
