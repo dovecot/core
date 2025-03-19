@@ -1206,6 +1206,9 @@ settings_apply_groups(struct settings_apply_ctx *ctx,
 		.type = LOG_TYPE_DEBUG,
 	};
 
+	if (array_is_empty(&ctx->include_groups))
+		return 0;
+
 	/* All group filters are at the end. When we see a non-group filter,
 	   we can stop. */
 	int ret = 0;
