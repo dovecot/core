@@ -250,10 +250,101 @@ static void test_settings_get(void)
 				   result_sorted_name_reverse);
 }
 
+static int
+test_var_expand_hierarchy_key1(const char *field_name ATTR_UNUSED,
+			       const char **value_r, void *context,
+			       const char **error_r ATTR_UNUSED)
+{
+	test_assert_strcmp(context, "context1");
+	*value_r = "key1_value";
+	return 0;
+}
+
+static int
+test_var_expand_hierarchy_key2(const char *key ATTR_UNUSED,
+			       const char **value_r, void *context,
+			       const char **error_r ATTR_UNUSED)
+{
+	test_assert_strcmp(context, "context2");
+	*value_r = "key2_value";
+	return 0;
+}
+
+static void test_var_expand_hierarchy(void)
+{
+	test_begin("settings_get - hierarchical event");
+	char *context1 = "context1";
+	char *context2 = "context2";
+	struct var_expand_table tab1[] = {
+		{ .key = "key1", .func = test_var_expand_hierarchy_key1 },
+		{ .key = NULL }
+	};
+	struct var_expand_params params1 = {
+		.table = tab1,
+		.context = context1,
+	};
+
+	struct var_expand_provider prov2[] = {
+		{ "key2", test_var_expand_hierarchy_key2 },
+		{ NULL, NULL }
+	};
+	struct var_expand_params params2 = {
+		.providers = prov2,
+		.context = context2,
+	};
+
+	struct var_expand_params params3 = {
+		.tables_arr = (const struct var_expand_table *const[]) {
+			tab1,
+			tab1,
+			NULL
+		},
+		.contexts = (void *const[]) {
+			context1,
+			context1,
+			VAR_EXPAND_CONTEXTS_END,
+		}
+	};
+
+	struct settings_root *set_root = settings_root_init();
+	settings_root_override(set_root, "test2_title", "%{key1} and %{key2:foo}",
+			       SETTINGS_OVERRIDE_TYPE_DEFAULT);
+
+	struct event *root = event_create(NULL);
+	event_set_ptr(root, SETTINGS_EVENT_ROOT, set_root);
+	event_set_ptr(root, SETTINGS_EVENT_VAR_EXPAND_PARAMS, &params1);
+
+	struct event *child = event_create(root);
+	event_set_ptr(child, SETTINGS_EVENT_VAR_EXPAND_PARAMS, &params2);
+
+	struct test2_settings *set;
+	const char *error;
+	test_assert(settings_get(child, &test2_setting_parser_info, 0,
+				 &set, &error) == 0);
+	test_assert_strcmp(set->title, "key1_value and key2_value");
+	settings_free(set);
+
+	struct event *child2 = event_create(child);
+	event_set_ptr(child2, SETTINGS_EVENT_VAR_EXPAND_PARAMS, &params3);
+
+	test_assert(settings_get(child2, &test2_setting_parser_info, 0,
+				 &set, &error) == 0);
+	test_assert_strcmp(set->title, "key1_value and key2_value");
+	settings_free(set);
+
+
+	event_unref(&child2);
+	event_unref(&child);
+	event_unref(&root);
+	settings_root_deinit(&set_root);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_settings_get,
+		test_var_expand_hierarchy,
 		NULL
 	};
 	return test_run(test_functions);
