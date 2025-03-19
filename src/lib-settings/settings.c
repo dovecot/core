@@ -1407,33 +1407,67 @@ settings_var_expand_init_add(struct settings_var_expand_init_ctx *init_ctx,
 			     const struct var_expand_params *params)
 {
 	unsigned int need_contexts = 1;
+	static const struct var_expand_table empty_table[] = {
+		VAR_EXPAND_TABLE_END
+	};
+	static const struct var_expand_table *empty_table_ptr = empty_table;
+	static const struct var_expand_provider empty_provider[] = {
+		VAR_EXPAND_TABLE_END
+	};
+	static const struct var_expand_provider *empty_provider_ptr = empty_provider;
+
 	if (params->table != NULL) {
 		i_assert(params->tables_arr == NULL);
 		array_push_back(&init_ctx->tables, &params->table);
+	} else if (params->tables_arr == NULL && params->providers_arr == NULL) {
+		array_push_back(&init_ctx->tables, &empty_table_ptr);
 	}
 	if (params->providers != NULL) {
 		i_assert(params->providers_arr == NULL);
 		array_push_back(&init_ctx->providers, &params->providers);
+	} else if (params->tables_arr == NULL && params->providers_arr == NULL) {
+		array_push_back(&init_ctx->providers, &empty_provider_ptr);
 	}
 	if (params->table != NULL || params->providers != NULL)
 		array_push_back(&init_ctx->contexts, &params->context);
 
-	if (params->tables_arr != NULL) {
-		for (unsigned int i = 0; params->tables_arr[i] != NULL; i++) {
-			if (i > need_contexts)
-				need_contexts = i;
-			array_push_back(&init_ctx->tables,
-					&params->tables_arr[i]);
-		}
+	if (params->tables_arr != NULL || params->providers_arr != NULL) {
+		unsigned int table_count = 0, prov_count = 0;
+		const struct var_expand_table *tbl;
+		const struct var_expand_provider *prov;
+
+		/* Ensure that we get a table and provider so that contexts line up */
+		do {
+			tbl = params->tables_arr != NULL ?
+				params->tables_arr[table_count] : NULL;
+			prov = params->providers_arr != NULL ?
+				params->providers_arr[prov_count] : NULL;
+
+			/* for each provider and table, there needs to be
+			   a correspoding entry in both arrays to make sure
+			   that when we go through them, we get the correct
+			   context too.
+			*/
+			if (tbl != NULL) {
+				array_push_back(&init_ctx->tables, &tbl);
+				table_count++;
+			} else if (prov != NULL) {
+				array_push_back(&init_ctx->tables, &empty_table_ptr);
+			}
+			if (prov != NULL) {
+				array_push_back(&init_ctx->providers, &prov);
+				prov_count++;
+			} else if (tbl != NULL) {
+				array_push_back(&init_ctx->providers, &empty_provider_ptr);
+			}
+			if (prov == NULL && tbl == NULL)
+				break;
+		} while (tbl != NULL || prov != NULL);
+
+		if (I_MAX(table_count, prov_count) > need_contexts)
+			need_contexts = I_MAX(table_count, prov_count);
 	}
-	if (params->providers_arr != NULL) {
-		for (unsigned int i = 0; params->providers_arr[i] != NULL; i++) {
-			if (i > need_contexts)
-				need_contexts = i;
-			array_push_back(&init_ctx->providers,
-					&params->providers_arr[i]);
-		}
-	}
+
 	if (params->escape_func != NULL)
 		init_ctx->escape_func = params->escape_func;
 	if (params->escape_context != NULL)
@@ -1447,6 +1481,11 @@ settings_var_expand_init_add(struct settings_var_expand_init_ctx *init_ctx,
 			array_push_back(&init_ctx->contexts, ctx);
 		}
 		i_assert(count == need_contexts);
+	} else {
+		/* Make sure we push some context enough to pad the context stack
+		   to match the number of tables and providers. */
+		for (unsigned int i = 1; i < need_contexts; i++)
+			array_push_back(&init_ctx->contexts, &params->context);
 	}
 
 	/* ensure everything is still good */
