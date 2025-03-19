@@ -272,8 +272,8 @@ static int fts_parser_script_deinit(struct fts_parser *_parser,
 }
 
 struct fts_parser_vfuncs fts_parser_script = {
-	fts_parser_script_try_init,
-	fts_parser_script_more,
-	fts_parser_script_deinit,
+	.try_init = fts_parser_script_try_init,
+	.more = fts_parser_script_more,
+	.deinit = fts_parser_script_deinit,
 	NULL
 };
