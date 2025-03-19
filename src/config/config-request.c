@@ -200,6 +200,13 @@ settings_export(struct config_export_context *ctx,
 			}
 			dump_default = TRUE;
 			break;
+		case CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_AND_GROUP_OVERRIDES:
+			if (change_value == 0) {
+				/* setting is completely unchanged */
+				continue;
+			}
+			dump_default = TRUE;
+			break;
 		case CONFIG_DUMP_SCOPE_CHANGED:
 			if (change_value < CONFIG_PARSER_CHANGE_EXPLICIT) {
 				/* setting is unchanged in config file */

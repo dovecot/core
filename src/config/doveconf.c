@@ -865,7 +865,7 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 					 strip_prefix, strip_prefix2);
 
 		bool sub_list_prefix_sent = ctx->list_prefix_sent;
-		if (set_name_filter == NULL) {
+		if (scope != CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_AND_GROUP_OVERRIDES) {
 			if (config_dump_human_include_group(filter_parser, output,
 							    sub_list_prefix_sent ? NULL :
 							    list_prefix, sub_indent))
@@ -922,8 +922,12 @@ config_dump_human(enum config_dump_scope scope,
 		t_strsplit(setting_name_filter, "/");
 	if (scope == CONFIG_DUMP_SCOPE_CHANGED)
 		scope = CONFIG_DUMP_SCOPE_SET;
-	else if (scope != CONFIG_DUMP_SCOPE_SET)
+	else if (scope == CONFIG_DUMP_SCOPE_SET)
+		;
+	else if (setting_name_filter == NULL)
 		scope = CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES;
+	else
+		scope = CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_AND_GROUP_OVERRIDES;
 	config_dump_human_filter_path(scope, set_filter_path,
 				      filter_parser->children_head, output, 0,
 				      list_prefix, &list_prefix_sent,

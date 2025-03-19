@@ -19,6 +19,9 @@ enum config_dump_scope {
 	/* Same as CONFIG_DUMP_SCOPE_SET, but also dump any defaults overridden
 	   via strings (instead of the defaults struct). */
 	CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES,
+	/* Same as CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES, but also expand
+	   group settings. */
+	CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_AND_GROUP_OVERRIDES,
 	/* Dump only settings that differ from defaults */
 	CONFIG_DUMP_SCOPE_CHANGED
 };
