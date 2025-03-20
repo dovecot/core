@@ -2138,6 +2138,8 @@ config_filters_merge_tree(struct config_parser_context *ctx,
 		if (dest == NULL) {
 			dest = config_add_new_parser(ctx, &src->filter,
 						     dest_parent);
+			dest->filter_required_setting_seen =
+				src->filter_required_setting_seen;
 		}
 		if (drop_merged)
 			src->dropped = TRUE;
