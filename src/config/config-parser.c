@@ -2762,18 +2762,23 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 		const struct config_filter *cur_filter =
 			&ctx->cur_section->filter_parser->filter;
 		const char *key = line->key;
+		string_t *attempts = NULL;
 		if (cur_filter->filter_name != NULL) {
 			const char *filter_key =
 				t_str_replace(cur_filter->filter_name, '/', '_');
 			const char *key2 = t_strdup_printf("%s_%s",
 							   filter_key, key);
+			attempts = t_str_new(64);
 			if (config_key_can_autoprefix(ctx, key2))
 				key = key2;
 			else {
+				str_printfa(attempts, " (%s", key2);
 				filter_key = t_strcut(cur_filter->filter_name, '/');
 				key2 = t_strdup_printf("%s_%s", filter_key, key);
 				if (config_key_can_autoprefix(ctx, key2))
 					key = key2;
+				else
+					str_printfa(attempts, ", %s", key2);
 			}
 		} else {
 			i_assert(!cur_filter->filter_name_array);
@@ -2791,8 +2796,11 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 		if (hash_table_lookup(ctx->all_keys, key) == NULL) {
 			if (ctx->ignore_unknown)
 				break;
+			if (attempts != NULL)
+				str_append(attempts, " not found either.)");
 			ctx->error = p_strdup_printf(ctx->pool,
-				"Unknown section name: %s", key);
+				"Unknown section name: %s%s", key,
+				attempts == NULL ? "" : str_c(attempts));
 			break;
 		}
 
