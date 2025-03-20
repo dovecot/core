@@ -2056,15 +2056,26 @@ group_find_name(struct config_include_group_filters *group, const char *name)
 	return NULL;
 }
 
-static void config_module_parsers_merge(struct config_module_parser *dest,
-					const struct config_module_parser *src,
-					bool overwrite)
+static void
+config_module_parsers_merge(pool_t pool, struct config_module_parser *dest,
+			    const struct config_module_parser *src,
+			    bool overwrite, unsigned int new_change_counter)
 {
 	for (; dest->info != NULL; dest++, src++) {
 		i_assert(dest->info == src->info);
 		if (dest->set_count == 0) {
 			/* destination is empty - just copy the whole src */
 			*dest = *src;
+			if (new_change_counter != 0 && src->set_count > 0) {
+				dest->change_counters =
+					p_new(pool, uint8_t, dest->set_count);
+				for (unsigned int i = 0; i < dest->set_count; i++) {
+					if (src->change_counters[i] != 0) {
+						dest->change_counters[i] =
+							new_change_counter;
+					}
+				}
+			}
 			continue;
 		}
 		if (src->set_count == 0) {
@@ -2088,7 +2099,10 @@ static void config_module_parsers_merge(struct config_module_parser *dest,
 			if (src->change_counters[i] != 0 &&
 			    (dest->change_counters[i] == 0 || overwrite)) {
 				dest->settings[i] = src->settings[i];
-				dest->change_counters[i] = src->change_counters[i];
+				dest->change_counters[i] =
+					new_change_counter != 0 ?
+					new_change_counter :
+					src->change_counters[i];
 			}
 		}
 	}
@@ -2112,7 +2126,8 @@ static void
 config_filters_merge_tree(struct config_parser_context *ctx,
 			  struct config_filter_parser *dest_parent,
 			  struct config_filter_parser *src_parent,
-			  bool drop_merged, bool overwrite)
+			  bool drop_merged, bool overwrite,
+			  unsigned int new_change_counter)
 {
 	struct config_filter_parser *src;
 	struct config_filter_parser *dest;
@@ -2126,10 +2141,12 @@ config_filters_merge_tree(struct config_parser_context *ctx,
 		}
 		if (drop_merged)
 			src->dropped = TRUE;
-		config_module_parsers_merge(dest->module_parsers,
-					    src->module_parsers, overwrite);
+		config_module_parsers_merge(ctx->pool, dest->module_parsers,
+					    src->module_parsers, overwrite,
+					    new_change_counter);
 		config_filters_merge_tree(ctx, dest, src,
-					  drop_merged, overwrite);
+					  drop_merged, overwrite,
+					  new_change_counter);
 	}
 }
 
@@ -2137,16 +2154,18 @@ static void config_filters_merge(struct config_parser_context *ctx,
 				 struct config_parsed *config,
 				 struct config_filter_parser *dest_filter,
 				 struct config_filter_parser *src_filter,
-				 bool drop_merged, bool overwrite)
+				 bool drop_merged, bool overwrite,
+				 unsigned int new_change_counter)
 {
 	i_assert(array_is_empty(&src_filter->include_groups));
 
 	if (drop_merged)
 		src_filter->dropped = TRUE;
-	config_module_parsers_merge(dest_filter->module_parsers,
-				    src_filter->module_parsers, overwrite);
+	config_module_parsers_merge(ctx->pool, dest_filter->module_parsers,
+				    src_filter->module_parsers, overwrite,
+				    new_change_counter);
 	config_filters_merge_tree(ctx, dest_filter, src_filter,
-				  drop_merged, overwrite);
+				  drop_merged, overwrite, new_change_counter);
 
 	array_append_zero(&ctx->all_filter_parsers);
 	array_pop_back(&ctx->all_filter_parsers);
@@ -2225,7 +2244,7 @@ config_parse_finish_includes(struct config_parser_context *ctx,
 			if (expand) {
 				config_filters_merge(ctx, config, filter,
 						     include_filter,
-						     FALSE, FALSE);
+						     FALSE, FALSE, 0);
 			}
 		}
 		if (expand)
@@ -2255,7 +2274,7 @@ config_parse_merge_filters(struct config_parser_context *ctx,
 		}
 
 		config_filters_merge(ctx, config, filter->parent, filter,
-				     TRUE, TRUE);
+				     TRUE, TRUE, 0);
 	}
 }
 
@@ -2270,7 +2289,7 @@ config_parse_merge_default_filters(struct config_parser_context *ctx,
 	i_assert(config_filter_is_empty_defaults(&defaults_parser->filter));
 
 	config_filters_merge(ctx, config, root_parser, defaults_parser,
-			     FALSE, FALSE);
+			     FALSE, FALSE, 0);
 }
 
 static void
