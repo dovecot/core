@@ -1198,8 +1198,7 @@ int main(int argc, char *argv[])
 		setting_name_filters = argv+optind;
 		if (scope == CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN)
 			scope = CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN;
-		flags |= CONFIG_PARSE_FLAG_MERGE_GROUP_FILTERS |
-			CONFIG_PARSE_FLAG_MERGE_DEFAULT_FILTERS;
+		flags |= CONFIG_PARSE_FLAG_MERGE_DEFAULT_FILTERS;
 		/* Named filters are a bit troublesome here. For example we
 		   can have imapc { ... } named filter, and imapc_master_user
 		   setting, which is normally written by doveconf as

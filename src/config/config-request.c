@@ -193,8 +193,9 @@ settings_export(struct config_export_context *ctx,
 			dump_default = TRUE;
 			break;
 		case CONFIG_DUMP_SCOPE_SET_AND_DEFAULT_OVERRIDES:
-			if (change_value == 0) {
-				/* setting is completely unchanged */
+			if (change_value < CONFIG_PARSER_CHANGE_DEFAULTS) {
+				/* setting is completely unchanged, or it's
+				   from an included group. */
 				continue;
 			}
 			dump_default = TRUE;
@@ -279,6 +280,10 @@ settings_export(struct config_export_context *ctx,
 			} else if (module_parser->change_counters[define_idx] ==
 				   CONFIG_PARSER_CHANGE_DEFAULTS && !default_changed) {
 				/* default not changed by old version checks */
+				str_append(ctx->value,
+					module_parser->settings[define_idx].str);
+			} else if (module_parser->change_counters[define_idx] ==
+				   CONFIG_PARSER_CHANGE_GROUP) {
 				str_append(ctx->value,
 					module_parser->settings[define_idx].str);
 			} else {

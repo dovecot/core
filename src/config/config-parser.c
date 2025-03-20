@@ -60,7 +60,7 @@ struct config_parsed {
 	ARRAY_TYPE(config_path) seen_paths;
 	ARRAY_TYPE(const_string) errors;
 	HASH_TABLE(const char *, const struct setting_define *) key_hash;
-	HASH_TABLE(const char *, struct config_include_group_filters *) include_groups;
+	HASH_TABLE_TYPE(include_group) include_groups;
 };
 
 ARRAY_DEFINE_TYPE(setting_parser_info_p, const struct setting_parser_info *);
@@ -1434,6 +1434,23 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 		ctx->cur_section->filter_parser =
 			config_add_new_parser(ctx, &filter,
 					      ctx->cur_section->filter_parser);
+		if (key[0] == SETTINGS_INCLUDE_GROUP_PREFIX) {
+			/* This is a group filter's root (which may have child
+			   filters) */
+			const char *include_group = key + 1;
+			struct config_include_group_filters *group =
+				hash_table_lookup(ctx->all_include_groups,
+						  include_group);
+			if (group == NULL) {
+				group = p_new(ctx->pool,
+					      struct config_include_group_filters, 1);
+				group->label = p_strdup(ctx->pool, include_group);
+				p_array_init(&group->filters, ctx->pool, 4);
+				hash_table_insert(ctx->all_include_groups,
+						  group->label, group);
+			}
+			array_push_back(&group->filters, &ctx->cur_section->filter_parser);
+		}
 	}
 	ctx->cur_section->is_filter = TRUE;
 
@@ -2171,88 +2188,8 @@ static void config_filters_merge(struct config_parser_context *ctx,
 
 	array_append_zero(&ctx->all_filter_parsers);
 	array_pop_back(&ctx->all_filter_parsers);
-	config->filter_parsers = array_front(&ctx->all_filter_parsers);
-}
-
-static int
-config_parse_finish_includes(struct config_parser_context *ctx,
-			     struct config_parsed *config, bool expand,
-			     const char **error_r)
-{
-	hash_table_create(&config->include_groups, config->pool, 0,
-			  str_hash, strcmp);
-
-	for (unsigned int i = 0; config->filter_parsers[i] != NULL; i++) {
-		struct config_filter_parser *filter = config->filter_parsers[i];
-
-		if (!filter->filter.filter_name_array ||
-		    filter->filter.filter_name[0] != SETTINGS_INCLUDE_GROUP_PREFIX)
-			continue;
-
-		/* This is a group filter's root (which may have child
-		   filters) */
-		T_BEGIN {
-			const char *include_group =
-				t_strcut(filter->filter.filter_name + 1, '/');
-			struct config_include_group_filters *group =
-				hash_table_lookup(config->include_groups,
-						  include_group);
-			if (group == NULL) {
-				group = p_new(config->pool,
-					      struct config_include_group_filters, 1);
-				group->label = p_strdup(config->pool,
-							include_group);
-				p_array_init(&group->filters, config->pool, 4);
-				hash_table_insert(config->include_groups,
-						  group->label, group);
-			}
-			array_push_back(&group->filters, &filter);
-		} T_END;
-	}
-
-	for (unsigned int i = 0; config->filter_parsers[i] != NULL; i++) {
-		struct config_filter_parser *filter = config->filter_parsers[i];
-		struct config_include_group *include_group;
-
-		if (!array_is_created(&filter->include_groups))
-			continue;
-
-		array_foreach_modifiable(&filter->include_groups, include_group) {
-			struct config_include_group_filters *group =
-				hash_table_lookup(config->include_groups,
-						  include_group->label);
-			if (group == NULL) {
-				*error_r = t_strdup_printf(
-					"Error in configuration file %s line %d: "
-					"Unknown group label @%s",
-					include_group->last_path,
-					include_group->last_linenum,
-					include_group->label);
-				return -1;
-			}
-
-			struct config_filter_parser *include_filter =
-				group_find_name(group, include_group->name);
-			if (include_filter == NULL) {
-				*error_r = t_strdup_printf(
-					"Error in configuration file %s line %d: "
-					"Unknown group @%s=%s",
-					include_group->last_path,
-					include_group->last_linenum,
-					include_group->label,
-					include_group->name);
-				return -1;
-			}
-			if (expand) {
-				config_filters_merge(ctx, config, filter,
-						     include_filter,
-						     FALSE, FALSE, 0);
-			}
-		}
-		if (expand)
-			array_free(&filter->include_groups);
-	}
-	return 0;
+	if (config != NULL)
+		config->filter_parsers = array_front(&ctx->all_filter_parsers);
 }
 
 static void
@@ -2405,15 +2342,12 @@ config_parse_finish(struct config_parser_context *ctx,
 	new_config->filter_parsers = array_front(&ctx->all_filter_parsers);
 	new_config->module_parsers = ctx->root_module_parsers;
 
+	new_config->include_groups = ctx->all_include_groups;
+	i_zero(&ctx->all_include_groups);
+
 	/* Destroy it here, so config filter tree merging no longer attempts
 	   to update it. */
 	hash_table_destroy(&ctx->all_filter_parsers_hash);
-
-	if (ret == 0) {
-		ret = config_parse_finish_includes(ctx, new_config,
-			(flags & CONFIG_PARSE_FLAG_MERGE_GROUP_FILTERS) != 0,
-			error_r);
-	}
 
 	if (ret == 0 && dump_filter != NULL)
 		config_parse_merge_filters(ctx, new_config, dump_filter);
@@ -2699,6 +2633,73 @@ static bool config_parser_get_version(struct config_parser_context *ctx,
 	return TRUE;
 }
 
+static struct config_filter_parser *
+config_filter_parser_replace_parent(pool_t pool,
+				    const struct config_filter_parser *src,
+				    struct config_filter_parser *parent)
+{
+	struct config_filter_parser **p, *dest =
+		p_new(pool, struct config_filter_parser, 1);
+	*dest = *src;
+	dest->parent = parent;
+	dest->filter.parent = parent == NULL ? NULL : &parent->filter;
+
+	/* Fix the parent pointer in children also */
+	for (p = &dest->children_head; *p != NULL; p = &(*p)->next) {
+		*p = config_filter_parser_replace_parent(pool, *p, dest);
+		dest->children_tail = *p;
+	}
+	return dest;
+}
+
+static int
+config_parser_include_merge(struct config_parser_context *ctx,
+			    const struct config_include_group *include_group,
+			    const char **error_r)
+{
+	struct config_include_group_filters *group =
+		hash_table_lookup(ctx->all_include_groups,
+				  include_group->label);
+	if (group == NULL) {
+		*error_r = t_strdup_printf("Unknown group label @%s",
+					   include_group->label);
+		return -1;
+	}
+
+	struct config_filter_parser *include_filter =
+		group_find_name(group, include_group->name);
+	if (include_filter == NULL) {
+		*error_r = t_strdup_printf("Unknown group @%s=%s",
+			include_group->label, include_group->name);
+		return -1;
+	}
+
+	config_module_parsers_merge(ctx->pool,
+		ctx->cur_section->filter_parser->module_parsers,
+		include_filter->module_parsers, FALSE,
+		CONFIG_PARSER_CHANGE_GROUP);
+
+	struct config_filter_parser *src_filter = include_filter->children_head;
+	for (; src_filter != NULL; src_filter = src_filter->next) {
+		/* replace @group parent with the current section */
+		struct config_filter_parser *dest, *new_src_filter =
+			config_filter_parser_replace_parent(ctx->pool,
+				src_filter, ctx->cur_section->filter_parser);
+
+		dest = config_filters_find_child(ctx->cur_section->filter_parser,
+						 &new_src_filter->filter);
+		if (dest == NULL) {
+			dest = config_add_new_parser(ctx, &new_src_filter->filter,
+						     ctx->cur_section->filter_parser);
+			dest->filter_required_setting_seen =
+				new_src_filter->filter_required_setting_seen;
+		}
+		config_filters_merge(ctx, NULL, dest, new_src_filter,
+				     FALSE, FALSE, CONFIG_PARSER_CHANGE_GROUP);
+	}
+	return 0;
+}
+
 static void
 config_parser_include_add_or_update(struct config_parser_context *ctx,
 				    const char *group, const char *name)
@@ -2706,6 +2707,7 @@ config_parser_include_add_or_update(struct config_parser_context *ctx,
 	struct config_filter_parser *filter_parser =
 		ctx->cur_section->filter_parser;
 	struct config_include_group *include_group = NULL;
+	const char *error;
 	bool found = FALSE;
 
 	if (!array_is_created(&filter_parser->include_groups))
@@ -2725,6 +2727,9 @@ config_parser_include_add_or_update(struct config_parser_context *ctx,
 	include_group->last_path =
 		p_strdup(ctx->pool, ctx->cur_input->path);
 	include_group->last_linenum = ctx->cur_input->linenum;
+
+	if (config_parser_include_merge(ctx, include_group, &error) < 0)
+		ctx->error = p_strdup(ctx->pool, error);
 }
 
 void config_parser_apply_line(struct config_parser_context *ctx,
@@ -3011,6 +3016,8 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	p_array_init(&ctx.all_filter_parsers, ctx.pool, 128);
 	hash_table_create(&ctx.all_filter_parsers_hash, ctx.pool, 0,
 			  config_filter_hash, config_filters_cmp);
+	hash_table_create(&ctx.all_include_groups, ctx.pool, 0,
+			  str_hash, strcmp);
 	ctx.cur_section = p_new(ctx.pool, struct config_section_stack, 1);
 	/* Global settings filter must be the first. */
 	struct config_filter root_filter = { };
@@ -3124,6 +3131,7 @@ prevfile:
 	hash_table_destroy(&ctx.seen_settings);
 	hash_table_destroy(&ctx.all_keys);
 	hash_table_destroy(&ctx.all_filter_parsers_hash);
+	hash_table_destroy(&ctx.all_include_groups);
 	str_free(&full_line);
 	pool_unref(&ctx.pool);
 	return ret < 0 ? ret : 1;

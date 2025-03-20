@@ -74,6 +74,9 @@ struct input_stack {
 	unsigned int linenum;
 };
 
+HASH_TABLE_DEFINE_TYPE(include_group, const char *,
+		       struct config_include_group_filters *);
+
 struct config_parser_context {
 	pool_t pool;
 	const char *path;
@@ -83,6 +86,7 @@ struct config_parser_context {
 	ARRAY(struct config_filter_parser *) all_filter_parsers;
 	HASH_TABLE(struct config_filter *,
 		   struct config_filter_parser *) all_filter_parsers_hash;
+	HASH_TABLE_TYPE(include_group) all_include_groups;
 	struct config_module_parser *root_module_parsers;
 	struct config_section_stack *cur_section;
 	struct input_stack *cur_input;
