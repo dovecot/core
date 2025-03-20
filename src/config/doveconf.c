@@ -1198,9 +1198,33 @@ int main(int argc, char *argv[])
 		setting_name_filters = argv+optind;
 		if (scope == CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN)
 			scope = CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN;
-		flags |= CONFIG_PARSE_FLAG_PREFIXES_IN_FILTERS |
-			CONFIG_PARSE_FLAG_MERGE_GROUP_FILTERS |
+		flags |= CONFIG_PARSE_FLAG_MERGE_GROUP_FILTERS |
 			CONFIG_PARSE_FLAG_MERGE_DEFAULT_FILTERS;
+		/* Named filters are a bit troublesome here. For example we
+		   can have imapc { ... } named filter, and imapc_master_user
+		   setting, which is normally written by doveconf as
+		   imapc { master_user }. However, we need to support also:
+
+		   doveconf imapc/master_user
+		   doveconf imapc_master_user
+		   doveconf imapc # output named filter's all settings
+
+		   Change the behavior based on whether the parameter contains
+		   '/'. This makes the first two cases work. The last is a bit
+		   of an issue though. We don't know at this point whether
+		   "imapc" is a named filter or a setting. So the current
+		   behavior is:
+
+		   # Output named filter settings only, no settings prefixed
+		   # with imapc_.
+		   doveconf imapc
+
+		   # Output both named filter settings and settings prefixed
+		   # with imapc_.
+		   doveconf imapc/
+		*/
+		if (strchr(argv[optind], '/') != NULL)
+			flags |= CONFIG_PARSE_FLAG_PREFIXES_IN_FILTERS;
 	} else if (!simple_output) {
 		/* print the config file path before parsing it, so in case
 		   of errors it's still shown */
