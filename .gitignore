@@ -105,10 +105,6 @@ src/lib/unicode-data-tables.h
 src/lib/unicode-data-types.c
 src/lib/unicode-data-types.h
 src/lib-compression/bench-compression
-src/lib-language/PropList.txt
-src/lib-language/WordBreakProperty.txt
-src/lib-language/word-boundary-data.c
-src/lib-language/word-break-data.c
 src/lib-dict-backend/dict-drivers-register.c
 src/lib-json/json-format
 src/lib-sql/sql-drivers-register.c
