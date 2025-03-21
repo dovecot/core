@@ -4,6 +4,7 @@
 #include "array.h"
 #include "bsearch-insert-pos.h"
 #include "unicode-data.h"
+#include "unicode-transform.h"
 #include "unichar.h"
 
 const unsigned char utf8_replacement_char[UTF8_REPLACEMENT_CHAR_LEN] =
@@ -237,8 +238,6 @@ unichar_t uni_ucs4_to_titlecase(unichar_t chr)
 	return chr;
 }
 
-#include "unicode-transform.c"
-
 static void output_add_replacement_char(buffer_t *output)
 {
 	if (output->used >= UTF8_REPLACEMENT_CHAR_LEN &&
@@ -254,9 +253,12 @@ static void output_add_replacement_char(buffer_t *output)
 int uni_utf8_to_decomposed_titlecase(const void *_input, size_t size,
 				     buffer_t *output)
 {
+	struct unicode_rfc5051_context ctx;
 	const unsigned char *input = _input;
 	unichar_t chr;
 	int ret = 0;
+
+	unicode_rfc5051_init(&ctx);
 
 	while (size > 0) {
 		int bytes = uni_utf8_get_char_n(input, size, &chr);
@@ -270,8 +272,11 @@ int uni_utf8_to_decomposed_titlecase(const void *_input, size_t size,
 		input += bytes;
 		size -= bytes;
 
-		chr = uni_ucs4_to_titlecase(chr);
-		uni_ucs4_decompose_one_utf8(chr, FALSE, output);
+		const unichar_t *norm;
+		size_t norm_len;
+
+		norm_len = unicode_rfc5051_normalize(&ctx, chr, &norm);
+		uni_ucs4_to_utf8(norm, norm_len, output);
 	}
 	return ret;
 }

@@ -1,5 +1,9 @@
 /* Copyright (c) 2025 Dovecot authors, see the included COPYING file */
 
+#include "lib.h"
+#include "unicode-data.h"
+#include "unicode-transform.h"
+
 #define HANGUL_FIRST 0xac00
 #define HANGUL_LAST 0xd7a3
 
@@ -42,35 +46,35 @@ static size_t unicode_hangul_decompose(uint32_t cp, uint32_t buf[3])
 	return 3;
 }
 
-static void uni_ucs4_decompose_hangul_utf8(uint32_t cp, buffer_t *output)
+/*
+ * RFC 5051 - Simple Unicode Collation Algorithm
+ */
+
+void unicode_rfc5051_init(struct unicode_rfc5051_context *ctx)
 {
-	uint32_t buf[3];
-	size_t len, i;
-
-	len = unicode_hangul_decompose(cp, buf);
-
-	for (i = 0; i < len; i++)
-		uni_ucs4_to_utf8_c(buf[i], output);
+	i_zero(ctx);
 }
 
-static void
-uni_ucs4_decompose_one_utf8(uint32_t cp, bool canonical, buffer_t *output)
+size_t unicode_rfc5051_normalize(struct unicode_rfc5051_context *ctx,
+				 uint32_t cp, const uint32_t **norm_r)
 {
-	const uint32_t *decomp;
-	size_t len, i;
+	const struct unicode_code_point_data *cpd;
+	size_t len;
+
+	cpd = unicode_code_point_get_data(cp);
+	if (cpd->simple_titlecase_mapping != 0x0000)
+		cp = cpd->simple_titlecase_mapping;
 
 	if (cp >= HANGUL_FIRST && cp <= HANGUL_LAST) {
-		uni_ucs4_decompose_hangul_utf8(cp, output);
-		return;
+		*norm_r = ctx->buffer;
+		return unicode_hangul_decompose(cp, ctx->buffer);
 	}
 
-	len = unicode_code_point_get_full_decomposition(cp, canonical,
-							&decomp);
+	len = unicode_code_point_get_full_decomposition(cp, FALSE, norm_r);
 	if (len == 0) {
-		uni_ucs4_to_utf8_c(cp, output);
-		return;
+		ctx->buffer[0] = cp;
+		*norm_r = ctx->buffer;
+		return 1;
 	}
-
-	for (i = 0; i < len; i++)
-		uni_ucs4_to_utf8_c(decomp[i], output);
+	return len;
 }
