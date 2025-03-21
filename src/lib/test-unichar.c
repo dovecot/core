@@ -124,10 +124,28 @@ static void test_unichar_surrogates(void)
 static void test_unichar_collation(void)
 {
 	const char *in[] = {
+		/* Plain ASCII letters will be upper-cased */
+		"Plain!",
+		/* U+00FC " " U+00B3 */
 		"\xc3\xbc \xc2\xb3",
+		/* U+01C4 "enan" */
+		"\xC7\x84\x65\x6E\x61\x6E",
+		/* Bad characters will be substituted with replacement character */
+		"Bad \xFF Characters",
+		/* "c" U+00F4 "t" U+00E9 */
+		"c\xC3\xB4t\xC3\xA9",
 	};
 	const char *exp[] = {
+		/* Plain ASCII letters are upper-cased */
+		"PLAIN!",
+		/* "U" U+0308 " 3" */
 		"U\xcc\x88 3",
+		/* "Dz" U+030C "ENAN" */
+		"\x44\x7A\xCC\x8C\x45\x4E\x41\x4E",
+		/* Bad characters are substituted with replacement character */
+		"BAD \xEF\xBF\xBD CHARACTERS",
+		/* "CO" U+0302 "TE" U+0301 */
+		"CO\xCC\x82TE\xCC\x81",
 	};
 
 	unsigned int n_in = N_ELEMENTS(in), n_exp = N_ELEMENTS(exp), i;
