@@ -1,0 +1,102 @@
+#ifndef UNICODE_DATA_STATIC_H
+#define UNICODE_DATA_STATIC_H
+
+/* UAX #44, Section 5.7.1: General Category Values
+ */
+enum unicode_general_category {
+	UNICODE_GENERAL_CATEGORY_INVALID = 0,
+
+	/* LC - Cased_Letter: Lu | Ll | Lt */
+	UNICODE_GENERAL_CATEGORY_LC = (1 << 4),
+	/* L - Letter: Lu | Ll | Lt | Lm | Lo */
+	UNICODE_GENERAL_CATEGORY_L = (1 << 5) | UNICODE_GENERAL_CATEGORY_LC,
+	/* M - Mark: Mn | Mc | Me */
+	UNICODE_GENERAL_CATEGORY_M = (2 << 5),
+	/* N - Number: Nd | Nl | No */
+	UNICODE_GENERAL_CATEGORY_N = (3 << 5),
+	/* P - Punctuation: Pc | Pd | Ps | Pe | Pi | Pf | Po */
+	UNICODE_GENERAL_CATEGORY_P = (4 << 5),
+	/* S - Symbol: Sm | Sc | Sk | So */
+	UNICODE_GENERAL_CATEGORY_S = (5 << 5),
+	/* Z - Separator: Zs | Zl | Zp */
+	UNICODE_GENERAL_CATEGORY_Z = (6 << 5),
+	/* C - Other: Cc | Cf | Cs | Co | Cn */
+	UNICODE_GENERAL_CATEGORY_C = (7 << 5),
+
+	UNICODE_GENERAL_CATEGORY_GROUP_MASK = (0xf0),
+
+	/* Lu - Uppercase_Letter */
+	UNICODE_GENERAL_CATEGORY_LU = UNICODE_GENERAL_CATEGORY_LC | 1,
+	/* Ll - Lowercase_Letter */
+	UNICODE_GENERAL_CATEGORY_LL = UNICODE_GENERAL_CATEGORY_LC | 2,
+	/* Lt - Titlecase_Letter */
+	UNICODE_GENERAL_CATEGORY_LT = UNICODE_GENERAL_CATEGORY_LC | 3,
+	/* Lm - Modifier_Letter */
+	UNICODE_GENERAL_CATEGORY_LM = UNICODE_GENERAL_CATEGORY_L | 4,
+	/* Lo - Other_Letter */
+	UNICODE_GENERAL_CATEGORY_LO = UNICODE_GENERAL_CATEGORY_L | 5,
+
+	/* Mn - Nonspacing_Mark */
+	UNICODE_GENERAL_CATEGORY_MN = UNICODE_GENERAL_CATEGORY_M | 1,
+	/* Mc - Spacing_Mark */
+	UNICODE_GENERAL_CATEGORY_MC = UNICODE_GENERAL_CATEGORY_M | 2,
+	/* Me - Enclosing_Mark */
+	UNICODE_GENERAL_CATEGORY_ME = UNICODE_GENERAL_CATEGORY_M | 3,
+
+	/* Nd - Decimal_Number */
+	UNICODE_GENERAL_CATEGORY_ND = UNICODE_GENERAL_CATEGORY_N | 1,
+	/* Nl - Letter_Number */
+	UNICODE_GENERAL_CATEGORY_NL = UNICODE_GENERAL_CATEGORY_N | 2,
+	/* No - Other_Number */
+	UNICODE_GENERAL_CATEGORY_NO = UNICODE_GENERAL_CATEGORY_N | 3,
+
+	/* Pc -	Connector_Punctuation */
+	UNICODE_GENERAL_CATEGORY_PC = UNICODE_GENERAL_CATEGORY_P | 1,
+	/* Pd - Dash_Punctuation */
+	UNICODE_GENERAL_CATEGORY_PD = UNICODE_GENERAL_CATEGORY_P | 2,
+	/* Ps - Open_Punctuation */
+	UNICODE_GENERAL_CATEGORY_PS = UNICODE_GENERAL_CATEGORY_P | 3,
+	/* Pe - Close_Punctuation */
+	UNICODE_GENERAL_CATEGORY_PE = UNICODE_GENERAL_CATEGORY_P | 4,
+	/* Pi - Initial_Punctuation */
+	UNICODE_GENERAL_CATEGORY_PI = UNICODE_GENERAL_CATEGORY_P | 5,
+	/* Pf - Final_Punctuation */
+	UNICODE_GENERAL_CATEGORY_PF = UNICODE_GENERAL_CATEGORY_P | 6,
+	/* Po - Other_Punctuation */
+	UNICODE_GENERAL_CATEGORY_PO = UNICODE_GENERAL_CATEGORY_P | 7,
+
+	/* Sm - Math_Symbol */
+	UNICODE_GENERAL_CATEGORY_SM = UNICODE_GENERAL_CATEGORY_S | 1,
+	/* Sc - Currency_Symbol */
+	UNICODE_GENERAL_CATEGORY_SC = UNICODE_GENERAL_CATEGORY_S | 2,
+	/* Sk - Modifier_Symbol */
+	UNICODE_GENERAL_CATEGORY_SK = UNICODE_GENERAL_CATEGORY_S | 3,
+	/* So -	Other_Symbol */
+	UNICODE_GENERAL_CATEGORY_SO = UNICODE_GENERAL_CATEGORY_S | 4,
+
+	/* Zs - Space_Separator */
+	UNICODE_GENERAL_CATEGORY_ZS = UNICODE_GENERAL_CATEGORY_Z | 1,
+	/* Zl - Line_Separator */
+	UNICODE_GENERAL_CATEGORY_ZL = UNICODE_GENERAL_CATEGORY_Z | 2,
+	/* Zp - Paragraph_Separator */
+	UNICODE_GENERAL_CATEGORY_ZP = UNICODE_GENERAL_CATEGORY_Z | 3,
+
+	/* Cc - Control */
+	UNICODE_GENERAL_CATEGORY_CC = UNICODE_GENERAL_CATEGORY_C | 1,
+	/* Cf - Format */
+	UNICODE_GENERAL_CATEGORY_CF = UNICODE_GENERAL_CATEGORY_C | 2,
+	/* Cs - Surrogate */
+	UNICODE_GENERAL_CATEGORY_CS = UNICODE_GENERAL_CATEGORY_C | 3,
+	/* Co - Private_Use */
+	UNICODE_GENERAL_CATEGORY_CO = UNICODE_GENERAL_CATEGORY_C | 4,
+	/* Cn - Unassigned */
+	UNICODE_GENERAL_CATEGORY_CN = UNICODE_GENERAL_CATEGORY_C | 5,
+};
+
+struct unicode_code_point_data {
+	uint8_t general_category; // Not yet used
+
+	uint32_t simple_titlecase_mapping;
+};
+
+#endif

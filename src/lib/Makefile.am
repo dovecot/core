@@ -4,6 +4,8 @@ AM_CPPFLAGS = \
 noinst_LTLIBRARIES = liblib.la
 
 BUILT_SOURCES = $(srcdir)/unicodemap.c \
+		$(srcdir)/unicode-data-tables.c \
+		$(srcdir)/unicode-data-tables.h \
 		event-filter-lexer.c \
 		event-filter-parser.c \
 		event-filter-parser.h
@@ -11,11 +13,17 @@ BUILT_SOURCES = $(srcdir)/unicodemap.c \
 UCD_URL = https://dovecot.org/res
 UCD_DIR = $(srcdir)/ucd
 UCD_FILES = \
+	$(UCD_DIR)/DerivedCoreProperties.txt \
 	$(UCD_DIR)/UnicodeData.txt
 
-EXTRA_DIST = unicodemap.c unicodemap.pl $(UCD_FILES)
-EXTRA_CLEAN = unicodemap.c
-
+EXTRA_DIST = \
+	unicodemap.c \
+	unicode-data-tables.c \
+	unicode-data-tables.h \
+	unicodemap.pl \
+	unicode-ucd-compile.py \
+	$(UCD_FILES)
+EXTRA_CLEAN = unicodemap.c unicode-data-tables.c
 
 # Squelch autoconf error about using .[ly] sources but not defining $(LEX)
 # and $(YACC).  Using false here avoids accidental use.
@@ -37,11 +45,16 @@ YACC=/bin/false
 # dependency, anything including the header will race the bison process.
 event-filter-parser.h: event-filter-parser.c
 
+$(UCD_DIR)/DerivedCoreProperties.txt:
+	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/DerivedCoreProperties.txt
 $(UCD_DIR)/UnicodeData.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/UnicodeData.txt
 
 $(srcdir)/unicodemap.c: $(srcdir)/unicodemap.pl $(UCD_DIR)/UnicodeData.txt
 	$(AM_V_GEN)$(PERL) $(srcdir)/unicodemap.pl < $(UCD_DIR)/UnicodeData.txt > $@
+$(srcdir)/unicode-data-tables.c $(srcdir)/unicode-data-tables.h &: \
+	$(srcdir)/unicode-ucd-compile.py $(UCD_FILES)
+	$(AM_V_GEN)$(PYTHON) $(srcdir)/unicode-ucd-compile.py $(UCD_DIR) $(srcdir)
 
 liblib_la_LIBADD = $(LIBUNWIND_LIBS)
 liblib_la_SOURCES = \
@@ -200,6 +213,8 @@ liblib_la_SOURCES = \
 	unlink-directory.c \
 	unlink-old-files.c \
 	unichar.c \
+	unicode-data-tables.c \
+	unicode-data.c \
 	uri-util.c \
 	utc-offset.c \
 	utc-mktime.c \
@@ -360,6 +375,9 @@ headers = \
 	unlink-directory.h \
 	unlink-old-files.h \
 	unichar.h \
+	unicode-data-static.h \
+	unicode-data-tables.h \
+	unicode-data.h \
 	uri-util.h \
 	utc-offset.h \
 	utc-mktime.h \
@@ -370,7 +388,8 @@ test_programs = test-lib
 noinst_PROGRAMS = $(test_programs)
 
 test_lib_CPPFLAGS = \
-	-I$(top_srcdir)/src/lib-test
+	-I$(top_srcdir)/src/lib-test \
+	-DUCD_DIR=\"$(UCD_DIR)\"
 
 test_libs = \
 	../lib-test/libtest.la \
@@ -467,6 +486,7 @@ test_lib_SOURCES = \
 	test-str-table.c \
 	test-time-util.c \
 	test-unichar.c \
+	test-unicode-data.c \
 	test-utc-mktime.c \
 	test-uri.c \
 	test-wildcard-match.c
@@ -478,7 +498,7 @@ test_headers = \
 test_lib_LDADD = $(test_libs) -lm
 test_lib_DEPENDENCIES = $(test_libs)
 
-check-local:
+check-local: $(UCD_FILES)
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done
