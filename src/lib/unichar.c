@@ -291,21 +291,36 @@ static bool uni_ucs4_decompose_uni(unichar_t *chr)
 
 static void uni_ucs4_decompose_hangul_utf8(unichar_t chr, buffer_t *output)
 {
-#define SBase HANGUL_FIRST
-#define LBase 0x1100
-#define VBase 0x1161
-#define TBase 0x11A7
-#define VCount 21
-#define TCount 28
-#define NCount (VCount * TCount)
-	unsigned int SIndex = chr - SBase;
-        unichar_t L = LBase + SIndex / NCount;
-        unichar_t V = VBase + (SIndex % NCount) / TCount;
-        unichar_t T = TBase + SIndex % TCount;
+	/* The Unicode Standard, Section 3.12.2:
+	   Hangul Syllable Decomposition
+	 */
 
-	uni_ucs4_to_utf8_c(L, output);
-	uni_ucs4_to_utf8_c(V, output);
-	if (T != TBase) uni_ucs4_to_utf8_c(T, output);
+	static const uint16_t s_base = 0xac00;
+	static const uint16_t l_base = 0x1100;
+	static const uint16_t v_base = 0x1161;
+	static const uint16_t t_base = 0x11a7;
+	static const unsigned int v_count = 21;
+	static const unsigned int t_count = 28;
+	static const unsigned int n_count = (v_count * t_count);
+
+	unsigned int s_index = chr - s_base;
+	unsigned int l_index = s_index / n_count;
+	unsigned int v_index = (s_index % n_count) / t_count;
+	unsigned int t_index = s_index % t_count;
+	uint32_t l_part = l_base + l_index;
+	uint32_t v_part = v_base + v_index;
+
+	if (t_index == 0) {
+		uni_ucs4_to_utf8_c(l_part, output);
+		uni_ucs4_to_utf8_c(v_part, output);
+		return;
+	}
+
+	uint32_t t_part = t_base + t_index;
+
+	uni_ucs4_to_utf8_c(l_part, output);
+	uni_ucs4_to_utf8_c(v_part, output);
+	uni_ucs4_to_utf8_c(t_part, output);
 }
 
 static bool uni_ucs4_decompose_multi_utf8(unichar_t chr, buffer_t *output)
