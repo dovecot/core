@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "bsearch-insert-pos.h"
+#include "unicode-data.h"
 #include "unichar.h"
 
 #include "unicodemap.c"
@@ -245,23 +246,12 @@ static bool uint32_find(const uint32_t *data, unsigned int count,
 
 unichar_t uni_ucs4_to_titlecase(unichar_t chr)
 {
-	unsigned int idx;
+	const struct unicode_code_point_data *cp_data =
+		unicode_code_point_get_data(chr);
 
-	if (chr <= 0xff)
-		return titlecase8_map[chr];
-	else if (chr <= 0xffff) {
-		if (!uint16_find(titlecase16_keys, N_ELEMENTS(titlecase16_keys),
-				 chr, &idx))
-			return chr;
-		else
-			return titlecase16_values[idx];
-	} else {
-		if (!uint32_find(titlecase32_keys, N_ELEMENTS(titlecase32_keys),
-				 chr, &idx))
-			return chr;
-		else
-			return titlecase32_values[idx];
-	}
+	if (cp_data->simple_titlecase_mapping != 0x0000)
+		return cp_data->simple_titlecase_mapping;
+	return chr;
 }
 
 static bool uni_ucs4_decompose_uni(unichar_t *chr)
