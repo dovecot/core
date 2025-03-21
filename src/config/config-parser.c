@@ -1726,8 +1726,10 @@ str_append_file(struct config_parser_context *ctx, string_t *str,
 					   key, path);
 		return -1;
 	}
-	if (config_parser_add_seen_file_fd(ctx, fd, path, error_r) < 0)
+	if (config_parser_add_seen_file_fd(ctx, fd, path, error_r) < 0) {
+		i_close_fd(&fd);
 		return -1;
+	}
 	while ((ret = read(fd, buf, sizeof(buf))) > 0)
 		str_append_data(str, buf, ret);
 	if (ret < 0) {
