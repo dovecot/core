@@ -11,26 +11,28 @@
  * Hangul syllable (de)composition
  */
 
+static const uint16_t uni_hangul_s_base = 0xac00;
+static const uint16_t uni_hangul_l_base = 0x1100;
+static const uint16_t uni_hangul_v_base = 0x1161;
+static const uint16_t uni_hangul_t_base = 0x11a7;
+static const unsigned int uni_hangul_v_count = 21;
+static const unsigned int uni_hangul_t_count = 28;
+static const unsigned int uni_hangul_n_count =
+	uni_hangul_v_count * uni_hangul_t_count;
+
 static size_t unicode_hangul_decompose(uint32_t cp, uint32_t buf[3])
 {
 	/* The Unicode Standard, Section 3.12.2:
 	   Hangul Syllable Decomposition
 	 */
 
-	static const uint16_t s_base = 0xac00;
-	static const uint16_t l_base = 0x1100;
-	static const uint16_t v_base = 0x1161;
-	static const uint16_t t_base = 0x11a7;
-	static const unsigned int v_count = 21;
-	static const unsigned int t_count = 28;
-	static const unsigned int n_count = (v_count * t_count);
-
-	unsigned int s_index = cp - s_base;
-	unsigned int l_index = s_index / n_count;
-	unsigned int v_index = (s_index % n_count) / t_count;
-	unsigned int t_index = s_index % t_count;
-	uint32_t l_part = l_base + l_index;
-	uint32_t v_part = v_base + v_index;
+	unsigned int s_index = cp - uni_hangul_s_base;
+	unsigned int l_index = s_index / uni_hangul_n_count;
+	unsigned int v_index = ((s_index % uni_hangul_n_count) /
+				uni_hangul_t_count);
+	unsigned int t_index = s_index % uni_hangul_t_count;
+	uint32_t l_part = uni_hangul_l_base + l_index;
+	uint32_t v_part = uni_hangul_v_base + v_index;
 
 	if (t_index == 0) {
 		buf[0] = l_part;
@@ -38,7 +40,7 @@ static size_t unicode_hangul_decompose(uint32_t cp, uint32_t buf[3])
 		return 2;
 	}
 
-	uint32_t t_part = t_base + t_index;
+	uint32_t t_part = uni_hangul_t_base + t_index;
 
 	buf[0] = l_part;
 	buf[1] = v_part;
