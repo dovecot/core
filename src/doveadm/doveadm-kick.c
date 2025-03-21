@@ -32,7 +32,10 @@ kick_user_anvil_callback(const struct anvil_reply *reply,
 {
 	unsigned int count;
 
-	if (reply->error == NULL) {
+	if (reply->error != NULL) {
+		e_error(ctx->event, "Failed to send kick to anvil: %s",
+			reply->error);
+	} else {
 		if (str_to_uint(reply->reply, &count) < 0)
 			e_error(ctx->event,
 				"Unexpected reply from anvil: %s", reply->reply);

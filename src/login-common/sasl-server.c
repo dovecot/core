@@ -250,8 +250,12 @@ anvil_lookup_callback(const struct anvil_reply *reply,
 	client->anvil_request = NULL;
 
 	conn_count = 0;
-	if (reply != NULL && reply->error == NULL &&
-	    str_to_uint(reply->reply, &conn_count) < 0)
+	if (reply == NULL)
+		;
+	else if (reply->error != NULL) {
+		e_error(client->event, "mail_max_userip_connections lookup failed - skipping: %s",
+			reply->error);
+	} else if (str_to_uint(reply->reply, &conn_count) < 0)
 		i_fatal("Received invalid reply from anvil: %s", reply->reply);
 
 	/* reply=NULL if we didn't need to do anvil lookup,

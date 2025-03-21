@@ -71,6 +71,8 @@ auth_penalty_anvil_callback(const struct anvil_reply *reply,
 
 	if (reply->error != NULL) {
 		/* internal failure. */
+		e_error(request->auth_request->event,
+			"Auth penalty lookup failed: %s", reply->error);
 		if (!anvil_client_is_connected(request->client)) {
 			/* we probably didn't have permissions to reconnect
 			   back to anvil. need to restart ourself. */

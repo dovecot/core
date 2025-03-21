@@ -270,7 +270,9 @@ lmtp_local_rcpt_anvil_cb(const struct anvil_reply *reply,
 
 	llrcpt->anvil_query = NULL;
 	if (reply->error != NULL) {
-		/* lookup failed */
+		e_error(rcpt->event,
+			"lmtp_user_concurrency_limit lookup failed - skipping: %s",
+			reply->error);
 	} else if (str_to_uint(reply->reply, &parallel_count) < 0) {
 		e_error(rcpt->event, "Invalid reply from anvil: %s",
 			reply->reply);
