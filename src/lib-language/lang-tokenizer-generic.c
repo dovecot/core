@@ -4,6 +4,7 @@
 #include "base64.h"
 #include "buffer.h"
 #include "str.h"
+#include "unicode-data.h"
 #include "unichar.h"
 #include "bsearch-insert-pos.h"
 #include "lang-common.h"
@@ -11,8 +12,6 @@
 #include "lang-tokenizer-generic-private.h"
 #include "lang-tokenizer-common.h"
 #include "lang-settings.h"
-#include "word-boundary-data.c"
-#include "word-break-data.c"
 
 /* see comments below between is_base64() and skip_base64() */
 #define LANG_SKIP_BASE64_MIN_SEQUENCES 1
@@ -155,33 +154,18 @@ lang_tokenizer_generic_simple_current_token(struct generic_lang_tokenizer *tok,
 	return len > 0;
 }
 
-static bool uint32_find(const uint32_t *data, unsigned int count,
-			uint32_t value, unsigned int *idx_r)
-{
-	BINARY_NUMBER_SEARCH(data, count, value, idx_r);
-}
-
 static bool lang_uni_word_break(unichar_t c)
 {
-	unsigned int idx;
-
 	/* Unicode General Punctuation, including deprecated characters. */
 	if (c >= 0x2000 && c <= 0x206f)
 		return TRUE;
-	/* From word-break-data.c, which is generated from PropList.txt. */
-	if (uint32_find(White_Space, N_ELEMENTS(White_Space), c, &idx))
-		return TRUE;
-	if (uint32_find(Dash, N_ELEMENTS(Dash), c, &idx))
-		return TRUE;
-	if (uint32_find(Quotation_Mark, N_ELEMENTS(Quotation_Mark), c, &idx))
-		return TRUE;
-	if (uint32_find(Terminal_Punctuation, N_ELEMENTS(Terminal_Punctuation), c, &idx))
-		return TRUE;
-	if (uint32_find(STerm, N_ELEMENTS(STerm), c, &idx))
-		return TRUE;
-	if (uint32_find(Pattern_White_Space, N_ELEMENTS(Pattern_White_Space), c, &idx))
-		return TRUE;
-	return FALSE;
+
+	const struct unicode_code_point_data *cpd =
+		unicode_code_point_get_data(c);
+
+	return (cpd->pb_g_white_space || cpd->pb_i_pattern_white_space ||
+		cpd->pb_m_quotation_mark || cpd->pb_m_dash ||
+		cpd->pb_m_terminal_punctuation || cpd->pb_m_sentence_terminal);
 }
 
 enum lang_break_type {
@@ -399,41 +383,43 @@ lang_tokenizer_generic_simple_next(struct lang_tokenizer *_tok,
 */
 static enum letter_type letter_type(unichar_t c)
 {
-	unsigned int idx;
-
 	if (IS_APOSTROPHE(c))
 		return LETTER_TYPE_APOSTROPHE;
-	if (uint32_find(CR, N_ELEMENTS(CR), c, &idx))
+
+	const struct unicode_code_point_data *cpd =
+		unicode_code_point_get_data(c);
+
+	if (cpd->pb_wb_cr)
 		return LETTER_TYPE_CR;
-	if (uint32_find(LF, N_ELEMENTS(LF), c, &idx))
+	if (cpd->pb_wb_lf)
 		return LETTER_TYPE_LF;
-	if (uint32_find(Newline, N_ELEMENTS(Newline), c, &idx))
+	if (cpd->pb_wb_newline)
 		return LETTER_TYPE_NEWLINE;
-	if (uint32_find(Extend, N_ELEMENTS(Extend), c, &idx))
+	if (cpd->pb_wb_extend)
 		return LETTER_TYPE_EXTEND;
-	if (uint32_find(Regional_Indicator, N_ELEMENTS(Regional_Indicator), c, &idx))
+	if (cpd->pb_wb_regional_indicator)
 		return LETTER_TYPE_REGIONAL_INDICATOR;
-	if (uint32_find(Format, N_ELEMENTS(Format), c, &idx))
+	if (cpd->pb_wb_format)
 		return LETTER_TYPE_FORMAT;
-	if (uint32_find(Katakana, N_ELEMENTS(Katakana), c, &idx))
+	if (cpd->pb_wb_katakana)
 		return LETTER_TYPE_KATAKANA;
-	if (uint32_find(Hebrew_Letter, N_ELEMENTS(Hebrew_Letter), c, &idx))
+	if (cpd->pb_wb_hebrew_letter)
 		return LETTER_TYPE_HEBREW_LETTER;
-	if (uint32_find(ALetter, N_ELEMENTS(ALetter), c, &idx))
+	if (cpd->pb_wb_aletter)
 		return LETTER_TYPE_ALETTER;
-	if (uint32_find(Single_Quote, N_ELEMENTS(Single_Quote), c, &idx))
+	if (cpd->pb_wb_single_quote)
 		return LETTER_TYPE_SINGLE_QUOTE;
-	if (uint32_find(Double_Quote, N_ELEMENTS(Double_Quote), c, &idx))
+	if (cpd->pb_wb_double_quote)
 		return LETTER_TYPE_DOUBLE_QUOTE;
-	if (uint32_find(MidNumLet, N_ELEMENTS(MidNumLet), c, &idx))
+	if (cpd->pb_wb_midnumlet)
 		return LETTER_TYPE_MIDNUMLET;
-	if (uint32_find(MidLetter, N_ELEMENTS(MidLetter), c, &idx))
+	if (cpd->pb_wb_midletter)
 		return LETTER_TYPE_MIDLETTER;
-	if (uint32_find(MidNum, N_ELEMENTS(MidNum), c, &idx))
+	if (cpd->pb_wb_midnum)
 		return LETTER_TYPE_MIDNUM;
-	if (uint32_find(Numeric, N_ELEMENTS(Numeric), c, &idx))
+	if (cpd->pb_wb_numeric)
 		return LETTER_TYPE_NUMERIC;
-	if (uint32_find(ExtendNumLet, N_ELEMENTS(ExtendNumLet), c, &idx))
+	if (cpd->pb_wb_extendnumlet)
 		return LETTER_TYPE_EXTENDNUMLET;
 	if (IS_PREFIX_SPLAT(c)) /* prioritise appropriately */
 		return LETTER_TYPE_PREFIXSPLAT;
