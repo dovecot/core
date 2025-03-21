@@ -416,6 +416,138 @@ def read_ucd_files():
                 cpd.nfkc_quick_check = value
                 CodePointRange(cprng[0], cprng[1], cpd)
 
+    # PropList.txt
+    with UCDFileOpen("PropList.txt") as ucd:
+        line_num = 0
+        for line in ucd.fd:
+            line_num = line_num + 1
+            data = line.split("#")
+            line = data[0].strip()
+            if len(line) == 0:
+                continue
+
+            cols = line.split(";")
+            if len(cols) < 2:
+                die(f"{ucd}:{line_num}: Missing columns")
+
+            cprng = parse_cp_range(cols[0])
+            if cprng is None:
+                continue
+
+            prop = cols[1].strip()
+            if prop == "White_Space":
+                cpd = CodePointData()
+                cpd.pb_g_white_space = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "Pattern_White_Space":
+                cpd = CodePointData()
+                cpd.pb_i_pattern_white_space = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "Quotation_Mark":
+                cpd = CodePointData()
+                cpd.pb_m_quotation_mark = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "Dash":
+                cpd = CodePointData()
+                cpd.pb_m_dash = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "Sentence_Terminal":
+                cpd = CodePointData()
+                cpd.pb_m_sentence_terminal = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "Terminal_Punctuation":
+                cpd = CodePointData()
+                cpd.pb_m_terminal_punctuation = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+
+    # WordBreakProperty.txt
+    with UCDFileOpen("WordBreakProperty.txt") as ucd:
+        line_num = 0
+        for line in ucd.fd:
+            line_num = line_num + 1
+            data = line.split("#")
+            line = data[0].strip()
+            if len(line) == 0:
+                continue
+
+            cols = line.split(";")
+            if len(cols) < 2:
+                die(f"{ucd}:{line_num}: Missing columns")
+
+            cprng = parse_cp_range(cols[0])
+            if cprng is None:
+                continue
+
+            prop = cols[1].strip()
+            if prop == "CR":
+                cpd = CodePointData()
+                cpd.pb_wb_cr = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "LF":
+                cpd = CodePointData()
+                cpd.pb_wb_lf = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "Newline":
+                cpd = CodePointData()
+                cpd.pb_wb_newline = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "Extend":
+                cpd = CodePointData()
+                cpd.pb_wb_extend = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "ZWJ":
+                cpd = CodePointData()
+                cpd.pb_wb_zwj = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "Regional_Indicator":
+                cpd = CodePointData()
+                cpd.pb_wb_regional_indicator = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "Format":
+                cpd = CodePointData()
+                cpd.pb_wb_format = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "Katakana":
+                cpd = CodePointData()
+                cpd.pb_wb_katakana = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "Hebrew_Letter":
+                cpd = CodePointData()
+                cpd.pb_wb_hebrew_letter = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "ALetter":
+                cpd = CodePointData()
+                cpd.pb_wb_aletter = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "Single_Quote":
+                cpd = CodePointData()
+                cpd.pb_wb_single_quote = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "Double_Quote":
+                cpd = CodePointData()
+                cpd.pb_wb_double_quote = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "MidNumLet":
+                cpd = CodePointData()
+                cpd.pb_wb_midnumlet = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "MidLetter":
+                cpd = CodePointData()
+                cpd.pb_wb_midletter = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "MidNum":
+                cpd = CodePointData()
+                cpd.pb_wb_midnum = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "Numeric":
+                cpd = CodePointData()
+                cpd.pb_wb_numeric = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "ExtendNumLet":
+                cpd = CodePointData()
+                cpd.pb_wb_extendnumlet = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+
 
 def expand_decompositions():
     global ud_codepoints
@@ -947,6 +1079,52 @@ def write_tables_c():
                     "\t\t.simple_titlecase_mapping = 0x%04X,"
                     % cpd.simple_titlecase_mapping
                 )
+            if hasattr(cpd, "pb_g_white_space"):
+                print("\t\t.pb_g_white_space = TRUE,")
+            if hasattr(cpd, "pb_i_pattern_white_space"):
+                print("\t\t.pb_i_pattern_white_space = TRUE,")
+            if hasattr(cpd, "pb_m_quotation_mark"):
+                print("\t\t.pb_m_quotation_mark = TRUE,")
+            if hasattr(cpd, "pb_m_dash"):
+                print("\t\t.pb_m_dash = TRUE,")
+            if hasattr(cpd, "pb_m_sentence_terminal"):
+                print("\t\t.pb_m_sentence_terminal = TRUE,")
+            if hasattr(cpd, "pb_m_terminal_punctuation"):
+                print("\t\t.pb_m_terminal_punctuation = TRUE,")
+            if hasattr(cpd, "pb_wb_cr"):
+                print("\t\t.pb_wb_cr = TRUE,")
+            if hasattr(cpd, "pb_wb_lf"):
+                print("\t\t.pb_wb_lf = TRUE,")
+            if hasattr(cpd, "pb_wb_newline"):
+                print("\t\t.pb_wb_newline = TRUE,")
+            if hasattr(cpd, "pb_wb_extend"):
+                print("\t\t.pb_wb_extend = TRUE,")
+            if hasattr(cpd, "pb_wb_zwj"):
+                print("\t\t.pb_wb_zwj = TRUE,")
+            if hasattr(cpd, "pb_wb_regional_indicator"):
+                print("\t\t.pb_wb_regional_indicator = TRUE,")
+            if hasattr(cpd, "pb_wb_format"):
+                print("\t\t.pb_wb_format = TRUE,")
+            if hasattr(cpd, "pb_wb_katakana"):
+                print("\t\t.pb_wb_katakana = TRUE,")
+            if hasattr(cpd, "pb_wb_hebrew_letter"):
+                print("\t\t.pb_wb_hebrew_letter = TRUE,")
+            if hasattr(cpd, "pb_wb_aletter"):
+                print("\t\t.pb_wb_aletter = TRUE,")
+            if hasattr(cpd, "pb_wb_single_quote"):
+                print("\t\t.pb_wb_single_quote = TRUE,")
+            if hasattr(cpd, "pb_wb_double_quote"):
+                print("\t\t.pb_wb_double_quote = TRUE,")
+            if hasattr(cpd, "pb_wb_midnumlet"):
+                print("\t\t.pb_wb_midnumlet = TRUE,")
+            if hasattr(cpd, "pb_wb_midletter"):
+                print("\t\t.pb_wb_midletter = TRUE,")
+            if hasattr(cpd, "pb_wb_midnum"):
+                print("\t\t.pb_wb_midnum = TRUE,")
+            if hasattr(cpd, "pb_wb_numeric"):
+                print("\t\t.pb_wb_numeric = TRUE,")
+            if hasattr(cpd, "pb_wb_extendnumlet"):
+                print("\t\t.pb_wb_extendnumlet = TRUE,")
             print("\t},")
         print("};")
         print("")

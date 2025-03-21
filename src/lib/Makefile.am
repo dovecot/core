@@ -19,7 +19,9 @@ UCD_FILES = \
 	$(UCD_DIR)/DerivedNormalizationProps.txt \
 	$(UCD_DIR)/NormalizationTest.txt \
 	$(UCD_DIR)/PropertyValueAliases.txt \
-	$(UCD_DIR)/UnicodeData.txt
+	$(UCD_DIR)/PropList.txt \
+	$(UCD_DIR)/UnicodeData.txt \
+	$(UCD_DIR)/WordBreakProperty.txt
 
 EXTRA_DIST = \
 	unicode-data-tables.c \
@@ -60,8 +62,12 @@ $(UCD_DIR)/NormalizationTest.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/NormalizationTest.txt
 $(UCD_DIR)/PropertyValueAliases.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/PropertyValueAliases.txt
+$(UCD_DIR)/PropList.txt:
+	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/PropList.txt
 $(UCD_DIR)/UnicodeData.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/UnicodeData.txt
+$(UCD_DIR)/WordBreakProperty.txt:
+	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/WordBreakProperty.txt
 
 $(srcdir)/unicode-data-tables.c $(srcdir)/unicode-data-tables.h \
 	$(srcdir)/unicode-data-types.c $(srcdir)/unicode-data-types.h &: \

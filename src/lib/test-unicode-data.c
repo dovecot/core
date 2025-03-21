@@ -11,7 +11,9 @@
 
 #define UCD_COMPOSITION_EXCLUSIONS_TXT "CompositionExclusions.txt"
 #define UCD_DERIVED_NORMALIZATION_PROPS_TXT "DerivedNormalizationProps.txt"
+#define UCD_PROP_LIST_TXT "PropList.txt"
 #define UCD_UNICODE_DATA_TXT "UnicodeData.txt"
+#define UCD_WORD_BREAK_PROPERTY_TXT "WordBreakProperty.txt"
 
 static bool
 parse_prop_file_line(const char *line, const char *file, unsigned int line_num,
@@ -128,6 +130,34 @@ test_derived_normalization_props_line(const char *line, unsigned int line_num)
 			test_assert_idx(qc == qc_no, cp);
 		else if (strcmp(value, "M") == 0)
 			test_assert_idx(qc == qc_maybe, cp);
+	}
+}
+
+static void test_prop_list_line(const char *line, unsigned int line_num)
+{
+	uint32_t cp_first, cp_last, cp;
+	const char *prop;
+
+	if (!parse_prop_file_line(line, UCD_PROP_LIST_TXT, line_num,
+				  &cp_first, &cp_last, &prop, NULL))
+		return;
+
+	for (cp = cp_first; cp <= cp_last && !test_has_failed(); cp++) {
+		const struct unicode_code_point_data *cp_data =
+			unicode_code_point_get_data(cp);
+
+		if (strcmp(prop, "White_Space") == 0)
+			test_assert_idx(cp_data->pb_g_white_space, cp);
+		else if (strcmp(prop, "Pattern_White_Space") == 0)
+			test_assert_idx(cp_data->pb_i_pattern_white_space, cp);
+		else if (strcmp(prop, "Quotation_Mark") == 0)
+			test_assert_idx(cp_data->pb_m_quotation_mark, cp);
+		else if (strcmp(prop, "Dash") == 0)
+			test_assert_idx(cp_data->pb_m_dash, cp);
+		else if (strcmp(prop, "Sentence_Terminal") == 0)
+			test_assert_idx(cp_data->pb_m_sentence_terminal, cp);
+		else if (strcmp(prop, "Terminal_Punctuation") == 0)
+			test_assert_idx(cp_data->pb_m_terminal_punctuation, cp);
 	}
 }
 
@@ -308,6 +338,57 @@ static void test_unicode_data_line(const char *line, unsigned int line_num)
 }
 
 static void
+test_word_break_property_line(const char *line, unsigned int line_num)
+{
+	uint32_t cp_first, cp_last, cp;
+	const char *prop;
+
+	if (!parse_prop_file_line(line, UCD_WORD_BREAK_PROPERTY_TXT, line_num,
+				  &cp_first, &cp_last, &prop, NULL))
+		return;
+
+	for (cp = cp_first; cp <= cp_last && !test_has_failed(); cp++) {
+		const struct unicode_code_point_data *cp_data =
+			unicode_code_point_get_data(cp);
+
+		if (strcmp(prop, "CR") == 0)
+			test_assert_idx(cp_data->pb_wb_cr, cp);
+		else if (strcmp(prop, "LF") == 0)
+			test_assert_idx(cp_data->pb_wb_lf, cp);
+		else if (strcmp(prop, "Newline") == 0)
+			test_assert_idx(cp_data->pb_wb_newline, cp);
+		else if (strcmp(prop, "Extend") == 0)
+			test_assert_idx(cp_data->pb_wb_extend, cp);
+		else if (strcmp(prop, "ZWJ") == 0)
+			test_assert_idx(cp_data->pb_wb_zwj, cp);
+		else if (strcmp(prop, "Regional_Indicator") == 0)
+			test_assert_idx(cp_data->pb_wb_regional_indicator, cp);
+		else if (strcmp(prop, "Format") == 0)
+			test_assert_idx(cp_data->pb_wb_format, cp);
+		else if (strcmp(prop, "Katakana") == 0)
+			test_assert_idx(cp_data->pb_wb_katakana, cp);
+		else if (strcmp(prop, "Hebrew_Letter") == 0)
+			test_assert_idx(cp_data->pb_wb_hebrew_letter, cp);
+		else if (strcmp(prop, "ALetter") == 0)
+			test_assert_idx(cp_data->pb_wb_aletter, cp);
+		else if (strcmp(prop, "Single_Quote") == 0)
+			test_assert_idx(cp_data->pb_wb_single_quote, cp);
+		else if (strcmp(prop, "Double_Quote") == 0)
+			test_assert_idx(cp_data->pb_wb_double_quote, cp);
+		else if (strcmp(prop, "MidNumLet") == 0)
+			test_assert_idx(cp_data->pb_wb_midnumlet, cp);
+		else if (strcmp(prop, "MidLetter") == 0)
+			test_assert_idx(cp_data->pb_wb_midletter, cp);
+		else if (strcmp(prop, "MidNum") == 0)
+			test_assert_idx(cp_data->pb_wb_midnum, cp);
+		else if (strcmp(prop, "Numeric") == 0)
+			test_assert_idx(cp_data->pb_wb_numeric, cp);
+		else if (strcmp(prop, "ExtendNumLet") == 0)
+			test_assert_idx(cp_data->pb_wb_extendnumlet, cp);
+	}
+}
+
+static void
 test_ucd_file(const char *filename,
 	      void (*test_line)(const char *line, unsigned int line_num))
 {
@@ -358,5 +439,8 @@ void test_unicode_data(void)
 		      test_composition_exclusions_line);
 	test_ucd_file(UCD_DERIVED_NORMALIZATION_PROPS_TXT,
 		      test_derived_normalization_props_line);
+	test_ucd_file(UCD_PROP_LIST_TXT, test_prop_list_line);
 	test_ucd_file(UCD_UNICODE_DATA_TXT, test_unicode_data_line);
+	test_ucd_file(UCD_WORD_BREAK_PROPERTY_TXT,
+		      test_word_break_property_line);
 }

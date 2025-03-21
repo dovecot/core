@@ -133,6 +133,39 @@ struct unicode_code_point_data {
 	uint16_t composition_offset;
 
 	uint32_t simple_titlecase_mapping;
+
+	/* Property bits (UAX #44, Section 5.1) */
+
+	/* General */
+	bool pb_g_white_space:1;
+
+	/* Identifiers */
+	bool pb_i_pattern_white_space:1;
+
+	/* Miscellaneous */
+	bool pb_m_quotation_mark:1;
+	bool pb_m_dash:1;
+	bool pb_m_sentence_terminal:1;
+	bool pb_m_terminal_punctuation:1;
+
+	/* Word_Break (UAX #29, Section 4.1) */
+	bool pb_wb_cr:1;
+	bool pb_wb_lf:1;
+	bool pb_wb_newline:1;
+	bool pb_wb_extend:1;
+	bool pb_wb_zwj:1; // Not currently used
+	bool pb_wb_regional_indicator:1;
+	bool pb_wb_format:1;
+	bool pb_wb_katakana:1;
+	bool pb_wb_hebrew_letter:1;
+	bool pb_wb_aletter:1;
+	bool pb_wb_single_quote:1;
+	bool pb_wb_double_quote:1;
+	bool pb_wb_midnumlet:1;
+	bool pb_wb_midletter:1;
+	bool pb_wb_midnum:1;
+	bool pb_wb_numeric:1;
+	bool pb_wb_extendnumlet:1;
 };
 
 #endif
