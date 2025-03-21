@@ -52,3 +52,25 @@ static void uni_ucs4_decompose_hangul_utf8(unichar_t chr, buffer_t *output)
 	for (i = 0; i < len; i++)
 		uni_ucs4_to_utf8_c(buf[i], output);
 }
+
+static void
+uni_ucs4_decompose_one_utf8(unichar_t chr, bool canonical, buffer_t *output)
+{
+	const unichar_t *decomp;
+	size_t len, i;
+
+	if (chr >= HANGUL_FIRST && chr <= HANGUL_LAST) {
+		uni_ucs4_decompose_hangul_utf8(chr, output);
+		return;
+	}
+
+	len = unicode_code_point_get_full_decomposition(chr, canonical,
+							&decomp);
+	if (len == 0) {
+		uni_ucs4_to_utf8_c(chr, output);
+		return;
+	}
+
+	for (i = 0; i < len; i++)
+		uni_ucs4_to_utf8_c(decomp[i], output);
+}
