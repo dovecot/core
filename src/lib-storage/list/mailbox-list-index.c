@@ -620,7 +620,10 @@ int mailbox_list_index_refresh(struct mailbox_list *list)
 		   it. when we're accessing many mailboxes at once (e.g.
 		   opening a virtual mailbox) we don't want to stat/read the
 		   index every single time. */
-		return ilist->last_refresh_success ? 0 : -1;
+		if (ilist->last_refresh_success)
+			return 0;
+		mailbox_list_set_internal_error(list);
+		return -1;
 	}
 
 	return mailbox_list_index_refresh_force(list);
