@@ -7,7 +7,7 @@
  * Hangul syllable (de)composition
  */
 
-static size_t uni_ucs4_decompose_hangul(uint32_t chr, uint32_t buf[3])
+static size_t unicode_hangul_decompose(uint32_t chr, uint32_t buf[3])
 {
 	/* The Unicode Standard, Section 3.12.2:
 	   Hangul Syllable Decomposition
@@ -47,7 +47,7 @@ static void uni_ucs4_decompose_hangul_utf8(uint32_t chr, buffer_t *output)
 	uint32_t buf[3];
 	size_t len, i;
 
-	len = uni_ucs4_decompose_hangul(chr, buf);
+	len = unicode_hangul_decompose(chr, buf);
 
 	for (i = 0; i < len; i++)
 		uni_ucs4_to_utf8_c(buf[i], output);
