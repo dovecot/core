@@ -654,8 +654,11 @@ int mailbox_list_index_refresh_force(struct mailbox_list *list)
 			/* I/O failure - don't try to handle corruption,
 			   since we don't have the latest state. */
 			handle_corruption = FALSE;
-			if (ilist->index_error_code == MAIL_INDEX_ERROR_CODE_NO_ACCESS)
+			if (ilist->index_error_code == MAIL_INDEX_ERROR_CODE_NO_ACCESS) {
 				ret = mail_index_refresh(ilist->index);
+				if (ret < 0)
+					mailbox_list_index_set_index_error(list);
+			}
 			if (ret >= 0)
 				ret = mailbox_list_index_parse(list, view, FALSE);
 		}
