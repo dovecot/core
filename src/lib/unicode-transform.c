@@ -7,7 +7,7 @@
  * Hangul syllable (de)composition
  */
 
-static size_t uni_ucs4_decompose_hangul(unichar_t chr, unichar_t buf[3])
+static size_t uni_ucs4_decompose_hangul(uint32_t chr, uint32_t buf[3])
 {
 	/* The Unicode Standard, Section 3.12.2:
 	   Hangul Syllable Decomposition
@@ -42,9 +42,9 @@ static size_t uni_ucs4_decompose_hangul(unichar_t chr, unichar_t buf[3])
 	return 3;
 }
 
-static void uni_ucs4_decompose_hangul_utf8(unichar_t chr, buffer_t *output)
+static void uni_ucs4_decompose_hangul_utf8(uint32_t chr, buffer_t *output)
 {
-	unichar_t buf[3];
+	uint32_t buf[3];
 	size_t len, i;
 
 	len = uni_ucs4_decompose_hangul(chr, buf);
@@ -54,9 +54,9 @@ static void uni_ucs4_decompose_hangul_utf8(unichar_t chr, buffer_t *output)
 }
 
 static void
-uni_ucs4_decompose_one_utf8(unichar_t chr, bool canonical, buffer_t *output)
+uni_ucs4_decompose_one_utf8(uint32_t chr, bool canonical, buffer_t *output)
 {
-	const unichar_t *decomp;
+	const uint32_t *decomp;
 	size_t len, i;
 
 	if (chr >= HANGUL_FIRST && chr <= HANGUL_LAST) {
