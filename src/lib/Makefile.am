@@ -3,8 +3,7 @@ AM_CPPFLAGS = \
 
 noinst_LTLIBRARIES = liblib.la
 
-BUILT_SOURCES = $(srcdir)/unicodemap.c \
-		$(srcdir)/unicode-data-tables.c \
+BUILT_SOURCES = $(srcdir)/unicode-data-tables.c \
 		$(srcdir)/unicode-data-tables.h \
 		$(srcdir)/unicode-data-types.c \
 		$(srcdir)/unicode-data-types.h \
@@ -20,15 +19,13 @@ UCD_FILES = \
 	$(UCD_DIR)/UnicodeData.txt
 
 EXTRA_DIST = \
-	unicodemap.c \
 	unicode-data-tables.c \
 	unicode-data-tables.h \
 	unicode-data-types.c \
 	unicode-data-types.h \
-	unicodemap.pl \
 	unicode-ucd-compile.py \
 	$(UCD_FILES)
-EXTRA_CLEAN = unicodemap.c unicode-data-tables.c
+EXTRA_CLEAN = unicode-data-tables.c
 
 # Squelch autoconf error about using .[ly] sources but not defining $(LEX)
 # and $(YACC).  Using false here avoids accidental use.
@@ -57,8 +54,6 @@ $(UCD_DIR)/PropertyValueAliases.txt:
 $(UCD_DIR)/UnicodeData.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/UnicodeData.txt
 
-$(srcdir)/unicodemap.c: $(srcdir)/unicodemap.pl $(UCD_DIR)/UnicodeData.txt
-	$(AM_V_GEN)$(PERL) $(srcdir)/unicodemap.pl < $(UCD_DIR)/UnicodeData.txt > $@
 $(srcdir)/unicode-data-tables.c $(srcdir)/unicode-data-tables.h \
 	$(srcdir)/unicode-data-types.c $(srcdir)/unicode-data-types.h &: \
 	$(srcdir)/unicode-ucd-compile.py $(UCD_FILES)

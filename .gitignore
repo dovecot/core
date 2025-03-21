@@ -100,7 +100,6 @@ src/ipc/ipc
 src/lib/event-filter-lexer.c
 src/lib/event-filter-parser.c
 src/lib/event-filter-parser.h
-src/lib/unicodemap.c
 src/lib/unicode-data-tables.c
 src/lib/unicode-data-tables.h
 src/lib/unicode-data-types.c
