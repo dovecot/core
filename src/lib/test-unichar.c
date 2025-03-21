@@ -121,12 +121,38 @@ static void test_unichar_surrogates(void)
 	test_end();
 }
 
+static void test_unichar_collation(void)
+{
+	const char *in[] = {
+		"\xc3\xbc \xc2\xb3",
+	};
+	const char *exp[] = {
+		"U\xcc\x88 3",
+	};
+
+	unsigned int n_in = N_ELEMENTS(in), n_exp = N_ELEMENTS(exp), i;
+	buffer_t *collate_out;
+
+	i_assert(n_in == n_exp);
+
+	test_begin("unichar collation");
+
+	collate_out = buffer_create_dynamic(default_pool, 32);
+
+	for (i = 0; i < n_in; i++) {
+		buffer_set_used_size(collate_out, 0);
+		uni_utf8_to_decomposed_titlecase(in[i], strlen(in[i]),
+						 collate_out);
+		test_assert_strcmp_idx(str_c(collate_out), exp[i], i);
+	}
+
+	buffer_free(&collate_out);
+	test_end();
+}
+
 void test_unichar(void)
 {
 	static const char overlong_utf8[] = "\xf8\x80\x95\x81\xa1";
-	static const char collate_in[] = "\xc3\xbc \xc2\xb3";
-	static const char collate_exp[] = "U\xcc\x88 3";
-	buffer_t *collate_out;
 	unichar_t chr, chr2;
 	string_t *str = t_str_new(16);
 
@@ -167,13 +193,9 @@ void test_unichar(void)
 	}
 	test_end();
 
-	test_begin("unichar collation");
-	collate_out = buffer_create_dynamic(default_pool, 32);
-	uni_utf8_to_decomposed_titlecase(collate_in, sizeof(collate_in),
-					 collate_out);
-	test_assert(strcmp(collate_out->data, collate_exp) == 0);
-	buffer_free(&collate_out);
+	test_unichar_collation();
 
+	test_begin("unichar overlong");
 	test_assert(!uni_utf8_str_is_valid(overlong_utf8));
 	test_assert(uni_utf8_get_char(overlong_utf8, &chr2) < 0);
 	test_end();
