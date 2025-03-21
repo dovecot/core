@@ -44,8 +44,7 @@ int anvil_client_connect(struct anvil_client *client, bool retry);
 
 /* Send a query to anvil, expect a one line reply. The returned pointer can be
    used to abort the query later. It becomes invalid when callback is
-   called (= the callback must not call it). Returns NULL if the query couldn't
-   be sent. */
+   called (= the callback must not call it). */
 struct anvil_query *
 anvil_client_query(struct anvil_client *client, const char *query,
 		   unsigned int timeout_msecs,
