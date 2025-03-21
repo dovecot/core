@@ -260,7 +260,8 @@ lmtp_local_rcpt_anvil_finish(struct lmtp_local_recipient *llrcpt)
 }
 
 static void
-lmtp_local_rcpt_anvil_cb(const char *reply, struct lmtp_local_recipient *llrcpt)
+lmtp_local_rcpt_anvil_cb(const struct anvil_reply *reply,
+			 struct lmtp_local_recipient *llrcpt)
 {
 	struct client *client = llrcpt->rcpt->client;
 	struct smtp_server_recipient *rcpt = llrcpt->rcpt->rcpt;
@@ -268,10 +269,11 @@ lmtp_local_rcpt_anvil_cb(const char *reply, struct lmtp_local_recipient *llrcpt)
 	unsigned int parallel_count = 0;
 
 	llrcpt->anvil_query = NULL;
-	if (reply == NULL) {
+	if (reply->error != NULL) {
 		/* lookup failed */
-	} else if (str_to_uint(reply, &parallel_count) < 0) {
-		e_error(rcpt->event, "Invalid reply from anvil: %s", reply);
+	} else if (str_to_uint(reply->reply, &parallel_count) < 0) {
+		e_error(rcpt->event, "Invalid reply from anvil: %s",
+			reply->reply);
 	}
 
 	if (parallel_count >= client->lmtp_set->lmtp_user_concurrency_limit) {

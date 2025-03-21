@@ -237,7 +237,8 @@ static int master_send_request(struct anvil_request *anvil_request)
 }
 
 static void ATTR_NULL(1)
-anvil_lookup_callback(const char *reply, struct anvil_request *req)
+anvil_lookup_callback(const struct anvil_reply *reply,
+		      struct anvil_request *req)
 {
 	struct client *client = req->client;
 	const struct login_settings *set = client->set;
@@ -249,12 +250,15 @@ anvil_lookup_callback(const char *reply, struct anvil_request *req)
 	client->anvil_request = NULL;
 
 	conn_count = 0;
-	if (reply != NULL && str_to_uint(reply, &conn_count) < 0)
-		i_fatal("Received invalid reply from anvil: %s", reply);
+	if (reply != NULL && reply->error == NULL &&
+	    str_to_uint(reply->reply, &conn_count) < 0)
+		i_fatal("Received invalid reply from anvil: %s", reply->reply);
 
 	/* reply=NULL if we didn't need to do anvil lookup,
-	   or if the anvil lookup failed. allow failed anvil lookups in. */
-	if (reply == NULL || conn_count < set->mail_max_userip_connections) {
+	   reply->error != NULL if the anvil lookup failed.
+	   Allow failed anvil lookups in. */
+	if (reply == NULL || reply->error != NULL ||
+	    conn_count < set->mail_max_userip_connections) {
 		if (master_send_request(req) < 0)
 			sasl_reply = SASL_SERVER_REPLY_MASTER_FAILED;
 		errmsg = NULL; /* client will see internal error */

@@ -27,14 +27,15 @@ struct kick_context {
 };
 
 static void
-kick_user_anvil_callback(const char *reply, struct kick_context *ctx)
+kick_user_anvil_callback(const struct anvil_reply *reply,
+			 struct kick_context *ctx)
 {
 	unsigned int count;
 
-	if (reply != NULL) {
-		if (str_to_uint(reply, &count) < 0)
+	if (reply->error == NULL) {
+		if (str_to_uint(reply->reply, &count) < 0)
 			e_error(ctx->event,
-				"Unexpected reply from anvil: %s", reply);
+				"Unexpected reply from anvil: %s", reply->reply);
 		else
 			ctx->kicked_count += count;
 	}

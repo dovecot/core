@@ -231,7 +231,8 @@ static int anvil_client_input_line(struct connection *conn, const char *line)
 	queries = array_get(&client->queries_arr, &count);
 	query = queries[aqueue_idx(client->queries, 0)];
 	if (query->callback != NULL) T_BEGIN {
-		query->callback(line, query->context);
+		struct anvil_reply reply = { .reply = line };
+		query->callback(&reply, query->context);
 	} T_END;
 	anvil_query_free(&query);
 	aqueue_delete_tail(client->queries);
@@ -267,7 +268,8 @@ int anvil_client_connect(struct anvil_client *client, bool retry)
 	return 0;
 }
 
-static void anvil_client_cancel_queries(struct anvil_client *client)
+static void
+anvil_client_cancel_queries(struct anvil_client *client)
 {
 	struct anvil_query *const *queries, *query;
 	unsigned int count;
@@ -275,8 +277,10 @@ static void anvil_client_cancel_queries(struct anvil_client *client)
 	queries = array_get(&client->queries_arr, &count);
 	while (aqueue_count(client->queries) > 0) {
 		query = queries[aqueue_idx(client->queries, 0)];
-		if (query->callback != NULL)
-			query->callback(NULL, query->context);
+		if (query->callback != NULL) {
+			struct anvil_reply reply = { .error = "Failed" };
+			query->callback(&reply, query->context);
+		}
 		anvil_query_free(&query);
 		aqueue_delete_tail(client->queries);
 	}

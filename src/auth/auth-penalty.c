@@ -62,23 +62,23 @@ unsigned int auth_penalty_to_secs(unsigned int penalty)
 }
 
 static void
-auth_penalty_anvil_callback(const char *reply,
+auth_penalty_anvil_callback(const struct anvil_reply *reply,
 			    struct auth_penalty_request *request)
 {
 	unsigned int penalty = 0;
 	unsigned long last_penalty = 0;
 	unsigned int secs, drop_penalty;
 
-	if (reply == NULL) {
+	if (reply->error != NULL) {
 		/* internal failure. */
 		if (!anvil_client_is_connected(request->client)) {
 			/* we probably didn't have permissions to reconnect
 			   back to anvil. need to restart ourself. */
 			master_service_stop(master_service);
 		}
-	} else if (sscanf(reply, "%u %lu", &penalty, &last_penalty) != 2) {
+	} else if (sscanf(reply->reply, "%u %lu", &penalty, &last_penalty) != 2) {
 		e_error(request->auth_request->event,
-			"Invalid PENALTY-GET reply: %s", reply);
+			"Invalid PENALTY-GET reply: %s", reply->reply);
 	} else {
 		if ((time_t)last_penalty > ioloop_time) {
 			/* time moved backwards? */
