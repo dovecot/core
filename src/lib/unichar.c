@@ -289,7 +289,7 @@ static bool uni_ucs4_decompose_uni(unichar_t *chr)
 	return TRUE;
 }
 
-static void uni_ucs4_decompose_hangul_utf8(unichar_t chr, buffer_t *output)
+static size_t uni_ucs4_decompose_hangul(unichar_t chr, unichar_t buf[3])
 {
 	/* The Unicode Standard, Section 3.12.2:
 	   Hangul Syllable Decomposition
@@ -311,16 +311,28 @@ static void uni_ucs4_decompose_hangul_utf8(unichar_t chr, buffer_t *output)
 	uint32_t v_part = v_base + v_index;
 
 	if (t_index == 0) {
-		uni_ucs4_to_utf8_c(l_part, output);
-		uni_ucs4_to_utf8_c(v_part, output);
-		return;
+		buf[0] = l_part;
+		buf[1] = v_part;
+		return 2;
 	}
 
 	uint32_t t_part = t_base + t_index;
 
-	uni_ucs4_to_utf8_c(l_part, output);
-	uni_ucs4_to_utf8_c(v_part, output);
-	uni_ucs4_to_utf8_c(t_part, output);
+	buf[0] = l_part;
+	buf[1] = v_part;
+	buf[2] = t_part;
+	return 3;
+}
+
+static void uni_ucs4_decompose_hangul_utf8(unichar_t chr, buffer_t *output)
+{
+	unichar_t buf[3];
+	size_t len, i;
+
+	len = uni_ucs4_decompose_hangul(chr, buf);
+
+	for (i = 0; i < len; i++)
+		uni_ucs4_to_utf8_c(buf[i], output);
 }
 
 static bool uni_ucs4_decompose_multi_utf8(unichar_t chr, buffer_t *output)
