@@ -45,6 +45,9 @@ ud_compositions_max_per_starter = 0
 ud_case_mappings = []
 ud_case_mapping_max_length = 0
 
+ud_idna_mappings = []
+ud_idna_mapping_max_length = 0
+
 
 class UCDFileOpen:
     def __init__(self, filename):
@@ -801,6 +804,59 @@ def read_ucd_files():
                 cpd.pb_wb_extendnumlet = True
                 CodePointRange(cprng[0], cprng[1], cpd)
 
+    # IdnaMappingTable.txt
+    with UCDFileOpen("IdnaMappingTable.txt") as ucd:
+        line_num = 0
+        for line in ucd.fd:
+            line_num = line_num + 1
+            data = line.split("#")
+            line = data[0].strip()
+            if len(line) == 0:
+                continue
+
+            cols = line.split(";")
+            if len(cols) < 2:
+                die(f"{ucd}:{line_num}: Missing columns")
+
+            cprng = parse_cp_range(cols[0])
+            if cprng is None:
+                continue
+
+            status_label = cols[1].strip()
+            status = None
+            mapping = ""
+            if len(cols) >= 3:
+                mapping = cols[2].strip()
+
+            if status_label == "disallowed":
+                continue
+            elif status_label == "valid":
+                status = "UNICODE_IDNA_STATUS_VALID"
+            elif status_label == "ignored":
+                status = "UNICODE_IDNA_STATUS_IGNORED"
+            elif status_label == "mapped":
+                status = "UNICODE_IDNA_STATUS_MAPPED"
+            elif status_label == "deviation":
+                status = "UNICODE_IDNA_STATUS_DEVIATION"
+            else:
+                continue
+
+            cpd = CodePointData()
+            cpd.idna_status = status
+
+            codes_hex = mapping.split(" ")
+            if len(mapping) > 0 and len(codes_hex) > 0:
+                first_code_hex = codes_hex[0].strip()
+                first_code = int(first_code_hex, 16)
+                if len(codes_hex) > 1 or first_code != cp:
+                    codes = []
+                    for code_hex in codes_hex:
+                        codes.append(int(code_hex, 16))
+
+                    cpd.idna_mapping = codes
+
+            CodePointRange(cprng[0], cprng[1], cpd)
+
 
 def resolve_case_mappings():
     global ud_codepoints
@@ -1088,6 +1144,29 @@ def derive_canonical_compositions():
         ud_composition_primaries = ud_composition_primaries + [p[1] for p in mp]
 
 
+def resolve_idna_mappings():
+    global ud_codepoints
+    global ud_idna_mappings
+    global ud_idna_mapping_max_length
+
+    for cpr in ud_codepoints:
+        if cpr.cp_last > cpr.cp_first:
+            # No mappings in ranges expected, ever
+            continue
+        cp = cpr.cp_first
+        cpd = cpr.data
+
+        idna_codes = []
+        if hasattr(cpd, "idna_mapping"):
+            idna_codes = cpd.idna_mapping
+        if len(idna_codes) > 0 and (len(idna_codes) > 1 or idna_codes[0] != cp):
+            cpd.idna_mapping_offset = len(ud_idna_mappings)
+            cpd.idna_mapping_length = len(idna_codes)
+            ud_idna_mappings = ud_idna_mappings + idna_codes
+        if len(idna_codes) > ud_idna_mapping_max_length:
+            ud_idna_mapping_max_length = len(idna_codes)
+
+
 def create_cp_range_index():
     global ud_codepoints
     global ud_codepoints_index
@@ -1281,6 +1360,7 @@ def write_tables_h():
     global ud_decomposition_max_length
     global ud_compositions_max_per_starter
     global ud_case_mapping_max_length
+    global ud_idna_mapping_max_length
 
     orig_stdout = sys.stdout
 
@@ -1301,6 +1381,7 @@ def write_tables_h():
             % ud_compositions_max_per_starter
         )
         print("#define UNICODE_CASE_MAPPING_MAX_LENGTH %s" % ud_case_mapping_max_length)
+        print("#define UNICODE_IDNA_MAX_MAPPING_LENGTH %s" % ud_idna_mapping_max_length)
         print("")
         print("extern const struct unicode_code_point_data unicode_code_points[];")
         print("")
@@ -1315,6 +1396,8 @@ def write_tables_h():
         print("extern const uint32_t unicode_composition_primaries[];")
         print("")
         print("extern const uint32_t unicode_case_mappings[];")
+        print("")
+        print("extern const uint32_t unicode_idna_mappings[];")
         print("")
         print("#endif")
 
@@ -1440,6 +1523,11 @@ def write_tables_c_cpd(cpd):
             "\t\t.simple_titlecase_mapping = 0x%04X,"
             % cpd.simple_titlecase_mapping
         )
+    if hasattr(cpd, "idna_status"):
+        print("\t\t.idna_status = %s," % cpd.idna_status)
+    if hasattr(cpd, "idna_mapping_length") and cpd.idna_mapping_length > 0:
+        print("\t\t.idna_mapping_length = %s," % cpd.idna_mapping_length)
+        print("\t\t.idna_mapping_offset = %s," % cpd.idna_mapping_offset)
     if hasattr(cpd, "indic_conjunct_break"):
         print(
             "\t\t.indic_conjunct_break = %s,"
@@ -1780,6 +1868,10 @@ def write_tables_c():
         print_list(ud_case_mappings)
         print(",")
         print("};")
+        print("")
+        print("const uint32_t unicode_idna_mappings[] = {")
+        print_list(ud_idna_mappings)
+        print("};")
 
     sys.stdout = orig_stdout
 
@@ -1890,6 +1982,7 @@ def main():
     resolve_case_mappings()
     expand_decompositions()
     derive_canonical_compositions()
+    resolve_idna_mappings()
 
     create_cp_index_tables()
 

@@ -102,6 +102,15 @@ static inline bool unicode_code_point_is_assigned(uint32_t cp)
 	return unicode_code_point_data_is_assigned(cp_data);
 }
 
+static inline bool
+unicode_code_point_data_general_category_in(
+	const struct unicode_code_point_data *cp_data, uint8_t group)
+{
+	return (group ==
+		(cp_data->general_category &
+		 UNICODE_GENERAL_CATEGORY_GROUP_MASK));
+}
+
 static inline size_t
 unicode_code_point_get_full_decomposition(uint32_t cp, bool canonical,
 					  const uint32_t **decomp_r)

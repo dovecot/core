@@ -30,7 +30,9 @@ UCD_FILES = \
 	$(UCD_DIR)/PropList.txt \
 	$(UCD_DIR)/SpecialCasing.txt \
 	$(UCD_DIR)/UnicodeData.txt \
-	$(UCD_DIR)/WordBreakProperty.txt
+	$(UCD_DIR)/WordBreakProperty.txt \
+	$(UCD_DIR)/IdnaMappingTable.txt \
+	$(UCD_DIR)/IdnaTestV2.txt
 
 EXTRA_DIST = \
 	unicode-data-tables.c \
@@ -87,6 +89,10 @@ $(UCD_DIR)/UnicodeData.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/UnicodeData.txt
 $(UCD_DIR)/WordBreakProperty.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/WordBreakProperty.txt
+$(UCD_DIR)/IdnaMappingTable.txt:
+	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/IdnaMappingTable.txt
+$(UCD_DIR)/IdnaTestV2.txt:
+	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/IdnaTestV2.txt
 
 $(srcdir)/unicode-data-tables.c $(srcdir)/unicode-data-tables.h \
 	$(srcdir)/unicode-data-types.c $(srcdir)/unicode-data-types.h &: \

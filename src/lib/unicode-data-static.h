@@ -122,8 +122,26 @@ enum unicode_indic_conjunct_break {
 	UNICODE_INDIC_CONJUNCT_BREAK_EXTEND,
 };
 
+/* For each code point in Unicode, the IDNA Mapping Table provides one of the
+   following Status values: */
+enum unicode_idna_status {
+	/* disallowed: the code point is not allowed. */
+	UNICODE_IDNA_STATUS_DISALLOWED = 0,
+	/* valid: the code point is valid, and not modified. */
+	UNICODE_IDNA_STATUS_VALID,
+	/* ignored: the code point is removed:
+	 * this is equivalent to mapping the code point to an empty string. */
+	UNICODE_IDNA_STATUS_IGNORED,
+	/* mapped: the code point is replaced in the string by the value for the
+	   mapping. */
+	UNICODE_IDNA_STATUS_MAPPED,
+	/* deviation: the code point is either mapped or valid, depending on
+	   whether the processing is transitional or not. */
+	UNICODE_IDNA_STATUS_DEVIATION,
+};
+
 struct unicode_code_point_data {
-	uint8_t general_category; // Not yet used
+	uint8_t general_category;
 	uint8_t canonical_combining_class;
 	uint8_t nf_quick_check;
 
@@ -138,6 +156,9 @@ struct unicode_code_point_data {
 	uint8_t lowercase_mapping_length;
 	uint8_t casefold_mapping_length;
 
+	uint8_t idna_status:3;
+	uint8_t idna_mapping_length:5;
+
 	uint16_t decomposition_first_offset;
 	uint16_t decomposition_full_offset;
 	uint16_t decomposition_full_k_offset;
@@ -146,6 +167,8 @@ struct unicode_code_point_data {
 	uint16_t uppercase_mapping_offset;
 	uint16_t lowercase_mapping_offset;
 	uint16_t casefold_mapping_offset;
+
+	uint16_t idna_mapping_offset;
 
 	uint32_t simple_titlecase_mapping;
 

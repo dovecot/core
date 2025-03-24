@@ -17,6 +17,7 @@
 #define UCD_SPECIAL_CASING_TXT "SpecialCasing.txt"
 #define UCD_UNICODE_DATA_TXT "UnicodeData.txt"
 #define UCD_WORD_BREAK_PROPERTY_TXT "WordBreakProperty.txt"
+#define UCD_IDNA_MAPPING_TABLE_TXT "IdnaMappingTable.txt"
 
 static bool
 parse_prop_file_line(const char *line, const char *file, unsigned int line_num,
@@ -593,6 +594,70 @@ test_word_break_property_line(const char *line, unsigned int line_num)
 }
 
 static void
+test_idna_mapping_table_line(const char *line, unsigned int line_num)
+{
+	if (*line == '\0')
+		return;
+
+	const char *const *columns = t_strsplit(line, ";");
+	size_t num_columns = str_array_length(columns);
+
+	if (num_columns == 0)
+		return;
+	if (num_columns < 2) {
+		test_failed(t_strdup_printf(
+			"Invalid data at %s:%u",
+			UCD_IDNA_MAPPING_TABLE_TXT, line_num));
+		return;
+	}
+
+	uint32_t cp_first, cp_last, cp;
+	const char *status, *value;
+
+	if (!parse_prop_file_line(line, UCD_IDNA_MAPPING_TABLE_TXT, line_num,
+				  &cp_first, &cp_last, &status, &value))
+		return;
+
+	for (cp = cp_first; cp <= cp_last && !test_has_failed(); cp++) {
+		const struct unicode_code_point_data *cp_data =
+			unicode_code_point_get_data(cp);
+
+		switch (cp_data->idna_status) {
+		case UNICODE_IDNA_STATUS_DISALLOWED:
+			test_assert_strcmp_idx(status, "disallowed", line_num);
+			break;
+		case UNICODE_IDNA_STATUS_VALID:
+			test_assert_strcmp_idx(status, "valid", line_num);
+			break;
+		case UNICODE_IDNA_STATUS_IGNORED:
+			test_assert_strcmp_idx(status, "ignored", line_num);
+			break;
+		case UNICODE_IDNA_STATUS_MAPPED:
+			test_assert_strcmp_idx(status, "mapped", line_num);
+			break;
+		case UNICODE_IDNA_STATUS_DEVIATION:
+			test_assert_strcmp_idx(status, "deviation", line_num);
+			break;
+		}
+
+		if (strcmp(status, "mapping") != 0 &&
+		    strcmp(status, "deviation") != 0)
+			continue;
+
+		const char *mapping = t_str_trim(value, " ");
+		const char *const *map = t_strsplit(mapping, " ");
+
+		/* Check data */
+
+		const uint32_t *idna_map =
+			&unicode_idna_mappings[cp_data->idna_mapping_offset];
+		unsigned int idna_map_len = cp_data->idna_mapping_length;
+
+		test_case_mapping(cp, map, idna_map, idna_map_len);
+	}
+}
+
+static void
 test_ucd_file(const char *filename,
 	      void (*test_line)(const char *line, unsigned int line_num))
 {
@@ -651,4 +716,6 @@ void test_unicode_data(void)
 	test_ucd_file(UCD_UNICODE_DATA_TXT, test_unicode_data_line);
 	test_ucd_file(UCD_WORD_BREAK_PROPERTY_TXT,
 		      test_word_break_property_line);
+	test_ucd_file(UCD_IDNA_MAPPING_TABLE_TXT,
+		      test_idna_mapping_table_line);
 }
