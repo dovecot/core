@@ -267,7 +267,7 @@ imapc_quota_refresh_update(struct quota *quota,
 	const struct imapc_quota_refresh_root *refresh_root;
 
 	if (array_count(&refresh->roots) == 0) {
-		e_error(quota_backend_imapc.event,
+		e_error(quota->event,
 			"imapc didn't return any QUOTA results");
 		return;
 	}
