@@ -140,6 +140,7 @@ static void cmd_kick(struct doveadm_cmd_context *cctx)
 	ctx.conn_type = cctx->conn_type;
 	ctx.event = cctx->event;
 	ctx.who.pool = pool_alloconly_create("kick pids", 10240);
+	ctx.who.event = ctx.event;
 
 	if (who_parse_args(&ctx.who, passdb_field, &dest_ip, masks) != 0) {
 		pool_unref(&ctx.who.pool);

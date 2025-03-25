@@ -188,6 +188,8 @@ who_parse_masks(struct who_context *ctx, const char *const *masks)
 int who_parse_args(struct who_context *ctx, const char *alt_username_field,
 		   const struct ip_addr *dest_ip, const char *const *masks)
 {
+	i_assert(ctx->event != NULL);
+
 	if (dest_ip != NULL)
 		ctx->filter.dest_ip = *dest_ip;
 
