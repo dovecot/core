@@ -189,7 +189,7 @@ static void fs_quota_deinit(struct quota_root *_root)
 	i_free(root);
 }
 
-static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
+static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir, struct event *event)
 {
 	struct fs_quota_mountpoint *mount;
 	struct mountpoint point;
@@ -220,8 +220,7 @@ static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
 
 	if (mount_type_is_nfs(mount)) {
 		if (strchr(mount->device_path, ':') == NULL) {
-			e_error(quota_backend_fs.event,
-				"%s is not a valid NFS device path",
+			e_error(event, "%s is not a valid NFS device path",
 				mount->device_path);
 			fs_quota_mountpoint_free(mount);
 			return NULL;
@@ -233,7 +232,8 @@ static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
 static void
 fs_quota_mount_init(struct fs_quota_root *root, const char *dir)
 {
-	struct fs_quota_mountpoint *mount = fs_quota_mountpoint_get(dir);
+	struct event *event = root->root.quota->event;
+	struct fs_quota_mountpoint *mount = fs_quota_mountpoint_get(dir, event);
 	if (mount == NULL)
 		return;
 	if (mount->initialized) {
