@@ -173,13 +173,7 @@ who_parse_masks(struct who_context *ctx, const char *const *masks)
 			ctx->filter.net_ip = net_ip;
 			ctx->filter.net_bits = net_bits;
 		} else {
-			if (ctx->filter.username != NULL) {
-				e_error(ctx->event,
-					"Multiple username masks not supported");
-				doveadm_exit_code = EX_USAGE;
-				return -1;
-			}
-			ctx->filter.username = masks[i];
+			array_push_back(&ctx->filter.usernames, &masks[i]);
 			if (strpbrk(masks[i], "*?") != NULL)
 				ctx->filter.username_wildcards = TRUE;
 		}
@@ -195,11 +189,12 @@ int who_parse_args(struct who_context *ctx, const char *alt_username_field,
 	if (dest_ip != NULL)
 		ctx->filter.dest_ip = *dest_ip;
 
+	t_array_init(&ctx->filter.usernames, 4);
 	if (masks != NULL) {
 		if (who_parse_masks(ctx, masks) < 0)
 			return -1;
 	}
-	if (alt_username_field != NULL && ctx->filter.username == NULL) {
+	if (alt_username_field != NULL && array_is_empty(&ctx->filter.usernames)) {
 		e_error(ctx->event,
 			"Username must be given with passdb-field parameter");
 		doveadm_exit_code = EX_USAGE;
@@ -318,13 +313,26 @@ int doveadm_who_iter_deinit(struct doveadm_who_iter **_iter,
 	return failed ? -1 : 0;
 }
 
+static bool who_filter_match_username(const struct who_filter *filter,
+				      const char *username)
+{
+	if (array_is_empty(&filter->usernames))
+		return TRUE;
+
+	const char *filter_username;
+	array_foreach_elem(&filter->usernames, filter_username) {
+		if (wildcard_match_icase(username, filter_username))
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static bool who_user_filter_match(const struct who_user *user,
 				  const struct who_filter *filter)
 {
-	if (filter->username != NULL) {
-		if (!wildcard_match_icase(user->username, filter->username))
-			return FALSE;
-	}
+	if (!who_filter_match_username(filter, user->username))
+		return FALSE;
+
 	if (filter->net_bits > 0) {
 		const struct ip_addr *ip;
 		bool ret = FALSE;
@@ -398,10 +406,10 @@ bool who_line_filter_match(const struct who_line *line,
 {
 	unsigned int i;
 
-	if (filter->username == NULL)
+	if (array_is_empty(&filter->usernames))
 		;
 	else if (filter->alt_username_field == NULL) {
-		if (!wildcard_match_icase(line->username, filter->username))
+		if (!who_filter_match_username(filter, line->username))
 			return FALSE;
 	} else {
 		i_assert(filter->alt_username_idx != UINT_MAX);
@@ -412,8 +420,7 @@ bool who_line_filter_match(const struct who_line *line,
 				break;
 		}
 		if (i != filter->alt_username_idx ||
-		    !wildcard_match_icase(line->alt_usernames[i],
-					  filter->username))
+		    !who_filter_match_username(filter, line->alt_usernames[i]))
 			return FALSE;
 	}
 	if (filter->net_bits > 0) {

@@ -154,10 +154,14 @@ static void cmd_kick(struct doveadm_cmd_context *cctx)
 	if (ctx.who.filter.net_bits == 0 &&
 	    ctx.who.filter.dest_ip.family == 0 &&
 	    !ctx.who.filter.username_wildcards) {
-		/* kick a single [alternative] user's all connections */
+		/* kick explicit [alternative] usernames' all connections */
+		const char *username;
 		p_array_init(&ctx.kicks, ctx.who.pool, 1);
-		struct kick_session *session = array_append_space(&ctx.kicks);
-		session->username = ctx.who.filter.username;
+		array_foreach_elem(&ctx.who.filter.usernames, username) {
+			struct kick_session *session =
+				array_append_space(&ctx.kicks);
+			session->username = username;
+		}
 	} else {
 		/* Complex kick filter. Iterate all connections and figure out
 		   locally which ones to kick. */
@@ -170,7 +174,7 @@ static void cmd_kick(struct doveadm_cmd_context *cctx)
 
 #define DOVEADM_CMD_KICK_FIELDS \
 	.cmd = cmd_kick, \
-	.usage = "[-a <anvil socket path>] [-f <passdb field>] [-h <dest host>] <user mask>[|]<ip/bits>", \
+	.usage = "[-a <anvil socket path>] [-f <passdb field>] [-h <dest host>] <user mask>[|]<ip/bits> [<user mask> [...]]", \
 DOVEADM_CMD_PARAMS_START \
 DOVEADM_CMD_PARAM('a',"socket-path",CMD_PARAM_STR,0) \
 DOVEADM_CMD_PARAM('f',"passdb-field",CMD_PARAM_STR,0) \
