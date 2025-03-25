@@ -180,6 +180,8 @@ who_parse_masks(struct who_context *ctx, const char *const *masks)
 				return -1;
 			}
 			ctx->filter.username = masks[i];
+			if (strpbrk(masks[i], "*?") != NULL)
+				ctx->filter.username_wildcards = TRUE;
 		}
 	}
 	return 0;

@@ -153,7 +153,7 @@ static void cmd_kick(struct doveadm_cmd_context *cctx)
 
 	if (ctx.who.filter.net_bits == 0 &&
 	    ctx.who.filter.dest_ip.family == 0 &&
-	    strpbrk(ctx.who.filter.username, "*?") == NULL) {
+	    !ctx.who.filter.username_wildcards) {
 		/* kick a single [alternative] user's all connections */
 		p_array_init(&ctx.kicks, ctx.who.pool, 1);
 		struct kick_session *session = array_append_space(&ctx.kicks);

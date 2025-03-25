@@ -16,6 +16,7 @@ struct who_line {
 
 struct who_filter {
 	const char *username;
+	bool username_wildcards;
 
 	const char *alt_username_field;
 	unsigned int alt_username_idx;
