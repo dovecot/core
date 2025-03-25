@@ -83,6 +83,7 @@ static void kick_users_via_anvil(struct kick_context *ctx)
 	if (anvil_client_connect(anvil, TRUE) < 0) {
 		doveadm_exit_code = EX_TEMPFAIL;
 		io_loop_destroy(&ioloop);
+		anvil_client_deinit(&anvil);
 		return;
 	}
 
