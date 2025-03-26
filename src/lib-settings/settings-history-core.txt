@@ -1,3 +1,4 @@
+default	mail_attachment_detection_options		2.4.2	3.2.0
 default	@metric_defaults/proxy/metric	auth_successes,auth_failures,login_aborted	2.4.2	3.2.0
 default	fts_search_read_fallback	yes	-	3.2.0
 default	mailbox_directory_name_legacy	yes	2.4.2	3.2.0

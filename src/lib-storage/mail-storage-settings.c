@@ -204,6 +204,13 @@ static const struct setting_keyvalue mail_storage_default_settings_keyvalue[] = 
 	{ "mail_always_cache_fields", MAIL_CACHE_FIELDS_DEFAULT },
 #endif
 	{ "mail_never_cache_fields", "imap.envelope" },
+	{ "mail_attachment_detection_options", "add-flags content-type=!application/signature" },
+	/* This breaks mbox format in various ways */
+	{ "mbox/mail_attachment_detection_options", "" },
+	/* It may be confusing to enable with imapc, and it's unlikely to be
+	   useful. Even when using imapc with shared folders, the missing
+	   attachment flags would normally be added by the remote server. */
+	{ "imapc/mail_attachment_detection_options", "" },
 	{ NULL, NULL }
 };
 
