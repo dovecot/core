@@ -298,8 +298,12 @@ config_parser_add_info_defaults_arr(struct config_parser_context *ctx,
 		return;
 
 	for (unsigned int i = 0; defaults[i].key != NULL; i++) {
-		if (config_apply_default(ctx, defaults[i].key,
-					 defaults[i].value) < 0) {
+		const char *value = defaults[i].value;
+		if (ctx->dovecot_config_version != NULL) {
+			(void)old_settings_default(ctx->dovecot_config_version,
+				defaults[i].key, defaults[i].key, &value);
+		}
+		if (config_apply_default(ctx, defaults[i].key, value) < 0) {
 			i_panic("Failed to add default setting %s=%s for struct %s: %s",
 				defaults[i].key, defaults[i].value,
 				info->name, ctx->error);
@@ -2977,7 +2981,8 @@ static bool config_parser_get_version(struct config_parser_context *ctx,
 {
 	const char *error;
 
-	if (line->type == CONFIG_LINE_TYPE_SKIP ||
+	if (line->type == CONFIG_LINE_TYPE_CONTINUE ||
+	    line->type == CONFIG_LINE_TYPE_SKIP ||
 	    line->type == CONFIG_LINE_TYPE_ERROR)
 		return FALSE;
 
@@ -3343,6 +3348,14 @@ config_filters_cmp(const struct config_filter *f1,
 	return config_filters_equal(f1, f2) ? 0 : 1;
 }
 
+static const char *
+config_file_get_input_error(const struct config_parser_context *ctx)
+{
+	return t_strdup_printf("Error in configuration file %s line %d: %s",
+			       ctx->cur_input->path, ctx->cur_input->linenum,
+			       ctx->error);
+}
+
 int config_parse_file(const char *path, enum config_parse_flags flags,
 		      const struct config_filter *dump_filter,
 		      struct config_parsed **config_r,
@@ -3438,11 +3451,35 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	struct config_filter root_default_filter = {
 		.default_settings = TRUE,
 	};
-	ctx.cur_section->filter_parser =
+	struct config_filter_parser *default_filter_parser =
 		config_add_new_parser(&ctx, &root_default_filter, NULL);
+	ctx.cur_section->filter_parser = default_filter_parser;
 
 	ctx.prefixed_value = str_new(ctx.pool, 256);
 	full_line = str_new(default_pool, 512);
+
+	/* read the config until dovecot_config_version line */
+	ctx.cur_input = &root;
+	ctx.cur_input->input = fd != -1 ?
+		i_stream_create_fd_autoclose(&fd, SIZE_MAX) :
+		i_stream_create_from_data("", 0);
+	i_stream_set_return_partial_line(ctx.cur_input->input, TRUE);
+	struct istream *orig_input = ctx.cur_input->input;
+
+	while (ctx.dovecot_config_version == NULL &&
+	       (line = i_stream_read_next_line(ctx.cur_input->input)) != NULL) {
+		struct config_line config_line;
+		ctx.cur_input->linenum++;
+		config_parse_line(&ctx, line, full_line, &config_line);
+		(void)config_parser_get_version(&ctx, &config_line);
+		if (ctx.error != NULL) {
+			*error_r = config_file_get_input_error(&ctx);
+			ret = -2;
+			break;
+		}
+	}
+
+	/* initialize defaults, which may depend on dovecot_config_version */
 	if ((flags & CONFIG_PARSE_FLAG_NO_DEFAULTS) == 0) {
 		config_parser_add_services(&ctx, service_info_idx);
 		for (i = 0; i < count; i++) T_BEGIN {
@@ -3469,15 +3506,20 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 					    prefixed_version) < 0)
 			i_panic("Couldn't set default dovecot_storage_version: %s", ctx.error);
 	}
+	unsigned int old_linenum = ctx.cur_input->linenum;
 
 	internal.path = "Internal config_import";
+	ctx.cur_input->linenum = 0;
 	ctx.cur_input->input = config_import == NULL ?
 		i_stream_create_from_data("", 0) :
 		i_stream_create_from_data(str_data(config_import),
 					  str_len(config_import));
 	i_stream_set_name(ctx.cur_input->input, "<internal config_import>");
+
+	ctx.cur_section->filter_parser = default_filter_parser;
 	config_parser_set_change_counter(&ctx, CONFIG_PARSER_CHANGE_DEFAULTS);
-	while ((line = i_stream_read_next_line(ctx.cur_input->input)) != NULL) {
+	while (ret == 0 &&
+	       (line = i_stream_read_next_line(ctx.cur_input->input)) != NULL) {
 		struct config_line config_line;
 		ctx.cur_input->linenum++;
 		config_parse_line(&ctx, line, full_line, &config_line);
@@ -3493,19 +3535,18 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 		}
 	}
 	i_stream_destroy(&ctx.cur_input->input);
-	ctx.cur_input->linenum = 0;
+	ctx.cur_input->linenum = old_linenum;
 
+	/* continue reading the actual configuration file */
 	ctx.cur_section->filter_parser = root_filter_parser;
 	config_parser_set_change_counter(&ctx, CONFIG_PARSER_CHANGE_EXPLICIT);
 
 	ctx.cur_input = &root;
-	ctx.cur_input->input = fd != -1 ?
-		i_stream_create_fd_autoclose(&fd, SIZE_MAX) :
-		i_stream_create_from_data("", 0);
-	i_stream_set_return_partial_line(ctx.cur_input->input, TRUE);
+	ctx.cur_input->input = orig_input;
 
 prevfile:
-	while ((line = i_stream_read_next_line(ctx.cur_input->input)) != NULL) {
+	while (ret == 0 &&
+	       (line = i_stream_read_next_line(ctx.cur_input->input)) != NULL) {
 		struct config_line config_line;
 		ctx.cur_input->linenum++;
 		config_parse_line(&ctx, line, full_line, &config_line);
@@ -3519,10 +3560,7 @@ prevfile:
 		} T_END;
 
 		if (ctx.error != NULL) {
-			*error_r = t_strdup_printf(
-				"Error in configuration file %s line %d: %s",
-				ctx.cur_input->path, ctx.cur_input->linenum,
-				ctx.error);
+			*error_r = config_file_get_input_error(&ctx);
 			ret = -2;
 			break;
 		}
