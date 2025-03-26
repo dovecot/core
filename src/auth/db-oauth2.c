@@ -381,13 +381,9 @@ db_oauth2_add_extra_fields(struct db_oauth2_request *req, const char **error_r)
 		{ "oauth2", db_oauth2_var_expand_func_oauth2 },
 		{ NULL, NULL }
 	};
-	const struct var_expand_provider *provider_arr[] = {
-		func_table,
-		NULL
-	};
 	struct var_expand_params params = {
 		.table = auth_request_get_var_expand_table(req->auth_request),
-		.providers_arr = provider_arr,
+		.providers = func_table,
 		.context = req,
 	};
 	struct auth_request *request = req->auth_request;
