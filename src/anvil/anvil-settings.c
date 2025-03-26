@@ -33,7 +33,8 @@ const struct setting_keyvalue anvil_service_settings_defaults[] = {
 	{ "unix_listener", "anvil anvil-auth-penalty" },
 
 	{ "unix_listener/anvil/path", "anvil" },
-	{ "unix_listener/anvil/mode", "0600" },
+	{ "unix_listener/anvil/mode", "0660" },
+	{ "unix_listener/anvil/group", "$SET:default_internal_group" },
 
 	{ "unix_listener/anvil-auth-penalty/path", "anvil-auth-penalty" },
 #ifdef DOVECOT_PRO_EDITION
