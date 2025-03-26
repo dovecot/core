@@ -13,7 +13,7 @@ obsolete(struct config_parser_context *ctx, const char *str, ...)
 	static bool seen_obsoletes = FALSE;
 	va_list args;
 
-	if (ctx->hide_obsolete_warnings)
+	if ((ctx->flags & CONFIG_PARSE_FLAG_HIDE_OBSOLETE_WARNINGS) != 0)
 		return;
 
 	if (!seen_obsoletes) {

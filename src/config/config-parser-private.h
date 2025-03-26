@@ -81,6 +81,7 @@ HASH_TABLE_DEFINE_TYPE(include_group, const char *,
 struct config_parser_context {
 	pool_t pool;
 	const char *path;
+	enum config_parse_flags flags;
 
 	ARRAY_TYPE(config_path) seen_paths;
 	HASH_TABLE_TYPE(config_key) all_keys;
@@ -109,10 +110,6 @@ struct config_parser_context {
 	struct config_filter_context *filter;
 	bool dump_defaults:1;
 	bool expand_values:1;
-	bool hide_errors:1;
-	bool delay_errors:1;
-	bool hide_obsolete_warnings:1;
-	bool ignore_unknown:1;
 	/* All config_filter_parsers have reverse_default_sibling set. */
 	bool reverse_parsers_set:1;
 };

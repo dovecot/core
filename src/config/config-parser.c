@@ -349,7 +349,7 @@ config_apply_error(struct config_parser_context *ctx, const char *key)
 {
 	struct config_parser_key *config_key;
 
-	if (!ctx->delay_errors)
+	if ((ctx->flags & CONFIG_PARSE_FLAG_DELAY_ERRORS) == 0)
 		return -1;
 
 	/* Couldn't get value for the setting, but we're delaying error
@@ -1321,7 +1321,7 @@ again:
 	}
 	ctx->cur_section->filter_parser = orig_filter_parser;
 	if (ret == 0) {
-		if (ctx->ignore_unknown)
+		if ((ctx->flags & CONFIG_PARSE_FLAG_IGNORE_UNKNOWN) != 0)
 			return 0;
 		config_set_unknown_key_error(ctx, key);
 		return -1;
@@ -1826,7 +1826,7 @@ config_filter_parser_check(struct config_parser_context *ctx,
 		if (!ok) {
 			/* be sure to assert-crash early if error is missing */
 			i_assert(error != NULL);
-			if (!ctx->delay_errors) {
+			if ((ctx->flags & CONFIG_PARSE_FLAG_DELAY_ERRORS) == 0) {
 				/* the errors are still slightly delayed so
 				   we get the full list of them. */
 				error = p_strdup(new_config->pool, error);
@@ -3216,7 +3216,7 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 			break;
 		}
 		if (hash_table_lookup(ctx->all_keys, key) == NULL) {
-			if (ctx->ignore_unknown)
+			if ((ctx->flags & CONFIG_PARSE_FLAG_IGNORE_UNKNOWN) != 0)
 				break;
 			if (attempts != NULL)
 				str_append(attempts, " not found either.)");
@@ -3373,10 +3373,7 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	ctx.pool = pool_alloconly_create(MEMPOOL_GROWING"config file parser", 1024*256);
 	ctx.path = path;
 	ctx.dump_defaults = dump_defaults;
-	ctx.hide_obsolete_warnings =
-		(flags & CONFIG_PARSE_FLAG_HIDE_OBSOLETE_WARNINGS) != 0;
-	ctx.delay_errors = (flags & CONFIG_PARSE_FLAG_DELAY_ERRORS) != 0;
-	ctx.ignore_unknown = (flags & CONFIG_PARSE_FLAG_IGNORE_UNKNOWN) != 0;
+	ctx.flags = flags;
 	hash_table_create(&ctx.all_keys, ctx.pool, 500, str_hash, strcmp);
 	p_array_init(&ctx.seen_paths, ctx.pool, 8);
 	if (fd != -1) {
