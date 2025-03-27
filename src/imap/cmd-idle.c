@@ -36,6 +36,7 @@ idle_finish(struct cmd_idle_context *ctx, bool done_ok, bool free_cmd)
 		(void)imap_sync_deinit(ctx->sync_ctx, ctx->cmd);
 	}
 
+	bool orig_corked = o_stream_is_corked(client->output);
 	o_stream_cork(client->output);
 	io_remove(&client->io);
 
@@ -47,7 +48,8 @@ idle_finish(struct cmd_idle_context *ctx, bool done_ok, bool free_cmd)
 	else
 		client_send_tagline(ctx->cmd, "BAD Expected DONE.");
 
-	o_stream_uncork(client->output);
+	if (!orig_corked)
+		o_stream_uncork(client->output);
 	if (free_cmd)
 		client_command_free(&ctx->cmd);
 }
