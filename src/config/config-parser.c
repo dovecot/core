@@ -1844,7 +1844,7 @@ config_parse_line(struct config_parser_context *ctx,
 		  char *line, string_t *full_line,
 		  struct config_line *config_line_r)
 {
-	const char *key;
+	char *key;
 	size_t len;
 	char *p;
 
@@ -1929,6 +1929,7 @@ config_parse_line(struct config_parser_context *ctx,
 			} else
 				line++;
 		}
+		key = str_unescape(key);
 	} else {
 		while (!i_isspace(*line) && *line != '\0' && *line != '=')
 			line++;
