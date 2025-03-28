@@ -293,17 +293,17 @@ static void test_var_expand_hierarchy(void)
 		.context = context2,
 	};
 
-	struct var_expand_params params3 = {
-		.tables_arr = (const struct var_expand_table *const[]) {
-			tab1,
-			tab1,
-			NULL
-		},
-		.contexts = (void *const[]) {
-			context1,
-			context1,
-			VAR_EXPAND_CONTEXTS_END,
-		}
+	struct var_expand_params params3;
+	i_zero(&params3);
+	params3.tables_arr = (const struct var_expand_table *const[]) {
+		tab1,
+		tab1,
+		NULL
+	};
+	params3.contexts = (void *const[]) {
+		context1,
+		context1,
+		VAR_EXPAND_CONTEXTS_END,
 	};
 
 	struct settings_root *set_root = settings_root_init();
