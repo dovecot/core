@@ -51,6 +51,9 @@ v2.4.1 2025-03-28  Aki Tuomi <aki.tuomi@open-xchange.com>
 	  supported with GCM, but it fails better.
 	- lib-http: HTTP client context memory usage was increasing.
 	- lib-http: Pipeline corruption could happen after 100 Continue response.
+	- lib-settings: Variable expansion initialization could crash with
+	  Panic: file settings.c: line 1560 (settings_var_expand_init_add):
+	  assertion failed: (I_MAX(num_tables, num_provs) == num_ctx)
 	- lib-smtp: Pipelining initial SASL response after AUTH was broken.
 	- lib-var-expand: If filter failed, memory leak would occur.
 	- lib-var-expand: Older bison versions did not have error symbol for
