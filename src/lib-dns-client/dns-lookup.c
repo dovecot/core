@@ -271,6 +271,38 @@ static void dns_lookup_timeout(struct dns_lookup *lookup)
 		duration_msecs / 1000, duration_msecs % 1000));
 }
 
+static struct dns_lookup *
+dns_lookup_create(pool_t pool,
+		  struct dns_client *client,
+		  bool ptr_lookup,
+		  const char *param,
+		  struct event *event,
+		  dns_lookup_callback_t *callback,
+		  void *context)
+{
+	struct dns_lookup *lookup = p_new(pool, struct dns_lookup, 1);
+	lookup->pool = pool;
+
+	i_gettimeofday(&lookup->start_time);
+
+	lookup->client = client;
+	lookup->callback = callback;
+	lookup->context = context;
+	lookup->ptr_lookup = ptr_lookup;
+	lookup->result.ret = EAI_FAIL;
+	if (event == NULL)
+		lookup->event = event_create(client->conn.event);
+	else {
+		lookup->event = event_create(event);
+		event_add_category(lookup->event, &event_category_dns);
+	}
+	lookup->cache_key = p_strdup_printf(lookup->pool, "%c%s",
+					    ptr_lookup ? 'I' : 'N', param);
+	event_set_append_log_prefix(lookup->event,
+				    t_strconcat("dns(", param, "): ", NULL));
+	return lookup;
+}
+
 int dns_lookup(const char *host, const struct dns_client_settings *set,
 	       const struct dns_client_parameters *params,
 	       struct event *event_parent, dns_lookup_callback_t *callback,
@@ -480,25 +512,8 @@ dns_client_lookup_common(struct dns_client *client,
 	cmd = t_strdup_printf("%s\t%s\n", cmd, param);
 
 	pool_t pool = pool_alloconly_create("dns lookup", 512);
-	lookup = p_new(pool, struct dns_lookup, 1);
-	lookup->pool = pool;
-
-	i_gettimeofday(&lookup->start_time);
-
-	lookup->client = client;
-	lookup->callback = callback;
-	lookup->context = context;
-	lookup->ptr_lookup = ptr_lookup;
-	lookup->result.ret = EAI_FAIL;
-	if (event == NULL)
-		lookup->event = event_create(client->conn.event);
-	else {
-		lookup->event = event_create(event);
-		event_add_category(lookup->event, &event_category_dns);
-	}
-	lookup->cache_key = p_strdup_printf(lookup->pool, "%c%s",
-				      ptr_lookup ? 'I' : 'N', param);
-	event_set_append_log_prefix(lookup->event, t_strconcat("dns(", param, "): ", NULL));
+	lookup = dns_lookup_create(pool, client, ptr_lookup, param,
+				   event, callback, context);
 	struct event_passthrough *e =
 		event_create_passthrough(lookup->event)->
 		set_name("dns_request_started");
