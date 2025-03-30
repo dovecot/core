@@ -42,6 +42,8 @@
 #define UTF16_VALID_HIGH_SURROGATE(chr) (((chr) & 0xfffc00) == UTF16_SURROGATE_HIGH_FIRST)
 #define UTF16_VALID_LOW_SURROGATE(chr) (((chr) & 0xfffc00) == UTF16_SURROGATE_LOW_FIRST)
 
+struct unicode_transform;
+
 typedef uint32_t unichar_t;
 ARRAY_DEFINE_TYPE(unichars, unichar_t);
 
@@ -115,6 +117,12 @@ uni_utf8_char_bytes(unsigned char chr)
 
 /* Return given character in titlecase. */
 unichar_t uni_ucs4_to_titlecase(unichar_t chr) ATTR_CONST;
+
+/* Run the UTF8 string through the provided Unicode transform and write the
+   result into the buffer again encoded in UTF8. */
+int uni_utf8_run_transform(const void *_input, size_t size,
+			   struct unicode_transform *trans, buffer_t *output,
+			   const char **error_r);
 
 /* Convert UTF-8 input to titlecase and decompose the titlecase characters to
    output buffer. Returns 0 if ok, -1 if input was invalid. This generates

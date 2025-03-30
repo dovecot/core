@@ -250,6 +250,54 @@ static void output_add_replacement_char(buffer_t *output)
 	buffer_append(output, utf8_replacement_char, UTF8_REPLACEMENT_CHAR_LEN);
 }
 
+int uni_utf8_run_transform(const void *_input, size_t size,
+			   struct unicode_transform *trans, buffer_t *output,
+			   const char **error_r)
+{
+	struct unicode_transform *trans_last =
+		unicode_transform_get_last(trans);
+	struct unicode_buffer_sink sink;
+	const unsigned char *input = _input;
+	unichar_t chr;
+	ssize_t sret;
+	bool got_chr = FALSE, bad_cp = FALSE;
+	int ret = 0;
+
+	unicode_buffer_sink_init(&sink, output);
+	unicode_transform_chain(trans_last, &sink.transform);
+
+	while (size > 0 || got_chr) {
+		if (!got_chr) {
+			int bytes = uni_utf8_get_char_n(input, size, &chr);
+			if (bytes <= 0) {
+				/* Invalid input. try the next byte. */
+				ret = -1;
+				input++; size--;
+				if (!bad_cp) {
+				       chr = UNICODE_REPLACEMENT_CHAR;
+				       bad_cp = TRUE;
+				}
+			} else {
+				input += bytes;
+				size -= bytes;
+				bad_cp = FALSE;
+			}
+		}
+
+		sret = unicode_transform_input(trans, &chr, 1, error_r);
+		if (sret < 0)
+			return -1;
+		if (sret > 0)
+			got_chr = FALSE;
+	}
+
+	int fret = unicode_transform_flush(trans, error_r);
+	if (fret < 0)
+		i_panic("unicode_transform_flush(): %s", *error_r);
+	i_assert(fret == 1);
+	return ret;
+}
+
 int uni_utf8_to_decomposed_titlecase(const void *_input, size_t size,
 				     buffer_t *output)
 {
