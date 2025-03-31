@@ -267,7 +267,7 @@ AC_C_INLINE
 LT_INIT
 
 # SIZE_MAX is missing without this
-CXXFLAGS="$CXXFLAGS -D__STDC_LIMIT_MACROS"
+AM_CXXFLAGS="$AM_CXXFLAGS -D__STDC_LIMIT_MACROS"
 
 # Use the first x.y.z numbers of the version. Also allow x.y numbering.
 AS_IF([echo "$PACKAGE_VERSION" | grep '^[[0-9]]*\.[[0-9]]*\.[[0-9]]'], [
@@ -773,8 +773,10 @@ SETTING_LINKED_FILES=`echo $libdovecot_c_files | $SED -e s,$srcdir/src,./src,g -
 AC_SUBST(SETTING_FILES)
 AC_SUBST(SETTING_LINKED_FILES)
 
-CFLAGS="$CFLAGS $EXTRA_CFLAGS"
-CXXFLAGS="$CXXFLAGS $EXTRA_CFLAGS"
+AM_CFLAGS="$AM_CFLAGS $EXTRA_CFLAGS"
+AM_CXXFLAGS="$AM_CXXFLAGS $EXTRA_CFLAGS"
+AC_SUBST([AM_CFLAGS])
+AC_SUBST([AM_CXXFLAGS])
 BINARY_LDFLAGS="$PIE_LDFLAGS $RELRO_LDFLAGS"
 BINARY_CFLAGS="$PIE_CFLAGS"
 
@@ -941,7 +943,7 @@ echo "userdbs ........ :$userdb"
 if test "$not_userdb" != ""; then
   echo "                 :$not_userdb"
 fi
-echo "CFLAGS ......... : $CFLAGS"
+echo "AM_CFLAGS ...... : $AM_CFLAGS"
 
 if test "$systemdsystemunitdir" != ""; then
   echo "SYSTEMD ........ : $systemdservicetype - $systemdsystemunitdir/dovecot.service";
