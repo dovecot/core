@@ -20,6 +20,7 @@ UCD_FILES = \
 	$(UCD_DIR)/NormalizationTest.txt \
 	$(UCD_DIR)/PropertyValueAliases.txt \
 	$(UCD_DIR)/PropList.txt \
+	$(UCD_DIR)/SpecialCasing.txt \
 	$(UCD_DIR)/UnicodeData.txt \
 	$(UCD_DIR)/WordBreakProperty.txt
 
@@ -64,6 +65,8 @@ $(UCD_DIR)/PropertyValueAliases.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/PropertyValueAliases.txt
 $(UCD_DIR)/PropList.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/PropList.txt
+$(UCD_DIR)/SpecialCasing.txt:
+	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/SpecialCasing.txt
 $(UCD_DIR)/UnicodeData.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/UnicodeData.txt
 $(UCD_DIR)/WordBreakProperty.txt:

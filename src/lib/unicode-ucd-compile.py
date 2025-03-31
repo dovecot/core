@@ -41,6 +41,9 @@ ud_compositions = []
 ud_composition_primaries = []
 ud_compositions_max_per_starter = 0
 
+ud_case_mappings = []
+ud_case_mapping_max_length = 0
+
 
 class UCDFileOpen:
     def __init__(self, filename):
@@ -460,6 +463,65 @@ def read_ucd_files():
                 cpd.pb_m_terminal_punctuation = True
                 CodePointRange(cprng[0], cprng[1], cpd)
 
+    # SpecialCasing.txt
+    with UCDFileOpen("SpecialCasing.txt") as ucd:
+        line_num = 0
+        for line in ucd.fd:
+            line_num = line_num + 1
+            data = line.split("#")
+            line = data[0].strip()
+            if len(line) == 0:
+                continue
+
+            # <code>; <lower>; <title>; <upper>; (<condition_list>;)? # <comment>
+            cols = line.split(";")
+            if len(cols) < 4:
+                die(f"{ucd}:{line_num}: Missing columns")
+            if len(cols) > 4 and len(cols[4].strip()) > 0:
+                # Skip lines with condition list
+                continue
+
+            cp_hex = cols[0].strip()
+            if len(cp_hex) == 0:
+                continue
+            cp = int(cp_hex, 16)
+
+            lower = cols[1].strip()
+            upper = cols[3].strip()
+
+            cpd = None
+
+            # Lowercase_Mapping
+            codes_hex = lower.split(" ")
+            if len(codes_hex) > 0:
+                first_code_hex = codes_hex[0].strip()
+                first_code = int(first_code_hex, 16)
+                if len(codes_hex) > 1 or first_code != cp:
+                    codes = []
+                    for code_hex in codes_hex:
+                        codes.append(int(code_hex, 16))
+
+                    if cpd is None:
+                        cpd = CodePointData()
+                    cpd.lowercase_mapping = codes
+
+            # Uppercase_Mapping
+            codes_hex = upper.split(" ")
+            if len(codes_hex) > 0:
+                first_code_hex = codes_hex[0].strip()
+                first_code = int(first_code_hex, 16)
+                if len(codes_hex) > 1 or first_code != cp:
+                    codes = []
+                    for code_hex in codes_hex:
+                        codes.append(int(code_hex, 16))
+
+                    if cpd is None:
+                        cpd = CodePointData()
+                    cpd.uppercase_mapping = codes
+
+            if cpd is not None:
+                CodePointRange(cp, cp, cpd)
+
     # WordBreakProperty.txt
     with UCDFileOpen("WordBreakProperty.txt") as ucd:
         line_num = 0
@@ -547,6 +609,61 @@ def read_ucd_files():
                 cpd = CodePointData()
                 cpd.pb_wb_extendnumlet = True
                 CodePointRange(cprng[0], cprng[1], cpd)
+
+
+def resolve_case_mappings():
+    global ud_codepoints
+    global ud_case_mappings
+    global ud_case_mapping_max_length
+
+    for cpr in ud_codepoints:
+        if cpr.cp_last > cpr.cp_first:
+            # No case mappings in ranges expected, ever
+            continue
+        cp = cpr.cp_first
+        cpd = cpr.data
+
+        # Uppercase_Mapping
+        ucase_codes = []
+        if hasattr(cpd, "uppercase_mapping"):
+            ucase_codes = cpd.uppercase_mapping
+        if len(ucase_codes) > 0 and (len(ucase_codes) > 1 or ucase_codes[0] != cp):
+            cpd.uppercase_mapping_offset = len(ud_case_mappings)
+            cpd.uppercase_mapping_length = len(ucase_codes)
+            ud_case_mappings = ud_case_mappings + ucase_codes
+        elif (
+            hasattr(cpd, "simple_uppercase_mapping")
+            and cpd.simple_uppercase_mapping != cp
+        ):
+            cpd.uppercase_mapping_offset = len(ud_case_mappings)
+            cpd.uppercase_mapping_length = 1
+            ud_case_mappings.append(cpd.simple_uppercase_mapping)
+            ucase_codes = [cpd.simple_uppercase_mapping]
+        else:
+            ucase_codes = []
+        if len(ucase_codes) > ud_case_mapping_max_length:
+            ud_case_mapping_max_length = len(ucase_codes)
+
+        # Lowercase_Mapping
+        lcase_codes = []
+        if hasattr(cpd, "lowercase_mapping"):
+            lcase_codes = cpd.lowercase_mapping
+        if len(lcase_codes) > 0 and (len(lcase_codes) > 1 or lcase_codes[0] != cp):
+            cpd.lowercase_mapping_offset = len(ud_case_mappings)
+            cpd.lowercase_mapping_length = len(lcase_codes)
+            ud_case_mappings = ud_case_mappings + lcase_codes
+        elif (
+            hasattr(cpd, "simple_lowercase_mapping")
+            and cpd.simple_lowercase_mapping != cp
+        ):
+            cpd.lowercase_mapping_offset = len(ud_case_mappings)
+            cpd.lowercase_mapping_length = 1
+            ud_case_mappings.append(cpd.simple_lowercase_mapping)
+            lcase_codes = [cpd.simple_lowercase_mapping]
+        else:
+            lcase_codes = []
+        if len(lcase_codes) > ud_case_mapping_max_length:
+            ud_case_mapping_max_length = len(lcase_codes)
 
 
 def expand_decompositions():
@@ -918,6 +1035,7 @@ def write_tables_h():
     global output_dir
     global ud_decomposition_max_length
     global ud_compositions_max_per_starter
+    global ud_case_mapping_max_length
 
     orig_stdout = sys.stdout
 
@@ -937,6 +1055,7 @@ def write_tables_h():
             "#define UNICODE_COMPOSITIONS_MAX_PER_STARTER %s"
             % ud_compositions_max_per_starter
         )
+        print("#define UNICODE_CASE_MAPPING_MAX_LENGTH %s" % ud_case_mapping_max_length)
         print("")
         print("extern const struct unicode_code_point_data unicode_code_points[];")
         print("")
@@ -949,6 +1068,8 @@ def write_tables_h():
         print("")
         print("extern const uint32_t unicode_compositions[];")
         print("extern const uint32_t unicode_composition_primaries[];")
+        print("")
+        print("extern const uint32_t unicode_case_mappings[];")
         print("")
         print("#endif")
 
@@ -1074,6 +1195,26 @@ def write_tables_c():
             if hasattr(cpd, "composition_count"):
                 print("\t\t.composition_count = %u," % cpd.composition_count)
                 print("\t\t.composition_offset = %u," % cpd.composition_offset)
+            if (
+                hasattr(cpd, "lowercase_mapping_length")
+                and cpd.lowercase_mapping_length > 0
+            ):
+                print(
+                    "\t\t.lowercase_mapping_length = %s," % cpd.lowercase_mapping_length
+                )
+                print(
+                    "\t\t.lowercase_mapping_offset = %s," % cpd.lowercase_mapping_offset
+                )
+            if (
+                hasattr(cpd, "uppercase_mapping_length")
+                and cpd.uppercase_mapping_length > 0
+            ):
+                print(
+                    "\t\t.uppercase_mapping_length = %s," % cpd.uppercase_mapping_length
+                )
+                print(
+                    "\t\t.uppercase_mapping_offset = %s," % cpd.uppercase_mapping_offset
+                )
             if hasattr(cpd, "simple_titlecase_mapping"):
                 print(
                     "\t\t.simple_titlecase_mapping = 0x%04X,"
@@ -1342,6 +1483,11 @@ def write_tables_c():
         print_list(ud_composition_primaries)
         print(",")
         print("};")
+        print("")
+        print("const uint32_t unicode_case_mappings[] = {")
+        print_list(ud_case_mappings)
+        print(",")
+        print("};")
 
     sys.stdout = orig_stdout
 
@@ -1449,6 +1595,7 @@ def main():
     source_files.sort()
 
     create_cp_range_index()
+    resolve_case_mappings()
     expand_decompositions()
     derive_canonical_compositions()
 

@@ -12,6 +12,7 @@
 #define UCD_COMPOSITION_EXCLUSIONS_TXT "CompositionExclusions.txt"
 #define UCD_DERIVED_NORMALIZATION_PROPS_TXT "DerivedNormalizationProps.txt"
 #define UCD_PROP_LIST_TXT "PropList.txt"
+#define UCD_SPECIAL_CASING_TXT "SpecialCasing.txt"
 #define UCD_UNICODE_DATA_TXT "UnicodeData.txt"
 #define UCD_WORD_BREAK_PROPERTY_TXT "WordBreakProperty.txt"
 
@@ -67,6 +68,44 @@ parse_prop_file_line(const char *line, const char *file, unsigned int line_num,
 		}
 	}
 	return !test_has_failed();
+}
+
+static void
+test_case_mapping(uint32_t cp, const char *const *parsed_mapping,
+		  const uint32_t *case_map, unsigned int case_map_len)
+{
+	unsigned int case_map_idx;
+	unsigned int parsed_mapping_len = str_array_length(parsed_mapping);
+
+	if (parsed_mapping_len == 1 && case_map_len == 0) {
+		/* Maps to itself (compiled as len == 0) */
+		uint32_t mcp;
+
+		test_assert_idx(str_to_uint32_hex(*parsed_mapping, &mcp) >= 0, cp);
+		if (test_has_failed())
+			return;
+		test_assert_idx(mcp == cp, cp);
+		return;
+	}
+
+	/* Explicit mapping */
+	test_assert(parsed_mapping_len == case_map_len);
+	if (test_has_failed())
+		return;
+
+	case_map_idx = 0;
+	while (*parsed_mapping != NULL && !test_has_failed()) {
+		uint32_t mcp;
+
+		test_assert_idx(str_to_uint32_hex(*parsed_mapping, &mcp) >= 0, cp);
+		if (test_has_failed())
+			return;
+		test_assert_idx(uni_is_valid_ucs4(mcp), cp);
+		test_assert_idx(mcp == case_map[case_map_idx], cp);
+
+		case_map_idx++;
+		parsed_mapping++;
+	}
 }
 
 static void
@@ -159,6 +198,58 @@ static void test_prop_list_line(const char *line, unsigned int line_num)
 		else if (strcmp(prop, "Terminal_Punctuation") == 0)
 			test_assert_idx(cp_data->pb_m_terminal_punctuation, cp);
 	}
+}
+
+static void test_special_casing_line(const char *line, unsigned int line_num)
+{
+	const char *const *columns = t_strsplit(line, ";");
+	size_t num_columns = str_array_length(columns);
+
+	/* <code>; <lower>; <title>; <upper>; (<condition_list>;)? */
+
+	if (num_columns < 4) {
+		test_failed(t_strdup_printf(
+			"Invalid data at %s:%u",
+			UCD_SPECIAL_CASING_TXT, line_num));
+		return;
+	}
+
+	if (num_columns > 4 && strlen(t_str_trim(columns[4], " ")) > 0) {
+		/* Skip lines with condition list */
+		return;
+	}
+
+	const char *cp_hex = t_str_trim(columns[0], " ");
+	uint32_t cp;
+
+	if (str_to_uint32_hex(cp_hex, &cp) < 0) {
+		test_failed(t_strdup_printf(
+				"Invalid data at %s:%u: "
+				"Bad code point",
+				UCD_SPECIAL_CASING_TXT, line_num));
+		return;
+	}
+
+	/* Parse Decomposition_* */
+
+	const char *lower = t_str_trim(columns[1], " ");
+	const char *upper = t_str_trim(columns[3], " ");
+	const char *const *lower_map = t_strsplit(lower, " ");
+	const char *const *upper_map = t_strsplit(upper, " ");
+
+	/* Check data */
+
+	const struct unicode_code_point_data *cp_data =
+		unicode_code_point_get_data(cp);
+	const uint32_t *case_map;
+	size_t case_map_len;
+
+	case_map_len = unicode_code_point_data_get_uppercase_mapping(
+		cp_data, &case_map);
+	test_case_mapping(cp, upper_map, case_map, case_map_len);
+	case_map_len = unicode_code_point_data_get_lowercase_mapping(
+		cp_data, &case_map);
+	test_case_mapping(cp, lower_map, case_map, case_map_len);
 }
 
 static void test_unicode_data_line(const char *line, unsigned int line_num)
@@ -329,6 +420,22 @@ static void test_unicode_data_line(const char *line, unsigned int line_num)
 			decomp++;
 		}
 
+		if (cp_data->uppercase_mapping_length == 1) {
+			const uint32_t *map;
+			size_t map_len =
+				unicode_code_point_data_get_uppercase_mapping(
+					cp_data, &map);
+			test_assert_idx(map_len == 1 &&
+					map[0] == simple_uppercase_mapping, cp);
+		}
+		if (cp_data->lowercase_mapping_length == 1) {
+			const uint32_t *map;
+			size_t map_len =
+				unicode_code_point_data_get_lowercase_mapping(
+					cp_data, &map);
+			test_assert_idx(map_len == 1 &&
+					map[0] == simple_lowercase_mapping, cp);
+		}
 		test_assert_idx(
 			cp_data->simple_titlecase_mapping == simple_titlecase_mapping,
 			cp);
@@ -440,6 +547,7 @@ void test_unicode_data(void)
 	test_ucd_file(UCD_DERIVED_NORMALIZATION_PROPS_TXT,
 		      test_derived_normalization_props_line);
 	test_ucd_file(UCD_PROP_LIST_TXT, test_prop_list_line);
+	test_ucd_file(UCD_SPECIAL_CASING_TXT, test_special_casing_line);
 	test_ucd_file(UCD_UNICODE_DATA_TXT, test_unicode_data_line);
 	test_ucd_file(UCD_WORD_BREAK_PROPERTY_TXT,
 		      test_word_break_property_line);
