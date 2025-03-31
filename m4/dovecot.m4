@@ -18,7 +18,7 @@ AC_DEFUN([AC_CC_D_FORTIFY_SOURCE],[
       case "$host" in
         *)
           gl_COMPILER_OPTION_IF([-O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2], [
-            CFLAGS="$CFLAGS -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2"
+            AM_CFLAGS="$AM_CFLAGS -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2"
             ],
             [],
             [AC_LANG_PROGRAM()]
@@ -43,20 +43,19 @@ AC_DEFUN([DC_DOVECOT_CFLAGS],[
     CFLAGS="-std=$mystd"
     AC_COMPILE_IFELSE([AC_LANG_PROGRAM()
     ], [
-      CFLAGS="$CFLAGS $old_cflags"
+      AM_CFLAGS="$AM_CFLAGS $CFLAGS"
       std=$mystd
       break
-    ], [
-      CFLAGS="$old_cflags"
     ])
   done
   AC_MSG_RESULT($std)
+  CFLAGS="$old_cflags"
 
   AS_IF([test "x$ac_cv_c_compiler_gnu" = "xyes"], [
     dnl -Wcast-qual -Wcast-align -Wconversion -Wunreachable-code # too many warnings
     dnl -Wstrict-prototypes -Wredundant-decls # may give warnings in some systems
     dnl -Wmissing-format-attribute -Wmissing-noreturn -Wwrite-strings # a couple of warnings
-    CFLAGS="$CFLAGS -Wall -W -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wchar-subscripts -Wformat=2 -Wbad-function-cast"
+    AM_CFLAGS="$AM_CFLAGS -Wall -W -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wchar-subscripts -Wformat=2 -Wbad-function-cast"
 
     AS_IF([test "$have_clang" = "yes"], [
       AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -65,11 +64,11 @@ AC_DEFUN([DC_DOVECOT_CFLAGS],[
       #endif
       ]], [[]])],[],[
         dnl clang 3.3+ unfortunately this gives warnings with hash.h
-        CFLAGS="$CFLAGS -Wno-duplicate-decl-specifier"
+        AM_CFLAGS="$AM_CFLAGS -Wno-duplicate-decl-specifier"
       ])
     ], [
       dnl This is simply to avoid warning when building strftime() wrappers..
-      CFLAGS="$CFLAGS -fno-builtin-strftime"
+      AM_CFLAGS="$AM_CFLAGS -fno-builtin-strftime"
     ])
 
     AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -78,7 +77,7 @@ AC_DEFUN([DC_DOVECOT_CFLAGS],[
       #endif
       ]], [[]])],[
         dnl gcc4
-        CFLAGS="$CFLAGS -Wstrict-aliasing=2"
+        AM_CFLAGS="$AM_CFLAGS -Wstrict-aliasing=2"
       ],[])
   ])
 ])
@@ -210,12 +209,12 @@ AC_DEFUN([AC_CC_RETPOLINE],[
       case "$host" in
         *)
           gl_COMPILER_OPTION_IF([-mfunction-return=$with_retpoline],
-            [CFLAGS="$CFLAGS -mfunction-return=$with_retpoline"],
+            [AM_CFLAGS="$AM_CFLAGS -mfunction-return=$with_retpoline"],
             [],
             [AC_LANG_PROGRAM()]
           )
           gl_COMPILER_OPTION_IF([-mindirect-branch=$with_retpoline], [
-            CFLAGS="$CFLAGS -mindirect-branch=$with_retpoline"
+            AM_CFLAGS="$AM_CFLAGS -mindirect-branch=$with_retpoline"
             ],
             [],
             [AC_LANG_PROGRAM()]
@@ -234,11 +233,11 @@ AC_DEFUN([AC_CC_F_STACK_PROTECTOR],[
       case "$host" in
         *)
           gl_COMPILER_OPTION_IF([-fstack-protector-strong], [
-            CFLAGS="$CFLAGS -fstack-protector-strong"
+            AM_CFLAGS="$AM_CFLAGS -fstack-protector-strong"
             ],
             [
                gl_COMPILER_OPTION_IF([-fstack-protector], [
-                 CFLAGS="$CFLAGS -fstack-protector"
+                 AM_CFLAGS="$AM_CFLAGS -fstack-protector"
                  ], [], [AC_LANG_PROGRAM()])
             ],
             [AC_LANG_PROGRAM()]
@@ -310,7 +309,7 @@ AC_DEFUN([DC_DOVECOT_FUZZER],[
                 with_fuzzer=$withval,
                 with_fuzzer=no)
 	AS_IF([test x$with_fuzzer = xclang], [
-		CFLAGS="$CFLAGS -fsanitize=fuzzer-no-link"
+		AM_CFLAGS="$AM_CFLAGS -fsanitize=fuzzer-no-link"
 		# use $LIB_FUZZING_ENGINE for linking if it exists
 		FUZZER_LDFLAGS=${LIB_FUZZING_ENGINE--fsanitize=fuzzer}
 		# May need to use CXXLINK for linking, which wants sources to
