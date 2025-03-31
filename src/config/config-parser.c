@@ -1839,6 +1839,31 @@ settings_include(struct config_parser_context *ctx, const char *pattern,
 #endif
 }
 
+static int config_str_unescape(char *str, const char **error_r)
+{
+	/* @UNSAFE */
+	char *dest;
+
+	while (*str != '\\' && *str != '\0')
+		str++;
+
+	for (dest = str; *str != '\0'; str++) {
+		if (*str == '\\') {
+			str++;
+			if (*str != '\\' && *str != '"') {
+				*error_r = t_strdup_printf(
+					"Unknown escape sequence \\%c", *str);
+				return -1;
+			}
+		}
+
+		*dest++ = *str;
+	}
+
+	*dest = '\0';
+	return 0;
+}
+
 static void
 config_parse_line(struct config_parser_context *ctx,
 		  char *line, string_t *full_line,
@@ -1929,7 +1954,10 @@ config_parse_line(struct config_parser_context *ctx,
 			} else
 				line++;
 		}
-		key = str_unescape(key);
+		if (config_str_unescape(key, &config_line_r->value) < 0) {
+			config_line_r->type = CONFIG_LINE_TYPE_ERROR;
+			return;
+		}
 	} else {
 		while (!i_isspace(*line) && *line != '\0' && *line != '=')
 			line++;
@@ -1972,7 +2000,11 @@ config_parse_line(struct config_parser_context *ctx,
 		    ((*line == '"' && line[len-1] == '"') ||
 		     (*line == '\'' && line[len-1] == '\''))) {
 			line[len-1] = '\0';
-			line = str_unescape(line+1);
+			line++;
+			if (config_str_unescape(line, &config_line_r->value) < 0) {
+				config_line_r->type = CONFIG_LINE_TYPE_ERROR;
+				return;
+			}
 			config_line_r->value_quoted = TRUE;
 		}
 		config_line_r->value = line;
@@ -2042,7 +2074,11 @@ config_parse_line(struct config_parser_context *ctx,
 				*line++ = '\0';
 				while (i_isspace(*line))
 					line++;
-				config_line_r->value = str_unescape(value);
+				if (config_str_unescape(value, &config_line_r->value) < 0) {
+					config_line_r->type = CONFIG_LINE_TYPE_ERROR;
+					return;
+				}
+				config_line_r->value = value;
 				config_line_r->value_quoted = TRUE;
 			}
 		}
