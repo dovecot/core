@@ -2,11 +2,11 @@ AC_DEFUN([DOVECOT_WANT_ICU], [
   have_icu=no
 
   AS_IF([test "$want_icu" != "no"], [
-    PKG_CHECK_MODULES([LIBICU], [icu-i18n], [have_icu=yes], [
+    PKG_CHECK_MODULES([LIBICU], [icu-uc icu-i18n], [have_icu=yes], [
       have_icu=no
 
       AS_IF([test "$want_icu" = "yes"], [
-        AC_MSG_ERROR(cannot build with icu support: icu library (icu-i18n) not found)
+        AC_MSG_ERROR(cannot build with icu support: icu library (icu-uc, icu-i18n) not found)
       ])
     ])
   ])
