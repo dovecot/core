@@ -23,6 +23,14 @@ static const struct casemap_test {
 		/* weisskopfseeadler */
 		.casefold = "weisskopfseeadler",
 	},
+	{
+		/* aBcD<U+00C4><U+00E4> */
+		.input = "aBcD\xC3\x84\xC3\xA4",
+		/* ABCD<U+00C4><U+00C4> */
+		.uppercase = "ABCD\xC3\x84\xC3\x84",
+		/* abcd<U+00E4><U+00E4> */
+		.lowercase = "abcd\xC3\xA4\xC3\xA4",
+	}
 };
 
 static const unsigned int tests_count = N_ELEMENTS(tests);

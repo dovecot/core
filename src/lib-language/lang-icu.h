@@ -16,8 +16,6 @@ void lang_icu_utf16_to_utf8(string_t *dest_utf8, const UChar *src_utf16,
 int lang_icu_translate(ARRAY_TYPE(icu_utf16) *dest_utf16, const UChar *src_utf16,
 		       unsigned int src_len, UTransliterator *transliterator,
 		       const char **error_r);
-/* Lowercase the given UTF-8 string. */
-void lang_icu_lcase(string_t *dest_utf8, const char *src_utf8);
 
 /* Free all the memory used by ICU functions. */
 void lang_icu_deinit(void);

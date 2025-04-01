@@ -13,20 +13,6 @@
 
 static struct UCaseMap *icu_csm = NULL;
 
-static struct UCaseMap *lang_icu_csm(void)
-{
-	UErrorCode err = U_ZERO_ERROR;
-
-	if (icu_csm != NULL)
-		return icu_csm;
-	icu_csm = ucasemap_open(NULL, U_FOLD_CASE_DEFAULT, &err);
-	if (U_FAILURE(err)) {
-		i_fatal("LibICU ucasemap_open() failed: %s",
-			u_errorName(err));
-	}
-	return icu_csm;
-}
-
 void lang_icu_utf8_to_utf16(ARRAY_TYPE(icu_utf16) *dest_utf16,
 			    const char *src_utf8)
 {
@@ -132,36 +118,6 @@ int lang_icu_translate(ARRAY_TYPE(icu_utf16) *dest_utf16, const UChar *src_utf16
 	}
 	buffer_set_used_size(dest_buf, utf16_len * sizeof(UChar));
 	return 0;
-}
-
-void lang_icu_lcase(string_t *dest_utf8, const char *src_utf8)
-{
-	struct UCaseMap *csm = lang_icu_csm();
-	size_t avail_bytes, dest_pos = dest_utf8->used;
-	char *dest_data;
-	int dest_full_len;
-	UErrorCode err = U_ZERO_ERROR;
-
-	avail_bytes = buffer_get_writable_size(dest_utf8) - dest_pos;
-	dest_data = buffer_get_space_unsafe(dest_utf8, dest_pos, avail_bytes);
-
-	/* ucasemap_utf8ToLower() may need to be called multiple times, because
-	   the first return value may not be large enough. */
-	for (unsigned int i = 0;; i++) {
-		dest_full_len = ucasemap_utf8ToLower(csm, dest_data, avail_bytes,
-						     src_utf8, -1, &err);
-		if (err != U_BUFFER_OVERFLOW_ERROR || i == 2)
-			break;
-
-		err = U_ZERO_ERROR;
-		dest_data = buffer_get_space_unsafe(dest_utf8, dest_pos, dest_full_len);
-		avail_bytes = dest_full_len;
-	}
-	if (U_FAILURE(err)) {
-		i_fatal("LibICU ucasemap_utf8ToLower() failed: %s",
-			u_errorName(err));
-	}
-	buffer_set_used_size(dest_utf8, dest_full_len);
 }
 
 void lang_icu_deinit(void)

@@ -143,45 +143,6 @@ static void test_lang_icu_translate_resize(void)
 	test_end();
 }
 
-static void test_lang_icu_lcase(void)
-{
-	const char *src = "aBcD\xC3\x84\xC3\xA4";
-	string_t *dest = t_str_new(64);
-
-	test_begin("lang_icu_lcase");
-	lang_icu_lcase(dest, src);
-	test_assert(strcmp(str_c(dest), "abcd\xC3\xA4\xC3\xA4") == 0);
-	test_end();
-}
-
-static void test_lang_icu_lcase_resize(void)
-{
-	const char *src = "a\xC3\x84";
-	string_t *dest;
-	unsigned int i;
-
-	test_begin("lang_icu_lcase resize");
-	for (i = 1; i <= 3; i++) {
-		dest = t_str_new(i);
-		test_assert(buffer_get_writable_size(dest) == i);
-		lang_icu_lcase(dest, src);
-		test_assert(strcmp(str_c(dest), "a\xC3\xA4") == 0);
-		test_assert(buffer_get_writable_size(dest) == 3);
-	}
-
-	test_end();
-}
-
-static void test_lang_icu_lcase_resize_invalid_utf8(void)
-{
-	string_t *dest;
-
-	test_begin("lang_icu_lcase resize invalid utf8");
-	dest = t_str_new(1);
-	lang_icu_lcase(dest, ".\x80.");
-	test_end();
-}
-
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -191,9 +152,6 @@ int main(void)
 		test_lang_icu_utf16_to_utf8_resize,
 		test_lang_icu_translate,
 		test_lang_icu_translate_resize,
-		test_lang_icu_lcase,
-		test_lang_icu_lcase_resize,
-		test_lang_icu_lcase_resize_invalid_utf8,
 		NULL
 	};
 	int ret = test_run(test_functions);

@@ -2,13 +2,10 @@
 
 #include "lib.h"
 #include "str.h"
+#include "unichar.h"
 #include "language.h"
 #include "lang-settings.h"
 #include "lang-filter-private.h"
-
-#ifdef HAVE_LIBICU
-#  include "lang-icu.h"
-#endif
 
 static int
 lang_filter_lowercase_create(const struct lang_settings *set ATTR_UNUSED,
@@ -30,13 +27,7 @@ lang_filter_lowercase_filter(struct lang_filter *filter ATTR_UNUSED,
 			     const char **token,
 			     const char **error_r ATTR_UNUSED)
 {
-#ifdef HAVE_LIBICU
-	str_truncate(filter->token, 0);
-	lang_icu_lcase(filter->token, *token);
-	*token = str_c(filter->token);
-#else
-	*token = t_str_lcase(*token);
-#endif
+	(void)uni_utf8_to_lowercase(*token, strlen(*token), token);
 	return 1;
 }
 
