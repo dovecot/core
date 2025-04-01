@@ -9,6 +9,7 @@
 
 #include <fcntl.h>
 
+#define UCD_CASE_FOLDING_TXT "CaseFolding.txt"
 #define UCD_COMPOSITION_EXCLUSIONS_TXT "CompositionExclusions.txt"
 #define UCD_DERIVED_NORMALIZATION_PROPS_TXT "DerivedNormalizationProps.txt"
 #define UCD_PROP_LIST_TXT "PropList.txt"
@@ -106,6 +107,58 @@ test_case_mapping(uint32_t cp, const char *const *parsed_mapping,
 		case_map_idx++;
 		parsed_mapping++;
 	}
+}
+
+static void test_case_folding_line(const char *line, unsigned int line_num)
+{
+	const char *const *columns = t_strsplit(line, ";");
+	size_t num_columns = str_array_length(columns);
+
+	/* <code>; <status>; <mapping>; # <name> */
+
+	if (num_columns < 4) {
+		test_failed(t_strdup_printf(
+			"Invalid data at %s:%u",
+			UCD_CASE_FOLDING_TXT, line_num));
+		return;
+	}
+
+	if (num_columns > 4 && strlen(t_str_trim(columns[4], " ")) > 0) {
+		/* Skip lines with condition list */
+		return;
+	}
+
+	const char *cp_hex = t_str_trim(columns[0], " ");
+	uint32_t cp;
+
+	if (str_to_uint32_hex(cp_hex, &cp) < 0) {
+		test_failed(t_strdup_printf(
+				"Invalid data at %s:%u: "
+				"Bad code point",
+				UCD_CASE_FOLDING_TXT, line_num));
+		return;
+	}
+
+	/* Parse Decomposition_* */
+
+	const char *status = t_str_trim(columns[1], " ");
+
+	if (strcmp(status, "C") != 0 && strcmp(status, "F") != 0)
+		return;
+
+	const char *mapping = t_str_trim(columns[2], " ");
+	const char *const *map = t_strsplit(mapping, " ");
+
+	/* Check data */
+
+	const struct unicode_code_point_data *cp_data =
+		unicode_code_point_get_data(cp);
+	const uint32_t *case_map;
+	size_t case_map_len;
+
+	case_map_len = unicode_code_point_data_get_casefold_mapping(
+		cp_data, &case_map);
+	test_case_mapping(cp, map, case_map, case_map_len);
 }
 
 static void
@@ -542,6 +595,7 @@ void test_unicode_data(void)
 	   property files only the positive assignment of properties to the
 	   code points mentioned in the files is tested, and notably not their
 	   absence for other code points. */
+	test_ucd_file(UCD_CASE_FOLDING_TXT, test_case_folding_line);
 	test_ucd_file(UCD_COMPOSITION_EXCLUSIONS_TXT,
 		      test_composition_exclusions_line);
 	test_ucd_file(UCD_DERIVED_NORMALIZATION_PROPS_TXT,

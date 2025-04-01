@@ -129,6 +129,7 @@ struct unicode_code_point_data {
 
 	uint8_t uppercase_mapping_length;
 	uint8_t lowercase_mapping_length;
+	uint8_t casefold_mapping_length;
 
 	uint16_t decomposition_first_offset;
 	uint16_t decomposition_full_offset;
@@ -137,6 +138,7 @@ struct unicode_code_point_data {
 
 	uint16_t uppercase_mapping_offset;
 	uint16_t lowercase_mapping_offset;
+	uint16_t casefold_mapping_offset;
 
 	uint32_t simple_titlecase_mapping;
 

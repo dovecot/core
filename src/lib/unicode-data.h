@@ -115,6 +115,18 @@ unicode_code_point_data_get_lowercase_mapping(
 	return cp_data->lowercase_mapping_length;
 }
 
+static inline size_t
+unicode_code_point_data_get_casefold_mapping(
+	const struct unicode_code_point_data *cp_data,
+	const uint32_t **map_r)
+{
+	uint32_t offset;
+
+	offset = cp_data->casefold_mapping_offset;
+	*map_r = &unicode_case_mappings[offset];
+	return cp_data->casefold_mapping_length;
+}
+
 uint8_t unicode_general_category_from_string(const char *str);
 
 #endif

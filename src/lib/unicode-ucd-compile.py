@@ -368,6 +368,44 @@ def read_ucd_files():
             # Add range
             CodePointRange(cp_first, cp_last, cpd)
 
+    # CaseFolding.txt
+    with UCDFileOpen("CaseFolding.txt") as ucd:
+        line_num = 0
+        for line in ucd.fd:
+            line_num = line_num + 1
+            data = line.split("#")
+            line = data[0].strip()
+            if len(line) == 0:
+                continue
+
+            cols = line.split(";")
+            if len(cols) < 3:
+                die(f"{ucd}:{line_num}: Missing columns")
+
+            cp_hex = cols[0].strip()
+            if len(cp_hex) == 0:
+                continue
+            cp = int(cp_hex, 16)
+
+            status = cols[1].strip()
+            mapping = cols[2].strip()
+
+            if status != "C" and status != "F":
+                continue
+
+            codes_hex = mapping.split(" ")
+            if len(codes_hex) > 0:
+                first_code_hex = codes_hex[0].strip()
+                first_code = int(first_code_hex, 16)
+                if len(codes_hex) > 1 or first_code != cp:
+                    codes = []
+                    for code_hex in codes_hex:
+                        codes.append(int(code_hex, 16))
+
+                    cpd = CodePointData()
+                    cpd.case_folding = codes
+                    CodePointRange(cp, cp, cpd)
+
     # CompositionExclusions.txt
     with UCDFileOpen("CompositionExclusions.txt") as ucd:
         for line in ucd.fd:
@@ -664,6 +702,23 @@ def resolve_case_mappings():
             lcase_codes = []
         if len(lcase_codes) > ud_case_mapping_max_length:
             ud_case_mapping_max_length = len(lcase_codes)
+
+        # Case_Folding
+        cfold_codes = []
+        if hasattr(cpd, "case_folding"):
+            cfold_codes = cpd.case_folding
+        if len(ucase_codes) > 0 and cfold_codes == ucase_codes:
+            cpd.casefold_mapping_length = cpd.uppercase_mapping_length
+            cpd.casefold_mapping_offset = cpd.uppercase_mapping_offset
+        elif len(lcase_codes) > 0 and cfold_codes == lcase_codes:
+            cpd.casefold_mapping_length = cpd.lowercase_mapping_length
+            cpd.casefold_mapping_offset = cpd.lowercase_mapping_offset
+        elif len(cfold_codes) > 0 and (len(cfold_codes) > 1 or cfold_codes[0] != cp):
+            cpd.casefold_mapping_offset = len(ud_case_mappings)
+            cpd.casefold_mapping_length = len(cfold_codes)
+            ud_case_mappings = ud_case_mappings + cfold_codes
+        if len(cfold_codes) > ud_case_mapping_max_length:
+            ud_case_mapping_max_length = len(cfold_codes)
 
 
 def expand_decompositions():
@@ -1215,6 +1270,12 @@ def write_tables_c():
                 print(
                     "\t\t.uppercase_mapping_offset = %s," % cpd.uppercase_mapping_offset
                 )
+            if (
+                hasattr(cpd, "casefold_mapping_length")
+                and cpd.casefold_mapping_length > 0
+            ):
+                print("\t\t.casefold_mapping_length = %s," % cpd.casefold_mapping_length)
+                print("\t\t.casefold_mapping_offset = %s," % cpd.casefold_mapping_offset)
             if hasattr(cpd, "simple_titlecase_mapping"):
                 print(
                     "\t\t.simple_titlecase_mapping = 0x%04X,"

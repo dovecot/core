@@ -14,6 +14,7 @@ BUILT_SOURCES = $(srcdir)/unicode-data-tables.c \
 UCD_URL = https://dovecot.org/res
 UCD_DIR = $(srcdir)/ucd
 UCD_FILES = \
+	$(UCD_DIR)/CaseFolding.txt \
 	$(UCD_DIR)/CompositionExclusions.txt \
 	$(UCD_DIR)/DerivedCoreProperties.txt \
 	$(UCD_DIR)/DerivedNormalizationProps.txt \
@@ -53,6 +54,8 @@ YACC=/bin/false
 # dependency, anything including the header will race the bison process.
 event-filter-parser.h: event-filter-parser.c
 
+$(UCD_DIR)/CaseFolding.txt:
+	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/CaseFolding.txt
 $(UCD_DIR)/CompositionExclusions.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/CompositionExclusions.txt
 $(UCD_DIR)/DerivedCoreProperties.txt:
