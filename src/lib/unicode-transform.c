@@ -899,6 +899,172 @@ int unicode_nf_checker_finish(struct unicode_nf_checker *unc)
 }
 
 /*
+ * Casemap Transform
+ */
+
+static size_t
+unicode_casemap_uppercase_cp(const struct unicode_code_point_data *cp_data,
+			     const uint32_t **map_r);
+static size_t
+unicode_casemap_lowercase_cp(const struct unicode_code_point_data *cp_data,
+			     const uint32_t **map_r);
+static size_t
+unicode_casemap_casefold_cp(const struct unicode_code_point_data *cp_data,
+			    const uint32_t **map_r);
+
+static ssize_t
+unicode_casemap_input(struct unicode_transform *trans,
+		      const struct unicode_transform_buffer *buf,
+		      const char **error_r);
+static int
+unicode_casemap_flush(struct unicode_transform *trans, bool finished,
+		      const char **error_r);
+
+static const struct unicode_transform_def unicode_casemap_def = {
+	.input = unicode_casemap_input,
+	.flush = unicode_casemap_flush,
+};
+
+void unicode_casemap_init_uppercase(struct unicode_casemap *map_r)
+{
+	i_zero(map_r);
+	unicode_transform_init(&map_r->transform, &unicode_casemap_def);
+	map_r->map = unicode_casemap_uppercase_cp;
+}
+
+void unicode_casemap_init_lowercase(struct unicode_casemap *map_r)
+{
+	i_zero(map_r);
+	unicode_transform_init(&map_r->transform, &unicode_casemap_def);
+	map_r->map = unicode_casemap_lowercase_cp;
+}
+
+void unicode_casemap_init_casefold(struct unicode_casemap *map_r)
+{
+	i_zero(map_r);
+	unicode_transform_init(&map_r->transform, &unicode_casemap_def);
+	map_r->map = unicode_casemap_casefold_cp;
+}
+
+static size_t
+unicode_casemap_uppercase_cp(const struct unicode_code_point_data *cp_data,
+			     const uint32_t **map_r)
+{
+	return unicode_code_point_data_get_uppercase_mapping(cp_data, map_r);
+}
+
+static size_t
+unicode_casemap_lowercase_cp(const struct unicode_code_point_data *cp_data,
+			     const uint32_t **map_r)
+{
+	return unicode_code_point_data_get_lowercase_mapping(cp_data, map_r);
+}
+
+static size_t
+unicode_casemap_casefold_cp(const struct unicode_code_point_data *cp_data,
+			    const uint32_t **map_r)
+{
+	return unicode_code_point_data_get_casefold_mapping(cp_data, map_r);
+}
+
+static ssize_t
+unicode_casemap_input_cp(struct unicode_casemap *map, uint32_t cp,
+			 const struct unicode_code_point_data *cp_data,
+			 const char **error_r)
+{
+	bool was_buffered = map->cp_buffered;
+	ssize_t sret;
+
+	if (cp_data == NULL)
+		cp_data = unicode_code_point_get_data(cp);
+
+	const uint32_t *map_cps;
+	const struct unicode_code_point_data *const *map_cps_data = NULL;
+	size_t map_cps_len;
+
+	map_cps_len = map->map(cp_data, &map_cps);
+	if (map_cps_len == 0) {
+		map_cps = &cp;
+		map_cps_data = &cp_data;
+		map_cps_len = 1;
+	}
+	i_assert(map_cps_len > map->cp_map_pos);
+
+	map_cps += map->cp_map_pos;
+	map_cps_len -= map->cp_map_pos;
+	sret = uniform_transform_forward(&map->transform,
+					 map_cps, map_cps_data, map_cps_len,
+					 error_r);
+	if (sret < 0) {
+		i_assert(*error_r != NULL);
+		return -1;
+	}
+	if ((size_t)sret < map_cps_len) {
+		map->cp_buffered = TRUE;
+		map->cp = cp;
+		map->cp_data = cp_data;
+		map->cp_map_pos += sret;
+		return (was_buffered ? 0 : 1);
+	}
+
+	map->cp_buffered = FALSE;
+	map->cp_data = NULL;
+	map->cp_map_pos = 0;
+	return 1;
+}
+
+static ssize_t
+unicode_casemap_input(struct unicode_transform *trans,
+		      const struct unicode_transform_buffer *buf,
+		      const char **error_r)
+{
+	struct unicode_casemap *map =
+		container_of(trans, struct unicode_casemap, transform);
+	int ret;
+
+	ret = unicode_casemap_flush(trans, TRUE, error_r);
+	if (ret < 0) {
+		i_assert(*error_r != NULL);
+		return -1;
+	}
+	if (map->cp_buffered)
+		return 0;
+
+	size_t n;
+	for (n = 0; n < buf->cp_count; n++) {
+		if (map->cp_buffered)
+			break;
+		ret = unicode_casemap_input_cp(map, buf->cp[n],
+					       (buf->cp_data != NULL ?
+					        buf->cp_data[n] : NULL),
+					       error_r);
+		if (ret < 0) {
+			i_assert(*error_r != NULL);
+			return -1;
+		}
+		if (ret == 0)
+			break;
+	}
+	return n;
+}
+
+static int
+unicode_casemap_flush(struct unicode_transform *trans,
+		      bool finished ATTR_UNUSED, const char **error_r)
+{
+	struct unicode_casemap *map =
+		container_of(trans, struct unicode_casemap, transform);
+	int ret;
+
+	if (!map->cp_buffered)
+		return 1;
+
+	ret = unicode_casemap_input_cp(map, map->cp, map->cp_data, error_r);
+	i_assert(ret >= 0 || *error_r != NULL);
+	return ret;
+}
+
+/*
  * RFC 5051 - Simple Unicode Collation Algorithm
  */
 

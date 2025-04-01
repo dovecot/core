@@ -157,6 +157,16 @@ int uni_utf8_is_nfkd(const void *input, size_t size);
 int uni_utf8_is_nfc(const void *input, size_t size);
 int uni_utf8_is_nfkc(const void *input, size_t size);
 
+/* Write the input UTF8 string to the provided buffer after mapping it to the
+   requested case. */
+int uni_utf8_write_uppercase(const void *_input, size_t size, buffer_t *output);
+int uni_utf8_write_lowercase(const void *_input, size_t size, buffer_t *output);
+int uni_utf8_write_casefold(const void *_input, size_t size, buffer_t *output);
+
+int uni_utf8_to_uppercase(const void *input, size_t size, const char **output_r);
+int uni_utf8_to_lowercase(const void *input, size_t size, const char **output_r);
+int uni_utf8_to_casefold(const void *input, size_t size, const char **output_r);
+
 /* Convert UTF-8 input to titlecase and decompose the titlecase characters to
    output buffer. Returns 0 if ok, -1 if input was invalid. This generates
    output that's compatible with i;unicode-casemap comparator. Invalid input

@@ -197,6 +197,27 @@ int unicode_nf_checker_input(struct unicode_nf_checker *unc, uint32_t cp,
 int unicode_nf_checker_finish(struct unicode_nf_checker *unc);
 
 /*
+ * Casemap Transform
+ */
+
+struct unicode_casemap {
+	struct unicode_transform transform;
+
+	size_t (*map)(const struct unicode_code_point_data *cp_data,
+		      const uint32_t **map_r);
+
+	uint32_t cp;
+	const struct unicode_code_point_data *cp_data;
+	unsigned int cp_map_pos;
+
+	bool cp_buffered:1;
+};
+
+void unicode_casemap_init_uppercase(struct unicode_casemap *map);
+void unicode_casemap_init_lowercase(struct unicode_casemap *map);
+void unicode_casemap_init_casefold(struct unicode_casemap *map);
+
+/*
  * RFC 5051 - Simple Unicode Collation Algorithm
  */
 

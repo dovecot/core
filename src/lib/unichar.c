@@ -418,6 +418,69 @@ int uni_utf8_is_nfkc(const void *input, size_t size)
 	return uni_utf8_is_nf(input, size, UNICODE_NFKC);
 }
 
+int uni_utf8_write_uppercase(const void *_input, size_t size, buffer_t *output)
+{
+	static struct unicode_casemap map;
+	const char *error;
+
+	unicode_casemap_init_uppercase(&map);
+
+	return uni_utf8_run_transform(_input, size, &map.transform, output,
+				      &error);
+}
+
+int uni_utf8_write_lowercase(const void *_input, size_t size, buffer_t *output)
+{
+	static struct unicode_casemap map;
+	const char *error;
+
+	unicode_casemap_init_lowercase(&map);
+
+	return uni_utf8_run_transform(_input, size, &map.transform, output,
+				      &error);
+}
+
+int uni_utf8_write_casefold(const void *_input, size_t size, buffer_t *output)
+{
+	static struct unicode_casemap map;
+	const char *error;
+
+	unicode_casemap_init_casefold(&map);
+
+	return uni_utf8_run_transform(_input, size, &map.transform, output,
+				      &error);
+}
+
+int uni_utf8_to_uppercase(const void *input, size_t size, const char **output_r)
+{
+	buffer_t *output = t_buffer_create(size);
+	int ret;
+
+	ret = uni_utf8_write_uppercase(input, size, output);
+	*output_r = str_c(output);
+	return ret;
+}
+
+int uni_utf8_to_lowercase(const void *input, size_t size, const char **output_r)
+{
+	buffer_t *output = t_buffer_create(size);
+	int ret;
+
+	ret = uni_utf8_write_lowercase(input, size, output);
+	*output_r = str_c(output);
+	return ret;
+}
+
+int uni_utf8_to_casefold(const void *input, size_t size, const char **output_r)
+{
+	buffer_t *output = t_buffer_create(size);
+	int ret;
+
+	ret = uni_utf8_write_casefold(input, size, output);
+	*output_r = str_c(output);
+	return ret;
+}
+
 int uni_utf8_to_decomposed_titlecase(const void *_input, size_t size,
 				     buffer_t *output)
 {

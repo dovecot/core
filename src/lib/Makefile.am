@@ -516,6 +516,7 @@ test_lib_SOURCES = \
 	test-unichar.c \
 	test-unicode-data.c \
 	test-unicode-nf.c \
+	test-unicode-casemap.c \
 	test-utc-mktime.c \
 	test-uri.c \
 	test-wildcard-match.c
