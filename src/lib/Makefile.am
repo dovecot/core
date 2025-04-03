@@ -22,6 +22,7 @@ UCD_FILES = \
 	$(UCD_DIR)/CompositionExclusions.txt \
 	$(UCD_DIR)/DerivedBidiClass.txt \
 	$(UCD_DIR)/DerivedCoreProperties.txt \
+	$(UCD_DIR)/DerivedJoiningType.txt \
 	$(UCD_DIR)/DerivedNormalizationProps.txt \
 	$(UCD_DIR)/emoji-data.txt \
 	$(UCD_DIR)/GraphemeBreakProperty.txt \
@@ -29,6 +30,7 @@ UCD_FILES = \
 	$(UCD_DIR)/NormalizationTest.txt \
 	$(UCD_DIR)/PropertyValueAliases.txt \
 	$(UCD_DIR)/PropList.txt \
+	$(UCD_DIR)/Scripts.txt \
 	$(UCD_DIR)/SpecialCasing.txt \
 	$(UCD_DIR)/UnicodeData.txt \
 	$(UCD_DIR)/WordBreakProperty.txt \
@@ -72,6 +74,8 @@ $(UCD_DIR)/DerivedBidiClass.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/DerivedBidiClass.txt
 $(UCD_DIR)/DerivedCoreProperties.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/DerivedCoreProperties.txt
+$(UCD_DIR)/DerivedJoiningType.txt:
+	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/DerivedJoiningType.txt
 $(UCD_DIR)/DerivedNormalizationProps.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/DerivedNormalizationProps.txt
 $(UCD_DIR)/emoji-data.txt:
@@ -86,6 +90,8 @@ $(UCD_DIR)/PropertyValueAliases.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/PropertyValueAliases.txt
 $(UCD_DIR)/PropList.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/PropList.txt
+$(UCD_DIR)/Scripts.txt:
+	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/Scripts.txt
 $(UCD_DIR)/SpecialCasing.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/SpecialCasing.txt
 $(UCD_DIR)/UnicodeData.txt:

@@ -12,9 +12,11 @@
 #define UCD_CASE_FOLDING_TXT "CaseFolding.txt"
 #define UCD_COMPOSITION_EXCLUSIONS_TXT "CompositionExclusions.txt"
 #define UCD_DERIVED_BIDI_CLASS_TXT "DerivedBidiClass.txt"
+#define UCD_DERIVED_JOINING_TYPE_TXT "DerivedJoiningType.txt"
 #define UCD_DERIVED_NORMALIZATION_PROPS_TXT "DerivedNormalizationProps.txt"
 #define UCD_GRAPHEME_BREAK_PROPERTY_TXT "GraphemeBreakProperty.txt"
 #define UCD_PROP_LIST_TXT "PropList.txt"
+#define UCD_SCRIPTS_TXT "Scripts.txt"
 #define UCD_SPECIAL_CASING_TXT "SpecialCasing.txt"
 #define UCD_UNICODE_DATA_TXT "UnicodeData.txt"
 #define UCD_WORD_BREAK_PROPERTY_TXT "WordBreakProperty.txt"
@@ -286,6 +288,28 @@ test_derived_normalization_props_line(const char *line, unsigned int line_num,
 }
 
 static void
+test_derived_joining_type_line(const char *line, unsigned int line_num,
+			       const char *comment_data ATTR_UNUSED)
+{
+	uint32_t cp_first, cp_last, cp;
+	const char *value;
+
+	if (!parse_prop_file_line(line, UCD_DERIVED_JOINING_TYPE_TXT, line_num,
+				  &cp_first, &cp_last, NULL, &value))
+		return;
+
+	enum unicode_joining_type jtype =
+		unicode_joining_type_from_string(value);
+
+	for (cp = cp_first; cp <= cp_last && !test_has_failed(); cp++) {
+		const struct unicode_code_point_data *cp_data =
+			unicode_code_point_get_data(cp);
+
+		test_assert_idx(cp_data->joining_type == jtype, cp);
+	}
+}
+
+static void
 test_grapheme_break_property_line(const char *line, unsigned int line_num,
 				  const char *comment_data ATTR_UNUSED)
 {
@@ -346,6 +370,8 @@ test_prop_list_line(const char *line, unsigned int line_num,
 
 		if (strcmp(prop, "White_Space") == 0)
 			test_assert_idx(cp_data->pb_g_white_space, cp);
+		else if (strcmp(prop, "Join_Control") == 0)
+			test_assert_idx(cp_data->pb_sr_join_control, cp);
 		else if (strcmp(prop, "Pattern_White_Space") == 0)
 			test_assert_idx(cp_data->pb_i_pattern_white_space, cp);
 		else if (strcmp(prop, "Quotation_Mark") == 0)
@@ -356,6 +382,27 @@ test_prop_list_line(const char *line, unsigned int line_num,
 			test_assert_idx(cp_data->pb_m_sentence_terminal, cp);
 		else if (strcmp(prop, "Terminal_Punctuation") == 0)
 			test_assert_idx(cp_data->pb_m_terminal_punctuation, cp);
+	}
+}
+
+static void
+test_scripts_line(const char *line, unsigned int line_num,
+		  const char *comment_data ATTR_UNUSED)
+{
+	uint32_t cp_first, cp_last, cp;
+	const char *value;
+
+	if (!parse_prop_file_line(line, UCD_SCRIPTS_TXT, line_num,
+				  &cp_first, &cp_last, NULL, &value))
+		return;
+
+	enum unicode_script script = unicode_script_from_string(value);
+
+	for (cp = cp_first; cp <= cp_last && !test_has_failed(); cp++) {
+		const struct unicode_code_point_data *cp_data =
+			unicode_code_point_get_data(cp);
+
+		test_assert_idx(cp_data->script == script, cp);
 	}
 }
 
@@ -784,11 +831,14 @@ void test_unicode_data(void)
 	test_ucd_file(UCD_COMPOSITION_EXCLUSIONS_TXT,
 		      test_composition_exclusions_line);
 	test_ucd_file(UCD_DERIVED_BIDI_CLASS_TXT, test_derived_bidi_class_line);
+	test_ucd_file(UCD_DERIVED_JOINING_TYPE_TXT,
+		      test_derived_joining_type_line);
 	test_ucd_file(UCD_DERIVED_NORMALIZATION_PROPS_TXT,
 		      test_derived_normalization_props_line);
 	test_ucd_file(UCD_GRAPHEME_BREAK_PROPERTY_TXT,
 		      test_grapheme_break_property_line);
 	test_ucd_file(UCD_PROP_LIST_TXT, test_prop_list_line);
+	test_ucd_file(UCD_SCRIPTS_TXT, test_scripts_line);
 	test_ucd_file(UCD_SPECIAL_CASING_TXT, test_special_casing_line);
 	test_ucd_file(UCD_UNICODE_DATA_TXT, test_unicode_data_line);
 	test_ucd_file(UCD_WORD_BREAK_PROPERTY_TXT,

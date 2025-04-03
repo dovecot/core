@@ -202,7 +202,9 @@ enum unicode_idna_status {
 
 struct unicode_code_point_data {
 	uint8_t general_category;
+	uint8_t script;
 	uint8_t canonical_combining_class;
+	uint8_t joining_type;
 	uint8_t nf_quick_check;
 
 	uint8_t decomposition_type; // Not yet used
@@ -243,6 +245,9 @@ struct unicode_code_point_data {
 
 	/* Emoji */
 	bool pb_e_extended_pictographic:1;
+
+	/* Shaping and Rendering */
+	bool pb_sr_join_control:1;
 
 	/* Identifiers */
 	bool pb_i_pattern_white_space:1;
