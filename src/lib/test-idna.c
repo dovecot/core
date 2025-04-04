@@ -106,8 +106,10 @@ test_success_status(const char *status, enum idna_process_flags flags)
 		if (HAS_ALL_BITS(flags, IDNA_PROCESS_FLAG_IGNORE_BIDI) &&
 		    *s == 'B') {
 			/* BiDi checks disabled. */
-		} else if (*s == 'C') {
-			/* ContextJ checks not implemented. */
+		} else if (HAS_ALL_BITS(flags,
+					IDNA_PROCESS_FLAG_IGNORE_JOINERS) &&
+			   *s == 'C') {
+			/* ContextJ checks disabled. */
 		} else {
 			test_failed(t_strdup_printf(
 				"Should have failed with: %s", s));
@@ -132,6 +134,12 @@ test_u_failure_status(const char *u_status, const char *a_status,
 
 		if (*s == 'B' &&
 		    str_begins_with(error, "Invalid label in Bidi domain name"))
+			status_found = TRUE;
+		else if (strcmp(s, "C1") == 0 &&
+			 str_begins_with(error, "Zero width non-joiner "))
+			status_found = TRUE;
+		else if (strcmp(s, "C2") == 0 &&
+			 str_begins_with(error, "Zero width joiner "))
 			status_found = TRUE;
 		else if (strcmp(s, "P4") == 0 &&
 		    (strcmp(error, "Invalid Punycode in A-label") == 0 ||
@@ -272,6 +280,13 @@ static void test_line(const char *line, unsigned int line_num)
 		      to_unicode, to_unicode_status,
 		      to_ascii_n, to_ascii_n_status, line_num);
 	test_scenario(source, IDNA_PROCESS_FLAG_IGNORE_BIDI,
+		      to_unicode, to_unicode_status,
+		      to_ascii_n, to_ascii_n_status, line_num);
+	test_scenario(source, IDNA_PROCESS_FLAG_IGNORE_JOINERS,
+		      to_unicode, to_unicode_status,
+		      to_ascii_n, to_ascii_n_status, line_num);
+	test_scenario(source, (IDNA_PROCESS_FLAG_IGNORE_BIDI |
+			       IDNA_PROCESS_FLAG_IGNORE_JOINERS),
 		      to_unicode, to_unicode_status,
 		      to_ascii_n, to_ascii_n_status, line_num);
 }

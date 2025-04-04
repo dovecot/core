@@ -176,6 +176,428 @@ int idna_bidi_checker_finish(struct idna_bidi_checker *ibc)
 }
 
 /*
+ * Code point context checker
+ */
+
+void idna_context_checker_init(struct idna_context_checker *icc_r, bool other)
+{
+	i_zero(icc_r);
+	icc_r->other = other;
+}
+
+void idna_context_checker_reset(struct idna_context_checker *icc)
+{
+	bool other = icc->other;
+	idna_context_checker_init(icc, other);
+}
+
+bool idna_context_checker_has_rule(struct idna_context_checker *icc,
+				   uint32_t cp)
+{
+	switch (cp) {
+	/* RFC 5892, Appendix A.1 - ZERO WIDTH NON-JOINER (U+200C) */
+	case 0x200c:
+	/* RFC 5892, Appendix A.2 - ZERO WIDTH JOINER (U+200D) */
+	case 0x200d:
+		return TRUE;
+	/* RFC 5892, Appendix A.3 - MIDDLE DOT (U+00B7) */
+	case 0x00b7:
+	/* RFC 5892, Appendix A.4 - GREEK LOWER NUMERAL SIGN (U+0375) */
+	case 0x0375:
+	/* RFC 5892, Appendix A.5 - HEBREW PUNCTUATION GERESH (U+05F3) */
+	case 0x05F3:
+	/* RFC 5892, Appendix A.6.  HEBREW PUNCTUATION GERSHAYIM (U+05F4) */
+	case 0x05F4:
+	/* RFC 5892, Appendix A.7 - KATAKANA MIDDLE DOT (U+30FB) */
+	case 0x30fb:
+	/* RFC 5892, Appendix A.8 - ARABIC-INDIC DIGITS (U+0660..U+0669) */
+	case 0x0660: case 0x0661: case 0x0662: case 0x0663: case 0x0664:
+	case 0x0665: case 0x0666: case 0x0667: case 0x0668: case 0x0669:
+	/* RFC 5892, Appendix A.9 - EXTENDED ARABIC-INDIC DIGITS
+	                            (U+06F0..U+06F9) */
+	case 0x06F0: case 0x06F1: case 0x06F2: case 0x06F3: case 0x06F4:
+	case 0x06F5: case 0x06F6: case 0x06F7: case 0x06F8: case 0x06F9:
+		if (icc->other)
+			return TRUE;
+		break;
+	default:
+		break;
+	}
+	return FALSE;
+}
+
+/* RFC 5892, Appendix A.1 - ZERO WIDTH NON-JOINER (U+200C)
+ */
+
+enum {
+	RULE200C_STATE_NONE = 0,
+	RULE200C_STATE_JOIN_LD,
+	RULE200C_STATE_JOIN_RD,
+};
+
+static int
+idna_cp_rule_200c(struct idna_context_checker *icc, uint32_t cp,
+		  const struct unicode_code_point_data **cp_data)
+{
+	bool virama = icc->rule_200c.ccc_virama;
+
+	/* False;
+	   If Canonical_Combining_Class(Before(cp)) .eq.  Virama Then True;
+	   If RegExpMatch((Joining_Type:{L,D})(Joining_Type:T)*\u200C
+	      (Joining_Type:T)*(Joining_Type:{R,D})) Then True;
+	 */
+
+	if (cp == 0x200c) {
+		if (!virama && icc->rule_200c.state != RULE200C_STATE_JOIN_LD)
+			return -1;
+		icc->rule_200c.ccc_virama = FALSE;
+		if (!virama)
+			icc->rule_200c.state = RULE200C_STATE_JOIN_RD;
+		return 0;
+	}
+
+	if (*cp_data == NULL)
+		*cp_data = unicode_code_point_get_data(cp);
+
+	if ((*cp_data)->canonical_combining_class == UNICODE_CCC_VR)
+		icc->rule_200c.ccc_virama = TRUE;
+	else
+		icc->rule_200c.ccc_virama = FALSE;
+	switch (icc->rule_200c.state) {
+	case RULE200C_STATE_NONE:
+		switch ((*cp_data)->joining_type) {
+		case UNICODE_JOINING_TYPE_L:
+		case UNICODE_JOINING_TYPE_D:
+			icc->rule_200c.state = RULE200C_STATE_JOIN_LD;
+			break;
+		default:
+			break;
+		}
+		break;
+	case RULE200C_STATE_JOIN_LD:
+		switch ((*cp_data)->joining_type) {
+		case UNICODE_JOINING_TYPE_L:
+		case UNICODE_JOINING_TYPE_D:
+		case UNICODE_JOINING_TYPE_T:
+			break;
+		default:
+			icc->rule_200c.state = RULE200C_STATE_NONE;
+			break;
+		}
+		break;
+	case RULE200C_STATE_JOIN_RD:
+		switch ((*cp_data)->joining_type) {
+		case UNICODE_JOINING_TYPE_T:
+			break;
+		case UNICODE_JOINING_TYPE_R:
+		case UNICODE_JOINING_TYPE_D:
+			icc->rule_200c.state = RULE200C_STATE_NONE;
+			break;
+		default:
+			return -1;
+		}
+		break;
+	default:
+		i_unreached();
+	}
+	return 0;
+}
+
+static int idna_cp_rule_200c_finish(struct idna_context_checker *icc)
+{
+	if (icc->rule_200c.state == RULE200C_STATE_JOIN_RD)
+		return -1;
+	return 0;
+}
+
+/* RFC 5892, Appendix A.2 - ZERO WIDTH JOINER (U+200D)
+ */
+
+static int
+idna_cp_rule_200d(struct idna_context_checker *icc, uint32_t cp,
+		  const struct unicode_code_point_data **cp_data)
+{
+	/* False;
+	   If Canonical_Combining_Class(Before(cp)) .eq.  Virama Then True;
+	 */
+
+	if (cp == 0x200d) {
+		if (!icc->rule_200d.ccc_virama)
+			return -1;
+		icc->rule_200d.ccc_virama = FALSE;
+		return 0;
+	}
+
+	if (*cp_data == NULL)
+		*cp_data = unicode_code_point_get_data(cp);
+
+	if ((*cp_data)->canonical_combining_class == UNICODE_CCC_VR)
+		icc->rule_200d.ccc_virama = TRUE;
+	else
+		icc->rule_200d.ccc_virama = FALSE;
+	return 0;
+}
+
+/* RFC 5892, Appendix A.3 - MIDDLE DOT (U+00B7)
+ */
+
+enum {
+	RULE00B7_STATE_NONE = 0,
+	RULE00B7_STATE_L_BEFORE,
+	RULE00B7_STATE_L_AFTER,
+};
+
+static int
+idna_cp_rule_00b7(struct idna_context_checker *icc, uint32_t cp,
+		  const struct unicode_code_point_data **cp_data ATTR_UNUSED)
+{
+	/* False;
+	   If Before(cp) .eq.  U+006C And
+           After(cp) .eq.  U+006C Then True;
+	 */
+
+	if (cp == 0x00b7) {
+		if (icc->rule_00b7.state != RULE00B7_STATE_L_BEFORE)
+			return -1;
+		icc->rule_00b7.state = RULE00B7_STATE_L_AFTER;
+		return 0;
+	}
+
+	switch (icc->rule_00b7.state) {
+	case RULE00B7_STATE_NONE:
+		if (cp == 0x006c)
+			icc->rule_00b7.state = RULE00B7_STATE_L_BEFORE;
+		break;
+	case RULE00B7_STATE_L_BEFORE:
+		if (cp != 0x006c)
+			icc->rule_00b7.state = RULE00B7_STATE_NONE;
+		break;
+	case RULE00B7_STATE_L_AFTER:
+		if (cp != 0x006c)
+			return -1;
+		icc->rule_00b7.state = RULE00B7_STATE_L_BEFORE;
+		break;
+	default:
+		i_unreached();
+	}
+	return 0;
+}
+
+static int idna_cp_rule_00b7_finish(struct idna_context_checker *icc)
+{
+	if (icc->rule_00b7.state == RULE00B7_STATE_L_AFTER)
+		return -1;
+	return 0;
+}
+
+/* RFC 5892, Appendix A.4 - GREEK LOWER NUMERAL SIGN (KERAIA) (U+0375)
+ */
+
+enum {
+	RULE0375_STATE_NONE = 0,
+	RULE0375_STATE_GREEK_AFTER,
+};
+
+static int
+idna_cp_rule_0375(struct idna_context_checker *icc, uint32_t cp,
+		  const struct unicode_code_point_data **cp_data)
+{
+	/* False;
+	   If Script(After(cp)) .eq.  Greek Then True;
+	 */
+
+	if (cp == 0x0375) {
+		icc->rule_0375.state = RULE0375_STATE_GREEK_AFTER;
+		return 0;
+	}
+
+	switch (icc->rule_0375.state) {
+	case RULE0375_STATE_NONE:
+		break;
+	case RULE0375_STATE_GREEK_AFTER:
+		if (*cp_data == NULL)
+			*cp_data = unicode_code_point_get_data(cp);
+		if ((*cp_data)->script != UNICODE_SCRIPT_GREEK)
+			return -1;
+		icc->rule_0375.state = RULE0375_STATE_NONE;
+		break;
+	default:
+		i_unreached();
+	}
+	return 0;
+}
+
+static int idna_cp_rule_0375_finish(struct idna_context_checker *icc)
+{
+	if (icc->rule_0375.state == RULE0375_STATE_GREEK_AFTER)
+		return -1;
+	return 0;
+}
+
+/* RFC 5892,
+     Appendix A.5 - HEBREW PUNCTUATION GERESH (U+05F3)
+     Appendix A.6.  HEBREW PUNCTUATION GERSHAYIM (U+05F4)
+ */
+
+static int
+idna_cp_rule_05f3(struct idna_context_checker *icc, uint32_t cp,
+		  const struct unicode_code_point_data **cp_data)
+{
+	/* False;
+	   If Script(Before(cp)) .eq.  Hebrew Then True;
+	 */
+
+	if (cp == 0x05f3 || cp == 0x05f4) {
+		if (!icc->rule_05f3.script_hebrew)
+			return -1;
+		return 0;
+	}
+
+	if (*cp_data == NULL)
+		*cp_data = unicode_code_point_get_data(cp);
+
+	if ((*cp_data)->script == UNICODE_SCRIPT_HEBREW)
+		icc->rule_05f3.script_hebrew = TRUE;
+	else
+		icc->rule_05f3.script_hebrew = FALSE;
+	return 0;
+}
+
+/* RFC 5892, Appendix A.7 - KATAKANA MIDDLE DOT (U+30FB)
+ */
+
+static int
+idna_cp_rule_30fb(struct idna_context_checker *icc, uint32_t cp,
+		  const struct unicode_code_point_data **cp_data)
+{
+	/* False;
+	   For All Characters:
+	      If Script(cp) .in. {Hiragana, Katakana, Han} Then True;
+	   End For;
+	 */
+
+	if (cp == 0x30fb) {
+		icc->rule_30fb.seen_cp = TRUE;
+	} else if (!icc->rule_30fb.seen_script) {
+		if (*cp_data == NULL)
+			*cp_data = unicode_code_point_get_data(cp);
+		switch ((*cp_data)->script) {
+		case UNICODE_SCRIPT_HIRAGANA:
+		case UNICODE_SCRIPT_KATAKANA:
+		case UNICODE_SCRIPT_HAN:
+			icc->rule_30fb.seen_script = TRUE;
+			break;
+		default:
+			break;
+		}
+	}
+
+	return 0;
+}
+
+static int idna_cp_rule_30fb_finish(struct idna_context_checker *icc)
+{
+	if (icc->rule_30fb.seen_cp && !icc->rule_30fb.seen_script)
+		return -1;
+	return 0;
+}
+
+/* RFC 5892,
+     Appendix A.8 - ARABIC-INDIC DIGITS (U+0660..U+0669)
+     Appendix A.9 - EXTENDED ARABIC-INDIC DIGITS (U+06F0..U+06F9)
+ */
+
+static int
+idna_cp_rule_0660(struct idna_context_checker *icc, uint32_t cp,
+		  const struct unicode_code_point_data **cp_data ATTR_UNUSED)
+{
+	/* True;
+	   For All Characters:
+	      If cp .in. 06F0..06F9 Then False;
+	   End For;
+
+	   vs.
+
+	   True;
+	   For All Characters:
+	      If cp .in. 0660..0669 Then False;
+	   End For;
+	 */
+
+	if (cp >= 0x0660 && cp <= 0x0669) {
+		if (icc->rule_0660.seen_extended)
+			return -1;
+		icc->rule_0660.seen_basic = TRUE;
+	} else if (cp >= 0x06F0 && cp <= 0x06F9) {
+		if (icc->rule_0660.seen_basic)
+			return -1;
+		icc->rule_0660.seen_extended = TRUE;
+	}
+	return 0;
+}
+
+int idna_context_checker_input(struct idna_context_checker *icc, uint32_t cp,
+			       const struct unicode_code_point_data **cp_data,
+			       const char **error_r)
+{
+	if (idna_cp_rule_200c(icc, cp, cp_data) < 0) {
+		*error_r = "Zero width non-joiner (U+200c) used in invalid context";
+		return -1;
+	}
+	if (idna_cp_rule_200d(icc, cp, cp_data) < 0) {
+		*error_r = "Zero width joiner (U+200d) used in invalid context";
+		return -1;
+	}
+	if (!icc->other)
+		return 0;
+	if (idna_cp_rule_00b7(icc, cp, cp_data) < 0) {
+		*error_r = "Middle dot (U+00b7) used in invalid context";
+		return -1;
+	}
+	if (idna_cp_rule_0375(icc, cp, cp_data) < 0) {
+		*error_r = "Greek lower numeral sign (U+0375) used in invalid context";
+		return -1;
+	}
+	if (idna_cp_rule_05f3(icc, cp, cp_data) < 0) {
+		*error_r = "Hebrew punctuation (U+05F3 or U+05F4) used in invalid context";
+		return -1;
+	}
+	if (idna_cp_rule_30fb(icc, cp, cp_data) < 0) {
+		*error_r = "Katakana middle dot (U+30FB) used in invalid context";
+		return -1;
+	}
+	if (idna_cp_rule_0660(icc, cp, cp_data) < 0) {
+		*error_r = "Cannot combine extended and basic Arabic-Indic digits";
+		return -1;
+	}
+	return 0;
+}
+
+int idna_context_checker_finish(struct idna_context_checker *icc,
+				const char **error_r)
+{
+	if (idna_cp_rule_200c_finish(icc) < 0) {
+		*error_r = "Zero width non-joiner (U+200c) used in invalid context";
+		return -1;
+	}
+	if (!icc->other)
+		return 0;
+	if (idna_cp_rule_00b7_finish(icc) < 0) {
+		*error_r = "Middle dot (U+00b7) used in invalid context";
+		return -1;
+	}
+	if (idna_cp_rule_0375_finish(icc) < 0) {
+		*error_r = "Greek lower numeral sign (U+0375) used in invalid context";
+		return -1;
+	}
+	if (idna_cp_rule_30fb_finish(icc) < 0) {
+		*error_r = "Katakana middle dot (U+30FB) used in invalid context";
+		return -1;
+	}
+	return 0;
+}
+
+/*
  * IDNA Processing
  */
 
@@ -365,6 +787,7 @@ struct idna_validate {
 
 	enum idna_validate_state state;
 	struct idna_bidi_checker bidicheck;
+	struct idna_context_checker ctxcheck;
 
 	uint32_t cp, last_cp;
 	const struct unicode_code_point_data *cp_data;
@@ -402,6 +825,7 @@ idna_validate_init(struct idna_validate *valdt_r,
 	if (decoded_a_label)
 		unicode_nf_checker_init(&valdt_r->nfccheck, UNICODE_NFC);
 	idna_bidi_checker_init(&valdt_r->bidicheck, bidictx);
+	idna_context_checker_init(&valdt_r->ctxcheck, FALSE);
 }
 
 static int
@@ -429,6 +853,14 @@ idna_validate_label_end(struct idna_validate *valdt, const char **error_r)
 		*error_r = "Label ends with '-'";
 		return -1;
 	}
+
+	/* 8. If CheckJoiners, the label must satisify the ContextJ rules from
+	   Appendix A, in RFC 5892.
+	 */
+	if (HAS_NO_BITS(valdt->flags, IDNA_PROCESS_FLAG_IGNORE_JOINERS) &&
+	    idna_context_checker_finish(&valdt->ctxcheck, error_r) < 0)
+		return -1;
+	idna_context_checker_reset(&valdt->ctxcheck);
 
 	/* 9. If CheckBidi, and if the domain name is a Bidi domain name, then
 	   the label must satisfy all six of the numbered conditions in
@@ -600,7 +1032,10 @@ idna_validate_cp(struct idna_validate *valdt, uint32_t cp,
 		switch ((*cp_data)->idna_status) {
 		case UNICODE_IDNA_STATUS_VALID:
 		case UNICODE_IDNA_STATUS_DEVIATION:
-			break;
+			if (!(*cp_data)->pb_sr_join_control ||
+			    idna_context_checker_has_rule(&valdt->ctxcheck, cp))
+				break;
+			/* Fall through */
 		default:
 			*error_r = t_strdup_printf(
 				"Label contains invalid code point U+%04X", cp);
@@ -630,8 +1065,10 @@ idna_validate_cp(struct idna_validate *valdt, uint32_t cp,
 	/* 8. If CheckJoiners, the label must satisify the ContextJ rules from
 	   Appendix A, in RFC 5892.
 	 */
-
-	/* - NOT IMPLEMENTED - */
+	if (HAS_NO_BITS(valdt->flags, IDNA_PROCESS_FLAG_IGNORE_JOINERS) &&
+	    idna_context_checker_input(&valdt->ctxcheck, cp, cp_data,
+				       error_r) < 0)
+		return -1;
 
 	/* 9. If CheckBidi, and if the domain name is a Bidi domain name, then
 	   the label must satisfy all six of the numbered conditions in

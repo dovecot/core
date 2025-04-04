@@ -46,6 +46,51 @@ void idna_bidi_checker_input(struct idna_bidi_checker *ibc, uint32_t cp,
 			     const struct unicode_code_point_data **cp_data);
 int idna_bidi_checker_finish(struct idna_bidi_checker *ibc);
 
+/*
+ * Code point context checker
+ */
+
+struct idna_context_checker {
+	struct {
+		unsigned int state;
+		bool ccc_virama;
+	} rule_200c;
+	struct {
+		bool ccc_virama;
+	} rule_200d;
+	struct {
+		unsigned int state;
+	} rule_00b7;
+	struct {
+		unsigned int state;
+	} rule_0375;
+	struct {
+		bool script_hebrew;
+	} rule_05f3;
+	struct {
+		bool seen_cp;
+		bool seen_script;
+	} rule_30fb;
+	struct {
+		bool seen_basic;
+		bool seen_extended;
+	} rule_0660;
+
+	bool other:1;
+};
+
+void idna_context_checker_init(struct idna_context_checker *icc_r, bool other);
+void idna_context_checker_reset(struct idna_context_checker *icc);
+
+bool idna_context_checker_has_rule(struct idna_context_checker *icc,
+				   uint32_t cp);
+
+int idna_context_checker_input(struct idna_context_checker *icc, uint32_t cp,
+			       const struct unicode_code_point_data **cp_data,
+			       const char **error_r);
+int idna_context_checker_finish(struct idna_context_checker *icc,
+				const char **error_r);
+
 /* Unicode® Technical Standard #46, Section 4:
  *
  * Input:
@@ -57,8 +102,8 @@ enum idna_process_flags {
 	IDNA_PROCESS_FLAG_CHECK_HYPHENS = BIT(1),
 	/* A boolean flag: CheckBidi - inverted */
 	IDNA_PROCESS_FLAG_IGNORE_BIDI = BIT(2),
-	/* A boolean flag: CheckJoiners - always FALSE
-	   NOT IMPLEMENTED */
+	/* A boolean flag: CheckJoiners - inverted */
+	IDNA_PROCESS_FLAG_IGNORE_JOINERS = BIT(3),
 	/* A boolean flag: Transitional_Processing - always FALSE
 	   NOT IMPLEMENTED (deprecated) */
 	/* A boolean flag: VerifyDnsLength - always TRUE
