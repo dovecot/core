@@ -122,6 +122,66 @@ enum unicode_indic_conjunct_break {
 	UNICODE_INDIC_CONJUNCT_BREAK_EXTEND,
 };
 
+enum unicode_bidi_class {
+	/* Strong Types */
+
+	/* Left_To_Right */
+	UNICODE_BIDI_CLASS_L = 0,
+	/* Right_To_Left */
+	UNICODE_BIDI_CLASS_R,
+	/* Arabic_Letter */
+	UNICODE_BIDI_CLASS_AL,
+
+	/* Weak Types */
+
+	/* European_Number */
+	UNICODE_BIDI_CLASS_EN,
+	/* European_Separator */
+	UNICODE_BIDI_CLASS_ES,
+	/* European_Terminator */
+	UNICODE_BIDI_CLASS_ET,
+	/* Arabic_Number */
+	UNICODE_BIDI_CLASS_AN,
+	/* Common_Separator */
+	UNICODE_BIDI_CLASS_CS,
+	/* Nonspacing_Mark */
+	UNICODE_BIDI_CLASS_NSM,
+	/* Boundary_Neutral */
+	UNICODE_BIDI_CLASS_BN,
+
+	/* Neutral Types */
+
+	/* Paragraph_Separator */
+	UNICODE_BIDI_CLASS_B,
+	/* Segment_Separator */
+	UNICODE_BIDI_CLASS_S,
+	/* White_Space */
+	UNICODE_BIDI_CLASS_WS,
+	/* Other_Neutral */
+	UNICODE_BIDI_CLASS_ON,
+
+	/* Explicit Formatting Types */
+
+	/* Left_To_Right_Embedding */
+	UNICODE_BIDI_CLASS_LRE,
+	/* Left_To_Right_Override */
+	UNICODE_BIDI_CLASS_LRO,
+	/* Right_To_Left_Embedding */
+	UNICODE_BIDI_CLASS_RLE,
+	/* Right_To_Left_Override */
+	UNICODE_BIDI_CLASS_RLO,
+	/* Pop_Directional_Format */
+	UNICODE_BIDI_CLASS_PDF,
+	/* Left_To_Right_Isolate */
+	UNICODE_BIDI_CLASS_LRI,
+	/* Right_To_Left_Isolate */
+	UNICODE_BIDI_CLASS_RLI,
+	/* First_Strong_Isolate */
+	UNICODE_BIDI_CLASS_FSI,
+	/* Pop_Directional_Isolate */
+	UNICODE_BIDI_CLASS_PDI,
+};
+
 /* For each code point in Unicode, the IDNA Mapping Table provides one of the
    following Status values: */
 enum unicode_idna_status {
@@ -155,6 +215,8 @@ struct unicode_code_point_data {
 	uint8_t uppercase_mapping_length;
 	uint8_t lowercase_mapping_length;
 	uint8_t casefold_mapping_length;
+
+	uint8_t bidi_class;
 
 	uint8_t idna_status:3;
 	uint8_t idna_mapping_length:5;

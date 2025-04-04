@@ -20,6 +20,7 @@ UCD_ABS_DIR = $(abs_srcdir)/ucd
 UCD_FILES = \
 	$(UCD_DIR)/CaseFolding.txt \
 	$(UCD_DIR)/CompositionExclusions.txt \
+	$(UCD_DIR)/DerivedBidiClass.txt \
 	$(UCD_DIR)/DerivedCoreProperties.txt \
 	$(UCD_DIR)/DerivedNormalizationProps.txt \
 	$(UCD_DIR)/emoji-data.txt \
@@ -67,6 +68,8 @@ $(UCD_DIR)/CaseFolding.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/CaseFolding.txt
 $(UCD_DIR)/CompositionExclusions.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/CompositionExclusions.txt
+$(UCD_DIR)/DerivedBidiClass.txt:
+	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/DerivedBidiClass.txt
 $(UCD_DIR)/DerivedCoreProperties.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/DerivedCoreProperties.txt
 $(UCD_DIR)/DerivedNormalizationProps.txt:

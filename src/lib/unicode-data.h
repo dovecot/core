@@ -159,5 +159,7 @@ unicode_code_point_data_get_casefold_mapping(
 }
 
 uint8_t unicode_general_category_from_string(const char *str);
+enum unicode_bidi_class unicode_bidi_class_from_string(const char *str);
+enum unicode_bidi_class unicode_bidi_class_from_string_long(const char *str);
 
 #endif

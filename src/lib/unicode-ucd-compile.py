@@ -45,6 +45,8 @@ ud_compositions_max_per_starter = 0
 ud_case_mappings = []
 ud_case_mapping_max_length = 0
 
+ud_bidi_class_short = {}
+
 ud_idna_mappings = []
 ud_idna_mapping_max_length = 0
 
@@ -322,7 +324,11 @@ def read_ucd_files():
                 die(f"{ucd}:{line_num}: Missing columns")
 
             prop = cols[0].strip()
-            if prop == "dt":
+            if prop == "bc":
+                sval = cols[1].strip()
+                lval = cols[2].strip()
+                ud_bidi_class_short[lval] = sval
+            elif prop == "dt":
                 lval = cols[2].strip()
                 ud_decomposition_type_names.append(lval)
 
@@ -479,6 +485,54 @@ def read_ucd_files():
             value = columns[2].strip()
             cpd = CodePointData()
             cpd.indic_conjunct_break = value
+            CodePointRange(cprng[0], cprng[1], cpd)
+
+    # DerivedBidiClass.txt
+    with UCDFileOpen("DerivedBidiClass.txt") as ucd:
+        line_num = 0
+        for line in ucd.fd:
+            line_num = line_num + 1
+            data = line.split("#")
+
+            if len(data) > 1 and data[1].startswith(" @missing: "):
+                missing = data[1]
+                missing = missing[11:]
+
+                cols = missing.split(";")
+                if len(cols) < 2:
+                    die(f"{ucd}:{line_num}: Missing columns in @missing definition")
+
+                cprng = parse_cp_range(cols[0])
+                if cprng is None:
+                    continue
+
+                bidi_class = ud_bidi_class_short[cols[1].strip()]
+                if bidi_class == "L":
+                    continue
+
+                cpd = CodePointData()
+                cpd.bidi_class = bidi_class
+                CodePointRange(cprng[0], cprng[1], cpd, default=True)
+                continue
+
+            line = data[0].strip()
+            if len(line) == 0:
+                continue
+
+            cols = line.split(";")
+            if len(cols) < 2:
+                die(f"{ucd}:{line_num}: Missing columns")
+
+            cprng = parse_cp_range(cols[0])
+            if cprng is None:
+                continue
+
+            bidi_class = cols[1].strip()
+            if bidi_class == "L":
+                continue
+
+            cpd = CodePointData()
+            cpd.bidi_class = bidi_class
             CodePointRange(cprng[0], cprng[1], cpd)
 
     # DerivedNormalizationProps.txt
@@ -1316,6 +1370,39 @@ def get_general_category_def(gc):
 def decomposition_type_def(dt):
     return "UNICODE_DECOMPOSITION_TYPE_%s" % dt.upper()
 
+def bidi_class_def(cls):
+    cls_uc = cls.upper()
+
+    implemented = [
+        "AL",
+        "AN",
+        "B",
+        "BN",
+        "CS",
+        "EN",
+        "ES",
+        "ET",
+        "FSI",
+        "L",
+        "LRE",
+        "LRI",
+        "LRO",
+        "NSM",
+        "ON",
+        "PDF",
+        "PDI",
+        "R",
+        "RLE",
+        "RLI",
+        "RLO",
+        "S",
+        "WS",
+    ]
+    if cls_uc not in implemented:
+        cls_uc = "ON"
+
+    return "UNICODE_BIDI_CLASS_%s" % cls_uc
+
 
 def indic_conjunct_break_def(icb):
     icb_uc = icb.upper()
@@ -1528,6 +1615,8 @@ def write_tables_c_cpd(cpd):
     if hasattr(cpd, "idna_mapping_length") and cpd.idna_mapping_length > 0:
         print("\t\t.idna_mapping_length = %s," % cpd.idna_mapping_length)
         print("\t\t.idna_mapping_offset = %s," % cpd.idna_mapping_offset)
+    if hasattr(cpd, "bidi_class"):
+        print("\t\t.bidi_class = %s," % bidi_class_def(cpd.bidi_class))
     if hasattr(cpd, "indic_conjunct_break"):
         print(
             "\t\t.indic_conjunct_break = %s,"
