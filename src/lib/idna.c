@@ -10,6 +10,172 @@
 #include "idna-punycode.h"
 
 /*
+ * Bidi Checking
+ */
+
+void idna_bidi_checker_init(struct idna_bidi_checker *ibc_r,
+			    struct idna_bidi_check_context *ctx)
+{
+	i_zero(ibc_r);
+	ibc_r->ctx = ctx;
+}
+
+void idna_bidi_checker_reset(struct idna_bidi_checker *ibc)
+{
+	struct idna_bidi_check_context *ctx = ibc->ctx;
+
+	idna_bidi_checker_init(ibc, ctx);
+}
+
+void idna_bidi_checker_input(struct idna_bidi_checker *ibc,  uint32_t cp,
+			     const struct unicode_code_point_data **cp_data)
+{
+	struct idna_bidi_check_context *ctx = ibc->ctx;
+
+	if (*cp_data == NULL)
+		*cp_data = unicode_code_point_get_data(cp);
+
+	/* RFC 5893, Section 2: The Bidi Rule
+
+	   The following rule, consisting of six conditions, applies to labels
+	   in Bidi domain names. The requirements that this rule satisfies are
+	   described in Section 3. All of the conditions must be satisfied for
+	   the rule to be satisfied.
+
+	   1.  The first character must be a character with Bidi property L, R,
+	       or AL.  If it has the R or AL property, it is an RTL label; if it
+	       has the L property, it is an LTR label.
+
+	   2.  In an RTL label, only characters with the Bidi properties R, AL,
+	       AN, EN, ES, CS, ET, ON, BN, or NSM are allowed.
+
+	   3.  In an RTL label, the end of the label must be a character with
+	       Bidi property R, AL, EN, or AN, followed by zero or more
+	       characters with Bidi property NSM.
+
+	   4.  In an RTL label, if an EN is present, no AN may be present, and
+	       vice versa.
+
+	   5.  In an LTR label, only characters with the Bidi properties L, EN,
+	       ES, CS, ET, ON, BN, or NSM are allowed.
+
+	   6.  In an LTR label, the end of the label must be a character with
+	       Bidi property L or EN, followed by zero or more characters with
+	       Bidi property NSM.
+	 */
+
+	switch (ibc->state) {
+	case IDNA_BIDI_CHECK_STATE_START:
+		switch ((*cp_data)->bidi_class) {
+		case UNICODE_BIDI_CLASS_R:
+		case UNICODE_BIDI_CLASS_AL:
+			ctx->rtl_label = TRUE;
+			ibc->label_can_end = TRUE;
+			ibc->state = IDNA_BIDI_CHECK_STATE_RTL;
+			break;
+		case UNICODE_BIDI_CLASS_AN:
+			ctx->rtl_label = TRUE;
+			ctx->valid = FALSE;
+			break;
+		case UNICODE_BIDI_CLASS_L:
+			ibc->label_can_end = TRUE;
+			ibc->state = IDNA_BIDI_CHECK_STATE_LTR;
+			break;
+		default:
+			ctx->valid = FALSE;
+			break;
+		}
+		break;
+	case IDNA_BIDI_CHECK_STATE_RTL:
+		switch ((*cp_data)->bidi_class) {
+		case UNICODE_BIDI_CLASS_R:
+		case UNICODE_BIDI_CLASS_AL:
+			ibc->label_can_end = TRUE;
+			break;
+		case UNICODE_BIDI_CLASS_ES:
+		case UNICODE_BIDI_CLASS_CS:
+		case UNICODE_BIDI_CLASS_ET:
+		case UNICODE_BIDI_CLASS_ON:
+		case UNICODE_BIDI_CLASS_BN:
+			ibc->label_can_end = FALSE;
+			break;
+		case UNICODE_BIDI_CLASS_NSM:
+			break;
+		case UNICODE_BIDI_CLASS_EN:
+			if (ibc->an_present) {
+				ctx->valid = FALSE;
+				break;
+			}
+			ibc->en_present = TRUE;
+			ibc->label_can_end = TRUE;;
+			break;
+		case UNICODE_BIDI_CLASS_AN:
+			if (ibc->en_present) {
+				ctx->valid = FALSE;
+				break;
+			}
+			ibc->an_present = TRUE;
+			ibc->label_can_end = TRUE;;
+			break;
+		default:
+			ctx->valid = FALSE;
+			break;
+		}
+		break;
+	case IDNA_BIDI_CHECK_STATE_LTR:
+		switch ((*cp_data)->bidi_class) {
+		case UNICODE_BIDI_CLASS_L:
+		case UNICODE_BIDI_CLASS_EN:
+			ibc->label_can_end = TRUE;
+			break;
+		case UNICODE_BIDI_CLASS_ES:
+		case UNICODE_BIDI_CLASS_CS:
+		case UNICODE_BIDI_CLASS_ET:
+		case UNICODE_BIDI_CLASS_ON:
+		case UNICODE_BIDI_CLASS_BN:
+			ibc->label_can_end = FALSE;
+			break;
+		case UNICODE_BIDI_CLASS_NSM:
+			break;
+		case UNICODE_BIDI_CLASS_R:
+		case UNICODE_BIDI_CLASS_AL:
+		case UNICODE_BIDI_CLASS_AN:
+			ctx->rtl_label = TRUE;
+			ctx->valid = FALSE;
+			break;
+		default:
+			ctx->valid = FALSE;
+			break;
+		}
+		break;
+	default:
+		i_unreached();
+	}
+}
+
+int idna_bidi_checker_finish(struct idna_bidi_checker *ibc)
+{
+	struct idna_bidi_check_context *ctx = ibc->ctx;
+
+	switch (ibc->state) {
+	case IDNA_BIDI_CHECK_STATE_START:
+		break;
+	case IDNA_BIDI_CHECK_STATE_RTL:
+		if (!ibc->label_can_end)
+			ctx->valid = FALSE;
+		break;
+	case IDNA_BIDI_CHECK_STATE_LTR:
+		if (!ibc->label_can_end)
+			ctx->valid = FALSE;
+		break;
+	}
+
+	if (!ctx->valid && ctx->rtl_label)
+		return -1;
+	return 0;
+}
+
+/*
  * IDNA Processing
  */
 
@@ -198,6 +364,7 @@ struct idna_validate {
 	enum idna_process_flags flags;
 
 	enum idna_validate_state state;
+	struct idna_bidi_checker bidicheck;
 
 	uint32_t cp, last_cp;
 	const struct unicode_code_point_data *cp_data;
@@ -224,6 +391,7 @@ static const struct unicode_transform_def idna_validate_def = {
 
 static void
 idna_validate_init(struct idna_validate *valdt_r,
+		   struct idna_bidi_check_context *bidictx,
 		   enum idna_process_flags flags,
 		   bool decoded_a_label)
 {
@@ -233,6 +401,7 @@ idna_validate_init(struct idna_validate *valdt_r,
 	valdt_r->decoded_a_label = decoded_a_label;
 	if (decoded_a_label)
 		unicode_nf_checker_init(&valdt_r->nfccheck, UNICODE_NFC);
+	idna_bidi_checker_init(&valdt_r->bidicheck, bidictx);
 }
 
 static int
@@ -260,6 +429,18 @@ idna_validate_label_end(struct idna_validate *valdt, const char **error_r)
 		*error_r = "Label ends with '-'";
 		return -1;
 	}
+
+	/* 9. If CheckBidi, and if the domain name is a Bidi domain name, then
+	   the label must satisfy all six of the numbered conditions in
+	   RFC 5893, Section 2.
+	 */
+	if (HAS_NO_BITS(valdt->flags, IDNA_PROCESS_FLAG_IGNORE_BIDI) &&
+	    valdt->state != IDNA_VALIDATE_STATE_ALABEL &&
+	    idna_bidi_checker_finish(&valdt->bidicheck) < 0) {
+		*error_r = "Invalid label in Bidi domain name";
+		return -1;
+	}
+	idna_bidi_checker_reset(&valdt->bidicheck);
 
 	return 0;
 }
@@ -340,6 +521,7 @@ idna_validate_cp(struct idna_validate *valdt, uint32_t cp,
 		/* Check for 'xn--' for A-label */
 		i_assert(!valdt->decoded_a_label);
 		if (cp == '-') {
+			idna_bidi_checker_reset(&valdt->bidicheck);
 			valdt->state = IDNA_VALIDATE_STATE_ALABEL;
 			return 0;
 		}
@@ -455,8 +637,8 @@ idna_validate_cp(struct idna_validate *valdt, uint32_t cp,
 	   the label must satisfy all six of the numbered conditions in
 	   RFC 5893, Section 2.
 	 */
-
-	/* - NOT IMPLEMENTED - */
+	if (HAS_NO_BITS(valdt->flags, IDNA_PROCESS_FLAG_IGNORE_BIDI))
+		idna_bidi_checker_input(&valdt->bidicheck, cp, cp_data);
 
 	return 0;
 }
@@ -560,6 +742,7 @@ idna_validate_flush(struct unicode_transform *trans,
 
 struct idna_process_sink {
 	struct unicode_transform transform;
+	struct idna_bidi_check_context *bidictx;
 	enum idna_process_flags flags;
 
 	uint32_t label_buf[LABEL_BUF_SIZE];
@@ -577,7 +760,7 @@ idna_check_a_label(struct idna_process_sink *sink,
 {
 	struct idna_validate valdt;
 
-	idna_validate_init(&valdt, sink->flags, TRUE);
+	idna_validate_init(&valdt, sink->bidictx, sink->flags, TRUE);
 
 	struct unicode_transform *trans = &valdt.transform;
 	size_t pos;
@@ -769,12 +952,14 @@ struct unicode_transform_def idna_process_sink_def = {
 
 static void
 idna_process_sink_init(struct idna_process_sink *sink_r,
+		       struct idna_bidi_check_context *bidictx,
 		       enum idna_process_flags flags,
 		       buffer_t *unicode_buffer,
 		       buffer_t *ascii_buffer)
 {
 	i_zero(sink_r);
 	unicode_transform_init(&sink_r->transform, &idna_process_sink_def);
+	sink_r->bidictx = bidictx;
 	sink_r->flags = flags;
 	sink_r->unicode_buffer = unicode_buffer;
 	sink_r->ascii_buffer = ascii_buffer;
@@ -807,6 +992,10 @@ int idna_process_domain_name(const char *domain_name,
 	   end of this function.
 	 */
 
+	struct idna_bidi_check_context bidictx;
+
+	idna_bidi_checker_context_init(&bidictx);
+
 	/* 1. Map: */
 
 	struct idna_map map;
@@ -832,7 +1021,7 @@ int idna_process_domain_name(const char *domain_name,
 
 	struct idna_validate valdt;
 
-	idna_validate_init(&valdt, flags, FALSE);
+	idna_validate_init(&valdt, &bidictx, flags, FALSE);
 	unicode_transform_chain(&nfc.transform, &valdt.transform);
 
 	/* Actually break the string into labels at U+002E ( . ) FULL STOP and
@@ -847,7 +1036,7 @@ int idna_process_domain_name(const char *domain_name,
 	if (to_ascii_r != NULL)
 		out_ascii = t_buffer_create(256);
 
-	idna_process_sink_init(&sink, flags, out_unicode, out_ascii);
+	idna_process_sink_init(&sink, &bidictx, flags, out_unicode, out_ascii);
 	unicode_transform_chain(&valdt.transform, &sink.transform);
 
 	/* Run the Unicode transform chain */

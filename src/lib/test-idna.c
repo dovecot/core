@@ -92,7 +92,8 @@ static const char *resolve_escapes(const char *in)
 	return str_c(out);
 }
 
-static void test_success_status(const char *status)
+static void
+test_success_status(const char *status, enum idna_process_flags flags)
 {
 	if (*status == '\0')
 		return;
@@ -102,8 +103,9 @@ static void test_success_status(const char *status)
 	while (*ps != NULL && !test_has_failed()) {
 		const char *s = t_str_trim(*ps, " \t");
 
-		if (*s == 'B') {
-			/* BiDi checks not implemented. */
+		if (HAS_ALL_BITS(flags, IDNA_PROCESS_FLAG_IGNORE_BIDI) &&
+		    *s == 'B') {
+			/* BiDi checks disabled. */
 		} else if (*s == 'C') {
 			/* ContextJ checks not implemented. */
 		} else {
@@ -197,7 +199,7 @@ test_scenario(const char *source, enum idna_process_flags flags,
 	test_assert_idx(*to_unicode_status != '\0' ||
 			*to_ascii_n_status != '\0'|| ret >= 0, line_num);
 	if (ret >= 0)
-		test_success_status(to_unicode_status);
+		test_success_status(to_unicode_status, flags);
 	else {
 		test_u_failure_status(to_unicode_status, to_ascii_n_status,
 				      error, line_num);
@@ -267,6 +269,9 @@ static void test_line(const char *line, unsigned int line_num)
 		to_ascii_n = "";
 
 	test_scenario(source, 0,
+		      to_unicode, to_unicode_status,
+		      to_ascii_n, to_ascii_n_status, line_num);
+	test_scenario(source, IDNA_PROCESS_FLAG_IGNORE_BIDI,
 		      to_unicode, to_unicode_status,
 		      to_ascii_n, to_ascii_n_status, line_num);
 }
