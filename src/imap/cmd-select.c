@@ -314,8 +314,11 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 
 	client_send_line(client,
 		t_strdup_printf("* %u EXISTS", status.messages));
-	client_send_line(client,
-		t_strdup_printf("* %u RECENT", status.recent));
+	if ((client_enabled_mailbox_features(client) &
+	    MAILBOX_FEATURE_IMAP4REV2) == 0) {
+		client_send_line(client,
+				t_strdup_printf("* %u RECENT", status.recent));
+	}
 
 	if (status.first_unseen_seq != 0) {
 		client_send_line(client,

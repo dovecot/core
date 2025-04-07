@@ -138,7 +138,8 @@ int imap_status_send(struct client *client, const char *mailbox_mutf7,
 	prefix_len = str_len(str);
 	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_MESSAGES))
 		str_printfa(str, "MESSAGES %u ", status->messages);
-	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_RECENT))
+	if ((client_enabled_mailbox_features(client) & MAILBOX_FEATURE_IMAP4REV2) == 0 &&
+	    HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_RECENT))
 		str_printfa(str, "RECENT %u ", status->recent);
 	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_UIDNEXT))
 		str_printfa(str, "UIDNEXT %u ", status->uidnext);

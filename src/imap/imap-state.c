@@ -654,8 +654,9 @@ import_state_mailbox_open(struct client *client,
 			(state->messages - expunge_count);
 		client_send_line(client,
 			t_strdup_printf("* %u EXISTS", client->messages_count));
-		client_send_line(client,
-			t_strdup_printf("* %u RECENT", client->recent_count));
+		if ((client_enabled_mailbox_features(client) & MAILBOX_FEATURE_IMAP4REV2) == 0)
+			client_send_line(client,
+				t_strdup_printf("* %u RECENT", client->recent_count));
 	}
 
 	if (array_count(status.keywords) == state->keywords_count &&

@@ -306,7 +306,8 @@ static int imap_sync_finish(struct imap_sync_context *ctx, bool aborting)
 			ctx->have_new_mails = TRUE;
 		}
 		if (ctx->status.recent != client->recent_count &&
-		    client->notify_count_changes) {
+		    client->notify_count_changes &&
+		    (client_enabled_mailbox_features(client) & MAILBOX_FEATURE_IMAP4REV2) == 0) {
 			client_send_line(client,
 				t_strdup_printf("* %u RECENT", ctx->status.recent));
 		}
