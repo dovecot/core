@@ -17,6 +17,7 @@ UCD_FILES = \
 	$(UCD_DIR)/CompositionExclusions.txt \
 	$(UCD_DIR)/DerivedCoreProperties.txt \
 	$(UCD_DIR)/DerivedNormalizationProps.txt \
+	$(UCD_DIR)/NormalizationTest.txt \
 	$(UCD_DIR)/PropertyValueAliases.txt \
 	$(UCD_DIR)/UnicodeData.txt
 
@@ -55,6 +56,8 @@ $(UCD_DIR)/DerivedCoreProperties.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/DerivedCoreProperties.txt
 $(UCD_DIR)/DerivedNormalizationProps.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/DerivedNormalizationProps.txt
+$(UCD_DIR)/NormalizationTest.txt:
+	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/NormalizationTest.txt
 $(UCD_DIR)/PropertyValueAliases.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/PropertyValueAliases.txt
 $(UCD_DIR)/UnicodeData.txt:
@@ -500,6 +503,7 @@ test_lib_SOURCES = \
 	test-time-util.c \
 	test-unichar.c \
 	test-unicode-data.c \
+	test-unicode-nf.c \
 	test-utc-mktime.c \
 	test-uri.c \
 	test-wildcard-match.c
