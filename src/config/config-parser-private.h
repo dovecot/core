@@ -82,7 +82,7 @@ struct config_parser_context {
 	const char *path;
 
 	ARRAY_TYPE(config_path) seen_paths;
-	HASH_TABLE(const char *, struct config_parser_key *) all_keys;
+	HASH_TABLE_TYPE(config_key) all_keys;
 	ARRAY(struct config_filter_parser *) all_filter_parsers;
 	HASH_TABLE(struct config_filter *,
 		   struct config_filter_parser *) all_filter_parsers_hash;

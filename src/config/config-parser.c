@@ -37,16 +37,6 @@
 #define DNS_LOOKUP_TIMEOUT_SECS 30
 #define DNS_LOOKUP_WARN_SECS 5
 
-struct config_parser_key {
-	struct config_parser_key *prev, *next;
-
-	/* Index number to get setting_parser_info from all_infos[] or
-	   module_parsers[] */
-	unsigned int info_idx;
-	/* Index number inside setting_parser_info->defines[] */
-	unsigned int define_idx;
-};
-
 struct config_include_group_filters {
 	const char *label;
 	ARRAY(struct config_filter_parser *) filters;
@@ -61,6 +51,7 @@ struct config_parsed {
 	ARRAY_TYPE(const_string) errors;
 	HASH_TABLE(const char *, const struct setting_define *) key_hash;
 	HASH_TABLE_TYPE(include_group) include_groups;
+	HASH_TABLE_TYPE(config_key) all_keys;
 };
 
 ARRAY_DEFINE_TYPE(setting_parser_info_p, const struct setting_parser_info *);
@@ -2382,6 +2373,10 @@ config_parse_finish(struct config_parser_context *ctx,
 	new_config->include_groups = ctx->all_include_groups;
 	i_zero(&ctx->all_include_groups);
 
+	/* Copy the all_keys to new_config, which takes care of freeing it.
+	   It's temporarily needed to exist in both ctx and new_config. */
+	new_config->all_keys = ctx->all_keys;
+
 	/* Destroy it here, so config filter tree merging no longer attempts
 	   to update it. */
 	hash_table_destroy(&ctx->all_filter_parsers_hash);
@@ -2395,6 +2390,8 @@ config_parse_finish(struct config_parser_context *ctx,
 		*error_r = t_strdup_printf("Error in configuration file %s: %s",
 					   ctx->path, error);
 	}
+
+	i_zero(&ctx->all_keys);
 
 	/* Merge defaults into main settings after running settings checks. */
 	if (ret == 0 && (flags & CONFIG_PARSE_FLAG_MERGE_DEFAULT_FILTERS) != 0)
@@ -3205,6 +3202,12 @@ config_parsed_get_filter_parsers(struct config_parsed *config)
 	return config->filter_parsers;
 }
 
+const HASH_TABLE_TYPE(config_key) *
+config_parsed_get_all_keys(struct config_parsed *config)
+{
+	return &config->all_keys;
+}
+
 static void
 config_parsed_strlist_append(string_t *keyvals,
 			     const ARRAY_TYPE(const_string) *values,
@@ -3403,6 +3406,7 @@ void config_parsed_free(struct config_parsed **_config)
 	*_config = NULL;
 
 	hash_table_destroy(&config->include_groups);
+	hash_table_destroy(&config->all_keys);
 	hash_table_destroy(&config->key_hash);
 	pool_unref(&config->pool);
 }

@@ -66,6 +66,17 @@ struct config_module_parser {
 };
 ARRAY_DEFINE_TYPE(config_module_parsers, struct config_module_parser *);
 
+struct config_parser_key {
+	struct config_parser_key *prev, *next;
+
+	/* Index number to get setting_parser_info from all_infos[] or
+	   module_parsers[] */
+	unsigned int info_idx;
+	/* Index number inside setting_parser_info->defines[] */
+	unsigned int define_idx;
+};
+HASH_TABLE_DEFINE_TYPE(config_key, const char *, struct config_parser_key *);
+
 struct config_path {
 	const char *path;
 	struct stat st;
@@ -103,6 +114,8 @@ config_parsed_get_filter_parsers(struct config_parsed *config);
 void config_fill_set_parser(struct setting_parser_context *parser,
 			    const struct config_module_parser *p,
 			    bool expand_values);
+const HASH_TABLE_TYPE(config_key) *
+config_parsed_get_all_keys(struct config_parsed *config);
 /* Returns the value for a specified setting. The setting must be found and it
    must be a string, or the function panics. */
 const char *
