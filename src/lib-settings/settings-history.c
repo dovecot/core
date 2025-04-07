@@ -4,7 +4,7 @@
 #include "array.h"
 #include "settings-history.h"
 
-#include "settings-history-core.c"
+#include "settings-history-core.h"
 
 static struct settings_history history;
 

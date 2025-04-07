@@ -19,11 +19,11 @@ headers = \
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
-BUILT_SOURCES = settings-history-core.c
+BUILT_SOURCES = settings-history-core.h
 
-settings-history.c: settings-history-core.c
+settings-history.c: settings-history-core.h
 
-settings-history-core.c: $(srcdir)/settings-history-core.txt $(srcdir)/settings-history.py
+settings-history-core.h: $(srcdir)/settings-history-core.txt $(srcdir)/settings-history.py
 	$(AM_V_GEN)$(srcdir)/settings-history.py --pro $(DOVECOT_PRO_BUILD) $< $@
 
 EXTRA_DIST = \
