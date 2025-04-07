@@ -49,6 +49,7 @@ int imap_search_args_build(struct client_command_context *cmd,
 {
 	struct mail_search_parser *parser;
 	struct mail_search_args *sargs;
+	struct mail_search_register *reg;
 	const char *client_error;
 	int ret;
 
@@ -58,8 +59,15 @@ int imap_search_args_build(struct client_command_context *cmd,
 	}
 
 	parser = mail_search_parser_init_imap(args);
-	ret = mail_search_build(mail_search_register_get_imap4rev1(),
-				parser, &charset, &sargs, &client_error);
+	/* If IMAP4REV2 is enabled do not use IMAPREV1 search
+	   registers (NEW, RECENT). */
+	if ((client_enabled_mailbox_features(cmd->client) &
+	    MAILBOX_FEATURE_IMAP4REV2) != 0)
+		reg = mail_search_register_get_imap4rev2();
+	else
+		reg = mail_search_register_get_imap4rev1();
+
+	ret = mail_search_build(reg, parser, &charset, &sargs, &client_error);
 	mail_search_parser_deinit(&parser);
 	if (ret < 0) {
 		if (charset == NULL) {
