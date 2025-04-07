@@ -8,8 +8,9 @@
 #include "ostream.h"
 #include "imap-storage-callbacks.h"
 
-static void notify_ok(struct mailbox *mailbox ATTR_UNUSED,
-		      const char *text, void *context)
+static void notify_status(struct mailbox *mailbox ATTR_UNUSED,
+			  const char *status,
+		      	  const char *text, void *context)
 {
 	struct client *client = context;
 
@@ -17,29 +18,28 @@ static void notify_ok(struct mailbox *mailbox ATTR_UNUSED,
 		return;
 
 	T_BEGIN {
-		const char *str;
-
-		str = t_strconcat("* OK ", text, "\r\n", NULL);
+		const char *str = t_strdup_printf("* %s %s\r\n", status, text);
 		o_stream_nsend_str(client->output, str);
 		(void)o_stream_flush(client->output);
 	} T_END;
 }
 
+static void notify_ok(struct mailbox *mailbox ATTR_UNUSED,
+		      const char *text, void *context)
+{
+	notify_status(mailbox, "OK", text, context);
+}
+
 static void notify_no(struct mailbox *mailbox ATTR_UNUSED,
 		      const char *text, void *context)
 {
-	struct client *client = context;
+	notify_status(mailbox, "NO", text, context);
+}
 
-	if (o_stream_get_buffer_used_size(client->output) != 0)
-		return;
-
-	T_BEGIN {
-		const char *str;
-
-		str = t_strconcat("* NO ", text, "\r\n", NULL);
-		o_stream_nsend_str(client->output, str);
-		(void)o_stream_flush(client->output);
-	} T_END;
+static void notify_bad(struct mailbox *mailbox ATTR_UNUSED,
+		      const char *text, void *context)
+{
+	notify_status(mailbox, "BAD", text, context);
 }
 
 static const char *find_cmd_tag(struct event *event)
@@ -142,5 +142,6 @@ static void notify_progress(struct mailbox *mailbox ATTR_UNUSED,
 struct mail_storage_callbacks imap_storage_callbacks = {
 	.notify_ok = notify_ok,
 	.notify_no = notify_no,
+	.notify_bad = notify_bad,
 	.notify_progress = notify_progress
 };

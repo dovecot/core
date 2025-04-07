@@ -466,6 +466,9 @@ struct mail_storage_callbacks {
 	/* "* NO <text>" */
 	void (*notify_no)(struct mailbox *mailbox, const char *text,
 			  void *context);
+	/* "* BAD <text>" */
+	void (*notify_bad)(struct mailbox *mailbox, const char *text,
+			   void *context);
 	/* "* OK [INPROGRESS (...)] <text>" */
 	void (*notify_progress)(struct mailbox *mailbox,
 				const struct mail_storage_progress_details *dtl,
