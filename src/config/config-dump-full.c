@@ -2,8 +2,10 @@
 
 #include "lib.h"
 #include "array.h"
+#include "hash.h"
 #include "str.h"
 #include "strescape.h"
+#include "primes.h"
 #include "wildcard-match.h"
 #include "safe-mkstemp.h"
 #include "ostream.h"
@@ -12,6 +14,7 @@
 #include "config-parser.h"
 #include "config-request.h"
 #include "config-filter.h"
+#include "all-settings.h"
 #include "config-dump-full.h"
 
 #include <stdio.h>
@@ -36,6 +39,9 @@
      <32bit: mtime nsecs>
      <32bit: ctime UNIX timestamp>
      <32bit: ctime nsecs>
+
+   <32bit: all setting keys size>
+   <all setting keys - see below>
 
    <32bit: event filter strings count>
    Repeat for "event filter strings count":
@@ -83,6 +89,30 @@
    The filters are written in the same order as they are defined in the config
    file. This automatically causes the more specific filters to be written
    after the less specific ones.
+
+   All Setting Keys
+   ----------------
+
+   This hash table contains all the setting names and their details. It is
+   needed for handling setting overrides in an efficient way. It is guaranteed
+   that there are no collisions in the written hash table.
+
+   The <all setting keys> contents are:
+
+   [base offset for nodes]
+   <0..3 bytes to pad to 32bit offset>
+   <32bit: hash table key prefix>
+   <32bit: hash table nodes count>
+     <32bit: setting node relative offset>
+   <32bit: setting block names count>
+     <32bit: setting block name relative offset>
+
+   The <setting node> contents are:
+
+   <NUL-terminated string: setting name>
+   <32bit: enum setting_type>
+   <32bit: setting blocks count>
+     <32bit: setting block name index>
 
    Groups
    ------
@@ -194,6 +224,157 @@ config_dump_full_write_cache_paths(struct ostream *output,
 		array_front(config_parsed_get_paths(config));
 	*cache_path_r = master_service_get_binary_config_cache_path(cache_dir,
 								    main_path->path);
+}
+
+static bool
+config_dump_keys_hash_try(struct config_parsed *config,
+			  uint32_t key_prefix, unsigned int hash_table_size)
+{
+	const HASH_TABLE_TYPE(config_key) all_keys =
+		config_parsed_get_all_keys(config);
+	const char *name;
+	struct config_parser_key *config_key;
+	bool ret = TRUE;
+
+	bool *table = i_new(bool, hash_table_size);
+	struct hash_iterate_context *iter = hash_table_iterate_init(all_keys);
+	while (hash_table_iterate(iter, all_keys, &name, &config_key)) {
+		uint32_t key_hash = (key_prefix ^ str_hash(name)) %
+			hash_table_size;
+		if (table[key_hash]) {
+			ret = FALSE;
+			break;
+		}
+		table[key_hash] = TRUE;
+	}
+	hash_table_iterate_deinit(&iter);
+	i_free(table);
+	return ret;
+}
+
+static unsigned int
+config_parser_key_list_count(struct config_parser_key *config_key)
+{
+	unsigned int i;
+	for (i = 0; config_key != NULL; i++)
+		config_key = config_key->next;
+	return i;
+}
+
+static void
+config_dump_keys_hash(struct config_parsed *config, buffer_t *buf,
+		      uint32_t key_prefix, uint32_t hash_table_size)
+{
+	const HASH_TABLE_TYPE(config_key) all_keys =
+		config_parsed_get_all_keys(config);
+	const char *name;
+	struct config_parser_key *config_key;
+
+	/* hash table key prefix */
+	buffer_append(buf, &key_prefix, sizeof(key_prefix));
+	/* hash table nodes count */
+	buffer_append(buf, &hash_table_size, sizeof(hash_table_size));
+	/* reserve space for the hash table */
+	size_t hash_table_offset = buf->used;
+	buffer_append_zero(buf, sizeof(uint32_t) * hash_table_size);
+
+	/* setting block names */
+	uint32_t count;
+	for (count = 0; all_infos[count] != NULL; count++) ;
+	buffer_append(buf, &count, sizeof(count));
+	size_t blocks_offset = buf->used;
+	buffer_append_zero(buf, sizeof(uint32_t) * count);
+	for (uint32_t i = 0; i < count; i++) {
+		uint32_t offset = buf->used;
+		buffer_write(buf, blocks_offset + i * sizeof(uint32_t),
+			     &offset, sizeof(offset));
+		buffer_append(buf, all_infos[i]->name,
+			      strlen(all_infos[i]->name) + 1);
+	}
+
+	/* setting nodes */
+	uint32_t *hash_table = i_new(uint32_t, hash_table_size);
+	struct hash_iterate_context *iter = hash_table_iterate_init(all_keys);
+	while (hash_table_iterate(iter, all_keys, &name, &config_key)) {
+		uint32_t key_hash = (key_prefix ^ str_hash(name)) %
+			hash_table_size;
+		i_assert(hash_table[key_hash] == 0);
+
+		hash_table[key_hash] = buf->used;
+		buffer_append(buf, name, strlen(name) + 1);
+
+		const struct setting_define *def =
+			&all_infos[config_key->info_idx]->defines[config_key->define_idx];
+		uint32_t num32 = def->type;
+		buffer_append(buf, &num32, sizeof(num32));
+
+		num32 = config_parser_key_list_count(config_key);
+		buffer_append(buf, &num32, sizeof(num32));
+
+		do {
+			num32 = config_key->info_idx;
+			buffer_append(buf, &num32, sizeof(num32));
+			config_key = config_key->next;
+		} while (config_key != NULL);
+	}
+	hash_table_iterate_deinit(&iter);
+
+	buffer_write(buf, hash_table_offset, hash_table,
+		     sizeof(uint32_t) * hash_table_size);
+	i_free(hash_table);
+}
+
+static void
+config_dump_keys_hash_table(struct config_parsed *config, buffer_t *buf)
+{
+	const HASH_TABLE_TYPE(config_key) all_keys =
+		config_parsed_get_all_keys(config);
+	unsigned int i, hash_table_size = hash_table_count(all_keys);
+
+	/* Find a hash table where no settings keys have collisions. We can
+	   spend more time here so later settings lookups are more efficient by
+	   not having to handle key collisions. */
+	for (;;) {
+		/* Try a few times to fit the hash table into a smaller node
+		   count by using different key prefixes. Use predictable key
+		   prefixes, so the hash table sizes are also predictable (and
+		   easier to debug) across different runs. */
+		for (i = 0; i < 10; i++) {
+			uint32_t key_prefix = i;
+			if (config_dump_keys_hash_try(config, key_prefix,
+						      hash_table_size)) {
+				config_dump_keys_hash(config, buf,
+					key_prefix, hash_table_size);
+				return;
+			}
+		}
+		/* Continue with a larger hash table size until we succeed.
+		   In theory this could cause huge hash table sizes (or even
+		   out of memory), but practically that shouldn't happen. */
+		hash_table_size = primes_closest(hash_table_size + 1);
+	}
+}
+
+static void
+config_dump_full_write_all_keys(struct ostream *output,
+				struct config_parsed *config)
+{
+	buffer_t *buf = buffer_create_dynamic(default_pool, 10240);
+
+	/* 32bit padding */
+	if (output->offset % sizeof(uint32_t) != 0) {
+		buffer_append_zero(buf, sizeof(uint32_t) -
+				   output->offset % sizeof(uint32_t));
+	}
+	config_dump_keys_hash_table(config, buf);
+
+	/* all setting keys size */
+	i_assert(buf->used <= UINT32_MAX);
+	uint32_t set_size = buf->used;
+
+	o_stream_nsend(output, &set_size, sizeof(set_size));
+	o_stream_nsend(output, buf->data, buf->used);
+	buffer_free(&buf);
 }
 
 static void
@@ -762,6 +943,7 @@ int config_dump_full(struct config_parsed *config,
 						   &cache_path);
 		if (cache_path != NULL)
 			final_path = cache_path;
+		config_dump_full_write_all_keys(output, config);
 		config_dump_full_write_filters(output, config);
 	}
 

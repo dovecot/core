@@ -115,6 +115,11 @@ struct settings_mmap {
 	void *mmap_base;
 	size_t mmap_size;
 
+	uint32_t all_keys_hash_key_prefix;
+	uint32_t all_keys_hash_count;
+	const uint32_t *all_keys_hash;
+	const unsigned char *all_keys_base;
+
 	struct event_filter **event_filters;
 	struct event_filter **override_event_filters;
 	bool *event_filters_are_groups;
@@ -451,6 +456,37 @@ settings_read_config_paths(struct settings_mmap *mmap,
 }
 
 static int
+settings_read_all_keys(struct settings_mmap *mmap,
+		       size_t *offset, const char **error_r)
+{
+	uint32_t size;
+	if (settings_block_read_uint32(mmap, offset, mmap->mmap_size,
+				       "all keys size", &size,
+				       error_r) < 0)
+		return -1;
+	mmap->all_keys_base = CONST_PTR_OFFSET(mmap->mmap_base, *offset);
+	size_t end_offset = *offset + size;
+
+	if (*offset % sizeof(uint32_t) != 0)
+		*offset += sizeof(uint32_t) - *offset % sizeof(uint32_t);
+	/* all keys */
+	if (settings_block_read_uint32(mmap, offset, end_offset,
+				       "all keys hash key prefix",
+				       &mmap->all_keys_hash_key_prefix,
+				       error_r) < 0)
+		return -1;
+	if (settings_block_read_uint32(mmap, offset, end_offset,
+				       "all keys hash nodes count",
+				       &mmap->all_keys_hash_count,
+				       error_r) < 0)
+		return -1;
+	mmap->all_keys_hash = CONST_PTR_OFFSET(mmap->mmap_base, *offset);
+
+	*offset = end_offset;
+	return 0;
+}
+
+static int
 settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 		      enum settings_read_flags flags, size_t *offset,
 		      ARRAY_TYPE(const_string) *protocols, const char **error_r)
@@ -718,6 +754,8 @@ settings_mmap_parse(struct settings_mmap *mmap, const char *service_name,
 	int ret;
 	if ((ret = settings_read_config_paths(mmap, flags, &offset, error_r)) <= 0)
 		return ret;
+	if (settings_read_all_keys(mmap, &offset, error_r) < 0)
+		return -1;
 	if (settings_read_filters(mmap, service_name, flags, &offset,
 				  &protocols, error_r) < 0)
 		return -1;
