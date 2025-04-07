@@ -49,7 +49,6 @@ struct config_parsed {
 	struct config_module_parser *module_parsers;
 	ARRAY_TYPE(config_path) seen_paths;
 	ARRAY_TYPE(const_string) errors;
-	HASH_TABLE(const char *, const struct setting_define *) key_hash;
 	HASH_TABLE_TYPE(include_group) include_groups;
 	HASH_TABLE_TYPE(config_key) all_keys;
 };
@@ -3202,10 +3201,10 @@ config_parsed_get_filter_parsers(struct config_parsed *config)
 	return config->filter_parsers;
 }
 
-const HASH_TABLE_TYPE(config_key) *
+HASH_TABLE_TYPE(config_key)
 config_parsed_get_all_keys(struct config_parsed *config)
 {
-	return &config->all_keys;
+	return config->all_keys;
 }
 
 static void
@@ -3320,21 +3319,11 @@ config_parsed_get_setting_change_counter(struct config_parsed *config,
 const struct setting_define *
 config_parsed_key_lookup(struct config_parsed *config, const char *key)
 {
-	const struct config_module_parser *l;
-	unsigned int key_idx;
-
-	if (hash_table_is_created(config->key_hash))
-		return hash_table_lookup(config->key_hash, key);
-	hash_table_create(&config->key_hash, config->pool, 0, str_hash, strcmp);
-
-	for (l = config->module_parsers; l->info != NULL; l++) {
-		for (key_idx = 0; l->info->defines[key_idx].key != NULL; key_idx++) {
-			hash_table_update(config->key_hash,
-					  l->info->defines[key_idx].key,
-					  &l->info->defines[key_idx]);
-		}
-	}
-	return hash_table_lookup(config->key_hash, key);
+	struct config_parser_key *config_key =
+		hash_table_lookup(config->all_keys, key);
+	if (config_key == NULL)
+		return NULL;
+	return &all_infos[config_key->info_idx]->defines[config_key->define_idx];
 }
 
 static bool config_filter_tree_has_settings(struct config_filter_parser *filter,
@@ -3407,7 +3396,6 @@ void config_parsed_free(struct config_parsed **_config)
 
 	hash_table_destroy(&config->include_groups);
 	hash_table_destroy(&config->all_keys);
-	hash_table_destroy(&config->key_hash);
 	pool_unref(&config->pool);
 }
 

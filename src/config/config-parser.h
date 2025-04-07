@@ -114,7 +114,7 @@ config_parsed_get_filter_parsers(struct config_parsed *config);
 void config_fill_set_parser(struct setting_parser_context *parser,
 			    const struct config_module_parser *p,
 			    bool expand_values);
-const HASH_TABLE_TYPE(config_key) *
+HASH_TABLE_TYPE(config_key)
 config_parsed_get_all_keys(struct config_parsed *config);
 /* Returns the value for a specified setting. The setting must be found and it
    must be a string, or the function panics. */
