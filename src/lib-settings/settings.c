@@ -1792,6 +1792,14 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 	    set_filter_names->value_type != EVENT_FIELD_VALUE_TYPE_STRLIST)
 		set_filter_names = NULL;
 
+	if (set->filter == NULL &&
+	    str_begins(set->key, "*"SETTINGS_SEPARATOR_S, &set->key)) {
+		/* always match, also for any named list filters */
+		set->filter_finished = TRUE;
+		set->always_match = TRUE;
+		return 1;
+	}
+
 	bool filter_finished = TRUE;
 	string_t *filter_string = NULL;
 	const char *last_filter_key = set->last_filter_key;
@@ -1814,12 +1822,6 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 			   with all filters, which otherwise wouldn't be
 			   visible to the settings override code. */
 			set_type = SET_FILTER_NAME;
-		} else if (strcmp(part, "*") == 0 && set->filter == NULL) {
-			/* always match, also for any named list filters */
-			set->filter_finished = TRUE;
-			set->always_match = TRUE;
-			set->key = p + 1;
-			return 1;
 		} else {
 			filter_finished = FALSE;
 			break;
