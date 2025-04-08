@@ -150,12 +150,63 @@ static void test_imap_parser_read_tag_cmd(void)
 	test_end();
 }
 
+#define TEST_CASE(str, lit, flags, ret) \
+	{ (str), sizeof((str)), (lit), (flags), (ret) }
+
+static void test_imap_parser_read_literal(void)
+{
+	test_begin("imap_parser_read_literal");
+
+	const struct {
+		const char *input;
+		size_t len;
+		uoff_t lit_len;
+		enum imap_parser_flags flags;
+		int ret;
+	} tests[] = {
+		TEST_CASE("{0}\n\n", 0, 0, 1),
+		TEST_CASE("{0+}\n\n", 0, 0, 1),
+		TEST_CASE("{0}\n", 0, 0, -1),
+		TEST_CASE("{-0}\n", 0, 0, -1),
+		TEST_CASE("{5}\nHello\n", 5, 0, 1),
+		TEST_CASE("{5+}\nHello\n\n", 5, 0, 1),
+		TEST_CASE("~{5}\nHello\n", 5, IMAP_PARSE_FLAG_LITERAL8, 1),
+		TEST_CASE("~{5+}\nHello\n\n", 5, IMAP_PARSE_FLAG_LITERAL8, 1),
+		TEST_CASE("{6+}\nhell\0o\n", 6, 0, 1),
+		TEST_CASE("~{6+}\nhell\xc3\xa5\n", 6, IMAP_PARSE_FLAG_LITERAL8, 1),
+		TEST_CASE("{6+}\nhello", 0, 0, -2),
+		TEST_CASE("{6+}\nhello\n", 0, 0, -1),
+	};
+
+	for (size_t i = 0; i < N_ELEMENTS(tests); i++) {
+		struct istream *input =
+			test_istream_create_data(tests[i].input, tests[i].len);
+		test_assert(i_stream_read(input) > 0);
+		struct imap_parser *parser =
+			imap_parser_create(input, NULL, 1024);
+		const struct imap_arg *args;
+		int ret = imap_parser_read_args(parser, 0, tests[i].flags, &args);
+		if (ret != tests[i].ret) {
+			if (tests[i].ret < 0)
+				test_failed(t_strdup_printf("%zu: Unexpected success %d", i, ret));
+			else
+				test_failed(t_strdup_printf("%zu: Unexpected failure %d", i, ret));
+		} else if (ret >= 0) {
+			test_assert_cmp_idx(args[0].str_len, ==, tests[i].lit_len, i);
+		}
+		imap_parser_unref(&parser);
+		i_stream_destroy(&input);
+	}
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_imap_parser_crlf,
 		test_imap_parser_partial_list,
 		test_imap_parser_read_tag_cmd,
+		test_imap_parser_read_literal,
 		NULL
 	};
 	return test_run(test_functions);
