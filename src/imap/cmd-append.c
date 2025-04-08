@@ -289,6 +289,22 @@ static void cmd_append_catenate_text(struct client_command_context *cmd)
 	}
 }
 
+static void
+cmd_append_catenate_arg_text(struct client_command_context *cmd,
+			     const struct imap_arg *args, bool *nonsync_r)
+{
+	struct cmd_append_context *ctx = cmd->context;
+
+	if (args->literal8 && !ctx->binary_input && !ctx->failed) {
+		client_send_tagline(cmd,
+			"NO ["IMAP_RESP_CODE_UNKNOWN_CTE"] "
+			"Binary input allowed only when the first part is binary.");
+		ctx->failed = TRUE;
+	}
+	*nonsync_r = args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
+	cmd_append_catenate_text(cmd);
+}
+
 static int
 cmd_append_catenate(struct client_command_context *cmd,
 		    const struct imap_arg *args, bool *nonsync_r)
@@ -322,15 +338,7 @@ cmd_append_catenate(struct client_command_context *cmd,
 				invalid_arg = TRUE;
 				break;
 			}
-			if (args->literal8 && !ctx->binary_input &&
-			    !ctx->failed) {
-				client_send_tagline(cmd,
-					"NO ["IMAP_RESP_CODE_UNKNOWN_CTE"] "
-					"Binary input allowed only when the first part is binary.");
-				ctx->failed = TRUE;
-			}
-			*nonsync_r = args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
-			cmd_append_catenate_text(cmd);
+			cmd_append_catenate_arg_text(cmd, args, nonsync_r);
 			return 1;
 		} else {
 			break;
@@ -482,6 +490,30 @@ static bool cmd_append_continue_catenate(struct client_command_context *cmd)
 }
 
 static int
+cmd_append_start_catenate(struct cmd_append_context *ctx,
+			  const struct imap_arg **args,
+			  const struct imap_arg **cat_list_r)
+{
+	const struct imap_arg *list_args;
+
+	if (!imap_arg_atom_equals(*args, "CATENATE"))
+		return 0;
+	if (!imap_arg_get_list(++(*args), &list_args))
+		return -1;
+
+	ctx->catenate = TRUE;
+
+	/* We'll do BINARY conversion only if the CATENATE's first
+	   part is a literal8. If it doesn't and a literal8 is seen
+	   later we'll abort the append with UNKNOWN-CTE. */
+	ctx->binary_input =
+		imap_arg_atom_equals(&list_args[0], "TEXT") &&
+		list_args[1].literal8;
+	*cat_list_r = list_args;
+	return 1;
+}
+
+static int
 cmd_append_handle_args(struct client_command_context *cmd,
 		       const struct imap_arg *args, bool *nonsync_r)
 {
@@ -524,20 +556,11 @@ cmd_append_handle_args(struct client_command_context *cmd,
 	if (imap_arg_get_literal_size(args, &ctx->literal_size)) {
 		*nonsync_r = args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
 		ctx->binary_input = args->literal8;
+		ctx->litinput = i_stream_create_limit(client->input, ctx->literal_size);
 		valid = TRUE;
-	} else if (!imap_arg_atom_equals(args, "CATENATE")) {
-		/* invalid */
-	} else if (!imap_arg_get_list(++args, &cat_list)) {
-		/* invalid */
 	} else {
-		valid = TRUE;
-		ctx->catenate = TRUE;
-		/* We'll do BINARY conversion only if the CATENATE's first
-		   part is a literal8. If it doesn't and a literal8 is seen
-		   later we'll abort the append with UNKNOWN-CTE. */
-		ctx->binary_input = imap_arg_atom_equals(&cat_list[0], "TEXT") &&
-			cat_list[1].literal8;
-
+		ret = cmd_append_start_catenate(ctx, &args, &cat_list);
+		valid = (ret > 0);
 	}
 	if (!IMAP_ARG_IS_EOL(&args[1]))
 		valid = FALSE;
@@ -585,7 +608,7 @@ cmd_append_handle_args(struct client_command_context *cmd,
 		timezone_offset = 0;
 	}
 
-	if (cat_list != NULL) {
+	if (ctx->catenate) {
 		ctx->cat_msg_size = 0;
 		ctx->input = i_stream_create_chain(&ctx->catchain,
 						   IO_BLOCK_SIZE);
@@ -606,7 +629,7 @@ cmd_append_handle_args(struct client_command_context *cmd,
 			   MULTIAPPEND here and adding more messages, it is
 			   technically valid so we'll continue parsing.. */
 		}
-		ctx->litinput = i_stream_create_limit(client->input, ctx->literal_size);
+		i_assert(ctx->litinput != NULL);
 		ctx->input = ctx->litinput;
 		i_stream_ref(ctx->input);
 	}
@@ -639,7 +662,7 @@ cmd_append_handle_args(struct client_command_context *cmd,
 		mailbox_keywords_unref(&keywords);
 	ctx->count++;
 
-	if (cat_list == NULL) {
+	if (!ctx->catenate) {
 		/* normal APPEND */
 		return 1;
 	} else if (cat_list->type == IMAP_ARG_EOL) {
