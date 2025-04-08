@@ -49,9 +49,11 @@ struct cmd_append_context {
 	bool replace:1;
 	bool message_input:1;
 	bool binary_input:1;
+	bool utf8_input:1;
 	bool catenate:1;
 	bool cmd_args_set:1;
 	bool failed:1;
+	bool utf8_accept:1;
 };
 
 static void cmd_append_finish(struct cmd_append_context *ctx);
@@ -338,7 +340,21 @@ cmd_append_catenate(struct client_command_context *cmd,
 				invalid_arg = TRUE;
 				break;
 			}
+			ctx->utf8_input = FALSE;
 			cmd_append_catenate_arg_text(cmd, args, nonsync_r);
+			return 1;
+		} else if (ctx->utf8_accept && strcasecmp(catpart, "UTF8") == 0) {
+			const struct imap_arg *list_args = NULL;
+
+			args++;
+			if (!imap_arg_get_list(args, &list_args) ||
+			    !list_args[0].literal8 ||
+			    !imap_arg_get_literal_size(list_args, &ctx->literal_size)) {
+				invalid_arg = TRUE;
+				break;
+			}
+			ctx->utf8_input = TRUE;
+			cmd_append_catenate_arg_text(cmd, list_args, nonsync_r);
 			return 1;
 		} else {
 			break;
@@ -384,6 +400,17 @@ static bool catenate_args_can_stop(struct cmd_append_context *ctx,
 	while (args->type != IMAP_ARG_EOL) {
 		if (imap_arg_atom_equals(args, "TEXT"))
 			return TRUE;
+		if (ctx->utf8_accept && imap_arg_atom_equals(args, "UTF8")) {
+			const struct imap_arg *list_args;
+
+			if (!imap_arg_get_list(++args, &list_args))
+				return FALSE;
+			if (args->type == IMAP_ARG_LITERAL_SIZE ||
+			    args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC)
+				return TRUE;
+			args++;
+			continue;
+		}
 		if (!imap_arg_atom_equals(args, "URL")) {
 			/* error - handle it later */
 			return TRUE;
@@ -431,6 +458,33 @@ static void cmd_append_handle_parse_error(struct client_command_context *cmd)
 	client->input_skip_line = TRUE;
 }
 
+static int
+cmd_append_finish_list(struct client_command_context *cmd)
+{
+	struct cmd_append_context *ctx = cmd->context;
+	const struct imap_arg *args;
+	int ret;
+
+	ret = imap_parser_read_args(ctx->save_parser, 0,
+				    IMAP_PARSE_FLAG_LITERAL_SIZE |
+				    IMAP_PARSE_FLAG_LITERAL8 |
+				    IMAP_PARSE_FLAG_INSIDE_LIST, &args);
+	if (ret == -1) {
+		cmd_append_handle_parse_error(cmd);
+		return -1;
+	}
+	if (ret < 0) {
+		/* need more data */
+		return 0;
+	}
+
+	if (!IMAP_ARG_IS_EOL(&args[0])) {
+		client_send_command_error(cmd, "Invalid arguments.");
+		return -1;
+	}
+	return 1;
+}
+
 static bool cmd_append_continue_catenate(struct client_command_context *cmd)
 {
 	struct cmd_append_context *ctx = cmd->context;
@@ -442,6 +496,17 @@ static bool cmd_append_continue_catenate(struct client_command_context *cmd)
 		/* cancel the command immediately (disconnection) */
 		cmd_append_finish(ctx);
 		return TRUE;
+	}
+
+	if (ctx->utf8_input) {
+		ret = cmd_append_finish_list(cmd);
+		if (ret == 0)
+			return FALSE;
+		if (ret < 0) {
+			cmd_append_finish(ctx);
+			return TRUE;
+		}
+		ctx->utf8_input = FALSE;
 	}
 
 	/* we're parsing inside CATENATE (..) list after handling a TEXT part.
@@ -512,10 +577,47 @@ cmd_append_start_catenate(struct cmd_append_context *ctx,
 	/* We'll do BINARY conversion only if the CATENATE's first
 	   part is a literal8. If it doesn't and a literal8 is seen
 	   later we'll abort the append with UNKNOWN-CTE. */
-	ctx->binary_input =
-		imap_arg_atom_equals(&list_args[0], "TEXT") &&
-		list_args[1].literal8;
+	if (ctx->utf8_accept && imap_arg_atom_equals(&list_args[0], "UTF8")) {
+		const struct imap_arg *tmp_args;
+		if (!imap_arg_get_list(&list_args[1], &tmp_args))
+			return -1;
+		if (!tmp_args[0].literal8)
+			return -1;
+		ctx->utf8_input = TRUE;
+		ctx->binary_input = TRUE;
+	} else {
+		ctx->utf8_input = FALSE;
+		ctx->binary_input =
+			imap_arg_atom_equals(&list_args[0], "TEXT") &&
+			list_args[1].literal8;
+	}
 	*cat_list_r = list_args;
+	return 1;
+}
+
+static int
+cmd_append_start_utf8(struct cmd_append_context *ctx,
+		      const struct imap_arg **args,
+		      bool *nonsync_r)
+{
+	struct client *client = ctx->client;
+	const struct imap_arg *list_args;
+
+	if (!ctx->utf8_accept)
+		return 0;
+
+	if (!imap_arg_atom_equals(*args, "UTF8"))
+		return 0;
+	if (!imap_arg_get_list(++(*args), &list_args))
+		return -1;
+	if (!imap_arg_get_literal_size(list_args, &ctx->literal_size))
+		return -1;
+	if (!list_args[0].literal8)
+		return -1;
+	*nonsync_r = list_args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
+	ctx->litinput = i_stream_create_limit(client->input, ctx->literal_size);
+	ctx->utf8_input = TRUE;
+	ctx->binary_input = TRUE;
 	return 1;
 }
 
@@ -555,7 +657,7 @@ cmd_append_handle_args(struct client_command_context *cmd,
 		args++;
 	}
 
-	/* <message literal> | CATENATE (..) */
+	/* <message literal> | CATENATE (..) | UTF8 (..) */
 	valid = FALSE;
 	*nonsync_r = FALSE;
 	ctx->catenate = FALSE;
@@ -563,9 +665,13 @@ cmd_append_handle_args(struct client_command_context *cmd,
 		*nonsync_r = args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
 		ctx->binary_input = args->literal8;
 		ctx->litinput = i_stream_create_limit(client->input, ctx->literal_size);
+		ctx->utf8_input = FALSE;
+		ctx->litinput = i_stream_create_limit(client->input, ctx->literal_size);
 		valid = TRUE;
 	} else {
 		ret = cmd_append_start_catenate(ctx, &args, &cat_list);
+		if (ret == 0)
+			ret = cmd_append_start_utf8(ctx, &args, nonsync_r);
 		valid = (ret > 0);
 	}
 	if (!IMAP_ARG_IS_EOL(&args[1]))
@@ -786,13 +892,14 @@ static bool cmd_append_args_can_stop(struct cmd_append_context *ctx,
 				     const struct imap_arg *args,
 				     bool *last_literal_r)
 {
-	const struct imap_arg *cat_list;
+	const struct imap_arg *list;
 
 	*last_literal_r = FALSE;
 	if (args->type == IMAP_ARG_EOL)
 		return TRUE;
 
-	/* [(flags)] ["internal date"] <message literal> | CATENATE (..) */
+	/* [(flags)] ["internal date"]
+	     <message literal> | CATENATE (..) | UTF8 (..) */
 	if (args->type == IMAP_ARG_LIST)
 		args++;
 	if (args->type == IMAP_ARG_STRING)
@@ -802,8 +909,16 @@ static bool cmd_append_args_can_stop(struct cmd_append_context *ctx,
 	    args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC)
 		return TRUE;
 	if (imap_arg_atom_equals(args, "CATENATE") &&
-	    imap_arg_get_list(&args[1], &cat_list)) {
-		if (catenate_args_can_stop(ctx, cat_list))
+	    imap_arg_get_list(&args[1], &list)) {
+		if (catenate_args_can_stop(ctx, list))
+			return TRUE;
+		*last_literal_r = TRUE;
+	}
+	if (ctx->utf8_accept &&
+	    imap_arg_atom_equals(args, "UTF8") &&
+	    imap_arg_get_list(&args[1], &list)) {
+		if (list->type == IMAP_ARG_LITERAL_SIZE ||
+		    list->type == IMAP_ARG_LITERAL_SIZE_NONSYNC)
 			return TRUE;
 		*last_literal_r = TRUE;
 	}
@@ -818,6 +933,17 @@ static bool cmd_append_parse_new_msg(struct client_command_context *cmd)
 	unsigned int arg_min_count;
 	bool nonsync, last_literal;
 	int ret;
+
+	if (ctx->utf8_input) {
+		ret = cmd_append_finish_list(cmd);
+		if (ret == 0)
+			return FALSE;
+		if (ret < 0) {
+			cmd_append_finish(ctx);
+			return TRUE;
+		}
+		ctx->utf8_input = FALSE;
+	}
 
 	/* this function gets called 1) after parsing APPEND <mailbox> and
 	   2) with MULTIAPPEND extension after already saving one or more
@@ -1041,6 +1167,8 @@ static bool cmd_append_full(struct client_command_context *cmd, bool replace)
 	ctx->client = client;
 	ctx->replace = replace;
 	ctx->started = ioloop_time;
+	ctx->utf8_accept = (client_enabled_mailbox_features(cmd->client) &
+			    MAILBOX_FEATURE_UTF8ACCEPT) != 0;
 	if (client_open_save_dest_box(cmd, mailbox, &ctx->box) < 0)
 		ctx->failed = TRUE;
 	else {
