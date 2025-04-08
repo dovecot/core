@@ -885,7 +885,7 @@ bool master_service_parse_option(struct master_service *service,
 		array_push_back(&service->config_overrides, &arg);
 		break;
 	case 'O':
-		service->flags |= MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS;
+		service->flags |= MASTER_SERVICE_FLAG_CONFIG_DEFAULTS;
 		break;
 	case 'L':
 		service->log_directly = TRUE;

@@ -18,8 +18,12 @@ enum master_service_flags {
 	/* Log to configured log file instead of stderr. By default when
 	   _FLAG_STANDALONE is set, logging is done to stderr. */
 	MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR	= 0x04,
-	/* Don't read settings, but use whatever is in environment */
-	MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS	= 0x10,
+	/* Use only default settings (by executing doveconf -dF) */
+	MASTER_SERVICE_FLAG_CONFIG_DEFAULTS	= 0x10,
+	/* Use only built-in settings (do not execute doveconf). If any
+	   settings are overridden, their infos must be registered with
+	   settings_info_register(). Used by unit tests. */
+	MASTER_SERVICE_FLAG_CONFIG_BUILTIN	= 0x20,
 	/* Use MASTER_LOGIN_NOTIFY_FD to track login overflow state */
 	MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE	= 0x40,
 	/* If master sends SIGINT, don't die even if we don't have clients */

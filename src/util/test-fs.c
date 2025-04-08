@@ -382,7 +382,7 @@ int main(int argc, char *argv[])
 	params.base_dir = PKG_RUNDIR;
 	master_service = master_service_init("test-fs",
 					     MASTER_SERVICE_FLAG_STANDALONE |
-					     MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS,
+					     MASTER_SERVICE_FLAG_CONFIG_DEFAULTS,
 					     &argc, &argv, "Daf:p:st:u:");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {

@@ -1,6 +1,8 @@
 #ifndef MASTER_SERVICE_SETTINGS_H
 #define MASTER_SERVICE_SETTINGS_H
 
+#define MASTER_SERVICE_BINARY_CONFIG_DEFAULTS "<default config>"
+
 /* <settings checks> */
 #ifdef DOVECOT_PRO_EDITION
 #  define VERBOSE_PROCTITLE_DEFAULT TRUE

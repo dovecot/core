@@ -3010,6 +3010,13 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	if (fd != -1) {
 		if (config_parser_add_seen_file_fd(&ctx, fd, path, error_r) < 0)
 			return -1;
+	} else {
+		/* stat contents don't matter for defaults, as long as they
+		   don't change. */
+		struct stat st;
+		i_zero(&st);
+		config_parser_add_seen_file(&ctx, &st,
+			MASTER_SERVICE_BINARY_CONFIG_DEFAULTS);
 	}
 
 	for (count = 0; all_infos[count] != NULL; count++) ;

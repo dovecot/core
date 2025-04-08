@@ -257,8 +257,12 @@ master_service_exec_config(struct master_service *service,
 
 	t_array_init(&conf_argv, 11 + (service->argc + 1) + 1);
 	strarr_push(&conf_argv, DOVECOT_CONFIG_BIN_PATH);
-	strarr_push(&conf_argv, "-c");
-	strarr_push(&conf_argv, service->config_path);
+	if ((service->flags & MASTER_SERVICE_FLAG_CONFIG_DEFAULTS) != 0)
+		strarr_push(&conf_argv, "-d");
+	else {
+		strarr_push(&conf_argv, "-c");
+		strarr_push(&conf_argv, service->config_path);
+	}
 
 	if (input->check_full_config)
 		strarr_push(&conf_argv, "-C");
@@ -344,13 +348,22 @@ master_service_open_config(struct master_service *service,
 	const char *path;
 	int fd = -1;
 
+	if ((service->flags & MASTER_SERVICE_FLAG_CONFIG_DEFAULTS) != 0)
+		path = MASTER_SERVICE_BINARY_CONFIG_DEFAULTS;
+	else if (input->config_path != NULL)
+		path = input->config_path;
+	else
+		path = master_service_get_config_path(service);
+	*path_r = path;
 	*cached_config_r = FALSE;
-	*path_r = path = input->config_path != NULL ? input->config_path :
-		master_service_get_config_path(service);
+
 	if ((fd = master_service_binary_config_cache_get(cache_dir, path)) != -1) {
 		*cached_config_r = TRUE;
 		return fd;
 	}
+
+	if ((service->flags & MASTER_SERVICE_FLAG_CONFIG_DEFAULTS) != 0)
+		master_service_exec_config(service, input);
 
 	if (!service->config_path_from_master &&
 	    !service->config_path_changed_with_param &&
@@ -485,7 +498,7 @@ master_service_settings_read_int(struct master_service *service,
 		if (str_to_int(value, &fd) < 0 || fd < 0)
 			i_fatal("Invalid "DOVECOT_CONFIG_FD_ENV": %s", value);
 		path = t_strdup_printf("<"DOVECOT_CONFIG_FD_ENV" %d>", fd);
-	} else if ((service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0) {
+	} else if ((service->flags & MASTER_SERVICE_FLAG_CONFIG_BUILTIN) == 0) {
 		/* Open config via socket if possible. If it doesn't work,
 		   execute doveconf -F. */
 		T_BEGIN {
