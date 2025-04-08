@@ -38,6 +38,7 @@ struct dict_settings {
 	ARRAY_TYPE(const_string) dicts;
 };
 extern const struct setting_parser_info dict_setting_parser_info;
+extern const struct setting_parser_info dict_file_setting_parser_info;
 
 struct dict_op_settings {
 	const char *username;

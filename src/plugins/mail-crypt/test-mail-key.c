@@ -3,7 +3,9 @@
 #include "lib.h"
 #include "test-common.h"
 #include "hex-binary.h"
+#include "settings.h"
 #include "master-service.h"
+#include "dict.h"
 #include "test-mail-storage-common.h"
 #include "dcrypt.h"
 
@@ -425,6 +427,8 @@ int main(int argc, char **argv)
 					     MASTER_SERVICE_FLAG_NO_SSL_INIT |
 					     MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME,
 					     &argc, &argv, "");
+	settings_info_register(&dict_setting_parser_info);
+	settings_info_register(&dict_file_setting_parser_info);
 	int ret = test_run(tests);
 	master_service_deinit(&master_service);
 	return ret;

@@ -9,6 +9,7 @@
 #include "path-util.h"
 #include "unlink-directory.h"
 #include "settings-parser.h"
+#include "settings.h"
 #include "master-service.h"
 #include "smtp-submit.h"
 #include "mail-storage-service.h"
@@ -284,6 +285,26 @@ static void test_init(void)
 	test_subprocesses_init(FALSE);
 }
 
+struct test_service_settings {
+	pool_t pool;
+	ARRAY_TYPE(const_string) services;
+};
+
+static const struct setting_define test_service_setting_defines[] = {
+	{ .type = SET_FILTER_ARRAY, .key = "service",
+	  .offset = offsetof(struct test_service_settings, services) },
+	SETTING_DEFINE_LIST_END
+};
+
+static const struct setting_parser_info test_service_setting_parser_info = {
+	.name = "test_service",
+
+	.defines = test_service_setting_defines,
+
+	.struct_size = sizeof(struct test_service_settings),
+	.pool_offset1 = 1 + offsetof(struct test_service_settings, pool),
+};
+
 int main(int argc, char *argv[])
 {
 	const enum master_service_flags service_flags =
@@ -295,6 +316,10 @@ int main(int argc, char *argv[])
 
 	master_service = master_service_init("test-imap-client-hibernate",
 					     service_flags, &argc, &argv, "D");
+
+	/* imap default settings use service/imap/imap_capability, so we need
+	   to register "service" named list filter. */
+	settings_info_register(&test_service_setting_parser_info);
 
 	master_service_init_finish(master_service);
 	test_init();

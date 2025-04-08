@@ -11,6 +11,7 @@
 #include "settings.h"
 #include "fs-api.h"
 #include "fs-api-private.h"
+#include "crypt-settings.h"
 #include "dcrypt.h"
 
 #include <unistd.h>
@@ -40,6 +41,8 @@ static void test_setup(void)
 
 	fs_class_register(&fs_class_posix);
 	fs_class_register(&fs_class_crypt);
+
+	settings_info_register(&crypt_setting_parser_info);
 }
 
 static void test_fs_crypt_read_write(void)

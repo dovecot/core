@@ -8,6 +8,7 @@
 #include "dict-private.h"
 #include "dict-sql.h"
 #include "dict-sql-private.h"
+#include "dict-sql-settings.h"
 #include "driver-test.h"
 
 struct dict_op_settings dict_op_settings = {
@@ -337,6 +338,7 @@ int main(void) {
 	sql_drivers_init_without_drivers();
 	sql_driver_test_register();
 	dict_sql_register();
+	settings_info_register(&dict_map_setting_parser_info);
 
 	static void (*const test_functions[])(void) = {
 		test_lookup_one,

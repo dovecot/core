@@ -4,6 +4,7 @@
 #include "unlink-directory.h"
 #include "test-common.h"
 #include "settings.h"
+#include "fs-api.h"
 #include "dict-private.h"
 
 static void test_dict_set_get(struct dict *dict, const char *key,
@@ -108,6 +109,7 @@ int main(void)
 		NULL
 	};
 	int ret;
+	settings_info_register(&fs_setting_parser_info);
 	dict_driver_register(&dict_driver_fs);
 	ret = test_run(test_functions);
 	dict_driver_unregister(&dict_driver_fs);
