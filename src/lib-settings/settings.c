@@ -54,18 +54,14 @@ struct settings_override {
 	unsigned int filter_element_count;
 	/* key += value is used, i.e. append this value to existing value */
 	bool append;
-	/* TRUE once all the filter elements have been processed in "key",
-	   and it points to a non-filter suffix of the path. */
-	bool filter_finished;
 	/* Always apply this override, regardless of any filters. */
 	bool always_match;
 	bool array_default_added;
 	/* Original key for the overridden setting, e.g.
 	   namespace/inbox/mailbox/Sent/mail_attribute/dict_driver */
 	const char *orig_key;
-	/* key starts as orig_key, but it keeps being updated to skip over
-	   the filter elements, e.g. finally when filter_finished=TRUE, it's
-	   just "dict_driver" */
+	/* Final key for the overridden setting, e.g. dict_driver for the above
+	   orig_key example. */
 	const char *key;
 	/* Value for the overridden setting */
 	const char *value;
@@ -77,11 +73,10 @@ struct settings_override {
 	   settings_filter_name=key/value, and any named filter as
 	   settings_filter_name=name. */
 	struct event *filter_event;
-	/* Last filter element's key, and for list filters the value, while
-	   the key is being processed. In the above example:
-	   - "namespace", "inbox"
-	   - "mailbox", "Sent"
-	   - "mail_attribute", NULL
+	/* Last filter element's key, and for list filters the value. For
+	   example:
+	   - namespace/inbox/key: "namespace", "inbox"
+	   - mail_attribute/key: "mail_attribute", NULL
 	*/
 	const char *last_filter_key, *last_filter_value;
 };
@@ -212,7 +207,9 @@ static bool settings_local_name_cmp(const char *value, const char *wanted_value)
 
 static void settings_override_free(struct settings_override *override)
 {
-	event_filter_unref(&override->filter);
+	if (override->filter != EVENT_FILTER_MATCH_ALWAYS &&
+	    override->filter != EVENT_FILTER_MATCH_NEVER)
+		event_filter_unref(&override->filter);
 	event_unref(&override->filter_event);
 }
 
@@ -1715,6 +1712,79 @@ settings_apply_override_cmp(const struct settings_apply_override *set1,
 	return set2->order - set1->order;
 }
 
+static bool
+settings_mmap_registered_lookup_key(const char *key, enum setting_type *type_r)
+{
+	if (!array_is_created(&set_registered_infos))
+		return FALSE;
+
+	const struct setting_parser_info *info;
+	array_foreach_elem(&set_registered_infos, info) {
+		unsigned int key_idx;
+		if (setting_parser_info_find_key(info, key, &key_idx)) {
+			*type_r = info->defines[key_idx].type;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+static bool
+settings_mmap_lookup_key(struct settings_mmap *mmap, const char *key,
+			 enum setting_type *type_r)
+{
+	if (mmap == NULL)
+		return settings_mmap_registered_lookup_key(key, type_r);
+
+	/* Look it up from hash table */
+	uint32_t key_hash = (mmap->all_keys_hash_key_prefix ^ str_hash(key)) %
+		mmap->all_keys_hash_count;
+	uint32_t rel_offset = mmap->all_keys_hash[key_hash];
+	if (rel_offset == 0)
+		return FALSE;
+
+	/* Verify the name matches */
+	const char *name = CONST_PTR_OFFSET(mmap->all_keys_base, rel_offset);
+	if (strcmp(name, key) != 0)
+		return FALSE;
+
+	/* Get setting type */
+	const void *p = name + strlen(name) + 1;
+	uint32_t set_type;
+	memcpy(&set_type, p, sizeof(set_type));
+	*type_r = set_type;
+	return TRUE;
+}
+
+static bool
+settings_override_key_part_find(struct settings_mmap *mmap, const char **key,
+				const char *last_filter_key,
+				const char *last_filter_value,
+				enum setting_type *type_r)
+{
+	if (last_filter_value != NULL) {
+		i_assert(last_filter_key != NULL);
+		const char *key_prefix = last_filter_key;
+		/* Try filter/name/key -> filter_name_key, and fallback to
+		   filter_key. Do this before the non-prefixed check, so e.g.
+		   inet_listener/imap/ssl won't try to change the global ssl
+		   setting. */
+		const char *prefixed_key =
+			t_strdup_printf("%s_%s_%s", key_prefix,
+					last_filter_value, *key);
+		if (settings_mmap_lookup_key(mmap, prefixed_key, type_r)) {
+			*key = prefixed_key;
+			return TRUE;
+		}
+
+		prefixed_key = t_strdup_printf("%s_%s", key_prefix, *key);
+		if (settings_mmap_lookup_key(mmap, prefixed_key, type_r)) {
+			*key = prefixed_key;
+			return TRUE;
+		}
+	}
+	return settings_mmap_lookup_key(mmap, *key, type_r);
+}
 
 static bool
 settings_key_part_find(struct settings_apply_ctx *ctx, const char **key,
@@ -1753,79 +1823,44 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 			       struct settings_override *set,
 			       const char **error_r)
 {
-	/* Handling filters for overrides works in an incremental way, filling
-	   set->filter more and more as it knows what the setting key's parts
-	   mean. For example an override:
-
-	   namespace/inbox/mailbox/foo/special_use=\Drafts
-
-	   For this to actually work, this function must become called with
-	   ctx->info == &mail_storage_setting_parser_info to translate the
-	   "namespace/inbox/" prefix into set->filter. Next this must be called
-	   with ctx->info == &mail_namespace_setting_parser_info to further add
-	   "mailbox/foo/" into set->filter. Finally when this function is
-	   called to lookup ctx->info == &mailbox_setting_parser_info, it only
-	   needs to know about the "special_use" key.
-
-	   Unfortunately this means that there must be settings lookups in
-	   the correct order to do the filter prefix to set->filter conversion.
-	   This is expected to work for most common filters, but it could cause
-	   problems in some cases. Debugging what is going wrong for overrides
-	   is rather painful. */
 	const struct failure_context failure_ctx = {
 		.type = LOG_TYPE_DEBUG
 	};
-	unsigned int key_idx;
 	const char *p, *error;
 
-	/* check the filter that exists so far */
-	if (set->filter != NULL &&
-	    !event_filter_match(set->filter, ctx->event, &failure_ctx))
-		return 0;
-	if (set->filter_finished)
-		return 1;
+	/* check if the filter is already set */
+	if (set->filter != NULL) {
+		if (set->filter == EVENT_FILTER_MATCH_ALWAYS)
+			return 1;
+		if (set->filter == EVENT_FILTER_MATCH_NEVER)
+			return 0;
+		return event_filter_match(set->filter, ctx->event,
+					  &failure_ctx) ? 1 : 0;
+	}
 
-	struct event_field *set_filter_names =
-		event_find_field_nonrecursive(ctx->event,
-					      SETTINGS_EVENT_FILTER_NAME);
-	if (set_filter_names != NULL &&
-	    set_filter_names->value_type != EVENT_FIELD_VALUE_TYPE_STRLIST)
-		set_filter_names = NULL;
-
-	if (set->filter == NULL &&
-	    str_begins(set->key, "*"SETTINGS_SEPARATOR_S, &set->key)) {
+	if (str_begins(set->key, "*"SETTINGS_SEPARATOR_S, &set->key)) {
 		/* always match, also for any named list filters */
-		set->filter_finished = TRUE;
+		set->filter = EVENT_FILTER_MATCH_ALWAYS;
 		set->always_match = TRUE;
 		return 1;
 	}
 
-	bool filter_finished = TRUE;
 	string_t *filter_string = NULL;
-	const char *last_filter_key = set->last_filter_key;
-	const char *last_filter_value = set->last_filter_value;
+	const char *last_filter_key = NULL;
+	const char *last_filter_value = NULL;
 	while ((p = strchr(set->key, SETTINGS_SEPARATOR)) != NULL) {
-		/* see if the info struct knows about the next part in the key. */
 		const char *part = t_strdup_until(set->key, p);
 		enum setting_type set_type;
 
-		if (settings_key_part_find(ctx, &part, last_filter_key,
-					   last_filter_value, &key_idx))
-			set_type = ctx->info->defines[key_idx].type;
-		else if (set_filter_names != NULL &&
-			 array_lsearch(&set_filter_names->value.strlist,
-				       &part, i_strcmp_p) != NULL) {
-			/* If SETTINGS_EVENT_FILTER_NAME is set, we can assume
-			   that any key prefix with the same name is of type
-			   SET_FILTER_NAME. This is mainly intended for
-			   "doveadm fs" filter-name parameter matching to work
-			   with all filters, which otherwise wouldn't be
-			   visible to the settings override code. */
-			set_type = SET_FILTER_NAME;
-		} else {
-			filter_finished = FALSE;
-			break;
+		if (!settings_override_key_part_find(ctx->instance->mmap, &part,
+						     last_filter_key,
+						     last_filter_value,
+						     &set_type)) {
+			/* nonexistent setting */
+			set->filter = EVENT_FILTER_MATCH_NEVER;
+			return 0;
 		}
+
 		if (set_type == SET_STRLIST || set_type == SET_BOOLLIST)
 			break;
 
@@ -1878,29 +1913,24 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 		set->key = p + 1;
 	}
 
-	if (filter_string != NULL) {
-		struct event_filter *tmp_filter = event_filter_create();
+	if (filter_string == NULL)
+		set->filter = EVENT_FILTER_MATCH_ALWAYS;
+	else {
+		set->filter = event_filter_create_with_pool(set->pool);
 		if (event_filter_parse_case_sensitive(str_c(filter_string),
-						      tmp_filter, &error) < 0) {
+						      set->filter, &error) < 0) {
 			i_panic("BUG: Failed to create event filter filter for %s: %s (%s)",
 				set->orig_key, error, str_c(filter_string));
 		}
-		if (set->filter == NULL) {
-			set->filter = event_filter_create_with_pool(set->pool);
-			pool_ref(set->pool);
-		}
-		event_filter_merge(set->filter, tmp_filter, EVENT_FILTER_MERGE_OP_AND);
-		event_filter_unref(&tmp_filter);
+		pool_ref(set->pool);
 	}
 
 	if (set->last_filter_key != last_filter_key)
 		set->last_filter_key = p_strdup(set->pool, last_filter_key);
 	if (set->last_filter_value != last_filter_value)
 		set->last_filter_value = p_strdup(set->pool, last_filter_value);
-	set->filter_finished = filter_finished;
-	return filter_finished &&
-		(set->filter == NULL ||
-		 event_filter_match(set->filter, ctx->event, &failure_ctx)) ? 1 : 0;
+	return (set->filter == EVENT_FILTER_MATCH_ALWAYS ||
+		event_filter_match(set->filter, ctx->event, &failure_ctx)) ? 1 : 0;
 }
 
 static int
@@ -2020,15 +2050,12 @@ settings_instance_override_add_default(struct settings_apply_ctx *ctx,
 			i_panic("BUG: Failed to create event filter filter for %s: %s (%s)",
 				set->orig_key, error, filter_string);
 		}
-		if (array_set->filter != NULL) {
+		if (array_set->filter != EVENT_FILTER_MATCH_ALWAYS) {
 			/* Merge the final event filter with the parent
-			   SET_FILTER_ARRAY's event filter, which should be
-			   finished.  */
-			i_assert(array_set->filter_finished);
+			   SET_FILTER_ARRAY's event filter. */
 			event_filter_merge(set->filter, array_set->filter,
 					   EVENT_FILTER_MERGE_OP_AND);
 		}
-		set->filter_finished = TRUE;
 	}
 }
 
@@ -2081,6 +2108,11 @@ settings_instance_override_init(struct settings_apply_ctx *ctx,
 {
 	struct settings_override *set;
 	bool have_2nd_defaults = FALSE;
+
+	if (ctx->instance->mmap == NULL) {
+		/* For unit tests, auto-register the looked up info */
+		settings_info_register(ctx->info);
+	}
 
 	t_array_init(&ctx->overrides, 64);
 	if (array_is_created(&ctx->instance->overrides)) {
