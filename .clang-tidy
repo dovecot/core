@@ -26,6 +26,7 @@ Checks: >
   -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
   -llvmlibc-restrict-system-libc-headers,
   -misc-include-cleaner,
+  -misc-no-recursion,
   -performance-no-int-to-ptr,
   -readability-avoid-const-params-in-decls,
   -readability-braces-around-statements,
