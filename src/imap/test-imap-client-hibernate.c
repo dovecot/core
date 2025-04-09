@@ -20,6 +20,7 @@
 #include <sys/stat.h>
 
 #define TEMP_DIRNAME ".test-ich"
+#define SERVER_KILL_TIMEOUT_SECS 10
 
 #define EVILSTR "\t\r\n\001"
 
@@ -128,7 +129,7 @@ static int imap_hibernate_server(struct test_imap_client_hibernate *ctx)
 
 	mail_storage_service_deinit(&storage_service);
 	master_service_deinit_forked(&master_service);
-	return 0;
+	return test_has_failed() ? 1 : 0;
 }
 
 static void
@@ -236,6 +237,8 @@ static void test_imap_client_hibernate(void)
 	   deinitializing cleanly */
 	mailbox_notify_changes(client->mailbox, mailbox_notify_callback, client);
 	test_assert(imap_client_hibernate(&client, &error));
+	test_subprocess_kill_all(SERVER_KILL_TIMEOUT_SECS);
+
 	test_end();
 
 	i_close_fd(&ctx.fd_listen);
