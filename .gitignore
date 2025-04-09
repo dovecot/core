@@ -51,6 +51,7 @@ vgcore.*
 /version
 /.cache
 /.dir-locals.el
+/.ropeproject
 
 /aclocal.m4
 /m4/libtool.m4
