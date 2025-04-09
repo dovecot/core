@@ -117,7 +117,24 @@ static int imap_hibernate_server(struct test_imap_client_hibernate *ctx)
 	test_assert_strcmp(args[i++], "idle-cmd");
 	if (ctx->has_mailbox)
 		test_assert_strcmp(args[i++], "notify_fd");
-	test_assert(str_begins_with(args[i++], "state="));
+
+	const char *const stats_prefixes[] = {
+		"state=",
+		"fetch_hdr_count=",
+		"fetch_hdr_bytes=",
+		"fetch_body_count=",
+		"fetch_body_bytes=",
+		"deleted_count=",
+		"expunged_count=",
+		"trashed_count=",
+		"autoexpunged_count=",
+		"append_count=",
+		"input_bytes_extra=",
+		"output_bytes_extra=",
+	};
+	for (size_t p = 0; p < N_ELEMENTS(stats_prefixes); p++)
+		test_assert(str_begins_with(args[i++], stats_prefixes[p]));
+
 	test_assert(args[i] == NULL);
 
 	i_stream_unref(&input);
