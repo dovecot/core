@@ -3429,6 +3429,23 @@ static bool config_have_info_dependency(const struct setting_parser_info *info)
 	return stat(path, &st) == 0;
 }
 
+static void
+config_parse_load_module_paths(const char *const *paths,
+			       const struct module_dir_load_settings *mod_set)
+{
+	for (unsigned int i = 0; paths[i] != NULL; i++) {
+		const char *dir;
+		const char *fname = strrchr(paths[i], '/');
+		if (fname == NULL)
+			i_fatal("Missing directory for %s", paths[i]);
+		dir = t_strdup_until(paths[i], fname++);
+
+		const char *const fnames[2] = { fname, NULL };
+		modules = module_dir_load_missing(modules, dir, fnames,
+						  mod_set);
+	}
+}
+
 void config_parse_load_modules(bool dump_config_import)
 {
 	struct module_dir_load_settings mod_set;
@@ -3441,7 +3458,16 @@ void config_parse_load_modules(bool dump_config_import)
 
 	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
-	modules = module_dir_load(CONFIG_MODULE_DIR, NULL, &mod_set);
+	const char *module_paths = getenv("CONFIG_MODULES");
+	if (module_paths == NULL)
+		modules = module_dir_load(CONFIG_MODULE_DIR, NULL, &mod_set);
+	else {
+		/* Explicit list of config modules to load explicitly.
+		   Used by Pigeonhole testsuite. */
+		config_parse_load_module_paths(t_strsplit(module_paths, ":"),
+					       &mod_set);
+
+	}
 	module_dir_init(modules);
 
 	config_import = str_new(default_pool, 10240);
