@@ -3077,6 +3077,20 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 		hook_config_parser_begin(&ctx);
 	} T_END;
 
+	if ((flags & CONFIG_PARSE_FLAG_DEFAULT_VERSION) != 0) {
+		/* Use default settings. Set dovecot_storage_version to the
+		   latest version, so it won't cause a failure.
+
+		   When building from git we don't know the latest version, so
+		   just use 9999. The version validity checks are disabled for
+		   git builds, so this should work. */
+		const char *version = version_is_valid(DOVECOT_VERSION) ?
+			DOVECOT_VERSION : "9999";
+		if (config_apply_exact_line(&ctx, NULL, "dovecot_storage_version",
+					    version) < 0)
+			i_panic("Couldn't set default dovecot_storage_version: %s", ctx.error);
+	}
+
 	internal.path = "Internal config_import";
 	ctx.cur_input->input = config_import == NULL ?
 		i_stream_create_from_data("", 0) :

@@ -37,6 +37,9 @@ enum config_parse_flags {
 	CONFIG_PARSE_FLAG_MERGE_DEFAULT_FILTERS = BIT(9),
 	/* Ignore unknown settings in the config file. */
 	CONFIG_PARSE_FLAG_IGNORE_UNKNOWN = BIT(10),
+	/* Executing "doveconf -dF" - add default dovecot_storage_version
+	   setting. */
+	CONFIG_PARSE_FLAG_DEFAULT_VERSION = BIT(11),
 };
 
 /* Used to track changed settings for a setting_parser_info. Initially only

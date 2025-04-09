@@ -1261,6 +1261,8 @@ int main(int argc, char *argv[])
 		flags |= CONFIG_PARSE_FLAG_DELAY_ERRORS;
 	if (exec_args == NULL)
 		flags |= CONFIG_PARSE_FLAG_EXTERNAL_HOOKS;
+	else if (dump_defaults)
+		flags |= CONFIG_PARSE_FLAG_DEFAULT_VERSION;
 	T_BEGIN {
 		ret = config_parse_file(dump_defaults ? NULL : config_path,
 			flags, have_dump_filter ? &dump_filter : NULL,
