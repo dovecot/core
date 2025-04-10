@@ -64,11 +64,6 @@ struct settings_override {
 
 	/* Event filter being generated from the key as it's being processed. */
 	struct event_filter *filter;
-	/* Event being generated from the key as it's being processed.
-	   The event contains every named list filter as
-	   settings_filter_name=key/value, and any named filter as
-	   settings_filter_name=name. */
-	struct event *filter_event;
 	/* Last filter element's key, and for list filters the value. For
 	   example:
 	   - namespace/inbox/key: "namespace", "inbox"
@@ -208,7 +203,6 @@ static void settings_override_free(struct settings_override *override)
 	if (override->filter != EVENT_FILTER_MATCH_ALWAYS &&
 	    override->filter != EVENT_FILTER_MATCH_NEVER)
 		event_filter_unref(&override->filter);
-	event_unref(&override->filter_event);
 }
 
 static int
@@ -1957,17 +1951,12 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 			filter_string = t_str_new(64);
 		else
 			str_append(filter_string, " AND ");
-		if (set->filter_event == NULL)
-			set->filter_event = event_create(NULL);
 		switch (set_type) {
 		case SET_FILTER_NAME:
 			last_filter_key = part;
 			last_filter_value = NULL;
 			str_printfa(filter_string, SETTINGS_EVENT_FILTER_NAME"=\"%s\"",
 				    wildcard_str_escape(last_filter_key));
-			event_strlist_append(set->filter_event,
-					     SETTINGS_EVENT_FILTER_NAME,
-					     last_filter_key);
 			set->filter_element_count++;
 			break;
 		case SET_FILTER_ARRAY: {
@@ -1983,13 +1972,6 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 			last_filter_value = t_strdup_until(value, p);
 			str_printfa(filter_string, SETTINGS_EVENT_FILTER_NAME"=\"%s/%s\"",
 				    last_filter_key, wildcard_str_escape(settings_section_escape(last_filter_value)));
-			event_add_str(set->filter_event,
-				      last_filter_key, last_filter_value);
-			event_strlist_append(set->filter_event,
-					     SETTINGS_EVENT_FILTER_NAME,
-					     p_strdup_printf(event_get_pool(set->filter_event),
-							     "%s/%s", last_filter_key,
-							     settings_section_escape(last_filter_value)));
 			set->filter_array_element_count++;
 			break;
 		}
