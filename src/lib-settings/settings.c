@@ -77,6 +77,10 @@ struct settings_override {
 	   - mail_attribute/key: "mail_attribute", NULL
 	*/
 	const char *last_filter_key, *last_filter_value;
+
+	/* NULL-terminated list of block names (setting_parser_info names)
+	   which contain this setting key. */
+	const char *const *block_names;
 };
 ARRAY_DEFINE_TYPE(settings_override, struct settings_override);
 
@@ -112,6 +116,9 @@ struct settings_mmap {
 	uint32_t all_keys_hash_count;
 	const uint32_t *all_keys_hash;
 	const unsigned char *all_keys_base;
+
+	uint32_t block_names_count;
+	const uint32_t *block_names_rel_offsets;
 
 	struct event_filter **event_filters;
 	struct event_filter **override_event_filters;
@@ -466,6 +473,16 @@ settings_read_all_keys(struct settings_mmap *mmap,
 				       error_r) < 0)
 		return -1;
 	mmap->all_keys_hash = CONST_PTR_OFFSET(mmap->mmap_base, *offset);
+
+	/* block names */
+	*offset += sizeof(uint32_t) * mmap->all_keys_hash_count;
+	if (settings_block_read_uint32(mmap, offset, mmap->mmap_size,
+				       "block names count",
+				       &mmap->block_names_count,
+				       error_r) < 0)
+		return -1;
+	mmap->block_names_rel_offsets =
+		CONST_PTR_OFFSET(mmap->mmap_base, *offset);
 
 	*offset = end_offset;
 	return 0;
@@ -1719,7 +1736,7 @@ settings_mmap_registered_lookup_key(const char *key, enum setting_type *type_r)
 
 static bool
 settings_mmap_lookup_key(struct settings_mmap *mmap, const char *key,
-			 enum setting_type *type_r)
+			 enum setting_type *type_r, const void **blocks_r)
 {
 	if (mmap == NULL)
 		return settings_mmap_registered_lookup_key(key, type_r);
@@ -1741,6 +1758,7 @@ settings_mmap_lookup_key(struct settings_mmap *mmap, const char *key,
 	uint32_t set_type;
 	memcpy(&set_type, p, sizeof(set_type));
 	*type_r = set_type;
+	*blocks_r = CONST_PTR_OFFSET(p, sizeof(set_type));
 	return TRUE;
 }
 
@@ -1748,7 +1766,8 @@ static bool
 settings_override_key_part_find(struct settings_mmap *mmap, const char **key,
 				const char *last_filter_key,
 				const char *last_filter_value,
-				enum setting_type *type_r)
+				enum setting_type *type_r,
+				const void **blocks_r)
 {
 	if (last_filter_value != NULL) {
 		i_assert(last_filter_key != NULL);
@@ -1760,18 +1779,18 @@ settings_override_key_part_find(struct settings_mmap *mmap, const char **key,
 		const char *prefixed_key =
 			t_strdup_printf("%s_%s_%s", key_prefix,
 					last_filter_value, *key);
-		if (settings_mmap_lookup_key(mmap, prefixed_key, type_r)) {
+		if (settings_mmap_lookup_key(mmap, prefixed_key, type_r, blocks_r)) {
 			*key = prefixed_key;
 			return TRUE;
 		}
 
 		prefixed_key = t_strdup_printf("%s_%s", key_prefix, *key);
-		if (settings_mmap_lookup_key(mmap, prefixed_key, type_r)) {
+		if (settings_mmap_lookup_key(mmap, prefixed_key, type_r, blocks_r)) {
 			*key = prefixed_key;
 			return TRUE;
 		}
 	}
-	return settings_mmap_lookup_key(mmap, *key, type_r);
+	return settings_mmap_lookup_key(mmap, *key, type_r, blocks_r);
 }
 
 static bool
@@ -1807,6 +1826,75 @@ settings_key_part_find(struct settings_apply_ctx *ctx, const char **key,
 }
 
 static int
+settings_override_set_blocks(struct settings_mmap *mmap,
+			     struct settings_override *set,
+			     const char **error_r)
+{
+	enum setting_type set_type;
+	const char *key = t_strcut(set->key, '/');
+	const void *blocks;
+
+	if (key[0] == SETTINGS_INCLUDE_GROUP_PREFIX) {
+		/* Group override - we don't currently support optimizing the
+		   block name checks. */
+		return 1;
+	}
+	if (mmap == NULL) {
+		/* Using only built-in settings - skip optimizations. */
+		return 1;
+	}
+	if (!settings_override_key_part_find(mmap, &key, set->last_filter_key,
+					     set->last_filter_value, &set_type,
+					     &blocks)) {
+		/* nonexistent setting */
+		set->filter = EVENT_FILTER_MATCH_NEVER;
+		return 0;
+	}
+
+	uint32_t i, count, block_idx;
+	memcpy(&count, blocks, sizeof(count));
+	blocks = CONST_PTR_OFFSET(blocks, sizeof(count));
+
+	if (count == 0) {
+		*error_r = t_strdup_printf("BUG: Setting %s has no blocks", key);
+		return -1;
+	}
+
+	const char **block_names = p_new(mmap->pool, const char *, count + 1);
+	for (i = 0; i < count; i++) {
+		memcpy(&block_idx, blocks, sizeof(block_idx));
+		blocks = CONST_PTR_OFFSET(blocks, sizeof(block_idx));
+
+		if (block_idx >= mmap->block_names_count) {
+			*error_r = t_strdup_printf(
+				"BUG: Setting %s record points to nonexistent block index %u",
+				key, block_idx);
+			return -1;
+		}
+
+		block_names[i] =
+			CONST_PTR_OFFSET(mmap->all_keys_base,
+					 mmap->block_names_rel_offsets[block_idx]);
+	}
+	set->block_names = block_names;
+	return 1;
+}
+
+static bool setting_override_match_info(struct settings_apply_ctx *ctx,
+					struct settings_override *set)
+{
+	if (set->block_names == NULL) {
+		/* Optimization disabled. */
+		return TRUE;
+	}
+	for (unsigned int i = 0; set->block_names[i] != NULL; i++) {
+		if (strcmp(set->block_names[i], ctx->info->name) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static int
 settings_override_filter_match(struct settings_apply_ctx *ctx,
 			       struct settings_override *set,
 			       const char **error_r)
@@ -1818,19 +1906,25 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 
 	/* check if the filter is already set */
 	if (set->filter != NULL) {
-		if (set->filter == EVENT_FILTER_MATCH_ALWAYS)
-			return 1;
 		if (set->filter == EVENT_FILTER_MATCH_NEVER)
 			return 0;
+		if (!setting_override_match_info(ctx, set))
+			return 0;
+		if (set->filter == EVENT_FILTER_MATCH_ALWAYS)
+			return 1;
 		return event_filter_match(set->filter, ctx->event,
 					  &failure_ctx) ? 1 : 0;
 	}
 
 	if (str_begins(set->key, "*"SETTINGS_SEPARATOR_S, &set->key)) {
 		/* always match, also for any named list filters */
+		int ret = settings_override_set_blocks(ctx->instance->mmap,
+						       set, error_r);
+		if (ret <= 0)
+			return ret;
 		set->filter = EVENT_FILTER_MATCH_ALWAYS;
 		set->always_match = TRUE;
-		return 1;
+		return setting_override_match_info(ctx, set) ? 1 : 0;
 	}
 
 	string_t *filter_string = NULL;
@@ -1839,11 +1933,12 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 	while ((p = strchr(set->key, SETTINGS_SEPARATOR)) != NULL) {
 		const char *part = t_strdup_until(set->key, p);
 		enum setting_type set_type;
+		const void *blocks ATTR_UNUSED;
 
 		if (!settings_override_key_part_find(ctx->instance->mmap, &part,
 						     last_filter_key,
 						     last_filter_value,
-						     &set_type)) {
+						     &set_type, &blocks)) {
 			/* nonexistent setting */
 			set->filter = EVENT_FILTER_MATCH_NEVER;
 			return 0;
@@ -1901,6 +1996,15 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 		set->key = p + 1;
 	}
 
+	if (set->last_filter_key != last_filter_key)
+		set->last_filter_key = p_strdup(set->pool, last_filter_key);
+	if (set->last_filter_value != last_filter_value)
+		set->last_filter_value = p_strdup(set->pool, last_filter_value);
+
+	int ret = settings_override_set_blocks(ctx->instance->mmap, set, error_r);
+	if (ret <= 0)
+		return ret;
+
 	if (filter_string == NULL)
 		set->filter = EVENT_FILTER_MATCH_ALWAYS;
 	else {
@@ -1913,12 +2017,47 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 		pool_ref(set->pool);
 	}
 
-	if (set->last_filter_key != last_filter_key)
-		set->last_filter_key = p_strdup(set->pool, last_filter_key);
-	if (set->last_filter_value != last_filter_value)
-		set->last_filter_value = p_strdup(set->pool, last_filter_value);
+	if (!setting_override_match_info(ctx, set))
+		return 0;
 	return (set->filter == EVENT_FILTER_MATCH_ALWAYS ||
 		event_filter_match(set->filter, ctx->event, &failure_ctx)) ? 1 : 0;
+}
+
+static bool settings_override_find_filter_check(struct settings_apply_ctx *ctx,
+						struct settings_override *set)
+{
+	static const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+	return ctx->filter_key != NULL && set->last_filter_key != NULL &&
+		strcmp(ctx->filter_key, set->last_filter_key) == 0 &&
+		null_strcmp(ctx->filter_value, set->last_filter_value) == 0 &&
+
+		set->filter != EVENT_FILTER_MATCH_NEVER &&
+		set->filter != EVENT_FILTER_MATCH_ALWAYS &&
+		event_filter_match(set->filter, ctx->event, &failure_ctx);
+}
+
+static bool settings_overrides_find_filter(struct settings_apply_ctx *ctx)
+{
+	/* We've optimized skipping overrides that don't match the current
+	   info. Now it looks like a filter lookup didn't find any settings.
+	   But it's possible that there are settings for the filter in
+	   overrides, just for different infos. Check if this is the case. */
+	struct settings_override *set;
+	if (array_is_created(&ctx->instance->overrides)) {
+		array_foreach_modifiable(&ctx->instance->overrides, set) {
+			if (settings_override_find_filter_check(ctx, set))
+				return TRUE;
+		}
+	}
+	if (array_is_created(&ctx->root->overrides)) {
+		array_foreach_modifiable(&ctx->root->overrides, set) {
+			if (settings_override_find_filter_check(ctx, set))
+				return TRUE;
+		}
+	}
+	return FALSE;
 }
 
 static int
@@ -1969,10 +2108,11 @@ settings_override_get_value(struct settings_apply_ctx *ctx,
 	return 1;
 }
 
-static void
+static int
 settings_instance_override_add_default(struct settings_apply_ctx *ctx,
 				       struct settings_override *array_set,
-				       unsigned int key_idx)
+				       unsigned int key_idx,
+				       const char **error_r)
 {
 	const struct setting_define *array_def =
 		&ctx->info->defines[key_idx];
@@ -2030,6 +2170,10 @@ settings_instance_override_add_default(struct settings_apply_ctx *ctx,
 			filter_key, wildcard_str_escape(settings_section_escape(items[i])));
 		const char *error;
 
+		if (settings_override_set_blocks(ctx->instance->mmap,
+						 set, error_r) < 0)
+			return -1;
+
 		set->filter = event_filter_create_with_pool(set->pool);
 		pool_ref(set->pool);
 		if (event_filter_parse_case_sensitive(filter_string,
@@ -2044,6 +2188,7 @@ settings_instance_override_add_default(struct settings_apply_ctx *ctx,
 					   EVENT_FILTER_MERGE_OP_AND);
 		}
 	}
+	return 0;
 }
 
 static int settings_apply_add_override(struct settings_apply_ctx *ctx,
@@ -2247,8 +2392,9 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 			   allows future override lookups to fill the default
 			   array name setting. */
 			if (!set->array_default_added) {
-				settings_instance_override_add_default(ctx,
-					set, key_idx);
+				if (settings_instance_override_add_default(ctx,
+						set, key_idx, error_r) < 0)
+					return -1;
 			}
 		} else if (ctx->info->defines[key_idx].type == SET_STRLIST ||
 			   ctx->info->defines[key_idx].type == SET_BOOLLIST) {
@@ -2429,7 +2575,8 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 	}
 
 	if (ctx->filter_key != NULL && !seen_filter &&
-	    ctx->filter_name_required) {
+	    ctx->filter_name_required &&
+	    !settings_overrides_find_filter(ctx)) {
 		pool_unref(&set_pool);
 		return 0;
 	}
