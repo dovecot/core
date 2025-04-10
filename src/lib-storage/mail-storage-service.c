@@ -76,7 +76,11 @@ static void set_keyvalue(struct mail_storage_service_user *user,
 		return;
 
 	bool is_setting;
-	if (strchr(key, '/') != NULL) {
+	if (str_begins(key, "set/", &key)) {
+		/* An explicit set/ prefix means that this is a setting.
+		   If the setting is unknown, it's an error. */
+		is_setting = TRUE;
+	} else if (strchr(key, '/') != NULL) {
 		/* Assume this is intended to be a setting. */
 		is_setting = TRUE;
 	} else {
