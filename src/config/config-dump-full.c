@@ -46,7 +46,6 @@
    <32bit: event filter strings count>
    Repeat for "event filter strings count":
      <NUL-terminated string: event filter string>
-     <NUL-terminated string: override event filter string>
      <32bit: number of named list filter elements>
 
    Repeat until "settings full size" is reached:
@@ -380,8 +379,7 @@ config_dump_full_write_all_keys(struct ostream *output,
 
 static void
 config_dump_full_append_filter_query(string_t *str,
-				     const struct config_filter *filter,
-				     bool write_named_filters)
+				     const struct config_filter *filter)
 {
 	if (filter->protocol != NULL) {
 		if (filter->protocol[0] != '!') {
@@ -421,21 +419,17 @@ config_dump_full_append_filter_query(string_t *str,
 	} else if (filter->filter_name != NULL) {
 		const char *filter_name = filter->filter_name;
 
-		if (write_named_filters) {
-			str_printfa(str, SETTINGS_EVENT_FILTER_NAME"=\"%s\" AND ",
-				    wildcard_str_escape(filter_name));
-		}
+		str_printfa(str, SETTINGS_EVENT_FILTER_NAME"=\"%s\" AND ",
+			    wildcard_str_escape(filter_name));
 	}
 }
 
 static void
 config_dump_full_append_filter(string_t *str,
-			       const struct config_filter *filter,
-			       bool write_named_filters)
+			       const struct config_filter *filter)
 {
 	do {
-		config_dump_full_append_filter_query(str, filter,
-						     write_named_filters);
+		config_dump_full_append_filter_query(str, filter);
 		filter = filter->parent;
 	} while (filter != NULL);
 
@@ -470,19 +464,13 @@ config_dump_full_write_filters(struct ostream *output,
 	/* the first filter is the global empty filter */
 	uint32_t named_list_filter_count = 0;
 	o_stream_nsend(output, "", 1);
-	o_stream_nsend(output, "", 1);
 	o_stream_nsend(output, &named_list_filter_count,
 		       sizeof(named_list_filter_count));
 
 	string_t *str = str_new(default_pool, 128);
 	for (i = 1; i < filter_count; i++) T_BEGIN {
 		str_truncate(str, 0);
-		config_dump_full_append_filter(str, &filters[i]->filter, TRUE);
-		str_append_c(str, '\0');
-		o_stream_nsend(output, str_data(str), str_len(str));
-
-		str_truncate(str, 0);
-		config_dump_full_append_filter(str, &filters[i]->filter, FALSE);
+		config_dump_full_append_filter(str, &filters[i]->filter);
 		str_append_c(str, '\0');
 		o_stream_nsend(output, str_data(str), str_len(str));
 
@@ -517,7 +505,7 @@ static void config_dump_full_stdout_write_filter(struct dump_context *ctx)
 
 	string_t *str = t_str_new(128);
 	if (ctx->filter != NULL)
-		config_dump_full_append_filter(str, ctx->filter, TRUE);
+		config_dump_full_append_filter(str, ctx->filter);
 	str_insert(str, 0, ":FILTER ");
 	str_append_c(str, '\n');
 

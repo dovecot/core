@@ -97,6 +97,20 @@ static const struct {
 	/* full file size is 7 bytes, which makes the first block size
 	   truncated, since it needs 8 bytes */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
+	       NUM64("\x25") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x0D") // all keys size
+	       "\x00" // 32bit padding
+	       NUM32("\x00") // all keys hash key prefix
+	       NUM32("\x00") // all keys hash nodes count
+	       NUM32("\x00") // block names count
+	       NUM32("\x01") // event filter count
+	       "\x00" // event filter[0]
+	       NUM32("\x00") // number of named list filter elements
+	       "\x00\x00\x00\x00\x00\x00\x00"), // block size
+	  "Area too small when reading size of 'block size'" },
+	/* first block size is 0, which is too small */
+	{ DATA("DOVECOT-CONFIG\t1.0\n"
 	       NUM64("\x26") // full size
 	       NUM32("\x00") // cache path count
 	       NUM32("\x0D") // all keys size
@@ -106,28 +120,12 @@ static const struct {
 	       NUM32("\x00") // block names count
 	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
-	       "\x00" // override event filter[0]
-	       NUM32("\x00") // number of named list filter elements
-	       "\x00\x00\x00\x00\x00\x00\x00"), // block size
-	  "Area too small when reading size of 'block size'" },
-	/* first block size is 0, which is too small */
-	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       NUM64("\x27") // full size
-	       NUM32("\x00") // cache path count
-	       NUM32("\x0D") // all keys size
-	       "\x00" // 32bit padding
-	       NUM32("\x00") // all keys hash key prefix
-	       NUM32("\x00") // all keys hash nodes count
-	       NUM32("\x00") // block names count
-	       NUM32("\x01") // event filter count
-	       "\x00" // event filter[0]
-	       "\x00" // override event filter[0]
 	       NUM32("\x00") // number of named list filter elements
 	       NUM64("\x00")), // block size
 	  "'block name' points outside area" },
 	/* first block size is 1, but full file size is too small */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       NUM64("\x27") // full size
+	       NUM64("\x26") // full size
 	       NUM32("\x00") // cache path count
 	       NUM32("\x0D") // all keys size
 	       "\x00" // 32bit padding
@@ -136,13 +134,12 @@ static const struct {
 	       NUM32("\x00") // block names count
 	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
-	       "\x00" // override event filter[0]
 	       NUM32("\x00") // number of named list filter elements
 	       NUM64("\x01")), // block size
 	  "'block size' points outside are" },
 	/* block name is not NUL-terminated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       NUM64("\x29") // full size
+	       NUM64("\x28") // full size
 	       NUM32("\x00") // cache path count
 	       NUM32("\x0D") // all keys size
 	       "\x00" // 32bit padding
@@ -151,7 +148,6 @@ static const struct {
 	       NUM32("\x00") // block names count
 	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
-	       "\x00" // override event filter[0]
 	       NUM32("\x00") // number of named list filter elements
 	       NUM64("\x01") // block size
 	       "N"
@@ -159,6 +155,23 @@ static const struct {
 	  "Settings block doesn't end with NUL at offset" },
 
 	/* settings count is truncated */
+	{ DATA("DOVECOT-CONFIG\t1.0\n"
+	       NUM64("\x2B") // full size
+	       NUM32("\x00") // cache path count
+	       NUM32("\x0D") // all keys size
+	       "\x00" // 32bit padding
+	       NUM32("\x00") // all keys hash key prefix
+	       NUM32("\x00") // all keys hash nodes count
+	       NUM32("\x00") // block names count
+	       NUM32("\x01") // event filter count
+	       "\x00" // event filter[0]
+	       NUM32("\x00") // number of named list filter elements
+	       NUM64("\x05") // block size
+	       "N\x00" // block name
+	       "\x00\x00\x00"),
+	  "Area too small when reading uint of 'settings count'" },
+
+	/* settings keys are truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
 	       NUM64("\x2C") // full size
 	       NUM32("\x00") // cache path count
@@ -169,25 +182,6 @@ static const struct {
 	       NUM32("\x00") // block names count
 	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
-	       "\x00" // override event filter[0]
-	       NUM32("\x00") // number of named list filter elements
-	       NUM64("\x05") // block size
-	       "N\x00" // block name
-	       "\x00\x00\x00"),
-	  "Area too small when reading uint of 'settings count'" },
-
-	/* settings keys are truncated */
-	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       NUM64("\x2D") // full size
-	       NUM32("\x00") // cache path count
-	       NUM32("\x0D") // all keys size
-	       "\x00" // 32bit padding
-	       NUM32("\x00") // all keys hash key prefix
-	       NUM32("\x00") // all keys hash nodes count
-	       NUM32("\x00") // block names count
-	       NUM32("\x01") // event filter count
-	       "\x00" // event filter[0]
-	       "\x00" // override event filter[0]
 	       NUM32("\x00") // number of named list filter elements
 	       NUM64("\x06") // block size
 	       "N\x00" // block name
@@ -196,7 +190,7 @@ static const struct {
 
 	/* filter count is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       NUM64("\x32") // full size
+	       NUM64("\x31") // full size
 	       NUM32("\x00") // cache path count
 	       NUM32("\x0D") // all keys size
 	       "\x00" // 32bit padding
@@ -205,7 +199,6 @@ static const struct {
 	       NUM32("\x00") // block names count
 	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
-	       "\x00" // override event filter[0]
 	       NUM32("\x00") // number of named list filter elements
 	       NUM64("\x0B") // block size
 	       "N\x00" // block name
@@ -216,7 +209,7 @@ static const struct {
 
 	/* filter settings size is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       NUM64("\x3A") // full size
+	       NUM64("\x39") // full size
 	       NUM32("\x00") // cache path count
 	       NUM32("\x0D") // all keys size
 	       "\x00" // 32bit padding
@@ -225,7 +218,6 @@ static const struct {
 	       NUM32("\x00") // block names count
 	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
-	       "\x00" // override event filter[0]
 	       NUM32("\x00") // number of named list filter elements
 	       NUM64("\x12") // block size
 	       "N\x00" // block name
@@ -237,7 +229,7 @@ static const struct {
 
 	/* filter settings is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       NUM64("\x3B") // full size
+	       NUM64("\x3A") // full size
 	       NUM32("\x00") // cache path count
 	       NUM32("\x0D") // all keys size
 	       "\x00" // 32bit padding
@@ -246,7 +238,6 @@ static const struct {
 	       NUM32("\x00") // block names count
 	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
-	       "\x00" // override event filter[0]
 	       NUM32("\x00") // number of named list filter elements
 	       NUM64("\x14") // block size
 	       "N\x00" // block name
@@ -257,7 +248,7 @@ static const struct {
 	  "'filter settings size' points outside area" },
 	/* filter error is missing */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       NUM64("\x48") // full size
+	       NUM64("\x47") // full size
 	       NUM32("\x00") // cache path count
 	       NUM32("\x0D") // all keys size
 	       "\x00" // 32bit padding
@@ -266,7 +257,6 @@ static const struct {
 	       NUM32("\x00") // block names count
 	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
-	       "\x00" // override event filter[0]
 	       NUM32("\x00") // number of named list filter elements
 	       NUM64("\x21") // block size
 	       "N\x00" // block name
@@ -280,7 +270,7 @@ static const struct {
 	  "'filter error string' points outside area" },
 	/* filter error is not NUL-terminated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       NUM64("\x56") // full size
+	       NUM64("\x55") // full size
 	       NUM32("\x00") // cache path count
 	       NUM32("\x0D") // all keys size
 	       "\x00" // 32bit padding
@@ -289,7 +279,6 @@ static const struct {
 	       NUM32("\x00") // block names count
 	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
-	       "\x00" // override event filter[0]
 	       NUM32("\x00") // number of named list filter elements
 	       NUM64("\x2F") // block size
 	       "master_service\x00" // block name
@@ -304,7 +293,7 @@ static const struct {
 	  "'filter error string' points outside area" },
 	/* include group count is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       NUM64("\x59") // full size
+	       NUM64("\x58") // full size
 	       NUM32("\x00") // cache path count
 	       NUM32("\x0D") // all keys size
 	       "\x00" // 32bit padding
@@ -313,7 +302,6 @@ static const struct {
 	       NUM32("\x00") // block names count
 	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
-	       "\x00" // override event filter[0]
 	       NUM32("\x00") // number of named list filter elements
 	       NUM64("\x32") // block size
 	       "master_service\x00" // block name
@@ -329,7 +317,7 @@ static const struct {
 	  "Area too small when reading uint of 'include group count'" },
 	/* include group count is too large */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       NUM64("\x5A") // full size
+	       NUM64("\x59") // full size
 	       NUM32("\x00") // cache path count
 	       NUM32("\x0D") // all keys size
 	       "\x00" // 32bit padding
@@ -338,7 +326,6 @@ static const struct {
 	       NUM32("\x00") // block names count
 	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
-	       "\x00" // override event filter[0]
 	       NUM32("\x00") // number of named list filter elements
 	       NUM64("\x33") // block size
 	       "master_service\x00" // block name
@@ -354,7 +341,7 @@ static const struct {
 	  "'group label string' points outside area" },
 	/* group label not NUL-terminated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       NUM64("\x5B") // full size
+	       NUM64("\x5A") // full size
 	       NUM32("\x00") // cache path count
 	       NUM32("\x0D") // all keys size
 	       "\x00" // 32bit padding
@@ -363,7 +350,6 @@ static const struct {
 	       NUM32("\x00") // block names count
 	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
-	       "\x00" // override event filter[0]
 	       NUM32("\x00") // number of named list filter elements
 	       NUM64("\x34") // block size
 	       "master_service\x00" // block name
@@ -380,7 +366,7 @@ static const struct {
 	  "'group label string' points outside area" },
 	/* group name not NUL-terminated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       NUM64("\x5D") // full size
+	       NUM64("\x5C") // full size
 	       NUM32("\x00") // cache path count
 	       NUM32("\x0D") // all keys size
 	       "\x00" // 32bit padding
@@ -389,7 +375,6 @@ static const struct {
 	       NUM32("\x00") // block names count
 	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
-	       "\x00" // override event filter[0]
 	       NUM32("\x00") // number of named list filter elements
 	       NUM64("\x36") // block size
 	       "master_service\x00" // block name
@@ -416,9 +401,8 @@ static const struct {
 	       NUM32("\x00") // block names count
 	       NUM32("\x01") // event filter count
 	       "F\x00" // event filter[0]
-	       "F\x00" // override event filter[0]
 	       NUM32("\x00") // number of named list filter elements
-	       NUM64("\x26") // block size
+	       NUM64("\x28") // block size
 	       "N\x00" // block name
 	       NUM32("\x01") // settings count
 	       "K\x00" // setting[0] key
@@ -426,7 +410,7 @@ static const struct {
 	       NUM64("\x05") // filter settings size
 	       "\x00" // filter error string
 	       NUM32("\x00") // include group count
-	       // 64bit padding
+	       "\x00\x00" // 64bit padding
 	       NUM64("\x00") // filter[0] settings offset
 	       NUM32("\x00") // filter[0] event filter index
 	       "\x00"), // safety NUL
@@ -443,9 +427,8 @@ static const struct {
 	       NUM32("\x00") // block names count
 	       NUM32("\x01") // event filter count
 	       "\x00" // event filter[0]
-	       "\x00" // override event filter[0]
 	       NUM32("\x00") // number of named list filter elements
-	       NUM64("\x2B") // block size
+	       NUM64("\x2C") // block size
 	       "N\x00" // block name
 	       NUM32("\x01") // settings count
 	       "K\x00" // setting[0] key
@@ -453,7 +436,7 @@ static const struct {
 	       NUM64("\x05") // filter settings size
 	       "\x00" // filter error string
 	       NUM32("\x00") // include group count
-	       "\x00\x00\x00\x00\x00" // 64bit padding
+	       "\x00\x00\x00\x00\x00\x00" // 64bit padding
 	       NUM64("\x00") // filter[0] settings offset
 	       NUM32("\x00") // filter[0] event filter index
 	       "\x00" // safety NUL
