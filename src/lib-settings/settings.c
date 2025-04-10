@@ -46,8 +46,6 @@ struct settings_override {
 	ARRAY_TYPE(settings_override) *overrides_array;
 	enum settings_override_type type;
 
-	/* Number of '/' characters in orig_key + 1 */
-	unsigned int path_element_count;
 	/* Number of named list filter elements in this override */
 	unsigned int filter_array_element_count;
 	/* Number of named (non-list) filter elements in this override */
@@ -189,16 +187,6 @@ static int
 settings_instance_override(struct settings_apply_ctx *ctx,
 			   struct event_filter *event_filter,
 			   bool *defaults, const char **error_r);
-
-static unsigned int path_element_count(const char *key)
-{
-	unsigned int count = 1;
-	while ((key = strchr(key, '/')) != NULL) {
-		key++;
-		count++;
-	}
-	return count;
-}
 
 static bool settings_local_name_cmp(const char *value, const char *wanted_value)
 {
@@ -2021,7 +2009,6 @@ settings_instance_override_add_default(struct settings_apply_ctx *ctx,
 		/* We're building the full event filter, so jump forward in
 		   the key path until the last field. */
 		set->key = array_def->filter_array_field_name;
-		set->path_element_count = path_element_count(set->orig_key);
 		set->filter_array_element_count =
 			array_set->filter_array_element_count;
 		set->filter_element_count =
@@ -2093,7 +2080,6 @@ settings_instance_overrides_add_filters(struct settings_apply_ctx *ctx,
 		set->pool = ctx->temp_pool;
 		set->type = SETTINGS_OVERRIDE_TYPE_DEFAULT;
 		set->key = set->orig_key = defaults[i].key;
-		set->path_element_count = path_element_count(set->key);
 		set->value = defaults[i].value;
 		if ((ret = settings_apply_add_override(ctx, set, &error)) < 0)
 			i_panic("Applying default settings failed: %s", error);
@@ -2930,7 +2916,6 @@ settings_override_fill(struct settings_override *set, pool_t pool,
 			key = t_strndup(key, len);
 		}
 		set->key = set->orig_key = p_strdup(pool, key);
-		set->path_element_count = path_element_count(set->key);
 		set->value = p_strdup(pool, value);
 	} T_END;
 }
