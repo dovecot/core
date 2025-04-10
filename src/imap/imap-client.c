@@ -1738,7 +1738,7 @@ void clients_init(void)
 #endif
 #ifdef EXPERIMENTAL_IMAP4REV2
 	imap_feature_imap4rev2 =
-		imap_feature_register("IMAP4rev2", MAILBOX_FEATURE_UTF8ACCEPT,
+		imap_feature_register("IMAP4rev2", MAILBOX_FEATURE_IMAP4REV2,
 				      imap_client_enable_imap4rev2);
 
 #endif
