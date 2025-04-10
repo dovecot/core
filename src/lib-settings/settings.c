@@ -104,6 +104,12 @@ struct settings_mmap_block {
 	bool settings_validated;
 };
 
+struct settings_mmap_event_filter {
+	struct event_filter *filter;
+	struct event_filter *override_filter;
+	bool is_group;
+};
+
 struct settings_mmap {
 	int refcount;
 	pool_t pool;
@@ -120,9 +126,7 @@ struct settings_mmap {
 	uint32_t block_names_count;
 	const uint32_t *block_names_rel_offsets;
 
-	struct event_filter **event_filters;
-	struct event_filter **override_event_filters;
-	bool *event_filters_are_groups;
+	struct settings_mmap_event_filter *event_filters;
 	unsigned int event_filters_count;
 
 	HASH_TABLE(const char *, struct settings_mmap_block *) blocks;
@@ -502,16 +506,15 @@ settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 		return -1;
 
 	mmap->event_filters = mmap->event_filters_count == 0 ? NULL :
-		p_new(mmap->pool, struct event_filter *, mmap->event_filters_count);
-	mmap->override_event_filters = mmap->event_filters_count == 0 ? NULL :
-		p_new(mmap->pool, struct event_filter *, mmap->event_filters_count);
-	mmap->event_filters_are_groups = mmap->event_filters_count == 0 ? NULL :
-		p_new(mmap->pool, bool, mmap->event_filters_count);
+		p_new(mmap->pool, struct settings_mmap_event_filter,
+		      mmap->event_filters_count);
 
 	for (uint32_t i = 0; i < 2 * mmap->event_filters_count; i++) {
+		struct settings_mmap_event_filter *set_filter =
+			&mmap->event_filters[i / 2];
 		struct event_filter **filter_dest =
-			i % 2 == 0 ? &mmap->event_filters[i / 2] :
-			&mmap->override_event_filters[i / 2];
+			i % 2 == 0 ? &set_filter->filter :
+			&set_filter->override_filter;
 		if (settings_block_read_str(mmap, offset, mmap->mmap_size,
 					    "filter string", &filter_string,
 					    error_r) < 0)
@@ -557,7 +560,7 @@ settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 			event_filter_unref(&tmp_filter);
 			continue;
 		}
-		mmap->event_filters_are_groups[i / 2] =
+		set_filter->is_group =
 			event_filter_has_field_prefix(tmp_filter,
 				SETTINGS_EVENT_FILTER_NAME,
 				SETTINGS_INCLUDE_GROUP_PREFIX_S);
@@ -1199,7 +1202,7 @@ static int settings_mmap_apply_filter(struct settings_apply_ctx *ctx,
 	   as prefix. */
 	bool defaults = FALSE;
 	int ret = settings_instance_override(ctx,
-			mmap->override_event_filters[event_filter_idx],
+			mmap->event_filters[event_filter_idx].override_filter,
 			&defaults, error_r);
 	if (ret < 0)
 		return -1;
@@ -1213,7 +1216,7 @@ static int settings_mmap_apply_filter(struct settings_apply_ctx *ctx,
 		return -1;
 	if (defaults) {
 		ret = settings_instance_override(ctx,
-				mmap->override_event_filters[event_filter_idx],
+				mmap->event_filters[event_filter_idx].override_filter,
 				&defaults, error_r);
 		if (ret < 0)
 			return -1;
@@ -1265,12 +1268,12 @@ settings_apply_groups(struct settings_apply_ctx *ctx,
 			break;
 		}
 
-		if (!mmap->event_filters_are_groups[event_filter_idx])
+		if (!mmap->event_filters[event_filter_idx].is_group)
 			break;
 
 		i_assert(i > include_filter_idx);
 		struct event_filter *event_filter =
-			mmap->event_filters[event_filter_idx];
+			mmap->event_filters[event_filter_idx].filter;
 		i_assert(event_filter != EVENT_FILTER_MATCH_ALWAYS);
 		if (event_filter == EVENT_FILTER_MATCH_NEVER)
 			continue;
@@ -1328,12 +1331,12 @@ settings_mmap_apply(struct settings_apply_ctx *ctx, const char **error_r)
 						 &event_filter_idx, error_r) < 0)
 			return -1;
 		struct event_filter *event_filter =
-			mmap->event_filters[event_filter_idx];
+			mmap->event_filters[event_filter_idx].filter;
 		if (event_filter == EVENT_FILTER_MATCH_NEVER)
 			;
 		else if (event_filter == EVENT_FILTER_MATCH_ALWAYS ||
 			 event_filter_match(event_filter, event, &failure_ctx)) {
-			i_assert(!mmap->event_filters_are_groups[event_filter_idx]);
+			i_assert(!mmap->event_filters[event_filter_idx].is_group);
 			if (settings_mmap_apply_filter(ctx, block, i,
 						       event_filter,
 						       event_filter_idx,
@@ -1369,12 +1372,12 @@ static void settings_mmap_unref(struct settings_mmap **_mmap)
 		return;
 
 	for (unsigned int i = 0; i < mmap->event_filters_count; i++) {
-		if (mmap->event_filters[i] != EVENT_FILTER_MATCH_ALWAYS &&
-		    mmap->event_filters[i] != EVENT_FILTER_MATCH_NEVER)
-			event_filter_unref(&mmap->event_filters[i]);
-		if (mmap->override_event_filters[i] != EVENT_FILTER_MATCH_ALWAYS &&
-		    mmap->override_event_filters[i] != EVENT_FILTER_MATCH_NEVER)
-			event_filter_unref(&mmap->override_event_filters[i]);
+		if (mmap->event_filters[i].filter != EVENT_FILTER_MATCH_ALWAYS &&
+		    mmap->event_filters[i].filter != EVENT_FILTER_MATCH_NEVER)
+			event_filter_unref(&mmap->event_filters[i].filter);
+		if (mmap->event_filters[i].override_filter != EVENT_FILTER_MATCH_ALWAYS &&
+		    mmap->event_filters[i].override_filter != EVENT_FILTER_MATCH_NEVER)
+			event_filter_unref(&mmap->event_filters[i].override_filter);
 	}
 	hash_table_destroy(&mmap->blocks);
 
