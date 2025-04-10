@@ -257,6 +257,10 @@ settings_get_or_fatal(struct event *event,
 		} \
 	} STMT_END
 
+/* Returns TRUE if a setting key is valid. The settings must have been read
+   before calling this. SETTINGS_APPEND_KEY_SUFFIX is ignored in the key. */
+bool settings_key_exists(struct event *event, const char *key);
+
 /* Override a setting. */
 void settings_override(struct settings_instance *instance,
 		       const char *key, const char *value,

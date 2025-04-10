@@ -2710,6 +2710,30 @@ settings_get_real(struct event *event,
 	return ret;
 }
 
+bool settings_key_exists(struct event *event, const char *key)
+{
+	struct settings_root *root = NULL;
+	do {
+		root = event_get_ptr(event, SETTINGS_EVENT_ROOT);
+		event = event_get_parent(event);
+	} while (root == NULL && event != NULL);
+	if (root == NULL)
+		i_panic("settings_key_exists() - event has no SETTINGS_EVENT_ROOT");
+
+	bool ret;
+	T_BEGIN {
+		size_t len = strlen(key);
+		if (len > 0 && key[len-1] == SETTINGS_APPEND_KEY_SUFFIX[0])
+			key = t_strndup(key, len - 1);
+
+		enum setting_type set_type ATTR_UNUSED;
+		const void *blocks ATTR_UNUSED;
+		ret = settings_mmap_lookup_key(root->mmap, key,
+					       &set_type, &blocks);
+	} T_END;
+	return ret;
+}
+
 struct settings_filter_array_item {
 	union {
 		unsigned int uint;
