@@ -40,16 +40,16 @@ static const struct {
 
 	/* cache path count is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       NUM64("\x04") // full size
+	       NUM64("\x03") // full size
 	       "\x00\x00\x00"), // cache path count
-	  "Full size mismatch" },
+	  "Area too small when reading uint of 'config paths count'" },
 
 	/* event filter count is truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
-	       NUM64("\x08") // full size
+	       NUM64("\x07") // full size
 	       NUM32("\x00") // cache path count
 	       "\x00\x00\x00"), // event filter count
-	  "Full size mismatch" },
+	  "Area too small when reading uint of 'filters count'" },
 
 	/* event filter strings are truncated */
 	{ DATA("DOVECOT-CONFIG\t1.0\n"
