@@ -47,6 +47,7 @@
    Repeat for "event filter strings count":
      <NUL-terminated string: event filter string>
      <NUL-terminated string: override event filter string>
+     <32bit: number of named list filter elements>
 
    Repeat until "settings full size" is reached:
      <64bit: settings block size>
@@ -442,6 +443,17 @@ config_dump_full_append_filter(string_t *str,
 		str_truncate(str, str_len(str) - 5);
 }
 
+static uint32_t
+config_filter_get_name_list_counts(const struct config_filter *filter)
+{
+	uint32_t count = 0;
+	for (; filter != NULL; filter = filter->parent) {
+		if (filter->filter_name_array)
+			count++;
+	}
+	return count;
+}
+
 static void
 config_dump_full_write_filters(struct ostream *output,
 			       struct config_parsed *config)
@@ -456,8 +468,12 @@ config_dump_full_write_filters(struct ostream *output,
 	o_stream_nsend(output, &filter_count_32, sizeof(filter_count_32));
 
 	/* the first filter is the global empty filter */
+	uint32_t named_list_filter_count = 0;
 	o_stream_nsend(output, "", 1);
 	o_stream_nsend(output, "", 1);
+	o_stream_nsend(output, &named_list_filter_count,
+		       sizeof(named_list_filter_count));
+
 	string_t *str = str_new(default_pool, 128);
 	for (i = 1; i < filter_count; i++) T_BEGIN {
 		str_truncate(str, 0);
@@ -469,6 +485,11 @@ config_dump_full_write_filters(struct ostream *output,
 		config_dump_full_append_filter(str, &filters[i]->filter, FALSE);
 		str_append_c(str, '\0');
 		o_stream_nsend(output, str_data(str), str_len(str));
+
+		named_list_filter_count =
+			config_filter_get_name_list_counts(&filters[i]->filter);
+		o_stream_nsend(output, &named_list_filter_count,
+			       sizeof(named_list_filter_count));
 	} T_END;
 	str_free(&str);
 }

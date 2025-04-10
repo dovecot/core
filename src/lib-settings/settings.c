@@ -52,8 +52,6 @@ struct settings_override {
 	unsigned int filter_element_count;
 	/* key += value is used, i.e. append this value to existing value */
 	bool append;
-	/* Always apply this override, regardless of any filters. */
-	bool always_match;
 	bool array_default_added;
 	/* Original key for the overridden setting, e.g.
 	   namespace/inbox/mailbox/Sent/mail_attribute/dict_driver */
@@ -108,6 +106,8 @@ struct settings_mmap_event_filter {
 	struct event_filter *filter;
 	struct event_filter *override_filter;
 	bool is_group;
+
+	uint32_t named_list_filter_count;
 };
 
 struct settings_mmap {
@@ -196,7 +196,7 @@ static struct event_filter event_filter_match_never, event_filter_match_always;
 
 static int
 settings_instance_override(struct settings_apply_ctx *ctx,
-			   struct event_filter *event_filter,
+			   struct settings_mmap_event_filter *set_filter,
 			   bool *defaults, const char **error_r);
 
 static bool settings_local_name_cmp(const char *value, const char *wanted_value)
@@ -519,6 +519,14 @@ settings_read_filters(struct settings_mmap *mmap, const char *service_name,
 					    "filter string", &filter_string,
 					    error_r) < 0)
 			return -1;
+		if (i % 2 != 0) {
+			if (settings_block_read_uint32(mmap, offset, mmap->mmap_size,
+					"named list filter element count",
+					&set_filter->named_list_filter_count,
+					error_r) < 0)
+				return -1;
+		}
+
 		if (filter_string[0] == '\0') {
 			*filter_dest = EVENT_FILTER_MATCH_ALWAYS;
 			continue;
@@ -1201,7 +1209,7 @@ settings_mmap_apply_filter(struct settings_apply_ctx *ctx,
 	   override is specifically using the filter name
 	   as prefix. */
 	bool defaults = FALSE;
-	int ret = settings_instance_override(ctx, set_filter->override_filter,
+	int ret = settings_instance_override(ctx, set_filter,
 					     &defaults, error_r);
 	if (ret < 0)
 		return -1;
@@ -1214,9 +1222,8 @@ settings_mmap_apply_filter(struct settings_apply_ctx *ctx,
 				     error_r) < 0)
 		return -1;
 	if (defaults) {
-		ret = settings_instance_override(ctx,
-				set_filter->override_filter,
-				&defaults, error_r);
+		ret = settings_instance_override(ctx, set_filter,
+						 &defaults, error_r);
 		if (ret < 0)
 			return -1;
 		if (ret > 0)
@@ -1716,6 +1723,14 @@ settings_apply_override_cmp(const struct settings_apply_override *set1,
 	return set2->order - set1->order;
 }
 
+static int
+settings_override_cmp_filter_order(const struct settings_override *set,
+				   struct settings_mmap_event_filter *set_filter)
+{
+	return (int)set->filter_array_element_count -
+		(int)set_filter->named_list_filter_count;
+}
+
 static bool
 settings_mmap_registered_lookup_key(const char *key, enum setting_type *type_r)
 {
@@ -1921,8 +1936,9 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 						       set, error_r);
 		if (ret <= 0)
 			return ret;
+		/* Sort this as the first */
+		set->filter_array_element_count = INT_MAX;
 		set->filter = EVENT_FILTER_MATCH_ALWAYS;
-		set->always_match = TRUE;
 		return setting_override_match_info(ctx, set) ? 1 : 0;
 	}
 
@@ -2323,14 +2339,11 @@ settings_include_group_add_or_update(ARRAY_TYPE(settings_group) *include_groups,
 
 static int
 settings_instance_override(struct settings_apply_ctx *ctx,
-			   struct event_filter *event_filter,
+			   struct settings_mmap_event_filter *set_filter,
 			   bool *defaults, const char **error_r)
 {
 	struct settings_apply_override *override;
 	struct settings_override *set;
-	const struct failure_context failure_ctx = {
-		.type = LOG_TYPE_DEBUG
-	};
 	enum setting_apply_flags apply_flags = SETTING_APPLY_FLAG_OVERRIDE |
 		((ctx->flags & SETTINGS_GET_FLAG_NO_EXPAND) == 0 ? 0 :
 		 SETTING_APPLY_FLAG_NO_EXPAND);
@@ -2348,12 +2361,9 @@ settings_instance_override(struct settings_apply_ctx *ctx,
 		/* If we're being called while applying filters, only apply
 		   the overrides that have a matching filter. This preserves
 		   the expected order in which settings are applied. */
-		if (!set->always_match &&
-		    event_filter != EVENT_FILTER_MATCH_ALWAYS &&
-		    (set->filter_event == NULL ||
-		     !event_filter_match(event_filter, set->filter_event,
-					 &failure_ctx)))
-			continue;
+		if (set_filter->filter != EVENT_FILTER_MATCH_ALWAYS &&
+		    settings_override_cmp_filter_order(set, set_filter) < 0)
+			break;
 
 		if (set->type == SETTINGS_OVERRIDE_TYPE_DEFAULT) {
 			seen_defaults = TRUE;
@@ -2559,7 +2569,9 @@ settings_instance_get(struct settings_apply_ctx *ctx,
 	} else {
 		/* No configuration file - apply all overrides */
 		bool defaults = TRUE;
-		ret = settings_instance_override(ctx, EVENT_FILTER_MATCH_ALWAYS,
+		struct settings_mmap_event_filter set_filter = {
+		};
+		ret = settings_instance_override(ctx, &set_filter,
 						 &defaults, error_r);
 	}
 	if (ret > 0)
