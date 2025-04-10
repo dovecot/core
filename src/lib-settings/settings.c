@@ -1845,9 +1845,9 @@ settings_override_set_blocks(struct settings_mmap *mmap,
 	if (!settings_override_key_part_find(mmap, &key, set->last_filter_key,
 					     set->last_filter_value, &set_type,
 					     &blocks)) {
-		/* nonexistent setting */
-		set->filter = EVENT_FILTER_MATCH_NEVER;
-		return 0;
+		*error_r = t_strdup_printf("Unknown setting '%s' (in %s)",
+					   key, set->orig_key);
+		return -1;
 	}
 
 	uint32_t i, count, block_idx;
@@ -1939,9 +1939,9 @@ settings_override_filter_match(struct settings_apply_ctx *ctx,
 						     last_filter_key,
 						     last_filter_value,
 						     &set_type, &blocks)) {
-			/* nonexistent setting */
-			set->filter = EVENT_FILTER_MATCH_NEVER;
-			return 0;
+			*error_r = t_strdup_printf("Unknown setting '%s' (in %s)",
+						   part, set->orig_key);
+			return -1;
 		}
 
 		if (set_type == SET_STRLIST || set_type == SET_BOOLLIST)
