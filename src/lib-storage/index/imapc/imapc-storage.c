@@ -5,6 +5,7 @@
 #include "str.h"
 #include "settings.h"
 #include "imap-arg.h"
+#include "imap-util.h"
 #include "imap-resp-code.h"
 #include "mailbox-tree.h"
 #include "imapc-connection.h"
@@ -58,12 +59,22 @@ static struct imapc_resp_code_map imapc_resp_code_map[] = {
 	{ IMAP_RESP_CODE_NONEXISTENT, MAIL_ERROR_NOTFOUND }
 };
 
+static const char *forwarded_response_codes[] = {
+	IMAP_RESP_CODE_ALERT,
+	IMAP_RESP_CODE_BADCHARSET,
+	IMAP_RESP_CODE_BADCOMPARATOR,
+	IMAP_RESP_CODE_BADEVENT,
+	NULL
+};
+
 static void imapc_untagged_status(const struct imapc_untagged_reply *reply,
 				  struct imapc_storage_client *client);
 static void imapc_untagged_namespace(const struct imapc_untagged_reply *reply,
 				     struct imapc_storage_client *client);
 static void imapc_untagged_inprogress(const struct imapc_untagged_reply *reply,
 				      struct imapc_storage_client *client);
+static void imapc_untagged_respcodes(const struct imapc_untagged_reply *reply,
+				     struct imapc_storage_client *client);
 static int imapc_mailbox_run_status(struct mailbox *box,
 				    enum mailbox_status_items items,
 				    struct mailbox_status *status_r);
@@ -454,6 +465,12 @@ imapc_storage_create(struct mail_storage *_storage,
 					       imapc_untagged_namespace);
 	imapc_storage_client_register_untagged(storage->client, "OK",
 					       imapc_untagged_inprogress);
+	imapc_storage_client_register_untagged(storage->client, "OK",
+					       imapc_untagged_respcodes);
+	imapc_storage_client_register_untagged(storage->client, "NO",
+					       imapc_untagged_respcodes);
+	imapc_storage_client_register_untagged(storage->client, "BAD",
+					       imapc_untagged_respcodes);
 	return 0;
 }
 
@@ -1054,6 +1071,33 @@ static void imapc_untagged_inprogress(const struct imapc_untagged_reply *reply,
 	struct mail_storage_progress_details dtl;
 	imapc_parse_inprogress(reply, client, &dtl);
 	storage->callbacks.notify_progress(box, &dtl, storage->callback_context);
+}
+
+static void imapc_untagged_respcodes(const struct imapc_untagged_reply *reply,
+				     struct imapc_storage_client *client)
+{
+	void (*notify)(struct mailbox *mailbox, const char *text, void *context);
+	struct mail_storage *storage = &client->_storage->storage;
+
+	if (reply->resp_text_key == NULL)
+		return;
+
+	if (storage->callbacks.notify_ok != NULL && strcasecmp(reply->name, "OK") == 0)
+		notify = storage->callbacks.notify_ok;
+	else if (storage->callbacks.notify_no != NULL && strcasecmp(reply->name, "NO") == 0)
+		notify = storage->callbacks.notify_no;
+	else if (storage->callbacks.notify_bad != NULL && strcasecmp(reply->name, "BAD") == 0)
+		notify = storage->callbacks.notify_bad;
+	else
+		return;
+
+	if (str_array_icase_find(forwarded_response_codes, reply->resp_text_key)) {
+		struct imapc_mailbox *mbox = reply->untagged_box_context;
+		struct mailbox *box = mbox == NULL ? NULL : &mbox->box;
+		string_t *text = t_str_new(80);
+		imap_write_args(text, reply->args);
+		notify(box, str_c(text), storage->callback_context);
+	}
 }
 
 static void imapc_mailbox_get_selected_status(struct imapc_mailbox *mbox,
