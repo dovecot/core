@@ -75,14 +75,26 @@ static void set_keyvalue(struct mail_storage_service_user *user,
 	if (*key == '\0')
 		return;
 
-	settings_override(user->set_instance, key, value,
-			  SETTINGS_OVERRIDE_TYPE_USERDB);
+	bool is_setting;
+	if (strchr(key, '/') != NULL) {
+		/* Assume this is intended to be a setting. */
+		is_setting = TRUE;
+	} else {
+		is_setting = settings_key_exists(user->event, key);
+	}
+	if (is_setting) {
+		settings_override(user->set_instance, key, value,
+				  SETTINGS_OVERRIDE_TYPE_USERDB);
+	}
 	if (strstr(key, "pass") != NULL) {
 		/* possibly a password field (e.g. imapc_password).
 		   hide the value. */
 		value = "<hidden>";
 	}
-	e_debug(user->event, "Added userdb setting: %s=%s", key, value);
+	if (is_setting)
+		e_debug(user->event, "Added setting via userdb: %s=%s", key, value);
+	else
+		e_debug(user->event, "Ignored unknown userdb field: %s=%s", key, value);
 }
 
 static bool validate_chroot(const struct mail_user_settings *user_set,
