@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Generate history structs for renamed settings and changed default values."""
 
