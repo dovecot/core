@@ -30,7 +30,9 @@ int imap_status_parse_items(struct client_command_context *cmd,
 		item = t_str_ucase(item);
 		if (strcmp(item, "MESSAGES") == 0)
 			flags |= IMAP_STATUS_ITEM_MESSAGES;
-		else if (strcmp(item, "RECENT") == 0)
+		else if (strcmp(item, "RECENT") == 0 &&
+			 ((client_enabled_mailbox_features(cmd->client) &
+			   MAILBOX_FEATURE_IMAP4REV2) == 0))
 			flags |= IMAP_STATUS_ITEM_RECENT;
 		else if (strcmp(item, "UIDNEXT") == 0)
 			flags |= IMAP_STATUS_ITEM_UIDNEXT;
