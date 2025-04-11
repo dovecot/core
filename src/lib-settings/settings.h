@@ -70,6 +70,10 @@ struct settings_get_params {
 #define SETTINGS_INCLUDE_GROUP_PREFIX '@'
 #define SETTINGS_INCLUDE_GROUP_PREFIX_S "@"
 
+/* If setting key has such suffix, append the value to it. This can be used
+   for SET_STR and SET_FILTER_ARRAY type settings. */
+#define SETTINGS_APPEND_KEY_SUFFIX "+"
+
 /* Set struct settings_instance to events so settings_get() can
    use it to get instance-specific settings. */
 #define SETTINGS_EVENT_INSTANCE "settings_instance"

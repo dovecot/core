@@ -1885,7 +1885,7 @@ settings_override_get_value(struct settings_apply_ctx *ctx,
 	if (!set->append ||
 	    ctx->info->defines[key_idx].type != SET_STR) {
 		if (set->append && ctx->info->defines[key_idx].type != SET_FILTER_ARRAY)
-			*_key = t_strconcat(key, "+", NULL);
+			*_key = t_strconcat(key, SETTINGS_APPEND_KEY_SUFFIX, NULL);
 		else
 			*_key = key;
 		*key_idx_r = key_idx;
@@ -2845,7 +2845,7 @@ settings_override_fill(struct settings_override *set, pool_t pool,
 	set->type = type;
 	size_t len = strlen(key);
 	T_BEGIN {
-		if (len > 0 && key[len-1] == '+') {
+		if (len > 0 && key[len-1] == SETTINGS_APPEND_KEY_SUFFIX[0]) {
 			/* key+=value */
 			set->append = TRUE;
 			len--;
@@ -2888,7 +2888,8 @@ settings_override_equals(struct settings_override *set, const char *key,
 			 enum settings_override_type type)
 {
 	size_t key_len = strlen(key);
-	bool key_append = (key_len > 0 && key[key_len-1] == '+');
+	bool key_append = (key_len > 0 &&
+			   key[key_len-1] == SETTINGS_APPEND_KEY_SUFFIX[0]);
 
 	if (set->type != type)
 		return FALSE;
