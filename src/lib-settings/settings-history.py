@@ -4,6 +4,7 @@
 
 import argparse
 import sys
+from pathlib import Path
 
 FILE_TEMPLATE = """\
 static const struct setting_history_rename settings_history_core_renames[] = {
@@ -19,33 +20,81 @@ STRUCT_TEMPLATE = """\
 """
 
 
+class SettingDefault:
+    """Handle the logic behind a setting's changed default value."""
+
+    def __init__(self, key: str, old_value: str, version_text: str, version: [int]):
+        """Initialize a setting's default value change object."""
+        self.key = key
+        self.old_value = old_value
+        self.version_text = version_text
+        self.version = version
+
+    def render(self) -> str:
+        """Render this setting's default value update to text."""
+        return STRUCT_TEMPLATE % (self.key, self.old_value, self.version_text)
+
+
+class SettingRename:
+    """Handle the logic behind a setting's changed name."""
+
+    def __init__(self, old_key: str, new_key: str, version_text: str, version: [int]):
+        """Initialize a setting's default value change object."""
+        self.old_key = old_key
+        self.new_key = new_key
+        self.version_text = version_text
+        self.version = version
+
+    def render(self) -> str:
+        """Render this setting's rename to text."""
+        return STRUCT_TEMPLATE % (self.old_key, self.new_key, self.version_text)
+
+
 def die(message: str):
     """Die with a message."""
-    print(message, file=sys.stderr)
+    module_filename = Path(__file__).name
+    print(f"{module_filename}: {message}", file=sys.stderr)
     sys.exit(1)
 
 
-def parse_version(line: int, version: str) -> [int]:
+def parse_version(version: str) -> [int]:
     """Parse a string version into a list of integers."""
     values = version.split(".")
     parsed = []
     for value in values:
         try:
-            int_value = int(value)
-            parsed.append(int_value)
+            parsed.append(int(value))
         except ValueError as e:
-            die(f"Line {line}: Invalid version {version}: {e}")
+            raise ValueError("Invalid version {version}: {e}") from e
     return parsed
 
 
-def check_version(line: int, prev_version: [int], cur_version: [int]):
+def render_version(version: [int]) -> str:
+    """Produce a textual render of the a version."""
+    return ".".join([str(v) for v in version])
+
+
+def process_version(ce_version: str, pro_version: str, pro: bool) -> (str, [int]):
+    """Parse and validate version information."""
+    version_text = pro_version if pro else ce_version
+    version = parse_version(version_text) if version_text != "" else None
+    return (version_text, version)
+
+
+def check_version(prev_version: [int], cur_version: [int]):
     """Fail if version ordering is incorrect."""
     if prev_version is not None and cur_version > prev_version:
-        die(f"Line {line}: Invalid version sort order")
+        cur_version_text = render_version(cur_version)
+        prev_version_text = render_version(prev_version)
+        raise ValueError(
+            "Invalid version sort order "
+            f"between {cur_version_text} and {prev_version_text}: "
+            "Please fix the input file"
+        )
     return cur_version
 
 
-def process(contents: str, pro: bool) -> (str, str):
+def process(input_file: str, contents: str, pro: bool) -> (str, str):
     """Produce the renames and defaults structs from the input data."""
     renames = ""
     defaults = ""
@@ -56,29 +105,50 @@ def process(contents: str, pro: bool) -> (str, str):
         values = data.split("\t")
 
         if len(values) != 5:
-            die(f"Line {line}: Invalid contents `{data}`: Expecting 5 fields")
+            die(
+                f"{input_file}:{line}: "
+                f"Invalid contents `{data}`: "
+                "Expecting 5 fields"
+            )
 
-        ce_version = values[3]
-        pro_version = values[4]
-        version_text = pro_version if pro else ce_version
+        try:
+            (version_text, version) = process_version(
+                ce_version=values[3], pro_version=values[4], pro=pro
+            )
+        except ValueError as e:
+            die(f"{input_file}:{line}: {e}")
 
-        if version_text == "":
+        if version is None:
             continue
 
-        version = parse_version(line, version_text)
-
         if values[0] == "rename":
-            old_key = values[1]
-            new_key = values[2]
-            renames += STRUCT_TEMPLATE % (old_key, new_key, version_text)
-            renames_prev_version = check_version(line, renames_prev_version, version)
+            try:
+                renames_prev_version = check_version(renames_prev_version, version)
+            except ValueError as e:
+                die(f"{input_file}:{line}: {e}")
+
+            rename = SettingRename(
+                old_key=values[1],
+                new_key=values[2],
+                version_text=version_text,
+                version=version,
+            )
+            renames += rename.render()
         elif values[0] == "default":
-            key = values[1]
-            old_value = values[2]
-            defaults += STRUCT_TEMPLATE % (key, old_value, version_text)
-            defaults_prev_version = check_version(line, defaults_prev_version, version)
+            try:
+                defaults_prev_version = check_version(defaults_prev_version, version)
+            except ValueError as e:
+                die(f"{input_file}:{line}: {e}")
+
+            default = SettingDefault(
+                key=values[1],
+                old_value=values[2],
+                version_text=version_text,
+                version=version,
+            )
+            defaults += default.render()
         else:
-            die(f"Line {line}: Unrecognized marker in `{data}`")
+            die(f"{input_file}:{line}: Unrecognized marker in `{data}`")
     return (renames, defaults)
 
 
@@ -106,11 +176,14 @@ def main():
     )
     args = parser.parse_args()
 
-    with open(getattr(args, "input-file"), mode="r", encoding="utf-8") as f_in:
-        contents = f_in.read()
-        (renames, defaults) = process(contents, pro=bool(args.pro))
+    input_file = getattr(args, "input-file")
+    output_file = getattr(args, "output-file")
 
-        with open(getattr(args, "output-file"), mode="w", encoding="utf-8") as f_out:
+    with open(input_file, mode="r", encoding="utf-8") as f_in:
+        contents = f_in.read()
+        (renames, defaults) = process(input_file, contents, pro=bool(args.pro))
+
+        with open(output_file, mode="w", encoding="utf-8") as f_out:
             f_out.write(FILE_TEMPLATE % (renames, defaults))
 
 
