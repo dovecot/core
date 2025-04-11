@@ -140,7 +140,7 @@ enum config_dump_type {
 };
 
 struct config_dump_full_context {
-	struct config_parsed *config;
+	const struct config_parsed *config;
 	const char *dovecot_config_version;
 	struct ostream *output;
 	enum config_dump_full_dest dest;
