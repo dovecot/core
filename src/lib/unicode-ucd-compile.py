@@ -452,6 +452,32 @@ def read_ucd_files():
             for cp in range(cprng[0], cprng[1] + 1):
                 ud_composition_exclusions[cp] = True
 
+    # DerivedCoreProperties.txt
+    with UCDFileOpen("DerivedCoreProperties.txt") as ucd:
+        for line in ucd.fd:
+            data = line.split("#")
+            if len(data) == 0:
+                continue
+
+            if len(data[0]) == 0:
+                continue
+            columns = data[0].split(";")
+            if len(columns) < 2:
+                continue
+
+            cprng = parse_cp_range(columns[0])
+            if cprng is None:
+                continue
+
+            prop = columns[1].strip()
+            if prop != "InCB":
+                continue
+
+            value = columns[2].strip()
+            cpd = CodePointData()
+            cpd.indic_conjunct_break = value
+            CodePointRange(cprng[0], cprng[1], cpd)
+
     # DerivedNormalizationProps.txt
     with UCDFileOpen("DerivedNormalizationProps.txt") as ucd:
         line_num = 0
@@ -489,6 +515,99 @@ def read_ucd_files():
             elif prop == "NFKC_QC":
                 cpd = CodePointData()
                 cpd.nfkc_quick_check = value
+                CodePointRange(cprng[0], cprng[1], cpd)
+
+    # emoji-data.txt
+    with UCDFileOpen("emoji-data.txt") as ucd:
+        for line in ucd.fd:
+            data = line.split("#")
+            if len(data) == 0:
+                continue
+
+            if len(data[0]) == 0:
+                continue
+            columns = data[0].split(";")
+            if len(columns) < 2:
+                continue
+
+            cprng = parse_cp_range(columns[0])
+            if cprng is None:
+                continue
+
+            prop = columns[1].strip()
+            if prop != "Extended_Pictographic":
+                continue
+
+            cpd = CodePointData()
+            cpd.pb_e_extended_pictographic = True
+            CodePointRange(cprng[0], cprng[1], cpd)
+
+    # GraphemeBreakProperty.txt
+    with UCDFileOpen("GraphemeBreakProperty.txt") as ucd:
+        for line in ucd.fd:
+            data = line.split("#")
+            if len(data[0]) == 0:
+                continue
+            columns = data[0].split(";")
+            if len(columns) < 2:
+                continue
+
+            cprng = parse_cp_range(columns[0])
+            if cprng is None:
+                continue
+
+            prop = columns[1].strip()
+            if prop == "CR":
+                cpd = CodePointData()
+                cpd.pb_b_cr = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "LF":
+                cpd = CodePointData()
+                cpd.pb_b_lf = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "Control":
+                cpd = CodePointData()
+                cpd.pb_gcb_control = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "Extend":
+                cpd = CodePointData()
+                cpd.pb_gcb_extend = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "ZWJ":
+                cpd = CodePointData()
+                cpd.pb_b_zwj = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "Regional_Indicator":
+                cpd = CodePointData()
+                cpd.pb_b_regional_indicator = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "Prepend":
+                cpd = CodePointData()
+                cpd.pb_gcb_prepend = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "SpacingMark":
+                cpd = CodePointData()
+                cpd.pb_gcb_spacingmark = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "L":
+                cpd = CodePointData()
+                cpd.pb_gcb_l = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "V":
+                cpd = CodePointData()
+                cpd.pb_gcb_v = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "T":
+                cpd = CodePointData()
+                cpd.pb_gcb_t = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "LV":
+                cpd = CodePointData()
+                cpd.pb_gcb_lv = True
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "LVT":
+                cpd = CodePointData()
+                cpd.pb_gcb_lvt = True
                 CodePointRange(cprng[0], cprng[1], cpd)
 
     # PropList.txt
@@ -1119,6 +1238,12 @@ def decomposition_type_def(dt):
     return "UNICODE_DECOMPOSITION_TYPE_%s" % dt.upper()
 
 
+def indic_conjunct_break_def(icb):
+    icb_uc = icb.upper()
+
+    return "UNICODE_INDIC_CONJUNCT_BREAK_%s" % icb_uc
+
+
 def print_list(code_list):
     last = len(code_list) - 1
     n = 0
@@ -1315,8 +1440,15 @@ def write_tables_c_cpd(cpd):
             "\t\t.simple_titlecase_mapping = 0x%04X,"
             % cpd.simple_titlecase_mapping
         )
+    if hasattr(cpd, "indic_conjunct_break"):
+        print(
+            "\t\t.indic_conjunct_break = %s,"
+            % indic_conjunct_break_def(cpd.indic_conjunct_break)
+        )
     if hasattr(cpd, "pb_g_white_space"):
         print("\t\t.pb_g_white_space = TRUE,")
+    if hasattr(cpd, "pb_e_extended_pictographic"):
+        print("\t\t.pb_e_extended_pictographic = TRUE,")
     if hasattr(cpd, "pb_i_pattern_white_space"):
         print("\t\t.pb_i_pattern_white_space = TRUE,")
     if hasattr(cpd, "pb_m_quotation_mark"):
@@ -1335,6 +1467,24 @@ def write_tables_c_cpd(cpd):
         print("\t\t.pb_b_zwj = TRUE,")
     if hasattr(cpd, "pb_b_regional_indicator"):
         print("\t\t.pb_b_regional_indicator = TRUE,")
+    if hasattr(cpd, "pb_gcb_control"):
+        print("\t\t.pb_gcb_control = TRUE,")
+    if hasattr(cpd, "pb_gcb_extend"):
+        print("\t\t.pb_gcb_extend = TRUE,")
+    if hasattr(cpd, "pb_gcb_prepend"):
+        print("\t\t.pb_gcb_prepend = TRUE,")
+    if hasattr(cpd, "pb_gcb_spacingmark"):
+        print("\t\t.pb_gcb_spacingmark = TRUE,")
+    if hasattr(cpd, "pb_gcb_l"):
+        print("\t\t.pb_gcb_l = TRUE,")
+    if hasattr(cpd, "pb_gcb_v"):
+        print("\t\t.pb_gcb_v = TRUE,")
+    if hasattr(cpd, "pb_gcb_t"):
+        print("\t\t.pb_gcb_t = TRUE,")
+    if hasattr(cpd, "pb_gcb_lv"):
+        print("\t\t.pb_gcb_lv = TRUE,")
+    if hasattr(cpd, "pb_gcb_lvt"):
+        print("\t\t.pb_gcb_lvt = TRUE,")
     if hasattr(cpd, "pb_wb_newline"):
         print("\t\t.pb_wb_newline = TRUE,")
     if hasattr(cpd, "pb_wb_extend"):

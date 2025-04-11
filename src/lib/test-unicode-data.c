@@ -12,6 +12,7 @@
 #define UCD_CASE_FOLDING_TXT "CaseFolding.txt"
 #define UCD_COMPOSITION_EXCLUSIONS_TXT "CompositionExclusions.txt"
 #define UCD_DERIVED_NORMALIZATION_PROPS_TXT "DerivedNormalizationProps.txt"
+#define UCD_GRAPHEME_BREAK_PROPERTY_TXT "GraphemeBreakProperty.txt"
 #define UCD_PROP_LIST_TXT "PropList.txt"
 #define UCD_SPECIAL_CASING_TXT "SpecialCasing.txt"
 #define UCD_UNICODE_DATA_TXT "UnicodeData.txt"
@@ -222,6 +223,49 @@ test_derived_normalization_props_line(const char *line, unsigned int line_num)
 			test_assert_idx(qc == qc_no, cp);
 		else if (strcmp(value, "M") == 0)
 			test_assert_idx(qc == qc_maybe, cp);
+	}
+}
+
+static void
+test_grapheme_break_property_line(const char *line, unsigned int line_num)
+{
+	uint32_t cp_first, cp_last, cp;
+	const char *prop;
+
+	if (!parse_prop_file_line(line, UCD_GRAPHEME_BREAK_PROPERTY_TXT,
+				  line_num, &cp_first, &cp_last, &prop, NULL))
+		return;
+
+	for (cp = cp_first; cp <= cp_last && !test_has_failed(); cp++) {
+		const struct unicode_code_point_data *cp_data =
+			unicode_code_point_get_data(cp);
+
+		if (strcmp(prop, "CR") == 0)
+			test_assert_idx(cp_data->pb_b_cr, cp);
+		else if (strcmp(prop, "LF") == 0)
+			test_assert_idx(cp_data->pb_b_lf, cp);
+		else if (strcmp(prop, "Control") == 0)
+			test_assert_idx(cp_data->pb_gcb_control, cp);
+		else if (strcmp(prop, "Extend") == 0)
+			test_assert_idx(cp_data->pb_gcb_extend, cp);
+		else if (strcmp(prop, "ZWJ") == 0)
+			test_assert_idx(cp_data->pb_b_zwj, cp);
+		else if (strcmp(prop, "Regional_Indicator") == 0)
+			test_assert_idx(cp_data->pb_b_regional_indicator, cp);
+		else if (strcmp(prop, "Prepend") == 0)
+			test_assert_idx(cp_data->pb_gcb_prepend, cp);
+		else if (strcmp(prop, "SpacingMark") == 0)
+			test_assert_idx(cp_data->pb_gcb_spacingmark, cp);
+		else if (strcmp(prop, "L") == 0)
+			test_assert_idx(cp_data->pb_gcb_l, cp);
+		else if (strcmp(prop, "V") == 0)
+			test_assert_idx(cp_data->pb_gcb_v, cp);
+		else if (strcmp(prop, "T") == 0)
+			test_assert_idx(cp_data->pb_gcb_t, cp);
+		else if (strcmp(prop, "LV") == 0)
+			test_assert_idx(cp_data->pb_gcb_lv, cp);
+		else if (strcmp(prop, "LVT") == 0)
+			test_assert_idx(cp_data->pb_gcb_lvt, cp);
 	}
 }
 
@@ -600,6 +644,8 @@ void test_unicode_data(void)
 		      test_composition_exclusions_line);
 	test_ucd_file(UCD_DERIVED_NORMALIZATION_PROPS_TXT,
 		      test_derived_normalization_props_line);
+	test_ucd_file(UCD_GRAPHEME_BREAK_PROPERTY_TXT,
+		      test_grapheme_break_property_line);
 	test_ucd_file(UCD_PROP_LIST_TXT, test_prop_list_line);
 	test_ucd_file(UCD_SPECIAL_CASING_TXT, test_special_casing_line);
 	test_ucd_file(UCD_UNICODE_DATA_TXT, test_unicode_data_line);

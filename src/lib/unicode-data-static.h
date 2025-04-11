@@ -115,6 +115,13 @@ enum unicode_nf_quick_check {
 	UNICODE_NFD_QUICK_CHECK_MASK   = (0x03 << 0),
 };
 
+enum unicode_indic_conjunct_break {
+	UNICODE_INDIC_CONJUNCT_BREAK_NONE = 0,
+	UNICODE_INDIC_CONJUNCT_BREAK_LINKER,
+	UNICODE_INDIC_CONJUNCT_BREAK_CONSONANT,
+	UNICODE_INDIC_CONJUNCT_BREAK_EXTEND,
+};
+
 struct unicode_code_point_data {
 	uint8_t general_category; // Not yet used
 	uint8_t canonical_combining_class;
@@ -142,10 +149,15 @@ struct unicode_code_point_data {
 
 	uint32_t simple_titlecase_mapping;
 
+	uint8_t indic_conjunct_break:3;
+
 	/* Property bits (UAX #44, Section 5.1) */
 
 	/* General */
 	bool pb_g_white_space:1;
+
+	/* Emoji */
+	bool pb_e_extended_pictographic:1;
 
 	/* Identifiers */
 	bool pb_i_pattern_white_space:1;
@@ -159,8 +171,19 @@ struct unicode_code_point_data {
 	/* Common Break */
 	bool pb_b_cr:1;
 	bool pb_b_lf:1;
-	bool pb_b_zwj:1; // Not currently used
+	bool pb_b_zwj:1;
 	bool pb_b_regional_indicator:1;
+
+	/* Grapheme_Cluster_Break (UAX #29, Section 3.1) */
+	bool pb_gcb_control:1;
+	bool pb_gcb_extend:1;
+	bool pb_gcb_prepend:1;
+	bool pb_gcb_spacingmark:1;
+	bool pb_gcb_l:1;
+	bool pb_gcb_v:1;
+	bool pb_gcb_t:1;
+	bool pb_gcb_lv:1;
+	bool pb_gcb_lvt:1;
 
 	/* Word_Break (UAX #29, Section 4.1) */
 	bool pb_wb_newline:1;
