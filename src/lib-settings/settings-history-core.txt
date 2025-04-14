@@ -1,6 +1,6 @@
-default	service/anvil/unix_listener/anvil/unix_listener_mode	0600	2.4.2	
-default	service/anvil/unix_listener/anvil/unix_listener_group		2.4.2	
-default	service/lmtp/service_restart_request_count	unlimited	2.4.1	
-default	service/auth/unix_listener/auth-userdb/unix_listener_group		2.4.1	
-default	mail_cache_fields	flags	2.4.1	
-default	lmtp_user_concurrency_limit	0	2.4.1	
+default	service/anvil/unix_listener/anvil/unix_listener_mode	0600	2.4.2	-
+default	service/anvil/unix_listener/anvil/unix_listener_group		2.4.2	-
+default	service/lmtp/service_restart_request_count	unlimited	2.4.1	-
+default	service/auth/unix_listener/auth-userdb/unix_listener_group		2.4.1	-
+default	mail_cache_fields	flags	2.4.1	-
+default	lmtp_user_concurrency_limit	0	2.4.1	-

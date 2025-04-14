@@ -77,7 +77,7 @@ def render_version(version: [int]) -> str:
 def process_version(ce_version: str, pro_version: str, pro: bool) -> (str, [int]):
     """Parse and validate version information."""
     version_text = pro_version if pro else ce_version
-    version = parse_version(version_text) if version_text != "" else None
+    version = parse_version(version_text) if version_text not in ("", "-") else None
     return (version_text, version)
 
 
