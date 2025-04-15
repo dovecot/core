@@ -100,6 +100,9 @@ void dlua_get_dovecot(lua_State *L);
 /* register 'http' methods to 'dovecot' */
 void dlua_dovecot_http_register(struct dlua_script *script);
 
+/* register 'file' methods to 'dovecot' */
+void dlua_dovecot_io_register(struct dlua_script *script);
+
 /* assign values to table on idx */
 void dlua_set_members(lua_State *L, const struct dlua_table_values *values, int idx);
 

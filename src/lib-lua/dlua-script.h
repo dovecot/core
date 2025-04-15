@@ -37,4 +37,12 @@ void dlua_script_unref(struct dlua_script **_script);
 /* see if particular function is registered */
 bool dlua_script_has_function(struct dlua_script *script, const char *fn);
 
+
+struct istream;
+struct ostream;
+
+/* stream wrappers */
+int dlua_push_istream(struct dlua_script *script, struct istream *is);
+int dlua_push_ostream(struct dlua_script *script, struct ostream *os);
+
 #endif

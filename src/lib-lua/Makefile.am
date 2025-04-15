@@ -21,7 +21,8 @@ libdlua_la_SOURCES = \
 	dlua-compat.c \
 	dlua-resume.c \
 	dlua-table.c \
-	dlua-thread.c
+	dlua-thread.c \
+	dlua-iostream.c
 
 test_programs = test-lua test-lua-http-client
 
@@ -33,7 +34,8 @@ WITH_YIELDS_LUA += \
 	../lib-dns-client/libdns_lua.la
 test_programs += \
 	test-dict-lua \
-	test-dns-lua
+	test-dns-lua \
+	test-io-lua
 endif
 
 libdlua_la_LIBADD = $(WITH_YIELDS_LUA) $(LUA_LIBS)
@@ -60,7 +62,8 @@ pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
 EXTRA_DIST = \
-	test-lua-http-client.lua
+	test-lua-http-client.lua \
+	test-io-lua.lua
 
 noinst_PROGRAMS = $(test_programs)
 
@@ -79,6 +82,10 @@ test_dict_lua_DEPENDENCIES = libdlua.la $(LIBDOVECOT_DEPS)
 test_dns_lua_SOURCES = test-dns-lua.c
 test_dns_lua_LDADD = libdlua.la $(LIBDOVECOT) $(LUA_LIBS)
 test_dns_lua_DEPENDENCIES = libdlua.la $(LIBDOVECOT_DEPS)
+
+test_io_lua_SOURCES = test-io-lua.c
+test_io_lua_LDADD = libdlua.la $(LIBDOVECOT) $(LUA_LIBS)
+test_io_lua_DEPENDENCIES = libdlua.la $(LIBDOVECOT_DEPS)
 
 test_lua_http_client_SOURCES = test-lua-http-client.c
 test_lua_http_client_LDADD = libdlua.la $(LIBDOVECOT) $(test_libs_ssl) $(LUA_LIBS)
