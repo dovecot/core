@@ -5,12 +5,6 @@
 #include "rfc2231-parser.h"
 #include "test-common.h"
 
-#define VERBOSE FALSE
-
-#if VERBOSE
-#	include <stdio.h>
-#endif
-
 static void run_test(const char *title,
 		     const unsigned char *input, size_t size,
 		     const char *output[])
@@ -22,13 +16,8 @@ static void run_test(const char *title,
 	test_begin(title);
 	rfc822_parser_init(&parser, input, size, NULL);
 	test_assert(rfc2231_parse(&parser, &result) == 0);
-	for (i = 0; output[i] != NULL && result[i] != NULL; i++) {
-		#if VERBOSE
-			printf("output[%d] = %s\n", i, output[i]);
-			printf("result[%d] = %s\n", i, result[i]);
-		#endif
-		test_assert_idx(strcmp(output[i], result[i]) == 0, i);
-	}
+	for (i = 0; output[i] != NULL && result[i] != NULL; i++)
+		test_assert_strcmp_idx(output[i], result[i], i);
 	rfc822_parser_deinit(&parser);
 	test_assert(output[i] == NULL && result[i] == NULL);
 	test_end();
