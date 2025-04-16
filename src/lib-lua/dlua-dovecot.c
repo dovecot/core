@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "net.h"
 #include "str.h"
+#include "base64.h"
 #include "time-util.h"
 #include "dlua-script-private.h"
 #include "dict-lua.h"
@@ -11,6 +12,7 @@
 #include "strescape.h"
 
 #define LUA_SCRIPT_DOVECOT "dovecot"
+#define LUA_SCRIPT_DOVECOT_BASE64 "base64"
 #define DLUA_EVENT_PASSTHROUGH "struct event_passthrough"
 #define DLUA_EVENT "struct event"
 
@@ -734,6 +736,28 @@ static int dlua_split_tabescaped(lua_State *L)
 	return 1;
 }
 
+static int dlua_base64_encode(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 1);
+	size_t len;
+	const void *input = luaL_checklstring(L, 1, &len);
+
+	buffer_t *output = t_base64_encode(0, UINT_MAX, input, len);
+	lua_pushlstring(L, output->data, output->used);
+	return 1;
+}
+
+static int dlua_base64_decode(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 1);
+	size_t len;
+	const char *input = luaL_checklstring(L, 1, &len);
+
+	buffer_t *output = t_base64_decode(0, input, len);
+	lua_pushlstring(L, output->data, output->used);
+	return 1;
+}
+
 static luaL_Reg lua_dovecot_methods[] = {
 	{ "i_debug", dlua_i_debug },
 	{ "i_info", dlua_i_info },
@@ -751,6 +775,12 @@ static luaL_Reg lua_dovecot_methods[] = {
 	{ "tabescape", dlua_tabescape},
 	{ "tabunescape", dlua_tabunescape},
 	{ "split_tabescaped", dlua_split_tabescaped},
+	{ NULL, NULL }
+};
+
+static luaL_Reg lua_dovecot_base64_methods[] = {
+	{ "encode", dlua_base64_encode },
+	{ "decode", dlua_base64_decode },
 	{ NULL, NULL }
 };
 
@@ -777,6 +807,13 @@ void dlua_dovecot_register(struct dlua_script *script)
 	lua_setfield(script->L, -1, "__index");
 	/* set table's metatable, pops stack */
 	lua_setmetatable(script->L, -2);
+
+	/* create 'base64' */
+	lua_newtable(script->L);
+	luaL_setfuncs(script->L, lua_dovecot_base64_methods, 0);
+
+	/* add it to 'dovecot' */
+	lua_setfield(script->L, -2, LUA_SCRIPT_DOVECOT_BASE64);
 
 	/* register table as global */
 	lua_setglobal(script->L, LUA_SCRIPT_DOVECOT);

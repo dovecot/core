@@ -518,11 +518,32 @@ static void test_compat_tointegerx_and_isinteger(void)
 	test_end();
 }
 
+static void test_lua_base64(void)
+{
+	test_begin("lua base64");
+
+	struct dlua_script *script;
+	const char *error;
+
+	if (dlua_script_create_file("test-lua-base64.lua", &script, NULL, &error) < 0)
+		i_fatal("%s", error);
+
+	dlua_dovecot_register(script);
+	dlua_register(script, "test_assert", dlua_test_assert);
+
+	test_assert(dlua_script_init(script, &error) == 0);
+	test_assert(dlua_pcall(script->L, "test_base64", 0, 0, &error) == 0);
+
+	dlua_script_unref(&script);
+	test_end();
+}
+
 int main(void) {
 	void (*tests[])(void) = {
 		test_lua,
 		test_tls,
 		test_compat_tointegerx_and_isinteger,
+		test_lua_base64,
 		NULL
 	};
 

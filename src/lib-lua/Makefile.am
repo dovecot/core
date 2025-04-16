@@ -63,7 +63,8 @@ pkginc_lib_HEADERS = $(headers)
 
 EXTRA_DIST = \
 	test-lua-http-client.lua \
-	test-io-lua.lua
+	test-io-lua.lua \
+	test-lua-base64.lua
 
 noinst_PROGRAMS = $(test_programs)
 
