@@ -27,9 +27,9 @@
 
 struct cmd_append_context {
 	struct client *client;
-        struct client_command_context *cmd;
+	struct client_command_context *cmd;
 	struct mailbox *box;
-        struct mailbox_transaction_context *t;
+	struct mailbox_transaction_context *t;
 	time_t started;
 
 	struct mailbox_transaction_context *rep_trans;
@@ -1113,7 +1113,7 @@ static bool cmd_append_full(struct client_command_context *cmd, bool replace)
 {
 	struct client *client = cmd->client;
 	const struct imap_arg *args;
-        struct cmd_append_context *ctx;
+	struct cmd_append_context *ctx;
 	const char *mailbox;
 	uint32_t seqnum = 0;
 
