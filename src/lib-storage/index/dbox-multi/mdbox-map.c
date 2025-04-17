@@ -1130,7 +1130,7 @@ int mdbox_map_append_next(struct mdbox_map_append_context *ctx,
 	append = array_append_space(&ctx->appends);
 	append->file_append = file_append;
 	append->offset = (*output_r)->offset;
-	append->size = (uint32_t)-1;
+	append->size = UOFF_T_MAX;
 	if (!existing) {
 		i_assert(file_append->first_append_offset == 0);
 		file_append->first_append_offset = file_append->output->offset;
@@ -1167,7 +1167,7 @@ void mdbox_map_append_finish(struct mdbox_map_append_context *ctx)
 	appends = array_get_modifiable(&ctx->appends, &count);
 	i_assert(count > 0);
 	last = &appends[count-1];
-	i_assert(last->size == (uint32_t)-1);
+	i_assert(last->size == UOFF_T_MAX);
 
 	cur_offset = last->file_append->output->offset;
 	i_assert(cur_offset >= last->offset);
@@ -1183,7 +1183,7 @@ void mdbox_map_append_abort(struct mdbox_map_append_context *ctx)
 	unsigned int count;
 
 	appends = array_get_modifiable(&ctx->appends, &count);
-	i_assert(count > 0 && appends[count-1].size == (uint32_t)-1);
+	i_assert(count > 0 && appends[count-1].size == UOFF_T_MAX);
 	array_delete(&ctx->appends, count-1, 1);
 }
 
@@ -1304,8 +1304,8 @@ int mdbox_map_append_assign_map_uids(struct mdbox_map_append_context *ctx,
 		struct mdbox_file *mfile =
 			(struct mdbox_file *)appends[i].file_append->file;
 
-		i_assert(appends[i].offset <= (uint32_t)-1);
-		i_assert(appends[i].size <= (uint32_t)-1);
+		i_assert(appends[i].offset <= UOFF_T_MAX);
+		i_assert(appends[i].size <= UOFF_T_MAX);
 
 		rec.file_id = mfile->file_id;
 		rec.offset = appends[i].offset;
