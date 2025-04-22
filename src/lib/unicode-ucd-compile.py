@@ -34,6 +34,13 @@ ud_decomposition_type_names = []
 ud_decompositions = []
 ud_decomposition_max_length = 0
 
+ud_composition_pairs = {}
+ud_composition_composites = {}
+ud_composition_exclusions = {}
+ud_compositions = []
+ud_composition_primaries = []
+ud_compositions_max_per_starter = 0
+
 
 class UCDFileOpen:
     def __init__(self, filename):
@@ -358,6 +365,57 @@ def read_ucd_files():
             # Add range
             CodePointRange(cp_first, cp_last, cpd)
 
+    # CompositionExclusions.txt
+    with UCDFileOpen("CompositionExclusions.txt") as ucd:
+        for line in ucd.fd:
+            data = line.split("#")
+
+            cprng = parse_cp_range(data[0])
+            if cprng is None:
+                continue
+
+            for cp in range(cprng[0], cprng[1] + 1):
+                ud_composition_exclusions[cp] = True
+
+    # DerivedNormalizationProps.txt
+    with UCDFileOpen("DerivedNormalizationProps.txt") as ucd:
+        line_num = 0
+        for line in ucd.fd:
+            line_num = line_num + 1
+            data = line.split("#")
+            line = data[0].strip()
+            if len(line) == 0:
+                continue
+
+            cols = line.split(";")
+            if len(cols) < 3:
+                if len(cols) < 2:
+                    die(f"{ucd}:{line_num}: Missing columns")
+                continue
+
+            cprng = parse_cp_range(cols[0])
+            if cprng is None:
+                continue
+
+            prop = cols[1].strip()
+            value = cols[2].strip()
+            if prop == "NFD_QC":
+                cpd = CodePointData()
+                cpd.nfd_quick_check = value
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "NFKD_QC":
+                cpd = CodePointData()
+                cpd.nfkd_quick_check = value
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "NFC_QC":
+                cpd = CodePointData()
+                cpd.nfc_quick_check = value
+                CodePointRange(cprng[0], cprng[1], cpd)
+            elif prop == "NFKC_QC":
+                cpd = CodePointData()
+                cpd.nfkc_quick_check = value
+                CodePointRange(cprng[0], cprng[1], cpd)
+
 
 def expand_decompositions():
     global ud_codepoints
@@ -493,6 +551,84 @@ def expand_decompositions():
             ud_decompositions = ud_decompositions + dc
             if len(dc) > ud_decomposition_max_length:
                 ud_decomposition_max_length = len(dc)
+
+
+def derive_canonical_compositions():
+    global ud_codepoints
+    global ud_decompositions
+    global ud_composition_exclusions
+    global ud_composition_pairs
+    global ud_composition_composites
+    global ud_compositions
+    global ud_composition_primaries
+    global ud_compositions_max_per_starter
+
+    for cpr in ud_codepoints:
+        if cpr.cp_last > cpr.cp_first:
+            # No compositions in ranges expected, ever
+            continue
+        cp = cpr.cp_first
+        cpd = cpr.data
+
+        if not hasattr(cpd, "decomposition_full_offset"):
+            continue
+
+        # Skip singleton decompositions
+        if len(cpd.decomposition_first) < 2:
+            continue
+
+        # Skip non-starter decompositions
+        dc_offset = cpd.decomposition_full_offset
+        dc_len = cpd.decomposition_full_length
+        dc = ud_decompositions[dc_offset:(dc_offset + dc_len)]
+
+        scpr = ud_codepoints_index[dc[0]]
+        scpd = scpr.data
+        if (
+            hasattr(scpd, "canonical_combining_class")
+            and scpd.canonical_combining_class > 0
+        ):
+            continue
+
+        # Skip composition exclusions
+        if cp in ud_composition_exclusions:
+            continue
+
+        dc = cpd.decomposition_first
+
+        # Record all alternative pairs for each starter
+        if not dc[0] in ud_composition_pairs:
+            mp = [(dc[1], cp)]
+            ud_composition_pairs[dc[0]] = mp
+        else:
+            mp = ud_composition_pairs[dc[0]]
+            mp.append((dc[1], cp))
+
+            if len(mp) > ud_compositions_max_per_starter:
+                ud_compositions_max_per_starter = len(mp)
+
+    # Compose lookup tables
+    for cpr in ud_codepoints:
+        if cpr.cp_last > cpr.cp_first:
+            # No compositions in ranges expected, ever
+            continue
+        cp = cpr.cp_first
+        cpd = cpr.data
+
+        if cp not in ud_composition_pairs:
+            continue
+
+        def mp_key_func(a):
+            return a[0]
+
+        mp = ud_composition_pairs[cp]
+        mp.sort(key=mp_key_func)
+
+        cpd.composition_offset = len(ud_compositions)
+        cpd.composition_count = len(mp)
+
+        ud_compositions = ud_compositions + [p[0] for p in mp]
+        ud_composition_primaries = ud_composition_primaries + [p[1] for p in mp]
 
 
 def create_cp_range_index():
@@ -665,6 +801,10 @@ def write_tables_h():
         print(
             "#define UNICODE_DECOMPOSITION_MAX_LENGTH %s" % ud_decomposition_max_length
         )
+        print(
+            "#define UNICODE_COMPOSITIONS_MAX_PER_STARTER %s"
+            % ud_compositions_max_per_starter
+        )
         print("")
         print("extern const struct unicode_code_point_data unicode_code_points[];")
         print("")
@@ -674,6 +814,9 @@ def write_tables_h():
         print("extern const uint16_t unicode_code_points_index32[];")
         print("")
         print("extern const uint32_t unicode_decompositions[];")
+        print("")
+        print("extern const uint32_t unicode_compositions[];")
+        print("extern const uint32_t unicode_composition_primaries[];")
         print("")
         print("#endif")
 
@@ -719,6 +862,57 @@ def write_tables_c():
                 "\t\t.general_category = %s,"
                 % get_general_category_def(cpd.general_category)
             )
+            if (
+                hasattr(cpd, "canonical_combining_class")
+                and cpd.canonical_combining_class > 0
+            ):
+                print(
+                    "\t\t.canonical_combining_class = %u,"
+                    % cpd.canonical_combining_class
+                )
+            if (
+                hasattr(cpd, "nfd_quick_check")
+                or hasattr(cpd, "nfkd_quick_check")
+                or hasattr(cpd, "nfc_quick_check")
+                or hasattr(cpd, "nfkc_quick_check")
+            ):
+                print("\t\t.nf_quick_check = (", end="")
+                if hasattr(cpd, "nfkc_quick_check"):
+                    if cpd.nfkc_quick_check == "N":
+                        print("UNICODE_NFKC_QUICK_CHECK_NO", end="")
+                    elif cpd.nfkc_quick_check == "M":
+                        print("UNICODE_NFKC_QUICK_CHECK_MAYBE", end="")
+                if hasattr(cpd, "nfkc_quick_check") and hasattr(cpd, "nfc_quick_check"):
+                    print(" |")
+                    print("\t\t\t\t   ", end="")
+                if hasattr(cpd, "nfc_quick_check"):
+                    if cpd.nfc_quick_check == "N":
+                        print("UNICODE_NFC_QUICK_CHECK_NO", end="")
+                    elif cpd.nfc_quick_check == "M":
+                        print("UNICODE_NFC_QUICK_CHECK_MAYBE", end="")
+                if (
+                    hasattr(cpd, "nfkc_quick_check") or hasattr(cpd, "nfc_quick_check")
+                ) and hasattr(cpd, "nfkd_quick_check"):
+                    print(" |")
+                    print("\t\t\t\t   ", end="")
+                if hasattr(cpd, "nfkd_quick_check"):
+                    if cpd.nfkd_quick_check == "N":
+                        print("UNICODE_NFKD_QUICK_CHECK_NO", end="")
+                    elif cpd.nfkd_quick_check == "M":
+                        print("UNICODE_NFKD_QUICK_CHECK_MAYBE", end="")
+                if (
+                    hasattr(cpd, "nfkc_quick_check")
+                    or hasattr(cpd, "nfc_quick_check")
+                    or hasattr(cpd, "nfkd_quick_check")
+                ) and hasattr(cpd, "nfd_quick_check"):
+                    print(" |")
+                    print("\t\t\t\t   ", end="")
+                if hasattr(cpd, "nfd_quick_check"):
+                    if cpd.nfd_quick_check == "N":
+                        print("UNICODE_NFD_QUICK_CHECK_NO", end="")
+                    elif cpd.nfd_quick_check == "M":
+                        print("UNICODE_NFD_QUICK_CHECK_MAYBE", end="")
+                print("),")
             if hasattr(cpd, "decomposition_type"):
                 print(
                     "\t\t.decomposition_type = %s,"
@@ -745,6 +939,9 @@ def write_tables_c():
                     "\t\t.decomposition_full_k_offset = %u,"
                     % cpd.decomposition_full_k_offset
                 )
+            if hasattr(cpd, "composition_count"):
+                print("\t\t.composition_count = %u," % cpd.composition_count)
+                print("\t\t.composition_offset = %u," % cpd.composition_offset)
             if hasattr(cpd, "simple_titlecase_mapping"):
                 print(
                     "\t\t.simple_titlecase_mapping = 0x%04X,"
@@ -957,6 +1154,16 @@ def write_tables_c():
         print_list(ud_decompositions)
         print(",")
         print("};")
+        print("")
+        print("const uint32_t unicode_compositions[] = {")
+        print_list(ud_compositions)
+        print(",")
+        print("};")
+        print("")
+        print("const uint32_t unicode_composition_primaries[] = {")
+        print_list(ud_composition_primaries)
+        print(",")
+        print("};")
 
     sys.stdout = orig_stdout
 
@@ -1065,6 +1272,7 @@ def main():
 
     create_cp_range_index()
     expand_decompositions()
+    derive_canonical_compositions()
 
     create_cp_index_tables()
 

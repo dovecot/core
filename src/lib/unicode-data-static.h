@@ -93,17 +93,44 @@ enum unicode_general_category {
 	UNICODE_GENERAL_CATEGORY_CN = UNICODE_GENERAL_CATEGORY_C | 5,
 };
 
+/* UAX #44, Section 5.7.5: Decompositions and Normalization
+ */
+enum unicode_nf_quick_check {
+	UNICODE_NFKC_QUICK_CHECK_YES   = (0x00 << 6),
+	UNICODE_NFKC_QUICK_CHECK_NO    = (0x01 << 6),
+	UNICODE_NFKC_QUICK_CHECK_MAYBE = (0x02 << 6),
+	UNICODE_NFC_QUICK_CHECK_YES    = (0x00 << 4),
+	UNICODE_NFC_QUICK_CHECK_NO     = (0x01 << 4),
+	UNICODE_NFC_QUICK_CHECK_MAYBE  = (0x02 << 4),
+	UNICODE_NFKD_QUICK_CHECK_YES   = (0x00 << 2),
+	UNICODE_NFKD_QUICK_CHECK_NO    = (0x01 << 2),
+	UNICODE_NFKD_QUICK_CHECK_MAYBE = (0x02 << 2),
+	UNICODE_NFD_QUICK_CHECK_YES    = (0x00 << 0),
+	UNICODE_NFD_QUICK_CHECK_NO     = (0x01 << 0),
+	UNICODE_NFD_QUICK_CHECK_MAYBE  = (0x02 << 0),
+
+	UNICODE_NFKC_QUICK_CHECK_MASK  = (0x03 << 6),
+	UNICODE_NFC_QUICK_CHECK_MASK   = (0x03 << 4),
+	UNICODE_NFKD_QUICK_CHECK_MASK  = (0x03 << 2),
+	UNICODE_NFD_QUICK_CHECK_MASK   = (0x03 << 0),
+};
+
 struct unicode_code_point_data {
 	uint8_t general_category; // Not yet used
+	uint8_t canonical_combining_class;
+	uint8_t nf_quick_check;
 
 	uint8_t decomposition_type; // Not yet used
 	uint8_t decomposition_first_length;
 	uint8_t decomposition_full_length;
 	uint8_t decomposition_full_k_length;
 
+	uint8_t composition_count;
+
 	uint16_t decomposition_first_offset;
 	uint16_t decomposition_full_offset;
 	uint16_t decomposition_full_k_offset;
+	uint16_t composition_offset;
 
 	uint32_t simple_titlecase_mapping;
 };

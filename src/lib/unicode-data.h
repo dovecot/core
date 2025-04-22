@@ -55,6 +55,31 @@ unicode_code_point_data_get_full_decomposition(
 	return cp_data->decomposition_full_k_length;
 }
 
+static inline uint32_t
+unicode_code_point_data_find_composition(
+	const struct unicode_code_point_data *cp_data, uint32_t second)
+{
+	const uint32_t *compositions =
+		&unicode_compositions[cp_data->composition_offset];
+	size_t left_idx, right_idx;
+
+	left_idx = 0; right_idx = cp_data->composition_count;
+	while (left_idx < right_idx) {
+		unsigned int idx = (left_idx + right_idx) / 2;
+
+		if (second > compositions[idx])
+			left_idx = idx + 1;
+		else if (second < compositions[idx])
+			right_idx = idx;
+		else {
+			return unicode_composition_primaries[
+				cp_data->composition_offset + idx];
+		}
+	}
+
+	return 0x0000;
+}
+
 static inline size_t
 unicode_code_point_get_full_decomposition(uint32_t cp, bool canonical,
 					  const uint32_t **decomp_r)
