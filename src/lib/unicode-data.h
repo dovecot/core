@@ -24,6 +24,48 @@ unicode_code_point_get_data(uint32_t cp)
 	return &unicode_code_points[idxcp];
 }
 
+static inline size_t
+unicode_code_point_data_get_first_decomposition(
+	const struct unicode_code_point_data *cp_data,
+	uint8_t *type_r, const uint32_t **decomp_r)
+{
+	uint32_t offset;
+
+	if (type_r != NULL)
+		*type_r = cp_data->decomposition_type;
+	offset = cp_data->decomposition_first_offset;
+	*decomp_r = &unicode_decompositions[offset];
+	return cp_data->decomposition_first_length;
+}
+
+static inline size_t
+unicode_code_point_data_get_full_decomposition(
+	const struct unicode_code_point_data *cp_data, bool canonical,
+	const uint32_t **decomp_r)
+{
+	uint32_t offset;
+
+	if (canonical) {
+		offset = cp_data->decomposition_full_offset;
+		*decomp_r = &unicode_decompositions[offset];
+		return cp_data->decomposition_full_length;
+	}
+	offset = cp_data->decomposition_full_k_offset;
+	*decomp_r = &unicode_decompositions[offset];
+	return cp_data->decomposition_full_k_length;
+}
+
+static inline size_t
+unicode_code_point_get_full_decomposition(uint32_t cp, bool canonical,
+					  const uint32_t **decomp_r)
+{
+	const struct unicode_code_point_data *cp_data =
+		unicode_code_point_get_data(cp);
+
+	return unicode_code_point_data_get_full_decomposition(
+		cp_data, canonical, decomp_r);
+}
+
 uint8_t unicode_general_category_from_string(const char *str);
 
 #endif

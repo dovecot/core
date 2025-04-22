@@ -69,6 +69,29 @@ static void test_unicode_data_line(const char *line, unsigned int line_num)
 	}
 	test_assert(!unicode_general_category_is_group(general_category));
 
+	/* Parse Decomposition_* */
+
+	const char *decomp_spec = columns[5];
+	enum unicode_decomposition_type decomp_type =
+		UNICODE_DECOMPOSITION_TYPE_CANONICAL;
+
+	if (*decomp_spec == '<') {
+		const char *p = strchr(decomp_spec + 1, '>');
+
+		if (p == NULL || *(p + 1) != ' ') {
+			test_failed(t_strdup_printf(
+				"Invalid data at %s:%u: "
+				"Bad Decomposition for code point %"PRIu32": %s",
+				UCD_UNICODE_DATA_TXT, line_num, cp, columns[5]));
+			return;
+		}
+		decomp_type = unicode_decomposition_type_from_string(
+			t_strdup_until(decomp_spec + 1, p));
+		decomp_spec = p + 2;
+	}
+
+	const char *const *decomp = t_strsplit(decomp_spec, " ");
+
 	/* Parse Simple_*case_Mapping */
 
 	uint32_t simple_uppercase_mapping = 0;
@@ -112,6 +135,35 @@ static void test_unicode_data_line(const char *line, unsigned int line_num)
 
 		test_assert_idx(
 			cp_data->general_category == general_category, cp);
+
+		const uint32_t *cp_decomp;
+		size_t cp_decomp_len, cp_decomp_idx;
+		uint8_t cp_decomp_type;
+
+		cp_decomp_len =
+			unicode_code_point_data_get_first_decomposition(
+				cp_data, &cp_decomp_type, &cp_decomp);
+		test_assert(str_array_length(decomp) == cp_decomp_len);
+		if (test_has_failed())
+			break;
+
+		test_assert_idx(
+			(cp_decomp_type == decomp_type ||
+			 cp_decomp_type == UNICODE_DECOMPOSITION_TYPE_COMPAT),
+			cp);
+		cp_decomp_idx = 0;
+		while (*decomp != NULL && !test_has_failed()) {
+			uint32_t dcp;
+
+			test_assert_idx(str_to_uint32_hex(*decomp, &dcp) >= 0, cp);
+			if (test_has_failed())
+				break;
+			test_assert_idx(uni_is_valid_ucs4(dcp), cp);
+			test_assert_idx(dcp == cp_decomp[cp_decomp_idx], cp);
+
+			cp_decomp_idx++;
+			decomp++;
+		}
 
 		test_assert_idx(
 			cp_data->simple_titlecase_mapping == simple_titlecase_mapping,

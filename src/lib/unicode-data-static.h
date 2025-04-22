@@ -96,6 +96,15 @@ enum unicode_general_category {
 struct unicode_code_point_data {
 	uint8_t general_category; // Not yet used
 
+	uint8_t decomposition_type; // Not yet used
+	uint8_t decomposition_first_length;
+	uint8_t decomposition_full_length;
+	uint8_t decomposition_full_k_length;
+
+	uint16_t decomposition_first_offset;
+	uint16_t decomposition_full_offset;
+	uint16_t decomposition_full_k_offset;
+
 	uint32_t simple_titlecase_mapping;
 };
 

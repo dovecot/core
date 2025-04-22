@@ -6,6 +6,8 @@ noinst_LTLIBRARIES = liblib.la
 BUILT_SOURCES = $(srcdir)/unicodemap.c \
 		$(srcdir)/unicode-data-tables.c \
 		$(srcdir)/unicode-data-tables.h \
+		$(srcdir)/unicode-data-types.c \
+		$(srcdir)/unicode-data-types.h \
 		event-filter-lexer.c \
 		event-filter-parser.c \
 		event-filter-parser.h
@@ -14,12 +16,15 @@ UCD_URL = https://dovecot.org/res
 UCD_DIR = $(srcdir)/ucd
 UCD_FILES = \
 	$(UCD_DIR)/DerivedCoreProperties.txt \
+	$(UCD_DIR)/PropertyValueAliases.txt \
 	$(UCD_DIR)/UnicodeData.txt
 
 EXTRA_DIST = \
 	unicodemap.c \
 	unicode-data-tables.c \
 	unicode-data-tables.h \
+	unicode-data-types.c \
+	unicode-data-types.h \
 	unicodemap.pl \
 	unicode-ucd-compile.py \
 	$(UCD_FILES)
@@ -47,12 +52,15 @@ event-filter-parser.h: event-filter-parser.c
 
 $(UCD_DIR)/DerivedCoreProperties.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/DerivedCoreProperties.txt
+$(UCD_DIR)/PropertyValueAliases.txt:
+	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/PropertyValueAliases.txt
 $(UCD_DIR)/UnicodeData.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ $(UCD_URL)/UnicodeData.txt
 
 $(srcdir)/unicodemap.c: $(srcdir)/unicodemap.pl $(UCD_DIR)/UnicodeData.txt
 	$(AM_V_GEN)$(PERL) $(srcdir)/unicodemap.pl < $(UCD_DIR)/UnicodeData.txt > $@
-$(srcdir)/unicode-data-tables.c $(srcdir)/unicode-data-tables.h &: \
+$(srcdir)/unicode-data-tables.c $(srcdir)/unicode-data-tables.h \
+	$(srcdir)/unicode-data-types.c $(srcdir)/unicode-data-types.h &: \
 	$(srcdir)/unicode-ucd-compile.py $(UCD_FILES)
 	$(AM_V_GEN)$(PYTHON) $(srcdir)/unicode-ucd-compile.py $(UCD_DIR) $(srcdir)
 
@@ -213,6 +221,7 @@ liblib_la_SOURCES = \
 	unlink-directory.c \
 	unlink-old-files.c \
 	unichar.c \
+	unicode-data-types.c \
 	unicode-data-tables.c \
 	unicode-data.c \
 	uri-util.c \
@@ -376,6 +385,7 @@ headers = \
 	unlink-old-files.h \
 	unichar.h \
 	unicode-data-static.h \
+	unicode-data-types.h \
 	unicode-data-tables.h \
 	unicode-data.h \
 	uri-util.h \

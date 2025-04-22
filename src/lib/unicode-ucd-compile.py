@@ -30,6 +30,10 @@ ud_codepoints_index16_blocks = 1
 ud_codepoints_index24_blocks = 2
 ud_codepoints_index32_blocks = 2
 
+ud_decomposition_type_names = []
+ud_decompositions = []
+ud_decomposition_max_length = 0
+
 
 class UCDFileOpen:
     def __init__(self, filename):
@@ -256,6 +260,25 @@ def read_ucd_files():
     global ud_decomposition_type_names
     global ud_composition_exclusions
 
+    # PropertyValueAliases.txt
+    with UCDFileOpen("PropertyValueAliases.txt") as ucd:
+        line_num = 0
+        for line in ucd.fd:
+            line_num = line_num + 1
+            data = line.split("#")
+            line = data[0].strip()
+            if len(line) == 0:
+                continue
+
+            cols = line.split(";")
+            if len(cols) < 3:
+                die(f"{ucd}:{line_num}: Missing columns")
+
+            prop = cols[0].strip()
+            if prop == "dt":
+                lval = cols[2].strip()
+                ud_decomposition_type_names.append(lval)
+
     # UnicodeData.txt
     with UCDFileOpen("UnicodeData.txt") as ucd:
         cp_range_first = None
@@ -334,6 +357,142 @@ def read_ucd_files():
 
             # Add range
             CodePointRange(cp_first, cp_last, cpd)
+
+
+def expand_decompositions():
+    global ud_codepoints
+    global ud_codepoints_index
+    global ud_decompositions
+    global ud_decomposition_max_length
+
+    # Record first decompositions in ud_decompositions table
+    for cpr in ud_codepoints:
+        cpd = cpr.data
+
+        if not hasattr(cpd, "decomposition_first") or len(cpd.decomposition_first) == 0:
+            continue
+
+        dc = cpd.decomposition_first
+        cpd.decomposition_offset = len(ud_decompositions)
+        cpd.decomposition_length = len(dc)
+        ud_decompositions = ud_decompositions + dc
+        if len(dc) > ud_decomposition_max_length:
+            ud_decomposition_max_length = len(dc)
+
+    # Expand all decompositions
+    for cpr in ud_codepoints:
+        if cpr.cp_last > cpr.cp_first:
+            # No decompositions in ranges expected, ever
+            continue
+        cpd = cpr.data
+
+        if not hasattr(cpd, "decomposition_first") or len(cpd.decomposition_first) == 0:
+            continue
+
+        dc_type = None
+        if hasattr(cpd, "decomposition_type"):
+            dc_type = cpd.decomposition_type
+
+        # Canonical
+        dc = []
+
+        finished = False
+        changed = False
+        if dc_type is None:
+            dc = cpd.decomposition_first
+        else:
+            finished = True
+            changed = True
+
+        while not finished:
+            finished = True
+
+            dc_new = []
+            for dcp in dc:
+                if dcp not in ud_codepoints_index:
+                    dc_new.append(dcp)
+                    continue
+
+                scpr = ud_codepoints_index[dcp]
+                scpd = scpr.data
+
+                if (
+                    hasattr(scpd, "decomposition_type")
+                    or not hasattr(scpd, "decomposition_first")
+                    or (
+                        len(scpd.decomposition_first) == 1
+                        and scpd.decomposition_first[0] == dcp
+                    )
+                ):
+                    dc_new.append(dcp)
+                    continue
+
+                finished = False
+                changed = True
+                dc_new = dc_new + scpd.decomposition_first
+
+            if not finished:
+                dc = dc_new
+
+        if not changed:
+            if hasattr(cpd, "decomposition_offset"):
+                cpd.decomposition_full_offset = cpd.decomposition_offset
+                cpd.decomposition_full_length = cpd.decomposition_length
+        elif len(dc) == 0:
+            pass
+        else:
+            cpd.decomposition_full_offset = len(ud_decompositions)
+            cpd.decomposition_full_length = len(dc)
+            ud_decompositions = ud_decompositions + dc
+            if len(dc) > ud_decomposition_max_length:
+                ud_decomposition_max_length = len(dc)
+
+        dc_c = dc
+
+        # Compatibility
+        dc = cpd.decomposition_first
+
+        finished = False
+        changed = False
+        while not finished:
+            finished = True
+
+            dc_new = []
+            for dcp in dc:
+                if dcp not in ud_codepoints_index:
+                    dc_new.append(dcp)
+                    continue
+
+                scpr = ud_codepoints_index[dcp]
+                scpd = scpr.data
+
+                if not hasattr(scpd, "decomposition_first") or (
+                    len(scpd.decomposition_first) == 1
+                    and scpd.decomposition_first[0] == dcp
+                ):
+                    dc_new.append(dcp)
+                    continue
+
+                finished = False
+                changed = True
+                dc_new = dc_new + scpd.decomposition_first
+
+            if not finished:
+                dc = dc_new
+
+        if not changed:
+            if hasattr(cpd, "decomposition_offset"):
+                cpd.decomposition_full_k_offset = cpd.decomposition_offset
+                cpd.decomposition_full_k_length = cpd.decomposition_length
+        elif dc == dc_c:
+            cpd.decomposition_full_k_offset = cpd.decomposition_full_offset
+            cpd.decomposition_full_k_length = cpd.decomposition_full_length
+        else:
+            cpd.decomposition_full_k_offset = len(ud_decompositions)
+            cpd.decomposition_full_k_length = len(dc)
+            ud_decompositions = ud_decompositions + dc
+            if len(dc) > ud_decomposition_max_length:
+                ud_decomposition_max_length = len(dc)
 
 
 def create_cp_range_index():
@@ -501,7 +660,11 @@ def write_tables_h():
         print("#define UNICODE_DATA_TABLES_H")
         print("")
         print_top_message()
-        print('#include "unicode-data-static.h"')
+        print('#include "unicode-data-types.h"')
+        print("")
+        print(
+            "#define UNICODE_DECOMPOSITION_MAX_LENGTH %s" % ud_decomposition_max_length
+        )
         print("")
         print("extern const struct unicode_code_point_data unicode_code_points[];")
         print("")
@@ -509,6 +672,8 @@ def write_tables_h():
         print("extern const uint8_t unicode_code_points_index16[];")
         print("extern const uint16_t unicode_code_points_index24[];")
         print("extern const uint16_t unicode_code_points_index32[];")
+        print("")
+        print("extern const uint32_t unicode_decompositions[];")
         print("")
         print("#endif")
 
@@ -554,6 +719,32 @@ def write_tables_c():
                 "\t\t.general_category = %s,"
                 % get_general_category_def(cpd.general_category)
             )
+            if hasattr(cpd, "decomposition_type"):
+                print(
+                    "\t\t.decomposition_type = %s,"
+                    % decomposition_type_def(cpd.decomposition_type)
+                )
+            if hasattr(cpd, "decomposition_length"):
+                print("\t\t.decomposition_first_length = %u," % cpd.decomposition_length)
+                print("\t\t.decomposition_first_offset = %u," % cpd.decomposition_offset)
+            if hasattr(cpd, "decomposition_full_length"):
+                print(
+                    "\t\t.decomposition_full_length = %u,"
+                    % cpd.decomposition_full_length
+                )
+                print(
+                    "\t\t.decomposition_full_offset = %u,"
+                    % cpd.decomposition_full_offset
+                )
+            if hasattr(cpd, "decomposition_full_k_length"):
+                print(
+                    "\t\t.decomposition_full_k_length = %u,"
+                    % cpd.decomposition_full_k_length
+                )
+                print(
+                    "\t\t.decomposition_full_k_offset = %u,"
+                    % cpd.decomposition_full_k_offset
+                )
             if hasattr(cpd, "simple_titlecase_mapping"):
                 print(
                     "\t\t.simple_titlecase_mapping = 0x%04X,"
@@ -761,6 +952,85 @@ def write_tables_c():
                 print(" ", end="")
         print(",")
         print("};")
+        print("")
+        print("const uint32_t unicode_decompositions[] = {")
+        print_list(ud_decompositions)
+        print(",")
+        print("};")
+
+    sys.stdout = orig_stdout
+
+
+def write_types_h():
+    global output_dir
+    global ud_decomposition_type_names
+
+    orig_stdout = sys.stdout
+
+    with open(output_dir + "/unicode-data-types.h", mode="w", encoding="utf-8") as fd:
+        sys.stdout = fd
+
+        print("#ifndef UNICODE_DATA_TYPES_H")
+        print("#define UNICODE_DATA_TYPES_H")
+        print("")
+        print_top_message()
+        print('#include "unicode-data-static.h"')
+        print("")
+        print("/* Decomposition_Type */")
+        print("enum unicode_decomposition_type {")
+        print("\t/* Canonical */")
+        print("\tUNICODE_DECOMPOSITION_TYPE_CANONICAL = 0,")
+        for dt in ud_decomposition_type_names:
+            dt_uc = dt.upper()
+
+            if dt_uc == "CANONICAL":
+                continue
+
+            print("\t/* <%s> */" % dt)
+            print("\tUNICODE_DECOMPOSITION_TYPE_%s," % dt_uc)
+        print("};")
+        print("")
+        print("/* Decomposition_Type */")
+        print("enum unicode_decomposition_type")
+        print("unicode_decomposition_type_from_string(const char *str);")
+        print("")
+        print("#endif")
+
+    sys.stdout = orig_stdout
+
+
+def write_types_c():
+    global output_dir
+    global ud_decomposition_type_names
+
+    orig_stdout = sys.stdout
+
+    with open(output_dir + "/unicode-data-types.c", mode="w", encoding="utf-8") as fd:
+        sys.stdout = fd
+
+        print_top_message()
+        print('#include "lib.h"')
+        print('#include "unicode-data-types.h"')
+        print("")
+        print("/* Decomposition_Type */")
+        print("enum unicode_decomposition_type")
+        print("unicode_decomposition_type_from_string(const char *str)")
+        print("{")
+        print("\t/* Canonical */")
+        print('\tif (strcasecmp(str, "Canonical") == 0)')
+        print("\t\treturn UNICODE_DECOMPOSITION_TYPE_CANONICAL;")
+        for dt in ud_decomposition_type_names:
+            dt_uc = dt.upper()
+
+            if dt_uc == "CANONICAL":
+                continue
+
+            print("\t/* <%s> */" % dt)
+            print('\telse if (strcasecmp(str, "%s") == 0)' % dt)
+            print("\t\treturn UNICODE_DECOMPOSITION_TYPE_%s;" % dt_uc)
+        print("")
+        print("\treturn UNICODE_DECOMPOSITION_TYPE_CANONICAL;")
+        print("}")
 
     sys.stdout = orig_stdout
 
@@ -794,11 +1064,14 @@ def main():
     source_files.sort()
 
     create_cp_range_index()
+    expand_decompositions()
 
     create_cp_index_tables()
 
     write_tables_h()
     write_tables_c()
+    write_types_h()
+    write_types_c()
 
 
 if __name__ == "__main__":
