@@ -121,7 +121,7 @@ static bool message_part_get_attachment_filename(
 	i_assert(data != NULL);
 
 	/* Reject the message if the Content-Type is excluded. */
-	if (settings && settings->content_type_filter != NULL &&
+	if (settings != NULL && settings->content_type_filter != NULL &&
 	    !message_part_has_content_types(part, settings->content_type_filter))
 		return FALSE;
 
@@ -133,7 +133,7 @@ static bool message_part_get_attachment_filename(
 	/* Accept Content-Disposition: inline only when a filename or
 	   Content-Type->name is available and if inlined attachments are not
 	   excluded */
-	if ((!settings || !settings->exclude_inlined) &&
+	if ((settings == NULL || !settings->exclude_inlined) &&
 	    null_strcasecmp(data->content_disposition, "inline") == 0)
 		return message_part_data_find_attachment_filename(data, FALSE, filename_r);
 
