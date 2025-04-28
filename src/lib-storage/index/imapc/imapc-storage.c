@@ -39,6 +39,11 @@ static struct event_category event_category_imapc = {
 	.parent = &event_category_storage,
 };
 
+struct imapc_forwarded_response_codes {
+	const char *code;
+	bool (*forward)(const struct imapc_storage_client *client);
+};
+
 static struct imapc_resp_code_map imapc_resp_code_map[] = {
 	{ IMAP_RESP_CODE_UNAVAILABLE, MAIL_ERROR_TEMP },
 	{ IMAP_RESP_CODE_AUTHFAILED, MAIL_ERROR_PERM },
@@ -59,12 +64,13 @@ static struct imapc_resp_code_map imapc_resp_code_map[] = {
 	{ IMAP_RESP_CODE_NONEXISTENT, MAIL_ERROR_NOTFOUND }
 };
 
-static const char *forwarded_response_codes[] = {
-	IMAP_RESP_CODE_ALERT,
-	IMAP_RESP_CODE_BADCHARSET,
-	IMAP_RESP_CODE_BADCOMPARATOR,
-	IMAP_RESP_CODE_BADEVENT,
-	NULL
+static bool response_code_forward_alert(const struct imapc_storage_client *client);
+
+static const struct imapc_forwarded_response_codes forwarded_response_codes[] = {
+	{ IMAP_RESP_CODE_ALERT, response_code_forward_alert },
+	{ IMAP_RESP_CODE_BADCHARSET, NULL },
+	{ IMAP_RESP_CODE_BADCOMPARATOR, NULL },
+	{ IMAP_RESP_CODE_BADEVENT, NULL }
 };
 
 static void imapc_untagged_status(const struct imapc_untagged_reply *reply,
@@ -1073,15 +1079,18 @@ static void imapc_untagged_inprogress(const struct imapc_untagged_reply *reply,
 	storage->callbacks.notify_progress(box, &dtl, storage->callback_context);
 }
 
+static bool response_code_forward_alert(const struct imapc_storage_client *client) {
+	return imapc_client_is_ssl(client->client);
+}
+
 static void imapc_untagged_respcodes(const struct imapc_untagged_reply *reply,
 				     struct imapc_storage_client *client)
 {
-	void (*notify)(struct mailbox *mailbox, const char *text, void *context);
-	struct mail_storage *storage = &client->_storage->storage;
-
 	if (reply->resp_text_key == NULL)
 		return;
 
+	struct mail_storage *storage = &client->_storage->storage;
+	void (*notify)(struct mailbox *mailbox, const char *text, void *context);
 	if (storage->callbacks.notify_ok != NULL && strcasecmp(reply->name, "OK") == 0)
 		notify = storage->callbacks.notify_ok;
 	else if (storage->callbacks.notify_no != NULL && strcasecmp(reply->name, "NO") == 0)
@@ -1091,12 +1100,20 @@ static void imapc_untagged_respcodes(const struct imapc_untagged_reply *reply,
 	else
 		return;
 
-	if (str_array_icase_find(forwarded_response_codes, reply->resp_text_key)) {
-		struct imapc_mailbox *mbox = reply->untagged_box_context;
-		struct mailbox *box = mbox == NULL ? NULL : &mbox->box;
-		string_t *text = t_str_new(80);
-		imap_write_args(text, reply->args);
-		notify(box, str_c(text), storage->callback_context);
+	for (unsigned long int index = 0; index < N_ELEMENTS(forwarded_response_codes); index++) {
+		const struct imapc_forwarded_response_codes *entry = &forwarded_response_codes[index];
+		if (strcasecmp(entry->code, reply->resp_text_key) != 0)
+			continue;
+
+		if (entry->forward != NULL && entry->forward(client)) {
+			string_t *text = t_str_new(80);
+			imap_write_args(text, reply->args);
+
+			struct imapc_mailbox *mbox = reply->untagged_box_context;
+			struct mailbox *box = mbox == NULL ? NULL : &mbox->box;
+			notify(box, str_c(text), storage->callback_context);
+		}
+		break;
 	}
 }
 

@@ -568,3 +568,7 @@ imapc_client_set_login_callback(struct imapc_client *client,
 	client->login_context  = context;
 }
 
+bool imapc_client_is_ssl(struct imapc_client *client)
+{
+	return client->ssl_mode != IMAPC_CLIENT_SSL_MODE_NONE;
+}

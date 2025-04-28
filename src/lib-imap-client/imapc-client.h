@@ -211,4 +211,6 @@ void imapc_client_register_state_change_callback(struct imapc_client *client,
 						 imapc_state_change_callback_t *cb,
 						 void *context);
 
+bool imapc_client_is_ssl(struct imapc_client *client);
+
 #endif
