@@ -672,7 +672,7 @@ mech_gssapi_auth_initial(struct auth_request *request,
 
 	if (data_size == 0) {
 		/* The client should go first */
-		auth_request_handler_reply_continue(request, NULL, 0);
+		auth_request_handler_reply_continue(request, uchar_empty_ptr, 0);
 	} else {
 		mech_gssapi_auth_continue(request, data, data_size);
 	}
