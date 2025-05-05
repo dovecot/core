@@ -312,15 +312,16 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 	client_update_mailbox_flags(client, status.keywords);
 	client_send_mailbox_flags(client, TRUE);
 
+	bool imap4rev2_enabled = (client_enabled_mailbox_features(client) &
+				  MAILBOX_FEATURE_IMAP4REV2) != 0;
 	client_send_line(client,
 		t_strdup_printf("* %u EXISTS", status.messages));
-	if ((client_enabled_mailbox_features(client) &
-	    MAILBOX_FEATURE_IMAP4REV2) == 0) {
+	if (!imap4rev2_enabled) {
 		client_send_line(client,
 				t_strdup_printf("* %u RECENT", status.recent));
 	}
 
-	if (status.first_unseen_seq != 0) {
+	if (!imap4rev2_enabled && status.first_unseen_seq != 0) {
 		client_send_line(client,
 			t_strdup_printf("* OK [UNSEEN %u] First unseen.",
 					status.first_unseen_seq));
