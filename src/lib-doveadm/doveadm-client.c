@@ -677,6 +677,7 @@ doveadm_client_create_failed(struct doveadm_client_dns_lookup_context *ctx)
 		.error  = ctx->error,
 	};
 	doveadm_client_callback(conn, &reply);
+	event_unref(&conn->conn.event);
 	pool_unref(&conn->pool);
 }
 
@@ -714,15 +715,10 @@ static int doveadm_client_dns_lookup(struct doveadm_client *conn,
 {
 	struct doveadm_client_dns_lookup_context *ctx =
 		p_new(conn->pool, struct doveadm_client_dns_lookup_context, 1);
-	struct dns_client_settings dns_set;
-
-	i_zero(&dns_set);
-	dns_set.dns_client_socket_path = conn->set.dns_client_socket_path;
-	dns_set.timeout_msecs = DOVEADM_CLIENT_DNS_TIMEOUT_MSECS;
 
 	ctx->conn = conn;
 
-	if (dns_lookup(conn->set.hostname, &dns_set, NULL, conn->conn.event,
+	if (dns_lookup(conn->set.hostname, NULL, conn->conn.event,
 		       doveadm_client_dns_lookup_callback, ctx,
 		       &conn->dns_lookup) != 0) {
 		*error_r = t_strdup(ctx->error);
@@ -783,6 +779,8 @@ int doveadm_client_create(const struct doveadm_client_settings *set,
 	conn = p_new(pool, struct doveadm_client, 1);
 	conn->pool = pool;
 	conn->refcount = 1;
+	/* DNS lookup needs the event before connection is initialized. */
+	conn->conn.event = event_create(NULL);
 	doveadm_client_settings_dup(set, &conn->set, pool);
 
 	if (set->socket_path != NULL) {
@@ -794,6 +792,7 @@ int doveadm_client_create(const struct doveadm_client_settings *set,
 
 	} else if (doveadm_client_resolve_hostname(conn, &error) != 0) {
 		*error_r = t_strdup(error);
+		event_unref(&conn->conn.event);
 		pool_unref(&pool);
 		return -1;
 	}

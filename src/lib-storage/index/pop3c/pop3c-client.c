@@ -21,7 +21,6 @@
 #include <unistd.h>
 
 #define POP3C_MAX_INBUF_SIZE (1024*32)
-#define POP3C_DNS_LOOKUP_TIMEOUT_MSECS (1000*30)
 #define POP3C_CONNECT_TIMEOUT_MSECS (1000*30)
 #define POP3C_COMMAND_TIMEOUT_MSECS (1000*60*5)
 
@@ -241,8 +240,6 @@ static void pop3c_client_timeout(struct pop3c_client *client)
 
 static int pop3c_client_dns_lookup(struct pop3c_client *client)
 {
-	struct dns_client_settings dns_set;
-
 	i_assert(client->state == POP3C_CLIENT_STATE_CONNECTING);
 
 	if (client->set.dns_client_socket_path[0] == '\0') {
@@ -261,11 +258,7 @@ static int pop3c_client_dns_lookup(struct pop3c_client *client)
 		client->ip = ips[0];
 		pop3c_client_connect_ip(client);
 	} else {
-		i_zero(&dns_set);
-		dns_set.dns_client_socket_path =
-			client->set.dns_client_socket_path;
-		dns_set.timeout_msecs = POP3C_DNS_LOOKUP_TIMEOUT_MSECS;
-		if (dns_lookup(client->set.host, &dns_set, NULL, client->event,
+		if (dns_lookup(client->set.host, NULL, client->event,
 			       pop3c_dns_callback, client,
 			       &client->dns_lookup) < 0)
 			return -1;

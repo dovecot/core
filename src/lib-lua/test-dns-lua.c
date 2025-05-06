@@ -38,18 +38,22 @@ static void test_dns_lua_deinit(void)
 
 static void test_dns_lua_common(const char *luascript)
 {
-	const struct dns_client_settings set = {
-		.dns_client_socket_path = TEST_DNS_SERVER_SOCKET_PATH,
-		.timeout_msecs = 1000,
+	static const char *const set_dns_test[] = {
+		"dns_client_socket_path", TEST_DNS_SERVER_SOCKET_PATH,
+		"dns_client_timeout", "1s",
+		"base_dir", "",
+		NULL
 	};
+	const char *error;
 
 	struct settings_simple test_set;
-	settings_simple_init(&test_set, NULL);
+	settings_simple_init(&test_set, set_dns_test);
 
-	struct dns_client *client = dns_client_init(&set, NULL, NULL);
+	struct dns_client *client;
+	if (dns_client_init(NULL, test_set.event, &client, &error) < 0)
+		i_fatal("%s", error);
 
 	struct dlua_script *script;
-	const char *error;
 	if (dlua_script_create_string(luascript, &script, test_set.event, &error) < 0)
 		i_fatal("dlua_script_create_string() failed: %s", error);
 	if (dlua_script_init(script, &error) < 0)

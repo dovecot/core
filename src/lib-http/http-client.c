@@ -492,7 +492,6 @@ void http_client_context_unref(struct http_client_context **_cctx)
 	connection_list_deinit(&cctx->conn_list);
 
 	event_unref(&cctx->event);
-	i_free(cctx->dns_client_socket_path);
 	pool_unref(&cctx->pool);
 }
 
@@ -504,32 +503,13 @@ http_client_context_update_settings(struct http_client_context *cctx)
 
 	/* Revert back to default settings */
 	cctx->dns_client = NULL;
-	i_free(cctx->dns_client_socket_path);
 	cctx->dns_ttl_msecs = UINT_MAX;
-	cctx->dns_lookup_timeout_msecs = HTTP_CLIENT_DEFAULT_DNS_LOOKUP_TIMEOUT_MSECS;
 
 	/* Override with available client settings */
 	for (client = cctx->clients_list; client != NULL;
 	     client = client->next) {
 		if (cctx->dns_client == NULL)
 			cctx->dns_client = client->dns_client;
-		if (cctx->dns_client_socket_path == NULL &&
-		    client->set->dns_client_socket_path != NULL &&
-		    client->set->dns_client_socket_path[0] != '\0') {
-			/* FIXME: This base_dir expansion shouldn't be here.
-			   Maybe support %{set:base_dir}/dns-client?
-			   The "./" check is to avoid breaking unit tests. */
-			if (client->set->dns_client_socket_path[0] == '/' ||
-			    str_begins_with(client->set->dns_client_socket_path, "./")) {
-				cctx->dns_client_socket_path =
-					i_strdup(client->set->dns_client_socket_path);
-			} else {
-				cctx->dns_client_socket_path =
-					i_strdup_printf("%s/%s",
-							client->set->base_dir,
-							client->set->dns_client_socket_path);
-			}
-		}
 		if (client->set->dns_ttl_msecs != 0 &&
 		    cctx->dns_ttl_msecs > client->set->dns_ttl_msecs)
 			cctx->dns_ttl_msecs = client->set->dns_ttl_msecs;

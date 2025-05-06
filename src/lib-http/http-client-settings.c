@@ -23,7 +23,6 @@ http_client_settings_check(void *_set, pool_t pool, const char **error_r);
 static const struct setting_define http_client_setting_defines[] = {
 	SETTING_DEFINE_STRUCT_STR_HIDDEN("base_dir", base_dir,
 					 struct http_client_settings),
-	DEF(STR_HIDDEN, dns_client_socket_path),
 	DEF_MSECS(TIME_MSECS_HIDDEN, dns_ttl),
 
 	DEF(STR_HIDDEN, user_agent),
@@ -74,7 +73,6 @@ static const struct setting_define http_client_setting_defines[] = {
 
 static const struct http_client_settings http_client_default_settings = {
 	.base_dir = PKG_RUNDIR,
-	.dns_client_socket_path = "dns-client",
 	.dns_ttl_msecs = HTTP_CLIENT_DEFAULT_DNS_TTL_MSECS,
 	.user_agent = "",
 

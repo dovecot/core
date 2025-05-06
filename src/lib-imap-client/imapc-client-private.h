@@ -42,9 +42,6 @@ struct imapc_client {
 	struct ioloop *ioloop;
 	bool stop_on_state_finish;
 
-	/* Set to imapc_settings attributes with possible override by the
-	   imapc_parameters. */
-	const char *dns_client_socket_path;
 	const char *imapc_rawlog_dir;
 	const char *password;
 };

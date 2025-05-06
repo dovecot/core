@@ -11,9 +11,19 @@
 #include "ostream.h"
 #include "connection.h"
 #include "dns-lookup.h"
+#include "settings.h"
 #include <unistd.h>
 
 #define TEST_SOCKET_NAME ".test-dns-server"
+
+static struct settings_simple test_set;
+
+static const char *const set_dns_test[] = {
+	"dns_client_socket_path", TEST_SOCKET_NAME,
+	"base_dir", "",
+	"dns_client_timeout", "1s",
+	NULL
+};
 
 static const struct {
 	const char *name;
@@ -167,26 +177,17 @@ static void test_callback_ips(const struct dns_lookup_result *result,
 
 static void test_dns_expect_result_ips(const char *name, const char *result)
 {
-	const struct dns_client_settings set = {
-		.dns_client_socket_path = TEST_SOCKET_NAME,
-		.timeout_msecs = 1000,
-	};
 	struct dns_lookup *lookup;
 	struct test_expect_result ctx = {
 		.ret = result == NULL ? -1 : 0,
 		.result = result
 	};
-	test_assert(dns_lookup(name, &set, NULL, NULL, test_callback_ips,
-			       &ctx, &lookup) == 0);
+	test_assert(dns_lookup(name, NULL, test_set.event, test_callback_ips, &ctx, &lookup) == 0);
 	io_loop_run(test_server.loop);
 }
 
 static void test_dns_expect_result_name(const char *name, const char *result)
 {
-	const struct dns_client_settings set = {
-		.dns_client_socket_path = TEST_SOCKET_NAME,
-		.timeout_msecs = 1000,
-	};
 	struct dns_lookup *lookup;
 	struct test_expect_result ctx = {
 		.ret = result == NULL ? -1 : 0,
@@ -194,14 +195,14 @@ static void test_dns_expect_result_name(const char *name, const char *result)
 	};
 	struct ip_addr addr;
 	i_assert(net_addr2ip(name, &addr) == 0);
-	test_assert(dns_lookup_ptr(&addr, &set, NULL, NULL, test_callback_name,
-				   &ctx, &lookup) == 0);
+	test_assert(dns_lookup_ptr(&addr, NULL, test_set.event, test_callback_name, &ctx, &lookup) == 0);
 	io_loop_run(test_server.loop);
 }
 
 static void test_dns_lookup(void)
 {
 	test_begin("dns lookup");
+	settings_simple_update(&test_set, set_dns_test);
 	create_dns_server(&test_server);
 
 	test_dns_expect_result_ips("localhost", "127.0.0.1\t::1");
@@ -218,18 +219,14 @@ static void test_dns_lookup_timeout(void)
 	test_begin("dns lookup (timeout)");
 	create_dns_server(&test_server);
 
-	const struct dns_client_settings set = {
-		.dns_client_socket_path = TEST_SOCKET_NAME,
-		.timeout_msecs = 1000,
-	};
 	struct dns_lookup *lookup;
 	struct test_expect_result ctx = {
 		.ret = EAI_FAIL,
 		.result = NULL,
 	};
 
-	test_assert(dns_lookup("waitfor1500", &set, NULL, NULL, test_callback_ips,
-			       &ctx, &lookup) == 0);
+	test_assert(dns_lookup("waitfor1500", NULL, test_set.event,
+			       test_callback_ips, &ctx, &lookup) == 0);
 	io_loop_run(current_ioloop);
 
 	destroy_dns_server(&test_server);
@@ -241,18 +238,14 @@ static void test_dns_lookup_abort(void)
 	test_begin("dns lookup (abort)");
 	create_dns_server(&test_server);
 
-	const struct dns_client_settings set = {
-		.dns_client_socket_path = TEST_SOCKET_NAME,
-		.timeout_msecs = 1000,
-	};
 	struct dns_lookup *lookup;
 	struct test_expect_result ctx = {
 		.ret = -4,
 		.result = NULL,
 	};
 
-	test_assert(dns_lookup("waitfor1500", &set, NULL, NULL, test_callback_ips,
-			       &ctx, &lookup) == 0);
+	test_assert(dns_lookup("waitfor1500", NULL, test_set.event,
+			       test_callback_ips, &ctx, &lookup) == 0);
 	struct timeout *to = timeout_add_short(100, io_loop_stop, current_ioloop);
 	io_loop_run(current_ioloop);
 	timeout_remove(&to);
@@ -268,20 +261,18 @@ static void test_dns_lookup_cached(void)
 	struct dns_lookup *lookup;
 	struct timeout *to;
 	struct event *event = event_create(NULL);
+	struct dns_client *client;
+	int init_res;
+	const char *err;
 
 	test_begin("dns lookup (cached)");
 	create_dns_server(&test_server);
-	const struct dns_client_settings set = {
-		.dns_client_socket_path = TEST_SOCKET_NAME,
-		.timeout_msecs = 1000,
-	};
-
 	const struct dns_client_parameters params = {
 		.cache_ttl_secs = 4,
 	};
 
-
-	struct dns_client *client = dns_client_init(&set, &params, event);
+	init_res = dns_client_init(&params, test_set.event, &client, &err);
+	test_assert(init_res == 0);
 
 	/* lookup localhost */
 	ctx.result = "127.0.0.1\t::1";
@@ -394,5 +385,10 @@ int main(void)
 		NULL
 	};
 
-	return test_run(test_functions);
+	lib_init();
+	settings_simple_init(&test_set, set_dns_test);
+	int ret = test_run(test_functions);
+	settings_simple_deinit(&test_set);
+	lib_deinit();
+	return ret;
 }

@@ -70,11 +70,6 @@ imapc_client_init(const struct imapc_parameters *params,
 		p_strdup(pool, params->temp_path_prefix);
 	client->params.flags = params->flags;
 
-	/* Set the overridden parameter only if it is set. */
-	client->dns_client_socket_path =
-		(params->override_dns_client_socket_path != NULL) ?
-			p_strdup(pool, params->override_dns_client_socket_path) :
-			p_strdup(pool, client->set->dns_client_socket_path);
 	client->imapc_rawlog_dir =
 		(params->override_rawlog_dir != NULL) ?
 			p_strdup(pool, params->override_rawlog_dir) :

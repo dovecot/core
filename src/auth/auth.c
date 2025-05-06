@@ -9,8 +9,6 @@
 #include "auth.h"
 #include "dns-lookup.h"
 
-#define AUTH_DNS_SOCKET_PATH "dns-client"
-#define AUTH_DNS_DEFAULT_TIMEOUT_MSECS (1000*10)
 #define AUTH_DNS_IDLE_TIMEOUT_MSECS (1000*60)
 #define AUTH_DNS_CACHE_TTL_SECS 10
 
@@ -376,8 +374,11 @@ static void auth_init(struct auth *auth)
 {
 	struct auth_passdb *passdb;
 	struct auth_userdb *userdb;
-	struct dns_client_settings dns_set;
-	struct dns_client_parameters dns_params;
+	const char *error;
+	const struct dns_client_parameters params = {
+		.idle_timeout_msecs = AUTH_DNS_IDLE_TIMEOUT_MSECS,
+		.cache_ttl_secs = AUTH_DNS_CACHE_TTL_SECS
+	};
 
 	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next)
 		auth_passdb_init(passdb);
@@ -386,13 +387,8 @@ static void auth_init(struct auth *auth)
 	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)
 		userdb_init(userdb->userdb);
 
-	i_zero(&dns_set);
-	dns_set.dns_client_socket_path = AUTH_DNS_SOCKET_PATH;
-	dns_set.timeout_msecs = AUTH_DNS_DEFAULT_TIMEOUT_MSECS;
-	dns_params.idle_timeout_msecs = AUTH_DNS_IDLE_TIMEOUT_MSECS;
-	dns_params.cache_ttl_secs = AUTH_DNS_CACHE_TTL_SECS;
-
-	auth->dns_client = dns_client_init(&dns_set, &dns_params, NULL);
+	if (dns_client_init(&params, auth_event, &auth->dns_client, &error) < 0)
+		i_fatal("%s", error);
 }
 
 static void auth_deinit(struct auth *auth)

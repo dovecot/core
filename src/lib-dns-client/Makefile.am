@@ -2,10 +2,14 @@ noinst_LTLIBRARIES = libdns-client.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
-	-I$(top_srcdir)/src/lib-test
+	-I$(top_srcdir)/src/lib-settings \
+	-I$(top_srcdir)/src/lib-var-expand \
+	-I$(top_srcdir)/src/lib-test \
+	-DPKG_RUNDIR=\""$(rundir)"\"
 
 libdns_client_la_SOURCES = \
 	dns-client-cache.c \
+	dns-client-settings.c \
 	dns-lookup.c
 
 headers = \
@@ -19,8 +23,10 @@ noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
 	libdns-client.la  \
+	../lib-settings/libsettings.la \
 	../lib-dns/libdns.la  \
 	../lib-test/libtest.la \
+	../lib-var-expand/libvar_expand.la \
 	../lib/liblib.la
 
 test_dns_lookup_SOURCES = test-dns-lookup.c

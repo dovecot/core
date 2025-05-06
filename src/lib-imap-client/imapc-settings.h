@@ -59,8 +59,6 @@ struct imapc_settings {
 
 	const char *pop3_deleted_flag;
 
-	const char *dns_client_socket_path;
-
 	enum imapc_features parsed_features;
 	unsigned int throttle_init_msecs;
 	unsigned int throttle_max_msecs;

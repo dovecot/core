@@ -10,9 +10,12 @@
 #endif
 
 struct dns_lookup;
+struct dns_client;
 
 struct dns_client_settings {
+	pool_t pool;
 	const char *dns_client_socket_path;
+	const char *base_dir;
 	unsigned int timeout_msecs;
 };
 
@@ -48,27 +51,24 @@ typedef void dns_lookup_callback_t(const struct dns_lookup_result *result,
    started, -1 if there was an error communicating with the UNIX socket.
    When failing with -1, the callback is called before returning from the
    function. */
-int dns_lookup(const char *host, const struct dns_client_settings *set,
-	       const struct dns_client_parameters *params,
-	       struct event *event_parent,
-	       dns_lookup_callback_t *callback, void *context,
-	       struct dns_lookup **lookup_r) ATTR_NULL(4);
-#define dns_lookup(host, set, params, event_parent, callback, context, lookup_r) \
+int dns_lookup(const char *host, const struct dns_client_parameters *params,
+	       struct event *event_parent, dns_lookup_callback_t *callback,
+	       void *context, struct dns_lookup **lookup_r) ATTR_NULL(4);
+#define dns_lookup(host, params, event_parent, callback, context, lookup_r) \
 	dns_lookup(host - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct dns_lookup_result *, typeof(context))), \
-		set, params, event_parent, (dns_lookup_callback_t *)callback, context, lookup_r)
+		params, event_parent, (dns_lookup_callback_t *)callback, context, lookup_r)
 int dns_lookup_ptr(const struct ip_addr *ip,
-		   const struct dns_client_settings *set,
 		   const struct dns_client_parameters *params,
 		   struct event *event_parent,
 		   dns_lookup_callback_t *callback, void *context,
 		   struct dns_lookup **lookup_r) ATTR_NULL(4);
-#define dns_lookup_ptr(host, set, params, event_parent, callback, context, lookup_r) \
+#define dns_lookup_ptr(host, params, event_parent, callback, context, lookup_r) \
 	dns_lookup_ptr(host - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct dns_lookup_result *, typeof(context))), \
-		set, params, event_parent, \
+		params, event_parent, \
 		(dns_lookup_callback_t *)callback, context, lookup_r)
 /* Abort the DNS lookup without calling the callback. */
 void dns_lookup_abort(struct dns_lookup **lookup);
@@ -76,9 +76,10 @@ void dns_lookup_abort(struct dns_lookup **lookup);
 void dns_lookup_switch_ioloop(struct dns_lookup *lookup);
 
 /* Alternative API for clients that need to do multiple DNS lookups. */
-struct dns_client *dns_client_init(const struct dns_client_settings *set,
-				   const struct dns_client_parameters *params,
-				   struct event *event_parent);
+int dns_client_init(const struct dns_client_parameters *params,
+		    struct event *event_parent,
+		    struct dns_client **client_r,
+		    const char **error_r);
 void dns_client_deinit(struct dns_client **client);
 
 /* Connect immediately to the dns-lookup socket. */
@@ -106,5 +107,7 @@ int dns_client_lookup_ptr(struct dns_client *client, const struct ip_addr *ip,
 bool dns_client_has_pending_queries(struct dns_client *client);
 
 void dns_client_switch_ioloop(struct dns_client *client);
+
+extern const struct setting_parser_info dns_client_setting_parser_info;
 
 #endif

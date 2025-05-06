@@ -10,9 +10,13 @@
 #include "dns-lookup.h"
 #include "iostream-ssl.h"
 #include "iostream-openssl.h"
+#include "settings.h"
+#include "lib-event-private.h"
 
 #include <fcntl.h>
 #include <unistd.h>
+
+static struct settings_root *set_root;
 
 struct http_test_request {
 	struct io *io;
@@ -346,19 +350,34 @@ static void run_http_post(struct http_client *http_client, const char *url_str,
 	http_client_request_submit(http_req);
 }
 
+static bool
+test_event_callback(struct event *event,
+		    enum event_callback_type type,
+		    struct failure_context *ctx ATTR_UNUSED,
+		    const char *fmt ATTR_UNUSED,
+		    va_list args ATTR_UNUSED)
+{
+	if (type == EVENT_CALLBACK_TYPE_CREATE && event->parent == NULL)
+		event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
+	return TRUE;
+}
+
 int main(int argc, char *argv[])
 {
 	struct dns_client *dns_client;
-	struct dns_client_settings dns_set;
-	struct dns_client_parameters dns_params;
 	struct http_client_settings http_set;
 	struct http_client_context *http_cctx;
 	struct http_client *http_client1, *http_client2, *http_client3, *http_client4;
 	struct ssl_iostream_settings ssl_set;
 	struct stat st;
 	const char *error;
+	const char *dns_client_socket_path = PKG_RUNDIR"/dns-client";
 
 	lib_init();
+	set_root = settings_root_init();
+	settings_root_override(set_root, "dns_client_timeout", "30s", SETTINGS_OVERRIDE_TYPE_CODE);
+	event_register_callback(test_event_callback);
+
 	ssl_iostream_openssl_init();
 	ioloop = io_loop_create();
 	io_loop_set_running(ioloop);
@@ -367,19 +386,21 @@ int main(int argc, char *argv[])
 	   the binary in all systems (but is in others! so linking
 	   safe-memset.lo directly causes them to fail.) If safe_memset() isn't
 	   included, libssl-iostream plugin loading fails. */
-	i_zero_safe(&dns_set);
-	dns_set.dns_client_socket_path = PKG_RUNDIR"/dns-client";
-	dns_set.timeout_msecs = 30*1000;
-	dns_params.idle_timeout_msecs = UINT_MAX;
 
+	struct dns_client_parameters params = {
+		.idle_timeout_msecs = UINT_MAX,
+	};
+	struct event *event = event_create(NULL);
 	/* check if there is a DNS client */
-	if (access(dns_set.dns_client_socket_path, R_OK|W_OK) == 0) {
-		dns_client = dns_client_init(&dns_set, &dns_params, NULL);
+	if (access(dns_client_socket_path, R_OK|W_OK) == 0) {
+		if (dns_client_init(&params, event, &dns_client, &error) < 0)
+			i_fatal("%s", error);
 
 		if (dns_client_connect(dns_client, &error) < 0)
 			i_fatal("Couldn't initialize DNS client: %s", error);
 	} else {
 		dns_client = NULL;
+		settings_root_override(set_root, "dns_client_socket_path", "", SETTINGS_OVERRIDE_TYPE_CODE);
 	}
 	i_zero(&ssl_set);
 	ssl_set.pool = null_pool;
@@ -409,13 +430,11 @@ int main(int argc, char *argv[])
 
 	http_cctx = http_client_context_create();
 
-	struct event *event = event_create(NULL);
 	event_set_forced_debug(event, TRUE);
 	http_client1 = http_client_init_shared(http_cctx, &http_set, event);
 	http_client2 = http_client_init_shared(http_cctx, &http_set, event);
 	http_client3 = http_client_init_shared(http_cctx, &http_set, event);
 	http_client4 = http_client_init_shared(http_cctx, &http_set, event);
-	event_unref(&event);
 
 	http_client_set_ssl_settings(http_client1, &ssl_set);
 	http_client_set_ssl_settings(http_client2, &ssl_set);
@@ -473,6 +492,8 @@ int main(int argc, char *argv[])
 	http_client_deinit(&http_client2);
 	http_client_deinit(&http_client3);
 	http_client_deinit(&http_client4);
+	settings_root_deinit(&set_root);
+	event_unref(&event);
 
 	http_client_context_unref(&http_cctx);
 
@@ -482,5 +503,6 @@ int main(int argc, char *argv[])
 	io_loop_destroy(&ioloop);
 	ssl_iostream_context_cache_free();
 	ssl_iostream_openssl_deinit();
+	event_unregister_callback(test_event_callback);
 	lib_deinit();
 }

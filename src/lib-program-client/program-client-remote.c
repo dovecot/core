@@ -251,7 +251,6 @@ struct program_client_remote {
 	struct program_client client;
 
 	const char *address;
-	struct dns_client_settings dns_set;
 	struct dns_lookup *lookup;
 	unsigned int ips_count;
 	unsigned int ips_left;
@@ -528,12 +527,8 @@ static int program_client_net_connect_init(struct program_client *pclient)
 		if (pclient->params.dns_client_socket_path != NULL) {
 			e_debug(pclient->event,
 				"Performing asynchronous DNS lookup");
-			prclient->dns_set.dns_client_socket_path =
-				pclient->params.dns_client_socket_path;
-			prclient->dns_set.timeout_msecs =
-				pclient->params.client_connect_timeout_msecs;
-			(void)dns_lookup(prclient->address, &prclient->dns_set,
-					 NULL, pclient->event,
+			(void)dns_lookup(prclient->address, NULL,
+					 pclient->event,
 					 program_client_net_connect_resolved,
 					 prclient, &prclient->lookup);
 			return 0;

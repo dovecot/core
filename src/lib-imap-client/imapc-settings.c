@@ -43,8 +43,6 @@ static const struct setting_define imapc_setting_defines[] = {
 
 	DEF(STR, pop3_deleted_flag),
 
-	DEF(STR_HIDDEN, dns_client_socket_path),
-
 	SETTING_DEFINE_LIST_END
 };
 
@@ -70,8 +68,6 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_max_line_length = SET_SIZE_UNLIMITED,
 
 	.pop3_deleted_flag = "",
-
-	.dns_client_socket_path = "dns-client",
 };
 
 static const struct setting_keyvalue imapc_default_settings_keyvalue[] = {

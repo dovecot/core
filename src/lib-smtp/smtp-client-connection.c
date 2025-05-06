@@ -1875,8 +1875,6 @@ smtp_client_connection_dns_callback(const struct dns_lookup_result *result,
 static void
 smtp_client_connection_lookup_ip(struct smtp_client_connection *conn)
 {
-	struct dns_client_settings dns_set;
-
 	if (conn->ips_count != 0)
 		return;
 
@@ -1889,18 +1887,12 @@ smtp_client_connection_lookup_ip(struct smtp_client_connection *conn)
 			conn->event,
 			smtp_client_connection_dns_callback, conn,
 			&conn->dns_lookup);
-	} else if (conn->set.dns_client_socket_path != NULL) {
-		i_zero(&dns_set);
-		dns_set.dns_client_socket_path =
-			conn->set.dns_client_socket_path;
-		dns_set.timeout_msecs = conn->set.connect_timeout_msecs;
+	} else {
 		e_debug(conn->event, "Performing asynchronous DNS lookup");
-		(void)dns_lookup(conn->host, &dns_set, NULL, conn->event,
+
+		(void)dns_lookup(conn->host, NULL, conn->event,
 				 smtp_client_connection_dns_callback, conn,
 				 &conn->dns_lookup);
-	} else {
-		/* FIXME: fully removed in the following commits */
-		i_unreached();
 	}
 }
 

@@ -9,6 +9,7 @@
 #include "time-util.h"
 #include "dns-client-cache.h"
 #include "dns-lookup.h"
+#include "settings.h"
 
 static struct event_category event_category_dns = {
 	.name = "dns"
@@ -128,7 +129,7 @@ static void dns_lookup_callback(struct dns_lookup *lookup)
 		event_create_passthrough(lookup->event)->
 		set_name("dns_request_finished");
 
-	if (!lookup->cached) {
+	if (!lookup->cached && lookup->client != NULL) {
 		dns_client_cache_entry(lookup->client->cache, lookup->cache_key,
 				       &lookup->result);
 	}
@@ -290,7 +291,7 @@ dns_lookup_create(pool_t pool,
 	lookup->context = context;
 	lookup->ptr_lookup = ptr_lookup;
 	lookup->result.ret = EAI_FAIL;
-	if (event == NULL)
+	if (event == NULL && client != NULL)
 		lookup->event = event_create(client->conn.event);
 	else {
 		lookup->event = event_create(event);
@@ -303,22 +304,49 @@ dns_lookup_create(pool_t pool,
 	return lookup;
 }
 
-int dns_lookup(const char *host, const struct dns_client_settings *set,
-	       const struct dns_client_parameters *params,
+static int
+dns_client_init_handle_failure(const struct dns_client_parameters *params,
+			       struct event *event_parent,
+			       const char *cmd_param,
+			       bool ptr_lookup,
+			       dns_lookup_callback_t *callback,
+			       void *context,
+			       struct dns_client **client_r)
+{
+	const char *error;
+	int ret = dns_client_init(params, event_parent, client_r, &error);
+	if (ret < 0) {
+		pool_t pool = pool_alloconly_create("dns lookup", 512);
+		struct dns_lookup *tmp_lookup = dns_lookup_create(pool, NULL,
+								  ptr_lookup,
+								  cmd_param,
+								  event_parent,
+								  callback, context);
+		tmp_lookup->result.error = error;
+		dns_lookup_callback(tmp_lookup);
+		dns_lookup_free(&tmp_lookup);
+	}
+	return ret;
+}
+
+int dns_lookup(const char *host, const struct dns_client_parameters *params,
 	       struct event *event_parent, dns_lookup_callback_t *callback,
 	       void *context, struct dns_lookup **lookup_r)
 {
 	struct dns_client *client;
+	int ret = dns_client_init_handle_failure(params, event_parent,
+						 host, FALSE, callback,
+						 context, &client);
 
 	i_assert(params == NULL || params->cache_ttl_secs == 0);
-	client = dns_client_init(set, params, event_parent);
+	if (ret < 0)
+		return -1;
 	client->deinit_client_at_free = TRUE;
 	return dns_client_lookup(client, host, client->conn.event, callback,
 				 context, lookup_r);
 }
 
 int dns_lookup_ptr(const struct ip_addr *ip,
-		   const struct dns_client_settings *set,
 		   const struct dns_client_parameters *params,
 		   struct event *event_parent,
 		   dns_lookup_callback_t *callback, void *context,
@@ -327,7 +355,10 @@ int dns_lookup_ptr(const struct ip_addr *ip,
 	struct dns_client *client;
 
 	i_assert(params == NULL || params->cache_ttl_secs == 0);
-	client = dns_client_init(set, params, event_parent);
+	if (dns_client_init_handle_failure(params, event_parent,
+					   net_ip2addr(ip), TRUE,
+					   callback, context, &client) < 0)
+		return -1;
 	client->deinit_client_at_free = TRUE;
 	return dns_client_lookup_ptr(client, ip, client->conn.event,
 				     callback, context, lookup_r);
@@ -350,13 +381,15 @@ static void dns_lookup_free(struct dns_lookup **_lookup)
 	*_lookup = NULL;
 
 	timeout_remove(&lookup->to);
-	if (client->deinit_client_at_free)
-		dns_client_deinit(&client);
-	else if (client->head == NULL && client->connected &&
-		 client->to_idle == NULL) {
-		client->to_idle = timeout_add_to(client->ioloop,
-						 client->idle_timeout_msecs,
-						 dns_client_idle_timeout, client);
+	if (client != NULL) {
+		if (client->deinit_client_at_free)
+			dns_client_deinit(&client);
+		else if (client->head == NULL && client->connected &&
+			 client->to_idle == NULL) {
+			client->to_idle = timeout_add_to(client->ioloop,
+							 client->idle_timeout_msecs,
+							 dns_client_idle_timeout, client);
+		}
 	}
 	event_unref(&lookup->event);
 	pool_unref(&lookup->pool);
@@ -421,13 +454,16 @@ static const struct connection_settings dns_client_set = {
 	.client = TRUE,
 };
 
-struct dns_client *dns_client_init(const struct dns_client_settings *set,
-				   const struct dns_client_parameters *params,
-				   struct event *event_parent)
+int dns_client_init(const struct dns_client_parameters *params,
+		    struct event *event_parent,
+		    struct dns_client **client_r,
+		    const char **error_r)
 {
 	struct dns_client *client;
-
-	i_assert(set->dns_client_socket_path[0] != '\0');
+	struct dns_client_settings *set;
+	i_assert(event_parent != NULL);
+	if (settings_get(event_parent, &dns_client_setting_parser_info, 0, &set, error_r) < 0)
+		return -1;
 
 	client = i_new(struct dns_client, 1);
 	client->timeout_msecs = set->timeout_msecs;
@@ -442,7 +478,9 @@ struct dns_client *dns_client_init(const struct dns_client_settings *set,
 		client->cache = dns_client_cache_init(params->cache_ttl_secs,
 			dns_client_cache_refresh, client);
 	}
-	return client;
+	settings_free(set);
+	*client_r = client;
+	return 0;
 }
 
 void dns_client_deinit(struct dns_client **_client)
@@ -557,6 +595,31 @@ int dns_client_lookup(struct dns_client *client, const char *host,
 		      struct dns_lookup **lookup_r)
 {
 	int ret;
+	if (client->path[0] == '\0') {
+		/* Fallback to gethostbyname() */
+		pool_t pool = pool_alloconly_create("dns_lookup", 512);
+		struct dns_lookup *lookup = dns_lookup_create(pool, NULL,
+							      FALSE, NULL,
+							      client->conn.event_parent,
+							      callback, context);
+		*lookup_r  = lookup;
+		unsigned int ips_count;
+		struct ip_addr *ips;
+		ret = lookup->result.ret = net_gethostbyname(host, &ips, &ips_count);
+		if (lookup->result.ret != 0) {
+			lookup->result.error =
+				t_strdup_printf("net_gethostbyname() failed: %s",
+						net_gethosterror(lookup->result.ret));
+		}
+		lookup->result.ips_count = ips_count;
+		if (ips_count > 0)
+			lookup->result.ips =
+				p_memdup(pool, ips,
+					 sizeof(struct ip_addr) * ips_count);
+		dns_lookup_callback(lookup);
+		dns_lookup_free(&lookup);
+		return ret;
+	}
 	T_BEGIN {
 		ret = dns_client_lookup_common(client, "IP", host, FALSE, event,
 					       callback, context, lookup_r);

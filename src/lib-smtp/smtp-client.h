@@ -58,7 +58,6 @@ struct smtp_client_settings {
 	const char *const *extra_capabilities;
 
 	struct dns_client *dns_client;
-	const char *dns_client_socket_path;
 
 	/* SSL settings; if NULL, settings_get() is used automatically */
 	const struct ssl_iostream_settings *ssl;

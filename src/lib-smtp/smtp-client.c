@@ -43,8 +43,6 @@ struct smtp_client *smtp_client_init(const struct smtp_client_settings *set)
 	}
 
 	client->set.dns_client = set->dns_client;
-	client->set.dns_client_socket_path =
-		p_strdup(pool, set->dns_client_socket_path);
 	client->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
 
 	if (set->ssl != NULL) {

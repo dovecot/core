@@ -16,12 +16,16 @@
 #include "http-url.h"
 #include "http-request.h"
 #include "http-client.h"
+#include "http-client-private.h"
+#include "settings.h"
 
 #include <unistd.h>
 #include <sys/signal.h>
 
 #define CLIENT_PROGRESS_TIMEOUT     10
 #define SERVER_KILL_TIMEOUT_SECS    20
+
+static struct settings_root *set_root;
 
 static void main_deinit(void);
 
@@ -2257,7 +2261,8 @@ static void test_dns_service_failure(void)
 	struct http_client_settings http_client_set;
 
 	test_client_defaults(&http_client_set);
-	http_client_set.dns_client_socket_path = "./frop";
+	settings_root_override(set_root, "dns_client_socket_path",
+			       "./frop", SETTINGS_OVERRIDE_TYPE_CODE);
 
 	test_begin("dns service failure");
 	test_run_client_server(&http_client_set,
@@ -2341,7 +2346,8 @@ static void test_dns_timeout(void)
 	test_client_defaults(&http_client_set);
 	http_client_set.request_timeout_msecs = 2000;
 	http_client_set.connect_timeout_msecs = 2000;
-	http_client_set.dns_client_socket_path = "./dns-test";
+	settings_root_override(set_root, "dns_client_socket_path",
+			       "./dns-test", SETTINGS_OVERRIDE_TYPE_CODE);
 
 	test_begin("dns timeout");
 	test_run_client_server(&http_client_set,
@@ -2428,7 +2434,8 @@ static void test_dns_lookup_failure(void)
 	struct http_client_settings http_client_set;
 
 	test_client_defaults(&http_client_set);
-	http_client_set.dns_client_socket_path = "./dns-test";
+	settings_root_override(set_root, "dns_client_socket_path",
+			       "./dns-test", SETTINGS_OVERRIDE_TYPE_CODE);
 
 	test_begin("dns lookup failure");
 	test_run_client_server(&http_client_set,
@@ -2596,8 +2603,9 @@ static void test_dns_lookup_ttl(void)
 	struct http_client_settings http_client_set;
 
 	test_client_defaults(&http_client_set);
-	http_client_set.dns_client_socket_path = "./dns-test";
 	http_client_set.dns_ttl_msecs = 1000;
+	settings_root_override(set_root, "dns_client_socket_path",
+			       "./dns-test", SETTINGS_OVERRIDE_TYPE_CODE);
 
 	test_begin("dns lookup ttl");
 	test_run_client_server(&http_client_set,
@@ -2870,11 +2878,12 @@ static void test_reconnect_failure(void)
 	struct http_client_settings http_client_set;
 
 	test_client_defaults(&http_client_set);
-	http_client_set.dns_client_socket_path = "./dns-test";
 	http_client_set.dns_ttl_msecs = 10000;
 	http_client_set.max_idle_time_msecs = 1000;
 	http_client_set.request_max_attempts = 1;
 	http_client_set.request_timeout_msecs = 1000;
+	settings_root_override(set_root, "dns_client_socket_path",
+			       "./dns-test", SETTINGS_OVERRIDE_TYPE_CODE);
 
 	test_begin("reconnect failure");
 	test_run_client_server(&http_client_set,
@@ -3025,7 +3034,8 @@ static void test_multi_ip_attempts(void)
 	test_client_defaults(&http_client_set);
 	http_client_set.connect_timeout_msecs = 1000;
 	http_client_set.request_timeout_msecs = 1000;
-	http_client_set.dns_client_socket_path = "./dns-test";
+	settings_root_override(set_root, "dns_client_socket_path",
+			       "./dns-test", SETTINGS_OVERRIDE_TYPE_CODE);
 	http_client_set.max_connect_attempts = 4;
 
 	test_begin("multi IP attempts (connection refused)");
@@ -3420,11 +3430,12 @@ static void test_idle_hosts(void)
 	struct http_client_settings http_client_set;
 
 	test_client_defaults(&http_client_set);
-	http_client_set.dns_client_socket_path = "./dns-test";
 	http_client_set.dns_ttl_msecs = 400;
 	http_client_set.max_parallel_connections = 1;
 	http_client_set.max_idle_time_msecs = 100;
 	http_client_set.request_max_attempts = 2;
+	settings_root_override(set_root, "dns_client_socket_path",
+			       "./dns-test", SETTINGS_OVERRIDE_TYPE_CODE);
 
 	test_begin("idle hosts");
 	test_run_client_server(&http_client_set,
@@ -3792,6 +3803,9 @@ int main(int argc, char *argv[])
 
 	lib_init();
 	main_init();
+	struct http_client_context *cctx = http_client_get_global_context();
+	set_root = settings_root_init();
+	event_set_ptr(cctx->event, SETTINGS_EVENT_ROOT, set_root);
 
 	while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
@@ -3813,6 +3827,9 @@ int main(int argc, char *argv[])
 	ret = test_run(test_functions);
 
 	test_subprocesses_deinit();
+	event_set_ptr(cctx->event, SETTINGS_EVENT_ROOT, NULL);
+	settings_root_deinit(&set_root);
+
 	main_deinit();
 	lib_deinit();
 

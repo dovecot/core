@@ -18,6 +18,7 @@
 #include "imap-parser.h"
 #include "imapc-client-private.h"
 #include "imapc-connection.h"
+#include "settings.h"
 
 #include <unistd.h>
 #include <ctype.h>
@@ -1922,10 +1923,7 @@ imapc_connection_dns_callback(const struct dns_lookup_result *result,
 
 void imapc_connection_connect(struct imapc_connection *conn)
 {
-	struct dns_client_settings dns_set;
-	struct ip_addr ip, *ips;
-	unsigned int ips_count;
-	int ret;
+	struct ip_addr ip;
 
 	if (conn->fd != -1 || conn->dns_lookup != NULL)
 		return;
@@ -1952,10 +1950,6 @@ void imapc_connection_connect(struct imapc_connection *conn)
 		(conn->reconnect_ok ? "true" : "false"),
 		(long)conn->last_connect.tv_sec);
 
-	i_zero(&dns_set);
-	dns_set.dns_client_socket_path = conn->client->dns_client_socket_path;
-	dns_set.timeout_msecs = conn->client->set->imapc_connection_timeout_interval_msecs;
-
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_CONNECTING);
 	if (conn->ips_count > 0) {
 		/* do nothing */
@@ -1967,21 +1961,8 @@ void imapc_connection_connect(struct imapc_connection *conn)
 		conn->ips_count = 1;
 		conn->ips = i_new(struct ip_addr, conn->ips_count);
 		conn->ips[0] = ip;
-	} else if (*dns_set.dns_client_socket_path == '\0') {
-		ret = net_gethostbyname(conn->client->set->imapc_host,
-					&ips, &ips_count);
-		if (ret != 0) {
-			e_error(conn->event, "net_gethostbyname(%s) failed: %s",
-				conn->client->set->imapc_host,
-				net_gethosterror(ret));
-			imapc_connection_set_disconnected(conn);
-			return;
-		}
-		conn->ips_count = ips_count;
-		conn->ips = i_new(struct ip_addr, ips_count);
-		memcpy(conn->ips, ips, ips_count * sizeof(*ips));
 	} else {
-		(void)dns_lookup(conn->client->set->imapc_host, &dns_set, NULL,
+		(void)dns_lookup(conn->client->set->imapc_host, NULL,
 				 conn->event, imapc_connection_dns_callback,
 				 conn, &conn->dns_lookup);
 		return;

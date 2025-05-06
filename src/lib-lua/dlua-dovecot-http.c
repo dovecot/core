@@ -13,6 +13,7 @@
 #include "settings-parser.h"
 #include "master-service.h"
 #include "master-service-settings.h"
+#include "dns-lookup.h"
 
 #define DLUA_DOVECOT_HTTP "http"
 #define DLUA_HTTP_CLIENT "struct http_client"
@@ -446,6 +447,8 @@ static int parse_client_settings(lua_State *L, struct settings_instance *instanc
 		if (setting_parser_info_find_key(&http_client_setting_parser_info, real_key, &idx)) {
 			settings_override(instance, real_key, value, SETTINGS_OVERRIDE_TYPE_CODE);
 		} else if (setting_parser_info_find_key(&ssl_setting_parser_info, key, &idx)) {
+			settings_override(instance, key, value, SETTINGS_OVERRIDE_TYPE_CODE);
+		} else if (setting_parser_info_find_key(&dns_client_setting_parser_info, key, &idx)) {
 			settings_override(instance, key, value, SETTINGS_OVERRIDE_TYPE_CODE);
 		} else {
 			*error_r = t_strdup_printf("%s is unknown setting", key);

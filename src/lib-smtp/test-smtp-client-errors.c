@@ -20,6 +20,8 @@
 #include "smtp-client.h"
 #include "smtp-client-connection.h"
 #include "smtp-client-transaction.h"
+#include "settings.h"
+#include "smtp-client-private.h"
 
 #include <sys/signal.h>
 #include <unistd.h>
@@ -55,6 +57,11 @@ struct server_connection {
 	pool_t pool;
 
 	bool version_sent:1;
+};
+
+struct test_smtp_client_settings {
+	const char *dns_client_socket_path;
+	const char *dns_client_timeout;
 };
 
 typedef void (*test_server_init_t)(unsigned int index);
@@ -101,7 +108,8 @@ static void test_server_run(unsigned int index);
 static void server_connection_deinit(struct server_connection **_conn);
 
 /* client */
-static void test_client_defaults(struct smtp_client_settings *smtp_set);
+static void test_client_defaults(struct smtp_client_settings *smtp_set,
+				 struct test_smtp_client_settings *test_set);
 static void test_client_deinit(void);
 
 /* test*/
@@ -111,6 +119,14 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 		       test_server_init_t server_test,
 		       unsigned int server_tests_count,
 		       test_dns_init_t dns_test) ATTR_NULL(3);
+
+static void test_root_event_free(struct event *event)
+{
+	struct settings_root *set_root =
+		event_get_ptr(event, SETTINGS_EVENT_ROOT);
+	settings_root_deinit(&set_root);
+	event_unref(&event);
+}
 
 /*
  * Host lookup failed
@@ -179,7 +195,7 @@ static void test_host_lookup_failed(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_client_set, NULL);
 
 	test_begin("host lookup failed");
 	test_run_client_server(&smtp_client_set,
@@ -262,7 +278,7 @@ static void test_connection_refused(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_client_set, NULL);
 
 	test_begin("connection refused");
 	test_run_client_server(&smtp_client_set,
@@ -371,7 +387,7 @@ static void test_connection_lost_prematurely(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_client_set, NULL);
 
 	test_begin("connection lost prematurely");
 	test_run_client_server(&smtp_client_set,
@@ -456,7 +472,7 @@ static void test_connection_timed_out(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_client_set, NULL);
 	smtp_client_set.connect_timeout_msecs = 1000;
 
 	test_begin("connection timed out");
@@ -648,7 +664,7 @@ static void test_broken_payload(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_client_set, NULL);
 	smtp_client_set.connect_timeout_msecs = 1000;
 
 	test_begin("broken payload");
@@ -657,11 +673,17 @@ static void test_broken_payload(void)
 			       test_server_broken_payload, 1, NULL);
 	test_end();
 
+	test_client_defaults(&smtp_client_set, NULL);
+	smtp_client_set.connect_timeout_msecs = 1000;
+
 	test_begin("broken payload (later)");
 	test_run_client_server(&smtp_client_set,
 			       test_client_broken_payload_later,
 			       test_server_broken_payload, 1, NULL);
 	test_end();
+
+	test_client_defaults(&smtp_client_set, NULL);
+	smtp_client_set.connect_timeout_msecs = 1000;
 
 	test_begin("broken payload (later, chunking)");
 	test_run_client_server(&smtp_client_set,
@@ -894,7 +916,7 @@ static void test_connection_lost(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_client_set, NULL);
 
 	test_begin("connection lost");
 	test_run_client_server(&smtp_client_set,
@@ -1248,7 +1270,7 @@ static void test_unexpected_reply(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_client_set, NULL);
 
 	test_begin("unexpected reply");
 	test_run_client_server(&smtp_client_set,
@@ -1343,7 +1365,7 @@ static void test_partial_reply(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_client_set, NULL);
 
 	test_begin("partial reply");
 	test_run_client_server(&smtp_client_set,
@@ -1733,7 +1755,7 @@ static void test_premature_reply(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_client_set, NULL);
 
 	test_begin("premature reply");
 	test_run_client_server(&smtp_client_set,
@@ -2072,7 +2094,7 @@ static void test_early_data_reply(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_client_set, NULL);
 
 	test_begin("early data reply");
 	test_run_client_server(&smtp_client_set,
@@ -2170,7 +2192,7 @@ static void test_bad_reply(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_client_set, NULL);
 
 	test_begin("bad reply");
 	test_run_client_server(&smtp_client_set,
@@ -2296,7 +2318,7 @@ static void test_bad_greeting(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_client_set, NULL);
 
 	test_begin("bad greeting");
 	test_run_client_server(&smtp_client_set,
@@ -2382,7 +2404,7 @@ static void test_command_timed_out(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_client_set, NULL);
 	smtp_client_set.command_timeout_msecs = 1000;
 
 	test_begin("command timed out");
@@ -2493,7 +2515,7 @@ static void test_command_aborted_early(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_client_set, NULL);
 
 	test_begin("command aborted early");
 	test_run_client_server(&smtp_client_set,
@@ -2591,7 +2613,7 @@ static void test_client_deinit_early(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_client_set, NULL);
 
 
 	test_begin("client deinit early");
@@ -2667,9 +2689,11 @@ test_client_dns_service_failure(const struct smtp_client_settings *client_set)
 static void test_dns_service_failure(void)
 {
 	struct smtp_client_settings smtp_client_set;
+	struct test_smtp_client_settings test_set = {
+		.dns_client_socket_path = "./frop",
+	};
 
-	test_client_defaults(&smtp_client_set);
-	smtp_client_set.dns_client_socket_path = "./frop";
+	test_client_defaults(&smtp_client_set, &test_set);
 
 	test_begin("dns service failure");
 	test_run_client_server(&smtp_client_set,
@@ -2762,10 +2786,11 @@ test_client_dns_timeout(const struct smtp_client_settings *client_set)
 static void test_dns_timeout(void)
 {
 	struct smtp_client_settings smtp_client_set;
+	struct test_smtp_client_settings test_set = {
+		.dns_client_timeout = "2s",
+	};
 
-	test_client_defaults(&smtp_client_set);
-	smtp_client_set.connect_timeout_msecs = 2000;
-	smtp_client_set.dns_client_socket_path = "./dns-test";
+	test_client_defaults(&smtp_client_set, &test_set);
 
 	test_begin("dns timeout");
 	test_run_client_server(&smtp_client_set,
@@ -2858,8 +2883,7 @@ static void test_dns_lookup_failure(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
-	test_client_defaults(&smtp_client_set);
-	smtp_client_set.dns_client_socket_path = "./dns-test";
+	test_client_defaults(&smtp_client_set, NULL);
 
 	test_begin("dns lookup failure");
 	test_run_client_server(&smtp_client_set,
@@ -3223,7 +3247,7 @@ static void test_authentication(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_client_set, NULL);
 
 	test_begin("authentication");
 	test_run_client_server(&smtp_client_set,
@@ -3500,7 +3524,7 @@ static void test_transaction_timeout(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_client_set, NULL);
 
 	test_begin("transaction timeout");
 	test_run_client_server(&smtp_client_set,
@@ -3642,8 +3666,7 @@ static void test_invalid_ssl_certificate(void)
 	/* ssl settings */
 	ssl_iostream_test_settings_client(&ssl_set);
 
-	test_client_defaults(&smtp_client_set);
-	smtp_client_set.dns_client_socket_path = "./dns-test";
+	test_client_defaults(&smtp_client_set, NULL);
 	smtp_client_set.ssl = &ssl_set;
 
 	test_begin("invalid ssl certificate");
@@ -3688,12 +3711,29 @@ static void (*const test_functions[])(void) = {
  * Test client
  */
 
-static void test_client_defaults(struct smtp_client_settings *smtp_set)
+static void test_client_defaults(struct smtp_client_settings *smtp_set,
+				 struct test_smtp_client_settings *test_set)
 {
 	/* client settings */
 	i_zero(smtp_set);
 	smtp_set->my_hostname = "frop.example.com";
 	smtp_set->debug = debug;
+
+	struct event *event = event_create(NULL);
+	struct settings_root *set_root = settings_root_init();
+
+	const char *path = test_set != NULL &&
+		test_set->dns_client_socket_path != NULL ?
+		test_set->dns_client_socket_path : "./dns-test";
+	settings_root_override(set_root, "dns_client_socket_path",
+			       path, SETTINGS_OVERRIDE_TYPE_CODE);
+	if (test_set != NULL && test_set->dns_client_timeout != NULL) {
+		settings_root_override(set_root, "dns_client_timeout",
+				       test_set->dns_client_timeout,
+				       SETTINGS_OVERRIDE_TYPE_CODE);
+	}
+	event_set_ptr(event, SETTINGS_EVENT_ROOT, set_root);
+	smtp_set->event_parent = event;
 }
 
 static void test_client_progress_timeout(void *context ATTR_UNUSED)
@@ -4000,6 +4040,8 @@ static void test_server_run(unsigned int index)
 struct test_server_data {
 	unsigned int index;
 	test_server_init_t server_test;
+	test_dns_init_t dns_test;
+	struct event *root_event;
 };
 
 static int test_open_server_fd(in_port_t *bind_port)
@@ -4031,13 +4073,14 @@ static int test_run_server(struct test_server_data *data)
 	if (debug)
 		i_debug("Terminated");
 
+	test_root_event_free(data->root_event);
 	i_close_fd(&fd_listen);
 	i_free(bind_ports);
 	main_deinit();
 	return 0;
 }
 
-static int test_run_dns(test_dns_init_t dns_test)
+static int test_run_dns(struct test_server_data *data)
 {
 	i_set_failure_prefix("DNS: ");
 
@@ -4046,7 +4089,7 @@ static int test_run_dns(test_dns_init_t dns_test)
 
 	test_subprocess_notify_signal_send_parent(SIGUSR1);
 	ioloop = io_loop_create();
-	dns_test();
+	data->dns_test();
 	io_loop_destroy(&ioloop);
 
 	if (debug)
@@ -4055,6 +4098,7 @@ static int test_run_dns(test_dns_init_t dns_test)
 	i_close_fd(&fd_listen);
 	i_free(bind_ports);
 	main_deinit();
+	test_root_event_free(data->root_event);
 	return 0;
 }
 
@@ -4084,6 +4128,7 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 		       unsigned int server_tests_count,
 		       test_dns_init_t dns_test)
 {
+	struct event *root_event = client_set->event_parent;
 	unsigned int i;
 
 	if (server_tests_count > 0) {
@@ -4099,6 +4144,7 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 			i_zero(&data);
 			data.index = i;
 			data.server_test = server_test;
+			data.root_event = root_event;
 
 			/* Fork server */
 			fd_listen = fds[i];
@@ -4111,6 +4157,10 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 	}
 
 	if (dns_test != NULL) {
+		struct test_server_data data = {
+			.dns_test = dns_test,
+			.root_event = root_event,
+		};
 		int fd;
 
 		i_unlink_if_exists("./dns-test");
@@ -4122,7 +4172,7 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 		/* Fork DNS service */
 		fd_listen = fd;
 		test_subprocess_notify_signal_reset(SIGUSR1);
-		test_subprocess_fork(test_run_dns, dns_test, FALSE);
+		test_subprocess_fork(test_run_dns, &data, FALSE);
 		test_subprocess_notify_signal_wait(SIGUSR1,
 			TEST_SIGNALS_DEFAULT_TIMEOUT_MS);
 		i_close_fd(&fd_listen);
@@ -4136,6 +4186,7 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 	i_free(bind_ports);
 
 	i_unlink_if_exists("./dns-test");
+	test_root_event_free(root_event);
 }
 
 /*
