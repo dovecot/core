@@ -1651,6 +1651,9 @@ static bool imap_client_enable_imap4rev2(struct client *client)
 
 	if (client->mailbox != NULL)
 		mailbox_enable(client->mailbox, MAILBOX_FEATURE_IMAP4REV2);
+
+	/* If IMAP4rev2 is enabled always enable QRESYNC */
+	client_enable(client, imap_feature_qresync);
 	return TRUE;
 }
 #endif
