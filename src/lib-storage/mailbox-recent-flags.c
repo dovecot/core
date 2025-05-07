@@ -19,6 +19,9 @@ void mailbox_recent_flags_set_uid(struct mailbox *box, uint32_t uid)
 
 void mailbox_recent_flags_set_uid_forced(struct mailbox *box, uint32_t uid)
 {
+	if ((box->enabled_features & MAILBOX_FEATURE_IMAP4REV2) != 0)
+		return;
+
 	box->recent_flags_prev_uid = uid;
 
 	if (!mailbox_recent_flags_have_uid(box, uid)) {
