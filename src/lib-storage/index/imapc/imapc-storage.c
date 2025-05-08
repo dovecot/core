@@ -941,6 +941,7 @@ static void imapc_untagged_status(const struct imapc_untagged_reply *reply,
 				  struct imapc_storage_client *client)
 {
 	struct imapc_storage *storage = client->_storage;
+	struct mailbox *box = &storage->cur_status_box->box;
 	struct mailbox_status *status;
 	const struct imap_arg *list;
 	const char *remote_name, *key, *value;
@@ -967,9 +968,12 @@ static void imapc_untagged_status(const struct imapc_untagged_reply *reply,
 
 		if (strcasecmp(key, "MESSAGES") == 0)
 			status->messages = num;
-		else if (strcasecmp(key, "RECENT") == 0)
+		else if (strcasecmp(key, "RECENT") == 0) {
 			status->recent = num;
-		else if (strcasecmp(key, "UIDNEXT") == 0)
+			if ((box->enabled_features &
+			     MAILBOX_FEATURE_IMAP4REV2) != 0)
+				status->recent = 0;
+		} else if (strcasecmp(key, "UIDNEXT") == 0)
 			status->uidnext = num;
 		else if (strcasecmp(key, "UIDVALIDITY") == 0)
 			status->uidvalidity = num;
@@ -1163,7 +1167,8 @@ static int imapc_mailbox_run_status(struct mailbox *box,
 	str = t_str_new(256);
 	if ((items & STATUS_MESSAGES) != 0)
 		str_append(str, " MESSAGES");
-	if ((items & STATUS_RECENT) != 0)
+	if ((items & STATUS_RECENT) != 0 &&
+	    (box->enabled_features & MAILBOX_FEATURE_IMAP4REV2) == 0)
 		str_append(str, " RECENT");
 	if ((items & STATUS_UIDNEXT) != 0)
 		str_append(str, " UIDNEXT");
