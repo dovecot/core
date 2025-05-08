@@ -107,7 +107,14 @@ int dovecot_openssl_common_global_set_engine(const char *engine,
 	if (dovecot_openssl_engine != NULL)
 		return 1;
 
-#ifdef HAVE_ENGINE_by_id
+#ifdef HAVE_OSSL_PROVIDER_try_load
+	if ((dovecot_openssl_engine = OSSL_PROVIDER_try_load(NULL, engine, 1)) == NULL) {
+		*error_r = t_strdup_printf("Cannot load '%s': %s", engine,
+					   openssl_iostream_error());
+		return 0;
+	}
+	return 1;
+#elif defined(HAVE_ENGINE_by_id)
 	ENGINE_load_builtin_engines();
 	dovecot_openssl_engine = ENGINE_by_id(engine);
 	if (dovecot_openssl_engine == NULL) {
@@ -126,13 +133,6 @@ int dovecot_openssl_common_global_set_engine(const char *engine,
 		dovecot_openssl_engine = NULL;
 		return -1;
 	}
-#elif defined(HAVE_OSSL_PROVIDER_try_load)
-	if ((dovecot_openssl_engine = OSSL_PROVIDER_try_load(NULL, engine, 1)) == NULL) {
-		*error_r = t_strdup_printf("Cannot load '%s': %s", engine,
-					   openssl_iostream_error());
-		return 0;
-	}
-	return 1;
 #else
 	*error_r = t_strdup_printf("Cannot load '%s': No engine/provider support available", engine);
 #endif
