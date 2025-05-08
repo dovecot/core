@@ -14,7 +14,8 @@
 #include "mail-search-build.h"
 #include "mail-search-mime-build.h"
 
-struct mail_search_register *mail_search_register_imap;
+struct mail_search_register *mail_search_register_imap4rev2;
+struct mail_search_register *mail_search_register_imap4rev1;
 
 static struct mail_search_arg *
 imap_search_fallback(struct mail_search_build_context *ctx,
@@ -617,21 +618,42 @@ static const struct mail_search_register_arg imap_register_args[] = {
 	{ "X-REAL-UID", imap_search_x_real_uid, 0 }
 };
 
-static struct mail_search_register *mail_search_register_init_imap(void)
+static struct mail_search_register
+*mail_search_register_init_imap(enum mail_search_register_arg_flags flags)
 {
 	struct mail_search_register *reg;
 
 	reg = mail_search_register_init();
-	mail_search_register_add(reg, imap_register_args,
-				 N_ELEMENTS(imap_register_args));
+	for (unsigned int i = 0; i < N_ELEMENTS(imap_register_args); i++) {
+		if (HAS_ALL_BITS(flags, imap_register_args[i].flags))
+			mail_search_register_add(reg, &imap_register_args[i], 1);
+	}
 	mail_search_register_fallback(reg, imap_search_fallback);
 	return reg;
 }
 
-struct mail_search_register *
-mail_search_register_get_imap(void)
+static struct mail_search_register *mail_search_register_init_imap4rev2(void)
 {
-	if (mail_search_register_imap == NULL)
-		mail_search_register_imap = mail_search_register_init_imap();
-	return mail_search_register_imap;
+	return mail_search_register_init_imap(0);
+}
+
+static struct mail_search_register *mail_search_register_init_imap4rev1(void)
+{
+	return mail_search_register_init_imap(MAIL_SEARCH_REGISTER_IMAP4REV1);
+}
+
+struct mail_search_register *
+mail_search_register_get_imap4rev2(void)
+{
+	if (mail_search_register_imap4rev2 == NULL)
+		mail_search_register_imap4rev2 = mail_search_register_init_imap4rev2();
+	return mail_search_register_imap4rev2;
+}
+
+struct mail_search_register *
+mail_search_register_get_imap4rev1(void)
+{
+	if (mail_search_register_imap4rev1 == NULL)
+		mail_search_register_imap4rev1 = mail_search_register_init_imap4rev1();
+	return mail_search_register_imap4rev1;
 }

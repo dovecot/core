@@ -42,7 +42,8 @@
 #define MAILBOX_DELETE_RETRY_SECS 30
 #define MAILBOX_MAX_HIERARCHY_NAME_LENGTH 255
 
-extern struct mail_search_register *mail_search_register_imap;
+extern struct mail_search_register *mail_search_register_imap4rev2;
+extern struct mail_search_register *mail_search_register_imap4rev1;
 extern struct mail_search_register *mail_search_register_human;
 
 struct event_category event_category_storage = {
@@ -103,8 +104,10 @@ void mail_storage_deinit(void)
 		return;
 	if (mail_search_register_human != NULL)
 		mail_search_register_deinit(&mail_search_register_human);
-	if (mail_search_register_imap != NULL)
-		mail_search_register_deinit(&mail_search_register_imap);
+	if (mail_search_register_imap4rev1 != NULL)
+		mail_search_register_deinit(&mail_search_register_imap4rev1);
+	if (mail_search_register_imap4rev2 != NULL)
+		mail_search_register_deinit(&mail_search_register_imap4rev2);
 	mail_search_mime_register_deinit();
 	if (array_is_created(&mail_storage_classes))
 		array_free(&mail_storage_classes);

@@ -61,7 +61,7 @@ virtual_search_args_parse(const string_t *rule, const char **error_r)
 		*error_r = t_strdup(imap_parser_get_error(imap_parser, NULL));
 	} else {
 		parser = mail_search_parser_init_imap(args);
-		if (mail_search_build(mail_search_register_get_imap(),
+		if (mail_search_build(mail_search_register_get_imap4rev1(),
 				      parser, &charset, &sargs, error_r) < 0)
 			sargs = NULL;
 		mail_search_parser_deinit(&parser);

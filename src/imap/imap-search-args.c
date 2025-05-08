@@ -58,7 +58,7 @@ int imap_search_args_build(struct client_command_context *cmd,
 	}
 
 	parser = mail_search_parser_init_imap(args);
-	ret = mail_search_build(mail_search_register_get_imap(),
+	ret = mail_search_build(mail_search_register_get_imap4rev1(),
 				parser, &charset, &sargs, &client_error);
 	mail_search_parser_deinit(&parser);
 	if (ret < 0) {

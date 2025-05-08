@@ -239,7 +239,7 @@ test_build_search_args(const char *args)
 	const char *error, *charset = "UTF-8";
 
 	parser = mail_search_parser_init_cmdline(t_strsplit(args, " "));
-	if (mail_search_build(mail_search_register_get_imap(),
+	if (mail_search_build(mail_search_register_get_imap4rev1(),
 			      parser, &charset, &sargs, &error) < 0)
 		i_panic("%s", error);
 	mail_search_parser_deinit(&parser);

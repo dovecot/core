@@ -223,7 +223,7 @@ struct mail_search_register *mail_search_register_get_human(void)
 {
 	if (mail_search_register_human == NULL) {
 		struct mail_search_register *imap_reg =
-			mail_search_register_get_imap();
+			mail_search_register_get_imap4rev1();
 
 		mail_search_register_human =
 			mail_search_register_init_human(imap_reg);
