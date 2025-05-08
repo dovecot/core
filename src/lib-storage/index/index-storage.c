@@ -438,6 +438,9 @@ int index_storage_mailbox_enable(struct mailbox *box,
 		if (box->opened)
 			mail_index_modseq_enable(box->index);
 	}
+	if ((feature & MAILBOX_FEATURE_IMAP4REV2) != 0)
+		box->enabled_features |= MAILBOX_FEATURE_IMAP4REV2;
+
 	return 0;
 }
 
