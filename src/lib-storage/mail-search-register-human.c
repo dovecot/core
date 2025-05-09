@@ -151,32 +151,32 @@ human_search_oldestonly(struct mail_search_build_context *ctx)
 }
 
 static const struct mail_search_register_arg human_register_args[] = {
-	{ "OR", human_search_or },
+	{ "OR", human_search_or, 0},
 
 	/* dates */
-	{ "BEFORE", human_search_before },
-	{ "ON", human_search_on },
-	{ "SINCE", human_search_since },
-	{ "SENTBEFORE", human_search_sentbefore },
-	{ "SENTON", human_search_senton },
-	{ "SENTSINCE", human_search_sentsince },
-	{ "SAVEDBEFORE", human_search_savedbefore },
-	{ "SAVEDON", human_search_savedon },
-	{ "SAVEDSINCE", human_search_savedsince },
-	{ "SAVEDATESUPPORTED", human_search_savedatesupported },
-	{ "X-SAVEDBEFORE", human_search_savedbefore },
-	{ "X-SAVEDON", human_search_savedon },
-	{ "X-SAVEDSINCE", human_search_savedsince },
+	{ "BEFORE", human_search_before, 0},
+	{ "ON", human_search_on, 0},
+	{ "SINCE", human_search_since, 0},
+	{ "SENTBEFORE", human_search_sentbefore, 0},
+	{ "SENTON", human_search_senton, 0},
+	{ "SENTSINCE", human_search_sentsince, 0},
+	{ "SAVEDBEFORE", human_search_savedbefore, 0},
+	{ "SAVEDON", human_search_savedon, 0},
+	{ "SAVEDSINCE", human_search_savedsince, 0},
+	{ "SAVEDATESUPPORTED", human_search_savedatesupported, 0},
+	{ "X-SAVEDBEFORE", human_search_savedbefore, 0},
+	{ "X-SAVEDON", human_search_savedon, 0},
+	{ "X-SAVEDSINCE", human_search_savedsince, 0},
 
 	/* sizes */
-	{ "LARGER", human_search_larger },
-	{ "SMALLER", human_search_smaller },
+	{ "LARGER", human_search_larger, 0},
+	{ "SMALLER", human_search_smaller, 0},
 
 	/* Other Dovecot extensions: */
-	{ "GUID", human_search_guid },
-	{ "MAILBOX", human_search_mailbox },
-	{ "MAILBOX-GUID", human_search_mailbox_guid },
-	{ "OLDESTONLY", human_search_oldestonly }
+	{ "GUID", human_search_guid, 0},
+	{ "MAILBOX", human_search_mailbox, 0},
+	{ "MAILBOX-GUID", human_search_mailbox_guid, 0},
+	{ "OLDESTONLY", human_search_oldestonly, 0}
 };
 
 static struct mail_search_register *
