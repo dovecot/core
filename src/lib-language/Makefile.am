@@ -48,12 +48,12 @@ EXTRA_DIST = \
 $(srcdir)/WordBreakProperty.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ https://dovecot.org/res/WordBreakProperty.txt
 $(srcdir)/word-boundary-data.c: $(srcdir)/word-properties.pl $(srcdir)/WordBreakProperty.txt
-	$(AM_V_at)perl $(srcdir)/word-properties.pl boundaries $(srcdir)/WordBreakProperty.txt > $@
+	$(AM_V_at)$(PERL) $(srcdir)/word-properties.pl boundaries $(srcdir)/WordBreakProperty.txt > $@
 
 $(srcdir)/PropList.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ https://dovecot.org/res/PropList.txt
 $(srcdir)/word-break-data.c: $(srcdir)/word-properties.pl $(srcdir)/PropList.txt
-	$(AM_V_at)perl $(srcdir)/word-properties.pl breaks $(srcdir)/PropList.txt > $@
+	$(AM_V_at)$(PERL) $(srcdir)/word-properties.pl breaks $(srcdir)/PropList.txt > $@
 
 
 if BUILD_LANG_STEMMER

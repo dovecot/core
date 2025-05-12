@@ -34,7 +34,7 @@ $(srcdir)/UnicodeData.txt:
 	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ https://dovecot.org/res/UnicodeData.txt
 
 $(srcdir)/unicodemap.c: $(srcdir)/unicodemap.pl $(srcdir)/UnicodeData.txt
-	$(AM_V_GEN)perl $(srcdir)/unicodemap.pl < $(srcdir)/UnicodeData.txt > $@
+	$(AM_V_GEN)$(PERL) $(srcdir)/unicodemap.pl < $(srcdir)/UnicodeData.txt > $@
 
 liblib_la_LIBADD = $(LIBUNWIND_LIBS)
 liblib_la_SOURCES = \
