@@ -27,6 +27,7 @@ settings-history-core.h: $(srcdir)/settings-history-core.txt $(srcdir)/settings-
 	$(AM_V_GEN)$(PYTHON) $(srcdir)/settings-history.py --pro $(DOVECOT_PRO_BUILD) $< $@
 
 EXTRA_DIST = \
+	settings-history-core.h \
 	settings-history-core.txt \
 	settings-history.py
 
