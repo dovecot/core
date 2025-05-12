@@ -254,6 +254,7 @@ AC_PROG_CXX # lucene plugin needs this
 AC_CHECK_TOOL([FLEX],[flex],[:])
 AC_CHECK_TOOL([BISON],[bison],[:])
 AM_MISSING_PROG([WGET], [wget])
+AM_MISSING_PROG([PYTHON], [python3])
 
 AS_IF([test "$BISON" = ":" && test ! -e "$srcdir/src/lib/event-filter-parser.h"],
   AC_MSG_ERROR([Bison is required when building from git])
