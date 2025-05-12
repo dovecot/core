@@ -4,11 +4,9 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test
 
-libcharset_la_LIBADD = $(LTLIBICONV)
 libcharset_la_SOURCES = \
 	charset-iconv.c \
-	charset-utf8.c \
-	charset-utf8-only.c
+	charset-utf8.c
 
 headers = \
 	charset-utf8.h \

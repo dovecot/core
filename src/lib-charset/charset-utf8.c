@@ -7,11 +7,7 @@
 
 #include <ctype.h>
 
-#ifdef HAVE_ICONV
 const struct charset_utf8_vfuncs *charset_utf8_vfuncs = &charset_iconv;
-#else
-const struct charset_utf8_vfuncs *charset_utf8_vfuncs = &charset_utf8only;
-#endif
 
 bool charset_is_utf8(const char *charset)
 {

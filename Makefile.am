@@ -47,7 +47,6 @@ dovecot-config: dovecot-config.in Makefile
 	(echo "DOVECOT_INSTALLED=no"; cat dovecot-config.in | sed \
 	-e "s|\$$(top_builddir)|$$abs_builddir|g" \
 	-e "s|\$$(incdir)|$$abs_srcdir|g" \
-	-e "s|\$$(LIBICONV)|$(LIBICONV)|g" \
 	-e "s|\$$(MODULE_LIBS)|$(MODULE_LIBS)|g" \
 	-e "s|^\(dovecot_pkgincludedir\)=|\1=$(pkgincludedir)|" \
 	-e "s|^\(dovecot_pkglibdir\)=|\1=$(pkglibdir)|" \

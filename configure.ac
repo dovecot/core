@@ -263,7 +263,6 @@ AS_IF([test "$FLEX" = ":" && test ! -e "$srcdir/src/lib/event-filter-lexer.c"],
 ])
 AC_C_INLINE
 LT_INIT
-AM_ICONV
 
 # SIZE_MAX is missing without this
 CXXFLAGS="$CXXFLAGS -D__STDC_LIMIT_MACROS"
@@ -608,7 +607,7 @@ if test "$want_shared_libs" = "yes"; then
   fi
 else
   LIBDOVECOT_DEPS="$LIBDOVECOT_LA_LIBS"
-  LIBDOVECOT="$LIBDOVECOT_DEPS \$(LIBICONV) \$(MODULE_LIBS)"
+  LIBDOVECOT="$LIBDOVECOT_DEPS \$(MODULE_LIBS)"
   LIBDOVECOT_STORAGE_DEPS='$(top_builddir)/src/lib-storage/libstorage.la'
   LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/liblogin.la'
   LIBDOVECOT_LDA='$(top_builddir)/src/lib-lda/liblda.la'

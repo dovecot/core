@@ -4,8 +4,6 @@
 #include "buffer.h"
 #include "charset-utf8-private.h"
 
-#ifdef HAVE_ICONV
-
 #include <iconv.h>
 #include <ctype.h>
 
@@ -56,7 +54,7 @@ charset_to_utf8_try(struct charset_translation *t,
 		    const unsigned char *src, size_t *src_size, buffer_t *dest,
 		    enum charset_result *result)
 {
-	ICONV_CONST char *ic_srcbuf;
+	char *ic_srcbuf;
 	char tmpbuf[8192], *ic_destbuf;
 	size_t srcleft, destleft, tmpbuf_used;
 	bool ret = TRUE;
@@ -69,7 +67,7 @@ charset_to_utf8_try(struct charset_translation *t,
 	destleft = sizeof(tmpbuf);
 	ic_destbuf = tmpbuf;
 	srcleft = *src_size;
-	ic_srcbuf = (ICONV_CONST char *) src;
+	ic_srcbuf = (char *) src;
 
 	if (iconv(t->cd, &ic_srcbuf, &srcleft,
 		  &ic_destbuf, &destleft) != SIZE_MAX) {
@@ -143,5 +141,3 @@ const struct charset_utf8_vfuncs charset_iconv = {
 	.to_utf8_reset = iconv_charset_to_utf8_reset,
 	.to_utf8 = iconv_charset_to_utf8,
 };
-
-#endif
