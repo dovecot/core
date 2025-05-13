@@ -143,7 +143,6 @@ struct mailbox_list_index_iterate_context {
 	pool_t mailbox_pool;
 
 	struct mailbox_info info;
-	pool_t info_pool;
 
 	size_t parent_len;
 	string_t *path;

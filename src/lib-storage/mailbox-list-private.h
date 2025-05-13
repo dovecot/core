@@ -163,6 +163,9 @@ struct mailbox_list_iterate_context {
 	bool index_iteration;
 	bool iter_from_index_dir;
 
+	struct mailbox_info info;
+	pool_t info_pool;
+
 	struct imap_match_glob *glob;
 	struct mailbox_list_autocreate_iterate_context *autocreate_ctx;
 	struct mailbox_info specialuse_info;
