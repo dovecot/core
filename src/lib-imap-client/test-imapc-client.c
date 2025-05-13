@@ -162,7 +162,7 @@ static bool test_imapc_server_expect(const char *expected_line)
 }
 
 static void
-test_server_wait_connection(struct test_server *server, bool send_banner)
+test_server_wait_connection_common(struct test_server *server)
 {
 	if (debug)
 		i_debug("Waiting for connection");
@@ -177,12 +177,30 @@ test_server_wait_connection(struct test_server *server, bool send_banner)
 	server->input = i_stream_create_fd(server->fd, SIZE_MAX);
 	server->output = o_stream_create_fd(server->fd, SIZE_MAX);
 	o_stream_set_no_error_handling(server->output, TRUE);
+}
 
+static void
+test_server_wait_connection(struct test_server *server, bool send_banner)
+{
+	test_server_wait_connection_common(server);
 	if (send_banner) {
 		o_stream_nsend_str(server->output,
 			"* OK [CAPABILITY IMAP4rev1 UNSELECT QUOTA] ready\r\n");
 	}
 }
+
+#ifdef EXPERIMENTAL_IMAP4REV2
+static void
+test_server_wait_connection_imap4rev2(struct test_server *server, bool send_banner)
+{
+	test_server_wait_connection_common(server);
+
+	if (send_banner) {
+		o_stream_nsend_str(server->output,
+			"* OK [CAPABILITY IMAP4rev1 IMAP4rev2 UNSELECT QUOTA QRESYNC CONDSTORE] ready\r\n");
+	}
+}
+#endif
 
 static void test_server_disconnect(struct test_server *server)
 {
@@ -847,6 +865,51 @@ static void test_imapc_client_get_capabilities_disconnected(void)
 	test_end();
 }
 
+#ifdef EXPERIMENTAL_IMAP4REV2
+/*
+ * imapc_client_get_capabilities_imap4rev2()
+ */
+
+static void test_imapc_client_get_capabilities_imap4rev2_client(void)
+{
+	enum imapc_capability capabilities;
+
+	test_assert(imapc_client_get_capabilities(imapc_client, &capabilities) == 0);
+	test_assert(capabilities == (IMAPC_CAPABILITY_IMAP4REV1 |
+				     IMAPC_CAPABILITY_IMAP4REV2 |
+				     IMAPC_CAPABILITY_QRESYNC |
+				     IMAPC_CAPABILITY_CONDSTORE |
+				     IMAPC_CAPABILITY_UNSELECT |
+				     IMAPC_CAPABILITY_QUOTA));
+}
+
+static void test_imapc_client_get_capabilities_imap4rev2_server(void)
+{
+	test_server_wait_connection_imap4rev2(&server, TRUE);
+	test_assert(test_imapc_server_expect(
+		"1 LOGIN \"testuser\" \"testpass\""));
+	o_stream_nsend_str(server.output, "1 OK \r\n");
+
+	test_assert(test_imapc_server_expect("2 ENABLE IMAP4REV2"));
+	o_stream_nsend_str(server.output, "2 OK ENABLED\r\n");
+
+	test_assert(test_imapc_server_expect("3 LOGOUT"));
+	o_stream_nsend_str(server.output, "3 OK \r\n");
+
+	test_assert(i_stream_read_next_line(server.input) == NULL);
+
+}
+
+static void test_imapc_client_get_capabilities_imap4rev2(void)
+{
+	test_begin("imapc_client_get_capabilities_imap4rev2()");
+	test_run_client_server(test_imapc_client_get_capabilities_imap4rev2_client,
+			       test_imapc_client_get_capabilities_imap4rev2_server,
+			       FALSE);
+	test_end();
+}
+#endif
+
 /*
  * Main
  */
@@ -878,6 +941,9 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		test_imapc_client_get_capabilities,
 		test_imapc_client_get_capabilities_reconnected,
 		test_imapc_client_get_capabilities_disconnected,
+#ifdef EXPERIMENTAL_IMAP4REV2
+		test_imapc_client_get_capabilities_imap4rev2,
+#endif
 		NULL
 	};
 

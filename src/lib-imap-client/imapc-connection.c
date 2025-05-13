@@ -156,6 +156,7 @@ struct imapc_connection {
 	bool idling:1;
 	bool idle_stopping:1;
 	bool idle_plus_waiting:1;
+	bool imap4rev2_enabled:1;
 	bool select_waiting_reply:1;
 	/* TRUE if IMAP server is in SELECTED state. select_box may be NULL
 	   though, if we already closed the mailbox from client point of
@@ -753,6 +754,30 @@ imapc_connection_read_line(struct imapc_connection *conn,
 	return ret;
 }
 
+static void
+imapc_connection_imap4rev2_enable_callback(const struct imapc_command_reply *reply ATTR_UNUSED,
+					   void *context)
+{
+	struct imapc_connection *conn = context;
+
+	if (reply->state == IMAPC_COMMAND_STATE_OK)
+		conn->imap4rev2_enabled = TRUE;
+}
+
+static void imapc_connection_send_enable_imap4rev2(struct imapc_connection *conn)
+{
+	struct imapc_command *cmd;
+
+	if ((conn->capabilities & IMAPC_CAPABILITY_IMAP4REV2) == 0 ||
+	     conn->imap4rev2_enabled)
+		return;
+
+	cmd = imapc_connection_cmd(conn,
+				   imapc_connection_imap4rev2_enable_callback,
+				   conn);
+	imapc_command_send(cmd, "ENABLE IMAP4REV2");
+}
+
 static int
 imapc_connection_parse_capability(struct imapc_connection *conn,
 				  const char *value)
@@ -906,6 +931,9 @@ imapc_connection_auth_finish(struct imapc_connection *conn,
 	timeout_remove(&conn->to);
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_DONE);
 	imapc_login_callback(conn, reply);
+
+	/* Enable IMAP4REV2 post login, if available */
+	imapc_connection_send_enable_imap4rev2(conn);
 
 	imapc_command_send_more(conn);
 }
