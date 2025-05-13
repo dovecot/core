@@ -46,7 +46,6 @@ struct fs_list_iterate_context {
 	unsigned int root_idx;
 	char sep;
 
-	pool_t info_pool;
 	struct mailbox_info info;
 	/* current directory we're handling */
 	struct list_dir_context *dir;
@@ -526,7 +525,6 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	ctx->ctx.flags = flags;
 	array_create(&ctx->ctx.module_contexts, pool, sizeof(void *), 5);
 
-	ctx->info_pool = pool_alloconly_create("fs list", 1024);
 	ctx->sep = mail_namespace_get_sep(_list->ns);
 	ctx->info.ns = _list->ns;
 	ctx->ctx.iter_from_index_dir =
@@ -567,7 +565,6 @@ int fs_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	}
 
 	hash_table_destroy(&_ctx->found_mailboxes);
-	pool_unref(&ctx->info_pool);
 	pool_unref(&_ctx->pool);
 	return ret;
 }
@@ -591,7 +588,7 @@ fs_list_get_inbox_vname(struct fs_list_iterate_context *ctx)
 	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0)
 		return "INBOX";
 	else
-		return p_strconcat(ctx->info_pool, ns->prefix, "INBOX", NULL);
+		return p_strconcat(ctx->ctx.info_pool, ns->prefix, "INBOX", NULL);
 }
 
 static bool
@@ -646,7 +643,7 @@ fs_list_entry(struct fs_list_iterate_context *ctx,
 	storage_name = dir_get_storage_name(dir, entry->fname);
 
 	vname = mailbox_list_get_vname(ctx->ctx.list, storage_name);
-	ctx->info.vname = p_strdup(ctx->info_pool, vname);
+	ctx->info.vname = p_strdup(ctx->ctx.info_pool, vname);
 	ctx->info.flags = entry->info_flags;
 
 	match = imap_match(ctx->ctx.glob, ctx->info.vname);
@@ -769,7 +766,6 @@ fs_list_next(struct fs_list_iterate_context *ctx)
 		/* NOTE: fs_list_entry() may change ctx->dir */
 		entries = array_get(&ctx->dir->entries, &count);
 		while (ctx->dir->entry_idx < count) {
-			p_clear(ctx->info_pool);
 			ret = fs_list_entry(ctx, &entries[ctx->dir->entry_idx++]);
 			if (ret > 0)
 				return 1;
@@ -790,7 +786,7 @@ fs_list_next(struct fs_list_iterate_context *ctx)
 	    !ctx->listed_prefix_inbox) {
 		ctx->info.flags = MAILBOX_CHILDREN | MAILBOX_NOSELECT;
 		ctx->info.vname =
-			p_strconcat(ctx->info_pool,
+			p_strconcat(ctx->ctx.info_pool,
 				    ctx->ctx.list->ns->prefix, "INBOX", NULL);
 		ctx->listed_prefix_inbox = TRUE;
 		if (imap_match(ctx->ctx.glob, ctx->info.vname) == IMAP_MATCH_YES)

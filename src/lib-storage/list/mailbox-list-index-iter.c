@@ -48,7 +48,6 @@ mailbox_list_index_iter_init(struct mailbox_list *list,
 	ctx->ctx.flags = flags;
 	ctx->ctx.glob = imap_match_init_multiple(pool, patterns, TRUE, ns_sep);
 	array_create(&ctx->ctx.module_contexts, pool, sizeof(void *), 5);
-	ctx->info_pool = pool_alloconly_create("mailbox list index iter info", 128);
 	ctx->ctx.index_iteration = TRUE;
 
 	/* listing mailboxes from index */
@@ -79,8 +78,6 @@ mailbox_list_index_update_info(struct mailbox_list_index_iterate_context *ctx)
 	struct mailbox_list_index_node *node = ctx->next_node;
 	struct mailbox *box;
 
-	p_clear(ctx->info_pool);
-
 	str_truncate(ctx->path, ctx->parent_len);
 	/* the root directory may have an empty name. in that case we'll still
 	   want to insert the separator, so check for non-NULL parent rather
@@ -97,7 +94,7 @@ mailbox_list_index_update_info(struct mailbox_list_index_iterate_context *ctx)
 		MAILBOX_CHILDREN : MAILBOX_NOCHILDREN;
 	if (strcmp(ctx->info.vname, "INBOX") != 0) {
 		/* non-INBOX */
-		ctx->info.vname = p_strdup(ctx->info_pool, ctx->info.vname);
+		ctx->info.vname = p_strdup(ctx->ctx.info_pool, ctx->info.vname);
 	} else if (!ctx->prefix_inbox_list) {
 		/* listing INBOX itself */
 		ctx->info.vname = "INBOX";
@@ -108,7 +105,7 @@ mailbox_list_index_update_info(struct mailbox_list_index_iterate_context *ctx)
 		}
 	} else {
 		/* listing INBOX/INBOX */
-		ctx->info.vname = p_strconcat(ctx->info_pool,
+		ctx->info.vname = p_strconcat(ctx->ctx.info_pool,
 			ctx->ctx.list->ns->prefix, "INBOX", NULL);
 		ctx->info.flags |= MAILBOX_NONEXISTENT;
 	}
@@ -229,7 +226,6 @@ int mailbox_list_index_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	int ret = ctx->failed ? -1 : 0;
 
 	pool_unref(&ctx->mailbox_pool);
-	pool_unref(&ctx->info_pool);
 	pool_unref(&_ctx->pool);
 	return ret;
 }
