@@ -140,8 +140,9 @@ http_client_host_shared_dns_callback(const struct dns_lookup_result *result,
 }
 
 static void
-http_client_host_shared_lookup(struct http_client_host_shared *hshared)
+http_client_host_shared_lookup(struct http_client_host *host)
 {
+	struct http_client_host_shared *hshared = host->shared;
 	struct http_client_context *cctx = hshared->cctx;
 	struct dns_client_settings dns_set;
 
@@ -173,8 +174,9 @@ http_client_host_shared_lookup(struct http_client_host_shared *hshared)
 }
 
 static int
-http_client_host_shared_refresh(struct http_client_host_shared *hshared)
+http_client_host_shared_refresh(struct http_client_host *host)
 {
+	struct http_client_host_shared *hshared = host->shared;
 	if (hshared->unix_local)
 		return 0;
 	if (hshared->explicit_ip)
@@ -193,7 +195,7 @@ http_client_host_shared_refresh(struct http_client_host_shared *hshared)
 			"need to refresh DNS lookup");
 	}
 
-	http_client_host_shared_lookup(hshared);
+	http_client_host_shared_lookup(host);
 	if (hshared->dns_lookup != NULL)
 		return -1;
 	return (hshared->ips_count > 0 ? 1 : -1);
@@ -468,7 +470,7 @@ void http_client_host_check_idle(struct http_client_host *host)
 
 int http_client_host_refresh(struct http_client_host *host)
 {
-	return http_client_host_shared_refresh(host->shared);
+	return http_client_host_shared_refresh(host);
 }
 
 bool http_client_host_get_ip_idx(struct http_client_host *host,
