@@ -51,6 +51,8 @@ enum setting_flags {
 	SET_FLAG_HIDDEN = BIT(0),
 	/* Used only for SETTING_DEFINE_LIST_END */
 	SET_FLAG_EOL = BIT(1),
+	/* Setting is normalized as Unicode Normalization Form C (NFC) */
+	SET_FLAG_UNICODE_NFC = BIT(2),
 };
 
 enum setting_apply_flags {
@@ -142,6 +144,11 @@ struct setting_define {
 	SETTING_DEFINE_STRUCT_TYPE(SET_BOOLLIST, SET_FLAG_HIDDEN, ARRAY_TYPE(const_string), key, name, struct_name)
 #define SETTING_DEFINE_STRUCT_STRLIST_HIDDEN(key, name, struct_name) \
 	SETTING_DEFINE_STRUCT_TYPE(SET_STRLIST, SET_FLAG_HIDDEN, ARRAY_TYPE(const_string), key, name, struct_name)
+
+#define SETTING_DEFINE_STRUCT_STR_NFC(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_STR, SET_FLAG_UNICODE_NFC, const char *, key, name, struct_name)
+#define SETTING_DEFINE_STRUCT_STR_NFC_NOVARS(key, name, struct_name) \
+	SETTING_DEFINE_STRUCT_TYPE(SET_STR_NOVARS, SET_FLAG_UNICODE_NFC, const char *, key, name, struct_name)
 
 struct settings_file {
 	/* Path to the file. May be "" if the content is inlined. */

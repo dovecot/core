@@ -7,6 +7,7 @@
 #include "str-parse.h"
 #include "read-full.h"
 #include "var-expand.h"
+#include "unichar.h"
 #include "settings-parser.h"
 
 #include <sys/stat.h>
@@ -688,6 +689,15 @@ settings_parse(struct setting_parser_context *ctx,
 		break;
 	case SET_STR:
 	case SET_STR_NOVARS:
+		if (HAS_ANY_BITS(def->flags, SET_FLAG_UNICODE_NFC) &&
+		    value != set_value_unknown) {
+			if (uni_utf8_to_nfc(value, strlen(value), &value) < 0) {
+				settings_parser_set_error(ctx,
+					"Value contains invalid Unicode code point");
+				return -1;
+			}
+			dup_value = TRUE;
+		}
 		if (dup_value)
 			value = p_strdup(ctx->set_pool, value);
 		*((const char **)ptr) = value;
