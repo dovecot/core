@@ -134,6 +134,8 @@ const struct setting_parser_info auth_oauth2_setting_parser_info = {
 static const struct setting_define auth_oauth2_post_setting_defines[] = {
 	{ .type = SET_STRLIST, .key = "oauth2_fields",
 	  .offset = offsetof(struct auth_oauth2_post_settings, fields) },
+
+	SETTING_DEFINE_LIST_END
 };
 
 static const struct auth_oauth2_post_settings auth_oauth2_post_default_settings = {
