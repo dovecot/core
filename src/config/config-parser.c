@@ -2318,7 +2318,7 @@ static int config_parser_filter_cmp(struct config_filter_parser *const *f1,
 		return -1;
 	}
 	if ((*f2)->create_order <= 1)
-		return -1;
+		return 1;
 
 	/* Next, order by the number of named list filters, so more specific
 	   filters are applied before less specific ones. (Applying is done in
