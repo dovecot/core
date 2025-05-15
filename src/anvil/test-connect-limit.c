@@ -314,7 +314,7 @@ static void test_sessions_compare(struct connect_limit *limit,
 		test_assert(!session->found);
 		session->found = TRUE;
 
-		pid_t pid;
+		pid_t pid = -1;
 		test_assert(str_to_pid(args[0], &pid) == 0);
 		test_assert(pid == session->pid);
 		test_assert_strcmp(args[1], session->key.username);

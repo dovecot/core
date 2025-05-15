@@ -802,7 +802,7 @@ static int
 settings_var_expand(struct settings_apply_ctx *ctx, unsigned int key_idx,
 		    const char **value, const char **error_r)
 {
-	struct settings_file file;
+	struct settings_file file = { NULL, NULL };
 	const char *orig_value = *value;
 	bool changed;
 	bool want_expand = FALSE;

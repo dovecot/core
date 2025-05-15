@@ -107,7 +107,7 @@ static void test_str_to_uintmax_hex(void)
 
 	test_begin("str_to_uintmax_hex in range");
 	while (i < sizeof(uintmax_t)*CHAR_BIT) {
-		uintmax_t value_back;
+		uintmax_t value_back = UINTMAX_MAX;
 		const char *endp;
 
 		value = (value << 1) + 1;

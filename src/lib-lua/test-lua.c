@@ -33,14 +33,12 @@ static void check_table_get_##name##_ok(struct dlua_script *script,	\
 	/* check string key */						\
 	ret = dlua_table_get_##name##_by_str(script->L, idx,		\
 					     str_key, &value);		\
-	test_assert(ret == 1);						\
-	test_assert(value == expected_value);				\
+	test_assert(ret == 1 && value == expected_value);		\
 									\
 	/* check int key */						\
 	ret = dlua_table_get_##name##_by_int(script->L, idx,		\
 					     int_key, &value);		\
-	test_assert(ret == 1);						\
-	test_assert(value == expected_value);				\
+	test_assert(ret == 1 && value == expected_value);		\
 }									\
 static void check_table_get_##name##_err(struct dlua_script *script,	\
 					 int idx, int expected_ret,	\
@@ -75,7 +73,7 @@ static void check_table_get_string_ok(struct dlua_script *script,
 				      const char *str_key,
 				      lua_Integer int_key)
 {
-	const char *value;
+	const char *value = NULL;
 	int ret;
 
 	/* check string key */

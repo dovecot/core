@@ -250,7 +250,7 @@ int lua_dict_transaction_begin(lua_State *L)
 static int lua_dict_set_timestamp(lua_State *L)
 {
 	struct lua_dict_txn *txn;
-	lua_Number tv_sec, tv_nsec;
+	lua_Number tv_sec = 0, tv_nsec = 0;
 
 	DLUA_REQUIRE_ARGS(L, 2);
 
