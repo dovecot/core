@@ -666,7 +666,6 @@ cmd_append_handle_args(struct client_command_context *cmd,
 		ctx->binary_input = args->literal8;
 		ctx->litinput = i_stream_create_limit(client->input, ctx->literal_size);
 		ctx->utf8_input = FALSE;
-		ctx->litinput = i_stream_create_limit(client->input, ctx->literal_size);
 		valid = TRUE;
 	} else {
 		ret = cmd_append_start_catenate(ctx, &args, &cat_list);
