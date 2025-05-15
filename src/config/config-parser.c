@@ -2450,9 +2450,15 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 		else
 			var_name = t_strdup_until(value, var_end);
 		var_is_set = str_begins(var_name, "$SET:", &set_name);
-		/* expand_values=TRUE for "key = $SET:key stuff".
-		   we'll always expand it so that doveconf -n can give
-		   usable output */
+		/* Always expand values when value refers to the variable itself, e.g.:
+
+		   login_greeting = Hello
+		   login_greeting = $SET:login_greeting world
+
+		   Always show this as "Hello world" output in doveconf.
+		   If we didn't expand it, it would be visible only as
+		   "$SET:login_greeting world",
+		   hiding the "Hello" string entirely. */
 		expand_values = ctx->expand_values ||
 			(var_is_set && strcmp(key, set_name) == 0);
 
