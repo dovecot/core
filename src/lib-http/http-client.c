@@ -99,6 +99,9 @@ static void
 http_client_context_remove_client(struct http_client_context *cctx,
 				  struct http_client *client);
 
+static_assert(HTTP_CLIENT_REQUEST_ERROR_ABORTED == HTTP_RESPONSE_STATUS_INTERNAL,
+	      "Internal HTTP response code numbers are inconsistent");
+
 /*
  * Client
  */

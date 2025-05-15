@@ -152,28 +152,28 @@ extern const struct setting_parser_info http_client_setting_parser_info;
 
 enum http_client_request_error {
 	/* The request was aborted. */
-	HTTP_CLIENT_REQUEST_ERROR_ABORTED = HTTP_RESPONSE_STATUS_INTERNAL,
+	HTTP_CLIENT_REQUEST_ERROR_ABORTED = 9000,
 	/* Failed to parse HTTP target url. */
-	HTTP_CLIENT_REQUEST_ERROR_INVALID_URL,
+	HTTP_CLIENT_REQUEST_ERROR_INVALID_URL = 9001,
 	/* Failed to perform DNS lookup for the host. */
-	HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED,
+	HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED = 9002,
 	/* Failed to setup any connection for the host and client settings
 	   allowed no more attempts. */
-	HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED,
+	HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED = 9003,
 	/* Service returned an invalid redirect response for this request */
-	HTTP_CLIENT_REQUEST_ERROR_INVALID_REDIRECT,
+	HTTP_CLIENT_REQUEST_ERROR_INVALID_REDIRECT = 9004,
 	/* The connection was lost unexpectedly while handling the request and
 	   client settings allowed no more attempts */
-	HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
+	HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST = 9005,
 	/* The input stream passed to the request using
 	   http_client_request_set_payload() returned an error while sending the
 	   request. */
-	HTTP_CLIENT_REQUEST_ERROR_BROKEN_PAYLOAD,
+	HTTP_CLIENT_REQUEST_ERROR_BROKEN_PAYLOAD = 9006,
 	/* The service returned a bad response. */
-	HTTP_CLIENT_REQUEST_ERROR_BAD_RESPONSE,
+	HTTP_CLIENT_REQUEST_ERROR_BAD_RESPONSE = 9007,
 	/* The request timed out (either this was the last attempt or the
 	   absolute timeout was hit) */
-	HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT,
+	HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT = 9008,
 };
 
 enum http_request_state {
