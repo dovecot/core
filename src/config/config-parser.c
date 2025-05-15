@@ -2442,27 +2442,27 @@ static int config_write_keyvariable(struct config_parser_context *ctx,
 	const char *var_end;
 	while (value != NULL) {
 		const char *var_name, *env_name, *set_name;
-		bool var_is_set, expand_parent;
+		bool var_is_set, expand_values;
 		var_end = strchr(value, ' ');
 
-		/* expand_parent=TRUE for "key = $SET:key stuff".
-		   we'll always expand it so that doveconf -n can give
-		   usable output */
 		if (var_end == NULL)
 			var_name = value;
 		else
 			var_name = t_strdup_until(value, var_end);
 		var_is_set = str_begins(var_name, "$SET:", &set_name);
-		expand_parent = var_is_set && strcmp(key, set_name) == 0;
+		/* expand_values=TRUE for "key = $SET:key stuff".
+		   we'll always expand it so that doveconf -n can give
+		   usable output */
+		expand_values = ctx->expand_values ||
+			(var_is_set && strcmp(key, set_name) == 0);
 
-		if (!ctx->expand_values && !expand_parent) {
-			str_append(str, var_name);
-		} else if (str_begins(var_name, "$ENV:", &env_name)) {
+		if (expand_values &&
+		    str_begins(var_name, "$ENV:", &env_name)) {
 			/* use environment variable */
 			const char *envval = getenv(env_name);
 			if (envval != NULL)
 				str_append(str, envval);
-		} else if (var_is_set) {
+		} else if (expand_values && var_is_set) {
 			struct config_parser_key *config_key;
 
 			config_key = hash_table_lookup(ctx->all_keys, set_name);
