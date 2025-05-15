@@ -49,6 +49,8 @@ enum setting_type {
 };
 enum setting_flags {
 	SET_FLAG_HIDDEN = BIT(0),
+	/* Used only for SETTING_DEFINE_LIST_END */
+	SET_FLAG_EOL = BIT(1),
 };
 
 enum setting_apply_flags {
@@ -58,7 +60,7 @@ enum setting_apply_flags {
 	SETTING_APPLY_FLAG_NO_EXPAND = BIT(1),
 };
 
-#define SETTING_DEFINE_LIST_END { 0, 0, NULL, 0, NULL, NULL, NULL }
+#define SETTING_DEFINE_LIST_END { 0, SET_FLAG_EOL, NULL, 0, NULL, NULL, NULL }
 
 struct setting_filter_array_order {
 	const struct setting_parser_info *info;

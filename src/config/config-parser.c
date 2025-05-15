@@ -2910,10 +2910,17 @@ config_parser_add_info(struct config_parser_context *ctx,
 	const struct setting_parser_info *info = all_infos[info_idx];
 	struct config_parser_key *config_key, *old_config_key;
 	const char *name;
+	unsigned int i = 0;
 
-	for (unsigned int i = 0; info->defines[i].key != NULL; i++) {
+	for (i = 0; info->defines[i].key != NULL; i++) {
 		const struct setting_define *def = &info->defines[i];
 
+		if ((info->defines[i].flags & SET_FLAG_EOL) != 0) {
+			i_panic("struct %s key %s contains SET_FLAG_EOL",
+				info->name, def->key);
+		}
+
+		i_assert((def->flags & SET_FLAG_EOL) == 0);
 		if (def->type == SET_STR ||
 		    def->type == SET_STR_NOVARS ||
 		    def->type == SET_ENUM) {
@@ -2948,6 +2955,10 @@ config_parser_add_info(struct config_parser_context *ctx,
 		if (old_config_key != NULL)
 			DLLIST_PREPEND(&old_config_key, config_key);
 		hash_table_update(ctx->all_keys, def->key, config_key);
+	}
+	if ((info->defines[i].flags & SET_FLAG_EOL) == 0) {
+		i_panic("struct %s is missing SETTING_DEFINE_LIST_END",
+			info->name);
 	}
 }
 
