@@ -10,6 +10,12 @@ static struct module *var_expand_crypt_module;
 static var_expand_filter_func_t *fn_encrypt = NULL;
 static var_expand_filter_func_t *fn_decrypt = NULL;
 
+static void var_expand_crypt_unload(void)
+{
+	fn_decrypt = fn_encrypt = NULL;
+	module_dir_unload(&var_expand_crypt_module);
+}
+
 void var_expand_crypt_load(void)
 {
 	struct module_dir_load_settings set = {
@@ -23,6 +29,7 @@ void var_expand_crypt_load(void)
 	var_expand_crypt_module =
 		module_dir_load(VAR_EXPAND_MODULE_DIR, mods, &set);
 	module_dir_init(var_expand_crypt_module);
+	lib_atexit(var_expand_crypt_unload);
 }
 
 void expansion_filter_crypt_set_functions(var_expand_filter_func_t *encrypt,
