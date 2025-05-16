@@ -145,7 +145,7 @@ static bool dlua_read_line(lua_State *L, struct dlua_iostream *stream, bool nl)
 		if (ptr != NULL)
 			break;
 
-		i_stream_read(stream->is);
+		(void)i_stream_read(stream->is);
 	}
 
 	/* Nothing read, fail */
