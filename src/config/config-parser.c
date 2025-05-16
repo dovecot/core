@@ -1770,8 +1770,13 @@ static int settings_add_include(struct config_parser_context *ctx, const char *p
 					   path);
 		return -1;
 	}
-	if (config_parser_add_seen_file_fd(ctx, fd, path, error_r) < 0)
+	if (config_parser_add_seen_file_fd(ctx, fd, path, error_r) < 0) {
+		/* We only get here if fstat(fd, &st) failed. As we don't
+		 * specify what the issue is, it's safest to close the file via
+		 * the descriptor but ignore the result. */
+		i_close_fd(&fd);
 		return -1;
+	}
 
 	new_input = p_new(ctx->pool, struct input_stack, 1);
 	new_input->prev = ctx->cur_input;
