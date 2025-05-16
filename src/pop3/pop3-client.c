@@ -329,6 +329,7 @@ static int parse_uidl_keymask(const char *format, enum uidl_keys *keys,
 	}
 	if (ret == 0)
 		*keys = mask;
+	var_expand_program_free(&prog);
 	return ret;
 }
 
