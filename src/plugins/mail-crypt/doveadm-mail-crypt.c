@@ -692,7 +692,7 @@ static void cmd_mcp_key_export_cb(const struct generated_key *key,
 		doveadm_print(t_strdup_printf("ERROR: %s", error));
 		doveadm_print("");
 	} else {
-		string_t *out = t_str_new(64);
+		string_t *out = t_str_new(128);
 		if (!dcrypt_key_store_private(pkey, DCRYPT_FORMAT_PEM, NULL, out,
 					      NULL, NULL, &error)) {
 			doveadm_print(t_strdup_printf("ERROR: %s", error));
