@@ -700,15 +700,25 @@ int fts_backend_flatcurve_delete_dir(const char *path, const char **error_r)
 	struct stat st;
 	enum unlink_directory_flags unlink_flags = UNLINK_DIRECTORY_FLAG_RMDIR;
 
-	if (stat(path, &st) < 0) {
+	int fd = open(path, O_RDONLY);
+	if (fd < 0) {
 		if (errno == ENOENT)
 			return 0;
 		else {
 			*error_r = t_strdup_printf("Deleting fts data failed: "
-				"stat(%s) failed: %m", path);
+				"open(%s) failed: %m", path);
 			return -1;
 		}
 	}
+
+	if (fstat(fd, &st) < 0) {
+		*error_r = t_strdup_printf("Deleting fts data failed: "
+			"fstat(%s) failed: %m", path);
+		close(fd);
+		return -1;
+	}
+
+	close(fd);
 
 	if (S_ISDIR(st.st_mode)) {
 		if (unlink_directory(path, unlink_flags, error_r) < 0) {
