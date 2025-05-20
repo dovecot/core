@@ -678,7 +678,7 @@ fts_flatcurve_xapian_create_current(struct flatcurve_fts_backend *backend,
 		ret = fts_flatcurve_xapian_db_add(backend,
 			fts_flatcurve_xapian_create_db_path(backend, fname),
 			FLATCURVE_XAPIAN_DB_TYPE_CURRENT, TRUE, &xdb, error_r);
-	} T_END;
+	} T_END_PASS_STR_IF(ret < 0, error_r);
 
 	if (ret < 0)
 		return -1;
@@ -720,7 +720,7 @@ fts_flatcurve_xapian_db_populate(struct flatcurve_fts_backend *backend,
 		else if (errno == ENOENT)
 			lock = FALSE;
 		else {
-			*error_r = i_strdup_printf(
+			*error_r = t_strdup_printf(
 				"stat(%s) failed: %m",
 				str_c(backend->db_path));
 			return -1;
@@ -730,7 +730,7 @@ fts_flatcurve_xapian_db_populate(struct flatcurve_fts_backend *backend,
 				backend->backend.ns->list,
 				str_c(backend->db_path),
 				MAILBOX_LIST_PATH_TYPE_INDEX) < 0) {
-			*error_r = i_strdup_printf(
+			*error_r = t_strdup_printf(
 				"Cannot create DB (RW); %s",
 				str_c(backend->db_path));
 			return -1;
