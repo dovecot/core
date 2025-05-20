@@ -30,7 +30,7 @@ test_libs = \
 	../lib/liblib.la
 
 test_dns_lookup_SOURCES = test-dns-lookup.c
-test_dns_lookup_LDADD = $(test_libs)
+test_dns_lookup_LDADD = $(test_libs) $(DLLIB)
 
 check-local:
 	for bin in $(test_programs); do \
