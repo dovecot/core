@@ -351,7 +351,6 @@ int dlua_push_istream(struct dlua_script *script, struct istream *is) {
 	luaL_setmetatable(script->L, DOVECOT_FILEHANDLE);
 	stream->stream.f = NULL;
 	stream->stream.closef = dlua_io_close;
-	i_assert(!is->closed);
 	i_stream_ref(is);
 	stream->is = is;
 	stream->input = TRUE;
@@ -365,7 +364,6 @@ int dlua_push_ostream(struct dlua_script *script, struct ostream *os) {
 	luaL_setmetatable(script->L, DOVECOT_FILEHANDLE);
 	stream->stream.f = NULL;
 	stream->stream.closef = dlua_io_close;
-	i_assert(!os->closed);
 	o_stream_ref(os);
 	stream->os = os;
 
