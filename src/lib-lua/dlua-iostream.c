@@ -189,9 +189,12 @@ static int dlua_i_read_common(lua_State *L, struct dlua_iostream *stream, int fi
 	int nargs = lua_gettop(L) - 1;
 	bool success;
 	int n;
-	(void)i_stream_read(stream->is);
 
-	if (nargs == 0) {
+	if (i_stream_read(stream->is) < 0 &&
+	    stream->is->stream_errno != 0) {
+		/* Skip to error handling. */
+		success = FALSE;
+	} else if (nargs == 0) {
 		success = dlua_read_line(L, stream, TRUE);
 		n = first + 1;
 	} else {
