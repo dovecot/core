@@ -44,3 +44,9 @@ function test_read_bytes(is)
   test_assert("r == \\0\\1\\2\\3\\4\\5", r == "\0\1\2\3\4\5")
   test_assert("#r==6", #r == 6)
 end
+
+function test_read_error(is)
+  local _, err, errno = is:read(1)
+  test_assert("errno == 22", errno == 22)
+  test_assert("err = (error): Invalid argument", err == "(error): Invalid argument")
+end

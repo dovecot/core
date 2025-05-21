@@ -68,10 +68,17 @@ static void test_io_lua(void)
 	if (dlua_pcall(script->L, "test_read_bytes", 1, 0, &error) < 0)
 		i_fatal("%s", error);
 
+	/* Check error handling. */
+	is = i_stream_create_error(EINVAL);
+	dlua_push_istream(script, is);
+	i_stream_unref(&is);
+	if (dlua_pcall(script->L, "test_read_error", 1, 0, &error) < 0)
+		i_fatal("%s", error);
+
 	dlua_script_unref(&script);
 
 	/* ensure all tests were actually ran */
-	test_assert_ucmp(assert_count, ==, 19);
+	test_assert_ucmp(assert_count, ==, 21);
 
 	test_end();
 }
