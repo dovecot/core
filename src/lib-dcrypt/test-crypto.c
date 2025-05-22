@@ -540,24 +540,29 @@ static void test_load_v2_public_key(void)
 	const char *error;
 
 	test_begin("test_load_v2_public_key");
-	const char *key =
+	const char *keys[] = {
 		"2:3058301006072a8648ce3d020106052b810400230344000"
 		"301c50954e734dd8b410a607764a7057065a45510da52f2c6"
 		"e28e0cb353b9c389fa8cb786943ae991fce9befed78fb162f"
 		"bbc615415f06af06c8cc80c37f4e94ff6c7:185a721254278"
 		"2e239111f9c19d126ad55b18ddaf4883d66afe8d9627c3607"
-		"d8";
+		"d8",
+	};
 
-	test_assert(dcrypt_key_load_public(&pub, key, &error));
+	for (size_t i = 0; i < N_ELEMENTS(keys); i++) {
+		const char *key = keys[i];
+		test_assert_idx(dcrypt_key_load_public(&pub, key, &error), i);
+		test_assert_idx(pub != NULL, i);
 
-	buffer_t *tmp = buffer_create_dynamic(default_pool, 256);
+		buffer_t *tmp = buffer_create_dynamic(default_pool, 256);
 
-	if (pub != NULL) {
-		test_assert(dcrypt_key_store_public(pub,
-			DCRYPT_FORMAT_DOVECOT, tmp, &error));
-		test_assert(strcmp(key, str_c(tmp))==0);
-		buffer_free(&tmp);
-		dcrypt_key_unref_public(&pub);
+		if (pub != NULL) {
+			test_assert_idx(dcrypt_key_store_public(pub,
+					DCRYPT_FORMAT_DOVECOT, tmp, &error), i);
+			test_assert_strcmp_idx(key, str_c(tmp), i);
+			buffer_free(&tmp);
+			dcrypt_key_unref_public(&pub);
+		}
 	}
 
 	test_end();
