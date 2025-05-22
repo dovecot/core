@@ -483,7 +483,13 @@ static void test_load_v2_key(void)
 		"7d945aa6492275a02881071eceec5749caf2485da8c64fb601"
 		"229098:ab13d251976dedab546b67354e7678821740dd534b7"
 		"49c2857f66bf62bbaddfd:ab13d251976dedab546b67354e76"
-		"78821740dd534b749c2857f66bf62bbaddfd"
+		"78821740dd534b749c2857f66bf62bbaddfd",
+		"2:1.3.132.0.35:2:aes-256-ctr:cf9951243f5e609a5e20d"
+		"353e4011f62:sha256:2048:0c056337f221f5fd287eb3ef48"
+		"86e596ef3b92e7d33c01a79579b35c8595f8e13cf4bccdb7f5"
+		"409b095be5179bd94668ad88050ff828617ef3415b9e167d22"
+		"e7fd95a3f80b3b:15286fe2a53773c64efa2b8fa79d4cd5b46"
+		"3d422d30bf9103ca97999636e864f",
 	};
 
 	test_begin("test_load_v2_key");
@@ -527,6 +533,24 @@ static void test_load_v2_key(void)
 	dcrypt_key_unref_private(&priv);
 	dcrypt_key_unref_public(&pub);
 
+	/* Matches the encrypted private key in index 4 */
+	static const char *pem_key_4 =
+"-----BEGIN PRIVATE KEY-----\n"
+"MIGqAgEAMBAGByqGSM49AgEGBSuBBAAjBIGSMIGPAgEBBEIBoC5EFaNm/mWOH9Dp\n"
+"juTNIuRRyKVEFZ0o1R9gPbeza2VvvKYZaIPck2HWEmJGoHOwo+Kc/Fq0Z7ka3Irg\n"
+"o9CfYlihRgNEAAMBTSCA2WUdwGM4Q7Frxvbd785xLALRGfY454bOH6Esn5CrKgo+\n"
+"/gmOCWVYR346VqT0OFxUamc3cglQsk3oFcTjQqY=\n"
+"-----END PRIVATE KEY-----\n";
+
+	test_assert_idx(dcrypt_key_load_private(&priv,
+		keys[4], "password", NULL, &error), 4);
+	test_assert_idx(dcrypt_key_store_private(priv,
+		DCRYPT_FORMAT_PEM, NULL, tmp,
+		NULL, NULL, &error), 4);
+	test_assert_strcmp_idx(str_c(tmp), pem_key_4, 4);
+	buffer_set_used_size(tmp, 0);
+	dcrypt_key_unref_private(&priv);
+
 	buffer_free(&tmp);
 
 	if (error != NULL) error = NULL;
@@ -547,6 +571,12 @@ static void test_load_v2_public_key(void)
 		"bbc615415f06af06c8cc80c37f4e94ff6c7:185a721254278"
 		"2e239111f9c19d126ad55b18ddaf4883d66afe8d9627c3607"
 		"d8",
+		"2:3058301006072a8648ce3d020106052b810400230344000"
+		"301897d80b69ed3eccda4c5a5edc67e9a11ef76c4894710af"
+		"b3deb52e5d996f23b6252d93ab349d1931a234eda9ff7cc40"
+		"095b2b084b86e066839c7de8a08bf5bf46b:0a955323b7c00"
+		"ef44581122c510cbfacfc503aea291b3a3fa2a811356df5be"
+		"cd",
 	};
 
 	for (size_t i = 0; i < N_ELEMENTS(keys); i++) {

@@ -12,6 +12,9 @@ struct module;
 #define DCRYPT_DOVECOT_KEY_ENCRYPT_PK 1
 #define DCRYPT_DOVECOT_KEY_ENCRYPT_PASSWORD 2
 
+/* Fips requires 16 byte salt */
+#define DCRYPT_DOVECOT_SALT_LEN 16
+
 struct dcrypt_vfs {
 	bool (*initialize)(const struct dcrypt_settings *set,
 			   const char **error_r);

@@ -2679,7 +2679,7 @@ dcrypt_openssl_encrypt_private_key_dovecot(buffer_t *key, int enctype,
 	bool res;
 	unsigned char *ptr;
 
-	unsigned char salt[8];
+	unsigned char salt[DCRYPT_DOVECOT_SALT_LEN];
 	buffer_t *peer_key = t_buffer_create(128);
 	buffer_t *secret = t_buffer_create(128);
 	cipher = t_str_lcase(cipher);
