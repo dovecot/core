@@ -599,7 +599,7 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 
 			if (*fields != NULL) {
 				e_error(hpconn->event, "Client disconnected: "
-					"Header line has spurius extra field "
+					"Header line has spurious extra field "
 					"(field=`%s', rip=%s)", str_sanitize(*fields, 64),
 					net_ip2addr(real_remote_ip));
 				return -1;

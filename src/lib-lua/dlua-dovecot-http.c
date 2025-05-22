@@ -116,7 +116,7 @@ static int dlua_http_request_submit(lua_State *L)
 	   submitted. */
 	lua_getfield(L, -1, "item");
 	if (lua_getmetatable(L, -1) != 1)
-		return luaL_error(L, "Cound't get metatable for the request");
+		return luaL_error(L, "Couldn't get metatable for the request");
 	lua_pushnil(L);
 	lua_setfield(L, -2, "__gc");
 	lua_pop(L, 2);
