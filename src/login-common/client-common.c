@@ -311,8 +311,8 @@ int client_alloc(int fd, const struct master_service_connection *conn,
 		/* Start by assuming this is the end client connection.
 		   Later on this can be overwritten. */
 		client->end_client_tls_secured = conn->haproxy.ssl;
-		client->local_name = conn->haproxy.hostname;
-		client->client_cert_common_name = conn->haproxy.cert_common_name;
+		client->local_name = p_strdup(client->pool, conn->haproxy.hostname);
+		client->client_cert_common_name = p_strdup(client->pool, conn->haproxy.cert_common_name);
 		/* Check that alpn matches. */
 		if (conn->haproxy.alpn_size > 0) {
 			const char *proto =
