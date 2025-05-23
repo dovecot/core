@@ -3793,7 +3793,8 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
-	/* nothing yet; also called from sub-processes */
+	/* also called from sub-processes */
+	settings_root_deinit(&set_root);
 }
 
 int main(int argc, char *argv[])
@@ -3828,7 +3829,6 @@ int main(int argc, char *argv[])
 
 	test_subprocesses_deinit();
 	event_set_ptr(cctx->event, SETTINGS_EVENT_ROOT, NULL);
-	settings_root_deinit(&set_root);
 
 	main_deinit();
 	lib_deinit();
