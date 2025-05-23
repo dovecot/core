@@ -7,8 +7,10 @@ if GSSAPI_PLUGIN
 GSSAPI_LIB = libmech_gssapi.la
 endif
 
+if HAVE_LDAP
 if LDAP_PLUGIN
 LDAP_LIB = libauthdb_ldap.la
+endif
 endif
 
 LUA_LIB =
@@ -171,6 +173,7 @@ libmech_gssapi_la_CPPFLAGS = $(AM_CPPFLAGS) $(KRB5_CFLAGS) -DPLUGIN_BUILD
 libmech_gssapi_la_SOURCES = mech-gssapi.c
 endif
 
+if HAVE_LDAP
 if LDAP_PLUGIN
 libauthdb_ldap_la_LDFLAGS = -module -avoid-version -shared
 libauthdb_ldap_la_LIBADD = $(LIBDOVECOT_LDAP) $(LDAP_LIBS)
@@ -178,6 +181,7 @@ libauthdb_ldap_la_CPPFLAGS = $(AM_CPPFLAGS) -DPLUGIN_BUILD
 libauthdb_ldap_la_SOURCES = $(ldap_sources)
 else
 auth_libs += $(LIBDOVECOT_LDAP)
+endif
 endif
 
 if AUTH_LUA_PLUGIN
