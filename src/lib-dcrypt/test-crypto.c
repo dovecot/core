@@ -534,20 +534,17 @@ static void test_load_v2_key(void)
 	dcrypt_key_unref_public(&pub);
 
 	/* Matches the encrypted private key in index 4 */
-	static const char *pem_key_4 =
-"-----BEGIN PRIVATE KEY-----\n"
-"MIGqAgEAMBAGByqGSM49AgEGBSuBBAAjBIGSMIGPAgEBBEIBoC5EFaNm/mWOH9Dp\n"
-"juTNIuRRyKVEFZ0o1R9gPbeza2VvvKYZaIPck2HWEmJGoHOwo+Kc/Fq0Z7ka3Irg\n"
-"o9CfYlihRgNEAAMBTSCA2WUdwGM4Q7Frxvbd785xLALRGfY454bOH6Esn5CrKgo+\n"
-"/gmOCWVYR346VqT0OFxUamc3cglQsk3oFcTjQqY=\n"
-"-----END PRIVATE KEY-----\n";
-
+	static const char *static_key_4 =
+		"2:1.3.132.0.35:0:0000004201a02e4415a366fe658e1fd0e98ee4cd22e45"
+		"1c8a544159d28d51f603db7b36b656fbca6196883dc9361d6126246a073b0a"
+		"3e29cfc5ab467b91adc8ae0a3d09f6258:15286fe2a53773c64efa2b8fa79d"
+		"4cd5b463d422d30bf9103ca97999636e864f";
 	test_assert_idx(dcrypt_key_load_private(&priv,
 		keys[4], "password", NULL, &error), 4);
 	test_assert_idx(dcrypt_key_store_private(priv,
-		DCRYPT_FORMAT_PEM, NULL, tmp,
+		DCRYPT_FORMAT_DOVECOT, NULL, tmp,
 		NULL, NULL, &error), 4);
-	test_assert_strcmp_idx(str_c(tmp), pem_key_4, 4);
+	test_assert_strcmp_idx(str_c(tmp), static_key_4, 4);
 	buffer_set_used_size(tmp, 0);
 	dcrypt_key_unref_private(&priv);
 
