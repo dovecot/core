@@ -137,6 +137,18 @@ const struct setting_parser_info ldap_post_setting_parser_info = {
 
 /* <settings checks> */
 
+#define HAVE_LDAP_SASL
+#ifdef HAVE_SASL_SASL_H
+#  include <sasl/sasl.h>
+#elif defined (HAVE_SASL_H)
+#  include <sasl.h>
+#else
+#  undef HAVE_LDAP_SASL
+#endif
+#if !defined(SASL_VERSION_MAJOR) || SASL_VERSION_MAJOR < 2
+#  undef HAVE_LDAP_SASL
+#endif
+
 static int ldap_parse_deref(const char *str, int *ref_r)
 {
 	if (strcasecmp(str, "never") == 0)
