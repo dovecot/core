@@ -658,7 +658,6 @@ cmd_append_handle_args(struct client_command_context *cmd,
 	}
 
 	/* <message literal> | CATENATE (..) | UTF8 (..) */
-	valid = FALSE;
 	*nonsync_r = FALSE;
 	ctx->catenate = FALSE;
 	if (imap_arg_get_literal_size(args, &ctx->literal_size)) {
