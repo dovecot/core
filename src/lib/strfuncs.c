@@ -236,11 +236,16 @@ char *p_strconcat(pool_t pool, const char *str1, ...)
 	return ret;
 }
 
-static void *t_memdup(const void *data, size_t size)
+static void *t_memdup_noconst(const void *data, size_t size)
 {
 	void *mem = t_malloc_no0(size);
 	memcpy(mem, data, size);
 	return mem;
+}
+
+const void *t_memdup(const void *data, size_t size)
+{
+	return t_memdup_noconst(data, size);
 }
 
 const char *t_strdup(const char *str)
@@ -252,7 +257,7 @@ char *t_strdup_noconst(const char *str)
 {
 	if (str == NULL)
 		return NULL;
-	return t_memdup(str, strlen(str) + 1);
+	return t_memdup_noconst(str, strlen(str) + 1);
 }
 
 const char *t_strdup_empty(const char *str)
