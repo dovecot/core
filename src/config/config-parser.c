@@ -785,6 +785,7 @@ config_apply_exact_line(struct config_parser_context *ctx,
 					p_strconcat(ctx->pool, "\n", inline_value, NULL);
 				break;
 			}
+			i_assert(line != NULL);
 			if (config_apply_file(ctx, line, value,
 					&l->settings[config_key->define_idx].str) < 0)
 				return -1;
