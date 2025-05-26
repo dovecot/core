@@ -89,7 +89,7 @@ struct service_settings {
 
 	/* -- flags that can be set internally -- */
 
-	/* process_limit must not be higher than 1 */
+	/* process_limit must not be greater than 1 */
 	bool process_limit_1:1;
 };
 ARRAY_DEFINE_TYPE(service_settings, struct service_settings *);

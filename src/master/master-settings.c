@@ -727,32 +727,32 @@ master_settings_ext_check(struct event *event, void *_set,
 		process_limit = service->process_limit;
 		if (process_limit == 0) {
 			*error_r = t_strdup_printf("service(%s): "
-				"process_limit must be higher than 0",
+				"process_limit must be greater than 0",
 				service->name);
 			return FALSE;
 		}
 		if (service->process_min_avail > process_limit) {
 			*error_r = t_strdup_printf("service(%s): "
-				"process_min_avail is higher than process_limit",
+				"process_min_avail is greater than process_limit",
 				service->name);
 			return FALSE;
 		}
 		if (service->client_limit == 0) {
 			*error_r = t_strdup_printf("service(%s): "
-				"client_limit must be higher than 0",
+				"client_limit must be greater than 0",
 				service->name);
 			return FALSE;
 		}
 		if (service->restart_request_count == 0) {
 			*error_r = t_strdup_printf("service(%s): "
-				"restart_request_count must be higher than 0 "
+				"restart_request_count must be greater than 0 "
 				"(did you mean \"unlimited\"?)",
 				service->name);
 			return FALSE;
 		}
 		if (service->idle_kill_interval == 0) {
 			*error_r = t_strdup_printf("service(%s): "
-				"idle_kill_interval must be higher than 0 "
+				"idle_kill_interval must be greater than 0 "
 				"(did you mean \"unlimited\"?)",
 				service->name);
 			return FALSE;
