@@ -102,7 +102,7 @@ test_libs = \
 	$(noinst_LTLIBRARIES) \
 	$(LIBDOVECOT)
 
-test_config_parser_CFLAGS = $(AM_CPPFLAGS)
+test_config_parser_CFLAGS = $(AM_CFLAGS)
 test_config_parser_SOURCES = test-config-parser.c
 test_config_parser_LDADD = $(test_libs)
 test_config_parser_DEPENDENCIES = $(LIBDOVECOT_DEPS) $(noinst_LTLIBRARIES)

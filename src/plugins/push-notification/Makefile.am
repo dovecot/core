@@ -74,7 +74,7 @@ pkginc_libdir = $(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
 if HAVE_LUA
-lib22_push_notification_lua_plugin_la_CFLAGS = $(AM_CPPFLAGS) \
+lib22_push_notification_lua_plugin_la_CFLAGS = $(AM_CFLAGS) \
 	-I$(top_srcdir)/src/lib-lua \
 	-I$(top_srcdir)/src/plugins/mail-lua \
 	$(LUA_CFLAGS)

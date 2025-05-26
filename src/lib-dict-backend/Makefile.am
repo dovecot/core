@@ -46,7 +46,7 @@ LIBDICT_LDAP = libdict_ldap.la
 libdict_ldap_la_DEPENDENCIES = $(LIBDOVECOT_LDAP) $(LIBDOVECOT_DEPS)
 libdict_ldap_la_LDFLAGS = -module -avoid-version
 libdict_ldap_la_LIBADD = $(LIBDOVECOT_LDAP) $(LIBDOVECOT)
-libdict_ldap_la_CPPFLAGS = $(AM_CPPFLAGS) -DPLUGIN_BUILD
+libdict_ldap_la_CPPFLAGS = $(AM_CFLAGS) -DPLUGIN_BUILD
 libdict_ldap_la_SOURCES = $(ldap_sources)
 else
 if HAVE_LDAP
@@ -97,7 +97,7 @@ test_programs = \
 
 noinst_PROGRAMS = $(test_programs)
 
-test_dict_sql_CFLAGS = $(AM_CPPFLAGS) -DDICT_SRC_DIR=\"$(top_srcdir)/src/lib-dict-backend\"
+test_dict_sql_CFLAGS = $(AM_CFLAGS) -DDICT_SRC_DIR=\"$(top_srcdir)/src/lib-dict-backend\"
 test_dict_sql_SOURCES = \
 	test-dict-sql.c
 test_dict_sql_LDADD = \

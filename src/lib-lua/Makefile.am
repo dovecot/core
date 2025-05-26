@@ -71,7 +71,7 @@ noinst_PROGRAMS = $(test_programs)
 test_libs_ssl = ../lib-ssl-iostream/libssl_iostream_openssl.la
 
 test_lua_SOURCES = test-lua.c
-test_lua_CFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
+test_lua_CFLAGS = $(AM_CFLAGS) $(BINARY_CFLAGS)
 test_lua_LDFLAGS = $(BINARY_LDFLAGS)
 test_lua_LDADD = libdlua.la $(LIBDOVECOT) $(LUA_LIBS)
 test_lua_DEPENDENCIES = libdlua.la $(LIBDOVECOT_DEPS)
@@ -92,7 +92,7 @@ test_lua_http_client_SOURCES = test-lua-http-client.c
 test_lua_http_client_LDADD = libdlua.la $(LIBDOVECOT) $(test_libs_ssl) $(LUA_LIBS)
 test_lua_http_client_DEPENDENCIES = libdlua.la $(LIBDOVECOT_DEPS)
 test_lua_http_client_CFLAGS = \
-	$(AM_CPPFLAGS) \
+	$(AM_CFLAGS) \
 	$(DOVECOT_BINARY_CFLAGS) \
 	-DTEST_LUA_SCRIPT_DIR=\"$(abs_top_srcdir)/src/lib-lua\"
 

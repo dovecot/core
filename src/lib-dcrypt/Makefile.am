@@ -15,14 +15,13 @@ libdcrypt_la_SOURCES = \
 	istream-decrypt.c \
 	ostream-encrypt.c
 
-libdcrypt_la_CFLAGS = $(AM_CPPFLAGS)
+libdcrypt_la_CFLAGS = $(AM_CFLAGS)
 
 libdcrypt_openssl_static_la_SOURCES = dcrypt-openssl1.c dcrypt-openssl3.c
 libdcrypt_openssl_static_la_LDFLAGS = ../lib-ssl-iostream/libssl_iostream_openssl.la
 libdcrypt_openssl_static_la_LIBADD = $(SSL_LIBS)
 libdcrypt_openssl_static_la_DEPENDENCIES = ../lib-ssl-iostream/libssl_iostream_openssl.la
-libdcrypt_openssl_static_la_CFLAGS = $(AM_CPPFLAGS) \
-	$(SSL_CFLAGS)
+libdcrypt_openssl_static_la_CFLAGS = $(AM_CFLAGS) $(SSL_CFLAGS)
 
 module_LTLIBRARIES += libdcrypt_openssl.la
 
@@ -30,8 +29,7 @@ libdcrypt_openssl_la_SOURCES = dcrypt-openssl1.c dcrypt-openssl3.c
 libdcrypt_openssl_la_LDFLAGS = -module -avoid-version ../lib-ssl-iostream/libssl_iostream_openssl.la
 libdcrypt_openssl_la_LIBADD = $(SSL_LIBS)
 libdcrypt_openssl_la_DEPENDENCIES = ../lib-ssl-iostream/libssl_iostream_openssl.la
-libdcrypt_openssl_la_CFLAGS = $(AM_CPPFLAGS) \
-	$(SSL_CFLAGS)
+libdcrypt_openssl_la_CFLAGS = $(AM_CFLAGS) $(SSL_CFLAGS)
 
 headers = \
 	dcrypt.h \
@@ -73,7 +71,7 @@ test_crypto_DEPENDENCIES = $(LIBDOVECOT_TEST_DEPS)
 if HAVE_WHOLE_ARCHIVE
 test_crypto_LDFLAGS = -export-dynamic -Wl,$(LD_WHOLE_ARCHIVE),../lib-var-expand/.libs/libvar_expand.a,../lib/.libs/liblib.a,../lib-json/.libs/libjson.a,../lib-ssl-iostream/.libs/libssl_iostream.a,$(LD_NO_WHOLE_ARCHIVE)
 endif
-test_crypto_CFLAGS = $(AM_CPPFLAGS) -DDCRYPT_SRC_DIR=\"$(top_srcdir)/src/lib-dcrypt\"
+test_crypto_CFLAGS = $(AM_CFLAGS) -DDCRYPT_SRC_DIR=\"$(top_srcdir)/src/lib-dcrypt\"
 test_crypto_SOURCES = $(libdcrypt_la_SOURCES) test-crypto.c
 
 test_stream_LDADD = $(LIBDOVECOT_TEST)
@@ -81,5 +79,5 @@ test_stream_DEPENDENCIES = $(LIBDOVECOT_TEST_DEPS)
 if HAVE_WHOLE_ARCHIVE
 test_stream_LDFLAGS = -export-dynamic -Wl,$(LD_WHOLE_ARCHIVE),../lib-var-expand/.libs/libvar_expand.a,../lib/.libs/liblib.a,../lib-json/.libs/libjson.a,../lib-ssl-iostream/.libs/libssl_iostream.a,$(LD_NO_WHOLE_ARCHIVE)
 endif
-test_stream_CFLAGS = $(AM_CPPFLAGS) -DDCRYPT_SRC_DIR=\"$(top_srcdir)/src/lib-dcrypt\"
+test_stream_CFLAGS = $(AM_CFLAGS) -DDCRYPT_SRC_DIR=\"$(top_srcdir)/src/lib-dcrypt\"
 test_stream_SOURCES = $(libdcrypt_la_SOURCES) test-stream.c

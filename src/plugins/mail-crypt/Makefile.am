@@ -78,7 +78,7 @@ test_fs_crypt_DEPENDENCIES = $(LIBDOVECOT_DEPS) \
 	fs-crypt.lo \
 	mail-crypt-global-key.lo
 test_fs_crypt_LDFLAGS = $(DOVECOT_BINARY_LDFLAGS)
-test_fs_crypt_CFLAGS = $(AM_CPPFLAGS) $(DOVECOT_BINARY_CFLAGS) -Dtop_builddir=\"$(top_builddir)\"
+test_fs_crypt_CFLAGS = $(AM_CFLAGS) $(DOVECOT_BINARY_CFLAGS) -Dtop_builddir=\"$(top_builddir)\"
 
 test_mail_global_key_SOURCES = \
 	test-mail-global-key.c \
@@ -87,7 +87,7 @@ test_mail_global_key_SOURCES = \
 test_mail_global_key_LDADD = $(LIBDOVECOT)
 test_mail_global_key_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 test_mail_global_key_LDFLAGS = $(DOVECOT_BINARY_LDFLAGS)
-test_mail_global_key_CFLAGS = $(AM_CPPFLAGS) $(DOVECOT_BINARY_CFLAGS) -Dtop_builddir=\"$(top_builddir)\"
+test_mail_global_key_CFLAGS = $(AM_CFLAGS) $(DOVECOT_BINARY_CFLAGS) -Dtop_builddir=\"$(top_builddir)\"
 
 test_mail_key_SOURCES = \
 	test-mail-key.c \
@@ -98,7 +98,7 @@ test_mail_key_SOURCES = \
 test_mail_key_LDADD = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT)
 test_mail_key_DEPENDENCIES = $(LIBDOVECOT_DEPS)  $(LIBDOVECOT_STORAGE_DEPS)
 test_mail_key_LDFLAGS = $(DOVECOT_BINARY_LDFLAGS)
-test_mail_key_CFLAGS = $(AM_CPPFLAGS) $(DOVECOT_BINARY_CFLAGS) -Dtop_builddir=\"$(top_builddir)\"
+test_mail_key_CFLAGS = $(AM_CFLAGS) $(DOVECOT_BINARY_CFLAGS) -Dtop_builddir=\"$(top_builddir)\"
 
 noinst_HEADERS = \
 	crypt-settings.h \
