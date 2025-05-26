@@ -453,9 +453,6 @@ int main(int argc, char *argv[])
 		i_fatal_status(EX_USAGE, "Unknown argument: %s", argv[optind]);
 	}
 
-	if (master_service_settings_read_simple(master_service, &error) < 0)
-		i_fatal("%s", error);
-
 	process_euid = geteuid();
 	if ((service_flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0)
 		;
@@ -485,6 +482,13 @@ int main(int argc, char *argv[])
 		i_fatal_status(EX_USAGE,
 			"destination user parameter (-d user) not given");
 	}
+	struct master_service_settings_input set_input = {
+		.preserve_user = TRUE,
+	};
+	struct master_service_settings_output set_output;
+	if (master_service_settings_read(master_service, &set_input,
+					 &set_output, &error) < 0)
+		i_fatal("%s", error);
 	master_service_init_finish(master_service);
 
 	dinput.mail_from = mail_from;
