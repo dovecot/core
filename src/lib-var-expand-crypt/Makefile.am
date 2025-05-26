@@ -36,7 +36,7 @@ if HAVE_WHOLE_ARCHIVE
 test_var_expand_crypt_LDFLAGS = -export-dynamic -Wl,$(LD_WHOLE_ARCHIVE),../lib/.libs/liblib.a,../lib-json/.libs/libjson.a,../lib-ssl-iostream/.libs/libssl_iostream.a,$(LD_NO_WHOLE_ARCHIVE)
 endif
 
-test_var_expand_crypt_CFLAGS = $(AM_CPPFLAGS) \
+test_var_expand_crypt_CFLAGS = $(AM_CFLAGS) \
 	-DDCRYPT_BUILD_DIR=\"$(top_builddir)/src/lib-dcrypt\"
 
 check-local:
