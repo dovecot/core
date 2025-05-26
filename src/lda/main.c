@@ -478,12 +478,17 @@ int main(int argc, char *argv[])
 				       "Couldn't lookup our username (uid=%s)",
 				       dec2str(process_euid));
 		}
+		struct settings_root *set_root =
+			master_service_get_settings_root(master_service);
+		settings_root_override(set_root, "mail_home", home,
+				       SETTINGS_OVERRIDE_TYPE_DEFAULT);
 	} else {
 		i_fatal_status(EX_USAGE,
 			"destination user parameter (-d user) not given");
 	}
 	struct master_service_settings_input set_input = {
 		.preserve_user = TRUE,
+		.preserve_home = TRUE,
 	};
 	struct master_service_settings_output set_output;
 	if (master_service_settings_read(master_service, &set_input,
