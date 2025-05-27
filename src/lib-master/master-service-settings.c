@@ -4,6 +4,7 @@
 #include "array.h"
 #include "event-filter.h"
 #include "path-util.h"
+#include "hostpid.h"
 #include "fdpass.h"
 #include "write-full.h"
 #include "str.h"
@@ -480,6 +481,7 @@ master_service_settings_read_int(struct master_service *service,
 {
 	const char *path = NULL, *value, *error;
 	bool cached_config = FALSE;
+	bool import_environment_missing = FALSE;
 	int ret, fd = -1;
 
 	i_zero(output_r);
@@ -512,6 +514,13 @@ master_service_settings_read_int(struct master_service *service,
 			*error_r = t_strdup_printf(
 				"Failed to read configuration: %s", error);
 			return -1;
+		}
+		if (getenv(MASTER_IS_PARENT_ENV) == NULL) {
+			/* Standalone program read the config via socket or
+			   config cache (not via executing doveconf).
+			   import_environment setting still needs to be
+			   processed. */
+			import_environment_missing = TRUE;
 		}
 	} else if (!settings_has_mmap(service->settings_root)) {
 		/* Use default settings. Set dovecot_storage_version to the
@@ -597,6 +606,14 @@ master_service_settings_read_int(struct master_service *service,
 
 	if (service->set->shutdown_clients)
 		master_service_set_die_with_master(master_service, TRUE);
+
+	if (import_environment_missing) {
+		const char *import_environment =
+			master_service_get_import_environment_keyvals(service);
+		master_service_import_environment(import_environment);
+		/* DOVECOT_HOST* environments may have changed */
+		hostpid_init();
+	}
 	return 0;
 }
 
