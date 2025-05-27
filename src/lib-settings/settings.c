@@ -399,12 +399,12 @@ settings_read_config_paths(struct settings_mmap *mmap,
 			return -1;
 		uint64_t inode, size;
 		if (settings_block_read_uint64(mmap, offset, mmap->mmap_size,
-					       "config path size",
-					       &size, error_r) < 0)
-			return -1;
-		if (settings_block_read_uint64(mmap, offset, mmap->mmap_size,
 					       "config path inode",
 					       &inode, error_r) < 0)
+			return -1;
+		if (settings_block_read_uint64(mmap, offset, mmap->mmap_size,
+					       "config path size",
+					       &size, error_r) < 0)
 			return -1;
 		uint32_t mtime_sec, mtime_nsec, ctime_sec, ctime_nsec;
 		if (settings_block_read_uint32(mmap, offset, mmap->mmap_size,
