@@ -570,12 +570,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 	   we want to log */
 	if (getenv(MASTER_SERVICE_LOG_SERVICE_ENV) != NULL)
 		i_set_failure_internal();
-	if (getenv("USER") != NULL) {
-		i_set_failure_prefix("%s(%s): ", service->configured_name,
-				     getenv("USER"));
-	} else {
-		i_set_failure_prefix("%s: ", service->configured_name);
-	}
+	i_set_failure_prefix("%s: ", service->configured_name);
 
 	/* Initialize debug logging */
 	value = getenv(DOVECOT_LOG_DEBUG_ENV);
