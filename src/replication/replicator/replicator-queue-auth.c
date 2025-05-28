@@ -23,7 +23,7 @@ void replicator_queue_add_auth_users(struct replicator_queue *queue,
 				     AUTH_MASTER_FLAG_NO_IDLE_TIMEOUT);
 
 	i_zero(&user_info);
-	user_info.service = REPLICATOR_AUTH_SERVICE_NAME;
+	user_info.protocol = REPLICATOR_AUTH_SERVICE_NAME;
 
 	/* add all users into replication queue, so that we can start doing
 	   full syncs for everyone whose state can't be found */
