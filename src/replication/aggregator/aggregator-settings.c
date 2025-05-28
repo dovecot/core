@@ -82,7 +82,7 @@ const struct aggregator_settings aggregator_default_settings = {
 };
 
 const struct setting_parser_info aggregator_setting_parser_info = {
-	.module_name = "aggregator",
+	.name = "aggregator",
 	.defines = aggregator_setting_defines,
 	.defaults = &aggregator_default_settings,
 

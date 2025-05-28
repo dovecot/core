@@ -88,7 +88,7 @@ const struct replicator_settings replicator_default_settings = {
 };
 
 const struct setting_parser_info replicator_setting_parser_info = {
-	.module_name = "replicator",
+	.name = "replicator",
 	.defines = replicator_setting_defines,
 	.defaults = &replicator_default_settings,
 
