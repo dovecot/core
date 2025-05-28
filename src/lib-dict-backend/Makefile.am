@@ -46,7 +46,7 @@ LIBDICT_LDAP = libdict_ldap.la
 libdict_ldap_la_DEPENDENCIES = $(LIBDOVECOT_LDAP) $(LIBDOVECOT_DEPS)
 libdict_ldap_la_LDFLAGS = -module -avoid-version
 libdict_ldap_la_LIBADD = $(LIBDOVECOT_LDAP) $(LIBDOVECOT)
-libdict_ldap_la_CPPFLAGS = $(AM_CFLAGS) -DPLUGIN_BUILD
+libdict_ldap_la_CFLAGS = $(AM_CFLAGS) -DPLUGIN_BUILD
 libdict_ldap_la_SOURCES = $(ldap_sources)
 else
 if HAVE_LDAP
