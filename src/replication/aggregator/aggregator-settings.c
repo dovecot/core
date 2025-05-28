@@ -54,7 +54,7 @@ struct service_settings aggregator_service_settings = {
 	.process_min_avail = 0,
 	.process_limit = 0,
 	.client_limit = 0,
-	.service_count = 0,
+	.restart_request_count = 0,
 	.idle_kill = 0,
 	.vsz_limit = UOFF_T_MAX,
 
