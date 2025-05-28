@@ -7,6 +7,7 @@
 #include "aggregator-settings.h"
 #include "notify-connection.h"
 #include "replicator-connection.h"
+#include "settings.h"
 
 struct replicator_connection *replicator;
 struct event *aggregator_event;
@@ -34,8 +35,8 @@ static void main_preinit(void)
 	const struct aggregator_settings *set;
 	int ret;
 
-	set = master_service_settings_get_root_set(master_service,
-				&aggregator_setting_parser_info);
+	set = settings_get_or_fatal(master_service_get_event(master_service),
+                                &aggregator_setting_parser_info);
 
 	aggregator_event = event_create(NULL);
 	event_add_category(aggregator_event, &event_category_replication);

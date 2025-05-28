@@ -11,6 +11,7 @@
 #include "replicator-brain.h"
 #include "replicator-queue.h"
 #include "replicator-settings.h"
+#include "settings.h"
 
 #define REPLICATOR_DB_DUMP_INTERVAL_MSECS (1000*60*15)
 /* if syncing fails, try again in 5 minutes */
@@ -57,9 +58,9 @@ replicator_dump_timeout(void *context ATTR_UNUSED)
 
 static void main_init(void)
 {
-	service_set = master_service_settings_get(master_service);
-	set = master_service_settings_get_root_set(master_service,
-				&replicator_setting_parser_info);
+	service_set = master_service_get_service_settings(master_service);
+	set = settings_get_or_fatal(master_service_get_event(master_service),
+                                &replicator_setting_parser_info);
 
 	queue = replicator_queue_init(set->replication_full_sync_interval,
 				      REPLICATOR_FAILURE_RESYNC_INTERVAL_SECS);
