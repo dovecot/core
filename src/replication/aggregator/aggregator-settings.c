@@ -55,7 +55,7 @@ struct service_settings aggregator_service_settings = {
 	.process_limit = 0,
 	.client_limit = 0,
 	.restart_request_count = 0,
-	.idle_kill = 0,
+	.idle_kill_interval = 0,
 	.vsz_limit = UOFF_T_MAX,
 
 	.unix_listeners = { { &aggregator_unix_listeners_buf,
