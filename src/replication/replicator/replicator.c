@@ -85,10 +85,6 @@ static void main_deinit(void)
 
 int main(int argc, char *argv[])
 {
-	const struct setting_parser_info *set_roots[] = {
-		&replicator_setting_parser_info,
-		NULL
-	};
 	const enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_NO_IDLE_DIE;
 	const char *error;
@@ -98,7 +94,7 @@ int main(int argc, char *argv[])
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
 
-	if (master_service_settings_read_simple(master_service, set_roots,
+	if (master_service_settings_read_simple(master_service,
 						&error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 	master_service_init_log(master_service);
