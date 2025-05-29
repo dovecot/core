@@ -317,6 +317,19 @@ void client_send_mailbox_flags(struct client *client, bool selecting)
 	str_append_c(str, ')');
 	client_send_line(client, str_c(str));
 
+	bool readonly = mailbox_is_readonly(client->mailbox);
+	if (!selecting && (status.allow_new_keywords || readonly)) {
+		/* If not in a SELEXT/EXAMINE command, update is optional.
+
+		   If the mailbox is readonly, nothing can really change,
+		   so no update is needed.
+
+		   Also, if '*' is present, all possibly new keywords
+		   are already included in that, so there is no need to
+		   update either. */
+	 	return;
+	}
+
 	if (!status.permanent_keywords)
 		keywords = NULL;
 
@@ -330,7 +343,7 @@ void client_send_mailbox_flags(struct client *client, bool selecting)
 	}
 	str_append(str, ")] ");
 
-	if (mailbox_is_readonly(client->mailbox))
+	if (readonly)
 		str_append(str, "Read-only mailbox.");
 	else
 		str_append(str, "Flags permitted.");
