@@ -86,6 +86,7 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 
 	if (ctx.fd == -1) {
 		*deleted_r = TRUE;
+		i_assert(ctx.path == NULL);
 		return NULL;
 	}
 
