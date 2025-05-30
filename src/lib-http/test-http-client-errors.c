@@ -22,7 +22,7 @@
 #include <unistd.h>
 #include <sys/signal.h>
 
-#define CLIENT_PROGRESS_TIMEOUT     10
+#define CLIENT_PROGRESS_TIMEOUT     30
 #define SERVER_KILL_TIMEOUT_SECS    20
 
 static struct settings_root *set_root;
