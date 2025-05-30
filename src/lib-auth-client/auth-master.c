@@ -13,6 +13,7 @@
 #include "connection.h"
 #include "auth-client-interface.h"
 #include "master-interface.h"
+#include "master-service.h"
 #include "auth-client-private.h"
 #include "auth-master.h"
 
@@ -507,12 +508,23 @@ static int auth_master_run_cmd_post(struct auth_master_connection *conn)
 	return 0;
 }
 
+static void auth_master_stop(struct auth_master_connection *conn)
+{
+	if (master_service_is_killed(master_service)) {
+		auth_request_lookup_abort(conn);
+		io_loop_stop(conn->ioloop);
+	}
+}
+
 static int auth_master_run_cmd(struct auth_master_connection *conn,
 			       const char *cmd)
 {
 	if (auth_master_run_cmd_pre(conn, cmd) < 0)
 		return -1;
+	/* add stop handler */
+	struct timeout *to = timeout_add_short(100, auth_master_stop, conn);
 	io_loop_run(conn->ioloop);
+	timeout_remove(&to);
 	return auth_master_run_cmd_post(conn);
 }
 

@@ -14,6 +14,7 @@
 #include "write-full.h"
 #include "connection.h"
 #include "master-interface.h"
+#include "master-service.h"
 #include "test-common.h"
 #include "test-subprocess.h"
 
@@ -23,6 +24,8 @@
 
 #define TEST_SOCKET "./auth-master-test"
 #define SERVER_KILL_TIMEOUT_SECS    20
+
+struct master_service *master_service = NULL;
 
 static void main_deinit(void);
 
@@ -1410,6 +1413,11 @@ static void main_init(void)
 static void main_deinit(void)
 {
 	/* nothing yet; also called from sub-processes */
+}
+
+bool master_service_is_killed(struct master_service *service ATTR_UNUSED)
+{
+	return FALSE;
 }
 
 int main(int argc, char *argv[])
