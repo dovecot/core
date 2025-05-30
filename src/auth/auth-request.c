@@ -1881,7 +1881,7 @@ auth_request_validate_client_fp(struct auth_request *request, const char *name,
 		e_debug(authdb_event(request),
 			"%s check success: %s matches client certificate",
 			name, fp);
-		auth_request_import(request, "valid-client-cert", "yes");
+		(void)auth_request_import(request, "valid-client-cert", "yes");
 	}
 }
 
