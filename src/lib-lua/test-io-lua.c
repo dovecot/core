@@ -44,7 +44,8 @@ static void test_io_lua(void)
 	dlua_dovecot_io_register(script);
 	dlua_register(script, "test_assert", dlua_test_assert);
 
-	dlua_script_init(script, &error);
+	if (dlua_script_init(script, &error) < 0)
+		i_fatal("%s", error);
 
 	dlua_push_ostream(script, os);
 	o_stream_unref(&os);
