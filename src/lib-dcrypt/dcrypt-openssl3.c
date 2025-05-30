@@ -435,7 +435,7 @@ dcrypt_openssl_ctx_sym_init(struct dcrypt_context_symmetric *ctx,
 	i_assert(ctx->ctx == NULL);
 
 	if ((ctx->ctx = EVP_CIPHER_CTX_new()) == NULL)
-		dcrypt_openssl_error(error_r);
+		return dcrypt_openssl_error(error_r);
 
 	ec = EVP_CipherInit_ex(ctx->ctx, ctx->cipher, NULL,
 			       ctx->key, ctx->iv, ctx->mode);
