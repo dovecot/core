@@ -352,7 +352,8 @@ static void replication_user_created(struct mail_user *user)
 	event_set_append_log_prefix(event, "replication: ");
 	event_add_category(event, &event_category_replication);
 
-	value = mail_user_plugin_getenv(user, "mail_replica");
+	value = NULL /* mail_user_plugin_getenv(user, "mail_replica") */;
+#warning ignoring "mail_replica" value with deprecated mail_user_plugin_getenv()
 	if (value == NULL || value[0] == '\0') {
 		e_debug(event, "No mail_replica setting - replication disabled");
 		event_unref(&event);
@@ -382,7 +383,8 @@ static void replication_user_created(struct mail_user *user)
 	}
 	ruser->socket_path = p_strconcat(user->pool, user->set->base_dir,
 					 "/"REPLICATION_SOCKET_NAME, NULL);
-	value = mail_user_plugin_getenv(user, "replication_sync_timeout");
+	value = NULL /* mail_user_plugin_getenv(user, "replication_sync_timeout") */;
+#warning ignoring "replication_sync_timeout" value with deprecated mail_user_plugin_getenv()
 	if (value != NULL && str_to_uint(value, &ruser->sync_secs) < 0) {
 		e_error(event, "Invalid replication_sync_timeout value: %s",
 			value);

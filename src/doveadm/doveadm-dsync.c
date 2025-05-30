@@ -747,7 +747,8 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	/* replicator_notify indicates here automated attempt,
 	   we still want to allow manual sync/backup */
 	if (!cli && ctx->replicator_notify &&
-	    mail_user_plugin_getenv_bool(_ctx->cur_mail_user, "noreplicate")) {
+	    FALSE /* mail_user_plugin_getenv_bool(_ctx->cur_mail_user, "noreplicate") */) {
+#warning ignoring "noreplicate" check with deprecated mail_user_plugin_getenv_bool()
 		ctx->ctx.exit_code = DOVEADM_EX_NOREPLICATE;
 		return -1;
 	}
@@ -1282,7 +1283,8 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		/* replicator_notify indicates here automated attempt,
 		   we still want to allow manual sync/backup */
 		if (ctx->replicator_notify &&
-		    mail_user_plugin_getenv_bool(_ctx->cur_mail_user, "noreplicate")) {
+		    FALSE /* mail_user_plugin_getenv_bool(_ctx->cur_mail_user, "noreplicate") */) {
+#warning ignoring "noreplicate" check with deprecated mail_user_plugin_getenv_bool()
 			_ctx->exit_code = DOVEADM_EX_NOREPLICATE;
 			return -1;
 		}
