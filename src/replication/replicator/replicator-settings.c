@@ -15,14 +15,14 @@ static struct file_listener_settings replicator_unix_listeners_array[] = {
 	{
 		.path = "replicator",
 		.mode = 0600,
-		.user = "$default_internal_user",
+		.user = "$SET:default_internal_user",
 		.group = "",
 	},
 	{
 		.path = "replicator-doveadm",
 		.type = "doveadm",
 		.mode = 0,
-		.user = "$default_internal_user",
+		.user = "$SET:default_internal_user",
 		.group = "",
 	},
 };
