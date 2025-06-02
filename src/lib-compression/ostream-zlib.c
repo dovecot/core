@@ -441,3 +441,8 @@ struct ostream *o_stream_create_deflate_auto(struct ostream *output, struct even
 {
 	return o_stream_create_zlib_auto(output, event, FALSE);
 }
+
+struct ostream *o_stream_create_deflate(struct ostream *output, int level)
+{
+	return o_stream_create_zlib(output, level, FALSE);
+}
