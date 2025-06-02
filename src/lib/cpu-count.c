@@ -3,6 +3,8 @@
 
 #ifdef HAVE_SCHED_H
 #  define __USE_GNU
+/* _GNU_SOURCE: for musl's sched.h to expose cpuset/CPU_* */
+#  define _GNU_SOURCE
 #  include <sched.h>
 #  ifdef HAVE_SYS_CPUSET_H
 #    include <sys/cpuset.h>
