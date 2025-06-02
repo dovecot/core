@@ -1860,7 +1860,7 @@ auth_request_validate_client_fp(struct auth_request *request, const char *name,
 	else if (*fp == '\0') {
 		e_info(authdb_event(request), "%s check failed: value was empty",
 		       name);
-		valid = FALSE;
+		request->failed = TRUE;
 		return;
 	} else if (strcmp(name, "check_client_fp") == 0) {
 		valid = strcmp(client_cert_fp, fp) == 0 ||
