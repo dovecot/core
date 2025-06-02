@@ -2,6 +2,7 @@
 #define REPLICATOR_SETTINGS_H
 
 struct replicator_settings {
+	pool_t pool;
 	const char *auth_socket_path;
 	const char *doveadm_socket_path;
 	const char *replication_dsync_parameters;

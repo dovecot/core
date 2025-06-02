@@ -87,6 +87,7 @@ const struct setting_parser_info aggregator_setting_parser_info = {
 	.defaults = &aggregator_default_settings,
 
 	.struct_size = sizeof(struct aggregator_settings),
+	.pool_offset1 = 1 + offsetof(struct aggregator_settings, pool),
 };
 
 const struct aggregator_settings *aggregator_settings;

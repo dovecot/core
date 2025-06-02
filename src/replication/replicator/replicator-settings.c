@@ -93,6 +93,7 @@ const struct setting_parser_info replicator_setting_parser_info = {
 	.defaults = &replicator_default_settings,
 
 	.struct_size = sizeof(struct replicator_settings),
+	.pool_offset1 = 1 + offsetof(struct replicator_settings, pool),
 };
 
 const struct replicator_settings *replicator_settings;

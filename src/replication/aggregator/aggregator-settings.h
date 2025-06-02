@@ -2,6 +2,7 @@
 #define AGGREGATOR_SETTINGS_H
 
 struct aggregator_settings {
+	pool_t pool;
 	const char *replicator_host;
 	in_port_t replicator_port;
 };
