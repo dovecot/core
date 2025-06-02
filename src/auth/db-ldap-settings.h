@@ -1,6 +1,20 @@
 #ifndef DB_LDAP_SETTINGS_H
 #define DB_LDAP_SETTINGS_H
 
+/* <settings checks> */
+#define HAVE_LDAP_SASL
+#ifdef HAVE_SASL_SASL_H
+#  include <sasl/sasl.h>
+#elif defined (HAVE_SASL_H)
+#  include <sasl.h>
+#else
+#  undef HAVE_LDAP_SASL
+#endif
+#if !defined(SASL_VERSION_MAJOR) || SASL_VERSION_MAJOR < 2
+#  undef HAVE_LDAP_SASL
+#endif
+/* </settings checks> */
+
 enum db_ldap_lookup_type {
 	DB_LDAP_LOOKUP_TYPE_PASSDB,
 	DB_LDAP_LOOKUP_TYPE_USERDB,
