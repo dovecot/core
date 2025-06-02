@@ -75,6 +75,7 @@ static void main_deinit(void)
 {
 	const char *path;
 
+	settings_free(set);
 	doveadm_connections_deinit();
 	notify_connections_destroy_all();
 	replicator_brain_deinit(&brain);

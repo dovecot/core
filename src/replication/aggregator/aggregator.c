@@ -54,6 +54,8 @@ static void main_preinit(void)
 		replicator = replicator_connection_create_unix(set->replicator_host,
 				notify_connection_sync_callback);
 	}
+
+	settings_free(set);
 }
 
 int main(int argc, char *argv[])
