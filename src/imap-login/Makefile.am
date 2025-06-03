@@ -26,6 +26,7 @@ imap_login_LDADD = \
 	$(BINARY_LDFLAGS)
 
 imap_login_DEPENDENCIES = \
+	../lib-compression/libcompression.la \
 	$(LIBDOVECOT_LOGIN) \
 	$(LIBDOVECOT_DEPS)
 

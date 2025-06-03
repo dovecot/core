@@ -30,6 +30,7 @@ imap_LDADD = \
 	$(LIBDOVECOT)
 imap_DEPENDENCIES = \
 	../lib-imap-urlauth/libimap-urlauth.la \
+	../lib-compression/libcompression.la \
 	$(LIBDOVECOT_STORAGE_DEPS) \
 	$(LIBDOVECOT_DEPS)
 
