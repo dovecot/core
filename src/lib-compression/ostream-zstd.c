@@ -115,8 +115,14 @@ static ssize_t o_stream_zstd_send_outbuf(struct zstd_ostream *zstream)
 		memmove(zstream->outbuf, zstream->outbuf+ret, zstream->output.pos-ret);
 		zstream->output.pos -= ret;
 	}
-	if (zstream->output.pos > 0)
+	if (zstream->output.pos > 0) {
+		/* We couldn't send everything to parent stream, but we
+		   accepted all the input already. Set the ostream's flush
+		   pending so when there's more space in the parent stream
+		   we'll continue sending the rest of the data. */
+		o_stream_set_flush_pending(&zstream->ostream.ostream, TRUE);
 		return 0;
+	}
 	return 1;
 }
 
@@ -263,6 +269,7 @@ o_stream_create_zstd(struct ostream *output, int level)
 		zstream->output.dst = zstream->outbuf;
 		zstream->output.size = ZSTD_CStreamOutSize();
 	}
+	o_stream_init_buffering_flush(&zstream->ostream, output);
 	return o_stream_create(&zstream->ostream, output,
 			       o_stream_get_fd(output));
 }

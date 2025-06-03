@@ -109,7 +109,11 @@ static int o_stream_zlib_send_gz_header(struct zlib_ostream *zstream)
 	}
 	i_assert((size_t)ret <= zstream->header_bytes_left);
 	zstream->header_bytes_left -= ret;
-	return zstream->header_bytes_left == 0 ? 1 : 0;
+	if (zstream->header_bytes_left != 0) {
+		o_stream_set_flush_pending(&zstream->ostream.ostream, TRUE);
+		return 0;
+	}
+	return 1;
 }
 
 static int o_stream_zlib_lsb_uint32(struct ostream *output, uint32_t num)
@@ -159,6 +163,11 @@ static int o_stream_zlib_send_outbuf(struct zlib_ostream *zstream)
 	}
 	if ((size_t)ret != size) {
 		zstream->outbuf_offset += ret;
+		/* We couldn't send everything to parent stream, but we
+		   accepted all the input already. Set the ostream's flush
+		   pending so when there's more space in the parent stream
+		   we'll continue sending the rest of the data. */
+		o_stream_set_flush_pending(&zstream->ostream.ostream, TRUE);
 		return 0;
 	}
 	zstream->outbuf_offset = 0;
@@ -414,6 +423,7 @@ o_stream_create_zlib(struct ostream *output, int level, bool gz)
 
 	zstream->zs.next_out = zstream->outbuf;
 	zstream->zs.avail_out = sizeof(zstream->outbuf);
+	o_stream_init_buffering_flush(&zstream->ostream, output);
 	return o_stream_create(&zstream->ostream, output,
 			       o_stream_get_fd(output));
 }
