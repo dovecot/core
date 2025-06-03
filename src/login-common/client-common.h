@@ -310,7 +310,7 @@ struct client {
 	bool proxy_noauth:1;
 	bool proxy_nopipelining:1;
 	/* Disable multiplex iostream to next nop */
-	bool proxy_no_multiplex;
+	bool proxy_no_multiplex:1;
 	bool proxy_not_trusted:1;
 	bool proxy_redirect_reauth:1;
 	bool notified_auth_ready:1;
