@@ -34,6 +34,7 @@
 #include "dsync/dsync-brain.h"
 #include "dsync/dsync-ibc.h"
 #include "doveadm-dsync.h"
+#include "auth-master.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -735,6 +736,105 @@ static void dsync_errors_finish(struct dsync_cmd_context *ctx)
 	i_close_fd(&ctx->fd_err);
 }
 
+/*
+  dirty hack to allow looking up mail_replica and noreplicate from userdb (only)
+  as it is not possible to access replication plugins
+  struct replication_settings here.
+  Will have to move the using code to replication plugin's doveadm plugin.
+*/
+static int
+get_userdb_field(struct doveadm_cmd_context *cctx,
+                 const char *username,
+                 const char *field,
+                 char *value, const size_t value_length,
+                 const char **error_r)
+{
+	const char *auth_socket_path;
+	enum auth_master_flags flags = 0;
+	struct auth_master_connection *conn;
+	pool_t pool;
+        struct auth_user_info user_info;
+	int ret;
+	const char *updated_username = NULL, *const *fields;
+
+	if (!doveadm_cmd_param_str(cctx, "socket-path", &auth_socket_path))
+		auth_socket_path = doveadm_settings->auth_socket_path;
+
+	pool = pool_alloconly_create("auth master lookup", 1024);
+
+	/* flags |= AUTH_MASTER_FLAG_DEBUG; */
+	conn = auth_master_init(auth_socket_path, flags);
+	i_zero(&user_info);
+	user_info.protocol = "doveadm";
+	ret = auth_master_user_lookup(conn, username, &user_info,
+				      pool, &updated_username, &fields);
+
+	if (ret < 0) {
+        	if (fields[0] == NULL) {
+			e_error(cctx->event,
+				"userdb lookup failed for %s", username);
+                        *error_r = t_strdup_printf("userdb lookup failed for %s",
+                                                   username);
+		} else {
+			e_error(cctx->event,
+				"userdb lookup failed for %s: %s",
+				username, fields[0]);
+                        *error_r = t_strdup_printf("userdb lookup failed for %s: %s",
+                                                   username, fields[0]);
+		}
+		ret = -1;
+	} else if (ret == 0) {
+        	e_error(cctx->event,
+                        "userdb lookup: user %s doesn't exist",
+			username);
+                *error_r = t_strdup_printf("userdb lookup: user %s doesn't exist",
+                                           username);
+	} else {
+		size_t field_len = strlen(field);
+
+		for (; *fields != NULL; fields++) {
+			if (strncmp(*fields, field, field_len) == 0 &&
+			    (*fields)[field_len] == '=') {
+                          if (i_strocpy(value,
+                                        *fields + field_len + 1,
+                                        value_length) < 0) {
+                          	e_error(cctx->event,
+                                        "failed to i_strocpy %s's %s field",
+                                        username, field);
+                                ret = -1;
+                          } else {
+                          	ret = 2;
+                          }
+                        }
+		}
+        }
+        auth_master_deinit(&conn);
+	pool_unref(&pool);
+	return ret;
+}
+
+#define USERDB_FIELD_SIZE 1024
+
+static bool
+get_noreplicate(struct doveadm_cmd_context *cctx)
+{
+        char noreplicate[USERDB_FIELD_SIZE];
+        const char *error_r[1024];
+        int ret;
+
+        ret = get_userdb_field(cctx, cctx->username, "noreplicate",
+                               noreplicate, USERDB_FIELD_SIZE, error_r);
+        if (ret < 2) {
+                /* error, user not found, field not found */
+        	return FALSE;
+        }
+        if ((strlen(noreplicate) > 0) &&
+            (noreplicate[0] == '0')) {
+                return FALSE;
+        }
+	return TRUE;
+}
+
 static int
 cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
@@ -757,8 +857,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	/* replicator_notify indicates here automated attempt,
 	   we still want to allow manual sync/backup */
 	if (!cli && ctx->replicator_notify &&
-	    FALSE /* mail_user_plugin_getenv_bool(_ctx->cur_mail_user, "noreplicate") */) {
-#warning ignoring "noreplicate" check with deprecated mail_user_plugin_getenv_bool()
+	    get_noreplicate(cctx)) {
 		ctx->ctx.exit_code = DOVEADM_EX_NOREPLICATE;
 		return -1;
 	}
@@ -1096,20 +1195,20 @@ parse_location(struct dsync_cmd_context *ctx,
 }
 
 static int
-get_default_replica_location(struct dsync_cmd_context *ctx,
-			     struct mail_storage_service_user *service_user,
+get_default_replica_location(struct doveadm_cmd_context *cctx,
+                             struct dsync_cmd_context *ctx,
 			     const char **error_r)
 {
-	const struct mail_storage_settings *mail_set;
-	if (settings_get(mail_storage_service_user_get_event(service_user),
-			 &mail_storage_setting_parser_info,
-			 SETTINGS_GET_FLAG_NO_CHECK |
-			 SETTINGS_GET_FLAG_NO_EXPAND,
-			 &mail_set, error_r) < 0)
-		return -1;
-	ctx->local_location = p_strdup(ctx->ctx.pool,
-		mail_user_set_plugin_getenv(mail_set, "mail_replica"));
-	settings_free(mail_set);
+        char mail_replica[USERDB_FIELD_SIZE];
+        int ret;
+
+        ret = get_userdb_field(cctx, cctx->username, "mail_replica",
+                               mail_replica, USERDB_FIELD_SIZE, error_r);
+        if (ret < 2) {
+                /* error, user not found, field not found */
+        	return -1;
+        }
+	ctx->local_location = p_strdup(ctx->ctx.pool, mail_replica);
 	return 0;
 }
 
@@ -1131,7 +1230,7 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 	ctx->remote_name = "remote";
 
 	if (ctx->default_replica_location) {
-		if (get_default_replica_location(ctx, service_user, error_r) < 0)
+		if (get_default_replica_location(cctx, ctx, error_r) < 0)
 			return -1;
 
 		if (ctx->local_location == NULL ||
@@ -1338,8 +1437,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		/* replicator_notify indicates here automated attempt,
 		   we still want to allow manual sync/backup */
 		if (ctx->replicator_notify &&
-		    FALSE /* mail_user_plugin_getenv_bool(_ctx->cur_mail_user, "noreplicate") */) {
-#warning ignoring "noreplicate" check with deprecated mail_user_plugin_getenv_bool()
+		    get_noreplicate(cctx)) {
 			_ctx->exit_code = DOVEADM_EX_NOREPLICATE;
 			return -1;
 		}
