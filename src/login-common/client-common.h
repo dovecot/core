@@ -201,6 +201,9 @@ struct client {
 	int fd;
 	struct istream *input;
 	struct ostream *output;
+	/* The rawlog streams don't hold any references */
+	struct istream *pre_rawlog_input, *rawlog_input;
+	struct ostream *pre_rawlog_output, *rawlog_output;
 	/* If non-NULL, this is the multiplex ostream. It is usually the same
 	   as the output pointer, but some plugins may make them different.
 	   This isn't holding a reference, so it must not be unreferenced. */
@@ -353,6 +356,9 @@ void client_destroy_success(struct client *client, const char *reason);
 
 void client_ref(struct client *client);
 bool client_unref(struct client **client) ATTR_NOWARN_UNUSED_RESULT;
+
+void client_rawlog_init(struct client *client);
+void client_rawlog_deinit(struct client *client);
 
 int client_init_ssl(struct client *client);
 void client_cmd_starttls(struct client *client);

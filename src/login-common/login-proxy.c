@@ -958,11 +958,12 @@ void login_proxy_replace_client_iostream_pre(struct login_proxy *proxy)
 	client->output = proxy->client_output;
 
 	/* iostream_change_pre() may change iostreams */
-	if (client->v.iostream_change_pre != NULL) {
+	if (client->v.iostream_change_pre != NULL)
 		client->v.iostream_change_pre(client);
-		proxy->client_input = client->input;
-		proxy->client_output = client->output;
-	}
+	client_rawlog_deinit(client);
+
+	proxy->client_input = client->input;
+	proxy->client_output = client->output;
 }
 
 void login_proxy_replace_client_iostream_post(struct login_proxy *proxy,
@@ -984,6 +985,7 @@ void login_proxy_replace_client_iostream_post(struct login_proxy *proxy,
 
 	if (client->v.iostream_change_post != NULL)
 		client->v.iostream_change_post(client);
+	client_rawlog_init(client);
 
 	/* iostream_change_post() may have replaced the iostreams */
 	proxy->client_input = client->input;

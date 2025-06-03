@@ -156,17 +156,44 @@ static void client_idle_disconnect_timeout(struct client *client)
 	client_destroy(client, destroy_reason);
 }
 
+void client_rawlog_init(struct client *client)
+{
+	if (login_rawlog_dir == NULL)
+		return;
+
+	client->pre_rawlog_input = client->input;
+	client->pre_rawlog_output = client->output;
+	if (iostream_rawlog_create(login_rawlog_dir, &client->input,
+				   &client->output) < 0) {
+		login_rawlog_dir = NULL;
+		return;
+	}
+	client->rawlog_input = client->input;
+	client->rawlog_output = client->output;
+}
+
+void client_rawlog_deinit(struct client *client)
+{
+	if (client->rawlog_input == NULL)
+		return;
+
+	i_assert(client->rawlog_input == client->input);
+	i_assert(client->rawlog_output == client->output);
+	i_stream_ref(client->pre_rawlog_input);
+	o_stream_ref(client->pre_rawlog_output);
+	i_stream_destroy(&client->rawlog_input);
+	o_stream_destroy(&client->rawlog_output);
+	client->input = client->pre_rawlog_input;
+	client->output = client->pre_rawlog_output;
+}
+
 static void client_open_streams(struct client *client)
 {
 	client->input = i_stream_create_fd(client->fd, LOGIN_MAX_INBUF_SIZE);
 	client->output = o_stream_create_fd(client->fd, LOGIN_MAX_OUTBUF_SIZE);
 	o_stream_set_no_error_handling(client->output, TRUE);
 
-	if (login_rawlog_dir != NULL) {
-		if (iostream_rawlog_create(login_rawlog_dir, &client->input,
-					   &client->output) < 0)
-			login_rawlog_dir = NULL;
-	}
+	client_rawlog_init(client);
 }
 
 static const char *
@@ -753,6 +780,7 @@ int client_init_ssl(struct client *client)
 
 	if (client->v.iostream_change_pre != NULL)
 		client->v.iostream_change_pre(client);
+	client_rawlog_deinit(client);
 	const struct ssl_iostream_server_autocreate_parameters parameters = {
 		.event_parent = client->event,
 		.application_protocols = login_binary->application_protocols,
@@ -762,6 +790,7 @@ int client_init_ssl(struct client *client)
 						  &client->ssl_iostream, &error);
 	if (client->v.iostream_change_post != NULL)
 		client->v.iostream_change_post(client);
+	client_rawlog_init(client);
 	if (ret < 0) {
 		e_error(client->event,
 			"Failed to initialize SSL connection: %s", error);
