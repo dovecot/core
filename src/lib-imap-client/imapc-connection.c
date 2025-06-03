@@ -2566,6 +2566,11 @@ imapc_connection_get_capabilities(struct imapc_connection *conn)
 	return conn->capabilities;
 }
 
+bool imapc_cmd_has_imap4rev2(struct imapc_command *cmd)
+{
+	return cmd->conn->imap4rev2_enabled;
+}
+
 void imapc_connection_unselect(struct imapc_client_mailbox *box,
 			       bool via_tagged_reply)
 {
