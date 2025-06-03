@@ -5,6 +5,8 @@
 #include "str.h"
 #include "strescape.h"
 #include "ioloop.h"
+#include "settings.h"
+#include "settings-parser.h"
 #include "net.h"
 #include "write-full.h"
 #include "mail-user.h"
@@ -38,6 +40,42 @@ struct replication_mail_txn_context {
 	bool new_messages;
 	bool sync_trans;
 	char *reason;
+};
+
+struct replication_settings {
+	pool_t pool;
+
+	const char *mail_replica;
+	unsigned int replication_sync_timeout;
+	bool noreplicate;
+};
+
+#undef DEF
+#define DEF(type, name) \
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct replication_settings)
+static const struct setting_define replication_setting_defines[] = {
+	{ .type = SET_FILTER_NAME, .key = "replication" },
+	DEF(STR, mail_replica),
+	DEF(UINT, replication_sync_timeout),
+	DEF(BOOL, noreplicate),
+
+	SETTING_DEFINE_LIST_END
+};
+static const struct replication_settings replication_default_settings = {
+	.mail_replica = "",
+	.replication_sync_timeout = 0,
+	.noreplicate = FALSE,
+};
+
+const struct setting_parser_info replication_setting_parser_info = {
+	.name = "replication",
+	.plugin_dependency = "lib20_replication_plugin",
+
+	.defines = replication_setting_defines,
+	.defaults = &replication_default_settings,
+
+	.struct_size = sizeof(struct replication_settings),
+	.pool_offset1 = 1 + offsetof(struct replication_settings, pool),
 };
 
 static struct event_category event_category_replication = {
@@ -345,18 +383,25 @@ static void replication_user_created(struct mail_user *user)
 {
 	struct mail_user_vfuncs *v = user->vlast;
 	struct replication_user *ruser;
+        const struct replication_settings *set;
 	struct event *event;
-	const char *value;
+        const char *error;
 
 	event = event_create(user->event);
+	settings_event_add_filter_name(event, "replication");
 	event_set_append_log_prefix(event, "replication: ");
 	event_add_category(event, &event_category_replication);
 
-	value = NULL /* mail_user_plugin_getenv(user, "mail_replica") */;
-#warning ignoring "mail_replica" value with deprecated mail_user_plugin_getenv()
-	if (value == NULL || value[0] == '\0') {
+	if (settings_get(event, &replication_setting_parser_info, 0,
+			 &set, &error) < 0) {
+		e_error(event, "%s", error);
+                return;
+        }
+
+	if (set->mail_replica == NULL || set->mail_replica[0] == '\0') {
 		e_debug(event, "No mail_replica setting - replication disabled");
 		event_unref(&event);
+                settings_free(set);
 		return;
 	}
 
@@ -365,6 +410,7 @@ static void replication_user_created(struct mail_user *user)
 		   us about a change. don't trigger a replication back to it */
 		e_debug(event, "We're running dsync - replication disabled");
 		event_unref(&event);
+                settings_free(set);
 		return;
 	}
 
@@ -383,12 +429,10 @@ static void replication_user_created(struct mail_user *user)
 	}
 	ruser->socket_path = p_strconcat(user->pool, user->set->base_dir,
 					 "/"REPLICATION_SOCKET_NAME, NULL);
-	value = NULL /* mail_user_plugin_getenv(user, "replication_sync_timeout") */;
-#warning ignoring "replication_sync_timeout" value with deprecated mail_user_plugin_getenv()
-	if (value != NULL && str_to_uint(value, &ruser->sync_secs) < 0) {
-		e_error(event, "Invalid replication_sync_timeout value: %s",
-			value);
+	if (set->replication_sync_timeout > 0) {
+          ruser->sync_secs = set->replication_sync_timeout;
 	}
+	settings_free(set);
 }
 
 static const struct notify_vfuncs replication_vfuncs = {
