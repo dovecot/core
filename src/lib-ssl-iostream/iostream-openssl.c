@@ -447,8 +447,7 @@ openssl_iostream_bio_input(struct ssl_iostream *ssl_io,
 	}
 	if (bytes_read || i_stream_get_data_size(ssl_io->plain_input) > 0) {
 		if (i_stream_get_data_size(ssl_io->plain_input) > 0 ||
-		    (type != OPENSSL_IOSTREAM_SYNC_TYPE_FIRST_READ &&
-		     type != OPENSSL_IOSTREAM_SYNC_TYPE_CONTINUE_READ))
+		    type != OPENSSL_IOSTREAM_SYNC_TYPE_CONTINUE_READ)
 			i_stream_set_input_pending(ssl_io->ssl_input, TRUE);
 		ssl_io->want_read = FALSE;
 	}
