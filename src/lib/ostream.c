@@ -139,6 +139,40 @@ void o_stream_close(struct ostream *stream)
 		o_stream_close_full(stream, TRUE);
 }
 
+static int o_stream_default_buffering_flush(struct ostream_private *_stream)
+{
+	struct ostream *ostream = &_stream->ostream;
+	int ret, ret2;
+
+	/* try to actually flush the pending data */
+	if ((ret = o_stream_flush(_stream->buffering_parent)) < 0)
+		return -1;
+
+	/* we may be able to copy more data, try it */
+	o_stream_ref(ostream);
+	if (_stream->callback != NULL)
+		ret2 = _stream->callback(_stream->context);
+	else
+		ret2 = o_stream_flush(ostream);
+	if (ret2 == 0)
+		o_stream_set_flush_pending(_stream->buffering_parent, TRUE);
+	o_stream_unref(&ostream);
+	if (ret2 < 0)
+		return -1;
+	return ret > 0 && ret2 > 0 ? 1 : 0;
+}
+
+void o_stream_init_buffering_flush(struct ostream_private *_stream,
+				   struct ostream *parent)
+{
+	_stream->buffering_parent = parent;
+	_stream->callback = parent->real_stream->callback;
+	_stream->context = parent->real_stream->context;
+
+	o_stream_set_flush_callback(parent, o_stream_default_buffering_flush,
+				    _stream);
+}
+
 #undef o_stream_set_flush_callback
 void o_stream_set_flush_callback(struct ostream *stream,
 				 stream_flush_callback_t *callback,
@@ -641,7 +675,7 @@ o_stream_default_set_flush_callback(struct ostream_private *_stream,
 				    stream_flush_callback_t *callback,
 				    void *context)
 {
-	if (_stream->parent != NULL)
+	if (_stream->parent != NULL && _stream->buffering_parent == NULL)
 		o_stream_set_flush_callback(_stream->parent, callback, context);
 
 	_stream->callback = callback;
@@ -734,8 +768,10 @@ o_stream_create(struct ostream_private *_stream, struct ostream *parent, int fd)
 		_stream->parent = parent;
 		o_stream_ref(parent);
 
-		_stream->callback = parent->real_stream->callback;
-		_stream->context = parent->real_stream->context;
+		if (_stream->buffering_parent == NULL) {
+			_stream->callback = parent->real_stream->callback;
+			_stream->context = parent->real_stream->context;
+		}
 		_stream->max_buffer_size = parent->real_stream->max_buffer_size;
 		_stream->error_handling_disabled =
 			parent->real_stream->error_handling_disabled;

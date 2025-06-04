@@ -217,29 +217,6 @@ static void o_stream_ssl_switch_ioloop_to(struct ostream_private *stream,
 	o_stream_switch_ioloop_to(sstream->ssl_io->plain_output, ioloop);
 }
 
-static int plain_flush_callback(struct ssl_ostream *sstream)
-{
-	struct ostream *ostream = &sstream->ostream.ostream;
-	int ret, ret2;
-
-	/* try to actually flush the pending data */
-	if ((ret = o_stream_flush(sstream->ssl_io->plain_output)) < 0)
-		return -1;
-
-	/* we may be able to copy more data, try it */
-	o_stream_ref(ostream);
-	if (sstream->ostream.callback != NULL)
-		ret2 = sstream->ostream.callback(sstream->ostream.context);
-	else
-		ret2 = o_stream_flush(&sstream->ostream.ostream);
-	if (ret2 == 0)
-		o_stream_set_flush_pending(sstream->ssl_io->plain_output, TRUE);
-	o_stream_unref(&ostream);
-	if (ret2 < 0)
-		return -1;
-	return ret > 0 && ret2 > 0 ? 1 : 0;
-}
-
 static size_t
 o_stream_ssl_get_buffer_used_size(const struct ostream_private *stream)
 {
@@ -310,10 +287,7 @@ struct ostream *openssl_o_stream_create_ssl(struct ssl_iostream *ssl_io)
 	sstream->ostream.iostream.set_max_buffer_size =
 		o_stream_ssl_set_max_buffer_size;
 
-	sstream->ostream.callback = ssl_io->plain_output->real_stream->callback;
-	sstream->ostream.context = ssl_io->plain_output->real_stream->context;
-	o_stream_set_flush_callback(ssl_io->plain_output,
-				    plain_flush_callback, sstream);
+	o_stream_init_buffering_flush(&sstream->ostream, ssl_io->plain_output);
 
 	return o_stream_create(&sstream->ostream, NULL,
 			       o_stream_get_fd(ssl_io->plain_output));

@@ -34,6 +34,7 @@ struct ostream_private {
 	size_t max_buffer_size;
 
 	struct ostream *parent; /* for filter streams */
+	struct ostream *buffering_parent;
 
 	int fd;
 	struct timeval last_write_timeval;
@@ -69,5 +70,13 @@ int o_stream_flush_parent_if_needed(struct ostream_private *_stream);
    stream is already finished. If the parent fails, its error will be also
    copied to this stream. */
 int o_stream_flush_parent(struct ostream_private *_stream);
+
+/* ostreams that buffer data internally need to be able to continue the flush
+   after parent ostream has more space available. This function registers a
+   flush callback to the parent ostream, which triggers flushing on this
+   ostream. If the parent already had a flush callback, it gets first copied to
+   this ostream. */
+void o_stream_init_buffering_flush(struct ostream_private *_stream,
+				   struct ostream *parent);
 
 #endif
