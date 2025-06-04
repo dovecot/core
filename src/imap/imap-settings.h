@@ -34,6 +34,7 @@ struct imap_settings {
 	const char *imap_fetch_failure;
 	bool imap_metadata;
 	bool imap_literal_minus;
+	bool imap_compress_on_proxy;
 	bool imap4rev2_enable;
 	bool mail_utf8_extensions;
 	unsigned int imap_hibernate_timeout;

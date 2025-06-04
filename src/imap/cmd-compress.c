@@ -84,7 +84,8 @@ bool cmd_compress(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	if (client->multiplex_output != NULL) {
+	if (client->multiplex_output != NULL &&
+	    client->set->imap_compress_on_proxy) {
 		/* Let imap-login process handle the COMPRESS. It's the one
 		   that will send the tagged reply to the client. */
 		client->compress_handler = handler;

@@ -81,6 +81,7 @@ static const struct setting_define imap_setting_defines[] = {
 	DEF(ENUM, imap_fetch_failure),
 	DEF(BOOL, imap_metadata),
 	DEF(BOOL, imap_literal_minus),
+	DEF(BOOL_HIDDEN, imap_compress_on_proxy),
 	DEF(BOOL, mail_utf8_extensions),
 	DEF(BOOL, imap4rev2_enable),
 #ifdef BUILD_IMAP_HIBERNATE
@@ -116,6 +117,7 @@ static const struct imap_settings imap_default_settings = {
 	.imap_fetch_failure = "disconnect-immediately:disconnect-after:no-after",
 	.imap_metadata = FALSE,
 	.imap_literal_minus = FALSE,
+	.imap_compress_on_proxy = FALSE,
 	.mail_utf8_extensions = FALSE,
 	.imap4rev2_enable = FALSE,
 #ifdef DOVECOT_PRO_EDITION
