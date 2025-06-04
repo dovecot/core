@@ -281,6 +281,13 @@ i_stream_noop_snapshot(struct istream_private *stream ATTR_UNUSED,
 	return prev_snapshot;
 }
 
+static bool i_stream_is_io_pending_until_read(struct istream_private *_stream)
+{
+	while (_stream->parent != NULL && !_stream->io_pending_until_read)
+		_stream = _stream->parent->real_stream;
+	return _stream->io_pending_until_read;
+}
+
 ssize_t i_stream_read(struct istream *stream)
 {
 	struct istream_private *_stream = stream->real_stream;
@@ -324,6 +331,13 @@ ssize_t i_stream_read(struct istream *stream)
 		}
 	}
 #endif
+	if (!_stream->istream.eof &&
+	    i_stream_is_io_pending_until_read(_stream)) {
+		/* One of the parent istreams still has IO pending, because its
+		   read() wasn't called. Set IO back to pending to prevent
+		   hangs. */
+		i_stream_set_input_pending(stream, TRUE);
+	}
 	return ret;
 }
 
@@ -352,6 +366,7 @@ ssize_t i_stream_read_memarea(struct istream *stream)
 		_stream->high_pos = 0;
 	} else {
 		_stream->high_pos = 0;
+		_stream->io_pending_until_read = FALSE;
 		ret = _stream->read(_stream);
 	}
 	i_assert(old_size <= _stream->pos - _stream->skip);
@@ -1011,6 +1026,8 @@ void i_stream_set_input_pending(struct istream *stream, bool pending)
 {
 	if (!pending)
 		return;
+
+	stream->real_stream->io_pending_until_read = TRUE;
 
 	stream = i_stream_get_root_io(stream);
 	if (stream->real_stream->io != NULL)

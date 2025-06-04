@@ -67,7 +67,18 @@ struct istream_private {
 	bool return_nolf_line:1;
 	bool stream_size_passthrough:1; /* stream is parent's size */
 	bool nonpersistent_buffers:1;
+	/* After IO is added back to this istream, call io_set_pending() for
+	   it. This is set only for the root istream. */
 	bool io_pending:1;
+	/* If this is TRUE for the istream or its parents after i_stream_read(),
+	   set the istream IO pending again. This is cleared before each
+	   istream read(). The purpose is to prevent hangs in case a child
+	   istream has set the IO pending, but a parent istream read() won't
+	   call the child istream's read() e.g. because its internal buffer is
+	   already full. In such situation the IO must be set pending again.
+	   This is especially necessary when the istream doesn't otherwise make
+	   it visible that it has buffered data, such as ssl-istream. */
+	bool io_pending_until_read:1;
 };
 
 struct istream_snapshot {
