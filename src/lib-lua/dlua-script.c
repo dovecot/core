@@ -203,8 +203,6 @@ int dlua_script_init(struct dlua_script *script, const char **error_r)
 	if (!dlua_script_has_function(script, LUA_SCRIPT_INIT_FN))
 		return 0;
 
-	int ret = 0;
-
 	if (settings_get(script->event, &dlua_setting_parser_info, 0, &set,
 			 error_r) < 0)
 		return -1;
@@ -233,7 +231,7 @@ int dlua_script_init(struct dlua_script *script, const char **error_r)
 
 	settings_free(set);
 	i_assert(lua_gettop(script->L) == 0);
-	return ret;
+	return 0;
 }
 
 static int dlua_atpanic(lua_State *L)
