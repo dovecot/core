@@ -36,7 +36,8 @@ static void test_io_lua(void)
 	struct dlua_script *script;
 	const char *error;
 
-	if (dlua_script_create_file("test-io-lua.lua", &script, NULL, &error) < 0)
+	if (dlua_script_create_file(TEST_LUA_SCRIPT_DIR "/test-io-lua.lua",
+				    &script, NULL, &error) < 0)
 		i_fatal("%s", error);
 
 	dlua_dovecot_register(script);

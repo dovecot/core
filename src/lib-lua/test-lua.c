@@ -523,7 +523,8 @@ static void test_lua_base64(void)
 	struct dlua_script *script;
 	const char *error;
 
-	if (dlua_script_create_file("test-lua-base64.lua", &script, NULL, &error) < 0)
+	if (dlua_script_create_file(TEST_LUA_SCRIPT_DIR "/test-lua-base64.lua",
+				    &script, NULL, &error) < 0)
 		i_fatal("%s", error);
 
 	dlua_dovecot_register(script);
