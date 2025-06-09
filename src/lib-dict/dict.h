@@ -25,12 +25,6 @@ enum dict_iterate_flags {
 	DICT_ITERATE_FLAG_ASYNC               = 0x20
 };
 
-enum dict_data_type {
-	DICT_DATA_TYPE_STRING = 0,
-	DICT_DATA_TYPE_UINT32,
-	DICT_DATA_TYPE_LAST
-};
-
 struct dict_settings {
 	pool_t pool;
 	const char *dict_name;
