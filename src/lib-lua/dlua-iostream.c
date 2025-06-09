@@ -343,6 +343,7 @@ void dlua_dovecot_io_register(struct dlua_script *script) {
 	lua_pushvalue(script->L, -1);  /* push metatable */
 	lua_setfield(script->L, -2, "__index");  /* metatable.__index = metatable */
 	luaL_setfuncs(script->L, flib, 0);  /* file methods */
+	lua_pop(script->L, 1);
 };
 
 int dlua_push_istream(struct dlua_script *script, struct istream *is) {
