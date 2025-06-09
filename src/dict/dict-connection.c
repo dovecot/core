@@ -26,11 +26,12 @@ struct connection_list *dict_connections = NULL;
 static int dict_connection_handshake_args(struct connection *_conn,
 					  const char *const *args)
 {
-	unsigned int major, value_type_num;
+	unsigned int major;
 	struct dict_connection *conn =
 		container_of(_conn, struct dict_connection, conn);
 
-	/* protocol handshake is 'H' major <tab> minor <tab> value_type */
+	/* protocol handshake is:
+	   'H' major <tab> minor <tab> 0 <tab> <tab> dict_name */
 	if (str_array_length(args) < 5 || **args != 'H')
 		return -1;
 
@@ -41,12 +42,6 @@ static int dict_connection_handshake_args(struct connection *_conn,
 	    major != DICT_CLIENT_PROTOCOL_MAJOR_VERSION)
 		return -1;
 
-	/* check value type */
-	if (str_to_uint(args[2], &value_type_num) < 0 ||
-	    value_type_num >= DICT_DATA_TYPE_LAST)
-		return -1;
-
-	conn->value_type = (enum dict_data_type)value_type_num;
 	conn->name = i_strdup(args[4]);
 
 	/* try initialize the given dict */

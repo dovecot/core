@@ -18,7 +18,6 @@ struct dict_connection {
 
 	char *name;
 	struct dict *dict;
-	enum dict_data_type value_type;
 
 	struct timeout *to_unref;
 
