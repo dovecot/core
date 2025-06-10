@@ -801,12 +801,22 @@ get_userdb_field(struct doveadm_cmd_context *cctx,
                           	e_error(cctx->event,
                                         "failed to i_strocpy %s's %s field",
                                         username, field);
+                                *error_r = t_strdup_printf("failed to i_strocpy %s's %s field",
+                                                           username, field);
                                 ret = -1;
                           } else {
                           	ret = 2;
                           }
                         }
 		}
+                if (ret != 2) {
+                        /*
+                          in case we did not find the field in the userdb result,
+                          we set error_r appropriate as our called might need it initialized
+                        */
+                        *error_r = t_strdup_printf("field \"%s\" not found for user %s",
+                                                   field, cctx->username);
+                }
         }
         auth_master_deinit(&conn);
 	pool_unref(&pool);
