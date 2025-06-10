@@ -643,6 +643,7 @@ imap_client_create(int fd, const struct imap_client_state *state)
 	client->state.session_id = p_strdup(pool, state->session_id);
 	client->state.userdb_fields = p_strdup(pool, state->userdb_fields);
 	client->state.stats = p_strdup(pool, state->stats);
+	client->state.tag = i_strdup(state->tag);
 
 	client->event = event_create(NULL);
 	event_add_category(client->event, &event_category_imap_hibernate);
