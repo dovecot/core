@@ -569,11 +569,12 @@ static void
 copy_to_buf_last_used(struct mail_cache *cache, buffer_t *dest, bool add_new)
 {
 	size_t offset = offsetof(struct mail_cache_field, last_used);
-#if defined(WORDS_BIGENDIAN) && SIZEOF_VOID_P == 8
+#if defined(WORDS_BIGENDIAN)
 	/* 64bit time_t with big endian CPUs: copy the last 32 bits instead of
 	   the first 32 bits (that are always 0). The 32 bits are enough until
 	   year 2106, so we're not in a hurry to use 64 bits on disk. */
-	offset += sizeof(uint32_t);
+	if (sizeof(time_t) >= sizeof(uint32_t))
+		offset += sizeof(uint32_t);
 #endif
 	copy_to_buf(cache, dest, add_new, offset, sizeof(uint32_t));
 }
