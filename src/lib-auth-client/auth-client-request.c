@@ -453,14 +453,18 @@ auth_client_request_handle_input(struct auth_client_request **_request,
 	case AUTH_REQUEST_STATUS_CONTINUE:
 		e = event_create_passthrough(request->event)->
 			set_name("auth_client_request_challenged");
+
+		for (tmp = args; tmp != NULL && *tmp != NULL; tmp++) {
+			if (str_begins(*tmp, "channel_binding=",
+				       &cbinding_type))
+				break;
+		}
+		args = NULL;
 		break;
 	default:
 		e = event_create_passthrough(request->event)->
 			set_name("auth_client_request_finished");
-		break;
-	}
 
-	if (status != AUTH_REQUEST_STATUS_CONTINUE) {
 		for (tmp = args; tmp != NULL && *tmp != NULL; tmp++) {
 			const char *key;
 			const char *value;
@@ -470,13 +474,7 @@ auth_client_request_handle_input(struct auth_client_request **_request,
 			else
 				args_parse_user(request, key, value);
 		}
-	} else {
-		for (tmp = args; tmp != NULL && *tmp != NULL; tmp++) {
-			if (str_begins(*tmp, "channel_binding=",
-				       &cbinding_type))
-				break;
-		}
-		args = NULL;
+		break;
 	}
 
 	if (cbinding_type != NULL) {
