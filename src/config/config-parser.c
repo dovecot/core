@@ -2286,6 +2286,7 @@ config_parse_finish_service_defaults(struct config_parser_context *ctx)
 	for (unsigned int i = 0; i < N_ELEMENTS(service_defaults); i += 2) {
 		struct config_parser_key *config_key =
 			hash_table_lookup(ctx->all_keys, service_defaults[i]);
+		i_assert(config_key != NULL);
 		struct config_module_parser *module_parser =
 			&ctx->cur_section->filter_parser->module_parsers[config_key->info_idx];
 		if (module_parser->change_counters == NULL ||
