@@ -158,6 +158,28 @@ bool config_export_type(string_t *str, const void *value,
 	return TRUE;
 }
 
+static const char *
+get_default_value(const char *old_default_value,
+		  const struct setting_parser_info *info,
+		  const struct setting_define *def)
+{
+	if (old_default_value != NULL)
+		return old_default_value;
+
+	const void *default_value =
+		CONST_PTR_OFFSET(info->defaults, def->offset);
+	string_t *value = t_str_new(64);
+	if (!config_export_type(value, default_value, def->type))
+		i_unreached();
+	if (def->type == SET_ENUM) {
+		/* enum begins with default: followed by other valid values */
+		const char *p = strchr(str_c(value), ':');
+		if (p != NULL)
+			str_truncate(value, p - str_c(value));
+	}
+	return str_c(value);
+}
+
 static void
 settings_export(struct config_export_context *ctx,
 		const struct config_module_parser *module_parser)
@@ -232,9 +254,8 @@ settings_export(struct config_export_context *ctx,
 		case SET_STR:
 		case SET_STR_NOVARS:
 		case SET_ENUM: {
-			string_t *default_str = NULL;
 			bool default_changed = FALSE;
-			const char *old_default;
+			const char *old_default = NULL;
 			i_assert(info->defaults != NULL);
 			if (module_parser->change_counters[define_idx] <= CONFIG_PARSER_CHANGE_DEFAULTS) {
 				/* Setting isn't explicitly set. We need to see
@@ -246,34 +267,12 @@ settings_export(struct config_export_context *ctx,
 				}
 				if (old_settings_default(ctx->dovecot_config_version,
 							 def->key, key_with_path,
-							 &old_default)) {
-					default_str = t_str_new(strlen(old_default));
-					str_append(default_str, old_default);
+							 &old_default))
 					default_changed = TRUE;
-				}
 			}
 
-			if ((!dump_default || module_parser->change_counters[define_idx] == 0) &&
-			    default_str == NULL) {
-				const void *default_value =
-					CONST_PTR_OFFSET(info->defaults,
-							 def->offset);
-				default_str = t_str_new(64);
-				if (!config_export_type(default_str, default_value,
-							def->type))
-					i_unreached();
-				if (def->type == SET_ENUM) {
-					/* enum begins with default: followed
-					   by other valid values */
-					const char *p = strchr(str_c(default_str), ':');
-					if (p != NULL) {
-						str_truncate(default_str,
-							p - str_c(default_str));
-					}
-				}
-			}
 			if (!dump_default &&
-			    strcmp(str_c(default_str),
+			    strcmp(get_default_value(old_default, info, def),
 				   module_parser->settings[define_idx].str) == 0) {
 				/* Explicitly set setting value wasn't
 				   actually changed from its default. */
@@ -294,7 +293,8 @@ settings_export(struct config_export_context *ctx,
 				str_append(ctx->value,
 					module_parser->settings[define_idx].str);
 			} else {
-				str_append_str(ctx->value, default_str);
+				str_append(ctx->value,
+					get_default_value(old_default, info, def));
 			}
 			dump = TRUE;
 			break;
