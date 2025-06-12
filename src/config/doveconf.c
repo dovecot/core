@@ -850,6 +850,7 @@ config_dump_human_filter_path(enum config_dump_scope scope,
 
 		const char *alt_set_name_filter2 = NULL;
 		if (filter_parser->filter.filter_name_array) {
+			i_assert(filter_name != NULL);
 			strip_prefix2 = strip_prefix;
 			strip_prefix = t_strconcat(
 				t_str_replace(filter_name, '/', '_'), "_", NULL);
