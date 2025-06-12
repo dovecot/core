@@ -135,8 +135,8 @@ bool dns_client_cache_lookup(struct dns_client_cache *cache,
 
 static void dns_client_cache_clean(struct dns_client_cache *cache)
 {
-	while (priorityq_count(cache->queue) > 0) {
-		struct priorityq_item *item = priorityq_peek(cache->queue);
+	struct priorityq_item *item;
+	while ((item = priorityq_peek(cache->queue)) != NULL) {
 		struct dns_client_cache_entry *entry =
 			container_of(item, struct dns_client_cache_entry, item);
 		if (entry->expires <= ioloop_time) {
