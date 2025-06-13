@@ -253,12 +253,14 @@ passdb_result_to_string(enum passdb_result result)
 
 extern struct passdb_module_interface passdb_passwd;
 extern struct passdb_module_interface passdb_bsdauth;
-#ifdef HAVE_LUA
+#ifdef AUTH_LUA_PLUGIN
 extern struct passdb_module_interface passdb_lua;
 #endif
 extern struct passdb_module_interface passdb_passwd_file;
 extern struct passdb_module_interface passdb_pam;
+#ifdef LDAP_PLUGIN
 extern struct passdb_module_interface passdb_ldap;
+#endif
 extern struct passdb_module_interface passdb_sql;
 extern struct passdb_module_interface passdb_static;
 extern struct passdb_module_interface passdb_oauth2;
@@ -269,12 +271,14 @@ void passdbs_init(void)
 	i_array_init(&passdb_modules, 16);
 	passdb_register_module(&passdb_passwd);
 	passdb_register_module(&passdb_bsdauth);
-#ifdef HAVE_LUA
+#ifdef AUTH_LUA_PLUGIN
 	passdb_register_module(&passdb_lua);
 #endif
 	passdb_register_module(&passdb_passwd_file);
 	passdb_register_module(&passdb_pam);
+#ifdef LDAP_PLUGIN
 	passdb_register_module(&passdb_ldap);
+#endif
 	passdb_register_module(&passdb_sql);
 	passdb_register_module(&passdb_static);
 	passdb_register_module(&passdb_oauth2);
