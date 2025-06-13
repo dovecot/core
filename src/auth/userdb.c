@@ -176,9 +176,11 @@ extern struct userdb_module_interface userdb_prefetch;
 extern struct userdb_module_interface userdb_static;
 extern struct userdb_module_interface userdb_passwd;
 extern struct userdb_module_interface userdb_passwd_file;
+#ifdef LDAP_PLUGIN
 extern struct userdb_module_interface userdb_ldap;
+#endif
 extern struct userdb_module_interface userdb_sql;
-#ifdef HAVE_LUA
+#ifdef AUTH_LUA_PLUGIN
 extern struct userdb_module_interface userdb_lua;
 #endif
 
@@ -190,9 +192,11 @@ void userdbs_init(void)
 	userdb_register_module(&userdb_passwd_file);
 	userdb_register_module(&userdb_prefetch);
 	userdb_register_module(&userdb_static);
+#ifdef LDAP_PLUGIN
 	userdb_register_module(&userdb_ldap);
+#endif
 	userdb_register_module(&userdb_sql);
-#ifdef HAVE_LUA
+#ifdef AUTH_LUA_PLUGIN
 	userdb_register_module(&userdb_lua);
 #endif
 }
