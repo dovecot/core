@@ -394,6 +394,10 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 		event_unref(&event);
 		client_destroy(imap_client, "Client state initialization failed");
 		return -1;
+	case IMAP_STATE_INCONSISTENT:
+		event_unref(&event);
+		client_destroy(imap_client, "Client state inconsistent");
+		return 0;
 	case IMAP_STATE_OK:
 		break;
 	}

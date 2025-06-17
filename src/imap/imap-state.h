@@ -6,6 +6,7 @@ enum imap_state_result {
 	IMAP_STATE_OK, /* Success */
 	IMAP_STATE_CORRUPTED, /* Data corruption or invalid state */
 	IMAP_STATE_ERROR, /* General error (e.g., permission, resource issues) */
+	IMAP_STATE_INCONSISTENT /* State inconsistency (e.g., mailbox not found) */
 };
 
 /* Export the IMAP client state to the given buffer. Returns 1 if ok,
