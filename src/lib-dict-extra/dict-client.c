@@ -1089,7 +1089,9 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd,
 		/* broken protocol */
 		error = t_strdup_printf("dict client (%s) sent broken iterate reply: %c%s",
 			dict->conn.conn.name, reply, value);
+		/* disconnection finishes the command */
 		client_dict_disconnect(dict, error);
+		return;
 	}
 
 	if (error != NULL) {
