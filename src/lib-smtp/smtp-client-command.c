@@ -341,8 +341,10 @@ void smtp_client_command_fail_reply(struct smtp_client_command **_cmd,
 		}
 		e_debug(e->event(), "Failed: %s", smtp_reply_log(reply));
 
-		if (callback != NULL)
-			(void)callback(reply, context);
+		if (callback != NULL) {
+			while (cmd->replies_seen++ < cmd->replies_expected)
+				(void)callback(reply, context);
+		}
 	}
 
 	tmp_cmd = cmd;
