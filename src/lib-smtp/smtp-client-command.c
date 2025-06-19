@@ -286,6 +286,8 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 
 void smtp_client_command_drop_callback(struct smtp_client_command *cmd)
 {
+	if (cmd == NULL)
+		return;
 	cmd->callback = NULL;
 	cmd->context = NULL;
 }

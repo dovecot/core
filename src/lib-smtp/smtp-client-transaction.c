@@ -696,17 +696,13 @@ void smtp_client_transaction_destroy(struct smtp_client_transaction **_trans)
 	   We cannot fully abort (destroy) these commands, as this may be
 	   called from a callback. */
 	for (mail = trans->mail_head; mail != NULL; mail = mail->next) {
-		if (mail->cmd_mail_from != NULL)
-			smtp_client_command_drop_callback(mail->cmd_mail_from);
+		smtp_client_command_drop_callback(mail->cmd_mail_from);
 	}
 	for (rcpt = trans->rcpts_queue_head; rcpt != NULL; rcpt = rcpt->next) {
-		if (rcpt->cmd_rcpt_to != NULL)
-			smtp_client_command_drop_callback(rcpt->cmd_rcpt_to);
+		smtp_client_command_drop_callback(rcpt->cmd_rcpt_to);
 	}
-	if (trans->cmd_data != NULL)
-		smtp_client_command_drop_callback(trans->cmd_data);
-	if (trans->cmd_rset != NULL)
-		smtp_client_command_drop_callback(trans->cmd_rset);
+	smtp_client_command_drop_callback(trans->cmd_data);
+	smtp_client_command_drop_callback(trans->cmd_rset);
 	smtp_client_command_abort(&trans->cmd_plug);
 
 	/* Free any approved recipients early */
