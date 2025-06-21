@@ -304,6 +304,7 @@ void smtp_client_command_fail_reply(struct smtp_client_command **_cmd,
 	struct smtp_client_connection *conn = cmd->conn;
 	enum smtp_client_command_state state = cmd->state;
 	smtp_client_command_callback_t *callback = cmd->callback;
+	void *context = cmd->context;
 
 	if (state >= SMTP_CLIENT_COMMAND_STATE_FINISHED)
 		return;
@@ -324,8 +325,7 @@ void smtp_client_command_fail_reply(struct smtp_client_command **_cmd,
 		return;
 	}
 
-	cmd->callback = NULL;
-
+	smtp_client_command_drop_callback(cmd);
 	smtp_client_connection_ref(conn);
 	smtp_client_command_ref(cmd);
 
@@ -342,7 +342,7 @@ void smtp_client_command_fail_reply(struct smtp_client_command **_cmd,
 		e_debug(e->event(), "Failed: %s", smtp_reply_log(reply));
 
 		if (callback != NULL)
-			(void)callback(reply, cmd->context);
+			(void)callback(reply, context);
 	}
 
 	tmp_cmd = cmd;
