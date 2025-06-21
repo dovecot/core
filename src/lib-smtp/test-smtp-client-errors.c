@@ -851,7 +851,7 @@ test_client_connection_lost_finished(struct _connection_lost_peer *pctx)
 
 static void
 test_client_connection_lost_submit(struct _connection_lost *ctx,
-	unsigned int index)
+				   unsigned int index)
 {
 	static const char *message =
 		"From: stephan@example.com\r\n"
@@ -948,7 +948,7 @@ test_unexpected_reply_init(struct server_connection *conn)
 
 static int
 test_unexpected_reply_input_line(struct server_connection *conn,
-	const char *line ATTR_UNUSED)
+				 const char *line ATTR_UNUSED)
 {
 	switch (conn->state) {
 	case SERVER_CONNECTION_STATE_EHLO:
@@ -1399,7 +1399,8 @@ test_premature_reply_init(struct server_connection *conn)
 }
 
 static int
-test_premature_reply_input_line(struct server_connection *conn, const char *line)
+test_premature_reply_input_line(struct server_connection *conn,
+				const char *line)
 {
 	if (debug)
 		i_debug("[%u] GOT LINE: %s", server_index, line);
@@ -2111,7 +2112,7 @@ static void test_early_data_reply(void)
 
 static int
 test_bad_reply_input_line(struct server_connection *conn,
-	const char *line ATTR_UNUSED)
+			  const char *line ATTR_UNUSED)
 {
 	if (conn->state == SERVER_CONNECTION_STATE_EHLO)
 		return 0;
@@ -2900,7 +2901,7 @@ static void test_dns_lookup_failure(void)
 
 static int
 test_authentication_input_line(struct server_connection *conn,
-				      const char *line ATTR_UNUSED)
+			       const char *line ATTR_UNUSED)
 {
 	switch (conn->state) {
 	case SERVER_CONNECTION_STATE_EHLO:
@@ -3114,7 +3115,7 @@ test_client_authentication_finished(
 
 static void
 test_client_authentication_submit(struct _authentication *ctx,
-					 unsigned int index)
+				  unsigned int index)
 {
 	struct _authentication_peer *pctx;
 	struct smtp_client_settings smtp_set;
