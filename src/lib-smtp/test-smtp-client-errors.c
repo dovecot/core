@@ -51,6 +51,7 @@ struct server_connection {
 	struct ssl_iostream *ssl_iostream;
 
 	enum server_connection_state state;
+	unsigned int rcpt_idx;
 	char *file_path;
 	struct istream *dot_input;
 
@@ -85,6 +86,7 @@ static int fd_listen = -1;
 static struct connection_list *server_conn_list;
 static unsigned int server_index;
 struct ssl_iostream_context *server_ssl_ctx = NULL;
+enum smtp_protocol test_server_protocol = SMTP_PROTOCOL_SMTP;
 bool test_server_ssl = FALSE;
 static void (*test_server_input)(struct server_connection *conn);
 static int
@@ -948,7 +950,7 @@ test_unexpected_reply_init(struct server_connection *conn)
 
 static int
 test_unexpected_reply_input_line(struct server_connection *conn,
-				 const char *line ATTR_UNUSED)
+				 const char *line)
 {
 	switch (conn->state) {
 	case SERVER_CONNECTION_STATE_EHLO:
@@ -989,7 +991,10 @@ test_unexpected_reply_input_line(struct server_connection *conn,
 			server_connection_deinit(&conn);
 			return -1;
 		}
-		break;
+		if (str_begins_with(line, "RCPT "))
+			break;
+		conn->state = SERVER_CONNECTION_STATE_DATA;
+		/* Fall through */
 	case SERVER_CONNECTION_STATE_DATA:
 		if (server_index == 1) {
 			o_stream_nsend_str(
@@ -1443,7 +1448,10 @@ test_premature_reply_input_line(struct server_connection *conn,
 			server_connection_deinit(&conn);
 			return -1;
 		}
-		break;
+		if (str_begins_with(line, "RCPT "))
+			break;
+		conn->state = SERVER_CONNECTION_STATE_DATA;
+		/* Fall through */
 	case SERVER_CONNECTION_STATE_DATA:
 		if (server_index == 1) {
 			o_stream_nsend_str(
@@ -1772,13 +1780,18 @@ static void test_premature_reply(void)
 /* server */
 
 static int
-test_early_data_reply_input_line(struct server_connection *conn ATTR_UNUSED,
+test_early_data_reply_input_line(struct server_connection *conn,
 				 const char *line)
 {
 	if (debug)
 		i_debug("[%u] GOT LINE: %s", server_index, line);
 
 	switch (conn->state) {
+	case SERVER_CONNECTION_STATE_RCPT_TO:
+		if (str_begins_with(line, "RCPT "))
+			return 0;
+		conn->state = SERVER_CONNECTION_STATE_DATA;
+		/* Fall through */
 	case SERVER_CONNECTION_STATE_DATA:
 		break;
 	default:
@@ -3265,7 +3278,7 @@ static void test_authentication(void)
 
 static int
 test_transaction_timeout_input_line(struct server_connection *conn,
-				    const char *line ATTR_UNUSED)
+				    const char *line)
 {
 	switch (conn->state) {
 	case SERVER_CONNECTION_STATE_EHLO:
@@ -3275,9 +3288,13 @@ test_transaction_timeout_input_line(struct server_connection *conn,
 			i_sleep_intr_secs(20);
 		break;
 	case SERVER_CONNECTION_STATE_RCPT_TO:
-		if (server_index == 1)
-			i_sleep_intr_secs(20);
-		break;
+		if (str_begins_with(line, "RCPT ")) {
+			if (server_index == 1)
+				i_sleep_intr_secs(20);
+			break;
+		}
+		conn->state = SERVER_CONNECTION_STATE_DATA;
+		/* Fall through */
 	case SERVER_CONNECTION_STATE_DATA:
 		if (server_index == 2)
 			i_sleep_intr_secs(20);
@@ -3861,9 +3878,17 @@ server_connection_input(struct connection *_conn)
 				return;
 			}
 
-			o_stream_nsend_str(
-				conn->conn.output,
-				"250 2.0.0 Ok: queued as 73BDE342129\r\n");
+			unsigned int i, replies = 1;
+
+			if (test_server_protocol == SMTP_PROTOCOL_LMTP)
+				replies = conn->rcpt_idx;
+
+			for (i = 0; i < replies; i++) {
+				o_stream_nsend_str(
+					conn->conn.output,
+					"250 2.0.0 Ok: "
+					"queued as 73BDE342129\r\n");
+			}
 			conn->state = SERVER_CONNECTION_STATE_MAIL_FROM;
 			continue;
 		}
@@ -3913,10 +3938,14 @@ server_connection_input(struct connection *_conn)
 			conn->state = SERVER_CONNECTION_STATE_RCPT_TO;
 			continue;
 		case SERVER_CONNECTION_STATE_RCPT_TO:
-			o_stream_nsend_str(conn->conn.output,
-					   "250 2.1.5 Ok\r\n");
+			if (str_begins_with(line, "RCPT ")) {
+				conn->rcpt_idx++;
+				o_stream_nsend_str(conn->conn.output,
+						   "250 2.1.5 Ok\r\n");
+				continue;
+			}
 			conn->state = SERVER_CONNECTION_STATE_DATA;
-			continue;
+			/* Fall through */
 		case SERVER_CONNECTION_STATE_DATA:
 			o_stream_nsend_str(
 				conn->conn.output,
