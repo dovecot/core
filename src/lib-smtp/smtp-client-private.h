@@ -91,6 +91,7 @@ struct smtp_client_transaction_rcpt {
 	bool external_pool:1;
 	bool queued:1;
 	bool finished:1;
+	bool discarded:1;
 };
 
 struct smtp_client_transaction {

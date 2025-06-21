@@ -223,7 +223,7 @@ smtp_client_transaction_rcpt_free(
 		trans->rcpts_count--;
 	}
 
-	if (!rcpt->finished) {
+	if (!rcpt->finished && !rcpt->discarded) {
 		struct smtp_reply failure;
 
 		trans->rcpts_aborted++;
@@ -245,6 +245,19 @@ smtp_client_transaction_rcpt_free(
 		i_assert(rcpt->pool != NULL);
 		pool_unref(&rcpt->pool);
 	}
+}
+
+static void
+smtp_client_transaction_rcpt_discard(
+	struct smtp_client_transaction_rcpt **_rcpt)
+{
+	struct smtp_client_transaction_rcpt *rcpt = *_rcpt;
+
+	if (rcpt == NULL)
+		return;
+
+	rcpt->discarded = TRUE;
+	smtp_client_transaction_rcpt_free(_rcpt);
 }
 
 static void
@@ -285,8 +298,8 @@ smtp_client_transaction_rcpt_approved(
 		rcpt->event = prcpt->event;
 		event_ref(rcpt->event);
 
-		/* Free the old object, thereby removing it from the queue */
-		smtp_client_transaction_rcpt_free(&prcpt);
+		/* Discard the old object, thereby removing it from the queue */
+		smtp_client_transaction_rcpt_discard(&prcpt);
 	}
 
 	/* Recipient is approved */
